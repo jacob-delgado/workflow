@@ -172,7 +172,9 @@ func reportConfiguration(out io.Writer, cfg config.Config, loadErr error) error 
 
 	field(out, "Configuration", cfg.Path)
 	field(out, "Jira", fmt.Sprintf("%s (%s)", describe(cfg.Jira.BaseURL), cfg.Jira.AuthMode()))
-	field(out, "Slack", describe(cfg.Slack.Channel))
+	// The target, never the credential: a webhook URL is itself the secret, and
+	// this output is what the bug report template invites people to paste.
+	field(out, "Slack", fmt.Sprintf("%s (%s)", cfg.Slack.Target(), cfg.Slack.Mode()))
 
 	missing := cfg.Missing()
 	if len(missing) == 0 {

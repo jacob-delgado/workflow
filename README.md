@@ -72,6 +72,7 @@ workflow doctor           # says what is still missing
   },
   "slack": {
     "token": "",
+    "webhook_url": "",
     "channel": "#dev-workflow"
   }
 }
@@ -93,7 +94,16 @@ Leave `jira.user` empty to authenticate with that token as a bearer token, which
 is what Data Center expects. Set `jira.user` only if your instance requires HTTP
 Basic authentication, in which case the token is used as the password.
 
-### Slack token
+### Slack: a webhook or a bot token
+
+Set either. If you set both, the bot token wins.
+
+**Incoming webhook**, the two-minute option: create an app at
+<https://api.slack.com/apps>, turn on **Incoming Webhooks**, add one to the
+workspace, pick its channel, and put the URL in `slack.webhook_url`. It is bound
+to that channel, so `slack.channel` does not apply. Treat the URL as a password.
+
+**Bot token**, to choose the channel at runtime:
 
 1. Create an app at <https://api.slack.com/apps> in your workspace.
 2. Under **OAuth & Permissions**, add the `chat:write` bot token scope.
@@ -106,8 +116,9 @@ Basic authentication, in which case the token is used as the password.
 ### Keeping the tokens safe
 
 `.workflow.json` holds live credentials. `config init` writes it at mode `0600`,
-it is listed in `.gitignore`, and `config show` masks both tokens. Nothing in
-this repo will print a token in full.
+it is listed in `.gitignore`, and `config show` masks every credential —
+including `slack.webhook_url`, which is a password that happens to look like an
+address. Nothing in this repo will print a credential in full.
 
 ## Development
 

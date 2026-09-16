@@ -160,10 +160,14 @@ func TestDoctorNamesMissingFields(t *testing.T) {
 		t.Fatalf("expected an error for an incomplete config, got none (%s)", output)
 	}
 
-	for _, field := range []string{"slack.token", "slack.channel"} {
-		if !strings.Contains(output, field) {
-			t.Errorf("output does not name %s:\n%s", field, output)
-		}
+	if !strings.Contains(output, "slack.token or slack.webhook_url") {
+		t.Errorf("doctor does not offer both Slack transports:\n%s", output)
+	}
+
+	// With no Slack credential at all, also demanding slack.channel would read
+	// as "set three things" when either transport is the actual next step.
+	if strings.Contains(output, "- slack.channel") {
+		t.Errorf("doctor asked for a channel before a credential:\n%s", output)
 	}
 }
 
@@ -341,5 +345,62 @@ func TestDoctorReportsAMalformedConfiguration(t *testing.T) {
 	// than saying nothing.
 	if strings.Contains(output, "config init") {
 		t.Errorf("doctor told the user to create a file that already exists:\n%s", output)
+	}
+}
+
+func TestDoctorAcceptsAWebhookWithoutAChannel(t *testing.T) {
+	dir := t.TempDir()
+
+	const webhook = "https://hooks.slack.com/services/T00000000/B00000000/supersecretpayload"
+
+	contents := `{"jira": {"base_url": "https://jira.example.com", "token": "t"},` +
+		` "slack": {"webhook_url": "` + webhook + `"}}`
+
+	err := os.WriteFile(filepath.Join(dir, config.FileName), []byte(contents), config.FileMode)
+	if err != nil {
+		t.Fatalf("writing fixture: %v", err)
+	}
+
+	output, runErr := run(t, dir, "doctor")
+	if runErr != nil {
+		t.Fatalf("doctor rejected a webhook-only configuration: %v (%s)", runErr, output)
+	}
+
+	// The whole point of the leak test: doctor's output is what
+	// .github/ISSUE_TEMPLATE/bug_report.yml invites people to paste.
+	if strings.Contains(output, webhook) || strings.Contains(output, "supersecretpayload") {
+		t.Errorf("doctor printed the webhook URL:\n%s", output)
+	}
+
+	if strings.Contains(output, "hooks.slack.com") {
+		t.Errorf("doctor printed part of the webhook URL:\n%s", output)
+	}
+
+	if !strings.Contains(output, "incoming webhook") {
+		t.Errorf("doctor does not name the Slack transport:\n%s", output)
+	}
+}
+
+func TestConfigShowMasksTheWebhookURL(t *testing.T) {
+	dir := t.TempDir()
+
+	const webhook = "https://hooks.slack.com/services/T00000000/B00000000/secretpath1234"
+
+	contents := `{"jira": {"base_url": "https://jira.example.com", "token": "t"},` +
+		` "slack": {"webhook_url": "` + webhook + `"}}`
+
+	err := os.WriteFile(filepath.Join(dir, config.FileName), []byte(contents), config.FileMode)
+	if err != nil {
+		t.Fatalf("writing fixture: %v", err)
+	}
+
+	output, runErr := run(t, dir, "config", "show")
+	if runErr != nil {
+		t.Fatalf("config show: %v (%s)", runErr, output)
+	}
+
+	// A webhook URL is not a URL that contains a secret — it IS the secret.
+	if strings.Contains(output, "hooks.slack.com") || strings.Contains(output, "secretpath") {
+		t.Errorf("config show leaked the webhook URL:\n%s", output)
 	}
 }
