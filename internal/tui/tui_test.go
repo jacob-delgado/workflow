@@ -427,3 +427,22 @@ func TestAMessageNothingHandlesChangesNothing(t *testing.T) {
 		t.Error("an unrelated message changed the screen")
 	}
 }
+
+func TestViewNeverShowsAPasswordFromTheJiraURL(t *testing.T) {
+	t.Parallel()
+
+	// jira.base_url can carry userinfo. doctor masks it; this screen printed it
+	// verbatim in the detail pane, which is the same leak in a second place.
+	cfg := completeConfig()
+	cfg.Jira.BaseURL = "https://alice:hunter2@jira.example.com"
+
+	view := tui.New(cfg, nil).View()
+
+	if strings.Contains(view, "hunter2") {
+		t.Errorf("the view printed the password from jira.base_url:\n%s", view)
+	}
+
+	if !strings.Contains(view, "jira.example.com") {
+		t.Errorf("the view lost the host while masking the password:\n%s", view)
+	}
+}
