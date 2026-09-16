@@ -1,10 +1,9 @@
 // Copyright 2026 Jacob Delgado
 // SPDX-License-Identifier: Apache-2.0
 
-// Package slack talks to the Slack Web API.
-//
-// Only what doctor needs so far: asking Slack whether the configured bot token
-// works. A webhook has no equivalent question — see ErrWebhookUncheckable.
+// Package slack posts to Slack, through a bot token or an incoming webhook, and
+// asks whether a bot token works. A webhook has no equivalent question — see
+// ErrWebhookUncheckable.
 package slack
 
 import (
