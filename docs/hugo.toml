@@ -16,26 +16,26 @@ title = "workflow"
 # The theme renders the left navigation from the content tree, so a new page
 # needs no menu entry — only a weight if it should not sort alphabetically.
 [module]
-  [[module.imports]]
-    path = "github.com/alex-shpak/hugo-book"
+[[module.imports]]
+path = "github.com/alex-shpak/hugo-book"
 
 [markup]
-  [markup.goldmark.renderer]
-    # The generated command reference contains no HTML, and neither does the
-    # prose. Leaving raw HTML off keeps a stray tag from silently breaking a page.
-    unsafe = false
-  [markup.highlight]
-    noClasses = false
-  [markup.tableOfContents]
-    startLevel = 2
-    endLevel = 3
+[markup.goldmark.renderer]
+# The generated command reference contains no HTML, and neither does the
+# prose. Leaving raw HTML off keeps a stray tag from silently breaking a page.
+unsafe = false
+[markup.highlight]
+noClasses = false
+[markup.tableOfContents]
+startLevel = 2
+endLevel = 3
 
 [params]
-  BookTheme = "auto"
-  BookToC = true
-  BookRepo = "https://github.com/jacob-delgado/workflow"
-  # "Edit this page" points at the source file on the default branch.
-  BookEditPath = "edit/main/docs"
-  BookSearch = true
-  # The section holding the documentation tree; the home page sits outside it.
-  BookSection = "docs"
+BookTheme = "auto"
+BookToC = true
+BookRepo = "https://github.com/jacob-delgado/workflow"
+# "Edit this page" points at the source file on the default branch.
+BookEditPath = "edit/main/docs"
+BookSearch = true
+# The section holding the documentation tree; the home page sits outside it.
+BookSection = "docs"

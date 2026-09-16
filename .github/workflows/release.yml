@@ -29,7 +29,13 @@ jobs:
           fetch-depth: 0
           persist-credentials: false
 
+      # cache: false is deliberate. This job publishes artifacts people
+      # download, and a restored tool cache is attacker-influenceable state
+      # from an earlier run. Provisioning from scratch costs a minute and
+      # removes the cache as a path into a release.
       - uses: jdx/mise-action@c2a87611a18de5b3828c5652fe268e992400cb5c # v4.3.0
+        with:
+          cache: false
 
       # The same gate a developer runs locally. A tag is the last place to
       # discover the tests were red.
@@ -63,7 +69,10 @@ jobs:
             dist/SHA256SUMS
 
       - name: Publish the release
-        uses: softprops/action-gh-release@efb35369e0ad2afab669f228072c1b0d510eae64 # v3
+        # Kept over a `gh release` script step: this uploads the binaries,
+        # their checksums and the provenance in ONE publish call, which is
+        # what the header above explains GitHub requires.
+        uses: softprops/action-gh-release@efb35369e0ad2afab669f228072c1b0d510eae64 # v3 # zizmor: ignore[superfluous-actions]
         with:
           # A tag carrying a hyphen (v0.1.0-rc1) is a prerelease.
           prerelease: ${{ contains(github.ref_name, '-') }}

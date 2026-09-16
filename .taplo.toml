@@ -1,0 +1,13 @@
+# taplo — TOML lint and format, for `task lint:toml` and `task fmt`.
+#
+# mise.toml is the file this most protects: it is the single source of truth for
+# every tool version, and a malformed pin there fails the build everywhere at
+# once rather than in the one place it was edited.
+exclude = ["tmp/**", "docs/public/**"]
+
+[formatting]
+# taplo collapses a multi-line array onto one line by default. The arrays here
+# are written one entry per line so each can carry its own comment and so a diff
+# touches one line per change — reformatting them into a single line would undo
+# a deliberate choice for no gain.
+array_auto_collapse = false

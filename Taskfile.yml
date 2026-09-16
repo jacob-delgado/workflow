@@ -77,8 +77,11 @@ tasks:
       - task: lint:yaml
       - task: lint:docker
       - task: lint:actions
+      - task: lint:markdown
+      - task: lint:toml
       - task: lint:headers
       - task: lint:typos
+      - task: lint:filelength
       - task: docs:check
 
   lint:go:
@@ -108,10 +111,36 @@ tasks:
       - hadolint build/Dockerfile
 
   lint:actions:
-    desc: Lint the GitHub Actions workflows
+    desc: Lint and security-audit the GitHub Actions workflows
     cmds:
-      # actionlint fails on a repo with no workflows; skip rather than lie.
-      - '[ -d .github/workflows ] && actionlint || echo "No workflows to lint."'
+      # actionlint fails on a repo with no workflows, so the absence is handled
+      # rather than reported. Written as an if/else on purpose: the older
+      # `[ -d … ] && actionlint || echo` form also swallowed actionlint's OWN
+      # failure, reporting "no workflows" for a workflow that did not lint.
+      # actionlint says a workflow is valid; zizmor says it is safe.
+      - |
+        if [ -d .github/workflows ]; then
+          actionlint
+          zizmor --no-progress .github/workflows
+        else
+          echo "No workflows to lint."
+        fi
+
+  lint:markdown:
+    desc: Lint the Markdown
+    cmds:
+      - markdownlint-cli2
+
+  lint:toml:
+    desc: Lint and format-check the TOML
+    cmds:
+      - taplo fmt --check --diff
+      - taplo lint
+
+  lint:filelength:
+    desc: Check that no source file has grown past the ceiling
+    cmds:
+      - scripts/check-file-length.sh
 
   lint:headers:
     desc: Check the SPDX license headers on Go files
@@ -131,6 +160,8 @@ tasks:
     cmds:
       - golangci-lint fmt
       - shfmt -i 2 -ci -bn -w {{.SHELL_FILES}}
+      - markdownlint-cli2 --fix
+      - taplo fmt
 
   docs:gen:
     desc: Regenerate the command reference from the Cobra command tree
@@ -167,6 +198,15 @@ tasks:
     desc: Scan the working tree for secrets
     cmds:
       - gitleaks dir --redact --no-banner .
+
+  deadcode:
+    desc: Report code unreachable from main (advisory, never a gate)
+    cmds:
+      # Complements golangci-lint's `unused`, which is intra-package and so
+      # cannot see an exported identifier in an internal package that nothing
+      # imports. Advisory because a helper reached only from tests is dead to
+      # this tool and alive to the project.
+      - deadcode ./...
 
   check:
     desc: The full local gate — run this before calling any task done

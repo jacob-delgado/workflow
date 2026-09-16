@@ -38,7 +38,13 @@ shfmt = "3.14.1"
 yamllint = "1.38.0"
 typos = "1.50.1"
 actionlint = "1.7.12"
-hadolint = "2.15.1" # build/Dockerfile lint
+hadolint = "2.15.1"      # build/Dockerfile lint
+taplo = "0.10.0"         # TOML lint + format
+# Security audit of the Actions workflows. actionlint checks that a workflow is
+# valid; zizmor checks that it is safe — script injection, over-broad
+# permissions, a mutable action reference.
+zizmor = "1.30.1"
+"npm:markdownlint-cli2" = "0.23.2" # Markdown lint + format
 
 # The documentation site (docs/). The EXTENDED build is required: the Hugo Book
 # theme compiles SCSS, which the standard build cannot do. Held at 0.165.0
@@ -55,3 +61,9 @@ hugo-extended = "0.165.0"
 # Secret scanning. (The module path stayed at zricethezav after the project
 # moved to github.com/gitleaks.)
 "go:github.com/zricethezav/gitleaks/v8" = "8.30.1"
+# Whole-program dead code: what is unreachable from main. golangci-lint's
+# `unused` is intra-package, so it cannot see an exported identifier in an
+# internal package that nothing imports — measured, not assumed. Advisory
+# (`task deadcode`), never a gate: a helper reached only by tests is dead to
+# this tool but not to the project.
+"go:golang.org/x/tools/cmd/deadcode" = "0.50.0"

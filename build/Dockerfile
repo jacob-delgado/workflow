@@ -24,6 +24,9 @@ ARG HADOLINT_VERSION
 ARG GOVULNCHECK_VERSION
 ARG GITLEAKS_VERSION
 ARG GOBCO_VERSION
+ARG TAPLO_VERSION
+ARG ZIZMOR_VERSION
+ARG MARKDOWNLINT_VERSION
 
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 
@@ -33,7 +36,7 @@ SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 RUN set -eux; \
     apt-get update; \
     apt-get install -y --no-install-recommends \
-    git ca-certificates shellcheck python3-pip jq; \
+    git ca-certificates shellcheck python3-pip jq nodejs npm; \
     rm -rf /var/lib/apt/lists/*
 
 # Tools that ship as Go modules, built with the Go above so none of them can
@@ -85,6 +88,32 @@ RUN set -eux; \
     curl -fsSL "${url}" -o /usr/local/bin/hadolint; \
     chmod +x /usr/local/bin/hadolint; \
     hadolint --version
+
+# taplo and zizmor ship prebuilt binaries per architecture, like typos above.
+RUN set -eux; \
+    : "${TAPLO_VERSION:?}" "${ZIZMOR_VERSION:?}"; \
+    arch="$(dpkg --print-architecture)"; \
+    case "${arch}" in \
+    amd64) taplo_target="x86_64"; zizmor_target="x86_64-unknown-linux-gnu" ;; \
+    arm64) taplo_target="aarch64"; zizmor_target="aarch64-unknown-linux-gnu" ;; \
+    *) echo "unsupported architecture: ${arch}" >&2; exit 1 ;; \
+    esac; \
+    curl -fsSL "https://github.com/tamasfe/taplo/releases/download/${TAPLO_VERSION}/taplo-linux-${taplo_target}.gz" \
+    | gunzip > /usr/local/bin/taplo; \
+    chmod +x /usr/local/bin/taplo; \
+    taplo --version; \
+    curl -fsSL "https://github.com/zizmorcore/zizmor/releases/download/v${ZIZMOR_VERSION}/zizmor-${zizmor_target}.tar.gz" \
+    -o /tmp/zizmor.tar.gz; \
+    tar -xzf /tmp/zizmor.tar.gz -C /usr/local/bin --strip-components=1 --wildcards '*/zizmor'; \
+    rm -f /tmp/zizmor.tar.gz; \
+    zizmor --version
+
+# markdownlint-cli2 is a Node package; npm comes from the apt layer above.
+RUN set -eux; \
+    : "${MARKDOWNLINT_VERSION:?}"; \
+    npm install -g --no-fund --no-audit "markdownlint-cli2@${MARKDOWNLINT_VERSION}"; \
+    npm cache clean --force; \
+    markdownlint-cli2 --version
 
 ENV GOTOOLCHAIN=local \
     PATH="/go/bin:${PATH}"
