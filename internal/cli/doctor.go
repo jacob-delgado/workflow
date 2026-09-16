@@ -32,9 +32,11 @@ var (
 	errCredentialRejected = errors.New("a credential was rejected")
 )
 
-// credentialTimeout bounds each --online check. Go's http.Client has no default
-// deadline, so an unreachable on-prem host would otherwise hang doctor forever.
-const credentialTimeout = 10 * time.Second
+// requestTimeout bounds every request to a service — each --online check, and
+// the TUI's issue search. Go's http.Client has no default deadline, so an
+// unreachable on-prem host would otherwise hang doctor, or leave a pane loading
+// forever.
+const requestTimeout = 10 * time.Second
 
 // labelWidth keeps the report's values in one column so the eye can scan them.
 const labelWidth = 14
@@ -204,7 +206,7 @@ func checkForge(ctx context.Context, out io.Writer, settings config.Forge, remot
 
 // askForge asks the forge who the credential belongs to.
 func askForge(ctx context.Context, out io.Writer, base string, token forge.Token, source forge.Source) error {
-	identity, err := forge.New(forge.HTTPClient(credentialTimeout).Do, base, token).Whoami(ctx)
+	identity, err := forge.New(forge.HTTPClient(requestTimeout).Do, base, token).Whoami(ctx)
 	if err != nil {
 		fmt.Fprintf(out, "  %-10s %v (token from %s)\n", "forge", err, source)
 
@@ -218,7 +220,7 @@ func askForge(ctx context.Context, out io.Writer, base string, token forge.Token
 
 // checkSlack asks Slack which workspace the bot token belongs to.
 func checkSlack(ctx context.Context, out io.Writer, creds config.Slack) error {
-	client := slack.New(slack.HTTPClient(credentialTimeout).Do, slack.APIBase, creds)
+	client := slack.New(slack.HTTPClient(requestTimeout).Do, slack.APIBase, creds)
 
 	identity, err := client.AuthTest(ctx)
 	if err != nil {
@@ -241,7 +243,7 @@ func checkSlack(ctx context.Context, out io.Writer, creds config.Slack) error {
 
 // checkJira asks Jira who the configured token authenticates as.
 func checkJira(ctx context.Context, out io.Writer, settings config.Jira) error {
-	client := jira.New(jira.HTTPClient(credentialTimeout).Do, settings)
+	client := jira.New(jira.HTTPClient(requestTimeout).Do, settings)
 
 	user, err := client.Myself(ctx)
 	if err != nil {

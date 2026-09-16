@@ -5,6 +5,7 @@
 package cli
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"os"
@@ -12,6 +13,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/jacob-delgado/workflow/internal/config"
+	"github.com/jacob-delgado/workflow/internal/jira"
 	"github.com/jacob-delgado/workflow/internal/tui"
 )
 
@@ -104,8 +106,9 @@ func NewRootCmd() *cobra.Command {
 		Args:          cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			cfg, loadErr := loadFromEnvironment()
+			model := tui.New(cfg, loadErr, assignedIssues(cmd.Context(), cfg.Jira))
 
-			return tui.Run(cmd.Context(), cfg, loadErr, cmd.OutOrStdout())
+			return tui.Run(cmd.Context(), model, cmd.OutOrStdout())
 		},
 	}
 
@@ -132,4 +135,15 @@ func loadFromEnvironment() (config.Config, error) {
 	}
 
 	return config.Load(workDir, homeDir)
+}
+
+// assignedIssues is the search behind the Issues pane. It needs no guard for a
+// missing or malformed configuration: the client refuses before sending
+// anything, and the pane shows why.
+func assignedIssues(ctx context.Context, settings config.Jira) tui.IssueSearch {
+	client := jira.New(jira.HTTPClient(requestTimeout).Do, settings)
+
+	return func() (jira.SearchResult, error) {
+		return client.Search(ctx, jira.AssignedToMe)
+	}
 }

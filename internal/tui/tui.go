@@ -19,6 +19,7 @@ import (
 	"github.com/charmbracelet/lipgloss"
 
 	"github.com/jacob-delgado/workflow/internal/config"
+	"github.com/jacob-delgado/workflow/internal/jira"
 	"github.com/jacob-delgado/workflow/internal/tui/layout"
 )
 
@@ -76,6 +77,11 @@ func (p pane) label() string {
 	return strconv.Itoa(int(p)+1) + " " + p.title()
 }
 
+// IssueSearch finds the issues assigned to the user. It is a function rather than
+// a client so the model never holds a context or a credential, and so a test can
+// hand it canned answers without a network.
+type IssueSearch func() (jira.SearchResult, error)
+
 // Model satisfies tea.Model with value receivers, so the assertion uses a value
 // rather than a pointer — and every method on it stays a value receiver, which
 // recvcheck enforces.
@@ -92,11 +98,13 @@ type Model struct {
 	focus    pane
 	helpOpen bool
 	mouse    bool
+	search   IssueSearch
+	issues   issueList
 }
 
-// New builds the interface for a configuration and the error, if any, from
-// loading it.
-func New(cfg config.Config, loadErr error) Model {
+// New builds the interface for a configuration, the error if any from loading
+// it, and the search that fills the Issues pane.
+func New(cfg config.Config, loadErr error, search IssueSearch) Model {
 	return Model{
 		cfg:      cfg,
 		loadErr:  loadErr,
@@ -107,13 +115,15 @@ func New(cfg config.Config, loadErr error) Model {
 		focus:    paneIssues,
 		helpOpen: false,
 		mouse:    true,
+		search:   search,
+		issues:   issueList{found: jira.SearchResult{Issues: nil, Total: 0}, err: nil, settled: false, selected: 0},
 	}
 }
 
 // Run starts the interface and blocks until the user quits. The context cancels
 // the program, so a caller can shut the interface down.
-func Run(ctx context.Context, cfg config.Config, loadErr error, out io.Writer) error {
-	program := tea.NewProgram(New(cfg, loadErr),
+func Run(ctx context.Context, model Model, out io.Writer) error {
+	program := tea.NewProgram(model,
 		tea.WithOutput(out),
 		tea.WithContext(ctx),
 		// The alternate screen keeps the session from scrolling the terminal,
@@ -130,9 +140,21 @@ func Run(ctx context.Context, cfg config.Config, loadErr error, out io.Writer) e
 	return nil
 }
 
-// Init implements tea.Model. Nothing loads yet.
+// Init implements tea.Model: it starts the issue search. The search runs inside
+// the returned command, which Bubble Tea executes off the update loop, so a slow
+// Jira never freezes the screen.
 func (m Model) Init() tea.Cmd {
-	return nil
+	if m.search == nil {
+		return nil
+	}
+
+	search := m.search
+
+	return func() tea.Msg {
+		found, err := search()
+
+		return issuesLoaded{found: found, err: err}
+	}
 }
 
 // Update implements tea.Model.
@@ -148,6 +170,10 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m.handleKey(msg)
 	case tea.MouseMsg:
 		return m.handleMouse(msg), nil
+	case issuesLoaded:
+		m.issues = m.issues.settle(msg)
+
+		return m, nil
 	default:
 		return m, nil
 	}
@@ -172,9 +198,28 @@ func (m Model) handleKey(msg tea.KeyMsg) (Model, tea.Cmd) {
 		m.focus = pane(msg.String()[0] - '1')
 	case key.Matches(msg, m.keys.toggleMouse):
 		return m.toggleMouse()
+	default:
+		return m.handlePaneKey(msg), nil
 	}
 
 	return m, nil
+}
+
+// handlePaneKey gives the focused pane the keys the rail did not claim. Only the
+// Issues pane has any yet.
+func (m Model) handlePaneKey(msg tea.KeyMsg) Model {
+	if m.focus != paneIssues {
+		return m
+	}
+
+	switch {
+	case key.Matches(msg, m.keys.down):
+		m.issues = m.issues.move(1)
+	case key.Matches(msg, m.keys.up):
+		m.issues = m.issues.move(-1)
+	}
+
+	return m
 }
 
 // toggleMouse gives the terminal its own click-drag selection back, or takes it

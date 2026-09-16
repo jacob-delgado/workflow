@@ -151,3 +151,15 @@ func TestRenderOfABoxTooSmallToBorder(t *testing.T) {
 		}
 	}
 }
+
+func TestBodyRowsIsTheHeightInsideTheBorder(t *testing.T) {
+	t.Parallel()
+
+	cases := map[int]int{10: 8, 3: 1, 2: 0, 1: 0, 0: 0}
+
+	for height, want := range cases {
+		if got := frame.BodyRows(height); got != want {
+			t.Errorf("BodyRows(%d) = %d, want %d", height, got, want)
+		}
+	}
+}

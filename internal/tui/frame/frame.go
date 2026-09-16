@@ -53,6 +53,12 @@ const padding = 1
 // the whole value; this says there was more.
 const ellipsis = "…"
 
+// BodyRows is how many rows of content fit inside a box of the given height — the
+// number a caller needs before deciding which slice of a long list to show.
+func BodyRows(height int) int {
+	return max(0, height-minimumSide)
+}
+
 // Render draws a box exactly width cells wide and height rows tall, with the
 // title in its top border and body clipped to the space inside.
 func Render(title, body string, width, height int, style Style) string {
