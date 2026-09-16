@@ -70,5 +70,5 @@ workflow [flags]
 ### SEE ALSO
 
 * [workflow config](../workflow_config/)	 - Create and inspect the configuration file
-* [workflow doctor](../workflow_doctor/)	 - Report which configuration was found and what it is missing
+* [workflow doctor](../workflow_doctor/)	 - Report the repository, tooling, and configuration in effect
 

@@ -6,6 +6,7 @@ package cli_test
 import (
 	"bytes"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -205,6 +206,73 @@ func TestHelpExplainsBothTokens(t *testing.T) {
 	for _, want := range wants {
 		if !strings.Contains(output, want) {
 			t.Errorf("--help does not mention %q", want)
+		}
+	}
+}
+
+// gitInit makes dir a real repository, so doctor's repository section can be
+// tested against git itself rather than against an imitation of it.
+func gitInit(t *testing.T, dir string) {
+	t.Helper()
+
+	cmd := exec.CommandContext(t.Context(), "git", "init", "--quiet", dir)
+
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		t.Fatalf("git init: %v (%s)", err, output)
+	}
+}
+
+func TestDoctorReportsTheRepositoryItIsIn(t *testing.T) {
+	dir := t.TempDir()
+	gitInit(t, dir)
+
+	// The configuration is absent, so doctor exits non-zero. The repository
+	// section must still be reported: someone runs doctor precisely when
+	// something is wrong, and reporting only the first problem wastes the run.
+	output, _ := run(t, dir, "doctor")
+
+	for _, want := range []string{"Repository:", "Branch:", "Remote:"} {
+		if !strings.Contains(output, want) {
+			t.Errorf("doctor does not report %q:\n%s", want, output)
+		}
+	}
+
+	// A freshly initialized repository has no commits, so its branch is unborn.
+	// `git branch --show-current` still names it, which is why doctor can.
+	if strings.Contains(output, "detached HEAD") {
+		t.Errorf("doctor called an unborn branch detached:\n%s", output)
+	}
+
+	if !strings.Contains(output, "(not set)") {
+		t.Errorf("doctor does not report the missing origin remote:\n%s", output)
+	}
+}
+
+func TestDoctorReportsADirectoryOutsideAnyRepository(t *testing.T) {
+	output, _ := run(t, t.TempDir(), "doctor")
+
+	if !strings.Contains(output, "not in a git work tree") {
+		t.Errorf("doctor does not say the directory is outside a repository:\n%s", output)
+	}
+}
+
+func TestDoctorReportsTheExternalTooling(t *testing.T) {
+	output, _ := run(t, t.TempDir(), "doctor")
+
+	if !strings.Contains(output, "Tooling:") {
+		t.Fatalf("doctor has no tooling section:\n%s", output)
+	}
+
+	// git is required and is present wherever these tests can run at all, so it
+	// must be reported as found rather than merely mentioned.
+	if !strings.Contains(output, "git        found") {
+		t.Errorf("doctor does not report git as found:\n%s", output)
+	}
+
+	for _, program := range []string{"lefthook", "gh", "glab"} {
+		if !strings.Contains(output, program) {
+			t.Errorf("doctor does not mention the optional program %q:\n%s", program, output)
 		}
 	}
 }

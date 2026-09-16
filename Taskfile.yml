@@ -8,7 +8,7 @@ vars:
   # The coverage floor. This is the number the gate enforces — no document
   # restates it, because a restated number drifts. Raise it with the ratchet
   # scripts/coverage-gate.sh prints: floor(measured) - 2.
-  COVERAGE_MIN: 87
+  COVERAGE_MIN: 88
   # The condition (branch) coverage floor, enforced over EVERY package —
   # scripts/gobco-report.sh's skip list is now empty and fails on any package
   # that drops out unannounced.
