@@ -399,3 +399,73 @@ func TestDoctorOnlineFailsWhenSlackIsNotConfigured(t *testing.T) {
 		t.Errorf("doctor does not name the missing Slack credential:\n%s", output)
 	}
 }
+
+// repoWithRemote makes dir a repository whose origin is remote.
+func repoWithRemote(t *testing.T, remote string) string {
+	t.Helper()
+
+	dir := t.TempDir()
+	gitInit(t, dir)
+	git(t, dir, "remote", "add", "origin", remote)
+
+	return dir
+}
+
+func TestDoctorNamesTheForgeAndItsAPI(t *testing.T) {
+	cases := map[string]struct {
+		remote string
+		wants  []string
+	}{
+		"github over ssh": {
+			remote: "git@github.com:owner/repo.git",
+			wants:  []string{"GitHub", "owner/repo", "https://api.github.com"},
+		},
+		"gitlab with a subgroup": {
+			remote: "https://gitlab.com/group/sub/project.git",
+			wants:  []string{"GitLab", "group/sub/project", "https://gitlab.com/api/v4"},
+		},
+		// Neither forge announces itself in an on-premises hostname, and their
+		// API paths differ, so guessing would send a token to the wrong service.
+		"an on-premises host": {
+			remote: "git@git.example.com:acme/thing.git",
+			wants:  []string{"cannot tell", "acme/thing"},
+		},
+	}
+
+	for name, tt := range cases {
+		t.Run(name, func(t *testing.T) {
+			output, _ := run(t, repoWithRemote(t, tt.remote), "doctor")
+
+			for _, want := range tt.wants {
+				if !strings.Contains(output, want) {
+					t.Errorf("doctor does not mention %q:\n%s", want, output)
+				}
+			}
+		})
+	}
+}
+
+func TestDoctorRedactsACredentialInTheRemote(t *testing.T) {
+	dir := repoWithRemote(t, "https://alice:sekret@github.com/owner/repo.git")
+
+	output, _ := run(t, dir, "doctor")
+
+	if strings.Contains(output, "sekret") {
+		t.Errorf("doctor printed the password from the remote:\n%s", output)
+	}
+
+	if !strings.Contains(output, "GitHub") {
+		t.Errorf("doctor did not still identify the forge:\n%s", output)
+	}
+}
+
+func TestDoctorSaysWhenThereIsNoRemote(t *testing.T) {
+	dir := t.TempDir()
+	gitInit(t, dir)
+
+	output, _ := run(t, dir, "doctor")
+
+	if !strings.Contains(output, "(no remote)") {
+		t.Errorf("doctor does not say the repository has no remote:\n%s", output)
+	}
+}

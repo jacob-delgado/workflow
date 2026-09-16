@@ -21,7 +21,7 @@ vars:
   # It started at 81, that measurement minus the standard ratchet slack, and
   # ratchets up as the conditions the gate lists get tests. The gate prints the
   # available ratchet on every run.
-  BRANCH_COVERAGE_MIN: 88
+  BRANCH_COVERAGE_MIN: 89
   # Container tasks work with docker or podman: CONTAINER_RUNTIME=podman task ...
   CONTAINER_RUNTIME: '{{.CONTAINER_RUNTIME | default "docker"}}'
   BUILD_IMAGE: '{{.BUILD_IMAGE | default "workflow-build:local"}}'
