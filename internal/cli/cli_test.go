@@ -214,12 +214,18 @@ func TestHelpExplainsBothTokens(t *testing.T) {
 // tested against git itself rather than against an imitation of it.
 func gitInit(t *testing.T, dir string) {
 	t.Helper()
+	git(t, dir, "init", "--quiet", ".")
+}
 
-	cmd := exec.CommandContext(t.Context(), "git", "init", "--quiet", dir)
+// git runs one git command in dir, failing the test if it does not succeed.
+func git(t *testing.T, dir string, args ...string) {
+	t.Helper()
+
+	cmd := exec.CommandContext(t.Context(), "git", append([]string{"-C", dir}, args...)...)
 
 	output, err := cmd.CombinedOutput()
 	if err != nil {
-		t.Fatalf("git init: %v (%s)", err, output)
+		t.Fatalf("git %v: %v (%s)", args, err, output)
 	}
 }
 
@@ -274,5 +280,66 @@ func TestDoctorReportsTheExternalTooling(t *testing.T) {
 		if !strings.Contains(output, program) {
 			t.Errorf("doctor does not mention the optional program %q:\n%s", program, output)
 		}
+	}
+}
+
+func TestDoctorReportsADetachedHead(t *testing.T) {
+	dir := t.TempDir()
+	gitInit(t, dir)
+
+	// A commit is needed before HEAD can be detached from anything.
+	git(t, dir, "-c", "user.email=test@example.com", "-c", "user.name=Test",
+		"commit", "--allow-empty", "--quiet", "--message", "seed")
+	git(t, dir, "-c", "advice.detachedHead=false", "checkout", "--quiet", "--detach", "HEAD")
+
+	output, _ := run(t, dir, "doctor")
+
+	if !strings.Contains(output, "detached HEAD") {
+		t.Errorf("doctor does not report a detached HEAD:\n%s", output)
+	}
+}
+
+func TestDoctorFailsWhenRequiredToolingIsMissing(t *testing.T) {
+	// An empty PATH is the only portable way to make every program unfindable,
+	// which is what proves the required/optional distinction actually bites.
+	t.Setenv("PATH", "")
+
+	output, err := run(t, t.TempDir(), "doctor")
+	if err == nil {
+		t.Fatalf("doctor succeeded with git missing:\n%s", output)
+	}
+
+	if !strings.Contains(output, "MISSING") {
+		t.Errorf("doctor does not mark the missing required program:\n%s", output)
+	}
+
+	if !strings.Contains(err.Error(), "git") {
+		t.Errorf("doctor error = %v, want it to name git", err)
+	}
+
+	// An optional program that is absent reads differently from a required one.
+	if !strings.Contains(output, "not found") {
+		t.Errorf("doctor does not distinguish an absent optional program:\n%s", output)
+	}
+}
+
+func TestDoctorReportsAMalformedConfiguration(t *testing.T) {
+	dir := t.TempDir()
+
+	err := os.WriteFile(filepath.Join(dir, config.FileName), []byte("{not json"), config.FileMode)
+	if err != nil {
+		t.Fatalf("writing fixture: %v", err)
+	}
+
+	output, runErr := run(t, dir, "doctor")
+	if runErr == nil {
+		t.Fatalf("doctor accepted a malformed configuration:\n%s", output)
+	}
+
+	// A file that exists but cannot be parsed is a different problem from no
+	// file at all, and telling someone to create one they already have is worse
+	// than saying nothing.
+	if strings.Contains(output, "config init") {
+		t.Errorf("doctor told the user to create a file that already exists:\n%s", output)
 	}
 }
