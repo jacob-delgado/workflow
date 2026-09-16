@@ -8,7 +8,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"net/http"
 	"net/url"
 	"strconv"
 )
@@ -32,10 +31,6 @@ const searchFields = "summary,status"
 // searchLimit caps the list. A working list does not need paging, and the server
 // silently caps it at 1000 anyway; Total says how many there were.
 const searchLimit = 50
-
-// anonymousUser is what Data Center reports in X-Ausername when it served a
-// request without authenticating it.
-const anonymousUser = "anonymous"
 
 // Issue is one row of a search.
 type Issue struct {
@@ -81,7 +76,7 @@ func (c Client) Search(ctx context.Context, jql string) (SearchResult, error) {
 	}
 	defer func() { _ = response.Body.Close() }()
 
-	err = searchStatusError(response, request.URL)
+	err = c.answerError(response, request.URL)
 	if err != nil {
 		return SearchResult{}, err
 	}
@@ -103,26 +98,6 @@ func searchQuery(jql string) string {
 		"fields":     {searchFields},
 		"maxResults": {strconv.Itoa(searchLimit)},
 	}.Encode()
-}
-
-// searchStatusError is statusError plus the one failure search does not report
-// with a status.
-//
-// A bearer token Data Center does not accept is not refused on search: the
-// request is served ANONYMOUSLY, with 200 and an empty list, and Jira says so
-// only in X-Ausername. Reading the status alone would show a dead token as
-// "nothing assigned to you". /myself, by contrast, answers the same token 401.
-func searchStatusError(response *http.Response, requested *url.URL) error {
-	err := statusError(response.StatusCode, requested)
-	if err != nil {
-		return err
-	}
-
-	if response.Header.Get("X-Ausername") == anonymousUser {
-		return ErrUnauthorized
-	}
-
-	return nil
 }
 
 // cause strips net/http's *url.Error down to what actually went wrong. Its
