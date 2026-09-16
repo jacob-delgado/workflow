@@ -53,15 +53,14 @@ func (c Client) Transitions(ctx context.Context, issueKey string) ([]Transition,
 		return nil, err
 	}
 
-	response, err := c.exchange(request)
+	body, err := c.exchange(request)
 	if err != nil {
 		return nil, err
 	}
-	defer func() { _ = response.Body.Close() }()
 
 	var answer transitionsAnswer
 
-	err = json.NewDecoder(response.Body).Decode(&answer)
+	err = json.Unmarshal(body, &answer)
 	if err != nil {
 		return nil, fmt.Errorf("reading the answer from %s: %w", c.settings.BaseURL, err)
 	}
@@ -83,14 +82,10 @@ func (c Client) ApplyTransition(ctx context.Context, issueKey string, to Transit
 
 	request.Header.Set("Content-Type", "application/json")
 
-	response, err := c.exchange(request)
-	if err != nil {
-		return err
-	}
-	defer func() { _ = response.Body.Close() }()
-
 	// Data Center answers 204 with no body: accepted is all there is to know.
-	return nil
+	_, err = c.exchange(request)
+
+	return err
 }
 
 // transitionsPath is where an issue's transitions live. The key is escaped

@@ -190,7 +190,7 @@ func TestApplyTransitionPostsTheChosenTransition(t *testing.T) {
 		t.Errorf("requested %v, want a POST to the issue's transitions", got)
 	}
 
-	if got := contentType.Load(); got != "application/json" {
+	if got := contentType.Load(); got != jsonMediaType {
 		t.Errorf("Content-Type = %v, want application/json", got)
 	}
 

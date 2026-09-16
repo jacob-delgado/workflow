@@ -20,7 +20,7 @@ func failWith(status int, body, user string) http.HandlerFunc {
 			writer.Header().Set("X-Ausername", user)
 		}
 
-		writer.Header().Set("Content-Type", "application/json")
+		writer.Header().Set("Content-Type", jsonMediaType)
 		writer.WriteHeader(status)
 
 		_, _ = writer.Write([]byte(body))
