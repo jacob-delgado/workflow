@@ -9,10 +9,19 @@ vars:
   # restates it, because a restated number drifts. Raise it with the ratchet
   # scripts/coverage-gate.sh prints: floor(measured) - 2.
   COVERAGE_MIN: 87
-  # The condition (branch) coverage floor, enforced over the packages gobco can
-  # read; scripts/gobco-report.sh names the ones it cannot and fails on any
-  # package that drops out unannounced.
-  BRANCH_COVERAGE_MIN: 95
+  # The condition (branch) coverage floor, enforced over EVERY package —
+  # scripts/gobco-report.sh's skip list is now empty and fails on any package
+  # that drops out unannounced.
+  #
+  # This number went DOWN from 95, and that is the gate getting stronger, not
+  # weaker. gobco had been built by an older Go than mise.toml pins, which made
+  # it unable to parse internal/cli and internal/tui; both sat on the skip list,
+  # so "95%" was measuring internal/config's 36 condition arms and nothing else.
+  # Rebuilt correctly, the module's real figure across all 84 arms is 83.3%.
+  # 81 is that measurement minus the standard ratchet slack. Raise it as the
+  # uncovered conditions in internal/cli get tests — the gate prints the
+  # available ratchet on every run.
+  BRANCH_COVERAGE_MIN: 81
   # Container tasks work with docker or podman: CONTAINER_RUNTIME=podman task ...
   CONTAINER_RUNTIME: '{{.CONTAINER_RUNTIME | default "docker"}}'
   BUILD_IMAGE: '{{.BUILD_IMAGE | default "workflow-build:local"}}'
