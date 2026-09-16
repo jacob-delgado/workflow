@@ -1,0 +1,361 @@
+# CLAUDE.md
+
+This file provides guidance to Claude Code (claude.ai/code) when working with
+code in this repository. It holds **only what's relevant in every session**.
+
+## What this project is
+
+`workflow` is a Go command-line and terminal UI tool that ties Jira (on-premises
+/ Data Center), Slack, and a Git forge (GitHub or GitLab) into one developer
+workflow: pick up an issue, branch for it, open the pull or merge request, tell
+the team.
+
+Go only. There is no frontend, no database, and no server — a single static
+binary a developer runs on their own machine. The TUI is built on the Charm
+stack (Bubble Tea, Bubbles, Lip Gloss) with Cobra for the command tree.
+
+Layout:
+
+```
+cmd/workflow/      thin main; wires cli.Execute and the exit status
+internal/cli/      the Cobra command tree
+internal/config/   .workflow.json loading, redaction, validation
+internal/tui/      the Bubble Tea interface
+scripts/           the gate scripts lefthook, task and CI share
+build/             the build container
+```
+
+## Common commands
+
+| Command | Does |
+| --- | --- |
+| `task --list` | every task, with descriptions |
+| `task build` | build `bin/workflow` |
+| `task run` | run the TUI from source |
+| `task test` | tests with the race detector |
+| `task test:cover` | tests plus the coverage floor |
+| `task lint` | every linter (Go, shell, YAML, Dockerfile, Actions, headers, spelling) |
+| `task fmt` | format everything in place |
+| `task check` | **the full gate** — lint, tests + coverage, govulncheck, gitleaks |
+| `task container:check` | the same gate inside the build container |
+
+The toolchain is pinned in `mise.toml`. After cloning: `mise trust && mise
+install && task setup`.
+
+## Working style
+
+Prescriptive defaults for how new code should be written and how changes should
+be made. Override only when the user explicitly asks for something different.
+
+For tasks that would touch more than ~3 files or restructure a package, outline
+the approach first and wait for confirmation before writing code. Small changes
+and Boy Scout improvements don't need ceremony; large ones shouldn't start
+without agreement on direction.
+
+### Code style
+
+- **Go**: follow [Effective Go](https://go.dev/doc/effective_go) and
+  [Google's Go Style Guide](https://google.github.io/styleguide/go/). Accept
+  interfaces, return structs. Small interfaces (1–3 methods). Composition over
+  inheritance. Embedding only for behavior delegation, never just to store a
+  field. No premature abstraction — three similar lines beat one abstract one.
+  Keep the build pure Go (`CGO_ENABLED=0`): the release binaries cross-compile
+  to five platforms, and that only stays true without cgo.
+
+- **Interface compliance — assert it at compile time.** Every concrete type
+  meant to satisfy an interface carries a static assertion next to its
+  definition, so a drifting method set breaks the build at the type rather than
+  at some distant call site: `var _ tea.Model = (*Model)(nil)`. Use the form
+  matching the receiver — `(*T)(nil)` for pointer receivers, `T{}` for value
+  receivers.
+
+- **Language: American English.** Identifiers, comments, docs, commit messages,
+  and user-facing copy all use American spellings — color, canceled, organize.
+  Enforced by `misspell` (Go, locale US) and `typos` (repo-wide, `_typos.toml`),
+  both wired into lefthook and `task lint`.
+
+- **Naming**: identifiers must reveal intent without a comment. If you find
+  yourself writing a comment to explain a name, the name is wrong — rename it.
+  Abbreviations only where universally understood (`ctx`, `err`, `cfg`). No
+  single-letter names outside loop counters. Exported names are the public
+  contract and deserve extra care; unexported names should still be unambiguous
+  in their package.
+
+- **Function size and focus**: functions and methods do **one thing**. Aim for
+  ~25 lines as a soft ceiling. When a function grows past that, or handles more
+  than one level of abstraction, extract. The test: can you describe what it does
+  in a single clause without using "and"?
+
+- **File length**: aim to keep source files under ~500 lines. A file past that is
+  usually carrying more than one concern and wants splitting, file-per-concern.
+  Best-effort, not a hard gate — but call out (don't silently grow) files that
+  blow well past it.
+
+- **McCabe cyclomatic complexity ≤ 10 — enforced, not aspirational.** `gocyclo`
+  fails the build past 10, with `gocognit` (≤ 20) and `funlen` as backstops.
+  This is a small program; a function needing more than ten branches wants
+  extracting. Test files are exempt — a test's branch count is its assertions.
+
+- **Comments**: default to none. Only when the WHY is non-obvious — a hidden
+  constraint, a surprising invariant, a workaround for a specific bug. Never
+  re-explain WHAT the code does; well-named identifiers already do that.
+  Exception: doc comments on exported symbols are expected — they document the
+  contract, not the implementation.
+
+- **Error handling — explicit and early.** Return errors; never swallow them
+  silently. Wrap with `%w` when crossing into another package's territory, and
+  define static sentinel errors (`var ErrNotFound = errors.New(…)`) rather than
+  building dynamic ones at the point of failure — `err113` enforces this. Avoid
+  sentinel zero-values as implicit "no result" signals when a typed result or
+  error would be clearer.
+
+- **License headers**: every `.go` file begins with the two SPDX lines from
+  CONTRIBUTING.md. `scripts/check-license-headers.sh` gates this in lefthook,
+  `task lint` and CI.
+
+- **Shell scripts**: follow the
+  [Google Shell Style Guide](https://google.github.io/styleguide/shellguide.html).
+  `shfmt -i 2 -ci -bn` formatting, shellcheck-clean against the repo's
+  `.shellcheckrc` (every optional check on).
+
+### Design principles
+
+- **SOLID — a lens, not ceremony.** Go is not OOP; apply the underlying idea
+  where it improves testability or readability.
+  - **S — Single responsibility.** A function or type does one thing (see
+    *Function size*, *File length*). Config loading, command wiring, and
+    rendering are separable concerns and live in separate packages.
+  - **O — Open/closed.** Adding a variant should *extend*, not edit — prefer a
+    lookup map or registry keyed by a discriminant over a `switch` every new case
+    must touch.
+  - **L — Liskov substitution.** An implementation honors the contract its
+    callers rely on; a fake that cuts corners is a broken fake, not a shortcut.
+  - **I — Interface segregation.** Depend only on what you use. Declare small
+    consumer-side interfaces at point of use, not fat producer-side ones.
+  - **D — Dependency inversion.** High-level logic depends on a seam, not a
+    concrete. `config.Load(workDir, homeDir)` takes its directories as arguments
+    rather than reading the environment, which is exactly what lets its tests run
+    in parallel against temp directories.
+
+- **Composition over inheritance.** Assemble small collaborators. Embed for
+  behavior delegation only, never merely to borrow a field.
+
+- **Prefer function-variable seams over interfaces for one-method
+  dependencies.** When a seam has a single method and a single fake, an interface
+  is YAGNI. `now func() time.Time` beats a `Clock` interface.
+
+- **Law of Demeter — accept what you read.** When a call returns many values,
+  bundle them into a single typed value rather than threading scalars through
+  layers.
+
+- **DRY with the rule of three.** Don't extract on the second occurrence — two is
+  coincidence.
+
+- **YAGNI — hard line.** No speculative interfaces, no "just in case" error
+  handling for impossible conditions, no backwards-compat shims for unreleased
+  code. If a feature is needed, the user will ask.
+
+- **Boy Scout Rule — leave it better than you found it.** Every time you touch a
+  file, improve one thing: rename a cryptic identifier, break up an oversized
+  function, remove dead code, delete a stale comment, drop a branch. This is not
+  optional on feature or fix commits — it is part of the definition of done.
+
+### Code smells
+
+A smell is a *hint* to look closer, not a defect to reflexively refactor — weigh
+it against YAGNI and the rule of three first (a two-case `switch` is not yet a
+registry). A parenthetical marks which linter catches it (**lint**) or which rule
+above it restates (*see*). The rest is review-time judgment.
+
+**Bloaters** — grown too big to hold in your head:
+
+- *Long method* — does more than one thing → extract (*see Function size*;
+  **lint** gocyclo, gocognit, funlen).
+- *Large type / god package* — too many responsibilities → split by concern
+  (*see File length*).
+- *Primitive obsession* — a bare `string`/`int` carrying domain meaning (an issue
+  key, a channel name) → a named type the compiler can track.
+- *Long parameter list* — 5+ positional params → bundle the cohesive ones into a
+  struct, or split.
+- *Data clumps* — the same few fields travel together everywhere → give them a
+  type.
+
+**Object-orientation abusers:**
+
+- *Type/kind `switch` every new case must edit* → a lookup map keyed by the
+  discriminant (*see Open/closed*; **lint** exhaustive keeps a genuine switch
+  honest).
+- *Temporary field* — set in some flows, nil otherwise → a separate type or a
+  parameter.
+- *Refused bequest* — a type that ignores or fights what it embeds → compose
+  small parts instead.
+
+**Change preventers:**
+
+- *Divergent change* — one file edited for unrelated reasons → split by reason to
+  change.
+- *Shotgun surgery* — one conceptual change touches many files → centralize the
+  knowledge in one place.
+
+**Dispensables:**
+
+- *Comments as deodorant* — a comment covering for a bad name → rename.
+- *Duplicated code* → extract on the third occurrence (*see DRY*).
+- *Dead code* — unused funcs/params/vars/branches → delete (**lint** unused,
+  unparam, ineffassign).
+- *Speculative generality* — abstraction for a caller that doesn't exist →
+  delete (*see YAGNI*).
+- *Middle man / lazy type* — a type that only delegates → inline it.
+
+**Couplers:**
+
+- *Feature envy* — a method uses another type's data more than its own → move it
+  onto that type.
+- *Inappropriate intimacy* — reaching into another unit's internals; tests
+  asserting on privates → use the public surface (*see Test public interfaces*).
+- *Message chains* — `a.b().c().d()` threaded through layers → pass the one
+  bundled value needed.
+
+**Modern additions:**
+
+- *Boolean/flag parameter* — `f(…, true)` that forks behavior → two functions or
+  a named enum, so the call site reads.
+- *Magic number/string* — an unexplained literal → a named constant (**lint**
+  mnd).
+- *Deep nesting / arrow code* — pyramids of `if` → early returns, guard clauses,
+  extracted helpers (**lint** nestif).
+- *Mutating a parameter* — reassigning an argument in place → return a new value.
+
+**Go-specific:**
+
+- `interface{}` / `any` as a shortcut → a concrete type or a small interface
+  (**lint** gocritic flags a range of Go micro-smells).
+- *Interface pollution* — an interface with one implementation, or defined on the
+  producer side → declare it at the *consumer*, once a second implementation or a
+  fake earns it. A one-method seam is a func var, not an interface.
+- *Ignored error* — `_ = f()` dropping a real error → handle or return it
+  (**lint** errcheck).
+- *Dynamic errors* — `errors.New` at the point of failure → a package-level
+  sentinel, wrapped (**lint** err113).
+- *Sentinel zero-value as "no result"* — `""`/`0`/`nil` meaning absence → a typed
+  result or an explicit error.
+- *Naked return* in more than a couple of lines → return values explicitly
+  (**lint** nakedret).
+- *Stutter* — `config.ConfigLoader`, `tui.TUIModel` → drop the package prefix.
+- *Premature goroutines/channels* — concurrency with no measured need → simple
+  synchronous code first (*see YAGNI*).
+
+### TDD process
+
+For **new features and bug fixes**:
+
+1. **RED first.** Write a failing test that reproduces the bug or demonstrates
+   the feature's contract. Run it. Watch it fail with a message that names the
+   gap.
+2. **GREEN minimal.** Smallest production change that makes the test pass. Resist
+   scope creep.
+3. **REFACTOR if it earns it.** Clean up only when the resulting shape is
+   genuinely better. Mechanical reshuffling is noise.
+
+For bug fixes specifically: the failing test that reproduces the bug is the most
+valuable artifact in the commit — it documents both the bug and the contract that
+prevents its return. Do **not** write the fix first and add a test "to cover it";
+ordering matters.
+
+**Test public interfaces, not internals — black-box only.** Tests declare
+`package <name>_test` (the external test package), so only exported identifiers
+are reachable — `testpackage` enforces it. Do not reach into unexported helpers
+or assert on private fields. If something seems untestable black-box, that is a
+design smell: fix the API, don't white-box the test.
+
+**Read the coverage floors in the gates, never here** — `COVERAGE_MIN` and
+`BRANCH_COVERAGE_MIN` in `Taskfile.yml`, enforced by `scripts/coverage-gate.sh`
+and `scripts/gobco-report.sh`. A number restated in prose drifts from the number
+the gate enforces.
+
+**Two coverage metrics, and the second is the useful one.** Statement coverage
+says a line ran; condition coverage (gobco, `task cover:branch`) says whether an
+`if a && b` was ever seen with `b` false. Its per-condition output — "condition
+`err != nil` was 8 times false but never true" — is a worklist of missing test
+cases, not a percentage to chase. gobco cannot read every package here
+(`scripts/gobco-report.sh` names which and why); a package that becomes
+unreadable without being listed fails the gate rather than quietly shrinking what
+the number covers.
+
+**Raising the floor: the ratchet is `floor(measured) − 2`.** Two points is the
+whole tolerance — enough for an incidental refactor, not enough to land a feature
+with its tests missing. A floor is raised only after the coverage is already
+there; the gate prints the available ratchet each run.
+
+These are minimums, not targets — aim higher where the code is consequential
+(credential handling, redaction, anything that touches a token).
+
+**Exempt** (no TDD ceremony): typo fixes, doc-only edits, formatter/linter
+passes, dependency bumps, configuration-only changes, and repo scaffolding that
+carries no behavior. Use judgment for refactors — extracting a helper rarely
+needs a new test, but changing observable behavior does.
+
+**Before declaring any task done**, run `task check`. Never present work as
+complete while the build is red or tests are failing — say what's broken and why
+instead.
+
+### What to avoid
+
+The quick list; see **Code smells** for the full catalog and what's lint-enforced.
+Speculative interfaces; abstract layers without a second concrete caller;
+backwards-compat shims for unreleased code; "just in case" error handling for
+impossible conditions; over-engineering for hypothetical future requirements;
+tests that assert on unexported identifiers or internal data structures rather
+than observable, public behavior.
+
+## Cross-cutting conventions
+
+- **New dependencies require approval.** Do not add Go modules without first
+  proposing the dependency and getting explicit approval. Prefer the standard
+  library and what's already in `go.mod`. When a new dependency is genuinely the
+  right call, name it and explain why before adding it.
+
+- **Week-long dependency age gate.** Never adopt a version published less than 7
+  days ago — freshly compromised releases are usually detected and yanked within
+  days. Go has no native gate: before `go get`, check the publish date
+  (`curl https://proxy.golang.org/<module>/@v/<version>.info`) and pick an older
+  version if it is younger than a week. The same rule governs `mise.toml` pins.
+  **Known-CVE fixes override the cooldown — always.** The gate guards against
+  *unknown* compromised releases, not *published* security fixes.
+
+- **Tool versions are exact, and they live in `mise.toml`.** Nothing else states
+  a version: `build/Dockerfile` reads them through
+  `scripts/tool-versions.sh`, and CI provisions them with mise. A floating
+  `latest` changes what the gate accepts without anyone deciding to.
+
+- **Never log or print a secret.** Tokens are masked by `config.Redact` before
+  they reach any output — `config show`, the TUI, and error messages all go
+  through it. When adding a code path that touches `jira.token` or
+  `slack.token`, the test that proves it doesn't leak is part of the change.
+  `gitleaks` (`task secrets`) is the backstop, not the plan.
+
+- **Use `tmp/` under the repo root for ad-hoc scratch files** — never `/tmp/…` or
+  any path outside the repo. PR-body drafts, intermediate output, log dumps:
+  `tmp/foo.md` (gitignored).
+
+- **Commits**: Conventional Commits prefix (`feat` `fix` `chore` `docs`
+  `refactor` `test` `perf` `build` `ci` `revert` `style`), enforced by lefthook's
+  `commit-msg` hook and mirrored in CI, plus a Linux-kernel-style body: subject ≤
+  72 characters, imperative, no period; body wrapped at 72 explaining *why*. One
+  logical change per commit.
+
+- **Pull requests, not direct commits to main.** Every change lands via a branch
+  and a PR with green CI. Branch names mirror the commit prefix: `feat/<slug>`,
+  `fix/<slug>`, `docs/<slug>`.
+
+- **Do not bypass a hook to land work.** `LEFTHOOK=0` and `LEFTHOOK_EXCLUDE` exist
+  for genuine emergencies. A failing hook is the hook working; fix the cause.
+
+- **Releases are the maintainer's to publish — Claude prepares, never ships.**
+  release-please opens a release PR from the Conventional Commits on main;
+  merging it is what tags the version and triggers the build. Claude may write
+  commits that feed that PR, but must **not**, without an instruction naming that
+  exact action in the moment: merge the release PR, push a `v*` tag, or run the
+  release workflow. A published release is something other people download; it
+  cannot be cleanly withdrawn. When preparation is done, print the one step the
+  maintainer takes and stop.

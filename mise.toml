@@ -1,0 +1,52 @@
+# mise — the toolchain manager (https://mise.jdx.dev).
+#
+# Single source of truth for every tool the build, the gates and CI use. The
+# Taskfile runs the recipes; mise provisions the binaries they call, and
+# build/Dockerfile reads its versions from this file (scripts/tool-versions.sh)
+# so the container can never drift from the host.
+#
+# After cloning:   mise trust && mise install && lefthook install
+# Update a pin:    edit below, then `mise install`
+#
+# Every tool is pinned to an EXACT version, deliberately. A floating "latest"
+# changes what the gate accepts without anyone deciding to change it — a lint
+# bump that flags new code should land as its own commit, with the fixes it
+# forces. Adopt a version only once it is at least 7 days old (freshly
+# compromised releases are usually caught and yanked within days); a version
+# that fixes a disclosed CVE overrides that wait, always.
+min_version = "2024.1.0"
+
+[env]
+# Pin the toolchain so `go build`/`go test` use the Go below rather than
+# silently downloading whatever go.mod's directive resolves to.
+GOTOOLCHAIN = "local"
+
+[tools]
+# Language runtime — keep in step with go.mod's `go` directive.
+go = "1.27.1"
+
+# The task runner itself, so `mise install` bootstraps everything on a clean
+# machine (laptop, container or CI runner) with no manual step.
+task = "3.53.1"
+
+# Gates. golangci-lint is exact-pinned twice over: the version decides what
+# the lint gate flags, so a bump is a deliberate commit that carries its fixes.
+golangci-lint = "2.13.2"
+lefthook = "2.1.14"
+shellcheck = "0.11.0"
+shfmt = "3.14.1"
+yamllint = "1.38.0"
+typos = "1.50.1"
+actionlint = "1.7.12"
+hadolint = "2.15.1" # build/Dockerfile lint
+
+# Go-source tools, built with the pinned Go above. A prebuilt binary compiled
+# against an older Go can reject a project targeting a newer one.
+"go:golang.org/x/vuln/cmd/govulncheck" = "1.8.0"
+# Condition (branch) coverage. Exact-pinned twice over: gobco's version changes
+# the number it reports, and that number is a gate here (BRANCH_COVERAGE_MIN in
+# Taskfile.yml), so a bump must be a deliberate commit that carries its fixes.
+"go:github.com/rillig/gobco" = "1.3.4"
+# Secret scanning. (The module path stayed at zricethezav after the project
+# moved to github.com/gitleaks.)
+"go:github.com/zricethezav/gitleaks/v8" = "8.30.1"

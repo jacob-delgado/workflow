@@ -1,0 +1,23 @@
+# yamllint config for `task lint:yaml`. The default ruleset, minus the purely
+# stylistic rules that fight the YAML these tools generate and expect.
+extends: default
+
+rules:
+  # Workflow `run:` blocks and long URLs don't wrap usefully.
+  line-length: disable
+  # Taskfile.yml, lefthook.yml and the workflows all omit the `---` marker.
+  document-start: disable
+  # GitHub Actions uses `on:` as a mapping key; don't read it as a boolean.
+  truthy:
+    allowed-values: ["true", "false"]
+    check-keys: false
+  comments:
+    min-spaces-from-content: 1
+  # Explanatory comments sit at the indent the thing they explain would sit at,
+  # not mechanically aligned to the neighboring line.
+  comments-indentation: disable
+
+ignore: |
+  bin/
+  dist/
+  tmp/

@@ -1,0 +1,35 @@
+root = true
+
+[*]
+charset = utf-8
+end_of_line = lf
+insert_final_newline = true
+trim_trailing_whitespace = true
+indent_style = space
+indent_size = 2
+
+# gofmt enforces tabs — mirror it here so editors don't fight the formatter.
+[*.go]
+indent_style = tab
+tab_width = 4
+
+[Makefile]
+indent_style = tab
+
+[*.{json,yaml,yml,toml}]
+indent_style = space
+indent_size = 2
+
+# LF is explicit: CRLF silently breaks bash shebangs.
+[*.sh]
+indent_style = space
+indent_size = 2
+end_of_line = lf
+
+[Dockerfile*]
+indent_style = space
+indent_size = 4
+
+# Trailing spaces are significant in Markdown (two spaces → line break).
+[*.md]
+trim_trailing_whitespace = false

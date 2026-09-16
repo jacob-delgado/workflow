@@ -1,0 +1,111 @@
+version: "2"
+
+# Everything is on. `default: all` enables every linter the pinned
+# golangci-lint ships, and the short list below is the only exception — each
+# entry names why it cannot do useful work here, not that it was inconvenient.
+# A new violation means fix the code, not extend this list.
+linters:
+  default: all
+  disable:
+    # Needs project-specific allow/deny lists to do anything. There are no
+    # layering boundaries to enforce yet; add rules (and delete this line) once
+    # internal/ grows layers worth locking in.
+    - depguard
+    # Same shape: an allow/blocklist of modules that is empty today. Dependency
+    # choices are gated by review (see CLAUDE.md) until there is a list worth
+    # writing down.
+    - gomodguard_v2
+    # Requires every field of every struct literal to be set explicitly,
+    # including third-party structs (cobra.Command has ~40 fields). Unusable in
+    # practice; the zero value is part of Go's design.
+    - exhaustruct_v5
+    # Deprecated, superseded by the _v5 linters enabled above. Leaving them on
+    # would double-report and emit deprecation warnings on every run.
+    - exhaustruct
+    - gomodguard
+    - wsl
+
+  settings:
+    errcheck:
+      # Writes to a command's output stream. There is nothing to do about a
+      # failed write to stdout — the channel you would report it on is the one
+      # that just failed — and checking each one triples the length of every
+      # help and report function. Writes to FILES are still checked.
+      exclude-functions:
+        - fmt.Fprint
+        - fmt.Fprintf
+        - fmt.Fprintln
+    tagliatelle:
+      # The config file is snake_case, which is what a hand-edited dotfile
+      # conventionally looks like. tagliatelle defaults to camel.
+      case:
+        rules:
+          json: snake
+    wrapcheck:
+      # Wrapping is for crossing a boundary into someone else's package, so the
+      # caller learns where the error came from. Errors from this module's own
+      # packages already carry that context, and re-wrapping them at every layer
+      # produces "workflow: loading config: opening file: open …: no such file".
+      ignore-package-globs:
+        - github.com/jacob-delgado/workflow/*
+    funlen:
+      # Length discipline is about production code carrying too much; comments
+      # are documentation, not weight.
+      lines: 60
+      statements: 40
+      ignore-comments: true
+    gocyclo:
+      # CLAUDE.md: "cyclomatic complexity ≤ 10 — enforced, not aspirational."
+      min-complexity: 10
+    gocognit:
+      # Nesting-weighted backstop for code that stays under 10 branches but
+      # still cannot be held in your head.
+      min-complexity: 20
+    misspell:
+      # American English, per CLAUDE.md. Without a locale, misspell lets valid
+      # British spellings straight through.
+      locale: US
+    nolintlint:
+      require-explanation: true # every //nolint says why
+      require-specific: true # and names the linter it silences
+      allow-unused: false # a directive that suppresses nothing is a leftover
+    varnamelen:
+      # `tt` for a table-test case and `ok` for a comma-ok are conventional
+      # enough to read at any scope.
+      ignore-names: [tt, ok]
+
+  exclusions:
+    warn-unused: true # tell us when an exclusion below stops matching anything
+    rules:
+      # A test's length and branch count are its assertions. Gating them pushes
+      # toward fewer checks, which is backwards — table-driven tests are
+      # legitimately long, and every `if got != want` is a branch.
+      - path: _test\.go$
+        linters: [funlen, gocyclo, gocognit, maintidx]
+      # Test fixtures legitimately use weak randomness, fixed credentials and
+      # variable file paths. gosec stays fully strict on production code.
+      - path: _test\.go$
+        linters: [gosec]
+      # The CLI tests drive the command tree through its real input: the process
+      # working directory. t.Chdir sets it per test and panics if the test is
+      # parallel, so these cannot be — and that is the tradeoff that buys tests
+      # against the actual argument-to-output path rather than a seam built to
+      # make the linter happy.
+      - path: internal/cli/.*_test\.go$
+        linters: [paralleltest]
+
+formatters:
+  # gofumpt is a strict superset of gofmt, and gci owns import grouping (it runs
+  # after goimports, so its sections are what survives).
+  enable:
+    - gofmt
+    - gofumpt
+    - goimports
+    - gci
+  settings:
+    gci:
+      custom-order: true
+      sections:
+        - standard # stdlib
+        - default # third-party
+        - prefix(github.com/jacob-delgado/workflow) # local

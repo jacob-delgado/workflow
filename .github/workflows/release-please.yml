@@ -1,0 +1,58 @@
+name: release-please
+
+# release-please reads the Conventional Commits on main, opens a PR that bumps
+# the version and regenerates CHANGELOG.md, and — once that PR is merged — this
+# workflow pushes the vX.Y.Z tag and fires release.yml, which builds the binaries
+# and creates the GitHub Release with them attached.
+#
+# The flow:
+#   1. Conventional commits land on main (enforced by lefthook and CI).
+#   2. release-please opens or updates a release PR.
+#   3. A maintainer merges that PR. Nothing is released until they do.
+#   4. push-release-tag.sh (below) tags the merge commit and dispatches
+#      release.yml.
+#   5. release.yml builds, checksums, attests, and publishes the release with
+#      every asset in one call.
+#
+# Why release-please does not create the release itself (skip-github-release in
+# release-please-config.json): GitHub treats a published release as immutable for
+# asset uploads, so a release created before the binaries exist can never receive
+# them. See scripts/release/push-release-tag.sh for the full reasoning.
+#
+# ONE-TIME REPO SETUP: Settings → Actions → General → Workflow permissions →
+# enable "Allow GitHub Actions to create and approve pull requests". Without it
+# the action runs to completion and then fails to open the PR.
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write # commit the release PR, push the tag
+  pull-requests: write # open the release PR, flip its label
+  actions: write # dispatch release.yml after tagging
+
+jobs:
+  release-please:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: googleapis/release-please-action@45996ed1f6d02564a971a2fa1b5860e934307cf7 # v5
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          config-file: release-please-config.json
+          manifest-file: .release-please-manifest.json
+
+      # fetch-depth: 0 because the tag script reads local history.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          fetch-depth: 0
+
+      - name: Push tag for a merged release PR
+        env:
+          # The commit message is attacker-influenceable, so it reaches the script
+          # as an environment variable rather than being interpolated into the
+          # run: line where it would be shell input.
+          HEAD_COMMIT_MSG: ${{ github.event.head_commit.message }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: bash scripts/release/push-release-tag.sh

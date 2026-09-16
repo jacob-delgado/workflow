@@ -1,0 +1,40 @@
+{
+  "name": "workflow",
+  "image": "mcr.microsoft.com/devcontainers/base:trixie",
+  "features": {
+    // Lets `task container:check` and `task container:release` run their build
+    // container from inside this one.
+    "ghcr.io/devcontainers/features/docker-in-docker:2": {
+      "moby": true
+    }
+  },
+  "postCreateCommand": ".devcontainer/postCreate.sh",
+  "containerEnv": {
+    // Match mise.toml: never silently download a different Go toolchain.
+    "GOTOOLCHAIN": "local"
+  },
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "golang.go",
+        "EditorConfig.EditorConfig",
+        "task.vscode-task",
+        "hverlin.mise-vscode",
+        "timonwong.shellcheck",
+        "redhat.vscode-yaml"
+      ],
+      "settings": {
+        "go.useLanguageServer": true,
+        "go.lintTool": "golangci-lint-v2",
+        "gopls": {
+          "formatting.gofumpt": true
+        },
+        "editor.formatOnSave": true
+      }
+    },
+    "jetbrains": {
+      "backend": "GoLand"
+    }
+  },
+  "remoteUser": "vscode"
+}

@@ -1,0 +1,27 @@
+# The repo is LF-only (see .editorconfig); normalize on the way in and out.
+* text=auto eol=lf
+
+# Windows-only scripts need CRLF to run.
+*.bat text eol=crlf
+*.cmd text eol=crlf
+*.ps1 text eol=crlf
+
+# Generated: collapsed in diffs, excluded from language stats.
+go.sum linguist-generated=true
+
+# Binary assets — never line-ending-normalized, never diffed as text.
+*.png   binary
+*.jpg   binary
+*.jpeg  binary
+*.gif   binary
+*.ico   binary
+*.icns  binary
+*.woff  binary
+*.woff2 binary
+*.ttf   binary
+*.otf   binary
+
+# Excluded from `git archive` tarballs: repo plumbing, not source.
+.github/       export-ignore
+.gitignore     export-ignore
+.gitattributes export-ignore

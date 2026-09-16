@@ -1,0 +1,98 @@
+# Lefthook git hooks.
+# Install:  mise install && lefthook install   (lefthook is pinned in mise.toml)
+# Skip one hook for one commit: LEFTHOOK_EXCLUDE=name-of-hook git commit ...
+# Skip all hooks for one commit: LEFTHOOK=0 git commit ...
+#
+# Pre-commit hooks run against ONLY the staged diff ({staged_files}); pre-push
+# runs the test suite, so a green push is very likely a green CI.
+#
+# DO NOT reach for `LEFTHOOK=0` to get past a blocked commit. A failing hook is
+# the hook working — fix the underlying issue. The only legitimate bypass is a
+# genuinely emergent hotfix.
+#
+# Deliberately NOT here: govulncheck and gitleaks. Both scan the whole tree and
+# belong in `task check` and CI, where the seconds they cost don't land on every
+# commit.
+
+pre-commit:
+  parallel: true
+  commands:
+    # golangci-lint owns formatting (gofmt, gofumpt, goimports, gci per
+    # .golangci.yml); `fmt` applies it, then `run --fix` lints and autofixes.
+    # --new-from-rev keeps the hook scoped to what this commit changes.
+    golangci-lint-fmt:
+      glob: "*.go"
+      run: golangci-lint fmt {staged_files}
+      stage_fixed: true
+
+    # --new-from-rev keeps the hook scoped to what this commit changes, but HEAD~
+    # does not exist on a repository's first commit — and a hook that errors out
+    # there is a hook that teaches you to pass --no-verify on day one. Fall back
+    # to linting everything when there is no parent.
+    golangci-lint:
+      glob: "*.go"
+      run: |
+        if git rev-parse --verify --quiet HEAD~ >/dev/null; then
+          golangci-lint run --new-from-rev=HEAD~ --fix
+        else
+          golangci-lint run --fix
+        fi
+      stage_fixed: true
+
+    license-headers:
+      glob: "*.go"
+      run: scripts/check-license-headers.sh {staged_files}
+
+    shfmt:
+      glob: "*.sh"
+      run: shfmt -i 2 -ci -bn -w {staged_files}
+      stage_fixed: true
+
+    shellcheck:
+      glob: "*.sh"
+      run: shellcheck {staged_files}
+
+    yamllint:
+      glob: "*.{yml,yaml}"
+      run: yamllint {staged_files}
+
+    hadolint:
+      glob: "*Dockerfile*"
+      run: hadolint {staged_files}
+
+    actionlint:
+      glob: ".github/workflows/*.{yml,yaml}"
+      run: actionlint
+
+    # American English, repo-wide. --force-exclude keeps _typos.toml's excludes
+    # effective even though lefthook passes files as explicit arguments.
+    typos:
+      run: typos --force-exclude {staged_files}
+
+# Pre-push: the tests. A red suite here is a guaranteed red CI, and learning
+# that locally costs seconds instead of a CI round trip.
+pre-push:
+  parallel: false
+  commands:
+    unit-go:
+      glob: "{*.go,go.mod,go.sum}"
+      run: go test -race ./...
+
+# Commit-message format check: Conventional Commits, e.g.
+#   feat(jira): add issue transition command
+#   fix(config): reject unknown keys instead of ignoring them
+commit-msg:
+  commands:
+    conventional:
+      run: |
+        first_line=$(head -n1 "{1}")
+        if echo "$first_line" | grep -qE '^(feat|fix|chore|docs|refactor|test|perf|build|ci|revert|style)(\([a-z0-9_-]+\))?!?: .+'; then
+          exit 0
+        fi
+        echo "Commit subject must follow Conventional Commits format:"
+        echo "  <type>(<scope>)?(!)?: <description>"
+        echo "  e.g. feat(jira): add issue transition command"
+        echo "       fix(config): reject unknown keys instead of ignoring them"
+        echo "Allowed types: feat, fix, chore, docs, refactor, test, perf, build, ci, revert, style"
+        echo "Bypass: LEFTHOOK_EXCLUDE=conventional git commit ..."
+        exit 1

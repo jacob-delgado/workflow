@@ -1,0 +1,195 @@
+version: "3"
+
+vars:
+  BINARY: workflow
+  PKG: ./cmd/workflow
+  # The coverage floor. This is the number the gate enforces — no document
+  # restates it, because a restated number drifts. Raise it with the ratchet
+  # scripts/coverage-gate.sh prints: floor(measured) - 2.
+  COVERAGE_MIN: 87
+  # The condition (branch) coverage floor, enforced over the packages gobco can
+  # read; scripts/gobco-report.sh names the ones it cannot and fails on any
+  # package that drops out unannounced.
+  BRANCH_COVERAGE_MIN: 95
+  # Container tasks work with docker or podman: CONTAINER_RUNTIME=podman task ...
+  CONTAINER_RUNTIME: '{{.CONTAINER_RUNTIME | default "docker"}}'
+  BUILD_IMAGE: '{{.BUILD_IMAGE | default "workflow-build:local"}}'
+  # Release targets, as GOOS/GOARCH pairs.
+  RELEASE_PLATFORMS: >-
+    darwin/arm64 darwin/amd64 linux/amd64 linux/arm64 windows/amd64
+
+tasks:
+  default:
+    desc: List the available tasks
+    cmds:
+      - task --list
+    silent: true
+
+  setup:
+    desc: Download modules and install the git hooks
+    cmds:
+      - go mod download
+      - lefthook install
+
+  build:
+    desc: Build the binary into bin/
+    cmds:
+      - go build -o bin/{{.BINARY}} {{.PKG}}
+
+  run:
+    desc: Run the TUI from source
+    cmds:
+      - go run {{.PKG}} {{.CLI_ARGS}}
+
+  test:
+    desc: Run the tests with the race detector
+    cmds:
+      - go test -race ./...
+
+  test:cover:
+    desc: Run the tests and enforce the coverage floor
+    cmds:
+      - go test -race -coverprofile=coverage.out -covermode=atomic ./...
+      - scripts/coverage-gate.sh coverage.out {{.COVERAGE_MIN}}
+
+  cover:branch:
+    desc: Condition (branch) coverage via gobco, with its floor
+    cmds:
+      # Statement coverage cannot see this: an `if a && b` counts as covered the
+      # moment the line runs. gobco reports each condition never observed both
+      # ways, which is a list of missing test cases rather than a number to chase.
+      - scripts/gobco-report.sh {{.BRANCH_COVERAGE_MIN}}
+
+  cover:html:
+    desc: Open the coverage profile as HTML
+    deps: [test:cover]
+    cmds:
+      - go tool cover -html=coverage.out -o coverage.html
+      - echo "Wrote coverage.html"
+
+  lint:
+    desc: Run every linter
+    cmds:
+      - task: lint:go
+      - task: lint:shell
+      - task: lint:yaml
+      - task: lint:docker
+      - task: lint:actions
+      - task: lint:headers
+      - task: lint:typos
+
+  lint:go:
+    desc: Lint the Go code
+    cmds:
+      - golangci-lint run
+
+  lint:shell:
+    desc: Lint and format-check the shell scripts
+    vars:
+      # Found rather than globbed: scripts/ has subdirectories, and a glob that
+      # silently misses one means a script nobody ever lints.
+      SHELL_FILES:
+        sh: find scripts .devcontainer -name '*.sh' -type f | sort | tr '\n' ' '
+    cmds:
+      - shfmt -i 2 -ci -bn -d {{.SHELL_FILES}}
+      - shellcheck {{.SHELL_FILES}}
+
+  lint:yaml:
+    desc: Lint the YAML
+    cmds:
+      - yamllint .
+
+  lint:docker:
+    desc: Lint the build container's Dockerfile
+    cmds:
+      - hadolint build/Dockerfile
+
+  lint:actions:
+    desc: Lint the GitHub Actions workflows
+    cmds:
+      # actionlint fails on a repo with no workflows; skip rather than lie.
+      - '[ -d .github/workflows ] && actionlint || echo "No workflows to lint."'
+
+  lint:headers:
+    desc: Check the SPDX license headers on Go files
+    cmds:
+      - scripts/check-license-headers.sh
+
+  lint:typos:
+    desc: Spell-check the repo (American English)
+    cmds:
+      - typos
+
+  fmt:
+    desc: Format everything in place
+    vars:
+      SHELL_FILES:
+        sh: find scripts .devcontainer -name '*.sh' -type f | sort | tr '\n' ' '
+    cmds:
+      - golangci-lint fmt
+      - shfmt -i 2 -ci -bn -w {{.SHELL_FILES}}
+
+  vuln:
+    desc: Check dependencies for known vulnerabilities
+    cmds:
+      - govulncheck ./...
+
+  secrets:
+    desc: Scan the working tree for secrets
+    cmds:
+      - gitleaks dir --redact --no-banner .
+
+  check:
+    desc: The full local gate — run this before calling any task done
+    cmds:
+      - task: lint
+      - task: test:cover
+      - task: cover:branch
+      - task: vuln
+      - task: secrets
+
+  clean:
+    desc: Remove build and coverage artifacts
+    cmds:
+      - rm -rf bin dist coverage.out coverage.html
+
+  container:build:
+    desc: Build the build-container image (tools pinned from mise.toml)
+    cmds:
+      - >-
+        {{.CONTAINER_RUNTIME}} build $(scripts/tool-versions.sh)
+        -t {{.BUILD_IMAGE}} -f build/Dockerfile .
+
+  container:check:
+    desc: Run the full gate inside the build container
+    deps: [container:build]
+    cmds:
+      - >-
+        {{.CONTAINER_RUNTIME}} run --rm -v "$(pwd)":/src -w /src
+        {{.BUILD_IMAGE}} task check
+
+  container:release:
+    desc: Cross-compile release binaries into dist/
+    deps: [container:build]
+    cmds:
+      - >-
+        {{.CONTAINER_RUNTIME}} run --rm -v "$(pwd)":/src -w /src
+        {{.BUILD_IMAGE}} task release:binaries
+
+  release:binaries:
+    desc: Cross-compile every release platform into dist/ (runs in the container)
+    cmds:
+      - mkdir -p dist
+      - for:
+          var: RELEASE_PLATFORMS
+          split: " "
+          as: PLATFORM
+        cmd: |
+          goos="${PLATFORM%%/*}"
+          goarch="${PLATFORM##*/}"
+          ext=""
+          [ "$goos" = "windows" ] && ext=".exe"
+          echo "Building dist/{{.BINARY}}_${goos}_${goarch}${ext}"
+          CGO_ENABLED=0 GOOS="$goos" GOARCH="$goarch" \
+            go build -trimpath -ldflags="-s -w" \
+            -o "dist/{{.BINARY}}_${goos}_${goarch}${ext}" {{.PKG}}

@@ -1,0 +1,13 @@
+# shellcheck config for this repo. Committed rather than inherited: a check set
+# that comes from a developer's home directory means local and CI disagree about
+# what "shellcheck-clean" is, and the disagreement always surfaces as a red CI
+# run on a branch that passed locally.
+
+# Every optional check, on. Same reasoning as .golangci.yml's `default: all`.
+enable=all
+
+# Command substitution inside a condition or an argument "masks" the command's
+# exit status. Every such use here is a `sed`/`awk` read where an empty result is
+# handled on the next line, and the suggested workaround (assign to a temp
+# variable first) makes each one longer without making it safer.
+disable=SC2312

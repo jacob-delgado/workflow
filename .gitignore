@@ -1,0 +1,78 @@
+# --- Go ---
+/bin/
+/dist/
+*.test
+*.out
+*.prof
+coverage.out
+coverage.html
+
+# --- Local configuration ---
+# A real .workflow.json holds live Jira and Slack tokens. Never commit one;
+# `workflow config init` writes it at 0600 for exactly this reason.
+.workflow.json
+.env
+.env.*
+!.env.example
+
+# mise local overrides (personal pins, machine-specific env).
+mise.local.toml
+.mise.local.toml
+
+# --- Scratch ---
+tmp/
+.task/
+
+# --- Claude Code ---
+.claude/settings.local.json
+CLAUDE.local.md
+
+# --- macOS ---
+.DS_Store
+.AppleDouble
+.LSOverride
+._*
+.Spotlight-V100
+.Trashes
+
+# --- Windows ---
+Thumbs.db
+Thumbs.db:encryptable
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+*.lnk
+
+# --- Linux ---
+.directory
+.Trash-*
+.nfs*
+.fuse_hidden*
+
+# --- JetBrains (GoLand / IntelliJ) ---
+.idea/
+*.iml
+*.iws
+*.ipr
+out/
+
+# --- VS Code ---
+.vscode/
+*.code-workspace
+
+# --- Vim ---
+*.swp
+*.swo
+*.swn
+Session.vim
+.netrwhist
+tags
+
+# --- Emacs ---
+*~
+\#*\#
+.\#*
+.emacs.desktop
+.emacs.desktop.lock
+auto-save-list/
+tramp
