@@ -16,8 +16,12 @@ const (
 	projKey  = "PROJ-412"
 	taskType = "Task"
 	fixType  = "fix"
-	// redactTokens is a description that satisfies every rule.
-	redactTokens = "redact tokens"
+	// redactTokens is a description that satisfies every rule, and
+	// redactSubject the subject it makes.
+	redactTokens  = "redact tokens"
+	redactSubject = "fix(config): redact tokens"
+	// issueSummary is the summary of the issue projKey names.
+	issueSummary = "Fix token redaction"
 )
 
 func TestBranchNameReadsAsTheIssue(t *testing.T) {
@@ -28,7 +32,7 @@ func TestBranchNameReadsAsTheIssue(t *testing.T) {
 		want                    string
 	}{
 		"a bug is a fix": {
-			issueType: "Bug", key: projKey, summary: "Fix token redaction",
+			issueType: "Bug", key: projKey, summary: issueSummary,
 			want: "fix/PROJ-412-fix-token-redaction",
 		},
 		"anything else is a feature": {
@@ -136,7 +140,7 @@ func TestSubjectAssemblesAConventionalCommit(t *testing.T) {
 	}{
 		"with a scope": {
 			subject: convention.Subject{Type: fixType, Scope: "config", Description: redactTokens, Breaking: false},
-			want:    "fix(config): redact tokens",
+			want:    redactSubject,
 		},
 		"without one": {
 			subject: convention.Subject{Type: "docs", Scope: "", Description: "explain keys", Breaking: false},
