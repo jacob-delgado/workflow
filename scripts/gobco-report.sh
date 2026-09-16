@@ -12,13 +12,13 @@
 # The score is arms observed / arms present: every condition has two arms, and a
 # condition seen only one way scores 1 of 2.
 #
-# THE SKIP LIST IS THE HONEST PART. gobco type-checks a package with its own
-# bundled go/types, which is older than the toolchain, so some packages cannot be
-# read at all (see UNANALYZABLE below). Those are named in the output and in the
-# list, with the reason. A package that fails and is NOT on the list is a hard
-# error: a report that quietly dropped a package would still print a healthy
-# percentage while measuring less and less of the code, which is the one failure
-# mode a coverage gate must not have.
+# THE SKIP LIST IS THE HONEST PART, and it is currently EMPTY. Any package named
+# in UNANALYZABLE below is one this gate does not measure, with the reason
+# written beside it. A package that fails and is NOT on the list is a hard error:
+# a report that quietly dropped a package would still print a healthy percentage
+# while measuring less and less of the code, which is the one failure mode a
+# coverage gate must not have. The corollary is that adding an entry is a real
+# decision, never a way to make a red run green.
 #
 # Other sharp edges, each measured rather than assumed:
 #
@@ -47,16 +47,40 @@ readonly out_dir="${OUT_DIR:-${repo_root}/tmp/gobco}"
 
 # Packages gobco cannot read, each with the reason it cannot.
 #
-# gobco 1.3.4 type-checks with a go/types that predates Go 1.27's standard
-# library, and dies on `math/rand/v2`'s generic methods ("method must have no
-# type parameters"). Every package below reaches that transitively through
-# Bubble Tea or Cobra: … → go-colorful → database/sql/driver → crypto/rand →
-# math/rand/v2. Nothing about these packages is untestable; gobco simply cannot
-# parse them today.
+# EMPTY, and that is the correct state. It previously held internal/cli and
+# internal/tui, blamed on gobco dying inside `math/rand/v2` with "method must
+# have no type parameters". The symptom was real; the diagnosis was not.
 #
-# Re-check on every gobco bump: drop an entry the moment it can be read, because
-# an unnecessary skip is indistinguishable from a real one from the outside.
-readonly UNANALYZABLE="internal/cli internal/tui"
+# gobco type-checks the standard library from SOURCE, using the go/types that is
+# compiled into it — which is the go/types of whichever Go BUILT gobco, not the
+# Go on PATH. A gobco built by Go 1.26 cannot parse Go 1.27's math/rand/v2,
+# which declares a generic method. Anything reaching it transitively (net/http,
+# Bubble Tea, Cobra) then looks unreadable.
+#
+# The binary here had been built by Go 1.26.6 and left in place when mise.toml
+# moved to 1.27.1 — a stale install, not a gobco limitation. Rebuilt under the
+# pinned Go, every package in this module reads fine. require_current_gobco
+# below now fails loudly on that mismatch, because the failure mode it caused is
+# the worst kind: the gate kept passing while quietly measuring less.
+readonly UNANALYZABLE=""
+
+# gobco carries the go/types of the Go that built it (see above), so a gobco
+# built by an older Go silently shrinks what this gate covers. Refuse to run.
+require_current_gobco() {
+  local gobco_path build_version go_version
+  gobco_path="$(command -v gobco)"
+  build_version="$(go version -m "${gobco_path}" | awk 'NR==1 {print $2}')"
+  go_version="$(go env GOVERSION)"
+
+  if [[ "${build_version}" != "${go_version}" ]]; then
+    echo "gobco was built by ${build_version}, but this project builds with ${go_version}." >&2
+    echo "It type-checks the standard library with the go/types of the Go that built" >&2
+    echo "it, so a stale binary reports packages as unreadable and shrinks this gate." >&2
+    echo >&2
+    echo "Rebuild it:  mise uninstall go:github.com/rillig/gobco && mise install" >&2
+    exit 2
+  fi
+}
 
 floor="${1:-0}"
 readonly floor
@@ -68,6 +92,8 @@ if ! command -v gobco >/dev/null 2>&1; then
   echo "gobco not on PATH — 'mise install' provisions it (pinned in mise.toml)" >&2
   exit 2
 fi
+
+require_current_gobco
 
 cd "${repo_root}"
 
