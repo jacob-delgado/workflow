@@ -19,6 +19,11 @@ coverage.html
 mise.local.toml
 .mise.local.toml
 
+# --- Documentation site (Hugo) ---
+docs/public/
+docs/resources/
+docs/.hugo_build.lock
+
 # --- Scratch ---
 tmp/
 .task/

@@ -344,12 +344,34 @@ than observable, public behavior.
   72 characters, imperative, no period; body wrapped at 72 explaining *why*. One
   logical change per commit.
 
-- **Pull requests, not direct commits to main.** Every change lands via a branch
-  and a PR with green CI. Branch names mirror the commit prefix: `feat/<slug>`,
-  `fix/<slug>`, `docs/<slug>`.
+- **Never commit to `main` — branch, and rebase before starting.** Every change
+  lands via a branch and a PR with green CI. Branch names mirror the commit
+  prefix: `feat/<slug>`, `fix/<slug>`, `docs/<slug>`.
+
+  Before starting work, sync with the remote so the branch starts from what is
+  actually on main rather than from a stale local copy:
+
+  ```sh
+  git fetch origin
+  git switch -c feat/<slug> origin/main   # new work
+  git rebase origin/main                  # work already in progress
+  ```
+
+  This applies to Claude without exception: no commit goes onto `main` directly,
+  and a session that begins with uncommitted work already on `main` moves it to a
+  branch before committing. Rebase rather than merge, so the branch stays a
+  readable series of commits.
 
 - **Do not bypass a hook to land work.** `LEFTHOOK=0` and `LEFTHOOK_EXCLUDE` exist
   for genuine emergencies. A failing hook is the hook working; fix the cause.
+
+- **Documentation lives in `docs/` and some of it is generated.** The site is
+  Hugo (`task docs:serve` to preview, `task docs:build` to build — the same
+  command CI publishes with, so there is one build path rather than two that
+  drift). Prose pages are hand-written; everything under
+  `docs/content/docs/reference/` is generated from the Cobra command tree by
+  `task docs:gen` and must never be hand-edited. `task docs:check` fails when the
+  two disagree, which is what stops a new flag from shipping undocumented.
 
 - **Releases are the maintainer's to publish — Claude prepares, never ships.**
   release-please opens a release PR from the Conventional Commits on main;

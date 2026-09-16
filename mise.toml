@@ -40,6 +40,11 @@ typos = "1.50.1"
 actionlint = "1.7.12"
 hadolint = "2.15.1" # build/Dockerfile lint
 
+# The documentation site (docs/). The EXTENDED build is required: the Hugo Book
+# theme compiles SCSS, which the standard build cannot do. Held at 0.165.0
+# because 0.166.0 was six days old at adoption — see the age gate above.
+hugo-extended = "0.165.0"
+
 # Go-source tools, built with the pinned Go above. A prebuilt binary compiled
 # against an older Go can reject a project targeting a newer one.
 "go:golang.org/x/vuln/cmd/govulncheck" = "1.8.0"
