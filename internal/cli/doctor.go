@@ -18,6 +18,7 @@ import (
 	"github.com/jacob-delgado/workflow/internal/gitrepo"
 	"github.com/jacob-delgado/workflow/internal/jira"
 	"github.com/jacob-delgado/workflow/internal/proc"
+	"github.com/jacob-delgado/workflow/internal/slack"
 )
 
 // Errors doctor reports. Callers distinguish them with errors.Is.
@@ -129,7 +130,30 @@ func reportCredentials(ctx context.Context, out io.Writer, cfg config.Config, on
 
 	fmt.Fprintf(out, "\nCredentials:\n")
 
-	return checkJira(ctx, out, cfg.Jira)
+	return errors.Join(checkJira(ctx, out, cfg.Jira), checkSlack(ctx, out, cfg.Slack))
+}
+
+// checkSlack asks Slack which workspace the bot token belongs to.
+func checkSlack(ctx context.Context, out io.Writer, creds config.Slack) error {
+	client := slack.New(slack.HTTPClient(credentialTimeout).Do, slack.APIBase, creds)
+
+	identity, err := client.AuthTest(ctx)
+	if err != nil {
+		fmt.Fprintf(out, "  %-10s %v\n", "slack", err)
+
+		// A webhook that cannot be checked is not a failed check. Nothing is
+		// wrong with the configuration; there is simply nothing to ask, because
+		// the only way to test a webhook is to post into somebody's channel.
+		if errors.Is(err, slack.ErrWebhookUncheckable) {
+			return nil
+		}
+
+		return fmt.Errorf("%w: slack", errCredentialRejected)
+	}
+
+	fmt.Fprintf(out, "  %-10s %s in %s\n", "slack", identity.User, identity.Team)
+
+	return nil
 }
 
 // checkJira asks Jira who the configured token authenticates as.

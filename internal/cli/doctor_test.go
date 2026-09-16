@@ -57,7 +57,7 @@ func TestDoctorAcceptsACompleteConfig(t *testing.T) {
 	dir := t.TempDir()
 
 	contents := `{"jira": {"base_url": "https://jira.example.com", "token": "t"},` +
-		` "slack": {"token": "xoxb-t", "channel": "#dev"}}`
+		` "slack": {"webhook_url": "https://hooks.slack.example/services/not-real"}}`
 
 	err := os.WriteFile(filepath.Join(dir, config.FileName), []byte(contents), config.FileMode)
 	if err != nil {
@@ -249,7 +249,7 @@ func writeConfigFor(t *testing.T, dir, baseURL string) {
 	t.Helper()
 
 	contents := `{"jira": {"base_url": "` + baseURL + `", "token": "jira-token-for-tests"},` +
-		` "slack": {"token": "xoxb-t", "channel": "#dev"}}`
+		` "slack": {"webhook_url": "https://hooks.slack.example/services/not-real"}}`
 
 	err := os.WriteFile(filepath.Join(dir, config.FileName), []byte(contents), config.FileMode)
 	if err != nil {
@@ -355,5 +355,47 @@ func TestDoctorOnlineFallsBackToTheLoginName(t *testing.T) {
 
 	if !strings.Contains(output, "fred") {
 		t.Errorf("doctor does not fall back to the login name:\n%s", output)
+	}
+}
+
+func TestDoctorOnlineSaysAWebhookCannotBeChecked(t *testing.T) {
+	var reached atomic.Bool
+
+	dir := t.TempDir()
+	server := jiraServer(t, http.StatusOK, jiraFixture, &reached)
+	writeConfigFor(t, dir, server.URL)
+
+	output, err := run(t, dir, "doctor", "--online")
+	if err != nil {
+		t.Fatalf("doctor --online failed on a webhook it merely cannot check: %v (%s)", err, output)
+	}
+
+	// Nothing is wrong with the configuration — there is simply nothing to ask,
+	// because the only way to test a webhook is to post into someone's channel.
+	if !strings.Contains(output, "cannot be checked") {
+		t.Errorf("doctor does not explain why the webhook went unchecked:\n%s", output)
+	}
+}
+
+func TestDoctorOnlineFailsWhenSlackIsNotConfigured(t *testing.T) {
+	var reached atomic.Bool
+
+	dir := t.TempDir()
+	server := jiraServer(t, http.StatusOK, jiraFixture, &reached)
+
+	contents := `{"jira": {"base_url": "` + server.URL + `", "token": "jira-token-for-tests"}}`
+
+	err := os.WriteFile(filepath.Join(dir, config.FileName), []byte(contents), config.FileMode)
+	if err != nil {
+		t.Fatalf("writing fixture: %v", err)
+	}
+
+	output, runErr := run(t, dir, "doctor", "--online")
+	if runErr == nil {
+		t.Fatalf("doctor --online accepted a missing Slack credential:\n%s", output)
+	}
+
+	if !strings.Contains(output, "no slack.token or slack.webhook_url") {
+		t.Errorf("doctor does not name the missing Slack credential:\n%s", output)
 	}
 }
