@@ -202,3 +202,40 @@ jobs:
             exit 1
           fi
           echo "Every commit subject follows Conventional Commits."
+
+  # The single required status check.
+  #
+  # Branch protection names THIS job and nothing else from this workflow. Listing
+  # the individual jobs there instead means every rename or addition needs a
+  # matching settings change that nobody remembers to make — and a required check
+  # whose name no longer matches any job blocks every pull request permanently,
+  # including the one that would fix it. One indirection removes that whole class
+  # of mistake: add a job here, add it to `needs`, and protection keeps working.
+  ci-gate:
+    name: ci-gate
+    needs: [lint, test, build, scan, commit-lint]
+    # always(), so the gate reports a verdict even when a dependency fails —
+    # without it the gate would be skipped, and a skipped required check never
+    # goes green.
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Verify every required job succeeded
+        env:
+          RESULTS: ${{ toJSON(needs) }}
+        run: |
+          set -euo pipefail
+          echo "${RESULTS}" | jq -r 'to_entries[] | "  \(.key): \(.value.result)"'
+          # `skipped` passes: commit-lint is pull-request-only by design, and a
+          # job that did not need to run is not a failure. `failure` and
+          # `cancelled` fail the gate.
+          if echo "${RESULTS}" | jq -e 'to_entries | map(select(.value.result != "success" and .value.result != "skipped")) | length > 0' >/dev/null; then
+            echo "::error::A required job did not succeed — see the list above."
+            exit 1
+          fi
+          echo "All required jobs succeeded."
+
+  # Deliberately NOT in the gate: Coverage comment and Coverage baseline. Both
+  # are reporting, not gating — the coverage FLOORS live inside the Test job, so
+  # a coverage regression already fails there. The baseline job is also skipped
+  # on pull requests by design, and a gate should not have to special-case that.
