@@ -12,7 +12,13 @@
 #   task container:release   # cross-compiled binaries into dist/
 
 ARG GO_VERSION=1.27.1
-FROM golang:${GO_VERSION}-trixie
+# Pinned by digest as well as by tag, so what gets pulled cannot change under a
+# tag that was re-pushed. The digest is the multi-architecture index, so amd64
+# and arm64 both resolve from it. Dependabot's docker ecosystem updates this
+# line; GO_VERSION and the digest move together, and if they ever disagree the
+# digest wins and GOTOOLCHAIN=local fails loudly rather than building quietly
+# against the wrong Go.
+FROM golang:${GO_VERSION}-trixie@sha256:9baa6b4187bbb98d240372a8a235ac0bb6b5ddd52bba1431dc2f7c0705862728
 
 ARG TASK_VERSION
 ARG GOLANGCI_LINT_VERSION
