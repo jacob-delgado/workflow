@@ -22,7 +22,7 @@ const notStarted = "○"
 // View implements tea.Model. It only composes: every region renders itself, so
 // no single function has to know the whole screen.
 func (m Model) View() string {
-	shape := layout.Compute(m.width, m.height, paneCount)
+	shape := layout.Compute(m.width, m.height, paneCount, int(m.focus))
 	body := m.detail(shape.Detail, shape.Collapsed())
 
 	if !shape.Collapsed() {

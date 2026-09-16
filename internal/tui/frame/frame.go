@@ -26,7 +26,30 @@ const (
 	// of the line, not by its color, so it survives a monochrome terminal and a
 	// colorblind reader.
 	Heavy
+	// LightASCII is Light in plain ASCII, for a terminal or font without
+	// box-drawing characters.
+	LightASCII
+	// HeavyASCII is Heavy in plain ASCII.
+	HeavyASCII
 )
+
+// ASCII is the same weight of border in plain ASCII.
+func (s Style) ASCII() Style {
+	if s == Heavy || s == HeavyASCII {
+		return HeavyASCII
+	}
+
+	return LightASCII
+}
+
+// Heavy is the focused weight of the same character set.
+func (s Style) Heavy() Style {
+	if s == LightASCII || s == HeavyASCII {
+		return HeavyASCII
+	}
+
+	return Heavy
+}
 
 // borders is the glyph set for one weight.
 type borders struct {
@@ -36,11 +59,18 @@ type borders struct {
 
 // glyphs returns the glyph set for a style.
 func glyphs(style Style) borders {
-	if style == Heavy {
-		return borders{"┏", "┓", "┗", "┛", "━", "┃"}
+	sets := map[Style]borders{
+		Heavy:      {"┏", "┓", "┗", "┛", "━", "┃"},
+		LightASCII: {"+", "+", "+", "+", "-", "|"},
+		HeavyASCII: {"#", "#", "#", "#", "=", "#"},
 	}
 
-	return borders{"┌", "┐", "└", "┘", "─", "│"}
+	set, ok := sets[style]
+	if !ok {
+		return borders{"┌", "┐", "└", "┘", "─", "│"}
+	}
+
+	return set
 }
 
 // minimumSide is the smallest dimension that can hold a border on both sides.
@@ -84,6 +114,29 @@ func Render(title, body string, width, height int, style Style) string {
 	}
 
 	rows = append(rows, lines.bottomLeft+strings.Repeat(lines.horizontal, inner)+lines.bottomRight)
+
+	return strings.Join(rows, "\n")
+}
+
+// Plain draws a region with no border at all: the title on the first row and
+// the body under it, each row clipped and padded to exactly width. It is for a
+// terminal too narrow to give two columns to a border.
+func Plain(title, body string, width, height int) string {
+	if width <= 0 || height <= 0 {
+		return ""
+	}
+
+	content := append([]string{title}, strings.Split(body, "\n")...)
+	rows := make([]string, 0, height)
+
+	for index := range height {
+		text := ""
+		if index < len(content) {
+			text = content[index]
+		}
+
+		rows = append(rows, fit(text, width))
+	}
 
 	return strings.Join(rows, "\n")
 }

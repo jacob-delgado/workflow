@@ -163,3 +163,62 @@ func TestBodyRowsIsTheHeightInsideTheBorder(t *testing.T) {
 		}
 	}
 }
+
+func TestASCIIStylesDrawWithPlainCharactersAndStillShowFocus(t *testing.T) {
+	t.Parallel()
+
+	light := lines(frame.Render("Issues", "x", 16, 3, frame.LightASCII))
+	heavy := lines(frame.Render("Issues", "x", 16, 3, frame.HeavyASCII))
+
+	if light[0] != "+- Issues -----+" || light[1] != "| x            |" || light[2] != "+--------------+" {
+		t.Errorf("light ASCII frame =\n%s", strings.Join(light, "\n"))
+	}
+
+	// Focus is still carried by the shape of the line.
+	if heavy[0] != "#= Issues =====#" || heavy[1] != "# x            #" || heavy[2] != "#==============#" {
+		t.Errorf("heavy ASCII frame =\n%s", strings.Join(heavy, "\n"))
+	}
+}
+
+func TestStylesKnowTheirASCIIAndHeavyCounterparts(t *testing.T) {
+	t.Parallel()
+
+	cases := map[string]struct {
+		got, want frame.Style
+	}{
+		"light to ascii":    {got: frame.Light.ASCII(), want: frame.LightASCII},
+		"heavy to ascii":    {got: frame.Heavy.ASCII(), want: frame.HeavyASCII},
+		"ascii stays ascii": {got: frame.HeavyASCII.ASCII(), want: frame.HeavyASCII},
+		"heavy of light":    {got: frame.Light.Heavy(), want: frame.Heavy},
+		"heavy of ascii":    {got: frame.LightASCII.Heavy(), want: frame.HeavyASCII},
+		"heavy stays heavy": {got: frame.Heavy.Heavy(), want: frame.Heavy},
+	}
+
+	for name, tt := range cases {
+		if tt.got != tt.want {
+			t.Errorf("%s: got %v, want %v", name, tt.got, tt.want)
+		}
+	}
+}
+
+func TestPlainDrawsATitleLineAndNoBorder(t *testing.T) {
+	t.Parallel()
+
+	rendered := frame.Plain("Issues", "PROJ-1 a very long summary\nsecond", 12, 4)
+	rows := lines(rendered)
+
+	want := []string{"Issues      ", "PROJ-1 a ve…", "second      ", "            "}
+	if len(rows) != len(want) {
+		t.Fatalf("Plain rendered %d rows, want %d:\n%s", len(rows), len(want), rendered)
+	}
+
+	for index := range want {
+		if rows[index] != want[index] {
+			t.Errorf("row %d = %q, want %q", index, rows[index], want[index])
+		}
+	}
+
+	if frame.Plain("x", "y", 0, 3) != "" || frame.Plain("x", "y", 5, 0) != "" {
+		t.Error("Plain drew something with no room to draw in")
+	}
+}

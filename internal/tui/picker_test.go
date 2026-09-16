@@ -187,9 +187,9 @@ func TestThePickerKeepsTheKeyboardWhileOpen(t *testing.T) {
 		}
 	}
 
-	// Row 20 is inside the Commits pane. Focus is only drawn once the picker
+	// Row 28 is inside the Commits pane. Focus is only drawn once the picker
 	// closes, so look there.
-	clicked, _ := screen.Update(tea.MouseMsg{X: 2, Y: 20, Action: tea.MouseActionPress, Button: tea.MouseButtonLeft})
+	clicked, _ := screen.Update(tea.MouseMsg{X: 2, Y: 28, Action: tea.MouseActionPress, Button: tea.MouseButtonLeft})
 	if view := press(t, concrete(t, clicked), "esc").View(); !strings.Contains(view, focused("1 Issues")) {
 		t.Errorf("a click moved focus out from under the open picker:\n%s", view)
 	}

@@ -301,10 +301,11 @@ func TestClickingARailPaneFocusesIt(t *testing.T) {
 
 	model := sized(t, tui.New(completeConfig(), nil, tui.Deps{}), 120, 40)
 
-	// At 120x40 the third rail pane spans rows 17 through 24.
+	// At 120x40, with Issues focused and so taking the spare height, the third
+	// rail pane spans rows 27 through 30.
 	clicked, _ := model.Update(tea.MouseMsg{
 		X:      5,
-		Y:      20,
+		Y:      28,
 		Action: tea.MouseActionPress,
 		Button: tea.MouseButtonLeft,
 	})
@@ -320,9 +321,9 @@ func TestOnlyALeftClickOnTheRailMovesFocus(t *testing.T) {
 	model := sized(t, tui.New(completeConfig(), nil, tui.Deps{}), 120, 40)
 
 	for name, msg := range map[string]tea.MouseMsg{
-		"a release":         {X: 5, Y: 20, Action: tea.MouseActionRelease, Button: tea.MouseButtonLeft},
-		"a right click":     {X: 5, Y: 20, Action: tea.MouseActionPress, Button: tea.MouseButtonRight},
-		"a click on detail": {X: 80, Y: 20, Action: tea.MouseActionPress, Button: tea.MouseButtonLeft},
+		"a release":         {X: 5, Y: 28, Action: tea.MouseActionRelease, Button: tea.MouseButtonLeft},
+		"a right click":     {X: 5, Y: 28, Action: tea.MouseActionPress, Button: tea.MouseButtonRight},
+		"a click on detail": {X: 80, Y: 28, Action: tea.MouseActionPress, Button: tea.MouseButtonLeft},
 	} {
 		after, _ := model.Update(msg)
 
