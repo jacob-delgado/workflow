@@ -58,6 +58,10 @@ type Slack struct {
 // Forge describes the Git forge credential — which workflow usually does not
 // need to hold at all.
 type Forge struct {
+	// Kind is "github" or "gitlab", and is needed only for an on-premises host
+	// whose name says neither — a GitHub Enterprise Server and a self-managed
+	// GitLab look identical from a git remote, and their APIs differ.
+	Kind string `json:"kind"`
 	// Token is a GitHub or GitLab personal access token, consulted only when
 	// neither the environment nor the forge's own CLI supplies one.
 	//
@@ -219,7 +223,7 @@ func Template() Config {
 			WebhookURL: "",
 			Channel:    "#dev-workflow",
 		},
-		Forge: Forge{Token: ""},
+		Forge: Forge{Kind: "", Token: ""},
 		Path:  "",
 	}
 }

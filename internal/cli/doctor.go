@@ -148,6 +148,15 @@ func forgeRepo(remote string) (forge.Repo, bool) {
 	return repo, err == nil
 }
 
+// apiBase is the forge's API root, or false when the host names neither forge
+// and the configuration does not say which it is. That is a gap in what doctor
+// can check rather than a fault in the configuration, hence a bool.
+func apiBase(repo forge.Repo) (string, bool) {
+	base, err := repo.APIBase()
+
+	return base, err == nil
+}
+
 // checkForge says where the forge credential comes from.
 //
 // It reports the SOURCE rather than the token, and does not call the forge:
@@ -161,6 +170,21 @@ func checkForge(ctx context.Context, out io.Writer, settings config.Forge, remot
 		return nil
 	}
 
+	repo, err := repo.WithConfiguredKind(settings.Kind)
+	if err != nil {
+		fmt.Fprintf(out, "  %-10s %v\n", "forge", err)
+
+		return fmt.Errorf("%w: forge", errCredentialRejected)
+	}
+
+	base, known := apiBase(repo)
+	if !known {
+		fmt.Fprintf(out, "  %-10s %s is neither github.com nor gitlab.com — set forge.kind\n",
+			"forge", repo.Host)
+
+		return nil
+	}
+
 	resolver := forge.Resolver{
 		Getenv:     os.Getenv,
 		Look:       proc.LookPath,
@@ -168,14 +192,26 @@ func checkForge(ctx context.Context, out io.Writer, settings config.Forge, remot
 		Configured: forge.Token(settings.Token),
 	}
 
-	_, source, err := resolver.Resolve(ctx, repo.Kind, repo.Host)
+	token, source, err := resolver.Resolve(ctx, repo.Kind, repo.Host)
 	if err != nil {
 		fmt.Fprintf(out, "  %-10s none — set $GITHUB_TOKEN, run `gh auth login`, or set forge.token\n", "forge")
 
 		return fmt.Errorf("%w: forge", errCredentialRejected)
 	}
 
-	fmt.Fprintf(out, "  %-10s token from %s\n", "forge", source)
+	return askForge(ctx, out, base, token, source)
+}
+
+// askForge asks the forge who the credential belongs to.
+func askForge(ctx context.Context, out io.Writer, base string, token forge.Token, source forge.Source) error {
+	identity, err := forge.New(forge.HTTPClient(credentialTimeout).Do, base, token).Whoami(ctx)
+	if err != nil {
+		fmt.Fprintf(out, "  %-10s %v (token from %s)\n", "forge", err, source)
+
+		return fmt.Errorf("%w: forge", errCredentialRejected)
+	}
+
+	fmt.Fprintf(out, "  %-10s authenticates as %s (token from %s)\n", "forge", identity.Name(), source)
 
 	return nil
 }

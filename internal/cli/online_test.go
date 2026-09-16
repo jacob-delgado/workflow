@@ -186,15 +186,22 @@ func pathWithOnlyGit(t *testing.T) {
 	t.Setenv("PATH", dir)
 }
 
+// unreachableForge is a remote on a host under .invalid, which RFC 6761 reserves
+// so it can never resolve. A github.com remote would send the suite to the real
+// api.github.com with a fake token — passing only because the token source still
+// appears in the 401 line, and failing on a plane. This fails in milliseconds
+// everywhere, and forge.kind is what lets doctor derive an API for it at all.
+const unreachableForge = "git@forge.invalid:owner/repo.git"
+
 // repoWithConfig makes a repository with an origin and a configuration in it.
 func repoWithConfig(t *testing.T, forgeToken string) string {
 	t.Helper()
 
-	dir := repoWithRemote(t, "git@github.com:owner/repo.git")
+	dir := repoWithRemote(t, unreachableForge)
 
 	contents := `{"jira": {"base_url": "https://jira.example.com", "token": "t"},` +
 		` "slack": {"webhook_url": "https://hooks.slack.example/services/not-real"},` +
-		` "forge": {"token": "` + forgeToken + `"}}`
+		` "forge": {"kind": "github", "token": "` + forgeToken + `"}}`
 
 	err := os.WriteFile(filepath.Join(dir, config.FileName), []byte(contents), config.FileMode)
 	if err != nil {
@@ -280,5 +287,44 @@ func TestDoctorOnlineSaysThereIsNoForgeWithoutARemote(t *testing.T) {
 
 	if !strings.Contains(output, "no repository remote") {
 		t.Errorf("doctor does not explain the absent forge:\n%s", output)
+	}
+}
+
+func TestDoctorOnlineAsksForForgeKindOnAnUnknownHost(t *testing.T) {
+	clearForgeEnvironment(t)
+
+	dir := repoWithRemote(t, unreachableForge)
+	writeConfigFor(t, dir, "https://jira.example.com")
+
+	output, _ := run(t, dir, "doctor", "--online")
+
+	// A GitHub Enterprise Server and a self-managed GitLab are indistinguishable
+	// from the remote, so the answer is to say which one — not to guess.
+	if !strings.Contains(output, "set forge.kind") {
+		t.Errorf("doctor does not say how to name an on-premises forge:\n%s", output)
+	}
+}
+
+func TestDoctorOnlineRejectsAnUnknownForgeKind(t *testing.T) {
+	clearForgeEnvironment(t)
+
+	dir := repoWithRemote(t, unreachableForge)
+
+	contents := `{"jira": {"base_url": "https://jira.example.com", "token": "t"},` +
+		` "slack": {"webhook_url": "https://hooks.slack.example/services/not-real"},` +
+		` "forge": {"kind": "bitbucket"}}`
+
+	err := os.WriteFile(filepath.Join(dir, config.FileName), []byte(contents), config.FileMode)
+	if err != nil {
+		t.Fatalf("writing fixture: %v", err)
+	}
+
+	output, runErr := run(t, dir, "doctor", "--online")
+	if runErr == nil {
+		t.Fatalf("doctor accepted forge.kind = bitbucket:\n%s", output)
+	}
+
+	if !strings.Contains(output, "bitbucket") {
+		t.Errorf("doctor does not name the unrecognized forge:\n%s", output)
 	}
 }
