@@ -1,5 +1,22 @@
 # workflow
 
+[![CI](https://github.com/jacob-delgado/workflow/actions/workflows/ci.yml/badge.svg)](https://github.com/jacob-delgado/workflow/actions/workflows/ci.yml)
+[![CodeQL](https://github.com/jacob-delgado/workflow/actions/workflows/codeql.yml/badge.svg)](https://github.com/jacob-delgado/workflow/actions/workflows/codeql.yml)
+[![Scorecard](https://github.com/jacob-delgado/workflow/actions/workflows/scorecard.yml/badge.svg)](https://github.com/jacob-delgado/workflow/actions/workflows/scorecard.yml)
+[![Docs site](https://github.com/jacob-delgado/workflow/actions/workflows/pages.yml/badge.svg)](https://github.com/jacob-delgado/workflow/actions/workflows/pages.yml)
+[![Release](https://github.com/jacob-delgado/workflow/actions/workflows/release.yml/badge.svg)](https://github.com/jacob-delgado/workflow/actions/workflows/release.yml)
+[![OpenSSF Scorecard](https://api.scorecard.dev/projects/github.com/jacob-delgado/workflow/badge)](https://scorecard.dev/viewer/?uri=github.com/jacob-delgado/workflow)
+[![Go Report Card](https://goreportcard.com/badge/github.com/jacob-delgado/workflow)](https://goreportcard.com/report/github.com/jacob-delgado/workflow)
+[![Latest release](https://img.shields.io/github/v/release/jacob-delgado/workflow?sort=semver)](https://github.com/jacob-delgado/workflow/releases/latest)
+[![Go reference](https://pkg.go.dev/badge/github.com/jacob-delgado/workflow.svg)](https://pkg.go.dev/github.com/jacob-delgado/workflow)
+[![Go](https://img.shields.io/badge/go-1.27-00ADD8?logo=go&logoColor=white)](https://go.dev/)
+[![Bubble Tea](https://img.shields.io/badge/TUI-Bubble%20Tea-FF75B7?logo=charm&logoColor=white)](https://github.com/charmbracelet/bubbletea)
+[![License](https://img.shields.io/badge/license-Apache--2.0-blue)](LICENSE)
+[![Docs](https://img.shields.io/badge/docs-jacob--delgado.github.io%2Fworkflow-7B36ED?logo=gitbook&logoColor=white)](https://jacob-delgado.github.io/workflow/)
+[![Conventional Commits](https://img.shields.io/badge/commits-Conventional-fe5196?logo=conventionalcommits&logoColor=white)](https://www.conventionalcommits.org/en/v1.0.0/)
+[![Code of Conduct](https://img.shields.io/badge/code%20of%20conduct-Contributor%20Covenant-purple)](CODE_OF_CONDUCT.md)
+[![Security policy](https://img.shields.io/badge/security-policy-critical)](SECURITY.md)
+
 A terminal UI for the loop a developer actually runs all day: pick up a Jira
 issue, start a branch for it, open the pull or merge request, and tell the team
 in Slack — without leaving the keyboard or reconstructing the same context in
