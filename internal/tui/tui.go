@@ -1,11 +1,9 @@
 // Copyright 2026 Jacob Delgado
 // SPDX-License-Identifier: Apache-2.0
 
-// Package tui renders workflow's terminal interface.
-//
-// This is a stub: it reports what configuration was found and quits. It exists
-// so the program runs end to end — config loading, rendering, and teardown —
-// while the Jira, Slack, and forge integrations are built behind it.
+// Package tui renders workflow's terminal interface: a rail of panes down the
+// left, a detail pane beside it, the loop's stages across the top and the keys
+// along the bottom.
 package tui
 
 import (
@@ -13,12 +11,15 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"strconv"
 	"strings"
 
+	"github.com/charmbracelet/bubbles/key"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 
 	"github.com/jacob-delgado/workflow/internal/config"
+	"github.com/jacob-delgado/workflow/internal/tui/layout"
 )
 
 // styles is the stub screen's rendering. Lip Gloss degrades to plain text when
@@ -40,28 +41,86 @@ func newStyles() styles {
 	}
 }
 
-// Model satisfies tea.Model with value receivers, so the assertion uses a value
-// rather than a pointer.
-var _ tea.Model = Model{}
+// pane is one panel in the rail.
+type pane int
 
-// Model is the stub screen's state.
-type Model struct {
-	cfg     config.Config
-	loadErr error
-	styles  styles
-	quit    bool
+const (
+	paneIssues pane = iota
+	paneBranch
+	paneCommits
+	paneReview
+	paneSlack
+)
+
+// paneCount is untyped on purpose: typed as pane, the exhaustive linter would
+// count it as a member and demand a case for it in every switch.
+const paneCount = 5
+
+// defaultWidth and defaultHeight stand in until the terminal reports its real
+// size, which Bubble Tea sends straight after start.
+const (
+	defaultWidth  = 100
+	defaultHeight = 30
+)
+
+// title names a pane. A lookup rather than a switch, because a switch over every
+// pane leaves a final arm that can never be false.
+func (p pane) title() string {
+	titles := [paneCount]string{"Issues", "Branch", "Commits", "Review", "Slack"}
+
+	return titles[p]
 }
 
-// New builds the stub screen for a configuration and the error, if any, from
+// label is the title with the number that jumps to it.
+func (p pane) label() string {
+	return strconv.Itoa(int(p)+1) + " " + p.title()
+}
+
+// Model satisfies tea.Model with value receivers, so the assertion uses a value
+// rather than a pointer — and every method on it stays a value receiver, which
+// recvcheck enforces.
+var _ tea.Model = Model{}
+
+// Model is the interface's state.
+type Model struct {
+	cfg      config.Config
+	loadErr  error
+	keys     keyMap
+	styles   styles
+	width    int
+	height   int
+	focus    pane
+	helpOpen bool
+	mouse    bool
+}
+
+// New builds the interface for a configuration and the error, if any, from
 // loading it.
 func New(cfg config.Config, loadErr error) Model {
-	return Model{cfg: cfg, loadErr: loadErr, styles: newStyles(), quit: false}
+	return Model{
+		cfg:      cfg,
+		loadErr:  loadErr,
+		keys:     newKeyMap(),
+		styles:   newStyles(),
+		width:    defaultWidth,
+		height:   defaultHeight,
+		focus:    paneIssues,
+		helpOpen: false,
+		mouse:    true,
+	}
 }
 
 // Run starts the interface and blocks until the user quits. The context cancels
 // the program, so a caller can shut the interface down.
 func Run(ctx context.Context, cfg config.Config, loadErr error, out io.Writer) error {
-	program := tea.NewProgram(New(cfg, loadErr), tea.WithOutput(out), tea.WithContext(ctx))
+	program := tea.NewProgram(New(cfg, loadErr),
+		tea.WithOutput(out),
+		tea.WithContext(ctx),
+		// The alternate screen keeps the session from scrolling the terminal,
+		// and gives the scrollback back untouched on exit.
+		tea.WithAltScreen(),
+		tea.WithMouseCellMotion(),
+	)
 
 	_, err := program.Run()
 	if err != nil {
@@ -71,39 +130,77 @@ func Run(ctx context.Context, cfg config.Config, loadErr error, out io.Writer) e
 	return nil
 }
 
-// Init implements tea.Model. The stub has nothing to start.
+// Init implements tea.Model. Nothing loads yet.
 func (m Model) Init() tea.Cmd {
 	return nil
 }
 
-// Update implements tea.Model: any of q, esc, or ctrl+c quits.
+// Update implements tea.Model.
 //
 //nolint:ireturn // tea.Model is the return type bubbletea's interface requires
 func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
-	keyMsg, ok := msg.(tea.KeyMsg)
-	if !ok {
+	switch msg := msg.(type) {
+	case tea.WindowSizeMsg:
+		m.width, m.height = msg.Width, msg.Height
+
 		return m, nil
-	}
-
-	switch keyMsg.String() {
-	case "q", "esc", "ctrl+c":
-		m.quit = true
-
-		return m, tea.Quit
+	case tea.KeyMsg:
+		return m.handleKey(msg)
+	case tea.MouseMsg:
+		return m.handleMouse(msg), nil
 	default:
 		return m, nil
 	}
 }
 
-// View implements tea.Model.
-func (m Model) View() string {
-	sections := []string{
-		m.styles.title.Render("workflow"),
-		m.status(),
-		m.styles.hint.Render("press q to quit"),
+// handleKey answers a key press.
+func (m Model) handleKey(msg tea.KeyMsg) (Model, tea.Cmd) {
+	switch {
+	case key.Matches(msg, m.keys.quit):
+		return m, tea.Quit
+	case key.Matches(msg, m.keys.toggleHelp):
+		m.helpOpen = !m.helpOpen
+	case key.Matches(msg, m.keys.closeOverlay):
+		m.helpOpen = false
+	case key.Matches(msg, m.keys.next):
+		m.focus = (m.focus + 1) % paneCount
+	case key.Matches(msg, m.keys.previous):
+		m.focus = (m.focus + paneCount - 1) % paneCount
+	case key.Matches(msg, m.keys.jump):
+		// The binding only matches the digits 1 through 5, so the digit is
+		// always a valid pane.
+		m.focus = pane(msg.String()[0] - '1')
+	case key.Matches(msg, m.keys.toggleMouse):
+		return m.toggleMouse()
 	}
 
-	return strings.Join(sections, "\n\n") + "\n"
+	return m, nil
+}
+
+// toggleMouse gives the terminal its own click-drag selection back, or takes it
+// again. Capture is on by default and breaks copying text out of the screen,
+// which is why this exists.
+func (m Model) toggleMouse() (Model, tea.Cmd) {
+	m.mouse = !m.mouse
+	if m.mouse {
+		return m, tea.EnableMouseCellMotion
+	}
+
+	return m, tea.DisableMouse
+}
+
+// handleMouse focuses the rail pane under a left click.
+func (m Model) handleMouse(msg tea.MouseMsg) Model {
+	if msg.Action != tea.MouseActionPress || msg.Button != tea.MouseButtonLeft {
+		return m
+	}
+
+	index, ok := layout.Compute(m.width, m.height, paneCount).RailAt(msg.X, msg.Y)
+	if ok {
+		m.focus = pane(index)
+	}
+
+	return m
 }
 
 // status describes the configuration this session is running with.

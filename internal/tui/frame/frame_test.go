@@ -1,0 +1,153 @@
+// Copyright 2026 Jacob Delgado
+// SPDX-License-Identifier: Apache-2.0
+
+package frame_test
+
+import (
+	"strings"
+	"testing"
+
+	"github.com/charmbracelet/lipgloss"
+
+	"github.com/jacob-delgado/workflow/internal/tui/frame"
+)
+
+// lines splits a rendered frame into its rows.
+func lines(rendered string) []string {
+	return strings.Split(rendered, "\n")
+}
+
+func TestRenderDrawsAnExactlySizedBox(t *testing.T) {
+	t.Parallel()
+
+	rendered := frame.Render("Issues", "PROJ-1 fix it", 20, 4, frame.Light)
+	rows := lines(rendered)
+
+	if len(rows) != 4 {
+		t.Fatalf("rendered %d rows, want 4:\n%s", len(rows), rendered)
+	}
+
+	// Every row is exactly the requested width, so boxes placed side by side
+	// line up without the caller measuring anything.
+	for index, row := range rows {
+		if width := lipgloss.Width(row); width != 20 {
+			t.Errorf("row %d is %d cells wide, want 20: %q", index, width, row)
+		}
+	}
+}
+
+func TestRenderPutsTheTitleInTheTopBorder(t *testing.T) {
+	t.Parallel()
+
+	rows := lines(frame.Render("Issues", "", 20, 3, frame.Light))
+
+	// The WHOLE line, not a prefix. A prefix check passed while the rest of the
+	// border was being filled with spaces instead of rule, which is what a
+	// rendered screen showed and no test did.
+	if rows[0] != "┌─ Issues ─────────┐" {
+		t.Errorf("top border = %q, want the title set into an unbroken rule", rows[0])
+	}
+}
+
+func TestRenderPadsContentAwayFromTheBorder(t *testing.T) {
+	t.Parallel()
+
+	rows := lines(frame.Render("x", "text", 12, 3, frame.Light))
+
+	if rows[1] != "│ text     │" {
+		t.Errorf("body row = %q, want one cell of padding inside each border", rows[1])
+	}
+}
+
+func TestRenderMarksTruncatedContent(t *testing.T) {
+	t.Parallel()
+
+	rows := lines(frame.Render("x", "https://jira.example.com/jira", 16, 3, frame.Light))
+
+	// Clipping silently mid-word reads as the whole value. An ellipsis says
+	// there was more.
+	if !strings.Contains(rows[1], "…") {
+		t.Errorf("clipped row = %q, want an ellipsis marking the cut", rows[1])
+	}
+}
+
+func TestRenderDistinguishesFocusByBorderWeight(t *testing.T) {
+	t.Parallel()
+
+	// Focus is carried by the SHAPE of the border, not by color, so it survives
+	// a monochrome terminal and a colorblind reader.
+	light := lines(frame.Render("Branch", "", 20, 3, frame.Light))
+	heavy := lines(frame.Render("Branch", "", 20, 3, frame.Heavy))
+
+	if !strings.HasPrefix(light[0], "┌") || !strings.HasPrefix(light[2], "└") {
+		t.Errorf("light frame corners = %q / %q", light[0], light[2])
+	}
+
+	if !strings.HasPrefix(heavy[0], "┏━ Branch ") || !strings.HasPrefix(heavy[2], "┗") {
+		t.Errorf("heavy frame = %q / %q, want heavy corners and rule", heavy[0], heavy[2])
+	}
+}
+
+func TestRenderTruncatesContentToFit(t *testing.T) {
+	t.Parallel()
+
+	long := "this line is far too long to fit inside a narrow box"
+	rows := lines(frame.Render("x", long, 16, 3, frame.Light))
+
+	if width := lipgloss.Width(rows[1]); width != 16 {
+		t.Errorf("an overlong row is %d cells wide, want it clipped to 16", width)
+	}
+}
+
+func TestRenderTruncatesAnOverlongTitle(t *testing.T) {
+	t.Parallel()
+
+	rows := lines(frame.Render("a title much longer than the box", "", 12, 3, frame.Light))
+
+	if width := lipgloss.Width(rows[0]); width != 12 {
+		t.Errorf("the top border is %d cells wide, want 12: %q", width, rows[0])
+	}
+}
+
+func TestRenderDropsRowsThatDoNotFit(t *testing.T) {
+	t.Parallel()
+
+	body := "one\ntwo\nthree\nfour"
+	rows := lines(frame.Render("x", body, 12, 4, frame.Light))
+
+	if len(rows) != 4 {
+		t.Fatalf("rendered %d rows, want exactly 4", len(rows))
+	}
+
+	if strings.Contains(strings.Join(rows, "\n"), "three") {
+		t.Error("a row beyond the box's height was drawn")
+	}
+}
+
+func TestRenderPadsShortContent(t *testing.T) {
+	t.Parallel()
+
+	rows := lines(frame.Render("x", "", 12, 5, frame.Light))
+
+	// Three empty body rows, each still bordered on both sides.
+	for _, row := range rows[1:4] {
+		if !strings.HasPrefix(row, "│") || !strings.HasSuffix(row, "│") {
+			t.Errorf("an empty body row lost its borders: %q", row)
+		}
+	}
+}
+
+func TestRenderOfABoxTooSmallToBorder(t *testing.T) {
+	t.Parallel()
+
+	// A terminal resized to almost nothing must not panic or overflow.
+	for _, size := range [][2]int{{0, 0}, {1, 5}, {5, 1}} {
+		rendered := frame.Render("x", "body", size[0], size[1], frame.Light)
+
+		for _, row := range lines(rendered) {
+			if width := lipgloss.Width(row); width > size[0] {
+				t.Errorf("a %dx%d box drew a row %d cells wide", size[0], size[1], width)
+			}
+		}
+	}
+}
