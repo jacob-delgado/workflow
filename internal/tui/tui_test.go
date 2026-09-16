@@ -21,7 +21,7 @@ var errUnreadable = errors.New("permission denied")
 func completeConfig() config.Config {
 	return config.Config{
 		Jira:  config.Jira{BaseURL: "https://jira.example.com", Token: "t", User: ""},
-		Slack: config.Slack{Token: "xoxb-t", Channel: "#dev"},
+		Slack: config.Slack{Token: "xoxb-t", WebhookURL: "", Channel: "#dev"},
 		Path:  "/home/example/.workflow.json",
 	}
 }
@@ -45,10 +45,11 @@ func TestViewNeverShowsAToken(t *testing.T) {
 	cfg := completeConfig()
 	cfg.Jira.Token = "jira-secret-1111"
 	cfg.Slack.Token = "xoxb-secret-2222"
+	cfg.Slack.WebhookURL = "https://hooks.slack.com/services/T0/B0/secret3333"
 
 	view := tui.New(cfg, nil).View()
 
-	for _, secret := range []string{cfg.Jira.Token, cfg.Slack.Token} {
+	for _, secret := range []string{cfg.Jira.Token, cfg.Slack.Token, cfg.Slack.WebhookURL} {
 		if strings.Contains(view, secret) {
 			t.Errorf("view leaked %q:\n%s", secret, view)
 		}
@@ -148,5 +149,44 @@ func keyMsg(key string) tea.KeyMsg {
 		return tea.KeyMsg{Type: tea.KeyCtrlC}
 	default:
 		return tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune(key)}
+	}
+}
+
+func TestViewAcceptsAWebhookWithoutAChannel(t *testing.T) {
+	t.Parallel()
+
+	cfg := completeConfig()
+	cfg.Slack.Token = ""
+	cfg.Slack.Channel = ""
+	cfg.Slack.WebhookURL = "https://hooks.slack.com/services/T0/B0/secretpayload"
+
+	view := tui.New(cfg, nil).View()
+
+	// A webhook carries its own channel, so this configuration is complete and
+	// the screen must not call it incomplete.
+	if strings.Contains(view, "incomplete") {
+		t.Errorf("view called a webhook-only configuration incomplete:\n%s", view)
+	}
+
+	if !strings.Contains(view, "incoming webhook") {
+		t.Errorf("view does not name the Slack transport:\n%s", view)
+	}
+
+	if strings.Contains(view, "hooks.slack.com") || strings.Contains(view, "secretpayload") {
+		t.Errorf("view leaked the webhook URL:\n%s", view)
+	}
+}
+
+func TestViewMarksAnUnsetJiraURL(t *testing.T) {
+	t.Parallel()
+
+	cfg := completeConfig()
+	cfg.Jira.BaseURL = ""
+
+	view := tui.New(cfg, nil).View()
+
+	// An empty value must read as a thing to do, not as a blank the eye skips.
+	if !strings.Contains(view, "(not set)") {
+		t.Errorf("view does not mark the unset Jira URL:\n%s", view)
 	}
 }

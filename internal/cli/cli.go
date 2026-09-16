@@ -44,7 +44,22 @@ JIRA TOKEN (on-premises / Data Center)
   which is what Data Center expects. Set jira.user only if your instance needs
   HTTP Basic authentication, in which case the token is used as the password.
 
-SLACK TOKEN
+SLACK — PICK ONE OF TWO
+
+  An incoming webhook is the two-minute option; a bot token is the capable one.
+  Set either. If you set both, the bot token is used.
+
+  Incoming webhook (simplest):
+
+  1. Go to https://api.slack.com/apps and create an app in your workspace.
+  2. Turn on Incoming Webhooks, then "Add New Webhook to Workspace" and pick
+     the channel it will post to.
+  3. Put the URL in ` + config.FileName + ` as slack.webhook_url.
+
+  The webhook is bound to the channel you picked, so slack.channel does not
+  apply. Treat the URL like a password: anyone holding it can post there.
+
+  Bot token (choose the channel at runtime, and post richer messages):
 
   1. Go to https://api.slack.com/apps and create an app in your workspace.
   2. Under OAuth & Permissions, add the chat:write bot token scope.
@@ -59,7 +74,8 @@ SECURITY
 
   ` + config.FileName + ` holds live credentials. "workflow config init" writes
   it readable only by you, it is listed in .gitignore, and "workflow config
-  show" masks both tokens.`
+  show" masks every one of them — including slack.webhook_url, which is a
+  credential in its own right rather than merely an address.`
 
 // Execute runs the command tree with the given arguments and streams. It
 // returns an error rather than exiting, so tests can drive it.

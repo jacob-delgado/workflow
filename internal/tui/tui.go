@@ -118,7 +118,8 @@ func (m Model) status() string {
 		label.Render("config ") + m.cfg.Path,
 		label.Render("jira   ") + describe(m.cfg.Jira.BaseURL) +
 			label.Render(" · "+m.cfg.Jira.AuthMode().String()),
-		label.Render("slack  ") + describe(m.cfg.Slack.Channel),
+		label.Render("slack  ") + m.cfg.Slack.Target() +
+			label.Render(" · "+m.cfg.Slack.Mode().String()),
 	}
 
 	missing := m.cfg.Missing()

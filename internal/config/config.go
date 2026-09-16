@@ -39,11 +39,18 @@ type Jira struct {
 	User string `json:"user"`
 }
 
-// Slack describes the Slack workspace and channel workflow posts to.
+// Slack describes how workflow posts to Slack. Either transport works: a bot
+// token can post anywhere it is invited and reports back what it posted, while
+// an incoming webhook needs no app scopes but is fixed to one channel.
 type Slack struct {
 	// Token is a bot token, which starts with "xoxb-".
 	Token string `json:"token"`
-	// Channel is the channel updates are posted to, e.g. "#dev-workflow".
+	// WebhookURL is an incoming webhook. It is a credential in its own right —
+	// anyone holding it can post to that channel — so it is masked wherever a
+	// token would be.
+	WebhookURL string `json:"webhook_url"`
+	// Channel is the channel updates are posted to, e.g. "#dev-workflow". It
+	// applies to the bot token only; a webhook carries its own channel.
 	Channel string `json:"channel"`
 }
 
@@ -78,6 +85,32 @@ func (a AuthMode) String() string {
 		return "bearer token"
 	case AuthBasic:
 		return "basic auth"
+	default:
+		return "unknown"
+	}
+}
+
+// SlackMode is the transport a message to Slack travels over.
+type SlackMode int
+
+const (
+	// SlackNone means no Slack credential is configured.
+	SlackNone SlackMode = iota
+	// SlackBot posts with a bot token, which needs a channel and an invitation.
+	SlackBot
+	// SlackWebhook posts to an incoming webhook, which carries its own channel.
+	SlackWebhook
+)
+
+// String names the transport for humans.
+func (s SlackMode) String() string {
+	switch s {
+	case SlackNone:
+		return "none"
+	case SlackBot:
+		return "bot token"
+	case SlackWebhook:
+		return "incoming webhook"
 	default:
 		return "unknown"
 	}
@@ -168,8 +201,9 @@ func Template() Config {
 			User:    "",
 		},
 		Slack: Slack{
-			Token:   "",
-			Channel: "#dev-workflow",
+			Token:      "",
+			WebhookURL: "",
+			Channel:    "#dev-workflow",
 		},
 		Path: "",
 	}
@@ -187,6 +221,61 @@ func (j Jira) AuthMode() AuthMode {
 	}
 }
 
+// Mode reports how this configuration posts to Slack. A bot token wins when
+// both are set: it is the more capable transport, and treating the overlap as
+// ambiguous would fail a configuration that works perfectly well.
+func (s Slack) Mode() SlackMode {
+	switch {
+	case s.Token != "":
+		return SlackBot
+	case s.WebhookURL != "":
+		return SlackWebhook
+	default:
+		return SlackNone
+	}
+}
+
+// Target describes where messages go, for display.
+//
+// It never returns the webhook URL. That URL is itself the credential, so even
+// a masked form has no business in output people are invited to paste into bug
+// reports.
+func (s Slack) Target() string {
+	switch s.Mode() {
+	case SlackBot:
+		if s.Channel == "" {
+			return "(no channel set)"
+		}
+
+		return s.Channel
+	case SlackWebhook:
+		return "the channel its webhook is bound to"
+	case SlackNone:
+		return "(not set)"
+	default:
+		return "(not set)"
+	}
+}
+
+// missing names the Slack fields still needed. The two transports are reported
+// as ONE entry, because either satisfies the requirement and naming both would
+// read as an instruction to set both.
+func (s Slack) missing() []string {
+	switch s.Mode() {
+	case SlackNone:
+		return []string{"slack.token or slack.webhook_url"}
+	case SlackBot:
+		if s.Channel == "" {
+			return []string{"slack.channel"}
+		}
+	case SlackWebhook:
+		// A webhook is bound to its channel when it is created, so asking for
+		// slack.channel as well would be asking for something with no effect.
+	}
+
+	return nil
+}
+
 // Missing names the configuration fields that are still empty, in the order a
 // person would fill them in. An empty result means the configuration is
 // complete.
@@ -201,15 +290,7 @@ func (c Config) Missing() []string {
 		missing = append(missing, "jira.token")
 	}
 
-	if c.Slack.Token == "" {
-		missing = append(missing, "slack.token")
-	}
-
-	if c.Slack.Channel == "" {
-		missing = append(missing, "slack.channel")
-	}
-
-	return missing
+	return append(missing, c.Slack.missing()...)
 }
 
 // Redacted returns a copy with every token masked, safe to print or log.
@@ -217,6 +298,7 @@ func (c Config) Redacted() Config {
 	redacted := c
 	redacted.Jira.Token = Redact(c.Jira.Token)
 	redacted.Slack.Token = Redact(c.Slack.Token)
+	redacted.Slack.WebhookURL = Redact(c.Slack.WebhookURL)
 
 	return redacted
 }

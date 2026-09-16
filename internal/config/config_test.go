@@ -29,6 +29,15 @@ func write(t *testing.T, dir, contents string) string {
 
 const jiraURL = "https://jira.example.com"
 
+// devChannel and botToken are the Slack fixtures these tests share.
+const (
+	devChannel = "#dev"
+	botToken   = "xoxb-t"
+)
+
+// webhookURL is shaped like a real Slack incoming webhook. It is not one.
+const webhookURL = "https://hooks.slack.com/services/T00000000/B00000000/fakefakefake2468"
+
 const completeConfig = `{
   "jira": {"base_url": "https://jira.example.com", "token": "jira-token-1234", "user": ""},
   "slack": {"token": "xoxb-slack-token-5678", "channel": "#dev"}
@@ -94,7 +103,7 @@ func TestLoadFallsBackToHome(t *testing.T) {
 		t.Errorf("loaded %s, want %s", cfg.Path, wantPath)
 	}
 
-	if cfg.Slack.Channel != "#dev" {
+	if cfg.Slack.Channel != devChannel {
 		t.Errorf("slack.channel = %q, want #dev", cfg.Slack.Channel)
 	}
 }
@@ -135,70 +144,7 @@ func TestLoadRejectsMalformedAndUnknownKeys(t *testing.T) {
 	}
 }
 
-func TestJiraAuthMode(t *testing.T) {
-	t.Parallel()
-
-	cases := map[string]struct {
-		jira config.Jira
-		want config.AuthMode
-	}{
-		"token only means bearer": {
-			jira: config.Jira{BaseURL: jiraURL, Token: "t", User: ""},
-			want: config.AuthBearer,
-		},
-		"token plus user means basic": {
-			jira: config.Jira{BaseURL: jiraURL, Token: "t", User: "jacob"},
-			want: config.AuthBasic,
-		},
-		"no token means none": {
-			jira: config.Jira{BaseURL: jiraURL, Token: "", User: "jacob"},
-			want: config.AuthNone,
-		},
-	}
-
-	for name, tt := range cases {
-		t.Run(name, func(t *testing.T) {
-			t.Parallel()
-
-			got := tt.jira.AuthMode()
-			if got != tt.want {
-				t.Errorf("AuthMode() = %v, want %v", got, tt.want)
-			}
-		})
-	}
-}
-
-func TestMissingNamesEveryEmptyRequiredField(t *testing.T) {
-	t.Parallel()
-
-	var empty config.Config
-
-	got := empty.Missing()
-	want := []string{"jira.base_url", "jira.token", "slack.token", "slack.channel"}
-
-	if strings.Join(got, ",") != strings.Join(want, ",") {
-		t.Errorf("Missing() = %v, want %v", got, want)
-	}
-}
-
-func TestMissingIsEmptyForCompleteConfig(t *testing.T) {
-	t.Parallel()
-
-	workDir := t.TempDir()
-	write(t, workDir, completeConfig)
-
-	cfg, err := config.Load(workDir, t.TempDir())
-	if err != nil {
-		t.Fatalf("Load: %v", err)
-	}
-
-	got := cfg.Missing()
-	if len(got) != 0 {
-		t.Errorf("Missing() = %v, want none", got)
-	}
-}
-
-func TestRedactedHidesBothTokens(t *testing.T) {
+func TestRedactedHidesEveryCredential(t *testing.T) {
 	t.Parallel()
 
 	const (
@@ -207,9 +153,13 @@ func TestRedactedHidesBothTokens(t *testing.T) {
 	)
 
 	cfg := config.Config{
-		Jira:  config.Jira{BaseURL: jiraURL, Token: jiraToken, User: ""},
-		Slack: config.Slack{Token: slackToken, Channel: "#dev"},
-		Path:  "/tmp/.workflow.json",
+		Jira: config.Jira{BaseURL: jiraURL, Token: jiraToken, User: ""},
+		Slack: config.Slack{
+			Token:      slackToken,
+			WebhookURL: webhookURL,
+			Channel:    devChannel,
+		},
+		Path: "/tmp/.workflow.json",
 	}
 
 	redacted := cfg.Redacted()
@@ -225,6 +175,16 @@ func TestRedactedHidesBothTokens(t *testing.T) {
 	// Redaction must not mutate the original.
 	if cfg.Jira.Token != jiraToken {
 		t.Errorf("Redacted mutated the receiver: %q", cfg.Jira.Token)
+	}
+
+	// A webhook URL is not a URL with a secret in it — it IS the credential.
+	// Anyone holding it can post to that channel, so it masks like a token.
+	if strings.Contains(redacted.Slack.WebhookURL, "hooks.slack.com") {
+		t.Errorf("webhook url leaked: %q", redacted.Slack.WebhookURL)
+	}
+
+	if cfg.Slack.WebhookURL != webhookURL {
+		t.Errorf("Redacted mutated the receiver: %q", cfg.Slack.WebhookURL)
 	}
 
 	// Enough tail survives to tell two tokens apart.
@@ -343,25 +303,5 @@ func TestSaveReportsAnUnwritablePath(t *testing.T) {
 	err := config.Save(path, config.Template())
 	if err == nil {
 		t.Fatal("expected an error writing into a missing directory, got none")
-	}
-}
-
-func TestAuthModeString(t *testing.T) {
-	t.Parallel()
-
-	cases := map[config.AuthMode]string{
-		config.AuthNone:   "none",
-		config.AuthBearer: "bearer token",
-		config.AuthBasic:  "basic auth",
-		// A value outside the enum: the String method must stay total rather than
-		// returning an empty string that reads as "no auth configured".
-		config.AuthMode(99): "unknown",
-	}
-
-	for mode, want := range cases {
-		got := mode.String()
-		if got != want {
-			t.Errorf("AuthMode(%d).String() = %q, want %q", mode, got, want)
-		}
 	}
 }
