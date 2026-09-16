@@ -213,7 +213,7 @@ func (m Model) status() string {
 
 	lines := []string{
 		label.Render("config ") + m.cfg.Path,
-		label.Render("jira   ") + describe(m.cfg.Jira.BaseURL) +
+		label.Render("jira   ") + describe(config.RedactURL(m.cfg.Jira.BaseURL)) +
 			label.Render(" · "+m.cfg.Jira.AuthMode().String()),
 		label.Render("slack  ") + m.cfg.Slack.Target() +
 			label.Render(" · "+m.cfg.Slack.Mode().String()),
