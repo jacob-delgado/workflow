@@ -31,11 +31,12 @@ build/             the build container
 | --- | --- |
 | `task --list` | every task, with descriptions |
 | `task build` | build `bin/workflow` |
-| `task run` | run the TUI from source |
+| `task run` | run from source; `task run -- doctor --online` passes arguments |
 | `task test` | tests with the race detector |
 | `task test:cover` | tests plus the coverage floor |
 | `task lint` | every linter (Go, shell, YAML, Dockerfile, Actions + security, Markdown, TOML, headers, spelling, file length) |
 | `task fmt` | format everything in place |
+| `task cloc` | count the source lines, and the Go test ratio (advisory) |
 | `task check` | **the full gate** — lint, tests + coverage, govulncheck, gitleaks |
 | `task container:check` | the same gate inside the build container |
 
