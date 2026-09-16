@@ -288,7 +288,7 @@ func reportRepository(ctx context.Context, out io.Writer) gitrepo.Repo {
 	field(out, "Repository", repo.Root)
 	field(out, "Branch", branchLabel(repo))
 	// A remote can carry a credential just as a base URL can.
-	field(out, "Remote", describe(config.RedactURL(repo.Remote)))
+	field(out, "Remote", config.DisplayURL(repo.Remote))
 	field(out, "Forge", forgeLabel(repo.Remote))
 
 	return repo
@@ -371,7 +371,7 @@ func reportConfiguration(out io.Writer, cfg config.Config, loadErr error) error 
 
 	field(out, "Configuration", cfg.Path)
 	field(out, "Jira", fmt.Sprintf("%s (%s)",
-		describe(config.RedactURL(cfg.Jira.BaseURL)), cfg.Jira.AuthMode()))
+		config.DisplayURL(cfg.Jira.BaseURL), cfg.Jira.AuthMode()))
 	// The target, never the credential: a webhook URL is itself the secret, and
 	// this output is what the bug report template invites people to paste.
 	field(out, "Slack", fmt.Sprintf("%s (%s)", cfg.Slack.Target(), cfg.Slack.Mode()))
@@ -412,13 +412,4 @@ func reportLoadError(out io.Writer, loadErr error) error {
 // field writes one aligned "Label: value" line.
 func field(out io.Writer, label, value string) {
 	fmt.Fprintf(out, "%-*s %s\n", labelWidth, label+":", value)
-}
-
-// describe renders an unset value as something a reader can act on.
-func describe(value string) string {
-	if value == "" {
-		return "(not set)"
-	}
-
-	return value
 }
