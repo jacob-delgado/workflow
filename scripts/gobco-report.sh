@@ -66,9 +66,25 @@ readonly UNANALYZABLE=""
 
 # gobco carries the go/types of the Go that built it (see above), so a gobco
 # built by an older Go silently shrinks what this gate covers. Refuse to run.
+# gobco_binary prints the path of the gobco EXECUTABLE. With mise's shims ahead
+# of its install directories on PATH — its recommended setup for editors and
+# other non-interactive shells — `command -v` finds a shim, a script that
+# `go version -m` cannot read, and the check below died on that instead of
+# checking anything. mise knows which binary the shim would run.
+gobco_binary() {
+  local found
+  found="$(command -v gobco)"
+
+  if [[ "${found}" == */mise/shims/* ]] && command -v mise >/dev/null 2>&1; then
+    found="$(mise which gobco)"
+  fi
+
+  printf '%s' "${found}"
+}
+
 require_current_gobco() {
   local gobco_path build_version go_version
-  gobco_path="$(command -v gobco)"
+  gobco_path="$(gobco_binary)"
   build_version="$(go version -m "${gobco_path}" | awk 'NR==1 {print $2}')"
   go_version="$(go env GOVERSION)"
 
