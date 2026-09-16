@@ -15,6 +15,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/jacob-delgado/workflow/internal/config"
+	"github.com/jacob-delgado/workflow/internal/forge"
 	"github.com/jacob-delgado/workflow/internal/gitrepo"
 	"github.com/jacob-delgado/workflow/internal/jira"
 	"github.com/jacob-delgado/workflow/internal/proc"
@@ -202,7 +203,31 @@ func reportRepository(ctx context.Context, out io.Writer) {
 
 	field(out, "Repository", repo.Root)
 	field(out, "Branch", branchLabel(repo))
-	field(out, "Remote", describe(repo.Remote))
+	// A remote can carry a credential just as a base URL can.
+	field(out, "Remote", describe(config.RedactURL(repo.Remote)))
+	field(out, "Forge", forgeLabel(repo.Remote))
+}
+
+// forgeLabel says which forge the remote points at, and where its API lives.
+func forgeLabel(remote string) string {
+	if remote == "" {
+		return "(no remote)"
+	}
+
+	repo, err := forge.ParseRemote(remote)
+	if err != nil {
+		return "(the remote does not name a repository)"
+	}
+
+	base, err := repo.APIBase()
+	if err != nil {
+		// A GitHub Enterprise Server and a self-managed GitLab are
+		// indistinguishable from the remote alone, and their API paths differ.
+		return fmt.Sprintf("%s on %s (cannot tell GitHub Enterprise from self-managed GitLab)",
+			repo.Path, repo.Host)
+	}
+
+	return fmt.Sprintf("%s %s at %s", repo.Kind, repo.Path, base)
 }
 
 // branchLabel names the checked-out branch, or says why there isn't one.
