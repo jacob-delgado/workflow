@@ -18,7 +18,16 @@ if [[ ! -s "${profile}" ]]; then
   exit 1
 fi
 
-total="$(go tool cover -func="${profile}" | awk '/^total:/ {sub(/%/, "", $3); print $3}')"
+# cmd/docsgen is a build-time developer tool that regenerates the command
+# reference: it is not shipped, and its own output is verified by
+# scripts/check-docs-drift.sh on every run — a stronger check than a unit test,
+# since it compares against the real command tree. Leaving it in the denominator
+# would measure the wrong thing and push toward tests that restate the generator.
+filtered="$(mktemp)"
+trap 'rm -f "${filtered}"' EXIT
+grep -v '/cmd/docsgen/' "${profile}" >"${filtered}"
+
+total="$(go tool cover -func="${filtered}" | awk '/^total:/ {sub(/%/, "", $3); print $3}')"
 if [[ -z "${total}" ]]; then
   echo "could not read a total from ${profile}" >&2
   exit 1

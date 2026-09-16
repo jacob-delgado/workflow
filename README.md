@@ -20,8 +20,28 @@ called. Expect the configuration format to change while that lands.
 
 ## Install
 
-The toolchain is pinned with [mise](https://mise.jdx.dev) and the build runner
-is [go-task](https://taskfile.dev):
+With Go:
+
+```sh
+go install github.com/jacob-delgado/workflow/cmd/workflow@latest
+```
+
+The binary lands in `$(go env GOPATH)/bin`, which needs to be on your `PATH`.
+For a reproducible install, name the version instead: `@v0.1.0`. Note that
+`@latest` resolves to the newest release tag, and until the first tag exists, to
+the most recent commit on `main`.
+
+From a [release](https://github.com/jacob-delgado/workflow/releases) — binaries
+are published for macOS, Linux, and Windows on amd64 and arm64, each with a
+checksum and a build provenance attestation:
+
+```sh
+sha256sum -c SHA256SUMS --ignore-missing
+gh attestation verify workflow_darwin_arm64 --repo jacob-delgado/workflow
+```
+
+From source, using [mise](https://mise.jdx.dev) for the pinned toolchain and
+[go-task](https://taskfile.dev) as the runner:
 
 ```sh
 git clone https://github.com/jacob-delgado/workflow.git
@@ -102,6 +122,13 @@ task check         # the full gate: lint, coverage floors, vuln, secrets
 `task check` is what CI runs. See [CONTRIBUTING.md](CONTRIBUTING.md) for the
 setup and conventions, and [CLAUDE.md](CLAUDE.md) for the code standards this
 project holds itself to.
+
+## Documentation
+
+Full documentation is at
+**[jacob-delgado.github.io/workflow](https://jacob-delgado.github.io/workflow/)**
+— install, configuration, and a command reference generated from the code. The
+source is in [`docs/`](docs/); `task docs:serve` previews it locally.
 
 ## Releases
 

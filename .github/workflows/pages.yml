@@ -1,0 +1,73 @@
+name: Pages
+
+# Builds the documentation site and publishes it to GitHub Pages at
+# https://jacob-delgado.github.io/workflow/.
+#
+# The build is `task docs:build` — the same command a developer runs locally.
+# That is deliberate: a workflow that reimplements the build grows its own
+# behavior, and the site then depends on who built it.
+#
+# ONE-TIME REPO SETUP: Settings → Pages → Build and deployment → Source =
+# "GitHub Actions". Without it, deploy-pages fails with "Get Pages site failed".
+
+on:
+  push:
+    branches: [main]
+    # Skip the deploy when a push cannot change the site. The reference pages
+    # are generated from the command tree, so the CLI source counts as input.
+    paths:
+      - "docs/**"
+      - "internal/cli/**"
+      - "cmd/docsgen/**"
+      - "mise.toml"
+      - "Taskfile.yml"
+      - ".github/workflows/pages.yml"
+  # A release republishes the site, so the published docs describe the version
+  # people just got. This is a `release` trigger rather than `push: tags`,
+  # because a single push trigger requires BOTH its tag filter and its path
+  # filter to match — a release tag whose commit touched no docs would never
+  # deploy at all.
+  release:
+    types: [published]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# One deploy at a time, and never cancel one in flight: cancelling mid-publish
+# can leave the live site half-updated.
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: Build and deploy
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: jdx/mise-action@c2a87611a18de5b3828c5652fe268e992400cb5c # v4.3.0
+
+      # Fails if the committed command reference disagrees with the command
+      # tree, so the site can never publish documentation for flags that no
+      # longer exist.
+      - name: Check the generated reference is current
+        run: task docs:check
+
+      - name: Build the site
+        run: task docs:build
+
+      - uses: actions/configure-pages@45bfe0192ca1faeb007ade9deae92b16b8254a0d # v6.0.0
+      - uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5.0.0
+        with:
+          path: docs/public
+      - id: deployment
+        uses: actions/deploy-pages@368f82528645a54fb793d4d04e342629a3f51346 # v5.0.1
