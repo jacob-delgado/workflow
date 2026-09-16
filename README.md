@@ -91,6 +91,9 @@ workflow doctor           # says what is still missing
     "token": "",
     "webhook_url": "",
     "channel": "#dev-workflow"
+  },
+  "forge": {
+    "token": ""
   }
 }
 ```

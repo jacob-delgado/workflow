@@ -103,7 +103,7 @@ func newDoctorCmd() *cobra.Command {
 // a problem: someone running doctor wants the whole picture, not the first thing
 // that went wrong.
 func runDoctor(ctx context.Context, out io.Writer, cfg config.Config, loadErr error, online bool) error {
-	reportRepository(ctx, out)
+	repo := reportRepository(ctx, out)
 	fmt.Fprintln(out)
 
 	toolingErr := reportTooling(out)
@@ -114,7 +114,7 @@ func runDoctor(ctx context.Context, out io.Writer, cfg config.Config, loadErr er
 		return errors.Join(toolingErr, configErr)
 	}
 
-	return errors.Join(toolingErr, configErr, reportCredentials(ctx, out, cfg, online))
+	return errors.Join(toolingErr, configErr, reportCredentials(ctx, out, cfg, repo.Remote, online))
 }
 
 // reportCredentials asks each service whether its credential works.
@@ -122,7 +122,7 @@ func runDoctor(ctx context.Context, out io.Writer, cfg config.Config, loadErr er
 // Offline unless asked, because doctor is otherwise fast, hermetic and safe to
 // run on a machine behind a proxy or on a plane — and because its output is
 // what the bug report template invites people to paste.
-func reportCredentials(ctx context.Context, out io.Writer, cfg config.Config, online bool) error {
+func reportCredentials(ctx context.Context, out io.Writer, cfg config.Config, remote string, online bool) error {
 	if !online {
 		fmt.Fprintf(out, "\nCredentials were not checked. Add --online to ask each service.\n")
 
@@ -131,7 +131,53 @@ func reportCredentials(ctx context.Context, out io.Writer, cfg config.Config, on
 
 	fmt.Fprintf(out, "\nCredentials:\n")
 
-	return errors.Join(checkJira(ctx, out, cfg.Jira), checkSlack(ctx, out, cfg.Slack))
+	return errors.Join(
+		checkJira(ctx, out, cfg.Jira),
+		checkSlack(ctx, out, cfg.Slack),
+		checkForge(ctx, out, cfg.Forge, remote),
+	)
+}
+
+// forgeRepo reads the remote, reporting whether there is a forge to ask about at
+// all. A repository with no remote — or one whose remote names no project — is
+// not a problem for doctor to fail on, which is why this answers with a bool
+// rather than an error nobody acts on.
+func forgeRepo(remote string) (forge.Repo, bool) {
+	repo, err := forge.ParseRemote(remote)
+
+	return repo, err == nil
+}
+
+// checkForge says where the forge credential comes from.
+//
+// It reports the SOURCE rather than the token, and does not call the forge:
+// knowing which of three places a credential was taken from is what answers
+// "why is it using that one?", and it costs no network round trip.
+func checkForge(ctx context.Context, out io.Writer, settings config.Forge, remote string) error {
+	repo, ok := forgeRepo(remote)
+	if !ok {
+		fmt.Fprintf(out, "  %-10s no repository remote, so there is no forge to ask\n", "forge")
+
+		return nil
+	}
+
+	resolver := forge.Resolver{
+		Getenv:     os.Getenv,
+		Look:       proc.LookPath,
+		Run:        proc.Run,
+		Configured: forge.Token(settings.Token),
+	}
+
+	_, source, err := resolver.Resolve(ctx, repo.Kind, repo.Host)
+	if err != nil {
+		fmt.Fprintf(out, "  %-10s none — set $GITHUB_TOKEN, run `gh auth login`, or set forge.token\n", "forge")
+
+		return fmt.Errorf("%w: forge", errCredentialRejected)
+	}
+
+	fmt.Fprintf(out, "  %-10s token from %s\n", "forge", source)
+
+	return nil
 }
 
 // checkSlack asks Slack which workspace the bot token belongs to.
@@ -186,19 +232,19 @@ func identify(user jira.User) string {
 // reportRepository describes the git repository the working directory is in. A
 // directory outside any work tree is reported rather than returned as an error:
 // `workflow doctor` is exactly what someone runs to find that out.
-func reportRepository(ctx context.Context, out io.Writer) {
+func reportRepository(ctx context.Context, out io.Writer) gitrepo.Repo {
 	dir, err := os.Getwd()
 	if err != nil {
 		field(out, "Repository", fmt.Sprintf("(cannot read the working directory: %v)", err))
 
-		return
+		return gitrepo.Repo{}
 	}
 
 	repo, err := gitrepo.Describe(ctx, proc.Run, dir)
 	if err != nil {
 		field(out, "Repository", fmt.Sprintf("(none — %s is not in a git work tree)", dir))
 
-		return
+		return gitrepo.Repo{}
 	}
 
 	field(out, "Repository", repo.Root)
@@ -206,6 +252,8 @@ func reportRepository(ctx context.Context, out io.Writer) {
 	// A remote can carry a credential just as a base URL can.
 	field(out, "Remote", describe(config.RedactURL(repo.Remote)))
 	field(out, "Forge", forgeLabel(repo.Remote))
+
+	return repo
 }
 
 // forgeLabel says which forge the remote points at, and where its API lives.

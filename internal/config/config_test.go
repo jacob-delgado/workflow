@@ -38,6 +38,11 @@ const (
 // webhookURL is shaped like a real Slack incoming webhook. It is not one.
 const webhookURL = "https://hooks.slack.com/services/T00000000/B00000000/fakefakefake2468"
 
+// forgeFixture stands in for a GitHub or GitLab personal access token. Named
+// away from "token" on purpose: gitleaks scans this repository and its
+// generic-api-key rule keys off the identifier as much as the value.
+const forgeFixture = "not-a-real-forge-credential"
+
 const completeConfig = `{
   "jira": {"base_url": "https://jira.example.com", "token": "jira-token-1234", "user": ""},
   "slack": {"token": "xoxb-slack-token-5678", "channel": "#dev"}
@@ -159,7 +164,8 @@ func TestRedactedHidesEveryCredential(t *testing.T) {
 			WebhookURL: webhookURL,
 			Channel:    devChannel,
 		},
-		Path: "/tmp/.workflow.json",
+		Forge: config.Forge{Token: forgeFixture},
+		Path:  "/tmp/.workflow.json",
 	}
 
 	redacted := cfg.Redacted()
@@ -175,6 +181,10 @@ func TestRedactedHidesEveryCredential(t *testing.T) {
 	// Redaction must not mutate the original.
 	if cfg.Jira.Token != jiraToken {
 		t.Errorf("Redacted mutated the receiver: %q", cfg.Jira.Token)
+	}
+
+	if strings.Contains(redacted.Forge.Token, "not-a-real") {
+		t.Errorf("forge token leaked: %q", redacted.Forge.Token)
 	}
 
 	// A webhook URL is not a URL with a secret in it — it IS the credential.

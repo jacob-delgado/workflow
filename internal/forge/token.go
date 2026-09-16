@@ -1,0 +1,171 @@
+// Copyright 2026 Jacob Delgado
+// SPDX-License-Identifier: Apache-2.0
+
+package forge
+
+import (
+	"context"
+	"errors"
+	"strings"
+)
+
+// ErrNoToken reports that no source supplied a credential.
+var ErrNoToken = errors.New("no forge token found")
+
+// masked is what a Token renders as. It is deliberately not the real value, and
+// not a prefix of it.
+const masked = "****"
+
+// Token is a forge credential.
+//
+// It is a named type with a String method rather than a bare string, and that
+// is a guard rather than a decoration: every formatting verb — %v, %s, %q, and a
+// Token nested inside any struct printed with %+v — goes through String and
+// yields the mask. Reading the real value takes an explicit Secret call, which
+// is easy to find in review and impossible to do by accident.
+type Token string
+
+// String masks the token.
+func (t Token) String() string {
+	if t == "" {
+		return ""
+	}
+
+	return masked
+}
+
+// Secret returns the real value. Call it only where the credential is being
+// sent, never where it might be printed.
+func (t Token) Secret() string {
+	return string(t)
+}
+
+// Source is where a token came from, for reporting.
+type Source int
+
+const (
+	// SourceNone means nothing supplied one.
+	SourceNone Source = iota
+	// SourceEnvironment is an environment variable.
+	SourceEnvironment
+	// SourceCLI is the forge's own command line tool.
+	SourceCLI
+	// SourceConfiguration is forge.token in the configuration file.
+	SourceConfiguration
+)
+
+// String names the source for humans.
+func (s Source) String() string {
+	switch s {
+	case SourceNone:
+		return "none"
+	case SourceEnvironment:
+		return "the environment"
+	case SourceCLI:
+		return "the forge CLI"
+	case SourceConfiguration:
+		return "forge.token"
+	default:
+		return unknownLabel
+	}
+}
+
+// Look reports where a program is, or an error if it is not on PATH.
+// exec.LookPath satisfies it.
+type Look func(name string) (string, error)
+
+// Run executes a program and returns its standard output. proc.Run satisfies it.
+type Run func(ctx context.Context, name string, args ...string) ([]byte, error)
+
+// Resolver finds a forge credential. Every source it consults is a field, so
+// its tests never read the real environment or spawn anything.
+type Resolver struct {
+	// Getenv reads an environment variable. os.Getenv satisfies it.
+	Getenv func(string) string
+	// Look and Run reach the forge's own command line tool, if it is installed.
+	Look Look
+	Run  Run
+	// Configured is forge.token from the configuration file, consulted last.
+	Configured Token
+}
+
+// Resolve finds the credential for a forge, and says where it came from.
+//
+// The order is deliberate. An environment variable is the most explicit thing a
+// person can do and wins; the forge's own CLI is next, so anyone already signed
+// in with it needs no configuration at all; forge.token comes last, because
+// storing a credential we do not have to store is the option worth avoiding.
+func (r Resolver) Resolve(ctx context.Context, kind Kind, host string) (Token, Source, error) {
+	for _, name := range environmentNames(kind) {
+		value := r.Getenv(name)
+		if value != "" {
+			return Token(value), SourceEnvironment, nil
+		}
+	}
+
+	token, ok := r.fromCLI(ctx, kind, host)
+	if ok {
+		return token, SourceCLI, nil
+	}
+
+	if r.Configured != "" {
+		return r.Configured, SourceConfiguration, nil
+	}
+
+	return "", SourceNone, ErrNoToken
+}
+
+// fromCLI asks the forge's own tool. Any failure is a miss rather than an
+// error: the tool exits non-zero when it simply holds no credential for the
+// host, which is not a problem, only a reason to try the next source.
+func (r Resolver) fromCLI(ctx context.Context, kind Kind, host string) (Token, bool) {
+	program, args, ok := cliCommand(kind, host)
+	if !ok {
+		return "", false
+	}
+
+	_, err := r.Look(program)
+	if err != nil {
+		return "", false
+	}
+
+	output, err := r.Run(ctx, program, args...)
+	if err != nil {
+		return "", false
+	}
+
+	token := strings.TrimSpace(string(output))
+	if token == "" {
+		return "", false
+	}
+
+	return Token(token), true
+}
+
+// environmentNames lists the variables that may hold a token, in order.
+func environmentNames(kind Kind) []string {
+	switch kind {
+	case KindGitHub:
+		return []string{"GITHUB_TOKEN", "GH_TOKEN"}
+	case KindGitLab:
+		return []string{"GITLAB_TOKEN", "GLAB_TOKEN"}
+	case KindUnknown:
+		return nil
+	default:
+		return nil
+	}
+}
+
+// cliCommand is how to ask a forge's own tool for the token.
+//
+// GitHub only. `gh auth token` prints the credential on standard output and
+// nothing else, which is a contract worth relying on. glab has no equivalent:
+// it reports its token through `auth status`, whose output is prose on standard
+// error, and parsing prose is not something to put a credential behind.
+func cliCommand(kind Kind, host string) (string, []string, bool) {
+	if kind != KindGitHub {
+		return "", nil, false
+	}
+
+	return "gh", []string{"auth", "token", "--hostname", host}, true
+}

@@ -19,6 +19,10 @@ var (
 	ErrUnknownForge = errors.New("cannot tell which forge this host is")
 )
 
+// unknownLabel is what every enum in this package renders as when it holds a
+// value outside the set it declares.
+const unknownLabel = "unknown"
+
 // Kind is which forge a repository lives on.
 type Kind int
 
@@ -36,13 +40,13 @@ const (
 func (k Kind) String() string {
 	switch k {
 	case KindUnknown:
-		return "unknown"
+		return unknownLabel
 	case KindGitHub:
 		return "GitHub"
 	case KindGitLab:
 		return "GitLab"
 	default:
-		return "unknown"
+		return unknownLabel
 	}
 }
 

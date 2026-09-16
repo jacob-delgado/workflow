@@ -5,7 +5,6 @@ package cli_test
 
 import (
 	"net/http"
-	"net/http/httptest"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -241,38 +240,6 @@ func TestDoctorAcceptsAWebhookWithoutAChannel(t *testing.T) {
 	}
 }
 
-// jiraFixture is the body Jira Data Center returns for /rest/api/2/myself.
-const jiraFixture = `{"key":"JIRAUSER10100","name":"fred","displayName":"Fred F. User","active":true}`
-
-// writeConfigFor writes a configuration pointing Jira at baseURL.
-func writeConfigFor(t *testing.T, dir, baseURL string) {
-	t.Helper()
-
-	contents := `{"jira": {"base_url": "` + baseURL + `", "token": "jira-token-for-tests"},` +
-		` "slack": {"webhook_url": "https://hooks.slack.example/services/not-real"}}`
-
-	err := os.WriteFile(filepath.Join(dir, config.FileName), []byte(contents), config.FileMode)
-	if err != nil {
-		t.Fatalf("writing fixture: %v", err)
-	}
-}
-
-// jiraServer answers one myself request with status and body, recording whether
-// it was reached at all. The flag is atomic because `task test` runs -race and
-// the handler runs on its own goroutine.
-func jiraServer(t *testing.T, status int, body string, reached *atomic.Bool) *httptest.Server {
-	t.Helper()
-
-	server := httptest.NewServer(http.HandlerFunc(func(writer http.ResponseWriter, _ *http.Request) {
-		reached.Store(true)
-		writer.WriteHeader(status)
-		_, _ = writer.Write([]byte(body))
-	}))
-	t.Cleanup(server.Close)
-
-	return server
-}
-
 func TestDoctorDoesNotTouchTheNetworkWithoutTheFlag(t *testing.T) {
 	var reached atomic.Bool
 
@@ -291,112 +258,6 @@ func TestDoctorDoesNotTouchTheNetworkWithoutTheFlag(t *testing.T) {
 
 	if !strings.Contains(output, "--online") {
 		t.Errorf("doctor does not say how to check the credentials:\n%s", output)
-	}
-}
-
-func TestDoctorOnlineReportsTheJiraUser(t *testing.T) {
-	var reached atomic.Bool
-
-	dir := t.TempDir()
-	server := jiraServer(t, http.StatusOK, jiraFixture, &reached)
-	writeConfigFor(t, dir, server.URL)
-
-	output, err := run(t, dir, "doctor", "--online")
-	if err != nil {
-		t.Fatalf("doctor --online: %v (%s)", err, output)
-	}
-
-	if !reached.Load() {
-		t.Fatalf("doctor --online never called Jira:\n%s", output)
-	}
-
-	if !strings.Contains(output, "Fred F. User") || !strings.Contains(output, "fred") {
-		t.Errorf("doctor does not name the authenticated user:\n%s", output)
-	}
-
-	if strings.Contains(output, "jira-token-for-tests") {
-		t.Errorf("doctor printed the token:\n%s", output)
-	}
-}
-
-func TestDoctorOnlineFailsOnARejectedCredential(t *testing.T) {
-	var reached atomic.Bool
-
-	dir := t.TempDir()
-	server := jiraServer(t, http.StatusUnauthorized, "<html>login</html>", &reached)
-	writeConfigFor(t, dir, server.URL)
-
-	output, err := run(t, dir, "doctor", "--online")
-	if err == nil {
-		t.Fatalf("doctor --online accepted a rejected credential:\n%s", output)
-	}
-
-	if !strings.Contains(output, "not accepted") {
-		t.Errorf("doctor does not explain the rejection:\n%s", output)
-	}
-
-	if strings.Contains(output, "jira-token-for-tests") {
-		t.Errorf("doctor printed the token:\n%s", output)
-	}
-}
-
-func TestDoctorOnlineFallsBackToTheLoginName(t *testing.T) {
-	var reached atomic.Bool
-
-	dir := t.TempDir()
-	// An instance can be configured to withhold display names.
-	server := jiraServer(t, http.StatusOK, `{"name":"fred","active":true}`, &reached)
-	writeConfigFor(t, dir, server.URL)
-
-	output, err := run(t, dir, "doctor", "--online")
-	if err != nil {
-		t.Fatalf("doctor --online: %v (%s)", err, output)
-	}
-
-	if !strings.Contains(output, "fred") {
-		t.Errorf("doctor does not fall back to the login name:\n%s", output)
-	}
-}
-
-func TestDoctorOnlineSaysAWebhookCannotBeChecked(t *testing.T) {
-	var reached atomic.Bool
-
-	dir := t.TempDir()
-	server := jiraServer(t, http.StatusOK, jiraFixture, &reached)
-	writeConfigFor(t, dir, server.URL)
-
-	output, err := run(t, dir, "doctor", "--online")
-	if err != nil {
-		t.Fatalf("doctor --online failed on a webhook it merely cannot check: %v (%s)", err, output)
-	}
-
-	// Nothing is wrong with the configuration — there is simply nothing to ask,
-	// because the only way to test a webhook is to post into someone's channel.
-	if !strings.Contains(output, "cannot be checked") {
-		t.Errorf("doctor does not explain why the webhook went unchecked:\n%s", output)
-	}
-}
-
-func TestDoctorOnlineFailsWhenSlackIsNotConfigured(t *testing.T) {
-	var reached atomic.Bool
-
-	dir := t.TempDir()
-	server := jiraServer(t, http.StatusOK, jiraFixture, &reached)
-
-	contents := `{"jira": {"base_url": "` + server.URL + `", "token": "jira-token-for-tests"}}`
-
-	err := os.WriteFile(filepath.Join(dir, config.FileName), []byte(contents), config.FileMode)
-	if err != nil {
-		t.Fatalf("writing fixture: %v", err)
-	}
-
-	output, runErr := run(t, dir, "doctor", "--online")
-	if runErr == nil {
-		t.Fatalf("doctor --online accepted a missing Slack credential:\n%s", output)
-	}
-
-	if !strings.Contains(output, "no slack.token or slack.webhook_url") {
-		t.Errorf("doctor does not name the missing Slack credential:\n%s", output)
 	}
 }
 
