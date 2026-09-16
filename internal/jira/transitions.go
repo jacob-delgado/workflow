@@ -20,6 +20,8 @@ type Transition struct {
 	Name             string
 	ToStatus         string
 	ToStatusCategory string
+	// Fields are those Jira will refuse this transition without.
+	Fields []Field
 }
 
 // transitionsAnswer is the wire shape, decoded and then flattened.
@@ -33,22 +35,23 @@ type transitionsAnswer struct {
 				Key string `json:"key"`
 			} `json:"statusCategory"` //nolint:tagliatelle // Jira's field name on the wire, not ours to pick
 		} `json:"to"`
+		Fields map[string]wireField `json:"fields"`
 	} `json:"transitions"`
 }
 
 // transitionRequest is the body that applies a transition.
 type transitionRequest struct {
-	Transition transitionID `json:"transition"`
-}
-
-// transitionID names a transition on the wire.
-type transitionID struct {
-	ID string `json:"id"`
+	Transition reference      `json:"transition"`
+	Fields     map[string]any `json:"fields,omitempty"`
 }
 
 // Transitions lists the moves the credential may make on an issue right now.
 func (c Client) Transitions(ctx context.Context, issueKey string) ([]Transition, error) {
-	request, err := c.newRequest(ctx, http.MethodGet, transitionsPath(issueKey), nil)
+	// The fields are expanded so a transition that needs a resolution, say, can
+	// ask for one — rather than being sent without it and refused.
+	query := url.Values{"expand": {"transitions.fields"}}.Encode()
+
+	request, err := c.newRequest(ctx, http.MethodGet, transitionsPath(issueKey)+"?"+query, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -68,9 +71,10 @@ func (c Client) Transitions(ctx context.Context, issueKey string) ([]Transition,
 	return answer.result(), nil
 }
 
-// ApplyTransition moves an issue through a transition Transitions offered.
-func (c Client) ApplyTransition(ctx context.Context, issueKey string, to Transition) error {
-	payload, err := json.Marshal(transitionRequest{Transition: transitionID{ID: to.ID}})
+// ApplyTransition moves an issue through a transition Transitions offered, with
+// a value for each field it needs.
+func (c Client) ApplyTransition(ctx context.Context, issueKey string, to Transition, values []FieldValue) error {
+	payload, err := json.Marshal(transitionRequest{Transition: reference{ID: to.ID}, Fields: fieldsPayload(values)})
 	if err != nil {
 		return fmt.Errorf("encoding the transition: %w", err)
 	}
@@ -88,10 +92,9 @@ func (c Client) ApplyTransition(ctx context.Context, issueKey string, to Transit
 	return err
 }
 
-// transitionsPath is where an issue's transitions live. The key is escaped
-// because it is text a server supplied: it must stay one path segment.
+// transitionsPath is where an issue's transitions live.
 func transitionsPath(issueKey string) string {
-	return "/rest/api/2/issue/" + url.PathEscape(issueKey) + "/transitions"
+	return issuePath(issueKey) + "/transitions"
 }
 
 // result flattens the wire shape.
@@ -104,6 +107,7 @@ func (a transitionsAnswer) result() []Transition {
 			Name:             wire.Name,
 			ToStatus:         wire.To.Name,
 			ToStatusCategory: wire.To.Category.Key,
+			Fields:           requiredFields(wire.Fields),
 		})
 	}
 

@@ -24,6 +24,13 @@ const token = "jira-token-for-tests"
 const myselfBody = `{"self":"https://jira.example.com/rest/api/2/user?username=fred",` +
 	`"key":"JIRAUSER10100","name":"fred","displayName":"Fred F. User","active":true}`
 
+// inProgress is the status most fixtures put an issue in, and indeterminate the
+// category Jira files it under.
+const (
+	inProgress    = "In Progress"
+	indeterminate = "indeterminate"
+)
+
 // jsonMediaType is what Jira's answers are, and what its requests say they want.
 const jsonMediaType = "application/json"
 

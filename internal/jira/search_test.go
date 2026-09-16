@@ -48,7 +48,7 @@ func TestSearchReadsTheIssuesAndTheTotal(t *testing.T) {
 	}
 
 	want := []jira.Issue{
-		{Key: "OPS-1", Summary: "Fix login", Status: "In Progress", StatusCategory: "indeterminate"},
+		{Key: "OPS-1", Summary: "Fix login", Status: inProgress, StatusCategory: indeterminate},
 		{Key: "OPS-2", Summary: "Rotate keys", Status: "To Do", StatusCategory: "new"},
 	}
 
@@ -89,7 +89,7 @@ func TestSearchAsksForOnlyWhatTheListShows(t *testing.T) {
 		t.Errorf("jql = %q, want %q", values.Get("jql"), jira.AssignedToMe)
 	}
 
-	if values.Get("fields") != "summary,status" {
+	if values.Get("fields") != "summary,status,issuetype,priority" {
 		t.Errorf("fields = %q, want only what a row and the detail display", values.Get("fields"))
 	}
 

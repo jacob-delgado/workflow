@@ -25,9 +25,9 @@ const AssignedToMe = "assignee = currentUser() AND statusCategory != done ORDER 
 // 2025; Data Center still serves this one and answers 404 to the other.
 const searchPath = "/rest/api/2/search"
 
-// searchFields is everything a row and the detail pane display, and nothing
-// else. Each field requested is a field that can be null or renamed.
-const searchFields = "summary,status"
+// searchFields is everything a row shows, and what naming a branch for the issue
+// needs, and nothing else. Each field requested is a field that can be null.
+const searchFields = "summary,status,issuetype,priority"
 
 // searchLimit caps the list. A working list does not need paging, and the server
 // silently caps it at 1000 anyway; Total says how many there were.
@@ -39,6 +39,11 @@ type Issue struct {
 	Summary        string
 	Status         string
 	StatusCategory string
+	// Type is the issue type's name, such as Bug or Story.
+	Type string
+	// Priority is the priority's name, or empty on an instance that has turned
+	// priorities off — Jira then sends null.
+	Priority string
 }
 
 // SearchResult is a page of issues and how many matched in all.
@@ -49,19 +54,44 @@ type SearchResult struct {
 
 // searchAnswer is the wire shape, decoded and then flattened into Issues.
 type searchAnswer struct {
-	Total  int `json:"total"`
-	Issues []struct {
-		Key    string `json:"key"`
-		Fields struct {
-			Summary string `json:"summary"`
-			Status  struct {
-				Name     string `json:"name"`
-				Category struct {
-					Key string `json:"key"`
-				} `json:"statusCategory"` //nolint:tagliatelle // Jira's field name on the wire, not ours to pick
-			} `json:"status"`
-		} `json:"fields"`
-	} `json:"issues"`
+	Total  int         `json:"total"`
+	Issues []wireIssue `json:"issues"`
+}
+
+// named is anything Jira describes by name: an issue type, a priority.
+type named struct {
+	Name string `json:"name"`
+}
+
+// wireIssue is an issue as Jira sends it, in a search or on its own.
+type wireIssue struct {
+	Key    string `json:"key"`
+	Fields struct {
+		Summary string `json:"summary"`
+		Status  struct {
+			Name     string `json:"name"`
+			Category struct {
+				Key string `json:"key"`
+			} `json:"statusCategory"` //nolint:tagliatelle // Jira's field name on the wire, not ours to pick
+		} `json:"status"`
+		Type        named        `json:"issuetype"`
+		Priority    named        `json:"priority"`
+		Description string       `json:"description"`
+		Reporter    person       `json:"reporter"`
+		Comment     wireComments `json:"comment"`
+	} `json:"fields"`
+}
+
+// issue flattens the parts of a wire issue every row carries.
+func (w wireIssue) issue() Issue {
+	return Issue{
+		Key:            w.Key,
+		Summary:        w.Fields.Summary,
+		Status:         w.Fields.Status.Name,
+		StatusCategory: w.Fields.Status.Category.Key,
+		Type:           w.Fields.Type.Name,
+		Priority:       w.Fields.Priority.Name,
+	}
 }
 
 // Search runs a JQL query.
@@ -113,12 +143,7 @@ func (a searchAnswer) result() SearchResult {
 	issues := make([]Issue, 0, len(a.Issues))
 
 	for _, wire := range a.Issues {
-		issues = append(issues, Issue{
-			Key:            wire.Key,
-			Summary:        wire.Fields.Summary,
-			Status:         wire.Fields.Status.Name,
-			StatusCategory: wire.Fields.Status.Category.Key,
-		})
+		issues = append(issues, wire.issue())
 	}
 
 	return SearchResult{Issues: issues, Total: a.Total}

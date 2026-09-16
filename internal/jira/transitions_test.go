@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"errors"
 	"net/http"
+	"slices"
 	"strings"
 	"sync/atomic"
 	"testing"
@@ -23,7 +24,15 @@ const transitionsBody = `{"expand":"transitions","transitions":[` +
 
 // startProgress is the first transition in transitionsBody.
 func startProgress() jira.Transition {
-	return jira.Transition{ID: "21", Name: "Start Progress", ToStatus: "In Progress", ToStatusCategory: "indeterminate"}
+	return jira.Transition{
+		ID: "21", Name: "Start Progress", ToStatus: inProgress, ToStatusCategory: indeterminate, Fields: nil,
+	}
+}
+
+// sameTransition compares two transitions, fields included.
+func sameTransition(got, want jira.Transition) bool {
+	return got.ID == want.ID && got.Name == want.Name && got.ToStatus == want.ToStatus &&
+		got.ToStatusCategory == want.ToStatusCategory && slices.EqualFunc(got.Fields, want.Fields, equalFields)
 }
 
 // offline is a transport that fails every request, and records whether one was
@@ -53,7 +62,7 @@ func TestTransitionsListsWhatJiraOffers(t *testing.T) {
 
 	want := []jira.Transition{
 		startProgress(),
-		{ID: "31", Name: "Done", ToStatus: "Done", ToStatusCategory: "done"},
+		{ID: "31", Name: "Done", ToStatus: "Done", ToStatusCategory: "done", Fields: nil},
 	}
 
 	if len(found) != len(want) {
@@ -61,7 +70,7 @@ func TestTransitionsListsWhatJiraOffers(t *testing.T) {
 	}
 
 	for index, transition := range want {
-		if found[index] != transition {
+		if !sameTransition(found[index], transition) {
 			t.Errorf("transition %d = %+v, want %+v", index, found[index], transition)
 		}
 	}
@@ -181,7 +190,7 @@ func TestApplyTransitionPostsTheChosenTransition(t *testing.T) {
 		writer.WriteHeader(http.StatusNoContent)
 	})
 
-	err := client.ApplyTransition(t.Context(), "OPS-1", startProgress())
+	err := client.ApplyTransition(t.Context(), "OPS-1", startProgress(), nil)
 	if err != nil {
 		t.Fatalf("ApplyTransition returned %v, want nil", err)
 	}
@@ -206,7 +215,9 @@ func TestApplyTransitionReportsWhyJiraRefused(t *testing.T) {
 	// required.
 	body := `{"errorMessages":[],"errors":{"resolution":"Resolution is required."}}`
 
-	err := serve(t, failWith(http.StatusBadRequest, body, "fred")).ApplyTransition(t.Context(), "OPS-1", startProgress())
+	client := serve(t, failWith(http.StatusBadRequest, body, "fred"))
+
+	err := client.ApplyTransition(t.Context(), "OPS-1", startProgress(), nil)
 	if !errors.Is(err, jira.ErrRejected) || !strings.Contains(err.Error(), "Resolution is required.") {
 		t.Errorf("ApplyTransition returned %v, want Jira's reason", err)
 	}
@@ -218,7 +229,7 @@ func TestApplyTransitionReportsAnUnreachableServer(t *testing.T) {
 	var sent atomic.Bool
 
 	err := jira.New(offline(&sent), bearerConfig(exampleBaseURL)).
-		ApplyTransition(t.Context(), "OPS-1", startProgress())
+		ApplyTransition(t.Context(), "OPS-1", startProgress(), nil)
 	if !errors.Is(err, jira.ErrUnreachable) || !errors.Is(err, errFixtureTimeout) {
 		t.Errorf("ApplyTransition returned %v, want ErrUnreachable wrapping the cause", err)
 	}
@@ -231,7 +242,7 @@ func TestApplyTransitionWithoutACredentialSendsNothing(t *testing.T) {
 
 	client := jira.New(offline(&sent), config.Jira{BaseURL: exampleBaseURL, Token: "", User: ""})
 
-	err := client.ApplyTransition(t.Context(), "OPS-1", startProgress())
+	err := client.ApplyTransition(t.Context(), "OPS-1", startProgress(), nil)
 	if !errors.Is(err, jira.ErrNoCredential) {
 		t.Errorf("ApplyTransition returned %v, want ErrNoCredential", err)
 	}
