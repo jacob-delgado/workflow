@@ -12,6 +12,12 @@ import (
 	"github.com/jacob-delgado/workflow/internal/gitrepo"
 )
 
+// Commands several fixtures answer.
+const (
+	showCurrentBranch = "git -C /work branch --show-current"
+	verifyHead        = "git -C /work rev-parse --verify --quiet HEAD"
+)
+
 // workDir is the directory every fixture below describes.
 const workDir = "/work"
 
@@ -54,7 +60,7 @@ func fakeRunner(t *testing.T, replies map[string]reply) gitrepo.Runner {
 func onABranch() map[string]reply {
 	return map[string]reply{
 		"git -C /work rev-parse --show-toplevel": {out: []byte("/work\n")},
-		"git -C /work branch --show-current":     {out: []byte("feat/token-redaction\n")},
+		showCurrentBranch:                        {out: []byte("feat/token-redaction\n")},
 		"git -C /work remote get-url origin":     {out: []byte("git@github.com:example/repo.git\n")},
 	}
 }
@@ -101,7 +107,7 @@ func TestDescribeReportsAnUnreadableBranch(t *testing.T) {
 	t.Parallel()
 
 	replies := onABranch()
-	replies["git -C /work branch --show-current"] = reply{err: errDetachedRead}
+	replies[showCurrentBranch] = reply{err: errDetachedRead}
 
 	_, err := gitrepo.Describe(t.Context(), fakeRunner(t, replies), workDir)
 	if err == nil {
@@ -117,7 +123,7 @@ func TestDescribeMarksADetachedHead(t *testing.T) {
 	t.Parallel()
 
 	replies := onABranch()
-	replies["git -C /work branch --show-current"] = reply{out: []byte("\n")}
+	replies[showCurrentBranch] = reply{out: []byte("\n")}
 
 	repo, err := gitrepo.Describe(t.Context(), fakeRunner(t, replies), workDir)
 	if err != nil {
