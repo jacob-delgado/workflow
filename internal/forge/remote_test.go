@@ -18,6 +18,7 @@ const (
 	acmePath   = "acme/thing"
 	ownerRepo  = "owner/repo"
 	shortPath  = "o/r"
+	unknown    = "unknown"
 )
 
 func TestParseRemote(t *testing.T) {
@@ -145,10 +146,10 @@ func TestKindString(t *testing.T) {
 	t.Parallel()
 
 	cases := map[forge.Kind]string{
-		forge.KindUnknown: "unknown",
+		forge.KindUnknown: unknown,
 		forge.KindGitHub:  "GitHub",
 		forge.KindGitLab:  "GitLab",
-		forge.Kind(99):    "unknown",
+		forge.Kind(99):    unknown,
 	}
 
 	for kind, want := range cases {

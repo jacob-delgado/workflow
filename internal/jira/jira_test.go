@@ -339,3 +339,9 @@ func TestMyselfRejectsAMalformedBaseURL(t *testing.T) {
 		t.Errorf("the error quoted the base URL: %v", err)
 	}
 }
+
+// Compile-time proof that an http.Client satisfies the seam Client takes, so the
+// production wiring cannot drift from what these tests exercise. CLAUDE.md asks
+// for this on every type meant to satisfy an interface; internal/gitrepo has the
+// equivalent for its Runner and this file was missing it.
+var _ jira.Doer = http.DefaultClient.Do

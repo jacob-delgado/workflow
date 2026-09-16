@@ -55,10 +55,23 @@ type Slack struct {
 	Channel string `json:"channel"`
 }
 
+// Forge describes the Git forge credential — which workflow usually does not
+// need to hold at all.
+type Forge struct {
+	// Token is a GitHub or GitLab personal access token, consulted only when
+	// neither the environment nor the forge's own CLI supplies one.
+	//
+	// It is deliberately absent from Missing(). Reporting it as missing would
+	// fail `workflow doctor` for everyone correctly relying on `gh auth login`,
+	// which is the common case and the one worth encouraging.
+	Token string `json:"token"`
+}
+
 // Config is the whole configuration file.
 type Config struct {
 	Jira  Jira  `json:"jira"`
 	Slack Slack `json:"slack"`
+	Forge Forge `json:"forge"`
 	// Path is the file this configuration was read from. It is not part of the
 	// file format.
 	Path string `json:"-"`
@@ -206,7 +219,8 @@ func Template() Config {
 			WebhookURL: "",
 			Channel:    "#dev-workflow",
 		},
-		Path: "",
+		Forge: Forge{Token: ""},
+		Path:  "",
 	}
 }
 
@@ -301,6 +315,7 @@ func (c Config) Redacted() Config {
 	redacted.Slack.Token = Redact(c.Slack.Token)
 	redacted.Slack.WebhookURL = Redact(c.Slack.WebhookURL)
 	redacted.Jira.BaseURL = RedactURL(c.Jira.BaseURL)
+	redacted.Forge.Token = Redact(c.Forge.Token)
 
 	return redacted
 }

@@ -18,6 +18,9 @@ workflow reads a single JSON file, `.workflow.json`.
     "token": "",
     "webhook_url": "",
     "channel": "#dev-workflow"
+  },
+  "forge": {
+    "token": ""
   }
 }
 ```
@@ -49,6 +52,7 @@ which one was read.
 | `slack.token` | one of these two | Bot token; starts with `xoxb-`. |
 | `slack.webhook_url` | one of these two | Incoming webhook URL. **This is a credential**, not just an address. |
 | `slack.channel` | only with `slack.token` | Channel to post in, e.g. `#dev-workflow`. A webhook carries its own. |
+| `forge.token` | **no** | GitHub or GitLab token. Usually leave it empty — see below. |
 
 Unknown keys are an error rather than being ignored. A misspelled key that
 loaded silently would look exactly like a credential you never set.
@@ -98,14 +102,35 @@ replies, and it can never post anywhere but that one channel.
 4. Set `slack.channel`, and invite the bot to that channel. Without the invite it
    cannot post there.
 
+## The forge token you probably do not need
+
+`forge.token` is consulted **last**, and most people never set it. workflow looks
+for a GitHub or GitLab credential in this order:
+
+1. `$GITHUB_TOKEN` or `$GH_TOKEN` (`$GITLAB_TOKEN` or `$GLAB_TOKEN` for GitLab)
+2. `gh auth token`, if `gh` is installed and signed in to that host
+3. `forge.token`
+
+So if you already use `gh auth login`, there is nothing to configure and no
+second copy of a credential to keep safe. `workflow doctor --online` reports
+which of the three it used, which is what answers "why is it using that one?".
+
+There is no `glab` step. `glab` reports its token through `auth status`, whose
+output is prose on standard error, and parsing prose is not something to put a
+credential behind — GitLab users set `$GITLAB_TOKEN` or `forge.token` instead.
+
+`forge.token` is never reported as missing, because failing `doctor` for everyone
+correctly relying on `gh auth login` would be wrong.
+
 ## Keeping the tokens safe
 
 `.workflow.json` holds live credentials:
 
 - `workflow config init` writes it mode `0600` — readable only by you.
 - It is listed in the repository's `.gitignore`.
-- `workflow config show` masks every credential, printing only the last four
-  characters so you can tell two apart.
+- `workflow config show` masks every credential — Jira, Slack, the webhook URL
+  and the forge token — printing only the last four characters so you can tell
+  two apart.
 
 **`slack.webhook_url` is masked like a token, because it is one.** Anyone holding
 that URL can post to your channel; it is a password that happens to look like an

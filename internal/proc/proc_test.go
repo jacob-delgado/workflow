@@ -69,3 +69,21 @@ func TestAvailableDistinguishesInstalledFromMissing(t *testing.T) {
 		t.Errorf("Available(%q) = true, want false", missingProgram)
 	}
 }
+
+func TestLookPathFindsAProgramAndReportsAMissingOne(t *testing.T) {
+	t.Parallel()
+
+	path, err := proc.LookPath(goProgram)
+	if err != nil {
+		t.Fatalf("LookPath(%q) returned %v, want nil", goProgram, err)
+	}
+
+	if path == "" {
+		t.Errorf("LookPath(%q) returned an empty path", goProgram)
+	}
+
+	_, err = proc.LookPath(missingProgram)
+	if !errors.Is(err, proc.ErrNotFound) {
+		t.Errorf("LookPath(%q) returned %v, want ErrNotFound", missingProgram, err)
+	}
+}

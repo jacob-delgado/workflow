@@ -46,6 +46,18 @@ func Run(ctx context.Context, name string, args ...string) ([]byte, error) {
 	return output, nil
 }
 
+// LookPath reports where a program is, or an error if it is not on PATH. It is
+// exec.LookPath, re-exported so callers wiring a seam do not reach past this
+// package for one of its two halves.
+func LookPath(name string) (string, error) {
+	path, err := exec.LookPath(name)
+	if err != nil {
+		return "", fmt.Errorf("%w: %s", ErrNotFound, name)
+	}
+
+	return path, nil
+}
+
 // Available reports whether name can be found on PATH.
 func Available(name string) bool {
 	_, err := exec.LookPath(name)
