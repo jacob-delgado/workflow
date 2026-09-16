@@ -8,7 +8,7 @@ vars:
   # The coverage floor. This is the number the gate enforces — no document
   # restates it, because a restated number drifts. Raise it with the ratchet
   # scripts/coverage-gate.sh prints: floor(measured) - 2.
-  COVERAGE_MIN: 89
+  COVERAGE_MIN: 91
   # The condition (branch) coverage floor, enforced over EVERY package —
   # scripts/gobco-report.sh's skip list is now empty and fails on any package
   # that drops out unannounced.
@@ -21,7 +21,7 @@ vars:
   # It started at 81, that measurement minus the standard ratchet slack, and
   # ratchets up as the conditions the gate lists get tests. The gate prints the
   # available ratchet on every run.
-  BRANCH_COVERAGE_MIN: 85
+  BRANCH_COVERAGE_MIN: 88
   # Container tasks work with docker or podman: CONTAINER_RUNTIME=podman task ...
   CONTAINER_RUNTIME: '{{.CONTAINER_RUNTIME | default "docker"}}'
   BUILD_IMAGE: '{{.BUILD_IMAGE | default "workflow-build:local"}}'

@@ -13,8 +13,11 @@ Report the repository, tooling, and configuration in effect
 
 Report the git repository this session is in, which external
 programs are installed, which .workflow.json is in effect,
-and which required fields are still empty. Makes no network calls,
-so it never tells you a token is valid — only that one is present.
+and which required fields are still empty.
+
+Makes no network calls by default, so it is safe to run anywhere and
+tells you only that a credential is present. Add --online to ask each
+service whether the credential actually works.
 
 ```
 workflow doctor [flags]
@@ -23,7 +26,8 @@ workflow doctor [flags]
 ### Options
 
 ```
-  -h, --help   help for doctor
+  -h, --help     help for doctor
+      --online   ask each service whether its credential works
 ```
 
 ### SEE ALSO

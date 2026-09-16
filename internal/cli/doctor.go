@@ -10,11 +10,13 @@ import (
 	"io"
 	"os"
 	"strings"
+	"time"
 
 	"github.com/spf13/cobra"
 
 	"github.com/jacob-delgado/workflow/internal/config"
 	"github.com/jacob-delgado/workflow/internal/gitrepo"
+	"github.com/jacob-delgado/workflow/internal/jira"
 	"github.com/jacob-delgado/workflow/internal/proc"
 )
 
@@ -24,7 +26,13 @@ var (
 	errIncomplete = errors.New("configuration is incomplete")
 	// errMissingTooling reports a required external program that is absent.
 	errMissingTooling = errors.New("required tooling is missing")
+	// errCredentialRejected reports a credential a service would not accept.
+	errCredentialRejected = errors.New("a credential was rejected")
 )
+
+// credentialTimeout bounds each --online check. Go's http.Client has no default
+// deadline, so an unreachable on-prem host would otherwise hang doctor forever.
+const credentialTimeout = 10 * time.Second
 
 // labelWidth keeps the report's values in one column so the eye can scan them.
 const labelWidth = 14
@@ -65,33 +73,89 @@ func externalTools() []tool {
 
 // newDoctorCmd builds `workflow doctor`.
 func newDoctorCmd() *cobra.Command {
-	return &cobra.Command{
+	var online bool
+
+	cmd := &cobra.Command{
 		Use:   "doctor",
 		Short: "Report the repository, tooling, and configuration in effect",
 		Long: "Report the git repository this session is in, which external\n" +
 			"programs are installed, which " + config.FileName + " is in effect,\n" +
-			"and which required fields are still empty. Makes no network calls,\n" +
-			"so it never tells you a token is valid — only that one is present.",
+			"and which required fields are still empty.\n\n" +
+			"Makes no network calls by default, so it is safe to run anywhere and\n" +
+			"tells you only that a credential is present. Add --online to ask each\n" +
+			"service whether the credential actually works.",
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			cfg, err := loadFromEnvironment()
 
-			return runDoctor(cmd.Context(), cmd.OutOrStdout(), cfg, err)
+			return runDoctor(cmd.Context(), cmd.OutOrStdout(), cfg, err, online)
 		},
 	}
+
+	cmd.Flags().BoolVar(&online, "online", false, "ask each service whether its credential works")
+
+	return cmd
 }
 
 // runDoctor writes the report. Every section runs even when an earlier one found
 // a problem: someone running doctor wants the whole picture, not the first thing
 // that went wrong.
-func runDoctor(ctx context.Context, out io.Writer, cfg config.Config, loadErr error) error {
+func runDoctor(ctx context.Context, out io.Writer, cfg config.Config, loadErr error, online bool) error {
 	reportRepository(ctx, out)
 	fmt.Fprintln(out)
 
 	toolingErr := reportTooling(out)
 	fmt.Fprintln(out)
 
-	return errors.Join(toolingErr, reportConfiguration(out, cfg, loadErr))
+	configErr := reportConfiguration(out, cfg, loadErr)
+	if loadErr != nil {
+		return errors.Join(toolingErr, configErr)
+	}
+
+	return errors.Join(toolingErr, configErr, reportCredentials(ctx, out, cfg, online))
+}
+
+// reportCredentials asks each service whether its credential works.
+//
+// Offline unless asked, because doctor is otherwise fast, hermetic and safe to
+// run on a machine behind a proxy or on a plane — and because its output is
+// what the bug report template invites people to paste.
+func reportCredentials(ctx context.Context, out io.Writer, cfg config.Config, online bool) error {
+	if !online {
+		fmt.Fprintf(out, "\nCredentials were not checked. Add --online to ask each service.\n")
+
+		return nil
+	}
+
+	fmt.Fprintf(out, "\nCredentials:\n")
+
+	return checkJira(ctx, out, cfg.Jira)
+}
+
+// checkJira asks Jira who the configured token authenticates as.
+func checkJira(ctx context.Context, out io.Writer, settings config.Jira) error {
+	client := jira.New(jira.HTTPClient(credentialTimeout).Do, settings)
+
+	user, err := client.Myself(ctx)
+	if err != nil {
+		fmt.Fprintf(out, "  %-10s %v\n", "jira", err)
+
+		return fmt.Errorf("%w: jira", errCredentialRejected)
+	}
+
+	fmt.Fprintf(out, "  %-10s authenticates as %s\n", "jira", identify(user))
+
+	return nil
+}
+
+// identify names a user, falling back to the login when an instance is
+// configured to withhold display names.
+func identify(user jira.User) string {
+	if user.DisplayName == "" {
+		return user.Name
+	}
+
+	return user.DisplayName + " (" + user.Name + ")"
 }
 
 // reportRepository describes the git repository the working directory is in. A
@@ -171,7 +235,8 @@ func reportConfiguration(out io.Writer, cfg config.Config, loadErr error) error 
 	}
 
 	field(out, "Configuration", cfg.Path)
-	field(out, "Jira", fmt.Sprintf("%s (%s)", describe(cfg.Jira.BaseURL), cfg.Jira.AuthMode()))
+	field(out, "Jira", fmt.Sprintf("%s (%s)",
+		describe(config.RedactURL(cfg.Jira.BaseURL)), cfg.Jira.AuthMode()))
 	// The target, never the credential: a webhook URL is itself the secret, and
 	// this output is what the bug report template invites people to paste.
 	field(out, "Slack", fmt.Sprintf("%s (%s)", cfg.Slack.Target(), cfg.Slack.Mode()))
