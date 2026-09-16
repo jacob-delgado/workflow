@@ -69,6 +69,13 @@ without agreement on direction.
   matching the receiver — `(*T)(nil)` for pointer receivers, `T{}` for value
   receivers.
 
+- **One receiver kind per type.** `recvcheck` fails a type whose methods mix value
+  and pointer receivers, so choose when the type is introduced and hold to it: a
+  type that satisfies an interface by value (`var _ tea.Model = Model{}`) is
+  all-value from then on. Relatedly, `ireturn` flags returning an interface —
+  return a concrete type or a func type, and keep `//nolint:ireturn` for the
+  signatures a third-party interface forces on you, as `tea.Model` does.
+
 - **Language: American English.** Identifiers, comments, docs, commit messages,
   and user-facing copy all use American spellings — color, canceled, organize.
   Enforced by `misspell` (Go, locale US) and `typos` (repo-wide, `_typos.toml`),
@@ -128,9 +135,13 @@ without agreement on direction.
   - **S — Single responsibility.** A function or type does one thing (see
     *Function size*, *File length*). Config loading, command wiring, and
     rendering are separable concerns and live in separate packages.
-  - **O — Open/closed.** Adding a variant should *extend*, not edit — prefer a
-    lookup map or registry keyed by a discriminant over a `switch` every new case
-    must touch.
+  - **O — Open/closed.** Adding a variant should *extend*, not edit. Note how to
+    spell that here: `gochecknoglobals` is on, so a package-level lookup map is
+    a build failure, not an option. Build the map inside a constructor and hang
+    it off the value that uses it, put the behavior on the discriminant type as
+    a method, or keep a `switch` and let `exhaustive` fail the build when a new
+    case is added without a branch. Package-level `var Err… = errors.New(…)`
+    sentinels are exempt and stay.
   - **L — Liskov substitution.** An implementation honors the contract its
     callers rely on; a fake that cuts corners is a broken fake, not a shortcut.
   - **I — Interface segregation.** Depend only on what you use. Declare small
@@ -185,9 +196,10 @@ above it restates (*see*). The rest is review-time judgment.
 
 **Object-orientation abusers:**
 
-- *Type/kind `switch` every new case must edit* → a lookup map keyed by the
-  discriminant (*see Open/closed*; **lint** exhaustive keeps a genuine switch
-  honest).
+- *Type/kind `switch` every new case must edit* → a map built in a constructor
+  and keyed by the discriminant, or a method on that type (*see Open/closed* for
+  why it cannot be a package-level map; **lint** gochecknoglobals, and exhaustive
+  keeps a genuine switch honest).
 - *Temporary field* — set in some flows, nil otherwise → a separate type or a
   parameter.
 - *Refused bequest* — a type that ignores or fights what it embeds → compose
