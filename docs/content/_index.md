@@ -15,7 +15,8 @@ three browser tabs.
 Early, and not yet the whole loop. What works today:
 
 - `workflow` opens the TUI: your assigned Jira issues in a pane rail, with
-  keyboard and mouse navigation (`?` lists the keys).
+  keyboard and mouse navigation (`?` lists the keys). `t` moves the selected
+  issue to a new status, through the transitions its workflow offers.
 - `workflow doctor` reports the repository, tooling and configuration in effect;
   `workflow doctor --online` asks Jira, Slack and your forge whether each
   credential actually works.

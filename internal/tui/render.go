@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/charmbracelet/bubbles/help"
+	"github.com/charmbracelet/bubbles/key"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/charmbracelet/x/ansi"
 
@@ -46,9 +47,10 @@ func (m Model) rail(boxes []layout.Box) string {
 	return lipgloss.JoinVertical(lipgloss.Left, rendered...)
 }
 
-// border draws the focused pane heavier than the rest.
+// border draws the focused pane heavier than the rest. While the picker has the
+// keyboard it is the one drawn heavy, so there is never a second.
 func (m Model) border(candidate pane) frame.Style {
-	if candidate == m.focus {
+	if candidate == m.focus && !m.picker.open {
 		return frame.Heavy
 	}
 
@@ -73,6 +75,10 @@ func (m Model) paneBody(candidate pane, rows int) string {
 func (m Model) detail(box layout.Box, collapsed bool) string {
 	body := m.detailBody(frame.BodyRows(box.Height), collapsed)
 
+	if m.picker.open {
+		return frame.Render(pickerTitle, body, box.Width, box.Height, frame.Heavy)
+	}
+
 	return frame.Render(m.focus.title(), body, box.Width, box.Height, frame.Light)
 }
 
@@ -81,6 +87,8 @@ func (m Model) detail(box layout.Box, collapsed bool) string {
 // the whole body instead of a description of one row of it.
 func (m Model) detailBody(rows int, collapsed bool) string {
 	switch {
+	case m.picker.open:
+		return m.picker.render(rows)
 	case m.helpOpen:
 		return help.New().FullHelpView(m.keys.FullHelp())
 	case m.focus != paneIssues:
@@ -104,7 +112,29 @@ func (m Model) spine(width int) string {
 	return ansi.Truncate(" "+strings.Join(parts, " ─ "), width, "")
 }
 
-// footer draws the keys that matter right now.
+// footer draws the keys that matter right now, or reports what just happened.
 func (m Model) footer(width int) string {
-	return ansi.Truncate(" "+help.New().ShortHelpView(m.keys.ShortHelp()), width, "")
+	text := m.notice
+	if text == "" {
+		text = help.New().ShortHelpView(m.footerKeys())
+	}
+
+	return ansi.Truncate(" "+text, width, "")
+}
+
+// footerKeys offers the keys that do something where the user is: never a verb
+// with nothing to act on.
+func (m Model) footerKeys() []key.Binding {
+	_, selectable := m.issues.current()
+
+	switch {
+	case m.picker.sending:
+		return []key.Binding{m.keys.quit}
+	case m.picker.open:
+		return m.keys.pickerHelp()
+	case m.focus == paneIssues && selectable:
+		return append([]key.Binding{m.keys.changeStatus}, m.keys.ShortHelp()...)
+	default:
+		return m.keys.ShortHelp()
+	}
 }
