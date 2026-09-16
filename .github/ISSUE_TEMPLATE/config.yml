@@ -1,0 +1,13 @@
+# Blank issues are off so every report arrives with the fields that make it
+# actionable. The links below cover what the two forms deliberately do not.
+blank_issues_enabled: false
+contact_links:
+  - name: Report a security vulnerability
+    url: https://github.com/jacob-delgado/workflow/security/advisories/new
+    about: Report it privately. Never in a public issue — that discloses it before there is a fix.
+  - name: Documentation
+    url: https://jacob-delgado.github.io/workflow/
+    about: Install, configuration, and the command reference.
+  - name: Contributing guide
+    url: https://github.com/jacob-delgado/workflow/blob/main/CONTRIBUTING.md
+    about: Setup, the gates a change has to pass, and the commit conventions.

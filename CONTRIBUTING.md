@@ -138,6 +138,18 @@ If a git hook blocks you, fix what it found rather than bypassing it.
 `LEFTHOOK=0` exists for genuine emergencies, and CI re-runs the same checks
 regardless.
 
+`main` is protected: it takes no direct pushes, requires the checks above to
+pass, and **merges by rebase only** — merge commits and squash are disabled, so
+history stays linear and each commit keeps the message it was written with. That
+is also why commits should be individually meaningful: every one of them lands
+on `main` as you wrote it.
+
+## Reporting a security issue
+
+Do not open a public issue for a security bug. Report it privately through a
+[security advisory](https://github.com/jacob-delgado/workflow/security/advisories/new);
+[SECURITY.md](SECURITY.md) explains what to include and what to expect.
+
 ## Releases
 
 Releases are automated with

@@ -1,0 +1,34 @@
+name: Dependency review
+
+# Fails a pull request that introduces a dependency with a known vulnerability,
+# or one whose license is incompatible.
+#
+# This is the complement to govulncheck in the `Scan` job: govulncheck asks
+# whether vulnerable code is actually reachable from this program, which is the
+# better question but only after the dependency is already in go.sum. This asks
+# the cheaper question at the moment the dependency is proposed.
+
+on:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  dependency-review:
+    name: dependency-review
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: actions/dependency-review-action@a1d282b36b6f3519aa1f3fc636f609c47dddb294 # v5.0.0
+        with:
+          # Anything moderate or worse blocks the pull request. A known-vulnerable
+          # dependency should be a deliberate decision, not a default.
+          fail-on-severity: moderate
+          # This project is Apache-2.0; copyleft licenses would change what
+          # downstream users may do with the binary.
+          deny-licenses: GPL-2.0, GPL-3.0, AGPL-3.0, LGPL-3.0
+          comment-summary-in-pr: on-failure

@@ -1,0 +1,7 @@
+# Review is auto-requested from the owner on every pull request.
+#
+# Deliberately NOT enforced by branch protection: requiring code-owner review on
+# a single-maintainer repository would block the maintainer's own pull requests,
+# since GitHub does not let anyone approve their own. This file routes reviews;
+# it is not a merge gate.
+* @jacob-delgado
