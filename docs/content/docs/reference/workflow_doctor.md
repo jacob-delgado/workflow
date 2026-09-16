@@ -7,13 +7,14 @@ weight: 20
 
 ## workflow doctor
 
-Report which configuration was found and what it is missing
+Report the repository, tooling, and configuration in effect
 
 ### Synopsis
 
-Report which .workflow.json is in effect and which required
-fields are still empty. Makes no network calls, so it never
-tells you a token is valid — only that one is present.
+Report the git repository this session is in, which external
+programs are installed, which .workflow.json is in effect,
+and which required fields are still empty. Makes no network calls,
+so it never tells you a token is valid — only that one is present.
 
 ```
 workflow doctor [flags]

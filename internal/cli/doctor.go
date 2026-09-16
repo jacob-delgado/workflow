@@ -4,46 +4,175 @@
 package cli
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"io"
+	"os"
+	"strings"
 
 	"github.com/spf13/cobra"
 
 	"github.com/jacob-delgado/workflow/internal/config"
+	"github.com/jacob-delgado/workflow/internal/gitrepo"
+	"github.com/jacob-delgado/workflow/internal/proc"
 )
 
-// errIncomplete reports a configuration that loaded but is missing fields.
-var errIncomplete = errors.New("configuration is incomplete")
+// Errors doctor reports. Callers distinguish them with errors.Is.
+var (
+	// errIncomplete reports a configuration that loaded but is missing fields.
+	errIncomplete = errors.New("configuration is incomplete")
+	// errMissingTooling reports a required external program that is absent.
+	errMissingTooling = errors.New("required tooling is missing")
+)
+
+// labelWidth keeps the report's values in one column so the eye can scan them.
+const labelWidth = 14
+
+// tool is an external program workflow uses, and what its absence costs.
+type tool struct {
+	name     string
+	required bool
+	effect   string
+}
+
+// externalTools names the programs doctor looks for. Built by a function rather
+// than held in a package-level variable, which gochecknoglobals forbids.
+func externalTools() []tool {
+	return []tool{
+		{
+			name:     "git",
+			required: true,
+			effect:   "every repository action runs through it",
+		},
+		{
+			name:     "lefthook",
+			required: false,
+			effect:   "the hook panes stay hidden without it",
+		},
+		{
+			name:     "gh",
+			required: false,
+			effect:   "supplies a GitHub token when none is configured",
+		},
+		{
+			name:     "glab",
+			required: false,
+			effect:   "supplies a GitLab token when none is configured",
+		},
+	}
+}
 
 // newDoctorCmd builds `workflow doctor`.
 func newDoctorCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:   "doctor",
-		Short: "Report which configuration was found and what it is missing",
-		Long: "Report which " + config.FileName + " is in effect and which required\n" +
-			"fields are still empty. Makes no network calls, so it never\n" +
-			"tells you a token is valid — only that one is present.",
+		Short: "Report the repository, tooling, and configuration in effect",
+		Long: "Report the git repository this session is in, which external\n" +
+			"programs are installed, which " + config.FileName + " is in effect,\n" +
+			"and which required fields are still empty. Makes no network calls,\n" +
+			"so it never tells you a token is valid — only that one is present.",
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			cfg, err := loadFromEnvironment()
 
-			return runDoctor(cmd.OutOrStdout(), cfg, err)
+			return runDoctor(cmd.Context(), cmd.OutOrStdout(), cfg, err)
 		},
 	}
 }
 
-// runDoctor writes the report. A load error is part of the report rather than a
-// failure to produce one: "there is no configuration file" is exactly what
-// someone running doctor is asking about.
-func runDoctor(out io.Writer, cfg config.Config, loadErr error) error {
+// runDoctor writes the report. Every section runs even when an earlier one found
+// a problem: someone running doctor wants the whole picture, not the first thing
+// that went wrong.
+func runDoctor(ctx context.Context, out io.Writer, cfg config.Config, loadErr error) error {
+	reportRepository(ctx, out)
+	fmt.Fprintln(out)
+
+	toolingErr := reportTooling(out)
+	fmt.Fprintln(out)
+
+	return errors.Join(toolingErr, reportConfiguration(out, cfg, loadErr))
+}
+
+// reportRepository describes the git repository the working directory is in. A
+// directory outside any work tree is reported rather than returned as an error:
+// `workflow doctor` is exactly what someone runs to find that out.
+func reportRepository(ctx context.Context, out io.Writer) {
+	dir, err := os.Getwd()
+	if err != nil {
+		field(out, "Repository", fmt.Sprintf("(cannot read the working directory: %v)", err))
+
+		return
+	}
+
+	repo, err := gitrepo.Describe(ctx, proc.Run, dir)
+	if err != nil {
+		field(out, "Repository", fmt.Sprintf("(none — %s is not in a git work tree)", dir))
+
+		return
+	}
+
+	field(out, "Repository", repo.Root)
+	field(out, "Branch", branchLabel(repo))
+	field(out, "Remote", describe(repo.Remote))
+}
+
+// branchLabel names the checked-out branch, or says why there isn't one.
+func branchLabel(repo gitrepo.Repo) string {
+	if repo.Detached {
+		return "(detached HEAD — check out a branch before starting work)"
+	}
+
+	return repo.Branch
+}
+
+// reportTooling lists the external programs and returns an error naming any
+// required one that is absent.
+func reportTooling(out io.Writer) error {
+	fmt.Fprintln(out, "Tooling:")
+
+	var missing []string
+
+	for _, program := range externalTools() {
+		installed := proc.Available(program.name)
+		fmt.Fprintf(out, "  %-10s %s\n", program.name, toolStatus(program, installed))
+
+		if !installed && program.required {
+			missing = append(missing, program.name)
+		}
+	}
+
+	if len(missing) > 0 {
+		return fmt.Errorf("%w: %s", errMissingTooling, strings.Join(missing, ", "))
+	}
+
+	return nil
+}
+
+// toolStatus says whether a program was found, and what its absence costs.
+func toolStatus(program tool, installed bool) string {
+	if installed {
+		return "found"
+	}
+
+	if program.required {
+		return "MISSING — " + program.effect
+	}
+
+	return "not found — " + program.effect
+}
+
+// reportConfiguration writes the configuration section. A load error is part of
+// the report rather than a failure to produce one: "there is no configuration
+// file" is exactly what someone running doctor is asking about.
+func reportConfiguration(out io.Writer, cfg config.Config, loadErr error) error {
 	if loadErr != nil {
 		return reportLoadError(out, loadErr)
 	}
 
-	fmt.Fprintf(out, "Configuration: %s\n", cfg.Path)
-	fmt.Fprintf(out, "Jira:          %s (%s)\n", describe(cfg.Jira.BaseURL), cfg.Jira.AuthMode())
-	fmt.Fprintf(out, "Slack:         %s\n", describe(cfg.Slack.Channel))
+	field(out, "Configuration", cfg.Path)
+	field(out, "Jira", fmt.Sprintf("%s (%s)", describe(cfg.Jira.BaseURL), cfg.Jira.AuthMode()))
+	field(out, "Slack", describe(cfg.Slack.Channel))
 
 	missing := cfg.Missing()
 	if len(missing) == 0 {
@@ -54,8 +183,8 @@ func runDoctor(out io.Writer, cfg config.Config, loadErr error) error {
 
 	fmt.Fprintf(out, "\nMissing:\n")
 
-	for _, field := range missing {
-		fmt.Fprintf(out, "  - %s\n", field)
+	for _, name := range missing {
+		fmt.Fprintf(out, "  - %s\n", name)
 	}
 
 	fmt.Fprintf(out, "\nEdit %s, then run `workflow doctor` again.\n", cfg.Path)
@@ -76,6 +205,11 @@ func reportLoadError(out io.Writer, loadErr error) error {
 	}
 
 	return loadErr
+}
+
+// field writes one aligned "Label: value" line.
+func field(out io.Writer, label, value string) {
+	fmt.Fprintf(out, "%-*s %s\n", labelWidth, label+":", value)
 }
 
 // describe renders an unset value as something a reader can act on.

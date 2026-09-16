@@ -1,0 +1,54 @@
+// Copyright 2026 Jacob Delgado
+// SPDX-License-Identifier: Apache-2.0
+
+// Package proc runs external programs.
+//
+// It is the only place in this module that spawns a subprocess. Concentrating
+// that here means the gosec exception for a program name held in a variable is
+// written once, with its reason, instead of being repeated at every call site
+// where it would gradually stop being read.
+package proc
+
+import (
+	"bytes"
+	"context"
+	"errors"
+	"fmt"
+	"os/exec"
+	"strings"
+)
+
+// ErrNotFound reports a program that is not on PATH.
+var ErrNotFound = errors.New("program not found on PATH")
+
+// Run executes name with args and returns what it wrote to standard output.
+//
+// A non-zero exit becomes an error carrying the program's standard error. That
+// matters more than it looks: "git failed" without the reason sends the reader
+// back to a terminal to run the command again by hand.
+func Run(ctx context.Context, name string, args ...string) ([]byte, error) {
+	path, err := exec.LookPath(name)
+	if err != nil {
+		return nil, fmt.Errorf("%w: %s", ErrNotFound, name)
+	}
+
+	var stderr bytes.Buffer
+
+	//nolint:gosec // the program name is this module's own, never user input
+	command := exec.CommandContext(ctx, path, args...)
+	command.Stderr = &stderr
+
+	output, err := command.Output()
+	if err != nil {
+		return nil, fmt.Errorf("%s: %w: %s", name, err, strings.TrimSpace(stderr.String()))
+	}
+
+	return output, nil
+}
+
+// Available reports whether name can be found on PATH.
+func Available(name string) bool {
+	_, err := exec.LookPath(name)
+
+	return err == nil
+}
