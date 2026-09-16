@@ -4,6 +4,7 @@
 package forge
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
@@ -46,6 +47,12 @@ var (
 	// ErrNotJSON reports an answer that was not JSON, which usually means the
 	// base URL points at the web host rather than the API.
 	ErrNotJSON = errors.New("the answer was not JSON")
+	// ErrRejected reports a request the forge turned down and explained; the
+	// explanation follows it in the message.
+	ErrRejected = errors.New("the forge rejected the request")
+	// ErrNoRepository reports a repository the forge will not show this token:
+	// both forges answer 404 rather than 403, so as not to confirm it exists.
+	ErrNoRepository = errors.New("the repository was not found, or the token cannot see it")
 	// ErrUnexpectedStatus reports any other status.
 	ErrUnexpectedStatus = errors.New("unexpected response status")
 	// ErrUnreachable reports a request that never got an answer.
@@ -99,14 +106,53 @@ func HTTPClient(timeout time.Duration) *http.Client {
 
 // Whoami reports which account the credential belongs to.
 func (c Client) Whoami(ctx context.Context) (Identity, error) {
-	if c.token == "" {
-		return Identity{}, ErrNoToken
+	return call[Identity](ctx, c, http.MethodGet, userPath, nil)
+}
+
+// call sends one request to the forge and decodes the answer into T.
+func call[T any](ctx context.Context, client Client, method, path string, payload any) (T, error) {
+	var answer T
+
+	if client.token == "" {
+		return answer, ErrNoToken
 	}
 
-	request, err := http.NewRequestWithContext(ctx, http.MethodGet, c.base+userPath, nil)
+	request, err := client.newRequest(ctx, method, path, payload)
+	if err != nil {
+		return answer, err
+	}
+
+	body, err := client.exchange(request)
+	if err != nil {
+		return answer, err
+	}
+
+	err = json.Unmarshal(body, &answer)
+	if err != nil {
+		return answer, fmt.Errorf("reading the answer from %s: %w", client.base, err)
+	}
+
+	return answer, nil
+}
+
+// newRequest builds an authenticated request, with payload encoded as its JSON
+// body when there is one.
+func (c Client) newRequest(ctx context.Context, method, path string, payload any) (*http.Request, error) {
+	var body io.Reader
+
+	if payload != nil {
+		encoded, err := json.Marshal(payload)
+		if err != nil {
+			return nil, fmt.Errorf("encoding the request: %w", err)
+		}
+
+		body = bytes.NewReader(encoded)
+	}
+
+	request, err := http.NewRequestWithContext(ctx, method, c.base+path, body)
 	if err != nil {
 		// Unwrapped: the parse error quotes the whole URL.
-		return Identity{}, fmt.Errorf("%w: the API address could not be used", ErrUnreachable)
+		return nil, fmt.Errorf("%w: the API address could not be used", ErrUnreachable)
 	}
 
 	// GitLab accepts a bearer token for a personal access token, so both forges
@@ -117,50 +163,48 @@ func (c Client) Whoami(ctx context.Context) (Identity, error) {
 	request.Header.Set("Accept", jsonMediaType)
 	request.Header.Set("User-Agent", userAgent)
 
-	return c.send(request)
+	if payload != nil {
+		request.Header.Set("Content-Type", jsonMediaType)
+	}
+
+	return request, nil
 }
 
-// send performs the request and decodes the answer.
-func (c Client) send(request *http.Request) (Identity, error) {
+// exchange performs the request and returns the answer's body, only once the
+// forge accepted the request, answered in JSON, and nothing in the answer can
+// drive a terminal.
+func (c Client) exchange(request *http.Request) ([]byte, error) {
 	response, err := c.do(request)
 	if err != nil {
-		return Identity{}, fmt.Errorf("%w at %s: %w", ErrUnreachable, c.base, err)
+		return nil, fmt.Errorf("%w at %s: %w", ErrUnreachable, c.base, err)
 	}
 	defer func() { _ = response.Body.Close() }()
 
 	err = statusError(response.StatusCode)
 	if err != nil {
-		return Identity{}, err
+		return nil, explained(err, response.Body)
 	}
 
 	err = mustBeJSON(response.Header.Get("Content-Type"))
 	if err != nil {
-		return Identity{}, err
+		return nil, err
 	}
 
 	body, err := io.ReadAll(io.LimitReader(response.Body, bodyLimit))
 	if err != nil {
-		return Identity{}, fmt.Errorf("reading the answer from %s: %w", c.base, err)
+		return nil, fmt.Errorf("reading the answer from %s: %w", c.base, err)
 	}
 
-	var identity Identity
-
-	// Every string in the answer is about to be printed, and a forge — or
+	// Every string in the answer is about to be shown, and a forge — or
 	// anything answering in its place — chose it.
-	err = json.Unmarshal(sanitize.JSON(body), &identity)
-	if err != nil {
-		return Identity{}, fmt.Errorf("reading the answer from %s: %w", c.base, err)
-	}
-
-	return identity, nil
+	return sanitize.JSON(body), nil
 }
 
 // mustBeJSON rejects an answer that is not JSON.
 //
 // A base URL aimed at the web host rather than the API answers 200 with a login
 // page, and decoding that produces "invalid character '<'" — which tells nobody
-// what went wrong. Checking first also means no unbounded HTML body is ever
-// streamed into the decoder.
+// what went wrong.
 func mustBeJSON(contentType string) error {
 	mediaType, _, err := mime.ParseMediaType(contentType)
 	if err != nil || mediaType != jsonMediaType {
@@ -172,11 +216,12 @@ func mustBeJSON(contentType string) error {
 }
 
 // statusError translates a response status into something a person can act on.
-// The body is never read: GitHub answers a missing User-Agent and a rate limit
+// Its body is read only for a request the forge understood and turned down —
+// see explained — because GitHub answers a missing User-Agent and a rate limit
 // with the same 403, and neither body says which.
 func statusError(status int) error {
 	switch status {
-	case http.StatusOK:
+	case http.StatusOK, http.StatusCreated:
 		return nil
 	case http.StatusUnauthorized:
 		return ErrUnauthorized
