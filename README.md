@@ -99,6 +99,10 @@ workflow doctor           # says what is still missing
   "forge": {
     "kind": "",
     "token": ""
+  },
+  "ui": {
+    "mouse": true,
+    "ascii": false
   }
 }
 ```

@@ -22,6 +22,10 @@ workflow reads a single JSON file, `.workflow.json`.
   "forge": {
     "kind": "",
     "token": ""
+  },
+  "ui": {
+    "mouse": true,
+    "ascii": false
   }
 }
 ```
@@ -55,6 +59,8 @@ which one was read.
 | `slack.channel` | only with `slack.token` | Channel to post in, e.g. `#dev-workflow`. A webhook carries its own. |
 | `forge.kind` | on-prem only | `github` or `gitlab`, for a host whose name says neither. |
 | `forge.token` | **no** | GitHub or GitLab token. Usually leave it empty — see below. |
+| `ui.mouse` | no | Capture the mouse, so a click focuses a pane or selects a row. Defaults to `true`. |
+| `ui.ascii` | no | Draw borders and glyphs in plain ASCII. Defaults to `false`. |
 
 Unknown keys are an error rather than being ignored. A misspelled key that
 loaded silently would look exactly like a credential you never set.
@@ -137,6 +143,21 @@ at different paths. Rather than guess and send a token to the wrong service, set
 
 `forge.kind` only fills that gap. On `github.com` or `gitlab.com` it is ignored,
 because the remote is the better evidence.
+
+## The interface: mouse and ASCII
+
+`ui.mouse` is on unless you turn it off. While the interface captures the mouse,
+your terminal's own click-and-drag text selection stops working — which is the
+whole reason it can be switched off. Press `m` to toggle it for one session
+without editing the file.
+
+`ui.ascii` swaps the box-drawing borders and the status glyphs for plain ASCII,
+for a terminal or font that draws them as boxes of question marks. There is no
+reliable way to detect that from inside a program, so it is a setting rather
+than a guess.
+
+A setting left out of the file keeps its default, so a configuration written
+before these existed behaves exactly as it did.
 
 ## Keeping the tokens safe
 

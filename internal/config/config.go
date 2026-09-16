@@ -75,11 +75,24 @@ type Forge struct {
 	Token string `json:"token"`
 }
 
+// UI is how the terminal interface behaves.
+type UI struct {
+	// Mouse captures the mouse, so a click focuses a pane or selects a row.
+	// Capturing it takes away the terminal's own click-and-drag selection,
+	// which is why it can be turned off here, and toggled with m in a session.
+	Mouse bool `json:"mouse"`
+	// ASCII draws borders and glyphs in plain ASCII, for a terminal or font
+	// without box-drawing characters. There is no reliable way to detect that,
+	// so it is a setting rather than a guess.
+	ASCII bool `json:"ascii"`
+}
+
 // Config is the whole configuration file.
 type Config struct {
 	Jira  Jira  `json:"jira"`
 	Slack Slack `json:"slack"`
 	Forge Forge `json:"forge"`
+	UI    UI    `json:"ui"`
 	// Path is the file this configuration was read from. It is not part of the
 	// file format.
 	Path string `json:"-"`
@@ -162,11 +175,28 @@ func Discover(workDir, homeDir string) (string, error) {
 	return "", fmt.Errorf("%w in %s or %s", ErrNotFound, workDir, homeDir)
 }
 
+// Default is the configuration before any file is read: every setting that has
+// a default holds it. A file is decoded over it, so a setting the file leaves out
+// keeps its default — which a bool cannot do by itself, since its zero value is
+// false.
+//
+// Every error path returns it as well. The interface still opens without a
+// configuration, to say what is wrong, and it should open working normally.
+func Default() Config {
+	return Config{
+		Jira:  Jira{BaseURL: "", Token: "", User: ""},
+		Slack: Slack{Token: "", WebhookURL: "", Channel: ""},
+		Forge: Forge{Kind: "", Token: ""},
+		UI:    UI{Mouse: true, ASCII: false},
+		Path:  "",
+	}
+}
+
 // Load reads the configuration that applies, searching workDir then homeDir.
 func Load(workDir, homeDir string) (Config, error) {
 	path, err := Discover(workDir, homeDir)
 	if err != nil {
-		return Config{}, err
+		return Default(), err
 	}
 
 	return LoadFile(path)
@@ -178,18 +208,18 @@ func Load(workDir, homeDir string) (Config, error) {
 func LoadFile(path string) (Config, error) {
 	file, err := os.Open(path) //nolint:gosec // the path is the user's own config file, by design
 	if err != nil {
-		return Config{}, fmt.Errorf("opening %s: %w", path, err)
+		return Default(), fmt.Errorf("opening %s: %w", path, err)
 	}
 	defer file.Close() //nolint:errcheck // read-only file; a failed close is not actionable
 
 	decoder := json.NewDecoder(file)
 	decoder.DisallowUnknownFields()
 
-	var cfg Config
+	cfg := Default()
 
 	err = decoder.Decode(&cfg)
 	if err != nil {
-		return Config{}, fmt.Errorf("%w: %s: %w", ErrInvalid, path, err)
+		return Default(), fmt.Errorf("%w: %s: %w", ErrInvalid, path, err)
 	}
 
 	cfg.Path = path
@@ -228,6 +258,7 @@ func Template() Config {
 			Channel:    "#dev-workflow",
 		},
 		Forge: Forge{Kind: "", Token: ""},
+		UI:    UI{Mouse: true, ASCII: false},
 		Path:  "",
 	}
 }
