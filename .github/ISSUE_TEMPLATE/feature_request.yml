@@ -1,0 +1,40 @@
+name: Feature request
+description: Suggest something workflow should do
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        This project is early, and the shape of it is still being decided — so a
+        well-argued request can genuinely change where it goes.
+
+        Worth knowing before you write: the project deliberately says no to
+        speculative features. What carries weight is the problem you hit, not
+        the solution you have in mind.
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: The problem
+      description: |
+        What are you trying to do, and what makes it awkward today? Describe the
+        situation rather than the feature.
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposal
+    attributes:
+      label: What you would like it to do
+      description: If you have a specific behavior or command in mind, describe it.
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: What you have tried or considered
+      description: |
+        Other tools, workarounds, or approaches — including why they fall short.
+    validations:
+      required: false

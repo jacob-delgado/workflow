@@ -362,6 +362,12 @@ than observable, public behavior.
   branch before committing. Rebase rather than merge, so the branch stays a
   readable series of commits.
 
+  The remote enforces this rather than trusting it: `main` is protected, takes no
+  direct or force pushes, and **merges by rebase only** — merge commits and squash
+  are both disabled. Every commit therefore lands on `main` exactly as written,
+  which is why each one should stand on its own rather than relying on a squash to
+  tidy it up later.
+
 - **Do not bypass a hook to land work.** `LEFTHOOK=0` and `LEFTHOOK_EXCLUDE` exist
   for genuine emergencies. A failing hook is the hook working; fix the cause.
 

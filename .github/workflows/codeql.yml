@@ -1,0 +1,53 @@
+name: CodeQL
+
+# GitHub's static analysis, over the Go code and over the workflows themselves.
+# It complements what `task lint` already does: golangci-lint reasons about one
+# package at a time, while CodeQL follows data across the program — a token
+# reaching a log line, a path reaching a file open.
+#
+# The `actions` language matters as much as `go` here: every workflow in this
+# repository runs with a token, and CodeQL catches the injection patterns that
+# are easy to write by accident.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  schedule:
+    # Weekly, so a newly published query finds old code. Monday 07:00 UTC.
+    - cron: "0 7 * * 1"
+
+permissions:
+  contents: read
+
+jobs:
+  analyze:
+    name: Analyze
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      security-events: write # upload results to the Security tab
+    strategy:
+      fail-fast: false
+      matrix:
+        language: [go, actions]
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: github/codeql-action/init@b96794f015dfd88f77b49b1c93e0fa7110f94c63 # v4.38.0
+        with:
+          languages: ${{ matrix.language }}
+          # security-extended adds the lower-severity security queries; the
+          # default suite alone is quiet to the point of being decorative.
+          queries: security-extended
+
+      # Go builds through CodeQL's autobuild, which runs `go build ./...` — the
+      # toolchain version comes from go.mod. `actions` needs no build at all.
+      - uses: github/codeql-action/autobuild@b96794f015dfd88f77b49b1c93e0fa7110f94c63 # v4.38.0
+        if: matrix.language == 'go'
+
+      - uses: github/codeql-action/analyze@b96794f015dfd88f77b49b1c93e0fa7110f94c63 # v4.38.0
+        with:
+          category: "/language:${{ matrix.language }}"

@@ -138,6 +138,16 @@ and Windows (amd64 and arm64), each with a SHA256 checksum and a build
 provenance attestation. There are no releases yet — the first one lands when the
 integrations do.
 
+## Security
+
+Found a vulnerability? Please report it privately through a
+[security advisory](https://github.com/jacob-delgado/workflow/security/advisories/new)
+rather than opening an issue — see [SECURITY.md](SECURITY.md) for what to
+include and what to expect.
+
+`.workflow.json` holds live credentials. It is written `0600`, gitignored, and
+every path that surfaces a token masks it first.
+
 ## License
 
 [Apache License 2.0](LICENSE). Contributions are accepted under the same terms;
