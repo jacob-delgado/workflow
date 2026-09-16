@@ -40,6 +40,9 @@ var (
 	ErrForbidden = errors.New("the credential was refused")
 	// ErrNoAPI reports a URL with no Jira REST API behind it.
 	ErrNoAPI = errors.New("no Jira REST API answered at that address")
+	// ErrRejected reports a request Jira refused and explained; the explanation
+	// follows it in the message.
+	ErrRejected = errors.New("jira rejected the request")
 	// ErrUnexpectedStatus reports any other status.
 	ErrUnexpectedStatus = errors.New("unexpected response status")
 	// ErrUnreachable reports a request that never got an answer.

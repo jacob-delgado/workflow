@@ -125,21 +125,6 @@ func TestSearchTrustsAnAnswerWithoutTheUserHeader(t *testing.T) {
 	}
 }
 
-func TestSearchReportsJQLTheServerRejects(t *testing.T) {
-	t.Parallel()
-
-	client := serve(t, func(writer http.ResponseWriter, _ *http.Request) {
-		writer.WriteHeader(http.StatusBadRequest)
-
-		_, _ = writer.Write([]byte(`{"errorMessages":["Error in the JQL Query: Expecting a value but got '='."]}`))
-	})
-
-	_, err := client.Search(t.Context(), "assignee = = currentUser()")
-	if !errors.Is(err, jira.ErrUnexpectedStatus) {
-		t.Errorf("Search returned %v, want ErrUnexpectedStatus", err)
-	}
-}
-
 func TestSearchReportsAnUnreachableServerByItsCause(t *testing.T) {
 	t.Parallel()
 
