@@ -232,3 +232,61 @@ func TestSlackTargetNeverRevealsTheWebhookURL(t *testing.T) {
 		t.Errorf("Target() = %q, want it to describe the webhook without quoting it", target)
 	}
 }
+
+func TestRedactURL(t *testing.T) {
+	t.Parallel()
+
+	cases := map[string]struct {
+		raw  string
+		want string
+	}{
+		"no credentials is left alone": {
+			raw:  jiraURL,
+			want: jiraURL,
+		},
+		"a password is masked": {
+			raw:  "https://alice:sekret@jira.example.com/jira",
+			want: "https://alice:xxxxx@jira.example.com/jira",
+		},
+		"a bare username is kept": {
+			raw:  "https://alice@jira.example.com",
+			want: "https://alice@jira.example.com",
+		},
+		"something malformed is returned unchanged": {
+			raw:  "://not a url",
+			want: "://not a url",
+		},
+	}
+
+	for name, tt := range cases {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			got := config.RedactURL(tt.raw)
+			if got != tt.want {
+				t.Errorf("RedactURL(%q) = %q, want %q", tt.raw, got, tt.want)
+			}
+		})
+	}
+}
+
+func TestRedactedMasksAPasswordInTheBaseURL(t *testing.T) {
+	t.Parallel()
+
+	// doctor prints jira.base_url, and its output is what the bug report
+	// template invites people to paste into a public issue.
+	cfg := config.Config{
+		Jira:  config.Jira{BaseURL: "https://alice:sekret@jira.example.com", Token: "t", User: ""},
+		Slack: config.Slack{Token: botToken, WebhookURL: "", Channel: devChannel},
+		Path:  "",
+	}
+
+	redacted := cfg.Redacted()
+	if strings.Contains(redacted.Jira.BaseURL, "sekret") {
+		t.Errorf("the base URL still carries the password: %q", redacted.Jira.BaseURL)
+	}
+
+	if cfg.Jira.BaseURL != "https://alice:sekret@jira.example.com" {
+		t.Errorf("Redacted mutated the receiver: %q", cfg.Jira.BaseURL)
+	}
+}
