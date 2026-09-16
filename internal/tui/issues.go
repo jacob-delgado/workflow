@@ -6,6 +6,7 @@ package tui
 import (
 	"cmp"
 	"fmt"
+	"slices"
 	"strings"
 
 	"github.com/jacob-delgado/workflow/internal/jira"
@@ -31,11 +32,33 @@ type issueList struct {
 	selected int
 }
 
-// settle records the search's answer.
+// settle records the search's answer. The selection follows its issue rather
+// than its row: the list is ordered by update time, so a refresh after changing
+// an issue's status brings that issue to the top.
 func (l issueList) settle(answer issuesLoaded) issueList {
-	l.found, l.err, l.settled, l.selected = answer.found, answer.err, true, 0
+	previous, _ := l.current()
+	l.found, l.err, l.settled = answer.found, answer.err, true
+
+	index := slices.IndexFunc(l.found.Issues, func(candidate jira.Issue) bool {
+		return candidate.Key == previous.Key
+	})
+	if index < 0 {
+		// Gone — done, reassigned, or never selected. Keep the row, clamped.
+		return l.move(0)
+	}
+
+	l.selected = index
 
 	return l
+}
+
+// current is the selected issue, if there is one.
+func (l issueList) current() (jira.Issue, bool) {
+	if len(l.found.Issues) == 0 {
+		return jira.Issue{}, false
+	}
+
+	return l.found.Issues[l.selected], true
 }
 
 // move shifts the selection, stopping at either end rather than wrapping: in a
@@ -90,11 +113,11 @@ func (l issueList) detail(fallback string) string {
 		return "issues: " + l.err.Error() + "\n\n" + fallback
 	}
 
-	if !l.settled || len(l.found.Issues) == 0 {
+	selected, ok := l.current()
+	if !ok {
 		return fallback
 	}
 
-	selected := l.found.Issues[l.selected]
 	lines := []string{selected.Key + " " + selected.Summary, "", "status  " + selected.Status}
 
 	if l.found.Total > len(l.found.Issues) {

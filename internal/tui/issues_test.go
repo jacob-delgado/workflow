@@ -52,13 +52,14 @@ func started(t *testing.T, model tui.Model) tui.Model {
 func issuesScreen(t *testing.T, search tui.IssueSearch) tui.Model {
 	t.Helper()
 
-	return started(t, sized(t, tui.New(completeConfig(), nil, search), 120, 40))
+	return started(t, sized(t, tui.New(completeConfig(), nil, tui.Deps{SearchIssues: search}), 120, 40))
 }
 
 func TestIssuesPaneSaysLoadingBeforeTheSearchAnswers(t *testing.T) {
 	t.Parallel()
 
-	view := sized(t, tui.New(completeConfig(), nil, assigned(issue("OPS-1", "Fix login", "new"))), 120, 40).View()
+	deps := tui.Deps{SearchIssues: assigned(issue("OPS-1", "Fix login", "new"))}
+	view := sized(t, tui.New(completeConfig(), nil, deps), 120, 40).View()
 
 	if !strings.Contains(view, "loading") {
 		t.Errorf("the pane does not say it is loading:\n%s", view)
@@ -80,7 +81,7 @@ func TestInitSearchesOnlyWhenItsCommandRuns(t *testing.T) {
 		return jira.SearchResult{Issues: nil, Total: 0}, nil
 	}
 
-	cmd := tui.New(completeConfig(), nil, search).Init()
+	cmd := tui.New(completeConfig(), nil, tui.Deps{SearchIssues: search}).Init()
 
 	// Building the command must not block on the network: Bubble Tea runs it
 	// off the update loop, which is what keeps the screen responsive.
@@ -254,10 +255,10 @@ func TestANarrowTerminalShowsTheListFullWidth(t *testing.T) {
 
 	// With no rail, the focused pane's own content takes the whole body — here
 	// the list, not the selected issue's detail.
-	model := started(t, sized(t, tui.New(completeConfig(), nil, assigned(
+	model := started(t, sized(t, tui.New(completeConfig(), nil, tui.Deps{SearchIssues: assigned(
 		issue("OPS-1", "Fix login", "new"),
 		issue("OPS-2", "Rotate keys", "new"),
-	)), 80, 30))
+	)}), 80, 30))
 
 	view := model.View()
 
@@ -272,8 +273,8 @@ func TestTheAnswerRendersTheSameWhicheverArrivesFirst(t *testing.T) {
 	search := assigned(issue("OPS-1", "Fix login", "new"))
 
 	// Bubble Tea gives no ordering guarantee between the size and the answer.
-	sizedFirst := started(t, sized(t, tui.New(completeConfig(), nil, search), 120, 40)).View()
-	answerFirst := sized(t, started(t, tui.New(completeConfig(), nil, search)), 120, 40).View()
+	sizedFirst := started(t, sized(t, tui.New(completeConfig(), nil, tui.Deps{SearchIssues: search}), 120, 40)).View()
+	answerFirst := sized(t, started(t, tui.New(completeConfig(), nil, tui.Deps{SearchIssues: search})), 120, 40).View()
 
 	if sizedFirst != answerFirst {
 		t.Errorf("the order of size and answer changed the screen:\n%s\n---\n%s", sizedFirst, answerFirst)

@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"net/http"
 	"net/url"
 	"strconv"
 )
@@ -65,21 +66,16 @@ type searchAnswer struct {
 
 // Search runs a JQL query.
 func (c Client) Search(ctx context.Context, jql string) (SearchResult, error) {
-	request, err := c.newRequest(ctx, searchPath+"?"+searchQuery(jql))
+	request, err := c.newRequest(ctx, http.MethodGet, searchPath+"?"+searchQuery(jql), nil)
 	if err != nil {
 		return SearchResult{}, err
 	}
 
-	response, err := c.do(request)
+	response, err := c.exchange(request)
 	if err != nil {
-		return SearchResult{}, fmt.Errorf("%w at %s: %w", ErrUnreachable, c.settings.BaseURL, cause(err))
+		return SearchResult{}, err
 	}
 	defer func() { _ = response.Body.Close() }()
-
-	err = c.answerError(response, request.URL)
-	if err != nil {
-		return SearchResult{}, err
-	}
 
 	var answer searchAnswer
 

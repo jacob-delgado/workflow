@@ -13,6 +13,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"net/http"
 	"net/url"
 	"strings"
@@ -103,7 +104,7 @@ func HTTPClient(timeout time.Duration) *http.Client {
 
 // Myself reports who the configured credential authenticates as.
 func (c Client) Myself(ctx context.Context) (User, error) {
-	request, err := c.newRequest(ctx, myselfPath)
+	request, err := c.newRequest(ctx, http.MethodGet, myselfPath, nil)
 	if err != nil {
 		return User{}, err
 	}
@@ -129,15 +130,15 @@ func (c Client) Myself(ctx context.Context) (User, error) {
 	return user, nil
 }
 
-// newRequest builds an authenticated GET for a path under the base URL, refusing
-// a base URL that cannot carry a credential safely.
-func (c Client) newRequest(ctx context.Context, pathAndQuery string) (*http.Request, error) {
+// newRequest builds an authenticated request for a path under the base URL,
+// refusing a base URL that cannot carry a credential safely.
+func (c Client) newRequest(ctx context.Context, method, pathAndQuery string, body io.Reader) (*http.Request, error) {
 	authenticate, ok := authenticators()[c.settings.AuthMode()]
 	if !ok {
 		return nil, ErrNoCredential
 	}
 
-	request, err := http.NewRequestWithContext(ctx, http.MethodGet, c.settings.BaseURL+pathAndQuery, nil)
+	request, err := http.NewRequestWithContext(ctx, method, c.settings.BaseURL+pathAndQuery, body)
 	if err != nil {
 		// Deliberately unwrapped: the parse error quotes the whole URL, so a
 		// base_url carrying userinfo would put the password into this message.
@@ -189,12 +190,30 @@ func authenticators() map[config.AuthMode]func(*http.Request, config.Jira) {
 	}
 }
 
+// exchange sends a request and hands back the answer only if Jira accepted it.
+// The caller closes the body of an answer it receives.
+func (c Client) exchange(request *http.Request) (*http.Response, error) {
+	response, err := c.do(request)
+	if err != nil {
+		return nil, fmt.Errorf("%w at %s: %w", ErrUnreachable, c.settings.BaseURL, cause(err))
+	}
+
+	err = c.answerError(response, request.URL)
+	if err != nil {
+		_ = response.Body.Close()
+
+		return nil, err
+	}
+
+	return response, nil
+}
+
 // statusError translates a response status into something a person can act on.
 // The body is never read: a failed Basic login is answered with an HTML login
 // page even when JSON was asked for, so it explains nothing.
 func statusError(status int, requested *url.URL) error {
 	switch status {
-	case http.StatusOK:
+	case http.StatusOK, http.StatusNoContent:
 		return nil
 	case http.StatusUnauthorized:
 		return ErrUnauthorized

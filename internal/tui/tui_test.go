@@ -33,7 +33,7 @@ func completeConfig() config.Config {
 func TestViewShowsTheLoadedConfiguration(t *testing.T) {
 	t.Parallel()
 
-	view := tui.New(completeConfig(), nil, nil).View()
+	view := tui.New(completeConfig(), nil, tui.Deps{}).View()
 
 	wants := []string{"workflow", "jira.example.com", devChannel, "bearer token", "quit"}
 	for _, want := range wants {
@@ -51,7 +51,7 @@ func TestViewNeverShowsAToken(t *testing.T) {
 	cfg.Slack.Token = "xoxb-secret-2222"
 	cfg.Slack.WebhookURL = "https://hooks.slack.com/services/T0/B0/secret3333"
 
-	view := tui.New(cfg, nil, nil).View()
+	view := tui.New(cfg, nil, tui.Deps{}).View()
 
 	for _, secret := range []string{cfg.Jira.Token, cfg.Slack.Token, cfg.Slack.WebhookURL} {
 		if strings.Contains(view, secret) {
@@ -66,7 +66,7 @@ func TestViewNamesMissingFields(t *testing.T) {
 	cfg := completeConfig()
 	cfg.Slack.Channel = ""
 
-	view := tui.New(cfg, nil, nil).View()
+	view := tui.New(cfg, nil, tui.Deps{}).View()
 
 	if !strings.Contains(view, "slack.channel") {
 		t.Errorf("view does not name the missing field:\n%s", view)
@@ -76,7 +76,7 @@ func TestViewNamesMissingFields(t *testing.T) {
 func TestViewExplainsAMissingConfiguration(t *testing.T) {
 	t.Parallel()
 
-	view := tui.New(config.Config{}, config.ErrNotFound, nil).View()
+	view := tui.New(config.Config{}, config.ErrNotFound, tui.Deps{}).View()
 
 	if !strings.Contains(view, "config init") {
 		t.Errorf("view does not say how to create a config:\n%s", view)
@@ -86,7 +86,7 @@ func TestViewExplainsAMissingConfiguration(t *testing.T) {
 func TestViewReportsAnUnreadableConfiguration(t *testing.T) {
 	t.Parallel()
 
-	view := tui.New(config.Config{}, errUnreadable, nil).View()
+	view := tui.New(config.Config{}, errUnreadable, tui.Deps{}).View()
 
 	if !strings.Contains(view, "permission denied") {
 		t.Errorf("view does not report the error:\n%s", view)
@@ -100,7 +100,7 @@ func TestQuitKeysQuit(t *testing.T) {
 		t.Run(key, func(t *testing.T) {
 			t.Parallel()
 
-			model := tui.New(completeConfig(), nil, nil)
+			model := tui.New(completeConfig(), nil, tui.Deps{})
 
 			_, cmd := model.Update(keyMsg(key))
 			if cmd == nil {
@@ -117,7 +117,7 @@ func TestQuitKeysQuit(t *testing.T) {
 func TestOtherKeysDoNotQuit(t *testing.T) {
 	t.Parallel()
 
-	model := tui.New(completeConfig(), nil, nil)
+	model := tui.New(completeConfig(), nil, tui.Deps{})
 
 	_, cmd := model.Update(keyMsg("x"))
 	if cmd != nil {
@@ -128,7 +128,7 @@ func TestOtherKeysDoNotQuit(t *testing.T) {
 func TestNonKeyMessagesAreIgnored(t *testing.T) {
 	t.Parallel()
 
-	model := tui.New(completeConfig(), nil, nil)
+	model := tui.New(completeConfig(), nil, tui.Deps{})
 
 	_, cmd := model.Update(tea.WindowSizeMsg{Width: 80, Height: 24})
 	if cmd != nil {
@@ -139,7 +139,7 @@ func TestNonKeyMessagesAreIgnored(t *testing.T) {
 func TestInitDoesNothing(t *testing.T) {
 	t.Parallel()
 
-	if cmd := tui.New(completeConfig(), nil, nil).Init(); cmd != nil {
+	if cmd := tui.New(completeConfig(), nil, tui.Deps{}).Init(); cmd != nil {
 		t.Errorf("Init returned a command, want none")
 	}
 }
@@ -159,6 +159,8 @@ func keyMsg(key string) tea.KeyMsg {
 		return tea.KeyMsg{Type: tea.KeyDown}
 	case "up":
 		return tea.KeyMsg{Type: tea.KeyUp}
+	case "enter":
+		return tea.KeyMsg{Type: tea.KeyEnter}
 	default:
 		return tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune(key)}
 	}
@@ -212,7 +214,7 @@ func TestViewAcceptsAWebhookWithoutAChannel(t *testing.T) {
 	cfg.Slack.Channel = ""
 	cfg.Slack.WebhookURL = "https://hooks.slack.com/services/T0/B0/secretpayload"
 
-	view := tui.New(cfg, nil, nil).View()
+	view := tui.New(cfg, nil, tui.Deps{}).View()
 
 	// A webhook carries its own channel, so this configuration is complete and
 	// the screen must not call it incomplete.
@@ -235,7 +237,7 @@ func TestViewMarksAnUnsetJiraURL(t *testing.T) {
 	cfg := completeConfig()
 	cfg.Jira.BaseURL = ""
 
-	view := tui.New(cfg, nil, nil).View()
+	view := tui.New(cfg, nil, tui.Deps{}).View()
 
 	// An empty value must read as a thing to do, not as a blank the eye skips.
 	if !strings.Contains(view, "(not set)") {
@@ -246,7 +248,7 @@ func TestViewMarksAnUnsetJiraURL(t *testing.T) {
 func TestTheFirstPaneStartsWithFocus(t *testing.T) {
 	t.Parallel()
 
-	view := sized(t, tui.New(completeConfig(), nil, nil), 120, 40).View()
+	view := sized(t, tui.New(completeConfig(), nil, tui.Deps{}), 120, 40).View()
 
 	if !strings.Contains(view, focused("1 Issues")) {
 		t.Errorf("the Issues pane does not start focused:\n%s", view)
@@ -256,7 +258,7 @@ func TestTheFirstPaneStartsWithFocus(t *testing.T) {
 func TestTabMovesFocusDownTheRail(t *testing.T) {
 	t.Parallel()
 
-	view := press(t, sized(t, tui.New(completeConfig(), nil, nil), 120, 40), "tab").View()
+	view := press(t, sized(t, tui.New(completeConfig(), nil, tui.Deps{}), 120, 40), "tab").View()
 
 	if !strings.Contains(view, focused("2 Branch")) {
 		t.Errorf("tab did not move focus to Branch:\n%s", view)
@@ -271,7 +273,7 @@ func TestTabMovesFocusDownTheRail(t *testing.T) {
 func TestFocusWrapsAtBothEndsOfTheRail(t *testing.T) {
 	t.Parallel()
 
-	start := sized(t, tui.New(completeConfig(), nil, nil), 120, 40)
+	start := sized(t, tui.New(completeConfig(), nil, tui.Deps{}), 120, 40)
 
 	// shift+tab from the first pane lands on the last rather than stopping.
 	if view := press(t, start, "shift+tab").View(); !strings.Contains(view, focused("5 Slack")) {
@@ -287,7 +289,7 @@ func TestFocusWrapsAtBothEndsOfTheRail(t *testing.T) {
 func TestNumberKeysJumpStraightToAPane(t *testing.T) {
 	t.Parallel()
 
-	view := press(t, sized(t, tui.New(completeConfig(), nil, nil), 120, 40), "4").View()
+	view := press(t, sized(t, tui.New(completeConfig(), nil, tui.Deps{}), 120, 40), "4").View()
 
 	if !strings.Contains(view, focused("4 Review")) {
 		t.Errorf("4 did not jump to Review:\n%s", view)
@@ -297,7 +299,7 @@ func TestNumberKeysJumpStraightToAPane(t *testing.T) {
 func TestClickingARailPaneFocusesIt(t *testing.T) {
 	t.Parallel()
 
-	model := sized(t, tui.New(completeConfig(), nil, nil), 120, 40)
+	model := sized(t, tui.New(completeConfig(), nil, tui.Deps{}), 120, 40)
 
 	// At 120x40 the third rail pane spans rows 17 through 24.
 	clicked, _ := model.Update(tea.MouseMsg{
@@ -315,7 +317,7 @@ func TestClickingARailPaneFocusesIt(t *testing.T) {
 func TestOnlyALeftClickOnTheRailMovesFocus(t *testing.T) {
 	t.Parallel()
 
-	model := sized(t, tui.New(completeConfig(), nil, nil), 120, 40)
+	model := sized(t, tui.New(completeConfig(), nil, tui.Deps{}), 120, 40)
 
 	for name, msg := range map[string]tea.MouseMsg{
 		"a release":         {X: 5, Y: 20, Action: tea.MouseActionRelease, Button: tea.MouseButtonLeft},
@@ -333,7 +335,7 @@ func TestOnlyALeftClickOnTheRailMovesFocus(t *testing.T) {
 func TestHelpShowsEveryKeyAndEscapeClosesIt(t *testing.T) {
 	t.Parallel()
 
-	start := sized(t, tui.New(completeConfig(), nil, nil), 120, 40)
+	start := sized(t, tui.New(completeConfig(), nil, tui.Deps{}), 120, 40)
 
 	open := press(t, start, "?").View()
 	for _, want := range []string{"shift+tab", "toggle mouse", "jump to pane"} {
@@ -358,7 +360,7 @@ func TestEscapeDoesNotQuit(t *testing.T) {
 
 	// In a pane interface esc backs out of an overlay. Quitting on it throws
 	// away a session to a key pressed out of habit.
-	_, cmd := tui.New(completeConfig(), nil, nil).Update(keyMsg("esc"))
+	_, cmd := tui.New(completeConfig(), nil, tui.Deps{}).Update(keyMsg("esc"))
 	if cmd != nil {
 		if _, isQuit := cmd().(tea.QuitMsg); isQuit {
 			t.Error("esc quit the interface")
@@ -371,7 +373,7 @@ func TestMouseKeyTogglesCapture(t *testing.T) {
 
 	// Capture breaks the terminal's own click-drag text selection, which is why
 	// there is a key to give it back.
-	model, off := tui.New(completeConfig(), nil, nil).Update(keyMsg("m"))
+	model, off := tui.New(completeConfig(), nil, tui.Deps{}).Update(keyMsg("m"))
 	if off == nil {
 		t.Fatal("m returned no command, want one releasing the mouse")
 	}
@@ -385,7 +387,7 @@ func TestMouseKeyTogglesCapture(t *testing.T) {
 func TestANarrowTerminalCollapsesTheRail(t *testing.T) {
 	t.Parallel()
 
-	view := sized(t, tui.New(completeConfig(), nil, nil), 80, 30).View()
+	view := sized(t, tui.New(completeConfig(), nil, tui.Deps{}), 80, 30).View()
 
 	if strings.Contains(view, "1 Issues") {
 		t.Errorf("the rail survived at 80 columns:\n%s", view)
@@ -401,7 +403,7 @@ func TestViewFitsTheTerminal(t *testing.T) {
 	t.Parallel()
 
 	for _, size := range [][2]int{{120, 40}, {90, 24}, {80, 30}, {200, 60}} {
-		view := sized(t, tui.New(completeConfig(), nil, nil), size[0], size[1]).View()
+		view := sized(t, tui.New(completeConfig(), nil, tui.Deps{}), size[0], size[1]).View()
 		rows := strings.Split(view, "\n")
 
 		if len(rows) > size[1] {
@@ -422,7 +424,7 @@ type unrelated struct{}
 func TestAMessageNothingHandlesChangesNothing(t *testing.T) {
 	t.Parallel()
 
-	model := sized(t, tui.New(completeConfig(), nil, nil), 120, 40)
+	model := sized(t, tui.New(completeConfig(), nil, tui.Deps{}), 120, 40)
 	before := model.View()
 
 	after, cmd := model.Update(unrelated{})
@@ -443,7 +445,7 @@ func TestViewNeverShowsAPasswordFromTheJiraURL(t *testing.T) {
 	cfg := completeConfig()
 	cfg.Jira.BaseURL = "https://alice:hunter2@jira.example.com"
 
-	view := tui.New(cfg, nil, nil).View()
+	view := tui.New(cfg, nil, tui.Deps{}).View()
 
 	if strings.Contains(view, "hunter2") {
 		t.Errorf("the view printed the password from jira.base_url:\n%s", view)

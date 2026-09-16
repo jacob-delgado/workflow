@@ -135,7 +135,7 @@ func TestSearchReportsAnUnreachableServerByItsCause(t *testing.T) {
 		return nil, &url.Error{Op: "Get", URL: request.URL.String(), Err: errFixtureTimeout}
 	}
 
-	client := jira.New(failing, bearerConfig("https://jira.example.com"))
+	client := jira.New(failing, bearerConfig(exampleBaseURL))
 
 	_, err := client.Search(t.Context(), jira.AssignedToMe)
 	if !errors.Is(err, jira.ErrUnreachable) || !errors.Is(err, errFixtureTimeout) {
@@ -158,7 +158,7 @@ func TestSearchReportsAPlainTransportError(t *testing.T) {
 		return nil, errFixtureTimeout
 	}
 
-	_, err := jira.New(failing, bearerConfig("https://jira.example.com")).Search(t.Context(), jira.AssignedToMe)
+	_, err := jira.New(failing, bearerConfig(exampleBaseURL)).Search(t.Context(), jira.AssignedToMe)
 	if !errors.Is(err, jira.ErrUnreachable) || !errors.Is(err, errFixtureTimeout) {
 		t.Errorf("Search returned %v, want ErrUnreachable wrapping the cause", err)
 	}
@@ -175,7 +175,7 @@ func TestSearchWithoutACredentialSendsNothing(t *testing.T) {
 		return nil, errFixtureTimeout
 	}
 
-	client := jira.New(recording, config.Jira{BaseURL: "https://jira.example.com", Token: "", User: ""})
+	client := jira.New(recording, config.Jira{BaseURL: exampleBaseURL, Token: "", User: ""})
 
 	_, err := client.Search(t.Context(), jira.AssignedToMe)
 	if !errors.Is(err, jira.ErrNoCredential) {

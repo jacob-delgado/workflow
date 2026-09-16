@@ -77,10 +77,23 @@ func (p pane) label() string {
 	return strconv.Itoa(int(p)+1) + " " + p.title()
 }
 
-// IssueSearch finds the issues assigned to the user. It is a function rather than
-// a client so the model never holds a context or a credential, and so a test can
-// hand it canned answers without a network.
+// IssueSearch finds the issues assigned to the user.
 type IssueSearch func() (jira.SearchResult, error)
+
+// TransitionList lists the moves Jira's workflow offers an issue.
+type TransitionList func(issueKey string) ([]jira.Transition, error)
+
+// TransitionApply moves an issue through one of the transitions it was offered.
+type TransitionApply func(issueKey string, to jira.Transition) error
+
+// Deps is everything the interface asks of the world outside the terminal.
+// Each is a function rather than a client so the model never holds a context or
+// a credential, and so a test can hand it canned answers without a network.
+type Deps struct {
+	SearchIssues    IssueSearch
+	ListTransitions TransitionList
+	ApplyTransition TransitionApply
+}
 
 // Model satisfies tea.Model with value receivers, so the assertion uses a value
 // rather than a pointer — and every method on it stays a value receiver, which
@@ -98,13 +111,17 @@ type Model struct {
 	focus    pane
 	helpOpen bool
 	mouse    bool
-	search   IssueSearch
+	deps     Deps
 	issues   issueList
+	picker   statusPicker
+	// notice is the footer's one-line report of something that just happened.
+	// The next key press clears it.
+	notice string
 }
 
 // New builds the interface for a configuration, the error if any from loading
-// it, and the search that fills the Issues pane.
-func New(cfg config.Config, loadErr error, search IssueSearch) Model {
+// it, and what it may ask of the world outside.
+func New(cfg config.Config, loadErr error, deps Deps) Model {
 	return Model{
 		cfg:      cfg,
 		loadErr:  loadErr,
@@ -115,8 +132,10 @@ func New(cfg config.Config, loadErr error, search IssueSearch) Model {
 		focus:    paneIssues,
 		helpOpen: false,
 		mouse:    true,
-		search:   search,
+		deps:     deps,
 		issues:   issueList{found: jira.SearchResult{Issues: nil, Total: 0}, err: nil, settled: false, selected: 0},
+		picker:   statusPicker{},
+		notice:   "",
 	}
 }
 
@@ -144,17 +163,11 @@ func Run(ctx context.Context, model Model, out io.Writer) error {
 // the returned command, which Bubble Tea executes off the update loop, so a slow
 // Jira never freezes the screen.
 func (m Model) Init() tea.Cmd {
-	if m.search == nil {
+	if m.deps.SearchIssues == nil {
 		return nil
 	}
 
-	search := m.search
-
-	return func() tea.Msg {
-		found, err := search()
-
-		return issuesLoaded{found: found, err: err}
-	}
+	return m.searchIssues()
 }
 
 // Update implements tea.Model.
@@ -174,16 +187,37 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.issues = m.issues.settle(msg)
 
 		return m, nil
+	case transitionsListed:
+		m.picker = m.picker.settle(msg)
+
+		return m, nil
+	case transitionApplied:
+		return m.finishTransition(msg)
 	default:
 		return m, nil
 	}
 }
 
+// searchIssues is the command that fills, or refreshes, the Issues pane.
+func (m Model) searchIssues() tea.Cmd {
+	search := m.deps.SearchIssues
+
+	return func() tea.Msg {
+		found, err := search()
+
+		return issuesLoaded{found: found, err: err}
+	}
+}
+
 // handleKey answers a key press.
 func (m Model) handleKey(msg tea.KeyMsg) (Model, tea.Cmd) {
+	m.notice = ""
+
 	switch {
 	case key.Matches(msg, m.keys.quit):
 		return m, tea.Quit
+	case m.picker.open:
+		return m.handlePickerKey(msg)
 	case key.Matches(msg, m.keys.toggleHelp):
 		m.helpOpen = !m.helpOpen
 	case key.Matches(msg, m.keys.closeOverlay):
@@ -199,7 +233,7 @@ func (m Model) handleKey(msg tea.KeyMsg) (Model, tea.Cmd) {
 	case key.Matches(msg, m.keys.toggleMouse):
 		return m.toggleMouse()
 	default:
-		return m.handlePaneKey(msg), nil
+		return m.handlePaneKey(msg)
 	}
 
 	return m, nil
@@ -207,9 +241,9 @@ func (m Model) handleKey(msg tea.KeyMsg) (Model, tea.Cmd) {
 
 // handlePaneKey gives the focused pane the keys the rail did not claim. Only the
 // Issues pane has any yet.
-func (m Model) handlePaneKey(msg tea.KeyMsg) Model {
+func (m Model) handlePaneKey(msg tea.KeyMsg) (Model, tea.Cmd) {
 	if m.focus != paneIssues {
-		return m
+		return m, nil
 	}
 
 	switch {
@@ -217,9 +251,11 @@ func (m Model) handlePaneKey(msg tea.KeyMsg) Model {
 		m.issues = m.issues.move(1)
 	case key.Matches(msg, m.keys.up):
 		m.issues = m.issues.move(-1)
+	case key.Matches(msg, m.keys.changeStatus):
+		return m.openStatusPicker()
 	}
 
-	return m
+	return m, nil
 }
 
 // toggleMouse gives the terminal its own click-drag selection back, or takes it
@@ -234,9 +270,10 @@ func (m Model) toggleMouse() (Model, tea.Cmd) {
 	return m, tea.DisableMouse
 }
 
-// handleMouse focuses the rail pane under a left click.
+// handleMouse focuses the rail pane under a left click. An open picker holds on
+// to focus until it is closed, from the mouse as much as from the keyboard.
 func (m Model) handleMouse(msg tea.MouseMsg) Model {
-	if msg.Action != tea.MouseActionPress || msg.Button != tea.MouseButtonLeft {
+	if m.picker.open || msg.Action != tea.MouseActionPress || msg.Button != tea.MouseButtonLeft {
 		return m
 	}
 

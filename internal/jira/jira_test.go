@@ -24,6 +24,10 @@ const token = "jira-token-for-tests"
 const myselfBody = `{"self":"https://jira.example.com/rest/api/2/user?username=fred",` +
 	`"key":"JIRAUSER10100","name":"fred","displayName":"Fred F. User","active":true}`
 
+// exampleBaseURL is an instance no test ever reaches: tests that use it fail
+// the transport or refuse before sending.
+const exampleBaseURL = "https://jira.example.com"
+
 // bearerConfig authenticates with a Data Center personal access token.
 func bearerConfig(baseURL string) config.Jira {
 	return config.Jira{BaseURL: baseURL, Token: token, User: ""}
@@ -278,7 +282,7 @@ func TestMyselfWithoutACredential(t *testing.T) {
 	t.Parallel()
 
 	client := jira.New(http.DefaultClient.Do, config.Jira{
-		BaseURL: "https://jira.example.com",
+		BaseURL: exampleBaseURL,
 		Token:   "",
 		User:    "",
 	})
