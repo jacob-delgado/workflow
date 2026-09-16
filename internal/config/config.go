@@ -17,6 +17,10 @@ import (
 // FileName is the configuration file's name in both search locations.
 const FileName = ".workflow.json"
 
+// notSet is how an empty setting is shown: as something a reader can act on,
+// rather than as a blank.
+const notSet = "(not set)"
+
 // FileMode is the permission a configuration file is written with. It holds API
 // tokens, so nobody but the owner may read it.
 const FileMode os.FileMode = 0o600
@@ -270,9 +274,9 @@ func (s Slack) Target() string {
 	case SlackWebhook:
 		return "the channel its webhook is bound to"
 	case SlackNone:
-		return "(not set)"
+		return notSet
 	default:
-		return "(not set)"
+		return notSet
 	}
 }
 
@@ -341,6 +345,17 @@ func RedactURL(raw string) string {
 	}
 
 	return parsed.Redacted()
+}
+
+// DisplayURL is a URL as it may be shown: a password in it masked, and an unset
+// one said so. Both doctor and the terminal interface show jira.base_url, and
+// when each did this by hand, one of them forgot the mask.
+func DisplayURL(raw string) string {
+	if raw == "" {
+		return notSet
+	}
+
+	return RedactURL(raw)
 }
 
 // Redact masks a secret, keeping only enough of the tail to recognize it.

@@ -270,13 +270,39 @@ func TestRedactURL(t *testing.T) {
 	}
 }
 
+// passwordURL is a base URL someone wrote a password into.
+const passwordURL = "https://alice:sekret@jira.example.com"
+
+func TestDisplayURLMasksAPasswordAndNamesAnUnsetURL(t *testing.T) {
+	t.Parallel()
+
+	cases := map[string]struct {
+		raw  string
+		want string
+	}{
+		"unset":      {raw: "", want: "(not set)"},
+		"plain":      {raw: jiraURL, want: jiraURL},
+		"a password": {raw: passwordURL, want: "https://alice:xxxxx@jira.example.com"},
+	}
+
+	for name, tt := range cases {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			if got := config.DisplayURL(tt.raw); got != tt.want {
+				t.Errorf("DisplayURL(%q) = %q, want %q", tt.raw, got, tt.want)
+			}
+		})
+	}
+}
+
 func TestRedactedMasksAPasswordInTheBaseURL(t *testing.T) {
 	t.Parallel()
 
 	// doctor prints jira.base_url, and its output is what the bug report
 	// template invites people to paste into a public issue.
 	cfg := config.Config{
-		Jira:  config.Jira{BaseURL: "https://alice:sekret@jira.example.com", Token: "t", User: ""},
+		Jira:  config.Jira{BaseURL: passwordURL, Token: "t", User: ""},
 		Slack: config.Slack{Token: botToken, WebhookURL: "", Channel: devChannel},
 		Path:  "",
 	}
@@ -286,7 +312,7 @@ func TestRedactedMasksAPasswordInTheBaseURL(t *testing.T) {
 		t.Errorf("the base URL still carries the password: %q", redacted.Jira.BaseURL)
 	}
 
-	if cfg.Jira.BaseURL != "https://alice:sekret@jira.example.com" {
+	if cfg.Jira.BaseURL != passwordURL {
 		t.Errorf("Redacted mutated the receiver: %q", cfg.Jira.BaseURL)
 	}
 }

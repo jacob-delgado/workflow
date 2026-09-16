@@ -295,7 +295,7 @@ func (m Model) status() string {
 
 	lines := []string{
 		label.Render("config ") + m.cfg.Path,
-		label.Render("jira   ") + describe(config.RedactURL(m.cfg.Jira.BaseURL)) +
+		label.Render("jira   ") + config.DisplayURL(m.cfg.Jira.BaseURL) +
 			label.Render(" · "+m.cfg.Jira.AuthMode().String()),
 		label.Render("slack  ") + m.cfg.Slack.Target() +
 			label.Render(" · "+m.cfg.Slack.Mode().String()),
@@ -322,13 +322,4 @@ func (m Model) configErrorStatus() string {
 
 	return m.styles.status.Render("configuration error") + "\n" +
 		m.styles.label.Render(m.loadErr.Error())
-}
-
-// describe renders an unset value as something a reader can act on.
-func describe(value string) string {
-	if value == "" {
-		return "(not set)"
-	}
-
-	return value
 }
