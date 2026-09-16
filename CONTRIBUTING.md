@@ -164,9 +164,20 @@ commit messages above, so a well-formed commit is also a changelog entry:
    Windows (amd64 and arm64), generates SHA256 checksums, attests the build
    provenance, and publishes the GitHub Release with everything attached.
 
-`feat` bumps the minor version, `fix` the patch, and `feat!` (or a
-`BREAKING CHANGE:` footer) marks a breaking change. Pre-1.0, a breaking change
-bumps the minor version.
+**Before 1.0, the minor digit is reserved for breaking changes.** Both `feat`
+and `fix` bump the patch; only a breaking change — `feat!`, or any type with a
+`BREAKING CHANGE:` footer — bumps the minor:
+
+| Commit | Version change |
+| --- | --- |
+| `fix:` | 0.1.0 → 0.1.1 |
+| `feat:` | 0.1.0 → 0.1.1 |
+| `feat!:` or `BREAKING CHANGE:` | 0.1.0 → 0.2.0 |
+
+So a version bump you have to react to means something you depended on actually
+changed, rather than merely that features were added. After 1.0 this becomes
+ordinary semantic versioning: `feat` bumps the minor and a breaking change bumps
+the major.
 
 Downloads can be verified with the checksums, or against their provenance:
 

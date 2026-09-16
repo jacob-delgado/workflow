@@ -387,3 +387,12 @@ than observable, public behavior.
   release workflow. A published release is something other people download; it
   cannot be cleanly withdrawn. When preparation is done, print the one step the
   maintainer takes and stop.
+
+- **Before 1.0, the minor digit is reserved for breaking changes.** `feat` and
+  `fix` both bump the patch; only `feat!` or a `BREAKING CHANGE:` footer bumps
+  the minor. That is `bump-minor-pre-major` plus `bump-patch-for-minor-pre-major`
+  in `release-please-config.json`, and **both are deliberate** — a version bump
+  someone has to react to should mean something they depended on changed, not
+  that features were added. This looks like a misconfiguration if you only know
+  the more common pre-1.0 convention, and it has already been "fixed" once by
+  mistake. Do not change it without the maintainer asking.
