@@ -29,7 +29,9 @@ tmp/
 .task/
 
 # --- Claude Code ---
-.claude/settings.local.json
+# The whole directory: it holds per-machine settings and session state such as
+# scheduled_tasks.lock, none of which belongs to the project.
+.claude/
 CLAUDE.local.md
 
 # --- macOS ---
