@@ -15,6 +15,7 @@ import (
 	"strings"
 
 	"github.com/jacob-delgado/workflow/internal/config"
+	"github.com/jacob-delgado/workflow/internal/sanitize"
 )
 
 // anonymousUser is what Data Center reports in X-Ausername when it served a
@@ -66,9 +67,14 @@ func (c Client) answerError(response *http.Response, requested *url.URL) error {
 // reason reads Jira's explanation from a failed answer, or "" when the body is
 // not one — such as the HTML page of a proxy standing where Jira should be.
 func (c Client) reason(body io.Reader) string {
+	raw, err := io.ReadAll(io.LimitReader(body, reasonLimit))
+	if err != nil {
+		return ""
+	}
+
 	var answer reasons
 
-	err := json.NewDecoder(io.LimitReader(body, reasonLimit)).Decode(&answer)
+	err = json.Unmarshal(sanitize.JSON(raw), &answer)
 	if err != nil {
 		return ""
 	}

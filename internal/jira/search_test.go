@@ -33,7 +33,7 @@ func answer(body, user string) http.HandlerFunc {
 			writer.Header().Set("X-Ausername", user)
 		}
 
-		writer.Header().Set("Content-Type", "application/json")
+		writer.Header().Set("Content-Type", jsonMediaType)
 
 		_, _ = writer.Write([]byte(body))
 	}

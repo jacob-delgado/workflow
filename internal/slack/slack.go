@@ -12,17 +12,22 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"net/http"
 	"strings"
 	"time"
 
 	"github.com/jacob-delgado/workflow/internal/config"
+	"github.com/jacob-delgado/workflow/internal/sanitize"
 )
 
 // APIBase is where the Slack Web API lives. Unlike Jira, it is the same for
 // everyone, so it is a constant rather than a setting — but it stays a parameter
 // of New so a test can point the client somewhere it controls.
 const APIBase = "https://slack.com/api"
+
+// bodyLimit bounds how much of an answer is read.
+const bodyLimit = 1 << 20
 
 // authTestPath answers "does this token work?" without posting anything.
 const authTestPath = "/auth.test"
@@ -130,9 +135,15 @@ func (c Client) send(request *http.Request) (Identity, error) {
 		return Identity{}, fmt.Errorf("%w: %d", ErrUnexpectedStatus, response.StatusCode)
 	}
 
+	body, err := io.ReadAll(io.LimitReader(response.Body, bodyLimit))
+	if err != nil {
+		return Identity{}, fmt.Errorf("reading the answer from Slack: %w", err)
+	}
+
 	var identity Identity
 
-	err = json.NewDecoder(response.Body).Decode(&identity)
+	// Workspace and user names, and Slack's own error, are about to be printed.
+	err = json.Unmarshal(sanitize.JSON(body), &identity)
 	if err != nil {
 		return Identity{}, fmt.Errorf("reading the answer from Slack: %w", err)
 	}

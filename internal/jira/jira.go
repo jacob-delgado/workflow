@@ -20,12 +20,17 @@ import (
 	"time"
 
 	"github.com/jacob-delgado/workflow/internal/config"
+	"github.com/jacob-delgado/workflow/internal/sanitize"
 )
 
 // myselfPath answers "does this credential work?". Jira documents it as 200 or
 // 401 and says it cannot be read anonymously, which is what makes it a probe;
 // /rest/api/2/serverInfo, the obvious alternative, answers 200 to strangers.
 const myselfPath = "/rest/api/2/myself"
+
+// bodyLimit bounds how much of an answer is read. An issue with a thousand
+// comments is a few megabytes; an answer past this is not one worth decoding.
+const bodyLimit = 16 << 20
 
 // Errors this package returns. Callers distinguish them with errors.Is.
 var (
@@ -109,20 +114,14 @@ func (c Client) Myself(ctx context.Context) (User, error) {
 		return User{}, err
 	}
 
-	response, err := c.do(request)
-	if err != nil {
-		return User{}, fmt.Errorf("%w at %s: %w", ErrUnreachable, c.settings.BaseURL, err)
-	}
-	defer func() { _ = response.Body.Close() }()
-
-	err = statusError(response.StatusCode, request.URL)
+	body, err := c.exchange(request)
 	if err != nil {
 		return User{}, err
 	}
 
 	var user User
 
-	err = json.NewDecoder(response.Body).Decode(&user)
+	err = json.Unmarshal(body, &user)
 	if err != nil {
 		return User{}, fmt.Errorf("reading the answer from %s: %w", c.settings.BaseURL, err)
 	}
@@ -190,22 +189,27 @@ func authenticators() map[config.AuthMode]func(*http.Request, config.Jira) {
 	}
 }
 
-// exchange sends a request and hands back the answer only if Jira accepted it.
-// The caller closes the body of an answer it receives.
-func (c Client) exchange(request *http.Request) (*http.Response, error) {
+// exchange sends a request and returns the body of the answer, only if Jira
+// accepted it and only once nothing in it can drive a terminal: every string in
+// it is text someone else chose, about to be drawn on this one.
+func (c Client) exchange(request *http.Request) ([]byte, error) {
 	response, err := c.do(request)
 	if err != nil {
 		return nil, fmt.Errorf("%w at %s: %w", ErrUnreachable, c.settings.BaseURL, cause(err))
 	}
+	defer func() { _ = response.Body.Close() }()
 
 	err = c.answerError(response, request.URL)
 	if err != nil {
-		_ = response.Body.Close()
-
 		return nil, err
 	}
 
-	return response, nil
+	body, err := io.ReadAll(io.LimitReader(response.Body, bodyLimit))
+	if err != nil {
+		return nil, fmt.Errorf("reading the answer from %s: %w", c.settings.BaseURL, err)
+	}
+
+	return sanitize.JSON(body), nil
 }
 
 // statusError translates a response status into something a person can act on.

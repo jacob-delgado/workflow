@@ -71,15 +71,14 @@ func (c Client) Search(ctx context.Context, jql string) (SearchResult, error) {
 		return SearchResult{}, err
 	}
 
-	response, err := c.exchange(request)
+	body, err := c.exchange(request)
 	if err != nil {
 		return SearchResult{}, err
 	}
-	defer func() { _ = response.Body.Close() }()
 
 	var answer searchAnswer
 
-	err = json.NewDecoder(response.Body).Decode(&answer)
+	err = json.Unmarshal(body, &answer)
 	if err != nil {
 		return SearchResult{}, fmt.Errorf("reading the answer from %s: %w", c.settings.BaseURL, err)
 	}

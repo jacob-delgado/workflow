@@ -24,6 +24,9 @@ const token = "jira-token-for-tests"
 const myselfBody = `{"self":"https://jira.example.com/rest/api/2/user?username=fred",` +
 	`"key":"JIRAUSER10100","name":"fred","displayName":"Fred F. User","active":true}`
 
+// jsonMediaType is what Jira's answers are, and what its requests say they want.
+const jsonMediaType = "application/json"
+
 // exampleBaseURL is an instance no test ever reaches: tests that use it fail
 // the transport or refuse before sending.
 const exampleBaseURL = "https://jira.example.com"
@@ -47,7 +50,7 @@ func TestMyselfReportsTheAuthenticatedUser(t *testing.T) {
 	t.Parallel()
 
 	client := serve(t, func(writer http.ResponseWriter, _ *http.Request) {
-		writer.Header().Set("Content-Type", "application/json")
+		writer.Header().Set("Content-Type", jsonMediaType)
 		_, _ = writer.Write([]byte(myselfBody))
 	})
 
@@ -120,7 +123,7 @@ func TestMyselfSendsTheCredentialOnlyInTheAuthorizationHeader(t *testing.T) {
 			}
 
 			// Without this, Jira answers errors in XML rather than JSON.
-			if got := gotAccept.Load(); got != "application/json" {
+			if got := gotAccept.Load(); got != jsonMediaType {
 				t.Errorf("Accept = %q, want application/json", got)
 			}
 

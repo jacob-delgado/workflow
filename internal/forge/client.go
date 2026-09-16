@@ -8,10 +8,13 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"mime"
 	"net/http"
 	"strings"
 	"time"
+
+	"github.com/jacob-delgado/workflow/internal/sanitize"
 )
 
 // userPath answers "who does this credential belong to?" on both forges. It
@@ -23,6 +26,9 @@ const userPath = "/user"
 // header when asked to set it to "", and GitHub answers 403 to a request with
 // no User-Agent — a status that would otherwise read as a refused credential.
 const userAgent = "workflow (+https://github.com/jacob-delgado/workflow)"
+
+// bodyLimit bounds how much of an answer is read.
+const bodyLimit = 16 << 20
 
 // jsonMediaType is what an API answer must be before it is decoded.
 const jsonMediaType = "application/json"
@@ -132,9 +138,16 @@ func (c Client) send(request *http.Request) (Identity, error) {
 		return Identity{}, err
 	}
 
+	body, err := io.ReadAll(io.LimitReader(response.Body, bodyLimit))
+	if err != nil {
+		return Identity{}, fmt.Errorf("reading the answer from %s: %w", c.base, err)
+	}
+
 	var identity Identity
 
-	err = json.NewDecoder(response.Body).Decode(&identity)
+	// Every string in the answer is about to be printed, and a forge — or
+	// anything answering in its place — chose it.
+	err = json.Unmarshal(sanitize.JSON(body), &identity)
 	if err != nil {
 		return Identity{}, fmt.Errorf("reading the answer from %s: %w", c.base, err)
 	}
