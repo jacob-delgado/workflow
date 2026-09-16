@@ -1,0 +1,30 @@
+# markdownlint-cli2 — Markdown lint and format, wired into `task lint:markdown`,
+# `task fmt` and the lefthook pre-commit hook.
+globs:
+  - "**/*.md"
+
+ignores:
+  - "tmp/**"
+  - "docs/public/**"
+  # Generated from the Cobra command tree by `task docs:gen`. Autofixing these
+  # would rewrite the generator's output, and `task docs:check` would then fail
+  # on drift that no hand edit caused. The sibling _index.md IS hand-written and
+  # stays linted, which is why this names the generated files rather than the
+  # whole directory.
+  - "docs/content/docs/reference/workflow*.md"
+
+config:
+  # Prose here is hand-wrapped at 80, but tables and long URLs are not worth
+  # breaking to satisfy a counter. Line length stays a review judgment.
+  MD013: false
+
+  # Hugo pages carry their title in front matter AND open with an `# H1`, which
+  # markdownlint counts as two top-level headings. Naming the front-matter field
+  # as empty stops it competing with the real heading; the rule still catches a
+  # genuine second `#` in the body.
+  MD025:
+    front_matter_title: ""
+
+  # A pull request template opens with an HTML comment and a `##` section on
+  # purpose: it is a form to fill in, not a document with a title.
+  MD041: false

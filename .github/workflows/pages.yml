@@ -54,7 +54,12 @@ jobs:
         with:
           persist-credentials: false
 
+      # cache: false for the same reason as release.yml: this job publishes
+      # the site people read, so a restored tool cache is state carried in
+      # from an earlier run that should not influence what gets published.
       - uses: jdx/mise-action@c2a87611a18de5b3828c5652fe268e992400cb5c # v4.3.0
+        with:
+          cache: false
 
       # Fails if the committed command reference disagrees with the command
       # tree, so the site can never publish documentation for flags that no

@@ -99,7 +99,7 @@ Commit messages follow the
 [Conventional Commits 1.0.0](https://www.conventionalcommits.org/en/v1.0.0/)
 specification, enforced by a `commit-msg` git hook and re-checked in CI:
 
-```
+```text
 <type>[optional scope]: <description>
 
 [optional body]
@@ -111,7 +111,7 @@ Types are `feat`, `fix`, `docs`, `test`, `refactor`, `perf`, `build`, `ci`,
 `chore`, `revert`, and `style`. Keep the subject under 72 characters, in the
 imperative, with no trailing period, and use the body to explain *why*:
 
-```
+```text
 feat(jira): add command to transition an issue
 
 Moving an issue to In Progress is the first thing anyone does after

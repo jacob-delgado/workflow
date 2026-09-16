@@ -16,7 +16,7 @@ stack (Bubble Tea, Bubbles, Lip Gloss) with Cobra for the command tree.
 
 Layout:
 
-```
+```text
 cmd/workflow/      thin main; wires cli.Execute and the exit status
 internal/cli/      the Cobra command tree
 internal/config/   .workflow.json loading, redaction, validation
@@ -34,7 +34,7 @@ build/             the build container
 | `task run` | run the TUI from source |
 | `task test` | tests with the race detector |
 | `task test:cover` | tests plus the coverage floor |
-| `task lint` | every linter (Go, shell, YAML, Dockerfile, Actions, headers, spelling) |
+| `task lint` | every linter (Go, shell, YAML, Dockerfile, Actions + security, Markdown, TOML, headers, spelling, file length) |
 | `task fmt` | format everything in place |
 | `task check` | **the full gate** — lint, tests + coverage, govulncheck, gitleaks |
 | `task container:check` | the same gate inside the build container |
@@ -86,10 +86,13 @@ without agreement on direction.
   than one level of abstraction, extract. The test: can you describe what it does
   in a single clause without using "and"?
 
-- **File length**: aim to keep source files under ~500 lines. A file past that is
-  usually carrying more than one concern and wants splitting, file-per-concern.
-  Best-effort, not a hard gate — but call out (don't silently grow) files that
-  blow well past it.
+- **File length — 500 lines, enforced.** A file past that is usually carrying
+  more than one concern and wants splitting, file-per-concern.
+  `scripts/check-file-length.sh` gates every tracked `.go` and `.sh` file in
+  `task lint` and on pre-push; `--list` prints the current standings. Tests
+  count: a 900-line test file usually means the unit under test does too much.
+  There is no exemption list, deliberately — add one only when a file genuinely
+  earns it, with the reason written beside it.
 
 - **McCabe cyclomatic complexity ≤ 10 — enforced, not aspirational.** `gocyclo`
   fails the build past 10, with `gocognit` (≤ 20) and `funlen` as backstops.

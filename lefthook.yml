@@ -10,9 +10,14 @@
 # the hook working — fix the underlying issue. The only legitimate bypass is a
 # genuinely emergent hotfix.
 #
-# Deliberately NOT here: govulncheck and gitleaks. Both scan the whole tree and
-# belong in `task check` and CI, where the seconds they cost don't land on every
+# Deliberately NOT here: govulncheck. It scans the whole dependency tree and
+# belongs in `task check` and CI, where the seconds it costs don't land on every
 # commit.
+#
+# gitleaks used to sit alongside it for the same reason. It runs here now in its
+# STAGED-DIFF form, which costs a fraction of a whole-tree scan: this project's
+# subject is live API tokens, and a secret is the one class of mistake that a
+# later `task check` cannot undo — by then it is in the history.
 
 pre-commit:
   parallel: true
@@ -69,14 +74,50 @@ pre-commit:
     typos:
       run: typos --force-exclude {staged_files}
 
-# Pre-push: the tests. A red suite here is a guaranteed red CI, and learning
-# that locally costs seconds instead of a CI round trip.
+    markdownlint:
+      glob: "*.md"
+      run: markdownlint-cli2 --fix {staged_files}
+      stage_fixed: true
+
+    taplo:
+      glob: "*.toml"
+      run: taplo fmt {staged_files}
+      stage_fixed: true
+
+    # actionlint (above) checks that a workflow is valid; zizmor checks that it
+    # is safe — script injection, over-broad permissions, mutable action refs.
+    zizmor:
+      glob: ".github/workflows/*.{yml,yaml}"
+      run: zizmor --no-progress {staged_files}
+
+    # Secret scan of the staged diff. This repo's whole subject is API tokens,
+    # so catching one before it enters a commit is worth the second it costs;
+    # `task secrets` still sweeps the working tree, and CI still sweeps history.
+    gitleaks:
+      run: gitleaks git --staged --redact --no-banner
+
+# Pre-push: the tests, plus the two whole-tree checks that a staged-diff hook
+# cannot see. A red result here is a guaranteed red CI, and learning that
+# locally costs seconds instead of a CI round trip.
 pre-push:
   parallel: false
   commands:
     unit-go:
       glob: "{*.go,go.mod,go.sum}"
       run: go test -race ./...
+
+    # The pre-commit hook runs golangci-lint with --new-from-rev=HEAD~, so it
+    # only ever sees the lines this commit changed. That is the right trade for
+    # a per-commit hook and it means gocyclo, gocognit and funlen never look at
+    # a function that grew in a file this commit did not touch. This closes it.
+    lint-go-all:
+      glob: "{*.go,go.mod,go.sum}"
+      run: golangci-lint run
+
+    # Deliberately no glob: file length changes by editing a file, and a commit
+    # that only moves or renames one still changes which paths are measured.
+    file-length:
+      run: scripts/check-file-length.sh
 
 # Commit-message format check: Conventional Commits, e.g.
 #   feat(jira): add issue transition command

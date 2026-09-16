@@ -43,7 +43,11 @@ jobs:
           manifest-file: .release-please-manifest.json
 
       # fetch-depth: 0 because the tag script reads local history.
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      # persist-credentials: false is wrong here. This job pushes the release
+      # branch, so the checkout credential is the point rather than an
+      # oversight. It uploads no artifacts, which is the path artipacked warns
+      # a persisted credential can escape through.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1 # zizmor: ignore[artipacked]
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           fetch-depth: 0
