@@ -9,6 +9,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"net/url"
 	"os"
 	"path/filepath"
 )
@@ -299,6 +300,7 @@ func (c Config) Redacted() Config {
 	redacted.Jira.Token = Redact(c.Jira.Token)
 	redacted.Slack.Token = Redact(c.Slack.Token)
 	redacted.Slack.WebhookURL = Redact(c.Slack.WebhookURL)
+	redacted.Jira.BaseURL = RedactURL(c.Jira.BaseURL)
 
 	return redacted
 }
@@ -306,6 +308,21 @@ func (c Config) Redacted() Config {
 // visibleSuffix is how many trailing characters of a token stay readable, so a
 // person can tell two tokens apart without the value being usable.
 const visibleSuffix = 4
+
+// RedactURL masks a password embedded in a URL, leaving the rest readable.
+//
+// A base URL is not a secret, so it is shown in full — but nothing stops someone
+// writing https://user:password@jira.example.com into jira.base_url, and doctor
+// prints that line into output the bug report template asks people to paste
+// into a public issue.
+func RedactURL(raw string) string {
+	parsed, err := url.Parse(raw)
+	if err != nil || parsed.User == nil {
+		return raw
+	}
+
+	return parsed.Redacted()
+}
 
 // Redact masks a secret, keeping only enough of the tail to recognize it.
 func Redact(secret string) string {
