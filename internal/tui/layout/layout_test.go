@@ -16,7 +16,7 @@ const railPanes = 5
 func TestComputeReservesASpineAndAFooter(t *testing.T) {
 	t.Parallel()
 
-	got := layout.Compute(120, 40, railPanes)
+	got := layout.Compute(120, 40, railPanes, 0)
 
 	if got.Spine != (layout.Box{X: 0, Y: 0, Width: 120, Height: 1}) {
 		t.Errorf("Spine = %+v, want the whole top row", got.Spine)
@@ -30,7 +30,7 @@ func TestComputeReservesASpineAndAFooter(t *testing.T) {
 func TestComputePlacesTheRailBesideTheDetail(t *testing.T) {
 	t.Parallel()
 
-	got := layout.Compute(120, 40, railPanes)
+	got := layout.Compute(120, 40, railPanes, 0)
 
 	if got.Collapsed() {
 		t.Fatal("Collapsed() = true at 120 columns, want a rail")
@@ -69,7 +69,7 @@ func TestComputeClampsTheRailWidth(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
 
-			got := layout.Compute(tt.width, 40, railPanes)
+			got := layout.Compute(tt.width, 40, railPanes, 0)
 			if got.Rail[0].Width != tt.want {
 				t.Errorf("rail width at %d columns = %d, want %d", tt.width, got.Rail[0].Width, tt.want)
 			}
@@ -77,30 +77,60 @@ func TestComputeClampsTheRailWidth(t *testing.T) {
 	}
 }
 
-func TestComputeGivesLeftoverRowsToTheTopPanes(t *testing.T) {
+func TestTheFocusedPaneTakesTheRoomTheOthersDoNotNeed(t *testing.T) {
 	t.Parallel()
 
-	// 40 rows less the spine and footer leaves 38. Split five ways that is 7
-	// each with 3 over, which go to the first three panes rather than being
-	// dropped — a row lost at the bottom of the screen is a visible gap.
-	got := layout.Compute(120, 40, railPanes)
+	// 40 rows less the spine and footer leaves 38. Each pane without focus
+	// keeps two rows of content inside its border; the focused one gets the
+	// rest, so the list someone is working in is the one that can be read.
+	cases := map[string]struct {
+		focused int
+		want    []int
+	}{
+		"the first":  {focused: 0, want: []int{22, 4, 4, 4, 4}},
+		"the middle": {focused: 2, want: []int{4, 4, 22, 4, 4}},
+		"the last":   {focused: 4, want: []int{4, 4, 4, 4, 22}},
+	}
 
-	wantHeights := []int{8, 8, 8, 7, 7}
+	for name, tt := range cases {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			got := layout.Compute(120, 40, railPanes, tt.focused)
+			requireStacked(t, got, tt.want, 38)
+		})
+	}
+}
+
+func TestAShortTerminalSharesTheRailEvenly(t *testing.T) {
+	t.Parallel()
+
+	// 20 rows leave 18: too few to give the focused pane a useful height
+	// after four compact ones, so every pane shares — and the leftover rows go
+	// to the top panes rather than being dropped, since a row lost at the
+	// bottom of the screen is a visible gap.
+	requireStacked(t, layout.Compute(120, 20, railPanes, 3), []int{4, 4, 4, 3, 3}, 18)
+}
+
+// requireStacked checks each rail pane's height, that they use every body row,
+// and that each starts where the previous one ended.
+func requireStacked(t *testing.T, got layout.Layout, heights []int, body int) {
+	t.Helper()
+
 	total := 0
 
 	for index, box := range got.Rail {
 		total += box.Height
 
-		if box.Height != wantHeights[index] {
-			t.Errorf("rail[%d].Height = %d, want %d", index, box.Height, wantHeights[index])
+		if box.Height != heights[index] {
+			t.Errorf("rail[%d].Height = %d, want %d", index, box.Height, heights[index])
 		}
 	}
 
-	if total != 38 {
-		t.Errorf("rail heights sum to %d, want every body row used (38)", total)
+	if total != body {
+		t.Errorf("rail heights sum to %d, want every body row used (%d)", total, body)
 	}
 
-	// Each pane starts where the previous one ended.
 	for index := 1; index < len(got.Rail); index++ {
 		previous := got.Rail[index-1]
 		if got.Rail[index].Y != previous.Y+previous.Height {
@@ -109,10 +139,37 @@ func TestComputeGivesLeftoverRowsToTheTopPanes(t *testing.T) {
 	}
 }
 
+func TestTheShapeFollowsTheTerminal(t *testing.T) {
+	t.Parallel()
+
+	cases := map[string]struct {
+		width, height                       int
+		collapsed, borderless, compactSpine bool
+	}{
+		"roomy":             {width: 120, height: 40},
+		"narrow":            {width: 80, height: 40, collapsed: true},
+		"very narrow":       {width: 59, height: 40, collapsed: true, borderless: true},
+		"short":             {width: 120, height: 23, compactSpine: true},
+		"at the thresholds": {width: 60, height: 24, collapsed: true},
+	}
+
+	for name, tt := range cases {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			got := layout.Compute(tt.width, tt.height, railPanes, 0)
+			if got.Collapsed() != tt.collapsed || got.Borderless() != tt.borderless || got.CompactSpine() != tt.compactSpine {
+				t.Errorf("collapsed, borderless, compact spine = %v, %v, %v; want %v, %v, %v",
+					got.Collapsed(), got.Borderless(), got.CompactSpine(), tt.collapsed, tt.borderless, tt.compactSpine)
+			}
+		})
+	}
+}
+
 func TestComputeCollapsesTheRailOnANarrowTerminal(t *testing.T) {
 	t.Parallel()
 
-	got := layout.Compute(80, 30, railPanes)
+	got := layout.Compute(80, 30, railPanes, 0)
 
 	if !got.Collapsed() {
 		t.Fatal("Collapsed() = false at 80 columns, want the rail gone")
@@ -131,7 +188,7 @@ func TestComputeSurvivesATinyTerminal(t *testing.T) {
 
 	// A terminal can be resized to almost nothing mid-session. Negative sizes
 	// would panic inside the renderer, so everything floors at zero.
-	got := layout.Compute(120, 1, railPanes)
+	got := layout.Compute(120, 1, railPanes, 0)
 
 	if got.Detail.Height < 0 {
 		t.Errorf("Detail.Height = %d, want it floored at zero", got.Detail.Height)
@@ -147,7 +204,7 @@ func TestComputeSurvivesATinyTerminal(t *testing.T) {
 func TestRailAt(t *testing.T) {
 	t.Parallel()
 
-	got := layout.Compute(120, 40, railPanes)
+	got := layout.Compute(120, 40, railPanes, 0)
 
 	cases := map[string]struct {
 		column, row int
@@ -155,7 +212,7 @@ func TestRailAt(t *testing.T) {
 		wantOK      bool
 	}{
 		"top of the first pane":  {column: 0, row: 1, want: 0, wantOK: true},
-		"inside the third pane":  {column: 10, row: 20, want: 2, wantOK: true},
+		"inside the third pane":  {column: 10, row: 28, want: 2, wantOK: true},
 		"last row of the rail":   {column: 35, row: 38, want: 4, wantOK: true},
 		"the spine is not rail":  {column: 5, row: 0, wantOK: false},
 		"the detail is not rail": {column: 60, row: 10, wantOK: false},
@@ -181,7 +238,7 @@ func TestRailAt(t *testing.T) {
 func TestRailAtOnACollapsedLayout(t *testing.T) {
 	t.Parallel()
 
-	if _, ok := layout.Compute(80, 30, railPanes).RailAt(5, 5); ok {
+	if _, ok := layout.Compute(80, 30, railPanes, 0).RailAt(5, 5); ok {
 		t.Error("RailAt found a rail pane on a collapsed layout")
 	}
 }

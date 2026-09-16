@@ -277,7 +277,7 @@ func (m Model) handleMouse(msg tea.MouseMsg) Model {
 		return m
 	}
 
-	index, ok := layout.Compute(m.width, m.height, paneCount).RailAt(msg.X, msg.Y)
+	index, ok := layout.Compute(m.width, m.height, paneCount, int(m.focus)).RailAt(msg.X, msg.Y)
 	if ok {
 		m.focus = pane(index)
 	}
