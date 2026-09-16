@@ -221,3 +221,69 @@ func TestRepoAPIBaseCannotGuessAnOnPremisesForge(t *testing.T) {
 		t.Errorf("APIBase() returned %v, want ErrUnknownForge", err)
 	}
 }
+
+func TestParseKind(t *testing.T) {
+	t.Parallel()
+
+	cases := map[string]struct {
+		name    string
+		want    forge.Kind
+		wantErr bool
+	}{
+		"github":            {name: "github", want: forge.KindGitHub},
+		"gitlab":            {name: "gitlab", want: forge.KindGitLab},
+		"case insensitive":  {name: "GitHub", want: forge.KindGitHub},
+		"surrounding space": {name: "  gitlab  ", want: forge.KindGitLab},
+		"empty is unset":    {name: "", want: forge.KindUnknown},
+		"anything else":     {name: "bitbucket", want: forge.KindUnknown, wantErr: true},
+	}
+
+	for name, tt := range cases {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			got, err := forge.ParseKind(tt.name)
+			if tt.wantErr != (err != nil) {
+				t.Fatalf("ParseKind(%q) error = %v, wantErr %v", tt.name, err, tt.wantErr)
+			}
+
+			if got != tt.want {
+				t.Errorf("ParseKind(%q) = %v, want %v", tt.name, got, tt.want)
+			}
+		})
+	}
+}
+
+func TestRepoWithConfiguredKind(t *testing.T) {
+	t.Parallel()
+
+	onPrem := forge.Repo{Kind: forge.KindUnknown, Host: onPremHost, Path: acmePath}
+
+	// The configuration only ever fills a gap.
+	filled, err := onPrem.WithConfiguredKind("gitlab")
+	if err != nil {
+		t.Fatalf("WithConfiguredKind returned %v, want nil", err)
+	}
+
+	if filled.Kind != forge.KindGitLab {
+		t.Errorf("Kind = %v, want the configured one", filled.Kind)
+	}
+
+	// A host that already named itself is not overridden: the remote is the
+	// better evidence, and disagreeing with it silently would be worse.
+	hosted := forge.Repo{Kind: forge.KindGitHub, Host: githubHost, Path: ownerRepo}
+
+	kept, err := hosted.WithConfiguredKind("gitlab")
+	if err != nil {
+		t.Fatalf("WithConfiguredKind returned %v, want nil", err)
+	}
+
+	if kept.Kind != forge.KindGitHub {
+		t.Errorf("Kind = %v, want the host's own answer to win", kept.Kind)
+	}
+
+	_, err = onPrem.WithConfiguredKind("bitbucket")
+	if !errors.Is(err, forge.ErrUnknownForge) {
+		t.Errorf("WithConfiguredKind(bitbucket) returned %v, want ErrUnknownForge", err)
+	}
+}

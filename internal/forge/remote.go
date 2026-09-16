@@ -7,6 +7,7 @@ package forge
 
 import (
 	"errors"
+	"fmt"
 	"net/url"
 	"strings"
 )
@@ -156,4 +157,38 @@ func githubAPIBase(host string) string {
 	default:
 		return "https://" + host + "/api/v3"
 	}
+}
+
+// ParseKind reads a forge named in configuration.
+func ParseKind(name string) (Kind, error) {
+	switch strings.ToLower(strings.TrimSpace(name)) {
+	case "":
+		return KindUnknown, nil
+	case "github":
+		return KindGitHub, nil
+	case "gitlab":
+		return KindGitLab, nil
+	default:
+		return KindUnknown, fmt.Errorf("%w: %q", ErrUnknownForge, name)
+	}
+}
+
+// WithConfiguredKind fills in a forge the remote could not name.
+//
+// It only ever fills a gap. A host that names itself — github.com, gitlab.com —
+// keeps its own answer, because the remote is the better evidence and silently
+// disagreeing with it would be the worse failure.
+func (r Repo) WithConfiguredKind(name string) (Repo, error) {
+	if r.Kind != KindUnknown || name == "" {
+		return r, nil
+	}
+
+	kind, err := ParseKind(name)
+	if err != nil {
+		return r, err
+	}
+
+	r.Kind = kind
+
+	return r, nil
 }

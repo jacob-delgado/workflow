@@ -93,6 +93,7 @@ workflow doctor           # says what is still missing
     "channel": "#dev-workflow"
   },
   "forge": {
+    "kind": "",
     "token": ""
   }
 }

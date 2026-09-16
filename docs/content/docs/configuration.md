@@ -20,6 +20,7 @@ workflow reads a single JSON file, `.workflow.json`.
     "channel": "#dev-workflow"
   },
   "forge": {
+    "kind": "",
     "token": ""
   }
 }
@@ -52,6 +53,7 @@ which one was read.
 | `slack.token` | one of these two | Bot token; starts with `xoxb-`. |
 | `slack.webhook_url` | one of these two | Incoming webhook URL. **This is a credential**, not just an address. |
 | `slack.channel` | only with `slack.token` | Channel to post in, e.g. `#dev-workflow`. A webhook carries its own. |
+| `forge.kind` | on-prem only | `github` or `gitlab`, for a host whose name says neither. |
 | `forge.token` | **no** | GitHub or GitLab token. Usually leave it empty — see below. |
 
 Unknown keys are an error rather than being ignored. A misspelled key that
@@ -121,6 +123,20 @@ credential behind — GitLab users set `$GITLAB_TOKEN` or `forge.token` instead.
 
 `forge.token` is never reported as missing, because failing `doctor` for everyone
 correctly relying on `gh auth login` would be wrong.
+
+### On-premises forges need `forge.kind`
+
+workflow reads the forge from your git remote. `github.com` and `gitlab.com` name
+themselves; `git.example.com` does not, and a GitHub Enterprise Server looks
+exactly like a self-managed GitLab from a remote URL alone — while their APIs live
+at different paths. Rather than guess and send a token to the wrong service, set:
+
+```json
+"forge": { "kind": "github" }
+```
+
+`forge.kind` only fills that gap. On `github.com` or `gitlab.com` it is ignored,
+because the remote is the better evidence.
 
 ## Keeping the tokens safe
 
