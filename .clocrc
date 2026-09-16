@@ -1,0 +1,17 @@
+# cloc configuration, read by `task cloc` (https://github.com/AlDanial/cloc).
+#
+# cloc does NOT pick this file up on its own — its default is
+# ~/.config/cloc/options.txt — so the task passes --config explicitly. Without
+# that, cloc walks the filesystem and counts bin/, dist/, docs/public/ and the
+# JetBrains project files, which is how a Go-only repository comes out looking
+# like it is mostly JavaScript.
+
+# Count what git tracks. Everything .gitignore already excludes is excluded here
+# too, with no second list to keep in step — the same source of truth
+# scripts/check-file-length.sh reads.
+--vcs=git
+
+# The command reference is written by `task docs:gen` from the Cobra tree, so
+# counting it measures the generator rather than anyone's work. go.sum is a
+# lockfile.
+--exclude-list-file=.clocignore

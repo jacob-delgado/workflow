@@ -48,8 +48,10 @@ tasks:
       - go build -o bin/{{.BINARY}} {{.PKG}}
 
   run:
-    desc: Run the TUI from source
+    desc: Run from source — `task run -- doctor --online` passes arguments through
     cmds:
+      # {{.CLI_ARGS}} is everything after `--`, so subcommands and flags both
+      # reach the binary: `task run -- config show`, `task run -- --help`.
       - go run {{.PKG}} {{.CLI_ARGS}}
 
   test:
@@ -207,6 +209,19 @@ tasks:
     desc: Scan the working tree for secrets
     cmds:
       - gitleaks dir --redact --no-banner .
+
+  cloc:
+    desc: Count the source lines, and the Go test ratio (advisory, never a gate)
+    cmds:
+      # cloc does NOT read .clocrc on its own — its default is
+      # ~/.config/cloc/options.txt — so the config is passed explicitly. Without
+      # it cloc walks the filesystem and counts bin/, dist/, docs/public/ and
+      # the JetBrains files, which makes a Go-only repository look like it is
+      # mostly JavaScript.
+      - cloc --config .clocrc .
+      - echo ""
+      - echo "Go, excluding tests:"
+      - cloc --config .clocrc --include-lang=Go --not-match-f='_test\.go$' .
 
   deadcode:
     desc: Report code unreachable from main (advisory, never a gate)
