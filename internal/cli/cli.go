@@ -151,7 +151,7 @@ func jiraDeps(ctx context.Context, settings config.Jira) tui.Deps {
 			return client.Transitions(ctx, issueKey)
 		},
 		ApplyTransition: func(issueKey string, to jira.Transition) error {
-			return client.ApplyTransition(ctx, issueKey, to)
+			return client.ApplyTransition(ctx, issueKey, to, nil)
 		},
 	}
 }

@@ -217,7 +217,7 @@ func (c Client) exchange(request *http.Request) ([]byte, error) {
 // page even when JSON was asked for, so it explains nothing.
 func statusError(status int, requested *url.URL) error {
 	switch status {
-	case http.StatusOK, http.StatusNoContent:
+	case http.StatusOK, http.StatusCreated, http.StatusNoContent:
 		return nil
 	case http.StatusUnauthorized:
 		return ErrUnauthorized
