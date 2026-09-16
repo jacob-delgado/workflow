@@ -24,16 +24,19 @@ three browser tabs.
 
 ## Status
 
-Early. The scaffolding is real and the gates are wired, but the integrations are
-not built yet. What works today:
+Early, and not yet the whole loop. What works today:
 
-- `workflow` opens the TUI, which reports the configuration it found.
+- `workflow` opens the TUI: your assigned Jira issues in a pane rail, with
+  keyboard and mouse navigation (`?` lists the keys).
+- `workflow doctor` reports the repository, tooling and configuration in effect;
+  `workflow doctor --online` asks Jira, Slack and your forge whether each
+  credential actually works.
 - `workflow config init` writes a starting configuration file.
-- `workflow config show` prints the configuration in effect, tokens masked.
-- `workflow doctor` says which file is in effect and what it is missing.
+- `workflow config show` prints the configuration in effect, credentials masked.
 
-Jira, Slack, and the Git forge (GitHub or GitLab) are configured but not yet
-called. Expect the configuration format to change while that lands.
+Not built yet: branching from an issue, committing, opening the pull or merge
+request, and posting to Slack. Expect the configuration format to change while
+that lands.
 
 ## Install
 

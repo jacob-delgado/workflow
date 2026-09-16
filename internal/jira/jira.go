@@ -100,7 +100,7 @@ func HTTPClient(timeout time.Duration) *http.Client {
 
 // Myself reports who the configured credential authenticates as.
 func (c Client) Myself(ctx context.Context) (User, error) {
-	request, err := c.newRequest(ctx)
+	request, err := c.newRequest(ctx, myselfPath)
 	if err != nil {
 		return User{}, err
 	}
@@ -126,15 +126,15 @@ func (c Client) Myself(ctx context.Context) (User, error) {
 	return user, nil
 }
 
-// newRequest builds the authenticated request, refusing a base URL that cannot
-// carry a credential safely.
-func (c Client) newRequest(ctx context.Context) (*http.Request, error) {
+// newRequest builds an authenticated GET for a path under the base URL, refusing
+// a base URL that cannot carry a credential safely.
+func (c Client) newRequest(ctx context.Context, pathAndQuery string) (*http.Request, error) {
 	authenticate, ok := authenticators()[c.settings.AuthMode()]
 	if !ok {
 		return nil, ErrNoCredential
 	}
 
-	request, err := http.NewRequestWithContext(ctx, http.MethodGet, c.settings.BaseURL+myselfPath, nil)
+	request, err := http.NewRequestWithContext(ctx, http.MethodGet, c.settings.BaseURL+pathAndQuery, nil)
 	if err != nil {
 		// Deliberately unwrapped: the parse error quotes the whole URL, so a
 		// base_url carrying userinfo would put the password into this message.

@@ -4,14 +4,12 @@
 package tui
 
 import (
-	"net/url"
 	"strings"
 
 	"github.com/charmbracelet/bubbles/help"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/charmbracelet/x/ansi"
 
-	"github.com/jacob-delgado/workflow/internal/config"
 	"github.com/jacob-delgado/workflow/internal/tui/frame"
 	"github.com/jacob-delgado/workflow/internal/tui/layout"
 )
@@ -24,7 +22,7 @@ const notStarted = "○"
 // no single function has to know the whole screen.
 func (m Model) View() string {
 	shape := layout.Compute(m.width, m.height, paneCount)
-	body := m.detail(shape.Detail)
+	body := m.detail(shape.Detail, shape.Collapsed())
 
 	if !shape.Collapsed() {
 		body = lipgloss.JoinHorizontal(lipgloss.Top, m.rail(shape.Rail), body)
@@ -41,7 +39,8 @@ func (m Model) rail(boxes []layout.Box) string {
 	for index, box := range boxes {
 		current := pane(index)
 		rendered = append(rendered,
-			frame.Render(current.label(), m.summary(current), box.Width, box.Height, m.border(current)))
+			frame.Render(current.label(), m.paneBody(current, frame.BodyRows(box.Height)),
+				box.Width, box.Height, m.border(current)))
 	}
 
 	return lipgloss.JoinVertical(lipgloss.Left, rendered...)
@@ -56,11 +55,11 @@ func (m Model) border(candidate pane) frame.Style {
 	return frame.Light
 }
 
-// summary is the one line a rail pane shows about itself.
-func (m Model) summary(candidate pane) string {
+// paneBody is what a rail pane shows inside its border, in as many rows as fit.
+func (m Model) paneBody(candidate pane, rows int) string {
 	switch candidate {
 	case paneIssues:
-		return jiraHost(m.cfg.Jira.BaseURL)
+		return m.issues.render(rows)
 	case paneSlack:
 		return m.cfg.Slack.Target()
 	case paneBranch, paneCommits, paneReview:
@@ -69,27 +68,28 @@ func (m Model) summary(candidate pane) string {
 	return ""
 }
 
-// jiraHost is the part of the Jira URL worth a rail's width. The full URL is in
-// the detail pane; the rail has room for a name, not an address. url.URL.Host
-// never carries userinfo, so nothing here can surface a password.
-func jiraHost(raw string) string {
-	parsed, err := url.Parse(raw)
-	if err != nil || parsed.Host == "" {
-		return describe(config.RedactURL(raw))
-	}
-
-	return parsed.Host
-}
-
 // detail draws the main pane, titled with whichever rail pane has focus. On a
 // narrow terminal it is the only pane, so the title is what says where you are.
-func (m Model) detail(box layout.Box) string {
-	body := m.status()
-	if m.helpOpen {
-		body = help.New().FullHelpView(m.keys.FullHelp())
-	}
+func (m Model) detail(box layout.Box, collapsed bool) string {
+	body := m.detailBody(frame.BodyRows(box.Height), collapsed)
 
 	return frame.Render(m.focus.title(), body, box.Width, box.Height, frame.Light)
+}
+
+// detailBody picks what the main pane shows. With the rail collapsed there is
+// nowhere else for a pane's own content to go, so the focused pane's list takes
+// the whole body instead of a description of one row of it.
+func (m Model) detailBody(rows int, collapsed bool) string {
+	switch {
+	case m.helpOpen:
+		return help.New().FullHelpView(m.keys.FullHelp())
+	case m.focus != paneIssues:
+		return m.status()
+	case collapsed:
+		return m.issues.render(rows)
+	default:
+		return m.issues.detail(m.status())
+	}
 }
 
 // spine draws the loop's stages across the top.
