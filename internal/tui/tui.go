@@ -11,6 +11,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"strings"
 
 	"github.com/charmbracelet/bubbles/key"
 	tea "github.com/charmbracelet/bubbletea"
@@ -243,9 +244,9 @@ func (m Model) handleGlobalKey(msg tea.KeyMsg) (Model, tea.Cmd) {
 	case key.Matches(msg, m.keys.toggleMouse):
 		return m.toggleMouse()
 	case key.Matches(msg, m.keys.scrollDown):
-		m.scroll += m.halfPage()
+		return m.scrollDetail(m.halfPage()), nil
 	case key.Matches(msg, m.keys.scrollUp):
-		m.scroll = max(0, m.scroll-m.halfPage())
+		return m.scrollDetail(-m.halfPage()), nil
 	default:
 		return behaviorOf(m.focus).handle(m, msg)
 	}
@@ -256,6 +257,18 @@ func (m Model) handleGlobalKey(msg tea.KeyMsg) (Model, tea.Cmd) {
 // halfPage is how far a scroll key moves the detail.
 func (m Model) halfPage() int {
 	return max(1, m.detailRows()/2) //nolint:mnd // half, as in half a page
+}
+
+// scrollDetail moves the detail by delta lines and clamps the result to the
+// content. Clamping where the offset is written — not only where it is drawn —
+// is what stops an over-scroll from stranding the view past the end, so one
+// scroll-up moves it rather than undoing offsets the content never had.
+func (m Model) scrollDetail(delta int) Model {
+	body := behaviorOf(m.focus).detail(m, m.detailWidth())
+	maxOffset := max(0, strings.Count(body, "\n")+1-m.detailRows())
+	m.scroll = min(max(0, m.scroll+delta), maxOffset)
+
+	return m
 }
 
 // focusOn moves focus to a pane, with its detail scrolled to the top.

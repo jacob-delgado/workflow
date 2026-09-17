@@ -86,7 +86,5 @@ func (m Model) wheel(shape layout.Layout, column, row, step int) (Model, tea.Cmd
 		return m.overlay.handleKey(m, direction)
 	}
 
-	m.scroll = max(0, m.scroll+step*wheelLines)
-
-	return m, nil
+	return m.scrollDetail(step * wheelLines), nil
 }

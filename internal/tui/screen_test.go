@@ -232,6 +232,27 @@ func TestLongDetailScrolls(t *testing.T) {
 	refuseScreen(t, back.View(), "THE END")
 }
 
+// Over-scrolling must not strand the offset past the end: one scroll-up has to
+// move the view, not spend itself undoing scrolls the content never had room
+// for.
+func TestOverScrollingStillMovesOnTheWayBack(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	wordy := newWorld()
+	wordy.detail.Description = strings.Repeat("line of the description\n", 60) + "THE END"
+	overScrolled := typing(t, wordy.live(t, 120, 30),
+		"pgdown", "pgdown", "pgdown", "pgdown", "pgdown", "pgdown",
+		"pgdown", "pgdown", "pgdown", "pgdown", "pgdown", "pgdown")
+
+	// Act
+	back := typing(t, overScrolled, "pgup")
+
+	// Assert
+	requireScreen(t, overScrolled.View(), "THE END")
+	refuseScreen(t, back.View(), "THE END")
+}
+
 func TestMovingToAnotherPaneStartsTheDetailAtTheTop(t *testing.T) {
 	t.Parallel()
 
