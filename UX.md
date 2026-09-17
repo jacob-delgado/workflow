@@ -54,7 +54,7 @@ one of them yet, which makes this table the shortest summary of the file.
 | "a key it does not show does nothing" | `docs/content/docs/usage.md:55` | No. Ten keys work unseen. UX-32 |
 | "`?` lists every key" | `docs/content/docs/usage.md:56` | No. Eleven bindings are missing. UX-33 |
 | "the one way the interface says something broke" | `failure`, `internal/tui/render.go:272` | In 7 places of about 20. UX-40 |
-| "Nothing outward facing is sent without" a last look | `internal/tui/comment.go:43` | Mostly. UX-13, UX-23 |
+| "Nothing outward facing is sent without" a last look | `internal/tui/comment.go:43` | Mostly. UX-13 |
 | "a refused change must never go unseen" | `internal/tui/picker.go:183` | In one overlay of seven. UX-35 |
 | "Each pane fails on its own" | `docs/content/docs/usage.md:58` | Yes, and it is the best thing about the first run. |
 | State is "carried by the SHAPE of a glyph rather than its color" | `internal/tui/glyphs.go:14` | Yes. It reads in monochrome. |
@@ -227,25 +227,6 @@ Impact: medium · Effort: small
   a finished run can always be read.
 
 ## Review
-
-### UX-23 Do not say "the forge did not answer" when it was never asked
-
-Impact: medium · Effort: small
-
-- Today (seen live): with a remote that is not a forge address the rail says
-  "✗ the forge did not answer" and the detail adds "✗ reading origin: not a
-  repository remote". The same rail line covers a missing token and an
-  unrecognized host. In none of those was a request sent. `n` is still
-  offered, the composer opens, and `enter` **pushes the branch** before
-  failing with the error that was already on screen (`canOpenPullRequest`,
-  `internal/tui/review.go`; `prComposer.open`,
-  `internal/tui/prcomposer.go`).
-- Instead: a rail line per cause ("no token for github.com", "origin is not
-  GitHub or GitLab", "could not reach github.com"), each with its next step
-  in the detail, and no `n` until a pull request could actually be opened.
-- Touches: `internal/tui/review.go`, `internal/wiring/wiring.go`
-  (`connectForge` returns distinct sentinels already).
-- Done when: with no token, `n` is not offered and nothing is pushed.
 
 ### UX-25 Call it a merge request on GitLab
 

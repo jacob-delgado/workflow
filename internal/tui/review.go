@@ -4,6 +4,7 @@
 package tui
 
 import (
+	"errors"
 	"strconv"
 	"strings"
 	"time"
@@ -163,7 +164,7 @@ func (m Model) reviewRail(_ int) string {
 	case !m.review.loaded:
 		return "looking" + m.marks.ellipsis
 	case m.review.err != nil:
-		return m.marks.failed + " the forge did not answer"
+		return m.marks.failed + " " + forgeReason(m.review.err)
 	case !m.review.found:
 		return "no pull request yet"
 	}
@@ -206,10 +207,26 @@ func (m Model) reviewDetail(width int) string {
 	return wrap(strings.Join(lines, "\n"), width)
 }
 
-// canOpenPullRequest reports a branch with commits and no pull request yet.
+// canOpenPullRequest reports a branch with commits and no pull request yet. A
+// forge failure offers nothing: n would open a composer whose push cannot land.
 func (m Model) canOpenPullRequest() bool {
 	return m.branch.onFeatureBranch() && len(m.branch.branch.Commits) > 0 && m.review.loaded &&
-		!m.review.found && m.deps.Forge.CreatePullRequest != nil
+		m.review.err == nil && !m.review.found && m.deps.Forge.CreatePullRequest != nil
+}
+
+// forgeReason names why the forge could not be reached, by cause.
+func forgeReason(err error) string {
+	switch {
+	case errors.Is(err, forge.ErrNoToken):
+		return "no forge token"
+	case errors.Is(err, forge.ErrNotARemote), errors.Is(err, forge.ErrUnknownForge),
+		errors.Is(err, forge.ErrKindNeedsHost):
+		return "origin is not GitHub or GitLab"
+	case errors.Is(err, forge.ErrUnreachable):
+		return "could not reach the forge"
+	default:
+		return "the forge did not answer"
+	}
 }
 
 // reviewKeys offers opening a pull request, or checking again.
