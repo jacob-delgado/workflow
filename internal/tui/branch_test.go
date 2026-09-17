@@ -328,6 +328,32 @@ func TestPushIsNotOfferedWithNothingToPush(t *testing.T) {
 	}
 }
 
+func TestPushIsPreviewedBeforeItIsSent(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	pushing := newWorld()
+	pushing.branch.Ahead = 1
+
+	// Act: press P
+	preview := typing(t, pushing.live(t, 120, 40), "2", "P")
+
+	// Assert: what will be pushed is shown, nothing pushed yet
+	requireScreen(t, preview.View(), "push "+featureName+" to origin", "enter push")
+
+	if calls := pushing.asked("push"); len(calls) != 0 {
+		t.Errorf("pushed before the preview was confirmed: %q", calls)
+	}
+
+	// Act: back out
+	typing(t, preview, keyEsc)
+
+	// Assert: still nothing pushed
+	if calls := pushing.asked("push"); len(calls) != 0 {
+		t.Errorf("esc pushed the branch: %q", calls)
+	}
+}
+
 func TestPushReportsTheBranchPushed(t *testing.T) {
 	t.Parallel()
 
@@ -337,7 +363,7 @@ func TestPushReportsTheBranchPushed(t *testing.T) {
 	pushing.pushLines = []string{"To github.com:example/repo.git", "   1a2b3c4..5d6e7f8  " + featureName}
 
 	// Act
-	done := typing(t, pushing.live(t, 120, 40), "2", "P")
+	done := typing(t, pushing.live(t, 120, 40), "2", "P", keyEnter)
 
 	// Assert
 	requireScreen(t, done.View(), "● pushed "+featureName)
@@ -357,7 +383,7 @@ func TestARefusedPushShowsWhatGitSaid(t *testing.T) {
 	failing.pushErr = errPushDenied
 
 	// Act
-	failed := typing(t, failing.live(t, 120, 40), "2", "P")
+	failed := typing(t, failing.live(t, 120, 40), "2", "P", keyEnter)
 
 	// Assert
 	requireScreen(t, failed.View(), "┏━ git push", "✗ exit status 128", "remote: Permission to example/repo.git denied.")
@@ -373,7 +399,7 @@ func TestADryRunPushIsOnlyDescribed(t *testing.T) {
 	model = drain(t, model, model.Init())
 
 	// Act
-	view := typing(t, model, "2", "P").View()
+	view := typing(t, model, "2", "P", keyEnter).View()
 
 	// Assert
 	requireScreen(t, view, "dry run: would push "+featureName)
