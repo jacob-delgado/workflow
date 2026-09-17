@@ -94,3 +94,24 @@ func TestNoColorKeepsTheCursorButDropsTheHue(t *testing.T) {
 		t.Errorf("the text cursor is gone with color off:\n%q", view)
 	}
 }
+
+//nolint:paralleltest // forceANSI owns the global color profile; must run serially.
+func TestTheFocusedPaneWearsABoldTitle(t *testing.T) {
+	// Arrange
+	defer forceANSI(t)()
+
+	// Focus starts on Issues.
+	model := newWorld().live(t, 120, 40)
+
+	// Act
+	view := model.View()
+
+	// Assert
+	if !strings.Contains(view, "\x1b[1m1 Issues") {
+		t.Errorf("the focused pane's title is not bold:\n%q", view)
+	}
+
+	if strings.Contains(view, "\x1b[1m2 Branch") {
+		t.Errorf("an unfocused pane's title is bold:\n%q", view)
+	}
+}

@@ -52,12 +52,14 @@ func (m Model) rail(boxes []layout.Box) string {
 	for index, box := range boxes {
 		current := pane(index)
 
+		label := current.label()
+
 		style := m.marks.border
 		if current == m.focus && m.overlay == nil {
-			style = style.Heavy()
+			style, label = style.Heavy(), m.styles.strong.Render(label)
 		}
 
-		rendered = append(rendered, frame.Render(current.label(),
+		rendered = append(rendered, frame.Render(label,
 			behaviorOf(current).rail(m, frame.BodyRows(box.Height)), box.Width, box.Height, style))
 	}
 
