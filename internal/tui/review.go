@@ -18,15 +18,19 @@ import (
 // reviewState is the branch's pull request and its CI, as far as they have
 // loaded.
 type reviewState struct {
-	pull    forge.PullRequest
-	found   bool
-	loaded  bool
-	err     error
-	ci      forge.CI
-	checked bool
-	ciErr   error
-	polling bool
+	pull      forge.PullRequest
+	found     bool
+	loaded    bool
+	err       error
+	ci        forge.CI
+	checked   bool
+	checkedAt time.Time
+	ciErr     error
+	polling   bool
 }
+
+// ciCheckedFormat stamps the CI line with when it was last read.
+const ciCheckedFormat = "15:04"
 
 // findPullRequest is the command that looks for the branch's open pull request.
 func (m Model) findPullRequest() tea.Cmd {
@@ -95,6 +99,7 @@ func (msg ciChecked) apply(m Model) (Model, tea.Cmd) {
 	}
 
 	m.review.ci, m.review.ciErr, m.review.checked = msg.ci, msg.err, true
+	m.review.checkedAt = m.deps.now()
 
 	m, post := m.postIfGreen()
 
@@ -142,7 +147,7 @@ func (m Model) ciSummary() string {
 	case !m.review.checked:
 		return "checking" + m.marks.ellipsis
 	case reported.State == forge.CINone:
-		return m.ciGlyph() + " no checks reported"
+		return m.ciGlyph() + " no checks reported" + m.checkedAtSuffix()
 	}
 
 	state := map[forge.CIState]string{
@@ -153,7 +158,17 @@ func (m Model) ciSummary() string {
 		state += " (" + strconv.Itoa(reported.Done) + " of " + strconv.Itoa(reported.Total) + " finished)"
 	}
 
-	return m.ciGlyph() + " " + state
+	return m.ciGlyph() + " " + state + m.checkedAtSuffix()
+}
+
+// checkedAtSuffix says when CI was last read, for a line that already says how
+// it stands.
+func (m Model) checkedAtSuffix() string {
+	if m.review.checkedAt.IsZero() {
+		return ""
+	}
+
+	return m.marks.separator + "checked " + m.review.checkedAt.Format(ciCheckedFormat)
 }
 
 // reviewRail is the pull request and its CI, in brief.

@@ -193,7 +193,10 @@ func (m Model) handleSlackKey(msg tea.KeyMsg) (Model, tea.Cmd) {
 		return m, nil
 	}
 
-	m.overlay = slackPreview{marks: m.marks, text: m.announcement(), target: m.cfg.Slack.Target()}
+	m.overlay = slackPreview{
+		marks: m.marks, text: m.announcement(), target: m.cfg.Slack.Target(),
+		noCI: m.review.checked && m.review.ci.State == forge.CINone,
+	}
 
 	return m, nil
 }
@@ -203,6 +206,7 @@ type slackPreview struct {
 	marks   glyphs
 	text    string
 	target  string
+	noCI    bool
 	sending bool
 	err     error
 }
@@ -229,9 +233,12 @@ func (p slackPreview) footer(keys keyMap) []key.Binding {
 		return []key.Binding{keys.interrupt}
 	}
 
-	return []key.Binding{
-		relabel(keys.confirm, "post now"), keys.postWhenGreen, keys.edit, relabel(keys.closeOverlay, "discard"),
+	buttons := []key.Binding{relabel(keys.confirm, "post now")}
+	if !p.noCI {
+		buttons = append(buttons, keys.postWhenGreen)
 	}
+
+	return append(buttons, keys.edit, relabel(keys.closeOverlay, "discard"))
 }
 
 // handleKey answers a key while the message is previewed.

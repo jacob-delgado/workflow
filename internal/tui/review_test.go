@@ -26,6 +26,31 @@ func withoutPull() *world {
 	return w
 }
 
+func TestTheCILineShowsWhenCIWasLastChecked(t *testing.T) {
+	t.Parallel()
+
+	// Act
+	view := typing(t, newWorld().live(t, 120, 40), "4").View()
+
+	// Assert
+	requireScreen(t, view, "passed (1 of 1 finished) · checked 16:00")
+}
+
+func TestTheSlackPreviewOmitsPostWhenCIWithoutChecks(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	noChecks := newWorld()
+	noChecks.ci = []forge.CI{{State: forge.CINone}}
+
+	// Act
+	view := typing(t, noChecks.live(t, 120, 40), "5", "p").View()
+
+	// Assert
+	requireScreen(t, view, "Post to Slack", "post now")
+	refuseScreen(t, footerLine(view), "post when CI passes")
+}
+
 func TestWithoutAForgeTokenNothingIsOfferedOrPushed(t *testing.T) {
 	t.Parallel()
 
