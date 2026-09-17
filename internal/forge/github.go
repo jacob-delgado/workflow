@@ -5,6 +5,7 @@ package forge
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 	"net/url"
 	"strings"
@@ -63,49 +64,102 @@ func githubCreate(ctx context.Context, client Client, repo Repo, request NewPull
 	return created.pullRequest(), nil
 }
 
-// githubCombined is a commit's combined status: the statuses reported through
-// the older statuses API.
+// githubCombined is a page of a commit's combined status: the statuses reported
+// through the older statuses API, and how many there are in all.
 type githubCombined struct {
-	Statuses []struct {
+	TotalCount int `json:"total_count"`
+	Statuses   []struct {
 		State string `json:"state"`
 	} `json:"statuses"`
 }
 
-// githubRuns is a commit's check runs: what GitHub Actions and most apps report.
+// githubRuns is a page of a commit's check runs: what GitHub Actions and most
+// apps report, and how many there are in all.
 type githubRuns struct {
-	Runs []struct {
+	TotalCount int `json:"total_count"`
+	Runs       []struct {
 		Status     string `json:"status"`
 		Conclusion string `json:"conclusion"`
 	} `json:"check_runs"`
 }
 
+// GitHub paging: a full page, and a bound far above any real commit's check
+// count, so a listing is read to the end without an unbounded loop.
+const (
+	githubPerPage  = 100
+	githubMaxPages = 20
+)
+
 // githubStatus reads both of GitHub's CI reports for a commit. A repository can
-// use either or both, and neither alone is the whole picture.
+// use either or both, and neither alone is the whole picture. Both are paged, so
+// a failing status or run past the first page is not missed and reported as a
+// pass; a listing too long to read in full is reported as still running rather
+// than as passed.
 func githubStatus(ctx context.Context, client Client, repo Repo, _ PullRequest, head string) (CI, error) {
 	commit := githubRepoPath(repo) + "/commits/" + url.PathEscape(head)
 
-	combined, err := repoCall[githubCombined](ctx, client, repo, http.MethodGet, commit+"/status", nil)
-	if err != nil {
-		return CI{}, err
-	}
-
-	runs, err := repoCall[githubRuns](ctx, client, repo, http.MethodGet, commit+"/check-runs?per_page=100", nil)
-	if err != nil {
-		return CI{}, err
-	}
-
 	var tally ciTally
+
+	statuses, statusesComplete, err := githubPages(ctx, client, repo, commit+"/status",
+		func(page githubCombined) (int, int) { return len(page.Statuses), page.TotalCount })
+	if err != nil {
+		return CI{}, err
+	}
 
 	// The combined status's own "state" is deliberately ignored: with no
 	// statuses at all it says "pending", which would wait forever for CI that
 	// is never coming. Only the statuses themselves count.
-	for _, status := range combined.Statuses {
-		tally.status(status.State)
+	for _, page := range statuses {
+		for _, status := range page.Statuses {
+			tally.status(status.State)
+		}
 	}
 
-	for _, run := range runs.Runs {
-		tally.run(run.Status, run.Conclusion)
+	runs, runsComplete, err := githubPages(ctx, client, repo, commit+"/check-runs",
+		func(page githubRuns) (int, int) { return len(page.Runs), page.TotalCount })
+	if err != nil {
+		return CI{}, err
+	}
+
+	for _, page := range runs {
+		for _, run := range page.Runs {
+			tally.run(run.Status, run.Conclusion)
+		}
+	}
+
+	if !statusesComplete || !runsComplete {
+		tally.running = true
 	}
 
 	return tally.ci(), nil
+}
+
+// githubPages reads a paged listing to its end, reporting whether every page was
+// read within the bound. counts returns a page's size and GitHub's total_count.
+func githubPages[T any](
+	ctx context.Context, client Client, repo Repo, base string, counts func(T) (int, int),
+) ([]T, bool, error) {
+	var pages []T
+
+	read := 0
+
+	for page := 1; page <= githubMaxPages; page++ {
+		path := fmt.Sprintf("%s?per_page=%d&page=%d", base, githubPerPage, page)
+
+		one, err := repoCall[T](ctx, client, repo, http.MethodGet, path, nil)
+		if err != nil {
+			return nil, false, err
+		}
+
+		pages = append(pages, one)
+
+		size, total := counts(one)
+		read += size
+
+		if size == 0 || read >= total {
+			return pages, read >= total, nil
+		}
+	}
+
+	return pages, false, nil
 }
