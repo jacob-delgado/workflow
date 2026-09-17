@@ -792,29 +792,6 @@ Severity: low · Confidence: read
 
 ## Build, CI, scripts and release
 
-### DEBT-39 The release pull request cannot go green as configured
-
-Severity: high · Confidence: reproduced
-
-- Evidence: pull request 2 is blocked with no checks reported. Of the CI runs
-  on its branch, all but one ended `action_required` with no jobs, which is
-  what GitHub does with a pull request opened by `GITHUB_TOKEN`
-  (`.github/workflows/release-please.yml:41`). The one that ran failed `task
-  lint:markdown` with seven `MD012` errors in the generated `CHANGELOG.md`,
-  reproduced with the repository's configuration.
-  `.markdownlint-cli2.yaml` ignores the generated reference pages and not the
-  generated changelog. `release.yml` runs `task check` before it builds
-  (`.github/workflows/release.yml:42`), and `push-release-tag.sh` pushes the
-  tag before that workflow starts.
-- Cost: the first release is blocked. Forcing the merge would turn `task lint`
-  red on `main` for everyone, and would leave a pushed tag with no release
-  behind it.
-- Remedy: add `CHANGELOG.md` to the markdownlint `ignores` with the reasoning
-  already written there for generated files; give release-please an app or
-  personal token, or write the approval step into the setup notes. Merging the
-  release pull request stays the maintainer's action.
-- Done when: CI runs, and passes, on the release pull request.
-
 ### DEBT-40 Four of five release platforms are first compiled at release
 
 Severity: medium · Confidence: read
@@ -961,6 +938,9 @@ Severity: low · Confidence: reproduced
   forks (`.github/workflows/ci.yml:103`). GitHub gives fork pull requests a
   read-only token, so it should fail on every outside contribution, outside
   the required checks. No fork pull request exists yet to show it.
+- `push-release-tag.sh` pushes the tag before `release.yml` runs `task check`
+  (`.github/workflows/release.yml:42`), so a gate that is red at release time
+  leaves a tag with no release behind it.
 - Only `check-commit-message.sh` has a test. The release tagging script ends
   its label change with `|| true`, so a release-please left in a pending
   state would say nothing.

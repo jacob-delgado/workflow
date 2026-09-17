@@ -22,6 +22,12 @@ name: release-please
 # ONE-TIME REPO SETUP: Settings → Actions → General → Workflow permissions →
 # enable "Allow GitHub Actions to create and approve pull requests". Without it
 # the action runs to completion and then fails to open the PR.
+#
+# EVERY RELEASE PR: it is opened with GITHUB_TOKEN, and GitHub holds the
+# workflow runs of such a pull request in an approval-required state. The
+# required checks report nothing, and the PR stays blocked, until someone with
+# write access chooses "Approve workflows to run" on it. Expect to do that once
+# per push release-please makes to the PR.
 
 on:
   push:
