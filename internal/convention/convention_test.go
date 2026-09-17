@@ -328,6 +328,17 @@ func TestMessageAddsTheIssueAsATrailer(t *testing.T) {
 			body: "Why.\n\nRefs: PROJ-412", key: projKey,
 			want: "fix(config): redact tokens\n\nWhy.\n\nRefs: PROJ-412\n",
 		},
+		// A key is not "present" merely because a longer key contains its text.
+		"a longer key is not this key": {
+			body: "Why.\n\nRefs: PROJ-4120", key: projKey,
+			want: "fix(config): redact tokens\n\nWhy.\n\nRefs: PROJ-4120\nRefs: PROJ-412\n",
+		},
+		// The Refs trailer joins the trailer block rather than starting a new
+		// paragraph, or git interpret-trailers loses the co-author.
+		"the trailer joins an existing block": {
+			body: "Why.\n\nCo-authored-by: Dev <dev@example.com>", key: projKey,
+			want: "fix(config): redact tokens\n\nWhy.\n\nCo-authored-by: Dev <dev@example.com>\nRefs: PROJ-412\n",
+		},
 	}
 
 	for name, tt := range cases {

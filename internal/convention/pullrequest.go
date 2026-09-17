@@ -3,7 +3,10 @@
 
 package convention
 
-import "strings"
+import (
+	"regexp"
+	"strings"
+)
 
 // PullRequestTitle proposes a pull request's title: the oldest commit on the
 // branch, which on a branch of Conventional Commits already reads as one, or the
@@ -29,7 +32,7 @@ func PullRequestBody(template string, subjects []string, issueKey, issueURL stri
 		body = "## Commits\n\n- " + strings.Join(subjects, "\n- ")
 	}
 
-	if issueKey != "" && !strings.Contains(body, issueKey) {
+	if issueKey != "" && !references(body, issueKey) {
 		body = strings.TrimLeft(body+"\n\n"+issueLine(issueKey, issueURL), "\n")
 	}
 
@@ -38,6 +41,12 @@ func PullRequestBody(template string, subjects []string, issueKey, issueURL stri
 	}
 
 	return body + "\n"
+}
+
+// references reports whether text names the issue key as a whole token, so a
+// longer key that only contains its text does not count as naming it.
+func references(text, issueKey string) bool {
+	return regexp.MustCompile(`\b` + regexp.QuoteMeta(issueKey) + `\b`).MatchString(text)
 }
 
 // issueLine names the issue, linked when there is a link. Markdown, which both

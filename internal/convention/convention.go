@@ -262,17 +262,63 @@ func (s Subject) Validate() error {
 // Message is a whole commit message: the subject, the body if there is one, and
 // a Refs trailer naming the issue, unless the body already carries it.
 func Message(subject Subject, body, issueKey string) string {
-	parts := []string{subject.String()}
-
 	body = strings.TrimSpace(body)
+
+	message := subject.String()
 	if body != "" {
-		parts = append(parts, body)
+		message += "\n\n" + body
 	}
 
 	trailer := "Refs: " + issueKey
-	if issueKey != "" && !strings.Contains(body, trailer) {
-		parts = append(parts, trailer)
+	if issueKey != "" && !hasTrailerLine(body, trailer) {
+		message += trailerJoin(body) + trailer
 	}
 
-	return strings.Join(parts, "\n\n") + "\n"
+	return message + "\n"
+}
+
+// hasTrailerLine reports a trailer already present as a whole line, so a longer
+// key that only contains this one — PROJ-412 inside PROJ-4120 — does not pass
+// for it.
+func hasTrailerLine(text, trailer string) bool {
+	for line := range strings.SplitSeq(text, "\n") {
+		if strings.TrimSpace(line) == trailer {
+			return true
+		}
+	}
+
+	return false
+}
+
+// trailerJoin is what separates an appended trailer from the body: a single
+// newline when the body already ends in a trailer block — so the trailers stay
+// one paragraph that git interpret-trailers reads together, rather than
+// stranding a Co-authored-by in an earlier one — and a blank line otherwise.
+func trailerJoin(body string) string {
+	if body != "" && endsWithTrailerBlock(body) {
+		return "\n"
+	}
+
+	return "\n\n"
+}
+
+// endsWithTrailerBlock reports whether the body's last paragraph is entirely
+// trailer lines.
+func endsWithTrailerBlock(body string) bool {
+	paragraphs := strings.Split(body, "\n\n")
+	last := paragraphs[len(paragraphs)-1]
+
+	for line := range strings.SplitSeq(last, "\n") {
+		if strings.TrimSpace(line) != "" && !trailerLine().MatchString(line) {
+			return false
+		}
+	}
+
+	return true
+}
+
+// trailerLine matches a git trailer: a key of letters, digits and hyphens, a
+// colon, and a space.
+func trailerLine() *regexp.Regexp {
+	return regexp.MustCompile(`^[A-Za-z][A-Za-z0-9-]*: `)
 }
