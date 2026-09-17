@@ -61,49 +61,6 @@ one of them yet, which makes this table the shortest summary of the file.
 
 ## The first run
 
-### UX-01 At the default terminal size, "see detail" points at nothing
-
-Impact: high · Effort: small
-
-- Today: below 90 columns the rail and the detail pane take turns, and the
-  Issues pane draws only its list (`internal/tui/render.go:103`,
-  `internal/tui/panes.go:69`). A new user
-  in an 80×24 terminal, the size most terminals open at, sees this and
-  nothing else (seen live):
-
-  ```text
-   ● Issue ─ ● Branch ─ ● Commits ─ ○ Review ─ ○ Slack
-  ┌─ Issues ───────────────────────────────────────────────────────────────┐
-  │ ✗ failed · see detail                                                  │
-  │                                                                        │
-  └────────────────────────────────────────────────────────────────────────┘
-   r refresh • ? keys • tab next pane • 1-5 jump to pane • q quit
-  ```
-
-  There is no detail to see. The reason ("no jira.token is configured") and
-  the pointer to `workflow config init` exist only at 90 columns and up. No
-  key reaches them. An issue's description and comments are unreachable at
-  this width too.
-- Instead: in the collapsed layout, draw the detail whenever the list has
-  nothing to choose from, and give the Issues pane a key (`enter`, with `esc`
-  back) to look at the selected issue.
-
-  ```text
-   ● Issue ─ ● Branch ─ ● Commits ─ ○ Review ─ ○ Slack
-  ┌─ 1 Issues ─────────────────────────────────────────────────────────────┐
-  │ ✗ Jira is not set up yet.                                              │
-  │                                                                        │
-  │ Run `workflow config init`, add your Jira token to the file it         │
-  │ writes, then `workflow doctor` to check it.                            │
-  └────────────────────────────────────────────────────────────────────────┘
-   r try again • ? keys • tab next pane • 1-5 jump to pane • q quit
-  ```
-
-- Touches: `internal/tui/render.go` (`detailContent`), `internal/tui/panes.go`
-  (`narrow`), `internal/tui/detail.go`.
-- Done when: at 80×24 with no configuration the reason and the next step are
-  on screen, and with issues listed `enter` shows the selected issue.
-
 ## Issues
 
 ## Branch
