@@ -58,12 +58,19 @@ tasks:
     desc: Run the tests with the race detector
     cmds:
       - go test -race ./...
+      - task: test:scripts
+
+  test:scripts:
+    desc: Run the gate scripts' own tests
+    cmds:
+      - scripts/check-commit-message_test.sh
 
   test:cover:
     desc: Run the tests and enforce the coverage floor
     cmds:
       - go test -race -coverprofile=coverage.out -covermode=atomic ./...
       - scripts/coverage-gate.sh coverage.out {{.COVERAGE_MIN}}
+      - task: test:scripts
 
   cover:branch:
     desc: Condition (branch) coverage via gobco, with its floor

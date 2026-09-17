@@ -125,15 +125,4 @@ pre-push:
 commit-msg:
   commands:
     conventional:
-      run: |
-        first_line=$(head -n1 "{1}")
-        if echo "$first_line" | grep -qE '^(feat|fix|chore|docs|refactor|test|perf|build|ci|revert|style)(\([a-z0-9_-]+\))?!?: .+'; then
-          exit 0
-        fi
-        echo "Commit subject must follow Conventional Commits format:"
-        echo "  <type>(<scope>)?(!)?: <description>"
-        echo "  e.g. feat(jira): add issue transition command"
-        echo "       fix(config): reject unknown keys instead of ignoring them"
-        echo "Allowed types: feat, fix, chore, docs, refactor, test, perf, build, ci, revert, style"
-        echo "Bypass: LEFTHOOK_EXCLUDE=conventional git commit ..."
-        exit 1
+      run: scripts/check-commit-message.sh "{1}"

@@ -121,8 +121,17 @@ just gathered.
 Refs #42
 ```
 
-Mark breaking changes with a `!` after the type or scope (`feat!: ...`) or with
-a `BREAKING CHANGE:` footer.
+Mark a breaking change with a `!` after the type or scope (`feat!: ...`). A
+`BREAKING CHANGE:` footer can describe it, but only alongside the `!`.
+release-please also finds a breaking change in the body on its own — in a line
+that starts with `BREAKING CHANGE:` or looks like `feat!:`, even one a sentence
+or an example happened to land on, and in `BREAKING-CHANGE:` anywhere — so the
+hook refuses all of those unless the subject has the `!`.
+`scripts/check-commit-message.sh` lists exactly what it checks.
+
+One thing no hook can see: a `BEGIN_COMMIT_OVERRIDE` block in a pull request's
+description replaces its commits' messages for release-please, even after the
+pull request is merged. Write one as carefully as a commit.
 
 ## Pull requests
 
@@ -165,14 +174,14 @@ commit messages above, so a well-formed commit is also a changelog entry:
    provenance, and publishes the GitHub Release with everything attached.
 
 **Before 1.0, the minor digit is reserved for breaking changes.** Both `feat`
-and `fix` bump the patch; only a breaking change — `feat!`, or any type with a
-`BREAKING CHANGE:` footer — bumps the minor:
+and `fix` bump the patch; only a breaking change — marked with `!`, as in
+`feat!` — bumps the minor:
 
 | Commit | Version change |
 | --- | --- |
 | `fix:` | 0.1.0 → 0.1.1 |
 | `feat:` | 0.1.0 → 0.1.1 |
-| `feat!:` or `BREAKING CHANGE:` | 0.1.0 → 0.2.0 |
+| `feat!:` | 0.1.0 → 0.2.0 |
 
 So a version bump you have to react to means something you depended on actually
 changed, rather than merely that features were added. After 1.0 this becomes
