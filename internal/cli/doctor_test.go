@@ -303,13 +303,17 @@ func repoWithRemote(t *testing.T, remote string) string {
 }
 
 func TestDoctorNamesTheForgeAndItsAPI(t *testing.T) {
+	// githubForge is how doctor names github.com's owner/repo, however the
+	// remote is written.
+	const githubForge = "GitHub owner/repo at https://api.github.com"
+
 	cases := map[string]struct {
 		remote string
 		want   string
 	}{
 		"github over ssh": {
 			remote: "git@github.com:owner/repo.git",
-			want:   "GitHub owner/repo at https://api.github.com",
+			want:   githubForge,
 		},
 		"gitlab with a subgroup": {
 			remote: "https://gitlab.com/group/sub/project.git",
@@ -321,10 +325,14 @@ func TestDoctorNamesTheForgeAndItsAPI(t *testing.T) {
 			remote: "git@git.example.com:acme/thing.git",
 			want:   "acme/thing on git.example.com (cannot tell GitHub Enterprise from self-managed GitLab)",
 		},
-		// The remote can carry a password; the forge is still named, without it.
-		"a remote with a credential in it": {
+		// The remote can carry userinfo; the forge is still named, without it.
+		"a remote with a password in it": {
 			remote: "https://alice:sekret@github.com/owner/repo.git",
-			want:   "GitHub owner/repo at https://api.github.com",
+			want:   githubForge,
+		},
+		"a remote with only a username in it": {
+			remote: "https://sekret@github.com/owner/repo.git",
+			want:   githubForge,
 		},
 	}
 
@@ -342,7 +350,7 @@ func TestDoctorNamesTheForgeAndItsAPI(t *testing.T) {
 			}
 
 			if strings.Contains(output, "sekret") {
-				t.Errorf("doctor printed the password from the remote:\n%s", output)
+				t.Errorf("doctor printed the remote's userinfo:\n%s", output)
 			}
 		})
 	}

@@ -363,19 +363,26 @@ func (c Config) Redacted() Config {
 // person can tell two tokens apart without the value being usable.
 const visibleSuffix = 4
 
-// RedactURL masks a password embedded in a URL, leaving the rest readable.
+// maskedUserinfo stands in for a URL's userinfo wherever one is shown.
+const maskedUserinfo = "xxxxx"
+
+// RedactURL masks the userinfo of a URL, leaving the rest readable.
 //
 // A base URL is not a secret, so it is shown in full — but nothing stops someone
 // writing https://user:password@jira.example.com into jira.base_url, and doctor
 // prints that line into output the bug report template asks people to paste
-// into a public issue.
+// into a public issue. The userinfo is masked whole rather than by its
+// password alone, because which half holds the part worth hiding is the
+// writer's choice, not something to be guessed from here.
 func RedactURL(raw string) string {
 	parsed, err := url.Parse(raw)
 	if err != nil || parsed.User == nil {
 		return raw
 	}
 
-	return parsed.Redacted()
+	parsed.User = url.User(maskedUserinfo)
+
+	return parsed.String()
 }
 
 // DisplayURL is a URL as it may be shown: a password in it masked, and an unset
