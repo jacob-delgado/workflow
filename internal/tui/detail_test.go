@@ -381,3 +381,20 @@ func TestTheFooterOffersNoWayOutWhileACommentIsPosted(t *testing.T) {
 	requireScreen(t, sending.View(), "posting…")
 	refuseScreen(t, footerLine(sending.View()), keyEsc)
 }
+
+func TestAFailedReEditKeepsThePreview(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	commenting := newWorld()
+	commenting.edited = "keep me"
+	screen := typing(t, commenting.live(t, 120, 40), "c")
+	commenting.edited, commenting.editErr = "lost in the editor", errEditorFailed
+
+	// Act
+	failed := typing(t, screen, "e")
+
+	// Assert
+	requireScreen(t, failed.View(), "┏━ Comment on PROJ-412", "keep me", "✗ the editor exited with an error")
+	refuseScreen(t, failed.View(), "lost in the editor")
+}
