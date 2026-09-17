@@ -172,7 +172,7 @@ func TestTheJiraSeamsReachTheConfiguredJira(t *testing.T) {
 	seams := wiring.Deps(t.Context(), cfg, wiring.Workspace{Root: t.TempDir(), Remote: ""}).Jira
 
 	// Act
-	_, searchErr := seams.Search()
+	_, searchErr := seams.Search(0)
 	_, issueErr := seams.Issue("OPS-1")
 	_, listErr := seams.Transitions("OPS-1")
 	moveErr := seams.Transition("OPS-1", jira.Transition{ID: "1"}, nil)

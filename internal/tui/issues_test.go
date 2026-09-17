@@ -22,20 +22,20 @@ func issue(key, summary, category string) jira.Issue {
 }
 
 // assigned is a search that finds exactly these issues.
-func assigned(issues ...jira.Issue) func() (jira.SearchResult, error) {
-	return func() (jira.SearchResult, error) {
+func assigned(issues ...jira.Issue) func(startAt int) (jira.SearchResult, error) {
+	return func(int) (jira.SearchResult, error) {
 		return jira.SearchResult{Issues: issues, Total: len(issues)}, nil
 	}
 }
 
 // searching is an interface whose only outside dependency is this search.
-func searching(search func() (jira.SearchResult, error)) tui.Deps {
+func searching(search func(startAt int) (jira.SearchResult, error)) tui.Deps {
 	return tui.Deps{Jira: tui.JiraDeps{Search: search}}
 }
 
 // failing is a search that fails with err.
-func failing(err error) func() (jira.SearchResult, error) {
-	return func() (jira.SearchResult, error) {
+func failing(err error) func(startAt int) (jira.SearchResult, error) {
+	return func(int) (jira.SearchResult, error) {
 		return jira.SearchResult{Issues: nil, Total: 0}, err
 	}
 }
@@ -78,7 +78,7 @@ func deliver(t *testing.T, model tui.Model, cmd tea.Cmd) tui.Model {
 }
 
 // issuesScreen is a started model with a search, at a size that shows the rail.
-func issuesScreen(t *testing.T, search func() (jira.SearchResult, error)) tui.Model {
+func issuesScreen(t *testing.T, search func(startAt int) (jira.SearchResult, error)) tui.Model {
 	t.Helper()
 
 	return started(t, sized(t, tui.New(completeConfig(), nil, searching(search)), 120, 40))
@@ -105,7 +105,7 @@ func TestInitSearchesOnlyWhenItsCommandRuns(t *testing.T) {
 	// Arrange
 	var searched atomic.Bool
 
-	search := func() (jira.SearchResult, error) {
+	search := func(int) (jira.SearchResult, error) {
 		searched.Store(true)
 
 		return jira.SearchResult{Issues: nil, Total: 0}, nil
@@ -200,6 +200,41 @@ func TestArrowsMoveAndEnterKeepsTheFilter(t *testing.T) {
 
 	// Assert
 	requireScreen(t, result.View(), "▸ ○ OPS-2 Fix bug", "filter: Fix")
+}
+
+// manyIssues builds count numbered issue rows.
+func manyIssues(count int) []jira.Issue {
+	issues := make([]jira.Issue, 0, count)
+	for index := 1; index <= count; index++ {
+		issues = append(issues, issue(fmt.Sprintf("OPS-%d", index), "work", "new"))
+	}
+
+	return issues
+}
+
+func TestReachingTheEndOfATruncatedListLoadsTheNextPage(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	world := newWorld()
+	world.pageSize = 3
+	world.issues = manyIssues(5)
+
+	// Act: open the list
+	listed := world.live(t, 120, 40)
+
+	// Assert: only the first page is loaded, and the count says so
+	requireScreen(t, listed.View(), "showing 3 of 5")
+
+	// Act: move to the end of the loaded page
+	paged := typing(t, listed, "j", "j")
+
+	// Assert: the next page loaded, and the count now covers the whole list
+	refuseScreen(t, paged.View(), "showing 3 of 5")
+
+	if searches := len(world.asked("search")); searches < 2 {
+		t.Errorf("searched %d time(s), want a second page loaded at the end", searches)
+	}
 }
 
 func TestIssuesPaneSaysWhenNothingIsAssigned(t *testing.T) {
@@ -328,7 +363,7 @@ func TestTheDetailSaysWhenTheListIsCapped(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
-	capped := func() (jira.SearchResult, error) {
+	capped := func(int) (jira.SearchResult, error) {
 		return jira.SearchResult{Issues: []jira.Issue{issue("OPS-1", "One", "new")}, Total: 73}, nil
 	}
 

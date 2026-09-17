@@ -14,10 +14,13 @@ import (
 	"github.com/jacob-delgado/workflow/internal/jira"
 )
 
-// issuesLoaded carries the search's answer back into the update loop.
+// issuesLoaded carries the search's answer back into the update loop. startAt is
+// where the page began: past zero, it is a further page to append rather than a
+// fresh list to replace.
 type issuesLoaded struct {
-	found jira.SearchResult
-	err   error
+	found   jira.SearchResult
+	err     error
+	startAt int
 }
 
 // apply records the answer, and asks for the selected issue in full.
@@ -74,10 +77,29 @@ func (l issueList) visible() []jira.Issue {
 // than its row: the list is ordered by update time, so a refresh after changing
 // an issue's status brings that issue to the top.
 func (l issueList) settle(answer issuesLoaded) issueList {
+	l.settled, l.loading = true, false
+
+	// A further page appends to the list; a failed page leaves what is already
+	// there rather than replacing the pane with an error.
+	if answer.startAt > 0 {
+		if answer.err == nil {
+			l.found.Issues = append(l.found.Issues, answer.found.Issues...)
+			l.found.Total = answer.found.Total
+		}
+
+		return l
+	}
+
 	previous, _ := l.current()
-	l.found, l.err, l.settled, l.loading = answer.found, answer.err, true, false
+	l.found, l.err = answer.found, answer.err
 
 	return l.selectKey(previous.Key)
+}
+
+// hasMore reports that the list is truncated: fewer issues are loaded than
+// matched, so there is a further page to read.
+func (l issueList) hasMore() bool {
+	return len(l.found.Issues) < l.found.Total
 }
 
 // selectKey selects the issue with a key, or keeps the row, clamped, when the

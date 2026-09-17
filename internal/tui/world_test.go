@@ -60,6 +60,7 @@ type world struct {
 	calls []string
 
 	issues        []jira.Issue
+	pageSize      int
 	detail        jira.IssueDetail
 	detailErr     error
 	moves         []jira.Transition
@@ -109,6 +110,7 @@ func newWorld() *world {
 			{Key: issueKey, Summary: issueSummary, Status: "In Progress", StatusCategory: "indeterminate", Type: "Bug"},
 			{Key: secondIssue, Summary: "Add retries", Status: "To Do", StatusCategory: "new", Type: "Story"},
 		},
+		pageSize: 50,
 		detail: jira.IssueDetail{
 			Issue: jira.Issue{Key: issueKey}, Reporter: reporter, Description: "Tokens reach the log.",
 			Comments: []jira.Comment{
@@ -203,10 +205,13 @@ func (w *world) deps() tui.Deps {
 // jiraDeps fakes Jira.
 func (w *world) jiraDeps() tui.JiraDeps {
 	return tui.JiraDeps{
-		Search: func() (jira.SearchResult, error) {
+		Search: func(startAt int) (jira.SearchResult, error) {
 			w.record("search")
 
-			return jira.SearchResult{Issues: slices.Clone(w.issues), Total: len(w.issues)}, nil
+			start := min(startAt, len(w.issues))
+			end := min(start+w.pageSize, len(w.issues))
+
+			return jira.SearchResult{Issues: slices.Clone(w.issues[start:end]), Total: len(w.issues)}, nil
 		},
 		Issue: func(key string) (jira.IssueDetail, error) {
 			w.record("issue " + key)
