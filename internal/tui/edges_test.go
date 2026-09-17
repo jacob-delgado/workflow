@@ -28,40 +28,41 @@ func TestNothingInterruptsAWriteBeingSent(t *testing.T) {
 	t.Parallel()
 
 	cases := map[string]struct {
-		prepare func(*world)
-		keys    []string
-		sending string
+		pullMissing bool
+		gitHooks    []hooks.GitHook
+		keys        []string
+		sending     string
 	}{
-		"a branch":       {keys: []string{"b"}, sending: "creating…"},
-		"a pull request": {prepare: func(w *world) { w.pullFound = false }, keys: []string{"4", "n"}, sending: "opening…"},
-		"a slack post":   {keys: []string{"5", "p"}, sending: "posting…"},
-		"a configuration": {
-			prepare: func(w *world) { w.gitHooks = legacyHooks() }, keys: nil, sending: "writing…",
-		},
+		"a branch":        {keys: []string{"b"}, sending: "creating…"},
+		"a pull request":  {pullMissing: true, keys: []string{"4", "n"}, sending: "opening…"},
+		"a slack post":    {keys: []string{"5", "p"}, sending: "posting…"},
+		"a configuration": {gitHooks: legacyHooks(), keys: nil, sending: "writing…"},
 	}
 
 	for name, tt := range cases {
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
 
+			// Arrange
 			sending := newWorld()
-			if tt.prepare != nil {
-				tt.prepare(sending)
-			}
-
+			sending.pullFound, sending.gitHooks = !tt.pullMissing, tt.gitHooks
 			overlay := typing(t, sending.live(t, 120, 50), tt.keys...)
+
+			// Act: send it
 			inFlight, _ := pressed(t, overlay, keyEnter)
 
+			// Assert: it is on its way, and only quitting is offered
 			requireScreen(t, inFlight.View(), tt.sending)
 			requireScreen(t, footerLine(inFlight.View()), "ctrl+c quit")
-			refuseScreen(t, footerLine(inFlight.View()), "esc")
+			refuseScreen(t, footerLine(inFlight.View()), keyEsc)
 
-			// Neither leaving nor sending again does anything until it answers.
-			if _, again := pressed(t, inFlight, keyEnter); again != nil {
-				t.Error("enter sent again while the first was on its way")
+			// Act & Assert: neither leaving nor sending again does anything until it answers
+			for _, key := range []string{keyEnter, keyEsc, "v", "e", "w"} {
+				after, cmd := pressed(t, inFlight, key)
+				if cmd != nil || after.View() != inFlight.View() {
+					t.Errorf("%s did something while the write was on its way:\n%s", key, after.View())
+				}
 			}
-
-			requireScreen(t, press(t, inFlight, "esc", "v", "e", "w").View(), tt.sending)
 		})
 	}
 }
@@ -69,30 +70,49 @@ func TestNothingInterruptsAWriteBeingSent(t *testing.T) {
 func TestOverlaysIgnoreKeysThatMeanNothingInThem(t *testing.T) {
 	t.Parallel()
 
-	offering := newWorld()
-	offering.gitHooks = legacyHooks()
-	requireScreen(t, typing(t, offering.live(t, 120, 50), "x").View(), "┏━ No lefthook configuration")
+	cases := map[string]struct {
+		gitHooks []hooks.GitHook
+		edited   string
+		keys     []string
+	}{
+		"the lefthook offer": {gitHooks: legacyHooks()},
+		"a comment preview":  {edited: greeting, keys: []string{"c"}},
+		"the post to Slack":  {keys: []string{"5", "p"}},
+		// The type is chosen with arrows, so typing on it changes nothing.
+		"the commit type field": {keys: []string{"3", "c", keyShiftTab, keyShiftTab}},
+	}
 
-	commenting := newWorld()
-	commenting.edited = greeting
-	requireScreen(t, typing(t, commenting.live(t, 120, 40), "c", "x").View(), "┏━ Comment on")
+	for name, tt := range cases {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
 
-	posting := newWorld()
-	requireScreen(t, typing(t, posting.live(t, 120, 40), "5", "p", "x").View(), "┏━ Post to Slack")
+			// Arrange
+			faked := newWorld()
+			faked.gitHooks, faked.edited = tt.gitHooks, tt.edited
+			overlay := typing(t, faked.live(t, 120, 50), tt.keys...)
 
-	// Typing on the type field changes nothing; the type is chosen with arrows.
-	typed := typing(t, newWorld().live(t, 120, 40), "3", "c", keyShiftTab, keyShiftTab, "x").View()
-	requireScreen(t, typed, "‹feat›")
-	refuseScreen(t, typed, "scope   > x", "subject > x")
+			// Act
+			after := typing(t, overlay, "x")
+
+			// Assert
+			if after.View() != overlay.View() {
+				t.Errorf("x changed %s:\n%s", name, after.View())
+			}
+		})
+	}
 }
 
 func TestAStructuredConfigurationWithNoScriptsSaysNothingOfScripts(t *testing.T) {
 	t.Parallel()
 
+	// Arrange
 	plain := newWorld()
 	plain.gitHooks = []hooks.GitHook{{Name: "pre-commit", Script: "#!/bin/sh\ngofmt -l .\n"}}
 
+	// Act
 	view := plain.live(t, 120, 50).View()
+
+	// Assert
 	requireScreen(t, view, "Found 1 hook in .git/hooks")
 	refuseScreen(t, view, "kept whole")
 }
@@ -100,13 +120,17 @@ func TestAStructuredConfigurationWithNoScriptsSaysNothingOfScripts(t *testing.T)
 func TestADryRunCommentIsOnlyDescribed(t *testing.T) {
 	t.Parallel()
 
+	// Arrange
 	dry := newWorld()
 	dry.edited = greeting
-
 	model := sized(t, dryInterface(dry), 120, 40)
 	model = drain(t, model, model.Init())
 
-	requireScreen(t, typing(t, model, "c", keyEnter).View(), "dry run: would comment on PROJ-412")
+	// Act
+	view := typing(t, model, "c", keyEnter).View()
+
+	// Assert
+	requireScreen(t, view, "dry run: would comment on PROJ-412")
 
 	if calls := dry.asked("comment"); len(calls) != 0 {
 		t.Errorf("a dry run commented: %q", calls)
@@ -116,89 +140,166 @@ func TestADryRunCommentIsOnlyDescribed(t *testing.T) {
 func TestTheComposerKeepsItsDraftWhenLeft(t *testing.T) {
 	t.Parallel()
 
-	left := typing(t, newWorld().live(t, 120, 40), append(append([]string{"3", "c"}, letters("half done")...), "esc")...)
-	requireScreen(t, typing(t, left, "c").View(), "subject > half done")
+	// Arrange
+	left := typing(t, newWorld().live(t, 120, 40), append(append([]string{"3", "c"}, letters("half done")...), keyEsc)...)
 
-	// On a branch that names no issue there is no trailer.
+	// Act
+	view := typing(t, left, "c").View()
+
+	// Assert
+	requireScreen(t, view, "subject > half done")
+}
+
+func TestAComposerOnABranchNamingNoIssueHasNoTrailer(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
 	unnamed := newWorld()
 	unnamed.branch.Name = "spike"
-	refuseScreen(t, typing(t, unnamed.live(t, 120, 40), "3", "c").View(), "Refs:")
+
+	// Act
+	view := typing(t, unnamed.live(t, 120, 40), "3", "c").View()
+
+	// Assert
+	requireScreen(t, view, "┏━ Commit")
+	refuseScreen(t, view, "Refs:")
 }
 
 func TestABodyThatCannotBeEditedLeavesTheComposerAsItWas(t *testing.T) {
 	t.Parallel()
 
-	failing := newWorld()
-	failing.editErr = errEditorFailed
+	cases := map[string]struct {
+		pullMissing bool
+		keys        []string
+		title       string
+	}{
+		"the commit composer":       {keys: []string{"3", "c"}, title: "┏━ Commit"},
+		"the pull request composer": {pullMissing: true, keys: []string{"4", "n"}, title: "┏━ Open pull request"},
+	}
 
-	requireScreen(t, typing(t, failing.live(t, 120, 40), "3", "c", "ctrl+e").View(), "┏━ Commit",
-		"✗ the editor exited with an error")
+	for name, tt := range cases {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
 
-	opening := withoutPull()
-	opening.editErr = errEditorFailed
-	requireScreen(t, typing(t, opening.live(t, 120, 40), "4", "n", "ctrl+e").View(), "┏━ Open pull request",
-		"✗ the editor exited with an error")
+			// Arrange
+			failing := newWorld()
+			failing.pullFound, failing.editErr = !tt.pullMissing, errEditorFailed
+			composer := typing(t, failing.live(t, 120, 40), tt.keys...)
 
+			// Act
+			view := typing(t, composer, "ctrl+e").View()
+
+			// Assert
+			requireScreen(t, view, tt.title, "✗ the editor exited with an error")
+		})
+	}
+}
+
+func TestWithoutAnEditorTheBodyCannotBeEdited(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
 	noEditor := newWorld().deps()
 	noEditor.Editor = tui.EditorDeps{}
-
 	model := sized(t, tui.New(completeConfig(), nil, noEditor), 120, 40)
-	model = drain(t, model, model.Init())
-	requireScreen(t, typing(t, model, "3", "c", "ctrl+e").View(), "no body yet")
+	composer := typing(t, drain(t, model, model.Init()), "3", "c")
+
+	// Act
+	after, cmd := pressed(t, composer, "ctrl+e")
+
+	// Assert
+	if cmd != nil || after.View() != composer.View() {
+		t.Errorf("ctrl+e did something with no editor:\n%s", after.View())
+	}
 }
 
 func TestThePullRequestComposerWorksWithoutTemplatesOrAnEditor(t *testing.T) {
 	t.Parallel()
 
-	bare := withoutPull()
-	deps := bare.deps()
+	// Arrange
+	deps := withoutPull().deps()
 	deps.Forge.Templates, deps.Editor = nil, tui.EditorDeps{}
-
 	model := sized(t, tui.New(completeConfig(), nil, deps), 120, 40)
 	model = drain(t, model, model.Init())
 
+	// Act
 	composer := typing(t, model, "4", "n", "ctrl+e", "ctrl+t", keyTab, keyTab)
+
+	// Assert
 	requireScreen(t, composer.View(), "no template in this repository", "▸ title  >")
 }
 
-func TestTheReviewPaneSaysWhatItIsWaitingFor(t *testing.T) {
+func TestTheReviewPaneSaysItIsLookingForAPullRequest(t *testing.T) {
 	t.Parallel()
 
+	// Arrange
 	unfound := newWorld().deps()
 	unfound.Forge.FindPullRequest = nil
-
 	model := sized(t, tui.New(completeConfig(), nil, unfound), 120, 40)
-	requireScreen(t, typing(t, drain(t, model, model.Init()), "4").View(), "looking…")
 
+	// Act
+	view := typing(t, drain(t, model, model.Init()), "4").View()
+
+	// Assert
+	requireScreen(t, view, "looking…")
+}
+
+func TestTheReviewPaneSaysCIIsBeingChecked(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
 	unchecked := newWorld().deps()
 	unchecked.Forge.CheckStatus = nil
+	model := sized(t, tui.New(completeConfig(), nil, unchecked), 120, 40)
 
-	model = sized(t, tui.New(completeConfig(), nil, unchecked), 120, 40)
-	requireScreen(t, typing(t, drain(t, model, model.Init()), "4").View(), "CI     checking…")
+	// Act
+	view := typing(t, drain(t, model, model.Init()), "4").View()
 
+	// Assert
+	requireScreen(t, view, "CI     checking…")
+}
+
+func TestTheReviewPaneSaysWhyCICouldNotBeChecked(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
 	failing := newWorld()
 	failing.ciErr = errUnreachable
-	requireScreen(t, typing(t, failing.live(t, 120, 40), "4").View(), "CI     ✗ could not reach the forge")
+
+	// Act
+	view := typing(t, failing.live(t, 120, 40), "4").View()
+
+	// Assert
+	requireScreen(t, view, "CI     ✗ could not reach the forge")
 }
 
 func TestAnAnnouncementWithoutAnAuthorStillAnnounces(t *testing.T) {
 	t.Parallel()
 
+	// Arrange
 	anonymous := newWorld()
 	anonymous.authorErr = errUnreachable
 
-	requireScreen(t, typing(t, anonymous.live(t, 120, 40), "5").View(), "A pull request is ready for review:")
+	// Act
+	view := typing(t, anonymous.live(t, 120, 40), "5").View()
+
+	// Assert
+	requireScreen(t, view, "A pull request is ready for review:")
 }
 
 func TestAPostWaitingForCIThatNeverReportsKeepsWaiting(t *testing.T) {
 	t.Parallel()
 
+	// Arrange
 	unreported := newWorld()
 	unreported.ciInterval = time.Millisecond
 	unreported.ci = []forge.CI{{State: forge.CIRunning}, {State: forge.CINone}}
 
-	waiting := typing(t, unreported.live(t, 120, 40), "5", "p", "w")
-	requireScreen(t, typing(t, waiting, "j").View(), "state  ◐ posts when CI passes")
+	// Act
+	waiting := typing(t, unreported.live(t, 120, 40), "5", "p", "w", "j")
+
+	// Assert
+	requireScreen(t, waiting.View(), "state  ◐ posts when CI passes")
 
 	if calls := unreported.asked("post "); len(calls) != 0 {
 		t.Errorf("posted with no CI reported: %q", calls)
@@ -208,71 +309,86 @@ func TestAPostWaitingForCIThatNeverReportsKeepsWaiting(t *testing.T) {
 func TestAPostWaitingForCIThatFailsToPostSaysWhy(t *testing.T) {
 	t.Parallel()
 
+	// Arrange
 	refusing := newWorld()
 	refusing.ciInterval = time.Millisecond
 	refusing.ci = []forge.CI{{State: forge.CIRunning}, {State: forge.CIPassed}}
 	refusing.postErr = errNotInChannel
 
+	// Act
 	failed := typing(t, refusing.live(t, 120, 40), "5", "p", "w")
+
+	// Assert
 	requireScreen(t, failed.View(), "✗ the credential was not accepted: not_in_channel")
 }
 
 func TestACommitThatCannotStartSaysWhy(t *testing.T) {
 	t.Parallel()
 
+	// Arrange
 	unstartable := newWorld()
 	unstartable.commitStartErr = errDiskFull
 
+	// Act
 	view := typing(t, unstartable.live(t, 120, 40), commitKeys("x")...).View()
+
+	// Assert
 	requireScreen(t, view, "┏━ git commit", "✗ writing the commit message: disk full")
-}
-
-func TestARunsFailuresMoveBothWaysAndNeedAnEditor(t *testing.T) {
-	t.Parallel()
-
-	failing := newWorld()
-	failing.commitErr = errHookFailed
-	failing.commitLines = []string{
-		"┃  lint ❯ ", "a.go:1:1: first", "b.go:2:1: second",
-		"summary: (done in 1 seconds)", "🥊 lint (1 seconds)",
-	}
-
-	failed := typing(t, failing.live(t, 120, 40), commitKeys("x")...)
-	requireScreen(t, typing(t, failed, "j", "k").View(), "▸ a.go:1 first")
-
-	// With jobs listed above them, the list starts a row lower.
-	requireScreen(t, click(t, failed, 60, 6).View(), "▸ b.go:2 second")
-
-	noEditor := failing.deps()
-	noEditor.Editor.Open = nil
-
-	model := sized(t, tui.New(completeConfig(), nil, noEditor), 120, 40)
-	model = drain(t, model, model.Init())
-	requireScreen(t, typing(t, model, commitKeys("x", keyEnter)...).View(),
-		"▸ a.go:1 first")
 }
 
 func TestClicksThatLandOnNothingDoNothing(t *testing.T) {
 	t.Parallel()
 
-	screen := newWorld().live(t, 120, 40)
+	cases := map[string]struct {
+		keys        []string
+		column, row int
+	}{
+		"below the issues in the rail": {column: 5, row: 15},
+		"on the spine":                 {column: 50, row: 0},
+		"on the Branch pane's detail":  {keys: []string{"2"}, column: 60, row: 5},
+	}
 
-	// Below the issues in the rail, on the spine, on the Branch pane's detail.
-	requireScreen(t, click(t, screen, 5, 15).View(), "▸ ◐ PROJ-412")
-	requireScreen(t, click(t, screen, 50, 0).View(), focused("1 Issues"))
-	requireScreen(t, click(t, typing(t, screen, "2"), 60, 5).View(), focused("2 Branch"))
+	for name, tt := range cases {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			// Arrange
+			screen := typing(t, newWorld().live(t, 120, 40), tt.keys...)
+
+			// Act
+			clicked := click(t, screen, tt.column, tt.row)
+
+			// Assert
+			if clicked.View() != screen.View() {
+				t.Errorf("a click %s changed the screen:\n%s", name, clicked.View())
+			}
+		})
+	}
 }
 
 func TestTheHelpScrollsBackUp(t *testing.T) {
 	t.Parallel()
 
-	help := typing(t, newWorld().live(t, 120, 20), "?", "j", "j", "k", "k")
-	requireScreen(t, help.View(), "Moving around")
+	// Arrange
+	help := typing(t, newWorld().live(t, 120, 20), "?")
+
+	// Act: scroll down
+	down := typing(t, help, "j", "j")
+
+	// Assert: the first group is out of sight
+	refuseScreen(t, down.View(), "Moving around")
+
+	// Act: scroll back up
+	up := typing(t, down, "k", "k")
+
+	// Assert: it is back
+	requireScreen(t, up.View(), "Moving around")
 }
 
 func TestAnInterfaceWithoutAClockUsesTheRealOne(t *testing.T) {
 	t.Parallel()
 
+	// Arrange
 	deps := newWorld().deps()
 	deps.Clock = nil
 	deps.Jira.Issue = func(string) (jira.IssueDetail, error) {
@@ -283,26 +399,49 @@ func TestAnInterfaceWithoutAClockUsesTheRealOne(t *testing.T) {
 	}
 
 	model := sized(t, tui.New(completeConfig(), nil, deps), 120, 40)
-	requireScreen(t, drain(t, model, model.Init()).View(), "Ana · 5m ago")
+
+	// Act
+	view := drain(t, model, model.Init()).View()
+
+	// Assert
+	requireScreen(t, view, "Ana · 5m ago")
 }
 
 func TestPickingAnOptionMovesBothWays(t *testing.T) {
 	t.Parallel()
 
+	// Arrange
 	resolving := newWorld()
 	resolving.moves = []jira.Transition{resolveIssue()}
+	form := typing(t, resolving.live(t, 120, 40), "t", keyEnter)
 
-	requireScreen(t, typing(t, resolving.live(t, 120, 40), "t", keyEnter, "j", "k").View(), "▸ Fixed")
+	// Act: j
+	down := typing(t, form, "j")
+
+	// Assert: the second option is selected
+	requireScreen(t, down.View(), "▸ Won't Fix")
+
+	// Act: k
+	up := typing(t, down, "k")
+
+	// Assert: the first is selected again
+	requireScreen(t, up.View(), "▸ Fixed")
 }
 
 func TestRReadsTheChangesAgain(t *testing.T) {
 	t.Parallel()
 
+	// Arrange
 	refreshing := newWorld()
 	refreshing.branch = gitrepo.Branch{Name: featureName, Base: baseRef}
-	typing(t, refreshing.live(t, 120, 40), "3", "r")
+	pane := typing(t, refreshing.live(t, 120, 40), "3")
+	before := len(refreshing.asked("changes"))
 
-	if reads := refreshing.asked("changes"); len(reads) < 2 {
-		t.Errorf("read the changes %d times, want again on r", len(reads))
+	// Act
+	typing(t, pane, "r")
+
+	// Assert
+	if reads := len(refreshing.asked("changes")); reads != before+1 {
+		t.Errorf("read the changes %d times, want once more than the %d before r", reads, before)
 	}
 }

@@ -35,7 +35,10 @@ func TestJiraAuthMode(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
 
+			// Act
 			got := tt.jira.AuthMode()
+
+			// Assert
 			if got != tt.want {
 				t.Errorf("AuthMode() = %v, want %v", got, tt.want)
 			}
@@ -46,41 +49,86 @@ func TestJiraAuthMode(t *testing.T) {
 func TestAuthModeString(t *testing.T) {
 	t.Parallel()
 
-	cases := map[config.AuthMode]string{
-		config.AuthNone:   "none",
-		config.AuthBearer: "bearer token",
-		config.AuthBasic:  "basic auth",
-		// A value outside the enum: the String method must stay total rather than
-		// returning an empty string that reads as "no auth configured".
-		config.AuthMode(99): "unknown",
+	cases := map[string]struct {
+		mode config.AuthMode
+		want string
+	}{
+		"no auth": {mode: config.AuthNone, want: "none"},
+		"bearer":  {mode: config.AuthBearer, want: "bearer token"},
+		"basic":   {mode: config.AuthBasic, want: "basic auth"},
+		// The String method must stay total rather than returning an empty
+		// string that reads as "no auth configured".
+		"a value outside the enum": {mode: config.AuthMode(99), want: "unknown"},
 	}
 
-	for mode, want := range cases {
-		got := mode.String()
-		if got != want {
-			t.Errorf("AuthMode(%d).String() = %q, want %q", mode, got, want)
-		}
+	for name, tt := range cases {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			// Act
+			got := tt.mode.String()
+
+			// Assert
+			if got != tt.want {
+				t.Errorf("AuthMode(%d).String() = %q, want %q", tt.mode, got, tt.want)
+			}
+		})
 	}
 }
 
-func TestMissingNamesEveryEmptyRequiredField(t *testing.T) {
+func TestMissingNamesWhatTheConfigurationStillNeeds(t *testing.T) {
 	t.Parallel()
 
-	var empty config.Config
+	cases := map[string]struct {
+		cfg  config.Config
+		want []string
+	}{
+		// The Slack credential is ONE entry, not two: either transport satisfies
+		// it, and naming both as separately missing would read as "set them both".
+		"an empty configuration names every required field": {
+			cfg:  config.Config{},
+			want: []string{"jira.base_url", "jira.token", "slack.token or slack.webhook_url"},
+		},
+		// An incoming webhook is bound to one channel when it is created, so
+		// asking for slack.channel as well would be asking for something with no
+		// effect.
+		"a webhook needs no channel": {
+			cfg: config.Config{
+				Jira:  config.Jira{BaseURL: jiraURL, Token: "t", User: ""},
+				Slack: config.Slack{Token: "", WebhookURL: webhookURL, Channel: ""},
+				Path:  "",
+			},
+			want: nil,
+		},
+		"a bot token needs a channel": {
+			cfg: config.Config{
+				Jira:  config.Jira{BaseURL: jiraURL, Token: "t", User: ""},
+				Slack: config.Slack{Token: botToken, WebhookURL: "", Channel: ""},
+				Path:  "",
+			},
+			want: []string{"slack.channel"},
+		},
+	}
 
-	got := empty.Missing()
-	// The Slack credential is ONE entry, not two: either transport satisfies it,
-	// and naming both as separately missing would read as "set them both".
-	want := []string{"jira.base_url", "jira.token", "slack.token or slack.webhook_url"}
+	for name, tt := range cases {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
 
-	if strings.Join(got, ",") != strings.Join(want, ",") {
-		t.Errorf("Missing() = %v, want %v", got, want)
+			// Act
+			got := tt.cfg.Missing()
+
+			// Assert
+			if strings.Join(got, ",") != strings.Join(tt.want, ",") {
+				t.Errorf("Missing() = %v, want %v", got, tt.want)
+			}
+		})
 	}
 }
 
 func TestMissingIsEmptyForCompleteConfig(t *testing.T) {
 	t.Parallel()
 
+	// Arrange
 	workDir := t.TempDir()
 	write(t, workDir, completeConfig)
 
@@ -89,7 +137,10 @@ func TestMissingIsEmptyForCompleteConfig(t *testing.T) {
 		t.Fatalf("Load: %v", err)
 	}
 
+	// Act
 	got := cfg.Missing()
+
+	// Assert
 	if len(got) != 0 {
 		t.Errorf("Missing() = %v, want none", got)
 	}
@@ -126,7 +177,10 @@ func TestSlackModeSelectsTheTransport(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
 
+			// Act
 			got := tt.slack.Mode()
+
+			// Assert
 			if got != tt.want {
 				t.Errorf("Mode() = %v, want %v", got, tt.want)
 			}
@@ -137,49 +191,26 @@ func TestSlackModeSelectsTheTransport(t *testing.T) {
 func TestSlackModeString(t *testing.T) {
 	t.Parallel()
 
-	cases := map[config.SlackMode]string{
-		config.SlackNone:    "none",
-		config.SlackBot:     "bot token",
-		config.SlackWebhook: "incoming webhook",
+	cases := map[string]struct {
+		mode config.SlackMode
+		want string
+	}{
+		"no transport": {mode: config.SlackNone, want: "none"},
+		"bot":          {mode: config.SlackBot, want: "bot token"},
+		"webhook":      {mode: config.SlackWebhook, want: "incoming webhook"},
 		// Total, like AuthMode: a value from outside the enum still reads.
-		config.SlackMode(99): "unknown",
+		"a value outside the enum": {mode: config.SlackMode(99), want: "unknown"},
 	}
 
-	for mode, want := range cases {
-		if got := mode.String(); got != want {
-			t.Errorf("SlackMode(%d).String() = %q, want %q", mode, got, want)
-		}
-	}
-}
+	for name, tt := range cases {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
 
-func TestMissingAcceptsAWebhookWithoutAChannel(t *testing.T) {
-	t.Parallel()
-
-	cfg := config.Config{
-		Jira:  config.Jira{BaseURL: jiraURL, Token: "t", User: ""},
-		Slack: config.Slack{Token: "", WebhookURL: webhookURL, Channel: ""},
-		Path:  "",
-	}
-
-	// An incoming webhook is bound to one channel when it is created, so asking
-	// for slack.channel as well would be asking for something with no effect.
-	if got := cfg.Missing(); len(got) != 0 {
-		t.Errorf("Missing() = %v, want none for a webhook-only configuration", got)
-	}
-}
-
-func TestMissingRequiresAChannelForABotToken(t *testing.T) {
-	t.Parallel()
-
-	cfg := config.Config{
-		Jira:  config.Jira{BaseURL: jiraURL, Token: "t", User: ""},
-		Slack: config.Slack{Token: botToken, WebhookURL: "", Channel: ""},
-		Path:  "",
-	}
-
-	got := cfg.Missing()
-	if strings.Join(got, ",") != "slack.channel" {
-		t.Errorf("Missing() = %v, want exactly [slack.channel]", got)
+			// Act & Assert
+			if got := tt.mode.String(); got != tt.want {
+				t.Errorf("SlackMode(%d).String() = %q, want %q", tt.mode, got, tt.want)
+			}
+		})
 	}
 }
 
@@ -212,6 +243,7 @@ func TestSlackTarget(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
 
+			// Act & Assert
 			if got := tt.slack.Target(); got != tt.want {
 				t.Errorf("Target() = %q, want %q", got, tt.want)
 			}
@@ -219,17 +251,31 @@ func TestSlackTarget(t *testing.T) {
 	}
 }
 
+// The channel a webhook posts to is not knowable without calling Slack, and the
+// URL that would reveal it is the credential itself. Whatever else is set
+// alongside a webhook, Target() must describe where posts go without quoting it.
 func TestSlackTargetNeverRevealsTheWebhookURL(t *testing.T) {
 	t.Parallel()
 
-	// The channel a webhook posts to is not knowable without calling Slack, and
-	// the URL that would reveal it is the credential itself. Target() must
-	// describe the binding rather than quote it.
-	slack := config.Slack{Token: "", WebhookURL: webhookURL, Channel: ""}
+	cases := map[string]config.Slack{
+		"a webhook alone":             {Token: "", WebhookURL: webhookURL, Channel: ""},
+		"a webhook and a channel":     {Token: "", WebhookURL: webhookURL, Channel: devChannel},
+		"a webhook beside a token":    {Token: botToken, WebhookURL: webhookURL, Channel: devChannel},
+		"a webhook beside no channel": {Token: botToken, WebhookURL: webhookURL, Channel: ""},
+	}
 
-	target := slack.Target()
-	if strings.Contains(target, "hooks.slack.com") || strings.Contains(target, "fakefake") {
-		t.Errorf("Target() = %q, want it to describe the webhook without quoting it", target)
+	for name, slack := range cases {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			// Act
+			target := slack.Target()
+
+			// Assert
+			if target == "" || strings.Contains(target, "hooks.slack.com") || strings.Contains(target, "fakefake") {
+				t.Errorf("Target() = %q, want it to describe where posts go without quoting the webhook", target)
+			}
+		})
 	}
 }
 
@@ -262,7 +308,10 @@ func TestRedactURL(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
 
+			// Act
 			got := config.RedactURL(tt.raw)
+
+			// Assert
 			if got != tt.want {
 				t.Errorf("RedactURL(%q) = %q, want %q", tt.raw, got, tt.want)
 			}
@@ -273,6 +322,9 @@ func TestRedactURL(t *testing.T) {
 // passwordURL is a base URL someone wrote a password into.
 const passwordURL = "https://alice:sekret@jira.example.com"
 
+// maskedPasswordURL is passwordURL as every display of it must read.
+const maskedPasswordURL = "https://alice:xxxxx@jira.example.com"
+
 func TestDisplayURLMasksAPasswordAndNamesAnUnsetURL(t *testing.T) {
 	t.Parallel()
 
@@ -282,13 +334,14 @@ func TestDisplayURLMasksAPasswordAndNamesAnUnsetURL(t *testing.T) {
 	}{
 		"unset":      {raw: "", want: "(not set)"},
 		"plain":      {raw: jiraURL, want: jiraURL},
-		"a password": {raw: passwordURL, want: "https://alice:xxxxx@jira.example.com"},
+		"a password": {raw: passwordURL, want: maskedPasswordURL},
 	}
 
 	for name, tt := range cases {
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
 
+			// Act & Assert
 			if got := config.DisplayURL(tt.raw); got != tt.want {
 				t.Errorf("DisplayURL(%q) = %q, want %q", tt.raw, got, tt.want)
 			}
@@ -299,6 +352,7 @@ func TestDisplayURLMasksAPasswordAndNamesAnUnsetURL(t *testing.T) {
 func TestRedactedMasksAPasswordInTheBaseURL(t *testing.T) {
 	t.Parallel()
 
+	// Arrange
 	// doctor prints jira.base_url, and its output is what the bug report
 	// template invites people to paste into a public issue.
 	cfg := config.Config{
@@ -307,9 +361,12 @@ func TestRedactedMasksAPasswordInTheBaseURL(t *testing.T) {
 		Path:  "",
 	}
 
+	// Act
 	redacted := cfg.Redacted()
-	if strings.Contains(redacted.Jira.BaseURL, "sekret") {
-		t.Errorf("the base URL still carries the password: %q", redacted.Jira.BaseURL)
+
+	// Assert
+	if redacted.Jira.BaseURL != maskedPasswordURL {
+		t.Errorf("the redacted base URL is %q, want %q", redacted.Jira.BaseURL, maskedPasswordURL)
 	}
 
 	if cfg.Jira.BaseURL != passwordURL {

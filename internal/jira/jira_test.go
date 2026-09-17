@@ -4,6 +4,7 @@
 package jira_test
 
 import (
+	"encoding/json"
 	"errors"
 	"net/http"
 	"net/http/httptest"
@@ -31,6 +32,13 @@ const (
 	indeterminate = "indeterminate"
 )
 
+// servedUser is who the fixtures say Jira served, and basicUser who a Basic
+// credential names.
+const (
+	servedUser = "fred"
+	basicUser  = "alice"
+)
+
 // jsonMediaType is what Jira's answers are, and what its requests say they want.
 const jsonMediaType = "application/json"
 
@@ -56,22 +64,25 @@ func serve(t *testing.T, handler http.HandlerFunc) jira.Client {
 func TestMyselfReportsTheAuthenticatedUser(t *testing.T) {
 	t.Parallel()
 
+	// Arrange
 	client := serve(t, func(writer http.ResponseWriter, _ *http.Request) {
 		writer.Header().Set("Content-Type", jsonMediaType)
 		_, _ = writer.Write([]byte(myselfBody))
 	})
 
+	// Act
 	user, err := client.Myself(t.Context())
 	if err != nil {
 		t.Fatalf("Myself returned %v, want nil", err)
 	}
 
+	// Assert
 	if user.DisplayName != "Fred F. User" {
 		t.Errorf("DisplayName = %q, want %q", user.DisplayName, "Fred F. User")
 	}
 
-	if user.Name != "fred" {
-		t.Errorf("Name = %q, want %q", user.Name, "fred")
+	if user.Name != servedUser {
+		t.Errorf("Name = %q, want %q", user.Name, servedUser)
 	}
 
 	if !user.Active {
@@ -83,26 +94,19 @@ func TestMyselfSendsTheCredentialOnlyInTheAuthorizationHeader(t *testing.T) {
 	t.Parallel()
 
 	cases := map[string]struct {
-		jira   func(string) config.Jira
+		user   string
 		header string
 	}{
-		"bearer token": {
-			jira:   bearerConfig,
-			header: "Bearer " + token,
-		},
-		"basic auth": {
-			jira: func(baseURL string) config.Jira {
-				return config.Jira{BaseURL: baseURL, Token: token, User: "alice"}
-			},
-			// base64("alice:jira-token-for-tests")
-			header: "Basic YWxpY2U6amlyYS10b2tlbi1mb3ItdGVzdHM=",
-		},
+		"bearer token": {user: "", header: "Bearer " + token},
+		// base64("alice:jira-token-for-tests")
+		"basic auth": {user: basicUser, header: "Basic YWxpY2U6amlyYS10b2tlbi1mb3ItdGVzdHM="},
 	}
 
 	for name, tt := range cases {
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
 
+			// Arrange
 			var (
 				gotHeader atomic.Value
 				gotURI    atomic.Value
@@ -118,13 +122,15 @@ func TestMyselfSendsTheCredentialOnlyInTheAuthorizationHeader(t *testing.T) {
 			}))
 			t.Cleanup(server.Close)
 
-			client := jira.New(server.Client().Do, tt.jira(server.URL))
+			client := jira.New(server.Client().Do, config.Jira{BaseURL: server.URL, Token: token, User: tt.user})
 
+			// Act
 			_, err := client.Myself(t.Context())
 			if err != nil {
 				t.Fatalf("Myself returned %v, want nil", err)
 			}
 
+			// Assert
 			if got := gotHeader.Load(); got != tt.header {
 				t.Errorf("Authorization = %q, want %q", got, tt.header)
 			}
@@ -162,6 +168,7 @@ func TestMyselfKeepsTheContextPath(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
 
+			// Arrange
 			var gotPath atomic.Value
 
 			server := httptest.NewServer(http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
@@ -173,11 +180,13 @@ func TestMyselfKeepsTheContextPath(t *testing.T) {
 
 			client := jira.New(server.Client().Do, bearerConfig(server.URL+tt.suffix))
 
+			// Act
 			_, err := client.Myself(t.Context())
 			if err != nil {
 				t.Fatalf("Myself returned %v, want nil", err)
 			}
 
+			// Assert
 			if got := gotPath.Load(); got != tt.want {
 				t.Errorf("request path = %q, want %q", got, tt.want)
 			}
@@ -202,6 +211,7 @@ func TestMyselfTranslatesEachStatus(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
 
+			// Arrange
 			client := serve(t, func(writer http.ResponseWriter, _ *http.Request) {
 				writer.WriteHeader(tt.status)
 				// Jira answers a failed Basic login with an HTML login page, so
@@ -209,7 +219,10 @@ func TestMyselfTranslatesEachStatus(t *testing.T) {
 				_, _ = writer.Write([]byte("<html>login</html>"))
 			})
 
+			// Act
 			_, err := client.Myself(t.Context())
+
+			// Assert
 			if !errors.Is(err, tt.want) {
 				t.Errorf("Myself returned %v, want %v", err, tt.want)
 			}
@@ -224,6 +237,7 @@ func TestMyselfTranslatesEachStatus(t *testing.T) {
 func TestMyselfRefusesARedirect(t *testing.T) {
 	t.Parallel()
 
+	// Arrange
 	var secondHopSawHeader atomic.Bool
 
 	// The second hop shares 127.0.0.1 with the first and differs only by port.
@@ -242,9 +256,12 @@ func TestMyselfRefusesARedirect(t *testing.T) {
 
 	client := jira.New(jira.HTTPClient(5*time.Second).Do, bearerConfig(first.URL))
 
+	// Act
 	_, err := client.Myself(t.Context())
-	if err == nil {
-		t.Fatal("Myself followed a redirect, want an error")
+
+	// Assert
+	if !errors.Is(err, jira.ErrRedirected) {
+		t.Fatalf("Myself returned %v, want ErrRedirected", err)
 	}
 
 	if secondHopSawHeader.Load() {
@@ -256,63 +273,75 @@ func TestMyselfRefusesARedirect(t *testing.T) {
 	}
 }
 
-func TestMyselfRejectsABaseURLCarryingCredentials(t *testing.T) {
+func TestMyselfRefusesABaseURLItCannotUse(t *testing.T) {
 	t.Parallel()
 
-	// net/http turns userinfo into an Authorization header of its own, which
-	// would compete with the configured token. Refuse it outright.
-	client := jira.New(http.DefaultClient.Do, config.Jira{
-		BaseURL: "https://alice:sekret@jira.example.com",
-		Token:   token,
-		User:    "",
-	})
-
-	_, err := client.Myself(t.Context())
-	if !errors.Is(err, jira.ErrCredentialInBaseURL) {
-		t.Fatalf("Myself returned %v, want ErrCredentialInBaseURL", err)
+	cases := map[string]struct {
+		jira config.Jira
+		want error
+		// hidden is what the error must never quote.
+		hidden string
+	}{
+		// net/http turns userinfo into an Authorization header of its own, which
+		// would compete with the configured token. Refuse it outright.
+		"one carrying credentials": {
+			jira:   config.Jira{BaseURL: "https://alice:sekret@jira.example.com", Token: token, User: ""},
+			want:   jira.ErrCredentialInBaseURL,
+			hidden: "sekret",
+		},
+		"one that is not absolute": {
+			jira:   bearerConfig("jira.example.com/jira"),
+			want:   jira.ErrInvalidBaseURL,
+			hidden: token,
+		},
+		// A control character is what url.Parse refuses outright, which is the
+		// only way to reach the request-building failure. The parse error quotes
+		// the whole URL, so it is deliberately not wrapped: a base_url carrying
+		// userinfo would otherwise put the password in the error.
+		"one url.Parse refuses": {
+			jira:   bearerConfig("https://jira.example.com/\x7f"),
+			want:   jira.ErrInvalidBaseURL,
+			hidden: "jira.example.com",
+		},
+		"one with no credential to send": {
+			jira:   config.Jira{BaseURL: exampleBaseURL, Token: "", User: basicUser},
+			want:   jira.ErrNoCredential,
+			hidden: basicUser,
+		},
 	}
 
-	if strings.Contains(err.Error(), "sekret") {
-		t.Errorf("the error quoted the password: %v", err)
-	}
-}
+	for name, tt := range cases {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
 
-func TestMyselfRejectsABaseURLThatIsNotAbsolute(t *testing.T) {
-	t.Parallel()
+			// Arrange
+			client := jira.New(http.DefaultClient.Do, tt.jira)
 
-	client := jira.New(http.DefaultClient.Do, bearerConfig("jira.example.com/jira"))
+			// Act
+			_, err := client.Myself(t.Context())
 
-	_, err := client.Myself(t.Context())
-	if !errors.Is(err, jira.ErrInvalidBaseURL) {
-		t.Errorf("Myself returned %v, want ErrInvalidBaseURL", err)
-	}
-}
-
-func TestMyselfWithoutACredential(t *testing.T) {
-	t.Parallel()
-
-	client := jira.New(http.DefaultClient.Do, config.Jira{
-		BaseURL: exampleBaseURL,
-		Token:   "",
-		User:    "",
-	})
-
-	_, err := client.Myself(t.Context())
-	if !errors.Is(err, jira.ErrNoCredential) {
-		t.Errorf("Myself returned %v, want ErrNoCredential", err)
+			// Assert
+			if !errors.Is(err, tt.want) || strings.Contains(err.Error(), tt.hidden) {
+				t.Errorf("Myself returned %v, want %v without quoting %q", err, tt.want, tt.hidden)
+			}
+		})
 	}
 }
 
 func TestMyselfReportsAnUnreachableServer(t *testing.T) {
 	t.Parallel()
 
+	// Arrange
 	server := httptest.NewServer(http.HandlerFunc(func(http.ResponseWriter, *http.Request) {}))
 	baseURL := server.URL
 	server.Close()
 
 	client := jira.New(jira.HTTPClient(2*time.Second).Do, bearerConfig(baseURL))
 
+	// Act
 	_, err := client.Myself(t.Context())
+
+	// Assert
 	if !errors.Is(err, jira.ErrUnreachable) {
 		t.Errorf("Myself returned %v, want ErrUnreachable", err)
 	}
@@ -321,36 +350,17 @@ func TestMyselfReportsAnUnreachableServer(t *testing.T) {
 func TestMyselfReportsAnUnreadableBody(t *testing.T) {
 	t.Parallel()
 
+	// Arrange
 	client := serve(t, func(writer http.ResponseWriter, _ *http.Request) {
 		_, _ = writer.Write([]byte("{not json"))
 	})
 
+	// Act
 	_, err := client.Myself(t.Context())
-	if err == nil {
-		t.Fatal("Myself accepted a malformed body, want an error")
-	}
-}
 
-func TestMyselfRejectsAMalformedBaseURL(t *testing.T) {
-	t.Parallel()
-
-	// A control character is what url.Parse refuses outright, which is the only
-	// way to reach the request-building failure.
-	client := jira.New(http.DefaultClient.Do, config.Jira{
-		BaseURL: "https://jira.example.com/\x7f",
-		Token:   token,
-		User:    "",
-	})
-
-	_, err := client.Myself(t.Context())
-	if !errors.Is(err, jira.ErrInvalidBaseURL) {
-		t.Fatalf("Myself returned %v, want ErrInvalidBaseURL", err)
-	}
-
-	// The parse error quotes the whole URL, so it is deliberately not wrapped:
-	// a base_url carrying userinfo would otherwise put the password here.
-	if strings.Contains(err.Error(), "jira.example.com") {
-		t.Errorf("the error quoted the base URL: %v", err)
+	// Assert
+	if _, isSyntax := errors.AsType[*json.SyntaxError](err); !isSyntax {
+		t.Errorf("Myself returned %v, want the malformed body's syntax error", err)
 	}
 }
 

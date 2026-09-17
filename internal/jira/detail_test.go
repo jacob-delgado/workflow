@@ -29,32 +29,34 @@ const detailBody = `{"key":"OPS-1","fields":{"summary":"Fix login",` +
 	`{"author":{"displayName":"Ana Lopez"},"body":"Repro'd on 8.2.1","created":"2026-09-03T10:22:12.928+0000"},` +
 	`{"author":{"displayName":"Fred"},"body":"Patch up shortly","created":"not a date"}]}}}`
 
-// servedDetail answers detailBody and records what was asked for.
-func servedDetail(t *testing.T) (jira.IssueDetail, string) {
+// detailServer is a Jira that answers detailBody, and a record of the path and
+// query it was asked.
+func detailServer(t *testing.T) (jira.Client, *atomic.Value) {
 	t.Helper()
 
-	var query atomic.Value
+	var asked atomic.Value
 
 	client := serve(t, func(writer http.ResponseWriter, request *http.Request) {
-		query.Store(request.URL.Path + "?" + request.URL.RawQuery)
+		asked.Store(request.URL.Path + "?" + request.URL.RawQuery)
 		answer(detailBody, "fred")(writer, request)
 	})
 
-	detail, err := client.Issue(t.Context(), "OPS-1")
-	if err != nil {
-		t.Fatalf("Issue returned %v, want nil", err)
-	}
-
-	asked, _ := query.Load().(string)
-
-	return detail, asked
+	return client, &asked
 }
 
 func TestIssueReadsTheDetail(t *testing.T) {
 	t.Parallel()
 
-	detail, asked := servedDetail(t)
+	// Arrange
+	client, asked := detailServer(t)
 
+	// Act
+	detail, err := client.Issue(t.Context(), "OPS-1")
+	if err != nil {
+		t.Fatalf("Issue returned %v, want nil", err)
+	}
+
+	// Assert
 	wantIssue := jira.Issue{
 		Key: "OPS-1", Summary: "Fix login", Status: inProgress, StatusCategory: indeterminate,
 		Type: "Bug", Priority: "",
@@ -69,17 +71,26 @@ func TestIssueReadsTheDetail(t *testing.T) {
 		t.Errorf("Description, Reporter = %q, %q", detail.Description, detail.Reporter)
 	}
 
-	if !strings.HasPrefix(asked, "/rest/api/2/issue/OPS-1?") || !strings.Contains(asked, "comment") ||
-		!strings.Contains(asked, "description") {
-		t.Errorf("requested %q, want the issue with its description and comments", asked)
+	requested, _ := asked.Load().(string)
+	if !strings.HasPrefix(requested, "/rest/api/2/issue/OPS-1?") || !strings.Contains(requested, "comment") ||
+		!strings.Contains(requested, "description") {
+		t.Errorf("requested %q, want the issue with its description and comments", requested)
 	}
 }
 
 func TestIssueReadsItsComments(t *testing.T) {
 	t.Parallel()
 
-	detail, _ := servedDetail(t)
+	// Arrange
+	client, _ := detailServer(t)
 
+	// Act
+	detail, err := client.Issue(t.Context(), "OPS-1")
+	if err != nil {
+		t.Fatalf("Issue returned %v, want nil", err)
+	}
+
+	// Assert
 	if len(detail.Comments) != 2 || detail.CommentTotal != 2 {
 		t.Fatalf("got %d comments of %d, want 2 of 2", len(detail.Comments), detail.CommentTotal)
 	}
@@ -96,22 +107,46 @@ func TestIssueReadsItsComments(t *testing.T) {
 	}
 }
 
-func TestIssueReportsFailures(t *testing.T) {
+func TestIssueReportsJirasReason(t *testing.T) {
 	t.Parallel()
 
-	_, err := serve(t, failWith(http.StatusNotFound, `{"errorMessages":["Issue Does Not Exist"]}`, "fred")).
-		Issue(t.Context(), "OPS-404")
-	if !errors.Is(err, jira.ErrRejected) {
+	// Arrange
+	client := serve(t, failWith(http.StatusNotFound, `{"errorMessages":["Issue Does Not Exist"]}`, "fred"))
+
+	// Act
+	_, err := client.Issue(t.Context(), "OPS-404")
+
+	// Assert
+	if !errors.Is(err, jira.ErrRejected) || !strings.Contains(err.Error(), "Issue Does Not Exist") {
 		t.Errorf("Issue returned %v, want Jira's reason", err)
 	}
+}
 
-	_, err = serve(t, answer("{not json", "fred")).Issue(t.Context(), "OPS-1")
-	if err == nil {
-		t.Error("Issue accepted a malformed body")
+func TestIssueReportsAnUnreadableBody(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	client := serve(t, answer("{not json", "fred"))
+
+	// Act
+	_, err := client.Issue(t.Context(), "OPS-1")
+
+	// Assert
+	if _, isSyntax := errors.AsType[*json.SyntaxError](err); !isSyntax {
+		t.Errorf("Issue returned %v, want the malformed body's syntax error", err)
 	}
+}
 
-	_, err = jira.New(http.DefaultClient.Do, config.Jira{BaseURL: exampleBaseURL, Token: "", User: ""}).
-		Issue(t.Context(), "OPS-1")
+func TestIssueWithoutACredentialIsRefused(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	client := jira.New(http.DefaultClient.Do, config.Jira{BaseURL: exampleBaseURL, Token: "", User: ""})
+
+	// Act
+	_, err := client.Issue(t.Context(), "OPS-1")
+
+	// Assert
 	if !errors.Is(err, jira.ErrNoCredential) {
 		t.Errorf("Issue returned %v, want ErrNoCredential", err)
 	}
@@ -120,6 +155,7 @@ func TestIssueReportsFailures(t *testing.T) {
 func TestAddCommentPostsTheBodyAndReturnsTheComment(t *testing.T) {
 	t.Parallel()
 
+	// Arrange
 	var (
 		requested atomic.Value
 		sent      atomic.Value
@@ -141,11 +177,13 @@ func TestAddCommentPostsTheBodyAndReturnsTheComment(t *testing.T) {
 			`"created":"2026-09-16T08:00:00.000-0600"}`))
 	})
 
+	// Act
 	comment, err := client.AddComment(t.Context(), "OPS/1", "Patch up\n\nwith \"quotes\"")
 	if err != nil {
 		t.Fatalf("AddComment returned %v, want nil", err)
 	}
 
+	// Assert
 	if got := requested.Load(); got != "POST /rest/api/2/issue/OPS%2F1/comment "+jsonMediaType {
 		t.Errorf("requested %v, want a JSON POST to the escaped issue's comments", got)
 	}
@@ -159,26 +197,50 @@ func TestAddCommentPostsTheBodyAndReturnsTheComment(t *testing.T) {
 	}
 }
 
-func TestAddCommentReportsFailures(t *testing.T) {
+func TestAddCommentReportsJirasReason(t *testing.T) {
 	t.Parallel()
 
+	// Arrange
 	empty := `{"errorMessages":[],"errors":{"comment":"Comment body can not be empty!"}}`
+	client := serve(t, failWith(http.StatusBadRequest, empty, "fred"))
 
-	_, err := serve(t, failWith(http.StatusBadRequest, empty, "fred")).AddComment(t.Context(), "OPS-1", " ")
+	// Act
+	_, err := client.AddComment(t.Context(), "OPS-1", " ")
+
+	// Assert
 	if !errors.Is(err, jira.ErrRejected) || !strings.Contains(err.Error(), "can not be empty") {
 		t.Errorf("AddComment returned %v, want Jira's reason", err)
 	}
+}
 
-	_, err = serve(t, func(writer http.ResponseWriter, _ *http.Request) {
+func TestAddCommentReportsAnUnreadableAnswer(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	client := serve(t, func(writer http.ResponseWriter, _ *http.Request) {
 		writer.WriteHeader(http.StatusCreated)
 		_, _ = writer.Write([]byte("{not json"))
-	}).AddComment(t.Context(), "OPS-1", "x")
-	if err == nil {
-		t.Error("AddComment accepted a malformed answer")
-	}
+	})
 
-	_, err = jira.New(http.DefaultClient.Do, config.Jira{BaseURL: "://bad", Token: token, User: ""}).
-		AddComment(t.Context(), "OPS-1", "x")
+	// Act
+	_, err := client.AddComment(t.Context(), "OPS-1", "x")
+
+	// Assert
+	if _, isSyntax := errors.AsType[*json.SyntaxError](err); !isSyntax {
+		t.Errorf("AddComment returned %v, want the malformed answer's syntax error", err)
+	}
+}
+
+func TestAddCommentRefusesAnInvalidBaseURL(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	client := jira.New(http.DefaultClient.Do, config.Jira{BaseURL: "://bad", Token: token, User: ""})
+
+	// Act
+	_, err := client.AddComment(t.Context(), "OPS-1", "x")
+
+	// Assert
 	if !errors.Is(err, jira.ErrInvalidBaseURL) {
 		t.Errorf("AddComment returned %v, want ErrInvalidBaseURL", err)
 	}
@@ -201,15 +263,21 @@ func TestBrowseURLLinksAnIssueWithoutACredential(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
 
+			// Arrange
 			client := jira.New(http.DefaultClient.Do, config.Jira{BaseURL: tt.base, Token: token, User: ""})
-			if got := client.BrowseURL("OPS-1"); got != tt.want {
+
+			// Act
+			got := client.BrowseURL("OPS-1")
+
+			// Assert
+			if got != tt.want {
 				t.Errorf("BrowseURL = %q, want %q", got, tt.want)
 			}
 
 			// The link is posted to Slack, so no part of a credential may be in it.
-			parsed, err := url.Parse(client.BrowseURL("OPS-1"))
+			parsed, err := url.Parse(got)
 			if err == nil && parsed.User != nil {
-				t.Errorf("BrowseURL kept userinfo: %q", client.BrowseURL("OPS-1"))
+				t.Errorf("BrowseURL kept userinfo: %q", got)
 			}
 		})
 	}

@@ -39,7 +39,11 @@ const (
 	keyEnter     = "enter"
 	keyTab       = "tab"
 	keyShiftTab  = "shift+tab"
+	keyEsc       = "esc"
+	keySpace     = "space"
+	keyRight     = "right"
 	issueKey     = "PROJ-412"
+	secondIssue  = "PROJ-388"
 	issueSummary = "Fix token redaction"
 	featureName  = "fix/PROJ-412-fix-token-redaction"
 	pullURL      = "https://github.com/example/repo/pull/42"
@@ -82,8 +86,8 @@ type world struct {
 	templates []forge.Template
 	author    string
 	postErr   error
-	// postGate, when set, holds every post until it is closed: a Slack that
-	// is slow to answer.
+	// postGate, when set, holds every post, already recorded, until it is
+	// closed: a Slack that is slow to answer.
 	postGate   chan struct{}
 	gitHooks   []hooks.GitHook
 	configured bool
@@ -101,7 +105,7 @@ func newWorld() *world {
 	return &world{
 		issues: []jira.Issue{
 			{Key: issueKey, Summary: issueSummary, Status: "In Progress", StatusCategory: "indeterminate", Type: "Bug"},
-			{Key: "PROJ-388", Summary: "Add retries", Status: "To Do", StatusCategory: "new", Type: "Story"},
+			{Key: secondIssue, Summary: "Add retries", Status: "To Do", StatusCategory: "new", Type: "Story"},
 		},
 		detail: jira.IssueDetail{
 			Issue: jira.Issue{Key: issueKey}, Reporter: reporter, Description: "Tokens reach the log.",
@@ -179,11 +183,11 @@ func (w *world) deps() tui.Deps {
 		Git:   w.gitDeps(),
 		Forge: w.forgeDeps(),
 		Slack: tui.SlackDeps{Post: func(text string) error {
+			w.record("post " + text)
+
 			if w.postGate != nil {
 				<-w.postGate
 			}
-
-			w.record("post " + text)
 
 			return w.postErr
 		}},

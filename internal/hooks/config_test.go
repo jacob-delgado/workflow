@@ -5,6 +5,7 @@ package hooks_test
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"slices"
 	"testing"
@@ -31,6 +32,7 @@ func dumping(t *testing.T, out string, err error) hooks.Runner {
 func TestReadConfigListsEachHooksJobs(t *testing.T) {
 	t.Parallel()
 
+	// Arrange
 	// The dump's shape as lefthook 2.1 writes it for this repository, with a
 	// setting that is not a hook and each of the three ways to declare jobs.
 	dump := `{
@@ -41,11 +43,13 @@ func TestReadConfigListsEachHooksJobs(t *testing.T) {
 	  "post-merge": "not an object"
 	}`
 
+	// Act
 	configured, err := hooks.ReadConfig(t.Context(), dumping(t, dump, nil))
 	if err != nil {
 		t.Fatalf("ReadConfig returned %v, want nil", err)
 	}
 
+	// Assert
 	want := map[string][]string{
 		preCommit: {"fmt", "lint"},
 		commitMsg: {"check.sh"},
@@ -63,24 +67,37 @@ func TestReadConfigListsEachHooksJobs(t *testing.T) {
 	}
 }
 
-func TestReadConfigReportsFailures(t *testing.T) {
+func TestReadConfigReportsLefthooksFailure(t *testing.T) {
 	t.Parallel()
 
+	// Act
 	_, err := hooks.ReadConfig(t.Context(), dumping(t, "", errNoConfig))
+
+	// Assert
 	if !errors.Is(err, errNoConfig) {
 		t.Errorf("ReadConfig returned %v, want lefthook's error", err)
 	}
+}
 
-	_, err = hooks.ReadConfig(t.Context(), dumping(t, "{not json", nil))
-	if err == nil {
-		t.Error("ReadConfig accepted output that is not JSON")
+func TestReadConfigRejectsOutputThatIsNotJSON(t *testing.T) {
+	t.Parallel()
+
+	// Act
+	_, err := hooks.ReadConfig(t.Context(), dumping(t, "{not json", nil))
+
+	// Assert
+	if _, isSyntax := errors.AsType[*json.SyntaxError](err); !isSyntax {
+		t.Errorf("ReadConfig returned %v, want the JSON syntax error", err)
 	}
 }
 
 func TestRunCommandRunsOneHookWithoutATerminal(t *testing.T) {
 	t.Parallel()
 
+	// Act
 	command := hooks.RunCommand("/work", preCommit)
+
+	// Assert
 	if command.Dir != "/work" || command.Name != "lefthook" ||
 		!slices.Equal(command.Args, []string{"run", preCommit, "--no-tty"}) {
 		t.Errorf("RunCommand = %+v", command)

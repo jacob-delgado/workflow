@@ -31,6 +31,7 @@ internal/convention/  branch names, Conventional Commits, pull request text
 internal/editor/      handing text and files to $EDITOR
 internal/proc/        running programs; the one place exec lives
 internal/sanitize/    neutralizing terminal controls in server text
+internal/testshape/   the Arrange-Act-Assert check behind cmd/testshape
 scripts/              the gate scripts lefthook, task and CI share
 build/                the build container
 ```
@@ -44,7 +45,7 @@ build/                the build container
 | `task run` | run from source; `task run -- doctor --online` passes arguments |
 | `task test` | tests with the race detector |
 | `task test:cover` | tests plus the coverage floor |
-| `task lint` | every linter (Go, shell, YAML, Dockerfile, Actions + security, Markdown, TOML, headers, spelling, file length) |
+| `task lint` | every linter (Go, shell, YAML, Dockerfile, Actions + security, Markdown, TOML, headers, spelling, file length, test markers) |
 | `task fmt` | format everything in place |
 | `task cloc` | count the source lines, and the Go test ratio (advisory) |
 | `task check` | **the full gate** — lint, tests + coverage, govulncheck, gitleaks |
@@ -293,6 +294,29 @@ ordering matters.
 are reachable — `testpackage` enforces it. Do not reach into unexported helpers
 or assert on private fields. If something seems untestable black-box, that is a
 design smell: fix the API, don't white-box the test.
+
+**Arrange, Act, Assert — marked in every test.** Every `Test` and `Fuzz` body
+names its parts with a comment on a line of its own, below any `t.Parallel()`:
+`// Arrange`, `// Act`, `// Assert`. Leave out a part that would be empty, and
+when the call under test sits inside its check — `if got := f(); got != want` —
+mark that part `// Act & Assert`. One Act per test: independent scenarios run
+back to back are separate tests or table cases. The exception is a flow whose
+intermediate states are themselves the contract ("nothing is posted before the
+preview is confirmed"), which labels every step instead — `// Act: open the
+preview`, `// Assert: nothing is sent yet` — while a single-cycle test carries no
+labels, because its name is the label. A table test puts the markers inside each
+`t.Run` closure and a fuzz test inside `f.Fuzz`; the cases, the loop and the
+seeds carry none. A test whose Assert reaches no `t.Error` or `t.Fatal`, directly
+or through a helper, asserts nothing and is useless. `cmd/testshape` fails a body
+whose markers are missing, malformed or out of order, or whose Assert reaches no
+failure; it runs in `task lint`, on commit, and in CI. It is a floor: it cannot
+tell a meaningful assertion from one that passes whatever the Act did, so ask of
+every Assert whether it would fail if the Act did nothing.
+
+**Tables when cases differ in data, not behavior.** When adding tests, prefer a
+table-driven test for cases that differ only in their inputs and expectations,
+as Go's own tests do. It is a preference, not a rule: a case that needs its own
+closure to set up or to check is clearer as a test of its own.
 
 **Read the coverage floors in the gates, never here** — `COVERAGE_MIN` and
 `BRANCH_COVERAGE_MIN` in `Taskfile.yml`, enforced by `scripts/coverage-gate.sh`

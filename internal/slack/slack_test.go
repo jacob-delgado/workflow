@@ -4,6 +4,7 @@
 package slack_test
 
 import (
+	"encoding/json"
 	"errors"
 	"net/http"
 	"net/http/httptest"
@@ -42,16 +43,19 @@ func serve(t *testing.T, handler http.HandlerFunc) slack.Client {
 func TestAuthTestReportsTheWorkspaceAndUser(t *testing.T) {
 	t.Parallel()
 
+	// Arrange
 	client := serve(t, func(writer http.ResponseWriter, _ *http.Request) {
 		writer.Header().Set("Content-Type", "application/json")
 		_, _ = writer.Write([]byte(okBody))
 	})
 
+	// Act
 	identity, err := client.AuthTest(t.Context())
 	if err != nil {
 		t.Fatalf("AuthTest returned %v, want nil", err)
 	}
 
+	// Assert
 	if identity.User != "workflow" {
 		t.Errorf("User = %q, want %q", identity.User, "workflow")
 	}
@@ -64,6 +68,7 @@ func TestAuthTestReportsTheWorkspaceAndUser(t *testing.T) {
 func TestAuthTestSendsTheTokenOnlyInTheAuthorizationHeader(t *testing.T) {
 	t.Parallel()
 
+	// Arrange
 	var (
 		gotHeader atomic.Value
 		gotURI    atomic.Value
@@ -81,11 +86,13 @@ func TestAuthTestSendsTheTokenOnlyInTheAuthorizationHeader(t *testing.T) {
 
 	client := slack.New(server.Client().Do, server.URL, botCredentials())
 
+	// Act
 	_, err := client.AuthTest(t.Context())
 	if err != nil {
 		t.Fatalf("AuthTest returned %v, want nil", err)
 	}
 
+	// Assert
 	if got := gotHeader.Load(); got != "Bearer "+botToken {
 		t.Errorf("Authorization = %q, want a bearer token", got)
 	}
@@ -104,13 +111,17 @@ func TestAuthTestSendsTheTokenOnlyInTheAuthorizationHeader(t *testing.T) {
 func TestAuthTestRejectsAFailureInsideATwoHundred(t *testing.T) {
 	t.Parallel()
 
+	// Arrange
 	// Slack's own convention: the HTTP status is 200 and the verdict is in the
 	// body. Reading the status alone would call a dead token healthy.
 	client := serve(t, func(writer http.ResponseWriter, _ *http.Request) {
 		_, _ = writer.Write([]byte(`{"ok":false,"error":"invalid_auth"}`))
 	})
 
+	// Act
 	_, err := client.AuthTest(t.Context())
+
+	// Assert
 	if !errors.Is(err, slack.ErrRejected) {
 		t.Fatalf("AuthTest returned %v, want ErrRejected", err)
 	}
@@ -125,50 +136,77 @@ func TestAuthTestRejectsAFailureInsideATwoHundred(t *testing.T) {
 	}
 }
 
-func TestAuthTestReportsAWebhookAsUncheckable(t *testing.T) {
+func TestAuthTestRefusesWhatItCannotCheck(t *testing.T) {
 	t.Parallel()
 
-	// An incoming webhook has no credential endpoint: the only way to learn
-	// whether it works is to post with it, which would spam the channel.
-	client := slack.New(http.DefaultClient.Do, "https://slack.example.com", config.Slack{
-		Token:      "",
-		WebhookURL: "https://hooks.slack.com/services/T0/B0/secretpath",
-		Channel:    "",
-	})
-
-	_, err := client.AuthTest(t.Context())
-	if !errors.Is(err, slack.ErrWebhookUncheckable) {
-		t.Fatalf("AuthTest returned %v, want ErrWebhookUncheckable", err)
+	cases := map[string]struct {
+		base        string
+		credentials config.Slack
+		want        error
+		// hidden is what the error must never quote.
+		hidden []string
+	}{
+		// An incoming webhook has no credential endpoint: the only way to learn
+		// whether it works is to post with it, which would spam the channel.
+		"a webhook": {
+			base: "https://slack.example.com",
+			credentials: config.Slack{
+				Token: "", WebhookURL: "https://hooks.slack.com/services/T0/B0/secretpath", Channel: "",
+			},
+			want:   slack.ErrWebhookUncheckable,
+			hidden: []string{"secretpath", "hooks.slack.com"},
+		},
+		"no credential": {
+			base:        "https://slack.example.com",
+			credentials: config.Slack{Token: "", WebhookURL: "", Channel: ""},
+			want:        slack.ErrNoCredential,
+		},
+		// A control character is what url.Parse refuses outright, which is the
+		// only way to reach the request-building failure.
+		"an API base url.Parse refuses": {
+			base:        "https://slack.example.com/\x7f",
+			credentials: botCredentials(),
+			want:        slack.ErrUnreachable,
+			hidden:      []string{botToken},
+		},
 	}
 
-	if strings.Contains(err.Error(), "secretpath") || strings.Contains(err.Error(), "hooks.slack.com") {
-		t.Errorf("the error quoted the webhook URL: %v", err)
-	}
-}
+	for name, tt := range cases {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
 
-func TestAuthTestWithoutACredential(t *testing.T) {
-	t.Parallel()
+			// Arrange
+			client := slack.New(http.DefaultClient.Do, tt.base, tt.credentials)
 
-	client := slack.New(http.DefaultClient.Do, "https://slack.example.com", config.Slack{
-		Token:      "",
-		WebhookURL: "",
-		Channel:    "",
-	})
+			// Act
+			_, err := client.AuthTest(t.Context())
 
-	_, err := client.AuthTest(t.Context())
-	if !errors.Is(err, slack.ErrNoCredential) {
-		t.Errorf("AuthTest returned %v, want ErrNoCredential", err)
+			// Assert
+			if !errors.Is(err, tt.want) {
+				t.Fatalf("AuthTest returned %v, want %v", err, tt.want)
+			}
+
+			for _, hidden := range tt.hidden {
+				if strings.Contains(err.Error(), hidden) {
+					t.Errorf("the error quoted %q: %v", hidden, err)
+				}
+			}
+		})
 	}
 }
 
 func TestAuthTestTranslatesAnUnexpectedStatus(t *testing.T) {
 	t.Parallel()
 
+	// Arrange
 	client := serve(t, func(writer http.ResponseWriter, _ *http.Request) {
 		writer.WriteHeader(http.StatusServiceUnavailable)
 	})
 
+	// Act
 	_, err := client.AuthTest(t.Context())
+
+	// Assert
 	if !errors.Is(err, slack.ErrUnexpectedStatus) {
 		t.Errorf("AuthTest returned %v, want ErrUnexpectedStatus", err)
 	}
@@ -177,13 +215,17 @@ func TestAuthTestTranslatesAnUnexpectedStatus(t *testing.T) {
 func TestAuthTestReportsAnUnreachableAPI(t *testing.T) {
 	t.Parallel()
 
+	// Arrange
 	server := httptest.NewServer(http.HandlerFunc(func(http.ResponseWriter, *http.Request) {}))
 	base := server.URL
 	server.Close()
 
 	client := slack.New(slack.HTTPClient(2*time.Second).Do, base, botCredentials())
 
+	// Act
 	_, err := client.AuthTest(t.Context())
+
+	// Assert
 	if !errors.Is(err, slack.ErrUnreachable) {
 		t.Errorf("AuthTest returned %v, want ErrUnreachable", err)
 	}
@@ -192,19 +234,24 @@ func TestAuthTestReportsAnUnreachableAPI(t *testing.T) {
 func TestAuthTestReportsAnUnreadableBody(t *testing.T) {
 	t.Parallel()
 
+	// Arrange
 	client := serve(t, func(writer http.ResponseWriter, _ *http.Request) {
 		_, _ = writer.Write([]byte("{not json"))
 	})
 
+	// Act
 	_, err := client.AuthTest(t.Context())
-	if err == nil {
-		t.Fatal("AuthTest accepted a malformed body, want an error")
+
+	// Assert
+	if _, isSyntax := errors.AsType[*json.SyntaxError](err); !isSyntax {
+		t.Errorf("AuthTest returned %v, want the malformed body's syntax error", err)
 	}
 }
 
 func TestHTTPClientRefusesARedirect(t *testing.T) {
 	t.Parallel()
 
+	// Arrange
 	var secondHopSawHeader atomic.Bool
 
 	second := httptest.NewServer(http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
@@ -221,29 +268,15 @@ func TestHTTPClientRefusesARedirect(t *testing.T) {
 
 	client := slack.New(slack.HTTPClient(5*time.Second).Do, first.URL, botCredentials())
 
+	// Act
 	_, err := client.AuthTest(t.Context())
-	if err == nil {
-		t.Fatal("AuthTest followed a redirect, want an error")
+
+	// Assert
+	if !errors.Is(err, slack.ErrRedirected) {
+		t.Errorf("AuthTest returned %v, want ErrRedirected", err)
 	}
 
 	if secondHopSawHeader.Load() {
 		t.Error("the credential was forwarded to the redirect target")
-	}
-}
-
-func TestAuthTestReportsAMalformedAPIBase(t *testing.T) {
-	t.Parallel()
-
-	// A control character is what url.Parse refuses outright, which is the only
-	// way to reach the request-building failure.
-	client := slack.New(http.DefaultClient.Do, "https://slack.example.com/\x7f", botCredentials())
-
-	_, err := client.AuthTest(t.Context())
-	if !errors.Is(err, slack.ErrUnreachable) {
-		t.Fatalf("AuthTest returned %v, want ErrUnreachable", err)
-	}
-
-	if strings.Contains(err.Error(), botToken) {
-		t.Errorf("the error carried the token: %v", err)
 	}
 }

@@ -5,12 +5,14 @@ package tui_test
 
 import (
 	"fmt"
+	"slices"
 	"strconv"
 	"strings"
 	"sync/atomic"
 	"testing"
 
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/charmbracelet/lipgloss"
 
 	"github.com/jacob-delgado/workflow/internal/jira"
 	"github.com/jacob-delgado/workflow/internal/tui"
@@ -118,86 +120,114 @@ func openPicker(t *testing.T, model tui.Model) tui.Model {
 func TestTOpensTheStatusPickerForTheSelectedIssue(t *testing.T) {
 	t.Parallel()
 
+	// Arrange
 	fake := &fakeJira{moves: workflowMoves()}
 	screen := press(t, jiraScreen(t, fake.deps(twoIssues())), "j")
 
+	// Act: press t
 	loading, cmd := pressed(t, screen, "t")
 
-	if view := loading.View(); !strings.Contains(view, pickerTitle) || !strings.Contains(view, "loading") {
-		t.Errorf("t did not open a loading picker:\n%s", view)
-	}
+	// Assert: the picker opens, loading
+	requireScreen(t, loading.View(), pickerTitle, "loading transitions…")
 
+	// Act: the listing arrives
 	listed, _ := finish(t, loading, cmd)
 
+	// Assert: the selected issue's transitions are listed
 	if got := fake.listed.Load(); got != "OPS-2" {
 		t.Errorf("listed transitions for %v, want the selected OPS-2", got)
 	}
 
 	view := listed.View()
-	for _, want := range []string{"OPS-2 Rotate keys", "▸ ◐ Start Review → In Review", "  ● Done"} {
-		if !strings.Contains(view, want) {
-			t.Errorf("the picker does not show %q:\n%s", want, view)
-		}
-	}
+	requireScreen(t, view, "OPS-2 Rotate keys", "▸ ◐ Start Review → In Review", "  ● Done")
 
-	// A status that matches its transition's name is not repeated.
-	if strings.Contains(view, "Done → Done") {
-		t.Errorf("the picker repeated a status that names itself:\n%s", view)
-	}
-
-	// The picker has the keyboard, so the rail pane no longer draws focus.
-	if strings.Contains(view, focused("1 Issues")) {
-		t.Errorf("two panes are drawn with focus:\n%s", view)
-	}
+	// A status that matches its transition's name is not repeated, and with the
+	// keyboard in the picker, the rail pane no longer draws focus.
+	refuseScreen(t, view, "Done → Done", focused("1 Issues"))
 }
 
 func TestThePickerTakesTheListKeysAndEscapeClosesIt(t *testing.T) {
 	t.Parallel()
 
+	// Arrange
 	fake := &fakeJira{moves: workflowMoves()}
 	screen := openPicker(t, jiraScreen(t, fake.deps(twoIssues())))
 
-	if view := press(t, screen, "j").View(); !strings.Contains(view, "▸ ● Done") {
-		t.Errorf("j did not move the picker's selection:\n%s", view)
-	}
+	// Act: j
+	down := press(t, screen, "j")
 
-	if view := press(t, screen, "j", "k").View(); !strings.Contains(view, "▸ ◐ Start Review") {
-		t.Errorf("k did not move the picker's selection back:\n%s", view)
-	}
+	// Assert: the picker's selection moves down
+	requireScreen(t, down.View(), "▸ ● Done")
 
-	closed := press(t, screen, "j", "esc").View()
+	// Act: k
+	back := press(t, down, "k")
 
-	if strings.Contains(closed, pickerTitle) {
-		t.Errorf("esc did not close the picker:\n%s", closed)
-	}
+	// Assert: and back up
+	requireScreen(t, back.View(), "▸ ◐ Start Review")
 
-	// The j went to the picker, not to the list underneath it.
-	if !strings.Contains(closed, "▸ ◐ OPS-1") || !strings.Contains(closed, focused("1 Issues")) {
-		t.Errorf("the list changed underneath the picker:\n%s", closed)
-	}
+	// Act: esc
+	closed := press(t, back, keyEsc).View()
+
+	// Assert: the picker closes, and the j went to it, not to the list underneath
+	refuseScreen(t, closed, pickerTitle)
+	requireScreen(t, closed, "▸ ◐ OPS-1", focused("1 Issues"))
 }
 
 func TestThePickerKeepsTheKeyboardWhileOpen(t *testing.T) {
 	t.Parallel()
 
+	for _, key := range []string{keyTab, "3", "?", "m"} {
+		t.Run(key, func(t *testing.T) {
+			t.Parallel()
+
+			// Arrange
+			fake := &fakeJira{moves: workflowMoves()}
+			screen := openPicker(t, jiraScreen(t, fake.deps(twoIssues())))
+
+			// Act
+			view := press(t, screen, key).View()
+
+			// Assert
+			requireScreen(t, view, pickerTitle)
+		})
+	}
+}
+
+func TestAClickDoesNotMoveFocusFromUnderAnOpenPicker(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
 	fake := &fakeJira{moves: workflowMoves()}
 	screen := openPicker(t, jiraScreen(t, fake.deps(twoIssues())))
 
-	for _, key := range []string{keyTab, "3", "?", "m"} {
-		if view := press(t, screen, key).View(); !strings.Contains(view, pickerTitle) {
-			t.Errorf("%q escaped the open picker:\n%s", key, view)
-		}
-	}
-
+	// Act
 	// Row 28 is inside the Commits pane. Focus is only drawn once the picker
-	// closes, so look there.
+	// closes, so close it to look.
 	clicked, _ := screen.Update(tea.MouseMsg{X: 2, Y: 28, Action: tea.MouseActionPress, Button: tea.MouseButtonLeft})
-	if view := press(t, concrete(t, clicked), "esc").View(); !strings.Contains(view, focused("1 Issues")) {
-		t.Errorf("a click moved focus out from under the open picker:\n%s", view)
+	view := press(t, concrete(t, clicked), keyEsc).View()
+
+	// Assert
+	requireScreen(t, view, focused("1 Issues"))
+	refuseScreen(t, view, focused("3 Commits"))
+}
+
+func TestCtrlCQuitsWhileThePickerIsOpen(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	fake := &fakeJira{moves: workflowMoves()}
+	screen := openPicker(t, jiraScreen(t, fake.deps(twoIssues())))
+
+	// Act
+	_, cmd := pressed(t, screen, "ctrl+c")
+
+	// Assert
+	if cmd == nil {
+		t.Fatal("ctrl+c did not quit while the picker was open")
 	}
 
-	if _, cmd := pressed(t, screen, "ctrl+c"); cmd == nil {
-		t.Error("ctrl+c did not quit while the picker was open")
+	if msg, isQuit := cmd().(tea.QuitMsg); !isQuit {
+		t.Errorf("ctrl+c produced %T, want tea.QuitMsg", msg)
 	}
 }
 
@@ -205,36 +235,41 @@ func TestAPickerWithNothingToApplyIgnoresEnter(t *testing.T) {
 	t.Parallel()
 
 	cases := map[string]struct {
-		fake *fakeJira
-		want string
+		moves   []jira.Transition
+		listErr error
+		want    string
 	}{
-		"the listing failed": {
-			fake: &fakeJira{listErr: jira.ErrUnauthorized},
-			want: "✗ the credential was not accepted",
-		},
-		"the workflow offers nothing": {
-			fake: &fakeJira{},
-			want: "Jira offers no status change for OPS-1",
-		},
+		"the listing failed":          {listErr: jira.ErrUnauthorized, want: "✗ the credential was not accepted"},
+		"the workflow offers nothing": {want: "Jira offers no status change for OPS-1"},
 	}
 
 	for name, tt := range cases {
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
 
-			screen := openPicker(t, jiraScreen(t, tt.fake.deps(twoIssues())))
+			// Arrange
+			fake := &fakeJira{moves: tt.moves, listErr: tt.listErr}
+			model := jiraScreen(t, fake.deps(twoIssues()))
 
-			if view := screen.View(); !strings.Contains(view, tt.want) {
-				t.Errorf("the picker does not say %q:\n%s", tt.want, view)
-			}
+			// Act: open the picker
+			screen := openPicker(t, model)
 
-			if _, cmd := pressed(t, press(t, screen, "j"), keyEnter); cmd != nil {
+			// Assert: it says why there is nothing to choose
+			requireScreen(t, screen.View(), tt.want)
+
+			// Act: try to apply
+			tried, cmd := pressed(t, press(t, screen, "j"), keyEnter)
+
+			// Assert: nothing is sent
+			if cmd != nil {
 				t.Error("enter sent something with nothing to apply")
 			}
 
-			if view := press(t, screen, "esc").View(); strings.Contains(view, pickerTitle) {
-				t.Errorf("esc did not close the picker:\n%s", view)
-			}
+			// Act: esc
+			closed := press(t, tried, keyEsc).View()
+
+			// Assert: the picker closes
+			refuseScreen(t, closed, pickerTitle)
 		})
 	}
 }
@@ -255,7 +290,10 @@ func TestTDoesNothingWithoutAnIssueToMove(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
 
+			// Act
 			next, cmd := pressed(t, screen, "t")
+
+			// Assert
 			if cmd != nil || strings.Contains(next.View(), pickerTitle) {
 				t.Errorf("t opened a picker with no issue to move:\n%s", next.View())
 			}
@@ -266,30 +304,33 @@ func TestTDoesNothingWithoutAnIssueToMove(t *testing.T) {
 func TestALateListingIsNotShownForTheWrongIssue(t *testing.T) {
 	t.Parallel()
 
+	// Arrange
 	fake := &fakeJira{moves: workflowMoves()}
 	screen := jiraScreen(t, fake.deps(twoIssues()))
 
 	// Open on OPS-1 and walk away before the answer; then open on OPS-2.
 	screen, forFirst := pressed(t, screen, "t")
-	screen = press(t, screen, "esc", "j")
+	screen = press(t, screen, keyEsc, "j")
 	screen, forSecond := pressed(t, screen, "t")
 
-	screen, _ = finish(t, screen, forFirst)
+	// Act: OPS-1's listing arrives
+	late, _ := finish(t, screen, forFirst)
 
-	if view := screen.View(); !strings.Contains(view, "loading") {
-		t.Errorf("OPS-1's transitions were shown for OPS-2:\n%s", view)
-	}
+	// Assert: OPS-2's picker is still waiting for its own
+	requireScreen(t, late.View(), "loading transitions…")
+	refuseScreen(t, late.View(), "▸ ◐ Start Review")
 
-	screen, _ = finish(t, screen, forSecond)
+	// Act: OPS-2's listing arrives
+	listed, _ := finish(t, late, forSecond)
 
-	if view := screen.View(); !strings.Contains(view, "▸ ◐ Start Review") {
-		t.Errorf("OPS-2's own transitions were not shown:\n%s", view)
-	}
+	// Assert: it is shown
+	requireScreen(t, listed.View(), "▸ ◐ Start Review")
 }
 
 func TestASecondListingDoesNotReplaceTheOneOnScreen(t *testing.T) {
 	t.Parallel()
 
+	// Arrange
 	var calls atomic.Int32
 
 	deps := (&fakeJira{}).deps(twoIssues())
@@ -305,21 +346,22 @@ func TestASecondListingDoesNotReplaceTheOneOnScreen(t *testing.T) {
 
 	// Open, close and reopen on the same issue: two listings are on their way.
 	screen, first := pressed(t, jiraScreen(t, deps), "t")
-	screen = press(t, screen, "esc")
+	screen = press(t, screen, keyEsc)
 	screen, second := pressed(t, screen, "t")
 
+	// Act
 	screen, _ = finish(t, screen, first)
 	screen = press(t, screen, "j")
 	screen, _ = finish(t, screen, second)
 
-	if view := screen.View(); !strings.Contains(view, "▸ ● Done") {
-		t.Errorf("the second listing replaced the list being chosen from:\n%s", view)
-	}
+	// Assert
+	requireScreen(t, screen.View(), "▸ ● Done")
 }
 
 func TestALongPickerScrollsToKeepTheSelectionVisible(t *testing.T) {
 	t.Parallel()
 
+	// Arrange
 	moves := make([]jira.Transition, 0, 40)
 	for index := 1; index <= 40; index++ {
 		moves = append(moves, transition(strconv.Itoa(index), fmt.Sprintf("Step %d", index), "Doing", "indeterminate"))
@@ -328,58 +370,85 @@ func TestALongPickerScrollsToKeepTheSelectionVisible(t *testing.T) {
 	fake := &fakeJira{moves: moves}
 	screen := openPicker(t, jiraScreen(t, fake.deps(twoIssues())))
 
-	keys := make([]string, 39)
-	for index := range keys {
-		keys[index] = "j"
+	// Act
+	view := press(t, screen, slices.Repeat([]string{"j"}, 39)...).View()
+
+	// Assert
+	requireScreen(t, view, "▸ ◐ Step 40")
+	refuseScreen(t, view, "◐ Step 1 ")
+}
+
+func TestTheIssuesPaneFooterOffersChangingStatus(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	fake := &fakeJira{moves: workflowMoves()}
+
+	// Act
+	footer := footerLine(jiraScreen(t, fake.deps(twoIssues())).View())
+
+	// Assert
+	requireScreen(t, footer, "t change status")
+}
+
+func TestTheFooterDoesNotOfferChangingStatusWhereItDoesNothing(t *testing.T) {
+	t.Parallel()
+
+	cases := map[string]struct {
+		issues []jira.Issue
+		keys   []string
+	}{
+		"on the Branch pane": {issues: []jira.Issue{issue("OPS-1", "Fix login", "new")}, keys: []string{"2"}},
+		"with an empty list": {issues: nil, keys: nil},
 	}
 
-	if view := press(t, screen, keys...).View(); !strings.Contains(view, "▸ ◐ Step 40") {
-		t.Errorf("the last transition scrolled out of view when selected:\n%s", view)
+	for name, tt := range cases {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			// Arrange
+			fake := &fakeJira{moves: workflowMoves()}
+			screen := jiraScreen(t, fake.deps(assigned(tt.issues...)))
+
+			// Act
+			footer := footerLine(press(t, screen, tt.keys...).View())
+
+			// Assert
+			refuseScreen(t, footer, "change status")
+			requireScreen(t, footer, "quit")
+		})
 	}
 }
 
-func TestTheFooterOffersTheKeysThatDoSomethingHere(t *testing.T) {
+func TestThePickerFooterSaysHowToApplyOrLeave(t *testing.T) {
 	t.Parallel()
 
+	// Arrange
 	fake := &fakeJira{moves: workflowMoves()}
 	screen := jiraScreen(t, fake.deps(twoIssues()))
 
-	footer := func(model tui.Model) string {
-		lines := strings.Split(model.View(), "\n")
+	// Act
+	footer := footerLine(openPicker(t, screen).View())
 
-		return lines[len(lines)-1]
-	}
-
-	if got := footer(screen); !strings.Contains(got, "t change status") {
-		t.Errorf("the Issues pane's footer does not offer t: %q", got)
-	}
-
-	if got := footer(press(t, screen, "2")); strings.Contains(got, "change status") {
-		t.Errorf("the Branch pane's footer offers a key that does nothing there: %q", got)
-	}
-
-	if got := footer(jiraScreen(t, fake.deps(assigned()))); strings.Contains(got, "change status") {
-		t.Errorf("an empty list's footer offers a key that does nothing there: %q", got)
-	}
-
-	if got := footer(openPicker(t, screen)); !strings.Contains(got, "enter apply") || !strings.Contains(got, "esc") {
-		t.Errorf("the picker's footer does not say how to apply or leave: %q", got)
-	}
+	// Assert
+	requireScreen(t, footer, "enter apply", keyEsc)
 }
 
 func TestThePickerFitsANarrowTerminal(t *testing.T) {
 	t.Parallel()
 
+	// Arrange
 	fake := &fakeJira{moves: workflowMoves()}
-	screen := openPicker(t, started(t, sized(t, tui.New(completeConfig(), nil, fake.deps(twoIssues())), 80, 30)))
+	model := started(t, sized(t, tui.New(completeConfig(), nil, fake.deps(twoIssues())), 80, 30))
 
-	view := screen.View()
-	if !strings.Contains(view, pickerTitle) || !strings.Contains(view, "▸ ◐ Start Review → In Review") {
-		t.Errorf("the narrow picker does not show its transitions:\n%s", view)
-	}
+	// Act
+	view := openPicker(t, model).View()
+
+	// Assert
+	requireScreen(t, view, pickerTitle, "▸ ◐ Start Review → In Review")
 
 	for index, line := range strings.Split(view, "\n") {
-		if width := len([]rune(line)); width > 80 {
+		if width := lipgloss.Width(line); width > 80 {
 			t.Errorf("line %d is %d cells, wider than the terminal: %q", index, width, line)
 		}
 	}

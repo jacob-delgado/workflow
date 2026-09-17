@@ -55,12 +55,19 @@ func TestJSONNeutralizesControlCharacters(t *testing.T) {
 		// newline.
 		"carriage return":         {literal: `"a\r\nb"`, want: "a\nb"},
 		"escaped carriage return": {literal: `"a\u000d\u000ab"`, want: "a\nb"},
+		// Found by FuzzJSONKeepsValidJSONValidAndFreeOfControls: each of 0xC2
+		// and 0x97 is invalid alone, and dropping the \r between them joined
+		// them into U+0097, a C1 control.
+		"invalid bytes either side of a dropped carriage return": {
+			literal: "\"\xc2\\r\x97\"", want: replacement + replacement,
+		},
 	}
 
 	for name, tt := range cases {
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
 
+			// Act & Assert
 			if got := decoded(t, tt.literal); got != tt.want {
 				t.Errorf("%s decoded to %q, want %q", tt.literal, got, tt.want)
 			}
@@ -92,6 +99,7 @@ func TestJSONLeavesOrdinaryTextAlone(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
 
+			// Act & Assert
 			if got := decoded(t, tt.literal); got != tt.want {
 				t.Errorf("%s decoded to %q, want %q", tt.literal, got, tt.want)
 			}
@@ -102,21 +110,24 @@ func TestJSONLeavesOrdinaryTextAlone(t *testing.T) {
 func TestJSONLeavesMalformedInputForTheDecoderToReject(t *testing.T) {
 	t.Parallel()
 
-	for _, malformed := range []string{`"\u00`, `"\u00zz"`, `"\`} {
-		if got := string(sanitize.JSON([]byte(malformed))); got != malformed {
-			t.Errorf("JSON(%q) = %q, want it untouched", malformed, got)
-		}
+	cases := map[string]string{
+		"an escape cut off":             `"\u00`,
+		"an escape with non-hex digits": `"\u00zz"`,
+		"a backslash at the end":        `"\`,
 	}
-}
 
-func TestJSONReplacesInvalidUTF8SoNoControlCanBeAssembled(t *testing.T) {
-	t.Parallel()
+	for name, malformed := range cases {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
 
-	// Found by FuzzJSONKeepsValidJSONValidAndFreeOfControls: each of 0xC2 and
-	// 0x97 is invalid alone, and dropping the \r between them joined them into
-	// U+0097, a C1 control.
-	if got := decoded(t, "\"\xc2\\r\x97\""); got != replacement+replacement {
-		t.Errorf("decoded to %q, want each invalid byte replaced", got)
+			// Act
+			got := string(sanitize.JSON([]byte(malformed)))
+
+			// Assert
+			if got != malformed {
+				t.Errorf("JSON(%q) = %q, want it untouched", malformed, got)
+			}
+		})
 	}
 }
 
@@ -146,6 +157,7 @@ func TestTextStripsTerminalSequencesAndNeutralizesTheRest(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
 
+			// Act & Assert
 			if got := sanitize.Text(tt.text); got != tt.want {
 				t.Errorf("Text(%q) = %q, want %q", tt.text, got, tt.want)
 			}

@@ -5,6 +5,7 @@ package convention_test
 
 import (
 	"errors"
+	"strconv"
 	"strings"
 	"testing"
 
@@ -64,7 +65,10 @@ func TestBranchNameReadsAsTheIssue(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
 
+			// Act
 			got := convention.BranchName(tt.issueType, tt.key, tt.summary)
+
+			// Assert
 			if got != tt.want {
 				t.Errorf("BranchName = %q, want %q", got, tt.want)
 			}
@@ -100,7 +104,10 @@ func TestIssueKeyIsFoundWhereJiraWouldFindIt(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
 
+			// Act
 			got, ok := convention.IssueKey(tt.text)
+
+			// Assert
 			if got != tt.want || ok != (tt.want != "") {
 				t.Errorf("IssueKey(%q) = %q, %v, want %q", tt.text, got, ok, tt.want)
 			}
@@ -108,26 +115,43 @@ func TestIssueKeyIsFoundWhereJiraWouldFindIt(t *testing.T) {
 	}
 }
 
-func TestValidateBranchNameFollowsGit(t *testing.T) {
+func TestValidateBranchNameAcceptsWhatGitAccepts(t *testing.T) {
 	t.Parallel()
 
-	for _, name := range []string{"feat/PROJ-1-x", "a", "fix/nested/deeper", "v1.2"} {
-		err := convention.ValidateBranchName(name)
-		if err != nil {
-			t.Errorf("ValidateBranchName(%q) = %v, want nil", name, err)
-		}
+	for _, branch := range []string{"feat/PROJ-1-x", "a", "fix/nested/deeper", "v1.2"} {
+		t.Run(strconv.Quote(branch), func(t *testing.T) {
+			t.Parallel()
+
+			// Act
+			err := convention.ValidateBranchName(branch)
+			// Assert
+			if err != nil {
+				t.Errorf("ValidateBranchName(%q) = %v, want nil", branch, err)
+			}
+		})
 	}
+}
+
+func TestValidateBranchNameRefusesWhatGitRefuses(t *testing.T) {
+	t.Parallel()
 
 	// Each is a rule of git check-ref-format --branch.
-	for _, name := range []string{
+	for _, branch := range []string{
 		"", "has space", "a..b", "a/.hidden", ".start", "end.", "end/", "/start", "a//b",
 		"x.lock", "a/b.lock/c", "a@{b", "@", "-start", "tilde~", "caret^", "colon:",
 		"question?", "star*", "bracket[", "back\\slash", "tab\tname", "del\x7f",
 	} {
-		err := convention.ValidateBranchName(name)
-		if !errors.Is(err, convention.ErrInvalidBranchName) {
-			t.Errorf("ValidateBranchName(%q) = %v, want ErrInvalidBranchName", name, err)
-		}
+		t.Run(strconv.Quote(branch), func(t *testing.T) {
+			t.Parallel()
+
+			// Act
+			err := convention.ValidateBranchName(branch)
+
+			// Assert
+			if !errors.Is(err, convention.ErrInvalidBranchName) {
+				t.Errorf("ValidateBranchName(%q) = %v, want ErrInvalidBranchName", branch, err)
+			}
+		})
 	}
 }
 
@@ -160,7 +184,11 @@ func TestSubjectAssemblesAConventionalCommit(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
 
-			if got := tt.subject.String(); got != tt.want {
+			// Act
+			got := tt.subject.String()
+
+			// Assert
+			if got != tt.want {
 				t.Errorf("String() = %q, want %q", got, tt.want)
 			}
 
@@ -203,20 +231,32 @@ func TestSubjectValidationSaysWhatIsWrong(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
 
+			// Arrange
 			subject := valid
 			tt.change(&subject)
 
+			// Act
 			err := subject.Validate()
+
+			// Assert
 			if !errors.Is(err, tt.want) {
 				t.Errorf("Validate() = %v, want %v", err, tt.want)
 			}
 		})
 	}
+}
 
-	// The limit counts the whole line, and exactly the limit is allowed.
+// The limit counts the whole line, and exactly the limit is allowed.
+func TestASubjectOfExactlyTheLimitIsAllowed(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
 	atLimit := convention.Subject{Type: fixType, Scope: "", Description: strings.Repeat("x", 67), Breaking: false}
 
+	// Act
 	err := atLimit.Validate()
+
+	// Assert
 	if err != nil || len(atLimit.String()) != convention.SubjectLimit {
 		t.Errorf("a %d-character subject: Validate() = %v, want nil", len(atLimit.String()), err)
 	}
@@ -225,7 +265,10 @@ func TestSubjectValidationSaysWhatIsWrong(t *testing.T) {
 func TestCommitTypesOfferTheCommonOnesFirst(t *testing.T) {
 	t.Parallel()
 
+	// Act
 	types := convention.CommitTypes()
+
+	// Assert
 	if len(types) < 2 || types[0] != "feat" || types[1] != "fix" {
 		t.Errorf("CommitTypes() = %v, want feat and fix first", types)
 	}
@@ -271,6 +314,7 @@ func TestMessageAddsTheIssueAsATrailer(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
 
+			// Act & Assert
 			if got := convention.Message(subject, tt.body, tt.key); got != tt.want {
 				t.Errorf("Message() = %q, want %q", got, tt.want)
 			}

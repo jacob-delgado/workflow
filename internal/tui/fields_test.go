@@ -26,23 +26,37 @@ func resolveIssue() jira.Transition {
 func TestATransitionNeedingFieldsAsksForEachInTurn(t *testing.T) {
 	t.Parallel()
 
+	// Arrange
 	resolving := newWorld()
 	resolving.moves = []jira.Transition{resolveIssue()}
+	model := resolving.live(t, 120, 40)
 
-	listed := typing(t, resolving.live(t, 120, 40), "t")
+	// Act: open the picker
+	listed := typing(t, model, "t")
+
+	// Assert: the transition says what it needs
 	requireScreen(t, listed.View(), "Resolve Issue → Done · needs Resolution, Root cause")
 
+	// Act: choose it
 	resolution := typing(t, listed, keyEnter)
+
+	// Assert: the first field offers its values
 	requireScreen(t, resolution.View(), "Resolve Issue → Done needs:", "Resolution (1 of 2)", "▸ Fixed", "Won't Fix")
 
+	// Act: pick the second value
 	cause := typing(t, resolution, "j", keyEnter)
+
+	// Assert: the text field is next, and nothing is sent until it is filled
 	requireScreen(t, cause.View(), "Root cause (2 of 2)", "> ")
 
 	if calls := resolving.asked("transition PROJ"); len(calls) != 0 {
 		t.Fatalf("sent before every field was filled: %q", calls)
 	}
 
+	// Act: fill it in
 	done := typing(t, cause, append(letters("nil token"), keyEnter)...)
+
+	// Assert: the move is sent once, with both values
 	requireScreen(t, done.View(), "● PROJ-412 moved to Done")
 
 	want := "transition PROJ-412 5 resolution=2 customfield_10200=nil token"
@@ -54,68 +68,93 @@ func TestATransitionNeedingFieldsAsksForEachInTurn(t *testing.T) {
 func TestATextFieldLeftEmptyIsNotSent(t *testing.T) {
 	t.Parallel()
 
+	// Arrange
 	resolving := newWorld()
 	resolving.moves = []jira.Transition{resolveIssue()}
+	model := resolving.live(t, 120, 40)
 
-	empty := typing(t, resolving.live(t, 120, 40), "t", keyEnter, keyEnter, " ", keyEnter)
+	// Act: confirm the text field with only a space in it
+	empty := typing(t, model, "t", keyEnter, keyEnter, " ", keyEnter)
+
+	// Assert: it says a value is needed, and sends nothing
 	requireScreen(t, empty.View(), "✗ Root cause needs a value", "Root cause (2 of 2)")
-
-	// Typing clears the problem.
-	refuseScreen(t, typing(t, empty, "x").View(), "needs a value")
 
 	if calls := resolving.asked("transition PROJ"); len(calls) != 0 {
 		t.Errorf("sent with an empty field: %q", calls)
 	}
+
+	// Act: type something
+	typed := typing(t, empty, "x")
+
+	// Assert: the problem clears
+	refuseScreen(t, typed.View(), "needs a value")
 }
 
-func TestEscapeFromTheFieldsGoesBackToTheTransitions(t *testing.T) {
-	t.Parallel()
-
-	resolving := newWorld()
-	resolving.moves = []jira.Transition{resolveIssue()}
-
-	back := typing(t, resolving.live(t, 120, 40), "t", keyEnter, "k", "esc")
-	requireScreen(t, back.View(), "┏━ Change status", "▸ ● Resolve Issue")
-	refuseScreen(t, back.View(), "Resolution (1 of 2)")
-}
-
-func TestAFieldOnlyJiraCanFillStopsTheTransitionHere(t *testing.T) {
+func TestWhereTheFieldsLeaveThePicker(t *testing.T) {
 	t.Parallel()
 
 	blocked := resolveIssue()
 	blocked.Fields = append(blocked.Fields, jira.Field{ID: "assignee", Name: "Assignee", Kind: jira.FieldUnsupported})
 
-	resolving := newWorld()
-	resolving.moves = []jira.Transition{blocked}
+	cases := map[string]struct {
+		moves         []jira.Transition
+		transitionErr error
+		keys          []string
+		want          []string
+		refuse        []string
+	}{
+		"escape goes back to the transitions": {
+			moves: []jira.Transition{resolveIssue()}, keys: []string{"t", keyEnter, "k", keyEsc},
+			want: []string{"┏━ Change status", "▸ ● Resolve Issue"}, refuse: []string{"Resolution (1 of 2)"},
+		},
+		"a field only Jira can fill stops the transition here": {
+			moves: []jira.Transition{blocked}, keys: []string{"t", keyEnter},
+			want:   []string{"✗ Resolve Issue needs Assignee, which only Jira's own screen can fill"},
+			refuse: []string{"Resolution (1 of"},
+		},
+		"a refusal after the fields keeps the picker open": {
+			moves: []jira.Transition{resolveIssue()}, transitionErr: errNotVisible,
+			keys: []string{"t", keyEnter, keyEnter, "x", keyEnter},
+			want: []string{"┏━ Change status", "▸ ● Resolve Issue", "✗ jira rejected the request"},
+		},
+	}
 
-	view := typing(t, resolving.live(t, 120, 40), "t", keyEnter).View()
-	requireScreen(t, view, "✗ Resolve Issue needs Assignee, which only Jira's own screen can fill")
-	refuseScreen(t, view, "Resolution (1 of")
-}
+	for name, tt := range cases {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
 
-func TestARefusalAfterTheFieldsKeepsThePickerOpen(t *testing.T) {
-	t.Parallel()
+			// Arrange
+			resolving := newWorld()
+			resolving.moves, resolving.transitionErr = tt.moves, tt.transitionErr
 
-	resolving := newWorld()
-	resolving.moves = []jira.Transition{resolveIssue()}
-	resolving.transitionErr = errNotVisible
+			// Act
+			view := typing(t, resolving.live(t, 120, 40), tt.keys...).View()
 
-	refused := typing(t, resolving.live(t, 120, 40), append([]string{"t", keyEnter, keyEnter},
-		append(letters("x"), keyEnter)...)...)
-
-	requireScreen(t, refused.View(), "┏━ Change status", "▸ ● Resolve Issue", "✗ jira rejected the request")
+			// Assert
+			requireScreen(t, view, tt.want...)
+			refuseScreen(t, view, tt.refuse...)
+		})
+	}
 }
 
 func TestTheFieldFootersOfferWhatWorks(t *testing.T) {
 	t.Parallel()
 
+	// Arrange
 	resolving := newWorld()
 	resolving.moves = []jira.Transition{resolveIssue()}
+	model := resolving.live(t, 120, 40)
 
-	options := typing(t, resolving.live(t, 120, 40), "t", keyEnter)
+	// Act: open the field with a set of values
+	options := typing(t, model, "t", keyEnter)
+
+	// Assert: the list keys are offered
 	requireScreen(t, footerLine(options.View()), "↑/k up", "enter apply")
 
+	// Act: go on to the text field
 	text := typing(t, options, keyEnter)
+
+	// Assert: only what works in text is offered
 	requireScreen(t, footerLine(text.View()), "enter apply", "esc close")
 	refuseScreen(t, footerLine(text.View()), "↑/k")
 }
@@ -123,13 +162,17 @@ func TestTheFieldFootersOfferWhatWorks(t *testing.T) {
 func TestADryRunTransitionSaysWhatItWouldDo(t *testing.T) {
 	t.Parallel()
 
+	// Arrange
 	dry := newWorld()
 	dry.moves = workflowMoves()
 
 	model := sized(t, dryInterface(dry), 120, 40)
 	model = drain(t, model, model.Init())
 
+	// Act
 	moved := typing(t, model, "t", "j", keyEnter)
+
+	// Assert
 	requireScreen(t, moved.View(), "dry run: would move PROJ-412 to Done")
 
 	if calls := dry.asked("transition "); len(calls) != 0 {

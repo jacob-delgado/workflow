@@ -7,6 +7,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"testing"
+	"unicode/utf8"
 
 	"github.com/jacob-delgado/workflow/internal/sanitize"
 )
@@ -47,14 +48,18 @@ func FuzzJSONKeepsValidJSONValidAndFreeOfControls(f *testing.F) {
 	f.Add([]byte(`{"summary":"a\u001b[2Jb","list":["\u009b","\\u001b"]}`))
 	f.Add([]byte("{\"k\u202e\":\"\xc2\x9b\\r\\n\"}"))
 	f.Add([]byte(`["\\\u001b", "\ud83d\ude80", "\u00e9"]`))
-	f.Add([]byte(`"\u00`))
+	f.Add([]byte("{\"\\u009bkey\":\"a\x7fb\"}"))
 
 	f.Fuzz(func(t *testing.T, raw []byte) {
+		// Arrange
 		if !json.Valid(raw) {
 			return
 		}
 
+		// Act
 		clean := sanitize.JSON(raw)
+
+		// Assert
 		if !json.Valid(clean) {
 			t.Fatalf("valid JSON %q became invalid: %q", raw, clean)
 		}
@@ -86,9 +91,22 @@ func FuzzTextNeverCarriesAControl(f *testing.F) {
 	f.Add("a\xc2\x9bb\xe2\x80\xae\r\n")
 	f.Add("\x1b]8;;http://x\x1b\\link\x1b]8;;\x1b\\")
 	f.Add("\xff\xfe\x1b")
+	// A lone 0x9b is invalid UTF-8, and to a terminal reading 8-bit controls it
+	// is a CSI on its own.
+	f.Add("a\x9bb")
 
 	f.Fuzz(func(t *testing.T, text string) {
-		for _, character := range sanitize.Text(text) {
+		// Act
+		clean := sanitize.Text(text)
+
+		// Assert
+		// Ranging over invalid UTF-8 yields U+FFFD, which is allowed, so a raw
+		// C1 byte left in the output would pass the loop below unseen.
+		if !utf8.ValidString(clean) {
+			t.Fatalf("Text(%q) = %q, which is not valid UTF-8", text, clean)
+		}
+
+		for _, character := range clean {
 			if forbidden(character) {
 				t.Fatalf("Text(%q) still carries %U", text, character)
 			}

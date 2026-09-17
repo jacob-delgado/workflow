@@ -19,6 +19,8 @@ const (
 	ownerRepo  = "owner/repo"
 	shortPath  = "o/r"
 	unknown    = "unknown"
+	github     = "github"
+	gitlab     = "gitlab"
 )
 
 func TestParseRemote(t *testing.T) {
@@ -46,6 +48,12 @@ func TestParseRemote(t *testing.T) {
 		},
 		"a trailing slash": {
 			remote: "https://github.com/owner/repo/",
+			want:   forge.Repo{Kind: forge.KindGitHub, Host: githubHost, Path: ownerRepo},
+		},
+		// A remote can carry userinfo. Keeping it would put a password into
+		// every derived URL, and doctor prints those.
+		"credentials are dropped": {
+			remote: "https://alice:sekret@github.com/owner/repo.git",
 			want:   forge.Repo{Kind: forge.KindGitHub, Host: githubHost, Path: ownerRepo},
 		},
 		// GitLab nests projects arbitrarily deep. Splitting into owner and name
@@ -88,34 +96,14 @@ func TestParseRemote(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
 
+			// Act
 			got, err := forge.ParseRemote(tt.remote)
-			if err != nil {
-				t.Fatalf("ParseRemote(%q) returned %v, want nil", tt.remote, err)
-			}
 
-			if got != tt.want {
-				t.Errorf("ParseRemote(%q) = %+v, want %+v", tt.remote, got, tt.want)
+			// Assert
+			if err != nil || got != tt.want {
+				t.Errorf("ParseRemote(%q) = %+v, %v; want %+v", tt.remote, got, err, tt.want)
 			}
 		})
-	}
-}
-
-func TestParseRemoteDropsCredentials(t *testing.T) {
-	t.Parallel()
-
-	// A remote can carry userinfo. Keeping it would put a password into every
-	// derived URL, and doctor prints those.
-	repo, err := forge.ParseRemote("https://alice:sekret@github.com/owner/repo.git")
-	if err != nil {
-		t.Fatalf("ParseRemote returned %v, want nil", err)
-	}
-
-	if repo.Host != "github.com" {
-		t.Errorf("Host = %q, want the host without its userinfo", repo.Host)
-	}
-
-	if repo.Path != "owner/repo" {
-		t.Errorf("Path = %q, want %q", repo.Path, "owner/repo")
 	}
 }
 
@@ -134,7 +122,10 @@ func TestParseRemoteRejectsWhatIsNotARepository(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
 
+			// Act
 			_, err := forge.ParseRemote(remote)
+
+			// Assert
 			if !errors.Is(err, forge.ErrNotARemote) {
 				t.Errorf("ParseRemote(%q) returned %v, want ErrNotARemote", remote, err)
 			}
@@ -145,17 +136,25 @@ func TestParseRemoteRejectsWhatIsNotARepository(t *testing.T) {
 func TestKindString(t *testing.T) {
 	t.Parallel()
 
-	cases := map[forge.Kind]string{
-		forge.KindUnknown: unknown,
-		forge.KindGitHub:  "GitHub",
-		forge.KindGitLab:  "GitLab",
-		forge.Kind(99):    unknown,
+	cases := map[string]struct {
+		kind forge.Kind
+		want string
+	}{
+		"unknown":                  {kind: forge.KindUnknown, want: unknown},
+		github:                     {kind: forge.KindGitHub, want: "GitHub"},
+		gitlab:                     {kind: forge.KindGitLab, want: "GitLab"},
+		"a value outside the enum": {kind: forge.Kind(99), want: unknown},
 	}
 
-	for kind, want := range cases {
-		if got := kind.String(); got != want {
-			t.Errorf("Kind(%d).String() = %q, want %q", kind, got, want)
-		}
+	for name, tt := range cases {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			// Act & Assert
+			if got := tt.kind.String(); got != tt.want {
+				t.Errorf("Kind(%d).String() = %q, want %q", tt.kind, got, tt.want)
+			}
+		})
 	}
 }
 
@@ -163,8 +162,9 @@ func TestRepoAPIBase(t *testing.T) {
 	t.Parallel()
 
 	cases := map[string]struct {
-		repo forge.Repo
-		want string
+		repo    forge.Repo
+		want    string
+		wantErr error
 	}{
 		"github.com has its own API host": {
 			repo: forge.Repo{Kind: forge.KindGitHub, Host: githubHost, Path: shortPath},
@@ -190,35 +190,28 @@ func TestRepoAPIBase(t *testing.T) {
 			repo: forge.Repo{Kind: forge.KindGitLab, Host: "salsa.debian.org", Path: shortPath},
 			want: "https://salsa.debian.org/api/v4",
 		},
+		// A GitHub Enterprise Server and a self-managed GitLab look identical from
+		// the remote URL alone, and their API paths differ. Guessing would send
+		// the token to the wrong service.
+		"an on-premises forge it cannot guess": {
+			repo:    forge.Repo{Kind: forge.KindUnknown, Host: onPremHost, Path: acmePath},
+			want:    "",
+			wantErr: forge.ErrUnknownForge,
+		},
 	}
 
 	for name, tt := range cases {
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
 
+			// Act
 			got, err := tt.repo.APIBase()
-			if err != nil {
-				t.Fatalf("APIBase() returned %v, want nil", err)
-			}
 
-			if got != tt.want {
-				t.Errorf("APIBase() = %q, want %q", got, tt.want)
+			// Assert
+			if !errors.Is(err, tt.wantErr) || got != tt.want {
+				t.Errorf("APIBase() = %q, %v; want %q, %v", got, err, tt.want, tt.wantErr)
 			}
 		})
-	}
-}
-
-func TestRepoAPIBaseCannotGuessAnOnPremisesForge(t *testing.T) {
-	t.Parallel()
-
-	// A GitHub Enterprise Server and a self-managed GitLab look identical from
-	// the remote URL alone, and their API paths differ. Guessing would send the
-	// token to the wrong service.
-	repo := forge.Repo{Kind: forge.KindUnknown, Host: onPremHost, Path: acmePath}
-
-	_, err := repo.APIBase()
-	if !errors.Is(err, forge.ErrUnknownForge) {
-		t.Errorf("APIBase() returned %v, want ErrUnknownForge", err)
 	}
 }
 
@@ -230,8 +223,8 @@ func TestParseKind(t *testing.T) {
 		want    forge.Kind
 		wantErr bool
 	}{
-		"github":            {name: "github", want: forge.KindGitHub},
-		"gitlab":            {name: "gitlab", want: forge.KindGitLab},
+		github:              {name: github, want: forge.KindGitHub},
+		gitlab:              {name: gitlab, want: forge.KindGitLab},
 		"case insensitive":  {name: "GitHub", want: forge.KindGitHub},
 		"surrounding space": {name: "  gitlab  ", want: forge.KindGitLab},
 		"empty is unset":    {name: "", want: forge.KindUnknown},
@@ -242,48 +235,54 @@ func TestParseKind(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
 
+			// Act
 			got, err := forge.ParseKind(tt.name)
-			if tt.wantErr != (err != nil) {
-				t.Fatalf("ParseKind(%q) error = %v, wantErr %v", tt.name, err, tt.wantErr)
-			}
 
-			if got != tt.want {
-				t.Errorf("ParseKind(%q) = %v, want %v", tt.name, got, tt.want)
+			// Assert
+			if tt.wantErr != (err != nil) || got != tt.want {
+				t.Errorf("ParseKind(%q) = %v, %v; want %v (error: %v)", tt.name, got, err, tt.want, tt.wantErr)
 			}
 		})
 	}
 }
 
-func TestRepoWithConfiguredKind(t *testing.T) {
+func TestRepoWithConfiguredKindOnlyFillsAGap(t *testing.T) {
 	t.Parallel()
 
 	onPrem := forge.Repo{Kind: forge.KindUnknown, Host: onPremHost, Path: acmePath}
 
-	// The configuration only ever fills a gap.
-	filled, err := onPrem.WithConfiguredKind("gitlab")
-	if err != nil {
-		t.Fatalf("WithConfiguredKind returned %v, want nil", err)
+	cases := map[string]struct {
+		repo       forge.Repo
+		configured string
+		want       forge.Kind
+		wantErr    error
+	}{
+		"a host that names no forge takes the configured kind": {
+			repo: onPrem, configured: gitlab, want: forge.KindGitLab,
+		},
+		// A host that already named itself is not overridden: the remote is the
+		// better evidence, and disagreeing with it silently would be worse.
+		"a host that names its forge keeps it": {
+			repo:       forge.Repo{Kind: forge.KindGitHub, Host: githubHost, Path: ownerRepo},
+			configured: gitlab,
+			want:       forge.KindGitHub,
+		},
+		"a configured kind that is not one": {
+			repo: onPrem, configured: "bitbucket", want: forge.KindUnknown, wantErr: forge.ErrUnknownForge,
+		},
 	}
 
-	if filled.Kind != forge.KindGitLab {
-		t.Errorf("Kind = %v, want the configured one", filled.Kind)
-	}
+	for name, tt := range cases {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
 
-	// A host that already named itself is not overridden: the remote is the
-	// better evidence, and disagreeing with it silently would be worse.
-	hosted := forge.Repo{Kind: forge.KindGitHub, Host: githubHost, Path: ownerRepo}
+			// Act
+			got, err := tt.repo.WithConfiguredKind(tt.configured)
 
-	kept, err := hosted.WithConfiguredKind("gitlab")
-	if err != nil {
-		t.Fatalf("WithConfiguredKind returned %v, want nil", err)
-	}
-
-	if kept.Kind != forge.KindGitHub {
-		t.Errorf("Kind = %v, want the host's own answer to win", kept.Kind)
-	}
-
-	_, err = onPrem.WithConfiguredKind("bitbucket")
-	if !errors.Is(err, forge.ErrUnknownForge) {
-		t.Errorf("WithConfiguredKind(bitbucket) returned %v, want ErrUnknownForge", err)
+			// Assert
+			if !errors.Is(err, tt.wantErr) || got.Kind != tt.want {
+				t.Errorf("WithConfiguredKind(%q) = %v, %v; want %v, %v", tt.configured, got.Kind, err, tt.want, tt.wantErr)
+			}
+		})
 	}
 }

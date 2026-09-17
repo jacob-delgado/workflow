@@ -7,6 +7,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io/fs"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -24,16 +25,21 @@ import (
 // platform, without depending on a shell.
 const helperMode = "WORKFLOW_PROC_HELPER"
 
-// TestHelperProcess is not a test: it is the child. It does nothing unless
-// started by one of the tests below.
-func TestHelperProcess(t *testing.T) {
-	t.Parallel()
-
-	mode := os.Getenv(helperMode)
-	if mode == "" {
-		return
+// TestMain makes this test binary the child a test starts when helperMode is
+// set, and otherwise runs the tests. The child is dispatched here rather than
+// from a test function, so it never shows up as a test that asserts nothing.
+func TestMain(m *testing.M) {
+	if mode := os.Getenv(helperMode); mode != "" {
+		// Exits by itself: gobco rewrites an os.Exit written in TestMain to save
+		// its counters, which every child would otherwise race to overwrite.
+		actAsHelper(mode)
 	}
 
+	os.Exit(m.Run())
+}
+
+// actAsHelper is the child: it does what mode asks, then exits.
+func actAsHelper(mode string) {
 	switch mode {
 	case "mixed":
 		fmt.Fprintln(os.Stdout, "one")
@@ -60,12 +66,13 @@ func TestHelperProcess(t *testing.T) {
 	os.Exit(0)
 }
 
-// child describes a run of this test binary as the helper, in a mode.
+// child describes a run of this test binary as the helper, in a mode. It runs
+// no tests, so a child that somehow missed its mode does nothing.
 func child(dir, mode string, env ...string) proc.Command {
 	return proc.Command{
 		Dir:  dir,
 		Name: os.Args[0],
-		Args: []string{"-test.run=^TestHelperProcess$"},
+		Args: []string{"-test.run=^$"},
 		Env:  append([]string{helperMode + "=" + mode}, env...),
 	}
 }
@@ -86,6 +93,7 @@ func collect(t *testing.T, output proc.Output) ([]string, error) {
 func TestStartStreamsBothStreamsInOrderAndReportsTheExit(t *testing.T) {
 	t.Parallel()
 
+	// Act
 	output, err := proc.Start(t.Context(), child(t.TempDir(), "mixed"))
 	if err != nil {
 		t.Fatalf("Start returned %v, want nil", err)
@@ -93,6 +101,7 @@ func TestStartStreamsBothStreamsInOrderAndReportsTheExit(t *testing.T) {
 
 	lines, err := collect(t, output)
 
+	// Assert
 	// Standard error is interleaved where it was written: a hook's failure is
 	// read in the context of what came before it.
 	if want := []string{"one", "two", "three"}; !slices.Equal(lines, want) {
@@ -105,11 +114,13 @@ func TestStartStreamsBothStreamsInOrderAndReportsTheExit(t *testing.T) {
 	}
 }
 
-func TestStartRunsInTheDirectoryWithTheEnvironment(t *testing.T) {
+func TestStartRunsInTheDirectory(t *testing.T) {
 	t.Parallel()
 
+	// Arrange
 	dir := t.TempDir()
 
+	// Act
 	output, err := proc.Start(t.Context(), child(dir, "pwd"))
 	if err != nil {
 		t.Fatalf("Start returned %v, want nil", err)
@@ -120,33 +131,40 @@ func TestStartRunsInTheDirectoryWithTheEnvironment(t *testing.T) {
 		t.Fatalf("Wait returned %v, want nil", err)
 	}
 
+	// Assert
 	// Temporary directories are reached through a symlink on macOS.
 	want, _ := filepath.EvalSymlinks(dir)
 	if got, _ := filepath.EvalSymlinks(strings.Join(lines, "")); got != want {
 		t.Errorf("ran in %q, want %q", got, want)
 	}
+}
 
-	output, err = proc.Start(t.Context(), child(dir, "env", "WORKFLOW_PROC_VALUE=forty-two"))
+func TestStartPassesTheEnvironment(t *testing.T) {
+	t.Parallel()
+
+	// Act
+	output, err := proc.Start(t.Context(), child(t.TempDir(), "env", "WORKFLOW_PROC_VALUE=forty-two"))
 	if err != nil {
 		t.Fatalf("Start returned %v, want nil", err)
 	}
 
-	if lines, _ := collect(t, output); !slices.Equal(lines, []string{"forty-two"}) {
-		t.Errorf("the environment was not passed on: %q", lines)
+	lines, err := collect(t, output)
+
+	// Assert
+	if err != nil || !slices.Equal(lines, []string{"forty-two"}) {
+		t.Errorf("the child saw %q and ended %v, want the value passed on", lines, err)
 	}
 }
 
 func TestALineTooLongToShowIsReportedWithoutKillingTheProgram(t *testing.T) {
 	t.Parallel()
 
+	// Act
 	output, err := proc.Start(t.Context(), child(t.TempDir(), "long"))
 	if err != nil {
 		t.Fatalf("Start returned %v, want nil", err)
 	}
 
-	// Were the rest of the output not drained, the program would die of
-	// SIGPIPE writing its next line — a push or a commit killed partway through
-	// for printing something long.
 	finished := make(chan error, 1)
 
 	go func() {
@@ -154,6 +172,10 @@ func TestALineTooLongToShowIsReportedWithoutKillingTheProgram(t *testing.T) {
 		finished <- waitErr
 	}()
 
+	// Assert
+	// Were the rest of the output not drained, the program would die of
+	// SIGPIPE writing its next line — a push or a commit killed partway through
+	// for printing something long.
 	select {
 	case err := <-finished:
 		if err == nil || !strings.Contains(err.Error(), "too long") {
@@ -164,29 +186,40 @@ func TestALineTooLongToShowIsReportedWithoutKillingTheProgram(t *testing.T) {
 	}
 }
 
-func TestStartReportsAProgramNotOnPath(t *testing.T) {
+func TestStartReportsWhatItCannotStart(t *testing.T) {
 	t.Parallel()
 
-	_, err := proc.Start(t.Context(), proc.Command{Dir: t.TempDir(), Name: missingProgram, Args: nil, Env: nil})
-	if !errors.Is(err, proc.ErrNotFound) {
-		t.Errorf("Start returned %v, want ErrNotFound", err)
+	cases := map[string]struct {
+		dirName string
+		program string
+		want    error
+	}{
+		"a program not on PATH":           {dirName: "", program: missingProgram, want: proc.ErrNotFound},
+		"a directory that does not exist": {dirName: "gone", program: os.Args[0], want: fs.ErrNotExist},
 	}
-}
 
-func TestStartReportsADirectoryThatDoesNotExist(t *testing.T) {
-	t.Parallel()
+	for name, tt := range cases {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
 
-	missing := filepath.Join(t.TempDir(), "gone")
+			// Arrange
+			command := proc.Command{Dir: filepath.Join(t.TempDir(), tt.dirName), Name: tt.program, Args: nil, Env: nil}
 
-	_, err := proc.Start(t.Context(), child(missing, "pwd"))
-	if err == nil {
-		t.Error("Start returned nil for a directory that does not exist")
+			// Act
+			_, err := proc.Start(t.Context(), command)
+
+			// Assert
+			if !errors.Is(err, tt.want) {
+				t.Errorf("Start returned %v, want %v", err, tt.want)
+			}
+		})
 	}
 }
 
 func TestCancelingEndsTheProgramEvenWhenNobodyReads(t *testing.T) {
 	t.Parallel()
 
+	// Arrange
 	ctx, cancel := context.WithCancel(t.Context())
 
 	output, err := proc.Start(ctx, child(t.TempDir(), "sleep"))
@@ -194,16 +227,19 @@ func TestCancelingEndsTheProgramEvenWhenNobodyReads(t *testing.T) {
 		t.Fatalf("Start returned %v, want nil", err)
 	}
 
+	// Act
 	cancel()
 
 	finished := make(chan error, 1)
 
 	go func() { finished <- output.Wait() }()
 
+	// Assert
 	select {
 	case err := <-finished:
-		if err == nil {
-			t.Error("Wait returned nil for a program that was killed")
+		exitErr, ok := errors.AsType[*exec.ExitError](err)
+		if !ok || exitErr.Exited() {
+			t.Errorf("Wait returned %v, want the program killed rather than left to exit", err)
 		}
 	case <-time.After(10 * time.Second):
 		t.Fatal("the program outlived its context")
@@ -213,15 +249,17 @@ func TestCancelingEndsTheProgramEvenWhenNobodyReads(t *testing.T) {
 func TestInteractiveBuildsACommandWithoutStartingIt(t *testing.T) {
 	t.Parallel()
 
+	// Arrange
 	dir := t.TempDir()
-
 	editor := proc.Command{Dir: dir, Name: goProgram, Args: []string{"version"}, Env: []string{"A=B"}}
 
+	// Act
 	command, err := proc.Interactive(editor)
 	if err != nil {
 		t.Fatalf("Interactive returned %v, want nil", err)
 	}
 
+	// Assert
 	if command.Process != nil {
 		t.Error("Interactive started the program, want it left for the caller")
 	}
@@ -229,8 +267,15 @@ func TestInteractiveBuildsACommandWithoutStartingIt(t *testing.T) {
 	if command.Dir != dir || !slices.Equal(command.Args[1:], []string{"version"}) || !slices.Contains(command.Env, "A=B") {
 		t.Errorf("Interactive built %v in %q with %d environment entries", command.Args, command.Dir, len(command.Env))
 	}
+}
 
-	_, err = proc.Interactive(proc.Command{Dir: dir, Name: missingProgram, Args: nil, Env: nil})
+func TestInteractiveReportsAProgramNotOnPath(t *testing.T) {
+	t.Parallel()
+
+	// Act
+	_, err := proc.Interactive(proc.Command{Dir: t.TempDir(), Name: missingProgram, Args: nil, Env: nil})
+
+	// Assert
 	if !errors.Is(err, proc.ErrNotFound) {
 		t.Errorf("Interactive returned %v, want ErrNotFound", err)
 	}

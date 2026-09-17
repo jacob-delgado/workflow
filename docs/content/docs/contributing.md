@@ -42,7 +42,7 @@ scanning — the same thing CI runs. Run it before calling any change done.
 
 | Gate | What it enforces |
 | --- | --- |
-| `task lint` | Every golangci-lint linter, plus shell, YAML, Dockerfile, Actions, spelling, license headers, and docs drift |
+| `task lint` | Every golangci-lint linter, plus shell, YAML, Dockerfile, Actions, spelling, license headers, test markers, and docs drift |
 | `task test:cover` | Tests with the race detector, above the statement coverage floor |
 | `task cover:branch` | Condition coverage via gobco: was each branch seen both ways |
 | `task vuln` | `govulncheck` against the dependency graph |

@@ -25,14 +25,23 @@ func carriesEscape(text string) bool {
 func TestAnIssueCannotDriveTheTerminal(t *testing.T) {
 	t.Parallel()
 
+	// Arrange
 	// Anyone who can edit an issue chooses its summary, and the summary is
 	// about to be drawn in someone else's terminal.
 	body := `{"total":1,"issues":[{"key":"OPS-1","fields":{"summary":"Fix ` + clearScreen + `login",` +
 		`"status":{"name":"In ` + clearScreen + `Progress","statusCategory":{"key":"indeterminate"}}}}]}`
 
-	result, err := serve(t, answer(body, "fred")).Search(t.Context(), jira.AssignedToMe)
+	client := serve(t, answer(body, "fred"))
+
+	// Act
+	result, err := client.Search(t.Context(), jira.AssignedToMe)
 	if err != nil {
 		t.Fatalf("Search returned %v, want nil", err)
+	}
+
+	// Assert
+	if len(result.Issues) != 1 {
+		t.Fatalf("got %d issues, want the one in the answer", len(result.Issues))
 	}
 
 	found := result.Issues[0]
@@ -48,10 +57,15 @@ func TestAnIssueCannotDriveTheTerminal(t *testing.T) {
 func TestAReasonCannotDriveTheTerminal(t *testing.T) {
 	t.Parallel()
 
+	// Arrange
 	body := `{"errorMessages":["no ` + clearScreen + `such field"],"errors":{}}`
+	client := serve(t, failWith(http.StatusBadRequest, body, "fred"))
 
-	_, err := serve(t, failWith(http.StatusBadRequest, body, "fred")).Search(t.Context(), jira.AssignedToMe)
-	if err == nil || carriesEscape(err.Error()) {
+	// Act
+	_, err := client.Search(t.Context(), jira.AssignedToMe)
+
+	// Assert
+	if !errors.Is(err, jira.ErrRejected) || carriesEscape(err.Error()) || !strings.Contains(err.Error(), "such field") {
 		t.Errorf("Search returned %q, want Jira's reason without the escape", err)
 	}
 }
@@ -59,32 +73,41 @@ func TestAReasonCannotDriveTheTerminal(t *testing.T) {
 func TestAUserNameCannotDriveTheTerminal(t *testing.T) {
 	t.Parallel()
 
+	// Arrange
 	// doctor prints this, and its output is what bug reports ask people to paste.
 	body := `{"name":"fred","displayName":"Fred ` + clearScreen + `User","active":true}`
+	client := serve(t, answer(body, "fred"))
 
-	user, err := serve(t, answer(body, "fred")).Myself(t.Context())
+	// Act
+	user, err := client.Myself(t.Context())
 	if err != nil {
 		t.Fatalf("Myself returned %v, want nil", err)
 	}
 
-	if carriesEscape(user.DisplayName) {
-		t.Errorf("an escape survived into %q", user.DisplayName)
+	// Assert
+	if carriesEscape(user.DisplayName) || !strings.HasPrefix(user.DisplayName, "Fred ") ||
+		!strings.HasSuffix(user.DisplayName, "[2JUser") {
+		t.Errorf("DisplayName = %q, want the escape neutralized and the name around it kept", user.DisplayName)
 	}
 }
 
 func TestATransitionCannotDriveTheTerminal(t *testing.T) {
 	t.Parallel()
 
+	// Arrange
 	body := `{"transitions":[{"id":"1","name":"Do ` + clearScreen + `it",` +
 		`"to":{"name":"Done","statusCategory":{"key":"done"}}}]}`
+	client := serve(t, answer(body, "fred"))
 
-	found, err := serve(t, answer(body, "fred")).Transitions(t.Context(), "OPS-1")
+	// Act
+	found, err := client.Transitions(t.Context(), "OPS-1")
 	if err != nil {
 		t.Fatalf("Transitions returned %v, want nil", err)
 	}
 
-	if carriesEscape(found[0].Name) {
-		t.Errorf("an escape survived into %q", found[0].Name)
+	// Assert
+	if len(found) != 1 || carriesEscape(found[0].Name) || !strings.HasSuffix(found[0].Name, "[2Jit") {
+		t.Errorf("Transitions = %+v, want one, its name's escape neutralized and the text around it kept", found)
 	}
 }
 
@@ -107,20 +130,29 @@ func droppedMidAnswer(status int) jira.Doer {
 func TestAnAnswerThatBreaksOffIsAnError(t *testing.T) {
 	t.Parallel()
 
-	_, err := jira.New(droppedMidAnswer(http.StatusOK), bearerConfig(exampleBaseURL)).
-		Search(t.Context(), jira.AssignedToMe)
-	if !errors.Is(err, errFixtureTimeout) {
-		t.Errorf("Search returned %v, want the read failure", err)
+	cases := map[string]struct {
+		status int
+		want   error
+	}{
+		"an answer is the read failure": {status: http.StatusOK, want: errFixtureTimeout},
+		// With no reason to read, the status is still worth reporting.
+		"a refusal keeps its status": {status: http.StatusBadRequest, want: jira.ErrUnexpectedStatus},
 	}
-}
 
-func TestARefusalThatBreaksOffKeepsItsStatus(t *testing.T) {
-	t.Parallel()
+	for name, tt := range cases {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
 
-	// With no reason to read, the status is still worth reporting.
-	_, err := jira.New(droppedMidAnswer(http.StatusBadRequest), bearerConfig(exampleBaseURL)).
-		Search(t.Context(), jira.AssignedToMe)
-	if !errors.Is(err, jira.ErrUnexpectedStatus) {
-		t.Errorf("Search returned %v, want ErrUnexpectedStatus", err)
+			// Arrange
+			client := jira.New(droppedMidAnswer(tt.status), bearerConfig(exampleBaseURL))
+
+			// Act
+			_, err := client.Search(t.Context(), jira.AssignedToMe)
+
+			// Assert
+			if !errors.Is(err, tt.want) {
+				t.Errorf("Search returned %v, want %v", err, tt.want)
+			}
+		})
 	}
 }

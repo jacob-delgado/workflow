@@ -45,6 +45,7 @@ func FuzzRedactRevealsOnlyTheTail(f *testing.F) {
 	// hid" — and unlike a substring check it cannot be fooled by the mask's own
 	// characters colliding with the secret's.
 	f.Fuzz(func(t *testing.T, secret, otherPrefix string) {
+		// Arrange
 		if len(secret) <= visibleTail || otherPrefix == "" {
 			return
 		}
@@ -52,7 +53,11 @@ func FuzzRedactRevealsOnlyTheTail(f *testing.F) {
 		tail := secret[len(secret)-visibleTail:]
 		twin := otherPrefix + tail
 
-		if config.Redact(secret) != config.Redact(twin) {
+		// Act
+		masked, twinMasked := config.Redact(secret), config.Redact(twin)
+
+		// Assert
+		if masked != twinMasked {
 			t.Fatalf("Redact distinguishes %q from %q, so the mask carries information about the hidden part",
 				secret, twin)
 		}
@@ -68,6 +73,7 @@ func FuzzLoadFileNeverLeaksACredential(f *testing.F) {
 	f.Add([]byte(`{"unknown_key": 1}`))
 
 	f.Fuzz(func(t *testing.T, document []byte) {
+		// Arrange
 		path := filepath.Join(t.TempDir(), config.FileName)
 
 		err := os.WriteFile(path, document, config.FileMode)
@@ -75,7 +81,10 @@ func FuzzLoadFileNeverLeaksACredential(f *testing.F) {
 			t.Fatalf("writing the fuzz document: %v", err)
 		}
 
+		// Act
 		cfg, loadErr := config.LoadFile(path)
+
+		// Assert
 		if loadErr != nil {
 			// The error is shown to people and pasted into issues, so it must
 			// describe the file rather than quote it.

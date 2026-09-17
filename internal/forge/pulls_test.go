@@ -113,9 +113,13 @@ func TestFindPullRequestAsksEachForgeForTheBranch(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
 
+			// Arrange
 			client, seen := forgeAnswering(t, http.StatusOK, tt.body)
 
+			// Act
 			found, ok, err := client.FindPullRequest(t.Context(), tt.repo, featureBranch)
+
+			// Assert
 			if err != nil || !ok || found != tt.want {
 				t.Errorf("FindPullRequest = %+v, %v, %v, want %+v", found, ok, err, tt.want)
 			}
@@ -137,25 +141,37 @@ func TestFindPullRequestAsksEachForgeForTheBranch(t *testing.T) {
 func TestFindPullRequestWithNoneOpen(t *testing.T) {
 	t.Parallel()
 
-	for _, repo := range []forge.Repo{githubRepo(), gitlabRepo()} {
-		client, _ := forgeAnswering(t, http.StatusOK, `[]`)
+	for name, repo := range map[string]forge.Repo{github: githubRepo(), gitlab: gitlabRepo()} {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
 
-		_, ok, err := client.FindPullRequest(t.Context(), repo, featureBranch)
-		if err != nil || ok {
-			t.Errorf("FindPullRequest on %v = %v, %v, want none found and no error", repo.Kind, ok, err)
-		}
+			// Arrange
+			client, _ := forgeAnswering(t, http.StatusOK, `[]`)
+
+			// Act
+			_, ok, err := client.FindPullRequest(t.Context(), repo, featureBranch)
+
+			// Assert
+			if err != nil || ok {
+				t.Errorf("FindPullRequest on %v = %v, %v, want none found and no error", repo.Kind, ok, err)
+			}
+		})
 	}
 }
 
 func TestCreatePullRequestOnGitHub(t *testing.T) {
 	t.Parallel()
 
+	// Arrange
 	client, seen := forgeAnswering(t, http.StatusCreated,
 		`{"number":43,"html_url":"https://github.com/example/repo/pull/43","title":"fix: token","draft":true}`)
 
+	// Act
 	created, err := client.CreatePullRequest(t.Context(), githubRepo(), forge.NewPullRequest{
 		Title: prTitle, Body: "## Why\n\nBecause.", Head: featureBranch, Base: baseBranch, Draft: true,
 	})
+
+	// Assert
 	if err != nil || created.Number != 43 || created.URL != "https://github.com/example/repo/pull/43" {
 		t.Fatalf("CreatePullRequest = %+v, %v", created, err)
 	}
@@ -178,12 +194,16 @@ func TestCreatePullRequestOnGitHub(t *testing.T) {
 func TestCreateMergeRequestOnGitLab(t *testing.T) {
 	t.Parallel()
 
+	// Arrange
 	client, seen := forgeAnswering(t, http.StatusCreated,
 		`{"iid":8,"web_url":"https://gitlab.com/group/sub/repo/-/merge_requests/8","title":"Draft: fix: token","draft":true}`)
 
+	// Act
 	created, err := client.CreatePullRequest(t.Context(), gitlabRepo(), forge.NewPullRequest{
 		Title: prTitle, Body: "Because.", Head: featureBranch, Base: baseBranch, Draft: true,
 	})
+
+	// Assert
 	if err != nil || created.Number != 8 || !created.Draft {
 		t.Fatalf("CreatePullRequest = %+v, %v", created, err)
 	}
@@ -245,11 +265,15 @@ func TestARefusedPullRequestSaysWhy(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
 
+			// Arrange
 			client, _ := forgeAnswering(t, tt.status, tt.body)
 
+			// Act
 			_, err := client.CreatePullRequest(t.Context(), tt.repo, forge.NewPullRequest{
 				Title: prTitle, Body: "", Head: featureBranch, Base: baseBranch, Draft: false,
 			})
+
+			// Assert
 			if !errors.Is(err, forge.ErrRejected) || !strings.Contains(err.Error(), tt.want) {
 				t.Errorf("CreatePullRequest returned %v, want the forge's reason %q", err, tt.want)
 			}
@@ -257,36 +281,68 @@ func TestARefusedPullRequestSaysWhy(t *testing.T) {
 	}
 }
 
-func TestPullRequestsNeedAForgeThatIsKnown(t *testing.T) {
+// unknownForge is a repository on a host that names no forge.
+func unknownForge() forge.Repo {
+	return forge.Repo{Kind: forge.KindUnknown, Host: "git.example.com", Path: "a/b"}
+}
+
+func TestFindPullRequestNeedsAForgeThatIsKnown(t *testing.T) {
 	t.Parallel()
 
-	client, _ := forgeAnswering(t, http.StatusOK, `[]`)
-	unknown := forge.Repo{Kind: forge.KindUnknown, Host: "git.example.com", Path: "a/b"}
+	// Arrange
+	client, seen := forgeAnswering(t, http.StatusOK, `[]`)
 
-	_, _, err := client.FindPullRequest(t.Context(), unknown, featureBranch)
-	if !errors.Is(err, forge.ErrUnknownForge) {
-		t.Errorf("FindPullRequest returned %v, want ErrUnknownForge", err)
+	// Act
+	_, _, err := client.FindPullRequest(t.Context(), unknownForge(), featureBranch)
+
+	// Assert
+	if !errors.Is(err, forge.ErrUnknownForge) || seen.Load() != nil {
+		t.Errorf("FindPullRequest returned %v and asked %v, want ErrUnknownForge before asking", err, seen.Load())
 	}
+}
 
-	_, err = client.CreatePullRequest(t.Context(), unknown, forge.NewPullRequest{})
-	if !errors.Is(err, forge.ErrUnknownForge) {
-		t.Errorf("CreatePullRequest returned %v, want ErrUnknownForge", err)
+func TestCreatePullRequestNeedsAForgeThatIsKnown(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	client, seen := forgeAnswering(t, http.StatusOK, `[]`)
+
+	// Act
+	_, err := client.CreatePullRequest(t.Context(), unknownForge(), forge.NewPullRequest{})
+
+	// Assert
+	if !errors.Is(err, forge.ErrUnknownForge) || seen.Load() != nil {
+		t.Errorf("CreatePullRequest returned %v and asked %v, want ErrUnknownForge before asking", err, seen.Load())
 	}
+}
 
-	_, err = client.CheckStatus(t.Context(), unknown, forge.PullRequest{}, "abc")
-	if !errors.Is(err, forge.ErrUnknownForge) {
-		t.Errorf("CheckStatus returned %v, want ErrUnknownForge", err)
+func TestCheckStatusNeedsAForgeThatIsKnown(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	client, seen := forgeAnswering(t, http.StatusOK, `[]`)
+
+	// Act
+	_, err := client.CheckStatus(t.Context(), unknownForge(), forge.PullRequest{}, "abc")
+
+	// Assert
+	if !errors.Is(err, forge.ErrUnknownForge) || seen.Load() != nil {
+		t.Errorf("CheckStatus returned %v and asked %v, want ErrUnknownForge before asking", err, seen.Load())
 	}
 }
 
 func TestARepositoryTheTokenCannotSeeSaysSo(t *testing.T) {
 	t.Parallel()
 
+	// Arrange
 	// Both forges answer 404, not 403, for a private repository the token has
 	// no access to. On /user a 404 means a wrong address; here it does not.
 	client, _ := forgeAnswering(t, http.StatusNotFound, `{"message":"Not Found"}`)
 
+	// Act
 	_, _, err := client.FindPullRequest(t.Context(), githubRepo(), featureBranch)
+
+	// Assert
 	if !errors.Is(err, forge.ErrNoRepository) || errors.Is(err, forge.ErrNoAPI) {
 		t.Errorf("FindPullRequest returned %v, want ErrNoRepository", err)
 	}
@@ -317,9 +373,13 @@ func TestOnlyARefusalTheForgeExplainsCarriesItsReason(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
 
+			// Arrange
 			client, _ := forgeAnswering(t, tt.status, tt.body)
 
+			// Act
 			_, err := client.CreatePullRequest(t.Context(), githubRepo(), forge.NewPullRequest{})
+
+			// Assert
 			if !errors.Is(err, tt.want) || errors.Is(err, forge.ErrRejected) {
 				t.Errorf("CreatePullRequest returned %v, want %v and no reason", err, tt.want)
 			}
@@ -330,6 +390,7 @@ func TestOnlyARefusalTheForgeExplainsCarriesItsReason(t *testing.T) {
 func TestARefusalThatBreaksOffKeepsItsStatus(t *testing.T) {
 	t.Parallel()
 
+	// Arrange
 	dropped := func(*http.Request) (*http.Response, error) {
 		return &http.Response{
 			StatusCode: http.StatusUnprocessableEntity,
@@ -338,8 +399,12 @@ func TestARefusalThatBreaksOffKeepsItsStatus(t *testing.T) {
 		}, nil
 	}
 
-	_, err := forge.New(dropped, "https://api.example.com", secret).
-		CreatePullRequest(t.Context(), githubRepo(), forge.NewPullRequest{})
+	client := forge.New(dropped, "https://api.example.com", secret)
+
+	// Act
+	_, err := client.CreatePullRequest(t.Context(), githubRepo(), forge.NewPullRequest{})
+
+	// Assert
 	if !errors.Is(err, forge.ErrUnexpectedStatus) {
 		t.Errorf("CreatePullRequest returned %v, want the status error when no reason could be read", err)
 	}
