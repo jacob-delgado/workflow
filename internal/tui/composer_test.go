@@ -47,7 +47,7 @@ func TestTheComposerAssemblesAConventionalCommit(t *testing.T) {
 	composer := typing(t, model, "3", "c")
 
 	// Assert: it starts from the issue and what is staged
-	requireScreen(t, composer.View(), "┏━ Commit", "‹feat›", "Refs: PROJ-412", "1 files staged",
+	requireScreen(t, composer.View(), "┏━ Commit", "‹feat›", "Refs: PROJ-412", "1 file staged",
 		"no body yet: ctrl+e writes one in your editor")
 
 	// Act: choose the type, scope and subject, then write the body in the editor
@@ -376,4 +376,18 @@ func TestARunsFailureNeedsAnEditorToOpen(t *testing.T) {
 	if cmd != nil || after.View() != failed.View() {
 		t.Errorf("enter did something with no editor:\n%s", after.View())
 	}
+}
+
+func TestTheComposerCountsOneFileInTheSingular(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	committing := newWorld()
+
+	// Act
+	composer := typing(t, committing.live(t, 120, 40), "3", "c")
+
+	// Assert
+	requireScreen(t, composer.View(), "1 file staged")
+	refuseScreen(t, composer.View(), "1 files staged")
 }
