@@ -509,8 +509,8 @@ Severity: medium · Confidence: reproduced
   (`internal/proc/start.go:137`) sets no process group, `Cancel` or
   `WaitDelay`. `Start` documents "Canceling ctx kills the program"
   (`internal/proc/start.go:49`), which cannot happen. A push gets
-  `GIT_TERMINAL_PROMPT=0` (`internal/gitrepo/branch.go:195`); a commit gets no
-  environment at all (`:202`).
+  `GIT_TERMINAL_PROMPT=0` (`internal/gitrepo/branch.go:215`); a commit gets no
+  environment at all (`:222`).
 - Cost: a hung `git status` or `gh auth token` leaves its pane on "loading…"
   forever. A streamed run ignores every key but `ctrl+c`, which quits the
   program; a parent built the same way left its child running with a parent
@@ -616,12 +616,12 @@ Severity: low · Confidence: reproduced
 
 Severity: medium · Confidence: read
 
-- Evidence: `internal/gitrepo/gitrepo.go:71`; `internal/gitrepo/branch.go:56`,
-  `:109`, `:114` and `:194`; `internal/tui/branch.go:66` and `:90`;
+- Evidence: `internal/gitrepo/gitrepo.go:71`; `internal/gitrepo/branch.go:57`,
+  `:110`, `:115` and `:214`; `internal/tui/branch.go:66` and `:90`;
   `internal/tui/prcomposer.go:78`. No code path runs `git fetch`. The base
   falls back through `origin/HEAD`, `origin/main`, `origin/master`, local
   `main`, local `master`, then nothing (`base`,
-  `internal/gitrepo/branch.go:108`).
+  `internal/gitrepo/branch.go:109`).
 - Cost: a remote under another name means "not pushed yet" forever. With a
   fork, the base is the fork's default branch. When no base is found,
   `Commits` stays empty, and both `canPush` and `canOpenPullRequest` are
@@ -675,7 +675,7 @@ Severity: low · Confidence: reproduced
   a new paragraph, after which `git interpret-trailers --parse` sees only it
   and loses `Co-authored-by:`.
 - `ReadBranch` asks for `--reverse --max-count=200`
-  (`internal/gitrepo/branch.go:88`). git limits before it reverses, so past
+  (`internal/gitrepo/branch.go:89`). git limits before it reverses, so past
   200 commits the list holds the newest 200, the count silently caps, and the
   pull request title comes from a commit that is not the branch's first.
 - Dead code: `ReadConfig`, `wireHook`, `names` and `Runner`

@@ -28,10 +28,10 @@ func featureBranch() map[string]reply {
 		},
 		"git -C /work rev-list --left-right --count @{upstream}...HEAD":      {out: []byte("1\t2\n")},
 		"git -C /work symbolic-ref --quiet --short refs/remotes/origin/HEAD": {out: []byte("origin/main\n")},
-		// Real log output: a unit separator between the fields, a record
-		// separator after each commit, and a newline git adds between them.
-		"git -C /work log --reverse --max-count=200 --format=%h%x1f%s%x1e origin/main..HEAD": {
-			out: []byte("1a2b3c4\x1ffix(config): redact tokens\x1e\n5d6e7f8\x1ftest: cover the empty token\x1e\n"),
+		// Real log output under -z: a NUL after the hash, and one after each
+		// subject where git would otherwise put a newline.
+		logFromMain: {
+			out: []byte(firstHash + "\x00fix(config): redact tokens\x00" + secondHash + "\x00test: cover the empty token\x00"),
 		},
 	}
 }
@@ -46,15 +46,24 @@ const (
 const (
 	readUpstream = "git -C /work rev-parse --abbrev-ref --symbolic-full-name @{upstream}"
 	countAhead   = "git -C /work rev-list --left-right --count @{upstream}...HEAD"
-	logFromMain  = "git -C /work log --reverse --max-count=200 --format=%h%x1f%s%x1e origin/main..HEAD"
+	logCommits   = "git -C /work log -z --reverse --max-count=200 --format=%h%x00%s "
+	logFromMain  = logCommits + "origin/main..HEAD"
 	readHooksDir = "git -C /work rev-parse --git-path hooks"
+)
+
+// firstHash and secondHash are the abbreviated hashes of featureBranch's
+// commits, and secondSubject a subject the log cases give the second one.
+const (
+	firstHash     = "1a2b3c4"
+	secondHash    = "5d6e7f8"
+	secondSubject = "test: two"
 )
 
 // featureCommits are the commits featureBranch has on top of its base.
 func featureCommits() []gitrepo.Commit {
 	return []gitrepo.Commit{
-		{Hash: "1a2b3c4", Subject: "fix(config): redact tokens"},
-		{Hash: "5d6e7f8", Subject: "test: cover the empty token"},
+		{Hash: firstHash, Subject: "fix(config): redact tokens"},
+		{Hash: secondHash, Subject: "test: cover the empty token"},
 	}
 }
 
@@ -175,7 +184,7 @@ func TestTheBaseFallsBackWhenOriginNamesNoDefault(t *testing.T) {
 			}
 
 			delete(replies, logFromMain)
-			replies["git -C /work log --reverse --max-count=200 --format=%h%x1f%s%x1e "+tt.want+"..HEAD"] = reply{}
+			replies[logCommits+tt.want+"..HEAD"] = reply{}
 
 			// Act
 			branch, err := gitrepo.ReadBranch(t.Context(), fakeRunner(t, replies), workDir)
@@ -262,11 +271,52 @@ func TestReadBranchKeepsOnlyWhatGitAnsweredClearly(t *testing.T) {
 		// Anyone who can get a commit onto the base branch writes its subject.
 		"a commit subject cannot drive the terminal": {
 			replies: with(featureBranch(), map[string]reply{
-				logFromMain: {out: []byte("1a2b3c4\x1ffix: \x1b]0;owned\x07subject\x1e\n")},
+				logFromMain: {out: []byte(firstHash + "\x00fix: \x1b]0;owned\x07subject\x00")},
 			}),
 			ahead:   2,
 			behind:  1,
-			commits: []gitrepo.Commit{{Hash: "1a2b3c4", Subject: "fix: subject"}},
+			commits: []gitrepo.Commit{{Hash: firstHash, Subject: "fix: subject"}},
+		},
+		// A subject may hold any byte but NUL, the separators this once read by
+		// included, and it stays one subject of one commit.
+		"a subject is one subject whatever bytes it holds": {
+			replies: with(featureBranch(), map[string]reply{
+				logFromMain: {
+					out: []byte(firstHash + "\x00fix: one\x1e\nfacade\x1fsubject\x00" + secondHash + "\x00" + secondSubject + "\x00"),
+				},
+			}),
+			ahead:  2,
+			behind: 1,
+			commits: []gitrepo.Commit{
+				{Hash: firstHash, Subject: "fix: one\uFFFD\nfacade\uFFFDsubject"},
+				{Hash: secondHash, Subject: secondSubject},
+			},
+		},
+		// An abbreviated hash is hex. A record that opens with anything else
+		// is not one git wrote, and is left out.
+		"a record whose hash is not one is left out": {
+			replies: with(featureBranch(), map[string]reply{
+				logFromMain: {out: []byte("not a hash\x00fix: one\x00" + secondHash + "\x00" + secondSubject + "\x00")},
+			}),
+			ahead:   2,
+			behind:  1,
+			commits: []gitrepo.Commit{{Hash: secondHash, Subject: secondSubject}},
+		},
+		"a record with no hash at all is left out": {
+			replies: with(featureBranch(), map[string]reply{
+				logFromMain: {out: []byte("\x00fix: one\x00" + secondHash + "\x00" + secondSubject + "\x00")},
+			}),
+			ahead:   2,
+			behind:  1,
+			commits: []gitrepo.Commit{{Hash: secondHash, Subject: secondSubject}},
+		},
+		"a hash with no subject after it is left out": {
+			replies: with(featureBranch(), map[string]reply{
+				logFromMain: {out: []byte(firstHash + "\x00fix: one\x00" + secondHash)},
+			}),
+			ahead:   2,
+			behind:  1,
+			commits: []gitrepo.Commit{{Hash: firstHash, Subject: "fix: one"}},
 		},
 	}
 

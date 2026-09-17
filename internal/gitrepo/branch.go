@@ -18,12 +18,13 @@ import (
 // review has a handful; one with hundreds is a merge nobody reads in a pane.
 const commitLimit = 200
 
-// Separators git's --format writes between a commit's fields and after each
-// commit. Neither can occur in a hash or a one-line subject.
-const (
-	fieldSeparator  = "\x1f"
-	recordSeparator = "\x1e"
-)
+// logSeparator is what git writes after a commit's hash and, under -z, after its
+// subject. A subject may hold any byte but this one: git refuses a commit
+// message with a NUL in it, which is what makes it safe to split on.
+const logSeparator = "\x00"
+
+// logFormat asks for a commit's abbreviated hash and its subject.
+const logFormat = "--format=%h%x00%s"
 
 // Commit is one commit on a branch.
 type Commit struct {
@@ -85,8 +86,8 @@ func ReadBranch(ctx context.Context, run Runner, dir string) (Branch, error) {
 	}
 
 	if branch.Base != "" && branch.Head != "" {
-		branch.Commits = parseLog(git("log", "--reverse", "--max-count="+strconv.Itoa(commitLimit),
-			"--format=%h%x1f%s%x1e", branch.Base+"..HEAD"))
+		branch.Commits = parseLog(git("log", "-z", "--reverse", "--max-count="+strconv.Itoa(commitLimit),
+			logFormat, branch.Base+"..HEAD"))
 	}
 
 	return branch, nil
@@ -144,15 +145,19 @@ func counts(out string) (int, int) {
 	return leftCount, rightCount
 }
 
-// parseLog reads commits written with the separators above. A subject is
-// neutralized here, where it enters the program: anyone able to put a commit on
-// the base branch wrote it.
+// parseLog reads commits written as logFormat under -z: a hash, a subject, a
+// hash, a subject. A subject is neutralized here, where it enters the program:
+// anyone able to put a commit on the base branch wrote it. A hash is only ever
+// hex, so a record that opens with anything else is not one git wrote, and is
+// left out.
 func parseLog(out string) []Commit {
 	var commits []Commit
 
-	for record := range strings.SplitSeq(out, recordSeparator) {
-		hash, subject, found := strings.Cut(strings.TrimSpace(record), fieldSeparator)
-		if !found {
+	fields := strings.Split(out, logSeparator)
+
+	for index := 0; index+1 < len(fields); index += 2 {
+		hash, subject := fields[index], fields[index+1]
+		if !isHex(hash) {
 			continue
 		}
 
@@ -160,6 +165,21 @@ func parseLog(out string) []Commit {
 	}
 
 	return commits
+}
+
+// isHex reports text made of hexadecimal digits and nothing else.
+func isHex(text string) bool {
+	if text == "" {
+		return false
+	}
+
+	for _, digit := range text {
+		if !strings.ContainsRune("0123456789abcdefABCDEF", digit) {
+			return false
+		}
+	}
+
+	return true
 }
 
 // CreateBranch creates a branch at start and switches to it, or at HEAD when
