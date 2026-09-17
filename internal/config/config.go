@@ -17,6 +17,17 @@ import (
 // FileName is the configuration file's name in both search locations.
 const FileName = ".workflow.json"
 
+// Guidance shown wherever a configuration is missing, so the first steps read
+// the same on every surface.
+const (
+	// NoConfigHeadline says no configuration was found.
+	NoConfigHeadline = "No " + FileName + " found."
+	// InitStep names the command that writes a starting configuration.
+	InitStep = "Create one with `workflow config init`."
+	// DoctorStep names the command that checks it.
+	DoctorStep = "Then run `workflow doctor` to see what is still missing."
+)
+
 // notSet is how an empty setting is shown: as something a reader can act on,
 // rather than as a blank.
 const notSet = "(not set)"
