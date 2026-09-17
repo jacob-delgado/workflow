@@ -285,22 +285,6 @@ Impact: medium · Effort: small
   `internal/tui/overlay.go` and each overlay's `view`.
 - Done when: a test over the raw output finds no `✗` outside a red run.
 
-### UX-41 Stop the red from leaking
-
-Impact: medium · Effort: small
-
-- Today (seen live): an error longer than the pane is styled and then
-  wrapped, so the color starts on the first row and its reset lands on the
-  last. Everything between is tinted: the pane's right border, the rail's
-  borders on the rows beside it, and the next pane's title. On the
-  not-a-repository screen the red ran from the error across three rows to the
-  words "2 Branch". This is the first thing a new user sees in a terminal
-  wide enough to show it.
-- Instead: wrap first, then style, so each row closes its own color.
-- Touches: `internal/tui/commits.go`, `internal/tui/detail.go`,
-  `internal/tui/review.go`, `internal/tui/render.go` (`wrap`).
-- Done when: every rendered row that opens a color closes it.
-
 ### UX-42 Bring the bottom row into the palette, and up in contrast
 
 Impact: high · Effort: small

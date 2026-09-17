@@ -212,7 +212,7 @@ func (m Model) reviewDetail(width int) string {
 		lines := []string{m.reviewRail(0)}
 
 		if m.review.err != nil {
-			lines = append(lines, "", m.failure(m.review.err))
+			lines = append(lines, "", m.failureWithin(m.review.err, width))
 		}
 
 		if m.canOpenPullRequest() {
