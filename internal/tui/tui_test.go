@@ -252,9 +252,9 @@ func TestANarrowTerminalCollapsesTheRail(t *testing.T) {
 	view := sized(t, tui.New(completeConfig(), nil, tui.Deps{}), 79, 30).View()
 
 	// Assert
-	// Focus still means something: the detail is titled with the focused pane.
-	refuseScreen(t, view, "1 Issues")
-	requireScreen(t, view, "Issues")
+	// The rail that showed 1-5 is gone, so the collapsed detail title carries
+	// the number that jumps to the focused pane.
+	requireScreen(t, view, "1 Issues")
 }
 
 func TestViewFitsTheTerminal(t *testing.T) {
