@@ -11,6 +11,19 @@ import (
 	"strings"
 )
 
+// Mergeability is whether the forge thinks a pull request can merge as it
+// stands: unknown until the forge has worked it out, then clean or conflicting.
+type Mergeability int
+
+const (
+	// MergeUnknown means the forge has not said, or is still computing it.
+	MergeUnknown Mergeability = iota
+	// MergeClean means the branch merges without conflict.
+	MergeClean
+	// MergeConflicts means the branch conflicts with its base.
+	MergeConflicts
+)
+
 // PullRequest is a pull request on GitHub, or a merge request on GitLab.
 type PullRequest struct {
 	// Number is GitHub's number or GitLab's iid: the one people write as #42 or
@@ -19,6 +32,13 @@ type PullRequest struct {
 	URL    string
 	Title  string
 	Draft  bool
+	// Approvals is how many reviewers have approved; ChangesRequested is whether
+	// any reviewer is still asking for changes; Mergeable is whether it can merge.
+	// These are best effort — a forge that will not say leaves them at zero and
+	// unknown rather than failing the whole read.
+	Approvals        int
+	ChangesRequested bool
+	Mergeable        Mergeability
 }
 
 // NewPullRequest is a pull request to open.
