@@ -43,6 +43,30 @@ type Change struct {
 	Unstaged byte
 }
 
+// Kind names the kind of change in a word, for showing rather than git's letter.
+func (c Change) Kind() string {
+	if c.Conflicted() {
+		return "conflicted"
+	}
+
+	if c.Staged == untracked || c.Unstaged == untracked {
+		return "untracked"
+	}
+
+	words := map[byte]string{added: "new", deleted: "deleted", renamed: "renamed", copied: "copied"}
+
+	letter := c.Staged
+	if letter == unchanged {
+		letter = c.Unstaged
+	}
+
+	if word, named := words[letter]; named {
+		return word
+	}
+
+	return "modified"
+}
+
 // IsStaged reports changes in the index, waiting to be committed.
 func (c Change) IsStaged() bool {
 	return !c.Conflicted() && c.Staged != unchanged && c.Staged != untracked && c.Staged != ignored
