@@ -50,7 +50,7 @@ func TestTheForgeSeamsExplainAForgeThatCannotBeReached(t *testing.T) {
 			cfg := config.Default()
 			cfg.Forge.Kind, cfg.Forge.Host = tt.kind, tt.host
 
-			seams := wiring.Deps(t.Context(), cfg, wiring.Workspace{Root: t.TempDir(), Remote: tt.remote}).Forge
+			seams := wiring.Deps(t.Context(), cfg, wiring.Workspace{Root: t.TempDir(), Remote: tt.remote}, nil).Forge
 
 			// Act
 			// One behavior seen through each seam: every one of them connects to
@@ -85,7 +85,7 @@ func TestTheForgeSeamsOfferGitHubsOwnVariableOnlyToGitHubsOwnHosts(t *testing.T)
 	cfg := config.Default()
 	cfg.Forge.Kind, cfg.Forge.Host = githubKind, unnamedHostName
 
-	seams := wiring.Deps(t.Context(), cfg, wiring.Workspace{Root: t.TempDir(), Remote: unnamedHost}).Forge
+	seams := wiring.Deps(t.Context(), cfg, wiring.Workspace{Root: t.TempDir(), Remote: unnamedHost}, nil).Forge
 
 	// Act
 	_, _, err := seams.FindPullRequest("x")
@@ -126,7 +126,7 @@ func TestTemplatesAreReadFromTheRepository(t *testing.T) {
 			cfg := config.Default()
 			cfg.Forge.Kind = tt.kind
 
-			seams := wiring.Deps(t.Context(), cfg, wiring.Workspace{Root: root, Remote: tt.remote}).Forge
+			seams := wiring.Deps(t.Context(), cfg, wiring.Workspace{Root: root, Remote: tt.remote}, nil).Forge
 
 			// Act
 			found := seams.Templates()
@@ -169,7 +169,7 @@ func TestTheJiraSeamsReachTheConfiguredJira(t *testing.T) {
 	cfg := config.Default()
 	cfg.Jira = config.Jira{BaseURL: server.URL, Token: "a-token-for-tests", User: ""}
 
-	seams := wiring.Deps(t.Context(), cfg, wiring.Workspace{Root: t.TempDir(), Remote: ""}).Jira
+	seams := wiring.Deps(t.Context(), cfg, wiring.Workspace{Root: t.TempDir(), Remote: ""}, nil).Jira
 
 	// Act
 	_, searchErr := seams.Search(0)
@@ -212,7 +212,7 @@ func TestTheSlackSeamRefusesAnInsecureWebhookBeforeSending(t *testing.T) {
 	cfg := config.Default()
 	cfg.Slack = config.Slack{Token: "", WebhookURL: "http://hooks.example.com/services/x", Channel: ""}
 
-	seams := wiring.Deps(t.Context(), cfg, wiring.Workspace{Root: t.TempDir(), Remote: ""}).Slack
+	seams := wiring.Deps(t.Context(), cfg, wiring.Workspace{Root: t.TempDir(), Remote: ""}, nil).Slack
 
 	// Act
 	err := seams.Post("", "hi")
@@ -238,7 +238,7 @@ func TestTheEditSeamWritesADraftAndHandsOverTheTerminal(t *testing.T) {
 	drafts := t.TempDir()
 	t.Setenv("TMPDIR", drafts)
 
-	seams := wiring.Deps(t.Context(), config.Default(), wiring.Workspace{Root: t.TempDir(), Remote: ""}).Editor
+	seams := wiring.Deps(t.Context(), config.Default(), wiring.Workspace{Root: t.TempDir(), Remote: ""}, nil).Editor
 	finished := false
 
 	// Act
@@ -270,7 +270,7 @@ func TestTheOpenSeamHandsOverTheTerminal(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	seams := wiring.Deps(t.Context(), config.Default(), wiring.Workspace{Root: root, Remote: ""}).Editor
+	seams := wiring.Deps(t.Context(), config.Default(), wiring.Workspace{Root: root, Remote: ""}, nil).Editor
 	finished := false
 
 	// Act

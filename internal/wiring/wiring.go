@@ -54,15 +54,16 @@ func Locate(ctx context.Context, dir string) Workspace {
 }
 
 // Deps connects the interface to the real Jira, repository, forge, Slack,
-// lefthook and editor.
-func Deps(ctx context.Context, cfg config.Config, where Workspace) tui.Deps {
+// lefthook and editor. A non-nil log records the outline of every request each
+// service makes.
+func Deps(ctx context.Context, cfg config.Config, where Workspace, log *RequestLog) tui.Deps {
 	timeout := requestTimeout(cfg)
 
 	return tui.Deps{
-		Jira:       jiraDeps(ctx, cfg.Jira, timeout),
+		Jira:       jiraDeps(ctx, cfg.Jira, timeout, log),
 		Git:        gitDeps(ctx, where.Root),
-		Forge:      forgeDeps(ctx, cfg.Forge, where, timeout),
-		Slack:      slackDeps(ctx, cfg.Slack, timeout),
+		Forge:      forgeDeps(ctx, cfg.Forge, where, timeout, log),
+		Slack:      slackDeps(ctx, cfg.Slack, timeout, log),
 		Hooks:      hookDeps(ctx, where.Root),
 		Editor:     editorDeps(where.Root),
 		Clock:      nil,
@@ -83,9 +84,10 @@ func requestTimeout(cfg config.Config) time.Duration {
 // jiraDeps is what the interface asks of Jira. It needs no guard for a missing
 // or malformed configuration: the client refuses before sending anything, and
 // the pane shows why.
-func jiraDeps(ctx context.Context, settings config.Jira, timeout time.Duration) tui.JiraDeps {
+func jiraDeps(ctx context.Context, settings config.Jira, timeout time.Duration, log *RequestLog) tui.JiraDeps {
 	settings.Token, _, _ = ResolveToken(ctx, settings.Token, settings.TokenCommand, settings.TokenEnv)
-	client := jira.New(jira.HTTPClient(timeout).Do, settings)
+	//nolint:bodyclose // Wrap only relays the response; the jira client reads and closes its body.
+	client := jira.New(log.Wrap("jira", jira.HTTPClient(timeout).Do), settings)
 
 	return tui.JiraDeps{
 		Search: func(startAt int) (jira.SearchResult, error) { return client.Search(ctx, jira.AssignedToMe, startAt) },
@@ -185,8 +187,12 @@ type forgeConnection struct {
 }
 
 // forgeDeps is what the interface asks of GitHub or GitLab.
-func forgeDeps(ctx context.Context, settings config.Forge, where Workspace, timeout time.Duration) tui.ForgeDeps {
-	connect := onceConnected(func() (forgeConnection, error) { return connectForge(ctx, settings, where.Remote, timeout) })
+func forgeDeps(
+	ctx context.Context, settings config.Forge, where Workspace, timeout time.Duration, log *RequestLog,
+) tui.ForgeDeps {
+	connect := onceConnected(func() (forgeConnection, error) {
+		return connectForge(ctx, settings, where.Remote, timeout, log)
+	})
 
 	return tui.ForgeDeps{
 		FindPullRequest: func(branch string) (forge.PullRequest, bool, error) {
@@ -284,7 +290,7 @@ func onceConnected(connect func() (forgeConnection, error)) func() (forgeConnect
 // connectForge finds the forge the remote points at and the token for it, the
 // same way doctor --online does.
 func connectForge(
-	ctx context.Context, settings config.Forge, remote string, timeout time.Duration,
+	ctx context.Context, settings config.Forge, remote string, timeout time.Duration, log *RequestLog,
 ) (forgeConnection, error) {
 	repo, err := forge.ParseRemote(remote)
 	if err != nil {
@@ -310,7 +316,10 @@ func connectForge(
 		return forgeConnection{}, err
 	}
 
-	return forgeConnection{client: forge.New(forge.HTTPClient(timeout).Do, base, token), repo: repo}, nil
+	//nolint:bodyclose // Wrap only relays the response; the forge client reads and closes its body.
+	client := forge.New(log.Wrap("forge", forge.HTTPClient(timeout).Do), base, token)
+
+	return forgeConnection{client: client, repo: repo}, nil
 }
 
 // templatesFor reads the repository's pull request templates, where its forge
@@ -330,9 +339,10 @@ func templatesFor(settings config.Forge, where Workspace) []forge.Template {
 }
 
 // slackDeps is what the interface asks of Slack.
-func slackDeps(ctx context.Context, settings config.Slack, timeout time.Duration) tui.SlackDeps {
+func slackDeps(ctx context.Context, settings config.Slack, timeout time.Duration, log *RequestLog) tui.SlackDeps {
 	settings.Token, _, _ = ResolveToken(ctx, settings.Token, settings.TokenCommand, settings.TokenEnv)
-	client := slack.New(slack.HTTPClient(timeout).Do, slack.APIBase, settings)
+	//nolint:bodyclose // Wrap only relays the response; the slack client reads and closes its body.
+	client := slack.New(log.Wrap("slack", slack.HTTPClient(timeout).Do), slack.APIBase, settings)
 
 	return tui.SlackDeps{Post: func(channel, text string) error { return client.Post(ctx, channel, text) }}
 }

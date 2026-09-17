@@ -97,7 +97,10 @@ func Execute(args []string, stdout, stderr io.Writer) error {
 
 // NewRootCmd builds the command tree. Bare `workflow` opens the TUI.
 func NewRootCmd() *cobra.Command {
-	var dryRun bool
+	var (
+		dryRun  bool
+		logFile string
+	)
 
 	root := &cobra.Command{
 		Use:           "workflow",
@@ -116,7 +119,13 @@ func NewRootCmd() *cobra.Command {
 				return fmt.Errorf("determining the working directory: %w", err)
 			}
 
-			model := tui.New(cfg, loadErr, wiring.Deps(ctx, cfg, wiring.Locate(ctx, dir)))
+			requestLog, closeLog, err := openRequestLog(logFile)
+			if err != nil {
+				return err
+			}
+			defer closeLog()
+
+			model := tui.New(cfg, loadErr, wiring.Deps(ctx, cfg, wiring.Locate(ctx, dir), requestLog))
 			if dryRun {
 				model = model.WithDryRun()
 			}
@@ -127,10 +136,33 @@ func NewRootCmd() *cobra.Command {
 
 	root.Flags().BoolVar(&dryRun, "dry-run", false,
 		"hold back every write to Jira, the forge, Slack, git and files, and say what it would have done")
+	root.Flags().StringVar(&logFile, "log", "",
+		"append a one-line outline of each request (method, path, status, duration) to FILE, for a bug report")
 
 	root.AddCommand(newConfigCmd(), newDoctorCmd())
 
 	return root
+}
+
+// logFileMode is the permission a request log is created with. Like the
+// configuration, it is the user's own file and nobody else's to read.
+const logFileMode os.FileMode = 0o600
+
+// openRequestLog opens the request-outline log named by path. An empty path
+// means no logging: the log is nil and the returned close is a no-op, so the
+// caller wires and closes it the same way either way.
+func openRequestLog(path string) (*wiring.RequestLog, func(), error) {
+	if path == "" {
+		return nil, func() {}, nil
+	}
+
+	//nolint:gosec // the path is the user's own --log argument, by design.
+	file, err := os.OpenFile(path, os.O_CREATE|os.O_APPEND|os.O_WRONLY, logFileMode)
+	if err != nil {
+		return nil, func() {}, fmt.Errorf("opening the request log: %w", err)
+	}
+
+	return wiring.NewRequestLog(file, nil), func() { _ = file.Close() }, nil
 }
 
 // loadFromEnvironment loads the configuration that applies to this process,
