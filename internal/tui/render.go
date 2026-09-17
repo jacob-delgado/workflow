@@ -48,10 +48,16 @@ func (m Model) View() string {
 	return lipgloss.JoinVertical(lipgloss.Left, append(rows, m.footer(shape.Footer.Width))...)
 }
 
-// noticeLine is the one-row report of what just happened, above the hints, cut
-// with a mark rather than silently where it does not fit.
+// noticeLine is the one-row report above the hints — the issue filter while it
+// is active, otherwise what just happened — cut with a mark rather than silently
+// where it does not fit.
 func (m Model) noticeLine(width int) string {
-	return ansi.Truncate(" "+sanitize.Text(m.notice), width, m.marks.ellipsis)
+	text := m.notice
+	if m.showsFilter() {
+		text = "filter: " + m.issues.filter
+	}
+
+	return ansi.Truncate(" "+sanitize.Text(text), width, m.marks.ellipsis)
 }
 
 // railRuleRows is the one shared-rule row each rail pane's box holds above its

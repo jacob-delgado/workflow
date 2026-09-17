@@ -189,11 +189,19 @@ func (m Model) handleKey(msg tea.KeyMsg) (Model, tea.Cmd) {
 		return m, tea.Quit
 	case m.overlay != nil:
 		return m.overlay.handleKey(m, msg)
+	case m.filteringIssues():
+		return m.handleIssueFilterKey(msg)
 	case m.helpOpen:
 		return m.handleHelpKey(msg)
 	default:
 		return m.handleGlobalKey(msg)
 	}
+}
+
+// filteringIssues reports that the Issues pane is capturing keystrokes into its
+// filter, which takes every key — q and the digits included — until it closes.
+func (m Model) filteringIssues() bool {
+	return m.focus == paneIssues && m.issues.filtering
 }
 
 // handleHelpKey answers a key while the help is open, which scrolls on a
@@ -271,9 +279,11 @@ func (m Model) scrollDetail(delta int) Model {
 	return m
 }
 
-// focusOn moves focus to a pane, with its detail scrolled to the top.
+// focusOn moves focus to a pane, with its detail scrolled to the top. Leaving
+// the Issues pane cancels any filter, so it never narrows a list you cannot see.
 func (m Model) focusOn(target pane) Model {
 	m.focus, m.scroll = target, 0
+	m.issues = m.issues.clearFilter()
 
 	return m
 }
@@ -301,9 +311,16 @@ func (m Model) navigates(msg tea.KeyMsg) bool {
 // spine, a body row, the notice and the footer.
 const minNoticeHeight = 4
 
-// showsNotice reports a notice that has room for its own row above the hints.
+// showsNotice reports a notice — or the issue filter — that has room for its own
+// row above the hints.
 func (m Model) showsNotice() bool {
-	return m.notice != "" && m.height >= minNoticeHeight
+	return (m.notice != "" || m.showsFilter()) && m.height >= minNoticeHeight
+}
+
+// showsFilter reports that the Issues pane's filter should be shown on its own
+// row, which is whenever it is being typed or is still narrowing the list.
+func (m Model) showsFilter() bool {
+	return m.focus == paneIssues && (m.issues.filtering || m.issues.filter != "")
 }
 
 // shape is the layout for the terminal as it is now, a row shorter when a notice

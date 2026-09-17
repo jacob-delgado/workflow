@@ -146,6 +146,62 @@ func TestIssuesPaneListsTheAssignedIssues(t *testing.T) {
 	requireScreen(t, view, "▸ ◐ OPS-1 Fix login", "○ OPS-2 Rotate keys")
 }
 
+func TestSlashFiltersTheIssueListAsYouType(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	listed := issuesScreen(t, assigned(
+		issue("OPS-1", "Fix login", "indeterminate"), issue("OPS-2", "Rotate keys", "new")))
+
+	// Act: open the filter and narrow to the second issue
+	filtered := typing(t, listed, "/", "R", "o", "t")
+
+	// Assert: only the match shows, and the filter is on the bottom row
+	requireScreen(t, filtered.View(), "OPS-2 Rotate keys", "filter: Rot")
+	refuseScreen(t, filtered.View(), "OPS-1")
+
+	// Act: esc restores the full list
+	restored := typing(t, filtered, keyEsc)
+
+	// Assert: the whole list is back and the filter row is gone
+	requireScreen(t, restored.View(), "OPS-1 Fix login", "OPS-2 Rotate keys")
+	refuseScreen(t, restored.View(), "filter:")
+}
+
+func TestFilteringToNothingSaysSoAndBackspaceWidensIt(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	listed := issuesScreen(t, assigned(
+		issue("OPS-1", "Fix issue", "indeterminate"), issue("OPS-2", "Fix bug", "new")))
+
+	// Act: narrow past any match
+	empty := typing(t, listed, "/", "F", "i", "x", "z")
+
+	// Assert: the list says nothing matches
+	requireScreen(t, empty.View(), "no issue matches the filter")
+
+	// Act: backspace back to a match
+	widened := typing(t, empty, "backspace")
+
+	// Assert: both issues return under the shorter filter
+	requireScreen(t, widened.View(), "OPS-1 Fix issue", "OPS-2 Fix bug", "filter: Fix")
+}
+
+func TestArrowsMoveAndEnterKeepsTheFilter(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	listed := issuesScreen(t, assigned(
+		issue("OPS-1", "Fix issue", "indeterminate"), issue("OPS-2", "Fix bug", "new")))
+
+	// Act
+	result := typing(t, listed, "/", "F", "i", "x", "down", "enter")
+
+	// Assert
+	requireScreen(t, result.View(), "▸ ○ OPS-2 Fix bug", "filter: Fix")
+}
+
 func TestIssuesPaneSaysWhenNothingIsAssigned(t *testing.T) {
 	t.Parallel()
 

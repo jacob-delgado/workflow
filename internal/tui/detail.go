@@ -177,8 +177,21 @@ func (m Model) handleIssuesKey(msg tea.KeyMsg) (Model, tea.Cmd) {
 		return m.startComment()
 	case key.Matches(msg, m.keys.branchForIssue):
 		return m.openBranchCreator()
+	case key.Matches(msg, m.keys.filter):
+		m.issues = m.issues.beginFilter()
+
+		return m, nil
 	case key.Matches(msg, m.keys.refresh):
 		return m.refreshIssues()
+	default:
+		return m.handleIssueViewingKey(msg)
+	}
+}
+
+// handleIssueViewingKey answers the keys that, in the collapsed layout, read the
+// selected issue in full or return to scanning the list.
+func (m Model) handleIssueViewingKey(msg tea.KeyMsg) (Model, tea.Cmd) {
+	switch {
 	case key.Matches(msg, m.keys.confirm):
 		m.issues.viewing = true
 
@@ -187,6 +200,43 @@ func (m Model) handleIssuesKey(msg tea.KeyMsg) (Model, tea.Cmd) {
 		m.issues.viewing = false
 
 		return m, nil
+	default:
+		return m, nil
+	}
+}
+
+// handleIssueFilterKey builds the filter from keystrokes: printable runes extend
+// it, enter keeps it applied so the narrowed list can be navigated, and esc
+// cancels it and restores the whole list. The arrow keys still move the
+// selection, so the list can be filtered and scanned at once.
+func (m Model) handleIssueFilterKey(msg tea.KeyMsg) (Model, tea.Cmd) {
+	//nolint:exhaustive // tea.KeyType has scores of values; the default handles all but the few that edit the filter.
+	switch msg.Type {
+	case tea.KeyEsc:
+		m.issues = m.issues.clearFilter()
+
+		return m.loadDetail()
+	case tea.KeyEnter:
+		m.issues = m.issues.confirmFilter()
+
+		return m, nil
+	case tea.KeyDown:
+		return m.moveIssue(1)
+	case tea.KeyUp:
+		return m.moveIssue(-1)
+	case tea.KeyBackspace:
+		m.issues = m.issues.trimFilter()
+
+		return m.loadDetail()
+	case tea.KeyRunes, tea.KeySpace:
+		text := string(msg.Runes)
+		if msg.Type == tea.KeySpace {
+			text = " "
+		}
+
+		m.issues = m.issues.extendFilter(text)
+
+		return m.loadDetail()
 	default:
 		return m, nil
 	}
