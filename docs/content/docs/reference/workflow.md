@@ -80,7 +80,8 @@ workflow [flags]
 ### Options
 
 ```
-  -h, --help   help for workflow
+      --dry-run   hold back every write to Jira, the forge, Slack, git and files, and say what it would have done
+  -h, --help      help for workflow
 ```
 
 ### SEE ALSO
