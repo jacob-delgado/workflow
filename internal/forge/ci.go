@@ -25,6 +25,10 @@ type CI struct {
 	Total, Done, Failed int
 }
 
+// succeeded is what GitHub's statuses, its check runs and GitLab's pipelines all
+// call a pass.
+const succeeded = "success"
+
 // ciTally counts checks toward a CI.
 type ciTally struct {
 	total, done, failed int
@@ -36,7 +40,7 @@ func (t *ciTally) status(state string) {
 	t.total++
 
 	switch state {
-	case "success":
+	case succeeded:
 		t.done++
 	case "error", "failure":
 		t.done++
@@ -47,6 +51,10 @@ func (t *ciTally) status(state string) {
 }
 
 // run counts one GitHub check run. Only a completed run has a conclusion.
+//
+// The conclusions that pass are named and every other one fails, including one
+// GitHub adds later: announcing green on a conclusion nobody has heard of is
+// the worse mistake.
 func (t *ciTally) run(status, conclusion string) {
 	t.total++
 
@@ -58,10 +66,8 @@ func (t *ciTally) run(status, conclusion string) {
 
 	t.done++
 
-	failing := map[string]bool{
-		"failure": true, "canceled": true, "timed_out": true, "action_required": true, "startup_failure": true,
-	}
-	if failing[conclusion] {
+	passing := map[string]bool{succeeded: true, "neutral": true, "skipped": true}
+	if !passing[conclusion] {
 		t.failed++
 	}
 }
