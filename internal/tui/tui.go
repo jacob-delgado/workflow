@@ -52,6 +52,9 @@ type Model struct {
 	runs int
 	// draft is the commit message last composed and not yet committed.
 	draft commitDraft
+	// prDraft is the pull request last composed and not yet opened, kept per
+	// branch so a failed push or an esc does not lose it.
+	prDraft prDraft
 
 	// overlay takes the keyboard while it is open; nil when none is.
 	overlay overlay
