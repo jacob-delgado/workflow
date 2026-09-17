@@ -204,6 +204,9 @@ func (m Model) footer(width int) string {
 	text := m.notice
 	if text == "" {
 		keys := help.New()
+		keys.Styles.ShortKey = m.styles.strong
+		keys.Styles.ShortDesc = m.styles.label
+		keys.Styles.ShortSeparator = m.styles.label
 		keys.ShortSeparator, keys.Ellipsis = m.marks.helpSeparator, m.marks.ellipsis
 		// Keys that do not fit are dropped whole, and an ellipsis says so.
 		// Truncating stays as the backstop for a notice, and for a width too

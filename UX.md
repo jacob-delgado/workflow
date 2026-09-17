@@ -53,7 +53,7 @@ one of them yet, which makes this table the shortest summary of the file.
 | --- | --- | --- |
 | "a key it does not show does nothing" | `docs/content/docs/usage.md:55` | No. Ten keys work unseen. UX-32 |
 | "`?` lists every key" | `docs/content/docs/usage.md:56` | No. Eleven bindings are missing. UX-33 |
-| "the one way the interface says something broke" | `failure`, `internal/tui/render.go:272` | In 7 places of about 20. |
+| "the one way the interface says something broke" | `failure`, `internal/tui/render.go:275` | In 7 places of about 20. |
 | "Nothing outward facing is sent without" a last look | `internal/tui/comment.go:43` | Mostly. |
 | "a refused change must never go unseen" | `internal/tui/picker.go:184` | In one overlay of seven. |
 | "Each pane fails on its own" | `docs/content/docs/usage.md:58` | Yes, and it is the best thing about the first run. |
@@ -245,24 +245,6 @@ taken from the terminal's own palette so the user's theme decides the shades;
 shape for state (`○ ◐ ● ✗`); border weight for focus; red for failure and
 nothing else. None of that should change. The entries below are places where
 the system is not applied, or where two of its channels disagree.
-
-### UX-42 Bring the bottom row into the palette, and up in contrast
-
-Impact: high · Effort: small
-
-- Today: the bottom row is the interface's teaching surface, and it is the
-  dimmest thing on the screen. It is drawn by the help component with its
-  default styles (`help.New()`, `internal/tui/render.go`), which are fixed
-  grays chosen by probing the background: `#626262` for keys and `#4A4A4A`
-  for descriptions on a dark terminal. Against black that is a contrast of
-  about 3.4:1 and 2.4:1, where 4.5:1 is the usual floor for text. It is also
-  the only color on screen that does not come from the user's palette.
-- Instead: keys in the default foreground and bold, descriptions in the faint
-  style the labels already use. Both inherit the theme.
-- Touches: `internal/tui/render.go` (`footer`), `internal/tui/glyphs.go`
-  (`styles`).
-- Done when: the bottom row uses only the terminal's own foreground, bold and
-  faint.
 
 ### UX-43 Do not whisper the instructions
 
