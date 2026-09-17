@@ -132,7 +132,7 @@ func TestStructuredTurnsPlainCommandsIntoOrderedJobs(t *testing.T) {
 		}
 	}
 
-	want := []hooks.File{{Path: ".lefthook/commit-msg/commit-msg", Contents: complexCommitMsg, Executable: true}}
+	want := []hooks.File{{Path: ".lefthook/commit-msg/commit-msg", Contents: complexCommitMsg}}
 	if !slices.Equal(generated.Scripts, want) {
 		t.Errorf("Scripts = %+v, want %+v", generated.Scripts, want)
 	}

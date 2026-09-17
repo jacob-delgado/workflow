@@ -28,9 +28,8 @@ type GitHook struct {
 // File is a file a generated configuration needs written.
 type File struct {
 	// Path is relative to the repository root.
-	Path       string
-	Contents   string
-	Executable bool
+	Path     string
+	Contents string
 }
 
 // Generated is a lefthook configuration and the scripts it runs.
@@ -127,7 +126,7 @@ func generate(hooks []GitHook, convert bool) Generated {
 
 		appendPair(document, hook.Name, scriptHook(hook))
 		scripts = append(scripts, File{
-			Path: path.Join(".lefthook", hook.Name, hook.Name), Contents: hook.Script, Executable: true,
+			Path: path.Join(".lefthook", hook.Name, hook.Name), Contents: hook.Script,
 		})
 	}
 
