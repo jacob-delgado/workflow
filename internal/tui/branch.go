@@ -228,7 +228,16 @@ func (c branchCreator) view(width, _ int) (string, string) {
 		lines = append(lines, "", c.marks.failed+" "+c.problem.Error())
 	}
 
-	return "New branch", strings.Join(lines, "\n")
+	return c.title(), strings.Join(lines, "\n")
+}
+
+// title names the creator for the issue it is for, when it is for one.
+func (c branchCreator) title() string {
+	if c.forIssue {
+		return "New branch for " + c.issue.Key
+	}
+
+	return "New branch"
 }
 
 // start says where the branch will begin.
@@ -311,7 +320,7 @@ func (msg branchCreated) apply(m Model) (Model, tea.Cmd) {
 		return m, nil
 	}
 
-	m = m.closeOverlay().noticed(m.marks.done + " switched to " + msg.name)
+	m = m.closeOverlay().noticed(m.marks.done + " created and switched to " + msg.name)
 
 	return m, tea.Batch(m.loadBranch(), m.loadChanges())
 }

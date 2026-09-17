@@ -151,7 +151,7 @@ func TestBOpensABranchNamedForTheSelectedIssue(t *testing.T) {
 	created := typing(t, creator, keyEnter)
 
 	// Assert: git created it, and the branch was read again
-	requireScreen(t, created.View(), "● switched to fix/PROJ-412-fix-token-redaction")
+	requireScreen(t, created.View(), "● created and switched to fix/PROJ-412-fix-token-redaction")
 
 	if calls := branching.asked("create"); len(calls) != 1 || calls[0] != "create "+featureName+" from origin/main" {
 		t.Errorf("create calls = %q", calls)
@@ -206,7 +206,7 @@ func TestABranchWithoutABaseStartsFromHere(t *testing.T) {
 	created := typing(t, creator, append(letters("spike"), keyEnter)...)
 
 	// Assert: git created it from here
-	requireScreen(t, created.View(), "● switched to spike")
+	requireScreen(t, created.View(), "● created and switched to spike")
 
 	if calls := branching.asked("create"); len(calls) != 1 || calls[0] != "create spike from " {
 		t.Errorf("create calls = %q", calls)
@@ -343,4 +343,27 @@ func TestADryRunPushIsOnlyDescribed(t *testing.T) {
 	if calls := dry.asked("push"); len(calls) != 0 {
 		t.Errorf("a dry run pushed: %q", calls)
 	}
+}
+
+func TestBranchingForAnIssueNamesTheIssueThroughout(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	branching := newWorld()
+	onIssues := branching.live(t, 160, 40)
+
+	// Act & Assert: the Issues pane key names the issue
+	requireScreen(t, footerLine(onIssues.View()), "b branch for PROJ-412")
+
+	// Act: open the creator
+	creator := typing(t, onIssues, "b")
+
+	// Assert: its title names the issue
+	requireScreen(t, creator.View(), "┏━ New branch for PROJ-412")
+
+	// Act: create the branch
+	created := typing(t, creator, keyEnter)
+
+	// Assert: the notice says both things that happened
+	requireScreen(t, created.View(), "● created and switched to fix/PROJ-412-fix-token-redaction")
 }
