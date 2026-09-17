@@ -53,7 +53,7 @@ one of them yet, which makes this table the shortest summary of the file.
 | --- | --- | --- |
 | "a key it does not show does nothing" | `docs/content/docs/usage.md:55` | No. Ten keys work unseen. |
 | "`?` lists every key" | `docs/content/docs/usage.md:56` | No. Eleven bindings are missing. |
-| "the one way the interface says something broke" | `failure`, `internal/tui/render.go:278` | In 7 places of about 20. |
+| "the one way the interface says something broke" | `failure`, `internal/tui/render.go:279` | In 7 places of about 20. |
 | "Nothing outward facing is sent without" a last look | `internal/tui/comment.go:43` | Mostly. |
 | "a refused change must never go unseen" | `internal/tui/picker.go:184` | In one overlay of seven. |
 | "Each pane fails on its own" | `docs/content/docs/usage.md:58` | Yes, and it is the best thing about the first run. |
@@ -72,27 +72,6 @@ one of them yet, which makes this table the shortest summary of the file.
 ## Slack
 
 ## Across the interface
-
-### UX-34 Let a message stay long enough to be read
-
-Impact: high · Effort: medium
-
-- Today: every result ("● opened #42 https://…", "● posted to #dev", "✗ CI
-  failed, so nothing was posted") is one line that replaces the key hints,
-  is cut at the terminal's width with no mark, and is cleared by the next key
-  press of any kind (`Model.footer`, `internal/tui/render.go`;
-  `handleKey`, `internal/tui/tui.go`). Pressing `j` to look around erases the
-  only record of what just happened. `m` changes mouse capture and shows
-  nothing at all.
-- Instead: give notices their own row above the hints when there is height
-  for it. Clear one when the next action starts, not on the next key. Write
-  anything that matters later (a dropped post, a failed push) into its pane
-  as well. `m` says what it did: "mouse off: your terminal selects text
-  again".
-- Touches: `internal/tui/render.go`, `internal/tui/tui.go`,
-  `internal/tui/overlay.go` (`noticed`), `internal/tui/layout/layout.go`.
-- Done when: a notice survives `j`, `k` and `tab`, and the key hints stay
-  visible beside it.
 
 ## The visual system
 

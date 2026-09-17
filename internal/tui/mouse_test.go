@@ -187,13 +187,14 @@ func TestClickingARunsFailuresPicksOne(t *testing.T) {
 func TestTheMouseSettingDecidesWhetherItIsCaptured(t *testing.T) {
 	t.Parallel()
 
-	// m flips capture from wherever the setting started it.
+	// m flips capture from wherever the setting started it, and says what it did.
 	cases := map[string]struct {
-		mouse bool
-		want  string
+		mouse  bool
+		want   string
+		notice string
 	}{
-		"captured":     {mouse: true, want: messageType(tea.DisableMouse)},
-		"not captured": {mouse: false, want: messageType(tea.EnableMouseCellMotion)},
+		"captured":     {mouse: true, want: messageType(tea.DisableMouse), notice: "mouse off"},
+		"not captured": {mouse: false, want: messageType(tea.EnableMouseCellMotion), notice: "mouse on"},
 	}
 
 	for name, tt := range cases {
@@ -203,14 +204,17 @@ func TestTheMouseSettingDecidesWhetherItIsCaptured(t *testing.T) {
 			// Arrange
 			cfg := completeConfig()
 			cfg.UI.Mouse = tt.mouse
+			model := sized(t, tui.New(cfg, nil, tui.Deps{}), 120, 40)
 
 			// Act
-			_, cmd := tui.New(cfg, nil, tui.Deps{}).Update(keyMsg("m"))
+			after, cmd := model.Update(keyMsg("m"))
 
 			// Assert
 			if got := messageType(cmd); got != tt.want {
 				t.Errorf("m returned %s, want %s", got, tt.want)
 			}
+
+			requireScreen(t, concrete(t, after).View(), tt.notice)
 		})
 	}
 }

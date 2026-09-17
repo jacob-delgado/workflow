@@ -55,6 +55,9 @@ workflow --dry-run  # the same, with every write held back
   with the pane and with what that pane has loaded. On a narrow terminal the
   keys that do not fit are dropped whole and an ellipsis says so. `?` lists
   every key.
+- **A result** — a push sent, a post made, a change refused — appears on its
+  own row above the keys, where it stays while you look around and clears when
+  the next action starts.
 
 Each pane fails on its own. A Jira that cannot be reached puts its reason in
 the Issues pane, and the repository panes carry on.

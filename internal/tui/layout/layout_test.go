@@ -29,6 +29,22 @@ func TestComputeReservesASpineAndAFooter(t *testing.T) {
 	}
 }
 
+func TestComputeWithNoticeReservesARowAboveTheFooter(t *testing.T) {
+	t.Parallel()
+
+	// Act
+	shape, notice := layout.ComputeWithNotice(120, 40, railPanes, 0)
+
+	// Assert
+	// The notice sits just above the footer, the footer stays at the bottom, and
+	// the body loses exactly the notice's row.
+	plain := layout.Compute(120, 40, railPanes, 0)
+	if notice.Y != 38 || shape.Footer.Y != 39 || shape.Detail.Height != plain.Detail.Height-1 {
+		t.Errorf("ComputeWithNotice = notice %+v, footer %+v, detail %+v; want a row reserved above a bottom footer",
+			notice, shape.Footer, shape.Detail)
+	}
+}
+
 func TestEightyColumnsKeepsTheRailBesideTheDetail(t *testing.T) {
 	t.Parallel()
 

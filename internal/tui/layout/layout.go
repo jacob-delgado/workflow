@@ -85,6 +85,21 @@ func Compute(width, height, railPanes, focused int) Layout {
 	return result
 }
 
+// noticeRows is the one row a notice takes above the footer.
+const noticeRows = 1
+
+// ComputeWithNotice is Compute with a row reserved for a notice above the
+// footer: the body shrinks by that row so the rail and detail stay aligned, the
+// notice takes the row the footer would have had, and the footer moves to the
+// true bottom. It returns the layout and the notice's box.
+func ComputeWithNotice(width, height, railPanes, focused int) (Layout, Box) {
+	result := Compute(width, height-noticeRows, railPanes, focused)
+	notice := Box{X: 0, Y: result.Footer.Y, Width: width, Height: noticeRows}
+	result.Footer.Y = max(0, height-footerRows)
+
+	return result, notice
+}
+
 // Collapsed reports whether the rail was dropped for lack of width.
 func (l Layout) Collapsed() bool {
 	return len(l.Rail) == 0
