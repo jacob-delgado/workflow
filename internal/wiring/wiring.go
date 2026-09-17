@@ -56,24 +56,35 @@ func Locate(ctx context.Context, dir string) Workspace {
 // Deps connects the interface to the real Jira, repository, forge, Slack,
 // lefthook and editor.
 func Deps(ctx context.Context, cfg config.Config, where Workspace) tui.Deps {
+	timeout := requestTimeout(cfg)
+
 	return tui.Deps{
-		Jira:   jiraDeps(ctx, cfg.Jira),
-		Git:    gitDeps(ctx, where.Root),
-		Forge:  forgeDeps(ctx, cfg.Forge, where),
-		Slack:  slackDeps(ctx, cfg.Slack),
-		Hooks:  hookDeps(ctx, where.Root),
-		Editor: editorDeps(where.Root),
-		Clock:  nil,
-		// The default interval, which Deps documents.
-		CIInterval: 0,
+		Jira:       jiraDeps(ctx, cfg.Jira, timeout),
+		Git:        gitDeps(ctx, where.Root),
+		Forge:      forgeDeps(ctx, cfg.Forge, where, timeout),
+		Slack:      slackDeps(ctx, cfg.Slack, timeout),
+		Hooks:      hookDeps(ctx, where.Root),
+		Editor:     editorDeps(where.Root),
+		Clock:      nil,
+		CIInterval: cfg.CIInterval(),
 	}
+}
+
+// requestTimeout is the configured per-request timeout, or the default when none
+// is set.
+func requestTimeout(cfg config.Config) time.Duration {
+	if timeout := cfg.RequestTimeout(); timeout > 0 {
+		return timeout
+	}
+
+	return RequestTimeout
 }
 
 // jiraDeps is what the interface asks of Jira. It needs no guard for a missing
 // or malformed configuration: the client refuses before sending anything, and
 // the pane shows why.
-func jiraDeps(ctx context.Context, settings config.Jira) tui.JiraDeps {
-	client := jira.New(jira.HTTPClient(RequestTimeout).Do, settings)
+func jiraDeps(ctx context.Context, settings config.Jira, timeout time.Duration) tui.JiraDeps {
+	client := jira.New(jira.HTTPClient(timeout).Do, settings)
 
 	return tui.JiraDeps{
 		Search: func(startAt int) (jira.SearchResult, error) { return client.Search(ctx, jira.AssignedToMe, startAt) },
@@ -171,8 +182,8 @@ type forgeConnection struct {
 }
 
 // forgeDeps is what the interface asks of GitHub or GitLab.
-func forgeDeps(ctx context.Context, settings config.Forge, where Workspace) tui.ForgeDeps {
-	connect := onceConnected(func() (forgeConnection, error) { return connectForge(ctx, settings, where.Remote) })
+func forgeDeps(ctx context.Context, settings config.Forge, where Workspace, timeout time.Duration) tui.ForgeDeps {
+	connect := onceConnected(func() (forgeConnection, error) { return connectForge(ctx, settings, where.Remote, timeout) })
 
 	return tui.ForgeDeps{
 		FindPullRequest: func(branch string) (forge.PullRequest, bool, error) {
@@ -269,7 +280,9 @@ func onceConnected(connect func() (forgeConnection, error)) func() (forgeConnect
 
 // connectForge finds the forge the remote points at and the token for it, the
 // same way doctor --online does.
-func connectForge(ctx context.Context, settings config.Forge, remote string) (forgeConnection, error) {
+func connectForge(
+	ctx context.Context, settings config.Forge, remote string, timeout time.Duration,
+) (forgeConnection, error) {
 	repo, err := forge.ParseRemote(remote)
 	if err != nil {
 		return forgeConnection{}, fmt.Errorf("reading origin: %w", err)
@@ -294,7 +307,7 @@ func connectForge(ctx context.Context, settings config.Forge, remote string) (fo
 		return forgeConnection{}, err
 	}
 
-	return forgeConnection{client: forge.New(forge.HTTPClient(RequestTimeout).Do, base, token), repo: repo}, nil
+	return forgeConnection{client: forge.New(forge.HTTPClient(timeout).Do, base, token), repo: repo}, nil
 }
 
 // templatesFor reads the repository's pull request templates, where its forge
@@ -314,8 +327,8 @@ func templatesFor(settings config.Forge, where Workspace) []forge.Template {
 }
 
 // slackDeps is what the interface asks of Slack.
-func slackDeps(ctx context.Context, settings config.Slack) tui.SlackDeps {
-	client := slack.New(slack.HTTPClient(RequestTimeout).Do, slack.APIBase, settings)
+func slackDeps(ctx context.Context, settings config.Slack, timeout time.Duration) tui.SlackDeps {
+	client := slack.New(slack.HTTPClient(timeout).Do, slack.APIBase, settings)
 
 	return tui.SlackDeps{Post: func(text string) error { return client.Post(ctx, text) }}
 }
