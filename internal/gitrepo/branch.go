@@ -64,7 +64,7 @@ func (b Branch) Pushed() bool {
 func ReadBranch(ctx context.Context, run Runner, dir string) (Branch, error) {
 	name, err := run(ctx, "git", "-C", dir, "branch", "--show-current")
 	if err != nil {
-		return Branch{}, fmt.Errorf("reading the current branch of %s: %w", dir, err)
+		return Branch{}, readFailure(ctx, run, dir, "reading the current branch of "+dir, err)
 	}
 
 	git := func(args ...string) string {

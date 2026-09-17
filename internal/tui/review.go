@@ -173,6 +173,10 @@ func (m Model) reviewRail(_ int) string {
 
 // reviewDetail describes the pull request, or what opening one needs.
 func (m Model) reviewDetail(width int) string {
+	if m.outsideRepository() {
+		return wrap(notInRepository, width)
+	}
+
 	if !m.review.found {
 		lines := []string{m.reviewRail(0)}
 
@@ -210,6 +214,10 @@ func (m Model) canOpenPullRequest() bool {
 
 // reviewKeys offers opening a pull request, or checking again.
 func (m Model) reviewKeys() []key.Binding {
+	if m.outsideRepository() {
+		return nil
+	}
+
 	if m.canOpenPullRequest() {
 		return []key.Binding{m.keys.newPullRequest, m.keys.refresh}
 	}

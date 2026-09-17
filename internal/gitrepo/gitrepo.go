@@ -38,6 +38,25 @@ type Repo struct {
 	Remote string
 }
 
+// readFailure names a git read that failed: outside a work tree it is
+// ErrNotARepository, whatever git wrote; inside one it is git's own error, so a
+// real fault still reads in full.
+func readFailure(ctx context.Context, run Runner, dir, what string, err error) error {
+	if !withinWorkTree(ctx, run, dir) {
+		return fmt.Errorf("%w: %s", ErrNotARepository, dir)
+	}
+
+	return fmt.Errorf("%s: %w", what, err)
+}
+
+// withinWorkTree reports a directory inside a git work tree, by the same probe
+// Describe uses to find the root.
+func withinWorkTree(ctx context.Context, run Runner, dir string) bool {
+	_, err := run(ctx, "git", "-C", dir, "rev-parse", "--show-toplevel")
+
+	return err == nil
+}
+
 // Describe reads the repository containing dir.
 func Describe(ctx context.Context, run Runner, dir string) (Repo, error) {
 	root, err := run(ctx, "git", "-C", dir, "rev-parse", "--show-toplevel")

@@ -98,7 +98,7 @@ func (c Change) paths() []string {
 func Status(ctx context.Context, run Runner, dir string) ([]Change, error) {
 	out, err := run(ctx, "git", "-C", dir, "status", "--porcelain=v1", "-z", "--untracked-files=all")
 	if err != nil {
-		return nil, fmt.Errorf("reading the status of %s: %w", dir, err)
+		return nil, readFailure(ctx, run, dir, "reading the status of "+dir, err)
 	}
 
 	return parseStatus(string(out)), nil

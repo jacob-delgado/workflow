@@ -98,6 +98,10 @@ func (m Model) commitsRail(_ int) string {
 
 // commitsDetail lists the changed files, then the branch's commits.
 func (m Model) commitsDetail(width int) string {
+	if m.outsideRepository() {
+		return wrap(notInRepository, width)
+	}
+
 	if m.changes.err != nil {
 		return wrap(m.failure(m.changes.err), width)
 	}
@@ -153,6 +157,10 @@ func (m Model) stageGlyph(change gitrepo.Change) string {
 
 // commitsKeys offers what can be done with the changes as they are.
 func (m Model) commitsKeys() []key.Binding {
+	if m.outsideRepository() {
+		return nil
+	}
+
 	var keys []key.Binding
 
 	if _, hasChange := m.changes.current(); hasChange && m.deps.Git.Stage != nil {
