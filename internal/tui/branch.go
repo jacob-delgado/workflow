@@ -77,7 +77,7 @@ func (m Model) branchRail(_ int) string {
 	case !m.branch.loaded:
 		return "loading" + m.marks.ellipsis
 	case m.branch.err != nil:
-		return m.marks.failed + " could not read the branch" + m.marks.separator + "see detail"
+		return m.failedGlyph() + " could not read the branch" + m.marks.separator + "see detail"
 	case m.branch.branch.Detached:
 		return "detached HEAD"
 	}

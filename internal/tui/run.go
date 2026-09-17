@@ -25,10 +25,11 @@ type starter func() (proc.Output, error)
 // a hook. When it fails, every place a tool pointed at can be opened in the
 // editor at its line.
 type commandRun struct {
-	marks glyphs
-	title string
-	id    int
-	start starter
+	marks  glyphs
+	styles styles
+	title  string
+	id     int
+	start  starter
 	// succeeded is what happens once the program exits cleanly; nil keeps the
 	// output on screen until it is closed.
 	succeeded func(m Model) (Model, tea.Cmd)
@@ -49,7 +50,9 @@ var (
 // startRun opens a run and starts its program.
 func (m Model) startRun(title string, start starter, succeeded func(Model) (Model, tea.Cmd)) (Model, tea.Cmd) {
 	m.runs++
-	m.overlay = commandRun{marks: m.marks, title: title, id: m.runs, start: start, succeeded: succeeded}
+	m.overlay = commandRun{
+		marks: m.marks, styles: m.styles, title: title, id: m.runs, start: start, succeeded: succeeded,
+	}
 
 	return m, launch(m.runs, start)
 }
@@ -167,7 +170,7 @@ func (r commandRun) state() string {
 	case !r.done:
 		return r.marks.inFlight + " running" + r.marks.ellipsis
 	case r.err != nil:
-		return r.marks.failed + " " + r.failureHeadline()
+		return failedGlyph(r.styles, r.marks) + " " + r.failureHeadline()
 	default:
 		return r.marks.done + " done"
 	}
@@ -199,7 +202,7 @@ func (r commandRun) jobs() string {
 	for _, job := range parsed {
 		glyph := map[hooks.JobState]string{
 			hooks.JobRunning: r.marks.inFlight, hooks.JobPassed: r.marks.done,
-			hooks.JobFailed: r.marks.failed, hooks.JobSkipped: r.marks.notStarted,
+			hooks.JobFailed: failedGlyph(r.styles, r.marks), hooks.JobSkipped: r.marks.notStarted,
 		}[job.State]
 		parts = append(parts, glyph+" "+job.Name)
 	}

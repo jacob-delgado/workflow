@@ -314,20 +314,33 @@ func (m Model) failure(err error) string {
 		m.styles.label.Render(sanitize.Text(err.Error()))
 }
 
-// failureWithin is failure for a pane: recognized as a sentence like failure,
-// but wrapped to its width first and styled after, so every row opens and
-// closes its own color and none runs on into the border beside it.
-func (m Model) failureWithin(err error, width int) string {
-	glyph := m.marks.failed + " "
-	raw := sanitize.Text(err.Error())
+// failedGlyph is the failure mark in red, so red always means something broke —
+// the free form lets a seam that carries only styles and glyphs redden it too.
+func failedGlyph(sty styles, marks glyphs) string {
+	return sty.failure.Render(marks.failed)
+}
 
+// failedGlyph is failedGlyph for a Model.
+func (m Model) failedGlyph() string {
+	return failedGlyph(m.styles, m.marks)
+}
+
+// failureBlock is an error wrapped to a width and styled per row, so every row
+// opens and closes its own color and none runs on into the border beside it.
+func failureBlock(sty styles, marks glyphs, err error, width int) string {
+	return sty.failure.Render(wrap(marks.failed+" "+sanitize.Text(err.Error()), width))
+}
+
+// failureWithin is failure for a pane: recognized as a sentence like failure,
+// but wrapped to its width first and styled after.
+func (m Model) failureWithin(err error, width int) string {
 	sentence, known := errorSentence(err)
 	if !known {
-		return m.styles.failure.Render(wrap(glyph+raw, width))
+		return failureBlock(m.styles, m.marks, err, width)
 	}
 
-	return m.styles.failure.Render(wrap(glyph+sentence, width)) + "\n" +
-		m.styles.label.Render(wrap(raw, width))
+	return m.styles.failure.Render(wrap(m.marks.failed+" "+sentence, width)) + "\n" +
+		m.styles.label.Render(wrap(sanitize.Text(err.Error()), width))
 }
 
 // plural counts things, in words.

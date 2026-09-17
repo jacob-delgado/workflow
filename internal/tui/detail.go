@@ -136,7 +136,7 @@ func (m Model) resumeIssue() Model {
 
 // issuesRail is the Issues pane's list.
 func (m Model) issuesRail(rows int) string {
-	return m.issues.render(m.marks, rows)
+	return m.issues.render(m.marks, m.styles, rows)
 }
 
 // issuesKeys offers the verbs for the selected issue, when there is one.

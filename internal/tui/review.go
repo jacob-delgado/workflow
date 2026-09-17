@@ -148,7 +148,7 @@ func (ciPoll) apply(m Model) (Model, tea.Cmd) {
 func (m Model) ciGlyph() string {
 	return map[forge.CIState]string{
 		forge.CINone: m.marks.unknown, forge.CIRunning: m.marks.inFlight,
-		forge.CIPassed: m.marks.done, forge.CIFailed: m.marks.failed,
+		forge.CIPassed: m.marks.done, forge.CIFailed: m.failedGlyph(),
 	}[m.review.ci.State]
 }
 
@@ -158,7 +158,7 @@ func (m Model) ciSummary() string {
 
 	switch {
 	case m.review.ciErr != nil:
-		return m.marks.failed + " " + m.review.ciErr.Error()
+		return m.failedGlyph() + " " + m.review.ciErr.Error()
 	case !m.review.checked:
 		return "checking" + m.marks.ellipsis
 	case reported.State == forge.CINone:
@@ -194,7 +194,7 @@ func (m Model) reviewRail(_ int) string {
 	case !m.review.loaded:
 		return "looking" + m.marks.ellipsis
 	case m.review.err != nil:
-		return m.marks.failed + " " + forgeReason(m.review.err)
+		return m.failedGlyph() + " " + forgeReason(m.review.err)
 	case !m.review.found:
 		return "no " + m.vocab.noun + " yet"
 	}

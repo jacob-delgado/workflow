@@ -29,9 +29,9 @@ func (m Model) spine(shape layout.Layout) string {
 
 	for _, each := range stages {
 		if shape.CompactSpine() {
-			parts = append(parts, each.hue.Render(each.glyph))
+			parts = append(parts, m.paintGlyph(each))
 		} else {
-			parts = append(parts, each.hue.Render(each.glyph+" "+each.name))
+			parts = append(parts, m.paintGlyph(each)+each.hue.Render(" "+each.name))
 		}
 	}
 
@@ -45,6 +45,16 @@ func (m Model) spine(shape layout.Layout) string {
 	}
 
 	return ansi.Truncate(joined, shape.Spine.Width, "")
+}
+
+// paintGlyph colors a stage's glyph: red where it failed, so red reads the same
+// on the spine as everywhere else, and the system's own hue otherwise.
+func (m Model) paintGlyph(s stage) string {
+	if s.glyph == m.marks.failed {
+		return m.styles.failure.Render(s.glyph)
+	}
+
+	return s.hue.Render(s.glyph)
 }
 
 // stages works out how far along the loop the work is, from what the panes

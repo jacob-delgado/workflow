@@ -132,13 +132,13 @@ func (m Model) slackState() string {
 	case m.slack.sending:
 		return m.marks.inFlight + " posting" + m.marks.ellipsis
 	case m.slack.err != nil:
-		return m.marks.failed + " " + m.slack.err.Error()
+		return m.failedGlyph() + " " + m.slack.err.Error()
 	case m.announced():
 		return m.marks.done + " posted"
 	case m.slack.pending.waiting():
 		return m.marks.inFlight + " posts when CI passes"
 	case m.slack.dropped != "":
-		return m.marks.failed + " not posted: " + m.slack.dropped
+		return m.failedGlyph() + " not posted: " + m.slack.dropped
 	default:
 		return m.marks.notStarted + " nothing posted"
 	}
@@ -312,7 +312,7 @@ func (m Model) withoutQueuedPost() Model {
 	dropped := m.slack.pending.pull
 	m.slack.pending = queuedPost{}
 
-	return m.noticed(m.marks.failed + " dropped the Slack post waiting for " + m.vocab.sigil + strconv.Itoa(dropped) +
+	return m.noticed(m.failedGlyph() + " dropped the Slack post waiting for " + m.vocab.sigil + strconv.Itoa(dropped) +
 		", which is no longer this branch's " + m.vocab.noun)
 }
 
@@ -334,7 +334,7 @@ func (m Model) postIfGreen() (Model, tea.Cmd) {
 		m.slack.pending = queuedPost{}
 		m.slack.dropped = "CI failed at " + m.deps.now().Format(droppedTimeFormat)
 
-		return m.noticed(m.marks.failed + " CI failed, so nothing was posted to Slack"), nil
+		return m.noticed(m.failedGlyph() + " CI failed, so nothing was posted to Slack"), nil
 	case forge.CINone, forge.CIRunning:
 		return m, nil
 	default:
