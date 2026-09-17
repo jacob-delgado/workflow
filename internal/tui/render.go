@@ -40,7 +40,18 @@ func (m Model) View() string {
 		body = lipgloss.JoinHorizontal(lipgloss.Top, m.rail(shape.Rail), body)
 	}
 
-	return lipgloss.JoinVertical(lipgloss.Left, m.spine(shape), body, m.footer(shape.Footer.Width))
+	rows := []string{m.spine(shape), body}
+	if m.showsNotice() {
+		rows = append(rows, m.noticeLine(shape.Footer.Width))
+	}
+
+	return lipgloss.JoinVertical(lipgloss.Left, append(rows, m.footer(shape.Footer.Width))...)
+}
+
+// noticeLine is the one-row report of what just happened, above the hints, cut
+// with a mark rather than silently where it does not fit.
+func (m Model) noticeLine(width int) string {
+	return ansi.Truncate(" "+sanitize.Text(m.notice), width, m.marks.ellipsis)
 }
 
 // rail draws the stacked panes down the left. The focused one is drawn heavy —
@@ -279,23 +290,23 @@ func wrapLine(line string, width int) []string {
 	return append(lines, current)
 }
 
-// footer draws the keys that matter right now, or reports what just happened.
+// footer draws the keys that matter right now. A notice normally has its own
+// row above this one; only on a terminal too short for that row does the footer
+// stand in and report it, so a result is never lost.
 func (m Model) footer(width int) string {
-	text := m.notice
-	if text == "" {
-		keys := help.New()
-		keys.Styles.ShortKey = m.styles.strong
-		keys.Styles.ShortDesc = m.styles.label
-		keys.Styles.ShortSeparator = m.styles.label
-		keys.ShortSeparator, keys.Ellipsis = m.marks.helpSeparator, m.marks.ellipsis
-		// Keys that do not fit are dropped whole, and an ellipsis says so.
-		// Truncating stays as the backstop for a notice, and for a width too
-		// narrow even for the ellipsis, where help adds the key anyway.
-		keys.Width = width - 1
-		text = keys.ShortHelpView(m.footerKeys())
+	if m.notice != "" && !m.showsNotice() {
+		return ansi.Truncate(" "+sanitize.Text(m.notice), width, m.marks.ellipsis)
 	}
 
-	return ansi.Truncate(" "+text, width, "")
+	keys := help.New()
+	keys.Styles.ShortKey = m.styles.strong
+	keys.Styles.ShortDesc = m.styles.label
+	keys.Styles.ShortSeparator = m.styles.label
+	keys.ShortSeparator, keys.Ellipsis = m.marks.helpSeparator, m.marks.ellipsis
+	// Keys that do not fit are dropped whole, and an ellipsis says so.
+	keys.Width = width - 1
+
+	return ansi.Truncate(" "+keys.ShortHelpView(m.footerKeys()), width, "")
 }
 
 // footerKeys offers the keys that do something where the user is: never a verb

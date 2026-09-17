@@ -464,3 +464,22 @@ func TestReloadIsOfferedInEveryPaneThatReloads(t *testing.T) {
 		})
 	}
 }
+
+func TestANoticeSurvivesMovingAround(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	dry := newWorld()
+	dry.branch.Ahead = 1
+	model := sized(t, dryInterface(dry), 120, 40)
+	model = drain(t, model, model.Init())
+	pushed := typing(t, model, "2", "P", keyEnter)
+
+	// Act
+	after := typing(t, pushed, "j", "k", keyTab)
+	view := after.View()
+
+	// Assert
+	requireScreen(t, view, "dry run: would push "+featureName)
+	requireScreen(t, footerLine(view), "keys")
+}

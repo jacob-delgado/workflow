@@ -161,7 +161,7 @@ func TestTheSelectionFollowsTheMovedIssueThroughARefresh(t *testing.T) {
 	}
 }
 
-func TestTheNoticeGivesWayToTheKeysOnTheNextPress(t *testing.T) {
+func TestTheKeyHintsShowBesideANotice(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
@@ -170,11 +170,14 @@ func TestTheNoticeGivesWayToTheKeysOnTheNextPress(t *testing.T) {
 	screen, _ = finish(t, screen, cmd)
 
 	// Act
-	footer := footerLine(press(t, screen, "j").View())
+	moved := press(t, screen, "j").View()
 
 	// Assert
-	refuseScreen(t, footer, "moved to")
-	requireScreen(t, footer, "quit")
+	// Moving keeps the notice on its own row, while the hints stay in the
+	// footer beside it — the notice does not replace the keys.
+	requireScreen(t, moved, "is now")
+	refuseScreen(t, footerLine(moved), "is now")
+	requireScreen(t, footerLine(moved), "quit")
 }
 
 func TestARefusedMoveKeepsThePickerOpenToTryAgain(t *testing.T) {

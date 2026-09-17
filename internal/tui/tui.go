@@ -177,7 +177,11 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 // has the keyboard — including q, which a text field needs to type — then the
 // help, then the keys that work everywhere, then the focused pane's own.
 func (m Model) handleKey(msg tea.KeyMsg) (Model, tea.Cmd) {
-	m.notice = ""
+	// A notice is cleared when the next action starts, not by moving around, so
+	// looking about after a result does not erase the record of it.
+	if !m.navigates(msg) {
+		m.notice = ""
+	}
 
 	switch {
 	case key.Matches(msg, m.keys.interrupt):
@@ -267,13 +271,36 @@ func (m Model) focusOn(target pane) Model {
 func (m Model) toggleMouse() (Model, tea.Cmd) {
 	m.mouse = !m.mouse
 	if m.mouse {
-		return m, tea.EnableMouseCellMotion
+		return m.noticed("mouse on: clicks focus panes and pick rows"), tea.EnableMouseCellMotion
 	}
 
-	return m, tea.DisableMouse
+	return m.noticed("mouse off: your terminal selects text again"), tea.DisableMouse
 }
 
-// shape is the layout for the terminal as it is now.
+// navigates reports a key that only moves the view, which keeps a notice rather
+// than clearing it.
+func (m Model) navigates(msg tea.KeyMsg) bool {
+	return key.Matches(msg, m.keys.up, m.keys.down, m.keys.scrollUp, m.keys.scrollDown,
+		m.keys.next, m.keys.previous, m.keys.jump, m.keys.toggleHelp)
+}
+
+// minNoticeHeight is the shortest terminal that gives a notice its own row: a
+// spine, a body row, the notice and the footer.
+const minNoticeHeight = 4
+
+// showsNotice reports a notice that has room for its own row above the hints.
+func (m Model) showsNotice() bool {
+	return m.notice != "" && m.height >= minNoticeHeight
+}
+
+// shape is the layout for the terminal as it is now, a row shorter when a notice
+// takes one above the footer.
 func (m Model) shape() layout.Layout {
+	if m.showsNotice() {
+		result, _ := layout.ComputeWithNotice(m.width, m.height, paneCount, int(m.focus))
+
+		return result
+	}
+
 	return layout.Compute(m.width, m.height, paneCount, int(m.focus))
 }
