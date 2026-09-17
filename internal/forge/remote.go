@@ -57,7 +57,8 @@ func (k Kind) String() string {
 type Repo struct {
 	// Kind is the forge, where the host says which one.
 	Kind Kind
-	// Host is the web host, including a port when the remote named one.
+	// Host is the web host, including an HTTPS remote's port; an SSH remote's
+	// port is SSH's, not the API's, and is not kept.
 	Host string
 	// Path is everything identifying the project on that host. It is not split
 	// into an owner and a name because GitLab nests projects arbitrarily deep,
@@ -89,8 +90,14 @@ func ParseRemote(remote string) (Repo, error) {
 		return Repo{}, ErrNotARemote
 	}
 
-	// address.Host keeps any port; the kind is decided by the name alone.
-	return Repo{Kind: kindOf(address.Hostname()), Host: address.Host, Path: path}, nil
+	// An HTTPS remote's port is the API's port and is kept; an SSH remote's is
+	// SSH's alone, so it is dropped rather than sent to the HTTPS API.
+	host := address.Host
+	if address.Scheme == "ssh" {
+		host = address.Hostname()
+	}
+
+	return Repo{Kind: kindOf(address.Hostname()), Host: host, Path: path}, nil
 }
 
 // normalize rewrites git's scp-style remote into something url.Parse accepts.

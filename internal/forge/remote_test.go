@@ -72,9 +72,11 @@ func TestParseRemote(t *testing.T) {
 			remote: "git@git.example.com:acme/thing.git",
 			want:   forge.Repo{Kind: forge.KindUnknown, Host: onPremHost, Path: acmePath},
 		},
-		"a non-standard ssh port is kept on the host": {
+		// An SSH port has nothing to do with the HTTPS API, so it is dropped
+		// from the host rather than leaking into every derived URL.
+		"a non-standard ssh port is dropped from the host": {
 			remote: "ssh://git@git.example.com:2222/acme/thing.git",
-			want:   forge.Repo{Kind: forge.KindUnknown, Host: "git.example.com:2222", Path: acmePath},
+			want:   forge.Repo{Kind: forge.KindUnknown, Host: onPremHost, Path: acmePath},
 		},
 		// url.Parse ACCEPTS this one, with an empty host, so a parser that only
 		// rewrites the user@ form rejects a perfectly good remote.
@@ -212,6 +214,26 @@ func TestRepoAPIBase(t *testing.T) {
 				t.Errorf("APIBase() = %q, %v; want %q, %v", got, err, tt.want, tt.wantErr)
 			}
 		})
+	}
+}
+
+// An SSH remote on a non-standard port names the port for SSH, not for the
+// HTTPS API. The port must not survive into the API's address.
+func TestAnSSHPortDoesNotReachTheAPIBase(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	repo, parseErr := forge.ParseRemote("ssh://git@gitlab.com:2222/group/repo.git")
+	if parseErr != nil {
+		t.Fatalf("ParseRemote() = %v, want nil", parseErr)
+	}
+
+	// Act
+	base, err := repo.APIBase()
+
+	// Assert
+	if err != nil || base != "https://gitlab.com/api/v4" {
+		t.Errorf("APIBase() = %q, %v; want %q, nil", base, err, "https://gitlab.com/api/v4")
 	}
 }
 
