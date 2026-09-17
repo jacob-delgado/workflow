@@ -50,8 +50,11 @@ type verdict struct {
 }
 
 // Post posts text to Slack through whichever transport is configured.
-func (c Client) Post(ctx context.Context, text string) error {
-	transports := map[config.SlackMode]func(context.Context, string) error{
+// Post sends text to Slack, to channel when it is a bot post naming one, or to
+// the configured default otherwise. A webhook carries its own channel, so
+// channel does not apply to it.
+func (c Client) Post(ctx context.Context, channel, text string) error {
+	transports := map[config.SlackMode]func(context.Context, string, string) error{
 		config.SlackBot:     c.postAsBot,
 		config.SlackWebhook: c.postToWebhook,
 	}
@@ -61,13 +64,17 @@ func (c Client) Post(ctx context.Context, text string) error {
 		return ErrNoCredential
 	}
 
-	return post(ctx, text)
+	return post(ctx, channel, text)
 }
 
 // postAsBot posts through chat.postMessage. Slack answers a refusal with 200
 // and ok:false, so the status alone says nothing.
-func (c Client) postAsBot(ctx context.Context, text string) error {
-	message := botMessage{Channel: c.creds.Channel, Text: text, UnfurlLinks: false, UnfurlMedia: false}
+func (c Client) postAsBot(ctx context.Context, channel, text string) error {
+	if channel == "" {
+		channel = c.creds.Channel
+	}
+
+	message := botMessage{Channel: channel, Text: text, UnfurlLinks: false, UnfurlMedia: false}
 	header := http.Header{"Authorization": {"Bearer " + c.creds.Token}}
 
 	body, err := c.postJSON(ctx, c.base+postMessagePath, message, header)
@@ -83,7 +90,7 @@ func (c Client) postAsBot(ctx context.Context, text string) error {
 	}
 
 	if !answer.OK {
-		return fmt.Errorf("%w: %s", ErrPostRefused, rejectionReason(answer.Error, c.creds.Channel))
+		return fmt.Errorf("%w: %s", ErrPostRefused, rejectionReason(answer.Error, channel))
 	}
 
 	return nil
@@ -91,7 +98,7 @@ func (c Client) postAsBot(ctx context.Context, text string) error {
 
 // postToWebhook posts to an incoming webhook, which answers "ok" as plain text,
 // and a refusal as a status with its reason as plain text.
-func (c Client) postToWebhook(ctx context.Context, text string) error {
+func (c Client) postToWebhook(ctx context.Context, _, text string) error {
 	address, err := url.Parse(c.creds.WebhookURL)
 	if err != nil || address.Scheme != "https" || address.Host == "" {
 		// Unwrapped, whatever went wrong: a parse error quotes the URL.

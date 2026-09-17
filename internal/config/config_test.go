@@ -8,6 +8,7 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -180,6 +181,42 @@ func TestUnsetTimingIsZeroSoTheDefaultApplies(t *testing.T) {
 	if cfg.RequestTimeout() != 0 || cfg.CIInterval() != 0 {
 		t.Errorf("default timing = %v / %v, want zero so the caller's default applies",
 			cfg.RequestTimeout(), cfg.CIInterval())
+	}
+}
+
+func TestChannelChoicesListTheDefaultThenTheAlternates(t *testing.T) {
+	t.Parallel()
+
+	cases := map[string]struct {
+		slack config.Slack
+		want  []string
+	}{
+		"a bot with alternates": {
+			slack: config.Slack{Token: botToken, Channel: devChannel, Channels: []string{"#team-b", devChannel, ""}},
+			want:  []string{devChannel, "#team-b"},
+		},
+		"a bot with just its channel": {
+			slack: config.Slack{Token: botToken, Channel: devChannel},
+			want:  []string{devChannel},
+		},
+		"a webhook carries its own channel": {
+			slack: config.Slack{WebhookURL: webhookURL, Channels: []string{"#ignored"}},
+			want:  nil,
+		},
+	}
+
+	for name, tt := range cases {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			// Act
+			got := tt.slack.ChannelChoices()
+
+			// Assert
+			if !slices.Equal(got, tt.want) {
+				t.Errorf("ChannelChoices() = %q, want %q (default first, no blanks or duplicates)", got, tt.want)
+			}
+		})
 	}
 }
 

@@ -330,7 +330,7 @@ func templatesFor(settings config.Forge, where Workspace) []forge.Template {
 func slackDeps(ctx context.Context, settings config.Slack, timeout time.Duration) tui.SlackDeps {
 	client := slack.New(slack.HTTPClient(timeout).Do, slack.APIBase, settings)
 
-	return tui.SlackDeps{Post: func(text string) error { return client.Post(ctx, text) }}
+	return tui.SlackDeps{Post: func(channel, text string) error { return client.Post(ctx, channel, text) }}
 }
 
 // hookDeps is what the interface asks of lefthook — nothing at all when lefthook

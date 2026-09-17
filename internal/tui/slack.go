@@ -44,8 +44,9 @@ const droppedTimeFormat = "15:04"
 // the pull request it was written for, because the one on screen can change
 // while it waits, and a message is only ever sent for the one its writer saw.
 type queuedPost struct {
-	pull int
-	text string
+	pull    int
+	text    string
+	channel string
 }
 
 // waiting reports a post that has not been sent or given up on.
@@ -193,8 +194,16 @@ func (m Model) handleSlackKey(msg tea.KeyMsg) (Model, tea.Cmd) {
 		return m, nil
 	}
 
+	channels := m.cfg.Slack.ChannelChoices()
+
+	channel := ""
+	if len(channels) > 0 {
+		channel = channels[0]
+	}
+
 	m.overlay = slackPreview{
-		marks: m.marks, styles: m.styles, text: m.announcement(), target: m.cfg.Slack.Target(),
+		marks: m.marks, styles: m.styles, text: m.announcement(), fallback: m.cfg.Slack.Target(),
+		channel: channel, channels: channels,
 		noCI: m.review.checked && m.review.ci.State == forge.CINone,
 	}
 
@@ -203,13 +212,28 @@ func (m Model) handleSlackKey(msg tea.KeyMsg) (Model, tea.Cmd) {
 
 // slackPreview is a Slack message about to be posted.
 type slackPreview struct {
-	marks   glyphs
-	styles  styles
-	text    string
-	target  string
-	noCI    bool
-	sending bool
-	err     error
+	marks  glyphs
+	styles styles
+	text   string
+	// fallback is where a post goes when no channel is chosen — a webhook's own
+	// channel, or the note that none is set.
+	fallback string
+	// channel is the chosen bot channel, and channels the ones it can be cycled
+	// through. Both are empty for a webhook, which carries its own channel.
+	channel  string
+	channels []string
+	noCI     bool
+	sending  bool
+	err      error
+}
+
+// destination is where this post will go, as it is shown and as it is sent.
+func (p slackPreview) destination() string {
+	if p.channel != "" {
+		return p.channel
+	}
+
+	return p.fallback
 }
 
 var _ overlay = slackPreview{}
@@ -218,12 +242,13 @@ var _ overlay = slackPreview{}
 // outcome pinned under the title so a long refusal is seen, not clipped.
 func (p slackPreview) view(width, _ int) (string, string) {
 	lines := pinnedOutcome(p.styles, p.marks, p.sending, "posting", p.err, width)
-	lines = append(lines, wrap(p.text, width), "", "to  "+p.target)
+	lines = append(lines, wrap(p.text, width), "", "to  "+p.destination())
 
 	return "Post to Slack", strings.Join(lines, "\n")
 }
 
-// footer offers posting now or when CI passes, another edit, or leaving.
+// footer offers posting now or when CI passes, changing the channel where there
+// is a choice, another edit, or leaving.
 func (p slackPreview) footer(keys keyMap) []key.Binding {
 	if p.sending {
 		return []key.Binding{keys.interrupt}
@@ -232,6 +257,10 @@ func (p slackPreview) footer(keys keyMap) []key.Binding {
 	buttons := []key.Binding{relabel(keys.confirm, "post now")}
 	if !p.noCI {
 		buttons = append(buttons, keys.postWhenGreen)
+	}
+
+	if len(p.channels) > 1 {
+		buttons = append(buttons, relabel(keys.cycleLeft, "change channel"))
 	}
 
 	return append(buttons, keys.edit, relabel(keys.closeOverlay, "discard"))
@@ -244,6 +273,10 @@ func (p slackPreview) handleKey(m Model, msg tea.KeyMsg) (Model, tea.Cmd) {
 		return m, nil
 	case key.Matches(msg, m.keys.closeOverlay):
 		return m.closeOverlay(), nil
+	case key.Matches(msg, m.keys.cycleRight):
+		return p.cycleChannel(m, 1)
+	case key.Matches(msg, m.keys.cycleLeft):
+		return p.cycleChannel(m, -1)
 	case key.Matches(msg, m.keys.edit) && m.deps.Editor.Edit != nil:
 		return m, m.deps.Editor.Edit(p.text, slackHelp, func(text string, err error) tea.Msg {
 			return slackTextEdited{text: text, err: err}
@@ -257,6 +290,19 @@ func (p slackPreview) handleKey(m Model, msg tea.KeyMsg) (Model, tea.Cmd) {
 	}
 }
 
+// cycleChannel moves the destination to the next configured channel, wrapping.
+func (p slackPreview) cycleChannel(m Model, step int) (Model, tea.Cmd) {
+	if len(p.channels) <= 1 {
+		return m, nil
+	}
+
+	current := slices.Index(p.channels, p.channel)
+	p.channel = p.channels[(current+step+len(p.channels))%len(p.channels)]
+	m.overlay = p
+
+	return m, nil
+}
+
 // post posts the message now.
 func (p slackPreview) post(m Model) (Model, tea.Cmd) {
 	if strings.TrimSpace(p.text) == "" {
@@ -264,13 +310,13 @@ func (p slackPreview) post(m Model) (Model, tea.Cmd) {
 	}
 
 	if m.dryRun {
-		return m.closeOverlay().noticed("dry run: would post to " + p.target), nil
+		return m.closeOverlay().noticed("dry run: would post to " + p.destination()), nil
 	}
 
 	p.sending, p.err = true, nil
 	m.overlay = p
 
-	return m.sendToSlack(p.text)
+	return m.sendToSlack(p.channel, p.text)
 }
 
 // postWhenGreen posts once CI passes: now, if it already has.
@@ -280,22 +326,24 @@ func (p slackPreview) postWhenGreen(m Model) (Model, tea.Cmd) {
 	}
 
 	if m.dryRun {
-		return m.closeOverlay().noticed("dry run: would post to " + p.target + " once CI passes"), nil
+		return m.closeOverlay().noticed("dry run: would post to " + p.destination() + " once CI passes"), nil
 	}
 
-	m = m.closeOverlay().noticed(m.marks.inFlight + " will post to " + p.target + " once CI passes")
-	m.slack.pending, m.slack.err, m.slack.dropped = queuedPost{pull: m.review.pull.Number, text: p.text}, nil, ""
+	m = m.closeOverlay().noticed(m.marks.inFlight + " will post to " + p.destination() + " once CI passes")
+	m.slack.pending, m.slack.err, m.slack.dropped = queuedPost{
+		pull: m.review.pull.Number, text: p.text, channel: p.channel,
+	}, nil, ""
 
 	return m.keepPolling(m.checkCI())
 }
 
 // sendToSlack posts text. It replaces any post waiting for CI: that one would
 // otherwise follow it once CI passed, and the channel would read it twice.
-func (m Model) sendToSlack(text string) (Model, tea.Cmd) {
+func (m Model) sendToSlack(channel, text string) (Model, tea.Cmd) {
 	post, pull := m.deps.Slack.Post, m.review.pull.Number
 	m.slack.sending, m.slack.pending, m.slack.dropped = true, queuedPost{}, ""
 
-	return m, func() tea.Msg { return slackPosted{pull: pull, err: post(text)} }
+	return m, func() tea.Msg { return slackPosted{pull: pull, err: post(channel, text)} }
 }
 
 // withoutQueuedPost gives up on a post waiting for CI, saying so, because the
@@ -325,7 +373,7 @@ func (m Model) postIfGreen() (Model, tea.Cmd) {
 
 	switch m.review.ci.State {
 	case forge.CIPassed:
-		return m.sendToSlack(m.slack.pending.text)
+		return m.sendToSlack(m.slack.pending.channel, m.slack.pending.text)
 	case forge.CIFailed:
 		m.slack.pending = queuedPost{}
 		m.slack.dropped = "CI failed at " + m.deps.now().Format(droppedTimeFormat)

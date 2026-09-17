@@ -215,7 +215,7 @@ func TestTheSlackSeamRefusesAnInsecureWebhookBeforeSending(t *testing.T) {
 	seams := wiring.Deps(t.Context(), cfg, wiring.Workspace{Root: t.TempDir(), Remote: ""}).Slack
 
 	// Act
-	err := seams.Post("hi")
+	err := seams.Post("", "hi")
 
 	// Assert
 	if !errors.Is(err, slack.ErrInsecureWebhook) {

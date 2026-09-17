@@ -101,7 +101,7 @@ func TestPostWithABotTokenUsesChatPostMessage(t *testing.T) {
 	client := slack.New(server.Client().Do, server.URL, botCredentials())
 
 	// Act
-	err := client.Post(t.Context(), message)
+	err := client.Post(t.Context(), "", message)
 	if err != nil {
 		t.Fatalf("Post returned %v, want nil", err)
 	}
@@ -145,7 +145,7 @@ func TestPostWithABotTokenReportsSlacksError(t *testing.T) {
 			client := slack.New(server.Client().Do, server.URL, botCredentials())
 
 			// Act
-			err := client.Post(t.Context(), message)
+			err := client.Post(t.Context(), "", message)
 
 			// Assert
 			if !errors.Is(err, tt.want) || !strings.Contains(err.Error(), tt.reason) {
@@ -168,7 +168,7 @@ func TestPostWithAWebhookSendsJustTheText(t *testing.T) {
 	client := slack.New(server.Client().Do, slack.APIBase, webhookCredentials(server.URL+"/services/T0/B0/x"))
 
 	// Act
-	err := client.Post(t.Context(), message)
+	err := client.Post(t.Context(), "", message)
 	if err != nil {
 		t.Fatalf("Post returned %v, want nil", err)
 	}
@@ -188,7 +188,7 @@ func TestAWebhookRefusalNeverShowsTheWebhook(t *testing.T) {
 	client := slack.New(server.Client().Do, slack.APIBase, webhookCredentials(server.URL+"/services/T0/B0/secret-part"))
 
 	// Act
-	err := client.Post(t.Context(), message)
+	err := client.Post(t.Context(), "", message)
 
 	// Assert
 	if !errors.Is(err, slack.ErrRejected) || !strings.Contains(err.Error(), "channel_not_found") {
@@ -212,7 +212,7 @@ func TestAnUnreachableWebhookNeverShowsTheWebhook(t *testing.T) {
 	client := slack.New(server.Client().Do, slack.APIBase, webhookCredentials(webhook))
 
 	// Act
-	err := client.Post(t.Context(), message)
+	err := client.Post(t.Context(), "", message)
 
 	// Assert
 	// net/http's own error quotes the URL it was asked for.
@@ -240,7 +240,7 @@ func TestAWebhookMustBeHTTPS(t *testing.T) {
 			client := slack.New(counting(&sent), slack.APIBase, webhookCredentials(address))
 
 			// Act
-			err := client.Post(t.Context(), message)
+			err := client.Post(t.Context(), "", message)
 
 			// Assert
 			if !errors.Is(err, slack.ErrInsecureWebhook) || strings.Contains(err.Error(), "hooks.slack.com") {
@@ -263,7 +263,7 @@ func TestPostWithoutACredentialSendsNothing(t *testing.T) {
 	client := slack.New(counting(&sent), slack.APIBase, config.Slack{})
 
 	// Act
-	err := client.Post(t.Context(), message)
+	err := client.Post(t.Context(), "", message)
 
 	// Assert
 	if !errors.Is(err, slack.ErrNoCredential) || sent.Load() {
@@ -344,7 +344,7 @@ func TestPostReportsAnAnswerThatIsNotJSON(t *testing.T) {
 	client := slack.New(server.Client().Do, server.URL, botCredentials())
 
 	// Act
-	err := client.Post(t.Context(), message)
+	err := client.Post(t.Context(), "", message)
 
 	// Assert
 	if _, isSyntax := errors.AsType[*json.SyntaxError](err); !isSyntax {
@@ -363,7 +363,7 @@ func TestPostReportsAnAnswerThatBreaksOff(t *testing.T) {
 	client := slack.New(dropped, slack.APIBase, botCredentials())
 
 	// Act
-	err := client.Post(t.Context(), message)
+	err := client.Post(t.Context(), "", message)
 
 	// Assert
 	if !errors.Is(err, errBrokeOff) {
@@ -379,7 +379,7 @@ func TestPostReportsATransportFailure(t *testing.T) {
 	client := slack.New(failing, slack.APIBase, botCredentials())
 
 	// Act
-	err := client.Post(t.Context(), message)
+	err := client.Post(t.Context(), "", message)
 
 	// Assert
 	if !errors.Is(err, slack.ErrUnreachable) || !errors.Is(err, errBrokeOff) {
@@ -396,7 +396,7 @@ func TestPostToAMalformedAPIBaseIsUnreachable(t *testing.T) {
 	client := slack.New(counting(&sent), "https://slack.example.com/\x7f", botCredentials())
 
 	// Act
-	err := client.Post(t.Context(), message)
+	err := client.Post(t.Context(), "", message)
 
 	// Assert
 	if !errors.Is(err, slack.ErrUnreachable) || sent.Load() {
@@ -425,7 +425,7 @@ func TestABotPostRefusalNamesTheFix(t *testing.T) {
 			client := slack.New(server.Client().Do, server.URL, botCredentials())
 
 			// Act
-			err := client.Post(t.Context(), message)
+			err := client.Post(t.Context(), "", message)
 
 			// Assert
 			if err == nil || !strings.Contains(err.Error(), tt.want) {

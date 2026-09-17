@@ -83,7 +83,9 @@ type ForgeDeps struct {
 
 // SlackDeps is what the interface asks of Slack.
 type SlackDeps struct {
-	Post func(text string) error
+	// Post sends text to a channel, or to the configured default when channel is
+	// empty. A webhook ignores the channel and posts where it is bound.
+	Post func(channel, text string) error
 }
 
 // HookDeps is what the interface asks of lefthook.
