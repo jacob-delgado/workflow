@@ -111,7 +111,11 @@ func TestABranchThatCannotBeReadSaysSo(t *testing.T) {
 	view := typing(t, drain(t, model, model.Init()), "2").View()
 
 	// Assert
-	requireScreen(t, view, "✗ not a git repository")
+	// The rail says that it failed and the detail says why, in git's own words:
+	// a repository that cannot be read is one reason among several. And nothing
+	// offers a branch, which could not be made either.
+	requireScreen(t, view, "✗ could not read the branch · see detail", "✗ "+errNotVisible.Error())
+	refuseScreen(t, view, "not a git repository", "press b to start one")
 }
 
 func TestTheBranchPaneSaysSoBeforeTheBranchLoads(t *testing.T) {
