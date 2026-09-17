@@ -5,6 +5,15 @@ weight: 10
 
 # Install
 
+## What it needs
+
+- **git**, always.
+- **[lefthook](https://lefthook.dev)**, for running hooks on demand and for
+  turning existing `.git/hooks` into a `lefthook.yml`. Without it those two
+  actions are not offered; commits still run whatever hooks git has.
+- **`gh`**, optionally, as a place to find a GitHub token. See
+  [Configuration]({{< relref "/docs/configuration" >}}).
+
 ## With Go
 
 The shortest path, if you have Go installed:
@@ -72,3 +81,4 @@ workflow doctor           # says what is still missing
 
 Then fill in the two tokens — [Configuration]({{< relref "/docs/configuration" >}})
 explains where to get them — and run `workflow` to open the TUI.
+[Using workflow]({{< relref "/docs/usage" >}}) walks through it.

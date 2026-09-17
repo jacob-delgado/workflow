@@ -17,12 +17,22 @@ stack (Bubble Tea, Bubbles, Lip Gloss) with Cobra for the command tree.
 Layout:
 
 ```text
-cmd/workflow/      thin main; wires cli.Execute and the exit status
-internal/cli/      the Cobra command tree
-internal/config/   .workflow.json loading, redaction, validation
-internal/tui/      the Bubble Tea interface
-scripts/           the gate scripts lefthook, task and CI share
-build/             the build container
+cmd/workflow/         thin main; wires cli.Execute and the exit status
+internal/cli/         the Cobra command tree
+internal/config/      .workflow.json loading, redaction, validation
+internal/wiring/      connects the interface's seams to the real clients
+internal/tui/         the Bubble Tea interface; every outside call is a Deps seam
+internal/jira/        Jira Data Center REST v2
+internal/forge/       GitHub and GitLab: remotes, tokens, pull requests, CI
+internal/slack/       posting through a bot token or a webhook
+internal/gitrepo/     reading and changing the repository through git
+internal/hooks/       lefthook: output, config, and generating lefthook.yml
+internal/convention/  branch names, Conventional Commits, pull request text
+internal/editor/      handing text and files to $EDITOR
+internal/proc/        running programs; the one place exec lives
+internal/sanitize/    neutralizing terminal controls in server text
+scripts/              the gate scripts lefthook, task and CI share
+build/                the build container
 ```
 
 ## Common commands
