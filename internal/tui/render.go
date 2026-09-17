@@ -54,33 +54,41 @@ func (m Model) noticeLine(width int) string {
 	return ansi.Truncate(" "+sanitize.Text(m.notice), width, m.marks.ellipsis)
 }
 
-// rail draws the stacked panes down the left. The focused one is drawn heavy —
-// unless an overlay has the keyboard, which is then the one drawn heavy, so
-// there is never a second.
+// railRuleRows is the one shared-rule row each rail pane's box holds above its
+// content, so a box's content is one row shorter than the box.
+const railRuleRows = 1
+
+// rail draws the stacked panes as one shared box. The focused pane's rules and
+// sides are drawn heavy — unless an overlay has the keyboard, or its list lives
+// in the detail, which then carries the heavy border, so there is never a
+// second. The focused pane's title is bold either way.
 func (m Model) rail(boxes []layout.Box) string {
-	rendered := make([]string, 0, len(boxes))
+	panes := make([]frame.RailPane, 0, len(boxes))
 
 	for index, box := range boxes {
 		current := pane(index)
+		focused := current == m.focus && m.overlay == nil
 
-		label := m.paneTitle(current, current.label())
-
-		style := m.marks.border
-		if current == m.focus && m.overlay == nil {
-			label = m.styles.strong.Render(label)
-
-			// The list-in-detail panes carry the heavy border on the detail,
-			// where the cursor is, so the rail keeps a light one here.
-			if !behaviorOf(current).listInDetail {
-				style = style.Heavy()
-			}
+		title := m.paneTitle(current, current.label())
+		if focused {
+			title = m.styles.strong.Render(title)
 		}
 
-		rendered = append(rendered, frame.Render(label,
-			behaviorOf(current).rail(m, frame.BodyRows(box.Height)), box.Width, box.Height, style))
+		rows := max(0, box.Height-railRuleRows)
+		panes = append(panes, frame.RailPane{
+			Title:   title,
+			Body:    behaviorOf(current).rail(m, rows),
+			Rows:    rows,
+			Focused: focused && !behaviorOf(current).listInDetail,
+		})
 	}
 
-	return lipgloss.JoinVertical(lipgloss.Left, rendered...)
+	width := 0
+	if len(boxes) > 0 {
+		width = boxes[0].Width
+	}
+
+	return frame.Rail(panes, width, m.marks.border)
 }
 
 // detailView draws the detail pane, without its border where the terminal is
