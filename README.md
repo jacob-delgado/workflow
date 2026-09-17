@@ -24,20 +24,23 @@ three browser tabs.
 
 ## Status
 
-Early, and not yet the whole loop. What works today:
+The whole loop works, and is new: expect rough edges, and a configuration
+format that may still change before 1.0.
 
-- `workflow` opens the TUI: your assigned Jira issues in a pane rail, with
-  keyboard and mouse navigation (`?` lists the keys). `t` moves the selected
-  issue to a new status, through the transitions its workflow offers.
+- `workflow` opens the TUI. Pick up an assigned Jira issue, comment on it or
+  change its status, branch for it, stage and commit through the repository's
+  own hooks — opening a failure at its line in `$EDITOR` — push, open the pull
+  or merge request from the repository's template, follow its CI, and announce
+  it in Slack. `?` lists the keys.
+- `workflow --dry-run` does all of that with every write held back, saying what
+  it would have done.
+- A repository with hooks in `.git/hooks` and no lefthook configuration is
+  offered a `lefthook.yml` that runs them.
 - `workflow doctor` reports the repository, tooling and configuration in effect;
   `workflow doctor --online` asks Jira, Slack and your forge whether each
   credential actually works.
-- `workflow config init` writes a starting configuration file.
-- `workflow config show` prints the configuration in effect, credentials masked.
-
-Not built yet: branching from an issue, committing, opening the pull or merge
-request, and posting to Slack. Expect the configuration format to change while
-that lands.
+- `workflow config init` writes a starting configuration file, and
+  `workflow config show` prints the one in effect, credentials masked.
 
 ## Install
 
@@ -149,6 +152,29 @@ it is listed in `.gitignore`, and `config show` masks every credential —
 including `slack.webhook_url`, which is a password that happens to look like an
 address. Nothing in this repo will print a credential in full.
 
+## Use
+
+Run `workflow` in a repository. Five panes run down the left — Issues, Branch,
+Commits, Review, Slack — in the order the work goes, and the one in focus fills
+the right. The bottom row shows only the keys that do something right now.
+
+| Key | Where | Does |
+| --- | --- | --- |
+| `tab` / `1`–`5` | anywhere | Move between panes |
+| `t` / `c` / `b` | Issues | Change status, comment, branch for the issue |
+| `space` / `a` / `c` | Commits | Stage a file, stage all, commit |
+| `h` | Commits | Run the pre-commit hook |
+| `P` | Branch | Push |
+| `n` | Review | Open the pull or merge request |
+| `p` | Slack | Preview the announcement; post now or once CI passes |
+| `?` | anywhere | Every key |
+
+Comments, commit bodies, pull request descriptions and Slack posts are written
+in `$EDITOR` and previewed before they send. `workflow --dry-run` holds every
+write back. The
+[usage guide](https://jacob-delgado.github.io/workflow/docs/usage/) has the
+whole loop.
+
 ## Development
 
 ```sh
@@ -167,16 +193,15 @@ project holds itself to.
 
 Full documentation is at
 **[jacob-delgado.github.io/workflow](https://jacob-delgado.github.io/workflow/)**
-— install, configuration, and a command reference generated from the code. The
-source is in [`docs/`](docs/); `task docs:serve` previews it locally.
+— install, usage, configuration, and a command reference generated from the
+code. The source is in [`docs/`](docs/); `task docs:serve` previews it locally.
 
 ## Releases
 
 Versioning is automated from the commit history with release-please: merging its
 release pull request tags the version and publishes binaries for macOS, Linux,
 and Windows (amd64 and arm64), each with a SHA256 checksum and a build
-provenance attestation. There are no releases yet — the first one lands when the
-integrations do.
+provenance attestation. There are no releases yet.
 
 ## Security
 

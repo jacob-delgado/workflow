@@ -12,25 +12,30 @@ three browser tabs.
 
 ## Status
 
-Early, and not yet the whole loop. What works today:
+The whole loop works, and is new: expect rough edges, and a configuration
+format that may still change before 1.0.
 
-- `workflow` opens the TUI: your assigned Jira issues in a pane rail, with
-  keyboard and mouse navigation (`?` lists the keys). `t` moves the selected
-  issue to a new status, through the transitions its workflow offers.
+- `workflow` opens the TUI. Pick up an assigned Jira issue, comment on it or
+  change its status, branch for it, stage and commit through the repository's
+  own hooks — opening a failure at its line in `$EDITOR` — push, open the pull
+  or merge request from the repository's template, follow its CI, and announce
+  it in Slack. `?` lists the keys.
+- `workflow --dry-run` does all of that with every write held back, saying what
+  it would have done.
+- A repository with hooks in `.git/hooks` and no lefthook configuration is
+  offered a `lefthook.yml` that runs them.
 - `workflow doctor` reports the repository, tooling and configuration in effect;
   `workflow doctor --online` asks Jira, Slack and your forge whether each
   credential actually works.
-- `workflow config init` writes a starting configuration file.
-- `workflow config show` prints the configuration in effect, credentials masked.
-
-Not built yet: branching from an issue, committing, opening the pull or merge
-request, and posting to Slack. Expect the configuration format to change while
-that lands.
+- `workflow config init` writes a starting configuration file, and
+  `workflow config show` prints the one in effect, credentials masked.
 
 ## Where to go next
 
 - **[Install]({{< relref "/docs/install" >}})** — `go install`, release binaries,
   or build from source.
+- **[Using workflow]({{< relref "/docs/usage" >}})** — the panes, the keys,
+  and the loop from issue to Slack.
 - **[Configuration]({{< relref "/docs/configuration" >}})** — every field of
   `.workflow.json`, and how to get the Jira and Slack tokens.
 - **[Command reference]({{< relref "/docs/reference" >}})** — every command and
