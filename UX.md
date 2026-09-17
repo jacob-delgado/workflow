@@ -200,22 +200,6 @@ Impact: low · Effort: small
   `internal/tui/keys.go`, `internal/slack/post.go` (the announcement text).
 - Done when: on a GitLab remote no string says "pull request".
 
-### UX-28 Show that CI is being watched
-
-Impact: medium · Effort: small
-
-- Today: CI is asked about every twenty seconds while it runs. The pane shows
-  a state and no time, so "running (2 of 5 finished)" looks the same whether
-  it was read a second ago or the forge stopped answering ten minutes ago.
-  After `r`, the state drops back to "checking…" even for the same pull
-  request. In a repository with no CI, `w post when CI passes` waits forever,
-  which the usage guide lists as a limit and the screen does not mention.
-- Instead: "running (2 of 5 finished) · checked 14:02". When the forge
-  reports no checks, do not offer `w`, and say why.
-- Touches: `internal/tui/review.go`, `internal/tui/slack.go`.
-- Done when: the CI line carries the time it was last read, and `w` is absent
-  when nothing reports CI.
-
 ## Slack
 
 ## Across the interface
