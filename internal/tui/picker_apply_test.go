@@ -31,7 +31,7 @@ func TestEnterMovesTheIssueAndRefreshesTheList(t *testing.T) {
 	sending, cmd := pressed(t, screen, keyEnter)
 
 	// Assert: the picker says the move is under way
-	requireScreen(t, sending.View(), "moving OPS-1 to Done…")
+	requireScreen(t, sending.View(), "changing OPS-1 to Done…")
 
 	// Act: Jira accepts the move
 	moved, refresh := finish(t, sending, cmd)
@@ -42,7 +42,7 @@ func TestEnterMovesTheIssueAndRefreshesTheList(t *testing.T) {
 	}
 
 	refuseScreen(t, moved.View(), pickerTitle)
-	requireScreen(t, moved.View(), "● OPS-1 moved to Done")
+	requireScreen(t, moved.View(), "● OPS-1 is now Done")
 
 	// Act: the refresh arrives
 	finish(t, moved, refresh)
@@ -222,4 +222,21 @@ func TestEnterBeforeTheListingArrivesSendsNothing(t *testing.T) {
 	if cmd != nil {
 		t.Error("enter sent a transition before any were listed")
 	}
+}
+
+func TestAStatusChangeIsSaidInPlainWords(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	changing := newWorld()
+	changing.moves = []jira.Transition{
+		{ID: "21", Name: "Start Review", ToStatus: "In Review", ToStatusCategory: "indeterminate"},
+	}
+
+	// Act
+	done := typing(t, changing.live(t, 120, 40), "t", keyEnter)
+
+	// Assert
+	requireScreen(t, done.View(), "● PROJ-412 is now In Review")
+	refuseScreen(t, done.View(), "moved to", "moving")
 }
