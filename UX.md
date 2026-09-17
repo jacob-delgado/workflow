@@ -54,7 +54,7 @@ one of them yet, which makes this table the shortest summary of the file.
 | "a key it does not show does nothing" | `docs/content/docs/usage.md:55` | No. Ten keys work unseen. UX-32 |
 | "`?` lists every key" | `docs/content/docs/usage.md:56` | No. Eleven bindings are missing. UX-33 |
 | "the one way the interface says something broke" | `failure`, `internal/tui/render.go:271` | In 7 places of about 20. UX-40 |
-| "Nothing outward facing is sent without" a last look | `internal/tui/comment.go:43` | Mostly. UX-13, UX-23, UX-29 |
+| "Nothing outward facing is sent without" a last look | `internal/tui/comment.go:43` | Mostly. UX-13, UX-23 |
 | "a refused change must never go unseen" | `internal/tui/picker.go:183` | In one overlay of seven. UX-35 |
 | "Each pane fails on its own" | `docs/content/docs/usage.md:58` | Yes, and it is the best thing about the first run. |
 | State is "carried by the SHAPE of a glyph rather than its color" | `internal/tui/glyphs.go:14` | Yes. It reads in monochrome. |
@@ -544,24 +544,6 @@ Impact: medium · Effort: small
   when nothing reports CI.
 
 ## Slack
-
-### UX-29 Never send a message the user did not just look at
-
-Impact: high · Effort: medium
-
-- Today: `w` queues the previewed text until CI passes. The queue is one
-  string with no pull request attached (`slackState.pending`,
-  `internal/tui/slack.go`). Switch to another branch whose pull request is
-  green and the text written for the first one is posted. Reproduced in a
-  test: the post named pull request 42 while the screen showed 43. After any
-  successful post, `p` is not offered again until restart, so a second pull
-  request cannot be announced at all.
-- Instead: a queued post belongs to its pull request and is dropped, with a
-  lasting line in the pane, when the branch changes. Posting is tracked per
-  pull request. This is also a defect; see TECH_DEBT.md.
-- Touches: `internal/tui/slack.go`, `internal/tui/branch.go`.
-- Done when: a queued post is never sent for a different pull request, and a
-  second pull request in one session can be announced.
 
 ### UX-30 Let a queued post be seen, withdrawn and mourned
 

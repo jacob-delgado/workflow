@@ -37,6 +37,7 @@ func (msg branchLoaded) apply(m Model) (Model, tea.Cmd) {
 
 	if previous != msg.branch.Name {
 		m.review = reviewState{}
+		m = m.withoutQueuedPost()
 	}
 
 	m, detail := m.resumeIssue().loadDetail()

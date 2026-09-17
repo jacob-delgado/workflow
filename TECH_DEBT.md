@@ -55,29 +55,6 @@ terminal or a release.
 
 ## The terminal interface
 
-### DEBT-01 A queued Slack post belongs to the session, not to a pull request
-
-Severity: high · Confidence: reproduced
-
-- Evidence: `slackState` (`internal/tui/slack.go:23`) holds `posted bool` and
-  `pending string`. `posted` is set at `internal/tui/slack.go:299` and nothing
-  resets it; `canPost` (`internal/tui/slack.go:114`) requires `!posted`.
-  `postIfGreen` (`internal/tui/slack.go:234`) checks only that `pending` is
-  not empty and that the pull request now on screen is green. A branch change
-  resets `m.review` and not `m.slack` (`internal/tui/branch.go:38`).
-- Cost: with `w` pressed for pull request 42, switching to a branch whose
-  pull request 43 is green posted the text written for 42. After any
-  successful post, `p` is not offered again until restart, so a second pull
-  request cannot be announced. The first is a wrong message in a team's
-  channel, sent without the last look the interface promises. Neither is in
-  the usage guide's list of limits.
-- Remedy: replace the two fields with a value keyed by pull request number
-  (`pendingPost{number, text}`, and a set of posted numbers), and drop a
-  queued post, visibly, when the branch changes.
-- Done when: a test that queues a post, switches branch and turns CI green
-  sees nothing sent, and a second pull request in one session can be
-  announced.
-
 ### DEBT-02 CI polling chains multiply
 
 Severity: medium · Confidence: reproduced
@@ -87,7 +64,7 @@ Severity: medium · Confidence: reproduced
   outstanding. `ciPoll` (`internal/tui/review.go:117`) carries no pull request
   number or generation, and `keepPolling` (`internal/tui/review.go:105`)
   starts a tick whenever `polling` is false. Every `branchLoaded` leads to a
-  new `pullFound` (`internal/tui/branch.go:44`).
+  new `pullFound` (`internal/tui/branch.go:45`).
 - Cost: measured with a 50 ms interval over 500 ms: 0, 1, 2 and 3 refreshes
   gave 10, 20, 30 and 40 `CheckStatus` calls. Each `r`, commit or push while
   CI runs adds up to one more chain, until CI finishes. The state also drops
@@ -126,8 +103,8 @@ Severity: medium · Confidence: reproduced
 
 - Evidence: six overlays append their state line after their body, unwrapped:
   `internal/tui/hookgen.go:92`, `internal/tui/comment.go:77`,
-  `internal/tui/prcomposer.go:135`, `internal/tui/slack.go:156`,
-  `internal/tui/branch.go:219`, `internal/tui/picker.go:123`. Overlay bodies
+  `internal/tui/prcomposer.go:135`, `internal/tui/slack.go:177`,
+  `internal/tui/branch.go:220`, `internal/tui/picker.go:123`. Overlay bodies
   are returned as they are (`detailContent`, `internal/tui/render.go:83`) and
   the frame clips rows past its height. Six of eight overlay views ignore the
   row count they are given (`view(width, _ int)`).
@@ -186,10 +163,10 @@ Severity: medium · Confidence: read
   `prComposer`, `slackPreview` and `hookgenOffer`. Each repeats a view tail, a
   footer guard, a key guard and a failure applier of the same shape
   (`internal/tui/picker.go:60`, `internal/tui/comment.go:134`,
-  `internal/tui/branch.go:295`, `internal/tui/prcomposer.go:315`,
-  `internal/tui/slack.go:288`, `internal/tui/hookgen.go:144`). The editor
+  `internal/tui/branch.go:296`, `internal/tui/prcomposer.go:315`,
+  `internal/tui/slack.go:305`, `internal/tui/hookgen.go:144`). The editor
   round trip is line for line the same at `internal/tui/composer.go:253`,
-  `internal/tui/prcomposer.go:239` and `internal/tui/slack.go:260`. The fourth
+  `internal/tui/prcomposer.go:239` and `internal/tui/slack.go:299`. The fourth
   copy differs: `commentEdited.apply` closes the overlay on an editor error
   (`internal/tui/comment.go:47`), so a failed re-edit discards a written
   comment while the other three keep their text. Reproduced.
@@ -209,8 +186,8 @@ Severity: medium · Confidence: read
 - Evidence: `failure` (`internal/tui/render.go:272`) is documented as "the
   one way the interface says something broke". These draw the glyph and
   `err.Error()` unstyled instead: `internal/tui/picker.go:123` and `:160`,
-  `internal/tui/comment.go:77`, `internal/tui/branch.go:219`,
-  `internal/tui/prcomposer.go:135`, `internal/tui/slack.go:84` and `:156`,
+  `internal/tui/comment.go:77`, `internal/tui/branch.go:220`,
+  `internal/tui/prcomposer.go:135`, `internal/tui/slack.go:100` and `:177`,
   `internal/tui/hookgen.go:92`, `internal/tui/run.go:168`,
   `internal/tui/review.go:140`, `internal/tui/composer.go:114` and `:158`,
   `internal/tui/fields.go:101`. `internal/tui/issues.go:135` draws no glyph
@@ -230,10 +207,10 @@ Severity: medium · Confidence: read
 Severity: medium · Confidence: read
 
 - Evidence: `if m.dryRun` at `internal/tui/picker.go:258`,
-  `internal/tui/comment.go:110`, `internal/tui/branch.go:273`,
+  `internal/tui/comment.go:110`, `internal/tui/branch.go:274`,
   `internal/tui/commits.go:221`, `:242` and `:276`,
   `internal/tui/composer.go:282`, `internal/tui/prcomposer.go:274`,
-  `internal/tui/run.go:296`, `internal/tui/slack.go:197` and `:213`,
+  `internal/tui/run.go:296`, `internal/tui/slack.go:218` and `:234`,
   `internal/tui/hookgen.go:125`. `WithDryRun` (`internal/tui/tui.go:90`) sets
   a flag and swaps nothing.
 - Cost: a new write that forgets its guard writes for real under `--dry-run`,
@@ -292,8 +269,9 @@ Severity: low · Confidence: read
   every way but its type: `helpOpen` is special-cased at
   `internal/tui/tui.go:159` and `:168`, `internal/tui/render.go:87` and
   `:220`. `Update` itself is small and routes through `applier`.
-- Cost: DEBT-01 and DEBT-02 are both state that outlived what it described,
-  which is what happens when any message can reach any field. This is a
+- Cost: DEBT-02 is state that outlived what it described, and the Slack
+  pane's state once was too, which is what happens when any message can reach
+  any field. This is a
   judgment call, and a rewrite is not the answer.
 - Remedy: make help an `overlay`; move `runs` and `draft` beside the code that
   owns them; give each pane's state the methods that change it.
@@ -307,14 +285,14 @@ Severity: low · Confidence: read
   (`convention.IssueKey(m.branch.branch.Name)` in `branch.go`, `composer.go`,
   `detail.go`, `prcomposer.go`, `spine.go`, `slack.go`), three of which drop
   the found flag and use `""` as "none". `"origin/"` is trimmed by hand at
-  `internal/tui/branch.go:65` and `:89` and `internal/tui/prcomposer.go:78`.
+  `internal/tui/branch.go:66` and `:90` and `internal/tui/prcomposer.go:78`.
   `m.branch.branch` appears 23 times. Remedy: `Model.branchIssue()` returning
   a typed value, and `BaseName()` on `gitrepo.Branch`.
 - The pane set is written down in six places: `internal/tui/panes.go`,
   `key.WithKeys("1","2","3","4","5")` (`internal/tui/keys.go:58`),
   `pane(msg.String()[0] - '1')` (`internal/tui/tui.go:196`), the help groups,
   a second list of names in `internal/tui/spine.go:54`, and the literal
-  "(4 Review)" in `internal/tui/slack.go:97`.
+  "(4 Review)" in `internal/tui/slack.go:113`.
 - The run overlay calls `hooks.Jobs(r.lines)` on every frame and on every
   click (`internal/tui/run.go:176` and `:247`), and appends output with no cap
   (`internal/tui/run.go:105`). Each output line is a message and each message
@@ -327,6 +305,9 @@ Severity: low · Confidence: read
   the model "never holds … a credential" (`internal/tui/deps.go:19`) sits
   beside `Model.cfg`, which is the unredacted configuration (it is not shown;
   a test proves that).
+- A failed Slack post's error stays in `slackState.err` until a post succeeds,
+  so after a branch change the Slack pane shows one pull request's error
+  beside another's announcement (`Model.slackState`, `internal/tui/slack.go`).
 - "1 files staged" (`internal/tui/composer.go:155`) is pinned by
   `internal/tui/composer_test.go:50`. `Breaking: false` is hardcoded at
   `internal/tui/composer.go:92`.
@@ -663,7 +644,7 @@ Severity: medium · Confidence: reproduced
 Severity: medium · Confidence: read
 
 - Evidence: `internal/gitrepo/gitrepo.go:71`; `internal/gitrepo/branch.go:56`,
-  `:109`, `:114` and `:194`; `internal/tui/branch.go:65` and `:89`;
+  `:109`, `:114` and `:194`; `internal/tui/branch.go:66` and `:90`;
   `internal/tui/prcomposer.go:78`. No code path runs `git fetch`. The base
   falls back through `origin/HEAD`, `origin/main`, `origin/master`, local
   `main`, local `master`, then nothing (`base`,

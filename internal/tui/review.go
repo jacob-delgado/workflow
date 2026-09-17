@@ -103,7 +103,7 @@ func (msg ciChecked) apply(m Model) (Model, tea.Cmd) {
 // keepPolling schedules the next check while CI runs or a post waits, unless
 // one is already scheduled.
 func (m Model) keepPolling(then tea.Cmd) (Model, tea.Cmd) {
-	waiting := m.review.ci.State == forge.CIRunning || m.slack.pending != ""
+	waiting := m.review.ci.State == forge.CIRunning || m.slack.pending.waiting()
 	if !waiting || m.review.polling {
 		return m, then
 	}

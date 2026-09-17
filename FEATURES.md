@@ -558,18 +558,6 @@ Impact: medium · Effort: medium
 - Done when: a merged pull request offers a "merged" post with the same
   preview and the same dry-run behavior.
 
-### FEAT-39 Announce again
-
-Impact: medium · Effort: small
-
-- Why: after one successful post, `p` is not offered again until the program
-  restarts (`canPost` requires `!m.slack.posted`, `internal/tui/slack.go`). A
-  second pull request in the same session cannot be announced. This is a
-  defect as much as a feature; see TECH_DEBT.md.
-- Touches: `internal/tui/slack.go`.
-- Done when: posting is tracked per pull request, and a second pull request
-  can be announced without restarting.
-
 ## Across the loop
 
 ### FEAT-40 Say which version this is
