@@ -145,7 +145,7 @@ func gitSeams(t *testing.T) (tui.GitDeps, string, string) {
 
 	root := repository(t)
 
-	return wiring.Deps(t.Context(), config.Default(), wiring.Workspace{Root: root, Remote: ""}).Git, root, drafts
+	return wiring.Deps(t.Context(), config.Default(), wiring.Workspace{Root: root, Remote: ""}, nil).Git, root, drafts
 }
 
 func TestTheGitSeamsStartABranchFromMain(t *testing.T) {
@@ -267,7 +267,7 @@ func TestACommitThatCannotWriteItsMessageSaysWhy(t *testing.T) {
 	// Arrange
 	t.Setenv("TMPDIR", filepath.Join(t.TempDir(), "missing"))
 
-	seams := wiring.Deps(t.Context(), config.Default(), wiring.Workspace{Root: t.TempDir(), Remote: ""}).Git
+	seams := wiring.Deps(t.Context(), config.Default(), wiring.Workspace{Root: t.TempDir(), Remote: ""}, nil).Git
 
 	// Act
 	_, err := seams.Commit("feat: x\n")
@@ -284,7 +284,7 @@ func TestACommitGitCannotRunLeavesNoMessageBehind(t *testing.T) {
 	t.Setenv("TMPDIR", drafts)
 	t.Setenv("PATH", t.TempDir())
 
-	seams := wiring.Deps(t.Context(), config.Default(), wiring.Workspace{Root: t.TempDir(), Remote: ""}).Git
+	seams := wiring.Deps(t.Context(), config.Default(), wiring.Workspace{Root: t.TempDir(), Remote: ""}, nil).Git
 
 	// Act
 	_, err := seams.Commit("feat: x\n")
@@ -313,7 +313,7 @@ func TestTheForgeSeamRetriesAfterAFailedConnection(t *testing.T) {
 
 	forgeSeam := wiring.Deps(t.Context(),
 		config.Config{Forge: config.Forge{Kind: githubKind}},
-		wiring.Workspace{Root: dir, Remote: githubRemote}).Forge
+		wiring.Workspace{Root: dir, Remote: githubRemote}, nil).Forge
 
 	// Act
 	_, _, first := forgeSeam.FindPullRequest(featureBranch)

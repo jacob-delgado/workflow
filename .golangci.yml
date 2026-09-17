@@ -105,6 +105,11 @@ linters:
       # only way to isolate those, and it panics in a parallel test.
       - path: internal/wiring/.*_test\.go$
         linters: [paralleltest]
+      # The request-log tests wrap fixture Doers whose responses carry no body
+      # (http.NoBody). bodyclose cannot follow the func-var indirection of the
+      # logging wrapper and flags the pass-through; there is nothing to close.
+      - path: internal/wiring/reqlog_test\.go$
+        linters: [bodyclose]
 
 formatters:
   # gofumpt is a strict superset of gofmt, and gci owns import grouping (it runs
