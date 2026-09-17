@@ -218,33 +218,6 @@ Impact: medium · Effort: small
 
 ## Slack
 
-### UX-30 Let a queued post be seen, withdrawn and mourned
-
-Impact: medium · Effort: small
-
-- Today: a queued post can be replaced but not withdrawn. `q` quits with one
-  waiting and says nothing, although the post is lost. When CI fails, "✗ CI
-  failed, so nothing was posted to Slack" appears in the bottom row and the
-  next key press clears it; the pane then reads "○ nothing posted", as if
-  nothing had been asked.
-- Instead:
-
-  ```text
-  ┌─ Slack ────────────────────────────────────────────────────────────────┐
-  │ to     #dev-workflow                                                   │
-  │ state  ✗ not posted: CI failed at 14:02                                │
-  │                                                                        │
-  │ p posts it anyway.                                                     │
-  └────────────────────────────────────────────────────────────────────────┘
-  ```
-
-  A key withdraws a queued post. `q` with one waiting asks first: "A post is
-  waiting for CI and will be lost. enter quit • esc stay".
-- Touches: `internal/tui/slack.go`, `internal/tui/tui.go`
-  (`handleGlobalKey`).
-- Done when: a dropped post leaves a line in the pane until the next post,
-  and quitting with a queued post asks once.
-
 ## Across the interface
 
 ### UX-32 Make the bottom row keep its promise, or change the promise

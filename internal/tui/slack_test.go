@@ -369,3 +369,35 @@ func TestTheSlackPaneNamesWhatItNeedsWhenUnset(t *testing.T) {
 	requireScreen(t, view, "Slack is not set up", "slack.webhook_url", "slack.token and slack.channel", ".workflow.json")
 	refuseScreen(t, footerLine(view), "p post")
 }
+
+func TestADroppedPostLeavesALineInThePane(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	failing := newWorld()
+	failing.ciInterval = time.Millisecond
+	failing.ci = []forge.CI{{State: forge.CIRunning}, {State: forge.CIRunning}, {State: forge.CIFailed}}
+
+	// Act
+	dropped := typing(t, failing.live(t, 120, 40), "5", "p", "w")
+	pane := typing(t, dropped, "j").View()
+
+	// Assert
+	requireScreen(t, pane, "not posted: CI failed at 16:00")
+}
+
+func TestQuittingWithAQueuedPostAsksFirst(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	waiting := newWorld()
+	waiting.ci = []forge.CI{{State: forge.CIRunning}}
+	queued := typing(t, waiting.live(t, 120, 40), "5", "p", "w")
+
+	// Act
+	asked := typing(t, queued, "q")
+
+	// Assert
+	requireScreen(t, asked.View(), "A post is waiting for CI and will be lost")
+	requireScreen(t, footerLine(asked.View()), "enter quit", "esc stay")
+}
