@@ -67,6 +67,7 @@ type world struct {
 	transitionErr error
 	commentErr    error
 	linkErr       error
+	postedChannel string
 
 	branch      gitrepo.Branch
 	changes     []gitrepo.Change
@@ -188,8 +189,9 @@ func (w *world) deps() tui.Deps {
 		Jira:  w.jiraDeps(),
 		Git:   w.gitDeps(),
 		Forge: w.forgeDeps(),
-		Slack: tui.SlackDeps{Post: func(text string) error {
+		Slack: tui.SlackDeps{Post: func(channel, text string) error {
 			w.record("post " + text)
+			w.rememberChannel(channel)
 
 			if w.postGate != nil {
 				<-w.postGate

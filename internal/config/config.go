@@ -12,7 +12,7 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
-	"time"
+	"slices"
 )
 
 // FileName is the configuration file's name in both search locations.
@@ -43,8 +43,6 @@ var (
 	ErrNotFound = errors.New("no " + FileName + " found")
 	// ErrInvalid reports a file that exists but could not be understood.
 	ErrInvalid = errors.New("invalid " + FileName)
-	// ErrInvalidTiming reports a timing setting that is not a positive duration.
-	ErrInvalidTiming = errors.New("invalid timing")
 )
 
 // Jira describes how to reach an on-premises Jira instance.
@@ -71,6 +69,10 @@ type Slack struct {
 	// Channel is the channel updates are posted to, e.g. "#dev-workflow". It
 	// applies to the bot token only; a webhook carries its own channel.
 	Channel string `json:"channel"`
+	// Channels are further channels a bot-token post may be routed to at post
+	// time, for a change that concerns another team. The default Channel is
+	// always available too.
+	Channels []string `json:"channels"`
 }
 
 // Forge describes the Git forge credential — which workflow usually does not
@@ -115,18 +117,6 @@ func (u UI) DrawColor(noColorEnv string) bool {
 	return noColorEnv == "" && u.Color != "never"
 }
 
-// Timing is how long the interface waits, for a network or a service that is
-// slower or more rate-limited than the defaults assume. Each is a Go duration
-// string, such as "20s" or "3m"; empty keeps the default.
-type Timing struct {
-	// RequestTimeout bounds each request to a service. The default is ten
-	// seconds.
-	RequestTimeout string `json:"request_timeout"`
-	// CIInterval is how often CI is asked about while it runs. The default is
-	// twenty seconds.
-	CIInterval string `json:"ci_interval"`
-}
-
 // Config is the whole configuration file.
 type Config struct {
 	Jira   Jira   `json:"jira"`
@@ -137,40 +127,6 @@ type Config struct {
 	// Path is the file this configuration was read from. It is not part of the
 	// file format.
 	Path string `json:"-"`
-}
-
-// RequestTimeout is the configured per-request timeout, or zero when none is
-// set, for the caller to fall back to its own default.
-func (c Config) RequestTimeout() time.Duration {
-	timeout, _ := parseDuration(c.Timing.RequestTimeout)
-
-	return timeout
-}
-
-// CIInterval is the configured gap between CI checks, or zero when none is set.
-func (c Config) CIInterval() time.Duration {
-	interval, _ := parseDuration(c.Timing.CIInterval)
-
-	return interval
-}
-
-// parseDuration reads a timing setting: empty is zero and no error, so a caller
-// falls back to its default; anything else must be a positive Go duration.
-func parseDuration(value string) (time.Duration, error) {
-	if value == "" {
-		return 0, nil
-	}
-
-	parsed, err := time.ParseDuration(value)
-	if err != nil {
-		return 0, fmt.Errorf("%w: not a duration such as \"20s\": %q", ErrInvalidTiming, value)
-	}
-
-	if parsed <= 0 {
-		return 0, fmt.Errorf("%w: must be more than zero: %q", ErrInvalidTiming, value)
-	}
-
-	return parsed, nil
 }
 
 // AuthMode is how a request authenticates to Jira.
@@ -374,6 +330,25 @@ func (s Slack) Target() string {
 	}
 }
 
+// ChannelChoices are the channels a bot-token post can be sent to: the default
+// channel first, then the alternates, without duplicates or blanks. A webhook
+// carries its own channel and offers none.
+func (s Slack) ChannelChoices() []string {
+	if s.Mode() != SlackBot {
+		return nil
+	}
+
+	var choices []string
+
+	for _, channel := range append([]string{s.Channel}, s.Channels...) {
+		if channel != "" && !slices.Contains(choices, channel) {
+			choices = append(choices, channel)
+		}
+	}
+
+	return choices
+}
+
 // missing names the Slack fields still needed. The two transports are reported
 // as ONE entry, because either satisfies the requirement and naming both would
 // read as an instruction to set both.
@@ -431,19 +406,6 @@ func (c Config) Redacted() Config {
 	redacted.Forge.Token = Redact(c.Forge.Token)
 
 	return redacted
-}
-
-// validateTiming refuses a timing setting that is not a positive duration, so a
-// nonsense value fails at load rather than silently falling back.
-func (c Config) validateTiming() error {
-	for _, value := range []string{c.Timing.RequestTimeout, c.Timing.CIInterval} {
-		_, err := parseDuration(value)
-		if err != nil {
-			return err
-		}
-	}
-
-	return nil
 }
 
 // visibleSuffix is how many trailing characters of a token stay readable, so a
