@@ -111,9 +111,18 @@ func TestStageAddsEveryPathTheChangeTouches(t *testing.T) {
 		// one's deletion behind.
 		"a rename": {
 			change: gitrepo.Change{Path: renamedTo, OriginalPath: renamedFrom},
-			want:   "git -C /work add --all -- b.txt a.txt",
+			want:   "git -C /work --literal-pathspecs add --all -- b.txt a.txt",
 		},
-		"a deletion": {change: gitrepo.Change{Path: "gone.txt", Unstaged: 'D'}, want: "git -C /work add --all -- gone.txt"},
+		"a deletion": {
+			change: gitrepo.Change{Path: "gone.txt", Unstaged: 'D'},
+			want:   "git -C /work --literal-pathspecs add --all -- gone.txt",
+		},
+		// A bracketed name is a glob to git unless pathspecs are literal, so it
+		// would stage i.tsx and d.tsx beside it.
+		"a bracketed name": {
+			change: gitrepo.Change{Path: "[id].tsx", Unstaged: '?'},
+			want:   "git -C /work --literal-pathspecs add --all -- [id].tsx",
+		},
 	}
 
 	for name, tt := range cases {
@@ -145,13 +154,13 @@ func TestUnstageTakesTheChangeOutOfTheIndexWithoutTouchingTheWorkTree(t *testing
 		"after a commit, the index is restored from HEAD": {
 			head:   reply{out: []byte("abc123\n")},
 			change: gitrepo.Change{Path: renamedTo, OriginalPath: renamedFrom},
-			want:   "git -C /work restore --staged -- b.txt a.txt",
+			want:   "git -C /work --literal-pathspecs restore --staged -- b.txt a.txt",
 		},
 		// With no commit there is nothing to restore from: restore --staged fails.
 		"before the first commit, the file leaves the index": {
 			head:   reply{err: errDetachedRead},
 			change: gitrepo.Change{Path: "new.go"},
-			want:   "git -C /work rm --cached --quiet -- new.go",
+			want:   "git -C /work --literal-pathspecs rm --cached --quiet -- new.go",
 		},
 	}
 
@@ -177,7 +186,7 @@ func TestStageReportsGitsFailure(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
-	run := fakeRunner(t, map[string]reply{"git -C /work add --all -- x.go": {err: errIndexLocked}})
+	run := fakeRunner(t, map[string]reply{"git -C /work --literal-pathspecs add --all -- x.go": {err: errIndexLocked}})
 
 	// Act
 	err := gitrepo.Stage(t.Context(), run, workDir, gitrepo.Change{Path: "x.go"})
@@ -193,8 +202,8 @@ func TestUnstageReportsGitsFailure(t *testing.T) {
 
 	// Arrange
 	run := fakeRunner(t, map[string]reply{
-		verifyHead:                              {out: []byte("abc\n")},
-		"git -C /work restore --staged -- x.go": {err: errIndexLocked},
+		verifyHead: {out: []byte("abc\n")},
+		"git -C /work --literal-pathspecs restore --staged -- x.go": {err: errIndexLocked},
 	})
 
 	// Act
@@ -228,9 +237,9 @@ func TestAStagingFailureNamesTheFileInTextThatIsSafeToShow(t *testing.T) {
 
 			// Arrange
 			run := fakeRunner(t, map[string]reply{
-				verifyHead:                                    {out: []byte("abc\n")},
-				"git -C /work add --all -- " + awkward:        {err: errIndexLocked},
-				"git -C /work restore --staged -- " + awkward: {err: errIndexLocked},
+				verifyHead: {out: []byte("abc\n")},
+				"git -C /work --literal-pathspecs add --all -- " + awkward:        {err: errIndexLocked},
+				"git -C /work --literal-pathspecs restore --staged -- " + awkward: {err: errIndexLocked},
 			})
 
 			// Act
