@@ -1,0 +1,308 @@
+// Copyright 2026 Jacob Delgado
+// SPDX-License-Identifier: Apache-2.0
+
+package tui
+
+import (
+	"strconv"
+	"strings"
+
+	"github.com/charmbracelet/bubbles/key"
+	"github.com/charmbracelet/bubbles/textinput"
+	tea "github.com/charmbracelet/bubbletea"
+
+	"github.com/jacob-delgado/workflow/internal/convention"
+	"github.com/jacob-delgado/workflow/internal/gitrepo"
+	"github.com/jacob-delgado/workflow/internal/jira"
+)
+
+// branchState is the checked-out branch, as far as it has loaded.
+type branchState struct {
+	branch gitrepo.Branch
+	loaded bool
+	err    error
+}
+
+// branchLoaded carries the branch as git reports it.
+type branchLoaded struct {
+	branch gitrepo.Branch
+	err    error
+}
+
+// apply records the branch, selects the issue it is for, and looks for its pull
+// request.
+func (msg branchLoaded) apply(m Model) (Model, tea.Cmd) {
+	previous := m.branch.branch.Name
+	m.branch = branchState{branch: msg.branch, loaded: true, err: msg.err}
+
+	if previous != msg.branch.Name {
+		m.review = reviewState{}
+	}
+
+	m, detail := m.resumeIssue().loadDetail()
+
+	return m, tea.Batch(detail, m.findPullRequest())
+}
+
+// loadBranch is the command that reads the branch.
+func (m Model) loadBranch() tea.Cmd {
+	read := m.deps.Git.Branch
+	if read == nil {
+		return nil
+	}
+
+	return func() tea.Msg {
+		branch, err := read()
+
+		return branchLoaded{branch: branch, err: err}
+	}
+}
+
+// onFeatureBranch reports a named branch other than the one work merges into.
+func (s branchState) onFeatureBranch() bool {
+	name := s.branch.Name
+
+	return s.loaded && s.err == nil && name != "" && name != strings.TrimPrefix(s.branch.Base, "origin/")
+}
+
+// branchRail is the branch's name and where it stands against its upstream.
+func (m Model) branchRail(_ int) string {
+	switch {
+	case !m.branch.loaded:
+		return "loading" + m.marks.ellipsis
+	case m.branch.err != nil:
+		return m.marks.failed + " not a git repository"
+	case m.branch.branch.Detached:
+		return "detached HEAD"
+	}
+
+	return m.styles.strong.Render(m.branch.branch.Name) + "\n" + m.styles.label.Render(m.upstreamState())
+}
+
+// upstreamState says where the branch stands against origin.
+func (m Model) upstreamState() string {
+	branch := m.branch.branch
+
+	switch {
+	case branch.Pushed():
+		return "pushed"
+	case branch.Upstream != "origin/"+branch.Name:
+		return "not pushed yet"
+	default:
+		return m.marks.ahead + strconv.Itoa(branch.Ahead) + " " + m.marks.behind + strconv.Itoa(branch.Behind) +
+			" against " + branch.Upstream
+	}
+}
+
+// branchDetail describes the branch and what to do with it.
+func (m Model) branchDetail(width int) string {
+	if !m.branch.loaded || m.branch.err != nil || m.branch.branch.Detached {
+		return wrap(m.branchRail(0)+"\n\nCheck out a branch, or press b to start one for the selected issue.", width)
+	}
+
+	branch := m.branch.branch
+	lines := []string{
+		m.styles.strong.Render(branch.Name),
+		"",
+		m.styles.label.Render("base      ") + m.valueOr(branch.Base, "(none found)"),
+		m.styles.label.Render("upstream  ") + m.upstreamState(),
+		m.styles.label.Render("commits   ") + strconv.Itoa(len(branch.Commits)) + " not on the base",
+	}
+
+	if branchKey, named := convention.IssueKey(branch.Name); named {
+		issue, listed := m.issues.find(branchKey)
+		lines = append(lines, m.styles.label.Render("issue     ")+branchKey+" "+issue.Summary+m.unlisted(listed))
+	}
+
+	return wrap(strings.Join(lines, "\n"), width)
+}
+
+// unlisted marks an issue the branch names that is not among those assigned.
+func (m Model) unlisted(listed bool) string {
+	if listed {
+		return ""
+	}
+
+	return m.styles.label.Render("(not among your open issues)")
+}
+
+// valueOr is a value, or what to say when there is none.
+func (m Model) valueOr(value, none string) string {
+	if value == "" {
+		return m.styles.label.Render(none)
+	}
+
+	return value
+}
+
+// branchKeys offers starting a branch, and pushing one that is not pushed.
+func (m Model) branchKeys() []key.Binding {
+	keys := []key.Binding{m.keys.newBranch}
+
+	if m.canPush() {
+		keys = append(keys, m.keys.push)
+	}
+
+	return keys
+}
+
+// canPush reports a branch with something to push.
+func (m Model) canPush() bool {
+	return m.branch.onFeatureBranch() && !m.branch.branch.Pushed() && len(m.branch.branch.Commits) > 0 &&
+		m.deps.Git.Push != nil
+}
+
+// handleBranchKey answers the Branch pane's own keys.
+func (m Model) handleBranchKey(msg tea.KeyMsg) (Model, tea.Cmd) {
+	switch {
+	case key.Matches(msg, m.keys.newBranch):
+		return m.openBranchCreator()
+	case key.Matches(msg, m.keys.push) && m.canPush():
+		return m.startPush(nil)
+	case key.Matches(msg, m.keys.refresh):
+		return m, tea.Batch(m.loadBranch(), m.loadChanges())
+	default:
+		return m, nil
+	}
+}
+
+// branchCreator is a branch about to be created, named for the selected issue.
+type branchCreator struct {
+	marks    glyphs
+	input    textinput.Model
+	issue    jira.Issue
+	forIssue bool
+	base     string
+	problem  error
+	sending  bool
+}
+
+var _ overlay = branchCreator{}
+
+// openBranchCreator proposes a branch for the selected issue, started from the
+// branch work merges into.
+func (m Model) openBranchCreator() (Model, tea.Cmd) {
+	if m.deps.Git.CreateBranch == nil {
+		return m, nil
+	}
+
+	issue, forIssue := m.issues.current()
+
+	name := ""
+	if forIssue {
+		name = convention.BranchName(issue.Type, issue.Key, issue.Summary)
+	}
+
+	m.overlay = branchCreator{
+		marks: m.marks, input: newInput(name), issue: issue, forIssue: forIssue,
+		base: m.branch.branch.Base, problem: nil, sending: false,
+	}
+
+	return m, nil
+}
+
+// view shows the name and where the branch will start.
+func (c branchCreator) view(width, _ int) (string, string) {
+	c.input.Width = max(1, width-len(c.input.Prompt)-1)
+
+	lines := []string{}
+	if c.forIssue {
+		lines = append(lines, "for "+c.issue.Key+" "+c.issue.Summary, "")
+	}
+
+	lines = append(lines, c.input.View(), "", c.start())
+
+	switch {
+	case c.sending:
+		lines = append(lines, "", "creating"+c.marks.ellipsis)
+	case c.problem != nil:
+		lines = append(lines, "", c.marks.failed+" "+c.problem.Error())
+	}
+
+	return "New branch", strings.Join(lines, "\n")
+}
+
+// start says where the branch will begin.
+func (c branchCreator) start() string {
+	if c.base == "" {
+		return "from the current commit (no default branch found)"
+	}
+
+	return "from " + c.base
+}
+
+// footer offers creating the branch or not.
+func (c branchCreator) footer(keys keyMap) []key.Binding {
+	if c.sending {
+		return []key.Binding{keys.interrupt}
+	}
+
+	return []key.Binding{relabel(keys.confirm, "create"), keys.closeOverlay}
+}
+
+// handleKey answers a key while the branch is named. Every key typed checks the
+// name, so a name git would refuse says so before enter is pressed.
+func (c branchCreator) handleKey(m Model, msg tea.KeyMsg) (Model, tea.Cmd) {
+	switch {
+	case c.sending:
+		return m, nil
+	case key.Matches(msg, m.keys.closeOverlay):
+		return m.closeOverlay(), nil
+	case key.Matches(msg, m.keys.confirm):
+		return c.create(m)
+	}
+
+	c.input, _ = c.input.Update(msg)
+	c.problem = convention.ValidateBranchName(c.input.Value())
+	m.overlay = c
+
+	return m, nil
+}
+
+// create creates and switches to the branch.
+func (c branchCreator) create(m Model) (Model, tea.Cmd) {
+	name := strings.TrimSpace(c.input.Value())
+
+	c.problem = convention.ValidateBranchName(name)
+	if c.problem != nil {
+		m.overlay = c
+
+		return m, nil
+	}
+
+	if m.dryRun {
+		return m.closeOverlay().noticed("dry run: would create " + name + " " + c.start()), nil
+	}
+
+	c.sending = true
+	m.overlay = c
+	createBranch, base := m.deps.Git.CreateBranch, c.base
+
+	return m, func() tea.Msg {
+		return branchCreated{name: name, err: createBranch(name, base)}
+	}
+}
+
+// branchCreated reports how creating a branch went.
+type branchCreated struct {
+	name string
+	err  error
+}
+
+// apply switches the panes to the new branch, or keeps the creator open with
+// git's reason.
+func (msg branchCreated) apply(m Model) (Model, tea.Cmd) {
+	if msg.err != nil {
+		creator, open := m.overlay.(branchCreator)
+		if open {
+			creator.sending, creator.problem = false, msg.err
+			m.overlay = creator
+		}
+
+		return m, nil
+	}
+
+	m = m.closeOverlay().noticed(m.marks.done + " switched to " + msg.name)
+
+	return m, tea.Batch(m.loadBranch(), m.loadChanges())
+}

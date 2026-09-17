@@ -4,6 +4,9 @@
 package tui
 
 import (
+	"errors"
+	"fmt"
+	"strconv"
 	"strings"
 
 	"github.com/charmbracelet/bubbles/help"
@@ -11,112 +14,198 @@ import (
 	"github.com/charmbracelet/lipgloss"
 	"github.com/charmbracelet/x/ansi"
 
+	"github.com/jacob-delgado/workflow/internal/config"
 	"github.com/jacob-delgado/workflow/internal/tui/frame"
 	"github.com/jacob-delgado/workflow/internal/tui/layout"
 )
 
-// notStarted is a stage of the loop nothing has reached yet. State is carried by
-// the fill of the glyph rather than its color, so it reads in monochrome.
-const notStarted = "○"
+// detailPadding is the columns a bordered detail pane spends on its border and
+// the space inside it.
+const detailPadding = 4
+
+// helpTitle titles the detail pane while the keys are shown.
+const helpTitle = "Keys"
 
 // View implements tea.Model. It only composes: every region renders itself, so
 // no single function has to know the whole screen.
 func (m Model) View() string {
-	shape := layout.Compute(m.width, m.height, paneCount, int(m.focus))
-	body := m.detail(shape.Detail, shape.Collapsed())
+	shape := m.shape()
+	body := m.detailView(shape)
 
 	if !shape.Collapsed() {
 		body = lipgloss.JoinHorizontal(lipgloss.Top, m.rail(shape.Rail), body)
 	}
 
-	return lipgloss.JoinVertical(lipgloss.Left,
-		m.spine(shape.Spine.Width), body, m.footer(shape.Footer.Width))
+	return lipgloss.JoinVertical(lipgloss.Left, m.spine(shape), body, m.footer(shape.Footer.Width))
 }
 
-// rail draws the stacked panes down the left.
+// rail draws the stacked panes down the left. The focused one is drawn heavy —
+// unless an overlay has the keyboard, which is then the one drawn heavy, so
+// there is never a second.
 func (m Model) rail(boxes []layout.Box) string {
 	rendered := make([]string, 0, len(boxes))
 
 	for index, box := range boxes {
 		current := pane(index)
-		rendered = append(rendered,
-			frame.Render(current.label(), m.paneBody(current, frame.BodyRows(box.Height)),
-				box.Width, box.Height, m.border(current)))
+
+		style := m.marks.border
+		if current == m.focus && m.overlay == nil {
+			style = style.Heavy()
+		}
+
+		rendered = append(rendered, frame.Render(current.label(),
+			behaviorOf(current).rail(m, frame.BodyRows(box.Height)), box.Width, box.Height, style))
 	}
 
 	return lipgloss.JoinVertical(lipgloss.Left, rendered...)
 }
 
-// border draws the focused pane heavier than the rest. While the picker has the
-// keyboard it is the one drawn heavy, so there is never a second.
-func (m Model) border(candidate pane) frame.Style {
-	if candidate == m.focus && !m.picker.open {
-		return frame.Heavy
+// detailView draws the detail pane, without its border where the terminal is
+// too narrow for one.
+func (m Model) detailView(shape layout.Layout) string {
+	box := shape.Detail
+	title, body, style := m.detailContent(shape)
+
+	if shape.Borderless() {
+		return frame.Plain(title, body, box.Width, box.Height, style)
 	}
 
-	return frame.Light
+	return frame.Render(title, body, box.Width, box.Height, style)
 }
 
-// paneBody is what a rail pane shows inside its border, in as many rows as fit.
-func (m Model) paneBody(candidate pane, rows int) string {
-	switch candidate {
-	case paneIssues:
-		return m.issues.render(rows)
-	case paneSlack:
-		return m.cfg.Slack.Target()
-	case paneBranch, paneCommits, paneReview:
-	}
+// detailContent picks what the detail pane shows: an open overlay, then the
+// keys, then the focused pane — which, with the rail gone, shows its own list
+// where it has one.
+func (m Model) detailContent(shape layout.Layout) (string, string, frame.Style) {
+	rows, width := m.detailRows(), m.detailWidth()
 
-	return ""
-}
-
-// detail draws the main pane, titled with whichever rail pane has focus. On a
-// narrow terminal it is the only pane, so the title is what says where you are.
-func (m Model) detail(box layout.Box, collapsed bool) string {
-	body := m.detailBody(frame.BodyRows(box.Height), collapsed)
-
-	if m.picker.open {
-		return frame.Render(pickerTitle, body, box.Width, box.Height, frame.Heavy)
-	}
-
-	return frame.Render(m.focus.title(), body, box.Width, box.Height, frame.Light)
-}
-
-// detailBody picks what the main pane shows. With the rail collapsed there is
-// nowhere else for a pane's own content to go, so the focused pane's list takes
-// the whole body instead of a description of one row of it.
-func (m Model) detailBody(rows int, collapsed bool) string {
 	switch {
-	case m.picker.open:
-		return m.picker.render(rows)
+	case m.overlay != nil:
+		title, body := m.overlay.view(width, rows)
+
+		return title, body, m.marks.border.Heavy()
 	case m.helpOpen:
-		return help.New().FullHelpView(m.keys.FullHelp())
-	case m.focus != paneIssues:
-		return m.status()
-	case collapsed:
-		return m.issues.render(rows)
-	default:
-		return m.issues.detail(m.status())
+		return helpTitle, scrolled(m.helpView(), m.scroll, rows), m.marks.border
 	}
+
+	behavior := behaviorOf(m.focus)
+	if shape.Collapsed() && behavior.narrow != nil {
+		return m.focus.title(), behavior.narrow(m, rows), m.marks.border
+	}
+
+	return m.focus.title(), scrolled(behavior.detail(m, width), m.scroll, rows), m.marks.border
 }
 
-// spine draws the loop's stages across the top.
-func (m Model) spine(width int) string {
-	stages := []string{"Issue", "Branch", "Commits", "Review", "Slack"}
-	parts := make([]string, 0, len(stages))
+// helpView lists every key, a group at a time, one key a line: the detail pane
+// is too narrow for the groups side by side.
+func (m Model) helpView() string {
+	groups := m.keys.FullHelp()
+	lines := make([]string, 0, len(groups))
 
-	for _, stage := range stages {
-		parts = append(parts, notStarted+" "+stage)
+	for index, name := range helpGroups() {
+		if index > 0 {
+			lines = append(lines, "")
+		}
+
+		lines = append(lines, m.styles.strong.Render(name))
+
+		for _, binding := range groups[index] {
+			lines = append(lines, "  "+fmt.Sprintf("%-10s", binding.Help().Key)+binding.Help().Desc)
+		}
 	}
 
-	return ansi.Truncate(" "+strings.Join(parts, " ─ "), width, "")
+	return strings.Join(lines, "\n")
+}
+
+// detailRows is how many rows of content the detail pane holds.
+func (m Model) detailRows() int {
+	shape := m.shape()
+	if shape.Borderless() {
+		return max(0, shape.Detail.Height-1)
+	}
+
+	return frame.BodyRows(shape.Detail.Height)
+}
+
+// detailWidth is how many columns of content the detail pane holds, which is
+// what text is wrapped to.
+func (m Model) detailWidth() int {
+	shape := m.shape()
+	if shape.Borderless() {
+		return shape.Detail.Width
+	}
+
+	return max(1, shape.Detail.Width-detailPadding)
+}
+
+// scrolled is the window of text that fits in rows, starting offset lines in —
+// and no further than lets the last line reach the bottom.
+func scrolled(text string, offset, rows int) string {
+	lines := strings.Split(text, "\n")
+	first := min(max(0, offset), max(0, len(lines)-rows))
+	last := min(len(lines), first+max(0, rows))
+
+	return strings.Join(lines[first:last], "\n")
+}
+
+// wrap breaks text into lines no wider than width. It breaks only at spaces —
+// never inside "--verbose" or an issue key such as PROJ-412, where a hyphen
+// break reads as two things — and cuts a word only when it is wider than a line.
+func wrap(text string, width int) string {
+	width = max(1, width)
+	lines := []string{}
+
+	for paragraph := range strings.SplitSeq(text, "\n") {
+		lines = append(lines, wrapLine(paragraph, width)...)
+	}
+
+	return strings.Join(lines, "\n")
+}
+
+// wrapLine wraps one line of text.
+func wrapLine(line string, width int) []string {
+	if ansi.StringWidth(line) <= width {
+		return []string{line}
+	}
+
+	var lines []string
+
+	current := ""
+
+	for word := range strings.SplitSeq(line, " ") {
+		for ansi.StringWidth(word) > width {
+			if current != "" {
+				lines, current = append(lines, current), ""
+			}
+
+			head := ansi.Truncate(word, width, "")
+			lines, word = append(lines, head), ansi.TruncateLeft(word, ansi.StringWidth(head), "")
+		}
+
+		switch {
+		case current == "":
+			current = word
+		case ansi.StringWidth(current)+1+ansi.StringWidth(word) <= width:
+			current += " " + word
+		default:
+			lines, current = append(lines, current), word
+		}
+	}
+
+	return append(lines, current)
 }
 
 // footer draws the keys that matter right now, or reports what just happened.
 func (m Model) footer(width int) string {
 	text := m.notice
 	if text == "" {
-		text = help.New().ShortHelpView(m.footerKeys())
+		keys := help.New()
+		keys.ShortSeparator, keys.Ellipsis = m.marks.helpSeparator, m.marks.ellipsis
+		// Keys that do not fit are dropped whole, and an ellipsis says so.
+		// Truncating stays as the backstop for a notice, and for a width too
+		// narrow even for the ellipsis, where help adds the key anyway.
+		keys.Width = width - 1
+		text = keys.ShortHelpView(m.footerKeys())
 	}
 
 	return ansi.Truncate(" "+text, width, "")
@@ -125,16 +214,70 @@ func (m Model) footer(width int) string {
 // footerKeys offers the keys that do something where the user is: never a verb
 // with nothing to act on.
 func (m Model) footerKeys() []key.Binding {
-	_, selectable := m.issues.current()
-
 	switch {
-	case m.picker.sending:
-		return []key.Binding{m.keys.quit}
-	case m.picker.open:
-		return m.keys.pickerHelp()
-	case m.focus == paneIssues && selectable:
-		return append([]key.Binding{m.keys.changeStatus}, m.keys.ShortHelp()...)
+	case m.overlay != nil:
+		return m.overlay.footer(m.keys)
+	case m.helpOpen:
+		return []key.Binding{m.keys.closeOverlay, m.keys.quit}
 	default:
-		return m.keys.ShortHelp()
+		return append(behaviorOf(m.focus).keys(m), m.keys.ShortHelp()...)
 	}
+}
+
+// relabel is a binding with help that says what it does here.
+func relabel(binding key.Binding, help string) key.Binding {
+	return key.NewBinding(key.WithKeys(binding.Keys()...), key.WithHelp(binding.Help().Key, help))
+}
+
+// status describes the configuration this session is running with.
+func (m Model) status() string {
+	if m.loadErr != nil {
+		return m.configErrorStatus()
+	}
+
+	label := m.styles.label
+
+	lines := []string{
+		label.Render("config ") + m.cfg.Path,
+		label.Render("jira   ") + config.DisplayURL(m.cfg.Jira.BaseURL) +
+			label.Render(m.marks.separator+m.cfg.Jira.AuthMode().String()),
+		label.Render("slack  ") + m.cfg.Slack.Target() +
+			label.Render(m.marks.separator+m.cfg.Slack.Mode().String()),
+	}
+
+	missing := m.cfg.Missing()
+	if len(missing) > 0 {
+		lines = append(lines,
+			"",
+			m.styles.strong.Render("incomplete: ")+strings.Join(missing, ", "),
+			label.Render("run `workflow doctor` for detail"),
+		)
+	}
+
+	return strings.Join(lines, "\n")
+}
+
+// configErrorStatus renders the screen shown when no configuration loaded.
+func (m Model) configErrorStatus() string {
+	if errors.Is(m.loadErr, config.ErrNotFound) {
+		return m.styles.strong.Render("no "+config.FileName+" found") + "\n" +
+			m.styles.label.Render("create one with `workflow config init`")
+	}
+
+	return m.styles.strong.Render("configuration error") + "\n" +
+		m.styles.label.Render(m.loadErr.Error())
+}
+
+// failure draws an error the one way the interface says something broke.
+func (m Model) failure(err error) string {
+	return m.styles.failure.Render(m.marks.failed + " " + err.Error())
+}
+
+// plural counts things, in words.
+func plural(count int, noun string) string {
+	if count == 1 {
+		return "1 " + noun
+	}
+
+	return strconv.Itoa(count) + " " + noun + "s"
 }

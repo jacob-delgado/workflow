@@ -146,24 +146,19 @@ func TestInitDoesNothing(t *testing.T) {
 
 // keyMsg builds the key message bubbletea delivers for a key name.
 func keyMsg(key string) tea.KeyMsg {
-	switch key {
-	case "esc":
-		return tea.KeyMsg{Type: tea.KeyEsc}
-	case "ctrl+c":
-		return tea.KeyMsg{Type: tea.KeyCtrlC}
-	case "tab":
-		return tea.KeyMsg{Type: tea.KeyTab}
-	case "shift+tab":
-		return tea.KeyMsg{Type: tea.KeyShiftTab}
-	case "down":
-		return tea.KeyMsg{Type: tea.KeyDown}
-	case "up":
-		return tea.KeyMsg{Type: tea.KeyUp}
-	case "enter":
-		return tea.KeyMsg{Type: tea.KeyEnter}
-	default:
-		return tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune(key)}
+	named := map[string]tea.KeyType{
+		"esc": tea.KeyEsc, "ctrl+c": tea.KeyCtrlC, "tab": tea.KeyTab, "shift+tab": tea.KeyShiftTab,
+		"down": tea.KeyDown, "up": tea.KeyUp, "left": tea.KeyLeft, "right": tea.KeyRight,
+		"enter": tea.KeyEnter, "space": tea.KeySpace, "backspace": tea.KeyBackspace,
+		"pgdown": tea.KeyPgDown, "pgup": tea.KeyPgUp,
+		"ctrl+e": tea.KeyCtrlE, "ctrl+t": tea.KeyCtrlT, "ctrl+d": tea.KeyCtrlD,
 	}
+
+	if kind, ok := named[key]; ok {
+		return tea.KeyMsg{Type: kind}
+	}
+
+	return tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune(key)}
 }
 
 // concrete recovers the model Update returned. Update's signature is fixed by
@@ -258,7 +253,7 @@ func TestTheFirstPaneStartsWithFocus(t *testing.T) {
 func TestTabMovesFocusDownTheRail(t *testing.T) {
 	t.Parallel()
 
-	view := press(t, sized(t, tui.New(completeConfig(), nil, tui.Deps{}), 120, 40), "tab").View()
+	view := press(t, sized(t, tui.New(completeConfig(), nil, tui.Deps{}), 120, 40), keyTab).View()
 
 	if !strings.Contains(view, focused("2 Branch")) {
 		t.Errorf("tab did not move focus to Branch:\n%s", view)
@@ -276,12 +271,13 @@ func TestFocusWrapsAtBothEndsOfTheRail(t *testing.T) {
 	start := sized(t, tui.New(completeConfig(), nil, tui.Deps{}), 120, 40)
 
 	// shift+tab from the first pane lands on the last rather than stopping.
-	if view := press(t, start, "shift+tab").View(); !strings.Contains(view, focused("5 Slack")) {
+	if view := press(t, start, keyShiftTab).View(); !strings.Contains(view, focused("5 Slack")) {
 		t.Errorf("shift+tab from Issues did not wrap to Slack:\n%s", view)
 	}
 
 	// Five tabs is a full lap.
-	if view := press(t, start, "tab", "tab", "tab", "tab", "tab").View(); !strings.Contains(view, focused("1 Issues")) {
+	view := press(t, start, keyTab, keyTab, keyTab, keyTab, keyTab).View()
+	if !strings.Contains(view, focused("1 Issues")) {
 		t.Errorf("five tabs did not come back to Issues:\n%s", view)
 	}
 }
@@ -339,7 +335,7 @@ func TestHelpShowsEveryKeyAndEscapeClosesIt(t *testing.T) {
 	start := sized(t, tui.New(completeConfig(), nil, tui.Deps{}), 120, 40)
 
 	open := press(t, start, "?").View()
-	for _, want := range []string{"shift+tab", "toggle mouse", "jump to pane"} {
+	for _, want := range []string{keyShiftTab, "toggle mouse", "jump to pane"} {
 		if !strings.Contains(open, want) {
 			t.Errorf("help does not mention %q:\n%s", want, open)
 		}

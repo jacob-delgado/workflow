@@ -51,23 +51,25 @@ func (s Style) Heavy() Style {
 	return Heavy
 }
 
-// borders is the glyph set for one weight.
+// borders is the glyph set for one weight: the box, and the mark for text cut
+// to fit, which has to be ASCII in ASCII mode too.
 type borders struct {
 	topLeft, topRight, bottomLeft, bottomRight string
 	horizontal, vertical                       string
+	ellipsis                                   string
 }
 
 // glyphs returns the glyph set for a style.
 func glyphs(style Style) borders {
 	sets := map[Style]borders{
-		Heavy:      {"┏", "┓", "┗", "┛", "━", "┃"},
-		LightASCII: {"+", "+", "+", "+", "-", "|"},
-		HeavyASCII: {"#", "#", "#", "#", "=", "#"},
+		Heavy:      {"┏", "┓", "┗", "┛", "━", "┃", ellipsis},
+		LightASCII: {"+", "+", "+", "+", "-", "|", asciiEllipsis},
+		HeavyASCII: {"#", "#", "#", "#", "=", "#", asciiEllipsis},
 	}
 
 	set, ok := sets[style]
 	if !ok {
-		return borders{"┌", "┐", "└", "┘", "─", "│"}
+		return borders{"┌", "┐", "└", "┘", "─", "│", ellipsis}
 	}
 
 	return set
@@ -82,6 +84,9 @@ const padding = 1
 // ellipsis marks text that was cut to fit. Clipping silently mid-word reads as
 // the whole value; this says there was more.
 const ellipsis = "…"
+
+// asciiEllipsis is the same mark in plain ASCII.
+const asciiEllipsis = "..."
 
 // BodyRows is how many rows of content fit inside a box of the given height — the
 // number a caller needs before deciding which slice of a long list to show.
@@ -110,7 +115,7 @@ func Render(title, body string, width, height int, style Style) string {
 			text = content[index]
 		}
 
-		rows = append(rows, lines.vertical+padded(text, inner)+lines.vertical)
+		rows = append(rows, lines.vertical+padded(text, inner, lines.ellipsis)+lines.vertical)
 	}
 
 	rows = append(rows, lines.bottomLeft+strings.Repeat(lines.horizontal, inner)+lines.bottomRight)
@@ -120,8 +125,9 @@ func Render(title, body string, width, height int, style Style) string {
 
 // Plain draws a region with no border at all: the title on the first row and
 // the body under it, each row clipped and padded to exactly width. It is for a
-// terminal too narrow to give two columns to a border.
-func Plain(title, body string, width, height int) string {
+// terminal too narrow to give two columns to a border; the style only decides
+// how cut text is marked.
+func Plain(title, body string, width, height int, style Style) string {
 	if width <= 0 || height <= 0 {
 		return ""
 	}
@@ -135,7 +141,7 @@ func Plain(title, body string, width, height int) string {
 			text = content[index]
 		}
 
-		rows = append(rows, fit(text, width))
+		rows = append(rows, fit(text, width, glyphs(style).ellipsis))
 	}
 
 	return strings.Join(rows, "\n")
@@ -144,7 +150,7 @@ func Plain(title, body string, width, height int) string {
 // top draws the top border with the title set into it. The title is clipped but
 // never padded: the rest of the line is rule, not spaces.
 func top(lines borders, title string, inner int) string {
-	label := ansi.Truncate(lines.horizontal+" "+title+" ", inner, ellipsis)
+	label := ansi.Truncate(lines.horizontal+" "+title+" ", inner, lines.ellipsis)
 	fill := strings.Repeat(lines.horizontal, inner-lipgloss.Width(label))
 
 	return lines.topLeft + label + fill + lines.topRight
@@ -152,20 +158,20 @@ func top(lines borders, title string, inner int) string {
 
 // padded fits text inside a border with a cell of space on each side, dropping
 // the padding only where the box is too narrow to afford it.
-func padded(text string, inner int) string {
+func padded(text string, inner int, mark string) string {
 	if inner < 2*padding+1 {
-		return fit(text, inner)
+		return fit(text, inner, mark)
 	}
 
 	space := strings.Repeat(" ", padding)
 
-	return space + fit(text, inner-2*padding) + space
+	return space + fit(text, inner-2*padding, mark) + space
 }
 
 // fit clips text to width cells and pads it out to exactly width. It measures
 // display cells rather than bytes, so styled and wide text lines up.
-func fit(text string, width int) string {
-	clipped := ansi.Truncate(text, width, ellipsis)
+func fit(text string, width int, mark string) string {
+	clipped := ansi.Truncate(text, width, mark)
 
 	return clipped + strings.Repeat(" ", max(0, width-lipgloss.Width(clipped)))
 }

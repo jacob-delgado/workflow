@@ -42,14 +42,15 @@ type fakeJira struct {
 	applyErr error
 	listed   atomic.Value
 	applied  atomic.Value
+	values   atomic.Value
 	applies  atomic.Int32
 }
 
 // deps wires the fake behind a search.
-func (f *fakeJira) deps(search tui.IssueSearch) tui.Deps {
-	return tui.Deps{
-		SearchIssues: search,
-		ListTransitions: func(issueKey string) ([]jira.Transition, error) {
+func (f *fakeJira) deps(search func() (jira.SearchResult, error)) tui.Deps {
+	return tui.Deps{Jira: tui.JiraDeps{
+		Search: search,
+		Transitions: func(issueKey string) ([]jira.Transition, error) {
 			f.listed.Store(issueKey)
 
 			if f.listErr != nil {
@@ -58,13 +59,14 @@ func (f *fakeJira) deps(search tui.IssueSearch) tui.Deps {
 
 			return f.moves, nil
 		},
-		ApplyTransition: func(issueKey string, to jira.Transition) error {
+		Transition: func(issueKey string, to jira.Transition, values []jira.FieldValue) error {
 			f.applies.Add(1)
 			f.applied.Store(issueKey + " " + to.ID)
+			f.values.Store(values)
 
 			return f.applyErr
 		},
-	}
+	}}
 }
 
 // jiraScreen is a started model on these seams, at a size that shows the rail.
@@ -99,7 +101,7 @@ func finish(t *testing.T, model tui.Model, cmd tea.Cmd) (tui.Model, tea.Cmd) {
 }
 
 // twoIssues is a search that finds OPS-1 and OPS-2.
-func twoIssues() tui.IssueSearch {
+func twoIssues() func() (jira.SearchResult, error) {
 	return assigned(issue("OPS-1", "Fix login", "indeterminate"), issue("OPS-2", "Rotate keys", "new"))
 }
 
@@ -181,7 +183,7 @@ func TestThePickerKeepsTheKeyboardWhileOpen(t *testing.T) {
 	fake := &fakeJira{moves: workflowMoves()}
 	screen := openPicker(t, jiraScreen(t, fake.deps(twoIssues())))
 
-	for _, key := range []string{"tab", "3", "?", "m"} {
+	for _, key := range []string{keyTab, "3", "?", "m"} {
 		if view := press(t, screen, key).View(); !strings.Contains(view, pickerTitle) {
 			t.Errorf("%q escaped the open picker:\n%s", key, view)
 		}
@@ -226,7 +228,7 @@ func TestAPickerWithNothingToApplyIgnoresEnter(t *testing.T) {
 				t.Errorf("the picker does not say %q:\n%s", tt.want, view)
 			}
 
-			if _, cmd := pressed(t, press(t, screen, "j"), "enter"); cmd != nil {
+			if _, cmd := pressed(t, press(t, screen, "j"), keyEnter); cmd != nil {
 				t.Error("enter sent something with nothing to apply")
 			}
 
@@ -291,7 +293,7 @@ func TestASecondListingDoesNotReplaceTheOneOnScreen(t *testing.T) {
 	var calls atomic.Int32
 
 	deps := (&fakeJira{}).deps(twoIssues())
-	deps.ListTransitions = func(string) ([]jira.Transition, error) {
+	deps.Jira.Transitions = func(string) ([]jira.Transition, error) {
 		if calls.Add(1) == 1 {
 			return workflowMoves(), nil
 		}
@@ -382,10 +384,3 @@ func TestThePickerFitsANarrowTerminal(t *testing.T) {
 		}
 	}
 }
-
-// Compile-time proof that func literals of the right shape are the seams, so
-// the wiring in internal/cli cannot drift from what these tests exercise.
-var (
-	_ tui.TransitionList  = func(string) ([]jira.Transition, error) { return nil, nil }
-	_ tui.TransitionApply = func(string, jira.Transition) error { return nil }
-)

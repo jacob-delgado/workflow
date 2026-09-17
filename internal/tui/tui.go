@@ -8,54 +8,15 @@ package tui
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"io"
-	"strconv"
-	"strings"
 
 	"github.com/charmbracelet/bubbles/key"
 	tea "github.com/charmbracelet/bubbletea"
-	"github.com/charmbracelet/lipgloss"
 
 	"github.com/jacob-delgado/workflow/internal/config"
-	"github.com/jacob-delgado/workflow/internal/jira"
 	"github.com/jacob-delgado/workflow/internal/tui/layout"
 )
-
-// styles is the stub screen's rendering. Lip Gloss degrades to plain text when
-// the terminal cannot do color, so there is no capability check here.
-type styles struct {
-	title  lipgloss.Style
-	label  lipgloss.Style
-	status lipgloss.Style
-	hint   lipgloss.Style
-}
-
-// newStyles builds the screen's styles.
-func newStyles() styles {
-	return styles{
-		title:  lipgloss.NewStyle().Bold(true),
-		label:  lipgloss.NewStyle().Faint(true),
-		status: lipgloss.NewStyle().Bold(true),
-		hint:   lipgloss.NewStyle().Faint(true).Italic(true),
-	}
-}
-
-// pane is one panel in the rail.
-type pane int
-
-const (
-	paneIssues pane = iota
-	paneBranch
-	paneCommits
-	paneReview
-	paneSlack
-)
-
-// paneCount is untyped on purpose: typed as pane, the exhaustive linter would
-// count it as a member and demand a case for it in every switch.
-const paneCount = 5
 
 // defaultWidth and defaultHeight stand in until the terminal reports its real
 // size, which Bubble Tea sends straight after start.
@@ -64,37 +25,6 @@ const (
 	defaultHeight = 30
 )
 
-// title names a pane. A lookup rather than a switch, because a switch over every
-// pane leaves a final arm that can never be false.
-func (p pane) title() string {
-	titles := [paneCount]string{"Issues", "Branch", "Commits", "Review", "Slack"}
-
-	return titles[p]
-}
-
-// label is the title with the number that jumps to it.
-func (p pane) label() string {
-	return strconv.Itoa(int(p)+1) + " " + p.title()
-}
-
-// IssueSearch finds the issues assigned to the user.
-type IssueSearch func() (jira.SearchResult, error)
-
-// TransitionList lists the moves Jira's workflow offers an issue.
-type TransitionList func(issueKey string) ([]jira.Transition, error)
-
-// TransitionApply moves an issue through one of the transitions it was offered.
-type TransitionApply func(issueKey string, to jira.Transition) error
-
-// Deps is everything the interface asks of the world outside the terminal.
-// Each is a function rather than a client so the model never holds a context or
-// a credential, and so a test can hand it canned answers without a network.
-type Deps struct {
-	SearchIssues    IssueSearch
-	ListTransitions TransitionList
-	ApplyTransition TransitionApply
-}
-
 // Model satisfies tea.Model with value receivers, so the assertion uses a value
 // rather than a pointer — and every method on it stays a value receiver, which
 // recvcheck enforces.
@@ -102,56 +32,83 @@ var _ tea.Model = Model{}
 
 // Model is the interface's state.
 type Model struct {
-	cfg      config.Config
-	loadErr  error
-	keys     keyMap
-	styles   styles
-	width    int
-	height   int
-	focus    pane
-	helpOpen bool
-	mouse    bool
-	deps     Deps
-	issues   issueList
-	picker   statusPicker
+	cfg     config.Config
+	loadErr error
+	deps    Deps
+	keys    keyMap
+	styles  styles
+	marks   glyphs
+
+	width, height int
+	focus         pane
+	helpOpen      bool
+	mouse         bool
+	dryRun        bool
+	// scroll is how far the detail pane is scrolled; moving to another issue or
+	// pane starts it at the top again.
+	scroll int
+	// runs counts the programs started, so the output of one run is never
+	// shown in another.
+	runs int
+	// draft is the commit message last composed and not yet committed.
+	draft commitDraft
+
+	// overlay takes the keyboard while it is open; nil when none is.
+	overlay overlay
 	// notice is the footer's one-line report of something that just happened.
 	// The next key press clears it.
 	notice string
+
+	issues  issueList
+	detail  issueDetail
+	branch  branchState
+	changes changeList
+	review  reviewState
+	slack   slackState
+	hookgen hookgenState
 }
 
 // New builds the interface for a configuration, the error if any from loading
 // it, and what it may ask of the world outside.
 func New(cfg config.Config, loadErr error, deps Deps) Model {
-	return Model{
-		cfg:      cfg,
-		loadErr:  loadErr,
-		keys:     newKeyMap(),
-		styles:   newStyles(),
-		width:    defaultWidth,
-		height:   defaultHeight,
-		focus:    paneIssues,
-		helpOpen: false,
-		mouse:    true,
-		deps:     deps,
-		issues:   issueList{found: jira.SearchResult{Issues: nil, Total: 0}, err: nil, settled: false, selected: 0},
-		picker:   statusPicker{},
-		notice:   "",
+	marks := unicodeGlyphs()
+	if cfg.UI.ASCII {
+		marks = asciiGlyphs()
 	}
+
+	return Model{
+		cfg: cfg, loadErr: loadErr, deps: deps,
+		keys: newKeyMap(marks), styles: newStyles(), marks: marks,
+		width: defaultWidth, height: defaultHeight,
+		focus: paneIssues, mouse: cfg.UI.Mouse,
+	}
+}
+
+// WithDryRun is the interface holding back every write — to Jira, the forge,
+// Slack, git and files — and saying instead what it would have done. Reads stay
+// live, so what it says is about the real state of things.
+func (m Model) WithDryRun() Model {
+	m.dryRun = true
+
+	return m
 }
 
 // Run starts the interface and blocks until the user quits. The context cancels
 // the program, so a caller can shut the interface down.
 func Run(ctx context.Context, model Model, out io.Writer) error {
-	program := tea.NewProgram(model,
+	options := []tea.ProgramOption{
 		tea.WithOutput(out),
 		tea.WithContext(ctx),
 		// The alternate screen keeps the session from scrolling the terminal,
 		// and gives the scrollback back untouched on exit.
 		tea.WithAltScreen(),
-		tea.WithMouseCellMotion(),
-	)
+	}
 
-	_, err := program.Run()
+	if model.mouse {
+		options = append(options, tea.WithMouseCellMotion())
+	}
+
+	_, err := tea.NewProgram(model, options...).Run()
 	if err != nil {
 		return fmt.Errorf("running the interface: %w", err)
 	}
@@ -159,18 +116,16 @@ func Run(ctx context.Context, model Model, out io.Writer) error {
 	return nil
 }
 
-// Init implements tea.Model: it starts the issue search. The search runs inside
-// the returned command, which Bubble Tea executes off the update loop, so a slow
-// Jira never freezes the screen.
+// Init implements tea.Model: it starts every load the panes need. Each runs
+// inside a command, which Bubble Tea executes off the update loop, so a slow
+// service never freezes the screen — and each pane fills in, or fails, on its
+// own.
 func (m Model) Init() tea.Cmd {
-	if m.deps.SearchIssues == nil {
-		return nil
-	}
-
-	return m.searchIssues()
+	return tea.Batch(m.searchIssues(), m.loadBranch(), m.loadChanges(), m.findHooks())
 }
 
-// Update implements tea.Model.
+// Update implements tea.Model. Every load and result is an applier, which knows
+// what it changes, so this only routes.
 //
 //nolint:ireturn // tea.Model is the return type bubbletea's interface requires
 func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
@@ -182,80 +137,88 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.KeyMsg:
 		return m.handleKey(msg)
 	case tea.MouseMsg:
-		return m.handleMouse(msg), nil
-	case issuesLoaded:
-		m.issues = m.issues.settle(msg)
-
-		return m, nil
-	case transitionsListed:
-		m.picker = m.picker.settle(msg)
-
-		return m, nil
-	case transitionApplied:
-		return m.finishTransition(msg)
+		return m.handleMouse(msg)
+	case applier:
+		return msg.apply(m)
 	default:
 		return m, nil
 	}
 }
 
-// searchIssues is the command that fills, or refreshes, the Issues pane.
-func (m Model) searchIssues() tea.Cmd {
-	search := m.deps.SearchIssues
-
-	return func() tea.Msg {
-		found, err := search()
-
-		return issuesLoaded{found: found, err: err}
-	}
-}
-
-// handleKey answers a key press.
+// handleKey answers a key press. ctrl+c always quits. Otherwise an open overlay
+// has the keyboard — including q, which a text field needs to type — then the
+// help, then the keys that work everywhere, then the focused pane's own.
 func (m Model) handleKey(msg tea.KeyMsg) (Model, tea.Cmd) {
 	m.notice = ""
 
 	switch {
+	case key.Matches(msg, m.keys.interrupt):
+		return m, tea.Quit
+	case m.overlay != nil:
+		return m.overlay.handleKey(m, msg)
+	case m.helpOpen:
+		return m.handleHelpKey(msg)
+	default:
+		return m.handleGlobalKey(msg)
+	}
+}
+
+// handleHelpKey answers a key while the help is open, which scrolls on a
+// terminal too short to show every key at once.
+func (m Model) handleHelpKey(msg tea.KeyMsg) (Model, tea.Cmd) {
+	switch {
 	case key.Matches(msg, m.keys.quit):
 		return m, tea.Quit
-	case m.picker.open:
-		return m.handlePickerKey(msg)
-	case key.Matches(msg, m.keys.toggleHelp):
-		m.helpOpen = !m.helpOpen
-	case key.Matches(msg, m.keys.closeOverlay):
-		m.helpOpen = false
-	case key.Matches(msg, m.keys.next):
-		m.focus = (m.focus + 1) % paneCount
-	case key.Matches(msg, m.keys.previous):
-		m.focus = (m.focus + paneCount - 1) % paneCount
-	case key.Matches(msg, m.keys.jump):
-		// The binding only matches the digits 1 through 5, so the digit is
-		// always a valid pane.
-		m.focus = pane(msg.String()[0] - '1')
-	case key.Matches(msg, m.keys.toggleMouse):
-		return m.toggleMouse()
-	default:
-		return m.handlePaneKey(msg)
+	case key.Matches(msg, m.keys.toggleHelp, m.keys.closeOverlay):
+		m.helpOpen, m.scroll = false, 0
+	case key.Matches(msg, m.keys.scrollDown, m.keys.down):
+		m.scroll += m.halfPage()
+	case key.Matches(msg, m.keys.scrollUp, m.keys.up):
+		m.scroll = max(0, m.scroll-m.halfPage())
 	}
 
 	return m, nil
 }
 
-// handlePaneKey gives the focused pane the keys the rail did not claim. Only the
-// Issues pane has any yet.
-func (m Model) handlePaneKey(msg tea.KeyMsg) (Model, tea.Cmd) {
-	if m.focus != paneIssues {
-		return m, nil
-	}
-
+// handleGlobalKey answers the keys that work in every pane, and hands the rest
+// to the focused one.
+func (m Model) handleGlobalKey(msg tea.KeyMsg) (Model, tea.Cmd) {
 	switch {
-	case key.Matches(msg, m.keys.down):
-		m.issues = m.issues.move(1)
-	case key.Matches(msg, m.keys.up):
-		m.issues = m.issues.move(-1)
-	case key.Matches(msg, m.keys.changeStatus):
-		return m.openStatusPicker()
+	case key.Matches(msg, m.keys.quit):
+		return m, tea.Quit
+	case key.Matches(msg, m.keys.toggleHelp):
+		m.helpOpen, m.scroll = true, 0
+	case key.Matches(msg, m.keys.next):
+		return m.focusOn((m.focus + 1) % paneCount), nil
+	case key.Matches(msg, m.keys.previous):
+		return m.focusOn((m.focus + paneCount - 1) % paneCount), nil
+	case key.Matches(msg, m.keys.jump):
+		// The binding only matches the digits 1 through 5, so the digit is
+		// always a valid pane.
+		return m.focusOn(pane(msg.String()[0] - '1')), nil
+	case key.Matches(msg, m.keys.toggleMouse):
+		return m.toggleMouse()
+	case key.Matches(msg, m.keys.scrollDown):
+		m.scroll += m.halfPage()
+	case key.Matches(msg, m.keys.scrollUp):
+		m.scroll = max(0, m.scroll-m.halfPage())
+	default:
+		return behaviorOf(m.focus).handle(m, msg)
 	}
 
 	return m, nil
+}
+
+// halfPage is how far a scroll key moves the detail.
+func (m Model) halfPage() int {
+	return max(1, m.detailRows()/2) //nolint:mnd // half, as in half a page
+}
+
+// focusOn moves focus to a pane, with its detail scrolled to the top.
+func (m Model) focusOn(target pane) Model {
+	m.focus, m.scroll = target, 0
+
+	return m
 }
 
 // toggleMouse gives the terminal its own click-drag selection back, or takes it
@@ -270,56 +233,7 @@ func (m Model) toggleMouse() (Model, tea.Cmd) {
 	return m, tea.DisableMouse
 }
 
-// handleMouse focuses the rail pane under a left click. An open picker holds on
-// to focus until it is closed, from the mouse as much as from the keyboard.
-func (m Model) handleMouse(msg tea.MouseMsg) Model {
-	if m.picker.open || msg.Action != tea.MouseActionPress || msg.Button != tea.MouseButtonLeft {
-		return m
-	}
-
-	index, ok := layout.Compute(m.width, m.height, paneCount, int(m.focus)).RailAt(msg.X, msg.Y)
-	if ok {
-		m.focus = pane(index)
-	}
-
-	return m
-}
-
-// status describes the configuration this session is running with.
-func (m Model) status() string {
-	if m.loadErr != nil {
-		return m.configErrorStatus()
-	}
-
-	label := m.styles.label
-
-	lines := []string{
-		label.Render("config ") + m.cfg.Path,
-		label.Render("jira   ") + config.DisplayURL(m.cfg.Jira.BaseURL) +
-			label.Render(" · "+m.cfg.Jira.AuthMode().String()),
-		label.Render("slack  ") + m.cfg.Slack.Target() +
-			label.Render(" · "+m.cfg.Slack.Mode().String()),
-	}
-
-	missing := m.cfg.Missing()
-	if len(missing) > 0 {
-		lines = append(lines,
-			"",
-			m.styles.status.Render("incomplete: ")+strings.Join(missing, ", "),
-			label.Render("run `workflow doctor` for detail"),
-		)
-	}
-
-	return strings.Join(lines, "\n")
-}
-
-// configErrorStatus renders the screen shown when no configuration loaded.
-func (m Model) configErrorStatus() string {
-	if errors.Is(m.loadErr, config.ErrNotFound) {
-		return m.styles.status.Render("no "+config.FileName+" found") + "\n" +
-			m.styles.label.Render("create one with `workflow config init`")
-	}
-
-	return m.styles.status.Render("configuration error") + "\n" +
-		m.styles.label.Render(m.loadErr.Error())
+// shape is the layout for the terminal as it is now.
+func (m Model) shape() layout.Layout {
+	return layout.Compute(m.width, m.height, paneCount, int(m.focus))
 }

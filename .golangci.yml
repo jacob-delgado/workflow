@@ -77,8 +77,9 @@ linters:
       allow: [anon, error, empty, stdlib, generic]
     varnamelen:
       # `tt` for a table-test case and `ok` for a comma-ok are conventional
-      # enough to read at any scope.
-      ignore-names: [tt, ok]
+      # enough to read at any scope, and so is `m` for the Bubble Tea model,
+      # which every overlay's methods take and hand back.
+      ignore-names: [tt, ok, m]
 
   exclusions:
     warn-unused: true # tell us when an exclusion below stops matching anything
@@ -98,6 +99,11 @@ linters:
       # against the actual argument-to-output path rather than a seam built to
       # make the linter happy.
       - path: internal/cli/.*_test\.go$
+        linters: [paralleltest]
+      # The wiring tests run the real git and lefthook, which read their
+      # configuration, TMPDIR and PATH from the environment. t.Setenv is the
+      # only way to isolate those, and it panics in a parallel test.
+      - path: internal/wiring/.*_test\.go$
         linters: [paralleltest]
 
 formatters:

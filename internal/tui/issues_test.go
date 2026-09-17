@@ -9,6 +9,8 @@ import (
 	"sync/atomic"
 	"testing"
 
+	tea "github.com/charmbracelet/bubbletea"
+
 	"github.com/jacob-delgado/workflow/internal/jira"
 	"github.com/jacob-delgado/workflow/internal/tui"
 )
@@ -20,45 +22,72 @@ func issue(key, summary, category string) jira.Issue {
 }
 
 // assigned is a search that finds exactly these issues.
-func assigned(issues ...jira.Issue) tui.IssueSearch {
+func assigned(issues ...jira.Issue) func() (jira.SearchResult, error) {
 	return func() (jira.SearchResult, error) {
 		return jira.SearchResult{Issues: issues, Total: len(issues)}, nil
 	}
 }
 
+// searching is an interface whose only outside dependency is this search.
+func searching(search func() (jira.SearchResult, error)) tui.Deps {
+	return tui.Deps{Jira: tui.JiraDeps{Search: search}}
+}
+
 // failing is a search that fails with err.
-func failing(err error) tui.IssueSearch {
+func failing(err error) func() (jira.SearchResult, error) {
 	return func() (jira.SearchResult, error) {
 		return jira.SearchResult{Issues: nil, Total: 0}, err
 	}
 }
 
-// started runs the model's Init command and feeds its message back in, which is
-// exactly what Bubble Tea does at start.
+// started runs the model's Init commands and feeds their messages back in, which
+// is what Bubble Tea does at start.
 func started(t *testing.T, model tui.Model) tui.Model {
 	t.Helper()
 
 	cmd := model.Init()
 	if cmd == nil {
-		t.Fatal("Init returned no command, want the issue search")
+		t.Fatal("Init returned no command, want the loads started")
 	}
 
-	next, _ := model.Update(cmd())
+	return deliver(t, model, cmd)
+}
 
-	return concrete(t, next)
+// deliver runs a command — every command in a batch — and feeds each message
+// back in, as Bubble Tea does. The commands that follow are not run: a test
+// runs those when it wants them.
+func deliver(t *testing.T, model tui.Model, cmd tea.Cmd) tui.Model {
+	t.Helper()
+
+	msg := cmd()
+
+	batch, isBatch := msg.(tea.BatchMsg)
+	if !isBatch {
+		next, _ := model.Update(msg)
+
+		return concrete(t, next)
+	}
+
+	for _, each := range batch {
+		if each != nil {
+			model = deliver(t, model, each)
+		}
+	}
+
+	return model
 }
 
 // issuesScreen is a started model with a search, at a size that shows the rail.
-func issuesScreen(t *testing.T, search tui.IssueSearch) tui.Model {
+func issuesScreen(t *testing.T, search func() (jira.SearchResult, error)) tui.Model {
 	t.Helper()
 
-	return started(t, sized(t, tui.New(completeConfig(), nil, tui.Deps{SearchIssues: search}), 120, 40))
+	return started(t, sized(t, tui.New(completeConfig(), nil, searching(search)), 120, 40))
 }
 
 func TestIssuesPaneSaysLoadingBeforeTheSearchAnswers(t *testing.T) {
 	t.Parallel()
 
-	deps := tui.Deps{SearchIssues: assigned(issue("OPS-1", "Fix login", "new"))}
+	deps := searching(assigned(issue("OPS-1", "Fix login", "new")))
 	view := sized(t, tui.New(completeConfig(), nil, deps), 120, 40).View()
 
 	if !strings.Contains(view, "loading") {
@@ -81,7 +110,7 @@ func TestInitSearchesOnlyWhenItsCommandRuns(t *testing.T) {
 		return jira.SearchResult{Issues: nil, Total: 0}, nil
 	}
 
-	cmd := tui.New(completeConfig(), nil, tui.Deps{SearchIssues: search}).Init()
+	cmd := tui.New(completeConfig(), nil, searching(search)).Init()
 
 	// Building the command must not block on the network: Bubble Tea runs it
 	// off the update loop, which is what keeps the screen responsive.
@@ -255,10 +284,10 @@ func TestANarrowTerminalShowsTheListFullWidth(t *testing.T) {
 
 	// With no rail, the focused pane's own content takes the whole body — here
 	// the list, not the selected issue's detail.
-	model := started(t, sized(t, tui.New(completeConfig(), nil, tui.Deps{SearchIssues: assigned(
+	model := started(t, sized(t, tui.New(completeConfig(), nil, searching(assigned(
 		issue("OPS-1", "Fix login", "new"),
 		issue("OPS-2", "Rotate keys", "new"),
-	)}), 80, 30))
+	))), 80, 30))
 
 	view := model.View()
 
@@ -273,14 +302,10 @@ func TestTheAnswerRendersTheSameWhicheverArrivesFirst(t *testing.T) {
 	search := assigned(issue("OPS-1", "Fix login", "new"))
 
 	// Bubble Tea gives no ordering guarantee between the size and the answer.
-	sizedFirst := started(t, sized(t, tui.New(completeConfig(), nil, tui.Deps{SearchIssues: search}), 120, 40)).View()
-	answerFirst := sized(t, started(t, tui.New(completeConfig(), nil, tui.Deps{SearchIssues: search})), 120, 40).View()
+	sizedFirst := started(t, sized(t, tui.New(completeConfig(), nil, searching(search)), 120, 40)).View()
+	answerFirst := sized(t, started(t, tui.New(completeConfig(), nil, searching(search))), 120, 40).View()
 
 	if sizedFirst != answerFirst {
 		t.Errorf("the order of size and answer changed the screen:\n%s\n---\n%s", sizedFirst, answerFirst)
 	}
 }
-
-// Compile-time proof that a func literal of the right shape is an IssueSearch,
-// so the wiring in internal/cli cannot drift from what these tests exercise.
-var _ tui.IssueSearch = func() (jira.SearchResult, error) { return jira.SearchResult{}, nil }

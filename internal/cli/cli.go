@@ -5,7 +5,6 @@
 package cli
 
 import (
-	"context"
 	"fmt"
 	"io"
 	"os"
@@ -13,8 +12,8 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/jacob-delgado/workflow/internal/config"
-	"github.com/jacob-delgado/workflow/internal/jira"
 	"github.com/jacob-delgado/workflow/internal/tui"
+	"github.com/jacob-delgado/workflow/internal/wiring"
 )
 
 const longHelp = `workflow ties Jira, Slack, and your Git forge into one terminal workflow.
@@ -106,9 +105,16 @@ func NewRootCmd() *cobra.Command {
 		Args:          cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			cfg, loadErr := loadFromEnvironment()
-			model := tui.New(cfg, loadErr, jiraDeps(cmd.Context(), cfg.Jira))
+			ctx := cmd.Context()
 
-			return tui.Run(cmd.Context(), model, cmd.OutOrStdout())
+			dir, err := os.Getwd()
+			if err != nil {
+				return fmt.Errorf("determining the working directory: %w", err)
+			}
+
+			model := tui.New(cfg, loadErr, wiring.Deps(ctx, cfg, wiring.Locate(ctx, dir)))
+
+			return tui.Run(ctx, model, cmd.OutOrStdout())
 		},
 	}
 
@@ -135,23 +141,4 @@ func loadFromEnvironment() (config.Config, error) {
 	}
 
 	return config.Load(workDir, homeDir)
-}
-
-// jiraDeps is what the interface asks of Jira. It needs no guard for a missing
-// or malformed configuration: the client refuses before sending anything, and
-// the pane shows why.
-func jiraDeps(ctx context.Context, settings config.Jira) tui.Deps {
-	client := jira.New(jira.HTTPClient(requestTimeout).Do, settings)
-
-	return tui.Deps{
-		SearchIssues: func() (jira.SearchResult, error) {
-			return client.Search(ctx, jira.AssignedToMe)
-		},
-		ListTransitions: func(issueKey string) ([]jira.Transition, error) {
-			return client.Transitions(ctx, issueKey)
-		},
-		ApplyTransition: func(issueKey string, to jira.Transition) error {
-			return client.ApplyTransition(ctx, issueKey, to, nil)
-		},
-	}
 }
