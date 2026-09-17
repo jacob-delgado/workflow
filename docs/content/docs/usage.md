@@ -235,5 +235,9 @@ have them. See [Configuration]({{< relref "/docs/configuration" >}}).
   you quit first.
 - **`w` waits for checks that exist.** In a repository with no CI at all it
   keeps waiting; post with `enter` instead.
+- **A branch is worked on under the name it shows.** git allows characters in a
+  branch's name that cannot be drawn as they are, such as one with no width or
+  one that reverses the text after it. A branch, upstream or base named with
+  one is refused, and the Branch pane says which.
 - **Each Slack post is its own message.** With nowhere to keep a message's
   timestamp, later posts cannot thread under the first.

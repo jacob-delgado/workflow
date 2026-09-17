@@ -15,6 +15,7 @@ import (
 	"github.com/charmbracelet/x/ansi"
 
 	"github.com/jacob-delgado/workflow/internal/config"
+	"github.com/jacob-delgado/workflow/internal/sanitize"
 	"github.com/jacob-delgado/workflow/internal/tui/frame"
 	"github.com/jacob-delgado/workflow/internal/tui/layout"
 )
@@ -268,16 +269,18 @@ func (m Model) configErrorStatus() string {
 		m.styles.label.Render(m.loadErr.Error())
 }
 
-// failure draws an error the one way the interface says something broke.
+// failure draws an error the one way the interface says something broke. An
+// error carries what a program or a file name put in it, so its text is made
+// safe here as well as where it was written.
 func (m Model) failure(err error) string {
-	return m.styles.failure.Render(m.marks.failed + " " + err.Error())
+	return m.styles.failure.Render(m.marks.failed + " " + sanitize.Text(err.Error()))
 }
 
 // failureWithin is failure for a pane: wrapped to its width first and styled
 // after, so every row opens and closes its own color and none runs on into the
 // border beside it.
 func (m Model) failureWithin(err error, width int) string {
-	return m.styles.failure.Render(wrap(m.marks.failed+" "+err.Error(), width))
+	return m.styles.failure.Render(wrap(m.marks.failed+" "+sanitize.Text(err.Error()), width))
 }
 
 // plural counts things, in words.

@@ -6,6 +6,7 @@ package gitrepo_test
 import (
 	"errors"
 	"slices"
+	"strings"
 	"testing"
 
 	"github.com/jacob-delgado/workflow/internal/gitrepo"
@@ -199,5 +200,44 @@ func TestUnstageReportsGitsFailure(t *testing.T) {
 	// Assert
 	if !errors.Is(err, errIndexLocked) {
 		t.Errorf("Unstage returned %v, want git's error", err)
+	}
+}
+
+func TestAStagingFailureNamesTheFileInTextThatIsSafeToShow(t *testing.T) {
+	t.Parallel()
+
+	// A file name may hold any byte but / and NUL. git is handed the name as it
+	// is; an error is read by a person, and is handed the name made safe.
+	const awkward = "a\x1b]0;owned\x07\nb.go"
+
+	cases := map[string]func(run gitrepo.Runner) error{
+		"staging": func(run gitrepo.Runner) error {
+			return gitrepo.Stage(t.Context(), run, workDir, gitrepo.Change{Path: awkward})
+		},
+		"unstaging": func(run gitrepo.Runner) error {
+			return gitrepo.Unstage(t.Context(), run, workDir, gitrepo.Change{Path: awkward})
+		},
+	}
+
+	for name, act := range cases {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			// Arrange
+			run := fakeRunner(t, map[string]reply{
+				verifyHead:                                    {out: []byte("abc\n")},
+				"git -C /work add --all -- " + awkward:        {err: errIndexLocked},
+				"git -C /work restore --staged -- " + awkward: {err: errIndexLocked},
+			})
+
+			// Act
+			err := act(run)
+
+			// Assert
+			if !errors.Is(err, errIndexLocked) || strings.ContainsAny(err.Error(), "\x1b\n") ||
+				!strings.Contains(err.Error(), "b.go") {
+				t.Errorf("the error reads %q, want git's error naming the file on one safe line", err)
+			}
+		})
 	}
 }

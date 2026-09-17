@@ -26,8 +26,8 @@ func featureBranch() map[string]reply {
 		"git -C /work rev-parse --abbrev-ref --symbolic-full-name @{upstream}": {
 			out: []byte("origin/fix/PROJ-412-token-redaction\n"),
 		},
-		"git -C /work rev-list --left-right --count @{upstream}...HEAD":      {out: []byte("1\t2\n")},
-		"git -C /work symbolic-ref --quiet --short refs/remotes/origin/HEAD": {out: []byte("origin/main\n")},
+		"git -C /work rev-list --left-right --count @{upstream}...HEAD": {out: []byte("1\t2\n")},
+		originsHead: {out: []byte("origin/main\n")},
 		// Real log output under -z: a NUL after the hash, and one after each
 		// subject where git would otherwise put a newline.
 		logFromMain: {
@@ -49,6 +49,7 @@ const (
 	logCommits   = "git -C /work log -z --reverse --max-count=200 --format=%h%x00%s "
 	logFromMain  = logCommits + "origin/main..HEAD"
 	readHooksDir = "git -C /work rev-parse --git-path hooks"
+	originsHead  = "git -C /work symbolic-ref --quiet --short refs/remotes/origin/HEAD"
 )
 
 // firstHash and secondHash are the abbreviated hashes of featureBranch's
@@ -170,7 +171,7 @@ func TestTheBaseFallsBackWhenOriginNamesNoDefault(t *testing.T) {
 
 			// Arrange
 			replies := featureBranch()
-			replies["git -C /work symbolic-ref --quiet --short refs/remotes/origin/HEAD"] = reply{err: errNoRef}
+			replies[originsHead] = reply{err: errNoRef}
 
 			for _, ref := range []string{
 				"refs/remotes/origin/main", "refs/remotes/origin/master", "refs/heads/main", "refs/heads/master",
@@ -204,7 +205,7 @@ func emptyRepository() map[string]reply {
 		showCurrentBranch:             {out: []byte("main\n")},
 		"git -C /work rev-parse HEAD": {err: errDetachedRead},
 		readUpstream:                  {err: errNoUpstream},
-		"git -C /work symbolic-ref --quiet --short refs/remotes/origin/HEAD": {out: []byte("origin/main\n")},
+		originsHead:                   {out: []byte("origin/main\n")},
 	}
 }
 

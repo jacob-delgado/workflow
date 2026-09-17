@@ -16,6 +16,8 @@ import (
 	"fmt"
 	"os/exec"
 	"strings"
+
+	"github.com/jacob-delgado/workflow/internal/sanitize"
 )
 
 // ErrNotFound reports a program that is not on PATH.
@@ -38,7 +40,7 @@ func Run(ctx context.Context, name string, args ...string) ([]byte, error) {
 
 	output, err := command.Output()
 	if err != nil {
-		return nil, fmt.Errorf("%s: %w: %s", name, err, strings.TrimSpace(stderr.String()))
+		return nil, fmt.Errorf("%s: %w: %s", name, err, strings.TrimSpace(sanitize.Text(stderr.String())))
 	}
 
 	return output, nil

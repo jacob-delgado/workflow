@@ -85,7 +85,7 @@ Severity: medium · Confidence: reproduced
   (`internal/tui/commits.go:102`); the same order at
   `internal/tui/detail.go:253` with the wrap at `:229`, and
   `internal/tui/review.go:180` with the wrap at `:187`. `wrapLine`
-  (`internal/tui/render.go:166`) adds no reset, and neither does the frame.
+  (`internal/tui/render.go:167`) adds no reset, and neither does the frame.
 - Cost: the color opens on the first row and closes on the last. Seen on a
   live terminal: outside a repository, red ran from the Commits error across
   three rows, through the pane's right border, the rail's borders and the
@@ -105,7 +105,7 @@ Severity: medium · Confidence: reproduced
   `internal/tui/hookgen.go:92`, `internal/tui/comment.go:77`,
   `internal/tui/prcomposer.go:135`, `internal/tui/slack.go:177`,
   `internal/tui/branch.go:228`, `internal/tui/picker.go:123`. Overlay bodies
-  are returned as they are (`detailContent`, `internal/tui/render.go:83`) and
+  are returned as they are (`detailContent`, `internal/tui/render.go:84`) and
   the frame clips rows past its height. Six of eight overlay views ignore the
   row count they are given (`view(width, _ int)`).
 - Cost: a failed lefthook install at 80×24 with two hooks showed no error at
@@ -123,7 +123,7 @@ Severity: medium · Confidence: reproduced
 
 - Evidence: the offset grows without bound (`m.scroll += m.halfPage()`,
   `internal/tui/tui.go:175` and `:202`; `internal/tui/mouse.go:88`) and is
-  clamped only when drawn (`scrolled`, `internal/tui/render.go:143`).
+  clamped only when drawn (`scrolled`, `internal/tui/render.go:144`).
   `pickChange` maps a click with the raw value (`internal/tui/commits.go:197`).
   `handleCommitsKey` moves the selection without moving the view
   (`internal/tui/commits.go:176`), and the Commits detail draws every row.
@@ -183,7 +183,7 @@ Severity: medium · Confidence: read
 
 Severity: medium · Confidence: read
 
-- Evidence: `failure` (`internal/tui/render.go:272`) is documented as "the
+- Evidence: `failure` (`internal/tui/render.go:275`) is documented as "the
   one way the interface says something broke". These draw the glyph and
   `err.Error()` unstyled instead: `internal/tui/picker.go:123` and `:160`,
   `internal/tui/comment.go:77`, `internal/tui/branch.go:228`,
@@ -195,8 +195,9 @@ Severity: medium · Confidence: read
   explains the overlay sites; `review.go:140` and `slack.go:84` are `Model`
   methods with `failure` in reach.
 - Cost: red is the one color with a rule ("red always means something broke",
-  `internal/tui/glyphs.go:76`) and most failures are not red. There is also no
-  single place to wrap or clean error text before it is drawn.
+  `internal/tui/glyphs.go:76`) and most failures are not red. `failure` also
+  makes an error's text safe to draw and the sites that go around it do not,
+  which leaves that to wherever each error was written.
 - Remedy: pass one small `theme{marks, styles}` into `overlay.view`, with
   `failure(err, width)` on it.
 - Done when: no site outside `failure` concatenates `marks.failed` with an
@@ -250,8 +251,8 @@ Severity: low · Confidence: reproduced
 
 - Evidence: `stageAll` joins failures with `errors.Join`
   (`internal/tui/commits.go:255`) and `proc.Run` appends a program's stderr to
-  its error (`internal/proc/proc.go:41`); `footer` passes the text to
-  `ansi.Truncate` (`internal/tui/render.go:211`), which lets a newline through
+  its error (`internal/proc/proc.go:43`); `footer` passes the text to
+  `ansi.Truncate` (`internal/tui/render.go:212`), which lets a newline through
   when it falls within the width.
 - Cost: a staging error with two lines of stderr rendered 31 rows on a 30-row
   terminal. The progress row scrolls off and every mouse target is one row
@@ -267,7 +268,7 @@ Severity: low · Confidence: read
   in 16 files. Every overlay and applier takes and returns the whole value.
   Feature state sits at the root (`runs`, `draft`). Help is an overlay in
   every way but its type: `helpOpen` is special-cased at
-  `internal/tui/tui.go:159` and `:168`, `internal/tui/render.go:87` and
+  `internal/tui/tui.go:159` and `:168`, `internal/tui/render.go:88` and
   `:220`. `Update` itself is small and routes through `applier`.
 - Cost: DEBT-02 is state that outlived what it described, and the Slack
   pane's state once was too, which is what happens when any message can reach
@@ -509,7 +510,7 @@ Severity: medium · Confidence: reproduced
   (`internal/proc/start.go:137`) sets no process group, `Cancel` or
   `WaitDelay`. `Start` documents "Canceling ctx kills the program"
   (`internal/proc/start.go:49`), which cannot happen. A push gets
-  `GIT_TERMINAL_PROMPT=0` (`internal/gitrepo/branch.go:215`); a commit gets no
+  `GIT_TERMINAL_PROMPT=0` (`internal/gitrepo/branch.go:238`); a commit gets no
   environment at all (`:222`).
 - Cost: a hung `git status` or `gh auth token` leaves its pane on "loading…"
   forever. A streamed run ignores every key but `ctrl+c`, which quits the
@@ -545,8 +546,8 @@ Severity: low · Confidence: read
 Severity: medium · Confidence: reproduced
 
 - Evidence: `Stage` runs `git add --all -- <path>`
-  (`internal/gitrepo/status.go:116`); `Unstage` runs
-  `restore --staged --` (`:130`) or `rm --cached --quiet --` (`:134`). `--`
+  (`internal/gitrepo/status.go:118`); `Unstage` runs
+  `restore --staged --` (`:132`) or `rm --cached --quiet --` (`:136`). `--`
   ends options; it does not turn off globbing or pathspec magic.
 - Cost: staging `[id].tsx` also staged `i.tsx` and `d.tsx` beside it, and
   unstaging it unstaged all three. A file named `:(top)README` staged
@@ -616,12 +617,12 @@ Severity: low · Confidence: reproduced
 
 Severity: medium · Confidence: read
 
-- Evidence: `internal/gitrepo/gitrepo.go:71`; `internal/gitrepo/branch.go:57`,
-  `:110`, `:115` and `:214`; `internal/tui/branch.go:66` and `:90`;
+- Evidence: `internal/gitrepo/gitrepo.go:71`; `internal/gitrepo/branch.go:58`,
+  `:133`, `:138` and `:237`; `internal/tui/branch.go:66` and `:90`;
   `internal/tui/prcomposer.go:78`. No code path runs `git fetch`. The base
   falls back through `origin/HEAD`, `origin/main`, `origin/master`, local
   `main`, local `master`, then nothing (`base`,
-  `internal/gitrepo/branch.go:109`).
+  `internal/gitrepo/branch.go:132`).
 - Cost: a remote under another name means "not pushed yet" forever. With a
   fork, the base is the fork's default branch. When no base is found,
   `Commits` stays empty, and both `canPush` and `canOpenPullRequest` are
@@ -675,7 +676,7 @@ Severity: low · Confidence: reproduced
   a new paragraph, after which `git interpret-trailers --parse` sees only it
   and loses `Co-authored-by:`.
 - `ReadBranch` asks for `--reverse --max-count=200`
-  (`internal/gitrepo/branch.go:89`). git limits before it reverses, so past
+  (`internal/gitrepo/branch.go:95`). git limits before it reverses, so past
   200 commits the list holds the newest 200, the count silently caps, and the
   pull request title comes from a commit that is not the branch's first.
 - Dead code: `ReadConfig`, `wireHook`, `names` and `Runner`
