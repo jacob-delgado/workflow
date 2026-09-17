@@ -56,6 +56,10 @@ type behavior struct {
 	// pick selects the row of the pane's list drawn on a line; nil for a pane
 	// with no list to pick from. inRail says which drawing was clicked.
 	pick func(m Model, line, rows int, inRail bool) (Model, tea.Cmd)
+	// listInDetail marks a pane whose selectable list lives in the detail rather
+	// than the rail, so the heavy focus border belongs on the detail, where the
+	// cursor is, not on the rail's summary.
+	listInDetail bool
 }
 
 // behaviorOf is a pane's behavior.
@@ -72,6 +76,7 @@ func behaviorOf(target pane) behavior {
 		paneCommits: {
 			rail: Model.commitsRail, detail: Model.commitsDetail, narrow: nil,
 			keys: Model.commitsKeys, handle: Model.handleCommitsKey, pick: Model.pickChange,
+			listInDetail: true,
 		},
 		paneReview: {
 			rail: Model.reviewRail, detail: Model.reviewDetail, narrow: nil,

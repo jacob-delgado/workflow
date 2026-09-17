@@ -53,7 +53,7 @@ one of them yet, which makes this table the shortest summary of the file.
 | --- | --- | --- |
 | "a key it does not show does nothing" | `docs/content/docs/usage.md:55` | No. Ten keys work unseen. UX-32 |
 | "`?` lists every key" | `docs/content/docs/usage.md:56` | No. Eleven bindings are missing. UX-33 |
-| "the one way the interface says something broke" | `failure`, `internal/tui/render.go:275` | In 7 places of about 20. |
+| "the one way the interface says something broke" | `failure`, `internal/tui/render.go:277` | In 7 places of about 20. |
 | "Nothing outward facing is sent without" a last look | `internal/tui/comment.go:43` | Mostly. |
 | "a refused change must never go unseen" | `internal/tui/picker.go:184` | In one overlay of seven. |
 | "Each pane fails on its own" | `docs/content/docs/usage.md:58` | Yes, and it is the best thing about the first run. |
@@ -66,8 +66,8 @@ one of them yet, which makes this table the shortest summary of the file.
 Impact: high · Effort: small
 
 - Today: below 90 columns the rail and the detail pane take turns, and the
-  Issues pane draws only its list (`internal/tui/render.go:97`,
-  `internal/tui/panes.go:65`). A new user
+  Issues pane draws only its list (`internal/tui/render.go:103`,
+  `internal/tui/panes.go:69`). A new user
   in an 80×24 terminal, the size most terminals open at, sees this and
   nothing else (seen live):
 
@@ -109,23 +109,6 @@ Impact: high · Effort: small
 ## Branch
 
 ## Commits
-
-### UX-17 Put the heavy border where the cursor is
-
-Impact: medium · Effort: small
-
-- Today (seen live): focus is shown by a heavy border, and in the Commits
-  pane the heavy border is around two summary lines in the rail while the
-  cursor, the list and everything the keys act on are in the light-bordered
-  detail pane. In the Issues pane the list is in the rail, so border and
-  cursor agree. The eye is sent to the wrong box in one pane and the right box
-  in the next.
-- Instead: when a pane's list lives in the detail, the detail takes the heavy
-  border, as an overlay already does. Border weight stays the focus signal;
-  this only changes which box carries it.
-- Touches: `internal/tui/render.go` (`View`, `detailContent`),
-  `internal/tui/panes.go`.
-- Done when: in every pane the heavy border surrounds the row marker.
 
 ## Review
 
