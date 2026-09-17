@@ -163,10 +163,21 @@ func (m Model) handleIssuesKey(msg tea.KeyMsg) (Model, tea.Cmd) {
 	case key.Matches(msg, m.keys.branchForIssue):
 		return m.openBranchCreator()
 	case key.Matches(msg, m.keys.refresh):
-		return m, m.searchIssues()
+		return m.refreshIssues()
 	default:
 		return m, nil
 	}
+}
+
+// refreshIssues reads the list again, and the selected issue in full whether or
+// not it changed, so r retries a detail load that failed.
+func (m Model) refreshIssues() (Model, tea.Cmd) {
+	selected, ok := m.issues.current()
+	if !ok || m.deps.Jira.Issue == nil {
+		return m, m.searchIssues()
+	}
+
+	return m, tea.Batch(m.searchIssues(), m.fetchDetail(selected.Key))
 }
 
 // moveIssue moves the selection, and reads the newly selected issue once the
@@ -251,7 +262,7 @@ func (m Model) fullDetail(issueKey string, width int) []string {
 	case m.detail.key != issueKey || !m.detail.loaded:
 		return []string{"", m.styles.label.Render("loading the description and comments" + m.marks.ellipsis)}
 	case m.detail.err != nil:
-		return []string{"", m.failure(m.detail.err)}
+		return []string{"", m.failure(m.detail.err), "press r to try again"}
 	}
 
 	detail := m.detail.detail

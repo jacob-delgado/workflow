@@ -221,19 +221,6 @@ Impact: low · Effort: small
 - Done when: the search error carries the failure glyph and the failure
   style.
 
-### UX-08 Let `r` retry whatever failed
-
-Impact: medium · Effort: small
-
-- Today: a failed load of an issue's description cannot be retried directly.
-  `loadDetail` skips an issue whose key has not changed
-  (`internal/tui/detail.go:91`), so the way to try again is to move to another
-  issue and back.
-- Instead: `r` reloads the list and the selected issue, and the error line
-  says so.
-- Touches: `internal/tui/detail.go`.
-- Done when: after a failed detail load, `r` asks Jira for it again.
-
 ## Branch
 
 ### UX-13 Give a push the same last look as every other write
