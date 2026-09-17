@@ -40,6 +40,30 @@ func answer(body, user string) http.HandlerFunc {
 	}
 }
 
+func TestSearchPagesFromStartAt(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	var query atomic.Value
+
+	client := serve(t, func(writer http.ResponseWriter, request *http.Request) {
+		query.Store(request.URL.RawQuery)
+		writer.Header().Set("Content-Type", jsonMediaType)
+		_, _ = writer.Write([]byte(searchBody))
+	})
+
+	// Act
+	_, err := client.Search(t.Context(), jira.AssignedToMe, 50)
+	if err != nil {
+		t.Fatalf("Search returned %v, want nil", err)
+	}
+
+	// Assert
+	if got, _ := query.Load().(string); !strings.Contains(got, "startAt=50") {
+		t.Errorf("query = %q, want it to page from startAt=50", got)
+	}
+}
+
 func TestSearchReadsTheIssuesAndTheTotal(t *testing.T) {
 	t.Parallel()
 
@@ -47,7 +71,7 @@ func TestSearchReadsTheIssuesAndTheTotal(t *testing.T) {
 	client := serve(t, answer(searchBody, "fred"))
 
 	// Act
-	result, err := client.Search(t.Context(), jira.AssignedToMe)
+	result, err := client.Search(t.Context(), jira.AssignedToMe, 0)
 	if err != nil {
 		t.Fatalf("Search returned %v, want nil", err)
 	}
@@ -86,7 +110,7 @@ func TestSearchAsksForOnlyWhatTheListShows(t *testing.T) {
 	})
 
 	// Act
-	_, err := client.Search(t.Context(), jira.AssignedToMe)
+	_, err := client.Search(t.Context(), jira.AssignedToMe, 0)
 	if err != nil {
 		t.Fatalf("Search returned %v, want nil", err)
 	}
@@ -117,7 +141,7 @@ func TestSearchTreatsAnAnonymousAnswerAsARejectedCredential(t *testing.T) {
 	client := serve(t, answer(`{"total":0,"issues":[]}`, "anonymous"))
 
 	// Act
-	_, err := client.Search(t.Context(), jira.AssignedToMe)
+	_, err := client.Search(t.Context(), jira.AssignedToMe, 0)
 
 	// Assert
 	if !errors.Is(err, jira.ErrUnauthorized) {
@@ -134,7 +158,7 @@ func TestSearchTrustsAnAnswerWithoutTheUserHeader(t *testing.T) {
 	client := serve(t, answer(searchBody, ""))
 
 	// Act
-	result, err := client.Search(t.Context(), jira.AssignedToMe)
+	result, err := client.Search(t.Context(), jira.AssignedToMe, 0)
 	if err != nil {
 		t.Fatalf("Search returned %v, want nil", err)
 	}
@@ -159,7 +183,7 @@ func TestSearchReportsAnUnreachableServerByItsCause(t *testing.T) {
 	client := jira.New(failing, bearerConfig(exampleBaseURL))
 
 	// Act
-	_, err := client.Search(t.Context(), jira.AssignedToMe)
+	_, err := client.Search(t.Context(), jira.AssignedToMe, 0)
 
 	// Assert
 	if !errors.Is(err, jira.ErrUnreachable) || !errors.Is(err, errFixtureTimeout) {
@@ -186,7 +210,7 @@ func TestSearchReportsAPlainTransportError(t *testing.T) {
 	client := jira.New(failing, bearerConfig(exampleBaseURL))
 
 	// Act
-	_, err := client.Search(t.Context(), jira.AssignedToMe)
+	_, err := client.Search(t.Context(), jira.AssignedToMe, 0)
 
 	// Assert
 	if !errors.Is(err, jira.ErrUnreachable) || !errors.Is(err, errFixtureTimeout) {
@@ -209,7 +233,7 @@ func TestSearchWithoutACredentialSendsNothing(t *testing.T) {
 	client := jira.New(recording, config.Jira{BaseURL: exampleBaseURL, Token: "", User: ""})
 
 	// Act
-	_, err := client.Search(t.Context(), jira.AssignedToMe)
+	_, err := client.Search(t.Context(), jira.AssignedToMe, 0)
 
 	// Assert
 	if !errors.Is(err, jira.ErrNoCredential) {
@@ -228,7 +252,7 @@ func TestSearchReportsAnUnreadableBody(t *testing.T) {
 	client := serve(t, answer("{not json", "fred"))
 
 	// Act
-	_, err := client.Search(t.Context(), jira.AssignedToMe)
+	_, err := client.Search(t.Context(), jira.AssignedToMe, 0)
 
 	// Assert
 	if _, isSyntax := errors.AsType[*json.SyntaxError](err); !isSyntax {

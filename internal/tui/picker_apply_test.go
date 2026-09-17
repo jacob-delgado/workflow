@@ -18,10 +18,10 @@ func TestEnterMovesTheIssueAndRefreshesTheList(t *testing.T) {
 	// Arrange
 	var searches atomic.Int32
 
-	search := func() (jira.SearchResult, error) {
+	search := func(startAt int) (jira.SearchResult, error) {
 		searches.Add(1)
 
-		return twoIssues()()
+		return twoIssues()(startAt)
 	}
 
 	fake := &fakeJira{moves: workflowMoves()}
@@ -134,12 +134,12 @@ func TestTheSelectionFollowsTheMovedIssueThroughARefresh(t *testing.T) {
 			// Arrange
 			var calls atomic.Int32
 
-			search := func() (jira.SearchResult, error) {
+			search := func(startAt int) (jira.SearchResult, error) {
 				if calls.Add(1) == 1 {
 					return assigned(
 						issue("OPS-1", "Fix login", "new"), issue("OPS-2", "Rotate keys", "new"),
 						issue("OPS-3", "Ship it", "new"),
-					)()
+					)(startAt)
 				}
 
 				return jira.SearchResult{Issues: tt.refreshed, Total: len(tt.refreshed)}, nil

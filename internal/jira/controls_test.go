@@ -34,7 +34,7 @@ func TestAnIssueCannotDriveTheTerminal(t *testing.T) {
 	client := serve(t, answer(body, "fred"))
 
 	// Act
-	result, err := client.Search(t.Context(), jira.AssignedToMe)
+	result, err := client.Search(t.Context(), jira.AssignedToMe, 0)
 	if err != nil {
 		t.Fatalf("Search returned %v, want nil", err)
 	}
@@ -62,7 +62,7 @@ func TestAReasonCannotDriveTheTerminal(t *testing.T) {
 	client := serve(t, failWith(http.StatusBadRequest, body, "fred"))
 
 	// Act
-	_, err := client.Search(t.Context(), jira.AssignedToMe)
+	_, err := client.Search(t.Context(), jira.AssignedToMe, 0)
 
 	// Assert
 	if !errors.Is(err, jira.ErrRejected) || carriesEscape(err.Error()) || !strings.Contains(err.Error(), "such field") {
@@ -147,7 +147,7 @@ func TestAnAnswerThatBreaksOffIsAnError(t *testing.T) {
 			client := jira.New(droppedMidAnswer(tt.status), bearerConfig(exampleBaseURL))
 
 			// Act
-			_, err := client.Search(t.Context(), jira.AssignedToMe)
+			_, err := client.Search(t.Context(), jira.AssignedToMe, 0)
 
 			// Assert
 			if !errors.Is(err, tt.want) {

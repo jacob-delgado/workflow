@@ -40,7 +40,7 @@ type Deps struct {
 
 // JiraDeps is what the interface asks of Jira.
 type JiraDeps struct {
-	Search      func() (jira.SearchResult, error)
+	Search      func(startAt int) (jira.SearchResult, error)
 	Issue       func(issueKey string) (jira.IssueDetail, error)
 	Transitions func(issueKey string) ([]jira.Transition, error)
 	Transition  func(issueKey string, to jira.Transition, values []jira.FieldValue) error

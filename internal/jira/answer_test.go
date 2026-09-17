@@ -62,7 +62,7 @@ func TestARejectionCarriesJirasReasons(t *testing.T) {
 			client := serve(t, failWith(http.StatusBadRequest, tt.body, servedUser))
 
 			// Act
-			_, err := client.Search(t.Context(), jira.AssignedToMe)
+			_, err := client.Search(t.Context(), jira.AssignedToMe, 0)
 
 			// Assert
 			if !errors.Is(err, jira.ErrRejected) {
@@ -117,7 +117,7 @@ func TestAStatusWithoutAReasonKeepsItsOwnError(t *testing.T) {
 			client := serve(t, failWith(tt.status, tt.body, tt.user))
 
 			// Act
-			_, err := client.Search(t.Context(), jira.AssignedToMe)
+			_, err := client.Search(t.Context(), jira.AssignedToMe, 0)
 
 			// Assert
 			if !errors.Is(err, tt.want) {

@@ -29,8 +29,9 @@ const searchPath = "/rest/api/2/search"
 // needs, and nothing else. Each field requested is a field that can be null.
 const searchFields = "summary,status,issuetype,priority"
 
-// searchLimit caps the list. A working list does not need paging, and the server
-// silently caps it at 1000 anyway; Total says how many there were.
+// searchLimit is how many issues one page holds. The server caps a page at 1000
+// regardless; Total says how many matched in all, so the interface can page
+// through them.
 const searchLimit = 50
 
 // Issue is one row of a search.
@@ -94,9 +95,10 @@ func (w wireIssue) issue() Issue {
 	}
 }
 
-// Search runs a JQL query.
-func (c Client) Search(ctx context.Context, jql string) (SearchResult, error) {
-	request, err := c.newRequest(ctx, http.MethodGet, searchPath+"?"+searchQuery(jql), nil)
+// Search runs a JQL query, returning one page of results from startAt. The
+// result's Total says how many matched, so a caller can page to the end.
+func (c Client) Search(ctx context.Context, jql string, startAt int) (SearchResult, error) {
+	request, err := c.newRequest(ctx, http.MethodGet, searchPath+"?"+searchQuery(jql, startAt), nil)
 	if err != nil {
 		return SearchResult{}, err
 	}
@@ -116,12 +118,13 @@ func (c Client) Search(ctx context.Context, jql string) (SearchResult, error) {
 	return answer.result(), nil
 }
 
-// searchQuery encodes a search's query string.
-func searchQuery(jql string) string {
+// searchQuery encodes a search's query string for the page starting at startAt.
+func searchQuery(jql string, startAt int) string {
 	return url.Values{
 		"jql":        {jql},
 		"fields":     {searchFields},
 		"maxResults": {strconv.Itoa(searchLimit)},
+		"startAt":    {strconv.Itoa(startAt)},
 	}.Encode()
 }
 

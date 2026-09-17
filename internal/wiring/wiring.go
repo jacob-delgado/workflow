@@ -76,7 +76,7 @@ func jiraDeps(ctx context.Context, settings config.Jira) tui.JiraDeps {
 	client := jira.New(jira.HTTPClient(RequestTimeout).Do, settings)
 
 	return tui.JiraDeps{
-		Search: func() (jira.SearchResult, error) { return client.Search(ctx, jira.AssignedToMe) },
+		Search: func(startAt int) (jira.SearchResult, error) { return client.Search(ctx, jira.AssignedToMe, startAt) },
 		Issue:  func(issueKey string) (jira.IssueDetail, error) { return client.Issue(ctx, issueKey) },
 		Transitions: func(issueKey string) ([]jira.Transition, error) {
 			return client.Transitions(ctx, issueKey)

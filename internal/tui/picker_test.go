@@ -49,7 +49,7 @@ type fakeJira struct {
 }
 
 // deps wires the fake behind a search.
-func (f *fakeJira) deps(search func() (jira.SearchResult, error)) tui.Deps {
+func (f *fakeJira) deps(search func(startAt int) (jira.SearchResult, error)) tui.Deps {
 	return tui.Deps{Jira: tui.JiraDeps{
 		Search: search,
 		Transitions: func(issueKey string) ([]jira.Transition, error) {
@@ -103,7 +103,7 @@ func finish(t *testing.T, model tui.Model, cmd tea.Cmd) (tui.Model, tea.Cmd) {
 }
 
 // twoIssues is a search that finds OPS-1 and OPS-2.
-func twoIssues() func() (jira.SearchResult, error) {
+func twoIssues() func(startAt int) (jira.SearchResult, error) {
 	return assigned(issue("OPS-1", "Fix login", "indeterminate"), issue("OPS-2", "Rotate keys", "new"))
 }
 

@@ -71,18 +71,36 @@ func (msg detailDue) apply(m Model) (Model, tea.Cmd) {
 	return m.loadDetail()
 }
 
-// searchIssues is the command that fills, or refreshes, the Issues pane.
+// searchIssues is the command that fills, or refreshes, the Issues pane with its
+// first page.
 func (m Model) searchIssues() tea.Cmd {
+	return m.searchPage(0)
+}
+
+// searchPage is the command that reads one page of issues, from startAt.
+func (m Model) searchPage(startAt int) tea.Cmd {
 	search := m.deps.Jira.Search
 	if search == nil {
 		return nil
 	}
 
 	return func() tea.Msg {
-		found, err := search()
+		found, err := search(startAt)
 
-		return issuesLoaded{found: found, err: err}
+		return issuesLoaded{found: found, err: err, startAt: startAt}
 	}
+}
+
+// loadMoreIssues reads the next page when the list is truncated and one is not
+// already on its way.
+func (m Model) loadMoreIssues() (Model, tea.Cmd) {
+	if m.issues.loading || !m.issues.hasMore() || m.deps.Jira.Search == nil {
+		return m, nil
+	}
+
+	m.issues.loading = true
+
+	return m, m.searchPage(len(m.issues.found.Issues))
 }
 
 // loadDetail reads the selected issue in full, unless it already is.
@@ -255,13 +273,27 @@ func (m Model) refreshIssues() (Model, tea.Cmd) {
 	return m, tea.Batch(m.searchIssues(), m.fetchDetail(selected.Key))
 }
 
-// moveIssue moves the selection, and reads the newly selected issue once the
-// selection rests.
+// moveIssue moves the selection, reads the newly selected issue once the
+// selection rests, and pulls the next page when it reaches the end of a
+// truncated list.
 func (m Model) moveIssue(step int) (Model, tea.Cmd) {
 	m.issues = m.issues.move(step)
 	m.issues.moved = true
 
-	return m.soonDetail()
+	m, page := m.pageIfAtEnd()
+	m, detail := m.soonDetail()
+
+	return m, tea.Batch(page, detail)
+}
+
+// pageIfAtEnd reads the next page once the selection reaches the last loaded
+// issue of a truncated list.
+func (m Model) pageIfAtEnd() (Model, tea.Cmd) {
+	if m.issues.selected < len(m.issues.found.Issues)-1 {
+		return m, nil
+	}
+
+	return m.loadMoreIssues()
 }
 
 // soonDetail reads the selected issue after detailDelay, unless it is already
