@@ -141,35 +141,6 @@ Impact: medium · Effort: small
   `internal/cli/doctor.go`.
 - Done when: all five say the same two steps in the same words.
 
-### UX-04 Let every pane say what it is missing
-
-Impact: high · Effort: medium
-
-- Today: the configuration summary is drawn in one place, the Issues detail,
-  and only when the search failed or nothing is selected
-  (`issueDetailView`, `internal/tui/detail.go`). Once issues are listed,
-  "incomplete: slack.webhook_url" can never be seen. The Slack pane says
-  `(not set)`, with no label and no advice, and still offers `p`, which fails
-  with "no slack.token or slack.webhook_url is configured" after the message
-  has been written (seen live for the pane; `canPost`,
-  `internal/tui/slack.go`).
-- Instead: each pane owns its unconfigured state, and an action that cannot
-  work is not offered.
-
-  ```text
-  ┌─ Slack ────────────────────────────────────────────────────────────────┐
-  │ Slack is not set up.                                                   │
-  │                                                                        │
-  │ Add slack.webhook_url (or slack.token and slack.channel) to            │
-  │ ~/.workflow.json. `workflow doctor --online` checks it.                │
-  └────────────────────────────────────────────────────────────────────────┘
-  ```
-
-- Touches: `internal/tui/slack.go`, `internal/tui/review.go`,
-  `internal/tui/render.go`.
-- Done when: with Slack unset, the pane names the keys to set and the file to
-  set them in, and the bottom row does not offer `p`.
-
 ### UX-05 Outside a repository, say so once
 
 Impact: medium · Effort: small

@@ -11,6 +11,7 @@ import (
 	"github.com/charmbracelet/bubbles/key"
 	tea "github.com/charmbracelet/bubbletea"
 
+	"github.com/jacob-delgado/workflow/internal/config"
 	"github.com/jacob-delgado/workflow/internal/convention"
 	"github.com/jacob-delgado/workflow/internal/forge"
 	"github.com/jacob-delgado/workflow/internal/slack"
@@ -109,6 +110,11 @@ func (m Model) slackState() string {
 
 // slackDetail previews the announcement, or says what it needs first.
 func (m Model) slackDetail(width int) string {
+	if m.cfg.Slack.Mode() == config.SlackNone {
+		return wrap("Slack is not set up.\n\nAdd slack.webhook_url (or slack.token and slack.channel) to\n~/"+
+			config.FileName+". `workflow doctor --online` checks it.", width)
+	}
+
 	if !m.review.found {
 		return wrap("Open a pull request first (4 Review); the message links to it.\n\n"+m.slackRail(0), width)
 	}
@@ -132,7 +138,8 @@ func (m Model) announced() bool {
 // canPost reports a pull request to announce, a way to post it, and no post
 // of it already made or on its way.
 func (m Model) canPost() bool {
-	return m.review.found && m.deps.Slack.Post != nil && !m.announced() && !m.slack.sending
+	return m.review.found && m.deps.Slack.Post != nil && m.cfg.Slack.Mode() != config.SlackNone &&
+		!m.announced() && !m.slack.sending
 }
 
 // slackKeys offers composing the post.

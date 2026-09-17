@@ -8,7 +8,9 @@ import (
 	"testing"
 	"time"
 
+	"github.com/jacob-delgado/workflow/internal/config"
 	"github.com/jacob-delgado/workflow/internal/forge"
+	"github.com/jacob-delgado/workflow/internal/tui"
 )
 
 // errNotInChannel stands in for Slack refusing a post.
@@ -349,4 +351,21 @@ func TestEscIsLabeledDiscardOnlyWhereTextIsLost(t *testing.T) {
 			requireScreen(t, footerLine(view), tt.want)
 		})
 	}
+}
+
+func TestTheSlackPaneNamesWhatItNeedsWhenUnset(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	cfg := completeConfig()
+	cfg.Slack = config.Slack{}
+	model := sized(t, tui.New(cfg, nil, newWorld().deps()), 120, 40)
+	model = drain(t, model, model.Init())
+
+	// Act
+	view := typing(t, model, "5").View()
+
+	// Assert
+	requireScreen(t, view, "Slack is not set up", "slack.webhook_url", "slack.token and slack.channel", ".workflow.json")
+	refuseScreen(t, footerLine(view), "p post")
 }
