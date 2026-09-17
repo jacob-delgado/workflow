@@ -237,6 +237,10 @@ type branchCreator struct {
 	// fetchProblem is the reason a fetch failed, shown with the offer to branch
 	// from what is there anyway.
 	fetchProblem error
+	// worktree makes the branch in a new worktree beside the repository instead
+	// of switching to it in place; canWorktree records that the repository can.
+	worktree    bool
+	canWorktree bool
 }
 
 var _ overlay = branchCreator{}
@@ -258,6 +262,7 @@ func (m Model) openBranchCreator() (Model, tea.Cmd) {
 	m.overlay = branchCreator{
 		marks: m.marks, styles: m.styles, input: newInput(name), issue: issue, forIssue: forIssue,
 		base: m.branch.branch.Base, baseAge: m.baseAge(), problem: nil, sending: false,
+		canWorktree: m.deps.Git.CreateWorktree != nil,
 	}
 
 	return m, nil
@@ -290,6 +295,10 @@ func (c branchCreator) view(width, _ int) (string, string) {
 
 	lines = append(lines, c.input.View(), "", c.start())
 
+	if c.worktree {
+		lines = append(lines, "as a worktree beside the repository")
+	}
+
 	if c.fetchProblem != nil {
 		lines = append(lines, "", failedGlyph(c.styles, c.marks)+
 			" could not fetch; enter branches from what you already have")
@@ -320,18 +329,37 @@ func (c branchCreator) start() string {
 	return "from " + c.base + ", fetched " + c.baseAge
 }
 
-// footer offers creating the branch or not.
+// footer offers creating the branch or not, and switching between a branch here
+// and a worktree beside the repository where that is possible.
 func (c branchCreator) footer(keys keyMap) []key.Binding {
 	if c.sending {
 		return []key.Binding{keys.interrupt}
 	}
 
 	create := "create"
-	if c.fetchProblem != nil {
+
+	switch {
+	case c.fetchProblem != nil:
 		create = "branch from what you have"
+	case c.worktree:
+		create = "create worktree"
 	}
 
-	return []key.Binding{relabel(keys.confirm, create), relabel(keys.closeOverlay, "discard")}
+	bindings := []key.Binding{relabel(keys.confirm, create)}
+	if c.canWorktree {
+		bindings = append(bindings, relabel(keys.worktree, c.worktreeToggleLabel()))
+	}
+
+	return append(bindings, relabel(keys.closeOverlay, "discard"))
+}
+
+// worktreeToggleLabel names what the worktree key would switch to.
+func (c branchCreator) worktreeToggleLabel() string {
+	if c.worktree {
+		return "branch here instead"
+	}
+
+	return "as a worktree"
 }
 
 // handleKey answers a key while the branch is named. Every key typed checks the
@@ -342,6 +370,11 @@ func (c branchCreator) handleKey(m Model, msg tea.KeyMsg) (Model, tea.Cmd) {
 		return m, nil
 	case key.Matches(msg, m.keys.closeOverlay):
 		return m.closeOverlay(), nil
+	case key.Matches(msg, m.keys.worktree) && c.canWorktree:
+		c.worktree = !c.worktree
+		m.overlay = c
+
+		return m, nil
 	case key.Matches(msg, m.keys.confirm):
 		return c.create(m)
 	}
@@ -380,14 +413,19 @@ func (c branchCreator) create(m Model) (Model, tea.Cmd) {
 	return m, c.createCommand(m, name)
 }
 
-// dryRunAction names what a dry run would do, which is a fetch and a branch when
-// there is a base to fetch, or just a branch when there is none.
+// dryRunAction names what a dry run would do: a fetch when there is a base to
+// refresh, then a branch in place or a worktree beside the repository.
 func (c branchCreator) dryRunAction() string {
-	if c.willFetchBase() {
-		return "fetch origin, then create "
+	verb := "create "
+	if c.worktree {
+		verb = "create a worktree for "
 	}
 
-	return "create "
+	if c.willFetchBase() {
+		return "fetch origin, then " + verb
+	}
+
+	return verb
 }
 
 // willFetch reports that create should fetch first: there is a base to refresh,
@@ -399,61 +437,4 @@ func (c branchCreator) willFetch(m Model) bool {
 // willFetchBase reports that there is a base worth fetching.
 func (c branchCreator) willFetchBase() bool {
 	return c.base != "" && !c.skipFetch
-}
-
-// createCommand is the command that creates and switches to the branch.
-func (c branchCreator) createCommand(m Model, name string) tea.Cmd {
-	createBranch, base := m.deps.Git.CreateBranch, c.base
-
-	return func() tea.Msg {
-		return branchCreated{name: name, err: createBranch(name, base)}
-	}
-}
-
-// fetched reports how the fetch before branching went.
-type fetched struct {
-	name string
-	err  error
-}
-
-// apply creates the branch once the fetch succeeds, or keeps the creator open
-// offering to branch from what is already there when the fetch fails.
-func (msg fetched) apply(m Model) (Model, tea.Cmd) {
-	creator, open := m.overlay.(branchCreator)
-	if !open {
-		return m, nil
-	}
-
-	if msg.err != nil {
-		creator.sending, creator.fetchProblem, creator.skipFetch = false, msg.err, true
-		m.overlay = creator
-
-		return m, nil
-	}
-
-	return m, creator.createCommand(m, msg.name)
-}
-
-// branchCreated reports how creating a branch went.
-type branchCreated struct {
-	name string
-	err  error
-}
-
-// apply switches the panes to the new branch, or keeps the creator open with
-// git's reason.
-func (msg branchCreated) apply(m Model) (Model, tea.Cmd) {
-	if msg.err != nil {
-		creator, open := m.overlay.(branchCreator)
-		if open {
-			creator.sending, creator.problem = false, msg.err
-			m.overlay = creator
-		}
-
-		return m, nil
-	}
-
-	m = m.closeOverlay().noticed(m.marks.done + " created and switched to " + msg.name)
-
-	return m, tea.Batch(m.loadBranch(), m.loadChanges())
 }

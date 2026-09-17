@@ -284,6 +284,39 @@ func Checkout(ctx context.Context, run Runner, dir, name string) error {
 	return nil
 }
 
+// WorktreeAdd creates branch name in a new worktree beside the repository and
+// returns where it put it, so two tasks can be open at once — one checkout per
+// worktree — where switching branches in place cannot. It starts the branch from
+// start, or from HEAD when start is empty.
+func WorktreeAdd(ctx context.Context, run Runner, dir, name, start string) (string, error) {
+	path := worktreePath(dir, name)
+
+	args := []string{"-C", dir, "worktree", "add"}
+	if start != "" {
+		// --no-track for the reason CreateBranch uses it: a branch off
+		// origin/main should read as never pushed, not as ahead of it.
+		args = append(args, "--no-track")
+	}
+
+	args = append(args, "-b", name, path)
+	if start != "" {
+		args = append(args, start)
+	}
+
+	_, err := run(ctx, gitProgram, args...)
+	if err != nil {
+		return "", fmt.Errorf("creating a worktree for %s: %w", name, err)
+	}
+
+	return path, nil
+}
+
+// worktreePath is where a worktree for a branch lives: a sibling of the
+// repository named for the branch, out of its working tree but beside it.
+func worktreePath(dir, name string) string {
+	return dir + "-" + strings.ReplaceAll(name, "/", "-")
+}
+
 // FetchCommand updates the remote-tracking refs from origin, so a branch starts
 // from what origin holds now rather than from whenever the user last fetched.
 //
