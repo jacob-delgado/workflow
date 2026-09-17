@@ -242,3 +242,27 @@ func TestConfigShowNamesHowToCreateAConfiguration(t *testing.T) {
 		t.Errorf("config show does not name the command that creates a configuration:\n%s", output)
 	}
 }
+
+func TestEverySurfaceNamesBothSetupSteps(t *testing.T) {
+	cases := map[string][]string{
+		"config show": {"config", "show"},
+		"doctor":      {"doctor"},
+	}
+
+	for name, args := range cases {
+		t.Run(name, func(t *testing.T) {
+			// Arrange
+			dir := t.TempDir()
+
+			// Act
+			output, _ := run(t, dir, args...)
+
+			// Assert
+			for _, step := range []string{"workflow config init", "workflow doctor"} {
+				if !strings.Contains(output, step) {
+					t.Errorf("%s does not name %q:\n%s", name, step, output)
+				}
+			}
+		})
+	}
+}

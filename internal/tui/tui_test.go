@@ -91,9 +91,10 @@ func TestViewSaysWhatTheConfigurationStillNeeds(t *testing.T) {
 		loadErr error
 		want    string
 	}{
-		"a missing field is named":       {cfg: noChannel, want: "slack.channel"},
-		"no file says how to create one": {cfg: config.Config{}, loadErr: config.ErrNotFound, want: "config init"},
-		"an unreadable file says why":    {cfg: config.Config{}, loadErr: errUnreadable, want: "permission denied"},
+		"a missing field is named":        {cfg: noChannel, want: "slack.channel"},
+		"no file says how to create one":  {cfg: config.Config{}, loadErr: config.ErrNotFound, want: "config init"},
+		"no file also says how to verify": {cfg: config.Config{}, loadErr: config.ErrNotFound, want: "workflow doctor"},
+		"an unreadable file says why":     {cfg: config.Config{}, loadErr: errUnreadable, want: "permission denied"},
 		// An empty value must read as a thing to do, not as a blank the eye skips.
 		"an unset Jira URL is marked": {cfg: noJiraURL, want: "(not set)"},
 	}

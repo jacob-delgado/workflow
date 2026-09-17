@@ -423,8 +423,8 @@ func reportMissing(out io.Writer, cfg config.Config) error {
 func reportLoadError(out io.Writer, loadErr error) error {
 	switch {
 	case errors.Is(loadErr, config.ErrNotFound):
-		fmt.Fprintf(out, "No %s found here or in your home directory.\n", config.FileName)
-		fmt.Fprintf(out, "\nCreate one with `workflow config init`.\n")
+		fmt.Fprintf(out, "%s\n", config.NoConfigHeadline)
+		fmt.Fprintf(out, "\n%s\n%s\n", config.InitStep, config.DoctorStep)
 		fmt.Fprintf(out, "`workflow --help` explains how to create each token.\n")
 	case errors.Is(loadErr, config.ErrInvalid):
 		field(out, "Configuration", "cannot be parsed")
