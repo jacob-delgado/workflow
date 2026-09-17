@@ -371,21 +371,6 @@ Impact: medium · Effort: small
 - Done when: a dropped post leaves a line in the pane until the next post,
   and quitting with a queued post asks once.
 
-### UX-31 Say what Slack actually refused
-
-Impact: medium · Effort: small
-
-- Today: every refusal from Slack is reported as "the credential was not
-  accepted", followed by Slack's code: "✗ the credential was not accepted:
-  not_in_channel". The credential was fine. The likely reading is "rotate the
-  token", which does not help.
-- Instead: "Slack refused the post: the bot is not in #dev-workflow. Invite it
-  to the channel, then press enter to try again." A short table of Slack's
-  common codes to sentences; anything else falls back to the code.
-- Touches: `internal/slack/post.go`, `internal/slack/slack.go`.
-- Done when: `not_in_channel`, `channel_not_found` and `is_archived` each
-  produce a sentence that names the fix.
-
 ## Across the interface
 
 ### UX-32 Make the bottom row keep its promise, or change the promise

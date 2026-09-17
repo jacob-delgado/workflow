@@ -131,7 +131,7 @@ func TestPostWithABotTokenReportsSlacksError(t *testing.T) {
 		// Slack's own convention: 200, and the answer is still no.
 		"a refusal inside a 200": {
 			status: http.StatusOK, answer: `{"ok":false,"error":"not_in_channel"}`,
-			want: slack.ErrRejected, reason: "not_in_channel",
+			want: slack.ErrPostRefused, reason: "the bot is not in #dev",
 		},
 		"an unexpected status": {status: http.StatusServiceUnavailable, answer: `busy`, want: slack.ErrUnexpectedStatus},
 	}
@@ -401,5 +401,36 @@ func TestPostToAMalformedAPIBaseIsUnreachable(t *testing.T) {
 	// Assert
 	if !errors.Is(err, slack.ErrUnreachable) || sent.Load() {
 		t.Errorf("Post returned %v and sent %v, want ErrUnreachable before sending", err, sent.Load())
+	}
+}
+
+func TestABotPostRefusalNamesTheFix(t *testing.T) {
+	t.Parallel()
+
+	cases := map[string]struct {
+		code string
+		want string
+	}{
+		"not in the channel":      {code: "not_in_channel", want: "the bot is not in #dev"},
+		"no such channel":         {code: "channel_not_found", want: "no channel #dev"},
+		"the channel is archived": {code: "is_archived", want: "#dev is archived"},
+	}
+
+	for name, tt := range cases {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			// Arrange
+			server, _ := slackReceiving(t, http.StatusOK, `{"ok":false,"error":"`+tt.code+`"}`)
+			client := slack.New(server.Client().Do, server.URL, botCredentials())
+
+			// Act
+			err := client.Post(t.Context(), message)
+
+			// Assert
+			if err == nil || !strings.Contains(err.Error(), tt.want) {
+				t.Errorf("Post returned %v, want a sentence naming the fix %q", err, tt.want)
+			}
+		})
 	}
 }
