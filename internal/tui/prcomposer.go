@@ -55,11 +55,37 @@ type prComposer struct {
 	issueURL  string
 	body      string
 	draft     bool
+	edited    bool
 	problem   error
 	sending   bool
 }
 
 var _ overlay = prComposer{}
+
+// prDraft is a pull request the composer was filled with, kept for the session
+// so a push that fails, or an esc, does not throw the work away.
+type prDraft struct {
+	branch, title, base, body string
+	template                  int
+	draft, edited             bool
+}
+
+// snapshot is the composer's editable state, to reopen on.
+func (c prComposer) snapshot() prDraft {
+	return prDraft{
+		branch: c.head, title: c.title.Value(), base: c.base.Value(), body: c.body,
+		template: c.template, draft: c.draft, edited: c.edited,
+	}
+}
+
+// restore fills the composer from a kept draft.
+func (c prComposer) restore(draft prDraft) prComposer {
+	c.title.SetValue(draft.title)
+	c.base.SetValue(draft.base)
+	c.body, c.template, c.draft, c.edited = draft.body, draft.template, draft.draft, draft.edited
+
+	return c
+}
 
 // openPullRequestComposer proposes a pull request for the branch.
 func (m Model) openPullRequestComposer() (Model, tea.Cmd) {
@@ -84,7 +110,12 @@ func (m Model) openPullRequestComposer() (Model, tea.Cmd) {
 		composer.templates = m.deps.Forge.Templates()
 	}
 
-	m.overlay = composer.withTemplate(0)
+	composer = composer.withTemplate(0)
+	if m.prDraft.branch == branch.Name {
+		composer = composer.restore(m.prDraft)
+	}
+
+	m.overlay = composer
 
 	return m, nil
 }
@@ -155,10 +186,19 @@ func (c prComposer) footer(keys keyMap) []key.Binding {
 		return []key.Binding{keys.interrupt}
 	}
 
-	return []key.Binding{
-		keys.nextField, keys.nextTemplate, keys.toggleDraft, keys.editBody, relabel(keys.confirm, "open"),
-		relabel(keys.closeOverlay, "discard"),
+	bindings := []key.Binding{keys.nextField}
+	if c.canNextTemplate() {
+		bindings = append(bindings, keys.nextTemplate)
 	}
+
+	return append(bindings, keys.toggleDraft, keys.editBody, relabel(keys.confirm, "open"),
+		relabel(keys.closeOverlay, "discard"))
+}
+
+// canNextTemplate reports another template to cycle to that would not overwrite
+// an edited body: ctrl+t is offered only when it can do something safe.
+func (c prComposer) canNextTemplate() bool {
+	return len(c.templates) > 1 && !c.edited
 }
 
 // handleKey answers a key while the pull request is composed.
@@ -167,6 +207,8 @@ func (c prComposer) handleKey(m Model, msg tea.KeyMsg) (Model, tea.Cmd) {
 	case c.sending:
 		return m, nil
 	case key.Matches(msg, m.keys.closeOverlay):
+		m.prDraft = c.snapshot()
+
 		return m.closeOverlay(), nil
 	case key.Matches(msg, m.keys.confirm):
 		return c.open(m)
@@ -174,7 +216,7 @@ func (c prComposer) handleKey(m Model, msg tea.KeyMsg) (Model, tea.Cmd) {
 		m.overlay = c
 
 		return m, c.editBody(m)
-	case key.Matches(msg, m.keys.nextTemplate) && len(c.templates) > 0:
+	case key.Matches(msg, m.keys.nextTemplate) && c.canNextTemplate():
 		c = c.withTemplate((c.template + 1) % len(c.templates))
 	case key.Matches(msg, m.keys.toggleDraft):
 		c.draft = !c.draft
@@ -245,7 +287,7 @@ func (msg prBodyEdited) apply(m Model) (Model, tea.Cmd) {
 	if msg.err != nil {
 		composer.problem = msg.err
 	} else {
-		composer.body = msg.text
+		composer.body, composer.edited = msg.text, true
 	}
 
 	m.overlay = composer
@@ -276,6 +318,8 @@ func (c prComposer) open(m Model) (Model, tea.Cmd) {
 	case m.branch.branch.Pushed():
 		return c.create(m)
 	default:
+		m.prDraft = c.snapshot()
+
 		return m.startPush(func(pushed Model) (Model, tea.Cmd) {
 			reload := pushed.loadBranch()
 			pushed, create := c.create(pushed)
@@ -334,6 +378,7 @@ func (msg pullCreated) apply(m Model) (Model, tea.Cmd) {
 
 	m = m.closeOverlay().noticed(m.marks.done + " opened #" + strconv.Itoa(msg.pull.Number) + " " + msg.pull.URL)
 	m.review = reviewState{pull: msg.pull, found: true, loaded: true}
+	m.prDraft = prDraft{}
 
 	return m, tea.Batch(m.checkCI(), m.loadAuthor())
 }

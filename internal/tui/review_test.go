@@ -178,6 +178,27 @@ func TestNOpensAComposerStartedFromTheBranch(t *testing.T) {
 	}
 }
 
+func TestAFailedPushKeepsThePullRequestDraft(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	failing := withoutPull()
+	failing.branch.Upstream = ""
+	failing.pushErr = errPushDenied
+
+	// Act: edit the title, then open — which pushes first, and the push fails
+	pushed := typing(t, failing.live(t, 120, 40), "4", "n", "!", keyEnter)
+
+	// Assert: the push failed, its run in front of the composer
+	requireScreen(t, pushed.View(), "┏━ git push", "✗ exit status 128")
+
+	// Act: leave the failed run and reopen the composer
+	reopened := typing(t, pushed, keyEsc, "n")
+
+	// Assert: it reopens with the edited title still there
+	requireScreen(t, reopened.View(), "┏━ Open pull request", "title  > "+pullTitle+"!")
+}
+
 func TestTheComposerTitleAndBaseCanBeEdited(t *testing.T) {
 	t.Parallel()
 

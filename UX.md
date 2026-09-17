@@ -200,26 +200,6 @@ Impact: low · Effort: small
   `internal/tui/keys.go`, `internal/slack/post.go` (the announcement text).
 - Done when: on a GitLab remote no string says "pull request".
 
-### UX-26 Keep what was written in the pull request composer
-
-Impact: high · Effort: medium
-
-- Today: three ways to lose it, all reproduced in tests.
-  - `ctrl+t` replaces the description with the next template even when there
-    is one template, so a description written in the editor is wiped by a key
-    whose label is "next template".
-  - When `enter` has to push first and the push fails, `esc` on the failed
-    run discards the title, the description and the draft flag. `r` keeps
-    them. The commit composer keeps its draft in exactly this case.
-  - `esc` in the composer keeps nothing.
-- Instead: keep a draft per branch for the session, as the commit composer
-  does; never re-template a description that has been edited without asking;
-  and do not show "ctrl+t next template" when there is no next template
-  (seen live with "no template in this repository" on the same screen).
-- Touches: `internal/tui/prcomposer.go`, `internal/tui/run.go`.
-- Done when: a failed push followed by `esc` and `n` reopens the composer
-  with what was typed.
-
 ### UX-28 Show that CI is being watched
 
 Impact: medium · Effort: small
