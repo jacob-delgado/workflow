@@ -185,14 +185,35 @@ func runner(script string) string {
 
 	interpreter, args := path.Base(words[0]), words[1:]
 	if interpreter == "env" {
-		for len(args) > 1 && strings.HasPrefix(args[0], "-") {
-			args = args[1:]
+		args = withoutEnvOptions(args)
+		if len(args) == 0 {
+			return "sh"
 		}
 
-		interpreter, args = args[0], args[1:]
+		interpreter, args = path.Base(args[0]), args[1:]
 	}
 
 	return strings.Join(append([]string{interpreter}, args...), " ")
+}
+
+// withoutEnvOptions drops the options env eats before the program it runs: its
+// flags (with -u's variable name), and VAR=value assignments. What is left
+// begins with the interpreter, or is empty when the line named none.
+func withoutEnvOptions(args []string) []string {
+	for len(args) > 0 {
+		switch {
+		case args[0] == "-u" && len(args) > 1:
+			args = args[2:]
+		case strings.HasPrefix(args[0], "-"):
+			args = args[1:]
+		case strings.Contains(args[0], "="):
+			args = args[1:]
+		default:
+			return args
+		}
+	}
+
+	return args
 }
 
 // shells are the interpreters whose scripts are plain enough to convert.
