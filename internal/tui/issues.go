@@ -126,15 +126,6 @@ func (l issueList) rowAt(line, rows int) (int, bool) {
 	return index, line >= 0 && index < last
 }
 
-// failure describes a search that failed, above what the pane falls back to.
-func (l issueList) failure(fallback string) (string, bool) {
-	if l.err == nil {
-		return "", false
-	}
-
-	return "issues: " + l.err.Error() + "\n\n" + fallback, true
-}
-
 // capped says how much of a capped list is shown, or nothing for a whole one.
 func (l issueList) capped() string {
 	if l.found.Total <= len(l.found.Issues) {

@@ -223,8 +223,8 @@ func (m Model) pickIssue(line, rows int, inRail bool) (Model, tea.Cmd) {
 // is nothing to describe — keeping the configuration summary on screen through a
 // failure.
 func (m Model) issueDetailView(width int) string {
-	if text, failed := m.issues.failure(m.status()); failed {
-		return wrap(text, width)
+	if m.issues.err != nil {
+		return m.failureWithin(m.issues.err, width) + "\n\n" + m.status()
 	}
 
 	selected, ok := m.issues.current()
