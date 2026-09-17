@@ -17,7 +17,8 @@ and which required fields are still empty.
 
 Makes no network calls by default, so it is safe to run anywhere and
 tells you only that a credential is present. Add --online to ask each
-service whether the credential actually works.
+service whether the credential actually works. Add --json for the same
+facts as data, with the same masking.
 
 ```
 workflow doctor [flags]
@@ -27,6 +28,7 @@ workflow doctor [flags]
 
 ```
   -h, --help     help for doctor
+      --json     print the report as JSON
       --online   ask each service whether its credential works
 ```
 
