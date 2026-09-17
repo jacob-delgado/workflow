@@ -149,13 +149,13 @@ func TestTheFieldFootersOfferWhatWorks(t *testing.T) {
 	options := typing(t, model, "t", keyEnter)
 
 	// Assert: the list keys are offered
-	requireScreen(t, footerLine(options.View()), "↑/k up", "enter apply")
+	requireScreen(t, footerLine(options.View()), "↑/k up", "enter next", "esc back")
 
 	// Act: go on to the text field
 	text := typing(t, options, keyEnter)
 
 	// Assert: only what works in text is offered
-	requireScreen(t, footerLine(text.View()), "enter apply", "esc close")
+	requireScreen(t, footerLine(text.View()), "enter apply", "esc back")
 	refuseScreen(t, footerLine(text.View()), "↑/k")
 }
 
@@ -178,4 +178,18 @@ func TestADryRunTransitionSaysWhatItWouldDo(t *testing.T) {
 	if calls := dry.asked("transition "); len(calls) != 0 {
 		t.Errorf("a dry run transitioned: %q", calls)
 	}
+}
+
+func TestTheFieldFormLabelsEscAndEnterForWhatTheyDo(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	resolving := newWorld()
+	resolving.moves = []jira.Transition{resolveIssue()}
+
+	// Act
+	field := typing(t, resolving.live(t, 120, 40), "t", keyEnter)
+
+	// Assert
+	requireScreen(t, footerLine(field.View()), "enter next", "esc back")
 }
