@@ -141,23 +141,6 @@ Impact: medium · Effort: small
   `internal/tui/panes.go`.
 - Done when: in every pane the heavy border surrounds the row marker.
 
-### UX-20 Lead a failed run with what failed
-
-Impact: medium · Effort: small
-
-- Today (seen live): the most prominent line of a failed commit is
-  `✗ git: exit status 1`. The line that explains it
-  (`.git/hooks/pre-commit: line 3: go: command not found`) is below, and when
-  the output has `file:line` places in it, the raw output is replaced by that
-  list and cannot be brought back (`commandRun.view`,
-  `internal/tui/run.go`). There is no scrolling back through a long run.
-- Instead: "✗ the commit was refused by the pre-commit hook" as the headline,
-  a key that switches between the places and the full output, and scrolling
-  in both.
-- Touches: `internal/tui/run.go`.
-- Done when: the headline names the step that failed, and the full output of
-  a finished run can always be read.
-
 ## Review
 
 ## Slack

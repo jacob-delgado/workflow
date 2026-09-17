@@ -402,7 +402,8 @@ func TestARefusedPushShowsWhatGitSaid(t *testing.T) {
 	failed := typing(t, failing.live(t, 120, 40), "2", "P", keyEnter)
 
 	// Assert
-	requireScreen(t, failed.View(), "┏━ git push", "✗ exit status 128", "remote: Permission to example/repo.git denied.")
+	requireScreen(t, failed.View(), "┏━ git push", "✗ the push was refused",
+		"remote: Permission to example/repo.git denied.")
 }
 
 func TestADryRunPushIsOnlyDescribed(t *testing.T) {

@@ -139,6 +139,28 @@ func TestTheTypeCyclesBothWays(t *testing.T) {
 	}
 }
 
+func TestAFailedRunLeadsWithTheStepAndShowsFullOutput(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	failing := newWorld()
+	failing.commitErr = errHookFailed
+	failing.commitLines = []string{
+		"main.go:3:1: undefined: go",
+		".git/hooks/pre-commit: line 3: go: command not found",
+	}
+	failed := typing(t, failing.live(t, 120, 40), commitKeys("x")...)
+
+	// Act & Assert: the headline names the step, not git's exit code
+	requireScreen(t, failed.View(), "the commit was refused")
+
+	// Act: switch to the full output
+	full := typing(t, failed, "o")
+
+	// Assert: the whole output can be read
+	requireScreen(t, full.View(), "go: command not found")
+}
+
 func TestAFailedCommitShowsWhereToLookAndKeepsTheDraft(t *testing.T) {
 	t.Parallel()
 
@@ -159,7 +181,7 @@ func TestAFailedCommitShowsWhereToLookAndKeepsTheDraft(t *testing.T) {
 	failed := typing(t, model, commitKeys("redact tokens")...)
 
 	// Assert: the run says which jobs failed and where they point
-	requireScreen(t, failed.View(), "┏━ git commit", "✗ exit status 1", "✗ golangci-lint · ● gofmt",
+	requireScreen(t, failed.View(), "┏━ git commit", "✗ the commit was refused", "✗ golangci-lint · ● gofmt",
 		"▸ internal/tui/pane.go:64 cyclomatic complexity", "README.md:3 MD013", "enter open in editor", "r run again")
 
 	// Act: open the second place in the editor
