@@ -84,6 +84,7 @@ func requestTimeout(cfg config.Config) time.Duration {
 // or malformed configuration: the client refuses before sending anything, and
 // the pane shows why.
 func jiraDeps(ctx context.Context, settings config.Jira, timeout time.Duration) tui.JiraDeps {
+	settings.Token, _, _ = ResolveToken(ctx, settings.Token, settings.TokenCommand, settings.TokenEnv)
 	client := jira.New(jira.HTTPClient(timeout).Do, settings)
 
 	return tui.JiraDeps{
@@ -328,6 +329,7 @@ func templatesFor(settings config.Forge, where Workspace) []forge.Template {
 
 // slackDeps is what the interface asks of Slack.
 func slackDeps(ctx context.Context, settings config.Slack, timeout time.Duration) tui.SlackDeps {
+	settings.Token, _, _ = ResolveToken(ctx, settings.Token, settings.TokenCommand, settings.TokenEnv)
 	client := slack.New(slack.HTTPClient(timeout).Do, slack.APIBase, settings)
 
 	return tui.SlackDeps{Post: func(channel, text string) error { return client.Post(ctx, channel, text) }}

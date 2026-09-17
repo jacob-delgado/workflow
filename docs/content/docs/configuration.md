@@ -54,10 +54,14 @@ which one was read.
 | Field | Required | Description |
 | --- | --- | --- |
 | `jira.base_url` | yes | Root URL of your Jira instance, e.g. `https://jira.example.com`. |
-| `jira.token` | yes | Personal access token. |
+| `jira.token` | one of these three | Personal access token. |
+| `jira.token_command` | one of these three | A program that prints the token, e.g. `pass show jira/token`. See below. |
+| `jira.token_env` | one of these three | An environment variable that holds the token. |
 | `jira.user` | no | Only for instances requiring HTTP Basic. See below. |
-| `slack.token` | one of these two | Bot token; starts with `xoxb-`. |
-| `slack.webhook_url` | one of these two | Incoming webhook URL. **This is a credential**, not just an address. |
+| `slack.token` | for a bot | Bot token; starts with `xoxb-`. Or use `slack.token_command` / `slack.token_env`. |
+| `slack.token_command` | for a bot | A program that prints the bot token. |
+| `slack.token_env` | for a bot | An environment variable that holds the bot token. |
+| `slack.webhook_url` | for a webhook | Incoming webhook URL. **This is a credential**, not just an address. |
 | `slack.channel` | only with `slack.token` | Channel to post in, e.g. `#dev-workflow`. A webhook carries its own. |
 | `forge.kind` | on-prem only | `github` or `gitlab`, for a host whose name says neither. |
 | `forge.host` | with `forge.kind` | The host `forge.kind` and `forge.token` are for, e.g. `git.example.com`. |
@@ -79,6 +83,22 @@ loaded silently would look exactly like a credential you never set.
 Leave `jira.user` empty to authenticate with that token as a bearer token, which
 is what Data Center expects. Set `jira.user` only if your instance requires HTTP
 Basic authentication, in which case the token is used as the password.
+
+## Keeping tokens out of the file
+
+So the file need hold no secret, a Jira or Slack token can instead come from a
+program or an environment variable:
+
+- `token_command` runs a program and reads the token from its output, e.g.
+  `pass show jira/token`, `op read "op://vault/jira/token"`, or
+  `security find-generic-password -s workflow-jira -w`. The command is split on
+  spaces and run directly — no shell — so wrap a pipeline in a script if you need
+  one.
+- `token_env` reads the token from an environment variable, e.g. `WORKFLOW_JIRA_TOKEN`.
+
+The file's own `token` wins when set, then `token_env`, then `token_command`.
+`workflow doctor --online` reports which source each credential came from,
+without ever printing the value.
 `workflow doctor` reports which of the two modes is in effect.
 
 ## Slack: a webhook or a bot token

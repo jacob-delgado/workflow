@@ -9,7 +9,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"net/url"
 	"os"
 	"path/filepath"
 	"slices"
@@ -49,8 +48,13 @@ var (
 type Jira struct {
 	// BaseURL is the root of the Jira instance, e.g. https://jira.example.com.
 	BaseURL string `json:"base_url"`
-	// Token is a personal access token.
+	// Token is a personal access token. Leave it empty to take the token from
+	// TokenCommand or TokenEnv instead, so the file holds no secret.
 	Token string `json:"token"`
+	// TokenCommand is a program that prints the token, such as
+	// "pass show jira/token"; TokenEnv is an environment variable that holds it.
+	TokenCommand string `json:"token_command"`
+	TokenEnv     string `json:"token_env"`
 	// User is optional. Leave it empty for token (Bearer) authentication; set it
 	// to authenticate with HTTP Basic instead.
 	User string `json:"user"`
@@ -60,8 +64,13 @@ type Jira struct {
 // token can post anywhere it is invited and reports back what it posted, while
 // an incoming webhook needs no app scopes but is fixed to one channel.
 type Slack struct {
-	// Token is a bot token, which starts with "xoxb-".
+	// Token is a bot token, which starts with "xoxb-". Leave it empty to take
+	// the token from TokenCommand or TokenEnv instead.
 	Token string `json:"token"`
+	// TokenCommand is a program that prints the bot token; TokenEnv is an
+	// environment variable that holds it.
+	TokenCommand string `json:"token_command"`
+	TokenEnv     string `json:"token_env"`
 	// WebhookURL is an incoming webhook. It is a credential in its own right —
 	// anyone holding it can post to that channel — so it is masked wherever a
 	// token would be.
@@ -285,7 +294,7 @@ func Template() Config {
 // AuthMode reports how requests to this Jira instance authenticate.
 func (j Jira) AuthMode() AuthMode {
 	switch {
-	case j.Token == "":
+	case !j.hasToken():
 		return AuthNone
 	case j.User != "":
 		return AuthBasic
@@ -294,12 +303,18 @@ func (j Jira) AuthMode() AuthMode {
 	}
 }
 
+// hasToken reports that a token is configured — in the file, or from a command
+// or an environment variable resolved at runtime.
+func (j Jira) hasToken() bool {
+	return j.Token != "" || j.TokenCommand != "" || j.TokenEnv != ""
+}
+
 // Mode reports how this configuration posts to Slack. A bot token wins when
 // both are set: it is the more capable transport, and treating the overlap as
 // ambiguous would fail a configuration that works perfectly well.
 func (s Slack) Mode() SlackMode {
 	switch {
-	case s.Token != "":
+	case s.hasToken():
 		return SlackBot
 	case s.WebhookURL != "":
 		return SlackWebhook
@@ -349,6 +364,12 @@ func (s Slack) ChannelChoices() []string {
 	return choices
 }
 
+// hasToken reports that a bot token is configured, in the file or from a
+// command or an environment variable resolved at runtime.
+func (s Slack) hasToken() bool {
+	return s.Token != "" || s.TokenCommand != "" || s.TokenEnv != ""
+}
+
 // missing names the Slack fields still needed. The two transports are reported
 // as ONE entry, because either satisfies the requirement and naming both would
 // read as an instruction to set both.
@@ -378,7 +399,7 @@ func (c Config) Missing() []string {
 		missing = append(missing, "jira.base_url")
 	}
 
-	if c.Jira.Token == "" {
+	if !c.Jira.hasToken() {
 		missing = append(missing, "jira.token")
 	}
 
@@ -394,66 +415,4 @@ func (f Forge) missing() []string {
 	}
 
 	return nil
-}
-
-// Redacted returns a copy with every token masked, safe to print or log.
-func (c Config) Redacted() Config {
-	redacted := c
-	redacted.Jira.Token = Redact(c.Jira.Token)
-	redacted.Slack.Token = Redact(c.Slack.Token)
-	redacted.Slack.WebhookURL = Redact(c.Slack.WebhookURL)
-	redacted.Jira.BaseURL = RedactURL(c.Jira.BaseURL)
-	redacted.Forge.Token = Redact(c.Forge.Token)
-
-	return redacted
-}
-
-// visibleSuffix is how many trailing characters of a token stay readable, so a
-// person can tell two tokens apart without the value being usable.
-const visibleSuffix = 4
-
-// maskedUserinfo stands in for a URL's userinfo wherever one is shown.
-const maskedUserinfo = "xxxxx"
-
-// RedactURL masks the userinfo of a URL, leaving the rest readable.
-//
-// A base URL is not a secret, so it is shown in full — but nothing stops someone
-// writing https://user:password@jira.example.com into jira.base_url, and doctor
-// prints that line into output the bug report template asks people to paste
-// into a public issue. The userinfo is masked whole rather than by its
-// password alone, because which half holds the part worth hiding is the
-// writer's choice, not something to be guessed from here.
-func RedactURL(raw string) string {
-	parsed, err := url.Parse(raw)
-	if err != nil || parsed.User == nil {
-		return raw
-	}
-
-	parsed.User = url.User(maskedUserinfo)
-
-	return parsed.String()
-}
-
-// DisplayURL is a URL as it may be shown: a password in it masked, and an unset
-// one said so. Both doctor and the terminal interface show jira.base_url, and
-// when each did this by hand, one of them forgot the mask.
-func DisplayURL(raw string) string {
-	if raw == "" {
-		return notSet
-	}
-
-	return RedactURL(raw)
-}
-
-// Redact masks a secret, keeping only enough of the tail to recognize it.
-func Redact(secret string) string {
-	if secret == "" {
-		return ""
-	}
-
-	if len(secret) <= visibleSuffix {
-		return "****"
-	}
-
-	return "****" + secret[len(secret)-visibleSuffix:]
 }

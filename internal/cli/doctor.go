@@ -221,6 +221,14 @@ func askForge(ctx context.Context, out io.Writer, base string, token forge.Token
 
 // checkSlack asks Slack which workspace the bot token belongs to.
 func checkSlack(ctx context.Context, out io.Writer, creds config.Slack) error {
+	token, source, err := wiring.ResolveToken(ctx, creds.Token, creds.TokenCommand, creds.TokenEnv)
+	if err != nil {
+		fmt.Fprintf(out, "  %-10s %v\n", "slack", err)
+
+		return fmt.Errorf("%w: slack", errCredentialRejected)
+	}
+
+	creds.Token = token
 	client := slack.New(slack.HTTPClient(wiring.RequestTimeout).Do, slack.APIBase, creds)
 
 	identity, err := client.AuthTest(ctx)
@@ -237,7 +245,7 @@ func checkSlack(ctx context.Context, out io.Writer, creds config.Slack) error {
 		return credentialOutcome(err, slack.ErrUnreachable, "slack")
 	}
 
-	fmt.Fprintf(out, "  %-10s %s in %s\n", "slack", identity.User, identity.Team)
+	fmt.Fprintf(out, "  %-10s %s in %s (token from %s)\n", "slack", identity.User, identity.Team, source)
 
 	return nil
 }
@@ -254,16 +262,24 @@ func credentialOutcome(err, unreachable error, service string) error {
 
 // checkJira asks Jira who the configured token authenticates as.
 func checkJira(ctx context.Context, out io.Writer, settings config.Jira) error {
+	token, source, err := wiring.ResolveToken(ctx, settings.Token, settings.TokenCommand, settings.TokenEnv)
+	if err != nil {
+		fmt.Fprintf(out, "  %-10s %v\n", "jira", err)
+
+		return fmt.Errorf("%w: jira", errCredentialRejected)
+	}
+
+	settings.Token = token
 	client := jira.New(jira.HTTPClient(wiring.RequestTimeout).Do, settings)
 
 	user, err := client.Myself(ctx)
 	if err != nil {
-		fmt.Fprintf(out, "  %-10s %v\n", "jira", err)
+		fmt.Fprintf(out, "  %-10s %v (token from %s)\n", "jira", err, source)
 
 		return credentialOutcome(err, jira.ErrUnreachable, "jira")
 	}
 
-	fmt.Fprintf(out, "  %-10s authenticates as %s\n", "jira", identify(user))
+	fmt.Fprintf(out, "  %-10s authenticates as %s (token from %s)\n", "jira", identify(user), source)
 
 	return nil
 }
