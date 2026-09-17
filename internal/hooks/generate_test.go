@@ -228,12 +228,20 @@ func TestAHookIsOnlyStructuredWhenEveryLineIsAPlainCommand(t *testing.T) {
 func TestTheRunnerComesFromTheShebang(t *testing.T) {
 	t.Parallel()
 
+	const bash = "bash"
+
 	cases := map[string]string{
-		"#!/bin/bash\n":               "bash",
+		"#!/bin/bash\n":               bash,
 		"#!/usr/bin/env python3\n":    "python3",
 		"#!/usr/bin/env -S bash -e\n": "bash -e",
 		"no shebang\n":                "sh",
 		"#!\n":                        "sh",
+		// env with no interpreter must not read past the end of the line.
+		"#!/usr/bin/env\n": "sh",
+		// -u NAME unsets a variable; NAME is not the interpreter.
+		"#!/usr/bin/env -u FOO bash\n": bash,
+		// VAR=value is an assignment env consumes; it is not the interpreter.
+		"#!/usr/bin/env VAR=1 bash\n": bash,
 	}
 
 	for shebang, want := range cases {
