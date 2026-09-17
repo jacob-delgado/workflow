@@ -30,7 +30,7 @@ type keyMap struct {
 	refresh, retry        key.Binding
 
 	// Issues.
-	changeStatus, comment, branchForIssue key.Binding
+	changeStatus, comment, branchForIssue, filter key.Binding
 
 	// Branch and Commits.
 	newBranch, push, stage, stageAll, commit, runHooks, hookConfig key.Binding
@@ -71,6 +71,7 @@ func newKeyMap(marks glyphs, reviewNoun string) keyMap {
 		changeStatus:   binding("change status", "t"),
 		comment:        binding("comment", "c"),
 		branchForIssue: binding("branch for issue", "b"),
+		filter:         binding("filter", "/"),
 		newBranch:      binding("new branch", "b"),
 		push:           binding("push", "P"),
 		stage:          key.NewBinding(key.WithKeys(" "), key.WithHelp("space", "stage/unstage")),
@@ -105,7 +106,7 @@ func (k keyMap) ShortHelp() []key.Binding {
 func (k keyMap) FullHelp() [][]key.Binding {
 	return [][]key.Binding{
 		{k.next, k.previous, k.jump, k.up, k.down, k.scrollUp, k.scrollDown},
-		{k.changeStatus, k.comment, k.branchForIssue, k.refresh},
+		{k.changeStatus, k.comment, k.branchForIssue, k.filter, k.refresh},
 		{k.newBranch, k.push, k.stage, k.stageAll, k.commit, k.runHooks, k.hookConfig},
 		{k.newPullRequest, k.compose, k.postWhenGreen},
 		{
