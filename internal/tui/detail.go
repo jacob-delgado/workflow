@@ -158,7 +158,10 @@ func (m Model) issuesKeys() []key.Binding {
 		return []key.Binding{m.keys.refresh}
 	}
 
-	return []key.Binding{m.keys.changeStatus, m.keys.comment, relabel(m.keys.branchForIssue, "branch for "+selected.Key)}
+	return []key.Binding{
+		m.keys.changeStatus, m.keys.comment,
+		relabel(m.keys.branchForIssue, "branch for "+selected.Key), m.keys.refresh,
+	}
 }
 
 // handleIssuesKey answers the Issues pane's own keys.

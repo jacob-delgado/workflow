@@ -187,7 +187,7 @@ func (m Model) commitsKeys() []key.Binding {
 		keys = append(keys, m.keys.hookConfig)
 	}
 
-	return keys
+	return append(keys, m.keys.refresh)
 }
 
 // handleCommitsKey answers the Commits pane's own keys.
