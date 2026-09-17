@@ -4,6 +4,7 @@
 package tui
 
 import (
+	"errors"
 	"slices"
 	"strconv"
 	"strings"
@@ -104,10 +105,17 @@ func (c commitComposer) view(width, _ int) (string, string) {
 	lines := []string{
 		c.label(fieldType, "type    ") + c.typeChoice(),
 		c.label(fieldScope, "scope   ") + c.scope.View(),
-		c.label(fieldSubject, "subject ") + c.subject.View(),
-		"",
-		"  " + subject.String() + "  " + length,
 	}
+
+	if problem := c.scopeProblem(); problem != "" {
+		lines = append(lines, "  "+c.marks.failed+" "+problem)
+	}
+
+	lines = append(lines,
+		c.label(fieldSubject, "subject ")+c.subject.View(),
+		"",
+		"  "+subject.String()+"  "+length,
+	)
 
 	problem := subject.Validate()
 	if problem != nil && strings.TrimSpace(c.subject.Value()) != "" {
@@ -120,6 +128,24 @@ func (c commitComposer) view(width, _ int) (string, string) {
 // label marks the field with focus.
 func (c commitComposer) label(field int, text string) string {
 	return c.marks.marker(field == c.focus) + text
+}
+
+// scopeProblem reports what is wrong with the scope as it stands, so the reason
+// can be drawn under the scope field rather than waiting for enter.
+func (c commitComposer) scopeProblem() string {
+	value := strings.TrimSpace(c.scope.Value())
+	if value == "" {
+		return ""
+	}
+
+	subject := convention.Subject{Type: c.types[c.kind], Scope: value, Description: c.subject.Value(), Breaking: false}
+
+	err := subject.Validate()
+	if err != nil && errors.Is(err, convention.ErrInvalidScope) {
+		return err.Error()
+	}
+
+	return ""
 }
 
 // typeChoice shows the chosen type among its neighbors.

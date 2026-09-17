@@ -391,3 +391,30 @@ func TestTheComposerCountsOneFileInTheSingular(t *testing.T) {
 	requireScreen(t, composer.View(), "1 file staged")
 	refuseScreen(t, composer.View(), "1 files staged")
 }
+
+func TestTheComposerFlagsAnInvalidScopeAsItIsTyped(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	composing := newWorld()
+	opened := typing(t, composing.live(t, 120, 40), "3", "c", keyShiftTab)
+
+	// Act
+	view := typing(t, opened, letters("BAD")...).View()
+
+	// Assert
+	lines := strings.Split(view, "\n")
+	scopeRow := -1
+
+	for index, line := range lines {
+		if strings.Contains(line, "scope") {
+			scopeRow = index
+
+			break
+		}
+	}
+
+	if scopeRow < 0 || scopeRow+1 >= len(lines) || !strings.Contains(lines[scopeRow+1], "a scope is lowercase letters") {
+		t.Errorf("the scope error is not shown under the scope field:\n%s", view)
+	}
+}

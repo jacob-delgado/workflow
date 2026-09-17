@@ -300,20 +300,6 @@ Impact: medium · Effort: small
 - Done when: no git status code is drawn, and the rail's count cannot be read
   as a sum.
 
-### UX-19 Validate the commit as it is typed
-
-Impact: medium · Effort: small
-
-- Today (seen live): the branch overlay says what is wrong with a name as you
-  type. The commit composer waits for `enter`. A scope of "add a helper."
-  previews as `feat(add a helper.):` with no complaint, and the refusal then
-  appears at the bottom of the overlay, five rows from the field it is about.
-- Instead: check on every key, and draw the problem under the field that has
-  it. The 72-character ruler already updates live; this is the same idea.
-- Touches: `internal/tui/composer.go`.
-- Done when: an invalid scope shows its reason under the scope field before
-  `enter` is pressed.
-
 ### UX-20 Lead a failed run with what failed
 
 Impact: medium · Effort: small
