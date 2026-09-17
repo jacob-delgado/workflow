@@ -22,9 +22,9 @@ const (
 	railMax     = 40
 
 	// collapseBelow is the width under which the rail is dropped entirely and
-	// the detail takes the whole body. A 24-column rail beside a 50-column
-	// detail serves neither.
-	collapseBelow = 90
+	// the detail takes the whole body. Down to 80 columns the two sit side by
+	// side; below that a 24-column rail beside a 50-column detail serves neither.
+	collapseBelow = 80
 
 	// borderlessBelow is the width under which even the detail's border goes:
 	// at under 60 columns, two columns of box-drawing are text that does not

@@ -290,7 +290,7 @@ func TestANarrowTerminalShowsTheListFullWidth(t *testing.T) {
 	deps := searching(assigned(issue("OPS-1", "Fix login", "new"), issue("OPS-2", "Rotate keys", "new")))
 
 	// Act
-	view := started(t, sized(t, tui.New(completeConfig(), nil, deps), 80, 30)).View()
+	view := started(t, sized(t, tui.New(completeConfig(), nil, deps), 79, 30)).View()
 
 	// Assert
 	// With no rail, the focused pane's own content takes the whole body — here

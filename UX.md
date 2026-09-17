@@ -104,20 +104,6 @@ Impact: high · Effort: small
 - Done when: at 80×24 with no configuration the reason and the next step are
   on screen, and with issues listed `enter` shows the selected issue.
 
-### UX-02 Keep the two-pane layout at 80 columns
-
-Impact: high · Effort: small
-
-- Today: `collapseBelow = 90` (`internal/tui/layout/layout.go`). The layout
-  the usage guide draws, rail beside detail, is never seen in a default
-  terminal. The rail's minimum is 24 columns, which would leave 56 for the
-  detail at 80.
-- Instead: collapse below 80, not below 90, and check the result against real
-  issue text before settling the number.
-- Touches: `internal/tui/layout/layout.go`, its tests, the breakpoints named
-  in `docs/content/docs/usage.md`.
-- Done when: an 80×24 terminal shows the rail and the detail side by side.
-
 ## Issues
 
 ## Branch

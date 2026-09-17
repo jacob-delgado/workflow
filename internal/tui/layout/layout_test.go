@@ -29,6 +29,19 @@ func TestComputeReservesASpineAndAFooter(t *testing.T) {
 	}
 }
 
+func TestEightyColumnsKeepsTheRailBesideTheDetail(t *testing.T) {
+	t.Parallel()
+
+	// Act
+	got := layout.Compute(80, 24, railPanes, 0)
+
+	// Assert
+	if got.Collapsed() || len(got.Rail) != railPanes || got.Detail.Width != 56 {
+		t.Errorf("Compute(80, 24) = collapsed %v, %d rail panes, detail width %d; want a rail beside a 56-column detail",
+			got.Collapsed(), len(got.Rail), got.Detail.Width)
+	}
+}
+
 func TestComputeGivesTheDetailWhatTheRailLeaves(t *testing.T) {
 	t.Parallel()
 
@@ -41,7 +54,7 @@ func TestComputeGivesTheDetailWhatTheRailLeaves(t *testing.T) {
 		// With no rail, the detail takes the whole body rather than shrinking
 		// beside an empty column.
 		"the whole body once the rail collapses": {
-			width: 80, height: 30, rails: 0, detail: layout.Box{X: 0, Y: 1, Width: 80, Height: 28},
+			width: 70, height: 30, rails: 0, detail: layout.Box{X: 0, Y: 1, Width: 70, Height: 28},
 		},
 	}
 
@@ -161,7 +174,7 @@ func TestTheShapeFollowsTheTerminal(t *testing.T) {
 		collapsed, borderless, compactSpine bool
 	}{
 		"roomy":             {width: 120, height: 40},
-		"narrow":            {width: 80, height: 40, collapsed: true},
+		"narrow":            {width: 79, height: 40, collapsed: true},
 		"very narrow":       {width: 59, height: 40, collapsed: true, borderless: true},
 		"short":             {width: 120, height: 23, compactSpine: true},
 		"at the thresholds": {width: 60, height: 24, collapsed: true},
@@ -218,7 +231,7 @@ func TestRailAt(t *testing.T) {
 		"the spine is not rail":  {width: 120, height: 40, column: 5, row: 0, wantOK: false},
 		"the detail is not rail": {width: 120, height: 40, column: 60, row: 10, wantOK: false},
 		"the footer is not rail": {width: 120, height: 40, column: 5, row: 39, wantOK: false},
-		"a collapsed layout":     {width: 80, height: 30, column: 5, row: 5, wantOK: false},
+		"a collapsed layout":     {width: 70, height: 30, column: 5, row: 5, wantOK: false},
 	}
 
 	for name, tt := range cases {
