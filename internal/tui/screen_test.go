@@ -257,16 +257,17 @@ func TestTheHelpListsEveryGroupAndScrolls(t *testing.T) {
 	// Act: open the help on a short terminal
 	short := typing(t, model, "?")
 
-	// Assert: it starts at the first group, with the last out of sight
-	requireScreen(t, short.View(), "┌─ Keys", "Moving around")
-	refuseScreen(t, short.View(), "Everywhere")
+	// Assert: it starts at the first group, says there is more, and the bottom
+	// of the taller column is out of sight
+	requireScreen(t, short.View(), "┌─ Keys", "Moving around", "… more below")
+	refuseScreen(t, short.View(), "Review and Slack")
 	requireScreen(t, footerLine(short.View()), "esc close", "q quit")
 
 	// Act: page down
 	paged := typing(t, short, "pgdown", "pgdown", "pgdown")
 
-	// Assert: the last group is in sight
-	requireScreen(t, paged.View(), "Everywhere")
+	// Assert: the group that was out of sight is in sight
+	requireScreen(t, paged.View(), "Review and Slack")
 }
 
 func TestQQuitsFromTheHelp(t *testing.T) {
