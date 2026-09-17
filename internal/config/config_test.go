@@ -315,6 +315,87 @@ func TestLoadFileReportsAnUnreadableFile(t *testing.T) {
 	}
 }
 
+// sharedMode is a file its owner's group and everyone else can read.
+const sharedMode os.FileMode = 0o644
+
+func TestSaveOverAnExistingFileLeavesItOwnerOnly(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	// Writing into a file that already exists keeps the mode it had, so the
+	// mode has to be set and not only asked for.
+	path := filepath.Join(t.TempDir(), config.FileName)
+
+	err := os.WriteFile(path, []byte("{}"), sharedMode)
+	if err != nil {
+		t.Fatalf("writing the existing file: %v", err)
+	}
+
+	// Act
+	err = config.Save(path, config.Template())
+	// Assert
+	if err != nil {
+		t.Fatalf("Save: %v", err)
+	}
+
+	info, err := os.Stat(path)
+	if err != nil {
+		t.Fatalf("Stat: %v", err)
+	}
+
+	if info.Mode().Perm() != config.FileMode {
+		t.Errorf("mode = %#o, want %#o", info.Mode().Perm(), config.FileMode)
+	}
+}
+
+func TestSharedModeReportsAFileOthersCanReach(t *testing.T) {
+	t.Parallel()
+
+	cases := map[string]struct {
+		mode os.FileMode
+		want bool
+	}{
+		"the owner alone":      {mode: config.FileMode, want: false},
+		"the group can read":   {mode: 0o640, want: true},
+		"everyone can read":    {mode: sharedMode, want: true},
+		"everyone can write":   {mode: 0o602, want: true},
+		"the owner, read-only": {mode: 0o400, want: false},
+	}
+
+	for name, tt := range cases {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			// Arrange
+			// The mode is set after the file is written, because the process's
+			// umask takes bits off the one a new file is created with.
+			path := filepath.Join(t.TempDir(), config.FileName)
+
+			err := errors.Join(os.WriteFile(path, []byte("{}"), config.FileMode), os.Chmod(path, tt.mode))
+			if err != nil {
+				t.Fatalf("writing the file: %v", err)
+			}
+
+			// Act
+			mode, shared := config.SharedMode(path)
+
+			// Assert
+			if shared != tt.want || (shared && mode != tt.mode) {
+				t.Errorf("SharedMode = %#o, %t; want %#o, %t", mode, shared, tt.mode, tt.want)
+			}
+		})
+	}
+}
+
+func TestSharedModeOfAMissingFileIsNotShared(t *testing.T) {
+	t.Parallel()
+
+	// Act & Assert
+	if mode, shared := config.SharedMode(filepath.Join(t.TempDir(), config.FileName)); shared {
+		t.Errorf("SharedMode of a missing file = %#o, shared", mode)
+	}
+}
+
 func TestSaveReportsAnUnwritablePath(t *testing.T) {
 	t.Parallel()
 

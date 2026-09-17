@@ -79,6 +79,27 @@ func TestDoctorAcceptsACompleteConfig(t *testing.T) {
 	}
 }
 
+func TestDoctorFailsOnAConfigurationOthersCanRead(t *testing.T) {
+	// Arrange
+	dir := t.TempDir()
+	path := writeFile(t, dir, `{"jira": {"base_url": "https://jira.example.com", "token": "t"},`+
+		` "slack": {"webhook_url": "https://hooks.slack.example/services/not-real"}}`)
+
+	err := os.Chmod(path, 0o644)
+	if err != nil {
+		t.Fatalf("chmod: %v", err)
+	}
+
+	// Act
+	output, err := run(t, dir, "doctor")
+
+	// Assert
+	// It says what is wrong and the one command that puts it right.
+	if err == nil || !strings.Contains(output, "0644") || !strings.Contains(output, "chmod 600 "+path) {
+		t.Errorf("doctor = %v, want it to refuse a file others can read and say how to fix it:\n%s", err, output)
+	}
+}
+
 // gitInit makes dir a real repository, so doctor's repository section can be
 // tested against git itself rather than against an imitation of it.
 func gitInit(t *testing.T, dir string) {

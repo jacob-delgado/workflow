@@ -26,6 +26,8 @@ import (
 var (
 	// errIncomplete reports a configuration that loaded but is missing fields.
 	errIncomplete = errors.New("configuration is incomplete")
+	// errShared reports a configuration file that is not its owner's alone.
+	errShared = errors.New("the configuration file can be reached by other users")
 	// errMissingTooling reports a required external program that is absent.
 	errMissingTooling = errors.New("required tooling is missing")
 	// errCredentialRejected reports a credential a service would not accept.
@@ -370,6 +372,25 @@ func reportConfiguration(out io.Writer, cfg config.Config, loadErr error) error 
 	// this output is what the bug report template invites people to paste.
 	field(out, "Slack", fmt.Sprintf("%s (%s)", cfg.Slack.Target(), cfg.Slack.Mode()))
 
+	return errors.Join(reportSharedMode(out, cfg.Path), reportMissing(out, cfg))
+}
+
+// reportSharedMode refuses a configuration file that anyone but its owner can
+// read or write, and says the one command that puts it right.
+func reportSharedMode(out io.Writer, path string) error {
+	mode, shared := config.SharedMode(path)
+	if !shared {
+		return nil
+	}
+
+	field(out, "Permissions", fmt.Sprintf("%#o, so other users can reach this file", mode))
+	fmt.Fprintf(out, "\nIt holds credentials. Make it yours alone with `chmod 600 %s`.\n", path)
+
+	return fmt.Errorf("%w: mode %#o", errShared, mode)
+}
+
+// reportMissing names the fields still to fill in, or says that none are.
+func reportMissing(out io.Writer, cfg config.Config) error {
 	missing := cfg.Missing()
 	if len(missing) == 0 {
 		fmt.Fprintf(out, "\nEverything required is set.\n")

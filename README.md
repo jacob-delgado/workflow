@@ -149,7 +149,7 @@ to that channel, so `slack.channel` does not apply. Treat the URL as a password.
 ### Keeping the tokens safe
 
 `.workflow.json` holds live credentials. `config init` writes it at mode `0600`,
-it is listed in `.gitignore`, and `config show` masks every credential —
+`doctor` fails while anyone else can read it, it is listed in `.gitignore`, and `config show` masks every credential —
 including `slack.webhook_url`, which is a password that happens to look like an
 address. Nothing in this repo will print a credential in full.
 

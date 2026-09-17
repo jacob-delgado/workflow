@@ -130,6 +130,34 @@ func TestConfigInitForceOverwrites(t *testing.T) {
 	}
 }
 
+func TestConfigInitForceLeavesTheModeItReports(t *testing.T) {
+	// Arrange
+	dir := t.TempDir()
+	path := writeFile(t, dir, `{}`)
+
+	err := os.Chmod(path, 0o644)
+	if err != nil {
+		t.Fatalf("chmod: %v", err)
+	}
+
+	// Act
+	output, err := run(t, dir, "config", "init", "--force")
+
+	// Assert
+	if err != nil || !strings.Contains(output, "mode 0600") {
+		t.Fatalf("config init --force = %v, want it to report the mode:\n%s", err, output)
+	}
+
+	info, err := os.Stat(path)
+	if err != nil {
+		t.Fatalf("Stat: %v", err)
+	}
+
+	if info.Mode().Perm() != config.FileMode {
+		t.Errorf("mode = %#o, though config init reported %#o", info.Mode().Perm(), config.FileMode)
+	}
+}
+
 func TestConfigShowMasksTokens(t *testing.T) {
 	// Arrange
 	dir := t.TempDir()
