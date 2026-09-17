@@ -741,20 +741,6 @@ Impact: medium · Effort: small
 - Done when: with `NO_COLOR=1` a text field shows its cursor and no hue is
   drawn.
 
-### UX-45 ASCII mode, all the way down
-
-Impact: low · Effort: small
-
-- Today: `ui.ascii` replaces every glyph and border, and a test asserts the
-  main screen and the help contain nothing above `~`. Three error strings
-  that can reach the screen still contain an em dash:
-  `internal/tui/fields.go:22`, `internal/wiring/wiring.go:219` and
-  `internal/forge/client.go:211`.
-- Instead: plain punctuation in anything that can be drawn, and extend the
-  test to the overlays and the error paths.
-- Touches: the three files above, `internal/tui/screen_test.go`.
-- Done when: the ASCII test covers every overlay and passes.
-
 ### UX-46 Give the rail its rows back
 
 Impact: low · Effort: medium
