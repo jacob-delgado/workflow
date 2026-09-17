@@ -632,24 +632,6 @@ Impact: low · Effort: medium
 
 ## The command line
 
-### UX-47 Say it once in `doctor`
-
-Impact: low · Effort: small
-
-- Today (seen live): with no configuration, `doctor` explains that no file
-  was found and how to create one, and then prints the same fact again as its
-  error line, with both full paths. It lists `glab` as something that
-  "supplies a GitLab token when none is configured", which no code does and
-  the configuration guide denies. It says the "hook panes stay hidden" without
-  lefthook; there are no hook panes. Under `--online`,
-  every failure ends as "a credential was rejected", including a network that
-  is down.
-- Instead: one statement of each fact; drop `glab`; "the hook keys are not
-  offered"; and "could not reach Jira" as its own outcome.
-- Touches: `internal/cli/doctor.go`.
-- Done when: `doctor --online` with the network off says the service could
-  not be reached.
-
 ## Would reopen a settled decision
 
 ### UX-49 A second signal for focus
