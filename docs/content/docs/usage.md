@@ -134,7 +134,9 @@ would in a terminal. Their output streams into the detail pane as it happens.
 ### When a hook fails
 
 A failed hook lists every `file:line` it reported. Pick one and press `enter`
-to open your editor at that line; fix it, and `r` runs the commit again. What
+to open your editor at that line; fix it, and `r` runs the commit again. A place
+that names no file from the repository's root, as `go test` prints for a file in
+a package, says so and opens nothing. What
 you composed is kept, so nothing needs retyping. `esc` leaves the run and reads
 the repository again.
 

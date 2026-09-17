@@ -149,10 +149,40 @@ func Collect(path string, done func(string, error) tea.Msg) func(error) tea.Msg 
 	}
 }
 
+// ErrNoSuchFile reports a place to open that names no file.
+var ErrNoSuchFile = errors.New("no such file")
+
+// Locate names a file in full: from dir, unless it is a full path already.
+//
+// A place comes from what a tool printed, so it may name nothing (go test
+// prints places relative to a package, not to the repository) and it may begin
+// with anything a file name can. An editor handed a file that is not there
+// opens an empty buffer, and saving that leaves a stray file; and an editor
+// reads an argument by how it begins. Named in full, a file is there, and its
+// name begins with the root.
+func Locate(dir, file string) (string, error) {
+	full := file
+	if !filepath.IsAbs(full) {
+		full = filepath.Join(dir, file)
+	}
+
+	info, err := os.Stat(full)
+	if err != nil || !info.Mode().IsRegular() {
+		return "", fmt.Errorf("%w: %s", ErrNoSuchFile, file)
+	}
+
+	return full, nil
+}
+
 // Open opens a file in the user's editor at a line, and reports through done
 // once the editor has closed.
 func Open(getenv Getenv, dir, file string, line int, done func(error) tea.Msg) tea.Cmd {
-	command, err := proc.Interactive(Invocation(getenv, dir, file, line))
+	located, err := Locate(dir, file)
+	if err != nil {
+		return report(done(err))
+	}
+
+	command, err := proc.Interactive(Invocation(getenv, dir, located, line))
 	if err != nil {
 		return report(done(err))
 	}
