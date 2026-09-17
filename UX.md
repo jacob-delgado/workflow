@@ -174,9 +174,9 @@ Impact: high · Effort: medium
 
 Impact: medium · Effort: small
 
-- Today (seen live): the Branch pane says "✗ not a git repository" and, under
-  it, "Check out a branch, or press b to start one for the selected issue."
-  `b` is offered and fails with git's own words, cut off at the pane's edge.
+- Today (seen live): the Branch pane says it could not read the branch, with
+  git's "not a git repository" under it, and still offers `b`, which fails
+  with git's own words, cut off at the pane's edge.
   The Commits pane offers `h run pre-commit` and prints
   "reading the status of /a/long/path: git: exit status 128: fatal: not a git
   repository (or any of the parent directories): .git". The Review pane says
@@ -308,19 +308,6 @@ Impact: medium · Effort: small
 - Touches: `internal/tui/run.go` (`startPush`), `internal/tui/branch.go`.
 - Done when: `P` shows what will be pushed and where, and `esc` sends
   nothing.
-
-### UX-14 Show the real reason the branch could not be read
-
-Impact: low · Effort: small
-
-- Today: every error from reading the branch is drawn as "✗ not a git
-  repository", in the rail and in the detail. The error itself
-  (`m.branch.err`) is tested for and never shown. A missing `git`, or a `git`
-  too old for `branch --show-current`, reads as "not a git repository".
-- Instead: keep the short line in the rail and put the cause in the detail,
-  as the Commits and Review panes already do.
-- Touches: `internal/tui/branch.go` (`branchDetail`).
-- Done when: the detail shows the cause of a branch read failure.
 
 ### UX-15 Say how old the base is
 

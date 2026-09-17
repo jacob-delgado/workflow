@@ -273,6 +273,13 @@ func (m Model) failure(err error) string {
 	return m.styles.failure.Render(m.marks.failed + " " + err.Error())
 }
 
+// failureWithin is failure for a pane: wrapped to its width first and styled
+// after, so every row opens and closes its own color and none runs on into the
+// border beside it.
+func (m Model) failureWithin(err error, width int) string {
+	return m.styles.failure.Render(wrap(m.marks.failed+" "+err.Error(), width))
+}
+
 // plural counts things, in words.
 func plural(count int, noun string) string {
 	if count == 1 {

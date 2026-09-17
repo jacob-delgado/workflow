@@ -104,7 +104,7 @@ Severity: medium · Confidence: reproduced
 - Evidence: six overlays append their state line after their body, unwrapped:
   `internal/tui/hookgen.go:92`, `internal/tui/comment.go:77`,
   `internal/tui/prcomposer.go:135`, `internal/tui/slack.go:177`,
-  `internal/tui/branch.go:220`, `internal/tui/picker.go:123`. Overlay bodies
+  `internal/tui/branch.go:228`, `internal/tui/picker.go:123`. Overlay bodies
   are returned as they are (`detailContent`, `internal/tui/render.go:83`) and
   the frame clips rows past its height. Six of eight overlay views ignore the
   row count they are given (`view(width, _ int)`).
@@ -163,7 +163,7 @@ Severity: medium · Confidence: read
   `prComposer`, `slackPreview` and `hookgenOffer`. Each repeats a view tail, a
   footer guard, a key guard and a failure applier of the same shape
   (`internal/tui/picker.go:60`, `internal/tui/comment.go:134`,
-  `internal/tui/branch.go:296`, `internal/tui/prcomposer.go:315`,
+  `internal/tui/branch.go:304`, `internal/tui/prcomposer.go:315`,
   `internal/tui/slack.go:305`, `internal/tui/hookgen.go:144`). The editor
   round trip is line for line the same at `internal/tui/composer.go:253`,
   `internal/tui/prcomposer.go:239` and `internal/tui/slack.go:299`. The fourth
@@ -186,7 +186,7 @@ Severity: medium · Confidence: read
 - Evidence: `failure` (`internal/tui/render.go:272`) is documented as "the
   one way the interface says something broke". These draw the glyph and
   `err.Error()` unstyled instead: `internal/tui/picker.go:123` and `:160`,
-  `internal/tui/comment.go:77`, `internal/tui/branch.go:220`,
+  `internal/tui/comment.go:77`, `internal/tui/branch.go:228`,
   `internal/tui/prcomposer.go:135`, `internal/tui/slack.go:100` and `:177`,
   `internal/tui/hookgen.go:92`, `internal/tui/run.go:168`,
   `internal/tui/review.go:140`, `internal/tui/composer.go:114` and `:158`,
@@ -207,7 +207,7 @@ Severity: medium · Confidence: read
 Severity: medium · Confidence: read
 
 - Evidence: `if m.dryRun` at `internal/tui/picker.go:258`,
-  `internal/tui/comment.go:110`, `internal/tui/branch.go:274`,
+  `internal/tui/comment.go:110`, `internal/tui/branch.go:282`,
   `internal/tui/commits.go:221`, `:242` and `:276`,
   `internal/tui/composer.go:282`, `internal/tui/prcomposer.go:274`,
   `internal/tui/run.go:296`, `internal/tui/slack.go:218` and `:234`,

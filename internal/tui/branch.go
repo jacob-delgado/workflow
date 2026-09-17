@@ -72,7 +72,7 @@ func (m Model) branchRail(_ int) string {
 	case !m.branch.loaded:
 		return "loading" + m.marks.ellipsis
 	case m.branch.err != nil:
-		return m.marks.failed + " not a git repository"
+		return m.marks.failed + " could not read the branch" + m.marks.separator + "see detail"
 	case m.branch.branch.Detached:
 		return "detached HEAD"
 	}
@@ -97,7 +97,15 @@ func (m Model) upstreamState() string {
 
 // branchDetail describes the branch and what to do with it.
 func (m Model) branchDetail(width int) string {
-	if !m.branch.loaded || m.branch.err != nil || m.branch.branch.Detached {
+	switch {
+	case !m.branch.loaded:
+		return m.branchRail(0)
+	case m.branch.err != nil:
+		// Why, in the words of whatever refused: a directory that is no
+		// repository is one reason among several, and only the reason says
+		// what to do about it.
+		return wrap(m.branchRail(0), width) + "\n\n" + m.failureWithin(m.branch.err, width)
+	case m.branch.branch.Detached:
 		return wrap(m.branchRail(0)+"\n\nCheck out a branch, or press b to start one for the selected issue.", width)
 	}
 
