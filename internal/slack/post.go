@@ -83,7 +83,7 @@ func (c Client) postAsBot(ctx context.Context, text string) error {
 	}
 
 	if !answer.OK {
-		return fmt.Errorf("%w: %s", ErrRejected, answer.Error)
+		return fmt.Errorf("%w: %s", ErrPostRefused, rejectionReason(answer.Error, c.creds.Channel))
 	}
 
 	return nil
@@ -121,6 +121,28 @@ func (c Client) postJSON(ctx context.Context, address string, payload any, heade
 	request.Header.Set("Content-Type", jsonContent)
 
 	return c.deliver(request)
+}
+
+// rejectionReason turns Slack's error code into a sentence that names the fix,
+// falling back to the code for one it does not explain.
+func rejectionReason(code, channel string) string {
+	if channel == "" {
+		channel = "the channel"
+	}
+
+	explained := map[string]string{
+		"not_in_channel": "the bot is not in " + channel +
+			". Invite it to the channel, then press enter to try again",
+		"channel_not_found": "there is no channel " + channel +
+			", or the bot cannot see it. Check the channel name, then press enter to try again",
+		"is_archived": channel + " is archived. Post to an open channel, then press enter to try again",
+	}
+
+	if sentence, known := explained[code]; known {
+		return sentence
+	}
+
+	return code
 }
 
 // deliver performs a post and returns the answer's body. Neither error names

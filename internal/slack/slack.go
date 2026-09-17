@@ -39,6 +39,9 @@ var (
 	ErrWebhookUncheckable = errors.New("an incoming webhook cannot be checked without posting with it")
 	// ErrRejected reports a token Slack would not accept.
 	ErrRejected = errors.New("the credential was not accepted")
+	// ErrPostRefused reports a post Slack would not deliver, for a reason that is
+	// not about the credential.
+	ErrPostRefused = errors.New("the post was refused")
 	// ErrUnexpectedStatus reports a response status the API does not document.
 	ErrUnexpectedStatus = errors.New("unexpected response status")
 	// ErrUnreachable reports a request that never got an answer.
