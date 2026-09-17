@@ -39,6 +39,9 @@ type issueList struct {
 	// moved records that someone chose an issue, after which nothing selects
 	// one for them.
 	moved bool
+	// viewing records that, in the collapsed layout, the selected issue is being
+	// read in full rather than the list being scanned.
+	viewing bool
 }
 
 // settle records the search's answer. The selection follows its issue rather
@@ -92,6 +95,7 @@ func (l issueList) find(issueKey string) (jira.Issue, bool) {
 func (l issueList) move(step int) issueList {
 	last := len(l.found.Issues) - 1
 	l.selected = max(0, min(l.selected+step, last))
+	l.viewing = false
 
 	return l
 }

@@ -8,10 +8,37 @@ import (
 	"testing"
 	"time"
 
+	"github.com/jacob-delgado/workflow/internal/config"
 	"github.com/jacob-delgado/workflow/internal/gitrepo"
 	"github.com/jacob-delgado/workflow/internal/jira"
 	"github.com/jacob-delgado/workflow/internal/tui"
 )
+
+func TestCollapsedIssuesEnterOpensTheSelectedIssue(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	model := newWorld().live(t, 79, 24)
+
+	// Act
+	view := typing(t, model, keyEnter).View()
+
+	// Assert
+	requireScreen(t, view, "Tokens reach the log.")
+}
+
+func TestCollapsedIssuesShowTheSetupStepWhenNothingToChoose(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	model := sized(t, tui.New(config.Config{}, config.ErrNotFound, tui.Deps{}), 79, 24)
+
+	// Act
+	view := model.View()
+
+	// Assert
+	requireScreen(t, view, "config init")
+}
 
 // Errors the fakes answer with.
 var (

@@ -139,6 +139,18 @@ func (m Model) issuesRail(rows int) string {
 	return m.issues.render(m.marks, m.styles, rows)
 }
 
+// issuesNarrow is the collapsed Issues view: the full issue — or the reason
+// there is none, and the setup steps — when there is nothing to scan or enter
+// asked to read one, otherwise the list.
+func (m Model) issuesNarrow(rows int) string {
+	_, ok := m.issues.current()
+	if !ok || m.issues.viewing {
+		return m.issueDetailView(m.detailWidth())
+	}
+
+	return m.issuesRail(rows)
+}
+
 // issuesKeys offers the verbs for the selected issue, when there is one.
 func (m Model) issuesKeys() []key.Binding {
 	selected, ok := m.issues.current()
@@ -164,6 +176,14 @@ func (m Model) handleIssuesKey(msg tea.KeyMsg) (Model, tea.Cmd) {
 		return m.openBranchCreator()
 	case key.Matches(msg, m.keys.refresh):
 		return m.refreshIssues()
+	case key.Matches(msg, m.keys.confirm):
+		m.issues.viewing = true
+
+		return m.loadDetail()
+	case key.Matches(msg, m.keys.closeOverlay):
+		m.issues.viewing = false
+
+		return m, nil
 	default:
 		return m, nil
 	}

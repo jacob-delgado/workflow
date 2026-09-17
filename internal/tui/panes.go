@@ -66,7 +66,7 @@ type behavior struct {
 func behaviorOf(target pane) behavior {
 	return map[pane]behavior{
 		paneIssues: {
-			rail: Model.issuesRail, detail: Model.issueDetailView, narrow: Model.issuesRail,
+			rail: Model.issuesRail, detail: Model.issueDetailView, narrow: Model.issuesNarrow,
 			keys: Model.issuesKeys, handle: Model.handleIssuesKey, pick: Model.pickIssue,
 		},
 		paneBranch: {
