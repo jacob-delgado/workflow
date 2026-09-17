@@ -34,6 +34,7 @@ type issueList struct {
 	found    jira.SearchResult
 	err      error
 	settled  bool
+	loading  bool
 	selected int
 	// moved records that someone chose an issue, after which nothing selects
 	// one for them.
@@ -45,7 +46,7 @@ type issueList struct {
 // an issue's status brings that issue to the top.
 func (l issueList) settle(answer issuesLoaded) issueList {
 	previous, _ := l.current()
-	l.found, l.err, l.settled = answer.found, answer.err, true
+	l.found, l.err, l.settled, l.loading = answer.found, answer.err, true, false
 
 	return l.selectKey(previous.Key)
 }

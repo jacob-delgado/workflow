@@ -53,7 +53,7 @@ one of them yet, which makes this table the shortest summary of the file.
 | --- | --- | --- |
 | "a key it does not show does nothing" | `docs/content/docs/usage.md:55` | No. Ten keys work unseen. UX-32 |
 | "`?` lists every key" | `docs/content/docs/usage.md:56` | No. Eleven bindings are missing. UX-33 |
-| "the one way the interface says something broke" | `failure`, `internal/tui/render.go:276` | In 7 places of about 20. |
+| "the one way the interface says something broke" | `failure`, `internal/tui/render.go:275` | In 7 places of about 20. |
 | "Nothing outward facing is sent without" a last look | `internal/tui/comment.go:43` | Mostly. |
 | "a refused change must never go unseen" | `internal/tui/picker.go:184` | In one overlay of seven. |
 | "Each pane fails on its own" | `docs/content/docs/usage.md:58` | Yes, and it is the best thing about the first run. |
@@ -190,23 +190,6 @@ Impact: high · Effort: medium
   `internal/tui/overlay.go` (`noticed`), `internal/tui/layout/layout.go`.
 - Done when: a notice survives `j`, `k` and `tab`, and the key hints stay
   visible beside it.
-
-### UX-37 Show that something is happening
-
-Impact: medium · Effort: small
-
-- Today: loading is a word ("loading…", "looking…", "checking…"). A refresh
-  shows nothing at all: the old content stays until the new answer replaces
-  it, so `r` on a slow Jira looks like a key that did nothing. Only a running
-  command moves. Every request is bounded at ten seconds, and nothing on
-  screen says a request is in flight or for how long.
-- Instead: put the in-flight glyph in the pane's title while any load for
-  that pane is outstanding (`┏━ 1 Issues ◐ ━━`). It costs no timer. The
-  Commits detail should also stop saying "nothing changed" while its rail
-  still says "loading…" (`commitsDetail`, `internal/tui/commits.go`).
-- Touches: `internal/tui/render.go`, each pane's state (`loaded` flags),
-  `internal/tui/commits.go`.
-- Done when: pressing `r` changes the pane's title until the answer arrives.
 
 ## The visual system
 

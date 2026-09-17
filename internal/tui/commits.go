@@ -102,6 +102,10 @@ func (m Model) commitsDetail(width int) string {
 		return wrap(notInRepository, width)
 	}
 
+	if !m.changes.loaded {
+		return m.commitsRail(0)
+	}
+
 	if m.changes.err != nil {
 		return m.failureWithin(m.changes.err, width)
 	}
