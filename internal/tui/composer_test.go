@@ -38,16 +38,17 @@ func TestTheComposerAssemblesAConventionalCommit(t *testing.T) {
 	composing.edited = "Tokens reached the log."
 	model := composing.live(t, 120, 40)
 
-	// The composer opens on the subject: back twice to the type, then forward.
-	keys := []string{keyShiftTab, keyShiftTab, keyRight, keyTab}
+	// The composer opens on the subject, already on the branch's type: back to
+	// the scope, fill it, and forward.
+	keys := []string{keyShiftTab}
 	keys = append(append(keys, letters("config")...), keyTab)
 	keys = append(append(keys, letters("redact tokens")...), "ctrl+o")
 
 	// Act: open the composer
 	composer := typing(t, model, "3", "c")
 
-	// Assert: it starts from the issue and what is staged
-	requireScreen(t, composer.View(), "┏━ Commit", "‹feat›", "Refs: PROJ-412", "1 file staged",
+	// Assert: it starts from the issue and what is staged, on the fix branch's type
+	requireScreen(t, composer.View(), "┏━ Commit", "‹fix›", "Refs: PROJ-412", "1 file staged",
 		"no body yet: ctrl+o writes one in your editor")
 
 	// Act: choose the type, scope and subject, then write the body in the editor
@@ -69,6 +70,20 @@ func TestTheComposerAssemblesAConventionalCommit(t *testing.T) {
 	}
 }
 
+func TestTheComposerOpensOnTheBranchType(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	composing := newWorld()
+
+	// Act
+	composer := typing(t, composing.live(t, 120, 40), "3", "c")
+
+	// Assert
+	requireScreen(t, composer.View(), "‹fix›")
+	refuseScreen(t, composer.View(), "‹feat›")
+}
+
 func TestTheComposerRefusesATooLongSubject(t *testing.T) {
 	t.Parallel()
 
@@ -80,7 +95,7 @@ func TestTheComposerRefusesATooLongSubject(t *testing.T) {
 	long := typing(t, model, append([]string{"3", "c"}, letters(strings.Repeat("x", 70))...)...)
 
 	// Assert: the problem is named
-	requireScreen(t, long.View(), "✗ the subject is too long: 76 of 72 characters")
+	requireScreen(t, long.View(), "✗ the subject is too long: 75 of 72 characters")
 
 	// Act: try to commit it
 	refused := typing(t, long, keyEnter)
@@ -128,7 +143,11 @@ func TestTheTypeCyclesBothWays(t *testing.T) {
 			t.Parallel()
 
 			// Arrange
-			composer := typing(t, newWorld().live(t, 120, 40), "3", "c", keyTab)
+			// A branch with no type prefix opens the composer on feat, so the
+			// cycling below starts from a known place.
+			world := newWorld()
+			world.branch.Name = "work"
+			composer := typing(t, world.live(t, 120, 40), "3", "c", keyTab)
 
 			// Act
 			view := typing(t, composer, tt.keys...).View()
@@ -312,7 +331,7 @@ func TestADryRunCommitsNothing(t *testing.T) {
 		keys []string
 		want string
 	}{
-		"committing":       {keys: commitKeys("x"), want: "dry run: would commit feat: x"},
+		"committing":       {keys: commitKeys("x"), want: "dry run: would commit fix: x"},
 		"running the hook": {keys: []string{"3", "h"}, want: "dry run: would run the pre-commit hook"},
 	}
 
