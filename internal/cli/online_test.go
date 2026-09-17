@@ -168,7 +168,10 @@ func TestDoctorOnlineFailsWhenSlackIsNotConfigured(t *testing.T) {
 func clearForgeEnvironment(t *testing.T) {
 	t.Helper()
 
-	for _, name := range []string{"GITHUB_TOKEN", "GH_TOKEN", "GITLAB_TOKEN", "GLAB_TOKEN"} {
+	for _, name := range []string{
+		"GITHUB_TOKEN", "GH_TOKEN", "GH_ENTERPRISE_TOKEN", "GITHUB_ENTERPRISE_TOKEN", "GH_HOST",
+		"GITLAB_TOKEN", "GLAB_TOKEN", "GITLAB_HOST", "GL_HOST",
+	} {
 		t.Setenv(name, "")
 	}
 }
@@ -199,8 +202,12 @@ func pathWithOnlyGit(t *testing.T) {
 // so it can never resolve. A github.com remote would send the suite to the real
 // api.github.com with a fake token — passing only because the token source still
 // appears in the 401 line, and failing on a plane. This fails in milliseconds
-// everywhere, and forge.kind is what lets doctor derive an API for it at all.
-const unreachableForge = "git@forge.invalid:owner/repo.git"
+// everywhere, and forge.kind and forge.host are what let doctor derive an API
+// for it at all.
+const unreachableForge = "git@" + unreachableHost + ":owner/repo.git"
+
+// unreachableHost is the host of unreachableForge.
+const unreachableHost = "forge.invalid"
 
 // repoWithConfig makes a repository with an origin, and a configuration in it
 // naming a local Jira and a forge token.
@@ -209,7 +216,7 @@ func repoWithConfig(t *testing.T, forgeToken string) string {
 
 	dir := repoWithRemote(t, unreachableForge)
 	writeFile(t, dir, `{"jira": {"base_url": "`+workingJira(t)+`", "token": "t"}, `+slackWebhook+`,`+
-		` "forge": {"kind": "github", "token": "`+forgeToken+`"}}`)
+		` "forge": {"kind": "github", "host": "`+unreachableHost+`", "token": "`+forgeToken+`"}}`)
 
 	return dir
 }
@@ -217,7 +224,8 @@ func repoWithConfig(t *testing.T, forgeToken string) string {
 func TestDoctorOnlineNamesWhereTheForgeTokenCameFrom(t *testing.T) {
 	// Arrange
 	clearForgeEnvironment(t)
-	t.Setenv("GITHUB_TOKEN", "forge-token-for-tests")
+	t.Setenv("GH_ENTERPRISE_TOKEN", "forge-token-for-tests")
+	t.Setenv("GH_HOST", unreachableHost)
 
 	dir := repoWithConfig(t, "")
 
@@ -237,10 +245,28 @@ func TestDoctorOnlineNamesWhereTheForgeTokenCameFrom(t *testing.T) {
 	}
 }
 
+func TestDoctorOnlineOffersGitHubsOwnVariableOnlyToGitHubsOwnHosts(t *testing.T) {
+	// Arrange
+	clearForgeEnvironment(t)
+	pathWithOnlyGit(t)
+	t.Setenv("GITHUB_TOKEN", "forge-token-for-tests")
+
+	dir := repoWithConfig(t, "")
+
+	// Act
+	output, err := run(t, dir, "doctor", "--online")
+
+	// Assert
+	if err == nil || strings.Contains(output, "token from the environment") {
+		t.Errorf("doctor --online = %v, want no token found for %s:\n%s", err, unreachableHost, output)
+	}
+}
+
 func TestDoctorOnlinePrefersTheEnvironmentOverTheConfiguration(t *testing.T) {
 	// Arrange
 	clearForgeEnvironment(t)
-	t.Setenv("GH_TOKEN", "from-the-environment")
+	t.Setenv("GH_ENTERPRISE_TOKEN", "from-the-environment")
+	t.Setenv("GH_HOST", unreachableHost)
 
 	dir := repoWithConfig(t, "from-the-file")
 
@@ -287,7 +313,7 @@ func TestDoctorOnlineReportsNoForgeTokenAtAll(t *testing.T) {
 
 	// Naming all three sources is the point: the reader should not have to go
 	// looking for which one they were supposed to use.
-	for _, want := range []string{"GITHUB_TOKEN", "gh auth login", "forge.token"} {
+	for _, want := range []string{"GH_ENTERPRISE_TOKEN", "GH_HOST", "gh auth login", "forge.token"} {
 		if !strings.Contains(output, want) {
 			t.Errorf("doctor does not mention %q:\n%s", want, output)
 		}

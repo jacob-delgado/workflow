@@ -66,6 +66,9 @@ type Forge struct {
 	// whose name says neither — a GitHub Enterprise Server and a self-managed
 	// GitLab look identical from a git remote, and their APIs differ.
 	Kind string `json:"kind"`
+	// Host is the host Kind and Token were written for, such as
+	// git.example.com.
+	Host string `json:"host"`
 	// Token is a GitHub or GitLab personal access token, consulted only when
 	// neither the environment nor the forge's own CLI supplies one.
 	//
@@ -186,7 +189,7 @@ func Default() Config {
 	return Config{
 		Jira:  Jira{BaseURL: "", Token: "", User: ""},
 		Slack: Slack{Token: "", WebhookURL: "", Channel: ""},
-		Forge: Forge{Kind: "", Token: ""},
+		Forge: Forge{Kind: "", Host: "", Token: ""},
 		UI:    UI{Mouse: true, ASCII: false},
 		Path:  "",
 	}
@@ -257,7 +260,7 @@ func Template() Config {
 			WebhookURL: "",
 			Channel:    "#dev-workflow",
 		},
-		Forge: Forge{Kind: "", Token: ""},
+		Forge: Forge{Kind: "", Host: "", Token: ""},
 		UI:    UI{Mouse: true, ASCII: false},
 		Path:  "",
 	}
@@ -344,7 +347,18 @@ func (c Config) Missing() []string {
 		missing = append(missing, "jira.token")
 	}
 
-	return append(missing, c.Slack.missing()...)
+	return append(append(missing, c.Slack.missing()...), c.Forge.missing()...)
+}
+
+// missing names the forge field still needed. forge.kind describes forge.host,
+// so by itself it describes nothing; everything else about the forge is
+// optional, and a configuration that sets none of it is complete.
+func (f Forge) missing() []string {
+	if f.Kind != "" && f.Host == "" {
+		return []string{"forge.host"}
+	}
+
+	return nil
 }
 
 // Redacted returns a copy with every token masked, safe to print or log.

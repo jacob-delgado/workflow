@@ -254,21 +254,34 @@ func TestRepoWithConfiguredKindOnlyFillsAGap(t *testing.T) {
 	cases := map[string]struct {
 		repo       forge.Repo
 		configured string
+		host       string
 		want       forge.Kind
 		wantErr    error
 	}{
-		"a host that names no forge takes the configured kind": {
-			repo: onPrem, configured: gitlab, want: forge.KindGitLab,
+		"a host that names no forge takes the kind configured for it": {
+			repo: onPrem, configured: gitlab, host: onPremHost, want: forge.KindGitLab,
+		},
+		"a host is the same host whatever its case or port": {
+			repo:       forge.Repo{Kind: forge.KindUnknown, Host: "Git.Example.com:2222", Path: acmePath},
+			configured: gitlab, host: onPremHost, want: forge.KindGitLab,
+		},
+		// forge.kind describes forge.host, and says nothing about any other.
+		"a kind configured for another host is not taken": {
+			repo: onPrem, configured: gitlab, host: "other.example.com", want: forge.KindUnknown,
+		},
+		"a kind configured for no host says it needs one": {
+			repo: onPrem, configured: gitlab, host: "", want: forge.KindUnknown, wantErr: forge.ErrKindNeedsHost,
 		},
 		// A host that already named itself is not overridden: the remote is the
 		// better evidence, and disagreeing with it silently would be worse.
 		"a host that names its forge keeps it": {
 			repo:       forge.Repo{Kind: forge.KindGitHub, Host: githubHost, Path: ownerRepo},
-			configured: gitlab,
-			want:       forge.KindGitHub,
+			configured: gitlab, host: githubHost,
+			want: forge.KindGitHub,
 		},
 		"a configured kind that is not one": {
-			repo: onPrem, configured: "bitbucket", want: forge.KindUnknown, wantErr: forge.ErrUnknownForge,
+			repo: onPrem, configured: "bitbucket", host: onPremHost,
+			want: forge.KindUnknown, wantErr: forge.ErrUnknownForge,
 		},
 	}
 
@@ -277,7 +290,7 @@ func TestRepoWithConfiguredKindOnlyFillsAGap(t *testing.T) {
 			t.Parallel()
 
 			// Act
-			got, err := tt.repo.WithConfiguredKind(tt.configured)
+			got, err := tt.repo.WithConfiguredKind(forge.Configured{Kind: tt.configured, Host: tt.host, Token: ""})
 
 			// Assert
 			if !errors.Is(err, tt.wantErr) || got.Kind != tt.want {

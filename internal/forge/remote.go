@@ -18,6 +18,8 @@ var (
 	ErrNotARemote = errors.New("not a repository remote")
 	// ErrUnknownForge reports a host that names neither GitHub nor GitLab.
 	ErrUnknownForge = errors.New("cannot tell which forge this host is")
+	// ErrKindNeedsHost reports a forge.kind with no forge.host beside it.
+	ErrKindNeedsHost = errors.New("forge.kind is set without forge.host, the host it describes")
 )
 
 // unknownLabel is what every enum in this package renders as when it holds a
@@ -121,7 +123,7 @@ func kindOf(hostname string) Kind {
 	switch strings.ToLower(hostname) {
 	case "github.com":
 		return KindGitHub
-	case "gitlab.com":
+	case gitlabCom:
 		return KindGitLab
 	default:
 		return KindUnknown
@@ -177,18 +179,25 @@ func ParseKind(name string) (Kind, error) {
 //
 // It only ever fills a gap. A host that names itself — github.com, gitlab.com —
 // keeps its own answer, because the remote is the better evidence and silently
-// disagreeing with it would be the worse failure.
-func (r Repo) WithConfiguredKind(name string) (Repo, error) {
-	if r.Kind != KindUnknown || name == "" {
+// disagreeing with it would be the worse failure. And it fills the gap for one
+// host: forge.kind describes forge.host, and says nothing about any other.
+func (r Repo) WithConfiguredKind(configured Configured) (Repo, error) {
+	if r.Kind != KindUnknown || configured.Kind == "" {
 		return r, nil
 	}
 
-	kind, err := ParseKind(name)
+	kind, err := ParseKind(configured.Kind)
 	if err != nil {
 		return r, err
 	}
 
-	r.Kind = kind
+	if configured.Host == "" {
+		return r, ErrKindNeedsHost
+	}
+
+	if sameHost(configured.Host, r.Host) {
+		r.Kind = kind
+	}
 
 	return r, nil
 }

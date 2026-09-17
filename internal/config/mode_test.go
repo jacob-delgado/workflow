@@ -108,6 +108,25 @@ func TestMissingNamesWhatTheConfigurationStillNeeds(t *testing.T) {
 			},
 			want: []string{"slack.channel"},
 		},
+		// forge.kind describes a host, so by itself it describes nothing.
+		"a forge kind needs the host it describes": {
+			cfg: config.Config{
+				Jira:  config.Jira{BaseURL: jiraURL, Token: "t", User: ""},
+				Slack: config.Slack{Token: "", WebhookURL: webhookURL, Channel: ""},
+				Forge: config.Forge{Kind: "github", Host: "", Token: ""},
+				Path:  "",
+			},
+			want: []string{"forge.host"},
+		},
+		"a forge kind with its host is complete": {
+			cfg: config.Config{
+				Jira:  config.Jira{BaseURL: jiraURL, Token: "t", User: ""},
+				Slack: config.Slack{Token: "", WebhookURL: webhookURL, Channel: ""},
+				Forge: config.Forge{Kind: "github", Host: "git.example.com", Token: ""},
+				Path:  "",
+			},
+			want: nil,
+		},
 	}
 
 	for name, tt := range cases {

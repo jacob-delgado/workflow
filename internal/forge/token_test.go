@@ -30,6 +30,24 @@ var (
 	_ forge.Run  = func(_ context.Context, _ string, _ ...string) ([]byte, error) { return nil, nil }
 )
 
+// inFile is a configuration file holding only a token.
+func inFile(token forge.Token) forge.Configured {
+	return forge.Configured{Kind: "", Host: "", Token: token}
+}
+
+// hostOf is the host a case about a kind of forge resolves a token for: the one
+// that forge's own variables are for.
+func hostOf(kind forge.Kind) string {
+	hosts := map[forge.Kind]string{forge.KindGitHub: githubHost, forge.KindGitLab: gitlabHost}
+
+	host, named := hosts[kind]
+	if !named {
+		return onPremHost
+	}
+
+	return host
+}
+
 // noEnv answers every environment lookup with nothing.
 func noEnv(string) string { return "" }
 
@@ -91,49 +109,49 @@ func TestResolveTokenTakesTheFirstSourceThatHasOne(t *testing.T) {
 		"github's own variable": {
 			resolver: forge.Resolver{
 				Getenv: envWith("GITHUB_TOKEN", secret), Look: programAt("gh"),
-				Run: printing(fromCLI), Configured: fromConfiguration,
+				Run: printing(fromCLI), Configured: inFile(fromConfiguration),
 			},
 			kind: forge.KindGitHub, wantToken: secret, wantSource: forge.SourceEnvironment,
 		},
 		"gh's variable": {
 			resolver: forge.Resolver{
 				Getenv: envWith("GH_TOKEN", secret), Look: programAt("gh"),
-				Run: printing(fromCLI), Configured: fromConfiguration,
+				Run: printing(fromCLI), Configured: inFile(fromConfiguration),
 			},
 			kind: forge.KindGitHub, wantToken: secret, wantSource: forge.SourceEnvironment,
 		},
 		"gitlab's own variable": {
 			resolver: forge.Resolver{
 				Getenv: envWith("GITLAB_TOKEN", secret), Look: programAt("gh"),
-				Run: printing(fromCLI), Configured: fromConfiguration,
+				Run: printing(fromCLI), Configured: inFile(fromConfiguration),
 			},
 			kind: forge.KindGitLab, wantToken: secret, wantSource: forge.SourceEnvironment,
 		},
 		"glab's variable": {
 			resolver: forge.Resolver{
 				Getenv: envWith("GLAB_TOKEN", secret), Look: programAt("gh"),
-				Run: printing(fromCLI), Configured: fromConfiguration,
+				Run: printing(fromCLI), Configured: inFile(fromConfiguration),
 			},
 			kind: forge.KindGitLab, wantToken: secret, wantSource: forge.SourceEnvironment,
 		},
 		// gh prints the token and a newline, and nothing else.
 		"the forge CLI, trimmed": {
-			resolver: forge.Resolver{Getenv: noEnv, Look: programAt("gh"), Run: printing(secret + "\n"), Configured: ""},
+			resolver: forge.Resolver{Getenv: noEnv, Look: programAt("gh"), Run: printing(secret + "\n"), Configured: inFile("")},
 			kind:     forge.KindGitHub, wantToken: secret, wantSource: forge.SourceCLI,
 		},
 		"the configuration with no CLI": {
-			resolver: forge.Resolver{Getenv: noEnv, Look: noProgram, Run: printing("never reached"), Configured: secret},
+			resolver: forge.Resolver{Getenv: noEnv, Look: noProgram, Run: printing("never reached"), Configured: inFile(secret)},
 			kind:     forge.KindGitHub, wantToken: secret, wantSource: forge.SourceConfiguration,
 		},
 		// gh exits non-zero when it holds no credential for the host. That is not
 		// an error worth reporting — it just means the next source gets a turn.
 		"the configuration after a failing CLI": {
-			resolver: forge.Resolver{Getenv: noEnv, Look: programAt("gh"), Run: failing, Configured: secret},
+			resolver: forge.Resolver{Getenv: noEnv, Look: programAt("gh"), Run: failing, Configured: inFile(secret)},
 			kind:     forge.KindGitHub, wantToken: secret, wantSource: forge.SourceConfiguration,
 		},
 		// gh can exit zero and print only a newline. That is not a token.
 		"the configuration after a CLI that prints nothing": {
-			resolver: forge.Resolver{Getenv: noEnv, Look: programAt("gh"), Run: printing("  \n"), Configured: secret},
+			resolver: forge.Resolver{Getenv: noEnv, Look: programAt("gh"), Run: printing("  \n"), Configured: inFile(secret)},
 			kind:     forge.KindGitHub, wantToken: secret, wantSource: forge.SourceConfiguration,
 		},
 		// glab reports its token through `auth status`, whose output is prose on
@@ -141,7 +159,7 @@ func TestResolveTokenTakesTheFirstSourceThatHasOne(t *testing.T) {
 		// so GitLab users set the environment variable or the configuration.
 		"the configuration for gitlab, which has no CLI step": {
 			resolver: forge.Resolver{
-				Getenv: noEnv, Look: programAt("glab"), Run: printing("should not be run"), Configured: secret,
+				Getenv: noEnv, Look: programAt("glab"), Run: printing("should not be run"), Configured: inFile(secret),
 			},
 			kind: forge.KindGitLab, wantToken: secret, wantSource: forge.SourceConfiguration,
 		},
@@ -150,12 +168,13 @@ func TestResolveTokenTakesTheFirstSourceThatHasOne(t *testing.T) {
 		"the configuration for an unknown forge": {
 			resolver: forge.Resolver{
 				Getenv: envWith("GITHUB_TOKEN", "should not be read"), Look: programAt("gh"),
-				Run: printing("should not be run"), Configured: secret,
+				Run:        printing("should not be run"),
+				Configured: forge.Configured{Kind: "", Host: onPremHost, Token: secret},
 			},
 			kind: forge.KindUnknown, wantToken: secret, wantSource: forge.SourceConfiguration,
 		},
 		"nothing anywhere": {
-			resolver: forge.Resolver{Getenv: noEnv, Look: noProgram, Run: printing(""), Configured: ""},
+			resolver: forge.Resolver{Getenv: noEnv, Look: noProgram, Run: printing(""), Configured: inFile("")},
 			kind:     forge.KindGitHub, wantToken: "", wantSource: forge.SourceNone, wantErr: forge.ErrNoToken,
 		},
 	}
@@ -165,7 +184,7 @@ func TestResolveTokenTakesTheFirstSourceThatHasOne(t *testing.T) {
 			t.Parallel()
 
 			// Act
-			token, source, err := tt.resolver.Resolve(t.Context(), tt.kind, "example.com")
+			token, source, err := tt.resolver.Resolve(t.Context(), tt.kind, hostOf(tt.kind))
 
 			// Assert
 			if !errors.Is(err, tt.wantErr) || token.Secret() != tt.wantToken || source != tt.wantSource {

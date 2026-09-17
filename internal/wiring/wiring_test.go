@@ -22,8 +22,15 @@ import (
 // githubRemote is a remote on github.com that no test ever reaches.
 const githubRemote = "git@github.com:example/repo.git"
 
-// unnamedHost is a remote on a host that names no forge.
-const unnamedHost = "git@git.example.com:a/b.git"
+// unnamedHostName is a host that names no forge, and unnamedHost a remote on
+// it.
+const (
+	unnamedHostName = "git.example.com"
+	unnamedHost     = "git@" + unnamedHostName + ":a/b.git"
+)
+
+// githubKind is forge.kind naming GitHub.
+const githubKind = "github"
 
 // featureBranch is the branch the git tests start.
 const featureBranch = "feat/PROJ-1-x"

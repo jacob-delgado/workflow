@@ -77,6 +77,32 @@ type Look func(name string) (string, error)
 // Run executes a program and returns its standard output. proc.Run satisfies it.
 type Run func(ctx context.Context, name string, args ...string) ([]byte, error)
 
+// Configured is what the configuration file says about the forge: forge.kind,
+// forge.host and forge.token.
+type Configured struct {
+	// Kind is "github" or "gitlab", for a host whose name says neither.
+	Kind string
+	// Host is the host Kind and Token were written for, and the only one
+	// either applies to.
+	Host string
+	// Token is consulted last, after the environment and the forge's own CLI.
+	Token Token
+}
+
+// tokenFor is forge.token where host is the one it was written for: forge.host,
+// or with none named, a host that names its own forge.
+func (c Configured) tokenFor(host string) (Token, bool) {
+	if c.Token == "" {
+		return "", false
+	}
+
+	if c.Host == "" {
+		return c.Token, kindOf(hostname(host)) != KindUnknown
+	}
+
+	return c.Token, sameHost(c.Host, host)
+}
+
 // Resolver finds a forge credential. Every source it consults is a field, so
 // its tests never read the real environment or spawn anything.
 type Resolver struct {
@@ -85,8 +111,8 @@ type Resolver struct {
 	// Look and Run reach the forge's own command line tool, if it is installed.
 	Look Look
 	Run  Run
-	// Configured is forge.token from the configuration file, consulted last.
-	Configured Token
+	// Configured is the configuration file's say, consulted last.
+	Configured Configured
 }
 
 // Resolve finds the credential for a forge, and says where it came from.
@@ -95,8 +121,11 @@ type Resolver struct {
 // person can do and wins; the forge's own CLI is next, so anyone already signed
 // in with it needs no configuration at all; forge.token comes last, because
 // storing a credential we do not have to store is the option worth avoiding.
+//
+// Every source answers for a host, as the forges' own tools have theirs do, and
+// a token is offered to the host it is for and to no other.
 func (r Resolver) Resolve(ctx context.Context, kind Kind, host string) (Token, Source, error) {
-	for _, name := range environmentNames(kind) {
+	for _, name := range r.environmentNames(kind, host) {
 		value := r.Getenv(name)
 		if value != "" {
 			return Token(value), SourceEnvironment, nil
@@ -108,8 +137,8 @@ func (r Resolver) Resolve(ctx context.Context, kind Kind, host string) (Token, S
 		return token, SourceCLI, nil
 	}
 
-	if r.Configured != "" {
-		return r.Configured, SourceConfiguration, nil
+	if configured, ok := r.Configured.tokenFor(host); ok {
+		return configured, SourceConfiguration, nil
 	}
 
 	return "", SourceNone, ErrNoToken
@@ -142,17 +171,72 @@ func (r Resolver) fromCLI(ctx context.Context, kind Kind, host string) (Token, b
 	return Token(token), true
 }
 
-// environmentNames lists the variables that may hold a token, in order.
-func environmentNames(kind Kind) []string {
+// environmentNames lists the variables that may hold a token for a host, in
+// order.
+func (r Resolver) environmentNames(kind Kind, host string) []string {
 	switch kind {
 	case KindGitHub:
-		return []string{"GITHUB_TOKEN", "GH_TOKEN"}
+		return r.githubNames(host)
 	case KindGitLab:
-		return []string{"GITLAB_TOKEN", "GLAB_TOKEN"}
+		return r.gitlabNames(host)
 	case KindUnknown:
 		return nil
 	default:
 		return nil
+	}
+}
+
+// githubNames reads GitHub's variables as gh does: its own two are for the
+// hosts GitHub runs, and the enterprise two are for the host GH_HOST names.
+func (r Resolver) githubNames(host string) []string {
+	switch {
+	case githubsOwn(host):
+		return []string{"GITHUB_TOKEN", "GH_TOKEN"}
+	case sameHost(r.Getenv("GH_HOST"), host):
+		return []string{"GH_ENTERPRISE_TOKEN", "GITHUB_ENTERPRISE_TOKEN"}
+	default:
+		return nil
+	}
+}
+
+// gitlabCom is the host GitLab's variables are for when nothing names another.
+const gitlabCom = "gitlab.com"
+
+// gitlabNames reads GitLab's variables as glab does: they are for the host
+// GITLAB_HOST names, or GL_HOST after it, which is gitlab.com when neither
+// names one.
+func (r Resolver) gitlabNames(host string) []string {
+	named := r.Getenv("GITLAB_HOST")
+	if named == "" {
+		named = r.Getenv("GL_HOST")
+	}
+
+	if named == "" {
+		named = gitlabCom
+	}
+
+	if !sameHost(named, host) {
+		return nil
+	}
+
+	return []string{"GITLAB_TOKEN", "GLAB_TOKEN"}
+}
+
+// Sources says where a token for a host would be read from, for telling someone
+// who has none what to set. It names only what Resolve would read for that host.
+func Sources(kind Kind, host string) string {
+	name := hostname(host)
+
+	switch {
+	case kind == KindGitLab && name == gitlabCom:
+		return "set $GITLAB_TOKEN, or set forge.token"
+	case kind == KindGitLab:
+		return "set $GITLAB_TOKEN with $GITLAB_HOST naming " + name + ", or set forge.token with forge.host"
+	case githubsOwn(host):
+		return "set $GITHUB_TOKEN, run `gh auth login`, or set forge.token"
+	default:
+		return "set $GH_ENTERPRISE_TOKEN with $GH_HOST naming " + name + ", run `gh auth login --hostname " + name +
+			"`, or set forge.token with forge.host"
 	}
 }
 
