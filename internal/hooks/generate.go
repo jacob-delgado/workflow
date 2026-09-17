@@ -345,23 +345,43 @@ func Write(dir string, generated Generated) error {
 		return fmt.Errorf("%w: this repository already has a lefthook configuration", fs.ErrExist)
 	}
 
+	// Track what this call creates and undo it on any failure, so a write that
+	// stops part-way leaves no lefthook.yml naming scripts it never wrote — which
+	// would otherwise block the offer from ever being tried again.
+	var written []string
+
+	remove := func() {
+		//nolint:slicesbackward // slices.Backward is a range-over-func iterator that crashes gobco.
+		for _, w := range slices.Backward(written) {
+			_ = os.Remove(w)
+		}
+	}
+
 	err := create(filepath.Join(dir, configFileName), generated.Config, configMode)
 	if err != nil {
 		return err
 	}
+
+	written = append(written, filepath.Join(dir, configFileName))
 
 	for _, script := range generated.Scripts {
 		target := filepath.Join(dir, filepath.FromSlash(script.Path))
 
 		err = os.MkdirAll(filepath.Dir(target), dirMode)
 		if err != nil {
+			remove()
+
 			return fmt.Errorf("creating %s: %w", filepath.Dir(script.Path), err)
 		}
 
 		err = create(target, script.Contents, scriptMode)
 		if err != nil {
+			remove()
+
 			return err
 		}
+
+		written = append(written, target)
 	}
 
 	return nil
