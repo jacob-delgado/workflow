@@ -17,6 +17,7 @@ import (
 const (
 	showCurrentBranch = "git -C /work branch --show-current"
 	verifyHead        = "git -C /work rev-parse --verify --quiet HEAD"
+	showToplevel      = "git -C /work rev-parse --show-toplevel"
 )
 
 // workDir is the directory every fixture below describes.
@@ -84,9 +85,9 @@ func with(replies map[string]reply, changes map[string]reply) map[string]reply {
 // onABranch is a complete, healthy repository.
 func onABranch() map[string]reply {
 	return map[string]reply{
-		"git -C /work rev-parse --show-toplevel": {out: []byte("/work\n")},
-		showCurrentBranch:                        {out: []byte("feat/token-redaction\n")},
-		"git -C /work remote get-url origin":     {out: []byte("git@github.com:example/repo.git\n")},
+		showToplevel:                         {out: []byte("/work\n")},
+		showCurrentBranch:                    {out: []byte("feat/token-redaction\n")},
+		"git -C /work remote get-url origin": {out: []byte("git@github.com:example/repo.git\n")},
 	}
 }
 
@@ -140,7 +141,7 @@ func TestDescribeReportsWhatItCannotRead(t *testing.T) {
 		notARepository bool
 	}{
 		"a directory outside any repository": {
-			replies:        map[string]reply{"git -C /work rev-parse --show-toplevel": {err: errNotARepository}},
+			replies:        map[string]reply{showToplevel: {err: errNotARepository}},
 			want:           gitrepo.ErrNotARepository,
 			notARepository: true,
 		},

@@ -240,7 +240,10 @@ func TestReadBranchReportsAnUnreadableRepository(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
-	replies := map[string]reply{showCurrentBranch: {err: errNotARepository}}
+	replies := map[string]reply{
+		showCurrentBranch: {err: errNotARepository},
+		showToplevel:      {out: []byte("/work\n")},
+	}
 
 	// Act
 	_, err := gitrepo.ReadBranch(t.Context(), fakeRunner(t, replies), workDir)
@@ -452,5 +455,25 @@ func TestHooksDirReportsGitsFailure(t *testing.T) {
 	// Assert
 	if !errors.Is(err, errNotARepository) {
 		t.Errorf("HooksDir returned %v, want git's error", err)
+	}
+}
+
+func TestReadBranchReportsADirectoryOutsideARepository(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	// The branch read fails and the work-tree probe fails too: this is no
+	// repository, so the sentinel says so however git worded it.
+	replies := map[string]reply{
+		showCurrentBranch: {err: errNotARepository},
+		showToplevel:      {err: errNotARepository},
+	}
+
+	// Act
+	_, err := gitrepo.ReadBranch(t.Context(), fakeRunner(t, replies), workDir)
+
+	// Assert
+	if !errors.Is(err, gitrepo.ErrNotARepository) {
+		t.Errorf("ReadBranch returned %v, want ErrNotARepository", err)
 	}
 }

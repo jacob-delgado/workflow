@@ -4,6 +4,7 @@
 package tui
 
 import (
+	"errors"
 	"strconv"
 	"strings"
 
@@ -15,6 +16,10 @@ import (
 	"github.com/jacob-delgado/workflow/internal/gitrepo"
 	"github.com/jacob-delgado/workflow/internal/jira"
 )
+
+// notInRepository is what every repository-backed pane says when the interface
+// was started outside a git work tree, so the fact is stated one way.
+const notInRepository = "Not inside a git repository. Start `workflow` from one to use this pane."
 
 // branchState is the checked-out branch, as far as it has loaded.
 type branchState struct {
@@ -95,11 +100,19 @@ func (m Model) upstreamState() string {
 	}
 }
 
+// outsideRepository reports the interface started outside a git work tree, the
+// one branch fault a pane speaks to directly rather than by relaying git.
+func (m Model) outsideRepository() bool {
+	return m.branch.loaded && errors.Is(m.branch.err, gitrepo.ErrNotARepository)
+}
+
 // branchDetail describes the branch and what to do with it.
 func (m Model) branchDetail(width int) string {
 	switch {
 	case !m.branch.loaded:
 		return m.branchRail(0)
+	case m.outsideRepository():
+		return wrap(notInRepository, width)
 	case m.branch.err != nil:
 		// Why, in the words of whatever refused: a directory that is no
 		// repository is one reason among several, and only the reason says
@@ -146,6 +159,10 @@ func (m Model) valueOr(value, none string) string {
 
 // branchKeys offers starting a branch, and pushing one that is not pushed.
 func (m Model) branchKeys() []key.Binding {
+	if m.outsideRepository() {
+		return nil
+	}
+
 	keys := []key.Binding{m.keys.newBranch}
 
 	if m.canPush() {

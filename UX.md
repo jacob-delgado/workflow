@@ -141,25 +141,6 @@ Impact: medium · Effort: small
   `internal/cli/doctor.go`.
 - Done when: all five say the same two steps in the same words.
 
-### UX-05 Outside a repository, say so once
-
-Impact: medium · Effort: small
-
-- Today (seen live): the Branch pane says it could not read the branch, with
-  git's "not a git repository" under it, and still offers `b`, which fails
-  with git's own words, cut off at the pane's edge.
-  The Commits pane offers `h run pre-commit` and prints
-  "reading the status of /a/long/path: git: exit status 128: fatal: not a git
-  repository (or any of the parent directories): .git". The Review pane says
-  "on no feature branch". Three panes describe one fact four ways, and two of
-  them offer actions that cannot work.
-- Instead: the three repository panes share one plain sentence ("Not inside a
-  git repository. Start `workflow` from one to use this pane.") and offer no
-  repository keys. The Issues pane carries on, as the design intends.
-- Touches: `internal/tui/branch.go`, `internal/tui/commits.go`,
-  `internal/tui/review.go`.
-- Done when: outside a repository no pane offers `b`, `P`, `h`, `c` or `n`.
-
 ### UX-06 Do not open on the lefthook offer
 
 Impact: medium · Effort: small

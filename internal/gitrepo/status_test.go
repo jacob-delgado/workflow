@@ -52,7 +52,10 @@ func TestStatusReadsTheWorkTree(t *testing.T) {
 			t.Parallel()
 
 			// Arrange
-			run := fakeRunner(t, map[string]reply{statusCommand: tt.answer})
+			run := fakeRunner(t, map[string]reply{
+				statusCommand: tt.answer,
+				showToplevel:  {out: []byte("/work\n")},
+			})
 
 			// Act
 			changes, err := gitrepo.Status(t.Context(), run, workDir)
@@ -268,5 +271,23 @@ func TestAChangeNamesItsKindInAWord(t *testing.T) {
 				t.Errorf("Kind() = %q, want %q", got, tt.want)
 			}
 		})
+	}
+}
+
+func TestStatusReportsADirectoryOutsideARepository(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	run := fakeRunner(t, map[string]reply{
+		"git -C /work status --porcelain=v1 -z --untracked-files=all": {err: errIndexLocked},
+		showToplevel: {err: errIndexLocked},
+	})
+
+	// Act
+	_, err := gitrepo.Status(t.Context(), run, workDir)
+
+	// Assert
+	if !errors.Is(err, gitrepo.ErrNotARepository) {
+		t.Errorf("Status returned %v, want ErrNotARepository", err)
 	}
 }

@@ -5,6 +5,7 @@ package tui_test
 
 import (
 	"errors"
+	"fmt"
 	"testing"
 
 	"github.com/jacob-delgado/workflow/internal/gitrepo"
@@ -20,6 +21,43 @@ var (
 // dryInterface is the world's interface in dry-run mode.
 func dryInterface(w *world) tui.Model {
 	return tui.New(completeConfig(), nil, w.deps()).WithDryRun()
+}
+
+func TestOutsideARepositoryEachRepoPaneSaysSoAndOffersNoRepoKeys(t *testing.T) {
+	t.Parallel()
+
+	cases := map[string]struct {
+		pane     string
+		unwanted string
+	}{
+		"Branch":  {pane: "2", unwanted: "b new branch"},
+		"Commits": {pane: "3", unwanted: "h run pre-commit"},
+		"Review":  {pane: "4", unwanted: "n open pull request"},
+	}
+
+	for name, tt := range cases {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			// Arrange
+			deps := newWorld().deps()
+			deps.Git.Branch = func() (gitrepo.Branch, error) {
+				return gitrepo.Branch{}, fmt.Errorf("%w: /home/example", gitrepo.ErrNotARepository)
+			}
+			deps.Git.Changes = func() ([]gitrepo.Change, error) {
+				return nil, fmt.Errorf("reading the status: %w", gitrepo.ErrNotARepository)
+			}
+			model := sized(t, tui.New(completeConfig(), nil, deps), 120, 40)
+			model = drain(t, model, model.Init())
+
+			// Act
+			view := typing(t, model, tt.pane).View()
+
+			// Assert
+			requireScreen(t, view, "Not inside a git repository")
+			refuseScreen(t, footerLine(view), tt.unwanted)
+		})
+	}
 }
 
 func TestTheBranchPaneSaysWhereTheBranchStands(t *testing.T) {
