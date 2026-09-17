@@ -66,7 +66,7 @@ one of them yet, which makes this table the shortest summary of the file.
 Impact: high · Effort: small
 
 - Today: below 90 columns the rail and the detail pane take turns, and the
-  Issues pane draws only its list (`internal/tui/render.go:92`,
+  Issues pane draws only its list (`internal/tui/render.go:95`,
   `internal/tui/panes.go:65`). A new user
   in an 80×24 terminal, the size most terminals open at, sees this and
   nothing else (seen live):
@@ -382,32 +382,6 @@ Impact: high · Effort: medium
   `internal/tui/prcomposer.go`, `internal/tui/slack.go`,
   `internal/tui/hookgen.go`, `internal/tui/composer.go`.
 - Done when: at 80×24, a failure in any overlay is fully visible.
-
-### UX-36 Rewrite errors as what happened, why, and what to do
-
-Impact: high · Effort: medium
-
-- Today: most errors are a Go error chain printed as is. They are accurate
-  and they read like a stack trace.
-
-  | Today | Instead |
-  | --- | --- |
-  | `issues: no jira.token is configured` | Jira is not set up. Add `jira.token` to `.workflow.json`. |
-  | `✗ the forge did not answer` (no token) | No GitHub token found. Run `gh auth login`, or set `$GITHUB_TOKEN`. |
-  | `✗ git: exit status 1` | The commit was refused by the pre-commit hook. |
-  | `reading the status of /long/path: git: exit status 128: fatal: not a git repository (or any of the parent directories): .git` | Not inside a git repository. |
-  | `could not reach the server at https://jira…: context deadline exceeded` | Jira did not answer within 10 seconds. Check the VPN, then press `r`. |
-  | `the credential was not accepted: not_in_channel` | Slack refused the post: the bot is not in the channel. |
-
-- Instead: a sentence in the interface's voice first, the raw text under it
-  in the faint style for bug reports. The errors already carry sentinels
-  (`ErrUnreachable`, `ErrNoToken`, `ErrRejected`); only one of them is ever
-  tested for outside its own package, in `internal/cli/doctor.go`.
-- Touches: a small mapping beside `Model.failure` in
-  `internal/tui/render.go`; the sentinel sets in `internal/jira`,
-  `internal/forge`, `internal/slack`.
-- Done when: each sentinel has a sentence, and an unknown error still shows
-  its raw text.
 
 ### UX-37 Show that something is happening
 
