@@ -118,29 +118,6 @@ Impact: high · Effort: small
   in `docs/content/docs/usage.md`.
 - Done when: an 80×24 terminal shows the rail and the detail side by side.
 
-### UX-03 One sentence for "you are not set up", said the same way everywhere
-
-Impact: medium · Effort: small
-
-- Today: what the user is told depends on where they are standing.
-
-  | Situation | Names `config init` | Names `doctor` |
-  | --- | --- | --- |
-  | No file, in the interface | yes | no |
-  | Incomplete file, in the interface | no | yes |
-  | Unreadable file, in the interface | no | no |
-  | `workflow config show`, no file | no | no |
-  | `workflow doctor`, no file | yes | yes |
-
-  (`Model.status`, `internal/tui/render.go`; `runConfigShow`,
-  `internal/cli/config_cmd.go`.)
-- Instead: one block of copy with both steps in order, used by all five. For
-  an unreadable file: what is wrong, on which line, and that
-  `workflow config init --force` starts over.
-- Touches: `internal/tui/render.go`, `internal/cli/config_cmd.go`,
-  `internal/cli/doctor.go`.
-- Done when: all five say the same two steps in the same words.
-
 ### UX-06 Do not open on the lefthook offer
 
 Impact: medium · Effort: small

@@ -261,15 +261,18 @@ func (m Model) status() string {
 	return strings.Join(lines, "\n")
 }
 
-// configErrorStatus renders the screen shown when no configuration loaded.
+// configErrorStatus renders the screen shown when no configuration loaded. It
+// names both setup steps, in the one wording every surface shares.
 func (m Model) configErrorStatus() string {
 	if errors.Is(m.loadErr, config.ErrNotFound) {
-		return m.styles.strong.Render("no "+config.FileName+" found") + "\n" +
-			m.styles.label.Render("create one with `workflow config init`")
+		return m.styles.strong.Render(config.NoConfigHeadline) + "\n" +
+			m.styles.label.Render(config.InitStep) + "\n" +
+			m.styles.label.Render(config.DoctorStep)
 	}
 
 	return m.styles.strong.Render("configuration error") + "\n" +
-		m.styles.label.Render(m.loadErr.Error())
+		m.styles.label.Render(m.loadErr.Error()) + "\n" +
+		m.styles.label.Render("start over with `workflow config init --force`")
 }
 
 // errorSentence rewrites a recognized error as a sentence in the interface's
