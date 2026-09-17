@@ -152,17 +152,3 @@ Impact: low · Effort: medium
 - Done when: the rail draws one shared rule between panes in both glyph sets.
 
 ## The command line
-
-## Would reopen a settled decision
-
-### UX-49 A second signal for focus
-
-Impact: low · Effort: small
-
-- Reopens: focus is shown by the weight of a border, not by color.
-- Why: heavy and light box-drawing differ by one pixel of stroke in many
-  fonts, and the difference is the only thing that says where the keys go.
-- A version that fits: a bold title on the focused pane. It is weight, not
-  color, and it survives `NO_COLOR` once  is done.
-- Done when: the focused pane can be found at a glance in a font whose heavy
-  box characters look like its light ones.
