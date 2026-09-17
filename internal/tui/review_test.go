@@ -136,13 +136,13 @@ func TestNOpensAComposerStartedFromTheBranch(t *testing.T) {
 		"Jira: [PROJ-412](https://jira.example.com/browse/PROJ-412)")
 
 	// Act: take the other template, as a draft
-	changed := typing(t, composer, "ctrl+t", "ctrl+d")
+	changed := typing(t, composer, "ctrl+t", "ctrl+r")
 
 	// Assert: both show
 	requireScreen(t, changed.View(), "template bugfix (2 of 2)", "## Bug", "[x] draft")
 
 	// Act: write the body in the editor
-	edited := typing(t, changed, "ctrl+e")
+	edited := typing(t, changed, "ctrl+o")
 
 	// Assert: the body is the editor's
 	requireScreen(t, edited.View(), "Rewritten.")
@@ -167,7 +167,7 @@ func TestTheComposerTitleAndBaseCanBeEdited(t *testing.T) {
 	opening.edited = "Body."
 	model := opening.live(t, 120, 40)
 
-	keys := append([]string{"4", "n", "ctrl+e"}, letters("!")...)
+	keys := append([]string{"4", "n", "ctrl+o"}, letters("!")...)
 	keys = append(append(keys, keyTab, "backspace", "backspace", "backspace", "backspace"), letters("develop")...)
 
 	// Act: change the title and the base

@@ -41,14 +41,14 @@ func TestTheComposerAssemblesAConventionalCommit(t *testing.T) {
 	// The composer opens on the subject: back twice to the type, then forward.
 	keys := []string{keyShiftTab, keyShiftTab, keyRight, keyTab}
 	keys = append(append(keys, letters("config")...), keyTab)
-	keys = append(append(keys, letters("redact tokens")...), "ctrl+e")
+	keys = append(append(keys, letters("redact tokens")...), "ctrl+o")
 
 	// Act: open the composer
 	composer := typing(t, model, "3", "c")
 
 	// Assert: it starts from the issue and what is staged
 	requireScreen(t, composer.View(), "┏━ Commit", "‹feat›", "Refs: PROJ-412", "1 file staged",
-		"no body yet: ctrl+e writes one in your editor")
+		"no body yet: ctrl+o writes one in your editor")
 
 	// Act: choose the type, scope and subject, then write the body in the editor
 	filled := typing(t, composer, keys...)
@@ -416,5 +416,21 @@ func TestTheComposerFlagsAnInvalidScopeAsItIsTyped(t *testing.T) {
 
 	if scopeRow < 0 || scopeRow+1 >= len(lines) || !strings.Contains(lines[scopeRow+1], "a scope is lowercase letters") {
 		t.Errorf("the scope error is not shown under the scope field:\n%s", view)
+	}
+}
+
+func TestCtrlEIsLeftToTheSubjectField(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	editing := newWorld()
+	composer := typing(t, editing.live(t, 120, 40), "3", "c")
+
+	// Act
+	typing(t, composer, append(letters("redact tokens"), "ctrl+e")...)
+
+	// Assert
+	if calls := editing.asked("edit"); len(calls) != 0 {
+		t.Errorf("ctrl+e opened the editor: %q", calls)
 	}
 }
