@@ -342,6 +342,40 @@ func TestWriteNeverReplacesAnExistingScript(t *testing.T) {
 	}
 }
 
+func TestAFailedWriteLeavesNoConfigurationBehind(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	// A leftover script from an earlier failed run blocks the write.
+	taken := t.TempDir()
+
+	err := os.MkdirAll(filepath.Join(taken, ".lefthook", preCommit), 0o750)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	err = os.WriteFile(filepath.Join(taken, ".lefthook", preCommit, preCommit), []byte("mine"), 0o600)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Act
+	err = hooks.Write(taken, failingHook())
+
+	// Assert
+	// The write failed, and left no lefthook.yml — so the offer is not blocked
+	// from being tried again by a configuration that names a script it never
+	// managed to write.
+	if err == nil {
+		t.Fatal("Write succeeded, want it to fail on the leftover script")
+	}
+
+	_, statErr := os.Stat(filepath.Join(taken, "lefthook.yml"))
+	if !os.IsNotExist(statErr) {
+		t.Errorf("a failed write left a lefthook.yml behind (stat: %v)", statErr)
+	}
+}
+
 // generatedForBoth is a configuration with a job hook and a script hook.
 func generatedForBoth() hooks.Generated {
 	return hooks.Structured([]hooks.GitHook{
