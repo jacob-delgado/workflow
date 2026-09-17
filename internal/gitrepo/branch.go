@@ -96,8 +96,16 @@ func ReadBranch(ctx context.Context, run Runner, dir string) (Branch, error) {
 	}
 
 	if branch.Base != "" && branch.Head != "" {
-		branch.Commits = parseLog(git("log", "-z", "--reverse", "--max-count="+strconv.Itoa(commitLimit),
-			logFormat, branch.Base+"..HEAD"))
+		// git applies --max-count before --reverse, so capping in the command
+		// would keep the newest commits and lose the branch's first — the one
+		// the pull request titles itself with. Reverse the whole range, then cap
+		// the oldest-first result here.
+		commits := parseLog(git("log", "-z", "--reverse", logFormat, branch.Base+"..HEAD"))
+		if len(commits) > commitLimit {
+			commits = commits[:commitLimit]
+		}
+
+		branch.Commits = commits
 		branch.BaseUpdated = parseTime(git("log", "-1", "--format=%cI", branch.Base))
 	}
 
