@@ -398,3 +398,21 @@ func TestAFailedReEditKeepsThePreview(t *testing.T) {
 	requireScreen(t, failed.View(), "┏━ Comment on PROJ-412", "keep me", "✗ the editor exited with an error")
 	refuseScreen(t, failed.View(), "lost in the editor")
 }
+
+func TestRRetriesAFailedDetailLoad(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	failing := newWorld()
+	failing.detailErr = errNotVisible
+	model := failing.live(t, 120, 40)
+	before := len(failing.asked("issue " + issueKey))
+
+	// Act
+	typing(t, model, "r")
+
+	// Assert
+	if after := len(failing.asked("issue " + issueKey)); after != before+1 {
+		t.Errorf("asked Jira for the issue %d times, want one more than the %d before r", after, before)
+	}
+}
