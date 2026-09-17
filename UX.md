@@ -234,20 +234,6 @@ Impact: medium · Effort: small
 - Touches: `internal/tui/detail.go`.
 - Done when: after a failed detail load, `r` asks Jira for it again.
 
-### UX-11 Do not lose a comment to the editor
-
-Impact: medium · Effort: small
-
-- Today: from the comment preview, `e` reopens the editor. If the editor
-  exits with an error (in Vim, `:cq`), the preview closes and the comment is
-  gone. The Slack preview and both composers keep their text in the same
-  situation (`commentEdited.apply`, `internal/tui/comment.go`). Reproduced in
-  a test.
-- Instead: keep the preview open with the text it had, and show the editor's
-  error in it.
-- Touches: `internal/tui/comment.go`.
-- Done when: a failed edit leaves the preview open with the earlier text.
-
 ## Branch
 
 ### UX-13 Give a push the same last look as every other write

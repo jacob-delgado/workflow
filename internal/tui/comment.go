@@ -45,6 +45,15 @@ type commentEdited struct {
 func (msg commentEdited) apply(m Model) (Model, tea.Cmd) {
 	switch {
 	case msg.err != nil:
+		// A re-edit that failed keeps the preview it came from, so the comment
+		// written the first time is not lost to the editor.
+		if preview, editing := m.overlay.(commentPreview); editing {
+			preview.err = msg.err
+			m.overlay = preview
+
+			return m, nil
+		}
+
 		return m.closeOverlay().noticed(m.failure(msg.err)), nil
 	case strings.TrimSpace(msg.text) == "":
 		return m.closeOverlay().noticed("nothing to post: the comment was empty"), nil
