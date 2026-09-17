@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
+	"strconv"
 	"strings"
 )
 
@@ -19,9 +20,10 @@ type githubPull struct {
 	Draft  bool   `json:"draft"`
 }
 
-// pullRequest flattens a GitHub pull request.
+// pullRequest flattens a GitHub pull request. Review state is filled in
+// separately, so it stays zero here.
 func (g githubPull) pullRequest() PullRequest {
-	return PullRequest(g)
+	return PullRequest{Number: g.Number, URL: g.URL, Title: g.Title, Draft: g.Draft}
 }
 
 // githubNewPull is the body that opens a pull request on GitHub.
@@ -49,7 +51,80 @@ func githubFind(ctx context.Context, client Client, repo Repo, branch string) (P
 		return PullRequest{}, false, err
 	}
 
-	return pulls[0].pullRequest(), true, nil
+	pull := pulls[0].pullRequest()
+	githubReviewState(ctx, client, repo, &pull)
+
+	return pull, true, nil
+}
+
+// githubDetail is the single-pull-request read, for the mergeable flag the list
+// does not carry. GitHub returns null while it is still working the merge out.
+type githubDetail struct {
+	Mergeable *bool `json:"mergeable"`
+}
+
+// githubReview is one review on a pull request: whose it is and where it stands.
+type githubReview struct {
+	State string                 `json:"state"`
+	User  struct{ Login string } `json:"user"`
+}
+
+// githubReviewState fills in a pull request's approvals, requested changes and
+// mergeability. It is best effort: a call the token cannot make leaves the
+// fields as they are rather than failing the whole find.
+func githubReviewState(ctx context.Context, client Client, repo Repo, pull *PullRequest) {
+	base := githubRepoPath(repo) + "/pulls/" + strconv.Itoa(pull.Number)
+
+	detail, err := repoCall[githubDetail](ctx, client, repo, http.MethodGet, base, nil)
+	if err == nil {
+		pull.Mergeable = mergeability(detail.Mergeable)
+	}
+
+	reviews, err := repoCall[[]githubReview](ctx, client, repo, http.MethodGet, base+"/reviews", nil)
+	if err == nil {
+		pull.Approvals, pull.ChangesRequested = tallyReviews(reviews)
+	}
+}
+
+// mergeability reads GitHub's tri-state mergeable flag: null means still being
+// worked out, not that it cannot merge.
+func mergeability(mergeable *bool) Mergeability {
+	switch {
+	case mergeable == nil:
+		return MergeUnknown
+	case *mergeable:
+		return MergeClean
+	default:
+		return MergeConflicts
+	}
+}
+
+// tallyReviews counts approvals and whether changes are requested from each
+// reviewer's latest stance. A comment does not change a stance; a dismissal
+// clears it.
+func tallyReviews(reviews []githubReview) (int, bool) {
+	latest := make(map[string]string, len(reviews))
+
+	for _, review := range reviews {
+		switch review.State {
+		case "APPROVED", "CHANGES_REQUESTED":
+			latest[review.User.Login] = review.State
+		case "DISMISSED":
+			delete(latest, review.User.Login)
+		}
+	}
+
+	approvals, changes := 0, false
+
+	for _, state := range latest {
+		if state == "APPROVED" {
+			approvals++
+		} else {
+			changes = true
+		}
+	}
+
+	return approvals, changes
 }
 
 // githubCreate opens a pull request on GitHub.

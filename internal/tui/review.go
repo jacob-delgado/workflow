@@ -266,6 +266,7 @@ func (m Model) reviewDetail(width int) string {
 		pull.URL,
 		"",
 		m.styles.label.Render("CI     ") + m.ciSummary(),
+		m.styles.label.Render("review ") + m.reviewSummary(pull),
 	}
 
 	if pull.Draft {
@@ -273,6 +274,37 @@ func (m Model) reviewDetail(width int) string {
 	}
 
 	return wrap(strings.Join(lines, "\n"), width)
+}
+
+// reviewSummary says how the review stands: how many approvals, whether changes
+// are still asked for, and whether the branch can merge.
+func (m Model) reviewSummary(pull forge.PullRequest) string {
+	parts := []string{plural(pull.Approvals, "approval")}
+
+	if pull.ChangesRequested {
+		parts = append(parts, "changes requested")
+	}
+
+	if mergeable := mergeableLabel(pull.Mergeable); mergeable != "" {
+		parts = append(parts, mergeable)
+	}
+
+	return strings.Join(parts, m.marks.separator)
+}
+
+// mergeableLabel names whether the branch can merge, or nothing while the forge
+// has not worked it out.
+func mergeableLabel(mergeable forge.Mergeability) string {
+	switch mergeable {
+	case forge.MergeClean:
+		return "mergeable"
+	case forge.MergeConflicts:
+		return "conflicts"
+	case forge.MergeUnknown:
+		return ""
+	}
+
+	return ""
 }
 
 // canOpenPullRequest reports a branch with commits and no pull request yet. A

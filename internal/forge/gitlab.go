@@ -20,14 +20,47 @@ type gitlabMerge struct {
 	URL          string `json:"web_url"`
 	Title        string `json:"title"`
 	Draft        bool   `json:"draft"`
+	MergeStatus  string `json:"merge_status"`
 	HeadPipeline *struct {
 		Status string `json:"status"`
 	} `json:"head_pipeline"`
 }
 
-// pullRequest flattens a GitLab merge request.
+// pullRequest flattens a GitLab merge request. Approvals are filled in
+// separately; GitLab has no "changes requested" state, so it stays false.
 func (g gitlabMerge) pullRequest() PullRequest {
-	return PullRequest{Number: g.IID, URL: g.URL, Title: g.Title, Draft: g.Draft}
+	return PullRequest{
+		Number: g.IID, URL: g.URL, Title: g.Title, Draft: g.Draft, Mergeable: gitlabMergeable(g.MergeStatus),
+	}
+}
+
+// gitlabMergeable reads GitLab's merge_status. Anything but the two settled
+// answers — including a status still being computed — is unknown.
+func gitlabMergeable(status string) Mergeability {
+	switch status {
+	case "can_be_merged":
+		return MergeClean
+	case "cannot_be_merged":
+		return MergeConflicts
+	default:
+		return MergeUnknown
+	}
+}
+
+// gitlabApprovals is the approvals endpoint's answer: who has approved.
+type gitlabApprovals struct {
+	ApprovedBy []struct{} `json:"approved_by"`
+}
+
+// gitlabReviewState fills in a merge request's approvals. It is best effort: an
+// approvals endpoint the token cannot reach leaves the count at zero rather than
+// failing the whole find.
+func gitlabReviewState(ctx context.Context, client Client, repo Repo, pull *PullRequest) {
+	approvals, err := repoCall[gitlabApprovals](ctx, client, repo, http.MethodGet,
+		gitlabProjectPath(repo)+"/merge_requests/"+strconv.Itoa(pull.Number)+"/approvals", nil)
+	if err == nil {
+		pull.Approvals = len(approvals.ApprovedBy)
+	}
 }
 
 // gitlabNewMerge is the body that opens a merge request.
@@ -55,7 +88,10 @@ func gitlabFind(ctx context.Context, client Client, repo Repo, branch string) (P
 		return PullRequest{}, false, err
 	}
 
-	return merges[0].pullRequest(), true, nil
+	pull := merges[0].pullRequest()
+	gitlabReviewState(ctx, client, repo, &pull)
+
+	return pull, true, nil
 }
 
 // gitlabCreate opens a merge request.

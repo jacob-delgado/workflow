@@ -34,6 +34,13 @@ const (
 	prTitle       = "fix: token"
 )
 
+// The API paths the pull request tests talk to, named so a repeated literal does
+// not read as a coincidence.
+const (
+	githubPullsPath  = "/repos/example/repo/pulls"
+	gitlabMergesPath = "/projects/group%2Fsub%2Frepo/merge_requests"
+)
+
 // recorded is what a fake forge saw of one request.
 type recorded struct {
 	method, path, query string
@@ -80,31 +87,42 @@ func TestFindPullRequestAsksEachForgeForTheBranch(t *testing.T) {
 
 	cases := map[string]struct {
 		repo      forge.Repo
-		body      string
-		wantPath  string
+		routes    map[string]string
+		listPath  string
 		wantQuery []string
 		want      forge.PullRequest
 	}{
 		"asks GitHub": {
 			repo: githubRepo(),
-			body: `[{"number":42,"html_url":"https://github.com/example/repo/pull/42",` +
-				`"title":"fix: token","draft":true}]`,
-			wantPath: "/repos/example/repo/pulls",
+			routes: map[string]string{
+				githubPullsPath: `[{"number":42,"html_url":"https://github.com/example/repo/pull/42",` +
+					`"title":"fix: token","draft":true}]`,
+				githubPullsPath + "/42": `{"mergeable":true}`,
+				githubPullsPath + "/42/reviews": `[{"state":"APPROVED","user":{"login":"ana"}},` +
+					`{"state":"APPROVED","user":{"login":"ben"}},{"state":"COMMENTED","user":{"login":"cass"}}]`,
+			},
+			listPath: githubPullsPath,
 			// head is owner:branch on GitHub, or the filter matches nothing.
 			wantQuery: []string{"head=example%3Afix%2FPROJ-1-token", "state=open"},
 			want: forge.PullRequest{
 				Number: 42, URL: "https://github.com/example/repo/pull/42", Title: prTitle, Draft: true,
+				Approvals: 2, Mergeable: forge.MergeClean,
 			},
 		},
 		"asks GitLab": {
 			repo: gitlabRepo(),
-			body: `[{"iid":7,"web_url":"https://gitlab.com/group/sub/repo/-/merge_requests/7",` +
-				`"title":"fix: token","draft":false}]`,
+			routes: map[string]string{
+				gitlabMergesPath: `[{"iid":7,` +
+					`"web_url":"https://gitlab.com/group/sub/repo/-/merge_requests/7",` +
+					`"title":"fix: token","draft":false,"merge_status":"can_be_merged"}]`,
+				gitlabMergesPath + "/7/approvals": `{"approved_by":[{},{}]}`,
+			},
 			// The project path is one escaped segment, slashes and all.
-			wantPath:  "/projects/group%2Fsub%2Frepo/merge_requests",
+			listPath:  gitlabMergesPath,
 			wantQuery: []string{"source_branch=fix%2FPROJ-1-token", "state=opened"},
 			want: forge.PullRequest{
 				Number: 7, URL: "https://gitlab.com/group/sub/repo/-/merge_requests/7", Title: prTitle, Draft: false,
+				Approvals: 2, Mergeable: forge.MergeClean,
 			},
 		},
 	}
@@ -114,7 +132,7 @@ func TestFindPullRequestAsksEachForgeForTheBranch(t *testing.T) {
 			t.Parallel()
 
 			// Arrange
-			client, seen := forgeAnswering(t, http.StatusOK, tt.body)
+			client, seen := forgeRouting(t, tt.routes)
 
 			// Act
 			found, ok, err := client.FindPullRequest(t.Context(), tt.repo, featureBranch)
@@ -124,14 +142,14 @@ func TestFindPullRequestAsksEachForgeForTheBranch(t *testing.T) {
 				t.Errorf("FindPullRequest = %+v, %v, %v, want %+v", found, ok, err, tt.want)
 			}
 
-			asked := lastRequest(t, seen)
-			if asked.method != http.MethodGet || asked.path != tt.wantPath {
-				t.Errorf("asked %s %s, want GET %s", asked.method, asked.path, tt.wantPath)
+			listed := requestTo(*seen, tt.listPath)
+			if listed.method != http.MethodGet {
+				t.Errorf("the branch was not listed at %s; requests were %+v", tt.listPath, *seen)
 			}
 
 			for _, part := range tt.wantQuery {
-				if !strings.Contains(asked.query, part) {
-					t.Errorf("query %q is missing %q", asked.query, part)
+				if !strings.Contains(listed.query, part) {
+					t.Errorf("query %q is missing %q", listed.query, part)
 				}
 			}
 		})
@@ -177,8 +195,8 @@ func TestCreatePullRequestOnGitHub(t *testing.T) {
 	}
 
 	asked := lastRequest(t, seen)
-	if asked.method != http.MethodPost || asked.path != "/repos/example/repo/pulls" {
-		t.Errorf("asked %s %s, want POST /repos/example/repo/pulls", asked.method, asked.path)
+	if asked.method != http.MethodPost || asked.path != githubPullsPath {
+		t.Errorf("asked %s %s, want POST %s", asked.method, asked.path, githubPullsPath)
 	}
 
 	want := map[string]any{
@@ -209,7 +227,7 @@ func TestCreateMergeRequestOnGitLab(t *testing.T) {
 	}
 
 	asked := lastRequest(t, seen)
-	if asked.path != "/projects/group%2Fsub%2Frepo/merge_requests" {
+	if asked.path != gitlabMergesPath {
 		t.Errorf("asked %s, want the project's merge requests", asked.path)
 	}
 

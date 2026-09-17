@@ -113,12 +113,14 @@ func (m Model) commitStage() string {
 	}
 }
 
-// reviewStage follows the pull request and its CI.
+// reviewStage follows the pull request, its CI and its review: changes still
+// asked for stop it reading as done, the same red as a CI failure, because both
+// are something to go back and address.
 func (m Model) reviewStage() string {
 	switch {
 	case !m.review.found:
 		return m.marks.notStarted
-	case m.review.ci.State == forge.CIFailed:
+	case m.review.ci.State == forge.CIFailed || m.review.pull.ChangesRequested:
 		return m.marks.failed
 	case m.review.ci.State == forge.CIPassed:
 		return m.marks.done
