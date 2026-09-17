@@ -59,6 +59,10 @@ type GitDeps struct {
 	Stage        func(change gitrepo.Change) error
 	Unstage      func(change gitrepo.Change) error
 	CreateBranch func(name, start string) error
+	// Branches lists the local branches; Checkout switches to one. Nil when
+	// there is no repository.
+	Branches func() ([]string, error)
+	Checkout func(name string) error
 	// Fetch updates origin's tracking refs, so a new branch starts from what
 	// origin holds now. Nil when there is no repository.
 	Fetch func() error
