@@ -264,21 +264,6 @@ Impact: medium · Effort: small
 
 ## Branch
 
-### UX-12 Name `b` for what it will do
-
-Impact: low · Effort: small
-
-- Today: `b` is "branch for issue" in the Issues pane and "new branch" in the
-  Branch pane. Both open the same overlay, titled "New branch", which names
-  the branch for the selected issue either way (`openBranchCreator`,
-  `internal/tui/branch.go`).
-- Instead: say the issue when there is one ("b branch for PROJ-412", title
-  "New branch for PROJ-412") and "new branch" only when there is none. After
-  it works, say both things that happened: "● created and switched to
-  fix/PROJ-412-token-redaction", not only "switched to".
-- Touches: `internal/tui/branch.go`, `internal/tui/keys.go`.
-- Done when: the key, the title and the notice name the same action.
-
 ### UX-13 Give a push the same last look as every other write
 
 Impact: medium · Effort: small

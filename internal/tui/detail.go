@@ -141,11 +141,12 @@ func (m Model) issuesRail(rows int) string {
 
 // issuesKeys offers the verbs for the selected issue, when there is one.
 func (m Model) issuesKeys() []key.Binding {
-	if _, selected := m.issues.current(); !selected {
+	selected, ok := m.issues.current()
+	if !ok {
 		return []key.Binding{m.keys.refresh}
 	}
 
-	return []key.Binding{m.keys.changeStatus, m.keys.comment, m.keys.branchForIssue}
+	return []key.Binding{m.keys.changeStatus, m.keys.comment, relabel(m.keys.branchForIssue, "branch for "+selected.Key)}
 }
 
 // handleIssuesKey answers the Issues pane's own keys.
