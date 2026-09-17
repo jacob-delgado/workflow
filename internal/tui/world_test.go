@@ -60,6 +60,7 @@ type world struct {
 	calls []string
 
 	issues        []jira.Issue
+	viewIssues    map[string][]jira.Issue
 	pageSize      int
 	detail        jira.IssueDetail
 	detailErr     error
@@ -214,13 +215,18 @@ func (w *world) deps() tui.Deps {
 // jiraDeps fakes Jira.
 func (w *world) jiraDeps() tui.JiraDeps {
 	return tui.JiraDeps{
-		Search: func(startAt int) (jira.SearchResult, error) {
-			w.record("search")
+		Search: func(jql string, startAt int) (jira.SearchResult, error) {
+			w.record("search " + jql)
 
-			start := min(startAt, len(w.issues))
-			end := min(start+w.pageSize, len(w.issues))
+			issues := w.issues
+			if scoped, ok := w.viewIssues[jql]; ok {
+				issues = scoped
+			}
 
-			return jira.SearchResult{Issues: slices.Clone(w.issues[start:end]), Total: len(w.issues)}, nil
+			start := min(startAt, len(issues))
+			end := min(start+w.pageSize, len(issues))
+
+			return jira.SearchResult{Issues: slices.Clone(issues[start:end]), Total: len(issues)}, nil
 		},
 		Issue: func(key string) (jira.IssueDetail, error) {
 			w.record("issue " + key)

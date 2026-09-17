@@ -51,7 +51,7 @@ type fakeJira struct {
 // deps wires the fake behind a search.
 func (f *fakeJira) deps(search func(startAt int) (jira.SearchResult, error)) tui.Deps {
 	return tui.Deps{Jira: tui.JiraDeps{
-		Search: search,
+		Search: ignoreJQL(search),
 		Transitions: func(issueKey string) ([]jira.Transition, error) {
 			f.listed.Store(issueKey)
 

@@ -58,6 +58,9 @@ type Jira struct {
 	// User is optional. Leave it empty for token (Bearer) authentication; set it
 	// to authenticate with HTTP Basic instead.
 	User string `json:"user"`
+	// Views are named issue lists the pane can move between, each a label and its
+	// JQL. Empty keeps the one built-in list: open issues assigned to you.
+	Views []JiraView `json:"views"`
 }
 
 // Slack describes how workflow posts to Slack. Either transport works: a bot
@@ -271,7 +274,7 @@ func LoadFile(path string) (Config, error) {
 		return Default(), fmt.Errorf("%w: %s: %w", ErrInvalid, path, err)
 	}
 
-	err = errors.Join(cfg.validateTiming(), cfg.validateBranch())
+	err = errors.Join(cfg.validateTiming(), cfg.validateBranch(), cfg.validateViews())
 	if err != nil {
 		return Default(), fmt.Errorf("%w: %s: %w", ErrInvalid, path, err)
 	}

@@ -69,6 +69,11 @@ type Model struct {
 	// The next key press clears it.
 	notice string
 
+	// views are the named issue lists the Issues pane moves between, and
+	// viewIndex is the one it shows now.
+	views     []issueView
+	viewIndex int
+
 	issues  issueList
 	detail  issueDetail
 	branch  branchState
@@ -93,6 +98,7 @@ func New(cfg config.Config, loadErr error, deps Deps) Model {
 		keys: newKeyMap(marks, vocab.noun), styles: newStyles(true), marks: marks, vocab: vocab,
 		width: defaultWidth, height: defaultHeight,
 		focus: paneIssues, mouse: cfg.UI.Mouse,
+		views: issueViews(cfg.Jira.Views), viewIndex: 0,
 	}
 }
 
