@@ -63,6 +63,7 @@ which one was read.
 | `slack.token_env` | for a bot | An environment variable that holds the bot token. |
 | `slack.webhook_url` | for a webhook | Incoming webhook URL. **This is a credential**, not just an address. |
 | `slack.channel` | only with `slack.token` | Channel to post in, e.g. `#dev-workflow`. A webhook carries its own. |
+| `slack.announcement` | no | Template for the review message, from `{author}`, `{noun}`, `{title}`, `{url}`, `{key}`, `{summary}`, `{issue_url}`. Empty uses the built-in message. |
 | `forge.kind` | on-prem only | `github` or `gitlab`, for a host whose name says neither. |
 | `forge.host` | with `forge.kind` | The host `forge.kind` and `forge.token` are for, e.g. `git.example.com`. |
 | `forge.token` | **no** | GitHub or GitLab token. Usually leave it empty — see below. |
@@ -133,6 +134,30 @@ replies, and it can never post anywhere but that one channel.
    starts with `xoxb-` — into `slack.token`.
 4. Set `slack.channel`, and invite the bot to that channel. Without the invite it
    cannot post there.
+
+### Your team's own words
+
+By default the review message reads `jacob opened a pull request: <link>` and,
+on the next line, the linked issue. `slack.announcement` shapes it to a house
+style — an emoji, a reviewers line, a group to mention:
+
+```json
+{
+  "slack": {
+    "announcement": "🚀 {author} opened {noun} <{url}|{title}> — {key} {summary}"
+  }
+}
+```
+
+The placeholders are `{author}`, `{noun}` (pull request or merge request),
+`{title}`, `{url}`, `{key}`, `{summary}` and `{issue_url}`. The rest of the
+template — text, emoji, and Slack markup like `<{url}|{title}>` for a link — is
+yours to write.
+
+Every **substituted value** is escaped, always. A pull request title is anyone's
+to write, and an unescaped `<!channel>` in one would ping everyone in the
+channel; escaping is what stops that, and it is not optional. You preview the
+message before it is posted, so you see exactly what will go out.
 
 ## The forge token you probably do not need
 

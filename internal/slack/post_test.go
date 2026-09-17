@@ -336,6 +336,49 @@ func TestAnnouncementEscapesWhatSlackWouldReadAsMarkup(t *testing.T) {
 	}
 }
 
+func TestAConfiguredTemplateShapesTheAnnouncement(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	announcement := slack.Announcement{
+		Template:         "🚀 {author} needs a review of <{url}|{title}> for {key}",
+		Author:           "jacob",
+		PullRequestURL:   "https://x/pull/7",
+		PullRequestTitle: "fix: redact tokens",
+		IssueKey:         "PROJ-412",
+	}
+
+	// Act
+	got := announcement.Text()
+
+	// Assert
+	want := "🚀 jacob needs a review of <https://x/pull/7|fix: redact tokens> for PROJ-412"
+	if got != want {
+		t.Errorf("Text() = %q, want %q", got, want)
+	}
+}
+
+func TestAConfiguredTemplateStillEscapesAHostileValue(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	// The template is the team's own, but a title is anyone's: a substituted
+	// value must stay escaped so it cannot break out of the template and ping the
+	// whole channel.
+	announcement := slack.Announcement{
+		Template:         "review please: {title}",
+		PullRequestTitle: "fix: <!channel> ship it",
+	}
+
+	// Act
+	got := announcement.Text()
+
+	// Assert
+	if strings.Contains(got, "<!channel>") || !strings.Contains(got, "&lt;!channel&gt;") {
+		t.Errorf("Text() = %q, want the title escaped so it cannot ping the channel", got)
+	}
+}
+
 func TestPostReportsAnAnswerThatIsNotJSON(t *testing.T) {
 	t.Parallel()
 

@@ -198,24 +198,46 @@ type Announcement struct {
 	// Noun is what the forge calls the change — "pull request" or "merge
 	// request". Empty defaults to "pull request".
 	Noun string
+	// Template shapes the message from named placeholders — {author}, {noun},
+	// {title}, {url}, {key}, {summary}, {issue_url} — for a team with a house
+	// style. Empty uses the built-in message.
+	Template string
 }
 
-// Text is the announcement in Slack's markup: who opened what, linked, and the
-// issue it is for, linked where there is a link.
-//
-// Every value is escaped. A title is anyone's to write, and unescaped,
-// "<!channel>" in one pings the whole channel, and a ">" ends a link early.
+// Text is the announcement in Slack's markup. Every substituted value is
+// escaped: a title is anyone's to write, and unescaped, "<!channel>" in one
+// pings the whole channel, and a ">" ends a link early.
 func (a Announcement) Text() string {
-	link := "<" + escape(a.PullRequestURL) + "|" + escape(a.PullRequestTitle) + ">"
-
-	noun := a.Noun
-	if noun == "" {
-		noun = "pull request"
+	if a.Template != "" {
+		return a.rendered()
 	}
 
-	opened := "A " + noun + " is ready for review: " + link
+	return a.defaultText()
+}
+
+// rendered fills the configured template. Every value is escaped so a value
+// anyone can write cannot break out of the template, while the template's own
+// characters — the team's markup — pass through as written.
+func (a Announcement) rendered() string {
+	return strings.NewReplacer(
+		"{author}", escape(a.Author),
+		"{noun}", escape(a.noun()),
+		"{title}", escape(a.PullRequestTitle),
+		"{url}", escape(a.PullRequestURL),
+		"{key}", escape(a.IssueKey),
+		"{summary}", escape(a.IssueSummary),
+		"{issue_url}", escape(a.IssueURL),
+	).Replace(a.Template)
+}
+
+// defaultText is the built-in announcement: who opened what, linked, and the
+// issue it is for, linked where there is a link.
+func (a Announcement) defaultText() string {
+	link := "<" + escape(a.PullRequestURL) + "|" + escape(a.PullRequestTitle) + ">"
+
+	opened := "A " + a.noun() + " is ready for review: " + link
 	if a.Author != "" {
-		opened = escape(a.Author) + " opened a " + noun + ": " + link
+		opened = escape(a.Author) + " opened a " + a.noun() + ": " + link
 	}
 
 	if a.IssueKey == "" {
@@ -228,6 +250,15 @@ func (a Announcement) Text() string {
 	}
 
 	return opened + "\n" + issue + " " + escape(a.IssueSummary)
+}
+
+// noun is what the forge calls the change, defaulting to "pull request".
+func (a Announcement) noun() string {
+	if a.Noun == "" {
+		return "pull request"
+	}
+
+	return a.Noun
 }
 
 // escape writes text so Slack shows it rather than reading it as markup: the
