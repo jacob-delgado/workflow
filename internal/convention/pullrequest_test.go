@@ -64,6 +64,11 @@ func TestPullRequestBodyStartsFromTheTemplate(t *testing.T) {
 			template: "Fixes PROJ-412\n", subjects: nil, key: projKey, url: jiraLink,
 			want: "Fixes PROJ-412\n",
 		},
+		// A longer key that merely contains this one does not count as naming it.
+		"a longer key in the template is not this issue": {
+			template: "Depends on PROJ-4120\n", subjects: nil, key: projKey, url: jiraLink,
+			want: "Depends on PROJ-4120\n\nJira: [PROJ-412](" + jiraLink + ")\n",
+		},
 		"nothing to say": {template: "", subjects: nil, key: "", url: "", want: ""},
 	}
 
