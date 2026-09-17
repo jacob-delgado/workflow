@@ -272,8 +272,7 @@ func (c prComposer) open(m Model) (Model, tea.Cmd) {
 	case request.Base == "":
 		c.problem = errNoBase
 	case m.dryRun:
-		return m.closeOverlay().noticed("dry run: would open \"" + request.Title + "\" from " + request.Head +
-			" into " + request.Base), nil
+		return m.closeOverlay().noticed(c.dryRunNotice(request, m.branch.branch.Pushed())), nil
 	case m.branch.branch.Pushed():
 		return c.create(m)
 	default:
@@ -288,6 +287,17 @@ func (c prComposer) open(m Model) (Model, tea.Cmd) {
 	m.overlay = c
 
 	return m, nil
+}
+
+// dryRunNotice says what opening the pull request would do, including the push
+// that enter does first when origin does not have every commit.
+func (c prComposer) dryRunNotice(request forge.NewPullRequest, pushed bool) string {
+	open := "open \"" + request.Title + "\" from " + request.Head + " into " + request.Base
+	if pushed {
+		return "dry run: would " + open
+	}
+
+	return "dry run: would push " + request.Head + ", then " + open
 }
 
 // create asks the forge to open the pull request.

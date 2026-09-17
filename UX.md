@@ -450,17 +450,6 @@ Impact: high · Effort: medium
 - Done when: a failed push followed by `esc` and `n` reopens the composer
   with what was typed.
 
-### UX-27 Tell the truth in a dry run
-
-Impact: low · Effort: small
-
-- Today: `enter` in the composer pushes an unpushed branch first. The dry-run
-  notice says only "would open …" (`prComposer.open` checks `m.dryRun` before
-  it checks whether a push is needed).
-- Instead: "dry run: would push fix/PROJ-412-token-redaction, then open …".
-- Touches: `internal/tui/prcomposer.go`.
-- Done when: the dry-run notice for an unpushed branch mentions the push.
-
 ### UX-28 Show that CI is being watched
 
 Impact: medium · Effort: small
