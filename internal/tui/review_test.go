@@ -26,6 +26,21 @@ func withoutPull() *world {
 	return w
 }
 
+func TestTheReviewPaneNamesAMergeRequestOnGitLab(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	gitlab := withoutPull()
+	gitlab.forgeKind = forge.KindGitLab
+
+	// Act
+	view := typing(t, gitlab.live(t, 120, 40), "4").View()
+
+	// Assert
+	requireScreen(t, view, "no merge request yet")
+	refuseScreen(t, view, "pull request")
+}
+
 func TestTheCILineShowsWhenCIWasLastChecked(t *testing.T) {
 	t.Parallel()
 
@@ -260,10 +275,10 @@ func TestAPullRequestNeedsATitleAndABase(t *testing.T) {
 		keys []string
 		want string
 	}{
-		"no title": {keys: append(slices.Clone(erase), keyEnter), want: "✗ a pull request needs a title"},
+		"no title": {keys: append(slices.Clone(erase), keyEnter), want: "✗ a title is required"},
 		"no base": {
 			keys: append(append([]string{keyTab}, erase...), keyEnter),
-			want: "✗ a pull request needs a base branch to merge into",
+			want: "✗ a base branch to merge into is required",
 		},
 	}
 

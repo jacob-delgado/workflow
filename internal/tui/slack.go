@@ -117,7 +117,7 @@ func (m Model) announcement() string {
 
 	return slack.Announcement{
 		Author: m.slack.author, PullRequestURL: m.review.pull.URL, PullRequestTitle: m.review.pull.Title,
-		IssueKey: issueKey, IssueSummary: issue.Summary, IssueURL: m.browseURL(issueKey),
+		IssueKey: issueKey, IssueSummary: issue.Summary, IssueURL: m.browseURL(issueKey), Noun: m.vocab.noun,
 	}.Text()
 }
 
@@ -152,7 +152,7 @@ func (m Model) slackDetail(width int) string {
 	}
 
 	if !m.review.found {
-		return wrap("Open a pull request first (4 Review); the message links to it.\n\n"+m.slackRail(0), width)
+		return wrap("Open a "+m.vocab.noun+" first (4 Review); the message links to it.\n\n"+m.slackRail(0), width)
 	}
 
 	lines := []string{
@@ -312,8 +312,8 @@ func (m Model) withoutQueuedPost() Model {
 	dropped := m.slack.pending.pull
 	m.slack.pending = queuedPost{}
 
-	return m.noticed(m.marks.failed + " dropped the Slack post waiting for #" + strconv.Itoa(dropped) +
-		", which is no longer this branch's pull request")
+	return m.noticed(m.marks.failed + " dropped the Slack post waiting for " + m.vocab.sigil + strconv.Itoa(dropped) +
+		", which is no longer this branch's " + m.vocab.noun)
 }
 
 // postIfGreen posts the message waiting for CI once CI passes, and gives up on

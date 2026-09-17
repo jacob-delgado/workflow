@@ -55,6 +55,9 @@ type Model struct {
 	// prDraft is the pull request last composed and not yet opened, kept per
 	// branch so a failed push or an esc does not lose it.
 	prDraft prDraft
+	// vocab is what a change is called on this forge, pull request or merge
+	// request, fixed for the session by the forge the remote points at.
+	vocab reviewVocab
 
 	// overlay takes the keyboard while it is open; nil when none is.
 	overlay overlay
@@ -79,9 +82,11 @@ func New(cfg config.Config, loadErr error, deps Deps) Model {
 		marks = asciiGlyphs()
 	}
 
+	vocab := forgeVocab(deps.Forge.Kind)
+
 	return Model{
 		cfg: cfg, loadErr: loadErr, deps: deps,
-		keys: newKeyMap(marks), styles: newStyles(), marks: marks,
+		keys: newKeyMap(marks, vocab.noun), styles: newStyles(), marks: marks, vocab: vocab,
 		width: defaultWidth, height: defaultHeight,
 		focus: paneIssues, mouse: cfg.UI.Mouse,
 	}

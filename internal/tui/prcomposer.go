@@ -27,10 +27,10 @@ const prBodyPreviewLines = 12
 const prBodyHelp = "Write the pull request description above this line. Markdown renders on both\n" +
 	"GitHub and GitLab."
 
-// errNoTitle and errNoBase report a pull request missing what the forge needs.
+// errNoTitle and errNoBase report a change missing what the forge needs.
 var (
-	errNoTitle = errors.New("a pull request needs a title")
-	errNoBase  = errors.New("a pull request needs a base branch to merge into")
+	errNoTitle = errors.New("a title is required")
+	errNoBase  = errors.New("a base branch to merge into is required")
 )
 
 // Pull request composer fields, in the order tab moves through them.
@@ -56,6 +56,7 @@ type prComposer struct {
 	body      string
 	draft     bool
 	edited    bool
+	vocab     reviewVocab
 	problem   error
 	sending   bool
 }
@@ -102,7 +103,7 @@ func (m Model) openPullRequestComposer() (Model, tea.Cmd) {
 	composer := prComposer{
 		marks: m.marks, title: newInput(convention.PullRequestTitle(subjects, issueKey, issue.Summary)),
 		base: newInput(strings.TrimPrefix(branch.Base, "origin/")), focus: prFieldTitle, head: branch.Name,
-		subjects: subjects, issueKey: issueKey, issueURL: m.browseURL(issueKey),
+		subjects: subjects, issueKey: issueKey, issueURL: m.browseURL(issueKey), vocab: m.vocab,
 	}
 	composer.base.Blur()
 
@@ -166,7 +167,7 @@ func (c prComposer) view(width, _ int) (string, string) {
 		lines = append(lines, "", c.marks.failed+" "+c.problem.Error())
 	}
 
-	return "Open pull request", strings.Join(lines, "\n")
+	return "Open " + c.vocab.noun, strings.Join(lines, "\n")
 }
 
 // templateName names the template in use, and how many there are to choose
@@ -376,7 +377,8 @@ func (msg pullCreated) apply(m Model) (Model, tea.Cmd) {
 		return m, nil
 	}
 
-	m = m.closeOverlay().noticed(m.marks.done + " opened #" + strconv.Itoa(msg.pull.Number) + " " + msg.pull.URL)
+	m = m.closeOverlay().noticed(m.marks.done + " opened " + m.vocab.sigil + strconv.Itoa(msg.pull.Number) +
+		" " + msg.pull.URL)
 	m.review = reviewState{pull: msg.pull, found: true, loaded: true}
 	m.prDraft = prDraft{}
 

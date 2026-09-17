@@ -189,17 +189,6 @@ Impact: medium · Effort: small
 
 ## Review
 
-### UX-25 Call it a merge request on GitLab
-
-Impact: low · Effort: small
-
-- Today: the interface says "pull request" and `#42` everywhere, on GitLab
-  too. The README and the docs say "pull or merge request".
-- Instead: the noun and the sigil follow the forge: "merge request", `!42`.
-- Touches: `internal/tui/review.go`, `internal/tui/prcomposer.go`,
-  `internal/tui/keys.go`, `internal/slack/post.go` (the announcement text).
-- Done when: on a GitLab remote no string says "pull request".
-
 ## Slack
 
 ## Across the interface
