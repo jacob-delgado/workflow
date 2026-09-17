@@ -166,7 +166,7 @@ func checkForge(ctx context.Context, out io.Writer, settings config.Forge, remot
 		return nil
 	}
 
-	repo, err := repo.WithConfiguredKind(settings.Kind)
+	repo, err := repo.WithConfiguredKind(wiring.ForgeSettings(settings))
 	if err != nil {
 		fmt.Fprintf(out, "  %-10s %v\n", "forge", err)
 
@@ -175,7 +175,7 @@ func checkForge(ctx context.Context, out io.Writer, settings config.Forge, remot
 
 	base, known := apiBase(repo)
 	if !known {
-		fmt.Fprintf(out, "  %-10s %s is neither github.com nor gitlab.com — set forge.kind\n",
+		fmt.Fprintf(out, "  %-10s %s is neither github.com nor gitlab.com — set forge.kind and forge.host\n",
 			"forge", repo.Host)
 
 		return nil
@@ -185,12 +185,12 @@ func checkForge(ctx context.Context, out io.Writer, settings config.Forge, remot
 		Getenv:     os.Getenv,
 		Look:       proc.LookPath,
 		Run:        proc.Run,
-		Configured: forge.Token(settings.Token),
+		Configured: wiring.ForgeSettings(settings),
 	}
 
 	token, source, err := resolver.Resolve(ctx, repo.Kind, repo.Host)
 	if err != nil {
-		fmt.Fprintf(out, "  %-10s none — set $GITHUB_TOKEN, run `gh auth login`, or set forge.token\n", "forge")
+		fmt.Fprintf(out, "  %-10s none — %s\n", "forge", forge.Sources(repo.Kind, repo.Host))
 
 		return fmt.Errorf("%w: forge", errCredentialRejected)
 	}

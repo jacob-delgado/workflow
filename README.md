@@ -101,6 +101,7 @@ workflow doctor           # says what is still missing
   },
   "forge": {
     "kind": "",
+    "host": "",
     "token": ""
   },
   "ui": {

@@ -21,6 +21,7 @@ workflow reads a single JSON file, `.workflow.json`.
   },
   "forge": {
     "kind": "",
+    "host": "",
     "token": ""
   },
   "ui": {
@@ -58,6 +59,7 @@ which one was read.
 | `slack.webhook_url` | one of these two | Incoming webhook URL. **This is a credential**, not just an address. |
 | `slack.channel` | only with `slack.token` | Channel to post in, e.g. `#dev-workflow`. A webhook carries its own. |
 | `forge.kind` | on-prem only | `github` or `gitlab`, for a host whose name says neither. |
+| `forge.host` | with `forge.kind` | The host `forge.kind` and `forge.token` are for, e.g. `git.example.com`. |
 | `forge.token` | **no** | GitHub or GitLab token. Usually leave it empty — see below. |
 | `ui.mouse` | no | Capture the mouse, so a click focuses a pane or selects a row. Defaults to `true`. |
 | `ui.ascii` | no | Draw borders and glyphs in plain ASCII. Defaults to `false`. |
@@ -130,16 +132,40 @@ credential behind — GitLab users set `$GITLAB_TOKEN` or `forge.token` instead.
 `forge.token` is never reported as missing, because failing `doctor` for everyone
 correctly relying on `gh auth login` would be wrong.
 
-### On-premises forges need `forge.kind`
+### Every token is for a host
+
+Each of those answers for one host, the way `gh` and `glab` read the same
+variables, and a token is offered to the host it is for and to no other:
+
+| Source | Is for |
+| --- | --- |
+| `$GITHUB_TOKEN`, `$GH_TOKEN` | `github.com`, and an Enterprise Cloud tenant under `ghe.com` |
+| `$GH_ENTERPRISE_TOKEN`, `$GITHUB_ENTERPRISE_TOKEN` | the host `$GH_HOST` names |
+| `$GITLAB_TOKEN`, `$GLAB_TOKEN` | the host `$GITLAB_HOST` (or `$GL_HOST`) names, and `gitlab.com` when neither names one |
+| `gh auth token` | whichever hosts you have signed `gh` in to |
+| `forge.token` | `forge.host`, and with no `forge.host`, `github.com` or `gitlab.com` |
+
+So a GitHub Enterprise Server at `git.example.com` takes
+`GH_HOST=git.example.com` beside `$GH_ENTERPRISE_TOKEN`, or `gh auth login
+--hostname git.example.com`, or `forge.host` beside `forge.token`. When no source
+has a token for the host, `workflow doctor --online` says which of these it would
+have read.
+
+### On-premises forges need `forge.kind` and `forge.host`
 
 workflow reads the forge from your git remote. `github.com` and `gitlab.com` name
 themselves; `git.example.com` does not, and a GitHub Enterprise Server looks
 exactly like a self-managed GitLab from a remote URL alone — while their APIs live
-at different paths. Rather than guess and send a token to the wrong service, set:
+at different paths. Rather than guess and send a token to the wrong service, say
+which forge it is, and which host you mean:
 
 ```json
-"forge": { "kind": "github" }
+"forge": { "kind": "github", "host": "git.example.com" }
 ```
+
+`forge.kind` describes `forge.host` and says nothing about any other host, so a
+repository whose remote is somewhere else is still a host workflow cannot name.
+A `forge.kind` with no `forge.host` is reported as incomplete.
 
 `forge.kind` only fills that gap. On `github.com` or `gitlab.com` it is ignored,
 because the remote is the better evidence.

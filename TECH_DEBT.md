@@ -338,11 +338,11 @@ Severity: medium · Confidence: read
 Severity: medium · Confidence: reproduced
 
 - Evidence: `ParseRemote` keeps `address.Host`, port included
-  (`internal/forge/remote.go:91`), and `APIBase` builds
-  `"https://" + r.Host + "/api/v4"` (`internal/forge/remote.go:138`) and
-  `"/api/v3"` (`:158`). The same value goes to `gh auth token --hostname`
-  (`internal/forge/token.go:170`). `config.Forge` has a kind and a token and
-  nothing else.
+  (`internal/forge/remote.go:93`), and `APIBase` builds
+  `"https://" + r.Host + "/api/v4"` (`internal/forge/remote.go:140`) and
+  `"/api/v3"` (`:160`). The same value goes to `gh auth token --hostname`
+  (`internal/forge/token.go:254`). `config.Forge` has a kind, a host and a
+  token, and no setting for the API's address.
 - Cost: `ssh://git@git.example.com:2222/group/repo.git`, a common shape for a
   self-managed GitLab, yields `https://git.example.com:2222/api/v4`, and the
   user has no setting to correct it. For an `https` remote, keeping the port
@@ -408,7 +408,7 @@ Severity: low · Confidence: read
   (`internal/forge/remote.go`), `dialectFor`'s map
   (`internal/forge/pulls.go:46`, a runtime error), `FindTemplates`' map
   (`internal/forge/templates.go:36`, silently nothing) and `cliCommand`
-  (`internal/forge/token.go:166`, silently false). Folding these into
+  (`internal/forge/token.go:250`, silently false). Folding these into
   `dialect` would make FEAT-54 one file.
 - `forge.Token`'s comment says a token cannot be printed by accident "nested
   inside any struct". It has a `String` method and nothing else, so `%#v`,
@@ -434,27 +434,24 @@ Severity: medium · Confidence: reproduced
 - Evidence: it lists `glab` as "supplies a GitLab token when none is
   configured" (`internal/cli/doctor.go:67`); no code runs `glab`, a test
   asserts that, and the configuration guide says "There is no `glab` step".
-  Its hint for a missing token names `$GITHUB_TOKEN` and `gh auth login` for
-  GitLab too (`internal/cli/doctor.go:193`). It says "the hook panes stay
-  hidden" without lefthook (`internal/cli/doctor.go:57`); there are no hook
-  panes. `checkForge`'s comment says it "does not call the forge"
+  It says "the hook panes stay hidden" without lefthook
+  (`internal/cli/doctor.go:57`); there are no hook panes. `checkForge`'s comment says it "does not call the forge"
   (`internal/cli/doctor.go:158`) and it calls `Whoami`. Offline, `forgeLabel`
   takes no settings (`internal/cli/doctor.go:286`), so it reports "cannot tell
   GitHub Enterprise from self-managed GitLab" when `forge.kind` says which,
   and no Forge line appears under Configuration, so a misspelled `forge.kind`
   is never reported on a github.com or gitlab.com remote.
 - Cost: `doctor` is the diagnostic people trust and paste into bug reports.
-- Remedy: drop `glab`; derive the hint from `environmentNames` and
-  `cliCommand`; load the configuration before the repository section and pass
-  it to `forgeLabel`; validate `forge.kind` with `ParseKind`.
-- Done when: on a GitLab remote the hint names `$GITLAB_TOKEN`, and
-  `forge.kind: githb` is reported offline.
+- Remedy: drop `glab`; load the configuration before the repository section
+  and pass it to `forgeLabel`; validate `forge.kind` with `ParseKind`.
+- Done when: `doctor` does not mention `glab`, and `forge.kind: githb` is
+  reported offline.
 
 ### DEBT-21 The forge connection is built twice, and remembered when it fails
 
 Severity: medium · Confidence: read
 
-- Evidence: `connectForge` (`internal/wiring/wiring.go:199`) and `checkForge`
+- Evidence: `connectForge` (`internal/wiring/wiring.go:206`) and `checkForge`
   (`internal/cli/doctor.go:161`) each run parse, configured kind, API base and
   token resolution, and each build the same `forge.Resolver` literal. The
   comment "the same way doctor --online does" is the only link. Partial third
@@ -475,7 +472,7 @@ Severity: medium · Confidence: read
 
 Severity: medium · Confidence: reproduced
 
-- Evidence: `Missing` tests `== ""` (`internal/config/config.go:336`). A URL
+- Evidence: `Missing` tests `== ""` (`internal/config/config.go:339`). A URL
   is checked on each request (`internal/jira/jira.go:160`), a webhook's scheme
   at post time (`internal/slack/post.go:95`), `forge.kind` at use.
 - Cost: a file with `base_url: "jira.example.com"`, an `http://` webhook and
@@ -491,7 +488,7 @@ Severity: medium · Confidence: reproduced
 Severity: medium · Confidence: reproduced
 
 - Evidence: `Config` has no version field; `LoadFile` calls
-  `DisallowUnknownFields` (`internal/config/config.go:216`) and returns
+  `DisallowUnknownFields` (`internal/config/config.go:219`) and returns
   `Default()` on any error; the README says the format may change before 1.0.
 - Cost: the first renamed key fails every existing file with
   `json: unknown field "url"`, and the run carries on with every credential

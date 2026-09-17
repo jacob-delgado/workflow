@@ -32,19 +32,23 @@ func TestTheForgeSeamsExplainAForgeThatCannotBeReached(t *testing.T) {
 	cases := map[string]struct {
 		remote string
 		kind   string
+		host   string
 		want   error
 	}{
-		"no remote":          {remote: "", kind: "", want: forge.ErrNotARemote},
-		"an unnamed host":    {remote: unnamedHost, kind: "", want: forge.ErrUnknownForge},
-		"a kind that is not": {remote: unnamedHost, kind: "bitbucket", want: forge.ErrUnknownForge},
-		"no token anywhere":  {remote: githubRemote, kind: "", want: forge.ErrNoToken},
+		"no remote":                {remote: "", kind: "", host: "", want: forge.ErrNotARemote},
+		"an unnamed host":          {remote: unnamedHost, kind: "", host: "", want: forge.ErrUnknownForge},
+		"a kind that is not":       {remote: unnamedHost, kind: "bitbucket", host: "", want: forge.ErrUnknownForge},
+		"a kind without its host":  {remote: unnamedHost, kind: githubKind, host: "", want: forge.ErrKindNeedsHost},
+		"a kind for another host":  {remote: unnamedHost, kind: githubKind, host: "other.host", want: forge.ErrUnknownForge},
+		"no token anywhere":        {remote: githubRemote, kind: "", host: "", want: forge.ErrNoToken},
+		"no token for a named one": {remote: unnamedHost, kind: githubKind, host: unnamedHostName, want: forge.ErrNoToken},
 	}
 
 	for name, tt := range cases {
 		t.Run(name, func(t *testing.T) {
 			// Arrange
 			cfg := config.Default()
-			cfg.Forge.Kind = tt.kind
+			cfg.Forge.Kind, cfg.Forge.Host = tt.kind, tt.host
 
 			seams := wiring.Deps(t.Context(), cfg, wiring.Workspace{Root: t.TempDir(), Remote: tt.remote}).Forge
 
@@ -65,6 +69,30 @@ func TestTheForgeSeamsExplainAForgeThatCannotBeReached(t *testing.T) {
 				}
 			}
 		})
+	}
+}
+
+func TestTheForgeSeamsOfferGitHubsOwnVariableOnlyToGitHubsOwnHosts(t *testing.T) {
+	// Arrange
+	// A host the configuration names as GitHub, with only GitHub's own variable
+	// set: that variable is for github.com, so there is no token for this host,
+	// and the seam says so without asking anyone.
+	t.Setenv("GITHUB_TOKEN", "forge-token-for-tests")
+	t.Setenv("GH_TOKEN", "")
+	t.Setenv("GH_HOST", "")
+	t.Setenv("PATH", t.TempDir())
+
+	cfg := config.Default()
+	cfg.Forge.Kind, cfg.Forge.Host = githubKind, unnamedHostName
+
+	seams := wiring.Deps(t.Context(), cfg, wiring.Workspace{Root: t.TempDir(), Remote: unnamedHost}).Forge
+
+	// Act
+	_, _, err := seams.FindPullRequest("x")
+
+	// Assert
+	if !errors.Is(err, forge.ErrNoToken) {
+		t.Errorf("FindPullRequest = %v, want %v", err, forge.ErrNoToken)
 	}
 }
 

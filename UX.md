@@ -847,7 +847,7 @@ Impact: low · Effort: small
 - Today: `ui.ascii` replaces every glyph and border, and a test asserts the
   main screen and the help contain nothing above `~`. Three error strings
   that can reach the screen still contain an em dash:
-  `internal/tui/fields.go:22`, `internal/wiring/wiring.go:212` and
+  `internal/tui/fields.go:22`, `internal/wiring/wiring.go:219` and
   `internal/forge/client.go:211`.
 - Instead: plain punctuation in anything that can be drawn, and extend the
   test to the overlays and the error paths.
@@ -892,13 +892,12 @@ Impact: low · Effort: small
   was found and how to create one, and then prints the same fact again as its
   error line, with both full paths. It lists `glab` as something that
   "supplies a GitLab token when none is configured", which no code does and
-  the configuration guide denies. Its hint for a missing forge token names
-  `$GITHUB_TOKEN` and `gh auth login` on GitLab too. It says the "hook panes
-  stay hidden" without lefthook; there are no hook panes. Under `--online`,
+  the configuration guide denies. It says the "hook panes stay hidden" without
+  lefthook; there are no hook panes. Under `--online`,
   every failure ends as "a credential was rejected", including a network that
   is down.
-- Instead: one statement of each fact; drop `glab`; a hint per forge; "the
-  hook keys are not offered"; and "could not reach Jira" as its own outcome.
+- Instead: one statement of each fact; drop `glab`; "the hook keys are not
+  offered"; and "could not reach Jira" as its own outcome.
 - Touches: `internal/cli/doctor.go`.
 - Done when: `doctor --online` with the network off says the service could
   not be reached.

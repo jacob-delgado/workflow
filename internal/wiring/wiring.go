@@ -194,6 +194,13 @@ func forgeDeps(ctx context.Context, settings config.Forge, where Workspace) tui.
 	}
 }
 
+// ForgeSettings is the configuration file's say about the forge, as the forge
+// package takes it. doctor reads it through here too, so the two cannot come
+// to read the file differently.
+func ForgeSettings(settings config.Forge) forge.Configured {
+	return forge.Configured{Kind: settings.Kind, Host: settings.Host, Token: forge.Token(settings.Token)}
+}
+
 // connectForge finds the forge the remote points at and the token for it, the
 // same way doctor --online does.
 func connectForge(ctx context.Context, settings config.Forge, remote string) (forgeConnection, error) {
@@ -202,18 +209,18 @@ func connectForge(ctx context.Context, settings config.Forge, remote string) (fo
 		return forgeConnection{}, fmt.Errorf("reading origin: %w", err)
 	}
 
-	repo, err = repo.WithConfiguredKind(settings.Kind)
+	repo, err = repo.WithConfiguredKind(ForgeSettings(settings))
 	if err != nil {
 		return forgeConnection{}, err
 	}
 
 	base, err := repo.APIBase()
 	if err != nil {
-		return forgeConnection{}, fmt.Errorf("%s — set forge.kind: %w", repo.Host, err)
+		return forgeConnection{}, fmt.Errorf("%s — set forge.kind and forge.host: %w", repo.Host, err)
 	}
 
 	resolver := forge.Resolver{
-		Getenv: os.Getenv, Look: proc.LookPath, Run: proc.Run, Configured: forge.Token(settings.Token),
+		Getenv: os.Getenv, Look: proc.LookPath, Run: proc.Run, Configured: ForgeSettings(settings),
 	}
 
 	token, _, err := resolver.Resolve(ctx, repo.Kind, repo.Host)
@@ -232,7 +239,7 @@ func templatesFor(settings config.Forge, where Workspace) []forge.Template {
 		return nil
 	}
 
-	repo, err = repo.WithConfiguredKind(settings.Kind)
+	repo, err = repo.WithConfiguredKind(ForgeSettings(settings))
 	if err != nil {
 		return nil
 	}
