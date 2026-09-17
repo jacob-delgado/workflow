@@ -229,3 +229,16 @@ func TestConfigShowMasksTheWebhookURL(t *testing.T) {
 		t.Errorf("config show did not mask the webhook URL to its tail:\n%s", output)
 	}
 }
+
+func TestConfigShowNamesHowToCreateAConfiguration(t *testing.T) {
+	// Act
+	output, err := run(t, t.TempDir(), "config", "show")
+	// Assert
+	if err != nil {
+		t.Fatalf("config show = %v, want it to guide rather than fail:\n%s", err, output)
+	}
+
+	if !strings.Contains(output, "workflow config init") {
+		t.Errorf("config show does not name the command that creates a configuration:\n%s", output)
+	}
+}

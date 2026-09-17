@@ -61,6 +61,19 @@ func newConfigInitCmd() *cobra.Command {
 	return cmd
 }
 
+// showLoadError guides a config show that found no file to the command that
+// creates one; any other load failure is a real error.
+func showLoadError(cmd *cobra.Command, err error) error {
+	if !errors.Is(err, config.ErrNotFound) {
+		return err
+	}
+
+	out := cmd.OutOrStdout()
+	fmt.Fprintf(out, "%s\n\n%s\n%s\n", config.NoConfigHeadline, config.InitStep, config.DoctorStep)
+
+	return nil
+}
+
 // newConfigShowCmd builds `workflow config show`.
 func newConfigShowCmd() *cobra.Command {
 	return &cobra.Command{
@@ -70,7 +83,7 @@ func newConfigShowCmd() *cobra.Command {
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			cfg, err := loadFromEnvironment()
 			if err != nil {
-				return err
+				return showLoadError(cmd, err)
 			}
 
 			return runConfigShow(cmd, cfg)

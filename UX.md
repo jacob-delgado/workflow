@@ -650,22 +650,6 @@ Impact: low · Effort: small
 - Done when: `doctor --online` with the network off says the service could
   not be reached.
 
-### UX-48 Make the first command obvious
-
-Impact: low · Effort: small
-
-- Today: `workflow config show` with no file prints the two places it looked
-  and exits. A file that does not parse makes `doctor` print no
-  Configuration section at all; the reason arrives only on the error line.
-  `--version` is an unknown flag, while the bug report form asks for its
-  output (FEAT-40). `workflow completion` exists and no page mentions it.
-- Instead: `config show` ends with "Create one with `workflow config init`."
-  `doctor` prints the parse error in its Configuration section, with the line.
-- Touches: `internal/cli/config_cmd.go`, `internal/cli/doctor.go`,
-  `docs/content/docs/install.md`.
-- Done when: every command that finds no configuration names the command
-  that creates one.
-
 ## Would reopen a settled decision
 
 ### UX-49 A second signal for focus
