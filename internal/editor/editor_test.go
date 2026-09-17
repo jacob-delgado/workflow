@@ -59,6 +59,22 @@ type failure struct{ err error }
 // saved is a finished edit's text.
 type saved struct{ text string }
 
+// repositoryWith is a directory holding the named files, empty.
+func repositoryWith(t *testing.T, names ...string) string {
+	t.Helper()
+
+	dir := t.TempDir()
+
+	for _, name := range names {
+		err := os.WriteFile(filepath.Join(dir, name), nil, 0o600)
+		if err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	return dir
+}
+
 // drafts lists the drafts in dir.
 func drafts(t *testing.T, dir string) []string {
 	t.Helper()
@@ -221,7 +237,7 @@ func TestOpenWithAnEditorThatIsNotInstalledSaysSo(t *testing.T) {
 	missing := environment(map[string]string{editorVariable: missingEditor})
 
 	// Act
-	reported, ok := editor.Open(missing, t.TempDir(), sourceFile, 3, func(err error) tea.Msg {
+	reported, ok := editor.Open(missing, repositoryWith(t, sourceFile), sourceFile, 3, func(err error) tea.Msg {
 		return failure{err: err}
 	})().(failure)
 
@@ -272,7 +288,7 @@ func TestOpenHandsOverTheTerminal(t *testing.T) {
 	finished := false
 
 	// Act
-	msg := editor.Open(env, t.TempDir(), sourceFile, 3, func(error) tea.Msg {
+	msg := editor.Open(env, repositoryWith(t, sourceFile), sourceFile, 3, func(error) tea.Msg {
 		finished = true
 
 		return nil

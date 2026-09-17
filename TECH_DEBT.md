@@ -595,21 +595,21 @@ Severity: medium · Confidence: reproduced
 - Remedy: the failing test, then a guard and skipping `VAR=` words.
 - Done when: that shebang yields `sh` and the interface opens.
 
-### DEBT-29 Hook failure locations are opened without being resolved
+### DEBT-29 Hook failure locations that name nothing are still offered
 
-Severity: medium · Confidence: reproduced
+Severity: low · Confidence: reproduced
 
 - Evidence: `Failures` keeps the matched file verbatim
-  (`internal/hooks/output.go:167`), and `openFailure`
-  (`internal/tui/run.go:265`) opens it relative to the repository root without
-  checking that it exists.
+  (`internal/hooks/output.go:167`). `editor.Locate` now refuses a place that is
+  not a file when it is opened, so no empty buffer opens and no stray file is
+  left, but the place is still listed.
 - Cost: `go test ./...` prints package-relative places
-  (`foo_test.go:4: got 1, want 2`, indented). `enter` opens a file that does not
-  exist at the root; the editor shows an empty buffer, and saving it creates a
-  stray file. A lefthook job with `root:` has the same mismatch. No test has a
-  `go test`-shaped case.
-- Remedy: resolve each place against the root in one function; drop what does
-  not exist, or search for a unique match below the root.
+  (`foo_test.go:4: got 1, want 2`, indented). Each is offered, and `enter` on
+  it answers "no such file". A lefthook job with `root:` has the same
+  mismatch. No test has a `go test`-shaped case.
+- Remedy: resolve each place when the run finishes, through a seam, since the
+  interface does not touch the file system itself; drop what does not exist,
+  or search for a unique match below the root.
 - Done when: a place that does not resolve is not offered.
 
 ### DEBT-30 `origin` is spelled out in eight places, and nothing fetches

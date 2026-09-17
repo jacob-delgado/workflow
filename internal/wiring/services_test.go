@@ -263,7 +263,14 @@ func TestTheOpenSeamHandsOverTheTerminal(t *testing.T) {
 	// Arrange
 	installedEditor(t)
 
-	seams := wiring.Deps(t.Context(), config.Default(), wiring.Workspace{Root: t.TempDir(), Remote: ""}).Editor
+	root := t.TempDir()
+
+	err := os.WriteFile(filepath.Join(root, "main.go"), nil, 0o600)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	seams := wiring.Deps(t.Context(), config.Default(), wiring.Workspace{Root: root, Remote: ""}).Editor
 	finished := false
 
 	// Act
