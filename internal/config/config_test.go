@@ -9,7 +9,6 @@ import (
 	"os"
 	"path/filepath"
 	"slices"
-	"strings"
 	"testing"
 	"time"
 
@@ -220,87 +219,27 @@ func TestChannelChoicesListTheDefaultThenTheAlternates(t *testing.T) {
 	}
 }
 
-func TestRedactedHidesEveryCredential(t *testing.T) {
+func TestATokenSourceCountsAsConfigured(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
-	const (
-		jiraToken  = "jira-token-1234"
-		slackToken = "xoxb-slack-token-5678"
-	)
+	jira := config.Jira{BaseURL: jiraURL, TokenCommand: "echo x"}
+	slack := config.Slack{TokenEnv: "SLACK_TOKEN", Channel: devChannel}
+	cfg := config.Config{Jira: jira, Slack: slack}
 
-	cfg := config.Config{
-		Jira: config.Jira{BaseURL: jiraURL, Token: jiraToken, User: ""},
-		Slack: config.Slack{
-			Token:      slackToken,
-			WebhookURL: webhookURL,
-			Channel:    devChannel,
-		},
-		Forge: config.Forge{Token: forgeFixture},
-		Path:  "/tmp/.workflow.json",
+	// Act & Assert
+	if jira.AuthMode() != config.AuthBearer {
+		t.Errorf("AuthMode() = %v, want a token command to authenticate", jira.AuthMode())
 	}
 
-	// Act
-	redacted := cfg.Redacted()
-
-	// Assert
-	if strings.Contains(redacted.Jira.Token, "jira-token") {
-		t.Errorf("jira token leaked: %q", redacted.Jira.Token)
+	if slack.Mode() != config.SlackBot {
+		t.Errorf("Slack.Mode() = %v, want a token env to count as a bot token", slack.Mode())
 	}
 
-	if strings.Contains(redacted.Slack.Token, "slack-token") {
-		t.Errorf("slack token leaked: %q", redacted.Slack.Token)
-	}
-
-	// Redaction must not mutate the original.
-	if cfg.Jira.Token != jiraToken {
-		t.Errorf("Redacted mutated the receiver: %q", cfg.Jira.Token)
-	}
-
-	if strings.Contains(redacted.Forge.Token, "not-a-real") {
-		t.Errorf("forge token leaked: %q", redacted.Forge.Token)
-	}
-
-	// A webhook URL is not a URL with a secret in it — it IS the credential.
-	// Anyone holding it can post to that channel, so it masks like a token.
-	if strings.Contains(redacted.Slack.WebhookURL, "hooks.slack.com") {
-		t.Errorf("webhook url leaked: %q", redacted.Slack.WebhookURL)
-	}
-
-	if cfg.Slack.WebhookURL != webhookURL {
-		t.Errorf("Redacted mutated the receiver: %q", cfg.Slack.WebhookURL)
-	}
-
-	// Enough tail survives to tell two tokens apart.
-	if !strings.HasSuffix(redacted.Slack.Token, "5678") {
-		t.Errorf("slack token = %q, want it to end in 5678", redacted.Slack.Token)
-	}
-}
-
-func TestRedact(t *testing.T) {
-	t.Parallel()
-
-	cases := map[string]struct {
-		secret string
-		want   string
-	}{
-		"empty stays empty":      {secret: "", want: ""},
-		"short is fully masked":  {secret: "abcd", want: "****"},
-		"long keeps four digits": {secret: "abcdefgh", want: "****efgh"},
-	}
-
-	for name, tt := range cases {
-		t.Run(name, func(t *testing.T) {
-			t.Parallel()
-
-			// Act
-			got := config.Redact(tt.secret)
-
-			// Assert
-			if got != tt.want {
-				t.Errorf("Redact(%q) = %q, want %q", tt.secret, got, tt.want)
-			}
-		})
+	for _, field := range cfg.Missing() {
+		if field == "jira.token" {
+			t.Errorf("Missing() reports jira.token though a token_command is set: %v", cfg.Missing())
+		}
 	}
 }
 

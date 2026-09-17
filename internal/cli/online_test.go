@@ -76,6 +76,33 @@ func TestDoctorOnlineReportsTheJiraUser(t *testing.T) {
 	}
 }
 
+func TestDoctorOnlineNamesATokenSourceWithoutShowingIt(t *testing.T) {
+	// Arrange
+	var reached atomic.Bool
+
+	dir := t.TempDir()
+	server := jiraServer(t, http.StatusOK, jiraFixture, &reached)
+
+	const secret = "secret-from-the-command-1234"
+	writeFile(t, dir, `{"jira": {"base_url": "`+server.URL+`", "token_command": "echo `+secret+`"}, `+slackWebhook+`}`)
+
+	// Act
+	output, err := run(t, dir, "doctor", "--online")
+
+	// Assert
+	if err != nil || !reached.Load() {
+		t.Fatalf("doctor --online = %v, reached Jira %v:\n%s", err, reached.Load(), output)
+	}
+
+	if !strings.Contains(output, "token from token_command") {
+		t.Errorf("doctor does not name where the token came from:\n%s", output)
+	}
+
+	if strings.Contains(output, secret) {
+		t.Errorf("doctor printed the resolved token:\n%s", output)
+	}
+}
+
 func TestDoctorOnlineFailsOnARejectedCredential(t *testing.T) {
 	// Arrange
 	var reached atomic.Bool
@@ -114,7 +141,7 @@ func TestDoctorOnlineFallsBackToTheLoginName(t *testing.T) {
 	output, err := run(t, dir, "doctor", "--online")
 
 	// Assert
-	if err != nil || !reached.Load() || !strings.Contains(output, "authenticates as fred\n") {
+	if err != nil || !reached.Load() || !strings.Contains(output, "authenticates as fred (token from") {
 		t.Errorf("doctor --online = %v, reached Jira %v; want the login name alone:\n%s", err, reached.Load(), output)
 	}
 }
