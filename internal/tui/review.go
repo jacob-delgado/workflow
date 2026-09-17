@@ -32,6 +32,21 @@ type reviewState struct {
 // ciCheckedFormat stamps the CI line with when it was last read.
 const ciCheckedFormat = "15:04"
 
+// reviewVocab is what a change is called on this forge: a pull request on
+// GitHub, a merge request on GitLab, each with its own number sigil.
+type reviewVocab struct {
+	noun, sigil string
+}
+
+// forgeVocab is the vocabulary for a forge kind.
+func forgeVocab(kind forge.Kind) reviewVocab {
+	if kind == forge.KindGitLab {
+		return reviewVocab{noun: "merge request", sigil: "!"}
+	}
+
+	return reviewVocab{noun: "pull request", sigil: "#"}
+}
+
 // findPullRequest is the command that looks for the branch's open pull request.
 func (m Model) findPullRequest() tea.Cmd {
 	find, branch := m.deps.Forge.FindPullRequest, m.branch.branch.Name
@@ -181,10 +196,10 @@ func (m Model) reviewRail(_ int) string {
 	case m.review.err != nil:
 		return m.marks.failed + " " + forgeReason(m.review.err)
 	case !m.review.found:
-		return "no pull request yet"
+		return "no " + m.vocab.noun + " yet"
 	}
 
-	return "#" + strconv.Itoa(m.review.pull.Number) + " " + m.review.pull.Title + "\n" + m.ciSummary()
+	return m.vocab.sigil + strconv.Itoa(m.review.pull.Number) + " " + m.review.pull.Title + "\n" + m.ciSummary()
 }
 
 // reviewDetail describes the pull request, or what opening one needs.
@@ -209,7 +224,7 @@ func (m Model) reviewDetail(width int) string {
 
 	pull := m.review.pull
 	lines := []string{
-		m.styles.strong.Render("#"+strconv.Itoa(pull.Number)) + " " + pull.Title,
+		m.styles.strong.Render(m.vocab.sigil+strconv.Itoa(pull.Number)) + " " + pull.Title,
 		pull.URL,
 		"",
 		m.styles.label.Render("CI     ") + m.ciSummary(),

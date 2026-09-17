@@ -70,6 +70,9 @@ type ForgeDeps struct {
 	// Author is who the forge credential belongs to, to say who opened a pull
 	// request.
 	Author func() (string, error)
+	// Kind is the forge the remote points at, so the interface can call a change
+	// a "pull request" or a "merge request".
+	Kind forge.Kind
 }
 
 // SlackDeps is what the interface asks of Slack.

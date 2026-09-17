@@ -51,7 +51,7 @@ func binding(help string, keys ...string) key.Binding {
 }
 
 // newKeyMap builds the key bindings, naming the arrow keys in the glyphs in use.
-func newKeyMap(marks glyphs) keyMap {
+func newKeyMap(marks glyphs, reviewNoun string) keyMap {
 	return keyMap{
 		next:           binding("next pane", "tab"),
 		previous:       binding("previous pane", "shift+tab"),
@@ -77,7 +77,7 @@ func newKeyMap(marks glyphs) keyMap {
 		stageAll:       binding("stage all", "a"),
 		commit:         binding("commit", "c"),
 		runHooks:       binding("run pre-commit", "h"),
-		newPullRequest: binding("open pull request", "n"),
+		newPullRequest: binding("open "+reviewNoun, "n"),
 		compose:        binding("post to slack", "p"),
 		postWhenGreen:  binding("post when CI passes", "w"),
 		edit:           binding("edit", "e"),

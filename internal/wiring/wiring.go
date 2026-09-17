@@ -191,7 +191,25 @@ func forgeDeps(ctx context.Context, settings config.Forge, where Workspace) tui.
 
 			return identity.Name(), err
 		},
+		Kind: forgeKind(settings, where.Remote),
 	}
+}
+
+// forgeKind is which forge the remote points at, read without a network call so
+// the interface can name a change correctly from the start. An unparsable remote
+// is simply unknown.
+func forgeKind(settings config.Forge, remote string) forge.Kind {
+	repo, err := forge.ParseRemote(remote)
+	if err != nil {
+		return forge.KindUnknown
+	}
+
+	repo, err = repo.WithConfiguredKind(ForgeSettings(settings))
+	if err != nil {
+		return forge.KindUnknown
+	}
+
+	return repo.Kind
 }
 
 // ForgeSettings is the configuration file's say about the forge, as the forge

@@ -180,7 +180,7 @@ func withoutURL(err error) error {
 	return err
 }
 
-// Announcement is the message telling a channel a pull request is ready.
+// Announcement is the message telling a channel a change is ready to review.
 type Announcement struct {
 	Author           string
 	PullRequestURL   string
@@ -188,6 +188,9 @@ type Announcement struct {
 	IssueKey         string
 	IssueSummary     string
 	IssueURL         string
+	// Noun is what the forge calls the change — "pull request" or "merge
+	// request". Empty defaults to "pull request".
+	Noun string
 }
 
 // Text is the announcement in Slack's markup: who opened what, linked, and the
@@ -198,9 +201,14 @@ type Announcement struct {
 func (a Announcement) Text() string {
 	link := "<" + escape(a.PullRequestURL) + "|" + escape(a.PullRequestTitle) + ">"
 
-	opened := "A pull request is ready for review: " + link
+	noun := a.Noun
+	if noun == "" {
+		noun = "pull request"
+	}
+
+	opened := "A " + noun + " is ready for review: " + link
 	if a.Author != "" {
-		opened = escape(a.Author) + " opened a pull request: " + link
+		opened = escape(a.Author) + " opened a " + noun + ": " + link
 	}
 
 	if a.IssueKey == "" {

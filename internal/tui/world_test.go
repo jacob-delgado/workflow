@@ -84,6 +84,7 @@ type world struct {
 	openErr   error
 	ci        []forge.CI
 	templates []forge.Template
+	forgeKind forge.Kind
 	author    string
 	postErr   error
 	// postGate, when set, holds every post, already recorded, until it is
@@ -304,6 +305,7 @@ func (w *world) forgeDeps() tui.ForgeDeps {
 		},
 		Templates: func() []forge.Template { return w.templates },
 		Author:    func() (string, error) { return w.author, w.authorErr },
+		Kind:      w.forgeKind,
 	}
 }
 
