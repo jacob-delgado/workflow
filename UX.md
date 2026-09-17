@@ -5,7 +5,7 @@ something goes wrong. Like [FEATURES.md](FEATURES.md), this is a brainstorm,
 not a plan: nothing here is agreed or scheduled.
 
 It is written for two readers: a contributor deciding what to improve, and a
-later Claude Code session asked to "pick up UX-07". Each entry says what
+later Claude Code session asked to "pick up ". Each entry says what
 happens today, what could happen instead, where the change would land, and
 how to tell when it is done.
 
@@ -207,19 +207,6 @@ Impact: medium · Effort: small
   and reopened from the Commits pane.
 
 ## Issues
-
-### UX-07 Say an error like an error
-
-Impact: low · Effort: small
-
-- Today: a failed search is drawn as `issues: no jira.token is configured`
-  (`issueList.failure`, `internal/tui/issues.go`). It has no `✗`, no color,
-  and a prefix that repeats the pane's title.
-- Instead: route it through `Model.failure` like the other panes, and drop
-  the prefix.
-- Touches: `internal/tui/issues.go`.
-- Done when: the search error carries the failure glyph and the failure
-  style.
 
 ## Branch
 

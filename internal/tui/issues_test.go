@@ -333,3 +333,14 @@ func TestRRefreshesTheIssues(t *testing.T) {
 		t.Errorf("searched %d times, want once more than the %d before r", searches, before)
 	}
 }
+
+func TestAFailedSearchReadsAsAFailureInTheDetail(t *testing.T) {
+	t.Parallel()
+
+	// Act
+	view := issuesScreen(t, failing(jira.ErrUnauthorized)).View()
+
+	// Assert
+	requireScreen(t, view, "✗ the credential was not accepted")
+	refuseScreen(t, view, "issues: the credential was not accepted")
+}
