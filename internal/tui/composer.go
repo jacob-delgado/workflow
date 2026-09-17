@@ -152,7 +152,7 @@ func (c commitComposer) footnotes() []string {
 		lines = append(lines, "", "Refs: "+c.issueKey)
 	}
 
-	lines = append(lines, "", strconv.Itoa(c.staged)+" files staged")
+	lines = append(lines, "", plural(c.staged, "file")+" staged")
 
 	if c.problem != nil {
 		lines = append(lines, c.marks.failed+" "+c.problem.Error())

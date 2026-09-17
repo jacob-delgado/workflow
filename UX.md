@@ -416,16 +416,6 @@ Impact: medium · Effort: small
 - Done when: the headline names the step that failed, and the full output of
   a finished run can always be read.
 
-### UX-21 Say it correctly for one file
-
-Impact: low · Effort: small
-
-- Today: the composer says "1 files staged" (`internal/tui/composer.go:155`).
-  `plural` exists two files away, and a test pins the wrong text.
-- Instead: "1 file staged".
-- Touches: `internal/tui/composer.go`, `internal/tui/composer_test.go`.
-- Done when: the singular is right.
-
 ### UX-22 Free the editing keys inside text fields
 
 Impact: low · Effort: small
