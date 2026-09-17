@@ -4,22 +4,27 @@
 package tui
 
 import (
-	"cmp"
 	"fmt"
 	"slices"
 	"strings"
 
+	tea "github.com/charmbracelet/bubbletea"
+
 	"github.com/jacob-delgado/workflow/internal/jira"
 )
-
-// failedGlyph marks a pane whose load failed. It is the one place the interface
-// says "this broke", so it carries its own shape rather than relying on color.
-const failedGlyph = "✗"
 
 // issuesLoaded carries the search's answer back into the update loop.
 type issuesLoaded struct {
 	found jira.SearchResult
 	err   error
+}
+
+// apply records the answer, and asks for the selected issue in full.
+func (msg issuesLoaded) apply(m Model) (Model, tea.Cmd) {
+	m.issues = m.issues.settle(msg)
+	m = m.resumeIssue()
+
+	return m.loadDetail()
 }
 
 // issueList is the Issues pane's state. Loading, failed, empty and listing are
@@ -30,6 +35,9 @@ type issueList struct {
 	err      error
 	settled  bool
 	selected int
+	// moved records that someone chose an issue, after which nothing selects
+	// one for them.
+	moved bool
 }
 
 // settle records the search's answer. The selection follows its issue rather
@@ -39,11 +47,16 @@ func (l issueList) settle(answer issuesLoaded) issueList {
 	previous, _ := l.current()
 	l.found, l.err, l.settled = answer.found, answer.err, true
 
+	return l.selectKey(previous.Key)
+}
+
+// selectKey selects the issue with a key, or keeps the row, clamped, when the
+// issue is not listed — done, reassigned, or never selected.
+func (l issueList) selectKey(issueKey string) issueList {
 	index := slices.IndexFunc(l.found.Issues, func(candidate jira.Issue) bool {
-		return candidate.Key == previous.Key
+		return candidate.Key == issueKey
 	})
 	if index < 0 {
-		// Gone — done, reassigned, or never selected. Keep the row, clamped.
 		return l.move(0)
 	}
 
@@ -61,6 +74,18 @@ func (l issueList) current() (jira.Issue, bool) {
 	return l.found.Issues[l.selected], true
 }
 
+// find is the listed issue with a key, if it is listed.
+func (l issueList) find(issueKey string) (jira.Issue, bool) {
+	index := slices.IndexFunc(l.found.Issues, func(candidate jira.Issue) bool {
+		return candidate.Key == issueKey
+	})
+	if index < 0 {
+		return jira.Issue{}, false
+	}
+
+	return l.found.Issues[index], true
+}
+
 // move shifts the selection, stopping at either end rather than wrapping: in a
 // list, wrapping from the last row to the first reads as a jump.
 func (l issueList) move(step int) issueList {
@@ -71,67 +96,59 @@ func (l issueList) move(step int) issueList {
 }
 
 // render draws as many rows as fit, scrolled so the selection stays on screen.
-func (l issueList) render(rows int) string {
+func (l issueList) render(marks glyphs, rows int) string {
 	switch {
 	case !l.settled:
-		return "loading…"
+		return "loading" + marks.ellipsis
 	case l.err != nil:
-		return failedGlyph + " failed · see detail"
+		return marks.failed + " failed" + marks.separator + "see detail"
 	case len(l.found.Issues) == 0:
 		return "no open issues assigned to you"
 	}
 
-	first := max(0, l.selected-rows+1)
-	last := min(len(l.found.Issues), first+rows)
-	lines := make([]string, 0, max(0, last-first))
+	first, last := window(l.selected, len(l.found.Issues), rows)
+	lines := make([]string, 0, last-first)
 
 	for index := first; index < last; index++ {
-		lines = append(lines, l.row(index))
+		issue := l.found.Issues[index]
+		lines = append(lines, marks.marker(index == l.selected)+marks.status(issue.StatusCategory)+" "+
+			issue.Key+" "+issue.Summary)
 	}
 
 	return strings.Join(lines, "\n")
 }
 
-// row is one issue: a selection marker, a status glyph, the key and the summary.
-// The frame clips it with an ellipsis, so it is never measured here.
-func (l issueList) row(index int) string {
-	issue := l.found.Issues[index]
+// rowAt is the index of the issue drawn on a line of render's output.
+func (l issueList) rowAt(line, rows int) (int, bool) {
+	first, last := window(l.selected, len(l.found.Issues), rows)
+	index := first + line
 
-	marker := "  "
-	if index == l.selected {
-		marker = "▸ "
-	}
-
-	return marker + statusGlyph(issue.StatusCategory) + " " + issue.Key + " " + issue.Summary
+	return index, line >= 0 && index < last
 }
 
-// detail describes the selected issue, or explains why there is nothing to
-// describe. fallback is what the pane shows when there is no issue to talk
-// about, which keeps the configuration summary on screen through a failure.
-func (l issueList) detail(fallback string) string {
-	if l.err != nil {
-		return "issues: " + l.err.Error() + "\n\n" + fallback
+// failure describes a search that failed, above what the pane falls back to.
+func (l issueList) failure(fallback string) (string, bool) {
+	if l.err == nil {
+		return "", false
 	}
 
-	selected, ok := l.current()
-	if !ok {
-		return fallback
-	}
-
-	lines := []string{selected.Key + " " + selected.Summary, "", "status  " + selected.Status}
-
-	if l.found.Total > len(l.found.Issues) {
-		lines = append(lines, "", fmt.Sprintf("showing %d of %d", len(l.found.Issues), l.found.Total))
-	}
-
-	return strings.Join(lines, "\n")
+	return "issues: " + l.err.Error() + "\n\n" + fallback, true
 }
 
-// statusGlyph carries an issue's status category by fill: not started, in
-// flight, done. A category an instance invented gets a neutral dot rather than
-// a guess.
-func statusGlyph(category string) string {
-	glyphs := map[string]string{"new": "○", "indeterminate": "◐", "done": "●"}
+// capped says how much of a capped list is shown, or nothing for a whole one.
+func (l issueList) capped() string {
+	if l.found.Total <= len(l.found.Issues) {
+		return ""
+	}
 
-	return cmp.Or(glyphs[category], "·")
+	return fmt.Sprintf("showing %d of %d", len(l.found.Issues), l.found.Total)
+}
+
+// window is the slice of a list of count rows that fits in rows lines, scrolled
+// so the selected row is on screen. At least one row always shows.
+func window(selected, count, rows int) (int, int) {
+	rows = max(1, rows)
+	first := max(0, selected-rows+1)
+
+	return first, min(count, first+rows)
 }

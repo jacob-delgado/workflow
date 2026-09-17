@@ -1,0 +1,469 @@
+// Copyright 2026 Jacob Delgado
+// SPDX-License-Identifier: Apache-2.0
+
+package tui_test
+
+import (
+	"slices"
+	"strconv"
+	"strings"
+	"sync"
+	"testing"
+	"time"
+
+	tea "github.com/charmbracelet/bubbletea"
+
+	"github.com/jacob-delgado/workflow/internal/forge"
+	"github.com/jacob-delgado/workflow/internal/gitrepo"
+	"github.com/jacob-delgado/workflow/internal/hooks"
+	"github.com/jacob-delgado/workflow/internal/jira"
+	"github.com/jacob-delgado/workflow/internal/proc"
+	"github.com/jacob-delgado/workflow/internal/tui"
+)
+
+// patience is how long a command may take before a test stops waiting for it.
+// Everything these tests fake answers at once; what does not is a timer — the
+// wait between CI checks — that a test only cares about when it shortens it.
+const patience = 400 * time.Millisecond
+
+// testNow is the time the fake clock tells.
+func testNow() time.Time {
+	return time.Date(2026, 9, 16, 16, 0, 0, 0, time.UTC)
+}
+
+// Fixtures the scenario tests share.
+const (
+	baseRef      = "origin/main"
+	baseName     = "main"
+	reporter     = "Ana Lopez"
+	keyEnter     = "enter"
+	keyTab       = "tab"
+	keyShiftTab  = "shift+tab"
+	issueKey     = "PROJ-412"
+	issueSummary = "Fix token redaction"
+	featureName  = "fix/PROJ-412-fix-token-redaction"
+	pullURL      = "https://github.com/example/repo/pull/42"
+	pullTitle    = "fix(config): redact tokens"
+	slackChannel = "#dev"
+)
+
+// world is everything outside the interface, faked, and a record of what the
+// interface asked of it. Each field is an answer a test can change before the
+// world is used.
+type world struct {
+	mu    sync.Mutex
+	calls []string
+
+	issues        []jira.Issue
+	detail        jira.IssueDetail
+	detailErr     error
+	moves         []jira.Transition
+	transitionErr error
+	commentErr    error
+
+	branch      gitrepo.Branch
+	changes     []gitrepo.Change
+	stageErr    error
+	createErr   error
+	commitLines []string
+	commitErr   error
+	pushLines   []string
+	pushErr     error
+
+	commitStartErr error
+	ciErr          error
+	authorErr      error
+
+	pull      forge.PullRequest
+	pullFound bool
+	pullErr   error
+	openErr   error
+	ci        []forge.CI
+	templates []forge.Template
+	author    string
+	postErr   error
+	// postGate, when set, holds every post until it is closed: a Slack that
+	// is slow to answer.
+	postGate   chan struct{}
+	gitHooks   []hooks.GitHook
+	configured bool
+	writeErr   error
+
+	edited     string
+	editErr    error
+	editorErr  error
+	ciInterval time.Duration
+}
+
+// newWorld is a repository on a feature branch for an issue in progress, with
+// a pull request whose CI passed.
+func newWorld() *world {
+	return &world{
+		issues: []jira.Issue{
+			{Key: issueKey, Summary: issueSummary, Status: "In Progress", StatusCategory: "indeterminate", Type: "Bug"},
+			{Key: "PROJ-388", Summary: "Add retries", Status: "To Do", StatusCategory: "new", Type: "Story"},
+		},
+		detail: jira.IssueDetail{
+			Issue: jira.Issue{Key: issueKey}, Reporter: reporter, Description: "Tokens reach the log.",
+			Comments: []jira.Comment{
+				{Author: reporter, Body: "Repro'd on 8.2.1", Created: testNow().Add(-2 * time.Hour)},
+			},
+			CommentTotal: 1,
+		},
+		branch: gitrepo.Branch{
+			Name: featureName, Head: "abc123", Upstream: "origin/" + featureName, Base: baseRef,
+			Commits: []gitrepo.Commit{{Hash: "1a2b3c4", Subject: pullTitle}},
+		},
+		changes:   []gitrepo.Change{{Path: "internal/config/redact.go", Staged: 'M', Unstaged: ' '}},
+		pull:      forge.PullRequest{Number: 42, URL: pullURL, Title: pullTitle, Draft: false},
+		pullFound: true,
+		ci:        []forge.CI{{State: forge.CIPassed, Total: 1, Done: 1, Failed: 0}},
+		author:    "jacob",
+	}
+}
+
+// record notes a call.
+func (w *world) record(call string) {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+
+	w.calls = append(w.calls, call)
+}
+
+// asked reports every call starting with prefix.
+func (w *world) asked(prefix string) []string {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+
+	var matching []string
+
+	for _, call := range w.calls {
+		if strings.HasPrefix(call, prefix) {
+			matching = append(matching, call)
+		}
+	}
+
+	return matching
+}
+
+// nextCI is the next CI answer: each check takes the next, and the last one
+// repeats.
+func (w *world) nextCI() forge.CI {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+
+	answer := w.ci[0]
+	if len(w.ci) > 1 {
+		w.ci = w.ci[1:]
+	}
+
+	return answer
+}
+
+// output is a program's output that is already complete.
+func output(lines []string, err error) proc.Output {
+	stream := make(chan string, len(lines))
+	for _, line := range lines {
+		stream <- line
+	}
+
+	close(stream)
+
+	return proc.Output{Lines: stream, Wait: func() error { return err }}
+}
+
+// deps wires the world to the interface.
+func (w *world) deps() tui.Deps {
+	return tui.Deps{
+		Jira:  w.jiraDeps(),
+		Git:   w.gitDeps(),
+		Forge: w.forgeDeps(),
+		Slack: tui.SlackDeps{Post: func(text string) error {
+			if w.postGate != nil {
+				<-w.postGate
+			}
+
+			w.record("post " + text)
+
+			return w.postErr
+		}},
+		Hooks:      w.hookDeps(),
+		Editor:     w.editorDeps(),
+		Clock:      testNow,
+		CIInterval: w.ciInterval,
+	}
+}
+
+// jiraDeps fakes Jira.
+func (w *world) jiraDeps() tui.JiraDeps {
+	return tui.JiraDeps{
+		Search: func() (jira.SearchResult, error) {
+			w.record("search")
+
+			return jira.SearchResult{Issues: slices.Clone(w.issues), Total: len(w.issues)}, nil
+		},
+		Issue: func(key string) (jira.IssueDetail, error) {
+			w.record("issue " + key)
+
+			return w.detail, w.detailErr
+		},
+		Transitions: func(key string) ([]jira.Transition, error) {
+			w.record("transitions " + key)
+
+			return w.moves, nil
+		},
+		Transition: func(key string, to jira.Transition, values []jira.FieldValue) error {
+			var call strings.Builder
+
+			call.WriteString("transition " + key + " " + to.ID)
+
+			for _, value := range values {
+				call.WriteString(" " + value.Field.ID + "=" + value.OptionID + value.Text)
+			}
+
+			w.record(call.String())
+
+			return w.transitionErr
+		},
+		Comment: func(key, text string) (jira.Comment, error) {
+			w.record("comment " + key + " " + text)
+
+			return jira.Comment{Author: "jacob", Body: text, Created: testNow()}, w.commentErr
+		},
+		BrowseURL: func(key string) string { return "https://jira.example.com/browse/" + key },
+	}
+}
+
+// gitDeps fakes the repository.
+func (w *world) gitDeps() tui.GitDeps {
+	return tui.GitDeps{
+		Branch: func() (gitrepo.Branch, error) {
+			w.record("branch")
+
+			return w.branch, nil
+		},
+		Changes: func() ([]gitrepo.Change, error) {
+			w.record("changes")
+
+			return slices.Clone(w.changes), nil
+		},
+		Stage: func(change gitrepo.Change) error {
+			w.record("stage " + change.Path)
+
+			return w.stageErr
+		},
+		Unstage: func(change gitrepo.Change) error {
+			w.record("unstage " + change.Path)
+
+			return w.stageErr
+		},
+		CreateBranch: func(name, start string) error {
+			w.record("create " + name + " from " + start)
+
+			return w.createErr
+		},
+		Commit: func(message string) (proc.Output, error) {
+			w.record("commit " + message)
+
+			if w.commitStartErr != nil {
+				return proc.Output{}, w.commitStartErr
+			}
+
+			return output(w.commitLines, w.commitErr), nil
+		},
+		Push: func(branch string) (proc.Output, error) {
+			w.record("push " + branch)
+
+			return output(w.pushLines, w.pushErr), nil
+		},
+	}
+}
+
+// forgeDeps fakes the forge.
+func (w *world) forgeDeps() tui.ForgeDeps {
+	return tui.ForgeDeps{
+		FindPullRequest: func(branch string) (forge.PullRequest, bool, error) {
+			w.record("find " + branch)
+
+			return w.pull, w.pullFound, w.pullErr
+		},
+		CreatePullRequest: func(request forge.NewPullRequest) (forge.PullRequest, error) {
+			w.record("open " + request.Title + " " + request.Head + ">" + request.Base + " draft=" +
+				map[bool]string{false: "no", true: "yes"}[request.Draft] + "\n" + request.Body)
+
+			return w.pull, w.openErr
+		},
+		CheckStatus: func(_ forge.PullRequest, head string) (forge.CI, error) {
+			w.record("ci " + head)
+
+			return w.nextCI(), w.ciErr
+		},
+		Templates: func() []forge.Template { return w.templates },
+		Author:    func() (string, error) { return w.author, w.authorErr },
+	}
+}
+
+// hookDeps fakes lefthook.
+func (w *world) hookDeps() tui.HookDeps {
+	return tui.HookDeps{
+		Run: func(hook string) (proc.Output, error) {
+			w.record("hook " + hook)
+
+			return output(w.commitLines, w.commitErr), nil
+		},
+		Existing: func() ([]hooks.GitHook, bool) { return w.gitHooks, w.configured },
+		Write: func(generated hooks.Generated) error {
+			w.record("write " + generated.Config)
+
+			return w.writeErr
+		},
+	}
+}
+
+// editorDeps fakes the editor: whatever is edited comes back as edited.
+func (w *world) editorDeps() tui.EditorDeps {
+	return tui.EditorDeps{
+		Edit: func(text, _ string, done func(string, error) tea.Msg) tea.Cmd {
+			w.record("edit " + text)
+
+			return func() tea.Msg { return done(w.edited, w.editErr) }
+		},
+		Open: func(file string, line int, done func(error) tea.Msg) tea.Cmd {
+			w.record("open-editor " + file + ":" + strconv.Itoa(line))
+
+			return func() tea.Msg { return done(w.editorErr) }
+		},
+	}
+}
+
+// drain runs a command and every command it leads to, delivering each message,
+// the way Bubble Tea would — until nothing is left, or what is left is a timer
+// longer than patience.
+func drain(t *testing.T, model tui.Model, cmd tea.Cmd) tui.Model {
+	t.Helper()
+
+	pending := []tea.Cmd{cmd}
+
+	for steps := 0; len(pending) > 0 && steps < 300; steps++ {
+		next := pending[0]
+		pending = pending[1:]
+
+		if next == nil {
+			continue
+		}
+
+		msg, arrived := within(next)
+		if !arrived {
+			continue
+		}
+
+		if batch, isBatch := msg.(tea.BatchMsg); isBatch {
+			pending = append(pending, batch...)
+
+			continue
+		}
+
+		updated, follow := model.Update(msg)
+		model = concrete(t, updated)
+
+		pending = append(pending, follow)
+	}
+
+	return model
+}
+
+// within runs a command, giving up after patience.
+//
+//nolint:ireturn // tea.Msg is Bubble Tea's type for any message at all
+func within(cmd tea.Cmd) (tea.Msg, bool) {
+	answer := make(chan tea.Msg, 1)
+
+	go func() { answer <- cmd() }()
+
+	select {
+	case msg := <-answer:
+		return msg, true
+	case <-time.After(patience):
+		return nil, false
+	}
+}
+
+// live is the world's interface, sized and with everything it loads at start
+// loaded.
+func (w *world) live(t *testing.T, width, height int) tui.Model {
+	t.Helper()
+
+	model := sized(t, tui.New(completeConfig(), nil, w.deps()), width, height)
+
+	return drain(t, model, model.Init())
+}
+
+// typing presses keys in order, finishing whatever each one starts.
+func typing(t *testing.T, model tui.Model, keys ...string) tui.Model {
+	t.Helper()
+
+	for _, key := range keys {
+		updated, cmd := model.Update(keyMsg(key))
+		model = drain(t, concrete(t, updated), cmd)
+	}
+
+	return model
+}
+
+// letters is each character of text as its own key.
+func letters(text string) []string {
+	keys := make([]string, 0, len(text))
+	for _, character := range text {
+		keys = append(keys, string(character))
+	}
+
+	return keys
+}
+
+// footerLine is the last line of a screen.
+func footerLine(view string) string {
+	lines := strings.Split(view, "\n")
+
+	return lines[len(lines)-1]
+}
+
+// requireScreen fails the test unless the screen shows every one of want.
+func requireScreen(t *testing.T, view string, want ...string) {
+	t.Helper()
+
+	for _, each := range want {
+		if !strings.Contains(view, each) {
+			t.Errorf("the screen does not show %q:\n%s", each, view)
+		}
+	}
+}
+
+// refuseScreen fails the test if the screen shows any of unwanted.
+func refuseScreen(t *testing.T, view string, unwanted ...string) {
+	t.Helper()
+
+	for _, each := range unwanted {
+		if strings.Contains(view, each) {
+			t.Errorf("the screen shows %q:\n%s", each, view)
+		}
+	}
+}
+
+// click is a left click at a cell, and whatever it starts, finished.
+func click(t *testing.T, model tui.Model, column, row int) tui.Model {
+	t.Helper()
+
+	updated, cmd := model.Update(tea.MouseMsg{
+		X: column, Y: row, Action: tea.MouseActionPress, Button: tea.MouseButtonLeft,
+	})
+
+	return drain(t, concrete(t, updated), cmd)
+}
+
+// commitKeys opens the composer on the Commits pane, types a subject and
+// commits, then presses any more keys.
+func commitKeys(subject string, more ...string) []string {
+	keys := append(append([]string{"3", "c"}, letters(subject)...), keyEnter)
+
+	return append(keys, more...)
+}

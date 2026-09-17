@@ -26,7 +26,7 @@ func TestEnterMovesTheIssueAndRefreshesTheList(t *testing.T) {
 	fake := &fakeJira{moves: workflowMoves()}
 	screen := press(t, openPicker(t, jiraScreen(t, fake.deps(search))), "j")
 
-	sending, cmd := pressed(t, screen, "enter")
+	sending, cmd := pressed(t, screen, keyEnter)
 
 	if view := sending.View(); !strings.Contains(view, "moving OPS-1 to Done…") {
 		t.Errorf("the picker does not say the move is under way:\n%s", view)
@@ -54,10 +54,10 @@ func TestNothingInterruptsAMoveBeingSent(t *testing.T) {
 	t.Parallel()
 
 	fake := &fakeJira{moves: workflowMoves()}
-	sending, _ := pressed(t, openPicker(t, jiraScreen(t, fake.deps(twoIssues()))), "enter")
+	sending, _ := pressed(t, openPicker(t, jiraScreen(t, fake.deps(twoIssues()))), keyEnter)
 
 	// Nothing may send twice, and nothing may hide an answer still to come.
-	if _, again := pressed(t, sending, "enter"); again != nil {
+	if _, again := pressed(t, sending, keyEnter); again != nil {
 		t.Error("a second enter sent the transition again")
 	}
 
@@ -124,7 +124,7 @@ func TestTheSelectionFollowsTheMovedIssueThroughARefresh(t *testing.T) {
 			fake := &fakeJira{moves: workflowMoves()}
 			screen := openPicker(t, press(t, jiraScreen(t, fake.deps(search)), "j"))
 
-			screen, cmd := pressed(t, screen, "enter")
+			screen, cmd := pressed(t, screen, keyEnter)
 			screen, refresh := finish(t, screen, cmd)
 			screen, _ = finish(t, screen, refresh)
 
@@ -139,7 +139,7 @@ func TestTheNoticeGivesWayToTheKeysOnTheNextPress(t *testing.T) {
 	t.Parallel()
 
 	fake := &fakeJira{moves: workflowMoves()}
-	screen, cmd := pressed(t, openPicker(t, jiraScreen(t, fake.deps(twoIssues()))), "enter")
+	screen, cmd := pressed(t, openPicker(t, jiraScreen(t, fake.deps(twoIssues()))), keyEnter)
 	screen, _ = finish(t, screen, cmd)
 
 	view := press(t, screen, "j").View()
@@ -156,7 +156,7 @@ func TestARefusedMoveKeepsThePickerOpenToTryAgain(t *testing.T) {
 		applyErr: fmt.Errorf("%w: %s", jira.ErrRejected, "Resolution is required."),
 	}
 
-	screen, cmd := pressed(t, press(t, openPicker(t, jiraScreen(t, fake.deps(twoIssues()))), "j"), "enter")
+	screen, cmd := pressed(t, press(t, openPicker(t, jiraScreen(t, fake.deps(twoIssues()))), "j"), keyEnter)
 	screen, refresh := finish(t, screen, cmd)
 
 	view := screen.View()
@@ -174,7 +174,7 @@ func TestARefusedMoveKeepsThePickerOpenToTryAgain(t *testing.T) {
 		t.Errorf("a refused move lost the selection:\n%s", view)
 	}
 
-	if _, retry := pressed(t, screen, "enter"); retry == nil {
+	if _, retry := pressed(t, screen, keyEnter); retry == nil {
 		t.Error("enter after a refusal did not try again")
 	}
 }
@@ -185,7 +185,7 @@ func TestEnterBeforeTheListingArrivesSendsNothing(t *testing.T) {
 	fake := &fakeJira{moves: workflowMoves()}
 	loading, _ := pressed(t, jiraScreen(t, fake.deps(twoIssues())), "t")
 
-	if _, cmd := pressed(t, loading, "enter"); cmd != nil {
+	if _, cmd := pressed(t, loading, keyEnter); cmd != nil {
 		t.Error("enter sent a transition before any were listed")
 	}
 }

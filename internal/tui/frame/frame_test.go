@@ -204,7 +204,7 @@ func TestStylesKnowTheirASCIIAndHeavyCounterparts(t *testing.T) {
 func TestPlainDrawsATitleLineAndNoBorder(t *testing.T) {
 	t.Parallel()
 
-	rendered := frame.Plain("Issues", "PROJ-1 a very long summary\nsecond", 12, 4)
+	rendered := frame.Plain("Issues", "PROJ-1 a very long summary\nsecond", 12, 4, frame.Light)
 	rows := lines(rendered)
 
 	want := []string{"Issues      ", "PROJ-1 a ve…", "second      ", "            "}
@@ -218,7 +218,20 @@ func TestPlainDrawsATitleLineAndNoBorder(t *testing.T) {
 		}
 	}
 
-	if frame.Plain("x", "y", 0, 3) != "" || frame.Plain("x", "y", 5, 0) != "" {
+	if frame.Plain("x", "y", 0, 3, frame.Light) != "" || frame.Plain("x", "y", 5, 0, frame.Light) != "" {
 		t.Error("Plain drew something with no room to draw in")
+	}
+}
+
+func TestASCIIMarksCutTextInASCII(t *testing.T) {
+	t.Parallel()
+
+	boxed := lines(frame.Render("x", "a long line of text", 12, 3, frame.LightASCII))
+	if boxed[1] != "| a lon... |" {
+		t.Errorf("clipped ASCII row = %q, want an ASCII ellipsis", boxed[1])
+	}
+
+	if plain := frame.Plain("x", "a long line of text", 8, 2, frame.HeavyASCII); !strings.HasSuffix(plain, "a lon...") {
+		t.Errorf("clipped plain row = %q, want an ASCII ellipsis", plain)
 	}
 }
