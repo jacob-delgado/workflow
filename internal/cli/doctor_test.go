@@ -182,7 +182,7 @@ func TestDoctorReportsTheExternalTooling(t *testing.T) {
 		t.Errorf("doctor does not report git as found:\n%s", output)
 	}
 
-	for _, program := range []string{"lefthook", "gh", "glab"} {
+	for _, program := range []string{"lefthook", "gh"} {
 		if !strings.Contains(output, program) {
 			t.Errorf("doctor does not mention the optional program %q:\n%s", program, output)
 		}

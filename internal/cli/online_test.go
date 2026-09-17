@@ -371,3 +371,25 @@ func TestDoctorOnlineRejectsAnUnknownForgeKind(t *testing.T) {
 		t.Errorf("doctor --online = %v, want forge.kind = bitbucket refused by name:\n%s", err, output)
 	}
 }
+
+func TestDoctorOnlineDistinguishesAnUnreachableServiceFromARejection(t *testing.T) {
+	// Arrange
+	dir := t.TempDir()
+	writeFile(t, dir, `{"jira": {"base_url": "http://jira.invalid", "token": "t"}, `+slackWebhook+`}`)
+
+	// Act
+	output, err := run(t, dir, "doctor", "--online")
+
+	// Assert
+	if err == nil {
+		t.Fatalf("doctor --online accepted an unreachable service:\n%s", output)
+	}
+
+	if strings.Contains(err.Error(), "a credential was rejected") {
+		t.Errorf("doctor reported an unreachable service as a rejected credential: %v", err)
+	}
+
+	if !strings.Contains(err.Error(), "could not be reached") {
+		t.Errorf("doctor does not report the service as unreachable: %v", err)
+	}
+}

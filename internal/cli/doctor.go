@@ -32,6 +32,9 @@ var (
 	errMissingTooling = errors.New("required tooling is missing")
 	// errCredentialRejected reports a credential a service would not accept.
 	errCredentialRejected = errors.New("a credential was rejected")
+	// errUnreachable reports a service that never answered, as distinct from one
+	// that answered by refusing the credential.
+	errUnreachable = errors.New("the service could not be reached")
 )
 
 // labelWidth keeps the report's values in one column so the eye can scan them.
@@ -56,17 +59,12 @@ func externalTools() []tool {
 		{
 			name:     "lefthook",
 			required: false,
-			effect:   "the hook panes stay hidden without it",
+			effect:   "the hook keys are not offered without it",
 		},
 		{
 			name:     "gh",
 			required: false,
 			effect:   "supplies a GitHub token when none is configured",
-		},
-		{
-			name:     "glab",
-			required: false,
-			effect:   "supplies a GitLab token when none is configured",
 		},
 	}
 }
@@ -206,7 +204,7 @@ func askForge(ctx context.Context, out io.Writer, base string, token forge.Token
 	if err != nil {
 		fmt.Fprintf(out, "  %-10s %v (token from %s)\n", "forge", err, source)
 
-		return fmt.Errorf("%w: forge", errCredentialRejected)
+		return credentialOutcome(err, forge.ErrUnreachable, "forge")
 	}
 
 	fmt.Fprintf(out, "  %-10s authenticates as %s (token from %s)\n", "forge", identity.Name(), source)
@@ -229,12 +227,22 @@ func checkSlack(ctx context.Context, out io.Writer, creds config.Slack) error {
 			return nil
 		}
 
-		return fmt.Errorf("%w: slack", errCredentialRejected)
+		return credentialOutcome(err, slack.ErrUnreachable, "slack")
 	}
 
 	fmt.Fprintf(out, "  %-10s %s in %s\n", "slack", identity.User, identity.Team)
 
 	return nil
+}
+
+// credentialOutcome tells an unreachable service from a rejected credential, so
+// the outcome names the one the reader can act on.
+func credentialOutcome(err, unreachable error, service string) error {
+	if errors.Is(err, unreachable) {
+		return fmt.Errorf("%w: %s", errUnreachable, service)
+	}
+
+	return fmt.Errorf("%w: %s", errCredentialRejected, service)
 }
 
 // checkJira asks Jira who the configured token authenticates as.
@@ -245,7 +253,7 @@ func checkJira(ctx context.Context, out io.Writer, settings config.Jira) error {
 	if err != nil {
 		fmt.Fprintf(out, "  %-10s %v\n", "jira", err)
 
-		return fmt.Errorf("%w: jira", errCredentialRejected)
+		return credentialOutcome(err, jira.ErrUnreachable, "jira")
 	}
 
 	fmt.Fprintf(out, "  %-10s authenticates as %s\n", "jira", identify(user))
