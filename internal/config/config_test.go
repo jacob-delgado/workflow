@@ -10,6 +10,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/jacob-delgado/workflow/internal/config"
 )
@@ -127,6 +128,8 @@ func TestLoadRejectsMalformedAndUnknownKeys(t *testing.T) {
 		"unknown key": `{"jiraa": {"token": "x"}}`,
 		"unknown nested key": `{"jira": {"base_url": "https://jira.example.com",` +
 			` "tokenn": "x"}}`,
+		"a request timeout that is not a duration": `{"timing": {"request_timeout": "fast"}}`,
+		"a CI interval that is not positive":       `{"timing": {"ci_interval": "0s"}}`,
 	}
 
 	for name, contents := range cases {
@@ -145,6 +148,38 @@ func TestLoadRejectsMalformedAndUnknownKeys(t *testing.T) {
 				t.Errorf("error = %v, want ErrInvalid", err)
 			}
 		})
+	}
+}
+
+func TestTimingIsParsedWhenSet(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	workDir := t.TempDir()
+	write(t, workDir, `{"timing": {"request_timeout": "45s", "ci_interval": "3m"}}`)
+
+	// Act
+	cfg, err := config.Load(workDir, t.TempDir())
+	if err != nil {
+		t.Fatalf("Load returned %v, want nil", err)
+	}
+
+	// Assert
+	if cfg.RequestTimeout() != 45*time.Second || cfg.CIInterval() != 3*time.Minute {
+		t.Errorf("timing = %v / %v, want 45s / 3m", cfg.RequestTimeout(), cfg.CIInterval())
+	}
+}
+
+func TestUnsetTimingIsZeroSoTheDefaultApplies(t *testing.T) {
+	t.Parallel()
+
+	// Act
+	cfg := config.Default()
+
+	// Assert
+	if cfg.RequestTimeout() != 0 || cfg.CIInterval() != 0 {
+		t.Errorf("default timing = %v / %v, want zero so the caller's default applies",
+			cfg.RequestTimeout(), cfg.CIInterval())
 	}
 }
 
