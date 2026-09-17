@@ -248,3 +248,54 @@ func TestGitHubCIReportsCheckRunsThatCannotBeRead(t *testing.T) {
 		t.Errorf("CheckStatus returned %v, want the check runs' unexpected status", err)
 	}
 }
+
+// manyStatuses is a combined-status body of n statuses; the last fails when
+// asked, so a truncated read that misses it would wrongly report a pass.
+func manyStatuses(count int, lastFails bool) string {
+	items := make([]string, count)
+	for index := range items {
+		items[index] = `{"state":"success"}`
+	}
+
+	if lastFails && count > 0 {
+		items[count-1] = `{"state":"failure"}`
+	}
+
+	return `{"total_count":31,"statuses":[` + strings.Join(items, ",") + `]}`
+}
+
+func TestGitHubCIReadsEveryStatusNotJustTheFirstPage(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	// GitHub returns 30 statuses a page by default; only per_page=100 brings the
+	// failing 31st. Without it, the tally would miss the failure and say passed.
+	server := httptest.NewServer(http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
+		writer.Header().Set("Content-Type", "application/json")
+
+		switch request.URL.Path {
+		case "/repos/example/repo/commits/abc123/status":
+			full := strings.Contains(request.URL.RawQuery, "per_page=100")
+			if full {
+				_, _ = writer.Write([]byte(manyStatuses(31, true)))
+			} else {
+				_, _ = writer.Write([]byte(manyStatuses(30, false)))
+			}
+		case "/repos/example/repo/commits/abc123/check-runs":
+			_, _ = writer.Write([]byte(`{"total_count":0,"check_runs":[]}`))
+		default:
+			t.Errorf("unexpected request for %s", request.URL.Path)
+		}
+	}))
+	t.Cleanup(server.Close)
+
+	client := forge.New(server.Client().Do, server.URL, secret)
+
+	// Act
+	got, err := client.CheckStatus(t.Context(), githubRepo(), forge.PullRequest{}, headCommit)
+
+	// Assert
+	if err != nil || got.State != forge.CIFailed {
+		t.Errorf("CheckStatus = %+v, %v; want CIFailed once the 31st status is read", got, err)
+	}
+}
