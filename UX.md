@@ -54,7 +54,7 @@ one of them yet, which makes this table the shortest summary of the file.
 | "a key it does not show does nothing" | `docs/content/docs/usage.md:55` | No. Ten keys work unseen. UX-32 |
 | "`?` lists every key" | `docs/content/docs/usage.md:56` | No. Eleven bindings are missing. UX-33 |
 | "the one way the interface says something broke" | `failure`, `internal/tui/render.go:272` | In 7 places of about 20. UX-40 |
-| "Nothing outward facing is sent without" a last look | `internal/tui/comment.go:43` | Mostly. UX-13 |
+| "Nothing outward facing is sent without" a last look | `internal/tui/comment.go:43` | Mostly. |
 | "a refused change must never go unseen" | `internal/tui/picker.go:183` | In one overlay of seven. UX-35 |
 | "Each pane fails on its own" | `docs/content/docs/usage.md:58` | Yes, and it is the best thing about the first run. |
 | State is "carried by the SHAPE of a glyph rather than its color" | `internal/tui/glyphs.go:14` | Yes. It reads in monochrome. |
@@ -138,22 +138,6 @@ Impact: medium · Effort: small
 ## Issues
 
 ## Branch
-
-### UX-13 Give a push the same last look as every other write
-
-Impact: medium · Effort: small
-
-- Today: `P` pushes on a single key press (`handleBranchKey`,
-  `internal/tui/branch.go`). A comment, a status change, a branch, a commit, a
-  pull request and a Slack post are all shown before they are sent. A push is
-  the one outward write that is not.
-- Instead: the run overlay opens first, showing "push
-  fix/PROJ-412-token-redaction to origin", and `enter` starts it. This is a
-  judgment call: lazygit also pushes on `P` alone. The argument for changing
-  it is the interface's own rule, not the convention.
-- Touches: `internal/tui/run.go` (`startPush`), `internal/tui/branch.go`.
-- Done when: `P` shows what will be pushed and where, and `esc` sends
-  nothing.
 
 ### UX-15 Say how old the base is
 

@@ -178,13 +178,30 @@ func (m Model) canPush() bool {
 		m.deps.Git.Push != nil
 }
 
+// previewPush shows what a push would send, so an outward-facing act reachable
+// from a single key still gets a last look before it leaves.
+func (m Model) previewPush() (Model, tea.Cmd) {
+	m.overlay = pushPreview{branch: m.branch.branch.Name, remote: m.branch.remote()}
+
+	return m, nil
+}
+
+// remote is the remote the branch's upstream lives on, or origin by default.
+func (s branchState) remote() string {
+	if before, _, found := strings.Cut(s.branch.Upstream, "/"); found && before != "" {
+		return before
+	}
+
+	return "origin"
+}
+
 // handleBranchKey answers the Branch pane's own keys.
 func (m Model) handleBranchKey(msg tea.KeyMsg) (Model, tea.Cmd) {
 	switch {
 	case key.Matches(msg, m.keys.newBranch):
 		return m.openBranchCreator()
 	case key.Matches(msg, m.keys.push) && m.canPush():
-		return m.startPush(nil)
+		return m.previewPush()
 	case key.Matches(msg, m.keys.refresh):
 		return m, tea.Batch(m.loadBranch(), m.loadChanges())
 	default:
