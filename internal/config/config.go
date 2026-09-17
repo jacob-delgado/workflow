@@ -230,23 +230,6 @@ func LoadFile(path string) (Config, error) {
 	return cfg, nil
 }
 
-// Save writes the configuration to path at FileMode.
-func Save(path string, cfg Config) error {
-	encoded, err := json.MarshalIndent(cfg, "", "  ")
-	if err != nil {
-		return fmt.Errorf("encoding configuration: %w", err)
-	}
-
-	encoded = append(encoded, '\n')
-
-	err = os.WriteFile(path, encoded, FileMode)
-	if err != nil {
-		return fmt.Errorf("writing %s: %w", path, err)
-	}
-
-	return nil
-}
-
 // Template is the starting configuration `workflow config init` writes.
 func Template() Config {
 	return Config{

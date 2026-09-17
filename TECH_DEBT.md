@@ -432,12 +432,12 @@ Severity: low · Confidence: read
 Severity: medium · Confidence: reproduced
 
 - Evidence: it lists `glab` as "supplies a GitLab token when none is
-  configured" (`internal/cli/doctor.go:67`); no code runs `glab`, a test
+  configured" (`internal/cli/doctor.go:69`); no code runs `glab`, a test
   asserts that, and the configuration guide says "There is no `glab` step".
   It says "the hook panes stay hidden" without lefthook
-  (`internal/cli/doctor.go:57`); there are no hook panes. `checkForge`'s comment says it "does not call the forge"
-  (`internal/cli/doctor.go:158`) and it calls `Whoami`. Offline, `forgeLabel`
-  takes no settings (`internal/cli/doctor.go:286`), so it reports "cannot tell
+  (`internal/cli/doctor.go:59`); there are no hook panes. `checkForge`'s comment says it "does not call the forge"
+  (`internal/cli/doctor.go:160`) and it calls `Whoami`. Offline, `forgeLabel`
+  takes no settings (`internal/cli/doctor.go:288`), so it reports "cannot tell
   GitHub Enterprise from self-managed GitLab" when `forge.kind` says which,
   and no Forge line appears under Configuration, so a misspelled `forge.kind`
   is never reported on a github.com or gitlab.com remote.
@@ -452,7 +452,7 @@ Severity: medium · Confidence: reproduced
 Severity: medium · Confidence: read
 
 - Evidence: `connectForge` (`internal/wiring/wiring.go:206`) and `checkForge`
-  (`internal/cli/doctor.go:161`) each run parse, configured kind, API base and
+  (`internal/cli/doctor.go:163`) each run parse, configured kind, API base and
   token resolution, and each build the same `forge.Resolver` literal. The
   comment "the same way doctor --online does" is the only link. Partial third
   and fourth copies are `templatesFor` and `forgeLabel`. `forgeDeps` wraps the
@@ -472,7 +472,7 @@ Severity: medium · Confidence: read
 
 Severity: medium · Confidence: reproduced
 
-- Evidence: `Missing` tests `== ""` (`internal/config/config.go:339`). A URL
+- Evidence: `Missing` tests `== ""` (`internal/config/config.go:322`). A URL
   is checked on each request (`internal/jira/jira.go:160`), a webhook's scheme
   at post time (`internal/slack/post.go:95`), `forge.kind` at use.
 - Cost: a file with `base_url: "jira.example.com"`, an `http://` webhook and
@@ -530,10 +530,10 @@ Severity: medium · Confidence: reproduced
 Severity: low · Confidence: read
 
 - Evidence: every failing check returns `errCredentialRejected`
-  (`internal/cli/doctor.go:173`, `:195`, `:207`, `:230`, `:246`), including a
+  (`internal/cli/doctor.go:175`, `:197`, `:209`, `:232`, `:248`), including a
   bad `forge.kind` and an unreachable server. The three clients export 29
   sentinels; outside their own packages, one is ever tested for
-  (`internal/cli/doctor.go:226`).
+  (`internal/cli/doctor.go:228`).
 - Cost: with the VPN down, the error reads "a credential was rejected: jira".
 - Remedy: a second sentinel chosen with `errors.Is(err, ErrUnreachable)`.
 - Done when: an unreachable Jira is reported as unreachable.
@@ -744,7 +744,7 @@ Severity: medium · Confidence: measured
 - Evidence: `err != nil` after `connect()` is "true but never false" at
   `internal/wiring/wiring.go:161`, `:169`, `:177` and `:186`, and once true
   and never false at `:220`. In `doctor`, the forge and Slack checks
-  (`internal/cli/doctor.go:204` and `:220`) are never seen to succeed, because
+  (`internal/cli/doctor.go:206` and `:222`) are never seen to succeed, because
   `askForge` and `checkSlack` build real clients against real addresses, with
   no seam for a test server. `config init --global` is never run
   (`internal/cli/config_cmd.go:83`).
