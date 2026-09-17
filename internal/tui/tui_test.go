@@ -181,7 +181,7 @@ func keyMsg(key string) tea.KeyMsg {
 		"enter": tea.KeyEnter, keySpace: tea.KeySpace, "backspace": tea.KeyBackspace,
 		"pgdown": tea.KeyPgDown, "pgup": tea.KeyPgUp,
 		"ctrl+e": tea.KeyCtrlE, "ctrl+t": tea.KeyCtrlT, "ctrl+d": tea.KeyCtrlD,
-		"ctrl+o": tea.KeyCtrlO, "ctrl+r": tea.KeyCtrlR,
+		"ctrl+o": tea.KeyCtrlO, "ctrl+r": tea.KeyCtrlR, "ctrl+w": tea.KeyCtrlW,
 	}
 
 	if kind, ok := named[key]; ok {

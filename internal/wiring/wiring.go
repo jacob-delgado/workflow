@@ -120,8 +120,11 @@ func gitDeps(ctx context.Context, root string) tui.GitDeps {
 		},
 		Branches: func() ([]string, error) { return gitrepo.LocalBranches(ctx, proc.Run, root) },
 		Checkout: func(name string) error { return gitrepo.Checkout(ctx, proc.Run, root, name) },
-		Fetch:    func() error { return fetchOrigin(ctx, root) },
-		Commit:   func(message string) (proc.Output, error) { return commitWith(ctx, root, message) },
+		CreateWorktree: func(name, start string) (string, error) {
+			return gitrepo.WorktreeAdd(ctx, proc.Run, root, name, start)
+		},
+		Fetch:  func() error { return fetchOrigin(ctx, root) },
+		Commit: func(message string) (proc.Output, error) { return commitWith(ctx, root, message) },
 		Push: func(branch string) (proc.Output, error) {
 			return proc.Start(ctx, gitrepo.PushCommand(root, branch))
 		},

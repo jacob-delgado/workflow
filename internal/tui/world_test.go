@@ -75,6 +75,7 @@ type world struct {
 	changes     []gitrepo.Change
 	stageErr    error
 	createErr   error
+	worktreeErr error
 	checkoutErr error
 	fetchErr    error
 	commitLines []string

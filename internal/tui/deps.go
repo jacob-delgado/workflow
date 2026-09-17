@@ -63,6 +63,10 @@ type GitDeps struct {
 	// there is no repository.
 	Branches func() ([]string, error)
 	Checkout func(name string) error
+	// CreateWorktree creates a branch in a new worktree beside the repository and
+	// returns where it put it, so a task can be started without disturbing the
+	// current checkout. Nil when there is no repository.
+	CreateWorktree func(name, start string) (string, error)
 	// Fetch updates origin's tracking refs, so a new branch starts from what
 	// origin holds now. Nil when there is no repository.
 	Fetch func() error

@@ -39,6 +39,11 @@ func (w *world) gitDeps() tui.GitDeps {
 
 			return w.createErr
 		},
+		CreateWorktree: func(name, start string) (string, error) {
+			w.record("worktree " + name + " from " + start)
+
+			return "/work-" + name, w.worktreeErr
+		},
 		Branches: func() ([]string, error) {
 			w.record("branches")
 
