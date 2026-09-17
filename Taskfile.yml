@@ -64,6 +64,7 @@ tasks:
     desc: Run the gate scripts' own tests
     cmds:
       - scripts/check-commit-message_test.sh
+      - scripts/release/push-release-tag_test.sh
 
   test:cover:
     desc: Run the tests and enforce the coverage floor

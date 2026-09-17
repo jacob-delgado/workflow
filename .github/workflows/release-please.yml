@@ -9,8 +9,8 @@ name: release-please
 #   1. Conventional commits land on main (enforced by lefthook and CI).
 #   2. release-please opens or updates a release PR.
 #   3. A maintainer merges that PR. Nothing is released until they do.
-#   4. push-release-tag.sh (below) tags the merge commit and dispatches
-#      release.yml.
+#   4. push-release-tag.sh (below) checks that commit against the manifest and
+#      the release PR's label, tags it, and dispatches release.yml.
 #   5. release.yml builds, checksums, attests, and publishes the release with
 #      every asset in one call.
 #
