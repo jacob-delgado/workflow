@@ -121,6 +121,20 @@ func TestIssueKeyIsFoundWhereJiraWouldFindIt(t *testing.T) {
 	}
 }
 
+// "@" is refused, but not because it is empty — it is git's shorthand for the
+// current branch — so the reason must not misreport it as blank.
+func TestTheAtSignIsRefusedForWhatItIs(t *testing.T) {
+	t.Parallel()
+
+	// Act
+	err := convention.ValidateBranchName("@")
+
+	// Assert
+	if err == nil || strings.Contains(err.Error(), "empty") {
+		t.Errorf("ValidateBranchName(%q) = %v, want a reason that is not about emptiness", "@", err)
+	}
+}
+
 func TestValidateBranchNameAcceptsWhatGitAccepts(t *testing.T) {
 	t.Parallel()
 
