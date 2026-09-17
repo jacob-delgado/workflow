@@ -45,6 +45,9 @@ type JiraDeps struct {
 	Transitions func(issueKey string) ([]jira.Transition, error)
 	Transition  func(issueKey string, to jira.Transition, values []jira.FieldValue) error
 	Comment     func(issueKey, text string) (jira.Comment, error)
+	// LinkPullRequest records a pull request as a web link on an issue. Nil when
+	// Jira is not configured.
+	LinkPullRequest func(issueKey, pullURL, title string) error
 	// BrowseURL links an issue for someone to click.
 	BrowseURL func(issueKey string) string
 }

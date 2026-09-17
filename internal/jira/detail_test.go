@@ -197,6 +197,48 @@ func TestAddCommentPostsTheBodyAndReturnsTheComment(t *testing.T) {
 	}
 }
 
+func TestLinkPullRequestPostsARemoteLink(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	var (
+		requested atomic.Value
+		sent      atomic.Value
+	)
+
+	client := serve(t, func(writer http.ResponseWriter, request *http.Request) {
+		requested.Store(request.Method + " " + request.URL.EscapedPath() + " " + request.Header.Get("Content-Type"))
+
+		var body struct {
+			Object struct {
+				URL   string `json:"url"`
+				Title string `json:"title"`
+			} `json:"object"`
+		}
+
+		_ = json.NewDecoder(request.Body).Decode(&body)
+		sent.Store(body.Object.URL + " " + body.Object.Title)
+
+		writer.WriteHeader(http.StatusCreated)
+		_, _ = writer.Write([]byte(`{"id":10001}`))
+	})
+
+	// Act
+	err := client.LinkPullRequest(t.Context(), "OPS/1", "https://forge/pull/42", "fix(config): redact tokens")
+	if err != nil {
+		t.Fatalf("LinkPullRequest returned %v, want nil", err)
+	}
+
+	// Assert
+	if got := requested.Load(); got != "POST /rest/api/2/issue/OPS%2F1/remotelink "+jsonMediaType {
+		t.Errorf("requested %v, want a JSON POST to the escaped issue's remote links", got)
+	}
+
+	if got := sent.Load(); got != "https://forge/pull/42 fix(config): redact tokens" {
+		t.Errorf("sent %q, want the pull request's URL and title", got)
+	}
+}
+
 func TestAddCommentReportsJirasReason(t *testing.T) {
 	t.Parallel()
 

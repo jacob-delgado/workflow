@@ -62,6 +62,7 @@ var (
 	_ applier = ciChecked{}
 	_ applier = ciPoll{}
 	_ applier = pullCreated{}
+	_ applier = issueLinked{}
 	_ applier = prBodyEdited{}
 	_ applier = authorFound{}
 	_ applier = slackTextEdited{}

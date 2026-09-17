@@ -87,6 +87,9 @@ func jiraDeps(ctx context.Context, settings config.Jira) tui.JiraDeps {
 		Comment: func(issueKey, text string) (jira.Comment, error) {
 			return client.AddComment(ctx, issueKey, text)
 		},
+		LinkPullRequest: func(issueKey, pullURL, title string) error {
+			return client.LinkPullRequest(ctx, issueKey, pullURL, title)
+		},
 		BrowseURL: client.BrowseURL,
 	}
 }
