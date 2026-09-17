@@ -28,6 +28,9 @@ set -euo pipefail
 readonly subject_pattern='^(feat|fix|chore|docs|refactor|test|perf|build|ci|revert|style)(\([a-z0-9_-]+\))?!?: .+'
 readonly breaking_subject_pattern='^[a-z]+(\([a-z0-9_-]+\))?!: '
 
+# CLAUDE.md: the subject is at most 72 characters and does not end with a period.
+readonly subject_limit=72
+
 # What release-please's parser counts as whitespace before a continuation:
 # space, tab, vertical tab, form feed, no-break space and zero-width no-break
 # space.
@@ -52,7 +55,11 @@ if [[ $# -ne 1 || ! -f "$1" ]]; then
   exit 2
 fi
 
-message="$(tr '\r' '\n' <"$1")"
+# Drop what git's default cleanup drops before it stores the message: everything
+# from a `git commit -v` scissors line, and every comment line. Otherwise the
+# diff below the scissors, or a commented example, is read as part of the body.
+raw="$(tr '\r' '\n' <"$1")"
+message="$(printf '%s\n' "${raw}" | sed '/^#.*>8/,$d' | sed '/^#/d')"
 subject="${message%%$'\n'*}"
 body=""
 if [[ "${message}" == *$'\n'* ]]; then
@@ -65,6 +72,14 @@ if ! grep -qE "${subject_pattern}" <<<"${subject}"; then
     "  e.g. feat(jira): add issue transition command" \
     "       fix(config): reject unknown keys instead of ignoring them" \
     "Allowed types: feat, fix, chore, docs, refactor, test, perf, build, ci, revert, style"
+fi
+
+if ((${#subject} > subject_limit)); then
+  refuse "The subject is ${#subject} characters; the limit is ${subject_limit}: ${subject}"
+fi
+
+if [[ "${subject}" == *. ]]; then
+  refuse "The subject ends with a period, which CLAUDE.md forbids: ${subject}"
 fi
 
 if grep -q 'BEGIN_NESTED_COMMIT' <<<"${body}"; then
