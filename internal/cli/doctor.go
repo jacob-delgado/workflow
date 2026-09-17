@@ -13,6 +13,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/jacob-delgado/workflow/internal/buildinfo"
 	"github.com/jacob-delgado/workflow/internal/config"
 	"github.com/jacob-delgado/workflow/internal/forge"
 	"github.com/jacob-delgado/workflow/internal/gitrepo"
@@ -99,6 +100,12 @@ func newDoctorCmd() *cobra.Command {
 // a problem: someone running doctor wants the whole picture, not the first thing
 // that went wrong.
 func runDoctor(ctx context.Context, out io.Writer, cfg config.Config, loadErr error, online bool) error {
+	// The version leads the report because it is the first thing a bug report
+	// needs, and doctor's output is what the bug report template invites people
+	// to paste.
+	field(out, "Version", buildinfo.Current())
+	fmt.Fprintln(out)
+
 	repo := reportRepository(ctx, out)
 	fmt.Fprintln(out)
 

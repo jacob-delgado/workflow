@@ -10,6 +10,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/jacob-delgado/workflow/internal/buildinfo"
 	"github.com/jacob-delgado/workflow/internal/cli"
 	"github.com/jacob-delgado/workflow/internal/config"
 )
@@ -264,5 +265,33 @@ func TestEverySurfaceNamesBothSetupSteps(t *testing.T) {
 				}
 			}
 		})
+	}
+}
+
+func TestTheVersionFlagPrintsTheBuild(t *testing.T) {
+	// Act
+	output, err := run(t, t.TempDir(), "--version")
+	// Assert
+	if err != nil {
+		t.Fatalf("--version returned %v, want nil", err)
+	}
+
+	if want := buildinfo.Current(); !strings.Contains(output, want) {
+		t.Errorf("--version = %q, want it to contain the build %q", output, want)
+	}
+}
+
+func TestDoctorReportsTheVersionFirst(t *testing.T) {
+	// Act
+	output, _ := run(t, t.TempDir(), "doctor")
+
+	// Assert
+	version, repository := strings.Index(output, "Version:"), strings.Index(output, "Repository:")
+	if version < 0 || repository < 0 || version > repository {
+		t.Errorf("doctor did not report the version before the repository:\n%s", output)
+	}
+
+	if got := fieldValue(output, "Version"); got != buildinfo.Current() {
+		t.Errorf("doctor Version = %q, want %q", got, buildinfo.Current())
 	}
 }
