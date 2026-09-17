@@ -4,6 +4,8 @@
 package tui
 
 import (
+	"slices"
+	"strconv"
 	"strings"
 
 	"github.com/charmbracelet/bubbles/key"
@@ -21,13 +23,27 @@ const slackHelp = "Edit the Slack message above this line. Slack's own markup wo
 // slackState is what has been posted to Slack this session. Nothing is kept
 // between sessions: with no state file there is nowhere to keep it.
 type slackState struct {
-	posted bool
+	// posted is the pull requests announced this session, by number.
+	posted []int
 	// sending is a post Slack has not answered yet, which is not offered
 	// again until it does.
 	sending bool
-	pending string
+	pending queuedPost
 	err     error
 	author  string
+}
+
+// queuedPost is a message waiting for one pull request's CI to pass. It names
+// the pull request it was written for, because the one on screen can change
+// while it waits, and a message is only ever sent for the one its writer saw.
+type queuedPost struct {
+	pull int
+	text string
+}
+
+// waiting reports a post that has not been sent or given up on.
+func (q queuedPost) waiting() bool {
+	return q.text != ""
 }
 
 // loadAuthor is the command that asks the forge who opened the pull request.
@@ -82,9 +98,9 @@ func (m Model) slackState() string {
 		return m.marks.inFlight + " posting" + m.marks.ellipsis
 	case m.slack.err != nil:
 		return m.marks.failed + " " + m.slack.err.Error()
-	case m.slack.posted:
+	case m.announced():
 		return m.marks.done + " posted"
-	case m.slack.pending != "":
+	case m.slack.pending.waiting():
 		return m.marks.inFlight + " posts when CI passes"
 	default:
 		return m.marks.notStarted + " nothing posted"
@@ -108,10 +124,15 @@ func (m Model) slackDetail(width int) string {
 	return wrap(strings.Join(lines, "\n"), width)
 }
 
+// announced reports that the pull request on screen was posted this session.
+func (m Model) announced() bool {
+	return m.review.found && slices.Contains(m.slack.posted, m.review.pull.Number)
+}
+
 // canPost reports a pull request to announce, a way to post it, and no post
-// already made or on its way.
+// of it already made or on its way.
 func (m Model) canPost() bool {
-	return m.review.found && m.deps.Slack.Post != nil && !m.slack.posted && !m.slack.sending
+	return m.review.found && m.deps.Slack.Post != nil && !m.announced() && !m.slack.sending
 }
 
 // slackKeys offers composing the post.
@@ -215,7 +236,7 @@ func (p slackPreview) postWhenGreen(m Model) (Model, tea.Cmd) {
 	}
 
 	m = m.closeOverlay().noticed(m.marks.inFlight + " will post to " + p.target + " once CI passes")
-	m.slack.pending, m.slack.err = p.text, nil
+	m.slack.pending, m.slack.err = queuedPost{pull: m.review.pull.Number, text: p.text}, nil
 
 	return m.keepPolling(m.checkCI())
 }
@@ -223,24 +244,42 @@ func (p slackPreview) postWhenGreen(m Model) (Model, tea.Cmd) {
 // sendToSlack posts text. It replaces any post waiting for CI: that one would
 // otherwise follow it once CI passed, and the channel would read it twice.
 func (m Model) sendToSlack(text string) (Model, tea.Cmd) {
-	post := m.deps.Slack.Post
-	m.slack.sending, m.slack.pending = true, ""
+	post, pull := m.deps.Slack.Post, m.review.pull.Number
+	m.slack.sending, m.slack.pending = true, queuedPost{}
 
-	return m, func() tea.Msg { return slackPosted{err: post(text)} }
+	return m, func() tea.Msg { return slackPosted{pull: pull, err: post(text)} }
+}
+
+// withoutQueuedPost gives up on a post waiting for CI, saying so, because the
+// pull request it was written for is no longer the one on screen.
+func (m Model) withoutQueuedPost() Model {
+	if !m.slack.pending.waiting() {
+		return m
+	}
+
+	dropped := m.slack.pending.pull
+	m.slack.pending = queuedPost{}
+
+	return m.noticed(m.marks.failed + " dropped the Slack post waiting for #" + strconv.Itoa(dropped) +
+		", which is no longer this branch's pull request")
 }
 
 // postIfGreen posts the message waiting for CI once CI passes, and gives up on
-// it, saying so, if CI fails.
+// it, saying so, if CI fails or the pull request is another one.
 func (m Model) postIfGreen() (Model, tea.Cmd) {
-	if m.slack.pending == "" {
+	if !m.slack.pending.waiting() {
 		return m, nil
+	}
+
+	if m.slack.pending.pull != m.review.pull.Number {
+		return m.withoutQueuedPost(), nil
 	}
 
 	switch m.review.ci.State {
 	case forge.CIPassed:
-		return m.sendToSlack(m.slack.pending)
+		return m.sendToSlack(m.slack.pending.text)
 	case forge.CIFailed:
-		m.slack.pending = ""
+		m.slack.pending = queuedPost{}
 
 		return m.noticed(m.marks.failed + " CI failed, so nothing was posted to Slack"), nil
 	case forge.CINone, forge.CIRunning:
@@ -274,9 +313,10 @@ func (msg slackTextEdited) apply(m Model) (Model, tea.Cmd) {
 	return m, nil
 }
 
-// slackPosted reports how posting went.
+// slackPosted reports how posting went, and for which pull request.
 type slackPosted struct {
-	err error
+	pull int
+	err  error
 }
 
 // apply records the post, or why it failed — in the preview if it is open, and
@@ -296,7 +336,7 @@ func (msg slackPosted) apply(m Model) (Model, tea.Cmd) {
 		return m.noticed(m.failure(msg.err)), nil
 	}
 
-	m.slack.posted, m.slack.err = true, nil
+	m.slack.posted, m.slack.err = append(slices.Clone(m.slack.posted), msg.pull), nil
 
 	if open {
 		m = m.closeOverlay()

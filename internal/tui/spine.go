@@ -111,12 +111,13 @@ func (m Model) reviewStage() string {
 	}
 }
 
-// slackStage is done once posted, and in flight while a post waits for CI.
+// slackStage is done once this pull request is posted, and in flight while a
+// post waits for CI.
 func (m Model) slackStage() string {
 	switch {
-	case m.slack.posted:
+	case m.announced():
 		return m.marks.done
-	case m.slack.pending != "":
+	case m.slack.pending.waiting():
 		return m.marks.inFlight
 	default:
 		return m.marks.notStarted

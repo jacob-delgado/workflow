@@ -173,6 +173,12 @@ jacob opened a pull request: <https://github.com/…/pull/42|fix(config): redact
 passes. A post waiting for CI is dropped, saying so, if CI fails. Posting now
 replaces a post that is waiting, so the channel never reads it twice.
 
+A post waits for the pull request it was written for, and no other. Switch to
+another branch while it waits, or replace the pull request, and it is dropped,
+saying so, rather than sent for something you never previewed. Each pull request
+is announced once in a session, and the Slack pane and the top row say whether
+the one on screen has been.
+
 ## Dry run
 
 `workflow --dry-run` reads everything as usual and writes nothing. Every action
