@@ -290,13 +290,17 @@ func TestRedactURL(t *testing.T) {
 			raw:  jiraURL,
 			want: jiraURL,
 		},
-		"a password is masked": {
+		"userinfo with a password is masked whole": {
 			raw:  "https://alice:sekret@jira.example.com/jira",
-			want: "https://alice:xxxxx@jira.example.com/jira",
+			want: "https://xxxxx@jira.example.com/jira",
 		},
-		"a bare username is kept": {
+		"userinfo without a password is masked too": {
 			raw:  "https://alice@jira.example.com",
-			want: "https://alice@jira.example.com",
+			want: "https://xxxxx@jira.example.com",
+		},
+		"the rest of the URL is kept": {
+			raw:  "https://alice@jira.example.com:8443/jira?os_authType=basic#top",
+			want: "https://xxxxx@jira.example.com:8443/jira?os_authType=basic#top",
 		},
 		"something malformed is returned unchanged": {
 			raw:  "://not a url",
@@ -323,7 +327,7 @@ func TestRedactURL(t *testing.T) {
 const passwordURL = "https://alice:sekret@jira.example.com"
 
 // maskedPasswordURL is passwordURL as every display of it must read.
-const maskedPasswordURL = "https://alice:xxxxx@jira.example.com"
+const maskedPasswordURL = "https://xxxxx@jira.example.com"
 
 func TestDisplayURLMasksAPasswordAndNamesAnUnsetURL(t *testing.T) {
 	t.Parallel()
