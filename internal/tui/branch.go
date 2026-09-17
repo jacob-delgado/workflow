@@ -216,6 +216,7 @@ type branchCreator struct {
 	issue    jira.Issue
 	forIssue bool
 	base     string
+	baseAge  string
 	problem  error
 	sending  bool
 }
@@ -238,10 +239,20 @@ func (m Model) openBranchCreator() (Model, tea.Cmd) {
 
 	m.overlay = branchCreator{
 		marks: m.marks, input: newInput(name), issue: issue, forIssue: forIssue,
-		base: m.branch.branch.Base, problem: nil, sending: false,
+		base: m.branch.branch.Base, baseAge: m.baseAge(), problem: nil, sending: false,
 	}
 
 	return m, nil
+}
+
+// baseAge says how long ago the base last moved, or nothing when git could not
+// say — so a branch started from a stale base reads as such.
+func (m Model) baseAge() string {
+	if m.branch.branch.BaseUpdated.IsZero() {
+		return ""
+	}
+
+	return age(m.deps.now(), m.branch.branch.BaseUpdated)
 }
 
 // view shows the name and where the branch will start.
@@ -274,13 +285,17 @@ func (c branchCreator) title() string {
 	return "New branch"
 }
 
-// start says where the branch will begin.
+// start says where the branch will begin, and how old that base is.
 func (c branchCreator) start() string {
 	if c.base == "" {
 		return "from the current commit (no default branch found)"
 	}
 
-	return "from " + c.base
+	if c.baseAge == "" {
+		return "from " + c.base
+	}
+
+	return "from " + c.base + ", fetched " + c.baseAge
 }
 
 // footer offers creating the branch or not.

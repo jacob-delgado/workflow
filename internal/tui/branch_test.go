@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"testing"
+	"time"
 
 	"github.com/jacob-delgado/workflow/internal/gitrepo"
 	"github.com/jacob-delgado/workflow/internal/tui"
@@ -21,6 +22,21 @@ var (
 // dryInterface is the world's interface in dry-run mode.
 func dryInterface(w *world) tui.Model {
 	return tui.New(completeConfig(), nil, w.deps()).WithDryRun()
+}
+
+func TestTheBranchOverlayShowsHowOldTheBaseIs(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	aged := newWorld()
+	aged.branch.BaseUpdated = testNow().Add(-3 * 24 * time.Hour)
+	model := aged.live(t, 120, 40)
+
+	// Act
+	view := typing(t, model, "2", "b").View()
+
+	// Assert
+	requireScreen(t, view, "from "+baseRef, "3d ago")
 }
 
 func TestOutsideARepositoryEachRepoPaneSaysSoAndOffersNoRepoKeys(t *testing.T) {
