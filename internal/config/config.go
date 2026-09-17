@@ -82,6 +82,10 @@ type Slack struct {
 	// time, for a change that concerns another team. The default Channel is
 	// always available too.
 	Channels []string `json:"channels"`
+	// Announcement shapes the review message from named placeholders — {author},
+	// {noun}, {title}, {url}, {key}, {summary}, {issue_url}. Empty uses the
+	// built-in message. Substituted values are always escaped.
+	Announcement string `json:"announcement"`
 }
 
 // Forge describes the Git forge credential — which workflow usually does not

@@ -423,3 +423,22 @@ func TestSaveReportsAnUnwritablePath(t *testing.T) {
 		t.Errorf("Save = %v, want the write's own not-exist error", err)
 	}
 }
+
+func TestSlackAnnouncementTemplateIsRead(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	workDir := t.TempDir()
+	write(t, workDir, `{"slack": {"webhook_url": "`+webhookURL+`", "announcement": "{author}: {title}"}}`)
+
+	// Act
+	cfg, err := config.Load(workDir, t.TempDir())
+	if err != nil {
+		t.Fatalf("Load returned %v, want nil", err)
+	}
+
+	// Assert
+	if cfg.Slack.Announcement != "{author}: {title}" {
+		t.Errorf("announcement = %q, want the configured template", cfg.Slack.Announcement)
+	}
+}
