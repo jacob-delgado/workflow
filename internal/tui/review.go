@@ -190,7 +190,7 @@ func (m Model) checkedAtSuffix() string {
 func (m Model) reviewRail(_ int) string {
 	switch {
 	case !m.branch.onFeatureBranch():
-		return m.styles.label.Render("on no feature branch")
+		return "on no feature branch"
 	case !m.review.loaded:
 		return "looking" + m.marks.ellipsis
 	case m.review.err != nil:

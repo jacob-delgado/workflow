@@ -246,19 +246,6 @@ shape for state (`○ ◐ ● ✗`); border weight for focus; red for failure an
 nothing else. None of that should change. The entries below are places where
 the system is not applied, or where two of its channels disagree.
 
-### UX-43 Do not whisper the instructions
-
-Impact: low · Effort: small
-
-- Today (seen live): empty-state lines such as "on no feature branch" and
-  "○ nothing posted" are drawn faint, the same as field labels. The lines
-  that tell a new user what to do next are the hardest to read.
-- Instead: faint is for labels ("base", "upstream", "CI"). A sentence
-  addressed to the user is drawn at normal weight.
-- Touches: `internal/tui/review.go`, `internal/tui/slack.go`,
-  `internal/tui/branch.go`.
-- Done when: no full sentence is drawn faint.
-
 ### UX-44 Keep a cursor under `NO_COLOR`
 
 Impact: medium · Effort: small
