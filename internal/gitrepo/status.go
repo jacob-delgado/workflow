@@ -136,10 +136,16 @@ func moved(change Change) bool {
 		change.Unstaged == renamed || change.Unstaged == copied
 }
 
+// literalPathspecs turns off git's globbing and pathspec magic, so a name is
+// taken as itself, not as a pattern.
+const literalPathspecs = "--literal-pathspecs"
+
 // Stage puts a file's changes in the index — additions, edits and deletions
-// alike, which is what --all is for.
+// alike, which is what --all is for. --literal-pathspecs turns off globbing and
+// pathspec magic, so a name like `[id].tsx` stages only itself; `--` alone ends
+// options but does not stop git reading the path as a pattern.
 func Stage(ctx context.Context, run Runner, dir string, change Change) error {
-	args := append([]string{"-C", dir, "add", "--all", "--"}, change.paths()...)
+	args := append([]string{"-C", dir, literalPathspecs, "add", "--all", "--"}, change.paths()...)
 
 	_, err := run(ctx, "git", args...)
 	if err != nil {
@@ -153,11 +159,11 @@ func Stage(ctx context.Context, run Runner, dir string, change Change) error {
 // alone. Before the first commit there is no HEAD to restore from, so the file
 // is removed from the index instead.
 func Unstage(ctx context.Context, run Runner, dir string, change Change) error {
-	args := append([]string{"-C", dir, "restore", "--staged", "--"}, change.paths()...)
+	args := append([]string{"-C", dir, literalPathspecs, "restore", "--staged", "--"}, change.paths()...)
 
 	_, err := run(ctx, "git", "-C", dir, "rev-parse", "--verify", "--quiet", "HEAD")
 	if err != nil {
-		args = append([]string{"-C", dir, "rm", "--cached", "--quiet", "--"}, change.paths()...)
+		args = append([]string{"-C", dir, literalPathspecs, "rm", "--cached", "--quiet", "--"}, change.paths()...)
 	}
 
 	_, err = run(ctx, "git", args...)
