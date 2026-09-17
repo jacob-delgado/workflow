@@ -77,6 +77,7 @@ func (msg transitionApplied) apply(m Model) (Model, tea.Cmd) {
 // going.
 type statusPicker struct {
 	marks    glyphs
+	styles   styles
 	issue    jira.Issue
 	found    []jira.Transition
 	listErr  error
@@ -102,7 +103,7 @@ func (m Model) openStatusPicker() (Model, tea.Cmd) {
 		return m, nil
 	}
 
-	m.overlay = statusPicker{marks: m.marks, issue: selected}
+	m.overlay = statusPicker{marks: m.marks, styles: m.styles, issue: selected}
 	list := m.deps.Jira.Transitions
 
 	return m, func() tea.Msg {
@@ -120,11 +121,11 @@ func (p statusPicker) view(width, rows int) (string, string) {
 	case !p.settled:
 		lines = append(lines, "loading statuses"+p.marks.ellipsis)
 	case p.listErr != nil:
-		lines = append(lines, p.marks.failed+" "+p.listErr.Error())
+		lines = append(lines, failedGlyph(p.styles, p.marks)+" "+p.listErr.Error())
 	case len(p.found) == 0:
 		lines = append(lines, "Jira offers no status change for "+p.issue.Key)
 	case p.form.open():
-		lines = append(lines, p.form.view(p.marks, width, rows-len(lines)-outcomeRows)...)
+		lines = append(lines, p.form.view(p.marks, p.styles, width, rows-len(lines)-outcomeRows)...)
 		lines = append(lines, p.outcome()...)
 	default:
 		lines = append(lines, p.rows(rows-len(lines)-outcomeRows)...)
@@ -157,7 +158,7 @@ func (p statusPicker) outcome() []string {
 
 		return []string{"", "changing " + p.issue.Key + " to " + chosen.ToStatus + p.marks.ellipsis}
 	case p.applyErr != nil:
-		return []string{"", p.marks.failed + " " + p.applyErr.Error()}
+		return []string{"", failedGlyph(p.styles, p.marks) + " " + p.applyErr.Error()}
 	default:
 		return nil
 	}

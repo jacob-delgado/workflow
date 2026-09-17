@@ -96,12 +96,12 @@ func (l issueList) move(step int) issueList {
 }
 
 // render draws as many rows as fit, scrolled so the selection stays on screen.
-func (l issueList) render(marks glyphs, rows int) string {
+func (l issueList) render(marks glyphs, sty styles, rows int) string {
 	switch {
 	case !l.settled:
 		return "loading" + marks.ellipsis
 	case l.err != nil:
-		return marks.failed + " failed" + marks.separator + "see detail"
+		return failedGlyph(sty, marks) + " failed" + marks.separator + "see detail"
 	case len(l.found.Issues) == 0:
 		return "no open issues assigned to you"
 	}

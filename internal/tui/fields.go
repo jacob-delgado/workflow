@@ -80,7 +80,7 @@ func (f fieldForm) field() jira.Field {
 }
 
 // view draws the field being filled in.
-func (f fieldForm) view(marks glyphs, width, rows int) []string {
+func (f fieldForm) view(marks glyphs, sty styles, width, rows int) []string {
 	field := f.field()
 	lines := []string{
 		transitionLabel(marks, f.transition) + " needs:",
@@ -98,7 +98,7 @@ func (f fieldForm) view(marks glyphs, width, rows int) []string {
 	}
 
 	if f.problem != nil {
-		lines = append(lines, marks.failed+" "+field.Name+" "+f.problem.Error())
+		lines = append(lines, failedGlyph(sty, marks)+" "+field.Name+" "+f.problem.Error())
 	}
 
 	return lines

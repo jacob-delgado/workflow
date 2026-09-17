@@ -53,9 +53,9 @@ one of them yet, which makes this table the shortest summary of the file.
 | --- | --- | --- |
 | "a key it does not show does nothing" | `docs/content/docs/usage.md:55` | No. Ten keys work unseen. UX-32 |
 | "`?` lists every key" | `docs/content/docs/usage.md:56` | No. Eleven bindings are missing. UX-33 |
-| "the one way the interface says something broke" | `failure`, `internal/tui/render.go:272` | In 7 places of about 20. UX-40 |
+| "the one way the interface says something broke" | `failure`, `internal/tui/render.go:272` | In 7 places of about 20. |
 | "Nothing outward facing is sent without" a last look | `internal/tui/comment.go:43` | Mostly. |
-| "a refused change must never go unseen" | `internal/tui/picker.go:183` | In one overlay of seven. UX-35 |
+| "a refused change must never go unseen" | `internal/tui/picker.go:184` | In one overlay of seven. UX-35 |
 | "Each pane fails on its own" | `docs/content/docs/usage.md:58` | Yes, and it is the best thing about the first run. |
 | State is "carried by the SHAPE of a glyph rather than its color" | `internal/tui/glyphs.go:14` | Yes. It reads in monochrome. |
 
@@ -264,26 +264,6 @@ taken from the terminal's own palette so the user's theme decides the shades;
 shape for state (`○ ◐ ● ✗`); border weight for focus; red for failure and
 nothing else. None of that should change. The entries below are places where
 the system is not applied, or where two of its channels disagree.
-
-### UX-40 Make red mean broken everywhere, and let it win
-
-Impact: medium · Effort: small
-
-- Today: `failure` is "the one way the interface says something broke", and
-  it is used in seven places. About thirteen others draw `✗` and the error in
-  the default color: every rail ("✗ failed · see detail", "✗ not a git
-  repository", "✗ the forge did not answer"), every overlay, and both CI
-  lines. Read from the raw escape codes on a live screen: the rail's failure
-  lines carry no color at all. In the progress row, hue belongs to the system,
-  so a failed Review stage is drawn as a **green** `✗`. Green with a cross is
-  the one pairing where the two channels say opposite things to most readers.
-- Instead: `✗` is red wherever it appears, including the progress row, where
-  the label keeps the system's hue and the glyph takes the failure color.
-  Overlays are handed the styles as well as the glyphs, which is why they
-  cannot call `failure` today.
-- Touches: `internal/tui/render.go`, `internal/tui/spine.go`,
-  `internal/tui/overlay.go` and each overlay's `view`.
-- Done when: a test over the raw output finds no `✗` outside a red run.
 
 ### UX-42 Bring the bottom row into the palette, and up in contrast
 
