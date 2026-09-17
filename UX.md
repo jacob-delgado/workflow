@@ -53,7 +53,7 @@ one of them yet, which makes this table the shortest summary of the file.
 | --- | --- | --- |
 | "a key it does not show does nothing" | `docs/content/docs/usage.md:55` | No. Ten keys work unseen. UX-32 |
 | "`?` lists every key" | `docs/content/docs/usage.md:56` | No. Eleven bindings are missing. UX-33 |
-| "the one way the interface says something broke" | `failure`, `internal/tui/render.go:277` | In 7 places of about 20. |
+| "the one way the interface says something broke" | `failure`, `internal/tui/render.go:276` | In 7 places of about 20. |
 | "Nothing outward facing is sent without" a last look | `internal/tui/comment.go:43` | Mostly. |
 | "a refused change must never go unseen" | `internal/tui/picker.go:184` | In one overlay of seven. |
 | "Each pane fails on its own" | `docs/content/docs/usage.md:58` | Yes, and it is the best thing about the first run. |
@@ -207,21 +207,6 @@ Impact: medium · Effort: small
 - Touches: `internal/tui/render.go`, each pane's state (`loaded` flags),
   `internal/tui/commits.go`.
 - Done when: pressing `r` changes the pane's title until the answer arrives.
-
-### UX-39 A compact progress row that still names its stages
-
-Impact: low · Effort: small
-
-- Today (seen live): below 24 rows the progress row becomes `[●●●○○]`. Which
-  stage failed is carried by position and hue alone, which is the one place
-  the "shape, not color" rule runs out.
-- Instead: `I● B● C● R✗ S○`. Nine more columns, and it reads in monochrome.
-  In the collapsed layout, also keep the pane's number in its title
-  (`┌─ 3 Commits ─`), since `1`–`5` is how you get anywhere and the rail that
-  showed the numbers is gone.
-- Touches: `internal/tui/spine.go`, `internal/tui/render.go`.
-- Done when: the compact row can be read without color, and a collapsed
-  pane's title shows its number.
 
 ## The visual system
 

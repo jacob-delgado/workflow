@@ -29,7 +29,7 @@ func (m Model) spine(shape layout.Layout) string {
 
 	for _, each := range stages {
 		if shape.CompactSpine() {
-			parts = append(parts, m.paintGlyph(each))
+			parts = append(parts, each.hue.Render(initial(each.name))+m.paintGlyph(each))
 		} else {
 			parts = append(parts, m.paintGlyph(each)+each.hue.Render(" "+each.name))
 		}
@@ -37,7 +37,7 @@ func (m Model) spine(shape layout.Layout) string {
 
 	joined := " " + strings.Join(parts, m.marks.rule)
 	if shape.CompactSpine() {
-		joined = " [" + strings.Join(parts, "") + "]"
+		joined = " " + strings.Join(parts, " ")
 	}
 
 	if m.dryRun {
@@ -45,6 +45,12 @@ func (m Model) spine(shape layout.Layout) string {
 	}
 
 	return ansi.Truncate(joined, shape.Spine.Width, "")
+}
+
+// initial is a stage name's first letter, the label the compact spine has room
+// for so a stage is named by more than its position.
+func initial(name string) string {
+	return string([]rune(name)[0])
 }
 
 // paintGlyph colors a stage's glyph: red where it failed, so red reads the same

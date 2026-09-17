@@ -135,9 +135,21 @@ func TestAShortTerminalCompactsTheSpine(t *testing.T) {
 	spine, _, _ := strings.Cut(newWorld().live(t, 120, 20).View(), "\n")
 
 	// Assert
-	if !strings.HasPrefix(spine, " [●●●●○]") {
-		t.Errorf("spine = %q, want the glyphs alone", spine)
+	if !strings.HasPrefix(spine, " I● B● C● R● S○") {
+		t.Errorf("spine = %q, want each stage labeled with its initial", spine)
 	}
+}
+
+func TestACompactCollapsedScreenNamesItsStagesAndPane(t *testing.T) {
+	t.Parallel()
+
+	// Act
+	view := typing(t, newWorld().live(t, 79, 20), "3").View()
+
+	// Assert
+	spine, _, _ := strings.Cut(view, "\n")
+	requireScreen(t, spine, "I●", "B●", "C●")
+	requireScreen(t, view, "3 Commits")
 }
 
 func TestADryRunSaysSoOnEveryScreen(t *testing.T) {
@@ -183,8 +195,8 @@ func TestAVeryNarrowTerminalDropsTheBorder(t *testing.T) {
 		t.Fatalf("drew %d lines, want the spine and the detail:\n%s", len(lines), view)
 	}
 
-	if lines[1] != "Issues"+strings.Repeat(" ", 44) {
-		t.Errorf("the detail's first row = %q, want its title with no border", lines[1])
+	if lines[1] != "1 Issues"+strings.Repeat(" ", 42) {
+		t.Errorf("the detail's first row = %q, want its numbered title with no border", lines[1])
 	}
 
 	refuseScreen(t, view, "┌", "┏", "│")

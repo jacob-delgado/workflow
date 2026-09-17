@@ -95,11 +95,19 @@ func (m Model) detailContent(shape layout.Layout) (string, string, frame.Style) 
 	}
 
 	behavior := behaviorOf(m.focus)
-	if shape.Collapsed() && behavior.narrow != nil {
-		return m.focus.title(), behavior.narrow(m, rows), m.marks.border
+
+	// Collapsed, the rail that showed 1-5 is gone, so the detail title carries
+	// the number that jumps to the pane.
+	title := m.focus.title()
+	if shape.Collapsed() {
+		title = m.focus.label()
 	}
 
-	return m.focus.title(), scrolled(behavior.detail(m, width), m.scroll, rows), m.marks.border
+	if shape.Collapsed() && behavior.narrow != nil {
+		return title, behavior.narrow(m, rows), m.marks.border
+	}
+
+	return title, scrolled(behavior.detail(m, width), m.scroll, rows), m.marks.border
 }
 
 // helpView lists every key, a group at a time, one key a line: the detail pane

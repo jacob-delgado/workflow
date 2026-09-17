@@ -60,7 +60,7 @@ the Issues pane, and the repository panes carry on.
 
 The layout follows the terminal. Below 80 columns the rail and the detail pane
 take turns rather than sharing the width; below 60 the borders go as well; below
-24 rows the top row shrinks to its glyphs.
+24 rows the top row shrinks to a short form, each stage its initial and glyph.
 
 ## Keys
 
