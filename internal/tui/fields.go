@@ -104,13 +104,28 @@ func (f fieldForm) view(marks glyphs, width, rows int) []string {
 	return lines
 }
 
-// footer offers what works on the field being filled in.
+// footer offers what works on the field being filled in, and says what esc and
+// enter do here: esc steps back to the transitions, and enter moves to the next
+// field until the last one, which it applies.
 func (f fieldForm) footer(keys keyMap) []key.Binding {
+	advance := relabel(keys.confirm, f.confirmLabel())
+	back := relabel(keys.closeOverlay, "back")
+
 	if f.field().Kind == jira.FieldText {
-		return []key.Binding{keys.confirm, keys.closeOverlay}
+		return []key.Binding{advance, back}
 	}
 
-	return keys.listKeys()
+	return []key.Binding{keys.up, keys.down, advance, back}
+}
+
+// confirmLabel names enter for what it does on this field: apply on the last,
+// otherwise on to the next.
+func (f fieldForm) confirmLabel() string {
+	if f.index == len(f.transition.Fields)-1 {
+		return "apply"
+	}
+
+	return "next"
 }
 
 // handleFormKey answers a key while a transition's fields are being filled in.

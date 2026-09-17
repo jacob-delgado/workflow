@@ -234,20 +234,6 @@ Impact: medium · Effort: small
 - Touches: `internal/tui/detail.go`.
 - Done when: after a failed detail load, `r` asks Jira for it again.
 
-### UX-10 Label `esc` and `enter` for what they do in the field form
-
-Impact: low · Effort: small
-
-- Today: when a status change needs fields, `esc` goes back to the list of
-  statuses and the bottom row calls it "close". `enter` moves to the next
-  field and is called "apply" (`fieldForm`, `internal/tui/fields.go`). Tests
-  pin both halves.
-- Instead: "esc back", "enter next", and "enter apply" on the last field
-  only. Validation failures ("Resolution needs a value") appear under the
-  field, not under the form.
-- Touches: `internal/tui/fields.go`, `internal/tui/keys.go`.
-- Done when: the bottom row matches what the key does at every step.
-
 ### UX-11 Do not lose a comment to the editor
 
 Impact: medium · Effort: small
