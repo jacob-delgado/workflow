@@ -34,11 +34,15 @@ const (
 	// compactSpineBelow is the height under which the spine drops its labels.
 	compactSpineBelow = 24
 
-	// compactPane is the height of a rail pane without focus: its border and
-	// two rows of content. focusedMinimum is the least a focused pane gets
-	// before sharing evenly is the better use of a short terminal.
-	compactPane    = 4
-	focusedMinimum = 6
+	// compactContent is the content rows a rail pane without focus keeps.
+	// focusedMinimum is the least content a focused pane gets before sharing the
+	// content rows evenly is the better use of a short terminal.
+	compactContent = 2
+	focusedMinimum = 4
+
+	// railRules is the rules a shared rail spends: one around and one between
+	// the panes, so N panes take N+1 rule rows rather than 2N borders.
+	railRules = 1
 
 	percent = 100
 )
@@ -126,29 +130,39 @@ func (l Layout) RailAt(column, row int) (int, bool) {
 	return 0, false
 }
 
-// stack splits the body height between the rail panes: compact panes without
-// focus and the rest to the focused one, or, on a terminal too short for that
-// to help, evenly.
+// stack splits the rail's content rows between the panes — compact panes
+// without focus and the rest to the focused one, or evenly on a terminal too
+// short for that to help — and gives each pane a box that spans its content and
+// the shared rule above it, so the boxes stay contiguous for hit-testing.
 func stack(width, body, panes, focused int) []Box {
-	heights := evenHeights(body, panes)
-
-	if body >= compactPane*(panes-1)+focusedMinimum {
-		for index := range heights {
-			heights[index] = compactPane
-		}
-
-		heights[focused] = body - compactPane*(panes-1)
-	}
+	content := allocateContent(max(0, body-panes-railRules), panes, focused)
 
 	boxes := make([]Box, 0, panes)
 	row := spineRows
 
-	for _, height := range heights {
+	for _, rows := range content {
+		height := rows + railRules
 		boxes = append(boxes, Box{X: 0, Y: row, Width: width, Height: height})
 		row += height
 	}
 
 	return boxes
+}
+
+// allocateContent splits the content rows: compact for the unfocused panes and
+// the rest to the focused one, or evenly when there is too little to spare.
+func allocateContent(total, panes, focused int) []int {
+	rows := evenHeights(total, panes)
+
+	if total >= compactContent*(panes-1)+focusedMinimum {
+		for index := range rows {
+			rows[index] = compactContent
+		}
+
+		rows[focused] = total - compactContent*(panes-1)
+	}
+
+	return rows
 }
 
 // evenHeights splits body evenly. Leftover rows go to the top panes one each

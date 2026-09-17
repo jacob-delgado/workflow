@@ -278,3 +278,51 @@ func TestPlainDrawsNothingWithoutRoom(t *testing.T) {
 		})
 	}
 }
+
+func TestRailDrawsOneSharedRuleBetweenPanes(t *testing.T) {
+	t.Parallel()
+
+	cases := map[string]struct {
+		style          frame.Style
+		ruleAboveFocus string
+		ruleBelowFocus string
+	}{
+		"unicode": {style: frame.Light, ruleAboveFocus: "┢", ruleBelowFocus: "┡"},
+		"ascii":   {style: frame.LightASCII, ruleAboveFocus: "+", ruleBelowFocus: "+"},
+	}
+
+	for name, tt := range cases {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			// Arrange
+			panes := []frame.RailPane{
+				{Title: "1 Issues", Body: "a\nb", Rows: 2, Focused: false},
+				{Title: "2 Branch", Body: "c\nd", Rows: 2, Focused: true},
+				{Title: "3 Commits", Body: "e\nf", Rows: 2, Focused: false},
+			}
+
+			// Act
+			rows := lines(frame.Rail(panes, 20, tt.style))
+
+			// Assert
+			if len(rows) != 10 {
+				t.Fatalf("rail drew %d rows, want 10:\n%s", len(rows), strings.Join(rows, "\n"))
+			}
+
+			if !strings.HasPrefix(rows[3], tt.ruleAboveFocus) || !strings.Contains(rows[3], "2 Branch") {
+				t.Errorf("row 3 is not the shared rule carrying the focused pane's title: %q", rows[3])
+			}
+
+			if !strings.HasPrefix(rows[6], tt.ruleBelowFocus) {
+				t.Errorf("row 6 is not the shared rule below the focused pane: %q", rows[6])
+			}
+
+			for _, row := range rows {
+				if lipgloss.Width(row) != 20 {
+					t.Errorf("row %q is not 20 cells wide", row)
+				}
+			}
+		})
+	}
+}

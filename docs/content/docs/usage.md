@@ -24,20 +24,16 @@ workflow --dry-run  # the same, with every write held back
 ┃ ▸ ◐ PROJ-412 Fix token… ┃│ PROJ-412 Fix token redaction                      │
 ┃   ○ PROJ-388 Add retri… ┃│ Bug · In Progress                                 │
 ┃                         ┃│ reported by Ana Lopez                             │
-┗━━━━━━━━━━━━━━━━━━━━━━━━━┛│                                                   │
-┌─ 2 Branch ──────────────┐│ Tokens reach the log.                             │
-│ fix/PROJ-412-fix-token… ││                                                   │
-│ pushed                  ││ Comments 1 of 1                                   │
-└─────────────────────────┘│                                                   │
-┌─ 3 Commits ─────────────┐│ Ana Lopez · 2h ago                                │
-│ 1 staged · 1 changed    ││ Repro'd on 8.2.1                                  │
-│ 1 commit on this branch ││                                                   │
-└─────────────────────────┘│                                                   │
-┌─ 4 Review ──────────────┐│                                                   │
+┡━ 2 Branch ━━━━━━━━━━━━━━┩│                                                   │
+│ fix/PROJ-412-fix-token… ││ Tokens reach the log.                             │
+│ pushed                  ││                                                   │
+├─ 3 Commits ─────────────┤│ Comments 1 of 1                                   │
+│ 1 staged · 1 changed    ││                                                   │
+│ 1 commit on this branch ││ Ana Lopez · 2h ago                                │
+├─ 4 Review ──────────────┤│ Repro'd on 8.2.1                                  │
 │ #42 fix(config): redac… ││                                                   │
 │ ● passed (1 of 1 finis… ││                                                   │
-└─────────────────────────┘│                                                   │
-┌─ 5 Slack ───────────────┐│                                                   │
+├─ 5 Slack ───────────────┤│                                                   │
 │ #dev                    ││                                                   │
 │ ○ nothing posted        ││                                                   │
 └─────────────────────────┘└───────────────────────────────────────────────────┘
@@ -47,8 +43,9 @@ workflow --dry-run  # the same, with every write held back
 - **The top row** is how far along the loop the work is. `○` not started, `◐`
   in flight, `●` done, `✗` failed. It is derived, not recorded: the Issue stage
   is done once the branch names an issue, Review follows the pull request's CI.
-- **The rail** on the left is the five panes. The focused one has a heavy
-  border and the most room; the rest keep a few rows each.
+- **The rail** on the left is the five panes in one box, a light rule between
+  them. The focused one is drawn with heavy rules and a bold title, and takes
+  the most room; the rest keep a few rows each.
 - **The detail pane** on the right shows the focused pane in full. Pickers,
   composers and previews open here too, and take the keyboard until they close.
 - **The bottom row** shows what the focused pane can do right now; it changes

@@ -6,7 +6,6 @@ package tui
 import (
 	tea "github.com/charmbracelet/bubbletea"
 
-	"github.com/jacob-delgado/workflow/internal/tui/frame"
 	"github.com/jacob-delgado/workflow/internal/tui/layout"
 )
 
@@ -52,7 +51,9 @@ func (m Model) click(shape layout.Layout, column, row int) (Model, tea.Cmd) {
 	case inRail:
 		box := shape.Rail[index]
 
-		return m.pick(row-box.Y-1, frame.BodyRows(box.Height), true)
+		// A rail pane's box holds one shared-rule row above its content, so skip
+		// that row and count the rest as content.
+		return m.pick(row-box.Y-1, max(0, box.Height-1), true)
 	case shape.Detail.Contains(column, row):
 		return m.pick(line, m.detailRows(), false)
 	default:

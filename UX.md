@@ -53,7 +53,7 @@ one of them yet, which makes this table the shortest summary of the file.
 | --- | --- | --- |
 | "a key it does not show does nothing" | `docs/content/docs/usage.md:55` | No. Ten keys work unseen. |
 | "`?` lists every key" | `docs/content/docs/usage.md:56` | No. Eleven bindings are missing. |
-| "the one way the interface says something broke" | `failure`, `internal/tui/render.go:279` | In 7 places of about 20. |
+| "the one way the interface says something broke" | `failure`, `internal/tui/render.go:277` | In 7 places of about 20. |
 | "Nothing outward facing is sent without" a last look | `internal/tui/comment.go:43` | Mostly. |
 | "a refused change must never go unseen" | `internal/tui/picker.go:184` | In one overlay of seven. |
 | "Each pane fails on its own" | `docs/content/docs/usage.md:58` | Yes, and it is the best thing about the first run. |
@@ -81,33 +81,5 @@ taken from the terminal's own palette so the user's theme decides the shades;
 shape for state (`○ ◐ ● ✗`); border weight for focus; red for failure and
 nothing else. None of that should change. The entries below are places where
 the system is not applied, or where two of its channels disagree.
-
-### UX-46 Give the rail its rows back
-
-Impact: low · Effort: medium
-
-- Today: each of the five rail panes has its own box. At 36 rows, ten rows
-  are top and bottom borders, for panes that mostly hold two lines.
-- Instead: one box for the rail with a light rule between panes, and the
-  heavy weight on the focused pane's two rules. Four rows return to the
-  focused pane.
-
-  ```text
-  ┌─ 1 Issues ──────────────┐
-  │ ◐ PROJ-412 Fix token…   │
-  │ ○ PROJ-388 Add retri…   │
-  ┢━ 2 Branch ━━━━━━━━━━━━━━┪
-  ┃ fix/PROJ-412-fix-token… ┃
-  ┃ not pushed yet          ┃
-  ┡━ 3 Commits ━━━━━━━━━━━━━┩
-  │ 1 of 3 staged           │
-  │ 1 commit on this branch │
-  ├─ 4 Review ──────────────┤
-  ```
-
-  The joining characters need an ASCII form too, which is most of the work.
-- Touches: `internal/tui/frame/frame.go`, `internal/tui/render.go`,
-  `internal/tui/layout/layout.go`.
-- Done when: the rail draws one shared rule between panes in both glyph sets.
 
 ## The command line

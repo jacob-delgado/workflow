@@ -16,9 +16,26 @@ import (
 // issuesPane is the first rail pane, which starts with focus.
 const issuesPane = "1 Issues"
 
-// focused is the heavy top border of a rail pane, which is how focus is drawn.
+// focused is a pane's title on a heavy rule, which is how focus is drawn — in
+// the shared rail its title rule goes heavy, and the list-in-detail panes carry
+// the heavy border on the detail. Either way the label follows a heavy dash.
 func focused(label string) string {
-	return "┏━ " + label + " "
+	return "━ " + label + " "
+}
+
+// heavyRuleLines counts the rows carrying a heavy rule. A focused pane has
+// exactly two — the rule above it and the one below — so this is two when
+// exactly one pane has focus, whether that is a rail pane or the detail.
+func heavyRuleLines(view string) int {
+	count := 0
+
+	for line := range strings.SplitSeq(view, "\n") {
+		if strings.Contains(line, "━") {
+			count++
+		}
+	}
+
+	return count
 }
 
 // fresh is an interface with nothing loaded, sized for a roomy terminal.
@@ -53,11 +70,12 @@ func TestKeysMoveFocusAlongTheRail(t *testing.T) {
 			view := press(t, fresh(t), tt.keys...).View()
 
 			// Assert
-			// Focus moves rather than being added: exactly one pane is heavy.
+			// Focus moves rather than being added: exactly one pane is heavy, so
+			// exactly two rows carry a heavy rule.
 			requireScreen(t, view, focused(tt.want))
 
-			if heavy := strings.Count(view, "┏"); heavy != 1 {
-				t.Errorf("found %d focused panes, want exactly one:\n%s", heavy, view)
+			if heavy := heavyRuleLines(view); heavy != 2 {
+				t.Errorf("found %d heavy rule rows, want two around one focused pane:\n%s", heavy, view)
 			}
 		})
 	}
@@ -66,8 +84,8 @@ func TestKeysMoveFocusAlongTheRail(t *testing.T) {
 func TestALeftClickOnTheRailFocusesThatPane(t *testing.T) {
 	t.Parallel()
 
-	// At 120x40, with Issues focused and so taking the spare height, the third
-	// rail pane spans rows 27 through 30.
+	// At 120x40, with Issues focused and so taking the spare height, the Commits
+	// rail pane's content spans rows 30 and 31.
 	cases := map[string]struct {
 		msg  tea.MouseMsg
 		want string
@@ -75,7 +93,7 @@ func TestALeftClickOnTheRailFocusesThatPane(t *testing.T) {
 		// The Commits pane's heavy border is on its detail, where the cursor is,
 		// so focus shows as the detail title rather than the rail's.
 		"a left click on Commits": {
-			msg: tea.MouseMsg{X: 5, Y: 28, Action: tea.MouseActionPress, Button: tea.MouseButtonLeft}, want: "Commits",
+			msg: tea.MouseMsg{X: 5, Y: 30, Action: tea.MouseActionPress, Button: tea.MouseButtonLeft}, want: "Commits",
 		},
 		"a release": {
 			msg: tea.MouseMsg{X: 5, Y: 28, Action: tea.MouseActionRelease, Button: tea.MouseButtonLeft}, want: issuesPane,

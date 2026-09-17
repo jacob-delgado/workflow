@@ -176,6 +176,174 @@ func fit(text string, width int, mark string) string {
 	return clipped + strings.Repeat(" ", max(0, width-lipgloss.Width(clipped)))
 }
 
+// RailPane is one pane in the shared rail: its title, its body, how many content
+// rows it gets, and whether it has focus.
+type RailPane struct {
+	Title   string
+	Body    string
+	Rows    int
+	Focused bool
+}
+
+// RailHeight is the rows a rail of these panes takes: one rule around and
+// between them, plus each pane's content rows.
+func RailHeight(panes []RailPane) int {
+	total := len(panes) + 1
+	for _, pane := range panes {
+		total += pane.Rows
+	}
+
+	return total
+}
+
+// Rail draws the stacked panes as one box: a top rule, each pane's content, a
+// single shared rule between consecutive panes, and a bottom rule. The focused
+// pane's sides and its two rules are drawn heavy, so focus reads by weight
+// alone, as a per-pane box did, without a border row between every pair.
+func Rail(panes []RailPane, width int, style Style) string {
+	if width < minimumSide || len(panes) == 0 {
+		return blank(width, RailHeight(panes))
+	}
+
+	ascii := style == LightASCII || style == HeavyASCII
+	mark := ellipsisFor(ascii)
+	inner := width - minimumSide
+
+	rows := []string{railTop(panes[0], inner, ascii, mark)}
+
+	for index, pane := range panes {
+		if index > 0 {
+			rows = append(rows, railRule(panes[index-1].Focused, pane.Focused, pane.Title, inner, ascii, mark))
+		}
+
+		rows = append(rows, railContent(pane, inner, ascii, mark)...)
+	}
+
+	return strings.Join(append(rows, railBottom(panes[len(panes)-1].Focused, inner, ascii)), "\n")
+}
+
+// ellipsisFor is the mark for cut text in a glyph set.
+func ellipsisFor(ascii bool) string {
+	if ascii {
+		return asciiEllipsis
+	}
+
+	return ellipsis
+}
+
+// railSide is a pane's vertical border, heavy when it has focus.
+func railSide(focused, ascii bool) string {
+	switch {
+	case ascii && focused:
+		return "#"
+	case ascii:
+		return "|"
+	case focused:
+		return "┃"
+	default:
+		return "│"
+	}
+}
+
+// railHorizontal is a rule's line, heavy when it touches the focused pane.
+func railHorizontal(heavy, ascii bool) string {
+	switch {
+	case ascii && heavy:
+		return "="
+	case ascii:
+		return "-"
+	case heavy:
+		return "━"
+	default:
+		return "─"
+	}
+}
+
+// railContent draws a pane's content rows between its sides.
+func railContent(pane RailPane, inner int, ascii bool, mark string) []string {
+	side := railSide(pane.Focused, ascii)
+	content := strings.Split(pane.Body, "\n")
+	rows := make([]string, 0, pane.Rows)
+
+	for index := range pane.Rows {
+		text := ""
+		if index < len(content) {
+			text = content[index]
+		}
+
+		rows = append(rows, side+padded(text, inner, mark)+side)
+	}
+
+	return rows
+}
+
+// railTop is the top edge, carrying the first pane's title.
+func railTop(pane RailPane, inner int, ascii bool, mark string) string {
+	left, right := railCorners(pane.Focused, ascii, true)
+
+	return ruleLine(left, railHorizontal(pane.Focused, ascii), right, pane.Title, inner, mark)
+}
+
+// railBottom is the bottom edge, with no title to carry.
+func railBottom(focused bool, inner int, ascii bool) string {
+	left, right := railCorners(focused, ascii, false)
+	horizontal := railHorizontal(focused, ascii)
+
+	return left + strings.Repeat(horizontal, inner) + right
+}
+
+// railRule is the shared rule between two panes, carrying the lower one's title.
+func railRule(aboveFocused, belowFocused bool, title string, inner int, ascii bool, mark string) string {
+	left, right := railJunctions(aboveFocused, belowFocused, ascii)
+	horizontal := railHorizontal(aboveFocused || belowFocused, ascii)
+
+	return ruleLine(left, horizontal, right, title, inner, mark)
+}
+
+// ruleLine sets a title into a rule between the given left and right glyphs.
+func ruleLine(left, horizontal, right, title string, inner int, mark string) string {
+	label := ansi.Truncate(horizontal+" "+title+" ", inner, mark)
+	fill := strings.Repeat(horizontal, inner-lipgloss.Width(label))
+
+	return left + label + fill + right
+}
+
+// railCorners are the box's corners at the top or the bottom, heavy when that
+// pane has focus.
+func railCorners(focused, ascii, atTop bool) (string, string) {
+	switch {
+	case ascii:
+		return "+", "+"
+	case atTop && focused:
+		return "┏", "┓"
+	case atTop:
+		return "┌", "┐"
+	case focused:
+		return "┗", "┛"
+	default:
+		return "└", "┘"
+	}
+}
+
+// railJunctions are the left and right glyphs of a shared rule, by which of the
+// panes it touches have focus.
+func railJunctions(aboveFocused, belowFocused, ascii bool) (string, string) {
+	if ascii {
+		return "+", "+"
+	}
+
+	pairs := map[[2]bool][2]string{
+		{false, false}: {"├", "┤"},
+		{false, true}:  {"┢", "┪"},
+		{true, false}:  {"┡", "┩"},
+		{true, true}:   {"┣", "┫"},
+	}
+
+	pair := pairs[[2]bool{aboveFocused, belowFocused}]
+
+	return pair[0], pair[1]
+}
+
 // blank fills a space too small to border, so a tiny terminal never panics and
 // never draws past the space it was given.
 func blank(width, height int) string {

@@ -123,22 +123,24 @@ func TestComputeClampsTheRailWidth(t *testing.T) {
 func TestTheFocusedPaneTakesTheRoomTheOthersDoNotNeed(t *testing.T) {
 	t.Parallel()
 
-	// 40 rows less the spine and footer leaves 38. Each pane without focus
-	// keeps two rows of content inside its border; the focused one gets the
-	// rest, so the list someone is working in is the one that can be read.
+	// 40 rows less the spine and footer leave 38 for the shared rail. Each pane's
+	// box holds one shared-rule row above two rows of content when it is not
+	// focused; the focused one gets the rest, so the list someone is working in
+	// is the one that can be read. The boxes sum to one less than the body, the
+	// spare row being the rail's bottom rule.
 	cases := map[string]struct {
 		height  int
 		focused int
 		want    []int
 	}{
-		"the first":  {height: 40, focused: 0, want: []int{22, 4, 4, 4, 4}},
-		"the middle": {height: 40, focused: 2, want: []int{4, 4, 22, 4, 4}},
-		"the last":   {height: 40, focused: 4, want: []int{4, 4, 4, 4, 22}},
-		// 20 rows leave 18: too few to give the focused pane a useful height
-		// after four compact ones, so every pane shares — and the leftover rows
-		// go to the top panes rather than being dropped, since a row lost at
-		// the bottom of the screen is a visible gap.
-		"a short terminal shares evenly": {height: 20, focused: 3, want: []int{4, 4, 4, 3, 3}},
+		"the first":  {height: 40, focused: 0, want: []int{25, 3, 3, 3, 3}},
+		"the middle": {height: 40, focused: 2, want: []int{3, 3, 25, 3, 3}},
+		"the last":   {height: 40, focused: 4, want: []int{3, 3, 3, 3, 25}},
+		// 16 rows leave 14, and 8 content rows after the rules: too few to give
+		// the focused pane a useful height after four compact ones, so every pane
+		// shares — and the leftover rows go to the top panes rather than being
+		// dropped, since a row lost at the bottom of the screen is a visible gap.
+		"a short terminal shares evenly": {height: 16, focused: 3, want: []int{3, 3, 3, 2, 2}},
 	}
 
 	for name, tt := range cases {
@@ -146,7 +148,7 @@ func TestTheFocusedPaneTakesTheRoomTheOthersDoNotNeed(t *testing.T) {
 			t.Parallel()
 
 			// Act & Assert
-			requireStacked(t, layout.Compute(120, tt.height, railPanes, tt.focused), tt.want, tt.height-2)
+			requireStacked(t, layout.Compute(120, tt.height, railPanes, tt.focused), tt.want, tt.height-3)
 		})
 	}
 }
@@ -242,8 +244,8 @@ func TestRailAt(t *testing.T) {
 		wantOK        bool
 	}{
 		"top of the first pane":  {width: 120, height: 40, column: 0, row: 1, want: 0, wantOK: true},
-		"inside the third pane":  {width: 120, height: 40, column: 10, row: 28, want: 2, wantOK: true},
-		"last row of the rail":   {width: 120, height: 40, column: 35, row: 38, want: 4, wantOK: true},
+		"inside the third pane":  {width: 120, height: 40, column: 10, row: 30, want: 2, wantOK: true},
+		"last row of the rail":   {width: 120, height: 40, column: 35, row: 37, want: 4, wantOK: true},
 		"the spine is not rail":  {width: 120, height: 40, column: 5, row: 0, wantOK: false},
 		"the detail is not rail": {width: 120, height: 40, column: 60, row: 10, wantOK: false},
 		"the footer is not rail": {width: 120, height: 40, column: 5, row: 39, wantOK: false},
