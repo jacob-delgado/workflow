@@ -262,7 +262,7 @@ func (m Model) fullDetail(issueKey string, width int) []string {
 	case m.detail.key != issueKey || !m.detail.loaded:
 		return []string{"", m.styles.label.Render("loading the description and comments" + m.marks.ellipsis)}
 	case m.detail.err != nil:
-		return []string{"", m.failure(m.detail.err), "press r to try again"}
+		return []string{"", m.failureWithin(m.detail.err, width), "press r to try again"}
 	}
 
 	detail := m.detail.detail

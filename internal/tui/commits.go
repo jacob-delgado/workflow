@@ -103,7 +103,7 @@ func (m Model) commitsDetail(width int) string {
 	}
 
 	if m.changes.err != nil {
-		return wrap(m.failure(m.changes.err), width)
+		return m.failureWithin(m.changes.err, width)
 	}
 
 	lines := m.changeRows()

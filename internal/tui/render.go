@@ -314,11 +314,20 @@ func (m Model) failure(err error) string {
 		m.styles.label.Render(sanitize.Text(err.Error()))
 }
 
-// failureWithin is failure for a pane: wrapped to its width first and styled
-// after, so every row opens and closes its own color and none runs on into the
-// border beside it.
+// failureWithin is failure for a pane: recognized as a sentence like failure,
+// but wrapped to its width first and styled after, so every row opens and
+// closes its own color and none runs on into the border beside it.
 func (m Model) failureWithin(err error, width int) string {
-	return m.styles.failure.Render(wrap(m.marks.failed+" "+sanitize.Text(err.Error()), width))
+	glyph := m.marks.failed + " "
+	raw := sanitize.Text(err.Error())
+
+	sentence, known := errorSentence(err)
+	if !known {
+		return m.styles.failure.Render(wrap(glyph+raw, width))
+	}
+
+	return m.styles.failure.Render(wrap(glyph+sentence, width)) + "\n" +
+		m.styles.label.Render(wrap(raw, width))
 }
 
 // plural counts things, in words.
