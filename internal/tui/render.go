@@ -331,6 +331,20 @@ func failureBlock(sty styles, marks glyphs, err error, width int) string {
 	return sty.failure.Render(wrap(marks.failed+" "+sanitize.Text(err.Error()), width))
 }
 
+// pinnedOutcome is an overlay's outcome — the in-flight word or the refusal —
+// drawn under the title rather than at the bottom, so a long reason is wrapped
+// and seen instead of clipped below the fold. Empty when nothing has happened.
+func pinnedOutcome(sty styles, marks glyphs, sending bool, doing string, err error, width int) []string {
+	switch {
+	case sending:
+		return []string{doing + marks.ellipsis, ""}
+	case err != nil:
+		return []string{failureBlock(sty, marks, err, width), ""}
+	default:
+		return nil
+	}
+}
+
 // failureWithin is failure for a pane: recognized as a sentence like failure,
 // but wrapped to its width first and styled after.
 func (m Model) failureWithin(err error, width int) string {

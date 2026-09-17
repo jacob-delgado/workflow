@@ -59,7 +59,9 @@ func (msg commentEdited) apply(m Model) (Model, tea.Cmd) {
 		return m.closeOverlay().noticed("nothing to post: the comment was empty"), nil
 	}
 
-	m.overlay = commentPreview{marks: m.marks, issue: msg.issue, text: msg.text, sending: false, err: nil}
+	m.overlay = commentPreview{
+		marks: m.marks, styles: m.styles, issue: msg.issue, text: msg.text, sending: false, err: nil,
+	}
 
 	return m, nil
 }
@@ -67,6 +69,7 @@ func (msg commentEdited) apply(m Model) (Model, tea.Cmd) {
 // commentPreview is a comment about to be posted.
 type commentPreview struct {
 	marks   glyphs
+	styles  styles
 	issue   jira.Issue
 	text    string
 	sending bool
@@ -75,16 +78,11 @@ type commentPreview struct {
 
 var _ overlay = commentPreview{}
 
-// view shows the comment as it will be posted.
+// view shows the comment as it will be posted, its outcome pinned under the
+// title so a long refusal is seen rather than clipped below the fold.
 func (p commentPreview) view(width, _ int) (string, string) {
-	lines := []string{p.issue.Key + " " + p.issue.Summary, "", wrap(p.text, width)}
-
-	switch {
-	case p.sending:
-		lines = append(lines, "", "posting"+p.marks.ellipsis)
-	case p.err != nil:
-		lines = append(lines, "", p.marks.failed+" "+p.err.Error())
-	}
+	lines := pinnedOutcome(p.styles, p.marks, p.sending, "posting", p.err, width)
+	lines = append(lines, p.issue.Key+" "+p.issue.Summary, "", wrap(p.text, width))
 
 	return "Comment on " + p.issue.Key, strings.Join(lines, "\n")
 }

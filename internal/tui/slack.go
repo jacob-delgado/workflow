@@ -194,7 +194,7 @@ func (m Model) handleSlackKey(msg tea.KeyMsg) (Model, tea.Cmd) {
 	}
 
 	m.overlay = slackPreview{
-		marks: m.marks, text: m.announcement(), target: m.cfg.Slack.Target(),
+		marks: m.marks, styles: m.styles, text: m.announcement(), target: m.cfg.Slack.Target(),
 		noCI: m.review.checked && m.review.ci.State == forge.CINone,
 	}
 
@@ -204,6 +204,7 @@ func (m Model) handleSlackKey(msg tea.KeyMsg) (Model, tea.Cmd) {
 // slackPreview is a Slack message about to be posted.
 type slackPreview struct {
 	marks   glyphs
+	styles  styles
 	text    string
 	target  string
 	noCI    bool
@@ -213,16 +214,11 @@ type slackPreview struct {
 
 var _ overlay = slackPreview{}
 
-// view shows the message as it will be posted, where, and how CI stands.
+// view shows the message as it will be posted, where, and how CI stands, its
+// outcome pinned under the title so a long refusal is seen, not clipped.
 func (p slackPreview) view(width, _ int) (string, string) {
-	lines := []string{wrap(p.text, width), "", "to  " + p.target}
-
-	switch {
-	case p.sending:
-		lines = append(lines, "", "posting"+p.marks.ellipsis)
-	case p.err != nil:
-		lines = append(lines, "", p.marks.failed+" "+p.err.Error())
-	}
+	lines := pinnedOutcome(p.styles, p.marks, p.sending, "posting", p.err, width)
+	lines = append(lines, wrap(p.text, width), "", "to  "+p.target)
 
 	return "Post to Slack", strings.Join(lines, "\n")
 }
