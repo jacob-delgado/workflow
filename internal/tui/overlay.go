@@ -4,6 +4,8 @@
 package tui
 
 import (
+	"strings"
+
 	"github.com/charmbracelet/bubbles/key"
 	tea "github.com/charmbracelet/bubbletea"
 )
@@ -69,7 +71,10 @@ var (
 
 // noticed sets the footer's report of what just happened.
 func (m Model) noticed(text string) Model {
-	m.notice = text
+	// A notice is one row, so any newline — a joined staging error, a program's
+	// stderr — is folded onto it, or the footer grows past the terminal.
+	lines := strings.FieldsFunc(text, func(r rune) bool { return r == '\n' || r == '\r' })
+	m.notice = strings.Join(lines, m.marks.separator)
 
 	return m
 }
