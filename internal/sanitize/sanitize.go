@@ -13,6 +13,7 @@ package sanitize
 
 import (
 	"strings"
+	"unicode"
 	"unicode/utf8"
 
 	"github.com/charmbracelet/x/ansi"
@@ -185,6 +186,37 @@ func Text(text string) string {
 	}
 
 	return clean.String()
+}
+
+// Line is Text for a name: a file, a branch, anything drawn on one line that has
+// to mean what it shows. On top of what Text takes out, a line break or a tab
+// becomes U+FFFD, and so does every character that has no shape of its own: the
+// zero-width ones, the direction marks, the tag characters.
+//
+// Prose keeps all of those, which is why Text leaves them alone: they join an
+// emoji, spell a flag, and hold the letters of some scripts apart. In a name
+// they can only make it read as something it is not.
+func Line(text string) string {
+	var clean strings.Builder
+
+	for _, character := range Text(text) {
+		if unseen(character) {
+			clean.WriteRune(utf8.RuneError)
+
+			continue
+		}
+
+		clean.WriteRune(character)
+	}
+
+	return clean.String()
+}
+
+// unseen reports a character that takes no space of its own on a line, or that
+// ends the line: Unicode's format characters and its two separators, and the
+// newline and tab that Text lets through.
+func unseen(character rune) bool {
+	return character == '\n' || character == '\t' || unicode.In(character, unicode.Cf, unicode.Zl, unicode.Zp)
 }
 
 // neutralized reports a code point that must not reach the terminal. Newline and

@@ -125,9 +125,9 @@ func (m Model) changeRows() []string {
 	rows := make([]string, 0, len(m.changes.changes))
 
 	for index, change := range m.changes.changes {
-		path := sanitize.Text(change.Path)
+		path := sanitize.Line(change.Path)
 		if change.OriginalPath != "" {
-			path = sanitize.Text(change.OriginalPath) + m.marks.arrow + path
+			path = sanitize.Line(change.OriginalPath) + m.marks.arrow + path
 		}
 
 		rows = append(rows, m.marks.marker(index == m.changes.selected)+m.stageGlyph(change)+" "+
@@ -219,7 +219,7 @@ func (m Model) toggleStaged() (Model, tea.Cmd) {
 	}
 
 	if m.dryRun {
-		return m.noticed("dry run: would " + verb + sanitize.Text(change.Path)), nil
+		return m.noticed("dry run: would " + verb + sanitize.Line(change.Path)), nil
 	}
 
 	return m, func() tea.Msg { return staged{err: act(change)} }

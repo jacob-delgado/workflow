@@ -53,7 +53,7 @@ one of them yet, which makes this table the shortest summary of the file.
 | --- | --- | --- |
 | "a key it does not show does nothing" | `docs/content/docs/usage.md:55` | No. Ten keys work unseen. UX-32 |
 | "`?` lists every key" | `docs/content/docs/usage.md:56` | No. Eleven bindings are missing. UX-33 |
-| "the one way the interface says something broke" | `failure`, `internal/tui/render.go:271` | In 7 places of about 20. UX-40 |
+| "the one way the interface says something broke" | `failure`, `internal/tui/render.go:272` | In 7 places of about 20. UX-40 |
 | "Nothing outward facing is sent without" a last look | `internal/tui/comment.go:43` | Mostly. UX-13, UX-23 |
 | "a refused change must never go unseen" | `internal/tui/picker.go:183` | In one overlay of seven. UX-35 |
 | "Each pane fails on its own" | `docs/content/docs/usage.md:58` | Yes, and it is the best thing about the first run. |
@@ -66,7 +66,7 @@ one of them yet, which makes this table the shortest summary of the file.
 Impact: high · Effort: small
 
 - Today: below 90 columns the rail and the detail pane take turns, and the
-  Issues pane draws only its list (`internal/tui/render.go:91`,
+  Issues pane draws only its list (`internal/tui/render.go:92`,
   `internal/tui/panes.go:65`). A new user
   in an 80×24 terminal, the size most terminals open at, sees this and
   nothing else (seen live):

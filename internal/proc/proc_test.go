@@ -63,6 +63,23 @@ func TestRunReportsAFailureWithItsStandardError(t *testing.T) {
 	}
 }
 
+func TestRunReportsAFailureInTextThatIsSafeToShow(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	// go names the subcommand it does not know on its standard error, bytes
+	// and all, and an error's text ends up on a screen.
+	subcommand := "not-a-go-subcommand\x1b]0;owned\x07"
+
+	// Act
+	_, err := proc.Run(t.Context(), goProgram, subcommand)
+
+	// Assert
+	if err == nil || !strings.Contains(err.Error(), "not-a-go-subcommand") || strings.ContainsRune(err.Error(), '\x1b') {
+		t.Errorf("Run error = %q, want the standard error with its terminal sequence taken out", err)
+	}
+}
+
 func TestAvailableDistinguishesInstalledFromMissing(t *testing.T) {
 	t.Parallel()
 

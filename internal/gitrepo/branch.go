@@ -5,6 +5,7 @@ package gitrepo
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"path/filepath"
 	"strconv"
@@ -81,6 +82,11 @@ func ReadBranch(ctx context.Context, run Runner, dir string) (Branch, error) {
 		Commits:  nil,
 	}
 
+	err = shownAsTheyAre(branch.Name, branch.Upstream, branch.Base)
+	if err != nil {
+		return Branch{}, err
+	}
+
 	if branch.Upstream != "" {
 		branch.Behind, branch.Ahead = counts(git("rev-list", "--left-right", "--count", "@{upstream}...HEAD"))
 	}
@@ -91,6 +97,23 @@ func ReadBranch(ctx context.Context, run Runner, dir string) (Branch, error) {
 	}
 
 	return branch, nil
+}
+
+// ErrUnshowableName reports a branch whose name cannot be shown as it is.
+var ErrUnshowableName = errors.New("a branch name holds characters that cannot be shown as they are")
+
+// shownAsTheyAre refuses a ref whose name would not be drawn as it is: git
+// allows a direction override or a character with no width in one. A name is
+// handed to git and to the forge as well as drawn, so it cannot be cleaned for
+// one and kept for the others; a branch like that is not worked on.
+func shownAsTheyAre(refs ...string) error {
+	for _, ref := range refs {
+		if shown := sanitize.Line(ref); shown != ref {
+			return fmt.Errorf("%w: %s", ErrUnshowableName, shown)
+		}
+	}
+
+	return nil
 }
 
 // optional runs git and returns its trimmed output, or "" if it failed: for the

@@ -7,6 +7,8 @@ import (
 	"context"
 	"fmt"
 	"strings"
+
+	"github.com/jacob-delgado/workflow/internal/sanitize"
 )
 
 // Status letters git uses beyond the ordinary ones.
@@ -117,7 +119,7 @@ func Stage(ctx context.Context, run Runner, dir string, change Change) error {
 
 	_, err := run(ctx, "git", args...)
 	if err != nil {
-		return fmt.Errorf("staging %s: %w", change.Path, err)
+		return fmt.Errorf("staging %s: %w", sanitize.Line(change.Path), err)
 	}
 
 	return nil
@@ -136,7 +138,7 @@ func Unstage(ctx context.Context, run Runner, dir string, change Change) error {
 
 	_, err = run(ctx, "git", args...)
 	if err != nil {
-		return fmt.Errorf("unstaging %s: %w", change.Path, err)
+		return fmt.Errorf("unstaging %s: %w", sanitize.Line(change.Path), err)
 	}
 
 	return nil

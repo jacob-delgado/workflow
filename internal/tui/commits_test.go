@@ -217,3 +217,36 @@ func TestTheSelectionMovesAndCanBeClicked(t *testing.T) {
 		t.Errorf("a click below the files changed the screen:\n%s", below.View())
 	}
 }
+
+func TestAFileNameIsDrawnOnOneLine(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	// A file name may hold a newline, and a name drawn over two rows is a row
+	// that names no file.
+	odd := newWorld()
+	odd.changes = []gitrepo.Change{{Path: "one\ntwo.go", Staged: ' ', Unstaged: 'M'}}
+
+	// Act
+	view := typing(t, odd.live(t, 120, 40), "3").View()
+
+	// Assert
+	requireScreen(t, view, "one\ufffdtwo.go")
+}
+
+func TestAFailureIsShownInTextThatIsSafe(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	// An error carries what a program or a file name put in it.
+	sequenced := newWorld()
+	//nolint:err113 // a one-off error text is the fixture
+	sequenced.stageErr = errors.New("cannot add \x1b]0;owned\x07this file")
+
+	// Act
+	view := typing(t, sequenced.live(t, 120, 40), "3", keySpace).View()
+
+	// Assert
+	requireScreen(t, view, "✗ cannot add this file")
+	refuseScreen(t, view, "owned")
+}
