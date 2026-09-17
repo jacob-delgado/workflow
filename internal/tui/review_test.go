@@ -230,7 +230,7 @@ func TestAFailedPushKeepsThePullRequestDraft(t *testing.T) {
 	pushed := typing(t, failing.live(t, 120, 40), "4", "n", "!", keyEnter)
 
 	// Assert: the push failed, its run in front of the composer
-	requireScreen(t, pushed.View(), "┏━ git push", "✗ exit status 128")
+	requireScreen(t, pushed.View(), "┏━ git push", "✗ the push was refused")
 
 	// Act: leave the failed run and reopen the composer
 	reopened := typing(t, pushed, keyEsc, "n")
@@ -337,7 +337,7 @@ func TestAFailedPushOpensNoPullRequest(t *testing.T) {
 	failed := typing(t, failing.live(t, 120, 40), "4", "n", keyEnter)
 
 	// Assert
-	requireScreen(t, failed.View(), "┏━ git push", "✗ exit status 128")
+	requireScreen(t, failed.View(), "┏━ git push", "✗ the push was refused")
 
 	if calls := failing.asked("open "); len(calls) != 0 {
 		t.Errorf("opened a pull request after the push failed: %q", calls)

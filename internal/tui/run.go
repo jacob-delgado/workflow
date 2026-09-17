@@ -33,11 +33,12 @@ type commandRun struct {
 	// output on screen until it is closed.
 	succeeded func(m Model) (Model, tea.Cmd)
 
-	lines    []string
-	done     bool
-	err      error
-	failures []hooks.Location
-	selected int
+	lines      []string
+	done       bool
+	err        error
+	failures   []hooks.Location
+	selected   int
+	showOutput bool
 }
 
 var (
@@ -148,7 +149,7 @@ func (r commandRun) view(width, rows int) (string, string) {
 		lines = append(lines, wrap(jobs, width))
 	}
 
-	if len(r.failures) > 0 {
+	if len(r.failures) > 0 && !r.showOutput {
 		lines = append(lines, "")
 		lines = append(lines, r.failureRows(rows-len(lines))...)
 	} else {
@@ -159,16 +160,35 @@ func (r commandRun) view(width, rows int) (string, string) {
 	return r.title, strings.Join(lines, "\n")
 }
 
-// state says whether the run is going, passed, or failed and why.
+// state says whether the run is going, passed, or failed — and, when it failed,
+// what step failed rather than the exit code the step happened to end with.
 func (r commandRun) state() string {
 	switch {
 	case !r.done:
 		return r.marks.inFlight + " running" + r.marks.ellipsis
 	case r.err != nil:
-		return r.marks.failed + " " + r.err.Error()
+		return r.marks.failed + " " + r.failureHeadline()
 	default:
 		return r.marks.done + " done"
 	}
+}
+
+// failureHeadline names the step that failed in words. It stands in only for a
+// bare exit code, which says nothing on its own; an error that already carries
+// its cause — a message that could not be written, say — is shown as it is.
+func (r commandRun) failureHeadline() string {
+	sentences := map[string]string{
+		"git commit": "the commit was refused",
+		"pre-commit": "the pre-commit hook failed",
+		"git push":   "the push was refused",
+	}
+
+	sentence, known := sentences[r.title]
+	if known && strings.HasPrefix(r.err.Error(), "exit status ") {
+		return sentence
+	}
+
+	return r.err.Error()
 }
 
 // jobs is lefthook's jobs, each with its glyph, when the output is lefthook's.
@@ -211,8 +231,13 @@ func (r commandRun) footer(keys keyMap) []key.Binding {
 	switch {
 	case !r.done:
 		return []key.Binding{keys.interrupt}
+	case len(r.failures) > 0 && !r.showOutput:
+		return []key.Binding{
+			keys.up, keys.down, relabel(keys.confirm, "open in editor"),
+			relabel(keys.fullOutput, "full output"), keys.retry, keys.closeOverlay,
+		}
 	case len(r.failures) > 0:
-		return []key.Binding{keys.up, keys.down, relabel(keys.confirm, "open in editor"), keys.retry, keys.closeOverlay}
+		return []key.Binding{relabel(keys.fullOutput, "places"), keys.retry, keys.closeOverlay}
 	default:
 		return []key.Binding{keys.retry, keys.closeOverlay}
 	}
@@ -230,6 +255,8 @@ func (r commandRun) handleKey(m Model, msg tea.KeyMsg) (Model, tea.Cmd) {
 		return m.startRun(r.title, r.start, r.succeeded)
 	case key.Matches(msg, m.keys.confirm):
 		return r.openFailure(m)
+	case key.Matches(msg, m.keys.fullOutput):
+		r.showOutput = !r.showOutput
 	case key.Matches(msg, m.keys.down):
 		r.selected = min(r.selected+1, max(0, len(r.failures)-1))
 	case key.Matches(msg, m.keys.up):
