@@ -299,3 +299,33 @@ func TestACommitGitCannotRunLeavesNoMessageBehind(t *testing.T) {
 		t.Errorf("the message file outlived a commit that never started: %q", left)
 	}
 }
+
+func TestTheForgeSeamRetriesAfterAFailedConnection(t *testing.T) {
+	// Arrange
+	isolateGit(t)
+
+	dir := t.TempDir()
+	probe := filepath.Join(dir, "attempts")
+	write(t, filepath.Join(dir, "gh"), "#!/bin/sh\nprintf 'x\\n' >> '"+probe+"'\nexit 1\n", 0o700)
+	t.Setenv("PATH", dir)
+	t.Setenv("GITHUB_TOKEN", "")
+	t.Setenv("GH_TOKEN", "")
+
+	forgeSeam := wiring.Deps(t.Context(),
+		config.Config{Forge: config.Forge{Kind: githubKind}},
+		wiring.Workspace{Root: dir, Remote: githubRemote}).Forge
+
+	// Act
+	_, _, first := forgeSeam.FindPullRequest(featureBranch)
+	_, _, second := forgeSeam.FindPullRequest(featureBranch)
+
+	// Assert
+	if first == nil || second == nil {
+		t.Fatalf("both lookups should fail without a token: %v, %v", first, second)
+	}
+
+	attempts, err := os.ReadFile(probe)
+	if err != nil || strings.Count(string(attempts), "x") != 2 {
+		t.Errorf("the forge was reached %q, want a second attempt rather than a cached failure", attempts)
+	}
+}
