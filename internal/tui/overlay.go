@@ -50,6 +50,7 @@ var (
 	_ applier = commentPosted{}
 	_ applier = branchLoaded{}
 	_ applier = branchCreated{}
+	_ applier = fetched{}
 	_ applier = changesLoaded{}
 	_ applier = staged{}
 	_ applier = runStarted{}

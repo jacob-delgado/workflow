@@ -101,11 +101,27 @@ func gitDeps(ctx context.Context, root string) tui.GitDeps {
 		CreateBranch: func(name, start string) error {
 			return gitrepo.CreateBranch(ctx, proc.Run, root, name, start)
 		},
+		Fetch:  func() error { return fetchOrigin(ctx, root) },
 		Commit: func(message string) (proc.Output, error) { return commitWith(ctx, root, message) },
 		Push: func(branch string) (proc.Output, error) {
 			return proc.Start(ctx, gitrepo.PushCommand(root, branch))
 		},
 	}
+}
+
+// fetchOrigin updates origin's tracking refs, draining git's output and
+// returning how it exited — a network error, or a credential git could not get
+// with prompts off.
+func fetchOrigin(ctx context.Context, root string) error {
+	output, err := proc.Start(ctx, gitrepo.FetchCommand(root))
+	if err != nil {
+		return err
+	}
+
+	for range output.Lines { //nolint:revive // draining the stream is the point; there is nothing to do per line
+	}
+
+	return output.Wait()
 }
 
 // commitWith commits with a message written to a private temporary file, which

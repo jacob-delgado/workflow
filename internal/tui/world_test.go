@@ -71,6 +71,7 @@ type world struct {
 	changes     []gitrepo.Change
 	stageErr    error
 	createErr   error
+	fetchErr    error
 	commitLines []string
 	commitErr   error
 	pushLines   []string
@@ -272,6 +273,11 @@ func (w *world) gitDeps() tui.GitDeps {
 			w.record("create " + name + " from " + start)
 
 			return w.createErr
+		},
+		Fetch: func() error {
+			w.record("fetch")
+
+			return w.fetchErr
 		},
 		Commit: func(message string) (proc.Output, error) {
 			w.record("commit " + message)

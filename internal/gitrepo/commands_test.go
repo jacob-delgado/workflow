@@ -12,6 +12,9 @@ import (
 	"github.com/jacob-delgado/workflow/internal/proc"
 )
 
+// gitProgram is the program every command builder runs.
+const gitProgram = "git"
+
 func TestCreateBranchStartsFromTheBaseWithoutTrackingIt(t *testing.T) {
 	t.Parallel()
 
@@ -60,7 +63,7 @@ func TestPushCommandRunsInTheRepositoryWithoutPrompts(t *testing.T) {
 	push := gitrepo.PushCommand(workDir, "fix/PROJ-1-x")
 
 	// Assert
-	if push.Dir != workDir || push.Name != "git" ||
+	if push.Dir != workDir || push.Name != gitProgram ||
 		!slices.Equal(push.Args, []string{"push", "--set-upstream", "origin", "fix/PROJ-1-x"}) {
 		t.Errorf("PushCommand = %+v", push)
 	}
@@ -72,6 +75,23 @@ func TestPushCommandRunsInTheRepositoryWithoutPrompts(t *testing.T) {
 	}
 }
 
+func TestFetchCommandUpdatesOriginWithoutPrompts(t *testing.T) {
+	t.Parallel()
+
+	// Act
+	fetch := gitrepo.FetchCommand(workDir)
+
+	// Assert
+	if fetch.Dir != workDir || fetch.Name != gitProgram ||
+		!slices.Equal(fetch.Args, []string{"fetch", "origin"}) {
+		t.Errorf("FetchCommand = %+v", fetch)
+	}
+
+	if !slices.Contains(fetch.Env, "GIT_TERMINAL_PROMPT=0") {
+		t.Errorf("FetchCommand environment = %q, want prompts turned off", fetch.Env)
+	}
+}
+
 func TestCommitCommandRunsInTheRepository(t *testing.T) {
 	t.Parallel()
 
@@ -79,7 +99,7 @@ func TestCommitCommandRunsInTheRepository(t *testing.T) {
 	commit := gitrepo.CommitCommand(workDir, "/tmp/message.txt")
 
 	// Assert
-	want := proc.Command{Dir: workDir, Name: "git", Args: []string{"commit", "--file", "/tmp/message.txt"}, Env: nil}
+	want := proc.Command{Dir: workDir, Name: gitProgram, Args: []string{"commit", "--file", "/tmp/message.txt"}, Env: nil}
 	if commit.Dir != want.Dir || commit.Name != want.Name || !slices.Equal(commit.Args, want.Args) {
 		t.Errorf("CommitCommand = %+v, want %+v", commit, want)
 	}

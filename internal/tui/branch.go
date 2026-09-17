@@ -220,6 +220,12 @@ type branchCreator struct {
 	baseAge  string
 	problem  error
 	sending  bool
+	// skipFetch is set once a fetch has failed and the user chose to branch from
+	// what is already there, so the retry does not fetch again.
+	skipFetch bool
+	// fetchProblem is the reason a fetch failed, shown with the offer to branch
+	// from what is there anyway.
+	fetchProblem error
 }
 
 var _ overlay = branchCreator{}
@@ -267,6 +273,11 @@ func (c branchCreator) view(width, _ int) (string, string) {
 
 	lines = append(lines, c.input.View(), "", c.start())
 
+	if c.fetchProblem != nil {
+		lines = append(lines, "", failedGlyph(c.styles, c.marks)+
+			" could not fetch; enter branches from what you already have")
+	}
+
 	return c.title(), strings.Join(lines, "\n")
 }
 
@@ -298,7 +309,12 @@ func (c branchCreator) footer(keys keyMap) []key.Binding {
 		return []key.Binding{keys.interrupt}
 	}
 
-	return []key.Binding{relabel(keys.confirm, "create"), relabel(keys.closeOverlay, "discard")}
+	create := "create"
+	if c.fetchProblem != nil {
+		create = "branch from what you have"
+	}
+
+	return []key.Binding{relabel(keys.confirm, create), relabel(keys.closeOverlay, "discard")}
 }
 
 // handleKey answers a key while the branch is named. Every key typed checks the
@@ -332,16 +348,73 @@ func (c branchCreator) create(m Model) (Model, tea.Cmd) {
 	}
 
 	if m.dryRun {
-		return m.closeOverlay().noticed("dry run: would create " + name + " " + c.start()), nil
+		return m.closeOverlay().noticed("dry run: would " + c.dryRunAction() + name + " " + c.start()), nil
 	}
 
-	c.sending = true
+	c.sending, c.fetchProblem = true, nil
 	m.overlay = c
+
+	if c.willFetch(m) {
+		fetch := m.deps.Git.Fetch
+
+		return m, func() tea.Msg { return fetched{name: name, err: fetch()} }
+	}
+
+	return m, c.createCommand(m, name)
+}
+
+// dryRunAction names what a dry run would do, which is a fetch and a branch when
+// there is a base to fetch, or just a branch when there is none.
+func (c branchCreator) dryRunAction() string {
+	if c.willFetchBase() {
+		return "fetch origin, then create "
+	}
+
+	return "create "
+}
+
+// willFetch reports that create should fetch first: there is a base to refresh,
+// a fetch seam to do it, and the user has not already chosen to skip it.
+func (c branchCreator) willFetch(m Model) bool {
+	return c.willFetchBase() && m.deps.Git.Fetch != nil && !c.skipFetch
+}
+
+// willFetchBase reports that there is a base worth fetching.
+func (c branchCreator) willFetchBase() bool {
+	return c.base != "" && !c.skipFetch
+}
+
+// createCommand is the command that creates and switches to the branch.
+func (c branchCreator) createCommand(m Model, name string) tea.Cmd {
 	createBranch, base := m.deps.Git.CreateBranch, c.base
 
-	return m, func() tea.Msg {
+	return func() tea.Msg {
 		return branchCreated{name: name, err: createBranch(name, base)}
 	}
+}
+
+// fetched reports how the fetch before branching went.
+type fetched struct {
+	name string
+	err  error
+}
+
+// apply creates the branch once the fetch succeeds, or keeps the creator open
+// offering to branch from what is already there when the fetch fails.
+func (msg fetched) apply(m Model) (Model, tea.Cmd) {
+	creator, open := m.overlay.(branchCreator)
+	if !open {
+		return m, nil
+	}
+
+	if msg.err != nil {
+		creator.sending, creator.fetchProblem, creator.skipFetch = false, msg.err, true
+		m.overlay = creator
+
+		return m, nil
+	}
+
+	return m, creator.createCommand(m, msg.name)
 }
 
 // branchCreated reports how creating a branch went.
