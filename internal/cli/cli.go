@@ -11,6 +11,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/jacob-delgado/workflow/internal/buildinfo"
 	"github.com/jacob-delgado/workflow/internal/config"
 	"github.com/jacob-delgado/workflow/internal/tui"
 	"github.com/jacob-delgado/workflow/internal/wiring"
@@ -102,6 +103,7 @@ func NewRootCmd() *cobra.Command {
 		Use:           "workflow",
 		Short:         "Run your Jira, Slack, and Git forge workflow from the terminal",
 		Long:          longHelp,
+		Version:       buildinfo.Current(),
 		SilenceUsage:  true,
 		SilenceErrors: true,
 		Args:          cobra.NoArgs,
