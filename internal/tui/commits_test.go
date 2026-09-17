@@ -41,9 +41,9 @@ func TestTheCommitsPaneShowsWhereEachFileStands(t *testing.T) {
 
 	// Assert
 	requireScreen(t, view,
-		"▸ ● M  internal/config/redact.go", "◐ MM internal/log/debug.go", "○ ?? notes.txt",
-		"● R  old.go → new.go", "✗ UU conflict.go", "On this branch", "1a2b3c4 "+pullTitle,
-		"3 staged · 6 changed", "1 commit on this branch")
+		"▸ ● modified   internal/config/redact.go", "◐ modified   internal/log/debug.go", "○ untracked  notes.txt",
+		"● renamed    old.go → new.go", "✗ conflicted conflict.go", "On this branch", "1a2b3c4 "+pullTitle,
+		"3 of 6 staged", "1 commit on this branch")
 
 	// A file name is anyone's to choose, and an escape sequence in one is
 	// neutralized before it reaches the terminal.
@@ -201,7 +201,7 @@ func TestTheSelectionMovesAndCanBeClicked(t *testing.T) {
 	moved := typing(t, model, "3", "j", "j", "k")
 
 	// Assert: the second file is selected
-	requireScreen(t, moved.View(), "▸ ◐ MM internal/log/debug.go")
+	requireScreen(t, moved.View(), "▸ ◐ modified   internal/log/debug.go")
 
 	// Act: click the third file
 	// Row 4 of the detail is the third file: the detail starts at row 1, and
@@ -209,7 +209,7 @@ func TestTheSelectionMovesAndCanBeClicked(t *testing.T) {
 	clicked := click(t, moved, 60, 4)
 
 	// Assert: it is selected
-	requireScreen(t, clicked.View(), "▸ ○ ?? notes.txt")
+	requireScreen(t, clicked.View(), "▸ ○ untracked  notes.txt")
 
 	// Act: click below the files
 	below := click(t, clicked, 60, 30)
@@ -270,5 +270,25 @@ func TestTheCommitsListKeepsTheSelectedFileOnScreen(t *testing.T) {
 	view := typing(t, crowded.live(t, 120, 20), down...).View()
 
 	// Assert
-	requireScreen(t, view, "▸ ● M  file40.go")
+	requireScreen(t, view, "▸ ● modified   file40.go")
+}
+
+func TestTheCommitsPaneNamesEachKindOfChangeInWords(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	changing := newWorld()
+	changing.changes = workTree()
+
+	// Act
+	view := typing(t, changing.live(t, 120, 40), "3").View()
+
+	// Assert
+	requireScreen(t, view,
+		"modified   internal/config/redact.go",
+		"untracked  notes.txt",
+		"renamed    old.go → new.go",
+		"conflicted conflict.go",
+		"3 of 6 staged")
+	refuseScreen(t, view, "M  internal/config", "?? notes.txt", "3 staged · 6 changed")
 }

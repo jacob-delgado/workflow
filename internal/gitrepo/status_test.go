@@ -241,3 +241,32 @@ func TestAStagingFailureNamesTheFileInTextThatIsSafeToShow(t *testing.T) {
 		})
 	}
 }
+
+func TestAChangeNamesItsKindInAWord(t *testing.T) {
+	t.Parallel()
+
+	cases := map[string]struct {
+		change gitrepo.Change
+		want   string
+	}{
+		"a staged edit":     {change: gitrepo.Change{Staged: 'M', Unstaged: ' '}, want: "modified"},
+		"a work-tree edit":  {change: gitrepo.Change{Staged: ' ', Unstaged: 'M'}, want: "modified"},
+		"a new file":        {change: gitrepo.Change{Staged: 'A', Unstaged: ' '}, want: "new"},
+		"a deleted file":    {change: gitrepo.Change{Staged: 'D', Unstaged: ' '}, want: "deleted"},
+		"a renamed file":    {change: gitrepo.Change{Staged: 'R', Unstaged: ' '}, want: "renamed"},
+		"a copied file":     {change: gitrepo.Change{Staged: 'C', Unstaged: ' '}, want: "copied"},
+		"an untracked file": {change: gitrepo.Change{Staged: '?', Unstaged: '?'}, want: "untracked"},
+		"a conflicted file": {change: gitrepo.Change{Staged: 'U', Unstaged: 'U'}, want: "conflicted"},
+	}
+
+	for name, tt := range cases {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			// Act & Assert
+			if got := tt.change.Kind(); got != tt.want {
+				t.Errorf("Kind() = %q, want %q", got, tt.want)
+			}
+		})
+	}
+}

@@ -5,6 +5,7 @@ package tui
 
 import (
 	"errors"
+	"fmt"
 	"slices"
 	"strconv"
 	"strings"
@@ -90,8 +91,7 @@ func (m Model) commitsRail(_ int) string {
 		return m.marks.failed + " status failed" + m.marks.separator + "see detail"
 	}
 
-	counts := strconv.Itoa(m.changes.staged()) + " staged" + m.marks.separator +
-		strconv.Itoa(len(m.changes.changes)) + " changed"
+	counts := strconv.Itoa(m.changes.staged()) + " of " + strconv.Itoa(len(m.changes.changes)) + " staged"
 
 	return counts + "\n" + m.styles.label.Render(plural(len(m.branch.branch.Commits), "commit")+" on this branch")
 }
@@ -131,7 +131,7 @@ func (m Model) changeRows() []string {
 		}
 
 		rows = append(rows, m.marks.marker(index == m.changes.selected)+m.stageGlyph(change)+" "+
-			string([]byte{change.Staged, change.Unstaged})+" "+path)
+			fmt.Sprintf("%-11s", change.Kind())+path)
 	}
 
 	return rows

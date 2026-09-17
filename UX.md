@@ -257,36 +257,6 @@ Impact: medium · Effort: small
   `internal/tui/panes.go`.
 - Done when: in every pane the heavy border surrounds the row marker.
 
-### UX-18 Describe changes in words
-
-Impact: medium · Effort: small
-
-- Today (seen live):
-
-  ```text
-  ▸ ○  M README.md
-    ● A  helper.go
-    ○ ?? notes.txt
-  ```
-
-  Staged-or-not is shown twice, by the glyph and by which column of git's
-  two-letter code is filled, and the code itself (`M`, `A`, `??`) is
-  something to look up. The rail says "1 staged · 3 changed" for these three
-  files, which reads as four.
-- Instead:
-
-  ```text
-  ▸ ○ modified   README.md
-    ● new        helper.go
-    ○ untracked  notes.txt
-  ```
-
-  and "1 of 3 staged" in the rail.
-- Touches: `internal/tui/commits.go`, `internal/gitrepo/status.go` (a name for
-  each kind of change).
-- Done when: no git status code is drawn, and the rail's count cannot be read
-  as a sum.
-
 ### UX-20 Lead a failed run with what failed
 
 Impact: medium · Effort: small
