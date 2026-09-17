@@ -19,7 +19,7 @@ import (
 
 // errOnlyJira reports a field only Jira's own screen can fill: a user picker, a
 // date. The transition is not sent half-filled, to be refused.
-var errOnlyJira = errors.New("which only Jira's own screen can fill — make this change in Jira")
+var errOnlyJira = errors.New("which only Jira's own screen can fill; make this change in Jira")
 
 // errNeedsValue reports a text field left empty.
 var errNeedsValue = errors.New("needs a value")

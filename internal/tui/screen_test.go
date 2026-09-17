@@ -379,3 +379,50 @@ func TestAWordWiderThanThePaneIsCutRatherThanLost(t *testing.T) {
 	// Nothing of the address is dropped: every piece of it is on screen.
 	requireScreen(t, view, "see", "/END for more", "https://example.com/aaaa", strings.Repeat("a", 30))
 }
+
+func TestASCIIStaysASCIIInEveryOverlay(t *testing.T) {
+	t.Parallel()
+
+	blocked := resolveIssue()
+	blocked.Fields = append(blocked.Fields, jira.Field{ID: "assignee", Name: "Assignee", Kind: jira.FieldUnsupported})
+
+	cases := map[string]struct {
+		prepare func(*world)
+		keys    []string
+	}{
+		"the status picker with a field only Jira can fill": {
+			prepare: func(w *world) { w.moves = []jira.Transition{blocked} },
+			keys:    []string{"t", keyEnter},
+		},
+		"the new-branch overlay":    {keys: []string{"2", "b"}},
+		"the commit composer":       {keys: []string{"3", "c"}},
+		"the comment preview":       {prepare: func(w *world) { w.edited = "Looks good" }, keys: []string{"c"}},
+		"the pull-request composer": {prepare: func(w *world) { w.pullFound = false }, keys: []string{"4", "n"}},
+		"the slack preview":         {keys: []string{"5", "p"}},
+		// commandRun is excluded on purpose: its body is a tool's own output, not
+		// interface-authored text, so it is outside the ASCII-glyph guarantee.
+		"the lefthook offer": {prepare: func(w *world) { w.gitHooks = legacyHooks() }},
+	}
+
+	for name, tt := range cases {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			// Arrange
+			faked := newWorld()
+			if tt.prepare != nil {
+				tt.prepare(faked)
+			}
+
+			// Act
+			view := typing(t, asciiInterface(t, faked, 120, 50), tt.keys...).View()
+
+			// Assert
+			for _, character := range view {
+				if character > 0x7e {
+					t.Fatalf("%s drew %q above ASCII:\n%s", name, character, view)
+				}
+			}
+		})
+	}
+}
