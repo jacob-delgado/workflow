@@ -17,6 +17,7 @@ const (
 	projKey  = "PROJ-412"
 	taskType = "Task"
 	fixType  = "fix"
+	featType = "feat"
 	// redactTokens is a description that satisfies every rule, and
 	// redactSubject the subject it makes.
 	redactTokens  = "redact tokens"
@@ -132,6 +133,36 @@ func TestTheAtSignIsRefusedForWhatItIs(t *testing.T) {
 	// Assert
 	if err == nil || strings.Contains(err.Error(), "empty") {
 		t.Errorf("ValidateBranchName(%q) = %v, want a reason that is not about emptiness", "@", err)
+	}
+}
+
+func TestBranchTypeReadsThePrefixWhenItIsACommitType(t *testing.T) {
+	t.Parallel()
+
+	cases := map[string]struct {
+		branch string
+		want   string
+	}{
+		"a fix branch":              {branch: "fix/PROJ-1-thing", want: fixType},
+		"a feat branch":             {branch: "feat/OPS-2-add", want: featType},
+		"a docs branch":             {branch: "docs/readme", want: "docs"},
+		"a prefix that is no type":  {branch: "feature/OPS-3", want: ""},
+		"no slash at all":           {branch: "main", want: ""},
+		"a bare type is not a type": {branch: fixType, want: ""},
+	}
+
+	for name, tt := range cases {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			// Act
+			got, ok := convention.BranchType(tt.branch)
+
+			// Assert
+			if got != tt.want || ok != (tt.want != "") {
+				t.Errorf("BranchType(%q) = %q, %v, want %q", tt.branch, got, ok, tt.want)
+			}
+		})
 	}
 }
 

@@ -81,6 +81,18 @@ func BranchName(issueType, key, summary string) string {
 	return prefix + key + "-" + slug
 }
 
+// BranchType is the Conventional Commit type a branch name begins with — the
+// part before the first slash — when that part is one, so a composer can open on
+// the kind of change the branch already declares.
+func BranchType(branchName string) (string, bool) {
+	prefix, _, found := strings.Cut(branchName, "/")
+	if found && slices.Contains(CommitTypes(), prefix) {
+		return prefix, true
+	}
+
+	return "", false
+}
+
 // slugOf reduces a summary to lowercase ASCII words joined by hyphens, cut at a
 // word boundary once it would pass slugLimit.
 func slugOf(summary string) string {

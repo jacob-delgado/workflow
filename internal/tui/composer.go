@@ -77,7 +77,7 @@ func (m Model) openCommitComposer() (Model, tea.Cmd) {
 	issueKey, _ := convention.IssueKey(m.branch.branch.Name)
 
 	composer := commitComposer{
-		marks: m.marks, styles: m.styles, types: types, kind: max(0, slices.Index(types, draft.kind)),
+		marks: m.marks, styles: m.styles, types: types, kind: m.startingType(types, draft),
 		focus: fieldSubject, scope: newInput(draft.scope), subject: newInput(draft.subject), body: draft.body,
 		issueKey: issueKey, staged: m.changes.staged(), problem: nil,
 	}
@@ -86,6 +86,21 @@ func (m Model) openCommitComposer() (Model, tea.Cmd) {
 	m.overlay = composer
 
 	return m, nil
+}
+
+// startingType is the type the composer opens on: a kept draft's type wins, so a
+// failed commit reopens as it was; otherwise the branch's own prefix, which
+// already says what kind of change this is; otherwise the first type offered.
+func (m Model) startingType(types []string, draft commitDraft) int {
+	if draft.kind != "" {
+		return max(0, slices.Index(types, draft.kind))
+	}
+
+	if branchType, ok := convention.BranchType(m.branch.branch.Name); ok {
+		return max(0, slices.Index(types, branchType))
+	}
+
+	return 0
 }
 
 // assembled is the subject as it stands.
