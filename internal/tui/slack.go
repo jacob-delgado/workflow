@@ -123,7 +123,7 @@ func (m Model) announcement() string {
 
 // slackRail is where messages go and what has been posted.
 func (m Model) slackRail(_ int) string {
-	return m.cfg.Slack.Target() + "\n" + m.styles.label.Render(m.slackState())
+	return m.cfg.Slack.Target() + "\n" + m.slackState()
 }
 
 // slackState says what has happened in Slack this session.

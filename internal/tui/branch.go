@@ -82,7 +82,7 @@ func (m Model) branchRail(_ int) string {
 		return "detached HEAD"
 	}
 
-	return m.styles.strong.Render(m.branch.branch.Name) + "\n" + m.styles.label.Render(m.upstreamState())
+	return m.styles.strong.Render(m.branch.branch.Name) + "\n" + m.upstreamState()
 }
 
 // upstreamState says where the branch stands against origin.
