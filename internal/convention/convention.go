@@ -121,12 +121,21 @@ func folded(text string) string {
 
 // IssueKey finds the first Jira issue key in text, such as a branch name.
 func IssueKey(text string) (string, bool) {
-	match := issueKey().FindStringSubmatch(text)
-	if match == nil {
-		return "", false
+	for _, match := range issueKey().FindAllStringSubmatch(text, -1) {
+		project, _, _ := strings.Cut(match[1], "-")
+		if !standardAbbreviations()[project] {
+			return match[1], true
+		}
 	}
 
-	return match[1], true
+	return "", false
+}
+
+// standardAbbreviations are common uppercase-and-number tokens shaped like a
+// Jira key that are not one, so a branch or a title mentioning UTF-8, SHA-256 or
+// CVE-2024 does not derive a phantom issue and skip a real key beside it.
+func standardAbbreviations() map[string]bool {
+	return map[string]bool{"UTF": true, "SHA": true, "CVE": true, "ISO": true, "RFC": true, "MD": true}
 }
 
 // ValidateBranchName reports why git would refuse a branch name, by the rules of
