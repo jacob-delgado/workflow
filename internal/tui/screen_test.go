@@ -330,7 +330,7 @@ func TestPaneKeysNeedWhatTheyActOn(t *testing.T) {
 			// Arrange
 			// With nothing but a search wired, no key reaches anything outside.
 			bare := sized(t, tui.New(completeConfig(), nil, tui.Deps{Jira: tui.JiraDeps{
-				Search: func(int) (jira.SearchResult, error) {
+				Search: func(string, int) (jira.SearchResult, error) {
 					return jira.SearchResult{Issues: []jira.Issue{{Key: issueKey, Summary: issueSummary}}, Total: 1}, nil
 				},
 			}}), 120, 40)

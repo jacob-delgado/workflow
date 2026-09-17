@@ -75,7 +75,7 @@ func (m Model) rail(boxes []layout.Box) string {
 		current := pane(index)
 		focused := current == m.focus && m.overlay == nil
 
-		title := m.paneTitle(current, current.label())
+		title := m.paneTitle(current, current.label()+m.viewSuffix(current))
 		if focused {
 			title = m.styles.strong.Render(title)
 		}
@@ -134,7 +134,7 @@ func (m Model) detailContent(shape layout.Layout) (string, string, frame.Style) 
 		title = m.focus.label()
 	}
 
-	title = m.paneTitle(m.focus, title)
+	title = m.paneTitle(m.focus, title+m.viewSuffix(m.focus))
 
 	// A pane whose list lives in the detail wears the heavy focus border here,
 	// where the cursor is, rather than on its rail summary.

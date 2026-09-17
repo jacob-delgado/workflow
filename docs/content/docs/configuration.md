@@ -58,6 +58,7 @@ which one was read.
 | `jira.token_command` | one of these three | A program that prints the token, e.g. `pass show jira/token`. See below. |
 | `jira.token_env` | one of these three | An environment variable that holds the token. |
 | `jira.user` | no | Only for instances requiring HTTP Basic. See below. |
+| `jira.views` | no | Named issue lists (`name` + `jql`) the pane moves between with `v`. Empty keeps the one built-in list. See below. |
 | `slack.token` | for a bot | Bot token; starts with `xoxb-`. Or use `slack.token_command` / `slack.token_env`. |
 | `slack.token_command` | for a bot | A program that prints the bot token. |
 | `slack.token_env` | for a bot | An environment variable that holds the bot token. |
@@ -88,6 +89,30 @@ loaded silently would look exactly like a credential you never set.
 Leave `jira.user` empty to authenticate with that token as a bearer token, which
 is what Data Center expects. Set `jira.user` only if your instance requires HTTP
 Basic authentication, in which case the token is used as the password.
+
+## Issue views
+
+By default the Issues pane shows one list: the open issues assigned to you. If
+you pick work from a sprint, a team filter or the unassigned pile, name those
+lists under `jira.views` and press `v` to move between them:
+
+```json
+{
+  "jira": {
+    "views": [
+      { "name": "My work", "jql": "assignee = currentUser() AND statusCategory != done" },
+      { "name": "Sprint board", "jql": "sprint in openSprints() AND statusCategory != done" },
+      { "name": "Needs triage", "jql": "project = OPS AND assignee is EMPTY ORDER BY created" }
+    ]
+  }
+}
+```
+
+The first view is shown at start, `v` switches to the next, and the pane title
+names the one in use. Each view is any JQL your instance accepts. A view missing
+its `name` or its `jql` is refused when the file loads, rather than showing an
+empty pane with no way to tell why. With no `jira.views` at all, the built-in
+"assigned to me" list is the only one, and `v` does nothing.
 
 ## Keeping tokens out of the file
 

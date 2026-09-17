@@ -30,7 +30,13 @@ func assigned(issues ...jira.Issue) func(startAt int) (jira.SearchResult, error)
 
 // searching is an interface whose only outside dependency is this search.
 func searching(search func(startAt int) (jira.SearchResult, error)) tui.Deps {
-	return tui.Deps{Jira: tui.JiraDeps{Search: search}}
+	return tui.Deps{Jira: tui.JiraDeps{Search: ignoreJQL(search)}}
+}
+
+// ignoreJQL adapts a search that does not care which view it answers to the
+// seam, which passes the active view's JQL.
+func ignoreJQL(search func(startAt int) (jira.SearchResult, error)) func(string, int) (jira.SearchResult, error) {
+	return func(_ string, startAt int) (jira.SearchResult, error) { return search(startAt) }
 }
 
 // failing is a search that fails with err.
@@ -237,14 +243,16 @@ func TestReachingTheEndOfATruncatedListLoadsTheNextPage(t *testing.T) {
 	}
 }
 
-func TestIssuesPaneSaysWhenNothingIsAssigned(t *testing.T) {
+func TestIssuesPaneSaysWhenAViewIsEmpty(t *testing.T) {
 	t.Parallel()
 
 	// Act
 	view := issuesScreen(t, assigned()).View()
 
 	// Assert
-	requireScreen(t, view, "no open issues assigned to you")
+	// The text names no particular query: a view may be a sprint or a filter,
+	// not only the issues assigned to you.
+	requireScreen(t, view, "no issues in this view")
 }
 
 func TestIssuesPaneFailsWithoutTakingTheScreenDown(t *testing.T) {

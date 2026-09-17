@@ -84,8 +84,10 @@ func (m Model) searchPage(startAt int) tea.Cmd {
 		return nil
 	}
 
+	jql := m.activeView().jql
+
 	return func() tea.Msg {
-		found, err := search(startAt)
+		found, err := search(jql, startAt)
 
 		return issuesLoaded{found: found, err: err, startAt: startAt}
 	}
@@ -169,17 +171,28 @@ func (m Model) issuesNarrow(rows int) string {
 	return m.issuesRail(rows)
 }
 
-// issuesKeys offers the verbs for the selected issue, when there is one.
+// issuesKeys offers the verbs for the selected issue, when there is one, and the
+// view switch when there is more than one view to move between.
 func (m Model) issuesKeys() []key.Binding {
 	selected, ok := m.issues.current()
 	if !ok {
-		return []key.Binding{m.keys.refresh}
+		return append(m.viewKeys(), m.keys.refresh)
 	}
 
-	return []key.Binding{
-		m.keys.changeStatus, m.keys.comment,
-		relabel(m.keys.branchForIssue, "branch for "+selected.Key), m.keys.refresh,
+	keys := make([]key.Binding, 0, len(m.views)+4) //nolint:mnd // the three verbs plus refresh, beside the views.
+	keys = append(keys, m.keys.changeStatus, m.keys.comment, relabel(m.keys.branchForIssue, "branch for "+selected.Key))
+	keys = append(keys, m.viewKeys()...)
+
+	return append(keys, m.keys.refresh)
+}
+
+// viewKeys offers the view switch when there is more than one view.
+func (m Model) viewKeys() []key.Binding {
+	if len(m.views) <= 1 {
+		return nil
 	}
+
+	return []key.Binding{m.keys.nextView}
 }
 
 // handleIssuesKey answers the Issues pane's own keys.
@@ -199,6 +212,8 @@ func (m Model) handleIssuesKey(msg tea.KeyMsg) (Model, tea.Cmd) {
 		m.issues = m.issues.beginFilter()
 
 		return m, nil
+	case key.Matches(msg, m.keys.nextView):
+		return m.nextIssueView()
 	case key.Matches(msg, m.keys.refresh):
 		return m.refreshIssues()
 	default:

@@ -212,7 +212,7 @@ func (l issueList) render(marks glyphs, sty styles, rows int) string {
 	case l.err != nil:
 		return failedGlyph(sty, marks) + " failed" + marks.separator + "see detail"
 	case len(l.found.Issues) == 0:
-		return "no open issues assigned to you"
+		return "no issues in this view"
 	case len(visible) == 0:
 		return "no issue matches the filter"
 	}
