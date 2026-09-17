@@ -252,7 +252,7 @@ func (m Model) openBranchCreator() (Model, tea.Cmd) {
 
 	name := ""
 	if forIssue {
-		name = convention.BranchName(issue.Type, issue.Key, issue.Summary)
+		name = m.branchNaming().Name(issue.Type, issue.Key, issue.Summary)
 	}
 
 	m.overlay = branchCreator{
@@ -261,6 +261,12 @@ func (m Model) openBranchCreator() (Model, tea.Cmd) {
 	}
 
 	return m, nil
+}
+
+// branchNaming is how this session names a branch for an issue: the configured
+// template and prefixes, or the built-in convention when none is set.
+func (m Model) branchNaming() convention.BranchNaming {
+	return convention.NewBranchNaming(m.cfg.Branch.Template, m.cfg.Branch.DefaultPrefix, m.cfg.Branch.Prefixes)
 }
 
 // baseAge says how long ago the base last moved, or nothing when git could not
