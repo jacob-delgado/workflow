@@ -72,7 +72,10 @@ func externalTools() []tool {
 
 // newDoctorCmd builds `workflow doctor`.
 func newDoctorCmd() *cobra.Command {
-	var online bool
+	var (
+		online bool
+		asJSON bool
+	)
 
 	cmd := &cobra.Command{
 		Use:   "doctor",
@@ -82,16 +85,22 @@ func newDoctorCmd() *cobra.Command {
 			"and which required fields are still empty.\n\n" +
 			"Makes no network calls by default, so it is safe to run anywhere and\n" +
 			"tells you only that a credential is present. Add --online to ask each\n" +
-			"service whether the credential actually works.",
+			"service whether the credential actually works. Add --json for the same\n" +
+			"facts as data, with the same masking.",
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			cfg, err := loadFromEnvironment()
+
+			if asJSON {
+				return runDoctorJSON(cmd.Context(), cmd.OutOrStdout(), cfg, err, online)
+			}
 
 			return runDoctor(cmd.Context(), cmd.OutOrStdout(), cfg, err, online)
 		},
 	}
 
 	cmd.Flags().BoolVar(&online, "online", false, "ask each service whether its credential works")
+	cmd.Flags().BoolVar(&asJSON, "json", false, "print the report as JSON")
 
 	return cmd
 }
