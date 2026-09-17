@@ -938,9 +938,10 @@ Severity: low · Confidence: reproduced
 - `push-release-tag.sh` pushes the tag before `release.yml` runs `task check`
   (`.github/workflows/release.yml:42`), so a gate that is red at release time
   leaves a tag with no release behind it.
-- Only `check-commit-message.sh` has a test. The release tagging script ends
-  its label change with `|| true`, so a release-please left in a pending
-  state would say nothing.
+- Two scripts have a test, `scripts/check-commit-message.sh` and
+  `scripts/release/push-release-tag.sh`. The coverage gates, the file-length and
+  license checks, `tool-versions.sh` and the docs drift check have none, and
+  it is their failure paths that never run.
 - A scratch `.go` file under the gitignored `tmp/` joins `go vet ./...`,
   `go test ./...` and golangci-lint, as an experiment confirmed, and CLAUDE.md
   sends scratch files there without saying so.
