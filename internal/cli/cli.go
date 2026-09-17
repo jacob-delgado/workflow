@@ -96,6 +96,8 @@ func Execute(args []string, stdout, stderr io.Writer) error {
 
 // NewRootCmd builds the command tree. Bare `workflow` opens the TUI.
 func NewRootCmd() *cobra.Command {
+	var dryRun bool
+
 	root := &cobra.Command{
 		Use:           "workflow",
 		Short:         "Run your Jira, Slack, and Git forge workflow from the terminal",
@@ -113,10 +115,16 @@ func NewRootCmd() *cobra.Command {
 			}
 
 			model := tui.New(cfg, loadErr, wiring.Deps(ctx, cfg, wiring.Locate(ctx, dir)))
+			if dryRun {
+				model = model.WithDryRun()
+			}
 
 			return tui.Run(ctx, model, cmd.OutOrStdout())
 		},
 	}
+
+	root.Flags().BoolVar(&dryRun, "dry-run", false,
+		"hold back every write to Jira, the forge, Slack, git and files, and say what it would have done")
 
 	root.AddCommand(newConfigCmd(), newDoctorCmd())
 
