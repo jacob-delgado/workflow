@@ -36,7 +36,7 @@ func TestNothingInterruptsAWriteBeingSent(t *testing.T) {
 		"a branch":        {keys: []string{"b"}, sending: "creating…"},
 		"a pull request":  {pullMissing: true, keys: []string{"4", "n"}, sending: "opening…"},
 		"a slack post":    {keys: []string{"5", "p"}, sending: "posting…"},
-		"a configuration": {gitHooks: legacyHooks(), keys: nil, sending: "writing…"},
+		"a configuration": {gitHooks: legacyHooks(), keys: []string{"3", "g"}, sending: "writing…"},
 	}
 
 	for name, tt := range cases {
@@ -75,7 +75,7 @@ func TestOverlaysIgnoreKeysThatMeanNothingInThem(t *testing.T) {
 		edited   string
 		keys     []string
 	}{
-		"the lefthook offer": {gitHooks: legacyHooks()},
+		"the lefthook offer": {gitHooks: legacyHooks(), keys: []string{"3", "g"}},
 		"a comment preview":  {edited: greeting, keys: []string{"c"}},
 		"the post to Slack":  {keys: []string{"5", "p"}},
 		// The type is chosen with arrows, so typing on it changes nothing.
@@ -110,7 +110,7 @@ func TestAStructuredConfigurationWithNoScriptsSaysNothingOfScripts(t *testing.T)
 	plain.gitHooks = []hooks.GitHook{{Name: "pre-commit", Script: "#!/bin/sh\ngofmt -l .\n"}}
 
 	// Act
-	view := plain.live(t, 120, 50).View()
+	view := typing(t, plain.live(t, 120, 50), "3", "g").View()
 
 	// Assert
 	requireScreen(t, view, "Found 1 hook in .git/hooks")

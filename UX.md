@@ -118,23 +118,6 @@ Impact: high · Effort: small
   in `docs/content/docs/usage.md`.
 - Done when: an 80×24 terminal shows the rail and the detail side by side.
 
-### UX-06 Do not open on the lefthook offer
-
-Impact: medium · Effort: small
-
-- Today (seen live): in a repository with a hook in `.git/hooks` and lefthook
-  installed, the first thing a new user sees is a full-pane offer to write a
-  `lefthook.yml` and run `lefthook install`. They have not yet seen the
-  interface they started. At 80×24 the offer is the whole screen. `esc` skips
-  it and nothing brings it back in that session.
-- Instead: open on the normal screen. Say once, in the Commits pane, that a
-  hook is not managed by lefthook and which key shows the offer. Keep that
-  key.
-- Touches: `internal/tui/hookgen.go`, `internal/tui/commits.go`,
-  `internal/tui/tui.go` (`Init`).
-- Done when: the first screen is the five panes, and the offer can be opened
-  and reopened from the Commits pane.
-
 ## Issues
 
 ## Branch
