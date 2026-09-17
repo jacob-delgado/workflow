@@ -98,6 +98,12 @@ func TestIssueKeyIsFoundWhereJiraWouldFindIt(t *testing.T) {
 		"one letter is not a key": {text: "A-1", want: ""},
 		"nothing":                 {text: "main", want: ""},
 		"a key followed by digit": {text: "OPS-12x", want: "OPS-12"},
+		// Common standards read like a key but are not one.
+		"an encoding is not a key": {text: "fix/UTF-8-decoding", want: ""},
+		"a hash is not a key":      {text: "feat/SHA-256-support", want: ""},
+		"a CVE is not a key":       {text: "fix/CVE-2024-1-patch", want: ""},
+		// A real key after a standard is still found.
+		"a standard then a key": {text: "fix/UTF-8-and-PROJ-412", want: projKey},
 	}
 
 	for name, tt := range cases {
