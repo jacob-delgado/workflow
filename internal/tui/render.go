@@ -15,7 +15,10 @@ import (
 	"github.com/charmbracelet/x/ansi"
 
 	"github.com/jacob-delgado/workflow/internal/config"
+	"github.com/jacob-delgado/workflow/internal/forge"
+	"github.com/jacob-delgado/workflow/internal/jira"
 	"github.com/jacob-delgado/workflow/internal/sanitize"
+	"github.com/jacob-delgado/workflow/internal/slack"
 	"github.com/jacob-delgado/workflow/internal/tui/frame"
 	"github.com/jacob-delgado/workflow/internal/tui/layout"
 )
@@ -269,11 +272,43 @@ func (m Model) configErrorStatus() string {
 		m.styles.label.Render(m.loadErr.Error())
 }
 
-// failure draws an error the one way the interface says something broke. An
-// error carries what a program or a file name put in it, so its text is made
-// safe here as well as where it was written.
+// errorSentence rewrites a recognized error as a sentence in the interface's
+// voice, reporting false for one it does not recognize. It is built here rather
+// than as a package map because gochecknoglobals forbids the latter.
+func errorSentence(err error) (string, bool) {
+	for _, known := range []struct {
+		sentinel error
+		sentence string
+	}{
+		{jira.ErrNoCredential, "Jira is not set up. Add `jira.token` to `.workflow.json`."},
+		{jira.ErrUnreachable, "Jira did not answer within 10 seconds. Check the VPN, then press `r`."},
+		{forge.ErrNoToken, "No forge token found. Run `gh auth login`, or set `$GITHUB_TOKEN`."},
+		{forge.ErrUnreachable, "The forge did not answer within 10 seconds. Check the network, then press `r`."},
+		{slack.ErrNoCredential, "Slack is not set up. Add `slack.token` or `slack.webhook_url` to `.workflow.json`."},
+		{slack.ErrRejected, "Slack refused the post: check the bot is in the channel."},
+	} {
+		if errors.Is(err, known.sentinel) {
+			return known.sentence, true
+		}
+	}
+
+	return "", false
+}
+
+// failure draws an error the one way the interface says something broke. A
+// recognized error reads as a sentence in the interface's voice, with the raw
+// chain beneath it; an unrecognized one keeps its raw text. Either way the text
+// is made safe here as well as where it was written.
 func (m Model) failure(err error) string {
-	return m.styles.failure.Render(m.marks.failed + " " + sanitize.Text(err.Error()))
+	glyph := m.marks.failed + " "
+
+	sentence, known := errorSentence(err)
+	if !known {
+		return m.styles.failure.Render(glyph + sanitize.Text(err.Error()))
+	}
+
+	return m.styles.failure.Render(glyph+sentence) + "\n" +
+		m.styles.label.Render(sanitize.Text(err.Error()))
 }
 
 // failureWithin is failure for a pane: wrapped to its width first and styled
