@@ -365,18 +365,6 @@ Impact: medium · Effort: small
   (`connectForge` returns distinct sentinels already).
 - Done when: with no token, `n` is not offered and nothing is pushed.
 
-### UX-24 Make `r` worth pressing after fixing the problem
-
-Impact: medium · Effort: small
-
-- Today: a failed connection to the forge is remembered for the whole session
-  (`sync.OnceValues`, `internal/wiring/wiring.go`). After `gh auth login` in
-  another terminal, `r refresh` returns the same error until the program is
-  restarted. The screen offers a key that cannot help.
-- Instead: remember a connection only when it succeeded.
-- Touches: `internal/wiring/wiring.go` (`forgeDeps`).
-- Done when: `r` after signing in finds the pull request.
-
 ### UX-25 Call it a merge request on GitLab
 
 Impact: low · Effort: small

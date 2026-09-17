@@ -153,7 +153,7 @@ type forgeConnection struct {
 
 // forgeDeps is what the interface asks of GitHub or GitLab.
 func forgeDeps(ctx context.Context, settings config.Forge, where Workspace) tui.ForgeDeps {
-	connect := sync.OnceValues(func() (forgeConnection, error) { return connectForge(ctx, settings, where.Remote) })
+	connect := onceConnected(func() (forgeConnection, error) { return connectForge(ctx, settings, where.Remote) })
 
 	return tui.ForgeDeps{
 		FindPullRequest: func(branch string) (forge.PullRequest, bool, error) {
@@ -199,6 +199,35 @@ func forgeDeps(ctx context.Context, settings config.Forge, where Workspace) tui.
 // to read the file differently.
 func ForgeSettings(settings config.Forge) forge.Configured {
 	return forge.Configured{Kind: settings.Kind, Host: settings.Host, Token: forge.Token(settings.Token)}
+}
+
+// onceConnected caches a forge connection once it succeeds, and retries after a
+// failure rather than remembering it: a token added, or gh signed in, in another
+// terminal is found on the next attempt instead of only on a restart.
+func onceConnected(connect func() (forgeConnection, error)) func() (forgeConnection, error) {
+	var (
+		lock   sync.Mutex
+		cached forgeConnection
+		ok     bool
+	)
+
+	return func() (forgeConnection, error) {
+		lock.Lock()
+		defer lock.Unlock()
+
+		if ok {
+			return cached, nil
+		}
+
+		connection, err := connect()
+		if err != nil {
+			return forgeConnection{}, err
+		}
+
+		cached, ok = connection, true
+
+		return cached, nil
+	}
 }
 
 // connectForge finds the forge the remote points at and the token for it, the
