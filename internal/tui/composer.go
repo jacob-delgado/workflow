@@ -47,6 +47,7 @@ type commitDraft struct {
 // is always well-formed, and measures it against the limit as it is typed.
 type commitComposer struct {
 	marks    glyphs
+	styles   styles
 	types    []string
 	kind     int
 	focus    int
@@ -76,8 +77,8 @@ func (m Model) openCommitComposer() (Model, tea.Cmd) {
 	issueKey, _ := convention.IssueKey(m.branch.branch.Name)
 
 	composer := commitComposer{
-		marks: m.marks, types: types, kind: max(0, slices.Index(types, draft.kind)), focus: fieldSubject,
-		scope: newInput(draft.scope), subject: newInput(draft.subject), body: draft.body,
+		marks: m.marks, styles: m.styles, types: types, kind: max(0, slices.Index(types, draft.kind)),
+		focus: fieldSubject, scope: newInput(draft.scope), subject: newInput(draft.subject), body: draft.body,
 		issueKey: issueKey, staged: m.changes.staged(), problem: nil,
 	}
 	composer.scope.Blur()
@@ -102,13 +103,14 @@ func (c commitComposer) view(width, _ int) (string, string) {
 
 	c.scope.Width, c.subject.Width = max(1, width-composerLabelWidth), max(1, width-composerLabelWidth)
 
-	lines := []string{
-		c.label(fieldType, "type    ") + c.typeChoice(),
-		c.label(fieldScope, "scope   ") + c.scope.View(),
-	}
+	lines := pinnedOutcome(c.styles, c.marks, false, "", c.problem, width)
+	lines = append(lines,
+		c.label(fieldType, "type    ")+c.typeChoice(),
+		c.label(fieldScope, "scope   ")+c.scope.View(),
+	)
 
 	if problem := c.scopeProblem(); problem != "" {
-		lines = append(lines, "  "+c.marks.failed+" "+problem)
+		lines = append(lines, "  "+failedGlyph(c.styles, c.marks)+" "+problem)
 	}
 
 	lines = append(lines,
@@ -119,7 +121,7 @@ func (c commitComposer) view(width, _ int) (string, string) {
 
 	problem := subject.Validate()
 	if problem != nil && strings.TrimSpace(c.subject.Value()) != "" {
-		lines = append(lines, "  "+c.marks.failed+" "+problem.Error())
+		lines = append(lines, "  "+failedGlyph(c.styles, c.marks)+" "+problem.Error())
 	}
 
 	return "Commit", strings.Join(append(append(lines, ""), c.footnotes()...), "\n")
@@ -179,10 +181,6 @@ func (c commitComposer) footnotes() []string {
 	}
 
 	lines = append(lines, "", plural(c.staged, "file")+" staged")
-
-	if c.problem != nil {
-		lines = append(lines, c.marks.failed+" "+c.problem.Error())
-	}
 
 	return lines
 }

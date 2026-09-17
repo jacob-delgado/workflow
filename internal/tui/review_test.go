@@ -201,7 +201,7 @@ func TestNOpensAComposerStartedFromTheBranch(t *testing.T) {
 	requireScreen(t, changed.View(), "template bugfix (2 of 2)", "## Bug", "[x] draft")
 
 	// Act: write the body in the editor
-	edited := typing(t, changed, "ctrl+o")
+	edited := typing(t, changed, keyCtrlO)
 
 	// Assert: the body is the editor's
 	requireScreen(t, edited.View(), "Rewritten.")
@@ -247,7 +247,7 @@ func TestTheComposerTitleAndBaseCanBeEdited(t *testing.T) {
 	opening.edited = "Body."
 	model := opening.live(t, 120, 40)
 
-	keys := append([]string{"4", "n", "ctrl+o"}, letters("!")...)
+	keys := append([]string{"4", "n", keyCtrlO}, letters("!")...)
 	keys = append(append(keys, keyTab, "backspace", "backspace", "backspace", "backspace"), letters("develop")...)
 
 	// Act: change the title and the base

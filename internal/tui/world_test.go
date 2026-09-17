@@ -42,6 +42,7 @@ const (
 	keyEsc       = "esc"
 	keySpace     = "space"
 	keyRight     = "right"
+	keyCtrlO     = "ctrl+o"
 	issueKey     = "PROJ-412"
 	secondIssue  = "PROJ-388"
 	issueSummary = "Fix token redaction"

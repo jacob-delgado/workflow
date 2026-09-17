@@ -55,7 +55,7 @@ one of them yet, which makes this table the shortest summary of the file.
 | "`?` lists every key" | `docs/content/docs/usage.md:56` | No. Eleven bindings are missing. UX-33 |
 | "the one way the interface says something broke" | `failure`, `internal/tui/render.go:272` | In 7 places of about 20. |
 | "Nothing outward facing is sent without" a last look | `internal/tui/comment.go:43` | Mostly. |
-| "a refused change must never go unseen" | `internal/tui/picker.go:184` | In one overlay of seven. UX-35 |
+| "a refused change must never go unseen" | `internal/tui/picker.go:184` | In one overlay of seven. |
 | "Each pane fails on its own" | `docs/content/docs/usage.md:58` | Yes, and it is the best thing about the first run. |
 | State is "carried by the SHAPE of a glyph rather than its color" | `internal/tui/glyphs.go:14` | Yes. It reads in monochrome. |
 
@@ -204,25 +204,6 @@ Impact: high · Effort: medium
   `internal/tui/overlay.go` (`noticed`), `internal/tui/layout/layout.go`.
 - Done when: a notice survives `j`, `k` and `tab`, and the key hints stay
   visible beside it.
-
-### UX-35 Pin every outcome where it cannot be pushed off screen
-
-Impact: high · Effort: medium
-
-- Today: an overlay draws its result line ("posting…", "✗ …") after its body,
-  unwrapped. Two things follow. A long reason is cut with an ellipsis (seen
-  live: "✗ creating branch x: git: exit status 128: fatal: not a git
-  repository (or any …"). And when the body is taller than the pane, the
-  result is below the fold with no way to scroll to it: a failed lefthook
-  install at 80×24 with two hooks showed no error at all. The status picker
-  reserves room for its outcome, with the comment "a refused change must
-  never go unseen". The other six overlays do not.
-- Instead: every overlay draws its state directly under its title, as the run
-  overlay already does, wrapped to the pane's width.
-- Touches: `internal/tui/comment.go`, `internal/tui/branch.go`,
-  `internal/tui/prcomposer.go`, `internal/tui/slack.go`,
-  `internal/tui/hookgen.go`, `internal/tui/composer.go`.
-- Done when: at 80×24, a failure in any overlay is fully visible.
 
 ### UX-37 Show that something is happening
 

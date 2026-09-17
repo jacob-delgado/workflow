@@ -212,6 +212,7 @@ func (m Model) handleBranchKey(msg tea.KeyMsg) (Model, tea.Cmd) {
 // branchCreator is a branch about to be created, named for the selected issue.
 type branchCreator struct {
 	marks    glyphs
+	styles   styles
 	input    textinput.Model
 	issue    jira.Issue
 	forIssue bool
@@ -238,7 +239,7 @@ func (m Model) openBranchCreator() (Model, tea.Cmd) {
 	}
 
 	m.overlay = branchCreator{
-		marks: m.marks, input: newInput(name), issue: issue, forIssue: forIssue,
+		marks: m.marks, styles: m.styles, input: newInput(name), issue: issue, forIssue: forIssue,
 		base: m.branch.branch.Base, baseAge: m.baseAge(), problem: nil, sending: false,
 	}
 
@@ -259,19 +260,12 @@ func (m Model) baseAge() string {
 func (c branchCreator) view(width, _ int) (string, string) {
 	c.input.Width = max(1, width-len(c.input.Prompt)-1)
 
-	lines := []string{}
+	lines := pinnedOutcome(c.styles, c.marks, c.sending, "creating", c.problem, width)
 	if c.forIssue {
 		lines = append(lines, "for "+c.issue.Key+" "+c.issue.Summary, "")
 	}
 
 	lines = append(lines, c.input.View(), "", c.start())
-
-	switch {
-	case c.sending:
-		lines = append(lines, "", "creating"+c.marks.ellipsis)
-	case c.problem != nil:
-		lines = append(lines, "", c.marks.failed+" "+c.problem.Error())
-	}
 
 	return c.title(), strings.Join(lines, "\n")
 }

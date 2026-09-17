@@ -44,6 +44,7 @@ const (
 // commits and the repository's template, all of it editable.
 type prComposer struct {
 	marks     glyphs
+	styles    styles
 	title     textinput.Model
 	base      textinput.Model
 	focus     int
@@ -101,8 +102,9 @@ func (m Model) openPullRequestComposer() (Model, tea.Cmd) {
 	issue, _ := m.issues.find(issueKey)
 
 	composer := prComposer{
-		marks: m.marks, title: newInput(convention.PullRequestTitle(subjects, issueKey, issue.Summary)),
-		base: newInput(strings.TrimPrefix(branch.Base, "origin/")), focus: prFieldTitle, head: branch.Name,
+		marks: m.marks, styles: m.styles,
+		title: newInput(convention.PullRequestTitle(subjects, issueKey, issue.Summary)),
+		base:  newInput(strings.TrimPrefix(branch.Base, "origin/")), focus: prFieldTitle, head: branch.Name,
 		subjects: subjects, issueKey: issueKey, issueURL: m.browseURL(issueKey), vocab: m.vocab,
 	}
 	composer.base.Blur()
@@ -149,23 +151,17 @@ func (c prComposer) view(width, _ int) (string, string) {
 	c.title.Width, c.base.Width = max(1, width-prLabelWidth), max(1, width-prLabelWidth)
 
 	checkbox := map[bool]string{false: "[ ]", true: "[x]"}[c.draft]
-	lines := []string{
-		c.marks.marker(c.focus == prFieldTitle) + "title  " + c.title.View(),
-		c.marks.marker(c.focus == prFieldBase) + "base   " + c.base.View(),
-		"  head   " + c.head,
-		"  " + c.templateName() + c.marks.separator + checkbox + " draft",
+	lines := pinnedOutcome(c.styles, c.marks, c.sending, "opening", c.problem, width)
+	lines = append(lines,
+		c.marks.marker(c.focus == prFieldTitle)+"title  "+c.title.View(),
+		c.marks.marker(c.focus == prFieldBase)+"base   "+c.base.View(),
+		"  head   "+c.head,
+		"  "+c.templateName()+c.marks.separator+checkbox+" draft",
 		"",
-	}
+	)
 
 	body := strings.Split(wrap(strings.TrimRight(c.body, "\n"), width), "\n")
 	lines = append(lines, body[:min(len(body), prBodyPreviewLines)]...)
-
-	switch {
-	case c.sending:
-		lines = append(lines, "", "opening"+c.marks.ellipsis)
-	case c.problem != nil:
-		lines = append(lines, "", c.marks.failed+" "+c.problem.Error())
-	}
 
 	return "Open " + c.vocab.noun, strings.Join(lines, "\n")
 }

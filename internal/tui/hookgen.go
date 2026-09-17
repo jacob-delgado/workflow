@@ -58,7 +58,9 @@ func (m Model) openHookgen() (Model, tea.Cmd) {
 		return m, nil
 	}
 
-	m.overlay = hookgenOffer{marks: m.marks, hooks: m.hookgen.hooks, generated: hooks.Structured(m.hookgen.hooks)}
+	m.overlay = hookgenOffer{
+		marks: m.marks, styles: m.styles, hooks: m.hookgen.hooks, generated: hooks.Structured(m.hookgen.hooks),
+	}
 
 	return m, nil
 }
@@ -66,6 +68,7 @@ func (m Model) openHookgen() (Model, tea.Cmd) {
 // hookgenOffer is a lefthook configuration offered for a repository's hooks.
 type hookgenOffer struct {
 	marks     glyphs
+	styles    styles
 	hooks     []hooks.GitHook
 	generated hooks.Generated
 	sending   bool
@@ -74,11 +77,13 @@ type hookgenOffer struct {
 
 var _ overlay = hookgenOffer{}
 
-// view lists the hooks found and the configuration that would run them.
+// view lists the hooks found and the configuration that would run them, its
+// outcome pinned under the title so a long refusal is seen, not clipped.
 func (o hookgenOffer) view(width, _ int) (string, string) {
-	lines := []string{
+	lines := pinnedOutcome(o.styles, o.marks, o.sending, "writing", o.problem, width)
+	lines = append(lines,
 		wrap("Found "+plural(len(o.hooks), "hook")+" in .git/hooks that lefthook does not manage:", width), "",
-	}
+	)
 
 	for _, hook := range o.hooks {
 		count := strconv.Itoa(strings.Count(strings.TrimRight(hook.Script, "\n"), "\n") + 1)
@@ -95,13 +100,6 @@ func (o hookgenOffer) view(width, _ int) (string, string) {
 	}
 
 	lines = append(lines, "", wrap("lefthook install then keeps the old hooks as .git/hooks/*.old", width))
-
-	switch {
-	case o.sending:
-		lines = append(lines, "", "writing"+o.marks.ellipsis)
-	case o.problem != nil:
-		lines = append(lines, "", o.marks.failed+" "+o.problem.Error())
-	}
 
 	return "No lefthook configuration", strings.Join(lines, "\n")
 }
