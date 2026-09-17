@@ -4,6 +4,8 @@
 package wiring_test
 
 import (
+	"errors"
+	"io/fs"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -87,6 +89,7 @@ func drained(output proc.Output) ([]string, error) {
 }
 
 func TestLocateFindsTheRepositoryFromAnywhereInIt(t *testing.T) {
+	// Arrange
 	isolateGit(t)
 
 	root := repository(t)
@@ -99,57 +102,145 @@ func TestLocateFindsTheRepositoryFromAnywhereInIt(t *testing.T) {
 		t.Fatal(err)
 	}
 
+	// Act
 	where := wiring.Locate(t.Context(), inside)
+
+	// Assert
 	if where.Root != root || where.Remote != githubRemote {
 		t.Errorf("Locate = %+v, want root %s and origin", where, root)
 	}
+}
+
+func TestLocateOutsideARepositoryIsTheDirectoryItself(t *testing.T) {
+	// Arrange
+	isolateGit(t)
 
 	outside := t.TempDir()
-	if where := wiring.Locate(t.Context(), outside); where.Root != outside || where.Remote != "" {
+
+	// Act
+	where := wiring.Locate(t.Context(), outside)
+
+	// Assert
+	if where.Root != outside || where.Remote != "" {
 		t.Errorf("Locate outside a repository = %+v, want the directory itself", where)
 	}
 }
 
-func TestTheGitSeamsWorkOnARealRepository(t *testing.T) {
+// gitSeams are the git seams on a new repository, with git's own configuration
+// kept out and drafts written under drafts.
+func gitSeams(t *testing.T) (tui.GitDeps, string, string) {
+	t.Helper()
+
 	isolateGit(t)
 
 	drafts := t.TempDir()
 	t.Setenv("TMPDIR", drafts)
 
 	root := repository(t)
-	seams := wiring.Deps(t.Context(), config.Default(), wiring.Workspace{Root: root, Remote: ""}).Git
+
+	return wiring.Deps(t.Context(), config.Default(), wiring.Workspace{Root: root, Remote: ""}).Git, root, drafts
+}
+
+func TestTheGitSeamsStartABranchFromMain(t *testing.T) {
+	// Arrange
+	seams, _, _ := gitSeams(t)
+
+	// Act
+	err := seams.CreateBranch(featureBranch, "main")
+	if err != nil {
+		t.Fatalf("CreateBranch: %v", err)
+	}
+
+	// Assert
+	branch, err := seams.Branch()
+	if err != nil || branch.Name != featureBranch || branch.Base != "main" {
+		t.Errorf("Branch = %+v, %v; want %s checked out, from main", branch, err, featureBranch)
+	}
+}
+
+func TestTheGitSeamsStageAndUnstageAChange(t *testing.T) {
+	// Arrange
+	seams, root, _ := gitSeams(t)
+	write(t, filepath.Join(root, "new.go"), "package x\n", 0o600)
+
+	change := onlyChange(t, seams)
+
+	// Act: stage it
+	err := seams.Stage(change)
+	if err != nil {
+		t.Fatalf("Stage: %v", err)
+	}
+
+	// Assert: it is staged
+	if staged := onlyChange(t, seams); !staged.IsStaged() {
+		t.Errorf("after Stage, %+v is not staged", staged)
+	}
+
+	// Act: unstage it
+	err = seams.Unstage(change)
+	if err != nil {
+		t.Fatalf("Unstage: %v", err)
+	}
+
+	// Assert: it is no longer staged
+	if unstaged := onlyChange(t, seams); unstaged.IsStaged() {
+		t.Errorf("after Unstage, %+v is still staged", unstaged)
+	}
+}
+
+func TestTheGitSeamsCommitWhatIsStagedAndLeaveNoMessageBehind(t *testing.T) {
+	// Arrange
+	seams, root, drafts := gitSeams(t)
+	write(t, filepath.Join(root, "new.go"), "package x\n", 0o600)
+
+	err := seams.Stage(onlyChange(t, seams))
+	if err != nil {
+		t.Fatalf("Stage: %v", err)
+	}
+
+	// Act
+	output, err := seams.Commit("feat: add x\n\nWhy.\n")
+	if err != nil {
+		t.Fatalf("Commit did not start: %v", err)
+	}
+
+	lines, err := drained(output)
+	// Assert
+	if err != nil {
+		t.Fatalf("Commit: %v (%q)", err, lines)
+	}
+
+	if subject := git(t, root, "log", "-1", "--format=%s"); subject != "feat: add x" {
+		t.Errorf("committed %q, want the message given", subject)
+	}
+
+	left, _ := filepath.Glob(filepath.Join(drafts, "workflow-commit-*"))
+	if len(left) != 0 {
+		t.Errorf("the message file outlived the commit: %q", left)
+	}
+}
+
+func TestTheGitSeamsReportAPushGitRefuses(t *testing.T) {
+	// Arrange
+	seams, _, _ := gitSeams(t)
 
 	err := seams.CreateBranch(featureBranch, "main")
 	if err != nil {
 		t.Fatalf("CreateBranch: %v", err)
 	}
 
-	branch, err := seams.Branch()
-	if err != nil || branch.Name != featureBranch || branch.Base != "main" {
-		t.Fatalf("Branch = %+v, %v", branch, err)
-	}
-
-	write(t, filepath.Join(root, "new.go"), "package x\n", 0o600)
-	change := onlyChange(t, seams)
-
-	stagedThenUnstaged(t, seams, change)
-
-	err = seams.Stage(change)
-	if err != nil {
-		t.Fatalf("Stage: %v", err)
-	}
-
-	committed(t, seams, root, drafts)
-
-	// With no origin a push fails, through git, with git's reason.
+	// Act
 	push, err := seams.Push(featureBranch)
 	if err != nil {
 		t.Fatalf("Push did not start: %v", err)
 	}
 
-	_, err = drained(push)
-	if err == nil {
-		t.Error("a push with no origin succeeded")
+	lines, err := drained(push)
+
+	// Assert
+	// With no origin a push fails, through git, with git's reason.
+	if err == nil || !strings.Contains(strings.Join(lines, "\n"), "origin") {
+		t.Errorf("Push ended %v saying %q, want git's refusal naming origin", err, lines)
 	}
 }
 
@@ -165,74 +256,34 @@ func onlyChange(t *testing.T, seams tui.GitDeps) gitrepo.Change {
 	return changes[0]
 }
 
-// stagedThenUnstaged stages a change, checks it, and takes it back out.
-func stagedThenUnstaged(t *testing.T, seams tui.GitDeps, change gitrepo.Change) {
-	t.Helper()
-
-	err := seams.Stage(change)
-	if err != nil {
-		t.Fatalf("Stage: %v", err)
-	}
-
-	if staged := onlyChange(t, seams); !staged.IsStaged() {
-		t.Errorf("after Stage, %+v is not staged", staged)
-	}
-
-	err = seams.Unstage(change)
-	if err != nil {
-		t.Fatalf("Unstage: %v", err)
-	}
-
-	if unstaged := onlyChange(t, seams); unstaged.IsStaged() {
-		t.Errorf("after Unstage, %+v is still staged", unstaged)
-	}
-}
-
-// committed commits the index, and checks the message file did not outlive the
-// commit.
-func committed(t *testing.T, seams tui.GitDeps, root, drafts string) {
-	t.Helper()
-
-	output, err := seams.Commit("feat: add x\n\nWhy.\n")
-	if err != nil {
-		t.Fatalf("Commit did not start: %v", err)
-	}
-
-	lines, err := drained(output)
-	if err != nil {
-		t.Fatalf("Commit: %v (%q)", err, lines)
-	}
-
-	if subject := git(t, root, "log", "-1", "--format=%s"); subject != "feat: add x" {
-		t.Errorf("committed %q, want the message given", subject)
-	}
-
-	left, _ := filepath.Glob(filepath.Join(drafts, "workflow-commit-*"))
-	if len(left) != 0 {
-		t.Errorf("the message file outlived the commit: %q", left)
-	}
-}
-
-func TestACommitThatCannotStartSaysWhy(t *testing.T) {
+func TestACommitThatCannotWriteItsMessageSaysWhy(t *testing.T) {
+	// Arrange
 	t.Setenv("TMPDIR", filepath.Join(t.TempDir(), "missing"))
 
 	seams := wiring.Deps(t.Context(), config.Default(), wiring.Workspace{Root: t.TempDir(), Remote: ""}).Git
 
+	// Act
 	_, err := seams.Commit("feat: x\n")
-	if err == nil || !strings.Contains(err.Error(), "writing the commit message") {
+
+	// Assert
+	if !errors.Is(err, fs.ErrNotExist) || !strings.Contains(err.Error(), "writing the commit message") {
 		t.Errorf("Commit = %v, want the message file's failure", err)
 	}
 }
 
 func TestACommitGitCannotRunLeavesNoMessageBehind(t *testing.T) {
+	// Arrange
 	drafts := t.TempDir()
 	t.Setenv("TMPDIR", drafts)
 	t.Setenv("PATH", t.TempDir())
 
 	seams := wiring.Deps(t.Context(), config.Default(), wiring.Workspace{Root: t.TempDir(), Remote: ""}).Git
 
+	// Act
 	_, err := seams.Commit("feat: x\n")
-	if err == nil || !strings.Contains(err.Error(), "starting git commit") {
+
+	// Assert
+	if !errors.Is(err, proc.ErrNotFound) || !strings.Contains(err.Error(), "starting git commit") {
 		t.Errorf("Commit = %v, want git's failure to start", err)
 	}
 

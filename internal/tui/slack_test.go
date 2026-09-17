@@ -21,13 +21,22 @@ const announcement = "jacob opened a pull request: <" + pullURL + "|" + pullTitl
 func TestTheSlackPanePreviewsTheAnnouncement(t *testing.T) {
 	t.Parallel()
 
+	// Act
 	view := typing(t, newWorld().live(t, 120, 40), "5").View()
+
+	// Assert
 	requireScreen(t, view, "jacob opened a pull request:", "to     "+slackChannel, "CI     ● passed",
 		"state  ○ nothing posted")
 	requireScreen(t, footerLine(view), "p post to slack")
+}
 
-	none := withoutPull()
-	view = typing(t, none.live(t, 120, 40), "5").View()
+func TestTheSlackPaneAsksForAPullRequestFirst(t *testing.T) {
+	t.Parallel()
+
+	// Act
+	view := typing(t, withoutPull().live(t, 120, 40), "5").View()
+
+	// Assert
 	requireScreen(t, view, "Open a pull request first (4 Review)")
 	refuseScreen(t, footerLine(view), "p post")
 }
@@ -35,77 +44,140 @@ func TestTheSlackPanePreviewsTheAnnouncement(t *testing.T) {
 func TestPostingNowPostsTheAnnouncement(t *testing.T) {
 	t.Parallel()
 
+	// Arrange
 	posting := newWorld()
+	model := posting.live(t, 120, 40)
 
-	preview := typing(t, posting.live(t, 120, 40), "5", "p")
+	// Act: open the post
+	preview := typing(t, model, "5", "p")
+
+	// Assert: it says where it goes and when
 	requireScreen(t, preview.View(), "┏━ Post to Slack", "to  "+slackChannel, "enter post now", "w post when CI passes")
 
+	// Act: post now
 	posted := typing(t, preview, keyEnter)
+
+	// Assert: the announcement is posted once
 	requireScreen(t, posted.View(), "● posted to "+slackChannel)
-	requireScreen(t, typing(t, posted, "j").View(), "state  ● posted")
 
 	if calls := posting.asked("post "); len(calls) != 1 || calls[0] != "post "+announcement {
 		t.Errorf("post calls = %q, want the announcement", calls)
 	}
 
-	// Posted once, it is not offered again.
-	refuseScreen(t, footerLine(typing(t, posted, "j").View()), "p post")
+	// Act: move on from the notice
+	pane := typing(t, posted, "j").View()
+
+	// Assert: the pane says it was posted, and does not offer it again
+	requireScreen(t, pane, "state  ● posted")
+	refuseScreen(t, footerLine(pane), "p post")
 }
 
 func TestTheMessageCanBeEditedBeforeItPosts(t *testing.T) {
 	t.Parallel()
 
+	// Arrange
 	editing := newWorld()
 	editing.edited = "Ready for review: " + pullURL
+	model := editing.live(t, 120, 40)
 
-	edited := typing(t, editing.live(t, 120, 40), "5", "p", "e")
+	// Act: edit the message
+	edited := typing(t, model, "5", "p", "e")
+
+	// Assert: the preview is the edited message
 	requireScreen(t, edited.View(), "Ready for review: "+pullURL)
 
+	// Act: post it
 	typing(t, edited, keyEnter)
 
+	// Assert: the edited message is what posted
 	if calls := editing.asked("post "); len(calls) != 1 || calls[0] != "post Ready for review: "+pullURL {
-		t.Errorf("post calls = %q", calls)
+		t.Errorf("post calls = %q, want the edited message", calls)
 	}
+}
 
+func TestAnEmptiedMessageIsNotPosted(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
 	emptied := newWorld()
 	emptied.edited = "  "
-	requireScreen(t, typing(t, emptied.live(t, 120, 40), "5", "p", "e", keyEnter).View(),
-		"nothing to post: the message was empty")
 
+	// Act
+	view := typing(t, emptied.live(t, 120, 40), "5", "p", "e", keyEnter).View()
+
+	// Assert
+	requireScreen(t, view, "nothing to post: the message was empty")
+
+	if calls := emptied.asked("post "); len(calls) != 0 {
+		t.Errorf("an empty message posted: %q", calls)
+	}
+}
+
+func TestAFailedEditOfTheMessageSaysSo(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
 	failedEdit := newWorld()
 	failedEdit.editErr = errEditorFailed
-	requireScreen(t, typing(t, failedEdit.live(t, 120, 40), "5", "p", "e").View(), "✗ the editor exited with an error")
+
+	// Act
+	view := typing(t, failedEdit.live(t, 120, 40), "5", "p", "e").View()
+
+	// Assert
+	requireScreen(t, view, "✗ the editor exited with an error")
 }
 
 func TestARefusedPostSaysWhy(t *testing.T) {
 	t.Parallel()
 
+	// Arrange
 	refusing := newWorld()
 	refusing.postErr = errNotInChannel
+	model := refusing.live(t, 120, 40)
 
-	refused := typing(t, refusing.live(t, 120, 40), "5", "p", keyEnter)
+	// Act: post, and be refused
+	refused := typing(t, model, "5", "p", keyEnter)
+
+	// Assert: the post stays open with the reason
 	requireScreen(t, refused.View(), "┏━ Post to Slack", "✗ the credential was not accepted: not_in_channel")
-	requireScreen(t, typing(t, refused, "esc").View(), "state  ✗ the credential was not accepted")
+
+	// Act: close it
+	closed := typing(t, refused, keyEsc)
+
+	// Assert: the pane keeps the reason
+	requireScreen(t, closed.View(), "state  ✗ the credential was not accepted")
 }
 
 func TestPostingWhenCIPassesWaitsForIt(t *testing.T) {
 	t.Parallel()
 
+	// Arrange
 	waiting := newWorld()
 	waiting.ci = []forge.CI{{State: forge.CIRunning}}
 
+	// Act
 	pending := typing(t, waiting.live(t, 120, 40), "5", "p", "w")
+
+	// Assert
 	requireScreen(t, pending.View(), "◐ will post to "+slackChannel+" once CI passes", "◐ Slack")
 
 	if calls := waiting.asked("post "); len(calls) != 0 {
-		t.Fatalf("posted before CI passed: %q", calls)
+		t.Errorf("posted before CI passed: %q", calls)
 	}
+}
 
+func TestAPostWaitingForCIGoesOnceCIPasses(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
 	passing := newWorld()
 	passing.ciInterval = time.Millisecond
 	passing.ci = []forge.CI{{State: forge.CIRunning}, {State: forge.CIRunning}, {State: forge.CIPassed}}
 
+	// Act
 	posted := typing(t, passing.live(t, 120, 40), "5", "p", "w")
+
+	// Assert
 	requireScreen(t, posted.View(), "● posted to "+slackChannel)
 
 	if calls := passing.asked("post "); len(calls) != 1 {
@@ -116,11 +188,15 @@ func TestPostingWhenCIPassesWaitsForIt(t *testing.T) {
 func TestAPostWaitingForCIIsDroppedWhenCIFails(t *testing.T) {
 	t.Parallel()
 
+	// Arrange
 	failing := newWorld()
 	failing.ciInterval = time.Millisecond
 	failing.ci = []forge.CI{{State: forge.CIRunning}, {State: forge.CIRunning}, {State: forge.CIFailed}}
 
+	// Act
 	dropped := typing(t, failing.live(t, 120, 40), "5", "p", "w")
+
+	// Assert
 	requireScreen(t, dropped.View(), "✗ CI failed, so nothing was posted to Slack")
 
 	if calls := failing.asked("post "); len(calls) != 0 {
@@ -131,58 +207,114 @@ func TestAPostWaitingForCIIsDroppedWhenCIFails(t *testing.T) {
 func TestPostingNowReplacesThePostWaitingForCI(t *testing.T) {
 	t.Parallel()
 
+	// Arrange
 	// Running at start, running when w is pressed, passed when asked again.
 	impatient := newWorld()
 	impatient.ci = []forge.CI{{State: forge.CIRunning}, {State: forge.CIRunning}, {State: forge.CIPassed}}
-
 	waiting := typing(t, impatient.live(t, 120, 40), "5", "p", "w")
+
+	// Act: post now instead
 	postedNow := typing(t, waiting, "p", keyEnter)
+
+	// Assert: it posted
 	requireScreen(t, postedNow.View(), "● posted to "+slackChannel)
 
-	requireScreen(t, typing(t, postedNow, "4", "r").View(), "● passed")
+	if calls := impatient.asked("post "); len(calls) != 1 {
+		t.Errorf("post calls = %q, want the one posted now", calls)
+	}
+
+	// Act: CI passes
+	refreshed := typing(t, postedNow, "4", "r")
+
+	// Assert: the waiting post does not go as well
+	requireScreen(t, refreshed.View(), "● passed")
 
 	if calls := impatient.asked("post "); len(calls) != 1 {
-		t.Errorf("post calls = %q, want the one posted now and no other once CI passed", calls)
+		t.Errorf("post calls = %q, want no other once CI passed", calls)
 	}
 }
 
 func TestNothingMorePostsWhileAPostIsOnItsWay(t *testing.T) {
 	t.Parallel()
 
+	// Arrange
 	slow := newWorld()
 	slow.ci = []forge.CI{{State: forge.CIRunning}, {State: forge.CIPassed}}
 	slow.postGate = make(chan struct{})
 
 	t.Cleanup(func() { close(slow.postGate) })
 
-	// CI has passed by the time w is pressed, so the post goes, and Slack has
-	// not answered yet.
-	sending := typing(t, slow.live(t, 120, 40), "5", "p", "w")
+	model := slow.live(t, 120, 40)
+
+	// Act: post when CI passes, which it has by the time w is pressed
+	sending := typing(t, model, "5", "p", "w")
+
+	// Assert: the post went, Slack has not answered, and it is not offered again
 	requireScreen(t, sending.View(), "state  ◐ posting")
 	refuseScreen(t, footerLine(sending.View()), "p post")
-	refuseScreen(t, typing(t, sending, "p").View(), "Post to Slack")
+
+	if calls := slow.asked("post "); len(calls) != 1 {
+		t.Fatalf("post calls = %q, want the one on its way", calls)
+	}
+
+	// Act: try to post again
+	again := typing(t, sending, "p", keyEnter)
+
+	// Assert: nothing opens, and nothing more is sent
+	refuseScreen(t, again.View(), "Post to Slack")
+
+	if calls := slow.asked("post "); len(calls) != 1 {
+		t.Errorf("post calls = %q, want only the one already on its way", calls)
+	}
 }
 
 func TestPostingWhenCIHasAlreadyPassedPostsNow(t *testing.T) {
 	t.Parallel()
 
+	// Arrange
 	passed := newWorld()
-	requireScreen(t, typing(t, passed.live(t, 120, 40), "5", "p", "w").View(), "● posted to "+slackChannel)
+
+	// Act
+	view := typing(t, passed.live(t, 120, 40), "5", "p", "w").View()
+
+	// Assert
+	requireScreen(t, view, "● posted to "+slackChannel)
+
+	if calls := passed.asked("post "); len(calls) != 1 {
+		t.Errorf("post calls = %q, want one", calls)
+	}
 }
 
 func TestADryRunPostsNothing(t *testing.T) {
 	t.Parallel()
 
-	dry := newWorld()
-	dry.ci = []forge.CI{{State: forge.CIRunning}}
+	cases := map[string]struct {
+		key  string
+		want string
+	}{
+		"posting now":            {key: keyEnter, want: "dry run: would post to " + slackChannel},
+		"posting when CI passes": {key: "w", want: "dry run: would post to " + slackChannel + " once CI passes"},
+	}
 
-	model := sized(t, dryInterface(dry), 120, 40)
-	model = drain(t, model, model.Init())
+	for name, tt := range cases {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
 
-	requireScreen(t, typing(t, model, "5", "p", keyEnter).View(), "dry run: would post to "+slackChannel)
-	requireScreen(t, typing(t, model, "5", "p", "w").View(), "dry run: would post to "+slackChannel+" once CI passes")
+			// Arrange
+			dry := newWorld()
+			dry.ci = []forge.CI{{State: forge.CIRunning}}
+			model := sized(t, dryInterface(dry), 120, 40)
+			model = drain(t, model, model.Init())
 
-	if calls := dry.asked("post "); len(calls) != 0 {
-		t.Errorf("a dry run posted: %q", calls)
+			// Act
+			view := typing(t, model, "5", "p", tt.key).View()
+
+			// Assert
+			requireScreen(t, view, tt.want)
+
+			if calls := dry.asked("post "); len(calls) != 0 {
+				t.Errorf("a dry run posted: %q", calls)
+			}
+		})
 	}
 }

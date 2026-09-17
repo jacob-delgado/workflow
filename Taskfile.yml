@@ -91,6 +91,7 @@ tasks:
     desc: Run every linter
     cmds:
       - task: lint:go
+      - task: lint:testshape
       - task: lint:shell
       - task: lint:yaml
       - task: lint:docker
@@ -106,6 +107,16 @@ tasks:
     desc: Lint the Go code
     cmds:
       - golangci-lint run
+
+  lint:testshape:
+    desc: Check that every test marks its Arrange, Act and Assert
+    vars:
+      # Tracked and not-yet-added test files alike, so a new test is checked
+      # before its first `git add`.
+      TEST_FILES:
+        sh: git ls-files --cached --others --exclude-standard '*_test.go' | sort | tr '\n' ' '
+    cmds:
+      - go run ./cmd/testshape {{.TEST_FILES}}
 
   lint:shell:
     desc: Lint and format-check the shell scripts

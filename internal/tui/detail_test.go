@@ -5,12 +5,12 @@ package tui_test
 
 import (
 	"errors"
-	"strings"
 	"testing"
 	"time"
 
 	"github.com/jacob-delgado/workflow/internal/gitrepo"
 	"github.com/jacob-delgado/workflow/internal/jira"
+	"github.com/jacob-delgado/workflow/internal/tui"
 )
 
 // Errors the fakes answer with.
@@ -22,8 +22,10 @@ var (
 func TestTheDetailShowsTheIssueInFull(t *testing.T) {
 	t.Parallel()
 
+	// Act
 	view := newWorld().live(t, 120, 40).View()
 
+	// Assert
 	requireScreen(t, view, issueKey+" "+issueSummary, "Bug · In Progress", "reported by Ana Lopez",
 		"Tokens reach the log.", "Comments 1 of 1", "Ana Lopez · 2h ago", "Repro'd on 8.2.1")
 }
@@ -31,16 +33,30 @@ func TestTheDetailShowsTheIssueInFull(t *testing.T) {
 func TestTheDetailSaysWhatIsMissing(t *testing.T) {
 	t.Parallel()
 
+	// Arrange
 	quiet := newWorld()
 	quiet.detail = jira.IssueDetail{Issue: jira.Issue{Key: issueKey}, Reporter: reporter, CommentTotal: 0}
+
+	// Act
 	view := quiet.live(t, 120, 40).View()
 
+	// Assert
 	requireScreen(t, view, "no description")
 	refuseScreen(t, view, "Comments")
+}
 
+func TestADetailThatCannotBeReadSaysWhy(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
 	failing := newWorld()
 	failing.detailErr = errNotVisible
-	requireScreen(t, failing.live(t, 120, 40).View(), "✗ jira rejected the request: Issue Does Not Exist")
+
+	// Act
+	view := failing.live(t, 120, 40).View()
+
+	// Assert
+	requireScreen(t, view, "✗ jira rejected the request: Issue Does Not Exist")
 }
 
 func TestCommentAgesReadAsBrieflyAsTheyCan(t *testing.T) {
@@ -61,10 +77,15 @@ func TestCommentAgesReadAsBrieflyAsTheyCan(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
 
+			// Arrange
 			aged := newWorld()
 			aged.detail.Comments[0].Created = tt.created
 
-			requireScreen(t, aged.live(t, 120, 40).View(), "Ana Lopez · "+tt.want)
+			// Act
+			view := aged.live(t, 120, 40).View()
+
+			// Assert
+			requireScreen(t, view, "Ana Lopez · "+tt.want)
 		})
 	}
 }
@@ -72,16 +93,23 @@ func TestCommentAgesReadAsBrieflyAsTheyCan(t *testing.T) {
 func TestTheDetailFollowsTheSelectionOnceItRests(t *testing.T) {
 	t.Parallel()
 
+	// Arrange
 	moving := newWorld()
 	screen := moving.live(t, 120, 40)
-	moving.detail = jira.IssueDetail{Issue: jira.Issue{Key: "PROJ-388"}, Reporter: "Fred", Description: "Retries."}
+	moving.detail = jira.IssueDetail{Issue: jira.Issue{Key: secondIssue}, Reporter: "Fred", Description: "Retries."}
 
-	// Before the pause, the header is the new issue and the full read is on its
-	// way; after it, the new issue's description is shown.
-	updated, cmd := screen.Update(keyMsg("j"))
-	requireScreen(t, concrete(t, updated).View(), "PROJ-388 Add retries", "loading the description and comments…")
+	// Act: select the next issue
+	updated, rest := screen.Update(keyMsg("j"))
+	moved := concrete(t, updated)
 
-	requireScreen(t, drain(t, concrete(t, updated), cmd).View(), "Retries.", "reported by Fred")
+	// Assert: the header is the new issue, and the full read is on its way
+	requireScreen(t, moved.View(), "PROJ-388 Add retries", "loading the description and comments…")
+
+	// Act: the selection rests
+	rested := drain(t, moved, rest)
+
+	// Assert: the new issue is read once, and shown
+	requireScreen(t, rested.View(), "Retries.", "reported by Fred")
 
 	if reads := moving.asked("issue PROJ-388"); len(reads) != 1 {
 		t.Errorf("read PROJ-388 %d times, want once", len(reads))
@@ -91,63 +119,147 @@ func TestTheDetailFollowsTheSelectionOnceItRests(t *testing.T) {
 func TestADetailForAnIssueNoLongerSelectedIsNotShown(t *testing.T) {
 	t.Parallel()
 
-	stale := newWorld()
-	screen := stale.live(t, 120, 40)
+	// Arrange
+	deps := newWorld().deps()
+	deps.Jira.Issue = func(key string) (jira.IssueDetail, error) {
+		if key == secondIssue {
+			return jira.IssueDetail{Issue: jira.Issue{Key: key}, Reporter: "Fred", Description: "Retries."}, nil
+		}
 
-	// Move away and back before either read finishes: only the issue selected
-	// when an answer arrives may use it.
-	away, readAway := screen.Update(keyMsg("j"))
-	back, readBack := concrete(t, away).Update(keyMsg("k"))
+		return newWorld().detail, nil
+	}
 
-	settled := drain(t, drain(t, concrete(t, back), readAway), readBack)
+	model := sized(t, tui.New(completeConfig(), nil, deps), 120, 40)
+	screen := drain(t, model, model.Init())
+
+	// Act
+	// PROJ-388 is read, then the selection moves back to PROJ-412 and that is
+	// read too; PROJ-388's answer arrives last.
+	away, restAway := pressed(t, screen, "j")
+	readingAway, readAway := finish(t, away, restAway)
+	back, restBack := pressed(t, readingAway, "k")
+	readingBack, readBack := finish(t, back, restBack)
+	current, _ := finish(t, readingBack, readBack)
+	settled, _ := finish(t, current, readAway)
+
+	// Assert
 	requireScreen(t, settled.View(), issueKey+" "+issueSummary, "Tokens reach the log.")
+	refuseScreen(t, settled.View(), "Retries.", "reported by Fred")
+}
+
+func TestARestForAnIssueNoLongerSelectedReadsNothing(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	restless := newWorld()
+	restless.issues = append(restless.issues, jira.Issue{Key: "PROJ-500", Summary: "Trim logs", StatusCategory: "new"})
+	screen := restless.live(t, 120, 40)
+	passing, restOnSecond := pressed(t, screen, "j")
+	third, _ := pressed(t, passing, "j")
+
+	// Act
+	// The selection has moved on to the third issue when the second's rest ends.
+	_, read := finish(t, third, restOnSecond)
+
+	// Assert
+	// Holding j down reads nothing until the selection rests where it stops.
+	if read != nil {
+		t.Errorf("a rest for an issue the selection had left started a read")
+	}
+
+	if reads := append(restless.asked("issue "+secondIssue), restless.asked("issue PROJ-500")...); len(reads) != 0 {
+		t.Errorf("read %q before the selection rested on it", reads)
+	}
+}
+
+func TestMovingBackToTheIssueShownWaitsForNothing(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	screen := newWorld().live(t, 120, 40)
+	away, _ := pressed(t, screen, "j")
+
+	// Act
+	back, rest := pressed(t, away, "k")
+
+	// Assert
+	if rest != nil {
+		t.Error("moving back to the issue already shown waited to read it again")
+	}
+
+	requireScreen(t, back.View(), issueKey+" "+issueSummary, "Tokens reach the log.")
 }
 
 func TestWorkInProgressIsWhereTheInterfaceOpens(t *testing.T) {
 	t.Parallel()
 
-	// The branch names the second issue in the list, so that is selected.
-	resuming := newWorld()
-	resuming.branch.Name = "feat/PROJ-388-add-retries"
+	cases := map[string]struct {
+		branch string
+		want   string
+	}{
+		"a branch naming an issue in the list": {branch: "feat/PROJ-388-add-retries", want: "▸ ○ PROJ-388 Add retries"},
+		// A branch naming an issue not in the list leaves the selection alone.
+		"a branch naming an issue not in the list": {branch: "fix/OTHER-1-thing", want: "▸ ◐ PROJ-412"},
+	}
 
-	requireScreen(t, resuming.live(t, 120, 40).View(), "▸ ○ PROJ-388 Add retries")
+	for name, tt := range cases {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
 
-	// A branch naming an issue not in the list leaves the selection alone.
-	elsewhere := newWorld()
-	elsewhere.branch.Name = "fix/OTHER-1-thing"
+			// Arrange
+			resuming := newWorld()
+			resuming.branch.Name = tt.branch
 
-	requireScreen(t, elsewhere.live(t, 120, 40).View(), "▸ ◐ PROJ-412")
+			// Act
+			view := resuming.live(t, 120, 40).View()
+
+			// Assert
+			requireScreen(t, view, tt.want)
+		})
+	}
 }
 
 func TestResumingNeverOverridesAChoice(t *testing.T) {
 	t.Parallel()
 
+	// Arrange
 	// No branch names an issue at start; the user chooses one; then the branch
 	// is read again and turns out to name a different issue.
 	chosen := newWorld()
 	chosen.branch = gitrepo.Branch{Name: baseName, Base: baseRef}
-
 	screen := typing(t, chosen.live(t, 120, 40), "j")
 	chosen.branch = gitrepo.Branch{Name: featureName, Base: baseRef}
 
-	reloaded := typing(t, screen, "2", "r", "1")
-	requireScreen(t, reloaded.View(), "▸ ○ PROJ-388")
+	// Act
+	reloaded := typing(t, screen, "2", "r", "1").View()
+
+	// Assert
+	// The new branch is shown, so it was read; the choice stands regardless.
+	requireScreen(t, reloaded, featureName, "▸ ○ PROJ-388")
 }
 
 func TestCommentingPreviewsBeforeItPosts(t *testing.T) {
 	t.Parallel()
 
+	// Arrange
 	commenting := newWorld()
 	commenting.edited = "Patch up shortly"
+	model := commenting.live(t, 120, 40)
 
-	screen := typing(t, commenting.live(t, 120, 40), "c")
+	// Act: write the comment
+	screen := typing(t, model, "c")
+
+	// Assert: it is previewed, and not yet posted
 	requireScreen(t, screen.View(), "┏━ Comment on PROJ-412", "Patch up shortly", "enter post", "e edit", "esc discard")
 
 	if posted := commenting.asked("comment"); len(posted) != 0 {
-		t.Fatalf("posted before the preview was confirmed: %q", posted)
+		t.Errorf("posted before the preview was confirmed: %q", posted)
 	}
 
+	// Act: post it
 	posted := typing(t, screen, keyEnter)
+
+	// Assert: it posted once, the preview closed, and the issue was read again
 	requireScreen(t, posted.View(), "● commented on PROJ-412")
 	refuseScreen(t, posted.View(), "┏━ Comment on")
 
@@ -155,29 +267,35 @@ func TestCommentingPreviewsBeforeItPosts(t *testing.T) {
 		t.Errorf("comment calls = %q, want one", commenting.asked("comment"))
 	}
 
-	// The issue is read again to show the new comment.
-	if reads := commenting.asked("issue " + issueKey); len(reads) < 2 {
-		t.Errorf("read the issue %d times, want it read again after commenting", len(reads))
+	// The second read is what shows the new comment.
+	if reads := commenting.asked("issue " + issueKey); len(reads) != 2 {
+		t.Errorf("read the issue %d times, want once at start and again after commenting", len(reads))
 	}
 }
 
 func TestACommentCanBeEditedAgainOrDiscarded(t *testing.T) {
 	t.Parallel()
 
+	// Arrange
 	commenting := newWorld()
 	commenting.edited = "first draft"
-
 	screen := typing(t, commenting.live(t, 120, 40), "c")
 	commenting.edited = "second draft"
 
+	// Act: edit it again
 	edited := typing(t, screen, "e")
+
+	// Assert: the second edit started from the first draft
 	requireScreen(t, edited.View(), "second draft")
 
 	if edits := commenting.asked("edit first draft"); len(edits) != 1 {
 		t.Errorf("the second edit did not start from the first draft: %q", commenting.asked("edit"))
 	}
 
-	discarded := typing(t, edited, "esc")
+	// Act: discard it
+	discarded := typing(t, edited, keyEsc)
+
+	// Assert: nothing posted
 	requireScreen(t, discarded.View(), "comment discarded")
 
 	if posted := commenting.asked("comment"); len(posted) != 0 {
@@ -189,21 +307,17 @@ func TestACommentThatCannotBePostedSaysWhy(t *testing.T) {
 	t.Parallel()
 
 	cases := map[string]struct {
-		prepare func(*world)
-		keys    []string
-		want    string
+		edited     string
+		editErr    error
+		commentErr error
+		keys       []string
+		want       string
 	}{
-		"empty": {
-			prepare: func(w *world) { w.edited = "   " }, keys: []string{"c"},
-			want: "nothing to post: the comment was empty",
-		},
-		"editor failed": {
-			prepare: func(w *world) { w.editErr = errEditorFailed }, keys: []string{"c"},
-			want: "✗ the editor exited with an error",
-		},
+		"empty":         {edited: "   ", keys: []string{"c"}, want: "nothing to post: the comment was empty"},
+		"editor failed": {editErr: errEditorFailed, keys: []string{"c"}, want: "✗ the editor exited with an error"},
 		// Refused, the preview stays open with Jira's reason.
 		"refused": {
-			prepare: func(w *world) { w.edited = "hello"; w.commentErr = errNotVisible }, keys: []string{"c", keyEnter},
+			edited: greeting, commentErr: errNotVisible, keys: []string{"c", keyEnter},
 			want: "✗ jira rejected the request",
 		},
 	}
@@ -212,10 +326,15 @@ func TestACommentThatCannotBePostedSaysWhy(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
 
+			// Arrange
 			failing := newWorld()
-			tt.prepare(failing)
+			failing.edited, failing.editErr, failing.commentErr = tt.edited, tt.editErr, tt.commentErr
 
-			requireScreen(t, typing(t, failing.live(t, 120, 40), tt.keys...).View(), tt.want)
+			// Act
+			view := typing(t, failing.live(t, 120, 40), tt.keys...).View()
+
+			// Assert
+			requireScreen(t, view, tt.want)
 		})
 	}
 }
@@ -223,17 +342,42 @@ func TestACommentThatCannotBePostedSaysWhy(t *testing.T) {
 func TestNothingInterruptsACommentBeingPosted(t *testing.T) {
 	t.Parallel()
 
+	for _, key := range []string{keyEsc, "e"} {
+		t.Run(key, func(t *testing.T) {
+			t.Parallel()
+
+			// Arrange
+			commenting := newWorld()
+			commenting.edited = "hello"
+			sending, _ := pressed(t, typing(t, commenting.live(t, 120, 40), "c"), keyEnter)
+
+			// Act
+			after, cmd := pressed(t, sending, key)
+
+			// Assert
+			if cmd != nil {
+				t.Errorf("%s produced a command while the comment is posted", key)
+			}
+
+			if after.View() != sending.View() {
+				t.Errorf("%s changed the screen while the comment is posted:\n%s", key, after.View())
+			}
+		})
+	}
+}
+
+func TestTheFooterOffersNoWayOutWhileACommentIsPosted(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
 	commenting := newWorld()
 	commenting.edited = "hello"
-
 	screen := typing(t, commenting.live(t, 120, 40), "c")
+
+	// Act
 	sending, _ := pressed(t, screen, keyEnter)
 
+	// Assert
 	requireScreen(t, sending.View(), "posting…")
-
-	if footer := footerLine(sending.View()); strings.Contains(footer, "esc") {
-		t.Errorf("the footer offers leaving while posting: %q", footer)
-	}
-
-	requireScreen(t, press(t, sending, "esc", "e").View(), "┏━ Comment on")
+	refuseScreen(t, footerLine(sending.View()), keyEsc)
 }

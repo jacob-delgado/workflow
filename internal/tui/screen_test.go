@@ -15,6 +15,11 @@ import (
 	"github.com/jacob-delgado/workflow/internal/tui"
 )
 
+// detailTop is the detail pane's first row for the world's issue, which only
+// shows while the detail is scrolled to the top. The rail lists the same issue,
+// but behind a marker rather than the detail's border.
+const detailTop = "│ " + issueKey + " " + issueSummary
+
 // asciiInterface is the world's interface with ui.ascii on.
 func asciiInterface(t *testing.T, faked *world, width, height int) tui.Model {
 	t.Helper()
@@ -30,19 +35,34 @@ func asciiInterface(t *testing.T, faked *world, width, height int) tui.Model {
 func TestASCIIModeDrawsInASCII(t *testing.T) {
 	t.Parallel()
 
-	view := asciiInterface(t, newWorld(), 120, 40).View()
-	requireScreen(t, view, "# Issue - # Branch", "#= 1 Issues", "> * PROJ-412", "Bug - In Progress",
-		" | tab next pane")
+	cases := map[string]struct {
+		height int
+		keys   []string
+		want   []string
+	}{
+		"the screen": {
+			height: 40,
+			want:   []string{"# Issue - # Branch", "#= 1 Issues", "> * PROJ-412", "Bug - In Progress", " | tab next pane"},
+		},
+		"the help": {height: 60, keys: []string{"?"}, want: []string{"up/k", "down/j"}},
+	}
 
-	help := typing(t, asciiInterface(t, newWorld(), 120, 60), "?").View()
-	requireScreen(t, help, "up/k", "down/j")
+	for name, tt := range cases {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
 
-	for _, screen := range []string{view, help} {
-		for _, character := range screen {
-			if character > 0x7e {
-				t.Fatalf("an ASCII screen drew %q:\n%s", character, screen)
+			// Act
+			view := typing(t, asciiInterface(t, newWorld(), 120, tt.height), tt.keys...).View()
+
+			// Assert
+			requireScreen(t, view, tt.want...)
+
+			for _, character := range view {
+				if character > 0x7e {
+					t.Fatalf("an ASCII screen drew %q:\n%s", character, view)
+				}
 			}
-		}
+		})
 	}
 }
 
@@ -84,23 +104,37 @@ func TestTheSpineShowsHowFarTheWorkHasGot(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
 
+			// Arrange
 			staged := newWorld()
 			tt.prepare(staged)
 
-			if spine, _, _ := strings.Cut(staged.live(t, 120, 40).View(), "\n"); !strings.Contains(spine, tt.want) {
-				t.Errorf("spine = %q, want %q", spine, tt.want)
-			}
+			// Act
+			spine, _, _ := strings.Cut(staged.live(t, 120, 40).View(), "\n")
+
+			// Assert
+			requireScreen(t, spine, tt.want)
 		})
 	}
+}
 
+func TestTheSpineMarksSlackOnceAnnounced(t *testing.T) {
+	t.Parallel()
+
+	// Act
 	posted := typing(t, newWorld().live(t, 120, 40), "5", "p", keyEnter)
-	requireScreen(t, strings.Split(posted.View(), "\n")[0], "● Slack")
+
+	// Assert
+	spine, _, _ := strings.Cut(posted.View(), "\n")
+	requireScreen(t, spine, "● Slack")
 }
 
 func TestAShortTerminalCompactsTheSpine(t *testing.T) {
 	t.Parallel()
 
+	// Act
 	spine, _, _ := strings.Cut(newWorld().live(t, 120, 20).View(), "\n")
+
+	// Assert
 	if !strings.HasPrefix(spine, " [●●●●○]") {
 		t.Errorf("spine = %q, want the glyphs alone", spine)
 	}
@@ -109,18 +143,45 @@ func TestAShortTerminalCompactsTheSpine(t *testing.T) {
 func TestADryRunSaysSoOnEveryScreen(t *testing.T) {
 	t.Parallel()
 
-	model := sized(t, dryInterface(newWorld()), 120, 40)
+	cases := map[string][]string{
+		"at start":             nil,
+		"on another pane":      {"3"},
+		"under the help":       {"?"},
+		"under an open picker": {"t"},
+	}
 
-	if spine, _, _ := strings.Cut(model.View(), "\n"); !strings.HasPrefix(spine, " DRY RUN · ") {
-		t.Errorf("spine = %q, want it to say this is a dry run", spine)
+	for name, keys := range cases {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			// Arrange
+			faked := newWorld()
+			faked.moves = workflowMoves()
+			model := sized(t, dryInterface(faked), 120, 40)
+			model = drain(t, model, model.Init())
+
+			// Act
+			spine, _, _ := strings.Cut(typing(t, model, keys...).View(), "\n")
+
+			// Assert
+			if !strings.HasPrefix(spine, " DRY RUN · ") {
+				t.Errorf("spine = %q, want it to say this is a dry run", spine)
+			}
+		})
 	}
 }
 
 func TestAVeryNarrowTerminalDropsTheBorder(t *testing.T) {
 	t.Parallel()
 
+	// Act
 	view := newWorld().live(t, 50, 20).View()
+
+	// Assert
 	lines := strings.Split(view, "\n")
+	if len(lines) < 2 {
+		t.Fatalf("drew %d lines, want the spine and the detail:\n%s", len(lines), view)
+	}
 
 	if lines[1] != "Issues"+strings.Repeat(" ", 44) {
 		t.Errorf("the detail's first row = %q, want its title with no border", lines[1])
@@ -133,197 +194,188 @@ func TestAVeryNarrowTerminalDropsTheBorder(t *testing.T) {
 func TestLongDetailScrolls(t *testing.T) {
 	t.Parallel()
 
+	// Arrange
 	wordy := newWorld()
 	wordy.detail.Description = strings.Repeat("line of the description\n", 60) + "THE END"
 
+	// Act: open on a description longer than the pane
 	screen := wordy.live(t, 120, 30)
+
+	// Assert: its end is out of sight
+	requireScreen(t, screen.View(), detailTop)
 	refuseScreen(t, screen.View(), "THE END")
 
+	// Act: scroll down
 	scrolled := typing(t, screen, "pgdown", "pgdown", "pgdown", "pgdown", "pgdown", "J")
+
+	// Assert: the end is in sight, and the top is not
 	requireScreen(t, scrolled.View(), "THE END")
+	refuseScreen(t, scrolled.View(), detailTop)
 
+	// Act: scroll back up
 	back := typing(t, scrolled, "pgup", "pgup", "pgup", "pgup", "pgup", "pgup", "K", "K")
-	requireScreen(t, back.View(), "PROJ-412 "+issueSummary)
 
-	// Moving to another pane starts at the top.
-	requireScreen(t, typing(t, scrolled, keyTab, keyShiftTab).View(), "PROJ-412 "+issueSummary)
+	// Assert: the top is in sight again
+	requireScreen(t, back.View(), detailTop)
+	refuseScreen(t, back.View(), "THE END")
 }
 
-func TestTheWheelScrollsTheDetail(t *testing.T) {
+func TestMovingToAnotherPaneStartsTheDetailAtTheTop(t *testing.T) {
 	t.Parallel()
 
+	// Arrange
 	wordy := newWorld()
-	wordy.detail.Description = strings.Repeat("line\n", 60) + "THE END"
+	wordy.detail.Description = strings.Repeat("line of the description\n", 60) + "THE END"
+	scrolled := typing(t, wordy.live(t, 120, 30), "pgdown", "pgdown", "pgdown", "pgdown", "pgdown", "J")
 
-	screen := wordy.live(t, 120, 30)
+	// Act
+	view := typing(t, scrolled, keyTab, keyShiftTab).View()
 
-	for range 25 {
-		screen = wheel(t, screen, 80, 10, tea.MouseButtonWheelDown)
-	}
-
-	requireScreen(t, screen.View(), "THE END")
-
-	for range 30 {
-		screen = wheel(t, screen, 80, 10, tea.MouseButtonWheelUp)
-	}
-
-	requireScreen(t, screen.View(), "PROJ-412 "+issueSummary)
-
-	// The wheel over the rail moves nothing.
-	requireScreen(t, wheel(t, screen, 5, 5, tea.MouseButtonWheelDown).View(), "PROJ-412 "+issueSummary)
-}
-
-// wheel is one notch of the mouse wheel over a cell.
-func wheel(t *testing.T, model tui.Model, column, row int, button tea.MouseButton) tui.Model {
-	t.Helper()
-
-	updated, cmd := model.Update(tea.MouseMsg{X: column, Y: row, Action: tea.MouseActionPress, Button: button})
-
-	return drain(t, concrete(t, updated), cmd)
-}
-
-func TestTheWheelMovesAnOverlaysList(t *testing.T) {
-	t.Parallel()
-
-	choosing := newWorld()
-	choosing.moves = workflowMoves()
-
-	picker := typing(t, choosing.live(t, 120, 40), "t")
-	requireScreen(t, wheel(t, picker, 80, 10, tea.MouseButtonWheelDown).View(), "▸ ● Done")
-	requireScreen(t, wheel(t, picker, 80, 10, tea.MouseButtonWheelUp).View(), "▸ ◐ Start Review")
-}
-
-func TestClickingPicksRows(t *testing.T) {
-	t.Parallel()
-
-	choosing := newWorld()
-	choosing.moves = workflowMoves()
-
-	// The issue list in the focused rail pane: its second row is row 3.
-	requireScreen(t, click(t, choosing.live(t, 120, 40), 5, 3).View(), "▸ ○ PROJ-388")
-
-	// The picker's second transition is row 6: the border, the issue, its
-	// status and a blank line come first.
-	picker := typing(t, choosing.live(t, 120, 40), "t")
-	requireScreen(t, click(t, picker, 60, 6).View(), "▸ ● Done")
-	requireScreen(t, click(t, picker, 60, 2).View(), "▸ ◐ Start Review")
-
-	// A click outside the overlay does nothing while it is open.
-	requireScreen(t, click(t, picker, 5, 30).View(), "┏━ Change status")
-
-	// On a narrow terminal the list is the detail.
-	narrow := choosing.live(t, 80, 30)
-	requireScreen(t, click(t, narrow, 10, 3).View(), "▸ ○ PROJ-388")
-}
-
-func TestClickingARunsFailuresPicksOne(t *testing.T) {
-	t.Parallel()
-
-	failing := newWorld()
-	failing.commitErr = errHookFailed
-	failing.commitLines = []string{"a.go:1:1: first", "b.go:2:1: second"}
-
-	failed := typing(t, failing.live(t, 120, 40), commitKeys("x")...)
-
-	// The border, the outcome and a blank line come before the list.
-	picked := click(t, failed, 60, 5)
-	requireScreen(t, picked.View(), "▸ b.go:2 second")
-	requireScreen(t, click(t, picked, 60, 1).View(), "▸ b.go:2 second")
-}
-
-func TestTheMouseSettingDecidesWhetherItIsCaptured(t *testing.T) {
-	t.Parallel()
-
-	cfg := completeConfig()
-	cfg.UI.Mouse = false
-
-	// With capture off, m turns it on.
-	_, cmd := tui.New(cfg, nil, tui.Deps{}).Update(keyMsg("m"))
-	if cmd == nil {
-		t.Fatal("m did nothing")
-	}
-
-	if _, ok := cmd().(tea.MouseMsg); ok {
-		t.Error("m with the mouse off reported a mouse event instead of enabling it")
-	}
+	// Assert
+	requireScreen(t, view, detailTop)
+	refuseScreen(t, view, "THE END")
 }
 
 func TestTheHelpListsEveryGroupAndScrolls(t *testing.T) {
 	t.Parallel()
 
-	short := typing(t, newWorld().live(t, 120, 20), "?")
+	// Arrange
+	model := newWorld().live(t, 120, 20)
+
+	// Act: open the help on a short terminal
+	short := typing(t, model, "?")
+
+	// Assert: it starts at the first group, with the last out of sight
 	requireScreen(t, short.View(), "┌─ Keys", "Moving around")
+	refuseScreen(t, short.View(), "Everywhere")
 	requireScreen(t, footerLine(short.View()), "esc close", "q quit")
 
-	requireScreen(t, typing(t, short, "pgdown", "pgdown", "pgdown").View(), "Everywhere")
+	// Act: page down
+	paged := typing(t, short, "pgdown", "pgdown", "pgdown")
 
-	if _, cmd := pressed(t, short, "q"); cmd == nil {
-		t.Error("q did not quit from the help")
+	// Assert: the last group is in sight
+	requireScreen(t, paged.View(), "Everywhere")
+}
+
+func TestQQuitsFromTheHelp(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	help := typing(t, newWorld().live(t, 120, 20), "?")
+
+	// Act
+	_, cmd := pressed(t, help, "q")
+
+	// Assert
+	if got, want := messageType(cmd), messageType(tea.Quit); got != want {
+		t.Errorf("q from the help returned %s, want %s", got, want)
 	}
 }
 
 func TestATransitionWithNoIssueURLAnnouncesWithoutALink(t *testing.T) {
 	t.Parallel()
 
-	unlinked := newWorld()
-	deps := unlinked.deps()
+	// Arrange
+	deps := newWorld().deps()
 	deps.Jira.BrowseURL = nil
-
 	model := sized(t, tui.New(completeConfig(), nil, deps), 120, 40)
 	model = drain(t, model, model.Init())
 
-	requireScreen(t, typing(t, model, "5").View(), "PROJ-412 "+issueSummary)
-	refuseScreen(t, typing(t, model, "5").View(), "browse/PROJ-412")
+	// Act
+	view := typing(t, model, "5").View()
+
+	// Assert
+	requireScreen(t, view, "PROJ-412 "+issueSummary)
+	refuseScreen(t, view, "browse/PROJ-412")
 }
 
 func TestPaneKeysNeedWhatTheyActOn(t *testing.T) {
 	t.Parallel()
 
-	// With nothing wired, no key reaches anything outside.
-	bare := sized(t, tui.New(completeConfig(), nil, tui.Deps{Jira: tui.JiraDeps{
-		Search: func() (jira.SearchResult, error) {
-			return jira.SearchResult{Issues: []jira.Issue{{Key: issueKey, Summary: issueSummary}}, Total: 1}, nil
-		},
-	}}), 120, 40)
-	bare = drain(t, bare, bare.Init())
-
-	for _, key := range []string{"t", "c", "b", "r", "2", "b", "P", "3", "space", "a", "c", "h", "4", "n", "5", "p"} {
-		updated, _ := bare.Update(keyMsg(key))
-		bare = concrete(t, updated)
+	cases := map[string]struct {
+		pane string
+		key  string
+	}{
+		"t on Issues":      {pane: "1", key: "t"},
+		"c on Issues":      {pane: "1", key: "c"},
+		"b on Issues":      {pane: "1", key: "b"},
+		"b on Branch":      {pane: "2", key: "b"},
+		"P on Branch":      {pane: "2", key: "P"},
+		"r on Branch":      {pane: "2", key: "r"},
+		"space on Commits": {pane: "3", key: keySpace},
+		"a on Commits":     {pane: "3", key: "a"},
+		"c on Commits":     {pane: "3", key: "c"},
+		"h on Commits":     {pane: "3", key: "h"},
+		"n on Review":      {pane: "4", key: "n"},
+		"p on Slack":       {pane: "5", key: "p"},
 	}
 
-	refuseScreen(t, bare.View(), "Change status", "Comment on", "New branch", "git push", "┏━ Commit",
-		"pre-commit", "Open pull request", "Post to Slack")
+	for name, tt := range cases {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			// Arrange
+			// With nothing but a search wired, no key reaches anything outside.
+			bare := sized(t, tui.New(completeConfig(), nil, tui.Deps{Jira: tui.JiraDeps{
+				Search: func() (jira.SearchResult, error) {
+					return jira.SearchResult{Issues: []jira.Issue{{Key: issueKey, Summary: issueSummary}}, Total: 1}, nil
+				},
+			}}), 120, 40)
+			pane := press(t, drain(t, bare, bare.Init()), tt.pane)
+
+			// Act
+			after, cmd := pressed(t, pane, tt.key)
+
+			// Assert
+			if cmd != nil {
+				t.Errorf("%s produced a command with nothing to act on", name)
+			}
+
+			if after.View() != pane.View() {
+				t.Errorf("%s changed the screen with nothing to act on:\n%s", name, after.View())
+			}
+		})
+	}
 }
 
 func TestANarrowFooterDropsWholeKeysAndKeepsTheWayToTheRest(t *testing.T) {
 	t.Parallel()
 
+	// Act
 	footer := strings.TrimRight(footerLine(newWorld().live(t, 70, 30).View()), " ")
+
+	// Assert
 	requireScreen(t, footer, "t change status", "? keys", "…")
 
 	if strings.HasSuffix(footer, "•") || strings.Contains(footer, "tab next pane •") {
 		t.Errorf("the footer cuts a key in half:\n%q", footer)
 	}
+}
 
-	ascii := strings.TrimRight(footerLine(asciiInterface(t, newWorld(), 70, 30).View()), " ")
-	if !strings.HasSuffix(ascii, "...") {
-		t.Errorf("an ASCII footer ends %q, want its own ellipsis", ascii)
+func TestANarrowASCIIFooterUsesItsOwnEllipsis(t *testing.T) {
+	t.Parallel()
+
+	// Act
+	footer := strings.TrimRight(footerLine(asciiInterface(t, newWorld(), 70, 30).View()), " ")
+
+	// Assert
+	if !strings.HasSuffix(footer, "...") {
+		t.Errorf("an ASCII footer ends %q, want its own ellipsis", footer)
 	}
 }
 
 func TestAWordWiderThanThePaneIsCutRatherThanLost(t *testing.T) {
 	t.Parallel()
 
+	// Arrange
 	linked := newWorld()
 	address := "https://example.com/" + strings.Repeat("a", 100) + "/END"
 	linked.detail.Description = "see " + address + " for more"
 
+	// Act
 	view := linked.live(t, 120, 40).View()
-	requireScreen(t, view, "see", "/END for more")
 
+	// Assert
 	// Nothing of the address is dropped: every piece of it is on screen.
-	for _, piece := range []string{"https://example.com/aaaa", strings.Repeat("a", 30), "/END"} {
-		requireScreen(t, view, piece)
-	}
+	requireScreen(t, view, "see", "/END for more", "https://example.com/aaaa", strings.Repeat("a", 30))
 }

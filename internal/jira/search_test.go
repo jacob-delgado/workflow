@@ -4,6 +4,7 @@
 package jira_test
 
 import (
+	"encoding/json"
 	"errors"
 	"net/http"
 	"net/url"
@@ -42,11 +43,16 @@ func answer(body, user string) http.HandlerFunc {
 func TestSearchReadsTheIssuesAndTheTotal(t *testing.T) {
 	t.Parallel()
 
-	result, err := serve(t, answer(searchBody, "fred")).Search(t.Context(), jira.AssignedToMe)
+	// Arrange
+	client := serve(t, answer(searchBody, "fred"))
+
+	// Act
+	result, err := client.Search(t.Context(), jira.AssignedToMe)
 	if err != nil {
 		t.Fatalf("Search returned %v, want nil", err)
 	}
 
+	// Assert
 	want := []jira.Issue{
 		{Key: "OPS-1", Summary: "Fix login", Status: inProgress, StatusCategory: indeterminate},
 		{Key: "OPS-2", Summary: "Rotate keys", Status: "To Do", StatusCategory: "new"},
@@ -71,6 +77,7 @@ func TestSearchReadsTheIssuesAndTheTotal(t *testing.T) {
 func TestSearchAsksForOnlyWhatTheListShows(t *testing.T) {
 	t.Parallel()
 
+	// Arrange
 	var query atomic.Value
 
 	client := serve(t, func(writer http.ResponseWriter, request *http.Request) {
@@ -78,11 +85,13 @@ func TestSearchAsksForOnlyWhatTheListShows(t *testing.T) {
 		answer(searchBody, "fred")(writer, request)
 	})
 
+	// Act
 	_, err := client.Search(t.Context(), jira.AssignedToMe)
 	if err != nil {
 		t.Fatalf("Search returned %v, want nil", err)
 	}
 
+	// Assert
 	values, _ := query.Load().(url.Values)
 
 	if values.Get("jql") != jira.AssignedToMe {
@@ -101,10 +110,16 @@ func TestSearchAsksForOnlyWhatTheListShows(t *testing.T) {
 func TestSearchTreatsAnAnonymousAnswerAsARejectedCredential(t *testing.T) {
 	t.Parallel()
 
+	// Arrange
 	// A bearer token Data Center does not accept is not refused on search: it
 	// is served ANONYMOUSLY, with 200 and an empty list. Without this check a
 	// dead token reads exactly like "nothing is assigned to you".
-	_, err := serve(t, answer(`{"total":0,"issues":[]}`, "anonymous")).Search(t.Context(), jira.AssignedToMe)
+	client := serve(t, answer(`{"total":0,"issues":[]}`, "anonymous"))
+
+	// Act
+	_, err := client.Search(t.Context(), jira.AssignedToMe)
+
+	// Assert
 	if !errors.Is(err, jira.ErrUnauthorized) {
 		t.Errorf("Search returned %v, want ErrUnauthorized", err)
 	}
@@ -113,13 +128,18 @@ func TestSearchTreatsAnAnonymousAnswerAsARejectedCredential(t *testing.T) {
 func TestSearchTrustsAnAnswerWithoutTheUserHeader(t *testing.T) {
 	t.Parallel()
 
+	// Arrange
 	// The header is undocumented. Its absence is not evidence of anything, so a
 	// proxy that strips it must not turn every answer into an error.
-	result, err := serve(t, answer(searchBody, "")).Search(t.Context(), jira.AssignedToMe)
+	client := serve(t, answer(searchBody, ""))
+
+	// Act
+	result, err := client.Search(t.Context(), jira.AssignedToMe)
 	if err != nil {
 		t.Fatalf("Search returned %v, want nil", err)
 	}
 
+	// Assert
 	if len(result.Issues) != 2 {
 		t.Errorf("got %d issues, want 2", len(result.Issues))
 	}
@@ -128,6 +148,7 @@ func TestSearchTrustsAnAnswerWithoutTheUserHeader(t *testing.T) {
 func TestSearchReportsAnUnreachableServerByItsCause(t *testing.T) {
 	t.Parallel()
 
+	// Arrange
 	// net/http's *url.Error quotes the whole request URL — here about 180
 	// characters of encoded JQL — ahead of the cause. The pane clips each line,
 	// so "i/o timeout" would be lost behind the query.
@@ -137,7 +158,10 @@ func TestSearchReportsAnUnreachableServerByItsCause(t *testing.T) {
 
 	client := jira.New(failing, bearerConfig(exampleBaseURL))
 
+	// Act
 	_, err := client.Search(t.Context(), jira.AssignedToMe)
+
+	// Assert
 	if !errors.Is(err, jira.ErrUnreachable) || !errors.Is(err, errFixtureTimeout) {
 		t.Fatalf("Search returned %v, want ErrUnreachable wrapping the cause", err)
 	}
@@ -154,11 +178,17 @@ func TestSearchReportsAnUnreachableServerByItsCause(t *testing.T) {
 func TestSearchReportsAPlainTransportError(t *testing.T) {
 	t.Parallel()
 
+	// Arrange
 	failing := func(*http.Request) (*http.Response, error) {
 		return nil, errFixtureTimeout
 	}
 
-	_, err := jira.New(failing, bearerConfig(exampleBaseURL)).Search(t.Context(), jira.AssignedToMe)
+	client := jira.New(failing, bearerConfig(exampleBaseURL))
+
+	// Act
+	_, err := client.Search(t.Context(), jira.AssignedToMe)
+
+	// Assert
 	if !errors.Is(err, jira.ErrUnreachable) || !errors.Is(err, errFixtureTimeout) {
 		t.Errorf("Search returned %v, want ErrUnreachable wrapping the cause", err)
 	}
@@ -167,6 +197,7 @@ func TestSearchReportsAPlainTransportError(t *testing.T) {
 func TestSearchWithoutACredentialSendsNothing(t *testing.T) {
 	t.Parallel()
 
+	// Arrange
 	var sent atomic.Bool
 
 	recording := func(*http.Request) (*http.Response, error) {
@@ -177,7 +208,10 @@ func TestSearchWithoutACredentialSendsNothing(t *testing.T) {
 
 	client := jira.New(recording, config.Jira{BaseURL: exampleBaseURL, Token: "", User: ""})
 
+	// Act
 	_, err := client.Search(t.Context(), jira.AssignedToMe)
+
+	// Assert
 	if !errors.Is(err, jira.ErrNoCredential) {
 		t.Errorf("Search returned %v, want ErrNoCredential", err)
 	}
@@ -190,8 +224,14 @@ func TestSearchWithoutACredentialSendsNothing(t *testing.T) {
 func TestSearchReportsAnUnreadableBody(t *testing.T) {
 	t.Parallel()
 
-	_, err := serve(t, answer("{not json", "fred")).Search(t.Context(), jira.AssignedToMe)
-	if err == nil {
-		t.Error("Search accepted a malformed body, want an error")
+	// Arrange
+	client := serve(t, answer("{not json", "fred"))
+
+	// Act
+	_, err := client.Search(t.Context(), jira.AssignedToMe)
+
+	// Assert
+	if _, isSyntax := errors.AsType[*json.SyntaxError](err); !isSyntax {
+		t.Errorf("Search returned %v, want the malformed body's syntax error", err)
 	}
 }

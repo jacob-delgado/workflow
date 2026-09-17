@@ -4,6 +4,7 @@
 package cli_test
 
 import (
+	"errors"
 	"net/http"
 	"os"
 	"os/exec"
@@ -15,28 +16,39 @@ import (
 	"github.com/jacob-delgado/workflow/internal/config"
 )
 
-func TestDoctorReportsAMissingFile(t *testing.T) {
-	output, err := run(t, t.TempDir(), "doctor")
-	if err == nil {
-		t.Fatalf("expected an error, got none (%s)", output)
+// fieldValue is the value doctor printed for a label, as in "Forge:   GitHub…",
+// or empty when it printed no such line. Reading one line, rather than the
+// whole report, is what stops a check from passing on text some other section
+// happens to print.
+func fieldValue(output, label string) string {
+	for line := range strings.SplitSeq(output, "\n") {
+		if value, found := strings.CutPrefix(line, label+":"); found {
+			return strings.TrimSpace(value)
+		}
 	}
 
-	if !strings.Contains(output, "config init") {
-		t.Errorf("output does not say how to create a config:\n%s", output)
+	return ""
+}
+
+func TestDoctorReportsAMissingFile(t *testing.T) {
+	// Act
+	output, err := run(t, t.TempDir(), "doctor")
+
+	// Assert
+	if err == nil || !strings.Contains(output, "config init") {
+		t.Errorf("doctor = %v, want an error saying how to create a config:\n%s", err, output)
 	}
 }
 
 func TestDoctorNamesMissingFields(t *testing.T) {
+	// Arrange
 	dir := t.TempDir()
+	writeFile(t, dir, `{"jira": {"base_url": "https://jira.example.com", "token": "t"}}`)
 
-	contents := `{"jira": {"base_url": "https://jira.example.com", "token": "t"}}`
-
-	err := os.WriteFile(filepath.Join(dir, config.FileName), []byte(contents), config.FileMode)
-	if err != nil {
-		t.Fatalf("writing fixture: %v", err)
-	}
-
+	// Act
 	output, err := run(t, dir, "doctor")
+
+	// Assert
 	if err == nil {
 		t.Fatalf("expected an error for an incomplete config, got none (%s)", output)
 	}
@@ -53,23 +65,17 @@ func TestDoctorNamesMissingFields(t *testing.T) {
 }
 
 func TestDoctorAcceptsACompleteConfig(t *testing.T) {
+	// Arrange
 	dir := t.TempDir()
+	writeFile(t, dir, `{"jira": {"base_url": "https://jira.example.com", "token": "t"},`+
+		` "slack": {"webhook_url": "https://hooks.slack.example/services/not-real"}}`)
 
-	contents := `{"jira": {"base_url": "https://jira.example.com", "token": "t"},` +
-		` "slack": {"webhook_url": "https://hooks.slack.example/services/not-real"}}`
-
-	err := os.WriteFile(filepath.Join(dir, config.FileName), []byte(contents), config.FileMode)
-	if err != nil {
-		t.Fatalf("writing fixture: %v", err)
-	}
-
+	// Act
 	output, err := run(t, dir, "doctor")
-	if err != nil {
-		t.Fatalf("doctor: %v (%s)", err, output)
-	}
 
-	if !strings.Contains(output, "bearer token") {
-		t.Errorf("doctor does not report the auth mode:\n%s", output)
+	// Assert
+	if err != nil || !strings.Contains(output, "bearer token") {
+		t.Errorf("doctor = %v, want success reporting the auth mode:\n%s", err, output)
 	}
 }
 
@@ -80,11 +86,13 @@ func gitInit(t *testing.T, dir string) {
 	git(t, dir, "init", "--quiet", ".")
 }
 
-// git runs one git command in dir, failing the test if it does not succeed.
+// git runs one git command in dir, failing the test if it does not succeed. The
+// developer's own git configuration is kept out, as run keeps it out of doctor.
 func git(t *testing.T, dir string, args ...string) {
 	t.Helper()
 
 	cmd := exec.CommandContext(t.Context(), "git", append([]string{"-C", dir}, args...)...)
+	cmd.Env = append(os.Environ(), "GIT_CONFIG_GLOBAL="+os.DevNull, "GIT_CONFIG_NOSYSTEM=1")
 
 	output, err := cmd.CombinedOutput()
 	if err != nil {
@@ -93,42 +101,56 @@ func git(t *testing.T, dir string, args ...string) {
 }
 
 func TestDoctorReportsTheRepositoryItIsIn(t *testing.T) {
+	// Arrange
 	dir := t.TempDir()
 	gitInit(t, dir)
 
+	root, err := filepath.EvalSymlinks(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Act
+	output, err := run(t, dir, "doctor")
+
+	// Assert
 	// The configuration is absent, so doctor exits non-zero. The repository
 	// section must still be reported: someone runs doctor precisely when
 	// something is wrong, and reporting only the first problem wastes the run.
-	output, _ := run(t, dir, "doctor")
+	if err == nil {
+		t.Errorf("doctor succeeded with no configuration:\n%s", output)
+	}
 
-	for _, want := range []string{"Repository:", "Branch:", "Remote:"} {
-		if !strings.Contains(output, want) {
-			t.Errorf("doctor does not report %q:\n%s", want, output)
-		}
+	if got := fieldValue(output, "Repository"); got != root {
+		t.Errorf("Repository = %q, want %q:\n%s", got, root, output)
 	}
 
 	// A freshly initialized repository has no commits, so its branch is unborn.
 	// `git branch --show-current` still names it, which is why doctor can.
-	if strings.Contains(output, "detached HEAD") {
-		t.Errorf("doctor called an unborn branch detached:\n%s", output)
+	if got := fieldValue(output, "Branch"); got == "" || strings.Contains(got, "detached HEAD") {
+		t.Errorf("Branch = %q, want the unborn branch named:\n%s", got, output)
 	}
 
-	if !strings.Contains(output, "(not set)") {
-		t.Errorf("doctor does not report the missing origin remote:\n%s", output)
+	if got := fieldValue(output, "Remote"); got != "(not set)" {
+		t.Errorf("Remote = %q, want the missing origin reported:\n%s", got, output)
 	}
 }
 
 func TestDoctorReportsADirectoryOutsideAnyRepository(t *testing.T) {
+	// Act
 	output, _ := run(t, t.TempDir(), "doctor")
 
-	if !strings.Contains(output, "not in a git work tree") {
-		t.Errorf("doctor does not say the directory is outside a repository:\n%s", output)
+	// Assert
+	if got := fieldValue(output, "Repository"); !strings.Contains(got, "not in a git work tree") {
+		t.Errorf("Repository = %q, want it to say the directory is outside a repository:\n%s", got, output)
 	}
 }
 
 func TestDoctorReportsTheExternalTooling(t *testing.T) {
+	// Act
 	output, _ := run(t, t.TempDir(), "doctor")
 
+	// Assert
 	if !strings.Contains(output, "Tooling:") {
 		t.Fatalf("doctor has no tooling section:\n%s", output)
 	}
@@ -147,6 +169,7 @@ func TestDoctorReportsTheExternalTooling(t *testing.T) {
 }
 
 func TestDoctorReportsADetachedHead(t *testing.T) {
+	// Arrange
 	dir := t.TempDir()
 	gitInit(t, dir)
 
@@ -155,19 +178,25 @@ func TestDoctorReportsADetachedHead(t *testing.T) {
 		"commit", "--allow-empty", "--quiet", "--message", "seed")
 	git(t, dir, "-c", "advice.detachedHead=false", "checkout", "--quiet", "--detach", "HEAD")
 
+	// Act
 	output, _ := run(t, dir, "doctor")
 
-	if !strings.Contains(output, "detached HEAD") {
-		t.Errorf("doctor does not report a detached HEAD:\n%s", output)
+	// Assert
+	if got := fieldValue(output, "Branch"); !strings.Contains(got, "detached HEAD") {
+		t.Errorf("Branch = %q, want a detached HEAD reported:\n%s", got, output)
 	}
 }
 
 func TestDoctorFailsWhenRequiredToolingIsMissing(t *testing.T) {
+	// Arrange
 	// An empty PATH is the only portable way to make every program unfindable,
 	// which is what proves the required/optional distinction actually bites.
 	t.Setenv("PATH", "")
 
+	// Act
 	output, err := run(t, t.TempDir(), "doctor")
+
+	// Assert
 	if err == nil {
 		t.Fatalf("doctor succeeded with git missing:\n%s", output)
 	}
@@ -187,16 +216,16 @@ func TestDoctorFailsWhenRequiredToolingIsMissing(t *testing.T) {
 }
 
 func TestDoctorReportsAMalformedConfiguration(t *testing.T) {
+	// Arrange
 	dir := t.TempDir()
+	writeFile(t, dir, "{not json")
 
-	err := os.WriteFile(filepath.Join(dir, config.FileName), []byte("{not json"), config.FileMode)
-	if err != nil {
-		t.Fatalf("writing fixture: %v", err)
-	}
+	// Act
+	output, err := run(t, dir, "doctor")
 
-	output, runErr := run(t, dir, "doctor")
-	if runErr == nil {
-		t.Fatalf("doctor accepted a malformed configuration:\n%s", output)
+	// Assert
+	if !errors.Is(err, config.ErrInvalid) {
+		t.Fatalf("doctor = %v, want the malformed configuration reported:\n%s", err, output)
 	}
 
 	// A file that exists but cannot be parsed is a different problem from no
@@ -208,23 +237,21 @@ func TestDoctorReportsAMalformedConfiguration(t *testing.T) {
 }
 
 func TestDoctorAcceptsAWebhookWithoutAChannel(t *testing.T) {
+	// Arrange
 	dir := t.TempDir()
 
 	const webhook = "https://hooks.slack.com/services/T00000000/B00000000/supersecretpayload"
 
-	contents := `{"jira": {"base_url": "https://jira.example.com", "token": "t"},` +
-		` "slack": {"webhook_url": "` + webhook + `"}}`
+	writeFile(t, dir, `{"jira": {"base_url": "https://jira.example.com", "token": "t"},`+
+		` "slack": {"webhook_url": "`+webhook+`"}}`)
 
-	err := os.WriteFile(filepath.Join(dir, config.FileName), []byte(contents), config.FileMode)
+	// Act
+	output, err := run(t, dir, "doctor")
 	if err != nil {
-		t.Fatalf("writing fixture: %v", err)
+		t.Fatalf("doctor rejected a webhook-only configuration: %v (%s)", err, output)
 	}
 
-	output, runErr := run(t, dir, "doctor")
-	if runErr != nil {
-		t.Fatalf("doctor rejected a webhook-only configuration: %v (%s)", runErr, output)
-	}
-
+	// Assert
 	// The whole point of the leak test: doctor's output is what
 	// .github/ISSUE_TEMPLATE/bug_report.yml invites people to paste.
 	if strings.Contains(output, webhook) || strings.Contains(output, "supersecretpayload") {
@@ -241,17 +268,20 @@ func TestDoctorAcceptsAWebhookWithoutAChannel(t *testing.T) {
 }
 
 func TestDoctorDoesNotTouchTheNetworkWithoutTheFlag(t *testing.T) {
+	// Arrange
 	var reached atomic.Bool
 
 	dir := t.TempDir()
 	server := jiraServer(t, http.StatusOK, jiraFixture, &reached)
 	writeConfigFor(t, dir, server.URL)
 
+	// Act
 	output, err := run(t, dir, "doctor")
 	if err != nil {
 		t.Fatalf("doctor: %v (%s)", err, output)
 	}
 
+	// Assert
 	if reached.Load() {
 		t.Errorf("doctor called Jira without --online:\n%s", output)
 	}
@@ -275,58 +305,59 @@ func repoWithRemote(t *testing.T, remote string) string {
 func TestDoctorNamesTheForgeAndItsAPI(t *testing.T) {
 	cases := map[string]struct {
 		remote string
-		wants  []string
+		want   string
 	}{
 		"github over ssh": {
 			remote: "git@github.com:owner/repo.git",
-			wants:  []string{"GitHub", "owner/repo", "https://api.github.com"},
+			want:   "GitHub owner/repo at https://api.github.com",
 		},
 		"gitlab with a subgroup": {
 			remote: "https://gitlab.com/group/sub/project.git",
-			wants:  []string{"GitLab", "group/sub/project", "https://gitlab.com/api/v4"},
+			want:   "GitLab group/sub/project at https://gitlab.com/api/v4",
 		},
 		// Neither forge announces itself in an on-premises hostname, and their
 		// API paths differ, so guessing would send a token to the wrong service.
 		"an on-premises host": {
 			remote: "git@git.example.com:acme/thing.git",
-			wants:  []string{"cannot tell", "acme/thing"},
+			want:   "acme/thing on git.example.com (cannot tell GitHub Enterprise from self-managed GitLab)",
+		},
+		// The remote can carry a password; the forge is still named, without it.
+		"a remote with a credential in it": {
+			remote: "https://alice:sekret@github.com/owner/repo.git",
+			want:   "GitHub owner/repo at https://api.github.com",
 		},
 	}
 
 	for name, tt := range cases {
 		t.Run(name, func(t *testing.T) {
-			output, _ := run(t, repoWithRemote(t, tt.remote), "doctor")
+			// Arrange
+			dir := repoWithRemote(t, tt.remote)
 
-			for _, want := range tt.wants {
-				if !strings.Contains(output, want) {
-					t.Errorf("doctor does not mention %q:\n%s", want, output)
-				}
+			// Act
+			output, _ := run(t, dir, "doctor")
+
+			// Assert
+			if got := fieldValue(output, "Forge"); got != tt.want {
+				t.Errorf("Forge = %q, want %q:\n%s", got, tt.want, output)
+			}
+
+			if strings.Contains(output, "sekret") {
+				t.Errorf("doctor printed the password from the remote:\n%s", output)
 			}
 		})
 	}
 }
 
-func TestDoctorRedactsACredentialInTheRemote(t *testing.T) {
-	dir := repoWithRemote(t, "https://alice:sekret@github.com/owner/repo.git")
-
-	output, _ := run(t, dir, "doctor")
-
-	if strings.Contains(output, "sekret") {
-		t.Errorf("doctor printed the password from the remote:\n%s", output)
-	}
-
-	if !strings.Contains(output, "GitHub") {
-		t.Errorf("doctor did not still identify the forge:\n%s", output)
-	}
-}
-
 func TestDoctorSaysWhenThereIsNoRemote(t *testing.T) {
+	// Arrange
 	dir := t.TempDir()
 	gitInit(t, dir)
 
+	// Act
 	output, _ := run(t, dir, "doctor")
 
-	if !strings.Contains(output, "(no remote)") {
-		t.Errorf("doctor does not say the repository has no remote:\n%s", output)
+	// Assert
+	if got := fieldValue(output, "Forge"); got != "(no remote)" {
+		t.Errorf("Forge = %q, want it to say the repository has no remote:\n%s", got, output)
 	}
 }

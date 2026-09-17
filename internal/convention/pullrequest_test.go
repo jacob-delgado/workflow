@@ -32,6 +32,7 @@ func TestPullRequestTitleIsTheOldestCommit(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
 
+			// Act & Assert
 			if got := convention.PullRequestTitle(tt.subjects, tt.key, tt.summary); got != tt.want {
 				t.Errorf("PullRequestTitle = %q, want %q", got, tt.want)
 			}
@@ -70,6 +71,7 @@ func TestPullRequestBodyStartsFromTheTemplate(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
 
+			// Act & Assert
 			if got := convention.PullRequestBody(tt.template, tt.subjects, tt.key, tt.url); got != tt.want {
 				t.Errorf("PullRequestBody =\n%q\nwant\n%q", got, tt.want)
 			}

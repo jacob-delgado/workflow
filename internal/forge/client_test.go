@@ -4,6 +4,7 @@
 package forge_test
 
 import (
+	"encoding/json"
 	"errors"
 	"net/http"
 	"net/http/httptest"
@@ -56,13 +57,15 @@ func TestWhoamiReadsEitherForgesName(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
 
-			identity, err := serveForge(t, answerJSON(body)).Whoami(t.Context())
-			if err != nil {
-				t.Fatalf("Whoami returned %v, want nil", err)
-			}
+			// Arrange
+			client := serveForge(t, answerJSON(body))
 
-			if identity.Name() != "octocat" {
-				t.Errorf("Name() = %q, want %q", identity.Name(), "octocat")
+			// Act
+			identity, err := client.Whoami(t.Context())
+
+			// Assert
+			if err != nil || identity.Name() != "octocat" {
+				t.Errorf("Whoami = %q, %v; want octocat", identity.Name(), err)
 			}
 		})
 	}
@@ -71,6 +74,7 @@ func TestWhoamiReadsEitherForgesName(t *testing.T) {
 func TestWhoamiSendsACredentialAndAUserAgent(t *testing.T) {
 	t.Parallel()
 
+	// Arrange
 	var (
 		gotAuth      atomic.Value
 		gotUserAgent atomic.Value
@@ -88,11 +92,15 @@ func TestWhoamiSendsACredentialAndAUserAgent(t *testing.T) {
 	}))
 	t.Cleanup(server.Close)
 
-	_, err := forge.New(server.Client().Do, server.URL, secret).Whoami(t.Context())
+	client := forge.New(server.Client().Do, server.URL, secret)
+
+	// Act
+	_, err := client.Whoami(t.Context())
 	if err != nil {
 		t.Fatalf("Whoami returned %v, want nil", err)
 	}
 
+	// Assert
 	if got := gotAuth.Load(); got != "Bearer "+secret {
 		t.Errorf("Authorization = %q, want a bearer token", got)
 	}
@@ -138,11 +146,15 @@ func TestWhoamiTranslatesEachStatus(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
 
+			// Arrange
 			client := serveForge(t, func(writer http.ResponseWriter, _ *http.Request) {
 				writer.WriteHeader(tt.status)
 			})
 
+			// Act
 			_, err := client.Whoami(t.Context())
+
+			// Assert
 			if !errors.Is(err, tt.want) {
 				t.Errorf("Whoami returned %v, want %v", err, tt.want)
 			}
@@ -157,6 +169,7 @@ func TestWhoamiTranslatesEachStatus(t *testing.T) {
 func TestWhoamiRejectsAnHTMLAnswer(t *testing.T) {
 	t.Parallel()
 
+	// Arrange
 	// A base URL pointing at the WEB host rather than the API answers 200 with
 	// a login page. Decoding that gives "invalid character '<'", which tells
 	// nobody what went wrong.
@@ -165,37 +178,61 @@ func TestWhoamiRejectsAnHTMLAnswer(t *testing.T) {
 		_, _ = writer.Write([]byte("<!doctype html><html><body>sign in</body></html>"))
 	})
 
+	// Act
 	_, err := client.Whoami(t.Context())
-	if !errors.Is(err, forge.ErrNotJSON) {
-		t.Fatalf("Whoami returned %v, want ErrNotJSON", err)
-	}
 
-	if !strings.Contains(err.Error(), "text/html") {
-		t.Errorf("the error does not name what came back instead: %v", err)
+	// Assert
+	if !errors.Is(err, forge.ErrNotJSON) || !strings.Contains(err.Error(), "text/html") {
+		t.Errorf("Whoami returned %v, want ErrNotJSON naming what came back instead", err)
 	}
 }
 
-func TestWhoamiWithoutAToken(t *testing.T) {
+func TestWhoamiRefusesWhatItCannotSend(t *testing.T) {
 	t.Parallel()
 
-	client := forge.New(http.DefaultClient.Do, "https://api.example.com", "")
+	cases := map[string]struct {
+		base  string
+		token forge.Token
+		want  error
+	}{
+		"no token": {base: "https://api.example.com", token: "", want: forge.ErrNoToken},
+		"a base url.Parse refuses": {
+			base: "https://api.example.com/\x7f", token: secret, want: forge.ErrUnreachable,
+		},
+	}
 
-	_, err := client.Whoami(t.Context())
-	if !errors.Is(err, forge.ErrNoToken) {
-		t.Errorf("Whoami returned %v, want ErrNoToken", err)
+	for name, tt := range cases {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			// Arrange
+			client := forge.New(http.DefaultClient.Do, tt.base, tt.token)
+
+			// Act
+			_, err := client.Whoami(t.Context())
+
+			// Assert
+			if !errors.Is(err, tt.want) || strings.Contains(err.Error(), secret) {
+				t.Errorf("Whoami returned %v, want %v without the token", err, tt.want)
+			}
+		})
 	}
 }
 
 func TestWhoamiReportsAnUnreachableAPI(t *testing.T) {
 	t.Parallel()
 
+	// Arrange
 	server := httptest.NewServer(http.HandlerFunc(func(http.ResponseWriter, *http.Request) {}))
 	base := server.URL
 	server.Close()
 
 	client := forge.New(forge.HTTPClient(2*time.Second).Do, base, secret)
 
+	// Act
 	_, err := client.Whoami(t.Context())
+
+	// Assert
 	if !errors.Is(err, forge.ErrUnreachable) {
 		t.Errorf("Whoami returned %v, want ErrUnreachable", err)
 	}
@@ -204,30 +241,22 @@ func TestWhoamiReportsAnUnreachableAPI(t *testing.T) {
 func TestWhoamiReportsAnUnreadableBody(t *testing.T) {
 	t.Parallel()
 
-	_, err := serveForge(t, answerJSON("{not json")).Whoami(t.Context())
-	if err == nil {
-		t.Fatal("Whoami accepted a malformed body, want an error")
-	}
-}
+	// Arrange
+	client := serveForge(t, answerJSON("{not json"))
 
-func TestWhoamiReportsAMalformedBase(t *testing.T) {
-	t.Parallel()
-
-	client := forge.New(http.DefaultClient.Do, "https://api.example.com/\x7f", secret)
-
+	// Act
 	_, err := client.Whoami(t.Context())
-	if !errors.Is(err, forge.ErrUnreachable) {
-		t.Fatalf("Whoami returned %v, want ErrUnreachable", err)
-	}
 
-	if strings.Contains(err.Error(), secret) {
-		t.Errorf("the error carried the token: %v", err)
+	// Assert
+	if _, isSyntax := errors.AsType[*json.SyntaxError](err); !isSyntax {
+		t.Errorf("Whoami returned %v, want the malformed body's syntax error", err)
 	}
 }
 
 func TestForgeHTTPClientRefusesARedirect(t *testing.T) {
 	t.Parallel()
 
+	// Arrange
 	var secondHopSawHeader atomic.Bool
 
 	second := httptest.NewServer(http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
@@ -244,9 +273,12 @@ func TestForgeHTTPClientRefusesARedirect(t *testing.T) {
 
 	client := forge.New(forge.HTTPClient(5*time.Second).Do, first.URL, secret)
 
+	// Act
 	_, err := client.Whoami(t.Context())
-	if err == nil {
-		t.Fatal("Whoami followed a redirect, want an error")
+
+	// Assert
+	if !errors.Is(err, forge.ErrRedirected) {
+		t.Errorf("Whoami returned %v, want ErrRedirected", err)
 	}
 
 	if secondHopSawHeader.Load() {

@@ -5,6 +5,7 @@ package editor_test
 
 import (
 	"errors"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"slices"
@@ -40,6 +41,15 @@ const (
 // here runs it: a command is only built, never executed.
 const installedEditor = "go"
 
+// missingEditor is an editor no machine has.
+const missingEditor = "workflow-editor-that-does-not-exist"
+
+// tmpdirVariable is where Edit writes its drafts.
+const tmpdirVariable = "TMPDIR"
+
+// draftPattern matches the drafts Edit writes.
+const draftPattern = "workflow-*.md"
+
 // errEditorCrashed stands in for an editor that exited non-zero.
 var errEditorCrashed = errors.New("exit status 1")
 
@@ -48,6 +58,18 @@ type failure struct{ err error }
 
 // saved is a finished edit's text.
 type saved struct{ text string }
+
+// drafts lists the drafts in dir.
+func drafts(t *testing.T, dir string) []string {
+	t.Helper()
+
+	found, err := filepath.Glob(filepath.Join(dir, draftPattern))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	return found
+}
 
 func TestInvocationPrefersVisualThenEditorThenVi(t *testing.T) {
 	t.Parallel()
@@ -66,7 +88,10 @@ func TestInvocationPrefersVisualThenEditorThenVi(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
 
+			// Act
 			got := editor.Invocation(environment(tt.env), "/work", "notes.md", 0)
+
+			// Assert
 			if got.Name != tt.want || got.Dir != "/work" {
 				t.Errorf("Invocation = %+v, want %s in /work", got, tt.want)
 			}
@@ -77,11 +102,15 @@ func TestInvocationPrefersVisualThenEditorThenVi(t *testing.T) {
 func TestInvocationKeepsTheEditorsOwnArguments(t *testing.T) {
 	t.Parallel()
 
+	// Arrange
 	// No shell runs this, so the words are split here — and a GUI editor needs
 	// its --wait, or it returns before anything was written.
 	code := environment(map[string]string{editorVariable: "code --wait --new-window"})
+
+	// Act
 	got := editor.Invocation(code, "/work", "notes.md", 0)
 
+	// Assert
 	if got.Name != "code" || !slices.Equal(got.Args, []string{"--wait", "--new-window", "notes.md"}) {
 		t.Errorf("Invocation = %+v, want code with its flags and then the file", got)
 	}
@@ -92,35 +121,38 @@ func TestInvocationOpensAtALineWhereTheEditorCan(t *testing.T) {
 
 	cases := map[string]struct {
 		editor string
+		line   int
 		want   []string
 	}{
-		"vim":            {editor: vim, want: []string{"+12", sourceFile}},
-		"neovim on path": {editor: "/usr/local/bin/nvim", want: []string{"+12", sourceFile}},
-		"windows neovim": {editor: `C:\tools\nvim.exe`, want: []string{"+12", sourceFile}},
-		nano:             {editor: nano, want: []string{"+12", sourceFile}},
-		"emacs client":   {editor: "emacsclient -t", want: []string{"-t", "+12", sourceFile}},
-		"vs code":        {editor: "code --wait", want: []string{"--wait", "--goto", sourceAtLine}},
-		"cursor":         {editor: "cursor", want: []string{"--goto", sourceAtLine}},
-		"helix":          {editor: "hx", want: []string{sourceAtLine}},
-		"sublime":        {editor: "subl -w", want: []string{"-w", sourceAtLine}},
-		"something else": {editor: "ed", want: []string{sourceFile}},
+		"vim":            {editor: vim, line: 12, want: []string{"+12", sourceFile}},
+		"neovim on path": {editor: "/usr/local/bin/nvim", line: 12, want: []string{"+12", sourceFile}},
+		"windows neovim": {editor: `C:\tools\nvim.exe`, line: 12, want: []string{"+12", sourceFile}},
+		nano:             {editor: nano, line: 12, want: []string{"+12", sourceFile}},
+		"emacs client":   {editor: "emacsclient -t", line: 12, want: []string{"-t", "+12", sourceFile}},
+		"vs code":        {editor: "code --wait", line: 12, want: []string{"--wait", "--goto", sourceAtLine}},
+		"cursor":         {editor: "cursor", line: 12, want: []string{"--goto", sourceAtLine}},
+		"helix":          {editor: "hx", line: 12, want: []string{sourceAtLine}},
+		"sublime":        {editor: "subl -w", line: 12, want: []string{"-w", sourceAtLine}},
+		"something else": {editor: "ed", line: 12, want: []string{sourceFile}},
+		// Without a line, even an editor that can open at one just gets the file.
+		"no line": {editor: vim, line: 0, want: []string{sourceFile}},
 	}
 
 	for name, tt := range cases {
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
 
-			got := editor.Invocation(environment(map[string]string{editorVariable: tt.editor}), "/work", sourceFile, 12)
+			// Arrange
+			env := environment(map[string]string{editorVariable: tt.editor})
+
+			// Act
+			got := editor.Invocation(env, "/work", sourceFile, tt.line)
+
+			// Assert
 			if !slices.Equal(got.Args, tt.want) {
 				t.Errorf("Invocation(%s) args = %q, want %q", tt.editor, got.Args, tt.want)
 			}
 		})
-	}
-
-	// Without a line, every editor just gets the file.
-	got := editor.Invocation(environment(map[string]string{editorVariable: vim}), "/work", sourceFile, 0)
-	if !slices.Equal(got.Args, []string{sourceFile}) {
-		t.Errorf("Invocation with no line = %q, want just the file", got.Args)
 	}
 }
 
@@ -129,42 +161,71 @@ func TestADraftComesBackWithoutItsHelp(t *testing.T) {
 
 	const original = "## What this changes\n\nTokens are masked."
 
-	draft := editor.Draft(original, "Everything below is ignored.\nSave and quit to continue.")
-
 	// The help sits below a scissors line rather than behind # comments: a pull
 	// request body is Markdown, and its headings start with #.
-	edited := "## What this changes\n\nTokens are masked, now in the log too.  \n\n\n" + draft[len(original):]
+	draft := editor.Draft(original, "Everything below is ignored.\nSave and quit to continue.")
 
-	if got, want := editor.Parse(edited), "## What this changes\n\nTokens are masked, now in the log too."; got != want {
-		t.Errorf("Parse = %q, want %q", got, want)
+	cases := map[string]struct {
+		saved string
+		want  string
+	}{
+		"an edited draft, with trailing space and lines": {
+			saved: "## What this changes\n\nTokens are masked, now in the log too.  \n\n\n" + draft[len(original):],
+			want:  "## What this changes\n\nTokens are masked, now in the log too.",
+		},
+		"text with no scissors line": {saved: "no scissors at all\n", want: "no scissors at all"},
+		"an untouched, empty draft":  {saved: editor.Draft("", "help"), want: ""},
 	}
 
-	if got := editor.Parse("no scissors at all\n"); got != "no scissors at all" {
-		t.Errorf("Parse without a scissors line = %q, want the whole text", got)
-	}
+	for name, tt := range cases {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
 
-	if got := editor.Parse(editor.Draft("", "help")); got != "" {
-		t.Errorf("Parse of an untouched empty draft = %q, want nothing", got)
+			// Act
+			got := editor.Parse(tt.saved)
+
+			// Assert
+			if got != tt.want {
+				t.Errorf("Parse = %q, want %q", got, tt.want)
+			}
+		})
 	}
 }
 
-func TestEditWithAnEditorThatIsNotInstalledSaysSo(t *testing.T) {
+func TestEditWithAnEditorThatIsNotInstalledSaysSoAndLeavesNoDraft(t *testing.T) {
 	t.Parallel()
 
-	missing := environment(map[string]string{editorVariable: "workflow-editor-that-does-not-exist"})
+	// Arrange
+	dir := t.TempDir()
+	missing := environment(map[string]string{editorVariable: missingEditor, tmpdirVariable: dir})
 
-	cmd := editor.Edit(missing, t.TempDir(), "draft", "help", func(_ string, err error) tea.Msg {
+	// Act
+	reported, ok := editor.Edit(missing, t.TempDir(), "draft", "help", func(_ string, err error) tea.Msg {
 		return failure{err: err}
-	})
+	})().(failure)
 
-	reported, ok := cmd().(failure)
+	// Assert
 	if !ok || !errors.Is(reported.err, proc.ErrNotFound) {
 		t.Errorf("Edit reported %v, want ErrNotFound for an editor not on PATH", reported.err)
 	}
 
-	cmd = editor.Open(missing, t.TempDir(), sourceFile, 3, func(err error) tea.Msg { return failure{err: err} })
+	if left := drafts(t, dir); len(left) != 0 {
+		t.Errorf("the draft outlived the editor that could not open it: %q", left)
+	}
+}
 
-	reported, ok = cmd().(failure)
+func TestOpenWithAnEditorThatIsNotInstalledSaysSo(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	missing := environment(map[string]string{editorVariable: missingEditor})
+
+	// Act
+	reported, ok := editor.Open(missing, t.TempDir(), sourceFile, 3, func(err error) tea.Msg {
+		return failure{err: err}
+	})().(failure)
+
+	// Assert
 	if !ok || !errors.Is(reported.err, proc.ErrNotFound) {
 		t.Errorf("Open reported %v, want ErrNotFound for an editor not on PATH", reported.err)
 	}
@@ -173,40 +234,71 @@ func TestEditWithAnEditorThatIsNotInstalledSaysSo(t *testing.T) {
 func TestEditWritesTheDraftOutsideTheRepositoryAndHandsOverTheTerminal(t *testing.T) {
 	t.Parallel()
 
-	drafts := t.TempDir()
-	env := environment(map[string]string{editorVariable: installedEditor, "TMPDIR": drafts})
+	// Arrange
+	dir := t.TempDir()
+	env := environment(map[string]string{editorVariable: installedEditor, tmpdirVariable: dir})
+	finished := false
 
-	cmd := editor.Edit(env, t.TempDir(), "draft", "help", func(_ string, err error) tea.Msg {
-		return failure{err: err}
-	})
+	// Act
+	msg := editor.Edit(env, t.TempDir(), "draft", "help", func(string, error) tea.Msg {
+		finished = true
 
-	// The command hands the terminal to the editor; nothing has been reported
-	// back yet, because the editor has not run.
-	if _, reported := cmd().(failure); reported {
-		t.Error("Edit reported back before the editor ran")
+		return nil
+	})()
+
+	// Assert
+	// The command hands the terminal to the editor: nothing is reported back
+	// until the editor has run.
+	if msg == nil || finished {
+		t.Errorf("Edit returned %v and finished %v, want a handover and nothing reported yet", msg, finished)
 	}
 
-	written, _ := filepath.Glob(filepath.Join(drafts, "workflow-*.md"))
+	written := drafts(t, dir)
 	if len(written) != 1 {
 		t.Fatalf("found drafts %q in $TMPDIR, want exactly one", written)
 	}
 
-	opened := editor.Open(env, t.TempDir(), sourceFile, 3, func(error) tea.Msg { return failure{} })
-	if _, reported := opened().(failure); reported {
-		t.Error("Open reported back before the editor ran")
+	contents, err := os.ReadFile(written[0])
+	if err != nil || string(contents) != editor.Draft("draft", "help") {
+		t.Errorf("the draft holds %q, %v; want the text and its help", contents, err)
+	}
+}
+
+func TestOpenHandsOverTheTerminal(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	env := environment(map[string]string{editorVariable: installedEditor})
+	finished := false
+
+	// Act
+	msg := editor.Open(env, t.TempDir(), sourceFile, 3, func(error) tea.Msg {
+		finished = true
+
+		return nil
+	})()
+
+	// Assert
+	if msg == nil || finished {
+		t.Errorf("Open returned %v and finished %v, want a handover and nothing reported yet", msg, finished)
 	}
 }
 
 func TestEditReportsADraftThatCannotBeWritten(t *testing.T) {
 	t.Parallel()
 
-	env := environment(map[string]string{editorVariable: installedEditor, "TMPDIR": filepath.Join(t.TempDir(), "missing")})
+	// Arrange
+	missingDir := filepath.Join(t.TempDir(), "missing")
+	env := environment(map[string]string{editorVariable: installedEditor, tmpdirVariable: missingDir})
 
+	// Act
 	reported, ok := editor.Edit(env, t.TempDir(), "draft", "help", func(_ string, err error) tea.Msg {
 		return failure{err: err}
 	})().(failure)
-	if !ok || reported.err == nil {
-		t.Errorf("Edit reported %+v, want the failure to create a draft", reported)
+
+	// Assert
+	if !ok || !errors.Is(reported.err, fs.ErrNotExist) {
+		t.Errorf("Edit reported %+v, want the failure to create a draft in a missing $TMPDIR", reported)
 	}
 }
 
@@ -220,46 +312,79 @@ func requireGone(t *testing.T, path string) {
 	}
 }
 
-func TestCollectReadsTheSavedDraftAndRemovesIt(t *testing.T) {
-	t.Parallel()
+// collected is what Collect reports for a draft once the editor exits with
+// editorErr.
+//
+//nolint:ireturn // tea.Msg is Bubble Tea's type for any message at all
+func collected(path string, editorErr error) tea.Msg {
+	return editor.Collect(path, func(text string, err error) tea.Msg {
+		if err != nil {
+			return failure{err: err}
+		}
 
-	collected := func(path string, editorErr error) tea.Msg {
-		return editor.Collect(path, func(text string, err error) tea.Msg {
-			if err != nil {
-				return failure{err: err}
-			}
+		return saved{text: text}
+	})(editorErr)
+}
 
-			return saved{text: text}
-		})(editorErr)
-	}
+// writtenDraft is a saved draft of text, in a directory of its own.
+func writtenDraft(t *testing.T, text string) string {
+	t.Helper()
 
 	path := filepath.Join(t.TempDir(), "draft.md")
 
-	write := func() {
-		err := os.WriteFile(path, []byte(editor.Draft("kept text", "help")), 0o600)
-		if err != nil {
-			t.Fatalf("writing the draft: %v", err)
-		}
+	err := os.WriteFile(path, []byte(editor.Draft(text, "help")), 0o600)
+	if err != nil {
+		t.Fatalf("writing the draft: %v", err)
 	}
 
-	write()
+	return path
+}
 
-	if got, ok := collected(path, nil).(saved); !ok || got.text != "kept text" {
+func TestCollectReadsTheSavedDraftAndRemovesIt(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	path := writtenDraft(t, "kept text")
+
+	// Act
+	got, ok := collected(path, nil).(saved)
+
+	// Assert
+	if !ok || got.text != "kept text" {
 		t.Errorf("Collect = %+v, want the saved text", got)
 	}
 
 	requireGone(t, path)
+}
 
-	write()
+func TestCollectAfterTheEditorFailedKeepsNothingAndStillCleansUp(t *testing.T) {
+	t.Parallel()
 
-	// An editor that failed keeps nothing — and still cleans up.
-	if got, ok := collected(path, errEditorCrashed).(failure); !ok || !errors.Is(got.err, errEditorCrashed) {
+	// Arrange
+	path := writtenDraft(t, "kept text")
+
+	// Act
+	got, ok := collected(path, errEditorCrashed).(failure)
+
+	// Assert
+	if !ok || !errors.Is(got.err, errEditorCrashed) {
 		t.Errorf("Collect after a crash = %+v, want the editor's error", got)
 	}
 
 	requireGone(t, path)
+}
 
-	if got, ok := collected(path, nil).(failure); !ok || got.err == nil {
-		t.Errorf("Collect of a vanished draft = %+v, want a read error", got)
+func TestCollectOfAVanishedDraftReportsTheReadError(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	path := filepath.Join(t.TempDir(), "draft.md")
+
+	// Act
+	got, ok := collected(path, nil).(failure)
+
+	// Assert
+	if !ok || !errors.Is(got.err, fs.ErrNotExist) {
+		t.Errorf("Collect of a vanished draft = %+v, want the read's not-exist error", got)
 	}
 }

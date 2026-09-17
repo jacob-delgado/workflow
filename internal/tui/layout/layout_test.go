@@ -16,8 +16,10 @@ const railPanes = 5
 func TestComputeReservesASpineAndAFooter(t *testing.T) {
 	t.Parallel()
 
+	// Act
 	got := layout.Compute(120, 40, railPanes, 0)
 
+	// Assert
 	if got.Spine != (layout.Box{X: 0, Y: 0, Width: 120, Height: 1}) {
 		t.Errorf("Spine = %+v, want the whole top row", got.Spine)
 	}
@@ -27,28 +29,35 @@ func TestComputeReservesASpineAndAFooter(t *testing.T) {
 	}
 }
 
-func TestComputePlacesTheRailBesideTheDetail(t *testing.T) {
+func TestComputeGivesTheDetailWhatTheRailLeaves(t *testing.T) {
 	t.Parallel()
 
-	got := layout.Compute(120, 40, railPanes, 0)
-
-	if got.Collapsed() {
-		t.Fatal("Collapsed() = true at 120 columns, want a rail")
+	cases := map[string]struct {
+		width, height int
+		rails         int
+		detail        layout.Box
+	}{
+		"beside a rail": {width: 120, height: 40, rails: railPanes, detail: layout.Box{X: 36, Y: 1, Width: 84, Height: 38}},
+		// With no rail, the detail takes the whole body rather than shrinking
+		// beside an empty column.
+		"the whole body once the rail collapses": {
+			width: 80, height: 30, rails: 0, detail: layout.Box{X: 0, Y: 1, Width: 80, Height: 28},
+		},
 	}
 
-	if len(got.Rail) != railPanes {
-		t.Fatalf("len(Rail) = %d, want %d", len(got.Rail), railPanes)
-	}
+	for name, tt := range cases {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
 
-	// 30% of 120 is 36, inside the clamp.
-	railWidth := got.Rail[0].Width
-	if railWidth != 36 {
-		t.Errorf("rail width = %d, want 36", railWidth)
-	}
+			// Act
+			got := layout.Compute(tt.width, tt.height, railPanes, 0)
 
-	want := layout.Box{X: 36, Y: 1, Width: 84, Height: 38}
-	if got.Detail != want {
-		t.Errorf("Detail = %+v, want %+v", got.Detail, want)
+			// Assert
+			if len(got.Rail) != tt.rails || got.Collapsed() != (tt.rails == 0) || got.Detail != tt.detail {
+				t.Errorf("Compute(%d, %d) = %d rail panes (collapsed %v), detail %+v; want %d, %+v",
+					tt.width, tt.height, len(got.Rail), got.Collapsed(), got.Detail, tt.rails, tt.detail)
+			}
+		})
 	}
 }
 
@@ -59,6 +68,8 @@ func TestComputeClampsTheRailWidth(t *testing.T) {
 		width int
 		want  int
 	}{
+		// 30% of 120 is 36, inside the clamp.
+		"a roomy terminal": {width: 120, want: 36},
 		// 30% of 90 is 27, above the floor.
 		"at the collapse threshold": {width: 90, want: 27},
 		// 30% of 300 is 90, which would waste the screen on a list of titles.
@@ -69,9 +80,12 @@ func TestComputeClampsTheRailWidth(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
 
+			// Act
 			got := layout.Compute(tt.width, 40, railPanes, 0)
-			if got.Rail[0].Width != tt.want {
-				t.Errorf("rail width at %d columns = %d, want %d", tt.width, got.Rail[0].Width, tt.want)
+
+			// Assert
+			if len(got.Rail) != railPanes || got.Rail[0].Width != tt.want {
+				t.Errorf("rail at %d columns = %+v, want %d panes %d wide", tt.width, got.Rail, railPanes, tt.want)
 			}
 		})
 	}
@@ -84,38 +98,38 @@ func TestTheFocusedPaneTakesTheRoomTheOthersDoNotNeed(t *testing.T) {
 	// keeps two rows of content inside its border; the focused one gets the
 	// rest, so the list someone is working in is the one that can be read.
 	cases := map[string]struct {
+		height  int
 		focused int
 		want    []int
 	}{
-		"the first":  {focused: 0, want: []int{22, 4, 4, 4, 4}},
-		"the middle": {focused: 2, want: []int{4, 4, 22, 4, 4}},
-		"the last":   {focused: 4, want: []int{4, 4, 4, 4, 22}},
+		"the first":  {height: 40, focused: 0, want: []int{22, 4, 4, 4, 4}},
+		"the middle": {height: 40, focused: 2, want: []int{4, 4, 22, 4, 4}},
+		"the last":   {height: 40, focused: 4, want: []int{4, 4, 4, 4, 22}},
+		// 20 rows leave 18: too few to give the focused pane a useful height
+		// after four compact ones, so every pane shares — and the leftover rows
+		// go to the top panes rather than being dropped, since a row lost at
+		// the bottom of the screen is a visible gap.
+		"a short terminal shares evenly": {height: 20, focused: 3, want: []int{4, 4, 4, 3, 3}},
 	}
 
 	for name, tt := range cases {
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
 
-			got := layout.Compute(120, 40, railPanes, tt.focused)
-			requireStacked(t, got, tt.want, 38)
+			// Act & Assert
+			requireStacked(t, layout.Compute(120, tt.height, railPanes, tt.focused), tt.want, tt.height-2)
 		})
 	}
-}
-
-func TestAShortTerminalSharesTheRailEvenly(t *testing.T) {
-	t.Parallel()
-
-	// 20 rows leave 18: too few to give the focused pane a useful height
-	// after four compact ones, so every pane shares — and the leftover rows go
-	// to the top panes rather than being dropped, since a row lost at the
-	// bottom of the screen is a visible gap.
-	requireStacked(t, layout.Compute(120, 20, railPanes, 3), []int{4, 4, 4, 3, 3}, 18)
 }
 
 // requireStacked checks each rail pane's height, that they use every body row,
 // and that each starts where the previous one ended.
 func requireStacked(t *testing.T, got layout.Layout, heights []int, body int) {
 	t.Helper()
+
+	if len(got.Rail) != len(heights) {
+		t.Fatalf("got %d rail panes, want %d", len(got.Rail), len(heights))
+	}
 
 	total := 0
 
@@ -157,7 +171,10 @@ func TestTheShapeFollowsTheTerminal(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
 
+			// Act
 			got := layout.Compute(tt.width, tt.height, railPanes, 0)
+
+			// Assert
 			if got.Collapsed() != tt.collapsed || got.Borderless() != tt.borderless || got.CompactSpine() != tt.compactSpine {
 				t.Errorf("collapsed, borderless, compact spine = %v, %v, %v; want %v, %v, %v",
 					got.Collapsed(), got.Borderless(), got.CompactSpine(), tt.collapsed, tt.borderless, tt.compactSpine)
@@ -166,30 +183,15 @@ func TestTheShapeFollowsTheTerminal(t *testing.T) {
 	}
 }
 
-func TestComputeCollapsesTheRailOnANarrowTerminal(t *testing.T) {
-	t.Parallel()
-
-	got := layout.Compute(80, 30, railPanes, 0)
-
-	if !got.Collapsed() {
-		t.Fatal("Collapsed() = false at 80 columns, want the rail gone")
-	}
-
-	// With no rail, the detail takes the whole body rather than shrinking
-	// beside an empty column.
-	want := layout.Box{X: 0, Y: 1, Width: 80, Height: 28}
-	if got.Detail != want {
-		t.Errorf("Detail = %+v, want the whole body %+v", got.Detail, want)
-	}
-}
-
 func TestComputeSurvivesATinyTerminal(t *testing.T) {
 	t.Parallel()
 
+	// Act
 	// A terminal can be resized to almost nothing mid-session. Negative sizes
 	// would panic inside the renderer, so everything floors at zero.
 	got := layout.Compute(120, 1, railPanes, 0)
 
+	// Assert
 	if got.Detail.Height < 0 {
 		t.Errorf("Detail.Height = %d, want it floored at zero", got.Detail.Height)
 	}
@@ -204,41 +206,35 @@ func TestComputeSurvivesATinyTerminal(t *testing.T) {
 func TestRailAt(t *testing.T) {
 	t.Parallel()
 
-	got := layout.Compute(120, 40, railPanes, 0)
-
 	cases := map[string]struct {
-		column, row int
-		want        int
-		wantOK      bool
+		width, height int
+		column, row   int
+		want          int
+		wantOK        bool
 	}{
-		"top of the first pane":  {column: 0, row: 1, want: 0, wantOK: true},
-		"inside the third pane":  {column: 10, row: 28, want: 2, wantOK: true},
-		"last row of the rail":   {column: 35, row: 38, want: 4, wantOK: true},
-		"the spine is not rail":  {column: 5, row: 0, wantOK: false},
-		"the detail is not rail": {column: 60, row: 10, wantOK: false},
-		"the footer is not rail": {column: 5, row: 39, wantOK: false},
+		"top of the first pane":  {width: 120, height: 40, column: 0, row: 1, want: 0, wantOK: true},
+		"inside the third pane":  {width: 120, height: 40, column: 10, row: 28, want: 2, wantOK: true},
+		"last row of the rail":   {width: 120, height: 40, column: 35, row: 38, want: 4, wantOK: true},
+		"the spine is not rail":  {width: 120, height: 40, column: 5, row: 0, wantOK: false},
+		"the detail is not rail": {width: 120, height: 40, column: 60, row: 10, wantOK: false},
+		"the footer is not rail": {width: 120, height: 40, column: 5, row: 39, wantOK: false},
+		"a collapsed layout":     {width: 80, height: 30, column: 5, row: 5, wantOK: false},
 	}
 
 	for name, tt := range cases {
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
 
-			index, ok := got.RailAt(tt.column, tt.row)
-			if ok != tt.wantOK {
-				t.Fatalf("RailAt(%d, %d) ok = %v, want %v", tt.column, tt.row, ok, tt.wantOK)
-			}
+			// Arrange
+			shape := layout.Compute(tt.width, tt.height, railPanes, 0)
 
-			if ok && index != tt.want {
-				t.Errorf("RailAt(%d, %d) = %d, want %d", tt.column, tt.row, index, tt.want)
+			// Act
+			index, ok := shape.RailAt(tt.column, tt.row)
+
+			// Assert
+			if ok != tt.wantOK || (ok && index != tt.want) {
+				t.Errorf("RailAt(%d, %d) = %d, %v; want %d, %v", tt.column, tt.row, index, ok, tt.want, tt.wantOK)
 			}
 		})
-	}
-}
-
-func TestRailAtOnACollapsedLayout(t *testing.T) {
-	t.Parallel()
-
-	if _, ok := layout.Compute(80, 30, railPanes, 0).RailAt(5, 5); ok {
-		t.Error("RailAt found a rail pane on a collapsed layout")
 	}
 }

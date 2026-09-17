@@ -41,6 +41,7 @@ const resolveBody = `{"transitions":[{"id":"5","name":"Resolve Issue",` +
 func TestTransitionsListTheFieldsAMoveNeeds(t *testing.T) {
 	t.Parallel()
 
+	// Arrange
 	var query atomic.Value
 
 	client := serve(t, func(writer http.ResponseWriter, request *http.Request) {
@@ -48,13 +49,19 @@ func TestTransitionsListTheFieldsAMoveNeeds(t *testing.T) {
 		answer(resolveBody, "fred")(writer, request)
 	})
 
+	// Act
 	found, err := client.Transitions(t.Context(), "OPS-1")
 	if err != nil {
 		t.Fatalf("Transitions returned %v, want nil", err)
 	}
 
+	// Assert
 	if got, _ := query.Load().(string); !strings.Contains(got, "expand=transitions.fields") {
 		t.Errorf("query = %q, want the fields expanded", got)
+	}
+
+	if len(found) != 1 {
+		t.Fatalf("got %d transitions, want the one in the fixture", len(found))
 	}
 
 	// Only what Jira will refuse the move without: required and with no
@@ -73,8 +80,7 @@ func TestTransitionsListTheFieldsAMoveNeeds(t *testing.T) {
 		{ID: "customfield_10300", Name: "Team", Kind: jira.FieldOption, Options: []jira.Option{{ID: "7", Name: "Platform"}}},
 	}
 
-	got := found[0].Fields
-	if !slices.EqualFunc(got, want, equalFields) {
+	if got := found[0].Fields; !slices.EqualFunc(got, want, equalFields) {
 		t.Errorf("Fields = %+v\nwant   %+v", got, want)
 	}
 }
@@ -87,65 +93,84 @@ func equalFields(got, want jira.Field) bool {
 func TestAFieldCanSayWhetherItCanBeFilledHere(t *testing.T) {
 	t.Parallel()
 
-	for kind, want := range map[jira.FieldKind]bool{
-		jira.FieldOption: true, jira.FieldOptionList: true, jira.FieldText: true, jira.FieldUnsupported: false,
-	} {
-		if got := (jira.Field{ID: "x", Name: "X", Kind: kind, Options: nil}).Fillable(); got != want {
-			t.Errorf("Fillable() for kind %d = %v, want %v", kind, got, want)
-		}
+	cases := map[string]struct {
+		kind jira.FieldKind
+		want bool
+	}{
+		"one of a set of values":  {kind: jira.FieldOption, want: true},
+		"a list of set values":    {kind: jira.FieldOptionList, want: true},
+		"text":                    {kind: jira.FieldText, want: true},
+		"any other kind of field": {kind: jira.FieldUnsupported, want: false},
 	}
+
+	for name, tt := range cases {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			// Arrange
+			field := jira.Field{ID: "x", Name: "X", Kind: tt.kind, Options: nil}
+
+			// Act & Assert
+			if got := field.Fillable(); got != tt.want {
+				t.Errorf("Fillable() for kind %d = %v, want %v", tt.kind, got, tt.want)
+			}
+		})
+	}
+}
+
+// field is a field of a kind, named for its id.
+func field(id string, kind jira.FieldKind) jira.Field {
+	return jira.Field{ID: id, Name: id, Kind: kind, Options: nil}
 }
 
 func TestApplyTransitionSendsTheFieldValuesInTheShapeEachNeeds(t *testing.T) {
 	t.Parallel()
 
-	var sent atomic.Value
-
-	client := serve(t, func(writer http.ResponseWriter, request *http.Request) {
-		var body map[string]json.RawMessage
-
-		_ = json.NewDecoder(request.Body).Decode(&body)
-		sent.Store(string(body["fields"]))
-		writer.WriteHeader(http.StatusNoContent)
-	})
-
-	field := func(id string, kind jira.FieldKind) jira.Field {
-		return jira.Field{ID: id, Name: id, Kind: kind, Options: nil}
+	cases := map[string]struct {
+		values  []jira.FieldValue
+		present bool
+		want    string
+	}{
+		"no values sends no fields key at all": {values: nil, present: false, want: ""},
+		"an option, a list of options and text": {
+			values: []jira.FieldValue{
+				{Field: field("resolution", jira.FieldOption), OptionID: "1", Text: ""},
+				{Field: field("fixVersions", jira.FieldOptionList), OptionID: "10000", Text: ""},
+				{Field: field("customfield_10200", jira.FieldText), OptionID: "", Text: "a \"nil\" token"},
+			},
+			present: true,
+			want:    `{"customfield_10200":"a \"nil\" token","fixVersions":[{"id":"10000"}],"resolution":{"id":"1"}}`,
+		},
 	}
 
-	values := []jira.FieldValue{
-		{Field: field("resolution", jira.FieldOption), OptionID: "1", Text: ""},
-		{Field: field("fixVersions", jira.FieldOptionList), OptionID: "10000", Text: ""},
-		{Field: field("customfield_10200", jira.FieldText), OptionID: "", Text: "a \"nil\" token"},
-	}
+	for name, tt := range cases {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
 
-	err := client.ApplyTransition(t.Context(), "OPS-1", startProgress(), values)
-	if err != nil {
-		t.Fatalf("ApplyTransition returned %v, want nil", err)
-	}
+			// Arrange
+			var (
+				sent    atomic.Value
+				present atomic.Bool
+			)
 
-	want := `{"customfield_10200":"a \"nil\" token","fixVersions":[{"id":"10000"}],"resolution":{"id":"1"}}`
-	if got := sent.Load(); got != want {
-		t.Errorf("fields sent = %v\nwant          %s", got, want)
-	}
-}
+			client := serve(t, func(writer http.ResponseWriter, request *http.Request) {
+				var body map[string]json.RawMessage
 
-func TestApplyTransitionWithoutFieldsSendsNone(t *testing.T) {
-	t.Parallel()
+				_ = json.NewDecoder(request.Body).Decode(&body)
+				fields, found := body["fields"]
+				sent.Store(string(fields))
+				present.Store(found)
+				writer.WriteHeader(http.StatusNoContent)
+			})
 
-	var sent atomic.Value
+			// Act
+			err := client.ApplyTransition(t.Context(), "OPS-1", startProgress(), tt.values)
 
-	client := serve(t, func(writer http.ResponseWriter, request *http.Request) {
-		var body map[string]json.RawMessage
-
-		_ = json.NewDecoder(request.Body).Decode(&body)
-		_, present := body["fields"]
-		sent.Store(present)
-		writer.WriteHeader(http.StatusNoContent)
-	})
-
-	err := client.ApplyTransition(t.Context(), "OPS-1", startProgress(), nil)
-	if err != nil || sent.Load() != false {
-		t.Errorf("ApplyTransition = %v, fields present = %v; want no fields key at all", err, sent.Load())
+			// Assert
+			if err != nil || present.Load() != tt.present || sent.Load() != tt.want {
+				t.Errorf("ApplyTransition = %v; fields present %v, sent %v; want present %v, %s",
+					err, present.Load(), sent.Load(), tt.present, tt.want)
+			}
+		})
 	}
 }

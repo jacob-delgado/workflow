@@ -6,6 +6,7 @@ package gitrepo_test
 import (
 	"context"
 	"errors"
+	"maps"
 	"strings"
 	"testing"
 
@@ -56,6 +57,30 @@ func fakeRunner(t *testing.T, replies map[string]reply) gitrepo.Runner {
 	}
 }
 
+// recordingRunner is fakeRunner that also records each command line it ran, so
+// a test can require that the command it expects actually ran rather than only
+// that nothing unexpected did.
+func recordingRunner(t *testing.T, replies map[string]reply) (gitrepo.Runner, *[]string) {
+	t.Helper()
+
+	var ran []string
+
+	answer := fakeRunner(t, replies)
+
+	return func(ctx context.Context, name string, args ...string) ([]byte, error) {
+		ran = append(ran, strings.Join(append([]string{name}, args...), " "))
+
+		return answer(ctx, name, args...)
+	}, &ran
+}
+
+// with is replies with some answers changed.
+func with(replies map[string]reply, changes map[string]reply) map[string]reply {
+	maps.Copy(replies, changes)
+
+	return replies
+}
+
 // onABranch is a complete, healthy repository.
 func onABranch() map[string]reply {
 	return map[string]reply{
@@ -65,92 +90,81 @@ func onABranch() map[string]reply {
 	}
 }
 
-func TestDescribeReadsRootBranchAndRemote(t *testing.T) {
+func TestDescribeReadsTheRepository(t *testing.T) {
 	t.Parallel()
 
-	repo, err := gitrepo.Describe(t.Context(), fakeRunner(t, onABranch()), workDir)
-	if err != nil {
-		t.Fatalf("Describe returned %v, want nil", err)
+	onBranch := gitrepo.Repo{
+		Root: workDir, Branch: "feat/token-redaction", Remote: "git@github.com:example/repo.git", Detached: false,
 	}
 
-	if repo.Root != "/work" {
-		t.Errorf("Root = %q, want %q", repo.Root, "/work")
+	cases := map[string]struct {
+		replies map[string]reply
+		want    gitrepo.Repo
+	}{
+		"its root, branch and remote": {replies: onABranch(), want: onBranch},
+		// `branch --show-current` prints nothing when HEAD is not on a branch.
+		// That is not an error — the repository still reads — but a caller needs
+		// to know, because there is no branch to base work on.
+		"a detached head": {
+			replies: with(onABranch(), map[string]reply{showCurrentBranch: {out: []byte("\n")}}),
+			want:    gitrepo.Repo{Root: workDir, Branch: "", Remote: onBranch.Remote, Detached: true},
+		},
+		// A repository without a remote still works.
+		"no origin": {
+			replies: with(onABranch(), map[string]reply{"git -C /work remote get-url origin": {err: errNoSuchRemote}}),
+			want:    gitrepo.Repo{Root: workDir, Branch: onBranch.Branch, Remote: "", Detached: false},
+		},
 	}
 
-	if repo.Branch != "feat/token-redaction" {
-		t.Errorf("Branch = %q, want %q", repo.Branch, "feat/token-redaction")
-	}
+	for name, tt := range cases {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
 
-	if repo.Remote != "git@github.com:example/repo.git" {
-		t.Errorf("Remote = %q, want the origin URL", repo.Remote)
-	}
+			// Act
+			repo, err := gitrepo.Describe(t.Context(), fakeRunner(t, tt.replies), workDir)
 
-	if repo.Detached {
-		t.Error("Detached = true, want false on a named branch")
+			// Assert
+			if err != nil || repo != tt.want {
+				t.Errorf("Describe = %+v, %v; want %+v", repo, err, tt.want)
+			}
+		})
 	}
 }
 
-func TestDescribeReportsADirectoryOutsideAnyRepository(t *testing.T) {
+func TestDescribeReportsWhatItCannotRead(t *testing.T) {
 	t.Parallel()
 
-	replies := map[string]reply{
-		"git -C /work rev-parse --show-toplevel": {err: errNotARepository},
+	cases := map[string]struct {
+		replies        map[string]reply
+		want           error
+		notARepository bool
+	}{
+		"a directory outside any repository": {
+			replies:        map[string]reply{"git -C /work rev-parse --show-toplevel": {err: errNotARepository}},
+			want:           gitrepo.ErrNotARepository,
+			notARepository: true,
+		},
+		// An unreadable branch is git's error, and not mistaken for being outside
+		// a repository.
+		"an unreadable branch": {
+			replies:        with(onABranch(), map[string]reply{showCurrentBranch: {err: errDetachedRead}}),
+			want:           errDetachedRead,
+			notARepository: false,
+		},
 	}
 
-	_, err := gitrepo.Describe(t.Context(), fakeRunner(t, replies), workDir)
-	if !errors.Is(err, gitrepo.ErrNotARepository) {
-		t.Errorf("Describe returned %v, want ErrNotARepository", err)
-	}
-}
+	for name, tt := range cases {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
 
-func TestDescribeReportsAnUnreadableBranch(t *testing.T) {
-	t.Parallel()
+			// Act
+			_, err := gitrepo.Describe(t.Context(), fakeRunner(t, tt.replies), workDir)
 
-	replies := onABranch()
-	replies[showCurrentBranch] = reply{err: errDetachedRead}
-
-	_, err := gitrepo.Describe(t.Context(), fakeRunner(t, replies), workDir)
-	if err == nil {
-		t.Fatal("Describe returned nil, want the error from reading the branch")
-	}
-
-	if errors.Is(err, gitrepo.ErrNotARepository) {
-		t.Errorf("Describe returned %v, want it distinguished from ErrNotARepository", err)
-	}
-}
-
-func TestDescribeMarksADetachedHead(t *testing.T) {
-	t.Parallel()
-
-	replies := onABranch()
-	replies[showCurrentBranch] = reply{out: []byte("\n")}
-
-	repo, err := gitrepo.Describe(t.Context(), fakeRunner(t, replies), workDir)
-	if err != nil {
-		t.Fatalf("Describe returned %v, want nil", err)
-	}
-
-	// `branch --show-current` prints nothing when HEAD is not on a branch. That
-	// is not an error — the repository still reads — but a caller needs to know,
-	// because there is no branch to base work on.
-	if !repo.Detached {
-		t.Error("Detached = false, want true when HEAD is not on a branch")
-	}
-}
-
-func TestDescribeTreatsAMissingOriginAsNoRemote(t *testing.T) {
-	t.Parallel()
-
-	replies := onABranch()
-	replies["git -C /work remote get-url origin"] = reply{err: errNoSuchRemote}
-
-	repo, err := gitrepo.Describe(t.Context(), fakeRunner(t, replies), workDir)
-	if err != nil {
-		t.Fatalf("Describe returned %v, want nil — a repository without a remote still works", err)
-	}
-
-	if repo.Remote != "" {
-		t.Errorf("Remote = %q, want empty when origin is not configured", repo.Remote)
+			// Assert
+			if !errors.Is(err, tt.want) || errors.Is(err, gitrepo.ErrNotARepository) != tt.notARepository {
+				t.Errorf("Describe returned %v, want %v (ErrNotARepository: %v)", err, tt.want, tt.notARepository)
+			}
+		})
 	}
 }
 

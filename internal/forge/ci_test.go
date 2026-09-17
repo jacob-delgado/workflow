@@ -4,10 +4,10 @@
 package forge_test
 
 import (
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"strings"
-	"sync/atomic"
 	"testing"
 
 	"github.com/jacob-delgado/workflow/internal/forge"
@@ -16,14 +16,12 @@ import (
 // headCommit is the commit whose checks the GitHub cases read.
 const headCommit = "abc123"
 
-// githubChecks serves a commit's combined status and its check runs.
-func githubChecks(t *testing.T, statuses, runs string) (forge.Client, *atomic.Int32) {
+// githubChecks serves a commit's combined status and its check runs, and fails
+// the test on any other request.
+func githubChecks(t *testing.T, statuses, runs string) forge.Client {
 	t.Helper()
 
-	var asked atomic.Int32
-
 	server := httptest.NewServer(http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
-		asked.Add(1)
 		writer.Header().Set("Content-Type", "application/json")
 
 		switch request.URL.EscapedPath() {
@@ -42,7 +40,7 @@ func githubChecks(t *testing.T, statuses, runs string) (forge.Client, *atomic.In
 	}))
 	t.Cleanup(server.Close)
 
-	return forge.New(server.Client().Do, server.URL, secret), &asked
+	return forge.New(server.Client().Do, server.URL, secret)
 }
 
 func TestGitHubCIReadsStatusesAndCheckRunsTogether(t *testing.T) {
@@ -114,9 +112,13 @@ func TestGitHubCIReadsStatusesAndCheckRunsTogether(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
 
-			client, _ := githubChecks(t, tt.statuses, tt.runs)
+			// Arrange
+			client := githubChecks(t, tt.statuses, tt.runs)
 
+			// Act
 			got, err := client.CheckStatus(t.Context(), githubRepo(), forge.PullRequest{}, headCommit)
+
+			// Assert
 			if err != nil || got != tt.want {
 				t.Errorf("CheckStatus = %+v, %v, want %+v", got, err, tt.want)
 			}
@@ -124,14 +126,37 @@ func TestGitHubCIReadsStatusesAndCheckRunsTogether(t *testing.T) {
 	}
 }
 
-func TestGitHubCIReportsAFailureToAsk(t *testing.T) {
+func TestCIReportsARefusalToSay(t *testing.T) {
 	t.Parallel()
 
-	client, _ := forgeAnswering(t, http.StatusForbidden, `{}`)
+	cases := map[string]struct {
+		repo   forge.Repo
+		status int
+		body   string
+		want   error
+	}{
+		"github refusing": {repo: githubRepo(), status: http.StatusForbidden, body: `{}`, want: forge.ErrRefused},
+		"gitlab not taking the token": {
+			repo: gitlabRepo(), status: http.StatusUnauthorized, body: `{"message":"401 Unauthorized"}`,
+			want: forge.ErrUnauthorized,
+		},
+	}
 
-	_, err := client.CheckStatus(t.Context(), githubRepo(), forge.PullRequest{}, headCommit)
-	if err == nil {
-		t.Error("CheckStatus returned nil for a refused request")
+	for name, tt := range cases {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			// Arrange
+			client, _ := forgeAnswering(t, tt.status, tt.body)
+
+			// Act
+			_, err := client.CheckStatus(t.Context(), tt.repo, forge.PullRequest{Number: 8}, headCommit)
+
+			// Assert
+			if !errors.Is(err, tt.want) {
+				t.Errorf("CheckStatus returned %v, want %v", err, tt.want)
+			}
+		})
 	}
 }
 
@@ -159,9 +184,13 @@ func TestGitLabCIReadsTheMergeRequestsPipeline(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
 
+			// Arrange
 			client, seen := forgeAnswering(t, http.StatusOK, `{"iid":8,"head_pipeline":`+tt.pipeline+`}`)
 
+			// Act
 			got, err := client.CheckStatus(t.Context(), gitlabRepo(), forge.PullRequest{Number: 8}, headCommit)
+
+			// Assert
 			if err != nil || got.State != tt.want {
 				t.Errorf("CheckStatus = %+v, %v, want state %d", got, err, tt.want)
 			}
@@ -178,6 +207,7 @@ func TestGitLabCIReadsTheMergeRequestsPipeline(t *testing.T) {
 func TestGitHubCIReportsCheckRunsThatCannotBeRead(t *testing.T) {
 	t.Parallel()
 
+	// Arrange
 	server := httptest.NewServer(http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
 		if strings.HasSuffix(request.URL.Path, "/check-runs") {
 			writer.WriteHeader(http.StatusInternalServerError)
@@ -192,19 +222,11 @@ func TestGitHubCIReportsCheckRunsThatCannotBeRead(t *testing.T) {
 
 	client := forge.New(server.Client().Do, server.URL, secret)
 
+	// Act
 	_, err := client.CheckStatus(t.Context(), githubRepo(), forge.PullRequest{}, headCommit)
-	if err == nil {
-		t.Error("CheckStatus returned nil when the check runs could not be read")
-	}
-}
 
-func TestGitLabCIReportsAFailureToAsk(t *testing.T) {
-	t.Parallel()
-
-	client, _ := forgeAnswering(t, http.StatusUnauthorized, `{"message":"401 Unauthorized"}`)
-
-	_, err := client.CheckStatus(t.Context(), gitlabRepo(), forge.PullRequest{Number: 8}, headCommit)
-	if err == nil {
-		t.Error("CheckStatus returned nil for a refused request")
+	// Assert
+	if !errors.Is(err, forge.ErrUnexpectedStatus) {
+		t.Errorf("CheckStatus returned %v, want the check runs' unexpected status", err)
 	}
 }

@@ -4,6 +4,7 @@
 package frame_test
 
 import (
+	"slices"
 	"strings"
 	"testing"
 
@@ -12,128 +13,123 @@ import (
 	"github.com/jacob-delgado/workflow/internal/tui/frame"
 )
 
+// Rows and a title the frames below share.
+const (
+	issuesTitle = "Issues"
+	smallTop    = "┌─ x ──────┐"
+	smallEmpty  = "│          │"
+	smallBottom = "└──────────┘"
+)
+
 // lines splits a rendered frame into its rows.
 func lines(rendered string) []string {
 	return strings.Split(rendered, "\n")
 }
 
-func TestRenderDrawsAnExactlySizedBox(t *testing.T) {
+func TestRenderDrawsEveryRowAtTheRequestedSize(t *testing.T) {
 	t.Parallel()
-
-	rendered := frame.Render("Issues", "PROJ-1 fix it", 20, 4, frame.Light)
-	rows := lines(rendered)
-
-	if len(rows) != 4 {
-		t.Fatalf("rendered %d rows, want 4:\n%s", len(rows), rendered)
-	}
 
 	// Every row is exactly the requested width, so boxes placed side by side
-	// line up without the caller measuring anything.
-	for index, row := range rows {
-		if width := lipgloss.Width(row); width != 20 {
-			t.Errorf("row %d is %d cells wide, want 20: %q", index, width, row)
-		}
+	// line up without the caller measuring anything — whatever the content.
+	cases := map[string]struct {
+		title, body   string
+		width, height int
+	}{
+		"a title and a body": {title: issuesTitle, body: "PROJ-1 fix it", width: 20, height: 4},
+		"a body too long to fit": {
+			title: "x", body: "this line is far too long to fit inside a narrow box", width: 16, height: 3,
+		},
+		"a title too long to fit": {title: "a title much longer than the box", body: "", width: 12, height: 3},
+	}
+
+	for name, tt := range cases {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			// Act
+			rows := lines(frame.Render(tt.title, tt.body, tt.width, tt.height, frame.Light))
+
+			// Assert
+			if len(rows) != tt.height {
+				t.Fatalf("rendered %d rows, want %d:\n%s", len(rows), tt.height, strings.Join(rows, "\n"))
+			}
+
+			for index, row := range rows {
+				if width := lipgloss.Width(row); width != tt.width {
+					t.Errorf("row %d is %d cells wide, want %d: %q", index, width, tt.width, row)
+				}
+			}
+		})
 	}
 }
 
-func TestRenderPutsTheTitleInTheTopBorder(t *testing.T) {
+func TestRenderDrawsTheFrameExactly(t *testing.T) {
 	t.Parallel()
 
-	rows := lines(frame.Render("Issues", "", 20, 3, frame.Light))
-
-	// The WHOLE line, not a prefix. A prefix check passed while the rest of the
-	// border was being filled with spaces instead of rule, which is what a
-	// rendered screen showed and no test did.
-	if rows[0] != "┌─ Issues ─────────┐" {
-		t.Errorf("top border = %q, want the title set into an unbroken rule", rows[0])
-	}
-}
-
-func TestRenderPadsContentAwayFromTheBorder(t *testing.T) {
-	t.Parallel()
-
-	rows := lines(frame.Render("x", "text", 12, 3, frame.Light))
-
-	if rows[1] != "│ text     │" {
-		t.Errorf("body row = %q, want one cell of padding inside each border", rows[1])
-	}
-}
-
-func TestRenderMarksTruncatedContent(t *testing.T) {
-	t.Parallel()
-
-	rows := lines(frame.Render("x", "https://jira.example.com/jira", 16, 3, frame.Light))
-
-	// Clipping silently mid-word reads as the whole value. An ellipsis says
-	// there was more.
-	if !strings.Contains(rows[1], "…") {
-		t.Errorf("clipped row = %q, want an ellipsis marking the cut", rows[1])
-	}
-}
-
-func TestRenderDistinguishesFocusByBorderWeight(t *testing.T) {
-	t.Parallel()
-
-	// Focus is carried by the SHAPE of the border, not by color, so it survives
-	// a monochrome terminal and a colorblind reader.
-	light := lines(frame.Render("Branch", "", 20, 3, frame.Light))
-	heavy := lines(frame.Render("Branch", "", 20, 3, frame.Heavy))
-
-	if !strings.HasPrefix(light[0], "┌") || !strings.HasPrefix(light[2], "└") {
-		t.Errorf("light frame corners = %q / %q", light[0], light[2])
-	}
-
-	if !strings.HasPrefix(heavy[0], "┏━ Branch ") || !strings.HasPrefix(heavy[2], "┗") {
-		t.Errorf("heavy frame = %q / %q, want heavy corners and rule", heavy[0], heavy[2])
-	}
-}
-
-func TestRenderTruncatesContentToFit(t *testing.T) {
-	t.Parallel()
-
-	long := "this line is far too long to fit inside a narrow box"
-	rows := lines(frame.Render("x", long, 16, 3, frame.Light))
-
-	if width := lipgloss.Width(rows[1]); width != 16 {
-		t.Errorf("an overlong row is %d cells wide, want it clipped to 16", width)
-	}
-}
-
-func TestRenderTruncatesAnOverlongTitle(t *testing.T) {
-	t.Parallel()
-
-	rows := lines(frame.Render("a title much longer than the box", "", 12, 3, frame.Light))
-
-	if width := lipgloss.Width(rows[0]); width != 12 {
-		t.Errorf("the top border is %d cells wide, want 12: %q", width, rows[0])
-	}
-}
-
-func TestRenderDropsRowsThatDoNotFit(t *testing.T) {
-	t.Parallel()
-
-	body := "one\ntwo\nthree\nfour"
-	rows := lines(frame.Render("x", body, 12, 4, frame.Light))
-
-	if len(rows) != 4 {
-		t.Fatalf("rendered %d rows, want exactly 4", len(rows))
+	cases := map[string]struct {
+		title, body   string
+		width, height int
+		style         frame.Style
+		want          []string
+	}{
+		// The WHOLE line, not a prefix. A prefix check passed while the rest of
+		// the border was being filled with spaces instead of rule, which is what
+		// a rendered screen showed and no test did.
+		"the title set into an unbroken rule": {
+			title: issuesTitle, width: 20, height: 3, style: frame.Light,
+			want: []string{"┌─ Issues ─────────┐", "│                  │", "└──────────────────┘"},
+		},
+		"content padded one cell from each border": {
+			title: "x", body: "text", width: 12, height: 3, style: frame.Light,
+			want: []string{smallTop, "│ text     │", smallBottom},
+		},
+		// Clipping silently mid-word reads as the whole value. An ellipsis says
+		// there was more.
+		"an ellipsis where content is cut": {
+			title: "x", body: "https://jira.example.com/jira", width: 16, height: 3, style: frame.Light,
+			want: []string{"┌─ x ──────────┐", "│ https://jir… │", "└──────────────┘"},
+		},
+		// Focus is carried by the SHAPE of the border, not by color, so it
+		// survives a monochrome terminal and a colorblind reader.
+		"focus in a heavier border": {
+			title: "Branch", width: 20, height: 3, style: frame.Heavy,
+			want: []string{"┏━ Branch ━━━━━━━━━┓", "┃                  ┃", "┗━━━━━━━━━━━━━━━━━━┛"},
+		},
+		"rows beyond the box dropped": {
+			title: "x", body: "one\ntwo\nthree\nfour", width: 12, height: 4, style: frame.Light,
+			want: []string{smallTop, "│ one      │", "│ two      │", smallBottom},
+		},
+		"empty rows still bordered": {
+			title: "x", width: 12, height: 5, style: frame.Light,
+			want: []string{smallTop, smallEmpty, smallEmpty, smallEmpty, smallBottom},
+		},
+		"plain characters in ascii": {
+			title: issuesTitle, body: "x", width: 16, height: 3, style: frame.LightASCII,
+			want: []string{"+- Issues -----+", "| x            |", "+--------------+"},
+		},
+		// Focus is still carried by the shape of the line.
+		"focus in ascii": {
+			title: issuesTitle, body: "x", width: 16, height: 3, style: frame.HeavyASCII,
+			want: []string{"#= Issues =====#", "# x            #", "#==============#"},
+		},
+		"an ascii ellipsis where ascii content is cut": {
+			title: "x", body: "a long line of text", width: 12, height: 3, style: frame.LightASCII,
+			want: []string{"+- x ------+", "| a lon... |", "+----------+"},
+		},
 	}
 
-	if strings.Contains(strings.Join(rows, "\n"), "three") {
-		t.Error("a row beyond the box's height was drawn")
-	}
-}
+	for name, tt := range cases {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
 
-func TestRenderPadsShortContent(t *testing.T) {
-	t.Parallel()
+			// Act
+			rows := lines(frame.Render(tt.title, tt.body, tt.width, tt.height, tt.style))
 
-	rows := lines(frame.Render("x", "", 12, 5, frame.Light))
-
-	// Three empty body rows, each still bordered on both sides.
-	for _, row := range rows[1:4] {
-		if !strings.HasPrefix(row, "│") || !strings.HasSuffix(row, "│") {
-			t.Errorf("an empty body row lost its borders: %q", row)
-		}
+			// Assert
+			if !slices.Equal(rows, tt.want) {
+				t.Errorf("rendered\n%s\nwant\n%s", strings.Join(rows, "\n"), strings.Join(tt.want, "\n"))
+			}
+		})
 	}
 }
 
@@ -141,97 +137,144 @@ func TestRenderOfABoxTooSmallToBorder(t *testing.T) {
 	t.Parallel()
 
 	// A terminal resized to almost nothing must not panic or overflow.
-	for _, size := range [][2]int{{0, 0}, {1, 5}, {5, 1}} {
-		rendered := frame.Render("x", "body", size[0], size[1], frame.Light)
+	cases := map[string]struct{ width, height int }{
+		"no room at all": {width: 0, height: 0},
+		"one column":     {width: 1, height: 5},
+		"one row":        {width: 5, height: 1},
+	}
 
-		for _, row := range lines(rendered) {
-			if width := lipgloss.Width(row); width > size[0] {
-				t.Errorf("a %dx%d box drew a row %d cells wide", size[0], size[1], width)
+	for name, tt := range cases {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			// Act
+			rendered := frame.Render("x", "body", tt.width, tt.height, frame.Light)
+
+			// Assert
+			for _, row := range lines(rendered) {
+				if width := lipgloss.Width(row); width > tt.width {
+					t.Errorf("a %dx%d box drew a row %d cells wide", tt.width, tt.height, width)
+				}
 			}
-		}
+		})
 	}
 }
 
 func TestBodyRowsIsTheHeightInsideTheBorder(t *testing.T) {
 	t.Parallel()
 
-	cases := map[int]int{10: 8, 3: 1, 2: 0, 1: 0, 0: 0}
-
-	for height, want := range cases {
-		if got := frame.BodyRows(height); got != want {
-			t.Errorf("BodyRows(%d) = %d, want %d", height, got, want)
-		}
-	}
-}
-
-func TestASCIIStylesDrawWithPlainCharactersAndStillShowFocus(t *testing.T) {
-	t.Parallel()
-
-	light := lines(frame.Render("Issues", "x", 16, 3, frame.LightASCII))
-	heavy := lines(frame.Render("Issues", "x", 16, 3, frame.HeavyASCII))
-
-	if light[0] != "+- Issues -----+" || light[1] != "| x            |" || light[2] != "+--------------+" {
-		t.Errorf("light ASCII frame =\n%s", strings.Join(light, "\n"))
-	}
-
-	// Focus is still carried by the shape of the line.
-	if heavy[0] != "#= Issues =====#" || heavy[1] != "# x            #" || heavy[2] != "#==============#" {
-		t.Errorf("heavy ASCII frame =\n%s", strings.Join(heavy, "\n"))
-	}
-}
-
-func TestStylesKnowTheirASCIIAndHeavyCounterparts(t *testing.T) {
-	t.Parallel()
-
-	cases := map[string]struct {
-		got, want frame.Style
-	}{
-		"light to ascii":    {got: frame.Light.ASCII(), want: frame.LightASCII},
-		"heavy to ascii":    {got: frame.Heavy.ASCII(), want: frame.HeavyASCII},
-		"ascii stays ascii": {got: frame.HeavyASCII.ASCII(), want: frame.HeavyASCII},
-		"heavy of light":    {got: frame.Light.Heavy(), want: frame.Heavy},
-		"heavy of ascii":    {got: frame.LightASCII.Heavy(), want: frame.HeavyASCII},
-		"heavy stays heavy": {got: frame.Heavy.Heavy(), want: frame.Heavy},
+	cases := map[string]struct{ height, want int }{
+		"a tall box":           {height: 10, want: 8},
+		"one row inside":       {height: 3, want: 1},
+		"only the borders":     {height: 2, want: 0},
+		"not even the borders": {height: 1, want: 0},
+		"nothing":              {height: 0, want: 0},
 	}
 
 	for name, tt := range cases {
-		if tt.got != tt.want {
-			t.Errorf("%s: got %v, want %v", name, tt.got, tt.want)
-		}
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			// Act & Assert
+			if got := frame.BodyRows(tt.height); got != tt.want {
+				t.Errorf("BodyRows(%d) = %d, want %d", tt.height, got, tt.want)
+			}
+		})
+	}
+}
+
+func TestStylesKnowTheirASCIICounterparts(t *testing.T) {
+	t.Parallel()
+
+	cases := map[string]struct{ style, want frame.Style }{
+		"light":             {style: frame.Light, want: frame.LightASCII},
+		"heavy":             {style: frame.Heavy, want: frame.HeavyASCII},
+		"ascii stays ascii": {style: frame.HeavyASCII, want: frame.HeavyASCII},
+	}
+
+	for name, tt := range cases {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			// Act & Assert
+			if got := tt.style.ASCII(); got != tt.want {
+				t.Errorf("ASCII() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestStylesKnowTheirHeavyCounterparts(t *testing.T) {
+	t.Parallel()
+
+	cases := map[string]struct{ style, want frame.Style }{
+		"light":             {style: frame.Light, want: frame.Heavy},
+		"ascii":             {style: frame.LightASCII, want: frame.HeavyASCII},
+		"heavy stays heavy": {style: frame.Heavy, want: frame.Heavy},
+	}
+
+	for name, tt := range cases {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			// Act & Assert
+			if got := tt.style.Heavy(); got != tt.want {
+				t.Errorf("Heavy() = %v, want %v", got, tt.want)
+			}
+		})
 	}
 }
 
 func TestPlainDrawsATitleLineAndNoBorder(t *testing.T) {
 	t.Parallel()
 
-	rendered := frame.Plain("Issues", "PROJ-1 a very long summary\nsecond", 12, 4, frame.Light)
-	rows := lines(rendered)
-
-	want := []string{"Issues      ", "PROJ-1 a ve…", "second      ", "            "}
-	if len(rows) != len(want) {
-		t.Fatalf("Plain rendered %d rows, want %d:\n%s", len(rows), len(want), rendered)
+	cases := map[string]struct {
+		body          string
+		width, height int
+		style         frame.Style
+		want          []string
+	}{
+		"a title, clipped and padded rows": {
+			body: "PROJ-1 a very long summary\nsecond", width: 12, height: 4, style: frame.Light,
+			want: []string{"Issues      ", "PROJ-1 a ve…", "second      ", "            "},
+		},
+		"an ascii ellipsis": {
+			body: "a long line of text", width: 8, height: 2, style: frame.HeavyASCII,
+			want: []string{"Issues  ", "a lon..."},
+		},
 	}
 
-	for index := range want {
-		if rows[index] != want[index] {
-			t.Errorf("row %d = %q, want %q", index, rows[index], want[index])
-		}
-	}
+	for name, tt := range cases {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
 
-	if frame.Plain("x", "y", 0, 3, frame.Light) != "" || frame.Plain("x", "y", 5, 0, frame.Light) != "" {
-		t.Error("Plain drew something with no room to draw in")
+			// Act
+			rows := lines(frame.Plain(issuesTitle, tt.body, tt.width, tt.height, tt.style))
+
+			// Assert
+			if !slices.Equal(rows, tt.want) {
+				t.Errorf("Plain rendered %q, want %q", rows, tt.want)
+			}
+		})
 	}
 }
 
-func TestASCIIMarksCutTextInASCII(t *testing.T) {
+func TestPlainDrawsNothingWithoutRoom(t *testing.T) {
 	t.Parallel()
 
-	boxed := lines(frame.Render("x", "a long line of text", 12, 3, frame.LightASCII))
-	if boxed[1] != "| a lon... |" {
-		t.Errorf("clipped ASCII row = %q, want an ASCII ellipsis", boxed[1])
+	cases := map[string]struct{ width, height int }{
+		"no columns": {width: 0, height: 3},
+		"no rows":    {width: 5, height: 0},
 	}
 
-	if plain := frame.Plain("x", "a long line of text", 8, 2, frame.HeavyASCII); !strings.HasSuffix(plain, "a lon...") {
-		t.Errorf("clipped plain row = %q, want an ASCII ellipsis", plain)
+	for name, tt := range cases {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			// Act & Assert
+			if got := frame.Plain("x", "y", tt.width, tt.height, frame.Light); got != "" {
+				t.Errorf("Plain drew %q with no room to draw in", got)
+			}
+		})
 	}
 }

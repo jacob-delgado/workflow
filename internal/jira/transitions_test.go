@@ -48,6 +48,7 @@ func offline(sent *atomic.Bool) jira.Doer {
 func TestTransitionsListsWhatJiraOffers(t *testing.T) {
 	t.Parallel()
 
+	// Arrange
 	var requested atomic.Value
 
 	client := serve(t, func(writer http.ResponseWriter, request *http.Request) {
@@ -55,11 +56,13 @@ func TestTransitionsListsWhatJiraOffers(t *testing.T) {
 		answer(transitionsBody, "fred")(writer, request)
 	})
 
+	// Act
 	found, err := client.Transitions(t.Context(), "OPS-1")
 	if err != nil {
 		t.Fatalf("Transitions returned %v, want nil", err)
 	}
 
+	// Assert
 	want := []jira.Transition{
 		startProgress(),
 		{ID: "31", Name: "Done", ToStatus: "Done", ToStatusCategory: "done", Fields: nil},
@@ -83,6 +86,7 @@ func TestTransitionsListsWhatJiraOffers(t *testing.T) {
 func TestTransitionsEscapesTheIssueKey(t *testing.T) {
 	t.Parallel()
 
+	// Arrange
 	var requested atomic.Value
 
 	client := serve(t, func(writer http.ResponseWriter, request *http.Request) {
@@ -90,6 +94,7 @@ func TestTransitionsEscapesTheIssueKey(t *testing.T) {
 		answer(transitionsBody, "fred")(writer, request)
 	})
 
+	// Act
 	// A key is text a server supplied. It must stay one path segment, never
 	// climb out of the issue it names.
 	_, err := client.Transitions(t.Context(), "../../myself?x=")
@@ -97,6 +102,7 @@ func TestTransitionsEscapesTheIssueKey(t *testing.T) {
 		t.Fatalf("Transitions returned %v, want nil", err)
 	}
 
+	// Assert
 	got, _ := requested.Load().(string)
 	if !strings.HasPrefix(got, "/rest/api/2/issue/..%2F..%2Fmyself%3Fx=/transitions") {
 		t.Errorf("requested %q, want the key escaped into a single segment", got)
@@ -106,10 +112,15 @@ func TestTransitionsEscapesTheIssueKey(t *testing.T) {
 func TestTransitionsTreatsAnAnonymousAnswerAsARejectedCredential(t *testing.T) {
 	t.Parallel()
 
+	// Arrange
 	// Checked live: an issue's transitions, served anonymously, are an empty
 	// list with 200 — which would read as "Jira offers nothing to move to".
-	_, err := serve(t, answer(`{"expand":"transitions","transitions":[]}`, "anonymous")).
-		Transitions(t.Context(), "OPS-1")
+	client := serve(t, answer(`{"expand":"transitions","transitions":[]}`, "anonymous"))
+
+	// Act
+	_, err := client.Transitions(t.Context(), "OPS-1")
+
+	// Assert
 	if !errors.Is(err, jira.ErrUnauthorized) {
 		t.Errorf("Transitions returned %v, want ErrUnauthorized", err)
 	}
@@ -118,9 +129,14 @@ func TestTransitionsTreatsAnAnonymousAnswerAsARejectedCredential(t *testing.T) {
 func TestTransitionsReportsAnIssueJiraWillNotShow(t *testing.T) {
 	t.Parallel()
 
+	// Arrange
 	body := `{"errorMessages":["Issue Does Not Exist"],"errors":{}}`
+	client := serve(t, failWith(http.StatusNotFound, body, "fred"))
 
-	_, err := serve(t, failWith(http.StatusNotFound, body, "fred")).Transitions(t.Context(), "OPS-404")
+	// Act
+	_, err := client.Transitions(t.Context(), "OPS-404")
+
+	// Assert
 	if !errors.Is(err, jira.ErrRejected) || !strings.Contains(err.Error(), "Issue Does Not Exist") {
 		t.Errorf("Transitions returned %v, want Jira's reason rather than a missing API", err)
 	}
@@ -129,22 +145,33 @@ func TestTransitionsReportsAnIssueJiraWillNotShow(t *testing.T) {
 func TestTransitionsReportsAnUnreachableServer(t *testing.T) {
 	t.Parallel()
 
+	// Arrange
 	var sent atomic.Bool
 
-	_, err := jira.New(offline(&sent), bearerConfig(exampleBaseURL)).Transitions(t.Context(), "OPS-1")
-	if !errors.Is(err, jira.ErrUnreachable) || !errors.Is(err, errFixtureTimeout) {
-		t.Errorf("Transitions returned %v, want ErrUnreachable wrapping the cause", err)
+	client := jira.New(offline(&sent), bearerConfig(exampleBaseURL))
+
+	// Act
+	_, err := client.Transitions(t.Context(), "OPS-1")
+
+	// Assert
+	if !errors.Is(err, jira.ErrUnreachable) || !errors.Is(err, errFixtureTimeout) || !sent.Load() {
+		t.Errorf("Transitions returned %v and sent %v, want ErrUnreachable wrapping the cause of a real attempt",
+			err, sent.Load())
 	}
 }
 
 func TestTransitionsWithoutACredentialSendsNothing(t *testing.T) {
 	t.Parallel()
 
+	// Arrange
 	var sent atomic.Bool
 
 	client := jira.New(offline(&sent), config.Jira{BaseURL: exampleBaseURL, Token: "", User: ""})
 
+	// Act
 	_, err := client.Transitions(t.Context(), "OPS-1")
+
+	// Assert
 	if !errors.Is(err, jira.ErrNoCredential) {
 		t.Errorf("Transitions returned %v, want ErrNoCredential", err)
 	}
@@ -157,15 +184,22 @@ func TestTransitionsWithoutACredentialSendsNothing(t *testing.T) {
 func TestTransitionsReportsAnUnreadableBody(t *testing.T) {
 	t.Parallel()
 
-	_, err := serve(t, answer("{not json", "fred")).Transitions(t.Context(), "OPS-1")
-	if err == nil {
-		t.Error("Transitions accepted a malformed body, want an error")
+	// Arrange
+	client := serve(t, answer("{not json", "fred"))
+
+	// Act
+	_, err := client.Transitions(t.Context(), "OPS-1")
+
+	// Assert
+	if _, isSyntax := errors.AsType[*json.SyntaxError](err); !isSyntax {
+		t.Errorf("Transitions returned %v, want the malformed body's syntax error", err)
 	}
 }
 
 func TestApplyTransitionPostsTheChosenTransition(t *testing.T) {
 	t.Parallel()
 
+	// Arrange
 	var (
 		requested   atomic.Value
 		contentType atomic.Value
@@ -190,11 +224,13 @@ func TestApplyTransitionPostsTheChosenTransition(t *testing.T) {
 		writer.WriteHeader(http.StatusNoContent)
 	})
 
+	// Act
 	err := client.ApplyTransition(t.Context(), "OPS-1", startProgress(), nil)
 	if err != nil {
 		t.Fatalf("ApplyTransition returned %v, want nil", err)
 	}
 
+	// Assert
 	if got := requested.Load(); got != "POST /rest/api/2/issue/OPS-1/transitions" {
 		t.Errorf("requested %v, want a POST to the issue's transitions", got)
 	}
@@ -211,13 +247,17 @@ func TestApplyTransitionPostsTheChosenTransition(t *testing.T) {
 func TestApplyTransitionReportsWhyJiraRefused(t *testing.T) {
 	t.Parallel()
 
+	// Arrange
 	// The common refusal: the transition has a screen, and a field on it is
 	// required.
 	body := `{"errorMessages":[],"errors":{"resolution":"Resolution is required."}}`
 
 	client := serve(t, failWith(http.StatusBadRequest, body, "fred"))
 
+	// Act
 	err := client.ApplyTransition(t.Context(), "OPS-1", startProgress(), nil)
+
+	// Assert
 	if !errors.Is(err, jira.ErrRejected) || !strings.Contains(err.Error(), "Resolution is required.") {
 		t.Errorf("ApplyTransition returned %v, want Jira's reason", err)
 	}
@@ -226,23 +266,33 @@ func TestApplyTransitionReportsWhyJiraRefused(t *testing.T) {
 func TestApplyTransitionReportsAnUnreachableServer(t *testing.T) {
 	t.Parallel()
 
+	// Arrange
 	var sent atomic.Bool
 
-	err := jira.New(offline(&sent), bearerConfig(exampleBaseURL)).
-		ApplyTransition(t.Context(), "OPS-1", startProgress(), nil)
-	if !errors.Is(err, jira.ErrUnreachable) || !errors.Is(err, errFixtureTimeout) {
-		t.Errorf("ApplyTransition returned %v, want ErrUnreachable wrapping the cause", err)
+	client := jira.New(offline(&sent), bearerConfig(exampleBaseURL))
+
+	// Act
+	err := client.ApplyTransition(t.Context(), "OPS-1", startProgress(), nil)
+
+	// Assert
+	if !errors.Is(err, jira.ErrUnreachable) || !errors.Is(err, errFixtureTimeout) || !sent.Load() {
+		t.Errorf("ApplyTransition returned %v and sent %v, want ErrUnreachable wrapping the cause of a real attempt",
+			err, sent.Load())
 	}
 }
 
 func TestApplyTransitionWithoutACredentialSendsNothing(t *testing.T) {
 	t.Parallel()
 
+	// Arrange
 	var sent atomic.Bool
 
 	client := jira.New(offline(&sent), config.Jira{BaseURL: exampleBaseURL, Token: "", User: ""})
 
+	// Act
 	err := client.ApplyTransition(t.Context(), "OPS-1", startProgress(), nil)
+
+	// Assert
 	if !errors.Is(err, jira.ErrNoCredential) {
 		t.Errorf("ApplyTransition returned %v, want ErrNoCredential", err)
 	}

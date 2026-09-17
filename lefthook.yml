@@ -48,6 +48,13 @@ pre-commit:
       glob: "*.go"
       run: scripts/check-license-headers.sh {staged_files}
 
+    # Arrange-Act-Assert markers. Each staged test file's whole package is
+    # checked: a helper edited in one file decides whether an Assert in another
+    # still reaches a failure.
+    testshape:
+      glob: "*_test.go"
+      run: go run ./cmd/testshape {staged_files}
+
     shfmt:
       glob: "*.sh"
       run: shfmt -i 2 -ci -bn -w {staged_files}

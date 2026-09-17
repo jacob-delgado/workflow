@@ -26,13 +26,12 @@ type posted struct {
 	body                    map[string]any
 }
 
-// slackReceiving serves an answer and records the post it got.
-func slackReceiving(t *testing.T, status int, answer string, tls bool) (*httptest.Server, *atomic.Value) {
-	t.Helper()
-
+// recording answers every request with status and answer, and records the post
+// it got.
+func recording(status int, answer string) (http.Handler, *atomic.Value) {
 	var seen atomic.Value
 
-	handler := http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
+	return http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
 		var body map[string]any
 
 		_ = json.NewDecoder(request.Body).Decode(&body)
@@ -43,16 +42,31 @@ func slackReceiving(t *testing.T, status int, answer string, tls bool) (*httptes
 
 		writer.WriteHeader(status)
 		_, _ = writer.Write([]byte(answer))
-	})
+	}), &seen
+}
 
+// slackReceiving is a Slack API over plain HTTP that answers, and records, one
+// post.
+func slackReceiving(t *testing.T, status int, answer string) (*httptest.Server, *atomic.Value) {
+	t.Helper()
+
+	handler, seen := recording(status, answer)
 	server := httptest.NewServer(handler)
-	if tls {
-		server = httptest.NewTLSServer(handler)
-	}
-
 	t.Cleanup(server.Close)
 
-	return server, &seen
+	return server, seen
+}
+
+// webhookReceiving is an incoming webhook, which must be HTTPS, that answers,
+// and records, one post.
+func webhookReceiving(t *testing.T, status int, answer string) (*httptest.Server, *atomic.Value) {
+	t.Helper()
+
+	handler, seen := recording(status, answer)
+	server := httptest.NewTLSServer(handler)
+	t.Cleanup(server.Close)
+
+	return server, seen
 }
 
 // received is what the fake Slack last saw.
@@ -67,16 +81,32 @@ func received(t *testing.T, seen *atomic.Value) posted {
 	return got
 }
 
+// errNeverSent is what a transport that should never be used answers with.
+var errNeverSent = errors.New("this transport should not have been used")
+
+// counting is a transport that records whether it was used, and fails.
+func counting(sent *atomic.Bool) slack.Doer {
+	return func(*http.Request) (*http.Response, error) {
+		sent.Store(true)
+
+		return nil, errNeverSent
+	}
+}
+
 func TestPostWithABotTokenUsesChatPostMessage(t *testing.T) {
 	t.Parallel()
 
-	server, seen := slackReceiving(t, http.StatusOK, `{"ok":true,"channel":"C1","ts":"1.2"}`, false)
+	// Arrange
+	server, seen := slackReceiving(t, http.StatusOK, `{"ok":true,"channel":"C1","ts":"1.2"}`)
+	client := slack.New(server.Client().Do, server.URL, botCredentials())
 
-	err := slack.New(server.Client().Do, server.URL, botCredentials()).Post(t.Context(), message)
+	// Act
+	err := client.Post(t.Context(), message)
 	if err != nil {
 		t.Fatalf("Post returned %v, want nil", err)
 	}
 
+	// Assert
 	got := received(t, seen)
 	if got.path != "/chat.postMessage" || got.auth != "Bearer "+botToken ||
 		!strings.HasPrefix(got.contentType, "application/json") {
@@ -92,19 +122,36 @@ func TestPostWithABotTokenUsesChatPostMessage(t *testing.T) {
 func TestPostWithABotTokenReportsSlacksError(t *testing.T) {
 	t.Parallel()
 
-	// Slack's own convention: 200, and the answer is still no.
-	server, _ := slackReceiving(t, http.StatusOK, `{"ok":false,"error":"not_in_channel"}`, false)
-
-	err := slack.New(server.Client().Do, server.URL, botCredentials()).Post(t.Context(), message)
-	if !errors.Is(err, slack.ErrRejected) || !strings.Contains(err.Error(), "not_in_channel") {
-		t.Errorf("Post returned %v, want Slack's error", err)
+	cases := map[string]struct {
+		status int
+		answer string
+		want   error
+		reason string
+	}{
+		// Slack's own convention: 200, and the answer is still no.
+		"a refusal inside a 200": {
+			status: http.StatusOK, answer: `{"ok":false,"error":"not_in_channel"}`,
+			want: slack.ErrRejected, reason: "not_in_channel",
+		},
+		"an unexpected status": {status: http.StatusServiceUnavailable, answer: `busy`, want: slack.ErrUnexpectedStatus},
 	}
 
-	server, _ = slackReceiving(t, http.StatusServiceUnavailable, `busy`, false)
+	for name, tt := range cases {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
 
-	err = slack.New(server.Client().Do, server.URL, botCredentials()).Post(t.Context(), message)
-	if !errors.Is(err, slack.ErrUnexpectedStatus) {
-		t.Errorf("Post returned %v, want ErrUnexpectedStatus", err)
+			// Arrange
+			server, _ := slackReceiving(t, tt.status, tt.answer)
+			client := slack.New(server.Client().Do, server.URL, botCredentials())
+
+			// Act
+			err := client.Post(t.Context(), message)
+
+			// Assert
+			if !errors.Is(err, tt.want) || !strings.Contains(err.Error(), tt.reason) {
+				t.Errorf("Post returned %v, want %v with %q", err, tt.want, tt.reason)
+			}
+		})
 	}
 }
 
@@ -116,14 +163,17 @@ func webhookCredentials(address string) config.Slack {
 func TestPostWithAWebhookSendsJustTheText(t *testing.T) {
 	t.Parallel()
 
-	server, seen := slackReceiving(t, http.StatusOK, "ok", true)
+	// Arrange
+	server, seen := webhookReceiving(t, http.StatusOK, "ok")
+	client := slack.New(server.Client().Do, slack.APIBase, webhookCredentials(server.URL+"/services/T0/B0/x"))
 
-	err := slack.New(server.Client().Do, slack.APIBase, webhookCredentials(server.URL+"/services/T0/B0/x")).
-		Post(t.Context(), message)
+	// Act
+	err := client.Post(t.Context(), message)
 	if err != nil {
 		t.Fatalf("Post returned %v, want nil", err)
 	}
 
+	// Assert
 	got := received(t, seen)
 	if got.path != "/services/T0/B0/x" || got.auth != "" || got.body["text"] != message {
 		t.Errorf("posted %+v, want the text to the webhook with no Authorization", got)
@@ -133,16 +183,20 @@ func TestPostWithAWebhookSendsJustTheText(t *testing.T) {
 func TestAWebhookRefusalNeverShowsTheWebhook(t *testing.T) {
 	t.Parallel()
 
-	server, _ := slackReceiving(t, http.StatusNotFound, "channel_not_found", true)
-	webhook := server.URL + "/services/T0/B0/secret-part"
+	// Arrange
+	server, _ := webhookReceiving(t, http.StatusNotFound, "channel_not_found")
+	client := slack.New(server.Client().Do, slack.APIBase, webhookCredentials(server.URL+"/services/T0/B0/secret-part"))
 
-	err := slack.New(server.Client().Do, slack.APIBase, webhookCredentials(webhook)).Post(t.Context(), message)
+	// Act
+	err := client.Post(t.Context(), message)
+
+	// Assert
 	if !errors.Is(err, slack.ErrRejected) || !strings.Contains(err.Error(), "channel_not_found") {
-		t.Errorf("Post returned %v, want Slack's reason", err)
+		t.Fatalf("Post returned %v, want Slack's reason", err)
 	}
 
 	// The URL is the credential: anyone holding it can post to that channel.
-	if err != nil && strings.Contains(err.Error(), "secret-part") {
+	if strings.Contains(err.Error(), "secret-part") {
 		t.Errorf("the error carried the webhook: %v", err)
 	}
 }
@@ -150,95 +204,120 @@ func TestAWebhookRefusalNeverShowsTheWebhook(t *testing.T) {
 func TestAnUnreachableWebhookNeverShowsTheWebhook(t *testing.T) {
 	t.Parallel()
 
-	server, _ := slackReceiving(t, http.StatusOK, "ok", true)
+	// Arrange
+	server, _ := webhookReceiving(t, http.StatusOK, "ok")
 	webhook := server.URL + "/services/T0/B0/secret-part"
 	server.Close()
 
-	// net/http's own error quotes the URL it was asked for.
-	err := slack.New(server.Client().Do, slack.APIBase, webhookCredentials(webhook)).Post(t.Context(), message)
-	if !errors.Is(err, slack.ErrUnreachable) {
-		t.Errorf("Post returned %v, want ErrUnreachable", err)
-	}
+	client := slack.New(server.Client().Do, slack.APIBase, webhookCredentials(webhook))
 
-	if err != nil && strings.Contains(err.Error(), "secret-part") {
-		t.Errorf("the error carried the webhook: %v", err)
+	// Act
+	err := client.Post(t.Context(), message)
+
+	// Assert
+	// net/http's own error quotes the URL it was asked for.
+	if !errors.Is(err, slack.ErrUnreachable) || strings.Contains(err.Error(), "secret-part") {
+		t.Errorf("Post returned %v, want ErrUnreachable without the webhook", err)
 	}
 }
 
 func TestAWebhookMustBeHTTPS(t *testing.T) {
 	t.Parallel()
 
-	var sent atomic.Bool
-
-	recording := func(*http.Request) (*http.Response, error) {
-		sent.Store(true)
-
-		return nil, errBrokeOff
+	cases := map[string]string{
+		"plain http":     "http://hooks.slack.com/services/T0/B0/x",
+		"not a url":      "://nope",
+		"with no scheme": "hooks.slack.com/services",
 	}
 
-	for _, address := range []string{"http://hooks.slack.com/services/T0/B0/x", "://nope", "hooks.slack.com/services"} {
-		err := slack.New(recording, slack.APIBase, webhookCredentials(address)).Post(t.Context(), message)
-		if !errors.Is(err, slack.ErrInsecureWebhook) {
-			t.Errorf("Post(%q) returned %v, want ErrInsecureWebhook", address, err)
-		}
+	for name, address := range cases {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
 
-		if strings.Contains(err.Error(), "hooks.slack.com") {
-			t.Errorf("the error carried the webhook: %v", err)
-		}
-	}
+			// Arrange
+			var sent atomic.Bool
 
-	if sent.Load() {
-		t.Error("a message went to a webhook that is not HTTPS")
+			client := slack.New(counting(&sent), slack.APIBase, webhookCredentials(address))
+
+			// Act
+			err := client.Post(t.Context(), message)
+
+			// Assert
+			if !errors.Is(err, slack.ErrInsecureWebhook) || strings.Contains(err.Error(), "hooks.slack.com") {
+				t.Errorf("Post(%q) returned %v, want ErrInsecureWebhook without the webhook", address, err)
+			}
+
+			if sent.Load() {
+				t.Error("a message went to a webhook that is not HTTPS")
+			}
+		})
 	}
 }
 
 func TestPostWithoutACredentialSendsNothing(t *testing.T) {
 	t.Parallel()
 
-	err := slack.New(http.DefaultClient.Do, slack.APIBase, config.Slack{}).Post(t.Context(), message)
-	if !errors.Is(err, slack.ErrNoCredential) {
-		t.Errorf("Post returned %v, want ErrNoCredential", err)
+	// Arrange
+	var sent atomic.Bool
+
+	client := slack.New(counting(&sent), slack.APIBase, config.Slack{})
+
+	// Act
+	err := client.Post(t.Context(), message)
+
+	// Assert
+	if !errors.Is(err, slack.ErrNoCredential) || sent.Load() {
+		t.Errorf("Post returned %v and sent %v, want ErrNoCredential and nothing sent", err, sent.Load())
 	}
 }
 
-func TestAnnouncementLinksThePullRequestAndTheIssue(t *testing.T) {
+func TestAnnouncementText(t *testing.T) {
 	t.Parallel()
 
-	announcement := slack.Announcement{
-		Author:           "jacob",
-		PullRequestURL:   "https://github.com/example/repo/pull/42",
-		PullRequestTitle: "fix(config): redact tokens",
-		IssueKey:         "PROJ-412",
-		IssueSummary:     "Fix token redaction",
-		IssueURL:         "https://jira.example.com/browse/PROJ-412",
+	cases := map[string]struct {
+		announcement slack.Announcement
+		want         string
+	}{
+		"the pull request and the issue, both linked": {
+			announcement: slack.Announcement{
+				Author:           "jacob",
+				PullRequestURL:   "https://github.com/example/repo/pull/42",
+				PullRequestTitle: "fix(config): redact tokens",
+				IssueKey:         "PROJ-412",
+				IssueSummary:     "Fix token redaction",
+				IssueURL:         "https://jira.example.com/browse/PROJ-412",
+			},
+			want: "jacob opened a pull request: <https://github.com/example/repo/pull/42|fix(config): redact tokens>\n" +
+				"<https://jira.example.com/browse/PROJ-412|PROJ-412> Fix token redaction",
+		},
+		"no author and no issue": {
+			announcement: slack.Announcement{PullRequestURL: "https://x/pull/1", PullRequestTitle: "docs: y"},
+			want:         "A pull request is ready for review: <https://x/pull/1|docs: y>",
+		},
+		"an issue with no link to it": {
+			announcement: slack.Announcement{
+				PullRequestURL: "https://x/pull/1", PullRequestTitle: "t", IssueKey: "OPS-1", IssueSummary: "s",
+			},
+			want: "A pull request is ready for review: <https://x/pull/1|t>\nOPS-1 s",
+		},
 	}
 
-	want := "jacob opened a pull request: <https://github.com/example/repo/pull/42|fix(config): redact tokens>\n" +
-		"<https://jira.example.com/browse/PROJ-412|PROJ-412> Fix token redaction"
-	if got := announcement.Text(); got != want {
-		t.Errorf("Text() =\n%s\nwant\n%s", got, want)
-	}
-}
+	for name, tt := range cases {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
 
-func TestAnnouncementLeavesOutWhatItDoesNotKnow(t *testing.T) {
-	t.Parallel()
-
-	bare := slack.Announcement{PullRequestURL: "https://x/pull/1", PullRequestTitle: "docs: y"}
-	if got := bare.Text(); got != "A pull request is ready for review: <https://x/pull/1|docs: y>" {
-		t.Errorf("Text() = %q", got)
-	}
-
-	unlinked := slack.Announcement{
-		PullRequestURL: "https://x/pull/1", PullRequestTitle: "t", IssueKey: "OPS-1", IssueSummary: "s",
-	}
-	if got := unlinked.Text(); !strings.HasSuffix(got, "\nOPS-1 s") {
-		t.Errorf("Text() = %q, want the issue named without a link", got)
+			// Act & Assert
+			if got := tt.announcement.Text(); got != tt.want {
+				t.Errorf("Text() =\n%s\nwant\n%s", got, tt.want)
+			}
+		})
 	}
 }
 
 func TestAnnouncementEscapesWhatSlackWouldReadAsMarkup(t *testing.T) {
 	t.Parallel()
 
+	// Arrange
 	// A title is anyone's to write. Unescaped, <!channel> pings everyone in it,
 	// and a > ends the link early.
 	announcement := slack.Announcement{
@@ -247,28 +326,46 @@ func TestAnnouncementEscapesWhatSlackWouldReadAsMarkup(t *testing.T) {
 		PullRequestTitle: "fix: <!channel> handle a > b",
 	}
 
+	// Act
 	got := announcement.Text()
+
+	// Assert
 	if strings.Contains(got, "<!channel>") || !strings.Contains(got, "&lt;!channel&gt;") ||
 		!strings.Contains(got, "a &gt; b") || !strings.Contains(got, "a&amp;b") || !strings.Contains(got, "a=1&amp;b=2") {
 		t.Errorf("Text() = %q, want &, < and > escaped", got)
 	}
 }
 
-func TestPostReportsAnswersThatCannotBeRead(t *testing.T) {
+func TestPostReportsAnAnswerThatIsNotJSON(t *testing.T) {
 	t.Parallel()
 
-	server, _ := slackReceiving(t, http.StatusOK, `{not json`, false)
+	// Arrange
+	server, _ := slackReceiving(t, http.StatusOK, `{not json`)
+	client := slack.New(server.Client().Do, server.URL, botCredentials())
 
-	err := slack.New(server.Client().Do, server.URL, botCredentials()).Post(t.Context(), message)
-	if err == nil {
-		t.Error("Post accepted a malformed answer")
+	// Act
+	err := client.Post(t.Context(), message)
+
+	// Assert
+	if _, isSyntax := errors.AsType[*json.SyntaxError](err); !isSyntax {
+		t.Errorf("Post returned %v, want the malformed answer's syntax error", err)
 	}
+}
 
+func TestPostReportsAnAnswerThatBreaksOff(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
 	dropped := func(*http.Request) (*http.Response, error) {
 		return &http.Response{StatusCode: http.StatusOK, Body: io.NopCloser(brokenBody{})}, nil
 	}
 
-	err = slack.New(dropped, slack.APIBase, botCredentials()).Post(t.Context(), message)
+	client := slack.New(dropped, slack.APIBase, botCredentials())
+
+	// Act
+	err := client.Post(t.Context(), message)
+
+	// Assert
 	if !errors.Is(err, errBrokeOff) {
 		t.Errorf("Post returned %v, want the read failure", err)
 	}
@@ -277,15 +374,32 @@ func TestPostReportsAnswersThatCannotBeRead(t *testing.T) {
 func TestPostReportsATransportFailure(t *testing.T) {
 	t.Parallel()
 
+	// Arrange
 	failing := func(*http.Request) (*http.Response, error) { return nil, errBrokeOff }
+	client := slack.New(failing, slack.APIBase, botCredentials())
 
-	err := slack.New(failing, slack.APIBase, botCredentials()).Post(t.Context(), message)
+	// Act
+	err := client.Post(t.Context(), message)
+
+	// Assert
 	if !errors.Is(err, slack.ErrUnreachable) || !errors.Is(err, errBrokeOff) {
 		t.Errorf("Post returned %v, want ErrUnreachable wrapping the cause", err)
 	}
+}
 
-	err = slack.New(failing, "https://slack.example.com/\x7f", botCredentials()).Post(t.Context(), message)
-	if !errors.Is(err, slack.ErrUnreachable) {
-		t.Errorf("Post to a malformed API base returned %v, want ErrUnreachable", err)
+func TestPostToAMalformedAPIBaseIsUnreachable(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	var sent atomic.Bool
+
+	client := slack.New(counting(&sent), "https://slack.example.com/\x7f", botCredentials())
+
+	// Act
+	err := client.Post(t.Context(), message)
+
+	// Assert
+	if !errors.Is(err, slack.ErrUnreachable) || sent.Load() {
+		t.Errorf("Post returned %v and sent %v, want ErrUnreachable before sending", err, sent.Load())
 	}
 }

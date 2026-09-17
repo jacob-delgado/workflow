@@ -5,6 +5,7 @@ package config_test
 
 import (
 	"errors"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"strings"
@@ -48,43 +49,31 @@ const completeConfig = `{
   "slack": {"token": "xoxb-slack-token-5678", "channel": "#dev"}
 }`
 
-func TestLoadPrefersWorkingDirectoryOverHome(t *testing.T) {
+// The working directory's file REPLACES the home one. If the two ever merged,
+// the home file's Slack token would leak into this result.
+func TestLoadUsesTheWorkingDirectoryFileInsteadOfHomes(t *testing.T) {
 	t.Parallel()
 
+	// Arrange
 	workDir := t.TempDir()
 	homeDir := t.TempDir()
 
 	wantPath := write(t, workDir, `{"jira": {"base_url": "https://work.example.com"}}`)
 	write(t, homeDir, completeConfig)
 
+	// Act
 	cfg, err := config.Load(workDir, homeDir)
 	if err != nil {
 		t.Fatalf("Load: %v", err)
 	}
 
+	// Assert
 	if cfg.Path != wantPath {
 		t.Errorf("loaded %s, want %s", cfg.Path, wantPath)
 	}
 
 	if cfg.Jira.BaseURL != "https://work.example.com" {
 		t.Errorf("jira.base_url = %q, want the working directory's value", cfg.Jira.BaseURL)
-	}
-}
-
-// The working directory's file REPLACES the home one. If the two ever merged,
-// the home file's Slack token would leak into this result.
-func TestLoadDoesNotMergeHomeIntoWorkingDirectory(t *testing.T) {
-	t.Parallel()
-
-	workDir := t.TempDir()
-	homeDir := t.TempDir()
-
-	write(t, workDir, `{"jira": {"base_url": "https://work.example.com"}}`)
-	write(t, homeDir, completeConfig)
-
-	cfg, err := config.Load(workDir, homeDir)
-	if err != nil {
-		t.Fatalf("Load: %v", err)
 	}
 
 	if cfg.Slack.Token != "" {
@@ -95,15 +84,18 @@ func TestLoadDoesNotMergeHomeIntoWorkingDirectory(t *testing.T) {
 func TestLoadFallsBackToHome(t *testing.T) {
 	t.Parallel()
 
+	// Arrange
 	workDir := t.TempDir()
 	homeDir := t.TempDir()
 	wantPath := write(t, homeDir, completeConfig)
 
+	// Act
 	cfg, err := config.Load(workDir, homeDir)
 	if err != nil {
 		t.Fatalf("Load: %v", err)
 	}
 
+	// Assert
 	if cfg.Path != wantPath {
 		t.Errorf("loaded %s, want %s", cfg.Path, wantPath)
 	}
@@ -116,7 +108,10 @@ func TestLoadFallsBackToHome(t *testing.T) {
 func TestLoadReportsNotFound(t *testing.T) {
 	t.Parallel()
 
+	// Act
 	_, err := config.Load(t.TempDir(), t.TempDir())
+
+	// Assert
 	if !errors.Is(err, config.ErrNotFound) {
 		t.Errorf("error = %v, want ErrNotFound", err)
 	}
@@ -138,10 +133,14 @@ func TestLoadRejectsMalformedAndUnknownKeys(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
 
+			// Arrange
 			workDir := t.TempDir()
 			write(t, workDir, contents)
 
+			// Act
 			_, err := config.Load(workDir, t.TempDir())
+
+			// Assert
 			if !errors.Is(err, config.ErrInvalid) {
 				t.Errorf("error = %v, want ErrInvalid", err)
 			}
@@ -152,6 +151,7 @@ func TestLoadRejectsMalformedAndUnknownKeys(t *testing.T) {
 func TestRedactedHidesEveryCredential(t *testing.T) {
 	t.Parallel()
 
+	// Arrange
 	const (
 		jiraToken  = "jira-token-1234"
 		slackToken = "xoxb-slack-token-5678"
@@ -168,8 +168,10 @@ func TestRedactedHidesEveryCredential(t *testing.T) {
 		Path:  "/tmp/.workflow.json",
 	}
 
+	// Act
 	redacted := cfg.Redacted()
 
+	// Assert
 	if strings.Contains(redacted.Jira.Token, "jira-token") {
 		t.Errorf("jira token leaked: %q", redacted.Jira.Token)
 	}
@@ -219,7 +221,10 @@ func TestRedact(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
 
+			// Act
 			got := config.Redact(tt.secret)
+
+			// Assert
 			if got != tt.want {
 				t.Errorf("Redact(%q) = %q, want %q", tt.secret, got, tt.want)
 			}
@@ -230,13 +235,16 @@ func TestRedact(t *testing.T) {
 func TestSaveWritesOwnerOnlyPermissions(t *testing.T) {
 	t.Parallel()
 
+	// Arrange
 	path := filepath.Join(t.TempDir(), config.FileName)
 
+	// Act
 	err := config.Save(path, config.Template())
 	if err != nil {
 		t.Fatalf("Save: %v", err)
 	}
 
+	// Assert
 	info, err := os.Stat(path)
 	if err != nil {
 		t.Fatalf("Stat: %v", err)
@@ -251,19 +259,21 @@ func TestSaveWritesOwnerOnlyPermissions(t *testing.T) {
 func TestSavedTemplateLoadsBack(t *testing.T) {
 	t.Parallel()
 
+	// Arrange
 	workDir := t.TempDir()
-	path := filepath.Join(workDir, config.FileName)
 
-	err := config.Save(path, config.Template())
+	err := config.Save(filepath.Join(workDir, config.FileName), config.Template())
 	if err != nil {
 		t.Fatalf("Save: %v", err)
 	}
 
+	// Act
 	cfg, err := config.Load(workDir, t.TempDir())
 	if err != nil {
 		t.Fatalf("Load: %v", err)
 	}
 
+	// Assert
 	// The template must round-trip through the strict decoder: if it ever grows
 	// a key the loader rejects, `config init` would produce a file that
 	// immediately fails to load.
@@ -275,9 +285,11 @@ func TestSavedTemplateLoadsBack(t *testing.T) {
 func TestDiscoverIgnoresAnEmptyDirectory(t *testing.T) {
 	t.Parallel()
 
+	// Arrange
 	homeDir := t.TempDir()
 	wantPath := write(t, homeDir, completeConfig)
 
+	// Act
 	// A machine with no home directory hands Load an empty string rather than a
 	// path. That must skip the entry, not turn into a lookup of "/.workflow.json".
 	got, err := config.Discover("", homeDir)
@@ -285,6 +297,7 @@ func TestDiscoverIgnoresAnEmptyDirectory(t *testing.T) {
 		t.Fatalf("Discover: %v", err)
 	}
 
+	// Assert
 	if got != wantPath {
 		t.Errorf("Discover = %s, want %s", got, wantPath)
 	}
@@ -293,11 +306,10 @@ func TestDiscoverIgnoresAnEmptyDirectory(t *testing.T) {
 func TestLoadFileReportsAnUnreadableFile(t *testing.T) {
 	t.Parallel()
 
+	// Act
 	_, err := config.LoadFile(filepath.Join(t.TempDir(), "does-not-exist.json"))
-	if err == nil {
-		t.Fatal("expected an error for a missing file, got none")
-	}
 
+	// Assert
 	if !errors.Is(err, os.ErrNotExist) {
 		t.Errorf("error = %v, want it to wrap os.ErrNotExist", err)
 	}
@@ -306,12 +318,16 @@ func TestLoadFileReportsAnUnreadableFile(t *testing.T) {
 func TestSaveReportsAnUnwritablePath(t *testing.T) {
 	t.Parallel()
 
+	// Arrange
 	// A path whose parent does not exist: the encode succeeds and the write is
 	// what fails, which is the arm being exercised.
 	path := filepath.Join(t.TempDir(), "missing-dir", config.FileName)
 
+	// Act
 	err := config.Save(path, config.Template())
-	if err == nil {
-		t.Fatal("expected an error writing into a missing directory, got none")
+
+	// Assert
+	if !errors.Is(err, fs.ErrNotExist) {
+		t.Errorf("Save = %v, want the write's own not-exist error", err)
 	}
 }

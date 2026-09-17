@@ -9,6 +9,7 @@ import (
 	"os"
 	"path/filepath"
 	"slices"
+	"strconv"
 	"strings"
 	"testing"
 	"testing/fstest"
@@ -43,6 +44,7 @@ fi
 func TestExistingHooksAreTheOnesGitWouldRun(t *testing.T) {
 	t.Parallel()
 
+	// Arrange
 	dir := fstest.MapFS{
 		preCommit:                executable(simplePreCommit),
 		commitMsg:                executable(complexCommitMsg),
@@ -53,8 +55,10 @@ func TestExistingHooksAreTheOnesGitWouldRun(t *testing.T) {
 		"notes.txt":              executable("not a hook"),
 	}
 
+	// Act
 	found := hooks.ExistingHooks(dir)
 
+	// Assert
 	// Git's own order, not the directory's: commit-msg after pre-commit. Not
 	// a sample, not a file without the executable bit (git skips those), not
 	// a hook lefthook already installed, not a leftover .old.
@@ -64,7 +68,7 @@ func TestExistingHooksAreTheOnesGitWouldRun(t *testing.T) {
 	}
 
 	if want := []string{preCommit, commitMsg}; !slices.Equal(names, want) {
-		t.Errorf("ExistingHooks = %q, want %q", names, want)
+		t.Fatalf("ExistingHooks = %q, want %q", names, want)
 	}
 
 	if found[0].Script != simplePreCommit {
@@ -79,12 +83,25 @@ func TestHasConfigRecognizesEveryNameLefthookReads(t *testing.T) {
 		"lefthook.yml", ".lefthook.yml", "lefthook.yaml", ".lefthook.yaml", "lefthook.toml", ".lefthook.toml",
 		"lefthook.json", ".lefthook.json", ".config/lefthook.yml",
 	} {
-		if !hooks.HasConfig(fstest.MapFS{name: {Data: []byte("x")}}) {
-			t.Errorf("HasConfig did not see %s", name)
-		}
-	}
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
 
-	if hooks.HasConfig(fstest.MapFS{"lefthook-local.yml": {Data: []byte("x")}, "README.md": {Data: []byte("x")}}) {
+			// Act & Assert
+			if !hooks.HasConfig(fstest.MapFS{name: {Data: []byte("x")}}) {
+				t.Errorf("HasConfig did not see %s", name)
+			}
+		})
+	}
+}
+
+func TestHasConfigSeesNoConfigurationWhereThereIsNone(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	repository := fstest.MapFS{"lefthook-local.yml": {Data: []byte("x")}, "README.md": {Data: []byte("x")}}
+
+	// Act & Assert
+	if hooks.HasConfig(repository) {
 		t.Error("HasConfig saw a configuration in a repository without one")
 	}
 }
@@ -92,11 +109,13 @@ func TestHasConfigRecognizesEveryNameLefthookReads(t *testing.T) {
 func TestStructuredTurnsPlainCommandsIntoOrderedJobs(t *testing.T) {
 	t.Parallel()
 
+	// Act
 	generated := hooks.Structured([]hooks.GitHook{
 		{Name: preCommit, Script: simplePreCommit},
 		{Name: commitMsg, Script: complexCommitMsg},
 	})
 
+	// Assert
 	// Piped, so the first failure stops the rest as set -e did; numbered,
 	// because lefthook runs piped commands in the order of their NAMES —
 	// checked against lefthook 2.1.
@@ -122,11 +141,16 @@ func TestStructuredTurnsPlainCommandsIntoOrderedJobs(t *testing.T) {
 func TestACommandThatReadsAsAnotherTypeStaysAString(t *testing.T) {
 	t.Parallel()
 
+	// Arrange
 	// Found running a generated configuration through lefthook: a hook line of
 	// just "false" was written as run: false, which YAML reads as a bool, and
 	// lefthook ran the command "0". The same goes for true, null and numbers.
-	generated := hooks.Structured([]hooks.GitHook{{Name: prePush, Script: "#!/bin/sh\nfalse\ntrue\n123\nyes\n"}})
+	hook := hooks.GitHook{Name: prePush, Script: "#!/bin/sh\nfalse\ntrue\n123\nyes\n"}
 
+	// Act
+	generated := hooks.Structured([]hooks.GitHook{hook})
+
+	// Assert
 	var config struct {
 		PrePush struct {
 			Commands map[string]struct {
@@ -140,6 +164,11 @@ func TestACommandThatReadsAsAnotherTypeStaysAString(t *testing.T) {
 		t.Fatalf("the configuration is not YAML: %v\n%s", err, generated.Config)
 	}
 
+	if len(config.PrePush.Commands) != 4 {
+		t.Fatalf("pre-push has %d jobs, want one for each of the 4 commands\n%s",
+			len(config.PrePush.Commands), generated.Config)
+	}
+
 	for name, command := range config.PrePush.Commands {
 		if _, isString := command.Run.(string); !isString {
 			t.Errorf("job %s runs %#v, a %T rather than a command\n%s", name, command.Run, command.Run, generated.Config)
@@ -150,8 +179,10 @@ func TestACommandThatReadsAsAnotherTypeStaysAString(t *testing.T) {
 func TestVerbatimKeepsEveryHookAsItsScript(t *testing.T) {
 	t.Parallel()
 
+	// Act
 	generated := hooks.Verbatim([]hooks.GitHook{{Name: preCommit, Script: simplePreCommit}})
 
+	// Assert
 	if !strings.Contains(generated.Config, "pre-commit:\n  scripts:\n    pre-commit:\n      runner: sh\n") {
 		t.Errorf("the configuration does not run the script:\n%s", generated.Config)
 	}
@@ -183,7 +214,10 @@ func TestAHookIsOnlyStructuredWhenEveryLineIsAPlainCommand(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
 
+			// Act
 			generated := hooks.Structured([]hooks.GitHook{{Name: preCommit, Script: script}})
+
+			// Assert
 			if strings.Contains(generated.Config, "commands:") || len(generated.Scripts) != 1 {
 				t.Errorf("a hook with %s was turned into jobs:\n%s", name, generated.Config)
 			}
@@ -203,49 +237,80 @@ func TestTheRunnerComesFromTheShebang(t *testing.T) {
 	}
 
 	for shebang, want := range cases {
-		generated := hooks.Verbatim([]hooks.GitHook{{Name: prePush, Script: shebang + "exit 0\n"}})
-		if !strings.Contains(generated.Config, "runner: "+want+"\n") {
-			t.Errorf("a script starting %q got\n%s\nwant runner %q", shebang, generated.Config, want)
-		}
+		t.Run(strconv.Quote(shebang), func(t *testing.T) {
+			t.Parallel()
+
+			// Act
+			generated := hooks.Verbatim([]hooks.GitHook{{Name: prePush, Script: shebang + "exit 0\n"}})
+
+			// Assert
+			if !strings.Contains(generated.Config, "runner: "+want+"\n") {
+				t.Errorf("a script starting %q got\n%s\nwant runner %q", shebang, generated.Config, want)
+			}
+		})
 	}
 }
 
 func TestAJobWithNoUsableNameIsStillNamed(t *testing.T) {
 	t.Parallel()
 
+	// Act
 	generated := hooks.Structured([]hooks.GitHook{{Name: preCommit, Script: "#!/bin/sh\n+++ check\n"}})
+
+	// Assert
 	if !strings.Contains(generated.Config, "01-job:") {
 		t.Errorf("a command with no letters in its name got\n%s", generated.Config)
 	}
 }
 
-func TestWriteReportsWhatItCouldNotCreate(t *testing.T) {
+// failingHook is a hook written verbatim, for the tests of where it is written.
+func failingHook() hooks.Generated {
+	return hooks.Verbatim([]hooks.GitHook{{Name: preCommit, Script: "#!/bin/sh\nexit 1\n"}})
+}
+
+func TestWriteIntoADirectoryThatDoesNotExistSaysWhatItCouldNotCreate(t *testing.T) {
 	t.Parallel()
 
-	generated := hooks.Verbatim([]hooks.GitHook{{Name: preCommit, Script: "#!/bin/sh\nexit 1\n"}})
+	// Arrange
+	missing := filepath.Join(t.TempDir(), "missing")
 
-	err := hooks.Write(filepath.Join(t.TempDir(), "missing"), generated)
-	if err == nil {
-		t.Error("Write into a directory that does not exist returned nil")
+	// Act
+	err := hooks.Write(missing, failingHook())
+
+	// Assert
+	wantNamed := "creating " + filepath.Join(missing, "lefthook.yml")
+	if !errors.Is(err, fs.ErrNotExist) || !strings.Contains(err.Error(), wantNamed) {
+		t.Errorf("Write = %v, want it to name the lefthook.yml it could not create", err)
 	}
+}
 
-	// A file where the scripts directory belongs.
+func TestWriteWithAFileInTheWayOfTheScriptsSaysWhatItCouldNotCreate(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
 	blocked := t.TempDir()
 
-	err = os.WriteFile(filepath.Join(blocked, ".lefthook"), []byte("x"), 0o600)
+	err := os.WriteFile(filepath.Join(blocked, ".lefthook"), []byte("x"), 0o600)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	err = hooks.Write(blocked, generated)
-	if err == nil {
-		t.Error("Write returned nil with a file in the way of .lefthook")
-	}
+	// Act
+	err = hooks.Write(blocked, failingHook())
 
-	// An existing script is never replaced.
+	// Assert
+	if err == nil || !strings.Contains(err.Error(), "creating .lefthook/pre-commit") {
+		t.Errorf("Write = %v, want it to name the scripts directory it could not create", err)
+	}
+}
+
+func TestWriteNeverReplacesAnExistingScript(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
 	taken := t.TempDir()
 
-	err = os.MkdirAll(filepath.Join(taken, ".lefthook", preCommit), 0o750)
+	err := os.MkdirAll(filepath.Join(taken, ".lefthook", preCommit), 0o750)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -255,26 +320,42 @@ func TestWriteReportsWhatItCouldNotCreate(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	err = hooks.Write(taken, generated)
+	// Act
+	err = hooks.Write(taken, failingHook())
+
+	// Assert
 	if !errors.Is(err, fs.ErrExist) {
 		t.Errorf("Write returned %v, want fs.ErrExist for an existing script", err)
 	}
+
+	mine, readErr := os.ReadFile(filepath.Join(taken, ".lefthook", preCommit, preCommit))
+	if readErr != nil || string(mine) != "mine" {
+		t.Errorf("the existing script is now %q, %v", mine, readErr)
+	}
+}
+
+// generatedForBoth is a configuration with a job hook and a script hook.
+func generatedForBoth() hooks.Generated {
+	return hooks.Structured([]hooks.GitHook{
+		{Name: preCommit, Script: simplePreCommit},
+		{Name: commitMsg, Script: complexCommitMsg},
+	})
 }
 
 func TestWriteCreatesTheConfigurationAndScripts(t *testing.T) {
 	t.Parallel()
 
+	// Arrange
 	dir := t.TempDir()
-	generated := hooks.Structured([]hooks.GitHook{
-		{Name: preCommit, Script: simplePreCommit},
-		{Name: commitMsg, Script: complexCommitMsg},
-	})
+	generated := generatedForBoth()
 
+	// Act
 	err := hooks.Write(dir, generated)
 	if err != nil {
 		t.Fatalf("Write returned %v, want nil", err)
 	}
 
+	// Assert
 	config, err := os.ReadFile(filepath.Join(dir, "lefthook.yml"))
 	if err != nil || string(config) != generated.Config {
 		t.Errorf("lefthook.yml = %q, %v", config, err)
@@ -286,9 +367,23 @@ func TestWriteCreatesTheConfigurationAndScripts(t *testing.T) {
 	if err != nil || info.Mode().Perm()&0o100 == 0 {
 		t.Errorf("the script is missing or not executable: %v, %v", info, err)
 	}
+}
 
-	// Never over an existing configuration.
-	err = hooks.Write(dir, generated)
+func TestWriteNeverReplacesAConfiguration(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	dir := t.TempDir()
+
+	err := hooks.Write(dir, generatedForBoth())
+	if err != nil {
+		t.Fatalf("the first Write returned %v, want nil", err)
+	}
+
+	// Act
+	err = hooks.Write(dir, generatedForBoth())
+
+	// Assert
 	if !errors.Is(err, fs.ErrExist) {
 		t.Errorf("a second Write returned %v, want fs.ErrExist", err)
 	}

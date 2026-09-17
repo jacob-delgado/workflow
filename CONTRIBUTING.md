@@ -62,6 +62,11 @@ that fails without the fix and passes with it.
 Tests are black-box: they live in the external test package (`package
 config_test`) and drive code through its exported surface.
 
+Each test marks its parts with `// Arrange`, `// Act` and `// Assert` comments,
+and a table-driven test is preferred when cases differ only in data. `task lint`
+and the pre-commit hook check the markers; CLAUDE.md's TDD process section has
+the rules.
+
 Two coverage floors gate a change, both configured in `Taskfile.yml` and both
 printing the available ratchet when you clear them:
 

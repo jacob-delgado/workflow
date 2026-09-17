@@ -17,6 +17,12 @@ import (
 // secret is the token these fakes hand back.
 const secret = "forge-token-for-tests"
 
+// Tokens the environment cases offer from sources that should lose.
+const (
+	fromCLI           = "a-different-token\n"
+	fromConfiguration = "a-third-token"
+)
+
 // Compile-time proof that the real seams satisfy what Resolver takes, so the
 // production wiring cannot drift from what the tests exercise.
 var (
@@ -54,6 +60,15 @@ func programAt(want string) forge.Look {
 	}
 }
 
+// errCLIFailed stands in for whatever a CLI exits with when it holds no
+// credential.
+var errCLIFailed = errors.New("exit status 1")
+
+// failing is a Run whose program exits non-zero.
+func failing(context.Context, string, ...string) ([]byte, error) {
+	return nil, errCLIFailed
+}
+
 // printing is a Run that answers with output, as a CLI writing to stdout would.
 func printing(output string) forge.Run {
 	return func(context.Context, string, ...string) ([]byte, error) {
@@ -61,248 +76,186 @@ func printing(output string) forge.Run {
 	}
 }
 
-func TestResolveTokenPrefersTheEnvironment(t *testing.T) {
+func TestResolveTokenTakesTheFirstSourceThatHasOne(t *testing.T) {
 	t.Parallel()
 
 	cases := map[string]struct {
-		kind forge.Kind
-		name string
+		resolver   forge.Resolver
+		kind       forge.Kind
+		wantToken  string
+		wantSource forge.Source
+		wantErr    error
 	}{
-		"github's own name":  {kind: forge.KindGitHub, name: "GITHUB_TOKEN"},
-		"github's gh name":   {kind: forge.KindGitHub, name: "GH_TOKEN"},
-		"gitlab's own name":  {kind: forge.KindGitLab, name: "GITLAB_TOKEN"},
-		"gitlab's glab name": {kind: forge.KindGitLab, name: "GLAB_TOKEN"},
+		// The environment wins over a CLI and the configuration, under either
+		// name each forge's tools read.
+		"github's own variable": {
+			resolver: forge.Resolver{
+				Getenv: envWith("GITHUB_TOKEN", secret), Look: programAt("gh"),
+				Run: printing(fromCLI), Configured: fromConfiguration,
+			},
+			kind: forge.KindGitHub, wantToken: secret, wantSource: forge.SourceEnvironment,
+		},
+		"gh's variable": {
+			resolver: forge.Resolver{
+				Getenv: envWith("GH_TOKEN", secret), Look: programAt("gh"),
+				Run: printing(fromCLI), Configured: fromConfiguration,
+			},
+			kind: forge.KindGitHub, wantToken: secret, wantSource: forge.SourceEnvironment,
+		},
+		"gitlab's own variable": {
+			resolver: forge.Resolver{
+				Getenv: envWith("GITLAB_TOKEN", secret), Look: programAt("gh"),
+				Run: printing(fromCLI), Configured: fromConfiguration,
+			},
+			kind: forge.KindGitLab, wantToken: secret, wantSource: forge.SourceEnvironment,
+		},
+		"glab's variable": {
+			resolver: forge.Resolver{
+				Getenv: envWith("GLAB_TOKEN", secret), Look: programAt("gh"),
+				Run: printing(fromCLI), Configured: fromConfiguration,
+			},
+			kind: forge.KindGitLab, wantToken: secret, wantSource: forge.SourceEnvironment,
+		},
+		// gh prints the token and a newline, and nothing else.
+		"the forge CLI, trimmed": {
+			resolver: forge.Resolver{Getenv: noEnv, Look: programAt("gh"), Run: printing(secret + "\n"), Configured: ""},
+			kind:     forge.KindGitHub, wantToken: secret, wantSource: forge.SourceCLI,
+		},
+		"the configuration with no CLI": {
+			resolver: forge.Resolver{Getenv: noEnv, Look: noProgram, Run: printing("never reached"), Configured: secret},
+			kind:     forge.KindGitHub, wantToken: secret, wantSource: forge.SourceConfiguration,
+		},
+		// gh exits non-zero when it holds no credential for the host. That is not
+		// an error worth reporting — it just means the next source gets a turn.
+		"the configuration after a failing CLI": {
+			resolver: forge.Resolver{Getenv: noEnv, Look: programAt("gh"), Run: failing, Configured: secret},
+			kind:     forge.KindGitHub, wantToken: secret, wantSource: forge.SourceConfiguration,
+		},
+		// gh can exit zero and print only a newline. That is not a token.
+		"the configuration after a CLI that prints nothing": {
+			resolver: forge.Resolver{Getenv: noEnv, Look: programAt("gh"), Run: printing("  \n"), Configured: secret},
+			kind:     forge.KindGitHub, wantToken: secret, wantSource: forge.SourceConfiguration,
+		},
+		// glab reports its token through `auth status`, whose output is prose on
+		// standard error. Parsing that is too fragile to put a credential behind,
+		// so GitLab users set the environment variable or the configuration.
+		"the configuration for gitlab, which has no CLI step": {
+			resolver: forge.Resolver{
+				Getenv: noEnv, Look: programAt("glab"), Run: printing("should not be run"), Configured: secret,
+			},
+			kind: forge.KindGitLab, wantToken: secret, wantSource: forge.SourceConfiguration,
+		},
+		// An on-premises host names neither forge, so there is no variable to read
+		// and no CLI to ask — only what the configuration says.
+		"the configuration for an unknown forge": {
+			resolver: forge.Resolver{
+				Getenv: envWith("GITHUB_TOKEN", "should not be read"), Look: programAt("gh"),
+				Run: printing("should not be run"), Configured: secret,
+			},
+			kind: forge.KindUnknown, wantToken: secret, wantSource: forge.SourceConfiguration,
+		},
+		"nothing anywhere": {
+			resolver: forge.Resolver{Getenv: noEnv, Look: noProgram, Run: printing(""), Configured: ""},
+			kind:     forge.KindGitHub, wantToken: "", wantSource: forge.SourceNone, wantErr: forge.ErrNoToken,
+		},
 	}
 
 	for name, tt := range cases {
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
 
-			resolver := forge.Resolver{
-				Getenv:     envWith(tt.name, secret),
-				Look:       programAt("gh"),
-				Run:        printing("a-different-token\n"),
-				Configured: "a-third-token",
-			}
+			// Act
+			token, source, err := tt.resolver.Resolve(t.Context(), tt.kind, "example.com")
 
-			token, source, err := resolver.Resolve(t.Context(), tt.kind, "example.com")
-			if err != nil {
-				t.Fatalf("Resolve returned %v, want nil", err)
-			}
-
-			if string(token) != secret {
-				t.Errorf("token came from somewhere else, source %v", source)
-			}
-
-			if source != forge.SourceEnvironment {
-				t.Errorf("source = %v, want SourceEnvironment", source)
+			// Assert
+			if !errors.Is(err, tt.wantErr) || token.Secret() != tt.wantToken || source != tt.wantSource {
+				t.Errorf("Resolve = %v from %v, %v; want the token from %v, %v", token, source, err, tt.wantSource, tt.wantErr)
 			}
 		})
-	}
-}
-
-func TestResolveTokenFallsBackToTheForgeCLI(t *testing.T) {
-	t.Parallel()
-
-	resolver := forge.Resolver{
-		Getenv:     noEnv,
-		Look:       programAt("gh"),
-		Run:        printing(secret + "\n"),
-		Configured: "",
-	}
-
-	token, source, err := resolver.Resolve(t.Context(), forge.KindGitHub, "github.com")
-	if err != nil {
-		t.Fatalf("Resolve returned %v, want nil", err)
-	}
-
-	// gh prints the token and a newline, and nothing else.
-	if string(token) != secret {
-		t.Errorf("token = %q, want the trimmed output of gh auth token", token)
-	}
-
-	if source != forge.SourceCLI {
-		t.Errorf("source = %v, want SourceCLI", source)
-	}
-}
-
-func TestResolveTokenFallsBackToTheConfiguration(t *testing.T) {
-	t.Parallel()
-
-	resolver := forge.Resolver{
-		Getenv:     noEnv,
-		Look:       noProgram,
-		Run:        printing("never reached"),
-		Configured: secret,
-	}
-
-	token, source, err := resolver.Resolve(t.Context(), forge.KindGitHub, "github.com")
-	if err != nil {
-		t.Fatalf("Resolve returned %v, want nil", err)
-	}
-
-	if string(token) != secret {
-		t.Errorf("token = %q, want the configured one", token)
-	}
-
-	if source != forge.SourceConfiguration {
-		t.Errorf("source = %v, want SourceConfiguration", source)
-	}
-}
-
-func TestResolveTokenReportsWhenThereIsNone(t *testing.T) {
-	t.Parallel()
-
-	resolver := forge.Resolver{Getenv: noEnv, Look: noProgram, Run: printing(""), Configured: ""}
-
-	_, source, err := resolver.Resolve(t.Context(), forge.KindGitHub, "github.com")
-	if !errors.Is(err, forge.ErrNoToken) {
-		t.Errorf("Resolve returned %v, want ErrNoToken", err)
-	}
-
-	if source != forge.SourceNone {
-		t.Errorf("source = %v, want SourceNone", source)
-	}
-}
-
-func TestResolveTokenIgnoresAFailingCLI(t *testing.T) {
-	t.Parallel()
-
-	// gh exits non-zero when it holds no credential for the host. That is not an
-	// error worth reporting — it just means the next source gets a turn.
-	resolver := forge.Resolver{
-		Getenv: noEnv,
-		Look:   programAt("gh"),
-		Run: func(context.Context, string, ...string) ([]byte, error) {
-			return nil, errors.New("exit status 1") //nolint:err113 // a stand-in for whatever gh returns
-		},
-		Configured: secret,
-	}
-
-	token, source, err := resolver.Resolve(t.Context(), forge.KindGitHub, "github.com")
-	if err != nil {
-		t.Fatalf("Resolve returned %v, want it to fall through to the configuration", err)
-	}
-
-	if source != forge.SourceConfiguration || string(token) != secret {
-		t.Errorf("source = %v token = %q, want the configured token", source, token)
-	}
-}
-
-func TestResolveTokenHasNoCLIForGitLab(t *testing.T) {
-	t.Parallel()
-
-	// glab reports its token through `auth status`, whose output is prose on
-	// standard error. Parsing that is too fragile to put a credential behind, so
-	// GitLab users set the environment variable or the configuration instead.
-	resolver := forge.Resolver{
-		Getenv:     noEnv,
-		Look:       programAt("glab"),
-		Run:        printing("should not be run"),
-		Configured: secret,
-	}
-
-	_, source, err := resolver.Resolve(t.Context(), forge.KindGitLab, "gitlab.com")
-	if err != nil {
-		t.Fatalf("Resolve returned %v, want nil", err)
-	}
-
-	if source != forge.SourceConfiguration {
-		t.Errorf("source = %v, want the configuration rather than a CLI", source)
 	}
 }
 
 func TestTokenNeverPrintsItself(t *testing.T) {
 	t.Parallel()
 
-	token := forge.Token(secret)
-
 	// The guard is the type, not a convention: every formatting verb goes
 	// through String(), including one nested in a struct.
-	wrapped := struct{ Token forge.Token }{Token: token}
+	token := forge.Token(secret)
+	subjects := map[string]any{"a token": token, "a token in a struct": struct{ Token forge.Token }{Token: token}}
 
 	for _, verb := range []string{"%v", "%s", "%q", "%+v"} {
-		for _, subject := range []any{token, wrapped} {
-			rendered := fmt.Sprintf(verb, subject)
-			if strings.Contains(rendered, secret) {
-				t.Errorf("a Token printed itself with %s: %s", verb, rendered)
-			}
+		for subject, value := range subjects {
+			t.Run(subject+" printed with "+verb, func(t *testing.T) {
+				t.Parallel()
+
+				// Act
+				rendered := fmt.Sprintf(verb, value)
+
+				// Assert
+				if strings.Contains(rendered, secret) || !strings.Contains(rendered, "****") {
+					t.Errorf("a Token printed as %s, want the mask and never the token", rendered)
+				}
+			})
 		}
 	}
+}
 
-	if token.String() != "****" {
-		t.Errorf("String() = %q, want the mask", token.String())
+func TestTokenStringIsAMask(t *testing.T) {
+	t.Parallel()
+
+	cases := map[string]struct {
+		token forge.Token
+		want  string
+	}{
+		"a token": {token: forge.Token(secret), want: "****"},
+		// An empty token has nothing to hide, and masking it would invent a
+		// credential where there is none.
+		"no token": {token: forge.Token(""), want: ""},
 	}
 
-	// An empty token has nothing to hide, and masking it would invent a
-	// credential where there is none.
-	if forge.Token("").String() != "" {
-		t.Errorf("an empty Token rendered as %q, want empty", forge.Token("").String())
-	}
+	for name, tt := range cases {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
 
-	// Reading it back is explicit, and that is the only way out.
-	if token.Secret() != secret {
-		t.Errorf("Secret() = %q, want the token", token.Secret())
+			// Act & Assert
+			if got := tt.token.String(); got != tt.want {
+				t.Errorf("String() = %q, want %q", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestTokenSecretIsTheOnlyWayOut(t *testing.T) {
+	t.Parallel()
+
+	// Act & Assert
+	if got := forge.Token(secret).Secret(); got != secret {
+		t.Errorf("Secret() = %q, want the token", got)
 	}
 }
 
 func TestSourceString(t *testing.T) {
 	t.Parallel()
 
-	cases := map[forge.Source]string{
-		forge.SourceNone:          "none",
-		forge.SourceEnvironment:   "the environment",
-		forge.SourceCLI:           "the forge CLI",
-		forge.SourceConfiguration: "forge.token",
-		forge.Source(99):          unknown,
+	cases := map[string]struct {
+		source forge.Source
+		want   string
+	}{
+		"none":                     {source: forge.SourceNone, want: "none"},
+		"the environment":          {source: forge.SourceEnvironment, want: "the environment"},
+		"the forge CLI":            {source: forge.SourceCLI, want: "the forge CLI"},
+		"the configuration":        {source: forge.SourceConfiguration, want: "forge.token"},
+		"a value outside the enum": {source: forge.Source(99), want: unknown},
 	}
 
-	for source, want := range cases {
-		if got := source.String(); got != want {
-			t.Errorf("Source(%d).String() = %q, want %q", source, got, want)
-		}
-	}
-}
+	for name, tt := range cases {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
 
-func TestResolveTokenHasNoEnvironmentNamesForAnUnknownForge(t *testing.T) {
-	t.Parallel()
-
-	// An on-premises host names neither forge, so there is no variable to read
-	// and no CLI to ask — only what the configuration says.
-	resolver := forge.Resolver{
-		Getenv:     envWith("GITHUB_TOKEN", "should not be read"),
-		Look:       programAt("gh"),
-		Run:        printing("should not be run"),
-		Configured: secret,
-	}
-
-	token, source, err := resolver.Resolve(t.Context(), forge.KindUnknown, "git.example.com")
-	if err != nil {
-		t.Fatalf("Resolve returned %v, want nil", err)
-	}
-
-	if source != forge.SourceConfiguration || string(token) != secret {
-		t.Errorf("source = %v token = %q, want the configured token", source, token)
-	}
-}
-
-func TestResolveTokenIgnoresACLIThatPrintsNothing(t *testing.T) {
-	t.Parallel()
-
-	// gh can exit zero and print only a newline. That is not a token.
-	resolver := forge.Resolver{
-		Getenv:     noEnv,
-		Look:       programAt("gh"),
-		Run:        printing("  \n"),
-		Configured: secret,
-	}
-
-	_, source, err := resolver.Resolve(t.Context(), forge.KindGitHub, "github.com")
-	if err != nil {
-		t.Fatalf("Resolve returned %v, want nil", err)
-	}
-
-	if source != forge.SourceConfiguration {
-		t.Errorf("source = %v, want the configuration", source)
+			// Act & Assert
+			if got := tt.source.String(); got != tt.want {
+				t.Errorf("Source(%d).String() = %q, want %q", tt.source, got, tt.want)
+			}
+		})
 	}
 }

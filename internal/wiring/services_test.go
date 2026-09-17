@@ -9,8 +9,11 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
-	"strings"
+	"slices"
+	"sync"
 	"testing"
+
+	tea "github.com/charmbracelet/bubbletea"
 
 	"github.com/jacob-delgado/workflow/internal/config"
 	"github.com/jacob-delgado/workflow/internal/forge"
@@ -39,16 +42,21 @@ func TestTheForgeSeamsExplainAForgeThatCannotBeReached(t *testing.T) {
 
 	for name, tt := range cases {
 		t.Run(name, func(t *testing.T) {
+			// Arrange
 			cfg := config.Default()
 			cfg.Forge.Kind = tt.kind
 
 			seams := wiring.Deps(t.Context(), cfg, wiring.Workspace{Root: t.TempDir(), Remote: tt.remote}).Forge
 
+			// Act
+			// One behavior seen through each seam: every one of them connects to
+			// the forge first, and must say why it could not.
 			_, _, findErr := seams.FindPullRequest("x")
 			_, createErr := seams.CreatePullRequest(forge.NewPullRequest{})
 			_, checkErr := seams.CheckStatus(forge.PullRequest{}, "abc")
 			_, authorErr := seams.Author()
 
+			// Assert
 			for seam, err := range map[string]error{
 				"FindPullRequest": findErr, "CreatePullRequest": createErr, "CheckStatus": checkErr, "Author": authorErr,
 			} {
@@ -72,33 +80,57 @@ func TestTemplatesAreReadFromTheRepository(t *testing.T) {
 
 	write(t, filepath.Join(root, ".github", "PULL_REQUEST_TEMPLATE.md"), "## What\n", 0o600)
 
-	github := wiring.Deps(t.Context(), config.Default(), wiring.Workspace{Root: root, Remote: githubRemote})
-	if found := github.Forge.Templates(); len(found) != 1 || found[0].Body != "## What\n" {
-		t.Errorf("Templates = %+v, want the repository's", found)
+	cases := map[string]struct {
+		remote string
+		kind   string
+		want   []string
+	}{
+		"a github repository's":          {remote: githubRemote, kind: "", want: []string{"## What\n"}},
+		"none without a remote":          {remote: "", kind: "", want: nil},
+		"none on a host naming no forge": {remote: unnamedHost, kind: "bogus", want: nil},
 	}
 
-	for _, where := range []wiring.Workspace{
-		{Root: root, Remote: ""},
-		{Root: root, Remote: unnamedHost},
-	} {
-		cfg := config.Default()
-		if where.Remote != "" {
-			cfg.Forge.Kind = "bogus"
-		}
+	for name, tt := range cases {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
 
-		if found := wiring.Deps(t.Context(), cfg, where).Forge.Templates(); len(found) != 0 {
-			t.Errorf("Templates for %+v = %+v, want none", where, found)
-		}
+			// Arrange
+			cfg := config.Default()
+			cfg.Forge.Kind = tt.kind
+
+			seams := wiring.Deps(t.Context(), cfg, wiring.Workspace{Root: root, Remote: tt.remote}).Forge
+
+			// Act
+			found := seams.Templates()
+
+			// Assert
+			bodies := make([]string, 0, len(found))
+			for _, template := range found {
+				bodies = append(bodies, template.Body)
+			}
+
+			if !slices.Equal(bodies, tt.want) {
+				t.Errorf("Templates = %q, want %q", bodies, tt.want)
+			}
+		})
 	}
 }
 
 func TestTheJiraSeamsReachTheConfiguredJira(t *testing.T) {
 	t.Parallel()
 
-	var asked []string
+	// Arrange
+	var (
+		lock  sync.Mutex
+		asked []string
+	)
 
 	server := httptest.NewServer(http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
+		lock.Lock()
+
 		asked = append(asked, request.Method+" "+request.URL.Path)
+
+		lock.Unlock()
 
 		writer.Header().Set("Content-Type", "application/json")
 		writer.WriteHeader(http.StatusOK)
@@ -111,47 +143,110 @@ func TestTheJiraSeamsReachTheConfiguredJira(t *testing.T) {
 
 	seams := wiring.Deps(t.Context(), cfg, wiring.Workspace{Root: t.TempDir(), Remote: ""}).Jira
 
-	_, err := seams.Search()
-	if err != nil {
-		t.Errorf("Search: %v", err)
-	}
+	// Act
+	_, searchErr := seams.Search()
+	_, issueErr := seams.Issue("OPS-1")
+	_, listErr := seams.Transitions("OPS-1")
+	moveErr := seams.Transition("OPS-1", jira.Transition{ID: "1"}, nil)
+	_, commentErr := seams.Comment("OPS-1", "hello")
+	link := seams.BrowseURL("OPS-1")
 
-	_, _ = seams.Issue("OPS-1")
-	_, _ = seams.Transitions("OPS-1")
-	_ = seams.Transition("OPS-1", jira.Transition{ID: "1"}, nil)
-	_, _ = seams.Comment("OPS-1", "hello")
+	// Assert
+	for seam, err := range map[string]error{
+		"Search": searchErr, "Issue": issueErr, "Transitions": listErr, "Transition": moveErr, "Comment": commentErr,
+	} {
+		if err != nil {
+			t.Errorf("%s: %v", seam, err)
+		}
+	}
 
 	want := []string{
 		"GET /rest/api/2/search", "GET /rest/api/2/issue/OPS-1", "GET /rest/api/2/issue/OPS-1/transitions",
 		"POST /rest/api/2/issue/OPS-1/transitions", "POST /rest/api/2/issue/OPS-1/comment",
 	}
-	if strings.Join(asked, "|") != strings.Join(want, "|") {
+
+	lock.Lock()
+	defer lock.Unlock()
+
+	if !slices.Equal(asked, want) {
 		t.Errorf("asked %q, want %q", asked, want)
 	}
 
-	if link := seams.BrowseURL("OPS-1"); link != server.URL+"/browse/OPS-1" {
+	if link != server.URL+"/browse/OPS-1" {
 		t.Errorf("BrowseURL = %q", link)
 	}
 }
 
-func TestTheSlackSeamPostsThroughTheConfiguredTransport(t *testing.T) {
+func TestTheSlackSeamRefusesAnInsecureWebhookBeforeSending(t *testing.T) {
 	t.Parallel()
 
+	// Arrange
 	cfg := config.Default()
 	cfg.Slack = config.Slack{Token: "", WebhookURL: "http://hooks.example.com/services/x", Channel: ""}
 
-	err := wiring.Deps(t.Context(), cfg, wiring.Workspace{Root: t.TempDir(), Remote: ""}).Slack.Post("hi")
+	seams := wiring.Deps(t.Context(), cfg, wiring.Workspace{Root: t.TempDir(), Remote: ""}).Slack
+
+	// Act
+	err := seams.Post("hi")
+
+	// Assert
 	if !errors.Is(err, slack.ErrInsecureWebhook) {
 		t.Errorf("Post = %v, want the webhook refused before anything is sent", err)
 	}
 }
 
-func TestTheEditorSeamsHandOverTheTerminal(t *testing.T) {
-	t.Parallel()
+// installedEditor is set as the editor: a program every machine running these
+// tests has. The command is built and handed over, never run.
+func installedEditor(t *testing.T) {
+	t.Helper()
+	t.Setenv("VISUAL", "")
+	t.Setenv("EDITOR", "go")
+}
+
+func TestTheEditSeamWritesADraftAndHandsOverTheTerminal(t *testing.T) {
+	// Arrange
+	installedEditor(t)
+
+	drafts := t.TempDir()
+	t.Setenv("TMPDIR", drafts)
 
 	seams := wiring.Deps(t.Context(), config.Default(), wiring.Workspace{Root: t.TempDir(), Remote: ""}).Editor
+	finished := false
 
-	if seams.Edit("text", "help", nil) == nil || seams.Open("main.go", 1, nil) == nil {
-		t.Error("an editor seam built no command")
+	// Act
+	msg := seams.Edit("text", "help", func(string, error) tea.Msg {
+		finished = true
+
+		return nil
+	})()
+
+	// Assert
+	if msg == nil || finished {
+		t.Errorf("Edit returned %v and finished %v, want a handover and nothing reported yet", msg, finished)
+	}
+
+	written, _ := filepath.Glob(filepath.Join(drafts, "workflow-*.md"))
+	if len(written) != 1 {
+		t.Errorf("found drafts %q, want exactly one, in $TMPDIR", written)
+	}
+}
+
+func TestTheOpenSeamHandsOverTheTerminal(t *testing.T) {
+	// Arrange
+	installedEditor(t)
+
+	seams := wiring.Deps(t.Context(), config.Default(), wiring.Workspace{Root: t.TempDir(), Remote: ""}).Editor
+	finished := false
+
+	// Act
+	msg := seams.Open("main.go", 1, func(error) tea.Msg {
+		finished = true
+
+		return nil
+	})()
+
+	// Assert
+	if msg == nil || finished {
+		t.Errorf("Open returned %v and finished %v, want a handover and nothing reported yet", msg, finished)
 	}
 }

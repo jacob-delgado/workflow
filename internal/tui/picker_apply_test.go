@@ -15,6 +15,7 @@ import (
 func TestEnterMovesTheIssueAndRefreshesTheList(t *testing.T) {
 	t.Parallel()
 
+	// Arrange
 	var searches atomic.Int32
 
 	search := func() (jira.SearchResult, error) {
@@ -26,25 +27,27 @@ func TestEnterMovesTheIssueAndRefreshesTheList(t *testing.T) {
 	fake := &fakeJira{moves: workflowMoves()}
 	screen := press(t, openPicker(t, jiraScreen(t, fake.deps(search))), "j")
 
+	// Act: choose Done
 	sending, cmd := pressed(t, screen, keyEnter)
 
-	if view := sending.View(); !strings.Contains(view, "moving OPS-1 to Done…") {
-		t.Errorf("the picker does not say the move is under way:\n%s", view)
-	}
+	// Assert: the picker says the move is under way
+	requireScreen(t, sending.View(), "moving OPS-1 to Done…")
 
+	// Act: Jira accepts the move
 	moved, refresh := finish(t, sending, cmd)
 
+	// Assert: it was sent once, and the picker closes saying so
 	if got := fake.applied.Load(); got != "OPS-1 31" || fake.applies.Load() != 1 {
 		t.Errorf("applied %v %d times, want OPS-1 through transition 31 once", got, fake.applies.Load())
 	}
 
-	view := moved.View()
-	if strings.Contains(view, pickerTitle) || !strings.Contains(view, "● OPS-1 moved to Done") {
-		t.Errorf("a move that worked did not close the picker and say so:\n%s", view)
-	}
+	refuseScreen(t, moved.View(), pickerTitle)
+	requireScreen(t, moved.View(), "● OPS-1 moved to Done")
 
+	// Act: the refresh arrives
 	finish(t, moved, refresh)
 
+	// Assert: the list was searched again
 	if searches.Load() != 2 {
 		t.Errorf("searched %d times, want the list refreshed after the move", searches.Load())
 	}
@@ -53,24 +56,44 @@ func TestEnterMovesTheIssueAndRefreshesTheList(t *testing.T) {
 func TestNothingInterruptsAMoveBeingSent(t *testing.T) {
 	t.Parallel()
 
-	fake := &fakeJira{moves: workflowMoves()}
-	sending, _ := pressed(t, openPicker(t, jiraScreen(t, fake.deps(twoIssues()))), keyEnter)
-
 	// Nothing may send twice, and nothing may hide an answer still to come.
-	if _, again := pressed(t, sending, keyEnter); again != nil {
-		t.Error("a second enter sent the transition again")
-	}
+	for _, key := range []string{keyEnter, keyEsc} {
+		t.Run(key, func(t *testing.T) {
+			t.Parallel()
 
-	if view := press(t, sending, "esc").View(); !strings.Contains(view, pickerTitle) {
-		t.Errorf("esc closed the picker with the answer still to come:\n%s", view)
-	}
+			// Arrange
+			fake := &fakeJira{moves: workflowMoves()}
+			sending, _ := pressed(t, openPicker(t, jiraScreen(t, fake.deps(twoIssues()))), keyEnter)
 
-	// So the footer offers neither: only quitting still does anything.
-	lines := strings.Split(sending.View(), "\n")
-	if footer := lines[len(lines)-1]; strings.Contains(footer, "apply") || strings.Contains(footer, "esc") ||
-		!strings.Contains(footer, "quit") {
-		t.Errorf("the footer offers keys that do nothing while the move is sent: %q", footer)
+			// Act
+			after, cmd := pressed(t, sending, key)
+
+			// Assert
+			if cmd != nil {
+				t.Errorf("%s produced a command while the move is sent", key)
+			}
+
+			if after.View() != sending.View() {
+				t.Errorf("%s changed the screen while the move is sent:\n%s", key, after.View())
+			}
+		})
 	}
+}
+
+func TestTheFooterOffersOnlyQuittingWhileAMoveIsSent(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	fake := &fakeJira{moves: workflowMoves()}
+	screen := openPicker(t, jiraScreen(t, fake.deps(twoIssues())))
+
+	// Act
+	sending, _ := pressed(t, screen, keyEnter)
+
+	// Assert
+	footer := footerLine(sending.View())
+	refuseScreen(t, footer, "apply", keyEsc)
+	requireScreen(t, footer, "quit")
 }
 
 func TestTheSelectionFollowsTheMovedIssueThroughARefresh(t *testing.T) {
@@ -108,6 +131,7 @@ func TestTheSelectionFollowsTheMovedIssueThroughARefresh(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
 
+			// Arrange
 			var calls atomic.Int32
 
 			search := func() (jira.SearchResult, error) {
@@ -124,10 +148,12 @@ func TestTheSelectionFollowsTheMovedIssueThroughARefresh(t *testing.T) {
 			fake := &fakeJira{moves: workflowMoves()}
 			screen := openPicker(t, press(t, jiraScreen(t, fake.deps(search)), "j"))
 
+			// Act
 			screen, cmd := pressed(t, screen, keyEnter)
 			screen, refresh := finish(t, screen, cmd)
 			screen, _ = finish(t, screen, refresh)
 
+			// Assert
 			if view := screen.View(); !strings.Contains(view, tt.want) {
 				t.Errorf("after the refresh, want %q selected:\n%s", tt.want, view)
 			}
@@ -138,54 +164,62 @@ func TestTheSelectionFollowsTheMovedIssueThroughARefresh(t *testing.T) {
 func TestTheNoticeGivesWayToTheKeysOnTheNextPress(t *testing.T) {
 	t.Parallel()
 
+	// Arrange
 	fake := &fakeJira{moves: workflowMoves()}
 	screen, cmd := pressed(t, openPicker(t, jiraScreen(t, fake.deps(twoIssues()))), keyEnter)
 	screen, _ = finish(t, screen, cmd)
 
-	view := press(t, screen, "j").View()
-	if strings.Contains(view, "moved to") || !strings.Contains(view, "quit") {
-		t.Errorf("the notice outlived the next key press:\n%s", view)
-	}
+	// Act
+	footer := footerLine(press(t, screen, "j").View())
+
+	// Assert
+	refuseScreen(t, footer, "moved to")
+	requireScreen(t, footer, "quit")
 }
 
 func TestARefusedMoveKeepsThePickerOpenToTryAgain(t *testing.T) {
 	t.Parallel()
 
+	// Arrange
 	fake := &fakeJira{
 		moves:    workflowMoves(),
 		applyErr: fmt.Errorf("%w: %s", jira.ErrRejected, "Resolution is required."),
 	}
 
 	screen, cmd := pressed(t, press(t, openPicker(t, jiraScreen(t, fake.deps(twoIssues()))), "j"), keyEnter)
-	screen, refresh := finish(t, screen, cmd)
 
-	view := screen.View()
+	// Act: Jira refuses the move
+	refused, refresh := finish(t, screen, cmd)
 
-	reason := "✗ jira rejected the request: Resolution is required."
-	if !strings.Contains(view, pickerTitle) || !strings.Contains(view, reason) {
-		t.Errorf("a refused move did not stay open with Jira's reason:\n%s", view)
-	}
+	// Assert: the picker stays open, with Jira's reason and the selection
+	requireScreen(t, refused.View(), pickerTitle, "✗ jira rejected the request: Resolution is required.", "▸ ● Done")
 
 	if refresh != nil {
 		t.Error("a refused move refreshed the list, want nothing to have changed")
 	}
 
-	if !strings.Contains(view, "▸ ● Done") {
-		t.Errorf("a refused move lost the selection:\n%s", view)
-	}
+	// Act: try again
+	retrying, retry := pressed(t, refused, keyEnter)
+	finish(t, retrying, retry)
 
-	if _, retry := pressed(t, screen, keyEnter); retry == nil {
-		t.Error("enter after a refusal did not try again")
+	// Assert: the move was sent a second time
+	if got := fake.applies.Load(); got != 2 {
+		t.Errorf("applied %d times, want the retry sent", got)
 	}
 }
 
 func TestEnterBeforeTheListingArrivesSendsNothing(t *testing.T) {
 	t.Parallel()
 
+	// Arrange
 	fake := &fakeJira{moves: workflowMoves()}
 	loading, _ := pressed(t, jiraScreen(t, fake.deps(twoIssues())), "t")
 
-	if _, cmd := pressed(t, loading, keyEnter); cmd != nil {
+	// Act
+	_, cmd := pressed(t, loading, keyEnter)
+
+	// Assert
+	if cmd != nil {
 		t.Error("enter sent a transition before any were listed")
 	}
 }

@@ -22,11 +22,13 @@ const goProgram = "go"
 func TestRunReturnsStandardOutput(t *testing.T) {
 	t.Parallel()
 
+	// Act
 	output, err := proc.Run(t.Context(), goProgram, "version")
 	if err != nil {
 		t.Fatalf("Run(go version) returned %v, want nil", err)
 	}
 
+	// Assert
 	if !strings.Contains(string(output), "go version") {
 		t.Errorf("Run(go version) = %q, want it to contain %q", output, "go version")
 	}
@@ -35,7 +37,10 @@ func TestRunReturnsStandardOutput(t *testing.T) {
 func TestRunReportsAProgramNotOnPath(t *testing.T) {
 	t.Parallel()
 
+	// Act
 	_, err := proc.Run(t.Context(), missingProgram)
+
+	// Assert
 	if !errors.Is(err, proc.ErrNotFound) {
 		t.Errorf("Run(%q) returned %v, want ErrNotFound", missingProgram, err)
 	}
@@ -44,45 +49,56 @@ func TestRunReportsAProgramNotOnPath(t *testing.T) {
 func TestRunReportsAFailureWithItsStandardError(t *testing.T) {
 	t.Parallel()
 
+	// Arrange
 	subcommand := "this-is-not-a-go-subcommand"
 
+	// Act
 	_, err := proc.Run(t.Context(), goProgram, subcommand)
-	if err == nil {
-		t.Fatal("Run(go this-is-not-a-go-subcommand) returned nil, want an error")
-	}
 
+	// Assert
 	// The standard error is the whole point: a caller must be able to show why
 	// the command failed without running it again by hand.
-	if !strings.Contains(err.Error(), subcommand) {
-		t.Errorf("Run error = %q, want it to carry the standard error naming %q", err, subcommand)
+	if err == nil || !strings.Contains(err.Error(), subcommand) {
+		t.Errorf("Run error = %v, want it to carry the standard error naming %q", err, subcommand)
 	}
 }
 
 func TestAvailableDistinguishesInstalledFromMissing(t *testing.T) {
 	t.Parallel()
 
-	if !proc.Available(goProgram) {
-		t.Errorf("Available(%q) = false, want true", goProgram)
-	}
+	cases := map[string]bool{goProgram: true, missingProgram: false}
 
-	if proc.Available(missingProgram) {
-		t.Errorf("Available(%q) = true, want false", missingProgram)
+	for program, want := range cases {
+		t.Run(program, func(t *testing.T) {
+			t.Parallel()
+
+			// Act & Assert
+			if got := proc.Available(program); got != want {
+				t.Errorf("Available(%q) = %v, want %v", program, got, want)
+			}
+		})
 	}
 }
 
-func TestLookPathFindsAProgramAndReportsAMissingOne(t *testing.T) {
+func TestLookPathFindsAProgram(t *testing.T) {
 	t.Parallel()
 
+	// Act
 	path, err := proc.LookPath(goProgram)
-	if err != nil {
-		t.Fatalf("LookPath(%q) returned %v, want nil", goProgram, err)
-	}
 
-	if path == "" {
-		t.Errorf("LookPath(%q) returned an empty path", goProgram)
+	// Assert
+	if err != nil || path == "" {
+		t.Errorf("LookPath(%q) = %q, %v; want a path", goProgram, path, err)
 	}
+}
 
-	_, err = proc.LookPath(missingProgram)
+func TestLookPathReportsAMissingProgram(t *testing.T) {
+	t.Parallel()
+
+	// Act
+	_, err := proc.LookPath(missingProgram)
+
+	// Assert
 	if !errors.Is(err, proc.ErrNotFound) {
 		t.Errorf("LookPath(%q) returned %v, want ErrNotFound", missingProgram, err)
 	}
