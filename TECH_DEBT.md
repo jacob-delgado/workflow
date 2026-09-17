@@ -317,30 +317,6 @@ Severity: low · Confidence: read
 
 ## The clients: forge, Jira and Slack
 
-### DEBT-14 A `cancelled` GitHub check run counts as a pass
-
-Severity: high · Confidence: reproduced
-
-- Evidence: `ciTally.run` (`internal/forge/ci.go:61`) lists the failing
-  conclusions as `"failure"`, `"canceled"`, `"timed_out"`, `"action_required"`
-  and `"startup_failure"`. GitHub's published API description spells the value
-  `cancelled`. A completed run whose conclusion is not in the map counts as
-  done and not failed. The fixture at `internal/forge/ci_test.go:95` uses the
-  same one-l spelling, so the test passes against a value GitHub never sends.
-  This repository's own workflow writes it correctly
-  (`.github/workflows/ci.yml:248`).
-- Cost: with the real code, one successful run and one `cancelled` run gave
-  `CIPassed`, and "post when CI passes" then posts. `stale`, which only GitHub
-  can set, passes the same way. `startup_failure` is not a check-run
-  conclusion at all. The likely cause is the house spelling rule applied to a
-  wire value. GitLab's `canceled` (`internal/forge/gitlab.go:103`) is correct
-  and must stay.
-- Remedy: a failing test with `"cancelled"` first. Then fail closed: name the
-  passing conclusions (`success`, `neutral`, `skipped`) and count everything
-  else as failed. Keep the wire spelling in a named constant with a `misspell`
-  exclusion beside it.
-- Done when: a `cancelled` or `stale` run yields `CIFailed`.
-
 ### DEBT-15 GitHub CI listings stop at the first page
 
 Severity: medium · Confidence: read

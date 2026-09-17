@@ -99,7 +99,7 @@ func gitlabStatus(ctx context.Context, client Client, repo Repo, pull PullReques
 // running rather than passed: announcing green on a guess is the worse mistake.
 func pipelineState(status string) CIState {
 	states := map[string]CIState{
-		"success": CIPassed, "skipped": CIPassed,
+		succeeded: CIPassed, "skipped": CIPassed,
 		"failed": CIFailed, "canceled": CIFailed,
 	}
 

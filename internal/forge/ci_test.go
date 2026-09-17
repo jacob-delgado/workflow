@@ -16,6 +16,11 @@ import (
 // headCommit is the commit whose checks the GitHub cases read.
 const headCommit = "abc123"
 
+// stoppedRun is a check run somebody stopped. GitHub writes that conclusion
+// with a doubled l, whatever the house style, and matching any other spelling
+// matches nothing GitHub sends.
+const stoppedRun = `{"status":"completed","conclusion":"cancelled"}` //nolint:misspell // GitHub's spelling, on the wire
+
 // githubChecks serves a commit's combined status and its check runs, and fails
 // the test on any other request.
 func githubChecks(t *testing.T, statuses, runs string) forge.Client {
@@ -90,11 +95,24 @@ func TestGitHubCIReadsStatusesAndCheckRunsTogether(t *testing.T) {
 				`{"status":"queued","conclusion":null}]}`,
 			want: forge.CI{State: forge.CIFailed, Total: 2, Done: 1, Failed: 1},
 		},
-		"canceled and timed out fail": {
+		"stopped and timed out fail": {
 			statuses: noStatuses,
-			runs: `{"total_count":2,"check_runs":[{"status":"completed","conclusion":"canceled"},` +
+			runs: `{"total_count":2,"check_runs":[` + stoppedRun + `,` +
 				`{"status":"completed","conclusion":"timed_out"}]}`,
 			want: forge.CI{State: forge.CIFailed, Total: 2, Done: 2, Failed: 2},
+		},
+		"stale and action required fail": {
+			statuses: noStatuses,
+			runs: `{"total_count":2,"check_runs":[{"status":"completed","conclusion":"stale"},` +
+				`{"status":"completed","conclusion":"action_required"}]}`,
+			want: forge.CI{State: forge.CIFailed, Total: 2, Done: 2, Failed: 2},
+		},
+		// Announcing green on a conclusion nobody has heard of is the worse
+		// mistake, so one that is not known to pass fails.
+		"a conclusion this does not know fails": {
+			statuses: noStatuses,
+			runs:     `{"total_count":1,"check_runs":[{"status":"completed","conclusion":"something_new"}]}`,
+			want:     forge.CI{State: forge.CIFailed, Total: 1, Done: 1, Failed: 1},
 		},
 		"a failed status fails": {
 			statuses: `{"state":"failure","total_count":1,"statuses":[{"state":"failure"}]}`,
