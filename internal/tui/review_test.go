@@ -26,6 +26,25 @@ func withoutPull() *world {
 	return w
 }
 
+func TestWithoutAForgeTokenNothingIsOfferedOrPushed(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	noToken := withoutPull()
+	noToken.branch.Upstream = ""
+	noToken.pullErr = forge.ErrNoToken
+
+	// Act
+	after := typing(t, noToken.live(t, 120, 40), "4", "n", keyEnter)
+
+	// Assert
+	refuseScreen(t, footerLine(after.View()), "open pull request")
+
+	if pushes := noToken.asked("push"); len(pushes) != 0 {
+		t.Errorf("pushed the branch with no forge token: %q", pushes)
+	}
+}
+
 func TestTheReviewPaneShowsThePullRequestAndItsCI(t *testing.T) {
 	t.Parallel()
 
