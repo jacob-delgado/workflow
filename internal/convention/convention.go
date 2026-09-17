@@ -164,8 +164,10 @@ func branchNameProblem(name string) string {
 // shapeProblem checks how a branch name starts and ends.
 func shapeProblem(name string) string {
 	switch {
-	case name == "" || name == "@":
+	case name == "":
 		return "it is empty"
+	case name == "@":
+		return `it is "@", which git reads as the current branch`
 	case strings.HasPrefix(name, "-"):
 		return "it starts with a hyphen"
 	case strings.HasPrefix(name, "/") || strings.HasSuffix(name, "/") || strings.Contains(name, "//"):
