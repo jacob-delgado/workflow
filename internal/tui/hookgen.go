@@ -13,10 +13,10 @@ import (
 	"github.com/jacob-delgado/workflow/internal/hooks"
 )
 
-// hookgenState is whether generating a lefthook configuration was offered this
-// session, which happens at most once.
+// hookgenState holds the hooks lefthook does not manage, found at start, so the
+// Commits pane can offer to generate a configuration for them on demand.
 type hookgenState struct {
-	offered bool
+	hooks []hooks.GitHook
 }
 
 // findHooks is the command that looks for hooks lefthook does not manage.
@@ -39,15 +39,26 @@ type hooksFound struct {
 	configured bool
 }
 
-// apply offers a lefthook configuration for hooks that predate lefthook — once,
-// and never over something already open.
+// apply stores hooks that predate lefthook, so the Commits pane can offer to
+// generate a configuration for them — rather than seizing the first screen.
 func (msg hooksFound) apply(m Model) (Model, tea.Cmd) {
-	if msg.configured || len(msg.hooks) == 0 || m.hookgen.offered || m.overlay != nil {
+	if msg.configured || len(msg.hooks) == 0 {
 		return m, nil
 	}
 
-	m.hookgen.offered = true
-	m.overlay = hookgenOffer{marks: m.marks, hooks: msg.hooks, generated: hooks.Structured(msg.hooks)}
+	m.hookgen.hooks = msg.hooks
+
+	return m, nil
+}
+
+// openHookgen opens the lefthook offer, rebuilt from the stored hooks so it
+// reopens after a skip.
+func (m Model) openHookgen() (Model, tea.Cmd) {
+	if len(m.hookgen.hooks) == 0 {
+		return m, nil
+	}
+
+	m.overlay = hookgenOffer{marks: m.marks, hooks: m.hookgen.hooks, generated: hooks.Structured(m.hookgen.hooks)}
 
 	return m, nil
 }

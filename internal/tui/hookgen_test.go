@@ -22,7 +22,7 @@ func legacyHooks() []hooks.GitHook {
 	}
 }
 
-func TestExistingHooksAreOfferedALefthookConfiguration(t *testing.T) {
+func TestTheLefthookOfferOpensFromTheCommitsPaneNotAtStart(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
@@ -31,6 +31,33 @@ func TestExistingHooksAreOfferedALefthookConfiguration(t *testing.T) {
 
 	// Act: open the interface
 	model := offering.live(t, 120, 50)
+
+	// Assert: the first screen is the panes, not the offer
+	refuseScreen(t, model.View(), "No lefthook configuration")
+	requireScreen(t, model.View(), "1 Issues")
+
+	// Act: open the offer from the Commits pane
+	opened := typing(t, model, "3", "g")
+
+	// Assert: the offer is open
+	requireScreen(t, opened.View(), "┏━ No lefthook configuration", "Found 2 hooks in .git/hooks")
+
+	// Act: skip it, then open it again
+	reopened := typing(t, opened, keyEsc, "g")
+
+	// Assert: it reopens
+	requireScreen(t, reopened.View(), "┏━ No lefthook configuration")
+}
+
+func TestExistingHooksAreOfferedALefthookConfiguration(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	offering := newWorld()
+	offering.gitHooks = legacyHooks()
+
+	// Act: open the interface, then the offer from the Commits pane
+	model := typing(t, offering.live(t, 120, 50), "3", "g")
 
 	// Assert: the hooks are offered as lefthook jobs and scripts
 	requireScreen(t, model.View(), "┏━ No lefthook configuration", "Found 2 hooks in .git/hooks",
@@ -56,7 +83,7 @@ func TestTheOfferCanKeepEveryHookWhole(t *testing.T) {
 	offering.gitHooks = legacyHooks()
 
 	// Act
-	typing(t, offering.live(t, 120, 50), "v")
+	typing(t, offering.live(t, 120, 50), "3", "g", "v")
 
 	// Assert
 	calls := offering.asked("write")
@@ -93,22 +120,18 @@ func TestTheOfferIsMadeOnlyWhenItHelps(t *testing.T) {
 	}
 }
 
-func TestASkippedOfferIsNotMadeAgainInTheSession(t *testing.T) {
+func TestASkippedOfferWritesNothing(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
 	skipping := newWorld()
 	skipping.gitHooks = legacyHooks()
 
-	skipped := typing(t, skipping.live(t, 120, 50), keyEsc)
-	refuseScreen(t, skipped.View(), "No lefthook configuration")
-
 	// Act
-	// Everything the interface loads at start, loaded again.
-	reloaded := drain(t, skipped, skipped.Init())
+	skipped := typing(t, skipping.live(t, 120, 50), "3", "g", keyEsc)
 
 	// Assert
-	refuseScreen(t, reloaded.View(), "No lefthook configuration")
+	refuseScreen(t, skipped.View(), "No lefthook configuration")
 
 	if calls := skipping.asked("write"); len(calls) != 0 {
 		t.Errorf("a skipped offer wrote: %q", calls)
@@ -124,7 +147,7 @@ func TestAConfigurationThatCannotBeWrittenSaysWhy(t *testing.T) {
 	refusing.writeErr = errConfigExists
 
 	// Act
-	refused := typing(t, refusing.live(t, 120, 50), keyEnter)
+	refused := typing(t, refusing.live(t, 120, 50), "3", "g", keyEnter)
 
 	// Assert
 	requireScreen(t, refused.View(), "┏━ No lefthook configuration", "✗ file already exists")
@@ -141,7 +164,7 @@ func TestADryRunWritesNoConfiguration(t *testing.T) {
 	model = drain(t, model, model.Init())
 
 	// Act
-	view := typing(t, model, keyEnter).View()
+	view := typing(t, model, "3", "g", keyEnter).View()
 
 	// Assert
 	requireScreen(t, view, "dry run: would write lefthook.yml and 1 script, then install lefthook")

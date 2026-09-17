@@ -120,6 +120,10 @@ func (m Model) commitsDetail(width int) string {
 		lines = append(lines, m.styles.label.Render(commit.Hash)+" "+commit.Subject)
 	}
 
+	if len(m.hookgen.hooks) > 0 {
+		lines = append(lines, "", m.styles.label.Render("A hook is not managed by lefthook. Press g to set up lefthook."))
+	}
+
 	return strings.Join(lines, "\n")
 }
 
@@ -175,18 +179,18 @@ func (m Model) commitsKeys() []key.Binding {
 		keys = append(keys, m.keys.runHooks)
 	}
 
+	if len(m.hookgen.hooks) > 0 {
+		keys = append(keys, m.keys.hookConfig)
+	}
+
 	return keys
 }
 
 // handleCommitsKey answers the Commits pane's own keys.
 func (m Model) handleCommitsKey(msg tea.KeyMsg) (Model, tea.Cmd) {
 	switch {
-	case key.Matches(msg, m.keys.down):
-		m.changes.selected = min(m.changes.selected+1, max(0, len(m.changes.changes)-1))
-		m = m.followChange()
-	case key.Matches(msg, m.keys.up):
-		m.changes.selected = max(0, m.changes.selected-1)
-		m = m.followChange()
+	case key.Matches(msg, m.keys.up, m.keys.down):
+		return m.moveChangeSelection(msg), nil
 	case key.Matches(msg, m.keys.stage):
 		return m.toggleStaged()
 	case key.Matches(msg, m.keys.stageAll):
@@ -195,11 +199,24 @@ func (m Model) handleCommitsKey(msg tea.KeyMsg) (Model, tea.Cmd) {
 		return m.openCommitComposer()
 	case key.Matches(msg, m.keys.runHooks) && m.deps.Hooks.Run != nil:
 		return m.runPreCommit()
+	case key.Matches(msg, m.keys.hookConfig) && len(m.hookgen.hooks) > 0:
+		return m.openHookgen()
 	case key.Matches(msg, m.keys.refresh):
 		return m, tea.Batch(m.loadChanges(), m.loadBranch())
 	}
 
 	return m, nil
+}
+
+// moveChangeSelection moves the selection down or up and keeps it on screen.
+func (m Model) moveChangeSelection(msg tea.KeyMsg) Model {
+	if key.Matches(msg, m.keys.down) {
+		m.changes.selected = min(m.changes.selected+1, max(0, len(m.changes.changes)-1))
+	} else {
+		m.changes.selected = max(0, m.changes.selected-1)
+	}
+
+	return m.followChange()
 }
 
 // followChange scrolls the detail so the selected file stays on screen, the way

@@ -33,7 +33,7 @@ type keyMap struct {
 	changeStatus, comment, branchForIssue key.Binding
 
 	// Branch and Commits.
-	newBranch, push, stage, stageAll, commit, runHooks key.Binding
+	newBranch, push, stage, stageAll, commit, runHooks, hookConfig key.Binding
 
 	// Review and Slack.
 	newPullRequest, compose, postWhenGreen key.Binding
@@ -77,6 +77,7 @@ func newKeyMap(marks glyphs, reviewNoun string) keyMap {
 		stageAll:       binding("stage all", "a"),
 		commit:         binding("commit", "c"),
 		runHooks:       binding("run pre-commit", "h"),
+		hookConfig:     binding("set up lefthook", "g"),
 		newPullRequest: binding("open "+reviewNoun, "n"),
 		compose:        binding("post to slack", "p"),
 		postWhenGreen:  binding("post when CI passes", "w"),
@@ -103,7 +104,7 @@ func (k keyMap) FullHelp() [][]key.Binding {
 	return [][]key.Binding{
 		{k.next, k.previous, k.jump, k.up, k.down, k.scrollUp, k.scrollDown},
 		{k.changeStatus, k.comment, k.branchForIssue, k.refresh},
-		{k.newBranch, k.push, k.stage, k.stageAll, k.commit, k.runHooks},
+		{k.newBranch, k.push, k.stage, k.stageAll, k.commit, k.runHooks, k.hookConfig},
 		{k.newPullRequest, k.compose, k.postWhenGreen},
 		{k.confirm, k.closeOverlay, k.toggleMouse, k.toggleHelp, k.quit},
 	}

@@ -81,6 +81,7 @@ scroll the detail pane.
 | | `a` | Stage every file |
 | | `c` | Commit what is staged |
 | | `h` | Run the pre-commit hook now |
+| | `g` | Set up lefthook for hooks it does not manage |
 | 4 Review | `n` | Open a pull or merge request |
 | | `r` | Look for the pull request and its CI again |
 | 5 Slack | `p` | Preview the post announcing the pull request |
@@ -191,8 +192,9 @@ on.
 
 ## Existing git hooks
 
-When a repository has hooks in `.git/hooks` and no lefthook configuration,
-workflow offers once, at start, to write a `lefthook.yml` that runs them:
+When a repository has hooks in `.git/hooks` and no lefthook configuration, the
+Commits pane says so and `g` opens an offer to write a `lefthook.yml` that runs
+them:
 
 - `enter` turns each hook made only of plain commands into lefthook jobs, run
   in order and stopping at the first failure as `set -e` would. A hook that
