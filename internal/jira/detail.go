@@ -136,6 +136,39 @@ func (c Client) AddComment(ctx context.Context, issueKey, text string) (Comment,
 	return wire.comment(), nil
 }
 
+// remoteLink is the body that adds a web link to an issue.
+type remoteLink struct {
+	Object remoteLinkObject `json:"object"`
+}
+
+// remoteLinkObject is the link itself, as Jira's remote-link API names it.
+type remoteLinkObject struct {
+	URL   string `json:"url"`
+	Title string `json:"title"`
+}
+
+// LinkPullRequest records a pull request as a web link on an issue, so the team
+// that looks at Jira sees the work without an integration installed on the
+// server. Jira folds a repeat POST of the same URL into the existing link
+// rather than adding a second, so confirming twice is harmless.
+func (c Client) LinkPullRequest(ctx context.Context, issueKey, pullURL, title string) error {
+	payload, err := json.Marshal(remoteLink{Object: remoteLinkObject{URL: pullURL, Title: title}})
+	if err != nil {
+		return fmt.Errorf("encoding the link: %w", err)
+	}
+
+	request, err := c.newRequest(ctx, http.MethodPost, issuePath(issueKey)+"/remotelink", bytes.NewReader(payload))
+	if err != nil {
+		return err
+	}
+
+	request.Header.Set("Content-Type", "application/json")
+
+	_, err = c.exchange(request)
+
+	return err
+}
+
 // BrowseURL is the address of an issue in Jira's web interface, for a link
 // someone will click — in a Slack message, say. Any username and password in
 // the base URL are left out: the link is shared, and so would they be. It is

@@ -66,6 +66,7 @@ type world struct {
 	moves         []jira.Transition
 	transitionErr error
 	commentErr    error
+	linkErr       error
 
 	branch      gitrepo.Branch
 	changes     []gitrepo.Change
@@ -241,6 +242,11 @@ func (w *world) jiraDeps() tui.JiraDeps {
 			w.record("comment " + key + " " + text)
 
 			return jira.Comment{Author: "jacob", Body: text, Created: testNow()}, w.commentErr
+		},
+		LinkPullRequest: func(key, pullURL, title string) error {
+			w.record("link " + key + " " + pullURL + " " + title)
+
+			return w.linkErr
 		},
 		BrowseURL: func(key string) string { return "https://jira.example.com/browse/" + key },
 	}

@@ -311,7 +311,7 @@ func (c prComposer) open(m Model) (Model, tea.Cmd) {
 	case request.Base == "":
 		c.problem = errNoBase
 	case m.dryRun:
-		return m.closeOverlay().noticed(c.dryRunNotice(request, m.branch.branch.Pushed())), nil
+		return m.closeOverlay().noticed(c.dryRunNotice(request, m.branch.branch.Pushed(), m.issueToLink())), nil
 	case m.branch.branch.Pushed():
 		return c.create(m)
 	default:
@@ -332,8 +332,12 @@ func (c prComposer) open(m Model) (Model, tea.Cmd) {
 
 // dryRunNotice says what opening the pull request would do, including the push
 // that enter does first when origin does not have every commit.
-func (c prComposer) dryRunNotice(request forge.NewPullRequest, pushed bool) string {
+func (c prComposer) dryRunNotice(request forge.NewPullRequest, pushed bool, linkTo string) string {
 	open := "open \"" + request.Title + "\" from " + request.Head + " into " + request.Base
+	if linkTo != "" {
+		open += " and link it on " + linkTo
+	}
+
 	if pushed {
 		return "dry run: would " + open
 	}
@@ -373,10 +377,19 @@ func (msg pullCreated) apply(m Model) (Model, tea.Cmd) {
 		return m, nil
 	}
 
-	m = m.closeOverlay().noticed(m.marks.done + " opened " + m.vocab.sigil + strconv.Itoa(msg.pull.Number) +
-		" " + msg.pull.URL)
+	m = m.noticed(m.marks.done + " opened " + m.vocab.sigil + strconv.Itoa(msg.pull.Number) + " " + msg.pull.URL)
 	m.review = reviewState{pull: msg.pull, found: true, loaded: true}
 	m.prDraft = prDraft{}
 
-	return m, tea.Batch(m.checkCI(), m.loadAuthor())
+	cmds := tea.Batch(m.checkCI(), m.loadAuthor())
+
+	// With a Jira issue to link it to, offer to add the link before closing, so
+	// the team that watches Jira learns of the pull request.
+	if issueKey := m.issueToLink(); issueKey != "" {
+		m.overlay = issueLinker{marks: m.marks, styles: m.styles, vocab: m.vocab, issueKey: issueKey, pull: msg.pull}
+
+		return m, cmds
+	}
+
+	return m.closeOverlay(), cmds
 }
