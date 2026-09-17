@@ -97,7 +97,7 @@ func (m Model) detailContent(shape layout.Layout) (string, string, frame.Style) 
 
 		return title, body, m.marks.border.Heavy()
 	case m.helpOpen:
-		return helpTitle, scrolled(m.helpView(), m.scroll, rows), m.marks.border
+		return helpTitle, m.helpBody(rows), m.marks.border
 	}
 
 	behavior := behaviorOf(m.focus)
@@ -144,25 +144,61 @@ func (m Model) loading(p pane) bool {
 	return false
 }
 
-// helpView lists every key, a group at a time, one key a line: the detail pane
-// is too narrow for the groups side by side.
-func (m Model) helpView() string {
-	groups := m.keys.FullHelp()
-	lines := make([]string, 0, len(groups))
+// helpColumnSplit is the group after which the help wraps into a second column,
+// so the two columns come out close to the same height.
+const helpColumnSplit = 4
 
-	for index, name := range helpGroups() {
-		if index > 0 {
+// helpColumnGap is the space between the help's two columns.
+const helpColumnGap = 4
+
+// helpView lists every key, grouped by where it works, in two columns so the
+// whole set fits a short pane with less scrolling.
+func (m Model) helpView() string {
+	left := m.helpColumn(0, helpColumnSplit)
+	right := m.helpColumn(helpColumnSplit, len(helpGroups()))
+
+	return lipgloss.JoinHorizontal(lipgloss.Top, left, lipgloss.NewStyle().PaddingLeft(helpColumnGap).Render(right))
+}
+
+// helpColumn renders the help groups in a range, one key a line under each
+// group's name. A binding with no help text of its own is left out; it rides
+// another's line.
+func (m Model) helpColumn(first, last int) string {
+	groups := m.keys.FullHelp()
+	names := helpGroups()
+
+	var lines []string
+
+	for index := first; index < last; index++ {
+		if index > first {
 			lines = append(lines, "")
 		}
 
-		lines = append(lines, m.styles.strong.Render(name))
+		lines = append(lines, m.styles.strong.Render(names[index]))
 
 		for _, binding := range groups[index] {
+			if binding.Help().Key == "" {
+				continue
+			}
+
 			lines = append(lines, "  "+fmt.Sprintf("%-10s", binding.Help().Key)+binding.Help().Desc)
 		}
 	}
 
 	return strings.Join(lines, "\n")
+}
+
+// helpBody is the help scrolled to fit, with a mark on the last row when there
+// is more below it.
+func (m Model) helpBody(rows int) string {
+	body := m.helpView()
+	if strings.Count(body, "\n")+1 <= m.scroll+rows {
+		return scrolled(body, m.scroll, rows)
+	}
+
+	shown := strings.Split(scrolled(body, m.scroll, max(1, rows-1)), "\n")
+
+	return strings.Join(append(shown, m.marks.ellipsis+" more below"), "\n")
 }
 
 // detailRows is how many rows of content the detail pane holds.

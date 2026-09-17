@@ -52,8 +52,8 @@ one of them yet, which makes this table the shortest summary of the file.
 | The promise | Where it is made | Kept? |
 | --- | --- | --- |
 | "a key it does not show does nothing" | `docs/content/docs/usage.md:55` | No. Ten keys work unseen. |
-| "`?` lists every key" | `docs/content/docs/usage.md:56` | No. Eleven bindings are missing. UX-33 |
-| "the one way the interface says something broke" | `failure`, `internal/tui/render.go:277` | In 7 places of about 20. |
+| "`?` lists every key" | `docs/content/docs/usage.md:56` | No. Eleven bindings are missing. |
+| "the one way the interface says something broke" | `failure`, `internal/tui/render.go:278` | In 7 places of about 20. |
 | "Nothing outward facing is sent without" a last look | `internal/tui/comment.go:43` | Mostly. |
 | "a refused change must never go unseen" | `internal/tui/picker.go:184` | In one overlay of seven. |
 | "Each pane fails on its own" | `docs/content/docs/usage.md:58` | Yes, and it is the best thing about the first run. |
@@ -72,26 +72,6 @@ one of them yet, which makes this table the shortest summary of the file.
 ## Slack
 
 ## Across the interface
-
-### UX-33 A help screen that knows where you are
-
-Impact: medium · Effort: medium
-
-- Today: `?` claims to list every key. It lists 27 and omits the ones that
-  live in overlays: `e`, `ctrl+e`, `ctrl+t`, `ctrl+d`, `v`, `r` for "run
-  again", the field keys, `←`/`→` and `ctrl+c`. It files `w` under "Review
-  and Slack" though `w` works only inside the Slack preview, and `enter
-  apply` and `esc close` under "Everywhere" though they do nothing on the main
-  screen. `?` itself does not work inside an overlay, which is where the
-  missing keys are. At 120×36 the list is longer than the pane, the last rows
-  fall off the bottom, and nothing says there is more (seen live).
-- Instead: group by place ("In a composer", "In a preview", "While a command
-  runs"), lay the groups out in two columns, show a "more below" mark when
-  clipped, and open context help with a key that a text field does not need.
-- Touches: `internal/tui/keys.go` (`FullHelp`, `helpGroups`),
-  `internal/tui/render.go` (`helpView`).
-- Done when: every binding in `newKeyMap` appears in the help, and a test
-  fails when a new binding is left out.
 
 ### UX-34 Let a message stay long enough to be read
 

@@ -100,20 +100,40 @@ func (k keyMap) ShortHelp() []key.Binding {
 	return []key.Binding{k.toggleHelp, k.next, k.jump, k.quit}
 }
 
-// FullHelp is every key, in groups by where it works.
+// FullHelp is every key, in groups by where it works. Every binding the keyMap
+// holds belongs to exactly one group, so the help is complete by construction.
 func (k keyMap) FullHelp() [][]key.Binding {
 	return [][]key.Binding{
 		{k.next, k.previous, k.jump, k.up, k.down, k.scrollUp, k.scrollDown},
 		{k.changeStatus, k.comment, k.branchForIssue, k.refresh},
 		{k.newBranch, k.push, k.stage, k.stageAll, k.commit, k.runHooks, k.hookConfig},
 		{k.newPullRequest, k.compose, k.postWhenGreen},
-		{k.confirm, k.closeOverlay, k.toggleMouse, k.toggleHelp, k.quit},
+		{
+			k.edit, k.editBody, k.nextTemplate, k.toggleDraft, k.verbatim,
+			k.nextField, k.prevField, k.cycleLeft, k.cycleRight,
+		},
+		{k.retry, k.fullOutput},
+		{k.confirm, k.closeOverlay, k.toggleMouse, k.toggleHelp, k.quit, k.interrupt},
 	}
+}
+
+// everyBinding is every key the keyMap holds, drawn from the same groups the
+// help shows, so a field that is not grouped is caught by the count.
+func (k keyMap) everyBinding() []key.Binding {
+	var all []key.Binding
+	for _, group := range k.FullHelp() {
+		all = append(all, group...)
+	}
+
+	return all
 }
 
 // helpGroups names the groups FullHelp returns, in the same order.
 func helpGroups() []string {
-	return []string{"Moving around", "Issues", "Branch and Commits", "Review and Slack", "Everywhere"}
+	return []string{
+		"Moving around", "Issues", "Branch and Commits", "Review and Slack",
+		"In a composer", "While a command runs", "Everywhere",
+	}
 }
 
 // listKeys is the footer of an overlay that is a list to choose from.
