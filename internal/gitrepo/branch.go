@@ -252,6 +252,38 @@ func CreateBranch(ctx context.Context, run Runner, dir, name, start string) erro
 	return nil
 }
 
+// LocalBranches lists the repository's local branches, most recently committed
+// to first, so a switcher offers the ones most likely to be picked up again.
+func LocalBranches(ctx context.Context, run Runner, dir string) ([]string, error) {
+	out, err := run(ctx, gitProgram, "-C", dir,
+		"for-each-ref", "--format=%(refname:short)", "--sort=-committerdate", "refs/heads")
+	if err != nil {
+		return nil, fmt.Errorf("listing branches: %w", err)
+	}
+
+	var branches []string
+
+	//nolint:modernize // SplitSeq returns a range-over-func iterator, which crashes gobco.
+	for _, name := range strings.Split(text(out), "\n") {
+		if name != "" && sanitize.Line(name) == name {
+			branches = append(branches, name)
+		}
+	}
+
+	return branches, nil
+}
+
+// Checkout switches to a branch. It carries nothing across: the interface
+// refuses a dirty tree before calling this, leaving stashing to the person.
+func Checkout(ctx context.Context, run Runner, dir, name string) error {
+	_, err := run(ctx, gitProgram, "-C", dir, "switch", name)
+	if err != nil {
+		return fmt.Errorf("switching to %s: %w", name, err)
+	}
+
+	return nil
+}
+
 // FetchCommand updates the remote-tracking refs from origin, so a branch starts
 // from what origin holds now rather than from whenever the user last fetched.
 //

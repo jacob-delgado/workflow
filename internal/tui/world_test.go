@@ -70,9 +70,12 @@ type world struct {
 	postedChannel string
 
 	branch      gitrepo.Branch
+	branches    []string
+	branchesErr error
 	changes     []gitrepo.Change
 	stageErr    error
 	createErr   error
+	checkoutErr error
 	fetchErr    error
 	commitLines []string
 	commitErr   error
@@ -251,56 +254,6 @@ func (w *world) jiraDeps() tui.JiraDeps {
 			return w.linkErr
 		},
 		BrowseURL: func(key string) string { return "https://jira.example.com/browse/" + key },
-	}
-}
-
-// gitDeps fakes the repository.
-func (w *world) gitDeps() tui.GitDeps {
-	return tui.GitDeps{
-		Branch: func() (gitrepo.Branch, error) {
-			w.record("branch")
-
-			return w.branch, nil
-		},
-		Changes: func() ([]gitrepo.Change, error) {
-			w.record("changes")
-
-			return slices.Clone(w.changes), nil
-		},
-		Stage: func(change gitrepo.Change) error {
-			w.record("stage " + change.Path)
-
-			return w.stageErr
-		},
-		Unstage: func(change gitrepo.Change) error {
-			w.record("unstage " + change.Path)
-
-			return w.stageErr
-		},
-		CreateBranch: func(name, start string) error {
-			w.record("create " + name + " from " + start)
-
-			return w.createErr
-		},
-		Fetch: func() error {
-			w.record("fetch")
-
-			return w.fetchErr
-		},
-		Commit: func(message string) (proc.Output, error) {
-			w.record("commit " + message)
-
-			if w.commitStartErr != nil {
-				return proc.Output{}, w.commitStartErr
-			}
-
-			return output(w.commitLines, w.commitErr), nil
-		},
-		Push: func(branch string) (proc.Output, error) {
-			w.record("push " + branch)
-
-			return output(w.pushLines, w.pushErr), nil
-		},
 	}
 }
 

@@ -165,11 +165,20 @@ func (m Model) branchKeys() []key.Binding {
 
 	keys := []key.Binding{m.keys.newBranch}
 
+	if m.canSwitchTask() {
+		keys = append(keys, m.keys.switchTask)
+	}
+
 	if m.canPush() {
 		keys = append(keys, m.keys.push)
 	}
 
 	return append(keys, m.keys.refresh)
+}
+
+// canSwitchTask reports that the repository can list and switch branches.
+func (m Model) canSwitchTask() bool {
+	return m.deps.Git.Branches != nil && m.deps.Git.Checkout != nil
 }
 
 // canPush reports a branch with something to push.
@@ -200,6 +209,8 @@ func (m Model) handleBranchKey(msg tea.KeyMsg) (Model, tea.Cmd) {
 	switch {
 	case key.Matches(msg, m.keys.newBranch):
 		return m.openBranchCreator()
+	case key.Matches(msg, m.keys.switchTask) && m.canSwitchTask():
+		return m.openBranchPicker()
 	case key.Matches(msg, m.keys.push) && m.canPush():
 		return m.previewPush()
 	case key.Matches(msg, m.keys.refresh):
