@@ -20,6 +20,9 @@ import (
 // review has a handful; one with hundreds is a merge nobody reads in a pane.
 const commitLimit = 200
 
+// gitProgram is the program every command here runs.
+const gitProgram = "git"
+
 // logSeparator is what git writes after a commit's hash and, under -z, after its
 // subject. A subject may hold any byte but this one: git refuses a commit
 // message with a NUL in it, which is what makes it safe to split on.
@@ -249,6 +252,20 @@ func CreateBranch(ctx context.Context, run Runner, dir, name, start string) erro
 	return nil
 }
 
+// FetchCommand updates the remote-tracking refs from origin, so a branch starts
+// from what origin holds now rather than from whenever the user last fetched.
+//
+// Prompts are off, as they are for a push: a fetch can need a credential, and
+// nobody can answer for one from inside the interface.
+func FetchCommand(dir string) proc.Command {
+	return proc.Command{
+		Dir:  dir,
+		Name: gitProgram,
+		Args: []string{"fetch", "origin"},
+		Env:  []string{"GIT_TERMINAL_PROMPT=0"},
+	}
+}
+
 // PushCommand pushes a branch to origin and makes it the upstream.
 //
 // Prompts are off: nobody can answer a credential prompt from inside the
@@ -257,7 +274,7 @@ func CreateBranch(ctx context.Context, run Runner, dir, name, start string) erro
 func PushCommand(dir, branch string) proc.Command {
 	return proc.Command{
 		Dir:  dir,
-		Name: "git",
+		Name: gitProgram,
 		Args: []string{"push", "--set-upstream", "origin", branch},
 		Env:  []string{"GIT_TERMINAL_PROMPT=0"},
 	}
@@ -266,7 +283,7 @@ func PushCommand(dir, branch string) proc.Command {
 // CommitCommand commits the index with the message in a file. It is a plain
 // git commit, so the repository's hooks run exactly as they do in a terminal.
 func CommitCommand(dir, messageFile string) proc.Command {
-	return proc.Command{Dir: dir, Name: "git", Args: []string{"commit", "--file", messageFile}, Env: nil}
+	return proc.Command{Dir: dir, Name: gitProgram, Args: []string{"commit", "--file", messageFile}, Env: nil}
 }
 
 // HooksDir is where git looks for this repository's hooks, which core.hooksPath

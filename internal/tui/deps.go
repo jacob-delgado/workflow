@@ -56,6 +56,9 @@ type GitDeps struct {
 	Stage        func(change gitrepo.Change) error
 	Unstage      func(change gitrepo.Change) error
 	CreateBranch func(name, start string) error
+	// Fetch updates origin's tracking refs, so a new branch starts from what
+	// origin holds now. Nil when there is no repository.
+	Fetch func() error
 	// Commit and Push stream their output, because hooks run inside both.
 	Commit func(message string) (proc.Output, error)
 	Push   func(branch string) (proc.Output, error)
