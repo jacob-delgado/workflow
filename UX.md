@@ -317,19 +317,6 @@ Impact: medium · Effort: small
 - Done when: the headline names the step that failed, and the full output of
   a finished run can always be read.
 
-### UX-22 Free the editing keys inside text fields
-
-Impact: low · Effort: small
-
-- Today: `ctrl+e` opens the editor from both composers, and `ctrl+d` toggles
-  "draft" in the pull request composer. Inside a text field those are the
-  standard "end of line" and "delete forward" keys, and the text input would
-  handle them if the composer did not take them first. `end` and `delete`
-  still work.
-- Instead: move the two actions to chords a text field does not use.
-- Touches: `internal/tui/keys.go`.
-- Done when: `ctrl+e` moves the cursor to the end of the subject.
-
 ## Review
 
 ### UX-23 Do not say "the forge did not answer" when it was never asked

@@ -187,7 +187,7 @@ func TestABodyThatCannotBeEditedLeavesTheComposerAsItWas(t *testing.T) {
 			composer := typing(t, failing.live(t, 120, 40), tt.keys...)
 
 			// Act
-			view := typing(t, composer, "ctrl+e").View()
+			view := typing(t, composer, "ctrl+o").View()
 
 			// Assert
 			requireScreen(t, view, tt.title, "✗ the editor exited with an error")
@@ -205,7 +205,7 @@ func TestWithoutAnEditorTheBodyCannotBeEdited(t *testing.T) {
 	composer := typing(t, drain(t, model, model.Init()), "3", "c")
 
 	// Act
-	after, cmd := pressed(t, composer, "ctrl+e")
+	after, cmd := pressed(t, composer, "ctrl+o")
 
 	// Assert
 	if cmd != nil || after.View() != composer.View() {
@@ -223,7 +223,7 @@ func TestThePullRequestComposerWorksWithoutTemplatesOrAnEditor(t *testing.T) {
 	model = drain(t, model, model.Init())
 
 	// Act
-	composer := typing(t, model, "4", "n", "ctrl+e", "ctrl+t", keyTab, keyTab)
+	composer := typing(t, model, "4", "n", "ctrl+o", "ctrl+t", keyTab, keyTab)
 
 	// Assert
 	requireScreen(t, composer.View(), "no template in this repository", "▸ title  >")

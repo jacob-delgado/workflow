@@ -168,7 +168,7 @@ func (c commitComposer) footnotes() []string {
 	lines := []string{}
 
 	if strings.TrimSpace(c.body) == "" {
-		lines = append(lines, "no body yet: ctrl+e writes one in your editor")
+		lines = append(lines, "no body yet: ctrl+o writes one in your editor")
 	} else {
 		body := strings.Split(strings.TrimSpace(c.body), "\n")
 		lines = append(lines, body[:min(len(body), bodyPreviewLines)]...)
