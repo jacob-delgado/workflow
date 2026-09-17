@@ -439,7 +439,7 @@ func TestThePickerFitsANarrowTerminal(t *testing.T) {
 
 	// Arrange
 	fake := &fakeJira{moves: workflowMoves()}
-	model := started(t, sized(t, tui.New(completeConfig(), nil, fake.deps(twoIssues())), 80, 30))
+	model := started(t, sized(t, tui.New(completeConfig(), nil, fake.deps(twoIssues())), 79, 30))
 
 	// Act
 	view := openPicker(t, model).View()

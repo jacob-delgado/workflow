@@ -249,7 +249,7 @@ func TestANarrowTerminalCollapsesTheRail(t *testing.T) {
 	t.Parallel()
 
 	// Act
-	view := sized(t, tui.New(completeConfig(), nil, tui.Deps{}), 80, 30).View()
+	view := sized(t, tui.New(completeConfig(), nil, tui.Deps{}), 79, 30).View()
 
 	// Assert
 	// Focus still means something: the detail is titled with the focused pane.
