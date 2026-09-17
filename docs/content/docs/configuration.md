@@ -70,6 +70,7 @@ which one was read.
 | `ui.mouse` | no | Capture the mouse, so a click focuses a pane or selects a row. Defaults to `true`. |
 | `ui.ascii` | no | Draw borders and glyphs in plain ASCII. Defaults to `false`. |
 | `ui.color` | no | `never` turns off the system hues; bold, faint and the cursor stay. Empty (the default) draws them. `NO_COLOR` also turns them off. |
+| `ui.notify` | no | Ring the terminal (and raise a desktop notification where it relays one) when CI finishes. Defaults to `false`. |
 | `branch.template` | no | Shape of a proposed branch name from `{prefix}`, `{key}` and `{slug}`. Must contain `{key}`. Defaults to `{prefix}/{key}-{slug}`. |
 | `branch.prefixes` | no | Map from issue type to branch prefix, e.g. `{"bug": "bugfix"}`. The type is matched without regard to case, and this replaces the built-in `{"bug": "fix"}` rather than adding to it. |
 | `branch.default_prefix` | no | Prefix for an issue type not named in `branch.prefixes`. Defaults to `feat`. |
@@ -237,6 +238,14 @@ and magenta of the spine, and the red of a failure — while keeping bold, faint
 and the reverse-video cursor, which carry the same meaning without color.
 Setting the `NO_COLOR` environment variable to any value does the same. The
 glyphs already say by shape what the colors say by hue, so nothing is lost.
+
+`ui.notify`, off unless you turn it on, rings the terminal when CI finishes —
+passes or fails — so you can open a pull request, switch to something else, and
+be told rather than checking back. On a terminal that understands the OSC 9
+notification sequence it also raises a desktop notification; the rest just ring.
+While it is on and no `timing.ci_interval` is set, CI is polled every three
+minutes rather than every twenty seconds, since a notification you stepped away
+for is not in a hurry.
 
 A setting left out of the file keeps its default, so a configuration written
 before these existed behaves exactly as it did.

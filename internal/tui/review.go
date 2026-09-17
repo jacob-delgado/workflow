@@ -106,19 +106,41 @@ type ciChecked struct {
 	err    error
 }
 
-// apply records CI, posts a message that was waiting for it, and keeps asking
-// while there is something to wait for.
+// apply records CI, posts a message that was waiting for it, rings the terminal
+// if CI has just finished, and keeps asking while there is something to wait for.
 func (msg ciChecked) apply(m Model) (Model, tea.Cmd) {
 	if !m.review.found || msg.number != m.review.pull.Number {
 		return m, nil
 	}
 
+	was := m.review.ci.State
 	m.review.ci, m.review.ciErr, m.review.checked = msg.ci, msg.err, true
 	m.review.checkedAt = m.deps.now()
 
+	ring := m.ciFinishNotice(was, msg.ci.State)
+
 	m, post := m.postIfGreen()
 
-	return m.keepPolling(post)
+	return m.keepPolling(tea.Batch(post, ring))
+}
+
+// ciFinishNotice rings the terminal once when CI has just gone from running to a
+// settled result, if the developer asked to be told and the interface can reach
+// the terminal to ring it. It fires only on the change, not on later checks that
+// find CI already finished.
+func (m Model) ciFinishNotice(was, now forge.CIState) tea.Cmd {
+	settled := now == forge.CIPassed || now == forge.CIFailed
+	if !m.cfg.UI.Notify || m.deps.Notify == nil || was != forge.CIRunning || !settled {
+		return nil
+	}
+
+	notify := m.deps.Notify
+
+	return func() tea.Msg {
+		notify()
+
+		return nil
+	}
 }
 
 // keepPolling schedules the next check while CI runs or a post waits, unless
@@ -131,7 +153,23 @@ func (m Model) keepPolling(then tea.Cmd) (Model, tea.Cmd) {
 
 	m.review.polling = true
 
-	return m, tea.Batch(then, tea.Tick(m.deps.ciInterval(), func(time.Time) tea.Msg { return ciPoll{} }))
+	return m, tea.Batch(then, tea.Tick(m.pollInterval(), func(time.Time) tea.Msg { return ciPoll{} }))
+}
+
+// notifyPollInterval is how often CI is asked about when the developer only
+// wants to be told it finished: a slower beat than the post-when-green path,
+// because a notification the developer stepped away for is not in a hurry.
+const notifyPollInterval = 3 * time.Minute
+
+// pollInterval is how long to wait before asking about CI again. A post waiting
+// on CI wants a prompt answer, and a configured interval is always honored; a
+// bare notification, with no interval set, is content with a slower beat.
+func (m Model) pollInterval() time.Duration {
+	if m.cfg.UI.Notify && !m.slack.pending.waiting() && m.deps.CIInterval <= 0 {
+		return notifyPollInterval
+	}
+
+	return m.deps.ciInterval()
 }
 
 // ciPoll is time to ask about CI again.

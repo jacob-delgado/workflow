@@ -68,7 +68,19 @@ func Deps(ctx context.Context, cfg config.Config, where Workspace, log *RequestL
 		Editor:     editorDeps(where.Root),
 		Clock:      nil,
 		CIInterval: cfg.CIInterval(),
+		Notify:     ringTerminal,
 	}
+}
+
+// ciFinished is a terminal bell followed by an OSC 9 desktop notification. A
+// terminal that understands OSC 9 raises a system notification; the rest ignore
+// it. Neither needs a dependency.
+const ciFinished = "\a\x1b]9;CI finished\a"
+
+// ringTerminal rings the terminal CI is being watched from. It writes to the
+// same standard output the interface draws on, which is the terminal.
+func ringTerminal() {
+	_, _ = os.Stdout.WriteString(ciFinished)
 }
 
 // requestTimeout is the configured per-request timeout, or the default when none

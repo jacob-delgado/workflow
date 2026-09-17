@@ -36,6 +36,10 @@ type Deps struct {
 	// CIInterval is how often CI is asked about while it runs, or while a post
 	// waits for it to pass. Zero means every twenty seconds.
 	CIInterval time.Duration
+	// Notify rings the terminal and sends a desktop notification, for when CI
+	// finishes while the developer is looking elsewhere. Nil where the interface
+	// cannot reach the terminal to ring it.
+	Notify func()
 }
 
 // JiraDeps is what the interface asks of Jira.

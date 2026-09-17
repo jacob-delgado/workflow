@@ -121,6 +121,10 @@ type UI struct {
 	// terminal allows, "never" turns them off while keeping bold, faint and the
 	// reverse-video cursor, which carry meaning without color.
 	Color string `json:"color"`
+	// Notify rings the terminal, and sends a desktop notification where the
+	// terminal relays one, when CI finishes — so a developer who stepped away is
+	// told rather than having to check back. Off unless set.
+	Notify bool `json:"notify"`
 }
 
 // DrawColor reports whether the system hues should be drawn. NO_COLOR (set to
