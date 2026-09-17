@@ -10,9 +10,12 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"os"
 
 	"github.com/charmbracelet/bubbles/key"
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/charmbracelet/lipgloss"
+	"github.com/muesli/termenv"
 
 	"github.com/jacob-delgado/workflow/internal/config"
 	"github.com/jacob-delgado/workflow/internal/tui/layout"
@@ -86,7 +89,7 @@ func New(cfg config.Config, loadErr error, deps Deps) Model {
 
 	return Model{
 		cfg: cfg, loadErr: loadErr, deps: deps,
-		keys: newKeyMap(marks, vocab.noun), styles: newStyles(), marks: marks, vocab: vocab,
+		keys: newKeyMap(marks, vocab.noun), styles: newStyles(true), marks: marks, vocab: vocab,
 		width: defaultWidth, height: defaultHeight,
 		focus: paneIssues, mouse: cfg.UI.Mouse,
 	}
@@ -101,9 +104,26 @@ func (m Model) WithDryRun() Model {
 	return m
 }
 
+// WithoutColor draws no hue while keeping the bold, faint and reverse that carry
+// meaning without it.
+func (m Model) WithoutColor() Model {
+	m.styles = newStyles(false)
+
+	return m
+}
+
 // Run starts the interface and blocks until the user quits. The context cancels
 // the program, so a caller can shut the interface down.
 func Run(ctx context.Context, model Model, out io.Writer) error {
+	// NO_COLOR and ui.color "never" drop the hues, but not the bold, faint and
+	// reverse-video cursor that carry meaning without them: force a profile that
+	// keeps those, then strip the hues at the style level.
+	if !model.cfg.UI.DrawColor(os.Getenv("NO_COLOR")) {
+		lipgloss.SetColorProfile(termenv.ANSI)
+
+		model = model.WithoutColor()
+	}
+
 	options := []tea.ProgramOption{
 		tea.WithOutput(out),
 		tea.WithContext(ctx),

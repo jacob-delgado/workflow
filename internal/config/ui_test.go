@@ -26,6 +26,10 @@ func TestUISettingsKeepTheirDefaultsUnlessAValidFileSetsThem(t *testing.T) {
 		"mouse turned off": {contents: `{"ui": {"mouse": false}}`, want: config.UI{Mouse: false, ASCII: false}},
 		// Naming one setting must not reset the other to its zero value.
 		"only ascii named": {contents: `{"ui": {"ascii": true}}`, want: config.UI{Mouse: true, ASCII: true}},
+		"color set to never": {
+			contents: `{"ui": {"color": "never"}}`,
+			want:     config.UI{Mouse: true, ASCII: false, Color: "never"},
+		},
 		// A file that does not load still leaves the interface its defaults, so
 		// it opens with the mouse working to say what is wrong.
 		"a setting of the wrong type": {contents: `{"ui": {"mouse": "yes"}}`, want: defaults, wantErr: config.ErrInvalid},
@@ -45,6 +49,31 @@ func TestUISettingsKeepTheirDefaultsUnlessAValidFileSetsThem(t *testing.T) {
 			// Assert
 			if !errors.Is(err, tt.wantErr) || cfg.UI != tt.want {
 				t.Errorf("LoadFile = %+v, %v; want %+v, %v", cfg.UI, err, tt.want, tt.wantErr)
+			}
+		})
+	}
+}
+
+func TestColorIsOffUnderNoColorOrTheSetting(t *testing.T) {
+	t.Parallel()
+
+	cases := map[string]struct {
+		ui      config.UI
+		noColor string
+		want    bool
+	}{
+		"default draws color": {ui: config.UI{}, noColor: "", want: true},
+		"NO_COLOR set":        {ui: config.UI{}, noColor: "1", want: false},
+		"ui.color never":      {ui: config.UI{Color: "never"}, noColor: "", want: false},
+	}
+
+	for name, tt := range cases {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			// Act & Assert
+			if got := tt.ui.DrawColor(tt.noColor); got != tt.want {
+				t.Errorf("DrawColor(%q) with %+v = %v, want %v", tt.noColor, tt.ui, got, tt.want)
 			}
 		})
 	}

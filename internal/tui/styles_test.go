@@ -70,3 +70,27 @@ func TestEmptyStateSentencesAreNotDrawnFaint(t *testing.T) {
 		})
 	}
 }
+
+//nolint:paralleltest // forceANSI owns the global color profile; must run serially.
+func TestNoColorKeepsTheCursorButDropsTheHue(t *testing.T) {
+	// Arrange
+	defer forceANSI(t)()
+
+	// Color removed, with a text field open so a cursor is on screen.
+	model := newWorld().live(t, 120, 40).WithoutColor()
+	field := typing(t, model, "2", "b")
+
+	// Act
+	view := field.View()
+
+	// Assert
+	for _, hue := range []string{"\x1b[31m", "\x1b[32m", "\x1b[33m", "\x1b[34m", "\x1b[35m"} {
+		if strings.Contains(view, hue) {
+			t.Errorf("a hue %q is drawn with color off:\n%q", hue, view)
+		}
+	}
+
+	if !strings.Contains(view, "\x1b[7m") {
+		t.Errorf("the text cursor is gone with color off:\n%q", view)
+	}
+}
