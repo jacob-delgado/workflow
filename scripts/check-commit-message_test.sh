@@ -45,6 +45,17 @@ expect refuse "no type" "add issue transition command"
 expect refuse "an unknown type" "feature: add issue transition command"
 expect refuse "an empty message" ""
 
+# CLAUDE.md: subject ≤ 72 characters, no trailing period.
+expect refuse "a subject over 72 characters" "feat: $(printf 'x%.0s' {1..70})"
+expect accept "a subject at exactly 72 characters" "feat: $(printf 'x%.0s' {1..66})"
+expect refuse "a subject ending in a period" "fix: redact the token."
+
+# Under `git commit -v` the message file carries the diff below a scissors line,
+# and git's boilerplate comment lines above it; neither is the commit message,
+# so a BREAKING-CHANGE in a diff hunk must not refuse the commit.
+expect accept "a diff below the scissors line is ignored" "$(printf 'feat: add a thing\n\nA real body.\n# ------------------------ >8 ------------------------\ndiff --git a/x b/x\n+BREAKING-CHANGE: in the diff, not the message')"
+expect accept "a commented example is ignored" "$(printf 'feat: add a thing\n\nReal body.\n# BREAKING-CHANGE: only an example in a comment')"
+
 # The message that made release-please propose 0.1.0 for a docs change: a
 # wrapped sentence left "BREAKING CHANGE:" at the start of a line.
 expect refuse "a wrapped sentence that reads as a breaking footer" "docs: correct the pre-1.0 version bump rules
