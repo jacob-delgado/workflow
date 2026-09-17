@@ -183,12 +183,24 @@ func (m Model) handleHelpKey(msg tea.KeyMsg) (Model, tea.Cmd) {
 	return m, nil
 }
 
+// quitOrGuard quits, unless a post is waiting for CI, in which case it asks
+// first: quitting would lose the post without a word.
+func (m Model) quitOrGuard() (Model, tea.Cmd) {
+	if m.slack.pending.waiting() {
+		m.overlay = quitGuard{}
+
+		return m, nil
+	}
+
+	return m, tea.Quit
+}
+
 // handleGlobalKey answers the keys that work in every pane, and hands the rest
 // to the focused one.
 func (m Model) handleGlobalKey(msg tea.KeyMsg) (Model, tea.Cmd) {
 	switch {
 	case key.Matches(msg, m.keys.quit):
-		return m, tea.Quit
+		return m.quitOrGuard()
 	case key.Matches(msg, m.keys.toggleHelp):
 		m.helpOpen, m.scroll = true, 0
 	case key.Matches(msg, m.keys.next):

@@ -30,9 +30,15 @@ type slackState struct {
 	// again until it does.
 	sending bool
 	pending queuedPost
+	// dropped records a post given up on and why, so the reason outlives the
+	// transient footer notice that first reports it.
+	dropped string
 	err     error
 	author  string
 }
+
+// droppedTimeFormat stamps a dropped post with the time it was given up on.
+const droppedTimeFormat = "15:04"
 
 // queuedPost is a message waiting for one pull request's CI to pass. It names
 // the pull request it was written for, because the one on screen can change
@@ -45,6 +51,34 @@ type queuedPost struct {
 // waiting reports a post that has not been sent or given up on.
 func (q queuedPost) waiting() bool {
 	return q.text != ""
+}
+
+// quitGuard asks before quitting while a post is waiting for CI, which quitting
+// would silently lose.
+type quitGuard struct{}
+
+var _ overlay = quitGuard{}
+
+// view says what quitting would cost.
+func (quitGuard) view(width, _ int) (string, string) {
+	return "Quit", wrap("A post is waiting for CI and will be lost.", width)
+}
+
+// footer offers quitting anyway or staying.
+func (quitGuard) footer(keys keyMap) []key.Binding {
+	return []key.Binding{relabel(keys.confirm, "quit"), relabel(keys.closeOverlay, "stay")}
+}
+
+// handleKey answers a key while the guard is shown.
+func (quitGuard) handleKey(m Model, msg tea.KeyMsg) (Model, tea.Cmd) {
+	switch {
+	case key.Matches(msg, m.keys.confirm):
+		return m, tea.Quit
+	case key.Matches(msg, m.keys.closeOverlay):
+		return m.closeOverlay(), nil
+	default:
+		return m, nil
+	}
 }
 
 // loadAuthor is the command that asks the forge who opened the pull request.
@@ -103,6 +137,8 @@ func (m Model) slackState() string {
 		return m.marks.done + " posted"
 	case m.slack.pending.waiting():
 		return m.marks.inFlight + " posts when CI passes"
+	case m.slack.dropped != "":
+		return m.marks.failed + " not posted: " + m.slack.dropped
 	default:
 		return m.marks.notStarted + " nothing posted"
 	}
@@ -245,7 +281,7 @@ func (p slackPreview) postWhenGreen(m Model) (Model, tea.Cmd) {
 	}
 
 	m = m.closeOverlay().noticed(m.marks.inFlight + " will post to " + p.target + " once CI passes")
-	m.slack.pending, m.slack.err = queuedPost{pull: m.review.pull.Number, text: p.text}, nil
+	m.slack.pending, m.slack.err, m.slack.dropped = queuedPost{pull: m.review.pull.Number, text: p.text}, nil, ""
 
 	return m.keepPolling(m.checkCI())
 }
@@ -254,7 +290,7 @@ func (p slackPreview) postWhenGreen(m Model) (Model, tea.Cmd) {
 // otherwise follow it once CI passed, and the channel would read it twice.
 func (m Model) sendToSlack(text string) (Model, tea.Cmd) {
 	post, pull := m.deps.Slack.Post, m.review.pull.Number
-	m.slack.sending, m.slack.pending = true, queuedPost{}
+	m.slack.sending, m.slack.pending, m.slack.dropped = true, queuedPost{}, ""
 
 	return m, func() tea.Msg { return slackPosted{pull: pull, err: post(text)} }
 }
@@ -289,6 +325,7 @@ func (m Model) postIfGreen() (Model, tea.Cmd) {
 		return m.sendToSlack(m.slack.pending.text)
 	case forge.CIFailed:
 		m.slack.pending = queuedPost{}
+		m.slack.dropped = "CI failed at " + m.deps.now().Format(droppedTimeFormat)
 
 		return m.noticed(m.marks.failed + " CI failed, so nothing was posted to Slack"), nil
 	case forge.CINone, forge.CIRunning:
