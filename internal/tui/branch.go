@@ -169,7 +169,7 @@ func (m Model) branchKeys() []key.Binding {
 		keys = append(keys, m.keys.push)
 	}
 
-	return keys
+	return append(keys, m.keys.refresh)
 }
 
 // canPush reports a branch with something to push.

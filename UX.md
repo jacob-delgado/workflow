@@ -51,7 +51,7 @@ one of them yet, which makes this table the shortest summary of the file.
 
 | The promise | Where it is made | Kept? |
 | --- | --- | --- |
-| "a key it does not show does nothing" | `docs/content/docs/usage.md:55` | No. Ten keys work unseen. UX-32 |
+| "a key it does not show does nothing" | `docs/content/docs/usage.md:55` | No. Ten keys work unseen. |
 | "`?` lists every key" | `docs/content/docs/usage.md:56` | No. Eleven bindings are missing. UX-33 |
 | "the one way the interface says something broke" | `failure`, `internal/tui/render.go:277` | In 7 places of about 20. |
 | "Nothing outward facing is sent without" a last look | `internal/tui/comment.go:43` | Mostly. |
@@ -72,23 +72,6 @@ one of them yet, which makes this table the shortest summary of the file.
 ## Slack
 
 ## Across the interface
-
-### UX-32 Make the bottom row keep its promise, or change the promise
-
-Impact: medium · Effort: small
-
-- Today: the usage guide says "a key it does not show does nothing". These
-  work without being shown: `r` in the Issues pane when an issue is selected,
-  `r` in the Branch and Commits panes, `j`/`k`, `J`/`K`, `pgup`/`pgdn`,
-  `shift+tab` and `m`. Pressing `r` in each pane was confirmed to reload.
-- Instead: show `r` wherever it works, since it is a pane action. Then say
-  what the row really is: "the bottom row shows what this pane can do right
-  now; `?` has the keys for moving around."
-- Touches: `internal/tui/detail.go` (`issuesKeys`), `internal/tui/branch.go`
-  (`branchKeys`), `internal/tui/commits.go` (`commitsKeys`),
-  `docs/content/docs/usage.md`, `README.md`.
-- Done when: every pane action that works is in the bottom row, and the docs
-  describe the row as it is.
 
 ### UX-33 A help screen that knows where you are
 

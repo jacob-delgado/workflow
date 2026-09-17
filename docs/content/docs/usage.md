@@ -51,9 +51,10 @@ workflow --dry-run  # the same, with every write held back
   border and the most room; the rest keep a few rows each.
 - **The detail pane** on the right shows the focused pane in full. Pickers,
   composers and previews open here too, and take the keyboard until they close.
-- **The bottom row** is the keys that do something right now. It changes with
-  the pane and with what that pane has loaded, so a key it does not show does
-  nothing. `?` lists every key.
+- **The bottom row** shows what the focused pane can do right now; it changes
+  with the pane and with what that pane has loaded. On a narrow terminal the
+  keys that do not fit are dropped whole and an ellipsis says so. `?` lists
+  every key.
 
 Each pane fails on its own. A Jira that cannot be reached puts its reason in
 the Issues pane, and the repository panes carry on.

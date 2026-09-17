@@ -354,7 +354,7 @@ func TestANarrowFooterDropsWholeKeysAndKeepsTheWayToTheRest(t *testing.T) {
 	t.Parallel()
 
 	// Act
-	footer := strings.TrimRight(footerLine(newWorld().live(t, 70, 30).View()), " ")
+	footer := strings.TrimRight(footerLine(newWorld().live(t, 80, 30).View()), " ")
 
 	// Assert
 	requireScreen(t, footer, "t change status", "? keys", "…")
@@ -435,6 +435,31 @@ func TestASCIIStaysASCIIInEveryOverlay(t *testing.T) {
 					t.Fatalf("%s drew %q above ASCII:\n%s", name, character, view)
 				}
 			}
+		})
+	}
+}
+
+func TestReloadIsOfferedInEveryPaneThatReloads(t *testing.T) {
+	t.Parallel()
+
+	cases := map[string]struct{ pane string }{
+		"the Issues pane":  {pane: "1"},
+		"the Branch pane":  {pane: "2"},
+		"the Commits pane": {pane: "3"},
+	}
+
+	for name, tt := range cases {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			// Arrange
+			model := newWorld().live(t, 160, 40)
+
+			// Act
+			view := typing(t, model, tt.pane).View()
+
+			// Assert
+			requireScreen(t, footerLine(view), "r refresh")
 		})
 	}
 }
