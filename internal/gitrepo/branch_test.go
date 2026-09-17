@@ -7,6 +7,7 @@ import (
 	"errors"
 	"slices"
 	"testing"
+	"time"
 
 	"github.com/jacob-delgado/workflow/internal/gitrepo"
 	"github.com/jacob-delgado/workflow/internal/proc"
@@ -33,6 +34,7 @@ func featureBranch() map[string]reply {
 		logFromMain: {
 			out: []byte(firstHash + "\x00fix(config): redact tokens\x00" + secondHash + "\x00test: cover the empty token\x00"),
 		},
+		baseAge + originMain: {out: []byte(baseUpdatedISO + "\n")},
 	}
 }
 
@@ -50,7 +52,11 @@ const (
 	logFromMain  = logCommits + "origin/main..HEAD"
 	readHooksDir = "git -C /work rev-parse --git-path hooks"
 	originsHead  = "git -C /work symbolic-ref --quiet --short refs/remotes/origin/HEAD"
+	baseAge      = "git -C /work log -1 --format=%cI "
 )
+
+// baseUpdatedISO is when featureBranch's base last moved, as git writes %cI.
+const baseUpdatedISO = "2026-09-13T16:00:00Z"
 
 // firstHash and secondHash are the abbreviated hashes of featureBranch's
 // commits, and secondSubject a subject the log cases give the second one.
@@ -79,14 +85,15 @@ func TestReadBranchReadsWhereTheBranchStands(t *testing.T) {
 
 	// Assert
 	want := gitrepo.Branch{
-		Name:     "fix/PROJ-412-token-redaction",
-		Detached: false,
-		Head:     "9f0e3885f06a",
-		Upstream: "origin/fix/PROJ-412-token-redaction",
-		Ahead:    2,
-		Behind:   1,
-		Base:     originMain,
-		Commits:  featureCommits(),
+		Name:        "fix/PROJ-412-token-redaction",
+		Detached:    false,
+		Head:        "9f0e3885f06a",
+		Upstream:    "origin/fix/PROJ-412-token-redaction",
+		Ahead:       2,
+		Behind:      1,
+		Base:        originMain,
+		BaseUpdated: baseUpdatedTime(t),
+		Commits:     featureCommits(),
 	}
 
 	if !equalBranches(branch, want) {
@@ -98,6 +105,19 @@ func TestReadBranchReadsWhereTheBranchStands(t *testing.T) {
 	}
 }
 
+// baseUpdatedTime is baseUpdatedISO parsed, so a test can compare against the
+// time ReadBranch reads from git's %cI.
+func baseUpdatedTime(t *testing.T) time.Time {
+	t.Helper()
+
+	parsed, err := time.Parse(time.RFC3339, baseUpdatedISO)
+	if err != nil {
+		t.Fatalf("parsing baseUpdatedISO: %v", err)
+	}
+
+	return parsed
+}
+
 // equalBranches compares two branches field by field.
 func equalBranches(got, want gitrepo.Branch) bool {
 	commits := got.Commits
@@ -105,7 +125,7 @@ func equalBranches(got, want gitrepo.Branch) bool {
 
 	return got.Name == want.Name && got.Detached == want.Detached && got.Head == want.Head &&
 		got.Upstream == want.Upstream && got.Ahead == want.Ahead && got.Behind == want.Behind &&
-		got.Base == want.Base && slices.Equal(commits, want.Commits)
+		got.Base == want.Base && got.BaseUpdated.Equal(want.BaseUpdated) && slices.Equal(commits, want.Commits)
 }
 
 func TestABranchIsPushedOnlyWhenItsOwnUpstreamHasEverything(t *testing.T) {
@@ -186,6 +206,10 @@ func TestTheBaseFallsBackWhenOriginNamesNoDefault(t *testing.T) {
 
 			delete(replies, logFromMain)
 			replies[logCommits+tt.want+"..HEAD"] = reply{}
+
+			if tt.want != "" {
+				replies[baseAge+tt.want] = reply{out: []byte(baseUpdatedISO + "\n")}
+			}
 
 			// Act
 			branch, err := gitrepo.ReadBranch(t.Context(), fakeRunner(t, replies), workDir)

@@ -10,6 +10,7 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/jacob-delgado/workflow/internal/proc"
 	"github.com/jacob-delgado/workflow/internal/sanitize"
@@ -46,6 +47,9 @@ type Branch struct {
 	// Base is the branch this one would merge into — origin's default branch
 	// wherever that can be found.
 	Base string
+	// BaseUpdated is when the base last moved, so the interface can say how
+	// stale the branch it started from is. Zero when it cannot be read.
+	BaseUpdated time.Time
 	// Commits are those on this branch and not on Base, oldest first.
 	Commits []Commit
 }
@@ -94,9 +98,21 @@ func ReadBranch(ctx context.Context, run Runner, dir string) (Branch, error) {
 	if branch.Base != "" && branch.Head != "" {
 		branch.Commits = parseLog(git("log", "-z", "--reverse", "--max-count="+strconv.Itoa(commitLimit),
 			logFormat, branch.Base+"..HEAD"))
+		branch.BaseUpdated = parseTime(git("log", "-1", "--format=%cI", branch.Base))
 	}
 
 	return branch, nil
+}
+
+// parseTime reads an RFC 3339 timestamp, returning the zero time for anything
+// git did not answer with — the base's age is a nicety, never a failure.
+func parseTime(text string) time.Time {
+	parsed, err := time.Parse(time.RFC3339, text)
+	if err != nil {
+		return time.Time{}
+	}
+
+	return parsed
 }
 
 // ErrUnshowableName reports a branch whose name cannot be shown as it is.

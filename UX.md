@@ -122,18 +122,6 @@ Impact: high · Effort: small
 
 ## Branch
 
-### UX-15 Say how old the base is
-
-Impact: medium · Effort: small
-
-- Today: the overlay says "from origin/main". Nothing fetches, so that means
-  "from wherever origin/main was when you last fetched", and the screen does
-  not say when that was.
-- Instead: "from origin/main, fetched 3 days ago". FEAT-12 in
-  [FEATURES.md](FEATURES.md) goes further and fetches.
-- Touches: `internal/gitrepo/branch.go`, `internal/tui/branch.go`.
-- Done when: the overlay shows the age of the base.
-
 ## Commits
 
 ### UX-17 Put the heavy border where the cursor is
