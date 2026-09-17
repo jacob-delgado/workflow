@@ -52,7 +52,7 @@ func (m Model) rail(boxes []layout.Box) string {
 	for index, box := range boxes {
 		current := pane(index)
 
-		label := current.label()
+		label := m.paneTitle(current, current.label())
 
 		style := m.marks.border
 		if current == m.focus && m.overlay == nil {
@@ -103,11 +103,32 @@ func (m Model) detailContent(shape layout.Layout) (string, string, frame.Style) 
 		title = m.focus.label()
 	}
 
+	title = m.paneTitle(m.focus, title)
+
 	if shape.Collapsed() && behavior.narrow != nil {
 		return title, behavior.narrow(m, rows), m.marks.border
 	}
 
 	return title, scrolled(behavior.detail(m, width), m.scroll, rows), m.marks.border
+}
+
+// paneTitle adds the in-flight glyph to a pane's title while it is loading, so a
+// refresh shows in the title until the answer arrives.
+func (m Model) paneTitle(p pane, title string) string {
+	if m.loading(p) {
+		return title + " " + m.marks.inFlight
+	}
+
+	return title
+}
+
+// loading reports a pane waiting on a load it started.
+func (m Model) loading(p pane) bool {
+	if p == paneIssues {
+		return m.issues.loading
+	}
+
+	return false
 }
 
 // helpView lists every key, a group at a time, one key a line: the detail pane

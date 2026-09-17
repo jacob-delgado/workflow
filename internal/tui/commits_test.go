@@ -67,6 +67,22 @@ func TestACleanTreeSaysSo(t *testing.T) {
 	refuseScreen(t, footerLine(view), "space stage", "c commit")
 }
 
+func TestTheCommitsDetailWaitsForTheStatus(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	// A model whose status has not loaded yet: Init has not been drained.
+	model := sized(t, tui.New(completeConfig(), nil, newWorld().deps()), 120, 40)
+
+	// Act
+	view := press(t, model, "3").View()
+
+	// Assert
+	// It says it is loading, not that nothing changed.
+	requireScreen(t, view, "loading")
+	refuseScreen(t, view, "nothing changed")
+}
+
 func TestAStatusThatCannotBeReadSaysWhy(t *testing.T) {
 	t.Parallel()
 

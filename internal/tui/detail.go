@@ -172,6 +172,8 @@ func (m Model) handleIssuesKey(msg tea.KeyMsg) (Model, tea.Cmd) {
 // refreshIssues reads the list again, and the selected issue in full whether or
 // not it changed, so r retries a detail load that failed.
 func (m Model) refreshIssues() (Model, tea.Cmd) {
+	m.issues.loading = true
+
 	selected, ok := m.issues.current()
 	if !ok || m.deps.Jira.Issue == nil {
 		return m, m.searchIssues()
