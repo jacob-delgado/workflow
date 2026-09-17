@@ -207,6 +207,7 @@ func (w *world) deps() tui.Deps {
 		Editor:     w.editorDeps(),
 		Clock:      testNow,
 		CIInterval: w.ciInterval,
+		Notify:     func() { w.record("notify") },
 	}
 }
 
