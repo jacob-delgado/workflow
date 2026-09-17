@@ -57,7 +57,7 @@ func TestATransitionNeedingFieldsAsksForEachInTurn(t *testing.T) {
 	done := typing(t, cause, append(letters("nil token"), keyEnter)...)
 
 	// Assert: the move is sent once, with both values
-	requireScreen(t, done.View(), "● PROJ-412 moved to Done")
+	requireScreen(t, done.View(), "● PROJ-412 is now Done")
 
 	want := "transition PROJ-412 5 resolution=2 customfield_10200=nil token"
 	if calls := resolving.asked("transition PROJ"); len(calls) != 1 || calls[0] != want {
@@ -173,7 +173,7 @@ func TestADryRunTransitionSaysWhatItWouldDo(t *testing.T) {
 	moved := typing(t, model, "t", "j", keyEnter)
 
 	// Assert
-	requireScreen(t, moved.View(), "dry run: would move PROJ-412 to Done")
+	requireScreen(t, moved.View(), "dry run: would change PROJ-412 to Done")
 
 	if calls := dry.asked("transition "); len(calls) != 0 {
 		t.Errorf("a dry run transitioned: %q", calls)

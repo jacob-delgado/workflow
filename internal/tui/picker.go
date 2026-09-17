@@ -67,7 +67,7 @@ func (msg transitionApplied) apply(m Model) (Model, tea.Cmd) {
 		return m, nil
 	}
 
-	m = m.closeOverlay().noticed(m.marks.done + " " + msg.issueKey + " moved to " + msg.to.ToStatus)
+	m = m.closeOverlay().noticed(m.marks.done + " " + msg.issueKey + " is now " + msg.to.ToStatus)
 
 	return m, tea.Batch(m.searchIssues(), m.reloadDetail(msg.issueKey))
 }
@@ -118,7 +118,7 @@ func (p statusPicker) view(width, rows int) (string, string) {
 
 	switch {
 	case !p.settled:
-		lines = append(lines, "loading transitions"+p.marks.ellipsis)
+		lines = append(lines, "loading statuses"+p.marks.ellipsis)
 	case p.listErr != nil:
 		lines = append(lines, p.marks.failed+" "+p.listErr.Error())
 	case len(p.found) == 0:
@@ -155,7 +155,7 @@ func (p statusPicker) outcome() []string {
 	case p.sending:
 		chosen, _ := p.chosen()
 
-		return []string{"", "moving " + p.issue.Key + " to " + chosen.ToStatus + p.marks.ellipsis}
+		return []string{"", "changing " + p.issue.Key + " to " + chosen.ToStatus + p.marks.ellipsis}
 	case p.applyErr != nil:
 		return []string{"", p.marks.failed + " " + p.applyErr.Error()}
 	default:
@@ -256,7 +256,7 @@ func (p statusPicker) apply(m Model, chosen jira.Transition, values []jira.Field
 	issueKey := p.issue.Key
 
 	if m.dryRun {
-		return m.closeOverlay().noticed("dry run: would move " + issueKey + " to " + chosen.ToStatus), nil
+		return m.closeOverlay().noticed("dry run: would change " + issueKey + " to " + chosen.ToStatus), nil
 	}
 
 	p.sending, p.applyErr = true, nil

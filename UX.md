@@ -234,20 +234,6 @@ Impact: medium · Effort: small
 - Touches: `internal/tui/detail.go`.
 - Done when: after a failed detail load, `r` asks Jira for it again.
 
-### UX-09 One word for changing status
-
-Impact: low · Effort: small
-
-- Today: one action is named five ways across its flow: "change status"
-  (key), "Change status" (title), "loading transitions…", "moving PROJ-412 to
-  In Review…", "● PROJ-412 moved to In Review", and "Jira offers no status
-  change". "Transition" is Jira's word for administrators, not for the person
-  moving a ticket.
-- Instead: "status" throughout: "loading statuses…", "changing PROJ-412 to In
-  Review…", "● PROJ-412 is now In Review".
-- Touches: `internal/tui/picker.go`.
-- Done when: no string the user sees says "transition" or "move".
-
 ### UX-10 Label `esc` and `enter` for what they do in the field form
 
 Impact: low · Effort: small
