@@ -90,11 +90,21 @@ const (
 	ansiMagenta = "5"
 )
 
-// newStyles builds the styles.
-func newStyles() styles {
+// newStyles builds the styles. With color off, the hues drop to plain while
+// bold, faint and the reverse-video cursor — which carry meaning without
+// color — stay.
+func newStyles(color bool) styles {
+	label, strong := lipgloss.NewStyle().Faint(true), lipgloss.NewStyle().Bold(true)
+
+	if !color {
+		plain := lipgloss.NewStyle()
+
+		return styles{label: label, strong: strong, failure: plain, jira: plain, git: plain, forge: plain, slack: plain}
+	}
+
 	return styles{
-		label:   lipgloss.NewStyle().Faint(true),
-		strong:  lipgloss.NewStyle().Bold(true),
+		label:   label,
+		strong:  strong,
 		failure: lipgloss.NewStyle().Foreground(lipgloss.Color(ansiRed)),
 		jira:    lipgloss.NewStyle().Foreground(lipgloss.Color(ansiBlue)),
 		git:     lipgloss.NewStyle().Foreground(lipgloss.Color(ansiYellow)),

@@ -26,7 +26,8 @@ workflow reads a single JSON file, `.workflow.json`.
   },
   "ui": {
     "mouse": true,
-    "ascii": false
+    "ascii": false,
+    "color": ""
   }
 }
 ```
@@ -63,6 +64,7 @@ which one was read.
 | `forge.token` | **no** | GitHub or GitLab token. Usually leave it empty — see below. |
 | `ui.mouse` | no | Capture the mouse, so a click focuses a pane or selects a row. Defaults to `true`. |
 | `ui.ascii` | no | Draw borders and glyphs in plain ASCII. Defaults to `false`. |
+| `ui.color` | no | `never` turns off the system hues; bold, faint and the cursor stay. Empty (the default) draws them. `NO_COLOR` also turns them off. |
 
 Unknown keys are an error rather than being ignored. A misspelled key that
 loaded silently would look exactly like a credential you never set.
@@ -170,7 +172,7 @@ A `forge.kind` with no `forge.host` is reported as incomplete.
 `forge.kind` only fills that gap. On `github.com` or `gitlab.com` it is ignored,
 because the remote is the better evidence.
 
-## The interface: mouse and ASCII
+## The interface: mouse, ASCII and color
 
 `ui.mouse` is on unless you turn it off. While the interface captures the mouse,
 your terminal's own click-and-drag text selection stops working — which is the
@@ -181,6 +183,12 @@ without editing the file.
 for a terminal or font that draws them as boxes of question marks. There is no
 reliable way to detect that from inside a program, so it is a setting rather
 than a guess.
+
+`ui.color` set to `never` turns off the system hues — the blue, yellow, green
+and magenta of the spine, and the red of a failure — while keeping bold, faint
+and the reverse-video cursor, which carry the same meaning without color.
+Setting the `NO_COLOR` environment variable to any value does the same. The
+glyphs already say by shape what the colors say by hue, so nothing is lost.
 
 A setting left out of the file keeps its default, so a configuration written
 before these existed behaves exactly as it did.

@@ -246,24 +246,6 @@ shape for state (`○ ◐ ● ✗`); border weight for focus; red for failure an
 nothing else. None of that should change. The entries below are places where
 the system is not applied, or where two of its channels disagree.
 
-### UX-44 Keep a cursor under `NO_COLOR`
-
-Impact: medium · Effort: small
-
-- Today (seen live): `NO_COLOR=1` is honored, by the terminal library and not
-  by this code, and it removes every attribute, not only color. The screen
-  had no escape sequences at all. That includes the reverse-video block that
-  is the text cursor, so every text field has no visible cursor, and bold and
-  faint go too, which flattens labels into values. People who set `NO_COLOR`
-  are asking for no color. They are not asking for no cursor.
-- Instead: under `NO_COLOR`, keep bold, faint and reverse, and drop only
-  hues. Add a `ui.color` setting for "never", so the choice does not depend on
-  an environment variable alone.
-- Touches: `internal/tui/glyphs.go` (`newStyles`), `internal/tui/tui.go`
-  (`Run`), `internal/config/config.go`.
-- Done when: with `NO_COLOR=1` a text field shows its cursor and no hue is
-  drawn.
-
 ### UX-46 Give the rail its rows back
 
 Impact: low · Effort: medium
@@ -304,6 +286,6 @@ Impact: low · Effort: small
 - Why: heavy and light box-drawing differ by one pixel of stroke in many
   fonts, and the difference is the only thing that says where the keys go.
 - A version that fits: a bold title on the focused pane. It is weight, not
-  color, and it survives `NO_COLOR` once UX-44 is done.
+  color, and it survives `NO_COLOR` once  is done.
 - Done when: the focused pane can be found at a glance in a font whose heavy
   box characters look like its light ones.

@@ -99,6 +99,17 @@ type UI struct {
 	// without box-drawing characters. There is no reliable way to detect that,
 	// so it is a setting rather than a guess.
 	ASCII bool `json:"ascii"`
+	// Color is whether to draw the system hues: empty (auto) draws them when the
+	// terminal allows, "never" turns them off while keeping bold, faint and the
+	// reverse-video cursor, which carry meaning without color.
+	Color string `json:"color"`
+}
+
+// DrawColor reports whether the system hues should be drawn. NO_COLOR (set to
+// any value) and ui.color "never" both turn them off; bold, faint and reverse
+// stay.
+func (u UI) DrawColor(noColorEnv string) bool {
+	return noColorEnv == "" && u.Color != "never"
 }
 
 // Config is the whole configuration file.
