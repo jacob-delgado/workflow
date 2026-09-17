@@ -186,7 +186,9 @@ func (p slackPreview) footer(keys keyMap) []key.Binding {
 		return []key.Binding{keys.interrupt}
 	}
 
-	return []key.Binding{relabel(keys.confirm, "post now"), keys.postWhenGreen, keys.edit, keys.closeOverlay}
+	return []key.Binding{
+		relabel(keys.confirm, "post now"), keys.postWhenGreen, keys.edit, relabel(keys.closeOverlay, "discard"),
+	}
 }
 
 // handleKey answers a key while the message is previewed.

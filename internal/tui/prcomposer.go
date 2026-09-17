@@ -157,7 +157,7 @@ func (c prComposer) footer(keys keyMap) []key.Binding {
 
 	return []key.Binding{
 		keys.nextField, keys.nextTemplate, keys.toggleDraft, keys.editBody, relabel(keys.confirm, "open"),
-		keys.closeOverlay,
+		relabel(keys.closeOverlay, "discard"),
 	}
 }
 

@@ -255,7 +255,7 @@ func (c branchCreator) footer(keys keyMap) []key.Binding {
 		return []key.Binding{keys.interrupt}
 	}
 
-	return []key.Binding{relabel(keys.confirm, "create"), keys.closeOverlay}
+	return []key.Binding{relabel(keys.confirm, "create"), relabel(keys.closeOverlay, "discard")}
 }
 
 // handleKey answers a key while the branch is named. Every key typed checks the

@@ -643,28 +643,6 @@ Impact: medium · Effort: small
   `internal/tui/commits.go`.
 - Done when: pressing `r` changes the pane's title until the answer arrives.
 
-### UX-38 Say what `esc` will throw away
-
-Impact: medium · Effort: small
-
-- Today: `esc` means "close" almost everywhere and costs something different
-  each time.
-
-  | Where | What `esc` discards | Labeled |
-  | --- | --- | --- |
-  | Comment preview | the comment | "discard" |
-  | Commit composer | nothing; the draft is kept | "close" |
-  | Pull request composer | title, base, description, draft flag | "close" |
-  | Slack preview | edits to the message | "close" |
-  | Branch overlay | the typed name | "close" |
-  | Field form | nothing; it goes back | "close" |
-
-- Instead: "close" only where nothing is lost, "discard" where something is,
-  "back" where it goes back. The comment preview already does this.
-- Touches: `internal/tui/keys.go`, each overlay's `keys`.
-- Done when: the label for `esc` is "discard" in exactly the overlays that
-  lose text.
-
 ### UX-39 A compact progress row that still names its stages
 
 Impact: low · Effort: small

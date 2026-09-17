@@ -318,3 +318,35 @@ func TestADryRunPostsNothing(t *testing.T) {
 		})
 	}
 }
+
+func TestEscIsLabeledDiscardOnlyWhereTextIsLost(t *testing.T) {
+	t.Parallel()
+
+	const escDiscard = "esc discard"
+
+	cases := map[string]struct {
+		world *world
+		keys  []string
+		want  string
+	}{
+		"pull request composer discards":  {world: withoutPull(), keys: []string{"4", "n"}, want: escDiscard},
+		"slack preview discards":          {world: newWorld(), keys: []string{"5", "p"}, want: escDiscard},
+		"branch overlay discards":         {world: newWorld(), keys: []string{"2", "b"}, want: escDiscard},
+		"commit composer keeps its draft": {world: newWorld(), keys: []string{"3", "c"}, want: "esc close"},
+	}
+
+	for name, tt := range cases {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			// Arrange
+			model := tt.world.live(t, 120, 40)
+
+			// Act
+			view := typing(t, model, tt.keys...).View()
+
+			// Assert
+			requireScreen(t, footerLine(view), tt.want)
+		})
+	}
+}
