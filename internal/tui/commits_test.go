@@ -326,3 +326,21 @@ func TestTheHeavyBorderFollowsTheCursorIntoTheCommitsDetail(t *testing.T) {
 		t.Errorf("found %d heavy top-left corners, want exactly one:\n%s", heavy, view)
 	}
 }
+
+func TestANoticeWithANewlineDoesNotOverflowTheScreen(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	// A staging failure can carry a program's stderr, which is several lines.
+	noisy := newWorld()
+	//nolint:err113 // a one-off multi-line error is the fixture
+	noisy.stageErr = errors.New("fatal: could not stage\nhint: the index is locked\nhint: remove .git/index.lock")
+
+	// Act
+	view := typing(t, noisy.live(t, 120, 40), "3", keySpace).View()
+
+	// Assert
+	if rows := strings.Count(view, "\n") + 1; rows > 40 {
+		t.Errorf("View is %d rows for a %d-row terminal; a multi-line notice overflowed:\n%q", rows, 40, view)
+	}
+}
