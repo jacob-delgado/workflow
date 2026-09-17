@@ -5,7 +5,9 @@ package gitrepo_test
 
 import (
 	"errors"
+	"fmt"
 	"slices"
+	"strings"
 	"testing"
 	"time"
 
@@ -47,7 +49,7 @@ const (
 const (
 	readUpstream = "git -C /work rev-parse --abbrev-ref --symbolic-full-name @{upstream}"
 	countAhead   = "git -C /work rev-list --left-right --count @{upstream}...HEAD"
-	logCommits   = "git -C /work log -z --reverse --max-count=200 --format=%h%x00%s "
+	logCommits   = "git -C /work log -z --reverse --format=%h%x00%s "
 	logFromMain  = logCommits + "origin/main..HEAD"
 	readHooksDir = "git -C /work rev-parse --git-path hooks"
 	originsHead  = "git -C /work symbolic-ref --quiet --short refs/remotes/origin/HEAD"
@@ -102,6 +104,50 @@ func TestReadBranchReadsWhereTheBranchStands(t *testing.T) {
 	if branch.Pushed() {
 		t.Error("Pushed() = true with two commits not yet on the upstream")
 	}
+}
+
+// commitCap mirrors the unexported commitLimit: how many commits ReadBranch
+// keeps.
+const commitCap = 200
+
+// A branch longer than the cap keeps its OLDEST commits, so the first — the one
+// a pull request titles itself with — survives. git applies a --max-count
+// before it reverses, which would keep the newest instead.
+func TestReadBranchKeepsItsFirstCommitPastTheLimit(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	first := gitrepo.Commit{Hash: "abc1230", Subject: "feat: the branch's first commit"}
+	longLog := with(featureBranch(), map[string]reply{logFromMain: {out: manyCommits(first, commitCap+50)}})
+
+	// Act
+	branch, err := gitrepo.ReadBranch(t.Context(), fakeRunner(t, longLog), workDir)
+	if err != nil {
+		t.Fatalf("ReadBranch returned %v, want nil", err)
+	}
+
+	// Assert
+	if len(branch.Commits) != commitCap {
+		t.Errorf("kept %d commits, want the cap of %d", len(branch.Commits), commitCap)
+	}
+
+	if len(branch.Commits) == 0 || branch.Commits[0] != first {
+		t.Errorf("first commit = %+v, want the branch's first %+v", branch.Commits, first)
+	}
+}
+
+// manyCommits renders count commits as git's -z log, oldest first, starting with
+// first and filling the rest with placeholders.
+func manyCommits(first gitrepo.Commit, count int) []byte {
+	var out strings.Builder
+
+	out.WriteString(first.Hash + "\x00" + first.Subject + "\x00")
+
+	for index := 1; index < count; index++ {
+		fmt.Fprintf(&out, "c%06d\x00chore: commit %d\x00", index, index)
+	}
+
+	return []byte(out.String())
 }
 
 // baseUpdatedTime is baseUpdatedISO parsed, so a test can compare against the
