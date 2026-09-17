@@ -27,7 +27,7 @@ func TestCommitNeedsSomethingStaged(t *testing.T) {
 
 	// Assert
 	requireScreen(t, view, "nothing is staged: space stages the selected file")
-	refuseScreen(t, view, "┏━ Commit")
+	refuseScreen(t, view, "┏━ Commit ")
 }
 
 func TestTheComposerAssemblesAConventionalCommit(t *testing.T) {
@@ -61,7 +61,7 @@ func TestTheComposerAssemblesAConventionalCommit(t *testing.T) {
 
 	// Assert: git committed exactly that message, and both overlays closed
 	requireScreen(t, committed.View(), "● committed fix(config): redact tokens")
-	refuseScreen(t, committed.View(), "┏━ Commit", "┏━ git commit")
+	refuseScreen(t, committed.View(), "┏━ Commit ", "┏━ git commit")
 
 	want := "commit fix(config): redact tokens\n\nTokens reached the log.\n\nRefs: PROJ-412\n"
 	if calls := composing.asked("commit"); len(calls) != 1 || calls[0] != want {
@@ -299,9 +299,10 @@ func TestHRunsThePreCommitHookWithoutCommitting(t *testing.T) {
 	// Act: close the run
 	closed := typing(t, passed, keyEsc).View()
 
-	// Assert: the keyboard is back on the Commits pane
+	// Assert: the keyboard is back on the Commits pane, whose heavy border is on
+	// the detail where the cursor is.
 	refuseScreen(t, closed, "┏━ pre-commit")
-	requireScreen(t, closed, focused("3 Commits"))
+	requireScreen(t, closed, focused("Commits"))
 }
 
 func TestADryRunCommitsNothing(t *testing.T) {

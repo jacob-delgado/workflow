@@ -72,8 +72,10 @@ func TestALeftClickOnTheRailFocusesThatPane(t *testing.T) {
 		msg  tea.MouseMsg
 		want string
 	}{
+		// The Commits pane's heavy border is on its detail, where the cursor is,
+		// so focus shows as the detail title rather than the rail's.
 		"a left click on Commits": {
-			msg: tea.MouseMsg{X: 5, Y: 28, Action: tea.MouseActionPress, Button: tea.MouseButtonLeft}, want: "3 Commits",
+			msg: tea.MouseMsg{X: 5, Y: 28, Action: tea.MouseActionPress, Button: tea.MouseButtonLeft}, want: "Commits",
 		},
 		"a release": {
 			msg: tea.MouseMsg{X: 5, Y: 28, Action: tea.MouseActionRelease, Button: tea.MouseButtonLeft}, want: issuesPane,

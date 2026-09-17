@@ -308,3 +308,21 @@ func TestTheCommitsPaneNamesEachKindOfChangeInWords(t *testing.T) {
 		"3 of 6 staged")
 	refuseScreen(t, view, "M  internal/config", "?? notes.txt", "3 staged · 6 changed")
 }
+
+func TestTheHeavyBorderFollowsTheCursorIntoTheCommitsDetail(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	changing := newWorld()
+	changing.changes = workTree()
+
+	// Act
+	view := typing(t, changing.live(t, 120, 40), "3").View()
+
+	// Assert
+	requireScreen(t, view, "┏━ Commits ")
+
+	if heavy := strings.Count(view, "┏"); heavy != 1 {
+		t.Errorf("found %d heavy top-left corners, want exactly one:\n%s", heavy, view)
+	}
+}

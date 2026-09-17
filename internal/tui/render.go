@@ -56,7 +56,13 @@ func (m Model) rail(boxes []layout.Box) string {
 
 		style := m.marks.border
 		if current == m.focus && m.overlay == nil {
-			style, label = style.Heavy(), m.styles.strong.Render(label)
+			label = m.styles.strong.Render(label)
+
+			// The list-in-detail panes carry the heavy border on the detail,
+			// where the cursor is, so the rail keeps a light one here.
+			if !behaviorOf(current).listInDetail {
+				style = style.Heavy()
+			}
 		}
 
 		rendered = append(rendered, frame.Render(label,
@@ -105,11 +111,18 @@ func (m Model) detailContent(shape layout.Layout) (string, string, frame.Style) 
 
 	title = m.paneTitle(m.focus, title)
 
-	if shape.Collapsed() && behavior.narrow != nil {
-		return title, behavior.narrow(m, rows), m.marks.border
+	// A pane whose list lives in the detail wears the heavy focus border here,
+	// where the cursor is, rather than on its rail summary.
+	border := m.marks.border
+	if behavior.listInDetail {
+		border = border.Heavy()
 	}
 
-	return title, scrolled(behavior.detail(m, width), m.scroll, rows), m.marks.border
+	if shape.Collapsed() && behavior.narrow != nil {
+		return title, behavior.narrow(m, rows), border
+	}
+
+	return title, scrolled(behavior.detail(m, width), m.scroll, rows), border
 }
 
 // paneTitle adds the in-flight glyph to a pane's title while it is loading, so a
