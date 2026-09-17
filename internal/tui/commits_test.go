@@ -5,6 +5,8 @@ package tui_test
 
 import (
 	"errors"
+	"slices"
+	"strconv"
 	"strings"
 	"testing"
 
@@ -249,4 +251,24 @@ func TestAFailureIsShownInTextThatIsSafe(t *testing.T) {
 	// Assert
 	requireScreen(t, view, "✗ cannot add this file")
 	refuseScreen(t, view, "owned")
+}
+
+func TestTheCommitsListKeepsTheSelectedFileOnScreen(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	crowded := newWorld()
+	crowded.changes = make([]gitrepo.Change, 60)
+
+	for index := range crowded.changes {
+		crowded.changes[index] = gitrepo.Change{Path: "file" + strconv.Itoa(index) + ".go", Staged: 'M', Unstaged: ' '}
+	}
+
+	down := append([]string{"3"}, slices.Repeat([]string{"j"}, 40)...)
+
+	// Act
+	view := typing(t, crowded.live(t, 120, 20), down...).View()
+
+	// Assert
+	requireScreen(t, view, "▸ ● M  file40.go")
 }

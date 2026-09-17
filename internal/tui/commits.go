@@ -175,8 +175,10 @@ func (m Model) handleCommitsKey(msg tea.KeyMsg) (Model, tea.Cmd) {
 	switch {
 	case key.Matches(msg, m.keys.down):
 		m.changes.selected = min(m.changes.selected+1, max(0, len(m.changes.changes)-1))
+		m = m.followChange()
 	case key.Matches(msg, m.keys.up):
 		m.changes.selected = max(0, m.changes.selected-1)
+		m = m.followChange()
 	case key.Matches(msg, m.keys.stage):
 		return m.toggleStaged()
 	case key.Matches(msg, m.keys.stageAll):
@@ -190,6 +192,14 @@ func (m Model) handleCommitsKey(msg tea.KeyMsg) (Model, tea.Cmd) {
 	}
 
 	return m, nil
+}
+
+// followChange scrolls the detail so the selected file stays on screen, the way
+// the Issues list keeps its selection in view.
+func (m Model) followChange() Model {
+	m.scroll, _ = window(m.changes.selected, len(m.changes.changes), m.detailRows())
+
+	return m
 }
 
 // pickChange selects the file on a clicked line of the detail.
