@@ -65,20 +65,11 @@ func CommitTypes() []string {
 	return []string{"feat", "fix", "docs", "refactor", "test", "perf", "build", "ci", "chore", "style", "revert"}
 }
 
-// BranchName proposes a branch for an issue: fix/ for a bug and feat/ for
-// anything else, then the key as Jira writes it, then a slug of the summary.
+// BranchName proposes a branch for an issue with the built-in convention: fix/
+// for a bug and feat/ for anything else, then the key as Jira writes it, then a
+// slug of the summary. A caller with configured naming uses BranchNaming.Name.
 func BranchName(issueType, key, summary string) string {
-	prefix := "feat/"
-	if strings.EqualFold(strings.TrimSpace(issueType), "bug") {
-		prefix = "fix/"
-	}
-
-	slug := slugOf(summary)
-	if slug == "" {
-		return prefix + key
-	}
-
-	return prefix + key + "-" + slug
+	return DefaultBranchNaming().Name(issueType, key, summary)
 }
 
 // BranchType is the Conventional Commit type a branch name begins with — the

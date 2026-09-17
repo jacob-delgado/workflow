@@ -70,6 +70,9 @@ which one was read.
 | `ui.mouse` | no | Capture the mouse, so a click focuses a pane or selects a row. Defaults to `true`. |
 | `ui.ascii` | no | Draw borders and glyphs in plain ASCII. Defaults to `false`. |
 | `ui.color` | no | `never` turns off the system hues; bold, faint and the cursor stay. Empty (the default) draws them. `NO_COLOR` also turns them off. |
+| `branch.template` | no | Shape of a proposed branch name from `{prefix}`, `{key}` and `{slug}`. Must contain `{key}`. Defaults to `{prefix}/{key}-{slug}`. |
+| `branch.prefixes` | no | Map from issue type to branch prefix, e.g. `{"bug": "bugfix"}`. The type is matched without regard to case, and this replaces the built-in `{"bug": "fix"}` rather than adding to it. |
+| `branch.default_prefix` | no | Prefix for an issue type not named in `branch.prefixes`. Defaults to `feat`. |
 
 Unknown keys are an error rather than being ignored. A misspelled key that
 loaded silently would look exactly like a credential you never set.
@@ -237,6 +240,36 @@ glyphs already say by shape what the colors say by hue, so nothing is lost.
 
 A setting left out of the file keeps its default, so a configuration written
 before these existed behaves exactly as it did.
+
+## Branch names
+
+When you branch for an issue, workflow proposes a name. By default it is
+`fix/PROJ-412-short-summary` for a bug and `feat/…` for anything else — the
+Conventional Commit prefix, the issue key as Jira writes it, then a slug of the
+summary. You can shape it to your team's convention:
+
+```json
+{
+  "branch": {
+    "template": "{prefix}/{key}-{slug}",
+    "prefixes": { "bug": "bugfix", "story": "feature" },
+    "default_prefix": "feat"
+  }
+}
+```
+
+- `template` places the three parts. `{prefix}` is chosen from the type, `{key}`
+  is the issue key, and `{slug}` is the summary. An empty slug — a summary with
+  no letters — leaves a clean name rather than a trailing hyphen.
+- `template` **must contain `{key}`**. Everything the interface does with a
+  branch — resuming its issue, linking its pull request, choosing a commit type —
+  reads the key back out of the name, so a template that hid it is refused when
+  the file loads.
+- `prefixes` maps an issue type to its prefix. What you write here is the whole
+  rule: a type you do not list takes `default_prefix`, not the built-in `fix`.
+
+You can still edit the proposed name before creating the branch; this only
+changes where it starts.
 
 ## Keeping the tokens safe
 
