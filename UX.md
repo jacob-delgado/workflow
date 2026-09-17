@@ -253,21 +253,6 @@ Impact: medium · Effort: small
 
 ## Commits
 
-### UX-16 Keep the selected file on screen
-
-Impact: high · Effort: small
-
-- Today: with more changed files than rows, `j` moves the selection off the
-  bottom of the list and the list does not follow. `space` then stages a file
-  the user cannot see. Reproduced with 60 files at 120×20: after forty `j`
-  presses the pane still showed the first sixteen rows and no marker. The
-  Issues list, the status picker and the failure list all follow their
-  selection (`window`, `internal/tui/issues.go`); this list does not
-  (`handleCommitsKey`, `internal/tui/commits.go`).
-- Instead: window the file list like the others.
-- Touches: `internal/tui/commits.go`.
-- Done when: the marker is visible after any number of `j` presses.
-
 ### UX-17 Put the heavy border where the cursor is
 
 Impact: medium · Effort: small
