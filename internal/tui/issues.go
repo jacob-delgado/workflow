@@ -65,7 +65,7 @@ func (l issueList) visible() []jira.Issue {
 	var matching []jira.Issue
 
 	for _, issue := range l.found.Issues {
-		if strings.Contains(strings.ToLower(issue.Key+" "+issue.Summary), needle) {
+		if strings.Contains(strings.ToLower(string(issue.Key)+" "+issue.Summary), needle) {
 			matching = append(matching, issue)
 		}
 	}
@@ -104,7 +104,7 @@ func (l issueList) hasMore() bool {
 
 // selectKey selects the issue with a key, or keeps the row, clamped, when the
 // issue is not listed — done, reassigned, or never selected.
-func (l issueList) selectKey(issueKey string) issueList {
+func (l issueList) selectKey(issueKey jira.Key) issueList {
 	index := slices.IndexFunc(l.visible(), func(candidate jira.Issue) bool {
 		return candidate.Key == issueKey
 	})
@@ -181,7 +181,7 @@ func (l issueList) current() (jira.Issue, bool) {
 }
 
 // find is the listed issue with a key, if it is listed.
-func (l issueList) find(issueKey string) (jira.Issue, bool) {
+func (l issueList) find(issueKey jira.Key) (jira.Issue, bool) {
 	index := slices.IndexFunc(l.found.Issues, func(candidate jira.Issue) bool {
 		return candidate.Key == issueKey
 	})
@@ -223,7 +223,7 @@ func (l issueList) render(marks glyphs, sty styles, rows int) string {
 	for index := first; index < last; index++ {
 		issue := visible[index]
 		lines = append(lines, marks.marker(index == l.selected)+marks.status(issue.StatusCategory)+" "+
-			issue.Key+" "+issue.Summary)
+			string(issue.Key)+" "+issue.Summary)
 	}
 
 	return strings.Join(lines, "\n")

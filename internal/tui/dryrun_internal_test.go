@@ -32,9 +32,9 @@ func TestDryRunHoldsBackEveryWrite(t *testing.T) {
 	}
 	deps := Deps{
 		Jira: JiraDeps{
-			Transition:      func(string, jira.Transition, []jira.FieldValue) error { return note("Transition") },
-			Comment:         func(string, string) (jira.Comment, error) { return jira.Comment{}, note("Comment") },
-			LinkPullRequest: func(string, string, string) error { return note("LinkPullRequest") },
+			Transition:      func(jira.Key, jira.Transition, []jira.FieldValue) error { return note("Transition") },
+			Comment:         func(jira.Key, string) (jira.Comment, error) { return jira.Comment{}, note("Comment") },
+			LinkPullRequest: func(jira.Key, string, string) error { return note("LinkPullRequest") },
 		},
 		Git: GitDeps{
 			Stage:          func(gitrepo.Change) error { return note("Stage") },

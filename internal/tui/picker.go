@@ -25,7 +25,7 @@ const outcomeRows = 2
 // transitionsListed carries Jira's transitions for one issue back into the update
 // loop.
 type transitionsListed struct {
-	issueKey string
+	issueKey jira.Key
 	found    []jira.Transition
 	err      error
 }
@@ -47,7 +47,7 @@ func (msg transitionsListed) apply(m Model) (Model, tea.Cmd) {
 
 // transitionApplied reports how applying a transition went.
 type transitionApplied struct {
-	issueKey string
+	issueKey jira.Key
 	to       jira.Transition
 	err      error
 }
@@ -67,7 +67,7 @@ func (msg transitionApplied) apply(m Model) (Model, tea.Cmd) {
 		return m, nil
 	}
 
-	m = m.closeOverlay().noticed(m.marks.done + " " + msg.issueKey + " is now " + msg.to.ToStatus)
+	m = m.closeOverlay().noticed(m.marks.done + " " + string(msg.issueKey) + " is now " + msg.to.ToStatus)
 
 	return m, tea.Batch(m.searchIssues(), m.reloadDetail(msg.issueKey))
 }
@@ -114,7 +114,7 @@ func (m Model) openStatusPicker() (Model, tea.Cmd) {
 
 // view draws the picker in as many rows as fit.
 func (p statusPicker) view(width, rows int) (string, string) {
-	lines := []string{p.issue.Key + " " + p.issue.Summary, "status  " + p.issue.Status, ""}
+	lines := []string{string(p.issue.Key) + " " + p.issue.Summary, "status  " + p.issue.Status, ""}
 
 	switch {
 	case !p.settled:
@@ -122,7 +122,7 @@ func (p statusPicker) view(width, rows int) (string, string) {
 	case p.listErr != nil:
 		lines = append(lines, failedGlyph(p.styles, p.marks)+" "+p.listErr.Error())
 	case len(p.found) == 0:
-		lines = append(lines, "Jira offers no status change for "+p.issue.Key)
+		lines = append(lines, "Jira offers no status change for "+string(p.issue.Key))
 	case p.form.open():
 		lines = append(lines, p.form.view(p.marks, p.styles, width, rows-len(lines)-outcomeRows)...)
 		lines = append(lines, p.outcome()...)
@@ -155,7 +155,7 @@ func (p statusPicker) outcome() []string {
 	case p.send.sending:
 		chosen, _ := p.chosen()
 
-		return []string{"", "changing " + p.issue.Key + " to " + chosen.ToStatus + p.marks.ellipsis}
+		return []string{"", "changing " + string(p.issue.Key) + " to " + chosen.ToStatus + p.marks.ellipsis}
 	case p.send.err != nil:
 		return []string{"", failedGlyph(p.styles, p.marks) + " " + p.send.err.Error()}
 	default:
@@ -256,7 +256,7 @@ func (p statusPicker) apply(m Model, chosen jira.Transition, values []jira.Field
 	issueKey := p.issue.Key
 
 	if m.dryRun {
-		return m.closeOverlay().noticed("dry run: would change " + issueKey + " to " + chosen.ToStatus), nil
+		return m.closeOverlay().noticed("dry run: would change " + string(issueKey) + " to " + chosen.ToStatus), nil
 	}
 
 	p.send = starting()

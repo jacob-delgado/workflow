@@ -38,7 +38,7 @@ func featureBranch() statusSeams {
 		Changes:     func() ([]gitrepo.Change, error) { return nil, nil },
 		FindPull:    func(string) (forge.PullRequest, bool, error) { return forge.PullRequest{Number: 3}, true, nil },
 		CheckStatus: func(forge.PullRequest, string) (forge.CI, error) { return forge.CI{State: forge.CIRunning}, nil },
-		Issue: func(string) (jira.IssueDetail, error) {
+		Issue: func(jira.Key) (jira.IssueDetail, error) {
 			return jira.IssueDetail{Issue: jira.Issue{Key: sampleKey, Summary: "Fix login"}}, nil
 		},
 	}
@@ -133,7 +133,7 @@ func TestStatusDegradesWhenServicesDoNotAnswer(t *testing.T) {
 		Branch:   func() (gitrepo.Branch, error) { return gitrepo.Branch{Name: "main", Base: statusBase}, nil },
 		Changes:  func() ([]gitrepo.Change, error) { return nil, nil },
 		FindPull: func(string) (forge.PullRequest, bool, error) { return forge.PullRequest{}, false, errServiceDown },
-		Issue:    func(string) (jira.IssueDetail, error) { return jira.IssueDetail{}, errServiceDown },
+		Issue:    func(jira.Key) (jira.IssueDetail, error) { return jira.IssueDetail{}, errServiceDown },
 	}
 
 	var out bytes.Buffer
@@ -159,7 +159,7 @@ func TestStatusDegradesEachServiceOnAFeatureBranch(t *testing.T) {
 		Branch:   func() (gitrepo.Branch, error) { return gitrepo.Branch{Name: "fix/PROJ-9-x", Base: statusBase}, nil },
 		Changes:  func() ([]gitrepo.Change, error) { return nil, errServiceDown },
 		FindPull: func(string) (forge.PullRequest, bool, error) { return forge.PullRequest{}, false, errServiceDown },
-		Issue:    func(string) (jira.IssueDetail, error) { return jira.IssueDetail{}, errServiceDown },
+		Issue:    func(jira.Key) (jira.IssueDetail, error) { return jira.IssueDetail{}, errServiceDown },
 	}
 
 	var out bytes.Buffer

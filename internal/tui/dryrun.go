@@ -32,15 +32,15 @@ func heldBack(deps Deps) Deps {
 // heldBackJira holds back the writes to Jira.
 func heldBackJira(deps JiraDeps) JiraDeps {
 	if deps.Transition != nil {
-		deps.Transition = func(string, jira.Transition, []jira.FieldValue) error { return errDryRun }
+		deps.Transition = func(jira.Key, jira.Transition, []jira.FieldValue) error { return errDryRun }
 	}
 
 	if deps.Comment != nil {
-		deps.Comment = func(string, string) (jira.Comment, error) { return jira.Comment{}, errDryRun }
+		deps.Comment = func(jira.Key, string) (jira.Comment, error) { return jira.Comment{}, errDryRun }
 	}
 
 	if deps.LinkPullRequest != nil {
-		deps.LinkPullRequest = func(string, string, string) error { return errDryRun }
+		deps.LinkPullRequest = func(jira.Key, string, string) error { return errDryRun }
 	}
 
 	return deps

@@ -14,6 +14,7 @@ import (
 
 	"github.com/jacob-delgado/workflow/internal/convention"
 	"github.com/jacob-delgado/workflow/internal/forge"
+	"github.com/jacob-delgado/workflow/internal/jira"
 )
 
 // prLabelWidth is the columns a pull request field's marker, label, prompt and
@@ -52,7 +53,7 @@ type prComposer struct {
 	templates []forge.Template
 	template  int
 	subjects  []string
-	issueKey  string
+	issueKey  jira.Key
 	issueURL  string
 	body      string
 	draft     bool
@@ -97,12 +98,12 @@ func (m Model) openPullRequestComposer() (Model, tea.Cmd) {
 		subjects = append(subjects, commit.Subject)
 	}
 
-	issueKey, _ := convention.IssueKey(branch.Name, m.cfg.Jira.Project)
+	issueKey, _ := m.branchIssue()
 	issue, _ := m.issues.find(issueKey)
 
 	composer := prComposer{
 		marks: m.marks, styles: m.styles,
-		title: newInput(convention.PullRequestTitle(subjects, issueKey, issue.Summary)),
+		title: newInput(convention.PullRequestTitle(subjects, string(issueKey), issue.Summary)),
 		base:  newInput(branch.BaseName()), focus: prFieldTitle, head: branch.Name,
 		subjects: subjects, issueKey: issueKey, issueURL: m.browseURL(issueKey), vocab: m.vocab,
 	}
@@ -123,7 +124,7 @@ func (m Model) openPullRequestComposer() (Model, tea.Cmd) {
 }
 
 // browseURL links an issue, when there is an issue and a way to link it.
-func (m Model) browseURL(issueKey string) string {
+func (m Model) browseURL(issueKey jira.Key) string {
 	if issueKey == "" || m.deps.Jira.BrowseURL == nil {
 		return ""
 	}
@@ -140,7 +141,7 @@ func (c prComposer) withTemplate(index int) prComposer {
 		text = c.templates[index].Body
 	}
 
-	c.body = convention.PullRequestBody(text, c.subjects, c.issueKey, c.issueURL)
+	c.body = convention.PullRequestBody(text, c.subjects, string(c.issueKey), c.issueURL)
 
 	return c
 }
@@ -321,10 +322,10 @@ func (c prComposer) open(m Model) (Model, tea.Cmd) {
 
 // dryRunNotice says what opening the pull request would do, including the push
 // that enter does first when origin does not have every commit.
-func (c prComposer) dryRunNotice(request forge.NewPullRequest, pushed bool, linkTo string) string {
+func (c prComposer) dryRunNotice(request forge.NewPullRequest, pushed bool, linkTo jira.Key) string {
 	open := "open \"" + request.Title + "\" from " + request.Head + " into " + request.Base
 	if linkTo != "" {
-		open += " and link it on " + linkTo
+		open += " and link it on " + string(linkTo)
 	}
 
 	if pushed {

@@ -238,20 +238,20 @@ func (w *world) jiraDeps() tui.JiraDeps {
 
 			return jira.SearchResult{Issues: slices.Clone(issues[start:end]), Total: len(issues)}, nil
 		},
-		Issue: func(key string) (jira.IssueDetail, error) {
-			w.record("issue " + key)
+		Issue: func(key jira.Key) (jira.IssueDetail, error) {
+			w.record("issue " + string(key))
 
 			return w.detail, w.detailErr
 		},
-		Transitions: func(key string) ([]jira.Transition, error) {
-			w.record("transitions " + key)
+		Transitions: func(key jira.Key) ([]jira.Transition, error) {
+			w.record("transitions " + string(key))
 
 			return w.moves, nil
 		},
-		Transition: func(key string, to jira.Transition, values []jira.FieldValue) error {
+		Transition: func(key jira.Key, to jira.Transition, values []jira.FieldValue) error {
 			var call strings.Builder
 
-			call.WriteString("transition " + key + " " + to.ID)
+			call.WriteString("transition " + string(key) + " " + to.ID)
 
 			for _, value := range values {
 				call.WriteString(" " + value.Field.ID + "=" + value.OptionID + value.Text)
@@ -261,17 +261,17 @@ func (w *world) jiraDeps() tui.JiraDeps {
 
 			return w.transitionErr
 		},
-		Comment: func(key, text string) (jira.Comment, error) {
-			w.record("comment " + key + " " + text)
+		Comment: func(key jira.Key, text string) (jira.Comment, error) {
+			w.record("comment " + string(key) + " " + text)
 
 			return jira.Comment{Author: "jacob", Body: text, Created: testNow()}, w.commentErr
 		},
-		LinkPullRequest: func(key, pullURL, title string) error {
-			w.record("link " + key + " " + pullURL + " " + title)
+		LinkPullRequest: func(key jira.Key, pullURL, title string) error {
+			w.record("link " + string(key) + " " + pullURL + " " + title)
 
 			return w.linkErr
 		},
-		BrowseURL: func(key string) string { return "https://jira.example.com/browse/" + key },
+		BrowseURL: func(key jira.Key) string { return "https://jira.example.com/browse/" + string(key) },
 	}
 }
 

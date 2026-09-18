@@ -153,17 +153,17 @@ func jiraDeps(ctx context.Context, settings config.Jira, timeout time.Duration, 
 
 	return tui.JiraDeps{
 		Search: func(jql string, startAt int) (jira.SearchResult, error) { return client.Search(ctx, jql, startAt) },
-		Issue:  func(issueKey string) (jira.IssueDetail, error) { return client.Issue(ctx, issueKey) },
-		Transitions: func(issueKey string) ([]jira.Transition, error) {
+		Issue:  func(issueKey jira.Key) (jira.IssueDetail, error) { return client.Issue(ctx, issueKey) },
+		Transitions: func(issueKey jira.Key) ([]jira.Transition, error) {
 			return client.Transitions(ctx, issueKey)
 		},
-		Transition: func(issueKey string, to jira.Transition, values []jira.FieldValue) error {
+		Transition: func(issueKey jira.Key, to jira.Transition, values []jira.FieldValue) error {
 			return client.ApplyTransition(ctx, issueKey, to, values)
 		},
-		Comment: func(issueKey, text string) (jira.Comment, error) {
+		Comment: func(issueKey jira.Key, text string) (jira.Comment, error) {
 			return client.AddComment(ctx, issueKey, text)
 		},
-		LinkPullRequest: func(issueKey, pullURL, title string) error {
+		LinkPullRequest: func(issueKey jira.Key, pullURL, title string) error {
 			return client.LinkPullRequest(ctx, issueKey, pullURL, title)
 		},
 		BrowseURL: client.BrowseURL,

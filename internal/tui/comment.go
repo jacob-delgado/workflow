@@ -81,9 +81,9 @@ var _ overlay = commentPreview{}
 // title so a long refusal is seen rather than clipped below the fold.
 func (p commentPreview) view(width, _ int) (string, string) {
 	lines := pinnedOutcome(p.styles, p.marks, p.send, "posting", width)
-	lines = append(lines, p.issue.Key+" "+p.issue.Summary, "", wrap(p.text, width))
+	lines = append(lines, string(p.issue.Key)+" "+p.issue.Summary, "", wrap(p.text, width))
 
-	return "Comment on " + p.issue.Key, strings.Join(lines, "\n")
+	return "Comment on " + string(p.issue.Key), strings.Join(lines, "\n")
 }
 
 // footer offers posting, another edit, or discarding.
@@ -114,7 +114,7 @@ func (p commentPreview) handleKey(m Model, msg tea.KeyMsg) (Model, tea.Cmd) {
 // post sends the comment.
 func (p commentPreview) post(m Model) (Model, tea.Cmd) {
 	if m.dryRun {
-		return m.closeOverlay().noticed("dry run: would comment on " + p.issue.Key), nil
+		return m.closeOverlay().noticed("dry run: would comment on " + string(p.issue.Key)), nil
 	}
 
 	p.send = starting()
@@ -130,7 +130,7 @@ func (p commentPreview) post(m Model) (Model, tea.Cmd) {
 
 // commentPosted reports how posting a comment went.
 type commentPosted struct {
-	issueKey string
+	issueKey jira.Key
 	err      error
 }
 
@@ -147,7 +147,7 @@ func (msg commentPosted) apply(m Model) (Model, tea.Cmd) {
 		return m, nil
 	}
 
-	m = m.closeOverlay().noticed(m.marks.done + " commented on " + msg.issueKey)
+	m = m.closeOverlay().noticed(m.marks.done + " commented on " + string(msg.issueKey))
 
 	return m, m.reloadDetail(msg.issueKey)
 }
