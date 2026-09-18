@@ -15,6 +15,29 @@ import (
 	"github.com/jacob-delgado/workflow/internal/config"
 )
 
+func TestJiraConfiguredIsByBaseURL(t *testing.T) {
+	t.Parallel()
+
+	cases := map[string]struct {
+		jira config.Jira
+		want bool
+	}{
+		"a base URL means Jira is the tracker": {jira: config.Jira{BaseURL: "https://jira.example.com"}, want: true},
+		"no base URL means the forge is":       {jira: config.Jira{}, want: false},
+	}
+
+	for name, tt := range cases {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			// Act & Assert
+			if got := tt.jira.Configured(); got != tt.want {
+				t.Errorf("Configured() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
 func TestJiraHeadersAreRead(t *testing.T) {
 	t.Parallel()
 

@@ -69,6 +69,10 @@ func TestPullRequestBodyStartsFromTheTemplate(t *testing.T) {
 			template: "Depends on PROJ-4120\n", subjects: nil, key: projKey, url: jiraLink,
 			want: "Depends on PROJ-4120\n\nJira: [PROJ-412](" + jiraLink + ")\n",
 		},
+		"a forge issue is closed by the body": {
+			template: "", subjects: []string{"chore: bump"}, key: "42", url: "",
+			want: "## Commits\n\n- chore: bump\n\nCloses #42\n",
+		},
 		"nothing to say": {template: "", subjects: nil, key: "", url: "", want: ""},
 	}
 

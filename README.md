@@ -33,6 +33,9 @@ format that may still change before 1.0.
   it in Slack. `?` lists the keys.
 - `workflow --dry-run` does all of that with every write held back, saying what
   it would have done.
+- With no Jira configured, the Issues pane lists the issues assigned to you on
+  your forge (GitHub or GitLab) instead — pick one up, branch for it, and the
+  pull request closes it on merge.
 - A repository with hooks in `.git/hooks` and no lefthook configuration is
   offered a `lefthook.yml` that runs them.
 - `workflow doctor` reports the repository, tooling and configuration in effect;

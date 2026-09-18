@@ -62,7 +62,7 @@ func Deps(ctx context.Context, cfg config.Config, where Workspace, log *RequestL
 	timeout := requestTimeout(cfg)
 
 	return tui.Deps{
-		Jira:       jiraDeps(ctx, cfg.Jira, timeout, log),
+		Jira:       trackerDeps(ctx, cfg, where, timeout, log),
 		Git:        gitDeps(ctx, where.Root),
 		Forge:      forgeDeps(ctx, cfg.Forge, where, timeout, log),
 		Slack:      slackDeps(ctx, cfg.Slack, timeout, log),
