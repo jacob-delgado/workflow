@@ -31,7 +31,7 @@ const commentsShown = 5
 
 // issueDetail is the selected issue in full, as far as it has loaded.
 type issueDetail struct {
-	key    string
+	key    jira.Key
 	loaded bool
 	err    error
 	detail jira.IssueDetail
@@ -39,7 +39,7 @@ type issueDetail struct {
 
 // detailLoaded carries an issue read in full.
 type detailLoaded struct {
-	key    string
+	key    jira.Key
 	detail jira.IssueDetail
 	err    error
 }
@@ -57,7 +57,7 @@ func (msg detailLoaded) apply(m Model) (Model, tea.Cmd) {
 
 // detailDue is the selection having rested on an issue long enough to read it.
 type detailDue struct {
-	key string
+	key jira.Key
 }
 
 // apply reads the issue, if the selection is still on it.
@@ -118,7 +118,7 @@ func (m Model) loadDetail() (Model, tea.Cmd) {
 
 // reloadDetail reads an issue in full again, when it is the one shown — after a
 // comment or a change of status. What is shown stays until the answer arrives.
-func (m Model) reloadDetail(issueKey string) tea.Cmd {
+func (m Model) reloadDetail(issueKey jira.Key) tea.Cmd {
 	if m.deps.Jira.Issue == nil || m.detail.key != issueKey {
 		return nil
 	}
@@ -127,7 +127,7 @@ func (m Model) reloadDetail(issueKey string) tea.Cmd {
 }
 
 // fetchDetail is the command that reads an issue in full.
-func (m Model) fetchDetail(issueKey string) tea.Cmd {
+func (m Model) fetchDetail(issueKey jira.Key) tea.Cmd {
 	read := m.deps.Jira.Issue
 
 	return func() tea.Msg {
@@ -179,7 +179,8 @@ func (m Model) issuesKeys() []key.Binding {
 	}
 
 	keys := make([]key.Binding, 0, len(m.views)+4) //nolint:mnd // the three verbs plus refresh, beside the views.
-	keys = append(keys, m.keys.changeStatus, m.keys.comment, relabel(m.keys.branchForIssue, "branch for "+selected.Key))
+	branchFor := relabel(m.keys.branchForIssue, "branch for "+string(selected.Key))
+	keys = append(keys, m.keys.changeStatus, m.keys.comment, branchFor)
 	keys = append(keys, m.viewKeys()...)
 
 	return append(keys, m.keys.refresh)
@@ -353,7 +354,7 @@ func (m Model) issueDetailView(width int) string {
 		return m.status()
 	}
 
-	lines := []string{m.styles.strong.Render(selected.Key) + " " + selected.Summary, m.facts(selected)}
+	lines := []string{m.styles.strong.Render(string(selected.Key)) + " " + selected.Summary, m.facts(selected)}
 
 	if capped := m.issues.capped(); capped != "" {
 		lines = append(lines, m.styles.label.Render(capped))
@@ -378,7 +379,7 @@ func (m Model) facts(issue jira.Issue) string {
 
 // fullDetail is the part of an issue only a full read has: the reporter, the
 // description, and the most recent comments.
-func (m Model) fullDetail(issueKey string, width int) []string {
+func (m Model) fullDetail(issueKey jira.Key, width int) []string {
 	switch {
 	case m.detail.key != issueKey || !m.detail.loaded:
 		return []string{"", m.styles.label.Render("loading the description and comments" + m.marks.ellipsis)}

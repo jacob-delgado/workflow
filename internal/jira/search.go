@@ -47,9 +47,16 @@ const (
 	CategoryDone StatusCategory = "done"
 )
 
+// Key identifies an issue, such as "PROJ-412". It is a named type rather than a
+// bare string so a key and the text beside it — a comment's body, a pull
+// request's URL and title — cannot be passed in each other's place: AddComment
+// and LinkPullRequest took adjacent strings the compiler was content to see
+// swapped.
+type Key string
+
 // Issue is one row of a search.
 type Issue struct {
-	Key            string
+	Key            Key
 	Summary        string
 	Status         string
 	StatusCategory StatusCategory
@@ -99,7 +106,7 @@ type wireIssue struct {
 // issue flattens the parts of a wire issue every row carries.
 func (w wireIssue) issue() Issue {
 	return Issue{
-		Key:            w.Key,
+		Key:            Key(w.Key),
 		Summary:        w.Fields.Summary,
 		Status:         w.Fields.Status.Name,
 		StatusCategory: StatusCategory(w.Fields.Status.Category.Key),

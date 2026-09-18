@@ -15,6 +15,7 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 
 	"github.com/jacob-delgado/workflow/internal/convention"
+	"github.com/jacob-delgado/workflow/internal/jira"
 	"github.com/jacob-delgado/workflow/internal/proc"
 )
 
@@ -54,7 +55,7 @@ type commitComposer struct {
 	scope    textinput.Model
 	subject  textinput.Model
 	body     string
-	issueKey string
+	issueKey jira.Key
 	staged   int
 	send     sendState
 }
@@ -203,7 +204,7 @@ func (c commitComposer) footnotes() []string {
 	}
 
 	if c.issueKey != "" {
-		lines = append(lines, "", "Refs: "+c.issueKey)
+		lines = append(lines, "", "Refs: "+string(c.issueKey))
 	}
 
 	lines = append(lines, "", plural(c.staged, "file")+" staged")
@@ -324,7 +325,7 @@ func (c commitComposer) commit(m Model) (Model, tea.Cmd) {
 	}
 
 	m.draft = c.draft()
-	message, commit := convention.Message(subject, c.body, c.issueKey), m.deps.Git.Commit
+	message, commit := convention.Message(subject, c.body, string(c.issueKey)), m.deps.Git.Commit
 
 	return m.startRun("git commit", func() (proc.Output, error) { return commit(message) },
 		func(done Model) (Model, tea.Cmd) {

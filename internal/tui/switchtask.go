@@ -11,6 +11,7 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 
 	"github.com/jacob-delgado/workflow/internal/convention"
+	"github.com/jacob-delgado/workflow/internal/jira"
 )
 
 // switchTitle titles the detail pane while the task switcher is open.
@@ -24,7 +25,7 @@ var errDirtyTree = errors.New("uncommitted changes — commit or stash them befo
 // taskBranch is a local branch that names an issue, offered to switch to.
 type taskBranch struct {
 	name     string
-	issueKey string
+	issueKey jira.Key
 	summary  string
 }
 
@@ -61,8 +62,8 @@ func (m Model) taskBranches(names []string) []taskBranch {
 			continue
 		}
 
-		issue, _ := m.issues.find(key)
-		branches = append(branches, taskBranch{name: name, issueKey: key, summary: issue.Summary})
+		issue, _ := m.issues.find(jira.Key(key))
+		branches = append(branches, taskBranch{name: name, issueKey: jira.Key(key), summary: issue.Summary})
 	}
 
 	return branches
@@ -129,7 +130,7 @@ func (p branchPicker) rows(space int) []string {
 // label names a branch by its issue, with the summary when the issue is one of
 // yours, and the branch name so there is no doubt which will be checked out.
 func (p branchPicker) label(branch taskBranch) string {
-	named := branch.issueKey
+	named := string(branch.issueKey)
 	if branch.summary != "" {
 		named += " " + branch.summary
 	}

@@ -352,13 +352,19 @@ Done for the status category: `jira.StatusCategory` is now a type with
 mistyped category is a build error, and the `exhaustive` map check (DEBT-46)
 guards the glyph table against a new category drawing nothing.
 
-- What remains, the large half: `jira.Key` for the issue key, which
-  `Comment func(issueKey, text string)` still compiles with its arguments
-  swapped. The key is a bare string at ~100 sites across `jira`, `tui`, `wiring`
-  and `cli`, and it crosses the `convention`/`jira` boundary (the key is derived
-  from a branch name in the stateless `convention` package), so it is a wide,
-  careful refactor of its own. `BranchName`'s bare-string arguments and
-  `GitHook.Name` are smaller instances of the same, left with it.
+Done for the issue key too: `jira.Key` is now a named type carried on
+`jira.Issue.Key` and taken by every issue method — `Issue`, `AddComment`,
+`LinkPullRequest`, `BrowseURL`, `Transitions`, `ApplyTransition` — and by the
+`tui.JiraDeps` seam, so `Comment(issueKey, text)` and `LinkPullRequest`'s three
+adjacent strings can no longer be passed swapped: the compiler rejects it. The
+key stays typed across `jira`, `tui`, `wiring` and `cli`.
+
+- Where it deliberately stops: `convention` keeps `string`. `IssueKey` also
+  returns forge issue numbers, and typing it `jira.Key` would make the stateless
+  `convention` package depend on `jira`; the branch-derived string becomes a
+  `jira.Key` at the one tui boundary (`branchIssue`) instead. `BranchName`'s
+  arguments (a convention concern) and `GitHook.Name` (a hooks one) are separate
+  and stay as they are.
 
 ## The test suite
 

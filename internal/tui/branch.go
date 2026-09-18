@@ -135,7 +135,7 @@ func (m Model) branchDetail(width int) string {
 	}
 
 	if branchKey, named := convention.IssueKey(branch.Name, m.cfg.Jira.Project); named {
-		issue, listed := m.issues.find(branchKey)
+		issue, listed := m.issues.find(jira.Key(branchKey))
 		lines = append(lines, m.styles.label.Render("issue     ")+branchKey+" "+issue.Summary+m.unlisted(listed))
 	}
 
@@ -208,9 +208,12 @@ func (m Model) previewPush() (Model, tea.Cmd) {
 }
 
 // branchIssue is the issue the current branch names, and whether it names one —
-// the one place the interface reads a branch name as an issue key.
-func (m Model) branchIssue() (string, bool) {
-	return convention.IssueKey(m.branch.branch.Name, m.cfg.Jira.Project)
+// the one place the interface reads a branch name as an issue key, and where the
+// branch-derived string becomes a typed jira.Key.
+func (m Model) branchIssue() (jira.Key, bool) {
+	key, ok := convention.IssueKey(m.branch.branch.Name, m.cfg.Jira.Project)
+
+	return jira.Key(key), ok
 }
 
 // remote is the remote the branch's upstream lives on, or origin by default.
@@ -275,7 +278,7 @@ func (m Model) openBranchCreator() (Model, tea.Cmd) {
 
 	name := ""
 	if forIssue {
-		name = m.branchNaming().Name(issue.Type, issue.Key, issue.Summary)
+		name = m.branchNaming().Name(issue.Type, string(issue.Key), issue.Summary)
 	}
 
 	m.overlay = branchCreator{
@@ -309,7 +312,7 @@ func (c branchCreator) view(width, _ int) (string, string) {
 
 	lines := pinnedOutcome(c.styles, c.marks, c.send, "creating", width)
 	if c.forIssue {
-		lines = append(lines, "for "+c.issue.Key+" "+c.issue.Summary, "")
+		lines = append(lines, "for "+string(c.issue.Key)+" "+c.issue.Summary, "")
 	}
 
 	lines = append(lines, c.input.View(), "", c.start())
@@ -329,7 +332,7 @@ func (c branchCreator) view(width, _ int) (string, string) {
 // title names the creator for the issue it is for, when it is for one.
 func (c branchCreator) title() string {
 	if c.forIssue {
-		return "New branch for " + c.issue.Key
+		return "New branch for " + string(c.issue.Key)
 	}
 
 	return "New branch"

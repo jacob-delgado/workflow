@@ -391,7 +391,7 @@ func TestAnInterfaceWithoutAClockUsesTheRealOne(t *testing.T) {
 	// Arrange
 	deps := newWorld().deps()
 	deps.Clock = nil
-	deps.Jira.Issue = func(string) (jira.IssueDetail, error) {
+	deps.Jira.Issue = func(jira.Key) (jira.IssueDetail, error) {
 		return jira.IssueDetail{
 			Issue: jira.Issue{Key: issueKey}, CommentTotal: 1,
 			Comments: []jira.Comment{{Author: "Ana", Body: "hi", Created: time.Now().Add(-5 * time.Minute)}},

@@ -48,15 +48,15 @@ type Deps struct {
 // JiraDeps is what the interface asks of Jira.
 type JiraDeps struct {
 	Search      func(jql string, startAt int) (jira.SearchResult, error)
-	Issue       func(issueKey string) (jira.IssueDetail, error)
-	Transitions func(issueKey string) ([]jira.Transition, error)
-	Transition  func(issueKey string, to jira.Transition, values []jira.FieldValue) error
-	Comment     func(issueKey, text string) (jira.Comment, error)
+	Issue       func(issueKey jira.Key) (jira.IssueDetail, error)
+	Transitions func(issueKey jira.Key) ([]jira.Transition, error)
+	Transition  func(issueKey jira.Key, to jira.Transition, values []jira.FieldValue) error
+	Comment     func(issueKey jira.Key, text string) (jira.Comment, error)
 	// LinkPullRequest records a pull request as a web link on an issue. Nil when
 	// Jira is not configured.
-	LinkPullRequest func(issueKey, pullURL, title string) error
+	LinkPullRequest func(issueKey jira.Key, pullURL, title string) error
 	// BrowseURL links an issue for someone to click.
-	BrowseURL func(issueKey string) string
+	BrowseURL func(issueKey jira.Key) string
 }
 
 // GitDeps is what the interface asks of the repository.

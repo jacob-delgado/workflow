@@ -46,7 +46,7 @@ type transitionRequest struct {
 }
 
 // Transitions lists the moves the credential may make on an issue right now.
-func (c Client) Transitions(ctx context.Context, issueKey string) ([]Transition, error) {
+func (c Client) Transitions(ctx context.Context, issueKey Key) ([]Transition, error) {
 	// The fields are expanded so a transition that needs a resolution, say, can
 	// ask for one — rather than being sent without it and refused.
 	query := url.Values{"expand": {"transitions.fields"}}.Encode()
@@ -73,7 +73,7 @@ func (c Client) Transitions(ctx context.Context, issueKey string) ([]Transition,
 
 // ApplyTransition moves an issue through a transition Transitions offered, with
 // a value for each field it needs.
-func (c Client) ApplyTransition(ctx context.Context, issueKey string, to Transition, values []FieldValue) error {
+func (c Client) ApplyTransition(ctx context.Context, issueKey Key, to Transition, values []FieldValue) error {
 	payload, err := json.Marshal(transitionRequest{Transition: reference{ID: to.ID}, Fields: fieldsPayload(values)})
 	if err != nil {
 		return fmt.Errorf("encoding the transition: %w", err)
@@ -93,7 +93,7 @@ func (c Client) ApplyTransition(ctx context.Context, issueKey string, to Transit
 }
 
 // transitionsPath is where an issue's transitions live.
-func transitionsPath(issueKey string) string {
+func transitionsPath(issueKey Key) string {
 	return issuePath(issueKey) + "/transitions"
 }
 

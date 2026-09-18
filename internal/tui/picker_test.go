@@ -51,8 +51,8 @@ type fakeJira struct {
 func (f *fakeJira) deps(search func(startAt int) (jira.SearchResult, error)) tui.Deps {
 	return tui.Deps{Jira: tui.JiraDeps{
 		Search: ignoreJQL(search),
-		Transitions: func(issueKey string) ([]jira.Transition, error) {
-			f.listed.Store(issueKey)
+		Transitions: func(issueKey jira.Key) ([]jira.Transition, error) {
+			f.listed.Store(string(issueKey))
 
 			if f.listErr != nil {
 				return nil, f.listErr
@@ -60,9 +60,9 @@ func (f *fakeJira) deps(search func(startAt int) (jira.SearchResult, error)) tui
 
 			return f.moves, nil
 		},
-		Transition: func(issueKey string, to jira.Transition, values []jira.FieldValue) error {
+		Transition: func(issueKey jira.Key, to jira.Transition, values []jira.FieldValue) error {
 			f.applies.Add(1)
-			f.applied.Store(issueKey + " " + to.ID)
+			f.applied.Store(string(issueKey) + " " + to.ID)
 			f.values.Store(values)
 
 			return f.applyErr
@@ -333,7 +333,7 @@ func TestASecondListingDoesNotReplaceTheOneOnScreen(t *testing.T) {
 	var calls atomic.Int32
 
 	deps := (&fakeJira{}).deps(twoIssues())
-	deps.Jira.Transitions = func(string) ([]jira.Transition, error) {
+	deps.Jira.Transitions = func(jira.Key) ([]jira.Transition, error) {
 		if calls.Add(1) == 1 {
 			return workflowMoves(), nil
 		}

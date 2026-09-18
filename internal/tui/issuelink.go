@@ -11,6 +11,7 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 
 	"github.com/jacob-delgado/workflow/internal/forge"
+	"github.com/jacob-delgado/workflow/internal/jira"
 )
 
 // issueLinker offers to record a just-opened pull request as a web link on the
@@ -20,7 +21,7 @@ type issueLinker struct {
 	marks    glyphs
 	styles   styles
 	vocab    reviewVocab
-	issueKey string
+	issueKey jira.Key
 	pull     forge.PullRequest
 	send     sendState
 }
@@ -29,7 +30,7 @@ var _ overlay = issueLinker{}
 
 // issueToLink is the issue a just-opened pull request should be linked to: the
 // branch's issue, when Jira can take the link. Empty when there is neither.
-func (m Model) issueToLink() string {
+func (m Model) issueToLink() jira.Key {
 	issueKey, named := m.branchIssue()
 	if !named || m.deps.Jira.LinkPullRequest == nil {
 		return ""
@@ -42,10 +43,10 @@ func (m Model) issueToLink() string {
 func (l issueLinker) view(width, _ int) (string, string) {
 	lines := pinnedOutcome(l.styles, l.marks, l.send, "linking", width)
 	lines = append(lines,
-		"Add this "+l.vocab.noun+"'s link to "+l.issueKey+"?", "",
+		"Add this "+l.vocab.noun+"'s link to "+string(l.issueKey)+"?", "",
 		l.vocab.sigil+strconv.Itoa(l.pull.Number)+" "+l.pull.Title, l.pull.URL)
 
-	return "Link on " + l.issueKey, strings.Join(lines, "\n")
+	return "Link on " + string(l.issueKey), strings.Join(lines, "\n")
 }
 
 // footer offers linking the pull request or skipping it.
@@ -86,7 +87,7 @@ func (l issueLinker) link(m Model) (Model, tea.Cmd) {
 
 // issueLinked reports how linking the pull request on the issue went.
 type issueLinked struct {
-	issueKey string
+	issueKey jira.Key
 	pull     forge.PullRequest
 	err      error
 }
@@ -104,5 +105,5 @@ func (msg issueLinked) apply(m Model) (Model, tea.Cmd) {
 	}
 
 	return m.closeOverlay().noticed(m.marks.done + " linked " + m.vocab.sigil +
-		strconv.Itoa(msg.pull.Number) + " on " + msg.issueKey), nil
+		strconv.Itoa(msg.pull.Number) + " on " + string(msg.issueKey)), nil
 }

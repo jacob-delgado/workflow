@@ -117,7 +117,7 @@ func (m Model) announcement() string {
 
 	return slack.Announcement{
 		Author: m.slack.author, PullRequestURL: m.review.pull.URL, PullRequestTitle: m.review.pull.Title,
-		IssueKey: issueKey, IssueSummary: issue.Summary, IssueURL: m.browseURL(issueKey), Noun: m.vocab.noun,
+		IssueKey: string(issueKey), IssueSummary: issue.Summary, IssueURL: m.browseURL(issueKey), Noun: m.vocab.noun,
 		Template: m.cfg.Slack.Announcement,
 	}.Text()
 }

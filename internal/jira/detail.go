@@ -71,7 +71,7 @@ func (w wireComment) comment() Comment {
 }
 
 // Issue reads one issue in full, with its comments.
-func (c Client) Issue(ctx context.Context, issueKey string) (IssueDetail, error) {
+func (c Client) Issue(ctx context.Context, issueKey Key) (IssueDetail, error) {
 	query := url.Values{"fields": {detailFields}}.Encode()
 
 	request, err := c.newRequest(ctx, http.MethodGet, issuePath(issueKey)+"?"+query, nil)
@@ -106,7 +106,7 @@ func (c Client) Issue(ctx context.Context, issueKey string) (IssueDetail, error)
 }
 
 // AddComment posts a comment on an issue and returns it as Jira stored it.
-func (c Client) AddComment(ctx context.Context, issueKey, text string) (Comment, error) {
+func (c Client) AddComment(ctx context.Context, issueKey Key, text string) (Comment, error) {
 	payload, err := json.Marshal(struct {
 		Body string `json:"body"`
 	}{Body: text})
@@ -151,7 +151,7 @@ type remoteLinkObject struct {
 // that looks at Jira sees the work without an integration installed on the
 // server. Jira folds a repeat POST of the same URL into the existing link
 // rather than adding a second, so confirming twice is harmless.
-func (c Client) LinkPullRequest(ctx context.Context, issueKey, pullURL, title string) error {
+func (c Client) LinkPullRequest(ctx context.Context, issueKey Key, pullURL, title string) error {
 	payload, err := json.Marshal(remoteLink{Object: remoteLinkObject{URL: pullURL, Title: title}})
 	if err != nil {
 		return fmt.Errorf("encoding the link: %w", err)
@@ -173,7 +173,7 @@ func (c Client) LinkPullRequest(ctx context.Context, issueKey, pullURL, title st
 // someone will click — in a Slack message, say. Any username and password in
 // the base URL are left out: the link is shared, and so would they be. It is
 // empty when the base URL cannot be read.
-func (c Client) BrowseURL(issueKey string) string {
+func (c Client) BrowseURL(issueKey Key) string {
 	base, err := url.Parse(c.settings.BaseURL)
 	if err != nil || base.Host == "" {
 		return ""
@@ -181,11 +181,11 @@ func (c Client) BrowseURL(issueKey string) string {
 
 	base.User = nil
 
-	return base.String() + "/browse/" + url.PathEscape(issueKey)
+	return base.String() + "/browse/" + url.PathEscape(string(issueKey))
 }
 
 // issuePath is where an issue lives in the API. The key is escaped because it is
 // text a server supplied: it must stay one path segment.
-func issuePath(issueKey string) string {
-	return "/rest/api/2/issue/" + url.PathEscape(issueKey)
+func issuePath(issueKey Key) string {
+	return "/rest/api/2/issue/" + url.PathEscape(string(issueKey))
 }

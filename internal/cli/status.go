@@ -31,7 +31,7 @@ type statusSeams struct {
 	Changes     func() ([]gitrepo.Change, error)
 	FindPull    func(branch string) (forge.PullRequest, bool, error)
 	CheckStatus func(pull forge.PullRequest, head string) (forge.CI, error)
-	Issue       func(issueKey string) (jira.IssueDetail, error)
+	Issue       func(issueKey jira.Key) (jira.IssueDetail, error)
 	// Project is the configured Jira project; empty falls back to the shape guard.
 	Project string
 }
@@ -196,7 +196,7 @@ func gather(seams statusSeams, branch gitrepo.Branch) statusFacts {
 	facts := statusFacts{issue: issueKey}
 
 	if named {
-		detail, err := seams.Issue(issueKey)
+		detail, err := seams.Issue(jira.Key(issueKey))
 		if err == nil {
 			facts.summary = detail.Issue.Summary
 		}

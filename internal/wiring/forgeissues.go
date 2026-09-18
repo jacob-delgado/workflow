@@ -59,9 +59,9 @@ func forgeIssuesDeps(
 
 	return tui.JiraDeps{
 		Search:      func(string, int) (jira.SearchResult, error) { return listForgeIssues(ctx, connect) },
-		Issue:       func(issueKey string) (jira.IssueDetail, error) { return readForgeIssue(ctx, connect, issueKey) },
-		Transitions: func(string) ([]jira.Transition, error) { return forgeIssueTransitions(), nil },
-		Transition: func(issueKey string, _ jira.Transition, _ []jira.FieldValue) error {
+		Issue:       func(issueKey jira.Key) (jira.IssueDetail, error) { return readForgeIssue(ctx, connect, issueKey) },
+		Transitions: func(jira.Key) ([]jira.Transition, error) { return forgeIssueTransitions(), nil },
+		Transition: func(issueKey jira.Key, _ jira.Transition, _ []jira.FieldValue) error {
 			return closeForgeIssue(ctx, connect, issueKey)
 		},
 	}
@@ -89,7 +89,7 @@ func listForgeIssues(ctx context.Context, connect func() (forgeConnection, error
 
 // readForgeIssue reads one issue in full and shapes it as issue detail.
 func readForgeIssue(
-	ctx context.Context, connect func() (forgeConnection, error), issueKey string,
+	ctx context.Context, connect func() (forgeConnection, error), issueKey jira.Key,
 ) (jira.IssueDetail, error) {
 	connection, number, err := connectToIssue(connect, issueKey)
 	if err != nil {
@@ -109,7 +109,7 @@ func readForgeIssue(
 }
 
 // closeForgeIssue closes the issue behind a tracker key.
-func closeForgeIssue(ctx context.Context, connect func() (forgeConnection, error), issueKey string) error {
+func closeForgeIssue(ctx context.Context, connect func() (forgeConnection, error), issueKey jira.Key) error {
 	connection, number, err := connectToIssue(connect, issueKey)
 	if err != nil {
 		return err
@@ -120,13 +120,13 @@ func closeForgeIssue(ctx context.Context, connect func() (forgeConnection, error
 
 // connectToIssue resolves both the forge connection and the issue number a
 // tracker key names, the pair every single-issue call needs.
-func connectToIssue(connect func() (forgeConnection, error), issueKey string) (forgeConnection, int, error) {
+func connectToIssue(connect func() (forgeConnection, error), issueKey jira.Key) (forgeConnection, int, error) {
 	connection, err := connect()
 	if err != nil {
 		return forgeConnection{}, 0, err
 	}
 
-	number, err := strconv.Atoi(issueKey)
+	number, err := strconv.Atoi(string(issueKey))
 	if err != nil {
 		return forgeConnection{}, 0, fmt.Errorf("%w: %q", errNotAnIssueNumber, issueKey)
 	}
@@ -138,7 +138,7 @@ func connectToIssue(connect func() (forgeConnection, error), issueKey string) (f
 // title as the summary, and its open state mapped onto the glyph's category.
 func forgeIssueRow(issue forge.Issue) jira.Issue {
 	return jira.Issue{
-		Key:            strconv.Itoa(issue.Number),
+		Key:            jira.Key(strconv.Itoa(issue.Number)),
 		Summary:        issue.Title,
 		Status:         forgeOpenStatus,
 		StatusCategory: forgeOpenCategory,

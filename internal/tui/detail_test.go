@@ -148,7 +148,7 @@ func TestADetailForAnIssueNoLongerSelectedIsNotShown(t *testing.T) {
 
 	// Arrange
 	deps := newWorld().deps()
-	deps.Jira.Issue = func(key string) (jira.IssueDetail, error) {
+	deps.Jira.Issue = func(key jira.Key) (jira.IssueDetail, error) {
 		if key == secondIssue {
 			return jira.IssueDetail{Issue: jira.Issue{Key: key}, Reporter: "Fred", Description: "Retries."}, nil
 		}

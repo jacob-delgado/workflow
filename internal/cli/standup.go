@@ -237,7 +237,7 @@ func writeIssues(draft *strings.Builder, issues []jira.Issue) {
 	}
 
 	for _, issue := range issues {
-		draft.WriteString("- " + issue.Key + " " + sanitize.Text(issue.Summary) +
+		draft.WriteString("- " + string(issue.Key) + " " + sanitize.Text(issue.Summary) +
 			" (" + sanitize.Text(issue.Status) + ")\n")
 	}
 }
