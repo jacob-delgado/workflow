@@ -230,6 +230,11 @@ tasks:
     cmds:
       - gitleaks dir --redact --no-banner .
 
+  secrets:history:
+    desc: Scan the commit history for secrets a rebase merge would keep
+    cmds:
+      - gitleaks git --redact --no-banner .
+
   cloc:
     desc: Count the source lines, and the Go test ratio (advisory, never a gate)
     cmds:
