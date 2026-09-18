@@ -233,10 +233,6 @@ Severity: low · Confidence: read
   this; the guard is narrower than it claims. The four secrets in
   `config.Config` are bare strings. None of the five `Stringer` types carries
   the static assertion CLAUDE.md asks for.
-- `pipelineState` (`internal/forge/gitlab.go:100`) treats every status it
-  does not name as running, which includes `manual`. A pipeline waiting on a
-  manual job would then wait forever. GitLab's docs list the status; that the
-  blocked state is reported as `manual` was not confirmed.
 - `jira.User.Active` is decoded and never read. Stale comments: "Only what
   doctor needs so far" (`internal/jira/jira.go:6`), "both tokens masked"
   (`internal/cli/config_cmd.go:122`) where five values are.
