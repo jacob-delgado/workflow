@@ -163,13 +163,14 @@ echo the request URL the other two already dropped. `httpx_test.go` guards it.
 
 - Left per service, deliberately: `bodyLimit` differs (16 MB for Jira and the
   forge, 1 MB for Slack), and status mapping genuinely differs between them.
-- What remains, lower value: a refused redirect still reads "could not reach …"
-  though the server did answer with a redirect the client declined. The cause is
-  named (the error wraps `ErrRedirected`, which a caller tells apart with
-  `errors.Is`), so this is a wording nicety rather than a wrong signal, and
-  settling it cleanly means unifying three clients' distinct unreachable
-  sentinels — kept as a deliberate minor choice. The `call[T]`-style exchange
-  helper the forge has and Jira repeats is a further refactor on its own.
+Also done: a refused redirect no longer reads "could not reach" — the server
+answered. `httpx.Unreachable(sentinel, base, err)` reports a refused redirect as
+`ErrRedirected` ("the server … redirected the request") and anything else as the
+client's own unreachable sentinel, so the branch is written once rather than
+pasted into all four transport-error sites.
+
+- What remains, lower value: the `call[T]`-style exchange helper the forge has
+  and Jira repeats is a further refactor on its own.
 
 ### DEBT-19 Smaller items in the clients
 

@@ -190,7 +190,7 @@ func authenticators() map[config.AuthMode]func(*http.Request, config.Jira) {
 func (c Client) exchange(request *http.Request) ([]byte, error) {
 	response, err := c.do(request)
 	if err != nil {
-		return nil, fmt.Errorf("%w at %s: %w", ErrUnreachable, c.settings.BaseURL, httpx.Cause(err))
+		return nil, httpx.Unreachable(ErrUnreachable, c.settings.BaseURL, err)
 	}
 	defer func() { _ = response.Body.Close() }()
 
