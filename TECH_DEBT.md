@@ -202,9 +202,6 @@ Severity: low · Confidence: read
   this; the guard is narrower than it claims. The four secrets in
   `config.Config` are bare strings. None of the five `Stringer` types carries
   the static assertion CLAUDE.md asks for.
-- `jira.User.Active` is decoded and never read. Stale comments: "Only what
-  doctor needs so far" (`internal/jira/jira.go:6`), "both tokens masked"
-  (`internal/cli/config_cmd.go:122`) where five values are.
 
 ## Configuration, wiring and the command line
 

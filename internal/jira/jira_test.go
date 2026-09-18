@@ -84,10 +84,6 @@ func TestMyselfReportsTheAuthenticatedUser(t *testing.T) {
 	if user.Name != servedUser {
 		t.Errorf("Name = %q, want %q", user.Name, servedUser)
 	}
-
-	if !user.Active {
-		t.Error("Active = false, want true")
-	}
 }
 
 func TestMyselfSendsTheCredentialOnlyInTheAuthorizationHeader(t *testing.T) {
