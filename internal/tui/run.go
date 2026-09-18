@@ -184,6 +184,7 @@ func (r commandRun) failureHeadline() string {
 		"git commit": "the commit was refused",
 		"pre-commit": "the pre-commit hook failed",
 		"git push":   "the push was refused",
+		"git rebase": "the rebase stopped — resolve the conflict in your shell, then continue",
 	}
 
 	sentence, known := sentences[r.title]
@@ -368,4 +369,24 @@ func (m Model) startPush(succeeded func(Model) (Model, tea.Cmd)) (Model, tea.Cmd
 	push := m.deps.Git.Push
 
 	return m.startRun("git push", func() (proc.Output, error) { return push(name) }, succeeded)
+}
+
+// startRebase replays the branch onto its base and streams the result. A clean
+// rebase says so and reads the branch again; a conflict leaves git's output on
+// screen and the repository mid-rebase, which is the shell's to finish.
+func (m Model) startRebase() (Model, tea.Cmd) {
+	base := m.branch.branch.Base
+
+	if m.dryRun {
+		return m.closeOverlay().noticed("dry run: would rebase onto " + base), nil
+	}
+
+	rebase := m.deps.Git.Rebase
+	succeeded := func(done Model) (Model, tea.Cmd) {
+		done = done.closeOverlay().noticed(done.marks.done + " rebased onto " + base)
+
+		return done, done.loadBranch()
+	}
+
+	return m.startRun("git rebase", func() (proc.Output, error) { return rebase(base) }, succeeded)
 }

@@ -23,6 +23,11 @@ const commitLimit = 200
 // gitProgram is the program every command here runs.
 const gitProgram = "git"
 
+// noTerminalPrompt turns off git's credential prompts: nobody can answer one
+// from inside the interface, so a command that needs a credential must fail
+// rather than wait for input that is never coming.
+const noTerminalPrompt = "GIT_TERMINAL_PROMPT=0"
+
 // logSeparator is what git writes after a commit's hash and, under -z, after its
 // subject. A subject may hold any byte but this one: git refuses a commit
 // message with a NUL in it, which is what makes it safe to split on.
@@ -327,7 +332,7 @@ func FetchCommand(dir string) proc.Command {
 		Dir:  dir,
 		Name: gitProgram,
 		Args: []string{"fetch", "origin"},
-		Env:  []string{"GIT_TERMINAL_PROMPT=0"},
+		Env:  []string{noTerminalPrompt},
 	}
 }
 
@@ -341,7 +346,7 @@ func PushCommand(dir, branch string) proc.Command {
 		Dir:  dir,
 		Name: gitProgram,
 		Args: []string{"push", "--set-upstream", "origin", branch},
-		Env:  []string{"GIT_TERMINAL_PROMPT=0"},
+		Env:  []string{noTerminalPrompt},
 	}
 }
 
@@ -349,6 +354,18 @@ func PushCommand(dir, branch string) proc.Command {
 // git commit, so the repository's hooks run exactly as they do in a terminal.
 func CommitCommand(dir, messageFile string) proc.Command {
 	return proc.Command{Dir: dir, Name: gitProgram, Args: []string{"commit", "--file", messageFile}, Env: nil}
+}
+
+// RebaseCommand replays the branch onto base, the branch's fetched merge target.
+// A conflict stops git with a non-zero exit and leaves the repository mid-rebase
+// for the shell to finish, which the interface cannot do.
+func RebaseCommand(dir, base string) proc.Command {
+	return proc.Command{
+		Dir:  dir,
+		Name: gitProgram,
+		Args: []string{"rebase", base},
+		Env:  []string{noTerminalPrompt},
+	}
 }
 
 // HooksDir is where git looks for this repository's hooks, which core.hooksPath

@@ -169,6 +169,10 @@ func (m Model) branchKeys() []key.Binding {
 		keys = append(keys, m.keys.switchTask)
 	}
 
+	if m.canRebase() {
+		keys = append(keys, m.keys.rebase)
+	}
+
 	if m.canPush() {
 		keys = append(keys, m.keys.push)
 	}
@@ -179,6 +183,11 @@ func (m Model) branchKeys() []key.Binding {
 // canSwitchTask reports that the repository can list and switch branches.
 func (m Model) canSwitchTask() bool {
 	return m.deps.Git.Branches != nil && m.deps.Git.Checkout != nil
+}
+
+// canRebase reports a feature branch with a base to catch up with.
+func (m Model) canRebase() bool {
+	return m.branch.onFeatureBranch() && m.branch.branch.Base != "" && m.deps.Git.Rebase != nil
 }
 
 // canPush reports a branch with something to push.
@@ -211,6 +220,8 @@ func (m Model) handleBranchKey(msg tea.KeyMsg) (Model, tea.Cmd) {
 		return m.openBranchCreator()
 	case key.Matches(msg, m.keys.switchTask) && m.canSwitchTask():
 		return m.openBranchPicker()
+	case key.Matches(msg, m.keys.rebase) && m.canRebase():
+		return m.startRebase()
 	case key.Matches(msg, m.keys.push) && m.canPush():
 		return m.previewPush()
 	case key.Matches(msg, m.keys.refresh):

@@ -192,6 +192,9 @@ func gitDeps(ctx context.Context, root string) tui.GitDeps {
 		Push: func(branch string) (proc.Output, error) {
 			return proc.Start(ctx, gitrepo.PushCommand(root, branch))
 		},
+		Rebase: func(base string) (proc.Output, error) {
+			return proc.Start(ctx, gitrepo.RebaseCommand(root, base))
+		},
 	}
 }
 
