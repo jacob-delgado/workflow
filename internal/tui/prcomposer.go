@@ -98,7 +98,7 @@ func (m Model) openPullRequestComposer() (Model, tea.Cmd) {
 		subjects = append(subjects, commit.Subject)
 	}
 
-	issueKey, _ := convention.IssueKey(branch.Name)
+	issueKey, _ := convention.IssueKey(branch.Name, m.cfg.Jira.Project)
 	issue, _ := m.issues.find(issueKey)
 
 	composer := prComposer{

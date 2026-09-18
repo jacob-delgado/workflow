@@ -67,6 +67,11 @@ type Jira struct {
 	// Views are named issue lists the pane can move between, each a label and its
 	// JQL. Empty keeps the one built-in list: open issues assigned to you.
 	Views []JiraView `json:"views"`
+	// Project is the Jira project key, such as "PROJ". When set, only a branch
+	// naming a key in that project is read as an issue, so a name like
+	// fix/UTF-8-decoding is not mistaken for one. Empty falls back to a looser
+	// guard that rejects common technical tokens (UTF, SHA, CVE) by shape alone.
+	Project string `json:"project"`
 }
 
 // Slack describes how workflow posts to Slack. Either transport works: a bot

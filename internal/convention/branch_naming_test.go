@@ -92,7 +92,7 @@ func TestBranchNamingKeepsTheKeyFindable(t *testing.T) {
 
 	// Act
 	name := naming.Name("Story", "PROJ-99", "add retries")
-	got, found := convention.IssueKey(name)
+	got, found := convention.IssueKey(name, "")
 
 	// Assert
 	if !found || got != "PROJ-99" {

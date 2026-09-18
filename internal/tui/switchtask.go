@@ -56,7 +56,7 @@ func (m Model) taskBranches(names []string) []taskBranch {
 	var branches []taskBranch
 
 	for _, name := range names {
-		key, named := convention.IssueKey(name)
+		key, named := convention.IssueKey(name, m.cfg.Jira.Project)
 		if !named || name == current {
 			continue
 		}
