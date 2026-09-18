@@ -13,9 +13,13 @@ extend-exclude = [
 # American English is the house language, per CLAUDE.md. Without a locale,
 # typos accepts the British forms of color and organize without a word.
 locale = "en-us"
-# Go module pseudo-versions embed commit hashes whose hex sometimes spells a
-# word. Never spell-check a version string.
-extend-ignore-re = ["v\\d+\\.\\d+\\.\\d+-[0-9]{14}-[0-9a-f]{12}"]
+# Commit hashes are hex that sometimes spells a word — the generated CHANGELOG
+# links each entry to one (caf7e57), and Go module pseudo-versions embed them.
+# A run of seven or more hex digits is a hash, not prose; never spell-check it.
+extend-ignore-re = [
+  "v\\d+\\.\\d+\\.\\d+-[0-9]{14}-[0-9a-f]{12}",
+  "\\b[0-9a-f]{7,40}\\b",
+]
 
 [default.extend-words]
 # Identifiers and proper nouns that are not typos go here as they appear.
