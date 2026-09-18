@@ -116,13 +116,17 @@ func (m Model) detailView(shape layout.Layout) string {
 func (m Model) detailContent(shape layout.Layout) (string, string, frame.Style) {
 	rows, width := m.detailRows(), m.detailWidth()
 
-	switch {
-	case m.overlay != nil:
+	if m.overlay != nil {
 		title, body := m.overlay.view(width, rows)
 
-		return title, body, m.marks.border.Heavy()
-	case m.helpOpen:
-		return helpTitle, m.helpBody(rows), m.marks.border
+		// Most overlays act, and wear the heavy focus border; one that only
+		// reports, like the key list, marks itself for the light one.
+		border := m.marks.border.Heavy()
+		if _, reports := m.overlay.(lightBordered); reports {
+			border = m.marks.border
+		}
+
+		return title, body, border
 	}
 
 	behavior := behaviorOf(m.focus)
@@ -211,19 +215,6 @@ func (m Model) helpColumn(first, last int) string {
 	}
 
 	return strings.Join(lines, "\n")
-}
-
-// helpBody is the help scrolled to fit, with a mark on the last row when there
-// is more below it.
-func (m Model) helpBody(rows int) string {
-	body := m.helpView()
-	if strings.Count(body, "\n")+1 <= m.scroll+rows {
-		return scrolled(body, m.scroll, rows)
-	}
-
-	shown := strings.Split(scrolled(body, m.scroll, max(1, rows-1)), "\n")
-
-	return strings.Join(append(shown, m.marks.ellipsis+" more below"), "\n")
 }
 
 // detailRows is how many rows of content the detail pane holds.
@@ -326,14 +317,11 @@ func (m Model) footer(width int) string {
 // footerKeys offers the keys that do something where the user is: never a verb
 // with nothing to act on.
 func (m Model) footerKeys() []key.Binding {
-	switch {
-	case m.overlay != nil:
+	if m.overlay != nil {
 		return m.overlay.footer(m.keys)
-	case m.helpOpen:
-		return []key.Binding{m.keys.closeOverlay, m.keys.quit}
-	default:
-		return append(behaviorOf(m.focus).keys(m), m.keys.ShortHelp()...)
 	}
+
+	return append(behaviorOf(m.focus).keys(m), m.keys.ShortHelp()...)
 }
 
 // relabel is a binding with help that says what it does here.
