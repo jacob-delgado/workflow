@@ -207,24 +207,21 @@ Severity: low · Confidence: read
 
 ### DEBT-21 The forge connection is built twice, and remembered when it fails
 
-Severity: medium · Confidence: read
+Severity: low · Confidence: read
 
-- Evidence: `connectForge` (`internal/wiring/wiring.go:206`) and `checkForge`
-  (`internal/cli/doctor.go:163`) each run parse, configured kind, API base and
-  token resolution, and each build the same `forge.Resolver` literal. The
-  comment "the same way doctor --online does" is the only link. Partial third
-  and fourth copies are `templatesFor` and `forgeLabel`. `forgeDeps` wraps the
-  connection in `sync.OnceValues` (`internal/wiring/wiring.go:156`), which
-  remembers the error as well as the value, and `Workspace.Remote` is read
-  once at start (`internal/cli/cli.go:117`).
-- Cost: DEBT-20's offline drift is the two copies disagreeing already. In the
-  interface, "no forge token found" persists until restart: `gh auth login`
-  in another terminal changes nothing, and `r` returns the cached error. A
-  remote added after start is never seen. gobco also reports that the success
-  side of all four `connect()` callers is never exercised (DEBT-36).
-- Remedy: one exported connect function that both callers use; remember a
-  connection only when it succeeded.
-- Done when: `r` after signing in finds the pull request.
+Fixed: `onceConnected` (`internal/wiring/wiring.go`) caches a connection only
+once it succeeds and retries after a failure, so `gh auth login` in another
+terminal is found on the next attempt rather than only on a restart — the
+"Done when" is met. The duplicated `forge.Resolver` literal is now the shared
+`wiring.ForgeResolver`, which both `connectForge` and `checkForge` call, so the
+two cannot drift in where they look for a credential.
+
+- What remains: the preamble around the resolver — parse the remote, apply the
+  configured kind, find the API base — is still shaped the same in both, but the
+  two report failure differently (doctor prints a line per step; wiring returns
+  wrapped errors), so a single `connect` would have to thread that divergence.
+  Left until a third caller earns it. The success arm of the interface's own
+  `connect()` sites is DEBT-36.
 
 ### DEBT-23 The file format has no version and rejects what it does not know
 

@@ -199,14 +199,7 @@ func checkForge(ctx context.Context, out io.Writer, settings config.Forge, remot
 		return nil
 	}
 
-	resolver := forge.Resolver{
-		Getenv:     os.Getenv,
-		Look:       proc.LookPath,
-		Run:        proc.Run,
-		Configured: wiring.ForgeSettings(settings),
-	}
-
-	token, source, err := resolver.Resolve(ctx, repo.Kind, repo.Host)
+	token, source, err := wiring.ForgeResolver(settings).Resolve(ctx, repo.Kind, repo.Host)
 	if err != nil {
 		fmt.Fprintf(out, "  %-10s none — %s\n", "forge", forge.Sources(repo.Kind, repo.Host))
 
