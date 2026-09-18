@@ -25,9 +25,10 @@ vars:
   # Container tasks work with docker or podman: CONTAINER_RUNTIME=podman task ...
   CONTAINER_RUNTIME: '{{.CONTAINER_RUNTIME | default "docker"}}'
   BUILD_IMAGE: '{{.BUILD_IMAGE | default "workflow-build:local"}}'
-  # Release targets, as GOOS/GOARCH pairs.
+  # Release targets, as GOOS/GOARCH pairs: Apple Silicon macOS, and amd64 on
+  # Linux and Windows.
   RELEASE_PLATFORMS: >-
-    darwin/arm64 darwin/amd64 linux/amd64 linux/arm64 windows/amd64
+    darwin/arm64 linux/amd64 windows/amd64
 
 tasks:
   default:
@@ -296,12 +297,44 @@ tasks:
           var: RELEASE_PLATFORMS
           split: " "
           as: PLATFORM
+        # {{.PLATFORM}} is a Task template variable, not a shell one: the loop
+        # exposes it for interpolation, and it is never exported to the shell.
+        # Reading it as ${PLATFORM} gave an empty string, so every platform built
+        # to dist/{{.BINARY}}__ and overwrote the last. Interpolate it into a
+        # shell variable first, then the goos/goarch split works.
         cmd: |
-          goos="${PLATFORM%%/*}"
-          goarch="${PLATFORM##*/}"
+          platform="{{.PLATFORM}}"
+          goos="${platform%%/*}"
+          goarch="${platform##*/}"
           ext=""
           [ "$goos" = "windows" ] && ext=".exe"
           echo "Building dist/{{.BINARY}}_${goos}_${goarch}${ext}"
           CGO_ENABLED=0 GOOS="$goos" GOARCH="$goarch" \
             go build -trimpath -ldflags="-s -w" \
             -o "dist/{{.BINARY}}_${goos}_${goarch}${ext}" {{.PKG}}
+
+  release:verify:
+    desc: Fail unless dist/ holds one binary per release platform and none with an empty platform
+    cmds:
+      # One binary must exist per target, named for its platform.
+      - for:
+          var: RELEASE_PLATFORMS
+          split: " "
+          as: PLATFORM
+        cmd: |
+          platform="{{.PLATFORM}}"
+          goos="${platform%%/*}"
+          goarch="${platform##*/}"
+          ext=""
+          [ "$goos" = "windows" ] && ext=".exe"
+          binary="dist/{{.BINARY}}_${goos}_${goarch}${ext}"
+          test -f "$binary" || { echo "missing release binary: $binary"; exit 1; }
+          echo "ok: $binary"
+      # And none built with an empty platform, which is what dist/{{.BINARY}}__
+      # was: the failure that shipped one nameless binary instead of the set.
+      - |
+        set -- dist/{{.BINARY}}__*
+        if [ -e "$1" ]; then
+          echo "a binary built with an empty platform: $1"
+          exit 1
+        fi

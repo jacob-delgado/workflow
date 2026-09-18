@@ -42,10 +42,28 @@ jobs:
       - name: Verify
         run: task check
 
-      # Cross-compiles darwin/linux/windows on amd64 and arm64 into dist/, with
-      # CGO_ENABLED=0 — the same task the build container runs.
+      # Cross-compiles the release targets into dist/ — Apple Silicon macOS and
+      # amd64 Linux and Windows — with CGO_ENABLED=0, the same task the build
+      # container runs.
       - name: Build release binaries
         run: task release:binaries
+
+      # Every target must have produced its own binary. This catches a build that
+      # names them all the same and ships one, which is what a broken loop did.
+      - name: Verify every platform built
+        run: task release:verify
+
+      # An SBOM of the module, so a downloader can see exactly which dependencies
+      # went into the binaries and check them against advisories. Attached to the
+      # release and attested alongside the binaries below.
+      - name: Generate an SBOM
+        uses: anchore/sbom-action@3ad7283483fc7af8ff2b4ea19663c2d5ca935e26 # v0.24.2
+        with:
+          path: .
+          format: spdx-json
+          output-file: dist/workflow.spdx.json
+          upload-artifact: false
+          upload-release-assets: false
 
       - name: Generate SHA256 checksums
         working-directory: dist
@@ -67,6 +85,7 @@ jobs:
           subject-path: |
             dist/workflow_*
             dist/SHA256SUMS
+            dist/workflow.spdx.json
 
       - name: Publish the release
         # Kept over a `gh release` script step: this uploads the binaries,
@@ -81,3 +100,4 @@ jobs:
           files: |
             dist/workflow_*
             dist/SHA256SUMS
+            dist/workflow.spdx.json

@@ -41,8 +41,9 @@ moving.
 
 ## From a release
 
-Release binaries are published for macOS, Linux, and Windows on amd64 and arm64.
-Download the one for your platform from the
+Release binaries are published for Apple Silicon macOS (`workflow_darwin_arm64`),
+Linux on amd64 (`workflow_linux_amd64`), and Windows on amd64
+(`workflow_windows_amd64.exe`). Download the one for your platform from the
 [releases page](https://github.com/jacob-delgado/workflow/releases), along with
 `SHA256SUMS`, then verify and install it:
 
@@ -58,6 +59,10 @@ you can confirm it came from this repository's CI rather than someone's laptop:
 ```sh
 gh attestation verify workflow_darwin_arm64 --repo jacob-delgado/workflow
 ```
+
+Each release also carries an SBOM, `workflow.spdx.json`, listing in SPDX format
+the dependencies the binaries were built from — for checking them against
+advisories or a policy.
 
 ## From source
 
