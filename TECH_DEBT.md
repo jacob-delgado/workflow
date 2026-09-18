@@ -6,7 +6,7 @@ spots, and docs that have drifted from the code. It is a record, not a plan.
 Nothing here is scheduled.
 
 Two readers are in mind: a contributor looking for something worth fixing,
-and a later Claude Code session asked to "pick up DEBT-18". Each entry says
+and a later Claude Code session asked to "pick up DEBT-22". Each entry says
 what is wrong, where, what it costs, one way to fix it, and how to tell when
 it is fixed. [FEATURES.md](FEATURES.md) and [UX.md](UX.md) hold the ideas;
 this file holds the debts.
@@ -77,83 +77,6 @@ Severity: medium · Confidence: reproduced
 - Done when: a test that refreshes twice during polling counts one check per
   interval.
 
-### DEBT-03 Errors are styled and then wrapped
-
-Severity: medium · Confidence: reproduced
-
-- Evidence: `wrap(m.failure(m.changes.err), width)`
-  (`internal/tui/commits.go:102`); the same order at
-  `internal/tui/detail.go:253` with the wrap at `:229`, and
-  `internal/tui/review.go:180` with the wrap at `:187`. `wrapLine`
-  (`internal/tui/render.go:167`) adds no reset, and neither does the frame.
-- Cost: the color opens on the first row and closes on the last. Seen on a
-  live terminal: outside a repository, red ran from the Commits error across
-  three rows, through the pane's right border, the rail's borders and the
-  title "2 Branch". It is the first screen of anyone who starts the program
-  in the wrong directory. Tests cannot see it, because they render without
-  color.
-- Remedy: wrap first, then style, so each row closes what it opens. A test
-  can force a color profile and assert that every row which opens a color
-  closes it.
-- Done when: that test exists and passes.
-
-### DEBT-04 An overlay's outcome can be clipped or pushed off screen
-
-Severity: medium · Confidence: reproduced
-
-- Evidence: six overlays append their state line after their body, unwrapped:
-  `internal/tui/hookgen.go:92`, `internal/tui/comment.go:77`,
-  `internal/tui/prcomposer.go:135`, `internal/tui/slack.go:177`,
-  `internal/tui/branch.go:228`, `internal/tui/picker.go:123`. Overlay bodies
-  are returned as they are (`detailContent`, `internal/tui/render.go:84`) and
-  the frame clips rows past its height. Six of eight overlay views ignore the
-  row count they are given (`view(width, _ int)`).
-- Cost: a failed lefthook install at 80×24 with two hooks showed no error at
-  all; at 120×30 it showed. A long reason is cut with an ellipsis on any
-  terminal. `internal/tui/picker.go:183` states the rule this breaks: "a
-  refused change must never go unseen".
-- Remedy: draw the state first, under the title, as `commandRun.view` does,
-  and wrap it to the width.
-- Done when: a screen test at 80×24 sees the full failure text in every
-  overlay.
-
-### DEBT-05 Scrolling has no memory of where the end is
-
-Severity: medium · Confidence: reproduced
-
-- Evidence: the offset grows without bound (`m.scroll += m.halfPage()`,
-  `internal/tui/tui.go:175` and `:202`; `internal/tui/mouse.go:88`) and is
-  clamped only when drawn (`scrolled`, `internal/tui/render.go:144`).
-  `pickChange` maps a click with the raw value (`internal/tui/commits.go:197`).
-  `handleCommitsKey` moves the selection without moving the view
-  (`internal/tui/commits.go:176`), and the Commits detail draws every row.
-- Cost: after twelve scroll-downs on a long issue, six scroll-ups changed
-  nothing. With 40 changed files, thirty `j` presses put the selection off
-  screen, where `space` still acts on it. The other lists use `window` and do
-  not have this problem.
-- Remedy: clamp where the offset is written, with one helper that knows the
-  content's height, and window the change list like the others.
-- Done when: the selected file is on screen after any number of `j` presses,
-  and one scroll-up after over-scrolling moves the view.
-
-### DEBT-06 The pull request composer loses what was typed
-
-Severity: medium · Confidence: reproduced
-
-- Evidence: `withTemplate` overwrites `c.body`
-  (`internal/tui/prcomposer.go:102`) and `ctrl+t` calls it even when there is
-  one template. When `enter` must push first, the composer survives only
-  inside the `succeeded` closure (`internal/tui/prcomposer.go:279`); `esc` on
-  a failed run is `closeOverlay` (`internal/tui/run.go:227`).
-- Cost: a description written in the editor is wiped by a key labeled "next
-  template". A failed push followed by `esc` discards the title, the
-  description and the draft flag. The commit composer keeps `m.draft` for
-  exactly this case; this one keeps nothing.
-- Remedy: re-template only a body that has not been edited; keep a draft, as
-  the commit composer does.
-- Done when: after a failed push, `esc` and `n` reopen the composer with the
-  typed title.
-
 ### DEBT-07 Six overlays, one state machine, written six times
 
 Severity: medium · Confidence: read
@@ -170,38 +93,13 @@ Severity: medium · Confidence: read
   copy differs: `commentEdited.apply` closes the overlay on an editor error
   (`internal/tui/comment.go:47`), so a failed re-edit discards a written
   comment while the other three keep their text. Reproduced.
-- Cost: six copies is twice the rule of three, DEBT-04 exists because each
-  copy draws its own outcome line, and the one copy that diverged has a bug
-  the others do not.
+- Cost: six copies is twice the rule of three, each copy draws its own outcome
+  line, and the one copy that diverged has a bug the others do not.
 - Remedy: a small value type, `sendState{sending bool; err error}`, held as a
   named field, with the view lines, the lock and the failure transition on
   it; one `textEdited` message for the editor round trip.
 - Done when: the failure appliers are one function, and the comment preview
   survives an editor failure.
-
-### DEBT-08 `failure` is "the one way", and thirteen places go around it
-
-Severity: medium · Confidence: read
-
-- Evidence: `failure` (`internal/tui/render.go:275`) is documented as "the
-  one way the interface says something broke". These draw the glyph and
-  `err.Error()` unstyled instead: `internal/tui/picker.go:123` and `:160`,
-  `internal/tui/comment.go:77`, `internal/tui/branch.go:228`,
-  `internal/tui/prcomposer.go:135`, `internal/tui/slack.go:100` and `:177`,
-  `internal/tui/hookgen.go:92`, `internal/tui/run.go:168`,
-  `internal/tui/review.go:140`, `internal/tui/composer.go:114` and `:158`,
-  `internal/tui/fields.go:101`. `internal/tui/issues.go:135` draws no glyph
-  at all. Overlays are handed the glyphs (`marks`) and not the styles, which
-  explains the overlay sites; `review.go:140` and `slack.go:84` are `Model`
-  methods with `failure` in reach.
-- Cost: red is the one color with a rule ("red always means something broke",
-  `internal/tui/glyphs.go:76`) and most failures are not red. `failure` also
-  makes an error's text safe to draw and the sites that go around it do not,
-  which leaves that to wherever each error was written.
-- Remedy: pass one small `theme{marks, styles}` into `overlay.view`, with
-  `failure(err, width)` on it.
-- Done when: no site outside `failure` concatenates `marks.failed` with an
-  error.
 
 ### DEBT-09 Dry run is twelve `if`s, not a property of the seam
 
@@ -244,21 +142,6 @@ Severity: low · Confidence: reproduced
 - Remedy: one `selection` value with `moved`, `window` and `rowAt`, returned
   by the view so the click handler asks it.
 - Done when: the four click handlers contain no layout constants.
-
-### DEBT-11 A notice with a newline breaks the one-row footer
-
-Severity: low · Confidence: reproduced
-
-- Evidence: `stageAll` joins failures with `errors.Join`
-  (`internal/tui/commits.go:255`) and `proc.Run` appends a program's stderr to
-  its error (`internal/proc/proc.go:43`); `footer` passes the text to
-  `ansi.Truncate` (`internal/tui/render.go:212`), which lets a newline through
-  when it falls within the width.
-- Cost: a staging error with two lines of stderr rendered 31 rows on a 30-row
-  terminal. The progress row scrolls off and every mouse target is one row
-  out.
-- Remedy: `noticed` keeps the first line, or joins lines with the separator.
-- Done when: no notice can make `View` taller than the terminal.
 
 ### DEBT-12 One model that every message can change
 
@@ -318,40 +201,6 @@ Severity: low · Confidence: read
 
 ## The clients: forge, Jira and Slack
 
-### DEBT-15 GitHub CI listings stop at the first page
-
-Severity: medium · Confidence: read
-
-- Evidence: `githubStatus` asks for `/status` with no `per_page` and
-  `/check-runs?per_page=100` with no second page
-  (`internal/forge/github.go:87` and `:92`). The decode structs
-  (`githubCombined`, `githubRuns`) drop `total_count`. GitHub documents a
-  default of 30 and a maximum of 100 for both.
-- Cost: a failing status past the thirtieth, or a failing run past the
-  hundredth, is never seen, and the tally says passed. Truncation cannot even
-  be detected, because the count is discarded.
-- Remedy: decode `total_count`; page with a bounded loop; when the count still
-  exceeds what was read, report running, not passed.
-- Done when: a fixture with 31 statuses, the last failing, yields `CIFailed`.
-
-### DEBT-16 The SSH port of the remote becomes the HTTPS port of the API
-
-Severity: medium · Confidence: reproduced
-
-- Evidence: `ParseRemote` keeps `address.Host`, port included
-  (`internal/forge/remote.go:93`), and `APIBase` builds
-  `"https://" + r.Host + "/api/v4"` (`internal/forge/remote.go:140`) and
-  `"/api/v3"` (`:160`). The same value goes to `gh auth token --hostname`
-  (`internal/forge/token.go:254`). `config.Forge` has a kind, a host and a
-  token, and no setting for the API's address.
-- Cost: `ssh://git@git.example.com:2222/group/repo.git`, a common shape for a
-  self-managed GitLab, yields `https://git.example.com:2222/api/v4`, and the
-  user has no setting to correct it. For an `https` remote, keeping the port
-  is right.
-- Remedy: use `Hostname()` for the API when the remote's scheme is `ssh`; add
-  a `forge.base_url` override.
-- Done when: the remote above resolves to `https://git.example.com/api/v4`.
-
 ### DEBT-17 Three HTTP clients copied by hand, already drifting
 
 Severity: medium · Confidence: read
@@ -379,20 +228,6 @@ Severity: medium · Confidence: read
   says "too large", and one decision about what a transport error shows.
   Status mapping stays per service, where it genuinely differs.
 - Done when: `CheckRedirect` is written once.
-
-### DEBT-18 Every Slack refusal is reported as a rejected credential
-
-Severity: medium · Confidence: read
-
-- Evidence: `ErrRejected = errors.New("the credential was not accepted")`
-  (`internal/slack/slack.go:41`) is returned for any `ok: false`
-  (`internal/slack/post.go:86`) and any 4xx, 429 included
-  (`internal/slack/post.go:144`). `internal/slack/post_test.go:133` pins it.
-- Cost: "the credential was not accepted: not_in_channel" sends the user to
-  rotate a working token.
-- Remedy: keep `ErrRejected` for Slack's authentication codes and add a
-  sentinel for a refused post.
-- Done when: `not_in_channel` does not mention the credential.
 
 ### DEBT-19 Smaller items in the clients
 
@@ -526,37 +361,7 @@ Severity: medium · Confidence: reproduced
   in the run overlay.
 - Done when: a test cancels a streamed run and its grandchild exits.
 
-### DEBT-25 `doctor --online` files every failure under one heading
-
-Severity: low · Confidence: read
-
-- Evidence: every failing check returns `errCredentialRejected`
-  (`internal/cli/doctor.go:175`, `:197`, `:209`, `:232`, `:248`), including a
-  bad `forge.kind` and an unreachable server. The three clients export 29
-  sentinels; outside their own packages, one is ever tested for
-  (`internal/cli/doctor.go:228`).
-- Cost: with the VPN down, the error reads "a credential was rejected: jira".
-- Remedy: a second sentinel chosen with `errors.Is(err, ErrUnreachable)`.
-- Done when: an unreachable Jira is reported as unreachable.
-
 ## Git, hooks, conventions and processes
-
-### DEBT-26 File names are handed to git as patterns
-
-Severity: medium · Confidence: reproduced
-
-- Evidence: `Stage` runs `git add --all -- <path>`
-  (`internal/gitrepo/status.go:118`); `Unstage` runs
-  `restore --staged --` (`:132`) or `rm --cached --quiet --` (`:136`). `--`
-  ends options; it does not turn off globbing or pathspec magic.
-- Cost: staging `[id].tsx` also staged `i.tsx` and `d.tsx` beside it, and
-  unstaging it unstaged all three. A file named `:(top)README` staged
-  `README`. Bracketed file names are ordinary in web frameworks. The status
-  parser preserves such names carefully with `-z` and then hands them back as
-  patterns.
-- Remedy: `git --literal-pathspecs` on the three commands. It fixed every
-  case tried.
-- Done when: a test stages `[id].tsx` beside `i.tsx` and only one is staged.
 
 ### DEBT-27 The lefthook generator converts scripts it does not understand
 
@@ -579,22 +384,6 @@ Severity: medium · Confidence: reproduced
   at all and no trailing operator; everything else stays a script, which the
   generator already does well. Add each case above to the table first.
 - Done when: every case above is in the table and is kept whole.
-
-### DEBT-28 A bare `#!/usr/bin/env` ends the program at start-up
-
-Severity: medium · Confidence: reproduced
-
-- Evidence: `runner` (`internal/hooks/generate.go:186`) takes `args[0]` after
-  `env` with no length check: "slice bounds out of range". It is reached from
-  `Init` through `findHooks` and `hooks.Structured`. `env -u FOO bash` and
-  `env VAR=1 bash` are misread as the interpreters `FOO` and `VAR=1`.
-  (`env -S bash -e` is handled, and a test asserts it.)
-- Cost: with lefthook installed and no lefthook configuration, an executable
-  hook with that first line makes `workflow` exit 1 on every start in that
-  repository. Bubble Tea recovers the panic and restores the terminal, so it
-  is a stack trace, not a broken terminal.
-- Remedy: the failing test, then a guard and skipping `VAR=` words.
-- Done when: that shebang yields `sh` and the interface opens.
 
 ### DEBT-29 Hook failure locations that name nothing are still offered
 
@@ -633,20 +422,6 @@ Severity: medium · Confidence: read
   `remote.pushDefault` before assuming; say how old the base is.
 - Done when: the word `origin` appears once in production code.
 
-### DEBT-31 `hooks.Write` can fail halfway and then refuse to retry
-
-Severity: low · Confidence: reproduced
-
-- Evidence: `Write` (`internal/hooks/generate.go:322`) creates `lefthook.yml`
-  first and each script after it, exclusively.
-- Cost: with a leftover `.lefthook/commit-msg/commit-msg`, the first call
-  failed after writing the configuration, and the retry failed with "this
-  repository already has a lefthook configuration". The result is a
-  configuration that names missing scripts, no `lefthook install`, and an
-  offer that never appears again because a configuration now exists.
-- Remedy: check every target first; write the configuration last.
-- Done when: a failed `Write` leaves nothing behind.
-
 ### DEBT-32 Windows is a release target the code has not met
 
 Severity: low · Confidence: read
@@ -657,8 +432,8 @@ Severity: low · Confidence: read
   every file on Windows, so no hook is ever found. The editor falls back to
   `vi` (`internal/editor/editor.go:31`). The location pattern
   (`internal/hooks/output.go:131`) cannot match `C:\path\file.go:12`. CI never
-  compiles or tests the Windows build (DEBT-40). None of this was run on
-  Windows.
+  tests the Windows build, though the cross-compile leg now proves it links.
+  None of this was run on Windows.
 - Remedy: a macOS and a Windows leg in CI first, to learn what else is true;
   then small build-tagged helpers.
 - Done when: the test suite runs on Windows in CI.
@@ -789,20 +564,6 @@ Severity: low · Confidence: read
   (DEBT-41).
 
 ## Build, CI, scripts and release
-
-### DEBT-40 Four of five release platforms are first compiled at release
-
-Severity: medium · Confidence: read
-
-- Evidence: every job in `.github/workflows/ci.yml` runs on `ubuntu-latest`,
-  and its build step runs `task build` only. `task release:binaries`, the five
-  platforms (`Taskfile.yml:29`), is called from `release.yml` alone.
-- Cost: a break that only macOS or Windows can see surfaces after the tag
-  exists. A Windows binary ships that CI has never compiled, let alone tested
-  (DEBT-32).
-- Remedy: run `task release:binaries` in the CI build job; add a macOS leg to
-  the test job.
-- Done when: CI compiles all five targets on every pull request.
 
 ### DEBT-41 The build container is never built, and is not the same gate
 
@@ -948,21 +709,6 @@ Severity: low · Confidence: reproduced
   sends scratch files there without saying so.
 
 ## Docs and configuration drift
-
-### DEBT-47 The docs promise `.workflow.json` is gitignored; nothing makes it so
-
-Severity: medium · Confidence: read
-
-- Evidence: the help text (`internal/cli/cli.go:76`), `README.md:151` and
-  `docs/content/docs/configuration.md:167` say the file "is listed in
-  `.gitignore`". That is true of this repository's `.gitignore`.
-  `runConfigInit` writes the file and checks nothing.
-- Cost: in a user's repository the default target puts live tokens one
-  `git add -A` from a commit, under a sentence that says otherwise.
-- Remedy: inside a work tree, ask `git check-ignore` and warn; reword the
-  three texts. See FEAT-45.
-- Done when: `config init` in a repository that does not ignore the file says
-  so.
 
 ### DEBT-48 The documents name a version and a flag that do not exist
 
