@@ -357,16 +357,16 @@ func FetchCommand(dir string) proc.Command {
 	}
 }
 
-// PushCommand pushes a branch to origin and makes it the upstream.
+// PushCommand pushes a branch to remote and makes it the upstream.
 //
 // Prompts are off: nobody can answer a credential prompt from inside the
 // interface, so git must fail with a reason rather than wait forever for input
 // that is never coming.
-func PushCommand(dir, branch string) proc.Command {
+func PushCommand(dir, remote, branch string) proc.Command {
 	return proc.Command{
 		Dir:  dir,
 		Name: gitProgram,
-		Args: []string{"push", "--set-upstream", DefaultRemote, branch},
+		Args: []string{"push", "--set-upstream", remote, branch},
 		Env:  []string{noTerminalPrompt},
 	}
 }
@@ -403,4 +403,16 @@ func (r Repository) HooksDir(ctx context.Context) (string, error) {
 	}
 
 	return path, nil
+}
+
+// PushRemote is the remote a push goes to: remote.pushDefault when the
+// repository sets one — a fork pushes to its own remote, not origin — or
+// DefaultRemote otherwise. git exits non-zero when the key is unset, which
+// optional reads as the empty string, so an unset default falls back cleanly.
+func (r Repository) PushRemote(ctx context.Context) string {
+	if remote := optional(ctx, r.run, "-C", r.dir, "config", "--get", "remote.pushDefault"); remote != "" {
+		return remote
+	}
+
+	return DefaultRemote
 }

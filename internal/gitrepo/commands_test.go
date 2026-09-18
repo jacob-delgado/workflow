@@ -60,11 +60,11 @@ func TestPushCommandRunsInTheRepositoryWithoutPrompts(t *testing.T) {
 	t.Parallel()
 
 	// Act
-	push := gitrepo.PushCommand(workDir, "fix/PROJ-1-x")
+	push := gitrepo.PushCommand(workDir, "upstream", "fix/PROJ-1-x")
 
 	// Assert
 	if push.Dir != workDir || push.Name != gitProgram ||
-		!slices.Equal(push.Args, []string{"push", "--set-upstream", "origin", "fix/PROJ-1-x"}) {
+		!slices.Equal(push.Args, []string{"push", "--set-upstream", "upstream", "fix/PROJ-1-x"}) {
 		t.Errorf("PushCommand = %+v", push)
 	}
 
@@ -72,6 +72,30 @@ func TestPushCommandRunsInTheRepositoryWithoutPrompts(t *testing.T) {
 	// must fail rather than wait for one.
 	if !slices.Contains(push.Env, "GIT_TERMINAL_PROMPT=0") {
 		t.Errorf("PushCommand environment = %q, want prompts turned off", push.Env)
+	}
+}
+
+func TestPushRemoteHonorsPushDefaultAndFallsBackToOrigin(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	const query = "git -C " + workDir + " config --get remote.pushDefault"
+
+	set := fakeRunner(t, map[string]reply{query: {out: []byte("upstream\n")}})
+	// git exits non-zero when the key is unset.
+	unset := fakeRunner(t, map[string]reply{query: {err: errUnexpectedCommand}})
+
+	// Act
+	configured := gitrepo.At(set, workDir).PushRemote(t.Context())
+	fallback := gitrepo.At(unset, workDir).PushRemote(t.Context())
+
+	// Assert
+	if configured != "upstream" {
+		t.Errorf("PushRemote with remote.pushDefault set = %q, want upstream", configured)
+	}
+
+	if fallback != "origin" {
+		t.Errorf("PushRemote with no default = %q, want origin", fallback)
 	}
 }
 
