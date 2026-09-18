@@ -303,22 +303,6 @@ run)` (`internal/cli/cli.go`), so `cli_dryrun_internal_test.go` runs the bare
 RUN" with the flag and not without. Removing `if dryRun { model.WithDryRun() }`
 now fails the suite; gobco sees both arms of `dryRun`.
 
-### DEBT-36 The forge's success path is never exercised outside its package
-
-Severity: low · Confidence: measured
-
-Done for the interface's forge seams: `forgeDepsFrom` (`internal/wiring/forge.go`)
-takes the `connect` as a parameter, and `forgedeps_internal_test.go` drives
-FindPullRequest, CreatePullRequest, CheckStatus, ReviewRequests and Author with a
-client pointed at a fake GitHub, so the success arm of each connect guard is now
-exercised — only failures were before. `config init --global` is tested too
-(`config_init_guided_test.go`).
-
-- What remains: `doctor`'s `askForge` and `checkSlack` still build real clients
-  against real addresses (`internal/cli/doctor.go`), so their success arm is only
-  reached against a live forge/Slack. Injecting the API base and `Doer` there is
-  the remaining work, tied to DEBT-17's shared transport.
-
 ### DEBT-37 The shared fake world was 27 lines from the file-length gate — DONE
 
 Severity: low · Confidence: measured
