@@ -527,18 +527,21 @@ Severity: low · Confidence: reproduced
 
 ## Docs and configuration drift
 
-### DEBT-49 Smaller drift
+### DEBT-49 Smaller drift — DONE
 
 Severity: low · Confidence: read
 
-- The usage guide's promise about the bottom row, its "`?` lists every key",
-  and its "anywhere" keys do not match the bindings. The detail is in UX.md
-  (UX-32, UX-33).
-- The tool lists in `CONTRIBUTING.md` and `docs/content/docs/contributing.md`
-  disagree with each other and with `mise.toml`.
+- The usage guide's per-pane Keys table now lists the five wired bindings it
+  omitted — switch view (`v`), switch task (`s`), rebase (`u`), worktree
+  (`ctrl+w`) and post-when-green (`w`). `?` is complete by construction:
+  `help_internal_test.go` asserts the help groups hold every binding the keyMap
+  declares.
+- `CONTRIBUTING.md` and `docs/content/docs/contributing.md` no longer enumerate
+  the tools — they point at `mise.toml` as the list, so neither can drift from it
+  or from each other.
 
-The gobco "cannot read every package" comments, the stale version and platform
-lists, the scissors line and the CLAUDE.md layout block are corrected.
+The gobco "reads every package" comments, the version and platform lists, the
+scissors line and the CLAUDE.md layout block were corrected earlier.
 
 ## Deliberate trade-offs that carry a cost
 

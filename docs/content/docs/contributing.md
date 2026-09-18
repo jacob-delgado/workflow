@@ -21,11 +21,11 @@ task setup                   # modules + git hooks
 ```
 
 [mise](https://mise.jdx.dev) is the only thing you install by hand. Every other
-tool — Go, golangci-lint, lefthook, shellcheck, shfmt, yamllint, hadolint,
-actionlint, typos, govulncheck, gitleaks, gobco, Hugo — is pinned in `mise.toml`
-at an exact version. That file is the single source of truth: the build
+tool — Go and the task runner, every linter and formatter, the coverage and
+security scanners, the docs builder — is pinned in `mise.toml` at an exact
+version. That file is the single source of truth, and the list: the build
 container reads it, and so does CI, so a developer's machine, the container, and
-CI cannot drift apart.
+CI cannot drift apart. Naming each tool here would only drift from it.
 
 Prefer not to install anything? `task container:check` runs the entire gate
 inside a container built from those same pins, and there is a devcontainer for

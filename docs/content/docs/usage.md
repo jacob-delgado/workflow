@@ -74,8 +74,12 @@ scroll the detail pane.
 | 1 Issues | `t` | Change the selected issue's status |
 | | `c` | Comment on it |
 | | `b` | Start a branch for it |
+| | `v` | Switch which issue list is shown |
 | | `r` | Search again |
 | 2 Branch | `b` | Start a branch |
+| | `s` | Switch to another issue's branch |
+| | `u` | Rebase the branch onto its base |
+| | `ctrl+w` | Add a git worktree for a branch |
 | | `P` | Push a branch that has unpushed commits |
 | | `r` | Read the repository again |
 | 3 Commits | `space` | Stage or unstage the selected file |
@@ -86,6 +90,7 @@ scroll the detail pane.
 | 4 Review | `n` | Open a pull or merge request |
 | | `r` | Look for the pull request and its CI again |
 | 5 Slack | `p` | Preview the post announcing the pull request |
+| | `w` | Post automatically once CI passes |
 | Anywhere | `m` | Turn mouse capture off or on, for this session |
 | | `?` | Every key |
 | | `q` | Quit (`ctrl+c` works even with a preview open) |
