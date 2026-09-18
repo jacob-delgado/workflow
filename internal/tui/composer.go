@@ -59,7 +59,7 @@ type commitComposer struct {
 	send     sendState
 }
 
-var _ overlay = commitComposer{}
+var _ editable = commitComposer{}
 
 // openCommitComposer opens the composer on the last draft, if a commit failed,
 // or on a fresh one.
@@ -289,30 +289,20 @@ func (c commitComposer) editBody(m Model) tea.Cmd {
 	}
 
 	return m.deps.Editor.Edit(c.body, bodyHelp, func(text string, err error) tea.Msg {
-		return commitBodyEdited{text: text, err: err}
+		return textEdited{text: text, err: err}
 	})
 }
 
-// commitBodyEdited is a commit body back from the editor.
-type commitBodyEdited struct {
-	text string
-	err  error
-}
-
-// apply puts the body in the composer, if it is still open.
-func (msg commitBodyEdited) apply(m Model) (Model, tea.Cmd) {
-	composer, open := m.overlay.(commitComposer)
-	if !open {
-		return m, nil
-	}
-
-	if msg.err != nil {
-		composer.send = composer.send.failed(msg.err)
+// applyEdit puts the body back in the composer, or records why the editor
+// failed.
+func (c commitComposer) applyEdit(m Model, text string, err error) (Model, tea.Cmd) {
+	if err != nil {
+		c.send = c.send.failed(err)
 	} else {
-		composer.body = msg.text
+		c.body = text
 	}
 
-	m.overlay = composer
+	m.overlay = c
 
 	return m, nil
 }

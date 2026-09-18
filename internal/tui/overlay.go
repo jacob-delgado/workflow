@@ -31,6 +31,32 @@ type clickable interface {
 	click(m Model, line int) (Model, tea.Cmd)
 }
 
+// editable is an overlay that has handed its body to $EDITOR and takes the
+// result back. One textEdited message serves them all: the open overlay is the
+// one that asked, so it updates whichever overlay is editing rather than each
+// carrying a message type of its own.
+type editable interface {
+	overlay
+	applyEdit(m Model, text string, err error) (Model, tea.Cmd)
+}
+
+// textEdited is a body back from the editor, for whichever overlay is editing.
+type textEdited struct {
+	text string
+	err  error
+}
+
+// apply hands the edited text to the open overlay, or drops it if the overlay
+// that asked has since closed.
+func (msg textEdited) apply(m Model) (Model, tea.Cmd) {
+	editing, open := m.overlay.(editable)
+	if !open {
+		return m, nil
+	}
+
+	return editing.applyEdit(m, msg.text, msg.err)
+}
+
 // applier is a message that knows what it changes: every load and every result
 // the interface waits for. Update hands it the model rather than growing a case
 // for each one, and a result for an overlay that has since closed does nothing,
@@ -60,16 +86,14 @@ var (
 	_ applier = runLine{}
 	_ applier = runFinished{}
 	_ applier = editorClosed{}
-	_ applier = commitBodyEdited{}
+	_ applier = textEdited{}
 	_ applier = pullFound{}
 	_ applier = ciChecked{}
 	_ applier = checkOpened{}
 	_ applier = ciPoll{}
 	_ applier = pullCreated{}
 	_ applier = issueLinked{}
-	_ applier = prBodyEdited{}
 	_ applier = authorFound{}
-	_ applier = slackTextEdited{}
 	_ applier = slackPosted{}
 	_ applier = hooksFound{}
 	_ applier = hooksWritten{}

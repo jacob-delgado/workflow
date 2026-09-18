@@ -72,9 +72,13 @@ value. The comment preview already survives an editor failure
 (`commentEdited.apply`). Existing overlay tests, which drive each overlay's
 failure, held green through the change and coverage did not move.
 
-- What remains, lower value: the editor round trip is still four `*Edited`
-  messages (`commentEdited`, `commitBodyEdited`, `prBodyEdited`,
-  `slackTextEdited`) rather than the one `textEdited` the remedy imagined.
+Also done: the three body editors now share one `textEdited` message
+(`internal/tui/overlay.go`), routed to whichever overlay is `editable` — each of
+`commitComposer`, `prComposer` and `slackPreview` takes its edit through an
+`applyEdit` method rather than owning a near-identical `commitBodyEdited` /
+`prBodyEdited` / `slackTextEdited` type and apply. `commentEdited` stays its own
+message: it carries the issue and opens the preview from the issues pane rather
+than updating an open overlay, so it is not the same shape.
 
 ### DEBT-10 Click math mirrors the view, by hand
 
