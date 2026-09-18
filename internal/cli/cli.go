@@ -5,6 +5,7 @@
 package cli
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"os"
@@ -95,10 +96,21 @@ func Execute(args []string, stdout, stderr io.Writer, prompt Prompt) error {
 	return nil
 }
 
+// runTUI starts the interface and blocks until the user quits. It is tui.Run in
+// production and a fake in tests, so the root command's own wiring — loading the
+// configuration, building the model, applying dry run — can be exercised without
+// a real terminal.
+type runTUI func(ctx context.Context, model tui.Model, out io.Writer) error
+
 // NewRootCmd builds the command tree. Bare `workflow` opens the TUI. The prompt
 // is how `config init` asks for credentials; a zero one is fine for a caller
 // that only walks the tree, such as the reference generator.
 func NewRootCmd(prompt Prompt) *cobra.Command {
+	return newRootCmd(prompt, tui.Run)
+}
+
+// newRootCmd builds the command tree over an injected interface runner.
+func newRootCmd(prompt Prompt, run runTUI) *cobra.Command {
 	var (
 		dryRun  bool
 		logFile string
@@ -132,7 +144,7 @@ func NewRootCmd(prompt Prompt) *cobra.Command {
 				model = model.WithDryRun()
 			}
 
-			return tui.Run(ctx, model, cmd.OutOrStdout())
+			return run(ctx, model, cmd.OutOrStdout())
 		},
 	}
 

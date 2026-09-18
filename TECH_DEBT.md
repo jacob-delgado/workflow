@@ -356,19 +356,13 @@ condition coverage are `internal/cli` at 75.7% and `internal/wiring` at 81.6%.
 These numbers are a dated reading, not a floor; the floors live in
 `Taskfile.yml`.
 
-### DEBT-35 No test runs the root command
+### DEBT-35 No test runs the root command — DONE
 
-Severity: medium · Confidence: measured
-
-- Evidence: gobco reports `internal/cli/cli.go:113` and `:118` as "never
-  evaluated". That is the `RunE` which loads the configuration, builds the
-  model, and applies `if dryRun { model = model.WithDryRun() }`.
-- Cost: the flag that promises "every write held back" has no test connecting
-  it to the model. Every dry-run test in `internal/tui` sets the model up
-  directly. Swapping the `if` for nothing would pass the suite.
-- Remedy: make `tui.Run` a seam the root command is given, and assert the
-  model it receives is in dry run.
-- Done when: gobco sees both arms of `dryRun`.
+`tui.Run` is now injected into the command tree through `newRootCmd(prompt,
+run)` (`internal/cli/cli.go`), so `cli_dryrun_internal_test.go` runs the bare
+`workflow` RunE with a fake runner and asserts the model it built shows "DRY
+RUN" with the flag and not without. Removing `if dryRun { model.WithDryRun() }`
+now fails the suite; gobco sees both arms of `dryRun`.
 
 ### DEBT-36 The forge's success path is never exercised outside its package
 
