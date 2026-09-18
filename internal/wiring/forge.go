@@ -32,6 +32,16 @@ func forgeDeps(
 		return connectForge(ctx, settings, where.Remote, timeout, log)
 	})
 
+	return forgeDepsFrom(ctx, connect, func() []forge.Template { return templatesFor(settings, where) },
+		forgeKind(settings, where.Remote))
+}
+
+// forgeDepsFrom builds the forge seams over a connect, split out so a test can
+// drive their success arms with a client pointed at a fake forge rather than a
+// real credential and a live GitHub.
+func forgeDepsFrom(
+	ctx context.Context, connect func() (forgeConnection, error), templates func() []forge.Template, kind forge.Kind,
+) tui.ForgeDeps {
 	return tui.ForgeDeps{
 		FindPullRequest: func(branch string) (forge.PullRequest, bool, error) {
 			connection, err := connect()
@@ -65,7 +75,7 @@ func forgeDeps(
 
 			return connection.client.ReviewRequests(ctx, connection.repo.Kind)
 		},
-		Templates: func() []forge.Template { return templatesFor(settings, where) },
+		Templates: templates,
 		Author: func() (string, error) {
 			connection, err := connect()
 			if err != nil {
@@ -76,7 +86,7 @@ func forgeDeps(
 
 			return identity.Name(), err
 		},
-		Kind: forgeKind(settings, where.Remote),
+		Kind: kind,
 	}
 }
 

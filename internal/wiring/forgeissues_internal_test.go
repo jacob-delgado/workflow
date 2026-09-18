@@ -44,7 +44,7 @@ func forgeIssueConnect(t *testing.T) func() (forgeConnection, error) {
 
 	connection := forgeConnection{
 		client: forge.New(server.Client().Do, server.URL, "token"),
-		repo:   forge.Repo{Kind: forge.KindGitHub, Host: "github.com", Path: "ex/repo"},
+		repo:   forge.Repo{Kind: forge.KindGitHub, Host: exampleHost, Path: exampleRepo},
 	}
 
 	return func() (forgeConnection, error) { return connection, nil }
@@ -161,7 +161,7 @@ func TestForgeIssuesReportAForgeError(t *testing.T) {
 	connect := func() (forgeConnection, error) {
 		return forgeConnection{
 			client: forge.New(broken.Client().Do, broken.URL, "token"),
-			repo:   forge.Repo{Kind: forge.KindGitHub, Host: "github.com", Path: "ex/repo"},
+			repo:   forge.Repo{Kind: forge.KindGitHub, Host: exampleHost, Path: exampleRepo},
 		}, nil
 	}
 

@@ -372,20 +372,19 @@ Severity: medium · Confidence: measured
 
 ### DEBT-36 The forge's success path is never exercised outside its package
 
-Severity: medium · Confidence: measured
+Severity: low · Confidence: measured
 
-- Evidence: `err != nil` after `connect()` is "true but never false" at
-  `internal/wiring/wiring.go:161`, `:169`, `:177` and `:186`, and once true
-  and never false at `:220`. In `doctor`, the forge and Slack checks
-  (`internal/cli/doctor.go:206` and `:222`) are never seen to succeed, because
-  `askForge` and `checkSlack` build real clients against real addresses, with
-  no seam for a test server. `config init --global` is never run
-  (`internal/cli/config_cmd.go:83`).
-- Cost: everything between a resolved token and a working `tui.ForgeDeps` is
-  untested, which is where DEBT-21's two copies live.
-- Remedy: let the API base and the `Doer` be injected where `doctor` and
-  wiring build clients.
-- Done when: gobco sees the false arm at all five sites.
+Done for the interface's forge seams: `forgeDepsFrom` (`internal/wiring/forge.go`)
+takes the `connect` as a parameter, and `forgedeps_internal_test.go` drives
+FindPullRequest, CreatePullRequest, CheckStatus, ReviewRequests and Author with a
+client pointed at a fake GitHub, so the success arm of each connect guard is now
+exercised — only failures were before. `config init --global` is tested too
+(`config_init_guided_test.go`).
+
+- What remains: `doctor`'s `askForge` and `checkSlack` still build real clients
+  against real addresses (`internal/cli/doctor.go`), so their success arm is only
+  reached against a live forge/Slack. Injecting the API base and `Doer` there is
+  the remaining work, tied to DEBT-17's shared transport.
 
 ### DEBT-37 The shared fake world is 27 lines from the file-length gate
 
