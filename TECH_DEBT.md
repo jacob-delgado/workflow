@@ -221,23 +221,6 @@ two cannot drift in where they look for a credential.
   Left until a third caller earns it. The success arm of the interface's own
   `connect()` sites is DEBT-36.
 
-### DEBT-23 The file format has no version and rejects what it does not know
-
-Severity: low · Confidence: reproduced
-
-Held, deliberately, against CLAUDE.md's YAGNI rule ("no backwards-compat shims
-for unreleased code"). The remedy — a version field plus a rename table that maps
-an old key to the one that replaced it — is machinery for renames that have not
-happened: nothing is released, so no key has ever been renamed, and the table
-would be empty. The current behavior already names the unknown key
-(`invalid .workflow.json: … json: unknown field "url"`), which is enough to
-correct a typo. When the first real rename lands (FEAT-51 territory), the version
-field and the table for that specific rename are worth adding — with the rename
-to point at, not before.
-
-- Done when: the first rename exists and its old key produces a message naming
-  the new one.
-
 ### DEBT-24 Nothing can be canceled, and no subprocess has a deadline
 
 Severity: medium · Confidence: reproduced

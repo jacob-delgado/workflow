@@ -43,6 +43,9 @@ var (
 	ErrNotFound = errors.New("no " + FileName + " found")
 	// ErrInvalid reports a file that exists but could not be understood.
 	ErrInvalid = errors.New("invalid " + FileName)
+	// ErrUnknownVersion reports a file naming a format version this build does
+	// not know how to read.
+	ErrUnknownVersion = errors.New("unknown configuration version")
 )
 
 // Jira describes how to reach an on-premises Jira instance.
@@ -154,75 +157,27 @@ func (u UI) DrawColor(noColorEnv string) bool {
 	return noColorEnv == "" && u.Color != "never"
 }
 
+// CurrentVersion is the configuration format version this build writes and
+// reads. A file may leave it out — an unversioned file is read as the current
+// version — but a file that names a version this build does not know is refused
+// rather than half-read against a format it was not written for.
+const CurrentVersion = "1"
+
 // Config is the whole configuration file.
 type Config struct {
-	Jira   Jira   `json:"jira"`
-	Slack  Slack  `json:"slack"`
-	Forge  Forge  `json:"forge"`
-	UI     UI     `json:"ui"`
-	Timing Timing `json:"timing"`
-	Branch Branch `json:"branch"`
-	Commit Commit `json:"commit"`
+	// Version is the file format's version; empty means the current one. It is
+	// first so `config init` writes it at the top of the file.
+	Version string `json:"version"`
+	Jira    Jira   `json:"jira"`
+	Slack   Slack  `json:"slack"`
+	Forge   Forge  `json:"forge"`
+	UI      UI     `json:"ui"`
+	Timing  Timing `json:"timing"`
+	Branch  Branch `json:"branch"`
+	Commit  Commit `json:"commit"`
 	// Path is the file this configuration was read from. It is not part of the
 	// file format.
 	Path string `json:"-"`
-}
-
-// AuthMode is how a request authenticates to Jira.
-type AuthMode int
-
-const (
-	// AuthNone means no credentials are configured.
-	AuthNone AuthMode = iota
-	// AuthBearer sends the token as a bearer token, which is what a Jira Data
-	// Center personal access token expects.
-	AuthBearer
-	// AuthBasic sends user and token as HTTP Basic credentials.
-	AuthBasic
-)
-
-// String names the authentication mode for humans.
-var _ fmt.Stringer = AuthMode(0)
-
-func (a AuthMode) String() string {
-	switch a {
-	case AuthNone:
-		return "none"
-	case AuthBearer:
-		return "bearer token"
-	case AuthBasic:
-		return "basic auth"
-	default:
-		return "unknown"
-	}
-}
-
-// SlackMode is the transport a message to Slack travels over.
-type SlackMode int
-
-const (
-	// SlackNone means no Slack credential is configured.
-	SlackNone SlackMode = iota
-	// SlackBot posts with a bot token, which needs a channel and an invitation.
-	SlackBot
-	// SlackWebhook posts to an incoming webhook, which carries its own channel.
-	SlackWebhook
-)
-
-// String names the transport for humans.
-var _ fmt.Stringer = SlackMode(0)
-
-func (s SlackMode) String() string {
-	switch s {
-	case SlackNone:
-		return "none"
-	case SlackBot:
-		return "bot token"
-	case SlackWebhook:
-		return "incoming webhook"
-	default:
-		return "unknown"
-	}
 }
 
 // Discover returns the path of the configuration file that applies, searching
@@ -258,11 +213,12 @@ func Discover(workDir, homeDir string) (string, error) {
 // configuration, to say what is wrong, and it should open working normally.
 func Default() Config {
 	return Config{
-		Jira:  Jira{BaseURL: "", Token: "", User: ""},
-		Slack: Slack{Token: "", WebhookURL: "", Channel: ""},
-		Forge: Forge{Kind: "", Host: "", Token: ""},
-		UI:    UI{Mouse: true, ASCII: false},
-		Path:  "",
+		Version: CurrentVersion,
+		Jira:    Jira{BaseURL: "", Token: "", User: ""},
+		Slack:   Slack{Token: "", WebhookURL: "", Channel: ""},
+		Forge:   Forge{Kind: "", Host: "", Token: ""},
+		UI:      UI{Mouse: true, ASCII: false},
+		Path:    "",
 	}
 }
 
@@ -296,7 +252,8 @@ func LoadFile(path string) (Config, error) {
 		return Default(), fmt.Errorf("%w: %s: %w", ErrInvalid, path, err)
 	}
 
-	err = errors.Join(cfg.validateTiming(), cfg.validateBranch(), cfg.validateViews(), cfg.validateCommit())
+	err = errors.Join(cfg.validateVersion(), cfg.validateTiming(),
+		cfg.validateBranch(), cfg.validateViews(), cfg.validateCommit())
 	if err != nil {
 		return Default(), fmt.Errorf("%w: %s: %w", ErrInvalid, path, err)
 	}
@@ -309,6 +266,7 @@ func LoadFile(path string) (Config, error) {
 // Template is the starting configuration `workflow config init` writes.
 func Template() Config {
 	return Config{
+		Version: CurrentVersion,
 		Jira: Jira{
 			BaseURL: "https://jira.example.com",
 			Token:   "",
