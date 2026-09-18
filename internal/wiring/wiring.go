@@ -188,7 +188,7 @@ func gitDeps(ctx context.Context, root string) tui.GitDeps {
 		Fetch:  func() error { return fetchOrigin(ctx, root) },
 		Commit: func(message string) (proc.Output, error) { return commitWith(ctx, root, message) },
 		Push: func(branch string) (proc.Output, error) {
-			return proc.Start(ctx, gitrepo.PushCommand(root, branch))
+			return proc.Start(ctx, gitrepo.PushCommand(root, repo.PushRemote(ctx), branch))
 		},
 		Rebase: func(base string) (proc.Output, error) {
 			return proc.Start(ctx, gitrepo.RebaseCommand(root, base))

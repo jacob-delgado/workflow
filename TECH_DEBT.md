@@ -244,23 +244,6 @@ which can run long, are untouched.
 
 ## Git, hooks, conventions and processes
 
-### DEBT-30 `origin` is spelled out in eight places
-
-Severity: low · Confidence: read
-
-Two of the three remedy items are done. `git fetch` runs before branching
-(`gitrepo.FetchCommand`, wired through `fetchOrigin`), and the base's age is
-shown ("from BASE, fetched X ago" via `Branch.BaseUpdated`/`Model.baseAge`). And
-the word `origin` now appears once in production code: `gitrepo.DefaultRemote`,
-which the base fallback, the fetch and push commands, the origin-URL read and the
-interface's remote checks all reference — `Branch.BaseName` strips whatever
-remote a base carries rather than assuming origin.
-
-- What remains: nothing consults `remote.pushDefault`, so a repository whose push
-  default is not origin, or a fork, still assumes origin. That changes observable
-  push and base behavior and cannot be exercised against a live remote in a unit
-  test, so it wants a seam and a RED test of its own. See FEAT-12 and FEAT-15.
-
 ### DEBT-32 Windows is a release target the code has not met
 
 Severity: low · Confidence: read
