@@ -55,6 +55,20 @@ if ! [[ "${max}" =~ ^[1-9][0-9]*$ ]]; then
   exit 2
 fi
 
+# Capture the file list up front. A `git ls-files` that failed inside a process
+# substitution would have its failure escape set -e, leaving the loop below to
+# measure nothing and the gate to report success on it — the one thing a gate
+# must never do. Assigned to a variable, a git that cannot answer stops it here.
+if ! tracked="$(git ls-files '*.go' '*.sh')"; then
+  echo "check-file-length: could not list tracked files with git." >&2
+  exit 2
+fi
+
+if [[ -z "${tracked}" ]]; then
+  echo "check-file-length: git listed no Go or shell files — refusing to pass having measured nothing." >&2
+  exit 2
+fi
+
 # Tab-delimited: a path containing a space must not re-split into a bogus count.
 lengths() {
   local file lines
@@ -62,7 +76,7 @@ lengths() {
     [[ -f "${file}" ]] || continue
     lines="$(wc -l <"${file}" | tr -d '[:space:]')"
     printf '%s\t%s\n' "${lines}" "${file}"
-  done < <(git ls-files '*.go' '*.sh') | sort -rn
+  done <<<"${tracked}" | sort -rn
 }
 
 if [[ "${mode}" == "list" ]]; then

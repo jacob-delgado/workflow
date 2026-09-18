@@ -486,30 +486,27 @@ Severity: medium · Confidence: read
   with a few lines of Go.
 - Done when: `mise install && task check` passes in a clean container.
 
-### DEBT-44 Two gates can pass having measured nothing
+### DEBT-44 A gate can still pass having measured only part
 
-Severity: medium · Confidence: reproduced
+Severity: low · Confidence: reproduced
 
-- Evidence: `check-file-length.sh` reads its list from
-  `done < <(git ls-files '*.go' '*.sh')` (`scripts/check-file-length.sh:65`).
-  A failure inside process substitution escapes `set -e`: in a directory that
-  is not a repository, beside a 901-line `big.go`, the script printed "every
-  tracked Go and shell file is within 500 lines" and exited 0. It also sees
-  tracked files only, where the license check and testshape see untracked ones
-  too (`scripts/check-license-headers.sh:26`, `Taskfile.yml:117`).
-  `gobco-report.sh` selects packages that have tests
-  (`scripts/gobco-report.sh:121`), so a new package without tests adds nothing
-  to the total that `Taskfile.yml:12` says covers "EVERY package"; the three
-  `cmd/` packages are absent today. Its floor defaults to 0
-  (`scripts/gobco-report.sh:101`), and the statement gate's to 70
-  (`scripts/coverage-gate.sh:13`), if a caller ever drops the argument.
-- Cost: a gate that reports success on no input is the quiet shrinkage
-  `gobco-report.sh` says it exists to prevent.
-- Remedy: read the file list first and fail when git fails or the list is
-  empty; include untracked files; list every package and make one without
-  tests an error unless it is named with a reason; make both floors required
-  arguments.
-- Done when: each script exits non-zero when git is unavailable.
+The two clear halves are fixed: `check-file-length.sh` now captures the tracked
+list up front, so a `git ls-files` that fails — outside a repository, say — stops
+the gate instead of escaping `set -e` and passing on nothing measured
+(`scripts/check-file-length_test.sh` reproduces the old pass and guards the fix);
+and both coverage floors are required arguments rather than defaulting to 0 or 70
+when a caller drops one.
+
+- What remains: `gobco-report.sh` still selects only packages that have tests
+  (`scripts/gobco-report.sh:121`), so a package with none — the three `cmd/`
+  packages today — adds nothing to the total that `Taskfile.yml` calls "EVERY
+  package", and is never the "dropped out" the header promises to catch. Listing
+  every package and making a test-less one an error unless it is named with a
+  reason is the fix, and it needs care not to break the branch gate.
+- Deliberate divergence, left as is: the file-length gate measures tracked files
+  only, where the license check and testshape also see untracked ones. Its header
+  argues the case (a scratch file cannot fail the gate; a new file counts once it
+  is `git add`ed), so this is a decision to revisit, not a defect to fix blind.
 
 ### DEBT-46 Smaller items in the tooling
 
