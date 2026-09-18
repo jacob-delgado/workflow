@@ -324,21 +324,19 @@ five call sites pass `jira.project` from the configuration.
 
 Severity: low · Confidence: read
 
-- Evidence: five `JiraDeps` functions take `issueKey string`
-  (`internal/tui/deps.go:44`), and `Comment func(issueKey, text string)`
-  compiles with its arguments swapped. `BranchName(issueType, key, summary
-  string)` (`internal/convention/convention.go:70`) has the same shape, and
-  matches the issue type against the English word "bug", which a localized or
-  renamed type defeats. Jira's status categories (`"new"`,
-  `"indeterminate"`, `"done"`) exist only as map keys in
-  `internal/tui/glyphs.go:56`. `GitHook.Name` is a string joined into a path
-  (`internal/hooks/generate.go:130`) on the strength of a `//nolint` comment.
-  `config.Forge.Kind` is a string parsed again at each use.
-- Cost: CLAUDE.md names the issue key as its own example of primitive
-  obsession. The compiler cannot help with any of these today.
-- Remedy: `jira.Key`, `jira.StatusCategory`, a `HookName` built only from the
-  known list. The interface inherits the types.
-- Done when: `Comment(text, key)` does not compile.
+Done for the status category: `jira.StatusCategory` is now a type with
+`CategoryNew`/`CategoryIndeterminate`/`CategoryDone` constants, carried on
+`jira.Issue` and `jira.Transition`, and the glyph map is keyed by it — so a
+mistyped category is a build error, and the `exhaustive` map check (DEBT-46)
+guards the glyph table against a new category drawing nothing.
+
+- What remains, the large half: `jira.Key` for the issue key, which
+  `Comment func(issueKey, text string)` still compiles with its arguments
+  swapped. The key is a bare string at ~100 sites across `jira`, `tui`, `wiring`
+  and `cli`, and it crosses the `convention`/`jira` boundary (the key is derived
+  from a branch name in the stateless `convention` package), so it is a wide,
+  careful refactor of its own. `BranchName`'s bare-string arguments and
+  `GitHook.Name` are smaller instances of the same, left with it.
 
 ## The test suite
 

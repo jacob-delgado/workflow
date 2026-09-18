@@ -8,6 +8,7 @@ import (
 
 	"github.com/charmbracelet/lipgloss"
 
+	"github.com/jacob-delgado/workflow/internal/jira"
 	"github.com/jacob-delgado/workflow/internal/tui/frame"
 )
 
@@ -52,8 +53,10 @@ func asciiGlyphs() glyphs {
 
 // status is the glyph for a Jira status category: not started, in flight, done.
 // A category an instance invented gets a neutral mark rather than a guess.
-func (g glyphs) status(category string) string {
-	marks := map[string]string{"new": g.notStarted, "indeterminate": g.inFlight, "done": g.done}
+func (g glyphs) status(category jira.StatusCategory) string {
+	marks := map[jira.StatusCategory]string{
+		jira.CategoryNew: g.notStarted, jira.CategoryIndeterminate: g.inFlight, jira.CategoryDone: g.done,
+	}
 
 	return cmp.Or(marks[category], g.unknown)
 }

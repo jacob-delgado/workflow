@@ -24,7 +24,7 @@ const pickerTitle = "┏━ Change status"
 
 // transition builds a fixture transition.
 func transition(id, name, status, category string) jira.Transition {
-	return jira.Transition{ID: id, Name: name, ToStatus: status, ToStatusCategory: category}
+	return jira.Transition{ID: id, Name: name, ToStatus: status, ToStatusCategory: jira.StatusCategory(category)}
 }
 
 // workflowMoves is what a typical workflow offers an issue in progress: a verb

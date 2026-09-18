@@ -18,7 +18,7 @@ import (
 // issue builds a fixture row. A function rather than package variables, which
 // gochecknoglobals forbids in tests as well.
 func issue(key, summary, category string) jira.Issue {
-	return jira.Issue{Key: key, Summary: summary, Status: "In Progress", StatusCategory: category}
+	return jira.Issue{Key: key, Summary: summary, Status: "In Progress", StatusCategory: jira.StatusCategory(category)}
 }
 
 // assigned is a search that finds exactly these issues.

@@ -19,7 +19,7 @@ type Transition struct {
 	ID               string
 	Name             string
 	ToStatus         string
-	ToStatusCategory string
+	ToStatusCategory StatusCategory
 	// Fields are those Jira will refuse this transition without.
 	Fields []Field
 }
@@ -106,7 +106,7 @@ func (a transitionsAnswer) result() []Transition {
 			ID:               wire.ID,
 			Name:             wire.Name,
 			ToStatus:         wire.To.Name,
-			ToStatusCategory: wire.To.Category.Key,
+			ToStatusCategory: StatusCategory(wire.To.Category.Key),
 			Fields:           requiredFields(wire.Fields),
 		})
 	}
