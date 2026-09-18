@@ -6,7 +6,6 @@
 [![Docs site](https://github.com/jacob-delgado/workflow/actions/workflows/pages.yml/badge.svg)](https://github.com/jacob-delgado/workflow/actions/workflows/pages.yml)
 [![Release](https://github.com/jacob-delgado/workflow/actions/workflows/release.yml/badge.svg)](https://github.com/jacob-delgado/workflow/actions/workflows/release.yml)
 [![OpenSSF Scorecard](https://api.scorecard.dev/projects/github.com/jacob-delgado/workflow/badge)](https://scorecard.dev/viewer/?uri=github.com/jacob-delgado/workflow)
-[![Go Report Card](https://goreportcard.com/badge/github.com/jacob-delgado/workflow)](https://goreportcard.com/report/github.com/jacob-delgado/workflow)
 [![Latest release](https://img.shields.io/github/v/release/jacob-delgado/workflow?sort=semver)](https://github.com/jacob-delgado/workflow/releases/latest)
 [![Go reference](https://pkg.go.dev/badge/github.com/jacob-delgado/workflow.svg)](https://pkg.go.dev/github.com/jacob-delgado/workflow)
 [![Go](https://img.shields.io/badge/go-1.27-00ADD8?logo=go&logoColor=white)](https://go.dev/)
