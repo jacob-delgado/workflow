@@ -10,6 +10,7 @@ import (
 	"io"
 	"os"
 	"os/exec"
+	"sync"
 
 	"github.com/jacob-delgado/workflow/internal/proc/pgroup"
 )
@@ -40,7 +41,8 @@ type Output struct {
 	// order the program wrote them, and closes when the program has exited.
 	Lines <-chan string
 	// Wait reports how the program exited. It blocks until then, so call it
-	// once Lines has closed, or to wait out a program nobody is reading.
+	// once Lines has closed, or to wait out a program nobody is reading. Calling
+	// it again returns the same result rather than blocking.
 	Wait func() error
 }
 
@@ -93,7 +95,9 @@ func Start(ctx context.Context, program Command) (Output, error) {
 		done <- exited(program.Name, command.Wait(), scanErr)
 	}()
 
-	return Output{Lines: lines, Wait: func() error { return <-done }}, nil
+	// OnceValue so a second Wait returns the same result rather than blocking on
+	// a channel the first call already drained.
+	return Output{Lines: lines, Wait: sync.OnceValue(func() error { return <-done })}, nil
 }
 
 // deliver sends each line until the output ends, and never leaves the program
