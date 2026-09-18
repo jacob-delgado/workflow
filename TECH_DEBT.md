@@ -144,34 +144,6 @@ Severity: low · Confidence: read
 
 ## The clients: forge, Jira and Slack
 
-### DEBT-17 Three HTTP clients copied by hand
-
-Severity: low · Confidence: read
-
-Done for the security-critical part, the done-when: `CheckRedirect` is written
-once. `internal/httpx` (standard library only) holds the `Doer` seam, the
-`ErrRedirected` sentinel and the redirect-refusing `Client`; the Jira, forge and
-Slack clients alias `Doer`/`ErrRedirected` to it and their `HTTPClient` delegates
-to `httpx.Client`, so the redirect policy — the piece where "one of them forgot
-the mask" is the standing warning — has a single copy that a test guards.
-
-Also done: the transport-error message reads one way. The duplicated `cause`
-(Jira) and `withoutURL` (Slack) helpers are gone — `httpx.Cause` strips
-net/http's `*url.Error` down to its inner error in one place, and all four
-transport-error sites use it, so the forge and Slack's identity check no longer
-echo the request URL the other two already dropped. `httpx_test.go` guards it.
-
-- Left per service, deliberately: `bodyLimit` differs (16 MB for Jira and the
-  forge, 1 MB for Slack), and status mapping genuinely differs between them.
-Also done: a refused redirect no longer reads "could not reach" — the server
-answered. `httpx.Unreachable(sentinel, base, err)` reports a refused redirect as
-`ErrRedirected` ("the server … redirected the request") and anything else as the
-client's own unreachable sentinel, so the branch is written once rather than
-pasted into all four transport-error sites.
-
-- What remains, lower value: the `call[T]`-style exchange helper the forge has
-  and Jira repeats is a further refactor on its own.
-
 ### DEBT-19 Smaller items in the clients
 
 Severity: low · Confidence: read

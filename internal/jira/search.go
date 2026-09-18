@@ -5,8 +5,6 @@ package jira
 
 import (
 	"context"
-	"encoding/json"
-	"fmt"
 	"net/http"
 	"net/url"
 	"strconv"
@@ -119,23 +117,10 @@ func (w wireIssue) issue() Issue {
 // result's Total says how many matched, so a caller can page to the end.
 func (c Client) Search(ctx context.Context, jql string, startAt int) (SearchResult, error) {
 	request, err := c.newRequest(ctx, http.MethodGet, searchPath+"?"+searchQuery(jql, startAt), nil)
-	if err != nil {
-		return SearchResult{}, err
-	}
 
-	body, err := c.exchange(request)
-	if err != nil {
-		return SearchResult{}, err
-	}
+	answer, err := decode[searchAnswer](c, request, err)
 
-	var answer searchAnswer
-
-	err = json.Unmarshal(body, &answer)
-	if err != nil {
-		return SearchResult{}, fmt.Errorf("reading the answer from %s: %w", c.settings.BaseURL, err)
-	}
-
-	return answer.result(), nil
+	return answer.result(), err
 }
 
 // searchQuery encodes a search's query string for the page starting at startAt.

@@ -97,23 +97,8 @@ func HTTPClient(timeout time.Duration) *http.Client {
 // Myself reports who the configured credential authenticates as.
 func (c Client) Myself(ctx context.Context) (User, error) {
 	request, err := c.newRequest(ctx, http.MethodGet, myselfPath, nil)
-	if err != nil {
-		return User{}, err
-	}
 
-	body, err := c.exchange(request)
-	if err != nil {
-		return User{}, err
-	}
-
-	var user User
-
-	err = json.Unmarshal(body, &user)
-	if err != nil {
-		return User{}, fmt.Errorf("reading the answer from %s: %w", c.settings.BaseURL, err)
-	}
-
-	return user, nil
+	return decode[User](c, request, err)
 }
 
 // newRequest builds an authenticated request for a path under the base URL,
@@ -205,6 +190,30 @@ func (c Client) exchange(request *http.Request) ([]byte, error) {
 	}
 
 	return sanitize.JSON(body), nil
+}
+
+// decode sends a built request and unmarshals the answer into T — the
+// exchange-then-unmarshal every read method shares. buildErr is newRequest's
+// error, threaded in so a caller need not check it separately; the caller
+// flattens T (often a wire shape) into the domain type it returns.
+func decode[T any](client Client, request *http.Request, buildErr error) (T, error) {
+	var answer T
+
+	if buildErr != nil {
+		return answer, buildErr
+	}
+
+	body, err := client.exchange(request)
+	if err != nil {
+		return answer, err
+	}
+
+	err = json.Unmarshal(body, &answer)
+	if err != nil {
+		return answer, fmt.Errorf("reading the answer from %s: %w", client.settings.BaseURL, err)
+	}
+
+	return answer, nil
 }
 
 // statusError translates a response status into something a person can act on.
