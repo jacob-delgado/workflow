@@ -34,12 +34,26 @@ const searchFields = "summary,status,issuetype,priority"
 // through them.
 const searchLimit = 50
 
+// StatusCategory is Jira's coarse grouping of a status — where it sits in the
+// to-do / in-progress / done progression — named the same on every instance
+// whatever the status itself is called.
+type StatusCategory string
+
+const (
+	// CategoryNew is a status not yet started.
+	CategoryNew StatusCategory = "new"
+	// CategoryIndeterminate is a status in progress.
+	CategoryIndeterminate StatusCategory = "indeterminate"
+	// CategoryDone is a status finished.
+	CategoryDone StatusCategory = "done"
+)
+
 // Issue is one row of a search.
 type Issue struct {
 	Key            string
 	Summary        string
 	Status         string
-	StatusCategory string
+	StatusCategory StatusCategory
 	// Type is the issue type's name, such as Bug or Story.
 	Type string
 	// Priority is the priority's name, or empty on an instance that has turned
@@ -89,7 +103,7 @@ func (w wireIssue) issue() Issue {
 		Key:            w.Key,
 		Summary:        w.Fields.Summary,
 		Status:         w.Fields.Status.Name,
-		StatusCategory: w.Fields.Status.Category.Key,
+		StatusCategory: StatusCategory(w.Fields.Status.Category.Key),
 		Type:           w.Fields.Type.Name,
 		Priority:       w.Fields.Priority.Name,
 	}
