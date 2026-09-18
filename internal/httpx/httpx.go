@@ -8,8 +8,11 @@ package httpx
 
 import (
 	"errors"
+	"fmt"
 	"net/http"
 	"net/url"
+	"strconv"
+	"strings"
 	"time"
 )
 
@@ -33,6 +36,29 @@ func Cause(err error) error {
 // own error so a caller is told to wait rather than that its credential was
 // refused, which a shared 403/429 branch would say.
 var ErrRateLimited = errors.New("rate limited; wait and try again")
+
+// RateLimited reports a 429, naming how long to wait when the server said so in
+// a Retry-After header. The header's other, HTTP-date form — which these APIs do
+// not use for a 429 — and a missing or unreadable value fall back to the bare
+// ErrRateLimited, so a caller always gets an error that errors.Is matches.
+func RateLimited(header http.Header) error {
+	wait, ok := retryAfter(header.Get("Retry-After"))
+	if !ok {
+		return ErrRateLimited
+	}
+
+	return fmt.Errorf("%w (in %s)", ErrRateLimited, wait)
+}
+
+// retryAfter reads the delta-seconds form of a Retry-After header.
+func retryAfter(value string) (time.Duration, bool) {
+	seconds, err := strconv.Atoi(strings.TrimSpace(value))
+	if err != nil || seconds <= 0 {
+		return 0, false
+	}
+
+	return time.Duration(seconds) * time.Second, true
+}
 
 // Doer sends one HTTP request. *http.Client's Do method satisfies it.
 //

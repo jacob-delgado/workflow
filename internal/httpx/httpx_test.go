@@ -98,3 +98,45 @@ func TestCauseStripsTheURLFromATransportError(t *testing.T) {
 		})
 	}
 }
+
+func TestRateLimitedNamesTheWaitWhenTheServerGivesOne(t *testing.T) {
+	t.Parallel()
+
+	cases := map[string]struct {
+		retryAfter string
+		wantWait   string
+	}{
+		"a Retry-After in seconds is named":   {retryAfter: "30", wantWait: "30s"},
+		"no Retry-After leaves only the wait": {retryAfter: "", wantWait: ""},
+		"an HTTP-date form is not parsed":     {retryAfter: "Wed, 21 Oct 2026 07:28:00 GMT", wantWait: ""},
+		"a zero or negative wait is ignored":  {retryAfter: "0", wantWait: ""},
+	}
+
+	for name, testCase := range cases {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			// Arrange
+			header := http.Header{}
+			if testCase.retryAfter != "" {
+				header.Set("Retry-After", testCase.retryAfter)
+			}
+
+			// Act
+			err := httpx.RateLimited(header)
+
+			// Assert
+			if !errors.Is(err, httpx.ErrRateLimited) {
+				t.Errorf("RateLimited = %v, want it to wrap ErrRateLimited", err)
+			}
+
+			if testCase.wantWait != "" && !strings.Contains(err.Error(), testCase.wantWait) {
+				t.Errorf("RateLimited = %q, want it to name the %s wait", err, testCase.wantWait)
+			}
+
+			if testCase.wantWait == "" && err.Error() != httpx.ErrRateLimited.Error() {
+				t.Errorf("RateLimited = %q, want the bare ErrRateLimited with no wait", err)
+			}
+		})
+	}
+}

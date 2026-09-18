@@ -177,6 +177,10 @@ func (c Client) exchange(request *http.Request) ([]byte, error) {
 	}
 	defer func() { _ = response.Body.Close() }()
 
+	if response.StatusCode == http.StatusTooManyRequests {
+		return nil, httpx.RateLimited(response.Header)
+	}
+
 	err = statusError(response.StatusCode)
 	if err != nil {
 		return nil, explained(err, response.Body)
@@ -224,8 +228,6 @@ func statusError(status int) error {
 		return ErrUnauthorized
 	case http.StatusForbidden:
 		return ErrRefused
-	case http.StatusTooManyRequests:
-		return ErrRateLimited
 	case http.StatusNotFound:
 		return ErrNoAPI
 	default:

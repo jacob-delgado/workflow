@@ -130,7 +130,7 @@ func (c Client) send(request *http.Request) (Identity, error) {
 	defer func() { _ = response.Body.Close() }()
 
 	if response.StatusCode == http.StatusTooManyRequests {
-		return Identity{}, ErrRateLimited
+		return Identity{}, httpx.RateLimited(response.Header)
 	}
 
 	if response.StatusCode != http.StatusOK {
