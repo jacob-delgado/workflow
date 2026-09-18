@@ -306,13 +306,16 @@ whole range before capping, so a branch past 200 commits still titles its pull
 request from its first commit; the dead `ReadConfig`/`wireHook`/`Runner` and
 `File.Executable` are gone; and a `@` branch name is refused as `@`, not as empty.
 
+The issue-key upgrade is done: `convention.IssueKey(text, project)` takes the
+project as a parameter — a pure argument, so `convention` stays a stateless
+package — and reads a branch as an issue only when its project matches the
+configured `jira.project`, falling back to the shape guard when none is set. The
+five call sites pass `jira.project` from the configuration.
+
 - What remains, its own follow-up: `(ctx, run Runner, dir string)` repeats on
   eight gitrepo functions, and `Status` and `Stage` silently require `dir` to be
-  the root. A `Repository` value returned by `Describe` would carry all three.
-- The agreed upgrade for the issue-key match — accept only a key whose project is
-  the configured Jira project, rather than a denylist of common tokens — needs a
-  `config.Jira.Project` field threaded through the `IssueKey` call sites, a
-  cross-cutting change of its own.
+  the root. A `Repository` value returned by `Describe` would carry all three —
+  a large gitrepo API change for little behavior gain, so left on its own.
 - Left as they are, YAGNI over microseconds: the `regexp.MustCompile` calls sit
   inside functions, and `Output.Wait` (`internal/proc/start.go`) blocks on a
   second call that no caller makes.

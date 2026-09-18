@@ -32,6 +32,8 @@ type statusSeams struct {
 	FindPull    func(branch string) (forge.PullRequest, bool, error)
 	CheckStatus func(pull forge.PullRequest, head string) (forge.CI, error)
 	Issue       func(issueKey string) (jira.IssueDetail, error)
+	// Project is the configured Jira project; empty falls back to the shape guard.
+	Project string
 }
 
 // newStatusCmd builds `workflow status [directory...]`.
@@ -125,6 +127,7 @@ func seamsFor(ctx context.Context, dir, home string) (statusSeams, bool) {
 		FindPull:    deps.Forge.FindPullRequest,
 		CheckStatus: deps.Forge.CheckStatus,
 		Issue:       deps.Jira.Issue,
+		Project:     cfg.Jira.Project,
 	}
 
 	return seams, cfg.UI.ASCII
@@ -188,7 +191,7 @@ func statusFromSeams(seams statusSeams) (statusFacts, error) {
 // A service that will not answer leaves its stage not-started rather than
 // failing the whole line.
 func gather(seams statusSeams, branch gitrepo.Branch) statusFacts {
-	issueKey, named := convention.IssueKey(branch.Name)
+	issueKey, named := convention.IssueKey(branch.Name, seams.Project)
 	facts := statusFacts{issue: issueKey}
 
 	if named {

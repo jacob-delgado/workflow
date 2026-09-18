@@ -103,7 +103,7 @@ func TestIssueKeyReadsAForgeNumberFromABranch(t *testing.T) {
 			t.Parallel()
 
 			// Act
-			got, ok := convention.IssueKey(tt.text)
+			got, ok := convention.IssueKey(tt.text, "")
 
 			// Assert
 			if got != tt.want || ok != (tt.want != "") {
@@ -143,7 +143,7 @@ func TestIssueKeyIsFoundWhereJiraWouldFindIt(t *testing.T) {
 			t.Parallel()
 
 			// Act
-			got, ok := convention.IssueKey(tt.text)
+			got, ok := convention.IssueKey(tt.text, "")
 
 			// Assert
 			if got != tt.want || ok != (tt.want != "") {
@@ -439,6 +439,34 @@ func TestMessageAddsTheIssueAsATrailer(t *testing.T) {
 			// Act & Assert
 			if got := convention.Message(subject, tt.body, tt.key); got != tt.want {
 				t.Errorf("Message() = %q, want %q", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestIssueKeyRestrictsToTheConfiguredProject(t *testing.T) {
+	t.Parallel()
+
+	cases := map[string]struct {
+		text, project, want string
+		found               bool
+	}{
+		"the configured project matches":     {text: "feat/PROJ-42-thing", project: "PROJ", want: "PROJ-42", found: true},
+		"another project is not read as one": {text: "feat/ABC-123-thing", project: "PROJ", want: "", found: false},
+		"no project falls back to the guard": {text: "fix/UTF-8-decoding", project: "", want: "", found: false},
+		"no project still reads a real key":  {text: "feat/PROJ-42-thing", project: "", want: "PROJ-42", found: true},
+	}
+
+	for name, tt := range cases {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			// Act
+			got, found := convention.IssueKey(tt.text, tt.project)
+
+			// Assert
+			if got != tt.want || found != tt.found {
+				t.Errorf("IssueKey(%q, %q) = %q, %v; want %q, %v", tt.text, tt.project, got, found, tt.want, tt.found)
 			}
 		})
 	}

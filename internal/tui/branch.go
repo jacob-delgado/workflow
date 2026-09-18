@@ -134,7 +134,7 @@ func (m Model) branchDetail(width int) string {
 		m.styles.label.Render("commits   ") + strconv.Itoa(len(branch.Commits)) + " not on the base",
 	}
 
-	if branchKey, named := convention.IssueKey(branch.Name); named {
+	if branchKey, named := convention.IssueKey(branch.Name, m.cfg.Jira.Project); named {
 		issue, listed := m.issues.find(branchKey)
 		lines = append(lines, m.styles.label.Render("issue     ")+branchKey+" "+issue.Summary+m.unlisted(listed))
 	}
@@ -210,7 +210,7 @@ func (m Model) previewPush() (Model, tea.Cmd) {
 // branchIssue is the issue the current branch names, and whether it names one —
 // the one place the interface reads a branch name as an issue key.
 func (m Model) branchIssue() (string, bool) {
-	return convention.IssueKey(m.branch.branch.Name)
+	return convention.IssueKey(m.branch.branch.Name, m.cfg.Jira.Project)
 }
 
 // remote is the remote the branch's upstream lives on, or origin by default.

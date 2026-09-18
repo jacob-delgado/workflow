@@ -137,24 +137,37 @@ func folded(text string) string {
 // a 42-fix-typo branch, which is how a project without Jira names its branches.
 // A Jira key wins where both are present, so a Jira branch is read as it always
 // was.
-func IssueKey(text string) (string, bool) {
-	if key, found := jiraKey(text); found {
+func IssueKey(text, project string) (string, bool) {
+	if key, found := jiraKey(text, project); found {
 		return key, true
 	}
 
 	return forgeKey(text)
 }
 
-// jiraKey finds the first Jira issue key in text.
-func jiraKey(text string) (string, bool) {
+// jiraKey finds the first Jira issue key in text, where a key's project counts.
+func jiraKey(text, project string) (string, bool) {
 	for _, match := range issueKey().FindAllStringSubmatch(text, -1) {
-		project, _, _ := strings.Cut(match[1], "-")
-		if !standardAbbreviations()[project] {
+		candidate, _, _ := strings.Cut(match[1], "-")
+		if acceptedProject(candidate, project) {
 			return match[1], true
 		}
 	}
 
 	return "", false
+}
+
+// acceptedProject reports whether a token's project part names a Jira project.
+// With a configured project only that one counts, so a branch like
+// fix/ABC-123-thing is read as an issue only when ABC is the project in use.
+// Without one, any project but a common technical token — UTF-8, SHA-256 — does,
+// which is the looser guard for someone who has not named their project.
+func acceptedProject(candidate, configured string) bool {
+	if configured != "" {
+		return candidate == configured
+	}
+
+	return !standardAbbreviations()[candidate]
 }
 
 // forgeIssueKey matches a forge issue number as a branch names one: a number at
