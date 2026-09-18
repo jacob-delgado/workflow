@@ -19,13 +19,16 @@ import (
 // errPromptBroke is a prompt that cannot read, such as a closed input.
 var errPromptBroke = errors.New("prompt failed")
 
+// guidedToken is the Jira token these guided-init tests type at the prompt.
+const guidedToken = "jira-token-for-tests"
+
 func TestGuidedInitWritesWhatChecksOut(t *testing.T) {
 	// Arrange
 	dir := t.TempDir()
 	jiraURL := workingJira(t)
 	prompt := scripted(
 		[]string{jiraURL},
-		[]string{"jira-token-for-tests", "https://hooks.slack.example/x"},
+		[]string{guidedToken, "https://hooks.slack.example/x"},
 	)
 
 	// Act
@@ -40,7 +43,7 @@ func TestGuidedInitWritesWhatChecksOut(t *testing.T) {
 		t.Fatalf("loading what was written: %v", err)
 	}
 
-	if cfg.Jira.BaseURL != jiraURL || cfg.Jira.Token != "jira-token-for-tests" || cfg.Slack.WebhookURL == "" {
+	if cfg.Jira.BaseURL != jiraURL || cfg.Jira.Token != guidedToken || cfg.Slack.WebhookURL == "" {
 		t.Errorf("wrote jira %+v, slack %+v, want the checked values kept", cfg.Jira, cfg.Slack)
 	}
 }
@@ -107,6 +110,84 @@ func TestGuidedInitWarnsWhenTheFileIsNotGitIgnored(t *testing.T) {
 	// Assert
 	if !strings.Contains(output, "not ignored by git") {
 		t.Errorf("expected a git-ignore warning:\n%s", output)
+	}
+}
+
+func TestGuidedInitStoresTheTokenInTheKeychainWhenChosen(t *testing.T) {
+	// Arrange
+	dir := t.TempDir()
+	jiraURL := workingJira(t)
+
+	var stored atomic.Value
+
+	prompt := scripted([]string{jiraURL, "y"}, []string{guidedToken})
+	prompt.StoreSecret = func(secret string) (string, error) {
+		stored.Store(secret)
+
+		return "security find-generic-password -s workflow-jira -w", nil
+	}
+
+	// Act
+	output, err := runGuided(t, dir, prompt, "config", "init")
+	if err != nil {
+		t.Fatalf("config init: %v (%s)", err, output)
+	}
+
+	// Assert
+	cfg, err := config.Load(dir, t.TempDir())
+	if err != nil {
+		t.Fatalf("loading: %v", err)
+	}
+
+	if cfg.Jira.Token != "" || cfg.Jira.TokenCommand == "" || stored.Load() != guidedToken {
+		t.Errorf("token not moved to the keychain: token=%q command=%q stored=%v",
+			cfg.Jira.Token, cfg.Jira.TokenCommand, stored.Load())
+	}
+}
+
+func TestGuidedInitKeepsTheTokenInTheFileWhenKeychainDeclined(t *testing.T) {
+	// Arrange
+	dir := t.TempDir()
+	jiraURL := workingJira(t)
+
+	prompt := scripted([]string{jiraURL, "n"}, []string{guidedToken})
+	prompt.StoreSecret = func(string) (string, error) {
+		t.Error("stored the token though the offer was declined")
+
+		return "", errPromptBroke
+	}
+
+	// Act
+	output, err := runGuided(t, dir, prompt, "config", "init")
+	if err != nil {
+		t.Fatalf("config init: %v (%s)", err, output)
+	}
+
+	// Assert
+	cfg, err := config.Load(dir, t.TempDir())
+	if err != nil {
+		t.Fatalf("loading: %v", err)
+	}
+
+	if cfg.Jira.Token != guidedToken || cfg.Jira.TokenCommand != "" {
+		t.Errorf("token not kept in the file: token=%q command=%q", cfg.Jira.Token, cfg.Jira.TokenCommand)
+	}
+}
+
+func TestGuidedInitReportsAKeychainFailure(t *testing.T) {
+	// Arrange
+	dir := t.TempDir()
+	jiraURL := workingJira(t)
+
+	prompt := scripted([]string{jiraURL, "y"}, []string{guidedToken})
+	prompt.StoreSecret = func(string) (string, error) { return "", errPromptBroke }
+
+	// Act
+	_, err := runGuided(t, dir, prompt, "config", "init")
+
+	// Assert
+	if !errors.Is(err, errPromptBroke) {
+		t.Errorf("config init returned %v, want the keychain failure surfaced", err)
 	}
 }
 

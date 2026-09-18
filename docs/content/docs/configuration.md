@@ -191,6 +191,21 @@ The file's own `token` wins when set, then `token_env`, then `token_command`.
 without ever printing the value.
 `workflow doctor` reports which of the two modes is in effect.
 
+### The operating system's keychain
+
+The keychain is where a token belongs, and a `token_command` reaches it without
+this program linking anything. On macOS, `workflow config init` offers to do the
+whole thing for you: it saves the token with `security` and writes the reading
+command into the file, so the file holds a `token_command` and never the token.
+
+On Linux, store the token once and point `token_command` at it by hand:
+
+```sh
+printf %s '<your token>' | secret-tool store --label='workflow jira' service workflow-jira
+# then set, in .workflow.json:
+#   "jira": { "token_command": "secret-tool lookup service workflow-jira" }
+```
+
 ## Slack: a webhook or a bot token
 
 Set either one. If you set both, the bot token is used — it is the more capable
