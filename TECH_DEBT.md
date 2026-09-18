@@ -263,14 +263,21 @@ Severity: medium · Confidence: reproduced
   canceled (without `ExecuteContext` it ran under `context.Background` and
   ignored it). The interface runs the terminal in raw mode, where Ctrl+C is a key
   not a signal, so this does not fight Bubble Tea.
+Done for the process group, the original done-when: `proc.Start` now puts a
+streamed child in its own process group (`grouped`, build-tagged —
+`group_unix.go` sets `Setpgid` and, on cancel, `SIGKILL`s the whole group;
+`group_other.go` is a no-op where a Unix session does not apply). A test cancels
+a streamed run and proves the grandchild it spawned is killed with it rather than
+reparented to init and left running — the leak where a push finished after the
+user quit. `Run` and `Capture`, quick reads that spawn nothing, are left alone.
+
 - What remains, each its own change: a default deadline in `proc.Run` (risky —
   a legitimate slow clone or hook must not be killed, so it needs a generous,
-  per-command bound rather than one blanket number); a build-tagged Unix file
-  that starts a streamed child in its own session so a grandchild exits with it
-  and prompts fail fast (the platform-specific piece, and its Windows twin cannot
-  be validated here — see DEBT-32); and a "stop" key in the run overlay. The
-  original "done when" — a test cancels a streamed run and its grandchild exits —
-  belongs to that process-group change.
+  per-command bound rather than one blanket number); the Windows twin of the
+  process group, a job object, which cannot be validated from here (see
+  DEBT-32); and a "stop" key in the run overlay, which needs a per-run cancelable
+  context threaded through the `tui.Deps` seam contract rather than the shared
+  root the seams capture now.
 
 ## Git, hooks, conventions and processes
 
