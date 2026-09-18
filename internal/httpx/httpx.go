@@ -32,6 +32,27 @@ func Cause(err error) error {
 	return err
 }
 
+// Unreachable turns a transport error into a message that reads the way what
+// happened warrants. A refused redirect means the server DID answer — with a
+// redirect this client declines to follow — so it is not "could not reach"; it
+// is reported as ErrRedirected. Anything else wraps the caller's own unreachable
+// sentinel (whose noun names the service). base is named when non-empty; a
+// client whose address is itself a credential — a Slack webhook — passes "".
+func Unreachable(unreachable error, base string, err error) error {
+	cause := Cause(err)
+
+	atBase := ""
+	if base != "" {
+		atBase = " at " + base
+	}
+
+	if errors.Is(cause, ErrRedirected) {
+		return fmt.Errorf("the server%s redirected the request: %w", atBase, ErrRedirected)
+	}
+
+	return fmt.Errorf("%w%s: %w", unreachable, atBase, cause)
+}
+
 // ErrRateLimited reports a server that answered 429 Too Many Requests. It is its
 // own error so a caller is told to wait rather than that its credential was
 // refused, which a shared 403/429 branch would say.

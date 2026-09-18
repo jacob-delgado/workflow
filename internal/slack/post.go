@@ -159,7 +159,7 @@ func rejectionReason(code, channel string) string {
 func (c Client) deliver(request *http.Request) ([]byte, error) {
 	response, err := c.do(request)
 	if err != nil {
-		return nil, fmt.Errorf("%w: %w", ErrUnreachable, httpx.Cause(err))
+		return nil, httpx.Unreachable(ErrUnreachable, "", err)
 	}
 	defer func() { _ = response.Body.Close() }()
 

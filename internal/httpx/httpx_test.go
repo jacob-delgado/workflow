@@ -67,7 +67,7 @@ func TestCauseStripsTheURLFromATransportError(t *testing.T) {
 	// A *url.Error quotes the whole request URL, which for a search is a long
 	// line of encoded query and, for a webhook, the credential itself.
 	wrapped := &url.Error{
-		Op:  "Get",
+		Op:  http.MethodGet,
 		URL: "https://jira.example.com/rest/api/2/search?jql=secret-query",
 		Err: errUnderlying,
 	}
@@ -96,6 +96,32 @@ func TestCauseStripsTheURLFromATransportError(t *testing.T) {
 				t.Errorf("Cause kept the request URL: %v", got)
 			}
 		})
+	}
+}
+
+var errUnreachable = errors.New("could not reach the server")
+
+func TestUnreachableTellsARefusedRedirectApartFromNoAnswer(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	redirect := &url.Error{Op: http.MethodGet, URL: "https://jira.example.com", Err: httpx.ErrRedirected}
+	noAnswer := &url.Error{Op: http.MethodGet, URL: "https://jira.example.com", Err: errUnderlying}
+
+	// Act
+	fromRedirect := httpx.Unreachable(errUnreachable, "https://jira.example.com", redirect)
+	fromNoAnswer := httpx.Unreachable(errUnreachable, "https://jira.example.com", noAnswer)
+
+	// Assert
+	// A refused redirect: the server answered, so it must not read "could not reach".
+	if !errors.Is(fromRedirect, httpx.ErrRedirected) || strings.Contains(fromRedirect.Error(), "could not reach") {
+		t.Errorf("Unreachable(redirect) = %v, want ErrRedirected without 'could not reach'", fromRedirect)
+	}
+
+	// A true no-answer still reports the client's unreachable sentinel, and names
+	// the base without the request URL the *url.Error would have quoted.
+	if !errors.Is(fromNoAnswer, errUnreachable) || strings.Contains(fromNoAnswer.Error(), "Get \"") {
+		t.Errorf("Unreachable(no answer) = %v, want the unreachable sentinel without the request URL", fromNoAnswer)
 	}
 }
 
