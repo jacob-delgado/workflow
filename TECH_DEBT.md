@@ -79,27 +79,21 @@ Severity: medium · Confidence: read
 - Done when: the failure appliers are one function, and the comment preview
   survives an editor failure.
 
-### DEBT-10 Five lists, three clamps, and click math that mirrors the view
+### DEBT-10 Click math mirrors the view, by hand
 
-Severity: low · Confidence: reproduced
+Severity: low · Confidence: read
 
-- Evidence: selection is clamped as `move` (`internal/tui/issues.go:91`),
-  `max(0, min(…))` (`internal/tui/picker.go:191`), `min(x+1, max(0, n-1))`
-  (`internal/tui/run.go:234`, `internal/tui/commits.go:177`) and with no lower
-  bound at `internal/tui/fields.go:130`, which yields -1 for a field with no
-  options. `window(selected, count, rows int) (int, int)`
-  (`internal/tui/issues.go:149`) takes three ints that can be transposed.
-  Each click handler recomputes its view's layout from constants
-  (`internal/tui/run.go:246`, `internal/tui/picker.go:205`,
-  `internal/tui/commits.go:196`, `internal/tui/issues.go:122`);
-  `internal/tui/run.go:148` appends a wrapped jobs line as one element and
-  `:153` counts elements, not lines.
-- Cost: with eight lefthook jobs at width 100 the jobs line wrapped to three
-  rows, and a click on `c.go:3` selected `a.go:1`. Any change to a view
-  silently breaks its click handler.
+- Evidence: the wrapped-jobs click bug is fixed — `commandRun.click` now skips
+  every row a wrapped jobs line took, not one. What remains is tidiness: each
+  click handler still recomputes its view's layout from constants
+  (`internal/tui/run.go`, `internal/tui/picker.go`, `internal/tui/commits.go`),
+  where the issues pane already asks a shared `rowAt`.
+- Cost: a change to one of those views can silently break its click handler
+  again, the way the jobs line did.
 - Remedy: one `selection` value with `moved`, `window` and `rowAt`, returned
   by the view so the click handler asks it.
-- Done when: the four click handlers contain no layout constants.
+- Done when: the picker, run and commits click handlers contain no layout
+  constants.
 
 ### DEBT-12 One model that every message can change
 
