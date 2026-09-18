@@ -45,7 +45,7 @@ type Workspace struct {
 // Locate reads the repository dir is in. Outside one, every git action fails on
 // its own and says why, so this is not an error.
 func Locate(ctx context.Context, dir string) Workspace {
-	repo, err := gitrepo.Describe(ctx, proc.Run, dir)
+	repo, err := gitrepo.At(proc.Run, dir).Describe(ctx)
 	if err != nil {
 		return Workspace{Root: dir, Remote: ""}
 	}
@@ -172,18 +172,18 @@ func jiraDeps(ctx context.Context, settings config.Jira, timeout time.Duration, 
 
 // gitDeps is what the interface asks of the repository.
 func gitDeps(ctx context.Context, root string) tui.GitDeps {
+	repo := gitrepo.At(proc.Run, root)
+
 	return tui.GitDeps{
-		Branch:  func() (gitrepo.Branch, error) { return gitrepo.ReadBranch(ctx, proc.Run, root) },
-		Changes: func() ([]gitrepo.Change, error) { return gitrepo.Status(ctx, proc.Run, root) },
-		Stage:   func(change gitrepo.Change) error { return gitrepo.Stage(ctx, proc.Run, root, change) },
-		Unstage: func(change gitrepo.Change) error { return gitrepo.Unstage(ctx, proc.Run, root, change) },
-		CreateBranch: func(name, start string) error {
-			return gitrepo.CreateBranch(ctx, proc.Run, root, name, start)
-		},
-		Branches: func() ([]string, error) { return gitrepo.LocalBranches(ctx, proc.Run, root) },
-		Checkout: func(name string) error { return gitrepo.Checkout(ctx, proc.Run, root, name) },
+		Branch:       func() (gitrepo.Branch, error) { return repo.ReadBranch(ctx) },
+		Changes:      func() ([]gitrepo.Change, error) { return repo.Status(ctx) },
+		Stage:        func(change gitrepo.Change) error { return repo.Stage(ctx, change) },
+		Unstage:      func(change gitrepo.Change) error { return repo.Unstage(ctx, change) },
+		CreateBranch: func(name, start string) error { return repo.CreateBranch(ctx, name, start) },
+		Branches:     func() ([]string, error) { return repo.LocalBranches(ctx) },
+		Checkout:     func(name string) error { return repo.Checkout(ctx, name) },
 		CreateWorktree: func(name, start string) (string, error) {
-			return gitrepo.WorktreeAdd(ctx, proc.Run, root, name, start)
+			return repo.WorktreeAdd(ctx, name, start)
 		},
 		Fetch:  func() error { return fetchOrigin(ctx, root) },
 		Commit: func(message string) (proc.Output, error) { return commitWith(ctx, root, message) },
@@ -265,7 +265,7 @@ func hookDeps(ctx context.Context, root string) tui.HookDeps {
 	return tui.HookDeps{
 		Run: func(hook string) (proc.Output, error) { return proc.Start(ctx, hooks.RunCommand(root, hook)) },
 		Existing: func() ([]hooks.GitHook, bool) {
-			dir, err := gitrepo.HooksDir(ctx, proc.Run, root)
+			dir, err := gitrepo.At(proc.Run, root).HooksDir(ctx)
 			if err != nil {
 				return nil, true
 			}

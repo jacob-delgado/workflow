@@ -34,7 +34,7 @@ func TestReadBranchRefusesANameThatCannotBeShownAsItIs(t *testing.T) {
 			answers[logCommits+"origin/ma\u00adin..HEAD"] = reply{}
 
 			// Act
-			branch, err := gitrepo.ReadBranch(t.Context(), fakeRunner(t, answers), workDir)
+			branch, err := gitrepo.At(fakeRunner(t, answers), workDir).ReadBranch(t.Context())
 
 			// Assert
 			if !errors.Is(err, gitrepo.ErrUnshowableName) || branch.Name != "" {

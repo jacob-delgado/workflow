@@ -121,9 +121,10 @@ func seamsFor(ctx context.Context, dir, home string) (statusSeams, bool) {
 	where := wiring.Locate(ctx, dir)
 	deps := wiring.Deps(ctx, cfg, where, nil)
 
+	repo := gitrepo.At(proc.Run, where.Root)
 	seams := statusSeams{
-		Branch:      func() (gitrepo.Branch, error) { return gitrepo.ReadBranch(ctx, proc.Run, where.Root) },
-		Changes:     func() ([]gitrepo.Change, error) { return gitrepo.Status(ctx, proc.Run, where.Root) },
+		Branch:      func() (gitrepo.Branch, error) { return repo.ReadBranch(ctx) },
+		Changes:     func() ([]gitrepo.Change, error) { return repo.Status(ctx) },
 		FindPull:    deps.Forge.FindPullRequest,
 		CheckStatus: deps.Forge.CheckStatus,
 		Issue:       deps.Jira.Issue,

@@ -328,10 +328,16 @@ package — and reads a branch as an issue only when its project matches the
 configured `jira.project`, falling back to the shape guard when none is set. The
 five call sites pass `jira.project` from the configuration.
 
-- What remains, its own follow-up: `(ctx, run Runner, dir string)` repeats on
-  eight gitrepo functions, and `Status` and `Stage` silently require `dir` to be
-  the root. A `Repository` value returned by `Describe` would carry all three —
-  a large gitrepo API change for little behavior gain, so left on its own.
+Done for the data clump: the `(ctx, run Runner, dir string)` triple that
+repeated on twelve gitrepo functions is now carried by a `gitrepo.Repository`
+value — `gitrepo.At(run, dir)` returns the handle, and `Describe`, `ReadBranch`,
+`Status`, `Stage`, `Unstage`, `CreateBranch`, `LocalBranches`, `Checkout`,
+`WorktreeAdd`, `HooksDir`, `RecentCommits` and `CheckIgnored` are methods on it.
+The wiring builds one `repo` and hangs the seams off it; the `Status`/`Stage`
+"dir must be the root" requirement, which was silent, is now written on `At`. The
+four `proc.Command` builders stay free functions: they take only `dir`, so they
+were never part of the triple.
+
 - Left as they are, YAGNI over microseconds: the `regexp.MustCompile` calls sit
   inside functions, and `Output.Wait` (`internal/proc/start.go`) blocks on a
   second call that no caller makes.

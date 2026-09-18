@@ -46,7 +46,7 @@ func TestCreateBranchStartsFromTheBaseWithoutTrackingIt(t *testing.T) {
 			run, ran := recordingRunner(t, map[string]reply{tt.command: tt.answer})
 
 			// Act
-			err := gitrepo.CreateBranch(t.Context(), run, workDir, tt.name, tt.start)
+			err := gitrepo.At(run, workDir).CreateBranch(t.Context(), tt.name, tt.start)
 
 			// Assert
 			if !errors.Is(err, tt.wantErr) || !slices.Equal(*ran, []string{tt.command}) {
@@ -137,7 +137,7 @@ func TestCheckIgnoredReportsWhetherGitIgnoresThePath(t *testing.T) {
 			run := fakeRunner(t, tt.replies)
 
 			// Act
-			ignored, err := gitrepo.CheckIgnored(t.Context(), run, workDir, "/work/.workflow.json")
+			ignored, err := gitrepo.At(run, workDir).CheckIgnored(t.Context(), "/work/.workflow.json")
 
 			// Assert
 			if ignored != tt.want || !errors.Is(err, tt.wantErr) {
@@ -179,7 +179,7 @@ func TestHooksDirIsWhereGitLooksForHooks(t *testing.T) {
 			replies := map[string]reply{readHooksDir: {out: []byte(tt.answer)}}
 
 			// Act
-			dir, err := gitrepo.HooksDir(t.Context(), fakeRunner(t, replies), workDir)
+			dir, err := gitrepo.At(fakeRunner(t, replies), workDir).HooksDir(t.Context())
 
 			// Assert
 			if err != nil || dir != tt.want {
@@ -196,7 +196,7 @@ func TestHooksDirReportsGitsFailure(t *testing.T) {
 	replies := map[string]reply{readHooksDir: {err: errNotARepository}}
 
 	// Act
-	_, err := gitrepo.HooksDir(t.Context(), fakeRunner(t, replies), workDir)
+	_, err := gitrepo.At(fakeRunner(t, replies), workDir).HooksDir(t.Context())
 
 	// Assert
 	if !errors.Is(err, errNotARepository) {

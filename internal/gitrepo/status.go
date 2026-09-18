@@ -95,10 +95,10 @@ func (c Change) paths() []string {
 }
 
 // Status lists every changed file in the work tree, untracked files included.
-func Status(ctx context.Context, run Runner, dir string) ([]Change, error) {
-	out, err := run(ctx, "git", "-C", dir, "status", "--porcelain=v1", "-z", "--untracked-files=all")
+func (r Repository) Status(ctx context.Context) ([]Change, error) {
+	out, err := r.run(ctx, "git", "-C", r.dir, "status", "--porcelain=v1", "-z", "--untracked-files=all")
 	if err != nil {
-		return nil, readFailure(ctx, run, dir, "reading the status of "+dir, err)
+		return nil, readFailure(ctx, r.run, r.dir, "reading the status of "+r.dir, err)
 	}
 
 	return parseStatus(string(out)), nil
@@ -144,10 +144,10 @@ const literalPathspecs = "--literal-pathspecs"
 // alike, which is what --all is for. --literal-pathspecs turns off globbing and
 // pathspec magic, so a name like `[id].tsx` stages only itself; `--` alone ends
 // options but does not stop git reading the path as a pattern.
-func Stage(ctx context.Context, run Runner, dir string, change Change) error {
-	args := append([]string{"-C", dir, literalPathspecs, "add", "--all", "--"}, change.paths()...)
+func (r Repository) Stage(ctx context.Context, change Change) error {
+	args := append([]string{"-C", r.dir, literalPathspecs, "add", "--all", "--"}, change.paths()...)
 
-	_, err := run(ctx, "git", args...)
+	_, err := r.run(ctx, "git", args...)
 	if err != nil {
 		return fmt.Errorf("staging %s: %w", sanitize.Line(change.Path), err)
 	}
@@ -158,15 +158,15 @@ func Stage(ctx context.Context, run Runner, dir string, change Change) error {
 // Unstage takes a file's changes out of the index and leaves the work tree
 // alone. Before the first commit there is no HEAD to restore from, so the file
 // is removed from the index instead.
-func Unstage(ctx context.Context, run Runner, dir string, change Change) error {
-	args := append([]string{"-C", dir, literalPathspecs, "restore", "--staged", "--"}, change.paths()...)
+func (r Repository) Unstage(ctx context.Context, change Change) error {
+	args := append([]string{"-C", r.dir, literalPathspecs, "restore", "--staged", "--"}, change.paths()...)
 
-	_, err := run(ctx, "git", "-C", dir, "rev-parse", "--verify", "--quiet", "HEAD")
+	_, err := r.run(ctx, "git", "-C", r.dir, "rev-parse", "--verify", "--quiet", "HEAD")
 	if err != nil {
-		args = append([]string{"-C", dir, literalPathspecs, "rm", "--cached", "--quiet", "--"}, change.paths()...)
+		args = append([]string{"-C", r.dir, literalPathspecs, "rm", "--cached", "--quiet", "--"}, change.paths()...)
 	}
 
-	_, err = run(ctx, "git", args...)
+	_, err = r.run(ctx, "git", args...)
 	if err != nil {
 		return fmt.Errorf("unstaging %s: %w", sanitize.Line(change.Path), err)
 	}

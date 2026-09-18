@@ -43,7 +43,7 @@ func TestRecentCommitsReadsYourCommitsSince(t *testing.T) {
 			run := fakeRunner(t, tt.replies)
 
 			// Act
-			commits, err := gitrepo.RecentCommits(t.Context(), run, workDir, "1 day ago")
+			commits, err := gitrepo.At(run, workDir).RecentCommits(t.Context(), "1 day ago")
 
 			// Assert
 			if err != nil || len(commits) != tt.want || commits[0].Subject != "Fix the thing" {
@@ -65,7 +65,7 @@ func TestRecentCommitsOutsideARepositoryReportsSo(t *testing.T) {
 	run := fakeRunner(t, replies)
 
 	// Act
-	_, err := gitrepo.RecentCommits(t.Context(), run, workDir, "1 day ago")
+	_, err := gitrepo.At(run, workDir).RecentCommits(t.Context(), "1 day ago")
 
 	// Assert
 	if !errors.Is(err, gitrepo.ErrNotARepository) {

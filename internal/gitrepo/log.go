@@ -9,18 +9,18 @@ import "context"
 // or "2 days ago", across the repository — for a standup. It filters to your own
 // commits by the email git commits under, when one is set. Every subject is
 // sanitized, because a commit is anyone's to write.
-func RecentCommits(ctx context.Context, run Runner, dir, since string) ([]Commit, error) {
-	args := []string{"-C", dir, "log", "-z", logFormat, "--all", "--since=" + since}
+func (r Repository) RecentCommits(ctx context.Context, since string) ([]Commit, error) {
+	args := []string{"-C", r.dir, "log", "-z", logFormat, "--all", "--since=" + since}
 
-	if email := optional(ctx, run, "-C", dir, "config", "user.email"); email != "" {
+	if email := optional(ctx, r.run, "-C", r.dir, "config", "user.email"); email != "" {
 		// git matches --author as a substring against name and email both; the
 		// email is the precise identity a commit is made under.
 		args = append(args, "--author="+email)
 	}
 
-	out, err := run(ctx, gitProgram, args...)
+	out, err := r.run(ctx, gitProgram, args...)
 	if err != nil {
-		return nil, readFailure(ctx, run, dir, "reading recent commits", err)
+		return nil, readFailure(ctx, r.run, r.dir, "reading recent commits", err)
 	}
 
 	return parseLog(text(out)), nil

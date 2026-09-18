@@ -79,7 +79,7 @@ func TestReadBranchReadsWhereTheBranchStands(t *testing.T) {
 	t.Parallel()
 
 	// Act
-	branch, err := gitrepo.ReadBranch(t.Context(), fakeRunner(t, featureBranch()), workDir)
+	branch, err := gitrepo.At(fakeRunner(t, featureBranch()), workDir).ReadBranch(t.Context())
 	if err != nil {
 		t.Fatalf("ReadBranch returned %v, want nil", err)
 	}
@@ -121,7 +121,7 @@ func TestReadBranchKeepsItsFirstCommitPastTheLimit(t *testing.T) {
 	longLog := with(featureBranch(), map[string]reply{logFromMain: {out: manyCommits(first, commitCap+50)}})
 
 	// Act
-	branch, err := gitrepo.ReadBranch(t.Context(), fakeRunner(t, longLog), workDir)
+	branch, err := gitrepo.At(fakeRunner(t, longLog), workDir).ReadBranch(t.Context())
 	if err != nil {
 		t.Fatalf("ReadBranch returned %v, want nil", err)
 	}
@@ -206,7 +206,7 @@ func TestABranchIsPushedOnlyWhenItsOwnUpstreamHasEverything(t *testing.T) {
 			t.Parallel()
 
 			// Act
-			branch, err := gitrepo.ReadBranch(t.Context(), fakeRunner(t, tt.replies), workDir)
+			branch, err := gitrepo.At(fakeRunner(t, tt.replies), workDir).ReadBranch(t.Context())
 
 			// Assert
 			if err != nil || branch.Upstream != tt.upstream || branch.Pushed() != tt.pushed {
@@ -257,7 +257,7 @@ func TestTheBaseFallsBackWhenOriginNamesNoDefault(t *testing.T) {
 			}
 
 			// Act
-			branch, err := gitrepo.ReadBranch(t.Context(), fakeRunner(t, replies), workDir)
+			branch, err := gitrepo.At(fakeRunner(t, replies), workDir).ReadBranch(t.Context())
 
 			// Assert
 			if err != nil || branch.Base != tt.want {
@@ -282,7 +282,7 @@ func TestAnEmptyRepositoryStillReads(t *testing.T) {
 	t.Parallel()
 
 	// Act
-	branch, err := gitrepo.ReadBranch(t.Context(), fakeRunner(t, emptyRepository()), workDir)
+	branch, err := gitrepo.At(fakeRunner(t, emptyRepository()), workDir).ReadBranch(t.Context())
 
 	// Assert
 	if err != nil || branch.Name != localMain || branch.Head != "" || len(branch.Commits) != 0 {
@@ -297,7 +297,7 @@ func TestADetachedHeadStillReads(t *testing.T) {
 	replies := with(emptyRepository(), map[string]reply{showCurrentBranch: {out: []byte("\n")}})
 
 	// Act
-	branch, err := gitrepo.ReadBranch(t.Context(), fakeRunner(t, replies), workDir)
+	branch, err := gitrepo.At(fakeRunner(t, replies), workDir).ReadBranch(t.Context())
 
 	// Assert
 	if err != nil || !branch.Detached {
@@ -315,7 +315,7 @@ func TestReadBranchReportsAnUnreadableRepository(t *testing.T) {
 	}
 
 	// Act
-	_, err := gitrepo.ReadBranch(t.Context(), fakeRunner(t, replies), workDir)
+	_, err := gitrepo.At(fakeRunner(t, replies), workDir).ReadBranch(t.Context())
 
 	// Assert
 	if !errors.Is(err, errNotARepository) {
@@ -398,7 +398,7 @@ func TestReadBranchKeepsOnlyWhatGitAnsweredClearly(t *testing.T) {
 			t.Parallel()
 
 			// Act
-			branch, err := gitrepo.ReadBranch(t.Context(), fakeRunner(t, tt.replies), workDir)
+			branch, err := gitrepo.At(fakeRunner(t, tt.replies), workDir).ReadBranch(t.Context())
 
 			// Assert
 			if err != nil || branch.Ahead != tt.ahead || branch.Behind != tt.behind ||
@@ -422,7 +422,7 @@ func TestReadBranchReportsADirectoryOutsideARepository(t *testing.T) {
 	}
 
 	// Act
-	_, err := gitrepo.ReadBranch(t.Context(), fakeRunner(t, replies), workDir)
+	_, err := gitrepo.At(fakeRunner(t, replies), workDir).ReadBranch(t.Context())
 
 	// Assert
 	if !errors.Is(err, gitrepo.ErrNotARepository) {

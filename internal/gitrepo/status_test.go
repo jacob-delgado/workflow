@@ -58,7 +58,7 @@ func TestStatusReadsTheWorkTree(t *testing.T) {
 			})
 
 			// Act
-			changes, err := gitrepo.Status(t.Context(), run, workDir)
+			changes, err := gitrepo.At(run, workDir).Status(t.Context())
 
 			// Assert
 			if !errors.Is(err, tt.wantErr) || !slices.Equal(changes, tt.want) {
@@ -133,7 +133,7 @@ func TestStageAddsEveryPathTheChangeTouches(t *testing.T) {
 			run, ran := recordingRunner(t, map[string]reply{tt.want: {}})
 
 			// Act
-			err := gitrepo.Stage(t.Context(), run, workDir, tt.change)
+			err := gitrepo.At(run, workDir).Stage(t.Context(), tt.change)
 
 			// Assert
 			if err != nil || !slices.Equal(*ran, []string{tt.want}) {
@@ -172,7 +172,7 @@ func TestUnstageTakesTheChangeOutOfTheIndexWithoutTouchingTheWorkTree(t *testing
 			run, ran := recordingRunner(t, map[string]reply{verifyHead: tt.head, tt.want: {}})
 
 			// Act
-			err := gitrepo.Unstage(t.Context(), run, workDir, tt.change)
+			err := gitrepo.At(run, workDir).Unstage(t.Context(), tt.change)
 
 			// Assert
 			if err != nil || !slices.Equal(*ran, []string{verifyHead, tt.want}) {
@@ -189,7 +189,7 @@ func TestStageReportsGitsFailure(t *testing.T) {
 	run := fakeRunner(t, map[string]reply{"git -C /work --literal-pathspecs add --all -- x.go": {err: errIndexLocked}})
 
 	// Act
-	err := gitrepo.Stage(t.Context(), run, workDir, gitrepo.Change{Path: "x.go"})
+	err := gitrepo.At(run, workDir).Stage(t.Context(), gitrepo.Change{Path: "x.go"})
 
 	// Assert
 	if !errors.Is(err, errIndexLocked) {
@@ -207,7 +207,7 @@ func TestUnstageReportsGitsFailure(t *testing.T) {
 	})
 
 	// Act
-	err := gitrepo.Unstage(t.Context(), run, workDir, gitrepo.Change{Path: "x.go"})
+	err := gitrepo.At(run, workDir).Unstage(t.Context(), gitrepo.Change{Path: "x.go"})
 
 	// Assert
 	if !errors.Is(err, errIndexLocked) {
@@ -224,10 +224,10 @@ func TestAStagingFailureNamesTheFileInTextThatIsSafeToShow(t *testing.T) {
 
 	cases := map[string]func(run gitrepo.Runner) error{
 		"staging": func(run gitrepo.Runner) error {
-			return gitrepo.Stage(t.Context(), run, workDir, gitrepo.Change{Path: awkward})
+			return gitrepo.At(run, workDir).Stage(t.Context(), gitrepo.Change{Path: awkward})
 		},
 		"unstaging": func(run gitrepo.Runner) error {
-			return gitrepo.Unstage(t.Context(), run, workDir, gitrepo.Change{Path: awkward})
+			return gitrepo.At(run, workDir).Unstage(t.Context(), gitrepo.Change{Path: awkward})
 		},
 	}
 
@@ -293,7 +293,7 @@ func TestStatusReportsADirectoryOutsideARepository(t *testing.T) {
 	})
 
 	// Act
-	_, err := gitrepo.Status(t.Context(), run, workDir)
+	_, err := gitrepo.At(run, workDir).Status(t.Context())
 
 	// Assert
 	if !errors.Is(err, gitrepo.ErrNotARepository) {

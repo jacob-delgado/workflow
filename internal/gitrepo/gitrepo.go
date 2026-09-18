@@ -25,6 +25,22 @@ var ErrNotARepository = errors.New("not a git repository")
 // method's worth of surface, and a one-method seam is a func var.
 type Runner func(ctx context.Context, name string, args ...string) ([]byte, error)
 
+// Repository is a git work tree a caller reads and changes: the directory it
+// works in and the Runner every git command goes through, bundled so the two
+// stop traveling as a pair through every function's signature.
+type Repository struct {
+	run Runner
+	dir string
+}
+
+// At is a Repository working in dir, running git through run. For Status and
+// Stage, dir must be the work-tree root — git reports and stages paths relative
+// to it — so pass the Root that Describe found; for the questions that name
+// their own path, such as CheckIgnored, dir is only where git is run from.
+func At(run Runner, dir string) Repository {
+	return Repository{run: run, dir: dir}
+}
+
 // Repo describes the repository a session is running in.
 type Repo struct {
 	// Root is the absolute path of the work tree.
@@ -57,35 +73,35 @@ func withinWorkTree(ctx context.Context, run Runner, dir string) bool {
 	return err == nil
 }
 
-// CheckIgnored reports whether git ignores path within dir. Outside a work tree
-// it returns ErrNotARepository, because the question has no answer there — a
-// caller warning about a file that is not ignored simply stays quiet.
-func CheckIgnored(ctx context.Context, run Runner, dir, path string) (bool, error) {
-	if !withinWorkTree(ctx, run, dir) {
-		return false, fmt.Errorf("%w: %s", ErrNotARepository, dir)
+// CheckIgnored reports whether git ignores path. Outside a work tree it returns
+// ErrNotARepository, because the question has no answer there — a caller warning
+// about a file that is not ignored simply stays quiet.
+func (r Repository) CheckIgnored(ctx context.Context, path string) (bool, error) {
+	if !withinWorkTree(ctx, r.run, r.dir) {
+		return false, fmt.Errorf("%w: %s", ErrNotARepository, r.dir)
 	}
 
 	// check-ignore exits zero when the path is ignored and non-zero when it is
 	// not, so a non-zero exit here is the answer "no", not a failure to answer.
-	_, err := run(ctx, "git", "-C", dir, "check-ignore", path)
+	_, err := r.run(ctx, "git", "-C", r.dir, "check-ignore", path)
 
 	return err == nil, nil
 }
 
-// Describe reads the repository containing dir.
-func Describe(ctx context.Context, run Runner, dir string) (Repo, error) {
-	root, err := run(ctx, "git", "-C", dir, "rev-parse", "--show-toplevel")
+// Describe reads the repository this one works in.
+func (r Repository) Describe(ctx context.Context) (Repo, error) {
+	root, err := r.run(ctx, "git", "-C", r.dir, "rev-parse", "--show-toplevel")
 	if err != nil {
-		return Repo{}, fmt.Errorf("%w: %s", ErrNotARepository, dir)
+		return Repo{}, fmt.Errorf("%w: %s", ErrNotARepository, r.dir)
 	}
 
 	// `branch --show-current` rather than `rev-parse --abbrev-ref HEAD`: it prints
 	// the name of an UNBORN branch on a repository with no commits, where
 	// rev-parse fails outright, and it prints nothing for a detached HEAD instead
 	// of the literal string "HEAD" that a branch could legitimately be called.
-	branch, err := run(ctx, "git", "-C", dir, "branch", "--show-current")
+	branch, err := r.run(ctx, "git", "-C", r.dir, "branch", "--show-current")
 	if err != nil {
-		return Repo{}, fmt.Errorf("reading the current branch of %s: %w", dir, err)
+		return Repo{}, fmt.Errorf("reading the current branch of %s: %w", r.dir, err)
 	}
 
 	name := text(branch)
@@ -94,7 +110,7 @@ func Describe(ctx context.Context, run Runner, dir string) (Repo, error) {
 		Root:     text(root),
 		Branch:   name,
 		Detached: name == "",
-		Remote:   originURL(ctx, run, dir),
+		Remote:   originURL(ctx, r.run, r.dir),
 	}, nil
 }
 
