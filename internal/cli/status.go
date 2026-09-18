@@ -4,14 +4,17 @@
 package cli
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
 	"os"
+	"path/filepath"
 	"strings"
 
 	"github.com/spf13/cobra"
 
+	"github.com/jacob-delgado/workflow/internal/config"
 	"github.com/jacob-delgado/workflow/internal/convention"
 	"github.com/jacob-delgado/workflow/internal/forge"
 	"github.com/jacob-delgado/workflow/internal/gitrepo"
@@ -31,19 +34,22 @@ type statusSeams struct {
 	Issue       func(issueKey string) (jira.IssueDetail, error)
 }
 
-// newStatusCmd builds `workflow status`.
+// newStatusCmd builds `workflow status [directory...]`.
 func newStatusCmd() *cobra.Command {
 	var asJSON bool
 
 	cmd := &cobra.Command{
-		Use:   "status",
+		Use:   "status [directory...]",
 		Short: "Print the current work's issue, stage and CI on one line",
 		Long: "Print, on one line, the issue the branch is for, how far along the loop\n" +
 			"the work has got, and how CI stands — the same progress the interface's\n" +
-			"top row shows, for a shell prompt or a status bar. --json prints it as data.",
-		Args: cobra.NoArgs,
-		RunE: func(cmd *cobra.Command, _ []string) error {
-			return runStatusCommand(cmd, asJSON)
+			"top row shows, for a shell prompt or a status bar. --json prints it as data.\n\n" +
+			"Given one or more directories, it prints a labeled line for each, so\n" +
+			"`workflow status ~/src/*` reports every repository at once. Each reads its\n" +
+			"own configuration.",
+		Args: cobra.ArbitraryArgs,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return runStatusCommand(cmd, asJSON, args)
 		},
 	}
 
@@ -52,18 +58,64 @@ func newStatusCmd() *cobra.Command {
 	return cmd
 }
 
-// runStatusCommand wires the real repository, forge and Jira to status.
-func runStatusCommand(cmd *cobra.Command, asJSON bool) error {
-	// A missing or broken configuration is not fatal: the repository stages
-	// still read, and the service stages simply stay not-started.
-	cfg, _ := loadFromEnvironment()
+// runStatusCommand prints the status of the current repository, or of each
+// named directory.
+func runStatusCommand(cmd *cobra.Command, asJSON bool, dirs []string) error {
 	ctx := cmd.Context()
+	out := cmd.OutOrStdout()
 
+	// An unknown home directory just means no home-directory fallback for a
+	// repository's configuration, not a failure.
+	home, _ := os.UserHomeDir()
+
+	if len(dirs) == 0 {
+		return statusHere(ctx, out, home, asJSON)
+	}
+
+	return statusAcross(ctx, out, home, dirs, asJSON)
+}
+
+// statusHere prints the status of the current directory: a bare line, and a
+// directory that is no repository is an error.
+func statusHere(ctx context.Context, out io.Writer, home string, asJSON bool) error {
 	dir, err := os.Getwd()
 	if err != nil {
 		return fmt.Errorf("determining the working directory: %w", err)
 	}
 
+	seams, ascii := seamsFor(ctx, dir, home)
+
+	return runStatus(out, seams, ascii, asJSON)
+}
+
+// statusAcross prints one labeled status per named directory. A directory that
+// is no repository is noted rather than failing the rest.
+func statusAcross(ctx context.Context, out io.Writer, home string, dirs []string, asJSON bool) error {
+	if asJSON {
+		return statusesJSON(ctx, out, home, dirs)
+	}
+
+	for _, dir := range dirs {
+		facts, ascii, err := statusOf(ctx, dir, home)
+		if err != nil {
+			fmt.Fprintf(out, "%s  not a git repository\n", repoLabel(dir))
+
+			continue
+		}
+
+		fmt.Fprintf(out, "%s  ", repoLabel(dir))
+		renderStatusLine(out, facts, ascii)
+	}
+
+	return nil
+}
+
+// seamsFor wires the real repository, forge and Jira for the directory at dir,
+// which reads its own configuration.
+func seamsFor(ctx context.Context, dir, home string) (statusSeams, bool) {
+	// A missing or broken configuration is not fatal: the repository stages
+	// still read, and the service stages simply stay not-started.
+	cfg, _ := config.Load(dir, home)
 	where := wiring.Locate(ctx, dir)
 	deps := wiring.Deps(ctx, cfg, where, nil)
 
@@ -75,7 +127,26 @@ func runStatusCommand(cmd *cobra.Command, asJSON bool) error {
 		Issue:       deps.Jira.Issue,
 	}
 
-	return runStatus(cmd.OutOrStdout(), seams, cfg.UI.ASCII, asJSON)
+	return seams, cfg.UI.ASCII
+}
+
+// statusOf gathers the status of the repository at dir.
+func statusOf(ctx context.Context, dir, home string) (statusFacts, bool, error) {
+	seams, ascii := seamsFor(ctx, dir, home)
+	facts, err := statusFromSeams(seams)
+
+	return facts, ascii, err
+}
+
+// repoLabel names a directory in the output: its base name, or the path itself
+// when the base name would not say which repository it is.
+func repoLabel(dir string) string {
+	base := filepath.Base(dir)
+	if base == "." {
+		return dir
+	}
+
+	return base
 }
 
 // statusFacts is everything the line and the JSON are built from.
@@ -88,12 +159,10 @@ type statusFacts struct {
 
 // runStatus gathers the current state and prints it, as a line or as JSON.
 func runStatus(out io.Writer, seams statusSeams, ascii, asJSON bool) error {
-	branch, err := seams.Branch()
+	facts, err := statusFromSeams(seams)
 	if err != nil {
-		return fmt.Errorf("reading the branch: %w", err)
+		return err
 	}
-
-	facts := gather(seams, branch)
 
 	if asJSON {
 		return renderStatusJSON(out, facts)
@@ -102,6 +171,17 @@ func runStatus(out io.Writer, seams statusSeams, ascii, asJSON bool) error {
 	renderStatusLine(out, facts, ascii)
 
 	return nil
+}
+
+// statusFromSeams reads the branch and derives the facts, or fails when the
+// branch cannot be read at all.
+func statusFromSeams(seams statusSeams) (statusFacts, error) {
+	branch, err := seams.Branch()
+	if err != nil {
+		return statusFacts{}, fmt.Errorf("reading the branch: %w", err)
+	}
+
+	return gather(seams, branch), nil
 }
 
 // gather reads the issue, the pull request and its CI, and derives the stages.
@@ -207,22 +287,58 @@ type stageReport struct {
 
 // renderStatusJSON prints the same facts as indented JSON.
 func renderStatusJSON(out io.Writer, facts statusFacts) error {
-	report := statusReport{
+	return encodeJSON(out, statusReport{
 		Issue:   facts.issue,
 		Summary: facts.summary,
 		Stages:  stageReports(facts.stages),
 		CI:      ciWord(facts.ci),
-	}
+	})
+}
 
+// encodeJSON writes value as indented JSON, the one place status encodes.
+func encodeJSON(out io.Writer, value any) error {
 	encoder := json.NewEncoder(out)
 	encoder.SetIndent("", "  ")
 
-	err := encoder.Encode(report)
+	err := encoder.Encode(value)
 	if err != nil {
 		return fmt.Errorf("encoding the status: %w", err)
 	}
 
 	return nil
+}
+
+// repoStatus is one repository's status in the array `status DIR...` prints.
+type repoStatus struct {
+	Repository string        `json:"repository"`
+	Issue      string        `json:"issue,omitempty"`
+	Summary    string        `json:"summary,omitempty"`
+	Stages     []stageReport `json:"stages,omitempty"`
+	CI         string        `json:"ci,omitempty"`
+	Error      string        `json:"error,omitempty"`
+}
+
+// statusesJSON prints the status of each directory as a JSON array, one object
+// per repository, so a directory that is no repository is a row with an error
+// rather than a failure of the whole command.
+func statusesJSON(ctx context.Context, out io.Writer, home string, dirs []string) error {
+	reports := make([]repoStatus, 0, len(dirs))
+
+	for _, dir := range dirs {
+		report := repoStatus{Repository: repoLabel(dir)}
+
+		facts, _, err := statusOf(ctx, dir, home)
+		if err != nil {
+			report.Error = "not a git repository"
+		} else {
+			report.Issue, report.Summary = facts.issue, facts.summary
+			report.Stages, report.CI = stageReports(facts.stages), ciWord(facts.ci)
+		}
+
+		reports = append(reports, report)
+	}
+
+	return encodeJSON(out, reports)
 }
 
 // stageReports turns the stages into their JSON shape.
