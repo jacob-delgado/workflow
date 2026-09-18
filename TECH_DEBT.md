@@ -141,9 +141,6 @@ Severity: low · Confidence: read
   the model "never holds … a credential" (`internal/tui/deps.go:19`) sits
   beside `Model.cfg`, which is the unredacted configuration (it is not shown;
   a test proves that).
-- A failed Slack post's error stays in `slackState.err` until a post succeeds,
-  so after a branch change the Slack pane shows one pull request's error
-  beside another's announcement (`Model.slackState`, `internal/tui/slack.go`).
 - "1 files staged" (`internal/tui/composer.go:155`) is pinned by
   `internal/tui/composer_test.go:50`. `Breaking: false` is hardcoded at
   `internal/tui/composer.go:92`.
