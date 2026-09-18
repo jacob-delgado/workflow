@@ -176,24 +176,6 @@ Secret, and a whole Config, mask when printed.
 
 ## Configuration, wiring and the command line
 
-### DEBT-21 The forge connection is built twice, and remembered when it fails
-
-Severity: low · Confidence: read
-
-Fixed: `onceConnected` (`internal/wiring/wiring.go`) caches a connection only
-once it succeeds and retries after a failure, so `gh auth login` in another
-terminal is found on the next attempt rather than only on a restart — the
-"Done when" is met. The duplicated `forge.Resolver` literal is now the shared
-`wiring.ForgeResolver`, which both `connectForge` and `checkForge` call, so the
-two cannot drift in where they look for a credential.
-
-- What remains: the preamble around the resolver — parse the remote, apply the
-  configured kind, find the API base — is still shaped the same in both, but the
-  two report failure differently (doctor prints a line per step; wiring returns
-  wrapped errors), so a single `connect` would have to thread that divergence.
-  Left until a third caller earns it. The success arm of the interface's own
-  `connect()` sites is DEBT-36.
-
 ### DEBT-24 Nothing can be canceled, and no subprocess has a deadline
 
 Severity: medium · Confidence: reproduced

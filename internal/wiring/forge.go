@@ -90,16 +90,23 @@ func forgeDepsFrom(
 	}
 }
 
+// resolveRepo reads the forge repository the remote points at and applies the
+// configured kind — the parse-then-kind pair the connect, the kind lookup and
+// the template lookup all repeat.
+func resolveRepo(settings config.Forge, remote string) (forge.Repo, error) {
+	repo, err := forge.ParseRemote(remote)
+	if err != nil {
+		return forge.Repo{}, err
+	}
+
+	return repo.WithConfiguredKind(ForgeSettings(settings))
+}
+
 // forgeKind is which forge the remote points at, read without a network call so
 // the interface can name a change correctly from the start. An unparsable remote
 // is simply unknown.
 func forgeKind(settings config.Forge, remote string) forge.Kind {
-	repo, err := forge.ParseRemote(remote)
-	if err != nil {
-		return forge.KindUnknown
-	}
-
-	repo, err = repo.WithConfiguredKind(ForgeSettings(settings))
+	repo, err := resolveRepo(settings, remote)
 	if err != nil {
 		return forge.KindUnknown
 	}
@@ -157,14 +164,9 @@ func onceConnected(connect func() (forgeConnection, error)) func() (forgeConnect
 func connectForge(
 	ctx context.Context, settings config.Forge, remote string, timeout time.Duration, log *RequestLog,
 ) (forgeConnection, error) {
-	repo, err := forge.ParseRemote(remote)
+	repo, err := resolveRepo(settings, remote)
 	if err != nil {
 		return forgeConnection{}, fmt.Errorf("reading origin: %w", err)
-	}
-
-	repo, err = repo.WithConfiguredKind(ForgeSettings(settings))
-	if err != nil {
-		return forgeConnection{}, err
 	}
 
 	base, err := repo.APIBase()
@@ -194,12 +196,7 @@ func connectForge(
 // templatesFor reads the repository's pull request templates, where its forge
 // looks for them.
 func templatesFor(settings config.Forge, where Workspace) []forge.Template {
-	repo, err := forge.ParseRemote(where.Remote)
-	if err != nil {
-		return nil
-	}
-
-	repo, err = repo.WithConfiguredKind(ForgeSettings(settings))
+	repo, err := resolveRepo(settings, where.Remote)
 	if err != nil {
 		return nil
 	}
