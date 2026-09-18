@@ -75,20 +75,10 @@ func (c Client) Issue(ctx context.Context, issueKey Key) (IssueDetail, error) {
 	query := url.Values{"fields": {detailFields}}.Encode()
 
 	request, err := c.newRequest(ctx, http.MethodGet, issuePath(issueKey)+"?"+query, nil)
+
+	wire, err := decode[wireIssue](c, request, err)
 	if err != nil {
 		return IssueDetail{}, err
-	}
-
-	body, err := c.exchange(request)
-	if err != nil {
-		return IssueDetail{}, err
-	}
-
-	var wire wireIssue
-
-	err = json.Unmarshal(body, &wire)
-	if err != nil {
-		return IssueDetail{}, fmt.Errorf("reading the answer from %s: %w", c.settings.BaseURL, err)
 	}
 
 	comments := make([]Comment, 0, len(wire.Fields.Comment.Comments))
@@ -115,22 +105,13 @@ func (c Client) AddComment(ctx context.Context, issueKey Key, text string) (Comm
 	}
 
 	request, err := c.newRequest(ctx, http.MethodPost, issuePath(issueKey)+"/comment", bytes.NewReader(payload))
-	if err != nil {
-		return Comment{}, err
+	if err == nil {
+		request.Header.Set("Content-Type", "application/json")
 	}
 
-	request.Header.Set("Content-Type", "application/json")
-
-	body, err := c.exchange(request)
+	wire, err := decode[wireComment](c, request, err)
 	if err != nil {
 		return Comment{}, err
-	}
-
-	var wire wireComment
-
-	err = json.Unmarshal(body, &wire)
-	if err != nil {
-		return Comment{}, fmt.Errorf("reading the answer from %s: %w", c.settings.BaseURL, err)
 	}
 
 	return wire.comment(), nil

@@ -52,23 +52,10 @@ func (c Client) Transitions(ctx context.Context, issueKey Key) ([]Transition, er
 	query := url.Values{"expand": {"transitions.fields"}}.Encode()
 
 	request, err := c.newRequest(ctx, http.MethodGet, transitionsPath(issueKey)+"?"+query, nil)
-	if err != nil {
-		return nil, err
-	}
 
-	body, err := c.exchange(request)
-	if err != nil {
-		return nil, err
-	}
+	answer, err := decode[transitionsAnswer](c, request, err)
 
-	var answer transitionsAnswer
-
-	err = json.Unmarshal(body, &answer)
-	if err != nil {
-		return nil, fmt.Errorf("reading the answer from %s: %w", c.settings.BaseURL, err)
-	}
-
-	return answer.result(), nil
+	return answer.result(), err
 }
 
 // ApplyTransition moves an issue through a transition Transitions offered, with
