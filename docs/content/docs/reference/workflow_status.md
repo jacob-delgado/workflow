@@ -15,8 +15,12 @@ Print, on one line, the issue the branch is for, how far along the loop
 the work has got, and how CI stands — the same progress the interface's
 top row shows, for a shell prompt or a status bar. --json prints it as data.
 
+Given one or more directories, it prints a labeled line for each, so
+`workflow status ~/src/*` reports every repository at once. Each reads its
+own configuration.
+
 ```
-workflow status [flags]
+workflow status [directory...] [flags]
 ```
 
 ### Options
