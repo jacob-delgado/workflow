@@ -15,6 +15,25 @@ import (
 	"github.com/jacob-delgado/workflow/internal/config"
 )
 
+func TestJiraHeadersAreRead(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	workDir := t.TempDir()
+	write(t, workDir, `{"jira": {"headers": {"CF-Access-Client-Id": "gateway-id"}}}`)
+
+	// Act
+	cfg, err := config.Load(workDir, t.TempDir())
+	if err != nil {
+		t.Fatalf("Load returned %v, want nil", err)
+	}
+
+	// Assert
+	if cfg.Jira.Headers["CF-Access-Client-Id"] != "gateway-id" {
+		t.Errorf("jira headers = %v, want the configured proxy header", cfg.Jira.Headers)
+	}
+}
+
 // write puts a configuration file in dir and returns its path.
 func write(t *testing.T, dir, contents string) string {
 	t.Helper()

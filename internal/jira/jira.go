@@ -153,6 +153,13 @@ func (c Client) newRequest(ctx context.Context, method, pathAndQuery string, bod
 	request.Header.Set("Accept", "application/json")
 	authenticate(request, c.settings)
 
+	// After the token, so a proxy in front of Jira can be given the header it
+	// wants — and so an intentional override, such as a different Authorization,
+	// is the one that survives.
+	for name, value := range c.settings.Headers {
+		request.Header.Set(name, value)
+	}
+
 	return request, nil
 }
 

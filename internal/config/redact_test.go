@@ -67,6 +67,28 @@ func TestRedactedHidesEveryCredential(t *testing.T) {
 	}
 }
 
+func TestRedactedMasksEveryJiraHeaderValue(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	const secret = "cf-access-secret-value"
+
+	cfg := config.Config{Jira: config.Jira{Headers: map[string]string{"CF-Access-Client-Secret": secret}}}
+
+	// Act
+	redacted := cfg.Redacted()
+
+	// Assert
+	if strings.Contains(redacted.Jira.Headers["CF-Access-Client-Secret"], secret) {
+		t.Errorf("header value leaked: %q", redacted.Jira.Headers["CF-Access-Client-Secret"])
+	}
+
+	// Redaction must not mutate the original map.
+	if cfg.Jira.Headers["CF-Access-Client-Secret"] != secret {
+		t.Errorf("Redacted mutated the original header: %q", cfg.Jira.Headers["CF-Access-Client-Secret"])
+	}
+}
+
 func TestRedact(t *testing.T) {
 	t.Parallel()
 
