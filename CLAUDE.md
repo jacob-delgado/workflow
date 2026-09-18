@@ -32,8 +32,12 @@ internal/editor/      handing text and files to $EDITOR
 internal/proc/        running programs; the one place exec lives
 internal/sanitize/    neutralizing terminal controls in server text
 internal/testshape/   the Arrange-Act-Assert check behind cmd/testshape
+cmd/docsgen/          generates the command reference from the Cobra tree
+cmd/testshape/        the thin main that runs internal/testshape
 scripts/              the gate scripts lefthook, task and CI share
 build/                the build container
+docs/                 the Hugo documentation site
+.devcontainer/        the development container definition
 ```
 
 ## Common commands
@@ -45,7 +49,7 @@ build/                the build container
 | `task run` | run from source; `task run -- doctor --online` passes arguments |
 | `task test` | tests with the race detector |
 | `task test:cover` | tests plus the coverage floor |
-| `task lint` | every linter (Go, shell, YAML, Dockerfile, Actions + security, Markdown, TOML, headers, spelling, file length, test markers) |
+| `task lint` | every linter (Go, shell, YAML, Dockerfile, Actions + security, Markdown, TOML, headers, spelling, file length, test markers, docs drift) |
 | `task fmt` | format everything in place |
 | `task cloc` | count the source lines, and the Go test ratio (advisory) |
 | `task check` | **the full gate** — lint, tests + coverage, govulncheck, gitleaks |
@@ -327,8 +331,8 @@ the gate enforces.
 says a line ran; condition coverage (gobco, `task cover:branch`) says whether an
 `if a && b` was ever seen with `b` false. Its per-condition output — "condition
 `err != nil` was 8 times false but never true" — is a worklist of missing test
-cases, not a percentage to chase. gobco cannot read every package here
-(`scripts/gobco-report.sh` names which and why); a package that becomes
+cases, not a percentage to chase. gobco reads every package in this module
+(`scripts/gobco-report.sh` would name any it cannot); a package that becomes
 unreadable without being listed fails the gate rather than quietly shrinking what
 the number covers.
 

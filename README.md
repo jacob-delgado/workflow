@@ -64,7 +64,7 @@ For a reproducible install, name the version instead: `@v0.0.5`. Note that
 the most recent commit on `main`.
 
 From a [release](https://github.com/jacob-delgado/workflow/releases) — binaries
-are published for macOS, Linux, and Windows on amd64 and arm64, each with a
+are published for macOS (arm64), Linux (amd64) and Windows (amd64), each with a
 checksum and a build provenance attestation:
 
 ```sh
@@ -224,8 +224,8 @@ code. The source is in [`docs/`](docs/); `task docs:serve` previews it locally.
 ## Releases
 
 Versioning is automated from the commit history with release-please: merging its
-release pull request tags the version and publishes binaries for macOS, Linux,
-and Windows (amd64 and arm64), each with a SHA256 checksum and a build
+release pull request tags the version and publishes binaries for macOS (arm64),
+Linux (amd64) and Windows (amd64), each with a SHA256 checksum and a build
 provenance attestation. There are no releases yet.
 
 ## Security

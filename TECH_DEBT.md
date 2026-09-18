@@ -630,20 +630,11 @@ Severity: low · Confidence: read
 - The usage guide's promise about the bottom row, its "`?` lists every key",
   and its "anywhere" keys do not match the bindings. The detail is in UX.md
   (UX-32, UX-33).
-- Four places say gobco cannot read every package (`CONTRIBUTING.md:76`,
-  `CLAUDE.md:330`, `.github/workflows/ci.yml:39` and `:164`, the last of which
-  is posted on every pull request) while the skip list is empty
-  (`scripts/gobco-report.sh:65`). The comment above `BRANCH_COVERAGE_MIN`
-  quotes "84 arms" and "83.3%" where the gate measures 1704 and 96.4%.
-- "macOS, Linux, and Windows on amd64 and arm64" (`README.md:59` and `:203`,
-  `CONTRIBUTING.md:178`, `docs/content/docs/install.md:44`) promises a
-  `windows/arm64` build that `Taskfile.yml:30` does not make.
-- CLAUDE.md's layout block omits `cmd/docsgen/`, `cmd/testshape/`, `docs/`
-  and `.devcontainer/`, and its `task lint` row omits `docs:check`. The tool
-  lists in `CONTRIBUTING.md` and `docs/content/docs/contributing.md` disagree
-  with each other and with `mise.toml`.
-- The usage guide shows the scissors line as `# ---- >8 ----`; the real one
-  (`internal/editor/editor.go:29`) is much longer.
+- The tool lists in `CONTRIBUTING.md` and `docs/content/docs/contributing.md`
+  disagree with each other and with `mise.toml`.
+
+The gobco "cannot read every package" comments, the stale version and platform
+lists, the scissors line and the CLAUDE.md layout block are corrected.
 
 ## Deliberate trade-offs that carry a cost
 
