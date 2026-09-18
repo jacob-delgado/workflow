@@ -78,7 +78,7 @@ func (m Model) openCommitComposer() (Model, tea.Cmd) {
 
 	composer := commitComposer{
 		marks: m.marks, styles: m.styles, types: types, kind: m.startingType(types, draft),
-		focus: fieldSubject, scope: newInput(draft.scope), subject: newInput(draft.subject), body: draft.body,
+		focus: fieldSubject, scope: newInput(m.startingScope(draft)), subject: newInput(draft.subject), body: draft.body,
 		issueKey: issueKey, staged: m.changes.staged(), problem: nil,
 	}
 	composer.scope.Blur()
@@ -101,6 +101,17 @@ func (m Model) startingType(types []string, draft commitDraft) int {
 	}
 
 	return 0
+}
+
+// startingScope is the scope the composer opens on: a kept draft's scope wins,
+// so a failed commit reopens as it was; otherwise the configured default, for a
+// team that scopes its commits the same way; otherwise blank.
+func (m Model) startingScope(draft commitDraft) string {
+	if draft.scope != "" {
+		return draft.scope
+	}
+
+	return m.cfg.Commit.DefaultScope
 }
 
 // assembled is the subject as it stands.

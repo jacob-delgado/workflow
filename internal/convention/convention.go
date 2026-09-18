@@ -59,6 +59,16 @@ func scope() *regexp.Regexp {
 	return regexp.MustCompile(`^[a-z0-9][a-z0-9._/-]*$`)
 }
 
+// ValidateScope reports what is wrong with a Conventional Commit scope, or nil
+// when it is well-formed. An empty scope is well-formed: a scope is optional.
+func ValidateScope(value string) error {
+	if trimmed := strings.TrimSpace(value); trimmed != "" && !scope().MatchString(trimmed) {
+		return fmt.Errorf("%w: %q", ErrInvalidScope, trimmed)
+	}
+
+	return nil
+}
+
 // CommitTypes are the Conventional Commit types, in the order a composer offers
 // them: the two that make up most commits first.
 func CommitTypes() []string {
@@ -244,8 +254,9 @@ func (s Subject) Validate() error {
 		return fmt.Errorf("%w: %q", ErrUnknownType, kind)
 	}
 
-	if part := strings.TrimSpace(s.Scope); part != "" && !scope().MatchString(part) {
-		return fmt.Errorf("%w: %q", ErrInvalidScope, part)
+	err := ValidateScope(s.Scope)
+	if err != nil {
+		return err
 	}
 
 	description := strings.TrimSpace(s.Description)

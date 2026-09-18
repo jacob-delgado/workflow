@@ -251,6 +251,35 @@ func TestSubjectAssemblesAConventionalCommit(t *testing.T) {
 	}
 }
 
+func TestValidateScopeAcceptsAScopeAndRejectsBadCharacters(t *testing.T) {
+	t.Parallel()
+
+	cases := map[string]struct {
+		scope   string
+		wantErr bool
+	}{
+		"a plain scope":     {scope: "parser", wantErr: false},
+		"with punctuation":  {scope: "api/v2_beta.1", wantErr: false},
+		"empty is optional": {scope: "", wantErr: false},
+		"a space":           {scope: "two words", wantErr: true},
+		"capitalized":       {scope: "Config", wantErr: true},
+	}
+
+	for name, tt := range cases {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			// Act
+			err := convention.ValidateScope(tt.scope)
+
+			// Assert
+			if (err != nil) != tt.wantErr || (err != nil && !errors.Is(err, convention.ErrInvalidScope)) {
+				t.Errorf("ValidateScope(%q) = %v, want error: %t", tt.scope, err, tt.wantErr)
+			}
+		})
+	}
+}
+
 func TestSubjectValidationSaysWhatIsWrong(t *testing.T) {
 	t.Parallel()
 
