@@ -33,6 +33,7 @@ const githubTemplateName = "pull_request_template"
 // file is the default. GitLab reads .gitlab/merge_request_templates, and applies
 // the one named Default by itself.
 func FindTemplates(repo fs.FS, kind Kind) []Template {
+	//nolint:exhaustive // KindUnknown finds no templates, which the nil lookup miss already gives.
 	finders := map[Kind]func(fs.FS) []Template{KindGitHub: githubTemplates, KindGitLab: gitlabTemplates}
 
 	find, known := finders[kind]

@@ -484,47 +484,25 @@ out of the "every package" total unseen.
 
 Severity: low · Confidence: reproduced
 
-- `_typos.toml` sets no locale, so `typos` accepts British spellings: the
-  British forms of "color" and "organized" pass it without a word. Its header
-  and CLAUDE.md both say it enforces American English. With
-  `locale = "en-us"` the whole repository still passes today, and the wire
-  value `cancelled` is not flagged, so the fix is free.
-- `check-commit-message.sh` checks neither the 72-character limit nor the
-  trailing period that CLAUDE.md states: a 127-character subject ending in a
-  period passed. It reads the raw message file, so under `git commit -v` its
-  unanchored `BREAKING-CHANGE:` pattern matched a line of the diff and the
-  commit was refused. CI is unaffected.
-- `.golangci.yml` has no `exhaustive` settings, so only switches are checked,
-  and the interface deliberately uses map literals to avoid a switch arm that
-  gobco cannot cover. A new `forge.CIState` or `hooks.JobState` therefore
-  draws an empty glyph in silence (`internal/tui/review.go:128` and `:147`,
-  `internal/tui/run.go:180`). `check: [switch, map]` exists and would flag
-  them.
-- Checks differ by where they run. Pre-push runs tests, golangci-lint and the
-  file-length check, under a comment that says a green push is very likely a
-  green CI; it runs no coverage floor, docs check, script test or whole-tree
-  linter. The `shfmt` flags are written out three times. "`task check` is
-  what CI runs" is said in four documents and is literally true of
-  `release.yml` only; `ci.yml` restates the steps, and today restates them
-  all.
-- Dependabot covers the root module, Actions and `build/`. It does not cover
-  `docs/go.mod` or the devcontainer, whose `base:trixie` and
-  `docker-in-docker:2` float. `build/Dockerfile:14` gives `GO_VERSION` a
-  default, a version written outside `mise.toml`.
-- The coverage comment job asks for `pull-requests: write` with no guard for
-  forks (`.github/workflows/ci.yml:103`). GitHub gives fork pull requests a
-  read-only token, so it should fail on every outside contribution, outside
-  the required checks. No fork pull request exists yet to show it.
-- `push-release-tag.sh` pushes the tag before `release.yml` runs `task check`
-  (`.github/workflows/release.yml:42`), so a gate that is red at release time
-  leaves a tag with no release behind it.
-- Two scripts have a test, `scripts/check-commit-message.sh` and
-  `scripts/release/push-release-tag.sh`. The coverage gates, the file-length and
-  license checks, `tool-versions.sh` and the docs drift check have none, and
-  it is their failure paths that never run.
-- A scratch `.go` file under the gitignored `tmp/` joins `go vet ./...`,
-  `go test ./...` and golangci-lint, as an experiment confirmed, and CLAUDE.md
-  sends scratch files there without saying so.
+Fixed: `_typos.toml` now sets `locale = "en-us"`; `check-commit-message.sh`
+enforces the 72-character subject limit and no trailing period, and strips the
+`git commit -v` diff before matching; `.golangci.yml` now runs `exhaustive` with
+`check: [switch, map]`, so a new `forge.CIState` or `hooks.JobState` value that a
+glyph map forgot fails the lint (the maps that are partial by design carry a
+`//nolint:exhaustive` naming why); Dependabot now covers `docs/go.mod` and the
+devcontainer's image and features; and the coverage-comment job is guarded to
+same-repository pull requests, so a fork's read-only token no longer fails it.
+
+- What remains, each its own reason to defer: `build/Dockerfile` gives
+  `GO_VERSION` a default written outside `mise.toml`, and provisions jq, node and
+  shellcheck from apt rather than the pins — both belong to DEBT-41. The
+  release-tag script pushes the tag before `release.yml` runs `task check`, so a
+  red gate could leave a tag with no release; reordering that is the maintainer's
+  release path and cannot be exercised without a real release. The coverage,
+  file-length-adjacent and docs-drift gate scripts still have no tests of their
+  own failure paths. And a scratch `.go` under the gitignored `tmp/` still joins
+  `go test ./...`, which is guidance (keep Go scratch elsewhere), not a gate to
+  add.
 
 ## Docs and configuration drift
 

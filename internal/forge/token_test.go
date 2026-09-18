@@ -38,6 +38,7 @@ func inFile(token forge.Token) forge.Configured {
 // hostOf is the host a case about a kind of forge resolves a token for: the one
 // that forge's own variables are for.
 func hostOf(kind forge.Kind) string {
+	//nolint:exhaustive // the two real forges only; KindUnknown has no host to test against.
 	hosts := map[forge.Kind]string{forge.KindGitHub: githubHost, forge.KindGitLab: gitlabHost}
 
 	host, named := hosts[kind]

@@ -61,6 +61,7 @@ type borders struct {
 
 // glyphs returns the glyph set for a style.
 func glyphs(style Style) borders {
+	//nolint:exhaustive // Light is absent by design; its lookup miss returns the default light border below.
 	sets := map[Style]borders{
 		Heavy:      {"┏", "┓", "┗", "┛", "━", "┃", ellipsis},
 		LightASCII: {"+", "+", "+", "+", "-", "|", asciiEllipsis},

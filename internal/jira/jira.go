@@ -185,6 +185,7 @@ func usable(address *url.URL) error {
 // final arm that can never be false once the others cover the domain. The
 // absence of AuthNone from this map is what makes it an error.
 func authenticators() map[config.AuthMode]func(*http.Request, config.Jira) {
+	//nolint:exhaustive // AuthNone is absent by design; its lookup miss is what makes it ErrNoCredential.
 	return map[config.AuthMode]func(*http.Request, config.Jira){
 		config.AuthBearer: func(request *http.Request, settings config.Jira) {
 			request.Header.Set("Authorization", "Bearer "+settings.Token)
