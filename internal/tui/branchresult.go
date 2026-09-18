@@ -44,7 +44,7 @@ func (msg fetched) apply(m Model) (Model, tea.Cmd) {
 	}
 
 	if msg.err != nil {
-		creator.sending, creator.fetchProblem, creator.skipFetch = false, msg.err, true
+		creator.send.sending, creator.fetchProblem, creator.skipFetch = false, msg.err, true
 		m.overlay = creator
 
 		return m, nil
@@ -93,7 +93,7 @@ func (msg worktreeCreated) apply(m Model) (Model, tea.Cmd) {
 func failedCreation(m Model, err error) Model {
 	creator, open := m.overlay.(branchCreator)
 	if open {
-		creator.sending, creator.problem = false, err
+		creator.send = creator.send.failed(err)
 		m.overlay = creator
 	}
 

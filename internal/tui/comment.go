@@ -48,7 +48,7 @@ func (msg commentEdited) apply(m Model) (Model, tea.Cmd) {
 		// A re-edit that failed keeps the preview it came from, so the comment
 		// written the first time is not lost to the editor.
 		if preview, editing := m.overlay.(commentPreview); editing {
-			preview.err = msg.err
+			preview.send = preview.send.failed(msg.err)
 			m.overlay = preview
 
 			return m, nil
@@ -60,7 +60,7 @@ func (msg commentEdited) apply(m Model) (Model, tea.Cmd) {
 	}
 
 	m.overlay = commentPreview{
-		marks: m.marks, styles: m.styles, issue: msg.issue, text: msg.text, sending: false, err: nil,
+		marks: m.marks, styles: m.styles, issue: msg.issue, text: msg.text,
 	}
 
 	return m, nil
@@ -68,12 +68,11 @@ func (msg commentEdited) apply(m Model) (Model, tea.Cmd) {
 
 // commentPreview is a comment about to be posted.
 type commentPreview struct {
-	marks   glyphs
-	styles  styles
-	issue   jira.Issue
-	text    string
-	sending bool
-	err     error
+	marks  glyphs
+	styles styles
+	issue  jira.Issue
+	text   string
+	send   sendState
 }
 
 var _ overlay = commentPreview{}
@@ -81,7 +80,7 @@ var _ overlay = commentPreview{}
 // view shows the comment as it will be posted, its outcome pinned under the
 // title so a long refusal is seen rather than clipped below the fold.
 func (p commentPreview) view(width, _ int) (string, string) {
-	lines := pinnedOutcome(p.styles, p.marks, p.sending, "posting", p.err, width)
+	lines := pinnedOutcome(p.styles, p.marks, p.send, "posting", width)
 	lines = append(lines, p.issue.Key+" "+p.issue.Summary, "", wrap(p.text, width))
 
 	return "Comment on " + p.issue.Key, strings.Join(lines, "\n")
@@ -89,7 +88,7 @@ func (p commentPreview) view(width, _ int) (string, string) {
 
 // footer offers posting, another edit, or discarding.
 func (p commentPreview) footer(keys keyMap) []key.Binding {
-	if p.sending {
+	if p.send.sending {
 		return []key.Binding{keys.interrupt}
 	}
 
@@ -99,7 +98,7 @@ func (p commentPreview) footer(keys keyMap) []key.Binding {
 // handleKey answers a key while the comment is previewed.
 func (p commentPreview) handleKey(m Model, msg tea.KeyMsg) (Model, tea.Cmd) {
 	switch {
-	case p.sending:
+	case p.send.sending:
 		return m, nil
 	case key.Matches(msg, m.keys.closeOverlay):
 		return m.closeOverlay().noticed("comment discarded"), nil
@@ -118,7 +117,7 @@ func (p commentPreview) post(m Model) (Model, tea.Cmd) {
 		return m.closeOverlay().noticed("dry run: would comment on " + p.issue.Key), nil
 	}
 
-	p.sending, p.err = true, nil
+	p.send = starting()
 	m.overlay = p
 	comment, issueKey, text := m.deps.Jira.Comment, p.issue.Key, p.text
 
@@ -141,7 +140,7 @@ func (msg commentPosted) apply(m Model) (Model, tea.Cmd) {
 	if msg.err != nil {
 		preview, open := m.overlay.(commentPreview)
 		if open {
-			preview.sending, preview.err = false, msg.err
+			preview.send = preview.send.failed(msg.err)
 			m.overlay = preview
 		}
 

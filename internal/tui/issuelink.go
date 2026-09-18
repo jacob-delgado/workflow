@@ -22,8 +22,7 @@ type issueLinker struct {
 	vocab    reviewVocab
 	issueKey string
 	pull     forge.PullRequest
-	sending  bool
-	problem  error
+	send     sendState
 }
 
 var _ overlay = issueLinker{}
@@ -41,7 +40,7 @@ func (m Model) issueToLink() string {
 
 // view previews the link the confirmation would add.
 func (l issueLinker) view(width, _ int) (string, string) {
-	lines := pinnedOutcome(l.styles, l.marks, l.sending, "linking", l.problem, width)
+	lines := pinnedOutcome(l.styles, l.marks, l.send, "linking", width)
 	lines = append(lines,
 		"Add this "+l.vocab.noun+"'s link to "+l.issueKey+"?", "",
 		l.vocab.sigil+strconv.Itoa(l.pull.Number)+" "+l.pull.Title, l.pull.URL)
@@ -51,7 +50,7 @@ func (l issueLinker) view(width, _ int) (string, string) {
 
 // footer offers linking the pull request or skipping it.
 func (l issueLinker) footer(keys keyMap) []key.Binding {
-	if l.sending {
+	if l.send.sending {
 		return []key.Binding{keys.interrupt}
 	}
 
@@ -61,7 +60,7 @@ func (l issueLinker) footer(keys keyMap) []key.Binding {
 // handleKey links the pull request, or skips it, leaving it open in review.
 func (l issueLinker) handleKey(m Model, msg tea.KeyMsg) (Model, tea.Cmd) {
 	switch {
-	case l.sending:
+	case l.send.sending:
 		return m, nil
 	case key.Matches(msg, m.keys.closeOverlay):
 		return m.closeOverlay(), nil
@@ -74,7 +73,7 @@ func (l issueLinker) handleKey(m Model, msg tea.KeyMsg) (Model, tea.Cmd) {
 
 // link adds the pull request's web link to the issue.
 func (l issueLinker) link(m Model) (Model, tea.Cmd) {
-	l.sending, l.problem = true, nil
+	l.send = starting()
 	m.overlay = l
 
 	add := m.deps.Jira.LinkPullRequest
@@ -97,7 +96,7 @@ func (msg issueLinked) apply(m Model) (Model, tea.Cmd) {
 	if msg.err != nil {
 		linker, open := m.overlay.(issueLinker)
 		if open {
-			linker.sending, linker.problem = false, msg.err
+			linker.send = linker.send.failed(msg.err)
 			m.overlay = linker
 		}
 

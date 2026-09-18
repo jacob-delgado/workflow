@@ -71,8 +71,7 @@ type hookgenOffer struct {
 	styles    styles
 	hooks     []hooks.GitHook
 	generated hooks.Generated
-	sending   bool
-	problem   error
+	send      sendState
 }
 
 var _ overlay = hookgenOffer{}
@@ -80,7 +79,7 @@ var _ overlay = hookgenOffer{}
 // view lists the hooks found and the configuration that would run them, its
 // outcome pinned under the title so a long refusal is seen, not clipped.
 func (o hookgenOffer) view(width, _ int) (string, string) {
-	lines := pinnedOutcome(o.styles, o.marks, o.sending, "writing", o.problem, width)
+	lines := pinnedOutcome(o.styles, o.marks, o.send, "writing", width)
 	lines = append(lines,
 		wrap("Found "+plural(len(o.hooks), "hook")+" in .git/hooks that lefthook does not manage:", width), "",
 	)
@@ -106,7 +105,7 @@ func (o hookgenOffer) view(width, _ int) (string, string) {
 
 // footer offers writing it, writing every hook as a script, or not.
 func (o hookgenOffer) footer(keys keyMap) []key.Binding {
-	if o.sending {
+	if o.send.sending {
 		return []key.Binding{keys.interrupt}
 	}
 
@@ -116,7 +115,7 @@ func (o hookgenOffer) footer(keys keyMap) []key.Binding {
 // handleKey answers a key while the offer is open.
 func (o hookgenOffer) handleKey(m Model, msg tea.KeyMsg) (Model, tea.Cmd) {
 	switch {
-	case o.sending:
+	case o.send.sending:
 		return m, nil
 	case key.Matches(msg, m.keys.closeOverlay):
 		return m.closeOverlay(), nil
@@ -136,7 +135,7 @@ func (o hookgenOffer) write(m Model, generated hooks.Generated) (Model, tea.Cmd)
 			plural(len(generated.Scripts), "script") + ", then install lefthook"), nil
 	}
 
-	o.sending, o.problem = true, nil
+	o.send = starting()
 	m.overlay = o
 	write := m.deps.Hooks.Write
 
@@ -153,7 +152,7 @@ func (msg hooksWritten) apply(m Model) (Model, tea.Cmd) {
 	if msg.err != nil {
 		offer, open := m.overlay.(hookgenOffer)
 		if open {
-			offer.sending, offer.problem = false, msg.err
+			offer.send = offer.send.failed(msg.err)
 			m.overlay = offer
 		}
 

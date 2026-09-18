@@ -430,12 +430,12 @@ func failureBlock(sty styles, marks glyphs, err error, width int) string {
 // pinnedOutcome is an overlay's outcome — the in-flight word or the refusal —
 // drawn under the title rather than at the bottom, so a long reason is wrapped
 // and seen instead of clipped below the fold. Empty when nothing has happened.
-func pinnedOutcome(sty styles, marks glyphs, sending bool, doing string, err error, width int) []string {
+func pinnedOutcome(sty styles, marks glyphs, send sendState, doing string, width int) []string {
 	switch {
-	case sending:
+	case send.sending:
 		return []string{doing + marks.ellipsis, ""}
-	case err != nil:
-		return []string{failureBlock(sty, marks, err, width), ""}
+	case send.err != nil:
+		return []string{failureBlock(sty, marks, send.err, width), ""}
 	default:
 		return nil
 	}

@@ -249,8 +249,7 @@ type branchCreator struct {
 	forIssue bool
 	base     string
 	baseAge  string
-	problem  error
-	sending  bool
+	send     sendState
 	// skipFetch is set once a fetch has failed and the user chose to branch from
 	// what is already there, so the retry does not fetch again.
 	skipFetch bool
@@ -281,7 +280,7 @@ func (m Model) openBranchCreator() (Model, tea.Cmd) {
 
 	m.overlay = branchCreator{
 		marks: m.marks, styles: m.styles, input: newInput(name), issue: issue, forIssue: forIssue,
-		base: m.branch.branch.Base, baseAge: m.baseAge(), problem: nil, sending: false,
+		base: m.branch.branch.Base, baseAge: m.baseAge(),
 		canWorktree: m.deps.Git.CreateWorktree != nil,
 	}
 
@@ -308,7 +307,7 @@ func (m Model) baseAge() string {
 func (c branchCreator) view(width, _ int) (string, string) {
 	c.input.Width = max(1, width-len(c.input.Prompt)-1)
 
-	lines := pinnedOutcome(c.styles, c.marks, c.sending, "creating", c.problem, width)
+	lines := pinnedOutcome(c.styles, c.marks, c.send, "creating", width)
 	if c.forIssue {
 		lines = append(lines, "for "+c.issue.Key+" "+c.issue.Summary, "")
 	}
@@ -352,7 +351,7 @@ func (c branchCreator) start() string {
 // footer offers creating the branch or not, and switching between a branch here
 // and a worktree beside the repository where that is possible.
 func (c branchCreator) footer(keys keyMap) []key.Binding {
-	if c.sending {
+	if c.send.sending {
 		return []key.Binding{keys.interrupt}
 	}
 
@@ -386,7 +385,7 @@ func (c branchCreator) worktreeToggleLabel() string {
 // name, so a name git would refuse says so before enter is pressed.
 func (c branchCreator) handleKey(m Model, msg tea.KeyMsg) (Model, tea.Cmd) {
 	switch {
-	case c.sending:
+	case c.send.sending:
 		return m, nil
 	case key.Matches(msg, m.keys.closeOverlay):
 		return m.closeOverlay(), nil
@@ -400,7 +399,7 @@ func (c branchCreator) handleKey(m Model, msg tea.KeyMsg) (Model, tea.Cmd) {
 	}
 
 	c.input, _ = c.input.Update(msg)
-	c.problem = convention.ValidateBranchName(c.input.Value())
+	c.send.err = convention.ValidateBranchName(c.input.Value())
 	m.overlay = c
 
 	return m, nil
@@ -410,8 +409,8 @@ func (c branchCreator) handleKey(m Model, msg tea.KeyMsg) (Model, tea.Cmd) {
 func (c branchCreator) create(m Model) (Model, tea.Cmd) {
 	name := strings.TrimSpace(c.input.Value())
 
-	c.problem = convention.ValidateBranchName(name)
-	if c.problem != nil {
+	c.send.err = convention.ValidateBranchName(name)
+	if c.send.err != nil {
 		m.overlay = c
 
 		return m, nil
@@ -421,7 +420,7 @@ func (c branchCreator) create(m Model) (Model, tea.Cmd) {
 		return m.closeOverlay().noticed("dry run: would " + c.dryRunAction() + name + " " + c.start()), nil
 	}
 
-	c.sending, c.fetchProblem = true, nil
+	c.send, c.fetchProblem = starting(), nil
 	m.overlay = c
 
 	if c.willFetch(m) {
