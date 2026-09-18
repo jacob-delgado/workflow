@@ -4,6 +4,7 @@
 package tui
 
 import (
+	"runtime"
 	"slices"
 	"strconv"
 	"strings"
@@ -139,7 +140,7 @@ func (msg runFinished) apply(m Model) (Model, tea.Cmd) {
 
 	run.done, run.err = true, msg.err
 	if msg.err != nil {
-		run.failures = m.deps.resolvedFailures(hooks.Failures(run.lines))
+		run.failures = m.deps.resolvedFailures(hooks.Failures(run.lines, runtime.GOOS))
 	}
 
 	m.overlay = run

@@ -289,20 +289,19 @@ remote a base carries rather than assuming origin.
 
 Severity: low · Confidence: read
 
-Two code fixes are done, each parameterized by GOOS so both branches test from
+Three code fixes are done, each parameterized by GOOS so both branches test from
 one machine: `ExistingHooks(dir, goos)` counts a plain file as runnable on
 Windows, where Go reports no executable bit, so the hook-generation feature is no
-longer dead there; and the editor falls back to `notepad` on Windows rather than
-`vi`, which it usually lacks. Neither was run on Windows, but both branches have
-a test.
+longer dead there; the editor falls back to `notepad` on Windows rather than
+`vi`, which it usually lacks; and `Failures(lines, goos)` now reads
+`C:\src\main.go:12` as a whole path on Windows — the file:line pattern allows one
+drive-letter prefix there, and only there, so a Unix `a:b.go` is not mistaken for
+a drive. None was run on Windows, but every branch has a test.
 
-- What remains: the location pattern (`internal/hooks/output.go`) still cannot
-  match `C:\path\file.go:12` — a drive letter's colon reads as the file:line
-  separator, and getting that right without breaking the common relative-path
-  case is delicate on a platform I cannot exercise. And the done-when — the test
-  suite running on Windows in CI — is deliberately left off: a Windows leg is the
-  discovery tool for the unknown rest, and it must be watched and iterated on a
-  Windows runner rather than added blind where it would sit red.
+- What remains: the done-when — the test suite running on Windows in CI — is
+  deliberately left off. A Windows leg is the discovery tool for whatever else
+  the platform breaks, and it must be watched and iterated on a Windows runner
+  rather than added blind where it would sit red.
 
 ### DEBT-33 Smaller items in the local packages
 

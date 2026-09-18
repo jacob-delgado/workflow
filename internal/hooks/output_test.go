@@ -94,6 +94,7 @@ func TestFailuresFindWhereEachToolPoints(t *testing.T) {
 	t.Parallel()
 
 	cases := map[string]struct {
+		goos  string
 		lines []string
 		want  []hooks.Location
 	}{
@@ -134,6 +135,16 @@ func TestFailuresFindWhereEachToolPoints(t *testing.T) {
 			},
 			want: nil,
 		},
+		"a Windows drive letter is part of the path": {
+			goos:  "windows",
+			lines: []string{`C:\src\main.go:9:2: undefined: run`},
+			want:  []hooks.Location{{File: `C:\src\main.go`, Line: 9, Column: 2, Message: "undefined: run"}},
+		},
+		"the drive letter is not read as a path off Windows": {
+			goos:  "linux",
+			lines: []string{`C:\src\main.go:9:2: undefined: run`},
+			want:  nil,
+		},
 	}
 
 	for name, tt := range cases {
@@ -141,7 +152,7 @@ func TestFailuresFindWhereEachToolPoints(t *testing.T) {
 			t.Parallel()
 
 			// Act
-			got := hooks.Failures(tt.lines)
+			got := hooks.Failures(tt.lines, tt.goos)
 
 			// Assert
 			if !slices.Equal(got, tt.want) {

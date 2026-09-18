@@ -135,10 +135,22 @@ func upsert(jobs []Job, job Job) []Job {
 // the file, line, column and message in groups 1 to 4 where the tool gives them.
 // A file must have an extension, which is what keeps a time of day or a URL with
 // a port from reading as one.
-func locationPatterns() []*regexp.Regexp {
+//
+// The Go/linter format splits the file from the line at a colon, so its file
+// part stops at the first one. On Windows a path opens with a drive letter —
+// "C:\src\main.go" — whose colon would be read as that separator, so a single
+// drive prefix is allowed there, and only there: on Unix an "a:b.go" would look
+// the same and is far likelier to be a false positive than a real drive. The
+// other two formats span the drive already, their file part being \S+.
+func locationPatterns(goos string) []*regexp.Regexp {
+	drive := ""
+	if goos == "windows" {
+		drive = `(?:[A-Za-z]:)?`
+	}
+
 	return []*regexp.Regexp{
 		// file:line:column: message, and file:line: message — Go, most linters.
-		regexp.MustCompile(`^([^\s:]+\.[A-Za-z0-9]+):(\d+)(?::(\d+))?:?\s*(.*)$`),
+		regexp.MustCompile(`^(` + drive + `[^\s:]+\.[A-Za-z0-9]+):(\d+)(?::(\d+))?:?\s*(.*)$`),
 		// shellcheck: "In file line 12:".
 		regexp.MustCompile(`^In (\S+\.[A-Za-z0-9]+) line (\d+)():()$`),
 		// typos and others that point with an arrow.
@@ -147,11 +159,12 @@ func locationPatterns() []*regexp.Regexp {
 }
 
 // Failures finds every place in a hook's output that a tool pointed at, once
-// each, in the order they appeared.
-func Failures(lines []string) []Location {
+// each, in the order they appeared. goos is the running platform, which decides
+// whether a Windows drive letter is read as part of a path.
+func Failures(lines []string, goos string) []Location {
 	var found []Location
 
-	patterns := locationPatterns()
+	patterns := locationPatterns(goos)
 
 	for _, raw := range lines {
 		location, ok := locate(patterns, strings.TrimSpace(raw))
