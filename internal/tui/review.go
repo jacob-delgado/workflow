@@ -82,7 +82,7 @@ func (msg pullFound) apply(m Model) (Model, tea.Cmd) {
 		return m, nil
 	}
 
-	return m, tea.Batch(m.checkCI(), m.loadAuthor())
+	return m, tea.Batch(m.checkCI(), m.loadAuthor(), m.checkAlreadyAnnounced())
 }
 
 // checkCI is the command that asks how CI stands on the pull request.

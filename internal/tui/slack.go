@@ -111,6 +111,49 @@ func (msg authorFound) apply(m Model) (Model, tea.Cmd) {
 	return m, nil
 }
 
+// checkAlreadyAnnounced asks Slack whether this pull request was announced in an
+// earlier session, so the pane does not offer to announce it again after a
+// restart. It is skipped once the pane already knows it is posted.
+func (m Model) checkAlreadyAnnounced() tea.Cmd {
+	check := m.deps.Slack.AlreadyPosted
+	if check == nil || !m.review.found || m.announced() {
+		return nil
+	}
+
+	number, link := m.review.pull.Number, m.review.pull.URL
+
+	return func() tea.Msg {
+		found, err := check("", link)
+
+		return announcedFound{number: number, found: found, err: err}
+	}
+}
+
+// announcedFound carries whether the channel's history already shows this pull
+// request's URL.
+type announcedFound struct {
+	number int
+	found  bool
+	err    error
+}
+
+// apply records a pull request found in the channel's history as posted, so the
+// pane shows it announced and stops offering to announce it. The search is best
+// effort: an error, a miss, or a stale answer leaves the pane as it was.
+func (msg announcedFound) apply(m Model) (Model, tea.Cmd) {
+	if msg.err != nil || !msg.found {
+		return m, nil
+	}
+
+	if !m.review.found || msg.number != m.review.pull.Number {
+		return m, nil
+	}
+
+	m.slack.posted = append(slices.Clone(m.slack.posted), msg.number)
+
+	return m, nil
+}
+
 // announcement is the message telling the channel the pull request is ready.
 func (m Model) announcement() string {
 	issueKey, _ := convention.IssueKey(m.branch.branch.Name)
@@ -168,7 +211,8 @@ func (m Model) slackDetail(width int) string {
 	return wrap(strings.Join(lines, "\n"), width)
 }
 
-// announced reports that the pull request on screen was posted this session.
+// announced reports that the pull request on screen was posted — this session,
+// or found already announced in the channel's history from an earlier one.
 func (m Model) announced() bool {
 	return m.review.found && slices.Contains(m.slack.posted, m.review.pull.Number)
 }

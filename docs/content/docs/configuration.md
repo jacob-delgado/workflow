@@ -158,7 +158,11 @@ replies, and it can never post anywhere but that one channel.
 
 1. Create an app at [api.slack.com/apps](https://api.slack.com/apps) in your
    workspace.
-2. Under **OAuth & Permissions**, add the `chat:write` bot token scope.
+2. Under **OAuth & Permissions**, add the `chat:write` bot token scope. Add
+   `channels:history` too (and `groups:history` for a private channel) so the
+   Review pane can tell that a pull request was already announced in an earlier
+   session, rather than offering to announce it again; without the scope, posting
+   still works and the check is skipped.
 3. Install the app to the workspace and copy the **Bot User OAuth Token** — it
    starts with `xoxb-` — into `slack.token`.
 4. Set `slack.channel`, and invite the bot to that channel. Without the invite it

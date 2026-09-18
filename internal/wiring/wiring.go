@@ -359,7 +359,12 @@ func slackDeps(ctx context.Context, settings config.Slack, timeout time.Duration
 	//nolint:bodyclose // Wrap only relays the response; the slack client reads and closes its body.
 	client := slack.New(log.Wrap("slack", slack.HTTPClient(timeout).Do), slack.APIBase, settings)
 
-	return tui.SlackDeps{Post: func(channel, text string) error { return client.Post(ctx, channel, text) }}
+	return tui.SlackDeps{
+		Post: func(channel, text string) error { return client.Post(ctx, channel, text) },
+		AlreadyPosted: func(channel, url string) (bool, error) {
+			return client.AlreadyPosted(ctx, channel, url)
+		},
+	}
 }
 
 // hookDeps is what the interface asks of lefthook — nothing at all when lefthook

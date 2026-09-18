@@ -68,6 +68,7 @@ var (
 	_ applier = issueLinked{}
 	_ applier = prBodyEdited{}
 	_ applier = authorFound{}
+	_ applier = announcedFound{}
 	_ applier = slackTextEdited{}
 	_ applier = slackPosted{}
 	_ applier = hooksFound{}

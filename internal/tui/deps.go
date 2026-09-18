@@ -98,6 +98,11 @@ type SlackDeps struct {
 	// Post sends text to a channel, or to the configured default when channel is
 	// empty. A webhook ignores the channel and posts where it is bound.
 	Post func(channel, text string) error
+	// AlreadyPosted reports whether a pull request URL already appears in a
+	// channel's recent history, so one announced in an earlier session is not
+	// offered again. It errors for a webhook, which cannot read history, and the
+	// pane treats an error as "cannot tell".
+	AlreadyPosted func(channel, url string) (bool, error)
 }
 
 // HookDeps is what the interface asks of lefthook.

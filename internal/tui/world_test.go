@@ -97,6 +97,10 @@ type world struct {
 	forgeKind forge.Kind
 	author    string
 	postErr   error
+	// alreadyPosted is what the Slack history search reports: whether the pull
+	// request's URL was found in the channel already.
+	alreadyPosted    bool
+	alreadyPostedErr error
 	// postGate, when set, holds every post, already recorded, until it is
 	// closed: a Slack that is slow to answer.
 	postGate   chan struct{}
@@ -194,16 +198,23 @@ func (w *world) deps() tui.Deps {
 		Jira:  w.jiraDeps(),
 		Git:   w.gitDeps(),
 		Forge: w.forgeDeps(),
-		Slack: tui.SlackDeps{Post: func(channel, text string) error {
-			w.record("post " + text)
-			w.rememberChannel(channel)
+		Slack: tui.SlackDeps{
+			Post: func(channel, text string) error {
+				w.record("post " + text)
+				w.rememberChannel(channel)
 
-			if w.postGate != nil {
-				<-w.postGate
-			}
+				if w.postGate != nil {
+					<-w.postGate
+				}
 
-			return w.postErr
-		}},
+				return w.postErr
+			},
+			AlreadyPosted: func(channel, url string) (bool, error) {
+				w.record("history " + channel + " " + url)
+
+				return w.alreadyPosted, w.alreadyPostedErr
+			},
+		},
 		Hooks:      w.hookDeps(),
 		Editor:     w.editorDeps(),
 		Clock:      testNow,
