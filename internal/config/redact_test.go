@@ -34,11 +34,11 @@ func TestRedactedHidesEveryCredential(t *testing.T) {
 	redacted := cfg.Redacted()
 
 	// Assert
-	if strings.Contains(redacted.Jira.Token, "jira-token") {
+	if strings.Contains(redacted.Jira.Token.Reveal(), "jira-token") {
 		t.Errorf("jira token leaked: %q", redacted.Jira.Token)
 	}
 
-	if strings.Contains(redacted.Slack.Token, "slack-token") {
+	if strings.Contains(redacted.Slack.Token.Reveal(), "slack-token") {
 		t.Errorf("slack token leaked: %q", redacted.Slack.Token)
 	}
 
@@ -47,13 +47,13 @@ func TestRedactedHidesEveryCredential(t *testing.T) {
 		t.Errorf("Redacted mutated the receiver: %q", cfg.Jira.Token)
 	}
 
-	if strings.Contains(redacted.Forge.Token, "not-a-real") {
+	if strings.Contains(redacted.Forge.Token.Reveal(), "not-a-real") {
 		t.Errorf("forge token leaked: %q", redacted.Forge.Token)
 	}
 
 	// A webhook URL is not a URL with a secret in it — it IS the credential.
 	// Anyone holding it can post to that channel, so it masks like a token.
-	if strings.Contains(redacted.Slack.WebhookURL, "hooks.slack.com") {
+	if strings.Contains(redacted.Slack.WebhookURL.Reveal(), "hooks.slack.com") {
 		t.Errorf("webhook url leaked: %q", redacted.Slack.WebhookURL)
 	}
 
@@ -62,7 +62,7 @@ func TestRedactedHidesEveryCredential(t *testing.T) {
 	}
 
 	// Enough tail survives to tell two tokens apart.
-	if !strings.HasSuffix(redacted.Slack.Token, "5678") {
+	if !strings.HasSuffix(redacted.Slack.Token.Reveal(), "5678") {
 		t.Errorf("slack token = %q, want it to end in 5678", redacted.Slack.Token)
 	}
 }

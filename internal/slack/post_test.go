@@ -157,7 +157,7 @@ func TestPostWithABotTokenReportsSlacksError(t *testing.T) {
 
 // webhookCredentials posts through a webhook at address.
 func webhookCredentials(address string) config.Slack {
-	return config.Slack{Token: "", WebhookURL: address, Channel: ""}
+	return config.Slack{Token: "", WebhookURL: config.Secret(address), Channel: ""}
 }
 
 func TestPostWithAWebhookSendsJustTheText(t *testing.T) {

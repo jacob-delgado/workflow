@@ -96,9 +96,10 @@ func FuzzLoadFileNeverLeaksACredential(f *testing.F) {
 		}
 
 		redacted := cfg.Redacted()
-		masked := redacted.Jira.Token + "\n" + redacted.Slack.Token + "\n" + redacted.Slack.WebhookURL
+		masked := redacted.Jira.Token.Reveal() + "\n" + redacted.Slack.Token.Reveal() + "\n" +
+			redacted.Slack.WebhookURL.Reveal()
 
-		for _, secret := range []string{cfg.Jira.Token, cfg.Slack.Token, cfg.Slack.WebhookURL} {
+		for _, secret := range []string{cfg.Jira.Token.Reveal(), cfg.Slack.Token.Reveal(), cfg.Slack.WebhookURL.Reveal()} {
 			if len(secret) <= visibleTail {
 				continue
 			}

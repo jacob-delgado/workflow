@@ -190,10 +190,14 @@ caller when to retry rather than only that it was rate limited. The header's
 HTTP-date form, which these APIs do not use for a 429, and a missing value fall
 back to the bare sentinel, so `errors.Is` still matches.
 
-- What remains, lower value: the config secrets are still bare strings;
-  `config.Redact` masks them wherever a configuration is shown, so a typed
-  masking secret (as `forge.Token` already is) would be a defense-in-depth
-  against a future raw `%v`, not a present leak.
+Also done: the config secrets are typed. `config.Secret` (as `forge.Token`
+already was) carries `jira.token`, `slack.token`, `slack.webhook_url` and
+`forge.token`, masking under every formatting verb — a `Config` printed with
+`%+v` shows `****`, not the value — and taking an explicit `Reveal` to read.
+`config.Redact` still masks the display paths; this stands behind it, so a
+future raw `%v` cannot leak what Redact was never asked to hide. A test proves a
+Secret, and a whole Config, mask when printed.
+
 - Not here: adding a forge still edits several places; folding those into a
   `dialect` is FEAT-54, which keeps its own PR.
 

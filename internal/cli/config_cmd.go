@@ -200,7 +200,7 @@ func collectJira(ctx context.Context, out io.Writer, prompt Prompt) (config.Jira
 		return config.Jira{}, err
 	}
 
-	settings := config.Jira{BaseURL: baseURL, Token: strings.TrimSpace(token)}
+	settings := config.Jira{BaseURL: baseURL, Token: config.Secret(strings.TrimSpace(token))}
 
 	kept, err := keepIfChecked(prompt, "jira", checkJira(ctx, out, settings))
 	if err != nil || !kept {
@@ -223,7 +223,7 @@ func keepTokenSafe(out io.Writer, prompt Prompt, jira config.Jira) (config.Jira,
 		return jira, err
 	}
 
-	tokenCommand, err := prompt.StoreSecret(jira.Token)
+	tokenCommand, err := prompt.StoreSecret(jira.Token.Reveal())
 	if err != nil {
 		return jira, fmt.Errorf("storing the token in the keychain: %w", err)
 	}
@@ -251,7 +251,7 @@ func collectSlack(out io.Writer, prompt Prompt) (config.Slack, error) {
 
 	fmt.Fprintf(out, "  %-10s saved (a webhook cannot be checked without posting)\n", "slack")
 
-	return config.Slack{WebhookURL: webhook}, nil
+	return config.Slack{WebhookURL: config.Secret(webhook)}, nil
 }
 
 // keepIfChecked decides whether to keep a credential: a passing check keeps it,

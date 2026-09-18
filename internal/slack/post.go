@@ -77,7 +77,7 @@ func (c Client) postAsBot(ctx context.Context, channel, text string) error {
 	}
 
 	message := botMessage{Channel: channel, Text: text, UnfurlLinks: false, UnfurlMedia: false}
-	header := http.Header{"Authorization": {"Bearer " + c.creds.Token}}
+	header := http.Header{"Authorization": {"Bearer " + c.creds.Token.Reveal()}}
 
 	body, err := c.postJSON(ctx, c.base+postMessagePath, message, header)
 	if err != nil {
@@ -101,7 +101,7 @@ func (c Client) postAsBot(ctx context.Context, channel, text string) error {
 // postToWebhook posts to an incoming webhook, which answers "ok" as plain text,
 // and a refusal as a status with its reason as plain text.
 func (c Client) postToWebhook(ctx context.Context, _, text string) error {
-	address, err := url.Parse(c.creds.WebhookURL)
+	address, err := url.Parse(c.creds.WebhookURL.Reveal())
 	if err != nil || address.Scheme != "https" || address.Host == "" {
 		// Unwrapped, whatever went wrong: a parse error quotes the URL.
 		return ErrInsecureWebhook

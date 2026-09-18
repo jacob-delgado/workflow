@@ -100,5 +100,5 @@ func (c Client) reason(body io.Reader) string {
 // one — which matters, because replacing "" would splice the mask between every
 // character.
 func (c Client) masked(text string) string {
-	return strings.ReplaceAll(text, c.settings.Token, config.Redact(c.settings.Token))
+	return strings.ReplaceAll(text, c.settings.Token.Reveal(), config.Redact(c.settings.Token.Reveal()))
 }

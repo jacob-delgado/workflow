@@ -99,7 +99,7 @@ func (c Client) AuthTest(ctx context.Context) (Identity, error) {
 
 	// Slack also accepts the token as a query parameter. It travels in the
 	// header instead, so it stays out of proxy logs and browser history.
-	request.Header.Set("Authorization", "Bearer "+c.creds.Token)
+	request.Header.Set("Authorization", "Bearer "+c.creds.Token.Reveal())
 	request.Header.Set("Accept", "application/json")
 
 	return c.send(request)
