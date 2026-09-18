@@ -17,6 +17,7 @@ import (
 	"time"
 
 	"github.com/jacob-delgado/workflow/internal/config"
+	"github.com/jacob-delgado/workflow/internal/httpx"
 	"github.com/jacob-delgado/workflow/internal/sanitize"
 )
 
@@ -47,11 +48,11 @@ var (
 	// ErrUnreachable reports a request that never got an answer.
 	ErrUnreachable = errors.New("could not reach the Slack API")
 	// ErrRedirected reports a redirect this client declined to follow.
-	ErrRedirected = errors.New("refused to follow a redirect")
+	ErrRedirected = httpx.ErrRedirected
 )
 
-// Doer sends one HTTP request. *http.Client's Do method satisfies it.
-type Doer func(*http.Request) (*http.Response, error)
+// Doer is the HTTP seam this client accepts; see httpx.Doer.
+type Doer = httpx.Doer
 
 // Identity is the workspace and bot user a token belongs to.
 type Identity struct {
@@ -75,17 +76,10 @@ func New(do Doer, base string, creds config.Slack) Client {
 	return Client{do: do, base: strings.TrimRight(base, "/"), creds: creds}
 }
 
-// HTTPClient is the transport a credential may travel over. It refuses
-// redirects for the same reason the Jira client does: Go's default client
-// forwards the Authorization header to any redirect target sharing a hostname,
-// ignoring the port and the scheme.
+// HTTPClient is the redirect-refusing transport a Slack credential travels
+// over; see httpx.Client for why refusing matters.
 func HTTPClient(timeout time.Duration) *http.Client {
-	return &http.Client{
-		Timeout: timeout,
-		CheckRedirect: func(_ *http.Request, _ []*http.Request) error {
-			return ErrRedirected
-		},
-	}
+	return httpx.Client(timeout)
 }
 
 // AuthTest reports which workspace and user the configured token belongs to.

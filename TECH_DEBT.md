@@ -143,33 +143,25 @@ Severity: low · Confidence: read
 
 ## The clients: forge, Jira and Slack
 
-### DEBT-17 Three HTTP clients copied by hand, already drifting
+### DEBT-17 Three HTTP clients copied by hand
 
-Severity: medium · Confidence: read
+Severity: low · Confidence: read
 
-- Evidence: `HTTPClient`, `Doer`, `ErrRedirected`, `ErrUnreachable`,
-  `ErrUnexpectedStatus` and `bodyLimit` are each defined three times
-  (`internal/jira/jira.go`, `internal/forge/client.go`,
-  `internal/slack/slack.go`). Drift so far: Jira and Slack's post path strip
-  the transport error's URL (`internal/jira/search.go:132`,
-  `internal/slack/post.go:152`) while the forge and Slack's identity check do
-  not (`internal/forge/client.go:179`, `internal/slack/slack.go:129`), so the
-  same failure reads two ways; a refused redirect says "could not reach" in
-  all four although the server answered, and its target survives only where
-  the URL was not stripped; hitting the body limit reads as "unexpected end
-  of JSON input". Inside Jira, request-exchange-decode-wrap is repeated five
-  times (`internal/jira/jira.go:112`, `internal/jira/search.go:99`,
-  `internal/jira/detail.go:77` and `:117`, `internal/jira/transitions.go:54`)
-  where the forge has `call[T]` (`internal/forge/client.go:113`).
-- Cost: the redirect policy is the security-critical part of a client, and it
-  exists three times with nothing holding the copies equal. `config.go`
-  records the lesson already: "when each did this by hand, one of them forgot
-  the mask."
-- Remedy: one small internal package, standard library only, holding `Doer`,
-  the client constructor, the three transport sentinels, a bounded read that
-  says "too large", and one decision about what a transport error shows.
-  Status mapping stays per service, where it genuinely differs.
-- Done when: `CheckRedirect` is written once.
+Done for the security-critical part, the done-when: `CheckRedirect` is written
+once. `internal/httpx` (standard library only) holds the `Doer` seam, the
+`ErrRedirected` sentinel and the redirect-refusing `Client`; the Jira, forge and
+Slack clients alias `Doer`/`ErrRedirected` to it and their `HTTPClient` delegates
+to `httpx.Client`, so the redirect policy — the piece where "one of them forgot
+the mask" is the standing warning — has a single copy that a test guards.
+
+- Left per service, deliberately: `bodyLimit` differs (16 MB for Jira and the
+  forge, 1 MB for Slack), and status mapping genuinely differs between them.
+- What remains, lower value: the transport-error message still reads two ways —
+  Jira and Slack's post path strip the error's URL while the forge and Slack's
+  identity check keep it — and a refused redirect still says "could not reach"
+  though the server answered. Settling on one wording changes observable error
+  text and wants a RED test; the `call[T]`-style exchange helper the forge has
+  and Jira repeats is a further refactor on top.
 
 ### DEBT-19 Smaller items in the clients
 
