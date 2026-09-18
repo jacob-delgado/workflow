@@ -452,21 +452,19 @@ Severity: medium · Confidence: reproduced
   and raise `min_version` to match.
 - Done when: every workflow names the mise it runs.
 
-### DEBT-43 The gate needs jq and node, and `mise.toml` declares neither
+### DEBT-43 The gate needs jq and node — now pinned in `mise.toml`
 
-Severity: medium · Confidence: read
+Severity: low · Confidence: read
 
-- Evidence: `scripts/gobco-report.sh:171` and
-  `scripts/coverage-summary.sh:36` call `jq`. The `npm:` tools install without
-  node, and mise's documentation says the installed program may still need it
-  and that mise will not add it. On the maintainer's machine both come from a
-  personal global mise configuration; in CI, from the runner image.
-  `CONTRIBUTING.md:32` says `mise install` is the only step that installs
-  anything.
-- Cost: `task check` on a fresh machine depends on what else is installed.
-- Remedy: pin `node` and `jq` in `mise.toml`, or replace the jq arithmetic
-  with a few lines of Go.
-- Done when: `mise install && task check` passes in a clean container.
+Fixed for a clean machine: `mise.toml` now pins `node` (the runtime the `npm:`
+tools need, which mise does not add on its own) and `jq` (the JSON arithmetic in
+`scripts/gobco-report.sh` and `scripts/coverage-summary.sh`), so `mise install &&
+task check` no longer depends on whatever `jq`/`node` happen to be installed.
+
+- What remains: the build container still `apt install`s jq and nodejs
+  (`build/Dockerfile`) rather than provisioning the pinned versions through
+  `scripts/tool-versions.sh`, so the "clean container" leg of the done-when
+  belongs to DEBT-41, which also has to teach `tool-versions.sh` to pass them.
 
 ### DEBT-44 A gate can still pass having measured only part
 

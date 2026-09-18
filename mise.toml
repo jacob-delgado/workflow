@@ -44,9 +44,19 @@ taplo = "0.10.0"         # TOML lint + format
 # valid; zizmor checks that it is safe — script injection, over-broad
 # permissions, a mutable action reference.
 zizmor = "1.30.1"
+# node is the runtime the npm: tools below need. mise installs an npm: tool but
+# not a node to run it under, so a clean machine that relied on an ambient node
+# would run `task lint` against a different one than CI. A few releases back of
+# the current line, for the age gate above.
+node = "24.18.1"
 "npm:markdownlint-cli2" = "0.23.2" # Markdown lint + format
 # Source-line counting for `task cloc`. Advisory: a report, never a gate.
 "npm:cloc" = "2.6.0-cloc"
+
+# jq does the per-package arithmetic in scripts/gobco-report.sh and
+# scripts/coverage-summary.sh. Pinned here so `task check` on a clean machine
+# does not depend on whichever jq happens to be installed.
+jq = "1.8.1"
 
 # The documentation site (docs/). The EXTENDED build is required: the Hugo Book
 # theme compiles SCSS, which the standard build cannot do. Held at 0.165.0
