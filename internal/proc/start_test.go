@@ -104,6 +104,28 @@ func collect(t *testing.T, output proc.Output) ([]string, error) {
 	return lines, output.Wait()
 }
 
+func TestWaitReturnsTheSameResultWhenCalledAgain(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	// "mixed" exits 3, so Wait returns a non-nil error the first time.
+	output, err := proc.Start(t.Context(), child(t.TempDir(), "mixed"))
+	if err != nil {
+		t.Fatalf("Start returned %v, want nil", err)
+	}
+
+	_, first := collect(t, output)
+
+	// Act
+	// A second Wait must return the same result, not block on a drained channel.
+	second := output.Wait()
+
+	// Assert
+	if first == nil || second == nil || first.Error() != second.Error() {
+		t.Errorf("second Wait = %v, want the same error as the first (%v)", second, first)
+	}
+}
+
 func TestStartStreamsBothStreamsInOrderAndReportsTheExit(t *testing.T) {
 	t.Parallel()
 

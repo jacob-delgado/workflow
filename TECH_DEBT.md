@@ -276,39 +276,6 @@ a drive. None was run on Windows, but every branch has a test.
   the platform breaks, and it must be watched and iterated on a Windows runner
   rather than added blind where it would sit red.
 
-### DEBT-33 Smaller items in the local packages
-
-Severity: low · Confidence: read
-
-The reproduced bugs here are fixed: the issue-key match no longer reads `UTF-8`,
-`SHA-256`, `CVE-2024` or `ISO-8601` as a key (`standardAbbreviations` in
-`internal/convention/convention.go` skips them); `Message` and `PullRequestBody`
-find an existing reference by whole word, not substring, and keep an appended
-`Refs:` in the same trailer block as `Co-authored-by:`; `ReadBranch` reverses the
-whole range before capping, so a branch past 200 commits still titles its pull
-request from its first commit; the dead `ReadConfig`/`wireHook`/`Runner` and
-`File.Executable` are gone; and a `@` branch name is refused as `@`, not as empty.
-
-The issue-key upgrade is done: `convention.IssueKey(text, project)` takes the
-project as a parameter — a pure argument, so `convention` stays a stateless
-package — and reads a branch as an issue only when its project matches the
-configured `jira.project`, falling back to the shape guard when none is set. The
-five call sites pass `jira.project` from the configuration.
-
-Done for the data clump: the `(ctx, run Runner, dir string)` triple that
-repeated on twelve gitrepo functions is now carried by a `gitrepo.Repository`
-value — `gitrepo.At(run, dir)` returns the handle, and `Describe`, `ReadBranch`,
-`Status`, `Stage`, `Unstage`, `CreateBranch`, `LocalBranches`, `Checkout`,
-`WorktreeAdd`, `HooksDir`, `RecentCommits` and `CheckIgnored` are methods on it.
-The wiring builds one `repo` and hangs the seams off it; the `Status`/`Stage`
-"dir must be the root" requirement, which was silent, is now written on `At`. The
-four `proc.Command` builders stay free functions: they take only `dir`, so they
-were never part of the triple.
-
-- Left as they are, YAGNI over microseconds: the `regexp.MustCompile` calls sit
-  inside functions, and `Output.Wait` (`internal/proc/start.go`) blocks on a
-  second call that no caller makes.
-
 ### DEBT-34 Domain values travel as bare strings
 
 Severity: low · Confidence: read
