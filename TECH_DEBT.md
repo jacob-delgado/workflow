@@ -231,13 +231,16 @@ a streamed run and proves the grandchild it spawned is killed with it rather tha
 reparented to init and left running — the leak where a push finished after the
 user quit. `Run` and `Capture`, quick reads that spawn nothing, are left alone.
 
-- What remains, each its own change: a default deadline in `proc.Run` (risky —
-  a legitimate slow clone or hook must not be killed, so it needs a generous,
-  per-command bound rather than one blanket number); the Windows twin of the
-  process group, a job object, which cannot be validated from here (see
-  DEBT-32); and a "stop" key in the run overlay, which needs a per-run cancelable
+Done for the deadline: `proc.Run` is bounded by `DefaultRunTimeout` (30s), so a
+hung quick read — a `git status` on a dead mount, a `gh` call to a host that
+never answers — recovers rather than leaving a pane loading. `RunWithin` exposes
+the bound for a read whose limit differs; streamed `Start` and piped `Capture`,
+which can run long, are untouched.
+
+- What remains: a "stop" key in the run overlay, which needs a per-run cancelable
   context threaded through the `tui.Deps` seam contract rather than the shared
-  root the seams capture now.
+  root the seams capture now. The Windows twin of the process group, a job
+  object, cannot be validated from here (see DEBT-32).
 
 ## Git, hooks, conventions and processes
 
