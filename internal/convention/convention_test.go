@@ -82,6 +82,37 @@ func TestBranchNameReadsAsTheIssue(t *testing.T) {
 	}
 }
 
+func TestIssueKeyReadsAForgeNumberFromABranch(t *testing.T) {
+	t.Parallel()
+
+	cases := map[string]struct {
+		text string
+		want string
+	}{
+		"a forge branch":           {text: "fix/42-fix-typo", want: "42"},
+		"no prefix":                {text: "7-add-retries", want: "7"},
+		"an empty slug":            {text: "feat/13", want: "13"},
+		"a Jira key still wins":    {text: "fix/PROJ-1-thing", want: "PROJ-1"},
+		"a slug number is no key":  {text: "fix/add-256-colors", want: ""},
+		"a hash is no forge key":   {text: "chore/bump-sha-256", want: ""},
+		"a leading zero is no key": {text: "fix/0-nope", want: ""},
+	}
+
+	for name, tt := range cases {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			// Act
+			got, ok := convention.IssueKey(tt.text)
+
+			// Assert
+			if got != tt.want || ok != (tt.want != "") {
+				t.Errorf("IssueKey(%q) = %q, %v, want %q", tt.text, got, ok, tt.want)
+			}
+		})
+	}
+}
+
 func TestIssueKeyIsFoundWhereJiraWouldFindIt(t *testing.T) {
 	t.Parallel()
 

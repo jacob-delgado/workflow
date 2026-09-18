@@ -132,8 +132,21 @@ func folded(text string) string {
 	return plain.String()
 }
 
-// IssueKey finds the first Jira issue key in text, such as a branch name.
+// IssueKey finds the issue key in text, such as a branch name: a Jira key like
+// PROJ-42 where there is one, and otherwise a forge issue number like the 42 in
+// a 42-fix-typo branch, which is how a project without Jira names its branches.
+// A Jira key wins where both are present, so a Jira branch is read as it always
+// was.
 func IssueKey(text string) (string, bool) {
+	if key, found := jiraKey(text); found {
+		return key, true
+	}
+
+	return forgeKey(text)
+}
+
+// jiraKey finds the first Jira issue key in text.
+func jiraKey(text string) (string, bool) {
 	for _, match := range issueKey().FindAllStringSubmatch(text, -1) {
 		project, _, _ := strings.Cut(match[1], "-")
 		if !standardAbbreviations()[project] {
@@ -142,6 +155,24 @@ func IssueKey(text string) (string, bool) {
 	}
 
 	return "", false
+}
+
+// forgeIssueKey matches a forge issue number as a branch names one: a number at
+// the start of the branch or of a path component, ending the component or before
+// a hyphen, as GitLab's own "42-fix-typo" branches are named. Anchoring it there
+// keeps a slug digit, or a token like the 256 in SHA-256, from reading as a key.
+func forgeIssueKey() *regexp.Regexp {
+	return regexp.MustCompile(`(?:^|/)([1-9][0-9]*)(?:-|$)`)
+}
+
+// forgeKey finds a forge issue number in text.
+func forgeKey(text string) (string, bool) {
+	match := forgeIssueKey().FindStringSubmatch(text)
+	if match == nil {
+		return "", false
+	}
+
+	return match[1], true
 }
 
 // standardAbbreviations are common uppercase-and-number tokens shaped like a
