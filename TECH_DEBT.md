@@ -468,12 +468,12 @@ the gate instead of escaping `set -e` and passing on nothing measured
 and both coverage floors are required arguments rather than defaulting to 0 or 70
 when a caller drops one.
 
-- What remains: `gobco-report.sh` still selects only packages that have tests
-  (`scripts/gobco-report.sh:121`), so a package with none — the three `cmd/`
-  packages today — adds nothing to the total that `Taskfile.yml` calls "EVERY
-  package", and is never the "dropped out" the header promises to catch. Listing
-  every package and making a test-less one an error unless it is named with a
-  reason is the fix, and it needs care not to break the branch gate.
+Also fixed: `gobco-report.sh` now lists every package in the module, not only
+those with tests, and requires a package with no tests to be named in a
+`NO_TESTS` allowlist with its reason — the three thin `cmd/` mains are there. A
+new package with neither tests nor an entry fails the gate rather than dropping
+out of the "every package" total unseen.
+
 - Deliberate divergence, left as is: the file-length gate measures tracked files
   only, where the license check and testshape also see untracked ones. Its header
   argues the case (a scratch file cannot fail the gate; a new file counts once it
