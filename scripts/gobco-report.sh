@@ -64,6 +64,14 @@ readonly out_dir="${OUT_DIR:-${repo_root}/tmp/gobco}"
 # the worst kind: the gate kept passing while quietly measuring less.
 readonly UNANALYZABLE=""
 
+# Packages with no tests, each with the reason it has none. gobco measures
+# conditions by running a package's tests, so a package without any cannot be
+# measured — but it must be named here rather than silently dropped, or a new
+# untested package would shrink what "every package" covers without a trace.
+# These three are thin mains: cmd/workflow wires cli.Execute, and cmd/docsgen
+# and cmd/testshape are the mains behind internal/ packages that carry the tests.
+readonly NO_TESTS="cmd/workflow cmd/docsgen cmd/testshape"
+
 # gobco carries the go/types of the Go that built it (see above), so a gobco
 # built by an older Go silently shrinks what this gate covers. Refuse to run.
 # gobco_binary prints the path of the gobco EXECUTABLE. With mise's shims ahead
@@ -120,7 +128,27 @@ module="$(go list -m)"
 if [[ $# -gt 0 ]]; then
   packages="$*"
 else
+  # Every package in the module is accounted for: one with tests is measured,
+  # one without must be named in NO_TESTS with its reason. A new package that has
+  # neither tests nor an entry fails here rather than quietly leaving the total.
   packages="$(go list -f '{{if or .TestGoFiles .XTestGoFiles}}{{.ImportPath}}{{end}}' ./...)"
+  untested="$(go list -f '{{if not (or .TestGoFiles .XTestGoFiles)}}{{.ImportPath}}{{end}}' ./...)"
+
+  unaccounted=""
+  for package in ${untested}; do
+    rel="${package#"${module}"/}"
+    if [[ " ${NO_TESTS} " != *" ${rel} "* ]]; then
+      unaccounted="${unaccounted} ${rel}"
+    fi
+  done
+
+  if [[ -n "${unaccounted}" ]]; then
+    echo "packages with no tests and not in NO_TESTS:${unaccounted}" >&2
+    echo "gobco measures a package by running its tests, so one with none cannot be" >&2
+    echo "measured and would drop out of the total unseen. Add tests, or add it to" >&2
+    echo "NO_TESTS with the reason it has none." >&2
+    exit 1
+  fi
 fi
 
 if [[ -z "${packages}" ]]; then
