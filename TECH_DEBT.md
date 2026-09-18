@@ -623,23 +623,6 @@ Severity: low · Confidence: reproduced
 
 ## Docs and configuration drift
 
-### DEBT-48 The documents name a version and a flag that do not exist
-
-Severity: medium · Confidence: reproduced
-
-- Evidence: `README.md:54`, `docs/content/docs/install.md:34` and the bug
-  report form use `v0.1.0`. There are no tags; the manifest says `0.0.1`; the
-  release pull request proposes `0.0.2`; under the deliberate pre-1.0 bump
-  rules `0.1.0` appears only after a breaking change. The bug report form's
-  required Version field asks for the output of `workflow --version`, or a
-  commit (`.github/ISSUE_TEMPLATE/bug_report.yml:20`), and the binary answers
-  "unknown flag". The build stamps no version (`Taskfile.yml:305`).
-- Cost: the documented `go install …@v0.1.0` fails, and the first thing the
-  bug report form suggests cannot be run.
-- Remedy: a placeholder until a tag exists; FEAT-40 for the flag. The bump
-  rules are deliberate and stay.
-- Done when: every version in the docs is one that can be installed.
-
 ### DEBT-49 Smaller drift
 
 Severity: low · Confidence: read

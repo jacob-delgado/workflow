@@ -18,7 +18,7 @@ body:
     attributes:
       label: Version
       description: Output of `workflow --version`, or the commit you built from.
-      placeholder: v0.1.0
+      placeholder: v0.0.5
     validations:
       required: true
 

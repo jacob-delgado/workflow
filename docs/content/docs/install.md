@@ -31,7 +31,7 @@ export PATH="$(go env GOPATH)/bin:$PATH"
 For a reproducible install, name the version instead of `@latest`:
 
 ```sh
-go install github.com/jacob-delgado/workflow/cmd/workflow@v0.1.0
+go install github.com/jacob-delgado/workflow/cmd/workflow@v0.0.5
 ```
 
 `@latest` resolves to the newest release tag. Until the first tag exists, it
