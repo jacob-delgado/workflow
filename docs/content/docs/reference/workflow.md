@@ -89,4 +89,5 @@ workflow [flags]
 
 * [workflow config](../workflow_config/)	 - Create and inspect the configuration file
 * [workflow doctor](../workflow_doctor/)	 - Report the repository, tooling, and configuration in effect
+* [workflow status](../workflow_status/)	 - Print the current work's issue, stage and CI on one line
 

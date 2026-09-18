@@ -10,7 +10,7 @@ import (
 	"github.com/charmbracelet/x/ansi"
 
 	"github.com/jacob-delgado/workflow/internal/convention"
-	"github.com/jacob-delgado/workflow/internal/forge"
+	"github.com/jacob-delgado/workflow/internal/progress"
 	"github.com/jacob-delgado/workflow/internal/tui/layout"
 )
 
@@ -63,80 +63,51 @@ func (m Model) paintGlyph(s stage) string {
 	return s.hue.Render(s.glyph)
 }
 
-// stages works out how far along the loop the work is, from what the panes
-// know: nothing is stored, so it is all derived.
+// stages works out how far along the loop the work is, in each stage's own hue,
+// from the shared derivation both this spine and `workflow status` read.
 func (m Model) stages() []stage {
-	return []stage{
-		{name: "Issue", glyph: m.issueStage(), hue: m.styles.jira},
-		{name: "Branch", glyph: m.branchStage(), hue: m.styles.git},
-		{name: "Commits", glyph: m.commitStage(), hue: m.styles.git},
-		{name: "Review", glyph: m.reviewStage(), hue: m.styles.forge},
-		{name: "Slack", glyph: m.slackStage(), hue: m.styles.slack},
+	hues := []lipgloss.Style{m.styles.jira, m.styles.git, m.styles.git, m.styles.forge, m.styles.slack}
+
+	derived := progress.Stages(m.work())
+	stages := make([]stage, len(derived))
+
+	for index, each := range derived {
+		stages[index] = stage{name: each.Name, glyph: m.glyphFor(each.State), hue: hues[index]}
 	}
+
+	return stages
 }
 
-// issueStage is done once the branch names an issue, and in flight while one is
-// selected.
-func (m Model) issueStage() string {
+// work is what the panes know, gathered for the shared stage derivation.
+func (m Model) work() progress.Work {
 	_, named := convention.IssueKey(m.branch.branch.Name)
 	_, selected := m.issues.current()
 
-	switch {
-	case named:
+	return progress.Work{
+		OnFeatureBranch:    m.branch.onFeatureBranch(),
+		IssueNamed:         named,
+		IssueSelected:      selected,
+		Commits:            len(m.branch.branch.Commits),
+		UncommittedChanges: len(m.changes.changes),
+		PullRequestFound:   m.review.found,
+		CI:                 m.review.ci.State,
+		ChangesRequested:   m.review.pull.ChangesRequested,
+		Announced:          m.announced(),
+		PostPending:        m.slack.pending.waiting(),
+	}
+}
+
+// glyphFor is the mark for a stage's state, in this session's glyph set.
+func (m Model) glyphFor(state progress.State) string {
+	switch state {
+	case progress.Done:
 		return m.marks.done
-	case selected:
+	case progress.InFlight:
 		return m.marks.inFlight
-	default:
-		return m.marks.notStarted
-	}
-}
-
-// branchStage is done on a feature branch.
-func (m Model) branchStage() string {
-	if m.branch.onFeatureBranch() {
-		return m.marks.done
-	}
-
-	return m.marks.notStarted
-}
-
-// commitStage is done once the branch has commits, and in flight while there
-// are changes to commit.
-func (m Model) commitStage() string {
-	switch {
-	case m.branch.onFeatureBranch() && len(m.branch.branch.Commits) > 0:
-		return m.marks.done
-	case len(m.changes.changes) > 0:
-		return m.marks.inFlight
-	default:
-		return m.marks.notStarted
-	}
-}
-
-// reviewStage follows the pull request, its CI and its review: changes still
-// asked for stop it reading as done, the same red as a CI failure, because both
-// are something to go back and address.
-func (m Model) reviewStage() string {
-	switch {
-	case !m.review.found:
-		return m.marks.notStarted
-	case m.review.ci.State == forge.CIFailed || m.review.pull.ChangesRequested:
+	case progress.Failed:
 		return m.marks.failed
-	case m.review.ci.State == forge.CIPassed:
-		return m.marks.done
-	default:
-		return m.marks.inFlight
-	}
-}
-
-// slackStage is done once this pull request is posted, and in flight while a
-// post waits for CI.
-func (m Model) slackStage() string {
-	switch {
-	case m.announced():
-		return m.marks.done
-	case m.slack.pending.waiting():
-		return m.marks.inFlight
+	case progress.NotStarted:
+		return m.marks.notStarted
 	default:
 		return m.marks.notStarted
 	}
