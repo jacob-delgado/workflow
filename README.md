@@ -135,6 +135,15 @@ Leave `jira.user` empty to authenticate with that token as a bearer token, which
 is what Data Center expects. Set `jira.user` only if your instance requires HTTP
 Basic authentication, in which case the token is used as the password.
 
+**Behind single sign-on (Azure AD / Office 365)?** SSO usually guards only the
+web UI, so a personal access token still reaches the REST API directly — no
+special handling needed. When a gateway sits in front of the API too, the
+[configuration guide][sso] shows how to tell (a one-line `curl`), and how to
+carry the gateway's own token or headers with `jira.token_command` and
+`jira.headers`.
+
+[sso]: https://jacob-delgado.github.io/workflow/docs/configuration/
+
 ### Slack: a webhook or a bot token
 
 Set either. If you set both, the bot token wins.
