@@ -40,6 +40,9 @@ format that may still change before 1.0.
   credential actually works.
 - `workflow config init` writes a starting configuration file, and
   `workflow config show` prints the one in effect, credentials masked.
+- `workflow standup` drafts what you did — your recent commits, the issues you
+  touched and the open pull requests on your branches — for you to edit and,
+  optionally, post to Slack.
 
 ## Install
 
