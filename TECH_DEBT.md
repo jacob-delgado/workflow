@@ -205,18 +205,20 @@ two cannot drift in where they look for a credential.
 
 ### DEBT-23 The file format has no version and rejects what it does not know
 
-Severity: medium · Confidence: reproduced
+Severity: low · Confidence: reproduced
 
-- Evidence: `Config` has no version field; `LoadFile` calls
-  `DisallowUnknownFields` (`internal/config/config.go:219`) and returns
-  `Default()` on any error; the README says the format may change before 1.0.
-- Cost: the first renamed key fails every existing file with
-  `json: unknown field "url"`, and the run carries on with every credential
-  gone. A newer file on an older binary fails the same way. The strictness is
-  deliberate and good; the missing half is what to do when the shape changes.
-- Remedy: decide the story before the first rename. At the least, catch the
-  unknown-field error and name the key that replaced it. See FEAT-51.
-- Done when: an old key produces a message that names the new one.
+Held, deliberately, against CLAUDE.md's YAGNI rule ("no backwards-compat shims
+for unreleased code"). The remedy — a version field plus a rename table that maps
+an old key to the one that replaced it — is machinery for renames that have not
+happened: nothing is released, so no key has ever been renamed, and the table
+would be empty. The current behavior already names the unknown key
+(`invalid .workflow.json: … json: unknown field "url"`), which is enough to
+correct a typo. When the first real rename lands (FEAT-51 territory), the version
+field and the table for that specific rename are worth adding — with the rename
+to point at, not before.
+
+- Done when: the first rename exists and its old key produces a message naming
+  the new one.
 
 ### DEBT-24 Nothing can be canceled, and no subprocess has a deadline
 
