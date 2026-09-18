@@ -30,6 +30,7 @@ var (
 	errNotARepository    = errors.New("fatal: not a git repository")
 	errNoSuchRemote      = errors.New("fatal: no such remote 'origin'")
 	errDetachedRead      = errors.New("fatal: ambiguous argument 'HEAD'")
+	errNotIgnored        = errors.New("exit status 1")
 )
 
 // reply is one canned answer from the fake runner.

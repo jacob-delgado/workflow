@@ -5,6 +5,7 @@ package cli_test
 
 import (
 	"bytes"
+	"errors"
 	"os"
 	"path/filepath"
 	"strings"
@@ -14,6 +15,10 @@ import (
 	"github.com/jacob-delgado/workflow/internal/cli"
 	"github.com/jacob-delgado/workflow/internal/config"
 )
+
+// errUnexpectedPrompt is a command reading from the prompt when the test wired
+// none.
+var errUnexpectedPrompt = errors.New("unexpected prompt read")
 
 // run executes the command tree in dir and returns everything it printed.
 //
@@ -27,6 +32,13 @@ import (
 // commit. Each run gets an empty home and no git configuration but its own.
 func run(t *testing.T, dir string, args ...string) (string, error) {
 	t.Helper()
+
+	return runGuided(t, dir, unusedPrompt(t), args...)
+}
+
+// runGuided is run with a prompt that answers `config init`'s questions.
+func runGuided(t *testing.T, dir string, prompt cli.Prompt, args ...string) (string, error) {
+	t.Helper()
 	t.Setenv("HOME", t.TempDir())
 	t.Setenv("GIT_CONFIG_GLOBAL", os.DevNull)
 	t.Setenv("GIT_CONFIG_NOSYSTEM", "1")
@@ -34,9 +46,43 @@ func run(t *testing.T, dir string, args ...string) (string, error) {
 
 	var stdout, stderr bytes.Buffer
 
-	err := cli.Execute(args, &stdout, &stderr)
+	err := cli.Execute(args, &stdout, &stderr, prompt)
 
 	return stdout.String() + stderr.String(), err
+}
+
+// unusedPrompt fails the test if a command reads from it: only the guided
+// `config init` should, and its tests drive it with scripted() instead.
+func unusedPrompt(t *testing.T) cli.Prompt {
+	t.Helper()
+
+	fail := func(string) (string, error) {
+		t.Error("a command read from the prompt when none was expected")
+
+		return "", errUnexpectedPrompt
+	}
+
+	return cli.Prompt{Line: fail, Secret: fail}
+}
+
+// scripted answers the guided prompts in order: visible lines from lines,
+// secrets from secrets. A prompt past the end of its list reads as blank.
+func scripted(lines, secrets []string) cli.Prompt {
+	return cli.Prompt{Line: answersFrom(&lines), Secret: answersFrom(&secrets)}
+}
+
+// answersFrom hands back each answer in turn, then blanks.
+func answersFrom(answers *[]string) func(string) (string, error) {
+	return func(string) (string, error) {
+		if len(*answers) == 0 {
+			return "", nil
+		}
+
+		next := (*answers)[0]
+		*answers = (*answers)[1:]
+
+		return next, nil
+	}
 }
 
 // writeFile writes a configuration into dir, failing the test if it cannot.
@@ -58,7 +104,7 @@ func TestConfigInitWritesATemplate(t *testing.T) {
 	dir := t.TempDir()
 
 	// Act
-	output, err := run(t, dir, "config", "init")
+	output, err := run(t, dir, "config", "init", "--template")
 	if err != nil {
 		t.Fatalf("config init: %v (%s)", err, output)
 	}
@@ -114,9 +160,9 @@ func TestConfigInitForceOverwrites(t *testing.T) {
 	path := writeFile(t, dir, `{"jira": {"base_url": "https://old.example.com"}}`)
 
 	// Act
-	output, err := run(t, dir, "config", "init", "--force")
+	output, err := run(t, dir, "config", "init", "--template", "--force")
 	if err != nil {
-		t.Fatalf("config init --force: %v (%s)", err, output)
+		t.Fatalf("config init --template --force: %v (%s)", err, output)
 	}
 
 	// Assert
@@ -142,11 +188,11 @@ func TestConfigInitForceLeavesTheModeItReports(t *testing.T) {
 	}
 
 	// Act
-	output, err := run(t, dir, "config", "init", "--force")
+	output, err := run(t, dir, "config", "init", "--template", "--force")
 
 	// Assert
 	if err != nil || !strings.Contains(output, "mode 0600") {
-		t.Fatalf("config init --force = %v, want it to report the mode:\n%s", err, output)
+		t.Fatalf("config init --template --force = %v, want it to report the mode:\n%s", err, output)
 	}
 
 	info, err := os.Stat(path)

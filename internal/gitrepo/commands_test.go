@@ -109,6 +109,44 @@ func TestRebaseCommandReplaysOntoTheBaseWithoutPrompts(t *testing.T) {
 	}
 }
 
+func TestCheckIgnoredReportsWhetherGitIgnoresThePath(t *testing.T) {
+	t.Parallel()
+
+	const (
+		probe   = "git -C /work rev-parse --show-toplevel"
+		inquire = "git -C /work check-ignore /work/.workflow.json"
+	)
+
+	cases := map[string]struct {
+		replies map[string]reply
+		want    bool
+		wantErr error
+	}{
+		"ignored":     {replies: map[string]reply{probe: {}, inquire: {}}, want: true},
+		"not ignored": {replies: map[string]reply{probe: {}, inquire: {err: errNotIgnored}}, want: false},
+		"outside a repository": {
+			replies: map[string]reply{probe: {err: errNotARepository}}, wantErr: gitrepo.ErrNotARepository,
+		},
+	}
+
+	for name, tt := range cases {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			// Arrange
+			run := fakeRunner(t, tt.replies)
+
+			// Act
+			ignored, err := gitrepo.CheckIgnored(t.Context(), run, workDir, "/work/.workflow.json")
+
+			// Assert
+			if ignored != tt.want || !errors.Is(err, tt.wantErr) {
+				t.Errorf("CheckIgnored = %t, %v; want %t, %v", ignored, err, tt.want, tt.wantErr)
+			}
+		})
+	}
+}
+
 func TestCommitCommandRunsInTheRepository(t *testing.T) {
 	t.Parallel()
 

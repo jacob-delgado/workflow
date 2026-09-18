@@ -32,8 +32,11 @@ workflow reads a single JSON file, `.workflow.json`.
 }
 ```
 
-Write a starting copy with `workflow config init`, or `workflow config init
---global` to put it in your home directory.
+Run `workflow config init` and it asks for the Jira address and token, checks
+them, does the same for Slack, warns if the file would not be ignored by git,
+and writes what passed — nothing is echoed as you type a token. Add `--global`
+to write it to your home directory, or `--template` to write a blank file to
+fill in by hand instead of being asked.
 
 ## Where it looks, and what wins
 

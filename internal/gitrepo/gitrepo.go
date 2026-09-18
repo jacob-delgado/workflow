@@ -57,6 +57,21 @@ func withinWorkTree(ctx context.Context, run Runner, dir string) bool {
 	return err == nil
 }
 
+// CheckIgnored reports whether git ignores path within dir. Outside a work tree
+// it returns ErrNotARepository, because the question has no answer there — a
+// caller warning about a file that is not ignored simply stays quiet.
+func CheckIgnored(ctx context.Context, run Runner, dir, path string) (bool, error) {
+	if !withinWorkTree(ctx, run, dir) {
+		return false, fmt.Errorf("%w: %s", ErrNotARepository, dir)
+	}
+
+	// check-ignore exits zero when the path is ignored and non-zero when it is
+	// not, so a non-zero exit here is the answer "no", not a failure to answer.
+	_, err := run(ctx, "git", "-C", dir, "check-ignore", path)
+
+	return err == nil, nil
+}
+
 // Describe reads the repository containing dir.
 func Describe(ctx context.Context, run Runner, dir string) (Repo, error) {
 	root, err := run(ctx, "git", "-C", dir, "rev-parse", "--show-toplevel")

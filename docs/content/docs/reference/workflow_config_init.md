@@ -7,14 +7,16 @@ weight: 30
 
 ## workflow config init
 
-Write a starting configuration file
+Set up the configuration file, asking for and checking each credential
 
 ### Synopsis
 
-Write a starting .workflow.json with empty credentials.
+Ask for the Jira and Slack credentials, check each one, and write a
+.workflow.json with what passed.
 
 By default it lands in the current directory. Use --global to write it to
-your home directory instead, where every directory can see it.
+your home directory instead, where every directory can see it. Use
+--template to write a blank file to fill in by hand rather than being asked.
 
 ```
 workflow config init [flags]
@@ -23,9 +25,10 @@ workflow config init [flags]
 ### Options
 
 ```
-      --force    overwrite an existing file
-      --global   write to the home directory instead of here
-  -h, --help     help for init
+      --force      overwrite an existing file
+      --global     write to the home directory instead of here
+  -h, --help       help for init
+      --template   write a blank file to edit by hand instead of being asked
 ```
 
 ### SEE ALSO

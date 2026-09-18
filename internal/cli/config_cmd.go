@@ -4,46 +4,56 @@
 package cli
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/spf13/cobra"
 
 	"github.com/jacob-delgado/workflow/internal/config"
+	"github.com/jacob-delgado/workflow/internal/gitrepo"
+	"github.com/jacob-delgado/workflow/internal/proc"
 )
 
 // errConfigExists reports that init would have overwritten a file.
 var errConfigExists = errors.New("configuration file already exists")
 
 // newConfigCmd builds the `workflow config` subtree.
-func newConfigCmd() *cobra.Command {
+func newConfigCmd(prompt Prompt) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "config",
 		Short: "Create and inspect the configuration file",
 		Args:  cobra.NoArgs,
 	}
 
-	cmd.AddCommand(newConfigInitCmd(), newConfigShowCmd())
+	cmd.AddCommand(newConfigInitCmd(prompt), newConfigShowCmd())
 
 	return cmd
 }
 
-// newConfigInitCmd builds `workflow config init`.
-func newConfigInitCmd() *cobra.Command {
+// newConfigInitCmd builds `workflow config init`. It asks for each credential
+// and checks it, unless --template is given, which writes a blank file to edit
+// by hand.
+func newConfigInitCmd(prompt Prompt) *cobra.Command {
 	var (
-		force  bool
-		global bool
+		force    bool
+		global   bool
+		template bool
 	)
 
 	cmd := &cobra.Command{
 		Use:   "init",
-		Short: "Write a starting configuration file",
-		Long: "Write a starting " + config.FileName + " with empty credentials.\n\n" +
+		Short: "Set up the configuration file, asking for and checking each credential",
+		Long: "Ask for the Jira and Slack credentials, check each one, and write a\n" +
+			config.FileName + " with what passed.\n\n" +
 			"By default it lands in the current directory. Use --global to write it to\n" +
-			"your home directory instead, where every directory can see it.",
+			"your home directory instead, where every directory can see it. Use\n" +
+			"--template to write a blank file to fill in by hand rather than being asked.",
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			dir, err := targetDir(global)
@@ -51,12 +61,18 @@ func newConfigInitCmd() *cobra.Command {
 				return err
 			}
 
-			return runConfigInit(cmd, filepath.Join(dir, config.FileName), force)
+			path := filepath.Join(dir, config.FileName)
+			if template {
+				return runConfigInit(cmd, path, force)
+			}
+
+			return runGuidedInit(cmd, path, force, prompt)
 		},
 	}
 
 	cmd.Flags().BoolVar(&force, "force", false, "overwrite an existing file")
 	cmd.Flags().BoolVar(&global, "global", false, "write to the home directory instead of here")
+	cmd.Flags().BoolVar(&template, "template", false, "write a blank file to edit by hand instead of being asked")
 
 	return cmd
 }
@@ -130,6 +146,111 @@ func runConfigInit(cmd *cobra.Command, path string, force bool) error {
 	fmt.Fprintf(out, "`workflow --help` explains how to create each token.\n")
 
 	return nil
+}
+
+// runGuidedInit asks for each credential, checks it, and writes what passed,
+// refusing to clobber an existing file unless force says otherwise.
+func runGuidedInit(cmd *cobra.Command, path string, force bool, prompt Prompt) error {
+	_, err := os.Stat(path)
+	if err == nil && !force {
+		return fmt.Errorf("%w: %s (pass --force to overwrite)", errConfigExists, path)
+	}
+
+	out := cmd.OutOrStdout()
+	fmt.Fprintf(out, "Setting up %s. Leave a prompt blank to skip it.\n\n", path)
+
+	cfg := config.Default()
+
+	cfg.Jira, err = collectJira(cmd.Context(), out, prompt)
+	if err != nil {
+		return err
+	}
+
+	cfg.Slack, err = collectSlack(out, prompt)
+	if err != nil {
+		return err
+	}
+
+	err = config.Save(path, cfg)
+	if err != nil {
+		return err
+	}
+
+	fmt.Fprintf(out, "\nWrote %s (mode %#o). Run `workflow doctor` to check it again.\n", path, config.FileMode)
+	warnIfNotIgnored(cmd.Context(), out, path)
+
+	return nil
+}
+
+// collectJira asks for the Jira address and token, checks them, and keeps them
+// only if the check passed or the user chose to save them regardless.
+func collectJira(ctx context.Context, out io.Writer, prompt Prompt) (config.Jira, error) {
+	baseURL, err := prompt.Line("Jira base URL (e.g. https://jira.example.com), blank to skip: ")
+	if err != nil {
+		return config.Jira{}, err
+	}
+
+	baseURL = strings.TrimSpace(baseURL)
+	if baseURL == "" {
+		return config.Jira{}, nil
+	}
+
+	token, err := prompt.Secret("Jira personal access token: ")
+	if err != nil {
+		return config.Jira{}, err
+	}
+
+	settings := config.Jira{BaseURL: baseURL, Token: strings.TrimSpace(token)}
+
+	kept, err := keepIfChecked(prompt, "jira", checkJira(ctx, out, settings))
+	if err != nil || !kept {
+		return config.Jira{}, err
+	}
+
+	return settings, nil
+}
+
+// collectSlack asks for a Slack incoming webhook, the setup with nothing to
+// check. A bot token, which is more involved, is left to the docs and a later
+// hand edit.
+func collectSlack(out io.Writer, prompt Prompt) (config.Slack, error) {
+	webhook, err := prompt.Secret("Slack incoming webhook URL, blank to skip: ")
+	if err != nil {
+		return config.Slack{}, err
+	}
+
+	webhook = strings.TrimSpace(webhook)
+	if webhook == "" {
+		return config.Slack{}, nil
+	}
+
+	fmt.Fprintf(out, "  %-10s saved (a webhook cannot be checked without posting)\n", "slack")
+
+	return config.Slack{WebhookURL: webhook}, nil
+}
+
+// keepIfChecked decides whether to keep a credential: a passing check keeps it,
+// and a failing one asks, so a service that is merely unreachable right now can
+// still be saved.
+func keepIfChecked(prompt Prompt, what string, checkErr error) (bool, error) {
+	if checkErr == nil {
+		return true, nil
+	}
+
+	return confirm(prompt, "The "+what+" check did not pass. Save it anyway?")
+}
+
+// warnIfNotIgnored says so when the file is inside a repository but not ignored
+// by git, since it is about to hold credentials. Outside a repository there is
+// nothing to warn about.
+func warnIfNotIgnored(ctx context.Context, out io.Writer, path string) {
+	ignored, err := gitrepo.CheckIgnored(ctx, proc.Run, filepath.Dir(path), path)
+	if err != nil || ignored {
+		return
+	}
+
+	fmt.Fprintf(out, "\nWarning: %s is not ignored by git. It holds credentials —\n", filepath.Base(path))
+	fmt.Fprintf(out, "add it to .gitignore so it is never committed.\n")
 }
 
 // runConfigShow prints the loaded configuration with both tokens masked.
