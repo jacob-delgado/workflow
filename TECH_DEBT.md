@@ -239,11 +239,22 @@ Severity: medium · Confidence: reproduced
   git's own prompts only: ssh and gpg open the terminal directly while the
   interface owns it (shown for ssh's documented behavior and a child's access
   to `/dev/tty`; gpg was not installed to try).
-- Remedy: `signal.NotifyContext` with `ExecuteContext`; a default deadline in
-  `proc.Run`; a build-tagged Unix file that starts streamed children in their
-  own session, so prompts fail fast and the group can be stopped; a "stop" key
-  in the run overlay.
-- Done when: a test cancels a streamed run and its grandchild exits.
+- Done for the root context: `Execute` now builds a `signal.NotifyContext` and
+  runs the tree with `ExecuteContext`, so SIGINT and SIGTERM cancel the context
+  every command runs under — a hung `doctor --online` or a slow `git status`
+  stops on the first Ctrl+C rather than a second. A test drives the internal
+  `execute` with a canceled context and proves a command's git subprocess is
+  canceled (without `ExecuteContext` it ran under `context.Background` and
+  ignored it). The interface runs the terminal in raw mode, where Ctrl+C is a key
+  not a signal, so this does not fight Bubble Tea.
+- What remains, each its own change: a default deadline in `proc.Run` (risky —
+  a legitimate slow clone or hook must not be killed, so it needs a generous,
+  per-command bound rather than one blanket number); a build-tagged Unix file
+  that starts a streamed child in its own session so a grandchild exits with it
+  and prompts fail fast (the platform-specific piece, and its Windows twin cannot
+  be validated here — see DEBT-32); and a "stop" key in the run overlay. The
+  original "done when" — a test cancels a streamed run and its grandchild exits —
+  belongs to that process-group change.
 
 ## Git, hooks, conventions and processes
 
