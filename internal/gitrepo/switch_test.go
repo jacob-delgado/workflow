@@ -24,7 +24,7 @@ func TestLocalBranchesListsTheHeadsMostRecentFirst(t *testing.T) {
 	}
 
 	// Act
-	branches, err := gitrepo.LocalBranches(t.Context(), fakeRunner(t, replies), workDir)
+	branches, err := gitrepo.At(fakeRunner(t, replies), workDir).LocalBranches(t.Context())
 
 	// Assert
 	want := []string{"fix/PROJ-412-token", "main", "chore/tidy"}
@@ -44,7 +44,7 @@ func TestLocalBranchesLeavesOutAnUnshowableName(t *testing.T) {
 	}
 
 	// Act
-	branches, err := gitrepo.LocalBranches(t.Context(), fakeRunner(t, replies), workDir)
+	branches, err := gitrepo.At(fakeRunner(t, replies), workDir).LocalBranches(t.Context())
 
 	// Assert
 	want := []string{"main", "chore/tidy"}
@@ -63,7 +63,7 @@ func TestLocalBranchesReportsAFailureToList(t *testing.T) {
 	replies := map[string]reply{listBranches: {err: errNoBranch}}
 
 	// Act
-	_, err := gitrepo.LocalBranches(t.Context(), fakeRunner(t, replies), workDir)
+	_, err := gitrepo.At(fakeRunner(t, replies), workDir).LocalBranches(t.Context())
 
 	// Assert
 	if !errors.Is(err, errNoBranch) {
@@ -78,7 +78,7 @@ func TestCheckoutSwitchesToTheBranch(t *testing.T) {
 	replies := map[string]reply{"git -C /work switch fix/PROJ-412-token": {out: []byte("")}}
 
 	// Act
-	err := gitrepo.Checkout(t.Context(), fakeRunner(t, replies), workDir, "fix/PROJ-412-token")
+	err := gitrepo.At(fakeRunner(t, replies), workDir).Checkout(t.Context(), "fix/PROJ-412-token")
 	// Assert
 	if err != nil {
 		t.Errorf("Checkout returned %v, want nil", err)
@@ -92,7 +92,7 @@ func TestCheckoutReportsAFailureToSwitch(t *testing.T) {
 	replies := map[string]reply{"git -C /work switch gone": {err: errNoBranch}}
 
 	// Act
-	err := gitrepo.Checkout(t.Context(), fakeRunner(t, replies), workDir, "gone")
+	err := gitrepo.At(fakeRunner(t, replies), workDir).Checkout(t.Context(), "gone")
 
 	// Assert
 	if !errors.Is(err, errNoBranch) {

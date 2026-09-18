@@ -94,14 +94,14 @@ func (b Branch) BaseName() string {
 // ReadBranch reads where the checked-out branch stands. Only failing to read the
 // branch at all is an error: no commits, no upstream and no base are ordinary
 // states for a repository to be in, and each is left empty.
-func ReadBranch(ctx context.Context, run Runner, dir string) (Branch, error) {
-	name, err := run(ctx, "git", "-C", dir, "branch", "--show-current")
+func (r Repository) ReadBranch(ctx context.Context) (Branch, error) {
+	name, err := r.run(ctx, "git", "-C", r.dir, "branch", "--show-current")
 	if err != nil {
-		return Branch{}, readFailure(ctx, run, dir, "reading the current branch of "+dir, err)
+		return Branch{}, readFailure(ctx, r.run, r.dir, "reading the current branch of "+r.dir, err)
 	}
 
 	git := func(args ...string) string {
-		return optional(ctx, run, append([]string{"-C", dir}, args...)...)
+		return optional(ctx, r.run, append([]string{"-C", r.dir}, args...)...)
 	}
 
 	branch := Branch{
@@ -264,13 +264,13 @@ func isHex(text string) bool {
 // --no-track matters when start is a remote branch such as origin/main: without
 // it git makes origin/main the new branch's upstream, so the branch reads as
 // ahead of main rather than as never pushed.
-func CreateBranch(ctx context.Context, run Runner, dir, name, start string) error {
-	args := []string{"-C", dir, "switch", "--create", name}
+func (r Repository) CreateBranch(ctx context.Context, name, start string) error {
+	args := []string{"-C", r.dir, "switch", "--create", name}
 	if start != "" {
 		args = append(args, "--no-track", start)
 	}
 
-	_, err := run(ctx, "git", args...)
+	_, err := r.run(ctx, "git", args...)
 	if err != nil {
 		return fmt.Errorf("creating branch %s: %w", name, err)
 	}
@@ -280,8 +280,8 @@ func CreateBranch(ctx context.Context, run Runner, dir, name, start string) erro
 
 // LocalBranches lists the repository's local branches, most recently committed
 // to first, so a switcher offers the ones most likely to be picked up again.
-func LocalBranches(ctx context.Context, run Runner, dir string) ([]string, error) {
-	out, err := run(ctx, gitProgram, "-C", dir,
+func (r Repository) LocalBranches(ctx context.Context) ([]string, error) {
+	out, err := r.run(ctx, gitProgram, "-C", r.dir,
 		"for-each-ref", "--format=%(refname:short)", "--sort=-committerdate", "refs/heads")
 	if err != nil {
 		return nil, fmt.Errorf("listing branches: %w", err)
@@ -301,8 +301,8 @@ func LocalBranches(ctx context.Context, run Runner, dir string) ([]string, error
 
 // Checkout switches to a branch. It carries nothing across: the interface
 // refuses a dirty tree before calling this, leaving stashing to the person.
-func Checkout(ctx context.Context, run Runner, dir, name string) error {
-	_, err := run(ctx, gitProgram, "-C", dir, "switch", name)
+func (r Repository) Checkout(ctx context.Context, name string) error {
+	_, err := r.run(ctx, gitProgram, "-C", r.dir, "switch", name)
 	if err != nil {
 		return fmt.Errorf("switching to %s: %w", name, err)
 	}
@@ -314,10 +314,10 @@ func Checkout(ctx context.Context, run Runner, dir, name string) error {
 // returns where it put it, so two tasks can be open at once — one checkout per
 // worktree — where switching branches in place cannot. It starts the branch from
 // start, or from HEAD when start is empty.
-func WorktreeAdd(ctx context.Context, run Runner, dir, name, start string) (string, error) {
-	path := worktreePath(dir, name)
+func (r Repository) WorktreeAdd(ctx context.Context, name, start string) (string, error) {
+	path := worktreePath(r.dir, name)
 
-	args := []string{"-C", dir, "worktree", "add"}
+	args := []string{"-C", r.dir, "worktree", "add"}
 	if start != "" {
 		// --no-track for the reason CreateBranch uses it: a branch off
 		// origin/main should read as never pushed, not as ahead of it.
@@ -329,7 +329,7 @@ func WorktreeAdd(ctx context.Context, run Runner, dir, name, start string) (stri
 		args = append(args, start)
 	}
 
-	_, err := run(ctx, gitProgram, args...)
+	_, err := r.run(ctx, gitProgram, args...)
 	if err != nil {
 		return "", fmt.Errorf("creating a worktree for %s: %w", name, err)
 	}
@@ -391,15 +391,15 @@ func RebaseCommand(dir, base string) proc.Command {
 
 // HooksDir is where git looks for this repository's hooks, which core.hooksPath
 // can move anywhere.
-func HooksDir(ctx context.Context, run Runner, dir string) (string, error) {
-	out, err := run(ctx, "git", "-C", dir, "rev-parse", "--git-path", "hooks")
+func (r Repository) HooksDir(ctx context.Context) (string, error) {
+	out, err := r.run(ctx, "git", "-C", r.dir, "rev-parse", "--git-path", "hooks")
 	if err != nil {
-		return "", fmt.Errorf("finding the hooks directory of %s: %w", dir, err)
+		return "", fmt.Errorf("finding the hooks directory of %s: %w", r.dir, err)
 	}
 
 	path := text(out)
 	if !filepath.IsAbs(path) {
-		path = filepath.Join(dir, path)
+		path = filepath.Join(r.dir, path)
 	}
 
 	return path, nil

@@ -123,7 +123,7 @@ func TestDescribeReadsTheRepository(t *testing.T) {
 			t.Parallel()
 
 			// Act
-			repo, err := gitrepo.Describe(t.Context(), fakeRunner(t, tt.replies), workDir)
+			repo, err := gitrepo.At(fakeRunner(t, tt.replies), workDir).Describe(t.Context())
 
 			// Assert
 			if err != nil || repo != tt.want {
@@ -160,7 +160,7 @@ func TestDescribeReportsWhatItCannotRead(t *testing.T) {
 			t.Parallel()
 
 			// Act
-			_, err := gitrepo.Describe(t.Context(), fakeRunner(t, tt.replies), workDir)
+			_, err := gitrepo.At(fakeRunner(t, tt.replies), workDir).Describe(t.Context())
 
 			// Assert
 			if !errors.Is(err, tt.want) || errors.Is(err, gitrepo.ErrNotARepository) != tt.notARepository {

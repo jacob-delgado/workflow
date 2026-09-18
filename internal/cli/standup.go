@@ -81,11 +81,10 @@ func runStandupCommand(cmd *cobra.Command, prompt Prompt, days int, noEdit bool)
 	where := wiring.Locate(ctx, dir)
 	deps := wiring.Deps(ctx, cfg, where, nil)
 
+	repo := gitrepo.At(proc.Run, where.Root)
 	seams := standupSeams{
-		Commits: func(since string) ([]gitrepo.Commit, error) {
-			return gitrepo.RecentCommits(ctx, proc.Run, where.Root, since)
-		},
-		Branches: func() ([]string, error) { return gitrepo.LocalBranches(ctx, proc.Run, where.Root) },
+		Commits:  func(since string) ([]gitrepo.Commit, error) { return repo.RecentCommits(ctx, since) },
+		Branches: func() ([]string, error) { return repo.LocalBranches(ctx) },
 		FindPull: deps.Forge.FindPullRequest,
 		Search:   deps.Jira.Search,
 		Compose:  prompt.Compose,

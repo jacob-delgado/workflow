@@ -269,7 +269,7 @@ func keepIfChecked(prompt Prompt, what string, checkErr error) (bool, error) {
 // by git, since it is about to hold credentials. Outside a repository there is
 // nothing to warn about.
 func warnIfNotIgnored(ctx context.Context, out io.Writer, path string) {
-	ignored, err := gitrepo.CheckIgnored(ctx, proc.Run, filepath.Dir(path), path)
+	ignored, err := gitrepo.At(proc.Run, filepath.Dir(path)).CheckIgnored(ctx, path)
 	if err != nil || ignored {
 		return
 	}

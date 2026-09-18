@@ -125,7 +125,7 @@ func repositoryFactsFor(ctx context.Context) (repositoryFacts, string) {
 		return repositoryFacts{InsideWorkTree: false}, ""
 	}
 
-	repo, err := gitrepo.Describe(ctx, proc.Run, dir)
+	repo, err := gitrepo.At(proc.Run, dir).Describe(ctx)
 	if err != nil {
 		return repositoryFacts{InsideWorkTree: false}, ""
 	}

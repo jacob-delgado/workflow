@@ -22,7 +22,7 @@ func TestWorktreeAddCreatesABranchBesideTheRepo(t *testing.T) {
 	}
 
 	// Act
-	path, err := gitrepo.WorktreeAdd(t.Context(), fakeRunner(t, replies), workDir, "fix/PROJ-1", "origin/main")
+	path, err := gitrepo.At(fakeRunner(t, replies), workDir).WorktreeAdd(t.Context(), "fix/PROJ-1", "origin/main")
 
 	// Assert
 	if err != nil || path != "/work-fix-PROJ-1" {
@@ -37,7 +37,7 @@ func TestWorktreeAddFromHeadOmitsTheStart(t *testing.T) {
 	replies := map[string]reply{"git -C /work worktree add -b feat/x /work-feat-x": {out: []byte("")}}
 
 	// Act
-	path, err := gitrepo.WorktreeAdd(t.Context(), fakeRunner(t, replies), workDir, "feat/x", "")
+	path, err := gitrepo.At(fakeRunner(t, replies), workDir).WorktreeAdd(t.Context(), "feat/x", "")
 
 	// Assert
 	if err != nil || path != "/work-feat-x" {
@@ -54,7 +54,7 @@ func TestWorktreeAddReportsAFailure(t *testing.T) {
 	}
 
 	// Act
-	_, err := gitrepo.WorktreeAdd(t.Context(), fakeRunner(t, replies), workDir, "dup", "origin/main")
+	_, err := gitrepo.At(fakeRunner(t, replies), workDir).WorktreeAdd(t.Context(), "dup", "origin/main")
 
 	// Assert
 	if !errors.Is(err, errWorktreeExists) {

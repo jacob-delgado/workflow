@@ -309,7 +309,7 @@ func reportRepository(ctx context.Context, out io.Writer) gitrepo.Repo {
 		return gitrepo.Repo{}
 	}
 
-	repo, err := gitrepo.Describe(ctx, proc.Run, dir)
+	repo, err := gitrepo.At(proc.Run, dir).Describe(ctx)
 	if err != nil {
 		field(out, "Repository", fmt.Sprintf("(none — %s is not in a git work tree)", dir))
 
