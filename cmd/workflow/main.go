@@ -7,14 +7,21 @@ package main
 
 import (
 	"bufio"
+	"context"
 	"fmt"
 	"os"
+	"runtime"
 	"strings"
 
 	"golang.org/x/term"
 
 	"github.com/jacob-delgado/workflow/internal/cli"
+	"github.com/jacob-delgado/workflow/internal/keychain"
+	"github.com/jacob-delgado/workflow/internal/proc"
 )
+
+// keychainService is the name the Jira token is stored under in the keychain.
+const keychainService = "workflow-jira"
 
 // exitFailure is the status returned when a command reports an error.
 const exitFailure = 1
@@ -51,5 +58,26 @@ func terminalPrompt() cli.Prompt {
 
 			return string(secret), err
 		},
+		StoreSecret: keychainStore(runtime.GOOS),
+	}
+}
+
+// keychainStore stores a secret in the OS keychain and returns the token_command
+// that reads it back, or nil where storing is not wired for the platform, so
+// the guided flow keeps the token in the file there.
+func keychainStore(goos string) func(string) (string, error) {
+	if !keychain.Supported(goos) {
+		return nil
+	}
+
+	return func(secret string) (string, error) {
+		command := keychain.StoreCommand(keychainService, secret)
+
+		_, err := proc.Run(context.Background(), command.Name, command.Args...)
+		if err != nil {
+			return "", err
+		}
+
+		return keychain.LookupCommand(keychainService), nil
 	}
 }

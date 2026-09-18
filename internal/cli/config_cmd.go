@@ -207,7 +207,32 @@ func collectJira(ctx context.Context, out io.Writer, prompt Prompt) (config.Jira
 		return config.Jira{}, err
 	}
 
-	return settings, nil
+	return keepTokenSafe(out, prompt, settings)
+}
+
+// keepTokenSafe offers to move the token into the OS keychain, so the file holds
+// a token_command rather than the secret. It is a no-op where the keychain is
+// not wired for the platform.
+func keepTokenSafe(out io.Writer, prompt Prompt, jira config.Jira) (config.Jira, error) {
+	if prompt.StoreSecret == nil {
+		return jira, nil
+	}
+
+	store, err := confirm(prompt, "Store the Jira token in your keychain, keeping it out of the file?")
+	if err != nil || !store {
+		return jira, err
+	}
+
+	tokenCommand, err := prompt.StoreSecret(jira.Token)
+	if err != nil {
+		return jira, fmt.Errorf("storing the token in the keychain: %w", err)
+	}
+
+	jira.Token, jira.TokenCommand = "", tokenCommand
+
+	fmt.Fprintf(out, "  %-10s stored in the keychain; the file will hold a token_command\n", "jira")
+
+	return jira, nil
 }
 
 // collectSlack asks for a Slack incoming webhook, the setup with nothing to
