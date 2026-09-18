@@ -95,7 +95,7 @@ func (m Model) upstreamState() string {
 	switch {
 	case branch.Pushed():
 		return "pushed"
-	case branch.Upstream != "origin/"+branch.Name:
+	case branch.Upstream != gitrepo.DefaultRemote+"/"+branch.Name:
 		return "not pushed yet"
 	default:
 		return m.marks.ahead + strconv.Itoa(branch.Ahead) + " " + m.marks.behind + strconv.Itoa(branch.Behind) +
@@ -219,7 +219,7 @@ func (s branchState) remote() string {
 		return before
 	}
 
-	return "origin"
+	return gitrepo.DefaultRemote
 }
 
 // handleBranchKey answers the Branch pane's own keys.

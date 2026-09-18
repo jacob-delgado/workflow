@@ -260,25 +260,22 @@ Severity: medium · Confidence: reproduced
 
 ## Git, hooks, conventions and processes
 
-### DEBT-30 `origin` is spelled out in eight places, and nothing fetches
+### DEBT-30 `origin` is spelled out in eight places
 
-Severity: medium · Confidence: read
+Severity: low · Confidence: read
 
-- Evidence: `internal/gitrepo/gitrepo.go:71`; `internal/gitrepo/branch.go:58`,
-  `:133`, `:138` and `:237`; `internal/tui/branch.go:66` and `:90`;
-  `internal/tui/prcomposer.go:78`. No code path runs `git fetch`. The base
-  falls back through `origin/HEAD`, `origin/main`, `origin/master`, local
-  `main`, local `master`, then nothing (`base`,
-  `internal/gitrepo/branch.go:132`).
-- Cost: a remote under another name means "not pushed yet" forever. With a
-  fork, the base is the fork's default branch. When no base is found,
-  `Commits` stays empty, and both `canPush` and `canOpenPullRequest` are
-  false: the loop stops, with no setting to restart it. "Starts from origin's
-  default branch" means "as of the last fetch", which the screen does not say.
-  See FEAT-12 and FEAT-15.
-- Remedy: carry the remote as one value on a gitrepo type; ask git for
-  `remote.pushDefault` before assuming; say how old the base is.
-- Done when: the word `origin` appears once in production code.
+Two of the three remedy items are done. `git fetch` runs before branching
+(`gitrepo.FetchCommand`, wired through `fetchOrigin`), and the base's age is
+shown ("from BASE, fetched X ago" via `Branch.BaseUpdated`/`Model.baseAge`). And
+the word `origin` now appears once in production code: `gitrepo.DefaultRemote`,
+which the base fallback, the fetch and push commands, the origin-URL read and the
+interface's remote checks all reference — `Branch.BaseName` strips whatever
+remote a base carries rather than assuming origin.
+
+- What remains: nothing consults `remote.pushDefault`, so a repository whose push
+  default is not origin, or a fork, still assumes origin. That changes observable
+  push and base behavior and cannot be exercised against a live remote in a unit
+  test, so it wants a seam and a RED test of its own. See FEAT-12 and FEAT-15.
 
 ### DEBT-32 Windows is a release target the code has not met
 

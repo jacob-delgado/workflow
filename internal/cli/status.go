@@ -198,7 +198,7 @@ func gather(seams statusSeams, branch gitrepo.Branch) statusFacts {
 		}
 	}
 
-	onFeature := branch.Name != "" && branch.Name != strings.TrimPrefix(branch.Base, "origin/")
+	onFeature := branch.Name != "" && branch.Name != branch.BaseName()
 	pull, found, ciState := gatherReview(seams, branch, onFeature)
 	facts.ci = ciState
 

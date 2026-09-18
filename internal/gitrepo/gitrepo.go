@@ -102,7 +102,7 @@ func Describe(ctx context.Context, run Runner, dir string) (Repo, error) {
 // not broken — everything except opening a pull request still works — so the
 // failure reads as "no remote" rather than becoming Describe's error.
 func originURL(ctx context.Context, run Runner, dir string) string {
-	out, err := run(ctx, "git", "-C", dir, "remote", "get-url", "origin")
+	out, err := run(ctx, "git", "-C", dir, "remote", "get-url", DefaultRemote)
 	if err != nil {
 		return ""
 	}

@@ -23,6 +23,16 @@ const commitLimit = 200
 // gitProgram is the program every command here runs.
 const gitProgram = "git"
 
+// DefaultRemote is the remote this package reads and pushes to. The name is
+// written once here rather than spelled out at each use; consulting
+// remote.pushDefault before assuming it is still to do (see TECH_DEBT DEBT-30).
+const DefaultRemote = "origin"
+
+// remoteBranch is a branch on DefaultRemote, "origin/main".
+func remoteBranch(name string) string {
+	return DefaultRemote + "/" + name
+}
+
 // noTerminalPrompt turns off git's credential prompts: nobody can answer one
 // from inside the interface, so a command that needs a credential must fail
 // rather than wait for input that is never coming.
@@ -67,7 +77,7 @@ type Branch struct {
 // --no-track tracks origin/main, is ahead of it by nothing, and is not on the
 // remote at all.
 func (b Branch) Pushed() bool {
-	return b.Name != "" && b.Upstream == "origin/"+b.Name && b.Ahead == 0
+	return b.Name != "" && b.Upstream == remoteBranch(b.Name) && b.Ahead == 0
 }
 
 // BaseName is the base branch without its remote prefix — "main" for
@@ -173,13 +183,13 @@ func optional(ctx context.Context, run Runner, args ...string) string {
 // base finds the branch work merges into: what origin says its default is, or
 // failing that the conventional names, remote first.
 func base(git func(...string) string) string {
-	if origin := git("symbolic-ref", "--quiet", "--short", "refs/remotes/origin/HEAD"); origin != "" {
+	if origin := git("symbolic-ref", "--quiet", "--short", "refs/remotes/"+DefaultRemote+"/HEAD"); origin != "" {
 		return origin
 	}
 
 	candidates := []struct{ ref, name string }{
-		{ref: "refs/remotes/origin/main", name: "origin/main"},
-		{ref: "refs/remotes/origin/master", name: "origin/master"},
+		{ref: "refs/remotes/" + remoteBranch("main"), name: remoteBranch("main")},
+		{ref: "refs/remotes/" + remoteBranch("master"), name: remoteBranch("master")},
 		{ref: "refs/heads/main", name: "main"},
 		{ref: "refs/heads/master", name: "master"},
 	}
@@ -342,7 +352,7 @@ func FetchCommand(dir string) proc.Command {
 	return proc.Command{
 		Dir:  dir,
 		Name: gitProgram,
-		Args: []string{"fetch", "origin"},
+		Args: []string{"fetch", DefaultRemote},
 		Env:  []string{noTerminalPrompt},
 	}
 }
@@ -356,7 +366,7 @@ func PushCommand(dir, branch string) proc.Command {
 	return proc.Command{
 		Dir:  dir,
 		Name: gitProgram,
-		Args: []string{"push", "--set-upstream", "origin", branch},
+		Args: []string{"push", "--set-upstream", DefaultRemote, branch},
 		Env:  []string{noTerminalPrompt},
 	}
 }
