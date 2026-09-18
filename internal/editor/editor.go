@@ -15,6 +15,7 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strconv"
 	"strings"
 
@@ -28,10 +29,6 @@ import (
 // scissors line, and it is a line rather than a # comment prefix because the
 // text is often Markdown, whose headings start with #.
 const Scissors = "# ------------------------ >8 ------------------------"
-
-// fallbackEditor is what opens when neither $VISUAL nor $EDITOR says otherwise:
-// vi is the one editor a Unix system reliably has.
-const fallbackEditor = "vi"
 
 // Getenv reads an environment variable. os.Getenv satisfies it.
 type Getenv func(string) string
@@ -75,7 +72,17 @@ func chosen(getenv Getenv) string {
 		}
 	}
 
-	return fallbackEditor
+	return defaultEditor(runtime.GOOS)
+}
+
+// defaultEditor is what opens when neither $VISUAL nor $EDITOR is set: vi on
+// Unix, and notepad on Windows, where vi is not usually present.
+func defaultEditor(goos string) string {
+	if goos == "windows" {
+		return "notepad"
+	}
+
+	return "vi"
 }
 
 // fileArgs are the arguments naming the file, and the line if the editor takes

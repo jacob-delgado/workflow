@@ -270,7 +270,7 @@ func hookDeps(ctx context.Context, root string) tui.HookDeps {
 				return nil, true
 			}
 
-			return hooks.ExistingHooks(os.DirFS(dir)), hooks.HasConfig(os.DirFS(root))
+			return hooks.ExistingHooks(os.DirFS(dir), runtime.GOOS), hooks.HasConfig(os.DirFS(root))
 		},
 		Write: func(generated hooks.Generated) error {
 			err := hooks.Write(root, generated)

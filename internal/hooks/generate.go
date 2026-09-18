@@ -71,14 +71,15 @@ func gitHookNames() []string {
 }
 
 // ExistingHooks finds the hooks git would run from a hooks directory, in git's
-// order: files named for a hook, with the executable bit git checks, that
-// lefthook does not already manage.
-func ExistingHooks(hooksDir fs.FS) []GitHook {
+// order: files named for a hook, runnable as one, that lefthook does not already
+// manage. Whether a file is runnable is decided by goos, since Windows has no
+// executable bit to check.
+func ExistingHooks(hooksDir fs.FS, goos string) []GitHook {
 	var found []GitHook
 
 	for _, name := range gitHookNames() {
 		info, err := fs.Stat(hooksDir, name)
-		if err != nil || info.IsDir() || info.Mode().Perm()&executableBits == 0 {
+		if err != nil || info.IsDir() || !runnableHook(info.Mode(), goos) {
 			continue
 		}
 
@@ -91,6 +92,17 @@ func ExistingHooks(hooksDir fs.FS) []GitHook {
 	}
 
 	return found
+}
+
+// runnableHook reports whether git would run a file as a hook: executable on
+// Unix, and any regular file on Windows, where Go reports no executable bit
+// (0666 or 0444 for every file) so the bit cannot be the test.
+func runnableHook(mode fs.FileMode, goos string) bool {
+	if goos == "windows" {
+		return true
+	}
+
+	return mode.Perm()&executableBits != 0
 }
 
 // Structured writes a configuration that runs each hook of plain commands as

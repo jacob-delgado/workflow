@@ -56,7 +56,7 @@ func TestExistingHooksAreTheOnesGitWouldRun(t *testing.T) {
 	}
 
 	// Act
-	found := hooks.ExistingHooks(dir)
+	found := hooks.ExistingHooks(dir, "linux")
 
 	// Assert
 	// Git's own order, not the directory's: commit-msg after pre-commit. Not
@@ -73,6 +73,25 @@ func TestExistingHooksAreTheOnesGitWouldRun(t *testing.T) {
 
 	if found[0].Script != simplePreCommit {
 		t.Errorf("the script was not read whole: %q", found[0].Script)
+	}
+}
+
+func TestExistingHooksNeedNoExecutableBitOnWindows(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	// Go reports no executable bit for any file on Windows, so requiring one
+	// would find no hooks there; a plain, non-executable file must count.
+	dir := fstest.MapFS{
+		preCommit: {Data: []byte(simplePreCommit), Mode: 0o644},
+	}
+
+	// Act
+	found := hooks.ExistingHooks(dir, "windows")
+
+	// Assert
+	if len(found) != 1 || found[0].Name != preCommit {
+		t.Errorf("ExistingHooks on Windows = %+v, want the non-executable pre-commit found", found)
 	}
 }
 
