@@ -62,7 +62,14 @@ readonly out_dir="${OUT_DIR:-${repo_root}/tmp/gobco}"
 # pinned Go, every package in this module reads fine. require_current_gobco
 # below now fails loudly on that mismatch, because the failure mode it caused is
 # the worst kind: the gate kept passing while quietly measuring less.
-readonly UNANALYZABLE=""
+#
+# internal/proc/pgroup is the build-tagged twin point 4 above anticipated: its
+# Isolate has a Unix half (Setpgid, a group SIGKILL) and a no-op half for the
+# rest, and gobco, ignoring build tags, reads both and dies on the redeclaration.
+# The platform glue carries no branch worth measuring; proc.Start's own test
+# exercises the Unix path end to end. It lives in its own package so this one
+# entry does not cost internal/proc its coverage.
+readonly UNANALYZABLE="internal/proc/pgroup"
 
 # Packages with no tests, each with the reason it has none. gobco measures
 # conditions by running a package's tests, so a package without any cannot be
@@ -70,7 +77,10 @@ readonly UNANALYZABLE=""
 # untested package would shrink what "every package" covers without a trace.
 # These three are thin mains: cmd/workflow wires cli.Execute, and cmd/docsgen
 # and cmd/testshape are the mains behind internal/ packages that carry the tests.
-readonly NO_TESTS="cmd/workflow cmd/docsgen cmd/testshape"
+# internal/proc/pgroup is platform glue with no test of its own: its Unix path is
+# exercised end to end by proc.Start's grandchild-kill test, and it is also in
+# UNANALYZABLE, so gobco could not measure it in any case.
+readonly NO_TESTS="cmd/workflow cmd/docsgen cmd/testshape internal/proc/pgroup"
 
 # gobco carries the go/types of the Go that built it (see above), so a gobco
 # built by an older Go silently shrinks what this gate covers. Refuse to run.

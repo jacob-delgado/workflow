@@ -53,6 +53,20 @@ func actAsHelper(mode string) {
 		fmt.Fprintln(os.Stdout, os.Getenv("WORKFLOW_PROC_VALUE"))
 	case "sleep":
 		time.Sleep(time.Minute)
+	case "grandchild":
+		// Spawn a long-lived grandchild — another copy of this binary, sleeping —
+		// print its pid, then block, so a test can cancel the run and check the
+		// grandchild died with its parent rather than outliving it.
+		//nolint:noctx // this test binary re-run as the sleeper above, in a helper that has no context to thread
+		grand := exec.Command(os.Args[0], "-test.run=^$")
+
+		grand.Env = append(os.Environ(), helperMode+"=sleep")
+
+		_ = grand.Start()
+
+		fmt.Fprintln(os.Stdout, grand.Process.Pid)
+
+		_ = grand.Wait()
 	case "long":
 		// A line past what Start will deliver, then more output the program
 		// must still be able to write.

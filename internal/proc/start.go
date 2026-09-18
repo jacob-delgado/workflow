@@ -10,6 +10,8 @@ import (
 	"io"
 	"os"
 	"os/exec"
+
+	"github.com/jacob-delgado/workflow/internal/proc/pgroup"
 )
 
 // maxLine is the longest line Start delivers whole. A longer one — a minified
@@ -54,6 +56,11 @@ func Start(ctx context.Context, program Command) (Output, error) {
 	if err != nil {
 		return Output{}, err
 	}
+
+	// A streamed program is the kind that spawns children of its own — a push
+	// runs ssh, a hook runs whatever it likes — so canceling ctx kills the whole
+	// group, not the child alone. Run and Capture are quick reads that do not.
+	pgroup.Isolate(command)
 
 	reader, writer, err := os.Pipe()
 	if err != nil {
