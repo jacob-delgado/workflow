@@ -145,6 +145,7 @@ type Config struct {
 	UI     UI     `json:"ui"`
 	Timing Timing `json:"timing"`
 	Branch Branch `json:"branch"`
+	Commit Commit `json:"commit"`
 	// Path is the file this configuration was read from. It is not part of the
 	// file format.
 	Path string `json:"-"`
@@ -274,7 +275,7 @@ func LoadFile(path string) (Config, error) {
 		return Default(), fmt.Errorf("%w: %s: %w", ErrInvalid, path, err)
 	}
 
-	err = errors.Join(cfg.validateTiming(), cfg.validateBranch(), cfg.validateViews())
+	err = errors.Join(cfg.validateTiming(), cfg.validateBranch(), cfg.validateViews(), cfg.validateCommit())
 	if err != nil {
 		return Default(), fmt.Errorf("%w: %s: %w", ErrInvalid, path, err)
 	}

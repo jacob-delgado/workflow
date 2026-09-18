@@ -75,6 +75,7 @@ which one was read.
 | `branch.template` | no | Shape of a proposed branch name from `{prefix}`, `{key}` and `{slug}`. Must contain `{key}`. Defaults to `{prefix}/{key}-{slug}`. |
 | `branch.prefixes` | no | Map from issue type to branch prefix, e.g. `{"bug": "bugfix"}`. The type is matched without regard to case, and this replaces the built-in `{"bug": "fix"}` rather than adding to it. |
 | `branch.default_prefix` | no | Prefix for an issue type not named in `branch.prefixes`. Defaults to `feat`. |
+| `commit.default_scope` | no | Scope the commit composer opens with when no kept draft has one, e.g. `api`. Must be a valid Conventional Commit scope. Empty (the default) opens with no scope. |
 
 Unknown keys are an error rather than being ignored. A misspelled key that
 loaded silently would look exactly like a credential you never set.
