@@ -22,6 +22,7 @@ import (
 	"github.com/jacob-delgado/workflow/internal/forge"
 	"github.com/jacob-delgado/workflow/internal/gitrepo"
 	"github.com/jacob-delgado/workflow/internal/hooks"
+	"github.com/jacob-delgado/workflow/internal/issuecache"
 	"github.com/jacob-delgado/workflow/internal/jira"
 	"github.com/jacob-delgado/workflow/internal/proc"
 	"github.com/jacob-delgado/workflow/internal/sanitize"
@@ -69,6 +70,24 @@ func Deps(ctx context.Context, cfg config.Config, where Workspace, log *RequestL
 		Clock:      nil,
 		CIInterval: cfg.CIInterval(),
 		Notify:     ringTerminal,
+		Cache:      cacheDeps(cfg.Jira.BaseURL),
+	}
+}
+
+// cacheDeps reads and writes the issue-list cache for a Jira instance. When no
+// cache directory can be found, it returns empty seams, and the interface waits
+// on Jira as it did before.
+func cacheDeps(baseURL string) tui.CacheDeps {
+	path, err := issuecache.Path(baseURL)
+	if err != nil {
+		return tui.CacheDeps{}
+	}
+
+	return tui.CacheDeps{
+		LoadIssues: func() []jira.Issue { return issuecache.Read(path) },
+		// A cache write is best effort: if it fails, the next start simply waits
+		// on Jira, which is the behavior without a cache at all.
+		SaveIssues: func(issues []jira.Issue) { _ = issuecache.Write(path, issues) },
 	}
 }
 

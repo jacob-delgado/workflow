@@ -97,6 +97,10 @@ type world struct {
 	forgeKind forge.Kind
 	author    string
 	postErr   error
+	// cachedIssues seeds the Issues pane before Jira answers; savedIssues records
+	// what the session wrote back to the cache.
+	cachedIssues []jira.Issue
+	savedIssues  []jira.Issue
 	// postGate, when set, holds every post, already recorded, until it is
 	// closed: a Slack that is slow to answer.
 	postGate   chan struct{}
@@ -144,6 +148,14 @@ func (w *world) record(call string) {
 	defer w.mu.Unlock()
 
 	w.calls = append(w.calls, call)
+}
+
+// saved is the issue list the interface last wrote to the cache.
+func (w *world) saved() []jira.Issue {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+
+	return slices.Clone(w.savedIssues)
 }
 
 // asked reports every call starting with prefix.
@@ -209,6 +221,15 @@ func (w *world) deps() tui.Deps {
 		Clock:      testNow,
 		CIInterval: w.ciInterval,
 		Notify:     func() { w.record("notify") },
+		Cache: tui.CacheDeps{
+			LoadIssues: func() []jira.Issue { return w.cachedIssues },
+			SaveIssues: func(issues []jira.Issue) {
+				w.record("cache-save")
+				w.mu.Lock()
+				w.savedIssues = slices.Clone(issues)
+				w.mu.Unlock()
+			},
+		},
 	}
 }
 

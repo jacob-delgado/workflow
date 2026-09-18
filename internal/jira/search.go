@@ -34,17 +34,19 @@ const searchFields = "summary,status,issuetype,priority"
 // through them.
 const searchLimit = 50
 
-// Issue is one row of a search.
+// Issue is one row of a search. Its JSON tags are the on-disk cache format
+// rather than the Jira wire format, which wireIssue carries; a search decodes
+// the wire form and flattens it into this.
 type Issue struct {
-	Key            string
-	Summary        string
-	Status         string
-	StatusCategory string
+	Key            string `json:"key"`
+	Summary        string `json:"summary"`
+	Status         string `json:"status"`
+	StatusCategory string `json:"status_category"`
 	// Type is the issue type's name, such as Bug or Story.
-	Type string
+	Type string `json:"type"`
 	// Priority is the priority's name, or empty on an instance that has turned
 	// priorities off — Jira then sends null.
-	Priority string
+	Priority string `json:"priority"`
 }
 
 // SearchResult is a page of issues and how many matched in all.

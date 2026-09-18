@@ -23,12 +23,52 @@ type issuesLoaded struct {
 	startAt int
 }
 
-// apply records the answer, and asks for the selected issue in full.
+// apply records the answer, asks for the selected issue in full, and saves a
+// fresh first page to the cache so the next start shows it at once.
 func (msg issuesLoaded) apply(m Model) (Model, tea.Cmd) {
 	m.issues = m.issues.settle(msg)
 	m = m.resumeIssue()
 
-	return m.loadDetail()
+	updated, detail := m.loadDetail()
+	if msg.startAt == 0 && msg.err == nil {
+		return updated, tea.Batch(detail, updated.saveIssues())
+	}
+
+	return updated, detail
+}
+
+// seed shows the last saved issue list at once, before Jira answers, so the
+// pane is useful on the first frame. An empty or absent cache changes nothing.
+func (l issueList) seed(load func() []jira.Issue) issueList {
+	if load == nil {
+		return l
+	}
+
+	cached := load()
+	if len(cached) == 0 {
+		return l
+	}
+
+	l.found = jira.SearchResult{Issues: cached, Total: len(cached)}
+	l.settled = true
+
+	return l
+}
+
+// saveIssues persists the loaded list for the next start, best effort.
+func (m Model) saveIssues() tea.Cmd {
+	save := m.deps.Cache.SaveIssues
+	if save == nil {
+		return nil
+	}
+
+	issues := m.issues.found.Issues
+
+	return func() tea.Msg {
+		save(issues)
+
+		return nil
+	}
 }
 
 // issueList is the Issues pane's state. Loading, failed, empty and listing are

@@ -49,6 +49,17 @@ using that project?" so hard to debug.
 `workflow doctor` names the file in effect, so there is never a question about
 which one was read.
 
+## The issue cache
+
+So the Issues pane is useful the instant it opens, workflow remembers the last
+session's assigned-issue list in a small file under your user cache directory
+(`~/.cache/workflow` on Linux, `~/Library/Caches/workflow` on macOS), one file
+per Jira instance. It holds only what the pane shows — issue keys, summaries and
+statuses, never descriptions or comments — written so that only you can read it,
+and it is replaced from Jira on every start. Delete it at any time; it is
+rebuilt on the next run, and until it exists the pane simply waits on Jira as it
+always did.
+
 ## Fields
 
 | Field | Required | Description |

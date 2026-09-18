@@ -40,6 +40,21 @@ type Deps struct {
 	// finishes while the developer is looking elsewhere. Nil where the interface
 	// cannot reach the terminal to ring it.
 	Notify func()
+	// Cache reads and writes the last assigned-issue list on disk, so the Issues
+	// pane can paint before Jira answers.
+	Cache CacheDeps
+}
+
+// CacheDeps is the interface's on-disk memory of the assigned-issue list. Both
+// functions are nil when no cache location could be found; each is guarded
+// before use, and a nil pair simply means no head start.
+type CacheDeps struct {
+	// LoadIssues returns the issues last saved, or nil when there is no usable
+	// cache.
+	LoadIssues func() []jira.Issue
+	// SaveIssues persists the list for the next start. It is best effort: a
+	// failure to write is not worth interrupting the session for.
+	SaveIssues func([]jira.Issue)
 }
 
 // JiraDeps is what the interface asks of Jira.
