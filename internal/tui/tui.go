@@ -106,6 +106,7 @@ func New(cfg config.Config, loadErr error, deps Deps) Model {
 // Slack, git and files — and saying instead what it would have done. Reads stay
 // live, so what it says is about the real state of things.
 func (m Model) WithDryRun() Model {
+	m.deps = heldBack(m.deps)
 	m.dryRun = true
 
 	return m

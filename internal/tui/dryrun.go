@@ -1,0 +1,112 @@
+// Copyright 2026 Jacob Delgado
+// SPDX-License-Identifier: Apache-2.0
+
+package tui
+
+import (
+	"errors"
+
+	"github.com/jacob-delgado/workflow/internal/forge"
+	"github.com/jacob-delgado/workflow/internal/gitrepo"
+	"github.com/jacob-delgado/workflow/internal/hooks"
+	"github.com/jacob-delgado/workflow/internal/jira"
+	"github.com/jacob-delgado/workflow/internal/proc"
+)
+
+// errDryRun is what a write seam returns once dry run has held it back, so a
+// call that forgot its own dry-run guard fails safe — it reaches no service and
+// says why — rather than writing for real.
+var errDryRun = errors.New("held back by dry run")
+
+// heldBack replaces every write seam in deps with one that writes nothing and
+// returns errDryRun, so holding writes back is a property of the seams and not
+// only of the scattered guards at each call site. A nil seam stays nil: nil
+// means the feature is unavailable, which dry run must not turn on.
+func heldBack(deps Deps) Deps {
+	deps.Jira = heldBackJira(deps.Jira)
+	deps.Git = heldBackGit(deps.Git)
+
+	return heldBackServices(deps)
+}
+
+// heldBackJira holds back the writes to Jira.
+func heldBackJira(deps JiraDeps) JiraDeps {
+	if deps.Transition != nil {
+		deps.Transition = func(string, jira.Transition, []jira.FieldValue) error { return errDryRun }
+	}
+
+	if deps.Comment != nil {
+		deps.Comment = func(string, string) (jira.Comment, error) { return jira.Comment{}, errDryRun }
+	}
+
+	if deps.LinkPullRequest != nil {
+		deps.LinkPullRequest = func(string, string, string) error { return errDryRun }
+	}
+
+	return deps
+}
+
+// heldBackGit holds back the writes to the repository.
+func heldBackGit(deps GitDeps) GitDeps {
+	if deps.Stage != nil {
+		deps.Stage = func(gitrepo.Change) error { return errDryRun }
+	}
+
+	if deps.Unstage != nil {
+		deps.Unstage = func(gitrepo.Change) error { return errDryRun }
+	}
+
+	if deps.CreateBranch != nil {
+		deps.CreateBranch = func(string, string) error { return errDryRun }
+	}
+
+	if deps.Checkout != nil {
+		deps.Checkout = func(string) error { return errDryRun }
+	}
+
+	if deps.CreateWorktree != nil {
+		deps.CreateWorktree = func(string, string) (string, error) { return "", errDryRun }
+	}
+
+	return heldBackStreams(deps)
+}
+
+// heldBackStreams holds back the repository writes that stream their output.
+func heldBackStreams(deps GitDeps) GitDeps {
+	if deps.Commit != nil {
+		deps.Commit = func(string) (proc.Output, error) { return proc.Output{}, errDryRun }
+	}
+
+	if deps.Push != nil {
+		deps.Push = func(string) (proc.Output, error) { return proc.Output{}, errDryRun }
+	}
+
+	if deps.Rebase != nil {
+		deps.Rebase = func(string) (proc.Output, error) { return proc.Output{}, errDryRun }
+	}
+
+	return deps
+}
+
+// heldBackServices holds back the writes to the forge, Slack and lefthook.
+func heldBackServices(deps Deps) Deps {
+	if deps.Forge.CreatePullRequest != nil {
+		deps.Forge.CreatePullRequest = func(forge.NewPullRequest) (forge.PullRequest, error) {
+			return forge.PullRequest{}, errDryRun
+		}
+	}
+
+	if deps.Slack.Post != nil {
+		deps.Slack.Post = func(string, string) error { return errDryRun }
+	}
+
+	if deps.Hooks.Run != nil {
+		deps.Hooks.Run = func(string) (proc.Output, error) { return proc.Output{}, errDryRun }
+	}
+
+	if deps.Hooks.Write != nil {
+		deps.Hooks.Write = func(hooks.Generated) error { return errDryRun }
+	}
+
+	return deps
+}

@@ -101,26 +101,6 @@ Severity: medium · Confidence: read
 - Done when: the failure appliers are one function, and the comment preview
   survives an editor failure.
 
-### DEBT-09 Dry run is twelve `if`s, not a property of the seam
-
-Severity: medium · Confidence: read
-
-- Evidence: `if m.dryRun` at `internal/tui/picker.go:258`,
-  `internal/tui/comment.go:110`, `internal/tui/branch.go:282`,
-  `internal/tui/commits.go:221`, `:242` and `:276`,
-  `internal/tui/composer.go:282`, `internal/tui/prcomposer.go:274`,
-  `internal/tui/run.go:296`, `internal/tui/slack.go:218` and `:234`,
-  `internal/tui/hookgen.go:125`. `WithDryRun` (`internal/tui/tui.go:90`) sets
-  a flag and swaps nothing.
-- Cost: a new write that forgets its guard writes for real under `--dry-run`,
-  and nothing structural stops it. DEBT-35 makes this worse: no test connects
-  the flag to the model at all.
-- Remedy: keep the per-action messages, and have `WithDryRun` also replace
-  every write function in `Deps` with one that returns a sentinel, so a missed
-  guard fails safe.
-- Done when: a test that calls every write seam under dry run sees none of
-  them reach the fake.
-
 ### DEBT-10 Five lists, three clamps, and click math that mirrors the view
 
 Severity: low · Confidence: reproduced
