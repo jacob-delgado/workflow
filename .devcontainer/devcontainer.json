@@ -4,7 +4,7 @@
   "features": {
     // Lets `task container:check` and `task container:release` run their build
     // container from inside this one.
-    "ghcr.io/devcontainers/features/docker-in-docker:2": {
+    "ghcr.io/devcontainers/features/docker-in-docker:4": {
       "moby": true
     }
   },
