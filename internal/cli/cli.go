@@ -81,8 +81,8 @@ SECURITY
 
 // Execute runs the command tree with the given arguments and streams. It
 // returns an error rather than exiting, so tests can drive it.
-func Execute(args []string, stdout, stderr io.Writer) error {
-	root := NewRootCmd()
+func Execute(args []string, stdout, stderr io.Writer, prompt Prompt) error {
+	root := NewRootCmd(prompt)
 	root.SetArgs(args)
 	root.SetOut(stdout)
 	root.SetErr(stderr)
@@ -95,8 +95,10 @@ func Execute(args []string, stdout, stderr io.Writer) error {
 	return nil
 }
 
-// NewRootCmd builds the command tree. Bare `workflow` opens the TUI.
-func NewRootCmd() *cobra.Command {
+// NewRootCmd builds the command tree. Bare `workflow` opens the TUI. The prompt
+// is how `config init` asks for credentials; a zero one is fine for a caller
+// that only walks the tree, such as the reference generator.
+func NewRootCmd(prompt Prompt) *cobra.Command {
 	var (
 		dryRun  bool
 		logFile string
@@ -139,7 +141,7 @@ func NewRootCmd() *cobra.Command {
 	root.Flags().StringVar(&logFile, "log", "",
 		"append a one-line outline of each request (method, path, status, duration) to FILE, for a bug report")
 
-	root.AddCommand(newConfigCmd(), newDoctorCmd())
+	root.AddCommand(newConfigCmd(prompt), newDoctorCmd())
 
 	return root
 }

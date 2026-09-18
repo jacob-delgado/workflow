@@ -18,6 +18,6 @@ Create and inspect the configuration file
 ### SEE ALSO
 
 * [workflow](../workflow/)	 - Run your Jira, Slack, and Git forge workflow from the terminal
-* [workflow config init](../workflow_config_init/)	 - Write a starting configuration file
+* [workflow config init](../workflow_config_init/)	 - Set up the configuration file, asking for and checking each credential
 * [workflow config show](../workflow_config_show/)	 - Print the configuration in effect, with tokens masked
 
