@@ -27,6 +27,10 @@ type reviewState struct {
 	checkedAt time.Time
 	ciErr     error
 	polling   bool
+	// generation rises each time a genuinely new review begins, so a poll left
+	// over from an earlier one recognizes itself as stale and stops rather than
+	// starting a fresh chain of its own.
+	generation int
 }
 
 // ciCheckedFormat stamps the CI line with when it was last read.
@@ -76,9 +80,19 @@ func (msg pullFound) apply(m Model) (Model, tea.Cmd) {
 		return m, nil
 	}
 
-	m.review = reviewState{pull: msg.pull, found: msg.found, loaded: true, err: msg.err}
+	if m.review.found && msg.found && msg.pull.Number == m.review.pull.Number {
+		// The same pull request, found again: keep its CI and any poll already
+		// running, so a refresh does not blank the display or start a second
+		// polling chain beside the one already going.
+		m.review.pull, m.review.err = msg.pull, msg.err
+	} else {
+		m.review = reviewState{
+			pull: msg.pull, found: msg.found, loaded: true, err: msg.err,
+			generation: m.review.generation + 1,
+		}
+	}
 
-	if !msg.found {
+	if !m.review.found {
 		return m, nil
 	}
 
@@ -143,17 +157,20 @@ func (m Model) ciFinishNotice(was, now forge.CIState) tea.Cmd {
 	}
 }
 
-// keepPolling schedules the next check while CI runs or a post waits, unless
-// one is already scheduled.
+// keepPolling schedules the next check while CI runs or a post waits, unless one
+// is already scheduled or the last check failed. A failed check would only fail
+// again at the same rate, so it stops until the next refresh rather than asking
+// for as long as the program runs.
 func (m Model) keepPolling(then tea.Cmd) (Model, tea.Cmd) {
 	waiting := m.review.ci.State == forge.CIRunning || m.slack.pending.waiting()
-	if !waiting || m.review.polling {
+	if !waiting || m.review.ciErr != nil || m.review.polling {
 		return m, then
 	}
 
 	m.review.polling = true
+	poll := ciPoll{number: m.review.pull.Number, generation: m.review.generation}
 
-	return m, tea.Batch(then, tea.Tick(m.pollInterval(), func(time.Time) tea.Msg { return ciPoll{} }))
+	return m, tea.Batch(then, tea.Tick(m.pollInterval(), func(time.Time) tea.Msg { return poll }))
 }
 
 // notifyPollInterval is how often CI is asked about when the developer only
@@ -172,11 +189,20 @@ func (m Model) pollInterval() time.Duration {
 	return m.deps.ciInterval()
 }
 
-// ciPoll is time to ask about CI again.
-type ciPoll struct{}
+// ciPoll is time to ask about CI again, for the pull request and the review it
+// was scheduled in. A poll from a review since replaced is stale.
+type ciPoll struct {
+	number     int
+	generation int
+}
 
-// apply asks again.
-func (ciPoll) apply(m Model) (Model, tea.Cmd) {
+// apply asks again, unless it belongs to a review that has since been replaced,
+// in which case it does nothing and its chain ends here.
+func (msg ciPoll) apply(m Model) (Model, tea.Cmd) {
+	if !m.review.found || msg.number != m.review.pull.Number || msg.generation != m.review.generation {
+		return m, nil
+	}
+
 	m.review.polling = false
 
 	return m, m.checkCI()

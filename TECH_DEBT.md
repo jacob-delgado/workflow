@@ -55,28 +55,6 @@ terminal or a release.
 
 ## The terminal interface
 
-### DEBT-02 CI polling chains multiply
-
-Severity: medium · Confidence: reproduced
-
-- Evidence: `pullFound.apply` replaces the whole `reviewState`
-  (`internal/tui/review.go:59`), which zeroes `polling` while a tick may be
-  outstanding. `ciPoll` (`internal/tui/review.go:117`) carries no pull request
-  number or generation, and `keepPolling` (`internal/tui/review.go:105`)
-  starts a tick whenever `polling` is false. Every `branchLoaded` leads to a
-  new `pullFound` (`internal/tui/branch.go:45`).
-- Cost: measured with a 50 ms interval over 500 ms: 0, 1, 2 and 3 refreshes
-  gave 10, 20, 30 and 40 `CheckStatus` calls. Each `r`, commit or push while
-  CI runs adds up to one more chain, until CI finishes. The state also drops
-  back to "checking…" on each refresh of the same pull request. Separately,
-  `ciChecked.apply` never looks at its error, so a failing check with a post
-  waiting is asked again at the full rate for as long as the program runs.
-- Remedy: give `ciPoll` the pull request number and a generation, as `runs`
-  does for command runs; keep `ci`, `checked` and `polling` when the same pull
-  request is found again; back off on errors.
-- Done when: a test that refreshes twice during polling counts one check per
-  interval.
-
 ### DEBT-07 Six overlays, one state machine, written six times
 
 Severity: medium · Confidence: read
