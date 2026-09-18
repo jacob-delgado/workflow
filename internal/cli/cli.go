@@ -9,6 +9,8 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"os/signal"
+	"syscall"
 
 	"github.com/spf13/cobra"
 
@@ -82,13 +84,30 @@ SECURITY
 
 // Execute runs the command tree with the given arguments and streams. It
 // returns an error rather than exiting, so tests can drive it.
+//
+// SIGINT and SIGTERM cancel the context every command runs under, which flows to
+// each HTTP request and subprocess: a hung `doctor --online` or a slow git
+// command stops on the first Ctrl+C rather than needing a second, harder signal.
+// The interface puts the terminal in raw mode, where Ctrl+C arrives as a key
+// rather than a signal, so this does not fight Bubble Tea's own handling.
 func Execute(args []string, stdout, stderr io.Writer, prompt Prompt) error {
-	root := NewRootCmd(prompt)
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer stop()
+
+	return execute(ctx, args, stdout, stderr, prompt)
+}
+
+// execute runs the command tree under ctx, so a test can pass a context it
+// controls without raising a real signal.
+func execute(ctx context.Context, args []string, stdout, stderr io.Writer, prompt Prompt) error {
+	// The command tree carries no context; ctx reaches each command through
+	// Cobra's ExecuteContext below, which is how cmd.Context() is set.
+	root := NewRootCmd(prompt) //nolint:contextcheck // ctx is delivered by ExecuteContext, not the constructor.
 	root.SetArgs(args)
 	root.SetOut(stdout)
 	root.SetErr(stderr)
 
-	err := root.Execute()
+	err := root.ExecuteContext(ctx)
 	if err != nil {
 		return fmt.Errorf("workflow: %w", err)
 	}
