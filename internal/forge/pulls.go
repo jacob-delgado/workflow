@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"net/url"
 	"strings"
+	"time"
 )
 
 // Mergeability is whether the forge thinks a pull request can merge as it
@@ -23,6 +24,9 @@ const (
 	// MergeConflicts means the branch conflicts with its base.
 	MergeConflicts
 )
+
+// queryState is the query parameter both forges name the open/closed filter.
+const queryState = "state"
 
 // PullRequest is a pull request on GitHub, or a merge request on GitLab.
 type PullRequest struct {
@@ -51,21 +55,41 @@ type NewPullRequest struct {
 	Draft bool
 }
 
+// ReviewRequest is an open pull or merge request that asks for your review. It
+// carries what a review queue is read for — who wants it, since when, and where
+// CI stands — across whichever repositories on the forge requested you.
+type ReviewRequest struct {
+	Number int
+	URL    string
+	Title  string
+	Author string
+	// Repository is the owner/name (GitHub) or group/project (GitLab) the request
+	// is in, since a review queue spans repositories.
+	Repository string
+	Draft      bool
+	// CI is best effort: the forge's own summary where the listing carries one,
+	// and CINone where it does not, since the queue is read without a follow-up
+	// request per entry.
+	CI       CIState
+	OpenedAt time.Time
+}
+
 // dialect is how one forge answers the questions a review needs. The two
 // forges agree on what a pull request is and on almost nothing about how to ask
 // for one.
 type dialect struct {
-	find   func(ctx context.Context, c Client, repo Repo, branch string) (PullRequest, bool, error)
-	create func(ctx context.Context, c Client, repo Repo, request NewPullRequest) (PullRequest, error)
-	status func(ctx context.Context, c Client, repo Repo, pull PullRequest, head string) (CI, error)
+	find    func(ctx context.Context, c Client, repo Repo, branch string) (PullRequest, bool, error)
+	create  func(ctx context.Context, c Client, repo Repo, request NewPullRequest) (PullRequest, error)
+	status  func(ctx context.Context, c Client, repo Repo, pull PullRequest, head string) (CI, error)
+	reviews func(ctx context.Context, c Client) ([]ReviewRequest, error)
 }
 
 // dialectFor is the dialect of a forge, or ErrUnknownForge for a host whose
 // forge could not be told.
 func dialectFor(kind Kind) (dialect, error) {
 	dialects := map[Kind]dialect{
-		KindGitHub: {find: githubFind, create: githubCreate, status: githubStatus},
-		KindGitLab: {find: gitlabFind, create: gitlabCreate, status: gitlabStatus},
+		KindGitHub: {find: githubFind, create: githubCreate, status: githubStatus, reviews: githubReviews},
+		KindGitLab: {find: gitlabFind, create: gitlabCreate, status: gitlabStatus, reviews: gitlabReviews},
 	}
 
 	found, ok := dialects[kind]
@@ -105,6 +129,18 @@ func (c Client) CheckStatus(ctx context.Context, repo Repo, pull PullRequest, he
 	}
 
 	return speaks.status(ctx, c, repo, pull, head)
+}
+
+// ReviewRequests lists the open pull or merge requests on the forge that ask
+// the token's owner for a review. The kind chooses how to ask; the client can
+// only reach the one forge its base URL points at.
+func (c Client) ReviewRequests(ctx context.Context, kind Kind) ([]ReviewRequest, error) {
+	speaks, err := dialectFor(kind)
+	if err != nil {
+		return nil, err
+	}
+
+	return speaks.reviews(ctx, c)
 }
 
 // repoCall is call for a request about one repository, where 404 means the

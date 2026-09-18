@@ -43,6 +43,9 @@ format that may still change before 1.0.
 - `workflow standup` drafts what you did — your recent commits, the issues you
   touched and the open pull requests on your branches — for you to edit and,
   optionally, post to Slack.
+- `workflow reviews` lists the pull requests on your forge that are waiting on
+  your review — the longest-waiting first, with the author, how CI stands and
+  how long each has waited.
 
 ## Install
 

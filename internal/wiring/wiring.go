@@ -289,6 +289,14 @@ func forgeDeps(
 
 			return connection.client.CheckStatus(ctx, connection.repo, pull, head)
 		},
+		ReviewRequests: func() ([]forge.ReviewRequest, error) {
+			connection, err := connect()
+			if err != nil {
+				return nil, err
+			}
+
+			return connection.client.ReviewRequests(ctx, connection.repo.Kind)
+		},
 		Templates: func() []forge.Template { return templatesFor(settings, where) },
 		Author: func() (string, error) {
 			connection, err := connect()
