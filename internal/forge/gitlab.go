@@ -83,7 +83,7 @@ func gitlabProjectPath(repo Repo) string {
 
 // gitlabFind finds the open merge request from a branch.
 func gitlabFind(ctx context.Context, client Client, repo Repo, branch string) (PullRequest, bool, error) {
-	query := url.Values{"source_branch": {branch}, queryState: {"opened"}}.Encode()
+	query := url.Values{"source_branch": {branch}, queryState: {stateOpened}}.Encode()
 
 	merges, err := repoCall[[]gitlabMerge](ctx, client, repo, http.MethodGet,
 		gitlabProjectPath(repo)+"/merge_requests?"+query, nil)
@@ -97,8 +97,12 @@ func gitlabFind(ctx context.Context, client Client, repo Repo, branch string) (P
 	return pull, true, nil
 }
 
-// gitlabPerPage bounds one page of a merge request listing.
-const gitlabPerPage = 100
+// gitlabPerPage bounds one page of a listing; stateOpened is GitLab's name
+// for the open state.
+const (
+	gitlabPerPage = 100
+	stateOpened   = "opened"
+)
 
 // gitlabReviewMerge is a merge request as GitLab's listing sends it, with the
 // fields a review queue shows: who opened it, since when, and its head pipeline.
@@ -135,6 +139,79 @@ func (g gitlabReviewMerge) reviewRequest() ReviewRequest {
 	}
 }
 
+// gitlabIssue is an issue as GitLab sends it, from the listing or a single read.
+type gitlabIssue struct {
+	IID         int    `json:"iid"`
+	URL         string `json:"web_url"`
+	Title       string `json:"title"`
+	Description string `json:"description"`
+	Author      struct {
+		Username string `json:"username"`
+	} `json:"author"`
+}
+
+func (g gitlabIssue) issue() Issue {
+	return Issue{Number: g.IID, URL: g.URL, Title: g.Title}
+}
+
+func (g gitlabIssue) detail() IssueDetail {
+	return IssueDetail{Issue: g.issue(), Body: g.Description, Author: g.Author.Username}
+}
+
+// gitlabIssues lists the open issues in the project assigned to the token owner.
+// GitLab filters by assignee username, not a "me" token, so who the token
+// belongs to is asked first.
+func gitlabIssues(ctx context.Context, client Client, repo Repo) ([]Issue, error) {
+	viewer, err := client.Whoami(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	query := url.Values{
+		queryState:          {stateOpened},
+		"assignee_username": {viewer.Name()},
+		perPageParam:        {strconv.Itoa(gitlabPerPage)},
+	}.Encode()
+
+	listed, err := repoCall[[]gitlabIssue](ctx, client, repo, http.MethodGet,
+		gitlabProjectPath(repo)+issuesSegment+"?"+query, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	issues := make([]Issue, 0, len(listed))
+	for _, one := range listed {
+		issues = append(issues, one.issue())
+	}
+
+	return issues, nil
+}
+
+// gitlabReadIssue reads one issue's body and author.
+func gitlabReadIssue(ctx context.Context, client Client, repo Repo, number int) (IssueDetail, error) {
+	read, err := repoCall[gitlabIssue](ctx, client, repo, http.MethodGet,
+		gitlabProjectPath(repo)+issuesSegment+"/"+strconv.Itoa(number), nil)
+	if err != nil {
+		return IssueDetail{}, err
+	}
+
+	return read.detail(), nil
+}
+
+// gitlabIssueState is the PUT body that closes an issue. GitLab closes by an
+// event verb, not by a state.
+type gitlabIssueState struct {
+	StateEvent string `json:"state_event"`
+}
+
+// gitlabCloseIssue closes an issue.
+func gitlabCloseIssue(ctx context.Context, client Client, repo Repo, number int) error {
+	_, err := repoCall[gitlabIssue](ctx, client, repo, http.MethodPut,
+		gitlabProjectPath(repo)+issuesSegment+"/"+strconv.Itoa(number), gitlabIssueState{StateEvent: "close"})
+
+	return err
+}
+
 // gitlabReviews lists the merge requests that request the token owner's review.
 // GitLab filters by reviewer username, not a "me" token, so who the token
 // belongs to is asked first.
@@ -146,9 +223,9 @@ func gitlabReviews(ctx context.Context, client Client) ([]ReviewRequest, error) 
 
 	query := url.Values{
 		"scope":             {"all"},
-		queryState:          {"opened"},
+		queryState:          {stateOpened},
 		"reviewer_username": {viewer.Name()},
-		"per_page":          {strconv.Itoa(gitlabPerPage)},
+		perPageParam:        {strconv.Itoa(gitlabPerPage)},
 	}.Encode()
 
 	merges, err := call[[]gitlabReviewMerge](ctx, client, http.MethodGet, "/merge_requests?"+query, nil)
