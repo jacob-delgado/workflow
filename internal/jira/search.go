@@ -6,7 +6,6 @@ package jira
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"net/http"
 	"net/url"
@@ -140,19 +139,6 @@ func searchQuery(jql string, startAt int) string {
 		"maxResults": {strconv.Itoa(searchLimit)},
 		"startAt":    {strconv.Itoa(startAt)},
 	}.Encode()
-}
-
-// cause strips net/http's *url.Error down to what actually went wrong. Its
-// message quotes the whole request URL first — for a search, some 180
-// characters of encoded JQL — and the pane clips each line, so "no such host"
-// would be lost behind the query.
-func cause(err error) error {
-	transportErr, ok := errors.AsType[*url.Error](err)
-	if ok {
-		return transportErr.Err
-	}
-
-	return err
 }
 
 // result flattens the wire shape.

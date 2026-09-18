@@ -7,6 +7,8 @@ import (
 	"errors"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
+	"strings"
 	"testing"
 	"time"
 
@@ -54,5 +56,45 @@ func TestClientReturnsANonRedirectResponse(t *testing.T) {
 
 	if response != nil {
 		_ = response.Body.Close()
+	}
+}
+
+var errUnderlying = errors.New("no such host")
+
+func TestCauseStripsTheURLFromATransportError(t *testing.T) {
+	t.Parallel()
+
+	// A *url.Error quotes the whole request URL, which for a search is a long
+	// line of encoded query and, for a webhook, the credential itself.
+	wrapped := &url.Error{
+		Op:  "Get",
+		URL: "https://jira.example.com/rest/api/2/search?jql=secret-query",
+		Err: errUnderlying,
+	}
+
+	cases := map[string]struct {
+		err  error
+		want error
+	}{
+		"a url.Error yields its inner cause":     {err: wrapped, want: errUnderlying},
+		"a plain error passes through unchanged": {err: errUnderlying, want: errUnderlying},
+	}
+
+	for name, testCase := range cases {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			// Act
+			got := httpx.Cause(testCase.err)
+
+			// Assert
+			if !errors.Is(got, testCase.want) {
+				t.Errorf("Cause(%v) = %v, want %v", testCase.err, got, testCase.want)
+			}
+
+			if strings.Contains(got.Error(), "secret-query") {
+				t.Errorf("Cause kept the request URL: %v", got)
+			}
+		})
 	}
 }

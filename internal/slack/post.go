@@ -15,6 +15,7 @@ import (
 	"strings"
 
 	"github.com/jacob-delgado/workflow/internal/config"
+	"github.com/jacob-delgado/workflow/internal/httpx"
 	"github.com/jacob-delgado/workflow/internal/sanitize"
 )
 
@@ -158,7 +159,7 @@ func rejectionReason(code, channel string) string {
 func (c Client) deliver(request *http.Request) ([]byte, error) {
 	response, err := c.do(request)
 	if err != nil {
-		return nil, fmt.Errorf("%w: %w", ErrUnreachable, withoutURL(err))
+		return nil, fmt.Errorf("%w: %w", ErrUnreachable, httpx.Cause(err))
 	}
 	defer func() { _ = response.Body.Close() }()
 
@@ -177,17 +178,6 @@ func (c Client) deliver(request *http.Request) ([]byte, error) {
 	default:
 		return nil, fmt.Errorf("%w: %d", ErrUnexpectedStatus, response.StatusCode)
 	}
-}
-
-// withoutURL strips net/http's *url.Error down to its cause, which is the part
-// that does not quote the address.
-func withoutURL(err error) error {
-	transportErr, ok := errors.AsType[*url.Error](err)
-	if ok {
-		return transportErr.Err
-	}
-
-	return err
 }
 
 // Announcement is the message telling a channel a change is ready to review.

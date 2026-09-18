@@ -9,11 +9,25 @@ package httpx
 import (
 	"errors"
 	"net/http"
+	"net/url"
 	"time"
 )
 
 // ErrRedirected reports a redirect this client declined to follow.
 var ErrRedirected = errors.New("refused to follow a redirect")
+
+// Cause strips net/http's *url.Error down to what actually went wrong. Its
+// message quotes the whole request URL first — for a search, a long line of
+// encoded query a pane would clip — so the clients show the inner error rather
+// than let the address bury it, and read the same way while doing so.
+func Cause(err error) error {
+	transportErr, ok := errors.AsType[*url.Error](err)
+	if ok {
+		return transportErr.Err
+	}
+
+	return err
+}
 
 // ErrRateLimited reports a server that answered 429 Too Many Requests. It is its
 // own error so a caller is told to wait rather than that its credential was
