@@ -45,7 +45,6 @@ type Model struct {
 
 	width, height int
 	focus         pane
-	helpOpen      bool
 	mouse         bool
 	dryRun        bool
 	// scroll is how far the detail pane is scrolled; moving to another issue or
@@ -198,8 +197,6 @@ func (m Model) handleKey(msg tea.KeyMsg) (Model, tea.Cmd) {
 		return m.overlay.handleKey(m, msg)
 	case m.filteringIssues():
 		return m.handleIssueFilterKey(msg)
-	case m.helpOpen:
-		return m.handleHelpKey(msg)
 	default:
 		return m.handleGlobalKey(msg)
 	}
@@ -209,23 +206,6 @@ func (m Model) handleKey(msg tea.KeyMsg) (Model, tea.Cmd) {
 // filter, which takes every key — q and the digits included — until it closes.
 func (m Model) filteringIssues() bool {
 	return m.focus == paneIssues && m.issues.filtering
-}
-
-// handleHelpKey answers a key while the help is open, which scrolls on a
-// terminal too short to show every key at once.
-func (m Model) handleHelpKey(msg tea.KeyMsg) (Model, tea.Cmd) {
-	switch {
-	case key.Matches(msg, m.keys.quit):
-		return m, tea.Quit
-	case key.Matches(msg, m.keys.toggleHelp, m.keys.closeOverlay):
-		m.helpOpen, m.scroll = false, 0
-	case key.Matches(msg, m.keys.scrollDown, m.keys.down):
-		m.scroll += m.halfPage()
-	case key.Matches(msg, m.keys.scrollUp, m.keys.up):
-		m.scroll = max(0, m.scroll-m.halfPage())
-	}
-
-	return m, nil
 }
 
 // quitOrGuard quits, unless a post is waiting for CI, in which case it asks
@@ -247,7 +227,7 @@ func (m Model) handleGlobalKey(msg tea.KeyMsg) (Model, tea.Cmd) {
 	case key.Matches(msg, m.keys.quit):
 		return m.quitOrGuard()
 	case key.Matches(msg, m.keys.toggleHelp):
-		m.helpOpen, m.scroll = true, 0
+		return m.openHelp()
 	case key.Matches(msg, m.keys.next):
 		return m.focusOn((m.focus + 1) % paneCount), nil
 	case key.Matches(msg, m.keys.previous):
@@ -265,8 +245,6 @@ func (m Model) handleGlobalKey(msg tea.KeyMsg) (Model, tea.Cmd) {
 	default:
 		return behaviorOf(m.focus).handle(m, msg)
 	}
-
-	return m, nil
 }
 
 // halfPage is how far a scroll key moves the detail.

@@ -99,19 +99,18 @@ Severity: low · Confidence: read
 
 Severity: low · Confidence: read
 
-- Evidence: `Model` has 24 fields (`internal/tui/tui.go:34`) and 100 methods
-  in 16 files. Every overlay and applier takes and returns the whole value.
-  Feature state sits at the root (`runs`, `draft`). Help is an overlay in
-  every way but its type: `helpOpen` is special-cased at
-  `internal/tui/tui.go:159` and `:168`, `internal/tui/render.go:88` and
-  `:220`. `Update` itself is small and routes through `applier`.
-- Cost: DEBT-02 is state that outlived what it described, and the Slack
-  pane's state once was too, which is what happens when any message can reach
-  any field. This is a
-  judgment call, and a rewrite is not the answer.
-- Remedy: make help an `overlay`; move `runs` and `draft` beside the code that
-  owns them; give each pane's state the methods that change it.
-- Done when: `helpOpen` is gone.
+Done for help: `helpOpen` is gone. Help is now a `helpOverlay`
+(`internal/tui/help.go`) like the pickers and composers — it renders the key
+list it captures at open time, carries its own scroll so opening it no longer
+disturbs the detail pane's, and marks itself `lightBordered` so it keeps the
+light border an action overlay does not wear. `handleHelpKey` and its four
+special-case sites are gone; `Update` routes it through the overlay seam like
+everything else.
+
+- What remains, low value: `Model` still keeps some feature state at the root
+  (`runs`, `draft`, `prDraft`) rather than beside the code that owns it, and each
+  pane's state is still changed from wherever a message reaches it. That is the
+  judgment-call half the entry itself calls "not a rewrite"; left as noted.
 
 ### DEBT-13 Small things in the interface
 
