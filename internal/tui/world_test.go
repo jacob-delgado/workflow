@@ -111,6 +111,9 @@ type world struct {
 	editorErr  error
 	openURLErr error
 	ciInterval time.Duration
+	// unresolved are the places the fake editor cannot find a file for, the way
+	// go test prints one relative to its package.
+	unresolved []string
 }
 
 // newWorld is a repository on a feature branch for an issue in progress, with
@@ -327,6 +330,13 @@ func (w *world) editorDeps() tui.EditorDeps {
 			w.record("open-editor " + file + ":" + strconv.Itoa(line))
 
 			return func() tea.Msg { return done(w.editorErr) }
+		},
+		Resolve: func(file string) (string, bool) {
+			if slices.Contains(w.unresolved, file) {
+				return "", false
+			}
+
+			return file, true
 		},
 	}
 }

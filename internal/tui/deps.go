@@ -126,6 +126,32 @@ type HookDeps struct {
 type EditorDeps struct {
 	Edit func(text, help string, done func(string, error) tea.Msg) tea.Cmd
 	Open func(file string, line int, done func(error) tea.Msg) tea.Cmd
+	// Resolve turns a place a tool printed into the file that opens it, or
+	// reports that none does. A place relative to a package, not the root, is the
+	// common miss.
+	Resolve func(file string) (string, bool)
+}
+
+// resolvedFailures keeps only the places that resolve to a file, rewriting each
+// to the path that opens it, so a place a tool printed relative to its package
+// is either found below the root or dropped rather than offered as a jump that
+// opens nothing. With no Resolve seam the places are left as they came.
+func (d Deps) resolvedFailures(found []hooks.Location) []hooks.Location {
+	if d.Editor.Resolve == nil {
+		return found
+	}
+
+	kept := make([]hooks.Location, 0, len(found))
+
+	for _, place := range found {
+		file, ok := d.Editor.Resolve(place.File)
+		if ok {
+			place.File = file
+			kept = append(kept, place)
+		}
+	}
+
+	return kept
 }
 
 // defaultCIInterval is how often CI is asked about when nothing says otherwise:
