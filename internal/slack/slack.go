@@ -49,6 +49,8 @@ var (
 	ErrUnreachable = errors.New("could not reach the Slack API")
 	// ErrRedirected reports a redirect this client declined to follow.
 	ErrRedirected = httpx.ErrRedirected
+	// ErrRateLimited reports a 429 from Slack's API.
+	ErrRateLimited = httpx.ErrRateLimited
 )
 
 // Doer is the HTTP seam this client accepts; see httpx.Doer.
@@ -126,6 +128,10 @@ func (c Client) send(request *http.Request) (Identity, error) {
 		return Identity{}, fmt.Errorf("%w: %w", ErrUnreachable, err)
 	}
 	defer func() { _ = response.Body.Close() }()
+
+	if response.StatusCode == http.StatusTooManyRequests {
+		return Identity{}, ErrRateLimited
+	}
 
 	if response.StatusCode != http.StatusOK {
 		return Identity{}, fmt.Errorf("%w: %d", ErrUnexpectedStatus, response.StatusCode)

@@ -15,6 +15,11 @@ import (
 // ErrRedirected reports a redirect this client declined to follow.
 var ErrRedirected = errors.New("refused to follow a redirect")
 
+// ErrRateLimited reports a server that answered 429 Too Many Requests. It is its
+// own error so a caller is told to wait rather than that its credential was
+// refused, which a shared 403/429 branch would say.
+var ErrRateLimited = errors.New("rate limited; wait and try again")
+
 // Doer sends one HTTP request. *http.Client's Do method satisfies it.
 //
 // A function type rather than an interface because it is a single method, which

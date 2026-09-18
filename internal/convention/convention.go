@@ -276,6 +276,8 @@ type Subject struct {
 }
 
 // String assembles the subject line.
+var _ fmt.Stringer = Subject{}
+
 func (s Subject) String() string {
 	line := strings.TrimSpace(s.Type)
 

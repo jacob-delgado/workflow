@@ -60,6 +60,8 @@ var (
 	ErrUnreachable = errors.New("could not reach the forge")
 	// ErrRedirected reports a redirect this client declined to follow.
 	ErrRedirected = httpx.ErrRedirected
+	// ErrRateLimited reports a 429 from the forge, told apart from a refusal.
+	ErrRateLimited = httpx.ErrRateLimited
 )
 
 // Doer is the HTTP seam this client accepts; see httpx.Doer.
@@ -220,8 +222,10 @@ func statusError(status int) error {
 		return nil
 	case http.StatusUnauthorized:
 		return ErrUnauthorized
-	case http.StatusForbidden, http.StatusTooManyRequests:
+	case http.StatusForbidden:
 		return ErrRefused
+	case http.StatusTooManyRequests:
+		return ErrRateLimited
 	case http.StatusNotFound:
 		return ErrNoAPI
 	default:

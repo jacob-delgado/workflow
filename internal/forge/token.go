@@ -6,6 +6,7 @@ package forge
 import (
 	"context"
 	"errors"
+	"fmt"
 	"strings"
 )
 
@@ -26,6 +27,8 @@ const masked = "****"
 type Token string
 
 // String masks the token.
+var _ fmt.Stringer = Token("")
+
 func (t Token) String() string {
 	if t == "" {
 		return ""
@@ -55,6 +58,8 @@ const (
 )
 
 // String names the source for humans.
+var _ fmt.Stringer = Source(0)
+
 func (s Source) String() string {
 	switch s {
 	case SourceNone:

@@ -212,6 +212,23 @@ func TestAuthTestTranslatesAnUnexpectedStatus(t *testing.T) {
 	}
 }
 
+func TestAuthTestTellsRateLimitingApart(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	client := serve(t, func(writer http.ResponseWriter, _ *http.Request) {
+		writer.WriteHeader(http.StatusTooManyRequests)
+	})
+
+	// Act
+	_, err := client.AuthTest(t.Context())
+
+	// Assert
+	if !errors.Is(err, slack.ErrRateLimited) {
+		t.Errorf("AuthTest returned %v, want ErrRateLimited", err)
+	}
+}
+
 func TestAuthTestReportsAnUnreachableAPI(t *testing.T) {
 	t.Parallel()
 

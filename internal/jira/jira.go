@@ -56,6 +56,8 @@ var (
 	ErrUnreachable = errors.New("could not reach the server")
 	// ErrRedirected reports a redirect this client declined to follow.
 	ErrRedirected = httpx.ErrRedirected
+	// ErrRateLimited reports a 429 from the instance.
+	ErrRateLimited = httpx.ErrRateLimited
 )
 
 // Doer is the HTTP seam this client accepts; see httpx.Doer.
@@ -216,6 +218,8 @@ func statusError(status int, requested *url.URL) error {
 		return ErrUnauthorized
 	case http.StatusForbidden:
 		return ErrForbidden
+	case http.StatusTooManyRequests:
+		return ErrRateLimited
 	case http.StatusNotFound:
 		// The address is the useful part here: a missing context path, such as
 		// the /jira that many on-prem instances live under, looks exactly like
