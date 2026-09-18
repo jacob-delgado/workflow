@@ -399,19 +399,20 @@ Severity: low · Confidence: measured
 
 Severity: low · Confidence: read
 
-- `patience = 400 * time.Millisecond` (`internal/tui/world_test.go:27`):
-  `within` gives up on wall-clock time, and `drain` silently drops a command
-  that takes longer. A slow runner under `-race` turns a late fake into a
-  confusing failure.
-- Four fuzz targets exist and nothing passes `-fuzz`, so only their seeds
-  ever run. An advisory `task fuzz` with a short `-fuzztime` would cost
-  little.
-- Tests pin defects as contracts: "1 files staged"
-  (`internal/tui/composer_test.go:50`) and the field form's "esc close" for a
-  key that goes back (`internal/tui/fields_test.go:158`).
+Fixed: there is now an advisory `task fuzz` that discovers every Fuzz function
+and gives each a short `-fuzztime` run, so a target that would find a new input
+gets the chance the seed-only gate never gave it. The "1 files staged"
+pluralization defect is gone (`composer.go` renders `plural(...)`), so no test
+pins it any more.
+
+- What remains, low value: `patience` and `within`/`drain`
+  (`internal/tui/world_test.go`) still wait on wall-clock time and drop a command
+  that overruns, which a slow runner under `-race` can turn into a confusing
+  failure. Reworking the Bubble Tea drain to settle on quiescence rather than a
+  timer is a delicate test-harness change on its own.
 - Three wiring tests skip when lefthook is absent
-  (`internal/wiring/hooks_test.go:29`), which it is in the build container
-  (DEBT-41).
+  (`internal/wiring/hooks_test.go`), which it is in the build container — tied to
+  DEBT-41.
 
 ## Build, CI, scripts and release
 
