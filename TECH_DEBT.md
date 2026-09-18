@@ -555,8 +555,6 @@ They are listed so the cost is visible, not so they get "fixed".
 - **`$EDITOR` is split on spaces and never given to a shell**, so an editor
   whose path contains a space fails, and `GIT_EDITOR` and `core.editor` are
   ignored.
-- **Failure locations need a file extension**, which misses `Dockerfile:3`,
-  though hadolint is in this repository's own gate. FEAT-25.
 - **lefthook's decorative output is scraped**, with no check of the installed
   version. A change degrades to "no job rows", not to a wrong answer.
 - **A line over 1 MiB ends output capture** for that run; the exit status is

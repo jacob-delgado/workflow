@@ -131,10 +131,16 @@ func upsert(jobs []Job, job Job) []Job {
 	return jobs
 }
 
+// knownBasenames are files a tool points at that carry no extension —
+// hadolint's Dockerfile, make's Makefile. They join the file:line pattern as a
+// literal allowlist rather than "any extensionless word", so a time of day
+// ("12:30") or a host and port ("localhost:8080") still cannot read as a place.
+const knownBasenames = `Dockerfile|Makefile|Containerfile`
+
 // locationPatterns match the ways tools point at a place in a file, each with
 // the file, line, column and message in groups 1 to 4 where the tool gives them.
-// A file must have an extension, which is what keeps a time of day or a URL with
-// a port from reading as one.
+// A file part must either carry an extension or be a known extensionless name,
+// which is what keeps a time of day or a URL with a port from reading as one.
 //
 // The Go/linter format splits the file from the line at a colon, so its file
 // part stops at the first one. On Windows a path opens with a drive letter —
@@ -148,9 +154,13 @@ func locationPatterns(goos string) []*regexp.Regexp {
 		drive = `(?:[A-Za-z]:)?`
 	}
 
+	// A file with an extension, or a known basename anchored as the last path
+	// segment (preceded by start-of-string or a separator).
+	file := `(?:[^\s:]+\.[A-Za-z0-9]+|(?:[^\s:]*[/\\])?(?:` + knownBasenames + `))`
+
 	return []*regexp.Regexp{
 		// file:line:column: message, and file:line: message — Go, most linters.
-		regexp.MustCompile(`^(` + drive + `[^\s:]+\.[A-Za-z0-9]+):(\d+)(?::(\d+))?:?\s*(.*)$`),
+		regexp.MustCompile(`^(` + drive + file + `):(\d+)(?::(\d+))?:?\s*(.*)$`),
 		// shellcheck: "In file line 12:".
 		regexp.MustCompile(`^In (\S+\.[A-Za-z0-9]+) line (\d+)():()$`),
 		// typos and others that point with an arrow.

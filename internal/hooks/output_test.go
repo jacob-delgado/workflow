@@ -145,6 +145,17 @@ func TestFailuresFindWhereEachToolPoints(t *testing.T) {
 			lines: []string{`C:\src\main.go:9:2: undefined: run`},
 			want:  nil,
 		},
+		"an extensionless known filename is a place": {
+			lines: []string{
+				// hadolint points at a Dockerfile, which has no extension.
+				"build/Dockerfile:12 DL3008 warning: Pin versions in apt get install",
+				"Makefile:3: missing separator",
+			},
+			want: []hooks.Location{
+				{File: "build/Dockerfile", Line: 12, Column: 0, Message: "DL3008 warning: Pin versions in apt get install"},
+				{File: "Makefile", Line: 3, Column: 0, Message: "missing separator"},
+			},
+		},
 	}
 
 	for name, tt := range cases {
