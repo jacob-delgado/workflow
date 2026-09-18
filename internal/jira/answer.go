@@ -15,6 +15,7 @@ import (
 	"strings"
 
 	"github.com/jacob-delgado/workflow/internal/config"
+	"github.com/jacob-delgado/workflow/internal/httpx"
 	"github.com/jacob-delgado/workflow/internal/sanitize"
 )
 
@@ -49,6 +50,13 @@ type reasons struct {
 func (c Client) answerError(response *http.Response, requested *url.URL) error {
 	if response.Header.Get("X-Ausername") == anonymousUser {
 		return ErrUnauthorized
+	}
+
+	// Handled here, where the header is in reach: a 429 may carry a JSON body,
+	// which the reason path below would otherwise turn into ErrRejected and lose
+	// the rate-limit signal.
+	if response.StatusCode == http.StatusTooManyRequests {
+		return httpx.RateLimited(response.Header)
 	}
 
 	err := statusError(response.StatusCode, requested)

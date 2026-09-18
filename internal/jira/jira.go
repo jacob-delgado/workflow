@@ -218,8 +218,6 @@ func statusError(status int, requested *url.URL) error {
 		return ErrUnauthorized
 	case http.StatusForbidden:
 		return ErrForbidden
-	case http.StatusTooManyRequests:
-		return ErrRateLimited
 	case http.StatusNotFound:
 		// The address is the useful part here: a missing context path, such as
 		// the /jira that many on-prem instances live under, looks exactly like

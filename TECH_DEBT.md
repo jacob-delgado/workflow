@@ -183,10 +183,16 @@ its credential is wrong. And every `Stringer` type now carries the static
 assertion CLAUDE.md asks for (`AuthMode`, `SlackMode`, `Violation`, `Subject`,
 `Kind`, `Token`, `Source`).
 
-- What remains, lower value: no client reads the `Retry-After` *duration* to say
-  how long to wait — the sentinel says only that it happened. And the config
-  secrets are still bare strings; `config.Redact` masks them wherever a
-  configuration is shown, so a typed masking secret would be a defense-in-depth
+Also done: a 429 now names how long to wait when the server said so.
+`httpx.RateLimited(header)` reads the `Retry-After` seconds and wraps
+`ErrRateLimited` with the wait ("… (in 30s)"), so all three clients tell the
+caller when to retry rather than only that it was rate limited. The header's
+HTTP-date form, which these APIs do not use for a 429, and a missing value fall
+back to the bare sentinel, so `errors.Is` still matches.
+
+- What remains, lower value: the config secrets are still bare strings;
+  `config.Redact` masks them wherever a configuration is shown, so a typed
+  masking secret (as `forge.Token` already is) would be a defense-in-depth
   against a future raw `%v`, not a present leak.
 - Not here: adding a forge still edits several places; folding those into a
   `dialect` is FEAT-54, which keeps its own PR.
