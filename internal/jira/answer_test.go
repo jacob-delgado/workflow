@@ -99,6 +99,12 @@ func TestAStatusWithoutAReasonKeepsItsOwnError(t *testing.T) {
 			status: http.StatusUnauthorized, body: `{"errorMessages":["Login Required"]}`, user: servedUser,
 			want: jira.ErrUnauthorized,
 		},
+		// A 429 is told apart from a refusal, so the caller is told to wait
+		// rather than that its credential is wrong.
+		"rate limited": {
+			status: http.StatusTooManyRequests, body: `{}`, user: servedUser,
+			want: jira.ErrRateLimited,
+		},
 		// Served anonymously, Jira's reason describes what an anonymous user may
 		// not do — true, and useless: the configured token is what failed.
 		"an anonymous answer, blamed on the credential": {

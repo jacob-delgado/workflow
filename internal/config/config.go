@@ -182,6 +182,8 @@ const (
 )
 
 // String names the authentication mode for humans.
+var _ fmt.Stringer = AuthMode(0)
+
 func (a AuthMode) String() string {
 	switch a {
 	case AuthNone:
@@ -208,6 +210,8 @@ const (
 )
 
 // String names the transport for humans.
+var _ fmt.Stringer = SlackMode(0)
+
 func (s SlackMode) String() string {
 	switch s {
 	case SlackNone:

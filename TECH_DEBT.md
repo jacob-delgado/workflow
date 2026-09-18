@@ -167,26 +167,21 @@ the mask" is the standing warning — has a single copy that a test guards.
 
 Severity: low · Confidence: read
 
-- No client reads `Retry-After` or a rate-limit header. Jira maps 429 to an
-  unexpected status, the forge folds it into 403's message
-  (`internal/forge/client.go:228`), Slack calls it a rejected credential.
-  Polling alone will not reach GitHub's limit (about 360 requests an hour of
-  5,000), so this is about saying the right thing when it happens.
-- Adding a forge means editing eight places. Three are switches the
-  `exhaustive` linter checks (`Kind.String`, `APIBase`, `environmentNames`);
-  five are not, and fail quietly: `kindOf` and `ParseKind`
-  (`internal/forge/remote.go`), `dialectFor`'s map
-  (`internal/forge/pulls.go:46`, a runtime error), `FindTemplates`' map
-  (`internal/forge/templates.go:36`, silently nothing) and `cliCommand`
-  (`internal/forge/token.go:250`, silently false). Folding these into
-  `dialect` would make FEAT-54 one file.
-- `forge.Token`'s comment says a token cannot be printed by accident "nested
-  inside any struct". It has a `String` method and nothing else, so `%#v`,
-  `%d`, `json.Marshal` and `%+v` of a struct holding one in an unexported
-  field (`forge.Client` is one) print the value. No production code does
-  this; the guard is narrower than it claims. The four secrets in
-  `config.Config` are bare strings. None of the five `Stringer` types carries
-  the static assertion CLAUDE.md asks for.
+Fixed: a 429 now reads as `httpx.ErrRateLimited` in all three clients — Jira no
+longer calls it an unexpected status, the forge tells it apart from a 403
+refusal, and Slack (both the auth check and the post path) no longer calls it a
+rejected credential, so a rate-limited caller is told to wait rather than that
+its credential is wrong. And every `Stringer` type now carries the static
+assertion CLAUDE.md asks for (`AuthMode`, `SlackMode`, `Violation`, `Subject`,
+`Kind`, `Token`, `Source`).
+
+- What remains, lower value: no client reads the `Retry-After` *duration* to say
+  how long to wait — the sentinel says only that it happened. And the config
+  secrets are still bare strings; `config.Redact` masks them wherever a
+  configuration is shown, so a typed masking secret would be a defense-in-depth
+  against a future raw `%v`, not a present leak.
+- Not here: adding a forge still edits several places; folding those into a
+  `dialect` is FEAT-54, which keeps its own PR.
 
 ## Configuration, wiring and the command line
 

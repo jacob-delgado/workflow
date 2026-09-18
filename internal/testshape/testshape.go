@@ -48,6 +48,8 @@ type Violation struct {
 }
 
 // String reads like a compiler error, so editors can jump to it.
+var _ fmt.Stringer = Violation{}
+
 func (v Violation) String() string {
 	return fmt.Sprintf("%s: %s: [%s] %s", v.Position, v.Test, v.Rule, v.Message)
 }

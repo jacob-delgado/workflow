@@ -40,6 +40,8 @@ const (
 )
 
 // String names the forge for humans.
+var _ fmt.Stringer = Kind(0)
+
 func (k Kind) String() string {
 	switch k {
 	case KindUnknown:

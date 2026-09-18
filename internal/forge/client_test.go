@@ -135,7 +135,7 @@ func TestWhoamiTranslatesEachStatus(t *testing.T) {
 		// User-Agent. Saying "not accepted" here would send someone to rotate a
 		// token that is fine.
 		"refused":      {status: http.StatusForbidden, want: forge.ErrRefused},
-		"rate limited": {status: http.StatusTooManyRequests, want: forge.ErrRefused},
+		"rate limited": {status: http.StatusTooManyRequests, want: forge.ErrRateLimited},
 		// GET /user needs no scope, so a 404 here is a wrong address rather than
 		// an under-scoped token.
 		"no api there":   {status: http.StatusNotFound, want: forge.ErrNoAPI},

@@ -170,6 +170,8 @@ func (c Client) deliver(request *http.Request) ([]byte, error) {
 	switch {
 	case response.StatusCode == http.StatusOK:
 		return body, nil
+	case response.StatusCode == http.StatusTooManyRequests:
+		return nil, ErrRateLimited
 	case response.StatusCode >= http.StatusBadRequest && response.StatusCode < http.StatusInternalServerError:
 		return nil, fmt.Errorf("%w: %s", ErrRejected, strings.TrimSpace(sanitize.Text(string(body))))
 	default:
