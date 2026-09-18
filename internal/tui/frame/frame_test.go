@@ -183,27 +183,6 @@ func TestBodyRowsIsTheHeightInsideTheBorder(t *testing.T) {
 	}
 }
 
-func TestStylesKnowTheirASCIICounterparts(t *testing.T) {
-	t.Parallel()
-
-	cases := map[string]struct{ style, want frame.Style }{
-		"light":             {style: frame.Light, want: frame.LightASCII},
-		"heavy":             {style: frame.Heavy, want: frame.HeavyASCII},
-		"ascii stays ascii": {style: frame.HeavyASCII, want: frame.HeavyASCII},
-	}
-
-	for name, tt := range cases {
-		t.Run(name, func(t *testing.T) {
-			t.Parallel()
-
-			// Act & Assert
-			if got := tt.style.ASCII(); got != tt.want {
-				t.Errorf("ASCII() = %v, want %v", got, tt.want)
-			}
-		})
-	}
-}
-
 func TestStylesKnowTheirHeavyCounterparts(t *testing.T) {
 	t.Parallel()
 

@@ -429,3 +429,26 @@ func TestReadBranchReportsADirectoryOutsideARepository(t *testing.T) {
 		t.Errorf("ReadBranch returned %v, want ErrNotARepository", err)
 	}
 }
+
+func TestBaseNameStripsTheRemote(t *testing.T) {
+	t.Parallel()
+
+	cases := map[string]struct{ base, want string }{
+		"a remote branch": {base: originMain, want: localMain},
+		"a nested branch": {base: "origin/release/1.0", want: "release/1.0"},
+		"a local base":    {base: localMain, want: localMain},
+		"no base at all":  {base: "", want: ""},
+		"another remote":  {base: "upstream/develop", want: "develop"},
+	}
+
+	for name, tt := range cases {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			// Act & Assert
+			if got := (gitrepo.Branch{Base: tt.base}).BaseName(); got != tt.want {
+				t.Errorf("BaseName(%q) = %q, want %q", tt.base, got, tt.want)
+			}
+		})
+	}
+}

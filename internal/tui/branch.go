@@ -71,7 +71,7 @@ func (m Model) loadBranch() tea.Cmd {
 func (s branchState) onFeatureBranch() bool {
 	name := s.branch.Name
 
-	return s.loaded && s.err == nil && name != "" && name != strings.TrimPrefix(s.branch.Base, "origin/")
+	return s.loaded && s.err == nil && name != "" && name != s.branch.BaseName()
 }
 
 // branchRail is the branch's name and where it stands against its upstream.
@@ -205,6 +205,12 @@ func (m Model) previewPush() (Model, tea.Cmd) {
 	m.overlay = pushPreview{branch: m.branch.branch.Name, remote: m.branch.remote()}
 
 	return m, nil
+}
+
+// branchIssue is the issue the current branch names, and whether it names one —
+// the one place the interface reads a branch name as an issue key.
+func (m Model) branchIssue() (string, bool) {
+	return convention.IssueKey(m.branch.branch.Name)
 }
 
 // remote is the remote the branch's upstream lives on, or origin by default.

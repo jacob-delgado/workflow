@@ -104,7 +104,7 @@ func (m Model) openPullRequestComposer() (Model, tea.Cmd) {
 	composer := prComposer{
 		marks: m.marks, styles: m.styles,
 		title: newInput(convention.PullRequestTitle(subjects, issueKey, issue.Summary)),
-		base:  newInput(strings.TrimPrefix(branch.Base, "origin/")), focus: prFieldTitle, head: branch.Name,
+		base:  newInput(branch.BaseName()), focus: prFieldTitle, head: branch.Name,
 		subjects: subjects, issueKey: issueKey, issueURL: m.browseURL(issueKey), vocab: m.vocab,
 	}
 	composer.base.Blur()

@@ -70,6 +70,17 @@ func (b Branch) Pushed() bool {
 	return b.Name != "" && b.Upstream == "origin/"+b.Name && b.Ahead == 0
 }
 
+// BaseName is the base branch without its remote prefix — "main" for
+// "origin/main" — which is the name to show and to rebase onto. A base with no
+// remote (a local "main") is returned as it is.
+func (b Branch) BaseName() string {
+	if _, name, found := strings.Cut(b.Base, "/"); found {
+		return name
+	}
+
+	return b.Base
+}
+
 // ReadBranch reads where the checked-out branch stands. Only failing to read the
 // branch at all is an error: no commits, no upstream and no base are ordinary
 // states for a repository to be in, and each is left empty.

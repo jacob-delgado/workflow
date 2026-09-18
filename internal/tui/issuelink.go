@@ -10,7 +10,6 @@ import (
 	"github.com/charmbracelet/bubbles/key"
 	tea "github.com/charmbracelet/bubbletea"
 
-	"github.com/jacob-delgado/workflow/internal/convention"
 	"github.com/jacob-delgado/workflow/internal/forge"
 )
 
@@ -32,7 +31,7 @@ var _ overlay = issueLinker{}
 // issueToLink is the issue a just-opened pull request should be linked to: the
 // branch's issue, when Jira can take the link. Empty when there is neither.
 func (m Model) issueToLink() string {
-	issueKey, named := convention.IssueKey(m.branch.branch.Name)
+	issueKey, named := m.branchIssue()
 	if !named || m.deps.Jira.LinkPullRequest == nil {
 		return ""
 	}
