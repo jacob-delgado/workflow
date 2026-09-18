@@ -50,22 +50,32 @@ type Location struct {
 func Jobs(lines []string) []Job {
 	var jobs []Job
 
-	summary := false
+	inSummary := false
 
 	for _, raw := range lines {
-		line := strings.TrimSpace(raw)
-
-		switch {
-		case strings.HasPrefix(line, "summary:"):
-			summary = true
-		case summary:
-			jobs = reported(jobs, line)
-		default:
-			jobs = started(jobs, line)
-		}
+		jobs, inSummary = NextJob(jobs, inSummary, raw)
 	}
 
 	return jobs
+}
+
+// NextJob folds one more output line into the jobs seen so far, returning the
+// updated jobs and whether the summary has begun. It does not modify the jobs it
+// is given, so a caller streaming output can keep the running set on its own
+// value and never re-read the whole output — a chatty hook would otherwise cost
+// a full re-parse on every line, and again on every redraw.
+func NextJob(jobs []Job, inSummary bool, raw string) ([]Job, bool) {
+	line := strings.TrimSpace(raw)
+	next := slices.Clone(jobs)
+
+	switch {
+	case strings.HasPrefix(line, "summary:"):
+		return next, true
+	case inSummary:
+		return reported(next, line), true
+	default:
+		return started(next, line), inSummary
+	}
 }
 
 // started records a job's header, or a job lefthook skipped.

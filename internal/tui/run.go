@@ -4,6 +4,7 @@
 package tui
 
 import (
+	"slices"
 	"strconv"
 	"strings"
 
@@ -34,7 +35,12 @@ type commandRun struct {
 	// output on screen until it is closed.
 	succeeded func(m Model) (Model, tea.Cmd)
 
-	lines      []string
+	lines []string
+	// jobList is the parsed run state, folded in as each line arrives rather than
+	// re-read from every line on every frame; inSummary carries the scan across
+	// lines. See hooks.NextJob.
+	jobList    []hooks.Job
+	inSummary  bool
 	done       bool
 	err        error
 	failures   []hooks.Location
@@ -106,7 +112,9 @@ type runLine struct {
 func (msg runLine) apply(m Model) (Model, tea.Cmd) {
 	run, open := m.overlay.(commandRun)
 	if open && run.id == msg.id {
-		run.lines = append(run.lines, sanitize.Text(msg.line))
+		line := sanitize.Text(msg.line)
+		run.jobList, run.inSummary = hooks.NextJob(run.jobList, run.inSummary, line)
+		run.lines = capLines(append(run.lines, line))
 		m.overlay = run
 	}
 
@@ -202,7 +210,7 @@ func (r commandRun) failureHeadline() string {
 
 // jobs is lefthook's jobs, each with its glyph, when the output is lefthook's.
 func (r commandRun) jobs() string {
-	parsed := hooks.Jobs(r.lines)
+	parsed := r.jobList
 	parts := make([]string, 0, len(parsed))
 
 	for _, job := range parsed {
@@ -233,6 +241,22 @@ func (r commandRun) failureRows(rows int) []string {
 // tail is the last rows lines of output.
 func tail(lines []string, rows int) []string {
 	return lines[max(0, len(lines)-max(0, rows)):]
+}
+
+// maxRunLines bounds the output kept for the tail. A hook that prints tens of
+// thousands of lines would otherwise grow the model without limit; the jobs and
+// the places to jump to are folded in as the lines arrive, so what the kept
+// lines are still for is the tail on screen.
+const maxRunLines = 5000
+
+// capLines keeps at most the last maxRunLines, cloning when it trims so the
+// dropped head's backing array is not held alive.
+func capLines(lines []string) []string {
+	if len(lines) <= maxRunLines {
+		return lines
+	}
+
+	return slices.Clone(lines[len(lines)-maxRunLines:])
 }
 
 // footer offers what works on the run as it stands.

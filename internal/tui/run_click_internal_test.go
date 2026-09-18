@@ -20,12 +20,14 @@ func TestClickingBelowWrappedJobsSelectsTheRightFailure(t *testing.T) {
 	model := New(config.Config{}, nil, Deps{})
 	model.width, model.height = 60, 40
 
+	headers := []string{
+		"┃ verylongjobname-alpha ❯", "┃ verylongjobname-bravo ❯",
+		"┃ verylongjobname-charlie ❯", "┃ verylongjobname-delta ❯",
+	}
 	run := commandRun{
 		marks: model.marks, styles: model.styles, title: "pre-commit", done: true,
-		lines: []string{
-			"┃ verylongjobname-alpha ❯", "┃ verylongjobname-bravo ❯",
-			"┃ verylongjobname-charlie ❯", "┃ verylongjobname-delta ❯",
-		},
+		lines:    headers,
+		jobList:  hooks.Jobs(headers),
 		failures: []hooks.Location{{File: "a.go", Line: 1}, {File: "b.go", Line: 2}, {File: "c.go", Line: 3}},
 	}
 

@@ -128,10 +128,10 @@ Severity: low · Confidence: read
   `pane(msg.String()[0] - '1')` (`internal/tui/tui.go:196`), the help groups,
   a second list of names in `internal/tui/spine.go:54`, and the literal
   "(4 Review)" in `internal/tui/slack.go:113`.
-- The run overlay calls `hooks.Jobs(r.lines)` on every frame and on every
-  click (`internal/tui/run.go:176` and `:247`), and appends output with no cap
-  (`internal/tui/run.go:105`). Each output line is a message and each message
-  redraws, so a chatty hook is quadratic.
+- DONE — the run overlay no longer re-reads every line on every frame: it folds
+  each line into the job state as the line arrives (`hooks.NextJob`) and keeps
+  the parsed jobs on the overlay, and it caps the kept output at `maxRunLines`,
+  so a chatty hook is no longer quadratic and cannot grow the model without end.
 - Vestigial: `Style.ASCII()` (`internal/tui/frame/frame.go:36`) is called
   only by a test; `hookgenState.offered` can never be true when it is read;
   `var _ help.KeyMap = keyMap{}` (`internal/tui/keys.go:11`) asserts an
