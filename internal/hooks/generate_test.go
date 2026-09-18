@@ -145,7 +145,7 @@ func TestACommandThatReadsAsAnotherTypeStaysAString(t *testing.T) {
 	// Found running a generated configuration through lefthook: a hook line of
 	// just "false" was written as run: false, which YAML reads as a bool, and
 	// lefthook ran the command "0". The same goes for true, null and numbers.
-	hook := hooks.GitHook{Name: prePush, Script: "#!/bin/sh\nfalse\ntrue\n123\nyes\n"}
+	hook := hooks.GitHook{Name: prePush, Script: "#!/bin/sh\nset -e\nfalse\ntrue\n123\nyes\n"}
 
 	// Act
 	generated := hooks.Structured([]hooks.GitHook{hook})
@@ -195,19 +195,40 @@ func TestVerbatimKeepsEveryHookAsItsScript(t *testing.T) {
 func TestAHookIsOnlyStructuredWhenEveryLineIsAPlainCommand(t *testing.T) {
 	t.Parallel()
 
+	// Each carries set -e, so the reason it is kept whole is the shape on the
+	// line rather than the missing errexit that the last cases test on their own.
 	cases := map[string]string{
-		"a subshell":          "#!/bin/sh\necho $(date)\n",
-		"backticks":           "#!/bin/sh\necho `date`\n",
-		"an argument":         "#!/bin/sh\ncat \"$1\"\n",
-		"all arguments":       "#!/bin/sh\nrun \"$@\"\n",
-		"a heredoc":           "#!/bin/sh\ncat <<EOF\nx\nEOF\n",
-		"a continued line":    "#!/bin/sh\ngo test \\\n  ./...\n",
-		"a variable":          "#!/bin/sh\nFILES=a\nlint $FILES\n",
-		"a loop":              "#!/bin/sh\nfor f in *; do echo $f; done\n",
-		"a function":          "#!/bin/sh\ncheck() { true; }\ncheck\n",
-		"a change of dir":     "#!/bin/sh\ncd sub\nmake\n",
-		"another interpreter": "#!/usr/bin/env python3\nprint('hi')\n",
-		"exit":                "#!/bin/sh\nexit 0\n",
+		"a subshell":            "#!/bin/sh\nset -e\necho $(date)\n",
+		"backticks":             "#!/bin/sh\nset -e\necho `date`\n",
+		"an argument":           "#!/bin/sh\nset -e\ncat \"$1\"\n",
+		"all arguments":         "#!/bin/sh\nset -e\nrun \"$@\"\n",
+		"a later argument":      "#!/bin/sh\nset -e\ndeploy $3\n",
+		"the script name":       "#!/bin/sh\nset -e\necho $0\n",
+		"the last status":       "#!/bin/sh\nset -e\nreport $?\n",
+		"a heredoc":             "#!/bin/sh\nset -e\ncat <<EOF\nx\nEOF\n",
+		"a continued line":      "#!/bin/sh\nset -e\ngo test \\\n  ./...\n",
+		"a trailing and":        "#!/bin/sh\nset -e\nmake lint &&\nmake test\n",
+		"a trailing or":         "#!/bin/sh\nset -e\nmake lint ||\nmake report\n",
+		"a trailing pipe":       "#!/bin/sh\nset -e\nmake lint |\ntee log\n",
+		"a pipeline":            "#!/bin/sh\nset -e\nmake lint | tee log\n",
+		"a background job":      "#!/bin/sh\nset -e\nserve &\nwait\n",
+		"process substitution":  "#!/bin/sh\nset -e\ndiff <(sort a) <(sort b)\n",
+		"a variable":            "#!/bin/sh\nset -e\nFILES=a\nlint $FILES\n",
+		"a loop":                "#!/bin/sh\nset -e\nfor f in *; do echo $f; done\n",
+		"a function":            "#!/bin/sh\nset -e\ncheck() { true; }\ncheck\n",
+		"a change of dir":       "#!/bin/sh\nset -e\ncd sub\nmake\n",
+		"a subshell over lines": "#!/bin/sh\nset -e\n(\ncd sub\nmake\n)\n",
+		"a directory stack":     "#!/bin/sh\nset -e\npushd sub\n",
+		"a umask":               "#!/bin/sh\nset -e\numask 022\n",
+		"an eval":               "#!/bin/sh\nset -e\neval make\n",
+		"another interpreter":   "#!/usr/bin/env python3\nset -e\nprint('hi')\n",
+		"a bash script":         "#!/bin/bash\nset -e\nmake\n",
+		"a zsh script":          "#!/bin/zsh\nset -e\nmake\n",
+		"pipefail it cannot keep": "#!/bin/sh\nset -e\nset -o pipefail\n" +
+			"make lint | tee log\n",
+		"exit": "#!/bin/sh\nset -e\nexit 0\n",
+		"no errexit at all": "#!/bin/sh\n# no set -e, so a failure must not stop the rest\n" +
+			"gofmt -l .\ngo vet ./...\n",
 	}
 
 	for name, script := range cases {
@@ -263,7 +284,7 @@ func TestAJobWithNoUsableNameIsStillNamed(t *testing.T) {
 	t.Parallel()
 
 	// Act
-	generated := hooks.Structured([]hooks.GitHook{{Name: preCommit, Script: "#!/bin/sh\n+++ check\n"}})
+	generated := hooks.Structured([]hooks.GitHook{{Name: preCommit, Script: "#!/bin/sh\nset -e\n+++ check\n"}})
 
 	// Assert
 	if !strings.Contains(generated.Config, "01-job:") {

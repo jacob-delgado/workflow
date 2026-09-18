@@ -270,28 +270,6 @@ Severity: medium · Confidence: reproduced
 
 ## Git, hooks, conventions and processes
 
-### DEBT-27 The lefthook generator converts scripts it does not understand
-
-Severity: medium · Confidence: reproduced
-
-- Evidence: `plainCommand` (`internal/hooks/generate.go:238`) is a line
-  heuristic: a marker list (`$(`, a backtick, `<<`, `$1`, `$2`, `$@`, `$*`,
-  `$#`, `${`) and a word list. All of these converted to jobs: `$3` to `$9`,
-  `$0`, `$?`; a line ending in `&&`, `||` or a pipe; a multi-line
-  `( … )`; `pushd`, `umask`, `alias`, `eval`, `wait`; `<(`. `setOption`
-  (`:231`) drops `set -o pipefail`, leaving `make lint | tee log` without it.
-  A script with no `set -e` still becomes `piped: true` (`:152`). `bash` and
-  `zsh` scripts convert (`:200`), and lefthook runs jobs with `sh -c`. The
-  table test (`internal/hooks/generate_test.go:195`) covers none of these.
-- Cost: lefthook passes hook arguments as `{1}`, so a converted `$3` silently
-  becomes an empty string, which is what `prepare-commit-msg` reads. A hook
-  that used to continue past a failing command now stops. The offer is
-  presented as safe, and what it changes is what gates a commit.
-- Remedy: narrow what converts to `sh` scripts that contain `set -e`, no `$`
-  at all and no trailing operator; everything else stays a script, which the
-  generator already does well. Add each case above to the table first.
-- Done when: every case above is in the table and is kept whole.
-
 ### DEBT-29 Hook failure locations that name nothing are still offered
 
 Severity: low · Confidence: reproduced

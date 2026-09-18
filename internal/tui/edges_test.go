@@ -107,7 +107,7 @@ func TestAStructuredConfigurationWithNoScriptsSaysNothingOfScripts(t *testing.T)
 
 	// Arrange
 	plain := newWorld()
-	plain.gitHooks = []hooks.GitHook{{Name: "pre-commit", Script: "#!/bin/sh\ngofmt -l .\n"}}
+	plain.gitHooks = []hooks.GitHook{{Name: "pre-commit", Script: "#!/bin/sh\nset -e\ngofmt -l .\n"}}
 
 	// Act
 	view := typing(t, plain.live(t, 120, 50), "3", "g").View()
