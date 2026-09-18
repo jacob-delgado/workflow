@@ -9,7 +9,6 @@ import (
 	"github.com/charmbracelet/lipgloss"
 	"github.com/charmbracelet/x/ansi"
 
-	"github.com/jacob-delgado/workflow/internal/convention"
 	"github.com/jacob-delgado/workflow/internal/progress"
 	"github.com/jacob-delgado/workflow/internal/tui/layout"
 )
@@ -80,7 +79,7 @@ func (m Model) stages() []stage {
 
 // work is what the panes know, gathered for the shared stage derivation.
 func (m Model) work() progress.Work {
-	_, named := convention.IssueKey(m.branch.branch.Name)
+	_, named := m.branchIssue()
 	_, selected := m.issues.current()
 
 	return progress.Work{

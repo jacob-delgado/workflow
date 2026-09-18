@@ -116,13 +116,10 @@ everything else.
 
 Severity: low · Confidence: read
 
-- The branch's issue is derived at six sites
-  (`convention.IssueKey(m.branch.branch.Name)` in `branch.go`, `composer.go`,
-  `detail.go`, `prcomposer.go`, `spine.go`, `slack.go`), three of which drop
-  the found flag and use `""` as "none". `"origin/"` is trimmed by hand at
-  `internal/tui/branch.go:66` and `:90` and `internal/tui/prcomposer.go:78`.
-  `m.branch.branch` appears 23 times. Remedy: `Model.branchIssue()` returning
-  a typed value, and `BaseName()` on `gitrepo.Branch`.
+- DONE — `Model.branchIssue()` is the one place a branch name is read as an
+  issue key; the five sites on `m.branch.branch.Name` call it. `"origin/"` is no
+  longer trimmed by hand: `gitrepo.Branch.BaseName()` strips the remote (and does
+  not hardcode origin), and the two sites that trimmed by hand call it.
 - The pane set is written down in six places: `internal/tui/panes.go`,
   `key.WithKeys("1","2","3","4","5")` (`internal/tui/keys.go:58`),
   `pane(msg.String()[0] - '1')` (`internal/tui/tui.go:196`), the help groups,
@@ -132,14 +129,11 @@ Severity: low · Confidence: read
   each line into the job state as the line arrives (`hooks.NextJob`) and keeps
   the parsed jobs on the overlay, and it caps the kept output at `maxRunLines`,
   so a chatty hook is no longer quadratic and cannot grow the model without end.
-- Vestigial: `Style.ASCII()` (`internal/tui/frame/frame.go:36`) is called
-  only by a test; `hookgenState.offered` can never be true when it is read;
-  `var _ help.KeyMap = keyMap{}` (`internal/tui/keys.go:11`) asserts an
-  interface nothing uses; the comment "FullHelp is every key"
-  (`internal/tui/keys.go:101`) is false by eleven bindings; the comment that
-  the model "never holds … a credential" (`internal/tui/deps.go:19`) sits
-  beside `Model.cfg`, which is the unredacted configuration (it is not shown;
-  a test proves that).
+- Vestigial: `Style.ASCII()` was called only by a test and is now deleted;
+  `hookgenState.offered` was already gone. Left as they are: the
+  `var _ help.KeyMap = keyMap{}` assertion documents a real conformance CLAUDE.md
+  asks for, and the "FullHelp is every key" comment is now true by construction
+  (`help_internal_test.go` proves it).
 - "1 files staged" (`internal/tui/composer.go:155`) is pinned by
   `internal/tui/composer_test.go:50`. `Breaking: false` is hardcoded at
   `internal/tui/composer.go:92`.

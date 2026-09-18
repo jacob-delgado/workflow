@@ -12,7 +12,6 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 
 	"github.com/jacob-delgado/workflow/internal/config"
-	"github.com/jacob-delgado/workflow/internal/convention"
 	"github.com/jacob-delgado/workflow/internal/forge"
 	"github.com/jacob-delgado/workflow/internal/slack"
 )
@@ -113,7 +112,7 @@ func (msg authorFound) apply(m Model) (Model, tea.Cmd) {
 
 // announcement is the message telling the channel the pull request is ready.
 func (m Model) announcement() string {
-	issueKey, _ := convention.IssueKey(m.branch.branch.Name)
+	issueKey, _ := m.branchIssue()
 	issue, _ := m.issues.find(issueKey)
 
 	return slack.Announcement{

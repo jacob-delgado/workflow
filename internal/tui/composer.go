@@ -74,7 +74,7 @@ func (m Model) openCommitComposer() (Model, tea.Cmd) {
 
 	draft := m.draft
 	types := convention.CommitTypes()
-	issueKey, _ := convention.IssueKey(m.branch.branch.Name)
+	issueKey, _ := m.branchIssue()
 
 	composer := commitComposer{
 		marks: m.marks, styles: m.styles, types: types, kind: m.startingType(types, draft),

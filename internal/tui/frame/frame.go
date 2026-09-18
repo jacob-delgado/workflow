@@ -33,15 +33,6 @@ const (
 	HeavyASCII
 )
 
-// ASCII is the same weight of border in plain ASCII.
-func (s Style) ASCII() Style {
-	if s == Heavy || s == HeavyASCII {
-		return HeavyASCII
-	}
-
-	return LightASCII
-}
-
 // Heavy is the focused weight of the same character set.
 func (s Style) Heavy() Style {
 	if s == LightASCII || s == HeavyASCII {

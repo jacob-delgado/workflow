@@ -12,7 +12,6 @@ import (
 	"github.com/charmbracelet/bubbles/key"
 	tea "github.com/charmbracelet/bubbletea"
 
-	"github.com/jacob-delgado/workflow/internal/convention"
 	"github.com/jacob-delgado/workflow/internal/jira"
 )
 
@@ -142,7 +141,7 @@ func (m Model) fetchDetail(issueKey string) tea.Cmd {
 // has it and nobody has chosen an issue yet: coming back to work in progress
 // starts where it was left.
 func (m Model) resumeIssue() Model {
-	branchKey, named := convention.IssueKey(m.branch.branch.Name)
+	branchKey, named := m.branchIssue()
 	if m.issues.moved || !named {
 		return m
 	}
