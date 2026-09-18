@@ -212,7 +212,7 @@ The offer only appears when `lefthook` is installed.
 
 Comments, commit bodies, pull request descriptions and Slack messages are
 written in `$VISUAL`, else `$EDITOR`, else `vi`. Everything below the scissors
-line (`# ---- >8 ----`) is help and is not kept. An editor that has to be told
+line (a `>8` cut mark) is help and is not kept. An editor that has to be told
 to wait needs saying so: `EDITOR="code --wait"`.
 
 Opening a hook failure at its line works for vi, Vim, Neovim, nano, Emacs,

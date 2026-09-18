@@ -73,9 +73,9 @@ printing the available ratchet when you clear them:
 - **Statements** (`task test:cover`) — did this line run.
 - **Conditions** (`task cover:branch`, via [gobco](https://github.com/rillig/gobco))
   — was each branch seen both ways. Its output names every condition observed only
-  one way, which is a worklist of the tests still missing. gobco cannot read every
-  package yet; `scripts/gobco-report.sh` lists which and why, and fails if a
-  package drops out without being listed.
+  one way, which is a worklist of the tests still missing. gobco reads every
+  package in this module; `scripts/gobco-report.sh` fails if one ever drops out
+  without being listed as unreadable.
 
 On a pull request, both numbers are posted as a comment with their delta against
 `main`. The comment is informational — the floors are what fail the build.
@@ -174,8 +174,8 @@ commit messages above, so a well-formed commit is also a changelog entry:
    with the next version and the generated `CHANGELOG.md`.
 2. A maintainer merges that pull request when the release is ready. Nothing
    publishes until they do.
-3. Merging tags `vX.Y.Z`, which builds the binaries for macOS, Linux, and
-   Windows (amd64 and arm64), generates SHA256 checksums, attests the build
+3. Merging tags `vX.Y.Z`, which builds the binaries for macOS (arm64), Linux
+   (amd64) and Windows (amd64), generates SHA256 checksums, attests the build
    provenance, and publishes the GitHub Release with everything attached.
 
 **Before 1.0, the minor digit is reserved for breaking changes.** Both `feat`
