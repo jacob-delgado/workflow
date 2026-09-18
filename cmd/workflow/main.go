@@ -8,17 +8,25 @@ package main
 import (
 	"bufio"
 	"context"
+	"errors"
 	"fmt"
 	"os"
+	"path/filepath"
 	"runtime"
 	"strings"
 
 	"golang.org/x/term"
 
 	"github.com/jacob-delgado/workflow/internal/cli"
+	"github.com/jacob-delgado/workflow/internal/editor"
 	"github.com/jacob-delgado/workflow/internal/keychain"
 	"github.com/jacob-delgado/workflow/internal/proc"
 )
+
+// standupHelp sits below the scissors line in the standup draft, and is cut
+// away with everything under it when the editor closes.
+const standupHelp = "Edit your standup above this line, then save and close.\n" +
+	"Lines below the scissors are removed. An empty draft posts nothing."
 
 // keychainService is the name the Jira token is stored under in the keychain.
 const keychainService = "workflow-jira"
@@ -59,7 +67,47 @@ func terminalPrompt() cli.Prompt {
 			return string(secret), err
 		},
 		StoreSecret: keychainStore(runtime.GOOS),
+		Compose:     composeInEditor,
 	}
+}
+
+// composeInEditor opens draft in $EDITOR (or $VISUAL, else vi) and returns what
+// was left above the scissors line. It lives here, in the untested main,
+// because launching a real editor is what a test cannot do.
+func composeInEditor(draft string) (string, error) {
+	file, err := os.CreateTemp("", "workflow-standup-*.md")
+	if err != nil {
+		return "", fmt.Errorf("creating the draft: %w", err)
+	}
+
+	path := file.Name()
+	defer func() { _ = os.Remove(path) }()
+
+	_, err = file.WriteString(editor.Draft(draft, standupHelp))
+
+	err = errors.Join(err, file.Close())
+	if err != nil {
+		return "", fmt.Errorf("writing the draft: %w", err)
+	}
+
+	command, err := proc.Interactive(editor.Invocation(os.Getenv, filepath.Dir(path), path, 0))
+	if err != nil {
+		return "", fmt.Errorf("starting the editor: %w", err)
+	}
+
+	command.Stdin, command.Stdout, command.Stderr = os.Stdin, os.Stdout, os.Stderr
+
+	err = command.Run()
+	if err != nil {
+		return "", fmt.Errorf("editing the draft: %w", err)
+	}
+
+	edited, err := os.ReadFile(path) //nolint:gosec // path is our own os.CreateTemp file, not user input
+	if err != nil {
+		return "", fmt.Errorf("reading the draft: %w", err)
+	}
+
+	return editor.Parse(string(edited)), nil
 }
 
 // keychainStore stores a secret in the OS keychain and returns the token_command

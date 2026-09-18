@@ -39,7 +39,7 @@ func featureBranch() statusSeams {
 		FindPull:    func(string) (forge.PullRequest, bool, error) { return forge.PullRequest{Number: 3}, true, nil },
 		CheckStatus: func(forge.PullRequest, string) (forge.CI, error) { return forge.CI{State: forge.CIRunning}, nil },
 		Issue: func(string) (jira.IssueDetail, error) {
-			return jira.IssueDetail{Issue: jira.Issue{Key: "PROJ-7", Summary: "Fix login"}}, nil
+			return jira.IssueDetail{Issue: jira.Issue{Key: sampleKey, Summary: "Fix login"}}, nil
 		},
 	}
 }
@@ -118,7 +118,7 @@ func TestStatusJSONReportsTheSameAsData(t *testing.T) {
 		t.Fatalf("output is not JSON: %v\n%s", err, out.String())
 	}
 
-	if report.Issue != "PROJ-7" || report.CI != "passed" || len(report.Stages) != 5 ||
+	if report.Issue != sampleKey || report.CI != "passed" || len(report.Stages) != 5 ||
 		report.Stages[3]["state"] != "done" {
 		t.Errorf("status JSON = %+v, want the issue, passed CI and five stages", report)
 	}
