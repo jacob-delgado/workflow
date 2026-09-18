@@ -550,25 +550,6 @@ Severity: medium · Confidence: reproduced
   arguments.
 - Done when: each script exits non-zero when git is unavailable.
 
-### DEBT-45 CI does not scan history for secrets, and two comments say it does
-
-Severity: medium · Confidence: reproduced
-
-- Evidence: `task secrets` runs `gitleaks dir` (`Taskfile.yml:229`), which
-  scans files. The scan job's comment says "gitleaks scans history as well as
-  the working tree" (`.github/workflows/ci.yml:69`) and pays for
-  `fetch-depth: 0`; `lefthook.yml:102` says "CI still sweeps history". In a
-  scratch repository, a key committed and then removed gave "no leaks found"
-  from `gitleaks dir` and two findings from `gitleaks git`.
-- Cost: `main` merges by rebase only, so every commit lands as written. A
-  token added in one commit of a pull request and removed in the next is
-  invisible to CI; the only guard is the local staged-diff hook. GitHub's own
-  secret scanning and push protection are enabled, which narrows this to
-  tokens GitHub has no pattern for, and a Jira Data Center token is one.
-- Remedy: a `secrets:history` task running `gitleaks git` over the pull
-  request's range, called from the scan job; correct both comments.
-- Done when: the experiment above fails CI.
-
 ### DEBT-46 Smaller items in the tooling
 
 Severity: low · Confidence: reproduced
