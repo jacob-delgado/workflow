@@ -433,24 +433,15 @@ Severity: medium · Confidence: read
   nor skipped on purpose; verify the downloads.
 - Done when: a workflow builds the image.
 
-### DEBT-42 mise itself floats in CI
+### DEBT-42 mise itself floats in CI — DONE
 
-Severity: medium · Confidence: reproduced
-
-- Evidence: none of the eight `jdx/mise-action` uses sets `version`, and the
-  action's own description says that means "the latest release". `ci.yml`
-  caches the binary, so there it is the latest as of the last cache miss;
-  `release.yml` and `pages.yml` set `cache: false`, so there it is the latest
-  on every run. A CI log showed `mise 2026.9.10`, one day old. The devcontainer
-  pins `2026.9.3`; `mise.toml` asks for at least `2024.1.0`.
-- Cost: "A floating `latest` changes what the gate accepts without anyone
-  deciding to" is this repository's rule, and the mise binary carries the
-  registry that maps a tool's name to where it is downloaded from. The release
-  job is provisioned by a mise younger than the seven-day gate allows anything
-  else to be.
-- Remedy: set `version`, or the action's `minimum_release_age`, in one place,
-  and raise `min_version` to match.
-- Done when: every workflow names the mise it runs.
+Every `jdx/mise-action` use now pins `version: 2026.9.3` (the seven `ci.yml`
+uses, plus `release.yml` and `pages.yml`), so the mise binary — which carries
+the tool registry — no longer floats to the latest release, which for the
+uncached release job was younger than the seven-day gate allows anything else
+to be. `min_version` in `mise.toml` is raised to `2026.9.3` to match, with a
+note that mise cannot pin its own binary from there and the workflows and
+devcontainer must travel with it.
 
 ### DEBT-43 The gate needs jq and node — now pinned in `mise.toml`
 
