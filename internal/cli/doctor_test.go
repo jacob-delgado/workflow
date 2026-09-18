@@ -390,3 +390,26 @@ func TestDoctorSaysWhenThereIsNoRemote(t *testing.T) {
 		t.Errorf("Forge = %q, want it to say the repository has no remote:\n%s", got, output)
 	}
 }
+
+func TestDoctorReportsSetButInvalidValues(t *testing.T) {
+	// Arrange
+	// Nothing is missing, but three values are filled in wrong: a base URL that
+	// is not http(s), an insecure webhook, and a forge kind that names no forge.
+	dir := t.TempDir()
+	writeFile(t, dir, `{"jira":{"base_url":"ftp://jira.example.com","token":"t"},`+
+		`"slack":{"webhook_url":"http://hooks.example.com/x"},"forge":{"kind":"githb"}}`)
+
+	// Act
+	out, err := run(t, dir, "doctor")
+
+	// Assert
+	if err == nil {
+		t.Errorf("doctor passed a configuration with invalid values:\n%s", out)
+	}
+
+	for _, want := range []string{"Problems", "jira.base_url", "slack.webhook_url", "forge.kind"} {
+		if !strings.Contains(out, want) {
+			t.Errorf("doctor did not flag %q:\n%s", want, out)
+		}
+	}
+}

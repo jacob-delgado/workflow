@@ -27,6 +27,8 @@ import (
 var (
 	// errIncomplete reports a configuration that loaded but is missing fields.
 	errIncomplete = errors.New("configuration is incomplete")
+	// errInvalid reports a configuration that loaded but holds a malformed value.
+	errInvalid = errors.New("configuration has an invalid value")
 	// errShared reports a configuration file that is not its owner's alone.
 	errShared = errors.New("the configuration file can be reached by other users")
 	// errMissingTooling reports a required external program that is absent.
@@ -412,7 +414,7 @@ func reportConfiguration(out io.Writer, cfg config.Config, loadErr error) error 
 	// this output is what the bug report template invites people to paste.
 	field(out, "Slack", fmt.Sprintf("%s (%s)", cfg.Slack.Target(), cfg.Slack.Mode()))
 
-	return errors.Join(reportSharedMode(out, cfg.Path), reportMissing(out, cfg))
+	return errors.Join(reportSharedMode(out, cfg.Path), reportRequirements(out, cfg))
 }
 
 // reportSharedMode refuses a configuration file that anyone but its owner can
@@ -427,27 +429,6 @@ func reportSharedMode(out io.Writer, path string) error {
 	fmt.Fprintf(out, "\nIt holds credentials. Make it yours alone with `chmod 600 %s`.\n", path)
 
 	return fmt.Errorf("%w: mode %#o", errShared, mode)
-}
-
-// reportMissing names the fields still to fill in, or says that none are.
-func reportMissing(out io.Writer, cfg config.Config) error {
-	missing := cfg.Missing()
-	if len(missing) == 0 {
-		fmt.Fprintf(out, "\nEverything required is set.\n")
-
-		return nil
-	}
-
-	fmt.Fprintf(out, "\nMissing:\n")
-
-	for _, name := range missing {
-		fmt.Fprintf(out, "  - %s\n", name)
-	}
-
-	fmt.Fprintf(out, "\nEdit %s, then run `workflow doctor` again.\n", cfg.Path)
-	fmt.Fprintf(out, "`workflow --help` explains how to create each token.\n")
-
-	return fmt.Errorf("%w: %d field(s) missing", errIncomplete, len(missing))
 }
 
 // reportLoadError explains a configuration that could not be read, and says what
