@@ -3,9 +3,9 @@
 
 // Package jira talks to a Jira Data Center instance over its REST v2 API.
 //
-// Only what doctor needs so far: asking the instance who the configured
-// credential authenticates as, which is the one question that cannot be
-// answered without leaving the machine.
+// It searches issues, reads one in full, moves it through its workflow,
+// comments on it, links a pull request to it, and asks who the configured
+// credential authenticates as.
 package jira
 
 import (
@@ -72,7 +72,6 @@ type User struct {
 	// withhold; Name is the login, which it does not.
 	DisplayName string `json:"displayName"`
 	Name        string `json:"name"`
-	Active      bool   `json:"active"`
 }
 
 // Client talks to one Jira instance.

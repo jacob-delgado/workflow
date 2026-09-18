@@ -278,7 +278,7 @@ func warnIfNotIgnored(ctx context.Context, out io.Writer, path string) {
 	fmt.Fprintf(out, "add it to .gitignore so it is never committed.\n")
 }
 
-// runConfigShow prints the loaded configuration with both tokens masked.
+// runConfigShow prints the loaded configuration with every credential masked.
 func runConfigShow(cmd *cobra.Command, cfg config.Config) error {
 	out := cmd.OutOrStdout()
 	fmt.Fprintf(out, "# %s\n", cfg.Path)
