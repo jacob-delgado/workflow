@@ -279,17 +279,20 @@ remote a base carries rather than assuming origin.
 
 Severity: low · Confidence: read
 
-- Evidence: `windows/amd64` is built (`Taskfile.yml:30`); there are no build
-  tags and no `runtime.GOOS` checks. `ExistingHooks` requires an executable
-  bit (`internal/hooks/generate.go:82`), and Go reports `0666` or `0444` for
-  every file on Windows, so no hook is ever found. The editor falls back to
-  `vi` (`internal/editor/editor.go:31`). The location pattern
-  (`internal/hooks/output.go:131`) cannot match `C:\path\file.go:12`. CI never
-  tests the Windows build, though the cross-compile leg now proves it links.
-  None of this was run on Windows.
-- Remedy: a macOS and a Windows leg in CI first, to learn what else is true;
-  then small build-tagged helpers.
-- Done when: the test suite runs on Windows in CI.
+Two code fixes are done, each parameterized by GOOS so both branches test from
+one machine: `ExistingHooks(dir, goos)` counts a plain file as runnable on
+Windows, where Go reports no executable bit, so the hook-generation feature is no
+longer dead there; and the editor falls back to `notepad` on Windows rather than
+`vi`, which it usually lacks. Neither was run on Windows, but both branches have
+a test.
+
+- What remains: the location pattern (`internal/hooks/output.go`) still cannot
+  match `C:\path\file.go:12` — a drive letter's colon reads as the file:line
+  separator, and getting that right without breaking the common relative-path
+  case is delicate on a platform I cannot exercise. And the done-when — the test
+  suite running on Windows in CI — is deliberately left off: a Windows leg is the
+  discovery tool for the unknown rest, and it must be watched and iterated on a
+  Windows runner rather than added blind where it would sit red.
 
 ### DEBT-33 Smaller items in the local packages
 
