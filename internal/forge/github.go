@@ -93,9 +93,79 @@ func (g githubReviewItem) reviewRequest() ReviewRequest {
 	}
 }
 
+// githubIssues lists the open issues in the repository assigned to the token
+// owner. It searches with a repo filter, so @me needs no username, and with
+// is:issue so the pull requests that search also returns are left out.
+func githubIssues(ctx context.Context, client Client, repo Repo) ([]Issue, error) {
+	query := url.Values{
+		"q":          {"is:issue is:open assignee:@me repo:" + repo.Path},
+		perPageParam: {strconv.Itoa(githubPerPage)},
+	}.Encode()
+
+	found, err := call[githubIssueSearch](ctx, client, http.MethodGet, "/search/issues?"+query, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	issues := make([]Issue, 0, len(found.Items))
+	for _, item := range found.Items {
+		issues = append(issues, item.issue())
+	}
+
+	return issues, nil
+}
+
+// githubIssueSearch is the search endpoint's answer, here all issues.
+type githubIssueSearch struct {
+	Items []githubIssue `json:"items"`
+}
+
+// githubIssue is an issue as GitHub sends it, from the search or a single read.
+type githubIssue struct {
+	Number int    `json:"number"`
+	URL    string `json:"html_url"`
+	Title  string `json:"title"`
+	Body   string `json:"body"`
+	User   struct {
+		Login string `json:"login"`
+	} `json:"user"`
+}
+
+func (g githubIssue) issue() Issue {
+	return Issue{Number: g.Number, URL: g.URL, Title: g.Title}
+}
+
+func (g githubIssue) detail() IssueDetail {
+	return IssueDetail{Issue: g.issue(), Body: g.Body, Author: g.User.Login}
+}
+
+// githubReadIssue reads one issue's body and author.
+func githubReadIssue(ctx context.Context, client Client, repo Repo, number int) (IssueDetail, error) {
+	read, err := repoCall[githubIssue](ctx, client, repo, http.MethodGet,
+		githubRepoPath(repo)+issuesSegment+"/"+strconv.Itoa(number), nil)
+	if err != nil {
+		return IssueDetail{}, err
+	}
+
+	return read.detail(), nil
+}
+
+// githubIssueState is the PATCH body that closes an issue.
+type githubIssueState struct {
+	State string `json:"state"`
+}
+
+// githubCloseIssue closes an issue by setting its state to closed.
+func githubCloseIssue(ctx context.Context, client Client, repo Repo, number int) error {
+	_, err := repoCall[githubIssue](ctx, client, repo, http.MethodPatch,
+		githubRepoPath(repo)+issuesSegment+"/"+strconv.Itoa(number), githubIssueState{State: "closed"})
+
+	return err
+}
+
 // githubReviews lists the pull requests that request the token owner's review.
 func githubReviews(ctx context.Context, client Client) ([]ReviewRequest, error) {
-	query := url.Values{"q": {githubSearchQuery}, "per_page": {strconv.Itoa(githubPerPage)}}.Encode()
+	query := url.Values{"q": {githubSearchQuery}, perPageParam: {strconv.Itoa(githubPerPage)}}.Encode()
 
 	found, err := call[githubReviewSearch](ctx, client, http.MethodGet, "/search/issues?"+query, nil)
 	if err != nil {

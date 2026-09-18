@@ -25,8 +25,12 @@ const (
 	MergeConflicts
 )
 
-// queryState is the query parameter both forges name the open/closed filter.
-const queryState = "state"
+// queryState is the query parameter both forges name the open/closed filter,
+// and perPageParam bounds one page of a listing.
+const (
+	queryState   = "state"
+	perPageParam = "per_page"
+)
 
 // PullRequest is a pull request on GitHub, or a merge request on GitLab.
 type PullRequest struct {
@@ -78,18 +82,27 @@ type ReviewRequest struct {
 // forges agree on what a pull request is and on almost nothing about how to ask
 // for one.
 type dialect struct {
-	find    func(ctx context.Context, c Client, repo Repo, branch string) (PullRequest, bool, error)
-	create  func(ctx context.Context, c Client, repo Repo, request NewPullRequest) (PullRequest, error)
-	status  func(ctx context.Context, c Client, repo Repo, pull PullRequest, head string) (CI, error)
-	reviews func(ctx context.Context, c Client) ([]ReviewRequest, error)
+	find       func(ctx context.Context, c Client, repo Repo, branch string) (PullRequest, bool, error)
+	create     func(ctx context.Context, c Client, repo Repo, request NewPullRequest) (PullRequest, error)
+	status     func(ctx context.Context, c Client, repo Repo, pull PullRequest, head string) (CI, error)
+	reviews    func(ctx context.Context, c Client) ([]ReviewRequest, error)
+	issues     func(ctx context.Context, c Client, repo Repo) ([]Issue, error)
+	readIssue  func(ctx context.Context, c Client, repo Repo, number int) (IssueDetail, error)
+	closeIssue func(ctx context.Context, c Client, repo Repo, number int) error
 }
 
 // dialectFor is the dialect of a forge, or ErrUnknownForge for a host whose
 // forge could not be told.
 func dialectFor(kind Kind) (dialect, error) {
 	dialects := map[Kind]dialect{
-		KindGitHub: {find: githubFind, create: githubCreate, status: githubStatus, reviews: githubReviews},
-		KindGitLab: {find: gitlabFind, create: gitlabCreate, status: gitlabStatus, reviews: gitlabReviews},
+		KindGitHub: {
+			find: githubFind, create: githubCreate, status: githubStatus, reviews: githubReviews,
+			issues: githubIssues, readIssue: githubReadIssue, closeIssue: githubCloseIssue,
+		},
+		KindGitLab: {
+			find: gitlabFind, create: gitlabCreate, status: gitlabStatus, reviews: gitlabReviews,
+			issues: gitlabIssues, readIssue: gitlabReadIssue, closeIssue: gitlabCloseIssue,
+		},
 	}
 
 	found, ok := dialects[kind]
