@@ -371,20 +371,18 @@ exercised — only failures were before. `config init --global` is tested too
   reached against a live forge/Slack. Injecting the API base and `Doer` there is
   the remaining work, tied to DEBT-17's shared transport.
 
-### DEBT-37 The shared fake world is 27 lines from the file-length gate
+### DEBT-37 The shared fake world was 27 lines from the file-length gate — DONE
 
 Severity: low · Confidence: measured
 
-- Evidence: `internal/tui/world_test.go` is 473 lines of a 500-line limit.
-  Of 187 tests in `internal/tui`, 135 build a world and 173 use a helper
-  defined in that file. `internal/tui/edges_test.go` (447 lines) holds 21
-  tests across composer, review, Slack, commits, mouse, picker and hook
-  generation, each of which has a test file of its own.
-- Cost: the next `tui.Deps` seam pushes the largest file in the repository
-  past the gate in the middle of a feature. `edges_test.go` is the "divergent
-  change" smell CLAUDE.md names.
-- Remedy: split the world by seam; move each edge test to its concern's file.
-- Done when: no test file is within 50 lines of the limit.
+The done-when is met: no `internal/tui` test file is within 50 lines of the
+500-line limit. The shared fixture is split — `world_test.go` keeps the `world`
+struct and its fakes, and the harness that drives the interface (`drain`,
+`within`, `live`, `typing`, `click`, the screen assertions) moves to
+`harness_test.go` — so the next `tui.Deps` seam no longer pushes the largest file
+in the repository past the gate mid-feature. The six other files that sat at
+450–485 lines each shed a trailing concern into its own sibling file
+(`screen_reload_test.go`, `composer_scope_test.go`, and the like).
 
 ### DEBT-38 Smaller items in the tests
 
