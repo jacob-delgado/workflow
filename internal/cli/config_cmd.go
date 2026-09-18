@@ -202,7 +202,7 @@ func collectJira(ctx context.Context, out io.Writer, prompt Prompt) (config.Jira
 
 	settings := config.Jira{BaseURL: baseURL, Token: config.Secret(strings.TrimSpace(token))}
 
-	kept, err := keepIfChecked(prompt, "jira", checkJira(ctx, out, settings))
+	kept, err := keepIfChecked(prompt, "jira", checkJira(ctx, out, onlineDoer(config.Config{}), settings))
 	if err != nil || !kept {
 		return config.Jira{}, err
 	}

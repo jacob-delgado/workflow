@@ -16,6 +16,7 @@ import (
 	"github.com/jacob-delgado/workflow/internal/config"
 	"github.com/jacob-delgado/workflow/internal/gitrepo"
 	"github.com/jacob-delgado/workflow/internal/proc"
+	"github.com/jacob-delgado/workflow/internal/slack"
 )
 
 // doctorReport is the whole report as data. It carries the same facts, and the
@@ -201,13 +202,15 @@ func credentialFacts(ctx context.Context, cfg config.Config, remote string, onli
 		return credentialsFacts{Checked: false}, nil
 	}
 
+	doer := onlineDoer(cfg)
+
 	checks := []struct {
 		service string
 		run     func(io.Writer) error
 	}{
-		{service: "jira", run: func(out io.Writer) error { return checkJira(ctx, out, cfg.Jira) }},
-		{service: "slack", run: func(out io.Writer) error { return checkSlack(ctx, out, cfg.Slack) }},
-		{service: "forge", run: func(out io.Writer) error { return checkForge(ctx, out, cfg.Forge, remote) }},
+		{service: "jira", run: func(out io.Writer) error { return checkJira(ctx, out, doer, cfg.Jira) }},
+		{service: "slack", run: func(out io.Writer) error { return checkSlack(ctx, out, doer, slack.APIBase, cfg.Slack) }},
+		{service: "forge", run: func(out io.Writer) error { return checkForge(ctx, out, doer, cfg.Forge, remote) }},
 	}
 
 	results := make([]credentialLine, 0, len(checks))

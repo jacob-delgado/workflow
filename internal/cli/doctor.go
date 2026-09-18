@@ -4,6 +4,7 @@
 package cli
 
 import (
+	"cmp"
 	"context"
 	"errors"
 	"fmt"
@@ -17,6 +18,7 @@ import (
 	"github.com/jacob-delgado/workflow/internal/config"
 	"github.com/jacob-delgado/workflow/internal/forge"
 	"github.com/jacob-delgado/workflow/internal/gitrepo"
+	"github.com/jacob-delgado/workflow/internal/httpx"
 	"github.com/jacob-delgado/workflow/internal/jira"
 	"github.com/jacob-delgado/workflow/internal/proc"
 	"github.com/jacob-delgado/workflow/internal/slack"
@@ -145,11 +147,22 @@ func reportCredentials(ctx context.Context, out io.Writer, cfg config.Config, re
 
 	fmt.Fprintf(out, "\nCredentials:\n")
 
+	doer := onlineDoer(cfg)
+
 	return errors.Join(
-		checkJira(ctx, out, cfg.Jira),
-		checkSlack(ctx, out, cfg.Slack),
-		checkForge(ctx, out, cfg.Forge, remote),
+		checkJira(ctx, out, doer, cfg.Jira),
+		checkSlack(ctx, out, doer, slack.APIBase, cfg.Slack),
+		checkForge(ctx, out, doer, cfg.Forge, remote),
 	)
+}
+
+// onlineDoer is the transport doctor's --online checks travel over: the
+// redirect-refusing client, bounded by the configured request timeout so a
+// hung service does not hang doctor, or the default when none is set. It is one
+// value threaded into every check, which is also the seam a test drives with a
+// client pointed at a server it controls.
+func onlineDoer(cfg config.Config) httpx.Doer {
+	return httpx.Client(cmp.Or(cfg.RequestTimeout(), wiring.RequestTimeout)).Do
 }
 
 // forgeRepo reads the remote, reporting whether there is a forge to ask about at
@@ -176,7 +189,7 @@ func apiBase(repo forge.Repo) (string, bool) {
 // It reports the SOURCE rather than the token, and does not call the forge:
 // knowing which of three places a credential was taken from is what answers
 // "why is it using that one?", and it costs no network round trip.
-func checkForge(ctx context.Context, out io.Writer, settings config.Forge, remote string) error {
+func checkForge(ctx context.Context, out io.Writer, doer forge.Doer, settings config.Forge, remote string) error {
 	repo, ok := forgeRepo(remote)
 	if !ok {
 		fmt.Fprintf(out, "  %-10s no repository remote, so there is no forge to ask\n", "forge")
@@ -206,12 +219,15 @@ func checkForge(ctx context.Context, out io.Writer, settings config.Forge, remot
 		return fmt.Errorf("%w: forge", errCredentialRejected)
 	}
 
-	return askForge(ctx, out, base, token, source)
+	return askForge(ctx, out, doer, base, token, source)
 }
 
 // askForge asks the forge who the credential belongs to.
-func askForge(ctx context.Context, out io.Writer, base string, token forge.Token, source forge.Source) error {
-	identity, err := forge.New(forge.HTTPClient(wiring.RequestTimeout).Do, base, token).Whoami(ctx)
+func askForge(
+	ctx context.Context, out io.Writer, doer forge.Doer,
+	base string, token forge.Token, source forge.Source,
+) error {
+	identity, err := forge.New(doer, base, token).Whoami(ctx)
 	if err != nil {
 		fmt.Fprintf(out, "  %-10s %v (token from %s)\n", "forge", err, source)
 
@@ -224,7 +240,7 @@ func askForge(ctx context.Context, out io.Writer, base string, token forge.Token
 }
 
 // checkSlack asks Slack which workspace the bot token belongs to.
-func checkSlack(ctx context.Context, out io.Writer, creds config.Slack) error {
+func checkSlack(ctx context.Context, out io.Writer, doer slack.Doer, base string, creds config.Slack) error {
 	token, source, err := wiring.ResolveToken(ctx, creds.Token, creds.TokenCommand, creds.TokenEnv)
 	if err != nil {
 		fmt.Fprintf(out, "  %-10s %v\n", "slack", err)
@@ -233,7 +249,7 @@ func checkSlack(ctx context.Context, out io.Writer, creds config.Slack) error {
 	}
 
 	creds.Token = token
-	client := slack.New(slack.HTTPClient(wiring.RequestTimeout).Do, slack.APIBase, creds)
+	client := slack.New(doer, base, creds)
 
 	identity, err := client.AuthTest(ctx)
 	if err != nil {
@@ -265,7 +281,7 @@ func credentialOutcome(err, unreachable error, service string) error {
 }
 
 // checkJira asks Jira who the configured token authenticates as.
-func checkJira(ctx context.Context, out io.Writer, settings config.Jira) error {
+func checkJira(ctx context.Context, out io.Writer, doer jira.Doer, settings config.Jira) error {
 	token, source, err := wiring.ResolveToken(ctx, settings.Token, settings.TokenCommand, settings.TokenEnv)
 	if err != nil {
 		fmt.Fprintf(out, "  %-10s %v\n", "jira", err)
@@ -274,7 +290,7 @@ func checkJira(ctx context.Context, out io.Writer, settings config.Jira) error {
 	}
 
 	settings.Token = token
-	client := jira.New(jira.HTTPClient(wiring.RequestTimeout).Do, settings)
+	client := jira.New(doer, settings)
 
 	user, err := client.Myself(ctx)
 	if err != nil {
