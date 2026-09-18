@@ -35,6 +35,15 @@ linters:
         - fmt.Fprint
         - fmt.Fprintf
         - fmt.Fprintln
+    exhaustive:
+      # Check map literals keyed by an enum as well as switches. The interface
+      # keys glyphs off forge.CIState and hooks.JobState in map literals rather
+      # than switches (gochecknoglobals forbids the package-level table, and a
+      # map has no arm gobco cannot cover), so without this a new enum value
+      # would draw an empty glyph in silence.
+      check:
+        - switch
+        - map
     tagliatelle:
       # The config file is snake_case, which is what a hand-edited dotfile
       # conventionally looks like. tagliatelle defaults to camel.

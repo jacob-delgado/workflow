@@ -54,6 +54,7 @@ type verdict struct {
 // the configured default otherwise. A webhook carries its own channel, so
 // channel does not apply to it.
 func (c Client) Post(ctx context.Context, channel, text string) error {
+	//nolint:exhaustive // SlackNone has no transport by design; its lookup miss is the not-configured path.
 	transports := map[config.SlackMode]func(context.Context, string, string) error{
 		config.SlackBot:     c.postAsBot,
 		config.SlackWebhook: c.postToWebhook,

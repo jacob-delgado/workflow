@@ -52,6 +52,7 @@ func transitions() map[state]map[markerKind]transition {
 
 // unfinished is what a body that ends in a state leaves out.
 func unfinished() map[state]string {
+	//nolint:exhaustive // only the states that can be left dangling have a message; the rest are complete.
 	return map[state]string{
 		arranged: "an Arrange with no Act after it",
 		acting:   "an Act with no Assert after it",

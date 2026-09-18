@@ -61,3 +61,30 @@ updates:
     groups:
       docker-minor-patch:
         update-types: ["minor", "patch"]
+
+  # The documentation site's Hugo module (docs/go.mod), a separate module the
+  # root gomod entry above does not reach.
+  - package-ecosystem: gomod
+    directory: "/docs"
+    schedule:
+      interval: weekly
+    commit-message:
+      prefix: build
+    cooldown:
+      default-days: 7
+    groups:
+      docs-minor-patch:
+        update-types: ["minor", "patch"]
+
+  # The devcontainer's base image and features (.devcontainer/devcontainer.json).
+  - package-ecosystem: devcontainers
+    directory: "/"
+    schedule:
+      interval: weekly
+    commit-message:
+      prefix: build
+    cooldown:
+      default-days: 7
+    groups:
+      devcontainer-minor-patch:
+        update-types: ["minor", "patch"]

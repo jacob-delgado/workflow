@@ -94,6 +94,7 @@ type dialect struct {
 // dialectFor is the dialect of a forge, or ErrUnknownForge for a host whose
 // forge could not be told.
 func dialectFor(kind Kind) (dialect, error) {
+	//nolint:exhaustive // KindUnknown has no dialect on purpose; its lookup miss is the ErrUnknownForge below.
 	dialects := map[Kind]dialect{
 		KindGitHub: {
 			find: githubFind, create: githubCreate, status: githubStatus, reviews: githubReviews,

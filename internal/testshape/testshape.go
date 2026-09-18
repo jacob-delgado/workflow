@@ -87,6 +87,7 @@ func sortViolations(violations []Violation) {
 // messages says how to fix each rule. An order violation says which order it
 // broke instead.
 func messages() map[Rule]string {
+	//nolint:exhaustive // only the rules with a fixed message are here; the rest build theirs at the call site.
 	return map[Rule]string{
 		MissingMarkers:   "no // Arrange, // Act or // Assert markers",
 		CodeBeforeMarker: "code before the first marker; only t.Parallel() may come before it",
