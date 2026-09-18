@@ -25,6 +25,7 @@ internal/tui/         the Bubble Tea interface; every outside call is a Deps sea
 internal/jira/        Jira Data Center REST v2
 internal/forge/       GitHub and GitLab: remotes, tokens, pull requests, CI
 internal/slack/       posting through a bot token or a webhook
+internal/httpx/       the redirect-refusing HTTP transport the clients share
 internal/gitrepo/     reading and changing the repository through git
 internal/hooks/       lefthook: output, config, and generating lefthook.yml
 internal/convention/  branch names, Conventional Commits, pull request text
