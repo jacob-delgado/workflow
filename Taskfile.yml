@@ -75,6 +75,23 @@ tasks:
       - scripts/coverage-gate.sh coverage.out {{.COVERAGE_MIN}}
       - task: test:scripts
 
+  fuzz:
+    desc: Run each fuzz target briefly (advisory, never a gate)
+    cmds:
+      # `go test -fuzz` runs one target at a time, and the gate only ever runs
+      # the seed corpus, so a target that would find a new input never gets the
+      # chance. Discover every Fuzz function and give each a short run. Advisory:
+      # a real fuzzing session is long and non-deterministic, not something CI
+      # should gate on.
+      - |
+        set -euo pipefail
+        for pkg in $(go list ./...); do
+          for target in $(go test -list '^Fuzz' "$pkg" 2>/dev/null | grep '^Fuzz' || true); do
+            echo "Fuzzing ${target} in ${pkg}"
+            go test -run '^$' -fuzz="^${target}$" -fuzztime="${FUZZTIME:-10s}" "$pkg"
+          done
+        done
+
   cover:branch:
     desc: Condition (branch) coverage via gobco, with its floor
     cmds:
