@@ -308,35 +308,27 @@ Severity: low · Confidence: read
 
 ### DEBT-33 Smaller items in the local packages
 
-Severity: low · Confidence: reproduced
+Severity: low · Confidence: read
 
-- The issue-key pattern (`internal/convention/convention.go:54`) matches
-  `UTF-8` in `fix/UTF-8-decoding`, and `SHA-256`, `CVE-2024` and `ISO-8601`,
-  although its comment says such names are why it is strict. `Message` and
-  `PullRequestBody` look for an existing reference with `strings.Contains`,
-  so `PROJ-1` is "found" inside `PROJ-12` (`convention.go:261`,
-  `internal/convention/pullrequest.go:32`). The `Refs:` trailer is appended as
-  a new paragraph, after which `git interpret-trailers --parse` sees only it
-  and loses `Co-authored-by:`.
-- `ReadBranch` asks for `--reverse --max-count=200`
-  (`internal/gitrepo/branch.go:95`). git limits before it reverses, so past
-  200 commits the list holds the newest 200, the count silently caps, and the
-  pull request title comes from a commit that is not the branch's first.
-- Dead code: `ReadConfig`, `wireHook`, `names` and `Runner`
-  (`internal/hooks/config.go`) are called only by tests, and
-  `File.Executable` is set and never read. `task deadcode` exists and its
-  note says test-only helpers are invisible to it.
-- All eight `regexp.MustCompile` calls sit inside functions, one per script
-  line (`setOption`) and one per frame (`IssueKey` by way of `spine`). The
-  cost is microseconds. The useful fact is that `gochecknoglobals` exempts
-  package-level regexps, so nothing forces this.
-- `Output.Wait` blocks forever on a second call
-  (`internal/proc/start.go:77`). No caller calls it twice.
-- The branch name `@` is refused with "it is empty"
-  (`internal/convention/convention.go:158`).
-- `(ctx, run Runner, dir string)` repeats on eight gitrepo functions, and
-  `Status` and `Stage` silently require `dir` to be the root. A `Repository`
-  value returned by `Describe` would carry all three.
+The reproduced bugs here are fixed: the issue-key match no longer reads `UTF-8`,
+`SHA-256`, `CVE-2024` or `ISO-8601` as a key (`standardAbbreviations` in
+`internal/convention/convention.go` skips them); `Message` and `PullRequestBody`
+find an existing reference by whole word, not substring, and keep an appended
+`Refs:` in the same trailer block as `Co-authored-by:`; `ReadBranch` reverses the
+whole range before capping, so a branch past 200 commits still titles its pull
+request from its first commit; the dead `ReadConfig`/`wireHook`/`Runner` and
+`File.Executable` are gone; and a `@` branch name is refused as `@`, not as empty.
+
+- What remains, its own follow-up: `(ctx, run Runner, dir string)` repeats on
+  eight gitrepo functions, and `Status` and `Stage` silently require `dir` to be
+  the root. A `Repository` value returned by `Describe` would carry all three.
+- The agreed upgrade for the issue-key match — accept only a key whose project is
+  the configured Jira project, rather than a denylist of common tokens — needs a
+  `config.Jira.Project` field threaded through the `IssueKey` call sites, a
+  cross-cutting change of its own.
+- Left as they are, YAGNI over microseconds: the `regexp.MustCompile` calls sit
+  inside functions, and `Output.Wait` (`internal/proc/start.go`) blocks on a
+  second call that no caller makes.
 
 ### DEBT-34 Domain values travel as bare strings
 
