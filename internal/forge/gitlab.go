@@ -8,6 +8,8 @@ import (
 	"net/http"
 	"net/url"
 	"strconv"
+	"strings"
+	"time"
 )
 
 // draftPrefix marks a merge request as a draft by its title, which every
@@ -81,7 +83,7 @@ func gitlabProjectPath(repo Repo) string {
 
 // gitlabFind finds the open merge request from a branch.
 func gitlabFind(ctx context.Context, client Client, repo Repo, branch string) (PullRequest, bool, error) {
-	query := url.Values{"source_branch": {branch}, "state": {"opened"}}.Encode()
+	query := url.Values{"source_branch": {branch}, queryState: {"opened"}}.Encode()
 
 	merges, err := repoCall[[]gitlabMerge](ctx, client, repo, http.MethodGet,
 		gitlabProjectPath(repo)+"/merge_requests?"+query, nil)
@@ -93,6 +95,73 @@ func gitlabFind(ctx context.Context, client Client, repo Repo, branch string) (P
 	gitlabReviewState(ctx, client, repo, &pull)
 
 	return pull, true, nil
+}
+
+// gitlabPerPage bounds one page of a merge request listing.
+const gitlabPerPage = 100
+
+// gitlabReviewMerge is a merge request as GitLab's listing sends it, with the
+// fields a review queue shows: who opened it, since when, and its head pipeline.
+type gitlabReviewMerge struct {
+	IID       int       `json:"iid"`
+	URL       string    `json:"web_url"`
+	Title     string    `json:"title"`
+	Draft     bool      `json:"draft"`
+	CreatedAt time.Time `json:"created_at"`
+	Author    struct {
+		Username string `json:"username"`
+	} `json:"author"`
+	References struct {
+		Full string `json:"full"`
+	} `json:"references"`
+	HeadPipeline *struct {
+		Status string `json:"status"`
+	} `json:"head_pipeline"`
+}
+
+// reviewRequest flattens a listed merge request. references.full is
+// "group/project!iid", so the project is what precedes the bang.
+func (g gitlabReviewMerge) reviewRequest() ReviewRequest {
+	project, _, _ := strings.Cut(g.References.Full, "!")
+
+	ciState := CINone
+	if g.HeadPipeline != nil {
+		ciState = pipelineState(g.HeadPipeline.Status)
+	}
+
+	return ReviewRequest{
+		Number: g.IID, URL: g.URL, Title: g.Title, Draft: g.Draft,
+		Author: g.Author.Username, Repository: project, CI: ciState, OpenedAt: g.CreatedAt,
+	}
+}
+
+// gitlabReviews lists the merge requests that request the token owner's review.
+// GitLab filters by reviewer username, not a "me" token, so who the token
+// belongs to is asked first.
+func gitlabReviews(ctx context.Context, client Client) ([]ReviewRequest, error) {
+	viewer, err := client.Whoami(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	query := url.Values{
+		"scope":             {"all"},
+		queryState:          {"opened"},
+		"reviewer_username": {viewer.Name()},
+		"per_page":          {strconv.Itoa(gitlabPerPage)},
+	}.Encode()
+
+	merges, err := call[[]gitlabReviewMerge](ctx, client, http.MethodGet, "/merge_requests?"+query, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	reviews := make([]ReviewRequest, 0, len(merges))
+	for _, merge := range merges {
+		reviews = append(reviews, merge.reviewRequest())
+	}
+
+	return reviews, nil
 }
 
 // gitlabCreate opens a merge request.

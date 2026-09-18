@@ -10,6 +10,7 @@ import (
 	"net/url"
 	"strconv"
 	"strings"
+	"time"
 )
 
 // githubPull is a pull request as GitHub sends one.
@@ -44,7 +45,7 @@ func githubRepoPath(repo Repo) string {
 // as owner:branch; the branch alone matches nothing.
 func githubFind(ctx context.Context, client Client, repo Repo, branch string) (PullRequest, bool, error) {
 	owner, _, _ := strings.Cut(repo.Path, "/")
-	query := url.Values{"head": {owner + ":" + branch}, "state": {"open"}}.Encode()
+	query := url.Values{"head": {owner + ":" + branch}, queryState: {"open"}}.Encode()
 
 	pulls, err := repoCall[[]githubPull](ctx, client, repo, http.MethodGet, githubRepoPath(repo)+"/pulls?"+query, nil)
 	if err != nil || len(pulls) == 0 {
@@ -55,6 +56,58 @@ func githubFind(ctx context.Context, client Client, repo Repo, branch string) (P
 	githubReviewState(ctx, client, repo, &pull)
 
 	return pull, true, nil
+}
+
+// githubSearchQuery finds the open pull requests that request the token owner's
+// review. @me is GitHub's own name for whoever the token belongs to, so the
+// user's own name is never needed.
+const githubSearchQuery = "is:pr is:open review-requested:@me"
+
+// githubReviewSearch is the search endpoint's answer: the matching issues, which
+// for this query are all pull requests.
+type githubReviewSearch struct {
+	Items []githubReviewItem `json:"items"`
+}
+
+// githubReviewItem is one pull request as GitHub's search sends it.
+type githubReviewItem struct {
+	Number    int       `json:"number"`
+	URL       string    `json:"html_url"`
+	Title     string    `json:"title"`
+	Draft     bool      `json:"draft"`
+	CreatedAt time.Time `json:"created_at"`
+	User      struct {
+		Login string `json:"login"`
+	} `json:"user"`
+	RepositoryURL string `json:"repository_url"`
+}
+
+// reviewRequest flattens a search item. GitHub's search does not carry CI, so it
+// is left unknown rather than fetched with a request per entry.
+func (g githubReviewItem) reviewRequest() ReviewRequest {
+	_, repository, _ := strings.Cut(g.RepositoryURL, "/repos/")
+
+	return ReviewRequest{
+		Number: g.Number, URL: g.URL, Title: g.Title, Draft: g.Draft,
+		Author: g.User.Login, Repository: repository, CI: CINone, OpenedAt: g.CreatedAt,
+	}
+}
+
+// githubReviews lists the pull requests that request the token owner's review.
+func githubReviews(ctx context.Context, client Client) ([]ReviewRequest, error) {
+	query := url.Values{"q": {githubSearchQuery}, "per_page": {strconv.Itoa(githubPerPage)}}.Encode()
+
+	found, err := call[githubReviewSearch](ctx, client, http.MethodGet, "/search/issues?"+query, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	reviews := make([]ReviewRequest, 0, len(found.Items))
+	for _, item := range found.Items {
+		reviews = append(reviews, item.reviewRequest())
+	}
+
+	return reviews, nil
 }
 
 // githubDetail is the single-pull-request read, for the mergeable flag the list

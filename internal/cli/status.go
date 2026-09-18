@@ -295,14 +295,14 @@ func renderStatusJSON(out io.Writer, facts statusFacts) error {
 	})
 }
 
-// encodeJSON writes value as indented JSON, the one place status encodes.
+// encodeJSON writes value as indented JSON, the one place a command encodes it.
 func encodeJSON(out io.Writer, value any) error {
 	encoder := json.NewEncoder(out)
 	encoder.SetIndent("", "  ")
 
 	err := encoder.Encode(value)
 	if err != nil {
-		return fmt.Errorf("encoding the status: %w", err)
+		return fmt.Errorf("encoding the output: %w", err)
 	}
 
 	return nil

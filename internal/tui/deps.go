@@ -91,7 +91,10 @@ type ForgeDeps struct {
 	FindPullRequest   func(branch string) (forge.PullRequest, bool, error)
 	CreatePullRequest func(request forge.NewPullRequest) (forge.PullRequest, error)
 	CheckStatus       func(pull forge.PullRequest, head string) (forge.CI, error)
-	Templates         func() []forge.Template
+	// ReviewRequests lists the pull requests on the forge that ask for your
+	// review, across whichever repositories requested you.
+	ReviewRequests func() ([]forge.ReviewRequest, error)
+	Templates      func() []forge.Template
 	// Author is who the forge credential belongs to, to say who opened a pull
 	// request.
 	Author func() (string, error)

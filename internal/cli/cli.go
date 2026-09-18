@@ -141,7 +141,7 @@ func NewRootCmd(prompt Prompt) *cobra.Command {
 	root.Flags().StringVar(&logFile, "log", "",
 		"append a one-line outline of each request (method, path, status, duration) to FILE, for a bug report")
 
-	root.AddCommand(newConfigCmd(prompt), newDoctorCmd(), newStatusCmd(), newStandupCmd(prompt))
+	root.AddCommand(newConfigCmd(prompt), newDoctorCmd(), newStatusCmd(), newStandupCmd(prompt), newReviewsCmd())
 
 	return root
 }
