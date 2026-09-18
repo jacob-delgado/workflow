@@ -10,7 +10,9 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"net/url"
 	"os"
+	"runtime"
 	"strings"
 	"sync"
 	"time"
@@ -69,6 +71,7 @@ func Deps(ctx context.Context, cfg config.Config, where Workspace, log *RequestL
 		Clock:      nil,
 		CIInterval: cfg.CIInterval(),
 		Notify:     ringTerminal,
+		OpenURL:    func(url string) error { return openInBrowser(ctx, url) },
 	}
 }
 
@@ -81,6 +84,55 @@ const ciFinished = "\a\x1b]9;CI finished\a"
 // same standard output the interface draws on, which is the terminal.
 func ringTerminal() {
 	_, _ = os.Stdout.WriteString(ciFinished)
+}
+
+// errUnsafeBrowserURL is a check's address the opener will not run: one that is
+// not web, and so could name a local file or be read as a flag by the opener
+// rather than handed to a browser.
+var errUnsafeBrowserURL = errors.New("refusing to open a non-http(s) URL")
+
+// openInBrowser opens a URL through the platform's own opener, so a check's page
+// on the forge is one keypress away from its line in the interface.
+func openInBrowser(ctx context.Context, raw string) error {
+	target, err := safeBrowserURL(raw)
+	if err != nil {
+		return err
+	}
+
+	name, args := browserCommand(runtime.GOOS, target)
+
+	_, err = proc.Run(ctx, name, args...)
+	if err != nil {
+		return fmt.Errorf("opening %s: %w", target, err)
+	}
+
+	return nil
+}
+
+// safeBrowserURL is raw when it is a web address, or an error otherwise. The URL
+// comes from the forge, so requiring http(s) keeps a hostile response from
+// naming a local file or slipping a leading dash the opener would read as a flag.
+func safeBrowserURL(raw string) (string, error) {
+	parsed, err := url.Parse(raw)
+	if err != nil || (parsed.Scheme != "http" && parsed.Scheme != "https") {
+		return "", fmt.Errorf("%w: %q", errUnsafeBrowserURL, raw)
+	}
+
+	return raw, nil
+}
+
+// browserCommand is the command that opens a web URL on goos. It takes the
+// platform as an argument rather than reading it, so every branch can be tested
+// from one machine.
+func browserCommand(goos, target string) (string, []string) {
+	switch goos {
+	case "darwin":
+		return "open", []string{target}
+	case "windows":
+		return "cmd", []string{"/c", "start", "", target}
+	default:
+		return "xdg-open", []string{target}
+	}
 }
 
 // requestTimeout is the configured per-request timeout, or the default when none

@@ -36,7 +36,7 @@ type keyMap struct {
 	newBranch, switchTask, worktree, push, stage, stageAll, commit, runHooks, hookConfig key.Binding
 
 	// Review and Slack.
-	newPullRequest, compose, postWhenGreen key.Binding
+	newPullRequest, checks, compose, postWhenGreen key.Binding
 
 	// In composers and previews.
 	edit, editBody, nextTemplate, toggleDraft, verbatim, fullOutput key.Binding
@@ -83,6 +83,7 @@ func newKeyMap(marks glyphs, reviewNoun string) keyMap {
 		runHooks:       binding("run pre-commit", "h"),
 		hookConfig:     binding("set up lefthook", "g"),
 		newPullRequest: binding("open "+reviewNoun, "n"),
+		checks:         binding("checks", "c"),
 		compose:        binding("post to slack", "p"),
 		postWhenGreen:  binding("post when CI passes", "w"),
 		edit:           binding("edit", "e"),
@@ -111,7 +112,7 @@ func (k keyMap) FullHelp() [][]key.Binding {
 		{k.next, k.previous, k.jump, k.up, k.down, k.scrollUp, k.scrollDown},
 		{k.changeStatus, k.comment, k.branchForIssue, k.filter, k.nextView, k.refresh},
 		{k.newBranch, k.switchTask, k.worktree, k.push, k.stage, k.stageAll, k.commit, k.runHooks, k.hookConfig},
-		{k.newPullRequest, k.compose, k.postWhenGreen},
+		{k.newPullRequest, k.checks, k.compose, k.postWhenGreen},
 		{
 			k.edit, k.editBody, k.nextTemplate, k.toggleDraft, k.verbatim,
 			k.nextField, k.prevField, k.cycleLeft, k.cycleRight,

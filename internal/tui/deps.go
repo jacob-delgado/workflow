@@ -40,6 +40,9 @@ type Deps struct {
 	// finishes while the developer is looking elsewhere. Nil where the interface
 	// cannot reach the terminal to ring it.
 	Notify func()
+	// OpenURL opens a page in the user's browser, for a check whose detail lives
+	// on the forge. Nil where there is no opener to reach.
+	OpenURL func(url string) error
 }
 
 // JiraDeps is what the interface asks of Jira.

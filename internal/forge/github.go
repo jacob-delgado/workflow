@@ -144,7 +144,9 @@ func githubCreate(ctx context.Context, client Client, repo Repo, request NewPull
 type githubCombined struct {
 	TotalCount int `json:"total_count"`
 	Statuses   []struct {
-		State string `json:"state"`
+		State     string `json:"state"`
+		Context   string `json:"context"`
+		TargetURL string `json:"target_url"`
 	} `json:"statuses"`
 }
 
@@ -155,6 +157,8 @@ type githubRuns struct {
 	Runs       []struct {
 		Status     string `json:"status"`
 		Conclusion string `json:"conclusion"`
+		Name       string `json:"name"`
+		HTMLURL    string `json:"html_url"`
 	} `json:"check_runs"`
 }
 
@@ -186,7 +190,7 @@ func githubStatus(ctx context.Context, client Client, repo Repo, _ PullRequest, 
 	// is never coming. Only the statuses themselves count.
 	for _, page := range statuses {
 		for _, status := range page.Statuses {
-			tally.status(status.State)
+			tally.add(Check{Name: status.Context, State: statusState(status.State), URL: status.TargetURL})
 		}
 	}
 
@@ -198,7 +202,7 @@ func githubStatus(ctx context.Context, client Client, repo Repo, _ PullRequest, 
 
 	for _, page := range runs {
 		for _, run := range page.Runs {
-			tally.run(run.Status, run.Conclusion)
+			tally.add(Check{Name: run.Name, State: runState(run.Status, run.Conclusion), URL: run.HTMLURL})
 		}
 	}
 
