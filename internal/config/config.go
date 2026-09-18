@@ -113,6 +113,12 @@ type Forge struct {
 	// fail `workflow doctor` for everyone correctly relying on `gh auth login`,
 	// which is the common case and the one worth encouraging.
 	Token string `json:"token"`
+	// CLI routes forge API calls through the forge's own command-line tool — gh
+	// for GitHub, glab for GitLab — instead of over HTTP directly, so the login
+	// those tools already hold carries the request. This is what reaches a forge
+	// behind an SSO gateway a bare token cannot. It falls back to HTTP when the
+	// tool is not installed.
+	CLI bool `json:"cli"`
 }
 
 // UI is how the terminal interface behaves.
