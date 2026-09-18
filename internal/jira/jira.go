@@ -176,10 +176,10 @@ func authenticators() map[config.AuthMode]func(*http.Request, config.Jira) {
 	//nolint:exhaustive // AuthNone is absent by design; its lookup miss is what makes it ErrNoCredential.
 	return map[config.AuthMode]func(*http.Request, config.Jira){
 		config.AuthBearer: func(request *http.Request, settings config.Jira) {
-			request.Header.Set("Authorization", "Bearer "+settings.Token)
+			request.Header.Set("Authorization", "Bearer "+settings.Token.Reveal())
 		},
 		config.AuthBasic: func(request *http.Request, settings config.Jira) {
-			request.SetBasicAuth(settings.User, settings.Token)
+			request.SetBasicAuth(settings.User, settings.Token.Reveal())
 		},
 	}
 }

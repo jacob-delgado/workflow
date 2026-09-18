@@ -51,7 +51,7 @@ type Jira struct {
 	BaseURL string `json:"base_url"`
 	// Token is a personal access token. Leave it empty to take the token from
 	// TokenCommand or TokenEnv instead, so the file holds no secret.
-	Token string `json:"token"`
+	Token Secret `json:"token"`
 	// TokenCommand is a program that prints the token, such as
 	// "pass show jira/token"; TokenEnv is an environment variable that holds it.
 	TokenCommand string `json:"token_command"`
@@ -80,7 +80,7 @@ type Jira struct {
 type Slack struct {
 	// Token is a bot token, which starts with "xoxb-". Leave it empty to take
 	// the token from TokenCommand or TokenEnv instead.
-	Token string `json:"token"`
+	Token Secret `json:"token"`
 	// TokenCommand is a program that prints the bot token; TokenEnv is an
 	// environment variable that holds it.
 	TokenCommand string `json:"token_command"`
@@ -88,7 +88,7 @@ type Slack struct {
 	// WebhookURL is an incoming webhook. It is a credential in its own right —
 	// anyone holding it can post to that channel — so it is masked wherever a
 	// token would be.
-	WebhookURL string `json:"webhook_url"`
+	WebhookURL Secret `json:"webhook_url"`
 	// Channel is the channel updates are posted to, e.g. "#dev-workflow". It
 	// applies to the bot token only; a webhook carries its own channel.
 	Channel string `json:"channel"`
@@ -118,7 +118,7 @@ type Forge struct {
 	// It is deliberately absent from Missing(). Reporting it as missing would
 	// fail `workflow doctor` for everyone correctly relying on `gh auth login`,
 	// which is the common case and the one worth encouraging.
-	Token string `json:"token"`
+	Token Secret `json:"token"`
 	// CLI routes forge API calls through the forge's own command-line tool — gh
 	// for GitHub, glab for GitLab — instead of over HTTP directly, so the login
 	// those tools already hold carries the request. This is what reaches a forge
@@ -440,7 +440,7 @@ func (c Config) Problems() []string {
 		problems = append(problems, "jira.base_url is not an absolute http or https URL")
 	}
 
-	if hook := c.Slack.WebhookURL; hook != "" && !secureURL(hook) {
+	if hook := c.Slack.WebhookURL; hook != "" && !secureURL(hook.Reveal()) {
 		problems = append(problems, "slack.webhook_url is not an https URL")
 	}
 

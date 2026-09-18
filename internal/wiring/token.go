@@ -9,6 +9,7 @@ import (
 	"os"
 	"strings"
 
+	"github.com/jacob-delgado/workflow/internal/config"
 	"github.com/jacob-delgado/workflow/internal/proc"
 )
 
@@ -26,12 +27,12 @@ const (
 //
 // A command is split on spaces and run as a program, no shell, so it stays pure
 // Go and works on every platform; wrap a pipeline in a script if one is needed.
-func ResolveToken(ctx context.Context, literal, command, envVar string) (string, string, error) {
+func ResolveToken(ctx context.Context, literal config.Secret, command, envVar string) (config.Secret, string, error) {
 	switch {
 	case literal != "":
 		return literal, sourceFile, nil
 	case envVar != "":
-		return strings.TrimSpace(os.Getenv(envVar)), "the " + envVar + " environment variable", nil
+		return config.Secret(strings.TrimSpace(os.Getenv(envVar))), "the " + envVar + " environment variable", nil
 	case command != "":
 		return fromCommand(ctx, command)
 	default:
@@ -42,7 +43,7 @@ func ResolveToken(ctx context.Context, literal, command, envVar string) (string,
 // fromCommand runs the token command and returns its trimmed output. Its error
 // is deliberately generic: a failed command's message is not the token, but it
 // is not worth risking in output either.
-func fromCommand(ctx context.Context, command string) (string, string, error) {
+func fromCommand(ctx context.Context, command string) (config.Secret, string, error) {
 	fields := strings.Fields(command)
 	if len(fields) == 0 {
 		return "", sourceCommand, nil
@@ -53,5 +54,5 @@ func fromCommand(ctx context.Context, command string) (string, string, error) {
 		return "", sourceCommand, fmt.Errorf("running the token command: %w", err)
 	}
 
-	return strings.TrimSpace(string(out)), sourceCommand, nil
+	return config.Secret(strings.TrimSpace(string(out))), sourceCommand, nil
 }

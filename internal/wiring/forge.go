@@ -111,7 +111,7 @@ func forgeKind(settings config.Forge, remote string) forge.Kind {
 // package takes it. doctor reads it through here too, so the two cannot come
 // to read the file differently.
 func ForgeSettings(settings config.Forge) forge.Configured {
-	return forge.Configured{Kind: settings.Kind, Host: settings.Host, Token: forge.Token(settings.Token)}
+	return forge.Configured{Kind: settings.Kind, Host: settings.Host, Token: forge.Token(settings.Token.Reveal())}
 }
 
 // ForgeResolver builds the resolver that finds a forge token. The interface and

@@ -15,14 +15,20 @@ const maskedUserinfo = "xxxxx"
 // Redacted returns a copy with every token masked, safe to print or log.
 func (c Config) Redacted() Config {
 	redacted := c
-	redacted.Jira.Token = Redact(c.Jira.Token)
+	redacted.Jira.Token = redactSecret(c.Jira.Token)
 	redacted.Jira.Headers = redactHeaders(c.Jira.Headers)
-	redacted.Slack.Token = Redact(c.Slack.Token)
-	redacted.Slack.WebhookURL = Redact(c.Slack.WebhookURL)
+	redacted.Slack.Token = redactSecret(c.Slack.Token)
+	redacted.Slack.WebhookURL = redactSecret(c.Slack.WebhookURL)
 	redacted.Jira.BaseURL = RedactURL(c.Jira.BaseURL)
-	redacted.Forge.Token = Redact(c.Forge.Token)
+	redacted.Forge.Token = redactSecret(c.Forge.Token)
 
 	return redacted
+}
+
+// redactSecret masks a Secret for display, keeping the recognizable tail Redact
+// leaves so config show can still tell two credentials apart.
+func redactSecret(secret Secret) Secret {
+	return Secret(Redact(secret.Reveal()))
 }
 
 // redactHeaders masks the value of every extra Jira header. A header a proxy

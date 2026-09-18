@@ -7,6 +7,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/jacob-delgado/workflow/internal/config"
 	"github.com/jacob-delgado/workflow/internal/wiring"
 )
 
@@ -36,13 +37,13 @@ func TestResolveTokenPrefersTheFileThenTheCommand(t *testing.T) {
 			t.Parallel()
 
 			// Act
-			token, source, err := wiring.ResolveToken(t.Context(), tt.literal, tt.command, "")
+			token, source, err := wiring.ResolveToken(t.Context(), config.Secret(tt.literal), tt.command, "")
 			if err != nil {
 				t.Fatalf("ResolveToken returned %v, want nil", err)
 			}
 
 			// Assert
-			if token != tt.wantToken || source != tt.wantSource {
+			if token.Reveal() != tt.wantToken || source != tt.wantSource {
 				t.Errorf("ResolveToken = %q from %q, want %q from %q", token, source, tt.wantToken, tt.wantSource)
 			}
 		})
