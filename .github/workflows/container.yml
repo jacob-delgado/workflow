@@ -1,0 +1,33 @@
+name: Container
+
+# The build container is what the release binaries are built in and what
+# `task container:check` runs the gate inside, but nothing built it in CI — so a
+# drift in build/Dockerfile (a dead download URL, a base image that moved, a tool
+# version that no longer resolves) would surface only when someone built it by
+# hand. Build it and run the full gate inside it on a schedule, and on demand, so
+# that drift is caught on a Monday rather than at a release.
+on:
+  schedule:
+    # Weekly, Monday 09:00 UTC, after CodeQL and Scorecard.
+    - cron: "0 9 * * 1"
+  workflow_dispatch:
+
+# The default token only reads the repository here.
+permissions:
+  contents: read
+
+jobs:
+  container-check:
+    name: Container check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: jdx/mise-action@c2a87611a18de5b3828c5652fe268e992400cb5c # v4.3.0
+        with:
+          version: 2026.9.3 # the mise binary itself; see min_version in mise.toml
+      # Builds build/Dockerfile with the versions scripts/tool-versions.sh reads
+      # from mise.toml, then runs `task check` inside it — the same gate a
+      # developer runs, in the container the release is built in.
+      - run: task container:check

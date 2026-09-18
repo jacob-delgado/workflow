@@ -407,21 +407,22 @@ pins it any more.
 
 ### DEBT-41 The build container is never built, and is not the same gate
 
-Severity: medium · Confidence: read
+Severity: low · Confidence: read
 
-- Evidence: no workflow builds `build/Dockerfile`. `scripts/tool-versions.sh`
-  passes 14 of `mise.toml`'s 19 pins; lefthook, shellcheck, hugo-extended,
-  cloc and deadcode are left out. shellcheck, jq, nodejs and npm come from apt
-  with no version (`build/Dockerfile:45`). typos, hadolint, taplo and zizmor
-  are downloaded with `curl` and no checksum, while
-  `.devcontainer/postCreate.sh:17` argues for verifying one.
-- Cost: `task container:check` is documented as "the same gate", and it skips
-  three tests, lints with whichever shellcheck Debian ships, and would not
-  notice a dead download URL until someone built it by hand.
-- Remedy: build the image and run `task container:check` weekly in CI; pass
-  the missing pins; have `tool-versions.sh` fail when a tool is neither passed
-  nor skipped on purpose; verify the downloads.
-- Done when: a workflow builds the image.
+Done for the done-when: `.github/workflows/container.yml` builds `build/Dockerfile`
+and runs `task container:check` (the full gate inside the image) weekly and on
+demand, so a drift in the Dockerfile — a dead download URL, a base image that
+moved, a version that no longer resolves — is caught on a Monday rather than at a
+release. It is scheduled and dispatch-only, so it gates no pull request; the
+first run is what reveals whatever the container has drifted into, which this
+machine cannot exercise (no container runtime here).
+
+- What remains, tied to that first run: `scripts/tool-versions.sh` still passes
+  only 14 of the pins and omits lefthook, shellcheck, hugo-extended, cloc and
+  deadcode; shellcheck, jq and node come from apt rather than the pins; and the
+  curl'd tools are not checksum-verified. Making the gate inside the container
+  the same gate — same tool versions, verified downloads — is what the weekly run
+  will surface and drive, on a machine that can build the image.
 
 ### DEBT-42 mise itself floats in CI — DONE
 
