@@ -235,7 +235,7 @@ func (p slackPreview) destination() string {
 	return p.fallback
 }
 
-var _ overlay = slackPreview{}
+var _ editable = slackPreview{}
 
 // view shows the message as it will be posted, where, and how CI stands, its
 // outcome pinned under the title so a long refusal is seen, not clipped.
@@ -278,7 +278,7 @@ func (p slackPreview) handleKey(m Model, msg tea.KeyMsg) (Model, tea.Cmd) {
 		return p.cycleChannel(m, -1)
 	case key.Matches(msg, m.keys.edit) && m.deps.Editor.Edit != nil:
 		return m, m.deps.Editor.Edit(p.text, slackHelp, func(text string, err error) tea.Msg {
-			return slackTextEdited{text: text, err: err}
+			return textEdited{text: text, err: err}
 		})
 	case key.Matches(msg, m.keys.confirm):
 		return p.post(m)
@@ -385,26 +385,16 @@ func (m Model) postIfGreen() (Model, tea.Cmd) {
 	}
 }
 
-// slackTextEdited is a Slack message back from the editor.
-type slackTextEdited struct {
-	text string
-	err  error
-}
-
-// apply puts the message in the preview, if it is still open.
-func (msg slackTextEdited) apply(m Model) (Model, tea.Cmd) {
-	preview, open := m.overlay.(slackPreview)
-	if !open {
-		return m, nil
-	}
-
-	if msg.err != nil {
-		preview.send = preview.send.failed(msg.err)
+// applyEdit puts the edited message back in the preview, or records why the
+// editor failed.
+func (p slackPreview) applyEdit(m Model, text string, err error) (Model, tea.Cmd) {
+	if err != nil {
+		p.send = p.send.failed(err)
 	} else {
-		preview.text = msg.text
+		p.text = text
 	}
 
-	m.overlay = preview
+	m.overlay = p
 
 	return m, nil
 }

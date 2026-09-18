@@ -61,7 +61,7 @@ type prComposer struct {
 	send      sendState
 }
 
-var _ overlay = prComposer{}
+var _ editable = prComposer{}
 
 // prDraft is a pull request the composer was filled with, kept for the session
 // so a push that fails, or an esc, does not throw the work away.
@@ -263,30 +263,20 @@ func (c prComposer) editBody(m Model) tea.Cmd {
 	}
 
 	return m.deps.Editor.Edit(c.body, prBodyHelp, func(text string, err error) tea.Msg {
-		return prBodyEdited{text: text, err: err}
+		return textEdited{text: text, err: err}
 	})
 }
 
-// prBodyEdited is a pull request body back from the editor.
-type prBodyEdited struct {
-	text string
-	err  error
-}
-
-// apply puts the body in the composer, if it is still open.
-func (msg prBodyEdited) apply(m Model) (Model, tea.Cmd) {
-	composer, open := m.overlay.(prComposer)
-	if !open {
-		return m, nil
-	}
-
-	if msg.err != nil {
-		composer.send = composer.send.failed(msg.err)
+// applyEdit puts the body back in the composer, or records why the editor
+// failed.
+func (c prComposer) applyEdit(m Model, text string, err error) (Model, tea.Cmd) {
+	if err != nil {
+		c.send = c.send.failed(err)
 	} else {
-		composer.body, composer.edited = msg.text, true
+		c.body, c.edited = text, true
 	}
 
-	m.overlay = composer
+	m.overlay = c
 
 	return m, nil
 }
