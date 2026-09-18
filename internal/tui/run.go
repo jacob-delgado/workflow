@@ -145,6 +145,11 @@ func (msg runFinished) apply(m Model) (Model, tea.Cmd) {
 
 // view shows the jobs as lefthook reports them, then either the places to jump
 // to or the tail of the output, and how the run stands.
+// rowsIn is how many display rows a wrapped string takes.
+func rowsIn(wrapped string) int {
+	return strings.Count(wrapped, "\n") + 1
+}
+
 func (r commandRun) view(width, rows int) (string, string) {
 	lines := []string{r.state()}
 
@@ -275,8 +280,10 @@ func (r commandRun) handleKey(m Model, msg tea.KeyMsg) (Model, tea.Cmd) {
 // click selects the place on a clicked line.
 func (r commandRun) click(m Model, line int) (Model, tea.Cmd) {
 	offset := runHeader
-	if r.jobs() != "" {
-		offset++
+	if jobs := r.jobs(); jobs != "" {
+		// The jobs line wraps to as many rows as the view drew it in, not one,
+		// so a click below a wrapped jobs line must skip every row it took.
+		offset += rowsIn(wrap(jobs, m.detailWidth()))
 	}
 
 	first, last := window(r.selected, len(r.failures), m.detailRows()-offset)
