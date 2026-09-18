@@ -215,26 +215,33 @@ func withoutEnvOptions(args []string) []string {
 	return args
 }
 
-// shells are the interpreters whose scripts are plain enough to convert.
-func shells() []string {
-	return []string{"sh", "bash", "dash", "zsh"}
-}
+// convertibleRunner is the one interpreter whose scripts convert to jobs.
+// lefthook runs a job with `sh -c`, so a script that already runs under sh keeps
+// its meaning as jobs; a bash or zsh script might not, and stays a script.
+const convertibleRunner = "sh"
 
-// plainCommands reads a script's commands, reporting whether every line is one
-// lefthook can run as a job by itself.
+// plainCommands reads a script's commands, reporting whether it converts to a
+// piped job list without changing what it does. It converts only a script that
+// turns errexit on itself, since the piped list stops at the first failure — a
+// script that did not would run on past a failing command, and converting it
+// would silently start stopping.
 func plainCommands(script string) ([]string, bool) {
-	if !slices.Contains(shells(), strings.Fields(runner(script))[0]) {
+	if strings.Fields(runner(script))[0] != convertibleRunner {
 		return nil, false
 	}
 
 	var commands []string
 
+	errexit := false
+
 	for raw := range strings.SplitSeq(script, "\n") {
 		line := strings.TrimSpace(raw)
 
 		switch {
-		case line == "" || strings.HasPrefix(line, "#") || setOption().MatchString(line):
+		case line == "" || strings.HasPrefix(line, "#"):
 			continue
+		case setOption().MatchString(line):
+			errexit = errexit || errexitOption().MatchString(line)
 		case !plainCommand(line):
 			return nil, false
 		default:
@@ -242,21 +249,32 @@ func plainCommands(script string) ([]string, bool) {
 		}
 	}
 
-	return commands, len(commands) > 0
+	return commands, errexit && len(commands) > 0
 }
 
-// setOption matches `set -e` and its relatives, which a piped job list already
-// honors.
+// setOption matches any `set -flags` line; a piped job list runs the commands
+// but honors none of the options, so only the errexit ones below are safe.
 func setOption() *regexp.Regexp {
 	return regexp.MustCompile(`^set\s+-[a-zA-Z]+(\s+\S+)?$`)
 }
 
+// errexitOption matches a `set` line that turns errexit on and nothing a piped
+// job list cannot also do: short flags including -e (with -u or -x alongside is
+// fine), or the long -o errexit. `set -o pipefail` is deliberately not here — a
+// piped job list cannot reproduce it, so a script that needs it stays whole.
+func errexitOption() *regexp.Regexp {
+	return regexp.MustCompile(`^set\s+(-[a-z]*e[a-z]*|-o\s+errexit)$`)
+}
+
 // plainCommand reports a line that means the same run on its own as it did in
-// its script: no arguments, substitutions, heredocs, continuations or
-// assignments, and not a keyword or builtin that only means something in
-// sequence.
+// its script: no variable or command substitution, no heredoc or process
+// substitution, no pipe or background or continuation, no assignment, and not a
+// keyword or builtin that only means something in sequence. Any `$` at all is
+// out — a piped job list cannot carry the argument or variable it reads — and so
+// is any `|` or `&`, since lefthook cannot reproduce a pipeline's pipefail or a
+// job that runs in the background.
 func plainCommand(line string) bool {
-	for _, marker := range []string{"$(", "`", "<<", "$1", "$2", "$@", "$*", "$#", "${"} {
+	for _, marker := range []string{"$", "`", "<<", "<(", ">(", "|", "&"} {
 		if strings.Contains(line, marker) {
 			return false
 		}
@@ -272,8 +290,9 @@ func plainCommand(line string) bool {
 func shellWords() []string {
 	return []string{
 		"if", "then", "else", "elif", "fi", "for", "while", "until", "do", "done", "case", "esac",
-		"function", "{", "}", "[", "[[", "exec", "exit", "return", "source", ".", "cd", "export",
+		"function", "{", "}", "[", "[[", "(", ")", "exec", "exit", "return", "source", ".", "cd", "export",
 		"trap", "shift", "read", "local", "declare", "readonly", "unset", "set",
+		"pushd", "popd", "umask", "alias", "eval", "wait",
 	}
 }
 
