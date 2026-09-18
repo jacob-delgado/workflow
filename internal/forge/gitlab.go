@@ -285,10 +285,13 @@ func gitlabStatus(ctx context.Context, client Client, repo Repo, pull PullReques
 
 // pipelineState reads a GitLab pipeline status. A status this does not know is
 // running rather than passed: announcing green on a guess is the worse mistake.
+// A pipeline blocked on a manual job is not running — it never finishes on its
+// own — so it reads as no result rather than a poll that never ends.
 func pipelineState(status string) CIState {
 	states := map[string]CIState{
 		succeeded: CIPassed, "skipped": CIPassed,
 		"failed": CIFailed, "canceled": CIFailed,
+		"manual": CINone,
 	}
 
 	state, known := states[status]
