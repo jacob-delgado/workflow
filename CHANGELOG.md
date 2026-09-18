@@ -1,5 +1,24 @@
 # Changelog
 
+## [0.0.5](https://github.com/jacob-delgado/workflow/compare/v0.0.4...v0.0.5) (2026-09-18)
+
+
+### Features
+
+* **convention:** read a forge issue number from a branch ([ce40dbb](https://github.com/jacob-delgado/workflow/commit/ce40dbb73190713d7b1ca1cf45058cadd189f73a))
+* draft a standup to share ([b9d05e1](https://github.com/jacob-delgado/workflow/commit/b9d05e1fb373863564d354150f847f72a72ef174))
+* **forge:** read and close a repository's assigned issues ([9eab18e](https://github.com/jacob-delgado/workflow/commit/9eab18e385cd8e66c76e5ba5f1bad04b44b56ad9))
+* **forge:** route forge calls through gh or glab when asked ([015a5f4](https://github.com/jacob-delgado/workflow/commit/015a5f4490821e653cb2924b78f3a5e55e4046ed))
+* list the pull requests waiting on your review ([33c951a](https://github.com/jacob-delgado/workflow/commit/33c951a1312e355df9bb242d640382fede1e231b))
+* print the work's status on one line ([c0574a8](https://github.com/jacob-delgado/workflow/commit/c0574a860e2839a44ab2424b08260e3306503e8f))
+* report several repositories at once ([36f8257](https://github.com/jacob-delgado/workflow/commit/36f8257d62d0b3f0f982fd53c5fafb37f8c9a9d9))
+* **tui:** back the Issues pane with forge issues when there is no Jira ([639af6f](https://github.com/jacob-delgado/workflow/commit/639af6f6dd5f553bf27d6fb495ea083d00167d5d))
+
+
+### Documentation
+
+* drop the retired Go Report Card badge ([a80971f](https://github.com/jacob-delgado/workflow/commit/a80971f01eea36e358fdea60ba19a55b8064e452))
+
 ## [0.0.4](https://github.com/jacob-delgado/workflow/compare/v0.0.3...v0.0.4) (2026-09-18)
 
 
