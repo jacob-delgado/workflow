@@ -33,7 +33,7 @@ type keyMap struct {
 	changeStatus, comment, branchForIssue, filter, nextView key.Binding
 
 	// Branch and Commits.
-	newBranch, switchTask, worktree, push, stage, stageAll, commit, runHooks, hookConfig key.Binding
+	newBranch, switchTask, worktree, rebase, push, stage, stageAll, commit, runHooks, hookConfig key.Binding
 
 	// Review and Slack.
 	newPullRequest, checks, compose, postWhenGreen key.Binding
@@ -76,6 +76,7 @@ func newKeyMap(marks glyphs, reviewNoun string) keyMap {
 		newBranch:      binding("new branch", "b"),
 		switchTask:     binding("switch task", "s"),
 		worktree:       binding("worktree", "ctrl+w"),
+		rebase:         binding("rebase onto base", "u"),
 		push:           binding("push", "P"),
 		stage:          key.NewBinding(key.WithKeys(" "), key.WithHelp("space", "stage/unstage")),
 		stageAll:       binding("stage all", "a"),
@@ -111,7 +112,10 @@ func (k keyMap) FullHelp() [][]key.Binding {
 	return [][]key.Binding{
 		{k.next, k.previous, k.jump, k.up, k.down, k.scrollUp, k.scrollDown},
 		{k.changeStatus, k.comment, k.branchForIssue, k.filter, k.nextView, k.refresh},
-		{k.newBranch, k.switchTask, k.worktree, k.push, k.stage, k.stageAll, k.commit, k.runHooks, k.hookConfig},
+		{
+			k.newBranch, k.switchTask, k.worktree, k.rebase, k.push,
+			k.stage, k.stageAll, k.commit, k.runHooks, k.hookConfig,
+		},
 		{k.newPullRequest, k.checks, k.compose, k.postWhenGreen},
 		{
 			k.edit, k.editBody, k.nextTemplate, k.toggleDraft, k.verbatim,

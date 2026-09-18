@@ -83,6 +83,8 @@ type world struct {
 	commitErr   error
 	pushLines   []string
 	pushErr     error
+	rebaseLines []string
+	rebaseErr   error
 
 	commitStartErr error
 	ciErr          error

@@ -73,5 +73,10 @@ func (w *world) gitDeps() tui.GitDeps {
 
 			return output(w.pushLines, w.pushErr), nil
 		},
+		Rebase: func(base string) (proc.Output, error) {
+			w.record("rebase " + base)
+
+			return output(w.rebaseLines, w.rebaseErr), nil
+		},
 	}
 }

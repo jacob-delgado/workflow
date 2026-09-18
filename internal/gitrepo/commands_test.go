@@ -92,6 +92,23 @@ func TestFetchCommandUpdatesOriginWithoutPrompts(t *testing.T) {
 	}
 }
 
+func TestRebaseCommandReplaysOntoTheBaseWithoutPrompts(t *testing.T) {
+	t.Parallel()
+
+	// Act
+	rebase := gitrepo.RebaseCommand(workDir, "origin/main")
+
+	// Assert
+	if rebase.Dir != workDir || rebase.Name != gitProgram ||
+		!slices.Equal(rebase.Args, []string{"rebase", "origin/main"}) {
+		t.Errorf("RebaseCommand = %+v", rebase)
+	}
+
+	if !slices.Contains(rebase.Env, "GIT_TERMINAL_PROMPT=0") {
+		t.Errorf("RebaseCommand environment = %q, want prompts turned off", rebase.Env)
+	}
+}
+
 func TestCommitCommandRunsInTheRepository(t *testing.T) {
 	t.Parallel()
 

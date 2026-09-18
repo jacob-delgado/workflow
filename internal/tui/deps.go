@@ -80,6 +80,10 @@ type GitDeps struct {
 	// Commit and Push stream their output, because hooks run inside both.
 	Commit func(message string) (proc.Output, error)
 	Push   func(branch string) (proc.Output, error)
+	// Rebase replays the branch onto base and streams its output. A conflict
+	// leaves the repository mid-rebase for the shell. Nil when there is no
+	// repository.
+	Rebase func(base string) (proc.Output, error)
 }
 
 // ForgeDeps is what the interface asks of GitHub or GitLab.
