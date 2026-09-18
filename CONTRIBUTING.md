@@ -29,10 +29,10 @@ mise trust && mise install   # Go, task, and every linter, at pinned versions
 task setup                   # modules + git hooks (lefthook)
 ```
 
-`mise install` is the only setup step that installs anything: Go, golangci-lint,
-lefthook, shellcheck, shfmt, yamllint, hadolint, actionlint, typos, govulncheck
-and gitleaks all come from `mise.toml` at exact versions, so your local gate and
-CI agree.
+`mise install` is the only setup step that installs anything: Go, the task
+runner, every linter and formatter, the coverage and security scanners, and the
+docs builder all come from `mise.toml` at exact versions, so your local gate and
+CI agree. That file is the list — naming each tool here only drifts from it.
 
 Two alternatives, if you would rather not install a toolchain:
 
