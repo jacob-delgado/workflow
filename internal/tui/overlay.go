@@ -63,6 +63,7 @@ var (
 	_ applier = commitBodyEdited{}
 	_ applier = pullFound{}
 	_ applier = ciChecked{}
+	_ applier = checkOpened{}
 	_ applier = ciPoll{}
 	_ applier = pullCreated{}
 	_ applier = issueLinked{}

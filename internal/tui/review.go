@@ -329,17 +329,24 @@ func forgeReason(err error) string {
 	}
 }
 
-// reviewKeys offers opening a pull request, or checking again.
+// reviewKeys offers opening a pull request, listing its checks, or checking
+// again.
 func (m Model) reviewKeys() []key.Binding {
 	if m.outsideRepository() {
 		return nil
 	}
 
+	var keys []key.Binding
+
 	if m.canOpenPullRequest() {
-		return []key.Binding{m.keys.newPullRequest, m.keys.refresh}
+		keys = append(keys, m.keys.newPullRequest)
 	}
 
-	return []key.Binding{m.keys.refresh}
+	if m.canOpenChecks() {
+		keys = append(keys, m.keys.checks)
+	}
+
+	return append(keys, m.keys.refresh)
 }
 
 // handleReviewKey answers the Review pane's own keys.
@@ -347,6 +354,8 @@ func (m Model) handleReviewKey(msg tea.KeyMsg) (Model, tea.Cmd) {
 	switch {
 	case key.Matches(msg, m.keys.newPullRequest) && m.canOpenPullRequest():
 		return m.openPullRequestComposer()
+	case key.Matches(msg, m.keys.checks) && m.canOpenChecks():
+		return m.openChecks()
 	case key.Matches(msg, m.keys.refresh):
 		return m, tea.Batch(m.findPullRequest(), m.checkCI())
 	default:

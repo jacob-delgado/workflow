@@ -137,7 +137,8 @@ func TestGitHubCIReadsStatusesAndCheckRunsTogether(t *testing.T) {
 			got, err := client.CheckStatus(t.Context(), githubRepo(), forge.PullRequest{}, headCommit)
 
 			// Assert
-			if err != nil || got != tt.want {
+			if err != nil || got.State != tt.want.State || got.Total != tt.want.Total ||
+				got.Done != tt.want.Done || got.Failed != tt.want.Failed {
 				t.Errorf("CheckStatus = %+v, %v, want %+v", got, err, tt.want)
 			}
 		})

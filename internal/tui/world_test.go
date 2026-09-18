@@ -107,6 +107,7 @@ type world struct {
 	edited     string
 	editErr    error
 	editorErr  error
+	openURLErr error
 	ciInterval time.Duration
 }
 
@@ -209,6 +210,11 @@ func (w *world) deps() tui.Deps {
 		Clock:      testNow,
 		CIInterval: w.ciInterval,
 		Notify:     func() { w.record("notify") },
+		OpenURL: func(url string) error {
+			w.record("browse " + url)
+
+			return w.openURLErr
+		},
 	}
 }
 

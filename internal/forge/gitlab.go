@@ -23,6 +23,7 @@ type gitlabMerge struct {
 	MergeStatus  string `json:"merge_status"`
 	HeadPipeline *struct {
 		Status string `json:"status"`
+		URL    string `json:"web_url"`
 	} `json:"head_pipeline"`
 }
 
@@ -125,10 +126,15 @@ func gitlabStatus(ctx context.Context, client Client, repo Repo, pull PullReques
 	}
 
 	if merge.HeadPipeline == nil {
-		return CI{State: CINone, Total: 0, Done: 0, Failed: 0}, nil
+		return CI{State: CINone, Total: 0, Done: 0, Failed: 0, Checks: nil}, nil
 	}
 
-	return CI{State: pipelineState(merge.HeadPipeline.Status), Total: 0, Done: 0, Failed: 0}, nil
+	// GitLab reports the review's head pipeline as a whole, so it is the one
+	// check there is to list — its own page opens the jobs within it.
+	state := pipelineState(merge.HeadPipeline.Status)
+	pipeline := Check{Name: "pipeline", State: state, URL: merge.HeadPipeline.URL}
+
+	return CI{State: state, Total: 0, Done: 0, Failed: 0, Checks: []Check{pipeline}}, nil
 }
 
 // pipelineState reads a GitLab pipeline status. A status this does not know is
