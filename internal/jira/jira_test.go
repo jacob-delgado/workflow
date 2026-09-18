@@ -149,6 +149,37 @@ func TestMyselfSendsTheCredentialOnlyInTheAuthorizationHeader(t *testing.T) {
 	}
 }
 
+func TestExtraHeadersAreSentWithEveryRequest(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	var gotHeader atomic.Value
+
+	server := httptest.NewServer(http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
+		gotHeader.Store(request.Header.Get("Cf-Access-Client-Id"))
+
+		_, _ = writer.Write([]byte(myselfBody))
+	}))
+	t.Cleanup(server.Close)
+
+	settings := config.Jira{
+		BaseURL: server.URL, Token: token,
+		Headers: map[string]string{"Cf-Access-Client-Id": "gateway-id"},
+	}
+	client := jira.New(server.Client().Do, settings)
+
+	// Act
+	_, err := client.Myself(t.Context())
+	if err != nil {
+		t.Fatalf("Myself returned %v, want nil", err)
+	}
+
+	// Assert
+	if got := gotHeader.Load(); got != "gateway-id" {
+		t.Errorf("proxy header = %v, want it sent with the request", got)
+	}
+}
+
 func TestMyselfKeepsTheContextPath(t *testing.T) {
 	t.Parallel()
 

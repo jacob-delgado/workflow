@@ -59,6 +59,7 @@ which one was read.
 | `jira.token_env` | one of these three | An environment variable that holds the token. |
 | `jira.user` | no | Only for instances requiring HTTP Basic. See below. |
 | `jira.views` | no | Named issue lists (`name` + `jql`) the pane moves between with `v`. Empty keeps the one built-in list. See below. |
+| `jira.headers` | no | Extra HTTP headers sent with every Jira request, for a Jira reached through an SSO proxy that checks one. Values are masked wherever the configuration is shown. See below. |
 | `slack.token` | for a bot | Bot token; starts with `xoxb-`. Or use `slack.token_command` / `slack.token_env`. |
 | `slack.token_command` | for a bot | A program that prints the bot token. |
 | `slack.token_env` | for a bot | An environment variable that holds the bot token. |
@@ -90,6 +91,61 @@ loaded silently would look exactly like a credential you never set.
 Leave `jira.user` empty to authenticate with that token as a bearer token, which
 is what Data Center expects. Set `jira.user` only if your instance requires HTTP
 Basic authentication, in which case the token is used as the password.
+
+## Jira behind single sign-on (Azure AD / Office 365, and others)
+
+On-premises Jira is often reached through a single sign-on gateway. Whether
+workflow needs anything special depends on where that gateway sits.
+
+**First, find out whether the REST API accepts a token directly.** Create a
+personal access token (avatar → **Profile** → **Personal Access Tokens**; you
+reach this once by signing in through the usual browser SSO), then:
+
+```sh
+curl -sik -H "Authorization: Bearer <token>" https://your-jira/rest/api/2/myself
+```
+
+- **`200` with your user as JSON** — the API takes the token directly; SSO only
+  guards the web UI. Put the token in `jira.token` and you are done. This is the
+  common case for a SAML SSO plugin (including Azure AD / Entra ID federation).
+- **A redirect to `login.microsoftonline.com` or an HTML login page** — the API
+  itself is behind the gateway (for Azure AD, an Application Proxy, which is what
+  the *MyApps* portal publishes). A token alone will not pass it; read on.
+
+**A gateway that mints a bearer token (Azure AD Application Proxy, OIDC).** Use
+`jira.token_command` to fetch a fresh gateway token each run — for Azure AD, the
+Azure CLI does this:
+
+```json
+{
+  "jira": {
+    "base_url": "https://jira.example.com",
+    "token_command": "az account get-access-token --resource api://<app-id> --query accessToken -o tsv"
+  }
+}
+```
+
+Run `az login` once; the token is sent as `Authorization: Bearer` like any other.
+
+**A gateway that checks a header of its own (Cloudflare Access, and similar).**
+Add the headers it wants under `jira.headers`; they are sent with every request,
+alongside your Jira token, and their values are masked wherever the configuration
+is shown (a gateway secret is a credential):
+
+```json
+{
+  "jira": {
+    "token": "<jira PAT>",
+    "headers": {
+      "CF-Access-Client-Id": "<client id>",
+      "CF-Access-Client-Secret": "<client secret>"
+    }
+  }
+}
+```
+
+A Jira token is still required — `jira.headers` adds the gateway's headers on top
+of it, rather than replacing your Jira credential.
 
 ## Issue views
 

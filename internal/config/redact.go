@@ -16,12 +16,29 @@ const maskedUserinfo = "xxxxx"
 func (c Config) Redacted() Config {
 	redacted := c
 	redacted.Jira.Token = Redact(c.Jira.Token)
+	redacted.Jira.Headers = redactHeaders(c.Jira.Headers)
 	redacted.Slack.Token = Redact(c.Slack.Token)
 	redacted.Slack.WebhookURL = Redact(c.Slack.WebhookURL)
 	redacted.Jira.BaseURL = RedactURL(c.Jira.BaseURL)
 	redacted.Forge.Token = Redact(c.Forge.Token)
 
 	return redacted
+}
+
+// redactHeaders masks the value of every extra Jira header. A header a proxy
+// checks — a Cloudflare Access secret, say — is a credential, and there is no
+// way to tell a secret one from a harmless one, so every value is masked.
+func redactHeaders(headers map[string]string) map[string]string {
+	if headers == nil {
+		return nil
+	}
+
+	masked := make(map[string]string, len(headers))
+	for name, value := range headers {
+		masked[name] = Redact(value)
+	}
+
+	return masked
 }
 
 // RedactURL masks the userinfo of a URL, leaving the rest readable.

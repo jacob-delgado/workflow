@@ -58,6 +58,11 @@ type Jira struct {
 	// User is optional. Leave it empty for token (Bearer) authentication; set it
 	// to authenticate with HTTP Basic instead.
 	User string `json:"user"`
+	// Headers are extra HTTP headers sent with every Jira request, added after
+	// the token, for a Jira reached through a proxy that wants one of its own —
+	// an SSO gateway checking a header, say. A value may be a secret, so it is
+	// masked wherever the configuration is shown.
+	Headers map[string]string `json:"headers"`
 	// Views are named issue lists the pane can move between, each a label and its
 	// JQL. Empty keeps the one built-in list: open issues assigned to you.
 	Views []JiraView `json:"views"`
