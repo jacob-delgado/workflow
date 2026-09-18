@@ -20,6 +20,7 @@ import (
 	"time"
 
 	"github.com/jacob-delgado/workflow/internal/config"
+	"github.com/jacob-delgado/workflow/internal/httpx"
 	"github.com/jacob-delgado/workflow/internal/sanitize"
 )
 
@@ -54,15 +55,11 @@ var (
 	// ErrUnreachable reports a request that never got an answer.
 	ErrUnreachable = errors.New("could not reach the server")
 	// ErrRedirected reports a redirect this client declined to follow.
-	ErrRedirected = errors.New("refused to follow a redirect")
+	ErrRedirected = httpx.ErrRedirected
 )
 
-// Doer sends one HTTP request. *http.Client's Do method satisfies it.
-//
-// A function type rather than an interface because it is a single method, which
-// is the seam shape this project prefers; it exists so a caller can supply the
-// redirect-refusing, deadline-bearing client below rather than the default one.
-type Doer func(*http.Request) (*http.Response, error)
+// Doer is the HTTP seam this client accepts; see httpx.Doer.
+type Doer = httpx.Doer
 
 // User is who a credential authenticates as.
 //
@@ -89,21 +86,10 @@ func New(do Doer, settings config.Jira) Client {
 	return Client{do: do, settings: settings}
 }
 
-// HTTPClient is the transport a credential may travel over.
-//
-// It refuses redirects, and that is the point rather than a convenience: Go's
-// default client forwards the Authorization header to any redirect target
-// sharing a HOSTNAME, ignoring both the port and the scheme. An on-prem Jira
-// behind a misconfigured proxy that redirects HTTPS to HTTP on the same host
-// would hand the token to the plaintext hop with nothing in the code looking
-// wrong.
+// HTTPClient is the redirect-refusing transport an on-prem Jira credential
+// travels over; see httpx.Client for why refusing matters.
 func HTTPClient(timeout time.Duration) *http.Client {
-	return &http.Client{
-		Timeout: timeout,
-		CheckRedirect: func(_ *http.Request, _ []*http.Request) error {
-			return ErrRedirected
-		},
-	}
+	return httpx.Client(timeout)
 }
 
 // Myself reports who the configured credential authenticates as.

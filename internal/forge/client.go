@@ -15,6 +15,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/jacob-delgado/workflow/internal/httpx"
 	"github.com/jacob-delgado/workflow/internal/sanitize"
 )
 
@@ -58,11 +59,11 @@ var (
 	// ErrUnreachable reports a request that never got an answer.
 	ErrUnreachable = errors.New("could not reach the forge")
 	// ErrRedirected reports a redirect this client declined to follow.
-	ErrRedirected = errors.New("refused to follow a redirect")
+	ErrRedirected = httpx.ErrRedirected
 )
 
-// Doer sends one HTTP request. *http.Client's Do method satisfies it.
-type Doer func(*http.Request) (*http.Response, error)
+// Doer is the HTTP seam this client accepts; see httpx.Doer.
+type Doer = httpx.Doer
 
 // Identity is who a credential belongs to. The two forges name the same thing
 // differently, which is the only difference this package has to care about.
@@ -92,16 +93,10 @@ func New(do Doer, base string, token Token) Client {
 	return Client{do: do, base: strings.TrimRight(base, "/"), token: token}
 }
 
-// HTTPClient is the transport a credential may travel over. It refuses
-// redirects: Go forwards the Authorization header to any target sharing the
-// origin's host OR a subdomain of it, ignoring the port and the scheme.
+// HTTPClient is the redirect-refusing transport a forge credential travels
+// over; see httpx.Client for why refusing matters.
 func HTTPClient(timeout time.Duration) *http.Client {
-	return &http.Client{
-		Timeout: timeout,
-		CheckRedirect: func(_ *http.Request, _ []*http.Request) error {
-			return ErrRedirected
-		},
-	}
+	return httpx.Client(timeout)
 }
 
 // Whoami reports which account the credential belongs to.
