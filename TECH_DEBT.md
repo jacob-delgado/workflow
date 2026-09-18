@@ -239,26 +239,6 @@ Severity: low · Confidence: read
 
 ## Configuration, wiring and the command line
 
-### DEBT-20 `doctor` says things about the forge that are not true
-
-Severity: medium · Confidence: reproduced
-
-- Evidence: it lists `glab` as "supplies a GitLab token when none is
-  configured" (`internal/cli/doctor.go:69`); no code runs `glab`, a test
-  asserts that, and the configuration guide says "There is no `glab` step".
-  It says "the hook panes stay hidden" without lefthook
-  (`internal/cli/doctor.go:59`); there are no hook panes. `checkForge`'s comment says it "does not call the forge"
-  (`internal/cli/doctor.go:160`) and it calls `Whoami`. Offline, `forgeLabel`
-  takes no settings (`internal/cli/doctor.go:288`), so it reports "cannot tell
-  GitHub Enterprise from self-managed GitLab" when `forge.kind` says which,
-  and no Forge line appears under Configuration, so a misspelled `forge.kind`
-  is never reported on a github.com or gitlab.com remote.
-- Cost: `doctor` is the diagnostic people trust and paste into bug reports.
-- Remedy: drop `glab`; load the configuration before the repository section
-  and pass it to `forgeLabel`; validate `forge.kind` with `ParseKind`.
-- Done when: `doctor` does not mention `glab`, and `forge.kind: githb` is
-  reported offline.
-
 ### DEBT-21 The forge connection is built twice, and remembered when it fails
 
 Severity: medium · Confidence: read
@@ -279,21 +259,6 @@ Severity: medium · Confidence: read
 - Remedy: one exported connect function that both callers use; remember a
   connection only when it succeeded.
 - Done when: `r` after signing in finds the pull request.
-
-### DEBT-22 Configuration is checked for emptiness only
-
-Severity: medium · Confidence: reproduced
-
-- Evidence: `Missing` tests `== ""` (`internal/config/config.go:322`). A URL
-  is checked on each request (`internal/jira/jira.go:160`), a webhook's scheme
-  at post time (`internal/slack/post.go:95`), `forge.kind` at use.
-- Cost: a file with `base_url: "jira.example.com"`, an `http://` webhook and
-  `forge.kind: "githb"` loads with nothing missing, and offline `doctor` says
-  "Everything required is set." The insecure-webhook refusal arrives after the
-  user has written the Slack message.
-- Remedy: a `Config.Problems()` beside `Missing`, using the same predicates,
-  printed by `doctor` and by the interface.
-- Done when: `doctor` refuses the file above without `--online`.
 
 ### DEBT-23 The file format has no version and rejects what it does not know
 

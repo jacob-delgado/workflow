@@ -9,6 +9,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"net/url"
 	"os"
 	"path/filepath"
 	"slices"
@@ -417,6 +418,39 @@ func (s Slack) missing() []string {
 	}
 
 	return nil
+}
+
+// Problems reports settings that are present but malformed — filled in wrong —
+// as opposed to Missing, which reports what is still empty. A configuration can
+// be complete and still not work, so doctor should say which values are bad
+// rather than call a set-but-invalid file all clear.
+func (c Config) Problems() []string {
+	var problems []string
+
+	if base := c.Jira.BaseURL; base != "" && !absoluteWebURL(base) {
+		problems = append(problems, "jira.base_url is not an absolute http or https URL")
+	}
+
+	if hook := c.Slack.WebhookURL; hook != "" && !secureURL(hook) {
+		problems = append(problems, "slack.webhook_url is not an https URL")
+	}
+
+	return problems
+}
+
+// absoluteWebURL reports whether raw is an absolute http or https URL with a
+// host.
+func absoluteWebURL(raw string) bool {
+	parsed, err := url.Parse(raw)
+
+	return err == nil && (parsed.Scheme == "http" || parsed.Scheme == "https") && parsed.Host != ""
+}
+
+// secureURL reports whether raw is an https URL with a host.
+func secureURL(raw string) bool {
+	parsed, err := url.Parse(raw)
+
+	return err == nil && parsed.Scheme == "https" && parsed.Host != ""
 }
 
 // Missing names the configuration fields that are still empty, in the order a
