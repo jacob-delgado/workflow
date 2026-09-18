@@ -59,7 +59,7 @@ go install github.com/jacob-delgado/workflow/cmd/workflow@latest
 ```
 
 The binary lands in `$(go env GOPATH)/bin`, which needs to be on your `PATH`.
-For a reproducible install, name the version instead: `@v0.1.0`. Note that
+For a reproducible install, name the version instead: `@v0.0.5`. Note that
 `@latest` resolves to the newest release tag, and until the first tag exists, to
 the most recent commit on `main`.
 
