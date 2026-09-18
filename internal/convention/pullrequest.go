@@ -49,12 +49,29 @@ func references(text, issueKey string) bool {
 	return regexp.MustCompile(`\b` + regexp.QuoteMeta(issueKey) + `\b`).MatchString(text)
 }
 
-// issueLine names the issue, linked when there is a link. Markdown, which both
-// forges render.
+// issueLine names the issue in the pull request body. A forge issue is named
+// the way its forge auto-closes it on merge; a Jira issue is named and linked in
+// Markdown, which both forges render.
 func issueLine(issueKey, issueURL string) string {
+	if forgeIssueNumber(issueKey) {
+		return "Closes #" + issueKey
+	}
+
 	if issueURL == "" {
 		return "Jira: " + issueKey
 	}
 
 	return "Jira: [" + issueKey + "](" + issueURL + ")"
+}
+
+// forgeIssueNumber reports that the key is a forge issue number — all digits —
+// rather than a Jira key, which always carries a letter.
+func forgeIssueNumber(issueKey string) bool {
+	for _, character := range issueKey {
+		if character < '0' || character > '9' {
+			return false
+		}
+	}
+
+	return issueKey != ""
 }

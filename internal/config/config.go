@@ -309,6 +309,12 @@ func Template() Config {
 	}
 }
 
+// Configured reports that a Jira instance is set as the issue tracker, by its
+// base URL. When it is not, the forge's own issues back the Issues pane instead.
+func (j Jira) Configured() bool {
+	return j.BaseURL != ""
+}
+
 // AuthMode reports how requests to this Jira instance authenticate.
 func (j Jira) AuthMode() AuthMode {
 	switch {
