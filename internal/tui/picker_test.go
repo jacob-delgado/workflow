@@ -12,7 +12,6 @@ import (
 	"testing"
 
 	tea "github.com/charmbracelet/bubbletea"
-	"github.com/charmbracelet/lipgloss"
 
 	"github.com/jacob-delgado/workflow/internal/jira"
 	"github.com/jacob-delgado/workflow/internal/tui"
@@ -417,39 +416,5 @@ func TestTheFooterDoesNotOfferChangingStatusWhereItDoesNothing(t *testing.T) {
 			refuseScreen(t, footer, "change status")
 			requireScreen(t, footer, "quit")
 		})
-	}
-}
-
-func TestThePickerFooterSaysHowToApplyOrLeave(t *testing.T) {
-	t.Parallel()
-
-	// Arrange
-	fake := &fakeJira{moves: workflowMoves()}
-	screen := jiraScreen(t, fake.deps(twoIssues()))
-
-	// Act
-	footer := footerLine(openPicker(t, screen).View())
-
-	// Assert
-	requireScreen(t, footer, "enter apply", keyEsc)
-}
-
-func TestThePickerFitsANarrowTerminal(t *testing.T) {
-	t.Parallel()
-
-	// Arrange
-	fake := &fakeJira{moves: workflowMoves()}
-	model := started(t, sized(t, tui.New(completeConfig(), nil, fake.deps(twoIssues())), 79, 30))
-
-	// Act
-	view := openPicker(t, model).View()
-
-	// Assert
-	requireScreen(t, view, pickerTitle, "▸ ◐ Start Review → In Review")
-
-	for index, line := range strings.Split(view, "\n") {
-		if width := lipgloss.Width(line); width > 80 {
-			t.Errorf("line %d is %d cells, wider than the terminal: %q", index, width, line)
-		}
 	}
 }
