@@ -125,7 +125,7 @@ func (c Client) checkable() error {
 func (c Client) send(request *http.Request) (Identity, error) {
 	response, err := c.do(request)
 	if err != nil {
-		return Identity{}, fmt.Errorf("%w: %w", ErrUnreachable, err)
+		return Identity{}, fmt.Errorf("%w: %w", ErrUnreachable, httpx.Cause(err))
 	}
 	defer func() { _ = response.Body.Close() }()
 

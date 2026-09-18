@@ -155,14 +155,21 @@ Slack clients alias `Doer`/`ErrRedirected` to it and their `HTTPClient` delegate
 to `httpx.Client`, so the redirect policy — the piece where "one of them forgot
 the mask" is the standing warning — has a single copy that a test guards.
 
+Also done: the transport-error message reads one way. The duplicated `cause`
+(Jira) and `withoutURL` (Slack) helpers are gone — `httpx.Cause` strips
+net/http's `*url.Error` down to its inner error in one place, and all four
+transport-error sites use it, so the forge and Slack's identity check no longer
+echo the request URL the other two already dropped. `httpx_test.go` guards it.
+
 - Left per service, deliberately: `bodyLimit` differs (16 MB for Jira and the
   forge, 1 MB for Slack), and status mapping genuinely differs between them.
-- What remains, lower value: the transport-error message still reads two ways —
-  Jira and Slack's post path strip the error's URL while the forge and Slack's
-  identity check keep it — and a refused redirect still says "could not reach"
-  though the server answered. Settling on one wording changes observable error
-  text and wants a RED test; the `call[T]`-style exchange helper the forge has
-  and Jira repeats is a further refactor on top.
+- What remains, lower value: a refused redirect still reads "could not reach …"
+  though the server did answer with a redirect the client declined. The cause is
+  named (the error wraps `ErrRedirected`, which a caller tells apart with
+  `errors.Is`), so this is a wording nicety rather than a wrong signal, and
+  settling it cleanly means unifying three clients' distinct unreachable
+  sentinels — kept as a deliberate minor choice. The `call[T]`-style exchange
+  helper the forge has and Jira repeats is a further refactor on its own.
 
 ### DEBT-19 Smaller items in the clients
 

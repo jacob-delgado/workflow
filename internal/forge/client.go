@@ -173,7 +173,7 @@ func (c Client) newRequest(ctx context.Context, method, path string, payload any
 func (c Client) exchange(request *http.Request) ([]byte, error) {
 	response, err := c.do(request)
 	if err != nil {
-		return nil, fmt.Errorf("%w at %s: %w", ErrUnreachable, c.base, err)
+		return nil, fmt.Errorf("%w at %s: %w", ErrUnreachable, c.base, httpx.Cause(err))
 	}
 	defer func() { _ = response.Body.Close() }()
 
