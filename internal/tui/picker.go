@@ -60,7 +60,7 @@ func (msg transitionApplied) apply(m Model) (Model, tea.Cmd) {
 	if msg.err != nil {
 		picker, open := m.overlay.(statusPicker)
 		if open {
-			picker.sending, picker.applyErr, picker.form = false, msg.err, fieldForm{}
+			picker.send, picker.form = picker.send.failed(msg.err), fieldForm{}
 			m.overlay = picker
 		}
 
@@ -81,9 +81,8 @@ type statusPicker struct {
 	issue    jira.Issue
 	found    []jira.Transition
 	listErr  error
-	applyErr error
+	send     sendState
 	settled  bool
-	sending  bool
 	selected int
 	// form is filling in the chosen transition's fields; it is open when it
 	// has any.
@@ -153,12 +152,12 @@ func (p statusPicker) rows(space int) []string {
 // outcome says how applying the chosen transition is going, if it was tried.
 func (p statusPicker) outcome() []string {
 	switch {
-	case p.sending:
+	case p.send.sending:
 		chosen, _ := p.chosen()
 
 		return []string{"", "changing " + p.issue.Key + " to " + chosen.ToStatus + p.marks.ellipsis}
-	case p.applyErr != nil:
-		return []string{"", failedGlyph(p.styles, p.marks) + " " + p.applyErr.Error()}
+	case p.send.err != nil:
+		return []string{"", failedGlyph(p.styles, p.marks) + " " + p.send.err.Error()}
 	default:
 		return nil
 	}
@@ -168,7 +167,7 @@ func (p statusPicker) outcome() []string {
 // nothing interrupts it, so only quitting is offered.
 func (p statusPicker) footer(keys keyMap) []key.Binding {
 	switch {
-	case p.sending:
+	case p.send.sending:
 		return []key.Binding{keys.interrupt}
 	case p.form.open():
 		return p.form.footer(keys)
@@ -180,7 +179,7 @@ func (p statusPicker) footer(keys keyMap) []key.Binding {
 // handleKey answers a key while the picker has the keyboard.
 func (p statusPicker) handleKey(m Model, msg tea.KeyMsg) (Model, tea.Cmd) {
 	switch {
-	case p.sending:
+	case p.send.sending:
 		// Closing now would hide the answer, and a refused change must never go
 		// unseen. The request carries a deadline, so this cannot last.
 		return m, nil
@@ -207,7 +206,7 @@ func (p statusPicker) click(m Model, line int) (Model, tea.Cmd) {
 	first, last := window(p.selected, len(p.found), rows)
 
 	index := first + line - pickerHeader
-	if p.sending || p.form.open() || line < pickerHeader || index >= last {
+	if p.send.sending || p.form.open() || line < pickerHeader || index >= last {
 		return m, nil
 	}
 
@@ -236,14 +235,14 @@ func (p statusPicker) choose(m Model) (Model, tea.Cmd) {
 	}
 
 	if blocked, unfillable := unfillableField(chosen); unfillable {
-		p.applyErr = errNeedsJira(chosen, blocked)
+		p.send.err = errNeedsJira(chosen, blocked)
 		m.overlay = p
 
 		return m, nil
 	}
 
 	if len(chosen.Fields) > 0 {
-		p.applyErr, p.form = nil, newFieldForm(chosen)
+		p.send.err, p.form = nil, newFieldForm(chosen)
 		m.overlay = p
 
 		return m, nil
@@ -260,7 +259,7 @@ func (p statusPicker) apply(m Model, chosen jira.Transition, values []jira.Field
 		return m.closeOverlay().noticed("dry run: would change " + issueKey + " to " + chosen.ToStatus), nil
 	}
 
-	p.sending, p.applyErr = true, nil
+	p.send = starting()
 	m.overlay = p
 	transition := m.deps.Jira.Transition
 

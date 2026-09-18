@@ -56,7 +56,7 @@ type commitComposer struct {
 	body     string
 	issueKey string
 	staged   int
-	problem  error
+	send     sendState
 }
 
 var _ overlay = commitComposer{}
@@ -79,7 +79,7 @@ func (m Model) openCommitComposer() (Model, tea.Cmd) {
 	composer := commitComposer{
 		marks: m.marks, styles: m.styles, types: types, kind: m.startingType(types, draft),
 		focus: fieldSubject, scope: newInput(m.startingScope(draft)), subject: newInput(draft.subject), body: draft.body,
-		issueKey: issueKey, staged: m.changes.staged(), problem: nil,
+		issueKey: issueKey, staged: m.changes.staged(),
 	}
 	composer.scope.Blur()
 
@@ -129,7 +129,7 @@ func (c commitComposer) view(width, _ int) (string, string) {
 
 	c.scope.Width, c.subject.Width = max(1, width-composerLabelWidth), max(1, width-composerLabelWidth)
 
-	lines := pinnedOutcome(c.styles, c.marks, false, "", c.problem, width)
+	lines := pinnedOutcome(c.styles, c.marks, c.send, "", width)
 	lines = append(lines,
 		c.label(fieldType, "type    ")+c.typeChoice(),
 		c.label(fieldScope, "scope   ")+c.scope.View(),
@@ -255,7 +255,7 @@ func (c commitComposer) typed(m Model, msg tea.KeyMsg) commitComposer {
 		c.subject, _ = c.subject.Update(msg)
 	}
 
-	c.problem = nil
+	c.send.err = nil
 
 	return c
 }
@@ -307,7 +307,7 @@ func (msg commitBodyEdited) apply(m Model) (Model, tea.Cmd) {
 	}
 
 	if msg.err != nil {
-		composer.problem = msg.err
+		composer.send = composer.send.failed(msg.err)
 	} else {
 		composer.body = msg.text
 	}
@@ -322,8 +322,8 @@ func (msg commitBodyEdited) apply(m Model) (Model, tea.Cmd) {
 func (c commitComposer) commit(m Model) (Model, tea.Cmd) {
 	subject := c.assembled()
 
-	c.problem = subject.Validate()
-	if c.problem != nil {
+	c.send.err = subject.Validate()
+	if c.send.err != nil {
 		m.overlay = c
 
 		return m, nil

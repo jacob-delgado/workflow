@@ -223,8 +223,7 @@ type slackPreview struct {
 	channel  string
 	channels []string
 	noCI     bool
-	sending  bool
-	err      error
+	send     sendState
 }
 
 // destination is where this post will go, as it is shown and as it is sent.
@@ -241,7 +240,7 @@ var _ overlay = slackPreview{}
 // view shows the message as it will be posted, where, and how CI stands, its
 // outcome pinned under the title so a long refusal is seen, not clipped.
 func (p slackPreview) view(width, _ int) (string, string) {
-	lines := pinnedOutcome(p.styles, p.marks, p.sending, "posting", p.err, width)
+	lines := pinnedOutcome(p.styles, p.marks, p.send, "posting", width)
 	lines = append(lines, wrap(p.text, width), "", "to  "+p.destination())
 
 	return "Post to Slack", strings.Join(lines, "\n")
@@ -250,7 +249,7 @@ func (p slackPreview) view(width, _ int) (string, string) {
 // footer offers posting now or when CI passes, changing the channel where there
 // is a choice, another edit, or leaving.
 func (p slackPreview) footer(keys keyMap) []key.Binding {
-	if p.sending {
+	if p.send.sending {
 		return []key.Binding{keys.interrupt}
 	}
 
@@ -269,7 +268,7 @@ func (p slackPreview) footer(keys keyMap) []key.Binding {
 // handleKey answers a key while the message is previewed.
 func (p slackPreview) handleKey(m Model, msg tea.KeyMsg) (Model, tea.Cmd) {
 	switch {
-	case p.sending:
+	case p.send.sending:
 		return m, nil
 	case key.Matches(msg, m.keys.closeOverlay):
 		return m.closeOverlay(), nil
@@ -313,7 +312,7 @@ func (p slackPreview) post(m Model) (Model, tea.Cmd) {
 		return m.closeOverlay().noticed("dry run: would post to " + p.destination()), nil
 	}
 
-	p.sending, p.err = true, nil
+	p.send = starting()
 	m.overlay = p
 
 	return m.sendToSlack(p.channel, p.text)
@@ -400,7 +399,7 @@ func (msg slackTextEdited) apply(m Model) (Model, tea.Cmd) {
 	}
 
 	if msg.err != nil {
-		preview.err = msg.err
+		preview.send = preview.send.failed(msg.err)
 	} else {
 		preview.text = msg.text
 	}
@@ -426,7 +425,7 @@ func (msg slackPosted) apply(m Model) (Model, tea.Cmd) {
 		m.slack.err = msg.err
 
 		if open {
-			preview.sending, preview.err = false, msg.err
+			preview.send = preview.send.failed(msg.err)
 			m.overlay = preview
 		}
 

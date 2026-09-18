@@ -58,8 +58,7 @@ type prComposer struct {
 	draft     bool
 	edited    bool
 	vocab     reviewVocab
-	problem   error
-	sending   bool
+	send      sendState
 }
 
 var _ overlay = prComposer{}
@@ -151,7 +150,7 @@ func (c prComposer) view(width, _ int) (string, string) {
 	c.title.Width, c.base.Width = max(1, width-prLabelWidth), max(1, width-prLabelWidth)
 
 	checkbox := map[bool]string{false: "[ ]", true: "[x]"}[c.draft]
-	lines := pinnedOutcome(c.styles, c.marks, c.sending, "opening", c.problem, width)
+	lines := pinnedOutcome(c.styles, c.marks, c.send, "opening", width)
 	lines = append(lines,
 		c.marks.marker(c.focus == prFieldTitle)+"title  "+c.title.View(),
 		c.marks.marker(c.focus == prFieldBase)+"base   "+c.base.View(),
@@ -179,7 +178,7 @@ func (c prComposer) templateName() string {
 
 // footer offers every part that can be changed, opening, and leaving.
 func (c prComposer) footer(keys keyMap) []key.Binding {
-	if c.sending {
+	if c.send.sending {
 		return []key.Binding{keys.interrupt}
 	}
 
@@ -201,7 +200,7 @@ func (c prComposer) canNextTemplate() bool {
 // handleKey answers a key while the pull request is composed.
 func (c prComposer) handleKey(m Model, msg tea.KeyMsg) (Model, tea.Cmd) {
 	switch {
-	case c.sending:
+	case c.send.sending:
 		return m, nil
 	case key.Matches(msg, m.keys.closeOverlay):
 		m.prDraft = c.snapshot()
@@ -252,7 +251,7 @@ func (c prComposer) typed(msg tea.KeyMsg) prComposer {
 		c.title, _ = c.title.Update(msg)
 	}
 
-	c.problem = nil
+	c.send.err = nil
 
 	return c
 }
@@ -282,7 +281,7 @@ func (msg prBodyEdited) apply(m Model) (Model, tea.Cmd) {
 	}
 
 	if msg.err != nil {
-		composer.problem = msg.err
+		composer.send = composer.send.failed(msg.err)
 	} else {
 		composer.body, composer.edited = msg.text, true
 	}
@@ -307,9 +306,9 @@ func (c prComposer) open(m Model) (Model, tea.Cmd) {
 
 	switch {
 	case request.Title == "":
-		c.problem = errNoTitle
+		c.send.err = errNoTitle
 	case request.Base == "":
-		c.problem = errNoBase
+		c.send.err = errNoBase
 	case m.dryRun:
 		return m.closeOverlay().noticed(c.dryRunNotice(request, m.branch.branch.Pushed(), m.issueToLink())), nil
 	case m.branch.branch.Pushed():
@@ -347,7 +346,7 @@ func (c prComposer) dryRunNotice(request forge.NewPullRequest, pushed bool, link
 
 // create asks the forge to open the pull request.
 func (c prComposer) create(m Model) (Model, tea.Cmd) {
-	c.sending, c.problem = true, nil
+	c.send = starting()
 	m.overlay = c
 	create, request := m.deps.Forge.CreatePullRequest, c.request()
 
@@ -370,7 +369,7 @@ func (msg pullCreated) apply(m Model) (Model, tea.Cmd) {
 	if msg.err != nil {
 		composer, open := m.overlay.(prComposer)
 		if open {
-			composer.sending, composer.problem = false, msg.err
+			composer.send = composer.send.failed(msg.err)
 			m.overlay = composer
 		}
 

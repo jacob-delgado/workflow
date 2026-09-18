@@ -57,27 +57,24 @@ terminal or a release.
 
 ### DEBT-07 Six overlays, one state machine, written six times
 
-Severity: medium · Confidence: read
+Severity: low · Confidence: read
 
-- Evidence: a `sending bool` beside an error named three ways (`applyErr`,
-  `err`, `problem`) in `statusPicker`, `commentPreview`, `branchCreator`,
-  `prComposer`, `slackPreview` and `hookgenOffer`. Each repeats a view tail, a
-  footer guard, a key guard and a failure applier of the same shape
-  (`internal/tui/picker.go:60`, `internal/tui/comment.go:134`,
-  `internal/tui/branch.go:304`, `internal/tui/prcomposer.go:315`,
-  `internal/tui/slack.go:305`, `internal/tui/hookgen.go:144`). The editor
-  round trip is line for line the same at `internal/tui/composer.go:253`,
-  `internal/tui/prcomposer.go:239` and `internal/tui/slack.go:299`. The fourth
-  copy differs: `commentEdited.apply` closes the overlay on an editor error
-  (`internal/tui/comment.go:47`), so a failed re-edit discards a written
-  comment while the other three keep their text. Reproduced.
-- Cost: six copies is twice the rule of three, each copy draws its own outcome
-  line, and the one copy that diverged has a bug the others do not.
-- Remedy: a small value type, `sendState{sending bool; err error}`, held as a
-  named field, with the view lines, the lock and the failure transition on
-  it; one `textEdited` message for the editor round trip.
-- Done when: the failure appliers are one function, and the comment preview
-  survives an editor failure.
+Done for the state machine: `sendState{sending bool; err error}`
+(`internal/tui/sendstate.go`) is now the one shape, held as a `send` field on
+every overlay that posts, applies, creates, links, opens or writes —
+`statusPicker`, `commentPreview`, `branchCreator`, `commitComposer`,
+`prComposer`, `slackPreview`, `issueLinker` and `hookgenOffer`. The error is
+named one way (`send.err`) rather than three (`applyErr`, `err`, `problem`); each
+failure applier now goes through the shared `send.failed(err)` transition (the
+per-overlay extras it keeps — a form reset, a skipped fetch, the pane-level Slack
+error — sit beside it); and `pinnedOutcome` draws the outcome from that one
+value. The comment preview already survives an editor failure
+(`commentEdited.apply`). Existing overlay tests, which drive each overlay's
+failure, held green through the change and coverage did not move.
+
+- What remains, lower value: the editor round trip is still four `*Edited`
+  messages (`commentEdited`, `commitBodyEdited`, `prBodyEdited`,
+  `slackTextEdited`) rather than the one `textEdited` the remedy imagined.
 
 ### DEBT-10 Click math mirrors the view, by hand
 
