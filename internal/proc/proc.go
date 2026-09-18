@@ -16,6 +16,7 @@ import (
 	"fmt"
 	"os/exec"
 	"strings"
+	"time"
 
 	"github.com/jacob-delgado/workflow/internal/sanitize"
 )
@@ -23,12 +24,29 @@ import (
 // ErrNotFound reports a program that is not on PATH.
 var ErrNotFound = errors.New("program not found on PATH")
 
-// Run executes name with args and returns what it wrote to standard output.
+// DefaultRunTimeout bounds a Run so a hung quick read — a git status on a dead
+// network mount, a gh call to a host that never answers — recovers on its own
+// rather than leaving a pane on "loading…" forever. It is generous because a Run
+// is a quick read; streamed work (Start) and piped work (Capture) can
+// legitimately run long and are not bounded here.
+const DefaultRunTimeout = 30 * time.Second
+
+// Run executes name with args and returns what it wrote to standard output,
+// within DefaultRunTimeout.
 //
 // A non-zero exit becomes an error carrying the program's standard error. That
 // matters more than it looks: "git failed" without the reason sends the reader
 // back to a terminal to run the command again by hand.
 func Run(ctx context.Context, name string, args ...string) ([]byte, error) {
+	return RunWithin(ctx, DefaultRunTimeout, name, args...)
+}
+
+// RunWithin is Run bounded by an explicit timeout, for a read whose own limit
+// differs from the default. The tighter of timeout and ctx's own deadline wins.
+func RunWithin(ctx context.Context, timeout time.Duration, name string, args ...string) ([]byte, error) {
+	ctx, cancel := context.WithTimeout(ctx, timeout)
+	defer cancel()
+
 	command, err := build(ctx, Command{Dir: "", Name: name, Args: args, Env: nil})
 	if err != nil {
 		return nil, err

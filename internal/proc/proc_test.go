@@ -5,11 +5,34 @@ package proc_test
 
 import (
 	"errors"
+	"os"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/jacob-delgado/workflow/internal/proc"
 )
+
+func TestRunWithinStopsAReadThatOverrunsItsBound(t *testing.T) {
+	// Not parallel: t.Setenv turns this test binary into the sleeping helper.
+	// Arrange
+	t.Setenv(helperMode, "sleep")
+
+	start := time.Now()
+
+	// Act
+	// The helper sleeps a minute; the bound is a fraction of that.
+	_, err := proc.RunWithin(t.Context(), 100*time.Millisecond, os.Args[0], "-test.run=^$")
+
+	// Assert
+	if err == nil {
+		t.Fatal("RunWithin returned nil, want an error for a read that outran its bound")
+	}
+
+	if elapsed := time.Since(start); elapsed > 10*time.Second {
+		t.Errorf("RunWithin took %s, want it stopped near its 100ms bound, not the minute the read wanted", elapsed)
+	}
+}
 
 // missingProgram is a name no machine has on its PATH.
 const missingProgram = "workflow-program-that-does-not-exist"
