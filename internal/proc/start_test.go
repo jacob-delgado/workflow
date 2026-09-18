@@ -251,7 +251,7 @@ func TestInteractiveBuildsACommandWithoutStartingIt(t *testing.T) {
 
 	// Arrange
 	dir := t.TempDir()
-	editor := proc.Command{Dir: dir, Name: goProgram, Args: []string{"version"}, Env: []string{"A=B"}}
+	editor := proc.Command{Dir: dir, Name: goProgram, Args: []string{versionSubcommand}, Env: []string{"A=B"}}
 
 	// Act
 	command, err := proc.Interactive(editor)
@@ -264,7 +264,8 @@ func TestInteractiveBuildsACommandWithoutStartingIt(t *testing.T) {
 		t.Error("Interactive started the program, want it left for the caller")
 	}
 
-	if command.Dir != dir || !slices.Equal(command.Args[1:], []string{"version"}) || !slices.Contains(command.Env, "A=B") {
+	if command.Dir != dir || !slices.Equal(command.Args[1:], []string{versionSubcommand}) ||
+		!slices.Contains(command.Env, "A=B") {
 		t.Errorf("Interactive built %v in %q with %d environment entries", command.Args, command.Dir, len(command.Env))
 	}
 }

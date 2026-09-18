@@ -46,6 +46,36 @@ func Run(ctx context.Context, name string, args ...string) ([]byte, error) {
 	return output, nil
 }
 
+// Capture runs a program with input on its standard input and returns what it
+// wrote to standard output.
+//
+// Unlike Run it feeds a body in, and it returns the output even on a non-zero
+// exit: a tool that answers with data on standard output and signals an HTTP
+// error only through its exit status — gh api, glab api — is read either way,
+// with its standard error folded into the returned error.
+func Capture(ctx context.Context, program Command, input []byte) ([]byte, error) {
+	command, err := build(ctx, program)
+	if err != nil {
+		return nil, err
+	}
+
+	var stdout, stderr bytes.Buffer
+
+	command.Stdout, command.Stderr = &stdout, &stderr
+
+	if len(input) > 0 {
+		command.Stdin = bytes.NewReader(input)
+	}
+
+	err = command.Run()
+	if err != nil {
+		return stdout.Bytes(), fmt.Errorf("%s: %w: %s",
+			program.Name, err, strings.TrimSpace(sanitize.Text(stderr.String())))
+	}
+
+	return stdout.Bytes(), nil
+}
+
 // LookPath reports where a program is, or an error if it is not on PATH. It is
 // exec.LookPath, re-exported so callers wiring a seam do not reach past this
 // package for one of its two halves.

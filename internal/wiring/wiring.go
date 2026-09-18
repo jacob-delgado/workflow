@@ -385,17 +385,25 @@ func connectForge(
 		return forgeConnection{}, fmt.Errorf("%s — set forge.kind and forge.host: %w", repo.Host, err)
 	}
 
+	transport, usingCLI := forgeTransport(ctx, settings, repo, base, timeout, proc.Available)
+
 	resolver := forge.Resolver{
 		Getenv: os.Getenv, Look: proc.LookPath, Run: proc.Run, Configured: ForgeSettings(settings),
 	}
 
 	token, _, err := resolver.Resolve(ctx, repo.Kind, repo.Host)
-	if err != nil {
+	if err != nil && !usingCLI {
 		return forgeConnection{}, err
 	}
 
+	if token == "" {
+		// The CLI transport authenticates itself; a placeholder satisfies the
+		// client's token guard without a real credential to resolve.
+		token = cliToken
+	}
+
 	//nolint:bodyclose // Wrap only relays the response; the forge client reads and closes its body.
-	client := forge.New(log.Wrap("forge", forge.HTTPClient(timeout).Do), base, token)
+	client := forge.New(log.Wrap("forge", transport), base, token)
 
 	return forgeConnection{client: client, repo: repo}, nil
 }

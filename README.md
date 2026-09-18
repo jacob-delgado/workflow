@@ -154,6 +154,13 @@ to that channel, so `slack.channel` does not apply. Treat the URL as a password.
 
 `workflow --help` repeats all of this at the terminal.
 
+### Reaching a forge behind SSO
+
+If a bare token cannot reach your forge — an SSO gateway in front of it, say —
+set `forge.cli` to `true`. workflow then routes its GitHub or GitLab API calls
+through `gh` or `glab`, reusing the login those tools already hold, and falls
+back to HTTP when the tool is not installed.
+
 ### Keeping the tokens safe
 
 `.workflow.json` holds live credentials. `config init` writes it at mode `0600`,

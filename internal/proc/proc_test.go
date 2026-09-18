@@ -19,11 +19,14 @@ const missingProgram = "workflow-program-that-does-not-exist"
 // anything the repository does not already require.
 const goProgram = "go"
 
+// versionSubcommand is a harmless subcommand every `go` prints.
+const versionSubcommand = "version"
+
 func TestRunReturnsStandardOutput(t *testing.T) {
 	t.Parallel()
 
 	// Act
-	output, err := proc.Run(t.Context(), goProgram, "version")
+	output, err := proc.Run(t.Context(), goProgram, versionSubcommand)
 	if err != nil {
 		t.Fatalf("Run(go version) returned %v, want nil", err)
 	}
@@ -31,6 +34,61 @@ func TestRunReturnsStandardOutput(t *testing.T) {
 	// Assert
 	if !strings.Contains(string(output), "go version") {
 		t.Errorf("Run(go version) = %q, want it to contain %q", output, "go version")
+	}
+}
+
+func TestCaptureReturnsStandardOutput(t *testing.T) {
+	t.Parallel()
+
+	// Act
+	output, err := proc.Capture(t.Context(), proc.Command{Name: goProgram, Args: []string{versionSubcommand}}, nil)
+	if err != nil {
+		t.Fatalf("Capture(go version) returned %v, want nil", err)
+	}
+
+	// Assert
+	if !strings.Contains(string(output), "go version") {
+		t.Errorf("Capture(go version) = %q, want it to contain %q", output, "go version")
+	}
+}
+
+func TestCaptureAcceptsInputOnStandardInput(t *testing.T) {
+	t.Parallel()
+
+	// Act
+	// go version ignores its standard input; feeding some exercises the path
+	// that wires it without depending on a program that echoes it back.
+	output, err := proc.Capture(t.Context(),
+		proc.Command{Name: goProgram, Args: []string{versionSubcommand}}, []byte("ignored"))
+
+	// Assert
+	if err != nil || !strings.Contains(string(output), "go version") {
+		t.Errorf("Capture with input = %q, %v, want the version and no error", output, err)
+	}
+}
+
+func TestCaptureReportsAFailingProgram(t *testing.T) {
+	t.Parallel()
+
+	// Act
+	_, err := proc.Capture(t.Context(),
+		proc.Command{Name: goProgram, Args: []string{"this-is-not-a-subcommand"}}, nil)
+
+	// Assert
+	if err == nil {
+		t.Error("Capture of a failing program returned no error")
+	}
+}
+
+func TestCaptureReportsAMissingProgram(t *testing.T) {
+	t.Parallel()
+
+	// Act
+	_, err := proc.Capture(t.Context(), proc.Command{Name: missingProgram}, nil)
+
+	// Assert
+	if !errors.Is(err, proc.ErrNotFound) {
+		t.Errorf("Capture(%q) returned %v, want ErrNotFound", missingProgram, err)
 	}
 }
 
