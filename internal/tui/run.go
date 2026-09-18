@@ -131,7 +131,7 @@ func (msg runFinished) apply(m Model) (Model, tea.Cmd) {
 
 	run.done, run.err = true, msg.err
 	if msg.err != nil {
-		run.failures = hooks.Failures(run.lines)
+		run.failures = m.deps.resolvedFailures(hooks.Failures(run.lines))
 	}
 
 	m.overlay = run
