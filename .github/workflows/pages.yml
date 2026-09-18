@@ -59,6 +59,7 @@ jobs:
       # from an earlier run that should not influence what gets published.
       - uses: jdx/mise-action@c2a87611a18de5b3828c5652fe268e992400cb5c # v4.3.0
         with:
+          version: 2026.9.3 # the mise binary itself; see min_version in mise.toml
           cache: false
 
       # Fails if the committed command reference disagrees with the command

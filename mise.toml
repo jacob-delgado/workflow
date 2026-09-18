@@ -14,7 +14,12 @@
 # forces. Adopt a version only once it is at least 7 days old (freshly
 # compromised releases are usually caught and yanked within days); a version
 # that fixes a disclosed CVE overrides that wait, always.
-min_version = "2024.1.0"
+#
+# mise cannot pin its own binary from here — it reads this file only once it is
+# already installed — so the workflows pin the mise version they install
+# (`version:` on jdx/mise-action) and the devcontainer pins the one it downloads.
+# This floor must not exceed either, so a bump here travels with those.
+min_version = "2026.9.3"
 
 [env]
 # Pin the toolchain so `go build`/`go test` use the Go below rather than

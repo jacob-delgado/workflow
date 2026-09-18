@@ -35,6 +35,7 @@ jobs:
       # removes the cache as a path into a release.
       - uses: jdx/mise-action@c2a87611a18de5b3828c5652fe268e992400cb5c # v4.3.0
         with:
+          version: 2026.9.3 # the mise binary itself; see min_version in mise.toml
           cache: false
 
       # The same gate a developer runs locally. A tag is the last place to
