@@ -1,16 +1,19 @@
 #!/usr/bin/env bash
 # Fail if total test coverage is below the floor.
 #
-# Usage: coverage-gate.sh <coverage-profile> [floor]
+# Usage: coverage-gate.sh <coverage-profile> <floor>
 #
 # The floor lives in Taskfile.yml (COVERAGE_MIN), not in prose: a number
 # restated in a document drifts from the number the gate enforces. Raise it with
 # the ratchet this script prints — floor(measured) - 2 — which is enough slack
 # for an incidental refactor and not enough to land a feature untested.
+#
+# The floor is required, not defaulted: a gate that fell back to some built-in
+# number when a caller forgot to pass one would enforce a floor nobody chose.
 set -euo pipefail
 
-readonly profile="${1:?usage: coverage-gate.sh <coverage-profile> [floor]}"
-readonly floor="${2:-70}"
+readonly profile="${1:?usage: coverage-gate.sh <coverage-profile> <floor>}"
+readonly floor="${2:?usage: coverage-gate.sh <coverage-profile> <floor>}"
 readonly ratchet_slack=2
 
 if [[ ! -s "${profile}" ]]; then

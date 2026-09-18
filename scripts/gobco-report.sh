@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Condition (branch) coverage for the Go packages, via rillig/gobco.
 #
-# Usage: gobco-report.sh [floor] [package...]
+# Usage: gobco-report.sh <floor> [package...]
 #
 # What this measures that `go test -cover` cannot: Go ships STATEMENT coverage,
 # so an `if a && b` counts as covered the moment the line runs. gobco rewrites
@@ -98,7 +98,9 @@ require_current_gobco() {
   fi
 }
 
-floor="${1:-0}"
+# Required, not defaulted: a floor of 0 would pass whatever the measurement, so
+# a caller that forgot to pass one should fail here rather than measure nothing.
+floor="${1:?usage: gobco-report.sh <floor> [package...]}"
 readonly floor
 shift || true
 
