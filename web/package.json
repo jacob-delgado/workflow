@@ -7,6 +7,7 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",
+    "gen": "openapi-ts",
     "lint": "eslint . && tsc -b && prettier --check . && knip && yarn lint:deps",
     "lint:deps": "depcruise src --config .dependency-cruiser.cjs",
     "fmt": "prettier --write .",
@@ -15,12 +16,17 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@hey-api/client-fetch": "^0.13.1",
+    "@tanstack/react-query": "^5.102.8",
     "react": "^19.3.0",
-    "react-dom": "^19.3.0"
+    "react-dom": "^19.3.0",
+    "zod": "^4.6.2"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
+    "@hey-api/openapi-ts": "^0.99.0",
     "@tailwindcss/vite": "^4.3.3",
+    "@tanstack/react-query-devtools": "^5.102.8",
     "@testing-library/dom": "^10.4.1",
     "@testing-library/react": "^16.3.3",
     "@types/eslint-plugin-jsx-a11y": "^6.10.1",
