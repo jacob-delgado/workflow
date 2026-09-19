@@ -33,7 +33,7 @@ func TestListIssuesUsesTheNamedView(t *testing.T) {
 	cfg.Jira.Views = []config.JiraView{{Name: "Bugs", JQL: "type = Bug"}}
 
 	// Act
-	_ = get(t, serve(deps, cfg), "/api/issues?view=Bugs")
+	_ = get(t, serve(t, deps, cfg), "/api/issues?view=Bugs")
 
 	// Assert
 	if gotJQL != "type = Bug" {
@@ -49,7 +49,7 @@ func TestGetIssueReportsAFailure(t *testing.T) {
 	deps.Issue = func(jira.Key) (jira.IssueDetail, error) { return jira.IssueDetail{}, errSeam }
 
 	// Act
-	recorder := get(t, serve(deps, config.Default()), "/api/issues/PROJ-1")
+	recorder := get(t, serve(t, deps, config.Default()), "/api/issues/PROJ-1")
 
 	// Assert
 	if recorder.Code != http.StatusInternalServerError {
@@ -65,7 +65,7 @@ func TestGetBranchReportsAFailure(t *testing.T) {
 	deps.Branch = func() (gitrepo.Branch, error) { return gitrepo.Branch{}, errSeam }
 
 	// Act
-	recorder := get(t, serve(deps, config.Default()), "/api/branch")
+	recorder := get(t, serve(t, deps, config.Default()), "/api/branch")
 
 	// Assert
 	if recorder.Code != http.StatusInternalServerError {
@@ -81,7 +81,7 @@ func TestListChangesIsEmptyWithoutARepository(t *testing.T) {
 	deps.Changes = nil
 
 	// Act
-	changes := decode[api.ChangeList](t, get(t, serve(deps, config.Default()), "/api/changes"))
+	changes := decode[api.ChangeList](t, get(t, serve(t, deps, config.Default()), "/api/changes"))
 
 	// Assert
 	if len(changes.Changes) != 0 {
@@ -97,7 +97,7 @@ func TestListChangesReportsAFailure(t *testing.T) {
 	deps.Changes = func() ([]gitrepo.Change, error) { return nil, errSeam }
 
 	// Act
-	recorder := get(t, serve(deps, config.Default()), "/api/changes")
+	recorder := get(t, serve(t, deps, config.Default()), "/api/changes")
 
 	// Assert
 	if recorder.Code != http.StatusInternalServerError {
@@ -113,7 +113,7 @@ func TestGetSlackHasNoAuthorWithoutAForge(t *testing.T) {
 	deps.Author = nil
 
 	// Act
-	slack := decode[api.Slack](t, get(t, serve(deps, config.Default()), "/api/slack"))
+	slack := decode[api.Slack](t, get(t, serve(t, deps, config.Default()), "/api/slack"))
 
 	// Assert
 	if slack.Author != "" {
@@ -140,7 +140,7 @@ func TestGetReviewMapsEveryCIState(t *testing.T) {
 	}
 
 	// Act
-	review := decode[api.Review](t, get(t, serve(deps, config.Default()), "/api/review"))
+	review := decode[api.Review](t, get(t, serve(t, deps, config.Default()), "/api/review"))
 
 	// Assert
 	if review.Ci == nil || review.Ci.State != api.Running || len(review.Ci.Checks) != 3 {
@@ -178,7 +178,7 @@ func TestGetReviewMapsMergeability(t *testing.T) {
 			}
 
 			// Act
-			review := decode[api.Review](t, get(t, serve(deps, config.Default()), "/api/review"))
+			review := decode[api.Review](t, get(t, serve(t, deps, config.Default()), "/api/review"))
 
 			// Assert
 			if review.Pull == nil || review.Pull.Mergeable != tt.want {
@@ -200,7 +200,7 @@ func TestUpdateConfigSetsANewSecret(t *testing.T) {
 	next.Jira.Token = "brand-new-secret-1111" // a real new value, neither empty nor the mask
 
 	// Act
-	recorder := send(t, serve(webserver.Deps{}, cfg), http.MethodPut, "/api/config", marshal(t, next))
+	recorder := send(t, serve(t, webserver.Deps{}, cfg), http.MethodPut, "/api/config", marshal(t, next))
 
 	// Assert
 	if recorder.Code != http.StatusOK {
@@ -231,7 +231,7 @@ func TestUpdateConfigResolvesHeaders(t *testing.T) {
 	next.Jira.Headers = map[string]string{"CF-Id": config.Redact("stored-id-secret"), "CF-Team": "new-team"}
 
 	// Act
-	recorder := send(t, serve(webserver.Deps{}, cfg), http.MethodPut, "/api/config", marshal(t, next))
+	recorder := send(t, serve(t, webserver.Deps{}, cfg), http.MethodPut, "/api/config", marshal(t, next))
 
 	// Assert
 	if recorder.Code != http.StatusOK {
@@ -261,7 +261,7 @@ func TestUpdateConfigReportsASaveFailure(t *testing.T) {
 	cfg.Path = filepath.Join(t.TempDir(), "missing", ".workflow.json")
 
 	// Act
-	recorder := send(t, serve(webserver.Deps{}, cfg), http.MethodPut, "/api/config", marshal(t, config.Default()))
+	recorder := send(t, serve(t, webserver.Deps{}, cfg), http.MethodPut, "/api/config", marshal(t, config.Default()))
 
 	// Assert
 	if recorder.Code != http.StatusInternalServerError {

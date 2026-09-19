@@ -17,7 +17,7 @@ func TestGetReviewReturnsThePullAndCI(t *testing.T) {
 	t.Parallel()
 
 	// Act
-	review := decode[api.Review](t, get(t, serve(filledDeps(), config.Default()), "/api/review"))
+	review := decode[api.Review](t, get(t, serve(t, filledDeps(), config.Default()), "/api/review"))
 
 	// Assert
 	if !review.Found || review.Pull == nil || review.Pull.Number != 42 {
@@ -41,7 +41,7 @@ func TestGetReviewReportsNoPull(t *testing.T) {
 	deps.FindPull = func(string) (forge.PullRequest, bool, error) { return forge.PullRequest{}, false, nil }
 
 	// Act
-	review := decode[api.Review](t, get(t, serve(deps, config.Default()), "/api/review"))
+	review := decode[api.Review](t, get(t, serve(t, deps, config.Default()), "/api/review"))
 
 	// Assert
 	if review.Found || review.Pull != nil {
@@ -57,7 +57,7 @@ func TestGetReviewHasNothingWithoutAForge(t *testing.T) {
 	deps.FindPull = nil
 
 	// Act
-	review := decode[api.Review](t, get(t, serve(deps, config.Default()), "/api/review"))
+	review := decode[api.Review](t, get(t, serve(t, deps, config.Default()), "/api/review"))
 
 	// Assert
 	if review.Found {
@@ -73,7 +73,7 @@ func TestGetReviewReportsABranchFailure(t *testing.T) {
 	deps.Branch = func() (gitrepo.Branch, error) { return gitrepo.Branch{}, errSeam }
 
 	// Act
-	recorder := get(t, serve(deps, config.Default()), "/api/review")
+	recorder := get(t, serve(t, deps, config.Default()), "/api/review")
 
 	// Assert
 	if recorder.Code != http.StatusInternalServerError {
@@ -89,7 +89,7 @@ func TestGetReviewReportsAPullFailure(t *testing.T) {
 	deps.FindPull = func(string) (forge.PullRequest, bool, error) { return forge.PullRequest{}, false, errSeam }
 
 	// Act
-	recorder := get(t, serve(deps, config.Default()), "/api/review")
+	recorder := get(t, serve(t, deps, config.Default()), "/api/review")
 
 	// Assert
 	if recorder.Code != http.StatusInternalServerError {
@@ -105,7 +105,7 @@ func TestGetReviewOmitsCIWhenItCannotBeRead(t *testing.T) {
 	deps.CheckCI = func(forge.PullRequest, string) (forge.CI, error) { return forge.CI{}, errSeam }
 
 	// Act
-	review := decode[api.Review](t, get(t, serve(deps, config.Default()), "/api/review"))
+	review := decode[api.Review](t, get(t, serve(t, deps, config.Default()), "/api/review"))
 
 	// Assert
 	// The pull request still shows; only its CI is left off.
@@ -126,7 +126,7 @@ func TestGetReviewOmitsCIWhenUnavailable(t *testing.T) {
 	deps.CheckCI = nil
 
 	// Act
-	review := decode[api.Review](t, get(t, serve(deps, config.Default()), "/api/review"))
+	review := decode[api.Review](t, get(t, serve(t, deps, config.Default()), "/api/review"))
 
 	// Assert
 	if !review.Found || review.Ci != nil {

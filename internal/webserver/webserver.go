@@ -56,9 +56,17 @@ type server struct {
 
 var _ api.StrictServerInterface = (*server)(nil)
 
-// Handler builds the http.Handler that serves the API, with the strict typed
-// handlers wired to the generated router on a stdlib mux.
-func Handler(deps Deps, cfg config.Config, info Info) http.Handler {
+// Handler builds the http.Handler that serves the API: the strict typed handlers
+// wired to the generated router on a stdlib mux, wrapped in the request validator
+// so every request is checked against the contract first. It fails only when the
+// embedded spec cannot be loaded, which is a build defect rather than a runtime
+// condition.
+func Handler(deps Deps, cfg config.Config, info Info) (http.Handler, error) {
+	doc, err := loadSpec()
+	if err != nil {
+		return nil, err
+	}
+
 	srv := &server{deps: deps, info: info, cfg: cfg}
 
 	strict := api.NewStrictHandlerWithOptions(srv, nil, api.StrictHTTPServerOptions{
@@ -67,11 +75,12 @@ func Handler(deps Deps, cfg config.Config, info Info) http.Handler {
 	})
 
 	mux := http.NewServeMux()
-
-	return api.HandlerWithOptions(strict, api.StdHTTPServerOptions{
+	handler := api.HandlerWithOptions(strict, api.StdHTTPServerOptions{
 		BaseRouter:       mux,
 		ErrorHandlerFunc: writeRequestError,
 	})
+
+	return validate(doc)(handler), nil
 }
 
 // LoopbackAddr is where the server listens in production: the loopback

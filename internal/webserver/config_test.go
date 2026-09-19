@@ -36,7 +36,7 @@ func TestGetConfigMasksSecrets(t *testing.T) {
 	cfg.Jira.Token = "jira-secret-abcd"
 
 	// Act
-	out := decode[api.Config](t, get(t, serve(webserver.Deps{}, cfg), "/api/config"))
+	out := decode[api.Config](t, get(t, serve(t, webserver.Deps{}, cfg), "/api/config"))
 
 	// Assert
 	if out.Jira.Token == nil || !strings.HasPrefix(*out.Jira.Token, "****") {
@@ -59,7 +59,7 @@ func TestUpdateConfigWritesTheFile(t *testing.T) {
 	next.Jira.BaseURL = "https://new.example.com"
 
 	// Act
-	recorder := send(t, serve(webserver.Deps{}, cfg), http.MethodPut, "/api/config", marshal(t, next))
+	recorder := send(t, serve(t, webserver.Deps{}, cfg), http.MethodPut, "/api/config", marshal(t, next))
 
 	// Assert
 	if recorder.Code != http.StatusOK {
@@ -87,7 +87,7 @@ func TestUpdateConfigRejectsAnInvalidConfig(t *testing.T) {
 	bad.Timing.RequestTimeout = "soon" // not a duration
 
 	// Act
-	recorder := send(t, serve(webserver.Deps{}, cfg), http.MethodPut, "/api/config", marshal(t, bad))
+	recorder := send(t, serve(t, webserver.Deps{}, cfg), http.MethodPut, "/api/config", marshal(t, bad))
 
 	// Assert
 	if recorder.Code != http.StatusUnprocessableEntity {
@@ -111,7 +111,7 @@ func TestUpdateConfigKeepsAMaskedSecret(t *testing.T) {
 	cfg.Jira.Token = "real-secret-wxyz"
 
 	// Act
-	recorder := send(t, serve(webserver.Deps{}, cfg), http.MethodPut, "/api/config", marshal(t, cfg.Redacted()))
+	recorder := send(t, serve(t, webserver.Deps{}, cfg), http.MethodPut, "/api/config", marshal(t, cfg.Redacted()))
 
 	// Assert
 	if recorder.Code != http.StatusOK {
