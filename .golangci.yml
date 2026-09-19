@@ -7,10 +7,6 @@ version: "2"
 linters:
   default: all
   disable:
-    # Needs project-specific allow/deny lists to do anything. There are no
-    # layering boundaries to enforce yet; add rules (and delete this line) once
-    # internal/ grows layers worth locking in.
-    - depguard
     # Same shape: an allow/blocklist of modules that is empty today. Dependency
     # choices are gated by review (see CLAUDE.md) until there is a list worth
     # writing down.
@@ -26,6 +22,20 @@ linters:
     - wsl
 
   settings:
+    depguard:
+      # exec lives in one place. internal/proc is the module's only door to
+      # os/exec — it sets the process group, the deadline and the redirect-free
+      # command — so nothing else may import it and quietly grow a second way to
+      # run a program. Tests reach for it to act as their own helper binary.
+      rules:
+        exec-only-in-proc:
+          files:
+            - "$all"
+            - "!$test"
+            - "!**/internal/proc/**"
+          deny:
+            - pkg: os/exec
+              desc: run programs through internal/proc, the one place exec lives
     errcheck:
       # Writes to a command's output stream. There is nothing to do about a
       # failed write to stdout — the channel you would report it on is the one
