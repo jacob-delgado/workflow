@@ -214,12 +214,25 @@ func checkForge(ctx context.Context, out io.Writer, doer forge.Doer, settings co
 
 	token, source, err := wiring.ForgeResolver(settings).Resolve(ctx, repo.Kind, repo.Host)
 	if err != nil {
-		fmt.Fprintf(out, "  %-10s none — %s\n", "forge", forge.Sources(repo.Kind, repo.Host))
+		fmt.Fprintf(out, "  %-10s %s\n", "forge", noForgeTokenMessage(proc.Available, repo.Kind, repo.Host))
 
 		return fmt.Errorf("%w: forge", errCredentialRejected)
 	}
 
 	return askForge(ctx, out, doer, base, token, source)
+}
+
+// noForgeTokenMessage explains why no forge token resolved. When gh is the
+// forge's own tool and is installed, the resolver already ran it and it yielded
+// nothing, so the token is missing because gh is not signed in to this host —
+// which the generic list of sources cannot say, because to the resolver a
+// signed-out gh looks exactly like one that is not installed at all.
+func noForgeTokenMessage(available func(string) bool, kind forge.Kind, host string) string {
+	if kind == forge.KindGitHub && available("gh") {
+		return fmt.Sprintf("gh is installed but not signed in to %s — run `gh auth login`", host)
+	}
+
+	return "none — " + forge.Sources(kind, host)
 }
 
 // askForge asks the forge who the credential belongs to.

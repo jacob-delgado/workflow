@@ -414,8 +414,11 @@ They are listed so the cost is visible, not so they get "fixed".
 
 - **Every redirect is refused**, in all three clients, to keep credentials
   from following one. The cost is DEBT-17's unhelpful message.
-- **`gh` failures are swallowed** when resolving a token, so `doctor` cannot
-  say "`gh` is installed but not signed in to this host".
+- **`gh` failures are swallowed** when resolving a token — a signed-out or
+  absent `gh` is a miss, not an error, so the next source is tried. `doctor`
+  now tells the two apart: when `gh` is on `PATH` but yielded no token it names
+  the host it is not signed in to rather than printing the generic list of
+  sources.
 - **There is no `glab` step**, because it reports its token as prose.
 - **Convention rules are constants**: the eleven commit types, the 72 and 48
   character limits, `fix/` and `feat/`, the `Refs:` trailer, the title from
