@@ -67,6 +67,7 @@ tasks:
       - scripts/check-commit-message_test.sh
       - scripts/check-file-length_test.sh
       - scripts/check-go-version_test.sh
+      - scripts/check-goroutines_test.sh
       - scripts/release/push-release-tag_test.sh
 
   test:cover:
@@ -123,6 +124,7 @@ tasks:
       - task: lint:typos
       - task: lint:filelength
       - task: lint:goversion
+      - task: lint:goroutines
       - task: docs:check
 
   lint:go:
@@ -197,6 +199,11 @@ tasks:
     desc: Check that the Go version agrees across the files that pin it
     cmds:
       - scripts/check-go-version.sh
+
+  lint:goroutines:
+    desc: Check that no goroutine is started outside internal/proc
+    cmds:
+      - scripts/check-goroutines.sh
 
   lint:headers:
     desc: Check the SPDX license headers on Go files

@@ -468,8 +468,6 @@ Recorded so the next audit can spend its time elsewhere.
   and "local replaces home, never merged" is implemented as documented.
 - Sentinel errors are static and wrapped with `%w` throughout; nothing builds
   an error at the point of failure.
-- No file is over 500 lines, there is no package-level mutable state, and
-  there are no goroutines outside `tea.Cmd` and `sync.OnceValues`.
 - Every `//nolint` directive was read; each one's stated reason holds.
 - The porcelain `-z` status parser handles spaces, quotes, newlines and
   renames. Detached heads, unborn branches and worktrees are handled. No
