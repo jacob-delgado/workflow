@@ -27,8 +27,12 @@ var errSeam = errors.New("the seam failed")
 
 // Fixtures the tests share.
 const (
-	testKey      = "PROJ-412"
-	testReporter = "Ana Lopez"
+	testKey        = "PROJ-412"
+	testReporter   = "Ana Lopez"
+	testBranchName = "fix/PROJ-412"
+	testAuthor     = "octocat"
+	testVersion    = "1.2.3"
+	testBugJQL     = "type = Bug"
 )
 
 // filledDeps is a Deps with every seam populated with canned answers. A test
@@ -58,7 +62,7 @@ func filledDeps() webserver.Deps {
 		},
 		Branch: func() (gitrepo.Branch, error) {
 			return gitrepo.Branch{
-				Name: "fix/PROJ-412", Base: "origin/main", Ahead: 2, Head: "abc123",
+				Name: testBranchName, Base: "origin/main", Ahead: 2, Head: "abc123",
 				Commits: []gitrepo.Commit{{Hash: "abc123", Subject: "feat: redact"}},
 			}, nil
 		},
@@ -76,7 +80,7 @@ func filledDeps() webserver.Deps {
 				Checks: []forge.Check{{Name: "build", State: forge.CIPassed}},
 			}, nil
 		},
-		Author: func() (string, error) { return "octocat", nil },
+		Author: func() (string, error) { return testAuthor, nil },
 	}
 }
 
@@ -85,7 +89,15 @@ func filledDeps() webserver.Deps {
 func serve(t *testing.T, deps webserver.Deps, cfg config.Config) http.Handler {
 	t.Helper()
 
-	handler, err := webserver.Handler(deps, cfg, webserver.Info{Version: "1.2.3", DryRun: true})
+	return serveWith(t, deps, cfg, webserver.Info{Version: testVersion, DryRun: true})
+}
+
+// serveWith is serve with the caller's Info, for the tests that need a specific
+// stream interval.
+func serveWith(t *testing.T, deps webserver.Deps, cfg config.Config, info webserver.Info) http.Handler {
+	t.Helper()
+
+	handler, err := webserver.Handler(deps, cfg, info)
 	if err != nil {
 		t.Fatalf("building the handler: %v", err)
 	}
@@ -146,7 +158,7 @@ func TestGetHealthReportsTheBuild(t *testing.T) {
 	}
 
 	health := decode[api.Health](t, recorder)
-	if health.Version != "1.2.3" || !health.DryRun {
+	if health.Version != testVersion || !health.DryRun {
 		t.Errorf("health = %+v, want version 1.2.3 and dry_run true", health)
 	}
 }
@@ -268,7 +280,7 @@ func TestGetBranchReturnsTheBranch(t *testing.T) {
 	branch := decode[api.Branch](t, get(t, serve(t, filledDeps(), config.Default()), "/api/branch"))
 
 	// Assert
-	if branch.Name != "fix/PROJ-412" || branch.Base != "origin/main" || branch.Ahead != 2 {
+	if branch.Name != testBranchName || branch.Base != "origin/main" || branch.Ahead != 2 {
 		t.Errorf("branch = %+v, want the current branch", branch)
 	}
 }
@@ -313,7 +325,7 @@ func TestGetSlackReturnsTheDestination(t *testing.T) {
 	slack := decode[api.Slack](t, get(t, serve(t, filledDeps(), cfg), "/api/slack"))
 
 	// Assert
-	if slack.Channel != "#dev" || slack.Author != "octocat" {
+	if slack.Channel != "#dev" || slack.Author != testAuthor {
 		t.Errorf("slack = %+v, want #dev and octocat", slack)
 	}
 }

@@ -5,6 +5,7 @@ package webserver
 
 import (
 	"github.com/jacob-delgado/workflow/internal/api"
+	"github.com/jacob-delgado/workflow/internal/config"
 	"github.com/jacob-delgado/workflow/internal/forge"
 	"github.com/jacob-delgado/workflow/internal/gitrepo"
 	"github.com/jacob-delgado/workflow/internal/jira"
@@ -141,6 +142,17 @@ func ciState(state forge.CIState) api.CIState {
 		forge.CIPassed:  api.Passed,
 		forge.CIFailed:  api.Failed,
 	}[state]
+}
+
+// slackDTO maps the Slack destination: the channel, its alternates (an empty
+// list rather than null on the wire), and who a post would come from.
+func slackDTO(cfg config.Config, author string) api.Slack {
+	channels := cfg.Slack.ChannelChoices()
+	if channels == nil {
+		channels = []string{}
+	}
+
+	return api.Slack{Channel: cfg.Slack.Channel, Channels: channels, Author: author}
 }
 
 // mergeable maps the forge's mergeability onto its wire word.

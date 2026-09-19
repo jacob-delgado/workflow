@@ -35,6 +35,8 @@ tags:
     description: Where and as whom an announcement would post.
   - name: config
     description: The configuration file, read and written.
+  - name: events
+    description: A live stream of state snapshots, pushed as they change.
 
 paths:
   /api/health:
@@ -213,6 +215,30 @@ paths:
               schema: {$ref: "#/components/schemas/Error"}
         default: {$ref: "#/components/responses/Error"}
 
+  /api/events:
+    get:
+      operationId: streamEvents
+      summary: A stream of state snapshots, pushed on connect and as they change.
+      description: >-
+        A Server-Sent Events stream (text/event-stream). Each message is a
+        "snapshot" event whose data is a Snapshot: the current issues, branch,
+        changes, review, and Slack destination. The browser subscribes once and
+        updates from the pushes rather than polling.
+      tags: [events]
+      parameters:
+        - name: view
+          in: query
+          description: The configured view's name whose issues to include; the default view when omitted.
+          required: false
+          schema: {type: string}
+      responses:
+        "200":
+          description: The event stream; each message's data is a Snapshot.
+          content:
+            text/event-stream:
+              schema:
+                $ref: "#/components/schemas/Snapshot"
+
 components:
   responses:
     Error:
@@ -255,6 +281,20 @@ components:
         views:
           type: array
           items: {$ref: "#/components/schemas/JiraView"}
+      additionalProperties: false
+
+    Snapshot:
+      type: object
+      description: >-
+        The full read state carried by one event-stream message: everything the
+        cockpit shows, together.
+      required: [issues, branch, changes, review, slack]
+      properties:
+        issues: {$ref: "#/components/schemas/IssuesPage"}
+        branch: {$ref: "#/components/schemas/Branch"}
+        changes: {$ref: "#/components/schemas/ChangeList"}
+        review: {$ref: "#/components/schemas/Review"}
+        slack: {$ref: "#/components/schemas/Slack"}
       additionalProperties: false
 
     IssuesPage:

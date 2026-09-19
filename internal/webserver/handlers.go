@@ -160,18 +160,7 @@ func (s *server) review(pull forge.PullRequest, found bool, head string) api.Rev
 
 // GetSlack returns where and as whom an announcement would post.
 func (s *server) GetSlack(_ context.Context, _ api.GetSlackRequestObject) (api.GetSlackResponseObject, error) {
-	cfg := s.config()
-
-	channels := cfg.Slack.ChannelChoices()
-	if channels == nil {
-		channels = []string{}
-	}
-
-	return api.GetSlack200JSONResponse{
-		Channel:  cfg.Slack.Channel,
-		Channels: channels,
-		Author:   s.author(),
-	}, nil
+	return api.GetSlack200JSONResponse(slackDTO(s.config(), s.author())), nil
 }
 
 // author resolves who a post would come from, or an empty string when the forge

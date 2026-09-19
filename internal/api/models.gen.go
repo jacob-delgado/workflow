@@ -419,6 +419,15 @@ type SlackConfig struct {
 	WebhookURL *string `json:"webhook_url,omitempty"`
 }
 
+// Snapshot The full read state carried by one event-stream message: everything the cockpit shows, together.
+type Snapshot struct {
+	Branch  Branch     `json:"branch"`
+	Changes ChangeList `json:"changes"`
+	Issues  IssuesPage `json:"issues"`
+	Review  Review     `json:"review"`
+	Slack   Slack      `json:"slack"`
+}
+
 // StatusCategory defines model for StatusCategory.
 type StatusCategory string
 
@@ -447,6 +456,12 @@ type UIConfig struct {
 // ViewList defines model for ViewList.
 type ViewList struct {
 	Views []JiraView `json:"views"`
+}
+
+// StreamEventsParams defines parameters for StreamEvents.
+type StreamEventsParams struct {
+	// View The configured view's name whose issues to include; the default view when omitted.
+	View *string `form:"view,omitempty" json:"view,omitempty"`
 }
 
 // ListIssuesParams defines parameters for ListIssues.
