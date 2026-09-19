@@ -282,6 +282,36 @@ func TestCancelingEndsTheProgramEvenWhenNobodyReads(t *testing.T) {
 	}
 }
 
+func TestStopEndsARunningProgramWithoutCancelingTheCaller(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	// The caller's context stays alive; only this run's own Stop is used, so a
+	// hung run can be ended without tearing down everything under that context.
+	output, err := proc.Start(t.Context(), child(t.TempDir(), "sleep"))
+	if err != nil {
+		t.Fatalf("Start returned %v, want nil", err)
+	}
+
+	// Act
+	output.Stop()
+
+	finished := make(chan error, 1)
+
+	go func() { finished <- output.Wait() }()
+
+	// Assert
+	select {
+	case err := <-finished:
+		exitErr, ok := errors.AsType[*exec.ExitError](err)
+		if !ok || exitErr.Exited() {
+			t.Errorf("Wait returned %v, want the program killed rather than left to exit", err)
+		}
+	case <-time.After(10 * time.Second):
+		t.Fatal("Stop did not end the program")
+	}
+}
+
 func TestInteractiveBuildsACommandWithoutStartingIt(t *testing.T) {
 	t.Parallel()
 

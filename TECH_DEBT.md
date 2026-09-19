@@ -195,10 +195,15 @@ never answers — recovers rather than leaving a pane loading. `RunWithin` expos
 the bound for a read whose limit differs; streamed `Start` and piped `Capture`,
 which can run long, are untouched.
 
-- What remains: a "stop" key in the run overlay, which needs a per-run cancelable
-  context threaded through the `tui.Deps` seam contract rather than the shared
-  root the seams capture now. The Windows twin of the process group, a job
-  object, cannot be validated from here (see DEBT-32).
+Done for the stop key: while a command streams, `s` stops it. `proc.Start` now
+gives each run its own cancelable context — a child of the caller's, so one run
+is ended alone — and exposes it as `Output.Stop`; the run overlay keeps that
+handle and, on the key, kills the process group and shows the run as stopped
+rather than failed. A test drives a hung hook, presses the key, and proves the
+run's own Stop was called.
+
+- What remains: the Windows twin of the process group, a job object, cannot be
+  validated from here (see DEBT-32).
 
 ## Git, hooks, conventions and processes
 

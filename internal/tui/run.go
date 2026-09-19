@@ -32,14 +32,20 @@ type commandRun struct {
 	// succeeded is what happens once the program exits cleanly; nil keeps the
 	// output on screen until it is closed.
 	succeeded func(m Model) (Model, tea.Cmd)
+	// stop kills this run's own process group, set once its program has started.
+	// Nil before then, and for a run started by a fake that supplies none.
+	stop func()
 
 	lines []string
 	// jobList is the parsed run state, folded in as each line arrives rather than
 	// re-read from every line on every frame; inSummary carries the scan across
 	// lines. See hooks.NextJob.
-	jobList    []hooks.Job
-	inSummary  bool
-	done       bool
+	jobList   []hooks.Job
+	inSummary bool
+	done      bool
+	// stopped records that the user ended the run, so its killed exit is shown as
+	// stopped rather than as a failure, and what would come next is not run.
+	stopped    bool
 	err        error
 	failures   []hooks.Location
 	selected   int
@@ -77,10 +83,16 @@ type runStarted struct {
 	err    error
 }
 
-// apply begins reading the output, or reports the program not starting.
+// apply begins reading the output, or reports the program not starting. It
+// keeps the run's Stop handle, so a stop key can end this run alone.
 func (msg runStarted) apply(m Model) (Model, tea.Cmd) {
 	if msg.err != nil {
 		return runFinished{id: msg.id, err: msg.err}.apply(m)
+	}
+
+	if run, open := m.overlay.(commandRun); open && run.id == msg.id {
+		run.stop = msg.output.Stop
+		m.overlay = run
 	}
 
 	return m, nextLine(msg.id, msg.output)
@@ -132,6 +144,12 @@ type runFinished struct {
 func (msg runFinished) apply(m Model) (Model, tea.Cmd) {
 	run, open := m.overlay.(commandRun)
 	if !open || run.id != msg.id {
+		return m, nil
+	}
+
+	// A run the user stopped is already shown as stopped; its killed exit
+	// arriving afterward is that stop taking effect, not a failure to report.
+	if run.stopped {
 		return m, nil
 	}
 
@@ -187,6 +205,8 @@ func (r commandRun) state() string {
 	switch {
 	case !r.done:
 		return r.marks.inFlight + " running" + r.marks.ellipsis
+	case r.stopped:
+		return r.marks.notStarted + " stopped"
 	case r.err != nil:
 		return failedGlyph(r.styles, r.marks) + " " + r.failureHeadline()
 	default:
@@ -268,7 +288,7 @@ func capLines(lines []string) []string {
 func (r commandRun) footer(keys keyMap) []key.Binding {
 	switch {
 	case !r.done:
-		return []key.Binding{keys.interrupt}
+		return []key.Binding{keys.stopRun, keys.interrupt}
 	case len(r.failures) > 0 && !r.showOutput:
 		return []key.Binding{
 			keys.up, keys.down, relabel(keys.confirm, "open in editor"),
@@ -281,12 +301,12 @@ func (r commandRun) footer(keys keyMap) []key.Binding {
 	}
 }
 
-// handleKey answers a key while a run is shown. A running program is not
-// abandoned: its outcome decides what happens next.
+// handleKey answers a key while a run is shown. While it runs, the only key is
+// stop, which kills it; once it is done, its outcome decides what happens next.
 func (r commandRun) handleKey(m Model, msg tea.KeyMsg) (Model, tea.Cmd) {
 	switch {
 	case !r.done:
-		return m, nil
+		return r.stopRun(m, msg)
 	case key.Matches(msg, m.keys.closeOverlay):
 		return m.closeOverlay(), tea.Batch(m.loadChanges(), m.loadBranch())
 	case key.Matches(msg, m.keys.retry):
@@ -301,6 +321,21 @@ func (r commandRun) handleKey(m Model, msg tea.KeyMsg) (Model, tea.Cmd) {
 		r.selected = max(0, r.selected-1)
 	}
 
+	m.overlay = r
+
+	return m, nil
+}
+
+// stopRun kills a running program when the stop key is pressed, and ends the
+// run at once so the screen says so rather than waiting on the killed exit to
+// arrive. Any other key while it runs is ignored — the run is not abandoned.
+func (r commandRun) stopRun(m Model, msg tea.KeyMsg) (Model, tea.Cmd) {
+	if !key.Matches(msg, m.keys.stopRun) || r.stop == nil {
+		return m, nil
+	}
+
+	r.stop()
+	r.stopped, r.done = true, true
 	m.overlay = r
 
 	return m, nil
