@@ -480,9 +480,7 @@ Recorded so the next audit can spend its time elsewhere.
   request lookup, CI checks and the three run messages.
 - All 40 `uses:` lines in the workflows are pinned to a full commit hash, and
   workflow permissions are least-privilege.
-- The Go version agrees across `go.mod`, `mise.toml`, the Dockerfile, the docs
-  module and the README badge. `go.mod` has no `replace`, and every direct
-  dependency is used.
+- `go.mod` has no `replace`, and every direct dependency is used.
 - The generated command reference is checked for drift in both directions.
 - Every shell script sets `set -euo pipefail` and quotes its expansions; none
   disables a shellcheck rule inline.
