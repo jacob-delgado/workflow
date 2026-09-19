@@ -3,7 +3,7 @@
 # mise.toml is the file this most protects: it is the single source of truth for
 # every tool version, and a malformed pin there fails the build everywhere at
 # once rather than in the one place it was edited.
-exclude = ["tmp/**", "docs/public/**"]
+exclude = ["tmp/**", "docs/public/**", "web/node_modules/**"]
 
 [formatting]
 # taplo collapses a multi-line array onto one line by default. The arrays here

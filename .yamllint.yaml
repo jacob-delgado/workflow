@@ -21,3 +21,4 @@ ignore: |
   bin/
   dist/
   tmp/
+  web/node_modules/

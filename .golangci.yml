@@ -112,6 +112,10 @@ linters:
 
   exclusions:
     warn-unused: true # tell us when an exclusion below stops matching anything
+    paths:
+      # web/node_modules ships stray Go (flatted's Go port) that ./... sweeps in.
+      # It is the frontend's dependency tree, not ours to lint.
+      - web/node_modules
     # Generated files (internal/api/*.gen.go) are already excluded from the
     # linters by golangci's default `generated: lax` detection of the
     # "DO NOT EDIT" banner; the formatters need the explicit path below.
@@ -153,6 +157,8 @@ formatters:
     - gci
   exclusions:
     paths:
+      # web/node_modules ships stray Go (flatted's Go port); not ours to format.
+      - web/node_modules
       # A formatter rewrite of a generated file would break the drift gate.
       - internal/api/.*\.gen\.go$
   settings:
