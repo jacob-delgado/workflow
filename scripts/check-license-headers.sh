@@ -39,6 +39,9 @@ fi
 failures=0
 for f in "${files[@]}"; do
   [[ -f "${f}" ]] || continue
+  # Generated Go carries oapi-codegen's "DO NOT EDIT" banner, not the SPDX
+  # header; it is machine-written and excluded, guarded by a drift gate instead.
+  [[ "${f}" == *.gen.go ]] && continue
   first="$(sed -n 1p "${f}")"
   second="$(sed -n 2p "${f}")"
   if [[ "${first}" != "${EXPECTED_COPYRIGHT}" ]] || [[ "${second}" != "${EXPECTED_SPDX}" ]]; then

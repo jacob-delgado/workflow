@@ -72,6 +72,11 @@ bare="${workdir}/bare.go"
 printf 'package x\n' >"${bare}"
 expect_args fail "a file with no header" "${bare}"
 
+# A generated file (oapi-codegen's banner, no SPDX header) is exempt.
+generated="${workdir}/types.gen.go"
+printf 'package x\n' >"${generated}"
+expect_args pass "a generated file without the header" "${generated}"
+
 # A repository whose one Go file lacks the header fails, even though the file is
 # only staged, not committed — the case that would otherwise slip through.
 repo="${workdir}/repo"
