@@ -412,9 +412,6 @@ They are listed so the cost is visible, not so they get "fixed".
 - **`gh` failures are swallowed** when resolving a token, so `doctor` cannot
   say "`gh` is installed but not signed in to this host".
 - **There is no `glab` step**, because it reports its token as prose.
-- **Configuration is looked for in the current directory, then home.** From
-  a subdirectory of a repository, the repository's own file is skipped for
-  the one at home, and `config init` writes to wherever it was run. FEAT-44.
 - **Convention rules are constants**: the eleven commit types, the 72 and 48
   character limits, `fix/` and `feat/`, the `Refs:` trailer, the title from
   the oldest commit. A team with other conventions has no setting. FEAT-14.
