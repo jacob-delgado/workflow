@@ -10,9 +10,14 @@ code in this repository. It holds **only what's relevant in every session**.
 workflow: pick up an issue, branch for it, open the pull or merge request, tell
 the team.
 
-Go only. There is no frontend, no database, and no server — a single static
-binary a developer runs on their own machine. The TUI is built on the Charm
-stack (Bubble Tea, Bubbles, Lip Gloss) with Cobra for the command tree.
+Go at its core, shipped as a single static binary a developer runs on their own
+machine: no database, and nothing stored between sessions. The default surface
+is a terminal UI — the Charm stack (Bubble Tea, Bubbles, Lip Gloss) with Cobra
+for the command tree. An opt-in `workflow --web` serves a React + TypeScript
+frontend, embedded in the same binary, over a local REST API bound to
+`127.0.0.1`, described by `api/openapi.yaml`; it drives the same domain seams
+(`internal/wiring`) the TUI and CLI already do — a surface, not a second
+implementation. The web frontend lives in `web/`.
 
 Layout:
 

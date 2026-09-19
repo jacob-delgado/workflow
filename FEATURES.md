@@ -682,3 +682,23 @@ Impact: low · Effort: large
   terminal.
 - Done when: a background process raises a desktop notification for a
   finished CI run.
+
+### FEAT-76 A local web mode
+
+Impact: medium · Effort: large
+
+- Reopens: no server, and no frontend. NOT persistence — `--web` fetches live
+  and writes only the config file, so nothing new is stored between sessions
+  and no database is added; the binary stays a single static file with the
+  frontend embedded.
+- Why: some people would rather see the loop — issues, branch, changes, PR/CI,
+  Slack — and edit the whole configuration in a browser than in the terminal,
+  and a richer surface (forms, history views) is easier to grow there.
+- The shape: `workflow --web` serves a React + TypeScript app on
+  `127.0.0.1:7000` only, over a REST API described by `api/openapi.yaml` (the Go
+  server and the typed client both generated from it). It reuses the same
+  `wiring.Deps` seams the TUI and `workflow status`/`reviews` already use, so it
+  is another consumer of the domain, not a second implementation. The TUI and
+  CLI stay the default; the web mode is opt-in behind the flag.
+- Done when: `workflow --web` shows the live loop and round-trips the
+  configuration in the browser, and the default binary is unchanged.
