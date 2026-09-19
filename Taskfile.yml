@@ -66,6 +66,7 @@ tasks:
     cmds:
       - scripts/check-commit-message_test.sh
       - scripts/check-file-length_test.sh
+      - scripts/check-go-version_test.sh
       - scripts/release/push-release-tag_test.sh
 
   test:cover:
@@ -121,6 +122,7 @@ tasks:
       - task: lint:headers
       - task: lint:typos
       - task: lint:filelength
+      - task: lint:goversion
       - task: docs:check
 
   lint:go:
@@ -190,6 +192,11 @@ tasks:
     desc: Check that no source file has grown past the ceiling
     cmds:
       - scripts/check-file-length.sh
+
+  lint:goversion:
+    desc: Check that the Go version agrees across the files that pin it
+    cmds:
+      - scripts/check-go-version.sh
 
   lint:headers:
     desc: Check the SPDX license headers on Go files
