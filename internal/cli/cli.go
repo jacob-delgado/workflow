@@ -17,6 +17,7 @@ import (
 	"github.com/jacob-delgado/workflow/internal/buildinfo"
 	"github.com/jacob-delgado/workflow/internal/config"
 	"github.com/jacob-delgado/workflow/internal/tui"
+	"github.com/jacob-delgado/workflow/internal/webserver"
 	"github.com/jacob-delgado/workflow/internal/wiring"
 )
 
@@ -121,18 +122,25 @@ func execute(ctx context.Context, args []string, stdout, stderr io.Writer, promp
 // a real terminal.
 type runTUI func(ctx context.Context, model tui.Model, out io.Writer) error
 
+// runWeb starts the local web server and blocks until the context is canceled.
+// It is serveWeb in production and a fake in tests, so the --web flag's wiring
+// can be exercised without binding a port.
+type runWeb func(ctx context.Context, cfg config.Config, deps webserver.Deps, info webserver.Info, out io.Writer) error
+
 // NewRootCmd builds the command tree. Bare `workflow` opens the TUI. The prompt
 // is how `config init` asks for credentials; a zero one is fine for a caller
 // that only walks the tree, such as the reference generator.
 func NewRootCmd(prompt Prompt) *cobra.Command {
-	return newRootCmd(prompt, tui.Run)
+	return newRootCmd(prompt, tui.Run, serveWeb)
 }
 
-// newRootCmd builds the command tree over an injected interface runner.
-func newRootCmd(prompt Prompt, run runTUI) *cobra.Command {
+// newRootCmd builds the command tree over an injected interface runner and web
+// server.
+func newRootCmd(prompt Prompt, run runTUI, serve runWeb) *cobra.Command {
 	var (
 		dryRun  bool
 		logFile string
+		web     bool
 	)
 
 	root := &cobra.Command{
@@ -158,7 +166,19 @@ func newRootCmd(prompt Prompt, run runTUI) *cobra.Command {
 			}
 			defer closeLog()
 
-			model := tui.New(cfg, loadErr, wiring.Deps(ctx, cfg, wiring.Locate(ctx, dir), requestLog))
+			deps := wiring.Deps(ctx, cfg, wiring.Locate(ctx, dir), requestLog)
+
+			if web {
+				if loadErr != nil {
+					fmt.Fprintf(cmd.ErrOrStderr(), "workflow web: configuration did not load cleanly: %v\n", loadErr)
+				}
+
+				info := webserver.Info{Version: buildinfo.Current(), DryRun: dryRun}
+
+				return serve(ctx, cfg, webDeps(deps), info, cmd.OutOrStdout())
+			}
+
+			model := tui.New(cfg, loadErr, deps)
 			if dryRun {
 				model = model.WithDryRun()
 			}
@@ -171,10 +191,43 @@ func newRootCmd(prompt Prompt, run runTUI) *cobra.Command {
 		"hold back every write to Jira, the forge, Slack, git and files, and say what it would have done")
 	root.Flags().StringVar(&logFile, "log", "",
 		"append a one-line outline of each request (method, path, status, duration) to FILE, for a bug report")
+	root.Flags().BoolVar(&web, "web", false,
+		"serve the web interface on http://"+webserver.LoopbackAddr+" instead of opening the terminal interface")
 
 	root.AddCommand(newConfigCmd(prompt), newDoctorCmd(), newStatusCmd(), newStandupCmd(prompt), newReviewsCmd())
 
 	return root
+}
+
+// serveWeb builds the web server over the seams and serves it on the loopback
+// interface until the context is canceled. Handler fails only when the embedded
+// spec cannot load, which is a build defect rather than a runtime condition.
+func serveWeb(
+	ctx context.Context, cfg config.Config, deps webserver.Deps, info webserver.Info, out io.Writer,
+) error {
+	handler, err := webserver.Handler(deps, cfg, info)
+	if err != nil {
+		return fmt.Errorf("building the web server: %w", err)
+	}
+
+	fmt.Fprintf(out, "workflow web: serving http://%s — press Ctrl+C to stop\n", webserver.LoopbackAddr)
+
+	return webserver.Serve(ctx, webserver.LoopbackAddr, handler)
+}
+
+// webDeps adapts the interface's dependency bundle to the web server's narrower
+// one. They are the same seams, which is why the web server is another consumer
+// of the wiring rather than a second implementation.
+func webDeps(deps tui.Deps) webserver.Deps {
+	return webserver.Deps{
+		Search:   deps.Jira.Search,
+		Issue:    deps.Jira.Issue,
+		Branch:   deps.Git.Branch,
+		Changes:  deps.Git.Changes,
+		FindPull: deps.Forge.FindPullRequest,
+		CheckCI:  deps.Forge.CheckStatus,
+		Author:   deps.Forge.Author,
+	}
 }
 
 // logFileMode is the permission a request log is created with. Like the
