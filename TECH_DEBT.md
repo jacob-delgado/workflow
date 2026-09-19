@@ -121,11 +121,6 @@ Severity: low · Confidence: read
   issue key; the five sites on `m.branch.branch.Name` call it. `"origin/"` is no
   longer trimmed by hand: `gitrepo.Branch.BaseName()` strips the remote (and does
   not hardcode origin), and the two sites that trimmed by hand call it.
-- The pane set is written down in six places: `internal/tui/panes.go`,
-  `key.WithKeys("1","2","3","4","5")` (`internal/tui/keys.go:58`),
-  `pane(msg.String()[0] - '1')` (`internal/tui/tui.go:196`), the help groups,
-  a second list of names in `internal/tui/spine.go:54`, and the literal
-  "(4 Review)" in `internal/tui/slack.go:113`.
 - DONE — the run overlay no longer re-reads every line on every frame: it folds
   each line into the job state as the line arrives (`hooks.NextJob`) and keeps
   the parsed jobs on the overlay, and it caps the kept output at `maxRunLines`,
