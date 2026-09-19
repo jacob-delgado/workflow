@@ -15,10 +15,6 @@ import (
 // pickerTitle titles the detail pane while the picker is open.
 const pickerTitle = "Change status"
 
-// pickerHeader is the rows above the picker's list: the issue, its status, and
-// a blank line.
-const pickerHeader = 3
-
 // outcomeRows is the room kept under the list for how applying is going.
 const outcomeRows = 2
 
@@ -112,9 +108,16 @@ func (m Model) openStatusPicker() (Model, tea.Cmd) {
 	}
 }
 
+// header is the rows above the picker's list: the issue, its status, and a
+// blank. The view draws it and the click measures it, so a change to one cannot
+// silently break the other's row math.
+func (p statusPicker) header() []string {
+	return []string{string(p.issue.Key) + " " + p.issue.Summary, "status  " + p.issue.Status, ""}
+}
+
 // view draws the picker in as many rows as fit.
 func (p statusPicker) view(width, rows int) (string, string) {
-	lines := []string{string(p.issue.Key) + " " + p.issue.Summary, "status  " + p.issue.Status, ""}
+	lines := p.header()
 
 	switch {
 	case !p.settled:
@@ -202,11 +205,12 @@ func (p statusPicker) handleKey(m Model, msg tea.KeyMsg) (Model, tea.Cmd) {
 
 // click selects the transition on a clicked line.
 func (p statusPicker) click(m Model, line int) (Model, tea.Cmd) {
-	rows := m.detailRows() - pickerHeader - outcomeRows
+	header := len(p.header())
+	rows := m.detailRows() - header - outcomeRows
 	first, last := window(p.selected, len(p.found), rows)
 
-	index := first + line - pickerHeader
-	if p.send.sending || p.form.open() || line < pickerHeader || index >= last {
+	index := first + line - header
+	if p.send.sending || p.form.open() || line < header || index >= last {
 		return m, nil
 	}
 
