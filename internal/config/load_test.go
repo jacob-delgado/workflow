@@ -7,6 +7,7 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/jacob-delgado/workflow/internal/config"
@@ -214,6 +215,44 @@ func TestRepoRootFindsTheEnclosingRepository(t *testing.T) {
 	// A config written here is found from any subdirectory below it.
 	if got != repoRoot {
 		t.Errorf("RepoRoot(%q) = %q, want the repository root %q", subDir, got, repoRoot)
+	}
+}
+
+func TestParseAcceptsAValidConfig(t *testing.T) {
+	t.Parallel()
+
+	// Act
+	cfg, err := config.Parse(strings.NewReader(`{"jira": {"base_url": "https://jira.example.com"}}`))
+	// Assert
+	if err != nil {
+		t.Fatalf("Parse returned %v, want nil", err)
+	}
+
+	if cfg.Jira.BaseURL != "https://jira.example.com" {
+		t.Errorf("jira.base_url = %q, want the parsed value", cfg.Jira.BaseURL)
+	}
+}
+
+func TestParseRejectsBadInput(t *testing.T) {
+	t.Parallel()
+
+	cases := map[string]string{
+		"an unknown key":        `{"jiraa": {"token": "x"}}`,
+		"a bad request timeout": `{"timing": {"request_timeout": "soon"}}`,
+	}
+
+	for name, body := range cases {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			// Act
+			_, err := config.Parse(strings.NewReader(body))
+
+			// Assert
+			if !errors.Is(err, config.ErrInvalid) {
+				t.Errorf("error = %v, want ErrInvalid", err)
+			}
+		})
 	}
 }
 

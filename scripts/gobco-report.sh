@@ -80,7 +80,10 @@ readonly UNANALYZABLE="internal/proc/pgroup"
 # internal/proc/pgroup is platform glue with no test of its own: its Unix path is
 # exercised end to end by proc.Start's grandchild-kill test, and it is also in
 # UNANALYZABLE, so gobco could not measure it in any case.
-readonly NO_TESTS="cmd/workflow cmd/docsgen cmd/testshape internal/proc/pgroup"
+# internal/api is the oapi-codegen output — generated types and server surface
+# with no logic of ours; `task gen:verify` guards it. api is package apispec: a
+# single //go:embed of the OpenAPI document, data with no branches to measure.
+readonly NO_TESTS="cmd/workflow cmd/docsgen cmd/testshape internal/proc/pgroup internal/api api"
 
 # gobco carries the go/types of the Go that built it (see above), so a gobco
 # built by an older Go silently shrinks what this gate covers. Refuse to run.
@@ -141,8 +144,15 @@ else
   # Every package in the module is accounted for: one with tests is measured,
   # one without must be named in NO_TESTS with its reason. A new package that has
   # neither tests nor an entry fails here rather than quietly leaving the total.
-  packages="$(go list -f '{{if or .TestGoFiles .XTestGoFiles}}{{.ImportPath}}{{end}}' ./...)"
-  untested="$(go list -f '{{if not (or .TestGoFiles .XTestGoFiles)}}{{.ImportPath}}{{end}}' ./...)"
+  #
+  # Explicit roots, not ./...: web/node_modules ships stray Go (flatted's Go
+  # port) that ./... would sweep in as an untested package and fail this gate.
+  # The module's own code is cmd/ and internal/, and nothing else carries Go.
+  go_roots="./cmd/... ./internal/..."
+  # shellcheck disable=SC2086 # the roots are a deliberate multi-arg word list
+  packages="$(go list -f '{{if or .TestGoFiles .XTestGoFiles}}{{.ImportPath}}{{end}}' ${go_roots})"
+  # shellcheck disable=SC2086 # the roots are a deliberate multi-arg word list
+  untested="$(go list -f '{{if not (or .TestGoFiles .XTestGoFiles)}}{{.ImportPath}}{{end}}' ${go_roots})"
 
   unaccounted=""
   for package in ${untested}; do

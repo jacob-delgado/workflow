@@ -93,7 +93,16 @@ linters:
       # returns whatever concrete type its caller named, which is not the
       # interface return ireturn exists to catch. It is how the forge client
       # decodes each answer into its own type without an `into any` argument.
-      allow: [anon, error, empty, stdlib, generic]
+      # Also the web API's generated response objects: oapi-codegen's strict
+      # server declares each handler returning a per-operation response
+      # interface, exactly the third-party contract ireturn is told to permit.
+      allow:
+        - anon
+        - error
+        - empty
+        - stdlib
+        - generic
+        - github.com/jacob-delgado/workflow/internal/api\..+ResponseObject
     varnamelen:
       # `tt` for a table-test case and `ok` for a comma-ok are conventional
       # enough to read at any scope, and so is `m` for the Bubble Tea model,
@@ -103,6 +112,13 @@ linters:
 
   exclusions:
     warn-unused: true # tell us when an exclusion below stops matching anything
+    paths:
+      # web/node_modules ships stray Go (flatted's Go port) that ./... sweeps in.
+      # It is the frontend's dependency tree, not ours to lint.
+      - web/node_modules
+    # Generated files (internal/api/*.gen.go) are already excluded from the
+    # linters by golangci's default `generated: lax` detection of the
+    # "DO NOT EDIT" banner; the formatters need the explicit path below.
     rules:
       # A test's length and branch count are its assertions. Gating them pushes
       # toward fewer checks, which is backwards — table-driven tests are
@@ -139,6 +155,12 @@ formatters:
     - gofumpt
     - goimports
     - gci
+  exclusions:
+    paths:
+      # web/node_modules ships stray Go (flatted's Go port); not ours to format.
+      - web/node_modules
+      # A formatter rewrite of a generated file would break the drift gate.
+      - internal/api/.*\.gen\.go$
   settings:
     gci:
       custom-order: true

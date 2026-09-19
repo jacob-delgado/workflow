@@ -8,6 +8,13 @@
 
 # Generated: collapsed in diffs, excluded from language stats.
 go.sum linguist-generated=true
+# The typed API clients are generated from api/openapi.yaml (hey-api on the web
+# side, oapi-codegen on the Go side); the yarn lockfile is generated too.
+web/src/api/generated/** linguist-generated=true
+internal/**/*.gen.go linguist-generated=true
+web/yarn.lock linguist-generated=true
+# Yarn Berry's pinned release binary is vendored, not our source.
+web/.yarn/releases/** -diff linguist-vendored=true
 
 # Binary assets — never line-ending-normalized, never diffed as text.
 *.png   binary

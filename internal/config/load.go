@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 )
@@ -117,23 +118,36 @@ func LoadFile(path string) (Config, error) {
 	}
 	defer file.Close() //nolint:errcheck // read-only file; a failed close is not actionable
 
-	decoder := json.NewDecoder(file)
+	cfg, err := Parse(file)
+	if err != nil {
+		return Default(), fmt.Errorf("%s: %w", path, err)
+	}
+
+	cfg.Path = path
+
+	return cfg, nil
+}
+
+// Parse decodes and validates a configuration from r, over the defaults. Unknown
+// keys are an error, and the same validators a file read runs apply — so a
+// configuration written over the web API is held to exactly the standard a file
+// on disk is. It does not set Path; that belongs to the file it came from.
+func Parse(r io.Reader) (Config, error) {
+	decoder := json.NewDecoder(r)
 	decoder.DisallowUnknownFields()
 
 	cfg := Default()
 
-	err = decoder.Decode(&cfg)
+	err := decoder.Decode(&cfg)
 	if err != nil {
-		return Default(), fmt.Errorf("%w: %s: %w", ErrInvalid, path, err)
+		return Default(), fmt.Errorf("%w: %w", ErrInvalid, err)
 	}
 
 	err = errors.Join(cfg.validateVersion(), cfg.validateTiming(),
 		cfg.validateBranch(), cfg.validateViews(), cfg.validateCommit())
 	if err != nil {
-		return Default(), fmt.Errorf("%w: %s: %w", ErrInvalid, path, err)
+		return Default(), fmt.Errorf("%w: %w", ErrInvalid, err)
 	}
-
-	cfg.Path = path
 
 	return cfg, nil
 }

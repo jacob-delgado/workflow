@@ -7,6 +7,11 @@ extend-exclude = [
   "bin/**",
   "dist/**",
   "tmp/**",
+  # The frontend's dependency tree and its lockfile: vendored code and hashes,
+  # not our prose. The generated API client is excluded for the same reason.
+  "web/node_modules/**",
+  "web/yarn.lock",
+  "web/src/api/generated/**",
 ]
 
 [default]
@@ -23,3 +28,5 @@ extend-ignore-re = [
 
 [default.extend-words]
 # Identifiers and proper nouns that are not typos go here as they appear.
+# axe-core is the accessibility test engine the web e2e runs; "axe" is its name.
+axe = "axe"

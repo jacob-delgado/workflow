@@ -63,6 +63,15 @@ over_length >"${long}/big.go"
 git -C "${long}" add big.go
 expect fail "a repository with an over-length file" "${long}"
 
+# An over-length GENERATED file is exempt: length is not a design signal for
+# machine-written code, and a drift gate guards it instead.
+generated="${workdir}/generated"
+mkdir -p "${generated}"
+git -C "${generated}" init -q
+over_length >"${generated}/big.gen.go"
+git -C "${generated}" add big.gen.go
+expect pass "an over-length generated file" "${generated}"
+
 if ((failures > 0)); then
   echo "check-file-length_test: ${failures} of ${cases} case(s) failed." >&2
   exit 1

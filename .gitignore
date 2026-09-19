@@ -7,6 +7,25 @@
 coverage.out
 coverage.html
 
+# --- Web frontend (web/) ---
+# node_modules and the Vite build output are generated; the build is embedded
+# into the binary at release time (see internal/web), never committed.
+web/node_modules/
+web/dist/
+web/coverage/
+web/test-results/
+web/playwright-report/
+web/blob-report/
+web/.vite/
+# Yarn Berry keeps its pinned release and lockfile tracked; ignore the rest.
+web/.yarn/*
+!web/.yarn/patches
+!web/.yarn/plugins
+!web/.yarn/releases
+!web/.yarn/sdks
+!web/.yarn/versions
+web/.pnp.*
+
 # --- Local configuration ---
 # A real .workflow.json holds live Jira and Slack tokens. Never commit one;
 # `workflow config init` writes it at 0600 for exactly this reason.
