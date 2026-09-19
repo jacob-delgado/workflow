@@ -58,15 +58,31 @@ func lineShapes() map[string]lineArgs {
 // "code --wait" is common and works, while shell syntax in $EDITOR is rare and
 // is not something to hand to sh on the user's behalf.
 func Invocation(getenv Getenv, dir, file string, line int) proc.Command {
-	words := strings.Fields(chosen(getenv))
-	name, own := words[0], words[1:]
+	name, own := split(chosen(getenv))
 
 	return proc.Command{Dir: dir, Name: name, Args: append(own, fileArgs(name, file, line)...), Env: nil}
 }
 
-// chosen is the editor setting in effect.
+// split separates the editor setting into a program and its own arguments. A
+// setting that is itself the path of an existing file — an editor whose path
+// contains a space — is one program with no arguments; anything else is split on
+// spaces, so "code --wait" still works without handing the setting to a shell.
+func split(setting string) (string, []string) {
+	info, err := os.Stat(setting)
+	if err == nil && info.Mode().IsRegular() {
+		return setting, nil
+	}
+
+	fields := strings.Fields(setting)
+
+	return fields[0], fields[1:]
+}
+
+// chosen is the editor setting in effect, in git's own order: $GIT_EDITOR wins,
+// then $VISUAL and $EDITOR. core.editor is not consulted — reading it would have
+// the editor package run git, and the environment covers the common case.
 func chosen(getenv Getenv) string {
-	for _, variable := range []string{"VISUAL", "EDITOR"} {
+	for _, variable := range []string{"GIT_EDITOR", "VISUAL", "EDITOR"} {
 		if value := strings.TrimSpace(getenv(variable)); value != "" {
 			return value
 		}
