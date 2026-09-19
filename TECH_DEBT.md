@@ -455,7 +455,6 @@ They are listed so the cost is visible, not so they get "fixed".
 
 Recorded so the next audit can spend its time elsewhere.
 
-- `os/exec` is imported only in `internal/proc`.
 - Every response body is closed and read through a limit, and every client is
   built with a timeout.
 - Server text is sanitized before it is decoded or shown, at every site in
