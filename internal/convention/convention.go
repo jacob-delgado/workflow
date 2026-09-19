@@ -137,6 +137,11 @@ func folded(text string) string {
 // a 42-fix-typo branch, which is how a project without Jira names its branches.
 // A Jira key wins where both are present, so a Jira branch is read as it always
 // was.
+//
+// It returns a string rather than a jira.Key on purpose: the result is also a
+// forge issue number, and typing it jira.Key would make this stateless package
+// depend on jira. The branch-derived string becomes a jira.Key at the one tui
+// boundary that needs it, not here.
 func IssueKey(text, project string) (string, bool) {
 	if key, found := jiraKey(text, project); found {
 		return key, true

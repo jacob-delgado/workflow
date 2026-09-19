@@ -47,6 +47,12 @@ type detailLoaded struct {
 }
 
 // apply records the issue, unless the selection has moved on from it.
+//
+// Two reads of the SAME key in flight at once — a load and a reload after a
+// comment, say — are last-to-arrive-wins: the message carries no sequence
+// number, so a stale read landing after a fresh one would overwrite it. Every
+// request is bounded by the request timeout, which keeps that window to a few
+// seconds; a sequence guard is not worth threading through every load for it.
 func (msg detailLoaded) apply(m Model) (Model, tea.Cmd) {
 	if msg.key != m.detail.key {
 		return m, nil

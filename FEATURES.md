@@ -294,6 +294,21 @@ Impact: low · Effort: small
   key, and the composer's fields are type, scope, subject and body.
 - Done when: recent authors can be picked as co-authors and a toggle signs off.
 
+### FEAT-14 Conventions a team can change
+
+Impact: low · Effort: large
+
+- Why: the commit types, the 72- and 48-character subject and body limits, the
+  `fix/` and `feat/` branch prefixes, the `Refs:` trailer and the title taken
+  from the oldest commit are all constants. A team with other conventions has
+  nowhere to set them.
+- Touches: `internal/convention/convention.go`, a new section in
+  `internal/config/config.go`, and every caller that reads a rule as a literal.
+- Constraints: the defaults stay as they are, so a repository with no
+  configuration behaves exactly as it does now.
+- Done when: a repository can set its own commit types and limits, and the
+  composer and the branch names honor them.
+
 ## Review
 
 ### FEAT-27 Reviewers, assignees and labels
@@ -392,13 +407,12 @@ Impact: high · Effort: large
 
 Impact: medium · Effort: small
 
-- Why: the file is looked for in the current directory and then the home
-  directory. Started from `src/`, a repository's own configuration is skipped
-  in silence for the one at home.
-- Touches: `internal/cli/cli.go` (`loadFromEnvironment`),
-  `internal/wiring/wiring.go` (`Locate` already finds the root).
-- Done when: running in any directory of a repository reads the file at its
-  root, and `doctor` names the file it read.
+- Done: `config.Discover` walks up from the working directory to the repository
+  root — the directory holding `.git` — before falling back to home, so a
+  session in a subdirectory reads the repository's own file rather than skipping
+  it for the one at home. `config.RepoRoot` makes `config init` write at that
+  root, where every subdirectory can see it; outside a repository both keep
+  their old behavior.
 
 ### FEAT-48 Keys you can change
 
@@ -532,6 +546,57 @@ Impact: low · Effort: medium
 - Why: "what is left this sprint" is a board in a browser.
 - Touches: `internal/jira` (the Agile API), `internal/tui/issues.go`.
 - Done when: a view (FEAT-02) shows the active sprint grouped by status.
+
+## Build and platform
+
+Mac and Linux are the primary targets; Windows is secondary, run as the
+cross-compiled binary rather than through an installer. These are the platform
+and build-reproducibility items the debt file tracked — kept here because none
+can be exercised from a developer's own machine.
+
+### FEAT-73 Windows as a tested target
+
+Impact: low · Effort: medium
+
+- Why: the code carries Windows branches — a plain file counts as a runnable
+  hook, the editor falls back to `notepad`, a `C:\` path is read as one place,
+  and the process group has a no-op twin where a Unix session does not apply —
+  but none runs on Windows, so each branch is tested only from one machine by
+  its GOOS. The process-group kill has no Windows job-object twin.
+- Touches: `.github/workflows/ci.yml` (a Windows leg), `internal/proc/pgroup`
+  (a job-object `Isolate`), and whatever the first real run turns up.
+- Constraints: a Windows leg must be watched and iterated on a real runner, not
+  added blind where it would sit red.
+- Done when: the suite runs on a Windows runner in CI, and stopping a run kills
+  its child processes there as it does on Unix.
+
+### FEAT-74 The container gate is the host gate
+
+Impact: low · Effort: medium
+
+- Why: `build/Dockerfile` provisions some tools from `apt` (jq, node,
+  shellcheck) rather than the `mise.toml` pins, gives `GO_VERSION` a default of
+  its own, and does not checksum the tools it downloads, so `task
+  container:check` can pass against versions the host gate never saw.
+- Touches: `build/Dockerfile`, `scripts/tool-versions.sh` (which passes only
+  some of the pins today), `.github/workflows/container.yml`.
+- Constraints: needs a machine with a container runtime; the weekly
+  `container.yml` run is where this is exercised and driven.
+- Done when: every tool in the container comes from a `mise.toml` pin with a
+  verified download, and the three wiring tests that skip for want of lefthook
+  inside the image no longer have to.
+
+### FEAT-75 Guard the release tag on a green gate
+
+Impact: low · Effort: small
+
+- Why: the release-tag script pushes the tag before `release.yml` runs `task
+  check`, so a red gate could leave a tag with no release behind it.
+- Touches: `scripts/release/push-release-tag.sh`,
+  `.github/workflows/release.yml`.
+- Constraints: this is the maintainer's release path and cannot be exercised
+  without a real release.
+- Done when: the tag is pushed only once the gate has passed.
 
 ## Ideas that would reopen a settled decision
 
