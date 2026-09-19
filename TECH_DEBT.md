@@ -383,11 +383,17 @@ same-repository pull requests, so a fork's read-only token no longer fails it.
   shellcheck from apt rather than the pins — both belong to DEBT-41. The
   release-tag script pushes the tag before `release.yml` runs `task check`, so a
   red gate could leave a tag with no release; reordering that is the maintainer's
-  release path and cannot be exercised without a real release. The coverage,
-  file-length-adjacent and docs-drift gate scripts still have no tests of their
-  own failure paths. And a scratch `.go` under the gitignored `tmp/` still joins
-  `go test ./...`, which is guidance (keep Go scratch elsewhere), not a gate to
-  add.
+  release path and cannot be exercised without a real release. And a scratch
+  `.go` under the gitignored `tmp/` still joins `go test ./...`, which is
+  guidance (keep Go scratch elsewhere), not a gate to add.
+
+Done for the untested gate scripts: `coverage-gate.sh`, `coverage-summary.sh`,
+`gobco-report.sh`, `check-docs-drift.sh`, `check-license-headers.sh` and
+`tool-versions.sh` each now carry a `_test.sh` on the `check-file-length_test.sh`
+pattern, run by `task test:scripts`. Each proves the gate fails on its own bad
+input — coverage below the floor, a floor nobody passed, a profile that is not
+there, a missing license header, a drifted reference, a mise.toml missing a pin
+— rather than passing having measured nothing.
 
 ## Docs and configuration drift
 
