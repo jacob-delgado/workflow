@@ -12,6 +12,7 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 
+	"github.com/jacob-delgado/workflow/internal/config"
 	"github.com/jacob-delgado/workflow/internal/forge"
 	"github.com/jacob-delgado/workflow/internal/gitrepo"
 	"github.com/jacob-delgado/workflow/internal/hooks"
@@ -58,6 +59,7 @@ type world struct {
 	mu    sync.Mutex
 	calls []string
 
+	cfg           config.Config
 	issues        []jira.Issue
 	viewIssues    map[string][]jira.Issue
 	pageSize      int
@@ -119,6 +121,7 @@ type world struct {
 // a pull request whose CI passed.
 func newWorld() *world {
 	return &world{
+		cfg: completeConfig(),
 		issues: []jira.Issue{
 			{Key: issueKey, Summary: issueSummary, Status: "In Progress", StatusCategory: "indeterminate", Type: "Bug"},
 			{Key: secondIssue, Summary: "Add retries", Status: "To Do", StatusCategory: "new", Type: "Story"},

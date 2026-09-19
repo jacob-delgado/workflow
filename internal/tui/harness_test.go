@@ -74,7 +74,7 @@ func within(cmd tea.Cmd) (tea.Msg, bool) {
 func (w *world) live(t *testing.T, width, height int) tui.Model {
 	t.Helper()
 
-	model := sized(t, tui.New(completeConfig(), nil, w.deps()), width, height)
+	model := sized(t, tui.New(w.cfg, nil, w.deps()), width, height)
 
 	return drain(t, model, model.Init())
 }
