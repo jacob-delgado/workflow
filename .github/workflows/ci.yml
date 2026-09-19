@@ -87,6 +87,11 @@ jobs:
         run: corepack enable
       - name: Install dependencies
         run: yarn install --immutable
+      # The typed client is generated from api/openapi.yaml; regenerate and fail
+      # on any diff, so a contract change that was not regenerated is caught here
+      # rather than shipping a client that disagrees with the server.
+      - name: Check the generated client is up to date
+        run: yarn gen:check
       - run: yarn lint
       - run: yarn test
       - run: yarn build
