@@ -428,8 +428,6 @@ scissors line and the CLAUDE.md layout block were corrected earlier.
 These were chosen, and the reason is written down in the code or the docs.
 They are listed so the cost is visible, not so they get "fixed".
 
-- **The issue list is one query, capped at 50, with no paging.** The pane
-  says "showing N of M", so the cut is not silent. FEAT-02, FEAT-03.
 - **Every redirect is refused**, in all three clients, to keep credentials
   from following one. The cost is DEBT-17's unhelpful message.
 - **`gh` failures are swallowed** when resolving a token, so `doctor` cannot

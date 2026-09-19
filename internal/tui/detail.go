@@ -180,10 +180,14 @@ func (m Model) issuesKeys() []key.Binding {
 		return append(m.viewKeys(), m.keys.refresh)
 	}
 
-	keys := make([]key.Binding, 0, len(m.views)+4) //nolint:mnd // the three verbs plus refresh, beside the views.
+	keys := make([]key.Binding, 0, len(m.views)+5) //nolint:mnd // the verbs, more and refresh, beside the views.
 	branchFor := relabel(m.keys.branchForIssue, "branch for "+string(selected.Key))
 	keys = append(keys, m.keys.changeStatus, m.keys.comment, branchFor)
 	keys = append(keys, m.viewKeys()...)
+
+	if m.issues.hasMore() {
+		keys = append(keys, m.keys.loadMore)
+	}
 
 	return append(keys, m.keys.refresh)
 }
@@ -214,8 +218,20 @@ func (m Model) handleIssuesKey(msg tea.KeyMsg) (Model, tea.Cmd) {
 		m.issues = m.issues.beginFilter()
 
 		return m, nil
+	default:
+		return m.handleIssueListKey(msg)
+	}
+}
+
+// handleIssueListKey answers the keys that manage the list itself — switching
+// view, loading the next page, refreshing — before falling through to the keys
+// that read an issue in full.
+func (m Model) handleIssueListKey(msg tea.KeyMsg) (Model, tea.Cmd) {
+	switch {
 	case key.Matches(msg, m.keys.nextView):
 		return m.nextIssueView()
+	case key.Matches(msg, m.keys.loadMore):
+		return m.loadMoreIssues()
 	case key.Matches(msg, m.keys.refresh):
 		return m.refreshIssues()
 	default:

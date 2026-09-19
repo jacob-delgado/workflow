@@ -220,6 +220,31 @@ func manyIssues(count int) []jira.Issue {
 	return issues
 }
 
+func TestLoadMoreKeyPagesWithoutScrollingToTheEnd(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	world := newWorld()
+	world.pageSize = 3
+	world.issues = manyIssues(5)
+
+	// Act: open the list
+	listed := world.live(t, 120, 40)
+
+	// Assert: the truncated list offers the load-more key
+	requireScreen(t, listed.View(), "showing 3 of 5", "more")
+
+	// Act: load the next page with the key, from the top of the list
+	paged := typing(t, listed, "ctrl+n")
+
+	// Assert: the whole list is loaded now
+	refuseScreen(t, paged.View(), "showing 3 of 5")
+
+	if searches := len(world.asked("search")); searches < 2 {
+		t.Errorf("searched %d time(s), want a second page loaded by the key", searches)
+	}
+}
+
 func TestReachingTheEndOfATruncatedListLoadsTheNextPage(t *testing.T) {
 	t.Parallel()
 
