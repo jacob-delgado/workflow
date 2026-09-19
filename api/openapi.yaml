@@ -1,0 +1,590 @@
+# The contract for the local web API `workflow --web` serves.
+#
+# Single source of truth: the Go server (oapi-codegen) and the TypeScript client
+# (@hey-api/openapi-ts) are both generated from this file, and `task gen:verify`
+# fails CI if either drifts from it. Hand-write this; never hand-edit the
+# generated trees.
+#
+# Field naming is snake_case, matching the rest of the project's JSON (the
+# `tagliatelle` linter). Enum values are snake_case too. The server binds to
+# 127.0.0.1 only; there is no auth (a single local user), so no security scheme.
+openapi: 3.0.3
+info:
+  title: workflow web API
+  description: >-
+    The read-and-configure API behind `workflow --web`. It exposes the same
+    information the terminal UI shows — the assigned issues, the current branch,
+    the working tree, the pull request and its CI, and Slack — and lets the whole
+    configuration file be read and written. It reuses the same domain seams the
+    TUI and the `status`/`reviews` CLI commands use; it does not write anything
+    but the configuration file, and stores nothing between requests.
+  version: 1.0.0
+servers:
+  - url: http://127.0.0.1:7000
+    description: The local server, bound to the loopback interface only.
+tags:
+  - name: meta
+    description: Server and build information.
+  - name: issues
+    description: The tracker's issues and their detail.
+  - name: repository
+    description: The current branch and working tree.
+  - name: review
+    description: The branch's pull request and its CI.
+  - name: slack
+    description: Where and as whom an announcement would post.
+  - name: config
+    description: The configuration file, read and written.
+
+paths:
+  /api/health:
+    get:
+      operationId: getHealth
+      summary: Server and build information.
+      tags: [meta]
+      responses:
+        "200":
+          description: The server is up.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Health"
+
+  /api/views:
+    get:
+      operationId: listViews
+      summary: The configured issue views (saved JQL), in order.
+      tags: [issues]
+      responses:
+        "200":
+          description: The views, which may be empty.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ViewList"
+        default: {$ref: "#/components/responses/Error"}
+
+  /api/issues:
+    get:
+      operationId: listIssues
+      summary: One page of the issues a view matches.
+      tags: [issues]
+      parameters:
+        - name: view
+          in: query
+          description: The configured view's name; the default view when omitted.
+          required: false
+          schema: {type: string}
+        - name: start_at
+          in: query
+          description: The zero-based index of the first issue to return.
+          required: false
+          schema: {type: integer, minimum: 0, default: 0}
+      responses:
+        "200":
+          description: A page of issues.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/IssuesPage"
+        default: {$ref: "#/components/responses/Error"}
+
+  /api/issues/{key}:
+    get:
+      operationId: getIssue
+      summary: One issue in full, with its comments.
+      tags: [issues]
+      parameters:
+        - name: key
+          in: path
+          required: true
+          description: The issue key, such as PROJ-412.
+          schema: {type: string}
+      responses:
+        "200":
+          description: The issue.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/IssueDetail"
+        "404":
+          description: No such issue.
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/Error"}
+        default: {$ref: "#/components/responses/Error"}
+
+  /api/branch:
+    get:
+      operationId: getBranch
+      summary: The current branch and how it stands against its base.
+      tags: [repository]
+      responses:
+        "200":
+          description: The branch.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Branch"
+        default: {$ref: "#/components/responses/Error"}
+
+  /api/changes:
+    get:
+      operationId: listChanges
+      summary: The working tree's changes.
+      tags: [repository]
+      responses:
+        "200":
+          description: The changes, which may be empty.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ChangeList"
+        default: {$ref: "#/components/responses/Error"}
+
+  /api/review:
+    get:
+      operationId: getReview
+      summary: The branch's pull request and its CI, if one is open.
+      tags: [review]
+      responses:
+        "200":
+          description: The review state; pull and ci are null when none is found.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Review"
+        default: {$ref: "#/components/responses/Error"}
+
+  /api/slack:
+    get:
+      operationId: getSlack
+      summary: The channel, its alternates, and who a post would come from.
+      tags: [slack]
+      responses:
+        "200":
+          description: The Slack destination.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Slack"
+        default: {$ref: "#/components/responses/Error"}
+
+  /api/config:
+    get:
+      operationId: getConfig
+      summary: The configuration in effect, with secrets masked.
+      tags: [config]
+      responses:
+        "200":
+          description: The configuration, redacted.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Config"
+        default: {$ref: "#/components/responses/Error"}
+    put:
+      operationId: updateConfig
+      summary: Write the configuration file.
+      description: >-
+        Replaces the configuration file. A secret field (jira.token,
+        slack.token, slack.webhook_url, forge.token) left empty or sent back with
+        its masked value keeps the stored secret; a new value replaces it. The
+        body is validated the same way a file read is, and rejected with 422 when
+        it is invalid.
+      tags: [config]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/Config"
+      responses:
+        "200":
+          description: The configuration as written, redacted.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Config"
+        "422":
+          description: The configuration is invalid; nothing was written.
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/Error"}
+        default: {$ref: "#/components/responses/Error"}
+
+components:
+  responses:
+    Error:
+      description: The request could not be completed.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+
+  schemas:
+    Error:
+      type: object
+      required: [code, message]
+      properties:
+        code:
+          type: string
+          description: A stable, machine-readable reason.
+          enum: [bad_request, not_found, unprocessable, unreachable, internal]
+        message:
+          type: string
+          description: A human-readable explanation, safe to show. Never a secret.
+      additionalProperties: false
+
+    Health:
+      type: object
+      required: [version, dry_run]
+      properties:
+        version:
+          type: string
+          description: The binary's version, or a short commit for a dev build.
+        dry_run:
+          type: boolean
+          description: Whether writes are held back (the --dry-run flag).
+      additionalProperties: false
+
+    ViewList:
+      type: object
+      required: [views]
+      properties:
+        views:
+          type: array
+          items: {$ref: "#/components/schemas/JiraView"}
+      additionalProperties: false
+
+    IssuesPage:
+      type: object
+      required: [issues, total, start_at]
+      properties:
+        issues:
+          type: array
+          items: {$ref: "#/components/schemas/Issue"}
+        total:
+          type: integer
+          description: How many issues the view matches in all.
+        start_at:
+          type: integer
+          description: The index of the first issue in this page.
+      additionalProperties: false
+
+    Issue:
+      type: object
+      required: [key, summary, status, status_category, type]
+      properties:
+        key: {type: string, example: PROJ-412}
+        summary: {type: string}
+        status:
+          type: string
+          description: The human status name, such as "In Progress".
+        status_category:
+          $ref: "#/components/schemas/StatusCategory"
+        type:
+          type: string
+          description: The issue type name, such as Bug or Story.
+        priority:
+          type: string
+          description: May be empty.
+      additionalProperties: false
+
+    StatusCategory:
+      type: string
+      enum: [new, indeterminate, done]
+
+    IssueDetail:
+      type: object
+      required: [key, summary, status, status_category, type, reporter, description, comments, comment_total]
+      properties:
+        key: {type: string}
+        summary: {type: string}
+        status: {type: string}
+        status_category: {$ref: "#/components/schemas/StatusCategory"}
+        type: {type: string}
+        priority: {type: string}
+        reporter: {type: string}
+        description: {type: string}
+        comments:
+          type: array
+          description: Oldest first.
+          items: {$ref: "#/components/schemas/Comment"}
+        comment_total:
+          type: integer
+          description: The total on the issue, which may exceed those returned.
+      additionalProperties: false
+
+    Comment:
+      type: object
+      required: [author, body, created]
+      properties:
+        author: {type: string}
+        body: {type: string}
+        created:
+          type: string
+          format: date-time
+          description: RFC 3339; the zero time if the tracker's date was unreadable.
+      additionalProperties: false
+
+    Branch:
+      type: object
+      required: [name, detached, head, upstream, ahead, behind, base, commits]
+      properties:
+        name: {type: string}
+        detached:
+          type: boolean
+          description: Whether HEAD is detached rather than on a branch.
+        head:
+          type: string
+          description: The commit SHA; empty before the first commit.
+        upstream:
+          type: string
+          description: The tracking branch; empty if never pushed.
+        ahead: {type: integer}
+        behind: {type: integer}
+        base:
+          type: string
+          description: The base branch, such as origin/main.
+        commits:
+          type: array
+          description: The commits on this branch since its base.
+          items: {$ref: "#/components/schemas/Commit"}
+      additionalProperties: false
+
+    Commit:
+      type: object
+      required: [hash, subject]
+      properties:
+        hash: {type: string}
+        subject: {type: string}
+      additionalProperties: false
+
+    ChangeList:
+      type: object
+      required: [changes]
+      properties:
+        changes:
+          type: array
+          items: {$ref: "#/components/schemas/Change"}
+      additionalProperties: false
+
+    Change:
+      type: object
+      required: [path, kind, staged, has_unstaged, conflicted]
+      properties:
+        path: {type: string}
+        original_path:
+          type: string
+          description: The former path for a rename or copy; empty otherwise.
+        kind:
+          type: string
+          description: What kind of change this is.
+          enum: [modified, new, deleted, renamed, copied, untracked, conflicted]
+        staged:
+          type: boolean
+          description: Whether the change (or part of it) is staged.
+        has_unstaged:
+          type: boolean
+          description: Whether there are unstaged edits to the same path.
+        conflicted:
+          type: boolean
+      additionalProperties: false
+
+    Review:
+      type: object
+      required: [found]
+      properties:
+        found:
+          type: boolean
+          description: Whether a pull request was found for the branch.
+        pull:
+          nullable: true
+          allOf: [{$ref: "#/components/schemas/PullRequest"}]
+        ci:
+          nullable: true
+          allOf: [{$ref: "#/components/schemas/CI"}]
+      additionalProperties: false
+
+    PullRequest:
+      type: object
+      required: [number, url, title, draft, approvals, changes_requested, mergeable]
+      properties:
+        number:
+          type: integer
+          description: The GitHub number or GitLab IID.
+        url: {type: string}
+        title: {type: string}
+        draft: {type: boolean}
+        approvals: {type: integer}
+        changes_requested: {type: boolean}
+        mergeable:
+          type: string
+          enum: [unknown, clean, conflicts]
+      additionalProperties: false
+
+    CI:
+      type: object
+      required: [state, total, done, failed, checks]
+      properties:
+        state: {$ref: "#/components/schemas/CIState"}
+        total:
+          type: integer
+          description: Total checks; 0 on a forge that reports the pipeline whole.
+        done: {type: integer}
+        failed: {type: integer}
+        checks:
+          type: array
+          items: {$ref: "#/components/schemas/Check"}
+      additionalProperties: false
+
+    Check:
+      type: object
+      required: [name, state, url]
+      properties:
+        name: {type: string}
+        state: {$ref: "#/components/schemas/CIState"}
+        url: {type: string}
+      additionalProperties: false
+
+    CIState:
+      type: string
+      enum: [none, running, passed, failed]
+
+    Slack:
+      type: object
+      required: [channel, channels, author]
+      properties:
+        channel:
+          type: string
+          description: The default channel; empty when a webhook carries its own.
+        channels:
+          type: array
+          description: The default first, then the alternates.
+          items: {type: string}
+        author:
+          type: string
+          description: Who a post would come from; empty if not resolved.
+      additionalProperties: false
+
+    Config:
+      type: object
+      description: >-
+        The whole configuration file. On a read, the four secret fields and the
+        Jira header values are masked; on a write, a masked or empty secret keeps
+        the stored value.
+      required: [version, jira, slack, forge, ui, timing, branch, commit]
+      properties:
+        version: {type: string}
+        jira: {$ref: "#/components/schemas/JiraConfig"}
+        slack: {$ref: "#/components/schemas/SlackConfig"}
+        forge: {$ref: "#/components/schemas/ForgeConfig"}
+        ui: {$ref: "#/components/schemas/UIConfig"}
+        timing: {$ref: "#/components/schemas/TimingConfig"}
+        branch: {$ref: "#/components/schemas/BranchConfig"}
+        commit: {$ref: "#/components/schemas/CommitConfig"}
+      additionalProperties: false
+
+    JiraConfig:
+      type: object
+      properties:
+        base_url: {type: string}
+        token:
+          type: string
+          description: Masked on read; empty or masked on write keeps the stored value.
+        token_command: {type: string}
+        token_env: {type: string}
+        user: {type: string}
+        headers:
+          type: object
+          additionalProperties: {type: string}
+          description: Extra request headers; values masked on read.
+        views:
+          type: array
+          items: {$ref: "#/components/schemas/JiraView"}
+        project: {type: string}
+      additionalProperties: false
+
+    SlackConfig:
+      type: object
+      properties:
+        token:
+          type: string
+          description: Masked on read; empty or masked on write keeps the stored value.
+        token_command: {type: string}
+        token_env: {type: string}
+        webhook_url:
+          type: string
+          description: A credential; masked on read, preserved on write like a token.
+        channel: {type: string}
+        channels:
+          type: array
+          items: {type: string}
+        announcement: {type: string}
+      additionalProperties: false
+
+    ForgeConfig:
+      type: object
+      properties:
+        kind:
+          type: string
+          description: Empty for auto-detect, else github or gitlab.
+          enum: ["", github, gitlab]
+        host: {type: string}
+        token:
+          type: string
+          description: Masked on read; empty or masked on write keeps the stored value.
+        cli: {type: boolean}
+      additionalProperties: false
+
+    UIConfig:
+      type: object
+      properties:
+        mouse: {type: boolean}
+        ascii: {type: boolean}
+        color:
+          type: string
+          description: Empty for auto, or "never".
+        notify: {type: boolean}
+        comments_shown:
+          type: integer
+          description: How many comments the detail shows; 0 means the built-in default.
+      additionalProperties: false
+
+    TimingConfig:
+      type: object
+      properties:
+        request_timeout:
+          type: string
+          description: A Go duration such as 20s; empty for the default.
+        ci_interval:
+          type: string
+          description: A Go duration; empty for the default.
+      additionalProperties: false
+
+    BranchConfig:
+      type: object
+      properties:
+        template:
+          type: string
+          description: The branch-name template; must contain {key}.
+        prefixes:
+          type: object
+          additionalProperties: {type: string}
+        default_prefix: {type: string}
+      additionalProperties: false
+
+    CommitConfig:
+      type: object
+      properties:
+        default_scope: {type: string}
+      additionalProperties: false
+
+    JiraView:
+      type: object
+      required: [name, jql]
+      properties:
+        name: {type: string}
+        jql: {type: string}
+      additionalProperties: false
