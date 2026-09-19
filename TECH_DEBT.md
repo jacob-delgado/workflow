@@ -80,22 +80,6 @@ Also done: the three body editors now share one `textEdited` message
 message: it carries the issue and opens the preview from the issues pane rather
 than updating an open overlay, so it is not the same shape.
 
-### DEBT-10 Click math mirrors the view, by hand
-
-Severity: low · Confidence: read
-
-- Evidence: the wrapped-jobs click bug is fixed — `commandRun.click` now skips
-  every row a wrapped jobs line took, not one. What remains is tidiness: each
-  click handler still recomputes its view's layout from constants
-  (`internal/tui/run.go`, `internal/tui/picker.go`, `internal/tui/commits.go`),
-  where the issues pane already asks a shared `rowAt`.
-- Cost: a change to one of those views can silently break its click handler
-  again, the way the jobs line did.
-- Remedy: one `selection` value with `moved`, `window` and `rowAt`, returned
-  by the view so the click handler asks it.
-- Done when: the picker, run and commits click handlers contain no layout
-  constants.
-
 ### DEBT-12 One model that every message can change
 
 Severity: low · Confidence: read

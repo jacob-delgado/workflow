@@ -17,9 +17,6 @@ import (
 	"github.com/jacob-delgado/workflow/internal/sanitize"
 )
 
-// runHeader is the rows above a finished run's list of places to jump to.
-const runHeader = 2
-
 // starter starts a program whose output a run streams.
 type starter func() (proc.Output, error)
 
@@ -152,29 +149,36 @@ func (msg runFinished) apply(m Model) (Model, tea.Cmd) {
 	return m, nil
 }
 
-// view shows the jobs as lefthook reports them, then either the places to jump
-// to or the tail of the output, and how the run stands.
 // rowsIn is how many display rows a wrapped string takes.
 func rowsIn(wrapped string) int {
 	return strings.Count(wrapped, "\n") + 1
 }
 
+// view shows the jobs as lefthook reports them, then either the places to jump
+// to or the tail of the output, and how the run stands.
 func (r commandRun) view(width, rows int) (string, string) {
+	lines := r.header(width)
+
+	if len(r.failures) > 0 && !r.showOutput {
+		lines = append(lines, r.failureRows(rows-len(lines))...)
+	} else {
+		lines = append(lines, tail(r.lines, rows-len(lines))...)
+	}
+
+	return r.title, strings.Join(lines, "\n")
+}
+
+// header is the rows above the list: the state, a wrapped jobs line when there
+// is one, and a blank. The view draws it and the click measures it, so the two
+// cannot drift apart the way a hardcoded row count would.
+func (r commandRun) header(width int) []string {
 	lines := []string{r.state()}
 
 	if jobs := r.jobs(); jobs != "" {
 		lines = append(lines, wrap(jobs, width))
 	}
 
-	if len(r.failures) > 0 && !r.showOutput {
-		lines = append(lines, "")
-		lines = append(lines, r.failureRows(rows-len(lines))...)
-	} else {
-		lines = append(lines, "")
-		lines = append(lines, tail(r.lines, rows-len(lines))...)
-	}
-
-	return r.title, strings.Join(lines, "\n")
+	return append(lines, "")
 }
 
 // state says whether the run is going, passed, or failed — and, when it failed,
@@ -304,12 +308,9 @@ func (r commandRun) handleKey(m Model, msg tea.KeyMsg) (Model, tea.Cmd) {
 
 // click selects the place on a clicked line.
 func (r commandRun) click(m Model, line int) (Model, tea.Cmd) {
-	offset := runHeader
-	if jobs := r.jobs(); jobs != "" {
-		// The jobs line wraps to as many rows as the view drew it in, not one,
-		// so a click below a wrapped jobs line must skip every row it took.
-		offset += rowsIn(wrap(jobs, m.detailWidth()))
-	}
+	// The offset is the header the view drew, in display rows — the jobs line
+	// wraps to as many rows as it took, so a click below it skips every one.
+	offset := rowsIn(strings.Join(r.header(m.detailWidth()), "\n"))
 
 	first, last := window(r.selected, len(r.failures), m.detailRows()-offset)
 	index := first + line - offset
