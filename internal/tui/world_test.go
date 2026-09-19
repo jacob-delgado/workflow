@@ -25,6 +25,13 @@ import (
 // patience is how long a command may take before a test stops waiting for it.
 // Everything these tests fake answers at once; what does not is a timer — the
 // wait between CI checks — that a test only cares about when it shortens it.
+//
+// This wall-clock cap is deliberate, not a step toward Bubble Tea quiescence.
+// Settling on quiescence instead would have to tell a scheduled timer (which
+// reschedules itself forever) from real work, which the framework gives no way
+// to introspect; the cap sidesteps that by dropping whatever overruns. The known
+// cost is that a genuinely slow command under a loaded -race runner can be
+// dropped too — raise patience there rather than reworking the drain.
 const patience = 400 * time.Millisecond
 
 // testNow is the time the fake clock tells.

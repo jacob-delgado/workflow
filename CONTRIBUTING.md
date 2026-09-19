@@ -98,6 +98,12 @@ Every `.go` file must begin with the following header:
 
 `scripts/check-license-headers.sh` checks this on commit and in CI.
 
+The year is a fixed string — the project's first-publication year — not the
+current one, which is common practice for a copyright line. A file created in a
+later year still says 2026, and the check accepts only this exact line, so a
+contributor's own copyright line is not added here; contributions are under the
+Apache-2.0 license the header names.
+
 ## Commit messages
 
 Commit messages follow the

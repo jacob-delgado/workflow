@@ -376,7 +376,9 @@ than observable, public behavior.
   (`curl https://proxy.golang.org/<module>/@v/<version>.info`) and pick an older
   version if it is younger than a week. The same rule governs `mise.toml` pins.
   **Known-CVE fixes override the cooldown — always.** The gate guards against
-  *unknown* compromised releases, not *published* security fixes.
+  *unknown* compromised releases, not *published* security fixes. Dependabot's
+  cooldown deliberately exempts `actions/*` and `github/*`: they are GitHub's own
+  first-party actions, and this age-gate rule is what governs them by hand.
 
 - **Tool versions are exact, and they live in `mise.toml`.** Nothing else states
   a version: `build/Dockerfile` reads them through
@@ -391,7 +393,9 @@ than observable, public behavior.
 
 - **Use `tmp/` under the repo root for ad-hoc scratch files** — never `/tmp/…` or
   any path outside the repo. PR-body drafts, intermediate output, log dumps:
-  `tmp/foo.md` (gitignored).
+  `tmp/foo.md` (gitignored). One caveat: a scratch `.go` file there still joins
+  `go test ./...` even though `tmp/` is gitignored, so keep Go scratch outside the
+  module.
 
 - **Commits**: Conventional Commits prefix (`feat` `fix` `chore` `docs`
   `refactor` `test` `perf` `build` `ci` `revert` `style`), enforced by lefthook's
