@@ -135,9 +135,6 @@ Severity: low · Confidence: read
   `var _ help.KeyMap = keyMap{}` assertion documents a real conformance CLAUDE.md
   asks for, and the "FullHelp is every key" comment is now true by construction
   (`help_internal_test.go` proves it).
-- "1 files staged" (`internal/tui/composer.go:155`) is pinned by
-  `internal/tui/composer_test.go:50`. `Breaking: false` is hardcoded at
-  `internal/tui/composer.go:92`.
 - Loads carry no sequence number, so the last answer to arrive wins.
   `detailLoaded` checks the key only (`internal/tui/detail.go:49`). Every
   request is bounded at ten seconds, which keeps the window narrow.

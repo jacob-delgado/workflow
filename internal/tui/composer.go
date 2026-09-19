@@ -42,6 +42,7 @@ const (
 // the composer opens on it again.
 type commitDraft struct {
 	kind, scope, subject, body string
+	breaking                   bool
 }
 
 // commitComposer assembles a Conventional Commit subject from its parts, so it
@@ -57,6 +58,7 @@ type commitComposer struct {
 	body     string
 	issueKey jira.Key
 	staged   int
+	breaking bool
 	send     sendState
 }
 
@@ -80,7 +82,7 @@ func (m Model) openCommitComposer() (Model, tea.Cmd) {
 	composer := commitComposer{
 		marks: m.marks, styles: m.styles, types: types, kind: m.startingType(types, draft),
 		focus: fieldSubject, scope: newInput(m.startingScope(draft)), subject: newInput(draft.subject), body: draft.body,
-		issueKey: issueKey, staged: m.changes.staged(),
+		issueKey: issueKey, staged: m.changes.staged(), breaking: draft.breaking,
 	}
 	composer.scope.Blur()
 
@@ -118,7 +120,7 @@ func (m Model) startingScope(draft commitDraft) string {
 // assembled is the subject as it stands.
 func (c commitComposer) assembled() convention.Subject {
 	return convention.Subject{
-		Type: c.types[c.kind], Scope: c.scope.Value(), Description: c.subject.Value(), Breaking: false,
+		Type: c.types[c.kind], Scope: c.scope.Value(), Description: c.subject.Value(), Breaking: c.breaking,
 	}
 }
 
@@ -214,7 +216,10 @@ func (c commitComposer) footnotes() []string {
 
 // footer offers moving between parts, the body, committing, and leaving.
 func (c commitComposer) footer(keys keyMap) []key.Binding {
-	return []key.Binding{keys.nextField, keys.cycleLeft, keys.editBody, relabel(keys.confirm, "commit"), keys.closeOverlay}
+	return []key.Binding{
+		keys.nextField, keys.cycleLeft, keys.editBody, keys.toggleBreaking,
+		relabel(keys.confirm, "commit"), keys.closeOverlay,
+	}
 }
 
 // handleKey answers a key while the commit is composed.
@@ -230,6 +235,8 @@ func (c commitComposer) handleKey(m Model, msg tea.KeyMsg) (Model, tea.Cmd) {
 		m.overlay = c
 
 		return m, c.editBody(m)
+	case key.Matches(msg, m.keys.toggleBreaking):
+		c.breaking = !c.breaking
 	case key.Matches(msg, m.keys.nextField):
 		c = c.focusOn((c.focus + 1) % composerFields)
 	case key.Matches(msg, m.keys.prevField):
@@ -280,7 +287,9 @@ func (c commitComposer) focusOn(field int) commitComposer {
 
 // draft is the composer's contents, to open on again.
 func (c commitComposer) draft() commitDraft {
-	return commitDraft{kind: c.types[c.kind], scope: c.scope.Value(), subject: c.subject.Value(), body: c.body}
+	return commitDraft{
+		kind: c.types[c.kind], scope: c.scope.Value(), subject: c.subject.Value(), body: c.body, breaking: c.breaking,
+	}
 }
 
 // editBody opens the editor on the body.

@@ -70,6 +70,25 @@ func TestTheComposerAssemblesAConventionalCommit(t *testing.T) {
 	}
 }
 
+func TestTheComposerMarksABreakingChange(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	composing := newWorld()
+	model := composing.live(t, 120, 40)
+
+	keys := append([]string{"3", "c"}, letters("redact tokens")...)
+	keys = append(keys, "ctrl+b")
+
+	// Act
+	// Open the composer (on the fix branch's type), type a subject, mark it breaking.
+	breaking := typing(t, model, keys...)
+
+	// Assert
+	// The Conventional Commits "!" appears in the assembled subject as it is typed.
+	requireScreen(t, breaking.View(), "fix!: redact tokens")
+}
+
 func TestTheComposerOpensOnTheBranchType(t *testing.T) {
 	t.Parallel()
 
