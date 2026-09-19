@@ -1,0 +1,10 @@
+# Generates internal/api/server.gen.go — the spec-driven routing surface: the
+# stdlib net/http registration plus the strict, typed handler interface the web
+# server implements. No third-party router; the mux is net/http's own.
+package: api
+output: internal/api/server.gen.go
+generate:
+  std-http-server: true
+  strict-server: true
+output-options:
+  name-normalizer: ToCamelCaseWithInitialisms

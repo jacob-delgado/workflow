@@ -80,7 +80,10 @@ readonly UNANALYZABLE="internal/proc/pgroup"
 # internal/proc/pgroup is platform glue with no test of its own: its Unix path is
 # exercised end to end by proc.Start's grandchild-kill test, and it is also in
 # UNANALYZABLE, so gobco could not measure it in any case.
-readonly NO_TESTS="cmd/workflow cmd/docsgen cmd/testshape internal/proc/pgroup"
+# internal/api is the oapi-codegen output — generated types and server surface
+# with no logic of ours; `task gen:verify` guards it. api is package apispec: a
+# single //go:embed of the OpenAPI document, data with no branches to measure.
+readonly NO_TESTS="cmd/workflow cmd/docsgen cmd/testshape internal/proc/pgroup internal/api api"
 
 # gobco carries the go/types of the Go that built it (see above), so a gobco
 # built by an older Go silently shrinks what this gate covers. Refuse to run.

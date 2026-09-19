@@ -103,6 +103,9 @@ linters:
 
   exclusions:
     warn-unused: true # tell us when an exclusion below stops matching anything
+    # Generated files (internal/api/*.gen.go) are already excluded from the
+    # linters by golangci's default `generated: lax` detection of the
+    # "DO NOT EDIT" banner; the formatters need the explicit path below.
     rules:
       # A test's length and branch count are its assertions. Gating them pushes
       # toward fewer checks, which is backwards — table-driven tests are
@@ -139,6 +142,10 @@ formatters:
     - gofumpt
     - goimports
     - gci
+  exclusions:
+    paths:
+      # A formatter rewrite of a generated file would break the drift gate.
+      - internal/api/.*\.gen\.go$
   settings:
     gci:
       custom-order: true

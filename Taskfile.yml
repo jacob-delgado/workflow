@@ -132,6 +132,7 @@ tasks:
       - task: lint:goversion
       - task: lint:goroutines
       - task: docs:check
+      - task: gen:verify
 
   lint:go:
     desc: Lint the Go code
@@ -237,6 +238,23 @@ tasks:
     cmds:
       - go run ./cmd/docsgen {{.DOCS_REFERENCE}}
       - echo "Wrote the command reference to {{.DOCS_REFERENCE}}"
+
+  gen:
+    desc: Regenerate the web API's Go code from api/openapi.yaml
+    cmds:
+      - go tool oapi-codegen -config api/oapi-codegen-models.yaml api/openapi.yaml
+      - go tool oapi-codegen -config api/oapi-codegen-server.yaml api/openapi.yaml
+
+  gen:verify:
+    desc: Fail if the generated API code has drifted from api/openapi.yaml
+    cmds:
+      - task: gen
+      - |
+        if ! git diff --quiet -- internal/api; then
+          echo "Generated API code is out of date. Run 'task gen' and commit." >&2
+          git --no-pager diff --stat -- internal/api >&2
+          exit 1
+        fi
 
   docs:build:
     desc: Build the documentation site into docs/public
