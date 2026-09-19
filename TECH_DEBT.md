@@ -456,9 +456,10 @@ They are listed so the cost is visible, not so they get "fixed".
   (`startPush` calls `m.deps.Git.Push`), which today's wiring always sets.
 - **Map literals stand in for switches** so that gobco has no uncoverable
   arm. The cost is in DEBT-46.
-- **Timing and layout are named constants, not settings**: the ten-second
-  request timeout, the twenty-second CI interval, the 90- and 60-column
-  breakpoints, five comments shown. FEAT-47, UX-02.
+- **The layout breakpoints are constants, not settings**: the 80- and 60-column
+  widths at which the interface collapses the rail and drops the border. The
+  timing that changes behavior (request timeout, CI interval) and the comments
+  shown are settings; these two are a rendering detail, not a knob. UX-02.
 - **Test files are exempt from the complexity linters**, and
   `internal/cli` and `internal/wiring` run their tests serially.
 - **gobco runs without `-race`, one package at a time**, so `task check` runs

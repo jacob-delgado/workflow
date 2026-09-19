@@ -4,6 +4,7 @@
 package tui
 
 import (
+	"cmp"
 	"fmt"
 	"strconv"
 	"strings"
@@ -26,8 +27,9 @@ const (
 	month = 30 * day
 )
 
-// commentsShown is how many of an issue's most recent comments are drawn.
-const commentsShown = 5
+// defaultCommentsShown is how many of an issue's most recent comments are drawn
+// when ui.comments_shown is not set.
+const defaultCommentsShown = 5
 
 // issueDetail is the selected issue in full, as far as it has loaded.
 type issueDetail struct {
@@ -405,7 +407,7 @@ func (m Model) comments(detail jira.IssueDetail) []string {
 		return nil
 	}
 
-	shown := detail.Comments[max(0, len(detail.Comments)-commentsShown):]
+	shown := detail.Comments[max(0, len(detail.Comments)-cmp.Or(m.cfg.UI.CommentsShown, defaultCommentsShown)):]
 	heading := fmt.Sprintf("Comments %s of %s", strconv.Itoa(len(shown)), strconv.Itoa(detail.CommentTotal))
 	lines := []string{"", m.styles.strong.Render(heading)}
 

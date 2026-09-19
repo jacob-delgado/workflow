@@ -57,6 +57,28 @@ func TestTheDetailShowsTheIssueInFull(t *testing.T) {
 		"Tokens reach the log.", "Comments 1 of 1", "Ana Lopez · 2h ago", "Repro'd on 8.2.1")
 }
 
+func TestCommentsShownLimitsHowManyTheDetailDraws(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	fewer := newWorld()
+	fewer.cfg.UI.CommentsShown = 2
+	fewer.detail.Comments = []jira.Comment{
+		{Author: reporter, Body: "oldest", Created: testNow().Add(-3 * time.Hour)},
+		{Author: reporter, Body: "middle", Created: testNow().Add(-2 * time.Hour)},
+		{Author: reporter, Body: "newest", Created: testNow().Add(-1 * time.Hour)},
+	}
+	fewer.detail.CommentTotal = 3
+
+	// Act
+	view := fewer.live(t, 120, 40).View()
+
+	// Assert
+	// Only the two most recent are drawn, and the heading says so.
+	requireScreen(t, view, "Comments 2 of 3", "middle", "newest")
+	refuseScreen(t, view, "oldest")
+}
+
 func TestTheDetailSaysWhatIsMissing(t *testing.T) {
 	t.Parallel()
 

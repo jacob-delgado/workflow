@@ -148,6 +148,9 @@ type UI struct {
 	// terminal relays one, when CI finishes — so a developer who stepped away is
 	// told rather than having to check back. Off unless set.
 	Notify bool `json:"notify"`
+	// CommentsShown is how many of an issue's most recent comments the detail
+	// pane draws. Zero keeps the built-in default.
+	CommentsShown int `json:"comments_shown"`
 }
 
 // DrawColor reports whether the system hues should be drawn. NO_COLOR (set to
