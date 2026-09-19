@@ -23,9 +23,9 @@ const commitLimit = 200
 // gitProgram is the program every command here runs.
 const gitProgram = "git"
 
-// DefaultRemote is the remote this package reads and pushes to. The name is
-// written once here rather than spelled out at each use; consulting
-// remote.pushDefault before assuming it is still to do (see TECH_DEBT DEBT-30).
+// DefaultRemote is the remote this package fetches from and reads base branches
+// against, written once here rather than spelled out at each use. A push can go
+// elsewhere: PushRemote consults remote.pushDefault and falls back to this.
 const DefaultRemote = "origin"
 
 // remoteBranch is a branch on DefaultRemote, "origin/main".
