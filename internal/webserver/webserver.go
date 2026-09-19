@@ -41,6 +41,19 @@ type Deps struct {
 type Info struct {
 	Version string
 	DryRun  bool
+
+	// StreamInterval is how often the event stream re-pushes a snapshot. A zero
+	// or negative value takes defaultStreamInterval.
+	StreamInterval time.Duration
+}
+
+// streamInterval is the configured stream cadence, or the default when unset.
+func (i Info) streamInterval() time.Duration {
+	if i.StreamInterval <= 0 {
+		return defaultStreamInterval
+	}
+
+	return i.StreamInterval
 }
 
 // server implements api.StrictServerInterface over the seams and configuration.
@@ -75,6 +88,11 @@ func Handler(deps Deps, cfg config.Config, info Info) (http.Handler, error) {
 	})
 
 	mux := http.NewServeMux()
+
+	// The event stream is a streaming response the strict, one-response-object
+	// interface cannot express, so it is registered by hand rather than generated.
+	mux.HandleFunc("GET /api/events", srv.streamEvents)
+
 	handler := api.HandlerWithOptions(strict, api.StdHTTPServerOptions{
 		BaseRouter:       mux,
 		ErrorHandlerFunc: writeRequestError,

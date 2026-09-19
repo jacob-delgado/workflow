@@ -1,6 +1,11 @@
 # Generates internal/api/server.gen.go — the spec-driven routing surface: the
 # stdlib net/http registration plus the strict, typed handler interface the web
 # server implements. No third-party router; the mux is net/http's own.
+#
+# The events tag is excluded: /api/events is a Server-Sent Events stream, which
+# the strict, one-response-object handler shape cannot express, so the server
+# hand-writes that handler. The endpoint stays in the spec — the request
+# validator checks it and the TypeScript client still types its Snapshot.
 package: api
 output: internal/api/server.gen.go
 generate:
@@ -8,3 +13,5 @@ generate:
   strict-server: true
 output-options:
   name-normalizer: ToCamelCaseWithInitialisms
+  exclude-tags:
+    - events
