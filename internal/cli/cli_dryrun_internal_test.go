@@ -17,7 +17,9 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 
+	"github.com/jacob-delgado/workflow/internal/config"
 	"github.com/jacob-delgado/workflow/internal/tui"
+	"github.com/jacob-delgado/workflow/internal/webserver"
 )
 
 // runWithArgs runs the root command with args and a fake runner, returning the
@@ -33,7 +35,13 @@ func runWithArgs(t *testing.T, args ...string) tui.Model {
 		return nil
 	}
 
-	root := newRootCmd(Prompt{}, run)
+	serve := func(context.Context, config.Config, webserver.Deps, webserver.Info, io.Writer) error {
+		t.Error("the web server ran; bare workflow should open the TUI")
+
+		return nil
+	}
+
+	root := newRootCmd(Prompt{}, run, serve)
 	root.SetArgs(args)
 	root.SetOut(io.Discard)
 	root.SetErr(io.Discard)
