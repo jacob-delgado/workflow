@@ -1,0 +1,32 @@
+// Copyright 2026 Jacob Delgado
+// SPDX-License-Identifier: Apache-2.0
+
+package tui_test
+
+import "testing"
+
+func TestStoppingARunningCommandEndsItAndSaysSo(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	// A pre-commit hook that hangs: it streams nothing and never finishes.
+	w := newWorld()
+	w.runBlocks = true
+	model := w.live(t, 100, 40)
+
+	// Act: start the hook, which does not finish on its own.
+	running := typing(t, model, "3", "h")
+
+	// Assert: the run is shown as still going.
+	requireScreen(t, running.View(), "running")
+
+	// Act: stop it.
+	stopped := typing(t, running, "s")
+
+	// Assert: the run's own Stop was called, and the screen says it stopped.
+	if w.runStop == nil || !*w.runStop {
+		t.Error("the stop key did not stop the run")
+	}
+
+	requireScreen(t, stopped.View(), "stopped")
+}

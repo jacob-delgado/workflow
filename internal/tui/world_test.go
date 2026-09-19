@@ -4,6 +4,7 @@
 package tui_test
 
 import (
+	"errors"
 	"slices"
 	"strconv"
 	"strings"
@@ -115,6 +116,33 @@ type world struct {
 	// unresolved are the places the fake editor cannot find a file for, the way
 	// go test prints one relative to its package.
 	unresolved []string
+	// runBlocks makes a streamed run stream nothing and never finish until it is
+	// stopped, standing in for a hook that hangs; runStop is set to a flag that
+	// records whether that run's own Stop was called.
+	runBlocks bool
+	runStop   *bool
+}
+
+// errRunStopped is how a stopped streamed run reports that it was killed.
+var errRunStopped = errors.New("the run was stopped")
+
+// blockingOutput is a streamed program that has not finished: its lines stay
+// open, and Wait reports it killed, until Stop closes them. Stop records that it
+// was called, so a test can prove a stop key reached the run.
+func (w *world) blockingOutput() proc.Output {
+	lines := make(chan string)
+	stopped := false
+	w.runStop = &stopped
+
+	stop := func() {
+		if !stopped {
+			stopped = true
+
+			close(lines)
+		}
+	}
+
+	return proc.Output{Lines: lines, Wait: func() error { return errRunStopped }, Stop: stop}
 }
 
 // newWorld is a repository on a feature branch for an issue in progress, with
@@ -308,6 +336,10 @@ func (w *world) hookDeps() tui.HookDeps {
 	return tui.HookDeps{
 		Run: func(hook string) (proc.Output, error) {
 			w.record("hook " + hook)
+
+			if w.runBlocks {
+				return w.blockingOutput(), nil
+			}
 
 			return output(w.commitLines, w.commitErr), nil
 		},

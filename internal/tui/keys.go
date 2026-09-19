@@ -43,6 +43,9 @@ type keyMap struct {
 	// In composers and previews.
 	edit, editBody, nextTemplate, toggleDraft, toggleBreaking, verbatim, fullOutput key.Binding
 
+	// While a command runs.
+	stopRun key.Binding
+
 	// Everywhere.
 	toggleMouse, toggleHelp, quit, interrupt key.Binding
 }
@@ -98,6 +101,7 @@ func newKeyMap(marks glyphs, reviewNoun string) keyMap {
 		toggleBreaking: binding("breaking", "ctrl+b"),
 		verbatim:       binding("keep scripts whole", "v"),
 		fullOutput:     binding("full output", "o"),
+		stopRun:        binding("stop", "s"),
 		toggleMouse:    binding("toggle mouse", "m"),
 		toggleHelp:     binding("keys", "?"),
 		quit:           binding("quit", "q"),
@@ -126,7 +130,7 @@ func (k keyMap) FullHelp() [][]key.Binding {
 			k.edit, k.editBody, k.nextTemplate, k.toggleDraft, k.toggleBreaking, k.verbatim,
 			k.nextField, k.prevField, k.cycleLeft, k.cycleRight,
 		},
-		{k.retry, k.fullOutput},
+		{k.stopRun, k.retry, k.fullOutput},
 		{k.confirm, k.closeOverlay, k.toggleMouse, k.toggleHelp, k.quit, k.interrupt},
 	}
 }

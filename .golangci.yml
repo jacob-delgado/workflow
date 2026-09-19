@@ -87,8 +87,9 @@ linters:
     varnamelen:
       # `tt` for a table-test case and `ok` for a comma-ok are conventional
       # enough to read at any scope, and so is `m` for the Bubble Tea model,
-      # which every overlay's methods take and hand back.
-      ignore-names: [tt, ok, m]
+      # which every overlay's methods take and hand back, and `w` for the world
+      # harness every interface test drives.
+      ignore-names: [tt, ok, m, w]
 
   exclusions:
     warn-unused: true # tell us when an exclusion below stops matching anything

@@ -44,6 +44,11 @@ type Output struct {
 	// once Lines has closed, or to wait out a program nobody is reading. Calling
 	// it again returns the same result rather than blocking.
 	Wait func() error
+	// Stop kills this run — the whole process group — without disturbing the
+	// context the caller passed, so one hung or unwanted run can be ended on its
+	// own. Wait then reports the program as killed. Calling it more than once, or
+	// after the program has already exited, does nothing.
+	Stop func()
 }
 
 // Start runs a program and streams its output, for work long enough that
@@ -54,14 +59,30 @@ type Output struct {
 // the program, and the output is drained whether or not anyone is reading, so a
 // reader that goes away never leaves the program blocked on a full pipe.
 func Start(ctx context.Context, program Command) (Output, error) {
-	command, err := build(ctx, program)
+	// A run gets its own cancelable context, a child of the caller's, so Stop can
+	// end this run alone while the caller's context — and every other run under
+	// it — carries on. Canceling the caller's context still reaches this child.
+	runCtx, cancel := context.WithCancel(ctx)
+
+	// A run that never starts leaks its context; a run that does owns it, and the
+	// reader releases it when the program exits. started tells the two apart.
+	started := false
+
+	defer func() {
+		if !started {
+			cancel()
+		}
+	}()
+
+	command, err := build(runCtx, program)
 	if err != nil {
 		return Output{}, err
 	}
 
 	// A streamed program is the kind that spawns children of its own — a push
-	// runs ssh, a hook runs whatever it likes — so canceling ctx kills the whole
-	// group, not the child alone. Run and Capture are quick reads that do not.
+	// runs ssh, a hook runs whatever it likes — so canceling the context kills
+	// the whole group, not the child alone. Run and Capture are quick reads that
+	// do not.
 	pgroup.Isolate(command)
 
 	reader, writer, err := os.Pipe()
@@ -86,18 +107,27 @@ func Start(ctx context.Context, program Command) (Output, error) {
 	done := make(chan error, 1)
 
 	go func() {
-		scanErr := deliver(ctx, reader, lines)
+		scanErr := deliver(runCtx, reader, lines)
 
 		close(lines)
 
 		_ = reader.Close()
 
-		done <- exited(program.Name, command.Wait(), scanErr)
+		result := exited(program.Name, command.Wait(), scanErr)
+
+		// The program has been reaped; releasing the context now frees it whether
+		// or not Stop was ever called, without disturbing that result or firing
+		// the group kill on a run that ended on its own.
+		cancel()
+
+		done <- result
 	}()
+
+	started = true
 
 	// OnceValue so a second Wait returns the same result rather than blocking on
 	// a channel the first call already drained.
-	return Output{Lines: lines, Wait: sync.OnceValue(func() error { return <-done })}, nil
+	return Output{Lines: lines, Wait: sync.OnceValue(func() error { return <-done }), Stop: cancel}, nil
 }
 
 // deliver sends each line until the output ends, and never leaves the program
