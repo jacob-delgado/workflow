@@ -28,12 +28,18 @@ const (
 	sourceAtLine = "main.go:12"
 )
 
-// editorVariable is the environment variable most people set.
-const editorVariable = "EDITOR"
+// editorVariable is the environment variable most people set; visualVariable and
+// gitEditorVariable are the others consulted, in git's order.
+const (
+	editorVariable    = "EDITOR"
+	visualVariable    = "VISUAL"
+	gitEditorVariable = "GIT_EDITOR"
+)
 
-// vim and nano are the editors the tests reach for first.
+// vim, nvim and nano are the editors the tests reach for first.
 const (
 	vim  = "vim"
+	nvim = "nvim"
 	nano = "nano"
 )
 
@@ -87,16 +93,20 @@ func drafts(t *testing.T, dir string) []string {
 	return found
 }
 
-func TestInvocationPrefersVisualThenEditorThenVi(t *testing.T) {
+func TestInvocationPrefersGitEditorThenVisualThenEditorThenVi(t *testing.T) {
 	t.Parallel()
 
 	cases := map[string]struct {
 		env  map[string]string
 		want string
 	}{
-		"visual wins":        {env: map[string]string{"VISUAL": "nvim", editorVariable: nano}, want: "nvim"},
+		"git editor wins": {
+			env:  map[string]string{gitEditorVariable: "ed", visualVariable: nvim, editorVariable: nano},
+			want: "ed",
+		},
+		"then visual":        {env: map[string]string{visualVariable: nvim, editorVariable: nano}, want: nvim},
 		"then editor":        {env: map[string]string{editorVariable: nano}, want: nano},
-		"blank is unset":     {env: map[string]string{"VISUAL": "  ", editorVariable: nano}, want: nano},
+		"blank is unset":     {env: map[string]string{visualVariable: "  ", editorVariable: nano}, want: nano},
 		"vi is always there": {env: map[string]string{}, want: "vi"},
 	}
 
@@ -112,6 +122,29 @@ func TestInvocationPrefersVisualThenEditorThenVi(t *testing.T) {
 				t.Errorf("Invocation = %+v, want %s in /work", got, tt.want)
 			}
 		})
+	}
+}
+
+func TestInvocationKeepsAnEditorPathThatHasSpacesWhole(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	// An editor whose path has a space in it, as an existing executable file.
+	dir := t.TempDir()
+	spaced := filepath.Join(dir, "My Editor")
+
+	err := os.WriteFile(spaced, []byte("#!/bin/sh\n"), 0o755)
+	if err != nil {
+		t.Fatalf("writing the fake editor: %v", err)
+	}
+
+	// Act
+	got := editor.Invocation(environment(map[string]string{editorVariable: spaced}), "/work", "notes.md", 0)
+
+	// Assert
+	// The whole path is the program; splitting on spaces would break it into two.
+	if got.Name != spaced {
+		t.Errorf("Invocation.Name = %q, want the whole spaced path %q", got.Name, spaced)
 	}
 }
 

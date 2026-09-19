@@ -418,9 +418,10 @@ They are listed so the cost is visible, not so they get "fixed".
 - **Convention rules are constants**: the eleven commit types, the 72 and 48
   character limits, `fix/` and `feat/`, the `Refs:` trailer, the title from
   the oldest commit. A team with other conventions has no setting. FEAT-14.
-- **`$EDITOR` is split on spaces and never given to a shell**, so an editor
-  whose path contains a space fails, and `GIT_EDITOR` and `core.editor` are
-  ignored.
+- **The editor setting is never given to a shell**, so shell syntax in it does
+  not run; and `core.editor` is not read, which would have the editor package
+  run git. `$GIT_EDITOR`, `$VISUAL` and `$EDITOR` are consulted in git's order,
+  and an editor whose path contains a space is kept whole.
 - **lefthook's decorative output is scraped**, with no check of the installed
   version. A change degrades to "no job rows", not to a wrong answer.
 - **A line over 1 MiB ends output capture** for that run; the exit status is
