@@ -39,7 +39,7 @@ type keyMap struct {
 	newPullRequest, checks, compose, postWhenGreen key.Binding
 
 	// In composers and previews.
-	edit, editBody, nextTemplate, toggleDraft, verbatim, fullOutput key.Binding
+	edit, editBody, nextTemplate, toggleDraft, toggleBreaking, verbatim, fullOutput key.Binding
 
 	// Everywhere.
 	toggleMouse, toggleHelp, quit, interrupt key.Binding
@@ -91,6 +91,7 @@ func newKeyMap(marks glyphs, reviewNoun string) keyMap {
 		editBody:       binding("edit body", "ctrl+o"),
 		nextTemplate:   binding("next template", "ctrl+t"),
 		toggleDraft:    binding("draft", "ctrl+r"),
+		toggleBreaking: binding("breaking", "ctrl+b"),
 		verbatim:       binding("keep scripts whole", "v"),
 		fullOutput:     binding("full output", "o"),
 		toggleMouse:    binding("toggle mouse", "m"),
@@ -118,7 +119,7 @@ func (k keyMap) FullHelp() [][]key.Binding {
 		},
 		{k.newPullRequest, k.checks, k.compose, k.postWhenGreen},
 		{
-			k.edit, k.editBody, k.nextTemplate, k.toggleDraft, k.verbatim,
+			k.edit, k.editBody, k.nextTemplate, k.toggleDraft, k.toggleBreaking, k.verbatim,
 			k.nextField, k.prevField, k.cycleLeft, k.cycleRight,
 		},
 		{k.retry, k.fullOutput},
