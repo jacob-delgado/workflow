@@ -80,9 +80,17 @@ func filledDeps() webserver.Deps {
 	}
 }
 
-// serve builds the API handler over deps and cfg.
-func serve(deps webserver.Deps, cfg config.Config) http.Handler {
-	return webserver.Handler(deps, cfg, webserver.Info{Version: "1.2.3", DryRun: true})
+// serve builds the API handler over deps and cfg. Handler fails only when the
+// embedded spec cannot load, which is a build defect, so the test fails there.
+func serve(t *testing.T, deps webserver.Deps, cfg config.Config) http.Handler {
+	t.Helper()
+
+	handler, err := webserver.Handler(deps, cfg, webserver.Info{Version: "1.2.3", DryRun: true})
+	if err != nil {
+		t.Fatalf("building the handler: %v", err)
+	}
+
+	return handler
 }
 
 // get sends a GET and returns the recorder.
@@ -102,6 +110,10 @@ func send(t *testing.T, handler http.Handler, method, target, body string) *http
 	}
 
 	request := httptest.NewRequestWithContext(t.Context(), method, target, reader)
+	if body != "" {
+		request.Header.Set("Content-Type", "application/json")
+	}
+
 	recorder := httptest.NewRecorder()
 	handler.ServeHTTP(recorder, request)
 
@@ -126,7 +138,7 @@ func TestGetHealthReportsTheBuild(t *testing.T) {
 	t.Parallel()
 
 	// Act
-	recorder := get(t, serve(webserver.Deps{}, config.Default()), "/api/health")
+	recorder := get(t, serve(t, webserver.Deps{}, config.Default()), "/api/health")
 
 	// Assert
 	if recorder.Code != http.StatusOK {
@@ -143,7 +155,7 @@ func TestListViewsFallsBackToTheBuiltInList(t *testing.T) {
 	t.Parallel()
 
 	// Act
-	recorder := get(t, serve(filledDeps(), config.Default()), "/api/views")
+	recorder := get(t, serve(t, filledDeps(), config.Default()), "/api/views")
 
 	// Assert
 	views := decode[api.ViewList](t, recorder)
@@ -160,7 +172,7 @@ func TestListViewsListsTheConfiguredViews(t *testing.T) {
 	cfg.Jira.Views = []config.JiraView{{Name: "Sprint", JQL: "sprint in openSprints()"}}
 
 	// Act
-	views := decode[api.ViewList](t, get(t, serve(filledDeps(), cfg), "/api/views"))
+	views := decode[api.ViewList](t, get(t, serve(t, filledDeps(), cfg), "/api/views"))
 
 	// Assert
 	if len(views.Views) != 1 || views.Views[0].Name != "Sprint" || views.Views[0].Jql != "sprint in openSprints()" {
@@ -172,7 +184,7 @@ func TestListIssuesReturnsAPage(t *testing.T) {
 	t.Parallel()
 
 	// Act
-	page := decode[api.IssuesPage](t, get(t, serve(filledDeps(), config.Default()), "/api/issues?start_at=0"))
+	page := decode[api.IssuesPage](t, get(t, serve(t, filledDeps(), config.Default()), "/api/issues?start_at=0"))
 
 	// Assert
 	if page.Total != 1 || len(page.Issues) != 1 || page.Issues[0].Key != testKey {
@@ -192,7 +204,7 @@ func TestListIssuesIsEmptyWhenTheTrackerIsNotConfigured(t *testing.T) {
 	deps.Search = nil
 
 	// Act
-	page := decode[api.IssuesPage](t, get(t, serve(deps, config.Default()), "/api/issues"))
+	page := decode[api.IssuesPage](t, get(t, serve(t, deps, config.Default()), "/api/issues"))
 
 	// Assert
 	if page.Total != 0 || len(page.Issues) != 0 {
@@ -208,7 +220,7 @@ func TestListIssuesReportsASeamFailure(t *testing.T) {
 	deps.Search = func(string, int) (jira.SearchResult, error) { return jira.SearchResult{}, errSeam }
 
 	// Act
-	recorder := get(t, serve(deps, config.Default()), "/api/issues")
+	recorder := get(t, serve(t, deps, config.Default()), "/api/issues")
 
 	// Assert
 	if recorder.Code != http.StatusInternalServerError {
@@ -225,7 +237,7 @@ func TestGetIssueReturnsTheDetail(t *testing.T) {
 	t.Parallel()
 
 	// Act
-	detail := decode[api.IssueDetail](t, get(t, serve(filledDeps(), config.Default()), "/api/issues/"+testKey))
+	detail := decode[api.IssueDetail](t, get(t, serve(t, filledDeps(), config.Default()), "/api/issues/"+testKey))
 
 	// Assert
 	if detail.Key != testKey || detail.Reporter != testReporter || detail.CommentTotal != 1 {
@@ -241,7 +253,7 @@ func TestGetIssueIsNotFoundWithoutATracker(t *testing.T) {
 	deps.Issue = nil
 
 	// Act
-	recorder := get(t, serve(deps, config.Default()), "/api/issues/PROJ-1")
+	recorder := get(t, serve(t, deps, config.Default()), "/api/issues/PROJ-1")
 
 	// Assert
 	if recorder.Code != http.StatusNotFound {
@@ -253,7 +265,7 @@ func TestGetBranchReturnsTheBranch(t *testing.T) {
 	t.Parallel()
 
 	// Act
-	branch := decode[api.Branch](t, get(t, serve(filledDeps(), config.Default()), "/api/branch"))
+	branch := decode[api.Branch](t, get(t, serve(t, filledDeps(), config.Default()), "/api/branch"))
 
 	// Assert
 	if branch.Name != "fix/PROJ-412" || branch.Base != "origin/main" || branch.Ahead != 2 {
@@ -269,7 +281,7 @@ func TestGetBranchIsEmptyOutsideARepository(t *testing.T) {
 	deps.Branch = nil
 
 	// Act
-	branch := decode[api.Branch](t, get(t, serve(deps, config.Default()), "/api/branch"))
+	branch := decode[api.Branch](t, get(t, serve(t, deps, config.Default()), "/api/branch"))
 
 	// Assert
 	if branch.Name != "" || len(branch.Commits) != 0 {
@@ -281,7 +293,7 @@ func TestListChangesReturnsTheWorkingTree(t *testing.T) {
 	t.Parallel()
 
 	// Act
-	changes := decode[api.ChangeList](t, get(t, serve(filledDeps(), config.Default()), "/api/changes"))
+	changes := decode[api.ChangeList](t, get(t, serve(t, filledDeps(), config.Default()), "/api/changes"))
 
 	// Assert
 	if len(changes.Changes) != 1 || changes.Changes[0].Path != "internal/config/config.go" {
@@ -298,7 +310,7 @@ func TestGetSlackReturnsTheDestination(t *testing.T) {
 	cfg.Slack.Channel = "#dev"
 
 	// Act
-	slack := decode[api.Slack](t, get(t, serve(filledDeps(), cfg), "/api/slack"))
+	slack := decode[api.Slack](t, get(t, serve(t, filledDeps(), cfg), "/api/slack"))
 
 	// Assert
 	if slack.Channel != "#dev" || slack.Author != "octocat" {
@@ -314,7 +326,7 @@ func TestGetSlackHasNoAuthorWhenTheForgeCannotSay(t *testing.T) {
 	deps.Author = func() (string, error) { return "", errSeam }
 
 	// Act
-	slack := decode[api.Slack](t, get(t, serve(deps, config.Default()), "/api/slack"))
+	slack := decode[api.Slack](t, get(t, serve(t, deps, config.Default()), "/api/slack"))
 
 	// Assert
 	if slack.Author != "" {

@@ -499,10 +499,12 @@ components:
         headers:
           type: object
           additionalProperties: {type: string}
+          nullable: true
           description: Extra request headers; values masked on read.
         views:
           type: array
           items: {$ref: "#/components/schemas/JiraView"}
+          nullable: true
         project: {type: string}
       additionalProperties: false
 
@@ -521,6 +523,7 @@ components:
         channels:
           type: array
           items: {type: string}
+          nullable: true
         announcement: {type: string}
       additionalProperties: false
 
@@ -572,6 +575,7 @@ components:
         prefixes:
           type: object
           additionalProperties: {type: string}
+          nullable: true
         default_prefix: {type: string}
       additionalProperties: false
 
