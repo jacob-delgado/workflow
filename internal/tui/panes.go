@@ -38,6 +38,17 @@ func (p pane) label() string {
 	return strconv.Itoa(int(p)+1) + " " + p.title()
 }
 
+// paneNumbers are the digit keys that jump to each pane, "1" through the last,
+// derived from paneCount so a new pane is reachable without a second edit.
+func paneNumbers() []string {
+	numbers := make([]string, paneCount)
+	for index := range numbers {
+		numbers[index] = strconv.Itoa(index + 1)
+	}
+
+	return numbers
+}
+
 // behavior is what one pane shows and does. Each pane is one entry in a table
 // rather than a case in a switch every new pane would have to edit.
 type behavior struct {

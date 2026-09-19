@@ -4,6 +4,8 @@
 package tui
 
 import (
+	"strconv"
+
 	"github.com/charmbracelet/bubbles/help"
 	"github.com/charmbracelet/bubbles/key"
 )
@@ -53,9 +55,10 @@ func binding(help string, keys ...string) key.Binding {
 // newKeyMap builds the key bindings, naming the arrow keys in the glyphs in use.
 func newKeyMap(marks glyphs, reviewNoun string) keyMap {
 	return keyMap{
-		next:           binding("next pane", "tab"),
-		previous:       binding("previous pane", "shift+tab"),
-		jump:           key.NewBinding(key.WithKeys("1", "2", "3", "4", "5"), key.WithHelp("1-5", "jump to pane")),
+		next:     binding("next pane", "tab"),
+		previous: binding("previous pane", "shift+tab"),
+		jump: key.NewBinding(key.WithKeys(paneNumbers()...),
+			key.WithHelp("1-"+strconv.Itoa(paneCount), "jump to pane")),
 		up:             key.NewBinding(key.WithKeys("up", "k"), key.WithHelp(marks.upKey+"/k", "up")),
 		down:           key.NewBinding(key.WithKeys("down", "j"), key.WithHelp(marks.downKey+"/j", "down")),
 		scrollUp:       key.NewBinding(key.WithKeys("pgup", "K"), key.WithHelp("pgup/K", "scroll up")),

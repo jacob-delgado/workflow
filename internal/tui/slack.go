@@ -153,7 +153,8 @@ func (m Model) slackDetail(width int) string {
 	}
 
 	if !m.review.found {
-		return wrap("Open a "+m.vocab.noun+" first (4 Review); the message links to it.\n\n"+m.slackRail(0), width)
+		return wrap("Open a "+m.vocab.noun+" first ("+paneReview.label()+"); the message links to it.\n\n"+
+			m.slackRail(0), width)
 	}
 
 	lines := []string{
