@@ -1,0 +1,9 @@
+@import 'tailwindcss';
+
+/* The theme tokens and dark-mode palette arrive with the shell. For now Tailwind
+   Preflight plus a sensible base so the scaffold renders legibly light or dark. */
+@media (prefers-color-scheme: dark) {
+  html {
+    color-scheme: dark;
+  }
+}

@@ -6,6 +6,8 @@ globs:
 ignores:
   - "tmp/**"
   - "docs/public/**"
+  # The frontend's dependency tree ships thousands of vendored READMEs.
+  - "web/node_modules/**"
   # Generated from the Cobra command tree by `task docs:gen`. Autofixing these
   # would rewrite the generator's output, and `task docs:check` would then fail
   # on drift that no hand edit caused. The sibling _index.md IS hand-written and
