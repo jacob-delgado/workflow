@@ -10,7 +10,15 @@ set -euo pipefail
 
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 readonly repo_root
-readonly committed="${repo_root}/docs/content/docs/reference"
+# The committed reference and the command that regenerates it are overridable so
+# this gate's own test can drive it with a fixture and a stand-in, rather than
+# the whole command tree. Both default to the real thing.
+readonly committed="${DOCS_REFERENCE:-${repo_root}/docs/content/docs/reference}"
+
+generator=(go run ./cmd/docsgen)
+if [[ -n "${DOCSGEN:-}" ]]; then
+  read -r -a generator <<<"${DOCSGEN}"
+fi
 
 cd "${repo_root}"
 
@@ -21,7 +29,7 @@ trap 'rm -rf "${scratch}"' EXIT
 # so the comparison does not report it as missing.
 cp "${committed}/_index.md" "${scratch}/_index.md"
 
-go run ./cmd/docsgen "${scratch}"
+"${generator[@]}" "${scratch}"
 
 if diff -r -u "${committed}" "${scratch}"; then
   echo "Command reference is current."
