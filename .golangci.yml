@@ -93,7 +93,16 @@ linters:
       # returns whatever concrete type its caller named, which is not the
       # interface return ireturn exists to catch. It is how the forge client
       # decodes each answer into its own type without an `into any` argument.
-      allow: [anon, error, empty, stdlib, generic]
+      # Also the web API's generated response objects: oapi-codegen's strict
+      # server declares each handler returning a per-operation response
+      # interface, exactly the third-party contract ireturn is told to permit.
+      allow:
+        - anon
+        - error
+        - empty
+        - stdlib
+        - generic
+        - github.com/jacob-delgado/workflow/internal/api\..+ResponseObject
     varnamelen:
       # `tt` for a table-test case and `ok` for a comma-ok are conventional
       # enough to read at any scope, and so is `m` for the Bubble Tea model,
