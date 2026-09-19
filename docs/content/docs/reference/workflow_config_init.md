@@ -14,9 +14,11 @@ Set up the configuration file, asking for and checking each credential
 Ask for the Jira and Slack credentials, check each one, and write a
 .workflow.json with what passed.
 
-By default it lands in the current directory. Use --global to write it to
-your home directory instead, where every directory can see it. Use
---template to write a blank file to fill in by hand rather than being asked.
+By default it lands at the repository root, so every subdirectory sees it;
+outside a repository it lands in the current directory. Use --global to
+write it to your home directory instead, where every directory can see it.
+Use --template to write a blank file to fill in by hand rather than being
+asked.
 
 ```
 workflow config init [flags]

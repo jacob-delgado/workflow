@@ -6,12 +6,9 @@
 package config
 
 import (
-	"encoding/json"
 	"errors"
-	"fmt"
 	"net/url"
 	"os"
-	"path/filepath"
 	"slices"
 )
 
@@ -183,30 +180,6 @@ type Config struct {
 	Path string `json:"-"`
 }
 
-// Discover returns the path of the configuration file that applies, searching
-// workDir first and then homeDir. A file in the working directory replaces the
-// one in the home directory rather than merging with it: a repository-local
-// configuration is a complete answer, so the two can never combine into a state
-// neither file describes.
-//
-// It returns ErrNotFound when neither location has one.
-func Discover(workDir, homeDir string) (string, error) {
-	for _, dir := range []string{workDir, homeDir} {
-		if dir == "" {
-			continue
-		}
-
-		candidate := filepath.Join(dir, FileName)
-
-		info, err := os.Stat(candidate)
-		if err == nil && !info.IsDir() {
-			return candidate, nil
-		}
-	}
-
-	return "", fmt.Errorf("%w in %s or %s", ErrNotFound, workDir, homeDir)
-}
-
 // Default is the configuration before any file is read: every setting that has
 // a default holds it. A file is decoded over it, so a setting the file leaves out
 // keeps its default — which a bool cannot do by itself, since its zero value is
@@ -223,47 +196,6 @@ func Default() Config {
 		UI:      UI{Mouse: true, ASCII: false},
 		Path:    "",
 	}
-}
-
-// Load reads the configuration that applies, searching workDir then homeDir.
-func Load(workDir, homeDir string) (Config, error) {
-	path, err := Discover(workDir, homeDir)
-	if err != nil {
-		return Default(), err
-	}
-
-	return LoadFile(path)
-}
-
-// LoadFile reads the configuration from an exact path. Unknown keys are an
-// error: a misspelled key that is silently ignored looks exactly like a
-// credential that was never set.
-func LoadFile(path string) (Config, error) {
-	file, err := os.Open(path) //nolint:gosec // the path is the user's own config file, by design
-	if err != nil {
-		return Default(), fmt.Errorf("opening %s: %w", path, err)
-	}
-	defer file.Close() //nolint:errcheck // read-only file; a failed close is not actionable
-
-	decoder := json.NewDecoder(file)
-	decoder.DisallowUnknownFields()
-
-	cfg := Default()
-
-	err = decoder.Decode(&cfg)
-	if err != nil {
-		return Default(), fmt.Errorf("%w: %s: %w", ErrInvalid, path, err)
-	}
-
-	err = errors.Join(cfg.validateVersion(), cfg.validateTiming(),
-		cfg.validateBranch(), cfg.validateViews(), cfg.validateCommit())
-	if err != nil {
-		return Default(), fmt.Errorf("%w: %s: %w", ErrInvalid, path, err)
-	}
-
-	cfg.Path = path
-
-	return cfg, nil
 }
 
 // Template is the starting configuration `workflow config init` writes.

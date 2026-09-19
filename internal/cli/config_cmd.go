@@ -51,9 +51,11 @@ func newConfigInitCmd(prompt Prompt) *cobra.Command {
 		Short: "Set up the configuration file, asking for and checking each credential",
 		Long: "Ask for the Jira and Slack credentials, check each one, and write a\n" +
 			config.FileName + " with what passed.\n\n" +
-			"By default it lands in the current directory. Use --global to write it to\n" +
-			"your home directory instead, where every directory can see it. Use\n" +
-			"--template to write a blank file to fill in by hand rather than being asked.",
+			"By default it lands at the repository root, so every subdirectory sees it;\n" +
+			"outside a repository it lands in the current directory. Use --global to\n" +
+			"write it to your home directory instead, where every directory can see it.\n" +
+			"Use --template to write a blank file to fill in by hand rather than being\n" +
+			"asked.",
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			dir, err := targetDir(global)
@@ -123,7 +125,7 @@ func targetDir(global bool) (string, error) {
 		return "", fmt.Errorf("determining the working directory: %w", err)
 	}
 
-	return workDir, nil
+	return config.RepoRoot(workDir), nil
 }
 
 // runConfigInit writes the template, refusing to clobber an existing file
