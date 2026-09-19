@@ -69,6 +69,11 @@ if [[ -z "${tracked}" ]]; then
   exit 2
 fi
 
+# Generated Go (…\.gen\.go) is machine-written from a source of truth, so its
+# length says nothing about design and a drift gate guards it instead. Filtered
+# after the empty check above, so a broken git still stops the gate.
+tracked="$(printf '%s\n' "${tracked}" | grep -v '\.gen\.go$' || true)"
+
 # Tab-delimited: a path containing a space must not re-split into a bogus count.
 lengths() {
   local file lines
