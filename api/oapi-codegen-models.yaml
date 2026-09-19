@@ -1,0 +1,9 @@
+# Generates internal/api/models.gen.go — the contract's Go model types.
+# api/openapi.yaml is the single source of truth; hand-written mirrors are
+# banned. Run via `task gen`; drift is caught by `task gen:verify`.
+package: api
+output: internal/api/models.gen.go
+generate:
+  models: true
+output-options:
+  name-normalizer: ToCamelCaseWithInitialisms
