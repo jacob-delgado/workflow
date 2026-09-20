@@ -1,23 +1,9 @@
 import { renderHook } from '@testing-library/react'
 import { FakeEventSource } from '@/test/fakeEventSource.ts'
+import { makeSnapshot } from '@/test/fixtures.ts'
 import { useEventStream, useSnapshotStore } from './snapshot.ts'
 
-const validSnapshot = {
-  issues: { issues: [], total: 3, start_at: 0 },
-  branch: {
-    name: 'fix/PROJ-1',
-    detached: false,
-    head: 'abc123',
-    upstream: '',
-    ahead: 0,
-    behind: 0,
-    base: 'origin/main',
-    commits: [],
-  },
-  changes: { changes: [] },
-  review: { found: false },
-  slack: { channel: '#dev', channels: [], author: 'octocat' },
-}
+const validSnapshot = makeSnapshot({ issues: { issues: [], total: 3, start_at: 0 } })
 
 test('stores a snapshot the stream pushes and marks the stream live', () => {
   // Arrange
