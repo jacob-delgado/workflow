@@ -1,5 +1,7 @@
 import { BranchPanel } from '@/features/branch/BranchPanel.tsx'
 import { IssuesPanel } from '@/features/issues/IssuesPanel.tsx'
+import { ReviewPanel } from '@/features/review/ReviewPanel.tsx'
+import { SlackPanel } from '@/features/slack/SlackPanel.tsx'
 import { EmptyState } from './EmptyState.tsx'
 import type { Section } from './uiStore.ts'
 
@@ -11,6 +13,10 @@ export function SectionPanel({ section }: { section: Section }) {
       return <IssuesPanel />
     case 'branch':
       return <BranchPanel />
+    case 'review':
+      return <ReviewPanel />
+    case 'slack':
+      return <SlackPanel />
     default:
       return <EmptyState>This view is coming together.</EmptyState>
   }
