@@ -5,6 +5,7 @@ import { useSnapshotStore } from '@/api/snapshot.ts'
 import { makeSnapshot } from '@/test/fixtures.ts'
 import { useUiStore } from '@/shell/uiStore.ts'
 import { checkoutBranch } from './checkoutApi.ts'
+import { startWork } from './startWorkApi.ts'
 import { WorkStory } from './WorkStory.tsx'
 
 vi.mock('./checkoutApi.ts', async (importOriginal) => ({
@@ -12,6 +13,9 @@ vi.mock('./checkoutApi.ts', async (importOriginal) => ({
   checkoutBranch: vi.fn(() => Promise.resolve()),
 }))
 const mockCheckout = vi.mocked(checkoutBranch)
+
+vi.mock('./startWorkApi.ts', () => ({ startWork: vi.fn(() => Promise.resolve()) }))
+const mockStartWork = vi.mocked(startWork)
 
 // offHead is a snapshot with PROJ-2 in flight on a branch that is not on HEAD.
 function offHead() {
@@ -220,6 +224,59 @@ test('shows the reason when a checkout is refused', async () => {
 
   // Assert
   expect(await screen.findByText(/uncommitted changes/i)).toBeTruthy()
+})
+
+test('offers to start work on a not-started issue', () => {
+  // Arrange
+  useSnapshotStore.setState({ status: 'live', snapshot: makeSnapshot() })
+
+  // Act
+  render(<WorkStory issueKey="PROJ-999" />)
+
+  // Assert
+  expect(screen.getByRole('button', { name: /start work on this issue/i })).toBeTruthy()
+})
+
+test('does not offer to start work on an issue already in flight', () => {
+  // Arrange
+  offHead()
+
+  // Act
+  render(<WorkStory issueKey="PROJ-2" />)
+
+  // Assert
+  expect(screen.queryByRole('button', { name: /start work on this issue/i })).toBeNull()
+})
+
+test('starts work when its button is clicked', async () => {
+  // Arrange
+  mockStartWork.mockResolvedValueOnce()
+  const user = userEvent.setup()
+  useSnapshotStore.setState({ status: 'live', snapshot: makeSnapshot() })
+  render(<WorkStory issueKey="PROJ-999" />)
+
+  // Act
+  await user.click(screen.getByRole('button', { name: /start work on this issue/i }))
+
+  // Assert
+  expect(mockStartWork).toHaveBeenCalledWith('PROJ-999')
+})
+
+test('shows the reason when starting work is refused', async () => {
+  // Arrange
+  mockStartWork.mockRejectedValueOnce({
+    code: 'conflict',
+    message: 'a branch for this issue already exists',
+  })
+  const user = userEvent.setup()
+  useSnapshotStore.setState({ status: 'live', snapshot: makeSnapshot() })
+  render(<WorkStory issueKey="PROJ-999" />)
+
+  // Act
+  await user.click(screen.getByRole('button', { name: /start work on this issue/i }))
+
+  // Assert
+  expect(await screen.findByText(/already exists/i)).toBeTruthy()
 })
 
 test('renders nothing before a snapshot arrives', () => {

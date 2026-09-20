@@ -223,15 +223,16 @@ func serveWeb(
 // of the wiring rather than a second implementation.
 func webDeps(deps tui.Deps) webserver.Deps {
 	return webserver.Deps{
-		Search:   deps.Jira.Search,
-		Issue:    deps.Jira.Issue,
-		Branch:   deps.Git.Branch,
-		Branches: deps.Git.Branches,
-		Checkout: deps.Git.Checkout,
-		Changes:  deps.Git.Changes,
-		FindPull: deps.Forge.FindPullRequest,
-		CheckCI:  deps.Forge.CheckStatus,
-		Author:   deps.Forge.Author,
+		Search:       deps.Jira.Search,
+		Issue:        deps.Jira.Issue,
+		Branch:       deps.Git.Branch,
+		Branches:     deps.Git.Branches,
+		Checkout:     deps.Git.Checkout,
+		CreateBranch: deps.Git.CreateBranch,
+		Changes:      deps.Git.Changes,
+		FindPull:     deps.Forge.FindPullRequest,
+		CheckCI:      deps.Forge.CheckStatus,
+		Author:       deps.Forge.Author,
 	}
 }
 

@@ -275,6 +275,14 @@ type Config struct {
 	Version string       `json:"version"`
 }
 
+// CreateBranchRequest The issue to start work on by creating its branch.
+type CreateBranchRequest struct {
+	// IssueKey The issue to name and create a branch for.
+	//
+	// Example: PROJ-412
+	IssueKey string `json:"issue_key"`
+}
+
 // Error defines model for Error.
 type Error struct {
 	// Code A stable, machine-readable reason.
@@ -502,6 +510,9 @@ type ListIssuesParams struct {
 	// StartAt The zero-based index of the first issue to return.
 	StartAt *int `form:"start_at,omitempty" json:"start_at,omitempty"`
 }
+
+// CreateBranchJSONRequestBody defines body for CreateBranch for application/json ContentType.
+type CreateBranchJSONRequestBody = CreateBranchRequest
 
 // CheckoutJSONRequestBody defines body for Checkout for application/json ContentType.
 type CheckoutJSONRequestBody = CheckoutRequest

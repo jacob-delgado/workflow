@@ -2,8 +2,8 @@
 
 import type { Client, ClientMeta, Options as Options2, RequestResult, ServerSentEventsResult, TDataShape } from './client';
 import { client } from './client.gen';
-import type { CheckoutData, CheckoutErrors, CheckoutResponses, GetBranchData, GetBranchErrors, GetBranchResponses, GetConfigData, GetConfigErrors, GetConfigResponses, GetHealthData, GetHealthResponses, GetIssueData, GetIssueErrors, GetIssueResponses, GetReviewData, GetReviewErrors, GetReviewResponses, GetSlackData, GetSlackErrors, GetSlackResponses, ListChangesData, ListChangesErrors, ListChangesResponses, ListIssuesData, ListIssuesErrors, ListIssuesResponses, ListViewsData, ListViewsErrors, ListViewsResponses, StreamEventsData, StreamEventsResponse, StreamEventsResponses, UpdateConfigData, UpdateConfigErrors, UpdateConfigResponses } from './types.gen';
-import { zCheckoutResponse, zGetBranchResponse, zGetConfigResponse, zGetHealthResponse, zGetIssueResponse, zGetReviewResponse, zGetSlackResponse, zListChangesResponse, zListIssuesResponse, zListViewsResponse, zStreamEventsResponse, zUpdateConfigResponse } from './zod.gen';
+import type { CheckoutData, CheckoutErrors, CheckoutResponses, CreateBranchData, CreateBranchErrors, CreateBranchResponses, GetBranchData, GetBranchErrors, GetBranchResponses, GetConfigData, GetConfigErrors, GetConfigResponses, GetHealthData, GetHealthResponses, GetIssueData, GetIssueErrors, GetIssueResponses, GetReviewData, GetReviewErrors, GetReviewResponses, GetSlackData, GetSlackErrors, GetSlackResponses, ListChangesData, ListChangesErrors, ListChangesResponses, ListIssuesData, ListIssuesErrors, ListIssuesResponses, ListViewsData, ListViewsErrors, ListViewsResponses, StreamEventsData, StreamEventsResponse, StreamEventsResponses, UpdateConfigData, UpdateConfigErrors, UpdateConfigResponses } from './types.gen';
+import { zCheckoutResponse, zCreateBranchResponse, zGetBranchResponse, zGetConfigResponse, zGetHealthResponse, zGetIssueResponse, zGetReviewResponse, zGetSlackResponse, zListChangesResponse, zListIssuesResponse, zListViewsResponse, zStreamEventsResponse, zUpdateConfigResponse } from './zod.gen';
 
 export type Options<TData extends TDataShape = TDataShape, ThrowOnError extends boolean = boolean, TResponse = unknown> = Options2<TData, ThrowOnError, TResponse> & {
     /**
@@ -123,6 +123,21 @@ export const updateConfig = <ThrowOnError extends boolean = false>(options: Opti
 export const checkout = <ThrowOnError extends boolean = false>(options: Options<CheckoutData, ThrowOnError>): RequestResult<CheckoutResponses, CheckoutErrors, ThrowOnError> => (options.client ?? client).post<CheckoutResponses, CheckoutErrors, ThrowOnError>({
     responseValidator: async (data) => await zCheckoutResponse.parseAsync(data),
     url: '/api/checkout',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * Create and switch to a branch for an issue — start work on it.
+ *
+ * Names a branch for the issue by the branch-name convention (from the issue's type and summary) and creates it off the base branch, switching the working tree to it. This is how a not-started issue is picked up. It is refused with 409 when a branch for the issue already exists — check that one out instead.
+ */
+export const createBranch = <ThrowOnError extends boolean = false>(options: Options<CreateBranchData, ThrowOnError>): RequestResult<CreateBranchResponses, CreateBranchErrors, ThrowOnError> => (options.client ?? client).post<CreateBranchResponses, CreateBranchErrors, ThrowOnError>({
+    responseValidator: async (data) => await zCreateBranchResponse.parseAsync(data),
+    url: '/api/branches',
     ...options,
     headers: {
         'Content-Type': 'application/json',

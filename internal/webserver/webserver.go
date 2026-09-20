@@ -29,15 +29,16 @@ import (
 // configure API needs. A nil function means the service is not configured; the
 // handler answers with an empty result rather than an error.
 type Deps struct {
-	Search   func(jql string, startAt int) (jira.SearchResult, error)
-	Issue    func(key jira.Key) (jira.IssueDetail, error)
-	Branch   func() (gitrepo.Branch, error)
-	Branches func() ([]string, error)
-	Checkout func(name string) error
-	Changes  func() ([]gitrepo.Change, error)
-	FindPull func(branch string) (forge.PullRequest, bool, error)
-	CheckCI  func(pull forge.PullRequest, head string) (forge.CI, error)
-	Author   func() (string, error)
+	Search       func(jql string, startAt int) (jira.SearchResult, error)
+	Issue        func(key jira.Key) (jira.IssueDetail, error)
+	Branch       func() (gitrepo.Branch, error)
+	Branches     func() ([]string, error)
+	Checkout     func(name string) error
+	CreateBranch func(name, start string) error
+	Changes      func() ([]gitrepo.Change, error)
+	FindPull     func(branch string) (forge.PullRequest, bool, error)
+	CheckCI      func(pull forge.PullRequest, head string) (forge.CI, error)
+	Author       func() (string, error)
 }
 
 // Info is the build and run facts the API reports and the server needs.

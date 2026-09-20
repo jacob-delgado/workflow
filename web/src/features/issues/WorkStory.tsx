@@ -5,6 +5,7 @@ import { useSnapshotStore } from '@/api/snapshot.ts'
 import { cn } from '@/lib/utils.ts'
 import { useUiStore, type Section } from '@/shell/uiStore.ts'
 import { checkoutBranch, refusalMessage } from './checkoutApi.ts'
+import { startWork } from './startWorkApi.ts'
 
 type StageState = 'done' | 'active' | 'upcoming'
 
@@ -170,6 +171,7 @@ export function WorkStory({ issueKey }: { issueKey: string }) {
   return (
     <div className="flex flex-col gap-3">
       {note === null ? null : <p className="text-sm text-muted-foreground">{note}</p>}
+      {branch === undefined ? <StartWorkButton issueKey={issueKey} /> : null}
       {branch && !branch.current ? <CheckoutButton branch={branch.name} /> : null}
       <ol className="flex flex-col">
         {stages.map((stage, index) => {
@@ -237,6 +239,46 @@ function CheckoutButton({ branch }: { branch: string }) {
         className="self-start rounded-md border border-input px-3 py-1.5 text-sm hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none disabled:opacity-60"
       >
         {state === 'switching' ? 'Checking out…' : 'Check out this branch'}
+      </button>
+      {state === 'error' ? (
+        <p role="alert" className="text-sm text-destructive">
+          {error}
+        </p>
+      ) : null}
+    </div>
+  )
+}
+
+// StartWorkButton creates and switches to a branch for a not-started issue. The
+// event stream reflects the new branch on success; a refusal (a branch already
+// exists) is shown inline.
+function StartWorkButton({ issueKey }: { issueKey: string }) {
+  const [state, setState] = useState<CheckoutState>('idle')
+  const [error, setError] = useState('')
+
+  const onStart = async () => {
+    setState('switching')
+    try {
+      await startWork(issueKey)
+      setError('')
+      setState('idle')
+    } catch (caught) {
+      setError(refusalMessage(caught))
+      setState('error')
+    }
+  }
+
+  return (
+    <div className="flex flex-col gap-1">
+      <button
+        type="button"
+        disabled={state === 'switching'}
+        onClick={() => {
+          void onStart()
+        }}
+        className="self-start rounded-md bg-primary px-3 py-1.5 text-sm font-medium text-primary-foreground hover:bg-primary/90 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none disabled:opacity-60"
+      >
+        {state === 'switching' ? 'Starting…' : 'Start work on this issue'}
       </button>
       {state === 'error' ? (
         <p role="alert" className="text-sm text-destructive">
