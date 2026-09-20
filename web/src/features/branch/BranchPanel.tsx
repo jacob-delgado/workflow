@@ -11,9 +11,13 @@ export function BranchPanel() {
 
   const { branch, changes } = snapshot
 
-  if (branch.name === '') {
+  // An empty name means either no repository or a detached HEAD — the latter
+  // still points at a real commit, so only the former is "not a repository".
+  if (branch.name === '' && !branch.detached) {
     return <EmptyState>This directory is not a Git repository.</EmptyState>
   }
+
+  const heading = branch.name === '' ? `Detached HEAD at ${branch.head.slice(0, 7)}` : branch.name
 
   return (
     <div className="mt-4 flex max-w-2xl flex-col gap-8">
@@ -21,7 +25,7 @@ export function BranchPanel() {
         <div className="flex items-center gap-2">
           <GitBranch aria-hidden className="size-4 text-muted-foreground" />
           <h2 id="branch-heading" className="font-mono text-lg font-medium">
-            {branch.name}
+            {heading}
           </h2>
         </div>
         <dl className="grid grid-cols-[6rem_1fr] gap-x-4 gap-y-1.5 text-sm">

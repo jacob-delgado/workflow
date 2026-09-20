@@ -34,7 +34,7 @@ function buildStages(snapshot: Snapshot, started: boolean): Stage[] {
     ]
   }
 
-  const { branch, changes, review, slack } = snapshot
+  const { branch, changes, slack } = snapshot
 
   return [
     {
@@ -49,16 +49,15 @@ function buildStages(snapshot: Snapshot, started: boolean): Stage[] {
     {
       title: 'Changes',
       section: 'branch',
-      done: changes.changes.length === 0,
-      detail:
-        changes.changes.length === 0
-          ? 'Working tree clean'
-          : `${String(changes.changes.length)} file(s) to commit`,
+      // Committed, not merely clean: a fresh branch with nothing committed is
+      // still at this stage, so it needs a clean tree AND at least one commit.
+      done: changes.changes.length === 0 && branch.commits.length > 0,
+      detail: changesDetail(snapshot),
     },
     {
       title: 'Pull request',
       section: 'review',
-      done: review.found && review.ci?.state === 'passed',
+      done: pullRequestDone(snapshot),
       detail: reviewDetail(snapshot),
     },
     {
@@ -68,6 +67,31 @@ function buildStages(snapshot: Snapshot, started: boolean): Stage[] {
       detail: slack.channel === '' ? 'Slack not configured' : `Post to ${slack.channel}`,
     },
   ]
+}
+
+// Done once the pull request is open, ready, and not held up by CI. A forge
+// with no CI (state none, or absent) does not keep it from done — only a running
+// or failed check does.
+function pullRequestDone({ review }: Snapshot): boolean {
+  return (
+    review.found &&
+    review.pull != null &&
+    !review.pull.draft &&
+    review.ci?.state !== 'running' &&
+    review.ci?.state !== 'failed'
+  )
+}
+
+function changesDetail(snapshot: Snapshot): string {
+  const { changes, branch } = snapshot
+  if (changes.changes.length > 0) {
+    return `${String(changes.changes.length)} file(s) to commit`
+  }
+  if (branch.commits.length > 0) {
+    return 'Working tree clean'
+  }
+
+  return 'Nothing committed yet'
 }
 
 function reviewDetail(snapshot: Snapshot): string {

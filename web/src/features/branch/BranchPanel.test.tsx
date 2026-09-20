@@ -77,6 +77,31 @@ test('shows placeholders for an unpublished branch with a clean tree', () => {
   expect(screen.getByText(/clean/i)).toBeTruthy()
 })
 
+test('shows a detached HEAD rather than calling it not a repository', () => {
+  // Arrange
+  useSnapshotStore.setState({
+    status: 'live',
+    snapshot: makeSnapshot({
+      branch: {
+        name: '',
+        detached: true,
+        head: 'abcdef1234',
+        upstream: '',
+        ahead: 0,
+        behind: 0,
+        base: '',
+        commits: [],
+      },
+    }),
+  })
+
+  // Act
+  render(<BranchPanel />)
+
+  // Assert
+  expect(screen.getByRole('heading', { name: /detached head at abcdef1/i })).toBeTruthy()
+})
+
 test('says so when the workspace is not a Git repository', () => {
   // Arrange
   useSnapshotStore.setState({
