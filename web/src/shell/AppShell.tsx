@@ -1,6 +1,7 @@
 import { Workflow } from 'lucide-react'
 import { useEventStream } from '@/api/snapshot.ts'
 import { NavRail } from './NavRail.tsx'
+import { SectionPanel } from './SectionPanel.tsx'
 import { StreamStatus } from './StreamStatus.tsx'
 import { sectionMeta } from './sections.ts'
 import { useUiStore } from './uiStore.ts'
@@ -23,7 +24,7 @@ export function AppShell() {
         <NavRail />
         <main className="flex-1 overflow-auto px-6 py-5">
           <h1 className="text-2xl font-semibold tracking-tight">{label}</h1>
-          <p className="mt-2 text-muted-foreground">This section is coming together.</p>
+          <SectionPanel section={section} />
         </main>
       </div>
     </div>
