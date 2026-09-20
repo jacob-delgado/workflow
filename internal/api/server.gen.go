@@ -30,6 +30,9 @@ type ServerInterface interface {
 	// Checkout Check out a local branch, switching the working tree to it.
 	// (POST /api/checkout)
 	Checkout(w http.ResponseWriter, r *http.Request)
+	// Commit Commit the staged changes with a Conventional Commit message.
+	// (POST /api/commit)
+	Commit(w http.ResponseWriter, r *http.Request)
 	// GetConfig The configuration in effect, with secrets masked.
 	// (GET /api/config)
 	GetConfig(w http.ResponseWriter, r *http.Request)
@@ -112,6 +115,20 @@ func (siw *ServerInterfaceWrapper) Checkout(w http.ResponseWriter, r *http.Reque
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.Checkout(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// Commit operation middleware
+func (siw *ServerInterfaceWrapper) Commit(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.Commit(w, r)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -409,6 +426,7 @@ func HandlerWithOptions(si ServerInterface, options StdHTTPServerOptions) http.H
 	m.HandleFunc(http.MethodPut+" "+options.BaseURL+"/api/config", wrapper.UpdateConfig)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/api/checkout", wrapper.Checkout)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/api/branches", wrapper.CreateBranch)
+	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/api/commit", wrapper.Commit)
 
 	return m
 }
@@ -614,6 +632,73 @@ type CheckoutdefaultJSONResponse struct {
 }
 
 func (response CheckoutdefaultJSONResponse) VisitCheckoutResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CommitRequestObject struct {
+	Body *CommitJSONRequestBody
+}
+
+type CommitResponseObject interface {
+	VisitCommitResponse(w http.ResponseWriter) error
+}
+
+type Commit200JSONResponse Branch
+
+func (response Commit200JSONResponse) VisitCommitResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type Commit409JSONResponse Error
+
+func (response Commit409JSONResponse) VisitCommitResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(409)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type Commit422JSONResponse Error
+
+func (response Commit422JSONResponse) VisitCommitResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(422)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CommitdefaultJSONResponse struct {
+	Body       Error
+	StatusCode int
+}
+
+func (response CommitdefaultJSONResponse) VisitCommitResponse(w http.ResponseWriter) error {
 
 	var buf bytes.Buffer
 	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
@@ -957,6 +1042,9 @@ type StrictServerInterface interface {
 	// Checkout Check out a local branch, switching the working tree to it.
 	// (POST /api/checkout)
 	Checkout(ctx context.Context, request CheckoutRequestObject) (CheckoutResponseObject, error)
+	// Commit Commit the staged changes with a Conventional Commit message.
+	// (POST /api/commit)
+	Commit(ctx context.Context, request CommitRequestObject) (CommitResponseObject, error)
 	// GetConfig The configuration in effect, with secrets masked.
 	// (GET /api/config)
 	GetConfig(ctx context.Context, request GetConfigRequestObject) (GetConfigResponseObject, error)
@@ -1125,6 +1213,37 @@ func (sh *strictHandler) Checkout(w http.ResponseWriter, r *http.Request) {
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
 	} else if validResponse, ok := response.(CheckoutResponseObject); ok {
 		if err := validResponse.VisitCheckoutResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// Commit operation middleware
+func (sh *strictHandler) Commit(w http.ResponseWriter, r *http.Request) {
+	var request CommitRequestObject
+
+	var body CommitJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.Commit(ctx, request.(CommitRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "Commit")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(CommitResponseObject); ok {
+		if err := validResponse.VisitCommitResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {

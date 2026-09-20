@@ -22,6 +22,7 @@ import (
 	"github.com/jacob-delgado/workflow/internal/forge"
 	"github.com/jacob-delgado/workflow/internal/gitrepo"
 	"github.com/jacob-delgado/workflow/internal/jira"
+	"github.com/jacob-delgado/workflow/internal/proc"
 )
 
 // Deps is what the server asks of the world, as plain functions over the domain
@@ -35,6 +36,7 @@ type Deps struct {
 	Branches     func() ([]string, error)
 	Checkout     func(name string) error
 	CreateBranch func(name, start string) error
+	Commit       func(message string) (proc.Output, error)
 	Changes      func() ([]gitrepo.Change, error)
 	FindPull     func(branch string) (forge.PullRequest, bool, error)
 	CheckCI      func(pull forge.PullRequest, head string) (forge.CI, error)

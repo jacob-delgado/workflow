@@ -16,20 +16,3 @@ export async function checkoutBranch(branch: string): Promise<void> {
 
   await checkout({ body: { branch }, throwOnError: true })
 }
-
-// refusalMessage pulls the human-readable reason from a thrown checkout error —
-// the API's { code, message } body, or an Error — and falls back when there is
-// none. Kept here rather than shared with Settings' equivalent until a third
-// caller earns the extraction.
-export function refusalMessage(caught: unknown): string {
-  if (caught instanceof Error) {
-    return caught.message
-  }
-  if (typeof caught === 'object' && caught !== null && 'message' in caught) {
-    if (typeof caught.message === 'string') {
-      return caught.message
-    }
-  }
-
-  return 'The branch could not be checked out.'
-}

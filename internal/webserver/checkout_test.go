@@ -150,7 +150,7 @@ func TestCheckoutIsUnavailableWithoutAGitSeam(t *testing.T) {
 
 			return deps
 		},
-		"no branch seam": func(deps webserver.Deps) webserver.Deps {
+		noBranchSeam: func(deps webserver.Deps) webserver.Deps {
 			deps.Branch = nil
 
 			return deps

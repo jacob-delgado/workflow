@@ -263,6 +263,28 @@ type CommitConfig struct {
 	DefaultScope *string `json:"default_scope,omitempty"`
 }
 
+// CommitRequest The parts of a Conventional Commit message for the staged changes.
+type CommitRequest struct {
+	// Body The optional message body, after a blank line.
+	Body *string `json:"body,omitempty"`
+
+	// Breaking Whether this is a breaking change, marked with "!".
+	Breaking *bool `json:"breaking,omitempty"`
+
+	// Scope The optional scope, written in parentheses after the type.
+	Scope *string `json:"scope,omitempty"`
+
+	// Subject The description written after the colon.
+	//
+	// Example: redact tokens before they reach the request log
+	Subject string `json:"subject"`
+
+	// Type The Conventional Commit type, such as feat or fix.
+	//
+	// Example: fix
+	Type string `json:"type"`
+}
+
 // Config The whole configuration file. On a read, the four secret fields and the Jira header values are masked; on a write, a masked or empty secret keeps the stored value.
 type Config struct {
 	Branch  BranchConfig `json:"branch"`
@@ -516,6 +538,9 @@ type CreateBranchJSONRequestBody = CreateBranchRequest
 
 // CheckoutJSONRequestBody defines body for Checkout for application/json ContentType.
 type CheckoutJSONRequestBody = CheckoutRequest
+
+// CommitJSONRequestBody defines body for Commit for application/json ContentType.
+type CommitJSONRequestBody = CommitRequest
 
 // UpdateConfigJSONRequestBody defines body for UpdateConfig for application/json ContentType.
 type UpdateConfigJSONRequestBody = Config

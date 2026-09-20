@@ -28,6 +28,17 @@ export const zCreateBranchRequest = z.object({
     issue_key: z.string()
 });
 
+/**
+ * The parts of a Conventional Commit message for the staged changes.
+ */
+export const zCommitRequest = z.object({
+    type: z.string(),
+    scope: z.string().optional(),
+    subject: z.string(),
+    body: z.string().optional(),
+    breaking: z.boolean().optional()
+});
+
 export const zHealth = z.object({
     version: z.string(),
     dry_run: z.boolean()
@@ -330,6 +341,13 @@ export const zCreateBranchBody = zCreateBranchRequest;
  * The branch that was created and is now checked out.
  */
 export const zCreateBranchResponse = zBranch;
+
+export const zCommitBody = zCommitRequest;
+
+/**
+ * The branch, now carrying the new commit.
+ */
+export const zCommitResponse = zBranch;
 
 export const zStreamEventsQuery = z.object({
     view: z.string().optional()

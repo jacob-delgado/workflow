@@ -1,6 +1,7 @@
 import { GitBranch } from 'lucide-react'
 import { useSnapshotStore } from '@/api/snapshot.ts'
 import { EmptyState } from '@/shell/EmptyState.tsx'
+import { CommitForm } from './CommitForm.tsx'
 
 export function BranchPanel() {
   const snapshot = useSnapshotStore((state) => state.snapshot)
@@ -18,6 +19,7 @@ export function BranchPanel() {
   }
 
   const heading = branch.name === '' ? `Detached HEAD at ${branch.head.slice(0, 7)}` : branch.name
+  const anythingStaged = changes.changes.some((change) => change.staged)
 
   return (
     <div className="mt-4 flex max-w-2xl flex-col gap-8">
@@ -67,13 +69,21 @@ export function BranchPanel() {
         ) : (
           <ul className="flex flex-col gap-1.5">
             {changes.changes.map((change) => (
-              <li key={change.path} className="flex gap-3 text-sm">
+              <li key={change.path} className="flex items-center gap-3 text-sm">
                 <span className="w-20 shrink-0 text-muted-foreground">{change.kind}</span>
-                <code>{change.path}</code>
+                <code className="flex-1">{change.path}</code>
+                <span
+                  className={
+                    change.staged ? 'text-xs text-success' : 'text-xs text-muted-foreground'
+                  }
+                >
+                  {change.staged ? 'staged' : 'unstaged'}
+                </span>
               </li>
             ))}
           </ul>
         )}
+        {anythingStaged ? <CommitForm /> : null}
       </section>
     </div>
   )

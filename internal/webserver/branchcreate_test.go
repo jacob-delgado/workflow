@@ -239,7 +239,7 @@ func TestCreateBranchIsUnavailableWithoutAGitSeam(t *testing.T) {
 
 			return deps
 		},
-		"no branch seam": func(deps webserver.Deps) webserver.Deps {
+		noBranchSeam: func(deps webserver.Deps) webserver.Deps {
 			deps = withCreate(deps)
 			deps.Branch = nil
 
