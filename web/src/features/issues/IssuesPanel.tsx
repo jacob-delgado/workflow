@@ -84,7 +84,7 @@ function IssueDetail({ issue }: { issue: Issue }) {
         >
           Work story
         </h3>
-        <WorkStory />
+        <WorkStory issueKey={issue.key} />
       </section>
     </article>
   )

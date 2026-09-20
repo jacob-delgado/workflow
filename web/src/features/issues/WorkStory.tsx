@@ -13,10 +13,27 @@ interface Stage {
   done: boolean
 }
 
+// The current branch belongs to one issue — its key is in the branch name, by
+// the tool's own convention (fix/PROJ-412-slug). Only that issue has work in
+// flight; every other issue's story is still to begin.
+function branchIsFor(branchName: string, issueKey: string): boolean {
+  return new RegExp(`(^|[^A-Za-z0-9])${issueKey}([^A-Za-z0-9]|$)`).test(branchName)
+}
+
 // The loop, top to bottom: branch for the issue, commit the work, open the pull
-// request and get CI green, announce it. Each stage's "done" is read from the
-// streamed state, and the first stage that is not done is the one in progress.
-function buildStages(snapshot: Snapshot): Stage[] {
+// request and get CI green, announce it. For the issue that owns the current
+// branch each stage's "done" is read from the streamed state; for any other
+// issue nothing has started yet.
+function buildStages(snapshot: Snapshot, started: boolean): Stage[] {
+  if (!started) {
+    return [
+      { title: 'Branch', section: 'branch', done: false, detail: 'No branch for this issue yet' },
+      { title: 'Changes', section: 'branch', done: false, detail: 'Nothing committed yet' },
+      { title: 'Pull request', section: 'review', done: false, detail: 'No pull request yet' },
+      { title: 'Announce', section: 'slack', done: false, detail: 'Not announced' },
+    ]
+  }
+
   const { branch, changes, review, slack } = snapshot
 
   return [
@@ -75,7 +92,7 @@ function stageState(stage: Stage, index: number, activeIndex: number): StageStat
   return 'upcoming'
 }
 
-export function WorkStory() {
+export function WorkStory({ issueKey }: { issueKey: string }) {
   const snapshot = useSnapshotStore((state) => state.snapshot)
   const setSection = useUiStore((state) => state.setSection)
 
@@ -83,38 +100,48 @@ export function WorkStory() {
     return null
   }
 
-  const stages = buildStages(snapshot)
+  const started = branchIsFor(snapshot.branch.name, issueKey)
+  const stages = buildStages(snapshot, started)
   const activeIndex = stages.findIndex((stage) => !stage.done)
 
   return (
-    <ol className="flex flex-col">
-      {stages.map((stage, index) => {
-        const state = stageState(stage, index, activeIndex)
-        const last = index === stages.length - 1
+    <div className="flex flex-col gap-3">
+      {started ? null : (
+        <p className="text-sm text-muted-foreground">
+          Not in progress — its branch, changes, and pull request appear here once you pick it up.
+        </p>
+      )}
+      <ol className="flex flex-col">
+        {stages.map((stage, index) => {
+          const state = stageState(stage, index, activeIndex)
+          const last = index === stages.length - 1
 
-        return (
-          <li key={stage.title} className="flex gap-3">
-            <div className="flex flex-col items-center">
-              <StageMarker state={state} />
-              {last ? null : (
-                <span className={cn('w-0.5 flex-1', stage.done ? 'bg-success/40' : 'bg-border')} />
-              )}
-            </div>
-            <button
-              type="button"
-              onClick={() => {
-                setSection(stage.section)
-              }}
-              className="flex flex-1 flex-col gap-0.5 rounded-md px-2 pt-0.5 pb-6 text-left hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
-            >
-              <span className="font-medium">{stage.title}</span>
-              <span className="sr-only">{state}</span>
-              <span className="text-sm text-muted-foreground">{stage.detail}</span>
-            </button>
-          </li>
-        )
-      })}
-    </ol>
+          return (
+            <li key={stage.title} className="flex gap-3">
+              <div className="flex flex-col items-center">
+                <StageMarker state={state} />
+                {last ? null : (
+                  <span
+                    className={cn('w-0.5 flex-1', stage.done ? 'bg-success/40' : 'bg-border')}
+                  />
+                )}
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setSection(stage.section)
+                }}
+                className="flex flex-1 flex-col gap-0.5 rounded-md px-2 pt-0.5 pb-6 text-left hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+              >
+                <span className="font-medium">{stage.title}</span>
+                <span className="sr-only">{state}</span>
+                <span className="text-sm text-muted-foreground">{stage.detail}</span>
+              </button>
+            </li>
+          )
+        })}
+      </ol>
+    </div>
   )
 }
 
