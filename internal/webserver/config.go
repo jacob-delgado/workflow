@@ -64,9 +64,9 @@ func (s *server) save(incoming config.Config) (config.Config, error) {
 	defer s.mu.Unlock()
 
 	incoming = preserveSecrets(incoming, s.cfg)
-	incoming.Path = s.cfg.Path
+	incoming.Path = s.path
 
-	err := config.Save(incoming.Path, incoming)
+	err := config.Save(s.path, incoming)
 	if err != nil {
 		return config.Config{}, err
 	}

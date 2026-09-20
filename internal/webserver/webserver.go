@@ -63,6 +63,12 @@ type server struct {
 	deps Deps
 	info Info
 
+	// path is where the configuration file lives, fixed at construction from the
+	// trusted location the process resolved. The write endpoint always saves here
+	// and never to a path from the request body, so a client cannot redirect the
+	// write — the file location is the server's to decide, not the caller's.
+	path string
+
 	mu  sync.RWMutex
 	cfg config.Config
 }
@@ -80,7 +86,7 @@ func Handler(deps Deps, cfg config.Config, info Info) (http.Handler, error) {
 		return nil, err
 	}
 
-	srv := &server{deps: deps, info: info, cfg: cfg}
+	srv := &server{deps: deps, info: info, path: cfg.Path, cfg: cfg}
 
 	strict := api.NewStrictHandlerWithOptions(srv, nil, api.StrictHTTPServerOptions{
 		RequestErrorHandlerFunc:  writeRequestError,
