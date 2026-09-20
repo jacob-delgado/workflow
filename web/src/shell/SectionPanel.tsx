@@ -1,4 +1,5 @@
 import { BranchPanel } from '@/features/branch/BranchPanel.tsx'
+import { IssuesPanel } from '@/features/issues/IssuesPanel.tsx'
 import { EmptyState } from './EmptyState.tsx'
 import type { Section } from './uiStore.ts'
 
@@ -6,6 +7,8 @@ import type { Section } from './uiStore.ts'
 // placeholder; each gains its case as it lands.
 export function SectionPanel({ section }: { section: Section }) {
   switch (section) {
+    case 'issues':
+      return <IssuesPanel />
     case 'branch':
       return <BranchPanel />
     default:
