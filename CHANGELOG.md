@@ -1,5 +1,149 @@
 # Changelog
 
+## [0.0.6](https://github.com/jacob-delgado/workflow/compare/v0.0.5...v0.0.6) (2026-09-20)
+
+
+### Features
+
+* **api:** describe the web API read and config surface ([dbbb86f](https://github.com/jacob-delgado/workflow/commit/dbbb86f3bae536a84030f7d8dfa3aedf74e89731))
+* **cli:** add a --web flag that serves the web interface ([1d924df](https://github.com/jacob-delgado/workflow/commit/1d924df00449c7e03521a867c437766d4565fcb8))
+* **cli:** cancel the command context on SIGINT and SIGTERM ([10d3194](https://github.com/jacob-delgado/workflow/commit/10d3194d570812346e48c566fa34f46683452374))
+* **clients:** tell a rate-limited caller how long to wait ([c65bf74](https://github.com/jacob-delgado/workflow/commit/c65bf7442580114b427511e960440f1e78f790f0))
+* **cli:** tell doctor a signed-out gh from an absent one ([0acbf71](https://github.com/jacob-delgado/workflow/commit/0acbf710ff5947b847ea5a9193aef86c52fcd8f0))
+* **config:** find the repository's config from a subdirectory ([bd64f09](https://github.com/jacob-delgado/workflow/commit/bd64f092b4e6e21339f9df4008a44e3072456dde))
+* **config:** give the file format a version field ([45e8ee1](https://github.com/jacob-delgado/workflow/commit/45e8ee14fc7744a78a530fd1ac17839ed2cea7ca))
+* **config:** make the number of comments shown a setting ([84ced5f](https://github.com/jacob-delgado/workflow/commit/84ced5faea75f4f9555bb7883b0de3e041db2a49))
+* **convention:** read a branch as an issue only for its project ([a9a29bb](https://github.com/jacob-delgado/workflow/commit/a9a29bb5a84b48d87d74d1de2a11297a4a0a355e))
+* **editor:** honor GIT_EDITOR and keep a spaced editor path whole ([cc468aa](https://github.com/jacob-delgado/workflow/commit/cc468aa7734d4170b9de143ef2d322f2d8cf8700))
+* **gitrepo:** push to remote.pushDefault when the repository sets one ([49714a0](https://github.com/jacob-delgado/workflow/commit/49714a09aa977434a3a16e43dc4fad82e48b1813))
+* **hooks:** read an extensionless Dockerfile or Makefile as a place ([b27fe03](https://github.com/jacob-delgado/workflow/commit/b27fe034ba10e9ca2cb30cba732d6627a49927e7))
+* **proc:** bound a Run so a hung quick read recovers on its own ([1d4d49a](https://github.com/jacob-delgado/workflow/commit/1d4d49aaa130f721b3fe17797bc938e44dabb300))
+* **proc:** kill a streamed run's whole process group on cancel ([0ceb405](https://github.com/jacob-delgado/workflow/commit/0ceb40504b96844761858281ba77656524eaa84a))
+* **tui:** add a discoverable key to load the next page of issues ([5032707](https://github.com/jacob-delgado/workflow/commit/5032707918997ce9244b45fa4f0b8c5a3204a9b1))
+* **tui:** let the commit composer mark a breaking change ([f32264e](https://github.com/jacob-delgado/workflow/commit/f32264e38f81fb7e6e3b278b051237f2419fad2b))
+* **tui:** stop a streaming run with a key ([4cbacc4](https://github.com/jacob-delgado/workflow/commit/4cbacc40b43b4699f9eb591f83b8f611afd36342))
+* **web:** add the dark cockpit theme ([554a6b1](https://github.com/jacob-delgado/workflow/commit/554a6b1f085bc43d5f04971799fe30b119053654))
+* **web:** add the Issues master-detail panel ([2d73cd3](https://github.com/jacob-delgado/workflow/commit/2d73cd399260bd33ae833c125c7aec34d906c2b4))
+* **web:** add the per-issue work-story pipeline ([22695de](https://github.com/jacob-delgado/workflow/commit/22695de0f55a2ad8cf9940616e2985e575eb01cd))
+* **web:** add the Review and Slack panels ([8399b60](https://github.com/jacob-delgado/workflow/commit/8399b603dbf889ebdc2f49125e5fbecbf4d1d22a))
+* **web:** add the Settings config editor ([a1314f6](https://github.com/jacob-delgado/workflow/commit/a1314f64db7353d2f195d73411b4aa6547e2ff17))
+* **web:** build the cockpit shell with the section nav rail ([edc114a](https://github.com/jacob-delgado/workflow/commit/edc114a5b718bf28ec4e36eddc60563315fc30f4))
+* **web:** check out a branch to switch issues from the web ([7bca9b6](https://github.com/jacob-delgado/workflow/commit/7bca9b673611477f8dd9e79e30c1b9e64cec921e))
+* **web:** generate the typed API client and wire the query client ([a21a253](https://github.com/jacob-delgado/workflow/commit/a21a2536faf473244ad11ac3316d820c7a56fdf5))
+* **web:** mark every in-flight issue from its local branch ([48c772b](https://github.com/jacob-delgado/workflow/commit/48c772bfe65d174d6c7cf27eb328ac04ab962606))
+* **web:** one-shell live-reload dev and a mock-data review mode ([ed57856](https://github.com/jacob-delgado/workflow/commit/ed578566ff40c5300752c034d97c8cadde8785e1))
+* **web:** scaffold the React and TypeScript frontend ([06a0785](https://github.com/jacob-delgado/workflow/commit/06a078506643209d28957d7aa53b2c652838ea9c))
+* **web:** serve the embedded UI, guarded to the loopback interface ([af86c00](https://github.com/jacob-delgado/workflow/commit/af86c0042a5970a279add7651b2d44f8d635a2f8))
+* **webserver:** push read state over a Server-Sent Events stream ([118f6eb](https://github.com/jacob-delgado/workflow/commit/118f6eb4556171d00033b44425fb1092268e0aae))
+* **webserver:** serve the read and config API over the wiring seams ([7d4aa10](https://github.com/jacob-delgado/workflow/commit/7d4aa102a2ae088add6a50cb81b4c44933d48981))
+* **webserver:** validate requests against the OpenAPI contract ([fba6a84](https://github.com/jacob-delgado/workflow/commit/fba6a849a5526fed31158027081ae5563bbdf1dd))
+* **web:** show the current branch, its commits, and changes ([3b4013d](https://github.com/jacob-delgado/workflow/commit/3b4013d8d1fbdc01e28e93bb4cc124cd98de9b48))
+* **web:** stream the read state over SSE into a shared store ([18f59b9](https://github.com/jacob-delgado/workflow/commit/18f59b98f1e339a40b1562a0af4a8be9dbfdf5cd))
+
+
+### Bug Fixes
+
+* **cli:** doctor reports configuration that is set but invalid ([a08f582](https://github.com/jacob-delgado/workflow/commit/a08f5826e260e9f1353a03b94a3c2c91445f8eb7))
+* **clients:** stop a refused redirect reading as "could not reach" ([0f47507](https://github.com/jacob-delgado/workflow/commit/0f4750715afb768ae260b9f1d4f68c8c47470af9))
+* **clients:** tell a 429 apart, assert every Stringer ([0df2ba8](https://github.com/jacob-delgado/workflow/commit/0df2ba8cc3a4c3af8f35a6364895bff189e69f95))
+* **forge:** read a manual GitLab pipeline as no result, not running ([f220856](https://github.com/jacob-delgado/workflow/commit/f22085677f540d0a08486935aeb2c8f5ec26b6ea))
+* **hooks:** convert only sh hooks that set errexit and read nothing ([adad525](https://github.com/jacob-delgado/workflow/commit/adad525170035e42373298423cd93d30cb79f0eb))
+* **hooks:** read a Windows drive letter as part of a path ([47d3b8e](https://github.com/jacob-delgado/workflow/commit/47d3b8eaa3b89a822363a4f92b064d24a76c09e9))
+* **proc:** let Output.Wait be called more than once ([5208999](https://github.com/jacob-delgado/workflow/commit/52089991ec2638401f2df67ac20f1ca60732c2bf))
+* **tui:** clear a stale Slack error when the branch changes ([f03ea4d](https://github.com/jacob-delgado/workflow/commit/f03ea4dbe18abc940c0fcfc4a9476ba6155e9dc1))
+* **tui:** hold every write back at the seam under dry run ([cd35a9f](https://github.com/jacob-delgado/workflow/commit/cd35a9f1ddd41401fd1dddd8d58a94ff33ffa78f))
+* **tui:** keep CI polling to one chain per review ([2f46ccb](https://github.com/jacob-delgado/workflow/commit/2f46ccbc80887c77788ea2a1b7baf223226d5987))
+* **tui:** map a click below wrapped jobs to the right failure ([a320fe4](https://github.com/jacob-delgado/workflow/commit/a320fe434c1a2d5719b8167890043479f1f017d3))
+* **tui:** offer only failure places that resolve to a file ([d2abe36](https://github.com/jacob-delgado/workflow/commit/d2abe36d2c5522aa46078605cd1f627e57690c45))
+* **web:** correct the work story, detached HEAD, and a bad SSE frame ([53ca870](https://github.com/jacob-delgado/workflow/commit/53ca87020378dda0e4f3e6101f179f0095cd7186))
+* **web:** key the work story to the issue that owns the branch ([3d6c698](https://github.com/jacob-delgado/workflow/commit/3d6c698c122c82672f272106b09c42dd265be137))
+* **web:** link config hints, fix a heading level, refresh config cache ([094131e](https://github.com/jacob-delgado/workflow/commit/094131e488fac3783f716d06c7559c122ed9f693))
+* **webserver:** keep the stored jira.base_url password on a config save ([12dbcc2](https://github.com/jacob-delgado/workflow/commit/12dbcc26f56d1b5f4eb8040fd0e8788a55d27a58))
+* **webserver:** write config only to the server's own file path ([976b653](https://github.com/jacob-delgado/workflow/commit/976b653d96cb7d4a4cad6fb3ffa23bd5f0714f6f))
+* **windows:** find hooks and pick an editor on Windows ([6bd3a40](https://github.com/jacob-delgado/workflow/commit/6bd3a408bbc3ac4fef1f1715881e6296f7e89dbd))
+
+
+### Performance
+
+* **tui:** fold hook-run jobs in as they arrive, cap the output ([0656bac](https://github.com/jacob-delgado/workflow/commit/0656bac0543ac0a7dc69e33a5fe79b1db1360711))
+
+
+### Refactors
+
+* **cli:** inject doctor's online transport ([c11bc5e](https://github.com/jacob-delgado/workflow/commit/c11bc5eedab170ca69d0aa25f7d0713fd3649dbb))
+* **config:** expose Parse for decoding a config from bytes ([0062264](https://github.com/jacob-delgado/workflow/commit/00622649b1c76f3081b107bf48f5ad1755993bb6))
+* **config:** make the credentials a typed masking Secret ([1b29c46](https://github.com/jacob-delgado/workflow/commit/1b29c46c1da725a708750896019a78b3164249e1))
+* **gitrepo:** carry run and dir on a Repository value ([9b55b9f](https://github.com/jacob-delgado/workflow/commit/9b55b9feab0a3010de909004c390fd189adc6d5f))
+* **gitrepo:** name the remote once as DefaultRemote ([6a1deb7](https://github.com/jacob-delgado/workflow/commit/6a1deb7e8b09259a60bfd8a6267738a273cc4beb))
+* **httpx:** share the redirect-refusing HTTP client ([702345e](https://github.com/jacob-delgado/workflow/commit/702345e35b2a947474536974d044b91c47131c97))
+* **httpx:** strip the request URL from every transport error once ([703b3cd](https://github.com/jacob-delgado/workflow/commit/703b3cd4c3c7332a50a28c127344bf03cd570533))
+* **jira:** drop the unused User.Active and correct stale comments ([b68d983](https://github.com/jacob-delgado/workflow/commit/b68d983b0396ea2bda5bb28483ed07fe8a617425))
+* **jira:** give the issue key a type ([d226b7b](https://github.com/jacob-delgado/workflow/commit/d226b7b3fb787176fed7802c721c087f5ea18df7))
+* **jira:** make the status category a type ([f22de81](https://github.com/jacob-delgado/workflow/commit/f22de815b79d20f423ff72c4f4c50b544be2f27f))
+* **jira:** share the exchange-and-decode every read repeats ([3a62412](https://github.com/jacob-delgado/workflow/commit/3a62412ad575f570f49cabb93932222b100761c6))
+* **tui:** derive the pane digit keys and the Review reference ([22a6bb2](https://github.com/jacob-delgado/workflow/commit/22a6bb2187cd92cbe10577e2c1fd16f8ca73c0d3))
+* **tui:** give every overlay one sendState ([26fdd23](https://github.com/jacob-delgado/workflow/commit/26fdd23a7afcca85ed3d6b898e8366b6edefabc4))
+* **tui:** make the key list an overlay, drop helpOpen ([c6d8ba0](https://github.com/jacob-delgado/workflow/commit/c6d8ba0b0765deee7bebfbb6ef74626e80b8ed45))
+* **tui:** measure the click offset from the header the view drew ([ef9aa0f](https://github.com/jacob-delgado/workflow/commit/ef9aa0f1c7ad28b48e2d826b91e8a5cc7e2f453a))
+* **tui:** read the branch's issue and base in one place ([f90c5e3](https://github.com/jacob-delgado/workflow/commit/f90c5e34841db213b2c53ea05ca77fdcb5f99359))
+* **tui:** route the three body editors through one message ([7538ae1](https://github.com/jacob-delgado/workflow/commit/7538ae1b9154debd8e6648038bf54a617cb80e38))
+* **wiring:** share the forge parse-then-kind preamble ([807deaf](https://github.com/jacob-delgado/workflow/commit/807deaf90100e67ba0f5d496d8196b456842676b))
+* **wiring:** share the forge resolver, split forge wiring out ([bf299a5](https://github.com/jacob-delgado/workflow/commit/bf299a5a39ed662d6a657af3e7fb33160ed68ea7))
+
+
+### Documentation
+
+* correct drifted platform, scissors and gobco notes ([66c70cb](https://github.com/jacob-delgado/workflow/commit/66c70cb7d1a038e92cf6829dfae9a845c7439910))
+* **debt:** hold DEBT-23 as a YAGNI conflict until a real rename ([31dcbf2](https://github.com/jacob-delgado/workflow/commit/31dcbf25fc503e2516146242132eb036d8069f64))
+* **debt:** retire the entries already fixed on main ([3e330d7](https://github.com/jacob-delgado/workflow/commit/3e330d71d694f7b651e372b1727692a211efeea7))
+* **debt:** trim DEBT-33 to what current code leaves open ([1fe5b92](https://github.com/jacob-delgado/workflow/commit/1fe5b92ec4d78fe287280c59eabd13369f6873b2))
+* **features:** remove the shipped features, trim the partly done ([cf5ee91](https://github.com/jacob-delgado/workflow/commit/cf5ee91f6de21880acc6f7b6f81d5bb860fd0373))
+* list the missing keys, stop enumerating tools ([2acb0fe](https://github.com/jacob-delgado/workflow/commit/2acb0fe17cd22b5e8b5afc563d249232e2e1585c))
+* name an installable version, not v0.1.0 ([86a05fe](https://github.com/jacob-delgado/workflow/commit/86a05fe01850c2518275679b008f75f71a246242))
+* note the new internal/httpx package in the layout ([76b2b94](https://github.com/jacob-delgado/workflow/commit/76b2b94ec092c7c767b9d8c78bd02ec964d25528))
+* point the README's Jira setup at the SSO guidance ([aeaec0f](https://github.com/jacob-delgado/workflow/commit/aeaec0fca29c0c23fb39685988ddbfcd0778f064))
+* record switching issues by branch in the web as FEAT-77 ([b34678f](https://github.com/jacob-delgado/workflow/commit/b34678fa04f876563caeb3215640dd71f69f1d39))
+* relocate the debt file's future work and decisions ([388ee44](https://github.com/jacob-delgado/workflow/commit/388ee448c2a611ab71baa3b95c4ddaecb1fa2c5c))
+* remove TECH_DEBT.md ([7afac6c](https://github.com/jacob-delgado/workflow/commit/7afac6ceb27e5b3843a05668c78f5b5f3927ece2))
+* sanction an opt-in local web mode ([55986fb](https://github.com/jacob-delgado/workflow/commit/55986fb4d3db2fa004c85d0e235f1eb23544a25c))
+
+
+### Build & Packaging
+
+* add an advisory task fuzz that runs every target ([4433983](https://github.com/jacob-delgado/workflow/commit/4433983ad6e6b64031a999c2b42fe436305b32a1))
+* Bump ghcr.io/devcontainers/features/docker-in-docker ([f06e1fb](https://github.com/jacob-delgado/workflow/commit/f06e1fbeed666cadae363857efc39c0ede64d489))
+* Bump the go-minor-patch group with 2 updates ([0ad3f2c](https://github.com/jacob-delgado/workflow/commit/0ad3f2c3f2c9a10a5d9e7fd986b05edd5ef41181))
+* check enum maps, guard fork PRs, widen dependabot ([5d38bc3](https://github.com/jacob-delgado/workflow/commit/5d38bc3fca85461e082ece845bce22c666ee6c83))
+* **gen:** generate the strict server and models from the contract ([f5fd438](https://github.com/jacob-delgado/workflow/commit/f5fd4387437c2dc53ff7e44a940d5e60d702aa51))
+* **lint:** exempt generated Go from the header and length gates ([b7c556d](https://github.com/jacob-delgado/workflow/commit/b7c556d50eb17103db6ecb4b8556371ba7a7c1ef))
+* **lint:** guard os/exec to internal/proc with depguard ([df37f7c](https://github.com/jacob-delgado/workflow/commit/df37f7cad68a400ad9e9ee6503aa83f776c7cb7f))
+* make gobco account for every package, tests or none ([c1f99c4](https://github.com/jacob-delgado/workflow/commit/c1f99c443a7f9655fdae25c01e9ca4114421e873))
+* pin node and jq in mise.toml ([b3b4f92](https://github.com/jacob-delgado/workflow/commit/b3b4f92d70e21bed014d4ee8cb99b920c97ae758))
+* **scripts:** gate goroutines to internal/proc ([dde05e6](https://github.com/jacob-delgado/workflow/commit/dde05e6bf892dcaac1289ab3767ebd23dac7c5bf))
+* **scripts:** gate the Go version against drift across its sources ([5d81d52](https://github.com/jacob-delgado/workflow/commit/5d81d52352a549fc0cc94c4ad0d8dd5cede55c2e))
+* stop a gate passing having measured nothing ([2b24da4](https://github.com/jacob-delgado/workflow/commit/2b24da401f07f8f2079ed713c06008352cae9f82))
+* **web:** force js-yaml to 4.3.2 to clear high-severity advisories ([e6aa202](https://github.com/jacob-delgado/workflow/commit/e6aa202b108061ba25894e8977527441389043af))
+* **web:** run the cockpit with two tasks ([69e32e1](https://github.com/jacob-delgado/workflow/commit/69e32e13d60860483c24779108a993abe186b768))
+
+
+### CI
+
+* build the container and run the gate inside it weekly ([21e01e3](https://github.com/jacob-delgado/workflow/commit/21e01e38a429d9d06a7566db8ff9f9918c9171e3))
+* Bump the actions-minor-patch group across 1 directory with 4 updates ([e09a37c](https://github.com/jacob-delgado/workflow/commit/e09a37c415eea3715442c8c610949c7bcac6402d))
+* gate the generated web client against the contract ([ddbf124](https://github.com/jacob-delgado/workflow/commit/ddbf124a7acdfcd13bb1e3cf979f931e1bb57ab8))
+* gate the web frontend's lint, test, and build ([8663bb5](https://github.com/jacob-delgado/workflow/commit/8663bb555d2344e5a6f8402a269a0e5c493c0e1c))
+* pin the mise binary version in every workflow ([18177b2](https://github.com/jacob-delgado/workflow/commit/18177b2684ff97f83c9b85808e58ea0d475039f3))
+* scan commit history for secrets, not just the tree ([70a0b61](https://github.com/jacob-delgado/workflow/commit/70a0b61f324c1c0377897078dbca305add0ac15c))
+
+
+### Tests
+
+* **cli:** run the root command through an injected runner ([fb30718](https://github.com/jacob-delgado/workflow/commit/fb3071887addb35585c7183a9b3ffc79ba84ca9d))
+* **scripts:** cover the gate scripts' own failure paths ([66aa146](https://github.com/jacob-delgado/workflow/commit/66aa146665440163177e2b66653d0268e61e08a2))
+* **tui:** split the test files that neared the length gate ([a6602a3](https://github.com/jacob-delgado/workflow/commit/a6602a32ba99ec6499b0da55df4a9309b59003ff))
+* **web:** add Playwright and axe end-to-end tests ([0f0ef17](https://github.com/jacob-delgado/workflow/commit/0f0ef1757a96890c693d127aebe51c387e53738d))
+* **wiring:** drive the forge seams' success path ([fa6180e](https://github.com/jacob-delgado/workflow/commit/fa6180ecb95283a760424d4f22e1c6f06dbd89cb))
+
 ## [0.0.5](https://github.com/jacob-delgado/workflow/compare/v0.0.4...v0.0.5) (2026-09-18)
 
 
