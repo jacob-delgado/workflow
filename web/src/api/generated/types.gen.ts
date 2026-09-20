@@ -717,6 +717,39 @@ export type CreateBranchResponses = {
 
 export type CreateBranchResponse = CreateBranchResponses[keyof CreateBranchResponses];
 
+export type PushData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/push';
+};
+
+export type PushErrors = {
+    /**
+     * There is nothing to push.
+     */
+    409: Error;
+    /**
+     * The push failed.
+     */
+    422: Error;
+    /**
+     * The request could not be completed.
+     */
+    default: Error;
+};
+
+export type PushError = PushErrors[keyof PushErrors];
+
+export type PushResponses = {
+    /**
+     * The branch, now published.
+     */
+    200: Branch;
+};
+
+export type PushResponse = PushResponses[keyof PushResponses];
+
 export type CommitData = {
     body: CommitRequest;
     path?: never;

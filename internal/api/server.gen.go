@@ -48,6 +48,9 @@ type ServerInterface interface {
 	// GetIssue One issue in full, with its comments.
 	// (GET /api/issues/{key})
 	GetIssue(w http.ResponseWriter, r *http.Request, key string)
+	// Push Push the current branch to its remote, setting upstream.
+	// (POST /api/push)
+	Push(w http.ResponseWriter, r *http.Request)
 	// GetReview The branch's pull request and its CI, if one is open.
 	// (GET /api/review)
 	GetReview(w http.ResponseWriter, r *http.Request)
@@ -252,6 +255,20 @@ func (siw *ServerInterfaceWrapper) GetIssue(w http.ResponseWriter, r *http.Reque
 	handler.ServeHTTP(w, r)
 }
 
+// Push operation middleware
+func (siw *ServerInterfaceWrapper) Push(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.Push(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // GetReview operation middleware
 func (siw *ServerInterfaceWrapper) GetReview(w http.ResponseWriter, r *http.Request) {
 
@@ -426,6 +443,7 @@ func HandlerWithOptions(si ServerInterface, options StdHTTPServerOptions) http.H
 	m.HandleFunc(http.MethodPut+" "+options.BaseURL+"/api/config", wrapper.UpdateConfig)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/api/checkout", wrapper.Checkout)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/api/branches", wrapper.CreateBranch)
+	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/api/push", wrapper.Push)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/api/commit", wrapper.Commit)
 
 	return m
@@ -914,6 +932,72 @@ func (response GetIssuedefaultJSONResponse) VisitGetIssueResponse(w http.Respons
 	return err
 }
 
+type PushRequestObject struct {
+}
+
+type PushResponseObject interface {
+	VisitPushResponse(w http.ResponseWriter) error
+}
+
+type Push200JSONResponse Branch
+
+func (response Push200JSONResponse) VisitPushResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type Push409JSONResponse Error
+
+func (response Push409JSONResponse) VisitPushResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(409)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type Push422JSONResponse Error
+
+func (response Push422JSONResponse) VisitPushResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(422)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PushdefaultJSONResponse struct {
+	Body       Error
+	StatusCode int
+}
+
+func (response PushdefaultJSONResponse) VisitPushResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
 type GetReviewRequestObject struct {
 }
 
@@ -1060,6 +1144,9 @@ type StrictServerInterface interface {
 	// GetIssue One issue in full, with its comments.
 	// (GET /api/issues/{key})
 	GetIssue(ctx context.Context, request GetIssueRequestObject) (GetIssueResponseObject, error)
+	// Push Push the current branch to its remote, setting upstream.
+	// (POST /api/push)
+	Push(ctx context.Context, request PushRequestObject) (PushResponseObject, error)
 	// GetReview The branch's pull request and its CI, if one is open.
 	// (GET /api/review)
 	GetReview(ctx context.Context, request GetReviewRequestObject) (GetReviewResponseObject, error)
@@ -1375,6 +1462,30 @@ func (sh *strictHandler) GetIssue(w http.ResponseWriter, r *http.Request, key st
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
 	} else if validResponse, ok := response.(GetIssueResponseObject); ok {
 		if err := validResponse.VisitGetIssueResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// Push operation middleware
+func (sh *strictHandler) Push(w http.ResponseWriter, r *http.Request) {
+	var request PushRequestObject
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.Push(ctx, request.(PushRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "Push")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(PushResponseObject); ok {
+		if err := validResponse.VisitPushResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {

@@ -37,6 +37,7 @@ type Deps struct {
 	Checkout     func(name string) error
 	CreateBranch func(name, start string) error
 	Commit       func(message string) (proc.Output, error)
+	Push         func(branch string) (proc.Output, error)
 	Changes      func() ([]gitrepo.Change, error)
 	FindPull     func(branch string) (forge.PullRequest, bool, error)
 	CheckCI      func(pull forge.PullRequest, head string) (forge.CI, error)
@@ -118,7 +119,7 @@ func Handler(deps Deps, cfg config.Config, info Info, assets fs.FS) (http.Handle
 	root.Handle("/api/", validate(doc)(apiHandler))
 	root.Handle("/", uiHandler(assets))
 
-	return guardLoopback(root), nil
+	return guardLoopback(refuseWritesInDryRun(info.DryRun, root)), nil
 }
 
 // uiHandler serves the embedded app, or a notice when no assets are embedded.

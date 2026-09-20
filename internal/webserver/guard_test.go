@@ -61,18 +61,42 @@ func TestNonLoopbackHostsAreRejected(t *testing.T) {
 	}
 }
 
-func TestACrossOriginWriteIsRefused(t *testing.T) {
+func TestWritesAreRefusedInDryRun(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
-	handler := serve(t, filledDeps(), config.Default())
+	dryRun := webserver.Info{Version: testVersion, DryRun: true}
+	handler := serveWith(t, filledDeps(), config.Default(), dryRun)
 
 	// Act
-	recorder := postCheckout(t, handler, "http://evil.example.com")
+	// A same-origin write that would otherwise be allowed.
+	recorder := postCheckout(t, handler, "")
 
 	// Assert
 	if recorder.Code != http.StatusForbidden {
-		t.Errorf("status = %d, want 403 for a write from a foreign origin", recorder.Code)
+		t.Errorf("status = %d, want 403 — the web interface is read-only in dry-run", recorder.Code)
+	}
+}
+
+func TestACrossOriginWriteIsRefused(t *testing.T) {
+	t.Parallel()
+
+	handler := serve(t, filledDeps(), config.Default())
+
+	// A foreign host, and a page on another loopback port — both cross-origin to
+	// the server's own 127.0.0.1:7000, so both must be refused.
+	for _, origin := range []string{"http://evil.example.com", "http://127.0.0.1:3000", "http://localhost:5173"} {
+		t.Run(origin, func(t *testing.T) {
+			t.Parallel()
+
+			// Act
+			recorder := postCheckout(t, handler, origin)
+
+			// Assert
+			if recorder.Code != http.StatusForbidden {
+				t.Errorf("status = %d for origin %q, want 403 — a cross-origin write must be refused", recorder.Code, origin)
+			}
+		})
 	}
 }
 

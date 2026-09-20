@@ -230,6 +230,7 @@ func webDeps(deps tui.Deps) webserver.Deps {
 		Checkout:     deps.Git.Checkout,
 		CreateBranch: deps.Git.CreateBranch,
 		Commit:       deps.Git.Commit,
+		Push:         deps.Git.Push,
 		Changes:      deps.Git.Changes,
 		FindPull:     deps.Forge.FindPullRequest,
 		CheckCI:      deps.Forge.CheckStatus,
