@@ -6,6 +6,13 @@ import tailwindcss from '@tailwindcss/vite'
 // https://vite.dev/config/
 export default defineConfig({
   plugins: [react(), tailwindcss()],
+  // The Go binary embeds the built app from internal/web/dist (via the `embedui`
+  // build tag), so build straight into it rather than web/dist. emptyOutDir is
+  // explicit because the directory sits outside this project root.
+  build: {
+    outDir: '../internal/web/dist',
+    emptyOutDir: true,
+  },
   // `@/` is the src root. Cross-directory imports use it so a file that moves
   // between directories keeps its own imports intact; same-directory siblings
   // stay relative. Mirrored in vitest.config.ts (a standalone config) and

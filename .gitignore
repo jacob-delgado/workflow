@@ -8,10 +8,12 @@ coverage.out
 coverage.html
 
 # --- Web frontend (web/) ---
-# node_modules and the Vite build output are generated; the build is embedded
-# into the binary at release time (see internal/web), never committed.
+# node_modules and the Vite build output are generated. The build lands in
+# internal/web/dist, where the binary embeds it under the `embedui` tag (see
+# internal/web); neither the output nor the embed directory is committed.
 web/node_modules/
 web/dist/
+internal/web/dist/
 web/coverage/
 web/test-results/
 web/playwright-report/

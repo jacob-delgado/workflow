@@ -12,6 +12,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io/fs"
 	"net/http"
 	"sync"
 	"time"
@@ -75,12 +76,14 @@ type server struct {
 
 var _ api.StrictServerInterface = (*server)(nil)
 
-// Handler builds the http.Handler that serves the API: the strict typed handlers
-// wired to the generated router on a stdlib mux, wrapped in the request validator
-// so every request is checked against the contract first. It fails only when the
-// embedded spec cannot be loaded, which is a build defect rather than a runtime
-// condition.
-func Handler(deps Deps, cfg config.Config, info Info) (http.Handler, error) {
+// Handler builds the http.Handler that serves the web interface: the API under
+// /api, checked against the contract by the request validator, and the embedded
+// single-page app under every other path. The whole surface is behind the
+// loopback guard, so a browser aimed at the server from a foreign origin is
+// refused. A nil ui serves a notice instead of the app, for a build with no
+// frontend embedded. It fails only when the embedded spec cannot be loaded,
+// which is a build defect rather than a runtime condition.
+func Handler(deps Deps, cfg config.Config, info Info, assets fs.FS) (http.Handler, error) {
 	doc, err := loadSpec()
 	if err != nil {
 		return nil, err
@@ -93,18 +96,33 @@ func Handler(deps Deps, cfg config.Config, info Info) (http.Handler, error) {
 		ResponseErrorHandlerFunc: writeResponseError,
 	})
 
-	mux := http.NewServeMux()
+	apiMux := http.NewServeMux()
 
 	// The event stream is a streaming response the strict, one-response-object
 	// interface cannot express, so it is registered by hand rather than generated.
-	mux.HandleFunc("GET /api/events", srv.streamEvents)
+	apiMux.HandleFunc("GET /api/events", srv.streamEvents)
 
-	handler := api.HandlerWithOptions(strict, api.StdHTTPServerOptions{
-		BaseRouter:       mux,
+	apiHandler := api.HandlerWithOptions(strict, api.StdHTTPServerOptions{
+		BaseRouter:       apiMux,
 		ErrorHandlerFunc: writeRequestError,
 	})
 
-	return validate(doc)(handler), nil
+	// The API is validated against the contract; the app is not, since its paths
+	// are not in the spec, so only the /api subtree passes through the validator.
+	root := http.NewServeMux()
+	root.Handle("/api/", validate(doc)(apiHandler))
+	root.Handle("/", uiHandler(assets))
+
+	return guardLoopback(root), nil
+}
+
+// uiHandler serves the embedded app, or a notice when no assets are embedded.
+func uiHandler(assets fs.FS) http.Handler {
+	if assets == nil {
+		return notEmbedded()
+	}
+
+	return spaHandler(assets)
 }
 
 // LoopbackAddr is where the server listens in production: the loopback

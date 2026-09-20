@@ -17,6 +17,7 @@ import (
 	"github.com/jacob-delgado/workflow/internal/buildinfo"
 	"github.com/jacob-delgado/workflow/internal/config"
 	"github.com/jacob-delgado/workflow/internal/tui"
+	"github.com/jacob-delgado/workflow/internal/web"
 	"github.com/jacob-delgado/workflow/internal/webserver"
 	"github.com/jacob-delgado/workflow/internal/wiring"
 )
@@ -205,7 +206,9 @@ func newRootCmd(prompt Prompt, run runTUI, serve runWeb) *cobra.Command {
 func serveWeb(
 	ctx context.Context, cfg config.Config, deps webserver.Deps, info webserver.Info, out io.Writer,
 ) error {
-	handler, err := webserver.Handler(deps, cfg, info)
+	assets, _ := web.Assets()
+
+	handler, err := webserver.Handler(deps, cfg, info, assets)
 	if err != nil {
 		return fmt.Errorf("building the web server: %w", err)
 	}

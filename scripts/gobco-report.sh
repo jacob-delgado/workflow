@@ -69,7 +69,16 @@ readonly out_dir="${OUT_DIR:-${repo_root}/tmp/gobco}"
 # The platform glue carries no branch worth measuring; proc.Start's own test
 # exercises the Unix path end to end. It lives in its own package so this one
 # entry does not cost internal/proc its coverage.
-readonly UNANALYZABLE="internal/proc/pgroup"
+#
+# internal/web is the same twin problem. Assets() has an embedui half (embed.go,
+# which embeds the built frontend from a dist/ that only a release build
+# produces) and a stub half (noembed.go, the default build); gobco reads both,
+# so it hits the redeclaration and, in a run that has not built the frontend,
+# the missing embed pattern too. The default half is a stub with no branch, and
+# the embed half's one error path is not in the untagged run gobco measures, so
+# there is nothing here to lose. web_test.go still measures the stub's statement
+# coverage under `go test`, which does honor the tags.
+readonly UNANALYZABLE="internal/proc/pgroup internal/web"
 
 # Packages with no tests, each with the reason it has none. gobco measures
 # conditions by running a package's tests, so a package without any cannot be

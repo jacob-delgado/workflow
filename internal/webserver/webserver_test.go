@@ -33,6 +33,10 @@ const (
 	testAuthor     = "octocat"
 	testVersion    = "1.2.3"
 	testBugJQL     = "type = Bug"
+	// loopbackHost is the Host the shared request helpers send, so requests pass
+	// the loopback guard the same way a browser on 127.0.0.1 does. A test that
+	// exercises the guard sets its own Host instead.
+	loopbackHost = "127.0.0.1:7000"
 )
 
 // filledDeps is a Deps with every seam populated with canned answers. A test
@@ -97,7 +101,7 @@ func serve(t *testing.T, deps webserver.Deps, cfg config.Config) http.Handler {
 func serveWith(t *testing.T, deps webserver.Deps, cfg config.Config, info webserver.Info) http.Handler {
 	t.Helper()
 
-	handler, err := webserver.Handler(deps, cfg, info)
+	handler, err := webserver.Handler(deps, cfg, info, nil)
 	if err != nil {
 		t.Fatalf("building the handler: %v", err)
 	}
@@ -122,6 +126,8 @@ func send(t *testing.T, handler http.Handler, method, target, body string) *http
 	}
 
 	request := httptest.NewRequestWithContext(t.Context(), method, target, reader)
+	request.Host = loopbackHost
+
 	if body != "" {
 		request.Header.Set("Content-Type", "application/json")
 	}
