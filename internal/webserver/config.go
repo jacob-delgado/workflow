@@ -109,11 +109,25 @@ func fromDTO(in api.Config) (config.Config, error) {
 // still the masked value the read returned — a config editor sends the masked
 // form back unchanged, and must not overwrite the real secret with the mask.
 func preserveSecrets(incoming, stored config.Config) config.Config {
+	incoming.Jira.BaseURL = keepMaskedURL(incoming.Jira.BaseURL, stored.Jira.BaseURL)
 	incoming.Jira.Token = keepSecret(incoming.Jira.Token, stored.Jira.Token)
 	incoming.Slack.Token = keepSecret(incoming.Slack.Token, stored.Slack.Token)
 	incoming.Slack.WebhookURL = keepSecret(incoming.Slack.WebhookURL, stored.Slack.WebhookURL)
 	incoming.Forge.Token = keepSecret(incoming.Forge.Token, stored.Forge.Token)
 	incoming.Jira.Headers = keepHeaders(incoming.Jira.Headers, stored.Jira.Headers)
+
+	return incoming
+}
+
+// keepMaskedURL keeps the stored base URL when the incoming one is only its
+// masked form. jira.base_url may carry userinfo (it becomes Basic auth), which
+// the read masks like any other credential; the config editor sends that masked
+// URL back unchanged, and it must not overwrite the real password with the mask.
+// A genuinely edited URL differs from the mask and is taken as sent.
+func keepMaskedURL(incoming, stored string) string {
+	if incoming == config.RedactURL(stored) {
+		return stored
+	}
 
 	return incoming
 }
