@@ -54,6 +54,7 @@ func streamOnce(t *testing.T, handler http.Handler, target string) *httptest.Res
 	cancel()
 
 	request := httptest.NewRequestWithContext(ctx, http.MethodGet, target, nil)
+	request.Host = loopbackHost
 	recorder := httptest.NewRecorder()
 	handler.ServeHTTP(recorder, request)
 
@@ -149,6 +150,7 @@ func TestStreamRepushesOnTheInterval(t *testing.T) {
 	info := webserver.Info{Version: testVersion, StreamInterval: 2 * time.Millisecond}
 	handler := serveWith(t, filledDeps(), config.Default(), info)
 	request := httptest.NewRequestWithContext(ctx, http.MethodGet, "/api/events", nil)
+	request.Host = loopbackHost
 	recorder := httptest.NewRecorder()
 	done := make(chan struct{})
 
@@ -174,6 +176,7 @@ func TestStreamRequiresAFlushableWriter(t *testing.T) {
 	// Arrange
 	handler := serve(t, filledDeps(), config.Default())
 	request := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/api/events", nil)
+	request.Host = loopbackHost
 	writer := &unflushableWriter{}
 
 	// Act
@@ -193,6 +196,7 @@ func TestStreamStopsWhenTheConnectionFails(t *testing.T) {
 	// writer that fails every write proves the handler stops on a broken pipe.
 	handler := serve(t, filledDeps(), config.Default())
 	request := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/api/events", nil)
+	request.Host = loopbackHost
 	done := make(chan struct{})
 
 	// Act

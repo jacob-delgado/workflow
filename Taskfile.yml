@@ -48,9 +48,13 @@ tasks:
       - lefthook install
 
   build:
-    desc: Build the binary into bin/
+    desc: Build the binary into bin/, with the web interface embedded
+    deps: [web:build]
     cmds:
-      - go build -o bin/{{.BINARY}} {{.PKG}}
+      # -tags embedui compiles internal/web's embed of the built frontend, so
+      # `workflow --web` serves the app from the one binary. web:build put it in
+      # internal/web/dist first.
+      - go build -tags embedui -o bin/{{.BINARY}} {{.PKG}}
 
   run:
     desc: Run from source — `task run -- doctor --online` passes arguments through
@@ -125,11 +129,14 @@ tasks:
       - corepack yarn test
 
   web:build:
-    desc: Build the web frontend's production bundle
+    desc: Build the web frontend's production bundle into internal/web/dist for embedding
     dir: web
     env:
       COREPACK_ENABLE_DOWNLOAD_PROMPT: "0"
     cmds:
+      # install first so `task build` works from a clean checkout; --immutable is
+      # a no-op when the lockfile is already satisfied.
+      - corepack yarn install --immutable
       - corepack yarn build
 
   test:
@@ -429,6 +436,9 @@ tasks:
 
   release:binaries:
     desc: Cross-compile every release platform into dist/ (runs in the container)
+    # web:build produces internal/web/dist once; every platform embeds the same
+    # frontend below via -tags embedui.
+    deps: [web:build]
     cmds:
       - mkdir -p dist
       - for:
@@ -448,7 +458,7 @@ tasks:
           [ "$goos" = "windows" ] && ext=".exe"
           echo "Building dist/{{.BINARY}}_${goos}_${goarch}${ext}"
           CGO_ENABLED=0 GOOS="$goos" GOARCH="$goarch" \
-            go build -trimpath -ldflags="-s -w" \
+            go build -tags embedui -trimpath -ldflags="-s -w" \
             -o "dist/{{.BINARY}}_${goos}_${goarch}${ext}" {{.PKG}}
 
   release:verify:
