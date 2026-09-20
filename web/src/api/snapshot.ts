@@ -25,6 +25,17 @@ export const useSnapshotStore = create<SnapshotState>(() => ({
 // dropped rather than allowed to corrupt the last good snapshot.
 export function useEventStream(): void {
   useEffect(() => {
+    // `task web:mockup` sets VITE_MOCK so the whole cockpit can be navigated
+    // against rich fixture data with no backend. The mock is code-split, so it
+    // is never pulled into a production build.
+    if (import.meta.env.VITE_MOCK === 'true') {
+      void import('@/dev/mockSnapshot.ts').then((module) => {
+        useSnapshotStore.setState({ snapshot: module.mockSnapshot, status: 'live' })
+      })
+
+      return
+    }
+
     const source = new EventSource('/api/events')
 
     source.addEventListener('open', () => {

@@ -1,4 +1,5 @@
-import { renderHook } from '@testing-library/react'
+import { renderHook, waitFor } from '@testing-library/react'
+import { vi } from 'vitest'
 import { FakeEventSource } from '@/test/fakeEventSource.ts'
 import { makeSnapshot } from '@/test/fixtures.ts'
 import { useEventStream, useSnapshotStore } from './snapshot.ts'
@@ -56,4 +57,20 @@ test('marks the stream stale when it errors', () => {
 
   // Assert
   expect(useSnapshotStore.getState().status).toBe('stale')
+})
+
+test('seeds mock data instead of connecting when VITE_MOCK is set', async () => {
+  // Arrange
+  vi.stubEnv('VITE_MOCK', 'true')
+
+  // Act
+  renderHook(() => {
+    useEventStream()
+  })
+
+  // Assert
+  await waitFor(() => {
+    expect(useSnapshotStore.getState().snapshot?.review.found).toBe(true)
+  })
+  expect(FakeEventSource.instances).toHaveLength(0)
 })

@@ -23,7 +23,13 @@ export default defineConfig({
       // src/api/generated is hey-api's generated SDK/types/zod — generated code
       // is not ours to test. src/test holds test-only helpers (fakes), not
       // production code. Both are excluded like prettier/eslint/knip.
-      exclude: ['src/**/*.test.{ts,tsx}', 'src/main.tsx', 'src/api/generated/**', 'src/test/**'],
+      exclude: [
+        'src/**/*.test.{ts,tsx}',
+        'src/main.tsx',
+        'src/api/generated/**',
+        'src/test/**',
+        'src/dev/**',
+      ],
       // Branches level with lines deliberately: a line threshold alone goes
       // green while error and edge arms stay unexercised.
       thresholds: {
