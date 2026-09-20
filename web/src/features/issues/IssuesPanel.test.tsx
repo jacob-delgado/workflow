@@ -58,17 +58,19 @@ test('shows an issue detail when it is selected', async () => {
   expect(screen.getByRole('heading', { level: 2, name: /fix the token leak/i })).toBeTruthy()
 })
 
-test('shows a dash for an issue with no priority', async () => {
+test('shows the work story for the selected issue', async () => {
   // Arrange
   const user = userEvent.setup()
   withIssues()
   render(<IssuesPanel />)
 
   // Act
+  // PROJ-2 has no priority, so its meta line omits the priority clause.
   await user.click(screen.getByRole('button', { name: /write the setup docs/i }))
 
   // Assert
-  expect(screen.getByText('—')).toBeTruthy()
+  expect(screen.getByRole('heading', { name: /work story/i })).toBeTruthy()
+  expect(screen.getByText('Announce')).toBeTruthy()
 })
 
 test('prompts to connect before any snapshot arrives', () => {

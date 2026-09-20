@@ -5,13 +5,21 @@ import type { Snapshot } from '@/api/generated/types.gen.ts'
 // loaded only when VITE_MOCK is set, and code-split out of a production build.
 export const mockSnapshot: Snapshot = {
   issues: {
-    total: 4,
+    total: 7,
     start_at: 0,
     issues: [
       {
         key: 'PROJ-412',
         summary: 'Redact tokens before they reach the request log',
         status: 'In Progress',
+        status_category: 'indeterminate',
+        type: 'Bug',
+        priority: 'High',
+      },
+      {
+        key: 'PROJ-418',
+        summary: 'Refuse to start when the config names an unknown forge',
+        status: 'In Review',
         status_category: 'indeterminate',
         type: 'Bug',
         priority: 'High',
@@ -30,6 +38,22 @@ export const mockSnapshot: Snapshot = {
         status: 'To Do',
         status_category: 'new',
         type: 'Task',
+      },
+      {
+        key: 'PROJ-396',
+        summary: 'Support GitLab merge requests alongside GitHub pulls',
+        status: 'Backlog',
+        status_category: 'new',
+        type: 'Story',
+        priority: 'Medium',
+      },
+      {
+        key: 'PROJ-390',
+        summary: 'Flake in the CI-polling test under the race detector',
+        status: 'In Progress',
+        status_category: 'indeterminate',
+        type: 'Bug',
+        priority: 'Low',
       },
       {
         key: 'PROJ-377',
