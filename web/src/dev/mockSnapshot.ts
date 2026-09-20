@@ -133,4 +133,11 @@ export const mockSnapshot: Snapshot = {
     channels: ['#dev-workflow', '#releases', '#team-platform'],
     author: 'ana.lopez',
   },
+  // Three issues in flight — the checked-out one plus two on other branches — so
+  // the mockup shows the issues list marking several, and each with its own story.
+  branches: [
+    { name: 'fix/PROJ-412-redact-tokens', issue_key: 'PROJ-412', current: true },
+    { name: 'feat/PROJ-418-webhook-retries', issue_key: 'PROJ-418', current: false },
+    { name: 'fix/PROJ-408-flaky-timeout', issue_key: 'PROJ-408', current: false },
+  ],
 }

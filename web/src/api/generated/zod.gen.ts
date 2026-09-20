@@ -18,6 +18,15 @@ export const zHealth = z.object({
     dry_run: z.boolean()
 });
 
+/**
+ * A local branch named for an issue, by the branch-name convention.
+ */
+export const zTaskBranch = z.object({
+    name: z.string(),
+    issue_key: z.string(),
+    current: z.boolean()
+});
+
 export const zStatusCategory = z.enum([
     'new',
     'indeterminate',
@@ -150,7 +159,8 @@ export const zSnapshot = z.object({
     branch: zBranch,
     changes: zChangeList,
     review: zReview,
-    slack: zSlack
+    slack: zSlack,
+    branches: z.array(zTaskBranch)
 });
 
 export const zSlackConfig = z.object({

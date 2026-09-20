@@ -226,6 +226,7 @@ func webDeps(deps tui.Deps) webserver.Deps {
 		Search:   deps.Jira.Search,
 		Issue:    deps.Jira.Issue,
 		Branch:   deps.Git.Branch,
+		Branches: deps.Git.Branches,
 		Changes:  deps.Git.Changes,
 		FindPull: deps.Forge.FindPullRequest,
 		CheckCI:  deps.Forge.CheckStatus,

@@ -1,5 +1,5 @@
 import { Check } from 'lucide-react'
-import type { Snapshot } from '@/api/generated/types.gen.ts'
+import type { Snapshot, TaskBranch } from '@/api/generated/types.gen.ts'
 import { useSnapshotStore } from '@/api/snapshot.ts'
 import { cn } from '@/lib/utils.ts'
 import { useUiStore, type Section } from '@/shell/uiStore.ts'
@@ -13,27 +13,49 @@ interface Stage {
   done: boolean
 }
 
-// The current branch belongs to one issue — its key is in the branch name, by
-// the tool's own convention (fix/PROJ-412-slug). Only that issue has work in
-// flight; every other issue's story is still to begin.
-function branchIsFor(branchName: string, issueKey: string): boolean {
-  return new RegExp(`(^|[^A-Za-z0-9])${issueKey}([^A-Za-z0-9]|$)`).test(branchName)
-}
-
 // The loop, top to bottom: branch for the issue, commit the work, open the pull
-// request and get CI green, announce it. For the issue that owns the current
-// branch each stage's "done" is read from the streamed state; for any other
-// issue nothing has started yet.
-function buildStages(snapshot: Snapshot, started: boolean): Stage[] {
-  if (!started) {
-    return [
-      { title: 'Branch', section: 'branch', done: false, detail: 'No branch for this issue yet' },
-      { title: 'Changes', section: 'branch', done: false, detail: 'Nothing committed yet' },
-      { title: 'Pull request', section: 'review', done: false, detail: 'No pull request yet' },
-      { title: 'Announce', section: 'slack', done: false, detail: 'Not announced' },
-    ]
+// request and get CI green, announce it. An issue with no local branch has not
+// started. One with a branch that is not checked out has begun, but the detail
+// panels describe only the checked-out branch, so its later stages wait. The
+// issue on HEAD reads every stage's state from the stream.
+function buildStages(snapshot: Snapshot, branch: TaskBranch | undefined): Stage[] {
+  if (!branch) {
+    return notStartedStages()
+  }
+  if (!branch.current) {
+    return offHeadStages(branch.name)
   }
 
+  return onHeadStages(snapshot)
+}
+
+// notStartedStages is the story for an issue with no local branch yet.
+function notStartedStages(): Stage[] {
+  return [
+    { title: 'Branch', section: 'branch', done: false, detail: 'No branch for this issue yet' },
+    { title: 'Changes', section: 'branch', done: false, detail: 'Nothing committed yet' },
+    { title: 'Pull request', section: 'review', done: false, detail: 'No pull request yet' },
+    { title: 'Announce', section: 'slack', done: false, detail: 'Not announced' },
+  ]
+}
+
+// offHeadStages is the story for an in-flight issue whose branch is not checked
+// out: the branch exists, but its changes and pull request are only visible from
+// the checked-out branch, so those stages stay pending here.
+function offHeadStages(branchName: string): Stage[] {
+  const elsewhere = 'Shown for the checked-out branch'
+
+  return [
+    { title: 'Branch', section: 'branch', done: true, detail: branchName },
+    { title: 'Changes', section: 'branch', done: false, detail: elsewhere },
+    { title: 'Pull request', section: 'review', done: false, detail: elsewhere },
+    { title: 'Announce', section: 'slack', done: false, detail: 'Not announced' },
+  ]
+}
+
+// onHeadStages is the full story for the issue that owns the checked-out branch,
+// with each stage's state read from the stream.
+function onHeadStages(snapshot: Snapshot): Stage[] {
   const { branch, changes, slack } = snapshot
 
   return [
@@ -116,6 +138,20 @@ function stageState(stage: Stage, index: number, activeIndex: number): StageStat
   return 'upcoming'
 }
 
+// storyNote explains an issue that is not the checked-out one: never started, or
+// in flight on a branch that is not on HEAD. The issue on HEAD needs no note —
+// its stages speak for themselves.
+function storyNote(branch: TaskBranch | undefined): string | null {
+  if (!branch) {
+    return 'Not in progress — its branch, changes, and pull request appear here once you pick it up.'
+  }
+  if (!branch.current) {
+    return `In progress on ${branch.name} — its changes and pull request show when it is the branch you are on.`
+  }
+
+  return null
+}
+
 export function WorkStory({ issueKey }: { issueKey: string }) {
   const snapshot = useSnapshotStore((state) => state.snapshot)
   const setSection = useUiStore((state) => state.setSection)
@@ -124,17 +160,14 @@ export function WorkStory({ issueKey }: { issueKey: string }) {
     return null
   }
 
-  const started = branchIsFor(snapshot.branch.name, issueKey)
-  const stages = buildStages(snapshot, started)
+  const branch = snapshot.branches.find((entry) => entry.issue_key === issueKey)
+  const stages = buildStages(snapshot, branch)
   const activeIndex = stages.findIndex((stage) => !stage.done)
+  const note = storyNote(branch)
 
   return (
     <div className="flex flex-col gap-3">
-      {started ? null : (
-        <p className="text-sm text-muted-foreground">
-          Not in progress — its branch, changes, and pull request appear here once you pick it up.
-        </p>
-      )}
+      {note === null ? null : <p className="text-sm text-muted-foreground">{note}</p>}
       <ol className="flex flex-col">
         {stages.map((stage, index) => {
           const state = stageState(stage, index, activeIndex)

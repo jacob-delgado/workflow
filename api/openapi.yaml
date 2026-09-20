@@ -288,13 +288,41 @@ components:
       description: >-
         The full read state carried by one event-stream message: everything the
         cockpit shows, together.
-      required: [issues, branch, changes, review, slack]
+      required: [issues, branch, changes, review, slack, branches]
       properties:
         issues: {$ref: "#/components/schemas/IssuesPage"}
         branch: {$ref: "#/components/schemas/Branch"}
         changes: {$ref: "#/components/schemas/ChangeList"}
         review: {$ref: "#/components/schemas/Review"}
         slack: {$ref: "#/components/schemas/Slack"}
+        branches:
+          type: array
+          description: >-
+            The local branches named for an issue — the record of what is in
+            flight. The detail panels (branch, changes, review) describe the
+            checked-out branch alone; this lists every issue that has a branch,
+            so the issues list can mark them all in flight, not the one on HEAD.
+          items: {$ref: "#/components/schemas/TaskBranch"}
+      additionalProperties: false
+
+    TaskBranch:
+      type: object
+      description: A local branch named for an issue, by the branch-name convention.
+      required: [name, issue_key, current]
+      properties:
+        name:
+          type: string
+          description: The local branch name.
+          example: fix/PROJ-412-redact-tokens
+        issue_key:
+          type: string
+          description: >-
+            The issue the branch is named for — a Jira key or a forge issue
+            number, per the branch-name convention.
+          example: PROJ-412
+        current:
+          type: boolean
+          description: Whether this is the checked-out branch.
       additionalProperties: false
 
     IssuesPage:

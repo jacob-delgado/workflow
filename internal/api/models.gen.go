@@ -421,15 +421,34 @@ type SlackConfig struct {
 
 // Snapshot The full read state carried by one event-stream message: everything the cockpit shows, together.
 type Snapshot struct {
-	Branch  Branch     `json:"branch"`
-	Changes ChangeList `json:"changes"`
-	Issues  IssuesPage `json:"issues"`
-	Review  Review     `json:"review"`
-	Slack   Slack      `json:"slack"`
+	Branch Branch `json:"branch"`
+
+	// Branches The local branches named for an issue — the record of what is in flight. The detail panels (branch, changes, review) describe the checked-out branch alone; this lists every issue that has a branch, so the issues list can mark them all in flight, not the one on HEAD.
+	Branches []TaskBranch `json:"branches"`
+	Changes  ChangeList   `json:"changes"`
+	Issues   IssuesPage   `json:"issues"`
+	Review   Review       `json:"review"`
+	Slack    Slack        `json:"slack"`
 }
 
 // StatusCategory defines model for StatusCategory.
 type StatusCategory string
+
+// TaskBranch A local branch named for an issue, by the branch-name convention.
+type TaskBranch struct {
+	// Current Whether this is the checked-out branch.
+	Current bool `json:"current"`
+
+	// IssueKey The issue the branch is named for — a Jira key or a forge issue number, per the branch-name convention.
+	//
+	// Example: PROJ-412
+	IssueKey string `json:"issue_key"`
+
+	// Name The local branch name.
+	//
+	// Example: fix/PROJ-412-redact-tokens
+	Name string `json:"name"`
+}
 
 // TimingConfig defines model for TimingConfig.
 type TimingConfig struct {

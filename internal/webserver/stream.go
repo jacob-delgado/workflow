@@ -75,12 +75,45 @@ func writeSnapshot(w http.ResponseWriter, flusher http.Flusher, eventID int, sna
 // snapshot, so one unreachable upstream does not blank the cockpit.
 func (s *server) snapshot(view string) api.Snapshot {
 	return api.Snapshot{
-		Issues:  s.snapshotIssues(view),
-		Branch:  s.snapshotBranch(),
-		Changes: s.snapshotChanges(),
-		Review:  s.snapshotReview(),
-		Slack:   slackDTO(s.config(), s.author()),
+		Issues:   s.snapshotIssues(view),
+		Branch:   s.snapshotBranch(),
+		Changes:  s.snapshotChanges(),
+		Review:   s.snapshotReview(),
+		Slack:    slackDTO(s.config(), s.author()),
+		Branches: s.snapshotBranches(),
 	}
+}
+
+// snapshotBranches lists the local branches named for an issue, marking the one
+// on HEAD. These are the issues in flight; the branch, changes and review panels
+// describe only the checked-out branch. It is empty outside a repository or when
+// the read fails.
+func (s *server) snapshotBranches() []api.TaskBranch {
+	if s.deps.Branches == nil {
+		return taskBranchesDTO(nil, "", "")
+	}
+
+	names, err := s.deps.Branches()
+	if err != nil {
+		return taskBranchesDTO(nil, "", "")
+	}
+
+	return taskBranchesDTO(names, s.currentBranchName(), s.config().Jira.Project)
+}
+
+// currentBranchName is the checked-out branch's name, or "" outside a repository
+// or when the read fails — used only to mark which task branch is on HEAD.
+func (s *server) currentBranchName() string {
+	if s.deps.Branch == nil {
+		return ""
+	}
+
+	branch, err := s.deps.Branch()
+	if err != nil {
+		return ""
+	}
+
+	return branch.Name
 }
 
 // snapshotIssues is the first page of the view's issues, or an empty page when

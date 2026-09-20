@@ -5,12 +5,16 @@ import { makeSnapshot } from '@/test/fixtures.ts'
 import { useUiStore } from '@/shell/uiStore.ts'
 import { WorkStory } from './WorkStory.tsx'
 
-// makeSnapshot's branch is fix/PROJ-1, so PROJ-1 owns the current work.
+// makeSnapshot's branch is fix/PROJ-1; a branches entry marks PROJ-1 as the one
+// checked out, so PROJ-1 owns the current work.
+const onHead = [{ name: 'fix/PROJ-1', issue_key: 'PROJ-1', current: true }]
+
 test('lays out the in-flight stages for the issue that owns the branch', () => {
   // Arrange
   useSnapshotStore.setState({
     status: 'live',
     snapshot: makeSnapshot({
+      branches: onHead,
       changes: {
         changes: [
           { path: 'a.go', kind: 'modified', staged: false, has_unstaged: true, conflicted: false },
@@ -33,6 +37,7 @@ test('reads a committed clean tree and a green pull request', () => {
   useSnapshotStore.setState({
     status: 'live',
     snapshot: makeSnapshot({
+      branches: onHead,
       branch: {
         name: 'fix/PROJ-1',
         detached: false,
@@ -73,6 +78,7 @@ test('reads a fresh branch as nothing-committed and a pull request with no CI', 
   useSnapshotStore.setState({
     status: 'live',
     snapshot: makeSnapshot({
+      branches: onHead,
       review: {
         found: true,
         pull: {
@@ -106,6 +112,27 @@ test('shows a not-started story for an issue that does not own the branch', () =
   // Assert
   expect(screen.getByText(/not in progress/i)).toBeTruthy()
   expect(screen.getByText(/no branch for this issue yet/i)).toBeTruthy()
+})
+
+test('shows an in-progress-elsewhere story for an issue on a branch not checked out', () => {
+  // Arrange
+  useSnapshotStore.setState({
+    status: 'live',
+    snapshot: makeSnapshot({
+      branches: [
+        { name: 'fix/PROJ-1', issue_key: 'PROJ-1', current: true },
+        { name: 'feat/PROJ-2-metrics', issue_key: 'PROJ-2', current: false },
+      ],
+    }),
+  })
+
+  // Act
+  render(<WorkStory issueKey="PROJ-2" />)
+
+  // Assert
+  expect(screen.getByText(/in progress on feat\/PROJ-2-metrics/i)).toBeTruthy()
+  // Both the changes and pull-request stages defer to the checked-out branch.
+  expect(screen.getAllByText(/shown for the checked-out branch/i)).toHaveLength(2)
 })
 
 test('jumps to a stage section when it is clicked', async () => {

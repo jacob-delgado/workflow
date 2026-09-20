@@ -73,6 +73,24 @@ test('shows the work story for the selected issue', async () => {
   expect(screen.getByText('Announce')).toBeTruthy()
 })
 
+test('marks only the issues a local branch names as in flight', () => {
+  // Arrange
+  // Two issues, but only PROJ-1 has a local branch, so only it is in flight.
+  withIssues()
+  useSnapshotStore.setState((state) => ({
+    snapshot: state.snapshot && {
+      ...state.snapshot,
+      branches: [{ name: 'fix/PROJ-1-leak', issue_key: 'PROJ-1', current: true }],
+    },
+  }))
+
+  // Act
+  render(<IssuesPanel />)
+
+  // Assert
+  expect(screen.getAllByText('in flight')).toHaveLength(1)
+})
+
 test('prompts to connect before any snapshot arrives', () => {
   // Act
   render(<IssuesPanel />)

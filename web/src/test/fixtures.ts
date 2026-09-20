@@ -19,6 +19,7 @@ export function makeSnapshot(overrides: Partial<Snapshot> = {}): Snapshot {
     changes: { changes: [] },
     review: { found: false },
     slack: { channel: '#dev', channels: [], author: 'octocat' },
+    branches: [],
     ...overrides,
   }
 }

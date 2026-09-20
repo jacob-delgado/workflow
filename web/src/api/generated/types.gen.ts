@@ -39,6 +39,28 @@ export type Snapshot = {
     changes: ChangeList;
     review: Review;
     slack: Slack;
+    /**
+     * The local branches named for an issue — the record of what is in flight. The detail panels (branch, changes, review) describe the checked-out branch alone; this lists every issue that has a branch, so the issues list can mark them all in flight, not the one on HEAD.
+     */
+    branches: Array<TaskBranch>;
+};
+
+/**
+ * A local branch named for an issue, by the branch-name convention.
+ */
+export type TaskBranch = {
+    /**
+     * The local branch name.
+     */
+    name: string;
+    /**
+     * The issue the branch is named for — a Jira key or a forge issue number, per the branch-name convention.
+     */
+    issue_key: string;
+    /**
+     * Whether this is the checked-out branch.
+     */
+    current: boolean;
 };
 
 export type IssuesPage = {
