@@ -34,6 +34,9 @@ const (
 	testVersion    = "1.2.3"
 	testBugJQL     = "type = Bug"
 	testBase       = "origin/main"
+	// noBranchSeam is the shared name for the "no branch seam" case the write
+	// handlers' unavailability tables each exercise.
+	noBranchSeam = "no branch seam"
 	// loopbackHost is the Host the shared request helpers send, so requests pass
 	// the loopback guard the same way a browser on 127.0.0.1 does. A test that
 	// exercises the guard sets its own Host instead.

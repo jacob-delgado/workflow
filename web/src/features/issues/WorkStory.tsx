@@ -4,7 +4,8 @@ import type { Snapshot, TaskBranch } from '@/api/generated/types.gen.ts'
 import { useSnapshotStore } from '@/api/snapshot.ts'
 import { cn } from '@/lib/utils.ts'
 import { useUiStore, type Section } from '@/shell/uiStore.ts'
-import { checkoutBranch, refusalMessage } from './checkoutApi.ts'
+import { apiErrorMessage } from '@/api/apiError.ts'
+import { checkoutBranch } from './checkoutApi.ts'
 import { startWork } from './startWorkApi.ts'
 
 type StageState = 'done' | 'active' | 'upcoming'
@@ -223,7 +224,7 @@ function CheckoutButton({ branch }: { branch: string }) {
       setError('')
       setState('idle')
     } catch (caught) {
-      setError(refusalMessage(caught))
+      setError(apiErrorMessage(caught, 'The branch could not be checked out.'))
       setState('error')
     }
   }
@@ -263,7 +264,7 @@ function StartWorkButton({ issueKey }: { issueKey: string }) {
       setError('')
       setState('idle')
     } catch (caught) {
-      setError(refusalMessage(caught))
+      setError(apiErrorMessage(caught, 'Work could not be started.'))
       setState('error')
     }
   }

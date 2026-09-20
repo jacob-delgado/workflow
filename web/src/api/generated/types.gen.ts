@@ -35,6 +35,32 @@ export type CreateBranchRequest = {
     issue_key: string;
 };
 
+/**
+ * The parts of a Conventional Commit message for the staged changes.
+ */
+export type CommitRequest = {
+    /**
+     * The Conventional Commit type, such as feat or fix.
+     */
+    type: string;
+    /**
+     * The optional scope, written in parentheses after the type.
+     */
+    scope?: string;
+    /**
+     * The description written after the colon.
+     */
+    subject: string;
+    /**
+     * The optional message body, after a blank line.
+     */
+    body?: string;
+    /**
+     * Whether this is a breaking change, marked with "!".
+     */
+    breaking?: boolean;
+};
+
 export type Health = {
     /**
      * The binary's version, or a short commit for a dev build.
@@ -690,6 +716,39 @@ export type CreateBranchResponses = {
 };
 
 export type CreateBranchResponse = CreateBranchResponses[keyof CreateBranchResponses];
+
+export type CommitData = {
+    body: CommitRequest;
+    path?: never;
+    query?: never;
+    url: '/api/commit';
+};
+
+export type CommitErrors = {
+    /**
+     * Nothing is staged; there is nothing to commit.
+     */
+    409: Error;
+    /**
+     * The message is invalid, or the commit failed.
+     */
+    422: Error;
+    /**
+     * The request could not be completed.
+     */
+    default: Error;
+};
+
+export type CommitError = CommitErrors[keyof CommitErrors];
+
+export type CommitResponses = {
+    /**
+     * The branch, now carrying the new commit.
+     */
+    200: Branch;
+};
+
+export type CommitResponse = CommitResponses[keyof CommitResponses];
 
 export type StreamEventsData = {
     body?: never;

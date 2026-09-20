@@ -2,8 +2,8 @@
 
 import type { Client, ClientMeta, Options as Options2, RequestResult, ServerSentEventsResult, TDataShape } from './client';
 import { client } from './client.gen';
-import type { CheckoutData, CheckoutErrors, CheckoutResponses, CreateBranchData, CreateBranchErrors, CreateBranchResponses, GetBranchData, GetBranchErrors, GetBranchResponses, GetConfigData, GetConfigErrors, GetConfigResponses, GetHealthData, GetHealthResponses, GetIssueData, GetIssueErrors, GetIssueResponses, GetReviewData, GetReviewErrors, GetReviewResponses, GetSlackData, GetSlackErrors, GetSlackResponses, ListChangesData, ListChangesErrors, ListChangesResponses, ListIssuesData, ListIssuesErrors, ListIssuesResponses, ListViewsData, ListViewsErrors, ListViewsResponses, StreamEventsData, StreamEventsResponse, StreamEventsResponses, UpdateConfigData, UpdateConfigErrors, UpdateConfigResponses } from './types.gen';
-import { zCheckoutResponse, zCreateBranchResponse, zGetBranchResponse, zGetConfigResponse, zGetHealthResponse, zGetIssueResponse, zGetReviewResponse, zGetSlackResponse, zListChangesResponse, zListIssuesResponse, zListViewsResponse, zStreamEventsResponse, zUpdateConfigResponse } from './zod.gen';
+import type { CheckoutData, CheckoutErrors, CheckoutResponses, CommitData, CommitErrors, CommitResponses, CreateBranchData, CreateBranchErrors, CreateBranchResponses, GetBranchData, GetBranchErrors, GetBranchResponses, GetConfigData, GetConfigErrors, GetConfigResponses, GetHealthData, GetHealthResponses, GetIssueData, GetIssueErrors, GetIssueResponses, GetReviewData, GetReviewErrors, GetReviewResponses, GetSlackData, GetSlackErrors, GetSlackResponses, ListChangesData, ListChangesErrors, ListChangesResponses, ListIssuesData, ListIssuesErrors, ListIssuesResponses, ListViewsData, ListViewsErrors, ListViewsResponses, StreamEventsData, StreamEventsResponse, StreamEventsResponses, UpdateConfigData, UpdateConfigErrors, UpdateConfigResponses } from './types.gen';
+import { zCheckoutResponse, zCommitResponse, zCreateBranchResponse, zGetBranchResponse, zGetConfigResponse, zGetHealthResponse, zGetIssueResponse, zGetReviewResponse, zGetSlackResponse, zListChangesResponse, zListIssuesResponse, zListViewsResponse, zStreamEventsResponse, zUpdateConfigResponse } from './zod.gen';
 
 export type Options<TData extends TDataShape = TDataShape, ThrowOnError extends boolean = boolean, TResponse = unknown> = Options2<TData, ThrowOnError, TResponse> & {
     /**
@@ -138,6 +138,21 @@ export const checkout = <ThrowOnError extends boolean = false>(options: Options<
 export const createBranch = <ThrowOnError extends boolean = false>(options: Options<CreateBranchData, ThrowOnError>): RequestResult<CreateBranchResponses, CreateBranchErrors, ThrowOnError> => (options.client ?? client).post<CreateBranchResponses, CreateBranchErrors, ThrowOnError>({
     responseValidator: async (data) => await zCreateBranchResponse.parseAsync(data),
     url: '/api/branches',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * Commit the staged changes with a Conventional Commit message.
+ *
+ * Commits what is already staged, with a message assembled from the Conventional Commit parts and a Refs trailer for the branch's issue. Staging is done elsewhere; this commits the index as it stands. It is refused with 409 when nothing is staged, and 422 when the message is not a valid Conventional Commit or the commit (its hooks) fails.
+ */
+export const commit = <ThrowOnError extends boolean = false>(options: Options<CommitData, ThrowOnError>): RequestResult<CommitResponses, CommitErrors, ThrowOnError> => (options.client ?? client).post<CommitResponses, CommitErrors, ThrowOnError>({
+    responseValidator: async (data) => await zCommitResponse.parseAsync(data),
+    url: '/api/commit',
     ...options,
     headers: {
         'Content-Type': 'application/json',

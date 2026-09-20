@@ -286,6 +286,42 @@ paths:
               schema: {$ref: "#/components/schemas/Error"}
         default: {$ref: "#/components/responses/Error"}
 
+  /api/commit:
+    post:
+      operationId: commit
+      summary: Commit the staged changes with a Conventional Commit message.
+      description: >-
+        Commits what is already staged, with a message assembled from the
+        Conventional Commit parts and a Refs trailer for the branch's issue.
+        Staging is done elsewhere; this commits the index as it stands. It is
+        refused with 409 when nothing is staged, and 422 when the message is not
+        a valid Conventional Commit or the commit (its hooks) fails.
+      tags: [branches]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CommitRequest"
+      responses:
+        "200":
+          description: The branch, now carrying the new commit.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Branch"
+        "409":
+          description: Nothing is staged; there is nothing to commit.
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/Error"}
+        "422":
+          description: The message is invalid, or the commit failed.
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/Error"}
+        default: {$ref: "#/components/responses/Error"}
+
   /api/events:
     get:
       operationId: streamEvents
@@ -353,6 +389,30 @@ components:
           type: string
           description: The issue to name and create a branch for.
           example: PROJ-412
+      additionalProperties: false
+
+    CommitRequest:
+      type: object
+      description: The parts of a Conventional Commit message for the staged changes.
+      required: [type, subject]
+      properties:
+        type:
+          type: string
+          description: The Conventional Commit type, such as feat or fix.
+          example: fix
+        scope:
+          type: string
+          description: The optional scope, written in parentheses after the type.
+        subject:
+          type: string
+          description: The description written after the colon.
+          example: redact tokens before they reach the request log
+        body:
+          type: string
+          description: The optional message body, after a blank line.
+        breaking:
+          type: boolean
+          description: Whether this is a breaking change, marked with "!".
       additionalProperties: false
 
     Health:
