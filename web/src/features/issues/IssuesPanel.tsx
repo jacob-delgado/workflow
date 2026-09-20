@@ -21,6 +21,7 @@ export function IssuesPanel() {
     return <EmptyState>No issues match this view.</EmptyState>
   }
 
+  const inFlight = new Set(snapshot.branches.map((branch) => branch.issue_key))
   const current = issues.find((issue) => issue.key === selected) ?? null
 
   return (
@@ -43,6 +44,12 @@ export function IssuesPanel() {
               <span className="flex items-center gap-2">
                 <span className="font-mono text-xs text-muted-foreground">{issue.key}</span>
                 <StatusBadge category={issue.status_category} label={issue.status} />
+                {inFlight.has(issue.key) ? (
+                  <span className="ml-auto flex items-center gap-1 text-xs text-primary">
+                    <span aria-hidden className="size-1.5 rounded-full bg-primary" />
+                    <span className="sr-only">in flight</span>
+                  </span>
+                ) : null}
               </span>
               <span className="text-sm">{issue.summary}</span>
             </button>

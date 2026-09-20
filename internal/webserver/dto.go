@@ -6,6 +6,7 @@ package webserver
 import (
 	"github.com/jacob-delgado/workflow/internal/api"
 	"github.com/jacob-delgado/workflow/internal/config"
+	"github.com/jacob-delgado/workflow/internal/convention"
 	"github.com/jacob-delgado/workflow/internal/forge"
 	"github.com/jacob-delgado/workflow/internal/gitrepo"
 	"github.com/jacob-delgado/workflow/internal/jira"
@@ -85,6 +86,28 @@ func branchDTO(branch gitrepo.Branch) api.Branch {
 		Base:     branch.Base,
 		Commits:  commits,
 	}
+}
+
+// taskBranchesDTO maps local branch names to the issues they are named for,
+// keeping only the branches that name one and marking the checked-out branch.
+// The slice is non-nil so the wire value is an empty array rather than null,
+// matching the snapshot's other collections.
+func taskBranchesDTO(names []string, current, project string) []api.TaskBranch {
+	branches := make([]api.TaskBranch, 0, len(names))
+	for _, name := range names {
+		key, named := convention.IssueKey(name, project)
+		if !named {
+			continue
+		}
+
+		branches = append(branches, api.TaskBranch{
+			Name:     name,
+			IssueKey: key,
+			Current:  name == current,
+		})
+	}
+
+	return branches
 }
 
 // changesDTO maps the working tree's changes, each with a display-ready kind.
