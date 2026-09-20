@@ -6,11 +6,19 @@ export const zError = z.object({
     code: z.enum([
         'bad_request',
         'not_found',
+        'conflict',
         'unprocessable',
         'unreachable',
         'internal'
     ]),
     message: z.string()
+});
+
+/**
+ * The branch to check out.
+ */
+export const zCheckoutRequest = z.object({
+    branch: z.string()
 });
 
 export const zHealth = z.object({
@@ -301,6 +309,13 @@ export const zUpdateConfigBody = zConfig;
  * The configuration as written, redacted.
  */
 export const zUpdateConfigResponse = zConfig;
+
+export const zCheckoutBody = zCheckoutRequest;
+
+/**
+ * The branch that is now checked out.
+ */
+export const zCheckoutResponse = zBranch;
 
 export const zStreamEventsQuery = z.object({
     view: z.string().optional()

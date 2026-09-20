@@ -6,6 +6,7 @@ package webserver
 import (
 	"net"
 	"net/http"
+	"net/url"
 	"strings"
 )
 
@@ -26,8 +27,47 @@ func guardLoopback(next http.Handler) http.Handler {
 			return
 		}
 
+		if !allowedOrigin(request) {
+			http.Error(w, "cross-origin writes are refused", http.StatusForbidden)
+
+			return
+		}
+
 		next.ServeHTTP(w, request)
 	})
+}
+
+// allowedOrigin guards a state-changing request against a cross-origin caller: a
+// write carrying an Origin header must name the loopback interface. A read (a
+// safe method), or a write with no Origin — a same-origin request, curl, the
+// event stream — is allowed. This closes the cross-site request path a browser
+// would otherwise take to the local server, on top of the loopback Host check.
+func allowedOrigin(request *http.Request) bool {
+	if isSafeMethod(request.Method) {
+		return true
+	}
+
+	origin := request.Header.Get("Origin")
+	if origin == "" {
+		return true
+	}
+
+	parsed, err := url.Parse(origin)
+	if err != nil {
+		return false
+	}
+
+	return isLoopbackHost(parsed.Host)
+}
+
+// isSafeMethod reports whether method only reads, so it needs no write guard.
+func isSafeMethod(method string) bool {
+	switch method {
+	case http.MethodGet, http.MethodHead, http.MethodOptions:
+		return true
+	default:
+		return false
+	}
 }
 
 // isLoopbackHost reports whether host (an HTTP Host header) names the loopback
