@@ -2,7 +2,7 @@ import { useState, type ReactNode } from 'react'
 import { useForm } from 'react-hook-form'
 import type { Config } from '@/api/generated/types.gen.ts'
 import { EmptyState } from '@/shell/EmptyState.tsx'
-import { saveConfig, useConfig } from './configApi.ts'
+import { useConfig, useSaveConfig } from './configApi.ts'
 
 export function SettingsPanel() {
   const query = useConfig()
@@ -25,13 +25,14 @@ function ConfigForm({ config }: { config: Config }) {
   // does not edit (ui, timing, branch, commit, headers, views…) ride back
   // unchanged on save rather than being dropped.
   const { register, handleSubmit, reset } = useForm<Config>({ defaultValues: config })
+  const save = useSaveConfig()
   const [status, setStatus] = useState<SaveStatus>('idle')
   const [error, setError] = useState('')
 
   const onSubmit = handleSubmit(async (values) => {
     setStatus('saving')
     try {
-      reset(await saveConfig(values))
+      reset(await save(values))
       setError('')
       setStatus('saved')
     } catch (caught) {
@@ -60,12 +61,18 @@ function ConfigForm({ config }: { config: Config }) {
           <input
             id="jira.token"
             type="password"
+            aria-describedby="jira.token-hint"
             className={inputClass}
             {...register('jira.token')}
           />
         </Field>
         <Field id="jira.user" label="User" hint="Empty authenticates with the token as a bearer.">
-          <input id="jira.user" className={inputClass} {...register('jira.user')} />
+          <input
+            id="jira.user"
+            aria-describedby="jira.user-hint"
+            className={inputClass}
+            {...register('jira.user')}
+          />
         </Field>
         <Field id="jira.project" label="Project">
           <input id="jira.project" className={inputClass} {...register('jira.project')} />
@@ -77,6 +84,7 @@ function ConfigForm({ config }: { config: Config }) {
           <input
             id="slack.token"
             type="password"
+            aria-describedby="slack.token-hint"
             className={inputClass}
             {...register('slack.token')}
           />
@@ -89,6 +97,7 @@ function ConfigForm({ config }: { config: Config }) {
           <input
             id="slack.webhook_url"
             type="password"
+            aria-describedby="slack.webhook_url-hint"
             className={inputClass}
             {...register('slack.webhook_url')}
           />
@@ -120,6 +129,7 @@ function ConfigForm({ config }: { config: Config }) {
           <input
             id="forge.token"
             type="password"
+            aria-describedby="forge.token-hint"
             className={inputClass}
             {...register('forge.token')}
           />
@@ -191,7 +201,11 @@ function Field({
         {label}
       </label>
       {children}
-      {hint ? <p className="text-xs text-muted-foreground">{hint}</p> : null}
+      {hint ? (
+        <p id={`${id}-hint`} className="text-xs text-muted-foreground">
+          {hint}
+        </p>
+      ) : null}
     </div>
   )
 }
