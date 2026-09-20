@@ -5,9 +5,32 @@ import { useSnapshotStore } from '@/api/snapshot.ts'
 import { makeSnapshot } from '@/test/fixtures.ts'
 import { BranchPanel } from './BranchPanel.tsx'
 import { commitChanges } from './commitApi.ts'
+import { pushBranch } from './pushApi.ts'
 
 vi.mock('./commitApi.ts', () => ({ commitChanges: vi.fn(() => Promise.resolve()) }))
 const mockCommit = vi.mocked(commitChanges)
+
+vi.mock('./pushApi.ts', () => ({ pushBranch: vi.fn(() => Promise.resolve()) }))
+const mockPush = vi.mocked(pushBranch)
+
+// pushable is a snapshot whose branch has commits the remote does not have.
+function pushable() {
+  useSnapshotStore.setState({
+    status: 'live',
+    snapshot: makeSnapshot({
+      branch: {
+        name: 'fix/PROJ-1',
+        detached: false,
+        head: 'abc1234',
+        upstream: '',
+        ahead: 0,
+        behind: 0,
+        base: 'origin/main',
+        commits: [{ hash: 'c0ffee1', subject: 'fix: redact tokens' }],
+      },
+    }),
+  })
+}
 
 // staged is a snapshot whose working tree has one staged and one unstaged change.
 function staged() {
@@ -126,6 +149,112 @@ test('shows the reason when a commit is refused', async () => {
 
   // Assert
   expect(await screen.findByText(/nothing is staged/i)).toBeTruthy()
+})
+
+test('offers to push a branch with unpushed commits', () => {
+  // Arrange
+  pushable()
+
+  // Act
+  render(<BranchPanel />)
+
+  // Assert
+  expect(screen.getByRole('button', { name: 'Push branch' })).toBeTruthy()
+})
+
+test('offers no push for a fully published branch', () => {
+  // Arrange
+  useSnapshotStore.setState({
+    status: 'live',
+    snapshot: makeSnapshot({
+      branch: {
+        name: 'fix/PROJ-1',
+        detached: false,
+        head: 'abc1234',
+        upstream: 'origin/fix/PROJ-1',
+        ahead: 0,
+        behind: 0,
+        base: 'origin/main',
+        commits: [{ hash: 'c0ffee1', subject: 'fix: redact tokens' }],
+      },
+    }),
+  })
+
+  // Act
+  render(<BranchPanel />)
+
+  // Assert
+  expect(screen.queryByRole('button', { name: 'Push branch' })).toBeNull()
+})
+
+test('offers no push in a detached HEAD', () => {
+  // Arrange
+  // Commits present, but not on a branch — so there is nothing to push.
+  useSnapshotStore.setState({
+    status: 'live',
+    snapshot: makeSnapshot({
+      branch: {
+        name: '',
+        detached: true,
+        head: 'abcdef1234',
+        upstream: '',
+        ahead: 0,
+        behind: 0,
+        base: '',
+        commits: [{ hash: 'c0ffee1', subject: 'fix: redact tokens' }],
+      },
+    }),
+  })
+
+  // Act
+  render(<BranchPanel />)
+
+  // Assert
+  expect(screen.queryByRole('button', { name: 'Push branch' })).toBeNull()
+})
+
+test('pushes only after the confirm step', async () => {
+  // Arrange
+  mockPush.mockResolvedValueOnce()
+  const user = userEvent.setup()
+  pushable()
+  render(<BranchPanel />)
+
+  // Act: ask, then confirm
+  await user.click(screen.getByRole('button', { name: 'Push branch' }))
+  await user.click(screen.getByRole('button', { name: 'Push' }))
+
+  // Assert
+  expect(mockPush).toHaveBeenCalledTimes(1)
+})
+
+test('does not push if the confirm is canceled', async () => {
+  // Arrange
+  const user = userEvent.setup()
+  pushable()
+  render(<BranchPanel />)
+
+  // Act
+  await user.click(screen.getByRole('button', { name: 'Push branch' }))
+  await user.click(screen.getByRole('button', { name: 'Cancel' }))
+
+  // Assert
+  expect(mockPush).not.toHaveBeenCalled()
+})
+
+test('shows the reason when a push fails', async () => {
+  // Arrange
+  mockPush.mockRejectedValueOnce({ code: 'unprocessable', message: 'the push failed: rejected' })
+  const user = userEvent.setup()
+  pushable()
+  render(<BranchPanel />)
+
+  // Act
+  await user.click(screen.getByRole('button', { name: 'Push branch' }))
+  await user.click(screen.getByRole('button', { name: 'Push' }))
+
+  // Assert
+  expect(await screen.findByText(/the push failed/i)).toBeTruthy()
 })
 
 test('invites connecting before the first snapshot arrives', () => {

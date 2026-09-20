@@ -342,6 +342,11 @@ export const zCreateBranchBody = zCreateBranchRequest;
  */
 export const zCreateBranchResponse = zBranch;
 
+/**
+ * The branch, now published.
+ */
+export const zPushResponse = zBranch;
+
 export const zCommitBody = zCommitRequest;
 
 /**

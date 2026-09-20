@@ -37,11 +37,36 @@ func guardLoopback(next http.Handler) http.Handler {
 	})
 }
 
+// refuseWritesInDryRun makes the whole surface read-only when the server runs
+// with --dry-run: a state-changing request is answered 403 without reaching a
+// handler, so no write — a checkout, a commit, a push — happens. When dry-run is
+// off it adds nothing. This is the web's dry-run: the terminal interface instead
+// simulates each write, but a read-only surface keeps the guarantee that matters
+// — nothing is written — with one gate over every write.
+func refuseWritesInDryRun(dryRun bool, next http.Handler) http.Handler {
+	if !dryRun {
+		return next
+	}
+
+	return http.HandlerFunc(func(w http.ResponseWriter, request *http.Request) {
+		if !isSafeMethod(request.Method) {
+			http.Error(w, "the web interface is read-only while --dry-run is set", http.StatusForbidden)
+
+			return
+		}
+
+		next.ServeHTTP(w, request)
+	})
+}
+
 // allowedOrigin guards a state-changing request against a cross-origin caller: a
-// write carrying an Origin header must name the loopback interface. A read (a
-// safe method), or a write with no Origin — a same-origin request, curl, the
-// event stream — is allowed. This closes the cross-site request path a browser
-// would otherwise take to the local server, on top of the loopback Host check.
+// write carrying an Origin header must name the server's own origin — the same
+// host and port the request was sent to. A read (a safe method), or a write with
+// no Origin — curl, the event stream — is allowed. Requiring the exact origin,
+// not merely "some loopback host", closes the path a co-resident page on another
+// loopback port (a dev server, a served file) would otherwise take to the local
+// server with a no-preflight POST; the browser always attaches Origin to a
+// cross-origin write, and the app itself is always same-origin.
 func allowedOrigin(request *http.Request) bool {
 	if isSafeMethod(request.Method) {
 		return true
@@ -57,7 +82,7 @@ func allowedOrigin(request *http.Request) bool {
 		return false
 	}
 
-	return isLoopbackHost(parsed.Host)
+	return strings.EqualFold(parsed.Host, request.Host)
 }
 
 // isSafeMethod reports whether method only reads, so it needs no write guard.

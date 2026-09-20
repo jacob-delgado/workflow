@@ -92,12 +92,14 @@ func filledDeps() webserver.Deps {
 	}
 }
 
-// serve builds the API handler over deps and cfg. Handler fails only when the
-// embedded spec cannot load, which is a build defect, so the test fails there.
+// serve builds the API handler over deps and cfg, not in dry-run, so the write
+// endpoints are reachable — the common case. A test that exercises dry-run's
+// read-only guard passes its own Info. Handler fails only when the embedded spec
+// cannot load, which is a build defect, so the test fails there.
 func serve(t *testing.T, deps webserver.Deps, cfg config.Config) http.Handler {
 	t.Helper()
 
-	return serveWith(t, deps, cfg, webserver.Info{Version: testVersion, DryRun: true})
+	return serveWith(t, deps, cfg, webserver.Info{Version: testVersion})
 }
 
 // serveWith is serve with the caller's Info, for the tests that need a specific
@@ -159,8 +161,11 @@ func decode[T any](t *testing.T, recorder *httptest.ResponseRecorder) T {
 func TestGetHealthReportsTheBuild(t *testing.T) {
 	t.Parallel()
 
+	// Arrange
+	dryRun := webserver.Info{Version: testVersion, DryRun: true}
+
 	// Act
-	recorder := get(t, serve(t, webserver.Deps{}, config.Default()), "/api/health")
+	recorder := get(t, serveWith(t, webserver.Deps{}, config.Default(), dryRun), "/api/health")
 
 	// Assert
 	if recorder.Code != http.StatusOK {

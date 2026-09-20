@@ -2,8 +2,8 @@
 
 import type { Client, ClientMeta, Options as Options2, RequestResult, ServerSentEventsResult, TDataShape } from './client';
 import { client } from './client.gen';
-import type { CheckoutData, CheckoutErrors, CheckoutResponses, CommitData, CommitErrors, CommitResponses, CreateBranchData, CreateBranchErrors, CreateBranchResponses, GetBranchData, GetBranchErrors, GetBranchResponses, GetConfigData, GetConfigErrors, GetConfigResponses, GetHealthData, GetHealthResponses, GetIssueData, GetIssueErrors, GetIssueResponses, GetReviewData, GetReviewErrors, GetReviewResponses, GetSlackData, GetSlackErrors, GetSlackResponses, ListChangesData, ListChangesErrors, ListChangesResponses, ListIssuesData, ListIssuesErrors, ListIssuesResponses, ListViewsData, ListViewsErrors, ListViewsResponses, StreamEventsData, StreamEventsResponse, StreamEventsResponses, UpdateConfigData, UpdateConfigErrors, UpdateConfigResponses } from './types.gen';
-import { zCheckoutResponse, zCommitResponse, zCreateBranchResponse, zGetBranchResponse, zGetConfigResponse, zGetHealthResponse, zGetIssueResponse, zGetReviewResponse, zGetSlackResponse, zListChangesResponse, zListIssuesResponse, zListViewsResponse, zStreamEventsResponse, zUpdateConfigResponse } from './zod.gen';
+import type { CheckoutData, CheckoutErrors, CheckoutResponses, CommitData, CommitErrors, CommitResponses, CreateBranchData, CreateBranchErrors, CreateBranchResponses, GetBranchData, GetBranchErrors, GetBranchResponses, GetConfigData, GetConfigErrors, GetConfigResponses, GetHealthData, GetHealthResponses, GetIssueData, GetIssueErrors, GetIssueResponses, GetReviewData, GetReviewErrors, GetReviewResponses, GetSlackData, GetSlackErrors, GetSlackResponses, ListChangesData, ListChangesErrors, ListChangesResponses, ListIssuesData, ListIssuesErrors, ListIssuesResponses, ListViewsData, ListViewsErrors, ListViewsResponses, PushData, PushErrors, PushResponses, StreamEventsData, StreamEventsResponse, StreamEventsResponses, UpdateConfigData, UpdateConfigErrors, UpdateConfigResponses } from './types.gen';
+import { zCheckoutResponse, zCommitResponse, zCreateBranchResponse, zGetBranchResponse, zGetConfigResponse, zGetHealthResponse, zGetIssueResponse, zGetReviewResponse, zGetSlackResponse, zListChangesResponse, zListIssuesResponse, zListViewsResponse, zPushResponse, zStreamEventsResponse, zUpdateConfigResponse } from './zod.gen';
 
 export type Options<TData extends TDataShape = TDataShape, ThrowOnError extends boolean = boolean, TResponse = unknown> = Options2<TData, ThrowOnError, TResponse> & {
     /**
@@ -143,6 +143,17 @@ export const createBranch = <ThrowOnError extends boolean = false>(options: Opti
         'Content-Type': 'application/json',
         ...options.headers
     }
+});
+
+/**
+ * Push the current branch to its remote, setting upstream.
+ *
+ * Publishes the checked-out branch to the push remote, setting upstream if it has none — the first outward step of opening a pull request. It is refused with 409 when there is nothing to push (no commits, or already up to date) and 422 when the push fails.
+ */
+export const push = <ThrowOnError extends boolean = false>(options?: Options<PushData, ThrowOnError>): RequestResult<PushResponses, PushErrors, ThrowOnError> => (options?.client ?? client).post<PushResponses, PushErrors, ThrowOnError>({
+    responseValidator: async (data) => await zPushResponse.parseAsync(data),
+    url: '/api/push',
+    ...options
 });
 
 /**
