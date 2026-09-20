@@ -28,6 +28,74 @@ test('lays out the in-flight stages for the issue that owns the branch', () => {
   expect(screen.getByText(/1 file\(s\) to commit/)).toBeTruthy()
 })
 
+test('reads a committed clean tree and a green pull request', () => {
+  // Arrange
+  useSnapshotStore.setState({
+    status: 'live',
+    snapshot: makeSnapshot({
+      branch: {
+        name: 'fix/PROJ-1',
+        detached: false,
+        head: 'h1h2h3h',
+        upstream: 'origin/fix/PROJ-1',
+        ahead: 1,
+        behind: 0,
+        base: 'origin/main',
+        commits: [{ hash: 'h1h2h3h4', subject: 'do the work' }],
+      },
+      changes: { changes: [] },
+      review: {
+        found: true,
+        pull: {
+          number: 128,
+          url: 'https://x/128',
+          title: 'the change',
+          draft: false,
+          approvals: 1,
+          changes_requested: false,
+          mergeable: 'clean',
+        },
+        ci: { state: 'passed', total: 1, done: 1, failed: 0, checks: [] },
+      },
+    }),
+  })
+
+  // Act
+  render(<WorkStory issueKey="PROJ-1" />)
+
+  // Assert
+  expect(screen.getByText(/working tree clean/i)).toBeTruthy()
+  expect(screen.getByText(/#128 · CI passed/i)).toBeTruthy()
+})
+
+test('reads a fresh branch as nothing-committed and a pull request with no CI', () => {
+  // Arrange
+  useSnapshotStore.setState({
+    status: 'live',
+    snapshot: makeSnapshot({
+      review: {
+        found: true,
+        pull: {
+          number: 42,
+          url: 'https://x/42',
+          title: 'the change',
+          draft: false,
+          approvals: 0,
+          changes_requested: false,
+          mergeable: 'unknown',
+        },
+      },
+    }),
+  })
+
+  // Act
+  render(<WorkStory issueKey="PROJ-1" />)
+
+  // Assert
+  expect(screen.getByText(/nothing committed yet/i)).toBeTruthy()
+  expect(screen.getByText('#42')).toBeTruthy()
+})
+
 test('shows a not-started story for an issue that does not own the branch', () => {
   // Arrange
   useSnapshotStore.setState({ status: 'live', snapshot: makeSnapshot() })

@@ -33,6 +33,19 @@ test('drops a payload that does not match the contract', () => {
   expect(useSnapshotStore.getState().snapshot).toBeNull()
 })
 
+test('drops a snapshot frame that is not valid JSON', () => {
+  // Arrange
+  renderHook(() => {
+    useEventStream()
+  })
+
+  // Act
+  FakeEventSource.latest().emit('snapshot', 'not json{')
+
+  // Assert
+  expect(useSnapshotStore.getState().snapshot).toBeNull()
+})
+
 test('marks the stream live when it opens', () => {
   // Arrange
   renderHook(() => {

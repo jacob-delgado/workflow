@@ -44,7 +44,14 @@ export function useEventStream(): void {
 
     source.addEventListener('snapshot', (event) => {
       const message = event as MessageEvent<string>
-      const raw: unknown = JSON.parse(message.data)
+
+      let raw: unknown
+      try {
+        raw = JSON.parse(message.data)
+      } catch {
+        return // a frame that is not even JSON is dropped, like a schema mismatch
+      }
+
       const parsed = zSnapshot.safeParse(raw)
       if (parsed.success) {
         useSnapshotStore.setState({ snapshot: parsed.data, status: 'live' })
