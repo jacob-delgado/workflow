@@ -8,26 +8,26 @@ single source of truth, from which the typed client is generated.
 
 ## Develop
 
-The toolchain (Node, yarn) is pinned in the repo's `mise.toml`; run `mise install`
-from the repo root. Then, from this directory:
+Node is pinned in the repo's `mise.toml`; run `mise install` from the repo root.
+yarn is not pinned there — Corepack (bundled with Node) runs the version the
+`packageManager` field names. Running the cockpit takes two shells:
 
 ```sh
-corepack enable          # once, so yarn matches package.json's packageManager
-yarn install
-yarn dev                 # Vite dev server; proxies /api to workflow --web on :7000
+task web        # shell 1: the Go API and event stream on 127.0.0.1:7000
+task web:ui     # shell 2: the web UI on :5173 (installs deps, proxies /api to :7000)
 ```
 
-Run `workflow --web` from the repo in another terminal so the dev server has an
-API to proxy to.
+Then open <http://localhost:5173>.
+
+To run yarn directly, invoke it as **`corepack yarn <cmd>`**, not bare `yarn`: a
+mise `yarn` shim otherwise shadows it and fails with "No version is set for shim:
+yarn". `corepack yarn` runs the pinned yarn straight from Node.
 
 ## Checks
 
-| Command      | Does                                                            |
-| ------------ | --------------------------------------------------------------- |
-| `yarn lint`  | eslint, `tsc -b`, prettier, knip, and the import-boundary rules |
-| `yarn test`  | Vitest with the coverage floor                                  |
-| `yarn build` | type-check and build the production bundle                      |
-| `yarn fmt`   | format in place                                                 |
+- `task web:lint` — eslint, `tsc -b`, prettier, knip, and the import-boundary rules.
+- `task web:test` — Vitest with the coverage floor.
+- `task web:build` — type-check and build the production bundle.
 
 ## Conventions
 

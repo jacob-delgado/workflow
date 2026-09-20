@@ -59,6 +59,50 @@ tasks:
       # reach the binary: `task run -- config show`, `task run -- --help`.
       - go run {{.PKG}} {{.CLI_ARGS}}
 
+  # Running the cockpit takes two shells: `task web` serves the Go API and event
+  # stream, `task web:ui` serves the frontend that proxies to it. Corepack ships
+  # with the pinned Node and runs the yarn the packageManager field names;
+  # invoking it as `corepack yarn` sidesteps a mise `yarn` shim that would
+  # otherwise shadow it, and DOWNLOAD_PROMPT=0 lets the first run fetch yarn
+  # without stopping to ask.
+  web:
+    desc: "Shell 1 — serve the cockpit's API and event stream on 127.0.0.1:7000"
+    cmds:
+      - go run {{.PKG}} --web
+
+  web:ui:
+    desc: "Shell 2 — install and serve the web UI on :5173 (proxies /api to :7000)"
+    dir: web
+    env:
+      COREPACK_ENABLE_DOWNLOAD_PROMPT: "0"
+    cmds:
+      - corepack yarn install
+      - corepack yarn dev
+
+  web:lint:
+    desc: Lint the web frontend (eslint, tsc, prettier, knip, import boundaries)
+    dir: web
+    env:
+      COREPACK_ENABLE_DOWNLOAD_PROMPT: "0"
+    cmds:
+      - corepack yarn lint
+
+  web:test:
+    desc: Run the web frontend's unit tests with the coverage floor
+    dir: web
+    env:
+      COREPACK_ENABLE_DOWNLOAD_PROMPT: "0"
+    cmds:
+      - corepack yarn test
+
+  web:build:
+    desc: Build the web frontend's production bundle
+    dir: web
+    env:
+      COREPACK_ENABLE_DOWNLOAD_PROMPT: "0"
+    cmds:
+      - corepack yarn build
+
   test:
     desc: Run the tests with the race detector
     cmds:
