@@ -21,6 +21,13 @@ export const zCheckoutRequest = z.object({
     branch: z.string()
 });
 
+/**
+ * The issue to start work on by creating its branch.
+ */
+export const zCreateBranchRequest = z.object({
+    issue_key: z.string()
+});
+
 export const zHealth = z.object({
     version: z.string(),
     dry_run: z.boolean()
@@ -316,6 +323,13 @@ export const zCheckoutBody = zCheckoutRequest;
  * The branch that is now checked out.
  */
 export const zCheckoutResponse = zBranch;
+
+export const zCreateBranchBody = zCreateBranchRequest;
+
+/**
+ * The branch that was created and is now checked out.
+ */
+export const zCreateBranchResponse = zBranch;
 
 export const zStreamEventsQuery = z.object({
     view: z.string().optional()

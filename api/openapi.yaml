@@ -250,6 +250,42 @@ paths:
               schema: {$ref: "#/components/schemas/Error"}
         default: {$ref: "#/components/responses/Error"}
 
+  /api/branches:
+    post:
+      operationId: createBranch
+      summary: Create and switch to a branch for an issue — start work on it.
+      description: >-
+        Names a branch for the issue by the branch-name convention (from the
+        issue's type and summary) and creates it off the base branch, switching
+        the working tree to it. This is how a not-started issue is picked up. It
+        is refused with 409 when a branch for the issue already exists — check
+        that one out instead.
+      tags: [branches]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateBranchRequest"
+      responses:
+        "200":
+          description: The branch that was created and is now checked out.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Branch"
+        "409":
+          description: A branch for the issue already exists; nothing was created.
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/Error"}
+        "422":
+          description: The branch could not be created.
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/Error"}
+        default: {$ref: "#/components/responses/Error"}
+
   /api/events:
     get:
       operationId: streamEvents
@@ -306,6 +342,17 @@ components:
           type: string
           description: The local branch to switch the working tree to.
           example: fix/PROJ-412-redact-tokens
+      additionalProperties: false
+
+    CreateBranchRequest:
+      type: object
+      description: The issue to start work on by creating its branch.
+      required: [issue_key]
+      properties:
+        issue_key:
+          type: string
+          description: The issue to name and create a branch for.
+          example: PROJ-412
       additionalProperties: false
 
     Health:

@@ -33,6 +33,7 @@ const (
 	testAuthor     = "octocat"
 	testVersion    = "1.2.3"
 	testBugJQL     = "type = Bug"
+	testBase       = "origin/main"
 	// loopbackHost is the Host the shared request helpers send, so requests pass
 	// the loopback guard the same way a browser on 127.0.0.1 does. A test that
 	// exercises the guard sets its own Host instead.
@@ -66,7 +67,7 @@ func filledDeps() webserver.Deps {
 		},
 		Branch: func() (gitrepo.Branch, error) {
 			return gitrepo.Branch{
-				Name: testBranchName, Base: "origin/main", Ahead: 2, Head: "abc123",
+				Name: testBranchName, Base: testBase, Ahead: 2, Head: "abc123",
 				Commits: []gitrepo.Commit{{Hash: "abc123", Subject: "feat: redact"}},
 			}, nil
 		},
@@ -286,7 +287,7 @@ func TestGetBranchReturnsTheBranch(t *testing.T) {
 	branch := decode[api.Branch](t, get(t, serve(t, filledDeps(), config.Default()), "/api/branch"))
 
 	// Assert
-	if branch.Name != testBranchName || branch.Base != "origin/main" || branch.Ahead != 2 {
+	if branch.Name != testBranchName || branch.Base != testBase || branch.Ahead != 2 {
 		t.Errorf("branch = %+v, want the current branch", branch)
 	}
 }

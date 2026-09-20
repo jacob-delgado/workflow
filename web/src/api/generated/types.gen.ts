@@ -25,6 +25,16 @@ export type CheckoutRequest = {
     branch: string;
 };
 
+/**
+ * The issue to start work on by creating its branch.
+ */
+export type CreateBranchRequest = {
+    /**
+     * The issue to name and create a branch for.
+     */
+    issue_key: string;
+};
+
 export type Health = {
     /**
      * The binary's version, or a short commit for a dev build.
@@ -647,6 +657,39 @@ export type CheckoutResponses = {
 };
 
 export type CheckoutResponse = CheckoutResponses[keyof CheckoutResponses];
+
+export type CreateBranchData = {
+    body: CreateBranchRequest;
+    path?: never;
+    query?: never;
+    url: '/api/branches';
+};
+
+export type CreateBranchErrors = {
+    /**
+     * A branch for the issue already exists; nothing was created.
+     */
+    409: Error;
+    /**
+     * The branch could not be created.
+     */
+    422: Error;
+    /**
+     * The request could not be completed.
+     */
+    default: Error;
+};
+
+export type CreateBranchError = CreateBranchErrors[keyof CreateBranchErrors];
+
+export type CreateBranchResponses = {
+    /**
+     * The branch that was created and is now checked out.
+     */
+    200: Branch;
+};
+
+export type CreateBranchResponse = CreateBranchResponses[keyof CreateBranchResponses];
 
 export type StreamEventsData = {
     body?: never;
