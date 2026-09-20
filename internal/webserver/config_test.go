@@ -100,6 +100,34 @@ func TestUpdateConfigRejectsAnInvalidConfig(t *testing.T) {
 	}
 }
 
+func TestUpdateConfigKeepsAMaskedBaseURLPassword(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	// jira.base_url carries a password (it becomes Basic auth); a client sends
+	// back the masked URL the read returned. The stored password must survive.
+	cfg := config.Default()
+	cfg.Path = filepath.Join(t.TempDir(), ".workflow.json")
+	cfg.Jira.BaseURL = "https://user:s3cret@jira.example.com"
+
+	// Act
+	recorder := send(t, serve(t, webserver.Deps{}, cfg), http.MethodPut, "/api/config", marshal(t, cfg.Redacted()))
+
+	// Assert
+	if recorder.Code != http.StatusOK {
+		t.Fatalf("status = %d, want 200: %s", recorder.Code, recorder.Body.String())
+	}
+
+	saved, err := config.LoadFile(cfg.Path)
+	if err != nil {
+		t.Fatalf("reading the saved file: %v", err)
+	}
+
+	if saved.Jira.BaseURL != "https://user:s3cret@jira.example.com" {
+		t.Errorf("saved base_url = %q, want the stored password kept behind the mask", saved.Jira.BaseURL)
+	}
+}
+
 func TestUpdateConfigKeepsAMaskedSecret(t *testing.T) {
 	t.Parallel()
 
