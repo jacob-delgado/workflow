@@ -65,8 +65,37 @@ tasks:
   # invoking it as `corepack yarn` sidesteps a mise `yarn` shim that would
   # otherwise shadow it, and DOWNLOAD_PROMPT=0 lets the first run fetch yarn
   # without stopping to ask.
+  dev:
+    desc: Run the whole cockpit in one shell, live-reloading the Go API and the UI
+    deps: [dev:api, dev:ui]
+
+  dev:api:
+    internal: true
+    cmds:
+      # air rebuilds and restarts `workflow --web` on any .go change.
+      - air
+
+  dev:ui:
+    internal: true
+    dir: web
+    env:
+      COREPACK_ENABLE_DOWNLOAD_PROMPT: "0"
+    cmds:
+      - corepack yarn install
+      - corepack yarn dev
+
+  web:mockup:
+    desc: Serve the web UI against mock data in one shell — no backend, for review
+    dir: web
+    env:
+      COREPACK_ENABLE_DOWNLOAD_PROMPT: "0"
+      VITE_MOCK: "true"
+    cmds:
+      - corepack yarn install
+      - corepack yarn dev
+
   web:
-    desc: "Shell 1 — serve the cockpit's API and event stream on 127.0.0.1:7000"
+    desc: "Serve only the cockpit's API and event stream on 127.0.0.1:7000"
     cmds:
       - go run {{.PKG}} --web
 

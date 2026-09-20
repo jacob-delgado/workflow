@@ -1,5 +1,5 @@
 import { cleanup } from '@testing-library/react'
-import { afterEach } from 'vitest'
+import { afterEach, vi } from 'vitest'
 import { useSnapshotStore } from './api/snapshot.ts'
 import { FakeEventSource } from './test/fakeEventSource.ts'
 import { useUiStore } from './shell/uiStore.ts'
@@ -20,4 +20,5 @@ afterEach(() => {
   useUiStore.setState(initialUi)
   useSnapshotStore.setState(initialSnapshot)
   FakeEventSource.reset()
+  vi.unstubAllEnvs()
 })
