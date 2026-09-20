@@ -1,9 +1,13 @@
 import { cleanup } from '@testing-library/react'
 import { afterEach } from 'vitest'
+import { useUiStore } from './shell/uiStore.ts'
 
-// Unmount and clear the DOM between tests so one render cannot leak into the
-// next. This file is also where jsdom polyfills go as components come to need
-// them (a native <dialog>, IntersectionObserver, and the like).
+const initialUi = useUiStore.getInitialState()
+
+// Unmount and clear the DOM, and reset the shared UI store, so one test cannot
+// leak a rendered tree or a selected section into the next. This file is also
+// where jsdom polyfills go as components come to need them.
 afterEach(() => {
   cleanup()
+  useUiStore.setState(initialUi)
 })
