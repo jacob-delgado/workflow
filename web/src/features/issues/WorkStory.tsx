@@ -1,8 +1,10 @@
 import { Check } from 'lucide-react'
+import { useState } from 'react'
 import type { Snapshot, TaskBranch } from '@/api/generated/types.gen.ts'
 import { useSnapshotStore } from '@/api/snapshot.ts'
 import { cn } from '@/lib/utils.ts'
 import { useUiStore, type Section } from '@/shell/uiStore.ts'
+import { checkoutBranch, refusalMessage } from './checkoutApi.ts'
 
 type StageState = 'done' | 'active' | 'upcoming'
 
@@ -168,6 +170,7 @@ export function WorkStory({ issueKey }: { issueKey: string }) {
   return (
     <div className="flex flex-col gap-3">
       {note === null ? null : <p className="text-sm text-muted-foreground">{note}</p>}
+      {branch && !branch.current ? <CheckoutButton branch={branch.name} /> : null}
       <ol className="flex flex-col">
         {stages.map((stage, index) => {
           const state = stageState(stage, index, activeIndex)
@@ -198,6 +201,48 @@ export function WorkStory({ issueKey }: { issueKey: string }) {
           )
         })}
       </ol>
+    </div>
+  )
+}
+
+type CheckoutState = 'idle' | 'switching' | 'error'
+
+// CheckoutButton switches the working tree to a branch that is not on HEAD. On
+// success the event stream reflects the switch, so there is nothing to update
+// here; a refusal — a dirty tree — is shown inline for the user to act on.
+function CheckoutButton({ branch }: { branch: string }) {
+  const [state, setState] = useState<CheckoutState>('idle')
+  const [error, setError] = useState('')
+
+  const onCheckout = async () => {
+    setState('switching')
+    try {
+      await checkoutBranch(branch)
+      setError('')
+      setState('idle')
+    } catch (caught) {
+      setError(refusalMessage(caught))
+      setState('error')
+    }
+  }
+
+  return (
+    <div className="flex flex-col gap-1">
+      <button
+        type="button"
+        disabled={state === 'switching'}
+        onClick={() => {
+          void onCheckout()
+        }}
+        className="self-start rounded-md border border-input px-3 py-1.5 text-sm hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none disabled:opacity-60"
+      >
+        {state === 'switching' ? 'Checking out…' : 'Check out this branch'}
+      </button>
+      {state === 'error' ? (
+        <p role="alert" className="text-sm text-destructive">
+          {error}
+        </p>
+      ) : null}
     </div>
   )
 }

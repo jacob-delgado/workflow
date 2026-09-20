@@ -215,6 +215,41 @@ paths:
               schema: {$ref: "#/components/schemas/Error"}
         default: {$ref: "#/components/responses/Error"}
 
+  /api/checkout:
+    post:
+      operationId: checkout
+      summary: Check out a local branch, switching the working tree to it.
+      description: >-
+        Switches to the named local branch — the write half of moving between
+        issues. It is refused with 409 when the working tree has uncommitted
+        changes, the same guard the terminal interface applies, so switching
+        never carries work in progress onto another branch.
+      tags: [branches]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CheckoutRequest"
+      responses:
+        "200":
+          description: The branch that is now checked out.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Branch"
+        "409":
+          description: The working tree has uncommitted changes; nothing was switched.
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/Error"}
+        "422":
+          description: The branch could not be checked out.
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/Error"}
+        default: {$ref: "#/components/responses/Error"}
+
   /api/events:
     get:
       operationId: streamEvents
@@ -256,10 +291,21 @@ components:
         code:
           type: string
           description: A stable, machine-readable reason.
-          enum: [bad_request, not_found, unprocessable, unreachable, internal]
+          enum: [bad_request, not_found, conflict, unprocessable, unreachable, internal]
         message:
           type: string
           description: A human-readable explanation, safe to show. Never a secret.
+      additionalProperties: false
+
+    CheckoutRequest:
+      type: object
+      description: The branch to check out.
+      required: [branch]
+      properties:
+        branch:
+          type: string
+          description: The local branch to switch the working tree to.
+          example: fix/PROJ-412-redact-tokens
       additionalProperties: false
 
     Health:

@@ -8,11 +8,21 @@ export type Error = {
     /**
      * A stable, machine-readable reason.
      */
-    code: 'bad_request' | 'not_found' | 'unprocessable' | 'unreachable' | 'internal';
+    code: 'bad_request' | 'not_found' | 'conflict' | 'unprocessable' | 'unreachable' | 'internal';
     /**
      * A human-readable explanation, safe to show. Never a secret.
      */
     message: string;
+};
+
+/**
+ * The branch to check out.
+ */
+export type CheckoutRequest = {
+    /**
+     * The local branch to switch the working tree to.
+     */
+    branch: string;
 };
 
 export type Health = {
@@ -604,6 +614,39 @@ export type UpdateConfigResponses = {
 };
 
 export type UpdateConfigResponse = UpdateConfigResponses[keyof UpdateConfigResponses];
+
+export type CheckoutData = {
+    body: CheckoutRequest;
+    path?: never;
+    query?: never;
+    url: '/api/checkout';
+};
+
+export type CheckoutErrors = {
+    /**
+     * The working tree has uncommitted changes; nothing was switched.
+     */
+    409: Error;
+    /**
+     * The branch could not be checked out.
+     */
+    422: Error;
+    /**
+     * The request could not be completed.
+     */
+    default: Error;
+};
+
+export type CheckoutError = CheckoutErrors[keyof CheckoutErrors];
+
+export type CheckoutResponses = {
+    /**
+     * The branch that is now checked out.
+     */
+    200: Branch;
+};
+
+export type CheckoutResponse = CheckoutResponses[keyof CheckoutResponses];
 
 export type StreamEventsData = {
     body?: never;

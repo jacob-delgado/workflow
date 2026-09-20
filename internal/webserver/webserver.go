@@ -33,6 +33,7 @@ type Deps struct {
 	Issue    func(key jira.Key) (jira.IssueDetail, error)
 	Branch   func() (gitrepo.Branch, error)
 	Branches func() ([]string, error)
+	Checkout func(name string) error
 	Changes  func() ([]gitrepo.Change, error)
 	FindPull func(branch string) (forge.PullRequest, bool, error)
 	CheckCI  func(pull forge.PullRequest, head string) (forge.CI, error)

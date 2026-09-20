@@ -67,6 +67,7 @@ func (e ChangeKind) Valid() bool {
 // Defines values for ErrorCode.
 const (
 	BadRequest    ErrorCode = "bad_request"
+	Conflict      ErrorCode = "conflict"
 	Internal      ErrorCode = "internal"
 	NotFound      ErrorCode = "not_found"
 	Unprocessable ErrorCode = "unprocessable"
@@ -77,6 +78,8 @@ const (
 func (e ErrorCode) Valid() bool {
 	switch e {
 	case BadRequest:
+		return true
+	case Conflict:
 		return true
 	case Internal:
 		return true
@@ -230,6 +233,14 @@ type Check struct {
 	Name  string  `json:"name"`
 	State CIState `json:"state"`
 	URL   string  `json:"url"`
+}
+
+// CheckoutRequest The branch to check out.
+type CheckoutRequest struct {
+	// Branch The local branch to switch the working tree to.
+	//
+	// Example: fix/PROJ-412-redact-tokens
+	Branch string `json:"branch"`
 }
 
 // Comment defines model for Comment.
@@ -491,6 +502,9 @@ type ListIssuesParams struct {
 	// StartAt The zero-based index of the first issue to return.
 	StartAt *int `form:"start_at,omitempty" json:"start_at,omitempty"`
 }
+
+// CheckoutJSONRequestBody defines body for Checkout for application/json ContentType.
+type CheckoutJSONRequestBody = CheckoutRequest
 
 // UpdateConfigJSONRequestBody defines body for UpdateConfig for application/json ContentType.
 type UpdateConfigJSONRequestBody = Config

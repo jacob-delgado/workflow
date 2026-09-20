@@ -2,8 +2,8 @@
 
 import type { Client, ClientMeta, Options as Options2, RequestResult, ServerSentEventsResult, TDataShape } from './client';
 import { client } from './client.gen';
-import type { GetBranchData, GetBranchErrors, GetBranchResponses, GetConfigData, GetConfigErrors, GetConfigResponses, GetHealthData, GetHealthResponses, GetIssueData, GetIssueErrors, GetIssueResponses, GetReviewData, GetReviewErrors, GetReviewResponses, GetSlackData, GetSlackErrors, GetSlackResponses, ListChangesData, ListChangesErrors, ListChangesResponses, ListIssuesData, ListIssuesErrors, ListIssuesResponses, ListViewsData, ListViewsErrors, ListViewsResponses, StreamEventsData, StreamEventsResponse, StreamEventsResponses, UpdateConfigData, UpdateConfigErrors, UpdateConfigResponses } from './types.gen';
-import { zGetBranchResponse, zGetConfigResponse, zGetHealthResponse, zGetIssueResponse, zGetReviewResponse, zGetSlackResponse, zListChangesResponse, zListIssuesResponse, zListViewsResponse, zStreamEventsResponse, zUpdateConfigResponse } from './zod.gen';
+import type { CheckoutData, CheckoutErrors, CheckoutResponses, GetBranchData, GetBranchErrors, GetBranchResponses, GetConfigData, GetConfigErrors, GetConfigResponses, GetHealthData, GetHealthResponses, GetIssueData, GetIssueErrors, GetIssueResponses, GetReviewData, GetReviewErrors, GetReviewResponses, GetSlackData, GetSlackErrors, GetSlackResponses, ListChangesData, ListChangesErrors, ListChangesResponses, ListIssuesData, ListIssuesErrors, ListIssuesResponses, ListViewsData, ListViewsErrors, ListViewsResponses, StreamEventsData, StreamEventsResponse, StreamEventsResponses, UpdateConfigData, UpdateConfigErrors, UpdateConfigResponses } from './types.gen';
+import { zCheckoutResponse, zGetBranchResponse, zGetConfigResponse, zGetHealthResponse, zGetIssueResponse, zGetReviewResponse, zGetSlackResponse, zListChangesResponse, zListIssuesResponse, zListViewsResponse, zStreamEventsResponse, zUpdateConfigResponse } from './zod.gen';
 
 export type Options<TData extends TDataShape = TDataShape, ThrowOnError extends boolean = boolean, TResponse = unknown> = Options2<TData, ThrowOnError, TResponse> & {
     /**
@@ -108,6 +108,21 @@ export const getConfig = <ThrowOnError extends boolean = false>(options?: Option
 export const updateConfig = <ThrowOnError extends boolean = false>(options: Options<UpdateConfigData, ThrowOnError>): RequestResult<UpdateConfigResponses, UpdateConfigErrors, ThrowOnError> => (options.client ?? client).put<UpdateConfigResponses, UpdateConfigErrors, ThrowOnError>({
     responseValidator: async (data) => await zUpdateConfigResponse.parseAsync(data),
     url: '/api/config',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * Check out a local branch, switching the working tree to it.
+ *
+ * Switches to the named local branch — the write half of moving between issues. It is refused with 409 when the working tree has uncommitted changes, the same guard the terminal interface applies, so switching never carries work in progress onto another branch.
+ */
+export const checkout = <ThrowOnError extends boolean = false>(options: Options<CheckoutData, ThrowOnError>): RequestResult<CheckoutResponses, CheckoutErrors, ThrowOnError> => (options.client ?? client).post<CheckoutResponses, CheckoutErrors, ThrowOnError>({
+    responseValidator: async (data) => await zCheckoutResponse.parseAsync(data),
+    url: '/api/checkout',
     ...options,
     headers: {
         'Content-Type': 'application/json',

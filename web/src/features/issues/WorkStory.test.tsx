@@ -1,9 +1,30 @@
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
+import { vi } from 'vitest'
 import { useSnapshotStore } from '@/api/snapshot.ts'
 import { makeSnapshot } from '@/test/fixtures.ts'
 import { useUiStore } from '@/shell/uiStore.ts'
+import { checkoutBranch } from './checkoutApi.ts'
 import { WorkStory } from './WorkStory.tsx'
+
+vi.mock('./checkoutApi.ts', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('./checkoutApi.ts')>()),
+  checkoutBranch: vi.fn(() => Promise.resolve()),
+}))
+const mockCheckout = vi.mocked(checkoutBranch)
+
+// offHead is a snapshot with PROJ-2 in flight on a branch that is not on HEAD.
+function offHead() {
+  useSnapshotStore.setState({
+    status: 'live',
+    snapshot: makeSnapshot({
+      branches: [
+        { name: 'fix/PROJ-1', issue_key: 'PROJ-1', current: true },
+        { name: 'feat/PROJ-2-metrics', issue_key: 'PROJ-2', current: false },
+      ],
+    }),
+  })
+}
 
 // makeSnapshot's branch is fix/PROJ-1; a branches entry marks PROJ-1 as the one
 // checked out, so PROJ-1 owns the current work.
@@ -146,6 +167,59 @@ test('jumps to a stage section when it is clicked', async () => {
 
   // Assert
   expect(useUiStore.getState().section).toBe('review')
+})
+
+test('offers to check out an in-flight branch that is not on HEAD', () => {
+  // Arrange
+  offHead()
+
+  // Act
+  render(<WorkStory issueKey="PROJ-2" />)
+
+  // Assert
+  expect(screen.getByRole('button', { name: /check out this branch/i })).toBeTruthy()
+})
+
+test('does not offer to check out the branch already on HEAD', () => {
+  // Arrange
+  offHead()
+
+  // Act
+  render(<WorkStory issueKey="PROJ-1" />)
+
+  // Assert
+  expect(screen.queryByRole('button', { name: /check out this branch/i })).toBeNull()
+})
+
+test('checks out the branch when its button is clicked', async () => {
+  // Arrange
+  mockCheckout.mockResolvedValueOnce()
+  const user = userEvent.setup()
+  offHead()
+  render(<WorkStory issueKey="PROJ-2" />)
+
+  // Act
+  await user.click(screen.getByRole('button', { name: /check out this branch/i }))
+
+  // Assert
+  expect(mockCheckout).toHaveBeenCalledWith('feat/PROJ-2-metrics')
+})
+
+test('shows the reason when a checkout is refused', async () => {
+  // Arrange
+  mockCheckout.mockRejectedValueOnce({
+    code: 'conflict',
+    message: 'uncommitted changes — commit or stash first',
+  })
+  const user = userEvent.setup()
+  offHead()
+  render(<WorkStory issueKey="PROJ-2" />)
+
+  // Act
+  await user.click(screen.getByRole('button', { name: /check out this branch/i }))
+
+  // Assert
+  expect(await screen.findByText(/uncommitted changes/i)).toBeTruthy()
 })
 
 test('renders nothing before a snapshot arrives', () => {
