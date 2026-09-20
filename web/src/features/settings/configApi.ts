@@ -1,4 +1,4 @@
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { updateConfig } from '@/api/generated'
 import { getConfigOptions } from '@/api/generated/@tanstack/react-query.gen.ts'
 import type { Config } from '@/api/generated/types.gen.ts'
@@ -30,7 +30,7 @@ export function useConfig() {
 // secrets re-masked. A secret left at its masked value keeps the stored one —
 // the server preserves it — so the form need not special-case them. Under
 // VITE_MOCK the save is a no-op that echoes the input.
-export async function saveConfig(config: Config): Promise<Config> {
+async function saveConfig(config: Config): Promise<Config> {
   if (import.meta.env.VITE_MOCK === 'true') {
     return config
   }
@@ -38,4 +38,19 @@ export async function saveConfig(config: Config): Promise<Config> {
   const result = await updateConfig({ body: config, throwOnError: true })
 
   return result.data
+}
+
+// useSaveConfig saves the configuration and refreshes the cached copy with the
+// stored result. The refresh matters: the config query never refetches on its
+// own (staleTime is Infinity), so without it a reopened Settings would show the
+// pre-save values.
+export function useSaveConfig(): (config: Config) => Promise<Config> {
+  const queryClient = useQueryClient()
+
+  return async (config) => {
+    const saved = await saveConfig(config)
+    queryClient.setQueryData(getConfigOptions().queryKey, saved)
+
+    return saved
+  }
 }

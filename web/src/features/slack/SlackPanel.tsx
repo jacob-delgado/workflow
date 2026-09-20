@@ -25,12 +25,12 @@ export function SlackPanel() {
 
       {slack.channels.length > 0 ? (
         <section aria-labelledby="channels-heading" className="flex flex-col gap-2">
-          <h3
+          <h2
             id="channels-heading"
             className="text-sm font-semibold text-muted-foreground uppercase"
           >
             Channels
-          </h3>
+          </h2>
           <ul className="flex flex-wrap gap-2">
             {slack.channels.map((channel) => (
               <li key={channel} className="rounded-md bg-muted px-2 py-1 font-mono text-xs">

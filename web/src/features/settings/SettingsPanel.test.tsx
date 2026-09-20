@@ -1,4 +1,5 @@
-import { screen } from '@testing-library/react'
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { vi } from 'vitest'
 import { renderWithClient } from '@/test/renderWithClient.tsx'
@@ -48,4 +49,33 @@ test('confirms when the configuration is saved', async () => {
 
   // Assert
   expect(await screen.findByText(/saved/i)).toBeTruthy()
+})
+
+test('a save updates the cache so reopening Settings shows the change', async () => {
+  // Arrange
+  vi.stubEnv('VITE_MOCK', 'true')
+  const user = userEvent.setup()
+  const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+  const view = render(
+    <QueryClientProvider client={client}>
+      <SettingsPanel />
+    </QueryClientProvider>,
+  )
+  const project = await screen.findByLabelText('Project')
+  await user.clear(project)
+  await user.type(project, 'XYZ')
+
+  // Act: save, then reopen against the same client
+  await user.click(screen.getByRole('button', { name: /save changes/i }))
+  await screen.findByText(/saved/i)
+  view.unmount()
+  render(
+    <QueryClientProvider client={client}>
+      <SettingsPanel />
+    </QueryClientProvider>,
+  )
+
+  // Assert
+  const reopened = await screen.findByLabelText('Project')
+  expect((reopened as HTMLInputElement).value).toBe('XYZ')
 })
