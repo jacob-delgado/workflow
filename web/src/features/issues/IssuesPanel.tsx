@@ -4,6 +4,7 @@ import { cn } from '@/lib/utils.ts'
 import { EmptyState } from '@/shell/EmptyState.tsx'
 import { useUiStore } from '@/shell/uiStore.ts'
 import { StatusBadge } from './StatusBadge.tsx'
+import { WorkStory } from './WorkStory.tsx'
 
 export function IssuesPanel() {
   const snapshot = useSnapshotStore((state) => state.snapshot)
@@ -62,7 +63,7 @@ export function IssuesPanel() {
 
 function IssueDetail({ issue }: { issue: Issue }) {
   return (
-    <article aria-labelledby="issue-detail-heading" className="flex flex-col gap-4">
+    <article aria-labelledby="issue-detail-heading" className="flex flex-col gap-6">
       <div className="flex flex-col gap-2">
         <span className="flex items-center gap-2">
           <span className="font-mono text-sm text-muted-foreground">{issue.key}</span>
@@ -71,13 +72,20 @@ function IssueDetail({ issue }: { issue: Issue }) {
         <h2 id="issue-detail-heading" className="text-lg font-medium">
           {issue.summary}
         </h2>
+        <p className="text-sm text-muted-foreground">
+          {issue.type}
+          {issue.priority ? ` · ${issue.priority} priority` : ''}
+        </p>
       </div>
-      <dl className="grid grid-cols-[5rem_1fr] gap-x-4 gap-y-1.5 text-sm">
-        <dt className="text-muted-foreground">Type</dt>
-        <dd>{issue.type}</dd>
-        <dt className="text-muted-foreground">Priority</dt>
-        <dd>{issue.priority ?? '—'}</dd>
-      </dl>
+      <section aria-labelledby="work-story-heading" className="flex flex-col gap-4">
+        <h3
+          id="work-story-heading"
+          className="text-sm font-semibold text-muted-foreground uppercase"
+        >
+          Work story
+        </h3>
+        <WorkStory />
+      </section>
     </article>
   )
 }
