@@ -51,6 +51,7 @@ const (
 	keySpace     = "space"
 	keyRight     = "right"
 	keyCtrlO     = "ctrl+o"
+	keyBackspace = "backspace"
 	issueKey     = "PROJ-412"
 	secondIssue  = "PROJ-388"
 	issueSummary = "Fix token redaction"
@@ -81,21 +82,24 @@ type world struct {
 	linkErr       error
 	postedChannel string
 
-	branch      gitrepo.Branch
-	branches    []string
-	branchesErr error
-	changes     []gitrepo.Change
-	stageErr    error
-	createErr   error
-	worktreeErr error
-	checkoutErr error
-	fetchErr    error
-	commitLines []string
-	commitErr   error
-	pushLines   []string
-	pushErr     error
-	rebaseLines []string
-	rebaseErr   error
+	branch            gitrepo.Branch
+	branches          []string
+	branchesErr       error
+	remoteBranches    []string
+	remoteBranchesErr error
+	noRemoteBranches  bool
+	changes           []gitrepo.Change
+	stageErr          error
+	createErr         error
+	worktreeErr       error
+	checkoutErr       error
+	fetchErr          error
+	commitLines       []string
+	commitErr         error
+	pushLines         []string
+	pushErr           error
+	rebaseLines       []string
+	rebaseErr         error
 
 	commitStartErr error
 	ciErr          error

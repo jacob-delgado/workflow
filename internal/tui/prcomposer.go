@@ -108,6 +108,7 @@ func (m Model) openPullRequestComposer() (Model, tea.Cmd) {
 		subjects: subjects, issueKey: issueKey, issueURL: m.browseURL(issueKey), vocab: m.vocab,
 	}
 	composer.base.Blur()
+	composer = composer.withBaseSuggestions(m.deps.Git.RemoteBranches)
 
 	if m.deps.Forge.Templates != nil {
 		composer.templates = m.deps.Forge.Templates()
@@ -121,6 +122,25 @@ func (m Model) openPullRequestComposer() (Model, tea.Cmd) {
 	m.overlay = composer
 
 	return m, nil
+}
+
+// withBaseSuggestions offers the remote branches as completions for the base
+// field, when the repository can list them. A failure to list is no reason to
+// refuse the composer, so the field is simply left without completions.
+func (c prComposer) withBaseSuggestions(remoteBranches func() ([]string, error)) prComposer {
+	if remoteBranches == nil {
+		return c
+	}
+
+	branches, err := remoteBranches()
+	if err != nil {
+		return c
+	}
+
+	c.base.SetSuggestions(branches)
+	c.base.ShowSuggestions = true
+
+	return c
 }
 
 // browseURL links an issue, when there is an issue and a way to link it.
@@ -220,7 +240,7 @@ func (c prComposer) handleKey(m Model, msg tea.KeyPressMsg) (Model, tea.Cmd) {
 	case key.Matches(msg, m.keys.toggleDraft):
 		c.draft = !c.draft
 	case key.Matches(msg, m.keys.nextField, m.keys.prevField):
-		c = c.focusOn((c.focus + 1) % prFields)
+		c = c.onFieldNav(msg, m.keys)
 	default:
 		c = c.typed(msg)
 	}
@@ -228,6 +248,24 @@ func (c prComposer) handleKey(m Model, msg tea.KeyPressMsg) (Model, tea.Cmd) {
 	m.overlay = c
 
 	return m, nil
+}
+
+// onFieldNav accepts a pending base completion when tab could take one, and
+// otherwise moves to the next field.
+func (c prComposer) onFieldNav(msg tea.KeyPressMsg, keys keyMap) prComposer {
+	if c.focus == prFieldBase && key.Matches(msg, keys.nextField) && c.baseCanComplete() {
+		return c.typed(msg)
+	}
+
+	return c.focusOn((c.focus + 1) % prFields)
+}
+
+// baseCanComplete reports a base suggestion that would extend what is typed, so
+// tab completes it rather than moving on.
+func (c prComposer) baseCanComplete() bool {
+	suggestion := c.base.CurrentSuggestion()
+
+	return suggestion != "" && suggestion != c.base.Value()
 }
 
 // focusOn moves focus to a field, and the text cursor with it.

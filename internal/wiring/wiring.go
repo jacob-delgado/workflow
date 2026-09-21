@@ -182,13 +182,14 @@ func gitDeps(ctx context.Context, root string) tui.GitDeps {
 	repo := gitrepo.At(proc.Run, root)
 
 	return tui.GitDeps{
-		Branch:       func() (gitrepo.Branch, error) { return repo.ReadBranch(ctx) },
-		Changes:      func() ([]gitrepo.Change, error) { return repo.Status(ctx) },
-		Stage:        func(change gitrepo.Change) error { return repo.Stage(ctx, change) },
-		Unstage:      func(change gitrepo.Change) error { return repo.Unstage(ctx, change) },
-		CreateBranch: func(name, start string) error { return repo.CreateBranch(ctx, name, start) },
-		Branches:     func() ([]string, error) { return repo.LocalBranches(ctx) },
-		Checkout:     func(name string) error { return repo.Checkout(ctx, name) },
+		Branch:         func() (gitrepo.Branch, error) { return repo.ReadBranch(ctx) },
+		Changes:        func() ([]gitrepo.Change, error) { return repo.Status(ctx) },
+		Stage:          func(change gitrepo.Change) error { return repo.Stage(ctx, change) },
+		Unstage:        func(change gitrepo.Change) error { return repo.Unstage(ctx, change) },
+		CreateBranch:   func(name, start string) error { return repo.CreateBranch(ctx, name, start) },
+		Branches:       func() ([]string, error) { return repo.LocalBranches(ctx) },
+		Checkout:       func(name string) error { return repo.Checkout(ctx, name) },
+		RemoteBranches: func() ([]string, error) { return repo.RemoteBranches(ctx) },
 		CreateWorktree: func(name, start string) (string, error) {
 			return repo.WorktreeAdd(ctx, name, start)
 		},

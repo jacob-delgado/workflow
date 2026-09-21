@@ -299,6 +299,41 @@ func (r Repository) LocalBranches(ctx context.Context) ([]string, error) {
 	return branches, nil
 }
 
+// RemoteBranches lists the branches that exist on the remotes, by name and most
+// recently committed to first, so the base field can complete to one. The remote
+// prefix is dropped ("origin/main" becomes "main") to match the name a base
+// carries, a remote's symbolic HEAD pointer is left out (git abbreviates it to
+// the bare remote name, "origin", which has no branch part), and a branch on
+// more than one remote is listed once.
+func (r Repository) RemoteBranches(ctx context.Context) ([]string, error) {
+	out, err := r.run(ctx, gitProgram, "-C", r.dir,
+		"for-each-ref", "--format=%(refname:short)", "--sort=-committerdate", "refs/remotes")
+	if err != nil {
+		return nil, fmt.Errorf("listing remote branches: %w", err)
+	}
+
+	var branches []string
+
+	seen := map[string]bool{}
+
+	//nolint:modernize // SplitSeq returns a range-over-func iterator, which crashes gobco.
+	for _, ref := range strings.Split(text(out), "\n") {
+		_, name, found := strings.Cut(ref, "/")
+		if !found || name == "" || name == "HEAD" {
+			continue
+		}
+
+		if seen[name] || sanitize.Line(name) != name {
+			continue
+		}
+
+		seen[name] = true
+		branches = append(branches, name)
+	}
+
+	return branches, nil
+}
+
 // Checkout switches to a branch. It carries nothing across: the interface
 // refuses a dirty tree before calling this, leaving stashing to the person.
 func (r Repository) Checkout(ctx context.Context, name string) error {

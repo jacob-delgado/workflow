@@ -177,7 +177,7 @@ func TestInitDoesNothingWithNothingToLoad(t *testing.T) {
 func keyMsg(key string) tea.KeyPressMsg {
 	named := map[string]rune{
 		keyEsc: tea.KeyEscape, "tab": tea.KeyTab, "enter": tea.KeyEnter,
-		keySpace: tea.KeySpace, "backspace": tea.KeyBackspace,
+		keySpace: tea.KeySpace, keyBackspace: tea.KeyBackspace,
 		"down": tea.KeyDown, "up": tea.KeyUp, "left": tea.KeyLeft, keyRight: tea.KeyRight,
 		"pgdown": tea.KeyPgDown, "pgup": tea.KeyPgUp,
 	}

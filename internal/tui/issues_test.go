@@ -190,7 +190,7 @@ func TestFilteringToNothingSaysSoAndBackspaceWidensIt(t *testing.T) {
 	requireScreen(t, empty.View().Content, "no issue matches the filter")
 
 	// Act: backspace back to a match
-	widened := typing(t, empty, "backspace")
+	widened := typing(t, empty, keyBackspace)
 
 	// Assert: both issues return under the shorter filter
 	requireScreen(t, widened.View().Content, "OPS-1 Fix issue", "OPS-2 Fix bug", "filter: Fix")
