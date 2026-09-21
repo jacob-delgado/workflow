@@ -127,6 +127,30 @@ jobs:
           path: web/playwright-report/
           retention-days: 7
 
+  # Advisory, not a gate: run the unit and e2e suites once more to post one
+  # consolidated table of counts and coverage to the run summary. The Test, Web
+  # and E2E jobs above are what actually gate; this only reports.
+  summary:
+    name: Test summary
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: jdx/mise-action@c2a87611a18de5b3828c5652fe268e992400cb5c # v4.3.0
+        with:
+          version: 2026.9.3 # the mise binary itself; see min_version in mise.toml
+      - name: Enable Corepack
+        run: corepack enable
+      - name: Install dependencies
+        run: yarn install --immutable
+        working-directory: web
+      - name: Install the Playwright browser
+        run: yarn playwright install --with-deps chromium
+        working-directory: web
+      - name: Report the test counts and coverage
+        run: task test:summary
+
   # The release build, run on every change so a broken cross-compilation — or a
   # loop that names every target the same and ships one — is caught on the pull
   # request rather than at the tag.
