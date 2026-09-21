@@ -3,8 +3,8 @@
 import { type DefaultError, queryOptions } from '@tanstack/react-query';
 
 import { client } from '../client.gen';
-import { getBranch, getConfig, getHealth, getIssue, getReview, getSlack, listChanges, listIssues, listViews, type Options } from '../sdk.gen';
-import type { GetBranchData, GetBranchError, GetBranchResponse, GetConfigData, GetConfigError, GetConfigResponse, GetHealthData, GetHealthResponse, GetIssueData, GetIssueError, GetIssueResponse, GetReviewData, GetReviewError, GetReviewResponse, GetSlackData, GetSlackError, GetSlackResponse, ListChangesData, ListChangesError, ListChangesResponse, ListIssuesData, ListIssuesError, ListIssuesResponse, ListViewsData, ListViewsError, ListViewsResponse } from '../types.gen';
+import { getAnnouncement, getBranch, getConfig, getHealth, getIssue, getReview, getSlack, listChanges, listIssues, listViews, type Options } from '../sdk.gen';
+import type { GetAnnouncementData, GetAnnouncementError, GetAnnouncementResponse, GetBranchData, GetBranchError, GetBranchResponse, GetConfigData, GetConfigError, GetConfigResponse, GetHealthData, GetHealthResponse, GetIssueData, GetIssueError, GetIssueResponse, GetReviewData, GetReviewError, GetReviewResponse, GetSlackData, GetSlackError, GetSlackResponse, ListChangesData, ListChangesError, ListChangesResponse, ListIssuesData, ListIssuesError, ListIssuesResponse, ListViewsData, ListViewsError, ListViewsResponse } from '../types.gen';
 
 export type QueryKey<TOptions extends Options> = [
     Pick<TOptions, 'baseUrl' | 'body' | 'headers' | 'path' | 'query'> & {
@@ -199,4 +199,24 @@ export const getConfigOptions = (options?: Options<GetConfigData>) => queryOptio
         return data;
     },
     queryKey: getConfigQueryKey(options)
+});
+
+export const getAnnouncementQueryKey = (options?: Options<GetAnnouncementData>) => createQueryKey('getAnnouncement', options);
+
+/**
+ * The announcement message that would be posted, for a preview.
+ *
+ * Composes the Slack announcement for the checked-out branch's pull request — author, title, link, and the issue — from the configured template, without posting it. Answered 409 when there is no pull request to announce.
+ */
+export const getAnnouncementOptions = (options?: Options<GetAnnouncementData>) => queryOptions<GetAnnouncementResponse, GetAnnouncementError, GetAnnouncementResponse, ReturnType<typeof getAnnouncementQueryKey>>({
+    queryFn: async ({ queryKey, signal }) => {
+        const { data } = await getAnnouncement({
+            ...options,
+            ...queryKey[0],
+            signal,
+            throwOnError: true
+        });
+        return data;
+    },
+    queryKey: getAnnouncementQueryKey(options)
 });

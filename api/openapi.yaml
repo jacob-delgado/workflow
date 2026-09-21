@@ -286,6 +286,65 @@ paths:
               schema: {$ref: "#/components/schemas/Error"}
         default: {$ref: "#/components/responses/Error"}
 
+  /api/announcement:
+    get:
+      operationId: getAnnouncement
+      summary: The announcement message that would be posted, for a preview.
+      description: >-
+        Composes the Slack announcement for the checked-out branch's pull
+        request — author, title, link, and the issue — from the configured
+        template, without posting it. Answered 409 when there is no pull request
+        to announce.
+      tags: [slack]
+      responses:
+        "200":
+          description: The composed announcement and the channel it would post to.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Announcement"
+        "409":
+          description: There is no pull request to announce.
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/Error"}
+        default: {$ref: "#/components/responses/Error"}
+
+  /api/announce:
+    post:
+      operationId: announce
+      summary: Post the pull request announcement to Slack.
+      description: >-
+        Posts the composed announcement (see GET /api/announcement) to Slack —
+        to the given channel, or the configured one when none is given, or the
+        webhook's own channel. Refused with 409 when there is no pull request to
+        announce, and 422 when the post fails.
+      tags: [slack]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AnnounceRequest"
+      responses:
+        "200":
+          description: The announcement as posted.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Announcement"
+        "409":
+          description: There is no pull request to announce.
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/Error"}
+        "422":
+          description: The announcement could not be posted.
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/Error"}
+        default: {$ref: "#/components/responses/Error"}
+
   /api/push:
     post:
       operationId: push
@@ -418,6 +477,29 @@ components:
           type: string
           description: The issue to name and create a branch for.
           example: PROJ-412
+      additionalProperties: false
+
+    Announcement:
+      type: object
+      description: A composed Slack announcement and where it would post.
+      required: [text, channel]
+      properties:
+        text:
+          type: string
+          description: The message that would be posted.
+        channel:
+          type: string
+          description: The channel it posts to, or empty for a webhook's own channel.
+      additionalProperties: false
+
+    AnnounceRequest:
+      type: object
+      description: Where to post the announcement.
+      required: [channel]
+      properties:
+        channel:
+          type: string
+          description: The channel to post to; empty uses the configured channel or the webhook.
       additionalProperties: false
 
     CommitRequest:

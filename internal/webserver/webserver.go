@@ -32,6 +32,7 @@ import (
 type Deps struct {
 	Search       func(jql string, startAt int) (jira.SearchResult, error)
 	Issue        func(key jira.Key) (jira.IssueDetail, error)
+	BrowseURL    func(key jira.Key) string
 	Branch       func() (gitrepo.Branch, error)
 	Branches     func() ([]string, error)
 	Checkout     func(name string) error
@@ -42,6 +43,7 @@ type Deps struct {
 	FindPull     func(branch string) (forge.PullRequest, bool, error)
 	CheckCI      func(pull forge.PullRequest, head string) (forge.CI, error)
 	Author       func() (string, error)
+	Post         func(channel, text string) error
 }
 
 // Info is the build and run facts the API reports and the server needs.

@@ -18,6 +18,12 @@ import (
 
 // ServerInterface represents all server handlers.
 type ServerInterface interface {
+	// Announce Post the pull request announcement to Slack.
+	// (POST /api/announce)
+	Announce(w http.ResponseWriter, r *http.Request)
+	// GetAnnouncement The announcement message that would be posted, for a preview.
+	// (GET /api/announcement)
+	GetAnnouncement(w http.ResponseWriter, r *http.Request)
 	// GetBranch The current branch and how it stands against its base.
 	// (GET /api/branch)
 	GetBranch(w http.ResponseWriter, r *http.Request)
@@ -70,6 +76,34 @@ type ServerInterfaceWrapper struct {
 }
 
 type MiddlewareFunc func(http.Handler) http.Handler
+
+// Announce operation middleware
+func (siw *ServerInterfaceWrapper) Announce(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.Announce(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetAnnouncement operation middleware
+func (siw *ServerInterfaceWrapper) GetAnnouncement(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetAnnouncement(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
 
 // GetBranch operation middleware
 func (siw *ServerInterfaceWrapper) GetBranch(w http.ResponseWriter, r *http.Request) {
@@ -443,6 +477,8 @@ func HandlerWithOptions(si ServerInterface, options StdHTTPServerOptions) http.H
 	m.HandleFunc(http.MethodPut+" "+options.BaseURL+"/api/config", wrapper.UpdateConfig)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/api/checkout", wrapper.Checkout)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/api/branches", wrapper.CreateBranch)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/announcement", wrapper.GetAnnouncement)
+	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/api/announce", wrapper.Announce)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/api/push", wrapper.Push)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/api/commit", wrapper.Commit)
 
@@ -450,6 +486,125 @@ func HandlerWithOptions(si ServerInterface, options StdHTTPServerOptions) http.H
 }
 
 type ErrorJSONResponse Error
+
+type AnnounceRequestObject struct {
+	Body *AnnounceJSONRequestBody
+}
+
+type AnnounceResponseObject interface {
+	VisitAnnounceResponse(w http.ResponseWriter) error
+}
+
+type Announce200JSONResponse Announcement
+
+func (response Announce200JSONResponse) VisitAnnounceResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type Announce409JSONResponse Error
+
+func (response Announce409JSONResponse) VisitAnnounceResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(409)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type Announce422JSONResponse Error
+
+func (response Announce422JSONResponse) VisitAnnounceResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(422)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type AnnouncedefaultJSONResponse struct {
+	Body       Error
+	StatusCode int
+}
+
+func (response AnnouncedefaultJSONResponse) VisitAnnounceResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetAnnouncementRequestObject struct {
+}
+
+type GetAnnouncementResponseObject interface {
+	VisitGetAnnouncementResponse(w http.ResponseWriter) error
+}
+
+type GetAnnouncement200JSONResponse Announcement
+
+func (response GetAnnouncement200JSONResponse) VisitGetAnnouncementResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetAnnouncement409JSONResponse Error
+
+func (response GetAnnouncement409JSONResponse) VisitGetAnnouncementResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(409)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetAnnouncementdefaultJSONResponse struct {
+	Body       Error
+	StatusCode int
+}
+
+func (response GetAnnouncementdefaultJSONResponse) VisitGetAnnouncementResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
 
 type GetBranchRequestObject struct {
 }
@@ -1114,6 +1269,12 @@ func (response ListViewsdefaultJSONResponse) VisitListViewsResponse(w http.Respo
 
 // StrictServerInterface represents all server handlers.
 type StrictServerInterface interface {
+	// Announce Post the pull request announcement to Slack.
+	// (POST /api/announce)
+	Announce(ctx context.Context, request AnnounceRequestObject) (AnnounceResponseObject, error)
+	// GetAnnouncement The announcement message that would be posted, for a preview.
+	// (GET /api/announcement)
+	GetAnnouncement(ctx context.Context, request GetAnnouncementRequestObject) (GetAnnouncementResponseObject, error)
 	// GetBranch The current branch and how it stands against its base.
 	// (GET /api/branch)
 	GetBranch(ctx context.Context, request GetBranchRequestObject) (GetBranchResponseObject, error)
@@ -1195,6 +1356,61 @@ type strictHandler struct {
 	ssi         StrictServerInterface
 	middlewares []StrictMiddlewareFunc
 	options     StrictHTTPServerOptions
+}
+
+// Announce operation middleware
+func (sh *strictHandler) Announce(w http.ResponseWriter, r *http.Request) {
+	var request AnnounceRequestObject
+
+	var body AnnounceJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.Announce(ctx, request.(AnnounceRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "Announce")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(AnnounceResponseObject); ok {
+		if err := validResponse.VisitAnnounceResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// GetAnnouncement operation middleware
+func (sh *strictHandler) GetAnnouncement(w http.ResponseWriter, r *http.Request) {
+	var request GetAnnouncementRequestObject
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.GetAnnouncement(ctx, request.(GetAnnouncementRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetAnnouncement")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(GetAnnouncementResponseObject); ok {
+		if err := validResponse.VisitGetAnnouncementResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
 }
 
 // GetBranch operation middleware

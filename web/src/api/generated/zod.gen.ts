@@ -29,6 +29,21 @@ export const zCreateBranchRequest = z.object({
 });
 
 /**
+ * A composed Slack announcement and where it would post.
+ */
+export const zAnnouncement = z.object({
+    text: z.string(),
+    channel: z.string()
+});
+
+/**
+ * Where to post the announcement.
+ */
+export const zAnnounceRequest = z.object({
+    channel: z.string()
+});
+
+/**
  * The parts of a Conventional Commit message for the staged changes.
  */
 export const zCommitRequest = z.object({
@@ -341,6 +356,18 @@ export const zCreateBranchBody = zCreateBranchRequest;
  * The branch that was created and is now checked out.
  */
 export const zCreateBranchResponse = zBranch;
+
+/**
+ * The composed announcement and the channel it would post to.
+ */
+export const zGetAnnouncementResponse = zAnnouncement;
+
+export const zAnnounceBody = zAnnounceRequest;
+
+/**
+ * The announcement as posted.
+ */
+export const zAnnounceResponse = zAnnouncement;
 
 /**
  * The branch, now published.
