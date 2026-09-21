@@ -1,7 +1,25 @@
 import { render, screen } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
+import { vi } from 'vitest'
 import { useSnapshotStore } from '@/api/snapshot.ts'
 import { makeSnapshot } from '@/test/fixtures.ts'
+import { openPr } from './openPrApi.ts'
 import { ReviewPanel } from './ReviewPanel.tsx'
+
+vi.mock('./openPrApi.ts', () => ({
+  previewPullRequest: vi.fn(() =>
+    Promise.resolve({
+      title: 'fix: redact tokens',
+      body: 'why',
+      base: 'main',
+      head: 'fix/PROJ-412',
+      draft: false,
+      needs_push: true,
+    }),
+  ),
+  openPr: vi.fn(() => Promise.resolve()),
+}))
+const mockOpenPr = vi.mocked(openPr)
 
 const pull = {
   number: 128,
@@ -70,6 +88,84 @@ test('says when there is no open pull request', () => {
 
   // Assert
   expect(screen.getByText(/no open pull request/i)).toBeTruthy()
+})
+
+test('opens a pull request from the composed form on confirm', async () => {
+  // Arrange
+  const user = userEvent.setup()
+  useSnapshotStore.setState({
+    status: 'live',
+    snapshot: makeSnapshot({ review: { found: false } }),
+  })
+  render(<ReviewPanel />)
+
+  // Act: open the form, then confirm it
+  await user.click(screen.getByRole('button', { name: /open a pull request/i }))
+  await screen.findByRole('form', { name: /open a pull request/i })
+  await user.click(screen.getByRole('button', { name: 'Open pull request' }))
+
+  // Assert
+  expect(mockOpenPr).toHaveBeenCalledWith(
+    expect.objectContaining({ title: 'fix: redact tokens', base: 'main', draft: false }),
+  )
+  expect(await screen.findByText(/pull request opened/i)).toBeTruthy()
+})
+
+test('locks the confirm while the pull request is opening', async () => {
+  // Arrange
+  // Hold the open unresolved so the in-flight state is observable; a live confirm
+  // here would let a double click open two pull requests.
+  let releaseOpen = () => {}
+  mockOpenPr.mockImplementationOnce(
+    () =>
+      new Promise<void>((resolve) => {
+        releaseOpen = resolve
+      }),
+  )
+  const user = userEvent.setup()
+  useSnapshotStore.setState({
+    status: 'live',
+    snapshot: makeSnapshot({ review: { found: false } }),
+  })
+  render(<ReviewPanel />)
+
+  // Act: open the form and confirm, leaving the open unresolved
+  await user.click(screen.getByRole('button', { name: /open a pull request/i }))
+  await screen.findByRole('form', { name: /open a pull request/i })
+  await user.click(screen.getByRole('button', { name: 'Open pull request' }))
+
+  // Assert: the confirm now reads "Opening…" and is disabled, and only one open fired
+  const opening = await screen.findByRole('button', { name: /opening/i })
+  expect(opening.hasAttribute('disabled')).toBe(true)
+  expect(mockOpenPr).toHaveBeenCalledTimes(1)
+
+  releaseOpen()
+  await screen.findByText(/pull request opened/i)
+})
+
+test('keeps the form and shows the reason when opening is refused', async () => {
+  // Arrange
+  // A distinctive forge reason, not the component's generic fallback, so the
+  // test fails if the reason is dropped for the fallback.
+  mockOpenPr.mockRejectedValueOnce({
+    code: 'unprocessable',
+    message: 'the base branch trunk does not exist on the forge',
+  })
+  const user = userEvent.setup()
+  useSnapshotStore.setState({
+    status: 'live',
+    snapshot: makeSnapshot({ review: { found: false } }),
+  })
+  render(<ReviewPanel />)
+
+  // Act: open the form and confirm, with the open refused
+  await user.click(screen.getByRole('button', { name: /open a pull request/i }))
+  await screen.findByRole('form', { name: /open a pull request/i })
+  await user.click(screen.getByRole('button', { name: 'Open pull request' }))
+
+  // Assert: the forge's own reason shows and the form is still there to retry
+  expect(await screen.findByText(/base branch trunk does not exist/i)).toBeTruthy()
+  expect(screen.getByRole('form', { name: /open a pull request/i })).toBeTruthy()
 })
 
 test('prompts to connect before any snapshot arrives', () => {

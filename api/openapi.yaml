@@ -410,6 +410,69 @@ paths:
               schema: {$ref: "#/components/schemas/Error"}
         default: {$ref: "#/components/responses/Error"}
 
+  /api/pull-request/draft:
+    get:
+      operationId: getPullRequestDraft
+      summary: The pull request that would be opened for the branch, for a preview.
+      description: >-
+        Composes a pull request for the checked-out branch — a title and body
+        from its commits, the issue, and the repository's template, with the base
+        it would merge into — without opening it, so the browser can edit it
+        before confirming. Answered 409 when there is nothing to open: the tree
+        is not on a branch, the branch has no commits, or a pull request is
+        already open for it.
+      tags: [review]
+      responses:
+        "200":
+          description: The composed pull request, editable before opening.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PullRequestDraft"
+        "409":
+          description: There is nothing to open a pull request for.
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/Error"}
+        default: {$ref: "#/components/responses/Error"}
+
+  /api/pull-request:
+    post:
+      operationId: openPullRequest
+      summary: Open a pull request for the current branch, pushing it first if needed.
+      description: >-
+        Opens a pull request from the checked-out branch with the given title,
+        body, base, and draft flag. The branch is always the checked-out one, not
+        the caller's to choose; when it is not yet published, it is pushed first,
+        as opening a pull request from an unpushed branch cannot work. Refused
+        with 409 when there is nothing to open (see GET /api/pull-request/draft)
+        and 422 when the push or the open fails, or the title or base is missing.
+      tags: [review]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/OpenPullRequestRequest"
+      responses:
+        "200":
+          description: The pull request, now open.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PullRequest"
+        "409":
+          description: There is nothing to open a pull request for.
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/Error"}
+        "422":
+          description: The push or the open failed, or the request is incomplete.
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/Error"}
+        default: {$ref: "#/components/responses/Error"}
+
   /api/events:
     get:
       operationId: streamEvents
@@ -524,6 +587,52 @@ components:
         breaking:
           type: boolean
           description: Whether this is a breaking change, marked with "!".
+      additionalProperties: false
+
+    PullRequestDraft:
+      type: object
+      description: A pull request composed for the branch, editable before opening.
+      required: [title, body, base, head, draft, needs_push]
+      properties:
+        title:
+          type: string
+          description: The proposed title, from the first commit or the issue.
+        body:
+          type: string
+          description: The proposed body, from the template, commits, and issue.
+        base:
+          type: string
+          description: The branch it would merge into.
+        head:
+          type: string
+          description: The branch with the work; the open always uses the checked-out one.
+        draft:
+          type: boolean
+          description: Whether it would open as a draft; always false in a fresh draft.
+        needs_push:
+          type: boolean
+          description: Whether the branch must be pushed first; the open pushes it.
+      additionalProperties: false
+
+    OpenPullRequestRequest:
+      type: object
+      description: The pull request to open for the checked-out branch.
+      required: [title, base]
+      properties:
+        title:
+          type: string
+          description: The pull request title.
+          example: "fix: redact tokens before they reach the request log"
+        body:
+          type: string
+          description: The pull request body; may be empty.
+        base:
+          type: string
+          description: The branch to merge into.
+          example: main
+        draft:
+          type: boolean
+          description: Whether to open it as a draft.
       additionalProperties: false
 
     Health:

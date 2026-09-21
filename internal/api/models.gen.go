@@ -423,6 +423,25 @@ type JiraView struct {
 	Name string `json:"name"`
 }
 
+// OpenPullRequestRequest The pull request to open for the checked-out branch.
+type OpenPullRequestRequest struct {
+	// Base The branch to merge into.
+	//
+	// Example: main
+	Base string `json:"base"`
+
+	// Body The pull request body; may be empty.
+	Body *string `json:"body,omitempty"`
+
+	// Draft Whether to open it as a draft.
+	Draft *bool `json:"draft,omitempty"`
+
+	// Title The pull request title.
+	//
+	// Example: fix: redact tokens before they reach the request log
+	Title string `json:"title"`
+}
+
 // PullRequest defines model for PullRequest.
 type PullRequest struct {
 	Approvals        int                  `json:"approvals"`
@@ -438,6 +457,27 @@ type PullRequest struct {
 
 // PullRequestMergeable defines model for PullRequest.Mergeable.
 type PullRequestMergeable string
+
+// PullRequestDraft A pull request composed for the branch, editable before opening.
+type PullRequestDraft struct {
+	// Base The branch it would merge into.
+	Base string `json:"base"`
+
+	// Body The proposed body, from the template, commits, and issue.
+	Body string `json:"body"`
+
+	// Draft Whether it would open as a draft; always false in a fresh draft.
+	Draft bool `json:"draft"`
+
+	// Head The branch with the work; the open always uses the checked-out one.
+	Head string `json:"head"`
+
+	// NeedsPush Whether the branch must be pushed first; the open pushes it.
+	NeedsPush bool `json:"needs_push"`
+
+	// Title The proposed title, from the first commit or the issue.
+	Title string `json:"title"`
+}
 
 // Review defines model for Review.
 type Review struct {
@@ -562,3 +602,6 @@ type CommitJSONRequestBody = CommitRequest
 
 // UpdateConfigJSONRequestBody defines body for UpdateConfig for application/json ContentType.
 type UpdateConfigJSONRequestBody = Config
+
+// OpenPullRequestJSONRequestBody defines body for OpenPullRequest for application/json ContentType.
+type OpenPullRequestJSONRequestBody = OpenPullRequestRequest

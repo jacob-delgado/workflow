@@ -41,6 +41,8 @@ type Deps struct {
 	Push         func(branch string) (proc.Output, error)
 	Changes      func() ([]gitrepo.Change, error)
 	FindPull     func(branch string) (forge.PullRequest, bool, error)
+	CreatePull   func(request forge.NewPullRequest) (forge.PullRequest, error)
+	Templates    func() []forge.Template
 	CheckCI      func(pull forge.PullRequest, head string) (forge.CI, error)
 	Author       func() (string, error)
 	Post         func(channel, text string) error
