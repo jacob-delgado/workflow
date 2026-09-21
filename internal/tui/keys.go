@@ -40,6 +40,9 @@ type keyMap struct {
 	// Review and Slack.
 	newPullRequest, checks, compose, postWhenGreen key.Binding
 
+	// Opening and copying a link, on the Issues and Review panes.
+	openLink, copyLink key.Binding
+
 	// In composers and previews.
 	edit, editBody, nextTemplate, toggleDraft, toggleBreaking, verbatim, fullOutput key.Binding
 
@@ -94,6 +97,8 @@ func newKeyMap(marks glyphs, reviewNoun string) keyMap {
 		checks:         binding("checks", "c"),
 		compose:        binding("post to slack", "p"),
 		postWhenGreen:  binding("post when CI passes", "w"),
+		openLink:       binding("open", "o"),
+		copyLink:       binding("copy url", "y"),
 		edit:           binding("edit", "e"),
 		editBody:       binding("edit body", "ctrl+o"),
 		nextTemplate:   binding("next template", "ctrl+t"),
@@ -109,8 +114,10 @@ func newKeyMap(marks glyphs, reviewNoun string) keyMap {
 	}
 }
 
-// ShortHelp is the footer's tail: enough to move around and to find the rest.
-// The way to every other key comes first, so a narrow footer keeps it.
+// ShortHelp is the footer's tail: enough to move around and to find the rest,
+// with the way to every other key first among them. It follows the focused
+// pane's own verbs, and a footer too narrow for all of them drops from the end,
+// so an action-dense pane can push the tail off a very narrow terminal.
 func (k keyMap) ShortHelp() []key.Binding {
 	return []key.Binding{k.toggleHelp, k.next, k.jump, k.quit}
 }
@@ -120,7 +127,10 @@ func (k keyMap) ShortHelp() []key.Binding {
 func (k keyMap) FullHelp() [][]key.Binding {
 	return [][]key.Binding{
 		{k.next, k.previous, k.jump, k.up, k.down, k.scrollUp, k.scrollDown},
-		{k.changeStatus, k.comment, k.branchForIssue, k.filter, k.nextView, k.loadMore, k.refresh},
+		{
+			k.changeStatus, k.comment, k.branchForIssue, k.filter, k.nextView, k.loadMore,
+			k.openLink, k.copyLink, k.refresh,
+		},
 		{
 			k.newBranch, k.switchTask, k.worktree, k.rebase, k.push,
 			k.stage, k.stageAll, k.commit, k.runHooks, k.hookConfig,

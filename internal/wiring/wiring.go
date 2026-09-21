@@ -70,6 +70,7 @@ func Deps(ctx context.Context, cfg config.Config, where Workspace, log *RequestL
 		CIInterval: cfg.CIInterval(),
 		Notify:     ringTerminal,
 		OpenURL:    func(url string) error { return openInBrowser(ctx, url) },
+		Copy:       tea.SetClipboard,
 	}
 }
 

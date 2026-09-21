@@ -257,6 +257,16 @@ func (w *world) deps() tui.Deps {
 
 			return w.openURLErr
 		},
+		Copy: func(text string) tea.Cmd {
+			// Record in the returned command, as tea.SetClipboard does its work
+			// there, so a test that never runs the command sees no copy — a handler
+			// that drops the command is caught rather than passing.
+			return func() tea.Msg {
+				w.record("copy " + text)
+
+				return nil
+			}
+		},
 	}
 }
 
