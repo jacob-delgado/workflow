@@ -5,6 +5,8 @@ package tui
 
 import (
 	tea "charm.land/bubbletea/v2"
+
+	"github.com/jacob-delgado/workflow/internal/jira"
 )
 
 // createCommand is the command that creates the branch: in a worktree beside the
@@ -23,9 +25,10 @@ func (c branchCreator) createCommand(m Model, name string) tea.Cmd {
 	}
 
 	createBranch := m.deps.Git.CreateBranch
+	issue, forIssue := c.issue, c.forIssue
 
 	return func() tea.Msg {
-		return branchCreated{name: name, err: createBranch(name, base)}
+		return branchCreated{name: name, issue: issue, forIssue: forIssue, err: createBranch(name, base)}
 	}
 }
 
@@ -53,22 +56,35 @@ func (msg fetched) apply(m Model) (Model, tea.Cmd) {
 	return m, creator.createCommand(m, msg.name)
 }
 
-// branchCreated reports how creating a branch went.
+// branchCreated reports how creating a branch went, and the issue it was for so
+// its status can be offered once it exists.
 type branchCreated struct {
-	name string
-	err  error
+	name     string
+	issue    jira.Issue
+	forIssue bool
+	err      error
 }
 
 // apply switches the panes to the new branch, or keeps the creator open with
-// git's reason.
+// git's reason. A branch for an issue not yet started then offers to move it
+// along.
 func (msg branchCreated) apply(m Model) (Model, tea.Cmd) {
 	if msg.err != nil {
 		return failedCreation(m, msg.err), nil
 	}
 
 	m = m.closeOverlay().noticed(m.marks.done + " created and switched to " + msg.name)
+	reload := tea.Batch(m.loadBranch(), m.loadChanges())
 
-	return m, tea.Batch(m.loadBranch(), m.loadChanges())
+	if !msg.forIssue || msg.issue.StatusCategory != jira.CategoryNew {
+		return m, reload
+	}
+
+	// Offer the status change, pre-selected on the first in-progress transition;
+	// the developer confirms it or backs out. Never applied for them.
+	picker, offer := m.pickStatusFor(msg.issue, true)
+
+	return picker, tea.Batch(reload, offer)
 }
 
 // worktreeCreated reports how creating a worktree went.

@@ -80,18 +80,14 @@ Impact: high · Effort: small
 
 Impact: high · Effort: medium
 
-- Why: the loop has natural moments for a status change (branching means work
-  started; a pull request means it is in review), and today each one is a trip
-  back to pane 1, `t`, and a search through the transitions.
-- Touches: `internal/tui/branch.go` (`branchCreated`),
-  `internal/tui/prcomposer.go` (`pullCreated`), `internal/tui/picker.go`.
-- Constraints: offer, never apply. "Nothing outward facing is sent without a
-  last look" is the interface's own rule. Choosing which transition to suggest
-  needs either the target's status category or a configured name; a guess by
-  transition name breaks on a localized Jira.
-- Done when: after a branch is created for an issue in a "to do" category, the
-  status picker opens with the first "in progress" transition selected, and
-  `esc` leaves the issue alone.
+- Done: after a branch is created for an issue in a "to do" category, the status
+  picker opens on it pre-selected on the first "in progress" transition — chosen
+  by status category, never by a localized name — and `esc` leaves the issue
+  alone. Offered, never applied (`branchCreated.apply`, `Model.pickStatusFor` and
+  `firstInProgress` in `internal/tui/branchresult.go` and `picker.go`).
+- Still open: the pull-request moment. "In review" shares the *category*
+  (indeterminate) with "in progress", so the category rule cannot single it out;
+  that moment wants a configured status name, which is a change of its own.
 
 ### FEAT-06 See the whole issue
 
