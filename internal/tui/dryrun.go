@@ -76,6 +76,10 @@ func heldBackGit(deps GitDeps) GitDeps {
 		deps.CreateWorktree = func(string, string) (string, error) { return "", errDryRun }
 	}
 
+	if deps.Finish != nil {
+		deps.Finish = func(string, string) error { return errDryRun }
+	}
+
 	return heldBackStreams(deps)
 }
 

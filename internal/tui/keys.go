@@ -38,7 +38,7 @@ type keyMap struct {
 	newBranch, switchTask, worktree, rebase, push, stage, stageAll, commit, amend, fixup, runHooks, hookConfig key.Binding
 
 	// Review and Slack.
-	newPullRequest, checks, rerun, merge, compose, postWhenGreen key.Binding
+	newPullRequest, checks, rerun, merge, finish, compose, postWhenGreen key.Binding
 
 	// Opening and copying a link, on the Issues and Review panes.
 	openLink, copyLink key.Binding
@@ -103,6 +103,7 @@ func newKeyMap(marks glyphs, reviewNoun string) keyMap {
 		checks:         binding("checks", "c"),
 		rerun:          binding("re-run checks", "R"),
 		merge:          binding("merge", "M"),
+		finish:         binding("finish branch", "F"),
 		compose:        binding("post to slack", "p"),
 		postWhenGreen:  binding("post when CI passes", "w"),
 		openLink:       binding("open", "o"),
@@ -144,7 +145,7 @@ func (k keyMap) FullHelp() [][]key.Binding {
 			k.newBranch, k.switchTask, k.worktree, k.rebase, k.push,
 			k.stage, k.stageAll, k.commit, k.amend, k.fixup, k.runHooks, k.hookConfig,
 		},
-		{k.newPullRequest, k.checks, k.rerun, k.merge, k.compose, k.postWhenGreen},
+		{k.newPullRequest, k.checks, k.rerun, k.merge, k.finish, k.compose, k.postWhenGreen},
 		{
 			k.edit, k.editBody, k.nextTemplate, k.toggleDraft, k.toggleBreaking, k.verbatim,
 			k.nextField, k.prevField, k.cycleLeft, k.cycleRight, k.toggleOption,

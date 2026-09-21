@@ -73,6 +73,15 @@ func (w *world) gitDeps() tui.GitDeps {
 
 			return w.checkoutErr
 		},
+		Finish: func(branch, base string) error {
+			w.record("finish " + branch + " onto " + base)
+
+			if w.finishGate != nil {
+				<-w.finishGate
+			}
+
+			return w.finishErr
+		},
 		Fetch: func() error {
 			w.record("fetch")
 

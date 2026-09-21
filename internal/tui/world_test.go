@@ -107,19 +107,23 @@ type world struct {
 	createErr         error
 	worktreeErr       error
 	checkoutErr       error
-	fetchErr          error
-	commitLines       []string
-	commitErr         error
-	pushLines         []string
-	pushErr           error
-	amendLines        []string
-	amendErr          error
-	noAmend           bool
-	fixupLines        []string
-	fixupErr          error
-	noFixup           bool
-	rebaseLines       []string
-	rebaseErr         error
+	finishErr         error
+	// finishGate, when set, holds every finish until it is closed, so a test can
+	// see the preview while the finish is still under way.
+	finishGate  chan struct{}
+	fetchErr    error
+	commitLines []string
+	commitErr   error
+	pushLines   []string
+	pushErr     error
+	amendLines  []string
+	amendErr    error
+	noAmend     bool
+	fixupLines  []string
+	fixupErr    error
+	noFixup     bool
+	rebaseLines []string
+	rebaseErr   error
 
 	commitStartErr  error
 	ciErr           error

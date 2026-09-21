@@ -91,8 +91,11 @@ func (s *server) composePullRequest() (forge.NewPullRequest, gitrepo.Branch, boo
 		return forge.NewPullRequest{}, gitrepo.Branch{}, false
 	}
 
-	_, found, err := s.deps.FindPull(branch.Name)
-	if err != nil || found {
+	pull, found, err := s.deps.FindPull(branch.Name)
+	if err != nil || (found && pull.Opened()) {
+		// Only an open pull request means there is nothing to open. A merged one is
+		// also found, but its branch may still carry new commits worth a fresh pull
+		// request, so it does not stand in the way of proposing one.
 		return forge.NewPullRequest{}, gitrepo.Branch{}, false
 	}
 

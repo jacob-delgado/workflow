@@ -42,10 +42,19 @@ type Workspace struct {
 	Remote string
 }
 
+// gitRunner runs git with its terminal prompts turned off. Nothing inside the
+// interface can answer a credential prompt, so a git command that reaches the
+// network — a finish's fast-forward pull — must fail with a reason rather than
+// seize the terminal waiting for input that never comes. It is the Runner every
+// repository this package builds goes through.
+func gitRunner(ctx context.Context, name string, args ...string) ([]byte, error) {
+	return proc.RunCommand(ctx, proc.Command{Name: name, Args: args, Env: []string{"GIT_TERMINAL_PROMPT=0"}})
+}
+
 // Locate reads the repository dir is in. Outside one, every git action fails on
 // its own and says why, so this is not an error.
 func Locate(ctx context.Context, dir string) Workspace {
-	repo, err := gitrepo.At(proc.Run, dir).Describe(ctx)
+	repo, err := gitrepo.At(gitRunner, dir).Describe(ctx)
 	if err != nil {
 		return Workspace{Root: dir, Remote: ""}
 	}
@@ -179,7 +188,7 @@ func jiraDeps(ctx context.Context, settings config.Jira, timeout time.Duration, 
 
 // gitDeps is what the interface asks of the repository.
 func gitDeps(ctx context.Context, root string) tui.GitDeps {
-	repo := gitrepo.At(proc.Run, root)
+	repo := gitrepo.At(gitRunner, root)
 
 	return tui.GitDeps{
 		Branch:         func() (gitrepo.Branch, error) { return repo.ReadBranch(ctx) },
@@ -190,6 +199,7 @@ func gitDeps(ctx context.Context, root string) tui.GitDeps {
 		CreateBranch:   func(name, start string) error { return repo.CreateBranch(ctx, name, start) },
 		Branches:       func() ([]string, error) { return repo.LocalBranches(ctx) },
 		Checkout:       func(name string) error { return repo.Checkout(ctx, name) },
+		Finish:         func(branch, base string) error { return repo.FinishBranch(ctx, branch, base) },
 		RemoteBranches: func() ([]string, error) { return repo.RemoteBranches(ctx) },
 		RecentSubjects: func() ([]string, error) { return repo.RecentSubjects(ctx) },
 		CreateWorktree: func(name, start string) (string, error) {
@@ -277,7 +287,7 @@ func hookDeps(ctx context.Context, root string) tui.HookDeps {
 	return tui.HookDeps{
 		Run: func(hook string) (proc.Output, error) { return proc.Start(ctx, hooks.RunCommand(root, hook)) },
 		Existing: func() ([]hooks.GitHook, bool) {
-			dir, err := gitrepo.At(proc.Run, root).HooksDir(ctx)
+			dir, err := gitrepo.At(gitRunner, root).HooksDir(ctx)
 			if err != nil {
 				return nil, true
 			}

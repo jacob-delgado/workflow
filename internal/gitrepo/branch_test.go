@@ -220,6 +220,36 @@ func TestABranchIsPushedOnlyWhenItsOwnUpstreamHasEverything(t *testing.T) {
 	}
 }
 
+func TestHasUnpushedWork(t *testing.T) {
+	t.Parallel()
+
+	cases := map[string]struct {
+		branch gitrepo.Branch
+		want   bool
+	}{
+		"ahead of an upstream": {
+			branch: gitrepo.Branch{Upstream: "origin/feat", Ahead: 1}, want: true,
+		},
+		"level with an upstream": {
+			branch: gitrepo.Branch{Upstream: "origin/feat", Ahead: 0}, want: false,
+		},
+		"no upstream to compare against": {
+			branch: gitrepo.Branch{Upstream: "", Ahead: 3}, want: false,
+		},
+	}
+
+	for name, tt := range cases {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			// Act & Assert
+			if got := tt.branch.HasUnpushedWork(); got != tt.want {
+				t.Errorf("HasUnpushedWork() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
 func TestTheBaseFallsBackWhenOriginNamesNoDefault(t *testing.T) {
 	t.Parallel()
 

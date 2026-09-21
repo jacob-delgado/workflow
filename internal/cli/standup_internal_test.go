@@ -24,6 +24,7 @@ import (
 const (
 	sampleKey     = "PROJ-7"
 	sampleSummary = "Fix the login"
+	samplePullURL = "https://forge/pr/3"
 )
 
 // standupFixture is a day with one commit, one issue and one open pull request,
@@ -35,7 +36,7 @@ func standupFixture() standupSeams {
 		},
 		Branches: func() ([]string, error) { return []string{"fix/PROJ-7-login"}, nil },
 		FindPull: func(string) (forge.PullRequest, bool, error) {
-			return forge.PullRequest{Number: 3, Title: sampleSummary, URL: "https://forge/pr/3"}, true, nil
+			return forge.PullRequest{Number: 3, Title: sampleSummary, URL: samplePullURL}, true, nil
 		},
 		Search: func(string, int) (jira.SearchResult, error) {
 			return jira.SearchResult{Issues: []jira.Issue{{Key: sampleKey, Summary: sampleSummary, Status: "In Progress"}}}, nil
@@ -68,6 +69,32 @@ func TestStandupDraftsCommitsIssuesAndPulls(t *testing.T) {
 		if !strings.Contains(draft, want) {
 			t.Errorf("standup draft missing %q:\n%s", want, draft)
 		}
+	}
+}
+
+func TestStandupOmitsAMergedPullRequest(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	// The branch's pull request has merged, so it is no longer open work to list.
+	seams := standupFixture()
+	seams.FindPull = func(string) (forge.PullRequest, bool, error) {
+		return forge.PullRequest{
+			Number: 3, Title: sampleSummary, URL: samplePullURL, State: forge.StateMerged,
+		}, true, nil
+	}
+
+	var out bytes.Buffer
+
+	// Act
+	err := runStandup(&out, seams, 1, true)
+	if err != nil {
+		t.Fatalf("runStandup: %v", err)
+	}
+
+	// Assert
+	if draft := out.String(); strings.Contains(draft, "#3") {
+		t.Errorf("standup listed a merged pull request as open:\n%s", draft)
 	}
 }
 
@@ -254,7 +281,7 @@ func TestStandupNeutralizesHostileServiceText(t *testing.T) {
 		}}, nil
 	}
 	seams.FindPull = func(string) (forge.PullRequest, bool, error) {
-		return forge.PullRequest{Number: 3, Title: "title\x1b[1mbold", URL: "https://forge/pr/3"}, true, nil
+		return forge.PullRequest{Number: 3, Title: "title\x1b[1mbold", URL: samplePullURL}, true, nil
 	}
 
 	var out bytes.Buffer

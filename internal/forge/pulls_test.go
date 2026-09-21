@@ -103,7 +103,7 @@ func TestFindPullRequestAsksEachForgeForTheBranch(t *testing.T) {
 			},
 			listPath: githubPullsPath,
 			// head is owner:branch on GitHub, or the filter matches nothing.
-			wantQuery: []string{"head=example%3Afix%2FPROJ-1-token", "state=open"},
+			wantQuery: []string{"head=example%3Afix%2FPROJ-1-token", "state=all"},
 			want: forge.PullRequest{
 				Number: 42, URL: "https://github.com/example/repo/pull/42", Title: prTitle, Draft: true,
 				Approvals: 2, Mergeable: forge.MergeClean,
@@ -119,7 +119,7 @@ func TestFindPullRequestAsksEachForgeForTheBranch(t *testing.T) {
 			},
 			// The project path is one escaped segment, slashes and all.
 			listPath:  gitlabMergesPath,
-			wantQuery: []string{"source_branch=fix%2FPROJ-1-token", "state=opened"},
+			wantQuery: []string{"source_branch=fix%2FPROJ-1-token", "state=all"},
 			want: forge.PullRequest{
 				Number: 7, URL: "https://gitlab.com/group/sub/repo/-/merge_requests/7", Title: prTitle, Draft: false,
 				Approvals: 2, Mergeable: forge.MergeClean,

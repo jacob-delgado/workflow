@@ -86,6 +86,28 @@ func TestRerunIsNotOfferedWhileChecksPass(t *testing.T) {
 	}
 }
 
+func TestRerunIsNotOfferedOnceThePullMerges(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	// The checks failed — a re-run would be offered — until the pull merges,
+	// leaving the pane's last-read CI still failed.
+	reviewing := newWorld()
+	reviewing.ci = []forge.CI{{State: forge.CIFailed, Total: 1, Done: 1, Failed: 1}}
+	onReview := typing(t, reviewing.live(t, 120, 40), "4")
+	reviewing.pull.State = forge.StateMerged
+
+	// Act
+	refreshed := typing(t, onReview, "r", "R")
+
+	// Assert
+	refuseScreen(t, refreshed.View().Content, "re-run checks")
+
+	if calls := reviewing.asked("rerun"); len(calls) != 0 {
+		t.Errorf("re-ran an already-merged pull request: %q", calls)
+	}
+}
+
 func TestARefusedRerunNamesTheMissingScope(t *testing.T) {
 	t.Parallel()
 

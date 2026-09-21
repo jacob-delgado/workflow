@@ -227,7 +227,9 @@ func gatherReview(seams statusSeams, branch gitrepo.Branch, onFeature bool) (for
 	}
 
 	pull, found, err := seams.FindPull(branch.Name)
-	if err != nil || !found {
+	if err != nil || !found || !pull.Opened() {
+		// A merged pull request is found but has no live CI to poll, so the status
+		// line treats a merged branch as having no open review.
 		return forge.PullRequest{}, false, forge.CINone
 	}
 

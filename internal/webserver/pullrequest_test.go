@@ -117,6 +117,26 @@ func TestGetPullRequestDraftDoesNotNeedPushForAPublishedBranch(t *testing.T) {
 	}
 }
 
+func TestGetPullRequestDraftComposesOverAMergedPull(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	// The branch's earlier pull request has merged, and it still carries commits,
+	// so a merged pull is not a conflict — a fresh one can be proposed.
+	deps := openableDeps()
+	deps.FindPull = func(string) (forge.PullRequest, bool, error) {
+		return forge.PullRequest{Number: 1, State: forge.StateMerged}, true, nil
+	}
+
+	// Act
+	recorder := get(t, serve(t, deps, config.Default()), "/api/pull-request/draft")
+
+	// Assert
+	if recorder.Code != http.StatusOK {
+		t.Errorf("status = %d, want 200 when the branch's old pull has merged, not a 409", recorder.Code)
+	}
+}
+
 func TestGetPullRequestDraftIsAConflictWhenNothingToOpen(t *testing.T) {
 	t.Parallel()
 
