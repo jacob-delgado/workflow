@@ -43,6 +43,14 @@ func (msg changesLoaded) apply(m Model) (Model, tea.Cmd) {
 	index := slices.IndexFunc(msg.changes, func(change gitrepo.Change) bool { return change.Path == previous.Path })
 	m.changes.selected = max(0, min(index, len(msg.changes)-1))
 
+	// A reload can return fewer files, leaving the shared scroll offset past the
+	// end; re-clamp it so a click still lands on the row it appears to. Only while
+	// this pane is focused, since the offset is shared and this reload may arrive
+	// from a background stage while another pane is being read.
+	if m.focus == paneCommits {
+		m.scroll, _ = window(m.changes.selected, len(m.changes.changes), m.detailRows())
+	}
+
 	return m, nil
 }
 

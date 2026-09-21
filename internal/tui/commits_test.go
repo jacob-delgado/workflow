@@ -291,6 +291,41 @@ func TestTheCommitsListKeepsTheSelectedFileOnScreen(t *testing.T) {
 	requireScreen(t, view, "▸ ● modified   file40.go")
 }
 
+func TestClickingAfterTheTreeShrinksStagesTheVisibleFile(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	// Scroll a long file list, then let a reload return a much shorter one. Unless
+	// the shared scroll offset is re-clamped, a click maps past the shorter list.
+	shrinking := newWorld()
+	shrinking.changes = make([]gitrepo.Change, 20)
+
+	for index := range shrinking.changes {
+		shrinking.changes[index] = gitrepo.Change{Path: "old" + strconv.Itoa(index) + ".go", Staged: ' ', Unstaged: 'M'}
+	}
+
+	down := append([]string{"3"}, slices.Repeat([]string{"j"}, 19)...)
+	scrolled := typing(t, shrinking.live(t, 120, 20), down...)
+
+	shrinking.changes = []gitrepo.Change{
+		{Path: "a.go", Staged: ' ', Unstaged: 'M'},
+		{Path: "b.go", Staged: ' ', Unstaged: 'M'},
+		{Path: "c.go", Staged: ' ', Unstaged: 'M'},
+	}
+	reloaded := typing(t, scrolled, "r")
+
+	// Act
+	// Row 3 of the detail is the second file (b.go); stage it after the click.
+	typing(t, click(t, reloaded, 60, 3), keySpace)
+
+	// Assert
+	// The click reached b.go, which holds only if the scroll offset was re-clamped
+	// to the shorter list — otherwise the click maps past the end and stages a.go.
+	if got := shrinking.asked("stage b.go"); len(got) != 1 {
+		t.Errorf("stage calls = %v, want the clicked visible file b.go", shrinking.asked("stage"))
+	}
+}
+
 func TestTheCommitsPaneNamesEachKindOfChangeInWords(t *testing.T) {
 	t.Parallel()
 
