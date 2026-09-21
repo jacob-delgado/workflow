@@ -54,6 +54,12 @@ type ServerInterface interface {
 	// GetIssue One issue in full, with its comments.
 	// (GET /api/issues/{key})
 	GetIssue(w http.ResponseWriter, r *http.Request, key string)
+	// OpenPullRequest Open a pull request for the current branch, pushing it first if needed.
+	// (POST /api/pull-request)
+	OpenPullRequest(w http.ResponseWriter, r *http.Request)
+	// GetPullRequestDraft The pull request that would be opened for the branch, for a preview.
+	// (GET /api/pull-request/draft)
+	GetPullRequestDraft(w http.ResponseWriter, r *http.Request)
 	// Push Push the current branch to its remote, setting upstream.
 	// (POST /api/push)
 	Push(w http.ResponseWriter, r *http.Request)
@@ -289,6 +295,34 @@ func (siw *ServerInterfaceWrapper) GetIssue(w http.ResponseWriter, r *http.Reque
 	handler.ServeHTTP(w, r)
 }
 
+// OpenPullRequest operation middleware
+func (siw *ServerInterfaceWrapper) OpenPullRequest(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.OpenPullRequest(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetPullRequestDraft operation middleware
+func (siw *ServerInterfaceWrapper) GetPullRequestDraft(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetPullRequestDraft(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // Push operation middleware
 func (siw *ServerInterfaceWrapper) Push(w http.ResponseWriter, r *http.Request) {
 
@@ -481,6 +515,8 @@ func HandlerWithOptions(si ServerInterface, options StdHTTPServerOptions) http.H
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/api/announce", wrapper.Announce)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/api/push", wrapper.Push)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/api/commit", wrapper.Commit)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/pull-request/draft", wrapper.GetPullRequestDraft)
+	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/api/pull-request", wrapper.OpenPullRequest)
 
 	return m
 }
@@ -1087,6 +1123,125 @@ func (response GetIssuedefaultJSONResponse) VisitGetIssueResponse(w http.Respons
 	return err
 }
 
+type OpenPullRequestRequestObject struct {
+	Body *OpenPullRequestJSONRequestBody
+}
+
+type OpenPullRequestResponseObject interface {
+	VisitOpenPullRequestResponse(w http.ResponseWriter) error
+}
+
+type OpenPullRequest200JSONResponse PullRequest
+
+func (response OpenPullRequest200JSONResponse) VisitOpenPullRequestResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type OpenPullRequest409JSONResponse Error
+
+func (response OpenPullRequest409JSONResponse) VisitOpenPullRequestResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(409)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type OpenPullRequest422JSONResponse Error
+
+func (response OpenPullRequest422JSONResponse) VisitOpenPullRequestResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(422)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type OpenPullRequestdefaultJSONResponse struct {
+	Body       Error
+	StatusCode int
+}
+
+func (response OpenPullRequestdefaultJSONResponse) VisitOpenPullRequestResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetPullRequestDraftRequestObject struct {
+}
+
+type GetPullRequestDraftResponseObject interface {
+	VisitGetPullRequestDraftResponse(w http.ResponseWriter) error
+}
+
+type GetPullRequestDraft200JSONResponse PullRequestDraft
+
+func (response GetPullRequestDraft200JSONResponse) VisitGetPullRequestDraftResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetPullRequestDraft409JSONResponse Error
+
+func (response GetPullRequestDraft409JSONResponse) VisitGetPullRequestDraftResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(409)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetPullRequestDraftdefaultJSONResponse struct {
+	Body       Error
+	StatusCode int
+}
+
+func (response GetPullRequestDraftdefaultJSONResponse) VisitGetPullRequestDraftResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
 type PushRequestObject struct {
 }
 
@@ -1305,6 +1460,12 @@ type StrictServerInterface interface {
 	// GetIssue One issue in full, with its comments.
 	// (GET /api/issues/{key})
 	GetIssue(ctx context.Context, request GetIssueRequestObject) (GetIssueResponseObject, error)
+	// OpenPullRequest Open a pull request for the current branch, pushing it first if needed.
+	// (POST /api/pull-request)
+	OpenPullRequest(ctx context.Context, request OpenPullRequestRequestObject) (OpenPullRequestResponseObject, error)
+	// GetPullRequestDraft The pull request that would be opened for the branch, for a preview.
+	// (GET /api/pull-request/draft)
+	GetPullRequestDraft(ctx context.Context, request GetPullRequestDraftRequestObject) (GetPullRequestDraftResponseObject, error)
 	// Push Push the current branch to its remote, setting upstream.
 	// (POST /api/push)
 	Push(ctx context.Context, request PushRequestObject) (PushResponseObject, error)
@@ -1678,6 +1839,61 @@ func (sh *strictHandler) GetIssue(w http.ResponseWriter, r *http.Request, key st
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
 	} else if validResponse, ok := response.(GetIssueResponseObject); ok {
 		if err := validResponse.VisitGetIssueResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// OpenPullRequest operation middleware
+func (sh *strictHandler) OpenPullRequest(w http.ResponseWriter, r *http.Request) {
+	var request OpenPullRequestRequestObject
+
+	var body OpenPullRequestJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.OpenPullRequest(ctx, request.(OpenPullRequestRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "OpenPullRequest")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(OpenPullRequestResponseObject); ok {
+		if err := validResponse.VisitOpenPullRequestResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// GetPullRequestDraft operation middleware
+func (sh *strictHandler) GetPullRequestDraft(w http.ResponseWriter, r *http.Request) {
+	var request GetPullRequestDraftRequestObject
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.GetPullRequestDraft(ctx, request.(GetPullRequestDraftRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetPullRequestDraft")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(GetPullRequestDraftResponseObject); ok {
+		if err := validResponse.VisitGetPullRequestDraftResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {

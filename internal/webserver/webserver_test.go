@@ -35,6 +35,10 @@ const (
 	testBugJQL     = "type = Bug"
 	testBase       = "origin/main"
 	testChannel    = "#dev-workflow"
+	// testCommitSubject and testCommitHash are the branch's one commit, shared by
+	// the write-action tests that need a branch with a commit on it.
+	testCommitSubject = "feat: redact"
+	testCommitHash    = "abc1234"
 	// noBranchSeam is the shared name for the "no branch seam" case the write
 	// handlers' unavailability tables each exercise.
 	noBranchSeam = "no branch seam"
@@ -72,7 +76,7 @@ func filledDeps() webserver.Deps {
 		Branch: func() (gitrepo.Branch, error) {
 			return gitrepo.Branch{
 				Name: testBranchName, Base: testBase, Ahead: 2, Head: "abc123",
-				Commits: []gitrepo.Commit{{Hash: "abc123", Subject: "feat: redact"}},
+				Commits: []gitrepo.Commit{{Hash: "abc123", Subject: testCommitSubject}},
 			}, nil
 		},
 		Changes: func() ([]gitrepo.Change, error) {

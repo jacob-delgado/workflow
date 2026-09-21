@@ -234,6 +234,8 @@ func webDeps(deps tui.Deps) webserver.Deps {
 		Push:         deps.Git.Push,
 		Changes:      deps.Git.Changes,
 		FindPull:     deps.Forge.FindPullRequest,
+		CreatePull:   deps.Forge.CreatePullRequest,
+		Templates:    deps.Forge.Templates,
 		CheckCI:      deps.Forge.CheckStatus,
 		Author:       deps.Forge.Author,
 		Post:         deps.Slack.Post,

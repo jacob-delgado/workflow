@@ -3,8 +3,8 @@
 import { type DefaultError, queryOptions } from '@tanstack/react-query';
 
 import { client } from '../client.gen';
-import { getAnnouncement, getBranch, getConfig, getHealth, getIssue, getReview, getSlack, listChanges, listIssues, listViews, type Options } from '../sdk.gen';
-import type { GetAnnouncementData, GetAnnouncementError, GetAnnouncementResponse, GetBranchData, GetBranchError, GetBranchResponse, GetConfigData, GetConfigError, GetConfigResponse, GetHealthData, GetHealthResponse, GetIssueData, GetIssueError, GetIssueResponse, GetReviewData, GetReviewError, GetReviewResponse, GetSlackData, GetSlackError, GetSlackResponse, ListChangesData, ListChangesError, ListChangesResponse, ListIssuesData, ListIssuesError, ListIssuesResponse, ListViewsData, ListViewsError, ListViewsResponse } from '../types.gen';
+import { getAnnouncement, getBranch, getConfig, getHealth, getIssue, getPullRequestDraft, getReview, getSlack, listChanges, listIssues, listViews, type Options } from '../sdk.gen';
+import type { GetAnnouncementData, GetAnnouncementError, GetAnnouncementResponse, GetBranchData, GetBranchError, GetBranchResponse, GetConfigData, GetConfigError, GetConfigResponse, GetHealthData, GetHealthResponse, GetIssueData, GetIssueError, GetIssueResponse, GetPullRequestDraftData, GetPullRequestDraftError, GetPullRequestDraftResponse, GetReviewData, GetReviewError, GetReviewResponse, GetSlackData, GetSlackError, GetSlackResponse, ListChangesData, ListChangesError, ListChangesResponse, ListIssuesData, ListIssuesError, ListIssuesResponse, ListViewsData, ListViewsError, ListViewsResponse } from '../types.gen';
 
 export type QueryKey<TOptions extends Options> = [
     Pick<TOptions, 'baseUrl' | 'body' | 'headers' | 'path' | 'query'> & {
@@ -219,4 +219,24 @@ export const getAnnouncementOptions = (options?: Options<GetAnnouncementData>) =
         return data;
     },
     queryKey: getAnnouncementQueryKey(options)
+});
+
+export const getPullRequestDraftQueryKey = (options?: Options<GetPullRequestDraftData>) => createQueryKey('getPullRequestDraft', options);
+
+/**
+ * The pull request that would be opened for the branch, for a preview.
+ *
+ * Composes a pull request for the checked-out branch — a title and body from its commits, the issue, and the repository's template, with the base it would merge into — without opening it, so the browser can edit it before confirming. Answered 409 when there is nothing to open: the tree is not on a branch, the branch has no commits, or a pull request is already open for it.
+ */
+export const getPullRequestDraftOptions = (options?: Options<GetPullRequestDraftData>) => queryOptions<GetPullRequestDraftResponse, GetPullRequestDraftError, GetPullRequestDraftResponse, ReturnType<typeof getPullRequestDraftQueryKey>>({
+    queryFn: async ({ queryKey, signal }) => {
+        const { data } = await getPullRequestDraft({
+            ...options,
+            ...queryKey[0],
+            signal,
+            throwOnError: true
+        });
+        return data;
+    },
+    queryKey: getPullRequestDraftQueryKey(options)
 });

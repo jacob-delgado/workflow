@@ -85,6 +85,58 @@ export type CommitRequest = {
     breaking?: boolean;
 };
 
+/**
+ * A pull request composed for the branch, editable before opening.
+ */
+export type PullRequestDraft = {
+    /**
+     * The proposed title, from the first commit or the issue.
+     */
+    title: string;
+    /**
+     * The proposed body, from the template, commits, and issue.
+     */
+    body: string;
+    /**
+     * The branch it would merge into.
+     */
+    base: string;
+    /**
+     * The branch with the work; the open always uses the checked-out one.
+     */
+    head: string;
+    /**
+     * Whether it would open as a draft; always false in a fresh draft.
+     */
+    draft: boolean;
+    /**
+     * Whether the branch must be pushed first; the open pushes it.
+     */
+    needs_push: boolean;
+};
+
+/**
+ * The pull request to open for the checked-out branch.
+ */
+export type OpenPullRequestRequest = {
+    /**
+     * The pull request title.
+     */
+    title: string;
+    /**
+     * The pull request body; may be empty.
+     */
+    body?: string;
+    /**
+     * The branch to merge into.
+     */
+    base: string;
+    /**
+     * Whether to open it as a draft.
+     */
+    draft?: boolean;
+};
+
 export type Health = {
     /**
      * The binary's version, or a short commit for a dev build.
@@ -868,6 +920,68 @@ export type CommitResponses = {
 };
 
 export type CommitResponse = CommitResponses[keyof CommitResponses];
+
+export type GetPullRequestDraftData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/pull-request/draft';
+};
+
+export type GetPullRequestDraftErrors = {
+    /**
+     * There is nothing to open a pull request for.
+     */
+    409: Error;
+    /**
+     * The request could not be completed.
+     */
+    default: Error;
+};
+
+export type GetPullRequestDraftError = GetPullRequestDraftErrors[keyof GetPullRequestDraftErrors];
+
+export type GetPullRequestDraftResponses = {
+    /**
+     * The composed pull request, editable before opening.
+     */
+    200: PullRequestDraft;
+};
+
+export type GetPullRequestDraftResponse = GetPullRequestDraftResponses[keyof GetPullRequestDraftResponses];
+
+export type OpenPullRequestData = {
+    body: OpenPullRequestRequest;
+    path?: never;
+    query?: never;
+    url: '/api/pull-request';
+};
+
+export type OpenPullRequestErrors = {
+    /**
+     * There is nothing to open a pull request for.
+     */
+    409: Error;
+    /**
+     * The push or the open failed, or the request is incomplete.
+     */
+    422: Error;
+    /**
+     * The request could not be completed.
+     */
+    default: Error;
+};
+
+export type OpenPullRequestError = OpenPullRequestErrors[keyof OpenPullRequestErrors];
+
+export type OpenPullRequestResponses = {
+    /**
+     * The pull request, now open.
+     */
+    200: PullRequest;
+};
+
+export type OpenPullRequestResponse = OpenPullRequestResponses[keyof OpenPullRequestResponses];
 
 export type StreamEventsData = {
     body?: never;

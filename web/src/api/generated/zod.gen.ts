@@ -54,6 +54,28 @@ export const zCommitRequest = z.object({
     breaking: z.boolean().optional()
 });
 
+/**
+ * A pull request composed for the branch, editable before opening.
+ */
+export const zPullRequestDraft = z.object({
+    title: z.string(),
+    body: z.string(),
+    base: z.string(),
+    head: z.string(),
+    draft: z.boolean(),
+    needs_push: z.boolean()
+});
+
+/**
+ * The pull request to open for the checked-out branch.
+ */
+export const zOpenPullRequestRequest = z.object({
+    title: z.string(),
+    body: z.string().optional(),
+    base: z.string(),
+    draft: z.boolean().optional()
+});
+
 export const zHealth = z.object({
     version: z.string(),
     dry_run: z.boolean()
@@ -380,6 +402,18 @@ export const zCommitBody = zCommitRequest;
  * The branch, now carrying the new commit.
  */
 export const zCommitResponse = zBranch;
+
+/**
+ * The composed pull request, editable before opening.
+ */
+export const zGetPullRequestDraftResponse = zPullRequestDraft;
+
+export const zOpenPullRequestBody = zOpenPullRequestRequest;
+
+/**
+ * The pull request, now open.
+ */
+export const zOpenPullRequestResponse = zPullRequest;
 
 export const zStreamEventsQuery = z.object({
     view: z.string().optional()

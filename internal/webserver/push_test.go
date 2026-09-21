@@ -53,7 +53,7 @@ func TestPushPublishesTheBranch(t *testing.T) {
 func TestPushRefusesWhenThereIsNothingToPush(t *testing.T) {
 	t.Parallel()
 
-	commit := []gitrepo.Commit{{Hash: "abc1234", Subject: "feat: done"}}
+	commit := []gitrepo.Commit{{Hash: testCommitHash, Subject: "feat: done"}}
 	cases := map[string]gitrepo.Branch{
 		"already up to date": {
 			Name: testBranchName, Upstream: "origin/" + testBranchName, Ahead: 0, Commits: commit,
