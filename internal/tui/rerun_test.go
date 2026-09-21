@@ -35,6 +35,23 @@ func TestRerunOnAFailedPullRequestRestartsTheChecks(t *testing.T) {
 	}
 }
 
+func TestARerunThatFailsPlainlySaysWhy(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	// The re-run fails for a reason that is not a missing scope.
+	reviewing := newWorld()
+	reviewing.ci = []forge.CI{{State: forge.CIFailed, Total: 1, Done: 1, Failed: 1}}
+	reviewing.rerunErr = forge.ErrRejected
+
+	// Act
+	view := typing(t, reviewing.live(t, 120, 40), "4", "R").View().Content
+
+	// Assert
+	requireScreen(t, view, "re-run failed")
+	refuseScreen(t, view, "checks write scope")
+}
+
 func TestRerunSaysWhenThereIsNothingToReRun(t *testing.T) {
 	t.Parallel()
 
