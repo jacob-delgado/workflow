@@ -90,8 +90,29 @@ func (s *server) composeAnnouncement() (slack.Announcement, bool) {
 		IssueSummary:     s.issueSummary(jira.Key(key)),
 		IssueURL:         s.issueURL(jira.Key(key)),
 		Noun:             noun(s.info.ForgeKind),
+		Moment:           s.announceMoment(pull, branch.Head),
 		Template:         s.config().Slack.Announcement,
 	}, true
+}
+
+// announceMoment is the moment the pull request is at: merged, its CI red, or —
+// the common case — open and ready for review. A CI read that is unavailable or
+// fails leaves the moment at ready rather than failing the announcement.
+func (s *server) announceMoment(pull forge.PullRequest, head string) slack.Moment {
+	if pull.State == forge.StateMerged {
+		return slack.MomentMerged
+	}
+
+	if s.deps.CheckCI == nil {
+		return slack.MomentReady
+	}
+
+	ci, err := s.deps.CheckCI(pull, head)
+	if err == nil && ci.State == forge.CIFailed {
+		return slack.MomentCIRed
+	}
+
+	return slack.MomentReady
 }
 
 // issueSummary is the branch issue's summary, or empty when the tracker cannot
