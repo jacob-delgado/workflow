@@ -76,6 +76,8 @@ type world struct {
 	moves         []jira.Transition
 	transitionErr error
 	commentErr    error
+	assignErr     error
+	worklogErr    error
 	linkErr       error
 	postedChannel string
 
@@ -315,6 +317,16 @@ func (w *world) jiraDeps() tui.JiraDeps {
 			w.record("comment " + string(key) + " " + text)
 
 			return jira.Comment{Author: "jacob", Body: text, Created: testNow()}, w.commentErr
+		},
+		Assign: func(key jira.Key, assignee string) error {
+			w.record("assign " + string(key) + " " + assignee)
+
+			return w.assignErr
+		},
+		AddWorklog: func(key jira.Key, timeSpent, comment string) (jira.Worklog, error) {
+			w.record("worklog " + string(key) + " " + timeSpent + " " + comment)
+
+			return jira.Worklog{ID: "1", TimeSpent: timeSpent}, w.worklogErr
 		},
 		LinkPullRequest: func(key jira.Key, pullURL, title string) error {
 			w.record("link " + string(key) + " " + pullURL + " " + title)

@@ -34,6 +34,8 @@ func TestDryRunHoldsBackEveryWrite(t *testing.T) {
 		Jira: JiraDeps{
 			Transition:      func(jira.Key, jira.Transition, []jira.FieldValue) error { return note("Transition") },
 			Comment:         func(jira.Key, string) (jira.Comment, error) { return jira.Comment{}, note("Comment") },
+			Assign:          func(jira.Key, string) error { return note("Assign") },
+			AddWorklog:      func(jira.Key, string, string) (jira.Worklog, error) { return jira.Worklog{}, note("AddWorklog") },
 			LinkPullRequest: func(jira.Key, string, string) error { return note("LinkPullRequest") },
 		},
 		Git: GitDeps{
@@ -63,6 +65,8 @@ func TestDryRunHoldsBackEveryWrite(t *testing.T) {
 	// Act
 	_ = held.Jira.Transition("K", jira.Transition{}, nil)
 	_, _ = held.Jira.Comment("K", "t")
+	_ = held.Jira.Assign("K", "fred")
+	_, _ = held.Jira.AddWorklog("K", "2h", "")
 	_ = held.Jira.LinkPullRequest("K", "u", "t")
 	_ = held.Git.Stage(gitrepo.Change{})
 	_ = held.Git.Unstage(gitrepo.Change{})
@@ -92,6 +96,7 @@ func TestHeldBackLeavesAnUnavailableSeamNil(t *testing.T) {
 
 	// Assert
 	if held.Slack.Post != nil || held.Git.Push != nil || held.Jira.Comment != nil ||
+		held.Jira.Assign != nil || held.Jira.AddWorklog != nil ||
 		held.Forge.CreatePullRequest != nil || held.Hooks.Write != nil {
 		t.Error("heldBack made an unavailable write seam callable")
 	}

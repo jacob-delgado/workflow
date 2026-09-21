@@ -56,6 +56,11 @@ type JiraDeps struct {
 	Transitions func(issueKey jira.Key) ([]jira.Transition, error)
 	Transition  func(issueKey jira.Key, to jira.Transition, values []jira.FieldValue) error
 	Comment     func(issueKey jira.Key, text string) (jira.Comment, error)
+	// Assign sets an issue's assignee by username. Nil when Jira is not
+	// configured.
+	Assign func(issueKey jira.Key, assignee string) error
+	// AddWorklog logs work against an issue: a duration and an optional note.
+	AddWorklog func(issueKey jira.Key, timeSpent, comment string) (jira.Worklog, error)
 	// LinkPullRequest records a pull request as a web link on an issue. Nil when
 	// Jira is not configured.
 	LinkPullRequest func(issueKey jira.Key, pullURL, title string) error
