@@ -85,6 +85,9 @@ type GitDeps struct {
 	// RemoteBranches lists the branches on the remotes by name, so the pull
 	// request's base field can complete to one. Nil when there is no repository.
 	RemoteBranches func() ([]string, error)
+	// CodeOwners reads the user handles the CODEOWNERS file names, so the pull
+	// request's reviewers field can suggest them. Nil when there is no repository.
+	CodeOwners func() ([]string, error)
 	// RecentSubjects reads the subjects of recent commits, so the commit scope
 	// field can complete from the scopes already in use. Nil when there is no
 	// repository.

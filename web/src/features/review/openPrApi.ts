@@ -25,13 +25,17 @@ export async function previewPullRequest(): Promise<PullRequestDraft> {
 }
 
 // openPr opens the pull request, pushing the branch first when needed. On
-// success the event stream reflects the new pull request, so there is nothing to
-// return; a refusal — nothing to open, a failed push or open — throws the API
-// error, whose message is safe to show. Under VITE_MOCK it is a no-op.
-export async function openPr(request: OpenPullRequestRequest): Promise<void> {
+// success the event stream reflects the new pull request; it returns a warning
+// when the pull opened but its reviewers, assignees or labels could not all be
+// added, or '' otherwise. A refusal — nothing to open, a failed push or open —
+// throws the API error, whose message is safe to show. Under VITE_MOCK it is a
+// no-op that returns no warning.
+export async function openPr(request: OpenPullRequestRequest): Promise<string> {
   if (import.meta.env.VITE_MOCK === 'true') {
-    return
+    return ''
   }
 
-  await openPullRequest({ body: request, throwOnError: true })
+  const result = await openPullRequest({ body: request, throwOnError: true })
+
+  return result.data.warning ?? ''
 }

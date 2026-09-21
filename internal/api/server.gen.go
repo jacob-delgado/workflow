@@ -1131,7 +1131,7 @@ type OpenPullRequestResponseObject interface {
 	VisitOpenPullRequestResponse(w http.ResponseWriter) error
 }
 
-type OpenPullRequest200JSONResponse PullRequest
+type OpenPullRequest200JSONResponse OpenedPullRequest
 
 func (response OpenPullRequest200JSONResponse) VisitOpenPullRequestResponse(w http.ResponseWriter) error {
 

@@ -17,7 +17,7 @@ vi.mock('./openPrApi.ts', () => ({
       needs_push: true,
     }),
   ),
-  openPr: vi.fn(() => Promise.resolve()),
+  openPr: vi.fn(() => Promise.resolve('')),
 }))
 const mockOpenPr = vi.mocked(openPr)
 
@@ -111,6 +111,53 @@ test('opens a pull request from the composed form on confirm', async () => {
   expect(await screen.findByText(/pull request opened/i)).toBeTruthy()
 })
 
+test('opens a pull request with reviewers, assignees and labels', async () => {
+  // Arrange
+  const user = userEvent.setup()
+  useSnapshotStore.setState({
+    status: 'live',
+    snapshot: makeSnapshot({ review: { found: false } }),
+  })
+  render(<ReviewPanel />)
+
+  // Act: open the form, fill the people fields, then confirm
+  await user.click(screen.getByRole('button', { name: /open a pull request/i }))
+  await screen.findByRole('form', { name: /open a pull request/i })
+  await user.type(screen.getByLabelText(/reviewers/i), 'ana, ben')
+  await user.type(screen.getByLabelText(/assignees/i), 'cass')
+  await user.type(screen.getByLabelText(/labels/i), 'bug, review')
+  await user.click(screen.getByRole('button', { name: 'Open pull request' }))
+
+  // Assert: each comma-separated field is split into a trimmed list
+  expect(mockOpenPr).toHaveBeenCalledWith(
+    expect.objectContaining({
+      reviewers: ['ana', 'ben'],
+      assignees: ['cass'],
+      labels: ['bug', 'review'],
+    }),
+  )
+})
+
+test('shows the warning when a pull opens but its reviewers could not be added', async () => {
+  // Arrange
+  const user = userEvent.setup()
+  mockOpenPr.mockResolvedValueOnce('opened, but its reviewers could not all be added')
+  useSnapshotStore.setState({
+    status: 'live',
+    snapshot: makeSnapshot({ review: { found: false } }),
+  })
+  render(<ReviewPanel />)
+
+  // Act
+  await user.click(screen.getByRole('button', { name: /open a pull request/i }))
+  await screen.findByRole('form', { name: /open a pull request/i })
+  await user.click(screen.getByRole('button', { name: 'Open pull request' }))
+
+  // Assert
+  expect(await screen.findByText(/pull request opened/i)).toBeTruthy()
+  expect(screen.getByText(/reviewers could not all be added/i)).toBeTruthy()
+})
+
 test('locks the confirm while the pull request is opening', async () => {
   // Arrange
   // Hold the open unresolved so the in-flight state is observable; a live confirm
@@ -118,8 +165,10 @@ test('locks the confirm while the pull request is opening', async () => {
   let releaseOpen = () => {}
   mockOpenPr.mockImplementationOnce(
     () =>
-      new Promise<void>((resolve) => {
-        releaseOpen = resolve
+      new Promise<string>((resolve) => {
+        releaseOpen = () => {
+          resolve('')
+        }
       }),
   )
   const user = userEvent.setup()

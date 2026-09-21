@@ -135,6 +135,18 @@ export type OpenPullRequestRequest = {
      * Whether to open it as a draft.
      */
     draft?: boolean;
+    /**
+     * Usernames to request a review from.
+     */
+    reviewers?: Array<string>;
+    /**
+     * Usernames to assign the pull request to.
+     */
+    assignees?: Array<string>;
+    /**
+     * Label names to add to the pull request.
+     */
+    labels?: Array<string>;
 };
 
 export type Health = {
@@ -308,6 +320,17 @@ export type Review = {
     found: boolean;
     pull?: PullRequest | null;
     ci?: Ci | null;
+};
+
+/**
+ * A pull request that was just opened, with a warning when it opened but its reviewers, assignees or labels could not all be added.
+ */
+export type OpenedPullRequest = {
+    pull: PullRequest;
+    /**
+     * Set only when the pull opened but adding its reviewers, assignees or labels did not fully succeed, so a partial success is not reported as a failure.
+     */
+    warning?: string;
 };
 
 export type PullRequest = {
@@ -982,7 +1005,7 @@ export type OpenPullRequestResponses = {
     /**
      * The pull request, now open.
      */
-    200: PullRequest;
+    200: OpenedPullRequest;
 };
 
 export type OpenPullRequestResponse = OpenPullRequestResponses[keyof OpenPullRequestResponses];

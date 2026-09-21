@@ -226,7 +226,7 @@ func TestThePullRequestComposerWorksWithoutTemplatesOrAnEditor(t *testing.T) {
 	composer := typing(t, model, "4", "n", "ctrl+o", "ctrl+t", keyTab, keyTab)
 
 	// Assert
-	requireScreen(t, composer.View().Content, "no template in this repository", "▸ title  >")
+	requireScreen(t, composer.View().Content, "no template in this repository", "▸ reviewers >")
 }
 
 func TestTheReviewPaneSaysItIsLookingForAPullRequest(t *testing.T) {

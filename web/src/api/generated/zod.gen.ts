@@ -73,7 +73,10 @@ export const zOpenPullRequestRequest = z.object({
     title: z.string(),
     body: z.string().optional(),
     base: z.string(),
-    draft: z.boolean().optional()
+    draft: z.boolean().optional(),
+    reviewers: z.array(z.string()).optional(),
+    assignees: z.array(z.string()).optional(),
+    labels: z.array(z.string()).optional()
 });
 
 export const zHealth = z.object({
@@ -179,6 +182,14 @@ export const zPullRequest = z.object({
         'clean',
         'conflicts'
     ])
+});
+
+/**
+ * A pull request that was just opened, with a warning when it opened but its reviewers, assignees or labels could not all be added.
+ */
+export const zOpenedPullRequest = z.object({
+    pull: zPullRequest,
+    warning: z.string().optional()
 });
 
 export const zCiState = z.enum([
@@ -414,7 +425,7 @@ export const zOpenPullRequestBody = zOpenPullRequestRequest;
 /**
  * The pull request, now open.
  */
-export const zOpenPullRequestResponse = zPullRequest;
+export const zOpenPullRequestResponse = zOpenedPullRequest;
 
 export const zStreamEventsQuery = z.object({
     view: z.string().optional()

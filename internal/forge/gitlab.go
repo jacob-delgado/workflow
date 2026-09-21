@@ -5,6 +5,7 @@ package forge
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net/http"
 	"net/url"
@@ -68,12 +69,54 @@ func gitlabReviewState(ctx context.Context, client Client, repo Repo, pull *Pull
 	}
 }
 
-// gitlabNewMerge is the body that opens a merge request.
+// gitlabNewMerge is the body that opens a merge request. GitLab keys reviewers
+// and assignees by numeric id and takes labels as one comma-joined string; each
+// is left out when empty rather than sent as an empty value.
 type gitlabNewMerge struct {
-	Title        string `json:"title"`
-	Description  string `json:"description"`
-	SourceBranch string `json:"source_branch"`
-	TargetBranch string `json:"target_branch"`
+	Title        string  `json:"title"`
+	Description  string  `json:"description"`
+	SourceBranch string  `json:"source_branch"`
+	TargetBranch string  `json:"target_branch"`
+	ReviewerIDs  []int64 `json:"reviewer_ids,omitempty"`
+	AssigneeIDs  []int64 `json:"assignee_ids,omitempty"`
+	Labels       string  `json:"labels,omitempty"`
+}
+
+// gitlabUser is a user as GitLab's user lookup sends one; only the id is read,
+// which is what a reviewer or assignee is set by.
+type gitlabUser struct {
+	ID int64 `json:"id"`
+}
+
+// ErrNoUser reports a username GitLab does not know, so a reviewer or assignee
+// named for a pull request cannot be set rather than being dropped in silence.
+var ErrNoUser = errors.New("no such user")
+
+// gitlabUserIDs resolves usernames to the ids GitLab wants for reviewers and
+// assignees. It looks each up by name; an unknown name is an error, not a
+// silently missing reviewer.
+func gitlabUserIDs(ctx context.Context, client Client, usernames []string) ([]int64, error) {
+	if len(usernames) == 0 {
+		return nil, nil
+	}
+
+	ids := make([]int64, 0, len(usernames))
+
+	for _, username := range usernames {
+		found, err := call[[]gitlabUser](ctx, client, http.MethodGet,
+			"/users?"+url.Values{"username": {username}}.Encode(), nil)
+		if err != nil {
+			return nil, err
+		}
+
+		if len(found) == 0 {
+			return nil, fmt.Errorf("%w: %s", ErrNoUser, username)
+		}
+
+		ids = append(ids, found[0].ID)
+	}
+
+	return ids, nil
 }
 
 // gitlabProjectPath is where a project lives in GitLab's API: its whole path as
@@ -243,15 +286,29 @@ func gitlabReviews(ctx context.Context, client Client) ([]ReviewRequest, error) 
 	return reviews, nil
 }
 
-// gitlabCreate opens a merge request.
+// gitlabCreate opens a merge request, with its reviewers, assignees and labels
+// set at creation as GitLab takes them. Reviewers and assignees are resolved
+// from usernames to ids first, so an unknown name fails before any merge
+// request is opened rather than after.
 func gitlabCreate(ctx context.Context, client Client, repo Repo, request NewPullRequest) (PullRequest, error) {
 	title := request.Title
 	if request.Draft {
 		title = draftPrefix + title
 	}
 
+	reviewerIDs, err := gitlabUserIDs(ctx, client, request.Reviewers)
+	if err != nil {
+		return PullRequest{}, err
+	}
+
+	assigneeIDs, err := gitlabUserIDs(ctx, client, request.Assignees)
+	if err != nil {
+		return PullRequest{}, err
+	}
+
 	payload := gitlabNewMerge{
 		Title: title, Description: request.Body, SourceBranch: request.Head, TargetBranch: request.Base,
+		ReviewerIDs: reviewerIDs, AssigneeIDs: assigneeIDs, Labels: strings.Join(request.Labels, ","),
 	}
 
 	created, err := repoCall[gitlabMerge](ctx, client, repo, http.MethodPost,

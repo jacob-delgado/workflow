@@ -32,7 +32,7 @@ func TestTheBaseFieldCompletesToAMatchingRemoteBranch(t *testing.T) {
 	view := typing(t, model, baseKeys("dev")...).View().Content
 
 	// Assert
-	requireScreen(t, view, "base   > develop")
+	requireScreen(t, view, "base      > develop")
 }
 
 func TestTabNavigatesPastTheBaseWhenNothingCompletes(t *testing.T) {
@@ -52,7 +52,7 @@ func TestTabNavigatesPastTheBaseWhenNothingCompletes(t *testing.T) {
 	// Assert
 	// The base is left as typed and the trailing letter did not land in it, so
 	// tab moved focus on rather than being swallowed by the field.
-	requireScreen(t, view, "base   > dev")
+	requireScreen(t, view, "base      > dev")
 	refuseScreen(t, view, "devZ")
 }
 
@@ -69,7 +69,7 @@ func TestTheComposerOpensWithoutARemoteBranchSeam(t *testing.T) {
 	view := typing(t, opening.live(t, 120, 40), "4", "n").View().Content
 
 	// Assert
-	requireScreen(t, view, "base   > "+baseName)
+	requireScreen(t, view, "base      > "+baseName)
 }
 
 func TestAFailedRemoteBranchListingStillOpensTheComposer(t *testing.T) {
@@ -83,5 +83,5 @@ func TestAFailedRemoteBranchListingStillOpensTheComposer(t *testing.T) {
 	view := typing(t, opening.live(t, 120, 40), "4", "n").View().Content
 
 	// Assert
-	requireScreen(t, view, "base   > "+baseName)
+	requireScreen(t, view, "base      > "+baseName)
 }

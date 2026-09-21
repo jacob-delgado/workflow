@@ -57,6 +57,20 @@ type NewPullRequest struct {
 	Head  string
 	Base  string
 	Draft bool
+	// Reviewers and Assignees are usernames; Labels are label names. Each forge
+	// asks for them its own way — GitHub in a request after the pull is opened,
+	// GitLab at creation — but a failure to add them never discards a pull
+	// request already opened.
+	Reviewers []string
+	Assignees []string
+	Labels    []string
+}
+
+// Opened reports whether this is a pull request the forge created, told from
+// the zero value a failed create returns by its number, which the forge always
+// assigns.
+func (p PullRequest) Opened() bool {
+	return p.Number != 0
 }
 
 // ReviewRequest is an open pull or merge request that asks for your review. It

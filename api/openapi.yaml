@@ -460,7 +460,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/PullRequest"
+                $ref: "#/components/schemas/OpenedPullRequest"
         "409":
           description: There is nothing to open a pull request for.
           content:
@@ -633,6 +633,21 @@ components:
         draft:
           type: boolean
           description: Whether to open it as a draft.
+        reviewers:
+          type: array
+          items:
+            type: string
+          description: Usernames to request a review from.
+        assignees:
+          type: array
+          items:
+            type: string
+          description: Usernames to assign the pull request to.
+        labels:
+          type: array
+          items:
+            type: string
+          description: Label names to add to the pull request.
       additionalProperties: false
 
     Health:
@@ -846,6 +861,20 @@ components:
         ci:
           nullable: true
           allOf: [{$ref: "#/components/schemas/CI"}]
+      additionalProperties: false
+
+    OpenedPullRequest:
+      type: object
+      description: A pull request that was just opened, with a warning when it
+        opened but its reviewers, assignees or labels could not all be added.
+      required: [pull]
+      properties:
+        pull: {$ref: "#/components/schemas/PullRequest"}
+        warning:
+          type: string
+          description: Set only when the pull opened but adding its reviewers,
+            assignees or labels did not fully succeed, so a partial success is
+            not reported as a failure.
       additionalProperties: false
 
     PullRequest:

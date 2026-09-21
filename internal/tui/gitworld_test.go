@@ -63,6 +63,11 @@ func (w *world) gitDeps() tui.GitDeps {
 
 			return slices.Clone(w.remoteBranches), w.remoteBranchesErr
 		},
+		CodeOwners: func() ([]string, error) {
+			w.record("code-owners")
+
+			return slices.Clone(w.codeOwners), w.codeOwnersErr
+		},
 		RecentSubjects: func() ([]string, error) {
 			w.record("recent-subjects")
 
@@ -113,6 +118,10 @@ func (w *world) gitDeps() tui.GitDeps {
 	// outside a repository.
 	if w.noRemoteBranches {
 		deps.RemoteBranches = nil
+	}
+
+	if w.noCodeOwners {
+		deps.CodeOwners = nil
 	}
 
 	if w.noRecentSubjects {

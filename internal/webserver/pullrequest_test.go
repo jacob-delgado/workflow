@@ -50,6 +50,73 @@ func openableDeps() webserver.Deps {
 	return deps
 }
 
+func TestOpenPullRequestForwardsReviewersAssigneesAndLabels(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	var request forge.NewPullRequest
+
+	deps := openableDeps()
+	deps.CreatePull = func(newPull forge.NewPullRequest) (forge.PullRequest, error) {
+		request = newPull
+
+		return forge.PullRequest{Number: 7, URL: prURL, Title: newPull.Title}, nil
+	}
+
+	// A padded reviewer and a blank label are cleaned rather than sent on.
+	body := `{"title":"` + prTitle + `","base":"` + prBase +
+		`","reviewers":["ana"," ben "],"assignees":["cass"],"labels":["bug",""]}`
+
+	// Act
+	recorder := doOpen(t, deps, body)
+
+	// Assert
+	if recorder.Code != http.StatusOK {
+		t.Fatalf("status = %d, want 200", recorder.Code)
+	}
+
+	if got := strings.Join(request.Reviewers, ","); got != "ana,ben" {
+		t.Errorf("reviewers = %q, want ana,ben trimmed", got)
+	}
+
+	if got := strings.Join(request.Assignees, ","); got != "cass" {
+		t.Errorf("assignees = %q, want cass", got)
+	}
+
+	if got := strings.Join(request.Labels, ","); got != "bug" {
+		t.Errorf("labels = %q, want bug with the blank dropped", got)
+	}
+}
+
+func TestOpenPullRequestKeepsAPullWhoseReviewersCouldNotBeAdded(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	// The pull opens, but the token cannot add its reviewers.
+	deps := openableDeps()
+	deps.CreatePull = func(newPull forge.NewPullRequest) (forge.PullRequest, error) {
+		return forge.PullRequest{Number: 7, URL: prURL, Title: newPull.Title}, forge.ErrRefused
+	}
+
+	// Act
+	recorder := doOpen(t, deps, openRequestBody)
+
+	// Assert
+	// It is reported open, not lost to a 422, and carries the warning.
+	if recorder.Code != http.StatusOK {
+		t.Fatalf("status = %d, want 200 for a pull that opened", recorder.Code)
+	}
+
+	opened := decode[api.OpenedPullRequest](t, recorder)
+	if opened.Pull.Number != 7 {
+		t.Errorf("pull number = %d, want the opened 7", opened.Pull.Number)
+	}
+
+	if opened.Warning == nil || !strings.Contains(*opened.Warning, "could not all be added") {
+		t.Errorf("warning = %v, want a note that the reviewers were not added", opened.Warning)
+	}
+}
+
 // doOpen posts an open-pull-request request with the given JSON body.
 func doOpen(t *testing.T, deps webserver.Deps, body string) *httptest.ResponseRecorder {
 	t.Helper()
@@ -205,7 +272,7 @@ func TestOpenPullRequestPushesThenOpens(t *testing.T) {
 		t.Errorf("opened %+v, want head %q, base %q, and the given title", request, testBranchName, prBase)
 	}
 
-	if number := decode[api.PullRequest](t, recorder).Number; number != 7 {
+	if number := decode[api.OpenedPullRequest](t, recorder).Pull.Number; number != 7 {
 		t.Errorf("response number = %d, want the opened pull request's 7", number)
 	}
 }
