@@ -115,13 +115,15 @@ without agreement on direction.
   than one level of abstraction, extract. The test: can you describe what it does
   in a single clause without using "and"?
 
-- **File length — 500 lines, enforced.** A file past that is usually carrying
-  more than one concern and wants splitting, file-per-concern.
-  `scripts/check-file-length.sh` gates every tracked `.go` and `.sh` file in
-  `task lint` and on pre-push; `--list` prints the current standings. Tests
-  count: a 900-line test file usually means the unit under test does too much.
-  There is no exemption list, deliberately — add one only when a file genuinely
-  earns it, with the reason written beside it.
+- **File length — 500-line soft target, 800-line hard ceiling.** Aim for under
+  500: a file past that is usually carrying more than one concern and wants
+  splitting, file-per-concern. `scripts/check-file-length.sh` *warns* past 500
+  but only *fails* past 800, so the guidance nudges without blocking a file with
+  a genuine reason to be long. It gates every tracked `.go` and `.sh` file in
+  `task lint` and on pre-push; `--list` prints the current standings, flagging
+  each file `soft` or `OVER`. Tests count: a 900-line test file usually means
+  the unit under test does too much. There is no exemption list, deliberately —
+  add one only when a file genuinely earns it, with the reason written beside it.
 
 - **Package & directory size — cohesion first, a budget as the backstop.** Size
   a grouping by responsibility, not by a file count. A Go package is *one*
