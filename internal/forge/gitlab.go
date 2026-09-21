@@ -363,6 +363,52 @@ func gitlabRerun(ctx context.Context, client Client, repo Repo, pull PullRequest
 	return err == nil, err
 }
 
+// gitlabMergeBody is the body that merges a merge request: whether to squash.
+type gitlabMergeBody struct {
+	Squash bool `json:"squash"`
+}
+
+// gitlabMergePull merges a merge request. Whether it lands as a merge commit or
+// a rebase is the project's own setting, not chosen per merge, so the method
+// matters here only in whether it squashes.
+func gitlabMergePull(ctx context.Context, client Client, repo Repo, pull PullRequest, method MergeMethod) error {
+	path := fmt.Sprintf("%s/merge_requests/%d/merge", gitlabProjectPath(repo), pull.Number)
+
+	return send(ctx, client, http.MethodPut, path, gitlabMergeBody{Squash: method == MergeSquash})
+}
+
+// gitlabProjectSettings is the project object's merge configuration: how it
+// merges, and whether squashing is offered.
+type gitlabProjectSettings struct {
+	MergeMethod  string `json:"merge_method"`
+	SquashOption string `json:"squash_option"`
+}
+
+// gitlabMergeMethods reads which merge methods the project permits. GitLab
+// fixes the base method — a merge commit or a rebase — in project settings
+// rather than offering it per merge, so at most one base method is returned,
+// with a squash alongside it where the project allows one.
+func gitlabMergeMethods(ctx context.Context, client Client, repo Repo) ([]MergeMethod, error) {
+	settings, err := repoCall[gitlabProjectSettings](ctx, client, repo, http.MethodGet, gitlabProjectPath(repo), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	base := MergeCommit
+	if settings.MergeMethod != string(MergeCommit) {
+		base = MergeRebase
+	}
+
+	switch settings.SquashOption {
+	case "always":
+		return []MergeMethod{MergeSquash}, nil
+	case "never":
+		return []MergeMethod{base}, nil
+	default:
+		return []MergeMethod{base, MergeSquash}, nil
+	}
+}
+
 // pipelineState reads a GitLab pipeline status. A status this does not know is
 // running rather than passed: announcing green on a guess is the worse mistake.
 // A pipeline blocked on a manual job is not running — it never finishes on its

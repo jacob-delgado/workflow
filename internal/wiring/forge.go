@@ -36,12 +36,41 @@ func forgeDeps(
 		forgeKind(settings, where.Remote))
 }
 
+// mergeSeams builds the two merge seams over a connect, kept out of
+// forgeDepsFrom so that builder stays within its length.
+func mergeSeams(ctx context.Context, connect func() (forgeConnection, error)) (
+	func(forge.PullRequest, forge.MergeMethod) error,
+	func() ([]forge.MergeMethod, error),
+) {
+	merge := func(pull forge.PullRequest, method forge.MergeMethod) error {
+		connection, err := connect()
+		if err != nil {
+			return err
+		}
+
+		return connection.client.Merge(ctx, connection.repo, pull, method)
+	}
+
+	methods := func() ([]forge.MergeMethod, error) {
+		connection, err := connect()
+		if err != nil {
+			return nil, err
+		}
+
+		return connection.client.MergeMethods(ctx, connection.repo)
+	}
+
+	return merge, methods
+}
+
 // forgeDepsFrom builds the forge seams over a connect, split out so a test can
 // drive their success arms with a client pointed at a fake forge rather than a
 // real credential and a live GitHub.
 func forgeDepsFrom(
 	ctx context.Context, connect func() (forgeConnection, error), templates func() []forge.Template, kind forge.Kind,
 ) tui.ForgeDeps {
+	merge, mergeMethods := mergeSeams(ctx, connect)
+
 	return tui.ForgeDeps{
 		FindPullRequest: func(branch string) (forge.PullRequest, bool, error) {
 			connection, err := connect()
@@ -75,6 +104,8 @@ func forgeDepsFrom(
 
 			return connection.client.RerunChecks(ctx, connection.repo, pull, head)
 		},
+		Merge:        merge,
+		MergeMethods: mergeMethods,
 		ReviewRequests: func() ([]forge.ReviewRequest, error) {
 			connection, err := connect()
 			if err != nil {

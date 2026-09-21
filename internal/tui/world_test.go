@@ -124,11 +124,17 @@ type world struct {
 	rebaseLines       []string
 	rebaseErr         error
 
-	commitStartErr error
-	ciErr          error
-	rerunErr       error
-	nothingToRerun bool
-	authorErr      error
+	commitStartErr  error
+	ciErr           error
+	rerunErr        error
+	nothingToRerun  bool
+	mergeErr        error
+	mergeMethods    []forge.MergeMethod
+	mergeMethodsErr error
+	// mergeGate, when set, holds every merge until it is closed, so a test can
+	// see the preview while the merge is still under way.
+	mergeGate chan struct{}
+	authorErr error
 
 	pull        forge.PullRequest
 	pullFound   bool
@@ -425,6 +431,24 @@ func (w *world) forgeDeps() tui.ForgeDeps {
 			w.record("rerun " + head)
 
 			return !w.nothingToRerun, w.rerunErr
+		},
+		Merge: func(pull forge.PullRequest, method forge.MergeMethod) error {
+			w.record("merge " + strconv.Itoa(pull.Number) + " " + string(method))
+
+			if w.mergeGate != nil {
+				<-w.mergeGate
+			}
+
+			return w.mergeErr
+		},
+		MergeMethods: func() ([]forge.MergeMethod, error) {
+			w.record("merge-methods")
+
+			if w.mergeMethods == nil && w.mergeMethodsErr == nil {
+				return []forge.MergeMethod{forge.MergeCommit, forge.MergeSquash}, nil
+			}
+
+			return w.mergeMethods, w.mergeMethodsErr
 		},
 		ReviewRequests: func() ([]forge.ReviewRequest, error) {
 			w.record("reviews")

@@ -419,6 +419,53 @@ func githubRerun(ctx context.Context, client Client, repo Repo, _ PullRequest, h
 	return reran, nil
 }
 
+// githubMergeBody is the body that merges a pull request: the method to use.
+type githubMergeBody struct {
+	MergeMethod string `json:"merge_method"`
+}
+
+// githubMergePull merges a pull request by the given method.
+func githubMergePull(ctx context.Context, client Client, repo Repo, pull PullRequest, method MergeMethod) error {
+	path := fmt.Sprintf("%s/pulls/%d/merge", githubRepoPath(repo), pull.Number)
+
+	return send(ctx, client, http.MethodPut, path, githubMergeBody{MergeMethod: string(method)})
+}
+
+// githubRepoSettings is the repository object's merge-method allow flags.
+type githubRepoSettings struct {
+	AllowMergeCommit bool `json:"allow_merge_commit"`
+	AllowSquashMerge bool `json:"allow_squash_merge"`
+	AllowRebaseMerge bool `json:"allow_rebase_merge"`
+}
+
+// githubMergeMethods reads which merge methods the repository permits, in the
+// order a merge commit, a squash, then a rebase.
+func githubMergeMethods(ctx context.Context, client Client, repo Repo) ([]MergeMethod, error) {
+	settings, err := repoCall[githubRepoSettings](ctx, client, repo, http.MethodGet, githubRepoPath(repo), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	allowed := []struct {
+		ok     bool
+		method MergeMethod
+	}{
+		{settings.AllowMergeCommit, MergeCommit},
+		{settings.AllowSquashMerge, MergeSquash},
+		{settings.AllowRebaseMerge, MergeRebase},
+	}
+
+	methods := make([]MergeMethod, 0, len(allowed))
+
+	for _, each := range allowed {
+		if each.ok {
+			methods = append(methods, each.method)
+		}
+	}
+
+	return methods, nil
+}
+
 // runFailed reports a completed workflow run that did not pass, by the same rule
 // runState reads a status by, so every run the Review pane calls failed — a
 // timed-out or canceled one included, not only a plain "failure" — is re-run.
