@@ -51,9 +51,10 @@ taplo = "0.10.0"         # TOML lint + format
 zizmor = "1.30.1"
 # node is the runtime the npm: tools below need. mise installs an npm: tool but
 # not a node to run it under, so a clean machine that relied on an ambient node
-# would run `task lint` against a different one than CI. A few releases back of
-# the current line, for the age gate above.
-node = "24.18.1"
+# would run `task lint` against a different one than CI. Held on the 24.x line —
+# the last the web toolchain (corepack/yarn, Vite, Vitest) is tested against; 25+
+# fails the frontend build here. 24.21.0 is the latest 24.x past the age gate.
+node = "24.21.0"
 "npm:markdownlint-cli2" = "0.23.2" # Markdown lint + format
 # Source-line counting for `task cloc`. Advisory: a report, never a gate.
 "npm:cloc" = "2.6.0-cloc"
@@ -61,12 +62,11 @@ node = "24.18.1"
 # jq does the per-package arithmetic in scripts/gobco-report.sh and
 # scripts/coverage-summary.sh. Pinned here so `task check` on a clean machine
 # does not depend on whichever jq happens to be installed.
-jq = "1.8.1"
+jq = "1.8.2"
 
 # The documentation site (docs/). The EXTENDED build is required: the Hugo Book
-# theme compiles SCSS, which the standard build cannot do. Held at 0.165.0
-# because 0.166.0 was six days old at adoption — see the age gate above.
-hugo-extended = "0.165.0"
+# theme compiles SCSS, which the standard build cannot do.
+hugo-extended = "0.166.0"
 
 # Backend live-reload for `task dev`: air rebuilds and restarts `workflow --web`
 # on any .go change while Vite hot-reloads the frontend. A dev convenience, never
