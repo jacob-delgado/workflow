@@ -199,6 +199,14 @@ tasks:
       - go tool cover -html=coverage.out -o coverage.html
       - echo "Wrote coverage.html"
 
+  test:summary:
+    desc: Report unit and e2e test counts (pass/skip/fail) and coverage (advisory)
+    cmds:
+      # Runs the Go, web (vitest) and Playwright suites and prints one markdown
+      # table of counts and coverage. In CI it also appends to the run summary.
+      # Advisory: it reports, it does not gate — the gates are the test jobs.
+      - scripts/test-summary.sh
+
   lint:
     desc: Run every linter
     cmds:
@@ -387,6 +395,12 @@ tasks:
       - echo ""
       - echo "Go, excluding tests:"
       - cloc --config .clocrc --include-lang=Go --not-match-f='_test\.go$' .
+      - echo ""
+      # The web frontend: React/TypeScript (.ts and .tsx, both counted as
+      # TypeScript by cloc) and CSS, minus the hey-api generated client and the
+      # vitest/Playwright tests, the same way the Go count drops _test.go.
+      - echo "Web (TypeScript/TSX and CSS), excluding generated code and tests:"
+      - cloc --config .clocrc --include-lang=TypeScript,CSS --not-match-f='(\.test\.tsx?|\.spec\.ts)$' --not-match-d='generated' .
 
   deadcode:
     desc: Report code unreachable from main (advisory, never a gate)
