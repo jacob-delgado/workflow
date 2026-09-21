@@ -287,7 +287,8 @@ export const zJiraConfig = z.object({
     user: z.string().optional(),
     headers: z.record(z.string(), z.string()).nullish(),
     views: z.array(zJiraView).nullish(),
-    project: z.string().optional()
+    project: z.string().optional(),
+    markdown_comments: z.boolean().optional()
 });
 
 /**

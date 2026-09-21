@@ -12,6 +12,7 @@ export const mockConfig: Config = {
     token_env: '',
     user: '',
     project: 'PROJ',
+    markdown_comments: false,
     headers: null,
     views: null,
   },

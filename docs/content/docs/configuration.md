@@ -63,6 +63,7 @@ which one was read.
 | `jira.user` | no | Only for instances requiring HTTP Basic. See below. |
 | `jira.views` | no | Named issue lists (`name` + `jql`) the pane moves between with `v`. Empty keeps the one built-in list. See below. |
 | `jira.headers` | no | Extra HTTP headers sent with every Jira request, for a Jira reached through an SSO proxy that checks one. Values are masked wherever the configuration is shown. See below. |
+| `jira.markdown_comments` | no | Write comments in Markdown and have them posted as Jira's wiki markup. Off by default, so a comment already in wiki markup is posted unchanged. |
 | `slack.token` | for a bot | Bot token; starts with `xoxb-`. Or use `slack.token_command` / `slack.token_env`. |
 | `slack.token_command` | for a bot | A program that prints the bot token. |
 | `slack.token_env` | for a bot | An environment variable that holds the bot token. |

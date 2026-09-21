@@ -72,6 +72,11 @@ type Jira struct {
 	// fix/UTF-8-decoding is not mistaken for one. Empty falls back to a looser
 	// guard that rejects common technical tokens (UTF, SHA, CVE) by shape alone.
 	Project string `json:"project"`
+	// MarkdownComments rewrites a comment written in Markdown as the wiki markup
+	// Jira renders before posting it, so headings, emphasis, code and links come
+	// out formatted rather than literal. Off by default: a comment that is
+	// already wiki markup, or means its asterisks literally, is posted unchanged.
+	MarkdownComments bool `json:"markdown_comments"`
 }
 
 // Slack describes how workflow posts to Slack. Either transport works: a bot
