@@ -4,6 +4,7 @@
 package webserver_test
 
 import (
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -16,6 +17,16 @@ import (
 	"github.com/jacob-delgado/workflow/internal/webserver"
 )
 
+// webhookSecret is the secret path of a Slack webhook, embedded in a post error
+// so a test can prove the response never carries it back to the client.
+const webhookSecret = "T00000000/B00000000/SECRETSECRETSECRETSECRET"
+
+// errPostNamesTheWebhook is a post failure whose message embeds the webhook URL,
+// as a real Slack client's error can.
+var errPostNamesTheWebhook = errors.New(
+	"posting to https://hooks.slack.com/services/" + webhookSecret + " failed: 500",
+)
+
 // doAnnounce posts an announcement to channel against a server over deps and cfg.
 func doAnnounce(t *testing.T, deps webserver.Deps, cfg config.Config, channel string) *httptest.ResponseRecorder {
 	t.Helper()
@@ -26,18 +37,26 @@ func doAnnounce(t *testing.T, deps webserver.Deps, cfg config.Config, channel st
 func TestGetAnnouncementComposesThePreview(t *testing.T) {
 	t.Parallel()
 
+	// Arrange
+	cfg := config.Default()
+	cfg.Slack.Channel = testChannel
+
 	// Act
 	// filledDeps has a pull request, an author, and the branch's issue.
-	recorder := get(t, serve(t, filledDeps(), config.Default()), "/api/announcement")
+	recorder := get(t, serve(t, filledDeps(), cfg), "/api/announcement")
 
 	// Assert
 	if recorder.Code != http.StatusOK {
 		t.Fatalf("status = %d, want 200", recorder.Code)
 	}
 
-	text := decode[api.Announcement](t, recorder).Text
-	if !strings.Contains(text, "redact") || !strings.Contains(text, "PROJ-412") {
-		t.Errorf("preview = %q, want the pull request title and the issue key", text)
+	preview := decode[api.Announcement](t, recorder)
+	if !strings.Contains(preview.Text, "redact") || !strings.Contains(preview.Text, "PROJ-412") {
+		t.Errorf("preview = %q, want the pull request title and the issue key", preview.Text)
+	}
+
+	if preview.Channel != testChannel {
+		t.Errorf("preview channel = %q, want the configured %s", preview.Channel, testChannel)
 	}
 }
 
@@ -47,17 +66,31 @@ func TestGetAnnouncementUsesTheForgeNounAndIssueLink(t *testing.T) {
 	// Arrange
 	deps := filledDeps()
 	deps.BrowseURL = func(key jira.Key) string { return "https://jira.example.com/browse/" + string(key) }
-
-	cfg := config.Default()
-	cfg.Forge.Kind = "gitlab"
+	info := webserver.Info{Version: testVersion, ForgeKind: forge.KindGitLab}
 
 	// Act
-	recorder := get(t, serve(t, deps, cfg), "/api/announcement")
+	recorder := get(t, serveWith(t, deps, config.Default(), info), "/api/announcement")
 
 	// Assert
 	text := decode[api.Announcement](t, recorder).Text
 	if !strings.Contains(text, "merge request") || !strings.Contains(text, "browse/PROJ-412") {
 		t.Errorf("preview = %q, want the merge-request noun and a link to the issue", text)
+	}
+}
+
+func TestGetAnnouncementUsesThePullRequestNounForGitHub(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	info := webserver.Info{Version: testVersion, ForgeKind: forge.KindGitHub}
+
+	// Act
+	recorder := get(t, serveWith(t, filledDeps(), config.Default(), info), "/api/announcement")
+
+	// Assert
+	text := decode[api.Announcement](t, recorder).Text
+	if !strings.Contains(text, "pull request") || strings.Contains(text, "merge request") {
+		t.Errorf("preview = %q, want the pull-request noun for a GitHub remote", text)
 	}
 }
 
@@ -93,6 +126,10 @@ func TestAnnouncePostsToTheChosenChannel(t *testing.T) {
 	if !strings.Contains(posted, "redact") {
 		t.Errorf("posted %q, want the announcement text", posted)
 	}
+
+	if channel := decode[api.Announcement](t, recorder).Channel; channel != "#releases" {
+		t.Errorf("response channel = %q, want the chosen #releases", channel)
+	}
 }
 
 func TestAnnounceFallsBackToTheConfiguredChannel(t *testing.T) {
@@ -109,7 +146,7 @@ func TestAnnounceFallsBackToTheConfiguredChannel(t *testing.T) {
 	}
 
 	cfg := config.Default()
-	cfg.Slack.Channel = "#dev-workflow"
+	cfg.Slack.Channel = testChannel
 
 	// Act
 	// An empty channel in the request falls back to the configured one.
@@ -120,17 +157,19 @@ func TestAnnounceFallsBackToTheConfiguredChannel(t *testing.T) {
 		t.Fatalf("status = %d, want 200", recorder.Code)
 	}
 
-	if toChannel != "#dev-workflow" {
-		t.Errorf("posted to %q, want the configured #dev-workflow", toChannel)
+	if toChannel != testChannel {
+		t.Errorf("posted to %q, want the configured %s", toChannel, testChannel)
 	}
 }
 
-func TestAnnounceReportsAFailedPost(t *testing.T) {
+func TestAnnounceReportsAFailedPostWithoutLeakingTheWebhook(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
+	// A real Slack client's error can name the webhook URL it posted to; the
+	// response must answer with a generic message rather than pass it through.
 	deps := filledDeps()
-	deps.Post = func(string, string) error { return errSeam }
+	deps.Post = func(string, string) error { return errPostNamesTheWebhook }
 
 	// Act
 	recorder := doAnnounce(t, deps, config.Default(), "#dev")
@@ -138,6 +177,11 @@ func TestAnnounceReportsAFailedPost(t *testing.T) {
 	// Assert
 	if recorder.Code != http.StatusUnprocessableEntity {
 		t.Errorf("status = %d, want 422 when the post fails", recorder.Code)
+	}
+
+	body := recorder.Body.String()
+	if strings.Contains(body, "hooks.slack.com") || strings.Contains(body, webhookSecret) {
+		t.Errorf("response body %q leaked the webhook named in the post error", body)
 	}
 }
 

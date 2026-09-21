@@ -34,6 +34,7 @@ const (
 	testVersion    = "1.2.3"
 	testBugJQL     = "type = Bug"
 	testBase       = "origin/main"
+	testChannel    = "#dev-workflow"
 	// noBranchSeam is the shared name for the "no branch seam" case the write
 	// handlers' unavailability tables each exercise.
 	noBranchSeam = "no branch seam"
