@@ -76,7 +76,8 @@ func (g glyphs) marker(selected bool) string {
 type styles struct {
 	label  lipgloss.Style
 	strong lipgloss.Style
-	// failure is the one use of red, so red always means something broke.
+	// failure is red, so a red status always means something broke; the diff
+	// preview reuses it where red instead means a removed line.
 	failure lipgloss.Style
 	// Each system on the spine has its own hue, from the terminal's own
 	// palette, so the user's theme chooses the shade.

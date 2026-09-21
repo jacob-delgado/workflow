@@ -70,8 +70,11 @@ type JiraDeps struct {
 
 // GitDeps is what the interface asks of the repository.
 type GitDeps struct {
-	Branch       func() (gitrepo.Branch, error)
-	Changes      func() ([]gitrepo.Change, error)
+	Branch  func() (gitrepo.Branch, error)
+	Changes func() ([]gitrepo.Change, error)
+	// Diff reads a changed file's diff against HEAD, line by line, so it can be
+	// read before staging. Nil when there is no repository.
+	Diff         func(change gitrepo.Change) ([]string, error)
 	Stage        func(change gitrepo.Change) error
 	Unstage      func(change gitrepo.Change) error
 	CreateBranch func(name, start string) error

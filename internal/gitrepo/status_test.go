@@ -300,3 +300,98 @@ func TestStatusReportsADirectoryOutsideARepository(t *testing.T) {
 		t.Errorf("Status returned %v, want ErrNotARepository", err)
 	}
 }
+
+func TestDiffReadsAFilesChangeAgainstHead(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	body := "diff --git a/internal/config/redact.go b/internal/config/redact.go\n" +
+		"@@ -1,3 +1,4 @@\n context\n-old line\n+new line\n"
+	replies := map[string]reply{
+		"git -C /work --literal-pathspecs diff HEAD -- internal/config/redact.go": {out: []byte(body)},
+	}
+	change := gitrepo.Change{Path: "internal/config/redact.go", Staged: 'M', Unstaged: ' '}
+
+	// Act
+	lines, err := gitrepo.At(fakeRunner(t, replies), workDir).Diff(t.Context(), change)
+
+	// Assert
+	want := []string{
+		"diff --git a/internal/config/redact.go b/internal/config/redact.go",
+		"@@ -1,3 +1,4 @@", " context", "-old line", "+new line",
+	}
+	if err != nil || !slices.Equal(lines, want) {
+		t.Errorf("Diff = %q, %v, want %q", lines, err, want)
+	}
+}
+
+func TestDiffOfARenamePassesBothPaths(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	body := "diff --git a/former.go b/moved.go\nrename from former.go\nrename to moved.go\n"
+	replies := map[string]reply{
+		"git -C /work --literal-pathspecs diff HEAD -- moved.go former.go": {out: []byte(body)},
+	}
+	change := gitrepo.Change{Path: "moved.go", OriginalPath: "former.go", Staged: 'R', Unstaged: ' '}
+
+	// Act
+	lines, err := gitrepo.At(fakeRunner(t, replies), workDir).Diff(t.Context(), change)
+
+	// Assert
+	if err != nil || len(lines) != 3 || lines[0] != "diff --git a/former.go b/moved.go" {
+		t.Errorf("Diff = %q, %v, want the rename's diff over both paths", lines, err)
+	}
+}
+
+func TestDiffOfANoTextualChangeIsEmpty(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	// A mode-only change prints only the header lines, which git trims to nothing.
+	replies := map[string]reply{"git -C /work --literal-pathspecs diff HEAD -- mode.go": {out: []byte("")}}
+	change := gitrepo.Change{Path: "mode.go", Staged: 'M', Unstaged: ' '}
+
+	// Act
+	lines, err := gitrepo.At(fakeRunner(t, replies), workDir).Diff(t.Context(), change)
+
+	// Assert
+	if err != nil || lines != nil {
+		t.Errorf("Diff = %q, %v, want no lines", lines, err)
+	}
+}
+
+func TestDiffOfAnUntrackedFileIsANote(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	// An untracked file is whole and new, so no git command runs.
+	change := gitrepo.Change{Path: "fresh.go", Staged: '?', Unstaged: '?'}
+
+	// Act
+	lines, err := gitrepo.At(fakeRunner(t, map[string]reply{}), workDir).Diff(t.Context(), change)
+
+	// Assert
+	if err != nil || len(lines) != 1 || !strings.Contains(lines[0], "new file") {
+		t.Errorf("Diff = %q, %v, want a new-file note", lines, err)
+	}
+}
+
+func TestDiffReportsGitsFailure(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	change := gitrepo.Change{Path: "gone.go", Staged: 'M', Unstaged: ' '}
+	replies := map[string]reply{
+		"git -C /work --literal-pathspecs diff HEAD -- gone.go": {err: errIndexLocked},
+		showToplevel: {err: errIndexLocked},
+	}
+
+	// Act
+	_, err := gitrepo.At(fakeRunner(t, replies), workDir).Diff(t.Context(), change)
+
+	// Assert
+	if !errors.Is(err, gitrepo.ErrNotARepository) {
+		t.Errorf("Diff returned %v, want ErrNotARepository", err)
+	}
+}

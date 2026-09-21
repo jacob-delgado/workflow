@@ -81,6 +81,7 @@ var (
 	_ applier = taskSwitched{}
 	_ applier = fetched{}
 	_ applier = changesLoaded{}
+	_ applier = diffLoaded{}
 	_ applier = staged{}
 	_ applier = runStarted{}
 	_ applier = runLine{}
