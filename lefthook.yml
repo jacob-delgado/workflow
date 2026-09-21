@@ -126,6 +126,11 @@ pre-push:
     file-length:
       run: scripts/check-file-length.sh
 
+    # No glob for the same reason: adding, moving or deleting a source file all
+    # change a directory's count, and a rename touches two directories at once.
+    package-size:
+      run: scripts/check-package-size.sh
+
 # Commit-message format check: Conventional Commits, e.g.
 #   feat(jira): add issue transition command
 #   fix(config): reject unknown keys instead of ignoring them

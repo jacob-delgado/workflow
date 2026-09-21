@@ -1,0 +1,58 @@
+# Per-directory file budgets. The gate is scripts/check-package-size.sh; the
+# metric and its reasoning live in that script's header.
+#
+# ONE ENTRY PER LINE:
+#
+#     <repo-relative dir>   <budget>|exempt
+#
+# Every entry MUST carry a `#` comment on the line(s) DIRECTLY above it saying
+# why the number is that number — not what the directory is. The script fails
+# on an entry without one.
+#
+# A DIRECTORY NOT LISTED answers to DEFAULT_MAX_FILES, which lives in the
+# script and is deliberately NOT restated here: a number spelled in two places
+# is exactly the drift this gate exists to catch. Run
+# `scripts/check-package-size.sh --list` to see it applied. That default is the
+# standing decision — no grouping grows past it without a written reason — not
+# an escape hatch. Registration is earned by size, which is what keeps this file
+# short and every line in it load-bearing. Deleting an entry does not dodge the
+# gate: an over-budget directory falls back to the default and fails harder.
+#
+# BUDGETS ARE ZERO-HEADROOM IN BOTH DIRECTIONS. A file count only moves when
+# someone deliberately creates a file, which is exactly the moment worth a
+# thought — so a budget is the count on the day it was registered, and the next
+# file trips the gate. A budget left ABOVE its count fails too; that is what a
+# forgotten post-split ratchet looks like.
+#
+# Counts here are SOURCE files: unit tests (`*_test.go`, `*.test.ts(x)`),
+# stylesheets (`*.css`) and generated code (`*.gen.go`, a whole generated tree
+# marked `exempt`) do not count. But integration tests (`*_integration_test.go`)
+# and everything under `web/e2e/` (Playwright specs and helpers) DO count — an
+# end-to-end surface piles up one scenario at a time, and the budget is what
+# forces it into per-surface folders instead of a hundred files in one. The
+# budget measures concerns, not artifacts.
+
+# internal/tui — the Bubble Tea interface, one file per pane, overlay and
+# composer. It is a single responsibility (drive the terminal UI) spelled
+# file-per-concern: every file hangs its behavior off the one shared Model, so
+# the package cannot be split without threading that Model — and the methods on
+# it — across a package boundary Go does not allow. This is the cohesive package
+# CLAUDE.md names as one that must not be split to chase a number; the entry
+# freezes the count so a new concern is a decision, not drift, not a target to
+# shrink toward. layout/ and frame/ are already the pure leaves that could leave.
+internal/tui 32
+
+# internal/webserver — the loopback REST surface, one file per operation
+# (announce, commit, branches, pull-request, checkout, push, review, config,
+# stream, static, serve) plus the shared guard and error envelope. One
+# responsibility (turn a guarded request into a wiring seam call and a DTO)
+# spelled handler-per-endpoint; like internal/tui it is cohesive and grows only
+# when the API gains an operation, which is a decision the OpenAPI spec records
+# first. Frozen here so that growth stays deliberate.
+internal/webserver 15
+
+# web/src/api/generated — the @hey-api client generated from api/openapi.yaml by
+# `yarn gen`. Never hand-edited, regenerated wholesale, and gated for drift by
+# gen:check; its file count is the code generator's business, not a concern
+# budget's.
+web/src/api/generated exempt
