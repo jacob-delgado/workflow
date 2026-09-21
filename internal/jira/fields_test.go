@@ -33,6 +33,8 @@ const resolveBody = `{"transitions":[{"id":"5","name":"Resolve Issue",` +
 	`"schema":{"type":"option","custom":"select"},"allowedValues":[{"id":"7","value":"Platform"}]},` +
 	`"assignee":{"required":true,"hasDefaultValue":false,"name":"Assignee",` +
 	`"schema":{"type":"user","system":"assignee"}},` +
+	`"duedate":{"required":true,"hasDefaultValue":false,"name":"Due date",` +
+	`"schema":{"type":"date","system":"duedate"}},` +
 	`"comment":{"required":false,"hasDefaultValue":false,"name":"Comment","schema":{"type":"comment"}},` +
 	`"priority":{"required":true,"hasDefaultValue":true,"name":"Priority","schema":{"type":"priority"},` +
 	`"allowedValues":[{"id":"3","name":"Major"}]}` +
@@ -67,7 +69,8 @@ func TestTransitionsListTheFieldsAMoveNeeds(t *testing.T) {
 	// Only what Jira will refuse the move without: required and with no
 	// default. Ordered by name, so the same screen always asks in one order.
 	want := []jira.Field{
-		{ID: "assignee", Name: "Assignee", Kind: jira.FieldUnsupported, Options: nil},
+		{ID: "assignee", Name: "Assignee", Kind: jira.FieldUser, Options: nil},
+		{ID: "duedate", Name: "Due date", Kind: jira.FieldDate, Options: nil},
 		{
 			ID: "fixVersions", Name: "Fix Version/s", Kind: jira.FieldOptionList,
 			Options: []jira.Option{{ID: "10000", Name: "1.0"}},
@@ -82,6 +85,39 @@ func TestTransitionsListTheFieldsAMoveNeeds(t *testing.T) {
 
 	if got := found[0].Fields; !slices.EqualFunc(got, want, equalFields) {
 		t.Errorf("Fields = %+v\nwant   %+v", got, want)
+	}
+}
+
+func TestACascadingSelectIsRefusedRatherThanSentAParentOnly(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	// A cascading select carries allowedValues — its parents, each with a nested
+	// child — so it must be told apart from a plain option list by its schema
+	// type. Sent as one option it would carry a parent with no child, and Jira
+	// would reject the whole transition.
+	const body = `{"transitions":[{"id":"7","name":"Triage",` +
+		`"to":{"name":"Triaged","statusCategory":{"key":"indeterminate"}},"fields":{` +
+		`"customfield_10400":{"required":true,"hasDefaultValue":false,"name":"Category",` +
+		`"schema":{"type":"option-with-child","custom":"cascadingselect"},` +
+		`"allowedValues":[{"id":"10","value":"Parent","children":[{"id":"11","value":"Child"}]}]}` +
+		`}}]}`
+
+	client := serve(t, answer(body, "fred"))
+
+	// Act
+	found, err := client.Transitions(t.Context(), "OPS-1")
+	if err != nil {
+		t.Fatalf("Transitions returned %v, want nil", err)
+	}
+
+	// Assert
+	if len(found) != 1 || len(found[0].Fields) != 1 {
+		t.Fatalf("got %d transitions, want one with one field", len(found))
+	}
+
+	if kind := found[0].Fields[0].Kind; kind != jira.FieldUnsupported {
+		t.Errorf("cascading select Kind = %d, want FieldUnsupported (%d)", kind, jira.FieldUnsupported)
 	}
 }
 
@@ -100,6 +136,8 @@ func TestAFieldCanSayWhetherItCanBeFilledHere(t *testing.T) {
 		"one of a set of values":  {kind: jira.FieldOption, want: true},
 		"a list of set values":    {kind: jira.FieldOptionList, want: true},
 		"text":                    {kind: jira.FieldText, want: true},
+		"a user":                  {kind: jira.FieldUser, want: true},
+		"a date":                  {kind: jira.FieldDate, want: true},
 		"any other kind of field": {kind: jira.FieldUnsupported, want: false},
 	}
 
@@ -135,11 +173,20 @@ func TestApplyTransitionSendsTheFieldValuesInTheShapeEachNeeds(t *testing.T) {
 		"an option, a list of options and text": {
 			values: []jira.FieldValue{
 				{Field: field("resolution", jira.FieldOption), OptionID: "1", Text: ""},
-				{Field: field("fixVersions", jira.FieldOptionList), OptionID: "10000", Text: ""},
+				{Field: field("fixVersions", jira.FieldOptionList), OptionIDs: []string{"10000"}, Text: ""},
 				{Field: field("customfield_10200", jira.FieldText), OptionID: "", Text: "a \"nil\" token"},
 			},
 			present: true,
 			want:    `{"customfield_10200":"a \"nil\" token","fixVersions":[{"id":"10000"}],"resolution":{"id":"1"}}`,
+		},
+		"a user, a date and several versions": {
+			values: []jira.FieldValue{
+				{Field: field("assignee", jira.FieldUser), Text: "fred"},
+				{Field: field("duedate", jira.FieldDate), Text: "2026-09-21"},
+				{Field: field("fixVersions", jira.FieldOptionList), OptionIDs: []string{"10000", "10001"}},
+			},
+			present: true,
+			want:    `{"assignee":{"name":"fred"},"duedate":"2026-09-21","fixVersions":[{"id":"10000"},{"id":"10001"}]}`,
 		},
 	}
 
