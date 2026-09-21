@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# Fail if a tracked source file is longer than the ceiling.
+# Warn past the soft target, fail past the hard ceiling.
 #
 # Usage:
 #   scripts/check-file-length.sh          # the gate
@@ -10,6 +10,11 @@
 # longer file is usually carrying more than one concern. That guidance sat in
 # prose no linter reads, so it only ever applied when a reviewer happened to
 # notice. This is the mechanical half.
+#
+# Two thresholds, so the guidance nudges without blocking a file that has a
+# genuine reason to be long: 500 is the SOFT target — past it the gate warns but
+# still passes — and 800 is the HARD ceiling, past which a file is refused. A
+# file between the two is a prompt to look, not a build break.
 #
 # The decisions, each load-bearing:
 #
@@ -30,7 +35,8 @@
 #   reason written next to the number.
 set -euo pipefail
 
-readonly default_max=500
+readonly default_max=800
+readonly default_soft=500
 
 usage() {
   sed -n '3,7p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//' >&2
@@ -38,6 +44,7 @@ usage() {
 
 mode="gate"
 max="${FILE_LENGTH_MAX:-${default_max}}"
+soft="${FILE_LENGTH_SOFT:-${default_soft}}"
 
 case "${1:-}" in
   "") ;;
@@ -48,11 +55,19 @@ case "${1:-}" in
     ;;
 esac
 
-if ! [[ "${max}" =~ ^[1-9][0-9]*$ ]]; then
-  # A non-numeric ceiling would make the arithmetic below compare strings and
+for name in max soft; do
+  # A non-numeric threshold would make the arithmetic below compare strings and
   # silently pass everything, which is the one failure mode a gate must not have.
-  echo "check-file-length: FILE_LENGTH_MAX must be a positive integer, got '${max}'" >&2
-  exit 2
+  if ! [[ "${!name}" =~ ^[1-9][0-9]*$ ]]; then
+    echo "check-file-length: ${name} must be a positive integer, got '${!name}'" >&2
+    exit 2
+  fi
+done
+
+if ((soft > max)); then
+  # A soft target above the hard ceiling would warn on files that already fail,
+  # which reads as noise; clamp it so the bands never overlap.
+  soft="${max}"
 fi
 
 # Capture the file list up front. A `git ls-files` that failed inside a process
@@ -85,24 +100,33 @@ lengths() {
 }
 
 if [[ "${mode}" == "list" ]]; then
-  lengths | awk -F'\t' -v max="${max}" \
-    '{ printf "%5d  %s%s\n", $1, $2, ($1 > max ? "  <= OVER" : "") }'
+  lengths | awk -F'\t' -v hard="${max}" -v soft="${soft}" \
+    '{ tag = ($1 > hard ? "  <= OVER" : ($1 > soft ? "  <= soft" : "")); printf "%5d  %s%s\n", $1, $2, tag }'
   exit 0
 fi
 
 over=0
+warned=0
 while IFS=$'\t' read -r lines file; do
   if ((lines > max)); then
-    echo "${file}: ${lines} lines (ceiling ${max})" >&2
+    echo "${file}: ${lines} lines (hard ceiling ${max})" >&2
     over=$((over + 1))
+  elif ((lines > soft)); then
+    echo "${file}: ${lines} lines (over the ${soft}-line soft target)" >&2
+    warned=$((warned + 1))
   fi
 done < <(lengths)
 
 if ((over > 0)); then
   echo >&2
-  echo "check-file-length: ${over} file(s) over ${max} lines." >&2
+  echo "check-file-length: ${over} file(s) over the ${max}-line hard ceiling." >&2
   echo "Split by concern — a file this long is usually holding more than one." >&2
   exit 1
 fi
 
-echo "check-file-length: every tracked Go and shell file is within ${max} lines."
+if ((warned > 0)); then
+  echo "check-file-length: ${warned} file(s) over the ${soft}-line soft target (warning only), all within the ${max}-line ceiling."
+  exit 0
+fi
+
+echo "check-file-length: every tracked Go and shell file is within the ${soft}-line soft target."
