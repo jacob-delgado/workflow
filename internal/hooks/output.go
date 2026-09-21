@@ -132,10 +132,12 @@ func upsert(jobs []Job, job Job) []Job {
 }
 
 // knownBasenames are files a tool points at that carry no extension —
-// hadolint's Dockerfile, make's Makefile. They join the file:line pattern as a
-// literal allowlist rather than "any extensionless word", so a time of day
-// ("12:30") or a host and port ("localhost:8080") still cannot read as a place.
-const knownBasenames = `Dockerfile|Makefile|Containerfile`
+// hadolint's Dockerfile, make's Makefile, and the task-runner and language
+// files a linter can flag by name. They join the file:line pattern as a literal
+// allowlist rather than "any extensionless word", so a time of day ("12:30") or
+// a host and port ("localhost:8080") still cannot read as a place.
+const knownBasenames = `Dockerfile|Containerfile|Makefile|Justfile|Rakefile|` +
+	`Gemfile|Vagrantfile|Jenkinsfile|Procfile|Brewfile`
 
 // locationPatterns match the ways tools point at a place in a file, each with
 // the file, line, column and message in groups 1 to 4 where the tool gives them.
@@ -161,6 +163,9 @@ func locationPatterns(goos string) []*regexp.Regexp {
 	return []*regexp.Regexp{
 		// file:line:column: message, and file:line: message — Go, most linters.
 		regexp.MustCompile(`^(` + drive + file + `):(\d+)(?::(\d+))?:?\s*(.*)$`),
+		// file(line,col): message, and file(line): message — MSVC, and the
+		// TypeScript compiler the web build runs.
+		regexp.MustCompile(`^(` + drive + file + `)\((\d+)(?:,(\d+))?\):?\s*(.*)$`),
 		// shellcheck: "In file line 12:".
 		regexp.MustCompile(`^In (\S+\.[A-Za-z0-9]+) line (\d+)():()$`),
 		// typos and others that point with an arrow.
