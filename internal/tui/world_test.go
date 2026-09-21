@@ -88,6 +88,9 @@ type world struct {
 	remoteBranches    []string
 	remoteBranchesErr error
 	noRemoteBranches  bool
+	recentSubjects    []string
+	recentSubjectsErr error
+	noRecentSubjects  bool
 	changes           []gitrepo.Change
 	stageErr          error
 	createErr         error
