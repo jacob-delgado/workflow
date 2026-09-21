@@ -39,6 +39,14 @@ func heldBackJira(deps JiraDeps) JiraDeps {
 		deps.Comment = func(jira.Key, string) (jira.Comment, error) { return jira.Comment{}, errDryRun }
 	}
 
+	if deps.Assign != nil {
+		deps.Assign = func(jira.Key, string) error { return errDryRun }
+	}
+
+	if deps.AddWorklog != nil {
+		deps.AddWorklog = func(jira.Key, string, string) (jira.Worklog, error) { return jira.Worklog{}, errDryRun }
+	}
+
 	if deps.LinkPullRequest != nil {
 		deps.LinkPullRequest = func(jira.Key, string, string) error { return errDryRun }
 	}

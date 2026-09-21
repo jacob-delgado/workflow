@@ -164,6 +164,12 @@ func jiraDeps(ctx context.Context, settings config.Jira, timeout time.Duration, 
 		Comment: func(issueKey jira.Key, text string) (jira.Comment, error) {
 			return client.AddComment(ctx, issueKey, text)
 		},
+		Assign: func(issueKey jira.Key, assignee string) error {
+			return client.Assign(ctx, issueKey, assignee)
+		},
+		AddWorklog: func(issueKey jira.Key, timeSpent, comment string) (jira.Worklog, error) {
+			return client.AddWorklog(ctx, issueKey, timeSpent, comment)
+		},
 		LinkPullRequest: func(issueKey jira.Key, pullURL, title string) error {
 			return client.LinkPullRequest(ctx, issueKey, pullURL, title)
 		},
