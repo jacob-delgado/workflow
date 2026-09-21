@@ -99,15 +99,17 @@ type world struct {
 	ciErr          error
 	authorErr      error
 
-	pull      forge.PullRequest
-	pullFound bool
-	pullErr   error
-	openErr   error
-	ci        []forge.CI
-	templates []forge.Template
-	forgeKind forge.Kind
-	author    string
-	postErr   error
+	pull       forge.PullRequest
+	pullFound  bool
+	pullErr    error
+	openErr    error
+	reviews    []forge.ReviewRequest
+	reviewsErr error
+	ci         []forge.CI
+	templates  []forge.Template
+	forgeKind  forge.Kind
+	author     string
+	postErr    error
 	// postGate, when set, holds every post, already recorded, until it is
 	// closed: a Slack that is slow to answer.
 	postGate   chan struct{}
@@ -341,6 +343,11 @@ func (w *world) forgeDeps() tui.ForgeDeps {
 			w.record("ci " + head)
 
 			return w.nextCI(), w.ciErr
+		},
+		ReviewRequests: func() ([]forge.ReviewRequest, error) {
+			w.record("reviews")
+
+			return w.reviews, w.reviewsErr
 		},
 		Templates: func() []forge.Template { return w.templates },
 		Author:    func() (string, error) { return w.author, w.authorErr },

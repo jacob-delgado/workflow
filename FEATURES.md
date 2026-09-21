@@ -531,13 +531,10 @@ Impact: medium · Effort: medium
 Impact: high · Effort: medium
 
 - Done: `forge.Client.ReviewRequests` searches each forge for pull requests that
-  request your review, and `workflow reviews` (`internal/cli/reviews.go`) lists
-  each one's title, author, CI word and humanized age.
-- What remains: the list lives only in the CLI command. The in-interface screen
-  the entry imagined, and opening one in the browser, are not built — the
-  `ReviewRequests` TUI seam is wired but nothing calls it.
-- Done when: the review list is reachable from the interface and opens one in
-  the browser.
+  request your review, `workflow reviews` (`internal/cli/reviews.go`) lists each
+  one's title, author, CI word and humanized age, and the Reviews pane
+  (`internal/tui/reviewqueue.go`, `6`) shows the same queue oldest-first, opening
+  or copying the selected request with `o` and `y`.
 
 ### FEAT-63 The active sprint
 
@@ -666,12 +663,12 @@ Impact: low · Effort: medium
 
 Impact: medium · Effort: medium
 
-- Reopens: five panes in the order the work goes.
-- Why: review requests (FEAT-59) and check details (FEAT-28) are both things
-  to glance at constantly, which is what a pane is for.
-- A version that fits: an overlay for check details, a separate screen for
-  review requests.
-- Done when: the rail has a sixth entry and `6` jumps to it.
+- Done: the rail has a sixth pane, Reviews (`internal/tui/reviewqueue.go`), and
+  `6` jumps to it; it holds the review queue (FEAT-59). The pane count is driven
+  by `paneCount` in `internal/tui/panes.go`, so the layout, the jump keys and the
+  focus lap all followed from the one edit.
+- Still open, the version that fits check details (FEAT-28): an overlay rather
+  than a further pane.
 
 ### FEAT-72 Notifications after the interface closes
 

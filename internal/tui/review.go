@@ -208,12 +208,9 @@ func (msg ciPoll) apply(m Model) (Model, tea.Cmd) {
 	return m, m.checkCI()
 }
 
-// ciGlyph is how CI stands, by shape.
+// ciGlyph is how the branch's CI stands, by shape.
 func (m Model) ciGlyph() string {
-	return map[forge.CIState]string{
-		forge.CINone: m.marks.unknown, forge.CIRunning: m.marks.inFlight,
-		forge.CIPassed: m.marks.done, forge.CIFailed: m.failedGlyph(),
-	}[m.review.ci.State]
+	return m.ciStateGlyph(m.review.ci.State)
 }
 
 // ciSummary says how CI stands in words.
