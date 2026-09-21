@@ -225,6 +225,7 @@ func webDeps(deps tui.Deps) webserver.Deps {
 	return webserver.Deps{
 		Search:       deps.Jira.Search,
 		Issue:        deps.Jira.Issue,
+		BrowseURL:    deps.Jira.BrowseURL,
 		Branch:       deps.Git.Branch,
 		Branches:     deps.Git.Branches,
 		Checkout:     deps.Git.Checkout,
@@ -235,6 +236,7 @@ func webDeps(deps tui.Deps) webserver.Deps {
 		FindPull:     deps.Forge.FindPullRequest,
 		CheckCI:      deps.Forge.CheckStatus,
 		Author:       deps.Forge.Author,
+		Post:         deps.Slack.Post,
 	}
 }
 

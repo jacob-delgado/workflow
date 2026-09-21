@@ -36,6 +36,30 @@ export type CreateBranchRequest = {
 };
 
 /**
+ * A composed Slack announcement and where it would post.
+ */
+export type Announcement = {
+    /**
+     * The message that would be posted.
+     */
+    text: string;
+    /**
+     * The channel it posts to, or empty for a webhook's own channel.
+     */
+    channel: string;
+};
+
+/**
+ * Where to post the announcement.
+ */
+export type AnnounceRequest = {
+    /**
+     * The channel to post to; empty uses the configured channel or the webhook.
+     */
+    channel: string;
+};
+
+/**
  * The parts of a Conventional Commit message for the staged changes.
  */
 export type CommitRequest = {
@@ -716,6 +740,68 @@ export type CreateBranchResponses = {
 };
 
 export type CreateBranchResponse = CreateBranchResponses[keyof CreateBranchResponses];
+
+export type GetAnnouncementData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/announcement';
+};
+
+export type GetAnnouncementErrors = {
+    /**
+     * There is no pull request to announce.
+     */
+    409: Error;
+    /**
+     * The request could not be completed.
+     */
+    default: Error;
+};
+
+export type GetAnnouncementError = GetAnnouncementErrors[keyof GetAnnouncementErrors];
+
+export type GetAnnouncementResponses = {
+    /**
+     * The composed announcement and the channel it would post to.
+     */
+    200: Announcement;
+};
+
+export type GetAnnouncementResponse = GetAnnouncementResponses[keyof GetAnnouncementResponses];
+
+export type AnnounceData = {
+    body: AnnounceRequest;
+    path?: never;
+    query?: never;
+    url: '/api/announce';
+};
+
+export type AnnounceErrors = {
+    /**
+     * There is no pull request to announce.
+     */
+    409: Error;
+    /**
+     * The announcement could not be posted.
+     */
+    422: Error;
+    /**
+     * The request could not be completed.
+     */
+    default: Error;
+};
+
+export type AnnounceError = AnnounceErrors[keyof AnnounceErrors];
+
+export type AnnounceResponses = {
+    /**
+     * The announcement as posted.
+     */
+    200: Announcement;
+};
+
+export type AnnounceResponse = AnnounceResponses[keyof AnnounceResponses];
 
 export type PushData = {
     body?: never;

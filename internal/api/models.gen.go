@@ -157,6 +157,21 @@ func (e StatusCategory) Valid() bool {
 	}
 }
 
+// AnnounceRequest Where to post the announcement.
+type AnnounceRequest struct {
+	// Channel The channel to post to; empty uses the configured channel or the webhook.
+	Channel string `json:"channel"`
+}
+
+// Announcement A composed Slack announcement and where it would post.
+type Announcement struct {
+	// Channel The channel it posts to, or empty for a webhook's own channel.
+	Channel string `json:"channel"`
+
+	// Text The message that would be posted.
+	Text string `json:"text"`
+}
+
 // Branch defines model for Branch.
 type Branch struct {
 	Ahead int `json:"ahead"`
@@ -532,6 +547,9 @@ type ListIssuesParams struct {
 	// StartAt The zero-based index of the first issue to return.
 	StartAt *int `form:"start_at,omitempty" json:"start_at,omitempty"`
 }
+
+// AnnounceJSONRequestBody defines body for Announce for application/json ContentType.
+type AnnounceJSONRequestBody = AnnounceRequest
 
 // CreateBranchJSONRequestBody defines body for CreateBranch for application/json ContentType.
 type CreateBranchJSONRequestBody = CreateBranchRequest
