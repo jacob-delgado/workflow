@@ -144,6 +144,10 @@ type world struct {
 	pullFound   bool
 	pullErr     error
 	openErr     error
+	editPullErr error
+	// editGate, when set, holds the forge edit until it is closed, so a test can
+	// see the editor's in-flight state.
+	editGate    chan struct{}
 	reviewerErr error
 	reviews     []forge.ReviewRequest
 	reviewsErr  error
@@ -425,6 +429,22 @@ func (w *world) forgeDeps() tui.ForgeDeps {
 			}
 
 			return w.pull, w.reviewerErr
+		},
+		EditPullRequest: func(pull forge.PullRequest, edit forge.PullRequestEdit) (forge.PullRequest, error) {
+			w.record("edit " + strconv.Itoa(pull.Number) + " " + edit.Title + "\n" + edit.Body)
+
+			if w.editGate != nil {
+				<-w.editGate
+			}
+
+			if w.editPullErr != nil {
+				return forge.PullRequest{}, w.editPullErr
+			}
+
+			updated := pull
+			updated.Title, updated.Body = edit.Title, edit.Body
+
+			return updated, nil
 		},
 		CheckStatus: func(_ forge.PullRequest, head string) (forge.CI, error) {
 			w.record("ci " + head)

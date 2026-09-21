@@ -80,14 +80,8 @@ func forgeDepsFrom(
 
 			return connection.client.FindPullRequest(ctx, connection.repo, branch)
 		},
-		CreatePullRequest: func(request forge.NewPullRequest) (forge.PullRequest, error) {
-			connection, err := connect()
-			if err != nil {
-				return forge.PullRequest{}, err
-			}
-
-			return connection.client.CreatePullRequest(ctx, connection.repo, request)
-		},
+		CreatePullRequest: createPullSeam(ctx, connect),
+		EditPullRequest:   editPullSeam(ctx, connect),
 		CheckStatus: func(pull forge.PullRequest, head string) (forge.CI, error) {
 			connection, err := connect()
 			if err != nil {
@@ -126,6 +120,37 @@ func forgeDepsFrom(
 			return identity.Name(), err
 		},
 		Kind: kind,
+	}
+}
+
+// createPullSeam is the open-a-pull-request seam, split out to keep
+// forgeDepsFrom within its length: it connects, then asks the client to open it.
+func createPullSeam(
+	ctx context.Context, connect func() (forgeConnection, error),
+) func(forge.NewPullRequest) (forge.PullRequest, error) {
+	return func(request forge.NewPullRequest) (forge.PullRequest, error) {
+		connection, err := connect()
+		if err != nil {
+			return forge.PullRequest{}, err
+		}
+
+		return connection.client.CreatePullRequest(ctx, connection.repo, request)
+	}
+}
+
+// editPullSeam is the edit-pull-request seam, split out to keep forgeDepsFrom
+// within its length: it connects, then asks the client to edit the title and
+// body.
+func editPullSeam(
+	ctx context.Context, connect func() (forgeConnection, error),
+) func(forge.PullRequest, forge.PullRequestEdit) (forge.PullRequest, error) {
+	return func(pull forge.PullRequest, edit forge.PullRequestEdit) (forge.PullRequest, error) {
+		connection, err := connect()
+		if err != nil {
+			return forge.PullRequest{}, err
+		}
+
+		return connection.client.EditPullRequest(ctx, connection.repo, pull, edit)
 	}
 }
 

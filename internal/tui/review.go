@@ -309,6 +309,10 @@ func (m Model) reviewDetail(width int) string {
 		lines = append(lines, m.styles.label.Render("draft"))
 	}
 
+	if m.canEditPullRequest() {
+		lines = append(lines, "", "e edits its title and description.")
+	}
+
 	return wrap(strings.Join(lines, "\n"), width)
 }
 
@@ -350,6 +354,13 @@ func (m Model) canOpenPullRequest() bool {
 		m.review.err == nil && !m.review.found && m.deps.Forge.CreatePullRequest != nil
 }
 
+// canEditPullRequest reports an open pull request whose title and body can be
+// edited here. A find also returns a merged pull, which cannot be edited, so it
+// checks the state rather than found alone.
+func (m Model) canEditPullRequest() bool {
+	return m.review.found && m.review.pull.IsOpen() && m.deps.Forge.EditPullRequest != nil
+}
+
 // forgeReason names why the forge could not be reached, by cause.
 func forgeReason(err error) string {
 	switch {
@@ -380,6 +391,10 @@ func (m Model) reviewKeys() []key.Binding {
 
 	if m.canOpenPullRequest() {
 		keys = append(keys, m.keys.newPullRequest)
+	}
+
+	if m.canEditPullRequest() {
+		keys = append(keys, m.keys.edit)
 	}
 
 	if m.canOpenChecks() {
@@ -416,8 +431,6 @@ func (m Model) reviewPullURL() string {
 // handleReviewKey answers the Review pane's own keys.
 func (m Model) handleReviewKey(msg tea.KeyPressMsg) (Model, tea.Cmd) {
 	switch {
-	case key.Matches(msg, m.keys.newPullRequest) && m.canOpenPullRequest():
-		return m.openPullRequestComposer()
 	case key.Matches(msg, m.keys.checks) && m.canOpenChecks():
 		return m.openChecks()
 	case key.Matches(msg, m.keys.rerun):
@@ -428,6 +441,19 @@ func (m Model) handleReviewKey(msg tea.KeyPressMsg) (Model, tea.Cmd) {
 		return m.startFinish()
 	case key.Matches(msg, m.keys.refresh):
 		return m, tea.Batch(m.findPullRequest(), m.checkCI())
+	default:
+		return m.handleReviewCompose(msg)
+	}
+}
+
+// handleReviewCompose answers the keys that open a composer on the pull request:
+// a new one, or an edit of the open one.
+func (m Model) handleReviewCompose(msg tea.KeyPressMsg) (Model, tea.Cmd) {
+	switch {
+	case key.Matches(msg, m.keys.newPullRequest) && m.canOpenPullRequest():
+		return m.openPullRequestComposer()
+	case key.Matches(msg, m.keys.edit) && m.canEditPullRequest():
+		return m.openPullRequestEditor()
 	default:
 		return m.handleReviewLink(msg)
 	}

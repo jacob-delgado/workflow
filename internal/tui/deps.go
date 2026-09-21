@@ -120,6 +120,7 @@ type GitDeps struct {
 type ForgeDeps struct {
 	FindPullRequest   func(branch string) (forge.PullRequest, bool, error)
 	CreatePullRequest func(request forge.NewPullRequest) (forge.PullRequest, error)
+	EditPullRequest   func(pull forge.PullRequest, edit forge.PullRequestEdit) (forge.PullRequest, error)
 	CheckStatus       func(pull forge.PullRequest, head string) (forge.CI, error)
 	// Rerun re-runs the failed CI on a pull request and reports whether anything
 	// was re-run. It needs a write scope the read path does not, so it can be

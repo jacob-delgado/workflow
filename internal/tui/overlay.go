@@ -93,6 +93,7 @@ var (
 	_ applier = checkOpened{}
 	_ applier = ciPoll{}
 	_ applier = pullCreated{}
+	_ applier = pullEdited{}
 	_ applier = rerunRequested{}
 	_ applier = mergeMethodsLoaded{}
 	_ applier = mergeRequested{}
