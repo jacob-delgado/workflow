@@ -208,8 +208,10 @@ Impact: high · Effort: medium
   `internal/sanitize` (a diff is outside text).
 - Constraints: read-only. Staging by hunk stays out, as the usage guide says:
   that is lazygit's whole project.
-- Done when: the selected file's diff shows beside the list, scrolls, and
-  marks added and removed lines by more than color.
+- Done: the Commits pane reads the selected file's diff (`gitrepo.Diff`, an
+  untracked file noted rather than shown) and draws it below the list, headed by
+  the path; it scrolls with the pane, and an added line keeps its `+` and a
+  removed its `-`, tinted green and red so the mark reads without color too.
 
 ### FEAT-20 Mark a breaking change
 

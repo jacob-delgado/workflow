@@ -184,6 +184,7 @@ func gitDeps(ctx context.Context, root string) tui.GitDeps {
 	return tui.GitDeps{
 		Branch:         func() (gitrepo.Branch, error) { return repo.ReadBranch(ctx) },
 		Changes:        func() ([]gitrepo.Change, error) { return repo.Status(ctx) },
+		Diff:           func(change gitrepo.Change) ([]string, error) { return repo.Diff(ctx, change) },
 		Stage:          func(change gitrepo.Change) error { return repo.Stage(ctx, change) },
 		Unstage:        func(change gitrepo.Change) error { return repo.Unstage(ctx, change) },
 		CreateBranch:   func(name, start string) error { return repo.CreateBranch(ctx, name, start) },

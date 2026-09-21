@@ -24,6 +24,15 @@ func (w *world) gitDeps() tui.GitDeps {
 
 			return slices.Clone(w.changes), nil
 		},
+		Diff: func(change gitrepo.Change) ([]string, error) {
+			w.record("diff " + change.Path)
+
+			if w.diffGate != nil {
+				<-w.diffGate
+			}
+
+			return slices.Clone(w.diff), w.diffErr
+		},
 		Stage: func(change gitrepo.Change) error {
 			w.record("stage " + change.Path)
 
@@ -108,6 +117,10 @@ func (w *world) gitDeps() tui.GitDeps {
 
 	if w.noRecentSubjects {
 		deps.RecentSubjects = nil
+	}
+
+	if w.noDiff {
+		deps.Diff = nil
 	}
 
 	if w.noAmend {

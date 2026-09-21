@@ -51,7 +51,12 @@ func (msg changesLoaded) apply(m Model) (Model, tea.Cmd) {
 		m.scroll, _ = window(m.changes.selected, len(m.changes.changes), m.detailRows())
 	}
 
-	return m, nil
+	// Staging an untracked file, or an edit behind a refresh, changes a file's
+	// diff without changing its path, so drop the loaded one to force a fresh
+	// read rather than trust loadDiff's path guard.
+	m.diff = diffState{}
+
+	return m, m.loadDiff()
 }
 
 // loadChanges is the command that reads the work tree's status.
@@ -142,6 +147,8 @@ func (m Model) commitsDetail(width int) string {
 		lines = append(lines, "", m.styles.label.Render("A hook is not managed by lefthook. Press g to set up lefthook."))
 	}
 
+	lines = append(lines, m.diffSection(width)...)
+
 	return strings.Join(lines, "\n")
 }
 
@@ -210,7 +217,7 @@ func (m Model) commitsKeys() []key.Binding {
 func (m Model) handleCommitsKey(msg tea.KeyPressMsg) (Model, tea.Cmd) {
 	switch {
 	case key.Matches(msg, m.keys.up, m.keys.down):
-		return m.moveChangeSelection(msg), nil
+		return m.moveChangeSelection(msg)
 	case key.Matches(msg, m.keys.stage):
 		return m.toggleStaged()
 	case key.Matches(msg, m.keys.stageAll):
@@ -228,15 +235,18 @@ func (m Model) handleCommitsKey(msg tea.KeyPressMsg) (Model, tea.Cmd) {
 	return m, nil
 }
 
-// moveChangeSelection moves the selection down or up and keeps it on screen.
-func (m Model) moveChangeSelection(msg tea.KeyPressMsg) Model {
+// moveChangeSelection moves the selection down or up, keeps it on screen, and
+// reads the newly selected file's diff.
+func (m Model) moveChangeSelection(msg tea.KeyPressMsg) (Model, tea.Cmd) {
 	if key.Matches(msg, m.keys.down) {
 		m.changes.selected = min(m.changes.selected+1, max(0, len(m.changes.changes)-1))
 	} else {
 		m.changes.selected = max(0, m.changes.selected-1)
 	}
 
-	return m.followChange()
+	m = m.followChange()
+
+	return m, m.loadDiff()
 }
 
 // followChange scrolls the detail so the selected file stays on screen, the way
@@ -256,7 +266,7 @@ func (m Model) pickChange(line, _ int, inRail bool) (Model, tea.Cmd) {
 
 	m.changes.selected = index
 
-	return m, nil
+	return m, m.loadDiff()
 }
 
 // toggleStaged stages the selected file, or unstages it if it is wholly staged.

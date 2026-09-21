@@ -76,6 +76,7 @@ type Model struct {
 	detail      issueDetail
 	branch      branchState
 	changes     changeList
+	diff        diffState
 	review      reviewState
 	slack       slackState
 	reviewQueue reviewQueueState

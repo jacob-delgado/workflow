@@ -85,6 +85,12 @@ func (c Change) Conflicted() bool {
 		(c.Staged == c.Unstaged && (c.Staged == added || c.Staged == deleted))
 }
 
+// Untracked reports a file git does not track at all, whose whole content is
+// new — so it has no diff against HEAD until it is staged.
+func (c Change) Untracked() bool {
+	return c.Staged == untracked || c.Unstaged == untracked
+}
+
 // paths is every path the change touches: both, for a rename.
 func (c Change) paths() []string {
 	if c.OriginalPath == "" {
@@ -92,6 +98,40 @@ func (c Change) paths() []string {
 	}
 
 	return []string{c.Path, c.OriginalPath}
+}
+
+// untrackedNote stands in for the diff of an untracked file, which git cannot
+// show against HEAD until the file is staged.
+const untrackedNote = "new file, not yet staged — stage it to see its diff"
+
+// Diff reads a change's diff against HEAD, line by line and sanitized, so it can
+// be read before staging. An untracked file has no such diff — it is whole and
+// new — so a note stands in for it.
+func (r Repository) Diff(ctx context.Context, change Change) ([]string, error) {
+	if change.Untracked() {
+		return []string{untrackedNote}, nil
+	}
+
+	args := append([]string{"-C", r.dir, literalPathspecs, "diff", "HEAD", "--"}, change.paths()...)
+
+	out, err := r.run(ctx, gitProgram, args...)
+	if err != nil {
+		return nil, readFailure(ctx, r.run, r.dir, "reading the diff of "+change.Path, err)
+	}
+
+	body := text(out)
+	if body == "" {
+		return nil, nil
+	}
+
+	var lines []string
+
+	//nolint:modernize // SplitSeq returns a range-over-func iterator, which crashes gobco.
+	for _, line := range strings.Split(body, "\n") {
+		lines = append(lines, sanitize.Text(line))
+	}
+
+	return lines, nil
 }
 
 // Status lists every changed file in the work tree, untracked files included.

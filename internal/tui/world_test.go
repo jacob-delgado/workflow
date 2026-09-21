@@ -82,9 +82,15 @@ type world struct {
 	linkErr       error
 	postedChannel string
 
-	branch            gitrepo.Branch
-	branches          []string
-	branchesErr       error
+	branch      gitrepo.Branch
+	branches    []string
+	branchesErr error
+	diff        []string
+	diffErr     error
+	noDiff      bool
+	// diffGate, when set, holds every diff read until it is closed, so a test can
+	// see the pane while the diff is still being read.
+	diffGate          chan struct{}
 	remoteBranches    []string
 	remoteBranchesErr error
 	noRemoteBranches  bool

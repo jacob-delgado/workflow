@@ -40,12 +40,13 @@
 # CLAUDE.md names as one that must not be split to chase a number; the entry
 # freezes the count so a new concern is a decision, not drift, not a target to
 # shrink toward. layout/ and frame/ are already the pure leaves that could leave.
-# 35 = the panes, overlays and composers, including issuewrite.go (the assign
+# 36 = the panes, overlays and composers, including issuewrite.go (the assign
 # and log-work forms), issuekeys.go (the Issues pane's key routing, split out of
-# detail.go when it crossed the 500-line file ceiling) and scopesuggest.go (the
-# commit scope's completion from the staged directory and the log, kept beside
-# composer.go rather than swelling it toward the 500-line ceiling).
-internal/tui 35
+# detail.go when it crossed the 500-line file ceiling), scopesuggest.go (the
+# commit scope's completion from the staged directory and the log) and diff.go
+# (the Commits pane's diff preview), each kept beside commits.go/composer.go
+# rather than swelling either toward the 500-line ceiling.
+internal/tui 36
 
 # internal/webserver — the loopback REST surface, one file per operation
 # (announce, commit, branches, pull-request, checkout, push, review, config,
