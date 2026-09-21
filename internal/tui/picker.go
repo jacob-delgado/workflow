@@ -36,9 +36,27 @@ func (msg transitionsListed) apply(m Model) (Model, tea.Cmd) {
 	}
 
 	picker.found, picker.listErr, picker.settled = msg.found, msg.err, true
+
+	if picker.preferInProgress {
+		picker.selected = firstInProgress(msg.found)
+	}
+
 	m.overlay = picker
 
 	return m, nil
+}
+
+// firstInProgress is the index of the first transition that leads to an
+// in-progress status, or zero when none does — the status the loop implies once
+// a branch exists, chosen by category rather than by a localized name.
+func firstInProgress(moves []jira.Transition) int {
+	for index, move := range moves {
+		if move.ToStatusCategory == jira.CategoryIndeterminate {
+			return index
+		}
+	}
+
+	return 0
 }
 
 // transitionApplied reports how applying a transition went.
@@ -80,6 +98,9 @@ type statusPicker struct {
 	send     sendState
 	settled  bool
 	selected int
+	// preferInProgress pre-selects the first in-progress transition once the
+	// list arrives, for the offer made right after branching.
+	preferInProgress bool
 	// form is filling in the chosen transition's fields; it is open when it
 	// has any.
 	form fieldForm
@@ -94,17 +115,29 @@ var (
 // transitions.
 func (m Model) openStatusPicker() (Model, tea.Cmd) {
 	selected, ok := m.issues.current()
-	if !ok || m.deps.Jira.Transitions == nil {
+	if !ok {
 		return m, nil
 	}
 
-	m.overlay = statusPicker{marks: m.marks, styles: m.styles, issue: selected}
+	return m.pickStatusFor(selected, false)
+}
+
+// pickStatusFor opens the picker on an issue and starts listing its transitions.
+// preferInProgress pre-selects the first in-progress transition once they
+// arrive, for the offer made after branching rather than the picker opened by
+// hand.
+func (m Model) pickStatusFor(issue jira.Issue, preferInProgress bool) (Model, tea.Cmd) {
+	if m.deps.Jira.Transitions == nil {
+		return m, nil
+	}
+
+	m.overlay = statusPicker{marks: m.marks, styles: m.styles, issue: issue, preferInProgress: preferInProgress}
 	list := m.deps.Jira.Transitions
 
 	return m, func() tea.Msg {
-		found, err := list(selected.Key)
+		found, err := list(issue.Key)
 
-		return transitionsListed{issueKey: selected.Key, found: found, err: err}
+		return transitionsListed{issueKey: issue.Key, found: found, err: err}
 	}
 }
 
