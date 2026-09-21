@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
+	"strconv"
 	"time"
 )
 
@@ -107,7 +108,49 @@ func (c Client) Issue(ctx context.Context, issueKey Key) (IssueDetail, error) {
 		return IssueDetail{}, err
 	}
 
-	return wire.detail(), nil
+	return c.withAllComments(ctx, issueKey, wire.detail()), nil
+}
+
+// commentLoadCap bounds how many comments a single read pages in, so an issue
+// with an enormous history — or a server that never advances — cannot drive an
+// unbounded run of requests. Past it the "N of Total" heading shows the rest are
+// there without loading them, which no one scrolls to in a terminal anyway.
+const commentLoadCap = 1000
+
+// withAllComments fetches any comments past the first page Jira folded into the
+// issue, so the list does not trail CommentTotal. It is best effort: a page that
+// fails to load, or the cap, stops the paging and leaves what arrived, and the
+// "N of Total" heading still says how many of them are shown.
+func (c Client) withAllComments(ctx context.Context, issueKey Key, detail IssueDetail) IssueDetail {
+	for len(detail.Comments) < detail.CommentTotal && len(detail.Comments) < commentLoadCap {
+		page, err := c.commentPage(ctx, issueKey, len(detail.Comments))
+		if err != nil || len(page) == 0 {
+			break
+		}
+
+		detail.Comments = append(detail.Comments, page...)
+	}
+
+	return detail
+}
+
+// commentPage reads one page of an issue's comments, starting at startAt.
+func (c Client) commentPage(ctx context.Context, issueKey Key, startAt int) ([]Comment, error) {
+	query := url.Values{"startAt": {strconv.Itoa(startAt)}}.Encode()
+
+	request, err := c.newRequest(ctx, http.MethodGet, issuePath(issueKey)+"/comment?"+query, nil)
+
+	wire, err := decode[wireComments](c, request, err)
+	if err != nil {
+		return nil, err
+	}
+
+	page := make([]Comment, 0, len(wire.Comments))
+	for _, each := range wire.Comments {
+		page = append(page, each.comment())
+	}
+
+	return page, nil
 }
 
 // detail flattens a whole issue: its fields, the issues it relates to, and its
