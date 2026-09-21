@@ -8,6 +8,30 @@
       name="description"
       content="The workflow web cockpit — your Jira, Git, and Slack workflow, in the browser."
     />
+    <script>
+      // Resolve the theme before first paint so there is no dark-then-light
+      // flash. The React store keeps it in step afterwards; this only sets the
+      // opening value from the saved choice, resolving "system" against the OS.
+      ;(function () {
+        function systemDark() {
+          try {
+            return window.matchMedia('(prefers-color-scheme: dark)').matches
+          } catch (e) {
+            return true
+          }
+        }
+        var dark = systemDark()
+        try {
+          var stored = localStorage.getItem('workflow-theme')
+          if (stored === 'light' || stored === 'dark') {
+            dark = stored === 'dark'
+          }
+        } catch (e) {
+          // Storage blocked — fall back to the system preference, as the store does.
+        }
+        document.documentElement.dataset.theme = dark ? 'dark' : 'light'
+      })()
+    </script>
   </head>
   <body>
     <div id="root"></div>
