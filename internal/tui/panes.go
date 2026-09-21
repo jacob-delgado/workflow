@@ -19,16 +19,17 @@ const (
 	paneCommits
 	paneReview
 	paneSlack
+	paneReviews
 )
 
 // paneCount is untyped on purpose: typed as pane, the exhaustive linter would
 // count it as a member and demand a case for it in every switch.
-const paneCount = 5
+const paneCount = 6
 
 // title names a pane. A lookup rather than a switch, because a switch over every
 // pane leaves a final arm that can never be false.
 func (p pane) title() string {
-	titles := [paneCount]string{"Issues", "Branch", "Commits", "Review", "Slack"}
+	titles := [paneCount]string{"Issues", "Branch", "Commits", "Review", "Slack", "Reviews"}
 
 	return titles[p]
 }
@@ -96,6 +97,11 @@ func behaviorOf(target pane) behavior {
 		paneSlack: {
 			rail: Model.slackRail, detail: Model.slackDetail, narrow: nil,
 			keys: Model.slackKeys, handle: Model.handleSlackKey, pick: nil,
+		},
+		paneReviews: {
+			rail: Model.reviewQueueRail, detail: Model.reviewQueueDetail, narrow: nil,
+			keys: Model.reviewQueueKeys, handle: Model.handleReviewQueueKey, pick: Model.pickReview,
+			listInDetail: true,
 		},
 	}[target]
 }

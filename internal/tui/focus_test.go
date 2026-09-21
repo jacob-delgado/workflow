@@ -54,10 +54,12 @@ func TestKeysMoveFocusAlongTheRail(t *testing.T) {
 	}{
 		"nothing pressed leaves the first pane focused": {keys: nil, want: issuesPane},
 		"tab moves down": {keys: []string{keyTab}, want: "2 Branch"},
-		// shift+tab from the first pane lands on the last rather than stopping.
-		"shift+tab from the first wraps to the last": {keys: []string{keyShiftTab}, want: "5 Slack"},
-		"five tabs is a full lap": {
-			keys: []string{keyTab, keyTab, keyTab, keyTab, keyTab}, want: issuesPane,
+		// shift+tab from the first pane lands on the last rather than stopping. The
+		// last pane's list lives in the detail, so its focus shows as the detail
+		// title rather than the rail's.
+		"shift+tab from the first wraps to the last": {keys: []string{keyShiftTab}, want: "Reviews"},
+		"six tabs is a full lap": {
+			keys: []string{keyTab, keyTab, keyTab, keyTab, keyTab, keyTab}, want: issuesPane,
 		},
 		"a number jumps straight to its pane": {keys: []string{"4"}, want: "4 Review"},
 	}
@@ -85,7 +87,7 @@ func TestALeftClickOnTheRailFocusesThatPane(t *testing.T) {
 	t.Parallel()
 
 	// At 120x40, with Issues focused and so taking the spare height, the Commits
-	// rail pane's content spans rows 30 and 31.
+	// rail pane's content sits on row 27.
 	cases := map[string]struct {
 		msg  tea.MouseMsg
 		want string
@@ -93,7 +95,7 @@ func TestALeftClickOnTheRailFocusesThatPane(t *testing.T) {
 		// The Commits pane's heavy border is on its detail, where the cursor is,
 		// so focus shows as the detail title rather than the rail's.
 		"a left click on Commits": {
-			msg: tea.MouseClickMsg{X: 5, Y: 30, Button: tea.MouseLeft}, want: "Commits",
+			msg: tea.MouseClickMsg{X: 5, Y: 27, Button: tea.MouseLeft}, want: "Commits",
 		},
 		"a release": {
 			msg: tea.MouseReleaseMsg{X: 5, Y: 28, Button: tea.MouseLeft}, want: issuesPane,

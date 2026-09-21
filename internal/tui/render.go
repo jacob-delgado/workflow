@@ -147,8 +147,8 @@ func (m Model) detailContent(shape layout.Layout) (string, string, frame.Style) 
 
 	behavior := behaviorOf(m.focus)
 
-	// Collapsed, the rail that showed 1-5 is gone, so the detail title carries
-	// the number that jumps to the pane.
+	// Collapsed, the rail that showed the pane numbers is gone, so the detail
+	// title carries the number that jumps to the pane.
 	title := m.focus.title()
 	if shape.Collapsed() {
 		title = m.focus.label()

@@ -72,13 +72,14 @@ type Model struct {
 	views     []issueView
 	viewIndex int
 
-	issues  issueList
-	detail  issueDetail
-	branch  branchState
-	changes changeList
-	review  reviewState
-	slack   slackState
-	hookgen hookgenState
+	issues      issueList
+	detail      issueDetail
+	branch      branchState
+	changes     changeList
+	review      reviewState
+	slack       slackState
+	reviewQueue reviewQueueState
+	hookgen     hookgenState
 }
 
 // New builds the interface for a configuration, the error if any from loading
@@ -149,7 +150,7 @@ func Run(ctx context.Context, model Model, out io.Writer) error {
 // service never freezes the screen — and each pane fills in, or fails, on its
 // own.
 func (m Model) Init() tea.Cmd {
-	return tea.Batch(m.searchIssues(), m.loadBranch(), m.loadChanges(), m.findHooks())
+	return tea.Batch(m.searchIssues(), m.loadBranch(), m.loadChanges(), m.findHooks(), m.loadReviewQueue())
 }
 
 // Update implements tea.Model. Every load and result is an applier, which knows
@@ -226,8 +227,8 @@ func (m Model) handleGlobalKey(msg tea.KeyPressMsg) (Model, tea.Cmd) {
 	case key.Matches(msg, m.keys.previous):
 		return m.focusOn((m.focus + paneCount - 1) % paneCount), nil
 	case key.Matches(msg, m.keys.jump):
-		// The binding only matches the digits 1 through 5, so the digit is
-		// always a valid pane.
+		// The binding only matches the pane digits, 1 through paneCount, so the
+		// digit is always a valid pane.
 		return m.focusOn(pane(msg.String()[0] - '1')), nil
 	case key.Matches(msg, m.keys.toggleMouse):
 		return m.toggleMouse()
