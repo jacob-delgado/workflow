@@ -23,8 +23,10 @@ const slackHelp = "Edit the Slack message above this line. Slack's own markup wo
 // slackState is what has been posted to Slack this session. Nothing is kept
 // between sessions: with no state file there is nowhere to keep it.
 type slackState struct {
-	// posted is the pull requests announced this session, by number.
-	posted []int
+	// posted is the announcements made this session, each a pull request and the
+	// moment it marked, so one pull request can be announced at each of its
+	// moments — opened, then merged — without a moment being offered twice.
+	posted []postedMoment
 	// sending is a post Slack has not answered yet, which is not offered
 	// again until it does.
 	sending bool
@@ -34,6 +36,13 @@ type slackState struct {
 	dropped string
 	err     error
 	author  string
+}
+
+// postedMoment is one announcement already made: a pull request, and the moment
+// it marked.
+type postedMoment struct {
+	pull   int
+	moment slack.Moment
 }
 
 // droppedTimeFormat stamps a dropped post with the time it was given up on.
@@ -110,15 +119,28 @@ func (msg authorFound) apply(m Model) (Model, tea.Cmd) {
 	return m, nil
 }
 
-// announcement is the message telling the channel the pull request is ready.
-func (m Model) announcement() string {
+// announceMoment is the moment the pull request on screen is at: merged, its CI
+// red, or — the common case — open and ready for review.
+func (m Model) announceMoment() slack.Moment {
+	switch {
+	case m.review.pull.State == forge.StateMerged:
+		return slack.MomentMerged
+	case m.review.ci.State == forge.CIFailed:
+		return slack.MomentCIRed
+	default:
+		return slack.MomentReady
+	}
+}
+
+// announcement is the message marking the pull request's current moment.
+func (m Model) announcement(moment slack.Moment) string {
 	issueKey, _ := m.branchIssue()
 	issue, _ := m.issues.find(issueKey)
 
 	return slack.Announcement{
 		Author: m.slack.author, PullRequestURL: m.review.pull.URL, PullRequestTitle: m.review.pull.Title,
 		IssueKey: string(issueKey), IssueSummary: issue.Summary, IssueURL: m.browseURL(issueKey), Noun: m.vocab.noun,
-		Template: m.cfg.Slack.Announcement,
+		Moment: moment, Template: m.cfg.Slack.Announcement,
 	}.Text()
 }
 
@@ -158,7 +180,7 @@ func (m Model) slackDetail(width int) string {
 	}
 
 	lines := []string{
-		m.announcement(),
+		m.announcement(m.announceMoment()),
 		"",
 		m.styles.label.Render("to     ") + m.cfg.Slack.Target(),
 		m.styles.label.Render("CI     ") + m.ciSummary(),
@@ -168,9 +190,11 @@ func (m Model) slackDetail(width int) string {
 	return wrap(strings.Join(lines, "\n"), width)
 }
 
-// announced reports that the pull request on screen was posted this session.
+// announced reports that the pull request on screen was already posted at its
+// current moment this session — a merge announced counts, an opening does not.
 func (m Model) announced() bool {
-	return m.review.found && slices.Contains(m.slack.posted, m.review.pull.Number)
+	return m.review.found &&
+		slices.Contains(m.slack.posted, postedMoment{pull: m.review.pull.Number, moment: m.announceMoment()})
 }
 
 // canPost reports a pull request to announce, a way to post it, and no post
@@ -202,9 +226,11 @@ func (m Model) handleSlackKey(msg tea.KeyPressMsg) (Model, tea.Cmd) {
 		channel = channels[0]
 	}
 
+	moment := m.announceMoment()
+
 	m.overlay = slackPreview{
-		marks: m.marks, styles: m.styles, text: m.announcement(), fallback: m.cfg.Slack.Target(),
-		channel: channel, channels: channels,
+		marks: m.marks, styles: m.styles, text: m.announcement(moment), fallback: m.cfg.Slack.Target(),
+		channel: channel, channels: channels, moment: moment,
 		noCI: m.review.checked && m.review.ci.State == forge.CINone,
 	}
 
@@ -223,8 +249,11 @@ type slackPreview struct {
 	// through. Both are empty for a webhook, which carries its own channel.
 	channel  string
 	channels []string
-	noCI     bool
-	send     sendState
+	// moment is what this post marks, so the pane records the right one as posted
+	// and offers "post when CI passes" only where waiting for CI makes sense.
+	moment slack.Moment
+	noCI   bool
+	send   sendState
 }
 
 // destination is where this post will go, as it is shown and as it is sent.
@@ -255,7 +284,9 @@ func (p slackPreview) footer(keys keyMap) []key.Binding {
 	}
 
 	buttons := []key.Binding{relabel(keys.confirm, "post now")}
-	if !p.noCI {
+	if p.moment == slack.MomentReady && !p.noCI {
+		// Only a "ready for review" post waits for CI. A merge or a red CI has
+		// already happened; there is nothing to wait for.
 		buttons = append(buttons, keys.postWhenGreen)
 	}
 
@@ -316,11 +347,17 @@ func (p slackPreview) post(m Model) (Model, tea.Cmd) {
 	p.send = starting()
 	m.overlay = p
 
-	return m.sendToSlack(p.channel, p.text)
+	return m.sendToSlack(p.channel, p.text, p.moment)
 }
 
-// postWhenGreen posts once CI passes: now, if it already has.
+// postWhenGreen posts once CI passes: now, if it already has. Only a "ready for
+// review" post waits for CI; a merge or a red CI has already happened, so there
+// is nothing to wait for and the key does nothing.
 func (p slackPreview) postWhenGreen(m Model) (Model, tea.Cmd) {
+	if p.moment != slack.MomentReady {
+		return m, nil
+	}
+
 	if m.review.ci.State == forge.CIPassed {
 		return p.post(m)
 	}
@@ -337,13 +374,14 @@ func (p slackPreview) postWhenGreen(m Model) (Model, tea.Cmd) {
 	return m.keepPolling(m.checkCI())
 }
 
-// sendToSlack posts text. It replaces any post waiting for CI: that one would
-// otherwise follow it once CI passed, and the channel would read it twice.
-func (m Model) sendToSlack(channel, text string) (Model, tea.Cmd) {
+// sendToSlack posts text marking moment. It replaces any post waiting for CI:
+// that one would otherwise follow it once CI passed, and the channel would read
+// it twice.
+func (m Model) sendToSlack(channel, text string, moment slack.Moment) (Model, tea.Cmd) {
 	post, pull := m.deps.Slack.Post, m.review.pull.Number
 	m.slack.sending, m.slack.pending, m.slack.dropped = true, queuedPost{}, ""
 
-	return m, func() tea.Msg { return slackPosted{pull: pull, err: post(channel, text)} }
+	return m, func() tea.Msg { return slackPosted{pull: pull, moment: moment, err: post(channel, text)} }
 }
 
 // withoutQueuedPost gives up on a post waiting for CI, saying so, because the
@@ -373,7 +411,8 @@ func (m Model) postIfGreen() (Model, tea.Cmd) {
 
 	switch m.review.ci.State {
 	case forge.CIPassed:
-		return m.sendToSlack(m.slack.pending.channel, m.slack.pending.text)
+		// A queued post is always a "ready for review" one: it is what waits for CI.
+		return m.sendToSlack(m.slack.pending.channel, m.slack.pending.text, slack.MomentReady)
 	case forge.CIFailed:
 		m.slack.pending = queuedPost{}
 		m.slack.dropped = "CI failed at " + m.deps.now().Format(droppedTimeFormat)
@@ -400,10 +439,12 @@ func (p slackPreview) applyEdit(m Model, text string, err error) (Model, tea.Cmd
 	return m, nil
 }
 
-// slackPosted reports how posting went, and for which pull request.
+// slackPosted reports how posting went: for which pull request, and the moment
+// it marked.
 type slackPosted struct {
-	pull int
-	err  error
+	pull   int
+	moment slack.Moment
+	err    error
 }
 
 // apply records the post, or why it failed — in the preview if it is open, and
@@ -423,7 +464,8 @@ func (msg slackPosted) apply(m Model) (Model, tea.Cmd) {
 		return m.noticed(m.failure(msg.err)), nil
 	}
 
-	m.slack.posted, m.slack.err = append(slices.Clone(m.slack.posted), msg.pull), nil
+	m.slack.posted, m.slack.err = append(slices.Clone(m.slack.posted),
+		postedMoment{pull: msg.pull, moment: msg.moment}), nil
 
 	if open {
 		m = m.closeOverlay()

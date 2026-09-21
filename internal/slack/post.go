@@ -180,7 +180,19 @@ func (c Client) deliver(request *http.Request) ([]byte, error) {
 	}
 }
 
-// Announcement is the message telling a channel a change is ready to review.
+// Moment is the point in a change's life an announcement marks.
+type Moment int
+
+const (
+	// MomentReady is the default: the change is open and ready for review.
+	MomentReady Moment = iota
+	// MomentMerged is that the change has merged.
+	MomentMerged
+	// MomentCIRed is that the change's CI has gone red.
+	MomentCIRed
+)
+
+// Announcement is the message telling a channel where a change stands.
 type Announcement struct {
 	Author           string
 	PullRequestURL   string
@@ -191,9 +203,12 @@ type Announcement struct {
 	// Noun is what the forge calls the change — "pull request" or "merge
 	// request". Empty defaults to "pull request".
 	Noun string
-	// Template shapes the message from named placeholders — {author}, {noun},
-	// {title}, {url}, {key}, {summary}, {issue_url} — for a team with a house
-	// style. Empty uses the built-in message.
+	// Moment is what the message marks: ready for review, merged, or CI red. The
+	// zero value is ready for review.
+	Moment Moment
+	// Template shapes the ready-for-review message from named placeholders —
+	// {author}, {noun}, {title}, {url}, {key}, {summary}, {issue_url} — for a team
+	// with a house style. Empty, or for any other moment, uses the built-in text.
 	Template string
 }
 
@@ -201,7 +216,7 @@ type Announcement struct {
 // escaped: a title is anyone's to write, and unescaped, "<!channel>" in one
 // pings the whole channel, and a ">" ends a link early.
 func (a Announcement) Text() string {
-	if a.Template != "" {
+	if a.Template != "" && a.Moment == MomentReady {
 		return a.rendered()
 	}
 
@@ -223,18 +238,14 @@ func (a Announcement) rendered() string {
 	).Replace(a.Template)
 }
 
-// defaultText is the built-in announcement: who opened what, linked, and the
-// issue it is for, linked where there is a link.
+// defaultText is the built-in announcement: the moment's lead sentence, linked,
+// and the issue it is for, linked where there is a link.
 func (a Announcement) defaultText() string {
 	link := "<" + escape(a.PullRequestURL) + "|" + escape(a.PullRequestTitle) + ">"
 
-	opened := "A " + a.noun() + " is ready for review: " + link
-	if a.Author != "" {
-		opened = escape(a.Author) + " opened a " + a.noun() + ": " + link
-	}
-
+	lead := a.lead(link)
 	if a.IssueKey == "" {
-		return opened
+		return lead
 	}
 
 	issue := escape(a.IssueKey)
@@ -242,7 +253,28 @@ func (a Announcement) defaultText() string {
 		issue = "<" + escape(a.IssueURL) + "|" + issue + ">"
 	}
 
-	return opened + "\n" + issue + " " + escape(a.IssueSummary)
+	return lead + "\n" + issue + " " + escape(a.IssueSummary)
+}
+
+// lead is the moment's opening sentence: what happened to the change, linked.
+func (a Announcement) lead(link string) string {
+	switch a.Moment {
+	case MomentMerged:
+		if a.Author != "" {
+			return escape(a.Author) + " merged a " + a.noun() + ": " + link
+		}
+
+		return "A " + a.noun() + " merged: " + link
+	case MomentCIRed:
+		return "CI is red on the " + a.noun() + ": " + link
+	case MomentReady:
+	}
+
+	if a.Author != "" {
+		return escape(a.Author) + " opened a " + a.noun() + ": " + link
+	}
+
+	return "A " + a.noun() + " is ready for review: " + link
 }
 
 // noun is what the forge calls the change, defaulting to "pull request".
