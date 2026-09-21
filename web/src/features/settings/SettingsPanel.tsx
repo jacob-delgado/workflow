@@ -77,6 +77,10 @@ function ConfigForm({ config }: { config: Config }) {
         <Field id="jira.project" label="Project">
           <input id="jira.project" className={inputClass} {...register('jira.project')} />
         </Field>
+        <label className="flex items-center gap-2 text-sm">
+          <input type="checkbox" className="size-4" {...register('jira.markdown_comments')} />
+          Write comments in Markdown, posted as Jira wiki markup
+        </label>
       </Fieldset>
 
       <Fieldset legend="Slack">

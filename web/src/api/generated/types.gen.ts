@@ -388,6 +388,10 @@ export type JiraConfig = {
     } | null;
     views?: Array<JiraView> | null;
     project?: string;
+    /**
+     * Post comments written in Markdown as Jira's wiki markup.
+     */
+    markdown_comments?: boolean;
 };
 
 export type SlackConfig = {

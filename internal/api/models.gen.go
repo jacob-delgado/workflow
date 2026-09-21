@@ -407,7 +407,10 @@ type JiraConfig struct {
 
 	// Headers Extra request headers; values masked on read.
 	Headers *map[string]string `json:"headers,omitempty"`
-	Project *string            `json:"project,omitempty"`
+
+	// MarkdownComments Post comments written in Markdown as Jira's wiki markup.
+	MarkdownComments *bool   `json:"markdown_comments,omitempty"`
+	Project          *string `json:"project,omitempty"`
 
 	// Token Masked on read; empty or masked on write keeps the stored value.
 	Token        *string     `json:"token,omitempty"`

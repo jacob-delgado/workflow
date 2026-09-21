@@ -191,8 +191,14 @@ func (w wireIssue) detail() IssueDetail {
 	}
 }
 
-// AddComment posts a comment on an issue and returns it as Jira stored it.
+// AddComment posts a comment on an issue and returns it as Jira stored it. When
+// the instance is configured for Markdown comments, the text is rewritten as
+// Jira's wiki markup first.
 func (c Client) AddComment(ctx context.Context, issueKey Key, text string) (Comment, error) {
+	if c.settings.MarkdownComments {
+		text = WikiFromMarkdown(text)
+	}
+
 	payload, err := json.Marshal(struct {
 		Body string `json:"body"`
 	}{Body: text})

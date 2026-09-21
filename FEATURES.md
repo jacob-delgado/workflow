@@ -124,8 +124,12 @@ Impact: medium · Effort: medium
   `internal/tui/comment.go` (the preview should show what Jira will show).
 - Constraints: convert a short, certain list (code, links, lists, emphasis,
   headings) and pass anything else through untouched.
-- Done when: a comment written with a fenced block and a link previews and
-  posts as `{code}` and `[text|url]`.
+- Done: opt-in `jira.markdown_comments` rewrites a comment written in Markdown as
+  wiki markup before posting — fenced blocks to `{code}`, links to `[text|url]`,
+  emphasis, headings, lists and inline code — while a code span shields its
+  contents (`jira.WikiFromMarkdown` in `internal/jira/wiki.go`, applied in
+  `AddComment`). Off by default, so an instance already writing wiki markup is
+  left untouched; the comment editor's help names which markup is in force.
 
 ### FEAT-09 Assign an issue to yourself
 

@@ -12,9 +12,26 @@ import (
 	"github.com/jacob-delgado/workflow/internal/jira"
 )
 
-// commentHelp is what the editor shows below a comment being written.
-const commentHelp = "Write the comment above this line. Save and quit to preview it before it is\n" +
-	"posted; leave it empty to post nothing. Jira's own markup works here."
+// commentHelp is what the editor shows below a comment being written. Its last
+// sentence names which markup the text is read as, which depends on whether the
+// instance is configured to rewrite a Markdown comment before posting it.
+const (
+	commentHelpWiki = "Write the comment above this line. Save and quit to preview it before it is\n" +
+		"posted; leave it empty to post nothing. Jira's own markup works here."
+	commentHelpMarkdown = "Write the comment above this line. Save and quit to preview it before it is\n" +
+		"posted; leave it empty to post nothing. Markdown works here; it is\n" +
+		"converted to Jira's markup when posted."
+)
+
+// commentHelp is the editor guidance matching whether the instance rewrites a
+// Markdown comment before posting it.
+func (m Model) commentHelp() string {
+	if m.cfg.Jira.MarkdownComments {
+		return commentHelpMarkdown
+	}
+
+	return commentHelpWiki
+}
 
 // startComment hands the user's editor an empty comment on the selected issue.
 func (m Model) startComment() (Model, tea.Cmd) {
@@ -28,7 +45,7 @@ func (m Model) startComment() (Model, tea.Cmd) {
 
 // editComment opens the editor on a comment's text.
 func (m Model) editComment(issue jira.Issue, text string) tea.Cmd {
-	return m.deps.Editor.Edit(text, commentHelp, func(edited string, err error) tea.Msg {
+	return m.deps.Editor.Edit(text, m.commentHelp(), func(edited string, err error) tea.Msg {
 		return commentEdited{issue: issue, text: edited, err: err}
 	})
 }
@@ -61,27 +78,38 @@ func (msg commentEdited) apply(m Model) (Model, tea.Cmd) {
 
 	m.overlay = commentPreview{
 		marks: m.marks, styles: m.styles, issue: msg.issue, text: msg.text,
+		markdown: m.cfg.Jira.MarkdownComments,
 	}
 
 	return m, nil
 }
 
-// commentPreview is a comment about to be posted.
+// commentPreview is a comment about to be posted. text stays the source the user
+// typed — post sends it and a re-edit reopens it — while markdown records
+// whether it will be converted to wiki markup, so the preview can show that
+// converted form.
 type commentPreview struct {
-	marks  glyphs
-	styles styles
-	issue  jira.Issue
-	text   string
-	send   sendState
+	marks    glyphs
+	styles   styles
+	issue    jira.Issue
+	text     string
+	markdown bool
+	send     sendState
 }
 
 var _ overlay = commentPreview{}
 
-// view shows the comment as it will be posted, its outcome pinned under the
+// view shows the comment as it will be stored — the wiki markup when Markdown
+// conversion is on, otherwise the text verbatim — its outcome pinned under the
 // title so a long refusal is seen rather than clipped below the fold.
 func (p commentPreview) view(width, _ int) (string, string) {
+	body := p.text
+	if p.markdown {
+		body = jira.WikiFromMarkdown(p.text)
+	}
+
 	lines := pinnedOutcome(p.styles, p.marks, p.send, "posting", width)
-	lines = append(lines, string(p.issue.Key)+" "+p.issue.Summary, "", wrap(p.text, width))
+	lines = append(lines, string(p.issue.Key)+" "+p.issue.Summary, "", wrap(body, width))
 
 	return "Comment on " + string(p.issue.Key), strings.Join(lines, "\n")
 }

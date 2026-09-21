@@ -947,6 +947,9 @@ components:
           items: {$ref: "#/components/schemas/JiraView"}
           nullable: true
         project: {type: string}
+        markdown_comments:
+          type: boolean
+          description: Post comments written in Markdown as Jira's wiki markup.
       additionalProperties: false
 
     SlackConfig:

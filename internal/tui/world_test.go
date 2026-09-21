@@ -119,9 +119,12 @@ type world struct {
 	configured bool
 	writeErr   error
 
-	edited     string
-	editErr    error
-	editorErr  error
+	edited    string
+	editErr   error
+	editorErr error
+	// editHelp is the guidance the fake editor was last opened with, so a test
+	// can assert on the note the interface chose to show.
+	editHelp   string
 	openURLErr error
 	ciInterval time.Duration
 	// unresolved are the places the fake editor cannot find a file for, the way
@@ -391,8 +394,9 @@ func (w *world) hookDeps() tui.HookDeps {
 // editorDeps fakes the editor: whatever is edited comes back as edited.
 func (w *world) editorDeps() tui.EditorDeps {
 	return tui.EditorDeps{
-		Edit: func(text, _ string, done func(string, error) tea.Msg) tea.Cmd {
+		Edit: func(text, help string, done func(string, error) tea.Msg) tea.Cmd {
 			w.record("edit " + text)
+			w.editHelp = help
 
 			return func() tea.Msg { return done(w.edited, w.editErr) }
 		},
