@@ -21,13 +21,13 @@ func TestOpeningAPullRequestOffersToLinkItOnTheIssue(t *testing.T) {
 	opened := typing(t, linking.live(t, 120, 40), "4", "n", keyEnter)
 
 	// Assert: the confirmation to link it on the issue is shown
-	requireScreen(t, opened.View(), "Link on PROJ-412", "Add this pull request's link to PROJ-412?", "#42")
+	requireScreen(t, opened.View().Content, "Link on PROJ-412", "Add this pull request's link to PROJ-412?", "#42")
 
 	// Act: confirm the link
 	linked := typing(t, opened, keyEnter)
 
 	// Assert: Jira was asked to link it, and the outcome is reported
-	requireScreen(t, linked.View(), "linked #42 on PROJ-412")
+	requireScreen(t, linked.View().Content, "linked #42 on PROJ-412")
 
 	want := "link PROJ-412 " + pullURL + " " + pullTitle
 	if calls := linking.asked("link"); len(calls) != 1 || calls[0] != want {
@@ -46,7 +46,7 @@ func TestSkippingTheLinkAddsNothing(t *testing.T) {
 	skipped := typing(t, opened, keyEsc)
 
 	// Assert
-	refuseScreen(t, skipped.View(), "Add this pull request's link")
+	refuseScreen(t, skipped.View().Content, "Add this pull request's link")
 
 	if calls := linking.asked("link"); len(calls) != 0 {
 		t.Errorf("linked though the offer was skipped: %q", calls)
@@ -65,7 +65,7 @@ func TestAFailedLinkKeepsTheConfirmationOpen(t *testing.T) {
 	failed := typing(t, opened, keyEnter)
 
 	// Assert
-	requireScreen(t, failed.View(), "Link on PROJ-412", errLinkFailed.Error())
+	requireScreen(t, failed.View().Content, "Link on PROJ-412", errLinkFailed.Error())
 }
 
 func TestADryRunSaysItWouldLinkThePullRequest(t *testing.T) {
@@ -77,7 +77,7 @@ func TestADryRunSaysItWouldLinkThePullRequest(t *testing.T) {
 	model = drain(t, model, model.Init())
 
 	// Act
-	view := typing(t, model, "4", "n", keyEnter).View()
+	view := typing(t, model, "4", "n", keyEnter).View().Content
 
 	// Assert
 	requireScreen(t, view, "and link it on")

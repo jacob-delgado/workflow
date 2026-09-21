@@ -19,7 +19,7 @@ func TestCatchingUpIsOfferedAgainstTheBase(t *testing.T) {
 	behind := newWorld()
 
 	// Act
-	view := typing(t, behind.live(t, 120, 40), "2").View()
+	view := typing(t, behind.live(t, 120, 40), "2").View().Content
 
 	// Assert
 	requireScreen(t, footerLine(view), "u rebase onto base")
@@ -46,7 +46,7 @@ func TestCatchingUpIsNotOfferedWithoutABaseToCatchUpWith(t *testing.T) {
 			pane := typing(t, model, "2")
 
 			// Assert: catching up is not offered
-			refuseScreen(t, footerLine(pane.View()), "u rebase onto base")
+			refuseScreen(t, footerLine(pane.View().Content), "u rebase onto base")
 
 			// Act: press it anyway
 			typing(t, pane, "u")
@@ -70,7 +70,7 @@ func TestCatchingUpReplaysOntoTheBase(t *testing.T) {
 	done := typing(t, behind.live(t, 120, 40), "2", "u")
 
 	// Assert
-	requireScreen(t, done.View(), "● rebased onto "+baseRef)
+	requireScreen(t, done.View().Content, "● rebased onto "+baseRef)
 
 	if calls := behind.asked("rebase"); len(calls) != 1 || calls[0] != "rebase "+baseRef {
 		t.Errorf("rebase calls = %q, want a rebase onto the base", calls)
@@ -89,7 +89,7 @@ func TestARebaseConflictIsLeftForTheShell(t *testing.T) {
 	stopped := typing(t, conflicting.live(t, 120, 40), "2", "u")
 
 	// Assert
-	requireScreen(t, stopped.View(), "┏━ git rebase", "✗ the rebase stopped",
+	requireScreen(t, stopped.View().Content, "┏━ git rebase", "✗ the rebase stopped",
 		"CONFLICT (content): Merge conflict in internal/config/redact.go")
 }
 
@@ -102,7 +102,7 @@ func TestADryRunRebaseIsOnlyDescribed(t *testing.T) {
 	model = drain(t, model, model.Init())
 
 	// Act
-	view := typing(t, model, "2", "u").View()
+	view := typing(t, model, "2", "u").View().Content
 
 	// Assert
 	requireScreen(t, view, "dry run: would rebase onto "+baseRef)

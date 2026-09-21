@@ -7,8 +7,8 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/charmbracelet/bubbles/key"
-	tea "github.com/charmbracelet/bubbletea"
+	"charm.land/bubbles/v2/key"
+	tea "charm.land/bubbletea/v2"
 
 	"github.com/jacob-delgado/workflow/internal/hooks"
 )
@@ -113,7 +113,7 @@ func (o hookgenOffer) footer(keys keyMap) []key.Binding {
 }
 
 // handleKey answers a key while the offer is open.
-func (o hookgenOffer) handleKey(m Model, msg tea.KeyMsg) (Model, tea.Cmd) {
+func (o hookgenOffer) handleKey(m Model, msg tea.KeyPressMsg) (Model, tea.Cmd) {
 	switch {
 	case o.send.sending:
 		return m, nil

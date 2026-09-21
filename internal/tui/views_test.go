@@ -39,7 +39,7 @@ func TestTheFirstViewShowsAtStartAndNamesItself(t *testing.T) {
 	t.Parallel()
 
 	// Act
-	view := twoViewWorld(t).View()
+	view := twoViewWorld(t).View().Content
 
 	// Assert
 	requireScreen(t, view, "My work", issueKey)
@@ -55,7 +55,7 @@ func TestTheViewKeyMovesToTheNextView(t *testing.T) {
 	switched := typing(t, model, "v")
 
 	// Assert
-	requireScreen(t, switched.View(), "Sprint board", "OPS-9", "Sprint task")
+	requireScreen(t, switched.View().Content, "Sprint board", "OPS-9", "Sprint task")
 }
 
 func TestSwitchingViewsRunsTheOtherViewsQuery(t *testing.T) {
@@ -106,7 +106,7 @@ func TestASingleViewOffersNoSwitch(t *testing.T) {
 	model := newWorld().live(t, 120, 40)
 
 	// Act
-	view := model.View()
+	view := model.View().Content
 
 	// Assert
 	refuseScreen(t, footerLine(view), "v switch view")

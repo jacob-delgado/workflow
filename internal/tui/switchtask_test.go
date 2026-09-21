@@ -56,7 +56,7 @@ func TestSwitchingTaskListsIssueBranchesAndChecksOneOut(t *testing.T) {
 	opened := typing(t, model, "2", "s")
 
 	// Assert: it lists the other issue's branch, named by its issue
-	requireScreen(t, opened.View(), "PROJ-388", "Add retries")
+	requireScreen(t, opened.View().Content, "PROJ-388", "Add retries")
 
 	// Act: check it out
 	switched := typing(t, opened, keyEnter)
@@ -66,7 +66,7 @@ func TestSwitchingTaskListsIssueBranchesAndChecksOneOut(t *testing.T) {
 		t.Errorf("checkout calls = %v, want one for the chosen branch", got)
 	}
 
-	requireScreen(t, switched.View(), "switched to "+otherTaskBranch)
+	requireScreen(t, switched.View().Content, "switched to "+otherTaskBranch)
 }
 
 func TestSwitchingTaskReloadsThePanesForTheNewBranch(t *testing.T) {
@@ -94,7 +94,7 @@ func TestSwitchingTaskRefusesADirtyTree(t *testing.T) {
 	model := repo.live(t, 120, 40)
 
 	// Act
-	view := typing(t, model, "2", "s", keyEnter).View()
+	view := typing(t, model, "2", "s", keyEnter).View().Content
 
 	// Assert
 	if got := repo.asked("checkout"); len(got) != 0 {
@@ -114,7 +114,7 @@ func TestSwitchingTaskSaysWhenThereIsNowhereToSwitch(t *testing.T) {
 	model := repo.live(t, 120, 40)
 
 	// Act
-	view := typing(t, model, "2", "s", keyEnter).View()
+	view := typing(t, model, "2", "s", keyEnter).View().Content
 
 	// Assert
 	requireScreen(t, view, "No other task branch")
@@ -132,7 +132,7 @@ func TestSwitchingTaskShowsWhyTheBranchesCouldNotBeListed(t *testing.T) {
 	repo.branchesErr = errNoGitRepo
 
 	// Act
-	view := openSwitcher(t, repo.live(t, 120, 40)).View()
+	view := openSwitcher(t, repo.live(t, 120, 40)).View().Content
 
 	// Assert
 	requireScreen(t, view, switchIntro, "not a git repository")
@@ -148,10 +148,10 @@ func TestTheFooterOffersOnlyQuittingWhileASwitchIsSent(t *testing.T) {
 	sending, _ := pressed(t, screen, keyEnter) // enter, without letting the checkout finish
 
 	// Assert
-	footer := footerLine(sending.View())
+	footer := footerLine(sending.View().Content)
 	requireScreen(t, footer, "quit")
 	refuseScreen(t, footer, "apply", keyEsc)
-	requireScreen(t, sending.View(), "switching")
+	requireScreen(t, sending.View().Content, "switching")
 }
 
 func TestNothingInterruptsASwitchBeingSent(t *testing.T) {
@@ -173,7 +173,7 @@ func TestNothingInterruptsASwitchBeingSent(t *testing.T) {
 				t.Errorf("%s produced a command while the switch is sent", stroke)
 			}
 
-			if after.View() != sending.View() {
+			if after.View().Content != sending.View().Content {
 				t.Errorf("%s changed the screen while the switch is sent", stroke)
 			}
 		})
@@ -192,7 +192,7 @@ func TestAFailedSwitchKeepsTheSwitcherOpenToTryAgain(t *testing.T) {
 	refused := typing(t, screen, keyEnter)
 
 	// Assert: the switcher stays open with git's reason
-	requireScreen(t, refused.View(), switchIntro, "would be overwritten")
+	requireScreen(t, refused.View().Content, switchIntro, "would be overwritten")
 
 	// Act: try again
 	typing(t, refused, keyEnter)
@@ -214,7 +214,7 @@ func TestBranchesArrivingAfterTheSwitcherClosesDoNothing(t *testing.T) {
 	settled, _ := finish(t, closed, cmd)
 
 	// Assert
-	refuseScreen(t, settled.View(), switchIntro)
+	refuseScreen(t, settled.View().Content, switchIntro)
 }
 
 func TestTheBranchPaneOffersSwitchingTasks(t *testing.T) {
@@ -224,7 +224,7 @@ func TestTheBranchPaneOffersSwitchingTasks(t *testing.T) {
 	model := cleanSwitcher().live(t, 120, 40)
 
 	// Act
-	view := typing(t, model, "2").View()
+	view := typing(t, model, "2").View().Content
 
 	// Assert
 	requireScreen(t, footerLine(view), "s switch task")
@@ -240,7 +240,7 @@ func TestSwitchingTaskUnderDryRunSwitchesNothing(t *testing.T) {
 	model = drain(t, model, model.Init())
 
 	// Act
-	view := typing(t, model, "2", "s", keyEnter).View()
+	view := typing(t, model, "2", "s", keyEnter).View().Content
 
 	// Assert
 	if got := repo.asked("checkout"); len(got) != 0 {

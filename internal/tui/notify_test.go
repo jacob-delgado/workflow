@@ -117,7 +117,7 @@ func TestNotifyPollsOnALongerBeatWithNoIntervalSet(t *testing.T) {
 	settled := drain(t, model, model.Init())
 
 	// Assert
-	requireScreen(t, settled.View(), "running")
+	requireScreen(t, settled.View().Content, "running")
 
 	if rung := repo.asked("notify"); len(rung) != 0 {
 		t.Errorf("notify calls = %v, want none while CI is still running", rung)

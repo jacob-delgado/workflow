@@ -70,7 +70,7 @@ func TestAnOverlayShowsAFailureFully(t *testing.T) {
 			tt.prepare(faked)
 
 			// Act
-			view := typing(t, faked.live(t, 80, 24), tt.keys...).View()
+			view := typing(t, faked.live(t, 80, 24), tt.keys...).View().Content
 
 			// Assert
 			requireScreen(t, view, outcomeTail)

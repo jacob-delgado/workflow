@@ -35,7 +35,7 @@ func TestAKnownErrorReadsAsASentenceAndAnUnknownOneAsRawText(t *testing.T) {
 			failing.detailErr = tt.err
 
 			// Act
-			view := failing.live(t, 120, 40).View()
+			view := failing.live(t, 120, 40).View().Content
 
 			// Assert
 			requireScreen(t, view, tt.want)

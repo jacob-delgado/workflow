@@ -25,7 +25,7 @@ func TestTheReviewPaneShowsApprovalsAndMergeability(t *testing.T) {
 	model := repo.live(t, 120, 40)
 
 	// Act
-	view := typing(t, model, "4").View()
+	view := typing(t, model, "4").View().Content
 
 	// Assert
 	requireScreen(t, view, "2 approvals", "mergeable")
@@ -40,7 +40,7 @@ func TestConflictsShowInTheReviewPane(t *testing.T) {
 	model := repo.live(t, 120, 40)
 
 	// Act
-	view := typing(t, model, "4").View()
+	view := typing(t, model, "4").View().Content
 
 	// Assert
 	requireScreen(t, view, "conflicts")
@@ -58,7 +58,7 @@ func TestChangesRequestedShowsInThePaneAndOnTheSpine(t *testing.T) {
 	model := repo.live(t, 120, 40)
 
 	// Act
-	view := typing(t, model, "4").View()
+	view := typing(t, model, "4").View().Content
 
 	// Assert
 	requireScreen(t, view, "changes requested")
@@ -77,7 +77,7 @@ func TestNoChangesRequestedLeavesTheReviewStageDone(t *testing.T) {
 	model := newWorld().live(t, 120, 40)
 
 	// Act
-	view := typing(t, model, "4").View()
+	view := typing(t, model, "4").View().Content
 
 	// Assert
 	if strings.Contains(spineLine(view), "✗") {

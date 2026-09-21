@@ -23,7 +23,7 @@ func TestTheCommitComposerOpensWithTheConfiguredDefaultScope(t *testing.T) {
 	composer := typing(t, model, "3", "c")
 
 	// Assert
-	requireScreen(t, composer.View(), "fix(api):")
+	requireScreen(t, composer.View().Content, "fix(api):")
 }
 
 func TestAKeptDraftScopeWinsWhenTheComposerReopens(t *testing.T) {
@@ -41,5 +41,5 @@ func TestAKeptDraftScopeWinsWhenTheComposerReopens(t *testing.T) {
 	reopened := typing(t, failed, keyEsc, "c")
 
 	// Assert
-	requireScreen(t, reopened.View(), "fix(db):")
+	requireScreen(t, reopened.View().Content, "fix(db):")
 }

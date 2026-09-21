@@ -6,8 +6,8 @@ package tui
 import (
 	"strings"
 
-	"github.com/charmbracelet/bubbles/key"
-	tea "github.com/charmbracelet/bubbletea"
+	"charm.land/bubbles/v2/key"
+	tea "charm.land/bubbletea/v2"
 
 	"github.com/jacob-delgado/workflow/internal/jira"
 )
@@ -96,7 +96,7 @@ func (p commentPreview) footer(keys keyMap) []key.Binding {
 }
 
 // handleKey answers a key while the comment is previewed.
-func (p commentPreview) handleKey(m Model, msg tea.KeyMsg) (Model, tea.Cmd) {
+func (p commentPreview) handleKey(m Model, msg tea.KeyPressMsg) (Model, tea.Cmd) {
 	switch {
 	case p.send.sending:
 		return m, nil

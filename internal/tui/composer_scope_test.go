@@ -18,7 +18,7 @@ func TestTheComposerFlagsAnInvalidScopeAsItIsTyped(t *testing.T) {
 	opened := typing(t, composing.live(t, 120, 40), "3", "c", keyShiftTab)
 
 	// Act
-	view := typing(t, opened, letters("BAD")...).View()
+	view := typing(t, opened, letters("BAD")...).View().Content
 
 	// Assert
 	lines := strings.Split(view, "\n")

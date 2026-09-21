@@ -10,8 +10,8 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/charmbracelet/bubbles/key"
-	tea "github.com/charmbracelet/bubbletea"
+	"charm.land/bubbles/v2/key"
+	tea "charm.land/bubbletea/v2"
 
 	"github.com/jacob-delgado/workflow/internal/gitrepo"
 	"github.com/jacob-delgado/workflow/internal/proc"
@@ -197,7 +197,7 @@ func (m Model) commitsKeys() []key.Binding {
 }
 
 // handleCommitsKey answers the Commits pane's own keys.
-func (m Model) handleCommitsKey(msg tea.KeyMsg) (Model, tea.Cmd) {
+func (m Model) handleCommitsKey(msg tea.KeyPressMsg) (Model, tea.Cmd) {
 	switch {
 	case key.Matches(msg, m.keys.up, m.keys.down):
 		return m.moveChangeSelection(msg), nil
@@ -219,7 +219,7 @@ func (m Model) handleCommitsKey(msg tea.KeyMsg) (Model, tea.Cmd) {
 }
 
 // moveChangeSelection moves the selection down or up and keeps it on screen.
-func (m Model) moveChangeSelection(msg tea.KeyMsg) Model {
+func (m Model) moveChangeSelection(msg tea.KeyPressMsg) Model {
 	if key.Matches(msg, m.keys.down) {
 		m.changes.selected = min(m.changes.selected+1, max(0, len(m.changes.changes)-1))
 	} else {

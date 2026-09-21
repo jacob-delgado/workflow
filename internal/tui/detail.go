@@ -10,8 +10,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/charmbracelet/bubbles/key"
-	tea "github.com/charmbracelet/bubbletea"
+	"charm.land/bubbles/v2/key"
+	tea "charm.land/bubbletea/v2"
 
 	"github.com/jacob-delgado/workflow/internal/jira"
 )
@@ -208,7 +208,7 @@ func (m Model) viewKeys() []key.Binding {
 }
 
 // handleIssuesKey answers the Issues pane's own keys.
-func (m Model) handleIssuesKey(msg tea.KeyMsg) (Model, tea.Cmd) {
+func (m Model) handleIssuesKey(msg tea.KeyPressMsg) (Model, tea.Cmd) {
 	switch {
 	case key.Matches(msg, m.keys.down):
 		return m.moveIssue(1)
@@ -232,7 +232,7 @@ func (m Model) handleIssuesKey(msg tea.KeyMsg) (Model, tea.Cmd) {
 // handleIssueListKey answers the keys that manage the list itself — switching
 // view, loading the next page, refreshing — before falling through to the keys
 // that read an issue in full.
-func (m Model) handleIssueListKey(msg tea.KeyMsg) (Model, tea.Cmd) {
+func (m Model) handleIssueListKey(msg tea.KeyPressMsg) (Model, tea.Cmd) {
 	switch {
 	case key.Matches(msg, m.keys.nextView):
 		return m.nextIssueView()
@@ -247,7 +247,7 @@ func (m Model) handleIssueListKey(msg tea.KeyMsg) (Model, tea.Cmd) {
 
 // handleIssueViewingKey answers the keys that, in the collapsed layout, read the
 // selected issue in full or return to scanning the list.
-func (m Model) handleIssueViewingKey(msg tea.KeyMsg) (Model, tea.Cmd) {
+func (m Model) handleIssueViewingKey(msg tea.KeyPressMsg) (Model, tea.Cmd) {
 	switch {
 	case key.Matches(msg, m.keys.confirm):
 		m.issues.viewing = true
@@ -266,10 +266,9 @@ func (m Model) handleIssueViewingKey(msg tea.KeyMsg) (Model, tea.Cmd) {
 // it, enter keeps it applied so the narrowed list can be navigated, and esc
 // cancels it and restores the whole list. The arrow keys still move the
 // selection, so the list can be filtered and scanned at once.
-func (m Model) handleIssueFilterKey(msg tea.KeyMsg) (Model, tea.Cmd) {
-	//nolint:exhaustive // tea.KeyType has scores of values; the default handles all but the few that edit the filter.
-	switch msg.Type {
-	case tea.KeyEsc:
+func (m Model) handleIssueFilterKey(msg tea.KeyPressMsg) (Model, tea.Cmd) {
+	switch msg.Code {
+	case tea.KeyEscape:
 		m.issues = m.issues.clearFilter()
 
 		return m.loadDetail()
@@ -285,18 +284,26 @@ func (m Model) handleIssueFilterKey(msg tea.KeyMsg) (Model, tea.Cmd) {
 		m.issues = m.issues.trimFilter()
 
 		return m.loadDetail()
-	case tea.KeyRunes, tea.KeySpace:
-		text := string(msg.Runes)
-		if msg.Type == tea.KeySpace {
-			text = " "
-		}
-
-		m.issues = m.issues.extendFilter(text)
-
-		return m.loadDetail()
 	default:
+		return m.extendFilterWith(msg)
+	}
+}
+
+// extendFilterWith adds a key's text to the filter when it types something,
+// treating the space key as a space, and does nothing for a key that does not.
+func (m Model) extendFilterWith(msg tea.KeyPressMsg) (Model, tea.Cmd) {
+	text := msg.Text
+	if text == "" && msg.Code == tea.KeySpace {
+		text = " "
+	}
+
+	if text == "" {
 		return m, nil
 	}
+
+	m.issues = m.issues.extendFilter(text)
+
+	return m.loadDetail()
 }
 
 // refreshIssues reads the list again, and the selected issue in full whether or

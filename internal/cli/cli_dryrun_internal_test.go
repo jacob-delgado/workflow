@@ -15,7 +15,7 @@ import (
 	"strings"
 	"testing"
 
-	tea "github.com/charmbracelet/bubbletea"
+	tea "charm.land/bubbletea/v2"
 
 	"github.com/jacob-delgado/workflow/internal/config"
 	"github.com/jacob-delgado/workflow/internal/tui"
@@ -66,7 +66,7 @@ func shownAtSize(t *testing.T, model tui.Model) string {
 		t.Fatalf("Update returned a %T, not a tui.Model", updated)
 	}
 
-	return sized.View()
+	return sized.View().Content
 }
 
 func TestTheDryRunFlagBuildsTheModelInDryRun(t *testing.T) {

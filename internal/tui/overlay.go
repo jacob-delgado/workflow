@@ -6,8 +6,8 @@ package tui
 import (
 	"strings"
 
-	"github.com/charmbracelet/bubbles/key"
-	tea "github.com/charmbracelet/bubbletea"
+	"charm.land/bubbles/v2/key"
+	tea "charm.land/bubbletea/v2"
 )
 
 // overlay is something that takes the keyboard until it is closed: a picker, a
@@ -22,7 +22,7 @@ type overlay interface {
 	view(width, rows int) (string, string)
 	// footer is the keys that do something in it right now.
 	footer(keys keyMap) []key.Binding
-	handleKey(m Model, msg tea.KeyMsg) (Model, tea.Cmd)
+	handleKey(m Model, msg tea.KeyPressMsg) (Model, tea.Cmd)
 }
 
 // clickable is an overlay whose rows can be chosen with the mouse. line is the

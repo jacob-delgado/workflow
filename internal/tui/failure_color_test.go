@@ -51,7 +51,7 @@ func TestEveryFailureGlyphRendersRed(t *testing.T) {
 			tt.prepare(faked)
 
 			// Act
-			view := typing(t, faked.live(t, 120, 40), tt.keys...).View()
+			view := typing(t, faked.live(t, 120, 40), tt.keys...).View().Content
 
 			// Assert
 			total, red := strings.Count(view, failGlyph), strings.Count(view, open+failGlyph)

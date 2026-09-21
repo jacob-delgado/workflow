@@ -31,7 +31,8 @@ func TestEnterMovesTheIssueAndRefreshesTheList(t *testing.T) {
 	sending, cmd := pressed(t, screen, keyEnter)
 
 	// Assert: the picker says the move is under way
-	requireScreen(t, sending.View(), "changing OPS-1 to Done…")
+	requireScreen(t, sending.View().Content,
+		"changing OPS-1 to Done…")
 
 	// Act: Jira accepts the move
 	moved, refresh := finish(t, sending, cmd)
@@ -41,8 +42,9 @@ func TestEnterMovesTheIssueAndRefreshesTheList(t *testing.T) {
 		t.Errorf("applied %v %d times, want OPS-1 through transition 31 once", got, fake.applies.Load())
 	}
 
-	refuseScreen(t, moved.View(), pickerTitle)
-	requireScreen(t, moved.View(), "● OPS-1 is now Done")
+	refuseScreen(t, moved.View().Content, pickerTitle)
+	requireScreen(t, moved.View().Content,
+		"● OPS-1 is now Done")
 
 	// Act: the refresh arrives
 	finish(t, moved, refresh)
@@ -73,8 +75,8 @@ func TestNothingInterruptsAMoveBeingSent(t *testing.T) {
 				t.Errorf("%s produced a command while the move is sent", key)
 			}
 
-			if after.View() != sending.View() {
-				t.Errorf("%s changed the screen while the move is sent:\n%s", key, after.View())
+			if after.View().Content != sending.View().Content {
+				t.Errorf("%s changed the screen while the move is sent:\n%s", key, after.View().Content)
 			}
 		})
 	}
@@ -91,7 +93,7 @@ func TestTheFooterOffersOnlyQuittingWhileAMoveIsSent(t *testing.T) {
 	sending, _ := pressed(t, screen, keyEnter)
 
 	// Assert
-	footer := footerLine(sending.View())
+	footer := footerLine(sending.View().Content)
 	refuseScreen(t, footer, "apply", keyEsc)
 	requireScreen(t, footer, "quit")
 }
@@ -154,7 +156,7 @@ func TestTheSelectionFollowsTheMovedIssueThroughARefresh(t *testing.T) {
 			screen, _ = finish(t, screen, refresh)
 
 			// Assert
-			if view := screen.View(); !strings.Contains(view, tt.want) {
+			if view := screen.View().Content; !strings.Contains(view, tt.want) {
 				t.Errorf("after the refresh, want %q selected:\n%s", tt.want, view)
 			}
 		})
@@ -170,7 +172,7 @@ func TestTheKeyHintsShowBesideANotice(t *testing.T) {
 	screen, _ = finish(t, screen, cmd)
 
 	// Act
-	moved := press(t, screen, "j").View()
+	moved := press(t, screen, "j").View().Content
 
 	// Assert
 	// Moving keeps the notice on its own row, while the hints stay in the
@@ -195,7 +197,8 @@ func TestARefusedMoveKeepsThePickerOpenToTryAgain(t *testing.T) {
 	refused, refresh := finish(t, screen, cmd)
 
 	// Assert: the picker stays open, with Jira's reason and the selection
-	requireScreen(t, refused.View(), pickerTitle, "✗ jira rejected the request: Resolution is required.", "▸ ● Done")
+	requireScreen(t, refused.View().Content,
+		pickerTitle, "✗ jira rejected the request: Resolution is required.", "▸ ● Done")
 
 	if refresh != nil {
 		t.Error("a refused move refreshed the list, want nothing to have changed")
@@ -240,6 +243,7 @@ func TestAStatusChangeIsSaidInPlainWords(t *testing.T) {
 	done := typing(t, changing.live(t, 120, 40), "t", keyEnter)
 
 	// Assert
-	requireScreen(t, done.View(), "● PROJ-412 is now In Review")
-	refuseScreen(t, done.View(), "moved to", "moving")
+	requireScreen(t, done.View().Content,
+		"● PROJ-412 is now In Review")
+	refuseScreen(t, done.View().Content, "moved to", "moving")
 }

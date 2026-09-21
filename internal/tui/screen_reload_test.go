@@ -26,7 +26,7 @@ func TestReloadIsOfferedInEveryPaneThatReloads(t *testing.T) {
 			model := newWorld().live(t, 160, 40)
 
 			// Act
-			view := typing(t, model, tt.pane).View()
+			view := typing(t, model, tt.pane).View().Content
 
 			// Assert
 			requireScreen(t, footerLine(view), "r refresh")
@@ -46,7 +46,7 @@ func TestANoticeSurvivesMovingAround(t *testing.T) {
 
 	// Act
 	after := typing(t, pushed, "j", "k", keyTab)
-	view := after.View()
+	view := after.View().Content
 
 	// Assert
 	requireScreen(t, view, "dry run: would push "+featureName)

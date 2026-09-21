@@ -21,7 +21,7 @@ func TestAPaneFailureClosesItsColorEachRow(t *testing.T) {
 
 	faked := withoutPull()
 	faked.pullErr = errLongStatus
-	view := typing(t, faked.live(t, 120, 24), "4").View()
+	view := typing(t, faked.live(t, 120, 24), "4").View().Content
 
 	// Act
 	lines := strings.Split(view, "\n")

@@ -7,8 +7,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/charmbracelet/lipgloss"
-	"github.com/muesli/termenv"
+	"charm.land/lipgloss/v2"
 )
 
 // failGlyph is the failure mark the default (unicode) glyph set draws.
@@ -22,17 +21,15 @@ func redOpen() string {
 	return open
 }
 
-// forceANSI makes lipgloss emit ANSI color, which it does not when a test's
-// output is not a terminal, and restores the profile afterward. The tests that
-// use it must not run in parallel, so the global profile is theirs alone.
+// forceANSI is the seam the color tests call to make lipgloss emit color. In v2
+// a style renders its colors into the string whether or not the output is a
+// terminal — downsampling happens at the program's writer, not at Render — so
+// there is no global profile to force, and this is a no-op that returns a no-op
+// restore.
 func forceANSI(t *testing.T) func() {
 	t.Helper()
 
-	previous := lipgloss.ColorProfile()
-
-	lipgloss.SetColorProfile(termenv.ANSI)
-
-	return func() { lipgloss.SetColorProfile(previous) }
+	return func() {}
 }
 
 // sgrBalance counts the color codes a line opens and the resets that close

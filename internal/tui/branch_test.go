@@ -33,7 +33,7 @@ func TestTheBranchOverlayShowsHowOldTheBaseIs(t *testing.T) {
 	model := aged.live(t, 120, 40)
 
 	// Act
-	view := typing(t, model, "2", "b").View()
+	view := typing(t, model, "2", "b").View().Content
 
 	// Assert
 	requireScreen(t, view, "from "+baseRef, "3d ago")
@@ -67,7 +67,7 @@ func TestOutsideARepositoryEachRepoPaneSaysSoAndOffersNoRepoKeys(t *testing.T) {
 			model = drain(t, model, model.Init())
 
 			// Act
-			view := typing(t, model, tt.pane).View()
+			view := typing(t, model, tt.pane).View().Content
 
 			// Assert
 			requireScreen(t, view, "Not inside a git repository")
@@ -110,7 +110,7 @@ func TestTheBranchPaneSaysWhereTheBranchStands(t *testing.T) {
 			standing.branch = tt.branch
 
 			// Act
-			view := typing(t, standing.live(t, 120, 40), "2").View()
+			view := typing(t, standing.live(t, 120, 40), "2").View().Content
 
 			// Assert
 			requireScreen(t, view, tt.want...)
@@ -145,7 +145,7 @@ func TestTheBranchDetailNamesItsIssue(t *testing.T) {
 			naming.branch.Name, naming.branch.Base = tt.name, tt.base
 
 			// Act
-			view := typing(t, naming.live(t, 120, 40), "2").View()
+			view := typing(t, naming.live(t, 120, 40), "2").View().Content
 
 			// Assert
 			requireScreen(t, view, tt.want...)
@@ -162,7 +162,7 @@ func TestABranchThatCannotBeReadSaysSo(t *testing.T) {
 	model := sized(t, tui.New(completeConfig(), nil, deps), 120, 40)
 
 	// Act
-	view := typing(t, drain(t, model, model.Init()), "2").View()
+	view := typing(t, drain(t, model, model.Init()), "2").View().Content
 
 	// Assert
 	// The rail says that it failed and the detail says why, in git's own words:
@@ -179,7 +179,7 @@ func TestTheBranchPaneSaysSoBeforeTheBranchLoads(t *testing.T) {
 	model := sized(t, tui.New(completeConfig(), nil, newWorld().deps()), 120, 40)
 
 	// Act
-	view := press(t, model, "2").View()
+	view := press(t, model, "2").View().Content
 
 	// Assert
 	// Other panes are loading too; the heavy border is the Branch pane's own.
@@ -198,14 +198,16 @@ func TestBOpensABranchNamedForTheSelectedIssue(t *testing.T) {
 	creator := typing(t, model, "b")
 
 	// Assert: it proposes a name for the issue, from the base
-	requireScreen(t, creator.View(), "┏━ New branch", "for PROJ-412 "+issueSummary, "> fix/PROJ-412-fix-token-redaction",
+	requireScreen(t, creator.View().Content,
+		"┏━ New branch", "for PROJ-412 "+issueSummary, "> fix/PROJ-412-fix-token-redaction",
 		"from origin/main", "enter create")
 
 	// Act: create it
 	created := typing(t, creator, keyEnter)
 
 	// Assert: git created it, and the branch was read again
-	requireScreen(t, created.View(), "● created and switched to fix/PROJ-412-fix-token-redaction")
+	requireScreen(t, created.View().Content,
+		"● created and switched to fix/PROJ-412-fix-token-redaction")
 
 	if calls := branching.asked("create"); len(calls) != 1 || calls[0] != "create "+featureName+" from origin/main" {
 		t.Errorf("create calls = %q", calls)
@@ -227,13 +229,15 @@ func TestTheBranchNameIsCheckedAsItIsTyped(t *testing.T) {
 	spaced := typing(t, model, append([]string{"b"}, letters(" x")...)...)
 
 	// Assert: the problem is named
-	requireScreen(t, spaced.View(), "✗ not a valid branch name: it contains a space")
+	requireScreen(t, spaced.View().Content,
+		"✗ not a valid branch name: it contains a space")
 
 	// Act: try to create it
 	refused := typing(t, spaced, keyEnter)
 
 	// Assert: nothing is created, and the creator stays open
-	requireScreen(t, refused.View(), "┏━ New branch")
+	requireScreen(t, refused.View().Content,
+		"┏━ New branch")
 
 	if calls := branching.asked("create"); len(calls) != 0 {
 		t.Errorf("created a branch git would refuse: %q", calls)
@@ -253,14 +257,16 @@ func TestABranchWithoutABaseStartsFromHere(t *testing.T) {
 	creator := typing(t, model, "2", "b")
 
 	// Assert: it starts from the current commit, for no issue
-	requireScreen(t, creator.View(), "from the current commit (no default branch found)")
-	refuseScreen(t, creator.View(), "for PROJ")
+	requireScreen(t, creator.View().Content,
+		"from the current commit (no default branch found)")
+	refuseScreen(t, creator.View().Content, "for PROJ")
 
 	// Act: name and create it
 	created := typing(t, creator, append(letters("spike"), keyEnter)...)
 
 	// Assert: git created it from here
-	requireScreen(t, created.View(), "● created and switched to spike")
+	requireScreen(t, created.View().Content,
+		"● created and switched to spike")
 
 	if calls := branching.asked("create"); len(calls) != 1 || calls[0] != "create spike from " {
 		t.Errorf("create calls = %q", calls)
@@ -279,10 +285,11 @@ func TestARefusedBranchKeepsTheCreatorOpen(t *testing.T) {
 	refused := typing(t, model, "b", keyEnter)
 
 	// Assert: the creator stays open with git's reason
-	requireScreen(t, refused.View(), "┏━ New branch", "✗ fatal: a branch named 'fix/x' already exists")
+	requireScreen(t, refused.View().Content,
+		"┏━ New branch", "✗ fatal: a branch named 'fix/x' already exists")
 
 	// Act: close it
-	closed := typing(t, refused, keyEsc).View()
+	closed := typing(t, refused, keyEsc).View().Content
 
 	// Assert: the keyboard is back on the pane it came from
 	refuseScreen(t, closed, "┏━ New branch")
@@ -298,7 +305,7 @@ func TestADryRunBranchIsOnlyDescribed(t *testing.T) {
 	model = drain(t, model, model.Init())
 
 	// Act
-	view := typing(t, model, "b", keyEnter).View()
+	view := typing(t, model, "b", keyEnter).View().Content
 
 	// Assert
 	requireScreen(t, view, "dry run: would fetch origin, then create fix/PROJ-412-fix-token-redaction from origin/main")
@@ -316,7 +323,7 @@ func TestPushIsOfferedWithSomethingToPush(t *testing.T) {
 	pushable.branch.Ahead = 1
 
 	// Act
-	view := typing(t, pushable.live(t, 120, 40), "2").View()
+	view := typing(t, pushable.live(t, 120, 40), "2").View().Content
 
 	// Assert
 	requireScreen(t, footerLine(view), "P push", "b new branch")
@@ -333,7 +340,7 @@ func TestPushIsNotOfferedWithNothingToPush(t *testing.T) {
 	pane := typing(t, model, "2")
 
 	// Assert: push is not offered
-	refuseScreen(t, footerLine(pane.View()), "P push")
+	refuseScreen(t, footerLine(pane.View().Content), "P push")
 
 	// Act: press it anyway
 	typing(t, pane, "P")
@@ -355,7 +362,8 @@ func TestPushIsPreviewedBeforeItIsSent(t *testing.T) {
 	preview := typing(t, pushing.live(t, 120, 40), "2", "P")
 
 	// Assert: what will be pushed is shown, nothing pushed yet
-	requireScreen(t, preview.View(), "push "+featureName+" to origin", "enter push")
+	requireScreen(t, preview.View().Content,
+		"push "+featureName+" to origin", "enter push")
 
 	if calls := pushing.asked("push"); len(calls) != 0 {
 		t.Errorf("pushed before the preview was confirmed: %q", calls)
@@ -382,7 +390,8 @@ func TestPushReportsTheBranchPushed(t *testing.T) {
 	done := typing(t, pushing.live(t, 120, 40), "2", "P", keyEnter)
 
 	// Assert
-	requireScreen(t, done.View(), "● pushed "+featureName)
+	requireScreen(t, done.View().Content,
+		"● pushed "+featureName)
 
 	if calls := pushing.asked("push"); len(calls) != 1 || calls[0] != "push "+featureName {
 		t.Errorf("push calls = %q, want the branch pushed once", calls)
@@ -402,7 +411,8 @@ func TestARefusedPushShowsWhatGitSaid(t *testing.T) {
 	failed := typing(t, failing.live(t, 120, 40), "2", "P", keyEnter)
 
 	// Assert
-	requireScreen(t, failed.View(), "┏━ git push", "✗ the push was refused",
+	requireScreen(t, failed.View().Content,
+		"┏━ git push", "✗ the push was refused",
 		"remote: Permission to example/repo.git denied.")
 }
 
@@ -416,7 +426,7 @@ func TestADryRunPushIsOnlyDescribed(t *testing.T) {
 	model = drain(t, model, model.Init())
 
 	// Act
-	view := typing(t, model, "2", "P", keyEnter).View()
+	view := typing(t, model, "2", "P", keyEnter).View().Content
 
 	// Assert
 	requireScreen(t, view, "dry run: would push "+featureName)

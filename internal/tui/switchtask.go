@@ -7,8 +7,8 @@ import (
 	"errors"
 	"strings"
 
-	"github.com/charmbracelet/bubbles/key"
-	tea "github.com/charmbracelet/bubbletea"
+	"charm.land/bubbles/v2/key"
+	tea "charm.land/bubbletea/v2"
 
 	"github.com/jacob-delgado/workflow/internal/convention"
 	"github.com/jacob-delgado/workflow/internal/jira"
@@ -161,7 +161,7 @@ func (p branchPicker) footer(keys keyMap) []key.Binding {
 }
 
 // handleKey answers a key while the switcher has the keyboard.
-func (p branchPicker) handleKey(m Model, msg tea.KeyMsg) (Model, tea.Cmd) {
+func (p branchPicker) handleKey(m Model, msg tea.KeyPressMsg) (Model, tea.Cmd) {
 	switch {
 	case p.sending:
 		return m, nil

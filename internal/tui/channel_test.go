@@ -39,7 +39,7 @@ func TestTheChannelCanBeChangedBeforePosting(t *testing.T) {
 	preview := typing(t, model, "5", "p")
 
 	// Assert: the preview offers the change and starts on the default channel
-	requireScreen(t, preview.View(), "to  "+devChannel, "change channel")
+	requireScreen(t, preview.View().Content, "to  "+devChannel, "change channel")
 
 	// Act: cycle to the other channel and post
 	typing(t, preview, "right", keyEnter)
@@ -57,6 +57,6 @@ func TestOneChannelOffersNoChange(t *testing.T) {
 	preview := typing(t, newWorld().live(t, 120, 40), "5", "p")
 
 	// Assert
-	requireScreen(t, preview.View(), "to  "+devChannel)
-	refuseScreen(t, preview.View(), "change channel")
+	requireScreen(t, preview.View().Content, "to  "+devChannel)
+	refuseScreen(t, preview.View().Content, "change channel")
 }

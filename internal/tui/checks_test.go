@@ -39,7 +39,7 @@ func TestTheChecksListShowsEachCheckAndOpensOne(t *testing.T) {
 	opened := typing(t, model, "4", "c")
 
 	// Assert: both checks are listed
-	requireScreen(t, opened.View(), "lint", "build")
+	requireScreen(t, opened.View().Content, "lint", "build")
 
 	// Act: open the selected check's page
 	browsed := typing(t, opened, keyEnter)
@@ -49,7 +49,7 @@ func TestTheChecksListShowsEachCheckAndOpensOne(t *testing.T) {
 		t.Errorf("browse calls = %v, want one for the selected check", got)
 	}
 
-	requireScreen(t, browsed.View(), "opened lint")
+	requireScreen(t, browsed.View().Content, "opened lint")
 }
 
 func TestTheChecksListMovesTheSelectionBeforeOpening(t *testing.T) {
@@ -75,7 +75,7 @@ func TestTheReviewPaneOffersTheChecksKey(t *testing.T) {
 	model := checkedCI().live(t, 120, 40)
 
 	// Act
-	view := typing(t, model, "4").View()
+	view := typing(t, model, "4").View().Content
 
 	// Assert
 	requireScreen(t, footerLine(view), "c checks")
@@ -90,7 +90,7 @@ func TestAFailedOpenShowsTheReason(t *testing.T) {
 	model := repo.live(t, 120, 40)
 
 	// Act
-	view := typing(t, model, "4", "c", keyEnter).View()
+	view := typing(t, model, "4", "c", keyEnter).View().Content
 
 	// Assert
 	requireScreen(t, view, "executable file not found")
@@ -115,13 +115,13 @@ func TestTheChecksListNavigatesClosesAndShowsEveryState(t *testing.T) {
 	onChecks := typing(t, model, "4", "c")
 
 	// Assert: every check is drawn, whatever its state
-	requireScreen(t, onChecks.View(), "lint", "vet", "cache")
+	requireScreen(t, onChecks.View().Content, "lint", "vet", "cache")
 
 	// Act: move down, back up, press a key it ignores, then close
 	closed := typing(t, onChecks, "j", "k", "z", keyEsc)
 
 	// Assert: the list is gone and nothing was opened
-	refuseScreen(t, closed.View(), "Open a check's page")
+	refuseScreen(t, closed.View().Content, "Open a check's page")
 
 	if got := repo.asked("browse"); len(got) != 0 {
 		t.Errorf("browse calls = %v, want none after only navigating", got)
@@ -140,7 +140,7 @@ func TestOpeningAfterTheChecksCloseIsIgnored(t *testing.T) {
 	settled, _ := finish(t, closed, cmd)
 
 	// Assert
-	refuseScreen(t, settled.View(), "Open a check's page")
+	refuseScreen(t, settled.View().Content, "Open a check's page")
 }
 
 func TestACheckWithNoPageSaysSo(t *testing.T) {
@@ -155,7 +155,7 @@ func TestACheckWithNoPageSaysSo(t *testing.T) {
 	model := repo.live(t, 120, 40)
 
 	// Act
-	view := typing(t, model, "4", "c", keyEnter).View()
+	view := typing(t, model, "4", "c", keyEnter).View().Content
 
 	// Assert
 	requireScreen(t, view, "no page to open")

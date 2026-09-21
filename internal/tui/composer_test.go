@@ -23,7 +23,7 @@ func TestCommitNeedsSomethingStaged(t *testing.T) {
 	unstaged.changes = []gitrepo.Change{{Path: "notes.txt", Staged: '?', Unstaged: '?'}}
 
 	// Act
-	view := typing(t, unstaged.live(t, 120, 40), "3", "c").View()
+	view := typing(t, unstaged.live(t, 120, 40), "3", "c").View().Content
 
 	// Assert
 	requireScreen(t, view, "nothing is staged: space stages the selected file")
@@ -48,21 +48,21 @@ func TestTheComposerAssemblesAConventionalCommit(t *testing.T) {
 	composer := typing(t, model, "3", "c")
 
 	// Assert: it starts from the issue and what is staged, on the fix branch's type
-	requireScreen(t, composer.View(), "┏━ Commit", "‹fix›", "Refs: PROJ-412", "1 file staged",
+	requireScreen(t, composer.View().Content, "┏━ Commit", "‹fix›", "Refs: PROJ-412", "1 file staged",
 		"no body yet: ctrl+o writes one in your editor")
 
 	// Act: choose the type, scope and subject, then write the body in the editor
 	filled := typing(t, composer, keys...)
 
 	// Assert: the message shows as it will be committed
-	requireScreen(t, filled.View(), "‹fix›", "fix(config): redact tokens  26/72", "Tokens reached the log.")
+	requireScreen(t, filled.View().Content, "‹fix›", "fix(config): redact tokens  26/72", "Tokens reached the log.")
 
 	// Act: commit
 	committed := typing(t, filled, keyEnter)
 
 	// Assert: git committed exactly that message, and both overlays closed
-	requireScreen(t, committed.View(), "● committed fix(config): redact tokens")
-	refuseScreen(t, committed.View(), "┏━ Commit ", "┏━ git commit")
+	requireScreen(t, committed.View().Content, "● committed fix(config): redact tokens")
+	refuseScreen(t, committed.View().Content, "┏━ Commit ", "┏━ git commit")
 
 	want := "commit fix(config): redact tokens\n\nTokens reached the log.\n\nRefs: PROJ-412\n"
 	if calls := composing.asked("commit"); len(calls) != 1 || calls[0] != want {
@@ -86,7 +86,7 @@ func TestTheComposerMarksABreakingChange(t *testing.T) {
 
 	// Assert
 	// The Conventional Commits "!" appears in the assembled subject as it is typed.
-	requireScreen(t, breaking.View(), "fix!: redact tokens")
+	requireScreen(t, breaking.View().Content, "fix!: redact tokens")
 }
 
 func TestTheComposerOpensOnTheBranchType(t *testing.T) {
@@ -99,8 +99,8 @@ func TestTheComposerOpensOnTheBranchType(t *testing.T) {
 	composer := typing(t, composing.live(t, 120, 40), "3", "c")
 
 	// Assert
-	requireScreen(t, composer.View(), "‹fix›")
-	refuseScreen(t, composer.View(), "‹feat›")
+	requireScreen(t, composer.View().Content, "‹fix›")
+	refuseScreen(t, composer.View().Content, "‹feat›")
 }
 
 func TestTheComposerRefusesATooLongSubject(t *testing.T) {
@@ -114,13 +114,13 @@ func TestTheComposerRefusesATooLongSubject(t *testing.T) {
 	long := typing(t, model, append([]string{"3", "c"}, letters(strings.Repeat("x", 70))...)...)
 
 	// Assert: the problem is named
-	requireScreen(t, long.View(), "✗ the subject is too long: 75 of 72 characters")
+	requireScreen(t, long.View().Content, "✗ the subject is too long: 75 of 72 characters")
 
 	// Act: try to commit it
 	refused := typing(t, long, keyEnter)
 
 	// Assert: nothing is committed, and the composer stays open
-	requireScreen(t, refused.View(), "┏━ Commit")
+	requireScreen(t, refused.View().Content, "┏━ Commit")
 
 	if calls := composing.asked("commit"); len(calls) != 0 {
 		t.Errorf("committed a subject that is too long: %q", calls)
@@ -137,7 +137,7 @@ func TestTheComposerRefusesAnEmptySubject(t *testing.T) {
 	empty := typing(t, composing.live(t, 120, 40), "3", "c", keyEnter)
 
 	// Assert
-	requireScreen(t, empty.View(), "✗ the subject needs a description")
+	requireScreen(t, empty.View().Content, "✗ the subject needs a description")
 
 	if calls := composing.asked("commit"); len(calls) != 0 {
 		t.Errorf("committed an empty subject: %q", calls)
@@ -169,7 +169,7 @@ func TestTheTypeCyclesBothWays(t *testing.T) {
 			composer := typing(t, world.live(t, 120, 40), "3", "c", keyTab)
 
 			// Act
-			view := typing(t, composer, tt.keys...).View()
+			view := typing(t, composer, tt.keys...).View().Content
 
 			// Assert
 			requireScreen(t, view, tt.want)
@@ -190,13 +190,13 @@ func TestAFailedRunLeadsWithTheStepAndShowsFullOutput(t *testing.T) {
 	failed := typing(t, failing.live(t, 120, 40), commitKeys("x")...)
 
 	// Act & Assert: the headline names the step, not git's exit code
-	requireScreen(t, failed.View(), "the commit was refused")
+	requireScreen(t, failed.View().Content, "the commit was refused")
 
 	// Act: switch to the full output
 	full := typing(t, failed, "o")
 
 	// Assert: the whole output can be read
-	requireScreen(t, full.View(), "go: command not found")
+	requireScreen(t, full.View().Content, "go: command not found")
 }
 
 func TestAFailedCommitShowsWhereToLookAndKeepsTheDraft(t *testing.T) {
@@ -219,7 +219,7 @@ func TestAFailedCommitShowsWhereToLookAndKeepsTheDraft(t *testing.T) {
 	failed := typing(t, model, commitKeys("redact tokens")...)
 
 	// Assert: the run says which jobs failed and where they point
-	requireScreen(t, failed.View(), "┏━ git commit", "✗ the commit was refused", "✗ golangci-lint · ● gofmt",
+	requireScreen(t, failed.View().Content, "┏━ git commit", "✗ the commit was refused", "✗ golangci-lint · ● gofmt",
 		"▸ internal/tui/pane.go:64 cyclomatic complexity", "README.md:3 MD013", "enter open in editor", "r run again")
 
 	// Act: open the second place in the editor
@@ -234,7 +234,7 @@ func TestAFailedCommitShowsWhereToLookAndKeepsTheDraft(t *testing.T) {
 	reopened := typing(t, opened, keyEsc, "c")
 
 	// Assert: the composer starts from the draft
-	requireScreen(t, reopened.View(), "> redact tokens")
+	requireScreen(t, reopened.View().Content, "> redact tokens")
 }
 
 func TestAFailedCommitCanBeRunAgain(t *testing.T) {
@@ -265,7 +265,7 @@ func TestAnEditorThatCannotOpenIsReported(t *testing.T) {
 	failing.editorErr = errEditorFailed
 
 	// Act
-	view := typing(t, failing.live(t, 120, 40), commitKeys("x", keyEnter)...).View()
+	view := typing(t, failing.live(t, 120, 40), commitKeys("x", keyEnter)...).View().Content
 
 	// Assert
 	requireScreen(t, view, "✗ the editor exited with an error")
@@ -290,8 +290,8 @@ func TestARunningCommitCannotBeLeft(t *testing.T) {
 				t.Errorf("%s produced a command while the commit runs", key)
 			}
 
-			if after.View() != running.View() {
-				t.Errorf("%s changed the screen while the commit runs:\n%s", key, after.View())
+			if after.View().Content != running.View().Content {
+				t.Errorf("%s changed the screen while the commit runs:\n%s", key, after.View().Content)
 			}
 		})
 	}
@@ -307,9 +307,9 @@ func TestARunningCommitOffersOnlyQuitting(t *testing.T) {
 	running, _ := pressed(t, composer, keyEnter)
 
 	// Assert
-	requireScreen(t, running.View(), "┏━ git commit", "◐ running…")
-	requireScreen(t, footerLine(running.View()), "ctrl+c quit")
-	refuseScreen(t, footerLine(running.View()), keyEsc, "r run again")
+	requireScreen(t, running.View().Content, "┏━ git commit", "◐ running…")
+	requireScreen(t, footerLine(running.View().Content), "ctrl+c quit")
+	refuseScreen(t, footerLine(running.View().Content), keyEsc, "r run again")
 }
 
 func TestHRunsThePreCommitHookWithoutCommitting(t *testing.T) {
@@ -324,7 +324,7 @@ func TestHRunsThePreCommitHookWithoutCommitting(t *testing.T) {
 	passed := typing(t, model, "3", "h")
 
 	// Assert: it ran, alone, and says how it went
-	requireScreen(t, passed.View(), "┏━ pre-commit", "● done", "● lint", "r run again")
+	requireScreen(t, passed.View().Content, "┏━ pre-commit", "● done", "● lint", "r run again")
 
 	if calls := hooked.asked("hook"); len(calls) != 1 || calls[0] != "hook pre-commit" {
 		t.Errorf("hook calls = %q", calls)
@@ -335,7 +335,7 @@ func TestHRunsThePreCommitHookWithoutCommitting(t *testing.T) {
 	}
 
 	// Act: close the run
-	closed := typing(t, passed, keyEsc).View()
+	closed := typing(t, passed, keyEsc).View().Content
 
 	// Assert: the keyboard is back on the Commits pane, whose heavy border is on
 	// the detail where the cursor is.
@@ -364,7 +364,7 @@ func TestADryRunCommitsNothing(t *testing.T) {
 			model = drain(t, model, model.Init())
 
 			// Act
-			view := typing(t, model, tt.keys...).View()
+			view := typing(t, model, tt.keys...).View().Content
 
 			// Assert
 			requireScreen(t, view, tt.want)
@@ -398,13 +398,13 @@ func TestARunsFailuresMoveBothWays(t *testing.T) {
 	down := typing(t, failed, "j")
 
 	// Assert: the second failure is selected
-	requireScreen(t, down.View(), "▸ b.go:2 second")
+	requireScreen(t, down.View().Content, "▸ b.go:2 second")
 
 	// Act: k
 	up := typing(t, down, "k")
 
 	// Assert: the first is selected again
-	requireScreen(t, up.View(), "▸ a.go:1 first")
+	requireScreen(t, up.View().Content, "▸ a.go:1 first")
 }
 
 func TestARunsFailuresListedBelowItsJobsCanBeClicked(t *testing.T) {
@@ -418,7 +418,7 @@ func TestARunsFailuresListedBelowItsJobsCanBeClicked(t *testing.T) {
 	picked := click(t, failed, 60, 6)
 
 	// Assert
-	requireScreen(t, picked.View(), "▸ b.go:2 second")
+	requireScreen(t, picked.View().Content, "▸ b.go:2 second")
 }
 
 func TestARunsFailureNeedsAnEditorToOpen(t *testing.T) {
@@ -434,8 +434,8 @@ func TestARunsFailureNeedsAnEditorToOpen(t *testing.T) {
 	after, cmd := pressed(t, failed, keyEnter)
 
 	// Assert
-	if cmd != nil || after.View() != failed.View() {
-		t.Errorf("enter did something with no editor:\n%s", after.View())
+	if cmd != nil || after.View().Content != failed.View().Content {
+		t.Errorf("enter did something with no editor:\n%s", after.View().Content)
 	}
 }
 
@@ -449,6 +449,6 @@ func TestTheComposerCountsOneFileInTheSingular(t *testing.T) {
 	composer := typing(t, committing.live(t, 120, 40), "3", "c")
 
 	// Assert
-	requireScreen(t, composer.View(), "1 file staged")
-	refuseScreen(t, composer.View(), "1 files staged")
+	requireScreen(t, composer.View().Content, "1 file staged")
+	refuseScreen(t, composer.View().Content, "1 files staged")
 }
