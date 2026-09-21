@@ -181,7 +181,7 @@ func gatherPulls(seams standupSeams) []forge.PullRequest {
 		}
 
 		pull, found, err := seams.FindPull(branch)
-		if err == nil && found {
+		if err == nil && found && pull.IsOpen() {
 			pulls = append(pulls, pull)
 		}
 	}

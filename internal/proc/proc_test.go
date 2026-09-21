@@ -34,6 +34,26 @@ func TestRunWithinStopsAReadThatOverrunsItsBound(t *testing.T) {
 	}
 }
 
+func TestRunCommandPassesTheEnvironmentThrough(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	// The helper prints WORKFLOW_PROC_VALUE, so its output proves the Env reached
+	// the child — the guarantee a no-prompt git command relies on.
+	command := child("", "env", "WORKFLOW_PROC_VALUE=passed")
+
+	// Act
+	output, err := proc.RunCommand(t.Context(), command)
+	if err != nil {
+		t.Fatalf("RunCommand returned %v, want nil", err)
+	}
+
+	// Assert
+	if got := strings.TrimSpace(string(output)); got != "passed" {
+		t.Errorf("RunCommand env value = %q, want %q", got, "passed")
+	}
+}
+
 // missingProgram is a name no machine has on its PATH.
 const missingProgram = "workflow-program-that-does-not-exist"
 

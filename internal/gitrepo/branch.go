@@ -107,6 +107,15 @@ func (b Branch) Unpushed() []Commit {
 	return b.Commits[max(0, len(b.Commits)-b.Ahead):]
 }
 
+// HasUnpushedWork reports commits on this branch that origin is known not to
+// hold: the branch has an upstream and is ahead of it. It is what guards a force
+// delete — a merged branch normally has none, but one committed to since it was
+// pushed does, and those commits would be lost. With no upstream to compare
+// against nothing is known to be unpushed, so it reports false.
+func (b Branch) HasUnpushedWork() bool {
+	return b.Upstream != "" && b.Ahead > 0
+}
+
 // BaseName is the base branch without its remote prefix — "main" for
 // "origin/main" — which is the name to show and to rebase onto. A base with no
 // remote (a local "main") is returned as it is.
@@ -369,6 +378,33 @@ func (r Repository) Checkout(ctx context.Context, name string) error {
 	_, err := r.run(ctx, gitProgram, "-C", r.dir, "switch", name)
 	if err != nil {
 		return fmt.Errorf("switching to %s: %w", name, err)
+	}
+
+	return nil
+}
+
+// FinishBranch finishes a merged branch: switch to base, fast-forward it, and
+// delete the branch. It is for after the branch's pull request has merged, so
+// the local repository catches up and the branch is cleaned away.
+//
+// The delete is a force delete (-D) on purpose: a squash or rebase merge leaves
+// the branch's own commits unreachable from base, so the safe -d would refuse a
+// branch the forge has already merged. Its caller is what makes this safe: it
+// offers the finish only for a merged branch with no unpushed commits (see
+// Branch.HasUnpushedWork), so the commits -D discards are the ones origin and
+// the merge already hold.
+func (r Repository) FinishBranch(ctx context.Context, branch, base string) error {
+	steps := [][]string{
+		{"switch", base},
+		{"pull", "--ff-only"},
+		{"branch", "-D", branch},
+	}
+
+	for _, step := range steps {
+		_, err := r.run(ctx, gitProgram, append([]string{"-C", r.dir}, step...)...)
+		if err != nil {
+			return fmt.Errorf("git %s: %w", strings.Join(step, " "), err)
+		}
 	}
 
 	return nil

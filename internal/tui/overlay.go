@@ -96,6 +96,7 @@ var (
 	_ applier = rerunRequested{}
 	_ applier = mergeMethodsLoaded{}
 	_ applier = mergeRequested{}
+	_ applier = finished{}
 	_ applier = issueLinked{}
 	_ applier = authorFound{}
 	_ applier = slackPosted{}

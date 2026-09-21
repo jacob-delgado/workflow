@@ -30,6 +30,10 @@ const (
 const (
 	queryState   = "state"
 	perPageParam = "per_page"
+	// queryAll asks a forge for every state, so a find sees a merged pull and
+	// not only an open one; wireClosed is what both forges call a closed one.
+	queryAll   = "all"
+	wireClosed = "closed"
 )
 
 // MergeMethod is how a pull request is merged: a merge commit, a squashed
@@ -46,6 +50,19 @@ const (
 	MergeRebase MergeMethod = "rebase"
 )
 
+// PullState is where a pull request stands in its life: open, merged, or
+// closed without merging.
+type PullState int
+
+const (
+	// StateOpen means the pull request is open. It is the zero value.
+	StateOpen PullState = iota
+	// StateMerged means it has merged, so its branch's work is done.
+	StateMerged
+	// StateClosed means it was closed without merging.
+	StateClosed
+)
+
 // PullRequest is a pull request on GitHub, or a merge request on GitLab.
 type PullRequest struct {
 	// Number is GitHub's number or GitLab's iid: the one people write as #42 or
@@ -54,6 +71,9 @@ type PullRequest struct {
 	URL    string
 	Title  string
 	Draft  bool
+	// State is whether it is open, merged or closed, so a merged branch can be
+	// finished. A find reads it; the zero value is open.
+	State PullState
 	// Approvals is how many reviewers have approved; ChangesRequested is whether
 	// any reviewer is still asking for changes; Mergeable is whether it can merge.
 	// These are best effort — a forge that will not say leaves them at zero and
@@ -61,6 +81,15 @@ type PullRequest struct {
 	Approvals        int
 	ChangesRequested bool
 	Mergeable        Mergeability
+}
+
+// IsOpen reports whether this pull request is in the open state. FindPullRequest
+// also returns a merged pull request, so a caller that means "is there an open
+// one" — the standup list, the status line, the offer to open a new one — asks
+// this rather than trusting found alone. (Opened, above, is the different
+// question of whether the forge created it at all.)
+func (p PullRequest) IsOpen() bool {
+	return p.State == StateOpen
 }
 
 // NewPullRequest is a pull request to open.
@@ -147,7 +176,40 @@ func dialectFor(kind Kind) (dialect, error) {
 	return found, nil
 }
 
-// FindPullRequest finds the open pull request from a branch, if there is one.
+// stated is a wire pull request that knows its own state, so one helper can
+// choose the branch's pull request the same way for either forge.
+type stated interface {
+	state() PullState
+}
+
+// pickPull chooses the branch's pull request to show: an open one if there is
+// one, otherwise the merged one that means the branch is done. A pull closed
+// without merging is passed over, so the branch still offers to open a new one.
+func pickPull[T stated](pulls []T) (T, bool) {
+	var (
+		merged      T
+		foundMerged bool
+	)
+
+	for index := range pulls {
+		switch pulls[index].state() {
+		case StateOpen:
+			return pulls[index], true
+		case StateMerged:
+			if !foundMerged {
+				merged, foundMerged = pulls[index], true
+			}
+		case StateClosed:
+		}
+	}
+
+	return merged, foundMerged
+}
+
+// FindPullRequest finds the branch's pull request: an open one, or the merged
+// one that means the branch is finished. A pull closed without merging is passed
+// over. The returned PullRequest carries its State, so a caller that wants only
+// an open one checks Opened rather than trusting found alone.
 func (c Client) FindPullRequest(ctx context.Context, repo Repo, branch string) (PullRequest, bool, error) {
 	speaks, err := dialectFor(repo.Kind)
 	if err != nil {

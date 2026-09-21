@@ -65,6 +65,36 @@ func TestStatusLineShowsTheIssueStagesAndCI(t *testing.T) {
 	}
 }
 
+func TestStatusTreatsAMergedPullAsNoOpenReview(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	// The pull request has merged, so there is no live CI to read.
+	checked := false
+	seams := featureBranch()
+	seams.FindPull = func(string) (forge.PullRequest, bool, error) {
+		return forge.PullRequest{Number: 3, State: forge.StateMerged}, true, nil
+	}
+	seams.CheckStatus = func(forge.PullRequest, string) (forge.CI, error) {
+		checked = true
+
+		return forge.CI{}, nil
+	}
+
+	var out bytes.Buffer
+
+	// Act
+	err := runStatus(&out, seams, false, false)
+	if err != nil {
+		t.Fatalf("runStatus: %v", err)
+	}
+
+	// Assert
+	if checked {
+		t.Errorf("read CI on a merged pull request; want a merged branch treated as no open review:\n%s", out.String())
+	}
+}
+
 func TestStatusFailedCIReadsTheReviewFailed(t *testing.T) {
 	t.Parallel()
 
