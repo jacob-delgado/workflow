@@ -1,10 +1,11 @@
 @import 'tailwindcss';
 
-/* Dark only, for now. The cockpit ships a single dark theme: the UI is dark
-   whatever the system prefers, because there is no light theme yet. When one
-   lands, these tokens gain a light variant and a system/user switch chooses
-   between them; until then `color-scheme: dark` keeps native controls, form
-   fields, and scrollbars dark to match. */
+/* Two themes, chosen by the header toggle (system · light · dark). The default
+   below is dark; the light variant is the `[data-theme='light']` block that
+   follows, reassigning the same tokens the `@theme inline` map points at. A
+   pre-paint script in index.html sets `data-theme` before first paint so there
+   is no flash, and `color-scheme` keeps native controls, form fields and
+   scrollbars in step with each. */
 :root {
   color-scheme: dark;
 
@@ -48,6 +49,50 @@
   --warning-foreground: #0b0d12;
 
   --radius: 0.625rem;
+}
+
+/* The same desk by daylight: a cool off-white console, dark ink, and the same
+   status-light language shifted to hues that hold ≥ 4.5:1 against white — the
+   accessibility gate (the axe scan) checks both themes, so these are chosen for
+   contrast, not just to invert the dark set. */
+:root[data-theme='light'] {
+  color-scheme: light;
+
+  --background: #f6f7f9;
+  --foreground: #1b1f27;
+
+  --card: #ffffff;
+  --card-foreground: #1b1f27;
+
+  --popover: #ffffff;
+  --popover-foreground: #1b1f27;
+
+  --primary: #4f56c9;
+  --primary-foreground: #ffffff;
+
+  --secondary: #eceef3;
+  --secondary-foreground: #1b1f27;
+
+  --muted: #eceef3;
+  --muted-foreground: #565e6c;
+
+  --accent: #e6e9f1;
+  --accent-foreground: #1b1f27;
+
+  --destructive: #c5352f;
+  --destructive-foreground: #ffffff;
+
+  --border: #d7dbe3;
+  --input: #d7dbe3;
+  --ring: #4f56c9;
+
+  /* Dark enough that the status chips — `bg-success/15 text-success` and the
+     warning twin — still clear 4.5:1 for their text over the pale same-color
+     tint, not only as solid fills. */
+  --success: #0f6a3f;
+  --success-foreground: #ffffff;
+  --warning: #7a4a00;
+  --warning-foreground: #ffffff;
 }
 
 /* Map the tokens to Tailwind's color and radius scales, so `bg-background`,

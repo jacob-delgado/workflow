@@ -175,6 +175,20 @@ without agreement on direction.
   `shfmt -i 2 -ci -bn` formatting, shellcheck-clean against the repo's
   `.shellcheckrc` (every optional check on).
 
+- **Accessibility is enforced, not aspirational (the `--web` app).**
+  `eslint-plugin-jsx-a11y` runs at **strict** in the web lint (`web/eslint.config.js`,
+  in `yarn lint` / `task check`), and a runtime **axe** scan
+  (`web/e2e/a11y.spec.ts`, `yarn test:e2e`) fails on any WCAG 2.1 A/AA violation —
+  across every section **and both themes**, because a light theme is only real
+  once its contrast holds. Keep both green: give every control an accessible name
+  (an icon-only button carries an `aria-label`), keep the skip link and the
+  `:focus-visible` ring, and de-emphasize with color rather than `opacity` (which
+  dims text below the contrast floor). The web tests are black-box — assert on
+  role, accessible name and `aria-current`, never on classes, inline styles or
+  `data-*` hooks. The TUI needs no theme of its own: it draws in ANSI palette
+  indices, so the terminal's own theme — light or dark — already decides the
+  shades.
+
 ### Design principles
 
 - **SOLID — a lens, not ceremony.** Go is not OOP; apply the underlying idea
