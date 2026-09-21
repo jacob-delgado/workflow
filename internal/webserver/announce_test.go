@@ -94,6 +94,65 @@ func TestGetAnnouncementUsesThePullRequestNounForGitHub(t *testing.T) {
 	}
 }
 
+func TestGetAnnouncementMarksAMergedPull(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	// The branch's pull request has merged, so the announcement marks the merge.
+	deps := filledDeps()
+	deps.FindPull = func(string) (forge.PullRequest, bool, error) {
+		return forge.PullRequest{Number: 42, URL: "https://x/42", Title: "redact", State: forge.StateMerged}, true, nil
+	}
+
+	// Act
+	recorder := get(t, serve(t, deps, config.Default()), "/api/announcement")
+
+	// Assert
+	if text := decode[api.Announcement](t, recorder).Text; !strings.Contains(text, "merged a pull request") {
+		t.Errorf("preview = %q, want a merge announcement", text)
+	}
+}
+
+func TestGetAnnouncementMarksRedCI(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	// The open pull request's CI has failed, so the announcement marks that.
+	deps := filledDeps()
+	deps.CheckCI = func(forge.PullRequest, string) (forge.CI, error) {
+		return forge.CI{State: forge.CIFailed}, nil
+	}
+
+	// Act
+	recorder := get(t, serve(t, deps, config.Default()), "/api/announcement")
+
+	// Assert
+	if text := decode[api.Announcement](t, recorder).Text; !strings.Contains(text, "CI is red on the pull request") {
+		t.Errorf("preview = %q, want a red-CI announcement", text)
+	}
+}
+
+func TestGetAnnouncementFallsBackToReadyWhenCICannotBeRead(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	// The CI read fails, so the open pull request's announcement stays "ready for
+	// review" rather than marking a red CI on a result it could not read.
+	deps := filledDeps()
+	deps.CheckCI = func(forge.PullRequest, string) (forge.CI, error) {
+		return forge.CI{State: forge.CIFailed}, errSeam
+	}
+
+	// Act
+	recorder := get(t, serve(t, deps, config.Default()), "/api/announcement")
+
+	// Assert
+	text := decode[api.Announcement](t, recorder).Text
+	if strings.Contains(text, "CI is red") || !strings.Contains(text, "opened a pull request") {
+		t.Errorf("preview = %q, want a ready announcement when CI cannot be read", text)
+	}
+}
+
 func TestAnnouncePostsToTheChosenChannel(t *testing.T) {
 	t.Parallel()
 
