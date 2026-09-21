@@ -26,7 +26,7 @@
     "react-dom": "^19.3.0",
     "react-hook-form": "^7.88.0",
     "tailwind-merge": "^3.6.0",
-    "zod": "^4.6.2",
+    "zod": "^4.6.5",
     "zustand": "^5.0.15"
   },
   "devDependencies": {
@@ -46,7 +46,7 @@
     "@vitejs/plugin-react": "^6.1.1",
     "@vitest/coverage-v8": "^5.0.0",
     "@vitest/eslint-plugin": "^1.6.27",
-    "dependency-cruiser": "^18.2.0",
+    "dependency-cruiser": "^18.3.0",
     "eslint": "^10.10.0",
     "eslint-plugin-jsonc": "^3.4.2",
     "eslint-plugin-jsx-a11y": "^6.10.2",
