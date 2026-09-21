@@ -112,6 +112,10 @@ func heldBackServices(deps Deps) Deps {
 		}
 	}
 
+	if deps.Forge.Rerun != nil {
+		deps.Forge.Rerun = func(forge.PullRequest, string) (bool, error) { return false, errDryRun }
+	}
+
 	if deps.Slack.Post != nil {
 		deps.Slack.Post = func(string, string) error { return errDryRun }
 	}

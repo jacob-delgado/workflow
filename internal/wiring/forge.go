@@ -67,6 +67,14 @@ func forgeDepsFrom(
 
 			return connection.client.CheckStatus(ctx, connection.repo, pull, head)
 		},
+		Rerun: func(pull forge.PullRequest, head string) (bool, error) {
+			connection, err := connect()
+			if err != nil {
+				return false, err
+			}
+
+			return connection.client.RerunChecks(ctx, connection.repo, pull, head)
+		},
 		ReviewRequests: func() ([]forge.ReviewRequest, error) {
 			connection, err := connect()
 			if err != nil {

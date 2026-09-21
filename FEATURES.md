@@ -368,8 +368,11 @@ Impact: low · Effort: small
   `internal/tui/review.go`.
 - Constraints: needs a token scope the read path does not; say so when it is
   missing.
-- Done when: a key on a failed pull request restarts the failed jobs and the
-  pane returns to "running".
+- Done: `R` on a failed pull request re-runs the failed CI — GitHub's failed
+  workflow runs (`rerun-failed-jobs`), GitLab's head pipeline (`retry`) — and the
+  pane returns to "running" and resumes polling. A refusal (an under-scoped
+  token) says the write scope is missing rather than only "refused"; the write
+  previews and honors a dry run (`forge.Client.RerunChecks`, `deps.Forge.Rerun`).
 
 ### FEAT-35 Choose the base from the branches that exist
 

@@ -118,6 +118,8 @@ type world struct {
 
 	commitStartErr error
 	ciErr          error
+	rerunErr       error
+	nothingToRerun bool
 	authorErr      error
 
 	pull       forge.PullRequest
@@ -377,6 +379,11 @@ func (w *world) forgeDeps() tui.ForgeDeps {
 			w.record("ci " + head)
 
 			return w.nextCI(), w.ciErr
+		},
+		Rerun: func(_ forge.PullRequest, head string) (bool, error) {
+			w.record("rerun " + head)
+
+			return !w.nothingToRerun, w.rerunErr
 		},
 		ReviewRequests: func() ([]forge.ReviewRequest, error) {
 			w.record("reviews")

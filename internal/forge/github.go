@@ -336,6 +336,57 @@ func githubStatus(ctx context.Context, client Client, repo Repo, _ PullRequest, 
 	return tally.ci(), nil
 }
 
+// githubRunList is a commit's workflow runs: each run's id and how it concluded,
+// so the failed ones can be re-run.
+type githubRunList struct {
+	Runs []struct {
+		ID         int64  `json:"id"`
+		Conclusion string `json:"conclusion"`
+	} `json:"workflow_runs"`
+}
+
+// githubRerun re-runs the failed jobs of every failed workflow run on the head
+// commit, and reports whether any run was re-run. A failure that is a status
+// reported by something other than Actions has no run to re-run, so nothing is,
+// which is why the caller is told rather than left to assume one started.
+func githubRerun(ctx context.Context, client Client, repo Repo, _ PullRequest, head string) (bool, error) {
+	runs := fmt.Sprintf("%s/actions/runs?head_sha=%s&per_page=%d",
+		githubRepoPath(repo), url.QueryEscape(head), githubPerPage)
+
+	list, err := repoCall[githubRunList](ctx, client, repo, http.MethodGet, runs, nil)
+	if err != nil {
+		return false, err
+	}
+
+	reran := false
+
+	for _, run := range list.Runs {
+		if !runFailed(run.Conclusion) {
+			continue
+		}
+
+		rerun := fmt.Sprintf("%s/actions/runs/%d/rerun-failed-jobs", githubRepoPath(repo), run.ID)
+
+		err = send(ctx, client, http.MethodPost, rerun, nil)
+		if err != nil {
+			return reran, err
+		}
+
+		reran = true
+	}
+
+	return reran, nil
+}
+
+// runFailed reports a completed workflow run that did not pass, by the same rule
+// runState reads a status by, so every run the Review pane calls failed — a
+// timed-out or canceled one included, not only a plain "failure" — is re-run.
+func runFailed(conclusion string) bool {
+	passing := map[string]bool{succeeded: true, "neutral": true, skipped: true}
+
+	return conclusion != "" && !passing[conclusion]
+}
+
 // githubPages reads a paged listing to its end, reporting whether every page was
 // read within the bound. counts returns a page's size and GitHub's total_count.
 func githubPages[T any](
