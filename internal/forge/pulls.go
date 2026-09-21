@@ -32,6 +32,20 @@ const (
 	perPageParam = "per_page"
 )
 
+// MergeMethod is how a pull request is merged: a merge commit, a squashed
+// commit, or a rebase. Which of these a repository permits is the repository's
+// to say, so a merge is only ever offered one the repository allows.
+type MergeMethod string
+
+const (
+	// MergeCommit merges with a merge commit.
+	MergeCommit MergeMethod = "merge"
+	// MergeSquash squashes the branch into one commit.
+	MergeSquash MergeMethod = "squash"
+	// MergeRebase rebases the branch onto the base.
+	MergeRebase MergeMethod = "rebase"
+)
+
 // PullRequest is a pull request on GitHub, or a merge request on GitLab.
 type PullRequest struct {
 	// Number is GitHub's number or GitLab's iid: the one people write as #42 or
@@ -86,6 +100,8 @@ type dialect struct {
 	create     func(ctx context.Context, c Client, repo Repo, request NewPullRequest) (PullRequest, error)
 	status     func(ctx context.Context, c Client, repo Repo, pull PullRequest, head string) (CI, error)
 	rerun      func(ctx context.Context, c Client, repo Repo, pull PullRequest, head string) (bool, error)
+	merge      func(ctx context.Context, c Client, repo Repo, pull PullRequest, method MergeMethod) error
+	methods    func(ctx context.Context, c Client, repo Repo) ([]MergeMethod, error)
 	reviews    func(ctx context.Context, c Client) ([]ReviewRequest, error)
 	issues     func(ctx context.Context, c Client, repo Repo) ([]Issue, error)
 	readIssue  func(ctx context.Context, c Client, repo Repo, number int) (IssueDetail, error)
@@ -99,10 +115,12 @@ func dialectFor(kind Kind) (dialect, error) {
 	dialects := map[Kind]dialect{
 		KindGitHub: {
 			find: githubFind, create: githubCreate, status: githubStatus, rerun: githubRerun,
+			merge: githubMergePull, methods: githubMergeMethods,
 			reviews: githubReviews, issues: githubIssues, readIssue: githubReadIssue, closeIssue: githubCloseIssue,
 		},
 		KindGitLab: {
 			find: gitlabFind, create: gitlabCreate, status: gitlabStatus, rerun: gitlabRerun,
+			merge: gitlabMergePull, methods: gitlabMergeMethods,
 			reviews: gitlabReviews, issues: gitlabIssues, readIssue: gitlabReadIssue, closeIssue: gitlabCloseIssue,
 		},
 	}
@@ -157,6 +175,29 @@ func (c Client) RerunChecks(ctx context.Context, repo Repo, pull PullRequest, he
 	}
 
 	return speaks.rerun(ctx, c, repo, pull, head)
+}
+
+// Merge merges a pull request by the given method, which must be one the
+// repository permits. Like re-running checks it needs a write scope the read
+// path does not, so it can fail with ErrRefused where reading the pull did not.
+func (c Client) Merge(ctx context.Context, repo Repo, pull PullRequest, method MergeMethod) error {
+	speaks, err := dialectFor(repo.Kind)
+	if err != nil {
+		return err
+	}
+
+	return speaks.merge(ctx, c, repo, pull, method)
+}
+
+// MergeMethods lists the merge methods the repository permits, so a merge is
+// only ever offered one it allows.
+func (c Client) MergeMethods(ctx context.Context, repo Repo) ([]MergeMethod, error) {
+	speaks, err := dialectFor(repo.Kind)
+	if err != nil {
+		return nil, err
+	}
+
+	return speaks.methods(ctx, c, repo)
 }
 
 // ReviewRequests lists the open pull or merge requests on the forge that ask

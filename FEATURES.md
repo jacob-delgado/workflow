@@ -362,6 +362,15 @@ Impact: medium · Effort: medium
   says it can merge; uses the method the repository permits.
 - Done when: a green, approved pull request can be merged after a preview,
   and FEAT-17 follows.
+- Done: `forge.Client.Merge` merges by a `MergeMethod` the repository permits,
+  and `MergeMethods` reads which those are — GitHub from its allow flags,
+  GitLab from the project's merge method and squash option. `M` on a green,
+  approved, clean pull request opens a preview of the permitted methods; enter
+  merges by the chosen one, esc cancels, a refusal names the missing write
+  scope, and a dry run reports it. Held back at the seam like every write. The
+  web review panel shows a pull request but has no write actions yet (like
+  re-run checks); a web merge is a follow-up. FEAT-17 (finishing the merged
+  branch) follows.
 
 ### FEAT-32 Run failed checks again
 

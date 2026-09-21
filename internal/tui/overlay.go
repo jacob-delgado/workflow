@@ -94,6 +94,8 @@ var (
 	_ applier = ciPoll{}
 	_ applier = pullCreated{}
 	_ applier = rerunRequested{}
+	_ applier = mergeMethodsLoaded{}
+	_ applier = mergeRequested{}
 	_ applier = issueLinked{}
 	_ applier = authorFound{}
 	_ applier = slackPosted{}
