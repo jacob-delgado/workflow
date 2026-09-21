@@ -85,6 +85,7 @@ type dialect struct {
 	find       func(ctx context.Context, c Client, repo Repo, branch string) (PullRequest, bool, error)
 	create     func(ctx context.Context, c Client, repo Repo, request NewPullRequest) (PullRequest, error)
 	status     func(ctx context.Context, c Client, repo Repo, pull PullRequest, head string) (CI, error)
+	rerun      func(ctx context.Context, c Client, repo Repo, pull PullRequest, head string) (bool, error)
 	reviews    func(ctx context.Context, c Client) ([]ReviewRequest, error)
 	issues     func(ctx context.Context, c Client, repo Repo) ([]Issue, error)
 	readIssue  func(ctx context.Context, c Client, repo Repo, number int) (IssueDetail, error)
@@ -97,12 +98,12 @@ func dialectFor(kind Kind) (dialect, error) {
 	//nolint:exhaustive // KindUnknown has no dialect on purpose; its lookup miss is the ErrUnknownForge below.
 	dialects := map[Kind]dialect{
 		KindGitHub: {
-			find: githubFind, create: githubCreate, status: githubStatus, reviews: githubReviews,
-			issues: githubIssues, readIssue: githubReadIssue, closeIssue: githubCloseIssue,
+			find: githubFind, create: githubCreate, status: githubStatus, rerun: githubRerun,
+			reviews: githubReviews, issues: githubIssues, readIssue: githubReadIssue, closeIssue: githubCloseIssue,
 		},
 		KindGitLab: {
-			find: gitlabFind, create: gitlabCreate, status: gitlabStatus, reviews: gitlabReviews,
-			issues: gitlabIssues, readIssue: gitlabReadIssue, closeIssue: gitlabCloseIssue,
+			find: gitlabFind, create: gitlabCreate, status: gitlabStatus, rerun: gitlabRerun,
+			reviews: gitlabReviews, issues: gitlabIssues, readIssue: gitlabReadIssue, closeIssue: gitlabCloseIssue,
 		},
 	}
 
@@ -143,6 +144,19 @@ func (c Client) CheckStatus(ctx context.Context, repo Repo, pull PullRequest, he
 	}
 
 	return speaks.status(ctx, c, repo, pull, head)
+}
+
+// RerunChecks re-runs the failed CI on a pull request whose head is the given
+// commit, and reports whether anything was re-run — a failure with no re-runnable
+// job restarts nothing. It needs a write scope the read path does not, so it can
+// fail with ErrRefused where reading the status did not.
+func (c Client) RerunChecks(ctx context.Context, repo Repo, pull PullRequest, head string) (bool, error) {
+	speaks, err := dialectFor(repo.Kind)
+	if err != nil {
+		return false, err
+	}
+
+	return speaks.rerun(ctx, c, repo, pull, head)
 }
 
 // ReviewRequests lists the open pull or merge requests on the forge that ask

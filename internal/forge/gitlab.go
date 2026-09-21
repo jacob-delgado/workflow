@@ -5,6 +5,7 @@ package forge
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 	"net/url"
 	"strconv"
@@ -24,6 +25,7 @@ type gitlabMerge struct {
 	Draft        bool   `json:"draft"`
 	MergeStatus  string `json:"merge_status"`
 	HeadPipeline *struct {
+		ID     int64  `json:"id"`
 		Status string `json:"status"`
 		URL    string `json:"web_url"`
 	} `json:"head_pipeline"`
@@ -283,13 +285,34 @@ func gitlabStatus(ctx context.Context, client Client, repo Repo, pull PullReques
 	return CI{State: state, Total: 0, Done: 0, Failed: 0, Checks: []Check{pipeline}}, nil
 }
 
+// gitlabRerun retries the failed and canceled jobs of the merge request's head
+// pipeline, and reports whether it retried one. With no head pipeline there is
+// nothing to retry, so nothing is.
+func gitlabRerun(ctx context.Context, client Client, repo Repo, pull PullRequest, _ string) (bool, error) {
+	merge, err := repoCall[gitlabMerge](ctx, client, repo, http.MethodGet,
+		gitlabProjectPath(repo)+"/merge_requests/"+strconv.Itoa(pull.Number), nil)
+	if err != nil {
+		return false, err
+	}
+
+	if merge.HeadPipeline == nil {
+		return false, nil
+	}
+
+	retry := fmt.Sprintf("%s/pipelines/%d/retry", gitlabProjectPath(repo), merge.HeadPipeline.ID)
+
+	err = send(ctx, client, http.MethodPost, retry, nil)
+
+	return err == nil, err
+}
+
 // pipelineState reads a GitLab pipeline status. A status this does not know is
 // running rather than passed: announcing green on a guess is the worse mistake.
 // A pipeline blocked on a manual job is not running — it never finishes on its
 // own — so it reads as no result rather than a poll that never ends.
 func pipelineState(status string) CIState {
 	states := map[string]CIState{
-		succeeded: CIPassed, "skipped": CIPassed,
+		succeeded: CIPassed, skipped: CIPassed,
 		"failed": CIFailed, "canceled": CIFailed,
 		"manual": CINone,
 	}

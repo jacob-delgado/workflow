@@ -37,8 +37,11 @@ type CI struct {
 }
 
 // succeeded is what GitHub's statuses, its check runs and GitLab's pipelines all
-// call a pass.
-const succeeded = "success"
+// call a pass; skipped is another they share, a run or stage that never ran.
+const (
+	succeeded = "success"
+	skipped   = "skipped"
+)
 
 // ciTally counts checks toward a CI, and keeps each one so the interface can
 // list which is which.
@@ -86,7 +89,7 @@ func runState(status, conclusion string) CIState {
 		return CIRunning
 	}
 
-	passing := map[string]bool{succeeded: true, "neutral": true, "skipped": true}
+	passing := map[string]bool{succeeded: true, "neutral": true, skipped: true}
 	if passing[conclusion] {
 		return CIPassed
 	}

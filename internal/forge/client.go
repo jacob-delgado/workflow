@@ -132,6 +132,44 @@ func call[T any](ctx context.Context, client Client, method, path string, payloa
 	return answer, nil
 }
 
+// send makes one request to the forge and reports only whether it was accepted,
+// without reading the answer — for a write whose reply carries nothing the
+// caller needs, and which may answer with no body at all.
+func send(ctx context.Context, client Client, method, path string, payload any) error {
+	if client.token == "" {
+		return ErrNoToken
+	}
+
+	request, err := client.newRequest(ctx, method, path, payload)
+	if err != nil {
+		return err
+	}
+
+	return client.accepted(request)
+}
+
+// accepted performs the request and returns nil once the forge accepted it,
+// mapping the status to an error otherwise. Unlike exchange it neither requires
+// nor reads a body, so an empty answer is a success rather than a syntax error.
+func (c Client) accepted(request *http.Request) error {
+	response, err := c.do(request)
+	if err != nil {
+		return httpx.Unreachable(ErrUnreachable, c.base, err)
+	}
+	defer func() { _ = response.Body.Close() }()
+
+	if response.StatusCode == http.StatusTooManyRequests {
+		return httpx.RateLimited(response.Header)
+	}
+
+	status := statusError(response.StatusCode)
+	if status != nil {
+		return explained(status, response.Body)
+	}
+
+	return nil
+}
+
 // newRequest builds an authenticated request, with payload encoded as its JSON
 // body when there is one.
 func (c Client) newRequest(ctx context.Context, method, path string, payload any) (*http.Request, error) {

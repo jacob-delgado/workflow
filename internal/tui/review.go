@@ -369,6 +369,10 @@ func (m Model) reviewKeys() []key.Binding {
 		keys = append(keys, m.keys.checks)
 	}
 
+	if m.canRerun() {
+		keys = append(keys, m.keys.rerun)
+	}
+
 	keys = append(keys, m.linkKeys(m.reviewPullURL())...)
 
 	return append(keys, m.keys.refresh)
@@ -395,9 +399,70 @@ func (m Model) handleReviewKey(msg tea.KeyPressMsg) (Model, tea.Cmd) {
 		return m.openLink(m.reviewPullURL())
 	case key.Matches(msg, m.keys.copyLink):
 		return m.copyLink(m.reviewPullURL())
+	case key.Matches(msg, m.keys.rerun):
+		return m.rerunChecks()
 	case key.Matches(msg, m.keys.refresh):
 		return m, tea.Batch(m.findPullRequest(), m.checkCI())
 	default:
 		return m, nil
 	}
+}
+
+// canRerun reports a failed pull request whose checks can be re-run.
+func (m Model) canRerun() bool {
+	return m.review.found && m.review.ci.State == forge.CIFailed && m.deps.Forge.Rerun != nil
+}
+
+// rerunChecks asks the forge to re-run the failed CI, then watches it run again.
+func (m Model) rerunChecks() (Model, tea.Cmd) {
+	if !m.canRerun() {
+		return m, nil
+	}
+
+	if m.dryRun {
+		return m.noticed("dry run: would re-run the failed checks"), nil
+	}
+
+	pull, head, rerun := m.review.pull, m.branch.branch.Head, m.deps.Forge.Rerun
+
+	return m, func() tea.Msg {
+		reran, err := rerun(pull, head)
+
+		return rerunRequested{reran: reran, err: err}
+	}
+}
+
+// rerunRequested is the outcome of asking the forge to re-run the failed checks.
+type rerunRequested struct {
+	reran bool
+	err   error
+}
+
+// apply returns the pane to "running" and restarts the poll once a re-run has
+// started, says why a re-run was refused, or says nothing could be re-run — a
+// failure the forge has no re-runnable job for, so the pane must not claim one.
+func (msg rerunRequested) apply(m Model) (Model, tea.Cmd) {
+	switch {
+	case msg.err != nil:
+		return m.noticed(rerunReason(msg.err)), nil
+	case !msg.reran:
+		return m.noticed("nothing to re-run: this failure has no job to restart"), nil
+	}
+
+	m.review.ci = forge.CI{State: forge.CIRunning}
+	m.review.ciErr = nil
+
+	// The re-run has only just started, so a check now would still read the old
+	// failure; let the poll the set-to-running schedules read it once it moves.
+	return m.keepPolling(nil)
+}
+
+// rerunReason names why a re-run could not be asked for, spelling out the one a
+// read-only token hits so the fix — a wider scope — is plain.
+func rerunReason(err error) string {
+	if errors.Is(err, forge.ErrRefused) || errors.Is(err, forge.ErrUnauthorized) {
+		return "cannot re-run: the token needs a checks write scope the read path does not"
+	}
+
+	return "re-run failed: " + forgeReason(err)
 }

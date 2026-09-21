@@ -93,6 +93,7 @@ var (
 	_ applier = checkOpened{}
 	_ applier = ciPoll{}
 	_ applier = pullCreated{}
+	_ applier = rerunRequested{}
 	_ applier = issueLinked{}
 	_ applier = authorFound{}
 	_ applier = slackPosted{}

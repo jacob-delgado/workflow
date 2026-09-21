@@ -115,6 +115,10 @@ type ForgeDeps struct {
 	FindPullRequest   func(branch string) (forge.PullRequest, bool, error)
 	CreatePullRequest func(request forge.NewPullRequest) (forge.PullRequest, error)
 	CheckStatus       func(pull forge.PullRequest, head string) (forge.CI, error)
+	// Rerun re-runs the failed CI on a pull request and reports whether anything
+	// was re-run. It needs a write scope the read path does not, so it can be
+	// refused where CheckStatus was not. Nil when there is no forge.
+	Rerun func(pull forge.PullRequest, head string) (bool, error)
 	// ReviewRequests lists the pull requests on the forge that ask for your
 	// review, across whichever repositories requested you.
 	ReviewRequests func() ([]forge.ReviewRequest, error)
