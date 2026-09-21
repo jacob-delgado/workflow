@@ -8,9 +8,9 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/charmbracelet/bubbles/key"
-	"github.com/charmbracelet/bubbles/textinput"
-	tea "github.com/charmbracelet/bubbletea"
+	"charm.land/bubbles/v2/key"
+	"charm.land/bubbles/v2/textinput"
+	tea "charm.land/bubbletea/v2"
 
 	"github.com/jacob-delgado/workflow/internal/convention"
 	"github.com/jacob-delgado/workflow/internal/gitrepo"
@@ -226,7 +226,7 @@ func (s branchState) remote() string {
 }
 
 // handleBranchKey answers the Branch pane's own keys.
-func (m Model) handleBranchKey(msg tea.KeyMsg) (Model, tea.Cmd) {
+func (m Model) handleBranchKey(msg tea.KeyPressMsg) (Model, tea.Cmd) {
 	switch {
 	case key.Matches(msg, m.keys.newBranch):
 		return m.openBranchCreator()
@@ -308,7 +308,7 @@ func (m Model) baseAge() string {
 
 // view shows the name and where the branch will start.
 func (c branchCreator) view(width, _ int) (string, string) {
-	c.input.Width = max(1, width-len(c.input.Prompt)-1)
+	c.input.SetWidth(max(1, width-len(c.input.Prompt)-1))
 
 	lines := pinnedOutcome(c.styles, c.marks, c.send, "creating", width)
 	if c.forIssue {
@@ -386,7 +386,7 @@ func (c branchCreator) worktreeToggleLabel() string {
 
 // handleKey answers a key while the branch is named. Every key typed checks the
 // name, so a name git would refuse says so before enter is pressed.
-func (c branchCreator) handleKey(m Model, msg tea.KeyMsg) (Model, tea.Cmd) {
+func (c branchCreator) handleKey(m Model, msg tea.KeyPressMsg) (Model, tea.Cmd) {
 	switch {
 	case c.send.sending:
 		return m, nil

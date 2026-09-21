@@ -6,8 +6,8 @@ package tui
 import (
 	"strings"
 
-	"github.com/charmbracelet/bubbles/key"
-	tea "github.com/charmbracelet/bubbletea"
+	"charm.land/bubbles/v2/key"
+	tea "charm.land/bubbletea/v2"
 )
 
 // lightBordered marks an overlay drawn with the light border rather than the
@@ -55,7 +55,7 @@ func (helpOverlay) footer(keys keyMap) []key.Binding {
 
 // handleKey scrolls the help on a terminal too short to show every key at once,
 // or closes it.
-func (h helpOverlay) handleKey(m Model, msg tea.KeyMsg) (Model, tea.Cmd) {
+func (h helpOverlay) handleKey(m Model, msg tea.KeyPressMsg) (Model, tea.Cmd) {
 	switch {
 	case key.Matches(msg, m.keys.quit):
 		return m, tea.Quit

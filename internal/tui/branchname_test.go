@@ -20,7 +20,7 @@ func TestTheProposedBranchNameFollowsTheConfiguredTemplate(t *testing.T) {
 	model = drain(t, model, model.Init())
 
 	// Act
-	view := typing(t, model, "2", "b").View()
+	view := typing(t, model, "2", "b").View().Content
 
 	// Assert
 	requireScreen(t, view, "bugfix/"+issueKey)
@@ -33,7 +33,7 @@ func TestTheProposedBranchNameKeepsTheDefaultWithoutConfiguration(t *testing.T) 
 	model := newWorld().live(t, 120, 40)
 
 	// Act
-	view := typing(t, model, "2", "b").View()
+	view := typing(t, model, "2", "b").View().Content
 
 	// Assert
 	requireScreen(t, view, "fix/"+issueKey)

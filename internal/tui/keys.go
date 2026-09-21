@@ -6,8 +6,8 @@ package tui
 import (
 	"strconv"
 
-	"github.com/charmbracelet/bubbles/help"
-	"github.com/charmbracelet/bubbles/key"
+	"charm.land/bubbles/v2/help"
+	"charm.land/bubbles/v2/key"
 )
 
 // keyMap satisfies help.KeyMap, which is what renders it in the footer and the
@@ -85,7 +85,7 @@ func newKeyMap(marks glyphs, reviewNoun string) keyMap {
 		worktree:       binding("worktree", "ctrl+w"),
 		rebase:         binding("rebase onto base", "u"),
 		push:           binding("push", "P"),
-		stage:          key.NewBinding(key.WithKeys(" "), key.WithHelp("space", "stage/unstage")),
+		stage:          key.NewBinding(key.WithKeys("space"), key.WithHelp("space", "stage/unstage")),
 		stageAll:       binding("stage all", "a"),
 		commit:         binding("commit", "c"),
 		runHooks:       binding("run pre-commit", "h"),

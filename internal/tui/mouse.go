@@ -4,7 +4,7 @@
 package tui
 
 import (
-	tea "github.com/charmbracelet/bubbletea"
+	tea "charm.land/bubbletea/v2"
 
 	"github.com/jacob-delgado/workflow/internal/tui/layout"
 )
@@ -16,16 +16,23 @@ const wheelLines = 3
 func (m Model) handleMouse(msg tea.MouseMsg) (Model, tea.Cmd) {
 	shape := m.shape()
 
-	switch {
-	case msg.Action == tea.MouseActionPress && msg.Button == tea.MouseButtonLeft:
-		return m.click(shape, msg.X, msg.Y)
-	case msg.Button == tea.MouseButtonWheelDown:
-		return m.wheel(shape, msg.X, msg.Y, 1)
-	case msg.Button == tea.MouseButtonWheelUp:
-		return m.wheel(shape, msg.X, msg.Y, -1)
-	default:
-		return m, nil
+	mouse := msg.Mouse()
+
+	switch msg.(type) {
+	case tea.MouseClickMsg:
+		if mouse.Button == tea.MouseLeft {
+			return m.click(shape, mouse.X, mouse.Y)
+		}
+	case tea.MouseWheelMsg:
+		switch mouse.Button {
+		case tea.MouseWheelDown:
+			return m.wheel(shape, mouse.X, mouse.Y, 1)
+		case tea.MouseWheelUp:
+			return m.wheel(shape, mouse.X, mouse.Y, -1)
+		}
 	}
+
+	return m, nil
 }
 
 // click focuses the rail pane under the pointer, picks the row clicked in a pane
@@ -78,9 +85,9 @@ func (m Model) wheel(shape layout.Layout, column, row, step int) (Model, tea.Cmd
 	}
 
 	if m.overlay != nil {
-		direction := tea.KeyMsg{Type: tea.KeyDown}
+		direction := tea.KeyPressMsg{Code: tea.KeyDown}
 		if step < 0 {
-			direction = tea.KeyMsg{Type: tea.KeyUp}
+			direction = tea.KeyPressMsg{Code: tea.KeyUp}
 		}
 
 		return m.overlay.handleKey(m, direction)

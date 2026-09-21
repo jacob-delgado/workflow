@@ -9,7 +9,7 @@ import (
 	"sync/atomic"
 	"testing"
 
-	tea "github.com/charmbracelet/bubbletea"
+	tea "charm.land/bubbletea/v2"
 
 	"github.com/jacob-delgado/workflow/internal/jira"
 	"github.com/jacob-delgado/workflow/internal/tui"
@@ -99,7 +99,7 @@ func TestIssuesPaneSaysLoadingBeforeTheSearchAnswers(t *testing.T) {
 	deps := searching(assigned(issue("OPS-1", "Fix login", "new")))
 
 	// Act
-	view := sized(t, tui.New(completeConfig(), nil, deps), 120, 40).View()
+	view := sized(t, tui.New(completeConfig(), nil, deps), 120, 40).View().Content
 
 	// Assert
 	// Other panes are loading too; the heavy border is the Issues pane's own.
@@ -147,7 +147,7 @@ func TestIssuesPaneListsTheAssignedIssues(t *testing.T) {
 	search := assigned(issue("OPS-1", "Fix login", "indeterminate"), issue("OPS-2", "Rotate keys", "new"))
 
 	// Act
-	view := issuesScreen(t, search).View()
+	view := issuesScreen(t, search).View().Content
 
 	// Assert
 	// The first row is selected, and its glyph carries the status by shape.
@@ -165,15 +165,15 @@ func TestSlashFiltersTheIssueListAsYouType(t *testing.T) {
 	filtered := typing(t, listed, "/", "R", "o", "t")
 
 	// Assert: only the match shows, and the filter is on the bottom row
-	requireScreen(t, filtered.View(), "OPS-2 Rotate keys", "filter: Rot")
-	refuseScreen(t, filtered.View(), "OPS-1")
+	requireScreen(t, filtered.View().Content, "OPS-2 Rotate keys", "filter: Rot")
+	refuseScreen(t, filtered.View().Content, "OPS-1")
 
 	// Act: esc restores the full list
 	restored := typing(t, filtered, keyEsc)
 
 	// Assert: the whole list is back and the filter row is gone
-	requireScreen(t, restored.View(), "OPS-1 Fix login", "OPS-2 Rotate keys")
-	refuseScreen(t, restored.View(), "filter:")
+	requireScreen(t, restored.View().Content, "OPS-1 Fix login", "OPS-2 Rotate keys")
+	refuseScreen(t, restored.View().Content, "filter:")
 }
 
 func TestFilteringToNothingSaysSoAndBackspaceWidensIt(t *testing.T) {
@@ -187,13 +187,13 @@ func TestFilteringToNothingSaysSoAndBackspaceWidensIt(t *testing.T) {
 	empty := typing(t, listed, "/", "F", "i", "x", "z")
 
 	// Assert: the list says nothing matches
-	requireScreen(t, empty.View(), "no issue matches the filter")
+	requireScreen(t, empty.View().Content, "no issue matches the filter")
 
 	// Act: backspace back to a match
 	widened := typing(t, empty, "backspace")
 
 	// Assert: both issues return under the shorter filter
-	requireScreen(t, widened.View(), "OPS-1 Fix issue", "OPS-2 Fix bug", "filter: Fix")
+	requireScreen(t, widened.View().Content, "OPS-1 Fix issue", "OPS-2 Fix bug", "filter: Fix")
 }
 
 func TestArrowsMoveAndEnterKeepsTheFilter(t *testing.T) {
@@ -207,7 +207,7 @@ func TestArrowsMoveAndEnterKeepsTheFilter(t *testing.T) {
 	result := typing(t, listed, "/", "F", "i", "x", "down", "enter")
 
 	// Assert
-	requireScreen(t, result.View(), "▸ ○ OPS-2 Fix bug", "filter: Fix")
+	requireScreen(t, result.View().Content, "▸ ○ OPS-2 Fix bug", "filter: Fix")
 }
 
 // manyIssues builds count numbered issue rows.
@@ -232,13 +232,13 @@ func TestLoadMoreKeyPagesWithoutScrollingToTheEnd(t *testing.T) {
 	listed := world.live(t, 120, 40)
 
 	// Assert: the truncated list offers the load-more key
-	requireScreen(t, listed.View(), "showing 3 of 5", "more")
+	requireScreen(t, listed.View().Content, "showing 3 of 5", "more")
 
 	// Act: load the next page with the key, from the top of the list
 	paged := typing(t, listed, "ctrl+n")
 
 	// Assert: the whole list is loaded now
-	refuseScreen(t, paged.View(), "showing 3 of 5")
+	refuseScreen(t, paged.View().Content, "showing 3 of 5")
 
 	if searches := len(world.asked("search")); searches < 2 {
 		t.Errorf("searched %d time(s), want a second page loaded by the key", searches)
@@ -257,13 +257,13 @@ func TestReachingTheEndOfATruncatedListLoadsTheNextPage(t *testing.T) {
 	listed := world.live(t, 120, 40)
 
 	// Assert: only the first page is loaded, and the count says so
-	requireScreen(t, listed.View(), "showing 3 of 5")
+	requireScreen(t, listed.View().Content, "showing 3 of 5")
 
 	// Act: move to the end of the loaded page
 	paged := typing(t, listed, "j", "j")
 
 	// Assert: the next page loaded, and the count now covers the whole list
-	refuseScreen(t, paged.View(), "showing 3 of 5")
+	refuseScreen(t, paged.View().Content, "showing 3 of 5")
 
 	if searches := len(world.asked("search")); searches < 2 {
 		t.Errorf("searched %d time(s), want a second page loaded at the end", searches)
@@ -274,7 +274,7 @@ func TestIssuesPaneSaysWhenAViewIsEmpty(t *testing.T) {
 	t.Parallel()
 
 	// Act
-	view := issuesScreen(t, assigned()).View()
+	view := issuesScreen(t, assigned()).View().Content
 
 	// Assert
 	// The text names no particular query: a view may be a sprint or a filter,
@@ -286,7 +286,7 @@ func TestIssuesPaneFailsWithoutTakingTheScreenDown(t *testing.T) {
 	t.Parallel()
 
 	// Act
-	view := issuesScreen(t, failing(jira.ErrUnauthorized)).View()
+	view := issuesScreen(t, failing(jira.ErrUnauthorized)).View().Content
 
 	// Assert
 	// The pane shows its failure, and the detail the reason, where there is
@@ -326,7 +326,7 @@ func TestJAndKMoveTheSelectionAndStopAtTheEnds(t *testing.T) {
 			))
 
 			// Act
-			view := press(t, screen, tt.keys...).View()
+			view := press(t, screen, tt.keys...).View().Content
 
 			// Assert
 			requireScreen(t, view, tt.want)
@@ -342,7 +342,7 @@ func TestListKeysDoNothingOffTheIssuesPane(t *testing.T) {
 
 	// Act
 	// Focus Branch, press j, come back.
-	view := press(t, screen, "2", "j", "1").View()
+	view := press(t, screen, "2", "j", "1").View().Content
 
 	// Assert
 	requireScreen(t, view, "▸ ○ OPS-1")
@@ -362,7 +362,7 @@ func TestTheListScrollsToKeepTheSelectionVisible(t *testing.T) {
 	screen := issuesScreen(t, assigned(issues...))
 
 	// Act
-	view := press(t, screen, slices.Repeat([]string{"j"}, 59)...).View()
+	view := press(t, screen, slices.Repeat([]string{"j"}, 59)...).View().Content
 
 	// Assert
 	requireScreen(t, view, "▸ ○ OPS-60")
@@ -373,7 +373,7 @@ func TestAnUnrecognizedStatusCategoryStillRenders(t *testing.T) {
 	t.Parallel()
 
 	// Act
-	view := issuesScreen(t, assigned(issue("OPS-1", "Custom", "something-new"))).View()
+	view := issuesScreen(t, assigned(issue("OPS-1", "Custom", "something-new"))).View().Content
 
 	// Assert
 	requireScreen(t, view, "· OPS-1")
@@ -386,7 +386,7 @@ func TestTheDetailShowsTheSelectedIssue(t *testing.T) {
 	screen := issuesScreen(t, assigned(issue("OPS-1", "Fix login", "new"), issue("OPS-2", "Rotate keys", "new")))
 
 	// Act
-	view := press(t, screen, "j").View()
+	view := press(t, screen, "j").View().Content
 
 	// Assert
 	// The rail lists both; only the detail box opens on an issue's key.
@@ -403,7 +403,7 @@ func TestTheDetailSaysWhenTheListIsCapped(t *testing.T) {
 	}
 
 	// Act
-	view := issuesScreen(t, capped).View()
+	view := issuesScreen(t, capped).View().Content
 
 	// Assert
 	requireScreen(t, view, "showing 1 of 73")
@@ -416,7 +416,7 @@ func TestANarrowTerminalShowsTheListFullWidth(t *testing.T) {
 	deps := searching(assigned(issue("OPS-1", "Fix login", "new"), issue("OPS-2", "Rotate keys", "new")))
 
 	// Act
-	view := started(t, sized(t, tui.New(completeConfig(), nil, deps), 79, 30)).View()
+	view := started(t, sized(t, tui.New(completeConfig(), nil, deps), 79, 30)).View().Content
 
 	// Assert
 	// With no rail, the focused pane's own content takes the whole body — here
@@ -432,8 +432,8 @@ func TestTheAnswerRendersTheSameWhicheverArrivesFirst(t *testing.T) {
 
 	// Act
 	// Bubble Tea gives no ordering guarantee between the size and the answer.
-	sizedFirst := started(t, sized(t, tui.New(completeConfig(), nil, searching(search)), 120, 40)).View()
-	answerFirst := sized(t, started(t, tui.New(completeConfig(), nil, searching(search))), 120, 40).View()
+	sizedFirst := started(t, sized(t, tui.New(completeConfig(), nil, searching(search)), 120, 40)).View().Content
+	answerFirst := sized(t, started(t, tui.New(completeConfig(), nil, searching(search))), 120, 40).View().Content
 
 	// Assert
 	requireScreen(t, sizedFirst, "▸ ○ OPS-1 Fix login")

@@ -8,7 +8,7 @@ import (
 	"strings"
 	"testing"
 
-	tea "github.com/charmbracelet/bubbletea"
+	tea "charm.land/bubbletea/v2"
 
 	"github.com/jacob-delgado/workflow/internal/tui"
 )
@@ -67,7 +67,7 @@ func TestKeysMoveFocusAlongTheRail(t *testing.T) {
 			t.Parallel()
 
 			// Act
-			view := press(t, fresh(t), tt.keys...).View()
+			view := press(t, fresh(t), tt.keys...).View().Content
 
 			// Assert
 			// Focus moves rather than being added: exactly one pane is heavy, so
@@ -93,16 +93,16 @@ func TestALeftClickOnTheRailFocusesThatPane(t *testing.T) {
 		// The Commits pane's heavy border is on its detail, where the cursor is,
 		// so focus shows as the detail title rather than the rail's.
 		"a left click on Commits": {
-			msg: tea.MouseMsg{X: 5, Y: 30, Action: tea.MouseActionPress, Button: tea.MouseButtonLeft}, want: "Commits",
+			msg: tea.MouseClickMsg{X: 5, Y: 30, Button: tea.MouseLeft}, want: "Commits",
 		},
 		"a release": {
-			msg: tea.MouseMsg{X: 5, Y: 28, Action: tea.MouseActionRelease, Button: tea.MouseButtonLeft}, want: issuesPane,
+			msg: tea.MouseReleaseMsg{X: 5, Y: 28, Button: tea.MouseLeft}, want: issuesPane,
 		},
 		"a right click": {
-			msg: tea.MouseMsg{X: 5, Y: 28, Action: tea.MouseActionPress, Button: tea.MouseButtonRight}, want: issuesPane,
+			msg: tea.MouseClickMsg{X: 5, Y: 28, Button: tea.MouseRight}, want: issuesPane,
 		},
 		"a click on the detail": {
-			msg: tea.MouseMsg{X: 80, Y: 28, Action: tea.MouseActionPress, Button: tea.MouseButtonLeft}, want: issuesPane,
+			msg: tea.MouseClickMsg{X: 80, Y: 28, Button: tea.MouseLeft}, want: issuesPane,
 		},
 	}
 
@@ -114,7 +114,7 @@ func TestALeftClickOnTheRailFocusesThatPane(t *testing.T) {
 			after, _ := fresh(t).Update(tt.msg)
 
 			// Assert
-			requireScreen(t, after.View(), focused(tt.want))
+			requireScreen(t, after.View().Content, focused(tt.want))
 		})
 	}
 }
@@ -123,7 +123,7 @@ func TestHelpShowsEveryKey(t *testing.T) {
 	t.Parallel()
 
 	// Act
-	view := press(t, fresh(t), "?").View()
+	view := press(t, fresh(t), "?").View().Content
 
 	// Assert
 	requireScreen(t, view, keyShiftTab, "toggle mouse", "jump to pane")
@@ -138,10 +138,10 @@ func TestHelpClosesOnEscapeOrASecondQuestionMark(t *testing.T) {
 
 			// Arrange
 			open := press(t, fresh(t), "?")
-			requireScreen(t, open.View(), "toggle mouse")
+			requireScreen(t, open.View().Content, "toggle mouse")
 
 			// Act
-			closed := press(t, open, key).View()
+			closed := press(t, open, key).View().Content
 
 			// Assert
 			refuseScreen(t, closed, "toggle mouse")
@@ -186,18 +186,19 @@ func TestMouseKeyTogglesCapture(t *testing.T) {
 	model := tui.New(cfg, nil, tui.Deps{})
 
 	// Act: m while the mouse is captured
-	released, off := model.Update(keyMsg("m"))
+	updated, _ := model.Update(keyMsg("m"))
+	released := concrete(t, updated)
 
-	// Assert: the mouse is released
-	if got, want := messageType(off), messageType(tea.DisableMouse); got != want {
-		t.Errorf("m returned %s, want %s releasing the mouse", got, want)
+	// Assert: the mouse is released — v2 shows it in the next View's mouse mode.
+	if got := released.View().MouseMode; got != tea.MouseModeNone {
+		t.Errorf("m left mouse mode %v, want it released", got)
 	}
 
 	// Act: m again
-	_, on := released.Update(keyMsg("m"))
+	updated, _ = released.Update(keyMsg("m"))
 
 	// Assert: it is captured again
-	if got, want := messageType(on), messageType(tea.EnableMouseCellMotion); got != want {
-		t.Errorf("a second m returned %s, want %s capturing the mouse again", got, want)
+	if got := concrete(t, updated).View().MouseMode; got != tea.MouseModeCellMotion {
+		t.Errorf("a second m left mouse mode %v, want it captured again", got)
 	}
 }

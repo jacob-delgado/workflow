@@ -7,7 +7,7 @@ import (
 	"strings"
 	"testing"
 
-	tea "github.com/charmbracelet/bubbletea"
+	tea "charm.land/bubbletea/v2"
 
 	"github.com/jacob-delgado/workflow/internal/forge"
 	"github.com/jacob-delgado/workflow/internal/gitrepo"
@@ -52,7 +52,7 @@ func TestASCIIModeDrawsInASCII(t *testing.T) {
 			t.Parallel()
 
 			// Act
-			view := typing(t, asciiInterface(t, newWorld(), 120, tt.height), tt.keys...).View()
+			view := typing(t, asciiInterface(t, newWorld(), 120, tt.height), tt.keys...).View().Content
 
 			// Assert
 			requireScreen(t, view, tt.want...)
@@ -109,7 +109,7 @@ func TestTheSpineShowsHowFarTheWorkHasGot(t *testing.T) {
 			tt.prepare(staged)
 
 			// Act
-			spine, _, _ := strings.Cut(staged.live(t, 120, 40).View(), "\n")
+			spine, _, _ := strings.Cut(staged.live(t, 120, 40).View().Content, "\n")
 
 			// Assert
 			requireScreen(t, spine, tt.want)
@@ -124,7 +124,7 @@ func TestTheSpineMarksSlackOnceAnnounced(t *testing.T) {
 	posted := typing(t, newWorld().live(t, 120, 40), "5", "p", keyEnter)
 
 	// Assert
-	spine, _, _ := strings.Cut(posted.View(), "\n")
+	spine, _, _ := strings.Cut(posted.View().Content, "\n")
 	requireScreen(t, spine, "● Slack")
 }
 
@@ -132,10 +132,10 @@ func TestAShortTerminalCompactsTheSpine(t *testing.T) {
 	t.Parallel()
 
 	// Act
-	spine, _, _ := strings.Cut(newWorld().live(t, 120, 20).View(), "\n")
+	spine, _, _ := strings.Cut(newWorld().live(t, 120, 20).View().Content, "\n")
 
 	// Assert
-	if !strings.HasPrefix(spine, " I● B● C● R● S○") {
+	if !strings.HasPrefix(plain(spine), " I● B● C● R● S○") {
 		t.Errorf("spine = %q, want each stage labeled with its initial", spine)
 	}
 }
@@ -144,7 +144,7 @@ func TestACompactCollapsedScreenNamesItsStagesAndPane(t *testing.T) {
 	t.Parallel()
 
 	// Act
-	view := typing(t, newWorld().live(t, 79, 20), "3").View()
+	view := typing(t, newWorld().live(t, 79, 20), "3").View().Content
 
 	// Assert
 	spine, _, _ := strings.Cut(view, "\n")
@@ -173,10 +173,10 @@ func TestADryRunSaysSoOnEveryScreen(t *testing.T) {
 			model = drain(t, model, model.Init())
 
 			// Act
-			spine, _, _ := strings.Cut(typing(t, model, keys...).View(), "\n")
+			spine, _, _ := strings.Cut(typing(t, model, keys...).View().Content, "\n")
 
 			// Assert
-			if !strings.HasPrefix(spine, " DRY RUN · ") {
+			if !strings.HasPrefix(plain(spine), " DRY RUN · ") {
 				t.Errorf("spine = %q, want it to say this is a dry run", spine)
 			}
 		})
@@ -187,7 +187,7 @@ func TestAVeryNarrowTerminalDropsTheBorder(t *testing.T) {
 	t.Parallel()
 
 	// Act
-	view := newWorld().live(t, 50, 20).View()
+	view := newWorld().live(t, 50, 20).View().Content
 
 	// Assert
 	lines := strings.Split(view, "\n")
@@ -214,22 +214,22 @@ func TestLongDetailScrolls(t *testing.T) {
 	screen := wordy.live(t, 120, 30)
 
 	// Assert: its end is out of sight
-	requireScreen(t, screen.View(), detailTop)
-	refuseScreen(t, screen.View(), "THE END")
+	requireScreen(t, screen.View().Content, detailTop)
+	refuseScreen(t, screen.View().Content, "THE END")
 
 	// Act: scroll down
 	scrolled := typing(t, screen, "pgdown", "pgdown", "pgdown", "pgdown", "pgdown", "J")
 
 	// Assert: the end is in sight, and the top is not
-	requireScreen(t, scrolled.View(), "THE END")
-	refuseScreen(t, scrolled.View(), detailTop)
+	requireScreen(t, scrolled.View().Content, "THE END")
+	refuseScreen(t, scrolled.View().Content, detailTop)
 
 	// Act: scroll back up
 	back := typing(t, scrolled, "pgup", "pgup", "pgup", "pgup", "pgup", "pgup", "K", "K")
 
 	// Assert: the top is in sight again
-	requireScreen(t, back.View(), detailTop)
-	refuseScreen(t, back.View(), "THE END")
+	requireScreen(t, back.View().Content, detailTop)
+	refuseScreen(t, back.View().Content, "THE END")
 }
 
 func TestMovingToAnotherPaneStartsTheDetailAtTheTop(t *testing.T) {
@@ -241,7 +241,7 @@ func TestMovingToAnotherPaneStartsTheDetailAtTheTop(t *testing.T) {
 	scrolled := typing(t, wordy.live(t, 120, 30), "pgdown", "pgdown", "pgdown", "pgdown", "pgdown", "J")
 
 	// Act
-	view := typing(t, scrolled, keyTab, keyShiftTab).View()
+	view := typing(t, scrolled, keyTab, keyShiftTab).View().Content
 
 	// Assert
 	requireScreen(t, view, detailTop)
@@ -259,15 +259,15 @@ func TestTheHelpListsEveryGroupAndScrolls(t *testing.T) {
 
 	// Assert: it starts at the first group, says there is more, and the bottom
 	// of the taller column is out of sight
-	requireScreen(t, short.View(), "┌─ Keys", "Moving around", "… more below")
-	refuseScreen(t, short.View(), "Review and Slack")
-	requireScreen(t, footerLine(short.View()), "esc close", "q quit")
+	requireScreen(t, short.View().Content, "┌─ Keys", "Moving around", "… more below")
+	refuseScreen(t, short.View().Content, "Review and Slack")
+	requireScreen(t, footerLine(short.View().Content), "esc close", "q quit")
 
 	// Act: page down
 	paged := typing(t, short, "pgdown", "pgdown", "pgdown")
 
 	// Assert: the group that was out of sight is in sight
-	requireScreen(t, paged.View(), "Review and Slack")
+	requireScreen(t, paged.View().Content, "Review and Slack")
 }
 
 func TestQQuitsFromTheHelp(t *testing.T) {
@@ -295,7 +295,7 @@ func TestATransitionWithNoIssueURLAnnouncesWithoutALink(t *testing.T) {
 	model = drain(t, model, model.Init())
 
 	// Act
-	view := typing(t, model, "5").View()
+	view := typing(t, model, "5").View().Content
 
 	// Assert
 	requireScreen(t, view, "PROJ-412 "+issueSummary)
@@ -344,8 +344,8 @@ func TestPaneKeysNeedWhatTheyActOn(t *testing.T) {
 				t.Errorf("%s produced a command with nothing to act on", name)
 			}
 
-			if after.View() != pane.View() {
-				t.Errorf("%s changed the screen with nothing to act on:\n%s", name, after.View())
+			if after.View().Content != pane.View().Content {
+				t.Errorf("%s changed the screen with nothing to act on:\n%s", name, after.View().Content)
 			}
 		})
 	}
@@ -355,7 +355,7 @@ func TestANarrowFooterDropsWholeKeysAndKeepsTheWayToTheRest(t *testing.T) {
 	t.Parallel()
 
 	// Act
-	footer := strings.TrimRight(footerLine(newWorld().live(t, 80, 30).View()), " ")
+	footer := strings.TrimRight(footerLine(newWorld().live(t, 80, 30).View().Content), " ")
 
 	// Assert
 	requireScreen(t, footer, "t change status", "? keys", "…")
@@ -369,7 +369,7 @@ func TestANarrowASCIIFooterUsesItsOwnEllipsis(t *testing.T) {
 	t.Parallel()
 
 	// Act
-	footer := strings.TrimRight(footerLine(asciiInterface(t, newWorld(), 70, 30).View()), " ")
+	footer := strings.TrimRight(footerLine(asciiInterface(t, newWorld(), 70, 30).View().Content), " ")
 
 	// Assert
 	if !strings.HasSuffix(footer, "...") {
@@ -386,7 +386,7 @@ func TestAWordWiderThanThePaneIsCutRatherThanLost(t *testing.T) {
 	linked.detail.Description = "see " + address + " for more"
 
 	// Act
-	view := linked.live(t, 120, 40).View()
+	view := linked.live(t, 120, 40).View().Content
 
 	// Assert
 	// Nothing of the address is dropped: every piece of it is on screen.
@@ -428,7 +428,7 @@ func TestASCIIStaysASCIIInEveryOverlay(t *testing.T) {
 			}
 
 			// Act
-			view := typing(t, asciiInterface(t, faked, 120, 50), tt.keys...).View()
+			view := typing(t, asciiInterface(t, faked, 120, 50), tt.keys...).View().Content
 
 			// Assert
 			for _, character := range view {

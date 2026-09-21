@@ -18,7 +18,10 @@ func TestTheFooterUsesTheThemeNotFixedGrays(t *testing.T) {
 	model := newWorld().live(t, 120, 40)
 
 	// Act
-	footer := footerLine(model.View())
+	// This asserts on the color escapes, so it needs the raw last line rather than
+	// the stripped footerLine the plain-text tests use.
+	lines := strings.Split(model.View().Content, "\n")
+	footer := lines[len(lines)-1]
 
 	// Assert
 	if !strings.Contains(footer, "\x1b[1m") {
@@ -59,7 +62,7 @@ func TestEmptyStateSentencesAreNotDrawnFaint(t *testing.T) {
 			tt.prepare(staged)
 
 			// Act
-			view := staged.live(t, 120, 40).View()
+			view := staged.live(t, 120, 40).View().Content
 
 			// Assert
 			requireScreen(t, view, tt.sentence)
@@ -81,7 +84,7 @@ func TestNoColorKeepsTheCursorButDropsTheHue(t *testing.T) {
 	field := typing(t, model, "2", "b")
 
 	// Act
-	view := field.View()
+	view := field.View().Content
 
 	// Assert
 	for _, hue := range []string{"\x1b[31m", "\x1b[32m", "\x1b[33m", "\x1b[34m", "\x1b[35m"} {
@@ -90,7 +93,9 @@ func TestNoColorKeepsTheCursorButDropsTheHue(t *testing.T) {
 		}
 	}
 
-	if !strings.Contains(view, "\x1b[7m") {
+	// The cursor is reverse video, which v2 may combine with other attributes
+	// (\x1b[7;37m), so match the reverse SGR by its start rather than alone.
+	if !strings.Contains(view, "\x1b[7") {
 		t.Errorf("the text cursor is gone with color off:\n%q", view)
 	}
 }
@@ -104,7 +109,7 @@ func TestTheFocusedPaneWearsABoldTitle(t *testing.T) {
 	model := newWorld().live(t, 120, 40)
 
 	// Act
-	view := model.View()
+	view := model.View().Content
 
 	// Assert
 	if !strings.Contains(view, "\x1b[1m1 Issues") {

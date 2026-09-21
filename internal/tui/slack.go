@@ -8,8 +8,8 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/charmbracelet/bubbles/key"
-	tea "github.com/charmbracelet/bubbletea"
+	"charm.land/bubbles/v2/key"
+	tea "charm.land/bubbletea/v2"
 
 	"github.com/jacob-delgado/workflow/internal/config"
 	"github.com/jacob-delgado/workflow/internal/forge"
@@ -70,7 +70,7 @@ func (quitGuard) footer(keys keyMap) []key.Binding {
 }
 
 // handleKey answers a key while the guard is shown.
-func (quitGuard) handleKey(m Model, msg tea.KeyMsg) (Model, tea.Cmd) {
+func (quitGuard) handleKey(m Model, msg tea.KeyPressMsg) (Model, tea.Cmd) {
 	switch {
 	case key.Matches(msg, m.keys.confirm):
 		return m, tea.Quit
@@ -190,7 +190,7 @@ func (m Model) slackKeys() []key.Binding {
 }
 
 // handleSlackKey answers the Slack pane's own keys.
-func (m Model) handleSlackKey(msg tea.KeyMsg) (Model, tea.Cmd) {
+func (m Model) handleSlackKey(msg tea.KeyPressMsg) (Model, tea.Cmd) {
 	if !key.Matches(msg, m.keys.compose) || !m.canPost() {
 		return m, nil
 	}
@@ -267,7 +267,7 @@ func (p slackPreview) footer(keys keyMap) []key.Binding {
 }
 
 // handleKey answers a key while the message is previewed.
-func (p slackPreview) handleKey(m Model, msg tea.KeyMsg) (Model, tea.Cmd) {
+func (p slackPreview) handleKey(m Model, msg tea.KeyPressMsg) (Model, tea.Cmd) {
 	switch {
 	case p.send.sending:
 		return m, nil

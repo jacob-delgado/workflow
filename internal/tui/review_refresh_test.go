@@ -36,7 +36,7 @@ func TestTheDryRunNoticeMentionsThePushForAnUnpushedBranch(t *testing.T) {
 	model = drain(t, model, model.Init())
 
 	// Act
-	view := typing(t, model, "4", "n", keyEnter).View()
+	view := typing(t, model, "4", "n", keyEnter).View().Content
 
 	// Assert
 	requireScreen(t, view, "dry run: would push "+featureName+", then open")

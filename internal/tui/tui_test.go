@@ -9,8 +9,8 @@ import (
 	"strings"
 	"testing"
 
-	tea "github.com/charmbracelet/bubbletea"
-	"github.com/charmbracelet/lipgloss"
+	tea "charm.land/bubbletea/v2"
+	"charm.land/lipgloss/v2"
 
 	"github.com/jacob-delgado/workflow/internal/config"
 	"github.com/jacob-delgado/workflow/internal/tui"
@@ -35,7 +35,7 @@ func TestViewShowsTheLoadedConfiguration(t *testing.T) {
 	t.Parallel()
 
 	// Act
-	view := tui.New(completeConfig(), nil, tui.Deps{}).View()
+	view := tui.New(completeConfig(), nil, tui.Deps{}).View().Content
 
 	// Assert
 	requireScreen(t, view, "workflow", "jira.example.com", devChannel, "bearer token", "quit")
@@ -67,7 +67,7 @@ func TestViewNeverShowsACredential(t *testing.T) {
 			t.Parallel()
 
 			// Act
-			view := tui.New(tt.cfg, nil, tui.Deps{}).View()
+			view := tui.New(tt.cfg, nil, tui.Deps{}).View().Content
 
 			// Assert
 			// The host stays: masking a credential must not lose where it goes.
@@ -104,7 +104,7 @@ func TestViewSaysWhatTheConfigurationStillNeeds(t *testing.T) {
 			t.Parallel()
 
 			// Act
-			view := tui.New(tt.cfg, tt.loadErr, tui.Deps{}).View()
+			view := tui.New(tt.cfg, tt.loadErr, tui.Deps{}).View().Content
 
 			// Assert
 			requireScreen(t, view, tt.want)
@@ -174,21 +174,27 @@ func TestInitDoesNothingWithNothingToLoad(t *testing.T) {
 }
 
 // keyMsg builds the key message bubbletea delivers for a key name.
-func keyMsg(key string) tea.KeyMsg {
-	named := map[string]tea.KeyType{
-		keyEsc: tea.KeyEsc, "ctrl+c": tea.KeyCtrlC, "tab": tea.KeyTab, "shift+tab": tea.KeyShiftTab,
+func keyMsg(key string) tea.KeyPressMsg {
+	named := map[string]rune{
+		keyEsc: tea.KeyEscape, "tab": tea.KeyTab, "enter": tea.KeyEnter,
+		keySpace: tea.KeySpace, "backspace": tea.KeyBackspace,
 		"down": tea.KeyDown, "up": tea.KeyUp, "left": tea.KeyLeft, keyRight: tea.KeyRight,
-		"enter": tea.KeyEnter, keySpace: tea.KeySpace, "backspace": tea.KeyBackspace,
 		"pgdown": tea.KeyPgDown, "pgup": tea.KeyPgUp,
-		"ctrl+e": tea.KeyCtrlE, "ctrl+t": tea.KeyCtrlT, "ctrl+d": tea.KeyCtrlD,
-		"ctrl+o": tea.KeyCtrlO, "ctrl+r": tea.KeyCtrlR, "ctrl+w": tea.KeyCtrlW,
 	}
 
-	if kind, ok := named[key]; ok {
-		return tea.KeyMsg{Type: kind}
+	if code, ok := named[key]; ok {
+		return tea.KeyPressMsg{Code: code}
 	}
 
-	return tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune(key)}
+	if key == keyShiftTab {
+		return tea.KeyPressMsg{Code: tea.KeyTab, Mod: tea.ModShift}
+	}
+
+	if rest, found := strings.CutPrefix(key, "ctrl+"); found {
+		return tea.KeyPressMsg{Code: rune(rest[0]), Mod: tea.ModCtrl}
+	}
+
+	return tea.KeyPressMsg{Code: rune(key[0]), Text: key}
 }
 
 // concrete recovers the model Update returned. Update's signature is fixed by
@@ -236,7 +242,7 @@ func TestViewAcceptsAWebhookWithoutAChannel(t *testing.T) {
 	cfg.Slack.WebhookURL = "https://hooks.slack.com/services/T0/B0/secretpayload"
 
 	// Act
-	view := tui.New(cfg, nil, tui.Deps{}).View()
+	view := tui.New(cfg, nil, tui.Deps{}).View().Content
 
 	// Assert
 	// A webhook carries its own channel, so this configuration is complete and
@@ -249,7 +255,7 @@ func TestANarrowTerminalCollapsesTheRail(t *testing.T) {
 	t.Parallel()
 
 	// Act
-	view := sized(t, tui.New(completeConfig(), nil, tui.Deps{}), 79, 30).View()
+	view := sized(t, tui.New(completeConfig(), nil, tui.Deps{}), 79, 30).View().Content
 
 	// Assert
 	// The rail that showed 1-5 is gone, so the collapsed detail title carries
@@ -265,7 +271,7 @@ func TestViewFitsTheTerminal(t *testing.T) {
 			t.Parallel()
 
 			// Act
-			rows := strings.Split(sized(t, tui.New(completeConfig(), nil, tui.Deps{}), size[0], size[1]).View(), "\n")
+			rows := strings.Split(sized(t, tui.New(completeConfig(), nil, tui.Deps{}), size[0], size[1]).View().Content, "\n")
 
 			// Assert
 			if len(rows) > size[1] {
@@ -289,7 +295,7 @@ func TestAMessageNothingHandlesChangesNothing(t *testing.T) {
 
 	// Arrange
 	model := sized(t, tui.New(completeConfig(), nil, tui.Deps{}), 120, 40)
-	before := model.View()
+	before := model.View().Content
 
 	// Act
 	after, cmd := model.Update(unrelated{})
@@ -299,7 +305,7 @@ func TestAMessageNothingHandlesChangesNothing(t *testing.T) {
 		t.Error("an unrelated message produced a command")
 	}
 
-	if concrete(t, after).View() != before {
+	if concrete(t, after).View().Content != before {
 		t.Error("an unrelated message changed the screen")
 	}
 }

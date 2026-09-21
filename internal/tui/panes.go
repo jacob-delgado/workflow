@@ -6,8 +6,8 @@ package tui
 import (
 	"strconv"
 
-	"github.com/charmbracelet/bubbles/key"
-	tea "github.com/charmbracelet/bubbletea"
+	"charm.land/bubbles/v2/key"
+	tea "charm.land/bubbletea/v2"
 )
 
 // pane is one panel in the rail.
@@ -63,7 +63,7 @@ type behavior struct {
 	// keys is what the pane offers in the footer, right now.
 	keys func(m Model) []key.Binding
 	// handle answers a key the rest of the interface did not claim.
-	handle func(m Model, msg tea.KeyMsg) (Model, tea.Cmd)
+	handle func(m Model, msg tea.KeyPressMsg) (Model, tea.Cmd)
 	// pick selects the row of the pane's list drawn on a line; nil for a pane
 	// with no list to pick from. inRail says which drawing was clicked.
 	pick func(m Model, line, rows int, inRail bool) (Model, tea.Cmd)

@@ -25,7 +25,7 @@ func TestBranchingFetchesTheBaseFirst(t *testing.T) {
 	created := typing(t, model, "b", keyEnter)
 
 	// Assert
-	requireScreen(t, created.View(), "created and switched")
+	requireScreen(t, created.View().Content, "created and switched")
 
 	if fetches := branching.asked("fetch"); len(fetches) != 1 {
 		t.Errorf("fetched %d time(s), want once before branching", len(fetches))
@@ -45,7 +45,7 @@ func TestAFailedFetchOffersToBranchFromWhatIsThere(t *testing.T) {
 	failed := typing(t, model, "b", keyEnter)
 
 	// Assert: nothing is created, and the offer to branch anyway is shown
-	requireScreen(t, failed.View(), "could not fetch; enter branches from what you already have")
+	requireScreen(t, failed.View().Content, "could not fetch; enter branches from what you already have")
 
 	if calls := branching.asked("create"); len(calls) != 0 {
 		t.Errorf("created a branch though the fetch failed: %q", calls)
@@ -55,7 +55,7 @@ func TestAFailedFetchOffersToBranchFromWhatIsThere(t *testing.T) {
 	created := typing(t, failed, keyEnter)
 
 	// Assert: the branch is created, without fetching again
-	requireScreen(t, created.View(), "created and switched")
+	requireScreen(t, created.View().Content, "created and switched")
 
 	if fetches := branching.asked("fetch"); len(fetches) != 1 {
 		t.Errorf("fetched %d time(s), want just the one that failed", len(fetches))

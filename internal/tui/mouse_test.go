@@ -7,7 +7,7 @@ import (
 	"strings"
 	"testing"
 
-	tea "github.com/charmbracelet/bubbletea"
+	tea "charm.land/bubbletea/v2"
 
 	"github.com/jacob-delgado/workflow/internal/tui"
 )
@@ -16,7 +16,7 @@ import (
 func wheel(t *testing.T, model tui.Model, column, row int, button tea.MouseButton) tui.Model {
 	t.Helper()
 
-	updated, cmd := model.Update(tea.MouseMsg{X: column, Y: row, Action: tea.MouseActionPress, Button: button})
+	updated, cmd := model.Update(tea.MouseWheelMsg{X: column, Y: row, Button: button})
 
 	return drain(t, concrete(t, updated), cmd)
 }
@@ -41,25 +41,25 @@ func TestTheWheelScrollsTheDetail(t *testing.T) {
 	screen := wordy.live(t, 120, 30)
 
 	// Act: wheel down over the detail
-	down := notches(t, screen, 25, tea.MouseButtonWheelDown)
+	down := notches(t, screen, 25, tea.MouseWheelDown)
 
 	// Assert: the end is in sight
-	requireScreen(t, down.View(), "THE END")
-	refuseScreen(t, down.View(), detailTop)
+	requireScreen(t, down.View().Content, "THE END")
+	refuseScreen(t, down.View().Content, detailTop)
 
 	// Act: wheel back up
-	raised := notches(t, down, 30, tea.MouseButtonWheelUp)
+	raised := notches(t, down, 30, tea.MouseWheelUp)
 
 	// Assert: the top is in sight
-	requireScreen(t, raised.View(), detailTop)
-	refuseScreen(t, raised.View(), "THE END")
+	requireScreen(t, raised.View().Content, detailTop)
+	refuseScreen(t, raised.View().Content, "THE END")
 
 	// Act: wheel over the rail
-	overRail := wheel(t, raised, 5, 5, tea.MouseButtonWheelDown)
+	overRail := wheel(t, raised, 5, 5, tea.MouseWheelDown)
 
 	// Assert: nothing moves
-	if overRail.View() != raised.View() {
-		t.Errorf("the wheel over the rail changed the screen:\n%s", overRail.View())
+	if overRail.View().Content != raised.View().Content {
+		t.Errorf("the wheel over the rail changed the screen:\n%s", overRail.View().Content)
 	}
 }
 
@@ -72,16 +72,16 @@ func TestTheWheelMovesAnOverlaysList(t *testing.T) {
 	picker := typing(t, choosing.live(t, 120, 40), "t")
 
 	// Act: wheel down
-	down := wheel(t, picker, 80, 10, tea.MouseButtonWheelDown)
+	down := wheel(t, picker, 80, 10, tea.MouseWheelDown)
 
 	// Assert: the selection moves down
-	requireScreen(t, down.View(), "▸ ● Done")
+	requireScreen(t, down.View().Content, "▸ ● Done")
 
 	// Act: wheel up
-	up := wheel(t, down, 80, 10, tea.MouseButtonWheelUp)
+	up := wheel(t, down, 80, 10, tea.MouseWheelUp)
 
 	// Assert: and back up
-	requireScreen(t, up.View(), "▸ ◐ Start Review")
+	requireScreen(t, up.View().Content, "▸ ◐ Start Review")
 }
 
 func TestClickingPicksAnIssue(t *testing.T) {
@@ -104,7 +104,7 @@ func TestClickingPicksAnIssue(t *testing.T) {
 			screen := newWorld().live(t, tt.width, tt.height)
 
 			// Act
-			view := click(t, screen, tt.column, 3).View()
+			view := click(t, screen, tt.column, 3).View().Content
 
 			// Assert
 			requireScreen(t, view, "▸ ○ PROJ-388")
@@ -125,20 +125,20 @@ func TestClickingPicksATransition(t *testing.T) {
 	second := click(t, picker, 60, 6)
 
 	// Assert: it is selected
-	requireScreen(t, second.View(), "▸ ● Done")
+	requireScreen(t, second.View().Content, "▸ ● Done")
 
 	// Act: click the first
 	first := click(t, second, 60, 5)
 
 	// Assert: it is selected
-	requireScreen(t, first.View(), "▸ ◐ Start Review")
+	requireScreen(t, first.View().Content, "▸ ◐ Start Review")
 
 	// Act: click the issue above the transitions
 	header := click(t, first, 60, 2)
 
 	// Assert: nothing changes
-	if header.View() != first.View() {
-		t.Errorf("a click on the picker's header changed the screen:\n%s", header.View())
+	if header.View().Content != first.View().Content {
+		t.Errorf("a click on the picker's header changed the screen:\n%s", header.View().Content)
 	}
 }
 
@@ -154,8 +154,8 @@ func TestAClickOutsideAnOpenOverlayDoesNothing(t *testing.T) {
 	clicked := click(t, picker, 5, 30)
 
 	// Assert
-	if clicked.View() != picker.View() {
-		t.Errorf("a click outside the picker changed the screen:\n%s", clicked.View())
+	if clicked.View().Content != picker.View().Content {
+		t.Errorf("a click outside the picker changed the screen:\n%s", clicked.View().Content)
 	}
 }
 
@@ -173,14 +173,14 @@ func TestClickingARunsFailuresPicksOne(t *testing.T) {
 	picked := click(t, failed, 60, 5)
 
 	// Assert: it is selected
-	requireScreen(t, picked.View(), "▸ b.go:2 second")
+	requireScreen(t, picked.View().Content, "▸ b.go:2 second")
 
 	// Act: click above the list
 	above := click(t, picked, 60, 1)
 
 	// Assert: nothing changes
-	if above.View() != picked.View() {
-		t.Errorf("a click above the failures changed the screen:\n%s", above.View())
+	if above.View().Content != picked.View().Content {
+		t.Errorf("a click above the failures changed the screen:\n%s", above.View().Content)
 	}
 }
 
@@ -190,11 +190,11 @@ func TestTheMouseSettingDecidesWhetherItIsCaptured(t *testing.T) {
 	// m flips capture from wherever the setting started it, and says what it did.
 	cases := map[string]struct {
 		mouse  bool
-		want   string
+		want   tea.MouseMode
 		notice string
 	}{
-		"captured":     {mouse: true, want: messageType(tea.DisableMouse), notice: "mouse off"},
-		"not captured": {mouse: false, want: messageType(tea.EnableMouseCellMotion), notice: "mouse on"},
+		"captured":     {mouse: true, want: tea.MouseModeNone, notice: "mouse off"},
+		"not captured": {mouse: false, want: tea.MouseModeCellMotion, notice: "mouse on"},
 	}
 
 	for name, tt := range cases {
@@ -207,14 +207,17 @@ func TestTheMouseSettingDecidesWhetherItIsCaptured(t *testing.T) {
 			model := sized(t, tui.New(cfg, nil, tui.Deps{}), 120, 40)
 
 			// Act
-			after, cmd := model.Update(keyMsg("m"))
+			updated, _ := model.Update(keyMsg("m"))
+			after := concrete(t, updated)
 
 			// Assert
-			if got := messageType(cmd); got != tt.want {
-				t.Errorf("m returned %s, want %s", got, tt.want)
+			// v2 sets the mouse mode declaratively in View, so the toggle shows in
+			// the next View's MouseMode rather than in a returned command.
+			if got := after.View().MouseMode; got != tt.want {
+				t.Errorf("m left mouse mode %v, want %v", got, tt.want)
 			}
 
-			requireScreen(t, concrete(t, after).View(), tt.notice)
+			requireScreen(t, after.View().Content, tt.notice)
 		})
 	}
 }

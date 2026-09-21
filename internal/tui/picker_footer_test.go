@@ -9,7 +9,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/charmbracelet/lipgloss"
+	"charm.land/lipgloss/v2"
 
 	"github.com/jacob-delgado/workflow/internal/tui"
 )
@@ -22,7 +22,7 @@ func TestThePickerFooterSaysHowToApplyOrLeave(t *testing.T) {
 	screen := jiraScreen(t, fake.deps(twoIssues()))
 
 	// Act
-	footer := footerLine(openPicker(t, screen).View())
+	footer := footerLine(openPicker(t, screen).View().Content)
 
 	// Assert
 	requireScreen(t, footer, "enter apply", keyEsc)
@@ -36,7 +36,7 @@ func TestThePickerFitsANarrowTerminal(t *testing.T) {
 	model := started(t, sized(t, tui.New(completeConfig(), nil, fake.deps(twoIssues())), 79, 30))
 
 	// Act
-	view := openPicker(t, model).View()
+	view := openPicker(t, model).View().Content
 
 	// Assert
 	requireScreen(t, view, pickerTitle, "▸ ◐ Start Review → In Review")

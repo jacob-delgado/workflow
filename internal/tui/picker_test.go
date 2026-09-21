@@ -11,7 +11,7 @@ import (
 	"sync/atomic"
 	"testing"
 
-	tea "github.com/charmbracelet/bubbletea"
+	tea "charm.land/bubbletea/v2"
 
 	"github.com/jacob-delgado/workflow/internal/jira"
 	"github.com/jacob-delgado/workflow/internal/tui"
@@ -127,7 +127,7 @@ func TestTOpensTheStatusPickerForTheSelectedIssue(t *testing.T) {
 	loading, cmd := pressed(t, screen, "t")
 
 	// Assert: the picker opens, loading
-	requireScreen(t, loading.View(), pickerTitle, "loading statuses…")
+	requireScreen(t, loading.View().Content, pickerTitle, "loading statuses…")
 
 	// Act: the listing arrives
 	listed, _ := finish(t, loading, cmd)
@@ -137,7 +137,7 @@ func TestTOpensTheStatusPickerForTheSelectedIssue(t *testing.T) {
 		t.Errorf("listed transitions for %v, want the selected OPS-2", got)
 	}
 
-	view := listed.View()
+	view := listed.View().Content
 	requireScreen(t, view, "OPS-2 Rotate keys", "▸ ◐ Start Review → In Review", "  ● Done")
 
 	// A status that matches its transition's name is not repeated, and with the
@@ -156,16 +156,16 @@ func TestThePickerTakesTheListKeysAndEscapeClosesIt(t *testing.T) {
 	down := press(t, screen, "j")
 
 	// Assert: the picker's selection moves down
-	requireScreen(t, down.View(), "▸ ● Done")
+	requireScreen(t, down.View().Content, "▸ ● Done")
 
 	// Act: k
 	back := press(t, down, "k")
 
 	// Assert: and back up
-	requireScreen(t, back.View(), "▸ ◐ Start Review")
+	requireScreen(t, back.View().Content, "▸ ◐ Start Review")
 
 	// Act: esc
-	closed := press(t, back, keyEsc).View()
+	closed := press(t, back, keyEsc).View().Content
 
 	// Assert: the picker closes, and the j went to it, not to the list underneath
 	refuseScreen(t, closed, pickerTitle)
@@ -184,7 +184,7 @@ func TestThePickerKeepsTheKeyboardWhileOpen(t *testing.T) {
 			screen := openPicker(t, jiraScreen(t, fake.deps(twoIssues())))
 
 			// Act
-			view := press(t, screen, key).View()
+			view := press(t, screen, key).View().Content
 
 			// Assert
 			requireScreen(t, view, pickerTitle)
@@ -202,8 +202,8 @@ func TestAClickDoesNotMoveFocusFromUnderAnOpenPicker(t *testing.T) {
 	// Act
 	// Row 28 is inside the Commits pane. Focus is only drawn once the picker
 	// closes, so close it to look.
-	clicked, _ := screen.Update(tea.MouseMsg{X: 2, Y: 28, Action: tea.MouseActionPress, Button: tea.MouseButtonLeft})
-	view := press(t, concrete(t, clicked), keyEsc).View()
+	clicked, _ := screen.Update(tea.MouseClickMsg{X: 2, Y: 28, Button: tea.MouseLeft})
+	view := press(t, concrete(t, clicked), keyEsc).View().Content
 
 	// Assert
 	requireScreen(t, view, focused("1 Issues"))
@@ -254,7 +254,7 @@ func TestAPickerWithNothingToApplyIgnoresEnter(t *testing.T) {
 			screen := openPicker(t, model)
 
 			// Assert: it says why there is nothing to choose
-			requireScreen(t, screen.View(), tt.want)
+			requireScreen(t, screen.View().Content, tt.want)
 
 			// Act: try to apply
 			tried, cmd := pressed(t, press(t, screen, "j"), keyEnter)
@@ -265,7 +265,7 @@ func TestAPickerWithNothingToApplyIgnoresEnter(t *testing.T) {
 			}
 
 			// Act: esc
-			closed := press(t, tried, keyEsc).View()
+			closed := press(t, tried, keyEsc).View().Content
 
 			// Assert: the picker closes
 			refuseScreen(t, closed, pickerTitle)
@@ -293,8 +293,8 @@ func TestTDoesNothingWithoutAnIssueToMove(t *testing.T) {
 			next, cmd := pressed(t, screen, "t")
 
 			// Assert
-			if cmd != nil || strings.Contains(next.View(), pickerTitle) {
-				t.Errorf("t opened a picker with no issue to move:\n%s", next.View())
+			if cmd != nil || strings.Contains(next.View().Content, pickerTitle) {
+				t.Errorf("t opened a picker with no issue to move:\n%s", next.View().Content)
 			}
 		})
 	}
@@ -316,14 +316,14 @@ func TestALateListingIsNotShownForTheWrongIssue(t *testing.T) {
 	late, _ := finish(t, screen, forFirst)
 
 	// Assert: OPS-2's picker is still waiting for its own
-	requireScreen(t, late.View(), "loading statuses…")
-	refuseScreen(t, late.View(), "▸ ◐ Start Review")
+	requireScreen(t, late.View().Content, "loading statuses…")
+	refuseScreen(t, late.View().Content, "▸ ◐ Start Review")
 
 	// Act: OPS-2's listing arrives
 	listed, _ := finish(t, late, forSecond)
 
 	// Assert: it is shown
-	requireScreen(t, listed.View(), "▸ ◐ Start Review")
+	requireScreen(t, listed.View().Content, "▸ ◐ Start Review")
 }
 
 func TestASecondListingDoesNotReplaceTheOneOnScreen(t *testing.T) {
@@ -354,7 +354,7 @@ func TestASecondListingDoesNotReplaceTheOneOnScreen(t *testing.T) {
 	screen, _ = finish(t, screen, second)
 
 	// Assert
-	requireScreen(t, screen.View(), "▸ ● Done")
+	requireScreen(t, screen.View().Content, "▸ ● Done")
 }
 
 func TestALongPickerScrollsToKeepTheSelectionVisible(t *testing.T) {
@@ -370,7 +370,7 @@ func TestALongPickerScrollsToKeepTheSelectionVisible(t *testing.T) {
 	screen := openPicker(t, jiraScreen(t, fake.deps(twoIssues())))
 
 	// Act
-	view := press(t, screen, slices.Repeat([]string{"j"}, 39)...).View()
+	view := press(t, screen, slices.Repeat([]string{"j"}, 39)...).View().Content
 
 	// Assert
 	requireScreen(t, view, "▸ ◐ Step 40")
@@ -384,7 +384,7 @@ func TestTheIssuesPaneFooterOffersChangingStatus(t *testing.T) {
 	fake := &fakeJira{moves: workflowMoves()}
 
 	// Act
-	footer := footerLine(jiraScreen(t, fake.deps(twoIssues())).View())
+	footer := footerLine(jiraScreen(t, fake.deps(twoIssues())).View().Content)
 
 	// Assert
 	requireScreen(t, footer, "t change status")
@@ -410,7 +410,7 @@ func TestTheFooterDoesNotOfferChangingStatusWhereItDoesNothing(t *testing.T) {
 			screen := jiraScreen(t, fake.deps(assigned(tt.issues...)))
 
 			// Act
-			footer := footerLine(press(t, screen, tt.keys...).View())
+			footer := footerLine(press(t, screen, tt.keys...).View().Content)
 
 			// Assert
 			refuseScreen(t, footer, "change status")

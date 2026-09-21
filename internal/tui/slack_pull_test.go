@@ -52,7 +52,7 @@ func TestAPostWaitingForCIIsNotSentForAnotherPullRequest(t *testing.T) {
 	waiting := typing(t, model, "5", "p", "w")
 
 	// Assert: it waits
-	requireScreen(t, waiting.View(), "◐ will post to "+slackChannel+" once CI passes")
+	requireScreen(t, waiting.View().Content, "◐ will post to "+slackChannel+" once CI passes")
 
 	// Act: switch to other work, whose CI has passed
 	switchToOtherWork(switching)
@@ -65,10 +65,10 @@ func TestAPostWaitingForCIIsNotSentForAnotherPullRequest(t *testing.T) {
 		t.Errorf("posted %q for a pull request it was not written for", calls)
 	}
 
-	requireScreen(t, switched.View(), droppedPost)
+	requireScreen(t, switched.View().Content, droppedPost)
 
 	// Act: look at the Slack pane
-	pane := typing(t, switched, "5").View()
+	pane := typing(t, switched, "5").View().Content
 
 	// Assert: nothing is waiting any more
 	requireScreen(t, pane, "state  ○ nothing posted")
@@ -94,7 +94,7 @@ func TestAPostWaitingForCIIsDroppedWhenThePullRequestIsReplaced(t *testing.T) {
 		t.Errorf("posted %q for a pull request it was not written for", calls)
 	}
 
-	requireScreen(t, refreshed.View(), droppedPost)
+	requireScreen(t, refreshed.View().Content, droppedPost)
 }
 
 func TestEachPullRequestIsAnnouncedOnce(t *testing.T) {
@@ -107,7 +107,7 @@ func TestEachPullRequestIsAnnouncedOnce(t *testing.T) {
 	// Act: switch to other work
 	switchToOtherWork(busy)
 
-	second := typing(t, first, "2", "r", "5").View()
+	second := typing(t, first, "2", "r", "5").View().Content
 
 	// Assert: its pull request has not been announced, and can be
 	requireScreen(t, second, "state  ○ nothing posted", "○ Slack")
@@ -125,7 +125,7 @@ func TestEachPullRequestIsAnnouncedOnce(t *testing.T) {
 	// Act: go back to the first
 	switchBack(busy)
 
-	back := typing(t, both, "2", "r", "5").View()
+	back := typing(t, both, "2", "r", "5").View().Content
 
 	// Assert: it is still announced, and is not offered again
 	requireScreen(t, back, "state  ● posted")
@@ -146,7 +146,7 @@ func TestAPostWaitingForCIDoesNotOutliveABranchSwitch(t *testing.T) {
 	elsewhere := typing(t, waiting, "2", "r")
 
 	// Assert: the interface gives up on the post there and then, and says so
-	requireScreen(t, elsewhere.View(), droppedPost)
+	requireScreen(t, elsewhere.View().Content, droppedPost)
 
 	// Act: come back once CI has passed
 	switchBack(away)

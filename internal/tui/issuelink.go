@@ -7,8 +7,8 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/charmbracelet/bubbles/key"
-	tea "github.com/charmbracelet/bubbletea"
+	"charm.land/bubbles/v2/key"
+	tea "charm.land/bubbletea/v2"
 
 	"github.com/jacob-delgado/workflow/internal/forge"
 	"github.com/jacob-delgado/workflow/internal/jira"
@@ -59,7 +59,7 @@ func (l issueLinker) footer(keys keyMap) []key.Binding {
 }
 
 // handleKey links the pull request, or skips it, leaving it open in review.
-func (l issueLinker) handleKey(m Model, msg tea.KeyMsg) (Model, tea.Cmd) {
+func (l issueLinker) handleKey(m Model, msg tea.KeyPressMsg) (Model, tea.Cmd) {
 	switch {
 	case l.send.sending:
 		return m, nil

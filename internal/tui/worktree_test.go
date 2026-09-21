@@ -22,7 +22,7 @@ func TestBranchingCanCreateAWorktreeAndSaysWhereItIs(t *testing.T) {
 	model := repo.live(t, 120, 40)
 
 	// Act
-	view := typing(t, model, "2", "b", keyCtrlW, keyEnter).View()
+	view := typing(t, model, "2", "b", keyCtrlW, keyEnter).View().Content
 
 	// Assert
 	requireScreen(t, view, "worktree for "+featureName, "/work-"+featureName)
@@ -43,7 +43,7 @@ func TestTheBranchCreatorOffersTheWorktreeToggle(t *testing.T) {
 	model := newWorld().live(t, 120, 40)
 
 	// Act
-	view := typing(t, model, "2", "b").View()
+	view := typing(t, model, "2", "b").View().Content
 
 	// Assert
 	requireScreen(t, footerLine(view), "as a worktree")
@@ -58,7 +58,7 @@ func TestAFailedWorktreeKeepsTheCreatorOpenWithTheReason(t *testing.T) {
 	model := repo.live(t, 120, 40)
 
 	// Act
-	view := typing(t, model, "2", "b", keyCtrlW, keyEnter).View()
+	view := typing(t, model, "2", "b", keyCtrlW, keyEnter).View().Content
 
 	// Assert
 	requireScreen(t, view, "New branch", "already exists")
@@ -73,7 +73,7 @@ func TestAWorktreeUnderDryRunCreatesNothing(t *testing.T) {
 	model = drain(t, model, model.Init())
 
 	// Act
-	view := typing(t, model, "2", "b", keyCtrlW, keyEnter).View()
+	view := typing(t, model, "2", "b", keyCtrlW, keyEnter).View().Content
 
 	// Assert
 	requireScreen(t, view, "dry run", "worktree")

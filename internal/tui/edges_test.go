@@ -52,15 +52,15 @@ func TestNothingInterruptsAWriteBeingSent(t *testing.T) {
 			inFlight, _ := pressed(t, overlay, keyEnter)
 
 			// Assert: it is on its way, and only quitting is offered
-			requireScreen(t, inFlight.View(), tt.sending)
-			requireScreen(t, footerLine(inFlight.View()), "ctrl+c quit")
-			refuseScreen(t, footerLine(inFlight.View()), keyEsc)
+			requireScreen(t, inFlight.View().Content, tt.sending)
+			requireScreen(t, footerLine(inFlight.View().Content), "ctrl+c quit")
+			refuseScreen(t, footerLine(inFlight.View().Content), keyEsc)
 
 			// Act & Assert: neither leaving nor sending again does anything until it answers
 			for _, key := range []string{keyEnter, keyEsc, "v", "e", "w"} {
 				after, cmd := pressed(t, inFlight, key)
-				if cmd != nil || after.View() != inFlight.View() {
-					t.Errorf("%s did something while the write was on its way:\n%s", key, after.View())
+				if cmd != nil || after.View().Content != inFlight.View().Content {
+					t.Errorf("%s did something while the write was on its way:\n%s", key, after.View().Content)
 				}
 			}
 		})
@@ -95,8 +95,8 @@ func TestOverlaysIgnoreKeysThatMeanNothingInThem(t *testing.T) {
 			after := typing(t, overlay, "x")
 
 			// Assert
-			if after.View() != overlay.View() {
-				t.Errorf("x changed %s:\n%s", name, after.View())
+			if after.View().Content != overlay.View().Content {
+				t.Errorf("x changed %s:\n%s", name, after.View().Content)
 			}
 		})
 	}
@@ -110,7 +110,7 @@ func TestAStructuredConfigurationWithNoScriptsSaysNothingOfScripts(t *testing.T)
 	plain.gitHooks = []hooks.GitHook{{Name: "pre-commit", Script: "#!/bin/sh\nset -e\ngofmt -l .\n"}}
 
 	// Act
-	view := typing(t, plain.live(t, 120, 50), "3", "g").View()
+	view := typing(t, plain.live(t, 120, 50), "3", "g").View().Content
 
 	// Assert
 	requireScreen(t, view, "Found 1 hook in .git/hooks")
@@ -127,7 +127,7 @@ func TestADryRunCommentIsOnlyDescribed(t *testing.T) {
 	model = drain(t, model, model.Init())
 
 	// Act
-	view := typing(t, model, "c", keyEnter).View()
+	view := typing(t, model, "c", keyEnter).View().Content
 
 	// Assert
 	requireScreen(t, view, "dry run: would comment on PROJ-412")
@@ -144,7 +144,7 @@ func TestTheComposerKeepsItsDraftWhenLeft(t *testing.T) {
 	left := typing(t, newWorld().live(t, 120, 40), append(append([]string{"3", "c"}, letters("half done")...), keyEsc)...)
 
 	// Act
-	view := typing(t, left, "c").View()
+	view := typing(t, left, "c").View().Content
 
 	// Assert
 	requireScreen(t, view, "subject > half done")
@@ -158,7 +158,7 @@ func TestAComposerOnABranchNamingNoIssueHasNoTrailer(t *testing.T) {
 	unnamed.branch.Name = "spike"
 
 	// Act
-	view := typing(t, unnamed.live(t, 120, 40), "3", "c").View()
+	view := typing(t, unnamed.live(t, 120, 40), "3", "c").View().Content
 
 	// Assert
 	requireScreen(t, view, "┏━ Commit")
@@ -187,7 +187,7 @@ func TestABodyThatCannotBeEditedLeavesTheComposerAsItWas(t *testing.T) {
 			composer := typing(t, failing.live(t, 120, 40), tt.keys...)
 
 			// Act
-			view := typing(t, composer, "ctrl+o").View()
+			view := typing(t, composer, "ctrl+o").View().Content
 
 			// Assert
 			requireScreen(t, view, tt.title, "✗ the editor exited with an error")
@@ -208,8 +208,8 @@ func TestWithoutAnEditorTheBodyCannotBeEdited(t *testing.T) {
 	after, cmd := pressed(t, composer, "ctrl+o")
 
 	// Assert
-	if cmd != nil || after.View() != composer.View() {
-		t.Errorf("ctrl+e did something with no editor:\n%s", after.View())
+	if cmd != nil || after.View().Content != composer.View().Content {
+		t.Errorf("ctrl+e did something with no editor:\n%s", after.View().Content)
 	}
 }
 
@@ -226,7 +226,7 @@ func TestThePullRequestComposerWorksWithoutTemplatesOrAnEditor(t *testing.T) {
 	composer := typing(t, model, "4", "n", "ctrl+o", "ctrl+t", keyTab, keyTab)
 
 	// Assert
-	requireScreen(t, composer.View(), "no template in this repository", "▸ title  >")
+	requireScreen(t, composer.View().Content, "no template in this repository", "▸ title  >")
 }
 
 func TestTheReviewPaneSaysItIsLookingForAPullRequest(t *testing.T) {
@@ -238,7 +238,7 @@ func TestTheReviewPaneSaysItIsLookingForAPullRequest(t *testing.T) {
 	model := sized(t, tui.New(completeConfig(), nil, unfound), 120, 40)
 
 	// Act
-	view := typing(t, drain(t, model, model.Init()), "4").View()
+	view := typing(t, drain(t, model, model.Init()), "4").View().Content
 
 	// Assert
 	requireScreen(t, view, "looking…")
@@ -253,7 +253,7 @@ func TestTheReviewPaneSaysCIIsBeingChecked(t *testing.T) {
 	model := sized(t, tui.New(completeConfig(), nil, unchecked), 120, 40)
 
 	// Act
-	view := typing(t, drain(t, model, model.Init()), "4").View()
+	view := typing(t, drain(t, model, model.Init()), "4").View().Content
 
 	// Assert
 	requireScreen(t, view, "CI     checking…")
@@ -267,7 +267,7 @@ func TestTheReviewPaneSaysWhyCICouldNotBeChecked(t *testing.T) {
 	failing.ciErr = errUnreachable
 
 	// Act
-	view := typing(t, failing.live(t, 120, 40), "4").View()
+	view := typing(t, failing.live(t, 120, 40), "4").View().Content
 
 	// Assert
 	requireScreen(t, view, "CI     ✗ could not reach the forge")
@@ -281,7 +281,7 @@ func TestAnAnnouncementWithoutAnAuthorStillAnnounces(t *testing.T) {
 	anonymous.authorErr = errUnreachable
 
 	// Act
-	view := typing(t, anonymous.live(t, 120, 40), "5").View()
+	view := typing(t, anonymous.live(t, 120, 40), "5").View().Content
 
 	// Assert
 	requireScreen(t, view, "A pull request is ready for review:")
@@ -299,7 +299,7 @@ func TestAPostWaitingForCIThatNeverReportsKeepsWaiting(t *testing.T) {
 	waiting := typing(t, unreported.live(t, 120, 40), "5", "p", "w", "j")
 
 	// Assert
-	requireScreen(t, waiting.View(), "state  ◐ posts when CI passes")
+	requireScreen(t, waiting.View().Content, "state  ◐ posts when CI passes")
 
 	if calls := unreported.asked("post "); len(calls) != 0 {
 		t.Errorf("posted with no CI reported: %q", calls)
@@ -319,7 +319,7 @@ func TestAPostWaitingForCIThatFailsToPostSaysWhy(t *testing.T) {
 	failed := typing(t, refusing.live(t, 120, 40), "5", "p", "w")
 
 	// Assert
-	requireScreen(t, failed.View(), "✗ the credential was not accepted: not_in_channel")
+	requireScreen(t, failed.View().Content, "✗ the credential was not accepted: not_in_channel")
 }
 
 func TestACommitThatCannotStartSaysWhy(t *testing.T) {
@@ -330,7 +330,7 @@ func TestACommitThatCannotStartSaysWhy(t *testing.T) {
 	unstartable.commitStartErr = errDiskFull
 
 	// Act
-	view := typing(t, unstartable.live(t, 120, 40), commitKeys("x")...).View()
+	view := typing(t, unstartable.live(t, 120, 40), commitKeys("x")...).View().Content
 
 	// Assert
 	requireScreen(t, view, "┏━ git commit", "✗ writing the commit message: disk full")
@@ -359,8 +359,8 @@ func TestClicksThatLandOnNothingDoNothing(t *testing.T) {
 			clicked := click(t, screen, tt.column, tt.row)
 
 			// Assert
-			if clicked.View() != screen.View() {
-				t.Errorf("a click %s changed the screen:\n%s", name, clicked.View())
+			if clicked.View().Content != screen.View().Content {
+				t.Errorf("a click %s changed the screen:\n%s", name, clicked.View().Content)
 			}
 		})
 	}
@@ -376,13 +376,13 @@ func TestTheHelpScrollsBackUp(t *testing.T) {
 	down := typing(t, help, "j", "j")
 
 	// Assert: the first group is out of sight
-	refuseScreen(t, down.View(), "Moving around")
+	refuseScreen(t, down.View().Content, "Moving around")
 
 	// Act: scroll back up
 	up := typing(t, down, "k", "k")
 
 	// Assert: it is back
-	requireScreen(t, up.View(), "Moving around")
+	requireScreen(t, up.View().Content, "Moving around")
 }
 
 func TestAnInterfaceWithoutAClockUsesTheRealOne(t *testing.T) {
@@ -401,7 +401,7 @@ func TestAnInterfaceWithoutAClockUsesTheRealOne(t *testing.T) {
 	model := sized(t, tui.New(completeConfig(), nil, deps), 120, 40)
 
 	// Act
-	view := drain(t, model, model.Init()).View()
+	view := drain(t, model, model.Init()).View().Content
 
 	// Assert
 	requireScreen(t, view, "Ana · 5m ago")
@@ -419,13 +419,13 @@ func TestPickingAnOptionMovesBothWays(t *testing.T) {
 	down := typing(t, form, "j")
 
 	// Assert: the second option is selected
-	requireScreen(t, down.View(), "▸ Won't Fix")
+	requireScreen(t, down.View().Content, "▸ Won't Fix")
 
 	// Act: k
 	up := typing(t, down, "k")
 
 	// Assert: the first is selected again
-	requireScreen(t, up.View(), "▸ Fixed")
+	requireScreen(t, up.View().Content, "▸ Fixed")
 }
 
 func TestRReadsTheChangesAgain(t *testing.T) {

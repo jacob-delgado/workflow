@@ -8,9 +8,9 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/charmbracelet/bubbles/key"
-	"github.com/charmbracelet/bubbles/textinput"
-	tea "github.com/charmbracelet/bubbletea"
+	"charm.land/bubbles/v2/key"
+	"charm.land/bubbles/v2/textinput"
+	tea "charm.land/bubbletea/v2"
 
 	"github.com/jacob-delgado/workflow/internal/convention"
 	"github.com/jacob-delgado/workflow/internal/forge"
@@ -148,7 +148,9 @@ func (c prComposer) withTemplate(index int) prComposer {
 
 // view shows every part of the pull request as it will be opened.
 func (c prComposer) view(width, _ int) (string, string) {
-	c.title.Width, c.base.Width = max(1, width-prLabelWidth), max(1, width-prLabelWidth)
+	inner := max(1, width-prLabelWidth)
+	c.title.SetWidth(inner)
+	c.base.SetWidth(inner)
 
 	checkbox := map[bool]string{false: "[ ]", true: "[x]"}[c.draft]
 	lines := pinnedOutcome(c.styles, c.marks, c.send, "opening", width)
@@ -199,7 +201,7 @@ func (c prComposer) canNextTemplate() bool {
 }
 
 // handleKey answers a key while the pull request is composed.
-func (c prComposer) handleKey(m Model, msg tea.KeyMsg) (Model, tea.Cmd) {
+func (c prComposer) handleKey(m Model, msg tea.KeyPressMsg) (Model, tea.Cmd) {
 	switch {
 	case c.send.sending:
 		return m, nil
@@ -245,7 +247,7 @@ func (c prComposer) focusOn(field int) prComposer {
 }
 
 // typed hands a key to the field with focus.
-func (c prComposer) typed(msg tea.KeyMsg) prComposer {
+func (c prComposer) typed(msg tea.KeyPressMsg) prComposer {
 	if c.focus == prFieldBase {
 		c.base, _ = c.base.Update(msg)
 	} else {

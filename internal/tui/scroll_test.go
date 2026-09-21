@@ -25,6 +25,6 @@ func TestOverScrollingStillMovesOnTheWayBack(t *testing.T) {
 	back := typing(t, overScrolled, "pgup")
 
 	// Assert
-	requireScreen(t, overScrolled.View(), "THE END")
-	refuseScreen(t, back.View(), "THE END")
+	requireScreen(t, overScrolled.View().Content, "THE END")
+	refuseScreen(t, back.View().Content, "THE END")
 }

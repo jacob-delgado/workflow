@@ -9,10 +9,9 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/charmbracelet/bubbles/cursor"
-	"github.com/charmbracelet/bubbles/key"
-	"github.com/charmbracelet/bubbles/textinput"
-	tea "github.com/charmbracelet/bubbletea"
+	"charm.land/bubbles/v2/key"
+	"charm.land/bubbles/v2/textinput"
+	tea "charm.land/bubbletea/v2"
 
 	"github.com/jacob-delgado/workflow/internal/jira"
 )
@@ -63,7 +62,9 @@ func newInput(text string) textinput.Model {
 	input := textinput.New()
 	input.Prompt = "> "
 	input.SetValue(text)
-	input.Cursor.SetMode(cursor.CursorStatic)
+	// The virtual cursor draws in reverse video inline, which is what the screen
+	// wants; it does not blink because the blink command Focus returns is dropped
+	// here rather than run, so no timer runs for the life of the input.
 	input.Focus()
 
 	return input
@@ -88,7 +89,7 @@ func (f fieldForm) view(marks glyphs, sty styles, width, rows int) []string {
 	}
 
 	if field.Kind == jira.FieldText {
-		f.input.Width = max(1, width-len(f.input.Prompt)-1)
+		f.input.SetWidth(max(1, width-len(f.input.Prompt)-1))
 		lines = append(lines, f.input.View())
 	} else {
 		first, last := window(f.option, len(field.Options), rows-len(lines)-1)
@@ -130,7 +131,7 @@ func (f fieldForm) confirmLabel() string {
 
 // handleFormKey answers a key while a transition's fields are being filled in.
 // esc goes back to the transitions rather than closing the picker.
-func (p statusPicker) handleFormKey(m Model, msg tea.KeyMsg) (Model, tea.Cmd) {
+func (p statusPicker) handleFormKey(m Model, msg tea.KeyPressMsg) (Model, tea.Cmd) {
 	field := p.form.field()
 
 	switch {

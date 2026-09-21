@@ -9,8 +9,8 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/charmbracelet/bubbles/key"
-	tea "github.com/charmbracelet/bubbletea"
+	"charm.land/bubbles/v2/key"
+	tea "charm.land/bubbletea/v2"
 
 	"github.com/jacob-delgado/workflow/internal/hooks"
 	"github.com/jacob-delgado/workflow/internal/proc"
@@ -303,7 +303,7 @@ func (r commandRun) footer(keys keyMap) []key.Binding {
 
 // handleKey answers a key while a run is shown. While it runs, the only key is
 // stop, which kills it; once it is done, its outcome decides what happens next.
-func (r commandRun) handleKey(m Model, msg tea.KeyMsg) (Model, tea.Cmd) {
+func (r commandRun) handleKey(m Model, msg tea.KeyPressMsg) (Model, tea.Cmd) {
 	switch {
 	case !r.done:
 		return r.stopRun(m, msg)
@@ -329,7 +329,7 @@ func (r commandRun) handleKey(m Model, msg tea.KeyMsg) (Model, tea.Cmd) {
 // stopRun kills a running program when the stop key is pressed, and ends the
 // run at once so the screen says so rather than waiting on the killed exit to
 // arrive. Any other key while it runs is ignored — the run is not abandoned.
-func (r commandRun) stopRun(m Model, msg tea.KeyMsg) (Model, tea.Cmd) {
+func (r commandRun) stopRun(m Model, msg tea.KeyPressMsg) (Model, tea.Cmd) {
 	if !key.Matches(msg, m.keys.stopRun) || r.stop == nil {
 		return m, nil
 	}
@@ -406,7 +406,7 @@ func (p pushPreview) footer(keys keyMap) []key.Binding {
 }
 
 // handleKey answers a key while the push is previewed.
-func (p pushPreview) handleKey(m Model, msg tea.KeyMsg) (Model, tea.Cmd) {
+func (p pushPreview) handleKey(m Model, msg tea.KeyPressMsg) (Model, tea.Cmd) {
 	switch {
 	case key.Matches(msg, m.keys.closeOverlay):
 		return m.closeOverlay(), nil

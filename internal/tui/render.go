@@ -9,9 +9,10 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/charmbracelet/bubbles/help"
-	"github.com/charmbracelet/bubbles/key"
-	"github.com/charmbracelet/lipgloss"
+	"charm.land/bubbles/v2/help"
+	"charm.land/bubbles/v2/key"
+	tea "charm.land/bubbletea/v2"
+	"charm.land/lipgloss/v2"
 	"github.com/charmbracelet/x/ansi"
 
 	"github.com/jacob-delgado/workflow/internal/config"
@@ -30,9 +31,24 @@ const detailPadding = 4
 // helpTitle titles the detail pane while the keys are shown.
 const helpTitle = "Keys"
 
-// View implements tea.Model. It only composes: every region renders itself, so
-// no single function has to know the whole screen.
-func (m Model) View() string {
+// View implements tea.Model. v2 takes the screen and its terminal features
+// declaratively: the alternate screen keeps the session from scrolling the
+// terminal and hands the scrollback back untouched on exit, and the mouse mode
+// follows the model's own toggle.
+func (m Model) View() tea.View {
+	view := tea.NewView(m.screen())
+	view.AltScreen = true
+
+	if m.mouse {
+		view.MouseMode = tea.MouseModeCellMotion
+	}
+
+	return view
+}
+
+// screen renders the whole interface to a string: the rail and detail, the
+// spine above and the keys below.
+func (m Model) screen() string {
 	shape := m.shape()
 	body := m.detailView(shape)
 
@@ -309,7 +325,7 @@ func (m Model) footer(width int) string {
 	keys.Styles.ShortSeparator = m.styles.label
 	keys.ShortSeparator, keys.Ellipsis = m.marks.helpSeparator, m.marks.ellipsis
 	// Keys that do not fit are dropped whole, and an ellipsis says so.
-	keys.Width = width - 1
+	keys.SetWidth(width - 1)
 
 	return ansi.Truncate(" "+keys.ShortHelpView(m.footerKeys()), width, "")
 }

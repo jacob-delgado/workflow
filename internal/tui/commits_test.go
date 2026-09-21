@@ -37,7 +37,7 @@ func TestTheCommitsPaneShowsWhereEachFileStands(t *testing.T) {
 	changing.changes = workTree()
 
 	// Act
-	view := typing(t, changing.live(t, 120, 40), "3").View()
+	view := typing(t, changing.live(t, 120, 40), "3").View().Content
 
 	// Assert
 	requireScreen(t, view,
@@ -46,8 +46,10 @@ func TestTheCommitsPaneShowsWhereEachFileStands(t *testing.T) {
 		"3 of 6 staged", "1 commit on this branch")
 
 	// A file name is anyone's to choose, and an escape sequence in one is
-	// neutralized before it reaches the terminal.
-	if strings.ContainsRune(view, 0x1b) {
+	// neutralized before it reaches the terminal. lipgloss colors the screen with
+	// its own CSI (\x1b[…) escapes, so the injected OSC (\x1b]…) and its BEL
+	// terminator are what prove the file name was neutralized.
+	if strings.Contains(view, "\x1b]") || strings.ContainsRune(view, 0x07) {
 		t.Errorf("a file name drove the terminal:\n%q", view)
 	}
 }
@@ -60,7 +62,7 @@ func TestACleanTreeSaysSo(t *testing.T) {
 	clean.changes = nil
 
 	// Act
-	view := typing(t, clean.live(t, 120, 40), "3").View()
+	view := typing(t, clean.live(t, 120, 40), "3").View().Content
 
 	// Assert
 	requireScreen(t, view, "nothing changed")
@@ -75,7 +77,7 @@ func TestTheCommitsDetailWaitsForTheStatus(t *testing.T) {
 	model := sized(t, tui.New(completeConfig(), nil, newWorld().deps()), 120, 40)
 
 	// Act
-	view := press(t, model, "3").View()
+	view := press(t, model, "3").View().Content
 
 	// Assert
 	// It says it is loading, not that nothing changed.
@@ -92,7 +94,7 @@ func TestAStatusThatCannotBeReadSaysWhy(t *testing.T) {
 	model := sized(t, tui.New(completeConfig(), nil, failing), 120, 40)
 
 	// Act
-	view := typing(t, drain(t, model, model.Init()), "3").View()
+	view := typing(t, drain(t, model, model.Init()), "3").View().Content
 
 	// Assert
 	requireScreen(t, view, "status failed", "✗ fatal: Unable to create")
@@ -164,7 +166,7 @@ func TestAStagingFailureIsReported(t *testing.T) {
 	locked.stageErr = errLocked
 
 	// Act
-	view := typing(t, locked.live(t, 120, 40), "3", keySpace).View()
+	view := typing(t, locked.live(t, 120, 40), "3", keySpace).View().Content
 
 	// Assert
 	requireScreen(t, view, "✗ fatal: Unable to create")
@@ -193,7 +195,7 @@ func TestADryRunStagesNothing(t *testing.T) {
 			model = drain(t, model, model.Init())
 
 			// Act
-			view := typing(t, model, tt.keys...).View()
+			view := typing(t, model, tt.keys...).View().Content
 
 			// Assert
 			requireScreen(t, view, tt.want)
@@ -217,7 +219,7 @@ func TestTheSelectionMovesAndCanBeClicked(t *testing.T) {
 	moved := typing(t, model, "3", "j", "j", "k")
 
 	// Assert: the second file is selected
-	requireScreen(t, moved.View(), "▸ ◐ modified   internal/log/debug.go")
+	requireScreen(t, moved.View().Content, "▸ ◐ modified   internal/log/debug.go")
 
 	// Act: click the third file
 	// Row 4 of the detail is the third file: the detail starts at row 1, and
@@ -225,14 +227,14 @@ func TestTheSelectionMovesAndCanBeClicked(t *testing.T) {
 	clicked := click(t, moved, 60, 4)
 
 	// Assert: it is selected
-	requireScreen(t, clicked.View(), "▸ ○ untracked  notes.txt")
+	requireScreen(t, clicked.View().Content, "▸ ○ untracked  notes.txt")
 
 	// Act: click below the files
 	below := click(t, clicked, 60, 30)
 
 	// Assert: nothing is picked
-	if below.View() != clicked.View() {
-		t.Errorf("a click below the files changed the screen:\n%s", below.View())
+	if below.View().Content != clicked.View().Content {
+		t.Errorf("a click below the files changed the screen:\n%s", below.View().Content)
 	}
 }
 
@@ -246,7 +248,7 @@ func TestAFileNameIsDrawnOnOneLine(t *testing.T) {
 	odd.changes = []gitrepo.Change{{Path: "one\ntwo.go", Staged: ' ', Unstaged: 'M'}}
 
 	// Act
-	view := typing(t, odd.live(t, 120, 40), "3").View()
+	view := typing(t, odd.live(t, 120, 40), "3").View().Content
 
 	// Assert
 	requireScreen(t, view, "one\ufffdtwo.go")
@@ -262,7 +264,7 @@ func TestAFailureIsShownInTextThatIsSafe(t *testing.T) {
 	sequenced.stageErr = errors.New("cannot add \x1b]0;owned\x07this file")
 
 	// Act
-	view := typing(t, sequenced.live(t, 120, 40), "3", keySpace).View()
+	view := typing(t, sequenced.live(t, 120, 40), "3", keySpace).View().Content
 
 	// Assert
 	requireScreen(t, view, "✗ cannot add this file")
@@ -283,7 +285,7 @@ func TestTheCommitsListKeepsTheSelectedFileOnScreen(t *testing.T) {
 	down := append([]string{"3"}, slices.Repeat([]string{"j"}, 40)...)
 
 	// Act
-	view := typing(t, crowded.live(t, 120, 20), down...).View()
+	view := typing(t, crowded.live(t, 120, 20), down...).View().Content
 
 	// Assert
 	requireScreen(t, view, "▸ ● modified   file40.go")
@@ -297,7 +299,7 @@ func TestTheCommitsPaneNamesEachKindOfChangeInWords(t *testing.T) {
 	changing.changes = workTree()
 
 	// Act
-	view := typing(t, changing.live(t, 120, 40), "3").View()
+	view := typing(t, changing.live(t, 120, 40), "3").View().Content
 
 	// Assert
 	requireScreen(t, view,
@@ -317,7 +319,7 @@ func TestTheHeavyBorderFollowsTheCursorIntoTheCommitsDetail(t *testing.T) {
 	changing.changes = workTree()
 
 	// Act
-	view := typing(t, changing.live(t, 120, 40), "3").View()
+	view := typing(t, changing.live(t, 120, 40), "3").View().Content
 
 	// Assert
 	requireScreen(t, view, "┏━ Commits ")
@@ -337,7 +339,7 @@ func TestANoticeWithANewlineDoesNotOverflowTheScreen(t *testing.T) {
 	noisy.stageErr = errors.New("fatal: could not stage\nhint: the index is locked\nhint: remove .git/index.lock")
 
 	// Act
-	view := typing(t, noisy.live(t, 120, 40), "3", keySpace).View()
+	view := typing(t, noisy.live(t, 120, 40), "3", keySpace).View().Content
 
 	// Assert
 	if rows := strings.Count(view, "\n") + 1; rows > 40 {

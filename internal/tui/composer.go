@@ -10,9 +10,9 @@ import (
 	"strings"
 	"unicode/utf8"
 
-	"github.com/charmbracelet/bubbles/key"
-	"github.com/charmbracelet/bubbles/textinput"
-	tea "github.com/charmbracelet/bubbletea"
+	"charm.land/bubbles/v2/key"
+	"charm.land/bubbles/v2/textinput"
+	tea "charm.land/bubbletea/v2"
 
 	"github.com/jacob-delgado/workflow/internal/convention"
 	"github.com/jacob-delgado/workflow/internal/jira"
@@ -130,7 +130,9 @@ func (c commitComposer) view(width, _ int) (string, string) {
 	subject := c.assembled()
 	length := strconv.Itoa(utf8.RuneCountInString(subject.String())) + "/" + strconv.Itoa(convention.SubjectLimit)
 
-	c.scope.Width, c.subject.Width = max(1, width-composerLabelWidth), max(1, width-composerLabelWidth)
+	inner := max(1, width-composerLabelWidth)
+	c.scope.SetWidth(inner)
+	c.subject.SetWidth(inner)
 
 	lines := pinnedOutcome(c.styles, c.marks, c.send, "", width)
 	lines = append(lines,
@@ -223,7 +225,7 @@ func (c commitComposer) footer(keys keyMap) []key.Binding {
 }
 
 // handleKey answers a key while the commit is composed.
-func (c commitComposer) handleKey(m Model, msg tea.KeyMsg) (Model, tea.Cmd) {
+func (c commitComposer) handleKey(m Model, msg tea.KeyPressMsg) (Model, tea.Cmd) {
 	switch {
 	case key.Matches(msg, m.keys.closeOverlay):
 		m.draft = c.draft()
@@ -251,7 +253,7 @@ func (c commitComposer) handleKey(m Model, msg tea.KeyMsg) (Model, tea.Cmd) {
 }
 
 // typed hands a key to the part with focus: the type cycles, text is typed.
-func (c commitComposer) typed(m Model, msg tea.KeyMsg) commitComposer {
+func (c commitComposer) typed(m Model, msg tea.KeyPressMsg) commitComposer {
 	switch {
 	case c.focus == fieldType && key.Matches(msg, m.keys.cycleRight):
 		c.kind = (c.kind + 1) % len(c.types)

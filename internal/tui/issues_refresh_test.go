@@ -15,7 +15,7 @@ func TestAFailedSearchReadsAsAFailureInTheDetail(t *testing.T) {
 	t.Parallel()
 
 	// Act
-	view := issuesScreen(t, failing(jira.ErrUnauthorized)).View()
+	view := issuesScreen(t, failing(jira.ErrUnauthorized)).View().Content
 
 	// Assert
 	requireScreen(t, view, "✗ the credential was not accepted")
@@ -32,5 +32,5 @@ func TestRefreshMarksTheIssuesTitleInFlight(t *testing.T) {
 	refreshing, _ := pressed(t, model, "r")
 
 	// Assert
-	requireScreen(t, refreshing.View(), "1 Issues ◐")
+	requireScreen(t, refreshing.View().Content, "1 Issues ◐")
 }

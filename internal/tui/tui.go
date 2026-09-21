@@ -13,10 +13,9 @@ import (
 	"os"
 	"strings"
 
-	"github.com/charmbracelet/bubbles/key"
-	tea "github.com/charmbracelet/bubbletea"
-	"github.com/charmbracelet/lipgloss"
-	"github.com/muesli/termenv"
+	"charm.land/bubbles/v2/key"
+	tea "charm.land/bubbletea/v2"
+	"github.com/charmbracelet/colorprofile"
 
 	"github.com/jacob-delgado/workflow/internal/config"
 	"github.com/jacob-delgado/workflow/internal/tui/layout"
@@ -122,25 +121,19 @@ func (m Model) WithoutColor() Model {
 // Run starts the interface and blocks until the user quits. The context cancels
 // the program, so a caller can shut the interface down.
 func Run(ctx context.Context, model Model, out io.Writer) error {
-	// NO_COLOR and ui.color "never" drop the hues, but not the bold, faint and
-	// reverse-video cursor that carry meaning without them: force a profile that
-	// keeps those, then strip the hues at the style level.
-	if !model.cfg.UI.DrawColor(os.Getenv("NO_COLOR")) {
-		lipgloss.SetColorProfile(termenv.ANSI)
-
-		model = model.WithoutColor()
-	}
-
 	options := []tea.ProgramOption{
 		tea.WithOutput(out),
 		tea.WithContext(ctx),
-		// The alternate screen keeps the session from scrolling the terminal,
-		// and gives the scrollback back untouched on exit.
-		tea.WithAltScreen(),
 	}
 
-	if model.mouse {
-		options = append(options, tea.WithMouseCellMotion())
+	// NO_COLOR and ui.color "never" drop the hues, but not the bold, faint and
+	// reverse-video cursor that carry meaning without them: force a profile that
+	// keeps those, then strip the hues at the style level. The alternate screen
+	// and mouse mode are set declaratively in View, as v2 asks.
+	if !model.cfg.UI.DrawColor(os.Getenv("NO_COLOR")) {
+		options = append(options, tea.WithColorProfile(colorprofile.ANSI))
+
+		model = model.WithoutColor()
 	}
 
 	_, err := tea.NewProgram(model, options...).Run()
@@ -169,7 +162,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.width, m.height = msg.Width, msg.Height
 
 		return m, nil
-	case tea.KeyMsg:
+	case tea.KeyPressMsg:
 		return m.handleKey(msg)
 	case tea.MouseMsg:
 		return m.handleMouse(msg)
@@ -183,7 +176,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 // handleKey answers a key press. ctrl+c always quits. Otherwise an open overlay
 // has the keyboard — including q, which a text field needs to type — then the
 // help, then the keys that work everywhere, then the focused pane's own.
-func (m Model) handleKey(msg tea.KeyMsg) (Model, tea.Cmd) {
+func (m Model) handleKey(msg tea.KeyPressMsg) (Model, tea.Cmd) {
 	// A notice is cleared when the next action starts, not by moving around, so
 	// looking about after a result does not erase the record of it.
 	if !m.navigates(msg) {
@@ -222,7 +215,7 @@ func (m Model) quitOrGuard() (Model, tea.Cmd) {
 
 // handleGlobalKey answers the keys that work in every pane, and hands the rest
 // to the focused one.
-func (m Model) handleGlobalKey(msg tea.KeyMsg) (Model, tea.Cmd) {
+func (m Model) handleGlobalKey(msg tea.KeyPressMsg) (Model, tea.Cmd) {
 	switch {
 	case key.Matches(msg, m.keys.quit):
 		return m.quitOrGuard()
@@ -278,16 +271,18 @@ func (m Model) focusOn(target pane) Model {
 // which is why this exists.
 func (m Model) toggleMouse() (Model, tea.Cmd) {
 	m.mouse = !m.mouse
+	// v2 reads the mouse mode from View every render, so flipping the flag is the
+	// whole change: the next render turns capture on or off.
 	if m.mouse {
-		return m.noticed("mouse on: clicks focus panes and pick rows"), tea.EnableMouseCellMotion
+		return m.noticed("mouse on: clicks focus panes and pick rows"), nil
 	}
 
-	return m.noticed("mouse off: your terminal selects text again"), tea.DisableMouse
+	return m.noticed("mouse off: your terminal selects text again"), nil
 }
 
 // navigates reports a key that only moves the view, which keeps a notice rather
 // than clearing it.
-func (m Model) navigates(msg tea.KeyMsg) bool {
+func (m Model) navigates(msg tea.KeyPressMsg) bool {
 	return key.Matches(msg, m.keys.up, m.keys.down, m.keys.scrollUp, m.keys.scrollDown,
 		m.keys.next, m.keys.previous, m.keys.jump, m.keys.toggleHelp)
 }

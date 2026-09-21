@@ -34,7 +34,7 @@ func TestTheReviewPaneNamesAMergeRequestOnGitLab(t *testing.T) {
 	gitlab.forgeKind = forge.KindGitLab
 
 	// Act
-	view := typing(t, gitlab.live(t, 120, 40), "4").View()
+	view := typing(t, gitlab.live(t, 120, 40), "4").View().Content
 
 	// Assert
 	requireScreen(t, view, "no merge request yet")
@@ -45,7 +45,7 @@ func TestTheCILineShowsWhenCIWasLastChecked(t *testing.T) {
 	t.Parallel()
 
 	// Act
-	view := typing(t, newWorld().live(t, 120, 40), "4").View()
+	view := typing(t, newWorld().live(t, 120, 40), "4").View().Content
 
 	// Assert
 	requireScreen(t, view, "passed (1 of 1 finished) · checked 16:00")
@@ -59,7 +59,7 @@ func TestTheSlackPreviewOmitsPostWhenCIWithoutChecks(t *testing.T) {
 	noChecks.ci = []forge.CI{{State: forge.CINone}}
 
 	// Act
-	view := typing(t, noChecks.live(t, 120, 40), "5", "p").View()
+	view := typing(t, noChecks.live(t, 120, 40), "5", "p").View().Content
 
 	// Assert
 	requireScreen(t, view, "Post to Slack", "post now")
@@ -78,7 +78,7 @@ func TestWithoutAForgeTokenNothingIsOfferedOrPushed(t *testing.T) {
 	after := typing(t, noToken.live(t, 120, 40), "4", "n", keyEnter)
 
 	// Assert
-	refuseScreen(t, footerLine(after.View()), "open pull request")
+	refuseScreen(t, footerLine(after.View().Content), "open pull request")
 
 	if pushes := noToken.asked("push"); len(pushes) != 0 {
 		t.Errorf("pushed the branch with no forge token: %q", pushes)
@@ -109,7 +109,7 @@ func TestTheReviewPaneShowsThePullRequestAndItsCI(t *testing.T) {
 			reviewing.ci = []forge.CI{tt.ci}
 
 			// Act
-			view := typing(t, reviewing.live(t, 120, 40), "4").View()
+			view := typing(t, reviewing.live(t, 120, 40), "4").View().Content
 
 			// Assert
 			requireScreen(t, view, "#42 "+pullTitle, pullURL, "CI     "+tt.want)
@@ -125,7 +125,7 @@ func TestTheReviewPaneLooksForNothingOnTheBaseBranch(t *testing.T) {
 	onMain.branch = gitrepo.Branch{Name: baseName, Base: baseRef}
 
 	// Act
-	view := typing(t, onMain.live(t, 120, 40), "4").View()
+	view := typing(t, onMain.live(t, 120, 40), "4").View().Content
 
 	// Assert
 	requireScreen(t, view, "on no feature branch")
@@ -139,7 +139,7 @@ func TestTheReviewPaneOffersToOpenAPullRequest(t *testing.T) {
 	t.Parallel()
 
 	// Act
-	view := typing(t, withoutPull().live(t, 120, 40), "4").View()
+	view := typing(t, withoutPull().live(t, 120, 40), "4").View().Content
 
 	// Assert
 	requireScreen(t, view, "no pull request yet", "n opens one from this branch's commits")
@@ -154,7 +154,7 @@ func TestTheReviewPaneSaysWhenTheForgeDoesNotAnswer(t *testing.T) {
 	unanswered.pullErr = errUnreachable
 
 	// Act
-	view := typing(t, unanswered.live(t, 120, 40), "4").View()
+	view := typing(t, unanswered.live(t, 120, 40), "4").View().Content
 
 	// Assert
 	requireScreen(t, view, "✗ the forge did not answer", "✗ could not reach the forge")
@@ -168,7 +168,7 @@ func TestTheReviewPaneMarksADraft(t *testing.T) {
 	draft.pull.Draft = true
 
 	// Act
-	view := typing(t, draft.live(t, 120, 40), "4").View()
+	view := typing(t, draft.live(t, 120, 40), "4").View().Content
 
 	// Assert
 	requireScreen(t, view, "draft")
@@ -190,7 +190,8 @@ func TestNOpensAComposerStartedFromTheBranch(t *testing.T) {
 	composer := typing(t, model, "4", "n")
 
 	// Assert: it starts from the branch, the first template and the issue
-	requireScreen(t, composer.View(), "┏━ Open pull request", "title  > "+pullTitle, "base   > main",
+	requireScreen(t, composer.View().Content,
+		"┏━ Open pull request", "title  > "+pullTitle, "base   > main",
 		"head   "+featureName, "template PULL_REQUEST_TEMPLATE (1 of 2)", "[ ] draft", "## What this changes",
 		"Jira: [PROJ-412](https://jira.example.com/browse/PROJ-412)")
 
@@ -198,19 +199,22 @@ func TestNOpensAComposerStartedFromTheBranch(t *testing.T) {
 	changed := typing(t, composer, "ctrl+t", "ctrl+r")
 
 	// Assert: both show
-	requireScreen(t, changed.View(), "template bugfix (2 of 2)", "## Bug", "[x] draft")
+	requireScreen(t, changed.View().Content,
+		"template bugfix (2 of 2)", "## Bug", "[x] draft")
 
 	// Act: write the body in the editor
 	edited := typing(t, changed, keyCtrlO)
 
 	// Assert: the body is the editor's
-	requireScreen(t, edited.View(), "Rewritten.")
+	requireScreen(t, edited.View().Content,
+		"Rewritten.")
 
 	// Act: open it
 	opened := typing(t, edited, keyEnter)
 
 	// Assert: the forge was asked for exactly that
-	requireScreen(t, opened.View(), "● opened #42 "+pullURL)
+	requireScreen(t, opened.View().Content,
+		"● opened #42 "+pullURL)
 
 	want := "open " + pullTitle + " " + featureName + ">main draft=yes\nRewritten."
 	if calls := opening.asked("open "); len(calls) != 1 || calls[0] != want {
@@ -230,13 +234,15 @@ func TestAFailedPushKeepsThePullRequestDraft(t *testing.T) {
 	pushed := typing(t, failing.live(t, 120, 40), "4", "n", "!", keyEnter)
 
 	// Assert: the push failed, its run in front of the composer
-	requireScreen(t, pushed.View(), "┏━ git push", "✗ the push was refused")
+	requireScreen(t, pushed.View().Content,
+		"┏━ git push", "✗ the push was refused")
 
 	// Act: leave the failed run and reopen the composer
 	reopened := typing(t, pushed, keyEsc, "n")
 
 	// Assert: it reopens with the edited title still there
-	requireScreen(t, reopened.View(), "┏━ Open pull request", "title  > "+pullTitle+"!")
+	requireScreen(t, reopened.View().Content,
+		"┏━ Open pull request", "title  > "+pullTitle+"!")
 }
 
 func TestTheComposerTitleAndBaseCanBeEdited(t *testing.T) {
@@ -254,7 +260,8 @@ func TestTheComposerTitleAndBaseCanBeEdited(t *testing.T) {
 	composed := typing(t, model, keys...)
 
 	// Assert: both show changed
-	requireScreen(t, composed.View(), "title  > "+pullTitle+"!", "base   > develop", "no template in this repository")
+	requireScreen(t, composed.View().Content,
+		"title  > "+pullTitle+"!", "base   > develop", "no template in this repository")
 
 	// Act: open it
 	typing(t, composed, keyEnter)
@@ -291,7 +298,7 @@ func TestAPullRequestNeedsATitleAndABase(t *testing.T) {
 			composer := typing(t, opening.live(t, 120, 40), "4", "n")
 
 			// Act
-			view := typing(t, composer, tt.keys...).View()
+			view := typing(t, composer, tt.keys...).View().Content
 
 			// Assert
 			requireScreen(t, view, tt.want)
@@ -314,7 +321,8 @@ func TestAnUnpushedBranchIsPushedBeforeThePullRequestOpens(t *testing.T) {
 	opened := typing(t, unpushed.live(t, 120, 40), "4", "n", keyEnter)
 
 	// Assert
-	requireScreen(t, opened.View(), "● opened #42")
+	requireScreen(t, opened.View().Content,
+		"● opened #42")
 
 	calls := unpushed.asked("")
 	pushed := slices.Index(calls, "push "+featureName)
@@ -337,7 +345,8 @@ func TestAFailedPushOpensNoPullRequest(t *testing.T) {
 	failed := typing(t, failing.live(t, 120, 40), "4", "n", keyEnter)
 
 	// Assert
-	requireScreen(t, failed.View(), "┏━ git push", "✗ the push was refused")
+	requireScreen(t, failed.View().Content,
+		"┏━ git push", "✗ the push was refused")
 
 	if calls := failing.asked("open "); len(calls) != 0 {
 		t.Errorf("opened a pull request after the push failed: %q", calls)
@@ -356,10 +365,11 @@ func TestARefusedPullRequestKeepsTheComposerOpen(t *testing.T) {
 	refused := typing(t, model, "4", "n", keyEnter)
 
 	// Assert: the composer stays open with the forge's reason
-	requireScreen(t, refused.View(), "┏━ Open pull request", "✗ the forge rejected the request")
+	requireScreen(t, refused.View().Content,
+		"┏━ Open pull request", "✗ the forge rejected the request")
 
 	// Act: close it
-	closed := typing(t, refused, keyEsc).View()
+	closed := typing(t, refused, keyEsc).View().Content
 
 	// Assert: the keyboard is back on the Review pane
 	refuseScreen(t, closed, "┏━ Open pull request")
@@ -375,7 +385,7 @@ func TestADryRunOpensNothing(t *testing.T) {
 	model = drain(t, model, model.Init())
 
 	// Act
-	view := typing(t, model, "4", "n", keyEnter).View()
+	view := typing(t, model, "4", "n", keyEnter).View().Content
 
 	// Assert
 	requireScreen(t, view, "dry run: would open \""+pullTitle+"\" from "+featureName+" into main")
@@ -394,7 +404,7 @@ func TestCIIsAskedAgainWhileItRuns(t *testing.T) {
 	polling.ci = []forge.CI{{State: forge.CIRunning}, {State: forge.CIRunning}, {State: forge.CIPassed}}
 
 	// Act
-	view := typing(t, polling.live(t, 120, 40), "4").View()
+	view := typing(t, polling.live(t, 120, 40), "4").View().Content
 
 	// Assert
 	requireScreen(t, view, "CI     ● passed")

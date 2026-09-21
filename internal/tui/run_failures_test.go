@@ -22,8 +22,8 @@ func TestARunOffersOnlyPlacesThatResolveToAFile(t *testing.T) {
 	failed := typing(t, failing.live(t, 120, 40), commitKeys("x")...)
 
 	// Assert
-	requireScreen(t, failed.View(), "a.go:1 first")
-	refuseScreen(t, failed.View(), "b.go")
+	requireScreen(t, failed.View().Content, "a.go:1 first")
+	refuseScreen(t, failed.View().Content, "b.go")
 }
 
 func TestARunWithNoResolveSeamOffersEveryPlace(t *testing.T) {
@@ -40,5 +40,5 @@ func TestARunWithNoResolveSeamOffersEveryPlace(t *testing.T) {
 	failed := typing(t, drain(t, model, model.Init()), commitKeys("x")...)
 
 	// Assert
-	requireScreen(t, failed.View(), "a.go:1 first", "b.go:2 second")
+	requireScreen(t, failed.View().Content, "a.go:1 first", "b.go:2 second")
 }

@@ -18,7 +18,7 @@ func TestStoppingARunningCommandEndsItAndSaysSo(t *testing.T) {
 	running := typing(t, model, "3", "h")
 
 	// Assert: the run is shown as still going.
-	requireScreen(t, running.View(), "running")
+	requireScreen(t, running.View().Content, "running")
 
 	// Act: stop it.
 	stopped := typing(t, running, "s")
@@ -28,5 +28,5 @@ func TestStoppingARunningCommandEndsItAndSaysSo(t *testing.T) {
 		t.Error("the stop key did not stop the run")
 	}
 
-	requireScreen(t, stopped.View(), "stopped")
+	requireScreen(t, stopped.View().Content, "stopped")
 }

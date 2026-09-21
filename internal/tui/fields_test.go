@@ -35,19 +35,22 @@ func TestATransitionNeedingFieldsAsksForEachInTurn(t *testing.T) {
 	listed := typing(t, model, "t")
 
 	// Assert: the transition says what it needs
-	requireScreen(t, listed.View(), "Resolve Issue → Done · needs Resolution, Root cause")
+	requireScreen(t, listed.View().Content,
+		"Resolve Issue → Done · needs Resolution, Root cause")
 
 	// Act: choose it
 	resolution := typing(t, listed, keyEnter)
 
 	// Assert: the first field offers its values
-	requireScreen(t, resolution.View(), "Resolve Issue → Done needs:", "Resolution (1 of 2)", "▸ Fixed", "Won't Fix")
+	requireScreen(t, resolution.View().Content,
+		"Resolve Issue → Done needs:", "Resolution (1 of 2)", "▸ Fixed", "Won't Fix")
 
 	// Act: pick the second value
 	cause := typing(t, resolution, "j", keyEnter)
 
 	// Assert: the text field is next, and nothing is sent until it is filled
-	requireScreen(t, cause.View(), "Root cause (2 of 2)", "> ")
+	requireScreen(t, cause.View().Content,
+		"Root cause (2 of 2)", "> ")
 
 	if calls := resolving.asked("transition PROJ"); len(calls) != 0 {
 		t.Fatalf("sent before every field was filled: %q", calls)
@@ -57,7 +60,8 @@ func TestATransitionNeedingFieldsAsksForEachInTurn(t *testing.T) {
 	done := typing(t, cause, append(letters("nil token"), keyEnter)...)
 
 	// Assert: the move is sent once, with both values
-	requireScreen(t, done.View(), "● PROJ-412 is now Done")
+	requireScreen(t, done.View().Content,
+		"● PROJ-412 is now Done")
 
 	want := "transition PROJ-412 5 resolution=2 customfield_10200=nil token"
 	if calls := resolving.asked("transition PROJ"); len(calls) != 1 || calls[0] != want {
@@ -77,7 +81,8 @@ func TestATextFieldLeftEmptyIsNotSent(t *testing.T) {
 	empty := typing(t, model, "t", keyEnter, keyEnter, " ", keyEnter)
 
 	// Assert: it says a value is needed, and sends nothing
-	requireScreen(t, empty.View(), "✗ Root cause needs a value", "Root cause (2 of 2)")
+	requireScreen(t, empty.View().Content,
+		"✗ Root cause needs a value", "Root cause (2 of 2)")
 
 	if calls := resolving.asked("transition PROJ"); len(calls) != 0 {
 		t.Errorf("sent with an empty field: %q", calls)
@@ -87,7 +92,7 @@ func TestATextFieldLeftEmptyIsNotSent(t *testing.T) {
 	typed := typing(t, empty, "x")
 
 	// Assert: the problem clears
-	refuseScreen(t, typed.View(), "needs a value")
+	refuseScreen(t, typed.View().Content, "needs a value")
 }
 
 func TestWhereTheFieldsLeaveThePicker(t *testing.T) {
@@ -128,7 +133,7 @@ func TestWhereTheFieldsLeaveThePicker(t *testing.T) {
 			resolving.moves, resolving.transitionErr = tt.moves, tt.transitionErr
 
 			// Act
-			view := typing(t, resolving.live(t, 120, 40), tt.keys...).View()
+			view := typing(t, resolving.live(t, 120, 40), tt.keys...).View().Content
 
 			// Assert
 			requireScreen(t, view, tt.want...)
@@ -149,14 +154,14 @@ func TestTheFieldFootersOfferWhatWorks(t *testing.T) {
 	options := typing(t, model, "t", keyEnter)
 
 	// Assert: the list keys are offered
-	requireScreen(t, footerLine(options.View()), "↑/k up", "enter next", "esc back")
+	requireScreen(t, footerLine(options.View().Content), "↑/k up", "enter next", "esc back")
 
 	// Act: go on to the text field
 	text := typing(t, options, keyEnter)
 
 	// Assert: only what works in text is offered
-	requireScreen(t, footerLine(text.View()), "enter apply", "esc back")
-	refuseScreen(t, footerLine(text.View()), "↑/k")
+	requireScreen(t, footerLine(text.View().Content), "enter apply", "esc back")
+	refuseScreen(t, footerLine(text.View().Content), "↑/k")
 }
 
 func TestADryRunTransitionSaysWhatItWouldDo(t *testing.T) {
@@ -173,7 +178,8 @@ func TestADryRunTransitionSaysWhatItWouldDo(t *testing.T) {
 	moved := typing(t, model, "t", "j", keyEnter)
 
 	// Assert
-	requireScreen(t, moved.View(), "dry run: would change PROJ-412 to Done")
+	requireScreen(t, moved.View().Content,
+		"dry run: would change PROJ-412 to Done")
 
 	if calls := dry.asked("transition "); len(calls) != 0 {
 		t.Errorf("a dry run transitioned: %q", calls)
@@ -191,5 +197,5 @@ func TestTheFieldFormLabelsEscAndEnterForWhatTheyDo(t *testing.T) {
 	field := typing(t, resolving.live(t, 120, 40), "t", keyEnter)
 
 	// Assert
-	requireScreen(t, footerLine(field.View()), "enter next", "esc back")
+	requireScreen(t, footerLine(field.View().Content), "enter next", "esc back")
 }
