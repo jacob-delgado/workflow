@@ -20,8 +20,12 @@ import (
 // review has a handful; one with hundreds is a merge nobody reads in a pane.
 const commitLimit = 200
 
-// gitProgram is the program every command here runs.
-const gitProgram = "git"
+// gitProgram is the program every command here runs, commitVerb the subcommand
+// its commit builders share.
+const (
+	gitProgram = "git"
+	commitVerb = "commit"
+)
 
 // DefaultRemote is the remote this package fetches from and reads base branches
 // against, written once here rather than spelled out at each use. A push can go
@@ -70,6 +74,9 @@ type Branch struct {
 	BaseUpdated time.Time
 	// Commits are those on this branch and not on Base, oldest first.
 	Commits []Commit
+	// Truncated is set when the branch has more commits than are kept, so a
+	// reader knows Commits is the oldest of a longer history, not the whole of it.
+	Truncated bool
 }
 
 // Pushed reports whether origin holds this branch, under its own name, with
@@ -78,6 +85,26 @@ type Branch struct {
 // remote at all.
 func (b Branch) Pushed() bool {
 	return b.Name != "" && b.Upstream == remoteBranch(b.Name) && b.Ahead == 0
+}
+
+// Unpushed are the commits on this branch that have not reached the upstream,
+// oldest first, so amending or fixing one up rewrites only local history. With
+// no upstream every commit is unpushed; otherwise it is the last Ahead of them.
+//
+// A branch long enough to be truncated returns none: Commits then keeps the
+// oldest, while Ahead is counted against the full range, so the last Ahead of
+// the retained commits are the wrong ones — some already pushed. Rather than
+// risk offering pushed history to rewrite, a truncated branch offers nothing.
+func (b Branch) Unpushed() []Commit {
+	if b.Truncated {
+		return nil
+	}
+
+	if b.Upstream == "" {
+		return b.Commits
+	}
+
+	return b.Commits[max(0, len(b.Commits)-b.Ahead):]
 }
 
 // BaseName is the base branch without its remote prefix — "main" for
@@ -130,7 +157,9 @@ func (r Repository) ReadBranch(ctx context.Context) (Branch, error) {
 		// the pull request titles itself with. Reverse the whole range, then cap
 		// the oldest-first result here.
 		commits := parseLog(git("log", "-z", "--reverse", logFormat, branch.Base+"..HEAD"))
-		if len(commits) > commitLimit {
+
+		branch.Truncated = len(commits) > commitLimit
+		if branch.Truncated {
 			commits = commits[:commitLimit]
 		}
 
@@ -409,7 +438,19 @@ func PushCommand(dir, remote, branch string) proc.Command {
 // CommitCommand commits the index with the message in a file. It is a plain
 // git commit, so the repository's hooks run exactly as they do in a terminal.
 func CommitCommand(dir, messageFile string) proc.Command {
-	return proc.Command{Dir: dir, Name: gitProgram, Args: []string{"commit", "--file", messageFile}, Env: nil}
+	return proc.Command{Dir: dir, Name: gitProgram, Args: []string{commitVerb, "--file", messageFile}, Env: nil}
+}
+
+// AmendCommand folds the index into the last commit, keeping its message. Env is
+// nil, like CommitCommand, so the repository's hooks run.
+func AmendCommand(dir string) proc.Command {
+	return proc.Command{Dir: dir, Name: gitProgram, Args: []string{commitVerb, "--amend", "--no-edit"}, Env: nil}
+}
+
+// FixupCommand records a fixup! commit of hash — a commit git squashes into that
+// one on the next autosquash rebase. Env is nil so the repository's hooks run.
+func FixupCommand(dir, hash string) proc.Command {
+	return proc.Command{Dir: dir, Name: gitProgram, Args: []string{commitVerb, "--fixup=" + hash}, Env: nil}
 }
 
 // RebaseCommand replays the branch onto base, the branch's fetched merge target.

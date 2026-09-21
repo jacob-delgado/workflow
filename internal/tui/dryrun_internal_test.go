@@ -46,6 +46,8 @@ func TestDryRunHoldsBackEveryWrite(t *testing.T) {
 			CreateWorktree: func(string, string) (string, error) { return "", note("CreateWorktree") },
 			Commit:         func(string) (proc.Output, error) { return proc.Output{}, note("Commit") },
 			Push:           func(string) (proc.Output, error) { return proc.Output{}, note("Push") },
+			Amend:          func() (proc.Output, error) { return proc.Output{}, note("Amend") },
+			Fixup:          func(string) (proc.Output, error) { return proc.Output{}, note("Fixup") },
 			Rebase:         func(string) (proc.Output, error) { return proc.Output{}, note("Rebase") },
 		},
 		Forge: ForgeDeps{
@@ -75,6 +77,8 @@ func TestDryRunHoldsBackEveryWrite(t *testing.T) {
 	_, _ = held.Git.CreateWorktree("b", "s")
 	_, _ = held.Git.Commit("m")
 	_, _ = held.Git.Push("b")
+	_, _ = held.Git.Amend()
+	_, _ = held.Git.Fixup("h")
 	_, _ = held.Git.Rebase("base")
 	_, _ = held.Forge.CreatePullRequest(forge.NewPullRequest{})
 	_ = held.Slack.Post("c", "t")
@@ -95,7 +99,8 @@ func TestHeldBackLeavesAnUnavailableSeamNil(t *testing.T) {
 	held := heldBack(Deps{})
 
 	// Assert
-	if held.Slack.Post != nil || held.Git.Push != nil || held.Jira.Comment != nil ||
+	if held.Slack.Post != nil || held.Git.Push != nil || held.Git.Amend != nil ||
+		held.Git.Fixup != nil || held.Jira.Comment != nil ||
 		held.Jira.Assign != nil || held.Jira.AddWorklog != nil ||
 		held.Forge.CreatePullRequest != nil || held.Hooks.Write != nil {
 		t.Error("heldBack made an unavailable write seam callable")

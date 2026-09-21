@@ -4,11 +4,13 @@
 package tui
 
 import (
+	"slices"
 	"strings"
 
 	"charm.land/bubbles/v2/key"
 	tea "charm.land/bubbletea/v2"
 
+	"github.com/jacob-delgado/workflow/internal/gitrepo"
 	"github.com/jacob-delgado/workflow/internal/jira"
 )
 
@@ -327,4 +329,83 @@ func needs(marks glyphs, move jira.Transition) string {
 	}
 
 	return marks.separator + "needs " + strings.Join(names, ", ")
+}
+
+// fixupTitle titles the pane while the fixup picker is open.
+const fixupTitle = "Fix up a commit"
+
+// fixupPicker chooses which unpushed commit to record a fixup! of.
+type fixupPicker struct {
+	marks    glyphs
+	styles   styles
+	commits  []gitrepo.Commit
+	selected int
+}
+
+var _ overlay = fixupPicker{}
+
+// openFixupPicker offers the branch's unpushed commits, the most recent first so
+// the likeliest target is the default selection.
+func (m Model) openFixupPicker() (Model, tea.Cmd) {
+	if m.deps.Git.Fixup == nil || !m.canFoldStaged() {
+		return m, nil
+	}
+
+	newestFirst := slices.Clone(m.branch.branch.Unpushed())
+	slices.Reverse(newestFirst)
+	m.overlay = fixupPicker{marks: m.marks, styles: m.styles, commits: newestFirst}
+
+	return m, nil
+}
+
+// header is the rows above the fixup picker's list: a prompt and a blank.
+func (p fixupPicker) header() []string {
+	return []string{"Fold the staged changes into which commit?", ""}
+}
+
+// view draws the commits to choose from, in as many rows as fit.
+func (p fixupPicker) view(_, rows int) (string, string) {
+	lines := p.header()
+	lines = append(lines, p.rows(rows-len(lines))...)
+
+	return fixupTitle, strings.Join(lines, "\n")
+}
+
+// rows draws as many commits as fit, scrolled so the selection stays on screen.
+func (p fixupPicker) rows(space int) []string {
+	first, last := window(p.selected, len(p.commits), space)
+	lines := make([]string, 0, last-first)
+
+	for index := first; index < last; index++ {
+		commit := p.commits[index]
+		lines = append(lines, p.marks.marker(index == p.selected)+
+			p.styles.label.Render(commit.Hash)+" "+commit.Subject)
+	}
+
+	return lines
+}
+
+// footer offers moving, choosing and leaving.
+func (p fixupPicker) footer(keys keyMap) []key.Binding {
+	return keys.listKeys()
+}
+
+// handleKey moves the selection, chooses a commit to fix up, or leaves.
+func (p fixupPicker) handleKey(m Model, msg tea.KeyPressMsg) (Model, tea.Cmd) {
+	switch {
+	case key.Matches(msg, m.keys.closeOverlay):
+		return m.closeOverlay(), nil
+	case key.Matches(msg, m.keys.down):
+		p.selected = min(p.selected+1, len(p.commits)-1)
+	case key.Matches(msg, m.keys.up):
+		p.selected = max(0, p.selected-1)
+	case key.Matches(msg, m.keys.confirm):
+		chosen := p.commits[p.selected]
+
+		return m.applyFixup(chosen.Hash, chosen.Subject)
+	}
+
+	m.overlay = p
+
+	return m, nil
 }

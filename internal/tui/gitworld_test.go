@@ -83,6 +83,16 @@ func (w *world) gitDeps() tui.GitDeps {
 
 			return output(w.pushLines, w.pushErr), nil
 		},
+		Amend: func() (proc.Output, error) {
+			w.record("amend")
+
+			return output(w.amendLines, w.amendErr), nil
+		},
+		Fixup: func(hash string) (proc.Output, error) {
+			w.record("fixup " + hash)
+
+			return output(w.fixupLines, w.fixupErr), nil
+		},
 		Rebase: func(base string) (proc.Output, error) {
 			w.record("rebase " + base)
 
@@ -98,6 +108,14 @@ func (w *world) gitDeps() tui.GitDeps {
 
 	if w.noRecentSubjects {
 		deps.RecentSubjects = nil
+	}
+
+	if w.noAmend {
+		deps.Amend = nil
+	}
+
+	if w.noFixup {
+		deps.Fixup = nil
 	}
 
 	return deps

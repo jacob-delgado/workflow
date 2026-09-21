@@ -101,6 +101,12 @@ type world struct {
 	commitErr         error
 	pushLines         []string
 	pushErr           error
+	amendLines        []string
+	amendErr          error
+	noAmend           bool
+	fixupLines        []string
+	fixupErr          error
+	noFixup           bool
 	rebaseLines       []string
 	rebaseErr         error
 

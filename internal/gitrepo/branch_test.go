@@ -134,6 +134,10 @@ func TestReadBranchKeepsItsFirstCommitPastTheLimit(t *testing.T) {
 	if len(branch.Commits) == 0 || branch.Commits[0] != first {
 		t.Errorf("first commit = %+v, want the branch's first %+v", branch.Commits, first)
 	}
+
+	if !branch.Truncated {
+		t.Error("Truncated = false, want true for a branch past the cap")
+	}
 }
 
 // manyCommits renders count commits as git's -z log, oldest first, starting with

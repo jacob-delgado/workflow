@@ -219,10 +219,12 @@ func (r commandRun) state() string {
 // its cause — a message that could not be written, say — is shown as it is.
 func (r commandRun) failureHeadline() string {
 	sentences := map[string]string{
-		"git commit": "the commit was refused",
-		"pre-commit": "the pre-commit hook failed",
-		"git push":   "the push was refused",
-		"git rebase": "the rebase stopped — resolve the conflict in your shell, then continue",
+		"git commit":         "the commit was refused",
+		"git commit --amend": "the amend was refused",
+		"git commit --fixup": "the fixup was refused",
+		"pre-commit":         "the pre-commit hook failed",
+		"git push":           "the push was refused",
+		"git rebase":         "the rebase stopped — resolve the conflict in your shell, then continue",
 	}
 
 	sentence, known := sentences[r.title]

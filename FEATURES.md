@@ -247,8 +247,11 @@ Impact: medium · Effort: medium
   `internal/tui/composer.go`.
 - Constraints: only for commits that are not pushed, or say plainly that the
   next push must be forced, and never force by default.
-- Done when: the staged changes can be folded into the last commit, or
-  recorded as a `fixup!` of a chosen one.
+- Done: the Commits pane offers `A` to amend the last commit and `f` to record
+  a `fixup!` of a chosen one — both previewed, both running the hooks, both
+  dry-runnable. Offered only while there is an unpushed commit to fold into
+  (`gitrepo.Branch.Unpushed`), so history that is already on the remote is never
+  rewritten and nothing is force-pushed.
 
 ### FEAT-23 Unstage everything, and discard a change
 

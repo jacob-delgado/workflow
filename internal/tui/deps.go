@@ -96,6 +96,11 @@ type GitDeps struct {
 	// Commit and Push stream their output, because hooks run inside both.
 	Commit func(message string) (proc.Output, error)
 	Push   func(branch string) (proc.Output, error)
+	// Amend folds the staged changes into the last commit, keeping its message;
+	// Fixup records a fixup! of an earlier commit. Both stream their output,
+	// because hooks run inside them. Nil when there is no repository.
+	Amend func() (proc.Output, error)
+	Fixup func(hash string) (proc.Output, error)
 	// Rebase replays the branch onto base and streams its output. A conflict
 	// leaves the repository mid-rebase for the shell. Nil when there is no
 	// repository.

@@ -193,6 +193,8 @@ func (m Model) commitsKeys() []key.Binding {
 		keys = append(keys, m.keys.commit)
 	}
 
+	keys = append(keys, m.foldKeys()...)
+
 	if m.deps.Hooks.Run != nil {
 		keys = append(keys, m.keys.runHooks)
 	}
@@ -213,8 +215,8 @@ func (m Model) handleCommitsKey(msg tea.KeyPressMsg) (Model, tea.Cmd) {
 		return m.toggleStaged()
 	case key.Matches(msg, m.keys.stageAll):
 		return m.stageAll()
-	case key.Matches(msg, m.keys.commit):
-		return m.openCommitComposer()
+	case key.Matches(msg, m.keys.commit, m.keys.amend, m.keys.fixup):
+		return m.handleCommitAction(msg)
 	case key.Matches(msg, m.keys.runHooks) && m.deps.Hooks.Run != nil:
 		return m.runPreCommit()
 	case key.Matches(msg, m.keys.hookConfig) && len(m.hookgen.hooks) > 0:
@@ -333,4 +335,116 @@ func (m Model) runPreCommit() (Model, tea.Cmd) {
 	run := m.deps.Hooks.Run
 
 	return m.startRun(preCommit, func() (proc.Output, error) { return run(preCommit) }, nil)
+}
+
+// canFoldStaged reports whether the staged changes can go into an unpushed
+// commit — amended into the last, or fixed up into a chosen one — which is safe
+// only while those commits are local.
+func (m Model) canFoldStaged() bool {
+	return m.changes.staged() > 0 && len(m.branch.branch.Unpushed()) > 0
+}
+
+// foldKeys offers amending and fixing up, when there are staged changes and an
+// unpushed commit to fold them into.
+func (m Model) foldKeys() []key.Binding {
+	if !m.canFoldStaged() {
+		return nil
+	}
+
+	var keys []key.Binding
+
+	if m.deps.Git.Amend != nil {
+		keys = append(keys, m.keys.amend)
+	}
+
+	if m.deps.Git.Fixup != nil {
+		keys = append(keys, m.keys.fixup)
+	}
+
+	return keys
+}
+
+// handleCommitAction routes the keys that turn staged changes into a commit: a
+// new one, an amend of the last, or a fixup of a chosen one.
+func (m Model) handleCommitAction(msg tea.KeyPressMsg) (Model, tea.Cmd) {
+	switch {
+	case key.Matches(msg, m.keys.commit):
+		return m.openCommitComposer()
+	case key.Matches(msg, m.keys.amend):
+		return m.startAmend()
+	default:
+		return m.openFixupPicker()
+	}
+}
+
+// startAmend previews folding the staged changes into the last commit.
+func (m Model) startAmend() (Model, tea.Cmd) {
+	if m.deps.Git.Amend == nil || !m.canFoldStaged() {
+		return m, nil
+	}
+
+	unpushed := m.branch.branch.Unpushed()
+	m.overlay = amendPreview{subject: unpushed[len(unpushed)-1].Subject}
+
+	return m, nil
+}
+
+// applyAmend folds the staged changes into the last commit, hooks and all.
+func (m Model) applyAmend(subject string) (Model, tea.Cmd) {
+	if m.dryRun {
+		return m.closeOverlay().noticed("dry run: would amend " + subject), nil
+	}
+
+	amend := m.deps.Git.Amend
+
+	return m.startRun("git commit --amend", amend, func(done Model) (Model, tea.Cmd) {
+		done = done.closeOverlay().noticed(done.marks.done + " amended " + subject)
+
+		return done, tea.Batch(done.loadChanges(), done.loadBranch())
+	})
+}
+
+// applyFixup records a fixup! of the chosen commit, hooks and all.
+func (m Model) applyFixup(hash, subject string) (Model, tea.Cmd) {
+	if m.dryRun {
+		return m.closeOverlay().noticed("dry run: would fix up " + subject), nil
+	}
+
+	fixup := m.deps.Git.Fixup
+
+	return m.startRun("git commit --fixup", func() (proc.Output, error) { return fixup(hash) },
+		func(done Model) (Model, tea.Cmd) {
+			done = done.closeOverlay().noticed(done.marks.done + " recorded a fixup! of " + subject)
+
+			return done, tea.Batch(done.loadChanges(), done.loadBranch())
+		})
+}
+
+// amendPreview confirms folding the staged changes into the last commit.
+type amendPreview struct {
+	subject string
+}
+
+var _ overlay = amendPreview{}
+
+// view describes the amend as it will happen.
+func (p amendPreview) view(width, _ int) (string, string) {
+	return "Amend the last commit", wrap("fold the staged changes into "+p.subject, width)
+}
+
+// footer offers amending or leaving.
+func (p amendPreview) footer(keys keyMap) []key.Binding {
+	return []key.Binding{relabel(keys.confirm, "amend"), keys.closeOverlay}
+}
+
+// handleKey confirms or discards the amend.
+func (p amendPreview) handleKey(m Model, msg tea.KeyPressMsg) (Model, tea.Cmd) {
+	switch {
+	case key.Matches(msg, m.keys.closeOverlay):
+		return m.closeOverlay(), nil
+	case key.Matches(msg, m.keys.confirm):
+		return m.applyAmend(p.subject)
+	}
+
+	return m, nil
 }
