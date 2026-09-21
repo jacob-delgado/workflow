@@ -124,6 +124,24 @@ func TestFailuresFindWhereEachToolPoints(t *testing.T) {
 				{File: "docs/usage.md", Line: 4, Column: 10, Message: ""},
 			},
 		},
+		"the parenthesized place — MSVC and the TypeScript compiler": {
+			lines: []string{
+				// tsc, which the web build runs: file(line,col): message.
+				"web/src/main.ts(12,7): error TS2304: Cannot find name 'foo'.",
+				// MSVC-style, a line with no column.
+				"src/app.c(88): warning C4267: conversion",
+			},
+			want: []hooks.Location{
+				{File: "web/src/main.ts", Line: 12, Column: 7, Message: "error TS2304: Cannot find name 'foo'."},
+				{File: "src/app.c", Line: 88, Column: 0, Message: "warning C4267: conversion"},
+			},
+		},
+		"a known basename in the parenthesized form": {
+			lines: []string{"build/Dockerfile(12): DL3008 pin the version"},
+			want: []hooks.Location{
+				{File: "build/Dockerfile", Line: 12, Column: 0, Message: "DL3008 pin the version"},
+			},
+		},
 		"what only looks like a place": {
 			lines: []string{
 				"summary: (done in 0.06 seconds)",
@@ -132,6 +150,11 @@ func TestFailuresFindWhereEachToolPoints(t *testing.T) {
 				"exit status 1",
 				"fine",
 				"no extension:12:3: nope",
+				// A function call is not a place: the name has no extension. The bare
+				// form (no leading prose, no space) is the one that tests the guard
+				// rather than the line anchor.
+				"the result of compute(3, 5) is 8",
+				"compute(3,5)",
 			},
 			want: nil,
 		},
@@ -150,10 +173,13 @@ func TestFailuresFindWhereEachToolPoints(t *testing.T) {
 				// hadolint points at a Dockerfile, which has no extension.
 				"build/Dockerfile:12 DL3008 warning: Pin versions in apt get install",
 				"Makefile:3: missing separator",
+				// just points at a Justfile, another extensionless name.
+				"Justfile:5: unknown recipe",
 			},
 			want: []hooks.Location{
 				{File: "build/Dockerfile", Line: 12, Column: 0, Message: "DL3008 warning: Pin versions in apt get install"},
 				{File: "Makefile", Line: 3, Column: 0, Message: "missing separator"},
+				{File: "Justfile", Line: 5, Column: 0, Message: "unknown recipe"},
 			},
 		},
 	}
