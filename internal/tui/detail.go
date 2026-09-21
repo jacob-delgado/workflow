@@ -319,7 +319,9 @@ func (m Model) fullDetail(issueKey jira.Key, width int) []string {
 	}
 
 	detail := m.detail.detail
-	lines := []string{m.styles.label.Render("reported by " + detail.Reporter), ""}
+	lines := []string{m.styles.label.Render("reported by " + detail.Reporter)}
+	lines = append(lines, m.issuePeopleAndTags(detail)...)
+	lines = append(lines, "")
 
 	if strings.TrimSpace(detail.Description) == "" {
 		lines = append(lines, m.styles.label.Render("no description"))
@@ -327,7 +329,62 @@ func (m Model) fullDetail(issueKey jira.Key, width int) []string {
 		lines = append(lines, wrap(detail.Description, width))
 	}
 
+	lines = append(lines, m.issueRelations(detail)...)
+
 	return append(lines, m.comments(detail)...)
+}
+
+// issuePeopleAndTags is the assignee and the issue's tags — labels, components,
+// fix versions, and its parent — each line drawn only when the issue has it.
+func (m Model) issuePeopleAndTags(detail jira.IssueDetail) []string {
+	var lines []string
+
+	if detail.Assignee != "" {
+		lines = append(lines, m.styles.label.Render("assigned to "+detail.Assignee))
+	}
+
+	lines = m.tagLine(lines, "labels", detail.Labels)
+	lines = m.tagLine(lines, "components", detail.Components)
+	lines = m.tagLine(lines, "fix versions", detail.FixVersions)
+
+	if detail.Parent.Key != "" {
+		lines = append(lines, m.styles.label.Render("parent "+detail.Parent.Key+" "+detail.Parent.Summary))
+	}
+
+	return lines
+}
+
+// tagLine adds a labeled, comma-joined line for a list of tags, or nothing when
+// the list is empty.
+func (m Model) tagLine(lines []string, name string, values []string) []string {
+	if len(values) == 0 {
+		return lines
+	}
+
+	return append(lines, m.styles.label.Render(name+" "+strings.Join(values, ", ")))
+}
+
+// issueRelations is the issue's subtasks and its links to other issues, each
+// block drawn only when there is one.
+func (m Model) issueRelations(detail jira.IssueDetail) []string {
+	var lines []string
+
+	if len(detail.Subtasks) > 0 {
+		lines = append(lines, "", m.styles.strong.Render("Subtasks"))
+		for _, sub := range detail.Subtasks {
+			lines = append(lines, m.styles.label.Render("  "+sub.Key+" "+sub.Summary+m.marks.separator+sub.Status))
+		}
+	}
+
+	if len(detail.IssueLinks) > 0 {
+		lines = append(lines, "", m.styles.strong.Render("Links"))
+		for _, link := range detail.IssueLinks {
+			lines = append(lines, m.styles.label.Render("  "+link.Relation+" "+link.Issue.Key+" "+
+				link.Issue.Summary+m.marks.separator+link.Issue.Status))
+		}
+	}
+
+	return lines
 }
 
 // comments draws the most recent comments, oldest of them first.

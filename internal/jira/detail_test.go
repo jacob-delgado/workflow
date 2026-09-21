@@ -8,6 +8,7 @@ import (
 	"errors"
 	"net/http"
 	"net/url"
+	"reflect"
 	"strings"
 	"sync/atomic"
 	"testing"
@@ -104,6 +105,99 @@ func TestIssueReadsItsComments(t *testing.T) {
 	// A date Jira wrote some other way is shown without one, not refused.
 	if !detail.Comments[1].Created.IsZero() {
 		t.Errorf("an unreadable date parsed as %v, want the zero time", detail.Comments[1].Created)
+	}
+}
+
+// fullDetailBody is an issue carrying every field the detail now reads: an
+// assignee, labels, components, fix versions, a parent, a subtask, and two
+// issue links (one on each side of the relationship) plus a third that names
+// neither side, which is dropped rather than shown as a link to nothing.
+const fullDetailBody = `{"key":"OPS-1","fields":{"summary":"Fix login",` +
+	`"status":{"name":"In Progress","statusCategory":{"key":"indeterminate"}},` +
+	`"issuetype":{"name":"Bug"},"priority":{"name":"High"},"description":"d",` +
+	`"reporter":{"displayName":"Ana Lopez"},"assignee":{"displayName":"Fred Ops"},` +
+	`"labels":["backend","urgent"],"components":[{"name":"auth"},{"name":"api"}],` +
+	`"fixVersions":[{"name":"1.2.0"}],` +
+	`"parent":{"key":"OPS-0","fields":{"summary":"Epic login","status":{"name":"Open"}}},` +
+	`"subtasks":[{"key":"OPS-2","fields":{"summary":"Write test","status":{"name":"To Do"}}}],` +
+	`"issuelinks":[` +
+	`{"type":{"inward":"is blocked by","outward":"blocks"},` +
+	`"outwardIssue":{"key":"OPS-3","fields":{"summary":"Deploy","status":{"name":"Closed"}}}},` +
+	`{"type":{"inward":"is blocked by","outward":"blocks"},` +
+	`"inwardIssue":{"key":"OPS-4","fields":{"summary":"Related","status":{"name":"Open"}}}},` +
+	`{"type":{"inward":"duplicates","outward":"is duplicated by"}}],` +
+	`"comment":{"total":0,"comments":[]}}}`
+
+func TestIssueReadsTheWholeIssue(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	client := serve(t, answer(fullDetailBody, "fred"))
+
+	// Act
+	detail, err := client.Issue(t.Context(), "OPS-1")
+	if err != nil {
+		t.Fatalf("Issue returned %v, want nil", err)
+	}
+
+	// Assert
+	if detail.Assignee != "Fred Ops" {
+		t.Errorf("Assignee = %q, want Fred Ops", detail.Assignee)
+	}
+
+	if strings.Join(detail.Labels, ",") != "backend,urgent" ||
+		strings.Join(detail.Components, ",") != "auth,api" ||
+		strings.Join(detail.FixVersions, ",") != "1.2.0" {
+		t.Errorf("labels/components/fixVersions = %v / %v / %v", detail.Labels, detail.Components, detail.FixVersions)
+	}
+
+	if detail.Parent != (jira.LinkedIssue{Key: "OPS-0", Summary: "Epic login", Status: "Open"}) {
+		t.Errorf("Parent = %+v", detail.Parent)
+	}
+
+	wantSubtask := jira.LinkedIssue{Key: "OPS-2", Summary: "Write test", Status: "To Do"}
+	if len(detail.Subtasks) != 1 || detail.Subtasks[0] != wantSubtask {
+		t.Errorf("Subtasks = %+v", detail.Subtasks)
+	}
+
+	// The two links use the same type from opposite sides, so the inward wording
+	// ("is blocked by") and the outward wording ("blocks") must not be confused.
+	wantLinks := []jira.IssueLink{
+		{Relation: "blocks", Issue: jira.LinkedIssue{Key: "OPS-3", Summary: "Deploy", Status: "Closed"}},
+		{Relation: "is blocked by", Issue: jira.LinkedIssue{Key: "OPS-4", Summary: "Related", Status: "Open"}},
+	}
+	if !reflect.DeepEqual(detail.IssueLinks, wantLinks) {
+		t.Errorf("IssueLinks = %+v, want %+v", detail.IssueLinks, wantLinks)
+	}
+}
+
+func TestIssueLeavesAbsentFieldsEmpty(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	// The common shape: a null assignee and no labels, components, versions,
+	// parent, subtasks or links.
+	body := `{"key":"OPS-1","fields":{"summary":"s",` +
+		`"status":{"name":"Open","statusCategory":{"key":"new"}},` +
+		`"issuetype":{"name":"Task"},"priority":null,"description":"d",` +
+		`"reporter":{"displayName":"Ana"},"assignee":null,` +
+		`"comment":{"total":0,"comments":[]}}}`
+	client := serve(t, answer(body, "fred"))
+
+	// Act
+	detail, err := client.Issue(t.Context(), "OPS-1")
+	if err != nil {
+		t.Fatalf("Issue returned %v, want nil", err)
+	}
+
+	// Assert
+	if detail.Assignee != "" || len(detail.Labels) != 0 || len(detail.Components) != 0 ||
+		len(detail.FixVersions) != 0 || len(detail.Subtasks) != 0 || len(detail.IssueLinks) != 0 {
+		t.Errorf("absent fields = %+v, want all empty", detail)
+	}
+
+	if detail.Parent != (jira.LinkedIssue{}) {
+		t.Errorf("Parent = %+v, want the zero LinkedIssue", detail.Parent)
 	}
 }
 

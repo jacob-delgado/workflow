@@ -90,8 +90,11 @@ func TestTheDetailSaysWhatIsMissing(t *testing.T) {
 	view := quiet.live(t, 120, 40).View().Content
 
 	// Assert
+	// A spare issue draws none of the optional fields — no empty "assigned to"
+	// or "labels" line, no Subtasks or Links heading.
 	requireScreen(t, view, "no description")
-	refuseScreen(t, view, "Comments")
+	refuseScreen(t, view, "Comments", "assigned to", "labels", "components", "fix versions",
+		"parent", "Subtasks", "Links")
 }
 
 func TestADetailThatCannotBeReadSaysWhy(t *testing.T) {

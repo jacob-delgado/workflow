@@ -82,7 +82,57 @@ type named struct {
 	Name string `json:"name"`
 }
 
-// wireIssue is an issue as Jira sends it, in a search or on its own.
+// names is the names of a list of named things, in order.
+func names(items []named) []string {
+	out := make([]string, 0, len(items))
+	for _, item := range items {
+		out = append(out, item.Name)
+	}
+
+	return out
+}
+
+// wireLinked is another issue referred to from this one — a parent, a subtask,
+// or the far side of an issue link — as Jira nests it.
+type wireLinked struct {
+	Key    string `json:"key"`
+	Fields struct {
+		Summary string `json:"summary"`
+		Status  named  `json:"status"`
+	} `json:"fields"`
+}
+
+// linked flattens a nested issue reference.
+func (w wireLinked) linked() LinkedIssue {
+	return LinkedIssue{Key: w.Key, Summary: w.Fields.Summary, Status: w.Fields.Status.Name}
+}
+
+// wireIssueLink is one entry of an issue's issuelinks: the relationship and the
+// issue on whichever side of it Jira filled in.
+type wireIssueLink struct {
+	Type struct {
+		Inward  string `json:"inward"`
+		Outward string `json:"outward"`
+	} `json:"type"`
+	InwardIssue  *wireLinked `json:"inwardIssue"`  //nolint:tagliatelle // Jira's field name on the wire, not ours to pick
+	OutwardIssue *wireLinked `json:"outwardIssue"` //nolint:tagliatelle // Jira's field name on the wire, not ours to pick
+}
+
+// link flattens an issue link to the relation and the issue it points at,
+// reporting false for a link with neither side filled in.
+func (w wireIssueLink) link() (IssueLink, bool) {
+	switch {
+	case w.InwardIssue != nil:
+		return IssueLink{Relation: w.Type.Inward, Issue: w.InwardIssue.linked()}, true
+	case w.OutwardIssue != nil:
+		return IssueLink{Relation: w.Type.Outward, Issue: w.OutwardIssue.linked()}, true
+	default:
+		return IssueLink{}, false
+	}
+}
+
+// wireIssue is an issue as Jira sends it, in a search or on its own. The fields
+// past Reporter ride only on the detail request; a search leaves them zero.
 type wireIssue struct {
 	Key    string `json:"key"`
 	Fields struct {
@@ -93,11 +143,18 @@ type wireIssue struct {
 				Key string `json:"key"`
 			} `json:"statusCategory"` //nolint:tagliatelle // Jira's field name on the wire, not ours to pick
 		} `json:"status"`
-		Type        named        `json:"issuetype"`
-		Priority    named        `json:"priority"`
-		Description string       `json:"description"`
-		Reporter    person       `json:"reporter"`
-		Comment     wireComments `json:"comment"`
+		Type        named           `json:"issuetype"`
+		Priority    named           `json:"priority"`
+		Description string          `json:"description"`
+		Reporter    person          `json:"reporter"`
+		Assignee    person          `json:"assignee"`
+		Labels      []string        `json:"labels"`
+		Components  []named         `json:"components"`
+		FixVersions []named         `json:"fixVersions"` //nolint:tagliatelle // Jira's wire name
+		Parent      wireLinked      `json:"parent"`
+		Subtasks    []wireLinked    `json:"subtasks"`
+		IssueLinks  []wireIssueLink `json:"issuelinks"`
+		Comment     wireComments    `json:"comment"`
 	} `json:"fields"`
 }
 

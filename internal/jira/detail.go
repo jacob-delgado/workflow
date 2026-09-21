@@ -15,7 +15,8 @@ import (
 
 // detailFields is what the detail pane shows of one issue. The comments ride
 // along in the same request rather than costing a second one.
-const detailFields = "summary,status,issuetype,priority,description,reporter,comment"
+const detailFields = "summary,status,issuetype,priority,description,reporter,assignee," +
+	"labels,components,fixVersions,parent,subtasks,issuelinks,comment"
 
 // timeLayout is how Data Center writes a date: milliseconds and a numeric zone
 // with no colon, which is not RFC 3339.
@@ -30,11 +31,36 @@ type Comment struct {
 	Created time.Time
 }
 
+// LinkedIssue is another issue referred to from this one — a parent or a
+// subtask — by key, summary and status. Its zero value (an empty Key) means
+// there is none.
+type LinkedIssue struct {
+	Key     string
+	Summary string
+	Status  string
+}
+
+// IssueLink is a relationship to another issue: what it is ("blocks", "is
+// blocked by") and the issue on the other end.
+type IssueLink struct {
+	Relation string
+	Issue    LinkedIssue
+}
+
 // IssueDetail is one issue in full.
 type IssueDetail struct {
 	Issue       Issue
 	Description string
 	Reporter    string
+	Assignee    string
+	Labels      []string
+	Components  []string
+	FixVersions []string
+	// Parent is the issue this one is a subtask of, or the zero LinkedIssue when
+	// it has none.
+	Parent     LinkedIssue
+	Subtasks   []LinkedIssue
+	IssueLinks []IssueLink
 	// Comments are the comments Jira sent, oldest first; CommentTotal is how
 	// many there are in all.
 	Comments     []Comment
@@ -81,18 +107,45 @@ func (c Client) Issue(ctx context.Context, issueKey Key) (IssueDetail, error) {
 		return IssueDetail{}, err
 	}
 
-	comments := make([]Comment, 0, len(wire.Fields.Comment.Comments))
-	for _, each := range wire.Fields.Comment.Comments {
+	return wire.detail(), nil
+}
+
+// detail flattens a whole issue: its fields, the issues it relates to, and its
+// comments.
+func (w wireIssue) detail() IssueDetail {
+	fields := w.Fields
+
+	comments := make([]Comment, 0, len(fields.Comment.Comments))
+	for _, each := range fields.Comment.Comments {
 		comments = append(comments, each.comment())
 	}
 
+	subtasks := make([]LinkedIssue, 0, len(fields.Subtasks))
+	for _, each := range fields.Subtasks {
+		subtasks = append(subtasks, each.linked())
+	}
+
+	links := make([]IssueLink, 0, len(fields.IssueLinks))
+	for _, each := range fields.IssueLinks {
+		if link, ok := each.link(); ok {
+			links = append(links, link)
+		}
+	}
+
 	return IssueDetail{
-		Issue:        wire.issue(),
-		Description:  wire.Fields.Description,
-		Reporter:     wire.Fields.Reporter.DisplayName,
+		Issue:        w.issue(),
+		Description:  fields.Description,
+		Reporter:     fields.Reporter.DisplayName,
+		Assignee:     fields.Assignee.DisplayName,
+		Labels:       fields.Labels,
+		Components:   names(fields.Components),
+		FixVersions:  names(fields.FixVersions),
+		Parent:       fields.Parent.linked(),
+		Subtasks:     subtasks,
+		IssueLinks:   links,
 		Comments:     comments,
-		CommentTotal: wire.Fields.Comment.Total,
-	}, nil
+		CommentTotal: fields.Comment.Total,
+	}
 }
 
 // AddComment posts a comment on an issue and returns it as Jira stored it.
