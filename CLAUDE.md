@@ -123,6 +123,31 @@ without agreement on direction.
   There is no exemption list, deliberately — add one only when a file genuinely
   earns it, with the reason written beside it.
 
+- **Package & directory size — cohesion first, a budget as the backstop.** Size
+  a grouping by responsibility, not by a file count. A Go package is *one*
+  cohesive responsibility behind a small exported API; many files in it is
+  idiomatic and good — `internal/tui` is one interface spelled file-per-pane and
+  must **not** be split to chase a number. Split a package only when it carries
+  more than one reason to change *and* the extraction won't make an import
+  cycle; on the web, group by feature (`web/src/features/<feature>/`), never one
+  flat directory. But cohesion is a judgment call and judgment loses to entropy —
+  a folder reaches thirty files one defensible file at a time. So every grouping
+  also answers to a **file budget**, gated by `scripts/check-package-size.sh`
+  against `scripts/package-size-budgets.txt` (`task lint`, `task check`, CI, and
+  lefthook pre-push; `--list`, or `task package-size`, prints the standings).
+  **Read the numbers there, never here** — a prose restatement drifts. Budgets
+  are zero-headroom both ways: over the number fails, and so does a budget left
+  sitting *above* its directory's count (a forgotten post-split ratchet). Counts
+  are source files: unit tests, stylesheets and generated code don't count, but
+  integration tests (`*_integration_test.go`) and e2e specs (everything under
+  `web/e2e/`) do — an end-to-end surface must break into per-surface folders
+  rather than hide a hundred scenario files in one directory. A trip has
+  two honest answers, named in the gate's own output: **split** when the grouping
+  really carries a second reason to change, or **bump** (raise the number,
+  rewrite the WHY above the entry, and append a row to
+  `scripts/package-size-budget-history.md`) when the new file is the same
+  responsibility one concern wider. "The gate was in the way" is neither.
+
 - **McCabe cyclomatic complexity ≤ 10 — enforced, not aspirational.** `gocyclo`
   fails the build past 10, with `gocognit` (≤ 20) and `funlen` as backstops.
   This is a small program; a function needing more than ten branches wants

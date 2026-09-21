@@ -154,6 +154,7 @@ tasks:
       - scripts/check-go-version_test.sh
       - scripts/check-goroutines_test.sh
       - scripts/check-license-headers_test.sh
+      - scripts/check-package-size_test.sh
       - scripts/coverage-gate_test.sh
       - scripts/coverage-summary_test.sh
       - scripts/gobco-report_test.sh
@@ -221,6 +222,7 @@ tasks:
       - task: lint:headers
       - task: lint:typos
       - task: lint:filelength
+      - task: lint:packagesize
       - task: lint:goversion
       - task: lint:goroutines
       - task: docs:check
@@ -293,6 +295,16 @@ tasks:
     desc: Check that no source file has grown past the ceiling
     cmds:
       - scripts/check-file-length.sh
+
+  lint:packagesize:
+    desc: Check that no directory holds more source files than its budget
+    cmds:
+      - scripts/check-package-size.sh
+
+  package-size:
+    desc: List every source directory with its file count and budget
+    cmds:
+      - scripts/check-package-size.sh --list
 
   lint:goversion:
     desc: Check that the Go version agrees across the files that pin it
