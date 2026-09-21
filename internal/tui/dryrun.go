@@ -89,6 +89,14 @@ func heldBackStreams(deps GitDeps) GitDeps {
 		deps.Push = func(string) (proc.Output, error) { return proc.Output{}, errDryRun }
 	}
 
+	if deps.Amend != nil {
+		deps.Amend = func() (proc.Output, error) { return proc.Output{}, errDryRun }
+	}
+
+	if deps.Fixup != nil {
+		deps.Fixup = func(string) (proc.Output, error) { return proc.Output{}, errDryRun }
+	}
+
 	if deps.Rebase != nil {
 		deps.Rebase = func(string) (proc.Output, error) { return proc.Output{}, errDryRun }
 	}

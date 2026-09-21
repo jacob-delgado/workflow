@@ -12,8 +12,12 @@ import (
 	"github.com/jacob-delgado/workflow/internal/proc"
 )
 
-// gitProgram is the program every command builder runs.
-const gitProgram = "git"
+// gitProgram is the program every command builder runs, commitVerb its
+// subcommand the commit builders share.
+const (
+	gitProgram = "git"
+	commitVerb = "commit"
+)
 
 func TestCreateBranchStartsFromTheBaseWithoutTrackingIt(t *testing.T) {
 	t.Parallel()
@@ -178,9 +182,39 @@ func TestCommitCommandRunsInTheRepository(t *testing.T) {
 	commit := gitrepo.CommitCommand(workDir, "/tmp/message.txt")
 
 	// Assert
-	want := proc.Command{Dir: workDir, Name: gitProgram, Args: []string{"commit", "--file", "/tmp/message.txt"}, Env: nil}
+	want := proc.Command{
+		Dir: workDir, Name: gitProgram,
+		Args: []string{commitVerb, "--file", "/tmp/message.txt"}, Env: nil,
+	}
 	if commit.Dir != want.Dir || commit.Name != want.Name || !slices.Equal(commit.Args, want.Args) {
 		t.Errorf("CommitCommand = %+v, want %+v", commit, want)
+	}
+}
+
+func TestAmendCommandFoldsTheIndexIntoTheLastCommit(t *testing.T) {
+	t.Parallel()
+
+	// Act
+	amend := gitrepo.AmendCommand(workDir)
+
+	// Assert
+	// Env is nil, like CommitCommand, so the repository's hooks run.
+	want := []string{commitVerb, "--amend", "--no-edit"}
+	if amend.Dir != workDir || amend.Name != gitProgram || !slices.Equal(amend.Args, want) || amend.Env != nil {
+		t.Errorf("AmendCommand = %+v, want args %q with nil env", amend, want)
+	}
+}
+
+func TestFixupCommandRecordsAFixupOfTheChosenCommit(t *testing.T) {
+	t.Parallel()
+
+	// Act
+	fixup := gitrepo.FixupCommand(workDir, "1a2b3c4")
+
+	// Assert
+	want := []string{commitVerb, "--fixup=1a2b3c4"}
+	if fixup.Dir != workDir || fixup.Name != gitProgram || !slices.Equal(fixup.Args, want) || fixup.Env != nil {
+		t.Errorf("FixupCommand = %+v, want args %q with nil env", fixup, want)
 	}
 }
 
