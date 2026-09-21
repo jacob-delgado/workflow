@@ -113,6 +113,10 @@ Impact: medium · Effort: medium
 - Touches: `internal/jira/fields.go`, `internal/tui/fields.go`.
 - Done when: a transition that requires an assignee, a date or two fix
   versions can be completed without leaving the terminal.
+- Done: the field form fills a user picker (`FieldUser`, sent as `{"name":…}`
+  for Data Center), a date (`FieldDate`, refusing anything but `YYYY-MM-DD`),
+  and a multi-value list (`FieldOptionList` now takes any number, toggled with
+  space). A cascading select stays `FieldUnsupported` and is honestly refused.
 
 ### FEAT-08 Write comments in Markdown
 

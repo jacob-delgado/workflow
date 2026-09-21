@@ -12,16 +12,19 @@ import (
 type FieldKind int
 
 const (
-	// FieldUnsupported is a field only Jira's own screens can fill: a user
-	// picker, a date, a cascading select.
+	// FieldUnsupported is a field only Jira's own screens can fill, such as a
+	// cascading select, or a type this does not recognize.
 	FieldUnsupported FieldKind = iota
 	// FieldOption takes one of a fixed set of values, such as a resolution.
 	FieldOption
-	// FieldOptionList takes a list of them, such as fix versions; one is
-	// chosen here.
+	// FieldOptionList takes any number of them, such as fix versions.
 	FieldOptionList
 	// FieldText takes free text.
 	FieldText
+	// FieldUser takes a username, such as an assignee.
+	FieldUser
+	// FieldDate takes a calendar date.
+	FieldDate
 )
 
 // Option is one value a field allows.
@@ -47,9 +50,11 @@ func (f Field) Fillable() bool {
 // FieldValue is what was chosen or typed for a field.
 type FieldValue struct {
 	Field Field
-	// OptionID is the chosen option, for a field with options.
+	// OptionID is the chosen option, for a single-option field.
 	OptionID string
-	// Text is what was typed, for a text field.
+	// OptionIDs are the chosen options, for a list field.
+	OptionIDs []string
+	// Text is what was typed, for a text, user or date field.
 	Text string
 }
 
@@ -104,10 +109,19 @@ func (w wireField) field(fieldID string) Field {
 // as text if its schema is a string, and otherwise not here at all.
 func (w wireField) kind() FieldKind {
 	switch {
+	case w.Schema.Type == "option-with-child":
+		// A cascading select lists its parents in allowedValues, so it would
+		// otherwise pass for a plain option; sent as one it drops the child Jira
+		// requires. Only Jira's own screen fills it.
+		return FieldUnsupported
 	case len(w.AllowedValues) > 0 && w.Schema.Type == "array":
 		return FieldOptionList
 	case len(w.AllowedValues) > 0:
 		return FieldOption
+	case w.Schema.Type == "user":
+		return FieldUser
+	case w.Schema.Type == "date":
+		return FieldDate
 	case w.Schema.Type == "string":
 		return FieldText
 	default:
@@ -120,19 +134,39 @@ type reference struct {
 	ID string `json:"id"`
 }
 
+// userRef names a user by username, the way Jira Data Center identifies one in
+// a field value. Cloud keys a user by account id instead; this does not target
+// it.
+type userRef struct {
+	Name string `json:"name"`
+}
+
 // payload is the value in the shape Jira reads for its kind of field. It is
-// any because the three shapes — an object, a list of them, a string — share
+// any because the shapes — an object, a list of them, a user, a string — share
 // nothing but being encodable.
 func (v FieldValue) payload() any {
-	if v.Field.Kind == FieldOptionList {
-		return []reference{{ID: v.OptionID}}
-	}
-
-	if v.Field.Kind == FieldOption {
+	switch v.Field.Kind {
+	case FieldOptionList:
+		return v.optionRefs()
+	case FieldOption:
 		return reference{ID: v.OptionID}
+	case FieldUser:
+		return userRef{Name: v.Text}
+	case FieldUnsupported, FieldText, FieldDate:
+		return v.Text
+	default:
+		return v.Text
+	}
+}
+
+// optionRefs references each chosen option by id.
+func (v FieldValue) optionRefs() []reference {
+	refs := make([]reference, 0, len(v.OptionIDs))
+	for _, id := range v.OptionIDs {
+		refs = append(refs, reference{ID: id})
 	}
 
-	return v.Text
+	return refs
 }
 
 // fieldsPayload is the fields object of a transition, or nil for none, which
