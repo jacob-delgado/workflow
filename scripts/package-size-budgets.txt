@@ -48,8 +48,10 @@
 # rather than swelling either toward the 500-line ceiling, and finish.go (the
 # Review pane's finish-a-merged-branch preview and its git cleanup), split out
 # of review.go when merge and finish together pushed it past the 800-line hard
-# ceiling.
-internal/tui 37
+# ceiling, and preditor.go (the Review pane's edit-an-open-pull-request overlay
+# — title and description — kept a dedicated overlay rather than an edit-mode
+# flag bolted onto composer.go).
+internal/tui 38
 
 # internal/webserver — the loopback REST surface, one file per operation
 # (announce, commit, branches, pull-request, checkout, push, review, config,

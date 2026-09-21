@@ -70,7 +70,9 @@ type PullRequest struct {
 	Number int
 	URL    string
 	Title  string
-	Draft  bool
+	// Body is the pull request's description, read so an edit can open on it.
+	Body  string
+	Draft bool
 	// State is whether it is open, merged or closed, so a merged branch can be
 	// finished. A find reads it; the zero value is open.
 	State PullState
@@ -116,6 +118,14 @@ func (p PullRequest) Opened() bool {
 	return p.Number != 0
 }
 
+// PullRequestEdit is what changes about an open pull request: its title and its
+// description. Everything else about it — its branches, its reviewers — is left
+// as it is.
+type PullRequestEdit struct {
+	Title string
+	Body  string
+}
+
 // ReviewRequest is an open pull or merge request that asks for your review. It
 // carries what a review queue is read for — who wants it, since when, and where
 // CI stands — across whichever repositories on the forge requested you.
@@ -141,6 +151,7 @@ type ReviewRequest struct {
 type dialect struct {
 	find       func(ctx context.Context, c Client, repo Repo, branch string) (PullRequest, bool, error)
 	create     func(ctx context.Context, c Client, repo Repo, request NewPullRequest) (PullRequest, error)
+	update     func(ctx context.Context, c Client, repo Repo, pull PullRequest, edit PullRequestEdit) (PullRequest, error)
 	status     func(ctx context.Context, c Client, repo Repo, pull PullRequest, head string) (CI, error)
 	rerun      func(ctx context.Context, c Client, repo Repo, pull PullRequest, head string) (bool, error)
 	merge      func(ctx context.Context, c Client, repo Repo, pull PullRequest, method MergeMethod) error
@@ -157,12 +168,12 @@ func dialectFor(kind Kind) (dialect, error) {
 	//nolint:exhaustive // KindUnknown has no dialect on purpose; its lookup miss is the ErrUnknownForge below.
 	dialects := map[Kind]dialect{
 		KindGitHub: {
-			find: githubFind, create: githubCreate, status: githubStatus, rerun: githubRerun,
+			find: githubFind, create: githubCreate, update: githubUpdate, status: githubStatus, rerun: githubRerun,
 			merge: githubMergePull, methods: githubMergeMethods,
 			reviews: githubReviews, issues: githubIssues, readIssue: githubReadIssue, closeIssue: githubCloseIssue,
 		},
 		KindGitLab: {
-			find: gitlabFind, create: gitlabCreate, status: gitlabStatus, rerun: gitlabRerun,
+			find: gitlabFind, create: gitlabCreate, update: gitlabUpdate, status: gitlabStatus, rerun: gitlabRerun,
 			merge: gitlabMergePull, methods: gitlabMergeMethods,
 			reviews: gitlabReviews, issues: gitlabIssues, readIssue: gitlabReadIssue, closeIssue: gitlabCloseIssue,
 		},
@@ -227,6 +238,19 @@ func (c Client) CreatePullRequest(ctx context.Context, repo Repo, request NewPul
 	}
 
 	return speaks.create(ctx, c, repo, request)
+}
+
+// EditPullRequest changes an open pull request's title and description, leaving
+// the pull request otherwise as it is.
+func (c Client) EditPullRequest(
+	ctx context.Context, repo Repo, pull PullRequest, edit PullRequestEdit,
+) (PullRequest, error) {
+	speaks, err := dialectFor(repo.Kind)
+	if err != nil {
+		return PullRequest{}, err
+	}
+
+	return speaks.update(ctx, c, repo, pull, edit)
 }
 
 // CheckStatus reports how CI stands on a pull request whose head is the given

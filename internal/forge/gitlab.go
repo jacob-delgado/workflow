@@ -24,6 +24,7 @@ type gitlabMerge struct {
 	IID          int    `json:"iid"`
 	URL          string `json:"web_url"`
 	Title        string `json:"title"`
+	Description  string `json:"description"`
 	Draft        bool   `json:"draft"`
 	State        string `json:"state"`
 	MergeStatus  string `json:"merge_status"`
@@ -38,8 +39,8 @@ type gitlabMerge struct {
 // separately; GitLab has no "changes requested" state, so it stays false.
 func (g gitlabMerge) pullRequest() PullRequest {
 	return PullRequest{
-		Number: g.IID, URL: g.URL, Title: g.Title, Draft: g.Draft,
-		Mergeable: gitlabMergeable(g.MergeStatus), State: g.state(),
+		Number: g.IID, URL: g.URL, Title: g.Title, Body: g.Description,
+		Draft: g.Draft, Mergeable: gitlabMergeable(g.MergeStatus), State: g.state(),
 	}
 }
 
@@ -54,6 +55,28 @@ func (g gitlabMerge) state() PullState {
 	default:
 		return StateOpen
 	}
+}
+
+// gitlabEditMerge is the PUT body that changes a merge request's title and
+// description.
+type gitlabEditMerge struct {
+	Title       string `json:"title"`
+	Description string `json:"description"`
+}
+
+// gitlabUpdate edits an open merge request's title and description.
+func gitlabUpdate(
+	ctx context.Context, client Client, repo Repo, pull PullRequest, edit PullRequestEdit,
+) (PullRequest, error) {
+	path := gitlabProjectPath(repo) + "/merge_requests/" + strconv.Itoa(pull.Number)
+
+	updated, err := repoCall[gitlabMerge](ctx, client, repo, http.MethodPut, path,
+		gitlabEditMerge{Title: edit.Title, Description: edit.Body})
+	if err != nil {
+		return PullRequest{}, err
+	}
+
+	return updated.pullRequest(), nil
 }
 
 // gitlabMergeable reads GitLab's merge_status. Anything but the two settled

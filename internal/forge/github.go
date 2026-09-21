@@ -20,6 +20,7 @@ type githubPull struct {
 	Number   int        `json:"number"`
 	URL      string     `json:"html_url"`
 	Title    string     `json:"title"`
+	Body     string     `json:"body"`
 	Draft    bool       `json:"draft"`
 	State    string     `json:"state"`
 	MergedAt *time.Time `json:"merged_at"`
@@ -28,7 +29,7 @@ type githubPull struct {
 // pullRequest flattens a GitHub pull request. Review state is filled in
 // separately, so it stays zero here.
 func (g githubPull) pullRequest() PullRequest {
-	return PullRequest{Number: g.Number, URL: g.URL, Title: g.Title, Draft: g.Draft, State: g.state()}
+	return PullRequest{Number: g.Number, URL: g.URL, Title: g.Title, Body: g.Body, Draft: g.Draft, State: g.state()}
 }
 
 // state reads whether the pull is open, merged or closed.
@@ -55,6 +56,26 @@ type githubNewPull struct {
 // githubRepoPath is where a repository lives in GitHub's API.
 func githubRepoPath(repo Repo) string {
 	return "/repos/" + escapedPath(repo.Path)
+}
+
+// githubEditPull is the PATCH body that changes a pull request's title and body.
+type githubEditPull struct {
+	Title string `json:"title"`
+	Body  string `json:"body"`
+}
+
+// githubUpdate edits an open pull request's title and description.
+func githubUpdate(
+	ctx context.Context, client Client, repo Repo, pull PullRequest, edit PullRequestEdit,
+) (PullRequest, error) {
+	path := githubRepoPath(repo) + "/pulls/" + strconv.Itoa(pull.Number)
+
+	updated, err := repoCall[githubPull](ctx, client, repo, http.MethodPatch, path, githubEditPull(edit))
+	if err != nil {
+		return PullRequest{}, err
+	}
+
+	return updated.pullRequest(), nil
 }
 
 // githubFind finds the open pull request from a branch. GitHub filters by head
