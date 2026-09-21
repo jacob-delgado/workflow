@@ -18,12 +18,14 @@ import (
 // version of GitLab reads; the draft parameter on create is newer.
 const draftPrefix = "Draft: "
 
-// gitlabMerge is a merge request as GitLab sends one.
+// gitlabMerge is a merge request as GitLab sends one. Its state names itself:
+// "opened", "merged" or "closed".
 type gitlabMerge struct {
 	IID          int    `json:"iid"`
 	URL          string `json:"web_url"`
 	Title        string `json:"title"`
 	Draft        bool   `json:"draft"`
+	State        string `json:"state"`
 	MergeStatus  string `json:"merge_status"`
 	HeadPipeline *struct {
 		ID     int64  `json:"id"`
@@ -36,7 +38,21 @@ type gitlabMerge struct {
 // separately; GitLab has no "changes requested" state, so it stays false.
 func (g gitlabMerge) pullRequest() PullRequest {
 	return PullRequest{
-		Number: g.IID, URL: g.URL, Title: g.Title, Draft: g.Draft, Mergeable: gitlabMergeable(g.MergeStatus),
+		Number: g.IID, URL: g.URL, Title: g.Title, Draft: g.Draft,
+		Mergeable: gitlabMergeable(g.MergeStatus), State: g.state(),
+	}
+}
+
+// state reads whether the merge request is open, merged or closed. GitLab locks
+// a merge request while it merges; that is not yet merged, so it reads as open.
+func (g gitlabMerge) state() PullState {
+	switch g.State {
+	case "merged":
+		return StateMerged
+	case wireClosed:
+		return StateClosed
+	default:
+		return StateOpen
 	}
 }
 
@@ -126,18 +142,28 @@ func gitlabProjectPath(repo Repo) string {
 	return "/projects/" + url.PathEscape(repo.Path)
 }
 
-// gitlabFind finds the open merge request from a branch.
+// gitlabFind finds the branch's merge request: an open one, or the merged one
+// that means the branch is finished.
 func gitlabFind(ctx context.Context, client Client, repo Repo, branch string) (PullRequest, bool, error) {
-	query := url.Values{"source_branch": {branch}, queryState: {stateOpened}}.Encode()
+	query := url.Values{"source_branch": {branch}, queryState: {queryAll}}.Encode()
 
 	merges, err := repoCall[[]gitlabMerge](ctx, client, repo, http.MethodGet,
 		gitlabProjectPath(repo)+"/merge_requests?"+query, nil)
-	if err != nil || len(merges) == 0 {
+	if err != nil {
 		return PullRequest{}, false, err
 	}
 
-	pull := merges[0].pullRequest()
-	gitlabReviewState(ctx, client, repo, &pull)
+	chosen, ok := pickPull(merges)
+	if !ok {
+		return PullRequest{}, false, nil
+	}
+
+	pull := chosen.pullRequest()
+
+	// Approvals only matter while it is open.
+	if pull.State == StateOpen {
+		gitlabReviewState(ctx, client, repo, &pull)
+	}
 
 	return pull, true, nil
 }
@@ -267,7 +293,7 @@ func gitlabReviews(ctx context.Context, client Client) ([]ReviewRequest, error) 
 	}
 
 	query := url.Values{
-		"scope":             {"all"},
+		"scope":             {queryAll},
 		queryState:          {stateOpened},
 		"reviewer_username": {viewer.Name()},
 		perPageParam:        {strconv.Itoa(gitlabPerPage)},

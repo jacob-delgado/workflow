@@ -103,7 +103,7 @@ func (msg pullFound) apply(m Model) (Model, tea.Cmd) {
 // checkCI is the command that asks how CI stands on the pull request.
 func (m Model) checkCI() tea.Cmd {
 	check, pull, head := m.deps.Forge.CheckStatus, m.review.pull, m.branch.branch.Head
-	if check == nil || !m.review.found {
+	if check == nil || !m.review.found || pull.State != forge.StateOpen {
 		return nil
 	}
 
@@ -261,7 +261,14 @@ func (m Model) reviewRail(_ int) string {
 		return "no " + m.vocab.noun + " yet"
 	}
 
-	return m.vocab.sigil + strconv.Itoa(m.review.pull.Number) + " " + m.review.pull.Title + "\n" + m.ciSummary()
+	line := m.vocab.sigil + strconv.Itoa(m.review.pull.Number) + " " + m.review.pull.Title
+	if m.review.pull.State == forge.StateMerged {
+		// A merged pull request has no live CI to poll, so the rail says it merged
+		// rather than sitting forever on "checking".
+		return line + "\n" + m.marks.done + " merged"
+	}
+
+	return line + "\n" + m.ciSummary()
 }
 
 // reviewDetail describes the pull request, or what opening one needs.
@@ -285,6 +292,11 @@ func (m Model) reviewDetail(width int) string {
 	}
 
 	pull := m.review.pull
+
+	if pull.State == forge.StateMerged {
+		return wrap(m.mergedDetail(pull), width)
+	}
+
 	lines := []string{
 		m.styles.strong.Render(m.vocab.sigil+strconv.Itoa(pull.Number)) + " " + pull.Title,
 		pull.URL,
@@ -382,6 +394,10 @@ func (m Model) reviewKeys() []key.Binding {
 		keys = append(keys, m.keys.merge)
 	}
 
+	if m.canFinish() {
+		keys = append(keys, m.keys.finish)
+	}
+
 	keys = append(keys, m.linkKeys(m.reviewPullURL())...)
 
 	return append(keys, m.keys.refresh)
@@ -408,6 +424,8 @@ func (m Model) handleReviewKey(msg tea.KeyPressMsg) (Model, tea.Cmd) {
 		return m.rerunChecks()
 	case key.Matches(msg, m.keys.merge):
 		return m.startMerge()
+	case key.Matches(msg, m.keys.finish):
+		return m.startFinish()
 	case key.Matches(msg, m.keys.refresh):
 		return m, tea.Batch(m.findPullRequest(), m.checkCI())
 	default:
@@ -427,9 +445,12 @@ func (m Model) handleReviewLink(msg tea.KeyPressMsg) (Model, tea.Cmd) {
 	}
 }
 
-// canRerun reports a failed pull request whose checks can be re-run.
+// canRerun reports a failed pull request whose checks can be re-run. A pull
+// request that has merged is left alone even if a stale CI read still reads as
+// failed: there is nothing to re-run once it is in.
 func (m Model) canRerun() bool {
-	return m.review.found && m.review.ci.State == forge.CIFailed && m.deps.Forge.Rerun != nil
+	return m.review.found && m.review.pull.State == forge.StateOpen &&
+		m.review.ci.State == forge.CIFailed && m.deps.Forge.Rerun != nil
 }
 
 // rerunChecks asks the forge to re-run the failed CI, then watches it run again.
@@ -492,6 +513,7 @@ func (m Model) canMerge() bool {
 	pull := m.review.pull
 
 	return m.review.found &&
+		pull.State == forge.StateOpen &&
 		m.deps.Forge.Merge != nil &&
 		!pull.Draft &&
 		pull.Mergeable == forge.MergeClean &&

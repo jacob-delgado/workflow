@@ -160,6 +160,27 @@ func TestAMergeThatFailsSurfacesTheForgesReason(t *testing.T) {
 	refuseScreen(t, failed.View().Content, "the token needs a write scope", "the forge did not answer", "Merge by:")
 }
 
+func TestMergeIsNotOfferedOnceThePullMerges(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	// The pull is green and approved — merge would be offered — until it merges
+	// under the reader, leaving the pane's last-read CI still green.
+	reviewing := mergeable()
+	onReview := typing(t, reviewing.live(t, 120, 40), "4")
+	reviewing.pull.State = forge.StateMerged
+
+	// Act
+	refreshed := typing(t, onReview, "r", "M")
+
+	// Assert
+	refuseScreen(t, refreshed.View().Content, "Merge by:")
+
+	if calls := reviewing.asked("merge"); len(calls) != 0 {
+		t.Errorf("offered to merge an already-merged pull request: %q", calls)
+	}
+}
+
 func TestMergeIsNotOfferedOnADraft(t *testing.T) {
 	t.Parallel()
 

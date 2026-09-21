@@ -111,6 +111,9 @@ type GitDeps struct {
 	// leaves the repository mid-rebase for the shell. Nil when there is no
 	// repository.
 	Rebase func(base string) (proc.Output, error)
+	// Finish finishes a merged branch: switch to base, fast-forward it, delete
+	// the branch. Nil when there is no repository.
+	Finish func(branch, base string) error
 }
 
 // ForgeDeps is what the interface asks of GitHub or GitLab.

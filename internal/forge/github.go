@@ -14,18 +14,33 @@ import (
 	"time"
 )
 
-// githubPull is a pull request as GitHub sends one.
+// githubPull is a pull request as GitHub sends one. A merged pull is closed
+// with a merged_at time, which is how the two are told apart.
 type githubPull struct {
-	Number int    `json:"number"`
-	URL    string `json:"html_url"`
-	Title  string `json:"title"`
-	Draft  bool   `json:"draft"`
+	Number   int        `json:"number"`
+	URL      string     `json:"html_url"`
+	Title    string     `json:"title"`
+	Draft    bool       `json:"draft"`
+	State    string     `json:"state"`
+	MergedAt *time.Time `json:"merged_at"`
 }
 
 // pullRequest flattens a GitHub pull request. Review state is filled in
 // separately, so it stays zero here.
 func (g githubPull) pullRequest() PullRequest {
-	return PullRequest{Number: g.Number, URL: g.URL, Title: g.Title, Draft: g.Draft}
+	return PullRequest{Number: g.Number, URL: g.URL, Title: g.Title, Draft: g.Draft, State: g.state()}
+}
+
+// state reads whether the pull is open, merged or closed.
+func (g githubPull) state() PullState {
+	switch {
+	case g.MergedAt != nil:
+		return StateMerged
+	case g.State == wireClosed:
+		return StateClosed
+	default:
+		return StateOpen
+	}
 }
 
 // githubNewPull is the body that opens a pull request on GitHub.
@@ -46,15 +61,24 @@ func githubRepoPath(repo Repo) string {
 // as owner:branch; the branch alone matches nothing.
 func githubFind(ctx context.Context, client Client, repo Repo, branch string) (PullRequest, bool, error) {
 	owner, _, _ := strings.Cut(repo.Path, "/")
-	query := url.Values{"head": {owner + ":" + branch}, queryState: {"open"}}.Encode()
+	query := url.Values{"head": {owner + ":" + branch}, queryState: {queryAll}}.Encode()
 
 	pulls, err := repoCall[[]githubPull](ctx, client, repo, http.MethodGet, githubRepoPath(repo)+"/pulls?"+query, nil)
-	if err != nil || len(pulls) == 0 {
+	if err != nil {
 		return PullRequest{}, false, err
 	}
 
-	pull := pulls[0].pullRequest()
-	githubReviewState(ctx, client, repo, &pull)
+	chosen, ok := pickPull(pulls)
+	if !ok {
+		return PullRequest{}, false, nil
+	}
+
+	pull := chosen.pullRequest()
+
+	// Approvals and mergeability only matter while it is open.
+	if pull.State == StateOpen {
+		githubReviewState(ctx, client, repo, &pull)
+	}
 
 	return pull, true, nil
 }
@@ -159,7 +183,7 @@ type githubIssueState struct {
 // githubCloseIssue closes an issue by setting its state to closed.
 func githubCloseIssue(ctx context.Context, client Client, repo Repo, number int) error {
 	_, err := repoCall[githubIssue](ctx, client, repo, http.MethodPatch,
-		githubRepoPath(repo)+issuesSegment+"/"+strconv.Itoa(number), githubIssueState{State: "closed"})
+		githubRepoPath(repo)+issuesSegment+"/"+strconv.Itoa(number), githubIssueState{State: wireClosed})
 
 	return err
 }

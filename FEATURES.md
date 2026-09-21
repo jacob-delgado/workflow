@@ -199,6 +199,14 @@ Impact: medium · Effort: small
   `internal/tui/review.go`, `internal/gitrepo/branch.go`.
 - Done when: a branch whose pull request has merged offers one action that
   previews the three git commands and runs them.
+- Done: `FindPullRequest` now reads a `PullState` — `forge.Client` queries every
+  state and prefers an open pull, falling back to the merged one that means the
+  branch is done (a pull closed without merging is passed over). The Review pane
+  shows a merged pull as "merged" and offers `F`, which previews
+  `git switch <base>` / `git pull --ff-only` / `git branch -D <branch>` and runs
+  them (`gitrepo.FinishBranch`); the delete is a force delete because a squash or
+  rebase merge leaves the branch's commits unreachable though the forge merged
+  it, and the branch is still on origin. Held back at the seam in a dry run.
 
 ## Commits
 

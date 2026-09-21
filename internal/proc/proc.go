@@ -44,10 +44,25 @@ func Run(ctx context.Context, name string, args ...string) ([]byte, error) {
 // RunWithin is Run bounded by an explicit timeout, for a read whose own limit
 // differs from the default. The tighter of timeout and ctx's own deadline wins.
 func RunWithin(ctx context.Context, timeout time.Duration, name string, args ...string) ([]byte, error) {
+	return runWithin(ctx, timeout, Command{Name: name, Args: args})
+}
+
+// RunCommand is Run for a caller that must set the working directory or the
+// environment: a git command that touches the network with GIT_TERMINAL_PROMPT
+// off, so it fails at once rather than block on a credential prompt nobody
+// inside the interface can answer. It is bounded by DefaultRunTimeout like Run.
+func RunCommand(ctx context.Context, program Command) ([]byte, error) {
+	return runWithin(ctx, DefaultRunTimeout, program)
+}
+
+// runWithin runs a program bounded by timeout and returns its standard output,
+// wrapping a non-zero exit's standard error into the error. The tighter of
+// timeout and ctx's own deadline wins.
+func runWithin(ctx context.Context, timeout time.Duration, program Command) ([]byte, error) {
 	ctx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
 
-	command, err := build(ctx, Command{Dir: "", Name: name, Args: args, Env: nil})
+	command, err := build(ctx, program)
 	if err != nil {
 		return nil, err
 	}
@@ -58,7 +73,7 @@ func RunWithin(ctx context.Context, timeout time.Duration, name string, args ...
 
 	output, err := command.Output()
 	if err != nil {
-		return nil, fmt.Errorf("%s: %w: %s", name, err, strings.TrimSpace(sanitize.Text(stderr.String())))
+		return nil, fmt.Errorf("%s: %w: %s", program.Name, err, strings.TrimSpace(sanitize.Text(stderr.String())))
 	}
 
 	return output, nil
