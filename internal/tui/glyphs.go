@@ -70,6 +70,15 @@ func (g glyphs) marker(selected bool) string {
 	return g.unselected
 }
 
+// checkbox marks whether a multi-select row is one of those chosen.
+func (g glyphs) checkbox(chosen bool) string {
+	if chosen {
+		return g.done + " "
+	}
+
+	return g.notStarted + " "
+}
+
 // styles is the interface's type. It inherits the terminal's own colors for
 // everything but meaning: Lip Gloss degrades to plain text where color is not
 // available, so there is no capability check here.

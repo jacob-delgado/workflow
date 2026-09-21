@@ -55,10 +55,15 @@ const (
 	issueKey     = "PROJ-412"
 	secondIssue  = "PROJ-388"
 	issueSummary = "Fix token redaction"
-	featureName  = "fix/PROJ-412-fix-token-redaction"
-	pullURL      = "https://github.com/example/repo/pull/42"
-	pullTitle    = "fix(config): redact tokens"
-	slackChannel = "#dev"
+
+	statusInProgress      = "In Progress"
+	categoryIndeterminate = "indeterminate"
+	fieldAssignee         = "Assignee"
+	idAssignee            = "assignee"
+	featureName           = "fix/PROJ-412-fix-token-redaction"
+	pullURL               = "https://github.com/example/repo/pull/42"
+	pullTitle             = "fix(config): redact tokens"
+	slackChannel          = "#dev"
 )
 
 // world is everything outside the interface, faked, and a record of what the
@@ -330,7 +335,7 @@ func (w *world) jiraDeps() tui.JiraDeps {
 			call.WriteString("transition " + string(key) + " " + to.ID)
 
 			for _, value := range values {
-				call.WriteString(" " + value.Field.ID + "=" + value.OptionID + value.Text)
+				call.WriteString(" " + value.Field.ID + "=" + value.OptionID + strings.Join(value.OptionIDs, ",") + value.Text)
 			}
 
 			w.record(call.String())

@@ -23,6 +23,123 @@ func resolveIssue() jira.Transition {
 	}
 }
 
+// fieldfulMove is a transition whose screen asks for a user, a date and a
+// list of fix versions — one kind of each the form now fills.
+func fieldfulMove() jira.Transition {
+	return jira.Transition{
+		ID: "9", Name: "Start", ToStatus: statusInProgress, ToStatusCategory: categoryIndeterminate,
+		Fields: []jira.Field{
+			{ID: idAssignee, Name: fieldAssignee, Kind: jira.FieldUser},
+			{ID: "duedate", Name: "Due date", Kind: jira.FieldDate},
+			{ID: "fixVersions", Name: "Fix Version/s", Kind: jira.FieldOptionList, Options: []jira.Option{
+				{ID: "10000", Name: "1.0"}, {ID: "10001", Name: "1.1"},
+			}},
+		},
+	}
+}
+
+func TestATransitionFillsAUserDateAndSeveralVersions(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	moving := newWorld()
+	moving.moves = []jira.Transition{fieldfulMove()}
+	model := moving.live(t, 120, 40)
+
+	// Act: open the picker and choose the move
+	form := typing(t, model, "t", keyEnter)
+
+	// Assert: the user field is first
+	requireScreen(t, form.View().Content, "Assignee (1 of 3)")
+
+	// Act: type a username
+	afterUser := typing(t, form, append(letters("fred"), keyEnter)...)
+
+	// Assert: the date field is next
+	requireScreen(t, afterUser.View().Content, "Due date (2 of 3)")
+
+	// Act: type a date
+	afterDate := typing(t, afterUser, append(letters("2026-09-21"), keyEnter)...)
+
+	// Assert: the versions are next, none chosen yet, and the toggle is offered
+	requireScreen(t, afterDate.View().Content, "Fix Version/s (3 of 3)", "○ 1.0", "○ 1.1")
+	requireScreen(t, footerLine(afterDate.View().Content), "space select")
+
+	// Act: choose both and apply
+	done := typing(t, afterDate, keySpace, "j", keySpace, keyEnter)
+
+	// Assert: the move is sent once, with all three values in the shape each needs
+	requireScreen(t, done.View().Content, "● PROJ-412 is now In Progress")
+
+	want := "transition PROJ-412 9 assignee=fred duedate=2026-09-21 fixVersions=10000,10001"
+	if calls := moving.asked("transition PROJ"); len(calls) != 1 || calls[0] != want {
+		t.Errorf("transition calls = %q, want %q", calls, want)
+	}
+}
+
+func TestADateFieldRefusesWhatIsNotADate(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	moving := newWorld()
+	moving.moves = []jira.Transition{fieldfulMove()}
+	model := moving.live(t, 120, 40)
+
+	// Act
+	dated := typing(t, typing(t, model, "t", keyEnter), append(letters("fred"), keyEnter)...)
+	refused := typing(t, dated, append(letters("soon"), keyEnter)...)
+
+	// Assert
+	requireScreen(t, refused.View().Content, "✗ Due date must be a date like 2026-09-21", "Due date (2 of 3)")
+
+	if calls := moving.asked("transition PROJ"); len(calls) != 0 {
+		t.Errorf("sent with a bad date: %q", calls)
+	}
+}
+
+func TestAListFieldNeedsAtLeastOneChoice(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	moving := newWorld()
+	moving.moves = []jira.Transition{fieldfulMove()}
+	model := moving.live(t, 120, 40)
+
+	// Act
+	withUser := typing(t, typing(t, model, "t", keyEnter), append(letters("fred"), keyEnter)...)
+	versions := typing(t, withUser, append(letters("2026-09-21"), keyEnter)...)
+	empty := typing(t, versions, keyEnter)
+
+	// Assert
+	requireScreen(t, empty.View().Content, "✗ Fix Version/s needs at least one", "Fix Version/s (3 of 3)")
+
+	if calls := moving.asked("transition PROJ"); len(calls) != 0 {
+		t.Errorf("sent with no version chosen: %q", calls)
+	}
+}
+
+func TestAChosenVersionCanBeToggledOff(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	moving := newWorld()
+	moving.moves = []jira.Transition{fieldfulMove()}
+	withUser := typing(t, typing(t, moving.live(t, 120, 40), "t", keyEnter), append(letters("fred"), keyEnter)...)
+	versions := typing(t, withUser, append(letters("2026-09-21"), keyEnter)...)
+
+	// Act: choose a version
+	chosen := typing(t, versions, keySpace)
+
+	// Assert: it shows as chosen
+	requireScreen(t, chosen.View().Content, "● 1.0")
+
+	// Act: choose it again
+	off := typing(t, chosen, keySpace)
+
+	// Assert: neither version is chosen now
+	requireScreen(t, off.View().Content, "○ 1.0", "○ 1.1")
+}
+
 func TestATransitionNeedingFieldsAsksForEachInTurn(t *testing.T) {
 	t.Parallel()
 
