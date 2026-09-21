@@ -54,6 +54,11 @@ func (w *world) gitDeps() tui.GitDeps {
 
 			return slices.Clone(w.remoteBranches), w.remoteBranchesErr
 		},
+		RecentSubjects: func() ([]string, error) {
+			w.record("recent-subjects")
+
+			return slices.Clone(w.recentSubjects), w.recentSubjectsErr
+		},
 		Checkout: func(name string) error {
 			w.record("checkout " + name)
 
@@ -85,10 +90,14 @@ func (w *world) gitDeps() tui.GitDeps {
 		},
 	}
 
-	// A repository that cannot list its remotes leaves the seam nil, the way
-	// wiring does outside a repository.
+	// A repository that cannot be read leaves the seam nil, the way wiring does
+	// outside a repository.
 	if w.noRemoteBranches {
 		deps.RemoteBranches = nil
+	}
+
+	if w.noRecentSubjects {
+		deps.RecentSubjects = nil
 	}
 
 	return deps

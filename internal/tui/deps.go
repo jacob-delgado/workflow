@@ -82,6 +82,10 @@ type GitDeps struct {
 	// RemoteBranches lists the branches on the remotes by name, so the pull
 	// request's base field can complete to one. Nil when there is no repository.
 	RemoteBranches func() ([]string, error)
+	// RecentSubjects reads the subjects of recent commits, so the commit scope
+	// field can complete from the scopes already in use. Nil when there is no
+	// repository.
+	RecentSubjects func() ([]string, error)
 	// CreateWorktree creates a branch in a new worktree beside the repository and
 	// returns where it put it, so a task can be started without disturbing the
 	// current checkout. Nil when there is no repository.

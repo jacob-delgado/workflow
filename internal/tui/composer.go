@@ -85,6 +85,7 @@ func (m Model) openCommitComposer() (Model, tea.Cmd) {
 		issueKey: issueKey, staged: m.changes.staged(), breaking: draft.breaking,
 	}
 	composer.scope.Blur()
+	composer = composer.withScopeSuggestions(m.stagedPaths(), m.deps.Git.RecentSubjects)
 
 	m.overlay = composer
 
@@ -240,7 +241,7 @@ func (c commitComposer) handleKey(m Model, msg tea.KeyPressMsg) (Model, tea.Cmd)
 	case key.Matches(msg, m.keys.toggleBreaking):
 		c.breaking = !c.breaking
 	case key.Matches(msg, m.keys.nextField):
-		c = c.focusOn((c.focus + 1) % composerFields)
+		c = c.onFieldNav(m, msg)
 	case key.Matches(msg, m.keys.prevField):
 		c = c.focusOn((c.focus + composerFields - 1) % composerFields)
 	default:

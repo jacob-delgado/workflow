@@ -231,7 +231,10 @@ Impact: low · Effort: small
   are free: the directory the staged files share, and the scopes already in
   `git log`.
 - Touches: `internal/tui/composer.go`, `internal/gitrepo/branch.go`.
-- Done when: the scope field offers completions and `tab` accepts one.
+- Done: the scope field completes from the name of the directory the staged
+  files share and from the scopes already in `git log` (`gitrepo.RecentSubjects`
+  → `convention.Scopes` → `scopeSuggestions`), and `tab` accepts a pending
+  completion or moves on when there is nothing to take.
 
 ### FEAT-22 Amend and fix up
 

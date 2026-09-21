@@ -3,7 +3,17 @@
 
 package gitrepo
 
-import "context"
+import (
+	"context"
+	"strconv"
+	"strings"
+
+	"github.com/jacob-delgado/workflow/internal/sanitize"
+)
+
+// recentSubjectLimit bounds how far back RecentSubjects reads, enough to see the
+// scopes a repository actually uses without walking its whole history.
+const recentSubjectLimit = 200
 
 // RecentCommits reads the commits you made since a git date such as "yesterday"
 // or "2 days ago", across the repository — for a standup. It filters to your own
@@ -24,4 +34,26 @@ func (r Repository) RecentCommits(ctx context.Context, since string) ([]Commit, 
 	}
 
 	return parseLog(text(out)), nil
+}
+
+// RecentSubjects reads the subjects of the repository's most recent commits,
+// across every author, so their Conventional Commit scopes can be offered as
+// completions. Each subject is sanitized, because a commit is anyone's to write.
+func (r Repository) RecentSubjects(ctx context.Context) ([]string, error) {
+	out, err := r.run(ctx, gitProgram, "-C", r.dir,
+		"log", "--format=%s", "-n", strconv.Itoa(recentSubjectLimit))
+	if err != nil {
+		return nil, readFailure(ctx, r.run, r.dir, "reading recent subjects", err)
+	}
+
+	var subjects []string
+
+	//nolint:modernize // SplitSeq returns a range-over-func iterator, which crashes gobco.
+	for _, line := range strings.Split(text(out), "\n") {
+		if subject := sanitize.Text(line); subject != "" {
+			subjects = append(subjects, subject)
+		}
+	}
+
+	return subjects, nil
 }

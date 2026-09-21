@@ -190,6 +190,7 @@ func gitDeps(ctx context.Context, root string) tui.GitDeps {
 		Branches:       func() ([]string, error) { return repo.LocalBranches(ctx) },
 		Checkout:       func(name string) error { return repo.Checkout(ctx, name) },
 		RemoteBranches: func() ([]string, error) { return repo.RemoteBranches(ctx) },
+		RecentSubjects: func() ([]string, error) { return repo.RecentSubjects(ctx) },
 		CreateWorktree: func(name, start string) (string, error) {
 			return repo.WorktreeAdd(ctx, name, start)
 		},
