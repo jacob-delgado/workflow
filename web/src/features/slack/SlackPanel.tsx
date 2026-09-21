@@ -62,6 +62,20 @@ export function SlackPanel() {
 
 type AnnounceState = 'idle' | 'loading' | 'preview' | 'posting' | 'done' | 'error'
 
+// firstNonEmpty is the first value that is not the empty string, or '' when
+// none is. It keeps the channel the preview posts to matching a listed option:
+// falling through an unset configured channel to the first known channel rather
+// than leaving the state empty while the select shows an option it never chose.
+function firstNonEmpty(...values: string[]): string {
+  for (const value of values) {
+    if (value !== '') {
+      return value
+    }
+  }
+
+  return ''
+}
+
 // AnnounceControls posts the pull request's announcement to Slack behind a
 // preview step: it fetches the composed message, shows it for confirmation, and
 // posts only on confirm — announcing is outward and not undone.
@@ -74,7 +88,7 @@ function AnnounceControls({
 }) {
   const [state, setState] = useState<AnnounceState>('idle')
   const [text, setText] = useState('')
-  const [channel, setChannel] = useState(defaultChannel)
+  const [channel, setChannel] = useState(() => firstNonEmpty(defaultChannel, channels[0] ?? ''))
   const [error, setError] = useState('')
 
   const openPreview = async () => {
@@ -82,7 +96,7 @@ function AnnounceControls({
     try {
       const preview = await previewAnnouncement()
       setText(preview.text)
-      setChannel(preview.channel === '' ? defaultChannel : preview.channel)
+      setChannel(firstNonEmpty(preview.channel, defaultChannel, channels[0] ?? ''))
       setError('')
       setState('preview')
     } catch (caught) {
@@ -109,12 +123,13 @@ function AnnounceControls({
     )
   }
 
-  if (state === 'preview') {
+  if (state === 'preview' || state === 'posting') {
     return (
       <AnnouncePreview
         text={text}
         channel={channel}
         channels={channels}
+        posting={state === 'posting'}
         onChannel={setChannel}
         onCancel={() => {
           setState('idle')
@@ -153,6 +168,7 @@ function AnnouncePreview({
   text,
   channel,
   channels,
+  posting,
   onChannel,
   onCancel,
   onPost,
@@ -160,6 +176,7 @@ function AnnouncePreview({
   text: string
   channel: string
   channels: string[]
+  posting: boolean
   onChannel: (channel: string) => void
   onCancel: () => void
   onPost: () => void
@@ -172,10 +189,11 @@ function AnnouncePreview({
           <span className="text-muted-foreground">Channel</span>
           <select
             value={channel}
+            disabled={posting}
             onChange={(event) => {
               onChannel(event.target.value)
             }}
-            className="rounded-md border border-input bg-transparent px-2 py-1 text-sm"
+            className="rounded-md border border-input bg-transparent px-2 py-1 text-sm disabled:opacity-60"
           >
             {channels.map((option) => (
               <option key={option} value={option}>
@@ -188,17 +206,19 @@ function AnnouncePreview({
       <div className="flex items-center gap-2">
         <button
           type="button"
+          disabled={posting}
           onClick={onCancel}
-          className="rounded-md border border-input px-3 py-1.5 text-sm hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+          className="rounded-md border border-input px-3 py-1.5 text-sm hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none disabled:opacity-60"
         >
           Cancel
         </button>
         <button
           type="button"
+          disabled={posting}
           onClick={onPost}
-          className="rounded-md bg-primary px-3 py-1.5 text-sm font-medium text-primary-foreground hover:bg-primary/90 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+          className="rounded-md bg-primary px-3 py-1.5 text-sm font-medium text-primary-foreground hover:bg-primary/90 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none disabled:opacity-60"
         >
-          Post to Slack
+          {posting ? 'Posting…' : 'Post to Slack'}
         </button>
       </div>
     </div>

@@ -1,9 +1,10 @@
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { vi } from 'vitest'
+import type { Snapshot } from '@/api/generated/types.gen.ts'
 import { useSnapshotStore } from '@/api/snapshot.ts'
 import { makeSnapshot } from '@/test/fixtures.ts'
-import { announce } from './announceApi.ts'
+import { announce, previewAnnouncement } from './announceApi.ts'
 import { SlackPanel } from './SlackPanel.tsx'
 
 vi.mock('./announceApi.ts', () => ({
@@ -13,14 +14,21 @@ vi.mock('./announceApi.ts', () => ({
   announce: vi.fn(() => Promise.resolve()),
 }))
 const mockAnnounce = vi.mocked(announce)
+const mockPreview = vi.mocked(previewAnnouncement)
 
 // withPullRequest is a snapshot with Slack configured and a pull request to
-// announce.
-function withPullRequest() {
+// announce; a case that turns on the channel wiring passes its own slack shape.
+function withPullRequest(
+  slack: Snapshot['slack'] = {
+    channel: '#dev',
+    channels: ['#dev', '#releases'],
+    author: 'ana.lopez',
+  },
+) {
   useSnapshotStore.setState({
     status: 'live',
     snapshot: makeSnapshot({
-      slack: { channel: '#dev', channels: ['#dev', '#releases'], author: 'ana.lopez' },
+      slack,
       review: {
         found: true,
         pull: {
@@ -126,6 +134,70 @@ test('previews the message, then posts it on confirm', async () => {
   // Assert
   expect(mockAnnounce).toHaveBeenCalledWith('#dev')
   expect(await screen.findByText(/announced/i)).toBeTruthy()
+})
+
+test('posts to the channel chosen in the preview', async () => {
+  // Arrange
+  const user = userEvent.setup()
+  withPullRequest()
+  render(<SlackPanel />)
+
+  // Act: open the preview, choose #releases, then confirm
+  await user.click(screen.getByRole('button', { name: /announce to slack/i }))
+  await screen.findByText('octocat announced the pull request')
+  await user.selectOptions(screen.getByRole('combobox'), '#releases')
+  await user.click(screen.getByRole('button', { name: /post to slack/i }))
+
+  // Assert
+  expect(mockAnnounce).toHaveBeenCalledWith('#releases')
+})
+
+test('posts to the first known channel when none is configured', async () => {
+  // Arrange
+  // A bot token with no configured channel: the preview comes back with an
+  // empty channel, so the control must fall through to the first known one
+  // rather than post to the empty channel the server would then reject.
+  mockPreview.mockResolvedValueOnce({ text: 'octocat announced the pull request', channel: '' })
+  const user = userEvent.setup()
+  withPullRequest({ channel: '', channels: ['#dev', '#releases'], author: 'ana.lopez' })
+  render(<SlackPanel />)
+
+  // Act: open the preview and confirm without touching the channel
+  await user.click(screen.getByRole('button', { name: /announce to slack/i }))
+  await screen.findByText('octocat announced the pull request')
+  await user.click(screen.getByRole('button', { name: /post to slack/i }))
+
+  // Assert
+  expect(mockAnnounce).toHaveBeenCalledWith('#dev')
+})
+
+test('locks the confirm while a post is in flight', async () => {
+  // Arrange
+  // Hold the post open so the in-flight state is observable rather than
+  // transient; a live confirm here would let a double click post twice.
+  let releasePost = () => {}
+  mockAnnounce.mockImplementationOnce(
+    () =>
+      new Promise<void>((resolve) => {
+        releasePost = resolve
+      }),
+  )
+  const user = userEvent.setup()
+  withPullRequest()
+  render(<SlackPanel />)
+
+  // Act: open the preview and confirm, leaving the post unresolved
+  await user.click(screen.getByRole('button', { name: /announce to slack/i }))
+  await screen.findByText('octocat announced the pull request')
+  await user.click(screen.getByRole('button', { name: /post to slack/i }))
+
+  // Assert: the confirm now reads "Posting…" and is disabled, and only one post fired
+  const posting = await screen.findByRole('button', { name: /posting/i })
+  expect(posting.hasAttribute('disabled')).toBe(true)
+  expect(mockAnnounce).toHaveBeenCalledTimes(1)
+
+  releasePost()
+  await screen.findByText(/announced/i)
 })
 
 test('does not post if the preview is canceled', async () => {

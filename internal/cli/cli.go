@@ -174,7 +174,7 @@ func newRootCmd(prompt Prompt, run runTUI, serve runWeb) *cobra.Command {
 					fmt.Fprintf(cmd.ErrOrStderr(), "workflow web: configuration did not load cleanly: %v\n", loadErr)
 				}
 
-				info := webserver.Info{Version: buildinfo.Current(), DryRun: dryRun}
+				info := webserver.Info{Version: buildinfo.Current(), DryRun: dryRun, ForgeKind: deps.Forge.Kind}
 
 				return serve(ctx, cfg, webDeps(deps), info, cmd.OutOrStdout())
 			}

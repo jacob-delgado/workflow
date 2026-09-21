@@ -9,6 +9,7 @@ import (
 
 	"github.com/jacob-delgado/workflow/internal/api"
 	"github.com/jacob-delgado/workflow/internal/convention"
+	"github.com/jacob-delgado/workflow/internal/forge"
 	"github.com/jacob-delgado/workflow/internal/jira"
 	"github.com/jacob-delgado/workflow/internal/slack"
 )
@@ -88,7 +89,7 @@ func (s *server) composeAnnouncement() (slack.Announcement, bool) {
 		IssueKey:         key,
 		IssueSummary:     s.issueSummary(jira.Key(key)),
 		IssueURL:         s.issueURL(jira.Key(key)),
-		Noun:             noun(s.config().Forge.Kind),
+		Noun:             noun(s.info.ForgeKind),
 		Template:         s.config().Slack.Announcement,
 	}, true
 }
@@ -117,9 +118,10 @@ func (s *server) issueURL(key jira.Key) string {
 	return s.deps.BrowseURL(key)
 }
 
-// noun is what the forge calls a change, from its kind, for the announcement.
-func noun(kind string) string {
-	if kind == "gitlab" {
+// noun is what the forge calls a change, from its resolved kind, for the
+// announcement — "merge request" on GitLab, "pull request" everywhere else.
+func noun(kind forge.Kind) string {
+	if kind == forge.KindGitLab {
 		return "merge request"
 	}
 
