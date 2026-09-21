@@ -16,9 +16,121 @@ import (
 // errNotInChannel stands in for Slack refusing a post.
 var errNotInChannel = errors.New("the credential was not accepted: not_in_channel")
 
-// announcement is what the world's pull request is announced as.
-const announcement = "jacob opened a pull request: <" + pullURL + "|" + pullTitle + ">\n" +
-	"<https://jira.example.com/browse/PROJ-412|PROJ-412> " + issueSummary
+// announcement is what the world's pull request is announced as, and
+// mergedAnnouncement and redCIAnnouncement are the same pull at its other
+// moments: the issue line is shared, only the lead sentence changes.
+const (
+	announcement = "jacob opened a pull request: <" + pullURL + "|" + pullTitle + ">\n" +
+		"<https://jira.example.com/browse/PROJ-412|PROJ-412> " + issueSummary
+	mergedAnnouncement = "jacob merged a pull request: <" + pullURL + "|" + pullTitle + ">\n" +
+		"<https://jira.example.com/browse/PROJ-412|PROJ-412> " + issueSummary
+	redCIAnnouncement = "CI is red on the pull request: <" + pullURL + "|" + pullTitle + ">\n" +
+		"<https://jira.example.com/browse/PROJ-412|PROJ-412> " + issueSummary
+)
+
+func TestTheSlackPaneAnnouncesAMerge(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	merged := mergedBranch()
+	model := merged.live(t, 120, 40)
+
+	// Act: open the post
+	preview := typing(t, model, "5", "p")
+
+	// Assert: it is a merge announcement, with no CI to wait on
+	requireScreen(t, preview.View().Content, "jacob merged a pull request", "enter post now")
+	refuseScreen(t, footerLine(preview.View().Content), "post when CI passes")
+
+	// Act: post it
+	posted := typing(t, preview, keyEnter)
+
+	// Assert: the merge announcement is posted once
+	requireScreen(t, posted.View().Content, "● posted to "+slackChannel)
+
+	if calls := merged.asked("post "); len(calls) != 1 || calls[0] != "post "+mergedAnnouncement {
+		t.Errorf("post calls = %q, want the merge announcement", calls)
+	}
+}
+
+func TestTheSlackPaneAnnouncesRedCI(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	failing := newWorld()
+	failing.ci = []forge.CI{{State: forge.CIFailed, Total: 1, Done: 1, Failed: 1}}
+	model := failing.live(t, 120, 40)
+
+	// Act
+	preview := typing(t, model, "5", "p")
+
+	// Assert
+	requireScreen(t, preview.View().Content, "CI is red on the pull request", "enter post now")
+	refuseScreen(t, footerLine(preview.View().Content), "post when CI passes")
+}
+
+func TestAMergeIsAnnouncedOnlyOnce(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	merged := mergedBranch()
+	model := merged.live(t, 120, 40)
+
+	// Act: post the merge
+	posted := typing(t, model, "5", "p", keyEnter)
+
+	// Assert: it is posted once
+	if calls := merged.asked("post "); len(calls) != 1 {
+		t.Errorf("post calls = %q, want the merge posted once", calls)
+	}
+
+	// Act: move on from the notice, then try to post the merge again
+	after := typing(t, posted, "j", "p", keyEnter)
+
+	// Assert: the merge is neither re-offered nor posted a second time
+	requireScreen(t, after.View().Content, "state  ● posted")
+	refuseScreen(t, footerLine(after.View().Content), "p post")
+
+	if calls := merged.asked("post "); len(calls) != 1 {
+		t.Errorf("post calls = %q, want the merge announced once, not re-offered", calls)
+	}
+}
+
+func TestPostWhenCIPassesIsInertOnAMerge(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	// A merge has no CI to wait for, so w does nothing rather than queue the post.
+	merged := mergedBranch()
+
+	// Act
+	after := typing(t, merged.live(t, 120, 40), "5", "p", "w")
+
+	// Assert
+	refuseScreen(t, after.View().Content, "once CI passes")
+
+	if calls := merged.asked("post "); len(calls) != 0 {
+		t.Errorf("a merge queued or sent a post waiting for CI: %q", calls)
+	}
+}
+
+func TestAMergeIsAnnouncableAfterTheOpening(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	// The opening is announced; then the pull request merges under the reader.
+	posting := newWorld()
+	model := typing(t, posting.live(t, 120, 40), "5", "p", keyEnter)
+	posting.pull.State = forge.StateMerged
+
+	// Act
+	afterMerge := typing(t, model, "4", "r", "5")
+
+	// Assert
+	// The merge can still be announced — the opening does not block it.
+	requireScreen(t, afterMerge.View().Content, "jacob merged a pull request")
+	requireScreen(t, footerLine(afterMerge.View().Content), "p post to slack")
+}
 
 func TestTheSlackPanePreviewsTheAnnouncement(t *testing.T) {
 	t.Parallel()
@@ -198,9 +310,12 @@ func TestAPostWaitingForCIIsDroppedWhenCIFails(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
+	// CI is running when the post is queued — a "ready for review" moment — and
+	// fails on the next check. The interval is above the harness's patience so the
+	// initial poll does not fast-forward CI to failed before the post is queued.
 	failing := newWorld()
-	failing.ciInterval = time.Millisecond
-	failing.ci = []forge.CI{{State: forge.CIRunning}, {State: forge.CIRunning}, {State: forge.CIFailed}}
+	failing.ciInterval = 2 * time.Second
+	failing.ci = []forge.CI{{State: forge.CIRunning}, {State: forge.CIFailed}}
 
 	// Act
 	dropped := typing(t, failing.live(t, 120, 40), "5", "p", "w")
@@ -385,9 +500,11 @@ func TestADroppedPostLeavesALineInThePane(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
+	// CI is running when the post is queued, then fails; the interval is above the
+	// harness's patience so the queue happens before CI settles.
 	failing := newWorld()
-	failing.ciInterval = time.Millisecond
-	failing.ci = []forge.CI{{State: forge.CIRunning}, {State: forge.CIRunning}, {State: forge.CIFailed}}
+	failing.ciInterval = 2 * time.Second
+	failing.ci = []forge.CI{{State: forge.CIRunning}, {State: forge.CIFailed}}
 
 	// Act
 	dropped := typing(t, failing.live(t, 120, 40), "5", "p", "w")

@@ -18,6 +18,8 @@ import (
 )
 
 // message is what a post sends.
+const testAuthor = "jacob"
+
 const message = "jacob opened a pull request"
 
 // posted is what a fake Slack received.
@@ -280,7 +282,7 @@ func TestAnnouncementText(t *testing.T) {
 	}{
 		"the pull request and the issue, both linked": {
 			announcement: slack.Announcement{
-				Author:           "jacob",
+				Author:           testAuthor,
 				PullRequestURL:   "https://github.com/example/repo/pull/42",
 				PullRequestTitle: "fix(config): redact tokens",
 				IssueKey:         "PROJ-412",
@@ -299,6 +301,27 @@ func TestAnnouncementText(t *testing.T) {
 				PullRequestURL: "https://x/pull/1", PullRequestTitle: "t", IssueKey: "OPS-1", IssueSummary: "s",
 			},
 			want: "A pull request is ready for review: <https://x/pull/1|t>\nOPS-1 s",
+		},
+		"a merged pull request, with author": {
+			announcement: slack.Announcement{
+				Moment:           slack.MomentMerged,
+				Author:           testAuthor,
+				PullRequestURL:   "https://x/pull/42",
+				PullRequestTitle: "fix: redact tokens",
+			},
+			want: "jacob merged a pull request: <https://x/pull/42|fix: redact tokens>",
+		},
+		"a merged pull request, no author": {
+			announcement: slack.Announcement{
+				Moment: slack.MomentMerged, PullRequestURL: "https://x/pull/42", PullRequestTitle: "t",
+			},
+			want: "A pull request merged: <https://x/pull/42|t>",
+		},
+		"CI is red on the change": {
+			announcement: slack.Announcement{
+				Moment: slack.MomentCIRed, PullRequestURL: "https://x/pull/9", PullRequestTitle: "flaky",
+			},
+			want: "CI is red on the pull request: <https://x/pull/9|flaky>",
 		},
 	}
 
@@ -336,13 +359,68 @@ func TestAnnouncementEscapesWhatSlackWouldReadAsMarkup(t *testing.T) {
 	}
 }
 
+func TestEveryMomentEscapesWhatSlackWouldReadAsMarkup(t *testing.T) {
+	t.Parallel()
+
+	// Every moment builds its link and lead the same way, so the escaping that
+	// stops a hostile title injecting Slack markup must hold for all of them.
+	for name, moment := range map[string]slack.Moment{
+		"ready": slack.MomentReady, "merged": slack.MomentMerged, "ci red": slack.MomentCIRed,
+	} {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			// Arrange
+			// The author, title and URL are all hostile, so every moment that
+			// includes them must escape them — an unescaped one lets a title or a
+			// name inject Slack markup.
+			announcement := slack.Announcement{
+				Moment: moment, Author: "a&b<!channel>",
+				PullRequestURL: "https://x/pull/1?a=1&b=2", PullRequestTitle: "fix: <!here> a > b",
+			}
+
+			// Act
+			got := announcement.Text()
+
+			// Assert
+			if strings.Contains(got, "<!channel>") || strings.Contains(got, "<!here>") ||
+				strings.Contains(got, "a > b") || !strings.Contains(got, "&lt;!here&gt;") {
+				t.Errorf("Text() = %q, want &, < and > escaped for the %s moment", got, name)
+			}
+		})
+	}
+}
+
+func TestAConfiguredTemplateShapesOnlyAReadyAnnouncement(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	// The template is the team's "ready for review" wording. A merge is not ready
+	// for review, so it uses the built-in merge text rather than the template.
+	announcement := slack.Announcement{
+		Moment:           slack.MomentMerged,
+		Template:         "🚀 {author} needs a review of <{url}|{title}>",
+		Author:           testAuthor,
+		PullRequestURL:   "https://x/pull/7",
+		PullRequestTitle: "fix: redact",
+	}
+
+	// Act
+	got := announcement.Text()
+
+	// Assert
+	if want := "jacob merged a pull request: <https://x/pull/7|fix: redact>"; got != want {
+		t.Errorf("Text() = %q, want the built-in merge text, not the template", got)
+	}
+}
+
 func TestAConfiguredTemplateShapesTheAnnouncement(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
 	announcement := slack.Announcement{
 		Template:         "🚀 {author} needs a review of <{url}|{title}> for {key}",
-		Author:           "jacob",
+		Author:           testAuthor,
 		PullRequestURL:   "https://x/pull/7",
 		PullRequestTitle: "fix: redact tokens",
 		IssueKey:         "PROJ-412",
