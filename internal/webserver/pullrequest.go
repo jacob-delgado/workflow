@@ -64,11 +64,21 @@ func (s *server) OpenPullRequest(
 	}
 
 	pull, err := s.deps.CreatePull(newPull)
-	if err != nil {
+	if err != nil && !pull.Opened() {
 		return openUnprocessable(err.Error()), nil
 	}
 
-	return api.OpenPullRequest200JSONResponse(pullDTO(pull)), nil
+	// A pull that opened but whose reviewers, assignees or labels could not all
+	// be added is reported open, with a warning, rather than lost to a failure.
+	opened := api.OpenedPullRequest{Pull: pullDTO(pull)}
+
+	if err != nil {
+		warning := "the pull request opened, but its reviewers, assignees or labels could not all be added: " +
+			err.Error()
+		opened.Warning = &warning
+	}
+
+	return api.OpenPullRequest200JSONResponse(opened), nil
 }
 
 // canOpenPull reports whether the seams the open needs are wired: creating the
@@ -164,12 +174,30 @@ func pullFromRequest(body api.OpenPullRequestRequest, branch gitrepo.Branch) (fo
 	}
 
 	return forge.NewPullRequest{
-		Title: title,
-		Body:  orZero(body.Body),
-		Head:  branch.Name,
-		Base:  base,
-		Draft: orZero(body.Draft),
+		Title:     title,
+		Body:      orZero(body.Body),
+		Head:      branch.Name,
+		Base:      base,
+		Draft:     orZero(body.Draft),
+		Reviewers: trimmedList(body.Reviewers),
+		Assignees: trimmedList(body.Assignees),
+		Labels:    trimmedList(body.Labels),
 	}, true
+}
+
+// trimmedList reads an optional list of names into its trimmed, non-empty
+// entries, so a stray comma in the web form never sends the forge a blank
+// reviewer, assignee or label.
+func trimmedList(list *[]string) []string {
+	var cleaned []string
+
+	for _, entry := range orZero(list) {
+		if trimmed := strings.TrimSpace(entry); trimmed != "" {
+			cleaned = append(cleaned, trimmed)
+		}
+	}
+
+	return cleaned
 }
 
 // draftDTO maps the composed draft and its branch onto the wire.

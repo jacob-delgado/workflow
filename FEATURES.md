@@ -337,6 +337,15 @@ Impact: high · Effort: medium
   suggestion.
 - Done when: the composer suggests reviewers, the opened pull request has
   them, and a failure to add one does not lose the pull request.
+- Done: `NewPullRequest` carries `Reviewers`, `Assignees` and `Labels`. GitHub
+  opens the pull then requests reviewers and adds assignees and labels in
+  follow-up calls, returning the opened pull alongside any failure so it is
+  never lost (`PullRequest.Opened()` tells a refused create from a reviewer add
+  that failed); GitLab resolves usernames to ids and sets all three at creation,
+  refusing an unknown name before opening anything. The TUI composer gains
+  reviewers/assignees/labels fields, the reviewers field suggesting the
+  `CODEOWNERS` user handles (`gitrepo.CodeOwners`). On the web, the open-pull
+  form gains the same three fields over `OpenPullRequestRequest`.
 
 ### FEAT-30 Edit a pull request after opening it
 

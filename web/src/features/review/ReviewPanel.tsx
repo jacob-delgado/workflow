@@ -109,6 +109,7 @@ function OpenPullRequest() {
   const [state, setState] = useState<OpenState>('idle')
   const [draft, setDraft] = useState<PullRequestDraft | null>(null)
   const [error, setError] = useState('')
+  const [warning, setWarning] = useState('')
 
   const openForm = async () => {
     setState('loading')
@@ -125,7 +126,7 @@ function OpenPullRequest() {
   const submit = async (request: OpenPullRequestRequest) => {
     setState('opening')
     try {
-      await openPr(request)
+      setWarning(await openPr(request))
       setError('')
       setState('done')
     } catch (caught) {
@@ -135,7 +136,16 @@ function OpenPullRequest() {
   }
 
   if (state === 'done') {
-    return <p className="mt-4 text-sm text-success">Pull request opened.</p>
+    return (
+      <div className="mt-4 flex flex-col gap-1">
+        <p className="text-sm text-success">Pull request opened.</p>
+        {warning === '' ? null : (
+          <p role="status" className="text-sm text-warning">
+            {warning}
+          </p>
+        )}
+      </div>
+    )
   }
 
   // A failed open keeps the form up with its reason, so the edits are not lost;
@@ -184,6 +194,18 @@ interface PullRequestFields {
   base: string
   body: string
   draft: boolean
+  reviewers: string
+  assignees: string
+  labels: string
+}
+
+// splitList reads a comma-separated field into its trimmed, non-empty entries,
+// so a stray comma never sends the forge a blank reviewer, assignee or label.
+function splitList(text: string): string[] {
+  return text
+    .split(',')
+    .map((entry) => entry.trim())
+    .filter((entry) => entry !== '')
 }
 
 // PullRequestForm is the composed pull request, editable, with a confirm that
@@ -203,11 +225,27 @@ function PullRequestForm({
   onSubmit: (request: OpenPullRequestRequest) => void
 }) {
   const { register, handleSubmit } = useForm<PullRequestFields>({
-    defaultValues: { title: draft.title, base: draft.base, body: draft.body, draft: draft.draft },
+    defaultValues: {
+      title: draft.title,
+      base: draft.base,
+      body: draft.body,
+      draft: draft.draft,
+      reviewers: '',
+      assignees: '',
+      labels: '',
+    },
   })
 
   const submit = handleSubmit((fields) => {
-    onSubmit({ title: fields.title, base: fields.base, body: fields.body, draft: fields.draft })
+    onSubmit({
+      title: fields.title,
+      base: fields.base,
+      body: fields.body,
+      draft: fields.draft,
+      reviewers: splitList(fields.reviewers),
+      assignees: splitList(fields.assignees),
+      labels: splitList(fields.labels),
+    })
   })
 
   return (
@@ -226,6 +264,33 @@ function PullRequestForm({
       <label className="flex flex-col gap-1 text-xs text-muted-foreground">
         Base branch
         <input {...register('base')} required className={prInputClass} />
+      </label>
+
+      <label className="flex flex-col gap-1 text-xs text-muted-foreground">
+        Reviewers
+        <input
+          {...register('reviewers')}
+          placeholder="comma-separated usernames"
+          className={prInputClass}
+        />
+      </label>
+
+      <label className="flex flex-col gap-1 text-xs text-muted-foreground">
+        Assignees
+        <input
+          {...register('assignees')}
+          placeholder="comma-separated usernames"
+          className={prInputClass}
+        />
+      </label>
+
+      <label className="flex flex-col gap-1 text-xs text-muted-foreground">
+        Labels
+        <input
+          {...register('labels')}
+          placeholder="comma-separated labels"
+          className={prInputClass}
+        />
       </label>
 
       <label className="flex flex-col gap-1 text-xs text-muted-foreground">

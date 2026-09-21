@@ -5,6 +5,7 @@ package tui
 
 import (
 	"errors"
+	"fmt"
 	"strconv"
 	"strings"
 
@@ -38,6 +39,9 @@ var (
 const (
 	prFieldTitle = iota
 	prFieldBase
+	prFieldReviewers
+	prFieldAssignees
+	prFieldLabels
 	prFields
 )
 
@@ -48,6 +52,9 @@ type prComposer struct {
 	styles    styles
 	title     textinput.Model
 	base      textinput.Model
+	reviewers textinput.Model
+	assignees textinput.Model
+	labels    textinput.Model
 	focus     int
 	head      string
 	templates []forge.Template
@@ -67,15 +74,17 @@ var _ editable = prComposer{}
 // prDraft is a pull request the composer was filled with, kept for the session
 // so a push that fails, or an esc, does not throw the work away.
 type prDraft struct {
-	branch, title, base, body string
-	template                  int
-	draft, edited             bool
+	branch, title, base, body    string
+	reviewers, assignees, labels string
+	template                     int
+	draft, edited                bool
 }
 
 // snapshot is the composer's editable state, to reopen on.
 func (c prComposer) snapshot() prDraft {
 	return prDraft{
 		branch: c.head, title: c.title.Value(), base: c.base.Value(), body: c.body,
+		reviewers: c.reviewers.Value(), assignees: c.assignees.Value(), labels: c.labels.Value(),
 		template: c.template, draft: c.draft, edited: c.edited,
 	}
 }
@@ -84,6 +93,9 @@ func (c prComposer) snapshot() prDraft {
 func (c prComposer) restore(draft prDraft) prComposer {
 	c.title.SetValue(draft.title)
 	c.base.SetValue(draft.base)
+	c.reviewers.SetValue(draft.reviewers)
+	c.assignees.SetValue(draft.assignees)
+	c.labels.SetValue(draft.labels)
 	c.body, c.template, c.draft, c.edited = draft.body, draft.template, draft.draft, draft.edited
 
 	return c
@@ -103,12 +115,18 @@ func (m Model) openPullRequestComposer() (Model, tea.Cmd) {
 
 	composer := prComposer{
 		marks: m.marks, styles: m.styles,
-		title: newInput(convention.PullRequestTitle(subjects, string(issueKey), issue.Summary)),
-		base:  newInput(branch.BaseName()), focus: prFieldTitle, head: branch.Name,
+		title:     newInput(convention.PullRequestTitle(subjects, string(issueKey), issue.Summary)),
+		base:      newInput(branch.BaseName()),
+		reviewers: newInput(""), assignees: newInput(""), labels: newInput(""),
+		focus: prFieldTitle, head: branch.Name,
 		subjects: subjects, issueKey: issueKey, issueURL: m.browseURL(issueKey), vocab: m.vocab,
 	}
 	composer.base.Blur()
+	composer.reviewers.Blur()
+	composer.assignees.Blur()
+	composer.labels.Blur()
 	composer = composer.withBaseSuggestions(m.deps.Git.RemoteBranches)
+	composer = composer.withReviewerSuggestions(m.deps.Git.CodeOwners)
 
 	if m.deps.Forge.Templates != nil {
 		composer.templates = m.deps.Forge.Templates()
@@ -143,6 +161,26 @@ func (c prComposer) withBaseSuggestions(remoteBranches func() ([]string, error))
 	return c
 }
 
+// withReviewerSuggestions shows the CODEOWNERS handles as the reviewers field's
+// hint and completions, when the repository names any. A failure to read them
+// is no reason to refuse the composer, so the field is simply left plain.
+func (c prComposer) withReviewerSuggestions(codeOwners func() ([]string, error)) prComposer {
+	if codeOwners == nil {
+		return c
+	}
+
+	owners, err := codeOwners()
+	if err != nil || len(owners) == 0 {
+		return c
+	}
+
+	c.reviewers.Placeholder = strings.Join(owners, ", ")
+	c.reviewers.SetSuggestions(owners)
+	c.reviewers.ShowSuggestions = true
+
+	return c
+}
+
 // browseURL links an issue, when there is an issue and a way to link it.
 func (m Model) browseURL(issueKey jira.Key) string {
 	if issueKey == "" || m.deps.Jira.BrowseURL == nil {
@@ -171,13 +209,23 @@ func (c prComposer) view(width, _ int) (string, string) {
 	inner := max(1, width-prLabelWidth)
 	c.title.SetWidth(inner)
 	c.base.SetWidth(inner)
+	c.reviewers.SetWidth(inner)
+	c.assignees.SetWidth(inner)
+	c.labels.SetWidth(inner)
+
+	field := func(focus int, label string, input textinput.Model) string {
+		return c.marks.marker(c.focus == focus) + fmt.Sprintf("%-9s ", label) + input.View()
+	}
 
 	checkbox := map[bool]string{false: "[ ]", true: "[x]"}[c.draft]
 	lines := pinnedOutcome(c.styles, c.marks, c.send, "opening", width)
 	lines = append(lines,
-		c.marks.marker(c.focus == prFieldTitle)+"title  "+c.title.View(),
-		c.marks.marker(c.focus == prFieldBase)+"base   "+c.base.View(),
-		"  head   "+c.head,
+		field(prFieldTitle, "title", c.title),
+		field(prFieldBase, "base", c.base),
+		field(prFieldReviewers, "reviewers", c.reviewers),
+		field(prFieldAssignees, "assignees", c.assignees),
+		field(prFieldLabels, "labels", c.labels),
+		fmt.Sprintf("  %-9s %s", "head", c.head),
 		"  "+c.templateName()+c.marks.separator+checkbox+" draft",
 		"",
 	)
@@ -257,6 +305,10 @@ func (c prComposer) onFieldNav(msg tea.KeyPressMsg, keys keyMap) prComposer {
 		return c.typed(msg)
 	}
 
+	if key.Matches(msg, keys.prevField) {
+		return c.focusOn((c.focus + prFields - 1) % prFields)
+	}
+
 	return c.focusOn((c.focus + 1) % prFields)
 }
 
@@ -274,10 +326,20 @@ func (c prComposer) focusOn(field int) prComposer {
 
 	c.title.Blur()
 	c.base.Blur()
+	c.reviewers.Blur()
+	c.assignees.Blur()
+	c.labels.Blur()
 
-	if field == prFieldBase {
+	switch field {
+	case prFieldBase:
 		c.base.Focus()
-	} else {
+	case prFieldReviewers:
+		c.reviewers.Focus()
+	case prFieldAssignees:
+		c.assignees.Focus()
+	case prFieldLabels:
+		c.labels.Focus()
+	default:
 		c.title.Focus()
 	}
 
@@ -286,9 +348,16 @@ func (c prComposer) focusOn(field int) prComposer {
 
 // typed hands a key to the field with focus.
 func (c prComposer) typed(msg tea.KeyPressMsg) prComposer {
-	if c.focus == prFieldBase {
+	switch c.focus {
+	case prFieldBase:
 		c.base, _ = c.base.Update(msg)
-	} else {
+	case prFieldReviewers:
+		c.reviewers, _ = c.reviewers.Update(msg)
+	case prFieldAssignees:
+		c.assignees, _ = c.assignees.Update(msg)
+	case prFieldLabels:
+		c.labels, _ = c.labels.Update(msg)
+	default:
 		c.title, _ = c.title.Update(msg)
 	}
 
@@ -327,7 +396,24 @@ func (c prComposer) request() forge.NewPullRequest {
 	return forge.NewPullRequest{
 		Title: strings.TrimSpace(c.title.Value()), Body: c.body, Head: c.head,
 		Base: strings.TrimSpace(c.base.Value()), Draft: c.draft,
+		Reviewers: splitList(c.reviewers.Value()),
+		Assignees: splitList(c.assignees.Value()),
+		Labels:    splitList(c.labels.Value()),
 	}
+}
+
+// splitList reads a comma-separated field into its trimmed, non-empty entries,
+// or nil when nothing was typed.
+func splitList(text string) []string {
+	var entries []string
+
+	for entry := range strings.SplitSeq(text, ",") {
+		if trimmed := strings.TrimSpace(entry); trimmed != "" {
+			entries = append(entries, trimmed)
+		}
+	}
+
+	return entries
 }
 
 // open opens the pull request — pushing the branch first when origin does not
@@ -395,9 +481,10 @@ type pullCreated struct {
 }
 
 // apply shows the new pull request and starts on its CI, or keeps the composer
-// open with the forge's reason.
+// open with the forge's reason. A pull that opened but whose reviewers could
+// not be added is shown all the same, with a note, rather than lost.
 func (msg pullCreated) apply(m Model) (Model, tea.Cmd) {
-	if msg.err != nil {
+	if msg.err != nil && !msg.pull.Opened() {
 		composer, open := m.overlay.(prComposer)
 		if open {
 			composer.send = composer.send.failed(msg.err)
@@ -407,7 +494,12 @@ func (msg pullCreated) apply(m Model) (Model, tea.Cmd) {
 		return m, nil
 	}
 
-	m = m.noticed(m.marks.done + " opened " + m.vocab.sigil + strconv.Itoa(msg.pull.Number) + " " + msg.pull.URL)
+	notice := m.marks.done + " opened " + m.vocab.sigil + strconv.Itoa(msg.pull.Number) + " " + msg.pull.URL
+	if msg.err != nil {
+		notice += "; could not add every reviewer, assignee or label: " + forgeReason(msg.err)
+	}
+
+	m = m.noticed(notice)
 	m.review = reviewState{pull: msg.pull, found: true, loaded: true}
 	m.prDraft = prDraft{}
 

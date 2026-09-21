@@ -428,6 +428,9 @@ type JiraView struct {
 
 // OpenPullRequestRequest The pull request to open for the checked-out branch.
 type OpenPullRequestRequest struct {
+	// Assignees Usernames to assign the pull request to.
+	Assignees *[]string `json:"assignees,omitempty"`
+
 	// Base The branch to merge into.
 	//
 	// Example: main
@@ -439,10 +442,24 @@ type OpenPullRequestRequest struct {
 	// Draft Whether to open it as a draft.
 	Draft *bool `json:"draft,omitempty"`
 
+	// Labels Label names to add to the pull request.
+	Labels *[]string `json:"labels,omitempty"`
+
+	// Reviewers Usernames to request a review from.
+	Reviewers *[]string `json:"reviewers,omitempty"`
+
 	// Title The pull request title.
 	//
 	// Example: fix: redact tokens before they reach the request log
 	Title string `json:"title"`
+}
+
+// OpenedPullRequest A pull request that was just opened, with a warning when it opened but its reviewers, assignees or labels could not all be added.
+type OpenedPullRequest struct {
+	Pull PullRequest `json:"pull"`
+
+	// Warning Set only when the pull opened but adding its reviewers, assignees or labels did not fully succeed, so a partial success is not reported as a failure.
+	Warning *string `json:"warning,omitempty"`
 }
 
 // PullRequest defines model for PullRequest.

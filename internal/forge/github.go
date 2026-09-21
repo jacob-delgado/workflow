@@ -5,6 +5,7 @@ package forge
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"net/url"
@@ -250,16 +251,56 @@ func tallyReviews(reviews []githubReview) (int, bool) {
 	return approvals, changes
 }
 
-// githubCreate opens a pull request on GitHub.
+// githubCreate opens a pull request on GitHub, then requests its reviewers and
+// adds its assignees and labels. Those are separate requests GitHub only takes
+// once the pull exists, so their failure is returned alongside the opened pull
+// rather than losing it.
 func githubCreate(ctx context.Context, client Client, repo Repo, request NewPullRequest) (PullRequest, error) {
-	payload := githubNewPull(request)
+	payload := githubNewPull{
+		Title: request.Title, Body: request.Body, Head: request.Head, Base: request.Base, Draft: request.Draft,
+	}
 
 	created, err := repoCall[githubPull](ctx, client, repo, http.MethodPost, githubRepoPath(repo)+"/pulls", payload)
 	if err != nil {
 		return PullRequest{}, err
 	}
 
-	return created.pullRequest(), nil
+	pull := created.pullRequest()
+
+	return pull, githubAddPeople(ctx, client, repo, pull.Number, request)
+}
+
+// githubAddPeople requests reviewers and adds assignees and labels to a pull
+// request already opened. GitHub names each list by the same key it reads it
+// back under, and takes reviewers on the pull while assignees and labels go on
+// its issue side.
+func githubAddPeople(ctx context.Context, client Client, repo Repo, number int, request NewPullRequest) error {
+	pull := githubRepoPath(repo) + "/pulls/" + strconv.Itoa(number)
+	issue := githubRepoPath(repo) + issuesSegment + "/" + strconv.Itoa(number)
+
+	err := githubPostList(ctx, client, repo, pull+"/requested_reviewers", "reviewers", request.Reviewers)
+	if err != nil {
+		return err
+	}
+
+	err = githubPostList(ctx, client, repo, issue+"/assignees", "assignees", request.Assignees)
+	if err != nil {
+		return err
+	}
+
+	return githubPostList(ctx, client, repo, issue+"/labels", "labels", request.Labels)
+}
+
+// githubPostList posts a named list to an endpoint, doing nothing when the list
+// is empty so no needless request is made.
+func githubPostList(ctx context.Context, client Client, repo Repo, path, key string, values []string) error {
+	if len(values) == 0 {
+		return nil
+	}
+
+	_, err := repoCall[json.RawMessage](ctx, client, repo, http.MethodPost, path, map[string][]string{key: values})
+
+	return err
 }
 
 // githubCombined is a page of a commit's combined status: the statuses reported

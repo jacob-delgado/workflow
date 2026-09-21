@@ -191,8 +191,8 @@ func TestNOpensAComposerStartedFromTheBranch(t *testing.T) {
 
 	// Assert: it starts from the branch, the first template and the issue
 	requireScreen(t, composer.View().Content,
-		"┏━ Open pull request", "title  > "+pullTitle, "base   > main",
-		"head   "+featureName, "template PULL_REQUEST_TEMPLATE (1 of 2)", "[ ] draft", "## What this changes",
+		"┏━ Open pull request", "title     > "+pullTitle, "base      > main",
+		"head      "+featureName, "template PULL_REQUEST_TEMPLATE (1 of 2)", "[ ] draft", "## What this changes",
 		"Jira: [PROJ-412](https://jira.example.com/browse/PROJ-412)")
 
 	// Act: take the other template, as a draft
@@ -242,7 +242,7 @@ func TestAFailedPushKeepsThePullRequestDraft(t *testing.T) {
 
 	// Assert: it reopens with the edited title still there
 	requireScreen(t, reopened.View().Content,
-		"┏━ Open pull request", "title  > "+pullTitle+"!")
+		"┏━ Open pull request", "title     > "+pullTitle+"!")
 }
 
 func TestTheComposerTitleAndBaseCanBeEdited(t *testing.T) {
@@ -261,7 +261,7 @@ func TestTheComposerTitleAndBaseCanBeEdited(t *testing.T) {
 
 	// Assert: both show changed
 	requireScreen(t, composed.View().Content,
-		"title  > "+pullTitle+"!", "base   > develop", "no template in this repository")
+		"title     > "+pullTitle+"!", "base      > develop", "no template in this repository")
 
 	// Act: open it
 	typing(t, composed, keyEnter)

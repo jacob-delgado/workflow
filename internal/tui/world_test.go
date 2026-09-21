@@ -99,6 +99,9 @@ type world struct {
 	remoteBranches    []string
 	remoteBranchesErr error
 	noRemoteBranches  bool
+	codeOwners        []string
+	codeOwnersErr     error
+	noCodeOwners      bool
 	recentSubjects    []string
 	recentSubjectsErr error
 	noRecentSubjects  bool
@@ -127,17 +130,18 @@ type world struct {
 	nothingToRerun bool
 	authorErr      error
 
-	pull       forge.PullRequest
-	pullFound  bool
-	pullErr    error
-	openErr    error
-	reviews    []forge.ReviewRequest
-	reviewsErr error
-	ci         []forge.CI
-	templates  []forge.Template
-	forgeKind  forge.Kind
-	author     string
-	postErr    error
+	pull        forge.PullRequest
+	pullFound   bool
+	pullErr     error
+	openErr     error
+	reviewerErr error
+	reviews     []forge.ReviewRequest
+	reviewsErr  error
+	ci          []forge.CI
+	templates   []forge.Template
+	forgeKind   forge.Kind
+	author      string
+	postErr     error
 	// postGate, when set, holds every post, already recorded, until it is
 	// closed: a Slack that is slow to answer.
 	postGate   chan struct{}
@@ -236,6 +240,27 @@ func (w *world) asked(prefix string) []string {
 	}
 
 	return matching
+}
+
+// requestPeople names the reviewers, assignees and labels a pull request
+// carries, or "" when it carries none, so a test can assert on them without
+// changing the recorded call for the pull requests that name nobody.
+func requestPeople(request forge.NewPullRequest) string {
+	var parts []string
+
+	if len(request.Reviewers) > 0 {
+		parts = append(parts, "reviewers="+strings.Join(request.Reviewers, ","))
+	}
+
+	if len(request.Assignees) > 0 {
+		parts = append(parts, "assignees="+strings.Join(request.Assignees, ","))
+	}
+
+	if len(request.Labels) > 0 {
+		parts = append(parts, "labels="+strings.Join(request.Labels, ","))
+	}
+
+	return strings.Join(parts, " ")
 }
 
 // nextCI is the next CI answer: each check takes the next, and the last one
@@ -375,10 +400,21 @@ func (w *world) forgeDeps() tui.ForgeDeps {
 			return w.pull, w.pullFound, w.pullErr
 		},
 		CreatePullRequest: func(request forge.NewPullRequest) (forge.PullRequest, error) {
-			w.record("open " + request.Title + " " + request.Head + ">" + request.Base + " draft=" +
-				map[bool]string{false: "no", true: "yes"}[request.Draft] + "\n" + request.Body)
+			call := "open " + request.Title + " " + request.Head + ">" + request.Base + " draft=" +
+				map[bool]string{false: "no", true: "yes"}[request.Draft]
+			if people := requestPeople(request); people != "" {
+				call += " " + people
+			}
 
-			return w.pull, w.openErr
+			w.record(call + "\n" + request.Body)
+
+			// A refused create returns no pull, the way the real forge does; a pull
+			// whose reviewers could not be added returns the pull with the error.
+			if w.openErr != nil {
+				return forge.PullRequest{}, w.openErr
+			}
+
+			return w.pull, w.reviewerErr
 		},
 		CheckStatus: func(_ forge.PullRequest, head string) (forge.CI, error) {
 			w.record("ci " + head)
