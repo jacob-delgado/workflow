@@ -372,7 +372,19 @@ func (m Model) reviewKeys() []key.Binding {
 		keys = append(keys, m.keys.checks)
 	}
 
+	keys = append(keys, m.linkKeys(m.reviewPullURL())...)
+
 	return append(keys, m.keys.refresh)
+}
+
+// reviewPullURL is the branch's open pull request URL, or empty when none is
+// found.
+func (m Model) reviewPullURL() string {
+	if !m.review.found {
+		return ""
+	}
+
+	return m.review.pull.URL
 }
 
 // handleReviewKey answers the Review pane's own keys.
@@ -382,6 +394,10 @@ func (m Model) handleReviewKey(msg tea.KeyPressMsg) (Model, tea.Cmd) {
 		return m.openPullRequestComposer()
 	case key.Matches(msg, m.keys.checks) && m.canOpenChecks():
 		return m.openChecks()
+	case key.Matches(msg, m.keys.openLink):
+		return m.openLink(m.reviewPullURL())
+	case key.Matches(msg, m.keys.copyLink):
+		return m.copyLink(m.reviewPullURL())
 	case key.Matches(msg, m.keys.refresh):
 		return m, tea.Batch(m.findPullRequest(), m.checkCI())
 	default:

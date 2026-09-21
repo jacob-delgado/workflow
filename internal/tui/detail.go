@@ -186,16 +186,28 @@ func (m Model) issuesKeys() []key.Binding {
 		return append(m.viewKeys(), m.keys.refresh)
 	}
 
-	keys := make([]key.Binding, 0, len(m.views)+5) //nolint:mnd // the verbs, more and refresh, beside the views.
+	keys := make([]key.Binding, 0, len(m.views)+7) //nolint:mnd // the verbs, links, more and refresh, beside the views.
 	branchFor := relabel(m.keys.branchForIssue, "branch for "+string(selected.Key))
 	keys = append(keys, m.keys.changeStatus, m.keys.comment, branchFor)
 	keys = append(keys, m.viewKeys()...)
+	keys = append(keys, m.linkKeys(m.issueURL())...)
 
 	if m.issues.hasMore() {
 		keys = append(keys, m.keys.loadMore)
 	}
 
 	return append(keys, m.keys.refresh)
+}
+
+// issueURL is the selected issue's browse URL, or empty when there is no issue
+// selected or no way to build one.
+func (m Model) issueURL() string {
+	selected, ok := m.issues.current()
+	if !ok || m.deps.Jira.BrowseURL == nil {
+		return ""
+	}
+
+	return m.deps.Jira.BrowseURL(selected.Key)
 }
 
 // viewKeys offers the view switch when there is more than one view.
@@ -220,6 +232,10 @@ func (m Model) handleIssuesKey(msg tea.KeyPressMsg) (Model, tea.Cmd) {
 		return m.startComment()
 	case key.Matches(msg, m.keys.branchForIssue):
 		return m.openBranchCreator()
+	case key.Matches(msg, m.keys.openLink):
+		return m.openLink(m.issueURL())
+	case key.Matches(msg, m.keys.copyLink):
+		return m.copyLink(m.issueURL())
 	case key.Matches(msg, m.keys.filter):
 		m.issues = m.issues.beginFilter()
 

@@ -324,14 +324,15 @@ func (m Model) footer(width int) string {
 	keys.Styles.ShortDesc = m.styles.label
 	keys.Styles.ShortSeparator = m.styles.label
 	keys.ShortSeparator, keys.Ellipsis = m.marks.helpSeparator, m.marks.ellipsis
-	// Keys that do not fit are dropped whole, and an ellipsis says so.
+	// Keys that do not fit are dropped whole, and an ellipsis says so. The pane's
+	// own verbs come first; the way to the rest is kept while they leave room.
 	keys.SetWidth(width - 1)
 
 	return ansi.Truncate(" "+keys.ShortHelpView(m.footerKeys()), width, "")
 }
 
-// footerKeys offers the keys that do something where the user is: never a verb
-// with nothing to act on.
+// footerKeys offers the keys that do something where the user is, then the way
+// to the rest: never a verb with nothing to act on.
 func (m Model) footerKeys() []key.Binding {
 	if m.overlay != nil {
 		return m.overlay.footer(m.keys)
