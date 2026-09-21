@@ -370,7 +370,11 @@ Impact: low · Effort: small
 - Why: the base is a free-text field. A stacked branch, or a release branch,
   is typed from memory and checked by the forge's error.
 - Touches: `internal/tui/prcomposer.go`, `internal/gitrepo/branch.go`.
-- Done when: the base field completes from remote branches.
+- Done: the base field offers the remote branches as completions and `tab`
+  accepts the match (`gitrepo.RemoteBranches` lists them by name, prefix dropped
+  and deduped; `prComposer.onFieldNav` completes on tab or moves on when there is
+  nothing to take). `tab` keeps its field-navigation meaning when no completion
+  is pending.
 
 ## Slack
 

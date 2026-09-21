@@ -79,6 +79,9 @@ type GitDeps struct {
 	// there is no repository.
 	Branches func() ([]string, error)
 	Checkout func(name string) error
+	// RemoteBranches lists the branches on the remotes by name, so the pull
+	// request's base field can complete to one. Nil when there is no repository.
+	RemoteBranches func() ([]string, error)
 	// CreateWorktree creates a branch in a new worktree beside the repository and
 	// returns where it put it, so a task can be started without disturbing the
 	// current checkout. Nil when there is no repository.

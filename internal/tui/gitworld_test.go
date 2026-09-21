@@ -13,7 +13,7 @@ import (
 
 // gitDeps fakes the repository.
 func (w *world) gitDeps() tui.GitDeps {
-	return tui.GitDeps{
+	deps := tui.GitDeps{
 		Branch: func() (gitrepo.Branch, error) {
 			w.record("branch")
 
@@ -49,6 +49,11 @@ func (w *world) gitDeps() tui.GitDeps {
 
 			return slices.Clone(w.branches), w.branchesErr
 		},
+		RemoteBranches: func() ([]string, error) {
+			w.record("remote-branches")
+
+			return slices.Clone(w.remoteBranches), w.remoteBranchesErr
+		},
 		Checkout: func(name string) error {
 			w.record("checkout " + name)
 
@@ -79,4 +84,12 @@ func (w *world) gitDeps() tui.GitDeps {
 			return output(w.rebaseLines, w.rebaseErr), nil
 		},
 	}
+
+	// A repository that cannot list its remotes leaves the seam nil, the way
+	// wiring does outside a repository.
+	if w.noRemoteBranches {
+		deps.RemoteBranches = nil
+	}
+
+	return deps
 }

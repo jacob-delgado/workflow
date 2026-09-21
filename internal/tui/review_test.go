@@ -254,7 +254,7 @@ func TestTheComposerTitleAndBaseCanBeEdited(t *testing.T) {
 	model := opening.live(t, 120, 40)
 
 	keys := append([]string{"4", "n", keyCtrlO}, letters("!")...)
-	keys = append(append(keys, keyTab, "backspace", "backspace", "backspace", "backspace"), letters("develop")...)
+	keys = append(append(keys, keyTab, keyBackspace, keyBackspace, keyBackspace, keyBackspace), letters("develop")...)
 
 	// Act: change the title and the base
 	composed := typing(t, model, keys...)
@@ -276,7 +276,7 @@ func TestTheComposerTitleAndBaseCanBeEdited(t *testing.T) {
 func TestAPullRequestNeedsATitleAndABase(t *testing.T) {
 	t.Parallel()
 
-	erase := slices.Repeat([]string{"backspace"}, 60)
+	erase := slices.Repeat([]string{keyBackspace}, 60)
 
 	cases := map[string]struct {
 		keys []string
