@@ -456,21 +456,6 @@ and open a pull request.
 **Done when.** `task check` fails on a frontend lint error; one Playwright
 spec performs a write against a running server.
 
-### DEBT-66 The generated-SDK boundary rule was promised and never written
-
-Severity: low · Confidence: read
-
-`web/.dependency-cruiser.cjs:3` says "The generated-SDK boundary rule is
-added with the api layer that introduces the seam." That layer exists —
-`web/src/api/client.ts` and eight feature-level `*Api.ts` wrappers over
-`web/src/api/generated` — and the config still carries only `no-circular`
-(`:7`). Nothing stops a feature component from importing the generated
-client directly, which is what the wrappers were built to prevent.
-
-**Done when.** A rule allows value imports of `src/api/generated/**` only
-from `src/api/**`, and `depcruise` fails a deliberate feature-file import
-of the SDK.
-
 ### DEBT-67 The event stream lives outside both generators, and a bad frame vanishes silently
 
 Severity: medium · Confidence: read

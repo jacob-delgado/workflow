@@ -37,4 +37,7 @@ yarn". `corepack yarn` runs the pinned yarn straight from Node.
   with Testing Library and user-event; never assert on classes, styles, or
   `data-*` hooks. Every test marks its Arrange, Act, and Assert.
 - **The generated API layer** (`src/api/generated`) is machine-emitted from the
-  contract and excluded from lint, tests, coverage, and formatting.
+  contract and excluded from lint, tests, coverage, and formatting. Only
+  `src/api` and a feature's `*Api.ts` wrapper import its values — a component
+  calls the wrapper, never the SDK — and any file may import its types.
+  `depcruise` (the `sdk-only-through-api` rule) holds the line.
