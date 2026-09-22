@@ -58,24 +58,6 @@ that needs one of them reopened goes in the
 
 ## Issues
 
-### FEAT-04 Open or copy a link
-
-Impact: high · Effort: small
-
-- Why: nothing in the interface can be opened in a browser or copied. The
-  Review pane prints the pull request's URL, and while the mouse is captured
-  the terminal cannot even select it: `m` has to turn capture off first. An
-  issue's page is one click away in every other tool.
-- Touches: `internal/tui/keys.go`, each pane's keys, `internal/proc` for the
-  opener, `internal/tui/deps.go` (a new seam).
-- Constraints: copying can use the OSC 52 terminal sequence, which needs no
-  program and works over SSH. Opening needs the platform's opener (`open`,
-  `xdg-open`, `rundll32`), which must stay optional: without one, the key is
-  not offered.
-- Done when: `o` opens the selected issue or the branch's pull request, `y`
-  copies its URL, and both are absent from the bottom row when they cannot
-  work.
-
 ### FEAT-05 Offer the status change the loop implies
 
 Impact: high · Effort: medium
@@ -88,73 +70,6 @@ Impact: high · Effort: medium
 - Still open: the pull-request moment. "In review" shares the *category*
   (indeterminate) with "in progress", so the category rule cannot single it out;
   that moment wants a configured status name, which is a change of its own.
-
-### FEAT-06 See the whole issue
-
-Impact: medium · Effort: medium
-
-- Why: the detail pane shows the description and the last five comments
-  (`commentsShown = 5`, `internal/tui/detail.go:31`). Subtasks, links, the
-  parent, the sprint, attachments and older comments are invisible, so the
-  browser tab the tool set out to replace stays open.
-- Touches: `internal/jira/detail.go` (requested fields),
-  `internal/tui/detail.go`.
-- Done when: the detail pane lists subtasks and linked issues with their
-  status, and every comment can be reached by scrolling.
-
-### FEAT-07 Fill more kinds of transition field
-
-Impact: medium · Effort: medium
-
-- Why: a field that is a user picker, a date or a cascading select is
-  `FieldUnsupported` (`internal/jira/fields.go`), and the transition is refused
-  with "make this change in Jira". A multi-value field takes one value. Text
-  is one line.
-- Touches: `internal/jira/fields.go`, `internal/tui/fields.go`.
-- Done when: a transition that requires an assignee, a date or two fix
-  versions can be completed without leaving the terminal.
-- Done: the field form fills a user picker (`FieldUser`, sent as `{"name":…}`
-  for Data Center), a date (`FieldDate`, refusing anything but `YYYY-MM-DD`),
-  and a multi-value list (`FieldOptionList` now takes any number, toggled with
-  space). A cascading select stays `FieldUnsupported` and is honestly refused.
-
-### FEAT-08 Write comments in Markdown
-
-Impact: medium · Effort: medium
-
-- Why: Jira Data Center reads wiki markup, and a developer's hands write
-  Markdown. A fenced code block posted as a comment arrives as three backticks.
-- Touches: a small converter beside `internal/jira/detail.go` (`AddComment`),
-  `internal/tui/comment.go` (the preview should show what Jira will show).
-- Constraints: convert a short, certain list (code, links, lists, emphasis,
-  headings) and pass anything else through untouched.
-- Done: opt-in `jira.markdown_comments` rewrites a comment written in Markdown as
-  wiki markup before posting — fenced blocks to `{code}`, links to `[text|url]`,
-  emphasis, headings, lists and inline code — while a code span shields its
-  contents (`jira.WikiFromMarkdown` in `internal/jira/wiki.go`, applied in
-  `AddComment`). Off by default, so an instance already writing wiki markup is
-  left untouched; the comment editor's help names which markup is in force.
-
-### FEAT-09 Assign an issue to yourself
-
-Impact: medium · Effort: small
-
-- Why: with views (FEAT-02) the list can show unassigned work, and the next
-  thing anyone does with unassigned work is take it.
-- Touches: `internal/jira` (a new `Assign`), `internal/tui/deps.go`
-  (`JiraDeps`), `internal/tui/detail.go`.
-- Done when: `a` on an unassigned issue previews "assign PROJ-412 to you",
-  `enter` does it, and dry run reports it instead.
-
-### FEAT-10 Log time against an issue
-
-Impact: low · Effort: small
-
-- Why: teams that bill or report by worklog make every developer open Jira
-  once per issue just to type "2h".
-- Touches: `internal/jira` (a new `AddWorklog`), `internal/tui/detail.go`.
-- Done when: a key opens a one-line input that accepts Jira's own duration
-  syntax, previews it, and posts it.
 
 ### FEAT-11 Create an issue
 
@@ -188,84 +103,7 @@ Impact: medium · Effort: medium
   `upstream/main`, the push goes to the fork, and the pull request opens
   against upstream.
 
-### FEAT-17 Finish a merged branch
-
-Impact: medium · Effort: small
-
-- Why: the loop ends at "announce", but the work ends when the pull request
-  merges: switch to the default branch, pull, delete the branch. Nothing here
-  notices a merge.
-- Touches: `internal/forge` (a merged state on `PullRequest`),
-  `internal/tui/review.go`, `internal/gitrepo/branch.go`.
-- Done when: a branch whose pull request has merged offers one action that
-  previews the three git commands and runs them.
-- Done: `FindPullRequest` now reads a `PullState` — `forge.Client` queries every
-  state and prefers an open pull, falling back to the merged one that means the
-  branch is done (a pull closed without merging is passed over). The Review pane
-  shows a merged pull as "merged" and offers `F`, which previews
-  `git switch <base>` / `git pull --ff-only` / `git branch -D <branch>` and runs
-  them (`gitrepo.FinishBranch`); the delete is a force delete because a squash or
-  rebase merge leaves the branch's commits unreachable though the forge merged
-  it, and the branch is still on origin. Held back at the seam in a dry run.
-
 ## Commits
-
-### FEAT-18 See what changed before staging it
-
-Impact: high · Effort: medium
-
-- Why: the Commits pane lists file names and status letters. Deciding whether
-  to stage `README.md` means opening another terminal to read the diff.
-- Touches: `internal/gitrepo/status.go` (a `Diff`), `internal/tui/commits.go`,
-  `internal/sanitize` (a diff is outside text).
-- Constraints: read-only. Staging by hunk stays out, as the usage guide says:
-  that is lazygit's whole project.
-- Done: the Commits pane reads the selected file's diff (`gitrepo.Diff`, an
-  untracked file noted rather than shown) and draws it below the list, headed by
-  the path; it scrolls with the pane, and an added line keeps its `+` and a
-  removed its `-`, tinted green and red so the mark reads without color too.
-
-### FEAT-20 Mark a breaking change
-
-Impact: medium · Effort: small
-
-- Why: the composer sets `Breaking: false` unconditionally
-  (`internal/tui/composer.go:92`) although `convention.Subject` can write the
-  `!`. In this repository that marker decides the version bump, and its own
-  commit hook refuses a breaking body without it.
-- Touches: `internal/tui/composer.go`, `internal/tui/keys.go`.
-- Done when: a key toggles `!` in the subject preview and asks for the
-  `BREAKING CHANGE:` paragraph in the body.
-
-### FEAT-21 Suggest a scope
-
-Impact: low · Effort: small
-
-- Why: the scope is typed from memory every time, and the two best guesses
-  are free: the directory the staged files share, and the scopes already in
-  `git log`.
-- Touches: `internal/tui/composer.go`, `internal/gitrepo/branch.go`.
-- Done: the scope field completes from the name of the directory the staged
-  files share and from the scopes already in `git log` (`gitrepo.RecentSubjects`
-  → `convention.Scopes` → `scopeSuggestions`), and `tab` accepts a pending
-  completion or moves on when there is nothing to take.
-
-### FEAT-22 Amend and fix up
-
-Impact: medium · Effort: medium
-
-- Why: a review comment means either a new "address review" commit or a trip
-  to the shell. With rebase-only merging, as this repository uses, every
-  commit lands as written, so tidy history matters.
-- Touches: `internal/gitrepo/branch.go`, `internal/tui/commits.go`,
-  `internal/tui/composer.go`.
-- Constraints: only for commits that are not pushed, or say plainly that the
-  next push must be forced, and never force by default.
-- Done: the Commits pane offers `A` to amend the last commit and `f` to record
-  a `fixup!` of a chosen one — both previewed, both running the hooks, both
-  dry-runnable. Offered only while there is an unpushed commit to fold into
-  (`gitrepo.Branch.Unpushed`), so history that is already on the remote is never
-  rewritten and nothing is force-pushed.
 
 ### FEAT-23 Unstage everything, and discard a change
 
@@ -331,43 +169,6 @@ Impact: low · Effort: large
 
 ## Review
 
-### FEAT-27 Reviewers, assignees and labels
-
-Impact: high · Effort: medium
-
-- Why: `NewPullRequest` carries a title, a body, two branches and a draft flag
-  (`internal/forge/pulls.go`). Asking for a review, which is the point of
-  opening one, still happens in the browser.
-- Touches: `internal/forge/pulls.go`, `internal/forge/github.go`,
-  `internal/forge/gitlab.go`, `internal/tui/prcomposer.go`.
-- Constraints: both forges or neither. GitHub takes reviewers in a second
-  request; GitLab takes them at creation. `CODEOWNERS` is a free first
-  suggestion.
-- Done when: the composer suggests reviewers, the opened pull request has
-  them, and a failure to add one does not lose the pull request.
-- Done: `NewPullRequest` carries `Reviewers`, `Assignees` and `Labels`. GitHub
-  opens the pull then requests reviewers and adds assignees and labels in
-  follow-up calls, returning the opened pull alongside any failure so it is
-  never lost (`PullRequest.Opened()` tells a refused create from a reviewer add
-  that failed); GitLab resolves usernames to ids and sets all three at creation,
-  refusing an unknown name before opening anything. The TUI composer gains
-  reviewers/assignees/labels fields, the reviewers field suggesting the
-  `CODEOWNERS` user handles (`gitrepo.CodeOwners`). On the web, the open-pull
-  form gains the same three fields over `OpenPullRequestRequest`.
-
-### FEAT-30 Edit a pull request after opening it
-
-Impact: medium · Effort: medium
-
-- Why: `n` is offered only while no pull request exists. A typo in the title,
-  a description written too early, or a draft that is ready all need the
-  browser.
-- Touches: `internal/forge/pulls.go` (an update), `internal/tui/prcomposer.go`.
-- Constraints: GitHub marks a draft ready only through its GraphQL API, which
-  is still a plain POST over `net/http`.
-- Done when: the composer opens on the existing pull request, and saving
-  updates it.
-
 ### FEAT-31 Merge
 
 Impact: medium · Effort: medium
@@ -389,109 +190,7 @@ Impact: medium · Effort: medium
   re-run checks); a web merge is a follow-up. FEAT-17 (finishing the merged
   branch) follows.
 
-### FEAT-32 Run failed checks again
-
-Impact: low · Effort: small
-
-- Why: a flaky job is a browser trip and three clicks.
-- Touches: `internal/forge/github.go`, `internal/forge/gitlab.go`,
-  `internal/tui/review.go`.
-- Constraints: needs a token scope the read path does not; say so when it is
-  missing.
-- Done: `R` on a failed pull request re-runs the failed CI — GitHub's failed
-  workflow runs (`rerun-failed-jobs`), GitLab's head pipeline (`retry`) — and the
-  pane returns to "running" and resumes polling. A refusal (an under-scoped
-  token) says the write scope is missing rather than only "refused"; the write
-  previews and honors a dry run (`forge.Client.RerunChecks`, `deps.Forge.Rerun`).
-
-### FEAT-35 Choose the base from the branches that exist
-
-Impact: low · Effort: small
-
-- Why: the base is a free-text field. A stacked branch, or a release branch,
-  is typed from memory and checked by the forge's error.
-- Touches: `internal/tui/prcomposer.go`, `internal/gitrepo/branch.go`.
-- Done: the base field offers the remote branches as completions and `tab`
-  accepts the match (`gitrepo.RemoteBranches` lists them by name, prefix dropped
-  and deduped; `prComposer.onFieldNav` completes on tab or moves on when there is
-  nothing to take). `tab` keeps its field-navigation meaning when no completion
-  is pending.
-
-## Slack
-
-### FEAT-38 Announce more than "opened"
-
-Impact: medium · Effort: medium
-
-- Why: the moments a team cares about are "ready for review", "merged" and
-  "CI is red on main". Only the first exists.
-- Touches: `internal/slack/post.go`, `internal/tui/slack.go`,
-  `internal/tui/review.go`.
-- Constraints: each is its own message. Replying in a thread is in the last
-  section, because it needs somewhere to keep a timestamp.
-- Done when: a merged pull request offers a "merged" post with the same
-  preview and the same dry-run behavior.
-
 ## Across the loop
-
-### FEAT-41 Steps you can script
-
-Impact: high · Effort: large
-
-- Why: every step exists only inside the interface. A shell alias, a git
-  hook, a CI job or an editor plugin cannot say "branch for PROJ-412" or "open
-  the pull request".
-- Touches: `internal/cli` (new commands), `internal/wiring/wiring.go` (the
-  seams already exist as plain functions), `docs/` through `task docs:gen`.
-- Constraints: the same previews, as printed text with a `--yes` to skip them;
-  the same dry run.
-- Done when: `workflow branch PROJ-412`, `workflow pr` and `workflow announce`
-  do what their panes do, with no terminal interface.
-
-### FEAT-44 Find the configuration from a subdirectory
-
-Impact: medium · Effort: small
-
-- Done: `config.Discover` walks up from the working directory to the repository
-  root — the directory holding `.git` — before falling back to home, so a
-  session in a subdirectory reads the repository's own file rather than skipping
-  it for the one at home. `config.RepoRoot` makes `config init` write at that
-  root, where every subdirectory can see it; outside a repository both keep
-  their old behavior.
-
-### FEAT-48 Keys you can change
-
-Impact: low · Effort: medium
-
-- Why: `newKeyMap` (`internal/tui/keys.go`) is literals. A user whose terminal
-  eats `ctrl+e`, or who wants `g` and `G`, has no recourse.
-- Touches: `internal/tui/keys.go`, `internal/config/config.go`.
-- Constraints: refuse a configuration where two actions in one context share
-  a key.
-- Done when: a `ui.keys` map overrides a binding and the help shows the new
-  key.
-
-### FEAT-49 Completion that knows your issues
-
-Impact: low · Effort: small
-
-- Why: Cobra already provides `workflow completion` and nothing mentions it.
-  With FEAT-41 it could complete issue keys.
-- Touches: `docs/content/docs/install.md`, `cmd/docsgen/main.go` (the
-  reference leaves the command out), `internal/cli`.
-- Done when: the install page says how to turn completion on, and
-  `workflow branch <tab>` offers assigned issue keys.
-
-### FEAT-51 A configuration that can change shape
-
-Impact: medium · Effort: medium
-
-- Why: the README says the format may change before 1.0, the decoder rejects
-  unknown keys, and there is no version field. The first renamed key breaks
-  every existing file with `json: unknown field`.
-- Touches: `internal/config/config.go`, `internal/cli/config_cmd.go`.
-- Done when: a file written for an older shape is either read or refused with
-  the name of the key that replaced the old one.
 
 ### FEAT-52 Packages
 
@@ -555,31 +254,7 @@ Impact: medium · Effort: large
 - Done when: the Issues pane lists assigned Linear issues and a status change
   works.
 
-### FEAT-58 Teams, Discord and others
-
-Impact: medium · Effort: medium
-
-- Why: the last step assumes Slack. Many Jira Data Center shops are Microsoft
-  shops.
-- Touches: `internal/slack` (or a sibling package), `internal/config/config.go`,
-  `internal/tui/slack.go`, `internal/tui/panes.go` (the pane's name).
-- Constraints: a generic "POST this JSON template to this URL" covers most
-  chat webhooks with one implementation. The URL is a credential and is
-  masked like `slack.webhook_url`.
-- Done when: a Teams webhook receives the announcement, and the pane is
-  titled for the service in use.
-
 ## Beyond the loop
-
-### FEAT-59 Pull requests waiting on you
-
-Impact: high · Effort: medium
-
-- Done: `forge.Client.ReviewRequests` searches each forge for pull requests that
-  request your review, `workflow reviews` (`internal/cli/reviews.go`) lists each
-  one's title, author, CI word and humanized age, and the Reviews pane
-  (`internal/tui/reviewqueue.go`, `6`) shows the same queue oldest-first, opening
-  or copying the selected request with `o` and `y`.
 
 ### FEAT-63 The active sprint
 
@@ -704,17 +379,6 @@ Impact: low · Effort: medium
 - Done when: the list shows at once from the last session and updates when
   the answer arrives.
 
-### FEAT-70 A sixth pane
-
-Impact: medium · Effort: medium
-
-- Done: the rail has a sixth pane, Reviews (`internal/tui/reviewqueue.go`), and
-  `6` jumps to it; it holds the review queue (FEAT-59). The pane count is driven
-  by `paneCount` in `internal/tui/panes.go`, so the layout, the jump keys and the
-  focus lap all followed from the one edit.
-- Still open, the version that fits check details (FEAT-28): an overlay rather
-  than a further pane.
-
 ### FEAT-72 Notifications after the interface closes
 
 Impact: low · Effort: large
@@ -724,26 +388,6 @@ Impact: low · Effort: large
   terminal.
 - Done when: a background process raises a desktop notification for a
   finished CI run.
-
-### FEAT-76 A local web mode
-
-Impact: medium · Effort: large
-
-- Reopens: no server, and no frontend. NOT persistence — `--web` fetches live
-  and writes only the config file, so nothing new is stored between sessions
-  and no database is added; the binary stays a single static file with the
-  frontend embedded.
-- Why: some people would rather see the loop — issues, branch, changes, PR/CI,
-  Slack — and edit the whole configuration in a browser than in the terminal,
-  and a richer surface (forms, history views) is easier to grow there.
-- The shape: `workflow --web` serves a React + TypeScript app on
-  `127.0.0.1:7000` only, over a REST API described by `api/openapi.yaml` (the Go
-  server and the typed client both generated from it). It reuses the same
-  `wiring.Deps` seams the TUI and `workflow status`/`reviews` already use, so it
-  is another consumer of the domain, not a second implementation. The TUI and
-  CLI stay the default; the web mode is opt-in behind the flag.
-- Done when: `workflow --web` shows the live loop and round-trips the
-  configuration in the browser, and the default binary is unchanged.
 
 ### FEAT-77 Switch between issues by their branches, in the web
 
