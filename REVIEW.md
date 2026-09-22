@@ -192,9 +192,14 @@ met and stay.
 
 Sixteen phases in three tracks after the first two — **CLI** (2, 8),
 **terminal** (4 → 5 → 6 → 7), **web** (3 → 9 → 10 → 11 → 12 → 13 → 14) — and
-15 closes. Each phase is one pull request whose commits *each* pass
-`task check` on their own, because `main` merges by rebase and every
-commit lands as written. Red-first, black-box tests (`package x_test`),
+15 closes. The maintainer chose to land them **in numeric order as one pull
+request** (branch `feat/surface-review`), with an adversarial review after
+each phase; each phase is a series of commits that *each* pass `task check`
+on their own, because `main` merges by rebase and every commit lands as
+written. A phase that is finished says so in its heading. Before acting on
+a phase, read its entry under
+[Corrections from the feasibility pass](#corrections-from-the-feasibility-pass)
+— they override the phase text where the two disagree. Red-first, black-box tests (`package x_test`),
 Arrange/Act/Assert marked, `task check` green before a phase is called
 done; and a web phase runs `task web:lint`, `task web:test`, `yarn gen:check`
 after any spec change, and `yarn test:e2e` by hand until Phase 0 puts the
@@ -224,8 +229,8 @@ of DEBT-62 and DEBT-65.
   imports of `src/api/generated/**` only from `src/api/**` (type-only
   imports allowed anywhere).
 - `Taskfile.yml:450` `check` gains `web:lint` and `web:test` (e2e stays an
-  explicit/CI step). **Decision to confirm** — it adds a node requirement to
-  the local gate.
+  explicit/CI step). **Decided:** yes, with `yarn gen:check` — the local
+  gate now needs node.
 
 **Touches.** `scripts/check-file-length.sh`, `Taskfile.yml`,
 `web/.dependency-cruiser.cjs`, `internal/hooks/generate.go`,
@@ -325,7 +330,8 @@ without it, classify the CLI-local sentinels and re-point later).
   `ErrNoPullRequest`, `ErrDirtyTree`, `errBranchExists`,
   `errMessagingNotConfigured`, doctor's `errShared`) · **5** unreachable
   (`jira.ErrUnreachable`, `forge.ErrUnreachable`) — the families the web's
-  problem codes use (`docs/content/docs/errors.md`). **Table to confirm.**
+  problem codes use (`docs/content/docs/errors.md`). **Decided** — the
+  refined table under *Decisions the maintainer made* supersedes this one.
   Align `config show` with `doctor` when there is no file
   (`config_cmd.go:84` vs `doctor.go:463`, both → 3) and `status` with
   `status .` outside a repository (`internal/cli/status.go:82` vs `:95`).
@@ -660,8 +666,8 @@ Phase 3.
 - Focus moves to the outcome when a form unmounts (`ReviewPanel.tsx:138`,
   `MessagingPanel.tsx:135`, the `PushButton` swap) and to `<main>` on a
   section change (`AppShell.tsx:39`).
-- One announce verb through the flow — recommend "Post to X", the
-  interface's word. **To confirm.**
+- One announce verb through the flow — **decided: "Announce to X"** (opens
+  the preview) and "Announce now" (sends), on every surface.
 - `checkout.go:42` and `internal/webserver/branchcreate.go:45` pass git's own reason through
   `fault`. **`internal/webserver/announce.go:59` does not**: a messaging error can name the
   webhook URL, so classify by `messaging.ErrRejected`/`ErrUnreachable` and
@@ -726,7 +732,7 @@ interface's own system does not change.
   at AA contrast, carrying *identity*: the active `NavRail` icon
   (`NavRail.tsx:28`), section headings. **Periwinkle stays the
   interactive-control accent** (`index.css:24` is a documented choice)
-  unless the maintainer says replace it — **to confirm**.
+  — **decided: it stays**, and the identity hues stay distinct from it.
 - One `StateMark` component drawing `○ ◐ ● ✗` for CI (`ReviewPanel.tsx:14`),
   the stream (`StreamStatus.tsx:4`) and the work story
   (`WorkStory.tsx:284`); the text label stays, the mark is `aria-hidden`.
@@ -792,16 +798,139 @@ Closes DEBT-69, DEBT-70. Last, so it documents the end state. TDD-exempt.
 
 **Proof.** `task lint:markdown`, `task docs:check`, `task docs:build`.
 
-## Decisions to confirm before their phase
+## Decisions the maintainer made
 
-- **Phase 0** — `web:lint` and `web:test` inside `task check` (a node
-  requirement on the local gate)?
-- **Phase 2** — the exit-code table: 0 · 1 · 2 usage · 3 configuration ·
-  4 refused precondition · 5 unreachable?
-- **Phase 11** — "Post to X" as the one announce verb (the interface's
-  word)?
-- **Phase 13** — periwinkle stays the interactive-control accent while the
-  four system hues carry identity, or is replaced outright?
+Settled on 2026-09-22, before Phase 0 began.
+
+- **Delivery** — all sixteen phases, in numeric order, as one pull request;
+  an adversarial review after each phase; this file marks each phase done
+  and is deleted by the last commit.
+- **Scope beyond the phases** — also close DEBT-52 (Phase 2), DEBT-60
+  (Phase 4, before any screen assertion moves), the rest of UX-72 — load
+  more and a filter (Phase 3) — and DEBT-67's cross-language frame test
+  (Phase 11).
+- **Phase 0** — `task check` runs `web:lint`, `web:test` and `yarn
+  gen:check` (the web twin of Go's `gen:verify`).
+- **Phase 2** — exit codes: **0** success · **1** failure (not found, push
+  failed, missing tooling, anything else) · **2** usage (flag and argument
+  errors, an unknown command, `--days < 1`, no terminal to confirm on) ·
+  **3** configuration (`config.ErrNotFound`/`ErrInvalid`, a rejected
+  credential, messaging not configured, doctor's `errShared`) · **4**
+  refused precondition (the `loop.Err*` refusals, `errBranchExists`,
+  `errConfigExists`, `gitrepo.ErrNotARepository`) · **5** unreachable
+  (including `httpx.ErrRateLimited`) · **130** Ctrl-C. A joined error takes
+  the first family in the order 2, 3, 4, 5, 1. The change is **breaking**:
+  `feat!`/`fix!` with a `BREAKING CHANGE:` footer. `status DIR…` prints
+  every row and exits 4 when any directory is not a repository; a
+  configuration file that exists but does not parse is refused with 3
+  instead of silently replaced by the defaults.
+- **Phase 8** — `announce --yes` at a moment the store already holds skips
+  with a note on stderr and exits 0.
+- **Phase 1** — when the forge cannot be read while composing a pull
+  request, compose anyway (the CLI's behavior); the open fails later with
+  the forge's own error.
+- **The announce verb** — "Announce" on all three surfaces (the CLI in
+  Phase 8, the terminal in Phase 7, the web in Phase 11); the web's two
+  buttons read "Announce to X" (opens the preview) and "Announce now"
+  (sends). `standup` keeps "Post". The `ui.keys` action ids `post` and
+  `post-when-green` stay, so no configuration breaks.
+- **Phase 13** — periwinkle stays the interactive-control accent; the four
+  identity hues are kept visibly distinct from the status lights and from
+  periwinkle; REVIEW's scope with a deliberate system font stack and no new
+  dependency; the middle-dot separator stays.
+
+## Corrections from the feasibility pass
+
+A read-only pass per track, run after this file was written, found places
+where a phase as written would not land green. Where a correction and a
+phase disagree, the correction wins.
+
+- **Phase 0.** The depcruise rule allows value imports of the generated SDK
+  from `src/api/**` *and* the seven `src/features/*/*Api.ts` wrappers (as
+  written it fails all seven); add `not-to-unresolvable`. Deleting the four
+  `//nolint:modernize` means converting those loops to `range
+  strings.SplitSeq`. The file-length change is red-first in
+  `scripts/check-file-length_test.sh`. `task check` needs an install step
+  (`web:install`), and `container:check`/`container:release` need an
+  anonymous `/src/web/node_modules` volume, or the host's platform-specific
+  bindings load in the Linux container. lefthook's `go test ./...` becomes
+  `./cmd/... ./internal/...` (`web/node_modules` ships a Go package). Every
+  doc that describes the gate changes in the same commit.
+- **Phase 1.** Commit order: `forge.Kind.Noun()/Sigil()` (in
+  `internal/forge/remote.go`); `config.Branch.Naming()`; a
+  `fix(webserver)` that stops a forge read failure from blocking the draft;
+  `internal/loop` with its depguard rules (in the commit that creates the
+  package — a rule for an absent package cannot be proved), CLAUDE.md and
+  ARCHITECTURE.md; `jira.FindTransition` (retiring the terminal's
+  `firstWithStatus`) and `loop.ReviewTransition`; `AnnounceMoment` and a
+  `ComposeAnnouncement` that also returns the pull request (Phase 8 records
+  it); the guards, with `RefuseUnstaged` named `RefuseNothingStaged`.
+  `loop` is nil-safe for every seam and reads CI lazily; each surface maps
+  `loop.Err*` to its own words, so nothing visible changes;
+  `ErrPullAlreadyOpen` carries the open pull and the CLI adds its URL.
+  `loop.Push` replaces `internal/webserver/push.go`'s `pushBranch` too.
+  The terminal keeps its own announcement (it renders from cached state).
+  `loop_test` must cover every arm (coverage is measured per package). The
+  Done-when greps exclude `_test.go` files and comments; there are no golden
+  files — the screen tests hold string literals.
+- **Phase 2.** The harness gains a both-streams variant first, keeping the
+  old helpers. DEBT-52's honest scope: `status` reads the branch and changes
+  through `deps.Git`, `standup` its branches through `deps.Git.Branches`
+  (it already exists); `RecentCommits` stays direct. The usage family needs
+  `SetFlagErrorFunc`, every `Args` wrapped, and a `RunE` on `config` that
+  refuses an unknown subcommand. `standup` and `config init` honor
+  `--dry-run` **before** it becomes persistent. docsgen can add
+  `--version` and the completion pages but never a `help` page. Every
+  flag or help change regenerates the reference in the same commit.
+- **Phase 3.** `IssueDetail` needs `url` and `assignee` in the spec (a
+  contract change). The dry-run hold is one interceptor over every non-GET
+  request, not a per-button check. Panels that start querying move their
+  tests onto a query client.
+- **Phase 4.** DEBT-60 first: a `Deps.After` timer seam, then a harness that
+  drains on a fake clock, before any screen assertion moves. `lastLook`
+  lives in `overlay.go`; a refused re-run stays pinned in it. usage.md has
+  no `R` row today; the `u` row is at `:84`.
+- **Phase 5.** The re-run block moves to `checks.go` as well, or
+  `review.go` stays over 500 lines. The messaging pane's own `sending` flag
+  adopts `sendState` too, or the Done-when grep cannot pass.
+- **Phase 6.** First, red: `failureHeadline` never matches production's
+  `git: exit status N`. The failure family moves to `failure.go` (renamed
+  from `sendstate.go`, so no budget change). `errorSentence` gains a short
+  form for rails; write refusals are wrapped locally rather than mapping
+  `forge.ErrRefused`, which also means rate limiting. Guidance notices stay
+  plain — red is for failure.
+- **Phase 7.** The Issues keys live in `detail.go` `issuesKeys`; `?` is
+  reserved in every footer; `internal/progress`'s "Slack" stage takes the
+  service's name; the terminal's verb change is this phase's last commit.
+- **Phase 8.** The CLI harness pins the store directory. Suggestions come
+  from `root.SuggestionsFor` (the root's `NoArgs` stops cobra's own). The
+  record-after-post logic lives in `loop` and is proved there.
+- **Phase 9.** Health sends the forge's noun **and sigil**; there are about
+  fourteen noun sites, not six. The link endpoint derives the pull request
+  on the server and never accepts a URL; the transition endpoint moves only
+  to the configured `jira.review_status`. `useAsyncAction` moves to
+  `web/src/lib` here, and the offers render in a slot that survives the
+  snapshot.
+- **Phase 10.** `suggested_scope` sits on the snapshot, not on the change
+  list, cached by the server; the commit form never overwrites a scope the
+  user is typing.
+- **Phase 11.** Outcomes move into per-panel status slots that stay mounted
+  when the snapshot confirms the write (today the snapshot unmounts the
+  control that holds them). A populated mock e2e project gives axe and
+  screenshots real content. zod strips an unknown key rather than dropping
+  the frame, so the cross-language test asserts a lossless round trip.
+  `announce` classifies every messaging sentinel. There is no jest-dom:
+  focus tests compare `document.activeElement`. The write table has twelve
+  rows once Phases 9 and 10 land.
+- **Phase 12.** `GET /api/reviews` joins the other reads in `handlers.go`
+  (no budget bump); no repository or forge is an empty answer, not a 404.
+- **Phase 13.** The type scale uses Tailwind's own `text-*` keys (tailwind-
+  merge drops unknown ones); the settings split goes to
+  `features/settings/fieldsets/`.
+- **Phase 15.** `FEATURES.md` lines have drifted (the pane order is at
+  `:28`, FEAT-26's `Done:` note at `:177`, FEAT-31's at `:199`); cite by
+  symbol. No backlog header is re-pinned to a commit inside the pull
+  request — a rebase merge rewrites it; re-pin after the merge.
 
 ## Out of scope, and what stays as it is
 
@@ -819,8 +948,9 @@ Closes DEBT-69, DEBT-70. Last, so it documents the end state. TDD-exempt.
   issue writes (FEAT-80); Slack threading now that the store can hold a
   timestamp (FEAT-81); web post-when-green (FEAT-82); `workflow finish`
   (FEAT-83).
-- **Debts recorded, not planned** — DEBT-52, 57, 58, 59, 60, 64, 68, 71
-  are worklists for their own PRs.
+- **Debts recorded, not planned** — DEBT-57, 58, 59, 64, 68, 71 are
+  worklists for their own PRs (DEBT-52 and DEBT-60 were folded into Phases
+  2 and 4).
 - **Met, or by design, and left alone:** the web's absent `→`, shadows and
   gradients; the CLI emitting no color (so nothing to suppress); the
   middle-dot separator (`glyphs.go:35` makes it house vocabulary);
