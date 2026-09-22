@@ -70,6 +70,46 @@ does well, and rebuilding it here earns little over the one place it belongs.
 Out of scope by decision, not oversight; `workflow` picks issues up, it does not
 open them.
 
+### FEAT-78 Issues from the command line
+
+Impact: medium · Effort: medium
+
+- Why: The interface can list a view, read an issue in full, transition it
+  with its fields, comment, assign and log work; the command line can do
+  none of those on its own — `workflow branch <tab>` completes assigned keys
+  (`internal/cli/scriptable.go:70`) and `workflow pr` transitions as a side
+  effect (`internal/cli/pr.go:161`), and that is all. A script that wants
+  "the issues in my view" or "move PROJ-1 to In Review" has nothing to call.
+- Touches: `internal/cli` (new `issues`, `issue`, `transition`, `comment`,
+  `assign` and `worklog` commands over the seams already on `tui.Deps` —
+  `Jira.Search`, `Issue`, `Transitions`, `ApplyTransition`, `AddComment`,
+  `Assign`, `AddWorklog`), the shared composition layer (REVIEW.md Phase 1)
+  so the transition lookup is the one the other surfaces use,
+  `docs/content/docs/reference` (regenerated).
+- Done when: `workflow issues --json` prints the default view; `workflow
+  issue PROJ-1 --json` prints its detail; `workflow transition PROJ-1 "In
+  Review" --yes` applies a fields-less move and refuses one that needs
+  fields, naming them.
+
+### FEAT-80 Issue writes on the web
+
+Impact: medium · Effort: large
+
+- Why: The browser can read an issue (once REVIEW.md Phase 3 lands) but
+  cannot change one: no transition with its field form, no comment, no
+  assign, no log work — all of which the interface offers from the Issues
+  pane (`internal/tui/picker.go:168`, `comment.go:37`, `issuewrite.go:74`).
+  REVIEW.md Phase 9 adds the fields-less transition the post-open offer
+  needs; this is the rest.
+- Touches: `api/openapi.yaml` (operations for a transition with fields,
+  comment, assign, worklog), `internal/webserver` (a handler file per write,
+  each a budget row), `web/src/features/issues`, the shared composition
+  (REVIEW.md Phase 1).
+- Done when: a transition that needs a field shows its form and applies; a
+  comment posted from the browser appears among the issue's comments; each
+  write is refused under `--dry-run`, and its problem `detail` omits the
+  tracker's host.
+
 ## Branch
 
 ### FEAT-15 Work with a fork
@@ -88,6 +128,22 @@ Impact: medium · Effort: medium
 - Done when: in a clone with `origin` and `upstream`, the base is
   `upstream/main`, the push goes to the fork, and the pull request opens
   against upstream.
+
+### FEAT-83 `workflow finish`
+
+Impact: low · Effort: small
+
+- Why: Finishing a merged branch is three git commands in a fixed order —
+  switch to the base, `pull --ff-only`, `branch -D` — that the interface
+  composes and previews (`internal/tui/finish.go:44`, the commands at
+  `:71`). On the command line that is three commands to remember and get
+  right, with no preview and no check that the branch really merged.
+- Touches: `internal/cli` (a `finish` command over `Git.Finish`, previewed
+  like `branch` and `pr`, with `--dry-run`/`--yes`), the shared composition
+  layer (REVIEW.md Phase 1).
+- Done when: `workflow finish --dry-run` prints the three commands and runs
+  none; `--yes` runs them and says the branch is gone; a branch that has not
+  merged is refused with the reason.
 
 ## Commits
 
@@ -149,6 +205,63 @@ Impact: medium · Effort: medium
   web review panel shows a pull request but has no write actions yet (like
   re-run checks); a web merge is a follow-up. FEAT-17 (finishing the merged
   branch) follows.
+
+### FEAT-79 Review actions on the web
+
+Impact: medium · Effort: large
+
+- Why: The web's Review section shows a pull request and its CI and can
+  open one, but cannot re-run failed checks, merge, finish the merged
+  branch or edit the pull request's title and body — all of which the
+  interface does with `R`, `M`, `F` and `e` (`internal/tui/review.go:483`,
+  `:630`, `finish.go:44`, `preditor.go:37`). FEAT-31's own note already
+  records the web merge as a follow-up; this formalizes the set.
+- Touches: `api/openapi.yaml` (four operations), `internal/webserver` (a
+  handler per action, each a budget row; merge gated exactly as `canMerge`
+  gates it, `internal/tui/review.go:538`, over the shared composition —
+  REVIEW.md Phase 1), `web/src/features/review`, `web/e2e` (a write driven
+  against a running server, which the suite does not yet do —
+  TECH_DEBT.md DEBT-65).
+- Done when: a green, approved pull request can be merged from the browser
+  after a preview of the permitted methods; a refused merge names the
+  missing scope; every action is held back under `--dry-run`.
+
+## Messaging
+
+### FEAT-81 Reply in the announcement's own thread
+
+Impact: medium · Effort: medium
+
+- Why: A pull request is announced up to three times — ready, CI red,
+  merged — as three top-level posts, and readers lose the story. The
+  interface once could not thread because there was nowhere to keep a
+  message timestamp; the on-disk store (`internal/store`, on by default) now
+  keeps what was announced per pull request and moment
+  (`internal/store/announce.go`), and a Slack `ts` is not a secret. The
+  variant that *reads* a channel's history stays fenced as FEAT-64; this
+  one only writes, and fits the settled decisions.
+- Touches: `internal/store` (a reply-timestamp column on `announces`,
+  STRICT, migrated forward), `internal/messaging` (a `thread_ts` on a
+  bot-token post — a webhook cannot thread, so this is bot-only and the
+  preview says so), the announcement composition shared by all three
+  surfaces (REVIEW.md Phase 1), `docs/content/docs/usage.md:253`.
+- Done when: the second announcement of a pull request is posted as a reply
+  to the first when a bot token is configured; with a webhook it posts
+  top-level and the preview says why; the store still holds no token.
+
+### FEAT-82 Post when CI passes, from the web
+
+Impact: low · Effort: medium
+
+- Why: The interface's preview offers `w` — post the announcement when CI
+  goes green — and keeps the queued post until it does or the run fails
+  (`internal/tui/messaging.go:405`). The web announces now or not at all.
+- Touches: `internal/webserver` (a queued post needs somewhere to live
+  across requests — the store, or the stream's server state),
+  `api/openapi.yaml`, `web/src/features/messaging`.
+- Done when: "Post when CI passes" queues the announcement and the section
+  shows it waiting; it posts on the first snapshot with green CI; a red run
+  drops it with the reason.
 
 ## Across the loop
 
@@ -258,6 +371,8 @@ first.
 
 Impact: medium · Effort: medium
 
+- A version that fits the decision: FEAT-81 replies in the announcement's
+  *own* thread from a timestamp the store keeps, and reads nothing.
 - Reopens: reading a chat service's recent history — still a non-goal, since
   workflow posts but does not read a channel.
 - Why: "CI failed" and "merged" belong under the announcement, not beside it.
