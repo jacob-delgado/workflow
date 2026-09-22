@@ -80,7 +80,8 @@ func (s *server) branchNameFor(issueKey string) (string, error) {
 	}
 
 	cfg := s.config()
-	naming := convention.NewBranchNaming(cfg.Branch.Template, cfg.Branch.DefaultPrefix, cfg.Branch.Prefixes)
+	naming := convention.NewBranchNaming(cfg.Branch.Template, cfg.Branch.DefaultPrefix,
+		cfg.Branch.Prefixes, cfg.Branch.SlugLimit)
 
 	return naming.Name(detail.Issue.Type, string(detail.Issue.Key), detail.Issue.Summary), nil
 }

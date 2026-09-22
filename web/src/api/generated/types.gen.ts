@@ -400,6 +400,7 @@ export type Config = {
     timing: TimingConfig;
     branch: BranchConfig;
     commit: CommitConfig;
+    pull_request: PullRequestConfig;
 };
 
 export type JiraConfig = {
@@ -502,10 +503,33 @@ export type BranchConfig = {
         [key: string]: string;
     } | null;
     default_prefix?: string;
+    /**
+     * The summary slug's length cap in a branch name; zero keeps 48.
+     */
+    slug_limit?: number;
+};
+
+export type PullRequestConfig = {
+    /**
+     * Where a pull request's title comes from: "commit" (the default) takes the branch's oldest commit, "issue" takes the issue it names.
+     */
+    title_source?: string;
 };
 
 export type CommitConfig = {
     default_scope?: string;
+    /**
+     * The commit types the composer offers and validates against, in order; empty keeps the built-in Conventional Commit types.
+     */
+    types?: Array<string> | null;
+    /**
+     * The longest a subject may be, in characters; zero keeps 72.
+     */
+    subject_limit?: number;
+    /**
+     * The issue trailer's label, such as "Closes"; empty keeps "Refs".
+     */
+    refs_trailer?: string;
 };
 
 export type JiraView = {

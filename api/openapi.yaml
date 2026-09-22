@@ -954,7 +954,7 @@ components:
         The whole configuration file. On a read, the four secret fields and the
         Jira header values are masked; on a write, a masked or empty secret keeps
         the stored value.
-      required: [version, jira, messaging, forge, ui, timing, branch, commit]
+      required: [version, jira, messaging, forge, ui, timing, branch, commit, pull_request]
       properties:
         version: {type: string}
         jira: {$ref: "#/components/schemas/JiraConfig"}
@@ -964,6 +964,7 @@ components:
         timing: {$ref: "#/components/schemas/TimingConfig"}
         branch: {$ref: "#/components/schemas/BranchConfig"}
         commit: {$ref: "#/components/schemas/CommitConfig"}
+        pull_request: {$ref: "#/components/schemas/PullRequestConfig"}
       additionalProperties: false
 
     JiraConfig:
@@ -1076,12 +1077,39 @@ components:
           additionalProperties: {type: string}
           nullable: true
         default_prefix: {type: string}
+        slug_limit:
+          type: integer
+          description: The summary slug's length cap in a branch name; zero keeps 48.
+      additionalProperties: false
+
+    PullRequestConfig:
+      type: object
+      properties:
+        title_source:
+          type: string
+          description: >-
+            Where a pull request's title comes from: "commit" (the default) takes
+            the branch's oldest commit, "issue" takes the issue it names.
       additionalProperties: false
 
     CommitConfig:
       type: object
       properties:
         default_scope: {type: string}
+        types:
+          type: array
+          description: >-
+            The commit types the composer offers and validates against, in order;
+            empty keeps the built-in Conventional Commit types.
+          items: {type: string}
+          nullable: true
+        subject_limit:
+          type: integer
+          description: The longest a subject may be, in characters; zero keeps 72.
+        refs_trailer:
+          type: string
+          description: >-
+            The issue trailer's label, such as "Closes"; empty keeps "Refs".
       additionalProperties: false
 
     JiraView:

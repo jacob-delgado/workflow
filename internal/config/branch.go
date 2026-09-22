@@ -30,13 +30,21 @@ type Branch struct {
 	Prefixes map[string]string `json:"prefixes"`
 	// DefaultPrefix is the prefix for a type not in Prefixes; empty keeps "feat".
 	DefaultPrefix string `json:"default_prefix"`
+	// SlugLimit caps the summary slug in a branch name, in characters; zero keeps
+	// the built-in 48.
+	SlugLimit int `json:"slug_limit"`
 }
 
-// validateBranch refuses a template that could hide the issue key, so a nonsense
-// value fails at load rather than producing branches nothing can read back.
+// validateBranch refuses a template that could hide the issue key or a negative
+// slug limit, so a nonsense value fails at load rather than producing branches
+// nothing can read back.
 func (c Config) validateBranch() error {
 	if c.Branch.Template != "" && !strings.Contains(c.Branch.Template, keyPlaceholder) {
 		return fmt.Errorf("%w: must contain %s: %q", ErrInvalidBranch, keyPlaceholder, c.Branch.Template)
+	}
+
+	if c.Branch.SlugLimit < 0 {
+		return fmt.Errorf("%w: slug_limit cannot be negative: %d", ErrInvalidBranch, c.Branch.SlugLimit)
 	}
 
 	return nil

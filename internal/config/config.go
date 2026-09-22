@@ -212,14 +212,15 @@ const CurrentVersion = "1"
 type Config struct {
 	// Version is the file format's version; empty means the current one. It is
 	// first so `config init` writes it at the top of the file.
-	Version   string    `json:"version"`
-	Jira      Jira      `json:"jira"`
-	Messaging Messaging `json:"messaging"`
-	Forge     Forge     `json:"forge"`
-	UI        UI        `json:"ui"`
-	Timing    Timing    `json:"timing"`
-	Branch    Branch    `json:"branch"`
-	Commit    Commit    `json:"commit"`
+	Version     string      `json:"version"`
+	Jira        Jira        `json:"jira"`
+	Messaging   Messaging   `json:"messaging"`
+	Forge       Forge       `json:"forge"`
+	UI          UI          `json:"ui"`
+	Timing      Timing      `json:"timing"`
+	Branch      Branch      `json:"branch"`
+	Commit      Commit      `json:"commit"`
+	PullRequest PullRequest `json:"pull_request"`
 	// Path is the file this configuration was read from. It is not part of the
 	// file format.
 	Path string `json:"-"`

@@ -46,3 +46,19 @@ func TestABranchTemplateWithoutTheKeyIsRefused(t *testing.T) {
 		t.Errorf("Load returned %v, want it refused for hiding the issue key", err)
 	}
 }
+
+func TestANegativeSlugLimitIsRefused(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	workDir := t.TempDir()
+	write(t, workDir, `{"branch": {"slug_limit": -3}}`)
+
+	// Act
+	_, err := config.Load(workDir, t.TempDir())
+
+	// Assert
+	if !errors.Is(err, config.ErrInvalid) || !errors.Is(err, config.ErrInvalidBranch) {
+		t.Errorf("Load returned %v, want a negative slug limit refused", err)
+	}
+}

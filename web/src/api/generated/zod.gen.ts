@@ -284,11 +284,19 @@ export const zTimingConfig = z.object({
 export const zBranchConfig = z.object({
     template: z.string().optional(),
     prefixes: z.record(z.string(), z.string()).nullish(),
-    default_prefix: z.string().optional()
+    default_prefix: z.string().optional(),
+    slug_limit: z.int().optional()
+});
+
+export const zPullRequestConfig = z.object({
+    title_source: z.string().optional()
 });
 
 export const zCommitConfig = z.object({
-    default_scope: z.string().optional()
+    default_scope: z.string().optional(),
+    types: z.array(z.string()).nullish(),
+    subject_limit: z.int().optional(),
+    refs_trailer: z.string().optional()
 });
 
 export const zJiraView = z.object({
@@ -324,7 +332,8 @@ export const zConfig = z.object({
     ui: zUiConfig,
     timing: zTimingConfig,
     branch: zBranchConfig,
-    commit: zCommitConfig
+    commit: zCommitConfig,
+    pull_request: zPullRequestConfig
 });
 
 /**

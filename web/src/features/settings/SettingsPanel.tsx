@@ -177,6 +177,130 @@ function ConfigForm({ config }: { config: Config }) {
         </label>
       </Fieldset>
 
+      <Fieldset legend="Commit">
+        <Field
+          id="commit.default_scope"
+          label="Default scope"
+          hint="Pre-fills the scope field, e.g. an area you scope commits to."
+        >
+          <input
+            id="commit.default_scope"
+            className={inputClass}
+            aria-describedby="commit.default_scope-hint"
+            {...register('commit.default_scope')}
+          />
+        </Field>
+        <Field
+          id="commit.types"
+          label="Types"
+          hint="Comma-separated, in the order to offer them; empty keeps the Conventional Commit types."
+        >
+          <input
+            id="commit.types"
+            className={inputClass}
+            aria-describedby="commit.types-hint"
+            {...register('commit.types', {
+              setValueAs: (value: unknown) =>
+                typeof value === 'string'
+                  ? value
+                      .split(',')
+                      .map((type) => type.trim())
+                      .filter(Boolean)
+                  : value,
+            })}
+          />
+        </Field>
+        <Field
+          id="commit.subject_limit"
+          label="Subject limit"
+          hint="The longest a subject may be, in characters; 0 keeps 72."
+        >
+          <input
+            id="commit.subject_limit"
+            type="number"
+            min={0}
+            className={inputClass}
+            aria-describedby="commit.subject_limit-hint"
+            {...register('commit.subject_limit', {
+              setValueAs: (value: unknown) => (value === '' || value === null ? 0 : Number(value)),
+            })}
+          />
+        </Field>
+        <Field
+          id="commit.refs_trailer"
+          label="Issue trailer"
+          hint='The trailer label added to a commit body; empty keeps "Refs".'
+        >
+          <input
+            id="commit.refs_trailer"
+            className={inputClass}
+            aria-describedby="commit.refs_trailer-hint"
+            {...register('commit.refs_trailer')}
+          />
+        </Field>
+      </Fieldset>
+
+      <Fieldset legend="Branch">
+        <Field
+          id="branch.template"
+          label="Name template"
+          hint="Uses {prefix}, {key} and {slug}; must contain {key}."
+        >
+          <input
+            id="branch.template"
+            className={inputClass}
+            aria-describedby="branch.template-hint"
+            {...register('branch.template')}
+          />
+        </Field>
+        <Field
+          id="branch.default_prefix"
+          label="Default prefix"
+          hint='The prefix for an unmapped type; empty keeps "feat".'
+        >
+          <input
+            id="branch.default_prefix"
+            className={inputClass}
+            aria-describedby="branch.default_prefix-hint"
+            {...register('branch.default_prefix')}
+          />
+        </Field>
+        <Field
+          id="branch.slug_limit"
+          label="Slug limit"
+          hint="Caps the summary slug's length; 0 keeps 48."
+        >
+          <input
+            id="branch.slug_limit"
+            type="number"
+            min={0}
+            className={inputClass}
+            aria-describedby="branch.slug_limit-hint"
+            {...register('branch.slug_limit', {
+              setValueAs: (value: unknown) => (value === '' || value === null ? 0 : Number(value)),
+            })}
+          />
+        </Field>
+      </Fieldset>
+
+      <Fieldset legend="Pull request">
+        <Field
+          id="pull_request.title_source"
+          label="Title source"
+          hint="Where a pull request's title comes from."
+        >
+          <select
+            id="pull_request.title_source"
+            className={inputClass}
+            aria-describedby="pull_request.title_source-hint"
+            {...register('pull_request.title_source')}
+          >
+            <option value="commit">The branch's oldest commit</option>
+            <option value="issue">The issue it names</option>
+          </select>
+        </Field>
+      </Fieldset>
+
       <div className="flex items-center gap-3">
         <button
           type="submit"

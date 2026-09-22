@@ -45,6 +45,9 @@ type prSeams struct {
 	Transitions func(jira.Key) ([]jira.Transition, error)
 	Transition  func(jira.Key, jira.Transition, []jira.FieldValue) error
 	Project     string
+	// TitleSource decides where a pull request's title comes from: the branch's
+	// oldest commit by default, or the issue it names.
+	TitleSource convention.TitleSource
 	// ReviewStatus is the status an issue moves to once its pull request is open,
 	// offered after opening. Empty makes no offer.
 	ReviewStatus string
@@ -96,6 +99,7 @@ func runPRCommand(cmd *cobra.Command, prompt Prompt, opts writeOptions) error {
 		Transitions:  deps.Jira.Transitions,
 		Transition:   deps.Jira.Transition,
 		Project:      cfg.Jira.Project,
+		TitleSource:  convention.TitleSource(cfg.PullRequest.TitleSource),
 		ReviewStatus: cfg.Jira.ReviewStatus,
 		Confirm:      func(question string) (bool, error) { return confirm(prompt, question) },
 	}
@@ -225,7 +229,7 @@ func composePR(seams prSeams, branch gitrepo.Branch) forge.NewPullRequest {
 	issueKey := jira.Key(key)
 
 	return forge.NewPullRequest{
-		Title: convention.PullRequestTitle(subjects, key, issueSummary(seams, issueKey)),
+		Title: convention.PullRequestTitleFrom(seams.TitleSource, subjects, key, issueSummary(seams, issueKey)),
 		Body:  convention.PullRequestBody(prTemplate(seams), subjects, key, issueURL(seams, issueKey)),
 		Head:  branch.Name,
 		Base:  branch.BaseName(),

@@ -51,6 +51,63 @@ test('loads the configured messaging service into the Service select', async () 
   expect(screen.getByRole('option', { name: 'Discord' })).toBeTruthy()
 })
 
+test('surfaces the commit-convention fields', async () => {
+  // Arrange
+  vi.stubEnv('VITE_MOCK', 'true')
+  renderWithClient(<SettingsPanel />)
+
+  // Act
+  const types = await screen.findByLabelText('Types')
+
+  // Assert
+  expect(types).toBeTruthy()
+  expect(screen.getByLabelText('Subject limit')).toBeTruthy()
+  expect(screen.getByLabelText('Issue trailer')).toBeTruthy()
+})
+
+test('surfaces the branch and pull-request fields', async () => {
+  // Arrange
+  vi.stubEnv('VITE_MOCK', 'true')
+  renderWithClient(<SettingsPanel />)
+
+  // Act
+  const titleSource = await screen.findByLabelText('Title source')
+
+  // Assert
+  expect(screen.getByLabelText('Slug limit')).toBeTruthy()
+  expect(titleSource).toBeTruthy()
+  expect(screen.getByRole('option', { name: /the issue it names/i })).toBeTruthy()
+})
+
+test('editing the commit types saves them as a trimmed list', async () => {
+  // Arrange
+  vi.stubEnv('VITE_MOCK', 'true')
+  const user = userEvent.setup()
+  const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+  const view = render(
+    <QueryClientProvider client={client}>
+      <SettingsPanel />
+    </QueryClientProvider>,
+  )
+  const types = await screen.findByLabelText('Types')
+  await user.type(types, 'hotfix, chore')
+
+  // Act: save, then reopen against the same client
+  await user.click(screen.getByRole('button', { name: /save changes/i }))
+  await screen.findByText(/saved/i)
+  view.unmount()
+  render(
+    <QueryClientProvider client={client}>
+      <SettingsPanel />
+    </QueryClientProvider>,
+  )
+
+  // Assert
+  // The list is parsed to ["hotfix","chore"], so it reads back without the space.
+  const reopened = await screen.findByLabelText('Types')
+  expect((reopened as HTMLInputElement).value).toBe('hotfix,chore')
+})
+
 test('confirms when the configuration is saved', async () => {
   // Arrange
   vi.stubEnv('VITE_MOCK', 'true')

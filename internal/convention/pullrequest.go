@@ -8,15 +8,54 @@ import (
 	"strings"
 )
 
-// PullRequestTitle proposes a pull request's title: the oldest commit on the
-// branch, which on a branch of Conventional Commits already reads as one, or the
-// issue when there are no commits yet.
+// TitleSource decides where a pull request's title comes from.
+type TitleSource string
+
+const (
+	// TitleFromCommit takes the title from the branch's oldest commit, which on a
+	// branch of Conventional Commits already reads as a title. It is the default.
+	TitleFromCommit TitleSource = "commit"
+	// TitleFromIssue takes the title from the issue the branch names.
+	TitleFromIssue TitleSource = "issue"
+)
+
+// PullRequestTitle proposes a pull request's title from the default source, the
+// branch's oldest commit. A caller with a configured source uses
+// PullRequestTitleFrom.
 func PullRequestTitle(subjects []string, issueKey, summary string) string {
+	return PullRequestTitleFrom(TitleFromCommit, subjects, issueKey, summary)
+}
+
+// PullRequestTitleFrom proposes a pull request's title from the chosen source,
+// falling back to the other when the chosen one has nothing to offer.
+func PullRequestTitleFrom(source TitleSource, subjects []string, issueKey, summary string) string {
+	if source == TitleFromIssue {
+		return titleFromIssue(subjects, issueKey, summary)
+	}
+
+	return titleFromCommit(subjects, issueKey, summary)
+}
+
+// titleFromCommit prefers the oldest commit, then the issue, then the summary.
+func titleFromCommit(subjects []string, issueKey, summary string) string {
 	switch {
 	case len(subjects) > 0:
 		return subjects[0]
 	case issueKey != "":
 		return issueKey + ": " + summary
+	default:
+		return summary
+	}
+}
+
+// titleFromIssue prefers the issue, then the oldest commit, then the summary —
+// falling back when the branch names no issue or its summary is unknown.
+func titleFromIssue(subjects []string, issueKey, summary string) string {
+	switch {
+	case issueKey != "" && summary != "":
+		return issueKey + ": " + summary
+	case len(subjects) > 0:
+		return subjects[0]
 	default:
 		return summary
 	}

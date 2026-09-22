@@ -112,10 +112,11 @@ func (m Model) openPullRequestComposer() (Model, tea.Cmd) {
 
 	issueKey, _ := m.branchIssue()
 	issue, _ := m.issues.find(issueKey)
+	titleSource := convention.TitleSource(m.cfg.PullRequest.TitleSource)
 
 	composer := prComposer{
 		marks: m.marks, styles: m.styles,
-		title:     newInput(convention.PullRequestTitle(subjects, string(issueKey), issue.Summary)),
+		title:     newInput(convention.PullRequestTitleFrom(titleSource, subjects, string(issueKey), issue.Summary)),
 		base:      newInput(branch.BaseName()),
 		reviewers: newInput(""), assignees: newInput(""), labels: newInput(""),
 		focus: prFieldTitle, head: branch.Name,

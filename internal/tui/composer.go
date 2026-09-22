@@ -28,7 +28,7 @@ const bodyPreviewLines = 3
 
 // bodyHelp is what the editor shows below a commit body being written.
 const bodyHelp = "Write the commit body above this line: why the change was made, wrapped at 72.\n" +
-	"The subject and the Refs trailer are added for you."
+	"The subject and the issue trailer are added for you."
 
 // Composer fields, in the order tab moves through them.
 const (
@@ -50,6 +50,7 @@ type commitDraft struct {
 type commitComposer struct {
 	marks    glyphs
 	styles   styles
+	conv     convention.CommitConvention
 	types    []string
 	kind     int
 	focus    int
@@ -76,11 +77,12 @@ func (m Model) openCommitComposer() (Model, tea.Cmd) {
 	}
 
 	draft := m.draft
-	types := convention.CommitTypes()
+	conv := m.commitConvention()
+	types := conv.Types()
 	issueKey, _ := m.branchIssue()
 
 	composer := commitComposer{
-		marks: m.marks, styles: m.styles, types: types, kind: m.startingType(types, draft),
+		marks: m.marks, styles: m.styles, conv: conv, types: types, kind: m.startingType(conv, draft),
 		focus: fieldSubject, scope: newInput(m.startingScope(draft)), subject: newInput(draft.subject), body: draft.body,
 		issueKey: issueKey, staged: m.changes.staged(), breaking: draft.breaking,
 	}
@@ -92,15 +94,23 @@ func (m Model) openCommitComposer() (Model, tea.Cmd) {
 	return m, nil
 }
 
+// commitConvention is the team's commit convention: their own types, subject
+// limit and issue trailer where configured, and the built-in defaults otherwise.
+func (m Model) commitConvention() convention.CommitConvention {
+	return convention.NewCommitConvention(m.cfg.Commit.Types, m.cfg.Commit.SubjectLimit, m.cfg.Commit.RefsTrailer)
+}
+
 // startingType is the type the composer opens on: a kept draft's type wins, so a
 // failed commit reopens as it was; otherwise the branch's own prefix, which
 // already says what kind of change this is; otherwise the first type offered.
-func (m Model) startingType(types []string, draft commitDraft) int {
+func (m Model) startingType(conv convention.CommitConvention, draft commitDraft) int {
+	types := conv.Types()
+
 	if draft.kind != "" {
 		return max(0, slices.Index(types, draft.kind))
 	}
 
-	if branchType, ok := convention.BranchType(m.branch.branch.Name); ok {
+	if branchType, ok := conv.BranchType(m.branch.branch.Name); ok {
 		return max(0, slices.Index(types, branchType))
 	}
 
@@ -129,14 +139,15 @@ func (c commitComposer) assembled() convention.Subject {
 // limit, the start of the body, and the trailer.
 func (c commitComposer) view(width, _ int) (string, string) {
 	subject := c.assembled()
-	length := strconv.Itoa(utf8.RuneCountInString(subject.String())) + "/" + strconv.Itoa(convention.SubjectLimit)
+	length := strconv.Itoa(utf8.RuneCountInString(subject.String())) + "/" + strconv.Itoa(c.conv.SubjectLimit())
 
 	inner := max(1, width-composerLabelWidth)
 	c.scope.SetWidth(inner)
 	c.subject.SetWidth(inner)
 
 	lines := pinnedOutcome(c.styles, c.marks, c.send, "", width)
-	lines = append(lines,
+	lines = append(
+		lines,
 		c.label(fieldType, "type    ")+c.typeChoice(),
 		c.label(fieldScope, "scope   ")+c.scope.View(),
 	)
@@ -145,13 +156,14 @@ func (c commitComposer) view(width, _ int) (string, string) {
 		lines = append(lines, "  "+failedGlyph(c.styles, c.marks)+" "+problem)
 	}
 
-	lines = append(lines,
+	lines = append(
+		lines,
 		c.label(fieldSubject, "subject ")+c.subject.View(),
 		"",
 		"  "+subject.String()+"  "+length,
 	)
 
-	problem := subject.Validate()
+	problem := c.conv.Validate(subject)
 	if problem != nil && strings.TrimSpace(c.subject.Value()) != "" {
 		lines = append(lines, "  "+failedGlyph(c.styles, c.marks)+" "+problem.Error())
 	}
@@ -174,7 +186,7 @@ func (c commitComposer) scopeProblem() string {
 
 	subject := convention.Subject{Type: c.types[c.kind], Scope: value, Description: c.subject.Value(), Breaking: false}
 
-	err := subject.Validate()
+	err := c.conv.Validate(subject)
 	if err != nil && errors.Is(err, convention.ErrInvalidScope) {
 		return err.Error()
 	}
@@ -209,7 +221,7 @@ func (c commitComposer) footnotes() []string {
 	}
 
 	if c.issueKey != "" {
-		lines = append(lines, "", "Refs: "+string(c.issueKey))
+		lines = append(lines, "", c.conv.RefsLine(string(c.issueKey)))
 	}
 
 	lines = append(lines, "", plural(c.staged, "file")+" staged")
@@ -325,7 +337,7 @@ func (c commitComposer) applyEdit(m Model, text string, err error) (Model, tea.C
 func (c commitComposer) commit(m Model) (Model, tea.Cmd) {
 	subject := c.assembled()
 
-	c.send.err = subject.Validate()
+	c.send.err = c.conv.Validate(subject)
 	if c.send.err != nil {
 		m.overlay = c
 
@@ -337,7 +349,7 @@ func (c commitComposer) commit(m Model) (Model, tea.Cmd) {
 	}
 
 	m.draft = c.draft()
-	message, commit := convention.Message(subject, c.body, string(c.issueKey)), m.deps.Git.Commit
+	message, commit := c.conv.Message(subject, c.body, string(c.issueKey)), m.deps.Git.Commit
 
 	return m.startRun("git commit", func() (proc.Output, error) { return commit(message) },
 		func(done Model) (Model, tea.Cmd) {

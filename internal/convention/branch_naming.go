@@ -17,25 +17,27 @@ const defaultFallbackPrefix = "feat"
 // type-to-prefix map, so a team can shape names to its own convention while the
 // issue key stays readable back out of the result.
 type BranchNaming struct {
-	template string
-	prefixes map[string]string
-	fallback string
+	template  string
+	prefixes  map[string]string
+	fallback  string
+	slugLimit int
 }
 
 // DefaultBranchNaming is the built-in convention: fix/ for a bug and feat/ for
 // anything else, then the key, then a slug of the summary.
 func DefaultBranchNaming() BranchNaming {
 	return BranchNaming{
-		template: defaultTemplate,
-		prefixes: map[string]string{"bug": "fix"},
-		fallback: defaultFallbackPrefix,
+		template:  defaultTemplate,
+		prefixes:  map[string]string{"bug": "fix"},
+		fallback:  defaultFallbackPrefix,
+		slugLimit: defaultSlugLimit,
 	}
 }
 
 // NewBranchNaming builds a naming from configured pieces, each falling back to
-// the default when empty. A configured prefix map replaces the built-in one
-// rather than adding to it, so what a team writes down is the whole rule.
-func NewBranchNaming(template, defaultPrefix string, prefixes map[string]string) BranchNaming {
+// the default when empty or zero. A configured prefix map replaces the built-in
+// one rather than adding to it, so what a team writes down is the whole rule.
+func NewBranchNaming(template, defaultPrefix string, prefixes map[string]string, slugLimit int) BranchNaming {
 	naming := DefaultBranchNaming()
 
 	if template != "" {
@@ -50,6 +52,10 @@ func NewBranchNaming(template, defaultPrefix string, prefixes map[string]string)
 		naming.prefixes = lowerKeys(prefixes)
 	}
 
+	if slugLimit > 0 {
+		naming.slugLimit = slugLimit
+	}
+
 	return naming
 }
 
@@ -58,7 +64,7 @@ func (n BranchNaming) Name(issueType, key, summary string) string {
 	name := n.template
 	name = strings.ReplaceAll(name, "{prefix}", n.prefix(issueType))
 	name = strings.ReplaceAll(name, "{key}", key)
-	name = strings.ReplaceAll(name, "{slug}", slugOf(summary))
+	name = strings.ReplaceAll(name, "{slug}", slugOf(summary, n.slugLimit))
 
 	return tidyBranchName(name)
 }

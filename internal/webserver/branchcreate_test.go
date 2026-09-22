@@ -26,7 +26,8 @@ func wantBranchName(t *testing.T) string {
 
 	cfg := config.Default()
 
-	return convention.NewBranchNaming(cfg.Branch.Template, cfg.Branch.DefaultPrefix, cfg.Branch.Prefixes).
+	return convention.NewBranchNaming(cfg.Branch.Template, cfg.Branch.DefaultPrefix,
+		cfg.Branch.Prefixes, cfg.Branch.SlugLimit).
 		Name("Bug", startIssue, "Fix token redaction")
 }
 

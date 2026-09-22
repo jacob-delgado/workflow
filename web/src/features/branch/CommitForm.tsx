@@ -1,11 +1,12 @@
-import { useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { apiErrorMessage } from '@/api/apiError.ts'
+import { useConfig } from '@/features/settings/configApi.ts'
 import { commitChanges } from './commitApi.ts'
 
-// The Conventional Commit types, in the order the terminal composer offers them.
-// The server validates the type, so a drift here only affects which are offered.
-const commitTypes = [
+// The built-in Conventional Commit types, in the order the terminal composer
+// offers them, used when a team configures none of its own.
+const defaultCommitTypes = [
   'feat',
   'fix',
   'docs',
@@ -17,7 +18,7 @@ const commitTypes = [
   'chore',
   'style',
   'revert',
-] as const
+]
 
 interface CommitFields {
   type: string
@@ -33,11 +34,26 @@ type CommitStatus = 'idle' | 'committing' | 'error'
 // server assembles the message and adds the Refs trailer for the branch's issue;
 // on success the event stream reflects the commit, and a refusal is shown inline.
 export function CommitForm() {
-  const { register, handleSubmit, reset } = useForm<CommitFields>({
+  const { data: config } = useConfig()
+  // A team's own commit types, in the order to offer them, or the built-in set.
+  const commitTypes = useMemo(() => {
+    const configured = config?.commit.types
+    return configured && configured.length > 0 ? configured : defaultCommitTypes
+  }, [config])
+
+  const { register, handleSubmit, reset, getValues, setValue } = useForm<CommitFields>({
     defaultValues: { type: 'fix', scope: '', subject: '', body: '', breaking: false },
   })
   const [status, setStatus] = useState<CommitStatus>('idle')
   const [error, setError] = useState('')
+
+  // Keep the chosen type one the convention allows, so a team whose types load
+  // after the form, or exclude "fix", does not submit a type the server rejects.
+  useEffect(() => {
+    if (!commitTypes.includes(getValues('type'))) {
+      setValue('type', commitTypes[0] ?? 'fix')
+    }
+  }, [commitTypes, getValues, setValue])
 
   const onSubmit = handleSubmit(async (fields) => {
     setStatus('committing')
@@ -49,7 +65,9 @@ export function CommitForm() {
         body: fields.body,
         breaking: fields.breaking,
       })
-      reset()
+      // Reset to a type the convention allows, not the static "fix" default,
+      // which a team that excludes it would leave selected and the server reject.
+      reset({ type: commitTypes[0] ?? 'fix', scope: '', subject: '', body: '', breaking: false })
       setError('')
       setStatus('idle')
     } catch (caught) {

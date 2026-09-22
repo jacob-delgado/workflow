@@ -43,12 +43,14 @@ func (s *server) Commit(_ context.Context, request api.CommitRequestObject) (api
 		Breaking:    orZero(request.Body.Breaking),
 	}
 
-	err := subject.Validate()
+	conv := s.commitConvention()
+
+	err := conv.Validate(subject)
 	if err != nil {
 		return commitUnprocessable(err.Error()), nil
 	}
 
-	branch, err := s.commitStaged(subject, orZero(request.Body.Body))
+	branch, err := s.commitStaged(conv, subject, orZero(request.Body.Body))
 
 	switch {
 	case err == nil:
@@ -60,9 +62,19 @@ func (s *server) Commit(_ context.Context, request api.CommitRequestObject) (api
 	}
 }
 
+// commitConvention is the team's configured commit convention: their own types,
+// subject limit and issue trailer where set, and the built-in defaults otherwise.
+func (s *server) commitConvention() convention.CommitConvention {
+	commit := s.config().Commit
+
+	return convention.NewCommitConvention(commit.Types, commit.SubjectLimit, commit.RefsTrailer)
+}
+
 // commitStaged refuses an empty index, then commits it and returns the branch
 // now carrying the commit.
-func (s *server) commitStaged(subject convention.Subject, body string) (gitrepo.Branch, error) {
+func (s *server) commitStaged(
+	conv convention.CommitConvention, subject convention.Subject, body string,
+) (gitrepo.Branch, error) {
 	staged, err := s.stagedCount()
 	if err != nil {
 		return gitrepo.Branch{}, err
@@ -72,7 +84,9 @@ func (s *server) commitStaged(subject convention.Subject, body string) (gitrepo.
 		return gitrepo.Branch{}, errNothingStaged
 	}
 
-	err = s.runCommit(convention.Message(subject, body, s.currentIssueKey()))
+	message := conv.Message(subject, body, s.currentIssueKey())
+
+	err = s.runCommit(message)
 	if err != nil {
 		return gitrepo.Branch{}, err
 	}

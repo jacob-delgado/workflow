@@ -16,33 +16,30 @@ import (
 	"slices"
 	"strings"
 	"unicode"
-	"unicode/utf8"
 
 	"golang.org/x/text/unicode/norm"
 )
 
-// SubjectLimit is the longest a commit subject may be, counted in characters.
-// Past it, git's own tools and every forge's commit list truncate it.
-const SubjectLimit = 72
-
-// slugLimit caps the part of a branch name taken from the summary. A branch
-// name is typed, tab-completed and read in narrow columns; the key already
-// identifies the issue.
-const slugLimit = 48
+// defaultSlugLimit caps the part of a branch name taken from the summary when a
+// team configures no limit of its own. A branch name is typed, tab-completed and
+// read in narrow columns; the key already identifies the issue.
+const defaultSlugLimit = 48
 
 // Errors this package returns. Callers distinguish them with errors.Is.
 var (
 	// ErrInvalidBranchName reports a name git would refuse as a branch.
 	ErrInvalidBranchName = errors.New("not a valid branch name")
-	// ErrUnknownType reports a commit type outside CommitTypes.
+	// ErrUnknownType reports a commit type outside the convention's types.
 	ErrUnknownType = errors.New("not a Conventional Commit type")
+	// ErrInvalidType reports a configured commit type that is not a lowercase word.
+	ErrInvalidType = errors.New("a commit type is a lowercase word")
 	// ErrInvalidScope reports a scope with characters a scope should not have.
 	ErrInvalidScope = errors.New("a scope is lowercase letters, digits and . _ / -")
 	// ErrNoDescription reports a subject with nothing after the colon.
 	ErrNoDescription = errors.New("the subject needs a description")
 	// ErrTrailingPeriod reports a description ending in a period.
 	ErrTrailingPeriod = errors.New("a subject does not end with a period")
-	// ErrSubjectTooLong reports a subject past SubjectLimit.
+	// ErrSubjectTooLong reports a subject past the convention's subject limit.
 	ErrSubjectTooLong = errors.New("the subject is too long")
 )
 
@@ -69,10 +66,10 @@ func ValidateScope(value string) error {
 	return nil
 }
 
-// CommitTypes are the Conventional Commit types, in the order a composer offers
-// them: the two that make up most commits first.
+// CommitTypes are the built-in Conventional Commit types, in the order a composer
+// offers them. A team's own types come from CommitConvention.
 func CommitTypes() []string {
-	return []string{"feat", "fix", "docs", "refactor", "test", "perf", "build", "ci", "chore", "style", "revert"}
+	return DefaultCommitConvention().Types()
 }
 
 // BranchName proposes a branch for an issue with the built-in convention: fix/
@@ -82,21 +79,15 @@ func BranchName(issueType, key, summary string) string {
 	return DefaultBranchNaming().Name(issueType, key, summary)
 }
 
-// BranchType is the Conventional Commit type a branch name begins with — the
-// part before the first slash — when that part is one, so a composer can open on
-// the kind of change the branch already declares.
+// BranchType is the built-in commit type a branch name begins with, when that
+// leading segment is one. A team's own types come from CommitConvention.
 func BranchType(branchName string) (string, bool) {
-	prefix, _, found := strings.Cut(branchName, "/")
-	if found && slices.Contains(CommitTypes(), prefix) {
-		return prefix, true
-	}
-
-	return "", false
+	return DefaultCommitConvention().BranchType(branchName)
 }
 
 // slugOf reduces a summary to lowercase ASCII words joined by hyphens, cut at a
-// word boundary once it would pass slugLimit.
-func slugOf(summary string) string {
+// word boundary once it would pass limit.
+func slugOf(summary string, limit int) string {
 	words := strings.FieldsFunc(folded(summary), func(character rune) bool {
 		return character > unicode.MaxASCII || (!unicode.IsLetter(character) && !unicode.IsDigit(character))
 	})
@@ -109,7 +100,7 @@ func slugOf(summary string) string {
 			next = slug + "-" + next
 		}
 
-		if len(next) > slugLimit {
+		if len(next) > limit {
 			break
 		}
 
@@ -297,49 +288,17 @@ func (s Subject) String() string {
 	return line + ": " + strings.TrimSpace(s.Description)
 }
 
-// Validate reports the first thing wrong with the subject, in the order the
-// parts are written.
+// Validate reports the first thing wrong with the subject under the built-in
+// convention. A team with its own types or limit uses CommitConvention.Validate.
 func (s Subject) Validate() error {
-	kind := strings.TrimSpace(s.Type)
-	if !slices.Contains(CommitTypes(), kind) {
-		return fmt.Errorf("%w: %q", ErrUnknownType, kind)
-	}
-
-	err := ValidateScope(s.Scope)
-	if err != nil {
-		return err
-	}
-
-	description := strings.TrimSpace(s.Description)
-
-	switch {
-	case description == "":
-		return ErrNoDescription
-	case strings.HasSuffix(description, "."):
-		return ErrTrailingPeriod
-	case utf8.RuneCountInString(s.String()) > SubjectLimit:
-		return fmt.Errorf("%w: %d of %d characters", ErrSubjectTooLong, utf8.RuneCountInString(s.String()), SubjectLimit)
-	default:
-		return nil
-	}
+	return DefaultCommitConvention().Validate(s)
 }
 
-// Message is a whole commit message: the subject, the body if there is one, and
-// a Refs trailer naming the issue, unless the body already carries it.
+// Message is a whole commit message under the built-in convention: the subject,
+// the body if there is one, and a Refs trailer naming the issue, unless the body
+// already carries it. A team with its own trailer uses CommitConvention.Message.
 func Message(subject Subject, body, issueKey string) string {
-	body = strings.TrimSpace(body)
-
-	message := subject.String()
-	if body != "" {
-		message += "\n\n" + body
-	}
-
-	trailer := "Refs: " + issueKey
-	if issueKey != "" && !hasTrailerLine(body, trailer) {
-		message += trailerJoin(body) + trailer
-	}
-
-	return message + "\n"
+	return DefaultCommitConvention().Message(subject, body, issueKey)
 }
 
 // hasTrailerLine reports a trailer already present as a whole line, so a longer

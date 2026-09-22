@@ -13,6 +13,10 @@ const mockCommit = vi.mocked(commitChanges)
 vi.mock('./pushApi.ts', () => ({ pushBranch: vi.fn(() => Promise.resolve()) }))
 const mockPush = vi.mocked(pushBranch)
 
+// The commit form reads the configuration for the team's types; with none, it
+// offers the built-in set and defaults to fix, as these tests expect.
+vi.mock('@/features/settings/configApi.ts', () => ({ useConfig: () => ({ data: undefined }) }))
+
 // pushable is a snapshot whose branch has commits the remote does not have.
 function pushable() {
   useSnapshotStore.setState({

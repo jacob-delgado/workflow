@@ -120,8 +120,10 @@ func (s *server) draftFor(branch gitrepo.Branch) forge.NewPullRequest {
 	key, _ := convention.IssueKey(branch.Name, s.config().Jira.Project)
 	issueKey := jira.Key(key)
 
+	titleSource := convention.TitleSource(s.config().PullRequest.TitleSource)
+
 	return forge.NewPullRequest{
-		Title: convention.PullRequestTitle(subjects, key, s.issueSummary(issueKey)),
+		Title: convention.PullRequestTitleFrom(titleSource, subjects, key, s.issueSummary(issueKey)),
 		Body:  convention.PullRequestBody(s.template(), subjects, key, s.issueURL(issueKey)),
 		Head:  branch.Name,
 		Base:  branch.BaseName(),

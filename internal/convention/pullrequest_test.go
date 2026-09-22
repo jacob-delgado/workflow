@@ -40,6 +40,40 @@ func TestPullRequestTitleIsTheOldestCommit(t *testing.T) {
 	}
 }
 
+func TestPullRequestTitleFromTheChosenSource(t *testing.T) {
+	t.Parallel()
+
+	subjects := []string{redactSubject, "test: cover the empty token"}
+
+	cases := map[string]struct {
+		source       convention.TitleSource
+		key, summary string
+		want         string
+	}{
+		"the commit source takes the oldest commit": {
+			source: convention.TitleFromCommit, key: projKey, summary: issueSummary, want: redactSubject,
+		},
+		"the issue source takes the issue over the commit": {
+			source: convention.TitleFromIssue, key: projKey, summary: issueSummary,
+			want: "PROJ-412: Fix token redaction",
+		},
+		"the issue source falls back to the commit without an issue": {
+			source: convention.TitleFromIssue, key: "", summary: "", want: redactSubject,
+		},
+	}
+
+	for name, tt := range cases {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			// Act & Assert
+			if got := convention.PullRequestTitleFrom(tt.source, subjects, tt.key, tt.summary); got != tt.want {
+				t.Errorf("PullRequestTitleFrom(%q) = %q, want %q", tt.source, got, tt.want)
+			}
+		})
+	}
+}
+
 func TestPullRequestBodyStartsFromTheTemplate(t *testing.T) {
 	t.Parallel()
 

@@ -148,6 +148,29 @@ func TestGetPullRequestDraftComposesTheProposal(t *testing.T) {
 	}
 }
 
+func TestGetPullRequestDraftTakesItsTitleFromTheConfiguredSource(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	// With the issue as the title source, the draft title is the issue rather than
+	// the branch's oldest commit (testCommitSubject).
+	deps := openableDeps()
+	cfg := config.Default()
+	cfg.PullRequest.TitleSource = "issue"
+
+	// Act
+	recorder := get(t, serve(t, deps, cfg), "/api/pull-request/draft")
+
+	// Assert
+	if recorder.Code != http.StatusOK {
+		t.Fatalf("status = %d, want 200", recorder.Code)
+	}
+
+	if draft := decode[api.PullRequestDraft](t, recorder); draft.Title != "PROJ-412: Fix token redaction" {
+		t.Errorf("draft title = %q, want the configured issue source", draft.Title)
+	}
+}
+
 func TestGetPullRequestDraftBuildsTheBodyFromTheRepositoryTemplate(t *testing.T) {
 	t.Parallel()
 
