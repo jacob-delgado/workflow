@@ -83,6 +83,11 @@ type Jira struct {
 	// out formatted rather than literal. Off by default: a comment that is
 	// already wiki markup, or means its asterisks literally, is posted unchanged.
 	MarkdownComments bool `json:"markdown_comments"`
+	// ReviewStatus is the status an issue moves to once its pull request is open,
+	// e.g. "In Review". Opening a pull request offers the change to this status by
+	// name — "in review" and "in progress" share a category, so the loop cannot
+	// pick it out on its own. Empty makes no offer.
+	ReviewStatus string `json:"review_status"`
 }
 
 // Messaging describes how workflow posts team updates. Kind picks the service;

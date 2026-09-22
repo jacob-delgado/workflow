@@ -309,7 +309,8 @@ export const zJiraConfig = z.object({
     headers: z.record(z.string(), z.string()).nullish(),
     views: z.array(zJiraView).nullish(),
     project: z.string().optional(),
-    markdown_comments: z.boolean().optional()
+    markdown_comments: z.boolean().optional(),
+    review_status: z.string().optional()
 });
 
 /**

@@ -77,6 +77,18 @@ function ConfigForm({ config }: { config: Config }) {
         <Field id="jira.project" label="Project">
           <input id="jira.project" className={inputClass} {...register('jira.project')} />
         </Field>
+        <Field
+          id="jira.review_status"
+          label="Review status"
+          hint='The status an issue moves to once its pull request is open, e.g. "In Review". Empty makes no offer.'
+        >
+          <input
+            id="jira.review_status"
+            className={inputClass}
+            aria-describedby="jira.review_status-hint"
+            {...register('jira.review_status')}
+          />
+        </Field>
         <label className="flex items-center gap-2 text-sm">
           <input type="checkbox" className="size-4" {...register('jira.markdown_comments')} />
           Write comments in Markdown, posted as Jira wiki markup

@@ -505,13 +505,20 @@ func (msg pullCreated) apply(m Model) (Model, tea.Cmd) {
 
 	cmds := tea.Batch(m.checkCI(), m.loadAuthor())
 
-	// With a Jira issue to link it to, offer to add the link before closing, so
-	// the team that watches Jira learns of the pull request.
-	if issueKey := m.issueToLink(); issueKey != "" {
+	// With a Jira issue, offer to link the pull request on it — so the team that
+	// watches Jira learns of it — and then to move it to the review status. When
+	// Jira cannot take the link, go straight to the status offer.
+	issueKey, named := m.branchIssue()
+	switch {
+	case named && m.deps.Jira.LinkPullRequest != nil:
 		m.overlay = issueLinker{marks: m.marks, styles: m.styles, vocab: m.vocab, issueKey: issueKey, pull: msg.pull}
 
 		return m, cmds
-	}
+	case named:
+		picker, offer := m.offerReviewStatus(issueKey)
 
-	return m.closeOverlay(), cmds
+		return picker, tea.Batch(cmds, offer)
+	default:
+		return m.closeOverlay(), cmds
+	}
 }

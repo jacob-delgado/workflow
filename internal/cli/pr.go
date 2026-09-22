@@ -35,15 +35,20 @@ var errPushFailed = errors.New("the branch could not be pushed")
 // prSeams are what `workflow pr` reads and does, so a test can answer without a
 // repository or a forge.
 type prSeams struct {
-	Branch     func() (gitrepo.Branch, error)
-	FindPull   func(branch string) (forge.PullRequest, bool, error)
-	Templates  func() []forge.Template
-	Issue      func(jira.Key) (jira.IssueDetail, error)
-	BrowseURL  func(jira.Key) string
-	Push       func(branch string) (proc.Output, error)
-	CreatePull func(forge.NewPullRequest) (forge.PullRequest, error)
-	Project    string
-	Confirm    func(question string) (bool, error)
+	Branch      func() (gitrepo.Branch, error)
+	FindPull    func(branch string) (forge.PullRequest, bool, error)
+	Templates   func() []forge.Template
+	Issue       func(jira.Key) (jira.IssueDetail, error)
+	BrowseURL   func(jira.Key) string
+	Push        func(branch string) (proc.Output, error)
+	CreatePull  func(forge.NewPullRequest) (forge.PullRequest, error)
+	Transitions func(jira.Key) ([]jira.Transition, error)
+	Transition  func(jira.Key, jira.Transition, []jira.FieldValue) error
+	Project     string
+	// ReviewStatus is the status an issue moves to once its pull request is open,
+	// offered after opening. Empty makes no offer.
+	ReviewStatus string
+	Confirm      func(question string) (bool, error)
 }
 
 // newPRCmd builds `workflow pr`.
@@ -81,15 +86,18 @@ func runPRCommand(cmd *cobra.Command, prompt Prompt, opts writeOptions) error {
 	deps := wiring.Deps(ctx, cfg, wiring.Locate(ctx, dir), nil)
 
 	seams := prSeams{
-		Branch:     deps.Git.Branch,
-		FindPull:   deps.Forge.FindPullRequest,
-		Templates:  deps.Forge.Templates,
-		Issue:      deps.Jira.Issue,
-		BrowseURL:  deps.Jira.BrowseURL,
-		Push:       deps.Git.Push,
-		CreatePull: deps.Forge.CreatePullRequest,
-		Project:    cfg.Jira.Project,
-		Confirm:    func(question string) (bool, error) { return confirm(prompt, question) },
+		Branch:       deps.Git.Branch,
+		FindPull:     deps.Forge.FindPullRequest,
+		Templates:    deps.Forge.Templates,
+		Issue:        deps.Jira.Issue,
+		BrowseURL:    deps.Jira.BrowseURL,
+		Push:         deps.Git.Push,
+		CreatePull:   deps.Forge.CreatePullRequest,
+		Transitions:  deps.Jira.Transitions,
+		Transition:   deps.Jira.Transition,
+		Project:      cfg.Jira.Project,
+		ReviewStatus: cfg.Jira.ReviewStatus,
+		Confirm:      func(question string) (bool, error) { return confirm(prompt, question) },
 	}
 
 	return runPR(cmd.OutOrStdout(), seams, opts)
@@ -136,7 +144,73 @@ func runPR(out io.Writer, seams prSeams, opts writeOptions) error {
 
 	fmt.Fprintln(out, "Opened #"+strconv.Itoa(pull.Number)+" "+pull.URL)
 
+	key, _ := convention.IssueKey(branch.Name, seams.Project)
+
+	return offerReviewStatus(out, seams, jira.Key(key), opts)
+}
+
+// offerReviewStatus offers to move the branch's issue to the configured review
+// status once the pull request is open, chosen by name because it shares a
+// category with "in progress". A read that fails, a status Jira does not offer,
+// or one whose transition needs fields this command cannot fill, is passed over
+// quietly — the pull request is already open.
+func offerReviewStatus(out io.Writer, seams prSeams, issueKey jira.Key, opts writeOptions) error {
+	target, ok := reviewTarget(seams, issueKey)
+	if !ok {
+		return nil
+	}
+
+	proceed, err := opts.proceed(out, seams.Confirm, writePrompt{
+		question: "Move " + string(issueKey) + " to " + target.ToStatus + "?",
+		dryRun:   "dry run: would move " + string(issueKey) + " to " + target.ToStatus,
+		declined: "Left " + string(issueKey) + " as it is.",
+	})
+	if err != nil || !proceed {
+		return err
+	}
+
+	err = seams.Transition(issueKey, target, nil)
+	if err != nil {
+		return fmt.Errorf("moving %s to %s: %w", issueKey, target.ToStatus, err)
+	}
+
+	fmt.Fprintln(out, "Moved "+string(issueKey)+" to "+target.ToStatus)
+
 	return nil
+}
+
+// reviewTarget is the transition to the configured review status and whether the
+// command should offer it: the status must be configured, the seams present, the
+// transition offered by Jira, and fillable without a form this command cannot
+// show. A tracker read that fails is passed over — the pull request is open.
+func reviewTarget(seams prSeams, issueKey jira.Key) (jira.Transition, bool) {
+	if seams.ReviewStatus == "" || issueKey == "" || seams.Transitions == nil || seams.Transition == nil {
+		return jira.Transition{}, false
+	}
+
+	moves, err := seams.Transitions(issueKey)
+	if err != nil {
+		return jira.Transition{}, false
+	}
+
+	target, found := transitionTo(moves, seams.ReviewStatus)
+	if !found || len(target.Fields) > 0 {
+		return jira.Transition{}, false
+	}
+
+	return target, true
+}
+
+// transitionTo is the transition leading to a status of the given name, matched
+// case-insensitively.
+func transitionTo(moves []jira.Transition, status string) (jira.Transition, bool) {
+	for _, move := range moves {
+		if strings.EqualFold(move.ToStatus, status) {
+			return move, true
+		}
+	}
+
+	return jira.Transition{}, false
 }
 
 // composePR builds the pull request from the branch's commits, the issue, and

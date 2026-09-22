@@ -57,6 +57,7 @@ const (
 	issueSummary = "Fix token redaction"
 
 	statusInProgress      = "In Progress"
+	statusInReview        = "In Review"
 	categoryIndeterminate = "indeterminate"
 	fieldAssignee         = "Assignee"
 	idAssignee            = "assignee"
