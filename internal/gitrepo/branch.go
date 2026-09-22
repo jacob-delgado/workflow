@@ -327,8 +327,7 @@ func (r Repository) LocalBranches(ctx context.Context) ([]string, error) {
 
 	var branches []string
 
-	//nolint:modernize // SplitSeq returns a range-over-func iterator, which crashes gobco.
-	for _, name := range strings.Split(text(out), "\n") {
+	for name := range strings.SplitSeq(text(out), "\n") {
 		if name != "" && sanitize.Line(name) == name {
 			branches = append(branches, name)
 		}
@@ -354,8 +353,7 @@ func (r Repository) RemoteBranches(ctx context.Context) ([]string, error) {
 
 	seen := map[string]bool{}
 
-	//nolint:modernize // SplitSeq returns a range-over-func iterator, which crashes gobco.
-	for _, ref := range strings.Split(text(out), "\n") {
+	for ref := range strings.SplitSeq(text(out), "\n") {
 		_, name, found := strings.Cut(ref, "/")
 		if !found || name == "" || name == "HEAD" {
 			continue

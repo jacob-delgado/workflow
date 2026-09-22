@@ -40,9 +40,9 @@ jobs:
       # Both floors come from the same Taskfile variables the local gate reads,
       # so CI and a developer's machine cannot disagree about them.
       - run: task test:cover
-      # Condition coverage. gobco reads every package in this module (it fails on
-      # any that drops out of the report unannounced) — see
-      # scripts/gobco-report.sh.
+      # Condition coverage. gobco reads every package but the build-tagged twins
+      # scripts/gobco-report.sh lists as unreadable (it fails on any other that
+      # drops out of the report unannounced).
       - run: task cover:branch
       # Consumed by the coverage-comment and coverage-baseline jobs below.
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
@@ -285,7 +285,8 @@ jobs:
               '',
               '_Conditions counts each branch arm separately: an `if a && b` is only covered ' +
                 'once both arms have been observed. gobco reads every package in this ' +
-                'module; `task cover:branch` fails if one drops out unlisted._',
+                'module but the build-tagged twins `scripts/gobco-report.sh` lists; ' +
+                '`task cover:branch` fails if another drops out unlisted._',
             ].join('\n')
             const { owner, repo } = context.repo
             const issue_number = context.issue.number

@@ -336,28 +336,6 @@ back — so the test waits for a count, not a clock.
 **Done when.** `patience` is gone and the world tests pass 50 runs under
 `-race -count=50`.
 
-### DEBT-61 Five `//nolint` directives for one gobco defect, and one names a linter that does not exist
-
-Severity: low · Confidence: measured
-
-`internal/hooks/generate.go:384` carries `//nolint:slicesbackward`;
-`slicesbackward` is not a linter, which is the "unknown linters in
-//nolint directives" warning golangci-lint prints on every run. Its four
-siblings correctly name `modernize` — `internal/gitrepo/log.go:51`,
-`internal/gitrepo/status.go:129`, `internal/gitrepo/branch.go:330`, `internal/gitrepo/branch.go:357` — all to work around
-"a range-over-func iterator crashes gobco". But `internal/tui` now ranges
-`strings.SplitSeq` unguarded (`render.go:274`, `:291`,
-`prcomposer.go:411`) under a green `task cover:branch`, so either the crash
-is fixed and all five directives are stale, or the terminal's three uses
-are the ones exposed.
-
-**One way to fix it.** Delete all five and run `task cover:branch`; keep
-only what gobco still refuses, and name the linter it actually is.
-
-**Done when.** `golangci-lint run` prints no "unknown linters" warning, and
-either no `//nolint:modernize` remains or each one is backed by a gobco
-failure named in its comment.
-
 ## The web
 
 ### DEBT-62 One frontend function is 304 lines, and nothing measures a function's length
@@ -589,8 +567,11 @@ know about.
   mitigated by the stage name, or its initial when compact (`spine.go:51`).
   Part of the visual system UX.md says should not change; the cost is one
   channel the monochrome reader does not get.
-- **No condition-coverage skip list** (`Taskfile.yml:23-31` is empty on
-  purpose): every package is read by gobco, and a package that becomes
-  unreadable fails the gate rather than shrinking the number. The cost is
-  DEBT-61's workarounds, which exist to keep gobco reading files it would
-  otherwise crash on.
+- **A condition-coverage skip list of two** (`UNANALYZABLE`,
+  `scripts/gobco-report.sh:82`): gobco ignores build tags, so it cannot read
+  a package whose files come in tagged twins, and `internal/proc/pgroup` and
+  `internal/web` are named there with that reason beside them. Every other
+  package is read, and one that becomes unreadable without being named fails
+  the gate rather than shrinking the number. The cost is that the two named
+  packages' conditions go unmeasured — platform glue and an embed stub, with
+  no branch worth the count — and that the next tagged twin must join them.

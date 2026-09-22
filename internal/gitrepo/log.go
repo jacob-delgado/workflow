@@ -48,8 +48,7 @@ func (r Repository) RecentSubjects(ctx context.Context) ([]string, error) {
 
 	var subjects []string
 
-	//nolint:modernize // SplitSeq returns a range-over-func iterator, which crashes gobco.
-	for _, line := range strings.Split(text(out), "\n") {
+	for line := range strings.SplitSeq(text(out), "\n") {
 		if subject := sanitize.Text(line); subject != "" {
 			subjects = append(subjects, subject)
 		}

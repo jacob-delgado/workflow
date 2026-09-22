@@ -20,18 +20,19 @@ vars:
   # which a black-box test cannot reach, so that coverage falls to each package's
   # own tests and the floor lowers to match. The rule does not bend; the floor does.
   COVERAGE_MIN: 94
-  # The condition (branch) coverage floor, enforced over EVERY package —
-  # scripts/gobco-report.sh's skip list is now empty and fails on any package
-  # that drops out unannounced.
+  # The condition (branch) coverage floor, enforced over every package gobco can
+  # read — scripts/gobco-report.sh's skip list names only the two build-tagged
+  # twins it cannot, and the script fails on any package that drops out
+  # unannounced.
   #
   # This number went DOWN from 95, and that is the gate getting stronger, not
   # weaker. gobco had been built by an older Go than mise.toml pins, which made
   # it unable to parse internal/cli and internal/tui; both sat on the skip list,
   # so an early figure measured only a fraction of the module's condition arms.
-  # Rebuilt correctly, gobco reads every package and the floor is measured across
-  # all of them. It started below the measured figure by the standard slack, and
-  # ratchets up as the conditions the gate lists get tests. The gate prints the
-  # available ratchet on every run.
+  # Rebuilt correctly, gobco reads every package but the two build-tagged twins,
+  # and the floor is measured across all the rest. It started below the measured
+  # figure by the standard slack, and ratchets up as the conditions the gate lists
+  # get tests. The gate prints the available ratchet on every run.
   #
   # It stepped from 93 to 92 with the scriptable write commands (workflow branch /
   # pr / announce). This module's tests are black-box only (package <name>_test,

@@ -381,7 +381,6 @@ func Write(dir string, generated Generated) error {
 	var written []string
 
 	remove := func() {
-		//nolint:slicesbackward // slices.Backward is a range-over-func iterator that crashes gobco.
 		for _, w := range slices.Backward(written) {
 			_ = os.Remove(w)
 		}
