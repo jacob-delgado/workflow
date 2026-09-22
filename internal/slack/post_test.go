@@ -158,8 +158,187 @@ func TestPostWithABotTokenReportsSlacksError(t *testing.T) {
 }
 
 // webhookCredentials posts through a webhook at address.
-func webhookCredentials(address string) config.Slack {
-	return config.Slack{Token: "", WebhookURL: config.Secret(address), Channel: ""}
+func webhookCredentials(address string) config.Messaging {
+	return config.Messaging{Token: "", WebhookURL: config.Secret(address), Channel: ""}
+}
+
+// messagingWebhook posts through a kind's webhook at address.
+func messagingWebhook(kind config.MessagingKind, address string) config.Messaging {
+	return config.Messaging{Kind: kind, WebhookURL: config.Secret(address)}
+}
+
+// The webhook body keys and the pull request URL the per-kind body test shares,
+// named so the same literal is not repeated across cases.
+const (
+	bodyKeyText    = "text"
+	bodyKeyContent = "content"
+	readyPullURL   = "https://x/pull/1"
+)
+
+// readyAnnouncement is a plain "ready for review" announcement rendered for kind.
+func readyAnnouncement(kind config.MessagingKind) string {
+	return slack.Announcement{
+		Kind: kind, PullRequestURL: readyPullURL, PullRequestTitle: "fix: redact",
+	}.Text()
+}
+
+func TestAWebhookPostWrapsTheBodyAndMarkupPerKind(t *testing.T) {
+	t.Parallel()
+
+	cases := map[string]struct {
+		kind       config.MessagingKind
+		wantKey    string
+		wantAbsent string
+		wantMarkup string
+	}{
+		// Slack keeps its mrkdwn <url|text> link under the "text" key.
+		"slack": {
+			kind: config.KindSlack, wantKey: bodyKeyText, wantAbsent: bodyKeyContent,
+			wantMarkup: "<https://x/pull/1|fix: redact>",
+		},
+		// Teams reads Markdown and takes the "text" key.
+		"teams": {
+			kind: config.KindTeams, wantKey: bodyKeyText, wantAbsent: bodyKeyContent,
+			wantMarkup: "[fix: redact](https://x/pull/1)",
+		},
+		// Discord reads Markdown but names its body key "content".
+		"discord": {
+			kind: config.KindDiscord, wantKey: bodyKeyContent, wantAbsent: bodyKeyText,
+			wantMarkup: "[fix: redact](https://x/pull/1)",
+		},
+		// A plain webhook takes bare text under "text": title then its URL.
+		"webhook": {
+			kind: config.KindWebhook, wantKey: bodyKeyText, wantAbsent: bodyKeyContent,
+			wantMarkup: "fix: redact https://x/pull/1",
+		},
+	}
+
+	for name, tt := range cases {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			// Arrange
+			server, seen := webhookReceiving(t, http.StatusOK, "ok")
+			client := slack.New(server.Client().Do, slack.APIBase, messagingWebhook(tt.kind, server.URL+"/hook"))
+
+			// Act
+			err := client.Post(t.Context(), "", readyAnnouncement(tt.kind))
+			if err != nil {
+				t.Fatalf("Post returned %v, want nil", err)
+			}
+
+			// Assert
+			got := received(t, seen)
+			if got.body[tt.wantAbsent] != nil {
+				t.Errorf("body carried a %q key: %v", tt.wantAbsent, got.body)
+			}
+
+			value, _ := got.body[tt.wantKey].(string)
+			if !strings.Contains(value, tt.wantMarkup) {
+				t.Errorf("body[%q] = %q, want it to contain %q", tt.wantKey, value, tt.wantMarkup)
+			}
+		})
+	}
+}
+
+func TestAMarkdownAnnouncementNeutralizesAHostileValue(t *testing.T) {
+	t.Parallel()
+
+	// A title, author, summary and URL are all anyone's to write, and they reach
+	// Teams and Discord as Markdown. Unescaped, "](http://evil)" in a title ends
+	// the link and injects its own, and a ")" in the URL ends the link target
+	// early — so every value is escaped and the URL's ")" is percent-encoded.
+	for name, kind := range map[string]config.MessagingKind{
+		"teams": config.KindTeams, "discord": config.KindDiscord,
+	} {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			// Arrange
+			announcement := slack.Announcement{
+				Kind:             kind,
+				Author:           "a[u*thor`",
+				PullRequestURL:   "https://x/pull/1)evil",
+				PullRequestTitle: "t](http://evil) *x* `code`",
+				IssueKey:         "PROJ-1",
+				IssueSummary:     "sum[m](ary)~|#>",
+				IssueURL:         "https://x/browse)1",
+			}
+
+			// Act
+			got := announcement.Text()
+
+			// Assert
+			if strings.Contains(got, "](http://evil)") {
+				t.Errorf("Text() = %q, want the injected Markdown link neutralized", got)
+			}
+
+			if strings.Contains(got, "pull/1)evil") || !strings.Contains(got, "%29") {
+				t.Errorf("Text() = %q, want the URL's ) percent-encoded so it cannot end the link", got)
+			}
+
+			// Emphasis, code, strikethrough, spoiler, heading and quote markers all
+			// come from a value anyone can write, so each is shown literally.
+			for _, want := range []string{`\*`, "\\`", `\~`, `\|`, `\#`, `\>`} {
+				if !strings.Contains(got, want) {
+					t.Errorf("Text() = %q, want %q escaped", got, want)
+				}
+			}
+		})
+	}
+}
+
+func TestADiscordPostPinsMentionsOff(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	// "@everyone" and "@here" in a PR title come from the forge and are anyone's
+	// to write; Discord resolves them out of the raw content and would ping the
+	// whole server, so the body pins allowed_mentions to parse nothing.
+	server, seen := webhookReceiving(t, http.StatusOK, "ok")
+	hostile := slack.Announcement{
+		Kind:             config.KindDiscord,
+		PullRequestTitle: "@everyone @here ship it",
+		PullRequestURL:   readyPullURL,
+	}
+	client := slack.New(server.Client().Do, slack.APIBase, messagingWebhook(config.KindDiscord, server.URL+"/hook"))
+
+	// Act
+	err := client.Post(t.Context(), "", hostile.Text())
+	if err != nil {
+		t.Fatalf("Post returned %v, want nil", err)
+	}
+
+	// Assert
+	got := received(t, seen)
+
+	mentions, ok := got.body["allowed_mentions"].(map[string]any)
+	if !ok {
+		t.Fatalf("Discord body has no allowed_mentions to pin pings off: %v", got.body)
+	}
+
+	if parse, isList := mentions["parse"].([]any); !isList || len(parse) != 0 {
+		t.Errorf("allowed_mentions.parse = %v (a list: %v), want a present, empty list so nothing is pinged", parse, isList)
+	}
+}
+
+func TestAMarkdownLinkFallsBackToTextForANonWebURL(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	// The forge should only ever return an http(s) URL; a value with any other
+	// scheme is not trusted as a link target and is dropped to the escaped title.
+	announcement := slack.Announcement{
+		Kind: config.KindTeams, PullRequestURL: "javascript:alert(1)", PullRequestTitle: "fix",
+	}
+
+	// Act
+	got := announcement.Text()
+
+	// Assert
+	if strings.Contains(got, "javascript:") || strings.Contains(got, "](") {
+		t.Errorf("Text() = %q, want no link built for a non-web URL", got)
+	}
 }
 
 func TestPostWithAWebhookSendsJustTheText(t *testing.T) {
@@ -262,7 +441,7 @@ func TestPostWithoutACredentialSendsNothing(t *testing.T) {
 	// Arrange
 	var sent atomic.Bool
 
-	client := slack.New(counting(&sent), slack.APIBase, config.Slack{})
+	client := slack.New(counting(&sent), slack.APIBase, config.Messaging{})
 
 	// Act
 	err := client.Post(t.Context(), "", message)

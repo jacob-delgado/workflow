@@ -34,28 +34,86 @@ func (a AuthMode) String() string {
 	}
 }
 
-// SlackMode is the transport a message to Slack travels over.
-type SlackMode int
+// MessagingKind is the service a messaging block posts to. Empty is read as
+// Slack, so a block written before more services existed still works.
+type MessagingKind string
 
 const (
-	// SlackNone means no Slack credential is configured.
-	SlackNone SlackMode = iota
-	// SlackBot posts with a bot token, which needs a channel and an invitation.
-	SlackBot
-	// SlackWebhook posts to an incoming webhook, which carries its own channel.
-	SlackWebhook
+	// KindSlack posts to Slack, over a bot token or an incoming webhook.
+	KindSlack MessagingKind = "slack"
+	// KindTeams posts to a Microsoft Teams incoming webhook.
+	KindTeams MessagingKind = "teams"
+	// KindDiscord posts to a Discord webhook.
+	KindDiscord MessagingKind = "discord"
+	// KindWebhook posts plain text to any incoming webhook.
+	KindWebhook MessagingKind = "webhook"
+)
+
+// Known reports whether k is a kind this build understands. An empty kind is
+// known: it is read as Slack for a block written before kinds existed.
+func (k MessagingKind) Known() bool {
+	switch k {
+	case "", KindSlack, KindTeams, KindDiscord, KindWebhook:
+		return true
+	default:
+		return false
+	}
+}
+
+// Service names the messaging service for display: the pane title and doctor.
+func (k MessagingKind) Service() string {
+	switch k {
+	case KindTeams:
+		return "Teams"
+	case KindDiscord:
+		return "Discord"
+	case KindWebhook:
+		return "webhook"
+	case "", KindSlack:
+		return "Slack"
+	default:
+		return "Slack"
+	}
+}
+
+// webhookOnly reports a kind whose only transport is an incoming webhook: it has
+// no bot token, so a token set beside it is ignored. Slack is the exception —
+// it can post with a bot token too.
+func (k MessagingKind) webhookOnly() bool {
+	switch k {
+	case KindTeams, KindDiscord, KindWebhook:
+		return true
+	case "", KindSlack:
+		return false
+	default:
+		return false
+	}
+}
+
+// MessagingMode is the transport a message travels over.
+type MessagingMode int
+
+const (
+	// MessagingNone means no messaging credential is configured.
+	MessagingNone MessagingMode = iota
+	// MessagingBot posts with a bot token, which needs a channel and an
+	// invitation. Only Slack has one; the other services post over a webhook.
+	MessagingBot
+	// MessagingWebhook posts to an incoming webhook, which carries its own
+	// channel.
+	MessagingWebhook
 )
 
 // String names the transport for humans.
-var _ fmt.Stringer = SlackMode(0)
+var _ fmt.Stringer = MessagingMode(0)
 
-func (s SlackMode) String() string {
-	switch s {
-	case SlackNone:
+func (m MessagingMode) String() string {
+	switch m {
+	case MessagingNone:
 		return "none"
-	case SlackBot:
+	case MessagingBot:
 		return "bot token"
-	case SlackWebhook:
+	case MessagingWebhook:
 		return "incoming webhook"
 	default:
 		return "unknown"

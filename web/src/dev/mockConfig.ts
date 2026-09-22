@@ -16,7 +16,8 @@ export const mockConfig: Config = {
     headers: null,
     views: null,
   },
-  slack: {
+  messaging: {
+    kind: 'slack',
     token: '••••••••',
     token_command: '',
     token_env: '',

@@ -28,7 +28,7 @@ func (s *server) GetAnnouncement(
 		return api.GetAnnouncement409JSONResponse{Code: api.Conflict, Message: errNoPullRequest.Error()}, nil
 	}
 
-	return api.GetAnnouncement200JSONResponse(announcementDTO(announcement, s.config().Slack.Channel)), nil
+	return api.GetAnnouncement200JSONResponse(announcementDTO(announcement, s.config().Messaging.Channel)), nil
 }
 
 // Announce posts the composed announcement to Slack — to the requested channel,
@@ -50,7 +50,7 @@ func (s *server) Announce(_ context.Context, request api.AnnounceRequestObject) 
 
 	channel := request.Body.Channel
 	if channel == "" {
-		channel = s.config().Slack.Channel
+		channel = s.config().Messaging.Channel
 	}
 
 	err := s.deps.Post(channel, announcement.Text())
@@ -91,7 +91,8 @@ func (s *server) composeAnnouncement() (slack.Announcement, bool) {
 		IssueURL:         s.issueURL(jira.Key(key)),
 		Noun:             noun(s.info.ForgeKind),
 		Moment:           s.announceMoment(pull, branch.Head),
-		Template:         s.config().Slack.Announcement,
+		Kind:             s.config().Messaging.Kind,
+		Template:         s.config().Messaging.Announcement,
 	}, true
 }
 

@@ -18,7 +18,7 @@ import (
 const jiraFixture = `{"key":"JIRAUSER10100","name":"fred","displayName":"Fred F. User","active":true}`
 
 // slackWebhook is a webhook configuration doctor accepts and never posts to.
-const slackWebhook = `"slack": {"webhook_url": "https://hooks.slack.example/services/not-real"}`
+const slackWebhook = `"messaging": {"webhook_url": "https://hooks.slack.example/services/not-real"}`
 
 // writeConfigFor writes a configuration pointing Jira at baseURL.
 func writeConfigFor(t *testing.T, dir, baseURL string) {
@@ -185,7 +185,7 @@ func TestDoctorOnlineFailsWhenSlackIsNotConfigured(t *testing.T) {
 		t.Fatalf("doctor --online accepted a missing Slack credential:\n%s", output)
 	}
 
-	if !strings.Contains(output, "no slack.token or slack.webhook_url") {
+	if !strings.Contains(output, "no messaging.token or messaging.webhook_url") {
 		t.Errorf("doctor does not name the missing Slack credential:\n%s", output)
 	}
 }

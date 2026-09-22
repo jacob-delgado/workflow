@@ -26,8 +26,8 @@ const okBody = `{"ok":true,"url":"https://example.slack.com/","team":"Example",`
 	`"user":"workflow","team_id":"T00000000","user_id":"U00000000"}`
 
 // botCredentials authenticates with a bot token.
-func botCredentials() config.Slack {
-	return config.Slack{Token: botToken, WebhookURL: "", Channel: "#dev"}
+func botCredentials() config.Messaging {
+	return config.Messaging{Token: botToken, WebhookURL: "", Channel: "#dev"}
 }
 
 // serve starts a Slack API and returns a client pointed at it.
@@ -141,7 +141,7 @@ func TestAuthTestRefusesWhatItCannotCheck(t *testing.T) {
 
 	cases := map[string]struct {
 		base        string
-		credentials config.Slack
+		credentials config.Messaging
 		want        error
 		// hidden is what the error must never quote.
 		hidden []string
@@ -150,7 +150,7 @@ func TestAuthTestRefusesWhatItCannotCheck(t *testing.T) {
 		// whether it works is to post with it, which would spam the channel.
 		"a webhook": {
 			base: "https://slack.example.com",
-			credentials: config.Slack{
+			credentials: config.Messaging{
 				Token: "", WebhookURL: "https://hooks.slack.com/services/T0/B0/secretpath", Channel: "",
 			},
 			want:   slack.ErrWebhookUncheckable,
@@ -158,7 +158,7 @@ func TestAuthTestRefusesWhatItCannotCheck(t *testing.T) {
 		},
 		"no credential": {
 			base:        "https://slack.example.com",
-			credentials: config.Slack{Token: "", WebhookURL: "", Channel: ""},
+			credentials: config.Messaging{Token: "", WebhookURL: "", Channel: ""},
 			want:        slack.ErrNoCredential,
 		},
 		// A control character is what url.Parse refuses outright, which is the

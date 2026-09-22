@@ -52,7 +52,7 @@ func newStandupCmd(prompt Prompt) *cobra.Command {
 		Short: "Draft what you did — commits, issues and pull requests — to share",
 		Long: "Gather the commits you made, the issues you touched and the open pull\n" +
 			"requests on your branches over the last day, open the draft in your editor,\n" +
-			"and offer to post it to Slack. Nothing is posted until you confirm.",
+			"and offer to post it to your team's chat. Nothing is posted until you confirm.",
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			return runStandupCommand(cmd, prompt, days, noEdit)
@@ -89,8 +89,8 @@ func runStandupCommand(cmd *cobra.Command, prompt Prompt, days int, noEdit bool)
 		Search:   deps.Jira.Search,
 		Compose:  prompt.Compose,
 		Post:     func(text string) error { return deps.Slack.Post("", text) },
-		Confirm:  func() (bool, error) { return confirm(prompt, "Post to Slack?") },
-		Slack:    cfg.Slack.Mode() != config.SlackNone,
+		Confirm:  func() (bool, error) { return confirm(prompt, "Post to "+cfg.Messaging.Service()+"?") },
+		Slack:    cfg.Messaging.Mode() != config.MessagingNone,
 	}
 
 	return runStandup(cmd.OutOrStdout(), seams, days, noEdit)

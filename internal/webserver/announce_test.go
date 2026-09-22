@@ -39,7 +39,7 @@ func TestGetAnnouncementComposesThePreview(t *testing.T) {
 
 	// Arrange
 	cfg := config.Default()
-	cfg.Slack.Channel = testChannel
+	cfg.Messaging.Channel = testChannel
 
 	// Act
 	// filledDeps has a pull request, an author, and the branch's issue.
@@ -205,7 +205,7 @@ func TestAnnounceFallsBackToTheConfiguredChannel(t *testing.T) {
 	}
 
 	cfg := config.Default()
-	cfg.Slack.Channel = testChannel
+	cfg.Messaging.Channel = testChannel
 
 	// Act
 	// An empty channel in the request falls back to the configured one.

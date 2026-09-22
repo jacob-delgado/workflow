@@ -87,43 +87,43 @@ func TestMissingNamesWhatTheConfigurationStillNeeds(t *testing.T) {
 		// it, and naming both as separately missing would read as "set them both".
 		"an empty configuration names every required field": {
 			cfg:  config.Config{},
-			want: []string{"jira.base_url", "jira.token", "slack.token or slack.webhook_url"},
+			want: []string{"jira.base_url", "jira.token", "messaging.token or messaging.webhook_url"},
 		},
 		// An incoming webhook is bound to one channel when it is created, so
-		// asking for slack.channel as well would be asking for something with no
+		// asking for messaging.channel as well would be asking for something with no
 		// effect.
 		"a webhook needs no channel": {
 			cfg: config.Config{
-				Jira:  config.Jira{BaseURL: jiraURL, Token: "t", User: ""},
-				Slack: config.Slack{Token: "", WebhookURL: webhookURL, Channel: ""},
-				Path:  "",
+				Jira:      config.Jira{BaseURL: jiraURL, Token: "t", User: ""},
+				Messaging: config.Messaging{Token: "", WebhookURL: webhookURL, Channel: ""},
+				Path:      "",
 			},
 			want: nil,
 		},
 		"a bot token needs a channel": {
 			cfg: config.Config{
-				Jira:  config.Jira{BaseURL: jiraURL, Token: "t", User: ""},
-				Slack: config.Slack{Token: botToken, WebhookURL: "", Channel: ""},
-				Path:  "",
+				Jira:      config.Jira{BaseURL: jiraURL, Token: "t", User: ""},
+				Messaging: config.Messaging{Token: botToken, WebhookURL: "", Channel: ""},
+				Path:      "",
 			},
-			want: []string{"slack.channel"},
+			want: []string{"messaging.channel"},
 		},
 		// forge.kind describes a host, so by itself it describes nothing.
 		"a forge kind needs the host it describes": {
 			cfg: config.Config{
-				Jira:  config.Jira{BaseURL: jiraURL, Token: "t", User: ""},
-				Slack: config.Slack{Token: "", WebhookURL: webhookURL, Channel: ""},
-				Forge: config.Forge{Kind: "github", Host: "", Token: ""},
-				Path:  "",
+				Jira:      config.Jira{BaseURL: jiraURL, Token: "t", User: ""},
+				Messaging: config.Messaging{Token: "", WebhookURL: webhookURL, Channel: ""},
+				Forge:     config.Forge{Kind: "github", Host: "", Token: ""},
+				Path:      "",
 			},
 			want: []string{"forge.host"},
 		},
 		"a forge kind with its host is complete": {
 			cfg: config.Config{
-				Jira:  config.Jira{BaseURL: jiraURL, Token: "t", User: ""},
-				Slack: config.Slack{Token: "", WebhookURL: webhookURL, Channel: ""},
-				Forge: config.Forge{Kind: "github", Host: "git.example.com", Token: ""},
-				Path:  "",
+				Jira:      config.Jira{BaseURL: jiraURL, Token: "t", User: ""},
+				Messaging: config.Messaging{Token: "", WebhookURL: webhookURL, Channel: ""},
+				Forge:     config.Forge{Kind: "github", Host: "git.example.com", Token: ""},
+				Path:      "",
 			},
 			want: nil,
 		},
@@ -169,26 +169,26 @@ func TestSlackModeSelectsTheTransport(t *testing.T) {
 	t.Parallel()
 
 	cases := map[string]struct {
-		slack config.Slack
-		want  config.SlackMode
+		slack config.Messaging
+		want  config.MessagingMode
 	}{
 		"nothing configured": {
-			slack: config.Slack{Token: "", WebhookURL: "", Channel: ""},
-			want:  config.SlackNone,
+			slack: config.Messaging{Token: "", WebhookURL: "", Channel: ""},
+			want:  config.MessagingNone,
 		},
 		"bot token": {
-			slack: config.Slack{Token: botToken, WebhookURL: "", Channel: devChannel},
-			want:  config.SlackBot,
+			slack: config.Messaging{Token: botToken, WebhookURL: "", Channel: devChannel},
+			want:  config.MessagingBot,
 		},
 		"webhook only": {
-			slack: config.Slack{Token: "", WebhookURL: webhookURL, Channel: ""},
-			want:  config.SlackWebhook,
+			slack: config.Messaging{Token: "", WebhookURL: webhookURL, Channel: ""},
+			want:  config.MessagingWebhook,
 		},
 		// Both is not an error. The bot token is the more capable transport, so
 		// it wins rather than the configuration being called ambiguous.
 		"both prefers the bot token": {
-			slack: config.Slack{Token: botToken, WebhookURL: webhookURL, Channel: devChannel},
-			want:  config.SlackBot,
+			slack: config.Messaging{Token: botToken, WebhookURL: webhookURL, Channel: devChannel},
+			want:  config.MessagingBot,
 		},
 	}
 
@@ -211,14 +211,14 @@ func TestSlackModeString(t *testing.T) {
 	t.Parallel()
 
 	cases := map[string]struct {
-		mode config.SlackMode
+		mode config.MessagingMode
 		want string
 	}{
-		"no transport": {mode: config.SlackNone, want: "none"},
-		"bot":          {mode: config.SlackBot, want: "bot token"},
-		"webhook":      {mode: config.SlackWebhook, want: "incoming webhook"},
+		"no transport": {mode: config.MessagingNone, want: "none"},
+		"bot":          {mode: config.MessagingBot, want: "bot token"},
+		"webhook":      {mode: config.MessagingWebhook, want: "incoming webhook"},
 		// Total, like AuthMode: a value from outside the enum still reads.
-		"a value outside the enum": {mode: config.SlackMode(99), want: "unknown"},
+		"a value outside the enum": {mode: config.MessagingMode(99), want: "unknown"},
 	}
 
 	for name, tt := range cases {
@@ -237,23 +237,23 @@ func TestSlackTarget(t *testing.T) {
 	t.Parallel()
 
 	cases := map[string]struct {
-		slack config.Slack
+		slack config.Messaging
 		want  string
 	}{
 		"nothing configured": {
-			slack: config.Slack{Token: "", WebhookURL: "", Channel: ""},
+			slack: config.Messaging{Token: "", WebhookURL: "", Channel: ""},
 			want:  "(not set)",
 		},
 		"bot names its channel": {
-			slack: config.Slack{Token: botToken, WebhookURL: "", Channel: devChannel},
+			slack: config.Messaging{Token: botToken, WebhookURL: "", Channel: devChannel},
 			want:  devChannel,
 		},
 		"bot without a channel says so": {
-			slack: config.Slack{Token: botToken, WebhookURL: "", Channel: ""},
+			slack: config.Messaging{Token: botToken, WebhookURL: "", Channel: ""},
 			want:  "(no channel set)",
 		},
 		"webhook describes its binding": {
-			slack: config.Slack{Token: "", WebhookURL: webhookURL, Channel: ""},
+			slack: config.Messaging{Token: "", WebhookURL: webhookURL, Channel: ""},
 			want:  "the channel its webhook is bound to",
 		},
 	}
@@ -276,7 +276,7 @@ func TestSlackTarget(t *testing.T) {
 func TestSlackTargetNeverRevealsTheWebhookURL(t *testing.T) {
 	t.Parallel()
 
-	cases := map[string]config.Slack{
+	cases := map[string]config.Messaging{
 		"a webhook alone":             {Token: "", WebhookURL: webhookURL, Channel: ""},
 		"a webhook and a channel":     {Token: "", WebhookURL: webhookURL, Channel: devChannel},
 		"a webhook beside a token":    {Token: botToken, WebhookURL: webhookURL, Channel: devChannel},
@@ -379,9 +379,9 @@ func TestRedactedMasksAPasswordInTheBaseURL(t *testing.T) {
 	// doctor prints jira.base_url, and its output is what the bug report
 	// template invites people to paste into a public issue.
 	cfg := config.Config{
-		Jira:  config.Jira{BaseURL: passwordURL, Token: "t", User: ""},
-		Slack: config.Slack{Token: botToken, WebhookURL: "", Channel: devChannel},
-		Path:  "",
+		Jira:      config.Jira{BaseURL: passwordURL, Token: "t", User: ""},
+		Messaging: config.Messaging{Token: botToken, WebhookURL: "", Channel: devChannel},
+		Path:      "",
 	}
 
 	// Act

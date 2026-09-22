@@ -96,19 +96,46 @@ func (e ErrorCode) Valid() bool {
 
 // Defines values for ForgeConfigKind.
 const (
-	Empty  ForgeConfigKind = ""
-	Github ForgeConfigKind = "github"
-	Gitlab ForgeConfigKind = "gitlab"
+	ForgeConfigKindEmpty  ForgeConfigKind = ""
+	ForgeConfigKindGithub ForgeConfigKind = "github"
+	ForgeConfigKindGitlab ForgeConfigKind = "gitlab"
 )
 
 // Valid indicates whether the value is a known member of the ForgeConfigKind enum.
 func (e ForgeConfigKind) Valid() bool {
 	switch e {
-	case Empty:
+	case ForgeConfigKindEmpty:
 		return true
-	case Github:
+	case ForgeConfigKindGithub:
 		return true
-	case Gitlab:
+	case ForgeConfigKindGitlab:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for MessagingConfigKind.
+const (
+	MessagingConfigKindDiscord MessagingConfigKind = "discord"
+	MessagingConfigKindEmpty   MessagingConfigKind = ""
+	MessagingConfigKindSlack   MessagingConfigKind = "slack"
+	MessagingConfigKindTeams   MessagingConfigKind = "teams"
+	MessagingConfigKindWebhook MessagingConfigKind = "webhook"
+)
+
+// Valid indicates whether the value is a known member of the MessagingConfigKind enum.
+func (e MessagingConfigKind) Valid() bool {
+	switch e {
+	case MessagingConfigKindDiscord:
+		return true
+	case MessagingConfigKindEmpty:
+		return true
+	case MessagingConfigKindSlack:
+		return true
+	case MessagingConfigKindTeams:
+		return true
+	case MessagingConfigKindWebhook:
 		return true
 	default:
 		return false
@@ -302,14 +329,14 @@ type CommitRequest struct {
 
 // Config The whole configuration file. On a read, the four secret fields and the Jira header values are masked; on a write, a masked or empty secret keeps the stored value.
 type Config struct {
-	Branch  BranchConfig `json:"branch"`
-	Commit  CommitConfig `json:"commit"`
-	Forge   ForgeConfig  `json:"forge"`
-	Jira    JiraConfig   `json:"jira"`
-	Slack   SlackConfig  `json:"slack"`
-	Timing  TimingConfig `json:"timing"`
-	UI      UIConfig     `json:"ui"`
-	Version string       `json:"version"`
+	Branch    BranchConfig    `json:"branch"`
+	Commit    CommitConfig    `json:"commit"`
+	Forge     ForgeConfig     `json:"forge"`
+	Jira      JiraConfig      `json:"jira"`
+	Messaging MessagingConfig `json:"messaging"`
+	Timing    TimingConfig    `json:"timing"`
+	UI        UIConfig        `json:"ui"`
+	Version   string          `json:"version"`
 }
 
 // CreateBranchRequest The issue to start work on by creating its branch.
@@ -426,6 +453,27 @@ type JiraView struct {
 	Name string `json:"name"`
 }
 
+// MessagingConfig defines model for MessagingConfig.
+type MessagingConfig struct {
+	Announcement *string   `json:"announcement,omitempty"`
+	Channel      *string   `json:"channel,omitempty"`
+	Channels     *[]string `json:"channels,omitempty"`
+
+	// Kind The service posts go to. Empty is read as slack. It decides the message body and link markup the notifier sends.
+	Kind *MessagingConfigKind `json:"kind,omitempty"`
+
+	// Token A Slack bot token. Masked on read; empty or masked on write keeps the stored value. Ignored by the webhook-only kinds.
+	Token        *string `json:"token,omitempty"`
+	TokenCommand *string `json:"token_command,omitempty"`
+	TokenEnv     *string `json:"token_env,omitempty"`
+
+	// WebhookURL A credential; masked on read, preserved on write like a token.
+	WebhookURL *string `json:"webhook_url,omitempty"`
+}
+
+// MessagingConfigKind The service posts go to. Empty is read as slack. It decides the message body and link markup the notifier sends.
+type MessagingConfigKind string
+
 // OpenPullRequestRequest The pull request to open for the checked-out branch.
 type OpenPullRequestRequest struct {
 	// Assignees Usernames to assign the pull request to.
@@ -518,21 +566,6 @@ type Slack struct {
 
 	// Channels The default first, then the alternates.
 	Channels []string `json:"channels"`
-}
-
-// SlackConfig defines model for SlackConfig.
-type SlackConfig struct {
-	Announcement *string   `json:"announcement,omitempty"`
-	Channel      *string   `json:"channel,omitempty"`
-	Channels     *[]string `json:"channels,omitempty"`
-
-	// Token Masked on read; empty or masked on write keeps the stored value.
-	Token        *string `json:"token,omitempty"`
-	TokenCommand *string `json:"token_command,omitempty"`
-	TokenEnv     *string `json:"token_env,omitempty"`
-
-	// WebhookURL A credential; masked on read, preserved on write like a token.
-	WebhookURL *string `json:"webhook_url,omitempty"`
 }
 
 // Snapshot The full read state carried by one event-stream message: everything the cockpit shows, together.

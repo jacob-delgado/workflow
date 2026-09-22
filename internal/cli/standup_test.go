@@ -178,7 +178,7 @@ func TestStandupWithNothingLeftSaysSo(t *testing.T) {
 	// Arrange
 	// The editor empties the draft, so there is nothing left to post.
 	repo := repoWithCommit(t)
-	writeFile(t, repo, `{"slack":{"webhook_url":"https://hooks.slack.example/services/x"}}`)
+	writeFile(t, repo, `{"messaging":{"webhook_url":"https://hooks.slack.example/services/x"}}`)
 
 	prompt := cli.Prompt{Compose: func(string) (string, error) { return "   \n\t", nil }}
 
@@ -198,7 +198,7 @@ func TestStandupIsNotPostedWhenDeclined(t *testing.T) {
 	// Arrange
 	// Slack is configured, but the confirmation is declined, so nothing is posted.
 	repo := repoWithCommit(t)
-	writeFile(t, repo, `{"slack":{"webhook_url":"https://hooks.slack.example/services/x"}}`)
+	writeFile(t, repo, `{"messaging":{"webhook_url":"https://hooks.slack.example/services/x"}}`)
 
 	// Act
 	out, err := runGuided(t, repo, scripted([]string{"n"}, nil), "standup", "--no-edit")
@@ -217,7 +217,7 @@ func TestStandupReportsAFailedPost(t *testing.T) {
 	// Slack is configured and the post is confirmed, but the webhook is
 	// unreachable, so the post fails.
 	repo := repoWithCommit(t)
-	writeFile(t, repo, `{"slack":{"webhook_url":"https://hooks.slack.example/services/x"}}`)
+	writeFile(t, repo, `{"messaging":{"webhook_url":"https://hooks.slack.example/services/x"}}`)
 
 	// Act
 	_, err := runGuided(t, repo, scripted([]string{"y"}, nil), "standup", "--no-edit")

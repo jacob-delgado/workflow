@@ -67,8 +67,8 @@ func FuzzRedactRevealsOnlyTheTail(f *testing.F) {
 func FuzzLoadFileNeverLeaksACredential(f *testing.F) {
 	f.Add([]byte(`{}`))
 	f.Add([]byte(`{"jira":{"base_url":"https://jira.example.com","token":"t","user":""}}`))
-	f.Add([]byte(`{"slack":{"token":"xoxb-aaaabbbbccccdddd","webhook_url":"","channel":"#c"}}`))
-	f.Add([]byte(`{"slack":{"webhook_url":"https://hooks.slack.com/services/A/B/ccccdddd"}}`))
+	f.Add([]byte(`{"messaging":{"token":"xoxb-aaaabbbbccccdddd","webhook_url":"","channel":"#c"}}`))
+	f.Add([]byte(`{"messaging":{"webhook_url":"https://hooks.slack.com/services/A/B/ccccdddd"}}`))
 	f.Add([]byte(`not json at all`))
 	f.Add([]byte(`{"unknown_key": 1}`))
 
@@ -96,10 +96,13 @@ func FuzzLoadFileNeverLeaksACredential(f *testing.F) {
 		}
 
 		redacted := cfg.Redacted()
-		masked := redacted.Jira.Token.Reveal() + "\n" + redacted.Slack.Token.Reveal() + "\n" +
-			redacted.Slack.WebhookURL.Reveal()
+		masked := redacted.Jira.Token.Reveal() + "\n" + redacted.Messaging.Token.Reveal() + "\n" +
+			redacted.Messaging.WebhookURL.Reveal()
 
-		for _, secret := range []string{cfg.Jira.Token.Reveal(), cfg.Slack.Token.Reveal(), cfg.Slack.WebhookURL.Reveal()} {
+		secrets := []string{
+			cfg.Jira.Token.Reveal(), cfg.Messaging.Token.Reveal(), cfg.Messaging.WebhookURL.Reveal(),
+		}
+		for _, secret := range secrets {
 			if len(secret) <= visibleTail {
 				continue
 			}

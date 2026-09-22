@@ -89,7 +89,7 @@ const forgeFixture = "not-a-real-forge-credential"
 
 const completeConfig = `{
   "jira": {"base_url": "https://jira.example.com", "token": "jira-token-1234", "user": ""},
-  "slack": {"token": "xoxb-slack-token-5678", "channel": "#dev"}
+  "messaging": {"token": "xoxb-slack-token-5678", "channel": "#dev"}
 }`
 
 func TestTimingIsParsedWhenSet(t *testing.T) {
@@ -128,19 +128,19 @@ func TestChannelChoicesListTheDefaultThenTheAlternates(t *testing.T) {
 	t.Parallel()
 
 	cases := map[string]struct {
-		slack config.Slack
+		slack config.Messaging
 		want  []string
 	}{
 		"a bot with alternates": {
-			slack: config.Slack{Token: botToken, Channel: devChannel, Channels: []string{"#team-b", devChannel, ""}},
+			slack: config.Messaging{Token: botToken, Channel: devChannel, Channels: []string{"#team-b", devChannel, ""}},
 			want:  []string{devChannel, "#team-b"},
 		},
 		"a bot with just its channel": {
-			slack: config.Slack{Token: botToken, Channel: devChannel},
+			slack: config.Messaging{Token: botToken, Channel: devChannel},
 			want:  []string{devChannel},
 		},
 		"a webhook carries its own channel": {
-			slack: config.Slack{WebhookURL: webhookURL, Channels: []string{"#ignored"}},
+			slack: config.Messaging{WebhookURL: webhookURL, Channels: []string{"#ignored"}},
 			want:  nil,
 		},
 	}
@@ -165,15 +165,15 @@ func TestATokenSourceCountsAsConfigured(t *testing.T) {
 
 	// Arrange
 	jira := config.Jira{BaseURL: jiraURL, TokenCommand: "echo x"}
-	slack := config.Slack{TokenEnv: "SLACK_TOKEN", Channel: devChannel}
-	cfg := config.Config{Jira: jira, Slack: slack}
+	slack := config.Messaging{TokenEnv: "SLACK_TOKEN", Channel: devChannel}
+	cfg := config.Config{Jira: jira, Messaging: slack}
 
 	// Act & Assert
 	if jira.AuthMode() != config.AuthBearer {
 		t.Errorf("AuthMode() = %v, want a token command to authenticate", jira.AuthMode())
 	}
 
-	if slack.Mode() != config.SlackBot {
+	if slack.Mode() != config.MessagingBot {
 		t.Errorf("Slack.Mode() = %v, want a token env to count as a bot token", slack.Mode())
 	}
 
@@ -229,8 +229,8 @@ func TestSavedTemplateLoadsBack(t *testing.T) {
 	// The template must round-trip through the strict decoder: if it ever grows
 	// a key the loader rejects, `config init` would produce a file that
 	// immediately fails to load.
-	if cfg.Slack.Channel != config.Template().Slack.Channel {
-		t.Errorf("slack.channel = %q, want the template's value", cfg.Slack.Channel)
+	if cfg.Messaging.Channel != config.Template().Messaging.Channel {
+		t.Errorf("messaging.channel = %q, want the template's value", cfg.Messaging.Channel)
 	}
 }
 
@@ -337,7 +337,7 @@ func TestSlackAnnouncementTemplateIsRead(t *testing.T) {
 
 	// Arrange
 	workDir := t.TempDir()
-	write(t, workDir, `{"slack": {"webhook_url": "`+webhookURL+`", "announcement": "{author}: {title}"}}`)
+	write(t, workDir, `{"messaging": {"webhook_url": "`+webhookURL+`", "announcement": "{author}: {title}"}}`)
 
 	// Act
 	cfg, err := config.Load(workDir, t.TempDir())
@@ -346,7 +346,7 @@ func TestSlackAnnouncementTemplateIsRead(t *testing.T) {
 	}
 
 	// Assert
-	if cfg.Slack.Announcement != "{author}: {title}" {
-		t.Errorf("announcement = %q, want the configured template", cfg.Slack.Announcement)
+	if cfg.Messaging.Announcement != "{author}: {title}" {
+		t.Errorf("announcement = %q, want the configured template", cfg.Messaging.Announcement)
 	}
 }

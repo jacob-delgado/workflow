@@ -10,6 +10,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"strings"
 )
 
 // Discover returns the path of the configuration file that applies, searching
@@ -140,6 +141,10 @@ func Parse(r io.Reader) (Config, error) {
 
 	err := decoder.Decode(&cfg)
 	if err != nil {
+		if isRenamedSlackBlock(err) {
+			return Default(), fmt.Errorf("%w: %w", ErrInvalid, ErrSlackRenamed)
+		}
+
 		return Default(), fmt.Errorf("%w: %w", ErrInvalid, err)
 	}
 
@@ -150,4 +155,11 @@ func Parse(r io.Reader) (Config, error) {
 	}
 
 	return cfg, nil
+}
+
+// isRenamedSlackBlock reports the decoder's complaint about a top-level "slack"
+// field, which DisallowUnknownFields raises for a file written before the block
+// was renamed to "messaging".
+func isRenamedSlackBlock(err error) bool {
+	return strings.Contains(err.Error(), `unknown field "slack"`)
 }

@@ -21,7 +21,7 @@ func TestRedactedHidesEveryCredential(t *testing.T) {
 
 	cfg := config.Config{
 		Jira: config.Jira{BaseURL: jiraURL, Token: jiraToken, User: ""},
-		Slack: config.Slack{
+		Messaging: config.Messaging{
 			Token:      slackToken,
 			WebhookURL: webhookURL,
 			Channel:    devChannel,
@@ -38,8 +38,8 @@ func TestRedactedHidesEveryCredential(t *testing.T) {
 		t.Errorf("jira token leaked: %q", redacted.Jira.Token)
 	}
 
-	if strings.Contains(redacted.Slack.Token.Reveal(), "slack-token") {
-		t.Errorf("slack token leaked: %q", redacted.Slack.Token)
+	if strings.Contains(redacted.Messaging.Token.Reveal(), "slack-token") {
+		t.Errorf("slack token leaked: %q", redacted.Messaging.Token)
 	}
 
 	// Redaction must not mutate the original.
@@ -53,17 +53,17 @@ func TestRedactedHidesEveryCredential(t *testing.T) {
 
 	// A webhook URL is not a URL with a secret in it — it IS the credential.
 	// Anyone holding it can post to that channel, so it masks like a token.
-	if strings.Contains(redacted.Slack.WebhookURL.Reveal(), "hooks.slack.com") {
-		t.Errorf("webhook url leaked: %q", redacted.Slack.WebhookURL)
+	if strings.Contains(redacted.Messaging.WebhookURL.Reveal(), "hooks.slack.com") {
+		t.Errorf("webhook url leaked: %q", redacted.Messaging.WebhookURL)
 	}
 
-	if cfg.Slack.WebhookURL != webhookURL {
-		t.Errorf("Redacted mutated the receiver: %q", cfg.Slack.WebhookURL)
+	if cfg.Messaging.WebhookURL != webhookURL {
+		t.Errorf("Redacted mutated the receiver: %q", cfg.Messaging.WebhookURL)
 	}
 
 	// Enough tail survives to tell two tokens apart.
-	if !strings.HasSuffix(redacted.Slack.Token.Reveal(), "5678") {
-		t.Errorf("slack token = %q, want it to end in 5678", redacted.Slack.Token)
+	if !strings.HasSuffix(redacted.Messaging.Token.Reveal(), "5678") {
+		t.Errorf("slack token = %q, want it to end in 5678", redacted.Messaging.Token)
 	}
 }
 

@@ -51,37 +51,42 @@ JIRA TOKEN (on-premises / Data Center)
   which is what Data Center expects. Set jira.user only if your instance needs
   HTTP Basic authentication, in which case the token is used as the password.
 
-SLACK — PICK ONE OF TWO
+MESSAGING — SLACK, TEAMS, DISCORD OR A PLAIN WEBHOOK
 
-  An incoming webhook is the two-minute option; a bot token is the capable one.
-  Set either. If you set both, the bot token is used.
+  messaging.kind picks the service: slack (the default when empty), teams,
+  discord or webhook. Slack posts over a bot token or an incoming webhook; the
+  others post over an incoming webhook. (A file that still names the block
+  "slack" needs it renamed to "messaging" with "kind": "slack" added.)
 
-  Incoming webhook (simplest):
+  Slack incoming webhook (simplest):
 
   1. Go to https://api.slack.com/apps and create an app in your workspace.
   2. Turn on Incoming Webhooks, then "Add New Webhook to Workspace" and pick
      the channel it will post to.
-  3. Put the URL in ` + config.FileName + ` as slack.webhook_url.
+  3. Put the URL in ` + config.FileName + ` as messaging.webhook_url.
 
-  The webhook is bound to the channel you picked, so slack.channel does not
+  The webhook is bound to the channel you picked, so messaging.channel does not
   apply. Treat the URL like a password: anyone holding it can post there.
 
-  Bot token (choose the channel at runtime, and post richer messages):
+  Slack bot token (choose the channel at runtime, and post richer messages):
 
   1. Go to https://api.slack.com/apps and create an app in your workspace.
   2. Under OAuth & Permissions, add the chat:write bot token scope.
   3. Install the app to the workspace, then copy the Bot User OAuth Token. It
      starts with "xoxb-".
-  4. Put it in ` + config.FileName + ` as slack.token, and set slack.channel to
-     the channel workflow should post to.
+  4. Put it in ` + config.FileName + ` as messaging.token, and set
+     messaging.channel to the channel workflow should post to.
 
   Invite the bot to that channel, or it cannot post there.
+
+  Teams, Discord or a plain webhook: create an incoming webhook in the service,
+  set messaging.kind, and put the URL in messaging.webhook_url.
 
 SECURITY
 
   ` + config.FileName + ` holds live credentials. "workflow config init" writes
   it readable only by you, it is listed in .gitignore, and "workflow config
-  show" masks every one of them — including slack.webhook_url, which is a
+  show" masks every one of them — including messaging.webhook_url, which is a
   credential in its own right rather than merely an address.`
 
 // Execute runs the command tree with the given arguments and streams. It

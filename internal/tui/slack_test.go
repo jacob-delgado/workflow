@@ -484,7 +484,7 @@ func TestTheSlackPaneNamesWhatItNeedsWhenUnset(t *testing.T) {
 
 	// Arrange
 	cfg := completeConfig()
-	cfg.Slack = config.Slack{}
+	cfg.Messaging = config.Messaging{}
 	model := sized(t, tui.New(cfg, nil, newWorld().deps()), 120, 40)
 	model = drain(t, model, model.Init())
 
@@ -492,7 +492,8 @@ func TestTheSlackPaneNamesWhatItNeedsWhenUnset(t *testing.T) {
 	view := typing(t, model, "5").View().Content
 
 	// Assert
-	requireScreen(t, view, "Slack is not set up", "slack.webhook_url", "slack.token and slack.channel", ".workflow.json")
+	requireScreen(t, view, "Slack is not set up", "messaging.webhook_url",
+		"messaging.token and", "messaging.channel", ".workflow.json")
 	refuseScreen(t, footerLine(view), "p post")
 }
 

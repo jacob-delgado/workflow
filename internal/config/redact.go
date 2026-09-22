@@ -17,8 +17,8 @@ func (c Config) Redacted() Config {
 	redacted := c
 	redacted.Jira.Token = redactSecret(c.Jira.Token)
 	redacted.Jira.Headers = redactHeaders(c.Jira.Headers)
-	redacted.Slack.Token = redactSecret(c.Slack.Token)
-	redacted.Slack.WebhookURL = redactSecret(c.Slack.WebhookURL)
+	redacted.Messaging.Token = redactSecret(c.Messaging.Token)
+	redacted.Messaging.WebhookURL = redactSecret(c.Messaging.WebhookURL)
 	redacted.Jira.BaseURL = RedactURL(c.Jira.BaseURL)
 	redacted.Forge.Token = redactSecret(c.Forge.Token)
 

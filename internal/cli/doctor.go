@@ -151,7 +151,7 @@ func reportCredentials(ctx context.Context, out io.Writer, cfg config.Config, re
 
 	return errors.Join(
 		checkJira(ctx, out, doer, cfg.Jira),
-		checkSlack(ctx, out, doer, slack.APIBase, cfg.Slack),
+		checkSlack(ctx, out, doer, slack.APIBase, cfg.Messaging),
 		checkForge(ctx, out, doer, cfg.Forge, remote),
 	)
 }
@@ -253,7 +253,7 @@ func askForge(
 }
 
 // checkSlack asks Slack which workspace the bot token belongs to.
-func checkSlack(ctx context.Context, out io.Writer, doer slack.Doer, base string, creds config.Slack) error {
+func checkSlack(ctx context.Context, out io.Writer, doer slack.Doer, base string, creds config.Messaging) error {
 	token, source, err := wiring.ResolveToken(ctx, creds.Token, creds.TokenCommand, creds.TokenEnv)
 	if err != nil {
 		fmt.Fprintf(out, "  %-10s %v\n", "slack", err)
@@ -434,7 +434,7 @@ func reportConfiguration(out io.Writer, cfg config.Config, loadErr error) error 
 		config.DisplayURL(cfg.Jira.BaseURL), cfg.Jira.AuthMode()))
 	// The target, never the credential: a webhook URL is itself the secret, and
 	// this output is what the bug report template invites people to paste.
-	field(out, "Slack", fmt.Sprintf("%s (%s)", cfg.Slack.Target(), cfg.Slack.Mode()))
+	field(out, "Slack", fmt.Sprintf("%s (%s)", cfg.Messaging.Target(), cfg.Messaging.Mode()))
 
 	return errors.Join(reportSharedMode(out, cfg.Path), reportRequirements(out, cfg))
 }

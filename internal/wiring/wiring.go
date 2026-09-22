@@ -72,7 +72,7 @@ func Deps(ctx context.Context, cfg config.Config, where Workspace, log *RequestL
 		Jira:       trackerDeps(ctx, cfg, where, timeout, log),
 		Git:        gitDeps(ctx, where.Root),
 		Forge:      forgeDeps(ctx, cfg.Forge, where, timeout, log),
-		Slack:      slackDeps(ctx, cfg.Slack, timeout, log),
+		Slack:      slackDeps(ctx, cfg.Messaging, timeout, log),
 		Hooks:      hookDeps(ctx, where.Root),
 		Editor:     editorDeps(where.Root),
 		Clock:      nil,
@@ -269,9 +269,13 @@ func commitWith(ctx context.Context, root, message string) (proc.Output, error) 
 	return output, nil
 }
 
-// slackDeps is what the interface asks of Slack.
-func slackDeps(ctx context.Context, settings config.Slack, timeout time.Duration, log *RequestLog) tui.SlackDeps {
-	settings.Token, _, _ = ResolveToken(ctx, settings.Token, settings.TokenCommand, settings.TokenEnv)
+// slackDeps is what the interface asks of the messaging service. Only a Slack
+// bot token is resolved from a command or environment variable; the webhook
+// kinds carry the credential in the URL and need no token lookup.
+func slackDeps(ctx context.Context, settings config.Messaging, timeout time.Duration, log *RequestLog) tui.SlackDeps {
+	if settings.Mode() == config.MessagingBot {
+		settings.Token, _, _ = ResolveToken(ctx, settings.Token, settings.TokenCommand, settings.TokenEnv)
+	}
 	//nolint:bodyclose // Wrap only relays the response; the slack client reads and closes its body.
 	client := slack.New(log.Wrap("slack", slack.HTTPClient(timeout).Do), slack.APIBase, settings)
 

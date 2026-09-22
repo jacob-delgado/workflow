@@ -144,7 +144,7 @@ func githubRepo(t *testing.T, branch string) string {
 // forgeCLIConfig points the forge at its CLI and configures a Slack webhook, so
 // `announce` gets past its Slack guard and reads the pull request through gh.
 const forgeCLIConfig = `{"forge":{"cli":true,"kind":"github","host":"github.com"},` +
-	`"slack":{"webhook_url":"https://hooks.slack.example/services/x"}}`
+	`"messaging":{"webhook_url":"https://hooks.slack.example/services/x"}}`
 
 // pretendPushed gives branch a local upstream on origin with nothing ahead, so
 // the pull-request flow treats it as already published and skips the push —
