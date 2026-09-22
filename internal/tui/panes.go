@@ -27,16 +27,17 @@ const (
 const paneCount = 6
 
 // title names a pane. A lookup rather than a switch, because a switch over every
-// pane leaves a final arm that can never be false.
-func (p pane) title() string {
-	titles := [paneCount]string{"Issues", "Branch", "Commits", "Review", "Slack", "Reviews"}
+// pane leaves a final arm that can never be false. The messaging pane is named
+// for the service in use — Slack, Teams, Discord or Webhook.
+func (p pane) title(messaging string) string {
+	titles := [paneCount]string{"Issues", "Branch", "Commits", "Review", messaging, "Reviews"}
 
 	return titles[p]
 }
 
 // label is the title with the number that jumps to it.
-func (p pane) label() string {
-	return strconv.Itoa(int(p)+1) + " " + p.title()
+func (p pane) label(messaging string) string {
+	return strconv.Itoa(int(p)+1) + " " + p.title(messaging)
 }
 
 // paneNumbers are the digit keys that jump to each pane, "1" through the last,

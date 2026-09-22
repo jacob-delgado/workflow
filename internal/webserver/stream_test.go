@@ -77,8 +77,8 @@ func TestStreamPushesASnapshotOnConnect(t *testing.T) {
 		t.Errorf("snapshot = %+v, want the filled read state", snap)
 	}
 
-	if len(snap.Changes.Changes) != 1 || snap.Slack.Author != testAuthor {
-		t.Errorf("snapshot = %+v, want the changes and Slack author", snap)
+	if len(snap.Changes.Changes) != 1 || snap.Messaging.Author != testAuthor {
+		t.Errorf("snapshot = %+v, want the changes and messaging author", snap)
 	}
 }
 

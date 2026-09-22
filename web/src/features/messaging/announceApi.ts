@@ -16,9 +16,10 @@ export async function previewAnnouncement(): Promise<Announcement> {
   return result.data
 }
 
-// announce posts the composed announcement to Slack. On success there is nothing
-// to return; a refusal — no pull request, a failed post — throws the API error,
-// whose message is safe to show. Under VITE_MOCK it is a no-op.
+// announce posts the composed announcement to the configured service. On
+// success there is nothing to return; a refusal — no pull request, a failed
+// post — throws the API error, whose message is safe to show. Under VITE_MOCK it
+// is a no-op.
 export async function announce(channel: string): Promise<void> {
   if (import.meta.env.VITE_MOCK === 'true') {
     return

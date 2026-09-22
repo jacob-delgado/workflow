@@ -95,7 +95,8 @@ func New(cfg config.Config, loadErr error, deps Deps) Model {
 
 	return Model{
 		cfg: cfg, loadErr: loadErr, deps: deps,
-		keys: newKeyMap(marks, vocab.noun, cfg.UI.Keys), styles: newStyles(true), marks: marks, vocab: vocab,
+		keys:   newKeyMap(marks, vocab.noun, cfg.Messaging.Service(), cfg.UI.Keys),
+		styles: newStyles(true), marks: marks, vocab: vocab,
 		width: defaultWidth, height: defaultHeight,
 		focus: paneIssues, mouse: cfg.UI.Mouse,
 		views: issueViews(cfg.Jira.Views), viewIndex: 0,

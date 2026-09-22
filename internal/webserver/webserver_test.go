@@ -333,7 +333,7 @@ func TestListChangesReturnsTheWorkingTree(t *testing.T) {
 	}
 }
 
-func TestGetSlackReturnsTheDestination(t *testing.T) {
+func TestGetMessagingReturnsTheDestination(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
@@ -342,15 +342,35 @@ func TestGetSlackReturnsTheDestination(t *testing.T) {
 	cfg.Messaging.Channel = "#dev"
 
 	// Act
-	slack := decode[api.Slack](t, get(t, serve(t, filledDeps(), cfg), "/api/slack"))
+	destination := decode[api.MessagingDestination](t, get(t, serve(t, filledDeps(), cfg), "/api/messaging"))
 
 	// Assert
-	if slack.Channel != "#dev" || slack.Author != testAuthor {
-		t.Errorf("slack = %+v, want #dev and octocat", slack)
+	if destination.Service != "Slack" || !destination.Configured ||
+		destination.Channel != "#dev" || destination.Author != testAuthor {
+		t.Errorf("destination = %+v, want configured Slack, #dev and octocat", destination)
 	}
 }
 
-func TestGetSlackHasNoAuthorWhenTheForgeCannotSay(t *testing.T) {
+func TestGetMessagingMarksAWebhookServiceConfigured(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	// A Teams webhook is fully configured yet carries no channel, so the
+	// destination must report it configured without one.
+	cfg := config.Default()
+	cfg.Messaging.Kind = "teams"
+	cfg.Messaging.WebhookURL = "https://example.com/hook"
+
+	// Act
+	destination := decode[api.MessagingDestination](t, get(t, serve(t, filledDeps(), cfg), "/api/messaging"))
+
+	// Assert
+	if destination.Service != "Teams" || !destination.Configured || destination.Channel != "" {
+		t.Errorf("destination = %+v, want a configured Teams with no channel", destination)
+	}
+}
+
+func TestGetMessagingHasNoAuthorWhenTheForgeCannotSay(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
@@ -358,10 +378,10 @@ func TestGetSlackHasNoAuthorWhenTheForgeCannotSay(t *testing.T) {
 	deps.Author = func() (string, error) { return "", errSeam }
 
 	// Act
-	slack := decode[api.Slack](t, get(t, serve(t, deps, config.Default()), "/api/slack"))
+	destination := decode[api.MessagingDestination](t, get(t, serve(t, deps, config.Default()), "/api/messaging"))
 
 	// Assert
-	if slack.Author != "" {
-		t.Errorf("author = %q, want empty when the forge cannot say", slack.Author)
+	if destination.Author != "" {
+		t.Errorf("author = %q, want empty when the forge cannot say", destination.Author)
 	}
 }

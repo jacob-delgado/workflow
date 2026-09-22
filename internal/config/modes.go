@@ -68,7 +68,7 @@ func (k MessagingKind) Service() string {
 	case KindDiscord:
 		return "Discord"
 	case KindWebhook:
-		return "webhook"
+		return "Webhook"
 	case "", KindSlack:
 		return "Slack"
 	default:

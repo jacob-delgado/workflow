@@ -47,6 +47,19 @@ func TestDoctorJSONReportsTheFactsAsData(t *testing.T) {
 	if !ok || configuration["jira_url"] != "https://jira.example.com" {
 		t.Errorf("the report does not carry the Jira URL as data:\n%s", output)
 	}
+
+	// The messaging facts carry the service-neutral keys, not the old Slack ones.
+	if configuration["messaging_mode"] != "incoming webhook" {
+		t.Errorf("the report does not carry messaging_mode as data:\n%s", output)
+	}
+
+	if target, hasTarget := configuration["messaging_target"].(string); !hasTarget || target == "" {
+		t.Errorf("the report does not carry messaging_target as data:\n%s", output)
+	}
+
+	if _, old := configuration["slack_mode"]; old {
+		t.Errorf("the report still carries the retired slack_mode key:\n%s", output)
+	}
 }
 
 func TestDoctorJSONNeverEchoesASecret(t *testing.T) {

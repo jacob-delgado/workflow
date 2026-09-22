@@ -214,16 +214,20 @@ func TestStandupIsNotPostedWhenDeclined(t *testing.T) {
 
 func TestStandupReportsAFailedPost(t *testing.T) {
 	// Arrange
-	// Slack is configured and the post is confirmed, but the webhook is
-	// unreachable, so the post fails.
+	// A Teams service is configured and the post is confirmed, but the webhook is
+	// unreachable, so the post fails — and the error names the service in use, not
+	// a hardcoded "Slack".
 	repo := repoWithCommit(t)
-	writeFile(t, repo, `{"messaging":{"webhook_url":"https://hooks.slack.example/services/x"}}`)
+	writeFile(t, repo, `{"messaging":{"kind":"teams","webhook_url":"https://hooks.slack.example/services/x"}}`)
 
 	// Act
 	_, err := runGuided(t, repo, scripted([]string{"y"}, nil), "standup", "--no-edit")
 
 	// Assert
-	if err == nil || !strings.Contains(err.Error(), "Slack") {
-		t.Errorf("standup returned %v, want the post failure", err)
+	// The failure names the service in use — "posting to Teams" — rather than a
+	// hardcoded "Slack" (the underlying transport error still mentions the Slack
+	// API, which is a separate, deeper surface).
+	if err == nil || !strings.Contains(err.Error(), "posting to Teams") {
+		t.Errorf("standup returned %v, want a Teams post failure", err)
 	}
 }

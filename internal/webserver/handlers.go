@@ -158,9 +158,12 @@ func (s *server) review(pull forge.PullRequest, found bool, head string) api.Rev
 	return result
 }
 
-// GetSlack returns where and as whom an announcement would post.
-func (s *server) GetSlack(_ context.Context, _ api.GetSlackRequestObject) (api.GetSlackResponseObject, error) {
-	return api.GetSlack200JSONResponse(slackDTO(s.config(), s.author())), nil
+// GetMessaging returns the service, and where and as whom an announcement would
+// post.
+func (s *server) GetMessaging(
+	_ context.Context, _ api.GetMessagingRequestObject,
+) (api.GetMessagingResponseObject, error) {
+	return api.GetMessaging200JSONResponse(messagingDTO(s.config(), s.author())), nil
 }
 
 // author resolves who a post would come from, or an empty string when the forge

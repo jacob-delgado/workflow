@@ -51,13 +51,13 @@ type toolFacts struct {
 
 // configFacts is the configuration in effect.
 type configFacts struct {
-	Path          string   `json:"path"`
-	JiraURL       string   `json:"jira_url"`
-	JiraAuthMode  string   `json:"jira_auth_mode"`
-	SlackTarget   string   `json:"slack_target"`
-	SlackMode     string   `json:"slack_mode"`
-	WorldReadable bool     `json:"world_readable"`
-	Missing       []string `json:"missing"`
+	Path            string   `json:"path"`
+	JiraURL         string   `json:"jira_url"`
+	JiraAuthMode    string   `json:"jira_auth_mode"`
+	MessagingTarget string   `json:"messaging_target"`
+	MessagingMode   string   `json:"messaging_mode"`
+	WorldReadable   bool     `json:"world_readable"`
+	Missing         []string `json:"missing"`
 }
 
 // credentialsFacts is the outcome of the online checks, or that none were run.
@@ -172,13 +172,13 @@ func configurationFacts(cfg config.Config) (configFacts, error) {
 	missing := cfg.Missing()
 
 	facts := configFacts{
-		Path:          cfg.Path,
-		JiraURL:       config.DisplayURL(cfg.Jira.BaseURL),
-		JiraAuthMode:  cfg.Jira.AuthMode().String(),
-		SlackTarget:   cfg.Messaging.Target(),
-		SlackMode:     cfg.Messaging.Mode().String(),
-		WorldReadable: shared,
-		Missing:       missing,
+		Path:            cfg.Path,
+		JiraURL:         config.DisplayURL(cfg.Jira.BaseURL),
+		JiraAuthMode:    cfg.Jira.AuthMode().String(),
+		MessagingTarget: cfg.Messaging.Target(),
+		MessagingMode:   cfg.Messaging.Mode().String(),
+		WorldReadable:   shared,
+		Missing:         missing,
 	}
 
 	var problems []error
@@ -209,8 +209,8 @@ func credentialFacts(ctx context.Context, cfg config.Config, remote string, onli
 		run     func(io.Writer) error
 	}{
 		{service: "jira", run: func(out io.Writer) error { return checkJira(ctx, out, doer, cfg.Jira) }},
-		{service: "slack", run: func(out io.Writer) error {
-			return checkSlack(ctx, out, doer, slack.APIBase, cfg.Messaging)
+		{service: strings.ToLower(cfg.Messaging.Service()), run: func(out io.Writer) error {
+			return checkMessaging(ctx, out, doer, slack.APIBase, cfg.Messaging)
 		}},
 		{service: "forge", run: func(out io.Writer) error { return checkForge(ctx, out, doer, cfg.Forge, remote) }},
 	}

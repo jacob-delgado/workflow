@@ -151,7 +151,7 @@ func reportCredentials(ctx context.Context, out io.Writer, cfg config.Config, re
 
 	return errors.Join(
 		checkJira(ctx, out, doer, cfg.Jira),
-		checkSlack(ctx, out, doer, slack.APIBase, cfg.Messaging),
+		checkMessaging(ctx, out, doer, slack.APIBase, cfg.Messaging),
 		checkForge(ctx, out, doer, cfg.Forge, remote),
 	)
 }
@@ -252,13 +252,16 @@ func askForge(
 	return nil
 }
 
-// checkSlack asks Slack which workspace the bot token belongs to.
-func checkSlack(ctx context.Context, out io.Writer, doer slack.Doer, base string, creds config.Messaging) error {
+// checkMessaging asks the messaging service which workspace the bot token
+// belongs to. Only a Slack bot token can be checked; a webhook is uncheckable.
+func checkMessaging(ctx context.Context, out io.Writer, doer slack.Doer, base string, creds config.Messaging) error {
+	label := strings.ToLower(creds.Service())
+
 	token, source, err := wiring.ResolveToken(ctx, creds.Token, creds.TokenCommand, creds.TokenEnv)
 	if err != nil {
-		fmt.Fprintf(out, "  %-10s %v\n", "slack", err)
+		fmt.Fprintf(out, "  %-10s %v\n", label, err)
 
-		return fmt.Errorf("%w: slack", errCredentialRejected)
+		return fmt.Errorf("%w: %s", errCredentialRejected, label)
 	}
 
 	creds.Token = token
@@ -266,7 +269,7 @@ func checkSlack(ctx context.Context, out io.Writer, doer slack.Doer, base string
 
 	identity, err := client.AuthTest(ctx)
 	if err != nil {
-		fmt.Fprintf(out, "  %-10s %v\n", "slack", err)
+		fmt.Fprintf(out, "  %-10s %v\n", label, err)
 
 		// A webhook that cannot be checked is not a failed check. Nothing is
 		// wrong with the configuration; there is simply nothing to ask, because
@@ -275,10 +278,10 @@ func checkSlack(ctx context.Context, out io.Writer, doer slack.Doer, base string
 			return nil
 		}
 
-		return credentialOutcome(err, slack.ErrUnreachable, "slack")
+		return credentialOutcome(err, slack.ErrUnreachable, label)
 	}
 
-	fmt.Fprintf(out, "  %-10s %s in %s (token from %s)\n", "slack", identity.User, identity.Team, source)
+	fmt.Fprintf(out, "  %-10s %s in %s (token from %s)\n", label, identity.User, identity.Team, source)
 
 	return nil
 }
@@ -434,7 +437,7 @@ func reportConfiguration(out io.Writer, cfg config.Config, loadErr error) error 
 		config.DisplayURL(cfg.Jira.BaseURL), cfg.Jira.AuthMode()))
 	// The target, never the credential: a webhook URL is itself the secret, and
 	// this output is what the bug report template invites people to paste.
-	field(out, "Slack", fmt.Sprintf("%s (%s)", cfg.Messaging.Target(), cfg.Messaging.Mode()))
+	field(out, cfg.Messaging.Service(), fmt.Sprintf("%s (%s)", cfg.Messaging.Target(), cfg.Messaging.Mode()))
 
 	return errors.Join(reportSharedMode(out, cfg.Path), reportRequirements(out, cfg))
 }

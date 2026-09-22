@@ -190,7 +190,7 @@ type AnnounceRequest struct {
 	Channel string `json:"channel"`
 }
 
-// Announcement A composed Slack announcement and where it would post.
+// Announcement A composed announcement and where it would post.
 type Announcement struct {
 	// Channel The channel it posts to, or empty for a webhook's own channel.
 	Channel string `json:"channel"`
@@ -474,6 +474,24 @@ type MessagingConfig struct {
 // MessagingConfigKind The service posts go to. Empty is read as slack. It decides the message body and link markup the notifier sends.
 type MessagingConfigKind string
 
+// MessagingDestination defines model for MessagingDestination.
+type MessagingDestination struct {
+	// Author Who a post would come from; empty if not resolved.
+	Author string `json:"author"`
+
+	// Channel The default channel; empty when a webhook carries its own.
+	Channel string `json:"channel"`
+
+	// Channels The default first, then the alternates.
+	Channels []string `json:"channels"`
+
+	// Configured Whether a transport is set up to post — a bot token or a webhook. A webhook service has no channel, so channel presence cannot stand in for this.
+	Configured bool `json:"configured"`
+
+	// Service The service posts go to — Slack, Teams, Discord or webhook.
+	Service string `json:"service"`
+}
+
 // OpenPullRequestRequest The pull request to open for the checked-out branch.
 type OpenPullRequestRequest struct {
 	// Assignees Usernames to assign the pull request to.
@@ -556,28 +574,16 @@ type Review struct {
 	Pull  *PullRequest `json:"pull,omitempty"`
 }
 
-// Slack defines model for Slack.
-type Slack struct {
-	// Author Who a post would come from; empty if not resolved.
-	Author string `json:"author"`
-
-	// Channel The default channel; empty when a webhook carries its own.
-	Channel string `json:"channel"`
-
-	// Channels The default first, then the alternates.
-	Channels []string `json:"channels"`
-}
-
 // Snapshot The full read state carried by one event-stream message: everything the cockpit shows, together.
 type Snapshot struct {
 	Branch Branch `json:"branch"`
 
 	// Branches The local branches named for an issue — the record of what is in flight. The detail panels (branch, changes, review) describe the checked-out branch alone; this lists every issue that has a branch, so the issues list can mark them all in flight, not the one on HEAD.
-	Branches []TaskBranch `json:"branches"`
-	Changes  ChangeList   `json:"changes"`
-	Issues   IssuesPage   `json:"issues"`
-	Review   Review       `json:"review"`
-	Slack    Slack        `json:"slack"`
+	Branches  []TaskBranch         `json:"branches"`
+	Changes   ChangeList           `json:"changes"`
+	Issues    IssuesPage           `json:"issues"`
+	Messaging MessagingDestination `json:"messaging"`
+	Review    Review               `json:"review"`
 }
 
 // StatusCategory defines model for StatusCategory.
