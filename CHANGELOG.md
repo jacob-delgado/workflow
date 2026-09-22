@@ -1,5 +1,22 @@
 # Changelog
 
+## [0.1.0](https://github.com/jacob-delgado/workflow/compare/v0.0.7...v0.1.0) (2026-09-22)
+
+
+### ⚠ BREAKING CHANGES
+
+* the `slack` configuration block is renamed to `messaging` and takes a `kind`. An old `slack` block is refused with a message naming the rename. The web config editor and the api/openapi config schema move to `messaging` to match.
+
+### Features
+
+* announce to Teams, Discord or a webhook, not only Slack (FEAT-58) ([01dba38](https://github.com/jacob-delgado/workflow/commit/01dba387db7ca5c563834f1a2d0e78f7f3bd5ab6))
+* **tui:** rebind the interface's keys from the configuration (FEAT-48) ([ff10a26](https://github.com/jacob-delgado/workflow/commit/ff10a268581bab6b2dbe436c3a8d590bb08010f2))
+
+
+### Documentation
+
+* **features:** drop the ideas whose work has shipped ([edc0022](https://github.com/jacob-delgado/workflow/commit/edc0022237c81d8d33d8f60ce0f216aa0a85560e))
+
 ## [0.0.7](https://github.com/jacob-delgado/workflow/compare/v0.0.6...v0.0.7) (2026-09-22)
 
 
