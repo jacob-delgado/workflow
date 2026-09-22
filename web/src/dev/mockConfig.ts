@@ -51,4 +51,7 @@ export const mockConfig: Config = {
   commit: {
     default_scope: '',
   },
+  pull_request: {
+    title_source: '',
+  },
 }

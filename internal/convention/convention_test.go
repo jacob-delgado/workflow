@@ -14,10 +14,12 @@ import (
 
 // Fixtures the tests share.
 const (
-	projKey  = "PROJ-412"
-	taskType = "Task"
-	fixType  = "fix"
-	featType = "feat"
+	projKey    = "PROJ-412"
+	taskType   = "Task"
+	fixType    = "fix"
+	featType   = "feat"
+	choreType  = "chore"
+	hotfixType = "hotfix"
 	// redactTokens is a description that satisfies every rule, and
 	// redactSubject the subject it makes.
 	redactTokens  = "redact tokens"
@@ -368,7 +370,7 @@ func TestASubjectOfExactlyTheLimitIsAllowed(t *testing.T) {
 	err := atLimit.Validate()
 
 	// Assert
-	if err != nil || len(atLimit.String()) != convention.SubjectLimit {
+	if err != nil || len(atLimit.String()) != convention.DefaultCommitConvention().SubjectLimit() {
 		t.Errorf("a %d-character subject: Validate() = %v, want nil", len(atLimit.String()), err)
 	}
 }

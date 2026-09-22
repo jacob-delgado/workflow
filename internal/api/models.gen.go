@@ -226,6 +226,9 @@ type BranchConfig struct {
 	DefaultPrefix *string            `json:"default_prefix,omitempty"`
 	Prefixes      *map[string]string `json:"prefixes,omitempty"`
 
+	// SlugLimit The summary slug's length cap in a branch name; zero keeps 48.
+	SlugLimit *int `json:"slug_limit,omitempty"`
+
 	// Template The branch-name template; must contain {key}.
 	Template *string `json:"template,omitempty"`
 }
@@ -303,6 +306,15 @@ type Commit struct {
 // CommitConfig defines model for CommitConfig.
 type CommitConfig struct {
 	DefaultScope *string `json:"default_scope,omitempty"`
+
+	// RefsTrailer The issue trailer's label, such as "Closes"; empty keeps "Refs".
+	RefsTrailer *string `json:"refs_trailer,omitempty"`
+
+	// SubjectLimit The longest a subject may be, in characters; zero keeps 72.
+	SubjectLimit *int `json:"subject_limit,omitempty"`
+
+	// Types The commit types the composer offers and validates against, in order; empty keeps the built-in Conventional Commit types.
+	Types *[]string `json:"types,omitempty"`
 }
 
 // CommitRequest The parts of a Conventional Commit message for the staged changes.
@@ -329,14 +341,15 @@ type CommitRequest struct {
 
 // Config The whole configuration file. On a read, the four secret fields and the Jira header values are masked; on a write, a masked or empty secret keeps the stored value.
 type Config struct {
-	Branch    BranchConfig    `json:"branch"`
-	Commit    CommitConfig    `json:"commit"`
-	Forge     ForgeConfig     `json:"forge"`
-	Jira      JiraConfig      `json:"jira"`
-	Messaging MessagingConfig `json:"messaging"`
-	Timing    TimingConfig    `json:"timing"`
-	UI        UIConfig        `json:"ui"`
-	Version   string          `json:"version"`
+	Branch      BranchConfig      `json:"branch"`
+	Commit      CommitConfig      `json:"commit"`
+	Forge       ForgeConfig       `json:"forge"`
+	Jira        JiraConfig        `json:"jira"`
+	Messaging   MessagingConfig   `json:"messaging"`
+	PullRequest PullRequestConfig `json:"pull_request"`
+	Timing      TimingConfig      `json:"timing"`
+	UI          UIConfig          `json:"ui"`
+	Version     string            `json:"version"`
 }
 
 // CreateBranchRequest The issue to start work on by creating its branch.
@@ -546,6 +559,12 @@ type PullRequest struct {
 
 // PullRequestMergeable defines model for PullRequest.Mergeable.
 type PullRequestMergeable string
+
+// PullRequestConfig defines model for PullRequestConfig.
+type PullRequestConfig struct {
+	// TitleSource Where a pull request's title comes from: "commit" (the default) takes the branch's oldest commit, "issue" takes the issue it names.
+	TitleSource *string `json:"title_source,omitempty"`
+}
 
 // PullRequestDraft A pull request composed for the branch, editable before opening.
 type PullRequestDraft struct {

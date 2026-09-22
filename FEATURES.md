@@ -123,21 +123,6 @@ Impact: low · Effort: small
   key, and the composer's fields are type, scope, subject and body.
 - Done when: recent authors can be picked as co-authors and a toggle signs off.
 
-### FEAT-14 Conventions a team can change
-
-Impact: low · Effort: large
-
-- Why: the commit types, the 72- and 48-character subject and body limits, the
-  `fix/` and `feat/` branch prefixes, the `Refs:` trailer and the title taken
-  from the oldest commit are all constants. A team with other conventions has
-  nowhere to set them.
-- Touches: `internal/convention/convention.go`, a new section in
-  `internal/config/config.go`, and every caller that reads a rule as a literal.
-- Constraints: the defaults stay as they are, so a repository with no
-  configuration behaves exactly as it does now.
-- Done when: a repository can set its own commit types and limits, and the
-  composer and the branch names honor them.
-
 ## Review
 
 ### FEAT-31 Merge

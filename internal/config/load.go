@@ -149,7 +149,7 @@ func Parse(r io.Reader) (Config, error) {
 	}
 
 	err = errors.Join(cfg.validateVersion(), cfg.validateTiming(),
-		cfg.validateBranch(), cfg.validateViews(), cfg.validateCommit())
+		cfg.validateBranch(), cfg.validateViews(), cfg.validateCommit(), cfg.validatePullRequest())
 	if err != nil {
 		return Default(), fmt.Errorf("%w: %w", ErrInvalid, err)
 	}

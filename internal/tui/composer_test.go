@@ -127,6 +127,61 @@ func TestTheComposerRefusesATooLongSubject(t *testing.T) {
 	}
 }
 
+func TestTheComposerOffersTheConfiguredTypes(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	// A team that commits only hotfixes and chores; "fix" and "feat" are not theirs.
+	composing := newWorld()
+	composing.cfg.Commit.Types = []string{"hotfix", "chore"}
+
+	// Act
+	composer := typing(t, composing.live(t, 120, 40), "3", "c")
+
+	// Assert
+	requireScreen(t, composer.View().Content, "‹hotfix› chore")
+}
+
+func TestTheComposerHonorsAConfiguredSubjectLimit(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	// A 50-character limit is shorter than the default 72.
+	composing := newWorld()
+	composing.cfg.Commit.SubjectLimit = 50
+	model := composing.live(t, 120, 40)
+
+	// Act
+	// A subject that fits the default 72 but passes the configured 50.
+	long := typing(t, model, append([]string{"3", "c"}, letters(strings.Repeat("x", 50))...)...)
+
+	// Assert
+	requireScreen(t, long.View().Content, "✗ the subject is too long: 55 of 50 characters")
+}
+
+func TestTheComposerCommitsWithAConfiguredType(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	// A team whose types are hotfix/chore: the commit gate must accept one of them
+	// rather than fall back to the built-in types and refuse it.
+	composing := newWorld()
+	composing.cfg.Commit.Types = []string{"hotfix", "chore"}
+	model := composing.live(t, 120, 40)
+
+	// Act
+	// Open the composer on the first configured type, fill the subject, and commit.
+	keys := append(append([]string{"3", "c"}, letters("patch the leak")...), keyEnter)
+	committed := typing(t, model, keys...)
+
+	// Assert
+	requireScreen(t, committed.View().Content, "● committed hotfix: patch the leak")
+
+	if calls := composing.asked("commit"); len(calls) != 1 {
+		t.Errorf("commit calls = %q, want one commit of the configured type", calls)
+	}
+}
+
 func TestTheComposerRefusesAnEmptySubject(t *testing.T) {
 	t.Parallel()
 

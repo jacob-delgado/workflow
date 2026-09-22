@@ -24,6 +24,7 @@ func TestBranchNamingFollowsAConfiguredTemplate(t *testing.T) {
 		template      string
 		defaultPrefix string
 		prefixes      map[string]string
+		slugLimit     int
 		issueType     string
 		key, summary  string
 		want          string
@@ -57,6 +58,11 @@ func TestBranchNamingFollowsAConfiguredTemplate(t *testing.T) {
 			issueType: "BUG", key: "OPS-14", summary: "x",
 			want: "bugfix/OPS-14-x",
 		},
+		"a slug limit shortens the summary part": {
+			slugLimit: 10,
+			issueType: bugType, key: "OPS-15", summary: "Replace the retry loop",
+			want: "fix/OPS-15-replace",
+		},
 	}
 
 	for name, tt := range cases {
@@ -64,7 +70,7 @@ func TestBranchNamingFollowsAConfiguredTemplate(t *testing.T) {
 			t.Parallel()
 
 			// Arrange
-			naming := convention.NewBranchNaming(tt.template, tt.defaultPrefix, tt.prefixes)
+			naming := convention.NewBranchNaming(tt.template, tt.defaultPrefix, tt.prefixes, tt.slugLimit)
 
 			// Act
 			got := naming.Name(tt.issueType, tt.key, tt.summary)
@@ -88,7 +94,7 @@ func TestBranchNamingKeepsTheKeyFindable(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
-	naming := convention.NewBranchNaming("{key}--{slug}", "", nil)
+	naming := convention.NewBranchNaming("{key}--{slug}", "", nil, 0)
 
 	// Act
 	name := naming.Name("Story", "PROJ-99", "add retries")

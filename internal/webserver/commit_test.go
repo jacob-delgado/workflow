@@ -98,6 +98,68 @@ func TestCommitBuildsAFullMessage(t *testing.T) {
 	}
 }
 
+func TestCommitHonorsTheConfiguredConvention(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	// A team whose types are hotfix/chore and whose issue trailer is "Closes".
+	var message string
+
+	deps := filledDeps()
+	deps.Commit = func(msg string) (proc.Output, error) {
+		message = msg
+
+		return fakeOutput(nil, nil), nil
+	}
+
+	cfg := config.Default()
+	cfg.Commit.Types = []string{"hotfix", "chore"}
+	cfg.Commit.RefsTrailer = "Closes"
+
+	// Act
+	recorder := send(t, serve(t, deps, cfg), http.MethodPost, "/api/commit",
+		`{"type":"hotfix","subject":"patch the leak"}`)
+
+	// Assert
+	if recorder.Code != http.StatusOK {
+		t.Fatalf("status = %d, want 200 for a configured type", recorder.Code)
+	}
+
+	if !strings.Contains(message, "hotfix: patch the leak") || !strings.Contains(message, "Closes: PROJ-412") {
+		t.Errorf("message = %q, want the configured type and the Closes trailer", message)
+	}
+}
+
+func TestCommitRejectsATypeOutsideTheConfiguredConvention(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	// With only hotfix and chore configured, the built-in "fix" is no longer valid.
+	called := false
+	deps := filledDeps()
+	deps.Commit = func(string) (proc.Output, error) {
+		called = true
+
+		return fakeOutput(nil, nil), nil
+	}
+
+	cfg := config.Default()
+	cfg.Commit.Types = []string{"hotfix", "chore"}
+
+	// Act
+	recorder := send(t, serve(t, deps, cfg), http.MethodPost, "/api/commit",
+		`{"type":"fix","subject":"redact tokens"}`)
+
+	// Assert
+	if recorder.Code != http.StatusUnprocessableEntity {
+		t.Fatalf("status = %d, want 422 for a type outside the configured set", recorder.Code)
+	}
+
+	if called {
+		t.Error("committed a type outside the configured convention")
+	}
+}
+
 func TestCommitRefusesWhenNothingIsStaged(t *testing.T) {
 	t.Parallel()
 

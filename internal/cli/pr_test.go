@@ -119,6 +119,29 @@ func TestPRDryRunOnAPushedBranchOmitsThePush(t *testing.T) {
 	}
 }
 
+func TestPRTakesItsTitleFromTheConfiguredSource(t *testing.T) {
+	// Arrange
+	// With the issue as the title source, the previewed title is the issue rather
+	// than the branch's oldest commit ("work").
+	fakeGh(t, ghResponses{})
+	baseURL, _ := reviewJira(t, reviewMoves)
+	repo := githubRepo(t, "fix/PROJ-2-thing")
+	writeFile(t, repo, `{"jira":{"base_url":"`+baseURL+`","token":"t"},`+
+		`"forge":{"cli":true,"kind":"github","host":"github.com"},`+
+		`"pull_request":{"title_source":"issue"}}`)
+
+	// Act
+	output, err := run(t, repo, "pr", "--dry-run")
+	// Assert
+	if err != nil {
+		t.Fatalf("pr --dry-run: %v (%s)", err, output)
+	}
+
+	if !strings.Contains(output, "Open PROJ-2: thing") {
+		t.Errorf("preview title does not use the configured issue source:\n%s", output)
+	}
+}
+
 func TestPROpensThePullRequest(t *testing.T) {
 	// Arrange
 	// The branch is already published and has no pull request, so one is opened.
