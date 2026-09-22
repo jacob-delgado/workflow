@@ -49,7 +49,11 @@ func (m Model) nextIssueView() (Model, tea.Cmd) {
 	}
 
 	m.viewIndex = (m.viewIndex + 1) % len(m.views)
-	m.issues = issueList{loading: true}
+
+	m.issues = m.seededIssues()
+	if !m.issues.settled {
+		m.issues.loading = true
+	}
 
 	return m, m.searchIssues()
 }

@@ -168,6 +168,8 @@ type world struct {
 	learnedScope string
 	// storedAnnounces is what the store reports being posted in earlier sessions.
 	storedAnnounces []tui.AnnouncedPost
+	// cachedIssues is the issue list the store reports for the active view.
+	cachedIssues []jira.Issue
 
 	edited    string
 	editErr   error
@@ -364,6 +366,12 @@ func (w *world) storeDeps() tui.StoreDeps {
 		},
 		RecordAnnounce: func(post tui.AnnouncedPost) {
 			w.record("announce " + strconv.Itoa(post.Pull) + " " + strconv.Itoa(post.Moment))
+		},
+		CachedIssues: func(_ string) ([]jira.Issue, bool) {
+			return w.cachedIssues, len(w.cachedIssues) > 0
+		},
+		CacheIssues: func(_ string, issues []jira.Issue) {
+			w.record("cache " + strconv.Itoa(len(issues)))
 		},
 	}
 }
