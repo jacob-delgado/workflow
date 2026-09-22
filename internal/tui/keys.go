@@ -155,17 +155,6 @@ func (k keyMap) FullHelp() [][]key.Binding {
 	}
 }
 
-// everyBinding is every key the keyMap holds, drawn from the same groups the
-// help shows, so a field that is not grouped is caught by the count.
-func (k keyMap) everyBinding() []key.Binding {
-	var all []key.Binding
-	for _, group := range k.FullHelp() {
-		all = append(all, group...)
-	}
-
-	return all
-}
-
 // helpGroups names the groups FullHelp returns, in the same order.
 func helpGroups() []string {
 	return []string{
