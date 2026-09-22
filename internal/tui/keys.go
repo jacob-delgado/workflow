@@ -9,6 +9,7 @@ import (
 	"maps"
 	"slices"
 	"strconv"
+	"strings"
 
 	"charm.land/bubbles/v2/help"
 	"charm.land/bubbles/v2/key"
@@ -165,14 +166,14 @@ func (b *helpBuilder) in(group int, bind key.Binding) key.Binding {
 // group is defined through helpBuilder.place, which places every binding in a
 // help group as it is created, so a new binding is shown in the help by
 // construction — and an override changes the key shown as well as the key bound.
-func compileKeys(marks glyphs, reviewNoun string, overrides map[string]string) (keyMap, helpBuilder) {
+func compileKeys(marks glyphs, reviewNoun, messagingService string, overrides map[string]string) (keyMap, helpBuilder) {
 	builder := helpBuilder{overrides: overrides, byAction: map[string]key.Binding{}}
 
 	keys := keyMap{}
 	movingKeys(&builder, &keys, marks)
 	issueKeys(&builder, &keys)
 	branchAndCommitKeys(&builder, &keys)
-	reviewAndSlackKeys(&builder, &keys, reviewNoun)
+	reviewAndSlackKeys(&builder, &keys, reviewNoun, messagingService)
 	composerKeys(&builder, &keys, marks)
 	runningKeys(&builder, &keys)
 	everywhereKeys(&builder, &keys)
@@ -184,8 +185,8 @@ func compileKeys(marks glyphs, reviewNoun string, overrides map[string]string) (
 
 // newKeyMap builds the key bindings, naming the arrow keys in the glyphs in use
 // and applying the ui.keys overrides.
-func newKeyMap(marks glyphs, reviewNoun string, overrides map[string]string) keyMap {
-	keys, _ := compileKeys(marks, reviewNoun, overrides)
+func newKeyMap(marks glyphs, reviewNoun, messagingService string, overrides map[string]string) keyMap {
+	keys, _ := compileKeys(marks, reviewNoun, messagingService, overrides)
 
 	return keys
 }
@@ -233,14 +234,14 @@ func branchAndCommitKeys(builder *helpBuilder, into *keyMap) {
 	into.hookConfig = builder.bind(groupBranchCommits, "set-up-lefthook", "set up lefthook", "g")
 }
 
-// reviewAndSlackKeys are the Review and Slack panes' bindings.
-func reviewAndSlackKeys(builder *helpBuilder, into *keyMap, reviewNoun string) {
+// reviewAndSlackKeys are the Review and messaging panes' bindings.
+func reviewAndSlackKeys(builder *helpBuilder, into *keyMap, reviewNoun, messagingService string) {
 	into.newPullRequest = builder.bind(groupReviewSlack, "open-pull-request", "open "+reviewNoun, "n")
 	into.checks = builder.bind(groupReviewSlack, "checks", "checks", "c")
 	into.rerun = builder.bind(groupReviewSlack, "rerun-checks", "re-run checks", "R")
 	into.merge = builder.bind(groupReviewSlack, "merge", "merge", "M")
 	into.finish = builder.bind(groupReviewSlack, "finish-branch", "finish branch", "F")
-	into.compose = builder.bind(groupReviewSlack, "post", "post to slack", "p")
+	into.compose = builder.bind(groupReviewSlack, "post", "post to "+strings.ToLower(messagingService), "p")
 	into.postWhenGreen = builder.bind(groupReviewSlack, "post-when-green", "post when CI passes", "w")
 }
 
@@ -283,7 +284,7 @@ func everywhereKeys(builder *helpBuilder, into *keyMap) {
 // passes. The glyphs only name the arrow keys in the help, which key collisions
 // do not depend on, so a default set stands in for them.
 func CheckKeys(overrides map[string]string) error {
-	_, builder := compileKeys(unicodeGlyphs(), "pull request", overrides)
+	_, builder := compileKeys(unicodeGlyphs(), "pull request", "Slack", overrides)
 
 	err := builder.unknownActions(overrides)
 	if err != nil {
@@ -400,10 +401,11 @@ func (k keyMap) FullHelp() [][]key.Binding {
 	return k.full
 }
 
-// helpGroups names the groups FullHelp returns, in the same order.
-func helpGroups() []string {
+// helpGroups names the groups FullHelp returns, in the same order. The messaging
+// group is named for the service in use rather than a fixed "Slack".
+func helpGroups(messagingService string) []string {
 	return []string{
-		"Moving around", "Issues", "Branch and Commits", "Review and Slack",
+		"Moving around", "Issues", "Branch and Commits", "Review and " + messagingService,
 		"In a composer", "While a command runs", "Everywhere",
 	}
 }

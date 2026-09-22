@@ -2,7 +2,7 @@ import { BranchPanel } from '@/features/branch/BranchPanel.tsx'
 import { IssuesPanel } from '@/features/issues/IssuesPanel.tsx'
 import { ReviewPanel } from '@/features/review/ReviewPanel.tsx'
 import { SettingsPanel } from '@/features/settings/SettingsPanel.tsx'
-import { SlackPanel } from '@/features/slack/SlackPanel.tsx'
+import { MessagingPanel } from '@/features/messaging/MessagingPanel.tsx'
 import type { Section } from './uiStore.ts'
 
 // Routes the active section to its panel. The switch is exhaustive over Section,
@@ -15,8 +15,8 @@ export function SectionPanel({ section }: { section: Section }) {
       return <BranchPanel />
     case 'review':
       return <ReviewPanel />
-    case 'slack':
-      return <SlackPanel />
+    case 'messaging':
+      return <MessagingPanel />
     case 'settings':
       return <SettingsPanel />
   }

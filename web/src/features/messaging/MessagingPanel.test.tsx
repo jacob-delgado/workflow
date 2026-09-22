@@ -5,7 +5,7 @@ import type { Snapshot } from '@/api/generated/types.gen.ts'
 import { useSnapshotStore } from '@/api/snapshot.ts'
 import { makeSnapshot } from '@/test/fixtures.ts'
 import { announce, previewAnnouncement } from './announceApi.ts'
-import { SlackPanel } from './SlackPanel.tsx'
+import { MessagingPanel } from './MessagingPanel.tsx'
 
 vi.mock('./announceApi.ts', () => ({
   previewAnnouncement: vi.fn(() =>
@@ -16,10 +16,12 @@ vi.mock('./announceApi.ts', () => ({
 const mockAnnounce = vi.mocked(announce)
 const mockPreview = vi.mocked(previewAnnouncement)
 
-// withPullRequest is a snapshot with Slack configured and a pull request to
-// announce; a case that turns on the channel wiring passes its own slack shape.
+// withPullRequest is a snapshot with a service configured and a pull request to
+// announce; a case that turns on the channel wiring passes its own destination.
 function withPullRequest(
-  slack: Snapshot['slack'] = {
+  messaging: Snapshot['messaging'] = {
+    service: 'Slack',
+    configured: true,
     channel: '#dev',
     channels: ['#dev', '#releases'],
     author: 'ana.lopez',
@@ -28,7 +30,7 @@ function withPullRequest(
   useSnapshotStore.setState({
     status: 'live',
     snapshot: makeSnapshot({
-      slack,
+      messaging,
       review: {
         found: true,
         pull: {
@@ -45,21 +47,28 @@ function withPullRequest(
   })
 }
 
-test('shows where and as whom a post would go', () => {
+test('shows the service, and where and as whom a post would go', () => {
   // Arrange
   useSnapshotStore.setState({
     status: 'live',
     snapshot: makeSnapshot({
-      slack: { channel: '#dev', channels: ['#dev', '#releases'], author: 'ana.lopez' },
+      messaging: {
+        service: 'Slack',
+        configured: true,
+        channel: '#dev',
+        channels: ['#dev', '#releases'],
+        author: 'ana.lopez',
+      },
     }),
   })
 
   // Act
-  render(<SlackPanel />)
+  render(<MessagingPanel />)
 
   // Assert
   // #dev is both the default channel and a listed alternate, so it appears more
-  // than once; the author and the second alternate are unique.
+  // than once; the service, the author and the second alternate are unique.
+  expect(screen.getByText('Slack')).toBeTruthy()
   expect(screen.getAllByText('#dev').length).toBeGreaterThan(0)
   expect(screen.getByText('ana.lopez')).toBeTruthy()
   expect(screen.getByText('#releases')).toBeTruthy()
@@ -69,28 +78,66 @@ test('names the webhook when there is no resolved author', () => {
   // Arrange
   useSnapshotStore.setState({
     status: 'live',
-    snapshot: makeSnapshot({ slack: { channel: '#ops', channels: [], author: '' } }),
+    snapshot: makeSnapshot({
+      messaging: { service: 'Slack', configured: true, channel: '#ops', channels: [], author: '' },
+    }),
   })
 
   // Act
-  render(<SlackPanel />)
+  render(<MessagingPanel />)
 
   // Assert
   expect(screen.getByText(/the webhook/i)).toBeTruthy()
 })
 
-test('says when Slack is not configured', () => {
+test('names the configured service when it is not set up', () => {
   // Arrange
+  // A Teams config with no transport yet — the empty-state message must name the
+  // chosen service, not a hardcoded "Slack".
   useSnapshotStore.setState({
     status: 'live',
-    snapshot: makeSnapshot({ slack: { channel: '', channels: [], author: '' } }),
+    snapshot: makeSnapshot({
+      messaging: { service: 'Teams', configured: false, channel: '', channels: [], author: '' },
+    }),
   })
 
   // Act
-  render(<SlackPanel />)
+  render(<MessagingPanel />)
 
   // Assert
-  expect(screen.getByText(/not configured/i)).toBeTruthy()
+  expect(screen.getByText(/Teams is not configured/i)).toBeTruthy()
+})
+
+test('shows the panel for a configured webhook that has no channel', () => {
+  // Arrange
+  // A Teams webhook is fully configured yet carries no channel of its own — the
+  // panel must not mistake the absent channel for "not configured" and hide the
+  // Announce controls.
+  withPullRequest({ service: 'Teams', configured: true, channel: '', channels: [], author: '' })
+
+  // Act
+  render(<MessagingPanel />)
+
+  // Assert
+  expect(screen.queryByText(/is not configured/i)).toBeNull()
+  expect(screen.getByRole('button', { name: /announce to teams/i })).toBeTruthy()
+})
+
+test('names the service on the announce button', () => {
+  // Arrange
+  withPullRequest({
+    service: 'Teams',
+    configured: true,
+    channel: '#dev',
+    channels: [],
+    author: 'ana.lopez',
+  })
+
+  // Act
+  render(<MessagingPanel />)
+
+  // Assert
+  expect(screen.getByRole('button', { name: /announce to teams/i })).toBeTruthy()
 })
 
 test('offers to announce when a pull request exists', () => {
@@ -98,7 +145,7 @@ test('offers to announce when a pull request exists', () => {
   withPullRequest()
 
   // Act
-  render(<SlackPanel />)
+  render(<MessagingPanel />)
 
   // Assert
   expect(screen.getByRole('button', { name: /announce to slack/i })).toBeTruthy()
@@ -109,11 +156,19 @@ test('says there is nothing to announce without a pull request', () => {
   // makeSnapshot's review has no pull request found.
   useSnapshotStore.setState({
     status: 'live',
-    snapshot: makeSnapshot({ slack: { channel: '#dev', channels: [], author: 'ana.lopez' } }),
+    snapshot: makeSnapshot({
+      messaging: {
+        service: 'Slack',
+        configured: true,
+        channel: '#dev',
+        channels: [],
+        author: 'ana.lopez',
+      },
+    }),
   })
 
   // Act
-  render(<SlackPanel />)
+  render(<MessagingPanel />)
 
   // Assert
   expect(screen.getByText(/nothing to announce/i)).toBeTruthy()
@@ -124,7 +179,7 @@ test('previews the message, then posts it on confirm', async () => {
   // Arrange
   const user = userEvent.setup()
   withPullRequest()
-  render(<SlackPanel />)
+  render(<MessagingPanel />)
 
   // Act: open the preview, then confirm
   await user.click(screen.getByRole('button', { name: /announce to slack/i }))
@@ -140,7 +195,7 @@ test('posts to the channel chosen in the preview', async () => {
   // Arrange
   const user = userEvent.setup()
   withPullRequest()
-  render(<SlackPanel />)
+  render(<MessagingPanel />)
 
   // Act: open the preview, choose #releases, then confirm
   await user.click(screen.getByRole('button', { name: /announce to slack/i }))
@@ -159,8 +214,14 @@ test('posts to the first known channel when none is configured', async () => {
   // rather than post to the empty channel the server would then reject.
   mockPreview.mockResolvedValueOnce({ text: 'octocat announced the pull request', channel: '' })
   const user = userEvent.setup()
-  withPullRequest({ channel: '', channels: ['#dev', '#releases'], author: 'ana.lopez' })
-  render(<SlackPanel />)
+  withPullRequest({
+    service: 'Slack',
+    configured: true,
+    channel: '',
+    channels: ['#dev', '#releases'],
+    author: 'ana.lopez',
+  })
+  render(<MessagingPanel />)
 
   // Act: open the preview and confirm without touching the channel
   await user.click(screen.getByRole('button', { name: /announce to slack/i }))
@@ -184,7 +245,7 @@ test('locks the confirm while a post is in flight', async () => {
   )
   const user = userEvent.setup()
   withPullRequest()
-  render(<SlackPanel />)
+  render(<MessagingPanel />)
 
   // Act: open the preview and confirm, leaving the post unresolved
   await user.click(screen.getByRole('button', { name: /announce to slack/i }))
@@ -204,7 +265,7 @@ test('does not post if the preview is canceled', async () => {
   // Arrange
   const user = userEvent.setup()
   withPullRequest()
-  render(<SlackPanel />)
+  render(<MessagingPanel />)
 
   // Act
   await user.click(screen.getByRole('button', { name: /announce to slack/i }))
@@ -223,7 +284,7 @@ test('shows the reason when the post is refused', async () => {
   })
   const user = userEvent.setup()
   withPullRequest()
-  render(<SlackPanel />)
+  render(<MessagingPanel />)
 
   // Act
   await user.click(screen.getByRole('button', { name: /announce to slack/i }))
@@ -236,7 +297,7 @@ test('shows the reason when the post is refused', async () => {
 
 test('prompts to connect before any snapshot arrives', () => {
   // Act
-  render(<SlackPanel />)
+  render(<MessagingPanel />)
 
   // Assert
   expect(screen.getByText(/connecting/i)).toBeTruthy()

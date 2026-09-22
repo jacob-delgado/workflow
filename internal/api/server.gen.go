@@ -18,7 +18,7 @@ import (
 
 // ServerInterface represents all server handlers.
 type ServerInterface interface {
-	// Announce Post the pull request announcement to Slack.
+	// Announce Post the pull request announcement to the configured service.
 	// (POST /api/announce)
 	Announce(w http.ResponseWriter, r *http.Request)
 	// GetAnnouncement The announcement message that would be posted, for a preview.
@@ -54,6 +54,9 @@ type ServerInterface interface {
 	// GetIssue One issue in full, with its comments.
 	// (GET /api/issues/{key})
 	GetIssue(w http.ResponseWriter, r *http.Request, key string)
+	// GetMessaging The service, channel, its alternates, and who a post would come from.
+	// (GET /api/messaging)
+	GetMessaging(w http.ResponseWriter, r *http.Request)
 	// OpenPullRequest Open a pull request for the current branch, pushing it first if needed.
 	// (POST /api/pull-request)
 	OpenPullRequest(w http.ResponseWriter, r *http.Request)
@@ -66,9 +69,6 @@ type ServerInterface interface {
 	// GetReview The branch's pull request and its CI, if one is open.
 	// (GET /api/review)
 	GetReview(w http.ResponseWriter, r *http.Request)
-	// GetSlack The channel, its alternates, and who a post would come from.
-	// (GET /api/slack)
-	GetSlack(w http.ResponseWriter, r *http.Request)
 	// ListViews The configured issue views (saved JQL), in order.
 	// (GET /api/views)
 	ListViews(w http.ResponseWriter, r *http.Request)
@@ -295,6 +295,20 @@ func (siw *ServerInterfaceWrapper) GetIssue(w http.ResponseWriter, r *http.Reque
 	handler.ServeHTTP(w, r)
 }
 
+// GetMessaging operation middleware
+func (siw *ServerInterfaceWrapper) GetMessaging(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetMessaging(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // OpenPullRequest operation middleware
 func (siw *ServerInterfaceWrapper) OpenPullRequest(w http.ResponseWriter, r *http.Request) {
 
@@ -342,20 +356,6 @@ func (siw *ServerInterfaceWrapper) GetReview(w http.ResponseWriter, r *http.Requ
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.GetReview(w, r)
-	}))
-
-	for _, middleware := range siw.HandlerMiddlewares {
-		handler = middleware(handler)
-	}
-
-	handler.ServeHTTP(w, r)
-}
-
-// GetSlack operation middleware
-func (siw *ServerInterfaceWrapper) GetSlack(w http.ResponseWriter, r *http.Request) {
-
-	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.GetSlack(w, r)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -506,7 +506,7 @@ func HandlerWithOptions(si ServerInterface, options StdHTTPServerOptions) http.H
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/branch", wrapper.GetBranch)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/changes", wrapper.ListChanges)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/review", wrapper.GetReview)
-	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/slack", wrapper.GetSlack)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/messaging", wrapper.GetMessaging)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/config", wrapper.GetConfig)
 	m.HandleFunc(http.MethodPut+" "+options.BaseURL+"/api/config", wrapper.UpdateConfig)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/api/checkout", wrapper.Checkout)
@@ -1123,6 +1123,44 @@ func (response GetIssuedefaultJSONResponse) VisitGetIssueResponse(w http.Respons
 	return err
 }
 
+type GetMessagingRequestObject struct {
+}
+
+type GetMessagingResponseObject interface {
+	VisitGetMessagingResponse(w http.ResponseWriter) error
+}
+
+type GetMessaging200JSONResponse MessagingDestination
+
+func (response GetMessaging200JSONResponse) VisitGetMessagingResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetMessagingdefaultJSONResponse struct {
+	Body       Error
+	StatusCode int
+}
+
+func (response GetMessagingdefaultJSONResponse) VisitGetMessagingResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
 type OpenPullRequestRequestObject struct {
 	Body *OpenPullRequestJSONRequestBody
 }
@@ -1346,44 +1384,6 @@ func (response GetReviewdefaultJSONResponse) VisitGetReviewResponse(w http.Respo
 	return err
 }
 
-type GetSlackRequestObject struct {
-}
-
-type GetSlackResponseObject interface {
-	VisitGetSlackResponse(w http.ResponseWriter) error
-}
-
-type GetSlack200JSONResponse Slack
-
-func (response GetSlack200JSONResponse) VisitGetSlackResponse(w http.ResponseWriter) error {
-
-	var buf bytes.Buffer
-	if err := json.NewEncoder(&buf).Encode(response); err != nil {
-		return err
-	}
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(200)
-	_, err := buf.WriteTo(w)
-	return err
-}
-
-type GetSlackdefaultJSONResponse struct {
-	Body       Error
-	StatusCode int
-}
-
-func (response GetSlackdefaultJSONResponse) VisitGetSlackResponse(w http.ResponseWriter) error {
-
-	var buf bytes.Buffer
-	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
-		return err
-	}
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(response.StatusCode)
-	_, err := buf.WriteTo(w)
-	return err
-}
-
 type ListViewsRequestObject struct {
 }
 
@@ -1424,7 +1424,7 @@ func (response ListViewsdefaultJSONResponse) VisitListViewsResponse(w http.Respo
 
 // StrictServerInterface represents all server handlers.
 type StrictServerInterface interface {
-	// Announce Post the pull request announcement to Slack.
+	// Announce Post the pull request announcement to the configured service.
 	// (POST /api/announce)
 	Announce(ctx context.Context, request AnnounceRequestObject) (AnnounceResponseObject, error)
 	// GetAnnouncement The announcement message that would be posted, for a preview.
@@ -1460,6 +1460,9 @@ type StrictServerInterface interface {
 	// GetIssue One issue in full, with its comments.
 	// (GET /api/issues/{key})
 	GetIssue(ctx context.Context, request GetIssueRequestObject) (GetIssueResponseObject, error)
+	// GetMessaging The service, channel, its alternates, and who a post would come from.
+	// (GET /api/messaging)
+	GetMessaging(ctx context.Context, request GetMessagingRequestObject) (GetMessagingResponseObject, error)
 	// OpenPullRequest Open a pull request for the current branch, pushing it first if needed.
 	// (POST /api/pull-request)
 	OpenPullRequest(ctx context.Context, request OpenPullRequestRequestObject) (OpenPullRequestResponseObject, error)
@@ -1472,9 +1475,6 @@ type StrictServerInterface interface {
 	// GetReview The branch's pull request and its CI, if one is open.
 	// (GET /api/review)
 	GetReview(ctx context.Context, request GetReviewRequestObject) (GetReviewResponseObject, error)
-	// GetSlack The channel, its alternates, and who a post would come from.
-	// (GET /api/slack)
-	GetSlack(ctx context.Context, request GetSlackRequestObject) (GetSlackResponseObject, error)
 	// ListViews The configured issue views (saved JQL), in order.
 	// (GET /api/views)
 	ListViews(ctx context.Context, request ListViewsRequestObject) (ListViewsResponseObject, error)
@@ -1846,6 +1846,30 @@ func (sh *strictHandler) GetIssue(w http.ResponseWriter, r *http.Request, key st
 	}
 }
 
+// GetMessaging operation middleware
+func (sh *strictHandler) GetMessaging(w http.ResponseWriter, r *http.Request) {
+	var request GetMessagingRequestObject
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.GetMessaging(ctx, request.(GetMessagingRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetMessaging")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(GetMessagingResponseObject); ok {
+		if err := validResponse.VisitGetMessagingResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
 // OpenPullRequest operation middleware
 func (sh *strictHandler) OpenPullRequest(w http.ResponseWriter, r *http.Request) {
 	var request OpenPullRequestRequestObject
@@ -1942,30 +1966,6 @@ func (sh *strictHandler) GetReview(w http.ResponseWriter, r *http.Request) {
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
 	} else if validResponse, ok := response.(GetReviewResponseObject); ok {
 		if err := validResponse.VisitGetReviewResponse(w); err != nil {
-			sh.options.ResponseErrorHandlerFunc(w, r, err)
-		}
-	} else if response != nil {
-		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
-	}
-}
-
-// GetSlack operation middleware
-func (sh *strictHandler) GetSlack(w http.ResponseWriter, r *http.Request) {
-	var request GetSlackRequestObject
-
-	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
-		return sh.ssi.GetSlack(ctx, request.(GetSlackRequestObject))
-	}
-	for _, middleware := range sh.middlewares {
-		handler = middleware(handler, "GetSlack")
-	}
-
-	response, err := handler(r.Context(), w, r, request)
-
-	if err != nil {
-		sh.options.ResponseErrorHandlerFunc(w, r, err)
-	} else if validResponse, ok := response.(GetSlackResponseObject); ok {
-		if err := validResponse.VisitGetSlackResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {

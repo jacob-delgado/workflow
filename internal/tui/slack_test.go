@@ -144,6 +144,37 @@ func TestTheSlackPanePreviewsTheAnnouncement(t *testing.T) {
 	requireScreen(t, footerLine(view), "p post to slack")
 }
 
+func TestTheMessagingPaneNamesTheServiceInUse(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	// A Teams webhook is configured, so the pane and its footer name Teams
+	// rather than a hardcoded Slack.
+	teams := newWorld()
+	teams.cfg.Messaging = config.Messaging{Kind: "teams", WebhookURL: "https://example.com/hook"}
+
+	// Act
+	view := typing(t, teams.live(t, 120, 40), "5").View().Content
+
+	// Assert
+	requireScreen(t, view, "5 Teams")
+	requireScreen(t, footerLine(view), "p post to teams")
+}
+
+func TestTheHelpNamesTheMessagingService(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	teams := newWorld()
+	teams.cfg.Messaging = config.Messaging{Kind: "teams", WebhookURL: "https://example.com/hook"}
+
+	// Act
+	helpView := typing(t, teams.live(t, 120, 20), "?", "pgdown", "pgdown", "pgdown").View().Content
+
+	// Assert
+	requireScreen(t, helpView, "Review and Teams")
+}
+
 func TestTheSlackPaneAsksForAPullRequestFirst(t *testing.T) {
 	t.Parallel()
 

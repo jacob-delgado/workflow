@@ -105,7 +105,7 @@ func TestListChangesReportsAFailure(t *testing.T) {
 	}
 }
 
-func TestGetSlackHasNoAuthorWithoutAForge(t *testing.T) {
+func TestGetMessagingHasNoAuthorWithoutAForge(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
@@ -113,11 +113,11 @@ func TestGetSlackHasNoAuthorWithoutAForge(t *testing.T) {
 	deps.Author = nil
 
 	// Act
-	slack := decode[api.Slack](t, get(t, serve(t, deps, config.Default()), "/api/slack"))
+	destination := decode[api.MessagingDestination](t, get(t, serve(t, deps, config.Default()), "/api/messaging"))
 
 	// Assert
-	if slack.Author != "" {
-		t.Errorf("author = %q, want empty without a forge", slack.Author)
+	if destination.Author != "" {
+		t.Errorf("author = %q, want empty without a forge", destination.Author)
 	}
 }
 

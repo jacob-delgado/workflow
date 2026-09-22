@@ -14,8 +14,8 @@ info:
   description: >-
     The read-and-configure API behind `workflow --web`. It exposes the same
     information the terminal UI shows — the assigned issues, the current branch,
-    the working tree, the pull request and its CI, and Slack — and lets the whole
-    configuration file be read and written. It reuses the same domain seams the
+    the working tree, the pull request and its CI, and where it announces — and
+    lets the whole configuration file be read and written. It reuses the same domain seams the
     TUI and the `status`/`reviews` CLI commands use; it does not write anything
     but the configuration file, and stores nothing between requests.
   version: 1.0.0
@@ -31,7 +31,7 @@ tags:
     description: The current branch and working tree.
   - name: review
     description: The branch's pull request and its CI.
-  - name: slack
+  - name: messaging
     description: Where and as whom an announcement would post.
   - name: config
     description: The configuration file, read and written.
@@ -158,18 +158,18 @@ paths:
                 $ref: "#/components/schemas/Review"
         default: {$ref: "#/components/responses/Error"}
 
-  /api/slack:
+  /api/messaging:
     get:
-      operationId: getSlack
-      summary: The channel, its alternates, and who a post would come from.
-      tags: [slack]
+      operationId: getMessaging
+      summary: The service, channel, its alternates, and who a post would come from.
+      tags: [messaging]
       responses:
         "200":
-          description: The Slack destination.
+          description: The messaging destination.
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/Slack"
+                $ref: "#/components/schemas/MessagingDestination"
         default: {$ref: "#/components/responses/Error"}
 
   /api/config:
@@ -292,11 +292,11 @@ paths:
       operationId: getAnnouncement
       summary: The announcement message that would be posted, for a preview.
       description: >-
-        Composes the Slack announcement for the checked-out branch's pull
-        request — author, title, link, and the issue — from the configured
-        template, without posting it. Answered 409 when there is no pull request
-        to announce.
-      tags: [slack]
+        Composes the announcement for the checked-out branch's pull request —
+        author, title, link, and the issue — from the configured template,
+        without posting it. Answered 409 when there is no pull request to
+        announce.
+      tags: [messaging]
       responses:
         "200":
           description: The composed announcement and the channel it would post to.
@@ -314,13 +314,13 @@ paths:
   /api/announce:
     post:
       operationId: announce
-      summary: Post the pull request announcement to Slack.
+      summary: Post the pull request announcement to the configured service.
       description: >-
-        Posts the composed announcement (see GET /api/announcement) to Slack —
-        to the given channel, or the configured one when none is given, or the
-        webhook's own channel. Refused with 409 when there is no pull request to
-        announce, and 422 when the post fails.
-      tags: [slack]
+        Posts the composed announcement (see GET /api/announcement) to the
+        configured service — to the given channel, or the configured one when
+        none is given, or the webhook's own channel. Refused with 409 when there
+        is no pull request to announce, and 422 when the post fails.
+      tags: [messaging]
       requestBody:
         required: true
         content:
@@ -481,7 +481,7 @@ paths:
       description: >-
         A Server-Sent Events stream (text/event-stream). Each message is a
         "snapshot" event whose data is a Snapshot: the current issues, branch,
-        changes, review, and Slack destination. The browser subscribes once and
+        changes, review, and messaging destination. The browser subscribes once and
         updates from the pushes rather than polling.
       tags: [events]
       parameters:
@@ -545,7 +545,7 @@ components:
 
     Announcement:
       type: object
-      description: A composed Slack announcement and where it would post.
+      description: A composed announcement and where it would post.
       required: [text, channel]
       properties:
         text:
@@ -677,13 +677,13 @@ components:
       description: >-
         The full read state carried by one event-stream message: everything the
         cockpit shows, together.
-      required: [issues, branch, changes, review, slack, branches]
+      required: [issues, branch, changes, review, messaging, branches]
       properties:
         issues: {$ref: "#/components/schemas/IssuesPage"}
         branch: {$ref: "#/components/schemas/Branch"}
         changes: {$ref: "#/components/schemas/ChangeList"}
         review: {$ref: "#/components/schemas/Review"}
-        slack: {$ref: "#/components/schemas/Slack"}
+        messaging: {$ref: "#/components/schemas/MessagingDestination"}
         branches:
           type: array
           description: >-
@@ -923,10 +923,19 @@ components:
       type: string
       enum: [none, running, passed, failed]
 
-    Slack:
+    MessagingDestination:
       type: object
-      required: [channel, channels, author]
+      required: [service, configured, channel, channels, author]
       properties:
+        service:
+          type: string
+          description: The service posts go to — Slack, Teams, Discord or webhook.
+        configured:
+          type: boolean
+          description: >-
+            Whether a transport is set up to post — a bot token or a webhook. A
+            webhook service has no channel, so channel presence cannot stand in
+            for this.
         channel:
           type: string
           description: The default channel; empty when a webhook carries its own.

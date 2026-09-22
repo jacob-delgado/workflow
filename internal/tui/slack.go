@@ -176,7 +176,9 @@ func (m Model) slackDetail(width int) string {
 	}
 
 	if !m.review.found {
-		return wrap("Open a "+m.vocab.noun+" first ("+paneReview.label()+"); the message links to it.\n\n"+
+		reviewPane := paneReview.label(m.cfg.Messaging.Service())
+
+		return wrap("Open a "+m.vocab.noun+" first ("+reviewPane+"); the message links to it.\n\n"+
 			m.slackRail(0), width)
 	}
 

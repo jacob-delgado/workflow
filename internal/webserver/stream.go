@@ -75,12 +75,12 @@ func writeSnapshot(w http.ResponseWriter, flusher http.Flusher, eventID int, sna
 // snapshot, so one unreachable upstream does not blank the cockpit.
 func (s *server) snapshot(view string) api.Snapshot {
 	return api.Snapshot{
-		Issues:   s.snapshotIssues(view),
-		Branch:   s.snapshotBranch(),
-		Changes:  s.snapshotChanges(),
-		Review:   s.snapshotReview(),
-		Slack:    slackDTO(s.config(), s.author()),
-		Branches: s.snapshotBranches(),
+		Issues:    s.snapshotIssues(view),
+		Branch:    s.snapshotBranch(),
+		Changes:   s.snapshotChanges(),
+		Review:    s.snapshotReview(),
+		Messaging: messagingDTO(s.config(), s.author()),
+		Branches:  s.snapshotBranches(),
 	}
 }
 

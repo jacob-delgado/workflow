@@ -29,7 +29,7 @@ export const zCreateBranchRequest = z.object({
 });
 
 /**
- * A composed Slack announcement and where it would post.
+ * A composed announcement and where it would post.
  */
 export const zAnnouncement = z.object({
     text: z.string(),
@@ -219,7 +219,9 @@ export const zReview = z.object({
     ci: zCi.nullish()
 });
 
-export const zSlack = z.object({
+export const zMessagingDestination = z.object({
+    service: z.string(),
+    configured: z.boolean(),
     channel: z.string(),
     channels: z.array(z.string()),
     author: z.string()
@@ -233,7 +235,7 @@ export const zSnapshot = z.object({
     branch: zBranch,
     changes: zChangeList,
     review: zReview,
-    slack: zSlack,
+    messaging: zMessagingDestination,
     branches: z.array(zTaskBranch)
 });
 
@@ -369,9 +371,9 @@ export const zListChangesResponse = zChangeList;
 export const zGetReviewResponse = zReview;
 
 /**
- * The Slack destination.
+ * The messaging destination.
  */
-export const zGetSlackResponse = zSlack;
+export const zGetMessagingResponse = zMessagingDestination;
 
 /**
  * The configuration, redacted.

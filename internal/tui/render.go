@@ -91,7 +91,7 @@ func (m Model) rail(boxes []layout.Box) string {
 		current := pane(index)
 		focused := current == m.focus && m.overlay == nil
 
-		title := m.paneTitle(current, current.label()+m.viewSuffix(current))
+		title := m.paneTitle(current, current.label(m.cfg.Messaging.Service())+m.viewSuffix(current))
 		if focused {
 			title = m.styles.strong.Render(title)
 		}
@@ -149,9 +149,9 @@ func (m Model) detailContent(shape layout.Layout) (string, string, frame.Style) 
 
 	// Collapsed, the rail that showed the pane numbers is gone, so the detail
 	// title carries the number that jumps to the pane.
-	title := m.focus.title()
+	title := m.focus.title(m.cfg.Messaging.Service())
 	if shape.Collapsed() {
-		title = m.focus.label()
+		title = m.focus.label(m.cfg.Messaging.Service())
 	}
 
 	title = m.paneTitle(m.focus, title+m.viewSuffix(m.focus))
@@ -200,7 +200,7 @@ const helpColumnGap = 4
 // whole set fits a short pane with less scrolling.
 func (m Model) helpView() string {
 	left := m.helpColumn(0, helpColumnSplit)
-	right := m.helpColumn(helpColumnSplit, len(helpGroups()))
+	right := m.helpColumn(helpColumnSplit, len(helpGroups(m.cfg.Messaging.Service())))
 
 	return lipgloss.JoinHorizontal(lipgloss.Top, left, lipgloss.NewStyle().PaddingLeft(helpColumnGap).Render(right))
 }
@@ -210,7 +210,7 @@ func (m Model) helpView() string {
 // another's line.
 func (m Model) helpColumn(first, last int) string {
 	groups := m.keys.FullHelp()
-	names := helpGroups()
+	names := helpGroups(m.cfg.Messaging.Service())
 
 	var lines []string
 

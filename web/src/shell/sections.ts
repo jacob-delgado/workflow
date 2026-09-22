@@ -7,6 +7,6 @@ export const sectionMeta: Record<Section, { label: string; Icon: LucideIcon }> =
   issues: { label: 'Issues', Icon: CircleDot },
   branch: { label: 'Branch', Icon: GitBranch },
   review: { label: 'Review', Icon: GitPullRequest },
-  slack: { label: 'Slack', Icon: Send },
+  messaging: { label: 'Messaging', Icon: Send },
   settings: { label: 'Settings', Icon: Settings },
 }

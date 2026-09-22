@@ -3,8 +3,8 @@
 import { type DefaultError, queryOptions } from '@tanstack/react-query';
 
 import { client } from '../client.gen';
-import { getAnnouncement, getBranch, getConfig, getHealth, getIssue, getPullRequestDraft, getReview, getSlack, listChanges, listIssues, listViews, type Options } from '../sdk.gen';
-import type { GetAnnouncementData, GetAnnouncementError, GetAnnouncementResponse, GetBranchData, GetBranchError, GetBranchResponse, GetConfigData, GetConfigError, GetConfigResponse, GetHealthData, GetHealthResponse, GetIssueData, GetIssueError, GetIssueResponse, GetPullRequestDraftData, GetPullRequestDraftError, GetPullRequestDraftResponse, GetReviewData, GetReviewError, GetReviewResponse, GetSlackData, GetSlackError, GetSlackResponse, ListChangesData, ListChangesError, ListChangesResponse, ListIssuesData, ListIssuesError, ListIssuesResponse, ListViewsData, ListViewsError, ListViewsResponse } from '../types.gen';
+import { getAnnouncement, getBranch, getConfig, getHealth, getIssue, getMessaging, getPullRequestDraft, getReview, listChanges, listIssues, listViews, type Options } from '../sdk.gen';
+import type { GetAnnouncementData, GetAnnouncementError, GetAnnouncementResponse, GetBranchData, GetBranchError, GetBranchResponse, GetConfigData, GetConfigError, GetConfigResponse, GetHealthData, GetHealthResponse, GetIssueData, GetIssueError, GetIssueResponse, GetMessagingData, GetMessagingError, GetMessagingResponse, GetPullRequestDraftData, GetPullRequestDraftError, GetPullRequestDraftResponse, GetReviewData, GetReviewError, GetReviewResponse, ListChangesData, ListChangesError, ListChangesResponse, ListIssuesData, ListIssuesError, ListIssuesResponse, ListViewsData, ListViewsError, ListViewsResponse } from '../types.gen';
 
 export type QueryKey<TOptions extends Options> = [
     Pick<TOptions, 'baseUrl' | 'body' | 'headers' | 'path' | 'query'> & {
@@ -165,14 +165,14 @@ export const getReviewOptions = (options?: Options<GetReviewData>) => queryOptio
     queryKey: getReviewQueryKey(options)
 });
 
-export const getSlackQueryKey = (options?: Options<GetSlackData>) => createQueryKey('getSlack', options);
+export const getMessagingQueryKey = (options?: Options<GetMessagingData>) => createQueryKey('getMessaging', options);
 
 /**
- * The channel, its alternates, and who a post would come from.
+ * The service, channel, its alternates, and who a post would come from.
  */
-export const getSlackOptions = (options?: Options<GetSlackData>) => queryOptions<GetSlackResponse, GetSlackError, GetSlackResponse, ReturnType<typeof getSlackQueryKey>>({
+export const getMessagingOptions = (options?: Options<GetMessagingData>) => queryOptions<GetMessagingResponse, GetMessagingError, GetMessagingResponse, ReturnType<typeof getMessagingQueryKey>>({
     queryFn: async ({ queryKey, signal }) => {
-        const { data } = await getSlack({
+        const { data } = await getMessaging({
             ...options,
             ...queryKey[0],
             signal,
@@ -180,7 +180,7 @@ export const getSlackOptions = (options?: Options<GetSlackData>) => queryOptions
         });
         return data;
     },
-    queryKey: getSlackQueryKey(options)
+    queryKey: getMessagingQueryKey(options)
 });
 
 export const getConfigQueryKey = (options?: Options<GetConfigData>) => createQueryKey('getConfig', options);
@@ -206,7 +206,7 @@ export const getAnnouncementQueryKey = (options?: Options<GetAnnouncementData>) 
 /**
  * The announcement message that would be posted, for a preview.
  *
- * Composes the Slack announcement for the checked-out branch's pull request — author, title, link, and the issue — from the configured template, without posting it. Answered 409 when there is no pull request to announce.
+ * Composes the announcement for the checked-out branch's pull request — author, title, link, and the issue — from the configured template, without posting it. Answered 409 when there is no pull request to announce.
  */
 export const getAnnouncementOptions = (options?: Options<GetAnnouncementData>) => queryOptions<GetAnnouncementResponse, GetAnnouncementError, GetAnnouncementResponse, ReturnType<typeof getAnnouncementQueryKey>>({
     queryFn: async ({ queryKey, signal }) => {

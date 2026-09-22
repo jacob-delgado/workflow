@@ -2,8 +2,8 @@
 
 import type { Client, ClientMeta, Options as Options2, RequestResult, ServerSentEventsResult, TDataShape } from './client';
 import { client } from './client.gen';
-import type { AnnounceData, AnnounceErrors, AnnounceResponses, CheckoutData, CheckoutErrors, CheckoutResponses, CommitData, CommitErrors, CommitResponses, CreateBranchData, CreateBranchErrors, CreateBranchResponses, GetAnnouncementData, GetAnnouncementErrors, GetAnnouncementResponses, GetBranchData, GetBranchErrors, GetBranchResponses, GetConfigData, GetConfigErrors, GetConfigResponses, GetHealthData, GetHealthResponses, GetIssueData, GetIssueErrors, GetIssueResponses, GetPullRequestDraftData, GetPullRequestDraftErrors, GetPullRequestDraftResponses, GetReviewData, GetReviewErrors, GetReviewResponses, GetSlackData, GetSlackErrors, GetSlackResponses, ListChangesData, ListChangesErrors, ListChangesResponses, ListIssuesData, ListIssuesErrors, ListIssuesResponses, ListViewsData, ListViewsErrors, ListViewsResponses, OpenPullRequestData, OpenPullRequestErrors, OpenPullRequestResponses, PushData, PushErrors, PushResponses, StreamEventsData, StreamEventsResponse, StreamEventsResponses, UpdateConfigData, UpdateConfigErrors, UpdateConfigResponses } from './types.gen';
-import { zAnnounceResponse, zCheckoutResponse, zCommitResponse, zCreateBranchResponse, zGetAnnouncementResponse, zGetBranchResponse, zGetConfigResponse, zGetHealthResponse, zGetIssueResponse, zGetPullRequestDraftResponse, zGetReviewResponse, zGetSlackResponse, zListChangesResponse, zListIssuesResponse, zListViewsResponse, zOpenPullRequestResponse, zPushResponse, zStreamEventsResponse, zUpdateConfigResponse } from './zod.gen';
+import type { AnnounceData, AnnounceErrors, AnnounceResponses, CheckoutData, CheckoutErrors, CheckoutResponses, CommitData, CommitErrors, CommitResponses, CreateBranchData, CreateBranchErrors, CreateBranchResponses, GetAnnouncementData, GetAnnouncementErrors, GetAnnouncementResponses, GetBranchData, GetBranchErrors, GetBranchResponses, GetConfigData, GetConfigErrors, GetConfigResponses, GetHealthData, GetHealthResponses, GetIssueData, GetIssueErrors, GetIssueResponses, GetMessagingData, GetMessagingErrors, GetMessagingResponses, GetPullRequestDraftData, GetPullRequestDraftErrors, GetPullRequestDraftResponses, GetReviewData, GetReviewErrors, GetReviewResponses, ListChangesData, ListChangesErrors, ListChangesResponses, ListIssuesData, ListIssuesErrors, ListIssuesResponses, ListViewsData, ListViewsErrors, ListViewsResponses, OpenPullRequestData, OpenPullRequestErrors, OpenPullRequestResponses, PushData, PushErrors, PushResponses, StreamEventsData, StreamEventsResponse, StreamEventsResponses, UpdateConfigData, UpdateConfigErrors, UpdateConfigResponses } from './types.gen';
+import { zAnnounceResponse, zCheckoutResponse, zCommitResponse, zCreateBranchResponse, zGetAnnouncementResponse, zGetBranchResponse, zGetConfigResponse, zGetHealthResponse, zGetIssueResponse, zGetMessagingResponse, zGetPullRequestDraftResponse, zGetReviewResponse, zListChangesResponse, zListIssuesResponse, zListViewsResponse, zOpenPullRequestResponse, zPushResponse, zStreamEventsResponse, zUpdateConfigResponse } from './zod.gen';
 
 export type Options<TData extends TDataShape = TDataShape, ThrowOnError extends boolean = boolean, TResponse = unknown> = Options2<TData, ThrowOnError, TResponse> & {
     /**
@@ -83,11 +83,11 @@ export const getReview = <ThrowOnError extends boolean = false>(options?: Option
 });
 
 /**
- * The channel, its alternates, and who a post would come from.
+ * The service, channel, its alternates, and who a post would come from.
  */
-export const getSlack = <ThrowOnError extends boolean = false>(options?: Options<GetSlackData, ThrowOnError>): RequestResult<GetSlackResponses, GetSlackErrors, ThrowOnError> => (options?.client ?? client).get<GetSlackResponses, GetSlackErrors, ThrowOnError>({
-    responseValidator: async (data) => await zGetSlackResponse.parseAsync(data),
-    url: '/api/slack',
+export const getMessaging = <ThrowOnError extends boolean = false>(options?: Options<GetMessagingData, ThrowOnError>): RequestResult<GetMessagingResponses, GetMessagingErrors, ThrowOnError> => (options?.client ?? client).get<GetMessagingResponses, GetMessagingErrors, ThrowOnError>({
+    responseValidator: async (data) => await zGetMessagingResponse.parseAsync(data),
+    url: '/api/messaging',
     ...options
 });
 
@@ -148,7 +148,7 @@ export const createBranch = <ThrowOnError extends boolean = false>(options: Opti
 /**
  * The announcement message that would be posted, for a preview.
  *
- * Composes the Slack announcement for the checked-out branch's pull request — author, title, link, and the issue — from the configured template, without posting it. Answered 409 when there is no pull request to announce.
+ * Composes the announcement for the checked-out branch's pull request — author, title, link, and the issue — from the configured template, without posting it. Answered 409 when there is no pull request to announce.
  */
 export const getAnnouncement = <ThrowOnError extends boolean = false>(options?: Options<GetAnnouncementData, ThrowOnError>): RequestResult<GetAnnouncementResponses, GetAnnouncementErrors, ThrowOnError> => (options?.client ?? client).get<GetAnnouncementResponses, GetAnnouncementErrors, ThrowOnError>({
     responseValidator: async (data) => await zGetAnnouncementResponse.parseAsync(data),
@@ -157,9 +157,9 @@ export const getAnnouncement = <ThrowOnError extends boolean = false>(options?: 
 });
 
 /**
- * Post the pull request announcement to Slack.
+ * Post the pull request announcement to the configured service.
  *
- * Posts the composed announcement (see GET /api/announcement) to Slack — to the given channel, or the configured one when none is given, or the webhook's own channel. Refused with 409 when there is no pull request to announce, and 422 when the post fails.
+ * Posts the composed announcement (see GET /api/announcement) to the configured service — to the given channel, or the configured one when none is given, or the webhook's own channel. Refused with 409 when there is no pull request to announce, and 422 when the post fails.
  */
 export const announce = <ThrowOnError extends boolean = false>(options: Options<AnnounceData, ThrowOnError>): RequestResult<AnnounceResponses, AnnounceErrors, ThrowOnError> => (options.client ?? client).post<AnnounceResponses, AnnounceErrors, ThrowOnError>({
     responseValidator: async (data) => await zAnnounceResponse.parseAsync(data),
@@ -226,7 +226,7 @@ export const openPullRequest = <ThrowOnError extends boolean = false>(options: O
 /**
  * A stream of state snapshots, pushed on connect and as they change.
  *
- * A Server-Sent Events stream (text/event-stream). Each message is a "snapshot" event whose data is a Snapshot: the current issues, branch, changes, review, and Slack destination. The browser subscribes once and updates from the pushes rather than polling.
+ * A Server-Sent Events stream (text/event-stream). Each message is a "snapshot" event whose data is a Snapshot: the current issues, branch, changes, review, and messaging destination. The browser subscribes once and updates from the pushes rather than polling.
  */
 export const streamEvents = <ThrowOnError extends boolean = false>(options?: Options<StreamEventsData, ThrowOnError, StreamEventsResponse>): Promise<ServerSentEventsResult<StreamEventsResponses>> => (options?.client ?? client).sse.get<StreamEventsResponses, unknown, ThrowOnError>({
     responseValidator: async (data) => await zStreamEventsResponse.parseAsync(data),

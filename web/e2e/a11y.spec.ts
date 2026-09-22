@@ -5,7 +5,7 @@ import { expect, test, type Page } from '@playwright/test'
 // holds up, so the scan runs the whole cockpit in each. The section labels are
 // the nav buttons' accessible names and the content heading's text.
 const themes = ['dark', 'light'] as const
-const sectionNames = ['Issues', 'Branch', 'Review', 'Slack', 'Settings']
+const sectionNames = ['Issues', 'Branch', 'Review', 'Messaging', 'Settings']
 
 // Scan the resting state, not mid-animation frames: reduced motion collapses
 // transitions to instant, so axe never samples a half-faded element (whose

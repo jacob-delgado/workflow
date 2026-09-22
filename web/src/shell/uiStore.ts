@@ -3,7 +3,7 @@ import { create } from 'zustand'
 // The cockpit's sections, in nav order. The work story (Branch → Changes →
 // PR/CI → Announce) is reachable from an issue in the Issues section; the rest
 // are direct views.
-export const sections = ['issues', 'branch', 'review', 'slack', 'settings'] as const
+export const sections = ['issues', 'branch', 'review', 'messaging', 'settings'] as const
 
 export type Section = (typeof sections)[number]
 

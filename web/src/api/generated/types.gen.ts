@@ -36,7 +36,7 @@ export type CreateBranchRequest = {
 };
 
 /**
- * A composed Slack announcement and where it would post.
+ * A composed announcement and where it would post.
  */
 export type Announcement = {
     /**
@@ -172,7 +172,7 @@ export type Snapshot = {
     branch: Branch;
     changes: ChangeList;
     review: Review;
-    slack: Slack;
+    messaging: MessagingDestination;
     /**
      * The local branches named for an issue — the record of what is in flight. The detail panels (branch, changes, review) describe the checked-out branch alone; this lists every issue that has a branch, so the issues list can mark them all in flight, not the one on HEAD.
      */
@@ -365,7 +365,15 @@ export type Check = {
 
 export type CiState = 'none' | 'running' | 'passed' | 'failed';
 
-export type Slack = {
+export type MessagingDestination = {
+    /**
+     * The service posts go to — Slack, Teams, Discord or webhook.
+     */
+    service: string;
+    /**
+     * Whether a transport is set up to post — a bot token or a webhook. A webhook service has no channel, so channel presence cannot stand in for this.
+     */
+    configured: boolean;
     /**
      * The default channel; empty when a webhook carries its own.
      */
@@ -685,30 +693,30 @@ export type GetReviewResponses = {
 
 export type GetReviewResponse = GetReviewResponses[keyof GetReviewResponses];
 
-export type GetSlackData = {
+export type GetMessagingData = {
     body?: never;
     path?: never;
     query?: never;
-    url: '/api/slack';
+    url: '/api/messaging';
 };
 
-export type GetSlackErrors = {
+export type GetMessagingErrors = {
     /**
      * The request could not be completed.
      */
     default: Error;
 };
 
-export type GetSlackError = GetSlackErrors[keyof GetSlackErrors];
+export type GetMessagingError = GetMessagingErrors[keyof GetMessagingErrors];
 
-export type GetSlackResponses = {
+export type GetMessagingResponses = {
     /**
-     * The Slack destination.
+     * The messaging destination.
      */
-    200: Slack;
+    200: MessagingDestination;
 };
 
-export type GetSlackResponse = GetSlackResponses[keyof GetSlackResponses];
+export type GetMessagingResponse = GetMessagingResponses[keyof GetMessagingResponses];
 
 export type GetConfigData = {
     body?: never;

@@ -128,7 +128,9 @@ export const mockSnapshot: Snapshot = {
       ],
     },
   },
-  slack: {
+  messaging: {
+    service: 'Slack',
+    configured: true,
     channel: '#dev-workflow',
     channels: ['#dev-workflow', '#releases', '#team-platform'],
     author: 'ana.lopez',

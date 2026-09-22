@@ -25,8 +25,8 @@ format that may still change before 1.0.
 - A repository with hooks in `.git/hooks` and no lefthook configuration is
   offered a `lefthook.yml` that runs them.
 - `workflow doctor` reports the repository, tooling and configuration in effect;
-  `workflow doctor --online` asks Jira, Slack and your forge whether each
-  credential actually works.
+  `workflow doctor --online` asks Jira, your messaging service and your forge
+  whether each credential actually works.
 - `workflow config init` writes a starting configuration file, and
   `workflow config show` prints the one in effect, credentials masked.
 

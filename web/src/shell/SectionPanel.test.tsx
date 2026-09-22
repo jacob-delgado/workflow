@@ -10,7 +10,7 @@ const readSections: [Section, string | RegExp][] = [
   ['issues', /no issues match/i],
   ['branch', /nothing to commit/i],
   ['review', /no open pull request/i],
-  ['slack', '#dev'],
+  ['messaging', '#dev'],
 ]
 
 test.each(readSections)('routes the %s section to its panel', (section, marker) => {

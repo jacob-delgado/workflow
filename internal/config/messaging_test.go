@@ -15,7 +15,7 @@ import (
 // here so the same literal is not repeated across cases.
 const (
 	serviceSlack   = "Slack"
-	serviceWebhook = "webhook"
+	serviceWebhook = "Webhook"
 )
 
 func TestMessagingModeReflectsTheKind(t *testing.T) {

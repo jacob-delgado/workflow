@@ -31,8 +31,11 @@ type standupSeams struct {
 	Compose  func(draft string) (string, error)
 	Post     func(text string) error
 	Confirm  func() (bool, error)
-	// Slack is true when a Slack transport is configured, so posting is offered.
-	Slack bool
+	// Service names the messaging service in use, for the confirmation and result.
+	Service string
+	// Configured is true when a messaging transport is set up, so posting is
+	// offered.
+	Configured bool
 }
 
 // standupBranchLimit bounds how many recent local branches are asked about, so a
@@ -83,14 +86,15 @@ func runStandupCommand(cmd *cobra.Command, prompt Prompt, days int, noEdit bool)
 
 	repo := gitrepo.At(proc.Run, where.Root)
 	seams := standupSeams{
-		Commits:  func(since string) ([]gitrepo.Commit, error) { return repo.RecentCommits(ctx, since) },
-		Branches: func() ([]string, error) { return repo.LocalBranches(ctx) },
-		FindPull: deps.Forge.FindPullRequest,
-		Search:   deps.Jira.Search,
-		Compose:  prompt.Compose,
-		Post:     func(text string) error { return deps.Slack.Post("", text) },
-		Confirm:  func() (bool, error) { return confirm(prompt, "Post to "+cfg.Messaging.Service()+"?") },
-		Slack:    cfg.Messaging.Mode() != config.MessagingNone,
+		Commits:    func(since string) ([]gitrepo.Commit, error) { return repo.RecentCommits(ctx, since) },
+		Branches:   func() ([]string, error) { return repo.LocalBranches(ctx) },
+		FindPull:   deps.Forge.FindPullRequest,
+		Search:     deps.Jira.Search,
+		Compose:    prompt.Compose,
+		Post:       func(text string) error { return deps.Slack.Post("", text) },
+		Confirm:    func() (bool, error) { return confirm(prompt, "Post to "+cfg.Messaging.Service()+"?") },
+		Service:    cfg.Messaging.Service(),
+		Configured: cfg.Messaging.Mode() != config.MessagingNone,
 	}
 
 	return runStandup(cmd.OutOrStdout(), seams, days, noEdit)
@@ -123,10 +127,10 @@ func runStandup(out io.Writer, seams standupSeams, days int, noEdit bool) error 
 	return offerToPost(out, seams, draft)
 }
 
-// offerToPost posts the standup to Slack after a confirmation, when Slack is
-// configured. Nothing is sent before the confirmation.
+// offerToPost posts the standup to the messaging service after a confirmation,
+// when one is configured. Nothing is sent before the confirmation.
 func offerToPost(out io.Writer, seams standupSeams, text string) error {
-	if !seams.Slack {
+	if !seams.Configured {
 		return nil
 	}
 
@@ -143,10 +147,10 @@ func offerToPost(out io.Writer, seams standupSeams, text string) error {
 
 	err = seams.Post(text)
 	if err != nil {
-		return fmt.Errorf("posting to Slack: %w", err)
+		return fmt.Errorf("posting to %s: %w", seams.Service, err)
 	}
 
-	fmt.Fprintln(out, "Posted to Slack.")
+	fmt.Fprintf(out, "Posted to %s.\n", seams.Service)
 
 	return nil
 }

@@ -4,26 +4,35 @@ import { useSnapshotStore } from '@/api/snapshot.ts'
 import { EmptyState } from '@/shell/EmptyState.tsx'
 import { announce, previewAnnouncement } from './announceApi.ts'
 
-export function SlackPanel() {
+export function MessagingPanel() {
   const snapshot = useSnapshotStore((state) => state.snapshot)
 
   if (!snapshot) {
     return <EmptyState>Connecting…</EmptyState>
   }
 
-  const { slack, review } = snapshot
+  const { messaging, review } = snapshot
 
-  if (slack.channel === '' && slack.channels.length === 0) {
-    return <EmptyState>Slack is not configured. Add a token or webhook in Settings.</EmptyState>
+  // A webhook service (Teams, Discord, a plain webhook) has no channel, so
+  // channel presence cannot tell a configured destination from an unset one —
+  // the snapshot carries `configured` for exactly that.
+  if (!messaging.configured) {
+    return (
+      <EmptyState>
+        {messaging.service} is not configured. Add a token or webhook in Settings.
+      </EmptyState>
+    )
   }
 
   return (
     <div className="mt-4 flex max-w-2xl flex-col gap-6">
       <dl className="grid grid-cols-[8rem_1fr] gap-x-4 gap-y-1.5 text-sm">
+        <dt className="text-muted-foreground">Service</dt>
+        <dd>{messaging.service}</dd>
         <dt className="text-muted-foreground">Channel</dt>
-        <dd className="font-mono">{slack.channel === '' ? '—' : slack.channel}</dd>
+        <dd className="font-mono">{messaging.channel === '' ? '—' : messaging.channel}</dd>
         <dt className="text-muted-foreground">Posting as</dt>
-        <dd>{slack.author === '' ? 'the webhook' : slack.author}</dd>
+        <dd>{messaging.author === '' ? 'the webhook' : messaging.author}</dd>
       </dl>
 
       <section aria-labelledby="announce-heading" className="flex flex-col gap-2">
@@ -31,7 +40,11 @@ export function SlackPanel() {
           Announce
         </h2>
         {review.found ? (
-          <AnnounceControls channels={slack.channels} defaultChannel={slack.channel} />
+          <AnnounceControls
+            service={messaging.service}
+            channels={messaging.channels}
+            defaultChannel={messaging.channel}
+          />
         ) : (
           <p className="text-sm text-muted-foreground">
             Open a pull request first — there is nothing to announce yet.
@@ -39,7 +52,7 @@ export function SlackPanel() {
         )}
       </section>
 
-      {slack.channels.length > 0 ? (
+      {messaging.channels.length > 0 ? (
         <section aria-labelledby="channels-heading" className="flex flex-col gap-2">
           <h2
             id="channels-heading"
@@ -48,7 +61,7 @@ export function SlackPanel() {
             Channels
           </h2>
           <ul className="flex flex-wrap gap-2">
-            {slack.channels.map((channel) => (
+            {messaging.channels.map((channel) => (
               <li key={channel} className="rounded-md bg-muted px-2 py-1 font-mono text-xs">
                 {channel}
               </li>
@@ -76,13 +89,15 @@ function firstNonEmpty(...values: string[]): string {
   return ''
 }
 
-// AnnounceControls posts the pull request's announcement to Slack behind a
-// preview step: it fetches the composed message, shows it for confirmation, and
-// posts only on confirm — announcing is outward and not undone.
+// AnnounceControls posts the pull request's announcement to the configured
+// service behind a preview step: it fetches the composed message, shows it for
+// confirmation, and posts only on confirm — announcing is outward and not undone.
 function AnnounceControls({
+  service,
   channels,
   defaultChannel,
 }: {
+  service: string
   channels: string[]
   defaultChannel: string
 }) {
@@ -126,6 +141,7 @@ function AnnounceControls({
   if (state === 'preview' || state === 'posting') {
     return (
       <AnnouncePreview
+        service={service}
         text={text}
         channel={channel}
         channels={channels}
@@ -151,7 +167,7 @@ function AnnounceControls({
         }}
         className="self-start rounded-md bg-primary px-3 py-1.5 text-sm font-medium text-primary-foreground hover:bg-primary/90 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none disabled:opacity-60"
       >
-        {state === 'loading' ? 'Preparing…' : 'Announce to Slack'}
+        {state === 'loading' ? 'Preparing…' : `Announce to ${service}`}
       </button>
       {state === 'error' ? (
         <p role="alert" className="text-sm text-destructive">
@@ -165,6 +181,7 @@ function AnnounceControls({
 // AnnouncePreview shows the composed message and the channel it will post to,
 // with a confirm and a cancel.
 function AnnouncePreview({
+  service,
   text,
   channel,
   channels,
@@ -173,6 +190,7 @@ function AnnouncePreview({
   onCancel,
   onPost,
 }: {
+  service: string
   text: string
   channel: string
   channels: string[]
@@ -218,7 +236,7 @@ function AnnouncePreview({
           onClick={onPost}
           className="rounded-md bg-primary px-3 py-1.5 text-sm font-medium text-primary-foreground hover:bg-primary/90 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none disabled:opacity-60"
         >
-          {posting ? 'Posting…' : 'Post to Slack'}
+          {posting ? 'Posting…' : `Post to ${service}`}
         </button>
       </div>
     </div>

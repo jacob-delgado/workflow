@@ -39,7 +39,7 @@ function notStartedStages(): Stage[] {
     { title: 'Branch', section: 'branch', done: false, detail: 'No branch for this issue yet' },
     { title: 'Changes', section: 'branch', done: false, detail: 'Nothing committed yet' },
     { title: 'Pull request', section: 'review', done: false, detail: 'No pull request yet' },
-    { title: 'Announce', section: 'slack', done: false, detail: 'Not announced' },
+    { title: 'Announce', section: 'messaging', done: false, detail: 'Not announced' },
   ]
 }
 
@@ -53,14 +53,14 @@ function offHeadStages(branchName: string): Stage[] {
     { title: 'Branch', section: 'branch', done: true, detail: branchName },
     { title: 'Changes', section: 'branch', done: false, detail: elsewhere },
     { title: 'Pull request', section: 'review', done: false, detail: elsewhere },
-    { title: 'Announce', section: 'slack', done: false, detail: 'Not announced' },
+    { title: 'Announce', section: 'messaging', done: false, detail: 'Not announced' },
   ]
 }
 
 // onHeadStages is the full story for the issue that owns the checked-out branch,
 // with each stage's state read from the stream.
 function onHeadStages(snapshot: Snapshot): Stage[] {
-  const { branch, changes, slack } = snapshot
+  const { branch, changes, messaging } = snapshot
 
   return [
     {
@@ -88,9 +88,9 @@ function onHeadStages(snapshot: Snapshot): Stage[] {
     },
     {
       title: 'Announce',
-      section: 'slack',
+      section: 'messaging',
       done: false,
-      detail: slack.channel === '' ? 'Slack not configured' : `Post to ${slack.channel}`,
+      detail: announceDetail(messaging),
     },
   ]
 }
@@ -106,6 +106,20 @@ function pullRequestDone({ review }: Snapshot): boolean {
     review.ci?.state !== 'running' &&
     review.ci?.state !== 'failed'
   )
+}
+
+// announceDetail describes the Announce stage. A webhook service has no channel
+// of its own, so a configured one falls through to naming the service rather
+// than a channel.
+function announceDetail(messaging: Snapshot['messaging']): string {
+  if (!messaging.configured) {
+    return `${messaging.service} not configured`
+  }
+  if (messaging.channel === '') {
+    return `Announce to ${messaging.service}`
+  }
+
+  return `Post to ${messaging.channel}`
 }
 
 function changesDetail(snapshot: Snapshot): string {
