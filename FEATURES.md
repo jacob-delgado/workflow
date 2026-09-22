@@ -287,22 +287,6 @@ Impact: low · Effort: medium
 - Done when: the suite runs on a Windows runner in CI, and stopping a run kills
   its child processes there as it does on Unix.
 
-### FEAT-74 The container gate is the host gate
-
-Impact: low · Effort: medium
-
-- Why: `build/Dockerfile` provisions some tools from `apt` (jq, node,
-  shellcheck) rather than the `mise.toml` pins, gives `GO_VERSION` a default of
-  its own, and does not checksum the tools it downloads, so `task
-  container:check` can pass against versions the host gate never saw.
-- Touches: `build/Dockerfile`, `scripts/tool-versions.sh` (which passes only
-  some of the pins today), `.github/workflows/container.yml`.
-- Constraints: needs a machine with a container runtime; the weekly
-  `container.yml` run is where this is exercised and driven.
-- Done when: every tool in the container comes from a `mise.toml` pin with a
-  verified download, and the three wiring tests that skip for want of lefthook
-  inside the image no longer have to.
-
 ### FEAT-75 Guard the release tag on a green gate
 
 Impact: low · Effort: small
