@@ -35,7 +35,7 @@ func (s Store) RecordAnnounce(ctx context.Context, repo string, announce Announc
 		ctx,
 		`INSERT INTO announces (repo, pull, moment, announced_at) VALUES (?, ?, ?, ?)
 			ON CONFLICT(repo, pull, moment) DO UPDATE SET announced_at = excluded.announced_at`,
-		repo, announce.Pull, announce.Moment, now.Unix(),
+		repo, announce.Pull, announce.Moment, timestamp(now),
 	)
 	if err != nil {
 		return fmt.Errorf("recording the announcement: %w", err)
