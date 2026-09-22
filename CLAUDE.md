@@ -121,11 +121,13 @@ without agreement on direction.
   500: a file past that is usually carrying more than one concern and wants
   splitting, file-per-concern. `scripts/check-file-length.sh` *warns* past 500
   but only *fails* past 800, so the guidance nudges without blocking a file with
-  a genuine reason to be long. It gates every tracked `.go` and `.sh` file in
-  `task lint` and on pre-push; `--list` prints the current standings, flagging
-  each file `soft` or `OVER`. Tests count: a 900-line test file usually means
-  the unit under test does too much. There is no exemption list, deliberately —
-  add one only when a file genuinely earns it, with the reason written beside it.
+  a genuine reason to be long. It gates every tracked `.go`, `.sh`, `.ts` and
+  `.tsx` file in `task lint` and on pre-push (generated code — `.gen.go` and
+  `web/src/api/generated` — excepted); `--list` prints the current standings,
+  flagging each file `soft` or `OVER`. Tests count: a 900-line test file usually
+  means the unit under test does too much. There is no exemption list,
+  deliberately — add one only when a file genuinely earns it, with the reason
+  written beside it.
 
 - **Package & directory size — cohesion first, a budget as the backstop.** Size
   a grouping by responsibility, not by a file count. A Go package is *one*

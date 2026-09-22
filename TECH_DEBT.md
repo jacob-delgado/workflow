@@ -360,26 +360,23 @@ failure named in its comment.
 
 ## The web
 
-### DEBT-62 The frontend has no length gate, and one function is 304 lines
+### DEBT-62 One frontend function is 304 lines, and nothing measures a function's length
 
 Severity: medium · Confidence: measured
 
-`scripts/check-file-length.sh:77` lists only `*.go` and `*.sh`, so no
-`.ts`/`.tsx` file is measured against the 500/800 targets; and
 `web/eslint.config.js:80` sets `complexity`, `max-params`, `max-depth` and
-`max-nested-callbacks` but no `max-lines` or `max-lines-per-function`. The
-result: `ConfigForm` (`web/src/features/settings/SettingsPanel.tsx:24`) is
-304 lines, `PullRequestForm` (`web/src/features/review/ReviewPanel.tsx:214`)
-124, `CommitForm` (`web/src/features/branch/CommitForm.tsx:36`) 105, and the
-three largest files are 371, 340 and 301 lines with nothing to say so.
+`max-nested-callbacks` but no `max-lines-per-function`. The result:
+`ConfigForm` (`web/src/features/settings/SettingsPanel.tsx:24`) is 304
+lines, `PullRequestForm` (`web/src/features/review/ReviewPanel.tsx:214`)
+124 and `CommitForm` (`web/src/features/branch/CommitForm.tsx:36`) 105. Files
+are measured — `scripts/check-file-length.sh` holds `.ts` and `.tsx` to the
+500/800 targets, and the longest, `SettingsPanel.tsx`, is 371 lines — but a
+function can grow to fill one with nothing to say so.
 
-**One way to fix it.** Extend the file-length script to `*.ts *.tsx`
-excluding `web/src/api/generated` (it passes today); add
-`max-lines-per-function` to eslint at a number the split `ConfigForm`
-meets; split `ConfigForm` by fieldset.
+**One way to fix it.** Add `max-lines-per-function` to eslint at a number
+the split `ConfigForm` meets; split `ConfigForm` by fieldset.
 
-**Done when.** `check-file-length.sh --list` prints `.tsx` files; `yarn
-lint` fails a 300-line component.
+**Done when.** `yarn lint` fails a 300-line component.
 
 ### DEBT-63 The async-write state machine is written six times
 

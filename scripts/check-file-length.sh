@@ -22,9 +22,16 @@
 #   scratch files, vendored trees and build output cannot fail the gate, and a
 #   new file starts counting the moment it is `git add`ed.
 #
-#   GO AND SHELL ONLY. These are the languages whose length says something about
-#   design here. Markdown is prose and grows legitimately; YAML and JSON are
-#   configuration whose length is dictated by what is being configured.
+#   GO, SHELL AND TYPESCRIPT. These are the languages whose length says
+#   something about design here: the `--web` frontend (.ts and .tsx) is code
+#   under the same soft target and hard ceiling as the Go it talks to. Markdown
+#   is prose and grows legitimately; YAML and JSON are configuration whose
+#   length is dictated by what is being configured.
+#
+#   GENERATED CODE IS EXEMPT. Machine-written code (Go's .gen.go, and the whole
+#   hey-api client under web/src/api/generated, whose files are not all named
+#   .gen.ts) is emitted from a source of truth, so its length says nothing about
+#   design; `task gen:verify` and `yarn gen:check` guard it instead.
 #
 #   TESTS COUNT. A test file's length is a real signal — a 900-line test usually
 #   means the unit under test does too much — and exempting tests would leave
@@ -74,20 +81,19 @@ fi
 # substitution would have its failure escape set -e, leaving the loop below to
 # measure nothing and the gate to report success on it — the one thing a gate
 # must never do. Assigned to a variable, a git that cannot answer stops it here.
-if ! tracked="$(git ls-files '*.go' '*.sh')"; then
+if ! tracked="$(git ls-files '*.go' '*.sh' '*.ts' '*.tsx')"; then
   echo "check-file-length: could not list tracked files with git." >&2
   exit 2
 fi
 
 if [[ -z "${tracked}" ]]; then
-  echo "check-file-length: git listed no Go or shell files — refusing to pass having measured nothing." >&2
+  echo "check-file-length: git listed no Go, shell or TypeScript files — refusing to pass having measured nothing." >&2
   exit 2
 fi
 
-# Generated Go (…\.gen\.go) is machine-written from a source of truth, so its
-# length says nothing about design and a drift gate guards it instead. Filtered
-# after the empty check above, so a broken git still stops the gate.
-tracked="$(printf '%s\n' "${tracked}" | grep -v '\.gen\.go$' || true)"
+# Generated code is exempt (see the header). Filtered after the empty check
+# above, so a broken git still stops the gate.
+tracked="$(printf '%s\n' "${tracked}" | grep -v -e '\.gen\.go$' -e '^web/src/api/generated/' || true)"
 
 # Tab-delimited: a path containing a space must not re-split into a bogus count.
 lengths() {
@@ -129,4 +135,4 @@ if ((warned > 0)); then
   exit 0
 fi
 
-echo "check-file-length: every tracked Go and shell file is within the ${soft}-line soft target."
+echo "check-file-length: every tracked Go, shell and TypeScript file is within the ${soft}-line soft target."
