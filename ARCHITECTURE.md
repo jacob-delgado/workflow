@@ -311,6 +311,11 @@ exist only to hold a line:
   no auth scheme, by design: a single local user over loopback.
 - **Secrets are masked before any output** and are never written to the store;
   the token no-leak tests ship with any change that touches a credential path.
+- **Web API errors leak nothing.** Every failure is an RFC 9457 problem details
+  object (`application/problem+json`) whose `detail` is curated and safe — a
+  missing issue, an unreachable tracker — but never the raw upstream cause, so a
+  credential or an internal host cannot ride out on an error. See
+  [Web API errors](https://jacob-delgado.github.io/workflow/docs/errors/).
 - **One subprocess seam.** `internal/proc` is the only place the module spawns a
   program, which is where the exec-safety exception is concentrated rather than
   scattered.
