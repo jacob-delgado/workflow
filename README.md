@@ -226,7 +226,7 @@ task --list        # every task, with a description
 task run           # run the TUI from source
 task test          # tests with the race detector
 task cover:branch  # condition coverage: which branches were never taken
-task check         # the full gate: lint, coverage floors, vuln, secrets
+task check         # the full gate: lint, tests, coverage floors, vuln, secrets
 ```
 
 `task check` is what CI runs. See [ARCHITECTURE.md](ARCHITECTURE.md) for how the

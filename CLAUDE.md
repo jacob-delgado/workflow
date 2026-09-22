@@ -60,7 +60,7 @@ docs/                 the Hugo documentation site
 | `task lint` | every linter (Go, shell, YAML, Dockerfile, Actions + security, Markdown, TOML, headers, spelling, file length, test markers, docs drift) |
 | `task fmt` | format everything in place |
 | `task cloc` | count the source lines, and the Go test ratio (advisory) |
-| `task check` | **the full gate** — lint, tests + coverage, govulncheck, gitleaks |
+| `task check` | **the full gate** — lint, tests + coverage, govulncheck, gitleaks; plus the web's lint, client-drift check and unit tests |
 | `task container:check` | the same gate inside the build container |
 
 The toolchain is pinned in `mise.toml`. After cloning: `mise trust && mise

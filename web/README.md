@@ -26,8 +26,13 @@ yarn". `corepack yarn` runs the pinned yarn straight from Node.
 ## Checks
 
 - `task web:lint` — eslint, `tsc -b`, prettier, knip, and the import-boundary rules.
+- `task web:gen:check` — regenerate the client from the spec and fail on any drift.
 - `task web:test` — Vitest with the coverage floor.
 - `task web:build` — type-check and build the production bundle.
+
+The repo's `task check` runs the first three beside the Go gates, installing
+dependencies first when they are missing. The Playwright suite
+(`corepack yarn test:e2e`) stays outside it and runs in CI.
 
 ## Conventions
 

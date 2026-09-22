@@ -51,8 +51,11 @@ task fmt           # format everything in place
 task check         # the full gate — run this before opening a pull request
 ```
 
-`task check` is lint, tests with the coverage floor, `govulncheck`, and
-`gitleaks`. CI runs the same thing.
+`task check` is lint, tests with the coverage floors, `govulncheck`, and
+`gitleaks`, plus the web frontend's lint, its generated-client drift check and
+its unit tests — so the local gate needs Node, which `mise install` provisions,
+and installs the frontend's dependencies when they are missing. CI runs the same
+gates, and adds the Playwright end-to-end suite (`yarn test:e2e` in `web/`).
 
 ## Tests
 
@@ -67,8 +70,8 @@ and a table-driven test is preferred when cases differ only in data. `task lint`
 and the pre-commit hook check the markers; CLAUDE.md's TDD process section has
 the rules.
 
-Two coverage floors gate a change, both configured in `Taskfile.yml` and both
-printing the available ratchet when you clear them:
+Two Go coverage floors gate a change, both configured in `Taskfile.yml` and
+both printing the available ratchet when you clear them:
 
 - **Statements** (`task test:cover`) — did this line run.
 - **Conditions** (`task cover:branch`, via [gobco](https://github.com/rillig/gobco))
@@ -77,6 +80,9 @@ printing the available ratchet when you clear them:
   package in this module but the build-tagged twins `scripts/gobco-report.sh`
   lists as unreadable, and the script fails if another ever drops out without
   being listed.
+
+The web frontend's unit tests (`task web:test`) hold their own floor, the
+`thresholds` in `web/vitest.config.ts`.
 
 On a pull request, both numbers are posted as a comment with their delta against
 `main`. The comment is informational — the floors are what fail the build.

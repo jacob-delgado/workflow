@@ -137,16 +137,44 @@ tasks:
       - corepack yarn install
       - corepack yarn dev
 
+  # The one install every gated web task depends on, so `task check` and
+  # `task build` work from a clean checkout. run: once installs a single time
+  # however many of those tasks one `task` run pulls in; --immutable installs
+  # exactly what yarn.lock pins, fails if package.json disagrees with it, and
+  # is a no-op when node_modules already matches.
+  web:install:
+    internal: true
+    run: once
+    dir: web
+    env:
+      COREPACK_ENABLE_DOWNLOAD_PROMPT: "0"
+    cmds:
+      - corepack yarn install --immutable
+
   web:lint:
     desc: Lint the web frontend (eslint, tsc, prettier, knip, import boundaries)
+    deps: [web:install]
     dir: web
     env:
       COREPACK_ENABLE_DOWNLOAD_PROMPT: "0"
     cmds:
       - corepack yarn lint
 
+  # The web twin of gen:verify: regenerate the TypeScript client from
+  # api/openapi.yaml and fail on any diff, so a spec change that skipped
+  # `yarn gen` is red locally rather than first in CI.
+  web:gen:check:
+    desc: Fail if the generated web client has drifted from api/openapi.yaml
+    deps: [web:install]
+    dir: web
+    env:
+      COREPACK_ENABLE_DOWNLOAD_PROMPT: "0"
+    cmds:
+      - corepack yarn gen:check
+
   web:test:
     desc: Run the web frontend's unit tests with the coverage floor
+    deps: [web:install]
     dir: web
     env:
       COREPACK_ENABLE_DOWNLOAD_PROMPT: "0"
@@ -155,13 +183,11 @@ tasks:
 
   web:build:
     desc: Build the web frontend's production bundle into internal/web/dist for embedding
+    deps: [web:install]
     dir: web
     env:
       COREPACK_ENABLE_DOWNLOAD_PROMPT: "0"
     cmds:
-      # install first so `task build` works from a clean checkout; --immutable is
-      # a no-op when the lockfile is already satisfied.
-      - corepack yarn install --immutable
       - corepack yarn build
 
   test:
@@ -450,9 +476,16 @@ tasks:
 
   check:
     desc: The full local gate — run this before calling any task done
+    # The web frontend's lint, client-drift check and unit tests sit beside
+    # their Go twins, so a broken frontend fails here and not first in CI. The
+    # Playwright suite stays out: it needs a browser installed, and CI's e2e
+    # job runs it (`yarn test:e2e` by hand).
     cmds:
       - task: lint
+      - task: web:lint
+      - task: web:gen:check
       - task: test:cover
+      - task: web:test
       - task: cover:branch
       - task: vuln
       - task: secrets
@@ -469,12 +502,18 @@ tasks:
         {{.CONTAINER_RUNTIME}} build $(scripts/tool-versions.sh)
         -t {{.BUILD_IMAGE}} -f build/Dockerfile .
 
+  # The anonymous volume over web/node_modules keeps the host's out of the
+  # container: its native bindings are built for the host's platform (darwin on
+  # a Mac) and fail to load on Linux, and an install inside the container would
+  # otherwise overwrite them. The container installs its own, and --rm drops
+  # them with it.
   container:check:
     desc: Run the full gate inside the build container
     deps: [container:build]
     cmds:
       - >-
-        {{.CONTAINER_RUNTIME}} run --rm -v "$(pwd)":/src -w /src
+        {{.CONTAINER_RUNTIME}} run --rm -v "$(pwd)":/src
+        -v /src/web/node_modules -w /src
         {{.BUILD_IMAGE}} task check
 
   container:release:
@@ -482,7 +521,8 @@ tasks:
     deps: [container:build]
     cmds:
       - >-
-        {{.CONTAINER_RUNTIME}} run --rm -v "$(pwd)":/src -w /src
+        {{.CONTAINER_RUNTIME}} run --rm -v "$(pwd)":/src
+        -v /src/web/node_modules -w /src
         {{.BUILD_IMAGE}} task release:binaries
 
   release:binaries:

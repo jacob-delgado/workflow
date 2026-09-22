@@ -411,28 +411,27 @@ three forge-wiring conditions.
 **Done when.** `internal/store` is under 10 one-sided conditions and no
 condition in the module is never-evaluated.
 
-### DEBT-65 The web is outside `task check`, has no condition gate, and its e2e drives no write
+### DEBT-65 The web has no condition gate, and its e2e drives no write
 
 Severity: medium · Confidence: read
 
-`task check` (`Taskfile.yml:450`) runs `lint`, `test:cover`, `cover:branch`,
-`vuln` and `secrets` — the Go gates. `web:lint`, `web:test` and the
-Playwright run are separate CI jobs (`.github/workflows/ci.yml`), so a local
-`task check` passes with a broken frontend. `web/vitest.config.ts:35` sets
-`thresholds: { lines: 85, branches: 85 }` under the v8 provider — statement
-branches, not gobco-style per-condition coverage, and nine points below the
-Go statement floor of 94. The e2e suite is three specs (`web/e2e/a11y.spec.ts`,
-`smoke.spec.ts`, `theme.spec.ts`) run with no `workflow --web` backend —
-acknowledged at `ci.yml:101` ("Hermetic — no backend") — so no test drives
-any of the seven write actions end to end.
+`task check` (`Taskfile.yml:477`) runs the web's lint, client-drift check and
+unit tests beside the Go gates, but what those tests are held to is thinner.
+`web/vitest.config.ts:35` sets `thresholds: { lines: 85, branches: 85 }`
+under the v8 provider — statement branches, not gobco-style per-condition
+coverage, and nine points below the Go statement floor of 94. The e2e suite
+is three specs (`web/e2e/a11y.spec.ts`, `smoke.spec.ts`, `theme.spec.ts`),
+outside `task check` (CI's `e2e` job and `yarn test:e2e` run it), with no
+`workflow --web` backend — acknowledged at `.github/workflows/ci.yml:101`
+("Hermetic — no backend") — so no test drives any of the seven write
+actions end to end.
 
-**One way to fix it.** `check` gains `web:lint` and `web:test` (a decision:
-it adds a node requirement to the local gate); the e2e job starts
-`workflow --web` against a fixture repository so one spec can commit, push
-and open a pull request.
+**One way to fix it.** The e2e job starts `workflow --web` against a fixture
+repository so one spec can commit, push and open a pull request; the web's
+branch floor becomes per-condition.
 
-**Done when.** `task check` fails on a frontend lint error; one Playwright
-spec performs a write against a running server.
+**Done when.** One Playwright spec performs a write against a running
+server, and the web's coverage floor measures each condition both ways.
 
 ### DEBT-67 The event stream lives outside both generators, and a bad frame vanishes silently
 
