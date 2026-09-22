@@ -212,7 +212,7 @@ Where the order bites: **1 before 8, 9 and 10** (they consume `loop`);
 (feedback components exist before restyling); **15 last** (it documents the
 end state).
 
-### Phase 0 — Gates first
+### Phase 0 — Gates first — done
 
 Configuration only; TDD-exempt. Closes DEBT-61, DEBT-66 and the gate half
 of DEBT-62 and DEBT-65.
