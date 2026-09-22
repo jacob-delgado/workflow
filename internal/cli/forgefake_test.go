@@ -15,6 +15,7 @@ type ghResponses struct {
 	pulls       string // GET .../pulls?...              — a JSON array
 	status      string // GET .../commits/{sha}/status
 	checks      string // GET .../commits/{sha}/check-runs
+	search      string // GET .../search/issues?...      — a {"items":[...]} object
 	userError   bool   // when set, GET .../user answers unreadably, so Whoami fails
 	createError bool   // when set, POST .../pulls answers unreadably, so the open fails
 }
@@ -66,6 +67,7 @@ func fakeGh(t *testing.T, responses ghResponses) {
 		"reviews": `[]`,
 		"status":  orDefault(responses.status, `{"total_count":0,"statuses":[]}`),
 		"checks":  orDefault(responses.checks, `{"total_count":0,"check_runs":[]}`),
+		"search":  orDefault(responses.search, `{"items":[]}`),
 		"user":    user,
 		"default": `{}`,
 	}
@@ -82,6 +84,7 @@ func fakeGh(t *testing.T, responses ghResponses) {
 		"  *\"/pulls\") f=create ;;\n" +
 		"  *\"/commits/\"*\"/status\"*) f=status ;;\n" +
 		"  *\"/commits/\"*\"/check-runs\"*) f=checks ;;\n" +
+		"  *\"/search/issues\"*) f=search ;;\n" +
 		"  *\"/user\"*) f=user ;;\n" +
 		"  *) f=default ;;\n" +
 		"esac\n" +

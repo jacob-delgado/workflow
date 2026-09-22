@@ -4,9 +4,53 @@
 package cli_test
 
 import (
+	"net/http"
+	"os"
+	"os/exec"
 	"strings"
+	"sync/atomic"
 	"testing"
+
+	"github.com/jacob-delgado/workflow/internal/cli"
 )
+
+// standupSearch is the Jira search body for one issue you touched in the window.
+func standupSearch(key, summary, status string) string {
+	return `{"total":1,"issues":[{"key":"` + key + `","fields":{"summary":"` + summary +
+		`","issuetype":{"name":"Bug"},"status":{"name":"` + status +
+		`","statusCategory":{"key":"indeterminate"}}}}]}`
+}
+
+// repoWithCommit is a repository with one in-window commit, so the draft has
+// something to gather.
+func repoWithCommit(t *testing.T) string {
+	t.Helper()
+
+	repo := t.TempDir()
+	gitInit(t, repo)
+	commit(t, repo, "work")
+
+	return repo
+}
+
+// staleCommit makes a commit dated well before any standup window, so it is
+// gathered by nothing and the sections read as empty.
+func staleCommit(t *testing.T, dir, message string) {
+	t.Helper()
+
+	cmd := exec.CommandContext(t.Context(), "git", "-C", dir,
+		"-c", "user.email=t@example.com", "-c", "user.name=Tester",
+		"commit", "--allow-empty", "-m", message)
+
+	cmd.Env = append(os.Environ(),
+		"GIT_CONFIG_GLOBAL="+os.DevNull, "GIT_CONFIG_NOSYSTEM=1",
+		"GIT_AUTHOR_DATE=2020-01-01T00:00:00", "GIT_COMMITTER_DATE=2020-01-01T00:00:00")
+
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		t.Fatalf("git commit: %v (%s)", err, out)
+	}
+}
 
 func TestStandupDraftsFromTheRepository(t *testing.T) {
 	// Arrange
@@ -35,5 +79,151 @@ func TestStandupOutsideARepositoryReportsSo(t *testing.T) {
 	// Assert
 	if err == nil {
 		t.Error("standup outside a repository returned no error")
+	}
+}
+
+func TestStandupDraftsCommitsIssuesAndPulls(t *testing.T) {
+	// Arrange
+	// A day with a commit, an issue you touched, and an open pull request.
+	server := jiraServer(t, http.StatusOK, standupSearch("PROJ-7", "Fix the login", "In Progress"), new(atomic.Bool))
+	fakeGh(t, ghResponses{pulls: openPull("Add login")})
+	repo := githubRepo(t, "fix/PROJ-7-login")
+	commit(t, repo, "Fix the login")
+	writeFile(t, repo, `{"jira":{"base_url":"`+server.URL+`","token":"t"},`+
+		`"forge":{"cli":true,"kind":"github","host":"github.com"}}`)
+
+	// Act
+	out, err := run(t, repo, "standup", "--no-edit")
+	if err != nil {
+		t.Fatalf("standup: %v (%s)", err, out)
+	}
+
+	// Assert
+	for _, want := range []string{"# Standup", "Fix the login", "PROJ-7", "In Progress", "#7", "Add login"} {
+		if !strings.Contains(out, want) {
+			t.Errorf("standup draft missing %q:\n%s", want, out)
+		}
+	}
+}
+
+func TestStandupOmitsAMergedPullRequest(t *testing.T) {
+	// Arrange
+	// The branch's pull request has merged, so it is no longer open work to list.
+	fakeGh(t, ghResponses{pulls: mergedPull("Add login")})
+	repo := githubRepo(t, "fix/PROJ-7-login")
+	commit(t, repo, "Fix the login")
+	writeFile(t, repo, `{"forge":{"cli":true,"kind":"github","host":"github.com"}}`)
+
+	// Act
+	out, err := run(t, repo, "standup", "--no-edit")
+	if err != nil {
+		t.Fatalf("standup: %v (%s)", err, out)
+	}
+
+	// Assert
+	if strings.Contains(out, "#7") || !strings.Contains(out, "## Pull requests\n- none") {
+		t.Errorf("standup listed a merged pull request as open:\n%s", out)
+	}
+}
+
+func TestStandupWithNoWorkSaysEachSectionIsEmpty(t *testing.T) {
+	// Arrange
+	// A repository whose only commit falls outside the window, no forge and no
+	// tracker: every section is empty.
+	repo := t.TempDir()
+	gitInit(t, repo)
+	staleCommit(t, repo, "long ago")
+
+	// Act
+	out, err := run(t, repo, "standup", "--no-edit")
+	if err != nil {
+		t.Fatalf("standup: %v (%s)", err, out)
+	}
+
+	// Assert
+	if got := strings.Count(out, "- none"); got != 3 {
+		t.Errorf("empty standup listed %d empty sections, want 3:\n%s", got, out)
+	}
+}
+
+func TestStandupOpensTheDraftInTheEditor(t *testing.T) {
+	// Arrange
+	server := jiraServer(t, http.StatusOK, standupSearch("PROJ-7", "Fix the login", "In Progress"), new(atomic.Bool))
+	repo := repoWithCommit(t)
+	writeFile(t, repo, `{"jira":{"base_url":"`+server.URL+`","token":"t"}}`)
+
+	var seen string
+
+	prompt := cli.Prompt{
+		Compose: func(draft string) (string, error) {
+			seen = draft
+
+			return "# Standup\n\nwhat I actually did", nil
+		},
+	}
+
+	// Act
+	out, err := runGuided(t, repo, prompt, "standup")
+	if err != nil {
+		t.Fatalf("standup: %v (%s)", err, out)
+	}
+
+	// Assert
+	if !strings.Contains(seen, "PROJ-7") || !strings.Contains(out, "what I actually did") {
+		t.Errorf("the editor was not handed the draft, or its edit was dropped:\nseen=%q\nout=%s", seen, out)
+	}
+}
+
+func TestStandupWithNothingLeftSaysSo(t *testing.T) {
+	// Arrange
+	// The editor empties the draft, so there is nothing left to post.
+	repo := repoWithCommit(t)
+	writeFile(t, repo, `{"slack":{"webhook_url":"https://hooks.slack.example/services/x"}}`)
+
+	prompt := cli.Prompt{Compose: func(string) (string, error) { return "   \n\t", nil }}
+
+	// Act
+	out, err := runGuided(t, repo, prompt, "standup")
+	if err != nil {
+		t.Fatalf("standup: %v (%s)", err, out)
+	}
+
+	// Assert
+	if !strings.Contains(out, "Nothing to share.") || strings.Contains(out, "Posted to Slack.") {
+		t.Errorf("an emptied draft was posted or not reported:\n%s", out)
+	}
+}
+
+func TestStandupIsNotPostedWhenDeclined(t *testing.T) {
+	// Arrange
+	// Slack is configured, but the confirmation is declined, so nothing is posted.
+	repo := repoWithCommit(t)
+	writeFile(t, repo, `{"slack":{"webhook_url":"https://hooks.slack.example/services/x"}}`)
+
+	// Act
+	out, err := runGuided(t, repo, scripted([]string{"n"}, nil), "standup", "--no-edit")
+	if err != nil {
+		t.Fatalf("standup: %v (%s)", err, out)
+	}
+
+	// Assert
+	if !strings.Contains(out, "Not posted.") || strings.Contains(out, "Posted to Slack.") {
+		t.Errorf("a declined standup was posted:\n%s", out)
+	}
+}
+
+func TestStandupReportsAFailedPost(t *testing.T) {
+	// Arrange
+	// Slack is configured and the post is confirmed, but the webhook is
+	// unreachable, so the post fails.
+	repo := repoWithCommit(t)
+	writeFile(t, repo, `{"slack":{"webhook_url":"https://hooks.slack.example/services/x"}}`)
+
+	// Act
+	_, err := runGuided(t, repo, scripted([]string{"y"}, nil), "standup", "--no-edit")
+
+	// Assert
+	if err == nil || !strings.Contains(err.Error(), "Slack") {
+		t.Errorf("standup returned %v, want the post failure", err)
 	}
 }

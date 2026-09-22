@@ -109,6 +109,17 @@ linters:
       # which every overlay's methods take and hand back, and `w` for the world
       # harness every interface test drives.
       ignore-names: [tt, ok, m, w]
+    testpackage:
+      # Black-box only, enforced: every *_test.go must declare package
+      # <name>_test, so a test reaches the package solely through its exported
+      # surface — never an unexported function, field or seam. testpackage's
+      # default skip-regexp exempts *_internal_test.go; override it to match only
+      # the empty string (i.e. skip nothing) so there is no white-box escape
+      # hatch. A behavior with no public surface is driven through a fake
+      # (jira over httptest, gh/glab on PATH via forge.cli, a stub opener) or,
+      # when even that is impossible, left to its own package's tests and the
+      # coverage floor lowered — the floor flexes, this rule does not.
+      skip-regexp: "^$"
 
   exclusions:
     warn-unused: true # tell us when an exclusion below stops matching anything
