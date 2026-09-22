@@ -141,7 +141,7 @@ test('shows the reason when a commit is refused', async () => {
   // Arrange
   mockCommit.mockRejectedValueOnce({
     code: 'unprocessable',
-    message: 'nothing is staged to commit',
+    detail: 'nothing is staged to commit',
   })
   const user = userEvent.setup()
   staged()
@@ -248,7 +248,7 @@ test('does not push if the confirm is canceled', async () => {
 
 test('shows the reason when a push fails', async () => {
   // Arrange
-  mockPush.mockRejectedValueOnce({ code: 'unprocessable', message: 'the push failed: rejected' })
+  mockPush.mockRejectedValueOnce({ code: 'unprocessable', detail: 'the push failed: rejected' })
   const user = userEvent.setup()
   pushable()
   render(<BranchPanel />)

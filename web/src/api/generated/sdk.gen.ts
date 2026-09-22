@@ -2,7 +2,7 @@
 
 import type { Client, ClientMeta, Options as Options2, RequestResult, ServerSentEventsResult, TDataShape } from './client';
 import { client } from './client.gen';
-import type { AnnounceData, AnnounceErrors, AnnounceResponses, CheckoutData, CheckoutErrors, CheckoutResponses, CommitData, CommitErrors, CommitResponses, CreateBranchData, CreateBranchErrors, CreateBranchResponses, GetAnnouncementData, GetAnnouncementErrors, GetAnnouncementResponses, GetBranchData, GetBranchErrors, GetBranchResponses, GetConfigData, GetConfigErrors, GetConfigResponses, GetHealthData, GetHealthResponses, GetIssueData, GetIssueErrors, GetIssueResponses, GetMessagingData, GetMessagingErrors, GetMessagingResponses, GetPullRequestDraftData, GetPullRequestDraftErrors, GetPullRequestDraftResponses, GetReviewData, GetReviewErrors, GetReviewResponses, ListChangesData, ListChangesErrors, ListChangesResponses, ListIssuesData, ListIssuesErrors, ListIssuesResponses, ListViewsData, ListViewsErrors, ListViewsResponses, OpenPullRequestData, OpenPullRequestErrors, OpenPullRequestResponses, PushData, PushErrors, PushResponses, StreamEventsData, StreamEventsResponse, StreamEventsResponses, UpdateConfigData, UpdateConfigErrors, UpdateConfigResponses } from './types.gen';
+import type { AnnounceData, AnnounceErrors, AnnounceResponses, CheckoutData, CheckoutErrors, CheckoutResponses, CommitData, CommitErrors, CommitResponses, CreateBranchData, CreateBranchErrors, CreateBranchResponses, GetAnnouncementData, GetAnnouncementErrors, GetAnnouncementResponses, GetBranchData, GetBranchErrors, GetBranchResponses, GetConfigData, GetConfigErrors, GetConfigResponses, GetHealthData, GetHealthErrors, GetHealthResponses, GetIssueData, GetIssueErrors, GetIssueResponses, GetMessagingData, GetMessagingErrors, GetMessagingResponses, GetPullRequestDraftData, GetPullRequestDraftErrors, GetPullRequestDraftResponses, GetReviewData, GetReviewErrors, GetReviewResponses, ListChangesData, ListChangesErrors, ListChangesResponses, ListIssuesData, ListIssuesErrors, ListIssuesResponses, ListViewsData, ListViewsErrors, ListViewsResponses, OpenPullRequestData, OpenPullRequestErrors, OpenPullRequestResponses, PushData, PushErrors, PushResponses, StreamEventsData, StreamEventsErrors, StreamEventsResponse, StreamEventsResponses, UpdateConfigData, UpdateConfigErrors, UpdateConfigResponses } from './types.gen';
 import { zAnnounceResponse, zCheckoutResponse, zCommitResponse, zCreateBranchResponse, zGetAnnouncementResponse, zGetBranchResponse, zGetConfigResponse, zGetHealthResponse, zGetIssueResponse, zGetMessagingResponse, zGetPullRequestDraftResponse, zGetReviewResponse, zListChangesResponse, zListIssuesResponse, zListViewsResponse, zOpenPullRequestResponse, zPushResponse, zStreamEventsResponse, zUpdateConfigResponse } from './zod.gen';
 
 export type Options<TData extends TDataShape = TDataShape, ThrowOnError extends boolean = boolean, TResponse = unknown> = Options2<TData, ThrowOnError, TResponse> & {
@@ -22,7 +22,7 @@ export type Options<TData extends TDataShape = TDataShape, ThrowOnError extends 
 /**
  * Server and build information.
  */
-export const getHealth = <ThrowOnError extends boolean = false>(options?: Options<GetHealthData, ThrowOnError>): RequestResult<GetHealthResponses, unknown, ThrowOnError> => (options?.client ?? client).get<GetHealthResponses, unknown, ThrowOnError>({
+export const getHealth = <ThrowOnError extends boolean = false>(options?: Options<GetHealthData, ThrowOnError>): RequestResult<GetHealthResponses, GetHealthErrors, ThrowOnError> => (options?.client ?? client).get<GetHealthResponses, GetHealthErrors, ThrowOnError>({
     responseValidator: async (data) => await zGetHealthResponse.parseAsync(data),
     url: '/api/health',
     ...options
@@ -228,7 +228,7 @@ export const openPullRequest = <ThrowOnError extends boolean = false>(options: O
  *
  * A Server-Sent Events stream (text/event-stream). Each message is a "snapshot" event whose data is a Snapshot: the current issues, branch, changes, review, and messaging destination. The browser subscribes once and updates from the pushes rather than polling.
  */
-export const streamEvents = <ThrowOnError extends boolean = false>(options?: Options<StreamEventsData, ThrowOnError, StreamEventsResponse>): Promise<ServerSentEventsResult<StreamEventsResponses>> => (options?.client ?? client).sse.get<StreamEventsResponses, unknown, ThrowOnError>({
+export const streamEvents = <ThrowOnError extends boolean = false>(options?: Options<StreamEventsData, ThrowOnError, StreamEventsResponse>): Promise<ServerSentEventsResult<StreamEventsResponses>> => (options?.client ?? client).sse.get<StreamEventsResponses, StreamEventsErrors, ThrowOnError>({
     responseValidator: async (data) => await zStreamEventsResponse.parseAsync(data),
     url: '/api/events',
     ...options

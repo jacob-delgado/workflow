@@ -34,7 +34,7 @@ func (s *server) Push(_ context.Context, _ api.PushRequestObject) (api.PushRespo
 	}
 
 	if nothingToPush(branch) {
-		return api.Push409JSONResponse{Code: api.Conflict, Message: "there is nothing to push"}, nil
+		return api.Push409ApplicationProblemPlusJSONResponse(problem(api.Conflict, "there is nothing to push")), nil
 	}
 
 	err = s.pushBranch(branch.Name)
@@ -92,6 +92,6 @@ func (s *server) publishedBranch(before gitrepo.Branch) gitrepo.Branch {
 }
 
 // pushUnprocessable is the 422 response for a push the server will not make.
-func pushUnprocessable(message string) api.Push422JSONResponse {
-	return api.Push422JSONResponse{Code: api.Unprocessable, Message: message}
+func pushUnprocessable(message string) api.Push422ApplicationProblemPlusJSONResponse {
+	return api.Push422ApplicationProblemPlusJSONResponse(problem(api.Unprocessable, message))
 }

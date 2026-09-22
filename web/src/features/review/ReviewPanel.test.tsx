@@ -198,7 +198,7 @@ test('keeps the form and shows the reason when opening is refused', async () => 
   // test fails if the reason is dropped for the fallback.
   mockOpenPr.mockRejectedValueOnce({
     code: 'unprocessable',
-    message: 'the base branch trunk does not exist on the forge',
+    detail: 'the base branch trunk does not exist on the forge',
   })
   const user = userEvent.setup()
   useSnapshotStore.setState({

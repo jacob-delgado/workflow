@@ -27,7 +27,8 @@ func (s *server) GetPullRequestDraft(
 ) (api.GetPullRequestDraftResponseObject, error) {
 	draft, branch, ok := s.composePullRequest()
 	if !ok {
-		return api.GetPullRequestDraft409JSONResponse{Code: api.Conflict, Message: errNothingToOpen.Error()}, nil
+		return api.GetPullRequestDraft409ApplicationProblemPlusJSONResponse(
+			problem(api.Conflict, errNothingToOpen.Error())), nil
 	}
 
 	return api.GetPullRequestDraft200JSONResponse(draftDTO(draft, branch)), nil
@@ -50,7 +51,7 @@ func (s *server) OpenPullRequest(
 
 	_, branch, ok := s.composePullRequest()
 	if !ok {
-		return api.OpenPullRequest409JSONResponse{Code: api.Conflict, Message: errNothingToOpen.Error()}, nil
+		return api.OpenPullRequest409ApplicationProblemPlusJSONResponse(problem(api.Conflict, errNothingToOpen.Error())), nil
 	}
 
 	newPull, ok := pullFromRequest(*request.Body, branch)
@@ -219,6 +220,6 @@ func draftDTO(draft forge.NewPullRequest, branch gitrepo.Branch) api.PullRequest
 
 // openUnprocessable is the 422 response for a pull request the server will not
 // open.
-func openUnprocessable(message string) api.OpenPullRequest422JSONResponse {
-	return api.OpenPullRequest422JSONResponse{Code: api.Unprocessable, Message: message}
+func openUnprocessable(message string) api.OpenPullRequest422ApplicationProblemPlusJSONResponse {
+	return api.OpenPullRequest422ApplicationProblemPlusJSONResponse(problem(api.Unprocessable, message))
 }

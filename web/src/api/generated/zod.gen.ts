@@ -2,7 +2,14 @@
 
 import * as z from 'zod';
 
-export const zError = z.object({
+/**
+ * An RFC 9457 problem details object. The detail is safe to show and never carries a secret; code is a stable, machine-readable reason.
+ */
+export const zProblem = z.object({
+    type: z.url(),
+    title: z.string(),
+    status: z.int(),
+    detail: z.string(),
     code: z.enum([
         'bad_request',
         'not_found',
@@ -10,8 +17,7 @@ export const zError = z.object({
         'unprocessable',
         'unreachable',
         'internal'
-    ]),
-    message: z.string()
+    ])
 });
 
 /**

@@ -280,7 +280,7 @@ test('shows the reason when the post is refused', async () => {
   // Arrange
   mockAnnounce.mockRejectedValueOnce({
     code: 'unprocessable',
-    message: 'the announcement could not be posted',
+    detail: 'the announcement could not be posted',
   })
   const user = userEvent.setup()
   withPullRequest()

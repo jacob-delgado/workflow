@@ -25,7 +25,7 @@ func (s *server) GetAnnouncement(
 ) (api.GetAnnouncementResponseObject, error) {
 	announcement, ok := s.composeAnnouncement()
 	if !ok {
-		return api.GetAnnouncement409JSONResponse{Code: api.Conflict, Message: errNoPullRequest.Error()}, nil
+		return api.GetAnnouncement409ApplicationProblemPlusJSONResponse(problem(api.Conflict, errNoPullRequest.Error())), nil
 	}
 
 	return api.GetAnnouncement200JSONResponse(announcementDTO(announcement, s.config().Messaging.Channel)), nil
@@ -45,7 +45,7 @@ func (s *server) Announce(_ context.Context, request api.AnnounceRequestObject) 
 
 	announcement, ok := s.composeAnnouncement()
 	if !ok {
-		return api.Announce409JSONResponse{Code: api.Conflict, Message: errNoPullRequest.Error()}, nil
+		return api.Announce409ApplicationProblemPlusJSONResponse(problem(api.Conflict, errNoPullRequest.Error())), nil
 	}
 
 	channel := request.Body.Channel
@@ -157,6 +157,6 @@ func announcementDTO(announcement messaging.Announcement, channel string) api.An
 
 // announceUnprocessable is the 422 response for an announcement the server will
 // not post.
-func announceUnprocessable(message string) api.Announce422JSONResponse {
-	return api.Announce422JSONResponse{Code: api.Unprocessable, Message: message}
+func announceUnprocessable(message string) api.Announce422ApplicationProblemPlusJSONResponse {
+	return api.Announce422ApplicationProblemPlusJSONResponse(problem(api.Unprocessable, message))
 }

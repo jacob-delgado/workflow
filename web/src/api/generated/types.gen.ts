@@ -4,15 +4,30 @@ export type ClientOptions = {
     baseUrl: 'http://127.0.0.1:7000' | (string & {});
 };
 
-export type Error = {
+/**
+ * An RFC 9457 problem details object. The detail is safe to show and never carries a secret; code is a stable, machine-readable reason.
+ */
+export type Problem = {
+    /**
+     * A URI that identifies the problem type.
+     */
+    type: string;
+    /**
+     * A short, human-readable summary of the problem type.
+     */
+    title: string;
+    /**
+     * The HTTP status code.
+     */
+    status: number;
+    /**
+     * A human-readable explanation specific to this occurrence.
+     */
+    detail: string;
     /**
      * A stable, machine-readable reason.
      */
     code: 'bad_request' | 'not_found' | 'conflict' | 'unprocessable' | 'unreachable' | 'internal';
-    /**
-     * A human-readable explanation, safe to show. Never a secret.
-     */
-    message: string;
 };
 
 /**
@@ -552,6 +567,15 @@ export type GetHealthData = {
     url: '/api/health';
 };
 
+export type GetHealthErrors = {
+    /**
+     * An RFC 9457 problem details object describing the failure.
+     */
+    default: Problem;
+};
+
+export type GetHealthError = GetHealthErrors[keyof GetHealthErrors];
+
 export type GetHealthResponses = {
     /**
      * The server is up.
@@ -570,9 +594,9 @@ export type ListViewsData = {
 
 export type ListViewsErrors = {
     /**
-     * The request could not be completed.
+     * An RFC 9457 problem details object describing the failure.
      */
-    default: Error;
+    default: Problem;
 };
 
 export type ListViewsError = ListViewsErrors[keyof ListViewsErrors];
@@ -604,9 +628,9 @@ export type ListIssuesData = {
 
 export type ListIssuesErrors = {
     /**
-     * The request could not be completed.
+     * An RFC 9457 problem details object describing the failure.
      */
-    default: Error;
+    default: Problem;
 };
 
 export type ListIssuesError = ListIssuesErrors[keyof ListIssuesErrors];
@@ -636,11 +660,11 @@ export type GetIssueErrors = {
     /**
      * No such issue.
      */
-    404: Error;
+    404: Problem;
     /**
-     * The request could not be completed.
+     * An RFC 9457 problem details object describing the failure.
      */
-    default: Error;
+    default: Problem;
 };
 
 export type GetIssueError = GetIssueErrors[keyof GetIssueErrors];
@@ -663,9 +687,9 @@ export type GetBranchData = {
 
 export type GetBranchErrors = {
     /**
-     * The request could not be completed.
+     * An RFC 9457 problem details object describing the failure.
      */
-    default: Error;
+    default: Problem;
 };
 
 export type GetBranchError = GetBranchErrors[keyof GetBranchErrors];
@@ -688,9 +712,9 @@ export type ListChangesData = {
 
 export type ListChangesErrors = {
     /**
-     * The request could not be completed.
+     * An RFC 9457 problem details object describing the failure.
      */
-    default: Error;
+    default: Problem;
 };
 
 export type ListChangesError = ListChangesErrors[keyof ListChangesErrors];
@@ -713,9 +737,9 @@ export type GetReviewData = {
 
 export type GetReviewErrors = {
     /**
-     * The request could not be completed.
+     * An RFC 9457 problem details object describing the failure.
      */
-    default: Error;
+    default: Problem;
 };
 
 export type GetReviewError = GetReviewErrors[keyof GetReviewErrors];
@@ -738,9 +762,9 @@ export type GetMessagingData = {
 
 export type GetMessagingErrors = {
     /**
-     * The request could not be completed.
+     * An RFC 9457 problem details object describing the failure.
      */
-    default: Error;
+    default: Problem;
 };
 
 export type GetMessagingError = GetMessagingErrors[keyof GetMessagingErrors];
@@ -763,9 +787,9 @@ export type GetConfigData = {
 
 export type GetConfigErrors = {
     /**
-     * The request could not be completed.
+     * An RFC 9457 problem details object describing the failure.
      */
-    default: Error;
+    default: Problem;
 };
 
 export type GetConfigError = GetConfigErrors[keyof GetConfigErrors];
@@ -790,11 +814,11 @@ export type UpdateConfigErrors = {
     /**
      * The configuration is invalid; nothing was written.
      */
-    422: Error;
+    422: Problem;
     /**
-     * The request could not be completed.
+     * An RFC 9457 problem details object describing the failure.
      */
-    default: Error;
+    default: Problem;
 };
 
 export type UpdateConfigError = UpdateConfigErrors[keyof UpdateConfigErrors];
@@ -819,15 +843,15 @@ export type CheckoutErrors = {
     /**
      * The working tree has uncommitted changes; nothing was switched.
      */
-    409: Error;
+    409: Problem;
     /**
      * The branch could not be checked out.
      */
-    422: Error;
+    422: Problem;
     /**
-     * The request could not be completed.
+     * An RFC 9457 problem details object describing the failure.
      */
-    default: Error;
+    default: Problem;
 };
 
 export type CheckoutError = CheckoutErrors[keyof CheckoutErrors];
@@ -852,15 +876,15 @@ export type CreateBranchErrors = {
     /**
      * A branch for the issue already exists; nothing was created.
      */
-    409: Error;
+    409: Problem;
     /**
      * The branch could not be created.
      */
-    422: Error;
+    422: Problem;
     /**
-     * The request could not be completed.
+     * An RFC 9457 problem details object describing the failure.
      */
-    default: Error;
+    default: Problem;
 };
 
 export type CreateBranchError = CreateBranchErrors[keyof CreateBranchErrors];
@@ -885,11 +909,11 @@ export type GetAnnouncementErrors = {
     /**
      * There is no pull request to announce.
      */
-    409: Error;
+    409: Problem;
     /**
-     * The request could not be completed.
+     * An RFC 9457 problem details object describing the failure.
      */
-    default: Error;
+    default: Problem;
 };
 
 export type GetAnnouncementError = GetAnnouncementErrors[keyof GetAnnouncementErrors];
@@ -914,15 +938,15 @@ export type AnnounceErrors = {
     /**
      * There is no pull request to announce.
      */
-    409: Error;
+    409: Problem;
     /**
      * The announcement could not be posted.
      */
-    422: Error;
+    422: Problem;
     /**
-     * The request could not be completed.
+     * An RFC 9457 problem details object describing the failure.
      */
-    default: Error;
+    default: Problem;
 };
 
 export type AnnounceError = AnnounceErrors[keyof AnnounceErrors];
@@ -947,15 +971,15 @@ export type PushErrors = {
     /**
      * There is nothing to push.
      */
-    409: Error;
+    409: Problem;
     /**
      * The push failed.
      */
-    422: Error;
+    422: Problem;
     /**
-     * The request could not be completed.
+     * An RFC 9457 problem details object describing the failure.
      */
-    default: Error;
+    default: Problem;
 };
 
 export type PushError = PushErrors[keyof PushErrors];
@@ -980,15 +1004,15 @@ export type CommitErrors = {
     /**
      * Nothing is staged; there is nothing to commit.
      */
-    409: Error;
+    409: Problem;
     /**
      * The message is invalid, or the commit failed.
      */
-    422: Error;
+    422: Problem;
     /**
-     * The request could not be completed.
+     * An RFC 9457 problem details object describing the failure.
      */
-    default: Error;
+    default: Problem;
 };
 
 export type CommitError = CommitErrors[keyof CommitErrors];
@@ -1013,11 +1037,11 @@ export type GetPullRequestDraftErrors = {
     /**
      * There is nothing to open a pull request for.
      */
-    409: Error;
+    409: Problem;
     /**
-     * The request could not be completed.
+     * An RFC 9457 problem details object describing the failure.
      */
-    default: Error;
+    default: Problem;
 };
 
 export type GetPullRequestDraftError = GetPullRequestDraftErrors[keyof GetPullRequestDraftErrors];
@@ -1042,15 +1066,15 @@ export type OpenPullRequestErrors = {
     /**
      * There is nothing to open a pull request for.
      */
-    409: Error;
+    409: Problem;
     /**
      * The push or the open failed, or the request is incomplete.
      */
-    422: Error;
+    422: Problem;
     /**
-     * The request could not be completed.
+     * An RFC 9457 problem details object describing the failure.
      */
-    default: Error;
+    default: Problem;
 };
 
 export type OpenPullRequestError = OpenPullRequestErrors[keyof OpenPullRequestErrors];
@@ -1075,6 +1099,15 @@ export type StreamEventsData = {
     };
     url: '/api/events';
 };
+
+export type StreamEventsErrors = {
+    /**
+     * An RFC 9457 problem details object describing the failure.
+     */
+    default: Problem;
+};
+
+export type StreamEventsError = StreamEventsErrors[keyof StreamEventsErrors];
 
 export type StreamEventsResponses = {
     /**

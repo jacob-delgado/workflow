@@ -90,7 +90,7 @@ func TestAnUnknownEndpointIsNotFound(t *testing.T) {
 		t.Fatalf("status = %d, want 404 for an unknown endpoint", recorder.Code)
 	}
 
-	failure := decode[api.Error](t, recorder)
+	failure := decode[api.Problem](t, recorder)
 	if failure.Code != api.NotFound {
 		t.Errorf("code = %q, want not_found", failure.Code)
 	}

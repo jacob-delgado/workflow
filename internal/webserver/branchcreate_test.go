@@ -120,7 +120,7 @@ func TestCreateBranchRefusesWhenOneAlreadyExists(t *testing.T) {
 		t.Error("created a branch despite one already existing")
 	}
 
-	if failure := decode[api.Error](t, recorder); failure.Code != api.Conflict {
+	if failure := decode[api.Problem](t, recorder); failure.Code != api.Conflict {
 		t.Errorf("code = %q, want conflict", failure.Code)
 	}
 }

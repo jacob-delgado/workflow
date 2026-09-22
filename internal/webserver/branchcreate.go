@@ -40,7 +40,7 @@ func (s *server) CreateBranch(
 	case err == nil:
 		return api.CreateBranch200JSONResponse(branchDTO(branch)), nil
 	case errors.Is(err, errBranchExists):
-		return api.CreateBranch409JSONResponse{Code: api.Conflict, Message: errBranchExists.Error()}, nil
+		return api.CreateBranch409ApplicationProblemPlusJSONResponse(problem(api.Conflict, errBranchExists.Error())), nil
 	default:
 		return createBranchUnprocessable("the branch could not be created"), nil
 	}
@@ -114,6 +114,6 @@ func (s *server) currentBranchBase() string {
 
 // createBranchUnprocessable is the 422 response for a branch the server will not
 // create.
-func createBranchUnprocessable(message string) api.CreateBranch422JSONResponse {
-	return api.CreateBranch422JSONResponse{Code: api.Unprocessable, Message: message}
+func createBranchUnprocessable(message string) api.CreateBranch422ApplicationProblemPlusJSONResponse {
+	return api.CreateBranch422ApplicationProblemPlusJSONResponse(problem(api.Unprocessable, message))
 }

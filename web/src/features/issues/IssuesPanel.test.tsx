@@ -141,7 +141,7 @@ test('shows the reason when a list checkout is refused', async () => {
   // Arrange
   mockCheckout.mockRejectedValueOnce({
     code: 'conflict',
-    message: 'the working tree has uncommitted changes',
+    detail: 'the working tree has uncommitted changes',
   })
   const user = userEvent.setup()
   withIssues()

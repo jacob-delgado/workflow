@@ -185,7 +185,7 @@ func TestCommitRefusesWhenNothingIsStaged(t *testing.T) {
 		t.Error("committed with nothing staged")
 	}
 
-	if failure := decode[api.Error](t, recorder); failure.Code != api.Conflict {
+	if failure := decode[api.Problem](t, recorder); failure.Code != api.Conflict {
 		t.Errorf("code = %q, want conflict", failure.Code)
 	}
 }
@@ -234,7 +234,7 @@ func TestCommitReportsAFailingCommit(t *testing.T) {
 		t.Fatalf("status = %d, want 422 when the commit fails", recorder.Code)
 	}
 
-	message := decode[api.Error](t, recorder).Message
+	message := decode[api.Problem](t, recorder).Detail
 
 	if !strings.Contains(message, "the commit failed") || !strings.Contains(message, "trailing whitespace") {
 		t.Errorf("message = %q, want the failure and its output", message)

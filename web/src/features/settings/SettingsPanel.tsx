@@ -1,5 +1,6 @@
 import { useState, type ReactNode } from 'react'
 import { useForm } from 'react-hook-form'
+import { apiErrorMessage } from '@/api/apiError.ts'
 import type { Config } from '@/api/generated/types.gen.ts'
 import { EmptyState } from '@/shell/EmptyState.tsx'
 import { useConfig, useSaveConfig } from './configApi.ts'
@@ -325,19 +326,10 @@ function ConfigForm({ config }: { config: Config }) {
   )
 }
 
-// The API's error body is { code, message }, thrown as-is by the client rather
-// than as an Error; surface its message when there is one, else a fallback.
+// The API throws an RFC 9457 problem details object as-is; surface its detail
+// (or title) through the shared reader, else a fallback specific to saving.
 export function errorMessage(caught: unknown): string {
-  if (caught instanceof Error) {
-    return caught.message
-  }
-  if (typeof caught === 'object' && caught !== null && 'message' in caught) {
-    if (typeof caught.message === 'string') {
-      return caught.message
-    }
-  }
-
-  return 'The configuration could not be saved.'
+  return apiErrorMessage(caught, 'The configuration could not be saved.')
 }
 
 const inputClass =

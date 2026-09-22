@@ -5,12 +5,18 @@ import { vi } from 'vitest'
 import { renderWithClient } from '@/test/renderWithClient.tsx'
 import { errorMessage, SettingsPanel } from './SettingsPanel.tsx'
 
-test('errorMessage surfaces a thrown Error or an error body, else a fallback', () => {
+test('errorMessage surfaces a thrown Error or a problem detail, else a fallback', () => {
   // Act & Assert
   expect(errorMessage(new Error('boom'))).toBe('boom')
-  expect(errorMessage({ code: 'unprocessable', message: 'the config is not valid' })).toBe(
-    'the config is not valid',
-  )
+  expect(
+    errorMessage({
+      type: 't',
+      title: 'Unprocessable content',
+      status: 422,
+      detail: 'the config is not valid',
+      code: 'unprocessable',
+    }),
+  ).toBe('the config is not valid')
   expect(errorMessage(42)).toMatch(/could not be saved/i)
 })
 
