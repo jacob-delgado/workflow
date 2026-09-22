@@ -1,8 +1,16 @@
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
+import { vi } from 'vitest'
 import { useSnapshotStore } from '@/api/snapshot.ts'
 import { makeSnapshot } from '@/test/fixtures.ts'
+import { checkoutBranch } from './checkoutApi.ts'
 import { IssuesPanel } from './IssuesPanel.tsx'
+
+vi.mock('./checkoutApi.ts', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('./checkoutApi.ts')>()),
+  checkoutBranch: vi.fn(() => Promise.resolve()),
+}))
+const mockCheckout = vi.mocked(checkoutBranch)
 
 function withIssues() {
   useSnapshotStore.setState({
@@ -89,6 +97,44 @@ test('marks only the issues a local branch names as in flight', () => {
 
   // Assert
   expect(screen.getAllByText('in flight')).toHaveLength(1)
+})
+
+test('checks out an in-flight branch from the list without opening the detail', async () => {
+  // Arrange
+  // PROJ-1's branch exists but is not the checked-out one, so the row offers to
+  // switch to it directly.
+  const user = userEvent.setup()
+  withIssues()
+  useSnapshotStore.setState((state) => ({
+    snapshot: state.snapshot && {
+      ...state.snapshot,
+      branches: [{ name: 'fix/PROJ-1-leak', issue_key: 'PROJ-1', current: false }],
+    },
+  }))
+  render(<IssuesPanel />)
+
+  // Act
+  await user.click(screen.getByRole('button', { name: /check out PROJ-1/i }))
+
+  // Assert
+  expect(mockCheckout).toHaveBeenCalledWith('fix/PROJ-1-leak')
+})
+
+test('does not offer to check out the branch already on HEAD', () => {
+  // Arrange
+  withIssues()
+  useSnapshotStore.setState((state) => ({
+    snapshot: state.snapshot && {
+      ...state.snapshot,
+      branches: [{ name: 'fix/PROJ-1-leak', issue_key: 'PROJ-1', current: true }],
+    },
+  }))
+
+  // Act
+  render(<IssuesPanel />)
+
+  // Assert
+  expect(screen.queryByRole('button', { name: /check out PROJ-1/i })).toBeNull()
 })
 
 test('prompts to connect before any snapshot arrives', () => {
