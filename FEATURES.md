@@ -282,16 +282,6 @@ Impact: medium · Effort: large
   foreground command that a shell can background.
 - Done when: a post queued before quitting is sent when CI passes.
 
-### FEAT-66 Remember what was announced
-
-Impact: low · Effort: small
-
-- Reopens: nothing stored between sessions.
-- Why: after a restart the Slack pane says "nothing posted" for a pull request
-  that was announced an hour ago, and offers to announce it again.
-- A version that fits: the same history search as FEAT-64.
-- Done when: a pull request announced in an earlier session shows as posted.
-
 ### FEAT-68 Start instantly from a cache
 
 Impact: low · Effort: medium

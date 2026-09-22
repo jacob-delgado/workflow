@@ -160,6 +160,18 @@ type StoreDeps struct {
 	LastScope func() (string, bool)
 	// RecordScope remembers the commit scope just used in this repository.
 	RecordScope func(scope string)
+	// Announced is every pull request announced in this repository in an earlier
+	// session, so the messaging pane opens knowing what has already been posted.
+	Announced func() []AnnouncedPost
+	// RecordAnnounce remembers that a pull request was just announced at a moment.
+	RecordAnnounce func(post AnnouncedPost)
+}
+
+// AnnouncedPost is one announcement the store remembers: which pull request, and
+// the moment it marked.
+type AnnouncedPost struct {
+	Pull   int
+	Moment int
 }
 
 // HookDeps is what the interface asks of lefthook.
