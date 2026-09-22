@@ -10,7 +10,6 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"net/url"
@@ -304,10 +303,12 @@ func storeDeps(ctx context.Context, cfg config.Config, where Workspace) tui.Stor
 		LastScope: func() (string, bool) {
 			scope, found, _ := kept.LastScope(ctx, repo)
 
-			return scope, found
+			// The store is a file on disk: what it reads back is untrusted, so
+			// neutralize any terminal control it may carry before the composer shows it.
+			return sanitize.Line(scope), found
 		},
 		RecordScope: func(scope string) {
-			_ = kept.RecordScope(ctx, repo, scope, time.Now())
+			_ = kept.RecordScope(ctx, repo, sanitize.Line(scope), time.Now())
 		},
 		Announced: func() []tui.AnnouncedPost {
 			recorded, _ := kept.Announces(ctx, repo)
@@ -323,61 +324,44 @@ func storeDeps(ctx context.Context, cfg config.Config, where Workspace) tui.Stor
 			_ = kept.RecordAnnounce(ctx, repo, store.Announce{Pull: post.Pull, Moment: post.Moment}, time.Now())
 		},
 		CachedIssues: func(view string) ([]jira.Issue, bool) {
-			payload, found, _ := kept.CachedIssues(ctx, instance, view)
+			cached, found, _ := kept.CachedIssues(ctx, instance, view)
 			if !found {
-				return nil, false
-			}
-
-			var cached []cachedIssue
-
-			err := json.Unmarshal(payload, &cached)
-			if err != nil {
 				return nil, false
 			}
 
 			return fromCachedIssues(cached), true
 		},
 		CacheIssues: func(view string, issues []jira.Issue) {
-			payload, err := json.Marshal(toCachedIssues(issues))
-			if err == nil {
-				_ = kept.CacheIssues(ctx, instance, view, payload, time.Now())
-			}
+			_ = kept.CacheIssues(ctx, instance, view, toCachedIssues(issues), time.Now())
 		},
 	}
 }
 
-// cachedIssue is the persisted shape of a cached issue: an explicit format, so
-// the store's payload does not silently track the domain type's fields, and only
-// the few non-secret fields a first pane needs are kept.
-type cachedIssue struct {
-	Key            string `json:"key"`
-	Summary        string `json:"summary"`
-	Status         string `json:"status"`
-	StatusCategory string `json:"status_category"`
-	Type           string `json:"type"`
-	Priority       string `json:"priority"`
-}
-
-// toCachedIssues reduces the tracker's issues to their cached shape.
-func toCachedIssues(issues []jira.Issue) []cachedIssue {
-	cached := make([]cachedIssue, len(issues))
+// toCachedIssues reduces the tracker's issues to the store's shape, neutralizing
+// terminal control in each field so nothing hostile is written to the file.
+func toCachedIssues(issues []jira.Issue) []store.CachedIssue {
+	cached := make([]store.CachedIssue, len(issues))
 	for index, issue := range issues {
-		cached[index] = cachedIssue{
-			Key: string(issue.Key), Summary: issue.Summary, Status: issue.Status,
-			StatusCategory: string(issue.StatusCategory), Type: issue.Type, Priority: issue.Priority,
+		cached[index] = store.CachedIssue{
+			Key: sanitize.Line(string(issue.Key)), Summary: sanitize.Line(issue.Summary),
+			Status: sanitize.Line(issue.Status), StatusCategory: sanitize.Line(string(issue.StatusCategory)),
+			Type: sanitize.Line(issue.Type), Priority: sanitize.Line(issue.Priority),
 		}
 	}
 
 	return cached
 }
 
-// fromCachedIssues rebuilds the tracker's issues from their cached shape.
-func fromCachedIssues(cached []cachedIssue) []jira.Issue {
+// fromCachedIssues rebuilds the tracker's issues from the store, sanitizing each
+// field again: the store is a file on disk, so what it reads back is untrusted
+// and must not reach the terminal as a control sequence.
+func fromCachedIssues(cached []store.CachedIssue) []jira.Issue {
 	issues := make([]jira.Issue, len(cached))
 	for index, issue := range cached {
 		issues[index] = jira.Issue{
-			Key: jira.Key(issue.Key), Summary: issue.Summary, Status: issue.Status,
-			StatusCategory: jira.StatusCategory(issue.StatusCategory), Type: issue.Type, Priority: issue.Priority,
+			Key: jira.Key(sanitize.Line(issue.Key)), Summary: sanitize.Line(issue.Summary),
+			Status: sanitize.Line(issue.Status), StatusCategory: jira.StatusCategory(sanitize.Line(issue.StatusCategory)),
+			Type: sanitize.Line(issue.Type), Priority: sanitize.Line(issue.Priority),
 		}
 	}
 
