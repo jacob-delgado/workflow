@@ -277,7 +277,7 @@ func webDeps(deps tui.Deps) webserver.Deps {
 		Templates:    deps.Forge.Templates,
 		CheckCI:      deps.Forge.CheckStatus,
 		Author:       deps.Forge.Author,
-		Post:         deps.Slack.Post,
+		Post:         deps.Messaging.Post,
 	}
 }
 

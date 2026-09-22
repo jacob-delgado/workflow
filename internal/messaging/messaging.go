@@ -1,10 +1,11 @@
 // Copyright 2026 Jacob Delgado
 // SPDX-License-Identifier: Apache-2.0
 
-// Package slack posts to Slack, through a bot token or an incoming webhook, and
-// asks whether a bot token works. A webhook has no equivalent question — see
-// ErrWebhookUncheckable.
-package slack
+// Package messaging posts team announcements — to Slack through a bot token or an
+// incoming webhook, and to Teams, Discord or a plain webhook through theirs — and
+// asks whether a Slack bot token works. A webhook has no equivalent question —
+// see ErrWebhookUncheckable.
+package messaging
 
 import (
 	"context"
@@ -46,7 +47,7 @@ var (
 	// ErrUnexpectedStatus reports a response status the API does not document.
 	ErrUnexpectedStatus = errors.New("unexpected response status")
 	// ErrUnreachable reports a request that never got an answer.
-	ErrUnreachable = errors.New("could not reach the Slack API")
+	ErrUnreachable = errors.New("could not reach the messaging service")
 	// ErrRedirected reports a redirect this client declined to follow.
 	ErrRedirected = httpx.ErrRedirected
 	// ErrRateLimited reports a 429 from Slack's API.

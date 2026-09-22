@@ -15,8 +15,8 @@ import (
 	"github.com/jacob-delgado/workflow/internal/buildinfo"
 	"github.com/jacob-delgado/workflow/internal/config"
 	"github.com/jacob-delgado/workflow/internal/gitrepo"
+	"github.com/jacob-delgado/workflow/internal/messaging"
 	"github.com/jacob-delgado/workflow/internal/proc"
-	"github.com/jacob-delgado/workflow/internal/slack"
 )
 
 // doctorReport is the whole report as data. It carries the same facts, and the
@@ -210,7 +210,7 @@ func credentialFacts(ctx context.Context, cfg config.Config, remote string, onli
 	}{
 		{service: "jira", run: func(out io.Writer) error { return checkJira(ctx, out, doer, cfg.Jira) }},
 		{service: strings.ToLower(cfg.Messaging.Service()), run: func(out io.Writer) error {
-			return checkMessaging(ctx, out, doer, slack.APIBase, cfg.Messaging)
+			return checkMessaging(ctx, out, doer, messaging.APIBase, cfg.Messaging)
 		}},
 		{service: "forge", run: func(out io.Writer) error { return checkForge(ctx, out, doer, cfg.Forge, remote) }},
 	}

@@ -91,7 +91,7 @@ func runStandupCommand(cmd *cobra.Command, prompt Prompt, days int, noEdit bool)
 		FindPull:   deps.Forge.FindPullRequest,
 		Search:     deps.Jira.Search,
 		Compose:    prompt.Compose,
-		Post:       func(text string) error { return deps.Slack.Post("", text) },
+		Post:       func(text string) error { return deps.Messaging.Post("", text) },
 		Confirm:    func() (bool, error) { return confirm(prompt, "Post to "+cfg.Messaging.Service()+"?") },
 		Service:    cfg.Messaging.Service(),
 		Configured: cfg.Messaging.Mode() != config.MessagingNone,

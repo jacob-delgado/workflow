@@ -13,16 +13,16 @@ import (
 
 	"github.com/jacob-delgado/workflow/internal/config"
 	"github.com/jacob-delgado/workflow/internal/forge"
-	"github.com/jacob-delgado/workflow/internal/slack"
+	"github.com/jacob-delgado/workflow/internal/messaging"
 )
 
-// slackHelp is what the editor shows below a message being composed. The markup
+// messagingHelp is what the editor shows below a message being composed. The markup
 // depends on the service, so the note stays general rather than naming one.
-const slackHelp = "Edit the message above this line."
+const messagingHelp = "Edit the message above this line."
 
-// slackState is what has been posted to Slack this session. Nothing is kept
+// messagingState is what has been posted to Slack this session. Nothing is kept
 // between sessions: with no state file there is nowhere to keep it.
-type slackState struct {
+type messagingState struct {
 	// posted is the announcements made this session, each a pull request and the
 	// moment it marked, so one pull request can be announced at each of its
 	// moments — opened, then merged — without a moment being offered twice.
@@ -42,7 +42,7 @@ type slackState struct {
 // it marked.
 type postedMoment struct {
 	pull   int
-	moment slack.Moment
+	moment messaging.Moment
 }
 
 // droppedTimeFormat stamps a dropped post with the time it was given up on.
@@ -93,7 +93,7 @@ func (quitGuard) handleKey(m Model, msg tea.KeyPressMsg) (Model, tea.Cmd) {
 // loadAuthor is the command that asks the forge who opened the pull request.
 func (m Model) loadAuthor() tea.Cmd {
 	author := m.deps.Forge.Author
-	if author == nil || m.slack.author != "" {
+	if author == nil || m.messaging.author != "" {
 		return nil
 	}
 
@@ -113,7 +113,7 @@ type authorFound struct {
 // apply records the name. Not knowing it only makes the announcement say less.
 func (msg authorFound) apply(m Model) (Model, tea.Cmd) {
 	if msg.err == nil {
-		m.slack.author = msg.name
+		m.messaging.author = msg.name
 	}
 
 	return m, nil
@@ -121,54 +121,54 @@ func (msg authorFound) apply(m Model) (Model, tea.Cmd) {
 
 // announceMoment is the moment the pull request on screen is at: merged, its CI
 // red, or — the common case — open and ready for review.
-func (m Model) announceMoment() slack.Moment {
+func (m Model) announceMoment() messaging.Moment {
 	switch {
 	case m.review.pull.State == forge.StateMerged:
-		return slack.MomentMerged
+		return messaging.MomentMerged
 	case m.review.ci.State == forge.CIFailed:
-		return slack.MomentCIRed
+		return messaging.MomentCIRed
 	default:
-		return slack.MomentReady
+		return messaging.MomentReady
 	}
 }
 
 // announcement is the message marking the pull request's current moment.
-func (m Model) announcement(moment slack.Moment) string {
+func (m Model) announcement(moment messaging.Moment) string {
 	issueKey, _ := m.branchIssue()
 	issue, _ := m.issues.find(issueKey)
 
-	return slack.Announcement{
-		Author: m.slack.author, PullRequestURL: m.review.pull.URL, PullRequestTitle: m.review.pull.Title,
+	return messaging.Announcement{
+		Author: m.messaging.author, PullRequestURL: m.review.pull.URL, PullRequestTitle: m.review.pull.Title,
 		IssueKey: string(issueKey), IssueSummary: issue.Summary, IssueURL: m.browseURL(issueKey), Noun: m.vocab.noun,
 		Moment: moment, Kind: m.cfg.Messaging.Kind, Template: m.cfg.Messaging.Announcement,
 	}.Text()
 }
 
-// slackRail is where messages go and what has been posted.
-func (m Model) slackRail(_ int) string {
-	return m.cfg.Messaging.Target() + "\n" + m.slackState()
+// messagingRail is where messages go and what has been posted.
+func (m Model) messagingRail(_ int) string {
+	return m.cfg.Messaging.Target() + "\n" + m.messagingState()
 }
 
-// slackState says what has happened in Slack this session.
-func (m Model) slackState() string {
+// messagingState says what has happened in Slack this session.
+func (m Model) messagingState() string {
 	switch {
-	case m.slack.sending:
+	case m.messaging.sending:
 		return m.marks.inFlight + " posting" + m.marks.ellipsis
-	case m.slack.err != nil:
-		return m.failedGlyph() + " " + m.slack.err.Error()
+	case m.messaging.err != nil:
+		return m.failedGlyph() + " " + m.messaging.err.Error()
 	case m.announced():
 		return m.marks.done + " posted"
-	case m.slack.pending.waiting():
+	case m.messaging.pending.waiting():
 		return m.marks.inFlight + " posts when CI passes"
-	case m.slack.dropped != "":
-		return m.failedGlyph() + " not posted: " + m.slack.dropped
+	case m.messaging.dropped != "":
+		return m.failedGlyph() + " not posted: " + m.messaging.dropped
 	default:
 		return m.marks.notStarted + " nothing posted"
 	}
 }
 
-// slackDetail previews the announcement, or says what it needs first.
-func (m Model) slackDetail(width int) string {
+// messagingDetail previews the announcement, or says what it needs first.
+func (m Model) messagingDetail(width int) string {
 	if m.cfg.Messaging.Mode() == config.MessagingNone {
 		return wrap(m.cfg.Messaging.Service()+" is not set up.\n\nAdd messaging.webhook_url (or, for Slack, "+
 			"messaging.token and\nmessaging.channel) to ~/"+config.FileName+
@@ -179,7 +179,7 @@ func (m Model) slackDetail(width int) string {
 		reviewPane := paneReview.label(m.cfg.Messaging.Service())
 
 		return wrap("Open a "+m.vocab.noun+" first ("+reviewPane+"); the message links to it.\n\n"+
-			m.slackRail(0), width)
+			m.messagingRail(0), width)
 	}
 
 	lines := []string{
@@ -187,7 +187,7 @@ func (m Model) slackDetail(width int) string {
 		"",
 		m.styles.label.Render("to     ") + m.cfg.Messaging.Target(),
 		m.styles.label.Render("CI     ") + m.ciSummary(),
-		m.styles.label.Render("state  ") + m.slackState(),
+		m.styles.label.Render("state  ") + m.messagingState(),
 	}
 
 	return wrap(strings.Join(lines, "\n"), width)
@@ -197,18 +197,18 @@ func (m Model) slackDetail(width int) string {
 // current moment this session — a merge announced counts, an opening does not.
 func (m Model) announced() bool {
 	return m.review.found &&
-		slices.Contains(m.slack.posted, postedMoment{pull: m.review.pull.Number, moment: m.announceMoment()})
+		slices.Contains(m.messaging.posted, postedMoment{pull: m.review.pull.Number, moment: m.announceMoment()})
 }
 
 // canPost reports a pull request to announce, a way to post it, and no post
 // of it already made or on its way.
 func (m Model) canPost() bool {
-	return m.review.found && m.deps.Slack.Post != nil && m.cfg.Messaging.Mode() != config.MessagingNone &&
-		!m.announced() && !m.slack.sending
+	return m.review.found && m.deps.Messaging.Post != nil && m.cfg.Messaging.Mode() != config.MessagingNone &&
+		!m.announced() && !m.messaging.sending
 }
 
-// slackKeys offers composing the post.
-func (m Model) slackKeys() []key.Binding {
+// messagingKeys offers composing the post.
+func (m Model) messagingKeys() []key.Binding {
 	if !m.canPost() {
 		return nil
 	}
@@ -216,8 +216,8 @@ func (m Model) slackKeys() []key.Binding {
 	return []key.Binding{m.keys.compose}
 }
 
-// handleSlackKey answers the Slack pane's own keys.
-func (m Model) handleSlackKey(msg tea.KeyPressMsg) (Model, tea.Cmd) {
+// handleMessagingKey answers the Slack pane's own keys.
+func (m Model) handleMessagingKey(msg tea.KeyPressMsg) (Model, tea.Cmd) {
 	if !key.Matches(msg, m.keys.compose) || !m.canPost() {
 		return m, nil
 	}
@@ -231,7 +231,7 @@ func (m Model) handleSlackKey(msg tea.KeyPressMsg) (Model, tea.Cmd) {
 
 	moment := m.announceMoment()
 
-	m.overlay = slackPreview{
+	m.overlay = messagingPreview{
 		marks: m.marks, styles: m.styles, text: m.announcement(moment), fallback: m.cfg.Messaging.Target(),
 		channel: channel, channels: channels, moment: moment, service: m.cfg.Messaging.Service(),
 		noCI: m.review.checked && m.review.ci.State == forge.CINone,
@@ -240,8 +240,8 @@ func (m Model) handleSlackKey(msg tea.KeyPressMsg) (Model, tea.Cmd) {
 	return m, nil
 }
 
-// slackPreview is a Slack message about to be posted.
-type slackPreview struct {
+// messagingPreview is a Slack message about to be posted.
+type messagingPreview struct {
 	marks  glyphs
 	styles styles
 	text   string
@@ -254,7 +254,7 @@ type slackPreview struct {
 	channels []string
 	// moment is what this post marks, so the pane records the right one as posted
 	// and offers "post when CI passes" only where waiting for CI makes sense.
-	moment slack.Moment
+	moment messaging.Moment
 	// service names the messaging service, for the preview title.
 	service string
 	noCI    bool
@@ -262,7 +262,7 @@ type slackPreview struct {
 }
 
 // destination is where this post will go, as it is shown and as it is sent.
-func (p slackPreview) destination() string {
+func (p messagingPreview) destination() string {
 	if p.channel != "" {
 		return p.channel
 	}
@@ -270,11 +270,11 @@ func (p slackPreview) destination() string {
 	return p.fallback
 }
 
-var _ editable = slackPreview{}
+var _ editable = messagingPreview{}
 
 // view shows the message as it will be posted, where, and how CI stands, its
 // outcome pinned under the title so a long refusal is seen, not clipped.
-func (p slackPreview) view(width, _ int) (string, string) {
+func (p messagingPreview) view(width, _ int) (string, string) {
 	lines := pinnedOutcome(p.styles, p.marks, p.send, "posting", width)
 	lines = append(lines, wrap(p.text, width), "", "to  "+p.destination())
 
@@ -283,13 +283,13 @@ func (p slackPreview) view(width, _ int) (string, string) {
 
 // footer offers posting now or when CI passes, changing the channel where there
 // is a choice, another edit, or leaving.
-func (p slackPreview) footer(keys keyMap) []key.Binding {
+func (p messagingPreview) footer(keys keyMap) []key.Binding {
 	if p.send.sending {
 		return []key.Binding{keys.interrupt}
 	}
 
 	buttons := []key.Binding{relabel(keys.confirm, "post now")}
-	if p.moment == slack.MomentReady && !p.noCI {
+	if p.moment == messaging.MomentReady && !p.noCI {
 		// Only a "ready for review" post waits for CI. A merge or a red CI has
 		// already happened; there is nothing to wait for.
 		buttons = append(buttons, keys.postWhenGreen)
@@ -303,7 +303,7 @@ func (p slackPreview) footer(keys keyMap) []key.Binding {
 }
 
 // handleKey answers a key while the message is previewed.
-func (p slackPreview) handleKey(m Model, msg tea.KeyPressMsg) (Model, tea.Cmd) {
+func (p messagingPreview) handleKey(m Model, msg tea.KeyPressMsg) (Model, tea.Cmd) {
 	switch {
 	case p.send.sending:
 		return m, nil
@@ -314,7 +314,7 @@ func (p slackPreview) handleKey(m Model, msg tea.KeyPressMsg) (Model, tea.Cmd) {
 	case key.Matches(msg, m.keys.cycleLeft):
 		return p.cycleChannel(m, -1)
 	case key.Matches(msg, m.keys.edit) && m.deps.Editor.Edit != nil:
-		return m, m.deps.Editor.Edit(p.text, slackHelp, func(text string, err error) tea.Msg {
+		return m, m.deps.Editor.Edit(p.text, messagingHelp, func(text string, err error) tea.Msg {
 			return textEdited{text: text, err: err}
 		})
 	case key.Matches(msg, m.keys.confirm):
@@ -327,7 +327,7 @@ func (p slackPreview) handleKey(m Model, msg tea.KeyPressMsg) (Model, tea.Cmd) {
 }
 
 // cycleChannel moves the destination to the next configured channel, wrapping.
-func (p slackPreview) cycleChannel(m Model, step int) (Model, tea.Cmd) {
+func (p messagingPreview) cycleChannel(m Model, step int) (Model, tea.Cmd) {
 	if len(p.channels) <= 1 {
 		return m, nil
 	}
@@ -340,7 +340,7 @@ func (p slackPreview) cycleChannel(m Model, step int) (Model, tea.Cmd) {
 }
 
 // post posts the message now.
-func (p slackPreview) post(m Model) (Model, tea.Cmd) {
+func (p messagingPreview) post(m Model) (Model, tea.Cmd) {
 	if strings.TrimSpace(p.text) == "" {
 		return m.closeOverlay().noticed("nothing to post: the message was empty"), nil
 	}
@@ -352,14 +352,14 @@ func (p slackPreview) post(m Model) (Model, tea.Cmd) {
 	p.send = starting()
 	m.overlay = p
 
-	return m.sendToSlack(p.channel, p.text, p.moment)
+	return m.sendToMessaging(p.channel, p.text, p.moment)
 }
 
 // postWhenGreen posts once CI passes: now, if it already has. Only a "ready for
 // review" post waits for CI; a merge or a red CI has already happened, so there
 // is nothing to wait for and the key does nothing.
-func (p slackPreview) postWhenGreen(m Model) (Model, tea.Cmd) {
-	if p.moment != slack.MomentReady {
+func (p messagingPreview) postWhenGreen(m Model) (Model, tea.Cmd) {
+	if p.moment != messaging.MomentReady {
 		return m, nil
 	}
 
@@ -372,32 +372,32 @@ func (p slackPreview) postWhenGreen(m Model) (Model, tea.Cmd) {
 	}
 
 	m = m.closeOverlay().noticed(m.marks.inFlight + " will post to " + p.destination() + " once CI passes")
-	m.slack.pending, m.slack.err, m.slack.dropped = queuedPost{
+	m.messaging.pending, m.messaging.err, m.messaging.dropped = queuedPost{
 		pull: m.review.pull.Number, text: p.text, channel: p.channel,
 	}, nil, ""
 
 	return m.keepPolling(m.checkCI())
 }
 
-// sendToSlack posts text marking moment. It replaces any post waiting for CI:
+// sendToMessaging posts text marking moment. It replaces any post waiting for CI:
 // that one would otherwise follow it once CI passed, and the channel would read
 // it twice.
-func (m Model) sendToSlack(channel, text string, moment slack.Moment) (Model, tea.Cmd) {
-	post, pull := m.deps.Slack.Post, m.review.pull.Number
-	m.slack.sending, m.slack.pending, m.slack.dropped = true, queuedPost{}, ""
+func (m Model) sendToMessaging(channel, text string, moment messaging.Moment) (Model, tea.Cmd) {
+	post, pull := m.deps.Messaging.Post, m.review.pull.Number
+	m.messaging.sending, m.messaging.pending, m.messaging.dropped = true, queuedPost{}, ""
 
-	return m, func() tea.Msg { return slackPosted{pull: pull, moment: moment, err: post(channel, text)} }
+	return m, func() tea.Msg { return messagingPosted{pull: pull, moment: moment, err: post(channel, text)} }
 }
 
 // withoutQueuedPost gives up on a post waiting for CI, saying so, because the
 // pull request it was written for is no longer the one on screen.
 func (m Model) withoutQueuedPost() Model {
-	if !m.slack.pending.waiting() {
+	if !m.messaging.pending.waiting() {
 		return m
 	}
 
-	dropped := m.slack.pending.pull
-	m.slack.pending = queuedPost{}
+	dropped := m.messaging.pending.pull
+	m.messaging.pending = queuedPost{}
 
 	return m.noticed(m.failedGlyph() + " dropped the Slack post waiting for " + m.vocab.sigil + strconv.Itoa(dropped) +
 		", which is no longer this branch's " + m.vocab.noun)
@@ -406,21 +406,21 @@ func (m Model) withoutQueuedPost() Model {
 // postIfGreen posts the message waiting for CI once CI passes, and gives up on
 // it, saying so, if CI fails or the pull request is another one.
 func (m Model) postIfGreen() (Model, tea.Cmd) {
-	if !m.slack.pending.waiting() {
+	if !m.messaging.pending.waiting() {
 		return m, nil
 	}
 
-	if m.slack.pending.pull != m.review.pull.Number {
+	if m.messaging.pending.pull != m.review.pull.Number {
 		return m.withoutQueuedPost(), nil
 	}
 
 	switch m.review.ci.State {
 	case forge.CIPassed:
 		// A queued post is always a "ready for review" one: it is what waits for CI.
-		return m.sendToSlack(m.slack.pending.channel, m.slack.pending.text, slack.MomentReady)
+		return m.sendToMessaging(m.messaging.pending.channel, m.messaging.pending.text, messaging.MomentReady)
 	case forge.CIFailed:
-		m.slack.pending = queuedPost{}
-		m.slack.dropped = "CI failed at " + m.deps.now().Format(droppedTimeFormat)
+		m.messaging.pending = queuedPost{}
+		m.messaging.dropped = "CI failed at " + m.deps.now().Format(droppedTimeFormat)
 
 		return m.noticed(m.failedGlyph() + " CI failed, so nothing was posted to Slack"), nil
 	case forge.CINone, forge.CIRunning:
@@ -432,7 +432,7 @@ func (m Model) postIfGreen() (Model, tea.Cmd) {
 
 // applyEdit puts the edited message back in the preview, or records why the
 // editor failed.
-func (p slackPreview) applyEdit(m Model, text string, err error) (Model, tea.Cmd) {
+func (p messagingPreview) applyEdit(m Model, text string, err error) (Model, tea.Cmd) {
 	if err != nil {
 		p.send = p.send.failed(err)
 	} else {
@@ -444,22 +444,22 @@ func (p slackPreview) applyEdit(m Model, text string, err error) (Model, tea.Cmd
 	return m, nil
 }
 
-// slackPosted reports how posting went: for which pull request, and the moment
+// messagingPosted reports how posting went: for which pull request, and the moment
 // it marked.
-type slackPosted struct {
+type messagingPosted struct {
 	pull   int
-	moment slack.Moment
+	moment messaging.Moment
 	err    error
 }
 
 // apply records the post, or why it failed — in the preview if it is open, and
 // in the pane if the post was one waiting for CI.
-func (msg slackPosted) apply(m Model) (Model, tea.Cmd) {
-	preview, open := m.overlay.(slackPreview)
-	m.slack.sending = false
+func (msg messagingPosted) apply(m Model) (Model, tea.Cmd) {
+	preview, open := m.overlay.(messagingPreview)
+	m.messaging.sending = false
 
 	if msg.err != nil {
-		m.slack.err = msg.err
+		m.messaging.err = msg.err
 
 		if open {
 			preview.send = preview.send.failed(msg.err)
@@ -469,7 +469,7 @@ func (msg slackPosted) apply(m Model) (Model, tea.Cmd) {
 		return m.noticed(m.failure(msg.err)), nil
 	}
 
-	m.slack.posted, m.slack.err = append(slices.Clone(m.slack.posted),
+	m.messaging.posted, m.messaging.err = append(slices.Clone(m.messaging.posted),
 		postedMoment{pull: msg.pull, moment: msg.moment}), nil
 
 	if open {

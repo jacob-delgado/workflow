@@ -45,7 +45,7 @@ func TestEmptyStateSentencesAreNotDrawnFaint(t *testing.T) {
 			prepare:  func(w *world) { w.branch = gitrepo.Branch{Name: baseName, Base: baseRef}; w.pullFound = false },
 			sentence: "on no feature branch",
 		},
-		"the slack empty state": {
+		"the messaging empty state": {
 			prepare:  func(w *world) { w.branch = gitrepo.Branch{Name: baseName, Base: baseRef}; w.pullFound = false },
 			sentence: "○ nothing posted",
 		},

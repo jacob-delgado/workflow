@@ -47,7 +47,7 @@ func TestViewNeverShowsACredential(t *testing.T) {
 	tokens := completeConfig()
 	tokens.Jira.Token = "jira-secret-1111"
 	tokens.Messaging.Token = "xoxb-secret-2222"
-	tokens.Messaging.WebhookURL = "https://hooks.slack.com/services/T0/B0/secret3333"
+	tokens.Messaging.WebhookURL = "https://hooks.messaging.com/services/T0/B0/secret3333"
 
 	// jira.base_url can carry userinfo. doctor masks it; this screen printed it
 	// verbatim in the detail pane, which is the same leak in a second place.
@@ -239,7 +239,7 @@ func TestViewAcceptsAWebhookWithoutAChannel(t *testing.T) {
 	cfg := completeConfig()
 	cfg.Messaging.Token = ""
 	cfg.Messaging.Channel = ""
-	cfg.Messaging.WebhookURL = "https://hooks.slack.com/services/T0/B0/secretpayload"
+	cfg.Messaging.WebhookURL = "https://hooks.messaging.com/services/T0/B0/secretpayload"
 
 	// Act
 	view := tui.New(cfg, nil, tui.Deps{}).View().Content
@@ -247,7 +247,7 @@ func TestViewAcceptsAWebhookWithoutAChannel(t *testing.T) {
 	// Assert
 	// A webhook carries its own channel, so this configuration is complete and
 	// the screen must not call it incomplete.
-	refuseScreen(t, view, "incomplete", "hooks.slack.com", "secretpayload")
+	refuseScreen(t, view, "incomplete", "hooks.messaging.com", "secretpayload")
 	requireScreen(t, view, "incoming webhook")
 }
 

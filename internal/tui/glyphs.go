@@ -90,7 +90,7 @@ type styles struct {
 	failure lipgloss.Style
 	// Each system on the spine has its own hue, from the terminal's own
 	// palette, so the user's theme chooses the shade.
-	jira, git, forge, slack lipgloss.Style
+	jira, git, forge, messaging lipgloss.Style
 }
 
 // ANSI palette indices for the spine and for failure. Indices, not colors: the
@@ -112,16 +112,16 @@ func newStyles(color bool) styles {
 	if !color {
 		plain := lipgloss.NewStyle()
 
-		return styles{label: label, strong: strong, failure: plain, jira: plain, git: plain, forge: plain, slack: plain}
+		return styles{label: label, strong: strong, failure: plain, jira: plain, git: plain, forge: plain, messaging: plain}
 	}
 
 	return styles{
-		label:   label,
-		strong:  strong,
-		failure: lipgloss.NewStyle().Foreground(lipgloss.Color(ansiRed)),
-		jira:    lipgloss.NewStyle().Foreground(lipgloss.Color(ansiBlue)),
-		git:     lipgloss.NewStyle().Foreground(lipgloss.Color(ansiYellow)),
-		forge:   lipgloss.NewStyle().Foreground(lipgloss.Color(ansiGreen)),
-		slack:   lipgloss.NewStyle().Foreground(lipgloss.Color(ansiMagenta)),
+		label:     label,
+		strong:    strong,
+		failure:   lipgloss.NewStyle().Foreground(lipgloss.Color(ansiRed)),
+		jira:      lipgloss.NewStyle().Foreground(lipgloss.Color(ansiBlue)),
+		git:       lipgloss.NewStyle().Foreground(lipgloss.Color(ansiYellow)),
+		forge:     lipgloss.NewStyle().Foreground(lipgloss.Color(ansiGreen)),
+		messaging: lipgloss.NewStyle().Foreground(lipgloss.Color(ansiMagenta)),
 	}
 }

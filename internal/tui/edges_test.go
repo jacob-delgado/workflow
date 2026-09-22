@@ -33,10 +33,10 @@ func TestNothingInterruptsAWriteBeingSent(t *testing.T) {
 		keys        []string
 		sending     string
 	}{
-		"a branch":        {keys: []string{"b"}, sending: "creating…"},
-		"a pull request":  {pullMissing: true, keys: []string{"4", "n"}, sending: "opening…"},
-		"a slack post":    {keys: []string{"5", "p"}, sending: "posting…"},
-		"a configuration": {gitHooks: legacyHooks(), keys: []string{"3", "g"}, sending: "writing…"},
+		"a branch":         {keys: []string{"b"}, sending: "creating…"},
+		"a pull request":   {pullMissing: true, keys: []string{"4", "n"}, sending: "opening…"},
+		"a messaging post": {keys: []string{"5", "p"}, sending: "posting…"},
+		"a configuration":  {gitHooks: legacyHooks(), keys: []string{"3", "g"}, sending: "writing…"},
 	}
 
 	for name, tt := range cases {

@@ -124,8 +124,8 @@ func heldBackServices(deps Deps) Deps {
 		deps.Forge.Merge = func(forge.PullRequest, forge.MergeMethod) error { return errDryRun }
 	}
 
-	if deps.Slack.Post != nil {
-		deps.Slack.Post = func(string, string) error { return errDryRun }
+	if deps.Messaging.Post != nil {
+		deps.Messaging.Post = func(string, string) error { return errDryRun }
 	}
 
 	if deps.Hooks.Run != nil {

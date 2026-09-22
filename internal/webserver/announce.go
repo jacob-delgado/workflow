@@ -11,7 +11,7 @@ import (
 	"github.com/jacob-delgado/workflow/internal/convention"
 	"github.com/jacob-delgado/workflow/internal/forge"
 	"github.com/jacob-delgado/workflow/internal/jira"
-	"github.com/jacob-delgado/workflow/internal/slack"
+	"github.com/jacob-delgado/workflow/internal/messaging"
 )
 
 // errNoPullRequest refuses an announcement with nothing to announce.
@@ -65,24 +65,24 @@ func (s *server) Announce(_ context.Context, request api.AnnounceRequestObject) 
 // composeAnnouncement builds the announcement for the checked-out branch's pull
 // request from the pull request, the branch's issue, and the configured
 // template. It reports false when there is no pull request to announce.
-func (s *server) composeAnnouncement() (slack.Announcement, bool) {
+func (s *server) composeAnnouncement() (messaging.Announcement, bool) {
 	if s.deps.Branch == nil || s.deps.FindPull == nil {
-		return slack.Announcement{}, false
+		return messaging.Announcement{}, false
 	}
 
 	branch, err := s.deps.Branch()
 	if err != nil {
-		return slack.Announcement{}, false
+		return messaging.Announcement{}, false
 	}
 
 	pull, found, err := s.deps.FindPull(branch.Name)
 	if err != nil || !found {
-		return slack.Announcement{}, false
+		return messaging.Announcement{}, false
 	}
 
 	key, _ := convention.IssueKey(branch.Name, s.config().Jira.Project)
 
-	return slack.Announcement{
+	return messaging.Announcement{
 		Author:           s.author(),
 		PullRequestURL:   pull.URL,
 		PullRequestTitle: pull.Title,
@@ -99,21 +99,21 @@ func (s *server) composeAnnouncement() (slack.Announcement, bool) {
 // announceMoment is the moment the pull request is at: merged, its CI red, or —
 // the common case — open and ready for review. A CI read that is unavailable or
 // fails leaves the moment at ready rather than failing the announcement.
-func (s *server) announceMoment(pull forge.PullRequest, head string) slack.Moment {
+func (s *server) announceMoment(pull forge.PullRequest, head string) messaging.Moment {
 	if pull.State == forge.StateMerged {
-		return slack.MomentMerged
+		return messaging.MomentMerged
 	}
 
 	if s.deps.CheckCI == nil {
-		return slack.MomentReady
+		return messaging.MomentReady
 	}
 
 	ci, err := s.deps.CheckCI(pull, head)
 	if err == nil && ci.State == forge.CIFailed {
-		return slack.MomentCIRed
+		return messaging.MomentCIRed
 	}
 
-	return slack.MomentReady
+	return messaging.MomentReady
 }
 
 // issueSummary is the branch issue's summary, or empty when the tracker cannot
@@ -151,7 +151,7 @@ func noun(kind forge.Kind) string {
 }
 
 // announcementDTO maps the composed announcement and its channel onto the wire.
-func announcementDTO(announcement slack.Announcement, channel string) api.Announcement {
+func announcementDTO(announcement messaging.Announcement, channel string) api.Announcement {
 	return api.Announcement{Text: announcement.Text(), Channel: channel}
 }
 

@@ -65,7 +65,7 @@ func (m Model) paintGlyph(s stage) string {
 // stages works out how far along the loop the work is, in each stage's own hue,
 // from the shared derivation both this spine and `workflow status` read.
 func (m Model) stages() []stage {
-	hues := []lipgloss.Style{m.styles.jira, m.styles.git, m.styles.git, m.styles.forge, m.styles.slack}
+	hues := []lipgloss.Style{m.styles.jira, m.styles.git, m.styles.git, m.styles.forge, m.styles.messaging}
 
 	derived := progress.Stages(m.work())
 	stages := make([]stage, len(derived))
@@ -92,7 +92,7 @@ func (m Model) work() progress.Work {
 		CI:                 m.review.ci.State,
 		ChangesRequested:   m.review.pull.ChangesRequested,
 		Announced:          m.announced(),
-		PostPending:        m.slack.pending.waiting(),
+		PostPending:        m.messaging.pending.waiting(),
 	}
 }
 

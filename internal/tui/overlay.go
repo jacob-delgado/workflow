@@ -100,7 +100,7 @@ var (
 	_ applier = finished{}
 	_ applier = issueLinked{}
 	_ applier = authorFound{}
-	_ applier = slackPosted{}
+	_ applier = messagingPosted{}
 	_ applier = hooksFound{}
 	_ applier = hooksWritten{}
 )

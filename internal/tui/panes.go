@@ -18,7 +18,7 @@ const (
 	paneBranch
 	paneCommits
 	paneReview
-	paneSlack
+	paneMessaging
 	paneReviews
 )
 
@@ -95,9 +95,9 @@ func behaviorOf(target pane) behavior {
 			rail: Model.reviewRail, detail: Model.reviewDetail, narrow: nil,
 			keys: Model.reviewKeys, handle: Model.handleReviewKey, pick: nil,
 		},
-		paneSlack: {
-			rail: Model.slackRail, detail: Model.slackDetail, narrow: nil,
-			keys: Model.slackKeys, handle: Model.handleSlackKey, pick: nil,
+		paneMessaging: {
+			rail: Model.messagingRail, detail: Model.messagingDetail, narrow: nil,
+			keys: Model.messagingKeys, handle: Model.handleMessagingKey, pick: nil,
 		},
 		paneReviews: {
 			rail: Model.reviewQueueRail, detail: Model.reviewQueueDetail, narrow: nil,
