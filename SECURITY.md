@@ -66,9 +66,13 @@ In scope:
   security bug. `.workflow.json` is written `0600`, is gitignored, and every
   code path that surfaces a token passes it through `config.Redact` first.
 - Data at rest. The on-disk store (`internal/store`, a SQLite database under the
-  OS-native data directory) keeps workflow state between sessions — today the
-  commit scope last used per repository, and later what was announced and the
-  last issue list seen. It **never** holds a secret: no token, no credential.
+  OS-native data directory) keeps workflow state between sessions — the commit
+  scope last used per repository, what was announced, and the last issue list
+  seen (the non-secret fields a first pane needs — issue keys, summaries,
+  statuses, status categories, types and priorities — so a session can open on
+  it before the tracker answers). It **never** holds a secret: no token, no
+  credential, and the repository and instance it keys by are reduced to a
+  credential-free host and path and a hash before they are stored.
   The database is written `0600` inside a `0700` directory, so it is readable
   only by its owner. `store.disabled` turns it off entirely, keeping nothing on
   disk — anything the store persists that a token would not is still a bug.

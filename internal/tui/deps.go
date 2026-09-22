@@ -165,6 +165,11 @@ type StoreDeps struct {
 	Announced func() []AnnouncedPost
 	// RecordAnnounce remembers that a pull request was just announced at a moment.
 	RecordAnnounce func(post AnnouncedPost)
+	// CachedIssues is the issue list last seen for a view, so the pane can show it
+	// at once before the tracker answers.
+	CachedIssues func(view string) ([]jira.Issue, bool)
+	// CacheIssues remembers the issue list just seen for a view.
+	CacheIssues func(view string, issues []jira.Issue)
 }
 
 // AnnouncedPost is one announcement the store remembers: which pull request, and

@@ -170,5 +170,16 @@ func migrate(ctx context.Context, database *sql.DB) error {
 		return fmt.Errorf("preparing the store schema: %w", err)
 	}
 
+	_, err = database.ExecContext(ctx, `CREATE TABLE IF NOT EXISTS issue_cache (
+		instance  TEXT NOT NULL,
+		view      TEXT NOT NULL,
+		payload   BLOB NOT NULL,
+		cached_at INTEGER NOT NULL,
+		PRIMARY KEY (instance, view)
+	)`)
+	if err != nil {
+		return fmt.Errorf("preparing the store schema: %w", err)
+	}
+
 	return nil
 }

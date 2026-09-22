@@ -21,14 +21,46 @@ type issuesLoaded struct {
 	found   jira.SearchResult
 	err     error
 	startAt int
+	// jql is the query this answers, so a first page can be cached under the view
+	// it was for even if the reader has since moved to another.
+	jql string
 }
 
-// apply records the answer, and asks for the selected issue in full.
+// apply records the answer, caches a fresh first page, and asks for the selected
+// issue in full.
 func (msg issuesLoaded) apply(m Model) (Model, tea.Cmd) {
 	m.issues = m.issues.settle(msg)
+	m.cacheIssues(msg)
 	m = m.resumeIssue()
 
 	return m.loadDetail()
+}
+
+// cacheIssues stores a freshly-loaded first page, so a later session opens on it
+// before the tracker answers. Only a first page is cached; a failure and further
+// pages are not.
+func (m Model) cacheIssues(msg issuesLoaded) {
+	if msg.err != nil || msg.startAt != 0 || m.deps.Store.CacheIssues == nil {
+		return
+	}
+
+	m.deps.Store.CacheIssues(msg.jql, msg.found.Issues)
+}
+
+// seededIssues is the last issue list cached for the active view, settled and
+// shown at once so a session opens on it before the tracker answers, or an empty
+// list when the store has nothing for it.
+func (m Model) seededIssues() issueList {
+	if m.deps.Store.CachedIssues == nil {
+		return issueList{}
+	}
+
+	cached, ok := m.deps.Store.CachedIssues(m.activeView().jql)
+	if !ok {
+		return issueList{}
+	}
+
+	return issueList{found: jira.SearchResult{Issues: cached, Total: len(cached)}, settled: true}
 }
 
 // issueList is the Issues pane's state. Loading, failed, empty and listing are

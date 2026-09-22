@@ -8,6 +8,9 @@ package wiring
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"net/url"
@@ -77,7 +80,7 @@ func Deps(ctx context.Context, cfg config.Config, where Workspace, log *RequestL
 		Messaging:  messagingDeps(ctx, cfg.Messaging, timeout, log),
 		Hooks:      hookDeps(ctx, where.Root),
 		Editor:     editorDeps(where.Root),
-		Store:      storeDeps(ctx, cfg.Store, where),
+		Store:      storeDeps(ctx, cfg, where),
 		Clock:      nil,
 		CIInterval: cfg.CIInterval(),
 		Notify:     ringTerminal,
@@ -291,10 +294,11 @@ func messagingDeps(
 // on what was done here before. A store with nowhere to keep its file, or one the
 // configuration disabled, no-ops through the same seams, so the interface simply
 // learns nothing.
-func storeDeps(ctx context.Context, settings config.Store, where Workspace) tui.StoreDeps {
+func storeDeps(ctx context.Context, cfg config.Config, where Workspace) tui.StoreDeps {
 	dir, _ := store.DefaultDir()
-	kept := store.New(dir, settings.Disabled)
+	kept := store.New(dir, cfg.Store.Disabled)
 	repo := repoKey(where)
+	instance := instanceKey(cfg.Jira.BaseURL)
 
 	return tui.StoreDeps{
 		LastScope: func() (string, bool) {
@@ -318,7 +322,78 @@ func storeDeps(ctx context.Context, settings config.Store, where Workspace) tui.
 		RecordAnnounce: func(post tui.AnnouncedPost) {
 			_ = kept.RecordAnnounce(ctx, repo, store.Announce{Pull: post.Pull, Moment: post.Moment}, time.Now())
 		},
+		CachedIssues: func(view string) ([]jira.Issue, bool) {
+			payload, found, _ := kept.CachedIssues(ctx, instance, view)
+			if !found {
+				return nil, false
+			}
+
+			var cached []cachedIssue
+
+			err := json.Unmarshal(payload, &cached)
+			if err != nil {
+				return nil, false
+			}
+
+			return fromCachedIssues(cached), true
+		},
+		CacheIssues: func(view string, issues []jira.Issue) {
+			payload, err := json.Marshal(toCachedIssues(issues))
+			if err == nil {
+				_ = kept.CacheIssues(ctx, instance, view, payload, time.Now())
+			}
+		},
 	}
+}
+
+// cachedIssue is the persisted shape of a cached issue: an explicit format, so
+// the store's payload does not silently track the domain type's fields, and only
+// the few non-secret fields a first pane needs are kept.
+type cachedIssue struct {
+	Key            string `json:"key"`
+	Summary        string `json:"summary"`
+	Status         string `json:"status"`
+	StatusCategory string `json:"status_category"`
+	Type           string `json:"type"`
+	Priority       string `json:"priority"`
+}
+
+// toCachedIssues reduces the tracker's issues to their cached shape.
+func toCachedIssues(issues []jira.Issue) []cachedIssue {
+	cached := make([]cachedIssue, len(issues))
+	for index, issue := range issues {
+		cached[index] = cachedIssue{
+			Key: string(issue.Key), Summary: issue.Summary, Status: issue.Status,
+			StatusCategory: string(issue.StatusCategory), Type: issue.Type, Priority: issue.Priority,
+		}
+	}
+
+	return cached
+}
+
+// fromCachedIssues rebuilds the tracker's issues from their cached shape.
+func fromCachedIssues(cached []cachedIssue) []jira.Issue {
+	issues := make([]jira.Issue, len(cached))
+	for index, issue := range cached {
+		issues[index] = jira.Issue{
+			Key: jira.Key(issue.Key), Summary: issue.Summary, Status: issue.Status,
+			StatusCategory: jira.StatusCategory(issue.StatusCategory), Type: issue.Type, Priority: issue.Priority,
+		}
+	}
+
+	return issues
+}
+
+// instanceKey identifies a Jira instance for the store without keeping its URL:
+// a hash of the base URL, empty when none is configured.
+func instanceKey(baseURL string) string {
+	if baseURL == "" {
+		return ""
+	}
+
+	sum := sha256.Sum256([]byte(baseURL))
+
+	return hex.EncodeToString(sum[:])
 }
 
 // repoKey names the repository the store keys its state by: the origin remote's

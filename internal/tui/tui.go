@@ -93,7 +93,7 @@ func New(cfg config.Config, loadErr error, deps Deps) Model {
 
 	vocab := forgeVocab(deps.Forge.Kind)
 
-	return Model{
+	model := Model{
 		cfg: cfg, loadErr: loadErr, deps: deps,
 		keys:   newKeyMap(marks, vocab.noun, cfg.Messaging.Service(), cfg.UI.Keys),
 		styles: newStyles(true), marks: marks, vocab: vocab,
@@ -101,6 +101,9 @@ func New(cfg config.Config, loadErr error, deps Deps) Model {
 		focus: paneIssues, mouse: cfg.UI.Mouse,
 		views: issueViews(cfg.Jira.Views), viewIndex: 0,
 	}
+	model.issues = model.seededIssues()
+
+	return model
 }
 
 // WithDryRun is the interface holding back every write — to Jira, the forge,

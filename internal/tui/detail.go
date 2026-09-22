@@ -96,7 +96,7 @@ func (m Model) searchPage(startAt int) tea.Cmd {
 	return func() tea.Msg {
 		found, err := search(jql, startAt)
 
-		return issuesLoaded{found: found, err: err, startAt: startAt}
+		return issuesLoaded{found: found, err: err, startAt: startAt, jql: jql}
 	}
 }
 

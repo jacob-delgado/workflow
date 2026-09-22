@@ -282,16 +282,6 @@ Impact: medium · Effort: large
   foreground command that a shell can background.
 - Done when: a post queued before quitting is sent when CI passes.
 
-### FEAT-68 Start instantly from a cache
-
-Impact: low · Effort: medium
-
-- Reopens: nothing stored between sessions. It also puts issue text at rest
-  on disk, which the security policy would then have to cover.
-- Why: every start waits on Jira before the first pane is useful.
-- Done when: the list shows at once from the last session and updates when
-  the answer arrives.
-
 ### FEAT-72 Notifications after the interface closes
 
 Impact: low · Effort: large
