@@ -479,6 +479,21 @@ than observable, public behavior.
   `slack.token`, the test that proves it doesn't leak is part of the change.
   `gitleaks` (`task secrets`) is the backstop, not the plan.
 
+- **Web API errors are RFC 9457 problem details.** Every failure the `--web` API
+  returns is an `application/problem+json` object — `type`, `title`, `status`,
+  `detail`, and a stable machine `code` from the spec's enum — built through the
+  `problem`/`fault`/`writeProblem` helpers in `internal/webserver/errors.go`,
+  never an ad-hoc envelope. **`fault` classifies** a seam's error (a missing
+  resource → `not_found` 404, an unreachable upstream → `unreachable` 502) rather
+  than flattening it to a generic 500; a new class of failure gets a new branch
+  there, not a bare 500. The **`detail` is curated and safe to show** — a fixed,
+  occurrence-specific message — and **never the raw upstream error**, so a
+  credential or an internal host cannot leak through it (the test that a 500's
+  detail omits the cause is part of the change). The `type` URI points at a
+  section of `docs/content/docs/errors.md`, so add the code there when you add one
+  to the enum. The OpenAPI spec is the source: change `api/openapi.yaml`, then
+  `task gen` (Go) and `yarn gen` (the web client) so both stay generated from it.
+
 - **Use `tmp/` under the repo root for ad-hoc scratch files** — never `/tmp/…` or
   any path outside the repo. PR-body drafts, intermediate output, log dumps:
   `tmp/foo.md` (gitignored). One caveat: a scratch `.go` file there still joins
