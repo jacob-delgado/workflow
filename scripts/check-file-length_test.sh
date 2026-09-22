@@ -88,6 +88,62 @@ over_length >"${generated}/big.gen.go"
 git -C "${generated}" add big.gen.go
 expect pass "an over-length generated file" "${generated}"
 
+# The web frontend is measured like the Go: an over-length TypeScript file
+# fails, whether it holds JSX or not. Each repository also tracks a short Go
+# file, so a gate that ignored TypeScript would pass on it rather than refuse
+# for having measured nothing — the failure has to come from the long file.
+for extension in tsx ts; do
+  typescript="${workdir}/typescript-${extension}"
+  mkdir -p "${typescript}"
+  git -C "${typescript}" init -q
+  printf 'package x\n' >"${typescript}/small.go"
+  over_length >"${typescript}/big.${extension}"
+  git -C "${typescript}" add small.go "big.${extension}"
+  expect fail "an over-length .${extension} file" "${typescript}"
+done
+
+# A frontend with no Go in it still has something to measure, so the gate
+# passes rather than refusing for an empty file list.
+frontend="${workdir}/frontend"
+mkdir -p "${frontend}"
+git -C "${frontend}" init -q
+printf 'export const x = 1\n' >"${frontend}/small.ts"
+git -C "${frontend}" add small.ts
+expect pass "a repository with only a short TypeScript file" "${frontend}"
+
+# The hey-api client is machine-written from api/openapi.yaml and guarded by
+# `yarn gen:check`, so its tree is exempt by directory: its files are not all
+# named .gen.ts, and types.gen.ts alone runs past the ceiling.
+sdk="${workdir}/sdk"
+mkdir -p "${sdk}/web/src/api/generated"
+git -C "${sdk}" init -q
+printf 'package x\n' >"${sdk}/small.go"
+over_length >"${sdk}/web/src/api/generated/index.ts"
+git -C "${sdk}" add small.go web/src/api/generated/index.ts
+expect pass "an over-length file in the generated web client" "${sdk}"
+
+# The exemption is that one tree, not the frontend around it: a hand-written
+# file beside the generated client is measured like any other.
+beside="${workdir}/beside"
+mkdir -p "${beside}/web/src/api"
+git -C "${beside}" init -q
+printf 'package x\n' >"${beside}/small.go"
+over_length >"${beside}/web/src/api/client.ts"
+git -C "${beside}" add small.go web/src/api/client.ts
+expect fail "an over-length hand-written file beside the generated client" "${beside}"
+
+# --list reports what the gate measures, so a TypeScript file appears in it.
+listed="${workdir}/listed"
+mkdir -p "${listed}"
+git -C "${listed}" init -q
+soft_length >"${listed}/Panel.tsx"
+git -C "${listed}" add Panel.tsx
+cases=$((cases + 1))
+if ! (cd "${listed}" && "${check}" --list) 2>/dev/null | grep -q 'Panel\.tsx'; then
+  echo "FAIL --list names a TypeScript file: Panel.tsx is missing" >&2
+  failures=$((failures + 1))
+fi
+
 if ((failures > 0)); then
   echo "check-file-length_test: ${failures} of ${cases} case(s) failed." >&2
   exit 1
