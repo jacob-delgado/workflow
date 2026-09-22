@@ -307,9 +307,13 @@ func TestGetIssueIsNotFoundForAMissingIssue(t *testing.T) {
 	recorder := get(t, serve(t, deps, config.Default()), "/api/issues/PROJ-404")
 
 	// Assert
-	if failure := decode[api.Problem](t, recorder); recorder.Code != http.StatusNotFound ||
-		failure.Code != api.NotFound {
+	failure := decode[api.Problem](t, recorder)
+	if recorder.Code != http.StatusNotFound || failure.Code != api.NotFound {
 		t.Errorf("status/code = %d/%s, want 404/not_found", recorder.Code, failure.Code)
+	}
+
+	if !strings.Contains(failure.Detail, "PROJ-404") {
+		t.Errorf("detail = %q, want the specific issue key so it is the dedicated 404 path", failure.Detail)
 	}
 }
 

@@ -128,7 +128,9 @@ func connectToIssue(connect func() (forgeConnection, error), issueKey jira.Key) 
 
 	number, err := strconv.Atoi(string(issueKey))
 	if err != nil {
-		return forgeConnection{}, 0, fmt.Errorf("%w: %q", errNotAnIssueNumber, issueKey)
+		// Also mark it not-found so the web API answers 404 rather than a 500: a
+		// key the forge cannot resolve to an issue is a missing resource.
+		return forgeConnection{}, 0, fmt.Errorf("%w: %w: %q", jira.ErrNotFound, errNotAnIssueNumber, issueKey)
 	}
 
 	return connection, number, nil
