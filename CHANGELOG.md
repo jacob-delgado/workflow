@@ -1,5 +1,63 @@
 # Changelog
 
+## [0.0.7](https://github.com/jacob-delgado/workflow/compare/v0.0.6...v0.0.7) (2026-09-22)
+
+
+### Features
+
+* **cli:** scriptable branch, pr and announce commands (FEAT-41) ([d3659b3](https://github.com/jacob-delgado/workflow/commit/d3659b3985c8fde9554ff1587c952cae9373650b))
+* **forge:** add reviewers, assignees and labels on open (FEAT-27) ([cd6fd9e](https://github.com/jacob-delgado/workflow/commit/cd6fd9e143b887cdf3bd247a1a77a5729b62cadd))
+* **forge:** merge a pull request from the Review pane (FEAT-31) ([4c13f32](https://github.com/jacob-delgado/workflow/commit/4c13f32efec987968b283df5c2f8994156d5d3fd))
+* **forge:** re-run failed checks from the Review pane (FEAT-32) ([b488b63](https://github.com/jacob-delgado/workflow/commit/b488b63c61fa4327d6396ae9e5bf5d82dc14a249))
+* **hooks:** read the MSVC/TypeScript place format (FEAT-24) ([1b62591](https://github.com/jacob-delgado/workflow/commit/1b62591eec9d0c62933f8c16af9f4c06c2fb1817))
+* **jira:** add assign and log-work client methods ([72cac41](https://github.com/jacob-delgado/workflow/commit/72cac416f3fc1eb6e454a0e8e94a7b2be379b64e))
+* **jira:** fill user, date and multi-value transition fields (FEAT-07) ([a9326b7](https://github.com/jacob-delgado/workflow/commit/a9326b7606d6a6adfd1edb313554cda1ce47a980))
+* **jira:** page in the comments past the first (FEAT-06) ([a2d1122](https://github.com/jacob-delgado/workflow/commit/a2d1122cbaca07addaae7672545b6d4efc7533e0))
+* **jira:** post Markdown comments as wiki markup (FEAT-08) ([a8403d0](https://github.com/jacob-delgado/workflow/commit/a8403d0c02bd75345fac4b62fe132e32187d026e))
+* read and show the whole issue (FEAT-06) ([12be73c](https://github.com/jacob-delgado/workflow/commit/12be73cbe8440a4e964722754b8261683efd2ac0))
+* **slack:** announce the merged and CI-red moments (FEAT-38) ([de52d8c](https://github.com/jacob-delgado/workflow/commit/de52d8c87e55fad71fb0b2b73f7fb6c2e4f15d3f))
+* **tui:** amend and fix up unpushed commits (FEAT-22) ([133c166](https://github.com/jacob-delgado/workflow/commit/133c166a24c486763eb074853bbcee74172c8849))
+* **tui:** assign an issue and log work from the Issues pane ([00d807a](https://github.com/jacob-delgado/workflow/commit/00d807a44098dd4df87d6a10fdd120412dd6140c))
+* **tui:** complete the pull request base from remote branches (FEAT-35) ([6f02122](https://github.com/jacob-delgado/workflow/commit/6f02122b2a7f97c1435df3154c9a150760e70a85))
+* **tui:** edit an open pull request from the Review pane (FEAT-30) ([a25de0c](https://github.com/jacob-delgado/workflow/commit/a25de0c7310ef07bb176fc10cbf5824cf816c4c6))
+* **tui:** finish a merged branch from the Review pane (FEAT-17) ([90c1ce7](https://github.com/jacob-delgado/workflow/commit/90c1ce78206f9b07d0c10bf992444ab18f6adefb))
+* **tui:** offer the status change after branching (FEAT-05) ([9779a19](https://github.com/jacob-delgado/workflow/commit/9779a196765598aaddcc0af8c83fa8a33332d17e))
+* **tui:** open and copy the issue or pull request link ([63ae680](https://github.com/jacob-delgado/workflow/commit/63ae680f246afceae7674cdcc9dd6e6a08b6b0a3))
+* **tui:** show the diff before staging (FEAT-18) ([268afe2](https://github.com/jacob-delgado/workflow/commit/268afe2c2953b6e74e5d4e6ac6a45a78de887e55))
+* **tui:** show the review queue in a sixth pane ([044a5b3](https://github.com/jacob-delgado/workflow/commit/044a5b36a64f845b57428d92b2d29a445c341d8c))
+* **tui:** suggest a commit scope (FEAT-21) ([6013ac8](https://github.com/jacob-delgado/workflow/commit/6013ac8b723ddd43a47fcece38e47e745590847d))
+* **web:** add a light/dark/system theme, verified for a11y ([bb3fc19](https://github.com/jacob-delgado/workflow/commit/bb3fc1951f47658e48b73615292efd367cc8dead))
+* **web:** announce the pull request to Slack ([e522ea9](https://github.com/jacob-delgado/workflow/commit/e522ea966f6261c62007a574845dc33efea5472b))
+* **web:** commit the staged changes with a message from the browser ([05f22eb](https://github.com/jacob-delgado/workflow/commit/05f22eba72ad9fe3bec442866bb3377082d645d3))
+* **web:** open a pull request for the branch ([00f7563](https://github.com/jacob-delgado/workflow/commit/00f75632a7ed3d865a6506066a9ed7fb57467b0d))
+* **web:** push the branch to its remote, read-only under dry-run ([12640d6](https://github.com/jacob-delgado/workflow/commit/12640d60edc6d23cf0b5da76604ae171defaf6ed))
+* **web:** start work on an issue by creating its branch ([2c73133](https://github.com/jacob-delgado/workflow/commit/2c731331924f1a9edc53a6dcb51b4c27d74b7810))
+
+
+### Bug Fixes
+
+* **tui:** re-clamp the commits scroll after a shrinking reload ([ea1cc5e](https://github.com/jacob-delgado/workflow/commit/ea1cc5ed911892aa56f0358f58c0e98e16ed50da))
+* **web:** announce a merge request on GitLab ([033abfb](https://github.com/jacob-delgado/workflow/commit/033abfb064708b47c7fcee282e1e0272286ad79a))
+
+
+### Refactors
+
+* **test:** make every test black-box and enforce it ([7344f70](https://github.com/jacob-delgado/workflow/commit/7344f70adf65c7cf10e43487461b1fa419dfca06))
+* **tui:** build the help from the bindings, not a second list ([1aa21d5](https://github.com/jacob-delgado/workflow/commit/1aa21d58ed06f2b76a4aa6427fd5d710325b1aae))
+
+
+### Build & Packaging
+
+* **deps:** bring dependencies to their latest versions ([d7b8f05](https://github.com/jacob-delgado/workflow/commit/d7b8f050b62fa9a6f3d7840433a97307b230ab1b))
+* **deps:** migrate the Charm stack to v2 ([7998ab2](https://github.com/jacob-delgado/workflow/commit/7998ab2376ddb9a1e72d6cfe202cf25dc77b5ac0))
+* **deps:** update pinned tools to their latest safe versions ([815651d](https://github.com/jacob-delgado/workflow/commit/815651dbf25957f6190a445c2cbd343f4ad25001))
+* **lint:** warn at 500, fail at 800 for file length ([f65e56b](https://github.com/jacob-delgado/workflow/commit/f65e56bba021e6488c7fa2d1765a8b37c34b3134))
+
+
+### CI
+
+* report test counts and coverage, and count the web in cloc ([3534de1](https://github.com/jacob-delgado/workflow/commit/3534de10c0da39f19397ae905a1538b8806a30b9))
+
 ## [0.0.6](https://github.com/jacob-delgado/workflow/compare/v0.0.5...v0.0.6) (2026-09-20)
 
 
