@@ -338,8 +338,8 @@ func TestGetSlackReturnsTheDestination(t *testing.T) {
 
 	// Arrange
 	cfg := config.Default()
-	cfg.Slack.Token = "xoxb-t"
-	cfg.Slack.Channel = "#dev"
+	cfg.Messaging.Token = "xoxb-t"
+	cfg.Messaging.Channel = "#dev"
 
 	// Act
 	slack := decode[api.Slack](t, get(t, serve(t, filledDeps(), cfg), "/api/slack"))

@@ -386,7 +386,7 @@ export type Slack = {
 export type Config = {
     version: string;
     jira: JiraConfig;
-    slack: SlackConfig;
+    messaging: MessagingConfig;
     forge: ForgeConfig;
     ui: UiConfig;
     timing: TimingConfig;
@@ -417,9 +417,13 @@ export type JiraConfig = {
     markdown_comments?: boolean;
 };
 
-export type SlackConfig = {
+export type MessagingConfig = {
     /**
-     * Masked on read; empty or masked on write keeps the stored value.
+     * The service posts go to. Empty is read as slack. It decides the message body and link markup the notifier sends.
+     */
+    kind?: '' | 'slack' | 'teams' | 'discord' | 'webhook';
+    /**
+     * A Slack bot token. Masked on read; empty or masked on write keeps the stored value. Ignored by the webhook-only kinds.
      */
     token?: string;
     token_command?: string;

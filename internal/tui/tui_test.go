@@ -25,9 +25,9 @@ var errUnreadable = errors.New("permission denied")
 // completeConfig is a configuration with nothing missing.
 func completeConfig() config.Config {
 	return config.Config{
-		Jira:  config.Jira{BaseURL: "https://jira.example.com", Token: "t", User: ""},
-		Slack: config.Slack{Token: "xoxb-t", WebhookURL: "", Channel: devChannel},
-		Path:  "/home/example/.workflow.json",
+		Jira:      config.Jira{BaseURL: "https://jira.example.com", Token: "t", User: ""},
+		Messaging: config.Messaging{Token: "xoxb-t", WebhookURL: "", Channel: devChannel},
+		Path:      "/home/example/.workflow.json",
 	}
 }
 
@@ -46,8 +46,8 @@ func TestViewNeverShowsACredential(t *testing.T) {
 
 	tokens := completeConfig()
 	tokens.Jira.Token = "jira-secret-1111"
-	tokens.Slack.Token = "xoxb-secret-2222"
-	tokens.Slack.WebhookURL = "https://hooks.slack.com/services/T0/B0/secret3333"
+	tokens.Messaging.Token = "xoxb-secret-2222"
+	tokens.Messaging.WebhookURL = "https://hooks.slack.com/services/T0/B0/secret3333"
 
 	// jira.base_url can carry userinfo. doctor masks it; this screen printed it
 	// verbatim in the detail pane, which is the same leak in a second place.
@@ -81,7 +81,7 @@ func TestViewSaysWhatTheConfigurationStillNeeds(t *testing.T) {
 	t.Parallel()
 
 	noChannel := completeConfig()
-	noChannel.Slack.Channel = ""
+	noChannel.Messaging.Channel = ""
 
 	noJiraURL := completeConfig()
 	noJiraURL.Jira.BaseURL = ""
@@ -91,7 +91,7 @@ func TestViewSaysWhatTheConfigurationStillNeeds(t *testing.T) {
 		loadErr error
 		want    string
 	}{
-		"a missing field is named":        {cfg: noChannel, want: "slack.channel"},
+		"a missing field is named":        {cfg: noChannel, want: "messaging.channel"},
 		"no file says how to create one":  {cfg: config.Config{}, loadErr: config.ErrNotFound, want: "config init"},
 		"no file also says how to verify": {cfg: config.Config{}, loadErr: config.ErrNotFound, want: "workflow doctor"},
 		"an unreadable file says why":     {cfg: config.Config{}, loadErr: errUnreadable, want: "permission denied"},
@@ -237,9 +237,9 @@ func TestViewAcceptsAWebhookWithoutAChannel(t *testing.T) {
 
 	// Arrange
 	cfg := completeConfig()
-	cfg.Slack.Token = ""
-	cfg.Slack.Channel = ""
-	cfg.Slack.WebhookURL = "https://hooks.slack.com/services/T0/B0/secretpayload"
+	cfg.Messaging.Token = ""
+	cfg.Messaging.Channel = ""
+	cfg.Messaging.WebhookURL = "https://hooks.slack.com/services/T0/B0/secretpayload"
 
 	// Act
 	view := tui.New(cfg, nil, tui.Deps{}).View().Content

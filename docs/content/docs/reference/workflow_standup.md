@@ -13,7 +13,7 @@ Draft what you did — commits, issues and pull requests — to share
 
 Gather the commits you made, the issues you touched and the open pull
 requests on your branches over the last day, open the draft in your editor,
-and offer to post it to Slack. Nothing is posted until you confirm.
+and offer to post it to your team's chat. Nothing is posted until you confirm.
 
 ```
 workflow standup [flags]

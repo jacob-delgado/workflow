@@ -19,9 +19,9 @@ func TestASecretMasksUnderEveryVerbAndWhenNested(t *testing.T) {
 	// A Config printed raw is the leak this type guards against: a stray %v or a
 	// log line that never went through Redacted must still not show the value.
 	cfg := config.Config{
-		Jira:  config.Jira{Token: config.Secret(plaintext)},
-		Slack: config.Slack{Token: config.Secret(plaintext), WebhookURL: config.Secret(plaintext)},
-		Forge: config.Forge{Token: config.Secret(plaintext)},
+		Jira:      config.Jira{Token: config.Secret(plaintext)},
+		Messaging: config.Messaging{Token: config.Secret(plaintext), WebhookURL: config.Secret(plaintext)},
+		Forge:     config.Forge{Token: config.Secret(plaintext)},
 	}
 
 	printed := map[string]string{

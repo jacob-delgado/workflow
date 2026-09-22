@@ -347,6 +347,13 @@ func relabel(binding key.Binding, help string) key.Binding {
 }
 
 // status describes the configuration this session is running with.
+// messagingLabel is the status line's label for the messaging destination: the
+// service name, lowercased and padded to the same column width as the labels
+// above it.
+func messagingLabel(service string) string {
+	return fmt.Sprintf("%-7s", strings.ToLower(service))
+}
+
 func (m Model) status() string {
 	if m.loadErr != nil {
 		return m.configErrorStatus()
@@ -358,8 +365,8 @@ func (m Model) status() string {
 		label.Render("config ") + m.cfg.Path,
 		label.Render("jira   ") + config.DisplayURL(m.cfg.Jira.BaseURL) +
 			label.Render(m.marks.separator+m.cfg.Jira.AuthMode().String()),
-		label.Render("slack  ") + m.cfg.Slack.Target() +
-			label.Render(m.marks.separator+m.cfg.Slack.Mode().String()),
+		label.Render(messagingLabel(m.cfg.Messaging.Service())) + m.cfg.Messaging.Target() +
+			label.Render(m.marks.separator+m.cfg.Messaging.Mode().String()),
 	}
 
 	missing := m.cfg.Missing()
@@ -400,7 +407,7 @@ func errorSentence(err error) (string, bool) {
 		{jira.ErrUnreachable, "Jira did not answer within 10 seconds. Check the VPN, then press `r`."},
 		{forge.ErrNoToken, "No forge token found. Run `gh auth login`, or set `$GITHUB_TOKEN`."},
 		{forge.ErrUnreachable, "The forge did not answer within 10 seconds. Check the network, then press `r`."},
-		{slack.ErrNoCredential, "Slack is not set up. Add `slack.token` or `slack.webhook_url` to `.workflow.json`."},
+		{slack.ErrNoCredential, "Messaging is not set up. Add `messaging.webhook_url` to `.workflow.json`."},
 		{slack.ErrRejected, "Slack refused the post: check the bot is in the channel."},
 	} {
 		if errors.Is(err, known.sentinel) {

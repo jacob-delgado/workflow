@@ -175,8 +175,8 @@ func configurationFacts(cfg config.Config) (configFacts, error) {
 		Path:          cfg.Path,
 		JiraURL:       config.DisplayURL(cfg.Jira.BaseURL),
 		JiraAuthMode:  cfg.Jira.AuthMode().String(),
-		SlackTarget:   cfg.Slack.Target(),
-		SlackMode:     cfg.Slack.Mode().String(),
+		SlackTarget:   cfg.Messaging.Target(),
+		SlackMode:     cfg.Messaging.Mode().String(),
 		WorldReadable: shared,
 		Missing:       missing,
 	}
@@ -209,7 +209,9 @@ func credentialFacts(ctx context.Context, cfg config.Config, remote string, onli
 		run     func(io.Writer) error
 	}{
 		{service: "jira", run: func(out io.Writer) error { return checkJira(ctx, out, doer, cfg.Jira) }},
-		{service: "slack", run: func(out io.Writer) error { return checkSlack(ctx, out, doer, slack.APIBase, cfg.Slack) }},
+		{service: "slack", run: func(out io.Writer) error {
+			return checkSlack(ctx, out, doer, slack.APIBase, cfg.Messaging)
+		}},
 		{service: "forge", run: func(out io.Writer) error { return checkForge(ctx, out, doer, cfg.Forge, remote) }},
 	}
 

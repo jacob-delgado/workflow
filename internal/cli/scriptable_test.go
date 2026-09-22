@@ -35,13 +35,13 @@ func TestPRCommandReadsTheBranch(t *testing.T) {
 	}
 }
 
-func TestAnnounceCommandNeedsSlack(t *testing.T) {
+func TestAnnounceCommandNeedsMessaging(t *testing.T) {
 	// Act
 	_, err := run(t, t.TempDir(), "announce")
 
 	// Assert
-	if err == nil || !strings.Contains(err.Error(), "Slack") {
-		t.Errorf("announce with no Slack returned %v, want a Slack-not-configured error", err)
+	if err == nil || !strings.Contains(err.Error(), "messaging") {
+		t.Errorf("announce with no messaging returned %v, want a not-configured error", err)
 	}
 }
 

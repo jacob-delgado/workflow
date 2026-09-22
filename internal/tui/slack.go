@@ -16,9 +16,9 @@ import (
 	"github.com/jacob-delgado/workflow/internal/slack"
 )
 
-// slackHelp is what the editor shows below a Slack message.
-const slackHelp = "Edit the Slack message above this line. Slack's own markup works: <url|text>\n" +
-	"is a link, and *bold* is bold."
+// slackHelp is what the editor shows below a message being composed. The markup
+// depends on the service, so the note stays general rather than naming one.
+const slackHelp = "Edit the message above this line."
 
 // slackState is what has been posted to Slack this session. Nothing is kept
 // between sessions: with no state file there is nowhere to keep it.
@@ -140,13 +140,13 @@ func (m Model) announcement(moment slack.Moment) string {
 	return slack.Announcement{
 		Author: m.slack.author, PullRequestURL: m.review.pull.URL, PullRequestTitle: m.review.pull.Title,
 		IssueKey: string(issueKey), IssueSummary: issue.Summary, IssueURL: m.browseURL(issueKey), Noun: m.vocab.noun,
-		Moment: moment, Template: m.cfg.Slack.Announcement,
+		Moment: moment, Kind: m.cfg.Messaging.Kind, Template: m.cfg.Messaging.Announcement,
 	}.Text()
 }
 
 // slackRail is where messages go and what has been posted.
 func (m Model) slackRail(_ int) string {
-	return m.cfg.Slack.Target() + "\n" + m.slackState()
+	return m.cfg.Messaging.Target() + "\n" + m.slackState()
 }
 
 // slackState says what has happened in Slack this session.
@@ -169,9 +169,10 @@ func (m Model) slackState() string {
 
 // slackDetail previews the announcement, or says what it needs first.
 func (m Model) slackDetail(width int) string {
-	if m.cfg.Slack.Mode() == config.SlackNone {
-		return wrap("Slack is not set up.\n\nAdd slack.webhook_url (or slack.token and slack.channel) to\n~/"+
-			config.FileName+". `workflow doctor --online` checks it.", width)
+	if m.cfg.Messaging.Mode() == config.MessagingNone {
+		return wrap(m.cfg.Messaging.Service()+" is not set up.\n\nAdd messaging.webhook_url (or, for Slack, "+
+			"messaging.token and\nmessaging.channel) to ~/"+config.FileName+
+			". `workflow doctor --online` checks it.", width)
 	}
 
 	if !m.review.found {
@@ -182,7 +183,7 @@ func (m Model) slackDetail(width int) string {
 	lines := []string{
 		m.announcement(m.announceMoment()),
 		"",
-		m.styles.label.Render("to     ") + m.cfg.Slack.Target(),
+		m.styles.label.Render("to     ") + m.cfg.Messaging.Target(),
 		m.styles.label.Render("CI     ") + m.ciSummary(),
 		m.styles.label.Render("state  ") + m.slackState(),
 	}
@@ -200,7 +201,7 @@ func (m Model) announced() bool {
 // canPost reports a pull request to announce, a way to post it, and no post
 // of it already made or on its way.
 func (m Model) canPost() bool {
-	return m.review.found && m.deps.Slack.Post != nil && m.cfg.Slack.Mode() != config.SlackNone &&
+	return m.review.found && m.deps.Slack.Post != nil && m.cfg.Messaging.Mode() != config.MessagingNone &&
 		!m.announced() && !m.slack.sending
 }
 
@@ -219,7 +220,7 @@ func (m Model) handleSlackKey(msg tea.KeyPressMsg) (Model, tea.Cmd) {
 		return m, nil
 	}
 
-	channels := m.cfg.Slack.ChannelChoices()
+	channels := m.cfg.Messaging.ChannelChoices()
 
 	channel := ""
 	if len(channels) > 0 {
@@ -229,8 +230,8 @@ func (m Model) handleSlackKey(msg tea.KeyPressMsg) (Model, tea.Cmd) {
 	moment := m.announceMoment()
 
 	m.overlay = slackPreview{
-		marks: m.marks, styles: m.styles, text: m.announcement(moment), fallback: m.cfg.Slack.Target(),
-		channel: channel, channels: channels, moment: moment,
+		marks: m.marks, styles: m.styles, text: m.announcement(moment), fallback: m.cfg.Messaging.Target(),
+		channel: channel, channels: channels, moment: moment, service: m.cfg.Messaging.Service(),
 		noCI: m.review.checked && m.review.ci.State == forge.CINone,
 	}
 
@@ -252,8 +253,10 @@ type slackPreview struct {
 	// moment is what this post marks, so the pane records the right one as posted
 	// and offers "post when CI passes" only where waiting for CI makes sense.
 	moment slack.Moment
-	noCI   bool
-	send   sendState
+	// service names the messaging service, for the preview title.
+	service string
+	noCI    bool
+	send    sendState
 }
 
 // destination is where this post will go, as it is shown and as it is sent.
@@ -273,7 +276,7 @@ func (p slackPreview) view(width, _ int) (string, string) {
 	lines := pinnedOutcome(p.styles, p.marks, p.send, "posting", width)
 	lines = append(lines, wrap(p.text, width), "", "to  "+p.destination())
 
-	return "Post to Slack", strings.Join(lines, "\n")
+	return "Post to " + p.service, strings.Join(lines, "\n")
 }
 
 // footer offers posting now or when CI passes, changing the channel where there
@@ -471,5 +474,5 @@ func (msg slackPosted) apply(m Model) (Model, tea.Cmd) {
 		m = m.closeOverlay()
 	}
 
-	return m.noticed(m.marks.done + " posted to " + m.cfg.Slack.Target()), nil
+	return m.noticed(m.marks.done + " posted to " + m.cfg.Messaging.Target()), nil
 }

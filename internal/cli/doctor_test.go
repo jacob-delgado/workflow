@@ -53,13 +53,13 @@ func TestDoctorNamesMissingFields(t *testing.T) {
 		t.Fatalf("expected an error for an incomplete config, got none (%s)", output)
 	}
 
-	if !strings.Contains(output, "slack.token or slack.webhook_url") {
+	if !strings.Contains(output, "messaging.token or messaging.webhook_url") {
 		t.Errorf("doctor does not offer both Slack transports:\n%s", output)
 	}
 
 	// With no Slack credential at all, also demanding slack.channel would read
 	// as "set three things" when either transport is the actual next step.
-	if strings.Contains(output, "- slack.channel") {
+	if strings.Contains(output, "- messaging.channel") {
 		t.Errorf("doctor asked for a channel before a credential:\n%s", output)
 	}
 }
@@ -68,7 +68,7 @@ func TestDoctorAcceptsACompleteConfig(t *testing.T) {
 	// Arrange
 	dir := t.TempDir()
 	writeFile(t, dir, `{"jira": {"base_url": "https://jira.example.com", "token": "t"},`+
-		` "slack": {"webhook_url": "https://hooks.slack.example/services/not-real"}}`)
+		` "messaging": {"webhook_url": "https://hooks.slack.example/services/not-real"}}`)
 
 	// Act
 	output, err := run(t, dir, "doctor")
@@ -83,7 +83,7 @@ func TestDoctorFailsOnAConfigurationOthersCanRead(t *testing.T) {
 	// Arrange
 	dir := t.TempDir()
 	path := writeFile(t, dir, `{"jira": {"base_url": "https://jira.example.com", "token": "t"},`+
-		` "slack": {"webhook_url": "https://hooks.slack.example/services/not-real"}}`)
+		` "messaging": {"webhook_url": "https://hooks.slack.example/services/not-real"}}`)
 
 	err := os.Chmod(path, 0o644)
 	if err != nil {
@@ -264,7 +264,7 @@ func TestDoctorAcceptsAWebhookWithoutAChannel(t *testing.T) {
 	const webhook = "https://hooks.slack.com/services/T00000000/B00000000/supersecretpayload"
 
 	writeFile(t, dir, `{"jira": {"base_url": "https://jira.example.com", "token": "t"},`+
-		` "slack": {"webhook_url": "`+webhook+`"}}`)
+		` "messaging": {"webhook_url": "`+webhook+`"}}`)
 
 	// Act
 	output, err := run(t, dir, "doctor")
@@ -397,7 +397,7 @@ func TestDoctorReportsSetButInvalidValues(t *testing.T) {
 	// is not http(s), an insecure webhook, and a forge kind that names no forge.
 	dir := t.TempDir()
 	writeFile(t, dir, `{"jira":{"base_url":"ftp://jira.example.com","token":"t"},`+
-		`"slack":{"webhook_url":"http://hooks.example.com/x"},"forge":{"kind":"githb"}}`)
+		`"messaging":{"webhook_url":"http://hooks.example.com/x"},"forge":{"kind":"githb"}}`)
 
 	// Act
 	out, err := run(t, dir, "doctor")
@@ -407,7 +407,7 @@ func TestDoctorReportsSetButInvalidValues(t *testing.T) {
 		t.Errorf("doctor passed a configuration with invalid values:\n%s", out)
 	}
 
-	for _, want := range []string{"Problems", "jira.base_url", "slack.webhook_url", "forge.kind"} {
+	for _, want := range []string{"Problems", "jira.base_url", "messaging.webhook_url", "forge.kind"} {
 		if !strings.Contains(out, want) {
 			t.Errorf("doctor did not flag %q:\n%s", want, out)
 		}

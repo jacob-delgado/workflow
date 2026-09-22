@@ -30,7 +30,7 @@ func TestTheChannelCanBeChangedBeforePosting(t *testing.T) {
 
 	// Arrange
 	cfg := completeConfig()
-	cfg.Slack.Channels = []string{"#team-b"}
+	cfg.Messaging.Channels = []string{"#team-b"}
 	world := newWorld()
 	model := sized(t, tui.New(cfg, nil, world.deps()), 120, 40)
 	model = drain(t, model, model.Init())

@@ -168,7 +168,7 @@ func runGuidedInit(cmd *cobra.Command, path string, force bool, prompt Prompt) e
 		return err
 	}
 
-	cfg.Slack, err = collectSlack(out, prompt)
+	cfg.Messaging, err = collectMessaging(out, prompt)
 	if err != nil {
 		return err
 	}
@@ -237,23 +237,23 @@ func keepTokenSafe(out io.Writer, prompt Prompt, jira config.Jira) (config.Jira,
 	return jira, nil
 }
 
-// collectSlack asks for a Slack incoming webhook, the setup with nothing to
-// check. A bot token, which is more involved, is left to the docs and a later
-// hand edit.
-func collectSlack(out io.Writer, prompt Prompt) (config.Slack, error) {
+// collectMessaging asks for a Slack incoming webhook, the setup with nothing to
+// check. A bot token, and the other services' webhooks, are more involved and
+// are left to the docs and a later hand edit of the messaging block.
+func collectMessaging(out io.Writer, prompt Prompt) (config.Messaging, error) {
 	webhook, err := prompt.Secret("Slack incoming webhook URL, blank to skip: ")
 	if err != nil {
-		return config.Slack{}, err
+		return config.Messaging{}, err
 	}
 
 	webhook = strings.TrimSpace(webhook)
 	if webhook == "" {
-		return config.Slack{}, nil
+		return config.Messaging{}, nil
 	}
 
 	fmt.Fprintf(out, "  %-10s saved (a webhook cannot be checked without posting)\n", "slack")
 
-	return config.Slack{WebhookURL: config.Secret(webhook)}, nil
+	return config.Messaging{Kind: config.KindSlack, WebhookURL: config.Secret(webhook)}, nil
 }
 
 // keepIfChecked decides whether to keep a credential: a passing check keeps it,

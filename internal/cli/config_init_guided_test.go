@@ -43,8 +43,8 @@ func TestGuidedInitWritesWhatChecksOut(t *testing.T) {
 		t.Fatalf("loading what was written: %v", err)
 	}
 
-	if cfg.Jira.BaseURL != jiraURL || cfg.Jira.Token != guidedToken || cfg.Slack.WebhookURL == "" {
-		t.Errorf("wrote jira %+v, slack %+v, want the checked values kept", cfg.Jira, cfg.Slack)
+	if cfg.Jira.BaseURL != jiraURL || cfg.Jira.Token != guidedToken || cfg.Messaging.WebhookURL == "" {
+		t.Errorf("wrote jira %+v, messaging %+v, want the checked values kept", cfg.Jira, cfg.Messaging)
 	}
 }
 

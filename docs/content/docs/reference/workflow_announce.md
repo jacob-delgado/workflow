@@ -7,13 +7,14 @@ weight: 20
 
 ## workflow announce
 
-Announce the branch's pull request to Slack
+Announce the branch's pull request to your team's chat
 
 ### Synopsis
 
-Post the message the Slack pane would — the branch's pull request, its
+Post the message the messaging pane would — the branch's pull request, its
 issue, and where it stands (ready for review, merged, or CI red) — to the
-configured channel. A preview is printed and confirmed before anything posts.
+configured Slack, Teams, Discord or webhook. A preview is printed and
+confirmed before anything posts.
 
 ```
 workflow announce [flags]

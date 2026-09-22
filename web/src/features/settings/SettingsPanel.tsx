@@ -83,37 +83,58 @@ function ConfigForm({ config }: { config: Config }) {
         </label>
       </Fieldset>
 
-      <Fieldset legend="Slack">
-        <Field id="slack.token" label="Bot token" hint="Leave as-is to keep the stored token.">
-          <input
-            id="slack.token"
-            type="password"
-            aria-describedby="slack.token-hint"
+      <Fieldset legend="Messaging">
+        <Field
+          id="messaging.kind"
+          label="Service"
+          hint="Slack posts over a bot token or a webhook; the others post over a webhook."
+        >
+          <select
+            id="messaging.kind"
+            aria-describedby="messaging.kind-hint"
             className={inputClass}
-            {...register('slack.token')}
+            {...register('messaging.kind')}
+          >
+            <option value="slack">Slack</option>
+            <option value="teams">Microsoft Teams</option>
+            <option value="discord">Discord</option>
+            <option value="webhook">Plain webhook</option>
+          </select>
+        </Field>
+        <Field
+          id="messaging.token"
+          label="Bot token"
+          hint="Slack only; leave as-is to keep the stored token."
+        >
+          <input
+            id="messaging.token"
+            type="password"
+            aria-describedby="messaging.token-hint"
+            className={inputClass}
+            {...register('messaging.token')}
           />
         </Field>
         <Field
-          id="slack.webhook_url"
+          id="messaging.webhook_url"
           label="Webhook URL"
           hint="A credential; leave as-is to keep it."
         >
           <input
-            id="slack.webhook_url"
+            id="messaging.webhook_url"
             type="password"
-            aria-describedby="slack.webhook_url-hint"
+            aria-describedby="messaging.webhook_url-hint"
             className={inputClass}
-            {...register('slack.webhook_url')}
+            {...register('messaging.webhook_url')}
           />
         </Field>
-        <Field id="slack.channel" label="Channel">
-          <input id="slack.channel" className={inputClass} {...register('slack.channel')} />
+        <Field id="messaging.channel" label="Channel">
+          <input id="messaging.channel" className={inputClass} {...register('messaging.channel')} />
         </Field>
-        <Field id="slack.announcement" label="Announcement">
+        <Field id="messaging.announcement" label="Announcement">
           <input
-            id="slack.announcement"
+            id="messaging.announcement"
             className={inputClass}
-            {...register('slack.announcement')}
+            {...register('messaging.announcement')}
           />
         </Field>
       </Fieldset>

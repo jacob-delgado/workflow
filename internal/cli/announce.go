@@ -23,8 +23,9 @@ import (
 // errNoPullRequest refuses announcing a branch that has no pull request.
 var errNoPullRequest = errors.New("there is no pull request on this branch to announce")
 
-// errSlackNotConfigured refuses announcing when no Slack transport is set up.
-var errSlackNotConfigured = errors.New("no Slack transport is configured")
+// errMessagingNotConfigured refuses announcing when no messaging transport is
+// set up.
+var errMessagingNotConfigured = errors.New("no messaging transport is configured")
 
 // announceSeams are what `workflow announce` reads and does, so a test can
 // answer without a repository, a forge or Slack.
@@ -40,7 +41,13 @@ type announceSeams struct {
 	Project   string
 	Channel   string
 	Template  string
-	Confirm   func(question string) (bool, error)
+	// MessagingKind is the service the announcement is rendered for: it decides
+	// the link markup Text() emits.
+	MessagingKind config.MessagingKind
+	// Service names the messaging service for the user — "Slack", "Teams",
+	// "Discord" or "webhook" — in the prompt and notices.
+	Service string
+	Confirm func(question string) (bool, error)
 }
 
 // newAnnounceCmd builds `workflow announce`.
@@ -49,10 +56,11 @@ func newAnnounceCmd(prompt Prompt) *cobra.Command {
 
 	cmd := &cobra.Command{
 		Use:   "announce",
-		Short: "Announce the branch's pull request to Slack",
-		Long: "Post the message the Slack pane would — the branch's pull request, its\n" +
+		Short: "Announce the branch's pull request to your team's chat",
+		Long: "Post the message the messaging pane would — the branch's pull request, its\n" +
 			"issue, and where it stands (ready for review, merged, or CI red) — to the\n" +
-			"configured channel. A preview is printed and confirmed before anything posts.",
+			"configured Slack, Teams, Discord or webhook. A preview is printed and\n" +
+			"confirmed before anything posts.",
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			return runAnnounceCommand(cmd, prompt, opts)
@@ -79,20 +87,22 @@ func runAnnounceCommand(cmd *cobra.Command, prompt Prompt, opts writeOptions) er
 	deps := wiring.Deps(ctx, cfg, wiring.Locate(ctx, dir), nil)
 
 	seams := announceSeams{
-		Branch:    deps.Git.Branch,
-		FindPull:  deps.Forge.FindPullRequest,
-		Author:    deps.Forge.Author,
-		Issue:     deps.Jira.Issue,
-		BrowseURL: deps.Jira.BrowseURL,
-		CheckCI:   deps.Forge.CheckStatus,
-		Kind:      deps.Forge.Kind,
-		Project:   cfg.Jira.Project,
-		Channel:   cfg.Slack.Channel,
-		Template:  cfg.Slack.Announcement,
-		Confirm:   func(question string) (bool, error) { return confirm(prompt, question) },
+		Branch:        deps.Git.Branch,
+		FindPull:      deps.Forge.FindPullRequest,
+		Author:        deps.Forge.Author,
+		Issue:         deps.Jira.Issue,
+		BrowseURL:     deps.Jira.BrowseURL,
+		CheckCI:       deps.Forge.CheckStatus,
+		Kind:          deps.Forge.Kind,
+		Project:       cfg.Jira.Project,
+		Channel:       cfg.Messaging.Channel,
+		Template:      cfg.Messaging.Announcement,
+		MessagingKind: cfg.Messaging.Kind,
+		Service:       cfg.Messaging.Service(),
+		Confirm:       func(question string) (bool, error) { return confirm(prompt, question) },
 	}
 
-	if cfg.Slack.Mode() != config.SlackNone {
+	if cfg.Messaging.Mode() != config.MessagingNone {
 		seams.Post = func(channel, text string) error { return deps.Slack.Post(channel, text) }
 	}
 
@@ -103,7 +113,7 @@ func runAnnounceCommand(cmd *cobra.Command, prompt Prompt, opts writeOptions) er
 // it, and posts it once confirmed.
 func runAnnounce(out io.Writer, seams announceSeams, opts writeOptions) error {
 	if seams.Post == nil {
-		return errSlackNotConfigured
+		return errMessagingNotConfigured
 	}
 
 	branch, err := seams.Branch()
@@ -122,11 +132,11 @@ func runAnnounce(out io.Writer, seams announceSeams, opts writeOptions) error {
 
 	text := composeAnnouncement(seams, branch, pull).Text()
 	fmt.Fprintln(out, text)
-	fmt.Fprintln(out, "to "+announceTarget(seams.Channel))
+	fmt.Fprintln(out, "to "+announceTarget(seams.Channel, seams.Service))
 
 	proceed, err := opts.proceed(out, seams.Confirm, writePrompt{
-		question: "Post to Slack?",
-		dryRun:   "dry run: would post to " + announceTarget(seams.Channel),
+		question: "Post to " + seams.Service + "?",
+		dryRun:   "dry run: would post to " + announceTarget(seams.Channel, seams.Service),
 		declined: "Not posted.",
 	})
 	if err != nil || !proceed {
@@ -135,10 +145,10 @@ func runAnnounce(out io.Writer, seams announceSeams, opts writeOptions) error {
 
 	err = seams.Post(seams.Channel, text)
 	if err != nil {
-		return fmt.Errorf("posting to Slack: %w", err)
+		return fmt.Errorf("posting to %s: %w", seams.Service, err)
 	}
 
-	fmt.Fprintln(out, "Posted to "+announceTarget(seams.Channel))
+	fmt.Fprintln(out, "Posted to "+announceTarget(seams.Channel, seams.Service))
 
 	return nil
 }
@@ -158,6 +168,7 @@ func composeAnnouncement(seams announceSeams, branch gitrepo.Branch, pull forge.
 		IssueURL:         announceIssueURL(seams, issueKey),
 		Noun:             forgeNoun(seams.Kind),
 		Moment:           announceMoment(seams, pull, branch.Head),
+		Kind:             seams.MessagingKind,
 		Template:         seams.Template,
 	}
 }
@@ -189,10 +200,10 @@ func forgeNoun(kind forge.Kind) string {
 }
 
 // announceTarget names where a post goes: the configured channel, or the
-// webhook's own channel when none is set.
-func announceTarget(channel string) string {
+// service's own destination when none is set (a webhook carries its own).
+func announceTarget(channel, service string) string {
 	if channel == "" {
-		return "the configured Slack channel"
+		return "the configured " + service + " channel"
 	}
 
 	return channel

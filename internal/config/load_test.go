@@ -40,8 +40,8 @@ func TestLoadUsesTheWorkingDirectoryFileInsteadOfHomes(t *testing.T) {
 		t.Errorf("jira.base_url = %q, want the working directory's value", cfg.Jira.BaseURL)
 	}
 
-	if cfg.Slack.Token != "" {
-		t.Errorf("slack.token = %q, want empty: the home file must not merge in", cfg.Slack.Token)
+	if cfg.Messaging.Token != "" {
+		t.Errorf("messaging.token = %q, want empty: the home file must not merge in", cfg.Messaging.Token)
 	}
 }
 
@@ -64,8 +64,8 @@ func TestLoadFallsBackToHome(t *testing.T) {
 		t.Errorf("loaded %s, want %s", cfg.Path, wantPath)
 	}
 
-	if cfg.Slack.Channel != devChannel {
-		t.Errorf("slack.channel = %q, want #dev", cfg.Slack.Channel)
+	if cfg.Messaging.Channel != devChannel {
+		t.Errorf("messaging.channel = %q, want #dev", cfg.Messaging.Channel)
 	}
 }
 

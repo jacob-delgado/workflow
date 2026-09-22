@@ -237,7 +237,14 @@ export const zSnapshot = z.object({
     branches: z.array(zTaskBranch)
 });
 
-export const zSlackConfig = z.object({
+export const zMessagingConfig = z.object({
+    kind: z.enum([
+        '',
+        'slack',
+        'teams',
+        'discord',
+        'webhook'
+    ]).optional(),
     token: z.string().optional(),
     token_command: z.string().optional(),
     token_env: z.string().optional(),
@@ -308,7 +315,7 @@ export const zJiraConfig = z.object({
 export const zConfig = z.object({
     version: z.string(),
     jira: zJiraConfig,
-    slack: zSlackConfig,
+    messaging: zMessagingConfig,
     forge: zForgeConfig,
     ui: zUiConfig,
     timing: zTimingConfig,

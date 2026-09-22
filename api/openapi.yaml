@@ -190,8 +190,9 @@ paths:
       summary: Write the configuration file.
       description: >-
         Replaces the configuration file. A secret field (jira.token,
-        slack.token, slack.webhook_url, forge.token) left empty or sent back with
-        its masked value keeps the stored secret; a new value replaces it. The
+        messaging.token, messaging.webhook_url, forge.token) left empty or sent
+        back with its masked value keeps the stored secret; a new value replaces
+        it. The
         body is validated the same way a file read is, and rejected with 422 when
         it is invalid.
       tags: [config]
@@ -944,11 +945,11 @@ components:
         The whole configuration file. On a read, the four secret fields and the
         Jira header values are masked; on a write, a masked or empty secret keeps
         the stored value.
-      required: [version, jira, slack, forge, ui, timing, branch, commit]
+      required: [version, jira, messaging, forge, ui, timing, branch, commit]
       properties:
         version: {type: string}
         jira: {$ref: "#/components/schemas/JiraConfig"}
-        slack: {$ref: "#/components/schemas/SlackConfig"}
+        messaging: {$ref: "#/components/schemas/MessagingConfig"}
         forge: {$ref: "#/components/schemas/ForgeConfig"}
         ui: {$ref: "#/components/schemas/UIConfig"}
         timing: {$ref: "#/components/schemas/TimingConfig"}
@@ -981,12 +982,20 @@ components:
           description: Post comments written in Markdown as Jira's wiki markup.
       additionalProperties: false
 
-    SlackConfig:
+    MessagingConfig:
       type: object
       properties:
+        kind:
+          type: string
+          description: >-
+            The service posts go to. Empty is read as slack. It decides the
+            message body and link markup the notifier sends.
+          enum: ["", slack, teams, discord, webhook]
         token:
           type: string
-          description: Masked on read; empty or masked on write keeps the stored value.
+          description: >-
+            A Slack bot token. Masked on read; empty or masked on write keeps
+            the stored value. Ignored by the webhook-only kinds.
         token_command: {type: string}
         token_env: {type: string}
         webhook_url:

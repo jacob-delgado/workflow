@@ -111,8 +111,8 @@ func fromDTO(in api.Config) (config.Config, error) {
 func preserveSecrets(incoming, stored config.Config) config.Config {
 	incoming.Jira.BaseURL = keepMaskedURL(incoming.Jira.BaseURL, stored.Jira.BaseURL)
 	incoming.Jira.Token = keepSecret(incoming.Jira.Token, stored.Jira.Token)
-	incoming.Slack.Token = keepSecret(incoming.Slack.Token, stored.Slack.Token)
-	incoming.Slack.WebhookURL = keepSecret(incoming.Slack.WebhookURL, stored.Slack.WebhookURL)
+	incoming.Messaging.Token = keepSecret(incoming.Messaging.Token, stored.Messaging.Token)
+	incoming.Messaging.WebhookURL = keepSecret(incoming.Messaging.WebhookURL, stored.Messaging.WebhookURL)
 	incoming.Forge.Token = keepSecret(incoming.Forge.Token, stored.Forge.Token)
 	incoming.Jira.Headers = keepHeaders(incoming.Jira.Headers, stored.Jira.Headers)
 

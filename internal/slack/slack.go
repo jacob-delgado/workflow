@@ -35,7 +35,7 @@ const authTestPath = "/auth.test"
 // Errors this package returns. Callers distinguish them with errors.Is.
 var (
 	// ErrNoCredential reports a configuration with neither transport set.
-	ErrNoCredential = errors.New("no slack.token or slack.webhook_url is configured")
+	ErrNoCredential = errors.New("no messaging.token or messaging.webhook_url is configured")
 	// ErrWebhookUncheckable reports that a webhook cannot be verified.
 	ErrWebhookUncheckable = errors.New("an incoming webhook cannot be checked without posting with it")
 	// ErrRejected reports a token Slack would not accept.
@@ -66,15 +66,16 @@ type Identity struct {
 	Team  string `json:"team"`
 }
 
-// Client talks to the Slack Web API.
+// Client talks to a messaging service — Slack's Web API, or an incoming webhook
+// for Slack, Teams, Discord or a plain endpoint.
 type Client struct {
 	do    Doer
 	base  string
-	creds config.Slack
+	creds config.Messaging
 }
 
 // New builds a client. Pass APIBase unless you are a test.
-func New(do Doer, base string, creds config.Slack) Client {
+func New(do Doer, base string, creds config.Messaging) Client {
 	return Client{do: do, base: strings.TrimRight(base, "/"), creds: creds}
 }
 
@@ -108,13 +109,13 @@ func (c Client) AuthTest(ctx context.Context) (Identity, error) {
 // checkable reports whether this configuration has something worth asking about.
 func (c Client) checkable() error {
 	switch c.creds.Mode() {
-	case config.SlackBot:
+	case config.MessagingBot:
 		return nil
-	case config.SlackWebhook:
+	case config.MessagingWebhook:
 		// The only way to learn whether a webhook works is to post with it, and
 		// that would put a test message in somebody's channel.
 		return ErrWebhookUncheckable
-	case config.SlackNone:
+	case config.MessagingNone:
 		return ErrNoCredential
 	default:
 		return ErrNoCredential

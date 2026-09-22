@@ -102,7 +102,8 @@ workflow doctor           # says what is still missing
     "token": "",
     "user": ""
   },
-  "slack": {
+  "messaging": {
+    "kind": "slack",
     "token": "",
     "webhook_url": "",
     "channel": "#dev-workflow"
@@ -144,24 +145,35 @@ carry the gateway's own token or headers with `jira.token_command` and
 
 [sso]: https://jacob-delgado.github.io/workflow/docs/configuration/
 
-### Slack: a webhook or a bot token
+### Messaging: Slack, Teams, Discord or a plain webhook
 
-Set either. If you set both, the bot token wins.
+`messaging.kind` picks the service — `slack` (the default when empty), `teams`,
+`discord` or `webhook`. Slack posts over a bot token or an incoming webhook; the
+others post over an incoming webhook, rendered in that service's own markup.
+
+**Slack, either transport.** Set a webhook or a bot token; if you set both, the
+bot token wins.
 
 **Incoming webhook**, the two-minute option: create an app at
 <https://api.slack.com/apps>, turn on **Incoming Webhooks**, add one to the
-workspace, pick its channel, and put the URL in `slack.webhook_url`. It is bound
-to that channel, so `slack.channel` does not apply. Treat the URL as a password.
+workspace, pick its channel, and put the URL in `messaging.webhook_url`. It is
+bound to that channel, so `messaging.channel` does not apply. Treat the URL as a
+password.
 
 **Bot token**, to choose the channel at runtime:
 
 1. Create an app at <https://api.slack.com/apps> in your workspace.
 2. Under **OAuth & Permissions**, add the `chat:write` bot token scope.
 3. Install the app to the workspace and copy the **Bot User OAuth Token** — it
-   starts with `xoxb-` — into `slack.token`.
-4. Set `slack.channel` to the channel to post in, and invite the bot to it.
+   starts with `xoxb-` — into `messaging.token`.
+4. Set `messaging.channel` to the channel to post in, and invite the bot to it.
 
-`workflow --help` repeats all of this at the terminal.
+**Teams, Discord or a plain webhook**: create an incoming webhook in the service,
+set `messaging.kind` accordingly, and put the URL in `messaging.webhook_url`.
+
+A configuration written before this block was renamed still names it `slack`;
+rename the key to `messaging` and add `"kind": "slack"`. `workflow --help`
+repeats all of this at the terminal.
 
 ### Reaching a forge behind SSO
 
@@ -174,8 +186,8 @@ back to HTTP when the tool is not installed.
 
 `.workflow.json` holds live credentials. `config init` writes it at mode `0600`,
 `doctor` fails while anyone else can read it, it is listed in `.gitignore`, and `config show` masks every credential —
-including `slack.webhook_url`, which is a password that happens to look like an
-address. Nothing in this repo will print a credential in full.
+including `messaging.webhook_url`, which is a password that happens to look like
+an address. Nothing in this repo will print a credential in full.
 
 ## Use
 

@@ -75,7 +75,7 @@ func TestAnnounceDryRunNamesTheConfiguredChannel(t *testing.T) {
 	fakeGh(t, ghResponses{pulls: openPull("Add login")})
 	repo := githubRepo(t, "fix/PROJ-2-thing")
 	writeFile(t, repo, `{"forge":{"cli":true,"kind":"github","host":"github.com"},`+
-		`"slack":{"webhook_url":"https://hooks.slack.example/services/x","channel":"#dev"}}`)
+		`"messaging":{"webhook_url":"https://hooks.slack.example/services/x","channel":"#dev"}}`)
 
 	// Act
 	output, err := run(t, repo, "announce", "--dry-run")
@@ -86,6 +86,26 @@ func TestAnnounceDryRunNamesTheConfiguredChannel(t *testing.T) {
 
 	if !strings.Contains(output, "#dev") {
 		t.Errorf("preview does not name the configured channel:\n%s", output)
+	}
+}
+
+func TestAnnounceDryRunNamesTheService(t *testing.T) {
+	// Arrange
+	// With a Teams webhook, the preview and prompt name Teams, not Slack.
+	fakeGh(t, ghResponses{pulls: openPull("Add login")})
+	repo := githubRepo(t, "fix/PROJ-2-thing")
+	writeFile(t, repo, `{"forge":{"cli":true,"kind":"github","host":"github.com"},`+
+		`"messaging":{"kind":"teams","webhook_url":"https://outlook.office.example/webhook/x"}}`)
+
+	// Act
+	output, err := run(t, repo, "announce", "--dry-run")
+	// Assert
+	if err != nil {
+		t.Fatalf("announce --dry-run: %v (%s)", err, output)
+	}
+
+	if !strings.Contains(output, "Teams") || strings.Contains(output, "Slack") {
+		t.Errorf("preview should name Teams, not Slack:\n%s", output)
 	}
 }
 
@@ -134,7 +154,7 @@ func TestAnnounceDryRunWithATrackerConfigured(t *testing.T) {
 	repo := githubRepo(t, "fix/PROJ-2-thing")
 	writeFile(t, repo, `{"jira":{"base_url":"`+jira.URL+`","token":"t"},`+
 		`"forge":{"cli":true,"kind":"github","host":"github.com"},`+
-		`"slack":{"webhook_url":"https://hooks.slack.example/services/x"}}`)
+		`"messaging":{"webhook_url":"https://hooks.slack.example/services/x"}}`)
 
 	// Act
 	output, err := run(t, repo, "announce", "--dry-run")
@@ -191,7 +211,7 @@ func TestAnnounceOutsideARepositoryReportsSo(t *testing.T) {
 	// Arrange
 	// Slack is configured, but there is no repository to read a branch from.
 	dir := t.TempDir()
-	writeFile(t, dir, `{"slack":{"webhook_url":"https://hooks.slack.example/services/x"}}`)
+	writeFile(t, dir, `{"messaging":{"webhook_url":"https://hooks.slack.example/services/x"}}`)
 
 	// Act
 	_, err := run(t, dir, "announce", "--yes")
@@ -207,7 +227,7 @@ func TestAnnounceReportsWhenThePullRequestCannotBeRead(t *testing.T) {
 	// Slack is configured, so the command gets as far as looking for the pull
 	// request; with no forge there is none it can read.
 	repo := prRepo(t, "fix/PROJ-2-thing")
-	writeFile(t, repo, `{"slack": {"webhook_url": "https://hooks.slack.example/services/x"}}`)
+	writeFile(t, repo, `{"messaging": {"webhook_url": "https://hooks.slack.example/services/x"}}`)
 
 	// Act
 	_, err := run(t, repo, "announce", "--yes")

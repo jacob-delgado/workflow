@@ -212,7 +212,7 @@ func TestConfigShowMasksTokens(t *testing.T) {
 	const secret = "xoxb-super-secret-9999"
 
 	writeFile(t, dir, `{"jira": {"base_url": "https://jira.example.com", "token": "jira-secret-1111"},`+
-		` "slack": {"token": "`+secret+`", "channel": "#dev"}}`)
+		` "messaging": {"token": "`+secret+`", "channel": "#dev"}}`)
 
 	// Act
 	output, err := run(t, dir, "config", "show")
@@ -261,7 +261,7 @@ func TestConfigShowMasksTheWebhookURL(t *testing.T) {
 	const webhook = "https://hooks.slack.com/services/T00000000/B00000000/secretpath1234"
 
 	writeFile(t, dir, `{"jira": {"base_url": "https://jira.example.com", "token": "t"},`+
-		` "slack": {"webhook_url": "`+webhook+`"}}`)
+		` "messaging": {"webhook_url": "`+webhook+`"}}`)
 
 	// Act
 	output, err := run(t, dir, "config", "show")

@@ -37,6 +37,20 @@ test('loads the configuration into the form', async () => {
   expect((baseUrl as HTMLInputElement).value).toBe('https://jira.acme.internal')
 })
 
+test('loads the configured messaging service into the Service select', async () => {
+  // Arrange
+  vi.stubEnv('VITE_MOCK', 'true')
+  renderWithClient(<SettingsPanel />)
+
+  // Act
+  const service = await screen.findByLabelText('Service')
+
+  // Assert
+  expect((service as HTMLSelectElement).value).toBe('slack')
+  expect(screen.getByRole('option', { name: 'Microsoft Teams' })).toBeTruthy()
+  expect(screen.getByRole('option', { name: 'Discord' })).toBeTruthy()
+})
+
 test('confirms when the configuration is saved', async () => {
   // Arrange
   vi.stubEnv('VITE_MOCK', 'true')

@@ -170,12 +170,12 @@ func ciState(state forge.CIState) api.CIState {
 // slackDTO maps the Slack destination: the channel, its alternates (an empty
 // list rather than null on the wire), and who a post would come from.
 func slackDTO(cfg config.Config, author string) api.Slack {
-	channels := cfg.Slack.ChannelChoices()
+	channels := cfg.Messaging.ChannelChoices()
 	if channels == nil {
 		channels = []string{}
 	}
 
-	return api.Slack{Channel: cfg.Slack.Channel, Channels: channels, Author: author}
+	return api.Slack{Channel: cfg.Messaging.Channel, Channels: channels, Author: author}
 }
 
 // mergeable maps the forge's mergeability onto its wire word.

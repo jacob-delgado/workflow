@@ -103,7 +103,7 @@ export const getConfig = <ThrowOnError extends boolean = false>(options?: Option
 /**
  * Write the configuration file.
  *
- * Replaces the configuration file. A secret field (jira.token, slack.token, slack.webhook_url, forge.token) left empty or sent back with its masked value keeps the stored secret; a new value replaces it. The body is validated the same way a file read is, and rejected with 422 when it is invalid.
+ * Replaces the configuration file. A secret field (jira.token, messaging.token, messaging.webhook_url, forge.token) left empty or sent back with its masked value keeps the stored secret; a new value replaces it. The body is validated the same way a file read is, and rejected with 422 when it is invalid.
  */
 export const updateConfig = <ThrowOnError extends boolean = false>(options: Options<UpdateConfigData, ThrowOnError>): RequestResult<UpdateConfigResponses, UpdateConfigErrors, ThrowOnError> => (options.client ?? client).put<UpdateConfigResponses, UpdateConfigErrors, ThrowOnError>({
     responseValidator: async (data) => await zUpdateConfigResponse.parseAsync(data),

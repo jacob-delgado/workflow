@@ -14,7 +14,8 @@ workflow reads a single JSON file, `.workflow.json`.
     "token": "",
     "user": ""
   },
-  "slack": {
+  "messaging": {
+    "kind": "slack",
     "token": "",
     "webhook_url": "",
     "channel": "#dev-workflow"
@@ -64,12 +65,13 @@ which one was read.
 | `jira.views` | no | Named issue lists (`name` + `jql`) the pane moves between with `v`. Empty keeps the one built-in list. See below. |
 | `jira.headers` | no | Extra HTTP headers sent with every Jira request, for a Jira reached through an SSO proxy that checks one. Values are masked wherever the configuration is shown. See below. |
 | `jira.markdown_comments` | no | Write comments in Markdown and have them posted as Jira's wiki markup. Off by default, so a comment already in wiki markup is posted unchanged. |
-| `slack.token` | for a bot | Bot token; starts with `xoxb-`. Or use `slack.token_command` / `slack.token_env`. |
-| `slack.token_command` | for a bot | A program that prints the bot token. |
-| `slack.token_env` | for a bot | An environment variable that holds the bot token. |
-| `slack.webhook_url` | for a webhook | Incoming webhook URL. **This is a credential**, not just an address. |
-| `slack.channel` | only with `slack.token` | Channel to post in, e.g. `#dev-workflow`. A webhook carries its own. |
-| `slack.announcement` | no | Template for the review message, from `{author}`, `{noun}`, `{title}`, `{url}`, `{key}`, `{summary}`, `{issue_url}`. Empty uses the built-in message. |
+| `messaging.kind` | no | Service to post to: `slack` (the default when empty), `teams`, `discord`, or a plain `webhook`. It decides the message body and link markup. |
+| `messaging.token` | for a Slack bot | Bot token; starts with `xoxb-`. Or use `messaging.token_command` / `messaging.token_env`. Ignored by the webhook-only kinds. |
+| `messaging.token_command` | for a Slack bot | A program that prints the bot token. |
+| `messaging.token_env` | for a Slack bot | An environment variable that holds the bot token. |
+| `messaging.webhook_url` | for a webhook | Incoming webhook URL. **This is a credential**, not just an address. The only transport for Teams, Discord and a plain webhook. |
+| `messaging.channel` | only with a Slack bot | Channel to post in, e.g. `#dev-workflow`. A webhook carries its own. |
+| `messaging.announcement` | no | Slack template for the review message, from `{author}`, `{noun}`, `{title}`, `{url}`, `{key}`, `{summary}`, `{issue_url}`. Empty, or any non-Slack kind, uses the built-in message. |
 | `forge.kind` | on-prem only | `github` or `gitlab`, for a host whose name says neither. |
 | `forge.host` | with `forge.kind` | The host `forge.kind` and `forge.token` are for, e.g. `git.example.com`. |
 | `forge.token` | **no** | GitHub or GitLab token. Usually leave it empty — see below. |
@@ -207,48 +209,72 @@ printf %s '<your token>' | secret-tool store --label='workflow jira' service wor
 #   "jira": { "token_command": "secret-tool lookup service workflow-jira" }
 ```
 
-## Slack: a webhook or a bot token
+## Messaging: Slack, Teams, Discord or a plain webhook
+
+`messaging.kind` picks the service. Empty is read as `slack`, so a file written
+before this block was named `messaging` — it was `slack` then — needs `slack`
+renamed to `messaging` and a `"kind": "slack"` added; `workflow doctor` names
+the rename if you forget. Slack alone has two transports; the others post over an
+incoming webhook.
+
+| Kind | Transport | Link markup |
+| --- | --- | --- |
+| `slack` | bot token or incoming webhook | Slack mrkdwn `<url\|text>` |
+| `teams` | incoming webhook | Markdown `[text](url)` |
+| `discord` | incoming webhook | Markdown `[text](url)` |
+| `webhook` | incoming webhook | bare URL, no markup |
+
+`workflow doctor` reports the service and the transport in effect.
+
+### Slack: a webhook or a bot token
 
 Set either one. If you set both, the bot token is used — it is the more capable
 transport, and a configuration that has both is not an error.
 
-`workflow doctor` reports which of the two is in effect.
-
-### Incoming webhook — the two-minute option
+#### Incoming webhook — the two-minute option
 
 1. Create an app at [api.slack.com/apps](https://api.slack.com/apps) in your
    workspace.
 2. Turn on **Incoming Webhooks**, choose **Add New Webhook to Workspace**, and
    pick the channel it posts to.
-3. Copy the URL into `slack.webhook_url`.
+3. Copy the URL into `messaging.webhook_url` (with `"kind": "slack"`).
 
-The webhook is bound to the channel you chose, so `slack.channel` does not apply
-and is not required. There is no app review, no scope to request and no bot to
-invite.
+The webhook is bound to the channel you chose, so `messaging.channel` does not
+apply and is not required. There is no app review, no scope to request and no bot
+to invite.
 
 The trade-off is that a webhook posts and nothing else: it cannot tell workflow
 the message's timestamp, so later events arrive as new messages rather than
 replies, and it can never post anywhere but that one channel.
 
-### Bot token — choose the channel at runtime
+#### Bot token — choose the channel at runtime
 
 1. Create an app at [api.slack.com/apps](https://api.slack.com/apps) in your
    workspace.
 2. Under **OAuth & Permissions**, add the `chat:write` bot token scope.
 3. Install the app to the workspace and copy the **Bot User OAuth Token** — it
-   starts with `xoxb-` — into `slack.token`.
-4. Set `slack.channel`, and invite the bot to that channel. Without the invite it
-   cannot post there.
+   starts with `xoxb-` — into `messaging.token`.
+4. Set `messaging.channel`, and invite the bot to that channel. Without the
+   invite it cannot post there.
 
-### Your team's own words
+### Teams, Discord or a plain webhook
+
+Create an incoming webhook in the service, set `messaging.kind` to `teams`,
+`discord` or `webhook`, and copy the URL into `messaging.webhook_url`. A bot
+token and channel do not apply — the webhook carries its own destination. The
+notifier renders each message in the service's own markup: Markdown links for
+Teams and Discord, and a bare URL for a plain webhook.
+
+### Your team's own words (Slack)
 
 By default the review message reads `jacob opened a pull request: <link>` and,
-on the next line, the linked issue. `slack.announcement` shapes it to a house
-style — an emoji, a reviewers line, a group to mention:
+on the next line, the linked issue. `messaging.announcement` shapes it to a house
+style — an emoji, a reviewers line, a group to mention. It is Slack mrkdwn, so it
+applies to the Slack kind only; the other services always use the built-in text:
 
 ```json
 {
-  "slack": {
+  "messaging": {
     "announcement": "🚀 {author} opened {noun} <{url}|{title}> — {key} {summary}"
   }
 }
@@ -394,7 +420,7 @@ changes where it starts.
   and the forge token — printing only the last four characters so you can tell
   two apart.
 
-**`slack.webhook_url` is masked like a token, because it is one.** Anyone holding
+**`messaging.webhook_url` is masked like a token, because it is one.** Anyone holding
 that URL can post to your channel; it is a password that happens to look like an
 address. `workflow doctor` never prints it at all — not even masked — because
 doctor's output is what the bug report template asks people to paste.
