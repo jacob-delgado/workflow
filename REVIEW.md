@@ -1,0 +1,876 @@
+# Surface review: the command line, the terminal interface and the web
+
+A plan for a session to execute. It is the one file in this repository that
+ranks and orders work — because it is a handoff, not a backlog. Delete it
+when it is done. The durable records are [UX.md](UX.md) (the user-facing
+gaps, `UX-nn`), [TECH_DEBT.md](TECH_DEBT.md) (the debts, `DEBT-nn`) and
+[FEATURES.md](FEATURES.md) (the ideas, `FEAT-nn`); every item below points
+at its record there, and an item that is fixed is removed from its record in
+the same pull request, per the standing rule.
+
+Checked against commit `acb6988` on 2026-09-22 (branch
+`feat/store-and-conventions`, PR #125 — the state that includes the web
+features, the on-disk store and the RFC 9457 errors). Line numbers drift, so
+every pointer also names the symbol it means. Re-verify a cited line before
+acting on it.
+
+## How this was produced
+
+Three read-only maps of the code — the command line (`internal/cli`,
+`cmd/`), the terminal interface (`internal/tui`) and the web (`web/src`,
+`internal/webserver`, `api/openapi.yaml`) — each producing a list of what a
+user can *do* from that surface, and a review of that surface against a
+yardstick:
+
+- **Command line:** the [clig.dev](https://clig.dev) guidelines — help and
+  discoverability, exit codes that distinguish failures, stdout for the
+  artifact and stderr for commentary, machine-readable output and
+  pipeability, confirmation with `--yes` to skip, `--dry-run`, actionable
+  errors.
+- **Terminal interface:** the promises it makes about itself (re-counted in
+  UX.md's table) plus the conventions of a developer-facing TUI —
+  discoverable keys, one key one meaning, `Esc`/`Enter`, feedback and a
+  last look before anything outward, small-terminal and `NO_COLOR` behavior.
+- **Web:** WCAG 2.1 AA (already gate-enforced) plus a designer's read: does
+  the page share the product's visual system or a template's, do buttons
+  say what happens and keep their names, do errors direct, is there
+  feedback after a write, does the layout respond.
+
+**Nothing was run.** No binary was driven and no browser was opened; the
+screens are known from the source and from the golden output the tests
+hold. Every claim is cited; the ones that are about how something *looks*
+say "from code". A second reading of every cited line was made while
+writing this file, and the phasing was designed against the import graph
+(`go list -deps`), the package budgets (`scripts/check-package-size.sh
+--list`) and the condition-coverage report at this commit.
+
+## The parity matrix
+
+**Y** yes · **P** partial · **N** no · **F** a deliberate, declared follow-up.
+The last column answers the question that matters: *is an equivalent
+warranted?* Parity is not the goal — a mouse gesture needs no CLI twin and
+`git push` is the CLI's own push — so each "N" says why it is, or is not, a
+gap, and which phase closes it.
+
+### Issues
+
+| # | Action | CLI | TUI | Web | Warranted? |
+| --- | --- | --- | --- | --- | --- |
+| 1 | List the view's issues | P (only `branch <tab>` completion, `internal/cli/scriptable.go:78`) | Y | Y (page 0 of the stream) | CLI read: a feature, FEAT-78 |
+| 2 | Switch view / next page | N | Y (`v`, `ctrl+n`) | N (`web/src/api/snapshot.ts:39` sends no `?view=`) | **Web yes** — the stream already takes `?view=` (`internal/webserver/stream.go:38`). Phase 3, UX-72 |
+| 3 | Filter the list | N | Y (`/`, `internal/tui/issues.go:154`) | N | Web idea, UX-72; CLI no |
+| 4 | Read an issue in full | N | Y (`internal/tui/detail.go:225`) | **N** — `IssuesPanel.tsx:83` renders the slim snapshot `Issue` | **Web yes, cheap** — `getIssue` exists (`api/openapi.yaml:95`, `handlers.go:66`) and is never called. Phase 3, UX-70. CLI: FEAT-78 |
+| 5 | Transition, with field forms | P (`pr`'s side effect, fields-less, `internal/cli/pr.go:161`) | Y (`picker.go:168`) | N | The post-PR **review-status offer** both other surfaces make: Phase 9, UX-74. A general transition: FEAT-78 (CLI), FEAT-80 (web) |
+| 6 | Comment | N | Y (`comment.go:37`) | N | FEAT-78 / FEAT-80; not this plan |
+| 7 | Assign / log work | N | Y (`issuewrite.go:74`, `:81`) | N | FEAT-78 / FEAT-80; not this plan |
+| 8 | Link the pull request on the issue | **N** (`pr` never links) | Y (`issuelink.go`, `prcomposer.go:512`) | N | **Yes on both** — the seam exists (`Jira.LinkPullRequest`) and the flow is the interface's. Phase 8 (CLI, UX-59), Phase 9 (web, UX-74) |
+| 9 | Open / copy the issue URL | n/a | Y (`o`, `y`) | N | Web: trivial once detail loads. Phase 3 |
+| 10 | Cache-seeded first paint | n/a | Y (`internal/tui/issues.go:53`) | **F** | FEAT-68, declared |
+| 11 | Branch for the issue | Y | Y | Y | CLI help never says it switches (`internal/cli/branch.go:44`). Phase 8, UX-58 |
+
+### Branch
+
+| # | Action | CLI | TUI | Web | Warranted? |
+| --- | --- | --- | --- | --- | --- |
+| 12 | Create in a worktree | N | Y (`ctrl+w`, `internal/tui/branch.go:396`) | N | Idea, UX-89; not a gap |
+| 13 | Task switch (check out an issue branch) | N | Y (`s`) | Y (`POST /api/checkout`) | CLI: `git switch` is the twin — no |
+| 14 | Push | P (inside `pr` only) | Y (`P`, previewed) | Y | CLI: `git push` is the twin — no |
+| 15 | Rebase onto base | N | Y, **unpreviewed** (`internal/tui/run.go:447`) | N | CLI/web: `git rebase`. The interface's missing last look: Phase 4, UX-65 |
+| 16 | Finish a merged branch | N | Y (`F`, `finish.go`) | N | A composed three-command flow: FEAT-83 (CLI), FEAT-79 (web); not this plan |
+
+### Commits
+
+| # | Action | CLI | TUI | Web | Warranted? |
+| --- | --- | --- | --- | --- | --- |
+| 17 | Stage / unstage / stage all | N | Y (`space`, `a`) | **N** — the list is read-only (`BranchPanel.tsx:86`) and the form appears only when already staged (`:111`) | CLI: `git add`. **Web yes** — its own commit flow is unreachable from the browser. Phase 10, UX-75 |
+| 18 | Discard a change | N | N | N | FEAT-23, already filed; all three lack it |
+| 19 | Per-file diff | N | Y (`diff.go:29`) | N | Web idea, UX-88 |
+| 20 | Commit with the convention | N | Y | Y (`CommitForm.tsx:36`) | CLI: `git commit` + the commit-msg hook |
+| 21 | Scope from `commit.default_scope` / the learned scope | n/a | Y (`composer.go:129`) | **N** — `CommitForm.tsx:45` hardcodes `''`, though `default_scope` is *editable* in Settings (`SettingsPanel.tsx:182`) | **Yes** — a setting silently ignored is a defect; the learned scope is not a declared follow-up. Phase 10, UX-76 |
+| 22 | Amend / fixup | N | Y | N | git is the twin; web idea, UX-88 |
+| 23 | Run a hook / generate `lefthook.yml` | N | Y (`h`, `g`) | N | `lefthook` is the twin — no |
+
+### Review
+
+| # | Action | CLI | TUI | Web | Warranted? |
+| --- | --- | --- | --- | --- | --- |
+| 24 | Find the pull request and its CI | Y (`status --json`) | Y | Y | — |
+| 25 | Compose and open (push first) | Y (`pr`) | Y (`n`) | Y | Composed **three times** — DEBT-50, Phase 1. CLI lacks draft/base/reviewer flags; CLI and web take `templates[0]` only: UX-62 |
+| 26 | After opening: link, then the review-status offer | P (status only) | Y | **N** (`webserver/pullrequest.go` never touches `Jira.ReviewStatus`) | **Yes** — Phase 8 (CLI link), Phase 9 (web both), UX-59/UX-74 |
+| 27 | Edit the pull request | N | Y (`e`, `preditor.go`) | N | `gh pr edit` is the twin; web idea, FEAT-79 |
+| 28 | Checks list; a failure into `$EDITOR` | N | Y (`checks.go`) | P (a CI link) | A terminal gesture; web list idea, UX-88 |
+| 29 | Follow CI; notify on settle | n/a | Y (`review.go:195`) | P (5 s tick, no signal) | Web "CI settled" idea, UX-86 |
+| 30 | Re-run CI | N | Y, **unpreviewed** (`review.go:483`) | **F** | `gh run rerun` is the CLI's. Web declared (`FEATURES.md:148`), FEAT-79. The interface's last look: Phase 4, UX-65 |
+| 31 | Merge | N | Y (`M`, gated `review.go:538`) | **F** | FEAT-31 chose the interface; web declared (`FEATURES.md:150`), FEAT-79 |
+| 32 | The review queue | Y (`reviews --json`) | Y (pane 6) | **N** (no section) | **Yes** — a read both other surfaces have, over a seam that exists. Phase 12, UX-83 |
+
+### Messaging
+
+| # | Action | CLI | TUI | Web | Warranted? |
+| --- | --- | --- | --- | --- | --- |
+| 33 | Announce: compose → preview → post | Y | Y | Y | Composed **three times** — DEBT-50, Phase 1 |
+| 34 | Call it a "merge request" on GitLab | Y (`internal/cli/announce.go:194`) | Y (`review.go:49`) | **N** — six hardcoded strings; `ForgeKind` on the server (`webserver.go:60`), never sent | **Yes** — Phase 9, UX-73 |
+| 35 | Post when CI passes | N | Y (`internal/tui/messaging.go:405`) | N | CLI `announce --when-green` is FEAT-65's fit; web FEAT-82; not this plan |
+| 36 | Announced history (never re-offer) | **N** — no `Store` reference in `internal/cli` | Y (`internal/tui/messaging.go:215`) | **F** | **CLI yes, cheap** — record after posting, say when already announced. Phase 8, UX-60. Web: FEAT-66, declared |
+| 37 | Choose the channel | N (config only) | Y (`←`/`→`) | Y | CLI `--channel`: UX-62 |
+| 38 | Standup | Y | N | N | Reasonable CLI-only (an `$EDITOR` flow); but it lacks `--dry-run`/`--yes` (`standup.go:132`). Phase 2, UX-54 |
+
+### Across the loop
+
+| # | Action | CLI | TUI | Web | Warranted? |
+| --- | --- | --- | --- | --- | --- |
+| 39 | Read the config, redacted | Y (`config show`) | P (`render.go:357`) | Y | Fine as is |
+| 40 | Write / initialize the config | Y (`config init`) | N | P (7 sections; five carried but not editable) | Interface: `config init` + `doctor` are the path — no. Web remainder: UX-87 |
+| 41 | Doctor | Y | N | N | Reasonable CLI-only; the interface points at it (`render.go:377`) |
+| 42 | Status across the loop | Y (`status DIR…`) | Y (the spine) | Y (`WorkStory`) | — |
+| 43 | Dry run | Y (two unrelated flags: `cli.go:193`, `scriptable.go:29`) | Y (per seam, `dryrun.go:25`) | **P** — a blanket 403 (`guard.go:46`), and `getHealth.dry_run` is never fetched | **Web yes, cheap** — the flag is on the wire. Phase 3, UX-71. CLI one flag: Phase 2, UX-52 |
+| 44 | Request log `--log` | P (root only; subcommands pass `nil`) | Y | Y | Phase 2, UX-52 |
+| 45 | Help / discoverability | P (no hint on a typo, `cli.go:157`) | P (`?` 57/57; five Issues keys off the footer, `render.go:336`) | n/a | Phase 8 (UX-56), Phase 7 (UX-63); web `?` idea, UX-88 |
+| 46 | Version | Y | n/a | P (`getHealth.version` never fetched) | Folds into Phase 3's health call |
+
+## Where a surface breaks a convention
+
+The detail — today's behavior, the evidence, a proposal and a Done-when —
+lives in the UX entry each row names. This is the summary a session needs
+to see the shape.
+
+### The command line (clig.dev)
+
+| Convention | Verdict | Where |
+| --- | --- | --- |
+| `--help` on every command; useful long help | Met | `internal/cli/cli.go:25` `longHelp`; pinned by `cli_test.go:233` |
+| `--version` | Met at runtime, missing from the generated reference | UX-55 |
+| Exit codes distinguish failure kinds | **Gap** — one code; the same condition exits differently in two commands | UX-50 |
+| stdout = artifact, stderr = commentary | **Partial** — warnings, notices, guidance and the web banner on stdout; `config show`'s `#` header breaks `jq` | UX-51, DEBT-54 |
+| Root flags compose with subcommands | **Gap** — `--dry-run`/`--log`/`--web` not persistent; two `--dry-run`s | UX-52, DEBT-51 |
+| POSIX short flags | **Gap** — none declared | UX-62 |
+| `--json` on reads | Partial — `status`, `reviews`, `doctor`; not `standup`; `config show` unparsable | UX-51, UX-62 |
+| No color/prompts off a TTY; `NO_COLOR` | Met by construction (no color emitted); **Gap** for prompts — EOF is an unexplained error | UX-53 |
+| Confirm before outward acts; `--yes`; `--dry-run` | Met on `branch`/`pr`/`announce`; **Gap** on `standup` and `config init` | UX-54 |
+| Preview before the write | Met | `internal/cli/branch.go:107`, `pr.go:127`, `internal/cli/announce.go:134`, `standup.go:125` |
+| Progress for slow operations | **Gap** — silent | UX-61 |
+| Ctrl-C | Met | `cli.go:101` `signal.NotifyContext` |
+| Errors say what to do next | Partial — strong in `doctor`/`config`; bare sentinels do not | UX-57 |
+| A hint on misuse | **Gap** — `SilenceUsage`+`SilenceErrors` swallow cobra's | UX-56 |
+| No surprises | Partial — `branch` switches silently; `pr` pushes and transitions under one question | UX-58 |
+| Secrets never printed | Met | pinned by `cli_test.go:208`, `doctor_json_test.go:65` |
+| Shell completion | Met, incl. dynamic issue keys | `scriptable.go:70` |
+| Docs cover the commands | **Gap** — `usage.md` is TUI-only | UX-55 |
+
+### The terminal interface
+
+The seven promises, re-counted, are the table in UX.md. In one line each:
+`?` lists every key (57/57, by construction); one voice for failure is
+kept by **11 of 52** sites (UX-67); a last look before anything outward by
+**16 of 18** — `R` and `u` are the two (UX-65); a refused change stays in
+view in **11 of 13** overlays — merge and finish demote it (UX-66); panes
+fail alone and state is by shape (kept). Beyond the promises: five Issues
+keys never reach the footer and two keys are filed under panes that do not
+answer them (UX-63); `Esc`/`Enter`, loading, success and empty states,
+resize down to 24 rows, mouse, `NO_COLOR`/`ui.ascii` and rebinding are all
+met and stay.
+
+### The web
+
+| Point | Verdict | Where |
+| --- | --- | --- |
+| Color tokens; no shadows, gradients or `→` | Met | `web/src/index.css:9-96` |
+| Type and spacing scale | **Gap** — none | UX-84 |
+| The product's five hues and shape-for-state | **Gap** — one accent, color-only dots | UX-84 |
+| ALL-CAPS eyebrow headings | **Gap** — the only heading treatment, seven places | UX-84 |
+| Buttons say what happens | Met | `Open pull request`, `Commit staged changes`, `Push branch` |
+| An action keeps its name; errors direct; empty states invite | Partial | UX-79, UX-80 |
+| Feedback after a write | **3 of 7**; two successes are not live regions | UX-77 |
+| Focus management | **Gap** — none | UX-78 |
+| Accessible names, landmarks, skip link, focus ring, axe both themes | Met | enforced |
+| Disabled by opacity; reduced motion | **Gap** — thirteen places; no rule | UX-81 |
+| Responsive | **Gap** — zero breakpoints | UX-85 |
+| Vocabulary shared with the interface | **Gap** — "pull request" on GitLab; `Messaging` vs `Slack`; five sections vs six | UX-73, UX-83 |
+| Dry run visible | **Gap** | UX-71 |
+| The contract it never calls | `getIssue`, `getHealth`, `listViews`, pagination | UX-70, UX-71, UX-72 |
+
+## The plan
+
+Sixteen phases in three tracks after the first two — **CLI** (2, 8),
+**terminal** (4 → 5 → 6 → 7), **web** (3 → 9 → 10 → 11 → 12 → 13 → 14) — and
+15 closes. Each phase is one pull request whose commits *each* pass
+`task check` on their own, because `main` merges by rebase and every
+commit lands as written. Red-first, black-box tests (`package x_test`),
+Arrange/Act/Assert marked, `task check` green before a phase is called
+done; and a web phase runs `task web:lint`, `task web:test`, `yarn gen:check`
+after any spec change, and `yarn test:e2e` by hand until Phase 0 puts the
+first two inside `task check`.
+
+Where the order bites: **1 before 8, 9 and 10** (they consume `loop`);
+**0 before any web phase** (or the web gates are outside `task check`);
+**4 → 5 → 6 → 7 one at a time** (each moves the same golden screens);
+**3 before 9** (the health call carries the forge's noun); **11 before 13**
+(feedback components exist before restyling); **15 last** (it documents the
+end state).
+
+### Phase 0 — Gates first
+
+Configuration only; TDD-exempt. Closes DEBT-61, DEBT-66 and the gate half
+of DEBT-62 and DEBT-65.
+
+- Delete `//nolint:slicesbackward` at `internal/hooks/generate.go:384` (not
+  a linter) and *try* deleting its four `modernize` siblings
+  (`internal/gitrepo/log.go:51`, `internal/gitrepo/status.go:129`, `internal/gitrepo/branch.go:330`, `:357`):
+  `internal/tui` ranges `strings.SplitSeq` unguarded (`render.go:274`) under
+  a green `task cover:branch`, so let gobco answer — keep only a directive
+  gobco still needs, and name the failure in its comment.
+- `scripts/check-file-length.sh:77`: add `*.ts *.tsx`, excluding
+  `web/src/api/generated`. It passes today (the largest is 371).
+- `web/.dependency-cruiser.cjs`: the rule its own comment promised — value
+  imports of `src/api/generated/**` only from `src/api/**` (type-only
+  imports allowed anywhere).
+- `Taskfile.yml:450` `check` gains `web:lint` and `web:test` (e2e stays an
+  explicit/CI step). **Decision to confirm** — it adds a node requirement to
+  the local gate.
+
+**Touches.** `scripts/check-file-length.sh`, `Taskfile.yml`,
+`web/.dependency-cruiser.cjs`, `internal/hooks/generate.go`,
+`internal/gitrepo/{log,status,branch}.go`.
+
+**Done when.** `golangci-lint run` prints no "unknown linters" warning;
+`scripts/check-file-length.sh --list` lists `.tsx` files; `task check` runs
+the web lint and unit tests; `depcruise` fails a deliberate feature-file
+`import … from '@/api/generated/…'` (try it, then revert).
+
+**Proof.** The gates' own runs.
+
+### Phase 1 — The shared composition layer: `internal/loop`
+
+Closes DEBT-50. The layer is a **new leaf package**, `internal/loop` ("the
+loop" is the house word — `usage.md:104`, `FEATURES.md:153`). It imports
+only `config`, `convention`, `forge`, `gitrepo`, `jira`, `messaging`, `proc`;
+it is imported by `cli`, `tui`, `webserver`. It cannot be `wiring` (which
+imports `tui` for `tui.Deps` — `tui` importing it back is a cycle), `tui`
+(the web server must not import the terminal) or `convention` (`config`
+imports it, so it can never take a `config.Config`). Direction: `cli → {tui,
+webserver, wiring} → loop → leaves`. Hold it with a `depguard` rule in the
+first commit, so the build and not a reviewer keeps it.
+
+Two duplicates have better homes than a new package and go there first:
+the noun as a method on the discriminant (`forge.Kind`), and branch naming
+as a method on the section that owns its four fields (`config.Branch`).
+
+One commit each, red first, in this order:
+
+1. `forge.Kind.Noun()` and `Sigil()` replace `internal/tui/review.go:47`
+   `forgeVocab`, `internal/cli/announce.go:194` `forgeNoun`,
+   `internal/webserver/announce.go:145` `noun`. Add the methods to an
+   existing `forge` file — `internal/forge` is 11 of 12.
+2. `config.Branch.Naming() convention.BranchNaming` replaces the three
+   identical `NewBranchNaming(…)` calls (`internal/tui/branch.go:296`,
+   `internal/cli/branch.go:78`, `internal/webserver/branchcreate.go:83`).
+3. `loop.ComposePull(seams PullSeams, opts PullOptions)
+   (forge.NewPullRequest, gitrepo.Branch, error)` with `loop.ErrNothingToOpen`
+   and `loop.ErrPullAlreadyOpen`, and `loop.EnsurePushed(push, branch) error`
+   with `loop.ErrPushFailed` carrying the drained lines — replacing
+   `internal/cli/pr.go:112-154`, `:222-262` and
+   `internal/webserver/pullrequest.go:99-177`, which are near line-for-line
+   today.
+4. `jira.FindTransition(moves, status)` (pure, over its own types, from
+   `internal/cli/pr.go:210`) and `loop.ReviewTransition(transitions, key,
+   status) (jira.Transition, bool)` — the fields-less lookup from
+   `pr.go:190-206`.
+5. `loop.AnnounceMoment(pull forge.PullRequest, ci forge.CI, ciKnown bool)
+   messaging.Moment` and `loop.ComposeAnnouncement(seams AnnounceSeams, cfg
+   config.Messaging, project string, kind forge.Kind) (messaging.Announcement,
+   error)` with `loop.ErrNoPullRequest` — replacing
+   `internal/cli/announce.go:158-190`, `internal/webserver/announce.go:68-117`
+   and the interface's `internal/tui/messaging.go:125-146` (a third caller; it passes its
+   own `review.ci`).
+6. `loop.ErrDirtyTree`, `loop.ErrNothingStaged`, `loop.RefuseDirty(changes)`,
+   `loop.RefuseUnstaged(changes)` — the guards that `internal/webserver/checkout.go:16`
+   and `internal/webserver/commit.go:18` say are "the same guard the terminal interface applies"
+   (`internal/tui/switchtask.go:88`, the composer).
+7. `CLAUDE.md`'s layout block gains `internal/loop/` (one line; the rest of
+   the drift is Phase 15).
+
+**Touches.** New `internal/loop/{loop,pull,announce,guards}.go` and tests;
+`internal/forge`, `internal/config/branch.go`, `internal/jira`;
+`internal/cli/{pr,announce,branch}.go`; `internal/webserver/{pullrequest,
+announce,branchcreate,checkout,commit}.go`; `internal/tui/{review,branch,
+messaging}.go`; `.golangci.yml`.
+
+**Budget.** **No new file in any frozen package** — `cli`, `tui` and
+`webserver` only lose lines. `internal/loop` answers to the default 12; aim
+for four or five source files.
+
+**Done when.** `grep -rn 'NewBranchNaming(' internal/{cli,tui,webserver}`
+and `grep -rn '"merge request"' internal/{cli,tui,webserver}` print
+nothing; `ensurePushed`, `composeAnnouncement` and `announceMoment` exist
+only in `loop`; **every existing `cli_test`, `webserver_test` and `tui` test
+passes with its goldens unchanged** — this is a pure refactor, and the
+de-duplication is the proof the layer is right; depguard green.
+
+**Proof.** `internal/loop/*_test.go`: `TestComposePullRefusesAnOpenPull`
+(`ErrPullAlreadyOpen`), `TestEnsurePushedSkipsAPushedBranch`,
+`TestAnnounceMomentReadsMergedBeforeCI`, `TestRefuseDirtyNamesTheGuard`;
+`forge_test.TestKindNoun` (GitLab → "merge request", sigil `!`);
+`config_test.TestBranchNamingUsesTheSection`.
+
+### Phase 2 — The command line is scriptable
+
+Closes UX-50, UX-51, UX-52, UX-53, UX-54, UX-55 and DEBT-51, DEBT-53,
+DEBT-54. Depends softly on Phase 1 (`ExitStatus` classifies `loop.Err*`;
+without it, classify the CLI-local sentinels and re-point later).
+
+- **Exit codes.** `cli.ExitStatus(err) int`, called from
+  `cmd/workflow/main.go:35`: **0** success · **1** failure · **2** usage
+  (cobra's flag and argument errors, via `SetFlagErrorFunc`) · **3**
+  configuration (`config.ErrNotFound`, `ErrInvalid`) · **4** refused
+  precondition (`loop.ErrPullAlreadyOpen`, `ErrNothingToOpen`,
+  `ErrNoPullRequest`, `ErrDirtyTree`, `errBranchExists`,
+  `errMessagingNotConfigured`, doctor's `errShared`) · **5** unreachable
+  (`jira.ErrUnreachable`, `forge.ErrUnreachable`) — the families the web's
+  problem codes use (`docs/content/docs/errors.md`). **Table to confirm.**
+  Align `config show` with `doctor` when there is no file
+  (`config_cmd.go:84` vs `doctor.go:463`, both → 3) and `status` with
+  `status .` outside a repository (`internal/cli/status.go:82` vs `:95`).
+- **Streams.** The rule: stdout carries the artifact (JSON, the preview
+  text, the created thing's URL, the standup draft); stderr carries
+  commentary (`Warning:` `config_cmd.go:279`, `Not opened.` and `dry run:
+  would …` `scriptable.go:46`, `:61`, the no-config guidance `:90`, the web
+  banner `cli.go:255`, `config show`'s `# <path>` header `:286`). Split the
+  harness **first** (`cli_test.go:51` returns both streams).
+- **Flags.** `--dry-run` and `--log` become root `PersistentFlags`;
+  `writeOptions.addFlags` (`scriptable.go:29`) stops declaring its own
+  `--dry-run`; the seven wiring preambles (`reviews.go:59`, `internal/cli/branch.go:63`,
+  `pr.go:82`, `internal/cli/status.go:117`, `standup.go:75`, `internal/cli/announce.go:80`,
+  `scriptable.go:71`, and the root's `cli.go:161`) collapse into one
+  `connect(cmd)` returning `{cfg, deps, where, closeLog}`, so `--log` reaches
+  every subcommand. `standup` gains `--dry-run`/`--yes` (`standup.go:132`)
+  and rejects `--days < 1` (`:197`, `:204`) as a usage error; `config init
+  --dry-run` prints the redacted file it would write, if the guided flow
+  bends easily. One JSON encoder (DEBT-53).
+- **Non-TTY.** `confirm` (`prompt.go:32`) turns `io.EOF` into `errNoTerminal`:
+  "no terminal to confirm on; pass --yes".
+- **Reference.** `cmd/docsgen/main.go` calls `InitDefaultVersionFlag`,
+  `InitDefaultHelpCmd`, `InitDefaultCompletionCmd` before generating; a new
+  prose page `docs/content/docs/scripting.md` (exit codes, streams, the
+  `--json` shapes, `--yes`, `--dry-run`).
+
+**Touches.** `cmd/workflow/main.go`, `internal/cli/{cli,scriptable,prompt,
+config_cmd,standup,status,doctor,cli_test}.go`, `cmd/docsgen/main.go`,
+`docs/content/docs/reference/*` (regenerated), new
+`docs/content/docs/scripting.md`.
+
+**Budget.** `internal/cli` is 13 of 13. Put `ExitStatus` and `connect` in
+`cli.go` / `scriptable.go`; **if** an `exit.go` is unavoidable, bump 13 → 14
+with the WHY rewritten in `scripts/package-size-budgets.txt` and a row in
+`scripts/package-size-budget-history.md`, in the same commit.
+
+**Done when.** `workflow --dry-run pr` and `workflow --log f status` are
+accepted; `workflow config show | jq .` parses; `workflow standup
+--dry-run --yes` posts nothing and exits 0; piped-stdin `workflow pr` says
+"pass --yes" and exits 1; `task docs:check` is green with `--version` in
+`reference/workflow.md`.
+
+**Proof** (`package cli_test`, red first): `TestExitStatusDistinguishes
+FailureKinds` (table: sentinel → code); `TestConfigShowExitsLikeDoctor
+WithoutAConfig`; `TestStatusExitsAlikeOutsideARepository`;
+`TestConfigShowWritesOnlyJSONToStdout` (`json.Unmarshal(stdout)`);
+`TestDeclineNoticeGoesToStderr`; `TestDryRunIsAPersistentFlag`;
+`TestLogReachesASubcommand` (the log file has a line after `status`);
+`TestConfirmWithoutATerminalNamesYes`; `TestStandupRejectsNegativeDays`;
+`task docs:check`.
+
+### Phase 3 — The web uses what the contract already offers
+
+Closes UX-70, UX-71, UX-72 and the `resolveJQL` half of DEBT-67. Depends on
+Phase 0.
+
+- Call `getIssue` on selection (the query client is wired,
+  `web/src/queryClient.ts`); split `IssueDetail` (`IssuesPanel.tsx:83`) into
+  its own component with loading and error states through `apiErrorMessage`;
+  render description, comments, reporter, assignee and an "Open in Jira"
+  link.
+- Call `getHealth` once at mount: the version in the header; when
+  `dry_run`, a `role="status"` banner ("Read-only: started with `--dry-run`;
+  every write is held back") and each write button, when clicked, says
+  "held back by --dry-run" **without sending** — the interface's narration
+  (`internal/tui/dryrun.go:25`), never a disabled control (CLAUDE.md forbids
+  the opacity route in any case).
+- A view switcher from `listViews`; `useEventStream(view)` reconnects with
+  `?view=`; `No issues match this view.` (`IssuesPanel.tsx:23`) gains the
+  switcher beside it.
+- Server: `resolveJQL` (`internal/webserver/handlers.go:211`) answers
+  `not_found` for an unknown view instead of `views[0]`; the stream
+  validates `?view=` before upgrading.
+
+**Touches.** `web/src/features/issues/{IssuesPanel.tsx, IssueDetail.tsx
+(new), issueApi.ts (new), ViewSwitcher.tsx (new)}`,
+`web/src/api/{snapshot.ts, health.ts (new)}`, `web/src/shell/AppShell.tsx`,
+`internal/webserver/{handlers,stream}.go`.
+
+**Budget.** No Go file added. `web/src/features/issues` 6 → 9 of 12,
+`web/src/api` 3 → 4.
+
+**Done when.** Selecting an issue shows its description and comments; a
+`--dry-run` server shows the banner and no write leaves the browser; the
+view select changes the stream's query; `GET /api/issues?view=nope` is 404
+`not_found`.
+
+**Proof.** vitest, role and name only: *IssueDetail shows the description
+and comments from getIssue*; *a dry-run server shows the read-only banner*;
+*clicking Push under dry run reports the hold without a request* (the fake
+counts zero POSTs). `webserver_test.TestListIssuesRefusesAnUnknownView`
+(404, `code: not_found`). axe on the banner in both themes.
+
+### Phase 4 — The terminal takes a last look before `R` and `u`
+
+Closes UX-65. Before 5–7, so the goldens move once.
+
+Generalize `pushPreview` (`internal/tui/run.go:394`) into `lastLook{title,
+body, verb, proceed func(Model) (Model, tea.Cmd)}` — three users now, the
+rule of three is met — and route `rerunChecks` (`review.go:483`, a forge
+write) and `startRebase` (`internal/tui/run.go:447`, rewrites local history) through it;
+the dry-run narration moves inside `proceed`. Relabel the footers
+("re-run", "rebase"); `usage.md`'s key rows follow.
+
+**Touches.** `internal/tui/{run,review,branch}.go`, their tests,
+`docs/content/docs/usage.md`. **Budget.** None — `lastLook` replaces
+`pushPreview` in `run.go` (462 lines; stays under 500).
+
+**Done when.** The promise reads 18 of 18: no forge or history-rewriting
+write is one key from the request.
+
+**Proof** (`package tui_test`, red first): `TestRerunAsksBeforeTheRequest`
+— press `R` on a failed pull request: the fake `Rerun` is not called and the
+overlay names the pull request; `enter` calls it; `esc` never does.
+`TestRebaseAsksBeforeTheRequest` likewise. Re-point the existing `R`/`u`
+tests to press `enter`.
+
+### Phase 5 — A refused change stays in view, and the honest `review.go` split
+
+Closes UX-66, DEBT-55 (for `review.go`), DEBT-56. Depends on Phase 4.
+
+1. `refactor(tui): split the merge picker out of review.go` — `canMerge …
+   mergePicker.confirm` (`internal/tui/review.go:538-701`) to `merge.go`.
+   **`internal/tui` 38 → 39 in this commit**, with the WHY rewritten
+   ("merge.go: the Review pane's merge picker and its permitted-methods
+   read, split out of review.go when it passed the 500-line target") and a
+   row in `scripts/package-size-budget-history.md` — same commit, or the
+   commit is red.
+2. `mergePicker.merging bool` (`:636`) → `send sendState`
+   (`sendstate.go:10`); `mergeRequested.apply` (`:597`) keeps the overlay
+   open through `pinnedOutcome` (`render.go:457`) instead of
+   `closeOverlay().noticed(…)`.
+3. The same for `finishPreview` (`finish.go:65`, `finished.apply` `:139`).
+4. `branchPicker.sending` (`switchtask.go:78`) adopts `sendState` (pure
+   refactor; it already keeps its refusal).
+
+**Touches.** `internal/tui/{review, merge (new), finish, switchtask}.go`,
+`scripts/package-size-budgets.txt`, `scripts/package-size-budget-history.md`.
+
+**Done when.** `grep -nE '(sending|merging|finishing)\s+bool'
+internal/tui/*.go` matches only `sendstate.go`; the promise is 13 of 13
+*held in the overlay*; `review.go` is under 500 lines.
+
+**Proof.** `TestRefusedMergeStaysInItsPreview` — `Merge` returns
+`forge.ErrRefused`; the merge overlay is still open and shows the
+write-scope reason; `esc` closes it. `TestRefusedFinishStaysInItsPreview`
+likewise with a git failure. The merge and finish goldens change once.
+
+### Phase 6 — One voice for failure, measured
+
+Closes UX-67. Depends on Phase 5 (every overlay outcome then flows through
+`pinnedOutcome`).
+
+- `failureBlock` (`internal/tui/render.go:450`) consults `errorSentence` —
+  fixes all eight `pinnedOutcome` overlays at once.
+- `m.failureLine(err)` — glyph plus the sentence, or the raw text when
+  there is none, one line — replaces the fourteen `failedGlyph() +
+  err.Error()` rail sites (`checks.go:96`, `diff.go:79`, `issuewrite.go:120`,
+  `:122`, `picker.go:222`, `:259`, `switchtask.go:107`, `:147`,
+  `internal/tui/messaging.go:159`, `review.go:223`, `internal/tui/run.go:211`, `composer.go:163`,
+  `:175`, `internal/tui/fields.go:171`).
+- The nine bare notices (`comment.go:76`, `composer.go:76`,
+  `internal/tui/messaging.go:389`, `finish.go:141`, `review.go:513`, `:515`, `:579`,
+  `:581`, `:599`) go through `m.noticed(m.failureLine(err))`;
+  `render.go:386` `configErrorStatus` is styled.
+- `forgeReason` (`review.go:365`), `rerunReason` (`:528`) and
+  `mergeReason` (`:609`) fold into `errorSentence`'s table
+  (`forge.ErrRefused`/`ErrUnauthorized` → the write-scope sentence;
+  `jira.ErrNotFound`; `forge.ErrNoRepository`; `errDryRun`).
+
+**Target.** From 11 of 52 to *every site that renders an error's text* —
+the eight width-one glyph-only rail cells excepted, by name. Operationally:
+`err.Error()` appears in no non-test `internal/tui` file but `render.go`.
+
+**Touches.** `internal/tui/render.go` and the nine files above;
+`failure_test.go`. **Budget.** None.
+
+**Done when.** The grep above; `errorSentence` has an entry for every
+sentinel the seams can return.
+
+**Proof.** A table test, `TestEveryChannelSpeaksTheFailureSentence`: for
+each known sentinel × {pane, pinned overlay, notice, rail}, the rendered
+frame contains the sentence and, where styled, the failure style. Expect
+the widest golden churn of the terminal track; regenerate deliberately,
+file by file, with eyes on each diff.
+
+### Phase 7 — Keys shown where they work
+
+Closes UX-63. Depends on Phase 4 (relabels).
+
+The Issues pane's `keys(m)` gains `a`, `w`, `/` when the Jira write seams
+exist, and `enter`/`esc` in the collapsed layout (`issuekeys.go:22-85` vs
+`render.go:336`); `ctrl+w` moves from "Branch and Commits" (`keys.go:225`)
+to the composer's group; `w` post-when-green (`keys.go:245`) to the
+preview's; `usage.md:45`, `:57` follow. Replace the three-string spot check
+(`focus_test.go:124`) with a structural test that every placed binding with
+help text is rendered by `?`. `ShortHelp`'s omissions (`shift+tab`, `m`,
+the scroll keys, `ctrl+c`) are the deliberate tail — leave them.
+
+**Touches.** `internal/tui/{keys,issues,render}.go`, `focus_test.go`,
+`docs/content/docs/usage.md`. **Budget.** None.
+
+**Done when.** Every key the Issues pane answers appears in its footer when
+it can act; the `?` groups name where each key works.
+
+**Proof.** `TestIssuesFooterShowsEveryLiveKey` (Jira writes wired → the
+footer contains `a`, `w`, `/`); `TestHelpListsEveryPlacedBinding`.
+
+### Phase 8 — The command line says what it does
+
+Closes UX-56, UX-57, UX-58, UX-59, UX-60. Depends on Phase 1 (`loop`) and
+Phase 2 (notices are on stderr).
+
+- Typo hint: keep `SilenceErrors` (it stops the usage dump on a real
+  error) and have `Execute` print "Run 'workflow --help' for usage." plus
+  cobra's suggestions on an unknown command or flag (`cli.go:157`).
+- Sentinels carry a next step: `errBranchExists` names the branch and
+  `git switch NAME` (`internal/cli/branch.go:24`); `errPullAlreadyOpen` carries the URL
+  (`pr.go:30`); `errMessagingNotConfigured` names the keys and `workflow
+  doctor` (`internal/cli/announce.go:28`); `errNoPullRequest` points at `workflow pr`
+  (`:24`).
+- `branch`'s help and preview say it switches (`internal/cli/branch.go:44`, `:107`;
+  `internal/gitrepo/branch.go:305`).
+- `pr`'s question names the push when the branch is unpushed — "Push NAME
+  and open the pull request?" (`pr.go:131`); `pr` offers to link the pull
+  request on the issue before the status offer (`loop.ReviewTransition` +
+  `Jira.LinkPullRequest`, matrix row 8), under the same `--yes`, and
+  `--yes`'s help says it covers all three.
+- `announce` records in the store (`deps.Store.RecordAnnounce`, already on
+  `tui.Deps`) and the preview says "already announced at this moment in an
+  earlier session" (row 36).
+
+**Touches.** `internal/cli/{cli,branch,pr,announce}.go` and tests.
+**Budget.** None.
+
+**Done when.** Every bare sentinel's message contains a next step;
+`workflow pr --yes` links and offers the status like the interface; a
+second `workflow announce` says it already posted.
+
+**Proof.** `TestUnknownCommandPointsAtHelp`; `TestBranchExistsSaysHowTo
+Switch`; `TestPullAlreadyOpenCarriesItsURL`; `TestPRQuestionNamesThePush`;
+`TestPRLinksThePullOnTheIssue` (the fake `LinkPullRequest` receives the
+URL); `TestAnnounceRecordsThePost` and `TestAnnounceSaysWhenAlreadyPosted`
+(store fakes).
+
+### Phase 9 — The web's follow-through, and the forge's own words
+
+Closes UX-73, UX-74. Depends on Phases 1 and 3.
+
+- `getHealth` gains `forge_noun` — send the words; do not port `Kind.Noun`
+  to TypeScript. The six hardcoded "pull request" strings
+  (`ReviewPanel.tsx:141`, `:172`, `:181`, `:326`; `WorkStory.tsx:40`;
+  `MessagingPanel.tsx:50`) read it; the Messaging section label reads the
+  service from the snapshot (`sections.ts:10` vs `MessagingPanel.tsx:170`);
+  one name for "start" across `WorkStory` and `IssuesPanel`.
+- Spec first: `POST /api/issues/{key}/link` and `POST
+  /api/issues/{key}/transition` (fields-less only; 409 when Jira wants
+  fields), in one handler file `issuewrite.go` (mirrors
+  `internal/tui/issuewrite.go`); `webserver.Deps` gains `LinkPullRequest`,
+  `Transitions`, `Transition` (mapped in `cli.webDeps`, `cli.go:263`).
+  `OpenedPullRequest` gains `follow_ups` (via `loop.ReviewTransition`).
+  After `Pull request opened.`, the panel offers "Link it on KEY" and "Move
+  KEY to STATUS" inline, each with a `role="status"` outcome.
+- `api/openapi.yaml` → `task gen` → `yarn gen`; `errors.md` unchanged
+  (`conflict`/`unprocessable` cover the new refusals).
+
+**Touches.** `api/openapi.yaml`, `internal/webserver/{webserver,
+pullrequest, issuewrite (new)}.go`, `internal/cli/cli.go`,
+`web/src/features/review/ReviewPanel.tsx`,
+`web/src/features/messaging/MessagingPanel.tsx`, `web/src/shell/sections.ts`.
+
+**Budget.** **`internal/webserver` 15 → 16** with the WHY ("issuewrite.go —
+the two post-open Jira writes the interface and the CLI offer, link and
+review status; the spec recorded the operations first") and a history row,
+in the same commit as the file.
+
+**Done when.** On a GitLab remote the web says "merge request" everywhere;
+opening a pull request offers the link and the status move; `--dry-run`
+refuses both new POSTs (the method-based guard covers them — prove it).
+
+**Proof.** `webserver_test.TestTransitionRefusesAFormTransition` (409);
+`TestLinkRecordsThePullOnTheIssue`; `TestDryRunRefusesTheIssueWrites`; and
+the CLAUDE.md-required `TestUnreachableJiraDetailOmitsItsHost`. vitest:
+*after opening, the panel offers to move the issue*. `yarn gen:check`.
+
+### Phase 10 — The web can stage, and picks the scope the interface would
+
+Closes UX-75, UX-76. Depends on Phases 1 (`loop.RefuseUnstaged`) and 3.
+
+- `POST /api/stage` and `POST /api/unstage` taking `{path}` or `{all:
+  true}`, in one `staging.go`; `webserver.Deps` gains `Stage`, `Unstage`.
+  The working-tree list (`BranchPanel.tsx:86`) gets Stage / Unstage per
+  file and Stage all; the commit form is always mounted, with a "Nothing
+  staged yet — stage a file above" state instead of vanishing (`:111`).
+- The snapshot's `changes` gains `suggested_scope` — the store's last
+  scope, else `commit.default_scope` — the interface's rule
+  (`composer.go:129-135`); `Deps.LastScope`/`RecordScope` from
+  `deps.Store`; `CommitForm` opens on it; the server records the scope
+  after a commit.
+
+**Touches.** `api/openapi.yaml`, `internal/webserver/{webserver, staging
+(new), commit, stream, dto}.go`, `internal/cli/cli.go`,
+`web/src/features/branch/{BranchPanel,CommitForm}.tsx`, new
+`stagingApi.ts`.
+
+**Budget.** **`internal/webserver` → 17** with a history row. Note: the
+three bumps across Phases 9, 10 and 12 are the WHY's own anticipated path
+("grows only when the API gains an operation, which the spec records
+first") — a split would separate handlers that change together, so bump,
+don't split.
+
+**Done when.** A browser can stage, commit, and see the scope pre-filled;
+`commit.default_scope` edited in Settings is honored on the next form.
+
+**Proof.** `webserver_test.TestStageAllStagesEveryChange`;
+`TestSnapshotCarriesTheSuggestedScope` (a table over the store-then-config
+fallback); vitest *the commit form opens on the suggested scope*, *Stage all
+makes the commit form live*.
+
+### Phase 11 — Feedback, focus and wording on the web
+
+Closes UX-77, UX-78, UX-79, UX-80, UX-81, UX-82 and DEBT-63. Depends on
+Phase 3.
+
+- `useAsyncAction` (`useAsyncAction.ts:11`) gains a `done` state with a
+  message; the five hand-rolled copies (`PushButton`, `CommitForm`,
+  `AnnounceControls`, `OpenPullRequest`, `ConfigForm`) adopt it — six
+  machines → one. Commit, push, check-out and start-work confirm in a
+  `role="status"` that keeps the button's verb ("Pushed NAME", "Committed
+  abc123 subject"); `Pull request opened.` (`ReviewPanel.tsx:141`) and
+  `Announced…` (`MessagingPanel.tsx:137`) become live regions.
+- Focus moves to the outcome when a form unmounts (`ReviewPanel.tsx:138`,
+  `MessagingPanel.tsx:135`, the `PushButton` swap) and to `<main>` on a
+  section change (`AppShell.tsx:39`).
+- One announce verb through the flow — recommend "Post to X", the
+  interface's word. **To confirm.**
+- `checkout.go:42` and `internal/webserver/branchcreate.go:45` pass git's own reason through
+  `fault`. **`internal/webserver/announce.go:59` does not**: a messaging error can name the
+  webhook URL, so classify by `messaging.ErrRejected`/`ErrUnreachable` and
+  never forward the text. `"something went wrong"` (`errors.go:79`) → a
+  directive sentence. One "connecting" phrasing (`IssuesPanel.tsx:17`,
+  `BranchPanel.tsx:14`, `ReviewPanel.tsx:31`, `MessagingPanel.tsx:11`);
+  dead ends get a way out (`BranchPanel.tsx:22`, a Retry at
+  `SettingsPanel.tsx:16`).
+- A dropped stream frame sets `status: 'stale'` with the reason
+  (`snapshot.ts:52-58`).
+- `opacity-60` ×13 → a `disabled:` color treatment (CLAUDE.md's rule);
+  `motion-safe:` on the two transitions and a `prefers-reduced-motion`
+  rule in `index.css`.
+
+**Touches.** `web/src/features/**`, `web/src/api/snapshot.ts`,
+`web/src/index.css`, `internal/webserver/{checkout,branchcreate,errors}.go`.
+**Budget.** None.
+
+**Done when.** 7 of 7 writes confirm; every outcome is a live region;
+`grep -c opacity-60 web/src` is 0; a schema-mismatched frame shows in
+`StreamStatus`.
+
+**Proof.** vitest *every write reports its success in a status region* (a
+table over the seven), *focus lands on the outcome after a form closes*
+(`toHaveFocus`), *a frame that fails the schema marks the stream stale*;
+`webserver_test.TestCheckoutCarriesGitsReason`,
+`TestAnnounceNeverForwardsTheWebhook`; axe e2e in both themes.
+
+### Phase 12 — The web's Reviews section
+
+Closes UX-83. Depends on Phase 3's patterns.
+
+`GET /api/reviews` over `Forge.ReviewRequests` (the seam the CLI and the
+interface use) in `reviews.go`; polled by the query client with a
+`staleTime` (it is a cross-repository forge search, not a snapshot field);
+a sixth section `reviews` (`uiStore.ts:6`, `sections.ts`) with
+`web/src/features/reviews/`; number, title, repository, requester, CI, age;
+open/copy links. The a11y spec covers the sixth section in both themes.
+
+**Touches.** `api/openapi.yaml`, `internal/webserver/{webserver, reviews
+(new)}.go`, `internal/cli/cli.go`, new `web/src/features/reviews/`,
+`web/src/shell/{uiStore,sections}.ts`, `web/e2e/a11y.spec.ts`.
+
+**Budget.** **`internal/webserver` → 18** with a history row;
+`web/src/shell` stays 10 of 12 (no new file); the new feature directory
+answers to the default.
+
+**Done when.** The web has the interface's six sections and lists the same
+requests `workflow reviews` prints.
+
+**Proof.** `webserver_test.TestListReviewsAnswersTheForgeQueue`; vitest *the
+Reviews section lists requests by role*; axe on the new section.
+
+### Phase 13 — The web's visual system
+
+Closes UX-84 and the `ConfigForm` half of DEBT-62. Depends on Phase 11.
+The maintainer chose this: the web aligns to the product's system; the
+interface's own system does not change.
+
+- Four system hues as tokens in both themes — Jira, git, the forge,
+  messaging (`internal/tui/glyphs.go:96-127`; the spine, `spine.go:68`) —
+  at AA contrast, carrying *identity*: the active `NavRail` icon
+  (`NavRail.tsx:28`), section headings. **Periwinkle stays the
+  interactive-control accent** (`index.css:24` is a documented choice)
+  unless the maintainer says replace it — **to confirm**.
+- One `StateMark` component drawing `○ ◐ ● ✗` for CI (`ReviewPanel.tsx:14`),
+  the stream (`StreamStatus.tsx:4`) and the work story
+  (`WorkStory.tsx:284`); the text label stays, the mark is `aria-hidden`.
+- The seven `uppercase` eyebrows (`SettingsPanel.tsx:341`,
+  `BranchPanel.tsx:67`, `:91`, `IssuesPanel.tsx:102`, `ReviewPanel.tsx:70`,
+  `MessagingPanel.tsx:39`, `:59`) → sentence-case headings on a
+  `--text-*`/`--space-*` scale in `@theme`; the four-step radius actually
+  used.
+- Split `ConfigForm` (304 lines, `SettingsPanel.tsx:24`) per fieldset and
+  add `max-lines-per-function` to `web/eslint.config.js:80` at a number the
+  split meets.
+
+**Touches.** `web/src/index.css`, `web/src/shell/*`, `web/src/features/**`,
+`web/eslint.config.js`. **Budget.** `web/src/features/settings` 2 → ~6 of
+12; `web/src/shell` 10 → 11 (`StateMark.tsx`).
+
+**Done when.** No `uppercase` heading remains; every state has a distinct
+shape; both themes pass axe; `max-lines-per-function` green.
+
+**Proof.** The black-box vitest role/name tests are unchanged; axe e2e in
+both themes is the contrast proof; `yarn lint`.
+
+### Phase 14 — The web responds to its viewport
+
+Closes UX-85. Depends on Phase 13 (tokens).
+
+Breakpoints (none today): the rail collapses to icons under `md`; list and
+detail stack under `lg` (`IssuesPanel.tsx:30-31`); `grid-cols-[6rem_1fr]`
+and its siblings go responsive; `max-w-2xl` goes fluid; the issues `<ul>`
+scrolls inside its panel.
+
+**Touches.** `web/src/**/*.tsx`, a new `web/e2e/layout.spec.ts` (`web/e2e`
+3 → 4 of 12).
+
+**Done when.** At 640, 1024 and 1440 px there is no horizontal scroll and
+every control is reachable.
+
+**Proof.** Playwright `layout.spec.ts` over the three viewports, axe
+included.
+
+### Phase 15 — Docs that lag the code
+
+Closes DEBT-69, DEBT-70. Last, so it documents the end state. TDD-exempt.
+
+- `CLAUDE.md:34` `internal/slack` → `internal/messaging`, and the missing
+  layout lines: `api/`, `internal/api`, `internal/loop`, `internal/keychain`,
+  `internal/progress`, `internal/buildinfo`, `internal/store`, `internal/web`,
+  `internal/webserver`, `internal/tui/frame`, `internal/tui/layout`, `web/`.
+- The web server's sanitize exemption, one sentence beside the RFC 9457
+  convention (React escapes; `dangerouslySetInnerHTML` is banned;
+  what would change that).
+- `usage.md`: six panes (`:49`), `1`–`6` (`:71`), Reviews in the mock
+  (`:24-43`), `R` and `u` now previewed, the moved keys; and **a web page**
+  — the six sections, the stream, the theme, the actions the web supports —
+  written last so it is true. README mentions `--web`.
+- Residual "Slack": `internal/cli/cli.go:154`, `groupReviewSlack`
+  `internal/tui/keys.go:80`, `web/index.html:9`, `FEATURES.md:30`.
+- **`FEATURES.md:52` "Five panes down the left" → six** — stale
+  settled-decision text corrected, not a decision reopened; say so.
+  `FEATURES.md:12` re-pinned; the `Done:` notes on FEAT-26 (`:118`) and
+  FEAT-31 (`:143`) removed per the standing rule.
+- `usage.md:253`'s threading limit → point at FEAT-81.
+
+**Proof.** `task lint:markdown`, `task docs:check`, `task docs:build`.
+
+## Decisions to confirm before their phase
+
+- **Phase 0** — `web:lint` and `web:test` inside `task check` (a node
+  requirement on the local gate)?
+- **Phase 2** — the exit-code table: 0 · 1 · 2 usage · 3 configuration ·
+  4 refused precondition · 5 unreachable?
+- **Phase 11** — "Post to X" as the one announce verb (the interface's
+  word)?
+- **Phase 13** — periwinkle stays the interactive-control accent while the
+  four system hues carry identity, or is replaced outright?
+
+## Out of scope, and what stays as it is
+
+- **Declared web follow-ups** (matrix cells "F"): announced history
+  (FEAT-66) and cache-seeded first paint (FEAT-68); re-run, merge, finish
+  and edit on the web (FEAT-79). They are gaps by decision, recorded in
+  FEATURES.md, not rediscovered here.
+- **Ideas, not gaps** — filed in UX.md and FEATURES.md, not planned here:
+  progress feedback on slow commands (UX-61); short flags and the missing
+  command flags (UX-62); the interface's accessibility settings (UX-64);
+  undo (UX-68); vim `h`/`l`/`g`/`G` (UX-69); a live-change highlight and
+  "CI settled" (UX-86); the five uneditable settings sections (UX-87); the
+  web borrowing diff/amend/checks/edit/templates/`?` (UX-88); worktrees on
+  the CLI and web (UX-89); a CLI for issue reads and writes (FEAT-78); web
+  issue writes (FEAT-80); Slack threading now that the store can hold a
+  timestamp (FEAT-81); web post-when-green (FEAT-82); `workflow finish`
+  (FEAT-83).
+- **Debts recorded, not planned** — DEBT-52, 57, 58, 59, 60, 64, 68, 71
+  are worklists for their own PRs.
+- **Met, or by design, and left alone:** the web's absent `→`, shadows and
+  gradients; the CLI emitting no color (so nothing to suppress); the
+  middle-dot separator (`glyphs.go:35` makes it house vocabulary);
+  `ShortHelp`'s deliberate tail; the three narrow production `//nolint`s
+  in `internal/tui`; zero TODOs; the web's dependencies sitting on major
+  boundaries; `web/src/shell` at 10 of 12; `Save changes` → `Saved.`; ASCII
+  via `ui.ascii`; the `status --json` shapes; the four packages sitting
+  exactly at budget (that is the gate working); the web's blanket-403 dry
+  run (`guard.go:40` documents it — only its *invisibility* is the gap);
+  `staleTime: Infinity` under a pushed stream; the spine's color-only hue
+  residue; and every part of the interface's visual system.
+- **Security:** nothing in this file is a security finding. The one
+  security-adjacent constraint is Phase 11's rule for `internal/webserver/announce.go:59`.
+
+## Risks before starting
+
+1. **Import cycles.** `wiring → tui` is fixed. `internal/loop` must never
+   import `tui`, `wiring`, `webserver` or `cli`; the `depguard` rule lands in
+   Phase 1's first commit so the build holds the direction. `config →
+   convention`, so nothing in `convention` may take a `config.Config`.
+2. **Zero-headroom budgets.** The bumps this plan needs: `internal/tui`
+   38 → 39 (Phase 5); `internal/webserver` 15 → 16 → 17 → 18 (Phases 9, 10,
+   12); possibly `internal/cli` 13 → 14 (Phase 2). Each WHY rewrite and
+   history row rides in the **same commit** as the new file, or that commit
+   fails `task check` and cannot land under rebase-only `main`.
+   `internal/loop` is new and answers to the default 12.
+3. **Golden churn.** The terminal's screen tests hold rendered frames;
+   Phases 4–7 each move them. One phase at a time; regenerate per file with
+   eyes on each diff; expect `world_test.go:34`'s 400 ms `patience` to flake
+   under `-race` while frames are changing (DEBT-60).
+4. **The web is outside `task check` until Phase 0 lands.** Every web
+   phase runs `task web:lint`, `task web:test`, `yarn gen:check` after a spec
+   change, and `yarn test:e2e` (`yarn playwright install --with-deps
+   chromium` first) by hand. vitest's `branches: 85` is statement-branch
+   coverage, not per-condition.
+5. **Spec changes are three-way.** `api/openapi.yaml` → `task gen` (Go) →
+   `yarn gen` (client and `zSnapshot`). The SSE endpoint is hand-registered
+   (`webserver.go:117`) and the frame parser hand-written
+   (`snapshot.ts:39`), so a `Snapshot` field added in Go without
+   regenerating the client makes the browser **silently drop every frame**
+   (Phase 11 makes that visible). Run `task web:build` before trusting a
+   `--web` run.
+6. **Rebase-only `main`.** Every commit stands alone and green — one
+   logical change, Conventional Commits, no squash to lean on. The
+   user-visible exit-code changes (`config show` 0 → 3, `status` alignment)
+   are `fix`/`feat` commits in their own right.
+7. **New write endpoints** (Phases 9 and 10) each need the CLAUDE.md-
+   required "detail omits the host" test and a test that `--dry-run`
+   refuses them.
+8. **A security-adjacent constraint, not a finding.** `internal/webserver/announce.go:59`
+   hides its error because a messaging error can carry the webhook URL;
+   Phase 11 classifies it by sentinel and never forwards the text.
