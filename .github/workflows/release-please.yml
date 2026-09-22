@@ -58,6 +58,27 @@ jobs:
           token: ${{ secrets.GITHUB_TOKEN }}
           fetch-depth: 0
 
+      # Provision the pinned toolchain to run the gate in the next step. Only for
+      # a release commit: every other push to main exits the tag script early and
+      # needs nothing installed here. cache: false for the reason release.yml sets
+      # it — a restored cache is attacker-influenceable state, and this gate
+      # decides whether a release ships.
+      - name: Provision the toolchain for the gate
+        if: "${{ startsWith(github.event.head_commit.message, 'chore(main): release ') }}"
+        uses: jdx/mise-action@c2a87611a18de5b3828c5652fe268e992400cb5c # v4.3.0
+        with:
+          version: 2026.9.3 # the mise binary itself; see min_version in mise.toml
+          cache: false
+
+      # Gate before the tag step tags anything. A failed step stops the job, so
+      # the tag step below never runs and no tag is pushed — a tag with no release
+      # behind it is the failure this guards, and a published release cannot be
+      # taken back. release.yml runs the gate again for the manual tag-push path
+      # it also answers.
+      - name: Verify the gate before tagging
+        if: "${{ startsWith(github.event.head_commit.message, 'chore(main): release ') }}"
+        run: task check
+
       - name: Push tag for a merged release PR
         env:
           # The commit message is attacker-influenceable, so it reaches the script
