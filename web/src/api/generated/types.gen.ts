@@ -462,6 +462,12 @@ export type UiConfig = {
      * How many comments the detail shows; 0 means the built-in default.
      */
     comments_shown?: number;
+    /**
+     * Map from a key action to the key that triggers it; see the configuration docs for the actions.
+     */
+    keys?: {
+        [key: string]: string;
+    } | null;
 };
 
 export type TimingConfig = {

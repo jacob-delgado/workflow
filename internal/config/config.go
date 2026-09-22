@@ -47,7 +47,8 @@ var (
 	// which is now "messaging" with a "kind". It turns the decoder's cryptic
 	// unknown-field error into a message that names the migration.
 	ErrSlackRenamed = errors.New(
-		`the "slack" block was renamed to "messaging"; rename the key and add "kind": "slack"`)
+		`the "slack" block was renamed to "messaging"; rename the key and add "kind": "slack"`,
+	)
 )
 
 // Jira describes how to reach an on-premises Jira instance.
@@ -166,6 +167,27 @@ type UI struct {
 	// CommentsShown is how many of an issue's most recent comments the detail
 	// pane draws. Zero keeps the built-in default.
 	CommentsShown int `json:"comments_shown"`
+	// Keys rebinds the interface's keys. Each entry maps an action to the single
+	// key that should trigger it, e.g. {"commit": "C", "comment": "ctrl+e"}; the
+	// help then shows the new key. An action left out keeps its default. The
+	// interface refuses to start on a map that names an action it does not know,
+	// or that binds two actions in the same context to one key. The known
+	// actions, by where they work, are:
+	//
+	//   Moving:  next-pane, previous-pane, jump-to-pane, up, down, scroll-up,
+	//            scroll-down
+	//   Issues:  change-status, comment, assign, log-work, branch-for-issue,
+	//            filter, switch-view, load-more, open-link, copy-link, refresh
+	//   Branch:  new-branch, switch-task, worktree, rebase, push, stage,
+	//            stage-all, commit, amend, fixup, run-pre-commit, set-up-lefthook
+	//   Review:  open-pull-request, checks, rerun-checks, merge, finish-branch,
+	//            post, post-when-green
+	//   Composer: edit, edit-body, next-template, toggle-draft, toggle-breaking,
+	//            verbatim, next-field, previous-field, cycle-type-left,
+	//            cycle-type-right, toggle-option
+	//   Running: stop, run-again, full-output
+	//   Everywhere: apply, close, toggle-mouse, toggle-help, quit, interrupt
+	Keys map[string]string `json:"keys"`
 }
 
 // DrawColor reports whether the system hues should be drawn. NO_COLOR (set to

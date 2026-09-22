@@ -79,6 +79,28 @@ func TestDoctorAcceptsACompleteConfig(t *testing.T) {
 	}
 }
 
+func TestDoctorReportsAConflictingKeyOverride(t *testing.T) {
+	// Arrange
+	// commit and stage-all both live on the Branch and Commits panes, so binding
+	// commit to stage-all's key is a conflict doctor should catch.
+	dir := t.TempDir()
+	writeFile(t, dir, `{"jira": {"base_url": "https://jira.example.com", "token": "t"},`+
+		` "messaging": {"webhook_url": "https://hooks.slack.example/services/not-real"},`+
+		` "ui": {"keys": {"commit": "a"}}}`)
+
+	// Act
+	output, err := run(t, dir, "doctor")
+
+	// Assert
+	if err == nil {
+		t.Fatalf("doctor accepted a conflicting ui.keys map:\n%s", output)
+	}
+
+	if !strings.Contains(output, "commit") || !strings.Contains(output, "stage-all") {
+		t.Errorf("doctor does not report the key conflict:\n%s", output)
+	}
+}
+
 func TestDoctorFailsOnAConfigurationOthersCanRead(t *testing.T) {
 	// Arrange
 	dir := t.TempDir()

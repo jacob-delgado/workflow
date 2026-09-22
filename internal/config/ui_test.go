@@ -5,6 +5,7 @@ package config_test
 
 import (
 	"errors"
+	"reflect"
 	"testing"
 
 	"github.com/jacob-delgado/workflow/internal/config"
@@ -30,6 +31,12 @@ func TestUISettingsKeepTheirDefaultsUnlessAValidFileSetsThem(t *testing.T) {
 			contents: `{"ui": {"color": "never"}}`,
 			want:     config.UI{Mouse: true, ASCII: false, Color: "never"},
 		},
+		// A ui.keys map is read in as the raw action-to-key overrides; the tui
+		// layer validates them, config only carries them.
+		"a keys map parses": {
+			contents: `{"ui": {"keys": {"commit": "C", "comment": "ctrl+e"}}}`,
+			want:     config.UI{Mouse: true, ASCII: false, Keys: map[string]string{"commit": "C", "comment": "ctrl+e"}},
+		},
 		// A file that does not load still leaves the interface its defaults, so
 		// it opens with the mouse working to say what is wrong.
 		"a setting of the wrong type": {contents: `{"ui": {"mouse": "yes"}}`, want: defaults, wantErr: config.ErrInvalid},
@@ -47,7 +54,7 @@ func TestUISettingsKeepTheirDefaultsUnlessAValidFileSetsThem(t *testing.T) {
 			cfg, err := config.LoadFile(path)
 
 			// Assert
-			if !errors.Is(err, tt.wantErr) || cfg.UI != tt.want {
+			if !errors.Is(err, tt.wantErr) || !reflect.DeepEqual(cfg.UI, tt.want) {
 				t.Errorf("LoadFile = %+v, %v; want %+v, %v", cfg.UI, err, tt.want, tt.wantErr)
 			}
 		})
@@ -98,7 +105,7 @@ func TestTheTemplateWritesTheUISettings(t *testing.T) {
 
 	// Act & Assert
 	// config init is how people discover a setting exists at all.
-	if got := config.Template().UI; got != (config.UI{Mouse: true, ASCII: false}) {
+	if got := config.Template().UI; !reflect.DeepEqual(got, config.UI{Mouse: true, ASCII: false}) {
 		t.Errorf("Template().UI = %+v, want the defaults written out", got)
 	}
 }

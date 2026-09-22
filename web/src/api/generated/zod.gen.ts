@@ -270,7 +270,8 @@ export const zUiConfig = z.object({
     ascii: z.boolean().optional(),
     color: z.string().optional(),
     notify: z.boolean().optional(),
-    comments_shown: z.int().optional()
+    comments_shown: z.int().optional(),
+    keys: z.record(z.string(), z.string()).nullish()
 });
 
 export const zTimingConfig = z.object({
