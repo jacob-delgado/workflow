@@ -170,6 +170,46 @@ without agreement on direction.
   sentinel zero-values as implicit "no result" signals when a typed result or
   error would be clearer.
 
+- **Database (`internal/store`) — normalized, STRICT, and never trusted.** The
+  on-disk store is SQLite through `modernc.org/sqlite` (pure Go, so `CGO_ENABLED=0`
+  holds). Its schema is the exemplar of these rules; **read the tables in
+  `internal/store/store.go`, never a restatement here**, since a prose copy drifts.
+  - **Third Normal Form — no exceptions the schema doesn't document.** A repeating
+    group is a **child table**, never a JSON blob or a delimited column (a list in
+    one cell fails 1NF, and so 3NF): the cached issue list is a parent `issue_cache`
+    row and one `cached_issue` child per issue, not a serialized array. Store **no
+    derived value** — compute it at read. The one denormalization the schema keeps
+    (`status_category` beside `status`) carries a comment saying why it is not a
+    transitive-dependency violation to extract: the mapping is Jira's, external and
+    non-derivable, in a disposable cache. Any other denormalization needs the same
+    written justification or it is a bug.
+  - **Every table is `STRICT`.** A column's declared type is enforced at write
+    time, which is the point — so declare real types (`INTEGER`/`TEXT`/`REAL`/
+    `BLOB`/`ANY`) and never lean on SQLite's default type-coercion.
+  - **Timestamps are RFC3339 UTC `TEXT` in an `_at` column** (`timestamp(now)` in
+    `store.go`), **never** `DATETIME`, `CURRENT_TIMESTAMP`, or a bare epoch int —
+    STRICT has no date type, and a caller-passed `now time.Time` keeps the clock a
+    seam. Columns are `snake_case`.
+  - **Referential integrity is on and enforced.** The DSN sets
+    `_pragma=foreign_keys(1)` (SQLite enforces `ON DELETE CASCADE`/`RESTRICT` only
+    per-connection, only when on), every child names its `FOREIGN KEY … ON DELETE
+    CASCADE`, and a repeating group is **replaced in one transaction** (upsert
+    parent, delete children, insert) so a re-cache never leaves a half-updated view.
+  - **Parameterized queries only** — every value is a `?` placeholder bound through
+    `database/sql`; SQL is never built by string concatenation, no matter how
+    "internal" the value looks.
+  - **Trust nothing read back from disk.** A file on disk is tamperable and outside
+    our process, so **do not trust stored data**: sanitize user/forge/tracker text
+    on the way in (defense in depth) *and* again on the way out through
+    `internal/sanitize` at the seam that renders it, and validate shape on read
+    rather than assuming the writer was us. The store itself **never holds a
+    secret** and is keyed only by credential-free identifiers (a forge host/path, a
+    hash of a base URL) — the test that proves a credential can't reach it ships
+    with any change to its keys.
+  - **Migrations are forward-only and idempotent** (every `open` runs `migrate`);
+    pre-1.0 there are **no migration shims** for an unreleased schema — change the
+    `CREATE TABLE` and move on (see *YAGNI*).
+
 - **License headers**: every `.go` file begins with the two SPDX lines from
   CONTRIBUTING.md. `scripts/check-license-headers.sh` gates this in lefthook,
   `task lint` and CI.
