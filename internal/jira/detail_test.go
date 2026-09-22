@@ -216,6 +216,23 @@ func TestIssueReportsJirasReason(t *testing.T) {
 	}
 }
 
+func TestIssueMarksAMissingIssueAsNotFound(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	// A 404 must carry ErrNotFound so a caller can answer a missing issue
+	// distinctly, while still reporting Jira's own reason.
+	client := serve(t, failWith(http.StatusNotFound, `{"errorMessages":["Issue Does Not Exist"]}`, "fred"))
+
+	// Act
+	_, err := client.Issue(t.Context(), "OPS-404")
+
+	// Assert
+	if !errors.Is(err, jira.ErrNotFound) {
+		t.Errorf("Issue returned %v, want it to wrap ErrNotFound", err)
+	}
+}
+
 func TestIssueReportsAnUnreadableBody(t *testing.T) {
 	t.Parallel()
 

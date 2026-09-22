@@ -64,13 +64,27 @@ func (c Client) answerError(response *http.Response, requested *url.URL) error {
 		return err
 	}
 
-	reason := c.reason(response.Body)
-	if reason == "" {
-		return err
+	if reason := c.reason(response.Body); reason != "" {
+		err = fmt.Errorf("%w: %s", ErrRejected, reason)
 	}
 
-	return fmt.Errorf("%w: %s", ErrRejected, reason)
+	if response.StatusCode == http.StatusNotFound {
+		return notFoundError{err}
+	}
+
+	return err
 }
+
+// notFoundError marks a 404 answer as not-found without losing the more specific
+// error it wraps: errors.Is finds ErrNotFound here and the wrapped sentinel —
+// ErrNoAPI or ErrRejected — through Unwrap, and the message stays the wrapped one.
+type notFoundError struct{ err error }
+
+func (e notFoundError) Error() string { return e.err.Error() }
+
+func (e notFoundError) Unwrap() error { return e.err }
+
+func (e notFoundError) Is(target error) bool { return target == ErrNotFound }
 
 // reason reads Jira's explanation from a failed answer, or "" when the body is
 // not one — such as the HTML page of a proxy standing where Jira should be.
