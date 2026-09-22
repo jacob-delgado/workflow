@@ -137,6 +137,76 @@ test('does not offer to check out the branch already on HEAD', () => {
   expect(screen.queryByRole('button', { name: /check out PROJ-1/i })).toBeNull()
 })
 
+test('shows the reason when a list checkout is refused', async () => {
+  // Arrange
+  mockCheckout.mockRejectedValueOnce({
+    code: 'conflict',
+    message: 'the working tree has uncommitted changes',
+  })
+  const user = userEvent.setup()
+  withIssues()
+  useSnapshotStore.setState((state) => ({
+    snapshot: state.snapshot && {
+      ...state.snapshot,
+      branches: [{ name: 'fix/PROJ-1-leak', issue_key: 'PROJ-1', current: false }],
+    },
+  }))
+  render(<IssuesPanel />)
+
+  // Act
+  await user.click(screen.getByRole('button', { name: /check out PROJ-1/i }))
+
+  // Assert
+  const alert = await screen.findByRole('alert')
+  expect(alert.textContent).toMatch(/uncommitted changes/i)
+})
+
+test('is not offered when a branch on HEAD exists among several for one issue', () => {
+  // Arrange
+  // PROJ-1 has two branches and the newest is on HEAD, so it is not offered for
+  // checkout even though an older branch is not current.
+  withIssues()
+  useSnapshotStore.setState((state) => ({
+    snapshot: state.snapshot && {
+      ...state.snapshot,
+      branches: [
+        { name: 'feat/PROJ-1-redo', issue_key: 'PROJ-1', current: true },
+        { name: 'fix/PROJ-1-leak', issue_key: 'PROJ-1', current: false },
+      ],
+    },
+  }))
+
+  // Act
+  render(<IssuesPanel />)
+
+  // Assert
+  expect(screen.queryByRole('button', { name: /check out PROJ-1/i })).toBeNull()
+})
+
+test('checks out the most recent branch when several name one issue', async () => {
+  // Arrange
+  // Branches arrive most-recently-committed first; neither is on HEAD, so the row
+  // offers the most recent one.
+  const user = userEvent.setup()
+  withIssues()
+  useSnapshotStore.setState((state) => ({
+    snapshot: state.snapshot && {
+      ...state.snapshot,
+      branches: [
+        { name: 'feat/PROJ-1-redo', issue_key: 'PROJ-1', current: false },
+        { name: 'fix/PROJ-1-leak', issue_key: 'PROJ-1', current: false },
+      ],
+    },
+  }))
+  render(<IssuesPanel />)
+
+  // Act
+  await user.click(screen.getByRole('button', { name: /check out PROJ-1/i }))
+
+  // Assert
+  expect(mockCheckout).toHaveBeenCalledWith('feat/PROJ-1-redo')
+})
+
 test('prompts to connect before any snapshot arrives', () => {
   // Act
   render(<IssuesPanel />)

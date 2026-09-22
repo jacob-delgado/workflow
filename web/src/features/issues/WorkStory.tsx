@@ -1,12 +1,11 @@
 import { Check } from 'lucide-react'
-import { useState } from 'react'
 import type { Snapshot, TaskBranch } from '@/api/generated/types.gen.ts'
 import { useSnapshotStore } from '@/api/snapshot.ts'
 import { cn } from '@/lib/utils.ts'
 import { useUiStore, type Section } from '@/shell/uiStore.ts'
-import { apiErrorMessage } from '@/api/apiError.ts'
 import { checkoutBranch } from './checkoutApi.ts'
 import { startWork } from './startWorkApi.ts'
+import { useAsyncAction } from './useAsyncAction.ts'
 
 type StageState = 'done' | 'active' | 'upcoming'
 
@@ -222,38 +221,26 @@ export function WorkStory({ issueKey }: { issueKey: string }) {
   )
 }
 
-type CheckoutState = 'idle' | 'switching' | 'error'
-
 // CheckoutButton switches the working tree to a branch that is not on HEAD. On
 // success the event stream reflects the switch, so there is nothing to update
 // here; a refusal — a dirty tree — is shown inline for the user to act on.
 function CheckoutButton({ branch }: { branch: string }) {
-  const [state, setState] = useState<CheckoutState>('idle')
-  const [error, setError] = useState('')
-
-  const onCheckout = async () => {
-    setState('switching')
-    try {
-      await checkoutBranch(branch)
-      setError('')
-      setState('idle')
-    } catch (caught) {
-      setError(apiErrorMessage(caught, 'The branch could not be checked out.'))
-      setState('error')
-    }
-  }
+  const { state, error, run } = useAsyncAction(
+    () => checkoutBranch(branch),
+    'The branch could not be checked out.',
+  )
 
   return (
     <div className="flex flex-col gap-1">
       <button
         type="button"
-        disabled={state === 'switching'}
+        disabled={state === 'running'}
         onClick={() => {
-          void onCheckout()
+          void run()
         }}
         className="self-start rounded-md border border-input px-3 py-1.5 text-sm hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none disabled:opacity-60"
       >
-        {state === 'switching' ? 'Checking out…' : 'Check out this branch'}
+        {state === 'running' ? 'Checking out…' : 'Check out this branch'}
       </button>
       {state === 'error' ? (
         <p role="alert" className="text-sm text-destructive">
@@ -268,32 +255,22 @@ function CheckoutButton({ branch }: { branch: string }) {
 // event stream reflects the new branch on success; a refusal (a branch already
 // exists) is shown inline.
 function StartWorkButton({ issueKey }: { issueKey: string }) {
-  const [state, setState] = useState<CheckoutState>('idle')
-  const [error, setError] = useState('')
-
-  const onStart = async () => {
-    setState('switching')
-    try {
-      await startWork(issueKey)
-      setError('')
-      setState('idle')
-    } catch (caught) {
-      setError(apiErrorMessage(caught, 'Work could not be started.'))
-      setState('error')
-    }
-  }
+  const { state, error, run } = useAsyncAction(
+    () => startWork(issueKey),
+    'Work could not be started.',
+  )
 
   return (
     <div className="flex flex-col gap-1">
       <button
         type="button"
-        disabled={state === 'switching'}
+        disabled={state === 'running'}
         onClick={() => {
-          void onStart()
+          void run()
         }}
         className="self-start rounded-md bg-primary px-3 py-1.5 text-sm font-medium text-primary-foreground hover:bg-primary/90 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none disabled:opacity-60"
       >
-        {state === 'switching' ? 'Starting…' : 'Start work on this issue'}
+        {state === 'running' ? 'Starting…' : 'Start work on this issue'}
       </button>
       {state === 'error' ? (
         <p role="alert" className="text-sm text-destructive">
