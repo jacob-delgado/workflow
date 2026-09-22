@@ -521,7 +521,7 @@ func HandlerWithOptions(si ServerInterface, options StdHTTPServerOptions) http.H
 	return m
 }
 
-type ErrorJSONResponse Error
+type ProblemApplicationProblemPlusJSONResponse Problem
 
 type AnnounceRequestObject struct {
 	Body *AnnounceJSONRequestBody
@@ -545,46 +545,46 @@ func (response Announce200JSONResponse) VisitAnnounceResponse(w http.ResponseWri
 	return err
 }
 
-type Announce409JSONResponse Error
+type Announce409ApplicationProblemPlusJSONResponse Problem
 
-func (response Announce409JSONResponse) VisitAnnounceResponse(w http.ResponseWriter) error {
+func (response Announce409ApplicationProblemPlusJSONResponse) VisitAnnounceResponse(w http.ResponseWriter) error {
 
 	var buf bytes.Buffer
 	if err := json.NewEncoder(&buf).Encode(response); err != nil {
 		return err
 	}
-	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Content-Type", "application/problem+json")
 	w.WriteHeader(409)
 	_, err := buf.WriteTo(w)
 	return err
 }
 
-type Announce422JSONResponse Error
+type Announce422ApplicationProblemPlusJSONResponse Problem
 
-func (response Announce422JSONResponse) VisitAnnounceResponse(w http.ResponseWriter) error {
+func (response Announce422ApplicationProblemPlusJSONResponse) VisitAnnounceResponse(w http.ResponseWriter) error {
 
 	var buf bytes.Buffer
 	if err := json.NewEncoder(&buf).Encode(response); err != nil {
 		return err
 	}
-	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Content-Type", "application/problem+json")
 	w.WriteHeader(422)
 	_, err := buf.WriteTo(w)
 	return err
 }
 
-type AnnouncedefaultJSONResponse struct {
-	Body       Error
+type AnnouncedefaultApplicationProblemPlusJSONResponse struct {
+	Body       Problem
 	StatusCode int
 }
 
-func (response AnnouncedefaultJSONResponse) VisitAnnounceResponse(w http.ResponseWriter) error {
+func (response AnnouncedefaultApplicationProblemPlusJSONResponse) VisitAnnounceResponse(w http.ResponseWriter) error {
 
 	var buf bytes.Buffer
 	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
 		return err
 	}
-	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Content-Type", "application/problem+json")
 	w.WriteHeader(response.StatusCode)
 	_, err := buf.WriteTo(w)
 	return err
@@ -611,32 +611,32 @@ func (response GetAnnouncement200JSONResponse) VisitGetAnnouncementResponse(w ht
 	return err
 }
 
-type GetAnnouncement409JSONResponse Error
+type GetAnnouncement409ApplicationProblemPlusJSONResponse Problem
 
-func (response GetAnnouncement409JSONResponse) VisitGetAnnouncementResponse(w http.ResponseWriter) error {
+func (response GetAnnouncement409ApplicationProblemPlusJSONResponse) VisitGetAnnouncementResponse(w http.ResponseWriter) error {
 
 	var buf bytes.Buffer
 	if err := json.NewEncoder(&buf).Encode(response); err != nil {
 		return err
 	}
-	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Content-Type", "application/problem+json")
 	w.WriteHeader(409)
 	_, err := buf.WriteTo(w)
 	return err
 }
 
-type GetAnnouncementdefaultJSONResponse struct {
-	Body       Error
+type GetAnnouncementdefaultApplicationProblemPlusJSONResponse struct {
+	Body       Problem
 	StatusCode int
 }
 
-func (response GetAnnouncementdefaultJSONResponse) VisitGetAnnouncementResponse(w http.ResponseWriter) error {
+func (response GetAnnouncementdefaultApplicationProblemPlusJSONResponse) VisitGetAnnouncementResponse(w http.ResponseWriter) error {
 
 	var buf bytes.Buffer
 	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
 		return err
 	}
-	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Content-Type", "application/problem+json")
 	w.WriteHeader(response.StatusCode)
 	_, err := buf.WriteTo(w)
 	return err
@@ -663,18 +663,18 @@ func (response GetBranch200JSONResponse) VisitGetBranchResponse(w http.ResponseW
 	return err
 }
 
-type GetBranchdefaultJSONResponse struct {
-	Body       Error
+type GetBranchdefaultApplicationProblemPlusJSONResponse struct {
+	Body       Problem
 	StatusCode int
 }
 
-func (response GetBranchdefaultJSONResponse) VisitGetBranchResponse(w http.ResponseWriter) error {
+func (response GetBranchdefaultApplicationProblemPlusJSONResponse) VisitGetBranchResponse(w http.ResponseWriter) error {
 
 	var buf bytes.Buffer
 	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
 		return err
 	}
-	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Content-Type", "application/problem+json")
 	w.WriteHeader(response.StatusCode)
 	_, err := buf.WriteTo(w)
 	return err
@@ -702,46 +702,46 @@ func (response CreateBranch200JSONResponse) VisitCreateBranchResponse(w http.Res
 	return err
 }
 
-type CreateBranch409JSONResponse Error
+type CreateBranch409ApplicationProblemPlusJSONResponse Problem
 
-func (response CreateBranch409JSONResponse) VisitCreateBranchResponse(w http.ResponseWriter) error {
+func (response CreateBranch409ApplicationProblemPlusJSONResponse) VisitCreateBranchResponse(w http.ResponseWriter) error {
 
 	var buf bytes.Buffer
 	if err := json.NewEncoder(&buf).Encode(response); err != nil {
 		return err
 	}
-	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Content-Type", "application/problem+json")
 	w.WriteHeader(409)
 	_, err := buf.WriteTo(w)
 	return err
 }
 
-type CreateBranch422JSONResponse Error
+type CreateBranch422ApplicationProblemPlusJSONResponse Problem
 
-func (response CreateBranch422JSONResponse) VisitCreateBranchResponse(w http.ResponseWriter) error {
+func (response CreateBranch422ApplicationProblemPlusJSONResponse) VisitCreateBranchResponse(w http.ResponseWriter) error {
 
 	var buf bytes.Buffer
 	if err := json.NewEncoder(&buf).Encode(response); err != nil {
 		return err
 	}
-	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Content-Type", "application/problem+json")
 	w.WriteHeader(422)
 	_, err := buf.WriteTo(w)
 	return err
 }
 
-type CreateBranchdefaultJSONResponse struct {
-	Body       Error
+type CreateBranchdefaultApplicationProblemPlusJSONResponse struct {
+	Body       Problem
 	StatusCode int
 }
 
-func (response CreateBranchdefaultJSONResponse) VisitCreateBranchResponse(w http.ResponseWriter) error {
+func (response CreateBranchdefaultApplicationProblemPlusJSONResponse) VisitCreateBranchResponse(w http.ResponseWriter) error {
 
 	var buf bytes.Buffer
 	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
 		return err
 	}
-	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Content-Type", "application/problem+json")
 	w.WriteHeader(response.StatusCode)
 	_, err := buf.WriteTo(w)
 	return err
@@ -768,18 +768,18 @@ func (response ListChanges200JSONResponse) VisitListChangesResponse(w http.Respo
 	return err
 }
 
-type ListChangesdefaultJSONResponse struct {
-	Body       Error
+type ListChangesdefaultApplicationProblemPlusJSONResponse struct {
+	Body       Problem
 	StatusCode int
 }
 
-func (response ListChangesdefaultJSONResponse) VisitListChangesResponse(w http.ResponseWriter) error {
+func (response ListChangesdefaultApplicationProblemPlusJSONResponse) VisitListChangesResponse(w http.ResponseWriter) error {
 
 	var buf bytes.Buffer
 	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
 		return err
 	}
-	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Content-Type", "application/problem+json")
 	w.WriteHeader(response.StatusCode)
 	_, err := buf.WriteTo(w)
 	return err
@@ -807,46 +807,46 @@ func (response Checkout200JSONResponse) VisitCheckoutResponse(w http.ResponseWri
 	return err
 }
 
-type Checkout409JSONResponse Error
+type Checkout409ApplicationProblemPlusJSONResponse Problem
 
-func (response Checkout409JSONResponse) VisitCheckoutResponse(w http.ResponseWriter) error {
+func (response Checkout409ApplicationProblemPlusJSONResponse) VisitCheckoutResponse(w http.ResponseWriter) error {
 
 	var buf bytes.Buffer
 	if err := json.NewEncoder(&buf).Encode(response); err != nil {
 		return err
 	}
-	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Content-Type", "application/problem+json")
 	w.WriteHeader(409)
 	_, err := buf.WriteTo(w)
 	return err
 }
 
-type Checkout422JSONResponse Error
+type Checkout422ApplicationProblemPlusJSONResponse Problem
 
-func (response Checkout422JSONResponse) VisitCheckoutResponse(w http.ResponseWriter) error {
+func (response Checkout422ApplicationProblemPlusJSONResponse) VisitCheckoutResponse(w http.ResponseWriter) error {
 
 	var buf bytes.Buffer
 	if err := json.NewEncoder(&buf).Encode(response); err != nil {
 		return err
 	}
-	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Content-Type", "application/problem+json")
 	w.WriteHeader(422)
 	_, err := buf.WriteTo(w)
 	return err
 }
 
-type CheckoutdefaultJSONResponse struct {
-	Body       Error
+type CheckoutdefaultApplicationProblemPlusJSONResponse struct {
+	Body       Problem
 	StatusCode int
 }
 
-func (response CheckoutdefaultJSONResponse) VisitCheckoutResponse(w http.ResponseWriter) error {
+func (response CheckoutdefaultApplicationProblemPlusJSONResponse) VisitCheckoutResponse(w http.ResponseWriter) error {
 
 	var buf bytes.Buffer
 	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
 		return err
 	}
-	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Content-Type", "application/problem+json")
 	w.WriteHeader(response.StatusCode)
 	_, err := buf.WriteTo(w)
 	return err
@@ -874,46 +874,46 @@ func (response Commit200JSONResponse) VisitCommitResponse(w http.ResponseWriter)
 	return err
 }
 
-type Commit409JSONResponse Error
+type Commit409ApplicationProblemPlusJSONResponse Problem
 
-func (response Commit409JSONResponse) VisitCommitResponse(w http.ResponseWriter) error {
+func (response Commit409ApplicationProblemPlusJSONResponse) VisitCommitResponse(w http.ResponseWriter) error {
 
 	var buf bytes.Buffer
 	if err := json.NewEncoder(&buf).Encode(response); err != nil {
 		return err
 	}
-	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Content-Type", "application/problem+json")
 	w.WriteHeader(409)
 	_, err := buf.WriteTo(w)
 	return err
 }
 
-type Commit422JSONResponse Error
+type Commit422ApplicationProblemPlusJSONResponse Problem
 
-func (response Commit422JSONResponse) VisitCommitResponse(w http.ResponseWriter) error {
+func (response Commit422ApplicationProblemPlusJSONResponse) VisitCommitResponse(w http.ResponseWriter) error {
 
 	var buf bytes.Buffer
 	if err := json.NewEncoder(&buf).Encode(response); err != nil {
 		return err
 	}
-	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Content-Type", "application/problem+json")
 	w.WriteHeader(422)
 	_, err := buf.WriteTo(w)
 	return err
 }
 
-type CommitdefaultJSONResponse struct {
-	Body       Error
+type CommitdefaultApplicationProblemPlusJSONResponse struct {
+	Body       Problem
 	StatusCode int
 }
 
-func (response CommitdefaultJSONResponse) VisitCommitResponse(w http.ResponseWriter) error {
+func (response CommitdefaultApplicationProblemPlusJSONResponse) VisitCommitResponse(w http.ResponseWriter) error {
 
 	var buf bytes.Buffer
 	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
 		return err
 	}
-	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Content-Type", "application/problem+json")
 	w.WriteHeader(response.StatusCode)
 	_, err := buf.WriteTo(w)
 	return err
@@ -940,18 +940,18 @@ func (response GetConfig200JSONResponse) VisitGetConfigResponse(w http.ResponseW
 	return err
 }
 
-type GetConfigdefaultJSONResponse struct {
-	Body       Error
+type GetConfigdefaultApplicationProblemPlusJSONResponse struct {
+	Body       Problem
 	StatusCode int
 }
 
-func (response GetConfigdefaultJSONResponse) VisitGetConfigResponse(w http.ResponseWriter) error {
+func (response GetConfigdefaultApplicationProblemPlusJSONResponse) VisitGetConfigResponse(w http.ResponseWriter) error {
 
 	var buf bytes.Buffer
 	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
 		return err
 	}
-	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Content-Type", "application/problem+json")
 	w.WriteHeader(response.StatusCode)
 	_, err := buf.WriteTo(w)
 	return err
@@ -979,32 +979,32 @@ func (response UpdateConfig200JSONResponse) VisitUpdateConfigResponse(w http.Res
 	return err
 }
 
-type UpdateConfig422JSONResponse Error
+type UpdateConfig422ApplicationProblemPlusJSONResponse Problem
 
-func (response UpdateConfig422JSONResponse) VisitUpdateConfigResponse(w http.ResponseWriter) error {
+func (response UpdateConfig422ApplicationProblemPlusJSONResponse) VisitUpdateConfigResponse(w http.ResponseWriter) error {
 
 	var buf bytes.Buffer
 	if err := json.NewEncoder(&buf).Encode(response); err != nil {
 		return err
 	}
-	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Content-Type", "application/problem+json")
 	w.WriteHeader(422)
 	_, err := buf.WriteTo(w)
 	return err
 }
 
-type UpdateConfigdefaultJSONResponse struct {
-	Body       Error
+type UpdateConfigdefaultApplicationProblemPlusJSONResponse struct {
+	Body       Problem
 	StatusCode int
 }
 
-func (response UpdateConfigdefaultJSONResponse) VisitUpdateConfigResponse(w http.ResponseWriter) error {
+func (response UpdateConfigdefaultApplicationProblemPlusJSONResponse) VisitUpdateConfigResponse(w http.ResponseWriter) error {
 
 	var buf bytes.Buffer
 	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
 		return err
 	}
-	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Content-Type", "application/problem+json")
 	w.WriteHeader(response.StatusCode)
 	_, err := buf.WriteTo(w)
 	return err
@@ -1031,6 +1031,23 @@ func (response GetHealth200JSONResponse) VisitGetHealthResponse(w http.ResponseW
 	return err
 }
 
+type GetHealthdefaultApplicationProblemPlusJSONResponse struct {
+	Body       Problem
+	StatusCode int
+}
+
+func (response GetHealthdefaultApplicationProblemPlusJSONResponse) VisitGetHealthResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
 type ListIssuesRequestObject struct {
 	Params ListIssuesParams
 }
@@ -1053,18 +1070,18 @@ func (response ListIssues200JSONResponse) VisitListIssuesResponse(w http.Respons
 	return err
 }
 
-type ListIssuesdefaultJSONResponse struct {
-	Body       Error
+type ListIssuesdefaultApplicationProblemPlusJSONResponse struct {
+	Body       Problem
 	StatusCode int
 }
 
-func (response ListIssuesdefaultJSONResponse) VisitListIssuesResponse(w http.ResponseWriter) error {
+func (response ListIssuesdefaultApplicationProblemPlusJSONResponse) VisitListIssuesResponse(w http.ResponseWriter) error {
 
 	var buf bytes.Buffer
 	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
 		return err
 	}
-	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Content-Type", "application/problem+json")
 	w.WriteHeader(response.StatusCode)
 	_, err := buf.WriteTo(w)
 	return err
@@ -1092,32 +1109,32 @@ func (response GetIssue200JSONResponse) VisitGetIssueResponse(w http.ResponseWri
 	return err
 }
 
-type GetIssue404JSONResponse Error
+type GetIssue404ApplicationProblemPlusJSONResponse Problem
 
-func (response GetIssue404JSONResponse) VisitGetIssueResponse(w http.ResponseWriter) error {
+func (response GetIssue404ApplicationProblemPlusJSONResponse) VisitGetIssueResponse(w http.ResponseWriter) error {
 
 	var buf bytes.Buffer
 	if err := json.NewEncoder(&buf).Encode(response); err != nil {
 		return err
 	}
-	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Content-Type", "application/problem+json")
 	w.WriteHeader(404)
 	_, err := buf.WriteTo(w)
 	return err
 }
 
-type GetIssuedefaultJSONResponse struct {
-	Body       Error
+type GetIssuedefaultApplicationProblemPlusJSONResponse struct {
+	Body       Problem
 	StatusCode int
 }
 
-func (response GetIssuedefaultJSONResponse) VisitGetIssueResponse(w http.ResponseWriter) error {
+func (response GetIssuedefaultApplicationProblemPlusJSONResponse) VisitGetIssueResponse(w http.ResponseWriter) error {
 
 	var buf bytes.Buffer
 	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
 		return err
 	}
-	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Content-Type", "application/problem+json")
 	w.WriteHeader(response.StatusCode)
 	_, err := buf.WriteTo(w)
 	return err
@@ -1144,18 +1161,18 @@ func (response GetMessaging200JSONResponse) VisitGetMessagingResponse(w http.Res
 	return err
 }
 
-type GetMessagingdefaultJSONResponse struct {
-	Body       Error
+type GetMessagingdefaultApplicationProblemPlusJSONResponse struct {
+	Body       Problem
 	StatusCode int
 }
 
-func (response GetMessagingdefaultJSONResponse) VisitGetMessagingResponse(w http.ResponseWriter) error {
+func (response GetMessagingdefaultApplicationProblemPlusJSONResponse) VisitGetMessagingResponse(w http.ResponseWriter) error {
 
 	var buf bytes.Buffer
 	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
 		return err
 	}
-	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Content-Type", "application/problem+json")
 	w.WriteHeader(response.StatusCode)
 	_, err := buf.WriteTo(w)
 	return err
@@ -1183,46 +1200,46 @@ func (response OpenPullRequest200JSONResponse) VisitOpenPullRequestResponse(w ht
 	return err
 }
 
-type OpenPullRequest409JSONResponse Error
+type OpenPullRequest409ApplicationProblemPlusJSONResponse Problem
 
-func (response OpenPullRequest409JSONResponse) VisitOpenPullRequestResponse(w http.ResponseWriter) error {
+func (response OpenPullRequest409ApplicationProblemPlusJSONResponse) VisitOpenPullRequestResponse(w http.ResponseWriter) error {
 
 	var buf bytes.Buffer
 	if err := json.NewEncoder(&buf).Encode(response); err != nil {
 		return err
 	}
-	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Content-Type", "application/problem+json")
 	w.WriteHeader(409)
 	_, err := buf.WriteTo(w)
 	return err
 }
 
-type OpenPullRequest422JSONResponse Error
+type OpenPullRequest422ApplicationProblemPlusJSONResponse Problem
 
-func (response OpenPullRequest422JSONResponse) VisitOpenPullRequestResponse(w http.ResponseWriter) error {
+func (response OpenPullRequest422ApplicationProblemPlusJSONResponse) VisitOpenPullRequestResponse(w http.ResponseWriter) error {
 
 	var buf bytes.Buffer
 	if err := json.NewEncoder(&buf).Encode(response); err != nil {
 		return err
 	}
-	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Content-Type", "application/problem+json")
 	w.WriteHeader(422)
 	_, err := buf.WriteTo(w)
 	return err
 }
 
-type OpenPullRequestdefaultJSONResponse struct {
-	Body       Error
+type OpenPullRequestdefaultApplicationProblemPlusJSONResponse struct {
+	Body       Problem
 	StatusCode int
 }
 
-func (response OpenPullRequestdefaultJSONResponse) VisitOpenPullRequestResponse(w http.ResponseWriter) error {
+func (response OpenPullRequestdefaultApplicationProblemPlusJSONResponse) VisitOpenPullRequestResponse(w http.ResponseWriter) error {
 
 	var buf bytes.Buffer
 	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
 		return err
 	}
-	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Content-Type", "application/problem+json")
 	w.WriteHeader(response.StatusCode)
 	_, err := buf.WriteTo(w)
 	return err
@@ -1249,32 +1266,32 @@ func (response GetPullRequestDraft200JSONResponse) VisitGetPullRequestDraftRespo
 	return err
 }
 
-type GetPullRequestDraft409JSONResponse Error
+type GetPullRequestDraft409ApplicationProblemPlusJSONResponse Problem
 
-func (response GetPullRequestDraft409JSONResponse) VisitGetPullRequestDraftResponse(w http.ResponseWriter) error {
+func (response GetPullRequestDraft409ApplicationProblemPlusJSONResponse) VisitGetPullRequestDraftResponse(w http.ResponseWriter) error {
 
 	var buf bytes.Buffer
 	if err := json.NewEncoder(&buf).Encode(response); err != nil {
 		return err
 	}
-	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Content-Type", "application/problem+json")
 	w.WriteHeader(409)
 	_, err := buf.WriteTo(w)
 	return err
 }
 
-type GetPullRequestDraftdefaultJSONResponse struct {
-	Body       Error
+type GetPullRequestDraftdefaultApplicationProblemPlusJSONResponse struct {
+	Body       Problem
 	StatusCode int
 }
 
-func (response GetPullRequestDraftdefaultJSONResponse) VisitGetPullRequestDraftResponse(w http.ResponseWriter) error {
+func (response GetPullRequestDraftdefaultApplicationProblemPlusJSONResponse) VisitGetPullRequestDraftResponse(w http.ResponseWriter) error {
 
 	var buf bytes.Buffer
 	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
 		return err
 	}
-	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Content-Type", "application/problem+json")
 	w.WriteHeader(response.StatusCode)
 	_, err := buf.WriteTo(w)
 	return err
@@ -1301,46 +1318,46 @@ func (response Push200JSONResponse) VisitPushResponse(w http.ResponseWriter) err
 	return err
 }
 
-type Push409JSONResponse Error
+type Push409ApplicationProblemPlusJSONResponse Problem
 
-func (response Push409JSONResponse) VisitPushResponse(w http.ResponseWriter) error {
+func (response Push409ApplicationProblemPlusJSONResponse) VisitPushResponse(w http.ResponseWriter) error {
 
 	var buf bytes.Buffer
 	if err := json.NewEncoder(&buf).Encode(response); err != nil {
 		return err
 	}
-	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Content-Type", "application/problem+json")
 	w.WriteHeader(409)
 	_, err := buf.WriteTo(w)
 	return err
 }
 
-type Push422JSONResponse Error
+type Push422ApplicationProblemPlusJSONResponse Problem
 
-func (response Push422JSONResponse) VisitPushResponse(w http.ResponseWriter) error {
+func (response Push422ApplicationProblemPlusJSONResponse) VisitPushResponse(w http.ResponseWriter) error {
 
 	var buf bytes.Buffer
 	if err := json.NewEncoder(&buf).Encode(response); err != nil {
 		return err
 	}
-	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Content-Type", "application/problem+json")
 	w.WriteHeader(422)
 	_, err := buf.WriteTo(w)
 	return err
 }
 
-type PushdefaultJSONResponse struct {
-	Body       Error
+type PushdefaultApplicationProblemPlusJSONResponse struct {
+	Body       Problem
 	StatusCode int
 }
 
-func (response PushdefaultJSONResponse) VisitPushResponse(w http.ResponseWriter) error {
+func (response PushdefaultApplicationProblemPlusJSONResponse) VisitPushResponse(w http.ResponseWriter) error {
 
 	var buf bytes.Buffer
 	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
 		return err
 	}
-	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Content-Type", "application/problem+json")
 	w.WriteHeader(response.StatusCode)
 	_, err := buf.WriteTo(w)
 	return err
@@ -1367,18 +1384,18 @@ func (response GetReview200JSONResponse) VisitGetReviewResponse(w http.ResponseW
 	return err
 }
 
-type GetReviewdefaultJSONResponse struct {
-	Body       Error
+type GetReviewdefaultApplicationProblemPlusJSONResponse struct {
+	Body       Problem
 	StatusCode int
 }
 
-func (response GetReviewdefaultJSONResponse) VisitGetReviewResponse(w http.ResponseWriter) error {
+func (response GetReviewdefaultApplicationProblemPlusJSONResponse) VisitGetReviewResponse(w http.ResponseWriter) error {
 
 	var buf bytes.Buffer
 	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
 		return err
 	}
-	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Content-Type", "application/problem+json")
 	w.WriteHeader(response.StatusCode)
 	_, err := buf.WriteTo(w)
 	return err
@@ -1405,18 +1422,18 @@ func (response ListViews200JSONResponse) VisitListViewsResponse(w http.ResponseW
 	return err
 }
 
-type ListViewsdefaultJSONResponse struct {
-	Body       Error
+type ListViewsdefaultApplicationProblemPlusJSONResponse struct {
+	Body       Problem
 	StatusCode int
 }
 
-func (response ListViewsdefaultJSONResponse) VisitListViewsResponse(w http.ResponseWriter) error {
+func (response ListViewsdefaultApplicationProblemPlusJSONResponse) VisitListViewsResponse(w http.ResponseWriter) error {
 
 	var buf bytes.Buffer
 	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
 		return err
 	}
-	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Content-Type", "application/problem+json")
 	w.WriteHeader(response.StatusCode)
 	_, err := buf.WriteTo(w)
 	return err

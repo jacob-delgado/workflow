@@ -26,7 +26,7 @@ const defaultStreamInterval = 5 * time.Second
 func (s *server) streamEvents(w http.ResponseWriter, request *http.Request) {
 	flusher, ok := w.(http.Flusher)
 	if !ok {
-		writeError(w, http.StatusInternalServerError, api.Internal, "streaming is not supported")
+		writeProblem(w, api.Internal, "streaming is not supported")
 
 		return
 	}

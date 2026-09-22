@@ -109,7 +109,7 @@ func TestPushReportsAFailingPush(t *testing.T) {
 		t.Fatalf("status = %d, want 422 when the push fails", recorder.Code)
 	}
 
-	message := decode[api.Error](t, recorder).Message
+	message := decode[api.Problem](t, recorder).Detail
 	if !strings.Contains(message, "the push failed") || !strings.Contains(message, "rejected") {
 		t.Errorf("message = %q, want the failure and its output", message)
 	}

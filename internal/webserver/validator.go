@@ -54,10 +54,10 @@ func writeValidationError(
 	_ context.Context, _ error, w http.ResponseWriter, _ *http.Request, opts nethttpmiddleware.ErrorHandlerOpts,
 ) {
 	if opts.StatusCode == http.StatusNotFound {
-		writeError(w, http.StatusNotFound, api.NotFound, "no such endpoint")
+		writeProblem(w, api.NotFound, "no such endpoint")
 
 		return
 	}
 
-	writeError(w, http.StatusBadRequest, api.BadRequest, "the request did not match the API contract")
+	writeProblem(w, api.BadRequest, "the request did not match the API contract")
 }

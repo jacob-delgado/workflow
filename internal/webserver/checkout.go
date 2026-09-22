@@ -37,7 +37,7 @@ func (s *server) Checkout(
 	case err == nil:
 		return api.Checkout200JSONResponse(branchDTO(branch)), nil
 	case errors.Is(err, errDirtyTree):
-		return api.Checkout409JSONResponse{Code: api.Conflict, Message: errDirtyTree.Error()}, nil
+		return api.Checkout409ApplicationProblemPlusJSONResponse(problem(api.Conflict, errDirtyTree.Error())), nil
 	default:
 		return unprocessable("the branch could not be checked out"), nil
 	}
@@ -80,6 +80,6 @@ func (s *server) workingTreeDirty() (bool, error) {
 }
 
 // unprocessable is the 422 response for a checkout the server will not attempt.
-func unprocessable(message string) api.Checkout422JSONResponse {
-	return api.Checkout422JSONResponse{Code: api.Unprocessable, Message: message}
+func unprocessable(message string) api.Checkout422ApplicationProblemPlusJSONResponse {
+	return api.Checkout422ApplicationProblemPlusJSONResponse(problem(api.Unprocessable, message))
 }

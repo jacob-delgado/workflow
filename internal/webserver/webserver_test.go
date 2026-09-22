@@ -259,8 +259,8 @@ func TestListIssuesReportsASeamFailure(t *testing.T) {
 		t.Fatalf("status = %d, want 500", recorder.Code)
 	}
 
-	failure := decode[api.Error](t, recorder)
-	if failure.Code != api.Internal || strings.Contains(failure.Message, "seam") {
+	failure := decode[api.Problem](t, recorder)
+	if failure.Code != api.Internal || strings.Contains(failure.Detail, "seam") {
 		t.Errorf("error = %+v, want a generic internal error", failure)
 	}
 }
@@ -277,10 +277,12 @@ func TestGetIssueReturnsTheDetail(t *testing.T) {
 	}
 }
 
-func TestGetIssueIsNotFoundWithoutATracker(t *testing.T) {
+func TestGetIssueIsUnprocessableWithoutATracker(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
+	// No tracker configured is not a missing issue: 404 is reserved for an issue
+	// that genuinely does not exist, so this answers 422.
 	deps := filledDeps()
 	deps.Issue = nil
 
@@ -288,8 +290,66 @@ func TestGetIssueIsNotFoundWithoutATracker(t *testing.T) {
 	recorder := get(t, serve(t, deps, config.Default()), "/api/issues/PROJ-1")
 
 	// Assert
-	if recorder.Code != http.StatusNotFound {
-		t.Errorf("status = %d, want 404", recorder.Code)
+	if failure := decode[api.Problem](t, recorder); recorder.Code != http.StatusUnprocessableEntity ||
+		failure.Code != api.Unprocessable {
+		t.Errorf("status/code = %d/%s, want 422/unprocessable", recorder.Code, failure.Code)
+	}
+}
+
+func TestGetIssueIsNotFoundForAMissingIssue(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	deps := filledDeps()
+	deps.Issue = func(jira.Key) (jira.IssueDetail, error) { return jira.IssueDetail{}, jira.ErrNotFound }
+
+	// Act
+	recorder := get(t, serve(t, deps, config.Default()), "/api/issues/PROJ-404")
+
+	// Assert
+	if failure := decode[api.Problem](t, recorder); recorder.Code != http.StatusNotFound ||
+		failure.Code != api.NotFound {
+		t.Errorf("status/code = %d/%s, want 404/not_found", recorder.Code, failure.Code)
+	}
+}
+
+func TestGetIssueIsUnreachableWhenTheTrackerIsDown(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	deps := filledDeps()
+	deps.Issue = func(jira.Key) (jira.IssueDetail, error) { return jira.IssueDetail{}, jira.ErrUnreachable }
+
+	// Act
+	recorder := get(t, serve(t, deps, config.Default()), "/api/issues/PROJ-1")
+
+	// Assert
+	if failure := decode[api.Problem](t, recorder); recorder.Code != http.StatusBadGateway ||
+		failure.Code != api.Unreachable {
+		t.Errorf("status/code = %d/%s, want 502/unreachable", recorder.Code, failure.Code)
+	}
+}
+
+func TestAnErrorIsAnRFC9457Problem(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	// Any failure is answered as application/problem+json with the problem's type,
+	// title and status populated — the RFC 9457 shape, not the old code+message.
+	deps := filledDeps()
+	deps.Issue = func(jira.Key) (jira.IssueDetail, error) { return jira.IssueDetail{}, errSeam }
+
+	// Act
+	recorder := get(t, serve(t, deps, config.Default()), "/api/issues/PROJ-1")
+
+	// Assert
+	failure := decode[api.Problem](t, recorder)
+	if ct := recorder.Header().Get("Content-Type"); ct != "application/problem+json" {
+		t.Errorf("Content-Type = %q, want application/problem+json", ct)
+	}
+
+	if failure.Type == "" || failure.Title == "" || failure.Status != http.StatusInternalServerError {
+		t.Errorf("problem = %+v, want type, title and status 500 populated", failure)
 	}
 }
 

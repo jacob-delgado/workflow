@@ -64,36 +64,6 @@ func (e ChangeKind) Valid() bool {
 	}
 }
 
-// Defines values for ErrorCode.
-const (
-	BadRequest    ErrorCode = "bad_request"
-	Conflict      ErrorCode = "conflict"
-	Internal      ErrorCode = "internal"
-	NotFound      ErrorCode = "not_found"
-	Unprocessable ErrorCode = "unprocessable"
-	Unreachable   ErrorCode = "unreachable"
-)
-
-// Valid indicates whether the value is a known member of the ErrorCode enum.
-func (e ErrorCode) Valid() bool {
-	switch e {
-	case BadRequest:
-		return true
-	case Conflict:
-		return true
-	case Internal:
-		return true
-	case NotFound:
-		return true
-	case Unprocessable:
-		return true
-	case Unreachable:
-		return true
-	default:
-		return false
-	}
-}
-
 // Defines values for ForgeConfigKind.
 const (
 	ForgeConfigKindEmpty  ForgeConfigKind = ""
@@ -136,6 +106,36 @@ func (e MessagingConfigKind) Valid() bool {
 	case MessagingConfigKindTeams:
 		return true
 	case MessagingConfigKindWebhook:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ProblemCode.
+const (
+	BadRequest    ProblemCode = "bad_request"
+	Conflict      ProblemCode = "conflict"
+	Internal      ProblemCode = "internal"
+	NotFound      ProblemCode = "not_found"
+	Unprocessable ProblemCode = "unprocessable"
+	Unreachable   ProblemCode = "unreachable"
+)
+
+// Valid indicates whether the value is a known member of the ProblemCode enum.
+func (e ProblemCode) Valid() bool {
+	switch e {
+	case BadRequest:
+		return true
+	case Conflict:
+		return true
+	case Internal:
+		return true
+	case NotFound:
+		return true
+	case Unprocessable:
+		return true
+	case Unreachable:
 		return true
 	default:
 		return false
@@ -361,18 +361,6 @@ type CreateBranchRequest struct {
 	IssueKey string `json:"issue_key"`
 }
 
-// Error defines model for Error.
-type Error struct {
-	// Code A stable, machine-readable reason.
-	Code ErrorCode `json:"code"`
-
-	// Message A human-readable explanation, safe to show. Never a secret.
-	Message string `json:"message"`
-}
-
-// ErrorCode A stable, machine-readable reason.
-type ErrorCode string
-
 // ForgeConfig defines model for ForgeConfig.
 type ForgeConfig struct {
 	Cli  *bool   `json:"cli,omitempty"`
@@ -544,6 +532,29 @@ type OpenedPullRequest struct {
 	// Warning Set only when the pull opened but adding its reviewers, assignees or labels did not fully succeed, so a partial success is not reported as a failure.
 	Warning *string `json:"warning,omitempty"`
 }
+
+// Problem An RFC 9457 problem details object. The detail is safe to show and never carries a secret; code is a stable, machine-readable reason.
+type Problem struct {
+	// Code A stable, machine-readable reason.
+	Code ProblemCode `json:"code"`
+
+	// Detail A human-readable explanation specific to this occurrence.
+	Detail string `json:"detail"`
+
+	// Status The HTTP status code.
+	Status int `json:"status"`
+
+	// Title A short, human-readable summary of the problem type.
+	Title string `json:"title"`
+
+	// Type A URI that identifies the problem type.
+	//
+	// Example: https://jacob-delgado.github.io/workflow/docs/errors/#not-found
+	Type string `json:"type"`
+}
+
+// ProblemCode A stable, machine-readable reason.
+type ProblemCode string
 
 // PullRequest defines model for PullRequest.
 type PullRequest struct {

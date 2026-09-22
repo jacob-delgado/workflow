@@ -51,6 +51,7 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Health"
+        default: {$ref: "#/components/responses/Problem"}
 
   /api/views:
     get:
@@ -64,7 +65,7 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ViewList"
-        default: {$ref: "#/components/responses/Error"}
+        default: {$ref: "#/components/responses/Problem"}
 
   /api/issues:
     get:
@@ -89,7 +90,7 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/IssuesPage"
-        default: {$ref: "#/components/responses/Error"}
+        default: {$ref: "#/components/responses/Problem"}
 
   /api/issues/{key}:
     get:
@@ -112,9 +113,9 @@ paths:
         "404":
           description: No such issue.
           content:
-            application/json:
-              schema: {$ref: "#/components/schemas/Error"}
-        default: {$ref: "#/components/responses/Error"}
+            application/problem+json:
+              schema: {$ref: "#/components/schemas/Problem"}
+        default: {$ref: "#/components/responses/Problem"}
 
   /api/branch:
     get:
@@ -128,7 +129,7 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Branch"
-        default: {$ref: "#/components/responses/Error"}
+        default: {$ref: "#/components/responses/Problem"}
 
   /api/changes:
     get:
@@ -142,7 +143,7 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ChangeList"
-        default: {$ref: "#/components/responses/Error"}
+        default: {$ref: "#/components/responses/Problem"}
 
   /api/review:
     get:
@@ -156,7 +157,7 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Review"
-        default: {$ref: "#/components/responses/Error"}
+        default: {$ref: "#/components/responses/Problem"}
 
   /api/messaging:
     get:
@@ -170,7 +171,7 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/MessagingDestination"
-        default: {$ref: "#/components/responses/Error"}
+        default: {$ref: "#/components/responses/Problem"}
 
   /api/config:
     get:
@@ -184,7 +185,7 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Config"
-        default: {$ref: "#/components/responses/Error"}
+        default: {$ref: "#/components/responses/Problem"}
     put:
       operationId: updateConfig
       summary: Write the configuration file.
@@ -212,9 +213,9 @@ paths:
         "422":
           description: The configuration is invalid; nothing was written.
           content:
-            application/json:
-              schema: {$ref: "#/components/schemas/Error"}
-        default: {$ref: "#/components/responses/Error"}
+            application/problem+json:
+              schema: {$ref: "#/components/schemas/Problem"}
+        default: {$ref: "#/components/responses/Problem"}
 
   /api/checkout:
     post:
@@ -242,14 +243,14 @@ paths:
         "409":
           description: The working tree has uncommitted changes; nothing was switched.
           content:
-            application/json:
-              schema: {$ref: "#/components/schemas/Error"}
+            application/problem+json:
+              schema: {$ref: "#/components/schemas/Problem"}
         "422":
           description: The branch could not be checked out.
           content:
-            application/json:
-              schema: {$ref: "#/components/schemas/Error"}
-        default: {$ref: "#/components/responses/Error"}
+            application/problem+json:
+              schema: {$ref: "#/components/schemas/Problem"}
+        default: {$ref: "#/components/responses/Problem"}
 
   /api/branches:
     post:
@@ -278,14 +279,14 @@ paths:
         "409":
           description: A branch for the issue already exists; nothing was created.
           content:
-            application/json:
-              schema: {$ref: "#/components/schemas/Error"}
+            application/problem+json:
+              schema: {$ref: "#/components/schemas/Problem"}
         "422":
           description: The branch could not be created.
           content:
-            application/json:
-              schema: {$ref: "#/components/schemas/Error"}
-        default: {$ref: "#/components/responses/Error"}
+            application/problem+json:
+              schema: {$ref: "#/components/schemas/Problem"}
+        default: {$ref: "#/components/responses/Problem"}
 
   /api/announcement:
     get:
@@ -307,9 +308,9 @@ paths:
         "409":
           description: There is no pull request to announce.
           content:
-            application/json:
-              schema: {$ref: "#/components/schemas/Error"}
-        default: {$ref: "#/components/responses/Error"}
+            application/problem+json:
+              schema: {$ref: "#/components/schemas/Problem"}
+        default: {$ref: "#/components/responses/Problem"}
 
   /api/announce:
     post:
@@ -337,14 +338,14 @@ paths:
         "409":
           description: There is no pull request to announce.
           content:
-            application/json:
-              schema: {$ref: "#/components/schemas/Error"}
+            application/problem+json:
+              schema: {$ref: "#/components/schemas/Problem"}
         "422":
           description: The announcement could not be posted.
           content:
-            application/json:
-              schema: {$ref: "#/components/schemas/Error"}
-        default: {$ref: "#/components/responses/Error"}
+            application/problem+json:
+              schema: {$ref: "#/components/schemas/Problem"}
+        default: {$ref: "#/components/responses/Problem"}
 
   /api/push:
     post:
@@ -366,14 +367,14 @@ paths:
         "409":
           description: There is nothing to push.
           content:
-            application/json:
-              schema: {$ref: "#/components/schemas/Error"}
+            application/problem+json:
+              schema: {$ref: "#/components/schemas/Problem"}
         "422":
           description: The push failed.
           content:
-            application/json:
-              schema: {$ref: "#/components/schemas/Error"}
-        default: {$ref: "#/components/responses/Error"}
+            application/problem+json:
+              schema: {$ref: "#/components/schemas/Problem"}
+        default: {$ref: "#/components/responses/Problem"}
 
   /api/commit:
     post:
@@ -402,14 +403,14 @@ paths:
         "409":
           description: Nothing is staged; there is nothing to commit.
           content:
-            application/json:
-              schema: {$ref: "#/components/schemas/Error"}
+            application/problem+json:
+              schema: {$ref: "#/components/schemas/Problem"}
         "422":
           description: The message is invalid, or the commit failed.
           content:
-            application/json:
-              schema: {$ref: "#/components/schemas/Error"}
-        default: {$ref: "#/components/responses/Error"}
+            application/problem+json:
+              schema: {$ref: "#/components/schemas/Problem"}
+        default: {$ref: "#/components/responses/Problem"}
 
   /api/pull-request/draft:
     get:
@@ -433,9 +434,9 @@ paths:
         "409":
           description: There is nothing to open a pull request for.
           content:
-            application/json:
-              schema: {$ref: "#/components/schemas/Error"}
-        default: {$ref: "#/components/responses/Error"}
+            application/problem+json:
+              schema: {$ref: "#/components/schemas/Problem"}
+        default: {$ref: "#/components/responses/Problem"}
 
   /api/pull-request:
     post:
@@ -465,14 +466,14 @@ paths:
         "409":
           description: There is nothing to open a pull request for.
           content:
-            application/json:
-              schema: {$ref: "#/components/schemas/Error"}
+            application/problem+json:
+              schema: {$ref: "#/components/schemas/Problem"}
         "422":
           description: The push or the open failed, or the request is incomplete.
           content:
-            application/json:
-              schema: {$ref: "#/components/schemas/Error"}
-        default: {$ref: "#/components/responses/Error"}
+            application/problem+json:
+              schema: {$ref: "#/components/schemas/Problem"}
+        default: {$ref: "#/components/responses/Problem"}
 
   /api/events:
     get:
@@ -497,28 +498,43 @@ paths:
             text/event-stream:
               schema:
                 $ref: "#/components/schemas/Snapshot"
+        default: {$ref: "#/components/responses/Problem"}
 
 components:
   responses:
-    Error:
-      description: The request could not be completed.
+    Problem:
+      description: An RFC 9457 problem details object describing the failure.
       content:
-        application/json:
+        application/problem+json:
           schema:
-            $ref: "#/components/schemas/Error"
+            $ref: "#/components/schemas/Problem"
 
   schemas:
-    Error:
+    Problem:
       type: object
-      required: [code, message]
+      description: >-
+        An RFC 9457 problem details object. The detail is safe to show and never
+        carries a secret; code is a stable, machine-readable reason.
+      required: [type, title, status, detail, code]
       properties:
+        type:
+          type: string
+          format: uri
+          description: A URI that identifies the problem type.
+          example: https://jacob-delgado.github.io/workflow/docs/errors/#not-found
+        title:
+          type: string
+          description: A short, human-readable summary of the problem type.
+        status:
+          type: integer
+          description: The HTTP status code.
+        detail:
+          type: string
+          description: A human-readable explanation specific to this occurrence.
         code:
           type: string
           description: A stable, machine-readable reason.
           enum: [bad_request, not_found, conflict, unprocessable, unreachable, internal]
-        message:
-          type: string
-          description: A human-readable explanation, safe to show. Never a secret.
       additionalProperties: false
 
     CheckoutRequest:

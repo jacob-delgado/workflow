@@ -213,7 +213,7 @@ test('shows the reason when a checkout is refused', async () => {
   // Arrange
   mockCheckout.mockRejectedValueOnce({
     code: 'conflict',
-    message: 'uncommitted changes — commit or stash first',
+    detail: 'uncommitted changes — commit or stash first',
   })
   const user = userEvent.setup()
   offHead()
@@ -266,7 +266,7 @@ test('shows the reason when starting work is refused', async () => {
   // Arrange
   mockStartWork.mockRejectedValueOnce({
     code: 'conflict',
-    message: 'a branch for this issue already exists',
+    detail: 'a branch for this issue already exists',
   })
   const user = userEvent.setup()
   useSnapshotStore.setState({ status: 'live', snapshot: makeSnapshot() })

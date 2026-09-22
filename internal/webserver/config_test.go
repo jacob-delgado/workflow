@@ -94,7 +94,7 @@ func TestUpdateConfigRejectsAnInvalidConfig(t *testing.T) {
 		t.Fatalf("status = %d, want 422", recorder.Code)
 	}
 
-	failure := decode[api.Error](t, recorder)
+	failure := decode[api.Problem](t, recorder)
 	if failure.Code != api.Unprocessable {
 		t.Errorf("code = %q, want unprocessable", failure.Code)
 	}

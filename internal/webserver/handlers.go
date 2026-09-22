@@ -5,6 +5,8 @@ package webserver
 
 import (
 	"context"
+	"errors"
+	"net/http"
 
 	"github.com/jacob-delgado/workflow/internal/api"
 	"github.com/jacob-delgado/workflow/internal/config"
@@ -54,7 +56,7 @@ func (s *server) ListIssues(
 	if err != nil {
 		body, code := fault(err)
 
-		return api.ListIssuesdefaultJSONResponse{Body: body, StatusCode: code}, nil
+		return api.ListIssuesdefaultApplicationProblemPlusJSONResponse{Body: body, StatusCode: code}, nil
 	}
 
 	return api.ListIssues200JSONResponse(issuesPageDTO(result, startAt)), nil
@@ -63,14 +65,22 @@ func (s *server) ListIssues(
 // GetIssue returns one issue in full.
 func (s *server) GetIssue(_ context.Context, request api.GetIssueRequestObject) (api.GetIssueResponseObject, error) {
 	if s.deps.Issue == nil {
-		return api.GetIssue404JSONResponse{Code: api.NotFound, Message: "no tracker is configured"}, nil
+		return api.GetIssuedefaultApplicationProblemPlusJSONResponse{
+			Body:       problem(api.Unprocessable, "no issue tracker is configured"),
+			StatusCode: http.StatusUnprocessableEntity,
+		}, nil
 	}
 
 	detail, err := s.deps.Issue(jira.Key(request.Key))
 	if err != nil {
+		if errors.Is(err, jira.ErrNotFound) || errors.Is(err, forge.ErrNoRepository) {
+			return api.GetIssue404ApplicationProblemPlusJSONResponse(
+				problem(api.NotFound, "issue "+request.Key+" was not found")), nil
+		}
+
 		body, code := fault(err)
 
-		return api.GetIssuedefaultJSONResponse{Body: body, StatusCode: code}, nil
+		return api.GetIssuedefaultApplicationProblemPlusJSONResponse{Body: body, StatusCode: code}, nil
 	}
 
 	return api.GetIssue200JSONResponse(issueDetailDTO(detail)), nil
@@ -86,7 +96,7 @@ func (s *server) GetBranch(_ context.Context, _ api.GetBranchRequestObject) (api
 	if err != nil {
 		body, code := fault(err)
 
-		return api.GetBranchdefaultJSONResponse{Body: body, StatusCode: code}, nil
+		return api.GetBranchdefaultApplicationProblemPlusJSONResponse{Body: body, StatusCode: code}, nil
 	}
 
 	return api.GetBranch200JSONResponse(branchDTO(branch)), nil
@@ -102,7 +112,7 @@ func (s *server) ListChanges(_ context.Context, _ api.ListChangesRequestObject) 
 	if err != nil {
 		body, code := fault(err)
 
-		return api.ListChangesdefaultJSONResponse{Body: body, StatusCode: code}, nil
+		return api.ListChangesdefaultApplicationProblemPlusJSONResponse{Body: body, StatusCode: code}, nil
 	}
 
 	return api.ListChanges200JSONResponse(changesDTO(changes)), nil
@@ -118,14 +128,14 @@ func (s *server) GetReview(_ context.Context, _ api.GetReviewRequestObject) (api
 	if err != nil {
 		body, code := fault(err)
 
-		return api.GetReviewdefaultJSONResponse{Body: body, StatusCode: code}, nil
+		return api.GetReviewdefaultApplicationProblemPlusJSONResponse{Body: body, StatusCode: code}, nil
 	}
 
 	pull, found, err := s.deps.FindPull(branch.Name)
 	if err != nil {
 		body, code := fault(err)
 
-		return api.GetReviewdefaultJSONResponse{Body: body, StatusCode: code}, nil
+		return api.GetReviewdefaultApplicationProblemPlusJSONResponse{Body: body, StatusCode: code}, nil
 	}
 
 	return api.GetReview200JSONResponse(s.review(pull, found, branch.Head)), nil

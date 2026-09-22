@@ -56,7 +56,7 @@ func (s *server) Commit(_ context.Context, request api.CommitRequestObject) (api
 	case err == nil:
 		return api.Commit200JSONResponse(branchDTO(branch)), nil
 	case errors.Is(err, errNothingStaged):
-		return api.Commit409JSONResponse{Code: api.Conflict, Message: errNothingStaged.Error()}, nil
+		return api.Commit409ApplicationProblemPlusJSONResponse(problem(api.Conflict, errNothingStaged.Error())), nil
 	default:
 		return commitUnprocessable(err.Error()), nil
 	}
@@ -148,8 +148,8 @@ func (s *server) currentIssueKey() string {
 }
 
 // commitUnprocessable is the 422 response for a commit the server will not make.
-func commitUnprocessable(message string) api.Commit422JSONResponse {
-	return api.Commit422JSONResponse{Code: api.Unprocessable, Message: message}
+func commitUnprocessable(message string) api.Commit422ApplicationProblemPlusJSONResponse {
+	return api.Commit422ApplicationProblemPlusJSONResponse(problem(api.Unprocessable, message))
 }
 
 // orZero dereferences an optional field, or returns its zero value when absent.

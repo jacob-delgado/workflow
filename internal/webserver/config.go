@@ -19,7 +19,7 @@ func (s *server) GetConfig(_ context.Context, _ api.GetConfigRequestObject) (api
 	if err != nil {
 		body, code := fault(err)
 
-		return api.GetConfigdefaultJSONResponse{Body: body, StatusCode: code}, nil
+		return api.GetConfigdefaultApplicationProblemPlusJSONResponse{Body: body, StatusCode: code}, nil
 	}
 
 	return api.GetConfig200JSONResponse(out), nil
@@ -31,27 +31,29 @@ func (s *server) UpdateConfig(
 	_ context.Context, request api.UpdateConfigRequestObject,
 ) (api.UpdateConfigResponseObject, error) {
 	if request.Body == nil {
-		return api.UpdateConfig422JSONResponse{Code: api.Unprocessable, Message: "a configuration body is required"}, nil
+		return api.UpdateConfig422ApplicationProblemPlusJSONResponse(
+			problem(api.Unprocessable, "a configuration body is required")), nil
 	}
 
 	incoming, err := fromDTO(*request.Body)
 	if err != nil {
 		//nolint:nilerr // an invalid body is answered with a 422 response, not a returned error
-		return api.UpdateConfig422JSONResponse{Code: api.Unprocessable, Message: "the configuration is not valid"}, nil
+		return api.UpdateConfig422ApplicationProblemPlusJSONResponse(
+			problem(api.Unprocessable, "the configuration is not valid")), nil
 	}
 
 	saved, err := s.save(incoming)
 	if err != nil {
 		body, code := fault(err)
 
-		return api.UpdateConfigdefaultJSONResponse{Body: body, StatusCode: code}, nil
+		return api.UpdateConfigdefaultApplicationProblemPlusJSONResponse{Body: body, StatusCode: code}, nil
 	}
 
 	out, err := configDTO(saved)
 	if err != nil {
 		body, code := fault(err)
 
-		return api.UpdateConfigdefaultJSONResponse{Body: body, StatusCode: code}, nil
+		return api.UpdateConfigdefaultApplicationProblemPlusJSONResponse{Body: body, StatusCode: code}, nil
 	}
 
 	return api.UpdateConfig200JSONResponse(out), nil
