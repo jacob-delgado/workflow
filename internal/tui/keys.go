@@ -53,75 +53,158 @@ type keyMap struct {
 
 	// Everywhere.
 	toggleMouse, toggleHelp, quit, interrupt key.Binding
+
+	// full is every binding grouped for the help, accumulated as the bindings
+	// are created so it cannot omit one. FullHelp returns it verbatim.
+	full [][]key.Binding
 }
+
+// The help groups, in the order helpGroups names them. Every binding is created
+// into one of these, so the help cannot leave a binding out.
+const (
+	groupMoving = iota
+	groupIssues
+	groupBranchCommits
+	groupReviewSlack
+	groupComposer
+	groupRunning
+	groupEverywhere
+)
 
 // binding is a key binding with its help.
 func binding(help string, keys ...string) key.Binding {
 	return key.NewBinding(key.WithKeys(keys...), key.WithHelp(keys[0], help))
 }
 
-// newKeyMap builds the key bindings, naming the arrow keys in the glyphs in use.
-func newKeyMap(marks glyphs, reviewNoun string) keyMap {
-	return keyMap{
-		next:     binding("next pane", "tab"),
-		previous: binding("previous pane", "shift+tab"),
-		jump: key.NewBinding(key.WithKeys(paneNumbers()...),
-			key.WithHelp("1-"+strconv.Itoa(paneCount), "jump to pane")),
-		up:             key.NewBinding(key.WithKeys("up", "k"), key.WithHelp(marks.upKey+"/k", "up")),
-		down:           key.NewBinding(key.WithKeys("down", "j"), key.WithHelp(marks.downKey+"/j", "down")),
-		scrollUp:       key.NewBinding(key.WithKeys("pgup", "K"), key.WithHelp("pgup/K", "scroll up")),
-		scrollDown:     key.NewBinding(key.WithKeys("pgdown", "J"), key.WithHelp("pgdn/J", "scroll down")),
-		confirm:        binding("apply", "enter"),
-		closeOverlay:   binding("close", "esc"),
-		nextField:      binding("next field", "tab"),
-		prevField:      binding("previous field", "shift+tab"),
-		cycleLeft:      key.NewBinding(key.WithKeys("left"), key.WithHelp(marks.sideways, "change type")),
-		cycleRight:     key.NewBinding(key.WithKeys("right")),
-		refresh:        binding("refresh", "r"),
-		retry:          binding("run again", "r"),
-		changeStatus:   binding("change status", "t"),
-		comment:        binding("comment", "c"),
-		assign:         binding("assign", "a"),
-		logWork:        binding("log work", "w"),
-		branchForIssue: binding("branch for issue", "b"),
-		filter:         binding("filter", "/"),
-		nextView:       binding("switch view", "v"),
-		loadMore:       binding("load more", "ctrl+n"),
-		newBranch:      binding("new branch", "b"),
-		switchTask:     binding("switch task", "s"),
-		worktree:       binding("worktree", "ctrl+w"),
-		rebase:         binding("rebase onto base", "u"),
-		push:           binding("push", "P"),
-		stage:          key.NewBinding(key.WithKeys("space"), key.WithHelp("space", "stage/unstage")),
-		stageAll:       binding("stage all", "a"),
-		commit:         binding("commit", "c"),
-		amend:          binding("amend", "A"),
-		fixup:          binding("fix up", "f"),
-		runHooks:       binding("run pre-commit", "h"),
-		hookConfig:     binding("set up lefthook", "g"),
-		newPullRequest: binding("open "+reviewNoun, "n"),
-		checks:         binding("checks", "c"),
-		rerun:          binding("re-run checks", "R"),
-		merge:          binding("merge", "M"),
-		finish:         binding("finish branch", "F"),
-		compose:        binding("post to slack", "p"),
-		postWhenGreen:  binding("post when CI passes", "w"),
-		openLink:       binding("open", "o"),
-		copyLink:       binding("copy url", "y"),
-		edit:           binding("edit", "e"),
-		editBody:       binding("edit body", "ctrl+o"),
-		nextTemplate:   binding("next template", "ctrl+t"),
-		toggleDraft:    binding("draft", "ctrl+r"),
-		toggleBreaking: binding("breaking", "ctrl+b"),
-		verbatim:       binding("keep scripts whole", "v"),
-		fullOutput:     binding("full output", "o"),
-		toggleOption:   binding("select", "space"),
-		stopRun:        binding("stop", "s"),
-		toggleMouse:    binding("toggle mouse", "m"),
-		toggleHelp:     binding("keys", "?"),
-		quit:           binding("quit", "q"),
-		interrupt:      binding("quit", "ctrl+c"),
+// keyHelp is a binding whose shown key differs from the first bound key — an
+// arrow drawn in the terminal's glyph, a "1-6" range, a "pgup/K" pair.
+func keyHelp(shown, help string, keys ...string) key.Binding {
+	return key.NewBinding(key.WithKeys(keys...), key.WithHelp(shown, help))
+}
+
+// helpBuilder collects each binding into its help group as it is defined, so the
+// help is built from the same bindings the keyMap holds — a binding cannot be
+// created without landing in a group, which is what keeps FullHelp complete.
+type helpBuilder struct {
+	groups [][]key.Binding
+}
+
+// in files bind into group and returns it, so a field is assigned and grouped in
+// one expression.
+func (b *helpBuilder) in(group int, bind key.Binding) key.Binding {
+	for len(b.groups) <= group {
+		b.groups = append(b.groups, nil)
 	}
+
+	b.groups[group] = append(b.groups[group], bind)
+
+	return bind
+}
+
+// newKeyMap builds the key bindings, naming the arrow keys in the glyphs in use.
+// Each group is defined through helpBuilder.in, which places every binding in a
+// help group as it is created, so a new binding is shown in the help by
+// construction — FullHelp returns exactly what was built here.
+func newKeyMap(marks glyphs, reviewNoun string) keyMap {
+	var builder helpBuilder
+
+	keys := keyMap{}
+	movingKeys(&builder, &keys, marks)
+	issueKeys(&builder, &keys)
+	branchAndCommitKeys(&builder, &keys)
+	reviewAndSlackKeys(&builder, &keys, reviewNoun)
+	composerKeys(&builder, &keys, marks)
+	runningKeys(&builder, &keys)
+	everywhereKeys(&builder, &keys)
+
+	keys.full = builder.groups
+
+	return keys
+}
+
+// movingKeys are the pane and cursor movement bindings.
+func movingKeys(builder *helpBuilder, into *keyMap, marks glyphs) {
+	into.next = builder.in(groupMoving, binding("next pane", "tab"))
+	into.previous = builder.in(groupMoving, binding("previous pane", "shift+tab"))
+	into.jump = builder.in(groupMoving, keyHelp("1-"+strconv.Itoa(paneCount), "jump to pane", paneNumbers()...))
+	into.up = builder.in(groupMoving, keyHelp(marks.upKey+"/k", "up", "up", "k"))
+	into.down = builder.in(groupMoving, keyHelp(marks.downKey+"/j", "down", "down", "j"))
+	into.scrollUp = builder.in(groupMoving, keyHelp("pgup/K", "scroll up", "pgup", "K"))
+	into.scrollDown = builder.in(groupMoving, keyHelp("pgdn/J", "scroll down", "pgdown", "J"))
+}
+
+// issueKeys are the Issues pane's bindings, including opening and copying a link.
+func issueKeys(builder *helpBuilder, into *keyMap) {
+	into.changeStatus = builder.in(groupIssues, binding("change status", "t"))
+	into.comment = builder.in(groupIssues, binding("comment", "c"))
+	into.assign = builder.in(groupIssues, binding("assign", "a"))
+	into.logWork = builder.in(groupIssues, binding("log work", "w"))
+	into.branchForIssue = builder.in(groupIssues, binding("branch for issue", "b"))
+	into.filter = builder.in(groupIssues, binding("filter", "/"))
+	into.nextView = builder.in(groupIssues, binding("switch view", "v"))
+	into.loadMore = builder.in(groupIssues, binding("load more", "ctrl+n"))
+	into.openLink = builder.in(groupIssues, binding("open", "o"))
+	into.copyLink = builder.in(groupIssues, binding("copy url", "y"))
+	into.refresh = builder.in(groupIssues, binding("refresh", "r"))
+}
+
+// branchAndCommitKeys are the Branch and Commits panes' bindings.
+func branchAndCommitKeys(builder *helpBuilder, into *keyMap) {
+	into.newBranch = builder.in(groupBranchCommits, binding("new branch", "b"))
+	into.switchTask = builder.in(groupBranchCommits, binding("switch task", "s"))
+	into.worktree = builder.in(groupBranchCommits, binding("worktree", "ctrl+w"))
+	into.rebase = builder.in(groupBranchCommits, binding("rebase onto base", "u"))
+	into.push = builder.in(groupBranchCommits, binding("push", "P"))
+	into.stage = builder.in(groupBranchCommits, keyHelp("space", "stage/unstage", "space"))
+	into.stageAll = builder.in(groupBranchCommits, binding("stage all", "a"))
+	into.commit = builder.in(groupBranchCommits, binding("commit", "c"))
+	into.amend = builder.in(groupBranchCommits, binding("amend", "A"))
+	into.fixup = builder.in(groupBranchCommits, binding("fix up", "f"))
+	into.runHooks = builder.in(groupBranchCommits, binding("run pre-commit", "h"))
+	into.hookConfig = builder.in(groupBranchCommits, binding("set up lefthook", "g"))
+}
+
+// reviewAndSlackKeys are the Review and Slack panes' bindings.
+func reviewAndSlackKeys(builder *helpBuilder, into *keyMap, reviewNoun string) {
+	into.newPullRequest = builder.in(groupReviewSlack, binding("open "+reviewNoun, "n"))
+	into.checks = builder.in(groupReviewSlack, binding("checks", "c"))
+	into.rerun = builder.in(groupReviewSlack, binding("re-run checks", "R"))
+	into.merge = builder.in(groupReviewSlack, binding("merge", "M"))
+	into.finish = builder.in(groupReviewSlack, binding("finish branch", "F"))
+	into.compose = builder.in(groupReviewSlack, binding("post to slack", "p"))
+	into.postWhenGreen = builder.in(groupReviewSlack, binding("post when CI passes", "w"))
+}
+
+// composerKeys are the composer, preview and field-form bindings.
+func composerKeys(builder *helpBuilder, into *keyMap, marks glyphs) {
+	into.edit = builder.in(groupComposer, binding("edit", "e"))
+	into.editBody = builder.in(groupComposer, binding("edit body", "ctrl+o"))
+	into.nextTemplate = builder.in(groupComposer, binding("next template", "ctrl+t"))
+	into.toggleDraft = builder.in(groupComposer, binding("draft", "ctrl+r"))
+	into.toggleBreaking = builder.in(groupComposer, binding("breaking", "ctrl+b"))
+	into.verbatim = builder.in(groupComposer, binding("keep scripts whole", "v"))
+	into.nextField = builder.in(groupComposer, binding("next field", "tab"))
+	into.prevField = builder.in(groupComposer, binding("previous field", "shift+tab"))
+	into.cycleLeft = builder.in(groupComposer, keyHelp(marks.sideways, "change type", "left"))
+	into.cycleRight = builder.in(groupComposer, key.NewBinding(key.WithKeys("right")))
+	into.toggleOption = builder.in(groupComposer, binding("select", "space"))
+}
+
+// runningKeys are the bindings available while a command runs.
+func runningKeys(builder *helpBuilder, into *keyMap) {
+	into.stopRun = builder.in(groupRunning, binding("stop", "s"))
+	into.retry = builder.in(groupRunning, binding("run again", "r"))
+	into.fullOutput = builder.in(groupRunning, binding("full output", "o"))
+}
+
+// everywhereKeys are the bindings every context answers to.
+func everywhereKeys(builder *helpBuilder, into *keyMap) {
+	into.confirm = builder.in(groupEverywhere, binding("apply", "enter"))
+	into.closeOverlay = builder.in(groupEverywhere, binding("close", "esc"))
+	into.toggleMouse = builder.in(groupEverywhere, binding("toggle mouse", "m"))
+	into.toggleHelp = builder.in(groupEverywhere, binding("keys", "?"))
+	into.quit = builder.in(groupEverywhere, binding("quit", "q"))
+	into.interrupt = builder.in(groupEverywhere, binding("quit", "ctrl+c"))
 }
 
 // ShortHelp is the footer's tail: enough to move around and to find the rest,
@@ -132,27 +215,11 @@ func (k keyMap) ShortHelp() []key.Binding {
 	return []key.Binding{k.toggleHelp, k.next, k.jump, k.quit}
 }
 
-// FullHelp is every key, in groups by where it works. Every binding the keyMap
-// holds belongs to exactly one group, so the help is complete by construction.
+// FullHelp is every key, in groups by where it works. It is the set built in
+// newKeyMap, so every binding the keyMap holds is shown and the help cannot
+// silently drop one.
 func (k keyMap) FullHelp() [][]key.Binding {
-	return [][]key.Binding{
-		{k.next, k.previous, k.jump, k.up, k.down, k.scrollUp, k.scrollDown},
-		{
-			k.changeStatus, k.comment, k.assign, k.logWork, k.branchForIssue, k.filter, k.nextView,
-			k.loadMore, k.openLink, k.copyLink, k.refresh,
-		},
-		{
-			k.newBranch, k.switchTask, k.worktree, k.rebase, k.push,
-			k.stage, k.stageAll, k.commit, k.amend, k.fixup, k.runHooks, k.hookConfig,
-		},
-		{k.newPullRequest, k.checks, k.rerun, k.merge, k.finish, k.compose, k.postWhenGreen},
-		{
-			k.edit, k.editBody, k.nextTemplate, k.toggleDraft, k.toggleBreaking, k.verbatim,
-			k.nextField, k.prevField, k.cycleLeft, k.cycleRight, k.toggleOption,
-		},
-		{k.stopRun, k.retry, k.fullOutput},
-		{k.confirm, k.closeOverlay, k.toggleMouse, k.toggleHelp, k.quit, k.interrupt},
-	}
+	return k.full
 }
 
 // helpGroups names the groups FullHelp returns, in the same order.
