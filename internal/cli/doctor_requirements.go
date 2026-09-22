@@ -10,6 +10,7 @@ import (
 
 	"github.com/jacob-delgado/workflow/internal/config"
 	"github.com/jacob-delgado/workflow/internal/forge"
+	"github.com/jacob-delgado/workflow/internal/tui"
 )
 
 // reportRequirements names the fields still to fill in and the ones filled in
@@ -18,6 +19,11 @@ import (
 func reportRequirements(out io.Writer, cfg config.Config) error {
 	missing := cfg.Missing()
 	problems := append(cfg.Problems(), forgeKindProblem(cfg.Forge)...)
+
+	keyErr := tui.CheckKeys(cfg.UI.Keys)
+	if keyErr != nil {
+		problems = append(problems, keyErr.Error())
+	}
 
 	if len(missing) == 0 && len(problems) == 0 {
 		fmt.Fprintf(out, "\nEverything required is set.\n")

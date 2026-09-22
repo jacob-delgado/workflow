@@ -616,9 +616,12 @@ type UIConfig struct {
 	Color *string `json:"color,omitempty"`
 
 	// CommentsShown How many comments the detail shows; 0 means the built-in default.
-	CommentsShown *int  `json:"comments_shown,omitempty"`
-	Mouse         *bool `json:"mouse,omitempty"`
-	Notify        *bool `json:"notify,omitempty"`
+	CommentsShown *int `json:"comments_shown,omitempty"`
+
+	// Keys Map from a key action to the key that triggers it; see the configuration docs for the actions.
+	Keys   *map[string]string `json:"keys,omitempty"`
+	Mouse  *bool              `json:"mouse,omitempty"`
+	Notify *bool              `json:"notify,omitempty"`
 }
 
 // ViewList defines model for ViewList.

@@ -1035,6 +1035,11 @@ components:
         comments_shown:
           type: integer
           description: How many comments the detail shows; 0 means the built-in default.
+        keys:
+          type: object
+          additionalProperties: {type: string}
+          nullable: true
+          description: Map from a key action to the key that triggers it; see the configuration docs for the actions.
       additionalProperties: false
 
     TimingConfig:

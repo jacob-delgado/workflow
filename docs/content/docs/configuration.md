@@ -79,6 +79,7 @@ which one was read.
 | `ui.ascii` | no | Draw borders and glyphs in plain ASCII. Defaults to `false`. |
 | `ui.color` | no | `never` turns off the system hues; bold, faint and the cursor stay. Empty (the default) draws them. `NO_COLOR` also turns them off. |
 | `ui.notify` | no | Ring the terminal (and raise a desktop notification where it relays one) when CI finishes. Defaults to `false`. |
+| `ui.keys` | no | Rebind keys: a map from an action to the single key that triggers it, e.g. `{"commit": "C"}`. The help then shows the new key. See [Rebinding keys](#rebinding-keys) for the actions. |
 | `branch.template` | no | Shape of a proposed branch name from `{prefix}`, `{key}` and `{slug}`. Must contain `{key}`. Defaults to `{prefix}/{key}-{slug}`. |
 | `branch.prefixes` | no | Map from issue type to branch prefix, e.g. `{"bug": "bugfix"}`. The type is matched without regard to case, and this replaces the built-in `{"bug": "fix"}` rather than adding to it. |
 | `branch.default_prefix` | no | Prefix for an issue type not named in `branch.prefixes`. Defaults to `feat`. |
@@ -376,6 +377,49 @@ for is not in a hurry.
 
 A setting left out of the file keeps its default, so a configuration written
 before these existed behaves exactly as it did.
+
+## Rebinding keys
+
+`ui.keys` maps an action to the one key that should trigger it. The interface
+binds that key instead of the default, and the help — press `?` — shows the new
+key, so what you changed and what the screen tells you never drift apart. An
+action you leave out keeps its default.
+
+```json
+{
+  "ui": {
+    "keys": { "commit": "C", "comment": "ctrl+e" }
+  }
+}
+```
+
+A key can mean different things in different places — `c` comments on the Issues
+pane and commits on the Commits pane — so each meaning is a separate action you
+rebind on its own. workflow refuses to start, and `workflow doctor` reports the
+problem, when a map names an action that does not exist or binds two actions that
+are live at the same time to one key.
+
+The actions, grouped by where they work, are:
+
+- **Moving around:** `next-pane`, `previous-pane`, `jump-to-pane`, `up`, `down`,
+  `scroll-up`, `scroll-down`.
+- **Issues:** `change-status`, `comment`, `assign`, `log-work`,
+  `branch-for-issue`, `filter`, `switch-view`, `load-more`, `open-link`,
+  `copy-link`, `refresh`.
+- **Branch and Commits:** `new-branch`, `switch-task`, `worktree`, `rebase`,
+  `push`, `stage`, `stage-all`, `commit`, `amend`, `fixup`, `run-pre-commit`,
+  `set-up-lefthook`.
+- **Review and Slack:** `open-pull-request`, `checks`, `rerun-checks`, `merge`,
+  `finish-branch`, `post`, `post-when-green`.
+- **In a composer:** `edit`, `edit-body`, `next-template`, `toggle-draft`,
+  `toggle-breaking`, `verbatim`, `next-field`, `previous-field`,
+  `cycle-type-left`, `cycle-type-right`, `toggle-option`.
+- **While a command runs:** `stop`, `run-again`, `full-output`.
+- **Everywhere:** `apply`, `close`, `toggle-mouse`, `toggle-help`, `quit`,
+  `interrupt`.
+
+A key is named as its terminal name: a letter (`C`), or a combination such as
+`ctrl+e` or `shift+tab`.
 
 ## Branch names
 

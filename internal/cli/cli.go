@@ -184,12 +184,9 @@ func newRootCmd(prompt Prompt, run runTUI, serve runWeb) *cobra.Command {
 				return serve(ctx, cfg, webDeps(deps), info, cmd.OutOrStdout())
 			}
 
-			model := tui.New(cfg, loadErr, deps)
-			if dryRun {
-				model = model.WithDryRun()
-			}
-
-			return run(ctx, model, cmd.OutOrStdout())
+			return openInterface(ctx, run, interfaceInput{
+				cfg: cfg, loadErr: loadErr, deps: deps, dryRun: dryRun, out: cmd.OutOrStdout(),
+			})
 		},
 	}
 
@@ -203,6 +200,34 @@ func newRootCmd(prompt Prompt, run runTUI, serve runWeb) *cobra.Command {
 	root.AddCommand(subcommands(prompt)...)
 
 	return root
+}
+
+// interfaceInput bundles what opening the terminal interface needs, so the
+// launcher does not take a long list of positional arguments.
+type interfaceInput struct {
+	cfg     config.Config
+	loadErr error
+	deps    tui.Deps
+	dryRun  bool
+	out     io.Writer
+}
+
+// openInterface refuses a broken ui.keys map before building anything — a keymap
+// with a conflict or an unknown action should say so and stop, not open an
+// interface that answers the wrong keys — then builds the model, applies dry
+// run, and runs it.
+func openInterface(ctx context.Context, run runTUI, input interfaceInput) error {
+	err := tui.CheckKeys(input.cfg.UI.Keys)
+	if err != nil {
+		return err
+	}
+
+	model := tui.New(input.cfg, input.loadErr, input.deps)
+	if input.dryRun {
+		model = model.WithDryRun()
+	}
+
+	return run(ctx, model, input.out)
 }
 
 // subcommands are every `workflow` subcommand: the read commands, the guided
