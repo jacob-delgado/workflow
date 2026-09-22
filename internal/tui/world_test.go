@@ -163,6 +163,9 @@ type world struct {
 	gitHooks   []hooks.GitHook
 	configured bool
 	writeErr   error
+	// learnedScope is the commit scope the store reports as last used here; empty
+	// means nothing was recorded.
+	learnedScope string
 
 	edited    string
 	editErr   error
@@ -322,6 +325,7 @@ func (w *world) deps() tui.Deps {
 		}},
 		Hooks:      w.hookDeps(),
 		Editor:     w.editorDeps(),
+		Store:      w.storeDeps(),
 		Clock:      testNow,
 		CIInterval: w.ciInterval,
 		Notify:     func() { w.record("notify") },
@@ -339,6 +343,19 @@ func (w *world) deps() tui.Deps {
 
 				return nil
 			}
+		},
+	}
+}
+
+// storeDeps fakes the on-disk store: it reports learnedScope as the last one used
+// here and records what a commit remembers.
+func (w *world) storeDeps() tui.StoreDeps {
+	return tui.StoreDeps{
+		LastScope: func() (string, bool) {
+			return w.learnedScope, w.learnedScope != ""
+		},
+		RecordScope: func(scope string) {
+			w.record("scope " + scope)
 		},
 	}
 }

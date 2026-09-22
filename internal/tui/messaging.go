@@ -20,8 +20,8 @@ import (
 // depends on the service, so the note stays general rather than naming one.
 const messagingHelp = "Edit the message above this line."
 
-// messagingState is what has been posted to Slack this session. Nothing is kept
-// between sessions: with no state file there is nowhere to keep it.
+// messagingState is what has been posted to Slack this session. It is not yet
+// read back from the store between sessions — that is FEAT-66's to add.
 type messagingState struct {
 	// posted is the announcements made this session, each a pull request and the
 	// moment it marked, so one pull request can be announced at each of its

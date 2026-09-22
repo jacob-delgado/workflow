@@ -30,6 +30,7 @@ type Deps struct {
 	Messaging MessagingDeps
 	Hooks     HookDeps
 	Editor    EditorDeps
+	Store     StoreDeps
 	// Clock tells the time, for how long ago a comment was written. Nil means
 	// time.Now.
 	Clock func() time.Time
@@ -148,6 +149,17 @@ type MessagingDeps struct {
 	// Post sends text to a channel, or to the configured default when channel is
 	// empty. A webhook ignores the channel and posts where it is bound.
 	Post func(channel, text string) error
+}
+
+// StoreDeps is what the interface asks of the on-disk store, bound to this
+// repository. Nil functions mean no store — a disabled one, or nowhere to keep
+// it — so the interface simply learns nothing.
+type StoreDeps struct {
+	// LastScope is the commit scope last used in this repository, if one was, so
+	// the composer can open on it.
+	LastScope func() (string, bool)
+	// RecordScope remembers the commit scope just used in this repository.
+	RecordScope func(scope string)
 }
 
 // HookDeps is what the interface asks of lefthook.

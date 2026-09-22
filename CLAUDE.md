@@ -11,7 +11,9 @@ workflow: pick up an issue, branch for it, open the pull or merge request, tell
 the team.
 
 Go at its core, shipped as a single static binary a developer runs on their own
-machine: no database, and nothing stored between sessions. The default surface
+machine. It keeps a little state between sessions in an on-disk SQLite store
+(`internal/store`, under the OS-native data directory, never a secret) — on by
+default, `store.disabled` opts out. The default surface
 is a terminal UI — the Charm stack (Bubble Tea, Bubbles, Lip Gloss) with Cobra
 for the command tree. An opt-in `workflow --web` serves a React + TypeScript
 frontend, embedded in the same binary, over a local REST API bound to

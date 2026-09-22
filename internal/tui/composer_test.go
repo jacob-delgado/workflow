@@ -159,6 +159,63 @@ func TestTheComposerHonorsAConfiguredSubjectLimit(t *testing.T) {
 	requireScreen(t, long.View().Content, "✗ the subject is too long: 55 of 50 characters")
 }
 
+func TestTheComposerOpensOnTheScopeLastUsedHere(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	// The store remembers "webhooks" from a past commit in this repository; it
+	// opens on that rather than the configured default "api".
+	composing := newWorld()
+	composing.learnedScope = "webhooks"
+	composing.cfg.Commit.DefaultScope = "api"
+
+	// Act
+	composer := typing(t, composing.live(t, 120, 40), "3", "c")
+
+	// Assert
+	requireScreen(t, composer.View().Content, "scope", "webhooks")
+}
+
+func TestACommitRemembersItsScope(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	// Fill the scope, then the subject, and commit.
+	composing := newWorld()
+
+	keys := append([]string{"3", "c", keyShiftTab}, letters("config")...)
+	keys = append(append(keys, keyTab), letters("redact tokens")...)
+	keys = append(keys, keyEnter)
+
+	// Act
+	typing(t, composing.live(t, 120, 40), keys...)
+
+	// Assert
+	if calls := composing.asked("scope"); len(calls) != 1 || calls[0] != "scope config" {
+		t.Errorf("recorded scope = %q, want the committed scope remembered", calls)
+	}
+}
+
+func TestAScopelessCommitRemembersNoScope(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	// No scope configured, learned or typed: the commit records nothing, so a
+	// scopeless commit does not erase a learned scope or mask the default.
+	composing := newWorld()
+	composing.cfg.Commit.DefaultScope = ""
+
+	// Act
+	// Open the composer, type only a subject, and commit.
+	keys := append([]string{"3", "c"}, letters("redact tokens")...)
+	typing(t, composing.live(t, 120, 40), append(keys, keyEnter)...)
+
+	// Assert
+	if calls := composing.asked("scope"); len(calls) != 0 {
+		t.Errorf("recorded scope = %q, want a scopeless commit to record nothing", calls)
+	}
+}
+
 func TestTheComposerCommitsWithAConfiguredType(t *testing.T) {
 	t.Parallel()
 

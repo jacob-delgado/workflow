@@ -221,6 +221,7 @@ type Config struct {
 	Branch      Branch      `json:"branch"`
 	Commit      Commit      `json:"commit"`
 	PullRequest PullRequest `json:"pull_request"`
+	Store       Store       `json:"store"`
 	// Path is the file this configuration was read from. It is not part of the
 	// file format.
 	Path string `json:"-"`

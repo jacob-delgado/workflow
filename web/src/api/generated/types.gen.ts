@@ -401,6 +401,7 @@ export type Config = {
     branch: BranchConfig;
     commit: CommitConfig;
     pull_request: PullRequestConfig;
+    store: StoreConfig;
 };
 
 export type JiraConfig = {
@@ -514,6 +515,13 @@ export type PullRequestConfig = {
      * Where a pull request's title comes from: "commit" (the default) takes the branch's oldest commit, "issue" takes the issue it names.
      */
     title_source?: string;
+};
+
+export type StoreConfig = {
+    /**
+     * Turn off the on-disk store, keeping nothing between sessions. Off by default: the store is on and never holds a secret.
+     */
+    disabled?: boolean;
 };
 
 export type CommitConfig = {

@@ -954,7 +954,7 @@ components:
         The whole configuration file. On a read, the four secret fields and the
         Jira header values are masked; on a write, a masked or empty secret keeps
         the stored value.
-      required: [version, jira, messaging, forge, ui, timing, branch, commit, pull_request]
+      required: [version, jira, messaging, forge, ui, timing, branch, commit, pull_request, store]
       properties:
         version: {type: string}
         jira: {$ref: "#/components/schemas/JiraConfig"}
@@ -965,6 +965,7 @@ components:
         branch: {$ref: "#/components/schemas/BranchConfig"}
         commit: {$ref: "#/components/schemas/CommitConfig"}
         pull_request: {$ref: "#/components/schemas/PullRequestConfig"}
+        store: {$ref: "#/components/schemas/StoreConfig"}
       additionalProperties: false
 
     JiraConfig:
@@ -1090,6 +1091,16 @@ components:
           description: >-
             Where a pull request's title comes from: "commit" (the default) takes
             the branch's oldest commit, "issue" takes the issue it names.
+      additionalProperties: false
+
+    StoreConfig:
+      type: object
+      properties:
+        disabled:
+          type: boolean
+          description: >-
+            Turn off the on-disk store, keeping nothing between sessions. Off by
+            default: the store is on and never holds a secret.
       additionalProperties: false
 
     CommitConfig:
