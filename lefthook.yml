@@ -109,9 +109,12 @@ pre-commit:
 pre-push:
   parallel: false
   commands:
+    # The module's own packages, as Taskfile.yml's GO_PKGS names them. Not
+    # `./...`: web/node_modules ships a stray Go package (flatted's Go port),
+    # and every `task check` now installs it.
     unit-go:
       glob: "{*.go,go.mod,go.sum}"
-      run: go test -race ./...
+      run: go test -race ./cmd/... ./internal/...
 
     # The pre-commit hook runs golangci-lint with --new-from-rev=HEAD~, so it
     # only ever sees the lines this commit changed. That is the right trade for

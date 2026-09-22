@@ -15,8 +15,8 @@ working through it locally is the fastest route to a green pull request.
 
 ## Checklist
 
-- [ ] `task check` passes locally — lint, tests, both coverage floors,
-      `govulncheck`, `gitleaks`
+- [ ] `task check` passes locally — lint and tests for the Go and the web
+      frontend, the coverage floors, `govulncheck`, `gitleaks`
 - [ ] Tests cover the change. For a bug fix, a test that fails without the fix
       and passes with it
 - [ ] Commits follow [Conventional Commits](https://www.conventionalcommits.org)

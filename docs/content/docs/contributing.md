@@ -37,19 +37,25 @@ VS Code, GoLand, Codespaces, and the devcontainer CLI.
 task check
 ```
 
-That is lint, tests, both coverage floors, vulnerability scanning, and secret
-scanning — the same thing CI runs. Run it before calling any change done.
+That is lint and tests for the Go and for the web frontend, both Go coverage
+floors, vulnerability scanning, and secret scanning — the same gates CI runs,
+less the browser-driven end-to-end suite, which CI adds. Run it before calling
+any change done.
 
 | Gate | What it enforces |
 | --- | --- |
 | `task lint` | Every golangci-lint linter, plus shell, YAML, Dockerfile, Actions, spelling, license headers, test markers, and docs drift |
+| `task web:lint` | The web frontend's eslint (accessibility at strict), `tsc`, prettier, knip, and its import boundaries |
+| `task web:gen:check` | The generated TypeScript client still matches `api/openapi.yaml` |
 | `task test:cover` | Tests with the race detector, above the statement coverage floor |
+| `task web:test` | The web frontend's unit tests, above their own coverage floor |
 | `task cover:branch` | Condition coverage via gobco: was each branch seen both ways |
 | `task vuln` | `govulncheck` against the dependency graph |
 | `task secrets` | `gitleaks` over the working tree |
 
-Both coverage floors live in `Taskfile.yml`, not in prose — a number restated in
-a document drifts from the number the gate enforces.
+The Go coverage floors live in `Taskfile.yml` and the web's in
+`web/vitest.config.ts`, not in prose — a number restated in a document drifts
+from the number the gate enforces.
 
 ## Documentation
 

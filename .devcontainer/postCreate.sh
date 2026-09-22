@@ -107,6 +107,6 @@ Ready. Useful commands:
 
   task --list     every task, with a description
   task run        run the TUI from source
-  task check      the full gate: lint, tests + coverage floor, vuln, secrets
+  task check      the full gate: Go and web lint + tests, coverage, vuln, secrets
 
 NEXT
