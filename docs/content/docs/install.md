@@ -87,3 +87,23 @@ workflow doctor           # says what is still missing
 Then fill in the two tokens — [Configuration]({{< relref "/docs/configuration" >}})
 explains where to get them — and run `workflow` to open the TUI.
 [Using workflow]({{< relref "/docs/usage" >}}) walks through it.
+
+## Shell completion
+
+`workflow completion <shell>` prints a completion script for `bash`, `zsh`,
+`fish` or `powershell`. Source it from your shell's startup, and `<tab>`
+completes subcommands and flags — and `workflow branch <tab>` completes the keys
+of the issues assigned to you.
+
+```sh
+# bash — for this shell now, or add to ~/.bashrc
+source <(workflow completion bash)
+
+# zsh — write it where your completions live
+workflow completion zsh > "${fpath[1]}/_workflow"
+
+# fish
+workflow completion fish > ~/.config/fish/completions/workflow.fish
+```
+
+Run `workflow completion --help` for your shell's exact one-time setup.
