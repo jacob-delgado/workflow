@@ -10,8 +10,7 @@ happens today, what could happen instead, where the change would land, and
 how to tell when it is done. The numbering continues from the entries that
 have since shipped, so an ID is never reused.
 
-Checked against commit `acb6988` on 2026-09-22 (branch
-`feat/store-and-conventions`, PR #125). Line numbers drift, so every pointer
+Checked against commit `5e69cb8` on 2026-09-22 (PR #125's tip, merged to main). Line numbers drift, so every pointer
 also names the symbol it means.
 
 ## How this was produced

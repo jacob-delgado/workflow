@@ -8,8 +8,7 @@ gaps, `UX-nn`), [TECH_DEBT.md](TECH_DEBT.md) (the debts, `DEBT-nn`) and
 at its record there, and an item that is fixed is removed from its record in
 the same pull request, per the standing rule.
 
-Checked against commit `acb6988` on 2026-09-22 (branch
-`feat/store-and-conventions`, PR #125 — the state that includes the web
+Checked against commit `5e69cb8` on 2026-09-22 (PR #125's tip, merged to main — the state that includes the web
 features, the on-disk store and the RFC 9457 errors). Line numbers drift, so
 every pointer also names the symbol it means. Re-verify a cited line before
 acting on it.
