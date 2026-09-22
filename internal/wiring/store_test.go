@@ -67,9 +67,15 @@ func TestCachedIssuesReadBackAreSanitized(t *testing.T) {
 		t.Fatalf("resolving the store directory: %v", err)
 	}
 
+	// Every field carries its own escape, so dropping sanitize.Line from any one
+	// of the six on read-back fails this test rather than only the Summary.
 	hostile := store.CachedIssue{
-		Key: "PROJ-1", Summary: "clear\x1b[2Jthe screen", Status: "To Do",
-		StatusCategory: "new", Type: "Task", Priority: "High",
+		Key:            "PROJ-1\x1b[2Jkey",
+		Summary:        "clear\x1b[2Jsummary",
+		Status:         "To\x1b[2JDo",
+		StatusCategory: "ne\x1b[2Jw",
+		Type:           "Ta\x1b[2Jsk",
+		Priority:       "Hi\x1b[2Jgh",
 	}
 
 	err = store.New(dir, false).CacheIssues(t.Context(), instance, "assigned", []store.CachedIssue{hostile}, time.Now())
@@ -89,8 +95,20 @@ func TestCachedIssuesReadBackAreSanitized(t *testing.T) {
 		t.Fatalf("CachedIssues = %v, %v; want the one seeded issue", issues, found)
 	}
 
-	if strings.ContainsRune(issues[0].Summary, '\x1b') {
-		t.Errorf("the summary read back still holds a terminal escape: %q", issues[0].Summary)
+	got := issues[0]
+	fields := map[string]string{
+		"key":             string(got.Key),
+		"summary":         got.Summary,
+		"status":          got.Status,
+		"status category": string(got.StatusCategory),
+		"type":            got.Type,
+		"priority":        got.Priority,
+	}
+
+	for name, value := range fields {
+		if strings.ContainsRune(value, '\x1b') {
+			t.Errorf("the %s read back still holds a terminal escape: %q", name, value)
+		}
 	}
 }
 
