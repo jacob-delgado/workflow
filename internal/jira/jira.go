@@ -47,6 +47,10 @@ var (
 	ErrForbidden = errors.New("the credential was refused")
 	// ErrNoAPI reports a URL with no Jira REST API behind it.
 	ErrNoAPI = errors.New("no Jira REST API answered at that address")
+	// ErrNotFound reports a 404: the addressed resource, most often an issue, does
+	// not exist. A 404 answer carries it alongside its more specific error, so a
+	// caller can tell a missing issue from any other rejection.
+	ErrNotFound = errors.New("the resource was not found")
 	// ErrRejected reports a request Jira refused and explained; the explanation
 	// follows it in the message.
 	ErrRejected = errors.New("jira rejected the request")
