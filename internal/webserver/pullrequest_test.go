@@ -4,6 +4,7 @@
 package webserver_test
 
 import (
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -460,6 +461,32 @@ func TestOpenPullRequestReportsAFailedOpen(t *testing.T) {
 
 	if !opened || !strings.Contains(recorder.Body.String(), "rejected") {
 		t.Errorf("body = %q, want the forge's reason surfaced", recorder.Body.String())
+	}
+}
+
+func TestOpenPullRequestIsUnreachableAndHidesTheForgeHost(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	// An unreachable forge carries its host in the error; the answer must be a 502
+	// whose detail does not leak that host.
+	deps := openableDeps()
+	deps.Branch = func() (gitrepo.Branch, error) { return pushedBranch(), nil }
+	deps.CreatePull = func(forge.NewPullRequest) (forge.PullRequest, error) {
+		return forge.PullRequest{}, fmt.Errorf("%w: https://git.internal.example", forge.ErrUnreachable)
+	}
+
+	// Act
+	recorder := doOpen(t, deps, openRequestBody)
+
+	// Assert
+	failure := decode[api.Problem](t, recorder)
+	if recorder.Code != http.StatusBadGateway || failure.Code != api.Unreachable {
+		t.Errorf("status/code = %d/%s, want 502/unreachable", recorder.Code, failure.Code)
+	}
+
+	if strings.Contains(recorder.Body.String(), "git.internal.example") {
+		t.Errorf("body = %q, leaks the forge host", recorder.Body.String())
 	}
 }
 

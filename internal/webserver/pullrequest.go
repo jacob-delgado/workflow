@@ -66,6 +66,15 @@ func (s *server) OpenPullRequest(
 
 	pull, err := s.deps.CreatePull(newPull)
 	if err != nil && !pull.Opened() {
+		// An unreachable forge carries its host in the error, so it goes through
+		// the curated fault mapping (a 502) rather than into the detail. A forge
+		// rejection carries its own reason, which is safe and useful to show.
+		if errors.Is(err, forge.ErrUnreachable) {
+			body, code := fault(err)
+
+			return api.OpenPullRequestdefaultApplicationProblemPlusJSONResponse{Body: body, StatusCode: code}, nil
+		}
+
 		return openUnprocessable(err.Error()), nil
 	}
 
@@ -74,8 +83,7 @@ func (s *server) OpenPullRequest(
 	opened := api.OpenedPullRequest{Pull: pullDTO(pull)}
 
 	if err != nil {
-		warning := "the pull request opened, but its reviewers, assignees or labels could not all be added: " +
-			err.Error()
+		warning := "the pull request opened, but its reviewers, assignees or labels could not all be added"
 		opened.Warning = &warning
 	}
 

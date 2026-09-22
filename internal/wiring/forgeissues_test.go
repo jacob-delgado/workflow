@@ -100,6 +100,10 @@ func TestTheForgeTrackerRejectsANonNumericKey(t *testing.T) {
 	if err == nil || !strings.Contains(err.Error(), "not a forge issue number") {
 		t.Errorf("Transition = %v, want a key that is not a forge issue number reported", err)
 	}
+
+	if !errors.Is(err, jira.ErrNotFound) {
+		t.Errorf("Transition = %v, want it marked not-found so the web API answers 404", err)
+	}
 }
 
 func TestTheForgeTrackerReportsAForgeThatCannotBeReached(t *testing.T) {

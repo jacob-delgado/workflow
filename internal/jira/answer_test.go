@@ -133,6 +133,10 @@ func TestAStatusWithoutAReasonKeepsItsOwnError(t *testing.T) {
 			if errors.Is(err, jira.ErrRejected) {
 				t.Errorf("Search returned %v, which claims a reason Jira did not give", err)
 			}
+
+			if errors.Is(err, jira.ErrNotFound) {
+				t.Errorf("Search returned %v, marked not-found with no resource reason", err)
+			}
 		})
 	}
 }

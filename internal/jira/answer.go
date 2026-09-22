@@ -64,15 +64,20 @@ func (c Client) answerError(response *http.Response, requested *url.URL) error {
 		return err
 	}
 
-	if reason := c.reason(response.Body); reason != "" {
-		err = fmt.Errorf("%w: %s", ErrRejected, reason)
+	reason := c.reason(response.Body)
+	if reason == "" {
+		// A reason-less 404 is a missing API or context path, not a missing
+		// resource — a proxy's HTML page, say — so it stays ErrNoAPI rather than
+		// being marked not-found.
+		return err
 	}
 
+	rejected := fmt.Errorf("%w: %s", ErrRejected, reason)
 	if response.StatusCode == http.StatusNotFound {
-		return notFoundError{err}
+		return notFoundError{rejected}
 	}
 
-	return err
+	return rejected
 }
 
 // notFoundError marks a 404 answer as not-found without losing the more specific

@@ -5,9 +5,11 @@ weight: 25
 
 # Web API errors
 
-The `workflow --web` API answers every failure with an
+The `workflow --web` API answers a failed request with an
 [RFC 9457](https://www.rfc-editor.org/rfc/rfc9457) problem details object, sent
-as `application/problem+json`:
+as `application/problem+json`. (The loopback, same-origin and dry-run **guards**
+refuse a request as plain text *before* it reaches the API, so those few
+responses are not problem details.)
 
 ```json
 {
@@ -23,9 +25,10 @@ as `application/problem+json`:
   below.
 - **`title`** — a short, fixed summary of the problem type.
 - **`status`** — the HTTP status code.
-- **`detail`** — what went wrong this time, safe to show. It is curated and never
-  carries the raw upstream cause, so a credential or an internal host cannot leak
-  through it.
+- **`detail`** — what went wrong this time, safe to show. It is curated: it never
+  carries a secret (tokens are redacted before an error is formed) or an internal
+  host. A write that is refused may include the git or forge's own reason so you
+  can act on it; a read failure and an unreachable upstream stay generic.
 - **`code`** — a stable, machine-readable reason, for a client to switch on rather
   than parsing prose.
 
