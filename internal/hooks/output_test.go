@@ -199,13 +199,37 @@ func TestFailuresFindWhereEachToolPoints(t *testing.T) {
 				"3 problems (2 errors, 1 warning)",
 			},
 			want: []hooks.Location{
-				{File: eslintFile, Line: 12, Column: 5, Message: "Missing semicolon  semi"},
+				{File: eslintFile, Line: 12, Column: 5, Message: "Missing semicolon semi"},
 				{
 					File: eslintFile, Line: 18, Column: 10,
-					Message: "x is assigned but never used  no-unused-vars",
+					Message: "x is assigned but never used no-unused-vars",
 				},
-				{File: "src/other.ts", Line: 3, Column: 1, Message: "Unexpected console statement  no-console"},
+				{File: "src/other.ts", Line: 3, Column: 1, Message: "Unexpected console statement no-console"},
 			},
+		},
+		"an ESLint file does not leak into a later tool's rows": {
+			lines: []string{
+				"src/app.js",
+				"  3:1  error  Unexpected console  no-console",
+				"",
+				"custom-check failed:",
+				// This row belongs to another tool; the ESLint file must not stick.
+				"42:7  error  something else",
+			},
+			want: []hooks.Location{
+				{File: "src/app.js", Line: 3, Column: 1, Message: "Unexpected console no-console"},
+			},
+		},
+		"a version banner or a non-Python quoted frame is not a place": {
+			lines: []string{
+				// A decimal and a version tag are not files, even followed by a row.
+				"3.14",
+				"  10:5  warning  deprecated  some-rule",
+				"v1.2.3",
+				// A quoted frame that is not a .py file is not a Python traceback.
+				`File "notes.txt", line 3, edited by hand`,
+			},
+			want: nil,
 		},
 		"a Python traceback frame names its file and line": {
 			lines: []string{

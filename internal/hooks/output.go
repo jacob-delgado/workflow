@@ -179,9 +179,9 @@ func locationPatterns(goos string) []*regexp.Regexp {
 		// typos and others that point with an arrow.
 		regexp.MustCompile(`^(?:╭▸|-->)\s*(\S+\.[A-Za-z0-9]+):(\d+)(?::(\d+))?()$`),
 		// a Python traceback frame: `File "path/to/x.py", line 10, in <module>`.
-		// The quotes and the ", line" make it unambiguous, so the path is taken
-		// whole; the trailing ", in …" is dropped rather than kept as a message.
-		regexp.MustCompile(`^File "([^"]+)", line (\d+)()(?:,.*)?()$`),
+		// The path must end in .py so a quoted name of the same shape from another
+		// tool is not read as one; the trailing ", in …" is dropped, not kept.
+		regexp.MustCompile(`^File "([^"]+\.py)", line (\d+)()(?:,.*)?()$`),
 	}
 }
 
@@ -190,11 +190,15 @@ func locationPatterns(goos string) []*regexp.Regexp {
 // with no filename — so the file has to be carried across lines, which the
 // per-line patterns cannot do. The row keeps the error/warning word so a bare
 // "12:5 …" elsewhere is not mistaken for one. The header reuses the file rule so
-// only a plausible path opens a block. It returns the header pattern, then the row.
+// only a plausible path opens a block. It returns the header pattern, then the
+// row. The header's extension must start with a letter, so a version banner
+// ("v1.2.3") or a decimal ("3.14") on its own line is not read as a file.
 func eslintPatterns(goos string) (*regexp.Regexp, *regexp.Regexp) {
-	drive, file := filePatterns(goos)
+	drive, _ := filePatterns(goos)
 
-	return regexp.MustCompile(`^(` + drive + file + `)$`),
+	header := `(?:[^\s:]+\.[A-Za-z][A-Za-z0-9]*|(?:[^\s:]*[/\\])?(?:` + knownBasenames + `))`
+
+	return regexp.MustCompile(`^(` + drive + header + `)$`),
 		regexp.MustCompile(`^(\d+):(\d+)\s+(?:error|warning)\s+(.*)$`)
 }
 
@@ -214,22 +218,31 @@ func Failures(lines []string, goos string) []Location {
 	eslintHeader, eslintRow := eslintPatterns(goos)
 	eslintFile := ""
 
-	for _, raw := range lines {
+	for index, raw := range lines {
 		line := strings.TrimSpace(raw)
 
-		if match := eslintHeader.FindStringSubmatch(line); match != nil {
+		// The ESLint file is carried only while its rows follow it: a header opens
+		// a block when the next line is one of its rows, and any line that is
+		// neither a row nor a new header ends the block — so a blank line, or a
+		// later tool's output, is never read against a stale filename.
+		if match := eslintRow.FindStringSubmatch(line); eslintFile != "" && match != nil {
+			lineNumber, _ := strconv.Atoi(match[1])
+			column, _ := strconv.Atoi(match[2])
+			add(Location{
+				File: eslintFile, Line: lineNumber, Column: column,
+				Message: strings.Join(strings.Fields(match[3]), " "),
+			})
+
+			continue
+		}
+
+		if match := eslintHeader.FindStringSubmatch(line); match != nil && nextIsESLintRow(lines, index, eslintRow) {
 			eslintFile = match[1]
 
 			continue
 		}
 
-		if match := eslintRow.FindStringSubmatch(line); eslintFile != "" && match != nil {
-			lineNumber, _ := strconv.Atoi(match[1])
-			column, _ := strconv.Atoi(match[2])
-			add(Location{File: eslintFile, Line: lineNumber, Column: column, Message: match[3]})
-
-			continue
-		}
+		eslintFile = ""
 
 		if location, ok := locate(patterns, line); ok {
 			add(location)
@@ -237,6 +250,16 @@ func Failures(lines []string, goos string) []Location {
 	}
 
 	return found
+}
+
+// nextIsESLintRow reports whether the line after index is an ESLint row, so a
+// path on its own line opens a block only when its rows actually follow it.
+func nextIsESLintRow(lines []string, index int, row *regexp.Regexp) bool {
+	if index+1 >= len(lines) {
+		return false
+	}
+
+	return row.MatchString(strings.TrimSpace(lines[index+1]))
 }
 
 // locate reads a place from one line, if the line names one.
