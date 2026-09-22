@@ -146,12 +146,13 @@ func githubRepo(t *testing.T, branch string) string {
 const forgeCLIConfig = `{"forge":{"cli":true,"kind":"github","host":"github.com"},` +
 	`"messaging":{"webhook_url":"https://hooks.slack.example/services/x"}}`
 
-// pretendPushed gives branch a local upstream on origin with nothing ahead, so
-// the pull-request flow treats it as already published and skips the push —
-// there is no real remote to push to in a black-box test.
-func pretendPushed(t *testing.T, repo, branch string) {
+// pretendPushed gives the checked-out branch a local upstream on origin with
+// nothing ahead, so the pull-request flow treats it as already published and
+// skips the push — there is no real remote to push to in a black-box test.
+func pretendPushed(t *testing.T, repo string) {
 	t.Helper()
 
+	branch := currentBranch(t, repo)
 	git(t, repo, "update-ref", "refs/remotes/origin/"+branch, "HEAD")
 	git(t, repo, "branch", "--set-upstream-to=origin/"+branch, branch)
 }

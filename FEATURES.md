@@ -58,19 +58,6 @@ that needs one of them reopened goes in the
 
 ## Issues
 
-### FEAT-05 Offer the status change the loop implies
-
-Impact: high · Effort: medium
-
-- Done: after a branch is created for an issue in a "to do" category, the status
-  picker opens on it pre-selected on the first "in progress" transition — chosen
-  by status category, never by a localized name — and `esc` leaves the issue
-  alone. Offered, never applied (`branchCreated.apply`, `Model.pickStatusFor` and
-  `firstInProgress` in `internal/tui/branchresult.go` and `picker.go`).
-- Still open: the pull-request moment. "In review" shares the *category*
-  (indeterminate) with "in progress", so the category rule cannot single it out;
-  that moment wants a configured status name, which is a change of its own.
-
 ### FEAT-11 Create an issue — declined
 
 A bug found mid-task is worth capturing, but filing one — a project, a type,

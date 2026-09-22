@@ -439,6 +439,9 @@ type JiraConfig struct {
 	MarkdownComments *bool   `json:"markdown_comments,omitempty"`
 	Project          *string `json:"project,omitempty"`
 
+	// ReviewStatus The status an issue moves to once its pull request is open, e.g. "In Review". Empty makes no offer.
+	ReviewStatus *string `json:"review_status,omitempty"`
+
 	// Token Masked on read; empty or masked on write keeps the stored value.
 	Token        *string     `json:"token,omitempty"`
 	TokenCommand *string     `json:"token_command,omitempty"`

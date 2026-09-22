@@ -37,15 +37,52 @@ func (msg transitionsListed) apply(m Model) (Model, tea.Cmd) {
 		return m, nil
 	}
 
-	picker.found, picker.listErr, picker.settled = msg.found, msg.err, true
-
-	if picker.preferInProgress {
-		picker.selected = firstInProgress(msg.found)
+	if picker.offer.absent(msg.found) {
+		// A named-status offer with nothing to move to makes no offer, rather than
+		// opening the picker pre-selected on an unrelated transition.
+		return m.closeOverlay(), nil
 	}
+
+	picker.found, picker.listErr, picker.settled = msg.found, msg.err, true
+	picker.selected = picker.offer.pick(msg.found)
 
 	m.overlay = picker
 
 	return m, nil
+}
+
+// statusOffer decides which transition the picker pre-selects when it opens as
+// an offer: the one leading to a named status (after a pull request), the first
+// in-progress one (after branching), or none (opened by hand).
+type statusOffer struct {
+	inProgress bool
+	status     string
+}
+
+// pick is the index of the transition the offer pre-selects, or zero.
+func (o statusOffer) pick(moves []jira.Transition) int {
+	switch {
+	case o.status != "":
+		index, _ := firstWithStatus(moves, o.status)
+
+		return index
+	case o.inProgress:
+		return firstInProgress(moves)
+	default:
+		return 0
+	}
+}
+
+// absent reports a named-status offer whose status is not among the moves, so
+// there is nothing to pre-select and no offer worth opening the picker for.
+func (o statusOffer) absent(moves []jira.Transition) bool {
+	if o.status == "" {
+		return false
+	}
+
+	_, found := firstWithStatus(moves, o.status)
+
+	return !found
 }
 
 // firstInProgress is the index of the first transition that leads to an
@@ -59,6 +96,19 @@ func firstInProgress(moves []jira.Transition) int {
 	}
 
 	return 0
+}
+
+// firstWithStatus is the index of the first transition leading to a status of
+// the given name (matched case-insensitively), and whether one was found. It is
+// how the review status is picked, since its category cannot single it out.
+func firstWithStatus(moves []jira.Transition, status string) (int, bool) {
+	for index, move := range moves {
+		if strings.EqualFold(move.ToStatus, status) {
+			return index, true
+		}
+	}
+
+	return 0, false
 }
 
 // transitionApplied reports how applying a transition went.
@@ -100,9 +150,9 @@ type statusPicker struct {
 	send     sendState
 	settled  bool
 	selected int
-	// preferInProgress pre-selects the first in-progress transition once the
-	// list arrives, for the offer made right after branching.
-	preferInProgress bool
+	// offer pre-selects a transition once the list arrives, for an offer made
+	// after branching or after a pull request; the zero value pre-selects none.
+	offer statusOffer
 	// form is filling in the chosen transition's fields; it is open when it
 	// has any.
 	form fieldForm
@@ -121,19 +171,18 @@ func (m Model) openStatusPicker() (Model, tea.Cmd) {
 		return m, nil
 	}
 
-	return m.pickStatusFor(selected, false)
+	return m.pickStatusFor(selected, statusOffer{})
 }
 
 // pickStatusFor opens the picker on an issue and starts listing its transitions.
-// preferInProgress pre-selects the first in-progress transition once they
-// arrive, for the offer made after branching rather than the picker opened by
-// hand.
-func (m Model) pickStatusFor(issue jira.Issue, preferInProgress bool) (Model, tea.Cmd) {
+// The offer pre-selects a transition once they arrive, for an offer made after
+// branching or a pull request rather than the picker opened by hand.
+func (m Model) pickStatusFor(issue jira.Issue, offer statusOffer) (Model, tea.Cmd) {
 	if m.deps.Jira.Transitions == nil {
 		return m, nil
 	}
 
-	m.overlay = statusPicker{marks: m.marks, styles: m.styles, issue: issue, preferInProgress: preferInProgress}
+	m.overlay = statusPicker{marks: m.marks, styles: m.styles, issue: issue, offer: offer}
 	list := m.deps.Jira.Transitions
 
 	return m, func() tea.Msg {
@@ -141,6 +190,18 @@ func (m Model) pickStatusFor(issue jira.Issue, preferInProgress bool) (Model, te
 
 		return transitionsListed{issueKey: issue.Key, found: found, err: err}
 	}
+}
+
+// offerReviewStatus offers to move an issue to the configured review status once
+// its pull request is open, or closes the overlay when none is configured or
+// Jira does not offer it. The status is chosen by name because it shares a
+// category with "in progress".
+func (m Model) offerReviewStatus(issueKey jira.Key) (Model, tea.Cmd) {
+	if m.cfg.Jira.ReviewStatus == "" || m.deps.Jira.Transitions == nil {
+		return m.closeOverlay(), nil
+	}
+
+	return m.pickStatusFor(jira.Issue{Key: issueKey}, statusOffer{status: m.cfg.Jira.ReviewStatus})
 }
 
 // header is the rows above the picker's list: the issue, its status, and a

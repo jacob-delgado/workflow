@@ -423,6 +423,10 @@ export type JiraConfig = {
      * Post comments written in Markdown as Jira's wiki markup.
      */
     markdown_comments?: boolean;
+    /**
+     * The status an issue moves to once its pull request is open, e.g. "In Review". Empty makes no offer.
+     */
+    review_status?: string;
 };
 
 export type MessagingConfig = {

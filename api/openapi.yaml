@@ -989,6 +989,9 @@ components:
         markdown_comments:
           type: boolean
           description: Post comments written in Markdown as Jira's wiki markup.
+        review_status:
+          type: string
+          description: The status an issue moves to once its pull request is open, e.g. "In Review". Empty makes no offer.
       additionalProperties: false
 
     MessagingConfig:

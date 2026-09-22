@@ -6,10 +6,74 @@ package tui_test
 import (
 	"errors"
 	"testing"
+
+	"github.com/jacob-delgado/workflow/internal/jira"
 )
 
 // errLinkFailed is how Jira refuses a remote link.
 var errLinkFailed = errors.New("the credential was not accepted")
+
+// reviewTransitions offers In Progress and In Review, both indeterminate, so a
+// test can tell "the one named In Review" from "the first in-progress one".
+func reviewTransitions() []jira.Transition {
+	return []jira.Transition{
+		transition("11", "Start Progress", statusInProgress, categoryIndeterminate),
+		transition("31", "Start Review", statusInReview, categoryIndeterminate),
+	}
+}
+
+func TestLinkingAPullRequestThenOffersTheReviewStatus(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	// The issue moves to In Review once its pull request is open.
+	linking := withoutPull()
+	linking.cfg.Jira.ReviewStatus = statusInReview
+	linking.moves = reviewTransitions()
+	opened := typing(t, linking.live(t, 120, 40), "4", "n", keyEnter)
+
+	// Act
+	linked := typing(t, opened, keyEnter)
+
+	// Assert
+	// In Review shares the indeterminate category with In Progress, so the offer
+	// is pre-selected by name, not by category.
+	requireScreen(t, linked.View().Content, "Change status", "▸ ◐ Start Review")
+}
+
+func TestSkippingTheLinkStillOffersTheReviewStatus(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	linking := withoutPull()
+	linking.cfg.Jira.ReviewStatus = statusInReview
+	linking.moves = reviewTransitions()
+	opened := typing(t, linking.live(t, 120, 40), "4", "n", keyEnter)
+
+	// Act
+	skipped := typing(t, opened, keyEsc)
+
+	// Assert
+	requireScreen(t, skipped.View().Content, "Change status", "▸ ◐ Start Review")
+}
+
+func TestNoReviewOfferWhenJiraDoesNotHaveTheStatus(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	// The issue's workflow has no transition to the configured review status, so
+	// there is nothing to move to — the picker must not open on an unrelated one.
+	linking := withoutPull()
+	linking.cfg.Jira.ReviewStatus = statusInReview
+	linking.moves = []jira.Transition{transition("31", "Done", "Done", "done")}
+	opened := typing(t, linking.live(t, 120, 40), "4", "n", keyEnter)
+
+	// Act
+	skipped := typing(t, opened, keyEsc)
+
+	// Assert
+	refuseScreen(t, skipped.View().Content, "Change status")
+}
 
 func TestOpeningAPullRequestOffersToLinkItOnTheIssue(t *testing.T) {
 	t.Parallel()

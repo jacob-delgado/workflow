@@ -104,7 +104,7 @@ func TestPRDryRunOnAPushedBranchOmitsThePush(t *testing.T) {
 	// The branch is already published, so the dry run would only open, not push.
 	fakeGh(t, ghResponses{})
 	repo := githubRepo(t, "fix/PROJ-2-thing")
-	pretendPushed(t, repo, "fix/PROJ-2-thing")
+	pretendPushed(t, repo)
 	writeFile(t, repo, `{"forge":{"cli":true,"kind":"github","host":"github.com"}}`)
 
 	// Act
@@ -124,7 +124,7 @@ func TestPROpensThePullRequest(t *testing.T) {
 	// The branch is already published and has no pull request, so one is opened.
 	fakeGh(t, ghResponses{})
 	repo := githubRepo(t, "fix/PROJ-2-thing")
-	pretendPushed(t, repo, "fix/PROJ-2-thing")
+	pretendPushed(t, repo)
 	writeFile(t, repo, `{"forge":{"cli":true,"kind":"github","host":"github.com"}}`)
 
 	// Act
@@ -171,7 +171,7 @@ func TestPRReportsAFailedOpen(t *testing.T) {
 	// The branch is published, but the forge rejects the open.
 	fakeGh(t, ghResponses{createError: true})
 	repo := githubRepo(t, "fix/PROJ-2-thing")
-	pretendPushed(t, repo, "fix/PROJ-2-thing")
+	pretendPushed(t, repo)
 	writeFile(t, repo, `{"forge":{"cli":true,"kind":"github","host":"github.com"}}`)
 
 	// Act

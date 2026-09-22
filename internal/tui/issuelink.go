@@ -64,7 +64,7 @@ func (l issueLinker) handleKey(m Model, msg tea.KeyPressMsg) (Model, tea.Cmd) {
 	case l.send.sending:
 		return m, nil
 	case key.Matches(msg, m.keys.closeOverlay):
-		return m.closeOverlay(), nil
+		return m.offerReviewStatus(l.issueKey)
 	case key.Matches(msg, m.keys.confirm):
 		return l.link(m)
 	default:
@@ -104,6 +104,8 @@ func (msg issueLinked) apply(m Model) (Model, tea.Cmd) {
 		return m, nil
 	}
 
-	return m.closeOverlay().noticed(m.marks.done + " linked " + m.vocab.sigil +
-		strconv.Itoa(msg.pull.Number) + " on " + string(msg.issueKey)), nil
+	m = m.noticed(m.marks.done + " linked " + m.vocab.sigil +
+		strconv.Itoa(msg.pull.Number) + " on " + string(msg.issueKey))
+
+	return m.offerReviewStatus(msg.issueKey)
 }

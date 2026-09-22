@@ -82,7 +82,7 @@ func (msg branchCreated) apply(m Model) (Model, tea.Cmd) {
 
 	// Offer the status change, pre-selected on the first in-progress transition;
 	// the developer confirms it or backs out. Never applied for them.
-	picker, offer := m.pickStatusFor(msg.issue, true)
+	picker, offer := m.pickStatusFor(msg.issue, statusOffer{inProgress: true})
 
 	return picker, tea.Batch(reload, offer)
 }
