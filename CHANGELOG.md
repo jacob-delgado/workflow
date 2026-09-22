@@ -1,5 +1,26 @@
 # Changelog
 
+## [0.2.0](https://github.com/jacob-delgado/workflow/compare/v0.1.0...v0.2.0) (2026-09-22)
+
+
+### ⚠ BREAKING CHANGES
+
+* the doctor --json keys slack_target and slack_mode are renamed messaging_target and messaging_mode, and the messaging credential's service value is the kind rather than "slack". The web REST route /api/slack becomes /api/messaging, its schema Slack becomes MessagingDestination and gains service and configured fields, and the snapshot's slack field becomes messaging. The Go and TypeScript clients are regenerated to match.
+
+### Features
+
+* name the messaging service in doctor, the TUI and web (FEAT-58) ([33a1c92](https://github.com/jacob-delgado/workflow/commit/33a1c928b07c1f78ecd3da7802fd31b3ab3c98bb))
+
+
+### Build & Packaging
+
+* take the container's tools from the mise.toml pins (FEAT-74) ([b4c4484](https://github.com/jacob-delgado/workflow/commit/b4c4484c4d22fde8caef61abd3a4f7026f8b1dad))
+
+
+### CI
+
+* gate the release tag on a green build (FEAT-75) ([cd7b75a](https://github.com/jacob-delgado/workflow/commit/cd7b75adf4f065a5e20586aeb8a6886481e81759))
+
 ## [0.1.0](https://github.com/jacob-delgado/workflow/compare/v0.0.7...v0.1.0) (2026-09-22)
 
 
