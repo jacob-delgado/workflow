@@ -301,6 +301,13 @@ function ConfigForm({ config }: { config: Config }) {
         </Field>
       </Fieldset>
 
+      <Fieldset legend="Store">
+        <label className="flex items-center gap-2 text-sm">
+          <input type="checkbox" className="size-4" {...register('store.disabled')} />
+          Keep nothing on disk between sessions
+        </label>
+      </Fieldset>
+
       <div className="flex items-center gap-3">
         <button
           type="submit"

@@ -118,11 +118,18 @@ func (m Model) startingType(conv convention.CommitConvention, draft commitDraft)
 }
 
 // startingScope is the scope the composer opens on: a kept draft's scope wins,
-// so a failed commit reopens as it was; otherwise the configured default, for a
-// team that scopes its commits the same way; otherwise blank.
+// so a failed commit reopens as it was; otherwise the scope last used in this
+// repository, learned from the last commit; otherwise the configured default;
+// otherwise blank.
 func (m Model) startingScope(draft commitDraft) string {
 	if draft.scope != "" {
 		return draft.scope
+	}
+
+	if m.deps.Store.LastScope != nil {
+		if learned, ok := m.deps.Store.LastScope(); ok {
+			return learned
+		}
 	}
 
 	return m.cfg.Commit.DefaultScope
@@ -355,7 +362,17 @@ func (c commitComposer) commit(m Model) (Model, tea.Cmd) {
 		func(done Model) (Model, tea.Cmd) {
 			done.draft = commitDraft{}
 			done = done.closeOverlay().noticed(done.marks.done + " committed " + subject.String())
+			done.recordScope(subject.Scope)
 
 			return done, tea.Batch(done.loadChanges(), done.loadBranch())
 		})
+}
+
+// recordScope remembers a real scope just committed, so the composer opens on it
+// next time. An empty scope is not recorded: it would otherwise erase a learned
+// scope and mask the configured default.
+func (m Model) recordScope(scope string) {
+	if scope != "" && m.deps.Store.RecordScope != nil {
+		m.deps.Store.RecordScope(scope)
+	}
 }

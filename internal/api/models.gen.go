@@ -347,6 +347,7 @@ type Config struct {
 	Jira        JiraConfig        `json:"jira"`
 	Messaging   MessagingConfig   `json:"messaging"`
 	PullRequest PullRequestConfig `json:"pull_request"`
+	Store       StoreConfig       `json:"store"`
 	Timing      TimingConfig      `json:"timing"`
 	UI          UIConfig          `json:"ui"`
 	Version     string            `json:"version"`
@@ -610,6 +611,12 @@ type Snapshot struct {
 
 // StatusCategory defines model for StatusCategory.
 type StatusCategory string
+
+// StoreConfig defines model for StoreConfig.
+type StoreConfig struct {
+	// Disabled Turn off the on-disk store, keeping nothing between sessions. Off by default: the store is on and never holds a secret.
+	Disabled *bool `json:"disabled,omitempty"`
+}
 
 // TaskBranch A local branch named for an issue, by the branch-name convention.
 type TaskBranch struct {

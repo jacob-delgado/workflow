@@ -292,6 +292,10 @@ export const zPullRequestConfig = z.object({
     title_source: z.string().optional()
 });
 
+export const zStoreConfig = z.object({
+    disabled: z.boolean().optional()
+});
+
 export const zCommitConfig = z.object({
     default_scope: z.string().optional(),
     types: z.array(z.string()).nullish(),
@@ -333,7 +337,8 @@ export const zConfig = z.object({
     timing: zTimingConfig,
     branch: zBranchConfig,
     commit: zCommitConfig,
-    pull_request: zPullRequestConfig
+    pull_request: zPullRequestConfig,
+    store: zStoreConfig
 });
 
 /**

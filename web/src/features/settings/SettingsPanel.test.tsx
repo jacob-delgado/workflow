@@ -108,6 +108,35 @@ test('editing the commit types saves them as a trimmed list', async () => {
   expect((reopened as HTMLInputElement).value).toBe('hotfix,chore')
 })
 
+test('offers turning the store off and rides it back through a save', async () => {
+  // Arrange
+  vi.stubEnv('VITE_MOCK', 'true')
+  const user = userEvent.setup()
+  const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+  const view = render(
+    <QueryClientProvider client={client}>
+      <SettingsPanel />
+    </QueryClientProvider>,
+  )
+  const toggle = await screen.findByRole('checkbox', { name: /nothing on disk/i })
+  expect((toggle as HTMLInputElement).checked).toBe(false)
+  await user.click(toggle)
+
+  // Act: save, then reopen against the same client
+  await user.click(screen.getByRole('button', { name: /save changes/i }))
+  await screen.findByText(/saved/i)
+  view.unmount()
+  render(
+    <QueryClientProvider client={client}>
+      <SettingsPanel />
+    </QueryClientProvider>,
+  )
+
+  // Assert
+  const reopened = await screen.findByRole('checkbox', { name: /nothing on disk/i })
+  expect((reopened as HTMLInputElement).checked).toBe(true)
+})
+
 test('confirms when the configuration is saved', async () => {
   // Arrange
   vi.stubEnv('VITE_MOCK', 'true')

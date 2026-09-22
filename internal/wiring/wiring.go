@@ -20,12 +20,14 @@ import (
 
 	"github.com/jacob-delgado/workflow/internal/config"
 	"github.com/jacob-delgado/workflow/internal/editor"
+	"github.com/jacob-delgado/workflow/internal/forge"
 	"github.com/jacob-delgado/workflow/internal/gitrepo"
 	"github.com/jacob-delgado/workflow/internal/hooks"
 	"github.com/jacob-delgado/workflow/internal/jira"
 	"github.com/jacob-delgado/workflow/internal/messaging"
 	"github.com/jacob-delgado/workflow/internal/proc"
 	"github.com/jacob-delgado/workflow/internal/sanitize"
+	"github.com/jacob-delgado/workflow/internal/store"
 	"github.com/jacob-delgado/workflow/internal/tui"
 )
 
@@ -75,6 +77,7 @@ func Deps(ctx context.Context, cfg config.Config, where Workspace, log *RequestL
 		Messaging:  messagingDeps(ctx, cfg.Messaging, timeout, log),
 		Hooks:      hookDeps(ctx, where.Root),
 		Editor:     editorDeps(where.Root),
+		Store:      storeDeps(ctx, cfg.Store, where),
 		Clock:      nil,
 		CIInterval: cfg.CIInterval(),
 		Notify:     ringTerminal,
@@ -282,6 +285,45 @@ func messagingDeps(
 	client := messaging.New(log.Wrap("slack", messaging.HTTPClient(timeout).Do), messaging.APIBase, settings)
 
 	return tui.MessagingDeps{Post: func(channel, text string) error { return client.Post(ctx, channel, text) }}
+}
+
+// storeDeps binds the on-disk store to this repository, so the interface can open
+// on what was done here before. A store with nowhere to keep its file, or one the
+// configuration disabled, no-ops through the same seams, so the interface simply
+// learns nothing.
+func storeDeps(ctx context.Context, settings config.Store, where Workspace) tui.StoreDeps {
+	dir, _ := store.DefaultDir()
+	kept := store.New(dir, settings.Disabled)
+	repo := repoKey(where)
+
+	return tui.StoreDeps{
+		LastScope: func() (string, bool) {
+			scope, found, _ := kept.LastScope(ctx, repo)
+
+			return scope, found
+		},
+		RecordScope: func(scope string) {
+			_ = kept.RecordScope(ctx, repo, scope, time.Now())
+		},
+	}
+}
+
+// repoKey names the repository the store keys its state by: the origin remote's
+// host and path where there is one, so the same repository shares it across
+// clones, and the working tree's root otherwise. The remote is parsed to its
+// host and path, never used raw, because an HTTPS remote can carry a credential
+// in its userinfo and the store must never hold a secret.
+func repoKey(where Workspace) string {
+	if where.Remote == "" {
+		return where.Root
+	}
+
+	repo, err := forge.ParseRemote(where.Remote)
+	if err != nil {
+		return where.Root
+	}
+
+	return repo.Host + "/" + repo.Path
 }
 
 // hookDeps is what the interface asks of lefthook — nothing at all when lefthook

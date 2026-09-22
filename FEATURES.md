@@ -38,8 +38,12 @@ These are settled. An idea that fits them goes in the main sections. An idea
 that needs one of them reopened goes in the
 [last section](#ideas-that-would-reopen-a-settled-decision), and says which.
 
-- **Nothing is stored between sessions.** Where you are in the work is read
-  back from the branch name every time. There is no state file.
+- **A little is stored between sessions, on by default.** Where you are in the
+  work is still read back from the branch name every time; the on-disk store
+  (`internal/store`, SQLite under the OS-native data directory) only remembers
+  conveniences — the scope last used, what was announced, the last issue list —
+  and never a secret. `store.disabled` keeps nothing on disk, the way it once
+  always was.
 - **Every service is reached over the standard library's `net/http`.** `gh` is
   an optional source of a token and nothing more.
 - **`git` is the only program that must be installed.** `lefthook` and an
@@ -254,10 +258,11 @@ first.
 
 Impact: medium · Effort: medium
 
-- Reopens: nothing stored between sessions.
+- Reopens: reading a chat service's recent history — still a non-goal, since
+  workflow posts but does not read a channel.
 - Why: "CI failed" and "merged" belong under the announcement, not beside it.
-  Threading needs the first message's timestamp, and there is nowhere to keep
-  it.
+  Threading needs the first message's timestamp; the store can keep that now, so
+  a no-history version may fit and this may move out of this section.
 - A version that fits: with a bot token, find the earlier message by searching
   the channel's recent history for the pull request's URL. It costs a
   `channels:history` scope and a request, and it cannot work with a webhook.
@@ -267,8 +272,9 @@ Impact: medium · Effort: medium
 
 Impact: medium · Effort: large
 
-- Reopens: nothing stored between sessions, and a single process that ends
-  when the interface closes.
+- Reopens: a single process that ends when the interface closes. The store can
+  keep the queued post now, but nothing runs to send it once the interface is
+  gone.
 - Why: "post when CI passes" is dropped if you quit first, which the usage
   guide lists as a limit. CI takes longer than most people keep a terminal
   open.
@@ -285,17 +291,6 @@ Impact: low · Effort: small
   that was announced an hour ago, and offers to announce it again.
 - A version that fits: the same history search as FEAT-64.
 - Done when: a pull request announced in an earlier session shows as posted.
-
-### FEAT-67 Remember choices
-
-Impact: low · Effort: small
-
-- Reopens: nothing stored between sessions.
-- Done, the version that fits: `commit.default_scope` is a configured default the
-  composer pre-fills (`Model.startingScope`, `internal/tui/composer.go`) — chosen,
-  not learned.
-- Still a non-goal: remembering the scope *last used* in this repository across
-  sessions, which would need the state file the settled decision rules out.
 
 ### FEAT-68 Start instantly from a cache
 

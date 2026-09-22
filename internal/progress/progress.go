@@ -3,9 +3,9 @@
 
 // Package progress works out how far along the developer loop a piece of work
 // is — pick an issue, branch, commit, open a review, announce it — from what
-// the repository and the services report. Nothing is stored, so every stage is
-// derived fresh. Both the terminal interface's spine and `workflow status`
-// read it, so the rule lives in one place.
+// the repository and the services report. It keeps no state of its own: every
+// stage is derived fresh, not read from the store. Both the terminal interface's
+// spine and `workflow status` read it, so the rule lives in one place.
 package progress
 
 import "github.com/jacob-delgado/workflow/internal/forge"

@@ -7,9 +7,12 @@ weight: 15
 
 Run `workflow` inside a repository. It opens on the issues assigned to you and
 reads everything else — the branch, its changes, its pull request, its CI — from
-the repository and the services it talks to. Nothing is stored between sessions:
-where you are in the work is worked out from the branch name each time, so there
-is no state file to corrupt, ignore, or lose on a fresh clone.
+the repository and the services it talks to. Where you are in the work is worked
+out from the branch name each time, never stored. A small on-disk store does
+remember a few conveniences between sessions — the commit scope you last used,
+what you have announced, the last issue list — under your platform's data
+directory and never a secret; set `store.disabled` to `true` to keep nothing on
+disk.
 
 ```sh
 workflow            # open the interface

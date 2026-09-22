@@ -54,4 +54,7 @@ export const mockConfig: Config = {
   pull_request: {
     title_source: '',
   },
+  store: {
+    disabled: false,
+  },
 }
