@@ -287,18 +287,6 @@ Impact: low · Effort: medium
 - Done when: the suite runs on a Windows runner in CI, and stopping a run kills
   its child processes there as it does on Unix.
 
-### FEAT-75 Guard the release tag on a green gate
-
-Impact: low · Effort: small
-
-- Why: the release-tag script pushes the tag before `release.yml` runs `task
-  check`, so a red gate could leave a tag with no release behind it.
-- Touches: `scripts/release/push-release-tag.sh`,
-  `.github/workflows/release.yml`.
-- Constraints: this is the maintainer's release path and cannot be exercised
-  without a real release.
-- Done when: the tag is pushed only once the gate has passed.
-
 ## Ideas that would reopen a settled decision
 
 Each of these is a reasonable thing to want. Each also needs one of the
