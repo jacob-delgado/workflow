@@ -374,8 +374,12 @@ func (r Repository) RemoteBranches(ctx context.Context) ([]string, error) {
 
 // Checkout switches to a branch. It carries nothing across: the interface
 // refuses a dirty tree before calling this, leaving stashing to the person.
+//
+// The name can come straight from the web request body, so "--" ends git's
+// option parsing: a name beginning with a dash is then read as a ref, never as
+// an option such as --orphan.
 func (r Repository) Checkout(ctx context.Context, name string) error {
-	_, err := r.run(ctx, gitProgram, "-C", r.dir, "switch", name)
+	_, err := r.run(ctx, gitProgram, "-C", r.dir, "switch", "--", name)
 	if err != nil {
 		return fmt.Errorf("switching to %s: %w", name, err)
 	}

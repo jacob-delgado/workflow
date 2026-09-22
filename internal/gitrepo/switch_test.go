@@ -153,7 +153,7 @@ func TestCheckoutSwitchesToTheBranch(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
-	replies := map[string]reply{"git -C /work switch fix/PROJ-412-token": {out: []byte("")}}
+	replies := map[string]reply{"git -C /work switch -- fix/PROJ-412-token": {out: []byte("")}}
 
 	// Act
 	err := gitrepo.At(fakeRunner(t, replies), workDir).Checkout(t.Context(), "fix/PROJ-412-token")
@@ -167,7 +167,7 @@ func TestCheckoutReportsAFailureToSwitch(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
-	replies := map[string]reply{"git -C /work switch gone": {err: errNoBranch}}
+	replies := map[string]reply{"git -C /work switch -- gone": {err: errNoBranch}}
 
 	// Act
 	err := gitrepo.At(fakeRunner(t, replies), workDir).Checkout(t.Context(), "gone")
@@ -175,5 +175,21 @@ func TestCheckoutReportsAFailureToSwitch(t *testing.T) {
 	// Assert
 	if !errors.Is(err, errNoBranch) {
 		t.Errorf("Checkout returned %v, want git's error", err)
+	}
+}
+
+// A branch name from the web request body is untrusted, so Checkout must pass it
+// after "--"; without the guard git would read a leading-dash name as an option.
+func TestCheckoutGuardsAnOptionLikeBranchName(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	replies := map[string]reply{"git -C /work switch -- --orphan": {out: []byte("")}}
+
+	// Act
+	err := gitrepo.At(fakeRunner(t, replies), workDir).Checkout(t.Context(), "--orphan")
+	// Assert
+	if err != nil {
+		t.Errorf("Checkout returned %v, want the name passed as a ref after --", err)
 	}
 }
