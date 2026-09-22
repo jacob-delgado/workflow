@@ -71,18 +71,13 @@ Impact: high · Effort: medium
   (indeterminate) with "in progress", so the category rule cannot single it out;
   that moment wants a configured status name, which is a change of its own.
 
-### FEAT-11 Create an issue
+### FEAT-11 Create an issue — declined
 
-Impact: medium · Effort: large
-
-- Why: a bug found mid-task is either written down now or lost. Today it means
-  the browser.
-- Touches: `internal/jira` (create metadata and create), a new overlay in
-  `internal/tui`, reusing the field form in `internal/tui/fields.go`.
-- Constraints: required fields differ by project and type, which is the same
-  problem the transition form already solves for a smaller set of kinds.
-- Done when: a bug can be filed with a project, a summary and a description
-  written in the editor, and it appears in the list.
+A bug found mid-task is worth capturing, but filing one — a project, a type,
+and a required-field set that differs by both — is a form the browser already
+does well, and rebuilding it here earns little over the one place it belongs.
+Out of scope by decision, not oversight; `workflow` picks issues up, it does not
+open them.
 
 ## Branch
 
@@ -349,31 +344,3 @@ Impact: low · Effort: large
   terminal.
 - Done when: a background process raises a desktop notification for a
   finished CI run.
-
-### FEAT-77 Switch between issues by their branches, in the web
-
-Impact: medium · Effort: medium
-
-- Builds on FEAT-76, and is taken up only after the web read surface is
-  complete. The read half fits the settled invariants: where you are is read
-  back from the branch names, exactly as "Nothing is stored between sessions"
-  says. The write half is the first of the web mode's deferred write actions.
-- Why: the TUI's task switcher (`internal/tui/switchtask.go`) lists your local
-  branches — each named for its issue — and checks one out to switch tasks. The
-  web sees only the checked-out branch, so its per-issue work story shows one
-  issue in flight and the rest not started, where the TUI shows every in-flight
-  item. There is no database to add: the local branches are the record, and the
-  issue↔branch link is the branch name (`convention.IssueKey`).
-- The shape:
-  - Read (fits v1, no new persistence): add the local task-branches — which
-    issues have a branch, and its state — to the API, as a snapshot field or an
-    endpoint, so the Issues list marks in-flight issues and each shows its own
-    work story rather than the checked-out one alone.
-  - Write (later phase): "open" an issue checks out, or creates, its branch,
-    guarded by the same dirty-tree refusal the TUI uses (`errDirtyTree`). Part
-    of the web write-actions phase, not the read surface.
-- Touches: `api/openapi.yaml`, `internal/webserver`, `internal/wiring` (its
-  `Branches` and `Checkout` seams already exist), `web/src/features/issues`.
-- Done when: the web Issues list shows more than one issue in flight when more
-  than one local branch names an issue, each with its own work story; and, in
-  the write phase, choosing an issue checks out its branch.
