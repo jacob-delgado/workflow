@@ -93,6 +93,9 @@ func TestJobsReadHowEachJobEnded(t *testing.T) {
 func TestFailuresFindWhereEachToolPoints(t *testing.T) {
 	t.Parallel()
 
+	// eslintFile is the file ESLint's stylish reporter names once, above its rows.
+	const eslintFile = "/Users/dev/project/src/app.js"
+
 	cases := map[string]struct {
 		goos  string
 		lines []string
@@ -180,6 +183,40 @@ func TestFailuresFindWhereEachToolPoints(t *testing.T) {
 				{File: "build/Dockerfile", Line: 12, Column: 0, Message: "DL3008 warning: Pin versions in apt get install"},
 				{File: "Makefile", Line: 3, Column: 0, Message: "missing separator"},
 				{File: "Justfile", Line: 5, Column: 0, Message: "unknown recipe"},
+			},
+		},
+		"ESLint's stylish reporter names the file once, above its rows": {
+			lines: []string{
+				// The file stands on its own line; each place below carries only
+				// line:col and no filename, so it must be read from the header.
+				eslintFile,
+				"  12:5  error  Missing semicolon  semi",
+				"  18:10  warning  x is assigned but never used  no-unused-vars",
+				"",
+				"src/other.ts",
+				"  3:1  error  Unexpected console statement  no-console",
+				"",
+				"3 problems (2 errors, 1 warning)",
+			},
+			want: []hooks.Location{
+				{File: eslintFile, Line: 12, Column: 5, Message: "Missing semicolon  semi"},
+				{
+					File: eslintFile, Line: 18, Column: 10,
+					Message: "x is assigned but never used  no-unused-vars",
+				},
+				{File: "src/other.ts", Line: 3, Column: 1, Message: "Unexpected console statement  no-console"},
+			},
+		},
+		"a Python traceback frame names its file and line": {
+			lines: []string{
+				"Traceback (most recent call last):",
+				`  File "scripts/gen.py", line 42, in <module>`,
+				`  File "/usr/lib/python3.12/json/__init__.py", line 346, in loads`,
+				"json.decoder.JSONDecodeError: Expecting value",
+			},
+			want: []hooks.Location{
+				{File: "scripts/gen.py", Line: 42, Column: 0, Message: ""},
+				{File: "/usr/lib/python3.12/json/__init__.py", Line: 346, Column: 0, Message: ""},
 			},
 		},
 	}

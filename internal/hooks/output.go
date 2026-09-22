@@ -150,15 +150,23 @@ const knownBasenames = `Dockerfile|Containerfile|Makefile|Justfile|Rakefile|` +
 // drive prefix is allowed there, and only there: on Unix an "a:b.go" would look
 // the same and is far likelier to be a false positive than a real drive. The
 // other two formats span the drive already, their file part being \S+.
-func locationPatterns(goos string) []*regexp.Regexp {
+// filePatterns returns the drive prefix and the file sub-pattern shared by the
+// location and ESLint patterns: a leading drive letter is allowed only on
+// Windows, and a file part must carry an extension or be a known extensionless
+// name (anchored as the last path segment). It returns the drive, then the file.
+func filePatterns(goos string) (string, string) {
 	drive := ""
 	if goos == "windows" {
 		drive = `(?:[A-Za-z]:)?`
 	}
 
-	// A file with an extension, or a known basename anchored as the last path
-	// segment (preceded by start-of-string or a separator).
 	file := `(?:[^\s:]+\.[A-Za-z0-9]+|(?:[^\s:]*[/\\])?(?:` + knownBasenames + `))`
+
+	return drive, file
+}
+
+func locationPatterns(goos string) []*regexp.Regexp {
+	drive, file := filePatterns(goos)
 
 	return []*regexp.Regexp{
 		// file:line:column: message, and file:line: message — Go, most linters.
@@ -170,7 +178,24 @@ func locationPatterns(goos string) []*regexp.Regexp {
 		regexp.MustCompile(`^In (\S+\.[A-Za-z0-9]+) line (\d+)():()$`),
 		// typos and others that point with an arrow.
 		regexp.MustCompile(`^(?:╭▸|-->)\s*(\S+\.[A-Za-z0-9]+):(\d+)(?::(\d+))?()$`),
+		// a Python traceback frame: `File "path/to/x.py", line 10, in <module>`.
+		// The quotes and the ", line" make it unambiguous, so the path is taken
+		// whole; the trailing ", in …" is dropped rather than kept as a message.
+		regexp.MustCompile(`^File "([^"]+)", line (\d+)()(?:,.*)?()$`),
 	}
+}
+
+// eslintPatterns match ESLint's "stylish" reporter, which names the file once on
+// its own line and then lists each place under it as "line:col severity message"
+// with no filename — so the file has to be carried across lines, which the
+// per-line patterns cannot do. The row keeps the error/warning word so a bare
+// "12:5 …" elsewhere is not mistaken for one. The header reuses the file rule so
+// only a plausible path opens a block. It returns the header pattern, then the row.
+func eslintPatterns(goos string) (*regexp.Regexp, *regexp.Regexp) {
+	drive, file := filePatterns(goos)
+
+	return regexp.MustCompile(`^(` + drive + file + `)$`),
+		regexp.MustCompile(`^(\d+):(\d+)\s+(?:error|warning)\s+(.*)$`)
 }
 
 // Failures finds every place in a hook's output that a tool pointed at, once
@@ -179,12 +204,35 @@ func locationPatterns(goos string) []*regexp.Regexp {
 func Failures(lines []string, goos string) []Location {
 	var found []Location
 
+	add := func(location Location) {
+		if !slices.ContainsFunc(found, location.samePlace) {
+			found = append(found, location)
+		}
+	}
+
 	patterns := locationPatterns(goos)
+	eslintHeader, eslintRow := eslintPatterns(goos)
+	eslintFile := ""
 
 	for _, raw := range lines {
-		location, ok := locate(patterns, strings.TrimSpace(raw))
-		if ok && !slices.ContainsFunc(found, location.samePlace) {
-			found = append(found, location)
+		line := strings.TrimSpace(raw)
+
+		if match := eslintHeader.FindStringSubmatch(line); match != nil {
+			eslintFile = match[1]
+
+			continue
+		}
+
+		if match := eslintRow.FindStringSubmatch(line); eslintFile != "" && match != nil {
+			lineNumber, _ := strconv.Atoi(match[1])
+			column, _ := strconv.Atoi(match[2])
+			add(Location{File: eslintFile, Line: lineNumber, Column: column, Message: match[3]})
+
+			continue
+		}
+
+		if location, ok := locate(patterns, line); ok {
+			add(location)
 		}
 	}
 
