@@ -23,9 +23,9 @@ import (
 	"github.com/jacob-delgado/workflow/internal/gitrepo"
 	"github.com/jacob-delgado/workflow/internal/hooks"
 	"github.com/jacob-delgado/workflow/internal/jira"
+	"github.com/jacob-delgado/workflow/internal/messaging"
 	"github.com/jacob-delgado/workflow/internal/proc"
 	"github.com/jacob-delgado/workflow/internal/sanitize"
-	"github.com/jacob-delgado/workflow/internal/slack"
 	"github.com/jacob-delgado/workflow/internal/tui"
 )
 
@@ -72,7 +72,7 @@ func Deps(ctx context.Context, cfg config.Config, where Workspace, log *RequestL
 		Jira:       trackerDeps(ctx, cfg, where, timeout, log),
 		Git:        gitDeps(ctx, where.Root),
 		Forge:      forgeDeps(ctx, cfg.Forge, where, timeout, log),
-		Slack:      slackDeps(ctx, cfg.Messaging, timeout, log),
+		Messaging:  messagingDeps(ctx, cfg.Messaging, timeout, log),
 		Hooks:      hookDeps(ctx, where.Root),
 		Editor:     editorDeps(where.Root),
 		Clock:      nil,
@@ -269,17 +269,19 @@ func commitWith(ctx context.Context, root, message string) (proc.Output, error) 
 	return output, nil
 }
 
-// slackDeps is what the interface asks of the messaging service. Only a Slack
+// messagingDeps is what the interface asks of the messaging service. Only a Slack
 // bot token is resolved from a command or environment variable; the webhook
 // kinds carry the credential in the URL and need no token lookup.
-func slackDeps(ctx context.Context, settings config.Messaging, timeout time.Duration, log *RequestLog) tui.SlackDeps {
+func messagingDeps(
+	ctx context.Context, settings config.Messaging, timeout time.Duration, log *RequestLog,
+) tui.MessagingDeps {
 	if settings.Mode() == config.MessagingBot {
 		settings.Token, _, _ = ResolveToken(ctx, settings.Token, settings.TokenCommand, settings.TokenEnv)
 	}
 	//nolint:bodyclose // Wrap only relays the response; the slack client reads and closes its body.
-	client := slack.New(log.Wrap("slack", slack.HTTPClient(timeout).Do), slack.APIBase, settings)
+	client := messaging.New(log.Wrap("slack", messaging.HTTPClient(timeout).Do), messaging.APIBase, settings)
 
-	return tui.SlackDeps{Post: func(channel, text string) error { return client.Post(ctx, channel, text) }}
+	return tui.MessagingDeps{Post: func(channel, text string) error { return client.Post(ctx, channel, text) }}
 }
 
 // hookDeps is what the interface asks of lefthook — nothing at all when lefthook

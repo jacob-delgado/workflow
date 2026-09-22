@@ -1,7 +1,7 @@
 // Copyright 2026 Jacob Delgado
 // SPDX-License-Identifier: Apache-2.0
 
-package slack_test
+package messaging_test
 
 import (
 	"encoding/json"
@@ -14,7 +14,7 @@ import (
 	"time"
 
 	"github.com/jacob-delgado/workflow/internal/config"
-	"github.com/jacob-delgado/workflow/internal/slack"
+	"github.com/jacob-delgado/workflow/internal/messaging"
 )
 
 // botToken is the credential these tests send. Deliberately not shaped like a
@@ -31,13 +31,13 @@ func botCredentials() config.Messaging {
 }
 
 // serve starts a Slack API and returns a client pointed at it.
-func serve(t *testing.T, handler http.HandlerFunc) slack.Client {
+func serve(t *testing.T, handler http.HandlerFunc) messaging.Client {
 	t.Helper()
 
 	server := httptest.NewServer(handler)
 	t.Cleanup(server.Close)
 
-	return slack.New(server.Client().Do, server.URL, botCredentials())
+	return messaging.New(server.Client().Do, server.URL, botCredentials())
 }
 
 func TestAuthTestReportsTheWorkspaceAndUser(t *testing.T) {
@@ -84,7 +84,7 @@ func TestAuthTestSendsTheTokenOnlyInTheAuthorizationHeader(t *testing.T) {
 	}))
 	t.Cleanup(server.Close)
 
-	client := slack.New(server.Client().Do, server.URL, botCredentials())
+	client := messaging.New(server.Client().Do, server.URL, botCredentials())
 
 	// Act
 	_, err := client.AuthTest(t.Context())
@@ -122,7 +122,7 @@ func TestAuthTestRejectsAFailureInsideATwoHundred(t *testing.T) {
 	_, err := client.AuthTest(t.Context())
 
 	// Assert
-	if !errors.Is(err, slack.ErrRejected) {
+	if !errors.Is(err, messaging.ErrRejected) {
 		t.Fatalf("AuthTest returned %v, want ErrRejected", err)
 	}
 
@@ -153,20 +153,20 @@ func TestAuthTestRefusesWhatItCannotCheck(t *testing.T) {
 			credentials: config.Messaging{
 				Token: "", WebhookURL: "https://hooks.slack.com/services/T0/B0/secretpath", Channel: "",
 			},
-			want:   slack.ErrWebhookUncheckable,
+			want:   messaging.ErrWebhookUncheckable,
 			hidden: []string{"secretpath", "hooks.slack.com"},
 		},
 		"no credential": {
 			base:        "https://slack.example.com",
 			credentials: config.Messaging{Token: "", WebhookURL: "", Channel: ""},
-			want:        slack.ErrNoCredential,
+			want:        messaging.ErrNoCredential,
 		},
 		// A control character is what url.Parse refuses outright, which is the
 		// only way to reach the request-building failure.
 		"an API base url.Parse refuses": {
 			base:        "https://slack.example.com/\x7f",
 			credentials: botCredentials(),
-			want:        slack.ErrUnreachable,
+			want:        messaging.ErrUnreachable,
 			hidden:      []string{botToken},
 		},
 	}
@@ -176,7 +176,7 @@ func TestAuthTestRefusesWhatItCannotCheck(t *testing.T) {
 			t.Parallel()
 
 			// Arrange
-			client := slack.New(http.DefaultClient.Do, tt.base, tt.credentials)
+			client := messaging.New(http.DefaultClient.Do, tt.base, tt.credentials)
 
 			// Act
 			_, err := client.AuthTest(t.Context())
@@ -207,7 +207,7 @@ func TestAuthTestTranslatesAnUnexpectedStatus(t *testing.T) {
 	_, err := client.AuthTest(t.Context())
 
 	// Assert
-	if !errors.Is(err, slack.ErrUnexpectedStatus) {
+	if !errors.Is(err, messaging.ErrUnexpectedStatus) {
 		t.Errorf("AuthTest returned %v, want ErrUnexpectedStatus", err)
 	}
 }
@@ -224,7 +224,7 @@ func TestAuthTestTellsRateLimitingApart(t *testing.T) {
 	_, err := client.AuthTest(t.Context())
 
 	// Assert
-	if !errors.Is(err, slack.ErrRateLimited) {
+	if !errors.Is(err, messaging.ErrRateLimited) {
 		t.Errorf("AuthTest returned %v, want ErrRateLimited", err)
 	}
 }
@@ -237,13 +237,13 @@ func TestAuthTestReportsAnUnreachableAPI(t *testing.T) {
 	base := server.URL
 	server.Close()
 
-	client := slack.New(slack.HTTPClient(2*time.Second).Do, base, botCredentials())
+	client := messaging.New(messaging.HTTPClient(2*time.Second).Do, base, botCredentials())
 
 	// Act
 	_, err := client.AuthTest(t.Context())
 
 	// Assert
-	if !errors.Is(err, slack.ErrUnreachable) {
+	if !errors.Is(err, messaging.ErrUnreachable) {
 		t.Errorf("AuthTest returned %v, want ErrUnreachable", err)
 	}
 }
@@ -283,13 +283,13 @@ func TestHTTPClientRefusesARedirect(t *testing.T) {
 	}))
 	t.Cleanup(first.Close)
 
-	client := slack.New(slack.HTTPClient(5*time.Second).Do, first.URL, botCredentials())
+	client := messaging.New(messaging.HTTPClient(5*time.Second).Do, first.URL, botCredentials())
 
 	// Act
 	_, err := client.AuthTest(t.Context())
 
 	// Assert
-	if !errors.Is(err, slack.ErrRedirected) {
+	if !errors.Is(err, messaging.ErrRedirected) {
 		t.Errorf("AuthTest returned %v, want ErrRedirected", err)
 	}
 

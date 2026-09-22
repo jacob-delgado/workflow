@@ -24,12 +24,12 @@ import (
 // a test need only supply what it exercises. An action is only offered once the
 // model has what it acts on.
 type Deps struct {
-	Jira   JiraDeps
-	Git    GitDeps
-	Forge  ForgeDeps
-	Slack  SlackDeps
-	Hooks  HookDeps
-	Editor EditorDeps
+	Jira      JiraDeps
+	Git       GitDeps
+	Forge     ForgeDeps
+	Messaging MessagingDeps
+	Hooks     HookDeps
+	Editor    EditorDeps
 	// Clock tells the time, for how long ago a comment was written. Nil means
 	// time.Now.
 	Clock func() time.Time
@@ -143,8 +143,8 @@ type ForgeDeps struct {
 	Kind forge.Kind
 }
 
-// SlackDeps is what the interface asks of Slack.
-type SlackDeps struct {
+// MessagingDeps is what the interface asks of Slack.
+type MessagingDeps struct {
 	// Post sends text to a channel, or to the configured default when channel is
 	// empty. A webhook ignores the channel and posts where it is bound.
 	Post func(channel, text string) error

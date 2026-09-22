@@ -163,7 +163,7 @@ func (m Model) ciFinishNotice(was, now forge.CIState) tea.Cmd {
 // again at the same rate, so it stops until the next refresh rather than asking
 // for as long as the program runs.
 func (m Model) keepPolling(then tea.Cmd) (Model, tea.Cmd) {
-	waiting := m.review.ci.State == forge.CIRunning || m.slack.pending.waiting()
+	waiting := m.review.ci.State == forge.CIRunning || m.messaging.pending.waiting()
 	if !waiting || m.review.ciErr != nil || m.review.polling {
 		return m, then
 	}
@@ -183,7 +183,7 @@ const notifyPollInterval = 3 * time.Minute
 // on CI wants a prompt answer, and a configured interval is always honored; a
 // bare notification, with no interval set, is content with a slower beat.
 func (m Model) pollInterval() time.Duration {
-	if m.cfg.UI.Notify && !m.slack.pending.waiting() && m.deps.CIInterval <= 0 {
+	if m.cfg.UI.Notify && !m.messaging.pending.waiting() && m.deps.CIInterval <= 0 {
 		return notifyPollInterval
 	}
 

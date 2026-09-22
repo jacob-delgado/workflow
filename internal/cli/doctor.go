@@ -20,8 +20,8 @@ import (
 	"github.com/jacob-delgado/workflow/internal/gitrepo"
 	"github.com/jacob-delgado/workflow/internal/httpx"
 	"github.com/jacob-delgado/workflow/internal/jira"
+	"github.com/jacob-delgado/workflow/internal/messaging"
 	"github.com/jacob-delgado/workflow/internal/proc"
-	"github.com/jacob-delgado/workflow/internal/slack"
 	"github.com/jacob-delgado/workflow/internal/wiring"
 )
 
@@ -151,7 +151,7 @@ func reportCredentials(ctx context.Context, out io.Writer, cfg config.Config, re
 
 	return errors.Join(
 		checkJira(ctx, out, doer, cfg.Jira),
-		checkMessaging(ctx, out, doer, slack.APIBase, cfg.Messaging),
+		checkMessaging(ctx, out, doer, messaging.APIBase, cfg.Messaging),
 		checkForge(ctx, out, doer, cfg.Forge, remote),
 	)
 }
@@ -254,7 +254,9 @@ func askForge(
 
 // checkMessaging asks the messaging service which workspace the bot token
 // belongs to. Only a Slack bot token can be checked; a webhook is uncheckable.
-func checkMessaging(ctx context.Context, out io.Writer, doer slack.Doer, base string, creds config.Messaging) error {
+func checkMessaging(
+	ctx context.Context, out io.Writer, doer messaging.Doer, base string, creds config.Messaging,
+) error {
 	label := strings.ToLower(creds.Service())
 
 	token, source, err := wiring.ResolveToken(ctx, creds.Token, creds.TokenCommand, creds.TokenEnv)
@@ -265,7 +267,7 @@ func checkMessaging(ctx context.Context, out io.Writer, doer slack.Doer, base st
 	}
 
 	creds.Token = token
-	client := slack.New(doer, base, creds)
+	client := messaging.New(doer, base, creds)
 
 	identity, err := client.AuthTest(ctx)
 	if err != nil {
@@ -274,11 +276,11 @@ func checkMessaging(ctx context.Context, out io.Writer, doer slack.Doer, base st
 		// A webhook that cannot be checked is not a failed check. Nothing is
 		// wrong with the configuration; there is simply nothing to ask, because
 		// the only way to test a webhook is to post into somebody's channel.
-		if errors.Is(err, slack.ErrWebhookUncheckable) {
+		if errors.Is(err, messaging.ErrWebhookUncheckable) {
 			return nil
 		}
 
-		return credentialOutcome(err, slack.ErrUnreachable, label)
+		return credentialOutcome(err, messaging.ErrUnreachable, label)
 	}
 
 	fmt.Fprintf(out, "  %-10s %s in %s (token from %s)\n", label, identity.User, identity.Team, source)

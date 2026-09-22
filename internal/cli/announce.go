@@ -16,7 +16,7 @@ import (
 	"github.com/jacob-delgado/workflow/internal/forge"
 	"github.com/jacob-delgado/workflow/internal/gitrepo"
 	"github.com/jacob-delgado/workflow/internal/jira"
-	"github.com/jacob-delgado/workflow/internal/slack"
+	"github.com/jacob-delgado/workflow/internal/messaging"
 	"github.com/jacob-delgado/workflow/internal/wiring"
 )
 
@@ -103,7 +103,7 @@ func runAnnounceCommand(cmd *cobra.Command, prompt Prompt, opts writeOptions) er
 	}
 
 	if cfg.Messaging.Mode() != config.MessagingNone {
-		seams.Post = func(channel, text string) error { return deps.Slack.Post(channel, text) }
+		seams.Post = func(channel, text string) error { return deps.Messaging.Post(channel, text) }
 	}
 
 	return runAnnounce(cmd.OutOrStdout(), seams, opts)
@@ -155,11 +155,11 @@ func runAnnounce(out io.Writer, seams announceSeams, opts writeOptions) error {
 
 // composeAnnouncement builds the announcement for the branch's pull request,
 // marking the moment it is at.
-func composeAnnouncement(seams announceSeams, branch gitrepo.Branch, pull forge.PullRequest) slack.Announcement {
+func composeAnnouncement(seams announceSeams, branch gitrepo.Branch, pull forge.PullRequest) messaging.Announcement {
 	key, _ := convention.IssueKey(branch.Name, seams.Project)
 	issueKey := jira.Key(key)
 
-	return slack.Announcement{
+	return messaging.Announcement{
 		Author:           announceAuthor(seams),
 		PullRequestURL:   pull.URL,
 		PullRequestTitle: pull.Title,
@@ -176,17 +176,17 @@ func composeAnnouncement(seams announceSeams, branch gitrepo.Branch, pull forge.
 // announceMoment is the moment the pull request is at: merged, its CI red, or —
 // the common case — ready for review. A CI read that fails leaves the moment at
 // ready rather than failing the announcement.
-func announceMoment(seams announceSeams, pull forge.PullRequest, head string) slack.Moment {
+func announceMoment(seams announceSeams, pull forge.PullRequest, head string) messaging.Moment {
 	if pull.State == forge.StateMerged {
-		return slack.MomentMerged
+		return messaging.MomentMerged
 	}
 
 	ci, err := seams.CheckCI(pull, head)
 	if err == nil && ci.State == forge.CIFailed {
-		return slack.MomentCIRed
+		return messaging.MomentCIRed
 	}
 
-	return slack.MomentReady
+	return messaging.MomentReady
 }
 
 // forgeNoun is what the forge calls a change: a merge request on GitLab, a pull

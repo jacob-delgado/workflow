@@ -1,7 +1,7 @@
 // Copyright 2026 Jacob Delgado
 // SPDX-License-Identifier: Apache-2.0
 
-package slack
+package messaging
 
 import (
 	"bytes"

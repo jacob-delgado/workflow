@@ -47,7 +47,7 @@ func TestAnOverlayShowsAFailureFully(t *testing.T) {
 			prepare: func(w *world) { w.pullFound, w.openErr = false, errLongReason },
 			keys:    []string{"4", "n", keyEnter},
 		},
-		"slack preview": {
+		"messaging preview": {
 			prepare: func(w *world) { w.postErr = errLongReason },
 			keys:    []string{"5", "p", keyEnter},
 		},

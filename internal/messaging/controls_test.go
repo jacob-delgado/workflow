@@ -1,7 +1,7 @@
 // Copyright 2026 Jacob Delgado
 // SPDX-License-Identifier: Apache-2.0
 
-package slack_test
+package messaging_test
 
 import (
 	"errors"
@@ -10,7 +10,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/jacob-delgado/workflow/internal/slack"
+	"github.com/jacob-delgado/workflow/internal/messaging"
 )
 
 func TestAWorkspaceNameCannotDriveTheTerminal(t *testing.T) {
@@ -48,7 +48,7 @@ func TestSlacksErrorCannotDriveTheTerminal(t *testing.T) {
 	_, err := client.AuthTest(t.Context())
 
 	// Assert
-	if !errors.Is(err, slack.ErrRejected) || strings.ContainsRune(err.Error(), 0x1b) ||
+	if !errors.Is(err, messaging.ErrRejected) || strings.ContainsRune(err.Error(), 0x1b) ||
 		!strings.Contains(err.Error(), "invalid_auth") {
 		t.Errorf("AuthTest returned %q, want Slack's error without the escape", err)
 	}
@@ -70,7 +70,7 @@ func TestAnAnswerThatBreaksOffIsAnError(t *testing.T) {
 		return &http.Response{StatusCode: http.StatusOK, Body: io.NopCloser(brokenBody{})}, nil
 	}
 
-	client := slack.New(dropped, slack.APIBase, botCredentials())
+	client := messaging.New(dropped, messaging.APIBase, botCredentials())
 
 	// Act
 	_, err := client.AuthTest(t.Context())

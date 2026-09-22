@@ -78,7 +78,7 @@ type Model struct {
 	changes     changeList
 	diff        diffState
 	review      reviewState
-	slack       slackState
+	messaging   messagingState
 	reviewQueue reviewQueueState
 	hookgen     hookgenState
 }
@@ -207,7 +207,7 @@ func (m Model) filteringIssues() bool {
 // quitOrGuard quits, unless a post is waiting for CI, in which case it asks
 // first: quitting would lose the post without a word.
 func (m Model) quitOrGuard() (Model, tea.Cmd) {
-	if m.slack.pending.waiting() {
+	if m.messaging.pending.waiting() {
 		m.overlay = quitGuard{}
 
 		return m, nil

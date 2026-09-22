@@ -18,7 +18,7 @@ import (
 	"github.com/jacob-delgado/workflow/internal/config"
 	"github.com/jacob-delgado/workflow/internal/forge"
 	"github.com/jacob-delgado/workflow/internal/jira"
-	"github.com/jacob-delgado/workflow/internal/slack"
+	"github.com/jacob-delgado/workflow/internal/messaging"
 	"github.com/jacob-delgado/workflow/internal/wiring"
 )
 
@@ -214,13 +214,13 @@ func TestTheSlackSeamRefusesAnInsecureWebhookBeforeSending(t *testing.T) {
 	cfg := config.Default()
 	cfg.Messaging = config.Messaging{Token: "", WebhookURL: "http://hooks.example.com/services/x", Channel: ""}
 
-	seams := wiring.Deps(t.Context(), cfg, wiring.Workspace{Root: t.TempDir(), Remote: ""}, nil).Slack
+	seams := wiring.Deps(t.Context(), cfg, wiring.Workspace{Root: t.TempDir(), Remote: ""}, nil).Messaging
 
 	// Act
 	err := seams.Post("", "hi")
 
 	// Assert
-	if !errors.Is(err, slack.ErrInsecureWebhook) {
+	if !errors.Is(err, messaging.ErrInsecureWebhook) {
 		t.Errorf("Post = %v, want the webhook refused before anything is sent", err)
 	}
 }

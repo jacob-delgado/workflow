@@ -18,8 +18,8 @@ import (
 	"github.com/jacob-delgado/workflow/internal/config"
 	"github.com/jacob-delgado/workflow/internal/forge"
 	"github.com/jacob-delgado/workflow/internal/jira"
+	"github.com/jacob-delgado/workflow/internal/messaging"
 	"github.com/jacob-delgado/workflow/internal/sanitize"
-	"github.com/jacob-delgado/workflow/internal/slack"
 	"github.com/jacob-delgado/workflow/internal/tui/frame"
 	"github.com/jacob-delgado/workflow/internal/tui/layout"
 )
@@ -407,8 +407,8 @@ func errorSentence(err error) (string, bool) {
 		{jira.ErrUnreachable, "Jira did not answer within 10 seconds. Check the VPN, then press `r`."},
 		{forge.ErrNoToken, "No forge token found. Run `gh auth login`, or set `$GITHUB_TOKEN`."},
 		{forge.ErrUnreachable, "The forge did not answer within 10 seconds. Check the network, then press `r`."},
-		{slack.ErrNoCredential, "Messaging is not set up. Add `messaging.webhook_url` to `.workflow.json`."},
-		{slack.ErrRejected, "Slack refused the post: check the bot is in the channel."},
+		{messaging.ErrNoCredential, "Messaging is not set up. Add `messaging.webhook_url` to `.workflow.json`."},
+		{messaging.ErrRejected, "Slack refused the post: check the bot is in the channel."},
 	} {
 		if errors.Is(err, known.sentinel) {
 			return known.sentence, true

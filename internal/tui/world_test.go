@@ -310,7 +310,7 @@ func (w *world) deps() tui.Deps {
 		Jira:  w.jiraDeps(),
 		Git:   w.gitDeps(),
 		Forge: w.forgeDeps(),
-		Slack: tui.SlackDeps{Post: func(channel, text string) error {
+		Messaging: tui.MessagingDeps{Post: func(channel, text string) error {
 			w.record("post " + text)
 			w.rememberChannel(channel)
 

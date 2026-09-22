@@ -415,7 +415,7 @@ func TestASCIIStaysASCIIInEveryOverlay(t *testing.T) {
 		"the commit composer":       {keys: []string{"3", "c"}},
 		"the comment preview":       {prepare: func(w *world) { w.edited = "Looks good" }, keys: []string{"c"}},
 		"the pull-request composer": {prepare: func(w *world) { w.pullFound = false }, keys: []string{"4", "n"}},
-		"the slack preview":         {keys: []string{"5", "p"}},
+		"the messaging preview":     {keys: []string{"5", "p"}},
 		// commandRun is excluded on purpose: its body is a tool's own output, not
 		// interface-authored text, so it is outside the ASCII-glyph guarantee.
 		"the lefthook offer": {prepare: func(w *world) { w.gitHooks = legacyHooks() }},
