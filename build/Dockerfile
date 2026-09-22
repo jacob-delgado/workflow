@@ -11,6 +11,10 @@
 #   task container:check     # lint + test + scan inside the container
 #   task container:release   # cross-compiled binaries into dist/
 
+# The default is a pin, not a drift: scripts/check-go-version.sh reads it here
+# and fails the lint gate unless it agrees with go.mod, mise.toml and the README.
+# scripts/tool-versions.sh passes the mise.toml value in at build time, and the
+# two are held equal by that check. Do not drop the default — the gate reads it.
 ARG GO_VERSION=1.27.1
 # Pinned by digest as well as by tag, so what gets pulled cannot change under a
 # tag that was re-pushed. The digest is the multi-architecture index, so amd64
@@ -22,6 +26,10 @@ FROM golang:${GO_VERSION}-trixie@sha256:9baa6b4187bbb98d240372a8a235ac0bb6b5ddd5
 
 ARG TASK_VERSION
 ARG GOLANGCI_LINT_VERSION
+ARG LEFTHOOK_VERSION
+ARG SHELLCHECK_VERSION
+ARG NODE_VERSION
+ARG JQ_VERSION
 ARG SHFMT_VERSION
 ARG YAMLLINT_VERSION
 ARG TYPOS_VERSION
@@ -37,13 +45,60 @@ ARG MARKDOWNLINT_VERSION
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 
 # System packages. Deliberately unpinned: the base image's Debian release pins
-# them, and pinning again here breaks the build on every security update.
+# them, and pinning again here breaks the build on every security update. Only
+# the base tools live here — git, the cert bundle, pip for yamllint, and xz to
+# unpack the .tar.xz release archives below. shellcheck, node and jq are NOT
+# taken from apt: they are gates whose versions the mise.toml pins decide, so
+# they are installed from those pins further down.
 # hadolint ignore=DL3008
 RUN set -eux; \
     apt-get update; \
     apt-get install -y --no-install-recommends \
-    git ca-certificates shellcheck python3-pip jq nodejs npm; \
+    git ca-certificates python3-pip xz-utils; \
     rm -rf /var/lib/apt/lists/*
+
+# node — the runtime the npm tools run under (and the source of npm), from the
+# mise.toml pin rather than the base image's apt, so the container runs the same
+# node the host and CI do. Installed before the npm step below.
+RUN set -eux; \
+    : "${NODE_VERSION:?}"; \
+    arch="$(dpkg --print-architecture)"; \
+    case "${arch}" in \
+    amd64) target="x64" ;; \
+    arm64) target="arm64" ;; \
+    *) echo "unsupported architecture: ${arch}" >&2; exit 1 ;; \
+    esac; \
+    url="https://nodejs.org/dist/v${NODE_VERSION}/node-v${NODE_VERSION}-linux-${target}.tar.xz"; \
+    curl -fsSL "${url}" -o /tmp/node.tar.xz; \
+    tar -xJf /tmp/node.tar.xz -C /usr/local --strip-components=1; \
+    rm -f /tmp/node.tar.xz; \
+    node --version; \
+    npm --version
+
+# shellcheck, jq and lefthook — the remaining gates apt used to supply, now from
+# their mise.toml pins. lefthook is here so the container runs the wiring tests
+# that exercise it rather than skipping them for want of the binary.
+RUN set -eux; \
+    : "${SHELLCHECK_VERSION:?}" "${JQ_VERSION:?}" "${LEFTHOOK_VERSION:?}"; \
+    arch="$(dpkg --print-architecture)"; \
+    case "${arch}" in \
+    amd64) shellcheck_target="x86_64"; lefthook_target="x86_64" ;; \
+    arm64) shellcheck_target="aarch64"; lefthook_target="arm64" ;; \
+    *) echo "unsupported architecture: ${arch}" >&2; exit 1 ;; \
+    esac; \
+    curl -fsSL "https://github.com/koalaman/shellcheck/releases/download/v${SHELLCHECK_VERSION}/shellcheck-v${SHELLCHECK_VERSION}.linux.${shellcheck_target}.tar.xz" \
+    -o /tmp/shellcheck.tar.xz; \
+    tar -xJf /tmp/shellcheck.tar.xz -C /usr/local/bin --strip-components=1 "shellcheck-v${SHELLCHECK_VERSION}/shellcheck"; \
+    rm -f /tmp/shellcheck.tar.xz; \
+    shellcheck --version; \
+    curl -fsSL "https://github.com/jqlang/jq/releases/download/jq-${JQ_VERSION}/jq-linux-${arch}" \
+    -o /usr/local/bin/jq; \
+    chmod +x /usr/local/bin/jq; \
+    jq --version; \
+    curl -fsSL "https://github.com/evilmartians/lefthook/releases/download/v${LEFTHOOK_VERSION}/lefthook_${LEFTHOOK_VERSION}_Linux_${lefthook_target}.gz" \
+    | gunzip > /usr/local/bin/lefthook; \
+    chmod +x /usr/local/bin/lefthook; \
+    lefthook version
 
 # Tools that ship as Go modules, built with the Go above so none of them can
 # reject a project targeting this toolchain.
@@ -110,11 +165,11 @@ RUN set -eux; \
     taplo --version; \
     curl -fsSL "https://github.com/zizmorcore/zizmor/releases/download/v${ZIZMOR_VERSION}/zizmor-${zizmor_target}.tar.gz" \
     -o /tmp/zizmor.tar.gz; \
-    tar -xzf /tmp/zizmor.tar.gz -C /usr/local/bin --strip-components=1 --wildcards '*/zizmor'; \
+    tar -xzf /tmp/zizmor.tar.gz -C /usr/local/bin zizmor; \
     rm -f /tmp/zizmor.tar.gz; \
     zizmor --version
 
-# markdownlint-cli2 is a Node package; npm comes from the apt layer above.
+# markdownlint-cli2 is a Node package; npm comes from the node install above.
 RUN set -eux; \
     : "${MARKDOWNLINT_VERSION:?}"; \
     npm install -g --no-fund --no-audit "markdownlint-cli2@${MARKDOWNLINT_VERSION}"; \
