@@ -128,17 +128,6 @@ Impact: low · Effort: small
 - Done when: the hooks lefthook configures can be chosen and run from the
   pane.
 
-### FEAT-25 Recognize more failure formats
-
-Impact: medium · Effort: small
-
-- Why: a failed hook lists the `file:line` places it can parse, and `enter`
-  opens the editor there. The pattern needs a file extension and a colon
-  form, so `Dockerfile:3`, TypeScript's `file.ts(12,5)`, ESLint's stylish
-  output and a Python traceback all fall through to raw output.
-- Touches: `internal/hooks/output.go` (`Locations`), and its table test.
-- Done when: each new format has a table case and opens at the right line.
-
 ### FEAT-26 Add co-authors and a sign-off
 
 Impact: low · Effort: small
