@@ -222,9 +222,10 @@ task cover:branch  # condition coverage: which branches were never taken
 task check         # the full gate: lint, coverage floors, vuln, secrets
 ```
 
-`task check` is what CI runs. See [CONTRIBUTING.md](CONTRIBUTING.md) for the
-setup and conventions, and [CLAUDE.md](CLAUDE.md) for the code standards this
-project holds itself to.
+`task check` is what CI runs. See [ARCHITECTURE.md](ARCHITECTURE.md) for how the
+system fits together — the surfaces, the seams, and the two kinds of local state
+— [CONTRIBUTING.md](CONTRIBUTING.md) for the setup and conventions, and
+[CLAUDE.md](CLAUDE.md) for the code standards this project holds itself to.
 
 ## Documentation
 
