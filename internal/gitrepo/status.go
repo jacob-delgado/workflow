@@ -126,8 +126,7 @@ func (r Repository) Diff(ctx context.Context, change Change) ([]string, error) {
 
 	var lines []string
 
-	//nolint:modernize // SplitSeq returns a range-over-func iterator, which crashes gobco.
-	for _, line := range strings.Split(body, "\n") {
+	for line := range strings.SplitSeq(body, "\n") {
 		lines = append(lines, sanitize.Text(line))
 	}
 

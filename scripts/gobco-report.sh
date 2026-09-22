@@ -12,13 +12,13 @@
 # The score is arms observed / arms present: every condition has two arms, and a
 # condition seen only one way scores 1 of 2.
 #
-# THE SKIP LIST IS THE HONEST PART, and it is currently EMPTY. Any package named
-# in UNANALYZABLE below is one this gate does not measure, with the reason
-# written beside it. A package that fails and is NOT on the list is a hard error:
-# a report that quietly dropped a package would still print a healthy percentage
-# while measuring less and less of the code, which is the one failure mode a
-# coverage gate must not have. The corollary is that adding an entry is a real
-# decision, never a way to make a red run green.
+# THE SKIP LIST IS THE HONEST PART, and it holds only build-tagged twins. Any
+# package named in UNANALYZABLE below is one this gate does not measure, with
+# the reason written beside it. A package that fails and is NOT on the list is a
+# hard error: a report that quietly dropped a package would still print a
+# healthy percentage while measuring less and less of the code, which is the one
+# failure mode a coverage gate must not have. The corollary is that adding an
+# entry is a real decision, never a way to make a red run green.
 #
 # Other sharp edges, each measured rather than assumed:
 #
@@ -35,10 +35,10 @@
 #      writing it, panicking if the counter count changed. So each package gets
 #      its own file and the output directory is wiped first.
 #
-#   4. IT IGNORES BUILD TAGS, with no flag to change that. This module has none
-#      today. The day a build-tagged file lands — a _windows.go with a twin —
-#      gobco will fail on that package, and the fix is to add it to
-#      UNANALYZABLE with that reason, not to delete the twin.
+#   4. IT IGNORES BUILD TAGS, with no flag to change that. When a build-tagged
+#      file lands with a twin — a _windows.go, an embed and its stub — gobco
+#      fails on that package, and the fix is to add it to UNANALYZABLE with
+#      that reason, not to delete the twin. Two packages are there for it.
 set -euo pipefail
 
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -47,9 +47,10 @@ readonly out_dir="${OUT_DIR:-${repo_root}/tmp/gobco}"
 
 # Packages gobco cannot read, each with the reason it cannot.
 #
-# EMPTY, and that is the correct state. It previously held internal/cli and
-# internal/tui, blamed on gobco dying inside `math/rand/v2` with "method must
-# have no type parameters". The symptom was real; the diagnosis was not.
+# Only the build-tagged twins below, and that is the correct state. It
+# previously held internal/cli and internal/tui, blamed on gobco dying inside
+# `math/rand/v2` with "method must have no type parameters". The symptom was
+# real; the diagnosis was not.
 #
 # gobco type-checks the standard library from SOURCE, using the go/types that is
 # compiled into it — which is the go/types of whichever Go BUILT gobco, not the

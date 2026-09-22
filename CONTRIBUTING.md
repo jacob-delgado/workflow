@@ -74,8 +74,9 @@ printing the available ratchet when you clear them:
 - **Conditions** (`task cover:branch`, via [gobco](https://github.com/rillig/gobco))
   — was each branch seen both ways. Its output names every condition observed only
   one way, which is a worklist of the tests still missing. gobco reads every
-  package in this module; `scripts/gobco-report.sh` fails if one ever drops out
-  without being listed as unreadable.
+  package in this module but the build-tagged twins `scripts/gobco-report.sh`
+  lists as unreadable, and the script fails if another ever drops out without
+  being listed.
 
 On a pull request, both numbers are posted as a comment with their delta against
 `main`. The comment is informational — the floors are what fail the build.
