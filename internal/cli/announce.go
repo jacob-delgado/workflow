@@ -1,0 +1,235 @@
+// Copyright 2026 Jacob Delgado
+// SPDX-License-Identifier: Apache-2.0
+
+package cli
+
+import (
+	"errors"
+	"fmt"
+	"io"
+	"os"
+
+	"github.com/spf13/cobra"
+
+	"github.com/jacob-delgado/workflow/internal/config"
+	"github.com/jacob-delgado/workflow/internal/convention"
+	"github.com/jacob-delgado/workflow/internal/forge"
+	"github.com/jacob-delgado/workflow/internal/gitrepo"
+	"github.com/jacob-delgado/workflow/internal/jira"
+	"github.com/jacob-delgado/workflow/internal/slack"
+	"github.com/jacob-delgado/workflow/internal/wiring"
+)
+
+// errNoPullRequest refuses announcing a branch that has no pull request.
+var errNoPullRequest = errors.New("there is no pull request on this branch to announce")
+
+// errSlackNotConfigured refuses announcing when no Slack transport is set up.
+var errSlackNotConfigured = errors.New("no Slack transport is configured")
+
+// announceSeams are what `workflow announce` reads and does, so a test can
+// answer without a repository, a forge or Slack.
+type announceSeams struct {
+	Branch    func() (gitrepo.Branch, error)
+	FindPull  func(branch string) (forge.PullRequest, bool, error)
+	Author    func() (string, error)
+	Issue     func(jira.Key) (jira.IssueDetail, error)
+	BrowseURL func(jira.Key) string
+	CheckCI   func(pull forge.PullRequest, head string) (forge.CI, error)
+	Post      func(channel, text string) error
+	Kind      forge.Kind
+	Project   string
+	Channel   string
+	Template  string
+	Confirm   func(question string) (bool, error)
+}
+
+// newAnnounceCmd builds `workflow announce`.
+func newAnnounceCmd(prompt Prompt) *cobra.Command {
+	var opts writeOptions
+
+	cmd := &cobra.Command{
+		Use:   "announce",
+		Short: "Announce the branch's pull request to Slack",
+		Long: "Post the message the Slack pane would — the branch's pull request, its\n" +
+			"issue, and where it stands (ready for review, merged, or CI red) — to the\n" +
+			"configured channel. A preview is printed and confirmed before anything posts.",
+		Args: cobra.NoArgs,
+		RunE: func(cmd *cobra.Command, _ []string) error {
+			return runAnnounceCommand(cmd, prompt, opts)
+		},
+	}
+
+	opts.addFlags(cmd, "posting")
+
+	return cmd
+}
+
+// runAnnounceCommand wires the real repository, forge, Jira and Slack to the
+// announce flow.
+func runAnnounceCommand(cmd *cobra.Command, prompt Prompt, opts writeOptions) error {
+	ctx := cmd.Context()
+
+	dir, err := os.Getwd()
+	if err != nil {
+		return fmt.Errorf("determining the working directory: %w", err)
+	}
+
+	home, _ := os.UserHomeDir()
+	cfg, _ := config.Load(dir, home)
+	deps := wiring.Deps(ctx, cfg, wiring.Locate(ctx, dir), nil)
+
+	seams := announceSeams{
+		Branch:    deps.Git.Branch,
+		FindPull:  deps.Forge.FindPullRequest,
+		Author:    deps.Forge.Author,
+		Issue:     deps.Jira.Issue,
+		BrowseURL: deps.Jira.BrowseURL,
+		CheckCI:   deps.Forge.CheckStatus,
+		Kind:      deps.Forge.Kind,
+		Project:   cfg.Jira.Project,
+		Channel:   cfg.Slack.Channel,
+		Template:  cfg.Slack.Announcement,
+		Confirm:   func(question string) (bool, error) { return confirm(prompt, question) },
+	}
+
+	if cfg.Slack.Mode() != config.SlackNone {
+		seams.Post = func(channel, text string) error { return deps.Slack.Post(channel, text) }
+	}
+
+	return runAnnounce(cmd.OutOrStdout(), seams, opts)
+}
+
+// runAnnounce composes the announcement for the branch's pull request, previews
+// it, and posts it once confirmed.
+func runAnnounce(out io.Writer, seams announceSeams, opts writeOptions) error {
+	if seams.Post == nil {
+		return errSlackNotConfigured
+	}
+
+	branch, err := seams.Branch()
+	if err != nil {
+		return fmt.Errorf("reading the branch: %w", err)
+	}
+
+	pull, found, err := seams.FindPull(branch.Name)
+	if err != nil {
+		return fmt.Errorf("reading the pull request: %w", err)
+	}
+
+	if !found {
+		return errNoPullRequest
+	}
+
+	text := composeAnnouncement(seams, branch, pull).Text()
+	fmt.Fprintln(out, text)
+	fmt.Fprintln(out, "to "+announceTarget(seams.Channel))
+
+	proceed, err := opts.proceed(out, seams.Confirm, writePrompt{
+		question: "Post to Slack?",
+		dryRun:   "dry run: would post to " + announceTarget(seams.Channel),
+		declined: "Not posted.",
+	})
+	if err != nil || !proceed {
+		return err
+	}
+
+	err = seams.Post(seams.Channel, text)
+	if err != nil {
+		return fmt.Errorf("posting to Slack: %w", err)
+	}
+
+	fmt.Fprintln(out, "Posted to "+announceTarget(seams.Channel))
+
+	return nil
+}
+
+// composeAnnouncement builds the announcement for the branch's pull request,
+// marking the moment it is at.
+func composeAnnouncement(seams announceSeams, branch gitrepo.Branch, pull forge.PullRequest) slack.Announcement {
+	key, _ := convention.IssueKey(branch.Name, seams.Project)
+	issueKey := jira.Key(key)
+
+	return slack.Announcement{
+		Author:           announceAuthor(seams),
+		PullRequestURL:   pull.URL,
+		PullRequestTitle: pull.Title,
+		IssueKey:         key,
+		IssueSummary:     announceIssueSummary(seams, issueKey),
+		IssueURL:         announceIssueURL(seams, issueKey),
+		Noun:             forgeNoun(seams.Kind),
+		Moment:           announceMoment(seams, pull, branch.Head),
+		Template:         seams.Template,
+	}
+}
+
+// announceMoment is the moment the pull request is at: merged, its CI red, or —
+// the common case — ready for review. A CI read that fails leaves the moment at
+// ready rather than failing the announcement.
+func announceMoment(seams announceSeams, pull forge.PullRequest, head string) slack.Moment {
+	if pull.State == forge.StateMerged {
+		return slack.MomentMerged
+	}
+
+	ci, err := seams.CheckCI(pull, head)
+	if err == nil && ci.State == forge.CIFailed {
+		return slack.MomentCIRed
+	}
+
+	return slack.MomentReady
+}
+
+// forgeNoun is what the forge calls a change: a merge request on GitLab, a pull
+// request everywhere else.
+func forgeNoun(kind forge.Kind) string {
+	if kind == forge.KindGitLab {
+		return "merge request"
+	}
+
+	return "pull request"
+}
+
+// announceTarget names where a post goes: the configured channel, or the
+// webhook's own channel when none is set.
+func announceTarget(channel string) string {
+	if channel == "" {
+		return "the configured Slack channel"
+	}
+
+	return channel
+}
+
+// announceAuthor is who the forge credential belongs to, or empty when it will
+// not say — the announcement reads without it.
+func announceAuthor(seams announceSeams) string {
+	author, err := seams.Author()
+	if err != nil {
+		return ""
+	}
+
+	return author
+}
+
+// announceIssueSummary is the branch issue's summary, or empty when the branch
+// names no issue or the tracker cannot say.
+func announceIssueSummary(seams announceSeams, key jira.Key) string {
+	if key == "" {
+		return ""
+	}
+
+	detail, err := seams.Issue(key)
+	if err != nil {
+		return ""
+	}
+
+	return detail.Issue.Summary
+}
+
+// announceIssueURL links the issue, or empty when the branch names no issue or
+// the tracker has no web address for one — issues read from the forge have none.
+func announceIssueURL(seams announceSeams, key jira.Key) string {
+	if key == "" || seams.BrowseURL == nil {
+		return ""
+	}
+
+	return seams.BrowseURL(key)
+}

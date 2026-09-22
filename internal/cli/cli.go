@@ -195,9 +195,18 @@ func newRootCmd(prompt Prompt, run runTUI, serve runWeb) *cobra.Command {
 	root.Flags().BoolVar(&web, "web", false,
 		"serve the web interface on http://"+webserver.LoopbackAddr+" instead of opening the terminal interface")
 
-	root.AddCommand(newConfigCmd(prompt), newDoctorCmd(), newStatusCmd(), newStandupCmd(prompt), newReviewsCmd())
+	root.AddCommand(subcommands(prompt)...)
 
 	return root
+}
+
+// subcommands are every `workflow` subcommand: the read commands, the guided
+// config, and the scriptable write commands.
+func subcommands(prompt Prompt) []*cobra.Command {
+	return []*cobra.Command{
+		newConfigCmd(prompt), newDoctorCmd(), newStatusCmd(), newStandupCmd(prompt), newReviewsCmd(),
+		newBranchCmd(prompt), newPRCmd(prompt), newAnnounceCmd(prompt),
+	}
 }
 
 // serveWeb builds the web server over the seams and serves it on the loopback

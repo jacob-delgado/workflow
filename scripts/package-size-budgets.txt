@@ -62,6 +62,15 @@ internal/tui 38
 # first. Frozen here so that growth stays deliberate.
 internal/webserver 15
 
+# internal/cli — the Cobra command tree, one file per command: the read commands
+# (doctor, split across doctor.go/doctor_json.go/doctor_requirements.go; status;
+# reviews; standup), the guided config, the root wiring, and the scriptable write
+# commands from FEAT-41 (branch.go, pr.go, announce.go) with their shared
+# preview/confirm/dry-run helper (scriptable.go). One responsibility — turn a
+# command line into a wiring seam call and printed output — spelled command-per-
+# file; it grows when the tool gains a command, which the docs reference records.
+internal/cli 13
+
 # web/src/api/generated — the @hey-api client generated from api/openapi.yaml by
 # `yarn gen`. Never hand-edited, regenerated wholesale, and gated for drift by
 # gen:check; its file count is the code generator's business, not a concern
