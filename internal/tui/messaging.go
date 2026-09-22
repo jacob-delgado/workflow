@@ -20,8 +20,9 @@ import (
 // depends on the service, so the note stays general rather than naming one.
 const messagingHelp = "Edit the message above this line."
 
-// messagingState is what has been posted to Slack this session. It is not yet
-// read back from the store between sessions — that is FEAT-66's to add.
+// messagingState is what has been posted to Slack. The posts made this session
+// are seeded at startup from the store's record of earlier ones, so a restart
+// does not forget them.
 type messagingState struct {
 	// posted is the announcements made this session, each a pull request and the
 	// moment it marked, so one pull request can be announced at each of its
@@ -194,10 +195,53 @@ func (m Model) messagingDetail(width int) string {
 }
 
 // announced reports that the pull request on screen was already posted at its
-// current moment this session — a merge announced counts, an opening does not.
+// current moment — a merge announced counts, an opening does not — this session
+// or, from the store, an earlier one.
 func (m Model) announced() bool {
 	return m.review.found &&
 		slices.Contains(m.messaging.posted, postedMoment{pull: m.review.pull.Number, moment: m.announceMoment()})
+}
+
+// recordAnnounce remembers a post just made, so a later session opens knowing the
+// pull request was announced at this moment rather than offering it again.
+func (m Model) recordAnnounce(pull int, moment messaging.Moment) {
+	if m.deps.Store.RecordAnnounce != nil {
+		m.deps.Store.RecordAnnounce(AnnouncedPost{Pull: pull, Moment: int(moment)})
+	}
+}
+
+// loadAnnounces reads what was announced in an earlier session from the store, so
+// a pull request already posted opens as posted rather than being offered again.
+func (m Model) loadAnnounces() tea.Cmd {
+	if m.deps.Store.Announced == nil {
+		return nil
+	}
+
+	read := m.deps.Store.Announced
+
+	return func() tea.Msg {
+		return announcesLoaded{posts: read()}
+	}
+}
+
+// announcesLoaded carries what the store remembers being posted.
+type announcesLoaded struct {
+	posts []AnnouncedPost
+}
+
+var _ applier = announcesLoaded{}
+
+// apply seeds the session's posted list from the store, so a restart does not
+// forget what was announced and offer it again.
+func (msg announcesLoaded) apply(m Model) (Model, tea.Cmd) {
+	for _, post := range msg.posts {
+		remembered := postedMoment{pull: post.Pull, moment: messaging.Moment(post.Moment)}
+		if !slices.Contains(m.messaging.posted, remembered) {
+			m.messaging.posted = append(m.messaging.posted, remembered)
+		}
+	}
+
+	return m, nil
 }
 
 // canPost reports a pull request to announce, a way to post it, and no post
@@ -471,6 +515,7 @@ func (msg messagingPosted) apply(m Model) (Model, tea.Cmd) {
 
 	m.messaging.posted, m.messaging.err = append(slices.Clone(m.messaging.posted),
 		postedMoment{pull: msg.pull, moment: msg.moment}), nil
+	m.recordAnnounce(msg.pull, msg.moment)
 
 	if open {
 		m = m.closeOverlay()

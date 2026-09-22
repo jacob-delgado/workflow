@@ -562,3 +562,35 @@ func TestQuittingWithAQueuedPostAsksFirst(t *testing.T) {
 		"A post is waiting for CI and will be lost")
 	requireScreen(t, footerLine(asked.View().Content), "enter quit", "esc stay")
 }
+
+func TestAPreviouslyAnnouncedPullOpensAsPosted(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	// The store remembers pull request 42 was announced at its ready moment (0) in
+	// an earlier session, so the pane opens showing it posted, not offering it.
+	announcing := newWorld()
+	announcing.storedAnnounces = []tui.AnnouncedPost{{Pull: 42, Moment: 0}}
+
+	// Act
+	view := typing(t, announcing.live(t, 120, 40), "5").View().Content
+
+	// Assert
+	requireScreen(t, view, "state  ● posted")
+}
+
+func TestAnnouncingRemembersItInTheStore(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	announcing := newWorld()
+
+	// Act
+	// Post the ready-for-review announcement (moment 0).
+	typing(t, announcing.live(t, 120, 40), "5", "p", keyEnter)
+
+	// Assert
+	if calls := announcing.asked("announce"); len(calls) != 1 || calls[0] != "announce 42 0" {
+		t.Errorf("recorded announce = %q, want the pull and moment remembered", calls)
+	}
+}

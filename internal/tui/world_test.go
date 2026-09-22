@@ -166,6 +166,8 @@ type world struct {
 	// learnedScope is the commit scope the store reports as last used here; empty
 	// means nothing was recorded.
 	learnedScope string
+	// storedAnnounces is what the store reports being posted in earlier sessions.
+	storedAnnounces []tui.AnnouncedPost
 
 	edited    string
 	editErr   error
@@ -356,6 +358,12 @@ func (w *world) storeDeps() tui.StoreDeps {
 		},
 		RecordScope: func(scope string) {
 			w.record("scope " + scope)
+		},
+		Announced: func() []tui.AnnouncedPost {
+			return w.storedAnnounces
+		},
+		RecordAnnounce: func(post tui.AnnouncedPost) {
+			w.record("announce " + strconv.Itoa(post.Pull) + " " + strconv.Itoa(post.Moment))
 		},
 	}
 }

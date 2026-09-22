@@ -305,6 +305,19 @@ func storeDeps(ctx context.Context, settings config.Store, where Workspace) tui.
 		RecordScope: func(scope string) {
 			_ = kept.RecordScope(ctx, repo, scope, time.Now())
 		},
+		Announced: func() []tui.AnnouncedPost {
+			recorded, _ := kept.Announces(ctx, repo)
+
+			posts := make([]tui.AnnouncedPost, 0, len(recorded))
+			for _, announce := range recorded {
+				posts = append(posts, tui.AnnouncedPost{Pull: announce.Pull, Moment: announce.Moment})
+			}
+
+			return posts
+		},
+		RecordAnnounce: func(post tui.AnnouncedPost) {
+			_ = kept.RecordAnnounce(ctx, repo, store.Announce{Pull: post.Pull, Moment: post.Moment}, time.Now())
+		},
 	}
 }
 
