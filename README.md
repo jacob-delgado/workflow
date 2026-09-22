@@ -125,6 +125,13 @@ your home directory. **A file in the current directory replaces the one in your
 home directory** — they are never merged, so a repository-local configuration is
 always the whole story.
 
+workflow keeps a little state between sessions in an on-disk store — the commit
+scope you last used, which pull requests you have announced, and the last issue
+list it saw — under your platform's data directory, and never a secret. It is on
+by default; set `"store": { "disabled": true }` to keep nothing on disk. See
+[Configuration](https://jacob-delgado.github.io/workflow/docs/configuration/) for
+where it lives and how it is keyed.
+
 ### Jira token (on-premises / Data Center)
 
 1. Sign in to your Jira instance in a browser.

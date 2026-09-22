@@ -84,6 +84,7 @@ which one was read.
 | `branch.prefixes` | no | Map from issue type to branch prefix, e.g. `{"bug": "bugfix"}`. The type is matched without regard to case, and this replaces the built-in `{"bug": "fix"}` rather than adding to it. |
 | `branch.default_prefix` | no | Prefix for an issue type not named in `branch.prefixes`. Defaults to `feat`. |
 | `commit.default_scope` | no | Scope the commit composer opens with when no kept draft has one, e.g. `api`. Must be a valid Conventional Commit scope. Empty (the default) opens with no scope. |
+| `store.disabled` | no | Keep nothing on disk between sessions. Defaults to `false` — the store remembers a few conveniences, never a secret. See [What is kept between sessions](#what-is-kept-between-sessions). |
 
 Unknown keys are an error rather than being ignored. A misspelled key that
 loaded silently would look exactly like a credential you never set.
@@ -450,6 +451,34 @@ summary. You can shape it to your team's convention:
 
 You can still edit the proposed name before creating the branch; this only
 changes where it starts.
+
+## What is kept between sessions
+
+workflow keeps a little state on disk so it can pick up where you left off — the
+commit scope you last used in a repository, which pull requests you have
+announced, and the last issue list it saw, so the interface opens on it while the
+live one loads. It lives in a small SQLite database under your platform's data
+directory:
+
+- macOS — `~/Library/Application Support/workflow`
+- Linux — `$XDG_STATE_HOME/workflow`, or `~/.local/state/workflow`
+- Windows — `%AppData%\workflow`
+
+The store **never holds a secret**. It is keyed only by a repository's host and
+path and by a hash of your Jira URL — never by a credential, and never by the raw
+URL — so a token embedded in a remote cannot reach it. The database file is
+`0600` in a `0700` directory, readable only by you, and what it holds is
+disposable: delete it and the next session simply rebuilds it.
+
+The store is on by default. Set `store.disabled` to keep nothing on disk; with it
+set, workflow behaves exactly as it did before the store existed, working
+everything out afresh each time:
+
+```json
+{
+  "store": { "disabled": true }
+}
+```
 
 ## Keeping the tokens safe
 
