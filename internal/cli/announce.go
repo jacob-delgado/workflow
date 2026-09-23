@@ -166,7 +166,7 @@ func composeAnnouncement(seams announceSeams, branch gitrepo.Branch, pull forge.
 		IssueKey:         key,
 		IssueSummary:     announceIssueSummary(seams, issueKey),
 		IssueURL:         announceIssueURL(seams, issueKey),
-		Noun:             forgeNoun(seams.Kind),
+		Noun:             seams.Kind.Noun(),
 		Moment:           announceMoment(seams, pull, branch.Head),
 		Kind:             seams.MessagingKind,
 		Template:         seams.Template,
@@ -187,16 +187,6 @@ func announceMoment(seams announceSeams, pull forge.PullRequest, head string) me
 	}
 
 	return messaging.MomentReady
-}
-
-// forgeNoun is what the forge calls a change: a merge request on GitLab, a pull
-// request everywhere else.
-func forgeNoun(kind forge.Kind) string {
-	if kind == forge.KindGitLab {
-		return "merge request"
-	}
-
-	return "pull request"
 }
 
 // announceTarget names where a post goes: the configured channel, or the

@@ -83,9 +83,6 @@ nothing else, so each surface composes the loop for itself:
   `internal/tui/messaging.go:137` `announcement` / `:125` `announceMoment`,
   `internal/cli/announce.go:158` `composeAnnouncement` / `:180`
   `announceMoment`, `internal/webserver/announce.go:68` / `:102`.
-- The GitLab noun — three copies of `if kind == KindGitLab { "merge
-  request" }`: `internal/tui/review.go:49`, `internal/cli/announce.go:194`
-  `forgeNoun`, `internal/webserver/announce.go:145` `noun`.
 - The guards — `internal/webserver/checkout.go:16` and `internal/webserver/commit.go:18` each
   carry a comment saying they are "the same guard the terminal interface
   applies" (`internal/tui/switchtask.go:88`, the composer), copied rather
@@ -243,10 +240,10 @@ Severity: medium · Confidence: read
 failed with this" is named once, and eleven overlays use it. Three still
 carry their own booleans: `branchPicker.sending` and `switchErr`
 (`switchtask.go:78`), `finishPreview.finishing` (`finish.go:65`) and
-`mergePicker.merging` (`review.go:636`). Those three are also the ones that
+`mergePicker.merging` (`internal/tui/review.go:632`). Those three are also the ones that
 skip `pinnedOutcome` (`render.go:457`), and two of them are the two that
 close on a refusal and demote it to a one-line notice — `mergeRequested.
-apply` (`review.go:597`) and `finished.apply` (`finish.go:139`) — which is
+apply` (`internal/tui/review.go:593`) and `finished.apply` (`finish.go:139`) — which is
 why the interface's promise that "a refused change must never go unseen"
 holds in 11 overlays of 13, not 13.
 

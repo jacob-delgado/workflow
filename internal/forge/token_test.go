@@ -261,11 +261,11 @@ func TestSourceString(t *testing.T) {
 		source forge.Source
 		want   string
 	}{
-		"none":                     {source: forge.SourceNone, want: "none"},
-		"the environment":          {source: forge.SourceEnvironment, want: "the environment"},
-		"the forge CLI":            {source: forge.SourceCLI, want: "the forge CLI"},
-		"the configuration":        {source: forge.SourceConfiguration, want: "forge.token"},
-		"a value outside the enum": {source: forge.Source(99), want: unknown},
+		"none":              {source: forge.SourceNone, want: "none"},
+		"the environment":   {source: forge.SourceEnvironment, want: "the environment"},
+		"the forge CLI":     {source: forge.SourceCLI, want: "the forge CLI"},
+		"the configuration": {source: forge.SourceConfiguration, want: "forge.token"},
+		outsideTheEnum:      {source: forge.Source(99), want: unknown},
 	}
 
 	for name, tt := range cases {

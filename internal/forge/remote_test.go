@@ -21,6 +21,9 @@ const (
 	unknown    = "unknown"
 	github     = "github"
 	gitlab     = "gitlab"
+	// outsideTheEnum names the case holding a Kind or Source no constant declares.
+	outsideTheEnum = "a value outside the enum"
+	pullRequest    = "pull request"
 )
 
 func TestParseRemote(t *testing.T) {
@@ -142,10 +145,10 @@ func TestKindString(t *testing.T) {
 		kind forge.Kind
 		want string
 	}{
-		"unknown":                  {kind: forge.KindUnknown, want: unknown},
-		github:                     {kind: forge.KindGitHub, want: "GitHub"},
-		gitlab:                     {kind: forge.KindGitLab, want: "GitLab"},
-		"a value outside the enum": {kind: forge.Kind(99), want: unknown},
+		unknown:        {kind: forge.KindUnknown, want: unknown},
+		github:         {kind: forge.KindGitHub, want: "GitHub"},
+		gitlab:         {kind: forge.KindGitLab, want: "GitLab"},
+		outsideTheEnum: {kind: forge.Kind(99), want: unknown},
 	}
 
 	for name, tt := range cases {
@@ -155,6 +158,56 @@ func TestKindString(t *testing.T) {
 			// Act & Assert
 			if got := tt.kind.String(); got != tt.want {
 				t.Errorf("Kind(%d).String() = %q, want %q", tt.kind, got, tt.want)
+			}
+		})
+	}
+}
+
+func TestKindNoun(t *testing.T) {
+	t.Parallel()
+
+	cases := map[string]struct {
+		kind forge.Kind
+		want string
+	}{
+		unknown:        {kind: forge.KindUnknown, want: pullRequest},
+		github:         {kind: forge.KindGitHub, want: pullRequest},
+		gitlab:         {kind: forge.KindGitLab, want: "merge request"},
+		outsideTheEnum: {kind: forge.Kind(99), want: pullRequest},
+	}
+
+	for name, tt := range cases {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			// Act & Assert
+			if got := tt.kind.Noun(); got != tt.want {
+				t.Errorf("Kind(%d).Noun() = %q, want %q", tt.kind, got, tt.want)
+			}
+		})
+	}
+}
+
+func TestKindSigil(t *testing.T) {
+	t.Parallel()
+
+	cases := map[string]struct {
+		kind forge.Kind
+		want string
+	}{
+		unknown:        {kind: forge.KindUnknown, want: "#"},
+		github:         {kind: forge.KindGitHub, want: "#"},
+		gitlab:         {kind: forge.KindGitLab, want: "!"},
+		outsideTheEnum: {kind: forge.Kind(99), want: "#"},
+	}
+
+	for name, tt := range cases {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			// Act & Assert
+			if got := tt.kind.Sigil(); got != tt.want {
+				t.Errorf("Kind(%d).Sigil() = %q, want %q", tt.kind, got, tt.want)
 			}
 		})
 	}

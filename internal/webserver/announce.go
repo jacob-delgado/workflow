@@ -89,7 +89,7 @@ func (s *server) composeAnnouncement() (messaging.Announcement, bool) {
 		IssueKey:         key,
 		IssueSummary:     s.issueSummary(jira.Key(key)),
 		IssueURL:         s.issueURL(jira.Key(key)),
-		Noun:             noun(s.info.ForgeKind),
+		Noun:             s.info.ForgeKind.Noun(),
 		Moment:           s.announceMoment(pull, branch.Head),
 		Kind:             s.config().Messaging.Kind,
 		Template:         s.config().Messaging.Announcement,
@@ -138,16 +138,6 @@ func (s *server) issueURL(key jira.Key) string {
 	}
 
 	return s.deps.BrowseURL(key)
-}
-
-// noun is what the forge calls a change, from its resolved kind, for the
-// announcement — "merge request" on GitLab, "pull request" everywhere else.
-func noun(kind forge.Kind) string {
-	if kind == forge.KindGitLab {
-		return "merge request"
-	}
-
-	return "pull request"
 }
 
 // announcementDTO maps the composed announcement and its channel onto the wire.
