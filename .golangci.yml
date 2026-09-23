@@ -23,11 +23,13 @@ linters:
 
   settings:
     depguard:
-      # exec lives in one place. internal/proc is the module's only door to
-      # os/exec — it sets the process group, the deadline and the redirect-free
-      # command — so nothing else may import it and quietly grow a second way to
-      # run a program. Tests reach for it to act as their own helper binary.
+      # Each rule holds a direction the package layout depends on, so the build
+      # rather than a reviewer keeps it.
       rules:
+        # exec lives in one place. internal/proc is the module's only door to
+        # os/exec — it sets the process group, the deadline and the redirect-free
+        # command — so nothing else may import it and quietly grow a second way to
+        # run a program. Tests reach for it to act as their own helper binary.
         exec-only-in-proc:
           files:
             - "$all"
@@ -36,6 +38,37 @@ linters:
           deny:
             - pkg: os/exec
               desc: run programs through internal/proc, the one place exec lives
+        # internal/loop composes the loop once for the command line, the terminal
+        # and the web, so it sits below all three and above the domain packages.
+        # Importing a surface back, or wiring (which imports the terminal for
+        # tui.Deps), is already a cycle the compiler refuses; this rule holds the
+        # rest, so no other package — a terminal library, the web's generated
+        # API — drifts into the shared layer. strict mode allows only the list.
+        loop-below-the-surfaces:
+          list-mode: strict
+          files:
+            - "**/internal/loop/**"
+            - "!$test"
+          allow:
+            - $gostd
+            - github.com/jacob-delgado/workflow/internal/config
+            - github.com/jacob-delgado/workflow/internal/convention
+            - github.com/jacob-delgado/workflow/internal/forge
+            - github.com/jacob-delgado/workflow/internal/gitrepo
+            - github.com/jacob-delgado/workflow/internal/jira
+            - github.com/jacob-delgado/workflow/internal/messaging
+            - github.com/jacob-delgado/workflow/internal/proc
+        # The web server is a surface beside the terminal, not built on it: what
+        # the two share lives in internal/loop and the domain packages. wiring is
+        # denied with it, because wiring imports the terminal.
+        webserver-not-terminal:
+          files:
+            - "**/internal/webserver/**"
+          deny:
+            - pkg: github.com/jacob-delgado/workflow/internal/tui
+              desc: the web server does not build on the terminal; share through internal/loop
+            - pkg: github.com/jacob-delgado/workflow/internal/wiring
+              desc: wiring imports the terminal; the web server takes its seams through webserver.Deps
     errcheck:
       # Writes to a command's output stream. There is nothing to do about a
       # failed write to stdout — the channel you would report it on is the one

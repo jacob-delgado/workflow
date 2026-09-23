@@ -70,11 +70,6 @@ the terminal interface declares. It does not hold for what the surfaces
 *do* with those seams. `internal/wiring` (six files) constructs clients and
 nothing else, so each surface composes the loop for itself:
 
-- Composing a pull request — `internal/cli/pr.go:222` `composePR` and
-  `internal/webserver/pullrequest.go:119` `draftFor` are near line-for-line
-  copies; the terminal has its own in `internal/tui/prcomposer.go:119`.
-- `ensurePushed` — the same function, the same name, in two packages:
-  `internal/cli/pr.go:241` and `internal/webserver/pullrequest.go:163`.
 - The announcement and its moment — built three times:
   `internal/tui/messaging.go:137` `announcement` / `:125` `announceMoment`,
   `internal/cli/announce.go:158` `composeAnnouncement` / `:180`
@@ -86,22 +81,17 @@ nothing else, so each surface composes the loop for itself:
 
 **What it costs.** Every parity gap between the surfaces is a copy that one
 of them lacks: the review-status offer after a pull request exists in the
-terminal (`internal/tui/picker.go:199`) and the CLI (`internal/cli/pr.go:161`)
+terminal (`internal/tui/picker.go:199`) and the CLI (`internal/cli/pr.go:173`)
 and not on the web, because there is no one place to put it. Each new action
 added to a surface becomes a fourth copy, and a fix to the composition (a
 changed moment rule, a new trailer) has to be made three times or diverges.
 
-**One way to fix it.** A new leaf package — `internal/loop` — that imports
-only `config`, `convention`, `forge`, `gitrepo`, `jira`, `messaging` and
-`proc`, and is imported by `cli`, `tui` and `webserver`. It cannot live in
-`wiring` (which imports `tui` for `tui.Deps`, so `tui` importing it back is a
-cycle), in `tui` (the web server must not import the terminal), or in
-`convention` (`config` imports it, so it can never take a `config.Config`).
-Two duplicates have already moved to better homes than a new package: the
-noun is a method on `forge.Kind` and the naming is `config.Branch.Naming()`.
-A `depguard`
-rule holds the direction. The CLI's and the web server's copies deleting
-cleanly, with their tests unchanged, is the proof the layer is right.
+**One way to fix it.** `internal/loop` now composes the pull request and
+its push (`loop.ComposePull`, `loop.EnsurePushed`) below the three
+surfaces, held there by the `loop-below-the-surfaces` depguard rule, and
+the noun and the branch naming live on `forge.Kind` and `config.Branch`.
+What is left is to move the announcement and the guards into it the same
+way, each surface keeping its own words for the refusals.
 
 **Done when.** `grep -rn 'NewBranchNaming(' internal/{cli,tui,webserver}`
 and `grep -rn '"merge request"' internal/{cli,tui,webserver}` both print
@@ -116,7 +106,7 @@ Severity: medium · Confidence: read
 The preamble `os.Getwd → os.UserHomeDir → config.Load → wiring.Locate →
 wiring.Deps(ctx, cfg, where, nil)` is written out in
 `internal/cli/reviews.go:59` `runReviewsCommand`, `internal/cli/branch.go:63`
-`runBranchCommand`, `pr.go:82` `runPRCommand`, `internal/cli/status.go:117` `seamsFor`,
+`runBranchCommand`, `internal/cli/pr.go:77` `runPRCommand`, `internal/cli/status.go:117` `seamsFor`,
 `standup.go:75` `runStandupCommand`, `internal/cli/announce.go:80` `runAnnounceCommand`
 and `scriptable.go:71` `completeAssignedIssues`, with an eighth variant in
 the root's `RunE` (`cli.go:161`). The copies do not agree: `branch`, `pr`,
@@ -256,7 +246,7 @@ Severity: low · Confidence: read
 - Nine "keep the overlay open with the reason" appliers of the same
   `overlay.(T)` / `send.failed` / reassign shape: `branchresult.go:109`,
   `issuewrite.go:194`, `issuelink.go:98`, `preditor.go:162`,
-  `prcomposer.go:489`, `hookgen.go:153`, `switchtask.go:228`,
+  `internal/tui/prcomposer.go:486`, `hookgen.go:153`, `switchtask.go:228`,
   `comment.go:169`, `internal/tui/messaging.go:502`.
 - Five list-picker bodies with identical `up`/`down`/`confirm`/`esc` and a
   `window`-scrolled `rows`: `picker.go:238`, `picker.go:436`,
@@ -265,8 +255,8 @@ Severity: low · Confidence: read
   blocks: `commits.go:50`, `reviewqueue.go:52`, plus `commits.go:255`
   `followChange` / `reviewqueue.go:213`.
 - Two `onFieldNav` + `*CanComplete` pairs (`scopesuggest.go:17`,
-  `prcomposer.go:304`) and two blur-all-then-focus-one switches
-  (`composer.go:294`, `prcomposer.go:325`).
+  `internal/tui/prcomposer.go:301`) and two blur-all-then-focus-one switches
+  (`composer.go:294`, `internal/tui/prcomposer.go:322`).
 
 The rule of three is met several times over. DEBT-56 and the failure-voice
 work in UX.md reduce the first group as a side effect; a generic picker
@@ -361,7 +351,7 @@ start-work. Five components hand-roll the same machine instead:
 (`web/src/features/messaging/MessagingPanel.tsx:109`), `OpenPullRequest`
 (`web/src/features/review/ReviewPanel.tsx:114`) and `ConfigForm`
 (`SettingsPanel.tsx:33`). Alongside: `splitList` (`ReviewPanel.tsx:204`),
-`trimmedList` (`internal/webserver/pullrequest.go:197`) and an inline third
+`trimmedList` (`internal/webserver/pullrequest.go:138`) and an inline third
 copy (`SettingsPanel.tsx:203`) all trim a comma-separated list; and
 `SettingsPanel.errorMessage` (`SettingsPanel.tsx:331`) is now a one-line
 wrapper over `apiErrorMessage` that stays exported only so its own test can
@@ -472,7 +462,7 @@ or is removed.
 
 Severity: low · Confidence: read
 
-- `CLAUDE.md:34` lists `internal/slack/`; the package was renamed to
+- `CLAUDE.md:35` lists `internal/slack/`; the package was renamed to
   `internal/messaging` in `d229dc1`, and the layout block also omits
   `api/`, `internal/api`, `internal/keychain`, `internal/progress`,
   `internal/buildinfo`, `internal/store`, `internal/web`,

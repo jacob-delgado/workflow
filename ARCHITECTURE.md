@@ -44,6 +44,7 @@ flowchart TB
             web["Web<br/>React + REST on 127.0.0.1"]
         end
         wiring["internal/wiring<br/>composes the seams"]
+        loop["internal/loop<br/>composes the loop over them"]
         subgraph clients["Clients"]
             jira["jira"]
             forge["forge"]
@@ -58,6 +59,7 @@ flowchart TB
 
     dev --> cli & tui & web
     cli & tui & web --> wiring
+    cli & tui & web --> loop
     wiring --> jira & forge & msg & git
     wiring --> cfg & store
     jira --> jiraSrv["Jira Data Center"]
@@ -85,8 +87,9 @@ which is exactly what lets its tests hand it canned answers with no network.
   root (or the start directory when there is no repo) and the origin remote URL.
   It is discovered once, up front, by `Locate`.
 - The CLI builds this bundle once in its root `RunE`; `--web` reuses **the same
-  bundle**, adapted to the web server's shape. That shared construction is why
-  there is one implementation behind three front doors.
+  bundle**, adapted to the web server's shape. That shared construction is one
+  half of why there is one implementation behind three front doors;
+  `internal/loop`, below, is the other.
 
 A seam speaks the interface's own domain types, and wiring translates at the
 boundary. The store seam is the clearest example: the TUI's `StoreDeps.CachedIssues`
@@ -94,6 +97,31 @@ returns `[]jira.Issue`, while the store on disk speaks its own decoupled
 `store.CachedIssue`. Wiring converts between them — and runs every field through
 `internal/sanitize` on the way through, because bytes read back from disk are
 untrusted input to a terminal (more below).
+
+## The loop, composed once: `internal/loop`
+
+Seams say how to reach the world; they do not say what to do with it. What the
+surfaces do with their seams — propose a pull request from a branch's commits,
+its issue and the repository's template, and push the branch before opening
+it — lives once, in `internal/loop`, rather than once per surface. Each surface
+hands it the seams it holds and words the answer in its own terms: a refusal
+comes back as a `loop.Err…` sentinel, and the command line, the terminal and
+the web server each map it to the sentence they already use (`errors.Is` at the
+surface), so the shared layer never dictates one surface's wording to another.
+
+`internal/loop` is a leaf above the domain packages and below the surfaces. It
+imports only `config`, `convention`, `forge`, `gitrepo`, `jira`, `messaging` and
+`proc`, and is imported by `cli`, `tui` and `webserver`. It cannot live in
+`wiring`, which imports `tui` for `tui.Deps` (the terminal importing it back
+would be a cycle), nor in `tui`, which the web server must not import, nor in
+`convention`, which `config` imports and so can never take a `config.Config`.
+Two `depguard` rules in `.golangci.yml` hold the direction:
+`loop-below-the-surfaces` allows `internal/loop` only that list, and
+`webserver-not-terminal` keeps the web server off `tui` and `wiring`.
+
+The composition that belongs to a single domain type lives on that type
+instead: the forge's noun and number sigil are `forge.Kind.Noun()` and
+`Sigil()`, and branch naming is `config.Branch.Naming()`.
 
 ## The clients
 

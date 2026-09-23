@@ -115,6 +115,26 @@ func TestPushReportsAFailingPush(t *testing.T) {
 	}
 }
 
+func TestPushReportsAFailedPushAsAFailureNotAStart(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	// The push ran and was rejected, so the detail is the push's own output, not
+	// a push that never started.
+	deps := filledDeps()
+	deps.Push = func(string) (proc.Output, error) {
+		return fakeOutput([]string{"! [rejected] fix/PROJ-412"}, errSeam), nil
+	}
+
+	// Act
+	recorder := doPush(t, deps)
+
+	// Assert
+	if detail := decode[api.Problem](t, recorder).Detail; detail != "the push failed:\n! [rejected] fix/PROJ-412" {
+		t.Errorf("detail = %q, want the failure and its output, not a failed start", detail)
+	}
+}
+
 func TestPushReportsAFailedStart(t *testing.T) {
 	t.Parallel()
 

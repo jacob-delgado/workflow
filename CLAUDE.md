@@ -28,6 +28,7 @@ cmd/workflow/         thin main; wires cli.Execute and the exit status
 internal/cli/         the Cobra command tree
 internal/config/      .workflow.json loading, redaction, validation
 internal/wiring/      connects the interface's seams to the real clients
+internal/loop/        the loop composed once for every surface, over their seams
 internal/tui/         the Bubble Tea interface; every outside call is a Deps seam
 internal/jira/        Jira Data Center REST v2
 internal/forge/       GitHub and GitLab: remotes, tokens, pull requests, CI

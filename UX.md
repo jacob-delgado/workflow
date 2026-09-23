@@ -215,7 +215,7 @@ overwrite)` (`config_cmd.go:137`), the `chmod 600` line (`doctor.go:456`),
 `run gh auth login` (`doctor.go:232`), `Create one with workflow config
 init` (`internal/config/config.go:24`). The bare sentinels do not: `a branch for
 this issue already exists` (`internal/cli/branch.go:24`) does not say to switch to it;
-`an open pull request already exists for this branch` (`pr.go:30`) gives no
+`an open pull request already exists for this branch` (`internal/cli/pr.go:31`) gives no
 URL; `no messaging transport is configured` (`internal/cli/announce.go:28`) names
 neither `messaging.kind` nor `workflow config init`; `there is no pull
 request on this branch to announce` (`internal/cli/announce.go:24`) does not suggest
@@ -235,10 +235,11 @@ Impact: medium · Effort: small
 **Today.** `workflow branch` runs `git switch --create`
 (`internal/gitrepo/branch.go:305`), moving the working tree, but neither its help
 (`internal/cli/branch.go:44`) nor its preview (`:106`) says "and switch to it". `workflow
-pr` pushes the branch first when it is unpushed (`ensurePushed`, `pr.go:241`)
-— the dry-run line says so (`pushClause`, `:266`) but the live question is
-only "Open the pull request?" (`:131`) — and a single `--yes` also authorizes
-the Jira status transition that follows (`offerReviewStatus`, `:167`).
+pr` pushes the branch first when it is unpushed (`loop.EnsurePushed`,
+`internal/cli/pr.go:129`) — the dry-run line says so (`pushClause`, `:234`)
+but the live question is only "Open the pull request?" (`:121`) — and a
+single `--yes` also authorizes
+the Jira status transition that follows (`offerReviewStatus`, `:179`).
 
 **Instead.** The help and the preview say "create NAME from BASE and switch
 to it"; the question reads "Push NAME and open the pull request?" when a
@@ -254,8 +255,8 @@ Impact: medium · Effort: small
 
 **Today.** The terminal interface, after opening, asks to link the pull
 request on the issue and then offers the review status
-(`prcomposer.go:512`, `issuelink.go:20`). `workflow pr` offers only the
-status (`pr.go:161`); it never calls `Jira.LinkPullRequest`, though the seam
+(`internal/tui/prcomposer.go:509`, `issuelink.go:20`). `workflow pr` offers only the
+status (`internal/cli/pr.go:173`); it never calls `Jira.LinkPullRequest`, though the seam
 is on the same `tui.Deps` it already holds. (The web does neither — UX-75.)
 
 **Instead.** `pr` offers the link before the status, under the same
@@ -309,7 +310,7 @@ call in `internal/cli` — so `-n`, `-y`, `-j` do not exist; `status` emits
 `ui.ascii` in the file, no `--plain`; `standup` has no `--json`; `pr` has no
 draft, base, reviewer, title or body flag; `announce` has no `--channel`
 (the channel comes from `messaging.channel` alone); both `pr` and the web
-take the first repository template only (`pr.go`, `internal/webserver/pullrequest.go:158`),
+take the first repository template only (`firstTemplate`, `internal/loop/pull.go:136`),
 where the interface cycles them (`ctrl+t`).
 
 **Instead.** Shorthands for the three common flags; `--plain` on `status`;
@@ -432,7 +433,7 @@ sentence.
 Impact: low · Effort: large
 
 **Today.** Drafts survive `esc` (commit `composer.go:251`, pull request
-`prcomposer.go:278`), a dirty tree blocks a switch instead of stashing, and
+`internal/tui/prcomposer.go:275`), a dirty tree blocks a switch instead of stashing, and
 quit is guarded while a post waits. But a posted comment, an applied
 transition, a merge and the `branch -D` in finish have no undo, and the
 interface never says which acts are reversible.
@@ -545,8 +546,8 @@ request" throughout.
 Impact: medium · Effort: medium
 
 **Today.** The interface links the pull request on the issue and then
-offers the configured review status (`prcomposer.go:512`, `picker.go:199`);
-the CLI offers the status (`pr.go:161`). `internal/webserver/pullrequest.go`
+offers the configured review status (`internal/tui/prcomposer.go:509`, `picker.go:199`);
+the CLI offers the status (`internal/cli/pr.go:173`). `internal/webserver/pullrequest.go`
 touches neither `Jira.ReviewStatus` nor `LinkPullRequest`; after `Pull
 request opened.` (`ReviewPanel.tsx:141`) there is nothing more to do.
 
@@ -834,7 +835,7 @@ Impact: low · Effort: medium
 a failure in `$EDITOR` (`checks.go:37`, `internal/tui/run.go:366`), edits an open pull
 request (`preditor.go`), and cycles the repository's pull-request templates
 (`ctrl+t`). None has a web equivalent, and the web takes the first template
-only (`internal/webserver/pullrequest.go:158`). A `?` shortcut sheet, which the interface has,
+only (`firstTemplate`, `internal/loop/pull.go:136`). A `?` shortcut sheet, which the interface has,
 would give the web's five sections keyboard reach.
 
 **Instead.** In rough order of value: a template select on the pull-request
