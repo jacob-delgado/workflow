@@ -134,7 +134,9 @@ export const zIssueDetail = z.object({
     type: z.string(),
     priority: z.string().optional(),
     reporter: z.string(),
+    assignee: z.string().optional(),
     description: z.string(),
+    url: z.string(),
     comments: z.array(zComment),
     comment_total: z.int()
 });

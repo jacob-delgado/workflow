@@ -404,6 +404,9 @@ type Issue struct {
 
 // IssueDetail defines model for IssueDetail.
 type IssueDetail struct {
+	// Assignee Who the issue is assigned to; absent when no one is.
+	Assignee *string `json:"assignee,omitempty"`
+
 	// CommentTotal The total on the issue, which may exceed those returned.
 	CommentTotal int `json:"comment_total"`
 
@@ -417,6 +420,9 @@ type IssueDetail struct {
 	StatusCategory StatusCategory `json:"status_category"`
 	Summary        string         `json:"summary"`
 	Type           string         `json:"type"`
+
+	// URL The issue in the tracker's own web interface, for a link to open. Empty when the tracker's base URL cannot be read; never carries the base URL's username or password.
+	URL string `json:"url"`
 }
 
 // IssuesPage defines model for IssuesPage.

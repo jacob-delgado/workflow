@@ -782,7 +782,7 @@ components:
 
     IssueDetail:
       type: object
-      required: [key, summary, status, status_category, type, reporter, description, comments, comment_total]
+      required: [key, summary, status, status_category, type, reporter, description, comments, comment_total, url]
       properties:
         key: {type: string}
         summary: {type: string}
@@ -791,7 +791,16 @@ components:
         type: {type: string}
         priority: {type: string}
         reporter: {type: string}
+        assignee:
+          type: string
+          description: Who the issue is assigned to; absent when no one is.
         description: {type: string}
+        url:
+          type: string
+          description: >-
+            The issue in the tracker's own web interface, for a link to open.
+            Empty when the tracker's base URL cannot be read; never carries the
+            base URL's username or password.
         comments:
           type: array
           description: Oldest first.

@@ -252,7 +252,15 @@ export type IssueDetail = {
     type: string;
     priority?: string;
     reporter: string;
+    /**
+     * Who the issue is assigned to; absent when no one is.
+     */
+    assignee?: string;
     description: string;
+    /**
+     * The issue in the tracker's own web interface, for a link to open. Empty when the tracker's base URL cannot be read; never carries the base URL's username or password.
+     */
+    url: string;
     /**
      * Oldest first.
      */

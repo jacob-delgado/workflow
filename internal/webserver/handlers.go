@@ -89,7 +89,17 @@ func (s *server) GetIssue(_ context.Context, request api.GetIssueRequestObject) 
 		return api.GetIssuedefaultApplicationProblemPlusJSONResponse{Body: body, StatusCode: code}, nil
 	}
 
-	return api.GetIssue200JSONResponse(issueDetailDTO(detail)), nil
+	return api.GetIssue200JSONResponse(issueDetailDTO(detail, s.browseURL(detail.Issue.Key))), nil
+}
+
+// browseURL is the issue's page in the tracker, or "" when no tracker link is
+// wired.
+func (s *server) browseURL(key jira.Key) string {
+	if s.deps.BrowseURL == nil {
+		return ""
+	}
+
+	return s.deps.BrowseURL(key)
 }
 
 // GetBranch returns the current branch, or an empty one outside a repository.
