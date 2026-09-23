@@ -6,16 +6,13 @@ package cli
 import (
 	"fmt"
 	"io"
-	"os"
 	"slices"
 	"strconv"
 	"time"
 
 	"github.com/spf13/cobra"
 
-	"github.com/jacob-delgado/workflow/internal/config"
 	"github.com/jacob-delgado/workflow/internal/forge"
-	"github.com/jacob-delgado/workflow/internal/wiring"
 )
 
 // day is the window past which an age is counted in days rather than hours.
@@ -51,18 +48,13 @@ func newReviewsCmd() *cobra.Command {
 
 // runReviewsCommand wires the real forge to the reviews listing.
 func runReviewsCommand(cmd *cobra.Command, asJSON bool) error {
-	ctx := cmd.Context()
+	conn, err := connect(cmd)
+	if err != nil {
+		return err
+	}
+	defer conn.closeLog()
 
-	// An unknown working or home directory is not a separate failure: the forge
-	// then has no repository to read a remote from, and the listing fails with a
-	// clear message of its own.
-	dir, _ := os.Getwd()
-	home, _ := os.UserHomeDir()
-	cfg, _ := config.Load(dir, home)
-	where := wiring.Locate(ctx, dir)
-	deps := wiring.Deps(ctx, cfg, where, nil)
-
-	seams := reviewsSeams{List: deps.Forge.ReviewRequests, Now: time.Now}
+	seams := reviewsSeams{List: conn.deps.Forge.ReviewRequests, Now: time.Now}
 
 	return runReviews(cmd.OutOrStdout(), seams, asJSON)
 }

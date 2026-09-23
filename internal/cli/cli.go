@@ -144,9 +144,8 @@ func NewRootCmd(prompt Prompt) *cobra.Command {
 // server.
 func newRootCmd(prompt Prompt, run runTUI, serve runWeb) *cobra.Command {
 	var (
-		dryRun  bool
-		logFile string
-		web     bool
+		dryRun bool
+		web    bool
 	)
 
 	root := &cobra.Command{
@@ -158,41 +157,34 @@ func newRootCmd(prompt Prompt, run runTUI, serve runWeb) *cobra.Command {
 		SilenceErrors: true,
 		Args:          cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			cfg, loadErr := loadFromEnvironment()
-			ctx := cmd.Context()
-
-			dir, err := os.Getwd()
-			if err != nil {
-				return fmt.Errorf("determining the working directory: %w", err)
-			}
-
-			requestLog, closeLog, err := openRequestLog(logFile)
+			conn, err := connect(cmd)
 			if err != nil {
 				return err
 			}
-			defer closeLog()
+			defer conn.closeLog()
 
-			deps := wiring.Deps(ctx, cfg, wiring.Locate(ctx, dir), requestLog)
+			ctx := cmd.Context()
 
 			if web {
-				if loadErr != nil {
-					fmt.Fprintf(cmd.ErrOrStderr(), "workflow web: configuration did not load cleanly: %v\n", loadErr)
+				if conn.loadErr != nil {
+					fmt.Fprintf(cmd.ErrOrStderr(), "workflow web: configuration did not load cleanly: %v\n", conn.loadErr)
 				}
 
-				info := webserver.Info{Version: buildinfo.Current(), DryRun: dryRun, ForgeKind: deps.Forge.Kind}
+				info := webserver.Info{Version: buildinfo.Current(), DryRun: dryRun, ForgeKind: conn.deps.Forge.Kind}
 
-				return serve(ctx, cfg, webDeps(deps), info, cmd.OutOrStdout())
+				return serve(ctx, conn.cfg, webDeps(conn.deps), info, cmd.OutOrStdout())
 			}
 
 			return openInterface(ctx, run, interfaceInput{
-				cfg: cfg, loadErr: loadErr, deps: deps, dryRun: dryRun, out: cmd.OutOrStdout(),
+				cfg: conn.cfg, loadErr: conn.loadErr, deps: conn.deps, dryRun: dryRun, out: cmd.OutOrStdout(),
 			})
 		},
 	}
 
 	root.Flags().BoolVar(&dryRun, "dry-run", false,
 		"hold back every write to Jira, the forge, Slack, git and files, and say what it would have done")
-	root.Flags().StringVar(&logFile, "log", "",
+	// connect reads --log back by name, so no variable holds it here.
+	root.Flags().String(logFlag, "",
 		"append a one-line outline of each request (method, path, status, duration) to FILE, for a bug report")
 	root.Flags().BoolVar(&web, "web", false,
 		"serve the web interface on http://"+webserver.LoopbackAddr+" instead of opening the terminal interface")
@@ -281,6 +273,68 @@ func webDeps(deps tui.Deps) webserver.Deps {
 	}
 }
 
+// logFlag names the flag that turns on the request log.
+const logFlag = "log"
+
+// connection is a command wired to where it runs: the configuration in effect
+// and, when it did not load, why; the repository; the seams over both; and the
+// close of the request log, which the caller defers.
+type connection struct {
+	cfg      config.Config
+	loadErr  error
+	where    wiring.Workspace
+	deps     tui.Deps
+	closeLog func()
+}
+
+// connect wires a command to its working directory, recording each request in
+// the --log file when one is named.
+func connect(cmd *cobra.Command) (connection, error) {
+	dir, err := os.Getwd()
+	if err != nil {
+		return connection{}, fmt.Errorf("determining the working directory: %w", err)
+	}
+
+	requestLog, closeLog, err := requestLogFor(cmd)
+	if err != nil {
+		return connection{}, err
+	}
+
+	// An unknown home directory only means no home-directory fallback for the
+	// configuration, not a failure.
+	home, _ := os.UserHomeDir()
+
+	conn := connectAt(cmd.Context(), dir, home, requestLog)
+	conn.closeLog = closeLog
+
+	return conn, nil
+}
+
+// connectAt wires the directory at dir, which reads its own configuration,
+// recording each request in requestLog unless it is nil. It opens nothing, so
+// its close is a no-op.
+func connectAt(ctx context.Context, dir, home string, requestLog *wiring.RequestLog) connection {
+	cfg, loadErr := config.Load(dir, home)
+	where := wiring.Locate(ctx, dir)
+
+	return connection{
+		cfg: cfg, loadErr: loadErr, where: where,
+		deps:     wiring.Deps(ctx, cfg, where, requestLog),
+		closeLog: func() {},
+	}
+}
+
+// requestLogFor opens the request log the command's --log names, or none when
+// it names no file or the command has no --log.
+func requestLogFor(cmd *cobra.Command) (*wiring.RequestLog, func(), error) {
+	path := ""
+	if flag := cmd.Flag(logFlag); flag != nil {
+		path = flag.Value.String()
+	}
+
+	return openRequestLog(path)
+}
+
 // logFileMode is the permission a request log is created with. Like the
 // configuration, it is the user's own file and nobody else's to read.
 const logFileMode os.FileMode = 0o600
@@ -305,7 +359,7 @@ func openRequestLog(path string) (*wiring.RequestLog, func(), error) {
 // loadFromEnvironment loads the configuration that applies to this process,
 // searching the working directory and then the home directory. A missing or
 // unreadable file is reported through the error; the zero Config is still
-// usable, which is what lets doctor and the TUI explain what is wrong.
+// usable, which is what lets doctor explain what is wrong.
 func loadFromEnvironment() (config.Config, error) {
 	workDir, err := os.Getwd()
 	if err != nil {

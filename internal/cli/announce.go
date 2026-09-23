@@ -7,14 +7,12 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"os"
 
 	"github.com/spf13/cobra"
 
 	"github.com/jacob-delgado/workflow/internal/config"
 	"github.com/jacob-delgado/workflow/internal/forge"
 	"github.com/jacob-delgado/workflow/internal/loop"
-	"github.com/jacob-delgado/workflow/internal/wiring"
 )
 
 // errNoPullRequest refuses announcing a branch that has no pull request.
@@ -64,17 +62,13 @@ func newAnnounceCmd(prompt Prompt) *cobra.Command {
 // runAnnounceCommand wires the real repository, forge, Jira and Slack to the
 // announce flow.
 func runAnnounceCommand(cmd *cobra.Command, prompt Prompt, opts writeOptions) error {
-	ctx := cmd.Context()
-
-	dir, err := os.Getwd()
+	conn, err := connect(cmd)
 	if err != nil {
-		return fmt.Errorf("determining the working directory: %w", err)
+		return err
 	}
+	defer conn.closeLog()
 
-	home, _ := os.UserHomeDir()
-	cfg, _ := config.Load(dir, home)
-	deps := wiring.Deps(ctx, cfg, wiring.Locate(ctx, dir), nil)
-
+	cfg, deps := conn.cfg, conn.deps
 	seams := announceSeams{
 		Compose: loop.AnnounceSeams{
 			Branch:    deps.Git.Branch,

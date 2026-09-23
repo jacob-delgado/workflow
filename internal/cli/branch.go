@@ -7,16 +7,13 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"os"
 	"slices"
 
 	"github.com/spf13/cobra"
 
-	"github.com/jacob-delgado/workflow/internal/config"
 	"github.com/jacob-delgado/workflow/internal/convention"
 	"github.com/jacob-delgado/workflow/internal/gitrepo"
 	"github.com/jacob-delgado/workflow/internal/jira"
-	"github.com/jacob-delgado/workflow/internal/wiring"
 )
 
 // errBranchExists refuses branching for an issue that already has a branch —
@@ -58,24 +55,18 @@ func newBranchCmd(prompt Prompt) *cobra.Command {
 
 // runBranchCommand wires the real repository and tracker to the branch flow.
 func runBranchCommand(cmd *cobra.Command, prompt Prompt, issueKey string, opts writeOptions) error {
-	ctx := cmd.Context()
-
-	dir, err := os.Getwd()
+	conn, err := connect(cmd)
 	if err != nil {
-		return fmt.Errorf("determining the working directory: %w", err)
+		return err
 	}
-
-	home, _ := os.UserHomeDir()
-	cfg, _ := config.Load(dir, home)
-	where := wiring.Locate(ctx, dir)
-	deps := wiring.Deps(ctx, cfg, where, nil)
+	defer conn.closeLog()
 
 	seams := branchSeams{
-		Issue:        deps.Jira.Issue,
-		Branches:     deps.Git.Branches,
-		CreateBranch: deps.Git.CreateBranch,
-		Branch:       deps.Git.Branch,
-		Naming:       cfg.Branch.Naming(),
+		Issue:        conn.deps.Jira.Issue,
+		Branches:     conn.deps.Git.Branches,
+		CreateBranch: conn.deps.Git.CreateBranch,
+		Branch:       conn.deps.Git.Branch,
+		Naming:       conn.cfg.Branch.Naming(),
 		Confirm:      func(question string) (bool, error) { return confirm(prompt, question) },
 	}
 

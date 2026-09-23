@@ -6,7 +6,6 @@ package cli
 import (
 	"fmt"
 	"io"
-	"os"
 	"strconv"
 	"strings"
 
@@ -18,7 +17,6 @@ import (
 	"github.com/jacob-delgado/workflow/internal/jira"
 	"github.com/jacob-delgado/workflow/internal/proc"
 	"github.com/jacob-delgado/workflow/internal/sanitize"
-	"github.com/jacob-delgado/workflow/internal/wiring"
 )
 
 // standupSeams are what `workflow standup` reads and does, so a test can answer
@@ -72,19 +70,16 @@ func newStandupCmd(prompt Prompt) *cobra.Command {
 func runStandupCommand(cmd *cobra.Command, prompt Prompt, days int, noEdit bool) error {
 	ctx := cmd.Context()
 
-	dir, err := os.Getwd()
+	// A missing configuration is not fatal: the local commits still read, and
+	// the service sections simply stay empty.
+	conn, err := connect(cmd)
 	if err != nil {
-		return fmt.Errorf("determining the working directory: %w", err)
+		return err
 	}
+	defer conn.closeLog()
 
-	// A missing or broken configuration is not fatal: the local commits still
-	// read, and the service sections simply stay empty.
-	home, _ := os.UserHomeDir()
-	cfg, _ := config.Load(dir, home)
-	where := wiring.Locate(ctx, dir)
-	deps := wiring.Deps(ctx, cfg, where, nil)
-
-	repo := gitrepo.At(proc.Run, where.Root)
+	cfg, deps := conn.cfg, conn.deps
+	repo := gitrepo.At(proc.Run, conn.where.Root)
 	seams := standupSeams{
 		Commits:    func(since string) ([]gitrepo.Commit, error) { return repo.RecentCommits(ctx, since) },
 		Branches:   func() ([]string, error) { return repo.LocalBranches(ctx) },
