@@ -228,7 +228,7 @@ const writes: Write[] = [
     },
     act: async (user) => {
       await user.click(screen.getByRole('button', { name: 'Announce to Slack' }))
-      await user.click(await screen.findByRole('button', { name: 'Post to Slack' }))
+      await user.click(await screen.findByRole('button', { name: 'Announce now' }))
     },
     said: 'Announced to #dev.',
   },

@@ -199,7 +199,7 @@ test('previews the message, then posts it on confirm', async () => {
   // Act: open the preview, then confirm
   await user.click(screen.getByRole('button', { name: /announce to slack/i }))
   await screen.findByText('octocat announced the pull request')
-  await user.click(screen.getByRole('button', { name: /post to slack/i }))
+  await user.click(screen.getByRole('button', { name: 'Announce now' }))
 
   // Assert
   expect(mockAnnounce).toHaveBeenCalledWith('#dev')
@@ -216,7 +216,7 @@ test('posts to the channel chosen in the preview', async () => {
   await user.click(screen.getByRole('button', { name: /announce to slack/i }))
   await screen.findByText('octocat announced the pull request')
   await user.selectOptions(screen.getByRole('combobox'), '#releases')
-  await user.click(screen.getByRole('button', { name: /post to slack/i }))
+  await user.click(screen.getByRole('button', { name: 'Announce now' }))
 
   // Assert
   expect(mockAnnounce).toHaveBeenCalledWith('#releases')
@@ -241,7 +241,7 @@ test('posts to the first known channel when none is configured', async () => {
   // Act: open the preview and confirm without touching the channel
   await user.click(screen.getByRole('button', { name: /announce to slack/i }))
   await screen.findByText('octocat announced the pull request')
-  await user.click(screen.getByRole('button', { name: /post to slack/i }))
+  await user.click(screen.getByRole('button', { name: 'Announce now' }))
 
   // Assert
   expect(mockAnnounce).toHaveBeenCalledWith('#dev')
@@ -267,10 +267,10 @@ test('locks the confirm while a post is in flight', async () => {
   // Act: open the preview and confirm, leaving the post unresolved
   await user.click(screen.getByRole('button', { name: /announce to slack/i }))
   await screen.findByText('octocat announced the pull request')
-  await user.click(screen.getByRole('button', { name: /post to slack/i }))
+  await user.click(screen.getByRole('button', { name: 'Announce now' }))
 
-  // Assert: the confirm now reads "Posting…" and is disabled, and only one post fired
-  const posting = await screen.findByRole('button', { name: /posting/i })
+  // Assert: the confirm now reads "Announcing…" and is disabled, and only one post fired
+  const posting = await screen.findByRole('button', { name: 'Announcing…' })
   expect(posting.hasAttribute('disabled')).toBe(true)
   expect(mockAnnounce).toHaveBeenCalledTimes(1)
 
@@ -306,7 +306,7 @@ test('shows the reason when the post is refused', async () => {
   // Act
   await user.click(screen.getByRole('button', { name: /announce to slack/i }))
   await screen.findByText('octocat announced the pull request')
-  await user.click(screen.getByRole('button', { name: /post to slack/i }))
+  await user.click(screen.getByRole('button', { name: 'Announce now' }))
 
   // Assert
   expect(await screen.findByText(/could not be posted/i)).toBeTruthy()
@@ -319,14 +319,14 @@ test('announces again after a refused post', async () => {
   withPullRequest()
   render(<MessagingPanel />)
   await user.click(screen.getByRole('button', { name: /announce to slack/i }))
-  await user.click(await screen.findByRole('button', { name: /post to slack/i }))
+  await user.click(await screen.findByRole('button', { name: 'Announce now' }))
   await screen.findByText('the channel is archived')
 
   // Act
   await user.click(screen.getByRole('button', { name: /announce to slack/i }))
 
   // Assert
-  expect(await screen.findByRole('button', { name: /post to slack/i })).toBeTruthy()
+  expect(await screen.findByRole('button', { name: 'Announce now' })).toBeTruthy()
 })
 
 test('prompts to connect before any snapshot arrives', () => {
@@ -367,9 +367,23 @@ test('a refused post hands focus back to the button, beside its reason', async (
   await screen.findByRole('group', { name: 'Announcement preview' })
 
   // Act
-  await user.click(screen.getByRole('button', { name: /post to slack/i }))
+  await user.click(screen.getByRole('button', { name: 'Announce now' }))
 
   // Assert
   await screen.findByText('the channel is archived')
   expect(document.activeElement).toBe(screen.getByRole('button', { name: /announce to slack/i }))
+})
+
+test('the preview confirms with Announce now, a name apart from the button that opens it', async () => {
+  // Arrange
+  const user = userEvent.setup()
+  withPullRequest()
+  render(<MessagingPanel />)
+
+  // Act
+  await user.click(screen.getByRole('button', { name: 'Announce to Slack' }))
+
+  // Assert
+  expect(await screen.findByRole('button', { name: 'Announce now' })).toBeTruthy()
+  expect(screen.queryByRole('button', { name: 'Announce to Slack' })).toBeNull()
 })

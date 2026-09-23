@@ -207,7 +207,7 @@ places (`web/src/features/issues/IssuesPanel.tsx:370`, `web/src/features/issues/
 `web/src/features/branch/WorkingTree.tsx:180` — the staging buttons' shared
 class — `web/src/features/review/ReviewPanel.tsx:207`, `:343`,
 `:350`, `web/src/features/review/OpenedOutcome.tsx:92`,
-`web/src/features/messaging/MessagingPanel.tsx:191`, `:246`, `:261`, `:269`,
+`web/src/features/messaging/MessagingPanel.tsx:190`, `:244`, `:259`, `:267`,
 `web/src/features/settings/SettingsPanel.tsx:305`) — which CLAUDE.md's accessibility rule names as the
 thing not to do (opacity dims text below the contrast floor) and which axe
 does not catch on disabled controls. The app has only two `transition-colors`

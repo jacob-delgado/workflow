@@ -334,3 +334,28 @@ test('renders nothing before a snapshot arrives', () => {
   // Assert
   expect(screen.queryByText('Branch')).toBeNull()
 })
+
+test.each([
+  ['a channel', { service: 'Slack', configured: true, channel: '#dev' }, 'Announce to #dev'],
+  [
+    'a webhook of its own',
+    { service: 'Teams', configured: true, channel: '' },
+    'Announce to Teams',
+  ],
+  ['nothing set up', { service: 'Slack', configured: false, channel: '' }, 'Slack not configured'],
+])('the Announce stage says where it would announce to, with %s', (_, destination, said) => {
+  // Arrange
+  useSnapshotStore.setState({
+    status: 'live',
+    snapshot: makeSnapshot({
+      branches: onHead,
+      messaging: { ...destination, channels: [], author: '' },
+    }),
+  })
+
+  // Act
+  render(<WorkStory issueKey="PROJ-1" />)
+
+  // Assert
+  expect(screen.getByText(said)).toBeTruthy()
+})

@@ -35,7 +35,7 @@ export function MessagingPanel() {
         <dd>{messaging.service}</dd>
         <dt className="text-muted-foreground">Channel</dt>
         <dd className="font-mono">{messaging.channel === '' ? '—' : messaging.channel}</dd>
-        <dt className="text-muted-foreground">Posting as</dt>
+        <dt className="text-muted-foreground">Announcing as</dt>
         <dd>{messaging.author === '' ? 'the webhook' : messaging.author}</dd>
       </dl>
 
@@ -156,7 +156,6 @@ function AnnounceControls({
   if (preview.state === 'done' && post.state !== 'error') {
     return (
       <AnnouncePreview
-        service={service}
         text={preview.result ?? ''}
         channel={channel}
         channels={channels}
@@ -201,11 +200,11 @@ function AnnounceControls({
   )
 }
 
-// AnnouncePreview shows the composed message and the channel it will post to,
-// with a confirm and a cancel. It takes focus as it opens, so what is about to
+// AnnouncePreview shows the composed message and the channel it will go to,
+// with a confirm — named apart from the button that opened the preview, since
+// only this one sends — and a cancel. It takes focus as it opens, so what is about to
 // be sent is what a screen reader reads next.
 function AnnouncePreview({
-  service,
   text,
   channel,
   channels,
@@ -214,7 +213,6 @@ function AnnouncePreview({
   onCancel,
   onPost,
 }: {
-  service: string
   text: string
   channel: string
   channels: string[]
@@ -268,7 +266,7 @@ function AnnouncePreview({
           onClick={onPost}
           className="rounded-md bg-primary px-3 py-1.5 text-sm font-medium text-primary-foreground hover:bg-primary/90 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none disabled:opacity-60"
         >
-          {posting ? 'Posting…' : `Post to ${service}`}
+          {posting ? 'Announcing…' : 'Announce now'}
         </button>
       </div>
     </div>

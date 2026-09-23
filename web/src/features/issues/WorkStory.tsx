@@ -125,7 +125,7 @@ function announceDetail(messaging: Snapshot['messaging']): string {
     return `Announce to ${messaging.service}`
   }
 
-  return `Post to ${messaging.channel}`
+  return `Announce to ${messaging.channel}`
 }
 
 function changesDetail(snapshot: Snapshot): string {
