@@ -452,10 +452,13 @@ know about.
   commit or fail `task check`.
 - **The web is read-only under `--dry-run`** (`internal/webserver/guard.go:40`
   documents it): every unsafe method answers 403 at one gate, where the
-  terminal simulates each write and narrates it. The cost is that the
-  browser cannot tell it is in that mode — `getHealth.dry_run` exists on
-  the wire and is never fetched — which UX.md records as the gap; the
-  blanket refusal itself is the intended design.
+  terminal simulates each write and narrates it. The browser reads
+  `dry_run` from `getHealth`, says so in a banner, and holds every write
+  before sending it (`web/src/api/client.ts:24`), so the server's 403 is
+  only the backstop. The cost is that a web write under dry run is refused
+  outright rather than simulated: the browser cannot show what the write
+  would have done, as the terminal's narration does. The blanket refusal
+  itself is the intended design.
 - **`staleTime: Infinity`** (`web/src/queryClient.ts:8`) with the event
   stream as the sole freshness source. Correct for a pushed snapshot; the
   cost is that the config query never refetches on its own and a stalled

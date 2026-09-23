@@ -27,11 +27,17 @@ for (const theme of themes) {
   test(`no accessibility violations across the sections in the ${theme} theme`, async ({
     page,
   }) => {
-    // Arrange: pin the theme before the app paints, so the whole run is in it.
+    // Arrange: pin the theme before the app paints, so the whole run is in it,
+    // and answer the health read as a --dry-run server would, so the read-only
+    // banner is on screen for every scan (the hermetic server has no API).
     await page.addInitScript((value) => {
       window.localStorage.setItem('workflow-theme', value)
     }, theme)
+    await page.route('**/api/health', (route) =>
+      route.fulfill({ json: { version: '1.2.3', dry_run: true } }),
+    )
     await page.goto('/')
+    await expect(page.getByText(/every write is held back/i)).toBeVisible()
 
     const nav = page.getByRole('navigation', { name: 'Sections' })
 
