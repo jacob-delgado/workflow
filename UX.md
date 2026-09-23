@@ -59,7 +59,7 @@ them, re-counted at this commit.
 | "a key it does not show does nothing" | No longer stated anywhere; the sentence the previous edition cited at `usage.md:55` is gone. Folds into the next row. | — |
 | "`?` lists every key" | `docs/content/docs/usage.md:62` | **Yes, by construction.** Help is generated from the bindings (`internal/tui/keys.go:134` `helpBuilder.place`, rendered at `render.go:211`): 57 of 57. The one guard is that construction; `render.go:225` skips a binding with empty help silently, and the tests are three-string spot checks (`focus_test.go:124`). |
 | "the one way the interface says something broke" | `failure`, `internal/tui/render.go:421` | **Partly, and this is the weakest.** Of 53 places that render an error, 20 go through the `failure` family, but only 11 reach the actionable `errorSentence` (`render.go:401`): `failureBlock` (`render.go:450`) red-wraps the raw chain, so all 9 `pinnedOutcome` overlays show the raw error; 14 sites are `failedGlyph + err.Error()`; 8 are glyph-only rail summaries; 9 are notices with no glyph and no red at all. See UX-67. |
-| "Nothing outward facing is sent without" a last look | `internal/tui/comment.go:60` | **17 of 18.** `u` rebase (`internal/tui/run.go:417`, rewrites local history) is one key, straight to the request. See UX-65. |
+| "Nothing outward facing is sent without" a last look | `internal/tui/comment.go:60` | **Yes: 18 of 18.** Every outward act waits on a preview or a confirmation; the push, `R`'s re-run of CI and `u`'s rebase share one last look, `lastLook` (`internal/tui/overlay.go:131`). |
 | "a refused change must never go unseen" | `internal/tui/picker.go:269` | **14 of 14 guard while in flight** (the previous edition counted 1 of 7). 12 keep the refusal in the overlay; `mergePicker` (`internal/tui/review.go:623`) and `finishPreview` (`finish.go:139`) close and demote it to a one-line notice. See UX-66. |
 | "Each pane fails on its own" | `docs/content/docs/usage.md:68` | Yes. `tui.go:157` batches six loads; each pane holds and renders its own error. |
 | State is "carried by the SHAPE of a glyph rather than its color" | `internal/tui/glyphs.go:16` | Yes. `unicodeGlyphs` and `asciiGlyphs` differ in shape (`glyphs.go:31`, `:43`); `NO_COLOR` keeps bold and faint (`tui.go:139`). One residue: the progress spine's per-system hue is color-only, mitigated by the name or its initial. |
@@ -207,7 +207,7 @@ in the collapsed layout (`issuekeys.go:22`, `:46`, `:48`, `:81`, `:85`), but
 none of the five reaches the footer. Two keys are shown where they do not
 work: `ctrl+w` (worktree) is filed under "Branch and Commits" (`keys.go:225`)
 and listed under pane 2 in `docs/content/docs/usage.md:91`, but only the branch creator
-answers it (`internal/tui/branch.go:392`); `w` post-when-green is filed under "Review and
+answers it (`internal/tui/branch.go:404`); `w` post-when-green is filed under "Review and
 Slack" (`keys.go:245`) and listed under pane 5 in `docs/content/docs/usage.md:103`, but only the
 preview answers it (`internal/tui/messaging.go:355`).
 
@@ -235,22 +235,6 @@ terminal that does support color; and the 150 ms detail delay
 always`; `ui.detail_delay` in milliseconds.
 
 **Done when.** Each setting is read and honored by a screen test.
-
-### UX-65 A rebase goes with one key and no last look
-
-Impact: high · Effort: small
-
-**Today.** The interface promises "nothing outward facing is sent without a
-last look" (`comment.go:60`), and 17 of 18 outward acts get a preview or a
-confirmation. `u` rebases onto the base — rewriting local history — straight
-to `git rebase` (`internal/tui/branch.go:238` → `startRebase`
-`internal/tui/run.go:417`). The push and `R`'s re-run of failed CI already go
-through the overlay this needs: `lastLook` (`internal/tui/overlay.go:131`).
-
-**Instead.** `u` goes through `lastLook` too.
-
-**Done when.** Pressing `u` opens an overlay naming the base and runs
-nothing; `enter` rebases; `esc` never does.
 
 ### UX-66 Merge and finish close on a refusal and shrink it to one line
 
@@ -679,9 +663,9 @@ question is the web's, and it is UX-84.
 Impact: low · Effort: medium
 
 **Today.** The interface's branch creator fetches `origin` first and offers
-to branch from what you have when the fetch fails (`internal/tui/branch.go:452`), and
+to branch from what you have when the fetch fails (`internal/tui/branch.go:464`), and
 `ctrl+w` creates the branch in a worktree beside the repository
-(`internal/tui/branch.go:392`). `workflow branch` and `POST /api/branches` do neither:
+(`internal/tui/branch.go:404`). `workflow branch` and `POST /api/branches` do neither:
 no fetch, no worktree.
 
 **Instead.** `--worktree` and `--fetch` on `branch`; a worktree toggle on

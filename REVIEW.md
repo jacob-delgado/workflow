@@ -71,10 +71,10 @@ gap, and which phase closes it.
 
 | # | Action | CLI | TUI | Web | Warranted? |
 | --- | --- | --- | --- | --- | --- |
-| 12 | Create in a worktree | N | Y (`ctrl+w`, `internal/tui/branch.go:392`) | N | Idea, UX-89; not a gap |
+| 12 | Create in a worktree | N | Y (`ctrl+w`, `internal/tui/branch.go:404`) | N | Idea, UX-89; not a gap |
 | 13 | Task switch (check out an issue branch) | N | Y (`s`) | Y (`POST /api/checkout`) | CLI: `git switch` is the twin — no |
 | 14 | Push | P (inside `pr` only) | Y (`P`, previewed) | Y | CLI: `git push` is the twin — no |
-| 15 | Rebase onto base | N | Y, **unpreviewed** (`internal/tui/run.go:417`) | N | CLI/web: `git rebase`. The interface's missing last look: Phase 4, UX-65 |
+| 15 | Rebase onto base | N | Y, previewed since Phase 4 (`previewRebase`, `internal/tui/branch.go:215`, through `lastLook`) | N | CLI/web: `git rebase` |
 | 16 | Finish a merged branch | N | Y (`F`, `finish.go`) | N | A composed three-command flow: FEAT-83 (CLI), FEAT-79 (web); not this plan |
 
 ### Commits
@@ -161,9 +161,8 @@ to see the shape.
 The seven promises, re-counted, are the table in UX.md. In one line each:
 `?` lists every key (57/57, by construction); one voice for failure is
 kept by **11 of 53** sites (UX-67); a last look before anything outward by
-**17 of 18** since Phase 4 gave `R` one — `u` is the other (UX-65); a refused
-change stays in view in **12 of 14** overlays — merge and finish demote it
-(UX-66); panes
+**18 of 18** since Phase 4 gave `R` and `u` one; a refused change stays in
+view in **12 of 14** overlays — merge and finish demote it (UX-66); panes
 fail alone and state is by shape (kept). Beyond the promises: five Issues
 keys never reach the footer and two keys are filed under panes that do not
 answer them (UX-63); `Esc`/`Enter`, loading, success and empty states,
