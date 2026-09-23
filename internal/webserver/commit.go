@@ -55,6 +55,8 @@ func (s *server) Commit(_ context.Context, request api.CommitRequestObject) (api
 
 	switch {
 	case err == nil:
+		s.rememberScope(subject.Scope)
+
 		return api.Commit200JSONResponse(branchDTO(branch)), nil
 	case errors.Is(err, loop.ErrNothingStaged):
 		return api.Commit409ApplicationProblemPlusJSONResponse(problem(api.Conflict, errNothingStaged.Error())), nil
@@ -128,6 +130,53 @@ func (s *server) currentIssueKey() string {
 	key, _ := convention.IssueKey(branch.Name, s.config().Jira.Project)
 
 	return key
+}
+
+// suggestedScope is the scope a new commit opens on — the terminal composer's
+// rule: the scope last used in this repository, else commit.default_scope,
+// else none.
+func (s *server) suggestedScope() string {
+	learned, found := s.learnedScope()
+	if found {
+		return learned
+	}
+
+	return s.config().Commit.DefaultScope
+}
+
+// learnedScope is the scope last used in this repository, read from the store
+// the first time it is asked for. A dry run never reads it: the store makes
+// its directory and opens its database even to read.
+func (s *server) learnedScope() (string, bool) {
+	s.scope.mu.Lock()
+	defer s.scope.mu.Unlock()
+
+	if !s.scope.read && s.deps.LastScope != nil && !s.info.DryRun {
+		s.scope.value, s.scope.found = s.deps.LastScope()
+	}
+
+	s.scope.read = true
+
+	return s.scope.value, s.scope.found
+}
+
+// rememberScope records the scope a commit just used, as its message wrote it,
+// and has the next frame read the store once for what it kept — nothing, with
+// the store off, which leaves commit.default_scope to open the form, as it
+// does in the terminal. A blank scope is not recorded: it would erase the one
+// learned and hide the configured default, as the terminal's composer knows.
+// The record comes first, so a frame reading in between caches no older scope.
+func (s *server) rememberScope(scope string) {
+	written := strings.TrimSpace(scope)
+	if written == "" || s.deps.RecordScope == nil {
+		return
+	}
+
+	s.deps.RecordScope(written)
+
+	s.scope.mu.Lock()
+	s.scope.read = false
+	s.scope.mu.Unlock()
 }
 
 // commitUnprocessable is the 422 response for a commit the server will not make.

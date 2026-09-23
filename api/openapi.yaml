@@ -18,7 +18,9 @@ info:
     loop's writes (a checkout, a branch, staging, a commit, a push, a pull
     request and its follow-ups on the issue, an announcement), and lets the
     whole configuration file be read and written. It reuses the same domain
-    seams the TUI and the CLI use, and stores nothing between requests.
+    seams the TUI and the CLI use, and keeps nothing between requests but the
+    commit scope it learns, which it records in the store the terminal
+    interface reads.
   version: 1.0.0
 servers:
   - url: http://127.0.0.1:7000
@@ -650,8 +652,9 @@ paths:
       description: >-
         A Server-Sent Events stream (text/event-stream). Each message is a
         "snapshot" event whose data is a Snapshot: the current issues, branch,
-        changes, review, and messaging destination. The browser subscribes once and
-        updates from the pushes rather than polling.
+        changes, review, messaging destination, the issues in flight, and the
+        scope a new commit opens on. The browser subscribes once and updates
+        from the pushes rather than polling.
       tags: [events]
       parameters:
         - name: view
@@ -900,7 +903,7 @@ components:
       description: >-
         The full read state carried by one event-stream message: everything the
         cockpit shows, together.
-      required: [issues, branch, changes, review, messaging, branches]
+      required: [issues, branch, changes, review, messaging, branches, suggested_scope]
       properties:
         issues: {$ref: "#/components/schemas/IssuesPage"}
         branch: {$ref: "#/components/schemas/Branch"}
@@ -915,6 +918,16 @@ components:
             checked-out branch alone; this lists every issue that has a branch,
             so the issues list can mark them all in flight, not the one on HEAD.
           items: {$ref: "#/components/schemas/TaskBranch"}
+        suggested_scope:
+          type: string
+          description: >-
+            The scope a new commit opens on — the terminal composer's rule: the
+            scope last committed with in this repository, else
+            commit.default_scope, else empty. The server reads the learned one
+            from its store once, and once more after a commit here records
+            one, not on every message, and never under --dry-run, when the
+            default alone applies.
+          example: api
       additionalProperties: false
 
     TaskBranch:

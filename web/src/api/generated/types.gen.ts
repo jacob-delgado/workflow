@@ -214,6 +214,10 @@ export type Snapshot = {
      * The local branches named for an issue — the record of what is in flight. The detail panels (branch, changes, review) describe the checked-out branch alone; this lists every issue that has a branch, so the issues list can mark them all in flight, not the one on HEAD.
      */
     branches: Array<TaskBranch>;
+    /**
+     * The scope a new commit opens on — the terminal composer's rule: the scope last committed with in this repository, else commit.default_scope, else empty. The server reads the learned one from its store once, and once more after a commit here records one, not on every message, and never under --dry-run, when the default alone applies.
+     */
+    suggested_scope: string;
 };
 
 /**

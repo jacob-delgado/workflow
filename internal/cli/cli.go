@@ -298,6 +298,9 @@ func WebDeps(deps tui.Deps) webserver.Deps {
 
 		Stage:   deps.Git.Stage,
 		Unstage: deps.Git.Unstage,
+
+		LastScope:   deps.Store.LastScope,
+		RecordScope: deps.Store.RecordScope,
 	}
 }
 

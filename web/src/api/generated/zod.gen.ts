@@ -272,7 +272,8 @@ export const zSnapshot = z.object({
     changes: zChangeList,
     review: zReview,
     messaging: zMessagingDestination,
-    branches: z.array(zTaskBranch)
+    branches: z.array(zTaskBranch),
+    suggested_scope: z.string()
 });
 
 export const zMessagingConfig = z.object({

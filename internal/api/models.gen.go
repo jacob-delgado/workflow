@@ -681,6 +681,11 @@ type Snapshot struct {
 	Issues    IssuesPage           `json:"issues"`
 	Messaging MessagingDestination `json:"messaging"`
 	Review    Review               `json:"review"`
+
+	// SuggestedScope The scope a new commit opens on — the terminal composer's rule: the scope last committed with in this repository, else commit.default_scope, else empty. The server reads the learned one from its store once, and once more after a commit here records one, not on every message, and never under --dry-run, when the default alone applies.
+	//
+	// Example: api
+	SuggestedScope string `json:"suggested_scope"`
 }
 
 // StagingRequest What to stage or unstage: one changed file, or all of them — one or the other, never both.

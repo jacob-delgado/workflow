@@ -89,6 +89,8 @@ func (s *server) snapshot(view string) api.Snapshot {
 		Review:    s.snapshotReview(),
 		Messaging: messagingDTO(s.config(), s.author()),
 		Branches:  s.snapshotBranches(),
+
+		SuggestedScope: s.suggestedScope(),
 	}
 }
 

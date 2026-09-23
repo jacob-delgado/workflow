@@ -94,6 +94,7 @@ const issuesSnapshot = {
   review: { found: false },
   messaging: { service: 'Slack', configured: false, channel: '', channels: [], author: '' },
   branches: [],
+  suggested_scope: '',
 }
 
 const issueDetail = {
