@@ -314,8 +314,8 @@ func exitFamilies() []exitFamily {
 // configurationErrors are a configuration that is missing, unreadable,
 // incomplete — a credential or an address not set, or set unusably — shared,
 // or holding a credential a service would not accept: what the user fixes in
-// the file. A command meeting a credential that is not there exits as doctor
-// does, reading the same file.
+// the file, the environment or a login. A command meeting a credential that is
+// not there exits as doctor does, reading the same file.
 func configurationErrors() []error {
 	return []error{
 		config.ErrNotFound, config.ErrInvalid,
