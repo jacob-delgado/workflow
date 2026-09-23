@@ -455,34 +455,41 @@ overlay names the pull request; `enter` calls it; `esc` never does.
 `TestRebaseAsksBeforeTheRequest` likewise. Re-point the existing `R`/`u`
 tests to press `enter`.
 
-### Phase 5 — A refused change stays in view, and the honest `review.go` split
+### Phase 5 — A refused change stays in view, and the honest `review.go` split — done
 
 Closes UX-66, DEBT-55 (for `review.go`), DEBT-56. Depends on Phase 4.
 
 1. `refactor(tui): split the merge picker out of review.go` — `canMerge …
    mergePicker.confirm` (it was lines 562–727 of `internal/tui/review.go`)
-   to `internal/tui/merge.go`.
+   to `internal/tui/merge.go`, and the re-run block (`canRerun …
+   rerunReason`, `previewRerun` included) to `internal/tui/checks.go`.
    **`internal/tui` 38 → 39 in this commit**, with the WHY rewritten
    ("merge.go: the Review pane's merge picker and its permitted-methods
    read, split out of review.go when it passed the 500-line target") and a
    row in `scripts/package-size-budget-history.md` — same commit, or the
    commit is red.
-2. `mergePicker.merging bool` (now `mergePicker.send`, `internal/tui/merge.go:132`) → `send sendState`
-   (`sendstate.go:10`); `mergeRequested.apply` (`internal/tui/merge.go:86`) keeps the overlay
-   open through `pinnedOutcome` (`render.go:457`) instead of
-   `closeOverlay().noticed(…)`.
-3. The same for `finishPreview` (`internal/tui/finish.go:59`, `finished.apply`
-   `:139`).
-4. `branchPicker.sending` (`internal/tui/switchtask.go:74`) adopts `sendState` (pure
-   refactor; it already keeps its refusal).
+2. `mergePicker.merging bool` → `send sendState` (now `mergePicker.send`,
+   `internal/tui/merge.go:132`); `mergeRequested.apply`
+   (`internal/tui/merge.go:86`) keeps the overlay open through
+   `pinnedOutcome` (`internal/tui/render.go:457`) instead of
+   `closeOverlay().noticed(…)`. A write-scope refusal is wrapped in
+   `errNeedsWriteScope` so the pinned line keeps the hint until Phase 6.
+3. The same for `finishPreview` (`internal/tui/finish.go:59`,
+   `finished.apply` `:139`); `oneLine` is deleted.
+4. `branchPicker.sending` and `switchErr` (`internal/tui/switchtask.go:74`)
+   adopt `sendState` (pure refactor; it already kept its refusal).
+5. The Messaging pane's `messagingState.sending` and `err`
+   (`internal/tui/messaging.go:27`) adopt `sendState` (pure refactor), or the
+   Done-when grep cannot pass.
 
-**Touches.** `internal/tui/{review, merge (new), finish, switchtask}.go`,
+**Touches.** `internal/tui/{review, checks, merge (new), finish,
+switchtask, messaging, branch, sendstate}.go`,
 `scripts/package-size-budgets.txt`, `scripts/package-size-budget-history.md`.
 
 **Done when.** `grep -nE '(sending|merging|finishing)\s+bool'
 internal/tui/*.go` matches only `sendstate.go`; the promise is 14 of 14
 *held in the overlay* (Phase 4's re-run look is the fourteenth); `review.go`
-is under 500 lines.
+is under 500 lines (467).
 
 **Proof.** `TestRefusedMergeStaysInItsPreview` — `Merge` returns
 `forge.ErrRefused`; the merge overlay is still open and shows the
