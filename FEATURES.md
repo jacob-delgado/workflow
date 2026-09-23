@@ -136,7 +136,7 @@ Impact: low · Effort: small
 - Why: Finishing a merged branch is three git commands in a fixed order —
   switch to the base, `pull --ff-only`, `branch -D` — that the interface
   composes and previews (`internal/tui/finish.go:44`, the commands at
-  `:71`). On the command line that is three commands to remember and get
+  `:72`). On the command line that is three commands to remember and get
   right, with no preview and no check that the branch really merged.
 - Touches: `internal/cli` (a `finish` command over `Git.Finish`, previewed
   like `branch` and `pr`, with `--dry-run`/`--yes`), the shared composition
@@ -214,8 +214,9 @@ Impact: medium · Effort: large
   open one, but cannot re-run failed checks, merge, finish the merged
   branch or edit the pull request's title and body — all of which the
   interface does with `R`, `M`, `F` and `e` (`internal/tui/checks.go:180`,
-  `internal/tui/merge.go:125`, `finish.go:44`, `preditor.go:37`). FEAT-31's own note already
-  records the web merge as a follow-up; this formalizes the set.
+  `internal/tui/merge.go:125`, `internal/tui/finish.go:44`,
+  `internal/tui/preditor.go:37`). FEAT-31's own note already records the
+  web merge as a follow-up; this formalizes the set.
 - Touches: `api/openapi.yaml` (four operations), `internal/webserver` (a
   handler per action, each a budget row; merge gated exactly as `canMerge`
   gates it, `internal/tui/merge.go:25`, over the shared composition —
