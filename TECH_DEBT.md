@@ -71,10 +71,10 @@ the terminal interface declares. It does not hold for what the surfaces
 nothing else, so each surface composes the loop for itself:
 
 - Composing a pull request — `internal/cli/pr.go:222` `composePR` and
-  `internal/webserver/pullrequest.go:127` `draftFor` are near line-for-line
+  `internal/webserver/pullrequest.go:119` `draftFor` are near line-for-line
   copies; the terminal has its own in `internal/tui/prcomposer.go:119`.
 - `ensurePushed` — the same function, the same name, in two packages:
-  `internal/cli/pr.go:241` and `internal/webserver/pullrequest.go:171`.
+  `internal/cli/pr.go:241` and `internal/webserver/pullrequest.go:163`.
 - The announcement and its moment — built three times:
   `internal/tui/messaging.go:137` `announcement` / `:125` `announceMoment`,
   `internal/cli/announce.go:158` `composeAnnouncement` / `:180`
@@ -361,7 +361,7 @@ start-work. Five components hand-roll the same machine instead:
 (`web/src/features/messaging/MessagingPanel.tsx:109`), `OpenPullRequest`
 (`web/src/features/review/ReviewPanel.tsx:114`) and `ConfigForm`
 (`SettingsPanel.tsx:33`). Alongside: `splitList` (`ReviewPanel.tsx:204`),
-`trimmedList` (`internal/webserver/pullrequest.go:205`) and an inline third
+`trimmedList` (`internal/webserver/pullrequest.go:197`) and an inline third
 copy (`SettingsPanel.tsx:203`) all trim a comma-separated list; and
 `SettingsPanel.errorMessage` (`SettingsPanel.tsx:331`) is now a one-line
 wrapper over `apiErrorMessage` that stays exported only so its own test can
