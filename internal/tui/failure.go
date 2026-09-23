@@ -299,15 +299,31 @@ func ownText(err error) string {
 	return sanitize.Text(err.Error())
 }
 
+// ownLine is an error's own words folded onto one row.
+func ownLine(err error) string {
+	return strings.Join(strings.Fields(ownText(err)), " ")
+}
+
 // briefly is an error in the fewest words, for a summary row: its brief
-// wording, or its own words folded onto one line.
+// wording, or its own words on one row.
 func briefly(err error) string {
 	words, known := errorSentence(err)
 	if known && words.brief != "" {
 		return words.brief
 	}
 
-	return strings.Join(strings.Fields(ownText(err)), " ")
+	return ownLine(err)
+}
+
+// inFull is an error on one row with room for the whole sentence: its full
+// wording, or its own words.
+func inFull(err error) string {
+	words, known := errorSentence(err)
+	if !known {
+		return ownLine(err)
+	}
+
+	return words.full
 }
 
 // failure draws an error the one way the interface says something broke. A
@@ -339,6 +355,19 @@ func (m Model) failedGlyph() string {
 // repeats from it: the red mark and the error in brief.
 func (m Model) failureSummary(err error) string {
 	return m.failedGlyph() + " " + briefly(err)
+}
+
+// failureLine is a failure on a row of its own with room to spare — an
+// overlay's outcome, a field's problem, a run's headline: the red mark and the
+// error in full, on the one row. The free form serves an overlay, which draws
+// with styles and glyphs but no Model.
+func failureLine(sty styles, marks glyphs, err error) string {
+	return failedGlyph(sty, marks) + " " + inFull(err)
+}
+
+// failureLine is failureLine for a Model.
+func (m Model) failureLine(err error) string {
+	return failureLine(m.styles, m.marks, err)
 }
 
 // failureBlock is a failure given room of its own — a pane, an overlay's pinned

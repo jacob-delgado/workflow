@@ -61,7 +61,7 @@ gap, and which phase closes it.
 | 4 | Read an issue in full | N | Y (`internal/tui/detail.go:225`) | Y since Phase 3 — description, comments, reporter, assignee (`IssueDetailPanel`, `web/src/features/issues/IssueDetailPanel.tsx:16`) | CLI: FEAT-78 |
 | 5 | Transition, with field forms | P (`pr`'s side effect, fields-less, `internal/cli/pr.go:167`) | Y (`internal/tui/picker.go:155`) | N | The post-PR **review-status offer** both other surfaces make: Phase 9, UX-74. A general transition: FEAT-78 (CLI), FEAT-80 (web) |
 | 6 | Comment | N | Y (`comment.go:37`) | N | FEAT-78 / FEAT-80; not this plan |
-| 7 | Assign / log work | N | Y (`issuewrite.go:74`, `:81`) | N | FEAT-78 / FEAT-80; not this plan |
+| 7 | Assign / log work | N | Y (`internal/tui/issuewrite.go:74`, `:81`) | N | FEAT-78 / FEAT-80; not this plan |
 | 8 | Link the pull request on the issue | **N** (`pr` never links) | Y (`issuelink.go`, `internal/tui/prcomposer.go:510`) | N | **Yes on both** — the seam exists (`Jira.LinkPullRequest`) and the flow is the interface's. Phase 8 (CLI, UX-59), Phase 9 (web, UX-74) |
 | 9 | Open / copy the issue URL | n/a | Y (`o`, `y`) | Y since Phase 3 — "Open in Jira" from the detail's `url` (`web/src/features/issues/IssueDetailPanel.tsx:77`); copying is the browser's own link menu | — |
 | 10 | Cache-seeded first paint | n/a | Y (`internal/tui/issues.go:53`) | **F** | FEAT-68, declared |
@@ -83,7 +83,7 @@ gap, and which phase closes it.
 | --- | --- | --- | --- | --- | --- |
 | 17 | Stage / unstage / stage all | N | Y (`space`, `a`) | **N** — the list is read-only (`BranchPanel.tsx:86`) and the form appears only when already staged (`:111`) | CLI: `git add`. **Web yes** — its own commit flow is unreachable from the browser. Phase 10, UX-75 |
 | 18 | Discard a change | N | N | N | FEAT-23, already filed; all three lack it |
-| 19 | Per-file diff | N | Y (`diff.go:29`) | N | Web idea, UX-88 |
+| 19 | Per-file diff | N | Y (`internal/tui/diff.go:29`) | N | Web idea, UX-88 |
 | 20 | Commit with the convention | N | Y | Y (`CommitForm.tsx:36`) | CLI: `git commit` + the commit-msg hook |
 | 21 | Scope from `commit.default_scope` / the learned scope | n/a | Y (`internal/tui/composer.go:130`) | **N** — `CommitForm.tsx:45` hardcodes `''`, though `default_scope` is *editable* in Settings (`SettingsPanel.tsx:182`) | **Yes** — a setting silently ignored is a defect; the learned scope is not a declared follow-up. Phase 10, UX-76 |
 | 22 | Amend / fixup | N | Y | N | git is the twin; web idea, UX-88 |
@@ -109,8 +109,8 @@ gap, and which phase closes it.
 | --- | --- | --- | --- | --- | --- |
 | 33 | Announce: compose → preview → post | Y | Y | Y | CLI and web compose it once, in `internal/loop` (Phase 1, which closed DEBT-50); the terminal renders its own from cached state, with `loop.AnnounceMoment` |
 | 34 | Call it a "merge request" on GitLab | Y (`forge.Kind.Noun`, `internal/forge/remote.go:60`) | Y (the same) | **N** — six hardcoded strings; `ForgeKind` on the server (`webserver.go:60`), never sent | **Yes** — Phase 9, UX-73 |
-| 35 | Post when CI passes | N | Y (`internal/tui/messaging.go:393`) | N | CLI `announce --when-green` is FEAT-65's fit; web FEAT-82; not this plan |
-| 36 | Announced history (never re-offer) | **N** — no `Store` reference in `internal/cli` | Y (`internal/tui/messaging.go:203`) | **F** | **CLI yes, cheap** — record after posting, say when already announced. Phase 8, UX-60. Web: FEAT-66, declared |
+| 35 | Post when CI passes | N | Y (`internal/tui/messaging.go:397`) | N | CLI `announce --when-green` is FEAT-65's fit; web FEAT-82; not this plan |
+| 36 | Announced history (never re-offer) | **N** — no `Store` reference in `internal/cli` | Y (`internal/tui/messaging.go:207`) | **F** | **CLI yes, cheap** — record after posting, say when already announced. Phase 8, UX-60. Web: FEAT-66, declared |
 | 37 | Choose the channel | N (config only) | Y (`←`/`→`) | Y | CLI `--channel`: UX-62 |
 | 38 | Standup | Y | N | N | Reasonable CLI-only (an `$EDITOR` flow); `--dry-run`/`--yes` since Phase 2 (`offerToPost`, `internal/cli/standup.go:144`) |
 
@@ -471,7 +471,7 @@ Closes UX-66, DEBT-55 (for `review.go`), DEBT-56. Depends on Phase 4.
 2. `mergePicker.merging bool` → `send sendState` (now `mergePicker.send`,
    `internal/tui/merge.go:116`); `mergeRequested.apply`
    (`internal/tui/merge.go:81`) keeps the overlay open through
-   `pinnedOutcome` (`internal/tui/failure.go:366`) instead of
+   `pinnedOutcome` (`internal/tui/failure.go:395`) instead of
    `closeOverlay().noticed(…)`. A write-scope refusal is wrapped in
    `errNeedsWriteScope` so the pinned line keeps the hint until Phase 6.
 3. The same for `finishPreview` (`internal/tui/finish.go:59`,
@@ -501,16 +501,16 @@ likewise with a git failure. The merge and finish goldens change once.
 Closes UX-67. Depends on Phase 5 (every overlay outcome then flows through
 `pinnedOutcome`).
 
-- `failureBlock` (`internal/tui/failure.go:348`) consults `errorSentence` —
+- `failureBlock` (`internal/tui/failure.go:377`) consults `errorSentence` —
   fixes all eleven `pinnedOutcome` overlays at once.
 - `m.failureLine(err)` — glyph plus the sentence, or the raw text when
   there is none, one line — replaces the fourteen `failedGlyph() +
   err.Error()` rail sites (`internal/tui/checks.go:98`, `diff.go:79`, `issuewrite.go:120`,
   `:122`, `internal/tui/picker.go:209`, `:246`, `internal/tui/switchtask.go:107`, `:147`,
-  `internal/tui/messaging.go:146`, `internal/tui/review.go:217`, `internal/tui/run.go:212`, `internal/tui/composer.go:164`,
-  `:176`, `internal/tui/fields.go:171`).
+  `internal/tui/messaging.go:146`, `internal/tui/review.go:217`, `internal/tui/run.go:212`, `internal/tui/composer.go:165`,
+  `:177`, `internal/tui/fields.go:171`).
 - The seven bare notices (`comment.go:76`, `internal/tui/composer.go:77`,
-  `internal/tui/messaging.go:377`, `internal/tui/checks.go:235`, `:243`,
+  `internal/tui/messaging.go:381`, `internal/tui/checks.go:235`, `:243`,
   `internal/tui/merge.go:61`, `:63`) go through `m.noticed(m.failureLine(err))`;
   `render.go:383` `configErrorStatus` is styled.
 - `forgeReason` (it was in `internal/tui/review.go`), `rerunReason` (in

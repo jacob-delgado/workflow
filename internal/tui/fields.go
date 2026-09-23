@@ -168,7 +168,7 @@ func (f fieldForm) view(marks glyphs, sty styles, width, rows int) []string {
 	}
 
 	if f.problem != nil {
-		lines = append(lines, failedGlyph(sty, marks)+" "+field.Name+" "+f.problem.Error())
+		lines = append(lines, failureLine(sty, marks, fmt.Errorf("%s %w", field.Name, f.problem)))
 	}
 
 	return lines

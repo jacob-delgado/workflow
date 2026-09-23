@@ -160,8 +160,9 @@ func (c commitComposer) view(width, _ int) (string, string) {
 		c.label(fieldScope, "scope   ")+c.scope.View(),
 	)
 
-	if problem := c.scopeProblem(); problem != "" {
-		lines = append(lines, "  "+failedGlyph(c.styles, c.marks)+" "+problem)
+	scopeProblem := c.scopeProblem()
+	if scopeProblem != nil {
+		lines = append(lines, "  "+failureLine(c.styles, c.marks, scopeProblem))
 	}
 
 	lines = append(
@@ -173,7 +174,7 @@ func (c commitComposer) view(width, _ int) (string, string) {
 
 	problem := c.conv.Validate(subject)
 	if problem != nil && strings.TrimSpace(c.subject.Value()) != "" {
-		lines = append(lines, "  "+failedGlyph(c.styles, c.marks)+" "+problem.Error())
+		lines = append(lines, "  "+failureLine(c.styles, c.marks, problem))
 	}
 
 	return "Commit", strings.Join(append(append(lines, ""), c.footnotes()...), "\n")
@@ -186,20 +187,20 @@ func (c commitComposer) label(field int, text string) string {
 
 // scopeProblem reports what is wrong with the scope as it stands, so the reason
 // can be drawn under the scope field rather than waiting for enter.
-func (c commitComposer) scopeProblem() string {
+func (c commitComposer) scopeProblem() error {
 	value := strings.TrimSpace(c.scope.Value())
 	if value == "" {
-		return ""
+		return nil
 	}
 
 	subject := convention.Subject{Type: c.types[c.kind], Scope: value, Description: c.subject.Value(), Breaking: false}
 
 	err := c.conv.Validate(subject)
 	if err != nil && errors.Is(err, convention.ErrInvalidScope) {
-		return err.Error()
+		return err
 	}
 
-	return ""
+	return nil
 }
 
 // typeChoice shows the chosen type among its neighbors.

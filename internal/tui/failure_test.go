@@ -8,8 +8,10 @@ import (
 	"testing"
 
 	"github.com/jacob-delgado/workflow/internal/forge"
+	"github.com/jacob-delgado/workflow/internal/gitrepo"
 	"github.com/jacob-delgado/workflow/internal/jira"
 	"github.com/jacob-delgado/workflow/internal/messaging"
+	"github.com/jacob-delgado/workflow/internal/proc"
 )
 
 func TestAKnownErrorReadsAsASentenceAndAnUnknownOneAsRawText(t *testing.T) {
@@ -205,6 +207,149 @@ func TestARefusedForgeWriteLeadsWithTheWriteScope(t *testing.T) {
 			// lesser likelihood, not the headline.
 			requireScreen(t, view, tt.want)
 			refuseScreen(t, view, "which may be rate limiting. Wait a minute")
+		})
+	}
+}
+
+// notOnPath is how a failure row tells a program workflow runs that is missing.
+const notOnPath = "✗ A program workflow runs is not on PATH."
+
+func TestAFailureRowSpeaksTheSentence(t *testing.T) {
+	t.Parallel()
+
+	cases := map[string]struct {
+		prepare func(*world)
+		keys    []string
+		want    string
+	}{
+		"a refused status change, in full on the picker's row": {
+			prepare: func(w *world) {
+				w.moves, w.transitionErr = workflowMoves(), fmt.Errorf("moving the issue: %w", jira.ErrForbidden)
+			},
+			keys: []string{"t", keyEnter},
+			want: "✗ Jira refused the token for this.",
+		},
+		"a program not on PATH, in full on the run's row": {
+			prepare: func(w *world) { w.commitErr = fmt.Errorf("%w: git", proc.ErrNotFound) },
+			keys:    commitKeys("x"),
+			want:    notOnPath,
+		},
+		"a refused CI read, in brief on the pane's summary row": {
+			prepare: func(w *world) { w.ciErr = fmt.Errorf("checking CI: %w", forge.ErrRefused) },
+			keys:    []string{"4"},
+			want:    "CI     ✗ the forge refused the request",
+		},
+		"an unreachable service, in brief on the Messaging rail": {
+			prepare: func(w *world) { w.postErr = fmt.Errorf("%w: dial tcp: i/o timeout", messaging.ErrUnreachable) },
+			keys:    []string{"5", "p", keyEnter, keyEsc},
+			want:    "✗ could not reach messaging",
+		},
+		"a refused assignment, in full on the form's row": {
+			prepare: func(w *world) { w.assignErr = fmt.Errorf("assigning PROJ-412: %w", jira.ErrForbidden) },
+			keys:    append(append([]string{"a"}, letters("fred")...), keyEnter),
+			want:    "✗ Jira refused the token for this.",
+		},
+		"an unknown assignee, in Jira's own words on the form's row": {
+			prepare: func(w *world) {
+				w.assignErr = fmt.Errorf("assigning PROJ-412: %w",
+					explainedNotFoundError{reason: "User 'fredd' does not exist."})
+			},
+			keys: append(append([]string{"a"}, letters("fredd")...), keyEnter),
+			want: "✗ assigning PROJ-412: jira rejected the request: User 'fredd' does not exist.",
+		},
+		"branches that would not list, in full on the switcher's row": {
+			prepare: func(w *world) {
+				w.branchesErr = fmt.Errorf("listing branches: %w", fmt.Errorf("%w: git", proc.ErrNotFound))
+			},
+			keys: []string{"2", "s"},
+			want: notOnPath,
+		},
+		"a switch git could not run, in full on the switcher's row": {
+			prepare: func(w *world) {
+				w.changes, w.branches = nil, []string{featureName, otherTaskBranch}
+				w.checkoutErr = fmt.Errorf("switching to %s: %w", otherTaskBranch, fmt.Errorf("%w: git", proc.ErrNotFound))
+			},
+			keys: []string{"2", "s", keyEnter},
+			want: notOnPath,
+		},
+		"a diff outside a repository, in full on the diff's row": {
+			prepare: func(w *world) { w.diffErr = fmt.Errorf("%w: /repo", gitrepo.ErrNotARepository) },
+			keys:    []string{"3"},
+			want:    "✗ This is not inside a git repository.",
+		},
+		"a check with no browser to open it, in full on the checks' row": {
+			prepare: func(w *world) {
+				w.ci = []forge.CI{{
+					State: forge.CIFailed, Total: 1, Done: 1, Failed: 1,
+					Checks: []forge.Check{{Name: "vet", State: forge.CIFailed, URL: "https://ci.example/vet"}},
+				}}
+				w.openURLErr = fmt.Errorf("opening the check: %w", fmt.Errorf("%w: xdg-open", proc.ErrNotFound))
+			},
+			keys: []string{"4", "c", keyEnter},
+			want: notOnPath,
+		},
+	}
+
+	for name, tt := range cases {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			// Arrange
+			faked := newWorld()
+			tt.prepare(faked)
+
+			// Act
+			view := typing(t, faked.live(t, 200, 40), tt.keys...).View().Content
+
+			// Assert
+			requireScreen(t, view, tt.want)
+		})
+	}
+}
+
+func TestADetailTellsTheFailureItsSummaryRowShortens(t *testing.T) {
+	t.Parallel()
+
+	cases := map[string]struct {
+		prepare func(*world)
+		keys    []string
+		want    []string
+	}{
+		"a refused CI read, on the Review detail": {
+			prepare: func(w *world) { w.ciErr = fmt.Errorf("checking CI: %w", forge.ErrRefused) },
+			keys:    []string{"4"},
+			want: []string{
+				"CI     ✗ the forge refused the request",
+				"✗ The forge refused the request, which may be rate limiting.",
+				"rate limiting rather than the credential",
+			},
+		},
+		"a refused announcement, on the Messaging detail once its preview is gone": {
+			prepare: func(w *world) { w.postErr = fmt.Errorf("%w: invalid_token", messaging.ErrRejected) },
+			keys:    []string{"5", "p", keyEnter, keyEsc},
+			want: []string{
+				"state  ✗ the announcement was refused",
+				"✗ The messaging service refused the announcement:",
+				"invalid_token",
+			},
+		},
+	}
+
+	for name, tt := range cases {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			// Arrange
+			faked := newWorld()
+			tt.prepare(faked)
+
+			// Act
+			view := typing(t, faked.live(t, 200, 40), tt.keys...).View().Content
+
+			// Assert
+			// The summary row keeps the brief; the way out and the service's own
+			// words stay on screen beneath it, not only in a notice the next key clears.
+			requireScreen(t, view, tt.want...)
 		})
 	}
 }

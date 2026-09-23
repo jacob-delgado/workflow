@@ -95,7 +95,7 @@ func (c checkList) stateGlyph(state forge.CIState) string {
 func (c checkList) outcomeLines() []string {
 	switch {
 	case c.err != nil:
-		return []string{"", failedGlyph(c.styles, c.marks) + " " + c.err.Error()}
+		return []string{"", failureLine(c.styles, c.marks, c.err)}
 	case c.outcome != "":
 		return []string{"", c.outcome}
 	default:

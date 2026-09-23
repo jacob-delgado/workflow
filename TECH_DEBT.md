@@ -66,7 +66,7 @@ Severity: low · Confidence: measured
 `scripts/check-file-length.sh --list` flags four source files past the
 500-line soft target — `internal/forge/github.go` (551),
 `internal/gitrepo/branch.go` (532), `internal/tui/prcomposer.go` (523) and
-`internal/tui/messaging.go` (512) — and five test files
+`internal/tui/messaging.go` (516) — and five test files
 (`internal/messaging/post_test.go` 738, `internal/tui/messaging_test.go`
 606, `internal/webserver/pullrequest_test.go` 601,
 `internal/tui/composer_test.go` 565, `internal/jira/detail_test.go` 501).
@@ -74,7 +74,7 @@ None is over the 800 hard ceiling. The first edition of this entry missed
 the two source files outside `internal/tui`. Its headline file,
 `internal/tui/review.go` at 727 lines, is paid: the merge picker moved to
 `internal/tui/merge.go` and the re-run to `internal/tui/checks.go`,
-leaving it at 447.
+leaving it at 451.
 
 **What it costs.** `scripts/check-file-length.sh` warns on every run, so the
 warning has stopped meaning anything.
@@ -95,7 +95,7 @@ Severity: low · Confidence: read
   `internal/tui/issuelink.go:98`, `internal/tui/preditor.go:162`,
   `internal/tui/prcomposer.go:487`, `internal/tui/hookgen.go:153`,
   `internal/tui/switchtask.go:228`, `internal/tui/comment.go:169`,
-  `internal/tui/messaging.go:490`, `internal/tui/checks.go:225`,
+  `internal/tui/messaging.go:494`, `internal/tui/checks.go:225`,
   `internal/tui/merge.go:83`, `internal/tui/finish.go:141`,
   `internal/tui/picker.go:114`, `internal/tui/comment.go:67`.
 - Five list-picker bodies with identical `up`/`down`/`confirm`/`esc` and a
@@ -106,7 +106,7 @@ Severity: low · Confidence: read
   `followChange` / `internal/tui/reviewqueue.go:213`.
 - Two `onFieldNav` + `*CanComplete` pairs (`scopesuggest.go:17`,
   `internal/tui/prcomposer.go:301`) and two blur-all-then-focus-one switches
-  (`internal/tui/composer.go:295`, `internal/tui/prcomposer.go:322`).
+  (`internal/tui/composer.go:296`, `internal/tui/prcomposer.go:322`).
 
 The rule of three is met several times over. A helper that pins a failure
 in whichever overlay asked would serve the first group, and a generic picker
