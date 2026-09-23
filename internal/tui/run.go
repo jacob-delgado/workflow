@@ -389,36 +389,6 @@ func (msg editorClosed) apply(m Model) (Model, tea.Cmd) {
 	return m, nil
 }
 
-// pushPreview is a branch about to be pushed, shown for a last look — the one
-// outward-facing act reachable from a single key, so it gets one like the rest.
-type pushPreview struct {
-	branch, remote string
-}
-
-var _ overlay = pushPreview{}
-
-// view names what will be pushed and where.
-func (p pushPreview) view(width, _ int) (string, string) {
-	return "Push branch", wrap("push "+p.branch+" to "+p.remote, width)
-}
-
-// footer offers pushing or backing out.
-func (p pushPreview) footer(keys keyMap) []key.Binding {
-	return []key.Binding{relabel(keys.confirm, "push"), keys.closeOverlay}
-}
-
-// handleKey answers a key while the push is previewed.
-func (p pushPreview) handleKey(m Model, msg tea.KeyPressMsg) (Model, tea.Cmd) {
-	switch {
-	case key.Matches(msg, m.keys.closeOverlay):
-		return m.closeOverlay(), nil
-	case key.Matches(msg, m.keys.confirm):
-		return m.startPush(nil)
-	default:
-		return m, nil
-	}
-}
-
 // startPush pushes the branch, then does what comes next once it is pushed —
 // by default, says so and reads the branch again.
 func (m Model) startPush(succeeded func(Model) (Model, tea.Cmd)) (Model, tea.Cmd) {

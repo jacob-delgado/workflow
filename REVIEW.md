@@ -71,10 +71,10 @@ gap, and which phase closes it.
 
 | # | Action | CLI | TUI | Web | Warranted? |
 | --- | --- | --- | --- | --- | --- |
-| 12 | Create in a worktree | N | Y (`ctrl+w`, `internal/tui/branch.go:389`) | N | Idea, UX-89; not a gap |
+| 12 | Create in a worktree | N | Y (`ctrl+w`, `internal/tui/branch.go:392`) | N | Idea, UX-89; not a gap |
 | 13 | Task switch (check out an issue branch) | N | Y (`s`) | Y (`POST /api/checkout`) | CLI: `git switch` is the twin — no |
 | 14 | Push | P (inside `pr` only) | Y (`P`, previewed) | Y | CLI: `git push` is the twin — no |
-| 15 | Rebase onto base | N | Y, **unpreviewed** (`internal/tui/run.go:447`) | N | CLI/web: `git rebase`. The interface's missing last look: Phase 4, UX-65 |
+| 15 | Rebase onto base | N | Y, **unpreviewed** (`internal/tui/run.go:417`) | N | CLI/web: `git rebase`. The interface's missing last look: Phase 4, UX-65 |
 | 16 | Finish a merged branch | N | Y (`F`, `finish.go`) | N | A composed three-command flow: FEAT-83 (CLI), FEAT-79 (web); not this plan |
 
 ### Commits

@@ -121,3 +121,56 @@ func (m Model) closeOverlay() Model {
 
 	return m
 }
+
+// lastLook is an outward act held for a last look before it goes — a push, a
+// re-run of CI, a rebase — so an act reachable from a single key is never one
+// key from its request. enter proceeds and esc backs out. A look whose proceed
+// sends a request of its own keeps the keys while it is in flight, and keeps a
+// refusal pinned under its title until esc; one whose proceed opens a run hands
+// the screen to that run instead.
+type lastLook struct {
+	marks  glyphs
+	styles styles
+	title  string
+	body   string
+	// verb names the act on the confirm key: "push", "re-run", "rebase".
+	verb string
+	// doing is the act in flight, pinned under the title while proceed's request
+	// is out. Empty for a look whose proceed opens a run, which never shows it.
+	doing   string
+	proceed func(m Model) (Model, tea.Cmd)
+	send    sendState
+}
+
+var _ overlay = lastLook{}
+
+// view names the act and what it acts on, its outcome pinned under the title.
+func (l lastLook) view(width, _ int) (string, string) {
+	lines := pinnedOutcome(l.styles, l.marks, l.send, l.doing, width)
+
+	return l.title, strings.Join(append(lines, wrap(l.body, width)), "\n")
+}
+
+// footer offers going ahead or backing out, and nothing while the act is in
+// flight.
+func (l lastLook) footer(keys keyMap) []key.Binding {
+	if l.send.sending {
+		return []key.Binding{keys.interrupt}
+	}
+
+	return []key.Binding{relabel(keys.confirm, l.verb), keys.closeOverlay}
+}
+
+// handleKey answers a key while the act waits for its last look.
+func (l lastLook) handleKey(m Model, msg tea.KeyPressMsg) (Model, tea.Cmd) {
+	switch {
+	case l.send.sending:
+		return m, nil
+	case key.Matches(msg, m.keys.closeOverlay):
+		return m.closeOverlay(), nil
+	case key.Matches(msg, m.keys.confirm):
+		return l.proceed(m)
+	default:
+		return m, nil
+	}
+}
