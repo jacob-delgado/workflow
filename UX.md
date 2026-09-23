@@ -84,24 +84,6 @@ the seven wiring preambles collapse into one that opens the log.
 **Done when.** `workflow --dry-run pr` is accepted and previews;
 `workflow --log FILE status` appends a request line to `FILE`.
 
-### UX-54 `config init` cannot be previewed
-
-Impact: medium · Effort: small
-
-**Today.** Every other write command now takes `--dry-run` and `--yes` —
-`standup` too, which also refuses `--days` below 1 as a usage error — but
-`config init` has no `--dry-run`: its guided flow (`runGuidedInit`,
-`internal/cli/config_cmd.go:161`) writes the file and may store a token in
-the keychain as soon as the questions are answered, and `--template`
-(`runConfigInit`, `internal/cli/config_cmd.go:139`) writes a file straight
-away, so neither can be looked at before it is written.
-
-**Instead.** `config init --dry-run` runs the same checks, writes nothing —
-no file, no keychain entry — and prints the redacted file it would write.
-
-**Done when.** `config init --dry-run` leaves no file behind and prints
-JSON that decodes to the configuration it would have written.
-
 ### UX-55 The generated reference omits `--version`, `help` and `completion`; the usage page never mentions the commands
 
 Impact: medium · Effort: small
@@ -142,7 +124,7 @@ unknown-command or unknown-flag error.
 Impact: medium · Effort: small
 
 **Today.** The strong messages say the next step — `(pass --force to
-overwrite)` (`internal/cli/config_cmd.go:142`), the `chmod 600` line (`doctor.go:456`),
+overwrite)` (`internal/cli/config_cmd.go:149`), the `chmod 600` line (`doctor.go:456`),
 `run gh auth login` (`doctor.go:232`), `Create one with workflow config
 init` (`internal/config/config.go:24`). The bare sentinels do not: `a branch for
 this issue already exists` (`internal/cli/branch.go:20`) does not say to switch to it;
