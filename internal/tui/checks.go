@@ -5,6 +5,7 @@ package tui
 
 import (
 	"errors"
+	"strconv"
 	"strings"
 
 	"charm.land/bubbles/v2/key"
@@ -164,4 +165,96 @@ func (msg checkOpened) apply(m Model) (Model, tea.Cmd) {
 	m.overlay = list
 
 	return m, nil
+}
+
+// canRerun reports a failed pull request whose checks can be re-run. A pull
+// request that has merged is left alone even if a stale CI read still reads as
+// failed: there is nothing to re-run once it is in.
+func (m Model) canRerun() bool {
+	return m.review.found && m.review.pull.State == forge.StateOpen &&
+		m.review.ci.State == forge.CIFailed && m.deps.Forge.Rerun != nil
+}
+
+// previewRerun holds the re-run of the failed checks for a last look, naming the
+// pull request it restarts CI on: a forge write, which goes only once confirmed.
+func (m Model) previewRerun() (Model, tea.Cmd) {
+	if !m.canRerun() {
+		return m, nil
+	}
+
+	pull, head := m.review.pull, m.branch.branch.Head
+	m.overlay = lastLook{
+		marks: m.marks, styles: m.styles, title: "Re-run checks",
+		body: "re-run the failed checks on " + m.vocab.sigil + strconv.Itoa(pull.Number) + " " + pull.Title,
+		verb: "re-run", doing: "re-running",
+		proceed: func(m Model) (Model, tea.Cmd) { return m.rerunChecks(pull, head) },
+	}
+
+	return m, nil
+}
+
+// rerunChecks asks the forge to re-run the failed CI on the pull request the
+// look named, the look open and in flight until the forge answers.
+func (m Model) rerunChecks(pull forge.PullRequest, head string) (Model, tea.Cmd) {
+	if m.dryRun {
+		return m.closeOverlay().noticed("dry run: would re-run the failed checks"), nil
+	}
+
+	rerun := m.deps.Forge.Rerun
+
+	return m, func() tea.Msg {
+		reran, err := rerun(pull, head)
+
+		return rerunRequested{reran: reran, err: err}
+	}
+}
+
+// rerunRequested is the outcome of asking the forge to re-run the failed checks.
+type rerunRequested struct {
+	reran bool
+	err   error
+}
+
+// apply returns the pane to "running" and restarts the poll once a re-run has
+// started, or says nothing could be re-run — a failure the forge has no
+// re-runnable job for, so the pane must not claim one — closing the look either
+// way. A refusal stays pinned in the look, and says why in the notice.
+func (msg rerunRequested) apply(m Model) (Model, tea.Cmd) {
+	// The look that asked is the one open and in flight; nothing else is touched.
+	look, open := m.overlay.(lastLook)
+	asked := open && look.send.sending
+
+	if msg.err != nil {
+		if asked {
+			look.send = look.send.failed(msg.err)
+			m.overlay = look
+		}
+
+		return m.noticed(rerunReason(msg.err)), nil
+	}
+
+	if asked {
+		m = m.closeOverlay()
+	}
+
+	if !msg.reran {
+		return m.noticed("nothing to re-run: this failure has no job to restart"), nil
+	}
+
+	m.review.ci = forge.CI{State: forge.CIRunning}
+	m.review.ciErr = nil
+
+	// The re-run has only just started, so a check now would still read the old
+	// failure; let the poll the set-to-running schedules read it once it moves.
+	return m.keepPolling(nil)
+}
+
+// rerunReason names why a re-run could not be asked for, spelling out the one a
+// read-only token hits so the fix — a wider scope — is plain.
+func rerunReason(err error) string {
+	if errors.Is(err, forge.ErrRefused) || errors.Is(err, forge.ErrUnauthorized) {
+		return "cannot re-run: the token needs a checks write scope the read path does not"
+	}
+
+	return "re-run failed: " + forgeReason(err)
 }

@@ -59,32 +59,31 @@ anyone misuse a credential, a terminal or a release.
 
 ## The terminal interface
 
-### DEBT-55 `review.go` is the Review pane, its state, its vocabulary, its polling, rerun, merge and the merge picker
+### DEBT-55 Four source files and five test files sit past the 500-line soft target
 
-Severity: medium · Confidence: measured
+Severity: low · Confidence: measured
 
-`internal/tui/review.go` is 727 lines, the largest non-test file in the
-repository, holding `reviewState`, the forge vocabulary, the CI polling
-chain, the pane's keys and rendering, the re-run and its last look
-(`canRerun … rerunReason`, `:470-560`), `canMerge … mergeReason` and the
-whole `mergePicker` overlay (`:564-727`). `messaging.go` and `prcomposer.go`
-are 514 and 522. Five test files are also over the 500-line
-soft target (`internal/messaging/post_test.go` 738, `internal/tui/
-messaging_test.go` 606, `internal/webserver/pullrequest_test.go` 601,
+`scripts/check-file-length.sh --list` flags four source files past the
+500-line soft target — `internal/forge/github.go` (551),
+`internal/gitrepo/branch.go` (532), `internal/tui/prcomposer.go` (522) and
+`internal/tui/messaging.go` (514) — and five test files
+(`internal/messaging/post_test.go` 738, `internal/tui/messaging_test.go`
+606, `internal/webserver/pullrequest_test.go` 601,
 `internal/tui/composer_test.go` 566, `internal/jira/detail_test.go` 501).
-None is over the 800 hard ceiling.
+None is over the 800 hard ceiling. The first edition of this entry missed
+the two source files outside `internal/tui`. Its headline file,
+`internal/tui/review.go` at 727 lines, is paid: the merge picker moved to
+`internal/tui/merge.go` and the re-run to `internal/tui/checks.go`,
+leaving it at 467.
 
 **What it costs.** `scripts/check-file-length.sh` warns on every run, so the
-warning has stopped meaning anything; and the merge picker cannot be read
-or changed without the polling chain in the same window.
+warning has stopped meaning anything.
 
-**One way to fix it.** Move `canMerge … mergePicker` to `merge.go` — the
-same split `finish.go` already made — which is the one honest reason to
-raise `internal/tui`'s budget from 38 to 39 (the WHY rewritten and a row
-appended to `scripts/package-size-budget-history.md` in the same commit).
+**One way to fix it.** Split each by the concern it carries, as
+`review.go` was — a new file in `internal/tui` carries its budget bump in
+the same commit.
 
-**Done when.** `review.go` is under 500 lines; `check-file-length.sh --list`
-no longer flags it.
+**Done when.** `check-file-length.sh --list` flags nothing `soft`.
 
 ### DEBT-56 Three overlays keep their own "in flight" flag instead of `sendState`
 
@@ -94,10 +93,10 @@ Severity: medium · Confidence: read
 failed with this" is named once, and eleven overlays use it. Three still
 carry their own booleans: `branchPicker.sending` and `switchErr`
 (`internal/tui/switchtask.go:79`), `finishPreview.finishing` (`finish.go:65`) and
-`mergePicker.merging` (`internal/tui/review.go:662`). Those three are also the ones that
+`mergePicker.merging` (`internal/tui/merge.go:118`). Those three are also the ones that
 skip `pinnedOutcome` (`render.go:457`), and two of them are the two that
 close on a refusal and demote it to a one-line notice — `mergeRequested.
-apply` (`internal/tui/review.go:623`) and `finished.apply` (`finish.go:139`) — which is
+apply` (`internal/tui/merge.go:79`) and `finished.apply` (`finish.go:139`) — which is
 why the interface's promise that "a refused change must never go unseen"
 holds in 12 overlays of 14, not 14.
 
@@ -115,10 +114,10 @@ Severity: low · Confidence: read
   `overlay.(T)` / `send.failed` / reassign shape: `branchresult.go:109`,
   `issuewrite.go:194`, `issuelink.go:98`, `preditor.go:162`,
   `internal/tui/prcomposer.go:486`, `hookgen.go:153`, `internal/tui/switchtask.go:229`,
-  `comment.go:169`, `internal/tui/messaging.go:491`, `internal/tui/review.go:522`.
+  `comment.go:169`, `internal/tui/messaging.go:491`, `internal/tui/checks.go:222`.
 - Five list-picker bodies with identical `up`/`down`/`confirm`/`esc` and a
   `window`-scrolled `rows`: `internal/tui/picker.go:225`, `internal/tui/picker.go:423`,
-  `internal/tui/switchtask.go:120`, `checks.go:64`, `internal/tui/run.go:255`.
+  `internal/tui/switchtask.go:120`, `internal/tui/checks.go:65`, `internal/tui/run.go:255`.
 - Three focus-guarded "re-clamp the shared scroll after a shrinking reload"
   blocks: `internal/tui/commits.go:50`, `reviewqueue.go:52`, plus `internal/tui/commits.go:249`
   `followChange` / `reviewqueue.go:213`.
@@ -157,7 +156,7 @@ to a pane restores its position (a screen test).
 
 Severity: low · Confidence: read
 
-`reviewState.generation` (`internal/tui/review.go:32`) exists solely to
+`reviewState.generation` (`internal/tui/review.go:33`) exists solely to
 stop a superseded CI polling chain from applying — a workaround for having
 no way to cancel the earlier chain. `detailLoaded.apply`
 (`internal/tui/detail.go:50`) documents a last-writer-wins race between two

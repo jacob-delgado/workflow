@@ -98,9 +98,9 @@ gap, and which phase closes it.
 | 26 | After opening: link, then the review-status offer | P (status only) | Y | **N** (`webserver/pullrequest.go` never touches `Jira.ReviewStatus`) | **Yes** — Phase 8 (CLI link), Phase 9 (web both), UX-59/UX-74 |
 | 27 | Edit the pull request | N | Y (`e`, `preditor.go`) | N | `gh pr edit` is the twin; web idea, FEAT-79 |
 | 28 | Checks list; a failure into `$EDITOR` | N | Y (`checks.go`) | P (a CI link) | A terminal gesture; web list idea, UX-88 |
-| 29 | Follow CI; notify on settle | n/a | Y (`internal/tui/review.go:191`) | P (5 s tick, no signal) | Web "CI settled" idea, UX-86 |
-| 30 | Re-run CI | N | Y, previewed since Phase 4 (`previewRerun`, `internal/tui/review.go:480`, through `lastLook`) | **F** | `gh run rerun` is the CLI's. Web declared (`FEATURES.md:148`), FEAT-79 |
-| 31 | Merge | N | Y (`M`, gated `internal/tui/review.go:564`) | **F** | FEAT-31 chose the interface; web declared (`FEATURES.md:150`), FEAT-79 |
+| 29 | Follow CI; notify on settle | n/a | Y (`internal/tui/review.go:190`) | P (5 s tick, no signal) | Web "CI settled" idea, UX-86 |
+| 30 | Re-run CI | N | Y, previewed since Phase 4 (`previewRerun`, `internal/tui/checks.go:180`, through `lastLook`) | **F** | `gh run rerun` is the CLI's. Web declared (`FEATURES.md:148`), FEAT-79 |
+| 31 | Merge | N | Y (`M`, gated `internal/tui/merge.go:20`) | **F** | FEAT-31 chose the interface; web declared (`FEATURES.md:150`), FEAT-79 |
 | 32 | The review queue | Y (`reviews --json`) | Y (pane 6) | **N** (no section) | **Yes** — a read both other surfaces have, over a seam that exists. Phase 12, UX-83 |
 
 ### Messaging
@@ -263,7 +263,7 @@ as a method on the section that owns its four fields (`config.Branch`).
 
 One commit each, red first, in this order:
 
-1. `forge.Kind.Noun()` and `Sigil()` replace `internal/tui/review.go:47`
+1. `forge.Kind.Noun()` and `Sigil()` replace `internal/tui/review.go:46`
    `forgeVocab`, `internal/cli/announce.go` `forgeNoun`,
    `internal/webserver/announce.go` `noun`. Add the methods to an
    existing `forge` file — `internal/forge` is 11 of 12.
@@ -437,7 +437,7 @@ Closes UX-65. Before 5–7, so the goldens move once.
 Generalize `pushPreview` (it was `internal/tui/run.go:394`) into `lastLook{title,
 body, verb, proceed func(Model) (Model, tea.Cmd)}` (now `internal/tui/overlay.go:131`)
 — three users now, the rule of three is met — and route `rerunChecks`
-(`internal/tui/review.go:498`, a forge write) and `startRebase`
+(`internal/tui/checks.go:198`, a forge write) and `startRebase`
 (`internal/tui/run.go:417`, rewrites local history) through it;
 the dry-run narration moves inside `proceed`. Relabel the footers
 ("re-run", "rebase"); `usage.md`'s key rows follow.
@@ -460,14 +460,15 @@ tests to press `enter`.
 Closes UX-66, DEBT-55 (for `review.go`), DEBT-56. Depends on Phase 4.
 
 1. `refactor(tui): split the merge picker out of review.go` — `canMerge …
-   mergePicker.confirm` (`internal/tui/review.go:564-727`) to `merge.go`.
+   mergePicker.confirm` (it was lines 562–727 of `internal/tui/review.go`)
+   to `internal/tui/merge.go`.
    **`internal/tui` 38 → 39 in this commit**, with the WHY rewritten
    ("merge.go: the Review pane's merge picker and its permitted-methods
    read, split out of review.go when it passed the 500-line target") and a
    row in `scripts/package-size-budget-history.md` — same commit, or the
    commit is red.
-2. `mergePicker.merging bool` (`:662`) → `send sendState`
-   (`sendstate.go:10`); `mergeRequested.apply` (`:623`) keeps the overlay
+2. `mergePicker.merging bool` (`internal/tui/merge.go:118`) → `send sendState`
+   (`sendstate.go:10`); `mergeRequested.apply` (`internal/tui/merge.go:79`) keeps the overlay
    open through `pinnedOutcome` (`render.go:457`) instead of
    `closeOverlay().noticed(…)`.
 3. The same for `finishPreview` (`finish.go:65`, `finished.apply` `:139`).
@@ -496,16 +497,16 @@ Closes UX-67. Depends on Phase 5 (every overlay outcome then flows through
   fixes all nine `pinnedOutcome` overlays at once.
 - `m.failureLine(err)` — glyph plus the sentence, or the raw text when
   there is none, one line — replaces the fourteen `failedGlyph() +
-  err.Error()` rail sites (`checks.go:96`, `diff.go:79`, `issuewrite.go:120`,
+  err.Error()` rail sites (`internal/tui/checks.go:97`, `diff.go:79`, `issuewrite.go:120`,
   `:122`, `internal/tui/picker.go:209`, `:246`, `internal/tui/switchtask.go:108`, `:148`,
-  `internal/tui/messaging.go:147`, `internal/tui/review.go:219`, `internal/tui/run.go:211`, `internal/tui/composer.go:164`,
+  `internal/tui/messaging.go:147`, `internal/tui/review.go:218`, `internal/tui/run.go:211`, `internal/tui/composer.go:164`,
   `:176`, `internal/tui/fields.go:171`).
 - The nine bare notices (`comment.go:76`, `internal/tui/composer.go:77`,
-  `internal/tui/messaging.go:378`, `finish.go:141`, `internal/tui/review.go:533`, `:541`, `:605`,
-  `:607`, `:625`) go through `m.noticed(m.failureLine(err))`;
+  `internal/tui/messaging.go:378`, `finish.go:141`, `internal/tui/checks.go:233`, `:241`,
+  `internal/tui/merge.go:61`, `:63`, `:81`) go through `m.noticed(m.failureLine(err))`;
   `render.go:386` `configErrorStatus` is styled.
-- `forgeReason` (`internal/tui/review.go:361`), `rerunReason` (`:554`) and
-  `mergeReason` (`:635`) fold into `errorSentence`'s table
+- `forgeReason` (`internal/tui/review.go:360`), `rerunReason`
+  (`internal/tui/checks.go:254`) and `mergeReason` (`internal/tui/merge.go:91`) fold into `errorSentence`'s table
   (`forge.ErrRefused`/`ErrUnauthorized` → the write-scope sentence;
   `jira.ErrNotFound`; `forge.ErrNoRepository`; `errDryRun`).
 

@@ -51,18 +51,20 @@ internal/config 13
 # CLAUDE.md names as one that must not be split to chase a number; the entry
 # freezes the count so a new concern is a decision, not drift, not a target to
 # shrink toward. layout/ and frame/ are already the pure leaves that could leave.
-# 36 = the panes, overlays and composers, including issuewrite.go (the assign
+# 39 = the panes, overlays and composers, including issuewrite.go (the assign
 # and log-work forms), issuekeys.go (the Issues pane's key routing, split out of
 # detail.go when it crossed the 500-line file ceiling), scopesuggest.go (the
 # commit scope's completion from the staged directory and the log) and diff.go
 # (the Commits pane's diff preview), each kept beside commits.go/composer.go
-# rather than swelling either toward the 500-line ceiling, and finish.go (the
+# rather than swelling either toward the 500-line ceiling; finish.go (the
 # Review pane's finish-a-merged-branch preview and its git cleanup), split out
 # of review.go when merge and finish together pushed it past the 800-line hard
-# ceiling, and preditor.go (the Review pane's edit-an-open-pull-request overlay
-# — title and description — kept a dedicated overlay rather than an edit-mode
-# flag bolted onto composer.go).
-internal/tui 38
+# ceiling; preditor.go (the Review pane's edit-an-open-pull-request overlay —
+# title and description — kept a dedicated overlay rather than an edit-mode
+# flag bolted onto composer.go); and merge.go (the Review pane's merge picker
+# and its permitted-methods read, split out of review.go when it passed the
+# 500-line target, the re-run moving to checks.go beside the checks it acts on).
+internal/tui 39
 
 # internal/webserver — the loopback REST surface, one file per operation
 # (announce, commit, branches, pull-request, checkout, push, review, config,
