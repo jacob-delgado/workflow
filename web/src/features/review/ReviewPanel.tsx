@@ -15,7 +15,6 @@ import { useFocusHandback } from '@/lib/focus.ts'
 import { OutcomeLine, useOutcome } from '@/lib/Outcome.tsx'
 import { useAsyncAction } from '@/lib/useAsyncAction.ts'
 import { cn, splitList } from '@/lib/utils.ts'
-import { EmptyState } from '@/shell/EmptyState.tsx'
 import { OpenedOutcome } from './OpenedOutcome.tsx'
 import { openPr, previewPullRequest } from './openPrApi.ts'
 
@@ -35,8 +34,9 @@ const mergeableLabel: Record<'unknown' | 'clean' | 'conflicts', string> = {
 export function ReviewPanel() {
   const snapshot = useSnapshotStore((state) => state.snapshot)
 
+  // The shell says it is connecting until the first snapshot lands.
   if (!snapshot) {
-    return <EmptyState>Connecting to the forge…</EmptyState>
+    return null
   }
 
   // Keyed by the branch, so checking out another starts its review afresh: an

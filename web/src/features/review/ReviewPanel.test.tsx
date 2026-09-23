@@ -368,14 +368,6 @@ test('says a merge request could not be opened, on GitLab, when the forge gives 
   ).toBeTruthy()
 })
 
-test('prompts to connect before any snapshot arrives', () => {
-  // Act
-  render(<ReviewPanel />)
-
-  // Assert
-  expect(screen.getByText(/connecting/i)).toBeTruthy()
-})
-
 test('the form opens on its title, and Cancel hands focus back', async () => {
   // Arrange
   const user = userEvent.setup()

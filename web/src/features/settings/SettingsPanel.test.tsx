@@ -291,3 +291,31 @@ test('locks the save while it is in flight', async () => {
   releaseSave()
   await screen.findByText('Saved.')
 })
+
+test('offers to try again when the configuration cannot be loaded', async () => {
+  // Arrange
+  // The first read fails; the one Retry asks for answers.
+  const answers = [Response.json({}, { status: 500 }), Response.json(mockConfig)]
+  fakeApi({ '/api/config': () => answers.shift() })
+  const user = userEvent.setup()
+  renderWithClient(<SettingsPanel />)
+  await screen.findByText(/the configuration could not be loaded/i)
+
+  // Act
+  await user.click(screen.getByRole('button', { name: 'Retry' }))
+
+  // Assert: the form that took the Retry's place has focus, on its first field
+  expect(document.activeElement).toBe(await screen.findByLabelText('Base URL'))
+})
+
+test('the form the first read loads leaves focus where it was', async () => {
+  // Arrange
+  vi.stubEnv('VITE_MOCK', 'true')
+
+  // Act
+  renderWithClient(<SettingsPanel />)
+
+  // Assert
+  await screen.findByLabelText('Base URL')
+  expect(document.activeElement).toBe(document.body)
+})

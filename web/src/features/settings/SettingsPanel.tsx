@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react'
+import { useEffect, useState, type ReactNode } from 'react'
 import { useForm } from 'react-hook-form'
 import type { Config } from '@/api/generated/types.gen.ts'
 import { useForgeWords } from '@/api/health.ts'
@@ -9,23 +9,46 @@ import { useConfig, useSaveConfig } from './configApi.ts'
 
 export function SettingsPanel() {
   const query = useConfig()
+  // A Retry is swapped for the form it loads, so the form takes the focus the
+  // Retry had rather than letting it fall to the page.
+  const [retried, setRetried] = useState(false)
 
   if (query.isPending) {
     return <EmptyState>Loading the configuration…</EmptyState>
   }
 
   if (query.isError) {
-    return <EmptyState>The configuration could not be loaded.</EmptyState>
+    return (
+      <EmptyState>
+        <span className="flex flex-col items-center gap-3">
+          The configuration could not be loaded.
+          <button
+            type="button"
+            disabled={query.isFetching}
+            onClick={() => {
+              setRetried(true)
+              void query.refetch()
+            }}
+            className="rounded-md border border-input px-3 py-1.5 text-foreground hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none disabled:opacity-60"
+          >
+            {query.isFetching ? 'Retrying…' : 'Retry'}
+          </button>
+        </span>
+      </EmptyState>
+    )
   }
 
-  return <ConfigForm config={query.data} />
+  return <ConfigForm config={query.data} takesFocus={retried} />
 }
 
-function ConfigForm({ config }: { config: Config }) {
+// ConfigForm edits the configuration. It takes focus, on its first field, only
+// when it replaces a control that had it — a Retry — and otherwise leaves focus
+// where the section change put it.
+function ConfigForm({ config, takesFocus }: { config: Config; takesFocus: boolean }) {
   // The whole config seeds the form, so the sections and collections this form
   // does not edit (ui, timing, branch, commit, headers, views…) ride back
   // unchanged on save rather than being dropped.
-  const { register, handleSubmit, reset } = useForm<Config>({ defaultValues: config })
+  const { register, handleSubmit, reset, setFocus } = useForm<Config>({ defaultValues: config })
   const { noun } = useForgeWords()
   const saveConfig = useSaveConfig()
   const save = useAsyncAction(
@@ -35,6 +58,12 @@ function ConfigForm({ config }: { config: Config }) {
     { fallback: 'The configuration was not saved. Try again — your edits are still in the form.' },
   )
   const onSubmit = handleSubmit((values) => save.run(values))
+
+  useEffect(() => {
+    if (takesFocus) {
+      setFocus('jira.base_url')
+    }
+  }, [takesFocus, setFocus])
 
   return (
     <form

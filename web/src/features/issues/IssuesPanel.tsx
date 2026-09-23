@@ -16,8 +16,9 @@ import { StatusBadge } from './StatusBadge.tsx'
 export function IssuesPanel() {
   const snapshot = useSnapshotStore((state) => state.snapshot)
 
+  // The shell says it is connecting until the first snapshot lands.
   if (!snapshot) {
-    return <EmptyState>Connecting to the tracker…</EmptyState>
+    return null
   }
 
   return <IssueBrowser streamed={snapshot.issues} branches={snapshot.branches} />
