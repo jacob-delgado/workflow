@@ -185,14 +185,14 @@ periwinkle accent `#8b93f8` chosen "clear of the green/amber/red the status
 lights own" (`web/src/index.css:24`) plus a three-color CI language; Jira is
 not blue, git is not yellow, the forge is not green anywhere; the `NavRail`
 icons are all muted (`web/src/shell/NavRail.tsx:30`). State marks are the web's own:
-`StageMarker` (`web/src/features/issues/WorkStory.tsx:316`) invents three, and `ciDot`
+`StageMarker` (`web/src/features/issues/WorkStory.tsx:302`) invents three, and `ciDot`
 (`web/src/features/review/ReviewPanel.tsx:21`) and `StreamStatus` (`web/src/shell/StreamStatus.tsx:4`) are
 color-only dots of one shape (mitigated by a text label beside each). And
 the page shows the template tells the interface avoids: nine `uppercase`
-eyebrow headings from seven class strings (`web/src/features/settings/SettingsPanel.tsx:340`,
-`web/src/features/branch/BranchPanel.tsx:80`, `web/src/features/branch/WorkingTree.tsx:21`, `web/src/features/issues/IssueDetailPanel.tsx:8`
+eyebrow headings from seven class strings (`web/src/features/settings/SettingsPanel.tsx:353`,
+`web/src/features/branch/BranchPanel.tsx:80`, `web/src/features/branch/WorkingTree.tsx:21`, `web/src/features/issues/IssueDetailPanel.tsx:9`
 — the work story, description and comments share it — `web/src/features/review/ReviewPanel.tsx:116`,
-`web/src/features/messaging/MessagingPanel.tsx:43`, `:49`) as the *only* heading treatment; no type or spacing tokens (raw `text-2xl`
+`web/src/features/messaging/MessagingPanel.tsx:95`, `:49`) as the *only* heading treatment; no type or spacing tokens (raw `text-2xl`
 … `text-xs`, `gap-8` … `gap-0.5` per component); one radius on everything
 (`rounded-md` ×28). To its credit: no shadows, no gradients, no `→`, and a
 real color-token system with hand-picked contrast (`web/src/index.css:9-105`).
@@ -252,7 +252,7 @@ region saying so.
 Impact: low · Effort: medium
 
 **Today.** The form seeds itself with the whole `Config`
-(`web/src/features/settings/SettingsPanel.tsx:41`) so `ui`, `timing`, `headers`, `views` and
+(`web/src/features/settings/SettingsPanel.tsx:48`) so `ui`, `timing`, `headers`, `views` and
 `branch.prefixes` survive a save unchanged — and cannot be edited. There is
 no guided, credential-checking flow like `workflow config init`; the web
 edits an existing file only.
