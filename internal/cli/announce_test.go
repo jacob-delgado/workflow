@@ -18,18 +18,19 @@ func TestAnnounceDryRunComposesTheReadyMoment(t *testing.T) {
 	writeFile(t, repo, forgeCLIConfig)
 
 	// Act
-	output, err := run(t, repo, "announce", "--dry-run")
+	printed, err := runStreams(t, repo, unusedPrompt(t), "announce", "--dry-run")
 	// Assert
 	if err != nil {
-		t.Fatalf("announce --dry-run: %v (%s)", err, output)
+		t.Fatalf("announce --dry-run: %v (%+v)", err, printed)
 	}
 
-	if !strings.Contains(output, "opened a pull request") {
-		t.Errorf("preview does not mark the ready-for-review moment:\n%s", output)
+	// The preview is the artifact; what the dry run would do is said about it.
+	if !strings.Contains(printed.stdout, "opened a pull request") {
+		t.Errorf("stdout does not preview the ready-for-review moment:\n%s", printed.stdout)
 	}
 
-	if !strings.Contains(output, "dry run: would post to") {
-		t.Errorf("dry run does not say it would post:\n%s", output)
+	if !strings.Contains(printed.stderr, "dry run: would post to") || strings.Contains(printed.stdout, "dry run:") {
+		t.Errorf("the dry-run line is not on stderr alone:\nstdout:\n%s\nstderr:\n%s", printed.stdout, printed.stderr)
 	}
 }
 

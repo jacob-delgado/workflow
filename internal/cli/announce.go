@@ -6,7 +6,6 @@ package cli
 import (
 	"errors"
 	"fmt"
-	"io"
 
 	"github.com/spf13/cobra"
 
@@ -88,12 +87,12 @@ func runAnnounceCommand(cmd *cobra.Command, prompt Prompt, opts writeOptions) er
 		seams.Post = func(channel, text string) error { return deps.Messaging.Post(channel, text) }
 	}
 
-	return runAnnounce(cmd.OutOrStdout(), seams, opts)
+	return runAnnounce(outputOf(cmd), seams, opts)
 }
 
 // runAnnounce composes the announcement for the branch's pull request, previews
 // it, and posts it once confirmed.
-func runAnnounce(out io.Writer, seams announceSeams, opts writeOptions) error {
+func runAnnounce(out output, seams announceSeams, opts writeOptions) error {
 	if seams.Post == nil {
 		return errMessagingNotConfigured
 	}
@@ -110,10 +109,10 @@ func runAnnounce(out io.Writer, seams announceSeams, opts writeOptions) error {
 	service := seams.Messaging.Service()
 	target := announceTarget(seams.Messaging.Channel, service)
 	text := announcement.Text()
-	fmt.Fprintln(out, text)
-	fmt.Fprintln(out, "to "+target)
+	fmt.Fprintln(out.artifact, text)
+	fmt.Fprintln(out.artifact, "to "+target)
 
-	proceed, err := opts.proceed(out, seams.Confirm, writePrompt{
+	proceed, err := opts.proceed(out.notes, seams.Confirm, writePrompt{
 		question: "Post to " + service + "?",
 		dryRun:   "dry run: would post to " + target,
 		declined: "Not posted.",
@@ -127,7 +126,7 @@ func runAnnounce(out io.Writer, seams announceSeams, opts writeOptions) error {
 		return fmt.Errorf("posting to %s: %w", service, err)
 	}
 
-	fmt.Fprintln(out, "Posted to "+target)
+	fmt.Fprintln(out.notes, "Posted to "+target)
 
 	return nil
 }

@@ -147,7 +147,8 @@ func runConfigInit(cmd *cobra.Command, path string, force bool) error {
 		return err
 	}
 
-	out := cmd.OutOrStdout()
+	// The file is what config init makes; everything it says is about the file.
+	out := cmd.ErrOrStderr()
 	fmt.Fprintf(out, "Wrote %s (mode %#o).\n", path, config.FileMode)
 	fmt.Fprintf(out, "\nNext: add your Jira and Slack tokens, then run `workflow doctor`.\n")
 	fmt.Fprintf(out, "`workflow --help` explains how to create each token.\n")
@@ -163,7 +164,7 @@ func runGuidedInit(cmd *cobra.Command, path string, force bool, prompt Prompt) e
 		return fmt.Errorf("%w: %s (pass --force to overwrite)", errConfigExists, path)
 	}
 
-	out := cmd.OutOrStdout()
+	out := cmd.ErrOrStderr()
 	fmt.Fprintf(out, "Setting up %s. Leave a prompt blank to skip it.\n\n", path)
 
 	cfg := config.Default()

@@ -69,14 +69,16 @@ func TestBranchCreatesTheBranchForTheIssue(t *testing.T) {
 	repo := repoForBranch(t, server.URL)
 
 	// Act
-	output, err := run(t, repo, "branch", "PROJ-7", "--yes")
+	printed, err := runStreams(t, repo, unusedPrompt(t), "branch", "PROJ-7", "--yes")
 	// Assert
 	if err != nil {
-		t.Fatalf("branch: %v (%s)", err, output)
+		t.Fatalf("branch: %v (%+v)", err, printed)
 	}
 
-	if !strings.Contains(output, "Created fix/PROJ-7-login") {
-		t.Errorf("output does not report the branch was created:\n%s", output)
+	// The branch it created is the artifact, for a script to read back.
+	const created = "Created fix/PROJ-7-login"
+	if !strings.Contains(printed.stdout, created) || strings.Contains(printed.stderr, created) {
+		t.Errorf("the created branch is not on stdout alone:\nstdout:\n%s\nstderr:\n%s", printed.stdout, printed.stderr)
 	}
 
 	if got := currentBranch(t, repo); got != "fix/PROJ-7-login" {

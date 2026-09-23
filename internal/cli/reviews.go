@@ -56,11 +56,11 @@ func runReviewsCommand(cmd *cobra.Command, asJSON bool) error {
 
 	seams := reviewsSeams{List: conn.deps.Forge.ReviewRequests, Now: time.Now}
 
-	return runReviews(cmd.OutOrStdout(), seams, asJSON)
+	return runReviews(outputOf(cmd), seams, asJSON)
 }
 
 // runReviews lists the reviews waiting on you, the longest-waiting first.
-func runReviews(out io.Writer, seams reviewsSeams, asJSON bool) error {
+func runReviews(out output, seams reviewsSeams, asJSON bool) error {
 	reviews, err := seams.List()
 	if err != nil {
 		return fmt.Errorf("reading review requests: %w", err)
@@ -72,7 +72,7 @@ func runReviews(out io.Writer, seams reviewsSeams, asJSON bool) error {
 
 	now := seams.Now()
 	if asJSON {
-		return renderReviewsJSON(out, reviews, now)
+		return renderReviewsJSON(out.artifact, reviews, now)
 	}
 
 	renderReviews(out, reviews, now)
@@ -80,16 +80,17 @@ func runReviews(out io.Writer, seams reviewsSeams, asJSON bool) error {
 	return nil
 }
 
-// renderReviews writes one line per review, or says the queue is empty.
-func renderReviews(out io.Writer, reviews []forge.ReviewRequest, now time.Time) {
+// renderReviews writes one line per review, or says, as commentary, that the
+// queue is empty: a script counting the lines counts none.
+func renderReviews(out output, reviews []forge.ReviewRequest, now time.Time) {
 	if len(reviews) == 0 {
-		fmt.Fprintln(out, "No pull requests are waiting on your review.")
+		fmt.Fprintln(out.notes, "No pull requests are waiting on your review.")
 
 		return
 	}
 
 	for _, review := range reviews {
-		fmt.Fprintln(out, reviewLine(review, now))
+		fmt.Fprintln(out.artifact, reviewLine(review, now))
 	}
 }
 

@@ -91,14 +91,18 @@ func TestPRMovesTheIssueToTheReviewStatus(t *testing.T) {
 	repo, applied := reviewRepo(t, reviewMoves)
 
 	// Act
-	output, err := run(t, repo, "pr", "--yes")
+	printed, err := runStreams(t, repo, unusedPrompt(t), "pr", "--yes")
 	// Assert
 	if err != nil {
-		t.Fatalf("pr --yes: %v (%s)", err, output)
+		t.Fatalf("pr --yes: %v (%+v)", err, printed)
 	}
 
-	if !strings.Contains(output, "Opened #7") || !strings.Contains(output, "Moved PROJ-2 to "+statusInReview) {
-		t.Errorf("output does not open the pull request and move the issue to review:\n%s", output)
+	// What was opened is the artifact; the move that follows is said about it.
+	moved := "Moved PROJ-2 to " + statusInReview
+	if !strings.Contains(printed.stdout, "Opened #7") ||
+		!strings.Contains(printed.stderr, moved) || strings.Contains(printed.stdout, moved) {
+		t.Errorf("pr did not open on stdout and move the issue on stderr:\nstdout:\n%s\nstderr:\n%s",
+			printed.stdout, printed.stderr)
 	}
 
 	// The offer is chosen by the destination status name, so the In Review
@@ -115,14 +119,17 @@ func TestPRLeavesTheIssueWhenTheReviewMoveIsDeclined(t *testing.T) {
 
 	// Act
 	// Yes to opening the pull request, no to moving the issue.
-	output, err := runGuided(t, repo, scripted([]string{"y", "n"}, nil), "pr")
+	printed, err := runStreams(t, repo, scripted([]string{"y", "n"}, nil), "pr")
 	// Assert
 	if err != nil {
-		t.Fatalf("pr: %v (%s)", err, output)
+		t.Fatalf("pr: %v (%+v)", err, printed)
 	}
 
-	if !strings.Contains(output, "Opened #7") || !strings.Contains(output, "Left PROJ-2 as it is.") {
-		t.Errorf("output does not open the pull request and leave the issue:\n%s", output)
+	const left = "Left PROJ-2 as it is."
+	if !strings.Contains(printed.stdout, "Opened #7") ||
+		!strings.Contains(printed.stderr, left) || strings.Contains(printed.stdout, left) {
+		t.Errorf("pr did not open on stdout and leave the issue on stderr:\nstdout:\n%s\nstderr:\n%s",
+			printed.stdout, printed.stderr)
 	}
 
 	if applied.applied() != 0 {

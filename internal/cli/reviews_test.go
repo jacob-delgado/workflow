@@ -63,9 +63,9 @@ func TestReviewsShowsTheAuthorRepositoryCIAndAge(t *testing.T) {
 	repo := reviewsRepo(t)
 
 	// Act
-	output, err := run(t, repo, "reviews")
+	printed, err := runStreams(t, repo, unusedPrompt(t), "reviews")
 	if err != nil {
-		t.Fatalf("reviews: %v (%s)", err, output)
+		t.Fatalf("reviews: %v (%+v)", err, printed)
 	}
 
 	// Assert
@@ -73,9 +73,13 @@ func TestReviewsShowsTheAuthorRepositoryCIAndAge(t *testing.T) {
 	// paying a request per entry to learn it.
 	wants := []string{"fix: token", "(grp/proj)", "by ben", "CI none", "2d", "https://github.com/ex/repo/pull/7"}
 	for _, want := range wants {
-		if !strings.Contains(output, want) {
-			t.Errorf("the review line is missing %q:\n%s", want, output)
+		if !strings.Contains(printed.stdout, want) {
+			t.Errorf("the review line on stdout is missing %q:\n%s", want, printed.stdout)
 		}
+	}
+
+	if printed.stderr != "" {
+		t.Errorf("reviews said something beside its lines:\n%s", printed.stderr)
 	}
 }
 
@@ -105,14 +109,17 @@ func TestReviewsWithNothingWaitingSaysSo(t *testing.T) {
 	repo := reviewsRepo(t)
 
 	// Act
-	output, err := run(t, repo, "reviews")
+	printed, err := runStreams(t, repo, unusedPrompt(t), "reviews")
 	if err != nil {
-		t.Fatalf("reviews: %v (%s)", err, output)
+		t.Fatalf("reviews: %v (%+v)", err, printed)
 	}
 
 	// Assert
-	if !strings.Contains(output, "No pull requests are waiting on your review.") {
-		t.Errorf("an empty queue was not reported:\n%s", output)
+	// An empty queue has no lines to read; saying so is commentary, so a script
+	// counting the lines on stdout counts none.
+	if !strings.Contains(printed.stderr, "No pull requests are waiting on your review.") || printed.stdout != "" {
+		t.Errorf("an empty queue was not reported on stderr alone:\nstdout:\n%s\nstderr:\n%s",
+			printed.stdout, printed.stderr)
 	}
 }
 
@@ -144,9 +151,9 @@ func TestReviewsAsJSONReportsEachOldestFirstWithItsAge(t *testing.T) {
 	repo := reviewsRepo(t)
 
 	// Act
-	output, err := run(t, repo, "reviews", "--json")
+	printed, err := runStreams(t, repo, unusedPrompt(t), "reviews", "--json")
 	if err != nil {
-		t.Fatalf("reviews --json: %v (%s)", err, output)
+		t.Fatalf("reviews --json: %v (%+v)", err, printed)
 	}
 
 	// Assert
@@ -156,9 +163,11 @@ func TestReviewsAsJSONReportsEachOldestFirstWithItsAge(t *testing.T) {
 		Age    string `json:"age"`
 	}
 
+	output := printed.stdout
+
 	err = json.Unmarshal([]byte(output), &reports)
-	if err != nil {
-		t.Fatalf("output is not JSON: %v\n%s", err, output)
+	if err != nil || printed.stderr != "" {
+		t.Fatalf("stdout is not the JSON alone: %v\nstdout:\n%s\nstderr:\n%s", err, output, printed.stderr)
 	}
 
 	if len(reports) != 4 || reports[0].Number != 10 || reports[0].CI != "none" {

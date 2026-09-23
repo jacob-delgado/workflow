@@ -93,12 +93,12 @@ func runStandupCommand(cmd *cobra.Command, prompt Prompt, days int, noEdit bool)
 		Configured: cfg.Messaging.Mode() != config.MessagingNone,
 	}
 
-	return runStandup(cmd.OutOrStdout(), seams, days, noEdit)
+	return runStandup(outputOf(cmd), seams, days, noEdit)
 }
 
 // runStandup gathers the work, offers it for editing, previews it, and posts it
 // once confirmed.
-func runStandup(out io.Writer, seams standupSeams, days int, noEdit bool) error {
+func runStandup(out output, seams standupSeams, days int, noEdit bool) error {
 	draft, err := gatherStandup(seams, days)
 	if err != nil {
 		return err
@@ -113,19 +113,20 @@ func runStandup(out io.Writer, seams standupSeams, days int, noEdit bool) error 
 
 	draft = strings.TrimSpace(draft)
 	if draft == "" {
-		fmt.Fprintln(out, "Nothing to share.")
+		fmt.Fprintln(out.notes, "Nothing to share.")
 
 		return nil
 	}
 
-	fmt.Fprintln(out, draft)
+	fmt.Fprintln(out.artifact, draft)
 
-	return offerToPost(out, seams, draft)
+	return offerToPost(out.notes, seams, draft)
 }
 
 // offerToPost posts the standup to the messaging service after a confirmation,
-// when one is configured. Nothing is sent before the confirmation.
-func offerToPost(out io.Writer, seams standupSeams, text string) error {
+// when one is configured. Nothing is sent before the confirmation. What it says
+// about the post is commentary, written to notes.
+func offerToPost(notes io.Writer, seams standupSeams, text string) error {
 	if !seams.Configured {
 		return nil
 	}
@@ -136,7 +137,7 @@ func offerToPost(out io.Writer, seams standupSeams, text string) error {
 	}
 
 	if !post {
-		fmt.Fprintln(out, "Not posted.")
+		fmt.Fprintln(notes, "Not posted.")
 
 		return nil
 	}
@@ -146,7 +147,7 @@ func offerToPost(out io.Writer, seams standupSeams, text string) error {
 		return fmt.Errorf("posting to %s: %w", seams.Service, err)
 	}
 
-	fmt.Fprintf(out, "Posted to %s.\n", seams.Service)
+	fmt.Fprintf(notes, "Posted to %s.\n", seams.Service)
 
 	return nil
 }

@@ -96,21 +96,21 @@ func runPRCommand(cmd *cobra.Command, prompt Prompt, opts writeOptions) error {
 		Confirm:      func(question string) (bool, error) { return confirm(prompt, question) },
 	}
 
-	return runPR(cmd.OutOrStdout(), seams, opts)
+	return runPR(outputOf(cmd), seams, opts)
 }
 
 // runPR composes the pull request, previews it, pushes the branch when needed,
 // and opens it once confirmed.
-func runPR(out io.Writer, seams prSeams, opts writeOptions) error {
+func runPR(out output, seams prSeams, opts writeOptions) error {
 	request, branch, err := loop.ComposePull(seams.Compose, seams.Options)
 	if err != nil {
 		return composeRefusal(err)
 	}
 
-	fmt.Fprintln(out, "Open "+request.Title)
-	fmt.Fprintln(out, "  "+branch.Name+" → "+request.Base)
+	fmt.Fprintln(out.artifact, "Open "+request.Title)
+	fmt.Fprintln(out.artifact, "  "+branch.Name+" → "+request.Base)
 
-	proceed, err := opts.proceed(out, seams.Confirm, writePrompt{
+	proceed, err := opts.proceed(out.notes, seams.Confirm, writePrompt{
 		question: "Open the pull request?",
 		dryRun:   "dry run: would " + pushClause(branch) + "open " + request.Title,
 		declined: "Not opened.",
@@ -129,11 +129,11 @@ func runPR(out io.Writer, seams prSeams, opts writeOptions) error {
 		return fmt.Errorf("opening the pull request: %w", err)
 	}
 
-	fmt.Fprintln(out, "Opened #"+strconv.Itoa(pull.Number)+" "+pull.URL)
+	fmt.Fprintln(out.artifact, "Opened #"+strconv.Itoa(pull.Number)+" "+pull.URL)
 
 	key, _ := convention.IssueKey(branch.Name, seams.Options.Project)
 
-	return offerReviewStatus(out, seams, jira.Key(key), opts)
+	return offerReviewStatus(out.notes, seams, jira.Key(key), opts)
 }
 
 // composeRefusal words a refusal to compose in the command line's own terms.
@@ -162,14 +162,15 @@ func pushFailure(name string, err error) error {
 // status once the pull request is open, chosen by name because it shares a
 // category with "in progress". A read that fails, a status Jira does not offer,
 // or one whose transition needs fields this command cannot fill, is passed over
-// quietly — the pull request is already open.
-func offerReviewStatus(out io.Writer, seams prSeams, issueKey jira.Key, opts writeOptions) error {
+// quietly — the pull request is already open. Everything it says is
+// commentary on the open, so it goes to notes.
+func offerReviewStatus(notes io.Writer, seams prSeams, issueKey jira.Key, opts writeOptions) error {
 	target, ok := loop.ReviewTransition(seams.Transitions, issueKey, seams.ReviewStatus)
 	if !ok {
 		return nil
 	}
 
-	proceed, err := opts.proceed(out, seams.Confirm, writePrompt{
+	proceed, err := opts.proceed(notes, seams.Confirm, writePrompt{
 		question: "Move " + string(issueKey) + " to " + target.ToStatus + "?",
 		dryRun:   "dry run: would move " + string(issueKey) + " to " + target.ToStatus,
 		declined: "Left " + string(issueKey) + " as it is.",
@@ -183,7 +184,7 @@ func offerReviewStatus(out io.Writer, seams prSeams, issueKey jira.Key, opts wri
 		return fmt.Errorf("moving %s to %s: %w", issueKey, target.ToStatus, err)
 	}
 
-	fmt.Fprintln(out, "Moved "+string(issueKey)+" to "+target.ToStatus)
+	fmt.Fprintln(notes, "Moved "+string(issueKey)+" to "+target.ToStatus)
 
 	return nil
 }
