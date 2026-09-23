@@ -1,5 +1,6 @@
 import { act, renderHook, waitFor } from '@testing-library/react'
 import { vi } from 'vitest'
+import { makeHealth } from '@/test/fixtures.ts'
 import { useHealth, useHealthStore } from './health.ts'
 import { useSnapshotStore } from './snapshot.ts'
 
@@ -37,7 +38,7 @@ test('stays empty when the health read fails', async () => {
 
 test('does not read the health again when the stream first connects', async () => {
   // Arrange
-  const fetch = vi.fn(() => Promise.resolve(Response.json({ version: '1.2.3', dry_run: false })))
+  const fetch = vi.fn(() => Promise.resolve(Response.json(makeHealth())))
   vi.stubGlobal('fetch', fetch)
   renderHook(() => {
     useHealth()

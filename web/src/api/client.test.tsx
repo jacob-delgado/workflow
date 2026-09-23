@@ -2,7 +2,7 @@ import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { vi } from 'vitest'
 import { BranchPanel } from '@/features/branch/BranchPanel.tsx'
-import { makeSnapshot } from '@/test/fixtures.ts'
+import { makeHealth, makeSnapshot } from '@/test/fixtures.ts'
 import { client } from './generated/client.gen.ts'
 import { useHealthStore } from './health.ts'
 import { useSnapshotStore } from './snapshot.ts'
@@ -50,7 +50,7 @@ test('makes API requests relative to the page origin, not the spec server URL', 
 test('clicking Push under dry run reports the hold without a request', async () => {
   // Arrange
   const methods = fakeServer()
-  useHealthStore.setState({ health: { version: '1.2.3', dry_run: true } })
+  useHealthStore.setState({ health: makeHealth({ dry_run: true }) })
 
   // Act
   await pushTheBranch()
@@ -64,7 +64,7 @@ test('clicking Push under dry run reports the hold without a request', async () 
 test('clicking Push without dry run sends the push', async () => {
   // Arrange
   const methods = fakeServer()
-  useHealthStore.setState({ health: { version: '1.2.3', dry_run: false } })
+  useHealthStore.setState({ health: makeHealth() })
 
   // Act
   await pushTheBranch()
@@ -78,7 +78,7 @@ test('clicking Push without dry run sends the push', async () => {
 test('lets a read through under dry run', async () => {
   // Arrange
   const methods = fakeServer()
-  useHealthStore.setState({ health: { version: '1.2.3', dry_run: true } })
+  useHealthStore.setState({ health: makeHealth({ dry_run: true }) })
 
   // Act
   await client.get({ url: '/api/branch' })

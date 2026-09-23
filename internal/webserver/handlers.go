@@ -25,9 +25,15 @@ func (s *server) config() config.Config {
 	return s.cfg
 }
 
-// GetHealth reports the build and whether writes are held back.
+// GetHealth reports the build, whether writes are held back, and the forge's own
+// words for a proposed change, so the browser names it as the terminal does.
 func (s *server) GetHealth(_ context.Context, _ api.GetHealthRequestObject) (api.GetHealthResponseObject, error) {
-	return api.GetHealth200JSONResponse{Version: s.info.Version, DryRun: s.info.DryRun}, nil
+	return api.GetHealth200JSONResponse{
+		Version:    s.info.Version,
+		DryRun:     s.info.DryRun,
+		ForgeNoun:  s.info.ForgeKind.Noun(),
+		ForgeSigil: s.info.ForgeKind.Sigil(),
+	}, nil
 }
 
 // ListViews lists the configured issue views, or the one built-in list.

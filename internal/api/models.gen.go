@@ -381,6 +381,16 @@ type Health struct {
 	// DryRun Whether writes are held back (the --dry-run flag).
 	DryRun bool `json:"dry_run"`
 
+	// ForgeNoun What the repository's forge calls a proposed change, lowercase — a "merge request" on GitLab and a "pull request" everywhere else — so the browser says what the terminal and the command line say.
+	//
+	// Example: merge request
+	ForgeNoun string `json:"forge_noun"`
+
+	// ForgeSigil The mark the forge writes before a proposed change's number: "!" on GitLab, "#" everywhere else.
+	//
+	// Example: !
+	ForgeSigil string `json:"forge_sigil"`
+
 	// Version The binary's version, or a short commit for a dev build.
 	Version string `json:"version"`
 }

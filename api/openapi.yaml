@@ -681,7 +681,7 @@ components:
 
     Health:
       type: object
-      required: [version, dry_run]
+      required: [version, dry_run, forge_noun, forge_sigil]
       properties:
         version:
           type: string
@@ -689,6 +689,19 @@ components:
         dry_run:
           type: boolean
           description: Whether writes are held back (the --dry-run flag).
+        forge_noun:
+          type: string
+          description: >-
+            What the repository's forge calls a proposed change, lowercase — a
+            "merge request" on GitLab and a "pull request" everywhere else — so
+            the browser says what the terminal and the command line say.
+          example: merge request
+        forge_sigil:
+          type: string
+          description: >-
+            The mark the forge writes before a proposed change's number: "!" on
+            GitLab, "#" everywhere else.
+          example: "!"
       additionalProperties: false
 
     ViewList:

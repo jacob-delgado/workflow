@@ -162,7 +162,7 @@ Impact: medium · Effort: small
 request" on GitLab through `forge.Kind.Noun` (`internal/forge/remote.go:60`)
 — the server for the announcement text only. The web *UI* hardcodes "pull request" in six strings (`ReviewPanel.tsx:141`,
 `:172`, `:181`, `:326`; `WorkStory.tsx:40`; `MessagingPanel.tsx:50`);
-`ForgeKind` is on the server (`webserver.go:60`) and never sent to the
+`ForgeKind` is on the server (`internal/webserver/webserver.go:61`) and never sent to the
 browser. The nav section is `Messaging` (`sections.ts:10`) while its buttons
 say `Announce to Slack` / `Post to Slack` (`MessagingPanel.tsx:170`, `:239`);
 "start" has three names across the surfaces (`branch for issue`, `new
