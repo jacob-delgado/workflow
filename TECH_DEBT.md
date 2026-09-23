@@ -174,7 +174,7 @@ the split `ConfigForm` meets; split `ConfigForm` by fieldset.
 
 Severity: medium · Confidence: read
 
-`useAsyncAction` (`web/src/features/issues/useAsyncAction.ts:11`) names the
+`useAsyncAction` (`web/src/lib/useAsyncAction.ts:12`) names the
 `idle → running → idle | error` machine once, and is used by check-out and
 start-work. Five components hand-roll the same machine instead:
 `PushButton` (`web/src/features/branch/BranchPanel.tsx:125`), `CommitForm`

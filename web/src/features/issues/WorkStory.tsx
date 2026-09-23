@@ -2,11 +2,11 @@ import { Check } from 'lucide-react'
 import type { Snapshot, TaskBranch } from '@/api/generated/types.gen.ts'
 import { useForgeWords, type ForgeWords } from '@/api/health.ts'
 import { useSnapshotStore } from '@/api/snapshot.ts'
+import { useAsyncAction } from '@/lib/useAsyncAction.ts'
 import { capitalized, cn } from '@/lib/utils.ts'
 import { useUiStore, type Section } from '@/shell/uiStore.ts'
 import { checkoutBranch } from './checkoutApi.ts'
 import { startWork } from './startWorkApi.ts'
-import { useAsyncAction } from './useAsyncAction.ts'
 
 type StageState = 'done' | 'active' | 'upcoming'
 

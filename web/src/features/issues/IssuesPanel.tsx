@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, type RefObject } from 'react'
 import { apiErrorMessage } from '@/api/apiError.ts'
 import type { Issue, IssuesPage, TaskBranch } from '@/api/generated/types.gen.ts'
 import { useSnapshotStore } from '@/api/snapshot.ts'
+import { useAsyncAction } from '@/lib/useAsyncAction.ts'
 import { cn } from '@/lib/utils.ts'
 import { EmptyState } from '@/shell/EmptyState.tsx'
 import { useUiStore } from '@/shell/uiStore.ts'
@@ -10,7 +11,6 @@ import { useMoreIssues } from './issueApi.ts'
 import { IssueDetailPanel } from './IssueDetailPanel.tsx'
 import { IssueListControls } from './IssueListControls.tsx'
 import { StatusBadge } from './StatusBadge.tsx'
-import { useAsyncAction } from './useAsyncAction.ts'
 
 export function IssuesPanel() {
   const snapshot = useSnapshotStore((state) => state.snapshot)
