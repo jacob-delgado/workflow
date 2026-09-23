@@ -235,3 +235,63 @@ func TestStandupReportsAFailedPost(t *testing.T) {
 		t.Errorf("standup returned %v, want a Teams post failure", err)
 	}
 }
+
+func TestStandupDryRunPostsNothing(t *testing.T) {
+	// Arrange
+	// The webhook cannot be reached, so a post that was attempted would fail.
+	repo := repoWithCommit(t)
+	writeFile(t, repo, `{"messaging":{"webhook_url":"https://hooks.slack.example/services/x"}}`)
+
+	// Act
+	printed, err := runStreams(t, repo, unusedPrompt(t), "standup", "--no-edit", "--dry-run", "--yes")
+	// Assert
+	if err != nil {
+		t.Fatalf("standup --dry-run --yes = %v, want nothing posted and success (%+v)", err, printed)
+	}
+
+	if !strings.Contains(printed.stdout, "# Standup") ||
+		!strings.Contains(printed.stderr, "dry run: would post to Slack") {
+		t.Errorf("a dry run did not preview the draft and say what it would post:\nstdout:\n%s\nstderr:\n%s",
+			printed.stdout, printed.stderr)
+	}
+}
+
+func TestStandupYesPostsWithoutAsking(t *testing.T) {
+	// Arrange
+	// Nothing answers the prompt, and the webhook cannot be reached: a post that
+	// went ahead without asking fails on the network, not on the prompt.
+	repo := repoWithCommit(t)
+	writeFile(t, repo, `{"messaging":{"webhook_url":"https://hooks.slack.example/services/x"}}`)
+
+	// Act
+	_, err := run(t, repo, "standup", "--no-edit", "--yes")
+
+	// Assert
+	if err == nil || !strings.Contains(err.Error(), "posting to Slack") {
+		t.Errorf("standup --yes = %v, want the post attempted without a confirmation", err)
+	}
+}
+
+func TestStandupRejectsNegativeDays(t *testing.T) {
+	cases := map[string]string{
+		"negative": "-1",
+		"zero":     "0",
+	}
+
+	for name, days := range cases {
+		t.Run(name, func(t *testing.T) {
+			// Arrange
+			repo := repoWithCommit(t)
+
+			// Act
+			_, err := run(t, repo, "standup", "--no-edit", "--days", days)
+
+			// Assert
+			if err == nil || !strings.Contains(err.Error(), "--days") {
+				t.Errorf("standup --days %s = %v, want the value refused by name", days, err)
+			}
+
+			wantExit(t, err, 2)
+		})
+	}
+}

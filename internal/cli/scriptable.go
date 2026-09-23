@@ -148,8 +148,10 @@ const (
 )
 
 // errUsage marks a mistake in how a command was called — a flag or an argument
-// it does not take — as distinct from a command that ran and failed.
-var errUsage = errors.New("invalid usage")
+// it does not take — as distinct from a command that ran and failed. Its words
+// are cobra's own for a flag value it refuses, so a value this tree refuses reads
+// the same.
+var errUsage = errors.New("invalid argument")
 
 // usageError is a mistake in how a command was called, in cobra's own words.
 type usageError struct {

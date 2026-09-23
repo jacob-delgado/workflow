@@ -28,7 +28,7 @@ type standupSeams struct {
 	Search   func(jql string, startAt int) (jira.SearchResult, error)
 	Compose  func(draft string) (string, error)
 	Post     func(text string) error
-	Confirm  func() (bool, error)
+	Confirm  func(question string) (bool, error)
 	// Service names the messaging service in use, for the confirmation and result.
 	Service string
 	// Configured is true when a messaging transport is set up, so posting is
@@ -41,33 +41,47 @@ type standupSeams struct {
 // each one.
 const standupBranchLimit = 15
 
+// standupOptions are standup's flags: how far back to gather, whether to skip
+// the editor, and the dry run and --yes every scriptable write shares.
+type standupOptions struct {
+	days   int
+	noEdit bool
+	write  writeOptions
+}
+
 // newStandupCmd builds `workflow standup`.
 func newStandupCmd(prompt Prompt) *cobra.Command {
-	var (
-		days   int
-		noEdit bool
-	)
+	var opts standupOptions
 
 	cmd := &cobra.Command{
 		Use:   "standup",
 		Short: "Draft what you did — commits, issues and pull requests — to share",
 		Long: "Gather the commits you made, the issues you touched and the open pull\n" +
 			"requests on your branches over the last day, open the draft in your editor,\n" +
-			"and offer to post it to your team's chat. Nothing is posted until you confirm.",
+			"and offer to post it to your team's chat. Nothing is posted until you confirm;\n" +
+			"--yes posts without asking, and --dry-run prints the draft and posts nothing.\n" +
+			"--yes does not skip the editor: add --no-edit to run it unattended.",
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			return runStandupCommand(cmd, prompt, days, noEdit)
+			return runStandupCommand(cmd, prompt, opts)
 		},
 	}
 
-	cmd.Flags().IntVar(&days, "days", 1, "how many days back to gather")
-	cmd.Flags().BoolVar(&noEdit, "no-edit", false, "skip the editor and use the draft as it is")
+	cmd.Flags().IntVar(&opts.days, "days", 1, "how many days back to gather, 1 or more")
+	cmd.Flags().BoolVar(&opts.noEdit, "no-edit", false, "skip the editor and use the draft as it is")
+	opts.write.addFlags(cmd, "posting")
 
 	return cmd
 }
 
 // runStandupCommand wires the real repository, forge, Jira and Slack to standup.
-func runStandupCommand(cmd *cobra.Command, prompt Prompt, days int, noEdit bool) error {
+func runStandupCommand(cmd *cobra.Command, prompt Prompt, opts standupOptions) error {
+	// A window of no days, or fewer, gathers nothing and asks git and Jira for
+	// dates they read differently, so it is refused as a mistake in the call.
+	if opts.days < 1 {
+		return fmt.Errorf(`%w %q for "--days" flag: it must be 1 or more`, errUsage, strconv.Itoa(opts.days))
+	}
+
 	ctx := cmd.Context()
 
 	// A missing configuration is not fatal: the local commits still read, and
@@ -88,23 +102,23 @@ func runStandupCommand(cmd *cobra.Command, prompt Prompt, days int, noEdit bool)
 		Search:     deps.Jira.Search,
 		Compose:    prompt.Compose,
 		Post:       func(text string) error { return deps.Messaging.Post("", text) },
-		Confirm:    func() (bool, error) { return confirm(prompt, "Post to "+cfg.Messaging.Service()+"?") },
+		Confirm:    func(question string) (bool, error) { return confirm(prompt, question) },
 		Service:    cfg.Messaging.Service(),
 		Configured: cfg.Messaging.Mode() != config.MessagingNone,
 	}
 
-	return runStandup(outputOf(cmd), seams, days, noEdit)
+	return runStandup(outputOf(cmd), seams, opts)
 }
 
 // runStandup gathers the work, offers it for editing, previews it, and posts it
 // once confirmed.
-func runStandup(out output, seams standupSeams, days int, noEdit bool) error {
-	draft, err := gatherStandup(seams, days)
+func runStandup(out output, seams standupSeams, opts standupOptions) error {
+	draft, err := gatherStandup(seams, opts.days)
 	if err != nil {
 		return err
 	}
 
-	if !noEdit && seams.Compose != nil {
+	if !opts.noEdit && seams.Compose != nil {
 		draft, err = seams.Compose(draft)
 		if err != nil {
 			return fmt.Errorf("editing the standup: %w", err)
@@ -120,26 +134,25 @@ func runStandup(out output, seams standupSeams, days int, noEdit bool) error {
 
 	fmt.Fprintln(out.artifact, draft)
 
-	return offerToPost(out.notes, seams, draft)
+	return offerToPost(out.notes, seams, draft, opts.write)
 }
 
-// offerToPost posts the standup to the messaging service after a confirmation,
-// when one is configured. Nothing is sent before the confirmation. What it says
-// about the post is commentary, written to notes.
-func offerToPost(notes io.Writer, seams standupSeams, text string) error {
+// offerToPost posts the standup to the messaging service, when one is
+// configured, once the write options allow it: a dry run says what it would post,
+// --yes posts without asking, and otherwise nothing is sent before the
+// confirmation. What it says about the post is commentary, written to notes.
+func offerToPost(notes io.Writer, seams standupSeams, text string, opts writeOptions) error {
 	if !seams.Configured {
 		return nil
 	}
 
-	post, err := seams.Confirm()
-	if err != nil {
+	proceed, err := opts.proceed(notes, seams.Confirm, writePrompt{
+		question: "Post to " + seams.Service + "?",
+		dryRun:   "dry run: would post to " + seams.Service,
+		declined: "Not posted.",
+	})
+	if err != nil || !proceed {
 		return err
-	}
-
-	if !post {
-		fmt.Fprintln(notes, "Not posted.")
-
-		return nil
 	}
 
 	err = seams.Post(text)

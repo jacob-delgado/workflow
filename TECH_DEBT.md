@@ -413,7 +413,7 @@ seam as a plain argument (`loop.PullSeams`, `loop.AnnounceSeams`) and never
 needed `wiring`. What is left is narrower: a seam only the CLI or the web
 needs must still be declared on `tui.Deps`, as a `RecentCommits` for
 `standup` would be — which is why `standup` reads its commits from the
-repository directly instead (`internal/cli/standup.go:83`).
+repository directly instead (`internal/cli/standup.go:97`).
 
 **One way to fix it.** Move the bundles that depend only on leaf types —
 `JiraDeps`, `GitDeps`, `ForgeDeps`, `MessagingDeps`, `HookDeps` — to a
