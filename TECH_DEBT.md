@@ -63,13 +63,13 @@ anyone misuse a credential, a terminal or a release.
 
 Severity: medium · Confidence: read
 
-Every command now connects through one `connect` (`internal/cli/cli.go:306`),
+Every command now connects through one `connect` (`internal/cli/cli.go:309`),
 which opens the request log the command's `--log` names
-(`requestLogFor`, `internal/cli/cli.go:343`). But `--log` is declared on
-`root.Flags()` (`internal/cli/cli.go:201`), not `PersistentFlags()`, so no
+(`requestLogFor`, `internal/cli/cli.go:374`). But `--log` is declared on
+`root.Flags()` (`internal/cli/cli.go:202`), not `PersistentFlags()`, so no
 subcommand has one: the facility the root's help advertises for bug reports
 is still unavailable to any scriptable command. And the root's `--dry-run`
-(`internal/cli/cli.go:198`) and the write commands' `--dry-run`
+(`internal/cli/cli.go:199`) and the write commands' `--dry-run`
 (`internal/cli/scriptable.go:36`) are two unrelated flags with different
 help text, neither persistent, so `workflow --dry-run pr` is an
 unknown-flag error.
@@ -98,7 +98,7 @@ are pinned to a stream. So the stream discipline clig.dev asks for — the
 artifact on stdout, commentary on stderr — is unenforced for every notice.
 Today the gitignore warning (`internal/cli/config_cmd.go:284`), the decline
 notices and `dry run: would …` lines (`internal/cli/scriptable.go:53`,
-`:68`) and the web server's banner (`internal/cli/cli.go:261`) all go to
+`:68`) and the web server's banner (`internal/cli/cli.go:262`) all go to
 stdout, and no test would notice either way.
 
 **What it costs.** A script that captures stdout gets prose mixed into its
@@ -388,7 +388,7 @@ Severity: low · Confidence: read
   `internal/buildinfo`, `internal/store`, `internal/web`,
   `internal/webserver`, `internal/tui/frame` and `internal/tui/layout`.
 - Residual "Slack" after the rename: the root command's `Short`
-  (`internal/cli/cli.go:167`), the help group `groupReviewSlack`
+  (`internal/cli/cli.go:168`), the help group `groupReviewSlack`
   (`internal/tui/keys.go:80`), `FEATURES.md:30`, `web/index.html:9`.
 - `docs/content/docs/usage.md:49` says "the five panes" and `:71` says
   "`1`–`5`"; `internal/tui/panes.go:27` has `paneCount = 6` and the jump
@@ -432,7 +432,7 @@ Severity: low · Confidence: read
 
 `wiring.Deps` (`internal/wiring/wiring.go:72`) returns `tui.Deps`, so the
 wiring package imports the terminal interface; the CLI's `webDeps`
-(`internal/cli/cli.go:269`) then narrows that bundle for the web server.
+(`internal/cli/cli.go:270`) then narrows that bundle for the web server.
 The seams are not the terminal's — they are the loop's. That import no
 longer stands in the way of shared composition: `internal/loop` takes each
 seam as a plain argument (`loop.PullSeams`, `loop.AnnounceSeams`) and never
