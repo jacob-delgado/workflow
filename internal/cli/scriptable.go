@@ -12,9 +12,7 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/jacob-delgado/workflow/internal/config"
 	"github.com/jacob-delgado/workflow/internal/jira"
-	"github.com/jacob-delgado/workflow/internal/wiring"
 )
 
 // writeOptions are the flags every scriptable write shares: a dry run that
@@ -88,12 +86,11 @@ func completeAssignedIssues(cmd *cobra.Command, _ []string, toComplete string) (
 		return nil, cobra.ShellCompDirectiveNoFileComp
 	}
 
-	ctx := cmd.Context()
+	// Completion runs on every <tab>, so it records nothing in a request log.
 	home, _ := os.UserHomeDir()
-	cfg, _ := config.Load(dir, home)
-	deps := wiring.Deps(ctx, cfg, wiring.Locate(ctx, dir), nil)
+	conn := connectAt(cmd.Context(), dir, home, nil)
 
-	result, err := deps.Jira.Search(jira.AssignedToMe, 0)
+	result, err := conn.deps.Jira.Search(jira.AssignedToMe, 0)
 	if err != nil {
 		return nil, cobra.ShellCompDirectiveNoFileComp
 	}

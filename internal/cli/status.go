@@ -13,7 +13,6 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/jacob-delgado/workflow/internal/config"
 	"github.com/jacob-delgado/workflow/internal/convention"
 	"github.com/jacob-delgado/workflow/internal/forge"
 	"github.com/jacob-delgado/workflow/internal/gitrepo"
@@ -62,83 +61,97 @@ func newStatusCmd() *cobra.Command {
 // runStatusCommand prints the status of the current repository, or of each
 // named directory.
 func runStatusCommand(cmd *cobra.Command, asJSON bool, dirs []string) error {
-	ctx := cmd.Context()
-	out := cmd.OutOrStdout()
-
-	// An unknown home directory just means no home-directory fallback for a
-	// repository's configuration, not a failure.
-	home, _ := os.UserHomeDir()
-
 	if len(dirs) == 0 {
-		return statusHere(ctx, out, home, asJSON)
+		return statusHere(cmd, asJSON)
 	}
 
-	return statusAcross(ctx, out, home, dirs, asJSON)
+	return statusAcross(cmd, dirs, asJSON)
 }
 
 // statusHere prints the status of the current directory: a bare line, and a
 // directory that is no repository is an error.
-func statusHere(ctx context.Context, out io.Writer, home string, asJSON bool) error {
-	dir, err := os.Getwd()
+func statusHere(cmd *cobra.Command, asJSON bool) error {
+	// A missing configuration is not fatal: the repository stages still read,
+	// and the service stages simply stay not-started.
+	conn, err := connect(cmd)
 	if err != nil {
-		return fmt.Errorf("determining the working directory: %w", err)
+		return err
 	}
+	defer conn.closeLog()
 
-	seams, ascii := seamsFor(ctx, dir, home)
-
-	return runStatus(out, seams, ascii, asJSON)
+	return runStatus(cmd.OutOrStdout(), seamsFor(cmd.Context(), conn), conn.cfg.UI.ASCII, asJSON)
 }
 
 // statusAcross prints one labeled status per named directory. A directory that
 // is no repository is noted rather than failing the rest.
-func statusAcross(ctx context.Context, out io.Writer, home string, dirs []string, asJSON bool) error {
+func statusAcross(cmd *cobra.Command, dirs []string, asJSON bool) error {
+	requestLog, closeLog, err := requestLogFor(cmd)
+	if err != nil {
+		return err
+	}
+	defer closeLog()
+
+	out := cmd.OutOrStdout()
+	statuses := statusesOf(cmd.Context(), dirs, requestLog)
+
 	if asJSON {
-		return statusesJSON(ctx, out, home, dirs)
+		return statusesJSON(out, statuses)
 	}
 
-	for _, dir := range dirs {
-		facts, ascii, err := statusOf(ctx, dir, home)
-		if err != nil {
-			fmt.Fprintf(out, "%s  not a git repository\n", repoLabel(dir))
+	for _, status := range statuses {
+		if status.err != nil {
+			fmt.Fprintf(out, "%s  not a git repository\n", status.label)
 
 			continue
 		}
 
-		fmt.Fprintf(out, "%s  ", repoLabel(dir))
-		renderStatusLine(out, facts, ascii)
+		fmt.Fprintf(out, "%s  ", status.label)
+		renderStatusLine(out, status.facts, status.ascii)
 	}
 
 	return nil
 }
 
-// seamsFor wires the real repository, forge and Jira for the directory at dir,
-// which reads its own configuration.
-func seamsFor(ctx context.Context, dir, home string) (statusSeams, bool) {
-	// A missing or broken configuration is not fatal: the repository stages
-	// still read, and the service stages simply stay not-started.
-	cfg, _ := config.Load(dir, home)
-	where := wiring.Locate(ctx, dir)
-	deps := wiring.Deps(ctx, cfg, where, nil)
-
-	repo := gitrepo.At(proc.Run, where.Root)
-	seams := statusSeams{
-		Branch:      func() (gitrepo.Branch, error) { return repo.ReadBranch(ctx) },
-		Changes:     func() ([]gitrepo.Change, error) { return repo.Status(ctx) },
-		FindPull:    deps.Forge.FindPullRequest,
-		CheckStatus: deps.Forge.CheckStatus,
-		Issue:       deps.Jira.Issue,
-		Project:     cfg.Jira.Project,
-	}
-
-	return seams, cfg.UI.ASCII
+// directoryStatus is one named directory's status, or why it has none.
+type directoryStatus struct {
+	label string
+	facts statusFacts
+	ascii bool
+	err   error
 }
 
-// statusOf gathers the status of the repository at dir.
-func statusOf(ctx context.Context, dir, home string) (statusFacts, bool, error) {
-	seams, ascii := seamsFor(ctx, dir, home)
-	facts, err := statusFromSeams(seams)
+// statusesOf gathers the status of the repository at each directory, which
+// reads its own configuration, recording every request in one log.
+func statusesOf(ctx context.Context, dirs []string, requestLog *wiring.RequestLog) []directoryStatus {
+	// An unknown home directory just means no home-directory fallback for a
+	// repository's configuration, not a failure.
+	home, _ := os.UserHomeDir()
+	statuses := make([]directoryStatus, 0, len(dirs))
 
-	return facts, ascii, err
+	for _, dir := range dirs {
+		conn := connectAt(ctx, dir, home, requestLog)
+		facts, err := statusFromSeams(seamsFor(ctx, conn))
+
+		statuses = append(statuses, directoryStatus{
+			label: repoLabel(dir), facts: facts, ascii: conn.cfg.UI.ASCII, err: err,
+		})
+	}
+
+	return statuses
+}
+
+// seamsFor reads the repository, forge and Jira a connection wired.
+func seamsFor(ctx context.Context, conn connection) statusSeams {
+	repo := gitrepo.At(proc.Run, conn.where.Root)
+
+	return statusSeams{
+		Branch:      func() (gitrepo.Branch, error) { return repo.ReadBranch(ctx) },
+		Changes:     func() ([]gitrepo.Change, error) { return repo.Status(ctx) },
+		FindPull:    conn.deps.Forge.FindPullRequest,
+		CheckStatus: conn.deps.Forge.CheckStatus,
+		Issue:       conn.deps.Jira.Issue,
+		Project:     conn.cfg.Jira.Project,
+	}
 }
 
 // repoLabel names a directory in the output: its base name, or the path itself
@@ -313,16 +326,16 @@ type repoStatus struct {
 // statusesJSON prints the status of each directory as a JSON array, one object
 // per repository, so a directory that is no repository is a row with an error
 // rather than a failure of the whole command.
-func statusesJSON(ctx context.Context, out io.Writer, home string, dirs []string) error {
-	reports := make([]repoStatus, 0, len(dirs))
+func statusesJSON(out io.Writer, statuses []directoryStatus) error {
+	reports := make([]repoStatus, 0, len(statuses))
 
-	for _, dir := range dirs {
-		report := repoStatus{Repository: repoLabel(dir)}
+	for _, status := range statuses {
+		report := repoStatus{Repository: status.label}
 
-		facts, _, err := statusOf(ctx, dir, home)
-		if err != nil {
+		if status.err != nil {
 			report.Error = "not a git repository"
 		} else {
+			facts := status.facts
 			report.Issue, report.Summary = facts.issue, facts.summary
 			report.Stages, report.CI = stageReports(facts.stages), ciWord(facts.ci)
 		}

@@ -7,20 +7,17 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"os"
 	"strconv"
 	"strings"
 
 	"github.com/spf13/cobra"
 
-	"github.com/jacob-delgado/workflow/internal/config"
 	"github.com/jacob-delgado/workflow/internal/convention"
 	"github.com/jacob-delgado/workflow/internal/forge"
 	"github.com/jacob-delgado/workflow/internal/gitrepo"
 	"github.com/jacob-delgado/workflow/internal/jira"
 	"github.com/jacob-delgado/workflow/internal/loop"
 	"github.com/jacob-delgado/workflow/internal/proc"
-	"github.com/jacob-delgado/workflow/internal/wiring"
 )
 
 // errNoCommitsToOpen refuses opening a pull request with nothing to propose.
@@ -72,17 +69,13 @@ func newPRCmd(prompt Prompt) *cobra.Command {
 
 // runPRCommand wires the real repository and forge to the pull-request flow.
 func runPRCommand(cmd *cobra.Command, prompt Prompt, opts writeOptions) error {
-	ctx := cmd.Context()
-
-	dir, err := os.Getwd()
+	conn, err := connect(cmd)
 	if err != nil {
-		return fmt.Errorf("determining the working directory: %w", err)
+		return err
 	}
+	defer conn.closeLog()
 
-	home, _ := os.UserHomeDir()
-	cfg, _ := config.Load(dir, home)
-	deps := wiring.Deps(ctx, cfg, wiring.Locate(ctx, dir), nil)
-
+	cfg, deps := conn.cfg, conn.deps
 	seams := prSeams{
 		Compose: loop.PullSeams{
 			Branch:    deps.Git.Branch,

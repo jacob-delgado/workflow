@@ -59,47 +59,41 @@ anyone misuse a credential, a terminal or a release.
 
 ## The composition of the loop
 
-### DEBT-51 The CLI wires itself seven times, and `--log` reaches none of them
+### DEBT-51 `--log` reaches no subcommand, and `--dry-run` is two flags
 
 Severity: medium · Confidence: read
 
-The preamble `os.Getwd → os.UserHomeDir → config.Load → wiring.Locate →
-wiring.Deps(ctx, cfg, where, nil)` is written out in
-`internal/cli/reviews.go:59` `runReviewsCommand`, `internal/cli/branch.go:63`
-`runBranchCommand`, `internal/cli/pr.go:77` `runPRCommand`, `internal/cli/status.go:116` `seamsFor`,
-`standup.go:75` `runStandupCommand`, `internal/cli/announce.go:69` `runAnnounceCommand`
-and `internal/cli/scriptable.go:86` `completeAssignedIssues`, with an eighth variant in
-the root's `RunE` (`cli.go:161`). The copies do not agree: `branch`, `pr`,
-`standup` and `announce` fail on a `Getwd` error while `reviews` discards it
-(`reviews.go:59`). Every subcommand passes `nil` for the request log, so the
-`--log` facility the root's help advertises for bug reports (`cli.go:195`)
-is unavailable to any scriptable command; and the root's `--dry-run`
-(`cli.go:193`) and the write commands' `--dry-run` (`internal/cli/scriptable.go:30`) are
-two unrelated flags with different help text, neither persistent, so
-`workflow --dry-run pr` is an unknown-flag error.
+Every command now connects through one `connect` (`internal/cli/cli.go:292`),
+which opens the request log the command's `--log` names
+(`requestLogFor`, `internal/cli/cli.go:329`). But `--log` is declared on
+`root.Flags()` (`internal/cli/cli.go:187`), not `PersistentFlags()`, so no
+subcommand has one: the facility the root's help advertises for bug reports
+is still unavailable to any scriptable command. And the root's `--dry-run`
+(`internal/cli/cli.go:184`) and the write commands' `--dry-run`
+(`internal/cli/scriptable.go:28`) are two unrelated flags with different
+help text, neither persistent, so `workflow --dry-run pr` is an
+unknown-flag error.
 
-**What it costs.** A change to how the CLI connects — a new seam, a timeout,
-a log — is a seven-place edit, and the seven have already drifted.
+**What it costs.** A bug report about a subcommand cannot carry a request
+log, and a script has to know which `--dry-run` a command takes.
 
-**One way to fix it.** One `connect(cmd) (cfg, deps, where, closeLog, err)`
-that every subcommand calls; `--dry-run` and `--log` declared once as
-persistent root flags, with `writeOptions.addFlags` (`internal/cli/scriptable.go:29`)
+**One way to fix it.** `--dry-run` and `--log` declared once as persistent
+root flags, with `writeOptions.addFlags` (`internal/cli/scriptable.go:27`)
 keeping only `--yes`.
 
-**Done when.** `wiring.Deps(` is called from one function in `internal/cli`;
-`workflow --log FILE status` appends a request line to `FILE`;
-`workflow --dry-run pr` is accepted.
+**Done when.** `workflow --log FILE status` appends a request line to
+`FILE`; `workflow --dry-run pr` is accepted.
 
 ### DEBT-52 `status` builds its seams and then goes around them
 
 Severity: low · Confidence: read
 
-`seamsFor` (`internal/cli/status.go:116`) builds the full `deps` bundle and
+`seamsFor` (`internal/cli/status.go:144`) takes the full `deps` bundle and
 then ignores `deps.Git.Branch` and `deps.Git.Changes`, constructing a second
-`gitrepo.At(proc.Run, where.Root)` and calling `ReadBranch` and `Status`
-directly (`internal/cli/status.go:121-130`) — although `GitDeps.Branch` and
+`gitrepo.At(proc.Run, conn.where.Root)` and calling `ReadBranch` and `Status`
+directly (`internal/cli/status.go:145-149`) — although `GitDeps.Branch` and
 `GitDeps.Changes` exist (`internal/tui/deps.go:74`) and `pr`, `announce` and
-`branch` all go through them. `standup` does the same (`internal/cli/standup.go:87`),
+`branch` all go through them. `standup` does the same (`internal/cli/standup.go:82`),
 and there only half of it is forced: `RecentCommits` has no `GitDeps`
 equivalent, but its `LocalBranches` does — `GitDeps.Branches`
 (`internal/tui/deps.go:84`), which `workflow branch` already reads.
@@ -129,8 +123,8 @@ but `run` and `runGuided` still join them for every older test, and only
 to a stream. So the stream discipline clig.dev asks for — the artifact on
 stdout, commentary on stderr — is still unenforced. Today the gitignore
 warning (`internal/cli/config_cmd.go:278`), the decline notices and `dry run: would …`
-lines (`internal/cli/scriptable.go:47`, `:62`), the no-configuration guidance
-(`internal/cli/config_cmd.go:89`) and the web server's banner (`cli.go:255`) all go to
+lines (`internal/cli/scriptable.go:45`, `:60`), the no-configuration guidance
+(`internal/cli/config_cmd.go:89`) and the web server's banner (`internal/cli/cli.go:247`) all go to
 stdout, and no test would notice either way.
 
 **What it costs.** `workflow config show | jq .` fails on the `# <path>`
@@ -420,7 +414,7 @@ Severity: low · Confidence: read
   `internal/buildinfo`, `internal/store`, `internal/web`,
   `internal/webserver`, `internal/tui/frame` and `internal/tui/layout`.
 - Residual "Slack" after the rename: the root command's `Short`
-  (`internal/cli/cli.go:154`), the help group `groupReviewSlack`
+  (`internal/cli/cli.go:153`), the help group `groupReviewSlack`
   (`internal/tui/keys.go:80`), `FEATURES.md:30`, `web/index.html:9`.
 - `docs/content/docs/usage.md:49` says "the five panes" and `:71` says
   "`1`–`5`"; `internal/tui/panes.go:27` has `paneCount = 6` and the jump
@@ -464,7 +458,7 @@ Severity: low · Confidence: read
 
 `wiring.Deps` (`internal/wiring/wiring.go:72`) returns `tui.Deps`, so the
 wiring package imports the terminal interface; the CLI's `webDeps`
-(`internal/cli/cli.go:263`) then narrows that bundle for the web server.
+(`internal/cli/cli.go:255`) then narrows that bundle for the web server.
 The seams are not the terminal's — they are the loop's. That import no
 longer stands in the way of shared composition: `internal/loop` takes each
 seam as a plain argument (`loop.PullSeams`, `loop.AnnounceSeams`) and never
