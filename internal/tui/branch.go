@@ -45,7 +45,7 @@ func (msg branchLoaded) apply(m Model) (Model, tea.Cmd) {
 		m = m.withoutQueuedPost()
 		// The failed-post error, its author and its dropped reason belonged to
 		// the branch just left; on a new branch they are stale.
-		m.messaging.err, m.messaging.author, m.messaging.dropped = nil, "", ""
+		m.messaging.send.err, m.messaging.author, m.messaging.dropped = nil, "", ""
 	}
 
 	m, detail := m.resumeIssue().loadDetail()
