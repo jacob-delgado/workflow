@@ -12,7 +12,9 @@ vi.mock('./announceApi.ts', () => ({
   previewAnnouncement: vi.fn(() =>
     Promise.resolve({ text: 'octocat announced the pull request', channel: '#dev' }),
   ),
-  announce: vi.fn(() => Promise.resolve()),
+  announce: vi.fn((channel: string) =>
+    Promise.resolve({ text: 'octocat announced the pull request', channel }),
+  ),
 }))
 const mockAnnounce = vi.mocked(announce)
 const mockPreview = vi.mocked(previewAnnouncement)
@@ -251,9 +253,11 @@ test('locks the confirm while a post is in flight', async () => {
   // transient; a live confirm here would let a double click post twice.
   let releasePost = () => {}
   mockAnnounce.mockImplementationOnce(
-    () =>
-      new Promise<void>((resolve) => {
-        releasePost = resolve
+    (channel) =>
+      new Promise((resolve) => {
+        releasePost = () => {
+          resolve({ text: 'octocat announced the pull request', channel })
+        }
       }),
   )
   const user = userEvent.setup()

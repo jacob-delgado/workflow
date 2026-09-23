@@ -5,7 +5,6 @@ import type { FollowUp, OpenedPullRequest } from '@/api/generated/types.gen.ts'
 import { useHealthStore } from '@/api/health.ts'
 import { useSnapshotStore } from '@/api/snapshot.ts'
 import { fakeApi } from '@/test/fakeApi.ts'
-import { capitalized } from '@/lib/utils.ts'
 import { gitLabWords, makeHealth, makeSnapshot } from '@/test/fixtures.ts'
 import { ReviewPanel } from './ReviewPanel.tsx'
 
@@ -59,7 +58,7 @@ async function openThePullRequest(user: ReturnType<typeof userEvent.setup>, noun
 async function openAgain(user: ReturnType<typeof userEvent.setup>, noun = 'pull request') {
   await user.click(screen.getByRole('button', { name: `Open a ${noun}` }))
   await user.click(await screen.findByRole('button', { name: `Open ${noun}` }))
-  await screen.findByText(`${capitalized(noun)} opened.`)
+  await screen.findByText(new RegExp(`^Opened ${noun} [#!]\\d+\\.$`))
 }
 
 // writesTo lists the writes the page sent, as method and path.
@@ -193,7 +192,7 @@ test('the outcome of an open goes when another branch is checked out', async () 
   })
 
   // Assert: the old branch's outcome and offers go, and the new one can open
-  expect(screen.queryByText('Pull request opened.')).toBeNull()
+  expect(screen.queryByText('Opened pull request #7.')).toBeNull()
   expect(screen.queryByRole('button', { name: 'Link it on PROJ-412' })).toBeNull()
   expect(screen.getByRole('button', { name: 'Open a pull request' })).toBeTruthy()
 

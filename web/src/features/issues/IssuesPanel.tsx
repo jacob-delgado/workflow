@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, type RefObject } from 'react'
 import { apiErrorMessage } from '@/api/apiError.ts'
 import type { Issue, IssuesPage, TaskBranch } from '@/api/generated/types.gen.ts'
 import { useSnapshotStore } from '@/api/snapshot.ts'
+import { OutcomeLine, useOutcome, type Teller } from '@/lib/Outcome.tsx'
 import { useAsyncAction } from '@/lib/useAsyncAction.ts'
 import { cn } from '@/lib/utils.ts'
 import { EmptyState } from '@/shell/EmptyState.tsx'
@@ -27,13 +28,15 @@ export function IssuesPanel() {
 // filter; the detail is keyed on the selection, not found in the list, so an
 // issue the filter hides or the stream drops stays open. Until the chosen
 // view's first frame lands, the stream's page is the last view's, so none of
-// it is listed under the new name.
+// it is listed under the new name. A check-out from the list says where it
+// went above the list, which outlives the row's button.
 function IssueBrowser({ streamed, branches }: { streamed: IssuesPage; branches: TaskBranch[] }) {
   const view = useUiStore((state) => state.view)
   const streamedView = useSnapshotStore((state) => state.view)
   const [filter, setFilter] = useState('')
   const more = useMoreIssues(view, streamed)
   const focus = useArrivalFocus()
+  const outcome = useOutcome()
   const switching = streamedView !== view
   const loaded = switching ? [] : mergeIssues(streamed.issues, more.data?.pages ?? [])
   const shown = loaded.filter((issue) => matchesFilter(issue, filter))
@@ -59,6 +62,7 @@ function IssueBrowser({ streamed, branches }: { streamed: IssuesPage; branches: 
         <p role="status" className="text-sm text-muted-foreground">
           {filterOutcome(filter, shown.length, loaded.length)}
         </p>
+        <OutcomeLine said={outcome.said} />
       </div>
       {switching ? (
         <EmptyState>Reading the {view ?? 'default'} view…</EmptyState>
@@ -71,6 +75,7 @@ function IssueBrowser({ streamed, branches }: { streamed: IssuesPage; branches: 
           streamed={streamed}
           focus={focus}
           onLoadMore={loadMore}
+          outcome={outcome}
         />
       )}
     </div>
@@ -85,12 +90,13 @@ interface ListAndDetailProps {
   streamed: IssuesPage
   focus: ReturnType<typeof useArrivalFocus>
   onLoadMore: () => Promise<void>
+  outcome: Teller
 }
 
 // ListAndDetail is the view's list, with its loading of more, beside the
 // selected issue's detail — or the view's empty state when it holds none.
 function ListAndDetail(props: ListAndDetailProps) {
-  const { loaded, shown, branches, more, streamed, focus, onLoadMore } = props
+  const { loaded, shown, branches, more, streamed, focus, onLoadMore, outcome } = props
   const selected = useUiStore((state) => state.selectedIssue)
 
   if (loaded.length === 0) {
@@ -101,7 +107,7 @@ function ListAndDetail(props: ListAndDetailProps) {
     <div className="flex gap-6">
       <div className="flex w-80 shrink-0 flex-col gap-3">
         {shown.length === 0 ? null : (
-          <IssueRows issues={shown} branches={branches} rowRefs={focus.rows} />
+          <IssueRows issues={shown} branches={branches} rowRefs={focus.rows} outcome={outcome} />
         )}
         <MoreIssues
           more={more}
@@ -159,9 +165,10 @@ interface IssueRowsProps {
   branches: TaskBranch[]
   // Each listed row's button by issue key, so focus can be handed to a row.
   rowRefs: RefObject<Map<string, HTMLButtonElement>>
+  outcome: Teller
 }
 
-function IssueRows({ issues, branches, rowRefs }: IssueRowsProps) {
+function IssueRows({ issues, branches, rowRefs, outcome }: IssueRowsProps) {
   const selected = useUiStore((state) => state.selectedIssue)
   const selectIssue = useUiStore((state) => state.selectIssue)
   const branchesByKey = groupBranchesByKey(branches)
@@ -211,7 +218,9 @@ function IssueRows({ issues, branches, rowRefs }: IssueRowsProps) {
               </span>
               <span className="text-sm">{issue.summary}</span>
             </button>
-            {newest && !onHead ? <RowCheckout branch={newest.name} issueKey={issue.key} /> : null}
+            {newest && !onHead ? (
+              <RowCheckout branch={newest.name} issueKey={issue.key} outcome={outcome} />
+            ) : null}
           </li>
         )
       })}
@@ -328,12 +337,21 @@ function groupBranchesByKey(branches: TaskBranch[]): Map<string, TaskBranch[]> {
   return byKey
 }
 
+interface RowCheckoutProps {
+  branch: string
+  issueKey: string
+  outcome: Teller
+}
+
 // RowCheckout switches to an in-flight issue's branch from the list, so moving
-// between tasks does not need the detail panel first. On success the event
-// stream reflects the switch; a refusal — a dirty tree — is shown inline.
-function RowCheckout({ branch, issueKey }: { branch: string; issueKey: string }) {
+// between tasks does not need the detail panel first. Where it went is said in
+// the panel's outcome; a refusal — a dirty tree — is shown inline.
+function RowCheckout({ branch, issueKey, outcome }: RowCheckoutProps) {
   const { state, error, run } = useAsyncAction(() => checkoutBranch(branch), {
     fallback: 'The branch could not be checked out.',
+    done: (checkedOut) => `Checked out ${checkedOut.name}.`,
+    onStart: outcome.clear,
+    onDone: outcome.say,
   })
 
   return (

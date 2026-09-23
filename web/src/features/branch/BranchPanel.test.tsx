@@ -1,16 +1,17 @@
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { vi } from 'vitest'
+import type { Branch } from '@/api/generated/types.gen.ts'
 import { useSnapshotStore } from '@/api/snapshot.ts'
-import { makeSnapshot } from '@/test/fixtures.ts'
+import { makeBranch, makeSnapshot } from '@/test/fixtures.ts'
 import { BranchPanel } from './BranchPanel.tsx'
 import { commitChanges } from './commitApi.ts'
 import { pushBranch } from './pushApi.ts'
 
-vi.mock('./commitApi.ts', () => ({ commitChanges: vi.fn(() => Promise.resolve()) }))
+vi.mock('./commitApi.ts', () => ({ commitChanges: vi.fn(() => Promise.resolve(makeBranch())) }))
 const mockCommit = vi.mocked(commitChanges)
 
-vi.mock('./pushApi.ts', () => ({ pushBranch: vi.fn(() => Promise.resolve()) }))
+vi.mock('./pushApi.ts', () => ({ pushBranch: vi.fn(() => Promise.resolve(makeBranch())) }))
 const mockPush = vi.mocked(pushBranch)
 
 // The commit form reads the configuration for the team's types; with none, it
@@ -126,7 +127,7 @@ test('keeps the commit form when nothing is staged, saying what it waits for', (
 
 test('commits the staged changes when the form is submitted', async () => {
   // Arrange
-  mockCommit.mockResolvedValueOnce()
+  mockCommit.mockResolvedValueOnce(makeBranch())
   const user = userEvent.setup()
   staged()
   render(<BranchPanel />)
@@ -166,8 +167,10 @@ test('locks the commit while it is in flight', async () => {
   let releaseCommit = () => {}
   mockCommit.mockImplementationOnce(
     () =>
-      new Promise<void>((resolve) => {
-        releaseCommit = resolve
+      new Promise<Branch>((resolve) => {
+        releaseCommit = () => {
+          resolve(makeBranch())
+        }
       }),
   )
   const user = userEvent.setup()
@@ -251,7 +254,7 @@ test('offers no push in a detached HEAD', () => {
 
 test('pushes only after the confirm step', async () => {
   // Arrange
-  mockPush.mockResolvedValueOnce()
+  mockPush.mockResolvedValueOnce(makeBranch())
   const user = userEvent.setup()
   pushable()
   render(<BranchPanel />)
@@ -300,8 +303,10 @@ test('locks the push while it is in flight', async () => {
   let releasePush = () => {}
   mockPush.mockImplementationOnce(
     () =>
-      new Promise<void>((resolve) => {
-        releasePush = resolve
+      new Promise<Branch>((resolve) => {
+        releasePush = () => {
+          resolve(makeBranch())
+        }
       }),
   )
   const user = userEvent.setup()

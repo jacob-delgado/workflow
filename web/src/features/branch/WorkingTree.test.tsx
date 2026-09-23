@@ -3,7 +3,7 @@ import userEvent from '@testing-library/user-event'
 import { vi } from 'vitest'
 import type { Change } from '@/api/generated/types.gen.ts'
 import { useSnapshotStore } from '@/api/snapshot.ts'
-import { makeSnapshot } from '@/test/fixtures.ts'
+import { makeBranch, makeSnapshot } from '@/test/fixtures.ts'
 import { BranchPanel } from './BranchPanel.tsx'
 import { stageEverything, stageFile, unstageFile } from './stagingApi.ts'
 
@@ -16,8 +16,8 @@ const mockStageFile = vi.mocked(stageFile)
 const mockUnstageFile = vi.mocked(unstageFile)
 const mockStageEverything = vi.mocked(stageEverything)
 
-vi.mock('./commitApi.ts', () => ({ commitChanges: vi.fn(() => Promise.resolve()) }))
-vi.mock('./pushApi.ts', () => ({ pushBranch: vi.fn(() => Promise.resolve()) }))
+vi.mock('./commitApi.ts', () => ({ commitChanges: vi.fn(() => Promise.resolve(makeBranch())) }))
+vi.mock('./pushApi.ts', () => ({ pushBranch: vi.fn(() => Promise.resolve(makeBranch())) }))
 vi.mock('@/features/settings/configApi.ts', () => ({ useConfig: () => ({ data: undefined }) }))
 
 // change is a changed file as the stream lists it: an edit the index does not

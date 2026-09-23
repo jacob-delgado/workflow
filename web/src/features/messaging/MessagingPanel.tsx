@@ -1,13 +1,14 @@
 import { useState } from 'react'
+import type { Snapshot } from '@/api/generated/types.gen.ts'
 import { useForgeWords } from '@/api/health.ts'
 import { useSnapshotStore } from '@/api/snapshot.ts'
+import { OutcomeLine, useOutcome } from '@/lib/Outcome.tsx'
 import { useAsyncAction } from '@/lib/useAsyncAction.ts'
 import { EmptyState } from '@/shell/EmptyState.tsx'
 import { announce, previewAnnouncement } from './announceApi.ts'
 
 export function MessagingPanel() {
   const snapshot = useSnapshotStore((state) => state.snapshot)
-  const { noun } = useForgeWords()
 
   if (!snapshot) {
     return <EmptyState>Connecting…</EmptyState>
@@ -37,22 +38,7 @@ export function MessagingPanel() {
         <dd>{messaging.author === '' ? 'the webhook' : messaging.author}</dd>
       </dl>
 
-      <section aria-labelledby="announce-heading" className="flex flex-col gap-2">
-        <h2 id="announce-heading" className="text-sm font-semibold text-muted-foreground uppercase">
-          Announce
-        </h2>
-        {review.found ? (
-          <AnnounceControls
-            service={messaging.service}
-            channels={messaging.channels}
-            defaultChannel={messaging.channel}
-          />
-        ) : (
-          <p className="text-sm text-muted-foreground">
-            Open a {noun} first — there is nothing to announce yet.
-          </p>
-        )}
-      </section>
+      <AnnounceSection messaging={messaging} found={review.found} />
 
       {messaging.channels.length > 0 ? (
         <section aria-labelledby="channels-heading" className="flex flex-col gap-2">
@@ -89,20 +75,60 @@ function firstNonEmpty(...values: string[]): string {
   return ''
 }
 
+// AnnounceSection offers to announce the branch's pull request, once there is
+// one, and says where the announcement went — in a line that stays when the
+// controls step aside.
+function AnnounceSection({
+  messaging,
+  found,
+}: {
+  messaging: Snapshot['messaging']
+  found: boolean
+}) {
+  const { noun } = useForgeWords()
+  const outcome = useOutcome()
+
+  return (
+    <section aria-labelledby="announce-heading" className="flex flex-col gap-2">
+      <h2 id="announce-heading" className="text-sm font-semibold text-muted-foreground uppercase">
+        Announce
+      </h2>
+      {found ? (
+        <AnnounceControls
+          service={messaging.service}
+          channels={messaging.channels}
+          defaultChannel={messaging.channel}
+          onAnnounced={outcome.say}
+        />
+      ) : (
+        <p className="text-sm text-muted-foreground">
+          Open a {noun} first — there is nothing to announce yet.
+        </p>
+      )}
+      <OutcomeLine said={outcome.said} />
+    </section>
+  )
+}
+
+interface AnnounceControlsProps {
+  service: string
+  channels: string[]
+  defaultChannel: string
+  onAnnounced: (said: string) => void
+}
+
 // AnnounceControls posts the pull request's announcement to the configured
 // service behind a preview step: it fetches the composed message, shows it for
 // confirmation, and posts only on confirm — announcing is outward and not undone.
 // The preview and the post are two steps, each its own action; a refused post
-// goes back to the button, with its reason.
+// goes back to the button, with its reason. Once posted, the controls step
+// aside, and where it went is said through onAnnounced.
 function AnnounceControls({
   service,
   channels,
   defaultChannel,
-}: {
-  service: string
-  channels: string[]
-  defaultChannel: string
-}) {
+  onAnnounced,
+}: AnnounceControlsProps) {
   const [channel, setChannel] = useState(() => firstNonEmpty(defaultChannel, channels[0] ?? ''))
   const preview = useAsyncAction(
     async () => {
@@ -115,12 +141,13 @@ function AnnounceControls({
   )
   const post = useAsyncAction(() => announce(channel), {
     fallback: 'The announcement could not be posted.',
+    // A webhook has no channel of its own to name, so the service stands in.
+    done: (posted) => `Announced to ${posted.channel === '' ? service : posted.channel}.`,
+    onDone: onAnnounced,
   })
 
   if (post.state === 'done') {
-    return (
-      <p className="text-sm text-success">Announced{channel === '' ? '' : ` to ${channel}`}.</p>
-    )
+    return null
   }
 
   if (preview.state === 'done' && post.state !== 'error') {

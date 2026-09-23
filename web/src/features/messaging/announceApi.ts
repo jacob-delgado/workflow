@@ -16,14 +16,19 @@ export async function previewAnnouncement(): Promise<Announcement> {
   return result.data
 }
 
-// announce posts the composed announcement to the configured service. On
-// success there is nothing to return; a refusal — no pull request, a failed
-// post — throws the API error, whose message is safe to show. Under VITE_MOCK it
-// is a no-op.
-export async function announce(channel: string): Promise<void> {
+// announce posts the composed announcement to the configured service and
+// returns it as posted, with the channel it went to, for the panel to say
+// where. A refusal — no pull request, a failed post — throws the API error,
+// whose message is safe to show. Under VITE_MOCK it answers with the canned
+// preview, posted to the channel asked for.
+export async function announce(channel: string): Promise<Announcement> {
   if (import.meta.env.VITE_MOCK === 'true') {
-    return
+    const preview = await previewAnnouncement()
+
+    return { ...preview, channel }
   }
 
-  await postAnnounce({ body: { channel }, throwOnError: true })
+  const result = await postAnnounce({ body: { channel }, throwOnError: true })
+
+  return result.data
 }

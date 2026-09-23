@@ -2,6 +2,7 @@ import { GitBranch } from 'lucide-react'
 import { useState } from 'react'
 import type { Branch } from '@/api/generated/types.gen.ts'
 import { useSnapshotStore } from '@/api/snapshot.ts'
+import { OutcomeLine, useOutcome, type Teller } from '@/lib/Outcome.tsx'
 import { useAsyncAction } from '@/lib/useAsyncAction.ts'
 import { EmptyState } from '@/shell/EmptyState.tsx'
 import { pushBranch } from './pushApi.ts'
@@ -31,7 +32,11 @@ export function BranchPanel() {
   )
 }
 
+// BranchSummary is the checked-out branch, with the push that publishes it and
+// the line that says what the push did — which stays when the snapshot showing
+// the branch published takes the push away.
 function BranchSummary({ branch }: { branch: Branch }) {
+  const outcome = useOutcome()
   const heading = branch.name === '' ? `Detached HEAD at ${branch.head.slice(0, 7)}` : branch.name
   // There is something to push on a real branch (not a detached HEAD) that has no
   // upstream yet, or that is ahead of the one it has. Commit count is not used —
@@ -56,7 +61,8 @@ function BranchSummary({ branch }: { branch: Branch }) {
           {branch.ahead} ahead, {branch.behind} behind
         </dd>
       </dl>
-      {canPush ? <PushButton branch={branch} /> : null}
+      {canPush ? <PushButton branch={branch} outcome={outcome} /> : null}
+      <OutcomeLine said={outcome.said} />
     </section>
   )
 }
@@ -84,11 +90,16 @@ function Commits({ commits }: { commits: Branch['commits'] }) {
 }
 
 // PushButton publishes the branch, behind a confirm step: pushing is outward and
-// not undone with a click, so it asks first. The event stream reflects the
-// published branch on success, and a failed push is shown inline.
-function PushButton({ branch }: { branch: Branch }) {
+// not undone with a click, so it asks first. What it pushed is said in the
+// panel's outcome, and a failed push is shown inline.
+function PushButton({ branch, outcome }: { branch: Branch; outcome: Teller }) {
   const [confirming, setConfirming] = useState(false)
-  const push = useAsyncAction(pushBranch, { fallback: 'The push failed.' })
+  const push = useAsyncAction(pushBranch, {
+    fallback: 'The push failed.',
+    done: (published) => `Pushed ${published.name}.`,
+    onStart: outcome.clear,
+    onDone: outcome.say,
+  })
 
   return (
     <div className="flex flex-col gap-2">
