@@ -33,7 +33,9 @@ type CommitStatus = 'idle' | 'committing' | 'error'
 // CommitForm commits the staged changes with a Conventional Commit message. The
 // server assembles the message and adds the Refs trailer for the branch's issue;
 // on success the event stream reflects the commit, and a refusal is shown inline.
-export function CommitForm() {
+// It stays in place while nothing is staged — blocked says why, in the form,
+// with its button off — so a message can be written before the files are.
+export function CommitForm({ blocked }: { blocked: string | null }) {
   const { data: config } = useConfig()
   // A team's own commit types, in the order to offer them, or the built-in set.
   const commitTypes = useMemo(() => {
@@ -124,11 +126,12 @@ export function CommitForm() {
       <div className="flex items-center gap-3">
         <button
           type="submit"
-          disabled={status === 'committing'}
+          disabled={blocked !== null || status === 'committing'}
           className="self-start rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none disabled:opacity-60"
         >
           {status === 'committing' ? 'Committing…' : 'Commit staged changes'}
         </button>
+        {blocked === null ? null : <p className="text-sm text-muted-foreground">{blocked}</p>}
         {status === 'error' ? (
           <p role="alert" className="text-sm whitespace-pre-line text-destructive">
             {error}

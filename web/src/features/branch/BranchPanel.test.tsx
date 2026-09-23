@@ -97,10 +97,12 @@ test('offers a commit form when a change is staged', () => {
   render(<BranchPanel />)
 
   // Assert
-  expect(screen.getByRole('button', { name: /commit staged changes/i })).toBeTruthy()
+  const commit = screen.getByRole('button', { name: /commit staged changes/i })
+  expect(commit.hasAttribute('disabled')).toBe(false)
+  expect(screen.queryByText('Nothing staged yet — stage a file above.')).toBeNull()
 })
 
-test('offers no commit form when nothing is staged', () => {
+test('keeps the commit form when nothing is staged, saying what it waits for', () => {
   // Arrange
   useSnapshotStore.setState({
     status: 'live',
@@ -117,7 +119,9 @@ test('offers no commit form when nothing is staged', () => {
   render(<BranchPanel />)
 
   // Assert
-  expect(screen.queryByRole('button', { name: /commit staged changes/i })).toBeNull()
+  const commit = screen.getByRole('button', { name: /commit staged changes/i })
+  expect(commit.hasAttribute('disabled')).toBe(true)
+  expect(screen.getByText('Nothing staged yet — stage a file above.')).toBeTruthy()
 })
 
 test('commits the staged changes when the form is submitted', async () => {

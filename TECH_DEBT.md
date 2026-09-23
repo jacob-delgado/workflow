@@ -160,7 +160,7 @@ Severity: medium · Confidence: measured
 `max-nested-callbacks` but no `max-lines-per-function`. The result:
 `ConfigForm` (`web/src/features/settings/SettingsPanel.tsx:25`) is 305
 lines, `PullRequestForm` (`web/src/features/review/ReviewPanel.tsx:241`)
-125 and `CommitForm` (`web/src/features/branch/CommitForm.tsx:36`) 105. Files
+125 and `CommitForm` (`web/src/features/branch/CommitForm.tsx:38`) 106. Files
 are measured — `scripts/check-file-length.sh` holds `.ts` and `.tsx` to the
 500/800 targets, and the longest, `SettingsPanel.tsx`, is 373 lines — but a
 function can grow to fill one with nothing to say so.
@@ -176,11 +176,12 @@ Severity: medium · Confidence: read
 
 `useAsyncAction` (`web/src/lib/useAsyncAction.ts:12`) names the
 `idle → running → done | error` machine once, and is used by check-out,
-start-work and the two offers after opening (`FollowUpOffer`,
-`web/src/features/review/OpenedOutcome.tsx:70`). Five components hand-roll the
-same machine instead:
-`PushButton` (`web/src/features/branch/BranchPanel.tsx:125`), `CommitForm`
-(`CommitForm.tsx:58`), `AnnounceControls`
+start-work, the two offers after opening (`FollowUpOffer`,
+`web/src/features/review/OpenedOutcome.tsx:70`) and the staging buttons
+(`ChangeRow` and `StageAll`, `web/src/features/branch/WorkingTree.tsx:66`,
+`:106`). Five components hand-roll the same machine instead:
+`PushButton` (`web/src/features/branch/BranchPanel.tsx:95`), `CommitForm`
+(`web/src/features/branch/CommitForm.tsx:60`), `AnnounceControls`
 (`web/src/features/messaging/MessagingPanel.tsx:111`), `OpenPullRequest`
 (`web/src/features/review/ReviewPanel.tsx:150`) and `ConfigForm`
 (`SettingsPanel.tsx:35`). Alongside: `splitList` (`web/src/features/review/ReviewPanel.tsx:231`),
@@ -190,7 +191,7 @@ copy (`SettingsPanel.tsx:205`) all trim a comma-separated list; and
 wrapper over `apiErrorMessage` that stays exported only so its own test can
 repeat four of the five assertions in `web/src/api/apiError.test.ts`.
 
-**What it costs.** A success state (which four of the nine writes lack —
+**What it costs.** A success state (which four of the twelve writes lack —
 see UX.md) has to be added in six places; the six already differ in how
 they clear an error.
 
@@ -239,7 +240,7 @@ coverage, and nine points below the Go statement floor of 94. The e2e suite
 is three specs (`web/e2e/a11y.spec.ts`, `smoke.spec.ts`, `theme.spec.ts`),
 outside `task check` (CI's `e2e` job and `yarn test:e2e` run it), with no
 `workflow --web` backend — acknowledged at `.github/workflows/ci.yml:101`
-("Hermetic — no backend") — so no test drives any of the seven write
+("Hermetic — no backend") — so no test drives any of the twelve write
 actions end to end.
 
 **One way to fix it.** The e2e job starts `workflow --web` against a fixture
