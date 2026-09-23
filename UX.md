@@ -187,7 +187,7 @@ Commit (`web/src/features/branch/CommitForm.tsx:72`), push (`web/src/features/br
 start-work say nothing: `useAsyncAction` ends in `done`
 (`web/src/lib/useAsyncAction.ts:21`), but neither button reads it; the stated
 rationale is that the snapshot is the confirmation (`web/src/lib/useAsyncAction.ts:9`),
-but the stream re-pushes on a 5 s tick (`stream.go:20`), so a commit is
+but the stream re-pushes on a 5 s tick (`internal/webserver/stream.go:20`), so a commit is
 silent for up to five seconds. And two of the successes that do exist —
 `Pull request opened.` and `Announced…` — are plain `<p>` elements, not live
 regions: announced to nobody using a screen reader.

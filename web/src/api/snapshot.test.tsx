@@ -20,6 +20,24 @@ test('stores a snapshot the stream pushes and marks the stream live', () => {
   expect(useSnapshotStore.getState().status).toBe('live')
 })
 
+test('keeps the scope a frame suggests for the next commit', () => {
+  // Arrange
+  renderHook(() => {
+    useEventStream(null, vi.fn())
+  })
+
+  // Act
+  FakeEventSource.latest().emit(
+    'snapshot',
+    JSON.stringify(makeSnapshot({ suggested_scope: 'api' })),
+  )
+
+  // Assert
+  // A client generated before the field would strip it and the form would
+  // never see the suggestion, so the stored snapshot must still carry it.
+  expect(useSnapshotStore.getState().snapshot?.suggested_scope).toBe('api')
+})
+
 test('drops a payload that does not match the contract', () => {
   // Arrange
   renderHook(() => {

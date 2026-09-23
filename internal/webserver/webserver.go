@@ -58,6 +58,11 @@ type Deps struct {
 	// request names.
 	Stage   func(change gitrepo.Change) error
 	Unstage func(change gitrepo.Change) error
+	// LastScope is the commit scope last used in this repository, if one was,
+	// and RecordScope remembers the one a commit just used: the store the
+	// terminal's composer learns from. Nil where there is no store.
+	LastScope   func() (string, bool)
+	RecordScope func(scope string)
 }
 
 // Info is the build and run facts the API reports and the server needs.
@@ -105,6 +110,21 @@ type server struct {
 	// indexWrites queues the staging requests: git lets one process write the
 	// index at a time, and one that finds it taken fails rather than waits.
 	indexWrites sync.Mutex
+
+	// scope is the commit scope learned in this repository, held once read.
+	scope scopeCache
+}
+
+// scopeCache is the store's last commit scope, read the first time a frame
+// asks — opening the store's database on every frame is the cost it avoids —
+// and read again once after a commit here records one, so it holds what the
+// store kept: nothing, when the store is off. Its lock is its own, since the
+// streams read it while a commit clears it.
+type scopeCache struct {
+	mu    sync.Mutex
+	read  bool
+	value string
+	found bool
 }
 
 var _ api.StrictServerInterface = (*server)(nil)

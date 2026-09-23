@@ -142,4 +142,6 @@ export const mockSnapshot: Snapshot = {
     { name: 'feat/PROJ-418-webhook-retries', issue_key: 'PROJ-418', current: false },
     { name: 'fix/PROJ-408-flaky-timeout', issue_key: 'PROJ-408', current: false },
   ],
+  // The scope the last commit here used, so the mockup's commit form opens on it.
+  suggested_scope: 'wiring',
 }

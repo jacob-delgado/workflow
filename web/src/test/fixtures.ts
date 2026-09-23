@@ -26,6 +26,7 @@ export function makeSnapshot(overrides: Partial<Snapshot> = {}): Snapshot {
       author: 'octocat',
     },
     branches: [],
+    suggested_scope: '',
     ...overrides,
   }
 }
