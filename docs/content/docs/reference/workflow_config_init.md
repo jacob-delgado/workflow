@@ -18,7 +18,8 @@ By default it lands at the repository root, so every subdirectory sees it;
 outside a repository it lands in the current directory. Use --global to
 write it to your home directory instead, where every directory can see it.
 Use --template to write a blank file to fill in by hand rather than being
-asked.
+asked. With --dry-run it runs the same checks, writes nothing and stores
+nothing in the keychain, and prints the file it would write, masked.
 
 ```
 workflow config init [flags]
@@ -27,6 +28,7 @@ workflow config init [flags]
 ### Options
 
 ```
+      --dry-run    print the file it would write, masked, and write nothing
       --force      overwrite an existing file
       --global     write to the home directory instead of here
   -h, --help       help for init

@@ -269,3 +269,96 @@ func TestGuidedInitStaysQuietWhenTheFileIsGitIgnored(t *testing.T) {
 		t.Errorf("warned about a file that is ignored:\n%s", output)
 	}
 }
+
+func TestConfigInitDryRunWritesNoTemplate(t *testing.T) {
+	// Arrange
+	dir := t.TempDir()
+
+	// Act
+	printed, err := runStreams(t, dir, unusedPrompt(t), "config", "init", "--template", "--dry-run")
+	if err != nil {
+		t.Fatalf("config init --template --dry-run: %v (%+v)", err, printed)
+	}
+
+	// Assert
+	_, statErr := os.Stat(filepath.Join(dir, config.FileName))
+	if !errors.Is(statErr, os.ErrNotExist) {
+		t.Errorf("a dry run left a file behind: %v", statErr)
+	}
+
+	shown, decodeErr := config.Parse(strings.NewReader(printed.stdout))
+	if decodeErr != nil || shown.Jira.BaseURL != config.Template().Jira.BaseURL {
+		t.Errorf("a dry run did not print the template it would write: %v\n%s", decodeErr, printed.stdout)
+	}
+
+	if !strings.Contains(printed.stderr, "dry run: would write") {
+		t.Errorf("a dry run did not say what it would write:\n%s", printed.stderr)
+	}
+}
+
+func TestGuidedInitDryRunWritesAndStoresNothing(t *testing.T) {
+	// Arrange
+	dir := t.TempDir()
+	jiraURL := workingJira(t)
+
+	var stored atomic.Bool
+
+	prompt := scripted([]string{jiraURL, "y"}, []string{guidedToken, "https://hooks.slack.example/x"})
+	prompt.StoreSecret = func(string) (string, error) {
+		stored.Store(true)
+
+		return "security find-generic-password -s workflow-jira -w", nil
+	}
+
+	// Act
+	printed, err := runStreams(t, dir, prompt, "config", "init", "--dry-run")
+	if err != nil {
+		t.Fatalf("config init --dry-run: %v (%+v)", err, printed)
+	}
+
+	// Assert
+	_, statErr := os.Stat(filepath.Join(dir, config.FileName))
+	if !errors.Is(statErr, os.ErrNotExist) || stored.Load() {
+		t.Errorf("a dry run wrote the file (%v) or stored the token in the keychain (%v)", statErr, stored.Load())
+	}
+
+	// What it would have written is shown, with the credential masked.
+	shown, decodeErr := config.Parse(strings.NewReader(printed.stdout))
+	if decodeErr != nil || shown.Jira.BaseURL != jiraURL || strings.Contains(printed.stdout, guidedToken) {
+		t.Errorf("a dry run did not print the masked file it would write: %v\n%s", decodeErr, printed.stdout)
+	}
+}
+
+func TestConfigInitDryRunRefusesAnExistingFile(t *testing.T) {
+	// A dry run previews what would happen, and what would happen is a refusal.
+	cases := [][]string{
+		strings.Fields("config init --template --dry-run"),
+		strings.Fields("config init --dry-run"),
+	}
+
+	for _, args := range cases {
+		name := strings.Join(args, " ")
+		t.Run(name, func(t *testing.T) {
+			// Arrange
+			dir := t.TempDir()
+			existing := `{"jira":{"base_url":"https://jira.example.com"}}`
+			path := writeFile(t, dir, existing)
+
+			// Act
+			// No prompt: the guided flow refuses before it asks anything.
+			printed, err := runStreams(t, dir, unusedPrompt(t), args...)
+
+			// Assert
+			wantExit(t, err, 4)
+
+			if err == nil || !strings.Contains(err.Error(), "already exists") || printed.stdout != "" {
+				t.Errorf("%s over a file = %v, want it refused with no preview:\n%s", name, err, printed.stdout)
+			}
+
+			kept, readErr := os.ReadFile(path)
+			if readErr != nil || string(kept) != existing {
+				t.Errorf("%s changed the file: %q (%v)", name, kept, readErr)
+			}
+		})
+	}
+}

@@ -332,16 +332,16 @@ without it, classify the CLI-local sentinels and re-point later).
   problem codes use (`docs/content/docs/errors.md`). **Decided** — the
   refined table under *Decisions the maintainer made* supersedes this one.
   Align `config show` with `doctor` when there is no file
-  (`internal/cli/config_cmd.go:88` vs `doctor.go:463`, both → 3) and `status` with
+  (`internal/cli/config_cmd.go:94` vs `doctor.go:463`, both → 3) and `status` with
   `status .` outside a repository (`statusHere`, `internal/cli/status.go:74`,
   vs `statusAcross`, `:89`).
 - **Streams.** The rule: stdout carries the artifact (JSON, the preview
   text, the created thing's URL, the standup draft); stderr carries
-  commentary (`Warning:` `internal/cli/config_cmd.go:285`, `Not opened.` and `dry run:
+  commentary (`Warning:` `internal/cli/config_cmd.go:325`, `Not opened.` and `dry run:
   would …` `internal/cli/scriptable.go:67`, `:86`, the no-config guidance
-  (`showLoadError`, `internal/cli/config_cmd.go:88`), the web banner
+  (`showLoadError`, `internal/cli/config_cmd.go:94`), the web banner
   `internal/cli/cli.go:265`, `config show`'s `# <path>` header
-  (`runConfigShow`, `internal/cli/config_cmd.go:292`)). Split the harness
+  (`runConfigShow`, `internal/cli/config_cmd.go:332`)). Split the harness
   **first** (`runStreams`, `internal/cli/cli_test.go:58`, returns both streams).
 - **Flags.** `--dry-run` and `--log` become root `PersistentFlags`;
   `writeOptions.addFlags` (`internal/cli/scriptable.go:49`) stops declaring its own

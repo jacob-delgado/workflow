@@ -38,15 +38,19 @@ func newConfigCmd(prompt Prompt) *cobra.Command {
 	return cmd
 }
 
+// initOptions are config init's flags.
+type initOptions struct {
+	force    bool
+	global   bool
+	template bool
+	dryRun   bool
+}
+
 // newConfigInitCmd builds `workflow config init`. It asks for each credential
 // and checks it, unless --template is given, which writes a blank file to edit
 // by hand.
 func newConfigInitCmd(prompt Prompt) *cobra.Command {
-	var (
-		force    bool
-		global   bool
-		template bool
-	)
+	var opts initOptions
 
 	cmd := &cobra.Command{
 		Use:   "init",
@@ -57,26 +61,28 @@ func newConfigInitCmd(prompt Prompt) *cobra.Command {
 			"outside a repository it lands in the current directory. Use --global to\n" +
 			"write it to your home directory instead, where every directory can see it.\n" +
 			"Use --template to write a blank file to fill in by hand rather than being\n" +
-			"asked.",
+			"asked. With --dry-run it runs the same checks, writes nothing and stores\n" +
+			"nothing in the keychain, and prints the file it would write, masked.",
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			dir, err := targetDir(global)
+			dir, err := targetDir(opts.global)
 			if err != nil {
 				return err
 			}
 
 			path := filepath.Join(dir, config.FileName)
-			if template {
-				return runConfigInit(cmd, path, force)
+			if opts.template {
+				return runConfigInit(cmd, path, opts)
 			}
 
-			return runGuidedInit(cmd, path, force, prompt)
+			return runGuidedInit(cmd, path, opts, prompt)
 		},
 	}
 
-	cmd.Flags().BoolVar(&force, "force", false, "overwrite an existing file")
-	cmd.Flags().BoolVar(&global, "global", false, "write to the home directory instead of here")
-	cmd.Flags().BoolVar(&template, "template", false, "write a blank file to edit by hand instead of being asked")
+	cmd.Flags().BoolVar(&opts.force, "force", false, "overwrite an existing file")
+	cmd.Flags().BoolVar(&opts.global, "global", false, "write to the home directory instead of here")
+	cmd.Flags().BoolVar(&opts.template, "template", false, "write a blank file to edit by hand instead of being asked")
+	cmd.Flags().BoolVar(&opts.dryRun, "dry-run", false, "print the file it would write, masked, and write nothing")
 
 	return cmd
 }
@@ -133,13 +139,37 @@ func targetDir(global bool) (string, error) {
 	return config.RepoRoot(workDir), nil
 }
 
-// runConfigInit writes the template, refusing to clobber an existing file
-// unless force says otherwise — that file holds credentials that are not
-// recoverable once overwritten.
-func runConfigInit(cmd *cobra.Command, path string, force bool) error {
+// refuseOverwrite refuses to clobber an existing file unless force says
+// otherwise — that file holds credentials that are not recoverable once
+// overwritten. A dry run is refused the same way, since it previews what would
+// happen.
+func refuseOverwrite(path string, force bool) error {
 	_, err := os.Stat(path)
 	if err == nil && !force {
 		return fmt.Errorf("%w: %s (pass --force to overwrite)", errConfigExists, path)
+	}
+
+	return nil
+}
+
+// previewConfig is what a dry run of config init prints instead of writing: the
+// file, with every credential masked, as the artifact on stdout, and where it
+// would have gone on stderr.
+func previewConfig(cmd *cobra.Command, path string, cfg config.Config) error {
+	fmt.Fprintf(cmd.ErrOrStderr(), "dry run: would write %s (mode %#o)\n", path, config.FileMode)
+
+	return encodeJSON(cmd.OutOrStdout(), cfg.Redacted())
+}
+
+// runConfigInit writes the template, unless the file is already there.
+func runConfigInit(cmd *cobra.Command, path string, opts initOptions) error {
+	err := refuseOverwrite(path, opts.force)
+	if err != nil {
+		return err
+	}
+
+	if opts.dryRun {
+		return previewConfig(cmd, path, config.Template())
 	}
 
 	err = config.Save(path, config.Template())
@@ -157,11 +187,17 @@ func runConfigInit(cmd *cobra.Command, path string, force bool) error {
 }
 
 // runGuidedInit asks for each credential, checks it, and writes what passed,
-// refusing to clobber an existing file unless force says otherwise.
-func runGuidedInit(cmd *cobra.Command, path string, force bool, prompt Prompt) error {
-	_, err := os.Stat(path)
-	if err == nil && !force {
-		return fmt.Errorf("%w: %s (pass --force to overwrite)", errConfigExists, path)
+// unless the file is already there. A dry run asks and checks the same, but
+// offers no keychain — which would store the token — and prints the file
+// rather than writing it.
+func runGuidedInit(cmd *cobra.Command, path string, opts initOptions, prompt Prompt) error {
+	err := refuseOverwrite(path, opts.force)
+	if err != nil {
+		return err
+	}
+
+	if opts.dryRun {
+		prompt.StoreSecret = nil
 	}
 
 	out := cmd.ErrOrStderr()
@@ -177,6 +213,10 @@ func runGuidedInit(cmd *cobra.Command, path string, force bool, prompt Prompt) e
 	cfg.Messaging, err = collectMessaging(out, prompt)
 	if err != nil {
 		return err
+	}
+
+	if opts.dryRun {
+		return previewConfig(cmd, path, cfg)
 	}
 
 	err = config.Save(path, cfg)
