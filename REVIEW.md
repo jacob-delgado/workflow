@@ -430,14 +430,15 @@ and comments from getIssue*; *a dry-run server shows the read-only banner*;
 counts zero POSTs). `webserver_test.TestListIssuesRefusesAnUnknownView`
 (404, `code: not_found`). axe on the banner in both themes.
 
-### Phase 4 — The terminal takes a last look before `R` and `u`
+### Phase 4 — The terminal takes a last look before `R` and `u` — done
 
 Closes UX-65. Before 5–7, so the goldens move once.
 
-Generalize `pushPreview` (`internal/tui/run.go:394`) into `lastLook{title,
-body, verb, proceed func(Model) (Model, tea.Cmd)}` — three users now, the
-rule of three is met — and route `rerunChecks` (`internal/tui/review.go:498`, a forge
-write) and `startRebase` (`internal/tui/run.go:447`, rewrites local history) through it;
+Generalize `pushPreview` (it was `internal/tui/run.go:394`) into `lastLook{title,
+body, verb, proceed func(Model) (Model, tea.Cmd)}` (now `internal/tui/overlay.go:131`)
+— three users now, the rule of three is met — and route `rerunChecks`
+(`internal/tui/review.go:498`, a forge write) and `startRebase`
+(`internal/tui/run.go:417`, rewrites local history) through it;
 the dry-run narration moves inside `proceed`. Relabel the footers
 ("re-run", "rebase"); `usage.md`'s key rows follow.
 
