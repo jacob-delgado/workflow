@@ -216,9 +216,9 @@ overwrite)` (`config_cmd.go:137`), the `chmod 600` line (`doctor.go:456`),
 init` (`internal/config/config.go:24`). The bare sentinels do not: `a branch for
 this issue already exists` (`internal/cli/branch.go:24`) does not say to switch to it;
 `an open pull request already exists for this branch` (`internal/cli/pr.go:31`) gives no
-URL; `no messaging transport is configured` (`internal/cli/announce.go:28`) names
+URL; `no messaging transport is configured` (`internal/cli/announce.go:25`) names
 neither `messaging.kind` nor `workflow config init`; `there is no pull
-request on this branch to announce` (`internal/cli/announce.go:24`) does not suggest
+request on this branch to announce` (`internal/cli/announce.go:21`) does not suggest
 `workflow pr`.
 
 **Instead.** Each carries its next step: the branch name and `git switch
@@ -270,7 +270,7 @@ the pull request's URL.
 Impact: medium · Effort: small
 
 **Today.** The interface seeds `posted` from the store at start
-(`internal/tui/messaging.go:215`) and records each post per moment (`:207`), so a restart
+(`internal/tui/messaging.go:204`) and records each post per moment (`:196`), so a restart
 never re-offers an announcement that already went out. `workflow announce`
 consults no store at all — no `Store`, `RecordAnnounce` or `Announced`
 reference exists anywhere in `internal/cli` — so a second run posts a second
@@ -333,7 +333,7 @@ work: `ctrl+w` (worktree) is filed under "Branch and Commits" (`keys.go:225`)
 and listed under pane 2 in `usage.md:45`, but only the branch creator
 answers it (`internal/tui/branch.go:389`); `w` post-when-green is filed under "Review and
 Slack" (`keys.go:245`) and listed under pane 5 in `usage.md:57`, but only the
-preview answers it (`internal/tui/messaging.go:366`).
+preview answers it (`internal/tui/messaging.go:355`).
 
 **Instead.** The Issues pane's `keys(m)` includes the five when their seams
 are wired; the two overlay-only keys move to the overlay groups; the docs
@@ -412,7 +412,7 @@ at …: dial tcp …` instead of the sentence. Fourteen rail sites are
 `issuewrite.go:120`, `internal/tui/picker.go:209`, `switchtask.go:107`, `internal/tui/review.go:219`,
 `internal/tui/run.go:211`, `composer.go:163`, `internal/tui/fields.go:171`, …); eight are glyph-only
 summaries; nine are notices with no glyph and no red (`comment.go:76`,
-`composer.go:76`, `internal/tui/messaging.go:389`, `finish.go:141`, `internal/tui/review.go:509`,
+`composer.go:76`, `internal/tui/messaging.go:378`, `finish.go:141`, `internal/tui/review.go:509`,
 `:511`, `:575`, `:577`, `:595`); one config screen is unstyled
 (`render.go:386`). `render.go:372` points at `workflow doctor` only for a
 *missing* setting, never a failing one; `forgeReason` (`internal/tui/review.go:361`),
@@ -651,7 +651,7 @@ are vague and near-apologetic — `The branch could not be checked out.`
 `The push failed.` (`BranchPanel.tsx:132`), `The commit could not be
 created.` (`CommitForm.tsx:74`) — and three handlers replace the tool's
 reason with one of those sentences: `checkout.go:42`, `internal/webserver/branchcreate.go:44`,
-`internal/webserver/announce.go:59`. `writeResponseError` answers `something went wrong`
+`internal/webserver/announce.go:57`. `writeResponseError` answers `something went wrong`
 (`errors.go:79`). A user gets a dead end with no next step.
 
 **Instead.** `checkout` and `branchcreate` pass git's own reason through

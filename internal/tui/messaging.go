@@ -13,6 +13,7 @@ import (
 
 	"github.com/jacob-delgado/workflow/internal/config"
 	"github.com/jacob-delgado/workflow/internal/forge"
+	"github.com/jacob-delgado/workflow/internal/loop"
 	"github.com/jacob-delgado/workflow/internal/messaging"
 )
 
@@ -120,19 +121,6 @@ func (msg authorFound) apply(m Model) (Model, tea.Cmd) {
 	return m, nil
 }
 
-// announceMoment is the moment the pull request on screen is at: merged, its CI
-// red, or — the common case — open and ready for review.
-func (m Model) announceMoment() messaging.Moment {
-	switch {
-	case m.review.pull.State == forge.StateMerged:
-		return messaging.MomentMerged
-	case m.review.ci.State == forge.CIFailed:
-		return messaging.MomentCIRed
-	default:
-		return messaging.MomentReady
-	}
-}
-
 // announcement is the message marking the pull request's current moment.
 func (m Model) announcement(moment messaging.Moment) string {
 	issueKey, _ := m.branchIssue()
@@ -184,7 +172,7 @@ func (m Model) messagingDetail(width int) string {
 	}
 
 	lines := []string{
-		m.announcement(m.announceMoment()),
+		m.announcement(loop.AnnounceMoment(m.review.pull, m.review.ci)),
 		"",
 		m.styles.label.Render("to     ") + m.cfg.Messaging.Target(),
 		m.styles.label.Render("CI     ") + m.ciSummary(),
@@ -198,8 +186,9 @@ func (m Model) messagingDetail(width int) string {
 // current moment — a merge announced counts, an opening does not — this session
 // or, from the store, an earlier one.
 func (m Model) announced() bool {
-	return m.review.found &&
-		slices.Contains(m.messaging.posted, postedMoment{pull: m.review.pull.Number, moment: m.announceMoment()})
+	current := postedMoment{pull: m.review.pull.Number, moment: loop.AnnounceMoment(m.review.pull, m.review.ci)}
+
+	return m.review.found && slices.Contains(m.messaging.posted, current)
 }
 
 // recordAnnounce remembers a post just made, so a later session opens knowing the
@@ -273,7 +262,7 @@ func (m Model) handleMessagingKey(msg tea.KeyPressMsg) (Model, tea.Cmd) {
 		channel = channels[0]
 	}
 
-	moment := m.announceMoment()
+	moment := loop.AnnounceMoment(m.review.pull, m.review.ci)
 
 	m.overlay = messagingPreview{
 		marks: m.marks, styles: m.styles, text: m.announcement(moment), fallback: m.cfg.Messaging.Target(),

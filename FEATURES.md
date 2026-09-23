@@ -255,7 +255,7 @@ Impact: low · Effort: medium
 
 - Why: The interface's preview offers `w` — post the announcement when CI
   goes green — and keeps the queued post until it does or the run fails
-  (`internal/tui/messaging.go:405`). The web announces now or not at all.
+  (`internal/tui/messaging.go:394`). The web announces now or not at all.
 - Touches: `internal/webserver` (a queued post needs somewhere to live
   across requests — the store, or the stream's server state),
   `api/openapi.yaml`, `web/src/features/messaging`.

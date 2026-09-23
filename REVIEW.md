@@ -108,7 +108,7 @@ gap, and which phase closes it.
 | # | Action | CLI | TUI | Web | Warranted? |
 | --- | --- | --- | --- | --- | --- |
 | 33 | Announce: compose → preview → post | Y | Y | Y | Composed **three times** — DEBT-50, Phase 1 |
-| 34 | Call it a "merge request" on GitLab | Y (`internal/cli/announce.go:194`) | Y (`review.go:49`) | **N** — six hardcoded strings; `ForgeKind` on the server (`webserver.go:60`), never sent | **Yes** — Phase 9, UX-73 |
+| 34 | Call it a "merge request" on GitLab | Y (`forge.Kind.Noun`, `internal/forge/remote.go:60`) | Y (the same) | **N** — six hardcoded strings; `ForgeKind` on the server (`webserver.go:60`), never sent | **Yes** — Phase 9, UX-73 |
 | 35 | Post when CI passes | N | Y (`internal/tui/messaging.go:405`) | N | CLI `announce --when-green` is FEAT-65's fit; web FEAT-82; not this plan |
 | 36 | Announced history (never re-offer) | **N** — no `Store` reference in `internal/cli` | Y (`internal/tui/messaging.go:215`) | **F** | **CLI yes, cheap** — record after posting, say when already announced. Phase 8, UX-60. Web: FEAT-66, declared |
 | 37 | Choose the channel | N (config only) | Y (`←`/`→`) | Y | CLI `--channel`: UX-62 |
@@ -262,8 +262,8 @@ as a method on the section that owns its four fields (`config.Branch`).
 One commit each, red first, in this order:
 
 1. `forge.Kind.Noun()` and `Sigil()` replace `internal/tui/review.go:47`
-   `forgeVocab`, `internal/cli/announce.go:194` `forgeNoun`,
-   `internal/webserver/announce.go:145` `noun`. Add the methods to an
+   `forgeVocab`, `internal/cli/announce.go` `forgeNoun`,
+   `internal/webserver/announce.go` `noun`. Add the methods to an
    existing `forge` file — `internal/forge` is 11 of 12.
 2. `config.Branch.Naming() convention.BranchNaming` replaces the three
    identical `NewBranchNaming(…)` calls (`internal/tui/branch.go:296`,
@@ -283,9 +283,9 @@ One commit each, red first, in this order:
    messaging.Moment` and `loop.ComposeAnnouncement(seams AnnounceSeams, cfg
    config.Messaging, project string, kind forge.Kind) (messaging.Announcement,
    error)` with `loop.ErrNoPullRequest` — replacing
-   `internal/cli/announce.go:158-190`, `internal/webserver/announce.go:68-117`
-   and the interface's `internal/tui/messaging.go:125-146` (a third caller; it passes its
-   own `review.ci`).
+   `internal/cli/announce.go` and `internal/webserver/announce.go` `composeAnnouncement`
+   and the interface's `announceMoment` in `internal/tui/messaging.go` (a third caller; it
+   passes its own `review.ci`).
 6. `loop.ErrDirtyTree`, `loop.ErrNothingStaged`, `loop.RefuseDirty(changes)`,
    `loop.RefuseUnstaged(changes)` — the guards that `internal/webserver/checkout.go:16`
    and `internal/webserver/commit.go:18` say are "the same guard the terminal interface applies"

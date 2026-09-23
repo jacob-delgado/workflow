@@ -24,6 +24,7 @@ const (
 	subject       = "fix: redact the token"
 	summary       = "Redact the token"
 	browseURL     = "https://jira.example.com/browse/PROJ-7"
+	headCommit    = "abc1234"
 )
 
 // errSeam is what a failing seam answers.
@@ -33,8 +34,8 @@ var errSeam = errors.New("the seam failed")
 // can be opened for.
 func openable(name string) gitrepo.Branch {
 	return gitrepo.Branch{
-		Name: name, Base: "origin/main",
-		Commits: []gitrepo.Commit{{Hash: "abc1234", Subject: subject}},
+		Name: name, Base: "origin/main", Head: headCommit,
+		Commits: []gitrepo.Commit{{Hash: headCommit, Subject: subject}},
 	}
 }
 

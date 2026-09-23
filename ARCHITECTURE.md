@@ -102,8 +102,11 @@ untrusted input to a terminal (more below).
 
 Seams say how to reach the world; they do not say what to do with it. What the
 surfaces do with their seams — propose a pull request from a branch's commits,
-its issue and the repository's template, and push the branch before opening
-it — lives once, in `internal/loop`, rather than once per surface. Each surface
+its issue and the repository's template, push the branch before opening it,
+find the move to the review status after, and announce the pull request at the
+moment it is at — lives once, in `internal/loop`, rather than once per surface.
+The terminal renders its announcement from state it has already loaded, so it
+takes only the rule for the moment (`loop.AnnounceMoment`). Each surface
 hands it the seams it holds and words the answer in its own terms: a refusal
 comes back as a `loop.Err…` sentinel, and the command line, the terminal and
 the web server each map it to the sentence they already use (`errors.Is` at the
