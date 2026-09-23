@@ -5,7 +5,9 @@
 // information the terminal interface shows, and the configuration file, over the
 // REST surface described by api/openapi.yaml. It reuses the domain seams the TUI
 // and the CLI already use — it is another consumer of the wiring, not a second
-// implementation — and writes nothing but the configuration file.
+// implementation — so each write it makes, to the repository, the forge, the
+// tracker, the messaging service or the configuration file, goes through the
+// seam the terminal's own goes through.
 package webserver
 
 import (
@@ -26,9 +28,9 @@ import (
 )
 
 // Deps is what the server asks of the world, as plain functions over the domain
-// clients — the same seams the interface declares, narrowed to what the read and
-// configure API needs. A nil function means the service is not configured; the
-// handler answers with an empty result rather than an error.
+// clients — the same seams the interface declares, narrowed to what the API
+// needs. A nil function means the service is not configured: a read answers
+// with an empty result rather than an error, and a write as not available.
 type Deps struct {
 	Search       func(jql string, startAt int) (jira.SearchResult, error)
 	Issue        func(key jira.Key) (jira.IssueDetail, error)
@@ -46,6 +48,11 @@ type Deps struct {
 	CheckCI      func(pull forge.PullRequest, head string) (forge.CI, error)
 	Author       func() (string, error)
 	Post         func(channel, text string) error
+	// LinkPullRequest records a pull request as a link on an issue; nil where
+	// the tracker cannot take one — the forge's own issues.
+	LinkPullRequest func(issueKey jira.Key, pullURL, title string) error
+	Transitions     func(issueKey jira.Key) ([]jira.Transition, error)
+	Transition      func(issueKey jira.Key, to jira.Transition, values []jira.FieldValue) error
 }
 
 // Info is the build and run facts the API reports and the server needs.

@@ -50,18 +50,25 @@ with the default one.
 
 Status 409. The request cannot be applied to the current state — a working tree
 with uncommitted changes, a branch that already exists, nothing staged to commit,
-or no pull request to announce.
+no pull request to announce or to link, an issue the checked-out branch does not
+name, or a move to the review status that Jira does not offer or wants fields
+filled for (the terminal interface's status picker asks for them).
 
 ## Unprocessable
 
 Status 422. The request was understood but cannot be carried out as asked — an
-invalid configuration body, or a request for an issue when no tracker is
-configured.
+invalid configuration body, a request for an issue when no tracker is
+configured, no `jira.review_status` to move an issue to, or a change Jira
+refused. A Jira token that is not configured or that Jira did not accept, a
+`jira.base_url` that is not a usable address, and one with no Jira API behind
+it are answered here too, pointing at `workflow doctor` rather than naming the
+address.
 
 ## Unreachable
 
-Status 502. An upstream service — Jira or the Git forge — could not be reached.
-The request was well formed; try again once the service is back.
+Status 502. An upstream service — Jira or the Git forge — could not be
+reached, or asked to wait because it is limiting requests. The request was well
+formed; try again once the service is back.
 
 ## Internal
 

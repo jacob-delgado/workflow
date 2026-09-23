@@ -59,10 +59,10 @@ gap, and which phase closes it.
 | 2 | Switch view / next page | N | Y (`v`, `ctrl+n`) | Y since Phase 3 — a view select from `listViews` (`ViewSelect`, `web/src/features/issues/IssueListControls.tsx:37`), `useEventStream(view)` (`web/src/api/snapshot.ts:34`), and Load more over `start_at` (`useMoreIssues`, `web/src/features/issues/issueApi.ts:73`); an unknown view is 404 | — |
 | 3 | Filter the list | N | Y (`/`, `internal/tui/issues.go:159`) | Y since Phase 3 — the same `KEY summary` match (`matchesFilter`, `web/src/features/issues/IssuesPanel.tsx:311`) | CLI no |
 | 4 | Read an issue in full | N | Y (`internal/tui/detail.go:285`) | Y since Phase 3 — description, comments, reporter, assignee (`IssueDetailPanel`, `web/src/features/issues/IssueDetailPanel.tsx:16`) | CLI: FEAT-78 |
-| 5 | Transition, with field forms | P (`pr`'s side effect, fields-less, `internal/cli/pr.go:236`) | Y (`internal/tui/picker.go:155`) | N | The post-PR **review-status offer** both other surfaces make: Phase 9, UX-74. A general transition: FEAT-78 (CLI), FEAT-80 (web) |
+| 5 | Transition, with field forms | P (`pr`'s side effect, fields-less, `internal/cli/pr.go:236`) | Y (`internal/tui/picker.go:155`) | P since Phase 9 — the server moves an issue to the review status, fields-less and nowhere else (`TransitionIssue`, `internal/webserver/issuewrite.go:106`); the panel's offer is UX-74 | A general transition: FEAT-78 (CLI), FEAT-80 (web) |
 | 6 | Comment | N | Y (`internal/tui/comment.go:41`) | N | FEAT-78 / FEAT-80; not this plan |
 | 7 | Assign / log work | N | Y (`internal/tui/issuewrite.go:74`, `:81`) | N | FEAT-78 / FEAT-80; not this plan |
-| 8 | Link the pull request on the issue | Y since Phase 8 — `pr` offers it before the status, under the same `--yes` (`offerLink`, `internal/cli/pr.go:176`) | Y (`issuelink.go`, `internal/tui/prcomposer.go:510`) | N | **Web yes** — the seam exists (`Jira.LinkPullRequest`) and the flow is the interface's. Phase 9, UX-74 |
+| 8 | Link the pull request on the issue | Y since Phase 8 — `pr` offers it before the status, under the same `--yes` (`offerLink`, `internal/cli/pr.go:176`) | Y (`issuelink.go`, `internal/tui/prcomposer.go:510`) | P since Phase 9 — the server links the branch's own pull request, never a URL the page sends (`LinkPullRequest`, `internal/webserver/issuewrite.go:35`) | **Web yes** — the panel's offer: Phase 9, UX-74 |
 | 9 | Open / copy the issue URL | n/a | Y (`o`, `y`) | Y since Phase 3 — "Open in Jira" from the detail's `url` (`web/src/features/issues/IssueDetailPanel.tsx:77`); copying is the browser's own link menu | — |
 | 10 | Cache-seeded first paint | n/a | Y (`internal/tui/issues.go:53`) | **F** | FEAT-68, declared |
 | 11 | Branch for the issue | Y | Y | Y | The CLI's help and preview say it switches to the branch, since Phase 8 (`internal/cli/branch.go:40`, `:99`) |
@@ -95,7 +95,7 @@ gap, and which phase closes it.
 | --- | --- | --- | --- | --- | --- |
 | 24 | Find the pull request and its CI | Y (`status --json`) | Y | Y | — |
 | 25 | Compose and open (push first) | Y (`pr`) | Y (`n`) | Y | CLI and web compose it once, in `internal/loop` (Phase 1, which closed DEBT-50); the terminal's composer is its own editor. CLI lacks draft/base/reviewer flags; CLI and web take `templates[0]` only: UX-62 |
-| 26 | After opening: link, then the review-status offer | Y since Phase 8 (`followUp`, `internal/cli/pr.go:163`) | Y | **N** (`webserver/pullrequest.go` never touches `Jira.ReviewStatus`) | **Web yes** — Phase 9, UX-74 |
+| 26 | After opening: link, then the review-status offer | Y since Phase 8 (`followUp`, `internal/cli/pr.go:163`) | Y | P since Phase 9 — the open answers `follow_ups` (`followUps`, `internal/webserver/issuewrite.go:160`); the panel does not read them yet | **Web yes** — Phase 9, UX-74 |
 | 27 | Edit the pull request | N | Y (`e`, `preditor.go`) | N | `gh pr edit` is the twin; web idea, FEAT-79 |
 | 28 | Checks list; a failure into `$EDITOR` | N | Y (`checks.go`) | P (a CI link) | A terminal gesture; web list idea, UX-88 |
 | 29 | Follow CI; notify on settle | n/a | Y (`internal/tui/review.go:189`) | P (5 s tick, no signal) | Web "CI settled" idea, UX-86 |
@@ -690,7 +690,7 @@ Phase 3.
 - `internal/webserver/checkout.go:44` and `internal/webserver/branchcreate.go:44` pass git's own reason through
   `fault`. **`internal/webserver/announce.go:53` does not**: a messaging error can name the
   webhook URL, so classify by `messaging.ErrRejected`/`ErrUnreachable` and
-  never forward the text. `"something went wrong"` (`errors.go:79`) → a
+  never forward the text. `"something went wrong"` (`internal/webserver/errors.go:80`) → a
   directive sentence. One "connecting" phrasing (`IssuesPanel.tsx:19`,
   `BranchPanel.tsx:14`, `web/src/features/review/ReviewPanel.tsx:33`, `web/src/features/messaging/MessagingPanel.tsx:13`);
   dead ends get a way out (`BranchPanel.tsx:22`, a Retry at
@@ -1011,7 +1011,7 @@ phase disagree, the correction wins.
    coverage, not per-condition.
 5. **Spec changes are three-way.** `api/openapi.yaml` → `task gen` (Go) →
    `yarn gen` (client and `zSnapshot`). The SSE endpoint is hand-registered
-   (`internal/webserver/webserver.go:118`) and the frame parser hand-written
+   (`internal/webserver/webserver.go:125`) and the frame parser hand-written
    (`snapshot.ts:50`), so a `Snapshot` field added in Go without
    regenerating the client makes the browser **silently drop every frame**
    (Phase 11 makes that visible). Run `task web:build` before trusting a

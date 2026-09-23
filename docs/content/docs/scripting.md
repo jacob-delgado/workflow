@@ -60,13 +60,15 @@ that is not signed in reads as a forge that could not be reached: 5, not 3.
 | Exit status | Web problem code |
 | --- | --- |
 | 2 usage | `bad_request` (400) |
-| 3 configuration | `unprocessable` (422), for a missing messaging service and an invalid configuration body |
+| 3 configuration | `unprocessable` (422), for a missing messaging service, an invalid configuration body, a Jira token not configured or not accepted, and a `jira.base_url` that is not a usable address |
 | 4 refused precondition | `conflict` (409) |
-| 5 unreachable | `unreachable` (502) |
-| 1 failure | `internal` (500); the web also answers `not_found` (404) for a missing issue, which the command line counts as a plain failure |
+| 5 unreachable | `unreachable` (502), for a service that could not be reached or asked to wait |
+| 1 failure | `internal` (500); the web also answers `not_found` (404) for a missing issue, and `unprocessable` (422) for a change Jira refused or a `jira.base_url` with no Jira API behind it — all of which the command line counts as a plain failure |
 
-The web has no problem code for a missing or rejected credential; it answers
-`internal`, where the command line exits 3.
+The web has no problem code of its own for a missing or rejected credential. A
+Jira credential answers `unprocessable` and points at `workflow doctor`, as the
+command line exits 3; a forge credential that fails a read still answers
+`internal`.
 
 ## Standard output and standard error
 

@@ -291,6 +291,10 @@ func WebDeps(deps tui.Deps) webserver.Deps {
 		CheckCI:      deps.Forge.CheckStatus,
 		Author:       deps.Forge.Author,
 		Post:         deps.Messaging.Post,
+
+		LinkPullRequest: deps.Jira.LinkPullRequest,
+		Transitions:     deps.Jira.Transitions,
+		Transition:      deps.Jira.Transition,
 	}
 }
 

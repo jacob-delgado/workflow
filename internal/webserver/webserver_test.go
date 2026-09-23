@@ -240,6 +240,12 @@ func TestWhatThePageIsToldSaysMergeRequestOnGitLab(t *testing.T) {
 
 		return deps
 	}
+	unchanged := func(deps webserver.Deps) webserver.Deps { return deps }
+	linkable := func(deps webserver.Deps) webserver.Deps {
+		deps.LinkPullRequest = func(jira.Key, string, string) error { return nil }
+
+		return deps
+	}
 
 	// Each case is a request the page makes and the answer it shows, on GitLab.
 	const openPath = "/api/pull-request"
@@ -256,6 +262,8 @@ func TestWhatThePageIsToldSaysMergeRequestOnGitLab(t *testing.T) {
 		"reviewers were not added": {reviewersRefused, http.MethodPost, openPath, openRequestBody},
 		"nothing to preview":       {nothingOpen, http.MethodGet, "/api/announcement", ""},
 		"nothing to announce":      {nothingOpen, http.MethodPost, "/api/announce", announceBody},
+		"linking is not available": {unchanged, http.MethodPost, linkPath, ""},
+		"nothing to link":          {linkable, http.MethodPost, linkPath, ""},
 	}
 
 	for name, tt := range cases {

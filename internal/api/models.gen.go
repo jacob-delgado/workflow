@@ -64,6 +64,24 @@ func (e ChangeKind) Valid() bool {
 	}
 }
 
+// Defines values for FollowUpAction.
+const (
+	Link       FollowUpAction = "link"
+	Transition FollowUpAction = "transition"
+)
+
+// Valid indicates whether the value is a known member of the FollowUpAction enum.
+func (e FollowUpAction) Valid() bool {
+	switch e {
+	case Link:
+		return true
+	case Transition:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for ForgeConfigKind.
 const (
 	ForgeConfigKindEmpty  ForgeConfigKind = ""
@@ -361,6 +379,24 @@ type CreateBranchRequest struct {
 	IssueKey string `json:"issue_key"`
 }
 
+// FollowUp One offer after opening: to link the pull request on the branch's issue (POST /api/issues/{key}/link), or to move that issue to the review status (POST /api/issues/{key}/transition). A move is offered only when Jira offers one that needs no fields.
+type FollowUp struct {
+	Action FollowUpAction `json:"action"`
+
+	// IssueKey The Jira issue the checked-out branch names.
+	//
+	// Example: PROJ-412
+	IssueKey string `json:"issue_key"`
+
+	// Status Set only on a transition — the status the issue would move to.
+	//
+	// Example: In Review
+	Status *string `json:"status,omitempty"`
+}
+
+// FollowUpAction defines model for FollowUp.Action.
+type FollowUpAction string
+
 // ForgeConfig defines model for ForgeConfig.
 type ForgeConfig struct {
 	Cli  *bool   `json:"cli,omitempty"`
@@ -513,6 +549,15 @@ type MessagingDestination struct {
 	Service string `json:"service"`
 }
 
+// MovedIssue An issue that was just moved, and the status it is now in.
+type MovedIssue struct {
+	// Key Example: PROJ-412
+	Key string `json:"key"`
+
+	// Status Example: In Review
+	Status string `json:"status"`
+}
+
 // OpenPullRequestRequest The pull request to open for the checked-out branch.
 type OpenPullRequestRequest struct {
 	// Assignees Usernames to assign the pull request to.
@@ -541,9 +586,11 @@ type OpenPullRequestRequest struct {
 	Title string `json:"title"`
 }
 
-// OpenedPullRequest A pull request that was just opened, with a warning when it opened but its reviewers, assignees or labels could not all be added.
+// OpenedPullRequest A pull request that was just opened, with a warning when it opened but its reviewers, assignees or labels could not all be added, and what can be offered next.
 type OpenedPullRequest struct {
-	Pull PullRequest `json:"pull"`
+	// FollowUps What the browser can offer now that the pull request is open, in the order the terminal offers them — the link, then the move. Empty when the branch names no Jira issue, or neither applies.
+	FollowUps []FollowUp  `json:"follow_ups"`
+	Pull      PullRequest `json:"pull"`
 
 	// Warning Set only when the pull opened but adding its reviewers, assignees or labels did not fully succeed, so a partial success is not reported as a failure.
 	Warning *string `json:"warning,omitempty"`

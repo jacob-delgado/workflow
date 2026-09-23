@@ -180,6 +180,23 @@ export const zChangeList = z.object({
     changes: z.array(zChange)
 });
 
+/**
+ * One offer after opening: to link the pull request on the branch's issue (POST /api/issues/{key}/link), or to move that issue to the review status (POST /api/issues/{key}/transition). A move is offered only when Jira offers one that needs no fields.
+ */
+export const zFollowUp = z.object({
+    action: z.enum(['link', 'transition']),
+    issue_key: z.string(),
+    status: z.string().optional()
+});
+
+/**
+ * An issue that was just moved, and the status it is now in.
+ */
+export const zMovedIssue = z.object({
+    key: z.string(),
+    status: z.string()
+});
+
 export const zPullRequest = z.object({
     number: z.int(),
     url: z.string(),
@@ -195,11 +212,12 @@ export const zPullRequest = z.object({
 });
 
 /**
- * A pull request that was just opened, with a warning when it opened but its reviewers, assignees or labels could not all be added.
+ * A pull request that was just opened, with a warning when it opened but its reviewers, assignees or labels could not all be added, and what can be offered next.
  */
 export const zOpenedPullRequest = z.object({
     pull: zPullRequest,
-    warning: z.string().optional()
+    warning: z.string().optional(),
+    follow_ups: z.array(zFollowUp)
 });
 
 export const zCiState = z.enum([
@@ -379,6 +397,24 @@ export const zGetIssuePath = z.object({
  * The issue.
  */
 export const zGetIssueResponse = zIssueDetail;
+
+export const zLinkPullRequestPath = z.object({
+    key: z.string()
+});
+
+/**
+ * The pull request, now linked on the issue.
+ */
+export const zLinkPullRequestResponse = zPullRequest;
+
+export const zTransitionIssuePath = z.object({
+    key: z.string()
+});
+
+/**
+ * The issue, now in the review status.
+ */
+export const zTransitionIssueResponse = zMovedIssue;
 
 /**
  * The branch.
