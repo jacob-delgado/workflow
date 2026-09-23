@@ -184,7 +184,7 @@ function ConfigForm({ config }: { config: Config }) {
         <Field
           id="commit.default_scope"
           label="Default scope"
-          hint="Pre-fills the scope field, e.g. an area you scope commits to."
+          hint="Pre-fills the scope field until a commit here uses a scope of its own, e.g. an area you scope commits to."
         >
           <input
             id="commit.default_scope"

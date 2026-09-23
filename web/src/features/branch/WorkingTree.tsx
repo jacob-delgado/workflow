@@ -9,7 +9,13 @@ import { stageEverything, stageFile, unstageFile } from './stagingApi.ts'
 // or unstage it once it is wholly staged — then its `a`, Stage all, and the
 // commit form, which stays in place and says what it waits for until something
 // is staged.
-export function WorkingTree({ changes }: { changes: Change[] }) {
+export function WorkingTree({
+  changes,
+  suggestedScope,
+}: {
+  changes: Change[]
+  suggestedScope: string
+}) {
   return (
     <section aria-labelledby="changes-heading" className="flex flex-col gap-3">
       <h3 id="changes-heading" className="text-sm font-semibold text-muted-foreground uppercase">
@@ -25,7 +31,7 @@ export function WorkingTree({ changes }: { changes: Change[] }) {
           <StageAll anythingToStage={changes.some(offersStage)} />
         </>
       )}
-      <CommitForm blocked={commitBlocker(changes)} />
+      <CommitForm blocked={commitBlocker(changes)} suggestedScope={suggestedScope} />
     </section>
   )
 }

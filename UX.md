@@ -154,36 +154,17 @@ horizontal axis.
 
 ## The web
 
-### UX-76 `commit.default_scope` can be edited in Settings and is never used
-
-Impact: medium · Effort: small
-
-**Today.** The interface's composer opens on the learned scope, else
-`commit.default_scope` (`internal/tui/composer.go:131` `startingScope`). The web's
-`CommitForm` hardcodes `scope: ''` (`web/src/features/branch/CommitForm.tsx:47`) — while
-`commit.default_scope` is an editable field in the Settings form
-(`SettingsPanel.tsx:184`). A setting the user can change with no visible
-effect.
-
-**Instead.** The snapshot's `changes` carries `suggested_scope` — the store's
-last scope, else the configured default (the interface's own rule) — and
-the form opens on it; the server records the scope after a commit, as the
-interface does.
-
-**Done when.** Editing `default_scope` in Settings pre-fills the next commit
-form; a table test covers the store-then-config fallback.
-
 ### UX-77 Four of twelve writes succeed in silence
 
 Impact: high · Effort: small
 
 **Today.** `Pull request opened.` (`web/src/features/review/OpenedOutcome.tsx:21`), `Announced…`
-(`web/src/features/messaging/MessagingPanel.tsx:139`) and `Saved.` (`SettingsPanel.tsx:323`) confirm,
+(`web/src/features/messaging/MessagingPanel.tsx:139`) and `Saved.` (`web/src/features/settings/SettingsPanel.tsx:323`) confirm,
 and so do the link and the move offered after opening, each in a
 `role="status"` line (`FollowUpOffer`, `web/src/features/review/OpenedOutcome.tsx:70`), and a
 file's stage or unstage and Stage all, each in its own (`ChangeRow`,
-`web/src/features/branch/WorkingTree.tsx:66`; `StageAll`, `:106`).
-Commit (`web/src/features/branch/CommitForm.tsx:72`), push (`web/src/features/branch/BranchPanel.tsx:100`), check-out and
+`web/src/features/branch/WorkingTree.tsx:72`; `StageAll`, `:112`).
+Commit (`web/src/features/branch/CommitForm.tsx:89`), push (`web/src/features/branch/BranchPanel.tsx:100`), check-out and
 start-work say nothing: `useAsyncAction` ends in `done`
 (`web/src/lib/useAsyncAction.ts:21`), but neither button reads it; the stated
 rationale is that the snapshot is the confirmation (`web/src/lib/useAsyncAction.ts:9`),
@@ -208,7 +189,7 @@ Load more, which hands focus to the first issue a page adds
 (`web/src/features/issues/IssuesPanel.tsx:145`), and the offers after
 opening and the staging buttons, which hand it to what they said
 (`web/src/features/review/OpenedOutcome.tsx:77`,
-`web/src/features/branch/WorkingTree.tsx:145`). On success
+`web/src/features/branch/WorkingTree.tsx:151`). On success
 `OpenPullRequest` unmounts the form for the outcome the panel shows above it
 (`web/src/features/review/ReviewPanel.tsx:174`); `AnnounceControls` swaps its
 form for a `<p>` (`web/src/features/messaging/MessagingPanel.tsx:137`);
@@ -233,7 +214,7 @@ uncommitted changes; commit or stash them before switching`, `internal/webserver
 are vague and near-apologetic — `The branch could not be checked out.`
 (`web/src/features/issues/IssuesPanel.tsx:337`), `Work could not be started.` (`web/src/features/issues/WorkStory.tsx:267`),
 `The push failed.` (`web/src/features/branch/BranchPanel.tsx:102`), `The commit could not be
-created.` (`web/src/features/branch/CommitForm.tsx:76`) — and three handlers replace the tool's
+created.` (`web/src/features/branch/CommitForm.tsx:100`) — and three handlers replace the tool's
 reason with one of those sentences: `internal/webserver/checkout.go:44`, `internal/webserver/branchcreate.go:44`,
 `internal/webserver/announce.go:53`. `writeResponseError` answers `something went wrong`
 (`internal/webserver/errors.go:80`). A user gets a dead end with no next step.
@@ -254,7 +235,7 @@ Impact: low · Effort: small
 first — there is nothing to announce yet.`, `{service} is not configured.
 Add a token or webhook in Settings.` Dead ends: `This directory is not a
 Git repository.` (`web/src/features/branch/BranchPanel.tsx:22`) and `The configuration could not be
-loaded.` (`SettingsPanel.tsx:17`) offer nothing to do. And the one condition
+loaded.` (`web/src/features/settings/SettingsPanel.tsx:17`) offer nothing to do. And the one condition
 "no snapshot yet" reads `Connecting to the tracker…`, `Connecting to the
 workspace…`, `Connecting to the forge…` and `Connecting…` in four panels
 (`web/src/features/issues/IssuesPanel.tsx:19`, `web/src/features/branch/BranchPanel.tsx:14`, `web/src/features/review/ReviewPanel.tsx:37`,
@@ -272,12 +253,12 @@ Impact: medium · Effort: small
 
 **Today.** Every disabled button uses `disabled:opacity-60` — fifteen
 places (`web/src/features/issues/IssuesPanel.tsx:349`, `web/src/features/issues/WorkStory.tsx:248`, `:278`,
-`web/src/features/branch/BranchPanel.tsx:138`, `web/src/features/branch/CommitForm.tsx:130`,
-`web/src/features/branch/WorkingTree.tsx:176` — the staging buttons' shared
+`web/src/features/branch/BranchPanel.tsx:138`, `web/src/features/branch/CommitForm.tsx:157`,
+`web/src/features/branch/WorkingTree.tsx:182` — the staging buttons' shared
 class — `web/src/features/review/ReviewPanel.tsx:206`, `:345`,
 `:352`, `web/src/features/review/OpenedOutcome.tsx:90`,
 `web/src/features/messaging/MessagingPanel.tsx:170`, `:216`, `:231`, `:239`,
-`SettingsPanel.tsx:318`) — which CLAUDE.md's accessibility rule names as the
+`web/src/features/settings/SettingsPanel.tsx:318`) — which CLAUDE.md's accessibility rule names as the
 thing not to do (opacity dims text below the contrast floor) and which axe
 does not catch on disabled controls. The app has only two `transition-colors`
 and no animation, but no `prefers-reduced-motion` rule either; the a11y spec
@@ -340,8 +321,8 @@ icons are all muted (`web/src/shell/NavRail.tsx:30`). State marks are the web's 
 (`web/src/features/review/ReviewPanel.tsx:20`) and `StreamStatus` (`StreamStatus.tsx:4`) are
 color-only dots of one shape (mitigated by a text label beside each). And
 the page shows the template tells the interface avoids: nine `uppercase`
-eyebrow headings from seven class strings (`SettingsPanel.tsx:343`,
-`web/src/features/branch/BranchPanel.tsx:67`, `web/src/features/branch/WorkingTree.tsx:15`, `web/src/features/issues/IssueDetailPanel.tsx:8`
+eyebrow headings from seven class strings (`web/src/features/settings/SettingsPanel.tsx:343`,
+`web/src/features/branch/BranchPanel.tsx:67`, `web/src/features/branch/WorkingTree.tsx:21`, `web/src/features/issues/IssueDetailPanel.tsx:8`
 — the work story, description and comments share it — `web/src/features/review/ReviewPanel.tsx:105`,
 `web/src/features/messaging/MessagingPanel.tsx:41`, `:61`) as the *only* heading treatment; no type or spacing tokens (raw `text-2xl`
 … `text-xs`, `gap-8` … `gap-0.5` per component); one radius on everything
@@ -403,7 +384,7 @@ region saying so.
 Impact: low · Effort: medium
 
 **Today.** The form seeds itself with the whole `Config`
-(`SettingsPanel.tsx:26`) so `ui`, `timing`, `headers`, `views` and
+(`web/src/features/settings/SettingsPanel.tsx:26`) so `ui`, `timing`, `headers`, `views` and
 `branch.prefixes` survive a save unchanged — and cannot be edited. There is
 no guided, credential-checking flow like `workflow config init`; the web
 edits an existing file only.

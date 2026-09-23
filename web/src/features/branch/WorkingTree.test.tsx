@@ -283,3 +283,62 @@ test('a clean tree keeps the commit form, with nothing to stage', () => {
   expect(commitButton().hasAttribute('disabled')).toBe(true)
   expect(screen.queryByRole('button', { name: 'Stage all' })).toBeNull()
 })
+
+// streamSuggestion has the stream push a frame suggesting scope for the next
+// commit, with one file staged so the form is live.
+function streamSuggestion(scope: string) {
+  useSnapshotStore.setState({
+    status: 'live',
+    snapshot: makeSnapshot({
+      changes: { changes: [change('a.go', wholly)] },
+      suggested_scope: scope,
+    }),
+  })
+}
+
+// scopeField is the commit form's scope input.
+function scopeField() {
+  return screen.getByLabelText<HTMLInputElement>('Scope (optional)')
+}
+
+test('the commit form opens on the suggested scope', () => {
+  // Arrange
+  streamSuggestion('api')
+
+  // Act
+  render(<BranchPanel />)
+
+  // Assert
+  expect(scopeField().value).toBe('api')
+})
+
+test('a new frame brings its suggestion to an untouched scope', () => {
+  // Arrange: nothing learned and no default yet
+  streamSuggestion('')
+  render(<BranchPanel />)
+
+  // Act: default_scope is saved in Settings, and the next frame suggests it
+  act(() => {
+    streamSuggestion('web')
+  })
+
+  // Assert
+  expect(scopeField().value).toBe('web')
+})
+
+test('a new frame does not overwrite a typed scope', async () => {
+  // Arrange
+  const user = userEvent.setup()
+  streamSuggestion('api')
+  render(<BranchPanel />)
+  await user.clear(scopeField())
+  await user.type(scopeField(), 'cli')
+
+  // Act
+  act(() => {
+    streamSuggestion('web')
+  })
+
+  // Assert
+  expect(scopeField().value).toBe('cli')
+})

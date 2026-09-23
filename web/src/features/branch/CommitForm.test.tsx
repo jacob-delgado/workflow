@@ -21,7 +21,7 @@ test('offers the built-in commit types when none are configured', () => {
   mockConfig.mockReturnValue(configResult(undefined))
 
   // Act
-  render(<CommitForm blocked={null} />)
+  render(<CommitForm blocked={null} suggestedScope="" />)
 
   // Assert
   expect(screen.getByRole('option', { name: 'feat' })).toBeTruthy()
@@ -34,7 +34,7 @@ test("offers a team's configured commit types instead of the built-in set", asyn
   mockConfig.mockReturnValue(configResult({ commit: { types: ['hotfix', 'chore'] } }))
 
   // Act
-  render(<CommitForm blocked={null} />)
+  render(<CommitForm blocked={null} suggestedScope="" />)
 
   // Assert
   expect(screen.getByRole('option', { name: 'hotfix' })).toBeTruthy()
@@ -53,7 +53,7 @@ test('keeps a configured type after a commit for a team that excludes fix', asyn
   // revert its type to the built-in "fix" default the server would reject.
   mockConfig.mockReturnValue(configResult({ commit: { types: ['hotfix', 'chore'] } }))
   const user = userEvent.setup()
-  render(<CommitForm blocked={null} />)
+  render(<CommitForm blocked={null} suggestedScope="" />)
 
   // Act: commit once, then commit again without touching the Type dropdown
   await user.type(screen.getByLabelText('Subject'), 'first change')
@@ -63,4 +63,52 @@ test('keeps a configured type after a commit for a team that excludes fix', asyn
 
   // Assert
   expect(mockCommit).toHaveBeenLastCalledWith(expect.objectContaining({ type: 'hotfix' }))
+})
+
+test('after a commit the form opens on the scope just used, and takes suggestions again', async () => {
+  // Arrange
+  mockConfig.mockReturnValue(configResult(undefined))
+  const user = userEvent.setup()
+  const { rerender } = render(<CommitForm blocked={null} suggestedScope="api" />)
+  const scope = screen.getByLabelText<HTMLInputElement>('Scope (optional)')
+  await user.clear(scope)
+  await user.type(scope, 'cli')
+  await user.type(screen.getByLabelText('Subject'), 'redact tokens')
+
+  // Act: commit, then a frame suggests another scope
+  await user.click(screen.getByRole('button', { name: /commit staged changes/i }))
+
+  // Assert: the form keeps the scope it committed with
+  await waitFor(() => {
+    expect(screen.getByLabelText<HTMLInputElement>('Subject').value).toBe('')
+  })
+  expect(scope.value).toBe('cli')
+
+  // Act: a later frame suggests another scope
+  rerender(<CommitForm blocked={null} suggestedScope="web" />)
+
+  // Assert: the scope is untouched since the commit, so the suggestion applies
+  expect(scope.value).toBe('web')
+})
+
+test('after a commit with no scope the form opens on the suggestion again', async () => {
+  // Arrange
+  // A blank scope is not recorded, so the suggestion stays as it was and no
+  // later frame brings it back: the reset itself must.
+  mockConfig.mockReturnValue(configResult(undefined))
+  const user = userEvent.setup()
+  render(<CommitForm blocked={null} suggestedScope="api" />)
+  const scope = screen.getByLabelText<HTMLInputElement>('Scope (optional)')
+  await user.clear(scope)
+  await user.type(screen.getByLabelText('Subject'), 'redact tokens')
+
+  // Act
+  await user.click(screen.getByRole('button', { name: /commit staged changes/i }))
+
+  // Assert
+  await waitFor(() => {
+    expect(screen.getByLabelText<HTMLInputElement>('Subject').value).toBe('')
+  })
+  expect(mockCommit).toHaveBeenLastCalledWith(expect.objectContaining({ scope: '' }))
+  expect(scope.value).toBe('api')
 })
