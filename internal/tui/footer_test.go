@@ -4,6 +4,7 @@
 package tui_test
 
 import (
+	"fmt"
 	"strings"
 	"testing"
 )
@@ -39,5 +40,42 @@ func TestANarrowFooterGivesUpThePanesVerbsBeforeTheWayToEveryKey(t *testing.T) {
 			requireScreen(t, footer, append(tt.kept, "? keys …")...)
 			refuseScreen(t, footer, append(tt.cut, "tab next pane")...)
 		})
+	}
+}
+
+func TestACutFooterEndsOnAWholeKeyAndAnEllipsis(t *testing.T) {
+	t.Parallel()
+
+	// Each screen's footer is cut somewhere across these widths: where it is,
+	// whole keys are dropped and an ellipsis says so, never half a key or a
+	// dangling separator; where it is not, its last key ends the row.
+	screens := map[string]struct {
+		keys []string
+		last string
+	}{
+		"the Review pane":        {keys: []string{"4"}, last: "q quit"},
+		"the Reviews pane":       {keys: []string{"6"}, last: "q quit"},
+		"the messaging preview":  {keys: []string{"5", "p"}, last: "esc discard"},
+		"a commit being written": {keys: []string{"3", "c"}, last: "esc close"},
+	}
+
+	for name, screen := range screens {
+		for width := 30; width <= 130; width++ {
+			t.Run(fmt.Sprintf("%s at %d columns", name, width), func(t *testing.T) {
+				t.Parallel()
+
+				// Arrange
+				choosing := newWorld()
+				choosing.cfg.Messaging.Channels = []string{"#dev", "#releases"}
+
+				// Act
+				footer := strings.TrimRight(footerLine(typing(t, choosing.live(t, width, 30), screen.keys...).View().Content), " ")
+
+				// Assert
+				if !strings.HasSuffix(footer, " …") && !strings.HasSuffix(footer, screen.last) {
+					t.Errorf("the footer ends %q, neither on its last key nor on an ellipsis", footer)
+				}
+			})
+		}
 	}
 }

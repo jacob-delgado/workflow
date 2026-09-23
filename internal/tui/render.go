@@ -338,22 +338,18 @@ func (m Model) footer(width int) string {
 func (m Model) footerRow(room int) string {
 	row := m.keyRow()
 	if keys, captured := m.capturedKeys(); captured {
-		row.SetWidth(room)
-
-		return row.ShortHelpView(keys)
+		return fitKeys(row, keys, room)
 	}
 
-	verbs := behaviorOf(m.focus).keys(m)
-	if lipgloss.Width(row.ShortHelpView(slices.Concat(verbs, []key.Binding{m.keys.toggleHelp}))) <= room {
-		row.SetWidth(room)
+	verbs, reserved := behaviorOf(m.focus).keys(m), []key.Binding{m.keys.toggleHelp}
+	tail := ellipsisOf(row)
 
-		return row.ShortHelpView(slices.Concat(verbs, m.keys.ShortHelp()))
+	kept := longestFit(row, verbs, reserved, room-lipgloss.Width(tail))
+	if kept == len(verbs) {
+		return fitKeys(row, slices.Concat(verbs, m.keys.ShortHelp()), room)
 	}
 
-	ellipsis := " " + row.Styles.Ellipsis.Inline(true).Render(row.Ellipsis)
-	kept := m.keysBeside(row, verbs, room-lipgloss.Width(ellipsis))
-
-	return row.ShortHelpView(kept) + ellipsis
+	return row.ShortHelpView(slices.Concat(verbs[:kept], reserved)) + tail
 }
 
 // capturedKeys is the footer of whatever has the keyboard to itself — an open
@@ -370,21 +366,37 @@ func (m Model) capturedKeys() ([]key.Binding, bool) {
 	}
 }
 
-// keysBeside is as many of verbs as fit in room columns with ? after them,
-// followed by ?.
-func (m Model) keysBeside(row help.Model, verbs []key.Binding, room int) []key.Binding {
-	reserved := []key.Binding{m.keys.toggleHelp}
+// fitKeys draws keys in room columns: all of them where they fit, and otherwise
+// as many as fit whole, then an ellipsis saying the rest were dropped.
+func fitKeys(row help.Model, keys []key.Binding, room int) string {
+	if drawn := row.ShortHelpView(keys); lipgloss.Width(drawn) <= room {
+		return drawn
+	}
 
-	count := len(verbs)
-	for count > 0 && lipgloss.Width(row.ShortHelpView(slices.Concat(verbs[:count], reserved))) > room {
+	tail := ellipsisOf(row)
+
+	return row.ShortHelpView(keys[:longestFit(row, keys, nil, room-lipgloss.Width(tail))]) + tail
+}
+
+// longestFit is how many of keys, from the first, fit in room columns with
+// after drawn behind them.
+func longestFit(row help.Model, keys, after []key.Binding, room int) int {
+	count := len(keys)
+	for count > 0 && lipgloss.Width(row.ShortHelpView(slices.Concat(keys[:count], after))) > room {
 		count--
 	}
 
-	return slices.Concat(verbs[:count], reserved)
+	return count
+}
+
+// ellipsisOf is the mark a row of keys ends with when some were dropped.
+func ellipsisOf(row help.Model) string {
+	return " " + row.Styles.Ellipsis.Inline(true).Render(row.Ellipsis)
 }
 
 // keyRow is the footer's key renderer, in this session's styles and marks, with
-// no width of its own: footerRow decides what fits.
+// no width of its own: footerRow decides what fits, since the renderer's own
+// cut, finding no room for its ellipsis, lets a key run past the edge.
 func (m Model) keyRow() help.Model {
 	row := help.New()
 	row.Styles.ShortKey = m.styles.strong

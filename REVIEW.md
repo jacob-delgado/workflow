@@ -118,9 +118,9 @@ gap, and which phase closes it.
 
 | # | Action | CLI | TUI | Web | Warranted? |
 | --- | --- | --- | --- | --- | --- |
-| 39 | Read the config, redacted | Y (`config show`) | P (`internal/tui/render.go:411`) | Y | Fine as is |
+| 39 | Read the config, redacted | Y (`config show`) | P (`internal/tui/render.go:423`) | Y | Fine as is |
 | 40 | Write / initialize the config | Y (`config init`) | N | P (7 sections; five carried but not editable) | Interface: `config init` + `doctor` are the path — no. Web remainder: UX-87 |
-| 41 | Doctor | Y | N | N | Reasonable CLI-only; the interface points at it (`internal/tui/render.go:431`) |
+| 41 | Doctor | Y | N | N | Reasonable CLI-only; the interface points at it (`internal/tui/render.go:443`) |
 | 42 | Status across the loop | Y (`status DIR…`) | Y (the spine) | Y (`WorkStory`) | — |
 | 43 | Dry run | Y (one persistent `--dry-run` since Phase 2, `internal/cli/cli.go:204`) | Y (per seam, `dryrun.go:25`) | Y since Phase 3 — a read-only banner (`web/src/shell/AppShell.tsx:54`) and one hold over every write before it is sent (`web/src/api/client.ts:24`), over the server's 403 (`guard.go:46`) | — |
 | 44 | Request log `--log` | Y (persistent since Phase 2, `internal/cli/cli.go:206`) | Y | Y | — |
@@ -513,7 +513,7 @@ Closes UX-67. Depends on Phase 5 (every overlay outcome then flows through
 - The seven bare notices (`internal/tui/comment.go:80`, `internal/tui/composer.go:78`,
   `internal/tui/messaging.go:390`, `internal/tui/checks.go:237`, `:245`,
   `internal/tui/merge.go:64`, `:66`) go through `m.noticed(m.failureLine(err))`;
-  `internal/tui/render.go:441` `configErrorStatus` is styled.
+  `internal/tui/render.go:453` `configErrorStatus` is styled.
 - `forgeReason` (it was in `internal/tui/review.go`), `rerunReason` (in
   `internal/tui/checks.go`) and `errNeedsWriteScope` (in `internal/tui/merge.go`,
   now `internal/tui/failure.go:50`) fold into `errorSentence`'s table
