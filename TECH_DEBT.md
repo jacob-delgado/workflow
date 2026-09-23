@@ -100,7 +100,7 @@ Severity: low · Confidence: read
   `internal/tui/picker.go:114`, `internal/tui/comment.go:67`.
 - Five list-picker bodies with identical `up`/`down`/`confirm`/`esc` and a
   `window`-scrolled `rows`: `internal/tui/picker.go:225`, `internal/tui/picker.go:423`,
-  `internal/tui/switchtask.go:119`, `internal/tui/checks.go:65`, `internal/tui/run.go:255`.
+  `internal/tui/switchtask.go:119`, `internal/tui/checks.go:65`, `internal/tui/run.go:257`.
 - Three focus-guarded "re-clamp the shared scroll after a shrinking reload"
   blocks: `internal/tui/commits.go:50`, `reviewqueue.go:52`, plus `internal/tui/commits.go:249`
   `followChange` / `reviewqueue.go:213`.

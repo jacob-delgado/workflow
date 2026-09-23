@@ -438,7 +438,7 @@ Generalize `pushPreview` (it was `internal/tui/run.go:394`) into `lastLook{title
 body, verb, proceed func(Model) (Model, tea.Cmd)}` (now `internal/tui/overlay.go:131`)
 — three users now, the rule of three is met — and route `rerunChecks`
 (`internal/tui/checks.go:198`, a forge write) and `startRebase`
-(`internal/tui/run.go:417`, rewrites local history) through it;
+(`internal/tui/run.go:419`, rewrites local history) through it;
 the dry-run narration moves inside `proceed`. Relabel the footers
 ("re-run", "rebase"); `usage.md`'s key rows follow.
 
@@ -507,7 +507,7 @@ Closes UX-67. Depends on Phase 5 (every overlay outcome then flows through
   there is none, one line — replaces the fourteen `failedGlyph() +
   err.Error()` rail sites (`internal/tui/checks.go:97`, `diff.go:79`, `issuewrite.go:120`,
   `:122`, `internal/tui/picker.go:209`, `:246`, `internal/tui/switchtask.go:107`, `:147`,
-  `internal/tui/messaging.go:146`, `internal/tui/review.go:218`, `internal/tui/run.go:211`, `internal/tui/composer.go:164`,
+  `internal/tui/messaging.go:146`, `internal/tui/review.go:218`, `internal/tui/run.go:212`, `internal/tui/composer.go:164`,
   `:176`, `internal/tui/fields.go:171`).
 - The seven bare notices (`comment.go:76`, `internal/tui/composer.go:77`,
   `internal/tui/messaging.go:377`, `internal/tui/checks.go:233`, `:241`,

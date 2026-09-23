@@ -5,6 +5,7 @@ package tui_test
 
 import (
 	"errors"
+	"fmt"
 	"slices"
 	"strconv"
 	"strings"
@@ -169,6 +170,29 @@ type world struct {
 
 // errRunStopped is how a stopped streamed run reports that it was killed.
 var errRunStopped = errors.New("the run was stopped")
+
+// exitStatusError fakes how internal/proc reports a program that ended with a
+// failure status of its own: in the status's own words, answering to
+// proc.ErrExitStatus.
+type exitStatusError struct {
+	code int
+}
+
+// Error is the status as the process puts it.
+func (e exitStatusError) Error() string {
+	return "exit status " + strconv.Itoa(e.code)
+}
+
+// Is answers to proc.ErrExitStatus, as the real status does.
+func (e exitStatusError) Is(target error) bool {
+	return target == proc.ErrExitStatus
+}
+
+// gitExited is git ending with a failure status, shaped the way internal/proc
+// reports it: "git: exit status 1".
+func gitExited(code int) error {
+	return fmt.Errorf("git: %w", exitStatusError{code: code})
+}
 
 // blockingOutput is a streamed program that has not finished: its lines stay
 // open, and Wait reports it killed, until Stop closes them. Stop records that it

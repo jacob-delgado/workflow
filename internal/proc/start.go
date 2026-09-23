@@ -6,6 +6,7 @@ package proc
 import (
 	"bufio"
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -154,10 +155,44 @@ func deliver(ctx context.Context, output io.Reader, lines chan<- string) error {
 	return nil
 }
 
+// ErrExitStatus reports a program that ran and ended with a failure status of
+// its own — a refused commit, a rejected push — rather than one that could not
+// start, was killed, or could not be read. The error keeps the program's own
+// words, "git: exit status 1", so it reads as it always has.
+var ErrExitStatus = errors.New("ended with a failure status")
+
+// exitStatusError is a failure status in the process's own words, answering to
+// ErrExitStatus as well as to the *exec.ExitError it carries.
+type exitStatusError struct {
+	exit error
+}
+
+var _ error = exitStatusError{}
+
+// Error is the status as the process put it.
+func (e exitStatusError) Error() string {
+	return e.exit.Error()
+}
+
+// Unwrap is both what the status is and the process's error beneath it.
+func (e exitStatusError) Unwrap() []error {
+	return []error{ErrExitStatus, e.exit}
+}
+
+// exitedWithStatus reports a program that exited by itself with a failure
+// status, as against one a signal ended.
+func exitedWithStatus(waitErr error) bool {
+	exit, ok := errors.AsType[*exec.ExitError](waitErr)
+
+	return ok && exit.ExitCode() > 0
+}
+
 // exited describes how a program ended. The exit comes first: a program that
 // failed matters more than a line too long to show.
 func exited(name string, waitErr, scanErr error) error {
 	switch {
+	case exitedWithStatus(waitErr):
+		return fmt.Errorf("%s: %w", name, exitStatusError{exit: waitErr})
 	case waitErr != nil:
 		return fmt.Errorf("%s: %w", name, waitErr)
 	case scanErr != nil:

@@ -249,7 +249,7 @@ calls it, so all 11 `pinnedOutcome` overlays show `could not reach the forge
 at …: dial tcp …` instead of the sentence. Fourteen rail sites are
 `failedGlyph + err.Error()` (`internal/tui/checks.go:97`, `diff.go:79`,
 `issuewrite.go:120`, `internal/tui/picker.go:209`, `internal/tui/switchtask.go:107`, `internal/tui/review.go:218`,
-`internal/tui/run.go:211`, `internal/tui/composer.go:164`, `internal/tui/fields.go:171`, …); eight are glyph-only
+`internal/tui/run.go:212`, `internal/tui/composer.go:164`, `internal/tui/fields.go:171`, …); eight are glyph-only
 summaries; seven are notices with no glyph and no red (`comment.go:76`,
 `internal/tui/composer.go:77`, `internal/tui/messaging.go:377`, `internal/tui/checks.go:233`,
 `:241`, `internal/tui/merge.go:66`, `:68`); one config screen is unstyled
@@ -616,7 +616,7 @@ Impact: low · Effort: medium
 
 **Today.** The interface shows a per-file diff under the changes list
 (`diff.go:29`), amends (`A`) and fixups (`f`), lists CI checks and jumps to
-a failure in `$EDITOR` (`internal/tui/checks.go:38`, `internal/tui/run.go:366`), edits an open pull
+a failure in `$EDITOR` (`internal/tui/checks.go:38`, `internal/tui/run.go:368`), edits an open pull
 request (`preditor.go`), and cycles the repository's pull-request templates
 (`ctrl+t`). None has a web equivalent, and the web takes the first template
 only (`firstTemplate`, `internal/loop/pull.go:136`). A `?` shortcut sheet, which the interface has,

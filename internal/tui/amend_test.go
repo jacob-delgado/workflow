@@ -4,14 +4,13 @@
 package tui_test
 
 import (
-	"errors"
 	"testing"
 
 	"github.com/jacob-delgado/workflow/internal/gitrepo"
 )
 
-// errAmendExit is git failing the amend with a bare exit code.
-var errAmendExit = errors.New("exit status 1")
+// errAmendExit is git failing the amend with nothing but its failure status.
+var errAmendExit = gitExited(1)
 
 // unpushedWorld is a repository with a staged change and one unpushed commit, so
 // the amend and fixup actions are offered.
