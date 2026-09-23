@@ -671,6 +671,36 @@ type Review struct {
 	Pull  *PullRequest `json:"pull,omitempty"`
 }
 
+// ReviewQueue defines model for ReviewQueue.
+type ReviewQueue struct {
+	// Available Whether there is a forge to ask. False outside a repository, and when origin is on no forge workflow can read — not GitHub or GitLab, or a self-hosted one forge.kind and forge.host do not name — and requests is then empty.
+	Available bool `json:"available"`
+
+	// Requests The open pull or merge requests that ask for your review, the longest-waiting first. Empty when none does, or when there is no forge to ask.
+	Requests []ReviewRequest `json:"requests"`
+}
+
+// ReviewRequest defines model for ReviewRequest.
+type ReviewRequest struct {
+	// Author Who opened it, and so who asks for the review.
+	Author string  `json:"author"`
+	Ci     CIState `json:"ci"`
+	Draft  bool    `json:"draft"`
+
+	// Number The GitHub number or GitLab IID.
+	Number int `json:"number"`
+
+	// OpenedAt RFC 3339; when it was opened, which is how long it has waited — the zero time if the forge did not give one.
+	OpenedAt time.Time `json:"opened_at"`
+
+	// Repository The owner/name (GitHub) or group/project (GitLab) it is in, since the queue spans repositories; empty when the forge did not say.
+	//
+	// Example: jacob-delgado/workflow
+	Repository string `json:"repository"`
+	Title      string `json:"title"`
+	URL        string `json:"url"`
+}
+
 // Snapshot The full read state carried by one event-stream message: everything the cockpit shows, together.
 type Snapshot struct {
 	Branch Branch `json:"branch"`

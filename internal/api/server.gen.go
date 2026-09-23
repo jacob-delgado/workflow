@@ -75,6 +75,9 @@ type ServerInterface interface {
 	// GetReview The branch's pull request and its CI, if one is open.
 	// (GET /api/review)
 	GetReview(w http.ResponseWriter, r *http.Request)
+	// ListReviews The pull requests on the forge that wait on your review.
+	// (GET /api/reviews)
+	ListReviews(w http.ResponseWriter, r *http.Request)
 	// Stage Stage a changed file, or every change the index does not hold yet.
 	// (POST /api/stage)
 	Stage(w http.ResponseWriter, r *http.Request)
@@ -429,6 +432,20 @@ func (siw *ServerInterfaceWrapper) GetReview(w http.ResponseWriter, r *http.Requ
 	handler.ServeHTTP(w, r)
 }
 
+// ListReviews operation middleware
+func (siw *ServerInterfaceWrapper) ListReviews(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListReviews(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // Stage operation middleware
 func (siw *ServerInterfaceWrapper) Stage(w http.ResponseWriter, r *http.Request) {
 
@@ -602,6 +619,7 @@ func HandlerWithOptions(si ServerInterface, options StdHTTPServerOptions) http.H
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/api/stage", wrapper.Stage)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/api/unstage", wrapper.Unstage)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/review", wrapper.GetReview)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/reviews", wrapper.ListReviews)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/messaging", wrapper.GetMessaging)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/config", wrapper.GetConfig)
 	m.HandleFunc(http.MethodPut+" "+options.BaseURL+"/api/config", wrapper.UpdateConfig)
@@ -1645,6 +1663,44 @@ func (response GetReviewdefaultApplicationProblemPlusJSONResponse) VisitGetRevie
 	return err
 }
 
+type ListReviewsRequestObject struct {
+}
+
+type ListReviewsResponseObject interface {
+	VisitListReviewsResponse(w http.ResponseWriter) error
+}
+
+type ListReviews200JSONResponse ReviewQueue
+
+func (response ListReviews200JSONResponse) VisitListReviewsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListReviewsdefaultApplicationProblemPlusJSONResponse struct {
+	Body       Problem
+	StatusCode int
+}
+
+func (response ListReviewsdefaultApplicationProblemPlusJSONResponse) VisitListReviewsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
 type StageRequestObject struct {
 	Body *StageJSONRequestBody
 }
@@ -1876,6 +1932,9 @@ type StrictServerInterface interface {
 	// GetReview The branch's pull request and its CI, if one is open.
 	// (GET /api/review)
 	GetReview(ctx context.Context, request GetReviewRequestObject) (GetReviewResponseObject, error)
+	// ListReviews The pull requests on the forge that wait on your review.
+	// (GET /api/reviews)
+	ListReviews(ctx context.Context, request ListReviewsRequestObject) (ListReviewsResponseObject, error)
 	// Stage Stage a changed file, or every change the index does not hold yet.
 	// (POST /api/stage)
 	Stage(ctx context.Context, request StageRequestObject) (StageResponseObject, error)
@@ -2425,6 +2484,30 @@ func (sh *strictHandler) GetReview(w http.ResponseWriter, r *http.Request) {
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
 	} else if validResponse, ok := response.(GetReviewResponseObject); ok {
 		if err := validResponse.VisitGetReviewResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// ListReviews operation middleware
+func (sh *strictHandler) ListReviews(w http.ResponseWriter, r *http.Request) {
+	var request ListReviewsRequestObject
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.ListReviews(ctx, request.(ListReviewsRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ListReviews")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(ListReviewsResponseObject); ok {
+		if err := validResponse.VisitListReviewsResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {

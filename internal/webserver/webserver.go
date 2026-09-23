@@ -48,6 +48,9 @@ type Deps struct {
 	CheckCI      func(pull forge.PullRequest, head string) (forge.CI, error)
 	Author       func() (string, error)
 	Post         func(channel, text string) error
+	// ReviewRequests lists the pull requests on the forge that ask for your
+	// review, across repositories — the queue `workflow reviews` prints.
+	ReviewRequests func() ([]forge.ReviewRequest, error)
 	// LinkPullRequest records a pull request as a link on an issue; nil where
 	// the tracker cannot take one — the forge's own issues.
 	LinkPullRequest func(issueKey jira.Key, pullURL, title string) error

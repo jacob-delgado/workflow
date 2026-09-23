@@ -143,6 +143,26 @@ func pullDTO(pull forge.PullRequest) api.PullRequest {
 	}
 }
 
+// reviewQueueDTO maps the review queue onto the wire, its requests an empty list
+// rather than null when none waits.
+func reviewQueueDTO(requests []forge.ReviewRequest) api.ReviewQueue {
+	queue := make([]api.ReviewRequest, 0, len(requests))
+	for _, request := range requests {
+		queue = append(queue, api.ReviewRequest{
+			Number: request.Number, URL: request.URL, Title: request.Title, Author: request.Author,
+			Repository: request.Repository, Draft: request.Draft, Ci: ciState(request.CI), OpenedAt: request.OpenedAt,
+		})
+	}
+
+	return api.ReviewQueue{Available: true, Requests: queue}
+}
+
+// noReviewQueue is the answer where there is no forge to ask: not available,
+// and empty.
+func noReviewQueue() api.ReviewQueue {
+	return api.ReviewQueue{Available: false, Requests: []api.ReviewRequest{}}
+}
+
 // ciDTO maps a CI result and its checks.
 func ciDTO(status forge.CI) api.CI {
 	checks := make([]api.Check, 0, len(status.Checks))

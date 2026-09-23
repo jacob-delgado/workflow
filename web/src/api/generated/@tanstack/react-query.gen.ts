@@ -3,8 +3,8 @@
 import { queryOptions } from '@tanstack/react-query';
 
 import { client } from '../client.gen';
-import { getAnnouncement, getBranch, getConfig, getHealth, getIssue, getMessaging, getPullRequestDraft, getReview, listChanges, listIssues, listViews, type Options } from '../sdk.gen';
-import type { GetAnnouncementData, GetAnnouncementError, GetAnnouncementResponse, GetBranchData, GetBranchError, GetBranchResponse, GetConfigData, GetConfigError, GetConfigResponse, GetHealthData, GetHealthError, GetHealthResponse, GetIssueData, GetIssueError, GetIssueResponse, GetMessagingData, GetMessagingError, GetMessagingResponse, GetPullRequestDraftData, GetPullRequestDraftError, GetPullRequestDraftResponse, GetReviewData, GetReviewError, GetReviewResponse, ListChangesData, ListChangesError, ListChangesResponse, ListIssuesData, ListIssuesError, ListIssuesResponse, ListViewsData, ListViewsError, ListViewsResponse } from '../types.gen';
+import { getAnnouncement, getBranch, getConfig, getHealth, getIssue, getMessaging, getPullRequestDraft, getReview, listChanges, listIssues, listReviews, listViews, type Options } from '../sdk.gen';
+import type { GetAnnouncementData, GetAnnouncementError, GetAnnouncementResponse, GetBranchData, GetBranchError, GetBranchResponse, GetConfigData, GetConfigError, GetConfigResponse, GetHealthData, GetHealthError, GetHealthResponse, GetIssueData, GetIssueError, GetIssueResponse, GetMessagingData, GetMessagingError, GetMessagingResponse, GetPullRequestDraftData, GetPullRequestDraftError, GetPullRequestDraftResponse, GetReviewData, GetReviewError, GetReviewResponse, ListChangesData, ListChangesError, ListChangesResponse, ListIssuesData, ListIssuesError, ListIssuesResponse, ListReviewsData, ListReviewsError, ListReviewsResponse, ListViewsData, ListViewsError, ListViewsResponse } from '../types.gen';
 
 export type QueryKey<TOptions extends Options> = [
     Pick<TOptions, 'baseUrl' | 'body' | 'headers' | 'path' | 'query'> & {
@@ -163,6 +163,26 @@ export const getReviewOptions = (options?: Options<GetReviewData>) => queryOptio
         return data;
     },
     queryKey: getReviewQueryKey(options)
+});
+
+export const listReviewsQueryKey = (options?: Options<ListReviewsData>) => createQueryKey('listReviews', options);
+
+/**
+ * The pull requests on the forge that wait on your review.
+ *
+ * The review queue `workflow reviews` prints and the terminal's Reviews pane shows: the open pull or merge requests, across repositories, that ask for your review, the longest-waiting first. It is a search of the forge, not a snapshot field, so the stream does not carry it.
+ */
+export const listReviewsOptions = (options?: Options<ListReviewsData>) => queryOptions<ListReviewsResponse, ListReviewsError, ListReviewsResponse, ReturnType<typeof listReviewsQueryKey>>({
+    queryFn: async ({ queryKey, signal }) => {
+        const { data } = await listReviews({
+            ...options,
+            ...queryKey[0],
+            signal,
+            throwOnError: true
+        });
+        return data;
+    },
+    queryKey: listReviewsQueryKey(options)
 });
 
 export const getMessagingQueryKey = (options?: Options<GetMessagingData>) => createQueryKey('getMessaging', options);

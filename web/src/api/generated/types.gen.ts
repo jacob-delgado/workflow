@@ -371,6 +371,40 @@ export type Review = {
     ci?: Ci | null;
 };
 
+export type ReviewQueue = {
+    /**
+     * Whether there is a forge to ask. False outside a repository, and when origin is on no forge workflow can read — not GitHub or GitLab, or a self-hosted one forge.kind and forge.host do not name — and requests is then empty.
+     */
+    available: boolean;
+    /**
+     * The open pull or merge requests that ask for your review, the longest-waiting first. Empty when none does, or when there is no forge to ask.
+     */
+    requests: Array<ReviewRequest>;
+};
+
+export type ReviewRequest = {
+    /**
+     * The GitHub number or GitLab IID.
+     */
+    number: number;
+    url: string;
+    title: string;
+    /**
+     * Who opened it, and so who asks for the review.
+     */
+    author: string;
+    /**
+     * The owner/name (GitHub) or group/project (GitLab) it is in, since the queue spans repositories; empty when the forge did not say.
+     */
+    repository: string;
+    draft: boolean;
+    ci: CiState;
+    /**
+     * RFC 3339; when it was opened, which is how long it has waited — the zero time if the forge did not give one.
+     */
+    opened_at: string;
+};
+
 /**
  * A pull request that was just opened, with a warning when it opened but its reviewers, assignees or labels could not all be added, and what can be offered next.
  */
@@ -959,6 +993,31 @@ export type GetReviewResponses = {
 };
 
 export type GetReviewResponse = GetReviewResponses[keyof GetReviewResponses];
+
+export type ListReviewsData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/reviews';
+};
+
+export type ListReviewsErrors = {
+    /**
+     * An RFC 9457 problem details object describing the failure.
+     */
+    default: Problem;
+};
+
+export type ListReviewsError = ListReviewsErrors[keyof ListReviewsErrors];
+
+export type ListReviewsResponses = {
+    /**
+     * The queue. With no forge to ask — outside a repository, or with an origin on no forge workflow can read — available is false and the queue is empty: an answer about where the server runs, not a missing resource, so never a 404.
+     */
+    200: ReviewQueue;
+};
+
+export type ListReviewsResponse = ListReviewsResponses[keyof ListReviewsResponses];
 
 export type GetMessagingData = {
     body?: never;
