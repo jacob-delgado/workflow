@@ -74,10 +74,14 @@ func (s *server) commitConvention() convention.CommitConvention {
 }
 
 // commitStaged refuses an empty index, then commits it and returns the branch
-// now carrying the commit.
+// now carrying the commit. It holds the index from the read to the commit, so a
+// stage under way finishes first and the commit takes the whole of it.
 func (s *server) commitStaged(
 	conv convention.CommitConvention, subject convention.Subject, body string,
 ) (gitrepo.Branch, error) {
+	s.indexWrites.Lock()
+	defer s.indexWrites.Unlock()
+
 	changes, err := s.deps.Changes()
 	if err != nil {
 		return gitrepo.Branch{}, err

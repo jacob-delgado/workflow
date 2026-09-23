@@ -17,6 +17,7 @@ import (
 	"github.com/jacob-delgado/workflow/internal/api"
 	"github.com/jacob-delgado/workflow/internal/config"
 	"github.com/jacob-delgado/workflow/internal/gitrepo"
+	"github.com/jacob-delgado/workflow/internal/proc"
 	"github.com/jacob-delgado/workflow/internal/webserver"
 )
 
@@ -423,6 +424,77 @@ func TestStagingWritesWaitForEachOther(t *testing.T) {
 	// Assert
 	if !slices.Equal(codes, []int{http.StatusOK, http.StatusOK}) {
 		t.Errorf("statuses = %v, want both 200: a write waits for the one under way", codes)
+	}
+}
+
+func TestEveryIndexWriteWaitsForAStageUnderWay(t *testing.T) {
+	t.Parallel()
+
+	cases := map[string]struct {
+		path, body string
+		// seam wires the write under test to fail when it runs beside a stage.
+		seam func(deps *webserver.Deps, beside func() error)
+	}{
+		"a commit": {
+			path: "/api/commit", body: `{"type":"fix","subject":"redact tokens"}`,
+			seam: func(deps *webserver.Deps, beside func() error) {
+				deps.Commit = func(string) (proc.Output, error) { return fakeOutput(nil, nil), beside() }
+			},
+		},
+		"a new branch": {
+			path: "/api/branches", body: `{"issue_key":"` + startIssue + `"}`,
+			seam: func(deps *webserver.Deps, beside func() error) {
+				deps.CreateBranch = func(string, string) error { return beside() }
+			},
+		},
+	}
+
+	for name, write := range cases {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			// Arrange
+			// A stage holds the index; git would fail a second writer on
+			// .git/index.lock, and so does this one when it runs beside it.
+			var (
+				tree    staging
+				writing atomic.Int32
+				holding = make(chan struct{})
+			)
+
+			deps := tree.deps()
+			deps.Stage = func(gitrepo.Change) error {
+				writing.Add(1)
+				close(holding)
+				time.Sleep(indexHeld)
+				writing.Add(-1)
+
+				return nil
+			}
+			write.seam(&deps, func() error {
+				if writing.Load() > 0 {
+					return errSeam
+				}
+
+				return nil
+			})
+			handler := serve(t, deps, config.Default())
+
+			staged := make(chan int, 1)
+
+			go func() { staged <- send(t, handler, http.MethodPost, stagePath, `{"path":"`+editedPath+`"}`).Code }()
+
+			<-holding
+
+			// Act
+			code := send(t, handler, http.MethodPost, write.path, write.body).Code
+
+			// Assert
+			if stageCode := <-staged; code != http.StatusOK || stageCode != http.StatusOK {
+				t.Errorf("%s answered %d beside a stage that answered %d, want both 200: "+
+					"it waits for the stage", name, code, stageCode)
+			}
+		})
 	}
 }
 

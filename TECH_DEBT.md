@@ -254,7 +254,7 @@ server, and the web's coverage floor measures each condition both ways.
 
 Severity: medium · Confidence: read
 
-`GET /api/events` is registered by hand (`internal/webserver/webserver.go:154`
+`GET /api/events` is registered by hand (`internal/webserver/webserver.go:156`
 — "a streaming response the strict, one-response-object interface cannot
 express") and the browser consumes it with a raw `new EventSource`
 (`web/src/api/snapshot.ts:50`); the generated `streamEvents`

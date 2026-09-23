@@ -107,8 +107,10 @@ type server struct {
 	mu  sync.RWMutex
 	cfg config.Config
 
-	// indexWrites queues the staging requests: git lets one process write the
-	// index at a time, and one that finds it taken fails rather than waits.
+	// indexWrites queues the page's index writes (a stage, a commit, a new
+	// branch): git lets one process write the index at a time, and one that
+	// finds it taken fails rather than waits. A checkout needs no place in the
+	// queue: it refuses the dirty tree any stage leaves.
 	indexWrites sync.Mutex
 
 	// scope is the commit scope learned in this repository, held once read.

@@ -62,7 +62,7 @@ func (s *server) startWork(issueKey string) (gitrepo.Branch, error) {
 		return gitrepo.Branch{}, errBranchExists
 	}
 
-	err = s.deps.CreateBranch(name, s.currentBranchBase())
+	err = s.createAndSwitch(name)
 	if err != nil {
 		return gitrepo.Branch{}, fmt.Errorf("creating %s: %w", name, err)
 	}
@@ -111,4 +111,13 @@ func (s *server) currentBranchBase() string {
 // create.
 func createBranchUnprocessable(message string) api.CreateBranch422ApplicationProblemPlusJSONResponse {
 	return api.CreateBranch422ApplicationProblemPlusJSONResponse(problem(api.Unprocessable, message))
+}
+
+// createAndSwitch creates name from the base and switches to it, holding the
+// index so it never meets a stage under way.
+func (s *server) createAndSwitch(name string) error {
+	s.indexWrites.Lock()
+	defer s.indexWrites.Unlock()
+
+	return s.deps.CreateBranch(name, s.currentBranchBase())
 }
