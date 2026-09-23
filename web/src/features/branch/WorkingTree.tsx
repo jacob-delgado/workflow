@@ -75,7 +75,7 @@ function ChangeRow({ change }: { change: Change }) {
   const { state, message, error, run } = useAsyncAction(
     () => (stage ? stageFile(change.path) : unstageFile(change.path)),
     {
-      fallback: `${change.path} could not be ${stage ? 'staged' : 'unstaged'}.`,
+      fallback: `${change.path} was not ${stage ? 'staged' : 'unstaged'}. Try again, or ${verb.toLowerCase()} it from a terminal to see why.`,
       done: () => `${stage ? 'Staged' : 'Unstaged'} ${change.path}.`,
     },
   )
@@ -110,7 +110,7 @@ function ChangeRow({ change }: { change: Change }) {
 // `a` does, and says how it went.
 function StageAll({ anythingToStage }: { anythingToStage: boolean }) {
   const { state, message, error, run } = useAsyncAction(stageEverything, {
-    fallback: 'The changes could not be staged.',
+    fallback: 'Nothing was staged. Try again, or stage from a terminal to see why.',
     done: () => 'Staged every change.',
   })
   const outcome = useFocusOnDone(state)

@@ -159,10 +159,10 @@ function OpenPullRequest({
   const { noun, sigil } = useForgeWords()
   const [opener, handBack] = useFocusHandback<HTMLButtonElement>()
   const compose = useAsyncAction(previewPullRequest, {
-    fallback: `A ${noun} could not be composed.`,
+    fallback: `The ${noun} could not be composed. Try again, or run workflow pr from a terminal.`,
   })
   const open = useAsyncAction(openPr, {
-    fallback: `The ${noun} could not be opened.`,
+    fallback: `The ${noun} was not opened. Try again — your edits are still in the form.`,
     done: (opened) => `Opened ${noun} ${sigil}${String(opened.pull.number)}.`,
     onDone: (said, opened) => {
       onOpened(opened, said)

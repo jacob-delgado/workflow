@@ -96,7 +96,7 @@ export function CommitForm({
       return committed
     },
     {
-      fallback: 'The commit could not be created.',
+      fallback: 'Nothing was committed. Try again, or commit from a terminal to see why.',
       done: (committed, fields) => `Committed ${headline(committed, fields)}.`,
       onStart: outcome.clear,
       onDone: outcome.say,

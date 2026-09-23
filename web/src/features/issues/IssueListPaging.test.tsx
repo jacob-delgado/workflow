@@ -332,3 +332,18 @@ test('stops offering more when a page comes back empty', async () => {
   })
   expect(issueReads(requests)).toHaveLength(1)
 })
+
+test('says to press Load more again when a page is refused with no reason', async () => {
+  // Arrange
+  const user = userEvent.setup()
+  fakeApi({ '/api/issues': Response.json({}, { status: 500 }) })
+  streamFirstPage(['PROJ-1', 'PROJ-2'], 3)
+  renderWithClient(<IssuesPanel />)
+
+  // Act
+  await user.click(screen.getByRole('button', { name: /load more/i }))
+
+  // Assert
+  const alert = await screen.findByRole('alert')
+  expect(alert.textContent).toBe('More issues could not be loaded. Press Load more to try again.')
+})

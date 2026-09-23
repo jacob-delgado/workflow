@@ -1,4 +1,5 @@
 import { ExternalLink } from 'lucide-react'
+import { useEffect, useRef, type RefObject } from 'react'
 import { apiErrorMessage } from '@/api/apiError.ts'
 import type { Comment, Issue, IssueDetail } from '@/api/generated/types.gen.ts'
 import { useIssue } from './issueApi.ts'
@@ -11,19 +12,39 @@ const sectionHeading = 'text-sm font-semibold text-muted-foreground uppercase'
 // The heading follows the list's row while the list holds the issue — the
 // stream keeps that row current, where the full read is taken once — and falls
 // back to the full read otherwise; the people, the link, the description and
-// the comments wait for that read. The work story reads the stream, so it
-// never waits.
+// the comments wait for that read, and a read that fails offers to be tried
+// again. The work story reads the stream, so it never waits.
 export function IssueDetailPanel({ issueKey, listed }: { issueKey: string; listed?: Issue }) {
-  const { data, error, isPending } = useIssue(issueKey)
+  const { data, error, isPending, isFetching, refetch } = useIssue(issueKey)
+  // A Retry goes once the issue it reads again arrives, so its focus follows to
+  // the issue's heading rather than falling to the page — once, so a later read
+  // of the issue leaves focus wherever the user has put it since.
+  const retried = useRef(false)
+  const heading = useRef<HTMLHeadingElement>(null)
+
+  useEffect(() => {
+    if (retried.current && data && !error) {
+      retried.current = false
+      heading.current?.focus()
+    }
+  }, [data, error])
 
   return (
     <article aria-labelledby="issue-detail-heading" className="flex flex-col gap-6">
-      <IssueHeading issueKey={issueKey} issue={listed ?? data} />
+      <IssueHeading issueKey={issueKey} issue={listed ?? data} heading={heading} />
       {isPending ? <p className="text-sm text-muted-foreground">Reading {issueKey}…</p> : null}
       {error ? (
-        <p role="alert" className="text-sm text-destructive">
-          {apiErrorMessage(error, `${issueKey} could not be read.`)}
-        </p>
+        <IssueUnread
+          reason={apiErrorMessage(
+            error,
+            `${issueKey} could not be read. Press Retry to try again.`,
+          )}
+          retrying={isFetching}
+          onRetry={() => {
+            retried.current = true
+            void refetch()
+          }}
+        />
       ) : null}
       {data ? <IssuePeople detail={data} /> : null}
       <section aria-labelledby="work-story-heading" className="flex flex-col gap-4">
@@ -38,14 +59,50 @@ export function IssueDetailPanel({ issueKey, listed }: { issueKey: string; liste
   )
 }
 
-function IssueHeading({ issueKey, issue }: { issueKey: string; issue?: Issue }) {
+// IssueUnread says why the issue could not be read, beside a Retry that reads
+// it again: selecting the issue that is already selected reads nothing.
+function IssueUnread({
+  reason,
+  retrying,
+  onRetry,
+}: {
+  reason: string
+  retrying: boolean
+  onRetry: () => void
+}) {
+  return (
+    <div className="flex flex-col items-start gap-2">
+      <p role="alert" className="text-sm text-destructive">
+        {reason}
+      </p>
+      <button
+        type="button"
+        disabled={retrying}
+        onClick={onRetry}
+        className="rounded-md border border-input px-3 py-1.5 text-sm hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none disabled:opacity-60"
+      >
+        {retrying ? 'Retrying…' : 'Retry'}
+      </button>
+    </div>
+  )
+}
+
+interface IssueHeadingProps {
+  issueKey: string
+  issue?: Issue
+  heading: RefObject<HTMLHeadingElement | null>
+}
+
+// IssueHeading names the issue. Its heading takes focus from a Retry that goes
+// once the issue is read, so it can hold focus without being a tab stop.
+function IssueHeading({ issueKey, issue, heading }: IssueHeadingProps) {
   return (
     <div className="flex flex-col gap-2">
       <span className="flex items-center gap-2">
         <span className="font-mono text-sm text-muted-foreground">{issueKey}</span>
         {issue ? <StatusBadge category={issue.status_category} label={issue.status} /> : null}
       </span>
-      <h2 id="issue-detail-heading" className="text-lg font-medium">
+      <h2 ref={heading} id="issue-detail-heading" tabIndex={-1} className="text-lg font-medium">
         {issue ? issue.summary : issueKey}
       </h2>
       {issue ? (

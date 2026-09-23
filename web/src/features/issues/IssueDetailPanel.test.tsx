@@ -1,6 +1,8 @@
-import { screen } from '@testing-library/react'
+import { act, screen, waitFor } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import { vi } from 'vitest'
 import type { IssueDetail } from '@/api/generated/types.gen.ts'
+import { fakeApi } from '@/test/fakeApi.ts'
 import { renderWithClient } from '@/test/renderWithClient.tsx'
 import { IssueDetailPanel } from './IssueDetailPanel.tsx'
 
@@ -205,4 +207,133 @@ test('reads a mock issue under VITE_MOCK', async () => {
   expect(
     await screen.findByRole('heading', { level: 2, name: /redact tokens before they reach/i }),
   ).toBeTruthy()
+})
+
+test('says to press Retry when a read is refused with no reason', async () => {
+  // Arrange
+  serveIssue({}, 500)
+
+  // Act
+  renderWithClient(<IssueDetailPanel issueKey="PROJ-1" />)
+
+  // Assert
+  const alert = await screen.findByRole('alert')
+  expect(alert.textContent).toBe('PROJ-1 could not be read. Press Retry to try again.')
+})
+
+test('Retry reads a refused issue again', async () => {
+  // Arrange
+  const answers = [Response.json({}, { status: 500 }), Response.json(detailOf())]
+  const requests = fakeApi({ '/api/issues/PROJ-1': () => answers.shift() })
+  const user = userEvent.setup()
+  renderWithClient(<IssueDetailPanel issueKey="PROJ-1" />)
+  await screen.findByRole('alert')
+
+  // Act
+  await user.click(screen.getByRole('button', { name: 'Retry' }))
+
+  // Assert
+  // The Retry goes once the issue is read, so its focus follows to the issue's
+  // heading rather than falling to the page.
+  expect(await screen.findByText('Tokens reach the request log.')).toBeTruthy()
+  const reads = requests.filter((request) => new URL(request.url).pathname === '/api/issues/PROJ-1')
+  expect(reads).toHaveLength(2)
+  expect(screen.queryByRole('button', { name: 'Retry' })).toBeNull()
+  expect(document.activeElement).toBe(
+    screen.getByRole('heading', { level: 2, name: detailOf().summary }),
+  )
+})
+
+test('a retried issue read again later leaves focus where the user put it', async () => {
+  // Arrange
+  // Only the clock is faked: staleness is judged from Date.now(), and a stale
+  // issue is read again when the page is shown again.
+  vi.useFakeTimers({ toFake: ['Date'] })
+  vi.setSystemTime(new Date('2026-09-23T12:00:00Z'))
+  const answers = [
+    Response.json({}, { status: 500 }),
+    Response.json(detailOf()),
+    Response.json(detailOf({ description: 'Tokens reach the request log and the trace.' })),
+  ]
+  fakeApi({ '/api/issues/PROJ-1': () => answers.shift() })
+  const user = userEvent.setup()
+  renderWithClient(<IssueDetailPanel issueKey="PROJ-1" />)
+  await user.click(await screen.findByRole('button', { name: 'Retry' }))
+  await screen.findByText('Tokens reach the request log.')
+  const jira = screen.getByRole('link', { name: /open in jira/i })
+  jira.focus()
+  vi.setSystemTime(new Date('2026-09-23T12:01:01Z'))
+
+  // Act
+  act(() => {
+    window.dispatchEvent(new Event('visibilitychange'))
+  })
+
+  // Assert
+  await screen.findByText('Tokens reach the request log and the trace.')
+  expect(document.activeElement).toBe(jira)
+})
+
+test('Retry beside an issue already read hands focus to its heading', async () => {
+  // Arrange
+  // The issue was read, then read again once stale and refused, so the Retry
+  // stands beside what the first read showed; the retried read answers the
+  // same issue.
+  vi.useFakeTimers({ toFake: ['Date'] })
+  vi.setSystemTime(new Date('2026-09-23T12:00:00Z'))
+  const answers = [
+    Response.json(detailOf()),
+    Response.json({}, { status: 500 }),
+    Response.json(detailOf()),
+  ]
+  fakeApi({ '/api/issues/PROJ-1': () => answers.shift() })
+  const user = userEvent.setup()
+  renderWithClient(<IssueDetailPanel issueKey="PROJ-1" />)
+  await screen.findByText('Tokens reach the request log.')
+  vi.setSystemTime(new Date('2026-09-23T12:01:01Z'))
+  act(() => {
+    window.dispatchEvent(new Event('visibilitychange'))
+  })
+  const retry = await screen.findByRole('button', { name: 'Retry' })
+
+  // Act
+  await user.click(retry)
+
+  // Assert
+  await waitFor(() => {
+    expect(screen.queryByRole('alert')).toBeNull()
+  })
+  expect(document.activeElement).toBe(
+    screen.getByRole('heading', { level: 2, name: detailOf().summary }),
+  )
+})
+
+test('a Retry refused again beside an issue already read keeps its focus', async () => {
+  // Arrange
+  vi.useFakeTimers({ toFake: ['Date'] })
+  vi.setSystemTime(new Date('2026-09-23T12:00:00Z'))
+  const answers = [
+    Response.json(detailOf()),
+    Response.json({}, { status: 500 }),
+    Response.json({}, { status: 500 }),
+  ]
+  fakeApi({ '/api/issues/PROJ-1': () => answers.shift() })
+  const user = userEvent.setup()
+  renderWithClient(<IssueDetailPanel issueKey="PROJ-1" />)
+  await screen.findByText('Tokens reach the request log.')
+  vi.setSystemTime(new Date('2026-09-23T12:01:01Z'))
+  act(() => {
+    window.dispatchEvent(new Event('visibilitychange'))
+  })
+  const retry = await screen.findByRole('button', { name: 'Retry' })
+
+  // Act
+  await user.click(retry)
+
+  // Assert
+  await waitFor(() => {
+    expect(answers).toHaveLength(0)
+  })
+  expect(await screen.findByRole('button', { name: 'Retry' })).toBe(retry)
+  expect(document.activeElement).toBe(retry)
 })

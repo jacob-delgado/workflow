@@ -232,7 +232,11 @@ test("a link refused with no reason says so in GitLab's words", async () => {
   await user.click(screen.getByRole('button', { name: 'Link it on PROJ-412' }))
 
   // Assert
-  expect(await screen.findByText('The merge request could not be linked on PROJ-412.')).toBeTruthy()
+  expect(
+    await screen.findByText(
+      'The merge request was not linked on PROJ-412. Try again, or link it in Jira.',
+    ),
+  ).toBeTruthy()
 })
 
 test('a refused move says why and can be tried again', async () => {

@@ -239,7 +239,8 @@ export function WorkStory({ issueKey }: { issueKey: string }) {
 // shown inline for the user to act on.
 function CheckoutButton({ branch, outcome }: { branch: string; outcome: Teller }) {
   const { state, error, run } = useAsyncAction(() => checkoutBranch(branch), {
-    fallback: 'The branch could not be checked out.',
+    fallback:
+      'The branch was not checked out. Try again, or switch to it from a terminal to see why.',
     done: (checkedOut) => `Checked out ${checkedOut.name}.`,
     onStart: outcome.clear,
     onDone: outcome.say,
@@ -271,7 +272,7 @@ function CheckoutButton({ branch, outcome }: { branch: string; outcome: Teller }
 // exists) is shown inline.
 function StartWorkButton({ issueKey, outcome }: { issueKey: string; outcome: Teller }) {
   const { state, error, run } = useAsyncAction(() => startWork(issueKey), {
-    fallback: 'Work could not be started.',
+    fallback: `No branch was made for ${issueKey}. Try again, or run workflow branch ${issueKey} from a terminal.`,
     done: (started) => `Started work on ${started.name}.`,
     onStart: outcome.clear,
     onDone: outcome.say,

@@ -1,8 +1,11 @@
-import { apiErrorMessage } from './apiError.ts'
+import { apiErrorMessage, HeldBack } from './apiError.ts'
 
-test('apiErrorMessage surfaces a thrown Error, a problem detail or title, else the fallback', () => {
+test('apiErrorMessage surfaces a hold, a problem detail or title, else the fallback', () => {
   // Act & Assert
-  expect(apiErrorMessage(new Error('boom'), 'fallback')).toBe('boom')
+  expect(apiErrorMessage(new HeldBack('held'), 'fallback')).toBe('held')
+  // A fetch that never reached the server, or an answer that fails the schema,
+  // throws an Error whose words are no reason to show.
+  expect(apiErrorMessage(new TypeError('Failed to fetch'), 'fallback')).toBe('fallback')
   expect(
     apiErrorMessage(
       {

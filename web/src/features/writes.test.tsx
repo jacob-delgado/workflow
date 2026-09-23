@@ -35,6 +35,10 @@ interface Write {
   said: string
   // The control that keeps focus, for a write whose control stays put.
   keeps?: string
+  // The route the write is sent to, and what the page says when the server
+  // refuses it with no reason of its own.
+  endpoint: string
+  fallback: string
 }
 
 const pull = {
@@ -133,6 +137,8 @@ const writes: Write[] = [
       await user.click(screen.getByRole('button', { name: 'Commit staged changes' }))
     },
     said: 'Committed a1b2c3d fix: redact tokens.',
+    endpoint: '/api/commit',
+    fallback: 'Nothing was committed. Try again, or commit from a terminal to see why.',
   },
   {
     name: 'push',
@@ -145,6 +151,8 @@ const writes: Write[] = [
       await user.click(screen.getByRole('button', { name: 'Push' }))
     },
     said: 'Pushed fix/PROJ-1.',
+    endpoint: '/api/push',
+    fallback: 'The branch was not pushed. Try again, or push from a terminal to see why.',
   },
   {
     name: 'check out from the list',
@@ -156,6 +164,9 @@ const writes: Write[] = [
       await user.click(screen.getByRole('button', { name: 'Check out PROJ-2' }))
     },
     said: 'Checked out fix/PROJ-2.',
+    endpoint: '/api/checkout',
+    fallback:
+      'The branch was not checked out. Try again, or switch to it from a terminal to see why.',
   },
   {
     name: 'check out from the work story',
@@ -167,6 +178,9 @@ const writes: Write[] = [
       await user.click(screen.getByRole('button', { name: 'Check out this branch' }))
     },
     said: 'Checked out fix/PROJ-2.',
+    endpoint: '/api/checkout',
+    fallback:
+      'The branch was not checked out. Try again, or switch to it from a terminal to see why.',
   },
   {
     name: 'start work',
@@ -178,6 +192,9 @@ const writes: Write[] = [
       await user.click(screen.getByRole('button', { name: 'Start work' }))
     },
     said: 'Started work on feat/PROJ-3-metrics.',
+    endpoint: '/api/branches',
+    fallback:
+      'No branch was made for PROJ-3. Try again, or run workflow branch PROJ-3 from a terminal.',
   },
   {
     name: 'open a pull request',
@@ -187,6 +204,8 @@ const writes: Write[] = [
     routes: { '/api/pull-request/draft': draft, '/api/pull-request': opened },
     act: openThePull,
     said: 'Opened pull request #7.',
+    endpoint: '/api/pull-request',
+    fallback: 'The pull request was not opened. Try again — your edits are still in the form.',
   },
   {
     name: 'link it on the issue',
@@ -202,6 +221,8 @@ const writes: Write[] = [
       await user.click(await screen.findByRole('button', { name: 'Link it on PROJ-1' }))
     },
     said: 'Linked #7 on PROJ-1.',
+    endpoint: '/api/issues/PROJ-1/link',
+    fallback: 'The pull request was not linked on PROJ-1. Try again, or link it in Jira.',
   },
   {
     name: 'move the issue',
@@ -217,6 +238,8 @@ const writes: Write[] = [
       await user.click(await screen.findByRole('button', { name: 'Move PROJ-1 to In Review' }))
     },
     said: 'Moved PROJ-1 to In Review.',
+    endpoint: '/api/issues/PROJ-1/transition',
+    fallback: 'PROJ-1 was not moved to In Review. Try again, or move it in Jira.',
   },
   {
     name: 'announce',
@@ -231,6 +254,8 @@ const writes: Write[] = [
       await user.click(await screen.findByRole('button', { name: 'Announce now' }))
     },
     said: 'Announced to #dev.',
+    endpoint: '/api/announce',
+    fallback: 'Nothing was announced. Try again, or run workflow announce from a terminal.',
   },
   {
     name: 'save the configuration',
@@ -242,6 +267,8 @@ const writes: Write[] = [
       await user.click(screen.getByRole('button', { name: 'Save changes' }))
     },
     said: 'Saved.',
+    endpoint: '/api/config',
+    fallback: 'The configuration was not saved. Try again — your edits are still in the form.',
     keeps: 'Save changes',
   },
   {
@@ -254,6 +281,8 @@ const writes: Write[] = [
       await user.click(screen.getByRole('button', { name: 'Stage notes.txt' }))
     },
     said: 'Staged notes.txt.',
+    endpoint: '/api/stage',
+    fallback: 'notes.txt was not staged. Try again, or stage it from a terminal to see why.',
   },
   {
     name: 'unstage a file',
@@ -265,6 +294,8 @@ const writes: Write[] = [
       await user.click(screen.getByRole('button', { name: 'Unstage notes.txt' }))
     },
     said: 'Unstaged notes.txt.',
+    endpoint: '/api/unstage',
+    fallback: 'notes.txt was not unstaged. Try again, or unstage it from a terminal to see why.',
   },
   {
     name: 'stage all',
@@ -276,6 +307,8 @@ const writes: Write[] = [
       await user.click(screen.getByRole('button', { name: 'Stage all' }))
     },
     said: 'Staged every change.',
+    endpoint: '/api/stage',
+    fallback: 'Nothing was staged. Try again, or stage from a terminal to see why.',
   },
 ]
 
@@ -332,6 +365,89 @@ test('focus the user has moved on to stays where they put it', async () => {
 
   // Assert
   expect(document.activeElement).toBe(filter)
+})
+
+// refusing is the routes with the write's endpoint refusing it — a 500 with no
+// reason of its own — while a read of the same route still answers.
+function refusing(routes: Record<string, unknown>, endpoint: string): Record<string, unknown> {
+  return {
+    ...routes,
+    [endpoint]: (_: URL, asked: Request) =>
+      asked.method === 'GET' ? routes[endpoint] : Response.json({}, { status: 500 }),
+  }
+}
+
+// regionSaying is the alert or live status line that says text, if one does.
+function regionSaying(text: string): HTMLElement | undefined {
+  return [...screen.queryAllByRole('alert'), ...screen.queryAllByRole('status')].find(
+    (region) => region.textContent === text,
+  )
+}
+
+test.each(writes)('$name refused with no reason says what to do next', async (write) => {
+  // Arrange
+  fakeApi(refusing(write.routes, write.endpoint))
+  useSnapshotStore.setState({ status: 'live', snapshot: write.before })
+  const user = userEvent.setup()
+  renderWithClient(write.panel())
+
+  // Act
+  await write.act(user)
+
+  // Assert
+  await waitFor(() => {
+    expect(regionSaying(write.fallback)).toBeDefined()
+  })
+})
+
+// The steps before a write read what it would send; refused with no reason,
+// they say what to do too.
+interface Preview {
+  name: string
+  panel: () => ReactElement
+  before: Snapshot
+  act: (user: User) => Promise<void>
+  fallback: string
+}
+
+const previews: Preview[] = [
+  {
+    name: 'composing a pull request',
+    panel: () => <ReviewPanel />,
+    before: makeSnapshot(),
+    act: async (user) => {
+      await user.click(screen.getByRole('button', { name: 'Open a pull request' }))
+    },
+    fallback:
+      'The pull request could not be composed. Try again, or run workflow pr from a terminal.',
+  },
+  {
+    name: 'previewing the announcement',
+    panel: () => <MessagingPanel />,
+    before: withPull,
+    act: async (user) => {
+      await user.click(screen.getByRole('button', { name: 'Announce to Slack' }))
+    },
+    fallback:
+      'The announcement could not be composed. Try again, or run workflow announce from a terminal.',
+  },
+]
+
+test.each(previews)('$name refused with no reason says what to do next', async (preview) => {
+  // Arrange
+  fakeApi({
+    '/api/pull-request/draft': Response.json({}, { status: 500 }),
+    '/api/announcement': Response.json({}, { status: 500 }),
+  })
+  useSnapshotStore.setState({ status: 'live', snapshot: preview.before })
+  const user = userEvent.setup()
+  renderWithClient(preview.panel())
+
+  // Act
+  await preview.act(user)
+
+  // Assert
+  expect(await screen.findByText(preview.fallback)).toBeTruthy()
 })
 
 // acceptingOnce is the routes each taking the first request and refusing every

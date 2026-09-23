@@ -1,3 +1,4 @@
+import { HeldBack } from './apiError.ts'
 import { client } from './generated/client.gen.ts'
 import { useHealthStore } from './health.ts'
 
@@ -9,7 +10,7 @@ import { useHealthStore } from './health.ts'
 client.setConfig({ baseUrl: '' })
 
 // dryRunHold is what a write says when --dry-run holds it back. It becomes the
-// thrown error's message, so every write surfaces it through apiErrorMessage
+// thrown hold's message, so every write surfaces it through apiErrorMessage
 // the way it surfaces a server's refusal.
 const dryRunHold = 'Held back by --dry-run: nothing was sent.'
 
@@ -23,7 +24,7 @@ const safeMethods = new Set(['GET', 'HEAD', 'OPTIONS'])
 // terminal narrates a dry-run write — rather than going disabled.
 client.interceptors.request.use((request) => {
   if (useHealthStore.getState().health?.dry_run === true && !safeMethods.has(request.method)) {
-    throw new Error(dryRunHold)
+    throw new HeldBack(dryRunHold)
   }
 
   return request
