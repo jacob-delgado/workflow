@@ -67,11 +67,11 @@ Severity: medium · Confidence: measured
 repository, holding `reviewState`, the forge vocabulary, the CI polling
 chain, the pane's keys and rendering, `rerunChecks`, `canMerge …
 mergeReason` and the whole `mergePicker` overlay (`:538-701`). `messaging.go`
-and `prcomposer.go` are 525 each. Six test files are also over the 500-line
+and `prcomposer.go` are 525 each. Five test files are also over the 500-line
 soft target (`internal/messaging/post_test.go` 738, `internal/tui/
-messaging_test.go` 596, `composer_test.go` 566, `world_test.go` 565,
-`internal/webserver/pullrequest_test.go` 527, `internal/jira/detail_test.go`
-501). None is over the 800 hard ceiling.
+messaging_test.go` 606, `internal/webserver/pullrequest_test.go` 601,
+`internal/tui/composer_test.go` 566, `internal/jira/detail_test.go` 501).
+None is over the 800 hard ceiling.
 
 **What it costs.** `scripts/check-file-length.sh` warns on every run, so the
 warning has stopped meaning anything; and the merge picker cannot be read
@@ -166,25 +166,6 @@ concurrency change trips on.
 
 **Done when.** Polling chains carry a context that the next generation
 cancels; the detail read is keyed so a stale answer is dropped.
-
-### DEBT-60 The world tests wait a fixed 400 ms for the model to settle
-
-Severity: medium · Confidence: read
-
-`patience` (`internal/tui/world_test.go:34`) caps draining the model's
-commands at 400 ms of wall clock, with a comment explaining that quiescence
-detection is not available. Under `-race`, and on a loaded CI runner, a
-slow drain reads as a missing message.
-
-**What it costs.** A flake that is not a defect, on the suite the coverage
-floor depends on, that gets slower to reproduce the more the frames change.
-
-**One way to fix it.** A harness that knows when the model has no command
-outstanding — counting the commands it hands out and the messages that come
-back — so the test waits for a count, not a clock.
-
-**Done when.** `patience` is gone and the world tests pass 50 runs under
-`-race -count=50`.
 
 ## The web
 

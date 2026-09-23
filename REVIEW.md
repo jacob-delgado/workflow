@@ -986,8 +986,9 @@ phase disagree, the correction wins.
    `internal/loop` is new and answers to the default 12.
 3. **Golden churn.** The terminal's screen tests hold rendered frames;
    Phases 4–7 each move them. One phase at a time; regenerate per file with
-   eyes on each diff; expect `world_test.go:34`'s 400 ms `patience` to flake
-   under `-race` while frames are changing (DEBT-60).
+   eyes on each diff. The 400 ms `patience` that flaked under `-race` is
+   gone: Phase 4's harness drains on a fake clock and fails loudly on a
+   command that never returns (DEBT-60, closed there).
 4. **The web is outside `task check` until Phase 0 lands.** Every web
    phase runs `task web:lint`, `task web:test`, `yarn gen:check` after a spec
    change, and `yarn test:e2e` (`yarn playwright install --with-deps

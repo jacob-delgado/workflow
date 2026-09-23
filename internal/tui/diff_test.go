@@ -6,6 +6,8 @@ package tui_test
 import (
 	"errors"
 	"testing"
+
+	"github.com/jacob-delgado/workflow/internal/tui"
 )
 
 // errDiffRead is git failing to read a diff.
@@ -100,12 +102,13 @@ func TestTheDiffReadsAsItLoads(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
-	// The read never returns, so the pane is caught mid-load.
+	// The loads the interface starts with are answered, but not the diff read the
+	// changes lead to, so the pane is caught mid-load.
 	world := newWorld()
-	world.diffGate = make(chan struct{})
+	model := started(t, sized(t, tui.New(world.cfg, nil, world.deps()), 120, 40))
 
 	// Act
-	view := typing(t, world.live(t, 120, 40), "3").View().Content
+	view := press(t, model, "3").View().Content
 
 	// Assert
 	requireScreen(t, view, "reading the diff")

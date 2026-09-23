@@ -167,19 +167,16 @@ func TestTheEditorShowsItIsSaving(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
-	// The save is held open so its in-flight state can be seen, and a key pressed
-	// then is ignored rather than starting a second save.
-	editing := newWorld()
-	editing.editGate = make(chan struct{})
-	model := editing.live(t, 120, 40)
+	// The save is never answered, so its in-flight state can be seen, and a key
+	// pressed then is ignored rather than starting a second save.
+	editing := typing(t, newWorld().live(t, 120, 40), "4", "e")
 
 	// Act
-	saving := typing(t, model, "4", "e", keyEnter, "x")
+	saving, _ := pressed(t, editing, keyEnter)
+	saving, _ = pressed(t, saving, "x")
 
 	// Assert
 	requireScreen(t, saving.View().Content, "saving")
-
-	close(editing.editGate)
 }
 
 func TestEditingWithoutAnEditorCannotOpenTheBody(t *testing.T) {

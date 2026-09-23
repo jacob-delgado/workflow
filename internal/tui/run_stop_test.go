@@ -12,10 +12,12 @@ func TestStoppingARunningCommandEndsItAndSaysSo(t *testing.T) {
 	// A pre-commit hook that hangs: it streams nothing and never finishes.
 	w := newWorld()
 	w.runBlocks = true
-	model := w.live(t, 100, 40)
+	commits := typing(t, w.live(t, 100, 40), "3")
 
-	// Act: start the hook, which does not finish on its own.
-	running := typing(t, model, "3", "h")
+	// Act: start the hook, which does not finish on its own, so its output is
+	// never read.
+	starting, start := pressed(t, commits, "h")
+	running, _ := finish(t, starting, start)
 
 	// Assert: the run is shown as still going.
 	requireScreen(t, running.View().Content, "running")

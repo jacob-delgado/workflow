@@ -88,7 +88,8 @@ func pressed(t *testing.T, model tui.Model, key string) (tui.Model, tea.Cmd) {
 }
 
 // finish runs a command and delivers its message, as Bubble Tea does once the
-// work behind it returns.
+// work behind it returns. A wait on the fake timer is let pass: stepping past it
+// is the test's own act.
 func finish(t *testing.T, model tui.Model, cmd tea.Cmd) (tui.Model, tea.Cmd) {
 	t.Helper()
 
@@ -96,7 +97,12 @@ func finish(t *testing.T, model tui.Model, cmd tea.Cmd) (tui.Model, tea.Cmd) {
 		t.Fatal("no command to run, want one")
 	}
 
-	next, followUp := model.Update(cmd())
+	msg := cmd()
+	if wait, isWait := msg.(scheduled); isWait {
+		msg = wait.fire(testNow().Add(wait.after))
+	}
+
+	next, followUp := model.Update(msg)
 
 	return concrete(t, next), followUp
 }

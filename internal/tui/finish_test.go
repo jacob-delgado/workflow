@@ -178,19 +178,16 @@ func TestTheFinishPreviewShowsItIsFinishing(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
-	// The finish is held open so its in-flight preview can be seen, and a key
-	// pressed then is ignored.
-	merged := mergedBranch()
-	merged.finishGate = make(chan struct{})
-	model := merged.live(t, 120, 40)
+	// The finish is never answered, so its in-flight preview can be seen, and a
+	// key pressed then is ignored.
+	previewing := typing(t, mergedBranch().live(t, 120, 40), "4", "F")
 
 	// Act
-	finishing := typing(t, model, "4", "F", keyEnter, "x")
+	finishing, _ := pressed(t, previewing, keyEnter)
+	finishing, _ = pressed(t, finishing, "x")
 
 	// Assert
 	requireScreen(t, finishing.View().Content, "finishing")
-
-	close(merged.finishGate)
 }
 
 func TestADryRunFinishSaysWhatItWouldDo(t *testing.T) {

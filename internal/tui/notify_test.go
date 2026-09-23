@@ -11,8 +11,8 @@ import (
 	"github.com/jacob-delgado/workflow/internal/tui"
 )
 
-// pollTick is a CI interval short enough that the poll fires within a test's
-// patience, so a running-then-finished sequence plays out without a real wait.
+// pollTick is a CI interval short enough that the poll fires within the
+// harness's horizon, so a running-then-finished sequence plays out in one drain.
 const pollTick = 5 * time.Millisecond
 
 // finishingCI is a world whose CI is running on the first check and finished on
