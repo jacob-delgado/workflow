@@ -452,7 +452,8 @@ func TestAPreviewInFlightStaysASCII(t *testing.T) {
 		keys  []string
 		want  string
 	}{
-		"the merge preview": {faked: mergeable, keys: []string{"4", "M"}, want: "merging..."},
+		"the merge preview":  {faked: mergeable, keys: []string{"4", "M"}, want: "merging..."},
+		"the finish preview": {faked: mergedBranch, keys: []string{"4", "F"}, want: "finishing..."},
 	}
 
 	for name, tt := range cases {

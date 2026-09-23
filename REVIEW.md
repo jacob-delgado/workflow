@@ -162,7 +162,7 @@ The seven promises, re-counted, are the table in UX.md. In one line each:
 `?` lists every key (57/57, by construction); one voice for failure is
 kept by **11 of 53** sites (UX-67); a last look before anything outward by
 **18 of 18** since Phase 4 gave `R` and `u` one; a refused change stays in
-view in **13 of 14** overlays — finish demotes it (UX-66); panes
+view in **14 of 14** overlays since Phase 5 kept merge's and finish's; panes
 fail alone and state is by shape (kept). Beyond the promises: five Issues
 keys never reach the footer and two keys are filed under panes that do not
 answer them (UX-63); `Esc`/`Enter`, loading, success and empty states,
@@ -471,7 +471,8 @@ Closes UX-66, DEBT-55 (for `review.go`), DEBT-56. Depends on Phase 4.
    (`sendstate.go:10`); `mergeRequested.apply` (`internal/tui/merge.go:86`) keeps the overlay
    open through `pinnedOutcome` (`render.go:457`) instead of
    `closeOverlay().noticed(…)`.
-3. The same for `finishPreview` (`finish.go:65`, `finished.apply` `:139`).
+3. The same for `finishPreview` (`internal/tui/finish.go:59`, `finished.apply`
+   `:139`).
 4. `branchPicker.sending` (`internal/tui/switchtask.go:79`) adopts `sendState` (pure
    refactor; it already keeps its refusal).
 
@@ -494,15 +495,15 @@ Closes UX-67. Depends on Phase 5 (every overlay outcome then flows through
 `pinnedOutcome`).
 
 - `failureBlock` (`internal/tui/render.go:450`) consults `errorSentence` —
-  fixes all ten `pinnedOutcome` overlays at once.
+  fixes all eleven `pinnedOutcome` overlays at once.
 - `m.failureLine(err)` — glyph plus the sentence, or the raw text when
   there is none, one line — replaces the fourteen `failedGlyph() +
   err.Error()` rail sites (`internal/tui/checks.go:97`, `diff.go:79`, `issuewrite.go:120`,
   `:122`, `internal/tui/picker.go:209`, `:246`, `internal/tui/switchtask.go:108`, `:148`,
   `internal/tui/messaging.go:147`, `internal/tui/review.go:218`, `internal/tui/run.go:211`, `internal/tui/composer.go:164`,
   `:176`, `internal/tui/fields.go:171`).
-- The eight bare notices (`comment.go:76`, `internal/tui/composer.go:77`,
-  `internal/tui/messaging.go:378`, `finish.go:141`, `internal/tui/checks.go:233`, `:241`,
+- The seven bare notices (`comment.go:76`, `internal/tui/composer.go:77`,
+  `internal/tui/messaging.go:378`, `internal/tui/checks.go:233`, `:241`,
   `internal/tui/merge.go:66`, `:68`) go through `m.noticed(m.failureLine(err))`;
   `render.go:386` `configErrorStatus` is styled.
 - `forgeReason` (`internal/tui/review.go:360`), `rerunReason`

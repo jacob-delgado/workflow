@@ -10,8 +10,11 @@ import (
 	"github.com/jacob-delgado/workflow/internal/forge"
 )
 
-// errFinishFailed is how a finish that cannot fast-forward reports the failure.
-var errFinishFailed = errors.New("the base is behind")
+// errFinishDiverged is how a finish fails when git cannot fast-forward the
+// base: the step, then git's own words over more than one line, the way the
+// runner folds its standard error into the error.
+var errFinishDiverged = errors.New("git pull --ff-only: git: exit status 128: " +
+	"hint: Diverging branches can't be fast-forwarded.\nfatal: Not possible to fast-forward, aborting")
 
 // mergedBranch is newWorld with the branch's pull request merged, so the branch
 // can be finished.
@@ -141,19 +144,52 @@ func TestFinishIsNotOfferedOnAnOpenPull(t *testing.T) {
 	}
 }
 
-func TestAFinishThatFailsSaysWhy(t *testing.T) {
+func TestRefusedFinishStaysInItsPreview(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
 	merged := mergedBranch()
-	merged.finishErr = errFinishFailed
-	model := merged.live(t, 120, 40)
+	merged.finishErr = errFinishDiverged
+	preview := typing(t, merged.live(t, 120, 40), "4", "F")
+
+	// Act: finish, and git fails
+	failed := typing(t, preview, keyEnter)
+
+	// Assert: the preview is still open, git's reason pinned in it whole, ready
+	// to try again
+	requireScreen(t, failed.View().Content, "git branch -D "+featureName, "✗ git pull --ff-only",
+		"fatal: Not possible to fast-forward", "enter finish")
+
+	// Act: close it
+	closed := typing(t, failed, keyEsc)
+
+	// Assert: the preview is gone, and the failed finish was asked for once
+	refuseScreen(t, closed.View().Content, "git branch -D", "fatal: Not possible to fast-forward")
+
+	if calls := merged.asked("finish"); len(calls) != 1 {
+		t.Errorf("finish calls = %q, want the one that failed", calls)
+	}
+}
+
+func TestAFailedFinishCanBeTriedAgain(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	merged := mergedBranch()
+	merged.finishErr = errFinishDiverged
+	failed := typing(t, merged.live(t, 120, 40), "4", "F", keyEnter)
+	merged.finishErr = nil
 
 	// Act
-	failed := typing(t, model, "4", "F", keyEnter)
+	retried := typing(t, failed, keyEnter)
 
 	// Assert
-	requireScreen(t, failed.View().Content, "could not finish", "the base is behind")
+	requireScreen(t, retried.View().Content, "● finished "+featureName)
+	refuseScreen(t, retried.View().Content, "git branch -D")
+
+	if calls := merged.asked("finish"); len(calls) != 2 {
+		t.Errorf("finish calls = %q, want the failed finish and its retry", calls)
+	}
 }
 
 func TestEscCancelsTheFinishPreview(t *testing.T) {

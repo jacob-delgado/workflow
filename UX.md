@@ -58,9 +58,9 @@ them, re-counted at this commit.
 | --- | --- | --- |
 | "a key it does not show does nothing" | No longer stated anywhere; the sentence the previous edition cited at `usage.md:55` is gone. Folds into the next row. | — |
 | "`?` lists every key" | `docs/content/docs/usage.md:62` | **Yes, by construction.** Help is generated from the bindings (`internal/tui/keys.go:134` `helpBuilder.place`, rendered at `render.go:211`): 57 of 57. The one guard is that construction; `render.go:225` skips a binding with empty help silently, and the tests are three-string spot checks (`focus_test.go:124`). |
-| "the one way the interface says something broke" | `failure`, `internal/tui/render.go:421` | **Partly, and this is the weakest.** Of 53 places that render an error, 21 go through the `failure` family, but only 11 reach the actionable `errorSentence` (`render.go:401`): `failureBlock` (`render.go:450`) red-wraps the raw chain, so all 10 `pinnedOutcome` overlays show the raw error; 14 sites are `failedGlyph + err.Error()`; 8 are glyph-only rail summaries; 8 are notices with no glyph and no red at all. See UX-67. |
+| "the one way the interface says something broke" | `failure`, `internal/tui/render.go:421` | **Partly, and this is the weakest.** Of 53 places that render an error, 22 go through the `failure` family, but only 11 reach the actionable `errorSentence` (`render.go:401`): `failureBlock` (`render.go:450`) red-wraps the raw chain, so all 11 `pinnedOutcome` overlays show the raw error; 14 sites are `failedGlyph + err.Error()`; 8 are glyph-only rail summaries; 7 are notices with no glyph and no red at all. See UX-67. |
 | "Nothing outward facing is sent without" a last look | `internal/tui/comment.go:60` | **Yes: 18 of 18.** Every outward act waits on a preview or a confirmation; the push, `R`'s re-run of CI and `u`'s rebase share one last look, `lastLook` (`internal/tui/overlay.go:131`). |
-| "a refused change must never go unseen" | `internal/tui/picker.go:269` | **14 of 14 guard while in flight** (the previous edition counted 1 of 7). 13 keep the refusal in the overlay; `finishPreview` (`finish.go:139`) closes and demotes it to a one-line notice. See UX-66. |
+| "a refused change must never go unseen" | `internal/tui/picker.go:269` | **Yes: 14 of 14.** Every overlay that sends a request guards it while in flight (the previous edition counted 1 of 7), and every one keeps a refusal in the overlay, where it happened, until `esc` — the merge and finish previews last, through `pinnedOutcome` (`internal/tui/render.go:457`). |
 | "Each pane fails on its own" | `docs/content/docs/usage.md:68` | Yes. `tui.go:157` batches six loads; each pane holds and renders its own error. |
 | State is "carried by the SHAPE of a glyph rather than its color" | `internal/tui/glyphs.go:16` | Yes. `unicodeGlyphs` and `asciiGlyphs` differ in shape (`glyphs.go:31`, `:43`); `NO_COLOR` keeps bold and faint (`tui.go:139`). One residue: the progress spine's per-system hue is color-only, mitigated by the name or its initial. |
 
@@ -236,24 +236,6 @@ always`; `ui.detail_delay` in milliseconds.
 
 **Done when.** Each setting is read and honored by a screen test.
 
-### UX-66 Finish closes on a refusal and shrinks it to one line
-
-Impact: medium · Effort: small
-
-**Today.** "A refused change must never go unseen" (`internal/tui/picker.go:269`) holds
-in 14 of 14 overlays while a request is in flight, and 13 keep the refusal
-where it happened. `finished.apply` (`finish.go:139`) instead closes the
-overlay and passes the reason to a one-line notice, which the next keypress
-clears — the one overlay that still keeps its own `finishing` boolean
-instead of `sendState` (DEBT-56). The merge preview kept its refusal once
-it adopted both.
-
-**Instead.** It adopts `sendState` and `pinnedOutcome`, and the refusal
-stays in the overlay with its reason until `esc`.
-
-**Done when.** A refused merge leaves the merge overlay open showing the
-write-scope reason; the same for a failed finish.
-
 ### UX-67 One voice for failure — 11 places of 53 speak it
 
 Impact: high · Effort: medium
@@ -263,13 +245,13 @@ something broke", and `errorSentence` (`render.go:401`) is where the useful
 sentences live ("Check the VPN, then press `r`", "Run `gh auth login`"). Of
 53 places that render an error, only 11 reach `errorSentence`.
 `failureBlock` (`render.go:450`) red-wraps the raw error chain and never
-calls it, so all 10 `pinnedOutcome` overlays show `could not reach the forge
+calls it, so all 11 `pinnedOutcome` overlays show `could not reach the forge
 at …: dial tcp …` instead of the sentence. Fourteen rail sites are
 `failedGlyph + err.Error()` (`internal/tui/checks.go:97`, `diff.go:79`,
 `issuewrite.go:120`, `internal/tui/picker.go:209`, `internal/tui/switchtask.go:108`, `internal/tui/review.go:218`,
 `internal/tui/run.go:211`, `internal/tui/composer.go:164`, `internal/tui/fields.go:171`, …); eight are glyph-only
-summaries; eight are notices with no glyph and no red (`comment.go:76`,
-`internal/tui/composer.go:77`, `internal/tui/messaging.go:378`, `finish.go:141`, `internal/tui/checks.go:233`,
+summaries; seven are notices with no glyph and no red (`comment.go:76`,
+`internal/tui/composer.go:77`, `internal/tui/messaging.go:378`, `internal/tui/checks.go:233`,
 `:241`, `internal/tui/merge.go:66`, `:68`); one config screen is unstyled
 (`render.go:386`). `render.go:372` points at `workflow doctor` only for a
 *missing* setting, never a failing one; `forgeReason` (`internal/tui/review.go:360`),
@@ -277,7 +259,7 @@ summaries; eight are notices with no glyph and no red (`comment.go:76`,
 `errorSentence` does not know.
 
 **Instead.** `failureBlock` consults `errorSentence`; a one-line
-`failureLine(err)` replaces the fourteen raw sites; the eight notices go
+`failureLine(err)` replaces the fourteen raw sites; the seven notices go
 through it; the three helpers fold into `errorSentence`'s table.
 
 **Done when.** `err.Error()` appears in no non-test file under

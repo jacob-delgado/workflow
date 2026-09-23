@@ -47,7 +47,7 @@ func (m Model) startFinish() (Model, tea.Cmd) {
 	}
 
 	m.overlay = finishPreview{
-		marks: m.marks, vocab: m.vocab, pull: m.review.pull,
+		marks: m.marks, styles: m.styles, vocab: m.vocab, pull: m.review.pull,
 		branch: m.branch.branch.Name, base: m.branch.branch.BaseName(),
 	}
 
@@ -57,12 +57,13 @@ func (m Model) startFinish() (Model, tea.Cmd) {
 // finishPreview previews finishing a merged branch: the three git commands it
 // runs, sent only once confirmed.
 type finishPreview struct {
-	marks     glyphs
-	vocab     reviewVocab
-	pull      forge.PullRequest
-	branch    string
-	base      string
-	finishing bool
+	marks  glyphs
+	styles styles
+	vocab  reviewVocab
+	pull   forge.PullRequest
+	branch string
+	base   string
+	send   sendState
 }
 
 var _ overlay = finishPreview{}
@@ -72,16 +73,14 @@ func (p finishPreview) commands() []string {
 	return []string{"git switch " + p.base, "git pull --ff-only", "git branch -D " + p.branch}
 }
 
-// view draws the merged pull request and the commands that finish its branch.
-func (p finishPreview) view(_, _ int) (string, string) {
-	lines := []string{p.vocab.sigil + strconv.Itoa(p.pull.Number) + " merged; finish " + p.branch + " by running:", ""}
+// view draws the merged pull request and the commands that finish its branch,
+// the finish's outcome pinned under the title.
+func (p finishPreview) view(width, _ int) (string, string) {
+	lines := pinnedOutcome(p.styles, p.marks, p.send, "finishing", width)
+	lines = append(lines, p.vocab.sigil+strconv.Itoa(p.pull.Number)+" merged; finish "+p.branch+" by running:", "")
 
 	for _, command := range p.commands() {
 		lines = append(lines, "  "+command)
-	}
-
-	if p.finishing {
-		lines = append(lines, "", "finishing…")
 	}
 
 	return "Finish the branch", strings.Join(lines, "\n")
@@ -89,7 +88,7 @@ func (p finishPreview) view(_, _ int) (string, string) {
 
 // footer offers finishing and leaving.
 func (p finishPreview) footer(keys keyMap) []key.Binding {
-	if p.finishing {
+	if p.send.sending {
 		return []key.Binding{keys.interrupt}
 	}
 
@@ -99,7 +98,7 @@ func (p finishPreview) footer(keys keyMap) []key.Binding {
 // handleKey answers a key while the finish is being previewed.
 func (p finishPreview) handleKey(m Model, msg tea.KeyPressMsg) (Model, tea.Cmd) {
 	switch {
-	case p.finishing:
+	case p.send.sending:
 		return m, nil
 	case key.Matches(msg, m.keys.closeOverlay):
 		return m.closeOverlay(), nil
@@ -119,7 +118,7 @@ func (p finishPreview) confirm(m Model) (Model, tea.Cmd) {
 			" (switch to " + p.base + ", pull, delete it)"), nil
 	}
 
-	p.finishing = true
+	p.send = starting()
 	m.overlay = p
 	branch, base, finish := p.branch, p.base, m.deps.Git.Finish
 
@@ -134,20 +133,20 @@ type finished struct {
 	err    error
 }
 
-// apply reports the finish and reloads onto the base branch, or closes the
-// preview with why it failed.
+// apply reports the finish and reloads onto the base branch, or keeps the
+// preview open with why it failed — git's own words, every line of them —
+// pinned under its title until esc.
 func (msg finished) apply(m Model) (Model, tea.Cmd) {
 	if msg.err != nil {
-		return m.closeOverlay().noticed("could not finish " + msg.branch + ": " + oneLine(msg.err)), nil
+		if preview, open := m.overlay.(finishPreview); open {
+			preview.send = preview.send.failed(msg.err)
+			m.overlay = preview
+		}
+
+		return m, nil
 	}
 
 	done := m.closeOverlay().noticed(m.marks.done + " finished " + msg.branch)
 
 	return done, done.loadBranch()
-}
-
-// oneLine collapses an error's message onto a single line, so a git failure's
-// multi-line output does not break the one-line notice that shows it.
-func oneLine(err error) string {
-	return strings.Join(strings.Fields(err.Error()), " ")
 }

@@ -85,41 +85,38 @@ the same commit.
 
 **Done when.** `check-file-length.sh --list` flags nothing `soft`.
 
-### DEBT-56 Two overlays and a pane keep their own "in flight" flag instead of `sendState`
+### DEBT-56 The task switcher and the Messaging pane keep their own "in flight" flag instead of `sendState`
 
-Severity: medium · Confidence: read
+Severity: low · Confidence: read
 
 `sendState` (`internal/tui/sendstate.go:10`) exists so that "in flight, then
-failed with this" is named once, and twelve overlays use it — the merge
-preview (`mergePicker.send`, `internal/tui/merge.go:132`) the latest. Two
-still carry their own booleans: `branchPicker.sending` and `switchErr`
-(`internal/tui/switchtask.go:79`), and `finishPreview.finishing`
-(`finish.go:65`); so does the Messaging pane's own state,
+failed with this" is named once, and thirteen overlays use it — the merge
+and finish previews (`internal/tui/merge.go:132`,
+`internal/tui/finish.go:66`) the latest, which since keep a refusal pinned
+in the overlay rather than demoting it to a notice. Two places still carry
+their own pair: `branchPicker.sending` and `switchErr`
+(`internal/tui/switchtask.go:79`), and the Messaging pane's
 `messagingState.sending` beside its `err` (`internal/tui/messaging.go:33`).
-`finishPreview` also skips `pinnedOutcome` (`render.go:457`), and it is
-the one overlay that closes on a refusal and demotes it to a one-line
-notice — `finished.apply` (`finish.go:139`) — which is why the interface's
-promise that "a refused change must never go unseen" holds in 13 overlays
-of 14, not 14.
+Neither loses a refusal — the switcher keeps its own in view — so what is
+left is the second spelling of one idea.
 
-**One way to fix it.** The three adopt `sendState`, and the finish preview
-`pinnedOutcome`; the refusal stays in the overlay with its reason.
+**One way to fix it.** Both adopt `sendState`.
 
 **Done when.** `grep -nE '(sending|merging|finishing)\s+bool'
 internal/tui/*.go` matches only `sendstate.go`.
 
-### DEBT-57 The same overlay shapes, written eleven, five and three times
+### DEBT-57 The same overlay shapes, written twelve, five and three times
 
 Severity: low · Confidence: read
 
-- Eleven "keep the overlay open with the reason" appliers of the same
+- Twelve "keep the overlay open with the reason" appliers of the same
   `overlay.(T)` / `send.failed` / reassign shape:
   `internal/tui/branchresult.go:109`, `internal/tui/issuewrite.go:194`,
   `internal/tui/issuelink.go:98`, `internal/tui/preditor.go:162`,
   `internal/tui/prcomposer.go:486`, `internal/tui/hookgen.go:153`,
   `internal/tui/switchtask.go:229`, `internal/tui/comment.go:169`,
   `internal/tui/messaging.go:491`, `internal/tui/checks.go:224`,
-  `internal/tui/merge.go:88`.
+  `internal/tui/merge.go:88`, `internal/tui/finish.go:141`.
 - Five list-picker bodies with identical `up`/`down`/`confirm`/`esc` and a
   `window`-scrolled `rows`: `internal/tui/picker.go:225`, `internal/tui/picker.go:423`,
   `internal/tui/switchtask.go:120`, `internal/tui/checks.go:65`, `internal/tui/run.go:255`.
