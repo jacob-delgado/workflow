@@ -87,6 +87,7 @@ func TestOverlaysIgnoreKeysThatMeanNothingInThem(t *testing.T) {
 		"the lefthook offer": {gitHooks: legacyHooks(), keys: []string{"3", "g"}},
 		"a comment preview":  {edited: greeting, keys: []string{"c"}},
 		"the post to Slack":  {keys: []string{"5", "p"}},
+		"the rebase's look":  {keys: []string{"2", "u"}},
 		// The type is chosen with arrows, so typing on it changes nothing.
 		"the commit type field": {keys: []string{"3", "c", keyShiftTab, keyShiftTab}},
 	}

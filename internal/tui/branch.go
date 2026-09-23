@@ -210,6 +210,18 @@ func (m Model) previewPush() (Model, tea.Cmd) {
 	return m, nil
 }
 
+// previewRebase holds the rebase for a last look at the branch whose history it
+// rewrites and the base it replays that branch onto.
+func (m Model) previewRebase() (Model, tea.Cmd) {
+	m.overlay = lastLook{
+		marks: m.marks, styles: m.styles, title: "Rebase branch",
+		body: "rebase " + m.branch.branch.Name + " onto " + m.branch.branch.Base, verb: "rebase",
+		proceed: Model.startRebase,
+	}
+
+	return m, nil
+}
+
 // branchIssue is the issue the current branch names, and whether it names one —
 // the one place the interface reads a branch name as an issue key, and where the
 // branch-derived string becomes a typed jira.Key.
@@ -236,7 +248,7 @@ func (m Model) handleBranchKey(msg tea.KeyPressMsg) (Model, tea.Cmd) {
 	case key.Matches(msg, m.keys.switchTask) && m.canSwitchTask():
 		return m.openBranchPicker()
 	case key.Matches(msg, m.keys.rebase) && m.canRebase():
-		return m.startRebase()
+		return m.previewRebase()
 	case key.Matches(msg, m.keys.push) && m.canPush():
 		return m.previewPush()
 	case key.Matches(msg, m.keys.refresh):

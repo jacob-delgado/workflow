@@ -87,7 +87,7 @@ scroll the detail pane.
 | | `r` | Search again |
 | 2 Branch | `b` | Start a branch |
 | | `s` | Switch to another issue's branch |
-| | `u` | Rebase the branch onto its base |
+| | `u` | Rebase the branch onto its base, once a last look is confirmed |
 | | `ctrl+w` | Add a git worktree for a branch |
 | | `P` | Push a branch that has unpushed commits |
 | | `r` | Read the repository again |
