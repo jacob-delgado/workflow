@@ -2,15 +2,15 @@ import { useEffect, useRef } from 'react'
 import type { FollowUp, OpenedPullRequest } from '@/api/generated/types.gen.ts'
 import { useForgeWords } from '@/api/health.ts'
 import { useAsyncAction, type AsyncState } from '@/lib/useAsyncAction.ts'
-import { capitalized, cn } from '@/lib/utils.ts'
+import { cn } from '@/lib/utils.ts'
 import { linkOnIssue, moveToReview } from './followUpApi.ts'
 
-// OpenedOutcome says the pull request opened — with the warning when its
-// reviewers, assignees or labels could not all be added — and offers what the
-// terminal and `workflow pr` offer next: to link it on the branch's issue, then
-// to move that issue to the review status. The panel keeps it mounted above
-// the pull request while its branch stays checked out, so the snapshot that
-// brings the new pull request back does not take the offers, or what they
+// OpenedOutcome follows the line saying the pull request opened: the warning
+// when its reviewers, assignees or labels could not all be added, and what the
+// terminal and `workflow pr` offer next — to link it on the branch's issue,
+// then to move that issue to the review status. The panel keeps it mounted
+// above the pull request while its branch stays checked out, so the snapshot
+// that brings the new pull request back does not take the offers, or what they
 // said, away.
 export function OpenedOutcome({ opened }: { opened: OpenedPullRequest }) {
   const { noun, sigil } = useForgeWords()
@@ -18,7 +18,6 @@ export function OpenedOutcome({ opened }: { opened: OpenedPullRequest }) {
 
   return (
     <div className="flex flex-col gap-2">
-      <p className="text-sm text-success">{capitalized(noun)} opened.</p>
       {opened.warning === undefined || opened.warning === '' ? null : (
         <p role="status" className="text-sm text-warning">
           {opened.warning}
@@ -69,7 +68,10 @@ function offerWords(offer: FollowUp, pull: string, noun: string): OfferWords {
 // it cannot be made twice — and focus lands on what it said.
 function FollowUpOffer({ offer, pull, noun }: { offer: FollowUp; pull: string; noun: string }) {
   const words = offerWords(offer, pull, noun)
-  const { state, error, run } = useAsyncAction(words.act, { fallback: words.fallback })
+  const { state, message, error, run } = useAsyncAction(words.act, {
+    fallback: words.fallback,
+    done: () => words.done,
+  })
   const outcome = useRef<HTMLParagraphElement>(null)
 
   useEffect(() => {
@@ -98,7 +100,7 @@ function FollowUpOffer({ offer, pull, noun }: { offer: FollowUp; pull: string; n
         tabIndex={-1}
         className={cn('text-sm', state === 'error' ? 'text-destructive' : 'text-success')}
       >
-        {outcomeText(state, words.done, error)}
+        {outcomeText(state, message, error)}
       </p>
     </div>
   )

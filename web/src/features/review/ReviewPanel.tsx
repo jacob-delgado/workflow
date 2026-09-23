@@ -11,6 +11,7 @@ import type {
   Review,
 } from '@/api/generated/types.gen.ts'
 import { useSnapshotStore } from '@/api/snapshot.ts'
+import { OutcomeLine, useOutcome } from '@/lib/Outcome.tsx'
 import { useAsyncAction } from '@/lib/useAsyncAction.ts'
 import { cn, splitList } from '@/lib/utils.ts'
 import { EmptyState } from '@/shell/EmptyState.tsx'
@@ -47,20 +48,29 @@ export function ReviewPanel() {
 // BranchReview is the checked-out branch's pull request, or the offer to open
 // one, beneath what the last open answered.
 function BranchReview({ review }: { review: Review }) {
-  // What the open answered, held here — above the switch between offering to
-  // open and showing the pull request — so the snapshot that brings the new pull
-  // request back leaves the outcome and its offers where they were. The outcome
-  // is keyed by its pull request, so a second open offers its own writes rather
-  // than inheriting what the first one's did.
+  // What the open answered, and the line that says so, held here — above the
+  // switch between offering to open and showing the pull request — so the
+  // snapshot that brings the new pull request back leaves the outcome and its
+  // offers where they were. The offers are keyed by their pull request, so a
+  // second open offers its own writes rather than inheriting what the first
+  // one's did.
   const [opened, setOpened] = useState<OpenedPullRequest | null>(null)
+  const outcome = useOutcome()
 
   return (
     <div className="mt-4 flex max-w-2xl flex-col gap-8">
+      {/* The line sits close above the offers it introduces. */}
+      <OutcomeLine said={outcome.said} className={opened === null ? undefined : '-mb-6'} />
       {opened === null ? null : <OpenedOutcome key={opened.pull.url} opened={opened} />}
       {review.found && review.pull ? (
         <PullRequestSummary pull={review.pull} ci={review.ci ?? null} />
       ) : (
-        <OpenPullRequest onOpened={setOpened} />
+        <OpenPullRequest
+          onOpened={(answered, said) => {
+            setOpened(answered)
+            outcome.say(said)
+          }}
+        />
       )}
     </div>
   )
@@ -138,19 +148,24 @@ function PullRequestSummary({ pull, ci }: { pull: PullRequest; ci: Ci | null }) 
 // preview: it composes the proposal, shows it as an editable form, and opens on
 // confirm — pushing the branch first when it is not yet published. Composing and
 // opening are two steps, each its own action. On success it hands what the open
-// answered to the panel, which says so above it, and steps aside until the event
-// stream brings back the new pull request.
-function OpenPullRequest({ onOpened }: { onOpened: (opened: OpenedPullRequest) => void }) {
-  const { noun } = useForgeWords()
+// answered, and what to say of it, to the panel, which says so above it, and
+// steps aside until the event stream brings back the new pull request.
+function OpenPullRequest({
+  onOpened,
+}: {
+  onOpened: (opened: OpenedPullRequest, said: string) => void
+}) {
+  const { noun, sigil } = useForgeWords()
   const compose = useAsyncAction(previewPullRequest, {
     fallback: `A ${noun} could not be composed.`,
   })
-  const open = useAsyncAction(
-    async (request: OpenPullRequestRequest) => {
-      onOpened(await openPr(request))
+  const open = useAsyncAction(openPr, {
+    fallback: `The ${noun} could not be opened.`,
+    done: (opened) => `Opened ${noun} ${sigil}${String(opened.pull.number)}.`,
+    onDone: (said, opened) => {
+      onOpened(opened, said)
     },
-    { fallback: `The ${noun} could not be opened.` },
-  )
+  })
 
   if (open.state === 'done') {
     return null

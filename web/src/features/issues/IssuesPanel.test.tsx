@@ -3,14 +3,14 @@ import userEvent from '@testing-library/user-event'
 import { vi } from 'vitest'
 import type { Issue } from '@/api/generated/types.gen.ts'
 import { useSnapshotStore } from '@/api/snapshot.ts'
-import { makeSnapshot } from '@/test/fixtures.ts'
+import { makeBranch, makeSnapshot } from '@/test/fixtures.ts'
 import { renderWithClient } from '@/test/renderWithClient.tsx'
 import { checkoutBranch } from './checkoutApi.ts'
 import { IssuesPanel } from './IssuesPanel.tsx'
 
 vi.mock('./checkoutApi.ts', async (importOriginal) => ({
   ...(await importOriginal<typeof import('./checkoutApi.ts')>()),
-  checkoutBranch: vi.fn(() => Promise.resolve()),
+  checkoutBranch: vi.fn(() => Promise.resolve(makeBranch())),
 }))
 const mockCheckout = vi.mocked(checkoutBranch)
 

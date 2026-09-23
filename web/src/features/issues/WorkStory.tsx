@@ -2,6 +2,7 @@ import { Check } from 'lucide-react'
 import type { Snapshot, TaskBranch } from '@/api/generated/types.gen.ts'
 import { useForgeWords, type ForgeWords } from '@/api/health.ts'
 import { useSnapshotStore } from '@/api/snapshot.ts'
+import { OutcomeLine, useOutcome, type Teller } from '@/lib/Outcome.tsx'
 import { useAsyncAction } from '@/lib/useAsyncAction.ts'
 import { capitalized, cn } from '@/lib/utils.ts'
 import { useUiStore, type Section } from '@/shell/uiStore.ts'
@@ -175,10 +176,14 @@ function storyNote(branch: TaskBranch | undefined, noun: string): string | null 
   return null
 }
 
+// WorkStory is an issue's stages, with the start or the check-out that moves it
+// along and the line that says what that did — which stays when the snapshot
+// showing the new branch takes the button away.
 export function WorkStory({ issueKey }: { issueKey: string }) {
   const snapshot = useSnapshotStore((state) => state.snapshot)
   const setSection = useUiStore((state) => state.setSection)
   const words = useForgeWords()
+  const outcome = useOutcome()
 
   if (!snapshot) {
     return null
@@ -192,8 +197,9 @@ export function WorkStory({ issueKey }: { issueKey: string }) {
   return (
     <div className="flex flex-col gap-3">
       {note === null ? null : <p className="text-sm text-muted-foreground">{note}</p>}
-      {branch === undefined ? <StartWorkButton issueKey={issueKey} /> : null}
-      {branch && !branch.current ? <CheckoutButton branch={branch.name} /> : null}
+      {branch === undefined ? <StartWorkButton issueKey={issueKey} outcome={outcome} /> : null}
+      {branch && !branch.current ? <CheckoutButton branch={branch.name} outcome={outcome} /> : null}
+      <OutcomeLine said={outcome.said} />
       <ol className="flex flex-col">
         {stages.map((stage, index) => {
           const state = stageState(stage, index, activeIndex)
@@ -228,12 +234,15 @@ export function WorkStory({ issueKey }: { issueKey: string }) {
   )
 }
 
-// CheckoutButton switches the working tree to a branch that is not on HEAD. On
-// success the event stream reflects the switch, so there is nothing to update
-// here; a refusal — a dirty tree — is shown inline for the user to act on.
-function CheckoutButton({ branch }: { branch: string }) {
+// CheckoutButton switches the working tree to a branch that is not on HEAD.
+// Where it went is said in the story's outcome; a refusal — a dirty tree — is
+// shown inline for the user to act on.
+function CheckoutButton({ branch, outcome }: { branch: string; outcome: Teller }) {
   const { state, error, run } = useAsyncAction(() => checkoutBranch(branch), {
     fallback: 'The branch could not be checked out.',
+    done: (checkedOut) => `Checked out ${checkedOut.name}.`,
+    onStart: outcome.clear,
+    onDone: outcome.say,
   })
 
   return (
@@ -258,11 +267,14 @@ function CheckoutButton({ branch }: { branch: string }) {
 }
 
 // StartWorkButton creates and switches to a branch for a not-started issue. The
-// event stream reflects the new branch on success; a refusal (a branch already
+// branch it made is said in the story's outcome; a refusal (a branch already
 // exists) is shown inline.
-function StartWorkButton({ issueKey }: { issueKey: string }) {
+function StartWorkButton({ issueKey, outcome }: { issueKey: string; outcome: Teller }) {
   const { state, error, run } = useAsyncAction(() => startWork(issueKey), {
     fallback: 'Work could not be started.',
+    done: (started) => `Started work on ${started.name}.`,
+    onStart: outcome.clear,
+    onDone: outcome.say,
   })
 
   return (

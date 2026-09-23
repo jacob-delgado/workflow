@@ -3,7 +3,7 @@ import userEvent from '@testing-library/user-event'
 import { vi } from 'vitest'
 import { useHealthStore } from '@/api/health.ts'
 import { useSnapshotStore } from '@/api/snapshot.ts'
-import { gitLabWords, makeHealth, makeSnapshot } from '@/test/fixtures.ts'
+import { gitLabWords, makeBranch, makeHealth, makeSnapshot } from '@/test/fixtures.ts'
 import { useUiStore } from '@/shell/uiStore.ts'
 import { checkoutBranch } from './checkoutApi.ts'
 import { startWork } from './startWorkApi.ts'
@@ -11,11 +11,11 @@ import { WorkStory } from './WorkStory.tsx'
 
 vi.mock('./checkoutApi.ts', async (importOriginal) => ({
   ...(await importOriginal<typeof import('./checkoutApi.ts')>()),
-  checkoutBranch: vi.fn(() => Promise.resolve()),
+  checkoutBranch: vi.fn(() => Promise.resolve(makeBranch())),
 }))
 const mockCheckout = vi.mocked(checkoutBranch)
 
-vi.mock('./startWorkApi.ts', () => ({ startWork: vi.fn(() => Promise.resolve()) }))
+vi.mock('./startWorkApi.ts', () => ({ startWork: vi.fn(() => Promise.resolve(makeBranch())) }))
 const mockStartWork = vi.mocked(startWork)
 
 // offHead is a snapshot with PROJ-2 in flight on a branch that is not on HEAD.
@@ -198,7 +198,7 @@ test('does not offer to check out the branch already on HEAD', () => {
 
 test('checks out the branch when its button is clicked', async () => {
   // Arrange
-  mockCheckout.mockResolvedValueOnce()
+  mockCheckout.mockResolvedValueOnce(makeBranch())
   const user = userEvent.setup()
   offHead()
   render(<WorkStory issueKey="PROJ-2" />)
@@ -252,7 +252,7 @@ test('does not offer to start work on an issue already in flight', () => {
 
 test('starts work when its button is clicked', async () => {
   // Arrange
-  mockStartWork.mockResolvedValueOnce()
+  mockStartWork.mockResolvedValueOnce(makeBranch())
   const user = userEvent.setup()
   useSnapshotStore.setState({ status: 'live', snapshot: makeSnapshot() })
   render(<WorkStory issueKey="PROJ-999" />)

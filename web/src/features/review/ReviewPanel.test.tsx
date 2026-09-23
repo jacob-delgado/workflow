@@ -138,7 +138,7 @@ test('opens a pull request from the composed form on confirm', async () => {
   expect(mockOpenPr).toHaveBeenCalledWith(
     expect.objectContaining({ title: 'fix: redact tokens', base: 'main', draft: false }),
   )
-  expect(await screen.findByText(/pull request opened/i)).toBeTruthy()
+  expect(await screen.findByText('Opened pull request #7.')).toBeTruthy()
 })
 
 test('opens a pull request with reviewers, assignees and labels', async () => {
@@ -187,7 +187,7 @@ test('shows the warning when a pull opens but its reviewers could not be added',
   await user.click(screen.getByRole('button', { name: 'Open pull request' }))
 
   // Assert
-  expect(await screen.findByText(/pull request opened/i)).toBeTruthy()
+  expect(await screen.findByText('Opened pull request #7.')).toBeTruthy()
   expect(screen.getByText(/reviewers could not all be added/i)).toBeTruthy()
 })
 
@@ -222,7 +222,7 @@ test('locks the confirm while the pull request is opening', async () => {
   expect(mockOpenPr).toHaveBeenCalledTimes(1)
 
   releaseOpen()
-  await screen.findByText(/pull request opened/i)
+  await screen.findByText('Opened pull request #7.')
 })
 
 test('keeps the form and shows the reason when opening is refused', async () => {
@@ -318,7 +318,7 @@ test('offers and opens a merge request in GitLab words throughout', async () => 
   await user.click(screen.getByRole('button', { name: 'Open merge request' }))
 
   // Assert: and so does the outcome
-  expect(await screen.findByText('Merge request opened.')).toBeTruthy()
+  expect(await screen.findByText('Opened merge request !7.')).toBeTruthy()
   expect(document.body.textContent).not.toMatch(/pull request/i)
 })
 

@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef } from 'react'
 import { useForm } from 'react-hook-form'
+import type { Branch } from '@/api/generated/types.gen.ts'
 import { useConfig } from '@/features/settings/configApi.ts'
+import { OutcomeLine, useOutcome } from '@/lib/Outcome.tsx'
 import { useAsyncAction } from '@/lib/useAsyncAction.ts'
 import { commitChanges } from './commitApi.ts'
 
@@ -30,7 +32,7 @@ interface CommitFields {
 
 // CommitForm commits the staged changes with a Conventional Commit message. The
 // server assembles the message and adds the Refs trailer for the branch's issue;
-// on success the event stream reflects the commit, and a refusal is shown inline.
+// it says which commit it made, and a refusal is shown inline.
 // It stays in place while nothing is staged — blocked says why, in the form,
 // with its button off — so a message can be written before the files are. It
 // opens on the scope the server suggests, the terminal composer's own.
@@ -58,6 +60,7 @@ export function CommitForm({
     [setValue],
   )
   const scopeSuggestion = useScopeSuggestion(suggestedScope, applyScope)
+  const outcome = useOutcome()
 
   // Keep the chosen type one the convention allows, so a team whose types load
   // after the form, or exclude "fix", does not submit a type the server rejects.
@@ -69,7 +72,7 @@ export function CommitForm({
 
   const commit = useAsyncAction(
     async (fields: CommitFields) => {
-      await commitChanges({
+      const committed = await commitChanges({
         type: fields.type,
         subject: fields.subject,
         scope: fields.scope,
@@ -89,8 +92,15 @@ export function CommitForm({
         breaking: false,
       })
       scopeSuggestion.release()
+
+      return committed
     },
-    { fallback: 'The commit could not be created.' },
+    {
+      fallback: 'The commit could not be created.',
+      done: (committed, fields) => `Committed ${headline(committed, fields)}.`,
+      onStart: outcome.clear,
+      onDone: outcome.say,
+    },
   )
   const onSubmit = handleSubmit((fields) => commit.run(fields))
 
@@ -151,6 +161,7 @@ export function CommitForm({
           {commit.state === 'running' ? 'Committing…' : 'Commit staged changes'}
         </button>
         {blocked === null ? null : <p className="text-sm text-muted-foreground">{blocked}</p>}
+        <OutcomeLine said={outcome.said} />
         {commit.state === 'error' ? (
           <p role="alert" className="text-sm whitespace-pre-line text-destructive">
             {commit.error}
@@ -159,6 +170,27 @@ export function CommitForm({
       </div>
     </form>
   )
+}
+
+// headline names a commit the branch now carries: its short hash and the
+// subject git recorded — the newest commit, when it is the one on HEAD — or,
+// when the branch's list stops short of HEAD, the header the fields make.
+function headline(branch: Branch, fields: CommitFields): string {
+  const newest = branch.commits.at(-1)
+  const subject =
+    newest !== undefined && branch.head.startsWith(newest.hash) ? newest.subject : header(fields)
+
+  return `${branch.head.slice(0, 7)} ${subject}`
+}
+
+// header is the Conventional Commit header the fields make, as the server
+// assembles it: the type, the scope in parentheses when there is one, a ! for a
+// breaking change, then the subject.
+function header(fields: CommitFields): string {
+  const scope = fields.scope.trim()
+  const scoped = scope === '' ? fields.type : `${fields.type}(${scope})`
+
+  return `${scoped}${fields.breaking ? '!' : ''}: ${fields.subject.trim()}`
 }
 
 // useScopeSuggestion keeps the scope field on the scope the stream suggests

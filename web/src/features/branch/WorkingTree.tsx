@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef } from 'react'
 import type { Change } from '@/api/generated/types.gen.ts'
 import { useAsyncAction, type AsyncState } from '@/lib/useAsyncAction.ts'
 import { cn } from '@/lib/utils.ts'
@@ -72,13 +72,12 @@ function stagedTag(change: Change): string {
 function ChangeRow({ change }: { change: Change }) {
   const stage = offersStage(change)
   const verb = stage ? 'Stage' : 'Unstage'
-  const [said, setSaid] = useState('')
-  const { state, error, run } = useAsyncAction(
-    async () => {
-      await (stage ? stageFile(change.path) : unstageFile(change.path))
-      setSaid(`${stage ? 'Staged' : 'Unstaged'} ${change.path}.`)
+  const { state, message, error, run } = useAsyncAction(
+    () => (stage ? stageFile(change.path) : unstageFile(change.path)),
+    {
+      fallback: `${change.path} could not be ${stage ? 'staged' : 'unstaged'}.`,
+      done: () => `${stage ? 'Staged' : 'Unstaged'} ${change.path}.`,
     },
-    { fallback: `${change.path} could not be ${stage ? 'staged' : 'unstaged'}.` },
   )
   const outcome = useFocusOnDone(state)
 
@@ -102,7 +101,7 @@ function ChangeRow({ change }: { change: Change }) {
           {verb}
         </button>
       </div>
-      <Outcome ref={outcome} state={state} text={state === 'error' ? error : said} />
+      <Outcome ref={outcome} state={state} text={state === 'error' ? error : message} />
     </li>
   )
 }
@@ -110,8 +109,9 @@ function ChangeRow({ change }: { change: Change }) {
 // StageAll stages every change the index does not hold yet, as the terminal's
 // `a` does, and says how it went.
 function StageAll({ anythingToStage }: { anythingToStage: boolean }) {
-  const { state, error, run } = useAsyncAction(stageEverything, {
+  const { state, message, error, run } = useAsyncAction(stageEverything, {
     fallback: 'The changes could not be staged.',
+    done: () => 'Staged every change.',
   })
   const outcome = useFocusOnDone(state)
 
@@ -127,11 +127,7 @@ function StageAll({ anythingToStage }: { anythingToStage: boolean }) {
       >
         {state === 'running' ? 'Staging…' : 'Stage all'}
       </button>
-      <Outcome
-        ref={outcome}
-        state={state}
-        text={state === 'error' ? error : 'Staged every change.'}
-      />
+      <Outcome ref={outcome} state={state} text={state === 'error' ? error : message} />
     </div>
   )
 }

@@ -154,53 +154,27 @@ horizontal axis.
 
 ## The web
 
-### UX-77 Four of twelve writes succeed in silence
+### UX-78 Focus is dropped when a step swaps its control, and on a section change
 
 Impact: high · Effort: small
 
-**Today.** `Pull request opened.` (`web/src/features/review/OpenedOutcome.tsx:21`), `Announced…`
-(`web/src/features/messaging/MessagingPanel.tsx:122`) and `Saved.` (`web/src/features/settings/SettingsPanel.tsx:310`) confirm,
-and so do the link and the move offered after opening, each in a
-`role="status"` line (`FollowUpOffer`, `web/src/features/review/OpenedOutcome.tsx:70`), and a
-file's stage or unstage and Stage all, each in its own (`ChangeRow`,
-`web/src/features/branch/WorkingTree.tsx:72`; `StageAll`, `:112`).
-Commit (`web/src/features/branch/CommitForm.tsx:70`), push (`web/src/features/branch/BranchPanel.tsx:91`), check-out and
-start-work say nothing: `useAsyncAction`, which every write now shares, ends in
-`done` (`web/src/lib/useAsyncAction.ts:33`), but none of their buttons reads
-it; the snapshot is left to confirm them, but the stream re-pushes on a 5 s
-tick (`internal/webserver/stream.go:20`), so a commit is silent for up to five seconds. And two of the successes that do exist —
-`Pull request opened.` and `Announced…` — are plain `<p>` elements, not live
-regions: announced to nobody using a screen reader.
-
-**Instead.** Every write ends in a `role="status"` line that keeps the
-button's verb ("Pushed NAME", "Committed abc123 subject").
-
-**Done when.** A table test over every write finds a status region for
-each.
-
-### UX-78 Focus is dropped after every action
-
-Impact: high · Effort: small
-
-**Today.** The only `.focus()` calls under `web/src` are the issue list's
-Load more, which hands focus to the first issue a page adds
-(`web/src/features/issues/IssuesPanel.tsx:145`), and the offers after
-opening and the staging buttons, which hand it to what they said
-(`web/src/features/review/OpenedOutcome.tsx:77`,
-`web/src/features/branch/WorkingTree.tsx:153`). On success
-`OpenPullRequest` unmounts the form for the outcome the panel shows above it
-(`web/src/features/review/ReviewPanel.tsx:155`); `AnnounceControls` swaps its
-form for a `<p>` (`web/src/features/messaging/MessagingPanel.tsx:120`);
-`PushButton` swaps its idle and confirming states (`web/src/features/branch/BranchPanel.tsx:95`).
+**Today.** A write's outcome takes focus when the snapshot confirming it takes
+the write's control away (`OutcomeLine`, `web/src/lib/Outcome.tsx:52`), and
+so do the offers after opening and the staging buttons. The steps before a
+write still drop it: `PushButton` swaps its button for the confirm
+(`web/src/features/branch/BranchPanel.tsx:105`), `AnnounceControls` its opener
+for the preview, and `OpenPullRequest` its opener for the form
+(`web/src/features/review/ReviewPanel.tsx:170`), and Cancel swaps each back.
 The focused button disappears and focus falls to `<body>`. Changing section
 from the nav rail or a work-story row never moves focus to `<main>`, though
 `tabIndex={-1}` is there for it (`web/src/shell/AppShell.tsx:68`).
 
-**Instead.** Focus the outcome when a form closes; focus `<main>` on a
-section change.
+**Instead.** Hand focus to the next step as a control swaps — the confirm's
+question, the composed message, the form's title — back to the opener on
+Cancel, and to `<main>` on a section change.
 
-**Done when.** After a faked open succeeds, `document.activeElement` is the
-outcome.
+**Done when.** After *Push branch*, `document.activeElement` is in the
+confirm, and after a nav click it is `<main>`.
 
 ### UX-79 The fallback says what could not happen; the server sometimes says nothing
 
@@ -210,9 +184,9 @@ Impact: medium · Effort: small
 uncommitted changes; commit or stash them before switching`, `internal/webserver/checkout.go:19`;
 `nothing is staged to commit`, `internal/webserver/commit.go:21`). But the client fallbacks
 are vague and near-apologetic — `The branch could not be checked out.`
-(`web/src/features/issues/IssuesPanel.tsx:336`), `Work could not be started.` (`web/src/features/issues/WorkStory.tsx:265`),
-`The push failed.` (`web/src/features/branch/BranchPanel.tsx:91`), `The commit could not be
-created.` (`web/src/features/branch/CommitForm.tsx:93`) — and three handlers replace the tool's
+(`web/src/features/issues/IssuesPanel.tsx:356`), `Work could not be started.` (`web/src/features/issues/WorkStory.tsx:289`),
+`The push failed.` (`web/src/features/branch/BranchPanel.tsx:98`), `The commit could not be
+created.` (`web/src/features/branch/CommitForm.tsx:99`) — and three handlers replace the tool's
 reason with one of those sentences: `internal/webserver/checkout.go:44`, `internal/webserver/branchcreate.go:44`,
 `internal/webserver/announce.go:53`. `writeResponseError` answers `something went wrong`
 (`internal/webserver/errors.go:80`). A user gets a dead end with no next step.
@@ -232,12 +206,12 @@ Impact: low · Effort: small
 **Today.** Good: `Select an issue to see its detail.`, `Open a pull request
 first — there is nothing to announce yet.`, `{service} is not configured.
 Add a token or webhook in Settings.` Dead ends: `This directory is not a
-Git repository.` (`web/src/features/branch/BranchPanel.tsx:22`) and `The configuration could not be
+Git repository.` (`web/src/features/branch/BranchPanel.tsx:23`) and `The configuration could not be
 loaded.` (`web/src/features/settings/SettingsPanel.tsx:18`) offer nothing to do. And the one condition
 "no snapshot yet" reads `Connecting to the tracker…`, `Connecting to the
 workspace…`, `Connecting to the forge…` and `Connecting…` in four panels
-(`web/src/features/issues/IssuesPanel.tsx:19`, `web/src/features/branch/BranchPanel.tsx:14`, `web/src/features/review/ReviewPanel.tsx:37`,
-`web/src/features/messaging/MessagingPanel.tsx:13`).
+(`web/src/features/issues/IssuesPanel.tsx:20`, `web/src/features/branch/BranchPanel.tsx:15`, `web/src/features/review/ReviewPanel.tsx:38`,
+`web/src/features/messaging/MessagingPanel.tsx:14`).
 
 **Instead.** One connecting line, in the shell; a retry on the config
 error; the not-a-repository state says what a repository would give it.
@@ -250,12 +224,12 @@ button.
 Impact: medium · Effort: small
 
 **Today.** Every disabled button uses `disabled:opacity-60` — fifteen
-places (`web/src/features/issues/IssuesPanel.tsx:348`, `web/src/features/issues/WorkStory.tsx:247`, `:276`,
-`web/src/features/branch/BranchPanel.tsx:125`, `web/src/features/branch/CommitForm.tsx:149`,
-`web/src/features/branch/WorkingTree.tsx:184` — the staging buttons' shared
-class — `web/src/features/review/ReviewPanel.tsx:188`, `:318`,
-`:325`, `web/src/features/review/OpenedOutcome.tsx:90`,
-`web/src/features/messaging/MessagingPanel.tsx:154`, `:200`, `:215`, `:223`,
+places (`web/src/features/issues/IssuesPanel.tsx:370`, `web/src/features/issues/WorkStory.tsx:265`, `:302`,
+`web/src/features/branch/BranchPanel.tsx:135`, `web/src/features/branch/CommitForm.tsx:158`,
+`web/src/features/branch/WorkingTree.tsx:180` — the staging buttons' shared
+class — `web/src/features/review/ReviewPanel.tsx:203`, `:333`,
+`:340`, `web/src/features/review/OpenedOutcome.tsx:92`,
+`web/src/features/messaging/MessagingPanel.tsx:181`, `:227`, `:242`, `:250`,
 `web/src/features/settings/SettingsPanel.tsx:305`) — which CLAUDE.md's accessibility rule names as the
 thing not to do (opacity dims text below the contrast floor) and which axe
 does not catch on disabled controls. The app has only two `transition-colors`
@@ -315,14 +289,14 @@ periwinkle accent `#8b93f8` chosen "clear of the green/amber/red the status
 lights own" (`web/src/index.css:24`) plus a three-color CI language; Jira is
 not blue, git is not yellow, the forge is not green anywhere; the `NavRail`
 icons are all muted (`web/src/shell/NavRail.tsx:30`). State marks are the web's own:
-`StageMarker` (`web/src/features/issues/WorkStory.tsx:289`) invents three, and `ciDot`
-(`web/src/features/review/ReviewPanel.tsx:20`) and `StreamStatus` (`StreamStatus.tsx:4`) are
+`StageMarker` (`web/src/features/issues/WorkStory.tsx:315`) invents three, and `ciDot`
+(`web/src/features/review/ReviewPanel.tsx:21`) and `StreamStatus` (`StreamStatus.tsx:4`) are
 color-only dots of one shape (mitigated by a text label beside each). And
 the page shows the template tells the interface avoids: nine `uppercase`
 eyebrow headings from seven class strings (`web/src/features/settings/SettingsPanel.tsx:324`,
-`web/src/features/branch/BranchPanel.tsx:67`, `web/src/features/branch/WorkingTree.tsx:21`, `web/src/features/issues/IssueDetailPanel.tsx:8`
-— the work story, description and comments share it — `web/src/features/review/ReviewPanel.tsx:105`,
-`web/src/features/messaging/MessagingPanel.tsx:41`, `:61`) as the *only* heading treatment; no type or spacing tokens (raw `text-2xl`
+`web/src/features/branch/BranchPanel.tsx:73`, `web/src/features/branch/WorkingTree.tsx:21`, `web/src/features/issues/IssueDetailPanel.tsx:8`
+— the work story, description and comments share it — `web/src/features/review/ReviewPanel.tsx:115`,
+`web/src/features/messaging/MessagingPanel.tsx:41`, `:47`) as the *only* heading treatment; no type or spacing tokens (raw `text-2xl`
 … `text-xs`, `gap-8` … `gap-0.5` per component); one radius on everything
 (`rounded-md` ×28). To its credit: no shadows, no gradients, no `→`, and a
 real color-token system with hand-picked contrast (`index.css:9-96`).
@@ -345,10 +319,10 @@ Impact: medium · Effort: medium
 
 **Today.** There is not one `sm:`, `md:`, `lg:` or `xl:` utility in any
 `.tsx` under `web/src`. A `w-20` rail (`web/src/shell/NavRail.tsx:14`) beside a `w-80
-shrink-0` issues list (`web/src/features/issues/IssuesPanel.tsx:102`) and a `flex-1` detail squeezes
+shrink-0` issues list (`web/src/features/issues/IssuesPanel.tsx:108`) and a `flex-1` detail squeezes
 the detail to nothing near 640 px; definition lists use fixed first columns
-(`grid-cols-[6rem_1fr]` `web/src/features/branch/BranchPanel.tsx:49`, `[8rem_1fr]`
-`web/src/features/messaging/MessagingPanel.tsx:31`, `[9rem_1fr]` `web/src/features/review/ReviewPanel.tsx:91`); panels cap at
+(`grid-cols-[6rem_1fr]` `web/src/features/branch/BranchPanel.tsx:54`, `[8rem_1fr]`
+`web/src/features/messaging/MessagingPanel.tsx:32`, `[9rem_1fr]` `web/src/features/review/ReviewPanel.tsx:101`); panels cap at
 `max-w-2xl` and never reflow; the issues `<ul>` is not scrollable, so a long
 list scrolls the page. The viewport meta tag is present (`index.html:5`) and
 nothing responds to it. (From code; no viewport was rendered.)
