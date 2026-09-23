@@ -162,7 +162,7 @@ func statusesOf(ctx context.Context, dirs []string, requestLog *wiring.RequestLo
 
 	for _, dir := range dirs {
 		conn := connectAt(ctx, dir, home, requestLog)
-		facts, err := statusFromSeams(seamsFor(conn))
+		facts, err := statusOf(conn)
 
 		statuses = append(statuses, directoryStatus{
 			label: repoLabel(dir), facts: facts, ascii: conn.cfg.UI.ASCII, err: err,
@@ -170,6 +170,17 @@ func statusesOf(ctx context.Context, dirs []string, requestLog *wiring.RequestLo
 	}
 
 	return statuses
+}
+
+// statusOf gathers the status of the repository a connection wired, refusing
+// one whose configuration file could not be read.
+func statusOf(conn connection) (statusFacts, error) {
+	err := conn.unreadConfiguration()
+	if err != nil {
+		return statusFacts{}, err
+	}
+
+	return statusFromSeams(seamsFor(conn))
 }
 
 // seamsFor reads the repository, forge and Jira a connection wired.

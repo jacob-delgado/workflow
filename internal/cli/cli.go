@@ -6,6 +6,7 @@ package cli
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -171,7 +172,7 @@ func newRootCmd(prompt Prompt, run runTUI, serve runWeb) *cobra.Command {
 		SilenceErrors: true,
 		Args:          cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			conn, err := connect(cmd)
+			conn, err := connectLeniently(cmd)
 			if err != nil {
 				return err
 			}
@@ -302,8 +303,28 @@ type connection struct {
 }
 
 // connect wires a command to its working directory, recording each request in
-// the --log file when one is named.
+// the --log file when one is named. A configuration file that is there but
+// cannot be read is refused rather than replaced by the defaults, which would
+// act on settings nobody chose; no file at all is not an error.
 func connect(cmd *cobra.Command) (connection, error) {
+	conn, err := connectLeniently(cmd)
+	if err != nil {
+		return connection{}, err
+	}
+
+	err = conn.unreadConfiguration()
+	if err != nil {
+		conn.closeLog()
+
+		return connection{}, err
+	}
+
+	return conn, nil
+}
+
+// connectLeniently is connect keeping a configuration that did not load, for
+// the interface and the web server, which each show the user why.
+func connectLeniently(cmd *cobra.Command) (connection, error) {
 	dir, err := os.Getwd()
 	if err != nil {
 		return connection{}, fmt.Errorf("determining the working directory: %w", err)
@@ -336,6 +357,16 @@ func connectAt(ctx context.Context, dir, home string, requestLog *wiring.Request
 		deps:     wiring.Deps(ctx, cfg, where, requestLog),
 		closeLog: func() {},
 	}
+}
+
+// unreadConfiguration is why the configuration file in effect could not be
+// read, or nil when it was read or there is none.
+func (c connection) unreadConfiguration() error {
+	if errors.Is(c.loadErr, config.ErrNotFound) {
+		return nil
+	}
+
+	return c.loadErr
 }
 
 // requestLogFor opens the request log the command's --log names, or none when

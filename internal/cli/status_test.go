@@ -133,6 +133,22 @@ func TestStatusAcrossSaysWhyARepositoryCannotBeRead(t *testing.T) {
 	wantExit(t, err, 1)
 }
 
+func TestStatusAcrossRefusesADirectoryWhoseConfigurationCannotBeRead(t *testing.T) {
+	// Arrange
+	repo := featureRepo(t)
+	writeFile(t, repo, "{not json")
+
+	// Act
+	output, err := run(t, t.TempDir(), "status", repo)
+
+	// Assert
+	if strings.Contains(output, "PROJ-2") || !strings.Contains(output, "invalid") {
+		t.Errorf("status read a repository whose configuration it could not:\n%s", output)
+	}
+
+	wantExit(t, err, 3)
+}
+
 func TestStatusAcrossAsJSONIsAnArray(t *testing.T) {
 	// Arrange
 	repo := featureRepo(t)

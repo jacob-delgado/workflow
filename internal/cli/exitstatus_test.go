@@ -173,6 +173,65 @@ func TestAnInterruptedGitCommandExitsAsInterrupted(t *testing.T) {
 	wantExit(t, err, 130)
 }
 
+func TestEveryCommandRefusesAConfigurationItCannotRead(t *testing.T) {
+	// A file that exists but does not parse is not replaced by the defaults: a
+	// command run on settings nobody chose would act on the wrong things.
+	cases := [][]string{
+		strings.Fields("status"),
+		strings.Fields("reviews"),
+		strings.Fields("standup --no-edit"),
+		strings.Fields("branch PROJ-1"),
+		strings.Fields("pr --dry-run"),
+		strings.Fields("announce --dry-run"),
+	}
+
+	for _, args := range cases {
+		name := strings.Join(args, " ")
+		t.Run(name, func(t *testing.T) {
+			// Arrange
+			dir := t.TempDir()
+			writeFile(t, dir, "{not json")
+
+			// Act
+			_, err := run(t, dir, args...)
+
+			// Assert
+			if !errors.Is(err, config.ErrInvalid) {
+				t.Errorf("%s with a malformed configuration = %v, want it refused", name, err)
+			}
+
+			wantExit(t, err, 3)
+		})
+	}
+}
+
+func TestACommandRefusesAConfigurationItCannotOpen(t *testing.T) {
+	// Arrange
+	if os.Geteuid() == 0 {
+		t.Skip("root opens a file whatever its mode, so the sealed one would be read")
+	}
+
+	// A repository, so a command falling back to the defaults would succeed
+	// rather than fail for some other reason.
+	repo := featureRepo(t)
+	path := writeFile(t, repo, `{}`)
+
+	err := os.Chmod(path, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Act
+	output, err := run(t, repo, "status")
+
+	// Assert
+	if err == nil || errors.Is(err, config.ErrInvalid) || strings.Contains(output, "PROJ-2") {
+		t.Errorf("status with a configuration it cannot open = %v, want it refused as unopened:\n%s", err, output)
+	}
+
+	wantExit(t, err, 1)
+}
+
 func TestExitStatusPutsMisuseBeforeEveryOtherKind(t *testing.T) {
 	// Arrange
 	_, misuse := run(t, t.TempDir(), "status", "--no-such-flag")

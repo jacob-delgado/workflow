@@ -70,14 +70,14 @@ them, re-counted at this commit.
 
 Impact: high · Effort: small
 
-**Today.** Errors go to stderr (`SilenceErrors`, `internal/cli/cli.go:171`; `cmd/workflow/main.go:37`)
+**Today.** Errors go to stderr (`SilenceErrors`, `internal/cli/cli.go:172`; `cmd/workflow/main.go:37`)
 and prompts go to stderr (`terminalPrompt`, `cmd/workflow/main.go:51`) — correct,
 and so does `config show`'s path header, leaving its stdout JSON alone
 (`runConfigShow`, `internal/cli/config_cmd.go:291`). But the gitignore
 **warning** (`warnIfNotIgnored`, `internal/cli/config_cmd.go:284`), the
 `Not posted.`/`Not opened.` decline notices and the `dry run: would …` lines
 (`writeOptions.proceed`, `internal/cli/scriptable.go:53`, `:68`), the web
-server's `serving http://…` banner (`internal/cli/cli.go:261`), and
+server's `serving http://…` banner (`internal/cli/cli.go:262`), and
 `standup`'s and `config init`'s own notices all go to stdout, where a script
 capturing the artifact gets prose mixed into it. No test pins any of this
 to a stream: the harness can keep them apart (`runStreams`,
@@ -95,11 +95,11 @@ of the thing created, the standup draft; stderr carries everything said
 Impact: medium · Effort: small
 
 **Today.** `--dry-run`, `--log` and `--web` are declared on `root.Flags()`
-(`internal/cli/cli.go:198-203`), not `PersistentFlags()`, so `workflow --dry-run pr` and
+(`internal/cli/cli.go:199-204`), not `PersistentFlags()`, so `workflow --dry-run pr` and
 `workflow --log f status` are unknown-flag errors; the write commands
 declare their own, unrelated `--dry-run` (`internal/cli/scriptable.go:36`) with different
 help; and every subcommand passes `nil` for the request log, so the `--log`
-facility the root's help advertises for bug reports (`internal/cli/cli.go:202`) works
+facility the root's help advertises for bug reports (`internal/cli/cli.go:203`) works
 only for the interface (DEBT-51).
 
 **Instead.** `--dry-run` and `--log` persistent on the root, declared once;
@@ -147,7 +147,7 @@ redacted file it would write.
 
 Impact: medium · Effort: small
 
-**Today.** `--version` works (`Version: buildinfo.Current()`, `internal/cli/cli.go:169`),
+**Today.** `--version` works (`Version: buildinfo.Current()`, `internal/cli/cli.go:170`),
 but `cmd/docsgen/main.go` never calls cobra's `InitDefaultVersionFlag`, so
 `docs/content/docs/reference/workflow.md` lists `--dry-run`, `--help`,
 `--log` and `--web` only; `help` and `completion` have no page. And
@@ -168,7 +168,7 @@ and a scripting page in the site.
 
 Impact: low · Effort: small
 
-**Today.** `SilenceUsage` and `SilenceErrors` on the root (`internal/cli/cli.go:170`) are
+**Today.** `SilenceUsage` and `SilenceErrors` on the root (`internal/cli/cli.go:171`) are
 inherited by every subcommand, and cobra gates its "Run 'workflow --help'
 for usage." hint and its suggestion list on `!SilenceErrors`. A mistyped command name prints `workflow: unknown command …` and nothing else.
 
@@ -278,7 +278,7 @@ Impact: low · Effort: medium
 
 **Today.** No command declares a single shorthand — there is no `VarP(`
 call in `internal/cli` — so `-n`, `-y`, `-j` do not exist; `status` emits
-`●◐✗○` (`statusGlyph`, `internal/cli/status.go:390`) with ASCII selectable only through
+`●◐✗○` (`statusGlyph`, `internal/cli/status.go:401`) with ASCII selectable only through
 `ui.ascii` in the file, no `--plain`; `standup` has no `--json`; `pr` has no
 draft, base, reviewer, title or body flag; `announce` has no `--channel`
 (the channel comes from `messaging.channel` alone); both `pr` and the web
