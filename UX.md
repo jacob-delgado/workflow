@@ -56,8 +56,8 @@ them, re-counted at this commit.
 
 | The promise | Where it is made | Kept? |
 | --- | --- | --- |
-| "a key it does not show does nothing" | No longer stated anywhere; the sentence the previous edition cited at `usage.md:55` is gone. Folds into the next row. | — |
-| "`?` lists every key" | `docs/content/docs/usage.md:62` | **Yes, by construction.** Help is generated from the bindings (`internal/tui/keys.go:134` `helpBuilder.place`, rendered at `internal/tui/render.go:218`): 57 of 57. The one guard is that construction; `internal/tui/render.go:232` skips a binding with empty help silently, and the tests are three-string spot checks (`focus_test.go:124`). |
+| "a key it does not show does nothing" | No longer stated anywhere; the sentence the previous edition cited at `docs/content/docs/usage.md:55` is gone. Folds into the next row. | — |
+| "`?` lists every key" | `docs/content/docs/usage.md:62` | **Yes, by construction.** Help is generated from the bindings (`internal/tui/keys.go:134` `helpBuilder.place`, rendered at `internal/tui/render.go:219`): 57 of 57. The one guard is that construction; `internal/tui/render.go:233` skips a binding with empty help silently, and the tests are three-string spot checks (`focus_test.go:124`). |
 | "the one way the interface says something broke" | `wording`, `internal/tui/failure.go:63` | **Yes: every site that renders an error's text.** Each tells it through `errorSentence` (`internal/tui/failure.go:100`), which words every sentinel the seams return briefly and in full: 6 panes, the configuration screen, 11 `pinnedOutcome` overlays and the 2 details that repeat a summary row's failure beneath it through `failureBlock` (`internal/tui/failure.go:395`), 12 one-failure rows through `failureLine`, 4 rail and summary rows through `failureSummary`, and 11 failure notices through `noticedFailure`, drawn in the failure style, the merge's and the re-run's led by what failed so a clipped row still names it; a run's headline names the step a failure status stopped, and a pull request opened without every reviewer says why in brief. The 3 guidance notices stay plain, since red means something broke. The width-one glyph-only marks — a failed check, job, stage or review CI — the three rails that point at their detail, and the branch creator's fixed "could not fetch" line carry no error text to word. |
 | "Nothing outward facing is sent without" a last look | `internal/tui/comment.go:64` | **Yes: 18 of 18.** Every outward act waits on a preview or a confirmation; the push, `R`'s re-run of CI and `u`'s rebase share one last look, `lastLook` (`internal/tui/overlay.go:139`). |
 | "a refused change must never go unseen" | `internal/tui/picker.go:269` | **Yes: 14 of 14.** Every overlay that sends a request guards it while in flight (the previous edition counted 1 of 7), and every one keeps a refusal in the overlay, where it happened, until `esc` — the merge and finish previews last, through `pinnedOutcome` (`internal/tui/failure.go:413`). |
@@ -201,14 +201,14 @@ where the interface cycles them (`ctrl+t`).
 
 Impact: medium · Effort: small
 
-**Today.** `footerKeys` (`internal/tui/render.go:343`) shows each pane's verbs. The
+**Today.** `footerRow` (`internal/tui/render.go:338`) shows each pane's verbs. The
 Issues pane answers `a` assign, `w` log work, `/` filter, and `enter`/`esc`
 in the collapsed layout (`issuekeys.go:22`, `:46`, `:48`, `:81`, `:85`), but
 none of the five reaches the footer. Two keys are shown where they do not
-work: `ctrl+w` (worktree) is filed under "Branch and Commits" (`keys.go:225`)
+work: `ctrl+w` (worktree) is filed under "Branch and Commits" (`internal/tui/keys.go:225`)
 and listed under pane 2 in `docs/content/docs/usage.md:91`, but only the branch creator
 answers it (`internal/tui/branch.go:404`); `w` post-when-green is filed under "Review and
-Slack" (`keys.go:245`) and listed under pane 5 in `docs/content/docs/usage.md:103`, but only the
+Slack" (`internal/tui/keys.go:245`) and listed under pane 5 in `docs/content/docs/usage.md:103`, but only the
 preview answers it (`internal/tui/messaging.go:367`).
 
 **Instead.** The Issues pane's `keys(m)` includes the five when their seams
@@ -226,7 +226,7 @@ Impact: low · Effort: medium
 **Today.** `NO_COLOR` and `ui.color: never` keep bold and faint (`internal/tui/tui.go:139`);
 `ui.ascii` swaps glyphs and borders (`glyphs.go:43`); escapes in server text
 are neutralized. But there is no screen-reader mode; the alternate screen
-is unconditional (`internal/tui/render.go:37` `view.AltScreen = true`), so nothing the
+is unconditional (`internal/tui/render.go:38` `view.AltScreen = true`), so nothing the
 interface prints survives quitting; `ui.color` has no `always` for a piped
 terminal that does support color; and the 150 ms detail delay
 (`internal/tui/detail.go:21`) is fixed.
@@ -256,7 +256,7 @@ URL so it can be edited where it lives.
 
 Impact: low · Effort: small
 
-**Today.** `up/k`, `down/j`, `pgup/K`, `pgdn/J` (`keys.go:200`). No `h`/`l`
+**Today.** `up/k`, `down/j`, `pgup/K`, `pgdn/J` (`internal/tui/keys.go:200`). No `h`/`l`
 (`←`/`→` are cycle-type and cycle-channel only), no `g`/`G` to jump to the
 ends of a list or the detail.
 

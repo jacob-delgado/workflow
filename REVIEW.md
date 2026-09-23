@@ -118,13 +118,13 @@ gap, and which phase closes it.
 
 | # | Action | CLI | TUI | Web | Warranted? |
 | --- | --- | --- | --- | --- | --- |
-| 39 | Read the config, redacted | Y (`config show`) | P (`internal/tui/render.go:364`) | Y | Fine as is |
+| 39 | Read the config, redacted | Y (`config show`) | P (`internal/tui/render.go:397`) | Y | Fine as is |
 | 40 | Write / initialize the config | Y (`config init`) | N | P (7 sections; five carried but not editable) | Interface: `config init` + `doctor` are the path — no. Web remainder: UX-87 |
-| 41 | Doctor | Y | N | N | Reasonable CLI-only; the interface points at it (`internal/tui/render.go:384`) |
+| 41 | Doctor | Y | N | N | Reasonable CLI-only; the interface points at it (`internal/tui/render.go:417`) |
 | 42 | Status across the loop | Y (`status DIR…`) | Y (the spine) | Y (`WorkStory`) | — |
 | 43 | Dry run | Y (one persistent `--dry-run` since Phase 2, `internal/cli/cli.go:204`) | Y (per seam, `dryrun.go:25`) | Y since Phase 3 — a read-only banner (`web/src/shell/AppShell.tsx:54`) and one hold over every write before it is sent (`web/src/api/client.ts:24`), over the server's 403 (`guard.go:46`) | — |
 | 44 | Request log `--log` | Y (persistent since Phase 2, `internal/cli/cli.go:206`) | Y | Y | — |
-| 45 | Help / discoverability | P (no hint on a typo, `internal/cli/cli.go:174`) | P (`?` 57/57; five Issues keys off the footer, `internal/tui/render.go:343`) | n/a | Phase 8 (UX-56), Phase 7 (UX-63); web `?` idea, UX-88 |
+| 45 | Help / discoverability | P (no hint on a typo, `internal/cli/cli.go:174`) | P (`?` 57/57; five Issues keys off the footer, `internal/tui/render.go:338`) | n/a | Phase 8 (UX-56), Phase 7 (UX-63); web `?` idea, UX-88 |
 | 46 | Version | Y | n/a | Y since Phase 3 — in the header (`web/src/shell/AppShell.tsx:43`) | — |
 
 ## Where a surface breaks a convention
@@ -222,7 +222,7 @@ of DEBT-62 and DEBT-65.
 - Delete `//nolint:slicesbackward` at `internal/hooks/generate.go:384` (not
   a linter) and *try* deleting its four `modernize` siblings
   (`internal/gitrepo/log.go:51`, `internal/gitrepo/status.go:129`, `internal/gitrepo/branch.go:330`, `:357`):
-  `internal/tui` ranges `strings.SplitSeq` unguarded (`internal/tui/render.go:281`) under
+  `internal/tui` ranges `strings.SplitSeq` unguarded (`internal/tui/render.go:282`) under
   a green `task cover:branch`, so let gobco answer — keep only a directive
   gobco still needs, and name the failure in its comment.
 - `scripts/check-file-length.sh:77`: add `*.ts *.tsx`, excluding
@@ -512,7 +512,7 @@ Closes UX-67. Depends on Phase 5 (every overlay outcome then flows through
 - The seven bare notices (`internal/tui/comment.go:80`, `internal/tui/composer.go:78`,
   `internal/tui/messaging.go:390`, `internal/tui/checks.go:237`, `:245`,
   `internal/tui/merge.go:64`, `:66`) go through `m.noticed(m.failureLine(err))`;
-  `internal/tui/render.go:394` `configErrorStatus` is styled.
+  `internal/tui/render.go:427` `configErrorStatus` is styled.
 - `forgeReason` (it was in `internal/tui/review.go`), `rerunReason` (in
   `internal/tui/checks.go`) and `errNeedsWriteScope` (in `internal/tui/merge.go`,
   now `internal/tui/failure.go:50`) fold into `errorSentence`'s table
@@ -541,8 +541,8 @@ Closes UX-63. Depends on Phase 4 (relabels).
 
 The Issues pane's `keys(m)` gains `a`, `w`, `/` when the Jira write seams
 exist, and `enter`/`esc` in the collapsed layout (`issuekeys.go:22-85` vs
-`internal/tui/render.go:343`); `ctrl+w` moves from "Branch and Commits" (`keys.go:225`)
-to the composer's group; `w` post-when-green (`keys.go:245`) to the
+`internal/tui/render.go:338`); `ctrl+w` moves from "Branch and Commits" (`internal/tui/keys.go:225`)
+to the composer's group; `w` post-when-green (`internal/tui/keys.go:245`) to the
 preview's; `docs/content/docs/usage.md:91`, `:103` follow. Replace the three-string spot check
 (`focus_test.go:124`) with a structural test that every placed binding with
 help text is rendered by `?`. `ShortHelp`'s omissions (`shift+tab`, `m`,

@@ -356,8 +356,7 @@ func TestANarrowFooterDropsWholeKeysAndKeepsTheWayToTheRest(t *testing.T) {
 
 	// Act
 	// The Review pane's footer is long enough to truncate at this width but leaves
-	// room for the way to the rest. (The action-dense Issues pane can push the
-	// tail off a very narrow terminal — see ShortHelp's own note.)
+	// room for the way to the rest after its own verbs.
 	footer := strings.TrimRight(footerLine(typing(t, newWorld().live(t, 80, 30), "4").View().Content), " ")
 
 	// Assert
