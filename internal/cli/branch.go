@@ -36,10 +36,11 @@ func newBranchCmd(prompt Prompt) *cobra.Command {
 
 	cmd := &cobra.Command{
 		Use:   "branch <issue>",
-		Short: "Branch for an issue, named by the convention",
+		Short: "Branch for an issue, named by the convention, and switch to it",
 		Long: "Name a branch for an issue the way the interface does — from the issue's\n" +
-			"type and summary — and create it off the current branch's base. A preview is\n" +
-			"printed and confirmed before anything is created.",
+			"type and summary — then create it off the current branch's base and switch to\n" +
+			"it, which moves the working tree onto the new branch. A preview is printed and\n" +
+			"confirmed before anything is created.",
 		Args:              cobra.ExactArgs(1),
 		ValidArgsFunction: completeAssignedIssues,
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -92,12 +93,14 @@ func runBranch(out output, seams branchSeams, issueKey string, opts writeOptions
 		return fmt.Errorf("%w: %s (switch to it with git switch %s)", errBranchExists, name, name)
 	}
 
+	// Creating the branch also switches to it, carrying the working tree across,
+	// so every line before the write says so.
 	base := currentBase(seams.Branch)
-	fmt.Fprintln(out.artifact, "Branch "+name+" from "+baseLabel(base))
+	fmt.Fprintln(out.artifact, "Branch "+name+" from "+baseLabel(base)+" and switch to it")
 
 	proceed, err := opts.proceed(out.notes, seams.Confirm, writePrompt{
-		question: "Create branch " + name + "?",
-		dryRun:   "dry run: would create " + name,
+		question: "Create " + name + " and switch to it?",
+		dryRun:   "dry run: would create " + name + " from " + baseLabel(base) + " and switch to it",
 		declined: "Not created.",
 	})
 	if err != nil || !proceed {

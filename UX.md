@@ -66,26 +66,21 @@ them, re-counted at this commit.
 
 ## The command line
 
-### UX-58 `branch` switches your working tree and does not say so; `pr` pushes, transitions, and asks about one thing
+### UX-58 `pr` pushes, transitions, and asks about one thing
 
 Impact: medium · Effort: small
 
-**Today.** `workflow branch` runs `git switch --create`
-(`internal/gitrepo/branch.go:305`), moving the working tree, but neither its help
-(`internal/cli/branch.go:40`) nor its preview (`:96`) says "and switch to it". `workflow
-pr` pushes the branch first when it is unpushed (`loop.EnsurePushed`,
-`internal/cli/pr.go:122`) — the dry-run line says so (`pushClause`, `:194`)
-but the live question is only "Open the pull request?" (`:114`) — and a
-single `--yes` also authorizes
-the Jira status transition that follows (`offerReviewStatus`, `:173`).
+**Today.** `workflow pr` pushes the branch first when it is unpushed
+(`loop.EnsurePushed`, `internal/cli/pr.go:122`) — the dry-run line says so
+(`pushClause`, `:198`) but the live question is only "Open the pull
+request?" (`:114`) — and a single `--yes` also authorizes the Jira status
+transition that follows (`offerReviewStatus`, `:171`).
 
-**Instead.** The help and the preview say "create NAME from BASE and switch
-to it"; the question reads "Push NAME and open the pull request?" when a
-push is coming; the transition asks in its own words, and `--yes` says in
+**Instead.** The question reads "Push NAME and open the pull request?" when
+a push is coming; the transition asks in its own words, and `--yes` says in
 its help that it covers both.
 
-**Done when.** The preview text names the switch and the push; a test pins
-each.
+**Done when.** The question names the push; a test pins it.
 
 ### UX-59 `pr` never links the pull request on the issue
 

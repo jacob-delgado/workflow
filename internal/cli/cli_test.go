@@ -119,6 +119,18 @@ func scripted(lines, secrets []string) cli.Prompt {
 	return cli.Prompt{Line: answersFrom(&lines), Secret: answersFrom(&secrets)}
 }
 
+// answering is a prompt that gives every question the same answer and keeps
+// each question it was asked, for a test of what a command asks.
+func answering(answer string, asked *[]string) cli.Prompt {
+	reply := func(question string) (string, error) {
+		*asked = append(*asked, question)
+
+		return answer, nil
+	}
+
+	return cli.Prompt{Line: reply, Secret: reply}
+}
+
 // answersFrom hands back each answer in turn, then blanks.
 func answersFrom(answers *[]string) func(string) (string, error) {
 	return func(string) (string, error) {
