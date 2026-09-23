@@ -290,7 +290,7 @@ One commit each, red first, in this order:
 6. `loop.ErrDirtyTree`, `loop.ErrNothingStaged`, `loop.RefuseDirty(changes)`,
    `loop.RefuseUnstaged(changes)` — the guards that `internal/webserver/checkout.go`
    and `internal/webserver/commit.go` said were "the same guard the terminal interface applies"
-   (`internal/tui/switchtask.go:89`, the composer).
+   (`internal/tui/switchtask.go:200`, the composer).
 7. `CLAUDE.md`'s layout block gains `internal/loop/` (one line; the rest of
    the drift is Phase 15).
 
@@ -473,7 +473,7 @@ Closes UX-66, DEBT-55 (for `review.go`), DEBT-56. Depends on Phase 4.
    `closeOverlay().noticed(…)`.
 3. The same for `finishPreview` (`internal/tui/finish.go:59`, `finished.apply`
    `:139`).
-4. `branchPicker.sending` (`internal/tui/switchtask.go:79`) adopts `sendState` (pure
+4. `branchPicker.sending` (`internal/tui/switchtask.go:74`) adopts `sendState` (pure
    refactor; it already keeps its refusal).
 
 **Touches.** `internal/tui/{review, merge (new), finish, switchtask}.go`,
@@ -499,7 +499,7 @@ Closes UX-67. Depends on Phase 5 (every overlay outcome then flows through
 - `m.failureLine(err)` — glyph plus the sentence, or the raw text when
   there is none, one line — replaces the fourteen `failedGlyph() +
   err.Error()` rail sites (`internal/tui/checks.go:97`, `diff.go:79`, `issuewrite.go:120`,
-  `:122`, `internal/tui/picker.go:209`, `:246`, `internal/tui/switchtask.go:108`, `:148`,
+  `:122`, `internal/tui/picker.go:209`, `:246`, `internal/tui/switchtask.go:107`, `:147`,
   `internal/tui/messaging.go:147`, `internal/tui/review.go:218`, `internal/tui/run.go:211`, `internal/tui/composer.go:164`,
   `:176`, `internal/tui/fields.go:171`).
 - The seven bare notices (`comment.go:76`, `internal/tui/composer.go:77`,

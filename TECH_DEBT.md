@@ -85,22 +85,22 @@ the same commit.
 
 **Done when.** `check-file-length.sh --list` flags nothing `soft`.
 
-### DEBT-56 The task switcher and the Messaging pane keep their own "in flight" flag instead of `sendState`
+### DEBT-56 The Messaging pane keeps its own "in flight" flag instead of `sendState`
 
 Severity: low · Confidence: read
 
 `sendState` (`internal/tui/sendstate.go:10`) exists so that "in flight, then
-failed with this" is named once, and thirteen overlays use it — the merge
-and finish previews (`internal/tui/merge.go:132`,
-`internal/tui/finish.go:66`) the latest, which since keep a refusal pinned
-in the overlay rather than demoting it to a notice. Two places still carry
-their own pair: `branchPicker.sending` and `switchErr`
-(`internal/tui/switchtask.go:79`), and the Messaging pane's
-`messagingState.sending` beside its `err` (`internal/tui/messaging.go:33`).
-Neither loses a refusal — the switcher keeps its own in view — so what is
-left is the second spelling of one idea.
+failed with this" is named once, and every overlay that sends a request
+now uses it — the task switcher (`internal/tui/switchtask.go:81`) and the
+merge and finish previews (`internal/tui/merge.go:132`,
+`internal/tui/finish.go:66`) the latest, the two previews since keeping a
+refusal pinned in the overlay rather than demoting it to a notice. One
+place still carries its own pair: the Messaging pane's
+`messagingState.sending` beside its `err` (`internal/tui/messaging.go:34`).
+It loses no refusal — the pane shows it — so what is left is the second
+spelling of one idea.
 
-**One way to fix it.** Both adopt `sendState`.
+**One way to fix it.** The pane's state adopts `sendState`.
 
 **Done when.** `grep -nE '(sending|merging|finishing)\s+bool'
 internal/tui/*.go` matches only `sendstate.go`.
@@ -114,12 +114,12 @@ Severity: low · Confidence: read
   `internal/tui/branchresult.go:109`, `internal/tui/issuewrite.go:194`,
   `internal/tui/issuelink.go:98`, `internal/tui/preditor.go:162`,
   `internal/tui/prcomposer.go:486`, `internal/tui/hookgen.go:153`,
-  `internal/tui/switchtask.go:229`, `internal/tui/comment.go:169`,
+  `internal/tui/switchtask.go:228`, `internal/tui/comment.go:169`,
   `internal/tui/messaging.go:491`, `internal/tui/checks.go:224`,
   `internal/tui/merge.go:88`, `internal/tui/finish.go:141`.
 - Five list-picker bodies with identical `up`/`down`/`confirm`/`esc` and a
   `window`-scrolled `rows`: `internal/tui/picker.go:225`, `internal/tui/picker.go:423`,
-  `internal/tui/switchtask.go:120`, `internal/tui/checks.go:65`, `internal/tui/run.go:255`.
+  `internal/tui/switchtask.go:119`, `internal/tui/checks.go:65`, `internal/tui/run.go:255`.
 - Three focus-guarded "re-clamp the shared scroll after a shrinking reload"
   blocks: `internal/tui/commits.go:50`, `reviewqueue.go:52`, plus `internal/tui/commits.go:249`
   `followChange` / `reviewqueue.go:213`.

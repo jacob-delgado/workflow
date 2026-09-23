@@ -72,14 +72,13 @@ func (m Model) taskBranches(names []string) []taskBranch {
 
 // branchPicker lists the issue branches to switch to, and how a switch is going.
 type branchPicker struct {
-	marks     glyphs
-	styles    styles
-	branches  []taskBranch
-	listErr   error
-	switchErr error
-	settled   bool
-	sending   bool
-	selected  int
+	marks    glyphs
+	styles   styles
+	branches []taskBranch
+	listErr  error
+	settled  bool
+	selected int
+	send     sendState
 }
 
 var _ overlay = branchPicker{}
@@ -142,10 +141,10 @@ func (p branchPicker) label(branch taskBranch) string {
 // outcome says how switching is going, if it was tried.
 func (p branchPicker) outcome() []string {
 	switch {
-	case p.sending:
+	case p.send.sending:
 		return []string{"", "switching" + p.marks.ellipsis}
-	case p.switchErr != nil:
-		return []string{"", failedGlyph(p.styles, p.marks) + " " + p.switchErr.Error()}
+	case p.send.err != nil:
+		return []string{"", failedGlyph(p.styles, p.marks) + " " + p.send.err.Error()}
 	default:
 		return nil
 	}
@@ -154,7 +153,7 @@ func (p branchPicker) outcome() []string {
 // footer offers what works in the switcher now. A switch in flight only offers
 // quitting, so nothing interrupts it.
 func (p branchPicker) footer(keys keyMap) []key.Binding {
-	if p.sending {
+	if p.send.sending {
 		return []key.Binding{keys.interrupt}
 	}
 
@@ -164,7 +163,7 @@ func (p branchPicker) footer(keys keyMap) []key.Binding {
 // handleKey answers a key while the switcher has the keyboard.
 func (p branchPicker) handleKey(m Model, msg tea.KeyPressMsg) (Model, tea.Cmd) {
 	switch {
-	case p.sending:
+	case p.send.sending:
 		return m, nil
 	case key.Matches(msg, m.keys.closeOverlay):
 		return m.closeOverlay(), nil
@@ -199,7 +198,7 @@ func (p branchPicker) choose(m Model) (Model, tea.Cmd) {
 	}
 
 	if loop.RefuseDirty(m.changes.changes) != nil {
-		p.switchErr = errDirtyTree
+		p.send = p.send.failed(errDirtyTree)
 		m.overlay = p
 
 		return m, nil
@@ -209,7 +208,7 @@ func (p branchPicker) choose(m Model) (Model, tea.Cmd) {
 		return m.closeOverlay().noticed("dry run: would switch to " + branch.name), nil
 	}
 
-	p.sending, p.switchErr = true, nil
+	p.send = starting()
 	m.overlay = p
 	checkout := m.deps.Git.Checkout
 
@@ -228,7 +227,7 @@ func (msg taskSwitched) apply(m Model) (Model, tea.Cmd) {
 	if msg.err != nil {
 		picker, open := m.overlay.(branchPicker)
 		if open {
-			picker.sending, picker.switchErr = false, msg.err
+			picker.send = picker.send.failed(msg.err)
 			m.overlay = picker
 		}
 
