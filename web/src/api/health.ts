@@ -45,7 +45,7 @@ export function useHealth(): void {
   }, [])
 
   useEffect(() => {
-    if (status === 'stale') {
+    if (status === 'reconnecting') {
       dropped.current = true
     } else if (status === 'live' && dropped.current) {
       dropped.current = false
