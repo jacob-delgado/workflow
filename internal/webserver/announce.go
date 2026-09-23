@@ -25,9 +25,11 @@ func (s *server) GetAnnouncement(
 	return api.GetAnnouncement200JSONResponse(announcementDTO(announcement, s.config().Messaging.Channel)), nil
 }
 
-// Announce posts the composed announcement to Slack — to the requested channel,
-// or the configured one when none is given. It is a 409 when there is no pull
-// request to announce, and a 422 when the post fails.
+// Announce posts the composed announcement to the configured service — to the
+// requested channel, or the configured one when none is given. It is a 409 when
+// there is no pull request to announce; a post that fails is classified by
+// fault, whose details never carry the error's own text, which can name the
+// webhook.
 func (s *server) Announce(_ context.Context, request api.AnnounceRequestObject) (api.AnnounceResponseObject, error) {
 	if request.Body == nil {
 		return announceUnprocessable("a request body is required"), nil
@@ -49,8 +51,9 @@ func (s *server) Announce(_ context.Context, request api.AnnounceRequestObject) 
 
 	err := s.deps.Post(channel, announcement.Text())
 	if err != nil {
-		//nolint:nilerr // the failure is answered with a 422; the error may name the webhook, so it is not surfaced
-		return announceUnprocessable("the announcement could not be posted"), nil
+		body, code := fault(err)
+
+		return api.AnnouncedefaultApplicationProblemPlusJSONResponse{Body: body, StatusCode: code}, nil
 	}
 
 	return api.Announce200JSONResponse(announcementDTO(announcement, channel)), nil

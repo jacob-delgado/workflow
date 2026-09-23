@@ -154,30 +154,26 @@ horizontal axis.
 
 ## The web
 
-### UX-79 The fallback says what could not happen; the server sometimes says nothing
+### UX-79 The fallback says what could not happen, and not what to do
 
 Impact: medium · Effort: small
 
 **Today.** Server reasons are good where they exist (`the working tree has
 uncommitted changes; commit or stash them before switching`, `internal/webserver/checkout.go:19`;
-`nothing is staged to commit`, `internal/webserver/commit.go:21`), and a
-switch or a new branch that git refuses now says which, and how to see git's
-reason (`internal/webserver/checkout.go:53`, `internal/webserver/branchcreate.go:55`):
-git's own words stay off the wire, since in a partial clone a switch fetches
-from the remote and a failed fetch names it. But the client fallbacks
-are vague and near-apologetic — `The branch could not be checked out.`
+`nothing is staged to commit`, `internal/webserver/commit.go:21`), and the
+server's own failures now say what to do: a switch or a new branch git
+refused says how to see git's reason, a refused or unreachable announcement is
+told by its kind and never with the service's text (`messagingFaults`,
+`internal/webserver/errors.go:187`), and the safety net says to try again. But
+the client fallbacks, shown when a refusal gives no reason of its own, are
+vague and near-apologetic — `The branch could not be checked out.`
 (`web/src/features/issues/IssuesPanel.tsx:356`), `Work could not be started.` (`web/src/features/issues/WorkStory.tsx:289`),
 `The push failed.` (`web/src/features/branch/BranchPanel.tsx:101`), `The commit could not be
-created.` (`web/src/features/branch/CommitForm.tsx:99`) — and `announce` replaces the service's
-reason with one of those sentences (`internal/webserver/announce.go:53`). `writeResponseError` answers `something went wrong`
-(`internal/webserver/errors.go:80`). A user gets a dead end with no next step.
+created.` (`web/src/features/branch/CommitForm.tsx:99`) — a dead end with no next step.
 
-**Instead.** `announce` classifies by the messaging sentinels and never
-forwards the text (a messaging error can name the webhook URL); every
-fallback names a next step.
+**Instead.** Every fallback names a next step.
 
-**Done when.** A test proves the announce error never carries the webhook,
-and every fallback says what to do next.
+**Done when.** No fallback under `web/src` only says what could not happen.
 
 ### UX-80 Dead-end empty states, and four ways to say "connecting"
 

@@ -4,7 +4,7 @@
 package webserver_test
 
 import (
-	"errors"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -14,18 +14,13 @@ import (
 	"github.com/jacob-delgado/workflow/internal/config"
 	"github.com/jacob-delgado/workflow/internal/forge"
 	"github.com/jacob-delgado/workflow/internal/jira"
+	"github.com/jacob-delgado/workflow/internal/messaging"
 	"github.com/jacob-delgado/workflow/internal/webserver"
 )
 
 // webhookSecret is the secret path of a Slack webhook, embedded in a post error
 // so a test can prove the response never carries it back to the client.
 const webhookSecret = "T00000000/B00000000/SECRETSECRETSECRETSECRET"
-
-// errPostNamesTheWebhook is a post failure whose message embeds the webhook URL,
-// as a real Slack client's error can.
-var errPostNamesTheWebhook = errors.New(
-	"posting to https://hooks.slack.com/services/" + webhookSecret + " failed: 500",
-)
 
 // doAnnounce posts an announcement to channel against a server over deps and cfg.
 func doAnnounce(t *testing.T, deps webserver.Deps, cfg config.Config, channel string) *httptest.ResponseRecorder {
@@ -221,26 +216,53 @@ func TestAnnounceFallsBackToTheConfiguredChannel(t *testing.T) {
 	}
 }
 
-func TestAnnounceReportsAFailedPostWithoutLeakingTheWebhook(t *testing.T) {
+func TestAnnounceNeverForwardsTheWebhook(t *testing.T) {
 	t.Parallel()
 
-	// Arrange
-	// A real Slack client's error can name the webhook URL it posted to; the
-	// response must answer with a generic message rather than pass it through.
-	deps := filledDeps()
-	deps.Post = func(string, string) error { return errPostNamesTheWebhook }
-
-	// Act
-	recorder := doAnnounce(t, deps, config.Default(), "#dev")
-
-	// Assert
-	if recorder.Code != http.StatusUnprocessableEntity {
-		t.Errorf("status = %d, want 422 when the post fails", recorder.Code)
+	// Every failure the messaging client can answer a post with, carrying the
+	// webhook the way a client's error can; the answer says what to do, in words
+	// that tell the failures apart, and never names the webhook.
+	unprocessable, unreachable := http.StatusUnprocessableEntity, http.StatusBadGateway
+	cases := map[string]struct {
+		cause      error
+		wantStatus int
+		want       string
+	}{
+		"nothing set up":         {messaging.ErrNoCredential, unprocessable, "add a token or a webhook URL in Settings"},
+		"a webhook not on https": {messaging.ErrInsecureWebhook, unprocessable, "not an https address"},
+		"the service refused":    {messaging.ErrRejected, unprocessable, "or that the webhook URL is current"},
+		"the message refused":    {messaging.ErrPostRefused, unprocessable, "announce from a terminal to see its reason"},
+		"an undocumented answer": {messaging.ErrUnexpectedStatus, unreachable, "answered with a status it does not document"},
+		"no answer":              {messaging.ErrUnreachable, unreachable, "check the network, then try again"},
+		"asked to wait":          {messaging.ErrRateLimited, unreachable, "wait and try again"},
+		"a redirect refused":     {messaging.ErrRedirected, unreachable, "check its configured address"},
+		"a failure of no kind":   {errSeam, http.StatusInternalServerError, "try again"},
 	}
 
-	body := recorder.Body.String()
-	if strings.Contains(body, "hooks.slack.com") || strings.Contains(body, webhookSecret) {
-		t.Errorf("response body %q leaked the webhook named in the post error", body)
+	for name, tt := range cases {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			// Arrange
+			deps := filledDeps()
+			deps.Post = func(string, string) error {
+				return fmt.Errorf("posting to https://hooks.slack.com/services/%s: %w", webhookSecret, tt.cause)
+			}
+
+			// Act
+			recorder := doAnnounce(t, deps, config.Default(), "#dev")
+
+			// Assert
+			failure := decode[api.Problem](t, recorder)
+			if recorder.Code != tt.wantStatus || !strings.Contains(failure.Detail, tt.want) {
+				t.Errorf("status/detail = %d/%q, want %d saying %q", recorder.Code, failure.Detail, tt.wantStatus, tt.want)
+			}
+
+			body := recorder.Body.String()
+			if strings.Contains(body, "hooks.slack.com") || strings.Contains(body, webhookSecret) {
+				t.Errorf("body = %q, leaks the webhook", body)
+			}
+		})
 	}
 }
 
