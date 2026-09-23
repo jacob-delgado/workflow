@@ -39,6 +39,23 @@ func run(t *testing.T, dir string, args ...string) (string, error) {
 // runGuided is run with a prompt that answers `config init`'s questions.
 func runGuided(t *testing.T, dir string, prompt cli.Prompt, args ...string) (string, error) {
 	t.Helper()
+
+	printed, err := runStreams(t, dir, prompt, args...)
+
+	return printed.stdout + printed.stderr, err
+}
+
+// streams is what a command printed, stream by stream.
+type streams struct {
+	stdout string
+	stderr string
+}
+
+// runStreams is runGuided with the two streams kept apart, for a test that
+// says which one a line belongs on: the artifact on stdout, what is said about
+// it on stderr.
+func runStreams(t *testing.T, dir string, prompt cli.Prompt, args ...string) (streams, error) {
+	t.Helper()
 	t.Setenv("HOME", t.TempDir())
 	t.Setenv("GIT_CONFIG_GLOBAL", os.DevNull)
 	t.Setenv("GIT_CONFIG_NOSYSTEM", "1")
@@ -48,7 +65,7 @@ func runGuided(t *testing.T, dir string, prompt cli.Prompt, args ...string) (str
 
 	err := cli.Execute(args, &stdout, &stderr, prompt)
 
-	return stdout.String() + stderr.String(), err
+	return streams{stdout: stdout.String(), stderr: stderr.String()}, err
 }
 
 // unusedPrompt fails the test if a command reads from it: only the guided

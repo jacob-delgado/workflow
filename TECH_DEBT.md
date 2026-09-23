@@ -130,25 +130,25 @@ uses a third path, `json.MarshalIndent` (`internal/cli/config_cmd.go:288`).
 
 ## The command line's tests
 
-### DEBT-54 The CLI test harness cannot see which stream a line went to
+### DEBT-54 No CLI test says which stream a line belongs on
 
 Severity: medium · Confidence: read
 
-`run` and `runGuided` return `stdout.String() + stderr.String()`
-(`internal/cli/cli_test.go:51`). No test in `internal/cli` can tell a
-message that moved from stdout to stderr, or the reverse, so the stream
-discipline clig.dev asks for — the artifact on stdout, commentary on stderr
-— is unenforced. Today the gitignore warning (`config_cmd.go:279`), the
-decline notices and `dry run: would …` lines (`scriptable.go:46`, `:61`),
-the no-configuration guidance (`:90`) and the web server's banner
-(`cli.go:255`) all go to stdout, and the harness would pass either way.
+`runStreams` (`internal/cli/cli_test.go:57`) keeps stdout and stderr apart,
+but `run` and `runGuided` still join them for every older test, and only
+`pr`'s opened line (`TestPRPrintsTheOpenedPullRequestOnStdout`) is pinned
+to a stream. So the stream discipline clig.dev asks for — the artifact on
+stdout, commentary on stderr — is still unenforced. Today the gitignore
+warning (`config_cmd.go:279`), the decline notices and `dry run: would …`
+lines (`scriptable.go:46`, `:61`), the no-configuration guidance
+(`config_cmd.go:90`) and the web server's banner (`cli.go:255`) all go to
+stdout, and no test would notice either way.
 
 **What it costs.** `workflow config show | jq .` fails on the `# <path>`
-header; a script that captures stdout gets prose mixed into its data; and
-fixing any of it cannot be pinned by a test until the harness changes.
+header, and a script that captures stdout gets prose mixed into its data.
 
-**One way to fix it.** The harness returns both streams; each command's
-tests say which one they expect a line on.
+**One way to fix it.** Each command's tests say, through `runStreams`,
+which stream they expect a line on.
 
 **Done when.** A test asserts `json.Unmarshal(stdout)` succeeds for
 `config show`, and another asserts the decline notice is on stderr.
