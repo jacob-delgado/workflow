@@ -81,14 +81,15 @@ nothing else, so each surface composes the loop for itself:
 
 **What it costs.** Every parity gap between the surfaces is a copy that one
 of them lacks: the review-status offer after a pull request exists in the
-terminal (`internal/tui/picker.go:199`) and the CLI (`internal/cli/pr.go:173`)
+terminal (`internal/tui/picker.go:186`) and the CLI (`internal/cli/pr.go:173`)
 and not on the web, because there is no one place to put it. Each new action
 added to a surface becomes a fourth copy, and a fix to the composition (a
 changed moment rule, a new trailer) has to be made three times or diverges.
 
-**One way to fix it.** `internal/loop` now composes the pull request and
-its push (`loop.ComposePull`, `loop.EnsurePushed`) below the three
-surfaces, held there by the `loop-below-the-surfaces` depguard rule, and
+**One way to fix it.** `internal/loop` now composes the pull request, its
+push and the review-status offer after it (`loop.ComposePull`,
+`loop.EnsurePushed`, `loop.ReviewTransition`) below the three surfaces,
+held there by the `loop-below-the-surfaces` depguard rule, and
 the noun and the branch naming live on `forge.Kind` and `config.Branch`.
 What is left is to move the announcement and the guards into it the same
 way, each surface keeping its own words for the refusals.
@@ -249,7 +250,7 @@ Severity: low · Confidence: read
   `internal/tui/prcomposer.go:486`, `hookgen.go:153`, `switchtask.go:228`,
   `comment.go:169`, `internal/tui/messaging.go:502`.
 - Five list-picker bodies with identical `up`/`down`/`confirm`/`esc` and a
-  `window`-scrolled `rows`: `picker.go:238`, `picker.go:436`,
+  `window`-scrolled `rows`: `internal/tui/picker.go:225`, `internal/tui/picker.go:423`,
   `switchtask.go:119`, `checks.go:64`, `internal/tui/run.go:255`.
 - Three focus-guarded "re-clamp the shared scroll after a shrinking reload"
   blocks: `commits.go:50`, `reviewqueue.go:52`, plus `commits.go:255`

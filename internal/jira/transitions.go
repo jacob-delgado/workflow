@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
+	"strings"
 )
 
 // Transition is a move Jira's workflow offers an issue from its current status.
@@ -22,6 +23,20 @@ type Transition struct {
 	ToStatusCategory StatusCategory
 	// Fields are those Jira will refuse this transition without.
 	Fields []Field
+}
+
+// FindTransition is the index of the first move leading to a status of the given
+// name, matched without regard to case, and whether one does. It is how a
+// configured status such as the review status is found, since its category
+// cannot single it out from "in progress".
+func FindTransition(moves []Transition, status string) (int, bool) {
+	for index, move := range moves {
+		if strings.EqualFold(move.ToStatus, status) {
+			return index, true
+		}
+	}
+
+	return 0, false
 }
 
 // transitionsAnswer is the wire shape, decoded and then flattened.

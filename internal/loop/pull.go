@@ -145,3 +145,28 @@ func firstTemplate(read func() []forge.Template) string {
 
 	return templates[0].Body
 }
+
+// ReviewTransition is the move to the configured review status for an issue
+// whose pull request is now open, and whether there is one worth offering: the
+// status is configured, the branch names an issue, Jira offers a move to that
+// status, and the move needs no fields. A tracker that cannot be read offers
+// nothing — the pull request is already open.
+func ReviewTransition(
+	transitions func(jira.Key) ([]jira.Transition, error), key jira.Key, status string,
+) (jira.Transition, bool) {
+	if status == "" || key == "" || transitions == nil {
+		return jira.Transition{}, false
+	}
+
+	moves, err := transitions(key)
+	if err != nil {
+		return jira.Transition{}, false
+	}
+
+	index, found := jira.FindTransition(moves, status)
+	if !found || len(moves[index].Fields) > 0 {
+		return jira.Transition{}, false
+	}
+
+	return moves[index], true
+}

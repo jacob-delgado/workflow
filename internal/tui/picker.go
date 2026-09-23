@@ -63,7 +63,7 @@ type statusOffer struct {
 func (o statusOffer) pick(moves []jira.Transition) int {
 	switch {
 	case o.status != "":
-		index, _ := firstWithStatus(moves, o.status)
+		index, _ := jira.FindTransition(moves, o.status)
 
 		return index
 	case o.inProgress:
@@ -80,7 +80,7 @@ func (o statusOffer) absent(moves []jira.Transition) bool {
 		return false
 	}
 
-	_, found := firstWithStatus(moves, o.status)
+	_, found := jira.FindTransition(moves, o.status)
 
 	return !found
 }
@@ -96,19 +96,6 @@ func firstInProgress(moves []jira.Transition) int {
 	}
 
 	return 0
-}
-
-// firstWithStatus is the index of the first transition leading to a status of
-// the given name (matched case-insensitively), and whether one was found. It is
-// how the review status is picked, since its category cannot single it out.
-func firstWithStatus(moves []jira.Transition, status string) (int, bool) {
-	for index, move := range moves {
-		if strings.EqualFold(move.ToStatus, status) {
-			return index, true
-		}
-	}
-
-	return 0, false
 }
 
 // transitionApplied reports how applying a transition went.
