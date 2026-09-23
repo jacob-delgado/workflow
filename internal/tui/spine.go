@@ -67,7 +67,7 @@ func (m Model) paintGlyph(s stage) string {
 func (m Model) stages() []stage {
 	hues := []lipgloss.Style{m.styles.jira, m.styles.git, m.styles.git, m.styles.forge, m.styles.messaging}
 
-	derived := progress.Stages(m.work())
+	derived := progress.Stages(m.work(), m.cfg.Messaging.Service())
 	stages := make([]stage, len(derived))
 
 	for index, each := range derived {

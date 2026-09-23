@@ -68,7 +68,7 @@ Severity: low · Confidence: measured
 `internal/gitrepo/branch.go` (532), `internal/tui/prcomposer.go` (523) and
 `internal/tui/messaging.go` (525) — and five test files
 (`internal/messaging/post_test.go` 738, `internal/tui/messaging_test.go`
-606, `internal/webserver/pullrequest_test.go` 601,
+612, `internal/webserver/pullrequest_test.go` 601,
 `internal/tui/composer_test.go` 565, `internal/jira/detail_test.go` 501).
 None is over the 800 hard ceiling. The first edition of this entry missed
 the two source files outside `internal/tui`. Its headline file,
@@ -298,7 +298,7 @@ Severity: low · Confidence: read
 - Residual "Slack" after the rename: the root command's `Short`
   (`internal/cli/cli.go:171`), the help group `groupReviewSlack`
   (`internal/tui/keys.go:88`), `FEATURES.md:30`, `web/index.html:9`.
-- `docs/content/docs/usage.md:55` says "the five panes" and `:77` says
+- `docs/content/docs/usage.md:56` says "the five panes" and `:78` says
   "`1`–`5`"; `internal/tui/panes.go:27` has `paneCount = 6` and the jump
   binding shows `1-6` (`internal/tui/keys.go:202`); the screen mock at `docs/content/docs/usage.md:30-49`
   omits the Reviews pane. `FEATURES.md:52`'s settled-decision text says
@@ -432,7 +432,7 @@ know about.
   (`web/src/features/issues/issueApi.ts:23`): the stream carries only the
   list's slim issues, so a reopened issue is read again after a minute.
 - **The progress spine's per-system hue is color-only** (`internal/tui/spine.go:68`),
-  mitigated by the stage name, or its initial when compact (`spine.go:51`).
+  mitigated by the stage name, or its initial when compact (`internal/tui/spine.go:51`).
   Part of the visual system UX.md says should not change; the cost is one
   channel the monochrome reader does not get.
 - **A condition-coverage skip list of two** (`UNANALYZABLE`,

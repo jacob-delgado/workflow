@@ -32,6 +32,8 @@ type statusSeams struct {
 	Issue       func(issueKey jira.Key) (jira.IssueDetail, error)
 	// Project is the configured Jira project; empty falls back to the shape guard.
 	Project string
+	// Service is the configured messaging service, which names the last stage.
+	Service string
 }
 
 // newStatusCmd builds `workflow status [directory...]`.
@@ -192,6 +194,7 @@ func seamsFor(conn connection) statusSeams {
 		CheckStatus: conn.deps.Forge.CheckStatus,
 		Issue:       conn.deps.Jira.Issue,
 		Project:     conn.cfg.Jira.Project,
+		Service:     conn.cfg.Messaging.Service(),
 	}
 }
 
@@ -267,7 +270,7 @@ func gather(seams statusSeams, branch gitrepo.Branch) statusFacts {
 		PullRequestFound:   found,
 		CI:                 ciState,
 		ChangesRequested:   pull.ChangesRequested,
-	})
+	}, seams.Service)
 
 	return facts
 }

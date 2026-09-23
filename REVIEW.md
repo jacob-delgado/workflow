@@ -249,7 +249,7 @@ the web lint and unit tests; `depcruise` fails a deliberate feature-file
 ### Phase 1 — The shared composition layer: `internal/loop` — done
 
 Closes DEBT-50. The layer is a **new leaf package**, `internal/loop` ("the
-loop" is the house word — `docs/content/docs/usage.md:115`, `FEATURES.md:153`). It imports
+loop" is the house word — `docs/content/docs/usage.md:116`, `FEATURES.md:153`). It imports
 only `config`, `convention`, `forge`, `gitrepo`, `jira`, `messaging`, `proc`;
 it is imported by `cli`, `tui`, `webserver`. It cannot be `wiring` (which
 imports `tui` for `tui.Deps` — `tui` importing it back is a cycle), `tui`
@@ -336,8 +336,8 @@ without it, classify the CLI-local sentinels and re-point later).
   refined table under *Decisions the maintainer made* supersedes this one.
   Align `config show` with `doctor` when there is no file
   (`internal/cli/config_cmd.go:96` vs `internal/cli/doctor.go:434`, both → 3) and `status` with
-  `status .` outside a repository (`statusHere`, `internal/cli/status.go:74`,
-  vs `statusAcross`, `:89`).
+  `status .` outside a repository (`statusHere`, `internal/cli/status.go:76`,
+  vs `statusAcross`, `:91`).
 - **Streams.** The rule: stdout carries the artifact (JSON, the preview
   text, the created thing's URL, the standup draft); stderr carries
   commentary (`Warning:` `internal/cli/config_cmd.go:333`, `Not opened.` and `dry run:
@@ -544,7 +544,7 @@ The Issues pane's `keys(m)` gains `a`, `w`, `/` when the Jira write seams
 exist, and `enter`/`esc` in the collapsed layout (`internal/tui/issuekeys.go:22-85` vs
 `internal/tui/render.go:338`); `ctrl+w` moves from "Branch and Commits" (`branchAndCommitKeys`)
 to the composer's group; `w` post-when-green (`reviewAndSlackKeys`) to the
-preview's (both now in `composerKeys`, `internal/tui/keys.go:266-267`); `docs/content/docs/usage.md:106`, `:107` follow. Replace the three-string spot check
+preview's (both now in `composerKeys`, `internal/tui/keys.go:266-267`); `docs/content/docs/usage.md:107`, `:108` follow. Replace the three-string spot check
 (`TestHelpShowsEveryKey` in `internal/tui/focus_test.go`) with a structural test that every placed binding with
 help text is rendered by `?`. `ShortHelp`'s omissions (`shift+tab`, `m`,
 the scroll keys, `ctrl+c`) are the deliberate tail — leave them.
@@ -746,7 +746,7 @@ The maintainer chose this: the web aligns to the product's system; the
 interface's own system does not change.
 
 - Four system hues as tokens in both themes — Jira, git, the forge,
-  messaging (`internal/tui/glyphs.go:96-127`; the spine, `spine.go:68`) —
+  messaging (`internal/tui/glyphs.go:96-127`; the spine, `internal/tui/spine.go:68`) —
   at AA contrast, carrying *identity*: the active `NavRail` icon
   (`NavRail.tsx:28`), section headings. **Periwinkle stays the
   interactive-control accent** (`index.css:24` is a documented choice)
@@ -812,7 +812,7 @@ Closes DEBT-69, DEBT-70. Last, so it documents the end state. TDD-exempt.
   settled-decision text corrected, not a decision reopened; say so.
   `FEATURES.md:12` re-pinned; the `Done:` notes on FEAT-26 (`:118`) and
   FEAT-31 (`:143`) removed per the standing rule.
-- `docs/content/docs/usage.md:264`'s threading limit → point at FEAT-81.
+- `docs/content/docs/usage.md:265`'s threading limit → point at FEAT-81.
 
 **Proof.** `task lint:markdown`, `task docs:check`, `task docs:build`.
 

@@ -86,7 +86,7 @@ func TestStagesDeriveHowFarTheWorkHasGot(t *testing.T) {
 			t.Parallel()
 
 			// Act
-			got := states(progress.Stages(tt.work))
+			got := states(progress.Stages(tt.work, "Slack"))
 
 			// Assert
 			if !slices.Equal(got, tt.want) {
@@ -96,11 +96,11 @@ func TestStagesDeriveHowFarTheWorkHasGot(t *testing.T) {
 	}
 }
 
-func TestStagesAreTheLoopInOrder(t *testing.T) {
+func TestStagesAreTheLoopInOrderNamedForTheMessagingService(t *testing.T) {
 	t.Parallel()
 
 	// Act
-	stages := progress.Stages(progress.Work{})
+	stages := progress.Stages(progress.Work{}, "Teams")
 
 	// Assert
 	names := make([]string, len(stages))
@@ -108,7 +108,7 @@ func TestStagesAreTheLoopInOrder(t *testing.T) {
 		names[index] = stage.Name
 	}
 
-	if want := []string{"Issue", "Branch", "Commits", "Review", "Slack"}; !slices.Equal(names, want) {
+	if want := []string{"Issue", "Branch", "Commits", "Review", "Teams"}; !slices.Equal(names, want) {
 		t.Errorf("stage names = %v, want %v", names, want)
 	}
 }
