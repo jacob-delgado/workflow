@@ -85,7 +85,7 @@ gap, and which phase closes it.
 | 18 | Discard a change | N | N | N | FEAT-23, already filed; all three lack it |
 | 19 | Per-file diff | N | Y (`internal/tui/diff.go:29`) | N | Web idea, UX-88 |
 | 20 | Commit with the convention | N | Y | Y (`web/src/features/branch/CommitForm.tsx:39`) | CLI: `git commit` + the commit-msg hook |
-| 21 | Scope from `commit.default_scope` / the learned scope | n/a | Y (`internal/tui/composer.go:131`) | Y since Phase 10 — every snapshot's `suggested_scope`, by the interface's rule (`suggestedScope`, `internal/webserver/commit.go:138`), read from the store once and recorded after a commit; the form opens on it and takes a later one only while its scope is untouched (`useScopeSuggestion`, `web/src/features/branch/CommitForm.tsx:177`), so a `default_scope` saved in Settings pre-fills the next form while no scope is learned | — |
+| 21 | Scope from `commit.default_scope` / the learned scope | n/a | Y (`internal/tui/composer.go:131`) | Y since Phase 10 — every snapshot's `suggested_scope`, by the interface's rule (`suggestedScope`, `internal/webserver/commit.go:142`), read from the store once and recorded after a commit; the form opens on it and takes a later one only while its scope is untouched (`useScopeSuggestion`, `web/src/features/branch/CommitForm.tsx:177`), so a `default_scope` saved in Settings pre-fills the next form while no scope is learned | — |
 | 22 | Amend / fixup | N | Y | N | git is the twin; web idea, UX-88 |
 | 23 | Run a hook / generate `lefthook.yml` | N | Y (`h`, `g`) | N | `lefthook` is the twin — no |
 
@@ -692,7 +692,7 @@ Closes UX-75, UX-76. Depends on Phases 1 (`loop.RefuseNothingStaged`) and 3.
 - Spec first: the snapshot — not its `changes`, so `GET /api/changes` stays
   a git read — gains a required `suggested_scope`: the store's last scope,
   else `commit.default_scope`, the interface's rule (`suggestedScope`,
-  `internal/webserver/commit.go:138`); `Deps.LastScope`/`RecordScope` from
+  `internal/webserver/commit.go:142`); `Deps.LastScope`/`RecordScope` from
   `deps.Store`, the learned scope read once and again only after a commit
   records one — so `store.disabled` learns nothing, as in the terminal —
   never under `--dry-run`; the server records a non-blank scope, trimmed,
@@ -1087,7 +1087,7 @@ phase disagree, the correction wins.
    coverage, not per-condition.
 5. **Spec changes are three-way.** `api/openapi.yaml` → `task gen` (Go) →
    `yarn gen` (client and `zSnapshot`). The SSE endpoint is hand-registered
-   (`internal/webserver/webserver.go:154`) and the frame parser hand-written
+   (`internal/webserver/webserver.go:156`) and the frame parser hand-written
    (`snapshot.ts:50`), so a `Snapshot` field added in Go without
    regenerating the client makes the browser **silently drop every frame**
    (Phase 11 makes that visible). Run `task web:build` before trusting a
