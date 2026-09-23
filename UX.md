@@ -66,51 +66,47 @@ them, re-counted at this commit.
 
 ## The command line
 
-### UX-50 The same condition exits differently in two commands
+### UX-50 `status` and `status .` exit differently outside a repository
 
 Impact: high · Effort: small
 
 **Today.** Each kind of failure now has its own exit status
-(`cli.ExitStatus`, `internal/cli/scriptable.go:196`), but two commands
-still disagree about the same condition. With no configuration file,
-`config show` prints guidance and exits **0** (`showLoadError`,
-`internal/cli/config_cmd.go:86`) while `doctor` exits **3**
-(`reportLoadError`, `internal/cli/doctor.go:463`); outside a repository
-`status` exits 4 (`statusHere`, `internal/cli/status.go:72`) but `status .`
-prints `not a git repository` and exits 0 (`statusAcross`, `:86`).
+(`cli.ExitStatus`, `internal/cli/scriptable.go:196`), and `config show`
+fails like `doctor` without a file, but two forms of one command still
+disagree: outside a repository `status` exits 4 (`statusHere`,
+`internal/cli/status.go:72`) while `status .` prints `not a git repository`
+and exits 0 (`statusAcross`, `:86`).
 
-**Instead.** The two inconsistencies aligned: `config show` exits 3 like
-`doctor`, and `status DIR…` exits 4 when a directory is not a repository,
-like bare `status`.
+**Instead.** `status DIR…` prints every row and exits 4 when a directory is
+not a repository, like bare `status`.
 
-**Touches.** `config_cmd.go`, `status.go`.
+**Touches.** `status.go`.
 
-**Done when.** `config show` and `doctor` exit alike without a file;
-`status` and `status .` exit alike outside a repository.
+**Done when.** `status` and `status .` exit alike outside a repository.
 
 ### UX-51 Commentary lands on stdout, where a script is reading
 
 Impact: high · Effort: small
 
 **Today.** Errors go to stderr (`SilenceErrors`, `internal/cli/cli.go:171`; `cmd/workflow/main.go:37`)
-and prompts go to stderr (`terminalPrompt`, `cmd/workflow/main.go:51`) — correct. But the
-gitignore **warning** (`warnIfNotIgnored`, `internal/cli/config_cmd.go:281`), the
+and prompts go to stderr (`terminalPrompt`, `cmd/workflow/main.go:51`) — correct,
+and so does `config show`'s path header, leaving its stdout JSON alone
+(`runConfigShow`, `internal/cli/config_cmd.go:291`). But the gitignore
+**warning** (`warnIfNotIgnored`, `internal/cli/config_cmd.go:284`), the
 `Not posted.`/`Not opened.` decline notices and the `dry run: would …` lines
-(`writeOptions.proceed`, `internal/cli/scriptable.go:53`, `:68`), the no-configuration
-guidance (`internal/cli/config_cmd.go:92`) and the web server's `serving http://…` banner
-(`internal/cli/cli.go:261`) all go to stdout. `config show` prefixes its JSON with a
-`# <path>` line (`internal/cli/config_cmd.go:288`, then `:290`), so `workflow config
-show | jq .` fails and there is no flag to suppress the header. No test
-pins any of this to a stream: the harness can keep them apart
-(`runStreams`, `internal/cli/cli_test.go:57`), but only `pr`'s opened line
-is checked that way (DEBT-54).
+(`writeOptions.proceed`, `internal/cli/scriptable.go:53`, `:68`), the web
+server's `serving http://…` banner (`internal/cli/cli.go:261`), and
+`standup`'s and `config init`'s own notices all go to stdout, where a script
+capturing the artifact gets prose mixed into it. No test pins any of this
+to a stream: the harness can keep them apart (`runStreams`,
+`internal/cli/cli_test.go:58`), but only `pr`'s opened line and `config
+show`'s JSON are checked that way (DEBT-54).
 
 **Instead.** stdout carries the artifact — the JSON, the preview, the URL
 of the thing created, the standup draft; stderr carries everything said
-*about* it, including the `config show` path header.
+*about* it.
 
-**Done when.** `json.Unmarshal` of `config show`'s stdout succeeds; a test
-asserts the decline notice is on stderr.
+**Done when.** A test asserts the decline notice is on stderr.
 
 ### UX-52 The root's flags do not reach the subcommands
 
@@ -205,7 +201,7 @@ unknown-command or unknown-flag error.
 Impact: medium · Effort: small
 
 **Today.** The strong messages say the next step — `(pass --force to
-overwrite)` (`internal/cli/config_cmd.go:139`), the `chmod 600` line (`doctor.go:456`),
+overwrite)` (`internal/cli/config_cmd.go:142`), the `chmod 600` line (`doctor.go:456`),
 `run gh auth login` (`doctor.go:232`), `Create one with workflow config
 init` (`internal/config/config.go:24`). The bare sentinels do not: `a branch for
 this issue already exists` (`internal/cli/branch.go:21`) does not say to switch to it;

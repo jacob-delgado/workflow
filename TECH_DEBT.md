@@ -86,28 +86,29 @@ keeping only `--yes`.
 
 ## The command line's tests
 
-### DEBT-54 No CLI test says which stream a line belongs on
+### DEBT-54 No CLI test says which stream a notice belongs on
 
 Severity: medium · Confidence: read
 
-`runStreams` (`internal/cli/cli_test.go:57`) keeps stdout and stderr apart,
+`runStreams` (`internal/cli/cli_test.go:58`) keeps stdout and stderr apart,
 but `run` and `runGuided` still join them for every older test, and only
-`pr`'s opened line (`TestPRPrintsTheOpenedPullRequestOnStdout`) is pinned
-to a stream. So the stream discipline clig.dev asks for — the artifact on
-stdout, commentary on stderr — is still unenforced. Today the gitignore
-warning (`internal/cli/config_cmd.go:281`), the decline notices and `dry run: would …`
-lines (`internal/cli/scriptable.go:53`, `:68`), the no-configuration guidance
-(`internal/cli/config_cmd.go:92`) and the web server's banner (`internal/cli/cli.go:261`) all go to
+`pr`'s opened line and `config show`'s JSON
+(`TestConfigShowWritesOnlyJSONToStdout`, `internal/cli/cli_test.go:330`)
+are pinned to a stream. So the stream discipline clig.dev asks for — the
+artifact on stdout, commentary on stderr — is unenforced for every notice.
+Today the gitignore warning (`internal/cli/config_cmd.go:284`), the decline
+notices and `dry run: would …` lines (`internal/cli/scriptable.go:53`,
+`:68`) and the web server's banner (`internal/cli/cli.go:261`) all go to
 stdout, and no test would notice either way.
 
-**What it costs.** `workflow config show | jq .` fails on the `# <path>`
-header, and a script that captures stdout gets prose mixed into its data.
+**What it costs.** A script that captures stdout gets prose mixed into its
+data, and moving a notice to stderr cannot be pinned without a test that
+says which stream it belongs on.
 
 **One way to fix it.** Each command's tests say, through `runStreams`,
 which stream they expect a line on.
 
-**Done when.** A test asserts `json.Unmarshal(stdout)` succeeds for
-`config show`, and another asserts the decline notice is on stderr.
+**Done when.** A test asserts the decline notice is on stderr.
 
 ## The terminal interface
 

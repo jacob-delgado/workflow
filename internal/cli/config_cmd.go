@@ -81,17 +81,16 @@ func newConfigInitCmd(prompt Prompt) *cobra.Command {
 	return cmd
 }
 
-// showLoadError guides a config show that found no file to the command that
-// creates one; any other load failure is a real error.
+// showLoadError fails a config show whose configuration did not load, as
+// doctor does. One that found no file is also guided to the command that
+// creates one, on stderr, where a script reading the JSON will not take it
+// for any.
 func showLoadError(cmd *cobra.Command, err error) error {
-	if !errors.Is(err, config.ErrNotFound) {
-		return err
+	if errors.Is(err, config.ErrNotFound) {
+		fmt.Fprintf(cmd.ErrOrStderr(), "%s\n\n%s\n%s\n", config.NoConfigHeadline, config.InitStep, config.DoctorStep)
 	}
 
-	out := cmd.OutOrStdout()
-	fmt.Fprintf(out, "%s\n\n%s\n%s\n", config.NoConfigHeadline, config.InitStep, config.DoctorStep)
-
-	return nil
+	return err
 }
 
 // newConfigShowCmd builds `workflow config show`.
@@ -99,7 +98,11 @@ func newConfigShowCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:   "show",
 		Short: "Print the configuration in effect, with tokens masked",
-		Args:  cobra.NoArgs,
+		Long: "Print the configuration in effect as JSON, with every credential masked.\n" +
+			"The JSON alone goes to stdout, so it pipes into jq; the file it came from is\n" +
+			"named on stderr. With no configuration file it says how to create one and\n" +
+			"fails, as doctor does.",
+		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			cfg, err := loadFromEnvironment()
 			if err != nil {
@@ -282,10 +285,11 @@ func warnIfNotIgnored(ctx context.Context, out io.Writer, path string) {
 	fmt.Fprintf(out, "add it to .gitignore so it is never committed.\n")
 }
 
-// runConfigShow prints the loaded configuration with every credential masked.
+// runConfigShow prints the loaded configuration with every credential masked:
+// the JSON alone on stdout, so it pipes into jq, and which file it came from on
+// stderr.
 func runConfigShow(cmd *cobra.Command, cfg config.Config) error {
-	out := cmd.OutOrStdout()
-	fmt.Fprintf(out, "# %s\n", cfg.Path)
+	fmt.Fprintf(cmd.ErrOrStderr(), "# %s\n", cfg.Path)
 
-	return encodeJSON(out, cfg.Redacted())
+	return encodeJSON(cmd.OutOrStdout(), cfg.Redacted())
 }

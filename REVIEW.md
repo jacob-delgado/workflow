@@ -137,7 +137,7 @@ to see the shape.
 
 | Convention | Verdict | Where |
 | --- | --- | --- |
-| `--help` on every command; useful long help | Met | `internal/cli/cli.go:25` `longHelp`; pinned by `internal/cli/cli_test.go:235` |
+| `--help` on every command; useful long help | Met | `internal/cli/cli.go:25` `longHelp`; pinned by `internal/cli/cli_test.go:253` |
 | `--version` | Met at runtime, missing from the generated reference | UX-55 |
 | Exit codes distinguish failure kinds | **Gap** — one code; the same condition exits differently in two commands | UX-50 |
 | stdout = artifact, stderr = commentary | **Partial** — warnings, notices, guidance and the web banner on stdout; `config show`'s `#` header breaks `jq` | UX-51, DEBT-54 |
@@ -152,7 +152,7 @@ to see the shape.
 | Errors say what to do next | Partial — strong in `doctor`/`config`; bare sentinels do not | UX-57 |
 | A hint on misuse | **Gap** — `SilenceUsage`+`SilenceErrors` swallow cobra's | UX-56 |
 | No surprises | Partial — `branch` switches silently; `pr` pushes and transitions under one question | UX-58 |
-| Secrets never printed | Met | pinned by `internal/cli/cli_test.go:210`, `doctor_json_test.go:65` |
+| Secrets never printed | Met | pinned by `internal/cli/cli_test.go:228`, `doctor_json_test.go:65` |
 | Shell completion | Met, incl. dynamic issue keys | `internal/cli/scriptable.go:91` |
 | Docs cover the commands | **Gap** — `usage.md` is TUI-only | UX-55 |
 
@@ -332,16 +332,17 @@ without it, classify the CLI-local sentinels and re-point later).
   problem codes use (`docs/content/docs/errors.md`). **Decided** — the
   refined table under *Decisions the maintainer made* supersedes this one.
   Align `config show` with `doctor` when there is no file
-  (`internal/cli/config_cmd.go:86` vs `doctor.go:463`, both → 3) and `status` with
+  (`internal/cli/config_cmd.go:88` vs `doctor.go:463`, both → 3) and `status` with
   `status .` outside a repository (`statusHere`, `internal/cli/status.go:72`,
   vs `statusAcross`, `:86`).
 - **Streams.** The rule: stdout carries the artifact (JSON, the preview
   text, the created thing's URL, the standup draft); stderr carries
-  commentary (`Warning:` `internal/cli/config_cmd.go:281`, `Not opened.` and `dry run:
+  commentary (`Warning:` `internal/cli/config_cmd.go:284`, `Not opened.` and `dry run:
   would …` `internal/cli/scriptable.go:53`, `:68`, the no-config guidance
-  `internal/cli/config_cmd.go:92`, the web banner `internal/cli/cli.go:261`, `config show`'s
-  `# <path>` header `internal/cli/config_cmd.go:288`). Split the harness
-  **first** (`runStreams`, `internal/cli/cli_test.go:57`, returns both streams).
+  (`showLoadError`, `internal/cli/config_cmd.go:88`), the web banner
+  `internal/cli/cli.go:261`, `config show`'s `# <path>` header
+  (`runConfigShow`, `internal/cli/config_cmd.go:291`)). Split the harness
+  **first** (`runStreams`, `internal/cli/cli_test.go:58`, returns both streams).
 - **Flags.** `--dry-run` and `--log` become root `PersistentFlags`;
   `writeOptions.addFlags` (`internal/cli/scriptable.go:36`) stops declaring its own
   `--dry-run`; the seven wiring preambles (`runReviewsCommand`,
