@@ -443,3 +443,38 @@ func TestASCIIStaysASCIIInEveryOverlay(t *testing.T) {
 		})
 	}
 }
+
+func TestAPreviewInFlightStaysASCII(t *testing.T) {
+	t.Parallel()
+
+	cases := map[string]struct {
+		faked func() *world
+		keys  []string
+		want  string
+	}{
+		"the merge preview": {faked: mergeable, keys: []string{"4", "M"}, want: "merging..."},
+	}
+
+	for name, tt := range cases {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			// Arrange
+			previewing := typing(t, asciiInterface(t, tt.faked(), 120, 40), tt.keys...)
+
+			// Act
+			// The send is never run, so the preview stays in flight.
+			inFlight, _ := pressed(t, previewing, keyEnter)
+
+			// Assert
+			view := inFlight.View().Content
+			requireScreen(t, view, tt.want)
+
+			for _, character := range view {
+				if character > 0x7e {
+					t.Fatalf("%s in flight drew %q above ASCII:\n%s", name, character, view)
+				}
+			}
+		})
+	}
+}

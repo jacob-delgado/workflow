@@ -100,7 +100,7 @@ gap, and which phase closes it.
 | 28 | Checks list; a failure into `$EDITOR` | N | Y (`checks.go`) | P (a CI link) | A terminal gesture; web list idea, UX-88 |
 | 29 | Follow CI; notify on settle | n/a | Y (`internal/tui/review.go:190`) | P (5 s tick, no signal) | Web "CI settled" idea, UX-86 |
 | 30 | Re-run CI | N | Y, previewed since Phase 4 (`previewRerun`, `internal/tui/checks.go:180`, through `lastLook`) | **F** | `gh run rerun` is the CLI's. Web declared (`FEATURES.md:148`), FEAT-79 |
-| 31 | Merge | N | Y (`M`, gated `internal/tui/merge.go:20`) | **F** | FEAT-31 chose the interface; web declared (`FEATURES.md:150`), FEAT-79 |
+| 31 | Merge | N | Y (`M`, gated `internal/tui/merge.go:25`) | **F** | FEAT-31 chose the interface; web declared (`FEATURES.md:150`), FEAT-79 |
 | 32 | The review queue | Y (`reviews --json`) | Y (pane 6) | **N** (no section) | **Yes** — a read both other surfaces have, over a seam that exists. Phase 12, UX-83 |
 
 ### Messaging
@@ -162,7 +162,7 @@ The seven promises, re-counted, are the table in UX.md. In one line each:
 `?` lists every key (57/57, by construction); one voice for failure is
 kept by **11 of 53** sites (UX-67); a last look before anything outward by
 **18 of 18** since Phase 4 gave `R` and `u` one; a refused change stays in
-view in **12 of 14** overlays — merge and finish demote it (UX-66); panes
+view in **13 of 14** overlays — finish demotes it (UX-66); panes
 fail alone and state is by shape (kept). Beyond the promises: five Issues
 keys never reach the footer and two keys are filed under panes that do not
 answer them (UX-63); `Esc`/`Enter`, loading, success and empty states,
@@ -467,8 +467,8 @@ Closes UX-66, DEBT-55 (for `review.go`), DEBT-56. Depends on Phase 4.
    read, split out of review.go when it passed the 500-line target") and a
    row in `scripts/package-size-budget-history.md` — same commit, or the
    commit is red.
-2. `mergePicker.merging bool` (`internal/tui/merge.go:118`) → `send sendState`
-   (`sendstate.go:10`); `mergeRequested.apply` (`internal/tui/merge.go:79`) keeps the overlay
+2. `mergePicker.merging bool` (now `mergePicker.send`, `internal/tui/merge.go:132`) → `send sendState`
+   (`sendstate.go:10`); `mergeRequested.apply` (`internal/tui/merge.go:86`) keeps the overlay
    open through `pinnedOutcome` (`render.go:457`) instead of
    `closeOverlay().noticed(…)`.
 3. The same for `finishPreview` (`finish.go:65`, `finished.apply` `:139`).
@@ -494,19 +494,19 @@ Closes UX-67. Depends on Phase 5 (every overlay outcome then flows through
 `pinnedOutcome`).
 
 - `failureBlock` (`internal/tui/render.go:450`) consults `errorSentence` —
-  fixes all nine `pinnedOutcome` overlays at once.
+  fixes all ten `pinnedOutcome` overlays at once.
 - `m.failureLine(err)` — glyph plus the sentence, or the raw text when
   there is none, one line — replaces the fourteen `failedGlyph() +
   err.Error()` rail sites (`internal/tui/checks.go:97`, `diff.go:79`, `issuewrite.go:120`,
   `:122`, `internal/tui/picker.go:209`, `:246`, `internal/tui/switchtask.go:108`, `:148`,
   `internal/tui/messaging.go:147`, `internal/tui/review.go:218`, `internal/tui/run.go:211`, `internal/tui/composer.go:164`,
   `:176`, `internal/tui/fields.go:171`).
-- The nine bare notices (`comment.go:76`, `internal/tui/composer.go:77`,
+- The eight bare notices (`comment.go:76`, `internal/tui/composer.go:77`,
   `internal/tui/messaging.go:378`, `finish.go:141`, `internal/tui/checks.go:233`, `:241`,
-  `internal/tui/merge.go:61`, `:63`, `:81`) go through `m.noticed(m.failureLine(err))`;
+  `internal/tui/merge.go:66`, `:68`) go through `m.noticed(m.failureLine(err))`;
   `render.go:386` `configErrorStatus` is styled.
 - `forgeReason` (`internal/tui/review.go:360`), `rerunReason`
-  (`internal/tui/checks.go:254`) and `mergeReason` (`internal/tui/merge.go:91`) fold into `errorSentence`'s table
+  (`internal/tui/checks.go:254`) and `errNeedsWriteScope` (`internal/tui/merge.go:21`) fold into `errorSentence`'s table
   (`forge.ErrRefused`/`ErrUnauthorized` → the write-scope sentence;
   `jira.ErrNotFound`; `forge.ErrNoRepository`; `errDryRun`).
 
