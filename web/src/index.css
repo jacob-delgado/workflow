@@ -42,6 +42,12 @@
   --input: #272d39;
   --ring: #8b93f8;
 
+  /* A control that is off: a flat, quiet fill with readable text (at least
+     4.5:1 in both themes, held by web/src/tokens.test.ts) — never dimmed with
+     opacity, which takes the text below the contrast floor. */
+  --disabled: #262a33;
+  --disabled-foreground: #9aa3b2;
+
   /* Domain status, the pipeline's signal lights. */
   --success: #56d68a;
   --success-foreground: #0b0d12;
@@ -86,6 +92,9 @@
   --input: #d7dbe3;
   --ring: #4f56c9;
 
+  --disabled: #e2e5eb;
+  --disabled-foreground: #565e6c;
+
   /* Dark enough that the status chips — `bg-success/15 text-success` and the
      warning twin — still clear 4.5:1 for their text over the pale same-color
      tint, not only as solid fills. */
@@ -119,6 +128,8 @@
   --color-border: var(--border);
   --color-input: var(--input);
   --color-ring: var(--ring);
+  --color-disabled: var(--disabled);
+  --color-disabled-foreground: var(--disabled-foreground);
   --color-success: var(--success);
   --color-success-foreground: var(--success-foreground);
   --color-warning: var(--warning);
@@ -134,5 +145,18 @@
   body {
     background-color: var(--background);
     color: var(--foreground);
+  }
+}
+
+/* Motion is opt-in — every transition is `motion-safe:` — and this settles any
+   that is added without it, for a reader who asked the system for less. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
   }
 }

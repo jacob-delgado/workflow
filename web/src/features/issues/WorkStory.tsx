@@ -254,7 +254,7 @@ function CheckoutButton({ branch, outcome }: { branch: string; outcome: Teller }
         onClick={() => {
           void run()
         }}
-        className="self-start rounded-md border border-input px-3 py-1.5 text-sm hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none disabled:opacity-60"
+        className="self-start rounded-md border border-input px-3 py-1.5 text-sm hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none disabled:cursor-not-allowed disabled:bg-disabled disabled:text-disabled-foreground"
       >
         {state === 'running' ? 'Checking out…' : 'Check out this branch'}
       </button>
@@ -286,7 +286,7 @@ function StartWorkButton({ issueKey, outcome }: { issueKey: string; outcome: Tel
         onClick={() => {
           void run()
         }}
-        className="self-start rounded-md bg-primary px-3 py-1.5 text-sm font-medium text-primary-foreground hover:bg-primary/90 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none disabled:opacity-60"
+        className="self-start rounded-md bg-primary px-3 py-1.5 text-sm font-medium text-primary-foreground hover:bg-primary/90 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none disabled:cursor-not-allowed disabled:bg-disabled disabled:text-disabled-foreground"
       >
         {state === 'running' ? 'Starting…' : 'Start work'}
       </button>

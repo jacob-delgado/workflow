@@ -15,6 +15,9 @@ export default defineConfig({
     globals: true,
     setupFiles: ['./src/test-setup.ts'],
     include: ['src/**/*.test.{ts,tsx}'],
+    // Vitest blanks every stylesheet unless told otherwise; the token test reads
+    // index.css as text (`?raw`) to check the theme's contrast.
+    css: { include: [/src\/index\.css/] },
     coverage: {
       provider: 'v8',
       // text for the console; json-summary feeds a CI coverage comment later.

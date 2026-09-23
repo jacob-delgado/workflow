@@ -154,29 +154,6 @@ horizontal axis.
 
 ## The web
 
-### UX-81 Disabled by dimming, and no rule for reduced motion
-
-Impact: medium · Effort: small
-
-**Today.** Every disabled button uses `disabled:opacity-60` — fifteen
-places (`web/src/features/issues/IssuesPanel.tsx:375`, `web/src/features/issues/WorkStory.tsx:266`, `:303`,
-`web/src/features/branch/BranchPanel.tsx:134`, `web/src/features/branch/CommitForm.tsx:158`,
-`web/src/features/branch/WorkingTree.tsx:180` — the staging buttons' shared
-class — `web/src/features/review/ReviewPanel.tsx:207`, `:343`,
-`:350`, `web/src/features/review/OpenedOutcome.tsx:92`,
-`web/src/features/messaging/MessagingPanel.tsx:194`, `:248`, `:263`, `:271`,
-`web/src/features/settings/SettingsPanel.tsx:321`) — which CLAUDE.md's accessibility rule names as the
-thing not to do (opacity dims text below the contrast floor) and which axe
-does not catch on disabled controls. The app has only two `transition-colors`
-and no animation, but no `prefers-reduced-motion` rule either; the a11y spec
-forces `reducedMotion: 'reduce'` to stabilize its scan, not because the app
-honors it.
-
-**Instead.** A `disabled:` color treatment on the token scale; `motion-safe:`
-on the two transitions and one reduced-motion rule in `index.css`.
-
-**Done when.** `grep -c opacity-60 web/src` is 0; axe passes both themes.
-
 ### UX-83 The web has no Reviews section
 
 Impact: medium · Effort: medium
@@ -218,7 +195,7 @@ eyebrow headings from seven class strings (`web/src/features/settings/SettingsPa
 `web/src/features/messaging/MessagingPanel.tsx:43`, `:49`) as the *only* heading treatment; no type or spacing tokens (raw `text-2xl`
 … `text-xs`, `gap-8` … `gap-0.5` per component); one radius on everything
 (`rounded-md` ×28). To its credit: no shadows, no gradients, no `→`, and a
-real color-token system with hand-picked contrast (`index.css:9-96`).
+real color-token system with hand-picked contrast (`web/src/index.css:9-105`).
 
 **Instead.** The four system hues as tokens in both themes, at AA
 contrast, carrying identity (the active nav icon, section headings); one

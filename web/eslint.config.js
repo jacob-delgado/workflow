@@ -19,6 +19,16 @@ const noReactEscapeBypass = [
   },
 ]
 
+// De-emphasize with color, never opacity (all source + tests): an opacity-N
+// class dims the text with its background, below the contrast floor, and axe
+// skips a disabled control's contrast, so nothing else would catch it.
+const opacityDimming =
+  'De-emphasize with color (the --disabled tokens in index.css), not opacity, which dims text below the contrast floor (CLAUDE.md).'
+const noOpacityDimming = [
+  { selector: 'Literal[value=/opacity-[0-9]/]', message: opacityDimming },
+  { selector: 'TemplateElement[value.raw=/opacity-[0-9]/]', message: opacityDimming },
+]
+
 // Black-box test smells: assert on user-facing semantics, not implementation
 // details. `no-node-access` would catch these but over-fires on the legitimate
 // focus (`document.activeElement`) and native-dialog tests where the DOM *is*
@@ -87,8 +97,9 @@ export default tseslint.config(
       'max-nested-callbacks': ['error', 3],
       'no-nested-ternary': 'error',
       'no-param-reassign': 'error',
-      // React escapes all interpolated content; never bypass it.
-      'no-restricted-syntax': ['error', ...noReactEscapeBypass],
+      // React escapes all interpolated content; never bypass it. Nor dim with
+      // opacity.
+      'no-restricted-syntax': ['error', ...noReactEscapeBypass, ...noOpacityDimming],
     },
   },
   // Black-box test discipline (the TS analogue of Go's external `_test`
@@ -102,7 +113,12 @@ export default tseslint.config(
     rules: {
       ...vitest.configs.recommended.rules,
       'testing-library/no-node-access': 'off',
-      'no-restricted-syntax': ['error', ...noReactEscapeBypass, ...noTestImplDetails],
+      'no-restricted-syntax': [
+        'error',
+        ...noReactEscapeBypass,
+        ...noOpacityDimming,
+        ...noTestImplDetails,
+      ],
     },
   },
   // JSON (package.json, tsconfig*.json): correctness rules (duplicate keys,
