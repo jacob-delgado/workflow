@@ -108,7 +108,7 @@ gap, and which phase closes it.
 | # | Action | CLI | TUI | Web | Warranted? |
 | --- | --- | --- | --- | --- | --- |
 | 33 | Announce: compose → preview → post | Y | Y | Y | CLI and web compose it once, in `internal/loop` (Phase 1, which closed DEBT-50); the terminal renders its own from cached state, with `loop.AnnounceMoment` |
-| 34 | Call it a "merge request" on GitLab | Y (`forge.Kind.Noun`, `internal/forge/remote.go:60`) | Y (the same) | **N** — six hardcoded strings; `ForgeKind` on the server (`webserver.go:60`), never sent | **Yes** — Phase 9, UX-73 |
+| 34 | Call it a "merge request" on GitLab | Y (`forge.Kind.Noun`, `internal/forge/remote.go:60`) | Y (the same) | **N** — six hardcoded strings; `ForgeKind` on the server (`internal/webserver/webserver.go:61`), never sent | **Yes** — Phase 9, UX-73 |
 | 35 | Post when CI passes | N | Y (`internal/tui/messaging.go:406`) | N | CLI `announce --when-green` is FEAT-65's fit; web FEAT-82; not this plan |
 | 36 | Announced history (never re-offer) | Y since Phase 8 — `announce` records each post in the store the interface reads, and says when an earlier session already announced the moment (`offerAgain`, `internal/cli/announce.go:167`; `loop.Deliver`, `internal/loop/announce.go:179`) | Y (`internal/tui/messaging.go:216`) | **F** | Web: FEAT-66, declared |
 | 37 | Choose the channel | N (config only) | Y (`←`/`→`) | Y | CLI `--channel`: UX-62 |
@@ -408,7 +408,7 @@ Phase 0.
 - A view switcher from `listViews`; `useEventStream(view)` reconnects with
   `?view=`; `No issues match this view.` (`IssuesPanel.tsx:23`) gains the
   switcher beside it.
-- Server: `resolveJQL` (`internal/webserver/handlers.go:211`) answers
+- Server: `resolveJQL` (`internal/webserver/handlers.go:217`) answers
   `not_found` for an unknown view instead of `views[0]`; the stream
   validates `?view=` before upgrading.
 
@@ -1011,7 +1011,7 @@ phase disagree, the correction wins.
    coverage, not per-condition.
 5. **Spec changes are three-way.** `api/openapi.yaml` → `task gen` (Go) →
    `yarn gen` (client and `zSnapshot`). The SSE endpoint is hand-registered
-   (`webserver.go:117`) and the frame parser hand-written
+   (`internal/webserver/webserver.go:118`) and the frame parser hand-written
    (`snapshot.ts:50`), so a `Snapshot` field added in Go without
    regenerating the client makes the browser **silently drop every frame**
    (Phase 11 makes that visible). Run `task web:build` before trusting a

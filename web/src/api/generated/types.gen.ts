@@ -173,6 +173,14 @@ export type Health = {
      * Whether writes are held back (the --dry-run flag).
      */
     dry_run: boolean;
+    /**
+     * What the repository's forge calls a proposed change, lowercase — a "merge request" on GitLab and a "pull request" everywhere else — so the browser says what the terminal and the command line say.
+     */
+    forge_noun: string;
+    /**
+     * The mark the forge writes before a proposed change's number: "!" on GitLab, "#" everywhere else.
+     */
+    forge_sigil: string;
 };
 
 export type ViewList = {

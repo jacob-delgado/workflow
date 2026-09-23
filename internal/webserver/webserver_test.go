@@ -184,6 +184,37 @@ func TestGetHealthReportsTheBuild(t *testing.T) {
 	}
 }
 
+func TestGetHealthNamesTheForgesOwnWords(t *testing.T) {
+	t.Parallel()
+
+	cases := map[string]struct {
+		kind                forge.Kind
+		wantNoun, wantSigil string
+	}{
+		"GitLab":          {kind: forge.KindGitLab, wantNoun: "merge request", wantSigil: "!"},
+		"GitHub":          {kind: forge.KindGitHub, wantNoun: "pull request", wantSigil: "#"},
+		"a forge unnamed": {kind: forge.KindUnknown, wantNoun: "pull request", wantSigil: "#"},
+	}
+
+	for name, tt := range cases {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			// Arrange
+			info := webserver.Info{Version: testVersion, ForgeKind: tt.kind}
+
+			// Act
+			recorder := get(t, serveWith(t, webserver.Deps{}, config.Default(), info), "/api/health")
+
+			// Assert
+			health := decode[api.Health](t, recorder)
+			if health.ForgeNoun != tt.wantNoun || health.ForgeSigil != tt.wantSigil {
+				t.Errorf("health = %+v, want forge_noun %q and forge_sigil %q", health, tt.wantNoun, tt.wantSigil)
+			}
+		})
+	}
+}
+
 func TestListViewsFallsBackToTheBuiltInList(t *testing.T) {
 	t.Parallel()
 

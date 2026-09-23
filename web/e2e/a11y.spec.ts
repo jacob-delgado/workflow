@@ -34,7 +34,9 @@ for (const theme of themes) {
       window.localStorage.setItem('workflow-theme', value)
     }, theme)
     await page.route('**/api/health', (route) =>
-      route.fulfill({ json: { version: '1.2.3', dry_run: true } }),
+      route.fulfill({
+        json: { version: '1.2.3', dry_run: true, forge_noun: 'pull request', forge_sigil: '#' },
+      }),
     )
     await page.goto('/')
     await expect(page.getByText(/every write is held back/i)).toBeVisible()

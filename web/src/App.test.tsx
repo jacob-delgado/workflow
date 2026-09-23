@@ -3,6 +3,7 @@ import userEvent from '@testing-library/user-event'
 import { vi } from 'vitest'
 import App from './App.tsx'
 import { FakeEventSource } from './test/fakeEventSource.ts'
+import { makeHealth } from './test/fixtures.ts'
 import { renderWithClient } from './test/renderWithClient.tsx'
 
 test('shows the sections and opens on the Issues view', () => {
@@ -33,7 +34,7 @@ test('switches the view when another section is chosen', async () => {
 function serveHealth(dryRun: boolean) {
   vi.stubGlobal(
     'fetch',
-    vi.fn(() => Promise.resolve(Response.json({ version: '1.2.3', dry_run: dryRun }))),
+    vi.fn(() => Promise.resolve(Response.json(makeHealth({ dry_run: dryRun })))),
   )
 }
 
@@ -84,9 +85,7 @@ test('drops the read-only banner when the stream comes back from a server that w
   const dryRuns = [true, false]
   vi.stubGlobal(
     'fetch',
-    vi.fn(() =>
-      Promise.resolve(Response.json({ version: '1.2.3', dry_run: dryRuns.shift() ?? false })),
-    ),
+    vi.fn(() => Promise.resolve(Response.json(makeHealth({ dry_run: dryRuns.shift() ?? false })))),
   )
   renderWithClient(<App />)
   await screen.findByText(/every write is held back/i)

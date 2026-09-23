@@ -54,9 +54,10 @@ type Info struct {
 	DryRun  bool
 
 	// ForgeKind is the forge the remote points at, resolved from the git remote
-	// as the interface resolves it, so the announcement names a "merge request"
-	// on GitLab and a "pull request" elsewhere. The raw config kind is unset for
-	// self-identifying hosts (gitlab.com), so it cannot answer this.
+	// as the interface resolves it, so the announcement and the browser name a
+	// "merge request" on GitLab and a "pull request" elsewhere — the health read
+	// carries the words and the sigil to the page. The raw config kind is unset
+	// for self-identifying hosts (gitlab.com), so it cannot answer this.
 	ForgeKind forge.Kind
 
 	// StreamInterval is how often the event stream re-pushes a snapshot. A zero

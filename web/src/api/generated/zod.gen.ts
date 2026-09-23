@@ -87,7 +87,9 @@ export const zOpenPullRequestRequest = z.object({
 
 export const zHealth = z.object({
     version: z.string(),
-    dry_run: z.boolean()
+    dry_run: z.boolean(),
+    forge_noun: z.string(),
+    forge_sigil: z.string()
 });
 
 /**

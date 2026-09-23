@@ -1,4 +1,4 @@
-import type { Snapshot } from '@/api/generated/types.gen.ts'
+import type { Health, Snapshot } from '@/api/generated/types.gen.ts'
 
 // A complete, contract-valid snapshot for tests, with the fields a case cares
 // about overridden. Kept here so every panel test starts from the same shape
@@ -26,6 +26,18 @@ export function makeSnapshot(overrides: Partial<Snapshot> = {}): Snapshot {
       author: 'octocat',
     },
     branches: [],
+    ...overrides,
+  }
+}
+
+// A contract-valid health answer for tests: a writable server on a forge that
+// says "pull request", with the fields a case cares about overridden.
+export function makeHealth(overrides: Partial<Health> = {}): Health {
+  return {
+    version: '1.2.3',
+    dry_run: false,
+    forge_noun: 'pull request',
+    forge_sigil: '#',
     ...overrides,
   }
 }
