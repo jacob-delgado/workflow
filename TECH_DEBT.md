@@ -40,8 +40,8 @@ also names the symbol it means.
   several future changes will trip over) or low (friction and tidiness).
 - **Confidence** is *reproduced* (an experiment or a live run showed it),
   *measured* (a tool reported it) or *read* (two independent readings of the
-  code agree). This edition is read and measured; nothing was reproduced
-  live.
+  code agree). This edition is read and measured; only DEBT-72, added after
+  it, was reproduced, in the build container.
 - **Done when** is observable, so a test or a command can assert it.
 
 An entry is accidental debt unless it appears under
@@ -538,6 +538,50 @@ terminal does not declare.
 **Done when.** The seam bundle is declared where all three surfaces can
 import it without importing each other (YAGNI until DEBT-50 or a new web
 seam forces it).
+
+### DEBT-72 `task container:check` is red for reasons of its own
+
+Severity: medium · Confidence: reproduced
+
+`task container:check` (`Taskfile.yml:510`) runs `task check` inside the
+build container, and that run fails whatever the change under test:
+
+- **Root reads what the test locked.** `internal/testshape/run_test.go:118`
+  `TestRunReportsADirectoryItCannotList` sets its temporary directory to
+  mode `0o100` and expects `Run` to fail listing it. `build/Dockerfile`
+  declares no `USER`, so the container runs the gate as root, root lists
+  the directory whatever its mode, and the test fails. Reproduced during
+  the surface review's Phase 0, on a `git archive a3e773d` tree.
+- **A cancel test that failed once.**
+  `internal/proc/group_unix_test.go:20`
+  `TestStartKillsTheGrandchildWhenTheRunIsCanceled` failed once under
+  `-race` in the same container run and passed when re-run. It has not
+  failed since. One reading, *read* rather than proven: `docker run` without
+  `--init` leaves `task` as PID 1, which does not reap the re-parented
+  grandchild, and `kill(pid, 0)` succeeds on a zombie until `gone`'s
+  three-second poll gives up.
+- **The scheduled run never got that far.** The Container workflow's only
+  run so far, 35620452149 on main (2026-09-21, at `133c166`), failed in
+  `container:build`, in the Dockerfile step that downloads and extracts
+  zizmor: it unpacked with `--strip-components=1 --wildcards '*/zizmor'`,
+  though the release archive holds `zizmor` at its root. `b4c4484` (on main
+  since 2026-09-22) changed that line to extract `zizmor` directly
+  (`build/Dockerfile:168`). No scheduled run has happened since, so that the
+  build step now passes in CI is *read*, not measured.
+
+**What it costs.** The weekly Container workflow is the one check that the
+container the release is built in can run the gate, and it is red. Once its
+build step passes it stays red on the testshape failure, so a real
+regression inside the container would hide behind a known one.
+
+**One way to fix it.** Skip the permission test when `os.Geteuid() == 0`,
+saying why in the skip message, or run the container as a non-root user (a
+`USER` in `build/Dockerfile`, or `--user "$(id -u):$(id -g)"` in
+`container:check`); add `--init` to the `docker run` if the cancel test
+fails again.
+
+**Done when.** `task container:check` exits 0 on a clean checkout, and the
+next scheduled Container run is green.
 
 ## Deliberate trade-offs that carry a cost
 
