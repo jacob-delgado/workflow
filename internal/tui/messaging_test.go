@@ -144,6 +144,12 @@ func TestTheSlackPanePreviewsTheAnnouncement(t *testing.T) {
 	requireScreen(t, footerLine(view), "p post to slack")
 }
 
+// teamsMessaging is a Teams webhook, so every surface of it names Teams rather
+// than a hardcoded Slack.
+func teamsMessaging() config.Messaging {
+	return config.Messaging{Kind: "teams", WebhookURL: "https://example.com/hook"}
+}
+
 func TestTheMessagingPaneNamesTheServiceInUse(t *testing.T) {
 	t.Parallel()
 
@@ -151,7 +157,7 @@ func TestTheMessagingPaneNamesTheServiceInUse(t *testing.T) {
 	// A Teams webhook is configured, so the pane and its footer name Teams
 	// rather than a hardcoded Slack.
 	teams := newWorld()
-	teams.cfg.Messaging = config.Messaging{Kind: "teams", WebhookURL: "https://example.com/hook"}
+	teams.cfg.Messaging = teamsMessaging()
 
 	// Act
 	view := typing(t, teams.live(t, 120, 40), "5").View().Content
@@ -166,7 +172,7 @@ func TestTheHelpNamesTheMessagingService(t *testing.T) {
 
 	// Arrange
 	teams := newWorld()
-	teams.cfg.Messaging = config.Messaging{Kind: "teams", WebhookURL: "https://example.com/hook"}
+	teams.cfg.Messaging = teamsMessaging()
 
 	// Act
 	helpView := typing(t, teams.live(t, 120, 20), "?", "pgdown", "pgdown", "pgdown").View().Content

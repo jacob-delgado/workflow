@@ -220,6 +220,23 @@ func TestStatusLineShowsTheIssueStagesAndCI(t *testing.T) {
 	}
 }
 
+func TestStatusNamesTheLastStageForTheMessagingServiceInUse(t *testing.T) {
+	// Arrange
+	repo := featureRepo(t)
+	writeFile(t, repo, `{"messaging":{"kind":"teams","webhook_url":"https://outlook.office.example/webhook/x"}}`)
+
+	// Act
+	output, err := run(t, repo, "status")
+	if err != nil {
+		t.Fatalf("status: %v (%s)", err, output)
+	}
+
+	// Assert
+	if !strings.Contains(output, "○ Teams") || strings.Contains(output, "Slack") {
+		t.Errorf("status line does not name the stage for Teams:\n%s", output)
+	}
+}
+
 func TestStatusFailedCIReadsTheReviewFailed(t *testing.T) {
 	// Arrange
 	server := jiraServer(t, http.StatusOK, issueFixture("PROJ-7", "Bug", "Fix login"), new(atomic.Bool))

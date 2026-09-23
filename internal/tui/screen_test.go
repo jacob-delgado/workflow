@@ -119,6 +119,21 @@ func TestTheSpineShowsHowFarTheWorkHasGot(t *testing.T) {
 	}
 }
 
+func TestTheSpineNamesTheLastStageForTheMessagingServiceInUse(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	teams := newWorld()
+	teams.cfg.Messaging = teamsMessaging()
+
+	// Act
+	spine, _, _ := strings.Cut(teams.live(t, 120, 40).View().Content, "\n")
+
+	// Assert
+	requireScreen(t, spine, "Review ─ ○ Teams")
+	refuseScreen(t, spine, "Slack")
+}
+
 func TestTheSpineMarksSlackOnceAnnounced(t *testing.T) {
 	t.Parallel()
 

@@ -52,6 +52,7 @@ can rely on from them: exit codes, which stream carries what, `--json`,
 - **The top row** is how far along the loop the work is. `○` not started, `◐`
   in flight, `●` done, `✗` failed. It is derived, not recorded: the Issue stage
   is done once the branch names an issue, Review follows the pull request's CI.
+  The last stage is named for your messaging service, as its pane is.
 - **The rail** on the left is the five panes in one box, a light rule between
   them. The focused one is drawn with heavy rules and a bold title, and takes
   the most room; the rest keep a few rows each.

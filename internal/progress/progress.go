@@ -32,8 +32,8 @@ type Stage struct {
 
 // Work is everything the stages are derived from. The three session fields are
 // knowledge the terminal interface has and a one-shot command does not; a
-// command leaves them false, so its Slack stage reads not-started and its Issue
-// stage never reads in-flight.
+// command leaves them false, so its messaging stage reads not-started and its
+// Issue stage never reads in-flight.
 type Work struct {
 	// OnFeatureBranch is a named branch other than the base.
 	OnFeatureBranch bool
@@ -52,20 +52,23 @@ type Work struct {
 	CI forge.CIState
 	// ChangesRequested is that a reviewer asked for changes.
 	ChangesRequested bool
-	// Announced is that the pull request was posted to Slack. Session knowledge.
+	// Announced is that the pull request was announced on the messaging
+	// service. Session knowledge.
 	Announced bool
-	// PostPending is that a post is waiting for CI. Session knowledge.
+	// PostPending is that an announcement is waiting for CI. Session knowledge.
 	PostPending bool
 }
 
-// Stages is the loop's five stages, in order, each with how far it has got.
-func Stages(work Work) []Stage {
+// Stages is the loop's five stages, in order, each with how far it has got. The
+// last is named for the messaging service the work is announced on — Slack,
+// Teams, Discord or Webhook — as the configuration names it.
+func Stages(work Work, messagingService string) []Stage {
 	return []Stage{
 		{Name: "Issue", State: issueState(work)},
 		{Name: "Branch", State: branchState(work)},
 		{Name: "Commits", State: commitState(work)},
 		{Name: "Review", State: reviewState(work)},
-		{Name: "Slack", State: slackState(work)},
+		{Name: messagingService, State: announceState(work)},
 	}
 }
 
@@ -120,9 +123,9 @@ func reviewState(work Work) State {
 	}
 }
 
-// slackState is done once the pull request is posted, and in flight while a
-// post waits for CI.
-func slackState(work Work) State {
+// announceState is done once the pull request is announced, and in flight while
+// an announcement waits for CI.
+func announceState(work Work) State {
 	switch {
 	case work.Announced:
 		return Done
