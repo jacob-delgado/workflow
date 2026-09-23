@@ -229,8 +229,8 @@ func TestLoadMoreKeyPagesWithoutScrollingToTheEnd(t *testing.T) {
 	world.pageSize = 3
 	world.issues = manyIssues(5)
 
-	// Act: open the list
-	listed := world.live(t, 120, 40)
+	// Act: open the list, wide enough for the footer to hold every key it offers
+	listed := world.live(t, 200, 40)
 
 	// Assert: the truncated list offers the load-more key
 	requireScreen(t, listed.View().Content, "showing 3 of 5", "more")

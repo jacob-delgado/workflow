@@ -57,8 +57,8 @@ gap, and which phase closes it.
 | --- | --- | --- | --- | --- | --- |
 | 1 | List the view's issues | P (only `branch <tab>` completion, `completeAssignedIssues`, `internal/cli/scriptable.go:121`) | Y | Y (the stream's page, and more on request since Phase 3) | CLI read: a feature, FEAT-78 |
 | 2 | Switch view / next page | N | Y (`v`, `ctrl+n`) | Y since Phase 3 — a view select from `listViews` (`ViewSelect`, `web/src/features/issues/IssueListControls.tsx:37`), `useEventStream(view)` (`web/src/api/snapshot.ts:34`), and Load more over `start_at` (`useMoreIssues`, `web/src/features/issues/issueApi.ts:73`); an unknown view is 404 | — |
-| 3 | Filter the list | N | Y (`/`, `internal/tui/issues.go:154`) | Y since Phase 3 — the same `KEY summary` match (`matchesFilter`, `web/src/features/issues/IssuesPanel.tsx:311`) | CLI no |
-| 4 | Read an issue in full | N | Y (`internal/tui/detail.go:225`) | Y since Phase 3 — description, comments, reporter, assignee (`IssueDetailPanel`, `web/src/features/issues/IssueDetailPanel.tsx:16`) | CLI: FEAT-78 |
+| 3 | Filter the list | N | Y (`/`, `internal/tui/issues.go:159`) | Y since Phase 3 — the same `KEY summary` match (`matchesFilter`, `web/src/features/issues/IssuesPanel.tsx:311`) | CLI no |
+| 4 | Read an issue in full | N | Y (`internal/tui/detail.go:285`) | Y since Phase 3 — description, comments, reporter, assignee (`IssueDetailPanel`, `web/src/features/issues/IssueDetailPanel.tsx:16`) | CLI: FEAT-78 |
 | 5 | Transition, with field forms | P (`pr`'s side effect, fields-less, `internal/cli/pr.go:167`) | Y (`internal/tui/picker.go:155`) | N | The post-PR **review-status offer** both other surfaces make: Phase 9, UX-74. A general transition: FEAT-78 (CLI), FEAT-80 (web) |
 | 6 | Comment | N | Y (`internal/tui/comment.go:41`) | N | FEAT-78 / FEAT-80; not this plan |
 | 7 | Assign / log work | N | Y (`internal/tui/issuewrite.go:74`, `:81`) | N | FEAT-78 / FEAT-80; not this plan |
@@ -118,13 +118,13 @@ gap, and which phase closes it.
 
 | # | Action | CLI | TUI | Web | Warranted? |
 | --- | --- | --- | --- | --- | --- |
-| 39 | Read the config, redacted | Y (`config show`) | P (`internal/tui/render.go:397`) | Y | Fine as is |
+| 39 | Read the config, redacted | Y (`config show`) | P (`internal/tui/render.go:411`) | Y | Fine as is |
 | 40 | Write / initialize the config | Y (`config init`) | N | P (7 sections; five carried but not editable) | Interface: `config init` + `doctor` are the path — no. Web remainder: UX-87 |
-| 41 | Doctor | Y | N | N | Reasonable CLI-only; the interface points at it (`internal/tui/render.go:417`) |
+| 41 | Doctor | Y | N | N | Reasonable CLI-only; the interface points at it (`internal/tui/render.go:431`) |
 | 42 | Status across the loop | Y (`status DIR…`) | Y (the spine) | Y (`WorkStory`) | — |
 | 43 | Dry run | Y (one persistent `--dry-run` since Phase 2, `internal/cli/cli.go:204`) | Y (per seam, `dryrun.go:25`) | Y since Phase 3 — a read-only banner (`web/src/shell/AppShell.tsx:54`) and one hold over every write before it is sent (`web/src/api/client.ts:24`), over the server's 403 (`guard.go:46`) | — |
 | 44 | Request log `--log` | Y (persistent since Phase 2, `internal/cli/cli.go:206`) | Y | Y | — |
-| 45 | Help / discoverability | P (no hint on a typo, `internal/cli/cli.go:174`) | P (`?` 57/57; five Issues keys off the footer, `internal/tui/render.go:338`) | n/a | Phase 8 (UX-56), Phase 7 (UX-63); web `?` idea, UX-88 |
+| 45 | Help / discoverability | P (no hint on a typo, `internal/cli/cli.go:174`) | P (`?` 57/57; the Issues footer shows every key it answers since Phase 7, `internal/tui/detail.go:186`; two keys filed under panes that do not answer them) | n/a | Phase 8 (UX-56), Phase 7 (UX-63); web `?` idea, UX-88 |
 | 46 | Version | Y | n/a | Y since Phase 3 — in the header (`web/src/shell/AppShell.tsx:43`) | — |
 
 ## Where a surface breaks a convention
@@ -163,9 +163,9 @@ The seven promises, re-counted, are the table in UX.md. In one line each:
 kept by every site that renders an error's text since Phase 6; a last look before anything outward by
 **18 of 18** since Phase 4 gave `R` and `u` one; a refused change stays in
 view in **14 of 14** overlays since Phase 5 kept merge's and finish's; panes
-fail alone and state is by shape (kept). Beyond the promises: five Issues
-keys never reach the footer and two keys are filed under panes that do not
-answer them (UX-63); `Esc`/`Enter`, loading, success and empty states,
+fail alone and state is by shape (kept). Beyond the promises: the Issues
+footer shows every key it answers since Phase 7, but two keys are filed
+under panes that do not answer them (UX-63); `Esc`/`Enter`, loading, success and empty states,
 resize down to 24 rows, mouse, `NO_COLOR`/`ui.ascii` and rebinding are all
 met and stay.
 
@@ -248,7 +248,7 @@ the web lint and unit tests; `depcruise` fails a deliberate feature-file
 ### Phase 1 — The shared composition layer: `internal/loop` — done
 
 Closes DEBT-50. The layer is a **new leaf package**, `internal/loop` ("the
-loop" is the house word — `docs/content/docs/usage.md:111`, `FEATURES.md:153`). It imports
+loop" is the house word — `docs/content/docs/usage.md:115`, `FEATURES.md:153`). It imports
 only `config`, `convention`, `forge`, `gitrepo`, `jira`, `messaging`, `proc`;
 it is imported by `cli`, `tui`, `webserver`. It cannot be `wiring` (which
 imports `tui` for `tui.Deps` — `tui` importing it back is a cycle), `tui`
@@ -512,7 +512,7 @@ Closes UX-67. Depends on Phase 5 (every overlay outcome then flows through
 - The seven bare notices (`internal/tui/comment.go:80`, `internal/tui/composer.go:78`,
   `internal/tui/messaging.go:390`, `internal/tui/checks.go:237`, `:245`,
   `internal/tui/merge.go:64`, `:66`) go through `m.noticed(m.failureLine(err))`;
-  `internal/tui/render.go:427` `configErrorStatus` is styled.
+  `internal/tui/render.go:441` `configErrorStatus` is styled.
 - `forgeReason` (it was in `internal/tui/review.go`), `rerunReason` (in
   `internal/tui/checks.go`) and `errNeedsWriteScope` (in `internal/tui/merge.go`,
   now `internal/tui/failure.go:50`) fold into `errorSentence`'s table
@@ -540,10 +540,10 @@ file by file, with eyes on each diff.
 Closes UX-63. Depends on Phase 4 (relabels).
 
 The Issues pane's `keys(m)` gains `a`, `w`, `/` when the Jira write seams
-exist, and `enter`/`esc` in the collapsed layout (`issuekeys.go:22-85` vs
+exist, and `enter`/`esc` in the collapsed layout (`internal/tui/issuekeys.go:22-85` vs
 `internal/tui/render.go:338`); `ctrl+w` moves from "Branch and Commits" (`internal/tui/keys.go:225`)
 to the composer's group; `w` post-when-green (`internal/tui/keys.go:245`) to the
-preview's; `docs/content/docs/usage.md:91`, `:103` follow. Replace the three-string spot check
+preview's; `docs/content/docs/usage.md:95`, `:107` follow. Replace the three-string spot check
 (`focus_test.go:124`) with a structural test that every placed binding with
 help text is rendered by `?`. `ShortHelp`'s omissions (`shift+tab`, `m`,
 the scroll keys, `ctrl+c`) are the deliberate tail — leave them.
@@ -811,7 +811,7 @@ Closes DEBT-69, DEBT-70. Last, so it documents the end state. TDD-exempt.
   settled-decision text corrected, not a decision reopened; say so.
   `FEATURES.md:12` re-pinned; the `Done:` notes on FEAT-26 (`:118`) and
   FEAT-31 (`:143`) removed per the standing rule.
-- `docs/content/docs/usage.md:260`'s threading limit → point at FEAT-81.
+- `docs/content/docs/usage.md:264`'s threading limit → point at FEAT-81.
 
 **Proof.** `task lint:markdown`, `task docs:check`, `task docs:build`.
 

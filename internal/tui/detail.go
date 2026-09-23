@@ -6,6 +6,7 @@ package tui
 import (
 	"cmp"
 	"fmt"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -178,19 +179,78 @@ func (m Model) issuesNarrow(rows int) string {
 	return m.issuesRail(rows)
 }
 
-// issuesKeys offers the verbs for the selected issue, when there is one, and the
-// view switch when there is more than one view to move between.
+// issuesKeys offers what the Issues pane answers right now: in the collapsed
+// layout, reading the selected issue or going back to the list; the verbs its
+// seams can carry out on the selected issue and its links; then the list's own
+// keys. With no issue selected, a branch can still be started from nothing.
 func (m Model) issuesKeys() []key.Binding {
 	selected, ok := m.issues.current()
 	if !ok {
-		return append(m.viewKeys(), m.keys.refresh)
+		return slices.Concat(m.newBranchKeys(), m.issueListKeys())
 	}
 
-	keys := make([]key.Binding, 0, len(m.views)+7) //nolint:mnd // the verbs, links, more and refresh, beside the views.
-	branchFor := relabel(m.keys.branchForIssue, "branch for "+string(selected.Key))
-	keys = append(keys, m.keys.changeStatus, m.keys.comment, branchFor)
+	return slices.Concat(m.readingKeys(), m.issueVerbKeys(selected), m.linkKeys(m.issueURL()), m.issueListKeys())
+}
+
+// issueVerbKeys are the verbs for the selected issue whose seams are wired:
+// status, comment, then the branch, which moves the loop on, ahead of assign
+// and log work, since a narrow footer drops the last verbs first.
+func (m Model) issueVerbKeys(selected jira.Issue) []key.Binding {
+	offers := []struct {
+		wired   bool
+		binding key.Binding
+	}{
+		{m.deps.Jira.Transitions != nil, m.keys.changeStatus},
+		{m.deps.Jira.Comment != nil && m.deps.Editor.Edit != nil, m.keys.comment},
+		{m.deps.Git.CreateBranch != nil, relabel(m.keys.branchForIssue, "branch for "+string(selected.Key))},
+		{m.deps.Jira.Assign != nil, m.keys.assign},
+		{m.deps.Jira.AddWorklog != nil, m.keys.logWork},
+	}
+
+	var keys []key.Binding
+
+	for _, offer := range offers {
+		if offer.wired {
+			keys = append(keys, offer.binding)
+		}
+	}
+
+	return keys
+}
+
+// newBranchKeys offers starting a branch named for no issue, which the branch
+// key does on the Issues pane when none is selected.
+func (m Model) newBranchKeys() []key.Binding {
+	if m.deps.Git.CreateBranch == nil {
+		return nil
+	}
+
+	return []key.Binding{relabel(m.keys.branchForIssue, "new branch")}
+}
+
+// readingKeys offers, in the collapsed layout where the list and the issue take
+// turns, reading the selected issue in full or going back to the list.
+func (m Model) readingKeys() []key.Binding {
+	switch {
+	case !m.shape().Collapsed():
+		return nil
+	case m.issues.viewing:
+		return []key.Binding{relabel(m.keys.closeOverlay, "back to list")}
+	default:
+		return []key.Binding{relabel(m.keys.confirm, "read issue")}
+	}
+}
+
+// issueListKeys are the keys that manage the list itself: filter it, switch
+// view, read the next page, search again.
+func (m Model) issueListKeys() []key.Binding {
+	var keys []key.Binding
+
+	if m.issues.filterable() {
+		keys = append(keys, m.keys.filter)
+	}
+
 	keys = append(keys, m.viewKeys()...)
-	keys = append(keys, m.linkKeys(m.issueURL())...)
 
 	if m.issues.hasMore() {
 		keys = append(keys, m.keys.loadMore)

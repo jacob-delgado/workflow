@@ -134,6 +134,11 @@ func (l issueList) hasMore() bool {
 	return len(l.found.Issues) < l.found.Total
 }
 
+// filterable reports issues loaded for a filter to narrow.
+func (l issueList) filterable() bool {
+	return len(l.found.Issues) > 0
+}
+
 // selectKey selects the issue with a key, or keeps the row, clamped, when the
 // issue is not listed — done, reassigned, or never selected.
 func (l issueList) selectKey(issueKey jira.Key) issueList {

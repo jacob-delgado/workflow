@@ -42,7 +42,9 @@ func TestASCIIModeDrawsInASCII(t *testing.T) {
 	}{
 		"the screen": {
 			height: 40,
-			want:   []string{"# Issue - # Branch", "+= 1 Issues", "> * PROJ-412", "Bug - In Progress", " | tab next pane"},
+			// The Issues pane's own keys fill the footer at 120 columns, so of the
+			// tail only the reserved ? keys is left, after an ASCII separator.
+			want: []string{"# Issue - # Branch", "+= 1 Issues", "> * PROJ-412", "Bug - In Progress", " | ? keys ..."},
 		},
 		"the help": {height: 60, keys: []string{"?"}, want: []string{"up/k", "down/j"}},
 	}

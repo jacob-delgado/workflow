@@ -20,12 +20,12 @@ func TestANarrowFooterGivesUpThePanesVerbsBeforeTheWayToEveryKey(t *testing.T) {
 		cut   []string
 	}{
 		"beside the rail": {
-			width: 80, kept: []string{"t change status", "b branch for PROJ-412"}, cut: []string{"r refresh"},
+			width: 80, kept: []string{changeStatusHint, "b branch for PROJ-412"}, cut: []string{"w log work"},
 		},
 		"with the rail folded": {
-			width: 40, kept: []string{"t change status", "c comment"}, cut: []string{"b branch for"},
+			width: 40, kept: []string{"enter read issue"}, cut: []string{changeStatusHint},
 		},
-		"with room for ? alone": {width: 12, kept: nil, cut: []string{"t change"}},
+		"with room for ? alone": {width: 12, kept: nil, cut: []string{"enter read"}},
 	}
 
 	for name, tt := range cases {

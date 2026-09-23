@@ -337,10 +337,10 @@ func (m Model) footer(width int) string {
 // the last of them give way instead, since it lists every key the row cannot.
 func (m Model) footerRow(room int) string {
 	row := m.keyRow()
-	if m.overlay != nil {
+	if keys, captured := m.capturedKeys(); captured {
 		row.SetWidth(room)
 
-		return row.ShortHelpView(m.overlay.footer(m.keys))
+		return row.ShortHelpView(keys)
 	}
 
 	verbs := behaviorOf(m.focus).keys(m)
@@ -354,6 +354,20 @@ func (m Model) footerRow(room int) string {
 	kept := m.keysBeside(row, verbs, room-lipgloss.Width(ellipsis))
 
 	return row.ShortHelpView(kept) + ellipsis
+}
+
+// capturedKeys is the footer of whatever has the keyboard to itself — an open
+// overlay, or the issue filter being typed — and whether anything has. The keys
+// that work everywhere else, ? among them, do not work there.
+func (m Model) capturedKeys() ([]key.Binding, bool) {
+	switch {
+	case m.overlay != nil:
+		return m.overlay.footer(m.keys), true
+	case m.filteringIssues():
+		return m.filterKeys(), true
+	default:
+		return nil, false
+	}
 }
 
 // keysBeside is as many of verbs as fit in room columns with ? after them,

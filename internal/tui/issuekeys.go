@@ -19,7 +19,7 @@ func (m Model) handleIssuesKey(msg tea.KeyPressMsg) (Model, tea.Cmd) {
 		return m.openLink(m.issueURL())
 	case key.Matches(msg, m.keys.copyLink):
 		return m.copyLink(m.issueURL())
-	case key.Matches(msg, m.keys.filter):
+	case key.Matches(msg, m.keys.filter) && m.issues.filterable():
 		m.issues = m.issues.beginFilter()
 
 		return m, nil
@@ -115,6 +115,17 @@ func (m Model) handleIssueFilterKey(msg tea.KeyPressMsg) (Model, tea.Cmd) {
 		return m.loadDetail()
 	default:
 		return m.extendFilterWith(msg)
+	}
+}
+
+// filterKeys is the footer while the filter is being typed: the two keys that
+// close it. Every other key types into it or moves the selection. They are
+// enter and esc themselves, which handleIssueFilterKey reads whatever ui.keys
+// binds apply and close to, so a printable key moved onto either still types.
+func (Model) filterKeys() []key.Binding {
+	return []key.Binding{
+		key.NewBinding(key.WithKeys("enter"), key.WithHelp("enter", "keep filter")),
+		key.NewBinding(key.WithKeys("esc"), key.WithHelp("esc", "clear filter")),
 	}
 }
 
