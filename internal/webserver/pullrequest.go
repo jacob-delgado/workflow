@@ -66,7 +66,7 @@ func (s *server) OpenPullRequest(
 
 	// A pull that opened but whose reviewers, assignees or labels could not all
 	// be added is reported open, with a warning, rather than lost to a failure.
-	opened := api.OpenedPullRequest{Pull: pullDTO(pull)}
+	opened := api.OpenedPullRequest{Pull: pullDTO(pull), FollowUps: s.followUps(branch)}
 
 	if err != nil {
 		warning := "the " + s.noun() + " opened, but its reviewers, assignees or labels could not all be added"

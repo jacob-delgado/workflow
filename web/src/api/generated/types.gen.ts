@@ -354,7 +354,7 @@ export type Review = {
 };
 
 /**
- * A pull request that was just opened, with a warning when it opened but its reviewers, assignees or labels could not all be added.
+ * A pull request that was just opened, with a warning when it opened but its reviewers, assignees or labels could not all be added, and what can be offered next.
  */
 export type OpenedPullRequest = {
     pull: PullRequest;
@@ -362,6 +362,33 @@ export type OpenedPullRequest = {
      * Set only when the pull opened but adding its reviewers, assignees or labels did not fully succeed, so a partial success is not reported as a failure.
      */
     warning?: string;
+    /**
+     * What the browser can offer now that the pull request is open, in the order the terminal offers them — the link, then the move. Empty when the branch names no Jira issue, or neither applies.
+     */
+    follow_ups: Array<FollowUp>;
+};
+
+/**
+ * One offer after opening: to link the pull request on the branch's issue (POST /api/issues/{key}/link), or to move that issue to the review status (POST /api/issues/{key}/transition). A move is offered only when Jira offers one that needs no fields.
+ */
+export type FollowUp = {
+    action: 'link' | 'transition';
+    /**
+     * The Jira issue the checked-out branch names.
+     */
+    issue_key: string;
+    /**
+     * Set only on a transition — the status the issue would move to.
+     */
+    status?: string;
+};
+
+/**
+ * An issue that was just moved, and the status it is now in.
+ */
+export type MovedIssue = {
+    key: string;
+    status: string;
 };
 
 export type PullRequest = {
@@ -697,6 +724,82 @@ export type GetIssueResponses = {
 };
 
 export type GetIssueResponse = GetIssueResponses[keyof GetIssueResponses];
+
+export type LinkPullRequestData = {
+    body?: never;
+    path: {
+        /**
+         * The Jira issue the checked-out branch names, such as PROJ-412.
+         */
+        key: string;
+    };
+    query?: never;
+    url: '/api/issues/{key}/link';
+};
+
+export type LinkPullRequestErrors = {
+    /**
+     * The checked-out branch does not name this issue, or has no pull request to link; nothing was linked.
+     */
+    409: Problem;
+    /**
+     * No tracker that takes a link is configured, or it refused the link.
+     */
+    422: Problem;
+    /**
+     * An RFC 9457 problem details object describing the failure.
+     */
+    default: Problem;
+};
+
+export type LinkPullRequestError = LinkPullRequestErrors[keyof LinkPullRequestErrors];
+
+export type LinkPullRequestResponses = {
+    /**
+     * The pull request, now linked on the issue.
+     */
+    200: PullRequest;
+};
+
+export type LinkPullRequestResponse = LinkPullRequestResponses[keyof LinkPullRequestResponses];
+
+export type TransitionIssueData = {
+    body?: never;
+    path: {
+        /**
+         * The issue to move, such as PROJ-412.
+         */
+        key: string;
+    };
+    query?: never;
+    url: '/api/issues/{key}/transition';
+};
+
+export type TransitionIssueErrors = {
+    /**
+     * Jira offers no move to the review status that needs no fields; nothing was moved.
+     */
+    409: Problem;
+    /**
+     * No review status or tracker is configured, or Jira refused the move.
+     */
+    422: Problem;
+    /**
+     * An RFC 9457 problem details object describing the failure.
+     */
+    default: Problem;
+};
+
+export type TransitionIssueError = TransitionIssueErrors[keyof TransitionIssueErrors];
+
+export type TransitionIssueResponses = {
+    /**
+     * The issue, now in the review status.
+     */
+    200: MovedIssue;
+};
+
+export type TransitionIssueResponse = TransitionIssueResponses[keyof TransitionIssueResponses];
 
 export type GetBranchData = {
     body?: never;

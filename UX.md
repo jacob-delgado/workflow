@@ -156,24 +156,28 @@ horizontal axis.
 
 ### UX-74 After opening a pull request, the web stops
 
-Impact: medium · Effort: medium
+Impact: medium · Effort: small
 
 **Today.** The interface links the pull request on the issue and then
 offers the configured review status (`internal/tui/prcomposer.go:510`, `internal/tui/picker.go:186`);
-so does the CLI (`followUp`, `internal/cli/pr.go:163`). `internal/webserver/pullrequest.go`
-touches neither `Jira.ReviewStatus` nor `LinkPullRequest`; after `Pull
-request opened.` (`web/src/features/review/ReviewPanel.tsx:147`) there is nothing more to do.
+so does the CLI (`followUp`, `internal/cli/pr.go:163`). The server can too
+since Phase 9: `POST /api/issues/{key}/link` and `POST
+/api/issues/{key}/transition` (`LinkPullRequest` and `TransitionIssue`,
+`internal/webserver/issuewrite.go:35`, `:106`), and the open answers what
+to offer next in `follow_ups` (`followUps`,
+`internal/webserver/issuewrite.go:160`). But the Review panel reads none
+of it: after `Pull request opened.`
+(`web/src/features/review/ReviewPanel.tsx:147`) there is nothing more to
+do, and that line itself unmounts when the next snapshot shows the pull
+request.
 
-**Instead.** Two operations, spec first — `POST /api/issues/{key}/link` and
-`POST /api/issues/{key}/transition` (fields-less; 409 when Jira wants
-fields) — and, after opening, two inline offers: "Link it on KEY" and "Move
-KEY to STATUS", each with a `role="status"` outcome. This is where the shared
-composition layer, `internal/loop`, pays for itself: the web's offer takes
-`loop.ReviewTransition` (`internal/loop/pull.go:167`), the CLI's rule,
-rather than a third copy.
+**Instead.** After opening, two inline offers from `follow_ups`: "Link it
+on KEY" and "Move KEY to STATUS", each with a `role="status"` outcome, in a
+slot that stays mounted when the snapshot flips the panel to the pull
+request.
 
-**Done when.** After a faked open, the panel offers the move and the link;
-a form transition answers 409; `--dry-run` refuses both.
+**Done when.** After a faked open, the panel offers the move and the link,
+and an outcome survives the snapshot that shows the pull request.
 
 ### UX-75 The web cannot stage, so its commit form is unreachable from a clean start
 
@@ -267,7 +271,7 @@ are vague and near-apologetic — `The branch could not be checked out.`
 created.` (`CommitForm.tsx:74`) — and three handlers replace the tool's
 reason with one of those sentences: `internal/webserver/checkout.go:44`, `internal/webserver/branchcreate.go:44`,
 `internal/webserver/announce.go:53`. `writeResponseError` answers `something went wrong`
-(`errors.go:79`). A user gets a dead end with no next step.
+(`internal/webserver/errors.go:80`). A user gets a dead end with no next step.
 
 **Instead.** `checkout` and `branchcreate` pass git's own reason through
 the classified problem mapping; `announce` classifies by the messaging

@@ -12,12 +12,13 @@ openapi: 3.0.3
 info:
   title: workflow web API
   description: >-
-    The read-and-configure API behind `workflow --web`. It exposes the same
-    information the terminal UI shows — the assigned issues, the current branch,
-    the working tree, the pull request and its CI, and where it announces — and
-    lets the whole configuration file be read and written. It reuses the same domain seams the
-    TUI and the `status`/`reviews` CLI commands use; it does not write anything
-    but the configuration file, and stores nothing between requests.
+    The API behind `workflow --web`. It exposes the same information the
+    terminal UI shows — the assigned issues, the current branch, the working
+    tree, the pull request and its CI, and where it announces — makes the
+    loop's writes (a checkout, a branch, a commit, a push, a pull request and
+    its follow-ups on the issue, an announcement), and lets the whole
+    configuration file be read and written. It reuses the same domain seams the
+    TUI and the CLI use, and stores nothing between requests.
   version: 1.0.0
 servers:
   - url: http://127.0.0.1:7000
@@ -117,6 +118,87 @@ paths:
                 $ref: "#/components/schemas/IssueDetail"
         "404":
           description: No such issue.
+          content:
+            application/problem+json:
+              schema: {$ref: "#/components/schemas/Problem"}
+        default: {$ref: "#/components/responses/Problem"}
+
+  /api/issues/{key}/link:
+    post:
+      operationId: linkPullRequest
+      summary: Link the checked-out branch's pull request on its issue.
+      description: >-
+        Records the pull request the forge has for the checked-out branch as a
+        link on the issue that branch names, so the team that watches the
+        tracker sees it — the offer the terminal interface and `workflow pr`
+        make once a pull request is open. The caller names only the issue; the
+        pull request, its address and its title are the server's to find, never
+        the caller's to supply. Refused with 409 when the branch does not name
+        that issue or has no pull request, and 422 when the tracker cannot take
+        a link or refuses this one.
+      tags: [issues]
+      parameters:
+        - name: key
+          in: path
+          required: true
+          description: The Jira issue the checked-out branch names, such as PROJ-412.
+          schema: {type: string}
+      responses:
+        "200":
+          description: The pull request, now linked on the issue.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PullRequest"
+        "409":
+          description: >-
+            The checked-out branch does not name this issue, or has no pull
+            request to link; nothing was linked.
+          content:
+            application/problem+json:
+              schema: {$ref: "#/components/schemas/Problem"}
+        "422":
+          description: No tracker that takes a link is configured, or it refused the link.
+          content:
+            application/problem+json:
+              schema: {$ref: "#/components/schemas/Problem"}
+        default: {$ref: "#/components/responses/Problem"}
+
+  /api/issues/{key}/transition:
+    post:
+      operationId: transitionIssue
+      summary: Move an issue to the configured review status.
+      description: >-
+        Moves the issue to jira.review_status — the move the terminal
+        interface and `workflow pr` offer once a pull request is open — and
+        only there: it is not a general transition, and it takes no fields. It
+        is refused with 409 when Jira offers no such move from where the issue
+        stands, or wants fields filled for it (move it from the terminal
+        interface, whose status picker asks for them), and 422 when no review
+        status or tracker is configured, or Jira refuses the move.
+      tags: [issues]
+      parameters:
+        - name: key
+          in: path
+          required: true
+          description: The issue to move, such as PROJ-412.
+          schema: {type: string}
+      responses:
+        "200":
+          description: The issue, now in the review status.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MovedIssue"
+        "409":
+          description: >-
+            Jira offers no move to the review status that needs no fields;
+            nothing was moved.
+          content:
+            application/problem+json:
+              schema: {$ref: "#/components/schemas/Problem"}
+        "422":
+          description: No review status or tracker is configured, or Jira refused the move.
           content:
             application/problem+json:
               schema: {$ref: "#/components/schemas/Problem"}
@@ -917,8 +999,9 @@ components:
     OpenedPullRequest:
       type: object
       description: A pull request that was just opened, with a warning when it
-        opened but its reviewers, assignees or labels could not all be added.
-      required: [pull]
+        opened but its reviewers, assignees or labels could not all be added,
+        and what can be offered next.
+      required: [pull, follow_ups]
       properties:
         pull: {$ref: "#/components/schemas/PullRequest"}
         warning:
@@ -926,6 +1009,48 @@ components:
           description: Set only when the pull opened but adding its reviewers,
             assignees or labels did not fully succeed, so a partial success is
             not reported as a failure.
+        follow_ups:
+          type: array
+          description: >-
+            What the browser can offer now that the pull request is open, in
+            the order the terminal offers them — the link, then the move. Empty
+            when the branch names no Jira issue, or neither applies.
+          items: {$ref: "#/components/schemas/FollowUp"}
+      additionalProperties: false
+
+    FollowUp:
+      type: object
+      description: >-
+        One offer after opening: to link the pull request on the branch's issue
+        (POST /api/issues/{key}/link), or to move that issue to the review
+        status (POST /api/issues/{key}/transition). A move is offered only when
+        Jira offers one that needs no fields.
+      required: [action, issue_key]
+      properties:
+        action:
+          type: string
+          enum: [link, transition]
+        issue_key:
+          type: string
+          description: The Jira issue the checked-out branch names.
+          example: PROJ-412
+        status:
+          type: string
+          description: Set only on a transition — the status the issue would move to.
+          example: In Review
+      additionalProperties: false
+
+    MovedIssue:
+      type: object
+      description: An issue that was just moved, and the status it is now in.
+      required: [key, status]
+      properties:
+        key:
+          type: string
+          example: PROJ-412
+        status:
+          type: string
+          example: In Review
       additionalProperties: false
 
     PullRequest:

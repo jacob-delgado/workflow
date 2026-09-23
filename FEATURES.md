@@ -95,16 +95,20 @@ Impact: medium · Effort: medium
 
 Impact: medium · Effort: large
 
-- Why: The browser can read an issue but cannot change one: no
-  transition with its field form, no comment, no assign, no log work — all
-  of which the interface offers from the Issues pane
+- Why: The browser can read an issue, and changes one only through the two
+  offers after opening a pull request: it links the pull request on the
+  issue (`LinkPullRequest`, `internal/webserver/issuewrite.go:35`) and moves
+  the issue to the configured review status, fields-less and nowhere else
+  (`TransitionIssue`, `internal/webserver/issuewrite.go:106`). Beyond those
+  it has no transition with its field form, no comment, no assign, no log
+  work — all of which the interface offers from the Issues pane
   (`internal/tui/picker.go:155`, `internal/tui/comment.go:41`, `internal/tui/issuewrite.go:74`).
-  REVIEW.md Phase 9 adds the fields-less transition the post-open offer
-  needs; this is the rest.
+  This is the rest.
 - Touches: `api/openapi.yaml` (operations for a transition with fields,
-  comment, assign, worklog), `internal/webserver` (a handler file per write,
-  each a budget row), `web/src/features/issues`, the shared composition
-  (REVIEW.md Phase 1).
+  comment, assign, worklog), `internal/webserver` (`issuewrite.go` holds the
+  post-open link and move; each new write grows it or earns its own file and
+  budget row), `web/src/features/issues`, the shared composition
+  (`internal/loop`).
 - Done when: a transition that needs a field shows its form and applies; a
   comment posted from the browser appears among the issue's comments; each
   write is refused under `--dry-run`, and its problem `detail` omits the

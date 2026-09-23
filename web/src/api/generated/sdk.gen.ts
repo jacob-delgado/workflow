@@ -2,8 +2,8 @@
 
 import type { Client, ClientMeta, Options as Options2, RequestResult, ServerSentEventsResult, TDataShape } from './client';
 import { client } from './client.gen';
-import type { AnnounceData, AnnounceErrors, AnnounceResponses, CheckoutData, CheckoutErrors, CheckoutResponses, CommitData, CommitErrors, CommitResponses, CreateBranchData, CreateBranchErrors, CreateBranchResponses, GetAnnouncementData, GetAnnouncementErrors, GetAnnouncementResponses, GetBranchData, GetBranchErrors, GetBranchResponses, GetConfigData, GetConfigErrors, GetConfigResponses, GetHealthData, GetHealthErrors, GetHealthResponses, GetIssueData, GetIssueErrors, GetIssueResponses, GetMessagingData, GetMessagingErrors, GetMessagingResponses, GetPullRequestDraftData, GetPullRequestDraftErrors, GetPullRequestDraftResponses, GetReviewData, GetReviewErrors, GetReviewResponses, ListChangesData, ListChangesErrors, ListChangesResponses, ListIssuesData, ListIssuesErrors, ListIssuesResponses, ListViewsData, ListViewsErrors, ListViewsResponses, OpenPullRequestData, OpenPullRequestErrors, OpenPullRequestResponses, PushData, PushErrors, PushResponses, StreamEventsData, StreamEventsErrors, StreamEventsResponse, StreamEventsResponses, UpdateConfigData, UpdateConfigErrors, UpdateConfigResponses } from './types.gen';
-import { zAnnounceResponse, zCheckoutResponse, zCommitResponse, zCreateBranchResponse, zGetAnnouncementResponse, zGetBranchResponse, zGetConfigResponse, zGetHealthResponse, zGetIssueResponse, zGetMessagingResponse, zGetPullRequestDraftResponse, zGetReviewResponse, zListChangesResponse, zListIssuesResponse, zListViewsResponse, zOpenPullRequestResponse, zPushResponse, zStreamEventsResponse, zUpdateConfigResponse } from './zod.gen';
+import type { AnnounceData, AnnounceErrors, AnnounceResponses, CheckoutData, CheckoutErrors, CheckoutResponses, CommitData, CommitErrors, CommitResponses, CreateBranchData, CreateBranchErrors, CreateBranchResponses, GetAnnouncementData, GetAnnouncementErrors, GetAnnouncementResponses, GetBranchData, GetBranchErrors, GetBranchResponses, GetConfigData, GetConfigErrors, GetConfigResponses, GetHealthData, GetHealthErrors, GetHealthResponses, GetIssueData, GetIssueErrors, GetIssueResponses, GetMessagingData, GetMessagingErrors, GetMessagingResponses, GetPullRequestDraftData, GetPullRequestDraftErrors, GetPullRequestDraftResponses, GetReviewData, GetReviewErrors, GetReviewResponses, LinkPullRequestData, LinkPullRequestErrors, LinkPullRequestResponses, ListChangesData, ListChangesErrors, ListChangesResponses, ListIssuesData, ListIssuesErrors, ListIssuesResponses, ListViewsData, ListViewsErrors, ListViewsResponses, OpenPullRequestData, OpenPullRequestErrors, OpenPullRequestResponses, PushData, PushErrors, PushResponses, StreamEventsData, StreamEventsErrors, StreamEventsResponse, StreamEventsResponses, TransitionIssueData, TransitionIssueErrors, TransitionIssueResponses, UpdateConfigData, UpdateConfigErrors, UpdateConfigResponses } from './types.gen';
+import { zAnnounceResponse, zCheckoutResponse, zCommitResponse, zCreateBranchResponse, zGetAnnouncementResponse, zGetBranchResponse, zGetConfigResponse, zGetHealthResponse, zGetIssueResponse, zGetMessagingResponse, zGetPullRequestDraftResponse, zGetReviewResponse, zLinkPullRequestResponse, zListChangesResponse, zListIssuesResponse, zListViewsResponse, zOpenPullRequestResponse, zPushResponse, zStreamEventsResponse, zTransitionIssueResponse, zUpdateConfigResponse } from './zod.gen';
 
 export type Options<TData extends TDataShape = TDataShape, ThrowOnError extends boolean = boolean, TResponse = unknown> = Options2<TData, ThrowOnError, TResponse> & {
     /**
@@ -52,6 +52,28 @@ export const listIssues = <ThrowOnError extends boolean = false>(options?: Optio
 export const getIssue = <ThrowOnError extends boolean = false>(options: Options<GetIssueData, ThrowOnError>): RequestResult<GetIssueResponses, GetIssueErrors, ThrowOnError> => (options.client ?? client).get<GetIssueResponses, GetIssueErrors, ThrowOnError>({
     responseValidator: async (data) => await zGetIssueResponse.parseAsync(data),
     url: '/api/issues/{key}',
+    ...options
+});
+
+/**
+ * Link the checked-out branch's pull request on its issue.
+ *
+ * Records the pull request the forge has for the checked-out branch as a link on the issue that branch names, so the team that watches the tracker sees it — the offer the terminal interface and `workflow pr` make once a pull request is open. The caller names only the issue; the pull request, its address and its title are the server's to find, never the caller's to supply. Refused with 409 when the branch does not name that issue or has no pull request, and 422 when the tracker cannot take a link or refuses this one.
+ */
+export const linkPullRequest = <ThrowOnError extends boolean = false>(options: Options<LinkPullRequestData, ThrowOnError>): RequestResult<LinkPullRequestResponses, LinkPullRequestErrors, ThrowOnError> => (options.client ?? client).post<LinkPullRequestResponses, LinkPullRequestErrors, ThrowOnError>({
+    responseValidator: async (data) => await zLinkPullRequestResponse.parseAsync(data),
+    url: '/api/issues/{key}/link',
+    ...options
+});
+
+/**
+ * Move an issue to the configured review status.
+ *
+ * Moves the issue to jira.review_status — the move the terminal interface and `workflow pr` offer once a pull request is open — and only there: it is not a general transition, and it takes no fields. It is refused with 409 when Jira offers no such move from where the issue stands, or wants fields filled for it (move it from the terminal interface, whose status picker asks for them), and 422 when no review status or tracker is configured, or Jira refuses the move.
+ */
+export const transitionIssue = <ThrowOnError extends boolean = false>(options: Options<TransitionIssueData, ThrowOnError>): RequestResult<TransitionIssueResponses, TransitionIssueErrors, ThrowOnError> => (options.client ?? client).post<TransitionIssueResponses, TransitionIssueErrors, ThrowOnError>({
+    responseValidator: async (data) => await zTransitionIssueResponse.parseAsync(data),
+    url: '/api/issues/{key}/transition',
     ...options
 });
 

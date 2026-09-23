@@ -54,6 +54,12 @@ type ServerInterface interface {
 	// GetIssue One issue in full, with its comments.
 	// (GET /api/issues/{key})
 	GetIssue(w http.ResponseWriter, r *http.Request, key string)
+	// LinkPullRequest Link the checked-out branch's pull request on its issue.
+	// (POST /api/issues/{key}/link)
+	LinkPullRequest(w http.ResponseWriter, r *http.Request, key string)
+	// TransitionIssue Move an issue to the configured review status.
+	// (POST /api/issues/{key}/transition)
+	TransitionIssue(w http.ResponseWriter, r *http.Request, key string)
 	// GetMessaging The service, channel, its alternates, and who a post would come from.
 	// (GET /api/messaging)
 	GetMessaging(w http.ResponseWriter, r *http.Request)
@@ -295,6 +301,58 @@ func (siw *ServerInterfaceWrapper) GetIssue(w http.ResponseWriter, r *http.Reque
 	handler.ServeHTTP(w, r)
 }
 
+// LinkPullRequest operation middleware
+func (siw *ServerInterfaceWrapper) LinkPullRequest(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "key" -------------
+	var key string
+
+	err = runtime.BindStyledParameterWithOptions("simple", "key", r.PathValue("key"), &key, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "key", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.LinkPullRequest(w, r, key)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// TransitionIssue operation middleware
+func (siw *ServerInterfaceWrapper) TransitionIssue(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "key" -------------
+	var key string
+
+	err = runtime.BindStyledParameterWithOptions("simple", "key", r.PathValue("key"), &key, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "key", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.TransitionIssue(w, r, key)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // GetMessaging operation middleware
 func (siw *ServerInterfaceWrapper) GetMessaging(w http.ResponseWriter, r *http.Request) {
 
@@ -503,6 +561,8 @@ func HandlerWithOptions(si ServerInterface, options StdHTTPServerOptions) http.H
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/views", wrapper.ListViews)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/issues", wrapper.ListIssues)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/issues/{key}", wrapper.GetIssue)
+	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/api/issues/{key}/link", wrapper.LinkPullRequest)
+	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/api/issues/{key}/transition", wrapper.TransitionIssue)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/branch", wrapper.GetBranch)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/changes", wrapper.ListChanges)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/review", wrapper.GetReview)
@@ -1154,6 +1214,140 @@ func (response GetIssuedefaultApplicationProblemPlusJSONResponse) VisitGetIssueR
 	return err
 }
 
+type LinkPullRequestRequestObject struct {
+	Key string `json:"key"`
+}
+
+type LinkPullRequestResponseObject interface {
+	VisitLinkPullRequestResponse(w http.ResponseWriter) error
+}
+
+type LinkPullRequest200JSONResponse PullRequest
+
+func (response LinkPullRequest200JSONResponse) VisitLinkPullRequestResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type LinkPullRequest409ApplicationProblemPlusJSONResponse Problem
+
+func (response LinkPullRequest409ApplicationProblemPlusJSONResponse) VisitLinkPullRequestResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(409)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type LinkPullRequest422ApplicationProblemPlusJSONResponse Problem
+
+func (response LinkPullRequest422ApplicationProblemPlusJSONResponse) VisitLinkPullRequestResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(422)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type LinkPullRequestdefaultApplicationProblemPlusJSONResponse struct {
+	Body       Problem
+	StatusCode int
+}
+
+func (response LinkPullRequestdefaultApplicationProblemPlusJSONResponse) VisitLinkPullRequestResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type TransitionIssueRequestObject struct {
+	Key string `json:"key"`
+}
+
+type TransitionIssueResponseObject interface {
+	VisitTransitionIssueResponse(w http.ResponseWriter) error
+}
+
+type TransitionIssue200JSONResponse MovedIssue
+
+func (response TransitionIssue200JSONResponse) VisitTransitionIssueResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type TransitionIssue409ApplicationProblemPlusJSONResponse Problem
+
+func (response TransitionIssue409ApplicationProblemPlusJSONResponse) VisitTransitionIssueResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(409)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type TransitionIssue422ApplicationProblemPlusJSONResponse Problem
+
+func (response TransitionIssue422ApplicationProblemPlusJSONResponse) VisitTransitionIssueResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(422)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type TransitionIssuedefaultApplicationProblemPlusJSONResponse struct {
+	Body       Problem
+	StatusCode int
+}
+
+func (response TransitionIssuedefaultApplicationProblemPlusJSONResponse) VisitTransitionIssueResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
 type GetMessagingRequestObject struct {
 }
 
@@ -1491,6 +1685,12 @@ type StrictServerInterface interface {
 	// GetIssue One issue in full, with its comments.
 	// (GET /api/issues/{key})
 	GetIssue(ctx context.Context, request GetIssueRequestObject) (GetIssueResponseObject, error)
+	// LinkPullRequest Link the checked-out branch's pull request on its issue.
+	// (POST /api/issues/{key}/link)
+	LinkPullRequest(ctx context.Context, request LinkPullRequestRequestObject) (LinkPullRequestResponseObject, error)
+	// TransitionIssue Move an issue to the configured review status.
+	// (POST /api/issues/{key}/transition)
+	TransitionIssue(ctx context.Context, request TransitionIssueRequestObject) (TransitionIssueResponseObject, error)
 	// GetMessaging The service, channel, its alternates, and who a post would come from.
 	// (GET /api/messaging)
 	GetMessaging(ctx context.Context, request GetMessagingRequestObject) (GetMessagingResponseObject, error)
@@ -1870,6 +2070,58 @@ func (sh *strictHandler) GetIssue(w http.ResponseWriter, r *http.Request, key st
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
 	} else if validResponse, ok := response.(GetIssueResponseObject); ok {
 		if err := validResponse.VisitGetIssueResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// LinkPullRequest operation middleware
+func (sh *strictHandler) LinkPullRequest(w http.ResponseWriter, r *http.Request, key string) {
+	var request LinkPullRequestRequestObject
+
+	request.Key = key
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.LinkPullRequest(ctx, request.(LinkPullRequestRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "LinkPullRequest")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(LinkPullRequestResponseObject); ok {
+		if err := validResponse.VisitLinkPullRequestResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// TransitionIssue operation middleware
+func (sh *strictHandler) TransitionIssue(w http.ResponseWriter, r *http.Request, key string) {
+	var request TransitionIssueRequestObject
+
+	request.Key = key
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.TransitionIssue(ctx, request.(TransitionIssueRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "TransitionIssue")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(TransitionIssueResponseObject); ok {
+		if err := validResponse.VisitTransitionIssueResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {
