@@ -407,14 +407,16 @@ The actions, grouped by where they work, are:
 - **Issues:** `change-status`, `comment`, `assign`, `log-work`,
   `branch-for-issue`, `filter`, `switch-view`, `load-more`, `open-link`,
   `copy-link`, `refresh`.
-- **Branch and Commits:** `new-branch`, `switch-task`, `worktree`, `rebase`,
-  `push`, `stage`, `stage-all`, `commit`, `amend`, `fixup`, `run-pre-commit`,
+- **Branch and Commits:** `new-branch`, `switch-task`, `rebase`, `push`,
+  `stage`, `stage-all`, `commit`, `amend`, `fixup`, `run-pre-commit`,
   `set-up-lefthook`.
 - **Review and Slack:** `open-pull-request`, `checks`, `rerun-checks`, `merge`,
-  `finish-branch`, `post`, `post-when-green`.
-- **In a composer:** `edit`, `edit-body`, `next-template`, `toggle-draft`,
-  `toggle-breaking`, `verbatim`, `next-field`, `previous-field`,
-  `cycle-type-left`, `cycle-type-right`, `toggle-option`.
+  `finish-branch`, `post`.
+- **In a composer or preview:** `edit`, `edit-body`, `next-template`,
+  `toggle-draft`, `toggle-breaking`, `verbatim`, `next-field`,
+  `previous-field`, `cycle-type-left`, `cycle-type-right`, `toggle-option`,
+  `worktree` (in the branch creator), `post-when-green` (in the Slack
+  preview).
 - **While a command runs:** `stop`, `run-again`, `full-output`.
 - **Everywhere:** `apply`, `close`, `toggle-mouse`, `toggle-help`, `quit`,
   `interrupt`.

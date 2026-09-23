@@ -183,13 +183,14 @@ type UI struct {
 	//            scroll-down
 	//   Issues:  change-status, comment, assign, log-work, branch-for-issue,
 	//            filter, switch-view, load-more, open-link, copy-link, refresh
-	//   Branch:  new-branch, switch-task, worktree, rebase, push, stage,
-	//            stage-all, commit, amend, fixup, run-pre-commit, set-up-lefthook
+	//   Branch:  new-branch, switch-task, rebase, push, stage, stage-all,
+	//            commit, amend, fixup, run-pre-commit, set-up-lefthook
 	//   Review:  open-pull-request, checks, rerun-checks, merge, finish-branch,
-	//            post, post-when-green
-	//   Composer: edit, edit-body, next-template, toggle-draft, toggle-breaking,
-	//            verbatim, next-field, previous-field, cycle-type-left,
-	//            cycle-type-right, toggle-option
+	//            post
+	//   Composer or preview: edit, edit-body, next-template, toggle-draft,
+	//            toggle-breaking, verbatim, next-field, previous-field,
+	//            cycle-type-left, cycle-type-right, toggle-option, worktree,
+	//            post-when-green
 	//   Running: stop, run-again, full-output
 	//   Everywhere: apply, close, toggle-mouse, toggle-help, quit, interrupt
 	Keys map[string]string `json:"keys"`

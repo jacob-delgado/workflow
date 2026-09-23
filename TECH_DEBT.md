@@ -297,10 +297,10 @@ Severity: low · Confidence: read
   `internal/webserver`, `internal/tui/frame` and `internal/tui/layout`.
 - Residual "Slack" after the rename: the root command's `Short`
   (`internal/cli/cli.go:171`), the help group `groupReviewSlack`
-  (`internal/tui/keys.go:80`), `FEATURES.md:30`, `web/index.html:9`.
+  (`internal/tui/keys.go:88`), `FEATURES.md:30`, `web/index.html:9`.
 - `docs/content/docs/usage.md:55` says "the five panes" and `:77` says
   "`1`–`5`"; `internal/tui/panes.go:27` has `paneCount = 6` and the jump
-  binding shows `1-6` (`internal/tui/keys.go:198`); the screen mock at `docs/content/docs/usage.md:30-49`
+  binding shows `1-6` (`internal/tui/keys.go:202`); the screen mock at `docs/content/docs/usage.md:30-49`
   omits the Reviews pane. `FEATURES.md:52`'s settled-decision text says
   "Five panes" for the same reason — stale text, not a decision reopened.
 - `usage.md` never mentions `--web`, and neither does `README.md`; the only
