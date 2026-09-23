@@ -1,6 +1,7 @@
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { vi } from 'vitest'
+import type { OpenedPullRequest } from '@/api/generated/types.gen.ts'
 import { useHealthStore } from '@/api/health.ts'
 import { useSnapshotStore } from '@/api/snapshot.ts'
 import { gitLabWords, makeHealth, makeSnapshot } from '@/test/fixtures.ts'
@@ -18,10 +19,37 @@ vi.mock('./openPrApi.ts', () => ({
       needs_push: true,
     }),
   ),
-  openPr: vi.fn(() => Promise.resolve('')),
+  openPr: vi.fn(() =>
+    Promise.resolve({
+      pull: {
+        number: 7,
+        url: 'https://forge.example.com/pull/7',
+        title: 'fix: redact tokens',
+        draft: false,
+        approvals: 0,
+        changes_requested: false,
+        mergeable: 'unknown',
+      },
+      follow_ups: [],
+    }),
+  ),
 }))
 const mockOpenPr = vi.mocked(openPr)
 const mockPreview = vi.mocked(previewPullRequest)
+
+// opened is what the open answers when it offers nothing more.
+const opened: OpenedPullRequest = {
+  pull: {
+    number: 7,
+    url: 'https://forge.example.com/pull/7',
+    title: 'fix: redact tokens',
+    draft: false,
+    approvals: 0,
+    changes_requested: false,
+    mergeable: 'unknown',
+  },
+  follow_ups: [],
+}
 
 const pull = {
   number: 128,
@@ -143,7 +171,10 @@ test('opens a pull request with reviewers, assignees and labels', async () => {
 test('shows the warning when a pull opens but its reviewers could not be added', async () => {
   // Arrange
   const user = userEvent.setup()
-  mockOpenPr.mockResolvedValueOnce('opened, but its reviewers could not all be added')
+  mockOpenPr.mockResolvedValueOnce({
+    ...opened,
+    warning: 'opened, but its reviewers could not all be added',
+  })
   useSnapshotStore.setState({
     status: 'live',
     snapshot: makeSnapshot({ review: { found: false } }),
@@ -167,9 +198,9 @@ test('locks the confirm while the pull request is opening', async () => {
   let releaseOpen = () => {}
   mockOpenPr.mockImplementationOnce(
     () =>
-      new Promise<string>((resolve) => {
+      new Promise<OpenedPullRequest>((resolve) => {
         releaseOpen = () => {
-          resolve('')
+          resolve(opened)
         }
       }),
   )
