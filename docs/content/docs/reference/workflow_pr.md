@@ -15,6 +15,9 @@ Compose a pull request for the checked-out branch from its commits, the
 issue and the repository's template — the same as the interface — pushing the
 branch first when it is not yet on its remote. A preview is confirmed first.
 
+Once it is open, it offers — as the interface does — to link it on the branch's
+issue, then to move the issue to the review status (jira.review_status).
+
 ```
 workflow pr [flags]
 ```
@@ -23,7 +26,7 @@ workflow pr [flags]
 
 ```
   -h, --help   help for pr
-      --yes    go ahead without the confirmation
+      --yes    go ahead without asking: push the branch when it needs it, open the pull request, link it on the issue and move the issue to the review status
 ```
 
 ### Options inherited from parent commands

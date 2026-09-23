@@ -34,10 +34,13 @@ var errPushFailed = errors.New("the branch could not be pushed")
 // repository or a forge.
 type prSeams struct {
 	// Compose and Options are what the pull request is composed from, and under.
-	Compose     loop.PullSeams
-	Options     loop.PullOptions
-	Push        func(branch string) (proc.Output, error)
-	CreatePull  func(forge.NewPullRequest) (forge.PullRequest, error)
+	Compose    loop.PullSeams
+	Options    loop.PullOptions
+	Push       func(branch string) (proc.Output, error)
+	CreatePull func(forge.NewPullRequest) (forge.PullRequest, error)
+	// LinkPull adds a pull request's link to an issue, offered once it is open.
+	// Nil — a tracker that cannot take a link — makes no offer.
+	LinkPull    func(issueKey jira.Key, pullURL, title string) error
 	Transitions func(jira.Key) ([]jira.Transition, error)
 	Transition  func(jira.Key, jira.Transition, []jira.FieldValue) error
 	// ReviewStatus is the status an issue moves to once its pull request is open,
@@ -58,14 +61,17 @@ func newPRCmd(prompt Prompt) *cobra.Command {
 		Short: "Open a pull request for the current branch",
 		Long: "Compose a pull request for the checked-out branch from its commits, the\n" +
 			"issue and the repository's template — the same as the interface — pushing the\n" +
-			"branch first when it is not yet on its remote. A preview is confirmed first.",
+			"branch first when it is not yet on its remote. A preview is confirmed first.\n\n" +
+			"Once it is open, it offers — as the interface does — to link it on the branch's\n" +
+			"issue, then to move the issue to the review status (jira.review_status).",
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			return runPRCommand(cmd, prompt, opts)
 		},
 	}
 
-	opts.addFlags(cmd)
+	opts.addFlags(cmd, "go ahead without asking: push the branch when it needs it, open the pull request, "+
+		"link it on the issue and move the issue to the review status")
 
 	return cmd
 }
@@ -93,6 +99,7 @@ func runPRCommand(cmd *cobra.Command, prompt Prompt, opts writeOptions) error {
 		},
 		Push:         deps.Git.Push,
 		CreatePull:   deps.Forge.CreatePullRequest,
+		LinkPull:     deps.Jira.LinkPullRequest,
 		Transitions:  deps.Jira.Transitions,
 		Transition:   deps.Jira.Transition,
 		ReviewStatus: cfg.Jira.ReviewStatus,
@@ -104,7 +111,7 @@ func runPRCommand(cmd *cobra.Command, prompt Prompt, opts writeOptions) error {
 }
 
 // runPR composes the pull request, previews it, pushes the branch when needed,
-// and opens it once confirmed.
+// and opens it once confirmed, then follows up on the branch's issue.
 func runPR(out output, seams prSeams, opts writeOptions) error {
 	request, branch, err := loop.ComposePull(seams.Compose, seams.Options)
 	if err != nil {
@@ -139,7 +146,59 @@ func runPR(out output, seams prSeams, opts writeOptions) error {
 
 	key, _ := convention.IssueKey(branch.Name, seams.Options.Project)
 
-	return offerReviewStatus(out.notes, seams, jira.Key(key), opts)
+	return followUp(out.notes, seams, openedPull{issueKey: jira.Key(key), pull: pull}, opts)
+}
+
+// openedPull is a pull request just opened, and the issue its branch names —
+// empty when it names none.
+type openedPull struct {
+	issueKey jira.Key
+	pull     forge.PullRequest
+}
+
+// followUp makes the interface's two offers once the pull request is open: to
+// link it on the branch's issue, then to move the issue to the review status. A
+// link that fails does not keep the move from being offered, and the command
+// still fails with it; a question nothing can answer stops both.
+func followUp(notes io.Writer, seams prSeams, opened openedPull, opts writeOptions) error {
+	linkErr := offerLink(notes, seams, opened, opts)
+	if errors.Is(linkErr, errNoTerminal) {
+		return linkErr
+	}
+
+	return errors.Join(linkErr, offerReviewStatus(notes, seams, opened.issueKey, opts))
+}
+
+// offerLink offers to add the just-opened pull request's link to the branch's
+// issue, so the team that watches Jira sees it. A branch that names no Jira
+// issue, or a tracker that cannot take a link — the forge's own issues — is
+// offered nothing. A failed link is said at once, before the move is offered.
+func offerLink(notes io.Writer, seams prSeams, opened openedPull, opts writeOptions) error {
+	if seams.LinkPull == nil || !isJiraKey(opened.issueKey) {
+		return nil
+	}
+
+	pull, issue := seams.Kind.Sigil()+strconv.Itoa(opened.pull.Number), string(opened.issueKey)
+
+	proceed, err := opts.proceed(notes, seams.Confirm, writePrompt{
+		question: "Link " + pull + " on " + issue + "?",
+		dryRun:   "dry run: would link " + pull + " on " + issue,
+		declined: "Left " + issue + " unlinked.",
+	})
+	if err != nil || !proceed {
+		return err
+	}
+
+	err = seams.LinkPull(opened.issueKey, opened.pull.URL, opened.pull.Title)
+	if err != nil {
+		fmt.Fprintln(notes, "Could not link "+pull+" on "+issue+".")
+
+		return fmt.Errorf("linking %s on %s: %w", pull, issue, err)
+	}
+
+	fmt.Fprintln(notes, "Linked "+pull+" on "+issue)
+
+	return nil
 }
 
 // composeRefusal words a refusal to compose in the command line's own terms,
@@ -218,4 +277,11 @@ func pushClause(branch gitrepo.Branch) string {
 	}
 
 	return "push " + branch.Name + " and "
+}
+
+// isJiraKey reports whether key names a Jira issue, PROJ-42, rather than none
+// or a forge issue number the branch named even with Jira as the tracker: Jira
+// would refuse that number, or read it as the id of an unrelated issue.
+func isJiraKey(key jira.Key) bool {
+	return strings.Contains(string(key), "-")
 }

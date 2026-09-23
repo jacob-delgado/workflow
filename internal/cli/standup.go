@@ -69,7 +69,7 @@ func newStandupCmd(prompt Prompt) *cobra.Command {
 
 	cmd.Flags().IntVar(&opts.days, "days", 1, "how many days back to gather, 1 or more")
 	cmd.Flags().BoolVar(&opts.noEdit, "no-edit", false, "skip the editor and use the draft as it is")
-	opts.write.addFlags(cmd)
+	opts.write.addFlags(cmd, confirmationHelp)
 
 	return cmd
 }

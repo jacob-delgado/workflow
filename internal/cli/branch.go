@@ -48,7 +48,7 @@ func newBranchCmd(prompt Prompt) *cobra.Command {
 		},
 	}
 
-	opts.addFlags(cmd)
+	opts.addFlags(cmd, confirmationHelp)
 
 	return cmd
 }
