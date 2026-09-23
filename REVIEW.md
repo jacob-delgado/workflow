@@ -59,10 +59,10 @@ gap, and which phase closes it.
 | 2 | Switch view / next page | N | Y (`v`, `ctrl+n`) | N (`web/src/api/snapshot.ts:39` sends no `?view=`) | **Web yes** — the stream already takes `?view=` (`internal/webserver/stream.go:38`). Phase 3, UX-72 |
 | 3 | Filter the list | N | Y (`/`, `internal/tui/issues.go:154`) | N | Web idea, UX-72; CLI no |
 | 4 | Read an issue in full | N | Y (`internal/tui/detail.go:225`) | **N** — `IssuesPanel.tsx:83` renders the slim snapshot `Issue` | **Web yes, cheap** — `getIssue` exists (`api/openapi.yaml:95`, `handlers.go:66`) and is never called. Phase 3, UX-70. CLI: FEAT-78 |
-| 5 | Transition, with field forms | P (`pr`'s side effect, fields-less, `internal/cli/pr.go:161`) | Y (`picker.go:168`) | N | The post-PR **review-status offer** both other surfaces make: Phase 9, UX-74. A general transition: FEAT-78 (CLI), FEAT-80 (web) |
+| 5 | Transition, with field forms | P (`pr`'s side effect, fields-less, `internal/cli/pr.go:173`) | Y (`internal/tui/picker.go:155`) | N | The post-PR **review-status offer** both other surfaces make: Phase 9, UX-74. A general transition: FEAT-78 (CLI), FEAT-80 (web) |
 | 6 | Comment | N | Y (`comment.go:37`) | N | FEAT-78 / FEAT-80; not this plan |
 | 7 | Assign / log work | N | Y (`issuewrite.go:74`, `:81`) | N | FEAT-78 / FEAT-80; not this plan |
-| 8 | Link the pull request on the issue | **N** (`pr` never links) | Y (`issuelink.go`, `prcomposer.go:512`) | N | **Yes on both** — the seam exists (`Jira.LinkPullRequest`) and the flow is the interface's. Phase 8 (CLI, UX-59), Phase 9 (web, UX-74) |
+| 8 | Link the pull request on the issue | **N** (`pr` never links) | Y (`issuelink.go`, `internal/tui/prcomposer.go:509`) | N | **Yes on both** — the seam exists (`Jira.LinkPullRequest`) and the flow is the interface's. Phase 8 (CLI, UX-59), Phase 9 (web, UX-74) |
 | 9 | Open / copy the issue URL | n/a | Y (`o`, `y`) | N | Web: trivial once detail loads. Phase 3 |
 | 10 | Cache-seeded first paint | n/a | Y (`internal/tui/issues.go:53`) | **F** | FEAT-68, declared |
 | 11 | Branch for the issue | Y | Y | Y | CLI help never says it switches (`internal/cli/branch.go:44`). Phase 8, UX-58 |
@@ -71,7 +71,7 @@ gap, and which phase closes it.
 
 | # | Action | CLI | TUI | Web | Warranted? |
 | --- | --- | --- | --- | --- | --- |
-| 12 | Create in a worktree | N | Y (`ctrl+w`, `internal/tui/branch.go:396`) | N | Idea, UX-89; not a gap |
+| 12 | Create in a worktree | N | Y (`ctrl+w`, `internal/tui/branch.go:389`) | N | Idea, UX-89; not a gap |
 | 13 | Task switch (check out an issue branch) | N | Y (`s`) | Y (`POST /api/checkout`) | CLI: `git switch` is the twin — no |
 | 14 | Push | P (inside `pr` only) | Y (`P`, previewed) | Y | CLI: `git push` is the twin — no |
 | 15 | Rebase onto base | N | Y, **unpreviewed** (`internal/tui/run.go:447`) | N | CLI/web: `git rebase`. The interface's missing last look: Phase 4, UX-65 |
@@ -85,7 +85,7 @@ gap, and which phase closes it.
 | 18 | Discard a change | N | N | N | FEAT-23, already filed; all three lack it |
 | 19 | Per-file diff | N | Y (`diff.go:29`) | N | Web idea, UX-88 |
 | 20 | Commit with the convention | N | Y | Y (`CommitForm.tsx:36`) | CLI: `git commit` + the commit-msg hook |
-| 21 | Scope from `commit.default_scope` / the learned scope | n/a | Y (`composer.go:129`) | **N** — `CommitForm.tsx:45` hardcodes `''`, though `default_scope` is *editable* in Settings (`SettingsPanel.tsx:182`) | **Yes** — a setting silently ignored is a defect; the learned scope is not a declared follow-up. Phase 10, UX-76 |
+| 21 | Scope from `commit.default_scope` / the learned scope | n/a | Y (`internal/tui/composer.go:130`) | **N** — `CommitForm.tsx:45` hardcodes `''`, though `default_scope` is *editable* in Settings (`SettingsPanel.tsx:182`) | **Yes** — a setting silently ignored is a defect; the learned scope is not a declared follow-up. Phase 10, UX-76 |
 | 22 | Amend / fixup | N | Y | N | git is the twin; web idea, UX-88 |
 | 23 | Run a hook / generate `lefthook.yml` | N | Y (`h`, `g`) | N | `lefthook` is the twin — no |
 
@@ -98,9 +98,9 @@ gap, and which phase closes it.
 | 26 | After opening: link, then the review-status offer | P (status only) | Y | **N** (`webserver/pullrequest.go` never touches `Jira.ReviewStatus`) | **Yes** — Phase 8 (CLI link), Phase 9 (web both), UX-59/UX-74 |
 | 27 | Edit the pull request | N | Y (`e`, `preditor.go`) | N | `gh pr edit` is the twin; web idea, FEAT-79 |
 | 28 | Checks list; a failure into `$EDITOR` | N | Y (`checks.go`) | P (a CI link) | A terminal gesture; web list idea, UX-88 |
-| 29 | Follow CI; notify on settle | n/a | Y (`review.go:195`) | P (5 s tick, no signal) | Web "CI settled" idea, UX-86 |
-| 30 | Re-run CI | N | Y, **unpreviewed** (`review.go:483`) | **F** | `gh run rerun` is the CLI's. Web declared (`FEATURES.md:148`), FEAT-79. The interface's last look: Phase 4, UX-65 |
-| 31 | Merge | N | Y (`M`, gated `review.go:538`) | **F** | FEAT-31 chose the interface; web declared (`FEATURES.md:150`), FEAT-79 |
+| 29 | Follow CI; notify on settle | n/a | Y (`internal/tui/review.go:191`) | P (5 s tick, no signal) | Web "CI settled" idea, UX-86 |
+| 30 | Re-run CI | N | Y, **unpreviewed** (`internal/tui/review.go:479`) | **F** | `gh run rerun` is the CLI's. Web declared (`FEATURES.md:148`), FEAT-79. The interface's last look: Phase 4, UX-65 |
+| 31 | Merge | N | Y (`M`, gated `internal/tui/review.go:534`) | **F** | FEAT-31 chose the interface; web declared (`FEATURES.md:150`), FEAT-79 |
 | 32 | The review queue | Y (`reviews --json`) | Y (pane 6) | **N** (no section) | **Yes** — a read both other surfaces have, over a seam that exists. Phase 12, UX-83 |
 
 ### Messaging
@@ -109,8 +109,8 @@ gap, and which phase closes it.
 | --- | --- | --- | --- | --- | --- |
 | 33 | Announce: compose → preview → post | Y | Y | Y | CLI and web compose it once, in `internal/loop` (Phase 1, which closed DEBT-50); the terminal renders its own from cached state, with `loop.AnnounceMoment` |
 | 34 | Call it a "merge request" on GitLab | Y (`forge.Kind.Noun`, `internal/forge/remote.go:60`) | Y (the same) | **N** — six hardcoded strings; `ForgeKind` on the server (`webserver.go:60`), never sent | **Yes** — Phase 9, UX-73 |
-| 35 | Post when CI passes | N | Y (`internal/tui/messaging.go:405`) | N | CLI `announce --when-green` is FEAT-65's fit; web FEAT-82; not this plan |
-| 36 | Announced history (never re-offer) | **N** — no `Store` reference in `internal/cli` | Y (`internal/tui/messaging.go:215`) | **F** | **CLI yes, cheap** — record after posting, say when already announced. Phase 8, UX-60. Web: FEAT-66, declared |
+| 35 | Post when CI passes | N | Y (`internal/tui/messaging.go:394`) | N | CLI `announce --when-green` is FEAT-65's fit; web FEAT-82; not this plan |
+| 36 | Announced history (never re-offer) | **N** — no `Store` reference in `internal/cli` | Y (`internal/tui/messaging.go:204`) | **F** | **CLI yes, cheap** — record after posting, say when already announced. Phase 8, UX-60. Web: FEAT-66, declared |
 | 37 | Choose the channel | N (config only) | Y (`←`/`→`) | Y | CLI `--channel`: UX-62 |
 | 38 | Standup | Y | N | N | Reasonable CLI-only (an `$EDITOR` flow); but it lacks `--dry-run`/`--yes` (`standup.go:132`). Phase 2, UX-54 |
 
@@ -146,7 +146,7 @@ to see the shape.
 | `--json` on reads | Partial — `status`, `reviews`, `doctor`; not `standup`; `config show` unparsable | UX-51, UX-62 |
 | No color/prompts off a TTY; `NO_COLOR` | Met by construction (no color emitted); **Gap** for prompts — EOF is an unexplained error | UX-53 |
 | Confirm before outward acts; `--yes`; `--dry-run` | Met on `branch`/`pr`/`announce`; **Gap** on `standup` and `config init` | UX-54 |
-| Preview before the write | Met | `internal/cli/branch.go:107`, `pr.go:127`, `internal/cli/announce.go:134`, `standup.go:125` |
+| Preview before the write | Met | `internal/cli/branch.go:106`, `internal/cli/pr.go:117`, `internal/cli/announce.go:119`, `standup.go:125` |
 | Progress for slow operations | **Gap** — silent | UX-61 |
 | Ctrl-C | Met | `cli.go:101` `signal.NotifyContext` |
 | Errors say what to do next | Partial — strong in `doctor`/`config`; bare sentinels do not | UX-57 |
@@ -243,7 +243,7 @@ the web lint and unit tests; `depcruise` fails a deliberate feature-file
 
 **Proof.** The gates' own runs.
 
-### Phase 1 — The shared composition layer: `internal/loop`
+### Phase 1 — The shared composition layer: `internal/loop` — done
 
 Closes DEBT-50. The layer is a **new leaf package**, `internal/loop` ("the
 loop" is the house word — `usage.md:104`, `FEATURES.md:153`). It imports
@@ -266,19 +266,18 @@ One commit each, red first, in this order:
    `internal/webserver/announce.go` `noun`. Add the methods to an
    existing `forge` file — `internal/forge` is 11 of 12.
 2. `config.Branch.Naming() convention.BranchNaming` replaces the three
-   identical `NewBranchNaming(…)` calls (`internal/tui/branch.go:296`,
-   `internal/cli/branch.go:78`, `internal/webserver/branchcreate.go:83`).
+   identical `NewBranchNaming(…)` calls (`internal/tui/branch.go`,
+   `internal/cli/branch.go`, `internal/webserver/branchcreate.go`).
 3. `loop.ComposePull(seams PullSeams, opts PullOptions)
    (forge.NewPullRequest, gitrepo.Branch, error)` with `loop.ErrNothingToOpen`
    and `loop.ErrPullAlreadyOpen`, and `loop.EnsurePushed(push, branch) error`
-   with `loop.ErrPushFailed` carrying the drained lines — replacing
-   `internal/cli/pr.go:112-154`, `:222-262` and
-   `internal/webserver/pullrequest.go:99-177`, which are near line-for-line
-   today.
+   with `loop.ErrPushFailed` carrying the drained lines — replacing the
+   composition and `ensurePushed` in `internal/cli/pr.go` and
+   `internal/webserver/pullrequest.go`, which were near line-for-line.
 4. `jira.FindTransition(moves, status)` (pure, over its own types, from
-   `internal/cli/pr.go:210`) and `loop.ReviewTransition(transitions, key,
-   status) (jira.Transition, bool)` — the fields-less lookup from
-   `pr.go:190-206`.
+   `internal/cli/pr.go` `transitionTo`) and `loop.ReviewTransition(transitions,
+   key, status) (jira.Transition, bool)` — the fields-less lookup from
+   `internal/cli/pr.go` `reviewTarget`.
 5. `loop.AnnounceMoment(pull forge.PullRequest, ci forge.CI, ciKnown bool)
    messaging.Moment` and `loop.ComposeAnnouncement(seams AnnounceSeams, cfg
    config.Messaging, project string, kind forge.Kind) (messaging.Announcement,
@@ -287,9 +286,9 @@ One commit each, red first, in this order:
    and the interface's `announceMoment` in `internal/tui/messaging.go` (a third caller; it
    passes its own `review.ci`).
 6. `loop.ErrDirtyTree`, `loop.ErrNothingStaged`, `loop.RefuseDirty(changes)`,
-   `loop.RefuseUnstaged(changes)` — the guards that `internal/webserver/checkout.go:16`
-   and `internal/webserver/commit.go:18` say are "the same guard the terminal interface applies"
-   (`internal/tui/switchtask.go:88`, the composer).
+   `loop.RefuseUnstaged(changes)` — the guards that `internal/webserver/checkout.go`
+   and `internal/webserver/commit.go` said were "the same guard the terminal interface applies"
+   (`internal/tui/switchtask.go:89`, the composer).
 7. `CLAUDE.md`'s layout block gains `internal/loop/` (one line; the rest of
    the drift is Phase 15).
 
@@ -344,7 +343,7 @@ without it, classify the CLI-local sentinels and re-point later).
 - **Flags.** `--dry-run` and `--log` become root `PersistentFlags`;
   `writeOptions.addFlags` (`scriptable.go:29`) stops declaring its own
   `--dry-run`; the seven wiring preambles (`reviews.go:59`, `internal/cli/branch.go:63`,
-  `pr.go:82`, `internal/cli/status.go:117`, `standup.go:75`, `internal/cli/announce.go:80`,
+  `internal/cli/pr.go:77`, `internal/cli/status.go:117`, `standup.go:75`, `internal/cli/announce.go:69`,
   `scriptable.go:71`, and the root's `cli.go:161`) collapse into one
   `connect(cmd)` returning `{cfg, deps, where, closeLog}`, so `--log` reaches
   every subcommand. `standup` gains `--dry-run`/`--yes` (`standup.go:132`)
@@ -431,7 +430,7 @@ Closes UX-65. Before 5–7, so the goldens move once.
 
 Generalize `pushPreview` (`internal/tui/run.go:394`) into `lastLook{title,
 body, verb, proceed func(Model) (Model, tea.Cmd)}` — three users now, the
-rule of three is met — and route `rerunChecks` (`review.go:483`, a forge
+rule of three is met — and route `rerunChecks` (`internal/tui/review.go:479`, a forge
 write) and `startRebase` (`internal/tui/run.go:447`, rewrites local history) through it;
 the dry-run narration moves inside `proceed`. Relabel the footers
 ("re-run", "rebase"); `usage.md`'s key rows follow.
@@ -454,18 +453,18 @@ tests to press `enter`.
 Closes UX-66, DEBT-55 (for `review.go`), DEBT-56. Depends on Phase 4.
 
 1. `refactor(tui): split the merge picker out of review.go` — `canMerge …
-   mergePicker.confirm` (`internal/tui/review.go:538-701`) to `merge.go`.
+   mergePicker.confirm` (`internal/tui/review.go:534-697`) to `merge.go`.
    **`internal/tui` 38 → 39 in this commit**, with the WHY rewritten
    ("merge.go: the Review pane's merge picker and its permitted-methods
    read, split out of review.go when it passed the 500-line target") and a
    row in `scripts/package-size-budget-history.md` — same commit, or the
    commit is red.
-2. `mergePicker.merging bool` (`:636`) → `send sendState`
+2. `mergePicker.merging bool` (`:632`) → `send sendState`
    (`sendstate.go:10`); `mergeRequested.apply` (`:597`) keeps the overlay
    open through `pinnedOutcome` (`render.go:457`) instead of
    `closeOverlay().noticed(…)`.
 3. The same for `finishPreview` (`finish.go:65`, `finished.apply` `:139`).
-4. `branchPicker.sending` (`switchtask.go:78`) adopts `sendState` (pure
+4. `branchPicker.sending` (`internal/tui/switchtask.go:79`) adopts `sendState` (pure
    refactor; it already keeps its refusal).
 
 **Touches.** `internal/tui/{review, merge (new), finish, switchtask}.go`,
@@ -490,15 +489,15 @@ Closes UX-67. Depends on Phase 5 (every overlay outcome then flows through
 - `m.failureLine(err)` — glyph plus the sentence, or the raw text when
   there is none, one line — replaces the fourteen `failedGlyph() +
   err.Error()` rail sites (`checks.go:96`, `diff.go:79`, `issuewrite.go:120`,
-  `:122`, `picker.go:222`, `:259`, `switchtask.go:107`, `:147`,
-  `internal/tui/messaging.go:159`, `review.go:223`, `internal/tui/run.go:211`, `composer.go:163`,
-  `:175`, `internal/tui/fields.go:171`).
-- The nine bare notices (`comment.go:76`, `composer.go:76`,
-  `internal/tui/messaging.go:389`, `finish.go:141`, `review.go:513`, `:515`, `:579`,
-  `:581`, `:599`) go through `m.noticed(m.failureLine(err))`;
+  `:122`, `internal/tui/picker.go:209`, `:246`, `internal/tui/switchtask.go:108`, `:148`,
+  `internal/tui/messaging.go:147`, `internal/tui/review.go:219`, `internal/tui/run.go:211`, `internal/tui/composer.go:164`,
+  `:176`, `internal/tui/fields.go:171`).
+- The nine bare notices (`comment.go:76`, `internal/tui/composer.go:77`,
+  `internal/tui/messaging.go:378`, `finish.go:141`, `internal/tui/review.go:509`, `:511`, `:575`,
+  `:577`, `:595`) go through `m.noticed(m.failureLine(err))`;
   `render.go:386` `configErrorStatus` is styled.
-- `forgeReason` (`review.go:365`), `rerunReason` (`:528`) and
-  `mergeReason` (`:609`) fold into `errorSentence`'s table
+- `forgeReason` (`internal/tui/review.go:361`), `rerunReason` (`:524`) and
+  `mergeReason` (`:605`) fold into `errorSentence`'s table
   (`forge.ErrRefused`/`ErrUnauthorized` → the write-scope sentence;
   `jira.ErrNotFound`; `forge.ErrNoRepository`; `errDryRun`).
 
@@ -550,13 +549,13 @@ Phase 2 (notices are on stderr).
   cobra's suggestions on an unknown command or flag (`cli.go:157`).
 - Sentinels carry a next step: `errBranchExists` names the branch and
   `git switch NAME` (`internal/cli/branch.go:24`); `errPullAlreadyOpen` carries the URL
-  (`pr.go:30`); `errMessagingNotConfigured` names the keys and `workflow
-  doctor` (`internal/cli/announce.go:28`); `errNoPullRequest` points at `workflow pr`
-  (`:24`).
-- `branch`'s help and preview say it switches (`internal/cli/branch.go:44`, `:107`;
+  (`internal/cli/pr.go:31`); `errMessagingNotConfigured` names the keys and `workflow
+  doctor` (`internal/cli/announce.go:25`); `errNoPullRequest` points at `workflow pr`
+  (`:21`).
+- `branch`'s help and preview say it switches (`internal/cli/branch.go:44`, `:106`;
   `internal/gitrepo/branch.go:305`).
 - `pr`'s question names the push when the branch is unpushed — "Push NAME
-  and open the pull request?" (`pr.go:131`); `pr` offers to link the pull
+  and open the pull request?" (`internal/cli/pr.go:121`); `pr` offers to link the pull
   request on the issue before the status offer (`loop.ReviewTransition` +
   `Jira.LinkPullRequest`, matrix row 8), under the same `--yes`, and
   `--yes`'s help says it covers all three.
@@ -619,7 +618,7 @@ the CLAUDE.md-required `TestUnreachableJiraDetailOmitsItsHost`. vitest:
 
 ### Phase 10 — The web can stage, and picks the scope the interface would
 
-Closes UX-75, UX-76. Depends on Phases 1 (`loop.RefuseUnstaged`) and 3.
+Closes UX-75, UX-76. Depends on Phases 1 (`loop.RefuseNothingStaged`) and 3.
 
 - `POST /api/stage` and `POST /api/unstage` taking `{path}` or `{all:
   true}`, in one `staging.go`; `webserver.Deps` gains `Stage`, `Unstage`.
@@ -628,7 +627,7 @@ Closes UX-75, UX-76. Depends on Phases 1 (`loop.RefuseUnstaged`) and 3.
   staged yet — stage a file above" state instead of vanishing (`:111`).
 - The snapshot's `changes` gains `suggested_scope` — the store's last
   scope, else `commit.default_scope` — the interface's rule
-  (`composer.go:129-135`); `Deps.LastScope`/`RecordScope` from
+  (`internal/tui/composer.go:130-136`); `Deps.LastScope`/`RecordScope` from
   `deps.Store`; `CommitForm` opens on it; the server records the scope
   after a commit.
 
@@ -668,8 +667,8 @@ Phase 3.
   section change (`AppShell.tsx:39`).
 - One announce verb through the flow — **decided: "Announce to X"** (opens
   the preview) and "Announce now" (sends), on every surface.
-- `checkout.go:42` and `internal/webserver/branchcreate.go:45` pass git's own reason through
-  `fault`. **`internal/webserver/announce.go:59` does not**: a messaging error can name the
+- `internal/webserver/checkout.go:44` and `internal/webserver/branchcreate.go:44` pass git's own reason through
+  `fault`. **`internal/webserver/announce.go:57` does not**: a messaging error can name the
   webhook URL, so classify by `messaging.ErrRejected`/`ErrUnreachable` and
   never forward the text. `"something went wrong"` (`errors.go:79`) → a
   directive sentence. One "connecting" phrasing (`IssuesPanel.tsx:17`,
@@ -777,7 +776,7 @@ included.
 
 Closes DEBT-69, DEBT-70. Last, so it documents the end state. TDD-exempt.
 
-- `CLAUDE.md:34` `internal/slack` → `internal/messaging`, and the missing
+- `CLAUDE.md:35` `internal/slack` → `internal/messaging`, and the missing
   layout lines: `api/`, `internal/api`, `internal/loop`, `internal/keychain`,
   `internal/progress`, `internal/buildinfo`, `internal/store`, `internal/web`,
   `internal/webserver`, `internal/tui/frame`, `internal/tui/layout`, `web/`.
@@ -963,7 +962,7 @@ phase disagree, the correction wins.
   `staleTime: Infinity` under a pushed stream; the spine's color-only hue
   residue; and every part of the interface's visual system.
 - **Security:** nothing in this file is a security finding. The one
-  security-adjacent constraint is Phase 11's rule for `internal/webserver/announce.go:59`.
+  security-adjacent constraint is Phase 11's rule for `internal/webserver/announce.go:57`.
 
 ## Risks before starting
 
@@ -1000,6 +999,6 @@ phase disagree, the correction wins.
 7. **New write endpoints** (Phases 9 and 10) each need the CLAUDE.md-
    required "detail omits the host" test and a test that `--dry-run`
    refuses them.
-8. **A security-adjacent constraint, not a finding.** `internal/webserver/announce.go:59`
+8. **A security-adjacent constraint, not a finding.** `internal/webserver/announce.go:57`
    hides its error because a messaging error can carry the webhook URL;
    Phase 11 classifies it by sentinel and never forwards the text.
