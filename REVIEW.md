@@ -408,7 +408,7 @@ Phase 0.
 - A view switcher from `listViews`; `useEventStream(view)` reconnects with
   `?view=`; `No issues match this view.` (`IssuesPanel.tsx:23`) gains the
   switcher beside it.
-- Server: `resolveJQL` (`internal/webserver/handlers.go:217`) answers
+- Server: `resolveJQL` (`internal/webserver/handlers.go:234`) answers
   `not_found` for an unknown view instead of `views[0]`; the stream
   validates `?view=` before upgrading.
 
@@ -688,7 +688,7 @@ Phase 3.
 - One announce verb through the flow — **decided: "Announce to X"** (opens
   the preview) and "Announce now" (sends), on every surface.
 - `internal/webserver/checkout.go:44` and `internal/webserver/branchcreate.go:44` pass git's own reason through
-  `fault`. **`internal/webserver/announce.go:57` does not**: a messaging error can name the
+  `fault`. **`internal/webserver/announce.go:53` does not**: a messaging error can name the
   webhook URL, so classify by `messaging.ErrRejected`/`ErrUnreachable` and
   never forward the text. `"something went wrong"` (`errors.go:79`) → a
   directive sentence. One "connecting" phrasing (`IssuesPanel.tsx:19`,
@@ -985,7 +985,7 @@ phase disagree, the correction wins.
   `staleTime: Infinity` under a pushed stream; the spine's color-only hue
   residue; and every part of the interface's visual system.
 - **Security:** nothing in this file is a security finding. The one
-  security-adjacent constraint is Phase 11's rule for `internal/webserver/announce.go:57`.
+  security-adjacent constraint is Phase 11's rule for `internal/webserver/announce.go:53`.
 
 ## Risks before starting
 
@@ -1023,6 +1023,6 @@ phase disagree, the correction wins.
 7. **New write endpoints** (Phases 9 and 10) each need the CLAUDE.md-
    required "detail omits the host" test and a test that `--dry-run`
    refuses them.
-8. **A security-adjacent constraint, not a finding.** `internal/webserver/announce.go:57`
+8. **A security-adjacent constraint, not a finding.** `internal/webserver/announce.go:53`
    hides its error because a messaging error can carry the webhook URL;
    Phase 11 classifies it by sentinel and never forwards the text.

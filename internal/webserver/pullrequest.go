@@ -15,10 +15,6 @@ import (
 	"github.com/jacob-delgado/workflow/internal/loop"
 )
 
-// errNothingToOpen refuses opening a pull request when there is nothing to open
-// one from — no branch, no commits, or one is already open.
-var errNothingToOpen = errors.New("there is nothing to open a pull request for")
-
 // GetPullRequestDraft composes the pull request that would be opened for the
 // checked-out branch, without opening it, so the browser can edit it before
 // confirming. It is a 409 when there is nothing to open.
@@ -27,8 +23,7 @@ func (s *server) GetPullRequestDraft(
 ) (api.GetPullRequestDraftResponseObject, error) {
 	draft, branch, ok := s.composePullRequest()
 	if !ok {
-		return api.GetPullRequestDraft409ApplicationProblemPlusJSONResponse(
-			problem(api.Conflict, errNothingToOpen.Error())), nil
+		return api.GetPullRequestDraft409ApplicationProblemPlusJSONResponse(s.nothingToOpen()), nil
 	}
 
 	return api.GetPullRequestDraft200JSONResponse(draftDTO(draft, branch)), nil
@@ -46,12 +41,12 @@ func (s *server) OpenPullRequest(
 	}
 
 	if !s.canOpenPull() {
-		return openUnprocessable("opening a pull request is not available"), nil
+		return openUnprocessable("opening a " + s.noun() + " is not available"), nil
 	}
 
 	_, branch, ok := s.composePullRequest()
 	if !ok {
-		return api.OpenPullRequest409ApplicationProblemPlusJSONResponse(problem(api.Conflict, errNothingToOpen.Error())), nil
+		return api.OpenPullRequest409ApplicationProblemPlusJSONResponse(s.nothingToOpen()), nil
 	}
 
 	newPull, ok := pullFromRequest(*request.Body, branch)
@@ -74,11 +69,23 @@ func (s *server) OpenPullRequest(
 	opened := api.OpenedPullRequest{Pull: pullDTO(pull)}
 
 	if err != nil {
-		warning := "the pull request opened, but its reviewers, assignees or labels could not all be added"
+		warning := "the " + s.noun() + " opened, but its reviewers, assignees or labels could not all be added"
 		opened.Warning = &warning
 	}
 
 	return api.OpenPullRequest200JSONResponse(opened), nil
+}
+
+// noun is what the forge calls a proposed change — a merge request on GitLab —
+// so what the page is told names it as the page itself does.
+func (s *server) noun() string {
+	return s.info.ForgeKind.Noun()
+}
+
+// nothingToOpen refuses opening a pull request when there is nothing to open one
+// from — no branch, no commits, or one is already open.
+func (s *server) nothingToOpen() api.Problem {
+	return problem(api.Conflict, "there is nothing to open a "+s.noun()+" for")
 }
 
 // canOpenPull reports whether the seams the open needs are wired: creating the
