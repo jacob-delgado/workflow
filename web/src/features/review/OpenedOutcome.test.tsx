@@ -61,6 +61,27 @@ async function openAgain(user: ReturnType<typeof userEvent.setup>, noun = 'pull 
   await screen.findByText(new RegExp(`^Opened ${noun} [#!]\\d+\\.$`))
 }
 
+// heldOpen is an answer whose body arrives only once release is called, so a
+// write can be caught in flight.
+function heldOpen(body: unknown): { response: Response; release: () => void } {
+  let release = () => {}
+  const stream = new ReadableStream<Uint8Array>({
+    start(controller) {
+      release = () => {
+        controller.enqueue(new TextEncoder().encode(JSON.stringify(body)))
+        controller.close()
+      }
+    },
+  })
+
+  return {
+    response: new Response(stream, { headers: { 'Content-Type': 'application/json' } }),
+    release: () => {
+      release()
+    },
+  }
+}
+
 // writesTo lists the writes the page sent, as method and path.
 function writesTo(requests: Request[]): string[] {
   return requests
@@ -147,6 +168,53 @@ test('hands focus to the outcome once its offer is done', async () => {
   const outcome = await screen.findByText('Linked #7 on PROJ-412.')
   expect(screen.queryByRole('button', { name: 'Link it on PROJ-412' })).toBeNull()
   expect(document.activeElement).toBe(outcome)
+})
+
+test('focus moved on to the next offer while a link is made stays there', async () => {
+  // Arrange
+  const link = heldOpen(pull)
+  const user = userEvent.setup()
+  serveTheOpen([linkOffer, moveOffer], { '/api/issues/PROJ-412/link': () => link.response })
+  await openThePullRequest(user)
+  await user.click(screen.getByRole('button', { name: 'Link it on PROJ-412' }))
+  const move = screen.getByRole('button', { name: 'Move PROJ-412 to In Review' })
+  move.focus()
+
+  // Act
+  link.release()
+  await screen.findByText('Linked #7 on PROJ-412.')
+
+  // Assert
+  expect(document.activeElement).toBe(move)
+})
+
+test('a link said while focus was on the next offer leaves that offer its own outcome', async () => {
+  // Arrange
+  // The link is said while focus is on Move, which the user then presses for
+  // its own write; a stream frame lands while that move is in flight.
+  const link = heldOpen(pull)
+  const transition = heldOpen({ key: 'PROJ-412', status: 'In Review' })
+  const user = userEvent.setup()
+  serveTheOpen([linkOffer, moveOffer], {
+    '/api/issues/PROJ-412/link': () => link.response,
+    '/api/issues/PROJ-412/transition': () => transition.response,
+  })
+  await openThePullRequest(user)
+  await user.click(screen.getByRole('button', { name: 'Link it on PROJ-412' }))
+  screen.getByRole('button', { name: 'Move PROJ-412 to In Review' }).focus()
+  link.release()
+  await screen.findByText('Linked #7 on PROJ-412.')
+  await user.click(screen.getByRole('button', { name: 'Move PROJ-412 to In Review' }))
+  act(() => {
+    useSnapshotStore.setState({ snapshot: structuredClone(useSnapshotStore.getState().snapshot) })
+  })
+
+  // Act
+  transition.release()
+
+  // Assert
+  const moved = await screen.findByText('Moved PROJ-412 to In Review.')
+  expect(document.activeElement).toBe(moved)
 })
 
 test('a second open offers its own link afresh', async () => {
