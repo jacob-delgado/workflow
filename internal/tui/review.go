@@ -167,7 +167,7 @@ func (m Model) keepPolling(then tea.Cmd) (Model, tea.Cmd) {
 	m.review.polling = true
 	poll := ciPoll{number: m.review.pull.Number, generation: m.review.generation}
 
-	return m, tea.Batch(then, tea.Tick(m.pollInterval(), func(time.Time) tea.Msg { return poll }))
+	return m, tea.Batch(then, m.deps.after(m.pollInterval(), func(time.Time) tea.Msg { return poll }))
 }
 
 // notifyPollInterval is how often CI is asked about when the developer only

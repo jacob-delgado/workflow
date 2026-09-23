@@ -37,6 +37,10 @@ type Deps struct {
 	// CIInterval is how often CI is asked about while it runs, or while a post
 	// waits for it to pass. Zero means every twenty seconds.
 	CIInterval time.Duration
+	// After is the timer every wait goes through — the selection resting before
+	// an issue is read, the gap between CI checks: a command that delivers fire's
+	// message once the wait has passed. Nil means tea.Tick.
+	After func(wait time.Duration, fire func(time.Time) tea.Msg) tea.Cmd
 	// Notify rings the terminal and sends a desktop notification, for when CI
 	// finishes while the developer is looking elsewhere. Nil where the interface
 	// cannot reach the terminal to ring it.
@@ -244,4 +248,14 @@ func (d Deps) now() time.Time {
 	}
 
 	return d.Clock()
+}
+
+// after is a command that delivers fire's message once wait has passed, on the
+// timer the interface was given.
+func (d Deps) after(wait time.Duration, fire func(time.Time) tea.Msg) tea.Cmd {
+	if d.After == nil {
+		return tea.Tick(wait, fire)
+	}
+
+	return d.After(wait, fire)
 }

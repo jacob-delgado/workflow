@@ -78,10 +78,11 @@ variable, not an interface.
 
 `wiring.Deps(ctx, cfg, where, log)` returns a `tui.Deps` bundle. It composes one
 grouped seam per external system (`Jira`, `Git`, `Forge`, `Messaging`, `Hooks`,
-`Editor`, `Store`) plus a few environment seams (`Clock`, `CIInterval`, `Notify`,
-`OpenURL`, `Copy`). Each grouped seam is a struct of closures that capture the
-context and the resolved credential, so the TUI model itself never holds either —
-which is exactly what lets its tests hand it canned answers with no network.
+`Editor`, `Store`) plus a few environment seams (`Clock`, `CIInterval`, `After`,
+`Notify`, `OpenURL`, `Copy`). Each grouped seam is a struct of closures that
+capture the context and the resolved credential, so the TUI model itself never
+holds either — which is exactly what lets its tests hand it canned answers with
+no network.
 
 - `Workspace{Root, Remote}` tells wiring where it is running — the repository
   root (or the start directory when there is no repo) and the origin remote URL.
