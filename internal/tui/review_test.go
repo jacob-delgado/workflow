@@ -63,8 +63,8 @@ func TestTheSlackPreviewOmitsPostWhenCIWithoutChecks(t *testing.T) {
 	view := typing(t, noChecks.live(t, 120, 40), "5", "p").View().Content
 
 	// Assert
-	requireScreen(t, view, "Post to Slack", "post now")
-	refuseScreen(t, footerLine(view), "post when CI passes")
+	requireScreen(t, view, "Announce to Slack", "announce now")
+	refuseScreen(t, footerLine(view), "when CI passes")
 }
 
 func TestWithoutAForgeTokenNothingIsOfferedOrPushed(t *testing.T) {

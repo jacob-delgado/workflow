@@ -220,7 +220,7 @@ Impact: low · Effort: large
 
 **Today.** Drafts survive `esc` (commit `internal/tui/composer.go:254`, pull request
 `internal/tui/prcomposer.go:275`), a dirty tree blocks a switch instead of stashing, and
-quit is guarded while a post waits. But a posted comment, an applied
+quit is guarded while an announcement waits. But a posted comment, an applied
 transition, a merge and the `branch -D` in finish have no undo, and the
 interface never says which acts are reversible.
 

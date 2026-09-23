@@ -174,7 +174,7 @@ func rejectionReason(code, channel string) string {
 			". Invite it to the channel, then press enter to try again",
 		"channel_not_found": "there is no channel " + channel +
 			", or the bot cannot see it. Check the channel name, then press enter to try again",
-		"is_archived": channel + " is archived. Post to an open channel, then press enter to try again",
+		"is_archived": channel + " is archived. Choose an open channel, then press enter to try again",
 	}
 
 	if sentence, known := explained[code]; known {

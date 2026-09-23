@@ -47,7 +47,7 @@ func TestEmptyStateSentencesAreNotDrawnFaint(t *testing.T) {
 		},
 		"the messaging empty state": {
 			prepare:  func(w *world) { w.branch = gitrepo.Branch{Name: baseName, Base: baseRef}; w.pullFound = false },
-			sentence: "○ nothing posted",
+			sentence: "○ nothing announced",
 		},
 		"the branch upstream state": {
 			prepare:  func(w *world) { w.branch.Upstream = "" },

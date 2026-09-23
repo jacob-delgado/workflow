@@ -157,6 +157,22 @@ func TestTheMessagingRefusalNamesNoOneService(t *testing.T) {
 	refuseScreen(t, view, "Slack refused")
 }
 
+func TestARefusedAnnouncementShowsTheServicesReason(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	archived := newWorld()
+	archived.postErr = fmt.Errorf("%w: #dev is archived", messaging.ErrPostRefused)
+
+	// Act
+	view := typing(t, archived.live(t, 200, 40), "5", "p", keyEnter).View().Content
+
+	// Assert
+	// The service's refusal keeps its own verb-neutral words under the announce title.
+	requireScreen(t, view, "Announce to Slack", "the message was refused: #dev is archived")
+	refuseScreen(t, view, "post was refused")
+}
+
 // lacksWriteScope is how a refused forge write names its likeliest fix.
 const lacksWriteScope = "the token may lack the write scope"
 

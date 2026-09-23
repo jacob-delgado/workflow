@@ -22,17 +22,17 @@ import (
 // depends on the service, so the note stays general rather than naming one.
 const messagingHelp = "Edit the message above this line."
 
-// Refusals of an announcement that never went. An empty message is guidance, a
-// post given up on is a failure.
+// Refusals of an announcement that never went. An empty message is guidance, an
+// announcement given up on is a failure, told with the service it was for.
 var (
-	errEmptyMessage     = errors.New("nothing to post: the message was empty")
-	errPostDropped      = errors.New("dropped the Slack post")
-	errCIFailedUnposted = errors.New("CI failed, so nothing was posted to Slack")
+	errEmptyMessage        = errors.New("nothing to announce: the message was empty")
+	errAnnouncementDropped = errors.New("dropped the announcement")
+	errCIFailedUnannounced = errors.New("CI failed, so nothing was announced")
 )
 
-// messagingState is what has been posted to Slack. The posts made this session
-// are seeded at startup from the store's record of earlier ones, so a restart
-// does not forget them.
+// messagingState is what has been announced. The announcements made this
+// session are seeded at startup from the store's record of earlier ones, so a
+// restart does not forget them.
 type messagingState struct {
 	// posted is the announcements made this session, each a pull request and the
 	// moment it marked, so one pull request can be announced at each of its
@@ -80,7 +80,7 @@ var _ overlay = quitGuard{}
 
 // view says what quitting would cost.
 func (quitGuard) view(width, _ int) (string, string) {
-	return "Quit", wrap("A post is waiting for CI and will be lost.", width)
+	return "Quit", wrap("An announcement is waiting for CI and will be lost.", width)
 }
 
 // footer offers quitting anyway or staying.
@@ -146,21 +146,21 @@ func (m Model) messagingRail(_ int) string {
 	return m.cfg.Messaging.Target() + "\n" + m.messagingState()
 }
 
-// messagingState says what has happened in Slack this session.
+// messagingState says what has been announced this session.
 func (m Model) messagingState() string {
 	switch {
 	case m.messaging.send.sending:
-		return m.marks.inFlight + " posting" + m.marks.ellipsis
+		return m.marks.inFlight + " announcing" + m.marks.ellipsis
 	case m.messaging.send.err != nil:
 		return m.failureSummary(m.messaging.send.err)
 	case m.announced():
-		return m.marks.done + " posted"
+		return m.marks.done + " announced"
 	case m.messaging.pending.waiting():
-		return m.marks.inFlight + " posts when CI passes"
+		return m.marks.inFlight + " announces when CI passes"
 	case m.messaging.dropped != "":
-		return m.failedGlyph() + " not posted: " + m.messaging.dropped
+		return m.failedGlyph() + " not announced: " + m.messaging.dropped
 	default:
-		return m.marks.notStarted + " nothing posted"
+		return m.marks.notStarted + " nothing announced"
 	}
 }
 
@@ -261,7 +261,7 @@ func (m Model) messagingKeys() []key.Binding {
 	return []key.Binding{m.keys.compose}
 }
 
-// handleMessagingKey answers the Slack pane's own keys.
+// handleMessagingKey answers the messaging pane's own keys.
 func (m Model) handleMessagingKey(msg tea.KeyPressMsg) (Model, tea.Cmd) {
 	if !key.Matches(msg, m.keys.compose) || !m.canPost() {
 		return m, nil
@@ -285,7 +285,7 @@ func (m Model) handleMessagingKey(msg tea.KeyPressMsg) (Model, tea.Cmd) {
 	return m, nil
 }
 
-// messagingPreview is a Slack message about to be posted.
+// messagingPreview is an announcement about to be sent.
 type messagingPreview struct {
 	marks  glyphs
 	styles styles
@@ -298,7 +298,7 @@ type messagingPreview struct {
 	channel  string
 	channels []string
 	// moment is what this post marks, so the pane records the right one as posted
-	// and offers "post when CI passes" only where waiting for CI makes sense.
+	// and offers "announce when CI passes" only where waiting for CI makes sense.
 	moment messaging.Moment
 	// service names the messaging service, for the preview title.
 	service string
@@ -320,24 +320,24 @@ var _ editable = messagingPreview{}
 // view shows the message as it will be posted, where, and how CI stands, its
 // outcome pinned under the title so a long refusal is seen, not clipped.
 func (p messagingPreview) view(width, _ int) (string, string) {
-	lines := pinnedOutcome(p.styles, p.marks, p.send, "posting", width)
+	lines := pinnedOutcome(p.styles, p.marks, p.send, "announcing", width)
 	lines = append(lines, wrap(p.text, width), "", "to  "+p.destination())
 
-	return "Post to " + p.service, strings.Join(lines, "\n")
+	return "Announce to " + p.service, strings.Join(lines, "\n")
 }
 
-// footer offers posting now or when CI passes, changing the channel where there
-// is a choice, another edit, or leaving.
+// footer offers announcing now or when CI passes, changing the channel where
+// there is a choice, another edit, or leaving.
 func (p messagingPreview) footer(keys keyMap) []key.Binding {
 	if p.send.sending {
 		return []key.Binding{keys.interrupt}
 	}
 
-	buttons := []key.Binding{relabel(keys.confirm, "post now")}
+	buttons := []key.Binding{relabel(keys.confirm, "announce now")}
 	if p.moment == messaging.MomentReady && !p.noCI {
-		// Only a "ready for review" post waits for CI. A merge or a red CI has
-		// already happened; there is nothing to wait for.
-		buttons = append(buttons, keys.postWhenGreen)
+		// Only a "ready for review" announcement waits for CI. A merge or a red
+		// CI has already happened; there is nothing to wait for.
+		buttons = append(buttons, relabel(keys.postWhenGreen, "when CI passes"))
 	}
 
 	if len(p.channels) > 1 {
@@ -391,7 +391,7 @@ func (p messagingPreview) post(m Model) (Model, tea.Cmd) {
 	}
 
 	if m.dryRun {
-		return m.closeOverlay().noticed("dry run: would post to " + p.destination()), nil
+		return m.closeOverlay().noticed("dry run: would announce to " + p.destination()), nil
 	}
 
 	p.send = starting()
@@ -413,10 +413,10 @@ func (p messagingPreview) postWhenGreen(m Model) (Model, tea.Cmd) {
 	}
 
 	if m.dryRun {
-		return m.closeOverlay().noticed("dry run: would post to " + p.destination() + " once CI passes"), nil
+		return m.closeOverlay().noticed("dry run: would announce to " + p.destination() + " once CI passes"), nil
 	}
 
-	m = m.closeOverlay().noticed(m.marks.inFlight + " will post to " + p.destination() + " once CI passes")
+	m = m.closeOverlay().noticed(m.marks.inFlight + " will announce to " + p.destination() + " once CI passes")
 	m.messaging.pending, m.messaging.send.err, m.messaging.dropped = queuedPost{
 		pull: m.review.pull.Number, text: p.text, channel: p.channel,
 	}, nil, ""
@@ -444,8 +444,8 @@ func (m Model) withoutQueuedPost() Model {
 	dropped := m.messaging.pending.pull
 	m.messaging.pending = queuedPost{}
 
-	return m.noticedFailure(fmt.Errorf("%w waiting for %s%d, which is no longer this branch's %s",
-		errPostDropped, m.vocab.sigil, dropped, m.vocab.noun))
+	return m.noticedFailure(fmt.Errorf("%w to %s waiting for %s%d, which is no longer this branch's %s",
+		errAnnouncementDropped, m.cfg.Messaging.Service(), m.vocab.sigil, dropped, m.vocab.noun))
 }
 
 // postIfGreen posts the message waiting for CI once CI passes, and gives up on
@@ -467,7 +467,7 @@ func (m Model) postIfGreen() (Model, tea.Cmd) {
 		m.messaging.pending = queuedPost{}
 		m.messaging.dropped = "CI failed at " + m.deps.now().Format(droppedTimeFormat)
 
-		return m.noticedFailure(errCIFailedUnposted), nil
+		return m.noticedFailure(fmt.Errorf("%w to %s", errCIFailedUnannounced, m.cfg.Messaging.Service())), nil
 	case forge.CINone, forge.CIRunning:
 		return m, nil
 	default:
@@ -521,5 +521,5 @@ func (msg messagingPosted) apply(m Model) (Model, tea.Cmd) {
 		m = m.closeOverlay()
 	}
 
-	return m.noticed(m.marks.done + " posted to " + m.cfg.Messaging.Target()), nil
+	return m.noticed(m.marks.done + " announced to " + m.cfg.Messaging.Target()), nil
 }

@@ -713,9 +713,9 @@ func TestABotPostRefusalNamesTheFix(t *testing.T) {
 		code string
 		want string
 	}{
-		"not in the channel":      {code: "not_in_channel", want: "the bot is not in #dev"},
+		"not in the channel":      {code: "not_in_channel", want: "the message was refused: the bot is not in #dev"},
 		"no such channel":         {code: "channel_not_found", want: "no channel #dev"},
-		"the channel is archived": {code: "is_archived", want: "#dev is archived"},
+		"the channel is archived": {code: "is_archived", want: "#dev is archived. Choose an open channel"},
 	}
 
 	for name, tt := range cases {

@@ -39,14 +39,14 @@ func TestTheSlackPaneAnnouncesAMerge(t *testing.T) {
 	preview := typing(t, model, "5", "p")
 
 	// Assert: it is a merge announcement, with no CI to wait on
-	requireScreen(t, preview.View().Content, "jacob merged a pull request", "enter post now")
-	refuseScreen(t, footerLine(preview.View().Content), "post when CI passes")
+	requireScreen(t, preview.View().Content, "jacob merged a pull request", "enter announce now")
+	refuseScreen(t, footerLine(preview.View().Content), "when CI passes")
 
 	// Act: post it
 	posted := typing(t, preview, keyEnter)
 
 	// Assert: the merge announcement is posted once
-	requireScreen(t, posted.View().Content, "● posted to "+slackChannel)
+	requireScreen(t, posted.View().Content, "● announced to "+slackChannel)
 
 	if calls := merged.asked("post "); len(calls) != 1 || calls[0] != "post "+mergedAnnouncement {
 		t.Errorf("post calls = %q, want the merge announcement", calls)
@@ -65,8 +65,8 @@ func TestTheSlackPaneAnnouncesRedCI(t *testing.T) {
 	preview := typing(t, model, "5", "p")
 
 	// Assert
-	requireScreen(t, preview.View().Content, "CI is red on the pull request", "enter post now")
-	refuseScreen(t, footerLine(preview.View().Content), "post when CI passes")
+	requireScreen(t, preview.View().Content, "CI is red on the pull request", "enter announce now")
+	refuseScreen(t, footerLine(preview.View().Content), "when CI passes")
 }
 
 func TestAMergeIsAnnouncedOnlyOnce(t *testing.T) {
@@ -88,8 +88,8 @@ func TestAMergeIsAnnouncedOnlyOnce(t *testing.T) {
 	after := typing(t, posted, "j", "p", keyEnter)
 
 	// Assert: the merge is neither re-offered nor posted a second time
-	requireScreen(t, after.View().Content, "state  ● posted")
-	refuseScreen(t, footerLine(after.View().Content), "p post")
+	requireScreen(t, after.View().Content, "state  ● announced")
+	refuseScreen(t, footerLine(after.View().Content), "p announce")
 
 	if calls := merged.asked("post "); len(calls) != 1 {
 		t.Errorf("post calls = %q, want the merge announced once, not re-offered", calls)
@@ -129,7 +129,7 @@ func TestAMergeIsAnnouncableAfterTheOpening(t *testing.T) {
 	// Assert
 	// The merge can still be announced — the opening does not block it.
 	requireScreen(t, afterMerge.View().Content, "jacob merged a pull request")
-	requireScreen(t, footerLine(afterMerge.View().Content), "p post to slack")
+	requireScreen(t, footerLine(afterMerge.View().Content), "p announce to slack")
 }
 
 func TestTheSlackPanePreviewsTheAnnouncement(t *testing.T) {
@@ -140,8 +140,8 @@ func TestTheSlackPanePreviewsTheAnnouncement(t *testing.T) {
 
 	// Assert
 	requireScreen(t, view, "jacob opened a pull request:", "to     "+slackChannel, "CI     ● passed",
-		"state  ○ nothing posted")
-	requireScreen(t, footerLine(view), "p post to slack")
+		"state  ○ nothing announced")
+	requireScreen(t, footerLine(view), "p announce to slack")
 }
 
 // teamsMessaging is a Teams webhook, so every surface of it names Teams rather
@@ -164,7 +164,7 @@ func TestTheMessagingPaneNamesTheServiceInUse(t *testing.T) {
 
 	// Assert
 	requireScreen(t, view, "5 Teams")
-	requireScreen(t, footerLine(view), "p post to teams")
+	requireScreen(t, footerLine(view), "p announce to teams")
 }
 
 func TestTheHelpNamesTheMessagingService(t *testing.T) {
@@ -189,7 +189,7 @@ func TestTheSlackPaneAsksForAPullRequestFirst(t *testing.T) {
 
 	// Assert
 	requireScreen(t, view, "Open a pull request first (4 Review)")
-	refuseScreen(t, footerLine(view), "p post")
+	refuseScreen(t, footerLine(view), "p announce")
 }
 
 func TestPostingNowPostsTheAnnouncement(t *testing.T) {
@@ -204,14 +204,14 @@ func TestPostingNowPostsTheAnnouncement(t *testing.T) {
 
 	// Assert: it says where it goes and when
 	requireScreen(t, preview.View().Content,
-		"┏━ Post to Slack", "to  "+slackChannel, "enter post now", "w post when CI passes")
+		"┏━ Announce to Slack", "to  "+slackChannel, "enter announce now", "w when CI passes")
 
 	// Act: post now
 	posted := typing(t, preview, keyEnter)
 
 	// Assert: the announcement is posted once
 	requireScreen(t, posted.View().Content,
-		"● posted to "+slackChannel)
+		"● announced to "+slackChannel)
 
 	if calls := posting.asked("post "); len(calls) != 1 || calls[0] != "post "+announcement {
 		t.Errorf("post calls = %q, want the announcement", calls)
@@ -221,8 +221,8 @@ func TestPostingNowPostsTheAnnouncement(t *testing.T) {
 	pane := typing(t, posted, "j").View().Content
 
 	// Assert: the pane says it was posted, and does not offer it again
-	requireScreen(t, pane, "state  ● posted")
-	refuseScreen(t, footerLine(pane), "p post")
+	requireScreen(t, pane, "state  ● announced")
+	refuseScreen(t, footerLine(pane), "p announce")
 }
 
 func TestTheMessageCanBeEditedBeforeItPosts(t *testing.T) {
@@ -260,7 +260,7 @@ func TestAnEmptiedMessageIsNotPosted(t *testing.T) {
 	view := typing(t, emptied.live(t, 120, 40), "5", "p", "e", keyEnter).View().Content
 
 	// Assert
-	requireScreen(t, view, "nothing to post: the message was empty")
+	requireScreen(t, view, "nothing to announce: the message was empty")
 
 	if calls := emptied.asked("post "); len(calls) != 0 {
 		t.Errorf("an empty message posted: %q", calls)
@@ -294,7 +294,7 @@ func TestARefusedPostSaysWhy(t *testing.T) {
 
 	// Assert: the post stays open with the reason
 	requireScreen(t, refused.View().Content,
-		"┏━ Post to Slack", "✗ the credential was not accepted: not_in_channel")
+		"┏━ Announce to Slack", "✗ the credential was not accepted: not_in_channel")
 
 	// Act: close it
 	closed := typing(t, refused, keyEsc)
@@ -316,7 +316,7 @@ func TestPostingWhenCIPassesWaitsForIt(t *testing.T) {
 
 	// Assert
 	requireScreen(t, pending.View().Content,
-		"◐ will post to "+slackChannel+" once CI passes", "◐ Slack")
+		"◐ will announce to "+slackChannel+" once CI passes", "◐ Slack")
 
 	if calls := waiting.asked("post "); len(calls) != 0 {
 		t.Errorf("posted before CI passed: %q", calls)
@@ -336,7 +336,7 @@ func TestAPostWaitingForCIGoesOnceCIPasses(t *testing.T) {
 
 	// Assert
 	requireScreen(t, posted.View().Content,
-		"● posted to "+slackChannel)
+		"● announced to "+slackChannel)
 
 	if calls := passing.asked("post "); len(calls) != 1 {
 		t.Errorf("post calls = %q, want one once CI passed", calls)
@@ -359,7 +359,7 @@ func TestAPostWaitingForCIIsDroppedWhenCIFails(t *testing.T) {
 
 	// Assert
 	requireScreen(t, dropped.View().Content,
-		"✗ CI failed, so nothing was posted to Slack")
+		"✗ CI failed, so nothing was announced to Slack")
 
 	if calls := failing.asked("post "); len(calls) != 0 {
 		t.Errorf("posted though CI failed: %q", calls)
@@ -380,7 +380,7 @@ func TestPostingNowReplacesThePostWaitingForCI(t *testing.T) {
 
 	// Assert: it posted
 	requireScreen(t, postedNow.View().Content,
-		"● posted to "+slackChannel)
+		"● announced to "+slackChannel)
 
 	if calls := impatient.asked("post "); len(calls) != 1 {
 		t.Errorf("post calls = %q, want the one posted now", calls)
@@ -425,8 +425,8 @@ func TestNothingMorePostsWhileAPostIsOnItsWay(t *testing.T) {
 
 	// Assert: the post went, Slack has not answered, and it is not offered again
 	requireScreen(t, sending.View().Content,
-		"state  ◐ posting")
-	refuseScreen(t, footerLine(sending.View().Content), "p post")
+		"state  ◐ announcing")
+	refuseScreen(t, footerLine(sending.View().Content), "p announce")
 
 	if calls := slow.asked("post "); len(calls) != 1 {
 		t.Fatalf("post calls = %q, want the one on its way", calls)
@@ -436,7 +436,7 @@ func TestNothingMorePostsWhileAPostIsOnItsWay(t *testing.T) {
 	again := typing(t, sending, "p", keyEnter)
 
 	// Assert: nothing opens, and nothing more is sent
-	refuseScreen(t, again.View().Content, "Post to Slack")
+	refuseScreen(t, again.View().Content, "Announce to Slack")
 
 	if calls := slow.asked("post "); len(calls) != 1 {
 		t.Errorf("post calls = %q, want only the one already on its way", calls)
@@ -453,7 +453,7 @@ func TestPostingWhenCIHasAlreadyPassedPostsNow(t *testing.T) {
 	view := typing(t, passed.live(t, 120, 40), "5", "p", "w").View().Content
 
 	// Assert
-	requireScreen(t, view, "● posted to "+slackChannel)
+	requireScreen(t, view, "● announced to "+slackChannel)
 
 	if calls := passed.asked("post "); len(calls) != 1 {
 		t.Errorf("post calls = %q, want one", calls)
@@ -467,8 +467,8 @@ func TestADryRunPostsNothing(t *testing.T) {
 		key  string
 		want string
 	}{
-		"posting now":            {key: keyEnter, want: "dry run: would post to " + slackChannel},
-		"posting when CI passes": {key: "w", want: "dry run: would post to " + slackChannel + " once CI passes"},
+		"announcing now":            {key: keyEnter, want: "dry run: would announce to " + slackChannel},
+		"announcing when CI passes": {key: "w", want: "dry run: would announce to " + slackChannel + " once CI passes"},
 	}
 
 	for name, tt := range cases {
@@ -541,7 +541,7 @@ func TestTheSlackPaneNamesWhatItNeedsWhenUnset(t *testing.T) {
 	// Assert
 	requireScreen(t, view, "Slack is not set up", "messaging.webhook_url",
 		"messaging.token and", "messaging.channel", ".workflow.json")
-	refuseScreen(t, footerLine(view), "p post")
+	refuseScreen(t, footerLine(view), "p announce")
 }
 
 func TestADroppedPostLeavesALineInThePane(t *testing.T) {
@@ -559,7 +559,7 @@ func TestADroppedPostLeavesALineInThePane(t *testing.T) {
 	pane := typing(t, dropped, "j").View().Content
 
 	// Assert
-	requireScreen(t, pane, "not posted: CI failed at 16:00")
+	requireScreen(t, pane, "not announced: CI failed at 16:00")
 }
 
 func TestQuittingWithAQueuedPostAsksFirst(t *testing.T) {
@@ -575,7 +575,7 @@ func TestQuittingWithAQueuedPostAsksFirst(t *testing.T) {
 
 	// Assert
 	requireScreen(t, asked.View().Content,
-		"A post is waiting for CI and will be lost")
+		"An announcement is waiting for CI and will be lost")
 	requireScreen(t, footerLine(asked.View().Content), "enter quit", "esc stay")
 }
 
@@ -592,7 +592,7 @@ func TestAPreviouslyAnnouncedPullOpensAsPosted(t *testing.T) {
 	view := typing(t, announcing.live(t, 120, 40), "5").View().Content
 
 	// Assert
-	requireScreen(t, view, "state  ● posted")
+	requireScreen(t, view, "state  ● announced")
 }
 
 func TestAnnouncingRemembersItInTheStore(t *testing.T) {

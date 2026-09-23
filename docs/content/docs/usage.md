@@ -44,7 +44,7 @@ can rely on from them: exit codes, which stream carries what, `--json`,
 │ ● passed (1 of 1 finis… ││                                                   │
 ├─ 5 Slack ───────────────┤│                                                   │
 │ #dev                    ││                                                   │
-│ ○ nothing posted        ││                                                   │
+│ ○ nothing announced     ││                                                   │
 └─────────────────────────┘└───────────────────────────────────────────────────┘
  t change status • c comment • b branch for PROJ-412 • a assign • ? keys …
 ```
@@ -62,9 +62,9 @@ can rely on from them: exit codes, which stream carries what, `--json`,
   with the pane and with what that pane has loaded. On a narrow terminal the
   keys that do not fit are dropped whole and an ellipsis says so, but `?` is
   never among them: it lists every key.
-- **A result** — a push sent, a post made, a change refused — appears on its
-  own row above the keys, where it stays while you look around and clears when
-  the next action starts.
+- **A result** — a push sent, an announcement made, a change refused — appears
+  on its own row above the keys, where it stays while you look around and
+  clears when the next action starts.
 
 Each pane fails on its own. A Jira that cannot be reached puts its reason in
 the Issues pane, and the repository panes carry on.
@@ -103,9 +103,9 @@ scroll the detail pane.
 | 4 Review | `n` | Open a pull or merge request |
 | | `R` | Re-run failed CI, once a last look at the pull request is confirmed |
 | | `r` | Look for the pull request and its CI again |
-| 5 Slack | `p` | Preview the post announcing the pull request |
+| 5 Slack | `p` | Preview the announcement of the pull request |
 | New branch | `ctrl+w` | Create it in a new git worktree rather than switching to it |
-| Slack preview | `w` | Post automatically once CI passes |
+| Slack preview | `w` | Announce automatically once CI passes |
 | Anywhere | `m` | Turn mouse capture off or on, for this session |
 | | `?` | Every key |
 | | `q` | Quit (`ctrl+c` works even with a preview open) |
@@ -193,21 +193,22 @@ jacob opened a pull request: <https://github.com/…/pull/42|fix(config): redact
 <https://jira.example.com/browse/PROJ-412|PROJ-412> Fix token redaction
 ```
 
-`e` edits it in your editor, `enter` posts it now, and `w` posts it once CI
-passes. A post waiting for CI is dropped, saying so, if CI fails. Posting now
-replaces a post that is waiting, so the channel never reads it twice.
+`e` edits it in your editor, `enter` announces it now, and `w` announces it
+once CI passes. An announcement waiting for CI is dropped, saying so, if CI
+fails. Announcing now replaces one that is waiting, so the channel never reads
+it twice.
 
-A post waits for the pull request it was written for, and no other. Switch to
-another branch while it waits, or replace the pull request, and it is dropped,
-saying so, rather than sent for something you never previewed. Each pull request
-is announced once in a session, and the Slack pane and the top row say whether
-the one on screen has been.
+An announcement waits for the pull request it was written for, and no other.
+Switch to another branch while it waits, or replace the pull request, and it is
+dropped, saying so, rather than sent for something you never previewed. Each
+pull request is announced once in a session, and the Slack pane and the top row
+say whether the one on screen has been.
 
 ## Dry run
 
 `workflow --dry-run` reads everything as usual and writes nothing. Every action
 that would change something — a status change, a comment, a branch, staging, a
-commit, a push, a pull request, a Slack post, a generated `lefthook.yml` — says
+commit, a push, a pull request, an announcement, a generated `lefthook.yml` — says
 what it would have done instead. The top row starts with `DRY RUN` while it is
 on.
 
@@ -254,13 +255,13 @@ have them. See [Configuration]({{< relref "/docs/configuration" >}}).
   is told not to prompt. Push over SSH, or over HTTPS with a credential helper.
 - **Staging is by whole file.** Staging hunks is lazygit's whole project; use
   it, or `git add -p`, alongside.
-- **Nothing outlives the session.** A Slack post waiting for CI is not sent if
-  you quit first.
+- **Nothing outlives the session.** An announcement waiting for CI is not sent
+  if you quit first.
 - **`w` waits for checks that exist.** In a repository with no CI at all it
-  keeps waiting; post with `enter` instead.
+  keeps waiting; announce with `enter` instead.
 - **A branch is worked on under the name it shows.** git allows characters in a
   branch's name that cannot be drawn as they are, such as one with no width or
   one that reverses the text after it. A branch, upstream or base named with
   one is refused, and the Branch pane says which.
-- **Each Slack post is its own message.** With nowhere to keep a message's
-  timestamp, later posts cannot thread under the first.
+- **Each announcement is its own message.** With nowhere to keep a message's
+  timestamp, later announcements cannot thread under the first.

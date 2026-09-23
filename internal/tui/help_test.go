@@ -73,7 +73,7 @@ func placedBindings() []helpGroup {
 			"rerun-checks      R          re-run checks",
 			"merge             M          merge",
 			"finish-branch     F          finish branch",
-			"post              p          post to slack"),
+			"post              p          announce to slack"),
 		placed("In a composer or preview",
 			"edit              e          edit",
 			"edit-body         ctrl+o     edit body",
@@ -87,7 +87,7 @@ func placedBindings() []helpGroup {
 			"cycle-type-right",
 			"toggle-option     space      select",
 			"worktree          ctrl+w     worktree",
-			"post-when-green   w          post when CI passes"),
+			"post-when-green   w          announce when CI passes"),
 		placed("While a command runs",
 			"stop              s          stop",
 			"run-again         r          run again",
@@ -287,7 +287,7 @@ func TestOnAnEightyColumnTerminalTheHelpNamesEveryKeyWhole(t *testing.T) {
 	pages := helpPages(t, newWorld().live(t, 80, 24))
 
 	// Assert
-	requireScreen(t, pages, "In a composer or preview", "ctrl+w    worktree", "w         post when CI passes")
+	requireScreen(t, pages, "In a composer or preview", "ctrl+w    worktree", "w         announce when CI passes")
 }
 
 func TestTheHelpCutsNoLineShortAtThePanesEdge(t *testing.T) {
