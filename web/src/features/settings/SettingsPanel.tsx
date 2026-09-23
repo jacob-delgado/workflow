@@ -32,7 +32,7 @@ function ConfigForm({ config }: { config: Config }) {
     async (values: Config) => {
       reset(await saveConfig(values))
     },
-    { fallback: 'The configuration could not be saved.' },
+    { fallback: 'The configuration was not saved. Try again — your edits are still in the form.' },
   )
   const onSubmit = handleSubmit((values) => save.run(values))
 

@@ -98,7 +98,7 @@ function PushButton({ branch, outcome }: { branch: Branch; outcome: Teller }) {
   const [confirming, setConfirming] = useState(false)
   const [opener, handBack] = useFocusHandback<HTMLButtonElement>()
   const push = useAsyncAction(pushBranch, {
-    fallback: 'The push failed.',
+    fallback: 'The branch was not pushed. Try again, or push from a terminal to see why.',
     done: (published) => `Pushed ${published.name}.`,
     onStart: outcome.clear,
     onDone: outcome.say,

@@ -337,7 +337,11 @@ test('says a merge request could not be composed, on GitLab, when the forge give
   await user.click(screen.getByRole('button', { name: 'Open a merge request' }))
 
   // Assert
-  expect(await screen.findByText('A merge request could not be composed.')).toBeTruthy()
+  expect(
+    await screen.findByText(
+      'The merge request could not be composed. Try again, or run workflow pr from a terminal.',
+    ),
+  ).toBeTruthy()
 })
 
 test('says a merge request could not be opened, on GitLab, when the forge gives no reason', async () => {
@@ -357,7 +361,11 @@ test('says a merge request could not be opened, on GitLab, when the forge gives 
   await user.click(screen.getByRole('button', { name: 'Open merge request' }))
 
   // Assert
-  expect(await screen.findByText('The merge request could not be opened.')).toBeTruthy()
+  expect(
+    await screen.findByText(
+      'The merge request was not opened. Try again — your edits are still in the form.',
+    ),
+  ).toBeTruthy()
 })
 
 test('prompts to connect before any snapshot arrives', () => {

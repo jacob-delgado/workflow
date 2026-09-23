@@ -154,27 +154,6 @@ horizontal axis.
 
 ## The web
 
-### UX-79 The fallback says what could not happen, and not what to do
-
-Impact: medium · Effort: small
-
-**Today.** Server reasons are good where they exist (`the working tree has
-uncommitted changes; commit or stash them before switching`, `internal/webserver/checkout.go:19`;
-`nothing is staged to commit`, `internal/webserver/commit.go:21`), and the
-server's own failures now say what to do: a switch or a new branch git
-refused says how to see git's reason, a refused or unreachable announcement is
-told by its kind and never with the service's text (`messagingFaults`,
-`internal/webserver/errors.go:187`), and the safety net says to try again. But
-the client fallbacks, shown when a refusal gives no reason of its own, are
-vague and near-apologetic — `The branch could not be checked out.`
-(`web/src/features/issues/IssuesPanel.tsx:356`), `Work could not be started.` (`web/src/features/issues/WorkStory.tsx:289`),
-`The push failed.` (`web/src/features/branch/BranchPanel.tsx:101`), `The commit could not be
-created.` (`web/src/features/branch/CommitForm.tsx:99`) — a dead end with no next step.
-
-**Instead.** Every fallback names a next step.
-
-**Done when.** No fallback under `web/src` only says what could not happen.
-
 ### UX-80 Dead-end empty states, and four ways to say "connecting"
 
 Impact: low · Effort: small
@@ -200,12 +179,12 @@ button.
 Impact: medium · Effort: small
 
 **Today.** Every disabled button uses `disabled:opacity-60` — fifteen
-places (`web/src/features/issues/IssuesPanel.tsx:370`, `web/src/features/issues/WorkStory.tsx:265`, `:302`,
+places (`web/src/features/issues/IssuesPanel.tsx:374`, `web/src/features/issues/WorkStory.tsx:266`, `:303`,
 `web/src/features/branch/BranchPanel.tsx:128`, `web/src/features/branch/CommitForm.tsx:158`,
 `web/src/features/branch/WorkingTree.tsx:180` — the staging buttons' shared
 class — `web/src/features/review/ReviewPanel.tsx:207`, `:343`,
 `:350`, `web/src/features/review/OpenedOutcome.tsx:92`,
-`web/src/features/messaging/MessagingPanel.tsx:190`, `:244`, `:259`, `:267`,
+`web/src/features/messaging/MessagingPanel.tsx:193`, `:247`, `:262`, `:270`,
 `web/src/features/settings/SettingsPanel.tsx:305`) — which CLAUDE.md's accessibility rule names as the
 thing not to do (opacity dims text below the contrast floor) and which axe
 does not catch on disabled controls. The app has only two `transition-colors`
@@ -265,7 +244,7 @@ periwinkle accent `#8b93f8` chosen "clear of the green/amber/red the status
 lights own" (`web/src/index.css:24`) plus a three-color CI language; Jira is
 not blue, git is not yellow, the forge is not green anywhere; the `NavRail`
 icons are all muted (`web/src/shell/NavRail.tsx:30`). State marks are the web's own:
-`StageMarker` (`web/src/features/issues/WorkStory.tsx:315`) invents three, and `ciDot`
+`StageMarker` (`web/src/features/issues/WorkStory.tsx:316`) invents three, and `ciDot`
 (`web/src/features/review/ReviewPanel.tsx:22`) and `StreamStatus` (`StreamStatus.tsx:4`) are
 color-only dots of one shape (mitigated by a text label beside each). And
 the page shows the template tells the interface avoids: nine `uppercase`

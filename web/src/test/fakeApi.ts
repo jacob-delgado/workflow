@@ -1,7 +1,8 @@
 import { vi } from 'vitest'
 
-// A route's answer: a JSON body, or a function of the request's URL for a route
-// whose answer depends on its query (a page of issues, say). A function may
+// A route's answer: a JSON body, or a function of the request's URL (and the
+// request) for a route whose answer depends on its query or its method (a page
+// of issues, a read that works beside a write that is refused). A function may
 // return a Response of its own, for a route that refuses (a 409 problem, say).
 type Answer = unknown
 
@@ -24,7 +25,9 @@ export function fakeApi(routes: Record<string, Answer>): Request[] {
 
       const route = routes[url.pathname]
       const body: unknown =
-        typeof route === 'function' ? (route as (at: URL) => unknown)(url) : route
+        typeof route === 'function'
+          ? (route as (at: URL, asked: Request) => unknown)(url, request)
+          : route
 
       return Promise.resolve(body instanceof Response ? body : Response.json(body))
     }),

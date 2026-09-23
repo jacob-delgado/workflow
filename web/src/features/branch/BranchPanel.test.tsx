@@ -296,6 +296,25 @@ test('shows the reason when a push fails', async () => {
   expect(await screen.findByText(/the push failed/i)).toBeTruthy()
 })
 
+test('says what to do when a push never reaches the server', async () => {
+  // Arrange
+  // A stopped server: the fetch itself fails, with the browser's own words.
+  mockPush.mockRejectedValueOnce(new TypeError('Failed to fetch'))
+  const user = userEvent.setup()
+  pushable()
+  render(<BranchPanel />)
+
+  // Act
+  await user.click(screen.getByRole('button', { name: 'Push branch' }))
+  await user.click(screen.getByRole('button', { name: 'Push' }))
+
+  // Assert
+  const alert = await screen.findByRole('alert')
+  expect(alert.textContent).toBe(
+    'The branch was not pushed. Try again, or push from a terminal to see why.',
+  )
+})
+
 test('locks the push while it is in flight', async () => {
   // Arrange
   // Hold the push open so the in-flight state is observable rather than

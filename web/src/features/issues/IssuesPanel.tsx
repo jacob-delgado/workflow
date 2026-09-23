@@ -267,7 +267,10 @@ function MoreIssues({ more, streamed, loaded, statusLine, onLoadMore }: MoreIssu
       </div>
       {more.isError ? (
         <p role="alert" className="px-3 text-sm text-destructive">
-          {apiErrorMessage(more.error, 'More issues could not be loaded.')}
+          {apiErrorMessage(
+            more.error,
+            'More issues could not be loaded. Press Load more to try again.',
+          )}
         </p>
       ) : null}
     </>
@@ -348,7 +351,8 @@ interface RowCheckoutProps {
 // the panel's outcome; a refusal — a dirty tree — is shown inline.
 function RowCheckout({ branch, issueKey, outcome }: RowCheckoutProps) {
   const { state, error, run } = useAsyncAction(() => checkoutBranch(branch), {
-    fallback: 'The branch could not be checked out.',
+    fallback:
+      'The branch was not checked out. Try again, or switch to it from a terminal to see why.',
     done: (checkedOut) => `Checked out ${checkedOut.name}.`,
     onStart: outcome.clear,
     onDone: outcome.say,

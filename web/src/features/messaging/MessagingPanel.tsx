@@ -140,10 +140,13 @@ function AnnounceControls({
 
       return composed.text
     },
-    { fallback: 'The announcement could not be previewed.' },
+    {
+      fallback:
+        'The announcement could not be composed. Try again, or run workflow announce from a terminal.',
+    },
   )
   const post = useAsyncAction(() => announce(channel), {
-    fallback: 'The announcement could not be posted.',
+    fallback: 'Nothing was announced. Try again, or run workflow announce from a terminal.',
     // A webhook has no channel of its own to name, so the service stands in.
     done: (posted) => `Announced to ${posted.channel === '' ? service : posted.channel}.`,
     onDone: onAnnounced,

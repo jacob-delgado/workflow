@@ -47,7 +47,7 @@ function offerWords(offer: FollowUp, pull: string, noun: string): OfferWords {
       label: `Link it on ${key}`,
       busy: 'Linking…',
       done: `Linked ${pull} on ${key}.`,
-      fallback: `The ${noun} could not be linked on ${key}.`,
+      fallback: `The ${noun} was not linked on ${key}. Try again, or link it in Jira.`,
       act: () => linkOnIssue(key),
     }
   }
@@ -58,7 +58,7 @@ function offerWords(offer: FollowUp, pull: string, noun: string): OfferWords {
     label: `Move ${key} to ${status}`,
     busy: 'Moving…',
     done: `Moved ${key} to ${status}.`,
-    fallback: `${key} could not be moved to ${status}.`,
+    fallback: `${key} was not moved to ${status}. Try again, or move it in Jira.`,
     act: () => moveToReview(key),
   }
 }
