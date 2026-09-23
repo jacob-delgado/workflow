@@ -558,7 +558,7 @@ it can act; the `?` groups name where each key works.
 **Proof.** `TestIssuesFooterShowsEveryLiveKey` (Jira writes wired → the
 footer contains `a`, `w`, `/`); `TestHelpListsEveryPlacedBinding`.
 
-### Phase 8 — The command line says what it does
+### Phase 8 — The command line says what it does — done
 
 Closes UX-56, UX-57, UX-58, UX-59, UX-60. Depends on Phase 1 (`loop`) and
 Phase 2 (notices are on stderr).
@@ -586,14 +586,15 @@ Phase 2 (notices are on stderr).
 **Budget.** None.
 
 **Done when.** Every bare sentinel's message contains a next step;
-`workflow pr --yes` links and offers the status like the interface; a
-second `workflow announce` says it already posted.
+`workflow pr --yes` links and offers the status like the interface; an
+announce at a moment the store already holds says it already posted.
 
 **Proof.** `TestUnknownCommandPointsAtHelp`; `TestBranchExistsSaysHowTo
 Switch`; `TestPullAlreadyOpenCarriesItsURL`; `TestPRQuestionNamesThePush`;
 `TestPRLinksThePullOnTheIssue` (the fake `LinkPullRequest` receives the
-URL); `TestAnnounceRecordsThePost` and `TestAnnounceSaysWhenAlreadyPosted`
-(store fakes).
+URL); `TestDeliverRecordsTheAnnouncementOnceItIsPosted` (in `loop`, with
+fakes: a real post cannot be made black-box) and
+`TestAnnounceSaysWhenAlreadyPosted` (a seeded store).
 
 ### Phase 9 — The web's follow-through, and the forge's own words
 
