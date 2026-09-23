@@ -1,7 +1,7 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef } from 'react'
 import { useForm } from 'react-hook-form'
-import { apiErrorMessage } from '@/api/apiError.ts'
 import { useConfig } from '@/features/settings/configApi.ts'
+import { useAsyncAction } from '@/lib/useAsyncAction.ts'
 import { commitChanges } from './commitApi.ts'
 
 // The built-in Conventional Commit types, in the order the terminal composer
@@ -27,8 +27,6 @@ interface CommitFields {
   body: string
   breaking: boolean
 }
-
-type CommitStatus = 'idle' | 'committing' | 'error'
 
 // CommitForm commits the staged changes with a Conventional Commit message. The
 // server assembles the message and adds the Refs trailer for the branch's issue;
@@ -60,8 +58,6 @@ export function CommitForm({
     [setValue],
   )
   const scopeSuggestion = useScopeSuggestion(suggestedScope, applyScope)
-  const [status, setStatus] = useState<CommitStatus>('idle')
-  const [error, setError] = useState('')
 
   // Keep the chosen type one the convention allows, so a team whose types load
   // after the form, or exclude "fix", does not submit a type the server rejects.
@@ -71,9 +67,8 @@ export function CommitForm({
     }
   }, [commitTypes, getValues, setValue])
 
-  const onSubmit = handleSubmit(async (fields) => {
-    setStatus('committing')
-    try {
+  const commit = useAsyncAction(
+    async (fields: CommitFields) => {
       await commitChanges({
         type: fields.type,
         subject: fields.subject,
@@ -94,13 +89,10 @@ export function CommitForm({
         breaking: false,
       })
       scopeSuggestion.release()
-      setError('')
-      setStatus('idle')
-    } catch (caught) {
-      setError(apiErrorMessage(caught, 'The commit could not be created.'))
-      setStatus('error')
-    }
-  })
+    },
+    { fallback: 'The commit could not be created.' },
+  )
+  const onSubmit = handleSubmit((fields) => commit.run(fields))
 
   return (
     <form
@@ -153,15 +145,15 @@ export function CommitForm({
       <div className="flex items-center gap-3">
         <button
           type="submit"
-          disabled={blocked !== null || status === 'committing'}
+          disabled={blocked !== null || commit.state === 'running'}
           className="self-start rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none disabled:opacity-60"
         >
-          {status === 'committing' ? 'Committing…' : 'Commit staged changes'}
+          {commit.state === 'running' ? 'Committing…' : 'Commit staged changes'}
         </button>
         {blocked === null ? null : <p className="text-sm text-muted-foreground">{blocked}</p>}
-        {status === 'error' ? (
+        {commit.state === 'error' ? (
           <p role="alert" className="text-sm whitespace-pre-line text-destructive">
-            {error}
+            {commit.error}
           </p>
         ) : null}
       </div>

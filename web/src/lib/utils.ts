@@ -13,3 +13,12 @@ export function cn(...inputs: ClassValue[]): string {
 export function capitalized(text: string): string {
   return text.charAt(0).toUpperCase() + text.slice(1)
 }
+
+// splitList reads a comma-separated field into its trimmed, non-empty entries,
+// so a stray comma never sends a blank reviewer, label or commit type.
+export function splitList(text: string): string[] {
+  return text
+    .split(',')
+    .map((entry) => entry.trim())
+    .filter((entry) => entry !== '')
+}

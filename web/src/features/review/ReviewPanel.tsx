@@ -1,6 +1,5 @@
 import { useState } from 'react'
 import { useForm } from 'react-hook-form'
-import { apiErrorMessage } from '@/api/apiError.ts'
 import { useForgeWords } from '@/api/health.ts'
 import type {
   Ci,
@@ -12,7 +11,8 @@ import type {
   Review,
 } from '@/api/generated/types.gen.ts'
 import { useSnapshotStore } from '@/api/snapshot.ts'
-import { cn } from '@/lib/utils.ts'
+import { useAsyncAction } from '@/lib/useAsyncAction.ts'
+import { cn, splitList } from '@/lib/utils.ts'
 import { EmptyState } from '@/shell/EmptyState.tsx'
 import { OpenedOutcome } from './OpenedOutcome.tsx'
 import { openPr, previewPullRequest } from './openPrApi.ts'
@@ -134,61 +134,43 @@ function PullRequestSummary({ pull, ci }: { pull: PullRequest; ci: Ci | null }) 
   )
 }
 
-type OpenState = 'idle' | 'loading' | 'form' | 'opening' | 'done' | 'error'
-
 // OpenPullRequest opens a pull request for a branch that has none yet, behind a
 // preview: it composes the proposal, shows it as an editable form, and opens on
-// confirm — pushing the branch first when it is not yet published. On success it
-// hands what the open answered to the panel, which says so above it, and steps
-// aside until the event stream brings back the new pull request.
+// confirm — pushing the branch first when it is not yet published. Composing and
+// opening are two steps, each its own action. On success it hands what the open
+// answered to the panel, which says so above it, and steps aside until the event
+// stream brings back the new pull request.
 function OpenPullRequest({ onOpened }: { onOpened: (opened: OpenedPullRequest) => void }) {
   const { noun } = useForgeWords()
-  const [state, setState] = useState<OpenState>('idle')
-  const [draft, setDraft] = useState<PullRequestDraft | null>(null)
-  const [error, setError] = useState('')
-
-  const openForm = async () => {
-    setState('loading')
-    try {
-      setDraft(await previewPullRequest())
-      setError('')
-      setState('form')
-    } catch (caught) {
-      setError(apiErrorMessage(caught, `A ${noun} could not be composed.`))
-      setState('error')
-    }
-  }
-
-  const submit = async (request: OpenPullRequestRequest) => {
-    setState('opening')
-    try {
+  const compose = useAsyncAction(previewPullRequest, {
+    fallback: `A ${noun} could not be composed.`,
+  })
+  const open = useAsyncAction(
+    async (request: OpenPullRequestRequest) => {
       onOpened(await openPr(request))
-      setError('')
-      setState('done')
-    } catch (caught) {
-      setError(apiErrorMessage(caught, `The ${noun} could not be opened.`))
-      setState('error')
-    }
-  }
+    },
+    { fallback: `The ${noun} could not be opened.` },
+  )
 
-  if (state === 'done') {
+  if (open.state === 'done') {
     return null
   }
 
   // A failed open keeps the form up with its reason, so the edits are not lost;
   // a failed compose has no draft to edit, so it falls through to the retry
   // button below.
-  if (draft && (state === 'form' || state === 'opening' || state === 'error')) {
+  if (compose.state === 'done' && compose.result !== undefined) {
     return (
       <PullRequestForm
-        draft={draft}
-        opening={state === 'opening'}
-        error={state === 'error' ? error : ''}
+        draft={compose.result}
+        opening={open.state === 'running'}
+        error={open.state === 'error' ? open.error : ''}
         onCancel={() => {
-          setState('idle')
+          open.reset()
+          compose.reset()
         }}
         onSubmit={(request) => {
-          void submit(request)
+          void open.run(request)
         }}
       />
     )
@@ -199,17 +181,17 @@ function OpenPullRequest({ onOpened }: { onOpened: (opened: OpenedPullRequest) =
       <p className="text-sm text-muted-foreground">No open {noun} for this branch yet.</p>
       <button
         type="button"
-        disabled={state === 'loading'}
+        disabled={compose.state === 'running'}
         onClick={() => {
-          void openForm()
+          void compose.run()
         }}
         className="self-start rounded-md bg-primary px-3 py-1.5 text-sm font-medium text-primary-foreground hover:bg-primary/90 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none disabled:opacity-60"
       >
-        {state === 'loading' ? 'Preparing…' : `Open a ${noun}`}
+        {compose.state === 'running' ? 'Preparing…' : `Open a ${noun}`}
       </button>
-      {state === 'error' ? (
+      {compose.state === 'error' ? (
         <p role="alert" className="text-sm whitespace-pre-line text-destructive">
-          {error}
+          {compose.error}
         </p>
       ) : null}
     </div>
@@ -224,15 +206,6 @@ interface PullRequestFields {
   reviewers: string
   assignees: string
   labels: string
-}
-
-// splitList reads a comma-separated field into its trimmed, non-empty entries,
-// so a stray comma never sends the forge a blank reviewer, assignee or label.
-function splitList(text: string): string[] {
-  return text
-    .split(',')
-    .map((entry) => entry.trim())
-    .filter((entry) => entry !== '')
 }
 
 // PullRequestForm is the composed pull request, editable, with a confirm that

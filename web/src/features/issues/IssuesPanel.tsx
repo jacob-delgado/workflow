@@ -332,10 +332,9 @@ function groupBranchesByKey(branches: TaskBranch[]): Map<string, TaskBranch[]> {
 // between tasks does not need the detail panel first. On success the event
 // stream reflects the switch; a refusal — a dirty tree — is shown inline.
 function RowCheckout({ branch, issueKey }: { branch: string; issueKey: string }) {
-  const { state, error, run } = useAsyncAction(
-    () => checkoutBranch(branch),
-    'The branch could not be checked out.',
-  )
+  const { state, error, run } = useAsyncAction(() => checkoutBranch(branch), {
+    fallback: 'The branch could not be checked out.',
+  })
 
   return (
     <>

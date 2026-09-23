@@ -308,6 +308,23 @@ test('shows the reason when the post is refused', async () => {
   expect(await screen.findByText(/could not be posted/i)).toBeTruthy()
 })
 
+test('announces again after a refused post', async () => {
+  // Arrange
+  mockAnnounce.mockRejectedValueOnce({ code: 'unprocessable', detail: 'the channel is archived' })
+  const user = userEvent.setup()
+  withPullRequest()
+  render(<MessagingPanel />)
+  await user.click(screen.getByRole('button', { name: /announce to slack/i }))
+  await user.click(await screen.findByRole('button', { name: /post to slack/i }))
+  await screen.findByText('the channel is archived')
+
+  // Act
+  await user.click(screen.getByRole('button', { name: /announce to slack/i }))
+
+  // Assert
+  expect(await screen.findByRole('button', { name: /post to slack/i })).toBeTruthy()
+})
+
 test('prompts to connect before any snapshot arrives', () => {
   // Act
   render(<MessagingPanel />)

@@ -250,6 +250,32 @@ test('keeps the form and shows the reason when opening is refused', async () => 
   expect(screen.getByRole('form', { name: /open a pull request/i })).toBeTruthy()
 })
 
+test('a form opened again after a refused open and a cancel starts without the old reason', async () => {
+  // Arrange
+  mockOpenPr.mockRejectedValueOnce({
+    code: 'unprocessable',
+    detail: 'the base branch trunk does not exist on the forge',
+  })
+  const user = userEvent.setup()
+  useSnapshotStore.setState({
+    status: 'live',
+    snapshot: makeSnapshot({ review: { found: false } }),
+  })
+  render(<ReviewPanel />)
+  await user.click(screen.getByRole('button', { name: /open a pull request/i }))
+  await screen.findByRole('form', { name: /open a pull request/i })
+  await user.click(screen.getByRole('button', { name: 'Open pull request' }))
+  await screen.findByText(/base branch trunk does not exist/i)
+  await user.click(screen.getByRole('button', { name: 'Cancel' }))
+
+  // Act
+  await user.click(screen.getByRole('button', { name: /open a pull request/i }))
+
+  // Assert
+  await screen.findByRole('form', { name: /open a pull request/i })
+  expect(screen.queryByText(/base branch trunk does not exist/i)).toBeNull()
+})
+
 test('names a merge request, marked with its !number, on GitLab', () => {
   // Arrange
   useHealthStore.setState({ health: makeHealth(gitLabWords) })

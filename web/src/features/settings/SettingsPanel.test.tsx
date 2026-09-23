@@ -3,24 +3,11 @@ import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { vi } from 'vitest'
 import { useHealthStore } from '@/api/health.ts'
+import { mockConfig } from '@/dev/mockConfig.ts'
+import { fakeApi } from '@/test/fakeApi.ts'
 import { gitLabWords, makeHealth } from '@/test/fixtures.ts'
 import { renderWithClient } from '@/test/renderWithClient.tsx'
-import { errorMessage, SettingsPanel } from './SettingsPanel.tsx'
-
-test('errorMessage surfaces a thrown Error or a problem detail, else a fallback', () => {
-  // Act & Assert
-  expect(errorMessage(new Error('boom'))).toBe('boom')
-  expect(
-    errorMessage({
-      type: 't',
-      title: 'Unprocessable content',
-      status: 422,
-      detail: 'the config is not valid',
-      code: 'unprocessable',
-    }),
-  ).toBe('the config is not valid')
-  expect(errorMessage(42)).toMatch(/could not be saved/i)
-})
+import { SettingsPanel } from './SettingsPanel.tsx'
 
 test('shows a loading state until the configuration arrives', () => {
   // Arrange
@@ -238,4 +225,69 @@ test('a save updates the cache so reopening Settings shows the change', async ()
   // Assert
   const reopened = await screen.findByLabelText('Project')
   expect((reopened as HTMLInputElement).value).toBe('XYZ')
+})
+
+test('says why a save was refused', async () => {
+  // Arrange
+  // The configuration reads as stored, then the save is refused with a reason.
+  const answers = [
+    Response.json(mockConfig),
+    Response.json(
+      {
+        code: 'unprocessable',
+        status: 422,
+        title: 'Unprocessable content',
+        detail: 'jira.base_url is not a URL',
+      },
+      { status: 422 },
+    ),
+  ]
+  fakeApi({ '/api/config': () => answers.shift() })
+  const user = userEvent.setup()
+  renderWithClient(<SettingsPanel />)
+  await screen.findByLabelText('Base URL')
+
+  // Act
+  await user.click(screen.getByRole('button', { name: /save changes/i }))
+
+  // Assert
+  expect(await screen.findByText('jira.base_url is not a URL')).toBeTruthy()
+})
+
+test('locks the save while it is in flight', async () => {
+  // Arrange
+  // The configuration reads as stored, and the save is held open so the
+  // in-flight state is observable; a live button here would let a double click
+  // save twice.
+  const saves: Request[] = []
+  let releaseSave = () => {}
+  vi.stubGlobal(
+    'fetch',
+    vi.fn((request: Request) => {
+      if (request.method === 'GET') {
+        return Promise.resolve(Response.json(mockConfig))
+      }
+      saves.push(request)
+
+      return new Promise<Response>((resolve) => {
+        releaseSave = () => {
+          resolve(Response.json(mockConfig))
+        }
+      })
+    }),
+  )
+  const user = userEvent.setup()
+  renderWithClient(<SettingsPanel />)
+  await screen.findByLabelText('Base URL')
+
+  // Act
+  await user.click(screen.getByRole('button', { name: 'Save changes' }))
+
+  // Assert: the button reads "Saving…" and is off, and only one save went out
+  const saving = await screen.findByRole('button', { name: 'Saving…' })
+  expect(saving.hasAttribute('disabled')).toBe(true)
+  expect(saves).toHaveLength(1)
+
+  releaseSave()
+  await screen.findByText('Saved.')
 })

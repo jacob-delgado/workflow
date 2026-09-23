@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import type { Change } from '@/api/generated/types.gen.ts'
-import { useAsyncAction } from '@/lib/useAsyncAction.ts'
+import { useAsyncAction, type AsyncState } from '@/lib/useAsyncAction.ts'
 import { cn } from '@/lib/utils.ts'
 import { CommitForm } from './CommitForm.tsx'
 import { stageEverything, stageFile, unstageFile } from './stagingApi.ts'
@@ -78,7 +78,7 @@ function ChangeRow({ change }: { change: Change }) {
       await (stage ? stageFile(change.path) : unstageFile(change.path))
       setSaid(`${stage ? 'Staged' : 'Unstaged'} ${change.path}.`)
     },
-    `${change.path} could not be ${stage ? 'staged' : 'unstaged'}.`,
+    { fallback: `${change.path} could not be ${stage ? 'staged' : 'unstaged'}.` },
   )
   const outcome = useFocusOnDone(state)
 
@@ -110,7 +110,9 @@ function ChangeRow({ change }: { change: Change }) {
 // StageAll stages every change the index does not hold yet, as the terminal's
 // `a` does, and says how it went.
 function StageAll({ anythingToStage }: { anythingToStage: boolean }) {
-  const { state, error, run } = useAsyncAction(stageEverything, 'The changes could not be staged.')
+  const { state, error, run } = useAsyncAction(stageEverything, {
+    fallback: 'The changes could not be staged.',
+  })
   const outcome = useFocusOnDone(state)
 
   return (
@@ -138,7 +140,7 @@ function StageAll({ anythingToStage }: { anythingToStage: boolean }) {
 // button is off while the write runs, which can drop its focus to the page.
 // Focus the user has moved elsewhere since — into the commit message, say —
 // stays where they put it.
-function useFocusOnDone(state: ReturnType<typeof useAsyncAction>['state']) {
+function useFocusOnDone(state: AsyncState) {
   const outcome = useRef<HTMLParagraphElement>(null)
 
   useEffect(() => {
@@ -157,7 +159,7 @@ function useFocusOnDone(state: ReturnType<typeof useAsyncAction>['state']) {
 
 interface OutcomeProps {
   ref: React.Ref<HTMLParagraphElement>
-  state: ReturnType<typeof useAsyncAction>['state']
+  state: AsyncState
   text: string
 }
 
