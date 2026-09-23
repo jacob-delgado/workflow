@@ -1,0 +1,154 @@
+import { ExternalLink } from 'lucide-react'
+import { apiErrorMessage } from '@/api/apiError.ts'
+import type { Comment, Issue, IssueDetail } from '@/api/generated/types.gen.ts'
+import { useIssue } from './issueApi.ts'
+import { StatusBadge } from './StatusBadge.tsx'
+import { WorkStory } from './WorkStory.tsx'
+
+const sectionHeading = 'text-sm font-semibold text-muted-foreground uppercase'
+
+// IssueDetailPanel shows one issue in full, read on its own from the tracker.
+// The heading follows the list's row while the list holds the issue — the
+// stream keeps that row current, where the full read is taken once — and falls
+// back to the full read otherwise; the people, the link, the description and
+// the comments wait for that read. The work story reads the stream, so it
+// never waits.
+export function IssueDetailPanel({ issueKey, listed }: { issueKey: string; listed?: Issue }) {
+  const { data, error, isPending } = useIssue(issueKey)
+
+  return (
+    <article aria-labelledby="issue-detail-heading" className="flex flex-col gap-6">
+      <IssueHeading issueKey={issueKey} issue={listed ?? data} />
+      {isPending ? <p className="text-sm text-muted-foreground">Reading {issueKey}…</p> : null}
+      {error ? (
+        <p role="alert" className="text-sm text-destructive">
+          {apiErrorMessage(error, `${issueKey} could not be read.`)}
+        </p>
+      ) : null}
+      {data ? <IssuePeople detail={data} /> : null}
+      <section aria-labelledby="work-story-heading" className="flex flex-col gap-4">
+        <h3 id="work-story-heading" className={sectionHeading}>
+          Work story
+        </h3>
+        <WorkStory issueKey={issueKey} />
+      </section>
+      {data ? <Description text={data.description} /> : null}
+      {data ? <Comments comments={data.comments} total={data.comment_total} /> : null}
+    </article>
+  )
+}
+
+function IssueHeading({ issueKey, issue }: { issueKey: string; issue?: Issue }) {
+  return (
+    <div className="flex flex-col gap-2">
+      <span className="flex items-center gap-2">
+        <span className="font-mono text-sm text-muted-foreground">{issueKey}</span>
+        {issue ? <StatusBadge category={issue.status_category} label={issue.status} /> : null}
+      </span>
+      <h2 id="issue-detail-heading" className="text-lg font-medium">
+        {issue ? issue.summary : issueKey}
+      </h2>
+      {issue ? (
+        <p className="text-sm text-muted-foreground">
+          {issue.type}
+          {issue.priority ? ` · ${issue.priority} priority` : ''}
+        </p>
+      ) : null}
+    </div>
+  )
+}
+
+function IssuePeople({ detail }: { detail: IssueDetail }) {
+  return (
+    <div className="flex flex-col gap-3">
+      <dl className="grid grid-cols-[6rem_1fr] gap-x-4 gap-y-1.5 text-sm">
+        <dt className="text-muted-foreground">Reporter</dt>
+        <dd>{detail.reporter === '' ? '—' : detail.reporter}</dd>
+        <dt className="text-muted-foreground">Assignee</dt>
+        <dd>{detail.assignee ?? 'Unassigned'}</dd>
+      </dl>
+      {detail.url === '' ? null : (
+        <a
+          href={detail.url}
+          target="_blank"
+          rel="noreferrer"
+          className="flex items-center gap-1.5 self-start text-sm text-primary underline-offset-4 hover:underline focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+        >
+          Open in Jira
+          <ExternalLink aria-hidden className="size-3.5" />
+          <span className="sr-only"> (opens in a new tab)</span>
+        </a>
+      )}
+    </div>
+  )
+}
+
+function Description({ text }: { text: string }) {
+  return (
+    <section aria-labelledby="description-heading" className="flex flex-col gap-3">
+      <h3 id="description-heading" className={sectionHeading}>
+        Description
+      </h3>
+      {text === '' ? (
+        <p className="text-sm text-muted-foreground">No description.</p>
+      ) : (
+        <p className="text-sm whitespace-pre-wrap">{text}</p>
+      )}
+    </section>
+  )
+}
+
+// Comments lists the comments the tracker sent, oldest first, and says how many
+// more the issue holds when the tracker sent only some.
+function Comments({ comments, total }: { comments: Comment[]; total: number }) {
+  return (
+    <section aria-labelledby="comments-heading" className="flex flex-col gap-3">
+      <h3 id="comments-heading" className={sectionHeading}>
+        Comments
+      </h3>
+      {total === 0 ? <p className="text-sm text-muted-foreground">No comments.</p> : null}
+      {comments.length > 0 ? (
+        <ol aria-labelledby="comments-heading" className="flex flex-col gap-4">
+          {comments.map((comment, index) => (
+            <CommentItem key={`${String(index)}-${comment.created}`} comment={comment} />
+          ))}
+        </ol>
+      ) : null}
+      {total > comments.length ? (
+        <p className="text-sm text-muted-foreground">
+          Showing {comments.length} of {total} comments.
+        </p>
+      ) : null}
+    </section>
+  )
+}
+
+function CommentItem({ comment }: { comment: Comment }) {
+  const written = commentDate(comment.created)
+
+  return (
+    <li className="flex flex-col gap-1 text-sm">
+      <p className="text-muted-foreground">
+        <span className="text-foreground">{comment.author}</span>
+        {written === null ? null : (
+          <>
+            {' · '}
+            <time dateTime={comment.created}>{written}</time>
+          </>
+        )}
+      </p>
+      <p className="whitespace-pre-wrap">{comment.body}</p>
+    </li>
+  )
+}
+
+// commentDate is when a comment was written, for reading, or null for the zero
+// time the server sends when the tracker's date was unreadable.
+function commentDate(created: string): string | null {
+  const written = new Date(created)
+  if (written.getUTCFullYear() <= 1) {
+    return null
+  }
+
+  return written.toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' })
+}

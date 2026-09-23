@@ -335,25 +335,6 @@ horizontal axis.
 
 ## The web
 
-### UX-70 The browser cannot read an issue
-
-Impact: high · Effort: small
-
-**Today.** `getIssue` — the full issue with description, comments,
-comment count, reporter, assignee and URL — exists in the contract
-(`api/openapi.yaml:100`, `IssueDetail` at `:783`) and on the server
-(`internal/webserver/handlers.go:72`), and the web never calls it.
-`IssueDetail` (`web/src/features/issues/IssuesPanel.tsx:83`) renders only
-the snapshot's slim `Issue` (`api/openapi.yaml:760`: key, summary, status,
-category, type, priority). No description, no comments, no link to Jira.
-
-**Instead.** Fetch `getIssue` on selection through the query client that is
-already wired (`web/src/queryClient.ts`); render the detail with its own
-loading and error states; an "Open in Jira" link from `url`.
-
-**Done when.** Selecting an issue shows its description and its comments
-(a role/name test against a faked `getIssue`).
-
 ### UX-72 One view, one page, no filter
 
 Impact: medium · Effort: small
@@ -363,7 +344,8 @@ Impact: medium · Effort: small
 web opens `EventSource('/api/events')` with no `?view=`
 (`web/src/api/snapshot.ts:39`); the stream always pushes page 0
 (`internal/webserver/stream.go:136`); there is no client-side
-filter. `No issues match this view.` (`IssuesPanel.tsx:23`) is a dead end
+filter. `No issues match this view.`
+(`web/src/features/issues/IssuesPanel.tsx:23`) is a dead end
 with no view to change.
 
 **Instead.** A view select from `listViews` beside the list; the stream
@@ -501,7 +483,7 @@ Impact: medium · Effort: small
 uncommitted changes; commit or stash them before switching`, `internal/webserver/checkout.go:19`;
 `nothing is staged to commit`, `internal/webserver/commit.go:21`). But the client fallbacks
 are vague and near-apologetic — `The branch could not be checked out.`
-(`IssuesPanel.tsx:134`), `Work could not be started.` (`WorkStory.tsx:260`),
+(`web/src/features/issues/IssuesPanel.tsx:105`), `Work could not be started.` (`WorkStory.tsx:260`),
 `The push failed.` (`BranchPanel.tsx:132`), `The commit could not be
 created.` (`CommitForm.tsx:74`) — and three handlers replace the tool's
 reason with one of those sentences: `internal/webserver/checkout.go:44`, `internal/webserver/branchcreate.go:44`,
@@ -527,7 +509,7 @@ Git repository.` (`BranchPanel.tsx:22`) and `The configuration could not be
 loaded.` (`SettingsPanel.tsx:16`) offer nothing to do. And the one condition
 "no snapshot yet" reads `Connecting to the tracker…`, `Connecting to the
 workspace…`, `Connecting to the forge…` and `Connecting…` in four panels
-(`IssuesPanel.tsx:17`, `BranchPanel.tsx:14`, `ReviewPanel.tsx:31`,
+(`web/src/features/issues/IssuesPanel.tsx:17`, `BranchPanel.tsx:14`, `ReviewPanel.tsx:31`,
 `MessagingPanel.tsx:11`).
 
 **Instead.** One connecting line, in the shell; a retry on the config
@@ -541,7 +523,7 @@ button.
 Impact: medium · Effort: small
 
 **Today.** Every disabled button uses `disabled:opacity-60` — thirteen
-places (`IssuesPanel.tsx:146`, `WorkStory.tsx:241`, `:271`,
+places (`web/src/features/issues/IssuesPanel.tsx:117`, `WorkStory.tsx:241`, `:271`,
 `BranchPanel.tsx:168`, `CommitForm.tsx:128`, `ReviewPanel.tsx:179`, `:317`,
 `:324`, `MessagingPanel.tsx:168`, `:214`, `:229`, `:237`,
 `SettingsPanel.tsx:316`) — which CLAUDE.md's accessibility rule names as the
@@ -606,10 +588,11 @@ icons are all muted (`NavRail.tsx:28`). State marks are the web's own:
 `StageMarker` (`WorkStory.tsx:284`) invents three, and `ciDot`
 (`ReviewPanel.tsx:14`) and `StreamStatus` (`StreamStatus.tsx:4`) are
 color-only dots of one shape (mitigated by a text label beside each). And
-the page shows the template tells the interface avoids: seven `uppercase`
-eyebrow headings (`SettingsPanel.tsx:341`, `BranchPanel.tsx:67`, `:91`,
-`IssuesPanel.tsx:102`, `ReviewPanel.tsx:70`, `MessagingPanel.tsx:39`, `:59`)
-as the *only* heading treatment; no type or spacing tokens (raw `text-2xl`
+the page shows the template tells the interface avoids: nine `uppercase`
+eyebrow headings from seven class strings (`SettingsPanel.tsx:341`,
+`BranchPanel.tsx:67`, `:91`, `web/src/features/issues/IssueDetailPanel.tsx:8`
+— the work story, description and comments share it — `ReviewPanel.tsx:70`,
+`MessagingPanel.tsx:39`, `:59`) as the *only* heading treatment; no type or spacing tokens (raw `text-2xl`
 … `text-xs`, `gap-8` … `gap-0.5` per component); one radius on everything
 (`rounded-md` ×28). To its credit: no shadows, no gradients, no `→`, and a
 real color-token system with hand-picked contrast (`index.css:9-96`).
@@ -632,7 +615,7 @@ Impact: medium · Effort: medium
 
 **Today.** There is not one `sm:`, `md:`, `lg:` or `xl:` utility in any
 `.tsx` under `web/src`. A `w-20` rail (`NavRail.tsx:12`) beside a `w-80
-shrink-0` issues list (`IssuesPanel.tsx:31`) and a `flex-1` detail squeezes
+shrink-0` issues list (`web/src/features/issues/IssuesPanel.tsx:31`) and a `flex-1` detail squeezes
 the detail to nothing near 640 px; definition lists use fixed first columns
 (`grid-cols-[6rem_1fr]` `BranchPanel.tsx:49`, `[8rem_1fr]`
 `MessagingPanel.tsx:29`, `[9rem_1fr]` `ReviewPanel.tsx:56`); panels cap at

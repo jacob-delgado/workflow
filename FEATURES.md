@@ -95,10 +95,10 @@ Impact: medium · Effort: medium
 
 Impact: medium · Effort: large
 
-- Why: The browser can read an issue (once REVIEW.md Phase 3 lands) but
-  cannot change one: no transition with its field form, no comment, no
-  assign, no log work — all of which the interface offers from the Issues
-  pane (`internal/tui/picker.go:155`, `comment.go:37`, `issuewrite.go:74`).
+- Why: The browser can read an issue but cannot change one: no
+  transition with its field form, no comment, no assign, no log work — all
+  of which the interface offers from the Issues pane
+  (`internal/tui/picker.go:155`, `comment.go:37`, `issuewrite.go:74`).
   REVIEW.md Phase 9 adds the fields-less transition the post-open offer
   needs; this is the rest.
 - Touches: `api/openapi.yaml` (operations for a transition with fields,
