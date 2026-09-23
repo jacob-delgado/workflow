@@ -62,10 +62,13 @@ func writeRefusal(err error) error {
 
 // wording is how the interface tells an error it recognizes: briefly, for a
 // summary row as narrow as a rail, and in full — with the way out — wherever
-// the failure has room of its own. An empty brief keeps the error's own words
-// on a summary row, where they name the thing that failed; an empty wording
-// keeps them everywhere, for an error that explains itself better than any
-// paraphrase could.
+// the failure has room of its own. Every failure on screen is told through it,
+// by failureBlock, failureLine, failureSummary or noticedFailure below: the
+// one way the interface says something broke.
+//
+// An empty brief keeps the error's own words on a summary row, where they name
+// the thing that failed; an empty wording keeps them everywhere, for an error
+// that explains itself better than any paraphrase could.
 //
 // The full form names no key to press: the same sentence is told in a pane,
 // where refresh retries, and in an overlay, which owns the keyboard and
@@ -326,18 +329,33 @@ func inFull(err error) string {
 	return words.full
 }
 
-// failure draws an error the one way the interface says something broke. A
-// recognized error reads as a sentence in the interface's voice, with the raw
-// chain beneath it; an unrecognized one keeps its raw text.
-func (m Model) failure(err error) string {
-	glyph := m.marks.failed + " "
+// noticedFailure reports a failure in the footer: the red mark and the error in
+// full, its own words after the sentence, the whole row in the failure style.
+func (m Model) noticedFailure(err error) Model {
+	return m.noticedFailureLedBy("", err)
+}
 
-	words, known := errorSentence(err)
-	if !known {
-		return m.styles.failure.Render(glyph + ownText(err))
+// noticedFailureLedBy is noticedFailure with what failed leading the row —
+// "cannot merge: " — for a notice no open overlay names: the footer clips a
+// long sentence, and the lead must survive it.
+func (m Model) noticedFailureLedBy(lead string, err error) Model {
+	words := []string{m.marks.failed + " " + lead + inFull(err)}
+	if _, known := errorSentence(err); known {
+		words = append(words, ownText(err))
 	}
 
-	return m.styles.failure.Render(glyph+words.full) + "\n" + m.styles.label.Render(ownText(err))
+	m = m.noticed(strings.Join(words, "\n"))
+	m.notice.failed = true
+
+	return m
+}
+
+// noticedGuidance tells, plainly, why a key did nothing and what would. The
+// refusal is not a failure, so it takes no mark and no red — red means
+// something broke — but its words live where every failure's do: in
+// errorSentence, or in the refusal's own text.
+func (m Model) noticedGuidance(refusal error) Model {
+	return m.noticed(inFull(refusal))
 }
 
 // failedGlyph is the failure mark in red, so red always means something broke —

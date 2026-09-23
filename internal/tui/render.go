@@ -65,12 +65,22 @@ func (m Model) screen() string {
 // is active, otherwise what just happened — cut with a mark rather than silently
 // where it does not fit.
 func (m Model) noticeLine(width int) string {
-	text := m.notice
 	if m.showsFilter() {
-		text = "filter: " + m.issues.filter
+		return ansi.Truncate(" "+sanitize.Text("filter: "+m.issues.filter), width, m.marks.ellipsis)
 	}
 
-	return ansi.Truncate(" "+sanitize.Text(text), width, m.marks.ellipsis)
+	return m.noticeRow(width)
+}
+
+// noticeRow is the notice on one row, cut with a mark where it does not fit,
+// and in the failure style when it reports one, as red means everywhere else.
+func (m Model) noticeRow(width int) string {
+	text := ansi.Truncate(sanitize.Text(m.notice.text), max(0, width-1), m.marks.ellipsis)
+	if m.notice.failed {
+		text = m.styles.failure.Render(text)
+	}
+
+	return " " + text
 }
 
 // railRuleRows is the one shared-rule row each rail pane's box holds above its
@@ -312,8 +322,8 @@ func wrapLine(line string, width int) []string {
 // row above this one; only on a terminal too short for that row does the footer
 // stand in and report it, so a result is never lost.
 func (m Model) footer(width int) string {
-	if m.notice != "" && !m.showsNotice() {
-		return ansi.Truncate(" "+sanitize.Text(m.notice), width, m.marks.ellipsis)
+	if m.notice.text != "" && !m.showsNotice() {
+		return m.noticeRow(width)
 	}
 
 	keys := help.New()
@@ -351,9 +361,9 @@ func messagingLabel(service string) string {
 	return fmt.Sprintf("%-7s", strings.ToLower(service))
 }
 
-func (m Model) status() string {
+func (m Model) status(width int) string {
 	if m.loadErr != nil {
-		return m.configErrorStatus()
+		return m.configErrorStatus(width)
 	}
 
 	label := m.styles.label
@@ -379,8 +389,9 @@ func (m Model) status() string {
 }
 
 // configErrorStatus renders the screen shown when no configuration loaded. It
-// names both setup steps, in the one wording every surface shares.
-func (m Model) configErrorStatus() string {
+// names both setup steps, in the one wording every surface shares, and gives
+// each problem an invalid file has a row of its own, wrapped to width.
+func (m Model) configErrorStatus(width int) string {
 	if errors.Is(m.loadErr, config.ErrNotFound) {
 		return m.styles.strong.Render(config.NoConfigHeadline) + "\n" +
 			m.styles.label.Render(config.InitStep) + "\n" +
@@ -388,7 +399,7 @@ func (m Model) configErrorStatus() string {
 	}
 
 	return m.styles.strong.Render("configuration error") + "\n" +
-		m.styles.label.Render(m.loadErr.Error()) + "\n" +
+		m.failureBlock(m.loadErr, width) + "\n" +
 		m.styles.label.Render("start over with `workflow config init --force`")
 }
 

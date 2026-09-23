@@ -4,6 +4,7 @@
 package tui
 
 import (
+	"errors"
 	"strings"
 
 	"charm.land/bubbles/v2/key"
@@ -11,6 +12,9 @@ import (
 
 	"github.com/jacob-delgado/workflow/internal/jira"
 )
+
+// errEmptyComment turns back a comment saved empty: guidance, not a failure.
+var errEmptyComment = errors.New("nothing to post: the comment was empty")
 
 // commentHelp is what the editor shows below a comment being written. Its last
 // sentence names which markup the text is read as, which depends on whether the
@@ -71,9 +75,9 @@ func (msg commentEdited) apply(m Model) (Model, tea.Cmd) {
 			return m, nil
 		}
 
-		return m.closeOverlay().noticed(m.failure(msg.err)), nil
+		return m.closeOverlay().noticedFailure(msg.err), nil
 	case strings.TrimSpace(msg.text) == "":
-		return m.closeOverlay().noticed("nothing to post: the comment was empty"), nil
+		return m.closeOverlay().noticedGuidance(errEmptyComment), nil
 	}
 
 	m.overlay = commentPreview{

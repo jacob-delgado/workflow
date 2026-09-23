@@ -22,7 +22,7 @@ func workTree() []gitrepo.Change {
 	return []gitrepo.Change{
 		{Path: "internal/config/redact.go", Staged: 'M', Unstaged: ' '},
 		{Path: "internal/log/debug.go", Staged: 'M', Unstaged: 'M'},
-		{Path: "notes.txt", Staged: '?', Unstaged: '?'},
+		{Path: untrackedNotes, Staged: '?', Unstaged: '?'},
 		{Path: "new.go", OriginalPath: "old.go", Staged: 'R', Unstaged: ' '},
 		{Path: "conflict.go", Staged: 'U', Unstaged: 'U'},
 		{Path: "evil\x1b]0;owned\x07.go", Staged: '?', Unstaged: '?'},

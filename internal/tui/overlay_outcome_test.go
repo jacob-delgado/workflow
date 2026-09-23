@@ -36,7 +36,7 @@ func TestAnOverlayShowsAFailureFully(t *testing.T) {
 		keys    []string
 	}{
 		"comment preview": {
-			prepare: func(w *world) { w.edited, w.commentErr = "a short comment", errLongReason },
+			prepare: func(w *world) { w.edited, w.commentErr = shortComment, errLongReason },
 			keys:    []string{"c", keyEnter},
 		},
 		"branch creator": {

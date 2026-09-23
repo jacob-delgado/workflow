@@ -4,14 +4,20 @@
 package tui_test
 
 import (
+	"errors"
 	"fmt"
+	"strings"
 	"testing"
 
+	"github.com/charmbracelet/x/ansi"
+
+	"github.com/jacob-delgado/workflow/internal/config"
 	"github.com/jacob-delgado/workflow/internal/forge"
 	"github.com/jacob-delgado/workflow/internal/gitrepo"
 	"github.com/jacob-delgado/workflow/internal/jira"
 	"github.com/jacob-delgado/workflow/internal/messaging"
 	"github.com/jacob-delgado/workflow/internal/proc"
+	"github.com/jacob-delgado/workflow/internal/tui"
 )
 
 func TestAKnownErrorReadsAsASentenceAndAnUnknownOneAsRawText(t *testing.T) {
@@ -53,7 +59,7 @@ func TestAPinnedRefusalSpeaksTheSentence(t *testing.T) {
 
 	// Arrange
 	unanswered := newWorld()
-	unanswered.edited = "a short comment"
+	unanswered.edited = shortComment
 	unanswered.commentErr = fmt.Errorf("posting the comment: %w", jira.ErrUnreachable)
 
 	// Act
@@ -351,5 +357,61 @@ func TestADetailTellsTheFailureItsSummaryRowShortens(t *testing.T) {
 			// words stay on screen beneath it, not only in a notice the next key clears.
 			requireScreen(t, view, tt.want...)
 		})
+	}
+}
+
+// rowShowing is the row of a screen that shows want, with its color escapes
+// kept, or empty when no row does.
+func rowShowing(view, want string) string {
+	for row := range strings.SplitSeq(view, "\n") {
+		if strings.Contains(ansi.Strip(row), want) {
+			return row
+		}
+	}
+
+	return ""
+}
+
+//nolint:paralleltest // forceANSI owns the global color profile; must run serially.
+func TestTheConfigurationScreenShowsItsErrorAsAFailure(t *testing.T) {
+	// Arrange
+	defer forceANSI(t)()
+
+	model := sized(t, tui.New(config.Config{}, fmt.Errorf("%w: unexpected end of JSON input", config.ErrInvalid),
+		tui.Deps{}), 120, 40)
+
+	// Act
+	view := model.View().Content
+
+	// Assert
+	requireScreen(t, view, "configuration error", "start over with `workflow config init --force`")
+
+	if row := rowShowing(view, failGlyph+" invalid .workflow.json"); !strings.Contains(row, redOpen()+failGlyph) {
+		t.Errorf("the configuration error is not a red failure row:\n%s", ansi.Strip(view))
+	}
+}
+
+// Two problems a configuration can have at once.
+var (
+	errBadTemplate   = errors.New("invalid branch template: must contain {key}")
+	errNegativeLimit = errors.New("invalid commit default: subject_limit cannot be negative: -1")
+)
+
+func TestTheConfigurationScreenGivesEachProblemItsOwnRow(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	// config.Load joins every problem it finds, one to a line.
+	invalid := fmt.Errorf("%w: %w", config.ErrInvalid, errors.Join(errBadTemplate, errNegativeLimit))
+	model := sized(t, tui.New(config.Config{}, invalid, tui.Deps{}), 80, 40)
+
+	// Act
+	view := model.View().Content
+
+	// Assert
+	requireScreen(t, view, "invalid branch template", "invalid commit default")
+
+	if rowShowing(view, "invalid branch template") == rowShowing(view, "invalid commit default") {
+		t.Errorf("both problems share one row:\n%s", ansi.Strip(view))
 	}
 }

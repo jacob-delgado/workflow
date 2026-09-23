@@ -385,7 +385,7 @@ type editorClosed struct {
 // apply reports an editor that could not be opened.
 func (msg editorClosed) apply(m Model) (Model, tea.Cmd) {
 	if msg.err != nil {
-		return m.noticed(m.failure(msg.err)), nil
+		return m.noticedFailure(msg.err), nil
 	}
 
 	return m, nil

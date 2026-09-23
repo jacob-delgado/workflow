@@ -5,7 +5,7 @@ package tui
 
 import (
 	"cmp"
-	"fmt"
+	"errors"
 	"strconv"
 	"strings"
 
@@ -14,6 +14,9 @@ import (
 
 	"github.com/jacob-delgado/workflow/internal/forge"
 )
+
+// errNoMergeMethod reports a repository that permits no way to merge.
+var errNoMergeMethod = errors.New("cannot merge: the repository permits no merge method")
 
 // canMerge reports a pull request that can be merged here: found, mergeable,
 // green and approved, with a forge that can merge it.
@@ -58,9 +61,9 @@ type mergeMethodsLoaded struct {
 func (msg mergeMethodsLoaded) apply(m Model) (Model, tea.Cmd) {
 	switch {
 	case msg.err != nil:
-		return m.noticed(m.failure(fmt.Errorf("cannot merge: %w", msg.err))), nil
+		return m.noticedFailureLedBy("cannot merge: ", msg.err), nil
 	case len(msg.methods) == 0:
-		return m.noticed("cannot merge: the repository permits no merge method"), nil
+		return m.noticedFailure(errNoMergeMethod), nil
 	}
 
 	m.overlay = mergePicker{

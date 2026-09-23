@@ -98,7 +98,7 @@ Impact: medium · Effort: large
 - Why: The browser can read an issue but cannot change one: no
   transition with its field form, no comment, no assign, no log work — all
   of which the interface offers from the Issues pane
-  (`internal/tui/picker.go:155`, `comment.go:37`, `internal/tui/issuewrite.go:74`).
+  (`internal/tui/picker.go:155`, `internal/tui/comment.go:41`, `internal/tui/issuewrite.go:74`).
   REVIEW.md Phase 9 adds the fields-less transition the post-open offer
   needs; this is the rest.
 - Touches: `api/openapi.yaml` (operations for a transition with fields,
@@ -213,13 +213,13 @@ Impact: medium · Effort: large
 - Why: The web's Review section shows a pull request and its CI and can
   open one, but cannot re-run failed checks, merge, finish the merged
   branch or edit the pull request's title and body — all of which the
-  interface does with `R`, `M`, `F` and `e` (`internal/tui/checks.go:181`,
-  `internal/tui/merge.go:109`, `internal/tui/finish.go:44`,
+  interface does with `R`, `M`, `F` and `e` (`internal/tui/checks.go:183`,
+  `internal/tui/merge.go:112`, `internal/tui/finish.go:44`,
   `internal/tui/preditor.go:37`). FEAT-31's own note already records the
   web merge as a follow-up; this formalizes the set.
 - Touches: `api/openapi.yaml` (four operations), `internal/webserver` (a
   handler per action, each a budget row; merge gated exactly as `canMerge`
-  gates it, `internal/tui/merge.go:20`, over the shared composition —
+  gates it, `internal/tui/merge.go:23`, over the shared composition —
   REVIEW.md Phase 1), `web/src/features/review`, `web/e2e` (a write driven
   against a running server, which the suite does not yet do —
   TECH_DEBT.md DEBT-65).
@@ -256,7 +256,7 @@ Impact: low · Effort: medium
 
 - Why: The interface's preview offers `w` — post the announcement when CI
   goes green — and keeps the queued post until it does or the run fails
-  (`internal/tui/messaging.go:397`). The web announces now or not at all.
+  (`internal/tui/messaging.go:406`). The web announces now or not at all.
 - Touches: `internal/webserver` (a queued post needs somewhere to live
   across requests — the store, or the stream's server state),
   `api/openapi.yaml`, `web/src/features/messaging`.

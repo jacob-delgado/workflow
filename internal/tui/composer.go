@@ -73,8 +73,9 @@ func (m Model) openCommitComposer() (Model, tea.Cmd) {
 		return m, nil
 	}
 
-	if loop.RefuseNothingStaged(m.changes.changes) != nil {
-		return m.noticed("nothing is staged: space stages the selected file"), nil
+	refusal := loop.RefuseNothingStaged(m.changes.changes)
+	if refusal != nil {
+		return m.noticedGuidance(refusal), nil
 	}
 
 	draft := m.draft

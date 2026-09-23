@@ -324,7 +324,7 @@ type staged struct {
 // now holds.
 func (msg staged) apply(m Model) (Model, tea.Cmd) {
 	if msg.err != nil {
-		m = m.noticed(m.failure(msg.err))
+		m = m.noticedFailure(msg.err)
 	}
 
 	return m, m.loadChanges()

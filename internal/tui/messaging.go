@@ -4,8 +4,9 @@
 package tui
 
 import (
+	"errors"
+	"fmt"
 	"slices"
-	"strconv"
 	"strings"
 
 	"charm.land/bubbles/v2/key"
@@ -20,6 +21,14 @@ import (
 // messagingHelp is what the editor shows below a message being composed. The markup
 // depends on the service, so the note stays general rather than naming one.
 const messagingHelp = "Edit the message above this line."
+
+// Refusals of an announcement that never went. An empty message is guidance, a
+// post given up on is a failure.
+var (
+	errEmptyMessage     = errors.New("nothing to post: the message was empty")
+	errPostDropped      = errors.New("dropped the Slack post")
+	errCIFailedUnposted = errors.New("CI failed, so nothing was posted to Slack")
+)
 
 // messagingState is what has been posted to Slack. The posts made this session
 // are seeded at startup from the store's record of earlier ones, so a restart
@@ -378,7 +387,7 @@ func (p messagingPreview) cycleChannel(m Model, step int) (Model, tea.Cmd) {
 // post posts the message now.
 func (p messagingPreview) post(m Model) (Model, tea.Cmd) {
 	if strings.TrimSpace(p.text) == "" {
-		return m.closeOverlay().noticed("nothing to post: the message was empty"), nil
+		return m.closeOverlay().noticedGuidance(errEmptyMessage), nil
 	}
 
 	if m.dryRun {
@@ -435,8 +444,8 @@ func (m Model) withoutQueuedPost() Model {
 	dropped := m.messaging.pending.pull
 	m.messaging.pending = queuedPost{}
 
-	return m.noticed(m.failedGlyph() + " dropped the Slack post waiting for " + m.vocab.sigil + strconv.Itoa(dropped) +
-		", which is no longer this branch's " + m.vocab.noun)
+	return m.noticedFailure(fmt.Errorf("%w waiting for %s%d, which is no longer this branch's %s",
+		errPostDropped, m.vocab.sigil, dropped, m.vocab.noun))
 }
 
 // postIfGreen posts the message waiting for CI once CI passes, and gives up on
@@ -458,7 +467,7 @@ func (m Model) postIfGreen() (Model, tea.Cmd) {
 		m.messaging.pending = queuedPost{}
 		m.messaging.dropped = "CI failed at " + m.deps.now().Format(droppedTimeFormat)
 
-		return m.noticed(m.failedGlyph() + " CI failed, so nothing was posted to Slack"), nil
+		return m.noticedFailure(errCIFailedUnposted), nil
 	case forge.CINone, forge.CIRunning:
 		return m, nil
 	default:
@@ -501,7 +510,7 @@ func (msg messagingPosted) apply(m Model) (Model, tea.Cmd) {
 			m.overlay = preview
 		}
 
-		return m.noticed(m.failure(msg.err)), nil
+		return m.noticedFailure(msg.err), nil
 	}
 
 	m.messaging.posted, m.messaging.send = append(slices.Clone(m.messaging.posted),

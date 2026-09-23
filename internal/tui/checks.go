@@ -5,7 +5,6 @@ package tui
 
 import (
 	"errors"
-	"fmt"
 	"strconv"
 	"strings"
 
@@ -20,6 +19,9 @@ const checksTitle = "Checks"
 
 // errNoCheckPage reports a check the forge gave no page to open.
 var errNoCheckPage = errors.New("this check reports no page to open")
+
+// errNothingToRerun reports a failure the forge has no re-runnable job for.
+var errNothingToRerun = errors.New("nothing to re-run: this failure has no job to restart")
 
 // checkList lists the pull request's checks, so which one failed is plain, and
 // opens the page of whichever is selected.
@@ -232,7 +234,7 @@ func (msg rerunRequested) apply(m Model) (Model, tea.Cmd) {
 			m.overlay = look
 		}
 
-		return m.noticed(m.failure(fmt.Errorf("re-run failed: %w", refusal))), nil
+		return m.noticedFailureLedBy("re-run failed: ", refusal), nil
 	}
 
 	if asked {
@@ -240,7 +242,7 @@ func (msg rerunRequested) apply(m Model) (Model, tea.Cmd) {
 	}
 
 	if !msg.reran {
-		return m.noticed("nothing to re-run: this failure has no job to restart"), nil
+		return m.noticedFailure(errNothingToRerun), nil
 	}
 
 	m.review.ci = forge.CI{State: forge.CIRunning}
