@@ -150,6 +150,46 @@ func TestStartStreamsBothStreamsInOrderAndReportsTheExit(t *testing.T) {
 	}
 }
 
+func TestAFailureStatusIsToldApartInTheProgramsOwnWords(t *testing.T) {
+	t.Parallel()
+
+	// Act
+	output, err := proc.Start(t.Context(), child(t.TempDir(), "mixed"))
+	if err != nil {
+		t.Fatalf("Start returned %v, want nil", err)
+	}
+
+	_, err = collect(t, output)
+
+	// Assert
+	// A caller names the step that failed only for a program that ran and said
+	// no; the words stay git's own, "git: exit status 1".
+	if !errors.Is(err, proc.ErrExitStatus) || !strings.HasSuffix(err.Error(), ": exit status 3") {
+		t.Errorf("Wait returned %v, want a failure status reading \"…: exit status 3\"", err)
+	}
+}
+
+func TestAStoppedProgramIsNoFailureStatus(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	output, err := proc.Start(t.Context(), child(t.TempDir(), "sleep"))
+	if err != nil {
+		t.Fatalf("Start returned %v, want nil", err)
+	}
+
+	// Act
+	output.Stop()
+
+	_, err = collect(t, output)
+
+	// Assert
+	// A killed program never answered, so nothing it did can be called refused.
+	if err == nil || errors.Is(err, proc.ErrExitStatus) {
+		t.Errorf("Wait returned %v, want an error that is not a failure status", err)
+	}
+}
+
 func TestStartRunsInTheDirectory(t *testing.T) {
 	t.Parallel()
 

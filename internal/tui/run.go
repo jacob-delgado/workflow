@@ -4,6 +4,7 @@
 package tui
 
 import (
+	"errors"
 	"runtime"
 	"slices"
 	"strconv"
@@ -215,8 +216,9 @@ func (r commandRun) state() string {
 }
 
 // failureHeadline names the step that failed in words. It stands in only for a
-// bare exit code, which says nothing on its own; an error that already carries
-// its cause — a message that could not be written, say — is shown as it is.
+// failure status — git's "exit status 1", which says nothing on its own; an
+// error that already carries its cause — a message that could not be written,
+// say — is shown as it is.
 func (r commandRun) failureHeadline() string {
 	sentences := map[string]string{
 		"git commit":         "the commit was refused",
@@ -228,7 +230,7 @@ func (r commandRun) failureHeadline() string {
 	}
 
 	sentence, known := sentences[r.title]
-	if known && strings.HasPrefix(r.err.Error(), "exit status ") {
+	if known && errors.Is(r.err, proc.ErrExitStatus) {
 		return sentence
 	}
 

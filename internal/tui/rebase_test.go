@@ -4,13 +4,12 @@
 package tui_test
 
 import (
-	"errors"
 	"testing"
 )
 
-// errRebaseConflict is git stopping a rebase on a conflict: a non-zero exit,
-// shaped like the exit statuses the run overlay turns into a headline.
-var errRebaseConflict = errors.New("exit status 1")
+// errRebaseConflict is git stopping a rebase on a conflict: a failure status,
+// which the run overlay turns into a headline.
+var errRebaseConflict = gitExited(1)
 
 func TestCatchingUpIsOfferedAgainstTheBase(t *testing.T) {
 	t.Parallel()

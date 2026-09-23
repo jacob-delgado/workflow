@@ -16,7 +16,7 @@ import (
 // Errors git answers with.
 var (
 	errBranchExists = errors.New("fatal: a branch named 'fix/x' already exists")
-	errPushDenied   = errors.New("exit status 128")
+	errPushDenied   = gitExited(128)
 )
 
 // dryInterface is the world's interface in dry-run mode.

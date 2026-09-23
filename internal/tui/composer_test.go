@@ -4,7 +4,6 @@
 package tui_test
 
 import (
-	"errors"
 	"strings"
 	"testing"
 
@@ -13,7 +12,7 @@ import (
 )
 
 // errHookFailed is how git reports a hook that failed.
-var errHookFailed = errors.New("exit status 1")
+var errHookFailed = gitExited(1)
 
 func TestCommitNeedsSomethingStaged(t *testing.T) {
 	t.Parallel()
