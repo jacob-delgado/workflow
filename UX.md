@@ -57,10 +57,10 @@ them, re-counted at this commit.
 | The promise | Where it is made | Kept? |
 | --- | --- | --- |
 | "a key it does not show does nothing" | No longer stated anywhere; the sentence the previous edition cited at `usage.md:55` is gone. Folds into the next row. | — |
-| "`?` lists every key" | `docs/content/docs/usage.md:62` | **Yes, by construction.** Help is generated from the bindings (`internal/tui/keys.go:134` `helpBuilder.place`, rendered at `render.go:211`): 57 of 57. The one guard is that construction; `render.go:225` skips a binding with empty help silently, and the tests are three-string spot checks (`focus_test.go:124`). |
-| "the one way the interface says something broke" | `failure`, `internal/tui/render.go:421` | **Partly, and this is the weakest.** Of 53 places that render an error, 22 go through the `failure` family, but only 11 reach the actionable `errorSentence` (`render.go:401`): `failureBlock` (`render.go:450`) red-wraps the raw chain, so all 11 `pinnedOutcome` overlays show the raw error; 14 sites are `failedGlyph + err.Error()`; 8 are glyph-only rail summaries; 7 are notices with no glyph and no red at all. See UX-67. |
+| "`?` lists every key" | `docs/content/docs/usage.md:62` | **Yes, by construction.** Help is generated from the bindings (`internal/tui/keys.go:134` `helpBuilder.place`, rendered at `render.go:208`): 57 of 57. The one guard is that construction; `render.go:222` skips a binding with empty help silently, and the tests are three-string spot checks (`focus_test.go:124`). |
+| "the one way the interface says something broke" | `failure`, `internal/tui/failure.go:63` | **Partly, and this is the weakest.** Of 53 places that render an error, 22 go through the `failure` family, but only 11 reach the actionable `errorSentence` (`internal/tui/failure.go:39`): `failureBlock` (`internal/tui/failure.go:88`) red-wraps the raw chain, so all 11 `pinnedOutcome` overlays show the raw error; 14 sites are `failedGlyph + err.Error()`; 8 are glyph-only rail summaries; 7 are notices with no glyph and no red at all. See UX-67. |
 | "Nothing outward facing is sent without" a last look | `internal/tui/comment.go:60` | **Yes: 18 of 18.** Every outward act waits on a preview or a confirmation; the push, `R`'s re-run of CI and `u`'s rebase share one last look, `lastLook` (`internal/tui/overlay.go:131`). |
-| "a refused change must never go unseen" | `internal/tui/picker.go:269` | **Yes: 14 of 14.** Every overlay that sends a request guards it while in flight (the previous edition counted 1 of 7), and every one keeps a refusal in the overlay, where it happened, until `esc` — the merge and finish previews last, through `pinnedOutcome` (`internal/tui/render.go:457`). |
+| "a refused change must never go unseen" | `internal/tui/picker.go:269` | **Yes: 14 of 14.** Every overlay that sends a request guards it while in flight (the previous edition counted 1 of 7), and every one keeps a refusal in the overlay, where it happened, until `esc` — the merge and finish previews last, through `pinnedOutcome` (`internal/tui/failure.go:95`). |
 | "Each pane fails on its own" | `docs/content/docs/usage.md:68` | Yes. `tui.go:157` batches six loads; each pane holds and renders its own error. |
 | State is "carried by the SHAPE of a glyph rather than its color" | `internal/tui/glyphs.go:16` | Yes. `unicodeGlyphs` and `asciiGlyphs` differ in shape (`glyphs.go:31`, `:43`); `NO_COLOR` keeps bold and faint (`tui.go:139`). One residue: the progress spine's per-system hue is color-only, mitigated by the name or its initial. |
 
@@ -201,7 +201,7 @@ where the interface cycles them (`ctrl+t`).
 
 Impact: medium · Effort: small
 
-**Today.** `footerKeys` (`render.go:336`) shows each pane's verbs. The
+**Today.** `footerKeys` (`render.go:333`) shows each pane's verbs. The
 Issues pane answers `a` assign, `w` log work, `/` filter, and `enter`/`esc`
 in the collapsed layout (`issuekeys.go:22`, `:46`, `:48`, `:81`, `:85`), but
 none of the five reaches the footer. Two keys are shown where they do not
@@ -226,7 +226,7 @@ Impact: low · Effort: medium
 **Today.** `NO_COLOR` and `ui.color: never` keep bold and faint (`tui.go:139`);
 `ui.ascii` swaps glyphs and borders (`glyphs.go:43`); escapes in server text
 are neutralized. But there is no screen-reader mode; the alternate screen
-is unconditional (`render.go:41` `view.AltScreen = true`), so nothing the
+is unconditional (`render.go:37` `view.AltScreen = true`), so nothing the
 interface prints survives quitting; `ui.color` has no `always` for a piped
 terminal that does support color; and the 150 ms detail delay
 (`internal/tui/detail.go:21`) is fixed.
@@ -240,11 +240,11 @@ always`; `ui.detail_delay` in milliseconds.
 
 Impact: high · Effort: medium
 
-**Today.** `failure` (`render.go:421`) is "the one way the interface says
-something broke", and `errorSentence` (`render.go:401`) is where the useful
+**Today.** `failure` (`internal/tui/failure.go:63`) is "the one way the interface says
+something broke", and `errorSentence` (`internal/tui/failure.go:39`) is where the useful
 sentences live ("Check the VPN, then press `r`", "Run `gh auth login`"). Of
 53 places that render an error, only 11 reach `errorSentence`.
-`failureBlock` (`render.go:450`) red-wraps the raw error chain and never
+`failureBlock` (`internal/tui/failure.go:88`) red-wraps the raw error chain and never
 calls it, so all 11 `pinnedOutcome` overlays show `could not reach the forge
 at …: dial tcp …` instead of the sentence. Fourteen rail sites are
 `failedGlyph + err.Error()` (`internal/tui/checks.go:97`, `diff.go:79`,
@@ -253,7 +253,7 @@ at …: dial tcp …` instead of the sentence. Fourteen rail sites are
 summaries; seven are notices with no glyph and no red (`comment.go:76`,
 `internal/tui/composer.go:77`, `internal/tui/messaging.go:377`, `internal/tui/checks.go:233`,
 `:241`, `internal/tui/merge.go:66`, `:68`); one config screen is unstyled
-(`render.go:386`). `render.go:372` points at `workflow doctor` only for a
+(`render.go:383`). `render.go:369` points at `workflow doctor` only for a
 *missing* setting, never a failing one; `forgeReason` (`internal/tui/review.go:360`),
 `rerunReason` (`internal/tui/checks.go:254`) and `errNeedsWriteScope` (`internal/tui/merge.go:21`) each carry a sentence
 `errorSentence` does not know.
