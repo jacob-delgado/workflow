@@ -46,7 +46,7 @@ can rely on from them: exit codes, which stream carries what, `--json`,
 │ #dev                    ││                                                   │
 │ ○ nothing posted        ││                                                   │
 └─────────────────────────┘└───────────────────────────────────────────────────┘
- t change status • c comment • b branch for issue • ? keys • tab next pane …
+ t change status • c comment • b branch for PROJ-412 • a assign • ? keys …
 ```
 
 - **The top row** is how far along the loop the work is. `○` not started, `◐`
@@ -82,9 +82,13 @@ scroll the detail pane.
 | --- | --- | --- |
 | 1 Issues | `t` | Change the selected issue's status |
 | | `c` | Comment on it |
+| | `a` | Assign it |
+| | `w` | Log work on it |
 | | `b` | Start a branch for it |
+| | `/` | Filter the list as you type; `enter` keeps the filter, `esc` clears it |
 | | `v` | Switch which issue list is shown |
 | | `r` | Search again |
+| | `enter` / `esc` | Below 80 columns, read the selected issue in full, then go back to the list |
 | 2 Branch | `b` | Start a branch |
 | | `s` | Switch to another issue's branch |
 | | `u` | Rebase the branch onto its base, once a last look is confirmed |

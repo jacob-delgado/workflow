@@ -197,27 +197,24 @@ where the interface cycles them (`ctrl+t`).
 
 ## The terminal interface
 
-### UX-63 Five keys the Issues pane answers never appear in its footer
+### UX-63 Two keys are listed under panes that do not answer them
 
 Impact: medium · Effort: small
 
-**Today.** `footerRow` (`internal/tui/render.go:338`) shows each pane's verbs. The
-Issues pane answers `a` assign, `w` log work, `/` filter, and `enter`/`esc`
-in the collapsed layout (`issuekeys.go:22`, `:46`, `:48`, `:81`, `:85`), but
-none of the five reaches the footer. Two keys are shown where they do not
-work: `ctrl+w` (worktree) is filed under "Branch and Commits" (`internal/tui/keys.go:225`)
-and listed under pane 2 in `docs/content/docs/usage.md:91`, but only the branch creator
-answers it (`internal/tui/branch.go:404`); `w` post-when-green is filed under "Review and
-Slack" (`internal/tui/keys.go:245`) and listed under pane 5 in `docs/content/docs/usage.md:103`, but only the
-preview answers it (`internal/tui/messaging.go:367`).
+**Today.** `ctrl+w` (worktree) is filed under "Branch and Commits"
+(`internal/tui/keys.go:225`) and listed under pane 2 in
+`docs/content/docs/usage.md:95`, but only the branch creator answers it
+(`internal/tui/branch.go:404`); `w` post-when-green is filed under "Review and
+Slack" (`internal/tui/keys.go:245`) and listed under pane 5 in
+`docs/content/docs/usage.md:107`, but only the preview answers it
+(`internal/tui/messaging.go:367`).
 
-**Instead.** The Issues pane's `keys(m)` includes the five when their seams
-are wired; the two overlay-only keys move to the overlay groups; the docs
+**Instead.** The two overlay-only keys move to the overlay groups; the docs
 follow.
 
-**Done when.** A structural test asserts every key a pane answers is in its
-footer when it can act, replacing the three-string spot check
-(`focus_test.go:124`).
+**Done when.** A structural test asserts `?` lists every placed binding under
+the group where it works, replacing the three-string spot check
+(`internal/tui/focus_test.go:124`).
 
 ### UX-64 A screen reader, an alternate screen you cannot turn off, and a delay you cannot tune
 
@@ -229,7 +226,7 @@ are neutralized. But there is no screen-reader mode; the alternate screen
 is unconditional (`internal/tui/render.go:38` `view.AltScreen = true`), so nothing the
 interface prints survives quitting; `ui.color` has no `always` for a piped
 terminal that does support color; and the 150 ms detail delay
-(`internal/tui/detail.go:21`) is fixed.
+(`internal/tui/detail.go:22`) is fixed.
 
 **Instead.** `ui.alt_screen: false` for inline rendering; `ui.color:
 always`; `ui.detail_delay` in milliseconds.

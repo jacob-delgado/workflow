@@ -123,7 +123,7 @@ Severity: medium · Confidence: read
 pane, reset on focus (`internal/tui/tui.go:269` `focusOn`). It is the reason for the
 focus-guarded re-clamps in DEBT-57, and the reason `pickChange`
 (`internal/tui/commits.go:255`) and `pickReview` (`internal/tui/reviewqueue.go:220`) must add
-`m.scroll` to a clicked line while `pickIssue` (`internal/tui/detail.go:260`) must not —
+`m.scroll` to a clicked line while `pickIssue` (`internal/tui/detail.go:320`) must not —
 three click paths that disagree about the same number.
 
 **What it costs.** Switching panes loses the scroll position; every
@@ -142,7 +142,7 @@ Severity: low · Confidence: read
 `reviewState.generation` (`internal/tui/review.go:32`) exists solely to
 stop a superseded CI polling chain from applying — a workaround for having
 no way to cancel the earlier chain. `detailLoaded.apply`
-(`internal/tui/detail.go:50`) documents a last-writer-wins race between two
+(`internal/tui/detail.go:51`) documents a last-writer-wins race between two
 in-flight reads of the same issue and consciously declines to fix it. Both
 are honest about what they are; both are the kind of thing the next
 concurrency change trips on.
