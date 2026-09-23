@@ -9,6 +9,10 @@ weight: 20
 
 Create and inspect the configuration file
 
+```
+workflow config [flags]
+```
+
 ### Options
 
 ```

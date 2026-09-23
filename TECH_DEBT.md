@@ -63,14 +63,14 @@ anyone misuse a credential, a terminal or a release.
 
 Severity: medium · Confidence: read
 
-Every command now connects through one `connect` (`internal/cli/cli.go:292`),
+Every command now connects through one `connect` (`internal/cli/cli.go:306`),
 which opens the request log the command's `--log` names
-(`requestLogFor`, `internal/cli/cli.go:329`). But `--log` is declared on
-`root.Flags()` (`internal/cli/cli.go:187`), not `PersistentFlags()`, so no
+(`requestLogFor`, `internal/cli/cli.go:343`). But `--log` is declared on
+`root.Flags()` (`internal/cli/cli.go:201`), not `PersistentFlags()`, so no
 subcommand has one: the facility the root's help advertises for bug reports
 is still unavailable to any scriptable command. And the root's `--dry-run`
-(`internal/cli/cli.go:184`) and the write commands' `--dry-run`
-(`internal/cli/scriptable.go:28`) are two unrelated flags with different
+(`internal/cli/cli.go:198`) and the write commands' `--dry-run`
+(`internal/cli/scriptable.go:36`) are two unrelated flags with different
 help text, neither persistent, so `workflow --dry-run pr` is an
 unknown-flag error.
 
@@ -78,7 +78,7 @@ unknown-flag error.
 log, and a script has to know which `--dry-run` a command takes.
 
 **One way to fix it.** `--dry-run` and `--log` declared once as persistent
-root flags, with `writeOptions.addFlags` (`internal/cli/scriptable.go:27`)
+root flags, with `writeOptions.addFlags` (`internal/cli/scriptable.go:35`)
 keeping only `--yes`.
 
 **Done when.** `workflow --log FILE status` appends a request line to
@@ -95,9 +95,9 @@ but `run` and `runGuided` still join them for every older test, and only
 `pr`'s opened line (`TestPRPrintsTheOpenedPullRequestOnStdout`) is pinned
 to a stream. So the stream discipline clig.dev asks for — the artifact on
 stdout, commentary on stderr — is still unenforced. Today the gitignore
-warning (`internal/cli/config_cmd.go:278`), the decline notices and `dry run: would …`
-lines (`internal/cli/scriptable.go:45`, `:60`), the no-configuration guidance
-(`internal/cli/config_cmd.go:89`) and the web server's banner (`internal/cli/cli.go:247`) all go to
+warning (`internal/cli/config_cmd.go:281`), the decline notices and `dry run: would …`
+lines (`internal/cli/scriptable.go:53`, `:68`), the no-configuration guidance
+(`internal/cli/config_cmd.go:92`) and the web server's banner (`internal/cli/cli.go:261`) all go to
 stdout, and no test would notice either way.
 
 **What it costs.** `workflow config show | jq .` fails on the `# <path>`
@@ -387,7 +387,7 @@ Severity: low · Confidence: read
   `internal/buildinfo`, `internal/store`, `internal/web`,
   `internal/webserver`, `internal/tui/frame` and `internal/tui/layout`.
 - Residual "Slack" after the rename: the root command's `Short`
-  (`internal/cli/cli.go:153`), the help group `groupReviewSlack`
+  (`internal/cli/cli.go:167`), the help group `groupReviewSlack`
   (`internal/tui/keys.go:80`), `FEATURES.md:30`, `web/index.html:9`.
 - `docs/content/docs/usage.md:49` says "the five panes" and `:71` says
   "`1`–`5`"; `internal/tui/panes.go:27` has `paneCount = 6` and the jump
@@ -431,7 +431,7 @@ Severity: low · Confidence: read
 
 `wiring.Deps` (`internal/wiring/wiring.go:72`) returns `tui.Deps`, so the
 wiring package imports the terminal interface; the CLI's `webDeps`
-(`internal/cli/cli.go:255`) then narrows that bundle for the web server.
+(`internal/cli/cli.go:269`) then narrows that bundle for the web server.
 The seams are not the terminal's — they are the loop's. That import no
 longer stands in the way of shared composition: `internal/loop` takes each
 seam as a plain argument (`loop.PullSeams`, `loop.AnnounceSeams`) and never

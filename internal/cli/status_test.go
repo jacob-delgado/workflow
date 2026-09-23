@@ -19,6 +19,8 @@ func TestStatusOutsideARepositoryReportsSo(t *testing.T) {
 	if err == nil {
 		t.Error("status outside a repository returned no error")
 	}
+
+	wantExit(t, err, 4)
 }
 
 // featureRepo makes a repository on a branch for PROJ-2 with a commit, and

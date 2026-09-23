@@ -66,47 +66,40 @@ them, re-counted at this commit.
 
 ## The command line
 
-### UX-50 Every failure exits 1, and the same condition exits differently in two commands
+### UX-50 The same condition exits differently in two commands
 
 Impact: high · Effort: small
 
-**Today.** `cmd/workflow/main.go:35` defines one `exitFailure = 1`; every
-error the CLI returns — `doctor`'s six sentinels (`internal/cli/doctor.go:29`),
-`errBranchExists`, `errPullAlreadyOpen`, `errNoCommitsToOpen`,
-`errPushFailed`, `errNoPullRequest`, `errMessagingNotConfigured`,
-`errConfigExists` — collapses to 1. A script cannot tell "no configuration"
-from "the service is unreachable" from "the credential was rejected" without
-parsing prose. Worse, the same condition exits differently: with no
-configuration file, `config show` prints guidance and exits **0**
-(`showLoadError`, `internal/cli/config_cmd.go:83`) while `doctor` exits **1**
-(`reportLoadError`, `doctor.go:463`); outside a repository `status` exits 1
-(`statusHere`, `internal/cli/status.go:72`) but `status .` prints `not a git
-repository` and exits 0 (`statusAcross`, `:86`).
+**Today.** Each kind of failure now has its own exit status
+(`cli.ExitStatus`, `internal/cli/scriptable.go:196`), but two commands
+still disagree about the same condition. With no configuration file,
+`config show` prints guidance and exits **0** (`showLoadError`,
+`internal/cli/config_cmd.go:86`) while `doctor` exits **3**
+(`reportLoadError`, `internal/cli/doctor.go:463`); outside a repository
+`status` exits 4 (`statusHere`, `internal/cli/status.go:72`) but `status .`
+prints `not a git repository` and exits 0 (`statusAcross`, `:86`).
 
-**Instead.** A small table — 0 success, 1 failure, 2 usage, 3 configuration,
-4 refused precondition, 5 unreachable — the same families the web API's
-problem codes already use (`docs/content/docs/errors.md`), and the two
-inconsistencies aligned.
+**Instead.** The two inconsistencies aligned: `config show` exits 3 like
+`doctor`, and `status DIR…` exits 4 when a directory is not a repository,
+like bare `status`.
 
-**Touches.** `cmd/workflow/main.go`, an `ExitStatus(err)` in `internal/cli`,
-`config_cmd.go`, `status.go`.
+**Touches.** `config_cmd.go`, `status.go`.
 
-**Done when.** A table test maps each sentinel to its code; `config show`
-and `doctor` exit alike without a file; `status` and `status .` exit alike
-outside a repository.
+**Done when.** `config show` and `doctor` exit alike without a file;
+`status` and `status .` exit alike outside a repository.
 
 ### UX-51 Commentary lands on stdout, where a script is reading
 
 Impact: high · Effort: small
 
-**Today.** Errors go to stderr (`SilenceErrors`, `internal/cli/cli.go:157`; `cmd/workflow/main.go:40`)
-and prompts go to stderr (`terminalPrompt`, `cmd/workflow/main.go:54`) — correct. But the
-gitignore **warning** (`warnIfNotIgnored`, `internal/cli/config_cmd.go:278`), the
+**Today.** Errors go to stderr (`SilenceErrors`, `internal/cli/cli.go:171`; `cmd/workflow/main.go:37`)
+and prompts go to stderr (`terminalPrompt`, `cmd/workflow/main.go:51`) — correct. But the
+gitignore **warning** (`warnIfNotIgnored`, `internal/cli/config_cmd.go:281`), the
 `Not posted.`/`Not opened.` decline notices and the `dry run: would …` lines
-(`writeOptions.proceed`, `internal/cli/scriptable.go:45`, `:60`), the no-configuration
-guidance (`internal/cli/config_cmd.go:89`) and the web server's `serving http://…` banner
-(`internal/cli/cli.go:247`) all go to stdout. `config show` prefixes its JSON with a
-`# <path>` line (`internal/cli/config_cmd.go:285`, then `:287`), so `workflow config
+(`writeOptions.proceed`, `internal/cli/scriptable.go:53`, `:68`), the no-configuration
+guidance (`internal/cli/config_cmd.go:92`) and the web server's `serving http://…` banner
+(`internal/cli/cli.go:261`) all go to stdout. `config show` prefixes its JSON with a
+`# <path>` line (`internal/cli/config_cmd.go:288`, then `:290`), so `workflow config
 show | jq .` fails and there is no flag to suppress the header. No test
 pins any of this to a stream: the harness can keep them apart
 (`runStreams`, `internal/cli/cli_test.go:57`), but only `pr`'s opened line
@@ -124,11 +117,11 @@ asserts the decline notice is on stderr.
 Impact: medium · Effort: small
 
 **Today.** `--dry-run`, `--log` and `--web` are declared on `root.Flags()`
-(`internal/cli/cli.go:184-189`), not `PersistentFlags()`, so `workflow --dry-run pr` and
+(`internal/cli/cli.go:198-203`), not `PersistentFlags()`, so `workflow --dry-run pr` and
 `workflow --log f status` are unknown-flag errors; the write commands
-declare their own, unrelated `--dry-run` (`internal/cli/scriptable.go:28`) with different
+declare their own, unrelated `--dry-run` (`internal/cli/scriptable.go:36`) with different
 help; and every subcommand passes `nil` for the request log, so the `--log`
-facility the root's help advertises for bug reports (`internal/cli/cli.go:188`) works
+facility the root's help advertises for bug reports (`internal/cli/cli.go:202`) works
 only for the interface (DEBT-51).
 
 **Instead.** `--dry-run` and `--log` persistent on the root, declared once;
@@ -145,7 +138,7 @@ Impact: medium · Effort: small
 a terminal. With stdin piped and `--yes` omitted, `branch`, `pr`, `announce`
 and `standup` still call `confirm` (`prompt.go:32`); `ReadString` returns
 `io.EOF`, which is propagated as an error (`:35`). `TestBranchStopsWhenThe
-ConfirmationCannotBeRead` (`internal/cli/branch_test.go:190`) pins that it stops, not
+ConfirmationCannotBeRead` (`internal/cli/branch_test.go:192`) pins that it stops, not
 that it explains.
 
 **Instead.** `confirm` turns `io.EOF` into "no terminal to confirm on; pass
@@ -176,7 +169,7 @@ redacted file it would write.
 
 Impact: medium · Effort: small
 
-**Today.** `--version` works (`Version: buildinfo.Current()`, `internal/cli/cli.go:155`),
+**Today.** `--version` works (`Version: buildinfo.Current()`, `internal/cli/cli.go:169`),
 but `cmd/docsgen/main.go` never calls cobra's `InitDefaultVersionFlag`, so
 `docs/content/docs/reference/workflow.md` lists `--dry-run`, `--help`,
 `--log` and `--web` only; `help` and `completion` have no page. And
@@ -197,7 +190,7 @@ and a scripting page in the site.
 
 Impact: low · Effort: small
 
-**Today.** `SilenceUsage` and `SilenceErrors` on the root (`internal/cli/cli.go:156`) are
+**Today.** `SilenceUsage` and `SilenceErrors` on the root (`internal/cli/cli.go:170`) are
 inherited by every subcommand, and cobra gates its "Run 'workflow --help'
 for usage." hint and its suggestion list on `!SilenceErrors`. A mistyped command name prints `workflow: unknown command …` and nothing else.
 
@@ -212,7 +205,7 @@ unknown-command or unknown-flag error.
 Impact: medium · Effort: small
 
 **Today.** The strong messages say the next step — `(pass --force to
-overwrite)` (`internal/cli/config_cmd.go:136`), the `chmod 600` line (`doctor.go:456`),
+overwrite)` (`internal/cli/config_cmd.go:139`), the `chmod 600` line (`doctor.go:456`),
 `run gh auth login` (`doctor.go:232`), `Create one with workflow config
 init` (`internal/config/config.go:24`). The bare sentinels do not: `a branch for
 this issue already exists` (`internal/cli/branch.go:21`) does not say to switch to it;

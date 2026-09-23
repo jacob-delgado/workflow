@@ -119,6 +119,8 @@ func TestDoctorOnlineFailsOnARejectedCredential(t *testing.T) {
 		t.Fatalf("doctor --online = %v, reached Jira %v; want the rejection:\n%s", err, reached.Load(), output)
 	}
 
+	wantExit(t, err, 3)
+
 	if !strings.Contains(output, "not accepted") {
 		t.Errorf("doctor does not explain the rejection:\n%s", output)
 	}
@@ -419,4 +421,6 @@ func TestDoctorOnlineDistinguishesAnUnreachableServiceFromARejection(t *testing.
 	if !strings.Contains(err.Error(), "could not be reached") {
 		t.Errorf("doctor does not report the service as unreachable: %v", err)
 	}
+
+	wantExit(t, err, 5)
 }
