@@ -112,7 +112,7 @@ gap, and which phase closes it.
 | 35 | Post when CI passes | N | Y (`internal/tui/messaging.go:394`) | N | CLI `announce --when-green` is FEAT-65's fit; web FEAT-82; not this plan |
 | 36 | Announced history (never re-offer) | **N** — no `Store` reference in `internal/cli` | Y (`internal/tui/messaging.go:204`) | **F** | **CLI yes, cheap** — record after posting, say when already announced. Phase 8, UX-60. Web: FEAT-66, declared |
 | 37 | Choose the channel | N (config only) | Y (`←`/`→`) | Y | CLI `--channel`: UX-62 |
-| 38 | Standup | Y | N | N | Reasonable CLI-only (an `$EDITOR` flow); but it lacks `--dry-run`/`--yes` (`internal/cli/standup.go:144`). Phase 2, UX-54 |
+| 38 | Standup | Y | N | N | Reasonable CLI-only (an `$EDITOR` flow); `--dry-run`/`--yes` since Phase 2 (`offerToPost`, `internal/cli/standup.go:144`) |
 
 ### Across the loop
 
@@ -122,8 +122,8 @@ gap, and which phase closes it.
 | 40 | Write / initialize the config | Y (`config init`) | N | P (7 sections; five carried but not editable) | Interface: `config init` + `doctor` are the path — no. Web remainder: UX-87 |
 | 41 | Doctor | Y | N | N | Reasonable CLI-only; the interface points at it (`render.go:377`) |
 | 42 | Status across the loop | Y (`status DIR…`) | Y (the spine) | Y (`WorkStory`) | — |
-| 43 | Dry run | Y (two unrelated flags, now one persistent `--dry-run`: `internal/cli/cli.go:204`, `internal/cli/scriptable.go:48`) | Y (per seam, `dryrun.go:25`) | **P** — a blanket 403 (`guard.go:46`), and `getHealth.dry_run` is never fetched | **Web yes, cheap** — the flag is on the wire. Phase 3, UX-71. CLI one flag: Phase 2, UX-52 |
-| 44 | Request log `--log` | P (root only; subcommands pass `nil`) | Y | Y | Phase 2, UX-52 |
+| 43 | Dry run | Y (one persistent `--dry-run` since Phase 2, `internal/cli/cli.go:204`) | Y (per seam, `dryrun.go:25`) | **P** — a blanket 403 (`guard.go:46`), and `getHealth.dry_run` is never fetched | **Web yes, cheap** — the flag is on the wire. Phase 3, UX-71 |
+| 44 | Request log `--log` | Y (persistent since Phase 2, `internal/cli/cli.go:206`) | Y | Y | — |
 | 45 | Help / discoverability | P (no hint on a typo, `internal/cli/cli.go:174`) | P (`?` 57/57; five Issues keys off the footer, `render.go:336`) | n/a | Phase 8 (UX-56), Phase 7 (UX-63); web `?` idea, UX-88 |
 | 46 | Version | Y | n/a | P (`getHealth.version` never fetched) | Folds into Phase 3's health call |
 
@@ -138,14 +138,14 @@ to see the shape.
 | Convention | Verdict | Where |
 | --- | --- | --- |
 | `--help` on every command; useful long help | Met | `internal/cli/cli.go:26` `longHelp`; pinned by `internal/cli/cli_test.go:253` |
-| `--version` | Met at runtime, missing from the generated reference | UX-55 |
-| Exit codes distinguish failure kinds | **Gap** — one code; the same condition exits differently in two commands | UX-50 |
-| stdout = artifact, stderr = commentary | **Partial** — warnings, notices, guidance and the web banner on stdout; `config show`'s `#` header breaks `jq` | UX-51, DEBT-54 |
-| Root flags compose with subcommands | **Gap** — `--dry-run`/`--log`/`--web` not persistent; two `--dry-run`s | UX-52, DEBT-51 |
+| `--version` | Met, and in the generated reference since Phase 2 | `cmd/docsgen/main.go` |
+| Exit codes distinguish failure kinds | Met since Phase 2 — 0/1/2/3/4/5/130 | `cli.ExitStatus`, `internal/cli/scriptable.go:228`; `docs/content/docs/scripting.md` |
+| stdout = artifact, stderr = commentary | Met since Phase 2 | `output`, `internal/cli/scriptable.go:29` |
+| Root flags compose with subcommands | Met since Phase 2 for `--dry-run` and `--log`; `--web` is the root's alone | `internal/cli/cli.go:204` |
 | POSIX short flags | **Gap** — none declared | UX-62 |
-| `--json` on reads | Partial — `status`, `reviews`, `doctor`; not `standup`; `config show` unparsable | UX-51, UX-62 |
-| No color/prompts off a TTY; `NO_COLOR` | Met by construction (no color emitted); **Gap** for prompts — EOF is an unexplained error | UX-53 |
-| Confirm before outward acts; `--yes`; `--dry-run` | Met on `branch`/`pr`/`announce`; **Gap** on `standup` and `config init` | UX-54 |
+| `--json` on reads | Partial — `status`, `reviews`, `doctor`, and `config show` parses since Phase 2; not `standup` | UX-62 |
+| No color/prompts off a TTY; `NO_COLOR` | Met by construction (no color emitted); a prompt with no terminal says to pass `--yes` since Phase 2 | `errNoTerminal`, `internal/cli/prompt.go:14` |
+| Confirm before outward acts; `--yes`; `--dry-run` | Met, on `standup` and `config init` too since Phase 2 | `writeOptions.proceed`, `internal/cli/scriptable.go:77` |
 | Preview before the write | Met | `internal/cli/branch.go:96`, `internal/cli/pr.go:110`, `internal/cli/announce.go:112`, `internal/cli/standup.go:135` |
 | Progress for slow operations | **Gap** — silent | UX-61 |
 | Ctrl-C | Met | `internal/cli/cli.go:102` `signal.NotifyContext` |
@@ -154,7 +154,7 @@ to see the shape.
 | No surprises | Partial — `branch` switches silently; `pr` pushes and transitions under one question | UX-58 |
 | Secrets never printed | Met | pinned by `internal/cli/cli_test.go:228`, `doctor_json_test.go:65` |
 | Shell completion | Met, incl. dynamic issue keys | `internal/cli/scriptable.go:121` |
-| Docs cover the commands | **Gap** — `usage.md` is TUI-only | UX-55 |
+| Docs cover the commands | Met since Phase 2 | `docs/content/docs/scripting.md` |
 
 ### The terminal interface
 
@@ -315,10 +315,10 @@ de-duplication is the proof the layer is right; depguard green.
 `forge_test.TestKindNoun` (GitLab → "merge request", sigil `!`);
 `config_test.TestBranchNamingUsesTheSection`.
 
-### Phase 2 — The command line is scriptable
+### Phase 2 — The command line is scriptable — done
 
-Closes UX-50, UX-51, UX-52, UX-53, UX-54, UX-55 and DEBT-51, DEBT-53,
-DEBT-54. Depends softly on Phase 1 (`ExitStatus` classifies `loop.Err*`;
+Closes UX-50, UX-51, UX-52, UX-53, UX-54, UX-55 and DEBT-51, DEBT-52,
+DEBT-53, DEBT-54. Depends softly on Phase 1 (`ExitStatus` classifies `loop.Err*`;
 without it, classify the CLI-local sentinels and re-point later).
 
 - **Exit codes.** `cli.ExitStatus(err) int`, called from
