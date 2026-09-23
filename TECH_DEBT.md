@@ -220,29 +220,6 @@ branch floor becomes per-condition.
 **Done when.** One Playwright spec performs a write against a running
 server, and the web's coverage floor measures each condition both ways.
 
-### DEBT-67 The event stream lives outside both generators
-
-Severity: medium · Confidence: read
-
-`GET /api/events` is registered by hand (`internal/webserver/webserver.go:156`
-— "a streaming response the strict, one-response-object interface cannot
-express") and the browser consumes it with a raw `new EventSource`
-(`web/src/api/snapshot.ts:62`); the generated `streamEvents`
-(`web/src/api/generated/sdk.gen.ts:283`) is never called. The only thing
-keeping the payload honest is the runtime `zSnapshot.safeParse`
-(`web/src/api/snapshot.ts:69`). A frame that fails it now marks the stream
-*Out of date*, with why, rather than vanishing (`web/src/api/snapshot.ts:73`),
-but nothing checks that the frames the server writes are ones the client
-reads — and `zSnapshot` strips a key it does not know rather than failing, so
-a `Snapshot` field added in Go without regenerating the client is dropped in
-silence.
-
-**One way to fix it.** Assert the SSE frame shape with a test that decodes a
-server-produced frame with the client's schema, losslessly.
-
-**Done when.** A Go test holds `stream.go`'s frames in a file a client test
-feeds through `zSnapshot` and the stream hook.
-
 ### DEBT-68 Dependency posture worth knowing
 
 Severity: low · Confidence: read
