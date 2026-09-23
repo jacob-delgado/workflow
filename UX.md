@@ -80,8 +80,8 @@ parsing prose. Worse, the same condition exits differently: with no
 configuration file, `config show` prints guidance and exits **0**
 (`showLoadError`, `internal/cli/config_cmd.go:83`) while `doctor` exits **1**
 (`reportLoadError`, `doctor.go:463`); outside a repository `status` exits 1
-(`statusHere`, `internal/cli/status.go:73`) but `status .` prints `not a git
-repository` and exits 0 (`statusAcross`, `:87`).
+(`statusHere`, `internal/cli/status.go:72`) but `status .` prints `not a git
+repository` and exits 0 (`statusAcross`, `:86`).
 
 **Instead.** A small table — 0 success, 1 failure, 2 usage, 3 configuration,
 4 refused precondition, 5 unreachable — the same families the web API's
@@ -159,10 +159,10 @@ names `--yes`.
 Impact: medium · Effort: small
 
 **Today.** `standup` is the only write command with no `--dry-run` and no
-`--yes`: after the draft it *offers to post* (`offerToPost`, `internal/cli/standup.go:127`)
+`--yes`: after the draft it *offers to post* (`offerToPost`, `internal/cli/standup.go:128`)
 with no bypass, so it cannot run from a script, and `--days` is unvalidated
-— a negative value flows into `gitSince` as `"-1 days ago"` (`:192`) and into
-the JQL as `updated >= --1d` (`:199`). `config init`'s guided flow has no
+— a negative value flows into `gitSince` as `"-1 days ago"` (`:193`) and into
+the JQL as `updated >= --1d` (`:200`). `config init`'s guided flow has no
 `--dry-run` either; its only unattended path is `--template`.
 
 **Instead.** `standup` takes the same `writeOptions` as the others and
@@ -291,8 +291,8 @@ Impact: low · Effort: medium
 **Today.** No spinner, no elapsed time, no "checking…". `doctor --online`
 makes three round trips in silence (`reportCredentials`, `doctor.go:141`);
 `standup` fires up to fifteen forge requests plus a Jira search
-(`gatherPulls`, `internal/cli/standup.go:177`); `status DIR…` visits each directory in
-series (`statusesOf`, `internal/cli/status.go:131`). The only trace is `--log`, which
+(`gatherPulls`, `internal/cli/standup.go:178`); `status DIR…` visits each directory in
+series (`statusesOf`, `internal/cli/status.go:130`). The only trace is `--log`, which
 the subcommands cannot use (UX-52).
 
 **Instead.** A one-line "checking Jira…" on stderr when stderr is a
@@ -307,7 +307,7 @@ Impact: low · Effort: medium
 
 **Today.** No command declares a single shorthand — there is no `VarP(`
 call in `internal/cli` — so `-n`, `-y`, `-j` do not exist; `status` emits
-`●◐✗○` (`statusGlyph`, `internal/cli/status.go:360`) with ASCII selectable only through
+`●◐✗○` (`statusGlyph`, `internal/cli/status.go:357`) with ASCII selectable only through
 `ui.ascii` in the file, no `--plain`; `standup` has no `--json`; `pr` has no
 draft, base, reviewer, title or body flag; `announce` has no `--channel`
 (the channel comes from `messaging.channel` alone); both `pr` and the web

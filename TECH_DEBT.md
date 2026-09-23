@@ -84,33 +84,6 @@ keeping only `--yes`.
 **Done when.** `workflow --log FILE status` appends a request line to
 `FILE`; `workflow --dry-run pr` is accepted.
 
-### DEBT-52 `status` builds its seams and then goes around them
-
-Severity: low · Confidence: read
-
-`seamsFor` (`internal/cli/status.go:144`) takes the full `deps` bundle and
-then ignores `deps.Git.Branch` and `deps.Git.Changes`, constructing a second
-`gitrepo.At(proc.Run, conn.where.Root)` and calling `ReadBranch` and `Status`
-directly (`internal/cli/status.go:145-149`) — although `GitDeps.Branch` and
-`GitDeps.Changes` exist (`internal/tui/deps.go:74`) and `pr`, `announce` and
-`branch` all go through them. `standup` does the same (`internal/cli/standup.go:82`),
-and there only half of it is forced: `RecentCommits` has no `GitDeps`
-equivalent, but its `LocalBranches` does — `GitDeps.Branches`
-(`internal/tui/deps.go:84`), which `workflow branch` already reads.
-
-**What it costs.** A test that fakes the git seam does not reach `status`;
-and `status` skips whatever the seam adds (the non-interactive
-`GIT_TERMINAL_PROMPT=0` runner, a future timeout).
-
-**One way to fix it.** `status` reads the branch and the changes through
-`deps.Git`; `standup` reads its branches through `deps.Git.Branches`, and
-its commits either through a `RecentCommits` seam `GitDeps` does not have
-yet (a CLI-only seam on `tui.Deps`, the cost DEBT-71 weighs) or, said so
-beside the call, directly.
-
-**Done when.** `gitrepo.At(` appears in `internal/cli` only inside the
-wiring preamble (or not at all, once DEBT-51 lands).
-
 ## The command line's tests
 
 ### DEBT-54 No CLI test says which stream a line belongs on
@@ -464,7 +437,8 @@ longer stands in the way of shared composition: `internal/loop` takes each
 seam as a plain argument (`loop.PullSeams`, `loop.AnnounceSeams`) and never
 needed `wiring`. What is left is narrower: a seam only the CLI or the web
 needs must still be declared on `tui.Deps`, as a `RecentCommits` for
-`standup` would be (DEBT-52).
+`standup` would be — which is why `standup` reads its commits from the
+repository directly instead (`internal/cli/standup.go:83`).
 
 **One way to fix it.** Move the bundles that depend only on leaf types —
 `JiraDeps`, `GitDeps`, `ForgeDeps`, `MessagingDeps`, `HookDeps` — to a

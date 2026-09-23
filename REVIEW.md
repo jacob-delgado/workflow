@@ -112,7 +112,7 @@ gap, and which phase closes it.
 | 35 | Post when CI passes | N | Y (`internal/tui/messaging.go:394`) | N | CLI `announce --when-green` is FEAT-65's fit; web FEAT-82; not this plan |
 | 36 | Announced history (never re-offer) | **N** — no `Store` reference in `internal/cli` | Y (`internal/tui/messaging.go:204`) | **F** | **CLI yes, cheap** — record after posting, say when already announced. Phase 8, UX-60. Web: FEAT-66, declared |
 | 37 | Choose the channel | N (config only) | Y (`←`/`→`) | Y | CLI `--channel`: UX-62 |
-| 38 | Standup | Y | N | N | Reasonable CLI-only (an `$EDITOR` flow); but it lacks `--dry-run`/`--yes` (`internal/cli/standup.go:127`). Phase 2, UX-54 |
+| 38 | Standup | Y | N | N | Reasonable CLI-only (an `$EDITOR` flow); but it lacks `--dry-run`/`--yes` (`internal/cli/standup.go:128`). Phase 2, UX-54 |
 
 ### Across the loop
 
@@ -146,7 +146,7 @@ to see the shape.
 | `--json` on reads | Partial — `status`, `reviews`, `doctor`; not `standup`; `config show` unparsable | UX-51, UX-62 |
 | No color/prompts off a TTY; `NO_COLOR` | Met by construction (no color emitted); **Gap** for prompts — EOF is an unexplained error | UX-53 |
 | Confirm before outward acts; `--yes`; `--dry-run` | Met on `branch`/`pr`/`announce`; **Gap** on `standup` and `config init` | UX-54 |
-| Preview before the write | Met | `internal/cli/branch.go:97`, `internal/cli/pr.go:110`, `internal/cli/announce.go:113`, `internal/cli/standup.go:120` |
+| Preview before the write | Met | `internal/cli/branch.go:97`, `internal/cli/pr.go:110`, `internal/cli/announce.go:113`, `internal/cli/standup.go:121` |
 | Progress for slow operations | **Gap** — silent | UX-61 |
 | Ctrl-C | Met | `internal/cli/cli.go:101` `signal.NotifyContext` |
 | Errors say what to do next | Partial — strong in `doctor`/`config`; bare sentinels do not | UX-57 |
@@ -333,8 +333,8 @@ without it, classify the CLI-local sentinels and re-point later).
   refined table under *Decisions the maintainer made* supersedes this one.
   Align `config show` with `doctor` when there is no file
   (`internal/cli/config_cmd.go:83` vs `doctor.go:463`, both → 3) and `status` with
-  `status .` outside a repository (`statusHere`, `internal/cli/status.go:73`,
-  vs `statusAcross`, `:87`).
+  `status .` outside a repository (`statusHere`, `internal/cli/status.go:72`,
+  vs `statusAcross`, `:86`).
 - **Streams.** The rule: stdout carries the artifact (JSON, the preview
   text, the created thing's URL, the standup draft); stderr carries
   commentary (`Warning:` `internal/cli/config_cmd.go:278`, `Not opened.` and `dry run:
@@ -349,8 +349,8 @@ without it, classify the CLI-local sentinels and re-point later).
   `runStandupCommand`, `runAnnounceCommand`, `completeAssignedIssues`, and
   the root's `RunE`) collapse into one
   `connect(cmd)` returning `{cfg, deps, where, closeLog}`, so `--log` reaches
-  every subcommand. `standup` gains `--dry-run`/`--yes` (`internal/cli/standup.go:127`)
-  and rejects `--days < 1` (`:192`, `:199`) as a usage error; `config init
+  every subcommand. `standup` gains `--dry-run`/`--yes` (`internal/cli/standup.go:128`)
+  and rejects `--days < 1` (`:193`, `:200`) as a usage error; `config init
   --dry-run` prints the redacted file it would write, if the guided flow
   bends easily. One JSON encoder (DEBT-53).
 - **Non-TTY.** `confirm` (`prompt.go:32`) turns `io.EOF` into `errNoTerminal`:

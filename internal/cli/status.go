@@ -17,7 +17,6 @@ import (
 	"github.com/jacob-delgado/workflow/internal/forge"
 	"github.com/jacob-delgado/workflow/internal/gitrepo"
 	"github.com/jacob-delgado/workflow/internal/jira"
-	"github.com/jacob-delgado/workflow/internal/proc"
 	"github.com/jacob-delgado/workflow/internal/progress"
 	"github.com/jacob-delgado/workflow/internal/wiring"
 )
@@ -79,7 +78,7 @@ func statusHere(cmd *cobra.Command, asJSON bool) error {
 	}
 	defer conn.closeLog()
 
-	return runStatus(cmd.OutOrStdout(), seamsFor(cmd.Context(), conn), conn.cfg.UI.ASCII, asJSON)
+	return runStatus(cmd.OutOrStdout(), seamsFor(conn), conn.cfg.UI.ASCII, asJSON)
 }
 
 // statusAcross prints one labeled status per named directory. A directory that
@@ -130,7 +129,7 @@ func statusesOf(ctx context.Context, dirs []string, requestLog *wiring.RequestLo
 
 	for _, dir := range dirs {
 		conn := connectAt(ctx, dir, home, requestLog)
-		facts, err := statusFromSeams(seamsFor(ctx, conn))
+		facts, err := statusFromSeams(seamsFor(conn))
 
 		statuses = append(statuses, directoryStatus{
 			label: repoLabel(dir), facts: facts, ascii: conn.cfg.UI.ASCII, err: err,
@@ -141,12 +140,10 @@ func statusesOf(ctx context.Context, dirs []string, requestLog *wiring.RequestLo
 }
 
 // seamsFor reads the repository, forge and Jira a connection wired.
-func seamsFor(ctx context.Context, conn connection) statusSeams {
-	repo := gitrepo.At(proc.Run, conn.where.Root)
-
+func seamsFor(conn connection) statusSeams {
 	return statusSeams{
-		Branch:      func() (gitrepo.Branch, error) { return repo.ReadBranch(ctx) },
-		Changes:     func() ([]gitrepo.Change, error) { return repo.Status(ctx) },
+		Branch:      conn.deps.Git.Branch,
+		Changes:     conn.deps.Git.Changes,
 		FindPull:    conn.deps.Forge.FindPullRequest,
 		CheckStatus: conn.deps.Forge.CheckStatus,
 		Issue:       conn.deps.Jira.Issue,
