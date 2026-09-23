@@ -6,6 +6,7 @@ package webserver
 import (
 	"context"
 	"errors"
+	"fmt"
 	"net/http"
 
 	"github.com/jacob-delgado/workflow/internal/api"
@@ -43,16 +44,21 @@ func (s *server) ListIssues(
 		startAt = *request.Params.StartAt
 	}
 
-	if s.deps.Search == nil {
-		return api.ListIssues200JSONResponse(issuesPageDTO(jira.SearchResult{}, startAt)), nil
-	}
-
 	view := ""
 	if request.Params.View != nil {
 		view = *request.Params.View
 	}
 
-	result, err := s.deps.Search(resolveJQL(s.config(), view), startAt)
+	jql, ok := resolveJQL(s.config(), view)
+	if !ok {
+		return api.ListIssues404ApplicationProblemPlusJSONResponse(problem(api.NotFound, unknownView(view))), nil
+	}
+
+	if s.deps.Search == nil {
+		return api.ListIssues200JSONResponse(issuesPageDTO(jira.SearchResult{}, startAt)), nil
+	}
+
+	result, err := s.deps.Search(jql, startAt)
 	if err != nil {
 		body, code := fault(err)
 
@@ -207,14 +213,24 @@ func viewsDTO(cfg config.Config) []api.JiraView {
 }
 
 // resolveJQL is the JQL for the named view, or the first view's when the name is
-// empty or unknown.
-func resolveJQL(cfg config.Config, name string) string {
+// empty. It reports false for a name no view carries, so a typo is refused
+// rather than quietly answered with the default view's issues.
+func resolveJQL(cfg config.Config, name string) (string, bool) {
 	views := viewsDTO(cfg)
+	if name == "" {
+		return views[0].Jql, true
+	}
+
 	for _, view := range views {
 		if view.Name == name {
-			return view.Jql
+			return view.Jql, true
 		}
 	}
 
-	return views[0].Jql
+	return "", false
+}
+
+// unknownView is the detail for a view name the configuration does not carry.
+func unknownView(name string) string {
+	return fmt.Sprintf("no view is named %q", name)
 }

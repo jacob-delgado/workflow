@@ -628,6 +628,10 @@ export type ListIssuesData = {
 
 export type ListIssuesErrors = {
     /**
+     * No configured view carries that name.
+     */
+    404: Problem;
+    /**
      * An RFC 9457 problem details object describing the failure.
      */
     default: Problem;
@@ -1101,6 +1105,10 @@ export type StreamEventsData = {
 };
 
 export type StreamEventsErrors = {
+    /**
+     * No configured view carries that name. Refused before the stream opens, so the answer is a problem rather than an event stream.
+     */
+    404: Problem;
     /**
      * An RFC 9457 problem details object describing the failure.
      */

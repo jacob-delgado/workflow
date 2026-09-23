@@ -33,6 +33,7 @@ const (
 	testAuthor     = "octocat"
 	testVersion    = "1.2.3"
 	testBugJQL     = "type = Bug"
+	testBugView    = "Bugs"
 	testBase       = "origin/main"
 	testChannel    = "#dev-workflow"
 	// testCommitSubject and testCommitHash are the branch's one commit, shared by
@@ -262,6 +263,33 @@ func TestListIssuesReportsASeamFailure(t *testing.T) {
 	failure := decode[api.Problem](t, recorder)
 	if failure.Code != api.Internal || strings.Contains(failure.Detail, "seam") {
 		t.Errorf("error = %+v, want a generic internal error", failure)
+	}
+}
+
+func TestListIssuesRefusesAnUnknownView(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	// A typo in the view must not quietly answer with the default view's issues.
+	searched := false
+	deps := filledDeps()
+	deps.Search = func(string, int) (jira.SearchResult, error) {
+		searched = true
+
+		return jira.SearchResult{}, nil
+	}
+
+	// Act
+	recorder := get(t, serve(t, deps, config.Default()), "/api/issues?view=nope")
+
+	// Assert
+	failure := decode[api.Problem](t, recorder)
+	if recorder.Code != http.StatusNotFound || failure.Code != api.NotFound {
+		t.Errorf("status/code = %d/%s, want 404/not_found", recorder.Code, failure.Code)
+	}
+
+	if searched {
+		t.Error("the tracker was searched for a view that does not exist")
 	}
 }
 

@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
@@ -20,9 +21,12 @@ import (
 	"github.com/jacob-delgado/workflow/internal/webserver"
 )
 
-// firstSnapshot decodes the first snapshot event's data from an event-stream body.
-func firstSnapshot(t *testing.T, body string) api.Snapshot {
+// snapshots decodes every snapshot event's data from an event-stream body, in
+// the order the stream pushed them.
+func snapshots(t *testing.T, body string) []api.Snapshot {
 	t.Helper()
+
+	var pushed []api.Snapshot
 
 	for line := range strings.SplitSeq(body, "\n") {
 		payload, ok := strings.CutPrefix(line, "data: ")
@@ -37,12 +41,30 @@ func firstSnapshot(t *testing.T, body string) api.Snapshot {
 			t.Fatalf("decoding the snapshot from %q: %v", payload, err)
 		}
 
-		return snap
+		pushed = append(pushed, snap)
 	}
 
-	t.Fatalf("no snapshot event in the stream body: %q", body)
+	if len(pushed) == 0 {
+		t.Fatalf("no snapshot event in the stream body: %q", body)
+	}
 
-	return api.Snapshot{}
+	return pushed
+}
+
+// firstSnapshot is the first snapshot an event-stream body carries.
+func firstSnapshot(t *testing.T, body string) api.Snapshot {
+	t.Helper()
+
+	return snapshots(t, body)[0]
+}
+
+// lastSnapshot is the most recent snapshot an event-stream body carries.
+func lastSnapshot(t *testing.T, body string) api.Snapshot {
+	t.Helper()
+
+	pushed := snapshots(t, body)
+
+	return pushed[len(pushed)-1]
 }
 
 // streamOnce runs the events handler with a context that is canceled at once, so
@@ -96,14 +118,87 @@ func TestStreamUsesTheNamedView(t *testing.T) {
 	}
 
 	cfg := config.Default()
-	cfg.Jira.Views = []config.JiraView{{Name: "Bugs", JQL: testBugJQL}}
+	cfg.Jira.Views = []config.JiraView{{Name: testBugView, JQL: testBugJQL}}
 
 	// Act
-	_ = streamOnce(t, serve(t, deps, cfg), "/api/events?view=Bugs")
+	_ = streamOnce(t, serve(t, deps, cfg), "/api/events?view="+testBugView)
 
 	// Assert
 	if gotJQL != testBugJQL {
 		t.Errorf("searched %q, want the named view's JQL", gotJQL)
+	}
+}
+
+func TestStreamRefusesAnUnknownViewBeforeUpgrading(t *testing.T) {
+	t.Parallel()
+
+	// Act
+	recorder := streamOnce(t, serve(t, filledDeps(), config.Default()), "/api/events?view=nope")
+
+	// Assert
+	// A problem, not an event stream: the refusal comes before the upgrade, so
+	// the browser's EventSource sees a 404 rather than a stream of the wrong view.
+	if ct := recorder.Header().Get("Content-Type"); ct != "application/problem+json" {
+		t.Errorf("Content-Type = %q, want application/problem+json", ct)
+	}
+
+	failure := decode[api.Problem](t, recorder)
+	if recorder.Code != http.StatusNotFound || failure.Code != api.NotFound {
+		t.Errorf("status/code = %d/%s, want 404/not_found", recorder.Code, failure.Code)
+	}
+}
+
+func TestStreamEmptiesTheIssuesWhenItsViewIsRemoved(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	// The view is removed by a configuration save while the stream is open; the
+	// next snapshot empties the list rather than showing another view's issues.
+	cfg := config.Default()
+	cfg.Path = filepath.Join(t.TempDir(), ".workflow.json")
+	cfg.Jira.Views = []config.JiraView{{Name: testBugView, JQL: testBugJQL}}
+
+	searched := make(chan struct{}, 1)
+	deps := filledDeps()
+	search := deps.Search
+	deps.Search = func(jql string, startAt int) (jira.SearchResult, error) {
+		select {
+		case searched <- struct{}{}:
+		default:
+		}
+
+		return search(jql, startAt)
+	}
+
+	info := webserver.Info{Version: testVersion, StreamInterval: 2 * time.Millisecond}
+	handler := serveWith(t, deps, cfg, info)
+	ctx, cancel := context.WithCancel(context.Background())
+	request := httptest.NewRequestWithContext(ctx, http.MethodGet, "/api/events?view="+testBugView, nil)
+	request.Host = loopbackHost
+	recorder := httptest.NewRecorder()
+	done := make(chan struct{})
+
+	go func() {
+		handler.ServeHTTP(recorder, request)
+		close(done)
+	}()
+
+	<-searched
+
+	// Act
+	saved := send(t, handler, http.MethodPut, "/api/config", marshal(t, config.Default()))
+
+	time.Sleep(40 * time.Millisecond)
+	cancel()
+	<-done
+
+	// Assert
+	if saved.Code != http.StatusOK {
+		t.Fatalf("saving the config: status = %d, want 200", saved.Code)
+	}
+
+	if last := lastSnapshot(t, recorder.Body.String()); last.Issues.Total != 0 {
+		t.Errorf("last snapshot's issues = %+v, want an empty page once the view is gone", last.Issues)
 	}
 }
 

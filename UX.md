@@ -341,10 +341,10 @@ Impact: high · Effort: small
 
 **Today.** `getIssue` — the full issue with description, comments,
 comment count, reporter, assignee and URL — exists in the contract
-(`api/openapi.yaml:95`, `IssueDetail` at `:771`) and on the server
-(`internal/webserver/handlers.go:66`), and the web never calls it.
+(`api/openapi.yaml:100`, `IssueDetail` at `:783`) and on the server
+(`internal/webserver/handlers.go:72`), and the web never calls it.
 `IssueDetail` (`web/src/features/issues/IssuesPanel.tsx:83`) renders only
-the snapshot's slim `Issue` (`openapi.yaml:209`: key, summary, status,
+the snapshot's slim `Issue` (`api/openapi.yaml:760`: key, summary, status,
 category, type, priority). No description, no comments, no link to Jira.
 
 **Instead.** Fetch `getIssue` on selection through the query client that is
@@ -379,20 +379,18 @@ banner is visible and clicking Push sends no request.
 Impact: medium · Effort: small
 
 **Today.** `listViews` and the `view` query on the stream exist
-(`openapi.yaml:56`, `:488`; `stream.go:38`) and the web opens
-`EventSource('/api/events')` with no `?view=` (`web/src/api/snapshot.ts:39`);
-the stream always pushes page 0 (`stream.go:126`); there is no client-side
+(`api/openapi.yaml:56`, `:494`; `internal/webserver/stream.go:36`) and the
+web opens `EventSource('/api/events')` with no `?view=`
+(`web/src/api/snapshot.ts:39`); the stream always pushes page 0
+(`internal/webserver/stream.go:136`); there is no client-side
 filter. `No issues match this view.` (`IssuesPanel.tsx:23`) is a dead end
-with no view to change. On the server, `resolveJQL` (`handlers.go:211`)
-falls through to `views[0]` for an unknown name, so a typo returns the
-wrong view silently.
+with no view to change.
 
 **Instead.** A view select from `listViews` beside the list; the stream
 reconnects with `?view=`; a "load more" using `start_at`; a filter box like
-the interface's `/`; an unknown view answers `not_found`.
+the interface's `/`.
 
-**Done when.** Choosing a view changes the stream's query; `GET
-/api/issues?view=nope` is 404.
+**Done when.** Choosing a view changes the stream's query.
 
 ### UX-73 On GitLab the web still says "pull request"; the nav says one thing and the button another
 

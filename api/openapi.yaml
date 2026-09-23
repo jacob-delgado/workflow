@@ -90,6 +90,11 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/IssuesPage"
+        "404":
+          description: No configured view carries that name.
+          content:
+            application/problem+json:
+              schema: {$ref: "#/components/schemas/Problem"}
         default: {$ref: "#/components/responses/Problem"}
 
   /api/issues/{key}:
@@ -498,6 +503,13 @@ paths:
             text/event-stream:
               schema:
                 $ref: "#/components/schemas/Snapshot"
+        "404":
+          description: >-
+            No configured view carries that name. Refused before the stream
+            opens, so the answer is a problem rather than an event stream.
+          content:
+            application/problem+json:
+              schema: {$ref: "#/components/schemas/Problem"}
         default: {$ref: "#/components/responses/Problem"}
 
 components:
