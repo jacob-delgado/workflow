@@ -1,6 +1,7 @@
 import { Lock, Workflow } from 'lucide-react'
 import { useHealth, useHealthStore } from '@/api/health.ts'
 import { useEventStream } from '@/api/snapshot.ts'
+import { useRefreshViews } from '@/features/issues/issueApi.ts'
 import { NavRail } from './NavRail.tsx'
 import { SectionPanel } from './SectionPanel.tsx'
 import { StreamStatus } from './StreamStatus.tsx'
@@ -10,7 +11,15 @@ import { useApplyTheme } from './useApplyTheme.ts'
 import { useUiStore } from './uiStore.ts'
 
 export function AppShell() {
-  useEventStream()
+  const view = useUiStore((state) => state.view)
+  const setView = useUiStore((state) => state.setView)
+  const refreshViews = useRefreshViews()
+  useEventStream(view, () => {
+    // The server has no such view (a restart dropped it from the
+    // configuration): go back to its default, and read again what it offers.
+    setView(null)
+    refreshViews()
+  })
   useHealth()
   useApplyTheme()
   const health = useHealthStore((state) => state.health)

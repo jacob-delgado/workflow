@@ -5,11 +5,14 @@ import { EmptyState } from '@/shell/EmptyState.tsx'
 import { useUiStore } from '@/shell/uiStore.ts'
 import { checkoutBranch } from './checkoutApi.ts'
 import { IssueDetailPanel } from './IssueDetailPanel.tsx'
+import { IssueListControls } from './IssueListControls.tsx'
 import { StatusBadge } from './StatusBadge.tsx'
 import { useAsyncAction } from './useAsyncAction.ts'
 
 export function IssuesPanel() {
   const snapshot = useSnapshotStore((state) => state.snapshot)
+  const streamedView = useSnapshotStore((state) => state.view)
+  const view = useUiStore((state) => state.view)
   const selected = useUiStore((state) => state.selectedIssue)
   const selectIssue = useUiStore((state) => state.selectIssue)
 
@@ -17,64 +20,85 @@ export function IssuesPanel() {
     return <EmptyState>Connecting to the tracker…</EmptyState>
   }
 
+  // Until the chosen view's first frame lands, the snapshot's issues are the
+  // last view's: list none of them under the new name.
+  if (streamedView !== view) {
+    return (
+      <div className="mt-4 flex flex-col gap-4">
+        <IssueListControls />
+        <EmptyState>Reading the {view ?? 'default'} view…</EmptyState>
+      </div>
+    )
+  }
+
   const issues = snapshot.issues.issues
 
   if (issues.length === 0) {
-    return <EmptyState>No issues match this view.</EmptyState>
+    return (
+      <div className="mt-4 flex flex-col gap-4">
+        <IssueListControls />
+        <EmptyState>No issues match this view.</EmptyState>
+      </div>
+    )
   }
 
   const branchesByKey = groupBranchesByKey(snapshot.branches)
   const listed = issues.find((issue) => issue.key === selected)
 
   return (
-    <div className="mt-4 flex gap-6">
-      <ul aria-label="Issues" className="flex w-80 shrink-0 flex-col gap-1">
-        {issues.map((issue) => {
-          // An issue can have more than one local branch; it is on HEAD when any
-          // of them is, and check-out targets the most recent one (branches
-          // arrive most-recently-committed first).
-          const issueBranches = branchesByKey.get(issue.key) ?? []
-          const newest = issueBranches[0]
-          const onHead = issueBranches.some((branch) => branch.current)
+    <div className="mt-4 flex flex-col gap-4">
+      <IssueListControls />
+      <div className="flex gap-6">
+        <ul aria-label="Issues" className="flex w-80 shrink-0 flex-col gap-1">
+          {issues.map((issue) => {
+            // An issue can have more than one local branch; it is on HEAD when any
+            // of them is, and check-out targets the most recent one (branches
+            // arrive most-recently-committed first).
+            const issueBranches = branchesByKey.get(issue.key) ?? []
+            const newest = issueBranches[0]
+            const onHead = issueBranches.some((branch) => branch.current)
 
-          return (
-            <li key={issue.key} className="flex flex-wrap items-center gap-1">
-              <button
-                type="button"
-                aria-current={issue.key === selected ? true : undefined}
-                onClick={() => {
-                  selectIssue(issue.key)
-                }}
-                className={cn(
-                  'flex flex-1 flex-col gap-1 rounded-md border border-transparent px-3 py-2 text-left transition-colors',
-                  'hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none',
-                  issue.key === selected && 'border-border bg-accent',
-                )}
-              >
-                <span className="flex items-center gap-2">
-                  <span className="font-mono text-xs text-muted-foreground">{issue.key}</span>
-                  <StatusBadge category={issue.status_category} label={issue.status} />
-                  {newest ? (
-                    <span className="ml-auto flex items-center gap-1 text-xs text-primary">
-                      <span aria-hidden className="size-1.5 rounded-full bg-primary" />
-                      <span className="sr-only">in flight</span>
-                    </span>
-                  ) : null}
-                </span>
-                <span className="text-sm">{issue.summary}</span>
-              </button>
-              {newest && !onHead ? <RowCheckout branch={newest.name} issueKey={issue.key} /> : null}
-            </li>
-          )
-        })}
-      </ul>
+            return (
+              <li key={issue.key} className="flex flex-wrap items-center gap-1">
+                <button
+                  type="button"
+                  aria-current={issue.key === selected ? true : undefined}
+                  onClick={() => {
+                    selectIssue(issue.key)
+                  }}
+                  className={cn(
+                    'flex flex-1 flex-col gap-1 rounded-md border border-transparent px-3 py-2 text-left transition-colors',
+                    'hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none',
+                    issue.key === selected && 'border-border bg-accent',
+                  )}
+                >
+                  <span className="flex items-center gap-2">
+                    <span className="font-mono text-xs text-muted-foreground">{issue.key}</span>
+                    <StatusBadge category={issue.status_category} label={issue.status} />
+                    {newest ? (
+                      <span className="ml-auto flex items-center gap-1 text-xs text-primary">
+                        <span aria-hidden className="size-1.5 rounded-full bg-primary" />
+                        <span className="sr-only">in flight</span>
+                      </span>
+                    ) : null}
+                  </span>
+                  <span className="text-sm">{issue.summary}</span>
+                </button>
+                {newest && !onHead ? (
+                  <RowCheckout branch={newest.name} issueKey={issue.key} />
+                ) : null}
+              </li>
+            )
+          })}
+        </ul>
 
-      <div className="flex-1">
-        {selected === null ? (
-          <EmptyState>Select an issue to see its detail.</EmptyState>
-        ) : (
-          <IssueDetailPanel key={selected} issueKey={selected} listed={listed} />
-        )}
+        <div className="flex-1">
+          {selected === null ? (
+            <EmptyState>Select an issue to see its detail.</EmptyState>
+          ) : (
+            <IssueDetailPanel key={selected} issueKey={selected} listed={listed} />
+          )}
+        </div>
       </div>
     </div>
   )

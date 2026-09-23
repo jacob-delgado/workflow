@@ -1,12 +1,13 @@
-import { act, render, screen, waitFor, within } from '@testing-library/react'
+import { act, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { vi } from 'vitest'
 import App from './App.tsx'
 import { FakeEventSource } from './test/fakeEventSource.ts'
+import { renderWithClient } from './test/renderWithClient.tsx'
 
 test('shows the sections and opens on the Issues view', () => {
   // Arrange
-  render(<App />)
+  renderWithClient(<App />)
 
   // Act
   const nav = screen.getByRole('navigation', { name: /sections/i })
@@ -19,7 +20,7 @@ test('shows the sections and opens on the Issues view', () => {
 test('switches the view when another section is chosen', async () => {
   // Arrange
   const user = userEvent.setup()
-  render(<App />)
+  renderWithClient(<App />)
 
   // Act
   await user.click(screen.getByRole('button', { name: /branch/i }))
@@ -41,7 +42,7 @@ test('a dry-run server shows the read-only banner', async () => {
   serveHealth(true)
 
   // Act
-  render(<App />)
+  renderWithClient(<App />)
 
   // Assert
   await waitFor(() => {
@@ -57,7 +58,7 @@ test('shows the server version in the header', async () => {
   serveHealth(false)
 
   // Act
-  render(<App />)
+  renderWithClient(<App />)
 
   // Assert
   const banner = screen.getByRole('banner')
@@ -69,7 +70,7 @@ test('shows no read-only banner when the server writes', async () => {
   serveHealth(false)
 
   // Act
-  render(<App />)
+  renderWithClient(<App />)
 
   // Assert
   await screen.findByText('1.2.3')
@@ -87,7 +88,7 @@ test('drops the read-only banner when the stream comes back from a server that w
       Promise.resolve(Response.json({ version: '1.2.3', dry_run: dryRuns.shift() ?? false })),
     ),
   )
-  render(<App />)
+  renderWithClient(<App />)
   await screen.findByText(/every write is held back/i)
   act(() => {
     FakeEventSource.latest().emit('error', '')
