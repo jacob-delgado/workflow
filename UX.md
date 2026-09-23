@@ -104,12 +104,13 @@ and prompts go to stderr (`terminalPrompt`, `cmd/workflow/main.go:54`) — corre
 gitignore **warning** (`warnIfNotIgnored`, `config_cmd.go:279`), the
 `Not posted.`/`Not opened.` decline notices and the `dry run: would …` lines
 (`writeOptions.proceed`, `scriptable.go:46`, `:61`), the no-configuration
-guidance (`:90`) and the web server's `serving http://…` banner
+guidance (`config_cmd.go:90`) and the web server's `serving http://…` banner
 (`cli.go:255`) all go to stdout. `config show` prefixes its JSON with a
 `# <path>` line (`config_cmd.go:286`, then `:293`), so `workflow config
-show | jq .` fails and there is no flag to suppress the header. The test
-harness cannot see any of this: it returns `stdout + stderr` concatenated
-(`cli_test.go:51`, DEBT-54).
+show | jq .` fails and there is no flag to suppress the header. No test
+pins any of this to a stream: the harness can keep them apart
+(`runStreams`, `internal/cli/cli_test.go:57`), but only `pr`'s opened line
+is checked that way (DEBT-54).
 
 **Instead.** stdout carries the artifact — the JSON, the preview, the URL
 of the thing created, the standup draft; stderr carries everything said

@@ -162,6 +162,29 @@ func TestPROpensThePullRequest(t *testing.T) {
 	}
 }
 
+func TestPRPrintsTheOpenedPullRequestOnStdout(t *testing.T) {
+	// Arrange
+	// The pull request's address is the artifact a script captures, so it is
+	// the one line that must be on stdout alone.
+	fakeGh(t, ghResponses{})
+	repo := githubRepo(t, "fix/PROJ-2-thing")
+	pretendPushed(t, repo)
+	writeFile(t, repo, `{"forge":{"cli":true,"kind":"github","host":"github.com"}}`)
+
+	// Act
+	printed, err := runStreams(t, repo, unusedPrompt(t), "pr", "--yes")
+	// Assert
+	if err != nil {
+		t.Fatalf("pr --yes: %v (%+v)", err, printed)
+	}
+
+	const opened = "Opened #7 https://github.com/owner/repo/pull/7"
+	if !strings.Contains(printed.stdout, opened) || strings.Contains(printed.stderr, opened) {
+		t.Errorf("the opened pull request is not on stdout alone:\nstdout:\n%s\nstderr:\n%s",
+			printed.stdout, printed.stderr)
+	}
+}
+
 func TestPRPushesThenOpensAnUnpublishedBranch(t *testing.T) {
 	// Arrange
 	// The branch has never been pushed, so the flow pushes it — to a local bare
