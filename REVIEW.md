@@ -596,31 +596,46 @@ URL); `TestDeliverRecordsTheAnnouncementOnceItIsPosted` (in `loop`, with
 fakes: a real post cannot be made black-box) and
 `TestAnnounceSaysWhenAlreadyPosted` (a seeded store).
 
-### Phase 9 — The web's follow-through, and the forge's own words
+### Phase 9 — The web's follow-through, and the forge's own words — done
 
 Closes UX-73, UX-74. Depends on Phases 1 and 3.
 
-- `getHealth` gains `forge_noun` — send the words; do not port `Kind.Noun`
-  to TypeScript. The six hardcoded "pull request" strings
-  (`ReviewPanel.tsx:141`, `:172`, `:181`, `:326`; `WorkStory.tsx:40`;
-  `MessagingPanel.tsx:50`) read it; the Messaging section label reads the
-  service from the snapshot (`web/src/shell/sections.ts:10` vs `web/src/features/messaging/MessagingPanel.tsx:172`);
-  one name for "start" across `WorkStory` and `IssuesPanel`.
-- Spec first: `POST /api/issues/{key}/link` and `POST
-  /api/issues/{key}/transition` (fields-less only; 409 when Jira wants
-  fields), in one handler file `issuewrite.go` (mirrors
-  `internal/tui/issuewrite.go`); `webserver.Deps` gains `LinkPullRequest`,
-  `Transitions`, `Transition` (mapped in `cli.WebDeps`, `internal/cli/cli.go:276`).
-  `OpenedPullRequest` gains `follow_ups` (via `loop.ReviewTransition`).
-  After `Pull request opened.`, the panel offers "Link it on KEY" and "Move
-  KEY to STATUS" inline, each with a `role="status"` outcome.
-- `api/openapi.yaml` → `task gen` → `yarn gen`; `errors.md` unchanged
-  (`conflict`/`unprocessable` cover the new refusals).
+- `getHealth` gains `forge_noun` and `forge_sigil` — send the words; do not
+  port `Kind.Noun` to TypeScript. Every "pull request" and `#N` the page
+  wrote reads them (`useForgeWords`, `web/src/api/health.ts:28`) — but for
+  the Settings legend, which names the `pull_request` section as its
+  siblings name theirs — and so do the server's own details the page shows;
+  the Messaging section label reads the service from the snapshot
+  (`sectionLabel`, `web/src/shell/sections.ts:17`); "Start work" is the
+  web's one verb for starting.
+- Spec first: `POST /api/issues/{key}/link` (the server finds the branch's
+  pull request; `{key}` must be the Jira issue the branch names) and `POST
+  /api/issues/{key}/transition` (to `jira.review_status` only, fields-less;
+  409 when Jira wants fields), in one handler file
+  `internal/webserver/issuewrite.go` (mirrors `internal/tui/issuewrite.go`);
+  `webserver.Deps` gains `LinkPullRequest`, `Transitions`, `Transition`
+  (mapped in `cli.WebDeps`, `internal/cli/cli.go:276`, now proved field by
+  field). `loop.FindReviewTransition` says why there is no move, and
+  `ReviewTransition` is built on it. `OpenedPullRequest` gains
+  `follow_ups`. After `Pull request opened.`, the panel offers "Link it on
+  KEY" and "Move KEY to STATUS" inline (`OpenedOutcome`,
+  `web/src/features/review/OpenedOutcome.tsx:15`), each with a `role="status"`
+  outcome, in a slot the next snapshot leaves standing — for that open, on
+  that branch: a second open offers afresh, and a checkout drops it;
+  `useAsyncAction` moved to `web/src/lib` and gained `done`.
+- `api/openapi.yaml` → `task gen` → `yarn gen`; `errors.md` gains no code
+  (`conflict`/`unprocessable` cover the new refusals — their descriptions
+  name them), and `fault` classifies Jira's refusal, a credential it did
+  not accept, an address with no API behind it, a token or `jira.base_url`
+  the client cannot use, and a service asking to wait — a missing issue
+  staying a 404 ahead of the refusal.
 
-**Touches.** `api/openapi.yaml`, `internal/webserver/{webserver,
-pullrequest, issuewrite (new)}.go`, `internal/cli/cli.go`,
-`web/src/features/review/ReviewPanel.tsx`,
-`web/src/features/messaging/MessagingPanel.tsx`, `web/src/shell/sections.ts`.
+**Touches.** `api/openapi.yaml`, `internal/webserver/{webserver, handlers,
+announce, pullrequest, errors, issuewrite (new)}.go`, `internal/loop/pull.go`,
+`internal/cli/cli.go`, `web/src/api/health.ts`, `web/src/lib/`,
+`web/src/features/review/`, `web/src/features/issues/WorkStory.tsx`,
+`web/src/features/messaging/MessagingPanel.tsx`,
+`web/src/features/settings/SettingsPanel.tsx`, `web/src/shell/`.
 
 **Budget.** **`internal/webserver` 15 → 16** with the WHY ("issuewrite.go —
 the two post-open Jira writes the interface and the CLI offer, link and
@@ -631,10 +646,23 @@ in the same commit as the file.
 opening a pull request offers the link and the status move; `--dry-run`
 refuses both new POSTs (the method-based guard covers them — prove it).
 
-**Proof.** `webserver_test.TestTransitionRefusesAFormTransition` (409);
-`TestLinkRecordsThePullOnTheIssue`; `TestDryRunRefusesTheIssueWrites`; and
-the CLAUDE.md-required `TestUnreachableJiraDetailOmitsItsHost`. vitest:
-*after opening, the panel offers to move the issue*. `yarn gen:check`.
+**Proof.** `TestGetHealthNamesTheForgesOwnWords` and
+`TestWhatThePageIsToldSaysMergeRequestOnGitLab`;
+`TestTransitionRefusesAFormTransition` (409);
+`TestLinkRecordsThePullOnTheIssue` and
+`TestLinkRefusesAKeyTheBranchDoesNotName` (a forge issue number included);
+`TestDryRunRefusesTheIssueWrites`; the CLAUDE.md-required
+`TestUnreachableJiraDetailOmitsItsHost`,
+`TestTransitionNeverForwardsTheJiraHost` and `TestLinkReportsWhatItCouldNotRead`
+(nor the forge's host); `TestAMissingIssueIsNotFoundBeforeARefusal`;
+`TestOpenPullRequestOffersTheLinkThenTheMove`;
+`TestWebDepsHandsTheServerEverySeam`. vitest: *offers and opens a merge
+request in GitLab words throughout*, *after opening, the panel offers to
+link and to move the issue*, *the link outcome survives the snapshot that
+shows the pull request*, *a second open offers its own link afresh*, *the
+outcome of an open goes when another branch is checked out*, *the hints name
+the forge's own noun*. The accessibility scan covers the offers in both
+themes. `yarn gen:check`.
 
 ### Phase 10 — The web can stage, and picks the scope the interface would
 
