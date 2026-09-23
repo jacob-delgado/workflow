@@ -85,18 +85,19 @@ the same commit.
 
 **Done when.** `check-file-length.sh --list` flags nothing `soft`.
 
-### DEBT-57 The same overlay shapes, written twelve, five and three times
+### DEBT-57 The same overlay shapes, written fourteen, five and three times
 
 Severity: low · Confidence: read
 
-- Twelve "keep the overlay open with the reason" appliers of the same
+- Fourteen "keep the overlay open with the reason" appliers of the same
   `overlay.(T)` / `send.failed` / reassign shape:
   `internal/tui/branchresult.go:109`, `internal/tui/issuewrite.go:194`,
   `internal/tui/issuelink.go:98`, `internal/tui/preditor.go:162`,
   `internal/tui/prcomposer.go:486`, `internal/tui/hookgen.go:153`,
   `internal/tui/switchtask.go:228`, `internal/tui/comment.go:169`,
   `internal/tui/messaging.go:490`, `internal/tui/checks.go:224`,
-  `internal/tui/merge.go:88`, `internal/tui/finish.go:141`.
+  `internal/tui/merge.go:88`, `internal/tui/finish.go:141`,
+  `internal/tui/picker.go:114`, `internal/tui/comment.go:67`.
 - Five list-picker bodies with identical `up`/`down`/`confirm`/`esc` and a
   `window`-scrolled `rows`: `internal/tui/picker.go:225`, `internal/tui/picker.go:423`,
   `internal/tui/switchtask.go:119`, `internal/tui/checks.go:65`, `internal/tui/run.go:255`.
