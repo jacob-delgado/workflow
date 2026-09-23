@@ -121,16 +121,6 @@ func TestALeftClickOnTheRailFocusesThatPane(t *testing.T) {
 	}
 }
 
-func TestHelpShowsEveryKey(t *testing.T) {
-	t.Parallel()
-
-	// Act
-	view := press(t, fresh(t), "?").View().Content
-
-	// Assert
-	requireScreen(t, view, keyShiftTab, "toggle mouse", "jump to pane")
-}
-
 func TestHelpClosesOnEscapeOrASecondQuestionMark(t *testing.T) {
 	t.Parallel()
 

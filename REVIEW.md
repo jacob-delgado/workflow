@@ -159,7 +159,8 @@ to see the shape.
 ### The terminal interface
 
 The seven promises, re-counted, are the table in UX.md. In one line each:
-`?` lists every key (57/57, by construction); one voice for failure is
+`?` lists every key (57/57, by construction, and since Phase 7 a test
+enumerates every placement); one voice for failure is
 kept by every site that renders an error's text since Phase 6; a last look before anything outward by
 **18 of 18** since Phase 4 gave `R` and `u` one; a refused change stays in
 view in **14 of 14** overlays since Phase 5 kept merge's and finish's; panes
@@ -544,7 +545,7 @@ exist, and `enter`/`esc` in the collapsed layout (`internal/tui/issuekeys.go:22-
 `internal/tui/render.go:338`); `ctrl+w` moves from "Branch and Commits" (`internal/tui/keys.go:225`)
 to the composer's group; `w` post-when-green (`internal/tui/keys.go:245`) to the
 preview's; `docs/content/docs/usage.md:95`, `:107` follow. Replace the three-string spot check
-(`focus_test.go:124`) with a structural test that every placed binding with
+(`TestHelpShowsEveryKey` in `internal/tui/focus_test.go`) with a structural test that every placed binding with
 help text is rendered by `?`. `ShortHelp`'s omissions (`shift+tab`, `m`,
 the scroll keys, `ctrl+c`) are the deliberate tail — leave them.
 

@@ -57,7 +57,7 @@ them, re-counted at this commit.
 | The promise | Where it is made | Kept? |
 | --- | --- | --- |
 | "a key it does not show does nothing" | No longer stated anywhere; the sentence the previous edition cited at `docs/content/docs/usage.md:55` is gone. Folds into the next row. | — |
-| "`?` lists every key" | `docs/content/docs/usage.md:62` | **Yes, by construction.** Help is generated from the bindings (`internal/tui/keys.go:134` `helpBuilder.place`, rendered at `internal/tui/render.go:219`): 57 of 57. The one guard is that construction; `internal/tui/render.go:233` skips a binding with empty help silently, and the tests are three-string spot checks (`focus_test.go:124`). |
+| "`?` lists every key" | `docs/content/docs/usage.md:62` | **Yes, by construction, and a test enumerates every placement.** Help is generated from the bindings (`internal/tui/keys.go:134` `helpBuilder.place`, rendered at `internal/tui/render.go:219`): 57 of 57, on 56 lines, since `cycle-type-right` rides `cycle-type-left`'s line (`internal/tui/render.go:233` skips a binding with no help of its own). `TestHelpListsEveryPlacedBinding` (`internal/tui/help_test.go:211`) reads `?` back and holds it to a table of every placement, group by group, and each action moved to a free key must be listed on its own line in its group. |
 | "the one way the interface says something broke" | `wording`, `internal/tui/failure.go:63` | **Yes: every site that renders an error's text.** Each tells it through `errorSentence` (`internal/tui/failure.go:100`), which words every sentinel the seams return briefly and in full: 6 panes, the configuration screen, 11 `pinnedOutcome` overlays and the 2 details that repeat a summary row's failure beneath it through `failureBlock` (`internal/tui/failure.go:395`), 12 one-failure rows through `failureLine`, 4 rail and summary rows through `failureSummary`, and 11 failure notices through `noticedFailure`, drawn in the failure style, the merge's and the re-run's led by what failed so a clipped row still names it; a run's headline names the step a failure status stopped, and a pull request opened without every reviewer says why in brief. The 3 guidance notices stay plain, since red means something broke. The width-one glyph-only marks — a failed check, job, stage or review CI — the three rails that point at their detail, and the branch creator's fixed "could not fetch" line carry no error text to word. |
 | "Nothing outward facing is sent without" a last look | `internal/tui/comment.go:64` | **Yes: 18 of 18.** Every outward act waits on a preview or a confirmation; the push, `R`'s re-run of CI and `u`'s rebase share one last look, `lastLook` (`internal/tui/overlay.go:139`). |
 | "a refused change must never go unseen" | `internal/tui/picker.go:269` | **Yes: 14 of 14.** Every overlay that sends a request guards it while in flight (the previous edition counted 1 of 7), and every one keeps a refusal in the overlay, where it happened, until `esc` — the merge and finish previews last, through `pinnedOutcome` (`internal/tui/failure.go:413`). |
@@ -212,9 +212,10 @@ Slack" (`internal/tui/keys.go:245`) and listed under pane 5 in
 **Instead.** The two overlay-only keys move to the overlay groups; the docs
 follow.
 
-**Done when.** A structural test asserts `?` lists every placed binding under
-the group where it works, replacing the three-string spot check
-(`internal/tui/focus_test.go:124`).
+**Done when.** `TestHelpListsEveryPlacedBinding`
+(`internal/tui/help_test.go:211`), which holds `?` to a table of every
+placement, lists `ctrl+w` and `w` under the group of the overlays that answer
+them.
 
 ### UX-64 A screen reader, an alternate screen you cannot turn off, and a delay you cannot tune
 
