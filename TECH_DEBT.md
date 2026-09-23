@@ -63,11 +63,12 @@ anyone misuse a credential, a terminal or a release.
 
 Severity: medium · Confidence: measured
 
-`internal/tui/review.go` is 701 lines, the largest non-test file in the
+`internal/tui/review.go` is 727 lines, the largest non-test file in the
 repository, holding `reviewState`, the forge vocabulary, the CI polling
-chain, the pane's keys and rendering, `rerunChecks`, `canMerge …
-mergeReason` and the whole `mergePicker` overlay (`:538-701`). `messaging.go`
-and `prcomposer.go` are 525 each. Five test files are also over the 500-line
+chain, the pane's keys and rendering, the re-run and its last look
+(`canRerun … rerunReason`, `:470-560`), `canMerge … mergeReason` and the
+whole `mergePicker` overlay (`:564-727`). `messaging.go` and `prcomposer.go`
+are 514 and 522. Five test files are also over the 500-line
 soft target (`internal/messaging/post_test.go` 738, `internal/tui/
 messaging_test.go` 606, `internal/webserver/pullrequest_test.go` 601,
 `internal/tui/composer_test.go` 566, `internal/jira/detail_test.go` 501).
@@ -93,12 +94,12 @@ Severity: medium · Confidence: read
 failed with this" is named once, and eleven overlays use it. Three still
 carry their own booleans: `branchPicker.sending` and `switchErr`
 (`internal/tui/switchtask.go:79`), `finishPreview.finishing` (`finish.go:65`) and
-`mergePicker.merging` (`internal/tui/review.go:632`). Those three are also the ones that
+`mergePicker.merging` (`internal/tui/review.go:662`). Those three are also the ones that
 skip `pinnedOutcome` (`render.go:457`), and two of them are the two that
 close on a refusal and demote it to a one-line notice — `mergeRequested.
-apply` (`internal/tui/review.go:593`) and `finished.apply` (`finish.go:139`) — which is
+apply` (`internal/tui/review.go:623`) and `finished.apply` (`finish.go:139`) — which is
 why the interface's promise that "a refused change must never go unseen"
-holds in 11 overlays of 13, not 13.
+holds in 12 overlays of 14, not 14.
 
 **One way to fix it.** The three adopt `sendState` and `pinnedOutcome`;
 the refusal stays in the overlay with its reason.
@@ -106,15 +107,15 @@ the refusal stays in the overlay with its reason.
 **Done when.** `grep -nE '(sending|merging|finishing)\s+bool'
 internal/tui/*.go` matches only `sendstate.go`.
 
-### DEBT-57 The same overlay shapes, written nine, five and three times
+### DEBT-57 The same overlay shapes, written ten, five and three times
 
 Severity: low · Confidence: read
 
-- Nine "keep the overlay open with the reason" appliers of the same
+- Ten "keep the overlay open with the reason" appliers of the same
   `overlay.(T)` / `send.failed` / reassign shape: `branchresult.go:109`,
   `issuewrite.go:194`, `issuelink.go:98`, `preditor.go:162`,
   `internal/tui/prcomposer.go:486`, `hookgen.go:153`, `internal/tui/switchtask.go:229`,
-  `comment.go:169`, `internal/tui/messaging.go:491`.
+  `comment.go:169`, `internal/tui/messaging.go:491`, `internal/tui/review.go:522`.
 - Five list-picker bodies with identical `up`/`down`/`confirm`/`esc` and a
   `window`-scrolled `rows`: `internal/tui/picker.go:225`, `internal/tui/picker.go:423`,
   `internal/tui/switchtask.go:120`, `checks.go:64`, `internal/tui/run.go:255`.
