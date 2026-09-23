@@ -154,27 +154,23 @@ horizontal axis.
 
 ## The web
 
-### UX-73 The nav says one thing and the button another; "start" has three names
+### UX-73 "Start" has three names
 
 Impact: medium · Effort: small
 
 **Today.** The web says "merge request" and `!7` on GitLab, from the forge's
 words the health read carries (`useForgeWords`,
-`web/src/api/health.ts:28`). But the nav section is `Messaging`
-(`web/src/shell/sections.ts:10`) while its buttons say `Announce to Slack` /
-`Post to Slack` (`web/src/features/messaging/MessagingPanel.tsx:172`,
-`:241`), and the interface titles that pane with the service's name; and
-"start" has three names across the surfaces (`branch for issue`, `new
-branch`, `Start work on this issue`,
+`web/src/api/health.ts:28`), and names the messaging section after its
+service as the interface titles that pane (`sectionLabel`,
+`web/src/shell/sections.ts:17`). But "start" has three names across the
+surfaces (`branch for issue`, `new branch`, `Start work on this issue`,
 `web/src/features/issues/WorkStory.tsx:280`). The web has five sections
 where the interface has six (Commits folded into Branch, Reviews absent —
 UX-83, Settings added).
 
-**Instead.** The section reads the service's name from the snapshot; one
-verb for starting.
+**Instead.** One verb for starting.
 
-**Done when.** A Teams setup's nav and heading read "Teams"; the web starts
-work under one name.
+**Done when.** The web starts work under one name.
 
 ### UX-74 After opening a pull request, the web stops
 
@@ -362,7 +358,7 @@ Impact: medium · Effort: medium
 **Today.** The review queue — pull requests waiting on you — is a pane in
 the interface (`internal/tui/reviewqueue.go`) and a command (`workflow
 reviews --json`, `internal/cli/reviews.go`), both over `Forge.ReviewRequests`.
-The web's `sections.ts:6` has no such section, and the contract has no
+The web's `web/src/shell/sections.ts:6` has no such section, and the contract has no
 operation for it.
 
 **Instead.** `GET /api/reviews` over the same seam, polled by the query
@@ -385,7 +381,7 @@ says none of it should change. The web carries none of it across: one
 periwinkle accent `#8b93f8` chosen "clear of the green/amber/red the status
 lights own" (`web/src/index.css:24`) plus a three-color CI language; Jira is
 not blue, git is not yellow, the forge is not green anywhere; the `NavRail`
-icons are all muted (`NavRail.tsx:28`). State marks are the web's own:
+icons are all muted (`web/src/shell/NavRail.tsx:30`). State marks are the web's own:
 `StageMarker` (`web/src/features/issues/WorkStory.tsx:291`) invents three, and `ciDot`
 (`web/src/features/review/ReviewPanel.tsx:15`) and `StreamStatus` (`StreamStatus.tsx:4`) are
 color-only dots of one shape (mitigated by a text label beside each). And
@@ -415,7 +411,7 @@ shape; both themes pass axe.
 Impact: medium · Effort: medium
 
 **Today.** There is not one `sm:`, `md:`, `lg:` or `xl:` utility in any
-`.tsx` under `web/src`. A `w-20` rail (`NavRail.tsx:12`) beside a `w-80
+`.tsx` under `web/src`. A `w-20` rail (`web/src/shell/NavRail.tsx:14`) beside a `w-80
 shrink-0` issues list (`web/src/features/issues/IssuesPanel.tsx:102`) and a `flex-1` detail squeezes
 the detail to nothing near 640 px; definition lists use fixed first columns
 (`grid-cols-[6rem_1fr]` `BranchPanel.tsx:49`, `[8rem_1fr]`

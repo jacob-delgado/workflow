@@ -3,7 +3,7 @@ import userEvent from '@testing-library/user-event'
 import { vi } from 'vitest'
 import App from './App.tsx'
 import { FakeEventSource } from './test/fakeEventSource.ts'
-import { makeHealth } from './test/fixtures.ts'
+import { makeHealth, makeSnapshot } from './test/fixtures.ts'
 import { renderWithClient } from './test/renderWithClient.tsx'
 
 test('shows the sections and opens on the Issues view', () => {
@@ -28,6 +28,21 @@ test('switches the view when another section is chosen', async () => {
 
   // Assert
   expect(screen.getByRole('heading', { level: 1, name: /branch/i })).toBeTruthy()
+})
+
+test("heads the messaging section with the service's name", async () => {
+  // Arrange
+  const user = userEvent.setup()
+  renderWithClient(<App />)
+  act(() => {
+    FakeEventSource.latest().emit('snapshot', JSON.stringify(makeSnapshot()))
+  })
+
+  // Act
+  await user.click(screen.getByRole('button', { name: 'Slack' }))
+
+  // Assert
+  expect(screen.getByRole('heading', { level: 1, name: 'Slack' })).toBeTruthy()
 })
 
 // serveHealth answers the health read the shell makes on mount.

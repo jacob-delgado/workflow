@@ -1,10 +1,12 @@
+import { useSnapshotStore } from '@/api/snapshot.ts'
 import { cn } from '@/lib/utils.ts'
-import { sectionMeta } from './sections.ts'
+import { sectionLabel, sectionMeta } from './sections.ts'
 import { sections, useUiStore } from './uiStore.ts'
 
 export function NavRail() {
   const section = useUiStore((state) => state.section)
   const setSection = useUiStore((state) => state.setSection)
+  const service = useSnapshotStore((state) => state.snapshot?.messaging.service)
 
   return (
     <nav
@@ -12,7 +14,7 @@ export function NavRail() {
       className="flex w-20 shrink-0 flex-col gap-1 border-r border-border bg-card px-2 py-3"
     >
       {sections.map((key) => {
-        const { label, Icon } = sectionMeta[key]
+        const { Icon } = sectionMeta[key]
         const active = key === section
 
         return (
@@ -31,7 +33,7 @@ export function NavRail() {
             )}
           >
             <Icon aria-hidden className="size-5" />
-            {label}
+            {sectionLabel(key, service)}
           </button>
         )
       })}
