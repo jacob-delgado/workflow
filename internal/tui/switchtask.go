@@ -12,14 +12,15 @@ import (
 
 	"github.com/jacob-delgado/workflow/internal/convention"
 	"github.com/jacob-delgado/workflow/internal/jira"
+	"github.com/jacob-delgado/workflow/internal/loop"
 )
 
 // switchTitle titles the detail pane while the task switcher is open.
 const switchTitle = "Switch task"
 
-// errDirtyTree refuses a switch that would carry uncommitted work onto another
-// branch. Stashing is left to the person, so the reason says what to do rather
-// than doing it.
+// errDirtyTree is the interface's words for loop.ErrDirtyTree: a switch refused
+// for the uncommitted work it would carry onto another branch. Stashing is left
+// to the person, so the reason says what to do rather than doing it.
 var errDirtyTree = errors.New("uncommitted changes — commit or stash them before switching tasks")
 
 // taskBranch is a local branch that names an issue, offered to switch to.
@@ -197,7 +198,7 @@ func (p branchPicker) choose(m Model) (Model, tea.Cmd) {
 		return m, nil
 	}
 
-	if m.changes.dirty() {
+	if loop.RefuseDirty(m.changes.changes) != nil {
 		p.switchErr = errDirtyTree
 		m.overlay = p
 

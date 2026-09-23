@@ -10,10 +10,12 @@ import (
 
 	"github.com/jacob-delgado/workflow/internal/api"
 	"github.com/jacob-delgado/workflow/internal/gitrepo"
+	"github.com/jacob-delgado/workflow/internal/loop"
 )
 
-// errDirtyTree refuses a checkout that would carry uncommitted work onto another
-// branch, the same guard the terminal interface's task switcher applies.
+// errDirtyTree is the web's words for loop.ErrDirtyTree: a checkout refused for
+// the uncommitted work it would carry onto another branch, by the same guard the
+// terminal interface's task switcher applies.
 var errDirtyTree = errors.New("the working tree has uncommitted changes; commit or stash them before switching")
 
 // Checkout switches the working tree to the requested branch. It refuses a dirty
@@ -36,7 +38,7 @@ func (s *server) Checkout(
 	switch {
 	case err == nil:
 		return api.Checkout200JSONResponse(branchDTO(branch)), nil
-	case errors.Is(err, errDirtyTree):
+	case errors.Is(err, loop.ErrDirtyTree):
 		return api.Checkout409ApplicationProblemPlusJSONResponse(problem(api.Conflict, errDirtyTree.Error())), nil
 	default:
 		return unprocessable("the branch could not be checked out"), nil
@@ -46,13 +48,9 @@ func (s *server) Checkout(
 // switchTo refuses a dirty working tree, then checks out name and returns the
 // branch now in effect.
 func (s *server) switchTo(name string) (gitrepo.Branch, error) {
-	dirty, err := s.workingTreeDirty()
+	err := s.refuseADirtyTree()
 	if err != nil {
 		return gitrepo.Branch{}, err
-	}
-
-	if dirty {
-		return gitrepo.Branch{}, errDirtyTree
 	}
 
 	err = s.deps.Checkout(name)
@@ -63,20 +61,20 @@ func (s *server) switchTo(name string) (gitrepo.Branch, error) {
 	return s.deps.Branch()
 }
 
-// workingTreeDirty reports whether the tree carries any change, so a switch can
-// be refused before it moves uncommitted work onto another branch. A missing
-// changes seam reads as clean rather than blocking the switch.
-func (s *server) workingTreeDirty() (bool, error) {
+// refuseADirtyTree refuses a tree that carries any change, so a switch never
+// moves uncommitted work onto another branch. A missing changes seam reads as
+// clean rather than blocking the switch.
+func (s *server) refuseADirtyTree() error {
 	if s.deps.Changes == nil {
-		return false, nil
+		return nil
 	}
 
 	changes, err := s.deps.Changes()
 	if err != nil {
-		return false, err
+		return err
 	}
 
-	return len(changes) > 0, nil
+	return loop.RefuseDirty(changes)
 }
 
 // unprocessable is the 422 response for a checkout the server will not attempt.

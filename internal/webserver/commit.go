@@ -12,11 +12,12 @@ import (
 	"github.com/jacob-delgado/workflow/internal/api"
 	"github.com/jacob-delgado/workflow/internal/convention"
 	"github.com/jacob-delgado/workflow/internal/gitrepo"
+	"github.com/jacob-delgado/workflow/internal/loop"
 )
 
 var (
-	// errNothingStaged refuses a commit when the index is empty, the same guard
-	// the terminal composer applies.
+	// errNothingStaged is the web's words for loop.ErrNothingStaged: a commit
+	// refused for an empty index, by the same guard the terminal composer applies.
 	errNothingStaged = errors.New("nothing is staged to commit")
 	// errCommitFailed carries the commit's own output — a failing hook, most
 	// often — so the caller learns why it did not land.
@@ -55,7 +56,7 @@ func (s *server) Commit(_ context.Context, request api.CommitRequestObject) (api
 	switch {
 	case err == nil:
 		return api.Commit200JSONResponse(branchDTO(branch)), nil
-	case errors.Is(err, errNothingStaged):
+	case errors.Is(err, loop.ErrNothingStaged):
 		return api.Commit409ApplicationProblemPlusJSONResponse(problem(api.Conflict, errNothingStaged.Error())), nil
 	default:
 		return commitUnprocessable(err.Error()), nil
@@ -75,13 +76,14 @@ func (s *server) commitConvention() convention.CommitConvention {
 func (s *server) commitStaged(
 	conv convention.CommitConvention, subject convention.Subject, body string,
 ) (gitrepo.Branch, error) {
-	staged, err := s.stagedCount()
+	changes, err := s.deps.Changes()
 	if err != nil {
 		return gitrepo.Branch{}, err
 	}
 
-	if staged == 0 {
-		return gitrepo.Branch{}, errNothingStaged
+	err = loop.RefuseNothingStaged(changes)
+	if err != nil {
+		return gitrepo.Branch{}, err
 	}
 
 	message := conv.Message(subject, body, s.currentIssueKey())
@@ -113,25 +115,6 @@ func (s *server) runCommit(message string) error {
 	}
 
 	return nil
-}
-
-// stagedCount is how many changes are staged, so a commit with nothing staged
-// can be refused before it runs.
-func (s *server) stagedCount() (int, error) {
-	changes, err := s.deps.Changes()
-	if err != nil {
-		return 0, err
-	}
-
-	count := 0
-
-	for _, change := range changes {
-		if change.IsStaged() {
-			count++
-		}
-	}
-
-	return count, nil
 }
 
 // currentIssueKey is the issue the checked-out branch is named for, for the Refs

@@ -6,7 +6,7 @@ spots, and docs that have drifted from the code. It is a record, not a plan.
 Nothing here is scheduled.
 
 Two readers are in mind: a contributor looking for something worth fixing,
-and a later Claude Code session asked to "pick up DEBT-50". Each entry says
+and a later Claude Code session asked to "pick up DEBT-51". Each entry says
 what is wrong, where, what it costs, one way to fix it, and how to tell when
 it is fixed. [FEATURES.md](FEATURES.md) and [UX.md](UX.md) hold the ideas;
 this file holds the debts. An earlier edition of this file was retired once
@@ -59,44 +59,6 @@ anyone misuse a credential, a terminal or a release.
 
 ## The composition of the loop
 
-### DEBT-50 The loop is composed three times, once per surface
-
-Severity: high · Confidence: read
-
-`internal/webserver/webserver.go:6` describes the web server as "another
-consumer of the wiring, not a second implementation", and for the *clients*
-that holds: its `Deps` (`webserver.go:32`) are the same plain function seams
-the terminal interface declares. It does not hold for what the surfaces
-*do* with those seams. `internal/wiring` (six files) constructs clients and
-nothing else, so each surface composes the loop for itself:
-
-- The guards — `internal/webserver/checkout.go:16` and `internal/webserver/commit.go:18` each
-  carry a comment saying they are "the same guard the terminal interface
-  applies" (`internal/tui/switchtask.go:88`, the composer), copied rather
-  than shared.
-
-**What it costs.** Every parity gap between the surfaces is a copy that one
-of them lacks: the review-status offer after a pull request exists in the
-terminal (`internal/tui/picker.go:186`) and the CLI (`internal/cli/pr.go:173`)
-and not on the web, because there is no one place to put it. Each new action
-added to a surface becomes a fourth copy, and a fix to the composition (a
-changed moment rule, a new trailer) has to be made three times or diverges.
-
-**One way to fix it.** `internal/loop` now composes the pull request, its
-push, the review-status offer after it and the announcement
-(`loop.ComposePull`, `loop.EnsurePushed`, `loop.ReviewTransition`,
-`loop.ComposeAnnouncement`, `loop.AnnounceMoment`) below the three
-surfaces, held there by the `loop-below-the-surfaces` depguard rule, and
-the noun and the branch naming live on `forge.Kind` and `config.Branch`.
-What is left is to move the guards into it the same way, each surface
-keeping its own words for the refusal.
-
-**Done when.** `grep -rn 'NewBranchNaming(' internal/{cli,tui,webserver}`
-and `grep -rn '"merge request"' internal/{cli,tui,webserver}` both print
-nothing; `ensurePushed`, `composeAnnouncement` and `announceMoment` each
-exist in exactly one package; every existing `cli_test`, `webserver_test`
-and `tui` test still passes with its golden output unchanged.
-
 ### DEBT-51 The CLI wires itself seven times, and `--log` reaches none of them
 
 Severity: medium · Confidence: read
@@ -137,17 +99,20 @@ then ignores `deps.Git.Branch` and `deps.Git.Changes`, constructing a second
 `gitrepo.At(proc.Run, where.Root)` and calling `ReadBranch` and `Status`
 directly (`internal/cli/status.go:122-131`) — although `GitDeps.Branch` and
 `GitDeps.Changes` exist (`internal/tui/deps.go:74`) and `pr`, `announce` and
-`branch` all go through them. `standup` does the same (`standup.go:87`),
-but there it is forced: `RecentCommits` and `LocalBranches` have no
-`GitDeps` equivalent.
+`branch` all go through them. `standup` does the same (`internal/cli/standup.go:87`),
+and there only half of it is forced: `RecentCommits` has no `GitDeps`
+equivalent, but its `LocalBranches` does — `GitDeps.Branches`
+(`internal/tui/deps.go:84`), which `workflow branch` already reads.
 
 **What it costs.** A test that fakes the git seam does not reach `status`;
 and `status` skips whatever the seam adds (the non-interactive
 `GIT_TERMINAL_PROMPT=0` runner, a future timeout).
 
 **One way to fix it.** `status` reads the branch and the changes through
-`deps.Git`; `GitDeps` gains `RecentCommits` and `LocalBranches` so `standup`
-can too.
+`deps.Git`; `standup` reads its branches through `deps.Git.Branches`, and
+its commits either through a `RecentCommits` seam `GitDeps` does not have
+yet (a CLI-only seam on `tui.Deps`, the cost DEBT-71 weighs) or, said so
+beside the call, directly.
 
 **Done when.** `gitrepo.At(` appears in `internal/cli` only inside the
 wiring preamble (or not at all, once DEBT-51 lands).
@@ -223,7 +188,7 @@ Severity: medium · Confidence: read
 `sendState` (`internal/tui/sendstate.go:10`) exists so that "in flight, then
 failed with this" is named once, and eleven overlays use it. Three still
 carry their own booleans: `branchPicker.sending` and `switchErr`
-(`switchtask.go:78`), `finishPreview.finishing` (`finish.go:65`) and
+(`internal/tui/switchtask.go:79`), `finishPreview.finishing` (`finish.go:65`) and
 `mergePicker.merging` (`internal/tui/review.go:632`). Those three are also the ones that
 skip `pinnedOutcome` (`render.go:457`), and two of them are the two that
 close on a refusal and demote it to a one-line notice — `mergeRequested.
@@ -244,17 +209,17 @@ Severity: low · Confidence: read
 - Nine "keep the overlay open with the reason" appliers of the same
   `overlay.(T)` / `send.failed` / reassign shape: `branchresult.go:109`,
   `issuewrite.go:194`, `issuelink.go:98`, `preditor.go:162`,
-  `internal/tui/prcomposer.go:486`, `hookgen.go:153`, `switchtask.go:228`,
+  `internal/tui/prcomposer.go:486`, `hookgen.go:153`, `internal/tui/switchtask.go:229`,
   `comment.go:169`, `internal/tui/messaging.go:491`.
 - Five list-picker bodies with identical `up`/`down`/`confirm`/`esc` and a
   `window`-scrolled `rows`: `internal/tui/picker.go:225`, `internal/tui/picker.go:423`,
-  `switchtask.go:119`, `checks.go:64`, `internal/tui/run.go:255`.
+  `internal/tui/switchtask.go:120`, `checks.go:64`, `internal/tui/run.go:255`.
 - Three focus-guarded "re-clamp the shared scroll after a shrinking reload"
-  blocks: `commits.go:50`, `reviewqueue.go:52`, plus `commits.go:255`
+  blocks: `internal/tui/commits.go:50`, `reviewqueue.go:52`, plus `internal/tui/commits.go:249`
   `followChange` / `reviewqueue.go:213`.
 - Two `onFieldNav` + `*CanComplete` pairs (`scopesuggest.go:17`,
   `internal/tui/prcomposer.go:301`) and two blur-all-then-focus-one switches
-  (`composer.go:294`, `internal/tui/prcomposer.go:322`).
+  (`internal/tui/composer.go:295`, `internal/tui/prcomposer.go:322`).
 
 The rule of three is met several times over. DEBT-56 and the failure-voice
 work in UX.md reduce the first group as a side effect; a generic picker
@@ -270,7 +235,7 @@ Severity: medium · Confidence: read
 `m.scroll` (`internal/tui/tui.go:51`) is a single offset shared by every
 pane, reset on focus (`tui.go:269` `focusOn`). It is the reason for the
 focus-guarded re-clamps in DEBT-57, and the reason `pickChange`
-(`commits.go:261`) and `pickReview` (`reviewqueue.go:220`) must add
+(`internal/tui/commits.go:255`) and `pickReview` (`reviewqueue.go:220`) must add
 `m.scroll` to a clicked line while `pickIssue` (`internal/tui/detail.go:260`) must not —
 three click paths that disagree about the same number.
 
@@ -511,14 +476,23 @@ Severity: low · Confidence: read
 `wiring.Deps` (`internal/wiring/wiring.go:72`) returns `tui.Deps`, so the
 wiring package imports the terminal interface; the CLI's `webDeps`
 (`internal/cli/cli.go:263`) then narrows that bundle for the web server.
-The seams are not the terminal's — they are the loop's — and the import is
-what rules `wiring` out as a home for shared composition (DEBT-50). It costs
-nothing today; it will cost the first time the web needs a seam the
-terminal does not declare.
+The seams are not the terminal's — they are the loop's. That import no
+longer stands in the way of shared composition: `internal/loop` takes each
+seam as a plain argument (`loop.PullSeams`, `loop.AnnounceSeams`) and never
+needed `wiring`. What is left is narrower: a seam only the CLI or the web
+needs must still be declared on `tui.Deps`, as a `RecentCommits` for
+`standup` would be (DEBT-52).
 
-**Done when.** The seam bundle is declared where all three surfaces can
-import it without importing each other (YAGNI until DEBT-50 or a new web
-seam forces it).
+**One way to fix it.** Move the bundles that depend only on leaf types —
+`JiraDeps`, `GitDeps`, `ForgeDeps`, `MessagingDeps`, `HookDeps` — to a
+package all three surfaces import, with type aliases left in `tui`.
+`StoreDeps` carries `tui.AnnouncedPost`, so it could move only with that
+type, and `EditorDeps` carries Bubble Tea's `tea.Msg` and `tea.Cmd`, so
+`wiring` would still return `tui.Deps`.
+
+**Done when.** The seam bundles are declared where all three surfaces can
+import them without importing each other. Deferred — YAGNI until a seam the
+terminal does not use has to be added to `tui.Deps`.
 
 ### DEBT-72 `task container:check` is red for reasons of its own
 

@@ -94,7 +94,7 @@ gap, and which phase closes it.
 | # | Action | CLI | TUI | Web | Warranted? |
 | --- | --- | --- | --- | --- | --- |
 | 24 | Find the pull request and its CI | Y (`status --json`) | Y | Y | — |
-| 25 | Compose and open (push first) | Y (`pr`) | Y (`n`) | Y | Composed **three times** — DEBT-50, Phase 1. CLI lacks draft/base/reviewer flags; CLI and web take `templates[0]` only: UX-62 |
+| 25 | Compose and open (push first) | Y (`pr`) | Y (`n`) | Y | CLI and web compose it once, in `internal/loop` (Phase 1, which closed DEBT-50); the terminal's composer is its own editor. CLI lacks draft/base/reviewer flags; CLI and web take `templates[0]` only: UX-62 |
 | 26 | After opening: link, then the review-status offer | P (status only) | Y | **N** (`webserver/pullrequest.go` never touches `Jira.ReviewStatus`) | **Yes** — Phase 8 (CLI link), Phase 9 (web both), UX-59/UX-74 |
 | 27 | Edit the pull request | N | Y (`e`, `preditor.go`) | N | `gh pr edit` is the twin; web idea, FEAT-79 |
 | 28 | Checks list; a failure into `$EDITOR` | N | Y (`checks.go`) | P (a CI link) | A terminal gesture; web list idea, UX-88 |
@@ -107,7 +107,7 @@ gap, and which phase closes it.
 
 | # | Action | CLI | TUI | Web | Warranted? |
 | --- | --- | --- | --- | --- | --- |
-| 33 | Announce: compose → preview → post | Y | Y | Y | Composed **three times** — DEBT-50, Phase 1 |
+| 33 | Announce: compose → preview → post | Y | Y | Y | CLI and web compose it once, in `internal/loop` (Phase 1, which closed DEBT-50); the terminal renders its own from cached state, with `loop.AnnounceMoment` |
 | 34 | Call it a "merge request" on GitLab | Y (`forge.Kind.Noun`, `internal/forge/remote.go:60`) | Y (the same) | **N** — six hardcoded strings; `ForgeKind` on the server (`webserver.go:60`), never sent | **Yes** — Phase 9, UX-73 |
 | 35 | Post when CI passes | N | Y (`internal/tui/messaging.go:405`) | N | CLI `announce --when-green` is FEAT-65's fit; web FEAT-82; not this plan |
 | 36 | Announced history (never re-offer) | **N** — no `Store` reference in `internal/cli` | Y (`internal/tui/messaging.go:215`) | **F** | **CLI yes, cheap** — record after posting, say when already announced. Phase 8, UX-60. Web: FEAT-66, declared |
