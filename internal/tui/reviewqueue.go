@@ -37,12 +37,7 @@ var _ applier = reviewsLoaded{}
 func (msg reviewsLoaded) apply(m Model) (Model, tea.Cmd) {
 	previous, _ := m.reviewQueue.current()
 
-	requests := slices.Clone(msg.requests)
-	slices.SortStableFunc(requests, func(left, right forge.ReviewRequest) int {
-		return left.OpenedAt.Compare(right.OpenedAt)
-	})
-
-	m.reviewQueue = reviewQueueState{requests: requests, loaded: true, err: msg.err}
+	m.reviewQueue = reviewQueueState{requests: forge.OldestFirst(msg.requests), loaded: true, err: msg.err}
 	m.reviewQueue.selected = m.reviewQueue.indexOf(previous)
 
 	// A refresh can return a shorter queue, leaving the scroll offset past the

@@ -102,8 +102,8 @@ Severity: low · Confidence: read
   `window`-scrolled `rows`: `internal/tui/picker.go:225`, `internal/tui/picker.go:423`,
   `internal/tui/switchtask.go:119`, `internal/tui/checks.go:68`, `internal/tui/run.go:257`.
 - Three focus-guarded "re-clamp the shared scroll after a shrinking reload"
-  blocks: `internal/tui/commits.go:50`, `internal/tui/reviewqueue.go:52`, plus `internal/tui/commits.go:249`
-  `followChange` / `internal/tui/reviewqueue.go:213`.
+  blocks: `internal/tui/commits.go:50`, `internal/tui/reviewqueue.go:47`, plus `internal/tui/commits.go:249`
+  `followChange` / `internal/tui/reviewqueue.go:208`.
 - Two `onFieldNav` + `*CanComplete` pairs (`scopesuggest.go:17`,
   `internal/tui/prcomposer.go:301`) and two blur-all-then-focus-one switches
   (`internal/tui/composer.go:297`, `internal/tui/prcomposer.go:322`).
@@ -122,7 +122,7 @@ Severity: medium · Confidence: read
 `m.scroll` (`internal/tui/tui.go:51`) is a single offset shared by every
 pane, reset on focus (`internal/tui/tui.go:269` `focusOn`). It is the reason for the
 focus-guarded re-clamps in DEBT-57, and the reason `pickChange`
-(`internal/tui/commits.go:255`) and `pickReview` (`internal/tui/reviewqueue.go:220`) must add
+(`internal/tui/commits.go:255`) and `pickReview` (`internal/tui/reviewqueue.go:215`) must add
 `m.scroll` to a clicked line while `pickIssue` (`internal/tui/detail.go:320`) must not —
 three click paths that disagree about the same number.
 

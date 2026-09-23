@@ -5,6 +5,7 @@ package forge_test
 
 import (
 	"net/http"
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -183,5 +184,40 @@ func TestReviewRequestsForAnUnknownForge(t *testing.T) {
 	// Assert
 	if err == nil {
 		t.Error("ReviewRequests for an unknown forge returned no error")
+	}
+}
+
+func TestOldestFirstPutsTheLongestWaitingFirst(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	// Fourteen requests opened at two moments, turn about: more than a sort
+	// orders by insertion, so an unstable sort would reorder the ties.
+	const requestCount = 14
+
+	monday := time.Date(2026, 9, 14, 9, 0, 0, 0, time.UTC)
+	moments := [2]time.Time{monday.Add(48 * time.Hour), monday}
+
+	answered := make([]forge.ReviewRequest, 0, requestCount)
+	for i := range requestCount {
+		answered = append(answered, forge.ReviewRequest{Number: requestCount - i, OpenedAt: moments[i%2]})
+	}
+
+	// Act
+	queue := forge.OldestFirst(answered)
+
+	// Assert
+	got := make([]int, 0, len(queue))
+	for _, request := range queue {
+		got = append(got, request.Number)
+	}
+
+	// Monday's requests first, and each moment's in the order the forge gave.
+	if want := []int{13, 11, 9, 7, 5, 3, 1, 14, 12, 10, 8, 6, 4, 2}; !slices.Equal(got, want) {
+		t.Errorf("queue = %v, want %v", got, want)
+	}
+
+	if answered[0].Number != requestCount {
+		t.Errorf("the forge's answer was reordered in place: %v", answered)
 	}
 }
