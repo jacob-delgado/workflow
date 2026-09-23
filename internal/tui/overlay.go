@@ -105,12 +105,20 @@ var (
 	_ applier = hooksWritten{}
 )
 
-// noticed sets the footer's report of what just happened.
+// notice is the footer's one-line report of something that just happened, and
+// whether what happened is a failure, which it then draws in the failure style.
+type notice struct {
+	text   string
+	failed bool
+}
+
+// noticed sets the footer's report of what just happened, plainly: a result,
+// or guidance on what a key needs.
 func (m Model) noticed(text string) Model {
 	// A notice is one row, so any newline — a joined staging error, a program's
 	// stderr — is folded onto it, or the footer grows past the terminal.
 	lines := strings.FieldsFunc(text, func(r rune) bool { return r == '\n' || r == '\r' })
-	m.notice = strings.Join(lines, m.marks.separator)
+	m.notice = notice{text: strings.Join(lines, m.marks.separator), failed: false}
 
 	return m
 }

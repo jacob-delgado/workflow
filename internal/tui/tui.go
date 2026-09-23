@@ -65,7 +65,7 @@ type Model struct {
 	overlay overlay
 	// notice is the footer's one-line report of something that just happened.
 	// The next key press clears it.
-	notice string
+	notice notice
 
 	// views are the named issue lists the Issues pane moves between, and
 	// viewIndex is the one it shows now.
@@ -187,7 +187,7 @@ func (m Model) handleKey(msg tea.KeyPressMsg) (Model, tea.Cmd) {
 	// A notice is cleared when the next action starts, not by moving around, so
 	// looking about after a result does not erase the record of it.
 	if !m.navigates(msg) {
-		m.notice = ""
+		m.notice = notice{}
 	}
 
 	switch {
@@ -301,7 +301,7 @@ const minNoticeHeight = 4
 // showsNotice reports a notice — or the issue filter — that has room for its own
 // row above the hints.
 func (m Model) showsNotice() bool {
-	return (m.notice != "" || m.showsFilter()) && m.height >= minNoticeHeight
+	return (m.notice.text != "" || m.showsFilter()) && m.height >= minNoticeHeight
 }
 
 // showsFilter reports that the Issues pane's filter should be shown on its own

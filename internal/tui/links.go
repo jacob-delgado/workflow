@@ -62,7 +62,7 @@ var _ applier = linkOpened{}
 // worked — the browser is now in front of the user.
 func (msg linkOpened) apply(m Model) (Model, tea.Cmd) {
 	if msg.err != nil {
-		return m.noticed(m.failure(msg.err)), nil
+		return m.noticedFailure(msg.err), nil
 	}
 
 	return m, nil

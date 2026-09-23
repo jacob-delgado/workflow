@@ -66,7 +66,7 @@ Severity: low · Confidence: measured
 `scripts/check-file-length.sh --list` flags four source files past the
 500-line soft target — `internal/forge/github.go` (551),
 `internal/gitrepo/branch.go` (532), `internal/tui/prcomposer.go` (523) and
-`internal/tui/messaging.go` (516) — and five test files
+`internal/tui/messaging.go` (525) — and five test files
 (`internal/messaging/post_test.go` 738, `internal/tui/messaging_test.go`
 606, `internal/webserver/pullrequest_test.go` 601,
 `internal/tui/composer_test.go` 565, `internal/jira/detail_test.go` 501).
@@ -94,19 +94,19 @@ Severity: low · Confidence: read
   `internal/tui/branchresult.go:109`, `internal/tui/issuewrite.go:194`,
   `internal/tui/issuelink.go:98`, `internal/tui/preditor.go:162`,
   `internal/tui/prcomposer.go:487`, `internal/tui/hookgen.go:153`,
-  `internal/tui/switchtask.go:228`, `internal/tui/comment.go:169`,
-  `internal/tui/messaging.go:494`, `internal/tui/checks.go:225`,
-  `internal/tui/merge.go:83`, `internal/tui/finish.go:141`,
-  `internal/tui/picker.go:114`, `internal/tui/comment.go:67`.
+  `internal/tui/switchtask.go:228`, `internal/tui/comment.go:173`,
+  `internal/tui/messaging.go:503`, `internal/tui/checks.go:227`,
+  `internal/tui/merge.go:86`, `internal/tui/finish.go:141`,
+  `internal/tui/picker.go:114`, `internal/tui/comment.go:71`.
 - Five list-picker bodies with identical `up`/`down`/`confirm`/`esc` and a
   `window`-scrolled `rows`: `internal/tui/picker.go:225`, `internal/tui/picker.go:423`,
-  `internal/tui/switchtask.go:119`, `internal/tui/checks.go:66`, `internal/tui/run.go:257`.
+  `internal/tui/switchtask.go:119`, `internal/tui/checks.go:68`, `internal/tui/run.go:257`.
 - Three focus-guarded "re-clamp the shared scroll after a shrinking reload"
   blocks: `internal/tui/commits.go:50`, `internal/tui/reviewqueue.go:52`, plus `internal/tui/commits.go:249`
   `followChange` / `internal/tui/reviewqueue.go:213`.
 - Two `onFieldNav` + `*CanComplete` pairs (`scopesuggest.go:17`,
   `internal/tui/prcomposer.go:301`) and two blur-all-then-focus-one switches
-  (`internal/tui/composer.go:296`, `internal/tui/prcomposer.go:322`).
+  (`internal/tui/composer.go:297`, `internal/tui/prcomposer.go:322`).
 
 The rule of three is met several times over. A helper that pins a failure
 in whichever overlay asked would serve the first group, and a generic picker
@@ -120,7 +120,7 @@ helper.
 Severity: medium · Confidence: read
 
 `m.scroll` (`internal/tui/tui.go:51`) is a single offset shared by every
-pane, reset on focus (`tui.go:269` `focusOn`). It is the reason for the
+pane, reset on focus (`internal/tui/tui.go:269` `focusOn`). It is the reason for the
 focus-guarded re-clamps in DEBT-57, and the reason `pickChange`
 (`internal/tui/commits.go:255`) and `pickReview` (`internal/tui/reviewqueue.go:220`) must add
 `m.scroll` to a clicked line while `pickIssue` (`internal/tui/detail.go:260`) must not —

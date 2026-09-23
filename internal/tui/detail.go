@@ -277,12 +277,12 @@ func (m Model) pickIssue(line, rows int, inRail bool) (Model, tea.Cmd) {
 // failure.
 func (m Model) issueDetailView(width int) string {
 	if m.issues.err != nil {
-		return m.failureBlock(m.issues.err, width) + "\n\n" + m.status()
+		return m.failureBlock(m.issues.err, width) + "\n\n" + m.status(width)
 	}
 
 	selected, ok := m.issues.current()
 	if !ok {
-		return m.status()
+		return m.status(width)
 	}
 
 	lines := []string{m.styles.strong.Render(string(selected.Key)) + " " + selected.Summary, m.facts(selected)}

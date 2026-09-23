@@ -19,7 +19,7 @@ func TestCommitNeedsSomethingStaged(t *testing.T) {
 
 	// Arrange
 	unstaged := newWorld()
-	unstaged.changes = []gitrepo.Change{{Path: "notes.txt", Staged: '?', Unstaged: '?'}}
+	unstaged.changes = []gitrepo.Change{{Path: untrackedNotes, Staged: '?', Unstaged: '?'}}
 
 	// Act
 	view := typing(t, unstaged.live(t, 120, 40), "3", "c").View().Content

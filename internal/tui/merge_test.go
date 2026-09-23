@@ -139,6 +139,22 @@ func TestMergeSaysWhyTheMethodsCannotBeRead(t *testing.T) {
 	refuseScreen(t, after.View().Content, "Merge by:")
 }
 
+func TestTheMergeNoticeLeadsWithTheMergeOnANarrowTerminal(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	reviewing := mergeable()
+	reviewing.mergeMethodsErr = fmt.Errorf("listing merge methods: %w", forge.ErrRefused)
+
+	// Act
+	view := typing(t, reviewing.live(t, 80, 30), "4", "M").View().Content
+
+	// Assert
+	// The footer clips a long sentence, and no preview is open to name what
+	// failed, so the merge comes first on the row.
+	requireScreen(t, view, "✗ cannot merge: The forge refused the request")
+}
+
 func TestMergeSaysWhenTheRepositoryPermitsNoMethod(t *testing.T) {
 	t.Parallel()
 

@@ -54,6 +54,8 @@ const (
 	pullURL               = "https://github.com/example/repo/pull/42"
 	pullTitle             = "fix(config): redact tokens"
 	slackChannel          = "#dev"
+	shortComment          = "a short comment"
+	untrackedNotes        = "notes.txt"
 )
 
 // world is everything outside the interface, faked, and a record of what the
