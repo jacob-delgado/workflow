@@ -43,11 +43,23 @@ type writeOptions struct {
 	yes    bool
 }
 
-// addFlags declares --dry-run and --yes on a scriptable write command. verb
-// names the action in the flag help ("creating", "opening", "posting").
-func (o *writeOptions) addFlags(cmd *cobra.Command, verb string) {
-	cmd.Flags().BoolVar(&o.dryRun, "dry-run", false, "preview without "+verb+" anything")
+// addFlags declares --yes on a scriptable write command, and has it read the
+// root's --dry-run — one flag every command inherits — before it runs.
+func (o *writeOptions) addFlags(cmd *cobra.Command) {
 	cmd.Flags().BoolVar(&o.yes, "yes", false, "go ahead without the confirmation")
+	cmd.PreRun = func(cmd *cobra.Command, _ []string) { o.dryRun = dryRunRequested(cmd) }
+}
+
+// dryRunFlag names the root's flag that holds back every write.
+const dryRunFlag = "dry-run"
+
+// dryRunRequested reports whether --dry-run was given, before or after the
+// command's name. The root declares it for every command, so it is always
+// there to read.
+func dryRunRequested(cmd *cobra.Command) bool {
+	dryRun, _ := cmd.Flags().GetBool(dryRunFlag)
+
+	return dryRun
 }
 
 // writePrompt is what a scriptable write says around its confirmation: the

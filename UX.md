@@ -66,24 +66,6 @@ them, re-counted at this commit.
 
 ## The command line
 
-### UX-52 The root's flags do not reach the subcommands
-
-Impact: medium · Effort: small
-
-**Today.** `--dry-run`, `--log` and `--web` are declared on `root.Flags()`
-(`internal/cli/cli.go:202-207`), not `PersistentFlags()`, so `workflow --dry-run pr` and
-`workflow --log f status` are unknown-flag errors; the write commands
-declare their own, unrelated `--dry-run` (`internal/cli/scriptable.go:49`) with different
-help; and every subcommand passes `nil` for the request log, so the `--log`
-facility the root's help advertises for bug reports (`internal/cli/cli.go:206`) works
-only for the interface (DEBT-51).
-
-**Instead.** `--dry-run` and `--log` persistent on the root, declared once;
-the seven wiring preambles collapse into one that opens the log.
-
-**Done when.** `workflow --dry-run pr` is accepted and previews;
-`workflow --log FILE status` appends a request line to `FILE`.
-
 ### UX-55 The generated reference omits `--version`, `help` and `completion`; the usage page never mentions the commands
 
 Impact: medium · Effort: small
@@ -124,8 +106,8 @@ unknown-command or unknown-flag error.
 Impact: medium · Effort: small
 
 **Today.** The strong messages say the next step — `(pass --force to
-overwrite)` (`internal/cli/config_cmd.go:149`), the `chmod 600` line (`doctor.go:456`),
-`run gh auth login` (`doctor.go:232`), `Create one with workflow config
+overwrite)` (`internal/cli/config_cmd.go:151`), the `chmod 600` line (`internal/cli/doctor.go:427`),
+`run gh auth login` (`internal/cli/doctor.go:239`), `Create one with workflow config
 init` (`internal/config/config.go:24`). The bare sentinels do not: `a branch for
 this issue already exists` (`internal/cli/branch.go:20`) does not say to switch to it;
 `an open pull request already exists for this branch` (`internal/cli/pr.go:28`) gives no
@@ -201,11 +183,13 @@ store fake records one entry.
 Impact: low · Effort: medium
 
 **Today.** No spinner, no elapsed time, no "checking…". `doctor --online`
-makes three round trips in silence (`reportCredentials`, `doctor.go:141`);
+makes three round trips in silence (`reportCredentials`,
+`internal/cli/doctor.go:129`);
 `standup` fires up to fifteen forge requests plus a Jira search
 (`gatherPulls`, `internal/cli/standup.go:192`); `status DIR…` visits each directory in
-series (`statusesOf`, `internal/cli/status.go:163`). The only trace is `--log`, which
-the subcommands cannot use (UX-52).
+series (`statusesOf`, `internal/cli/status.go:163`). The only trace is `--log`,
+which outlines each request in a file for a bug report and shows the person
+waiting nothing.
 
 **Instead.** A one-line "checking Jira…" on stderr when stderr is a
 terminal, replaced in place; nothing when it is not.

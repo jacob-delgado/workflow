@@ -55,7 +55,7 @@ gap, and which phase closes it.
 
 | # | Action | CLI | TUI | Web | Warranted? |
 | --- | --- | --- | --- | --- | --- |
-| 1 | List the view's issues | P (only `branch <tab>` completion, `completeAssignedIssues`, `internal/cli/scriptable.go:109`) | Y | Y (page 0 of the stream) | CLI read: a feature, FEAT-78 |
+| 1 | List the view's issues | P (only `branch <tab>` completion, `completeAssignedIssues`, `internal/cli/scriptable.go:121`) | Y | Y (page 0 of the stream) | CLI read: a feature, FEAT-78 |
 | 2 | Switch view / next page | N | Y (`v`, `ctrl+n`) | N (`web/src/api/snapshot.ts:39` sends no `?view=`) | **Web yes** — the stream already takes `?view=` (`internal/webserver/stream.go:38`). Phase 3, UX-72 |
 | 3 | Filter the list | N | Y (`/`, `internal/tui/issues.go:154`) | N | Web idea, UX-72; CLI no |
 | 4 | Read an issue in full | N | Y (`internal/tui/detail.go:225`) | **N** — `IssuesPanel.tsx:83` renders the slim snapshot `Issue` | **Web yes, cheap** — `getIssue` exists (`api/openapi.yaml:95`, `handlers.go:66`) and is never called. Phase 3, UX-70. CLI: FEAT-78 |
@@ -122,7 +122,7 @@ gap, and which phase closes it.
 | 40 | Write / initialize the config | Y (`config init`) | N | P (7 sections; five carried but not editable) | Interface: `config init` + `doctor` are the path — no. Web remainder: UX-87 |
 | 41 | Doctor | Y | N | N | Reasonable CLI-only; the interface points at it (`render.go:377`) |
 | 42 | Status across the loop | Y (`status DIR…`) | Y (the spine) | Y (`WorkStory`) | — |
-| 43 | Dry run | Y (two unrelated flags: `internal/cli/cli.go:202`, `internal/cli/scriptable.go:49`) | Y (per seam, `dryrun.go:25`) | **P** — a blanket 403 (`guard.go:46`), and `getHealth.dry_run` is never fetched | **Web yes, cheap** — the flag is on the wire. Phase 3, UX-71. CLI one flag: Phase 2, UX-52 |
+| 43 | Dry run | Y (two unrelated flags, now one persistent `--dry-run`: `internal/cli/cli.go:204`, `internal/cli/scriptable.go:48`) | Y (per seam, `dryrun.go:25`) | **P** — a blanket 403 (`guard.go:46`), and `getHealth.dry_run` is never fetched | **Web yes, cheap** — the flag is on the wire. Phase 3, UX-71. CLI one flag: Phase 2, UX-52 |
 | 44 | Request log `--log` | P (root only; subcommands pass `nil`) | Y | Y | Phase 2, UX-52 |
 | 45 | Help / discoverability | P (no hint on a typo, `internal/cli/cli.go:174`) | P (`?` 57/57; five Issues keys off the footer, `render.go:336`) | n/a | Phase 8 (UX-56), Phase 7 (UX-63); web `?` idea, UX-88 |
 | 46 | Version | Y | n/a | P (`getHealth.version` never fetched) | Folds into Phase 3's health call |
@@ -153,7 +153,7 @@ to see the shape.
 | A hint on misuse | **Gap** — `SilenceUsage`+`SilenceErrors` swallow cobra's | UX-56 |
 | No surprises | Partial — `branch` switches silently; `pr` pushes and transitions under one question | UX-58 |
 | Secrets never printed | Met | pinned by `internal/cli/cli_test.go:228`, `doctor_json_test.go:65` |
-| Shell completion | Met, incl. dynamic issue keys | `internal/cli/scriptable.go:109` |
+| Shell completion | Met, incl. dynamic issue keys | `internal/cli/scriptable.go:121` |
 | Docs cover the commands | **Gap** — `usage.md` is TUI-only | UX-55 |
 
 ### The terminal interface
@@ -332,19 +332,19 @@ without it, classify the CLI-local sentinels and re-point later).
   problem codes use (`docs/content/docs/errors.md`). **Decided** — the
   refined table under *Decisions the maintainer made* supersedes this one.
   Align `config show` with `doctor` when there is no file
-  (`internal/cli/config_cmd.go:94` vs `doctor.go:463`, both → 3) and `status` with
+  (`internal/cli/config_cmd.go:96` vs `internal/cli/doctor.go:434`, both → 3) and `status` with
   `status .` outside a repository (`statusHere`, `internal/cli/status.go:74`,
   vs `statusAcross`, `:89`).
 - **Streams.** The rule: stdout carries the artifact (JSON, the preview
   text, the created thing's URL, the standup draft); stderr carries
-  commentary (`Warning:` `internal/cli/config_cmd.go:325`, `Not opened.` and `dry run:
-  would …` `internal/cli/scriptable.go:67`, `:86`, the no-config guidance
-  (`showLoadError`, `internal/cli/config_cmd.go:94`), the web banner
-  `internal/cli/cli.go:265`, `config show`'s `# <path>` header
-  (`runConfigShow`, `internal/cli/config_cmd.go:332`)). Split the harness
+  commentary (`Warning:` `internal/cli/config_cmd.go:333`, `Not opened.` and `dry run:
+  would …` `internal/cli/scriptable.go:79`, `:98`, the no-config guidance
+  (`showLoadError`, `internal/cli/config_cmd.go:96`), the web banner
+  `internal/cli/cli.go:266`, `config show`'s `# <path>` header
+  (`runConfigShow`, `internal/cli/config_cmd.go:340`)). Split the harness
   **first** (`runStreams`, `internal/cli/cli_test.go:58`, returns both streams).
 - **Flags.** `--dry-run` and `--log` become root `PersistentFlags`;
-  `writeOptions.addFlags` (`internal/cli/scriptable.go:49`) stops declaring its own
+  `writeOptions.addFlags` (`internal/cli/scriptable.go:48`) stops declaring its own
   `--dry-run`; the seven wiring preambles (`runReviewsCommand`,
   `runBranchCommand`, `runPRCommand`, `status`'s `seamsFor`,
   `runStandupCommand`, `runAnnounceCommand`, `completeAssignedIssues`, and
@@ -594,7 +594,7 @@ Closes UX-73, UX-74. Depends on Phases 1 and 3.
   /api/issues/{key}/transition` (fields-less only; 409 when Jira wants
   fields), in one handler file `issuewrite.go` (mirrors
   `internal/tui/issuewrite.go`); `webserver.Deps` gains `LinkPullRequest`,
-  `Transitions`, `Transition` (mapped in `cli.webDeps`, `internal/cli/cli.go:273`).
+  `Transitions`, `Transition` (mapped in `cli.webDeps`, `internal/cli/cli.go:274`).
   `OpenedPullRequest` gains `follow_ups` (via `loop.ReviewTransition`).
   After `Pull request opened.`, the panel offers "Link it on KEY" and "Move
   KEY to STATUS" inline, each with a `role="status"` outcome.

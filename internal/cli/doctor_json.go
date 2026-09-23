@@ -75,21 +75,21 @@ type credentialLine struct {
 
 // runDoctorJSON writes the report as JSON and returns the same aggregate error
 // the prose report would, so a script can read the exit code as well as the data.
-func runDoctorJSON(ctx context.Context, out io.Writer, cfg config.Config, loadErr error, online bool) error {
+func runDoctorJSON(ctx context.Context, out io.Writer, run doctorRun) error {
 	repository, remote := repositoryFactsFor(ctx)
 	tooling, toolingErr := toolingFacts()
 
 	report := doctorReport{Version: buildinfo.Current(), Repository: repository, Tooling: tooling}
 
-	configErr := loadErr
-	if loadErr != nil {
-		report.ConfigProblem = loadErr.Error()
+	configErr := run.loadErr
+	if run.loadErr != nil {
+		report.ConfigProblem = run.loadErr.Error()
 	} else {
-		facts, problem := configurationFacts(cfg)
+		facts, problem := configurationFacts(run.cfg)
 		report.Configuration, configErr = &facts, problem
 	}
 
-	credentials, credErr := credentialFacts(ctx, cfg, remote, online)
+	credentials, credErr := credentialFacts(ctx, run, remote)
 	report.Credentials = credentials
 
 	err := encodeJSON(out, report)
@@ -97,7 +97,7 @@ func runDoctorJSON(ctx context.Context, out io.Writer, cfg config.Config, loadEr
 		return err
 	}
 
-	if loadErr != nil {
+	if run.loadErr != nil {
 		return errors.Join(toolingErr, configErr)
 	}
 
@@ -183,22 +183,24 @@ func configurationFacts(cfg config.Config) (configFacts, error) {
 // credentialFacts runs the online checks through the same functions the prose
 // report uses, capturing their already-masked output as data. Reusing them is
 // what keeps the two reports from ever masking differently.
-func credentialFacts(ctx context.Context, cfg config.Config, remote string, online bool) (credentialsFacts, error) {
-	if !online {
+func credentialFacts(ctx context.Context, run doctorRun, remote string) (credentialsFacts, error) {
+	if !run.online {
 		return credentialsFacts{Checked: false}, nil
 	}
 
-	doer := onlineDoer(cfg)
+	cfg, doers := run.cfg, onlineDoers(run.cfg, run.log)
 
 	checks := []struct {
 		service string
 		run     func(io.Writer) error
 	}{
-		{service: "jira", run: func(out io.Writer) error { return checkJira(ctx, out, doer, cfg.Jira) }},
+		{service: "jira", run: func(out io.Writer) error { return checkJira(ctx, out, doers.jira, cfg.Jira) }},
 		{service: strings.ToLower(cfg.Messaging.Service()), run: func(out io.Writer) error {
-			return checkMessaging(ctx, out, doer, messaging.APIBase, cfg.Messaging)
+			return checkMessaging(ctx, out, doers.messaging, messaging.APIBase, cfg.Messaging)
 		}},
-		{service: "forge", run: func(out io.Writer) error { return checkForge(ctx, out, doer, cfg.Forge, remote) }},
+		{service: "forge", run: func(out io.Writer) error {
+			return checkForge(ctx, out, doers.forge, cfg.Forge, remote)
+		}},
 	}
 
 	results := make([]credentialLine, 0, len(checks))

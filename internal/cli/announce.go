@@ -53,7 +53,7 @@ func newAnnounceCmd(prompt Prompt) *cobra.Command {
 		},
 	}
 
-	opts.addFlags(cmd, "posting")
+	opts.addFlags(cmd)
 
 	return cmd
 }
