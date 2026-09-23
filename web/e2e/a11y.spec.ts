@@ -56,6 +56,42 @@ for (const theme of themes) {
   })
 }
 
+// The populated build's sections: the mockup's messaging service is Slack, so
+// its section is named for it.
+const populatedSectionNames = ['Issues', 'Branch', 'Review', 'Slack', 'Settings']
+
+for (const theme of themes) {
+  test(
+    `no accessibility violations across the populated sections in the ${theme} theme`,
+    {
+      tag: '@populated',
+    },
+    async ({ page }) => {
+      // Arrange: pin the theme before the app paints, and open the checked-out
+      // issue, so its detail and work story are on screen beside the list.
+      await page.addInitScript((value) => {
+        window.localStorage.setItem('workflow-theme', value)
+      }, theme)
+      await page.goto('/')
+      await page.getByRole('button', { name: /redact tokens before/i }).click()
+      await expect(page.getByRole('link', { name: /open in jira/i })).toBeVisible()
+
+      const nav = page.getByRole('navigation', { name: 'Sections' })
+
+      for (const name of populatedSectionNames) {
+        // Act: open the section and let its heading settle.
+        await nav.getByRole('button', { name, exact: true }).click()
+        await expect(page.getByRole('heading', { level: 1, name })).toBeVisible()
+
+        // Assert: axe finds nothing on this section, filled, in this theme.
+        const violations = await scan(page)
+        const summary = violations.map((v) => `${v.id} (${String(v.nodes.length)})`).join(', ')
+        expect(violations, `${theme} / populated ${name}: ${summary}`).toEqual([])
+      }
+    },
+  )
+}
+
 // A snapshot with more issues than its page carries, so the list, its view
 // select, filter and "Load more" are all on screen for the scan.
 const issuesSnapshot = {
