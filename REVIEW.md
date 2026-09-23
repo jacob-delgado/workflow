@@ -109,8 +109,8 @@ gap, and which phase closes it.
 | --- | --- | --- | --- | --- | --- |
 | 33 | Announce: compose → preview → post | Y | Y | Y | CLI and web compose it once, in `internal/loop` (Phase 1, which closed DEBT-50); the terminal renders its own from cached state, with `loop.AnnounceMoment` |
 | 34 | Call it a "merge request" on GitLab | Y (`forge.Kind.Noun`, `internal/forge/remote.go:60`) | Y (the same) | **N** — six hardcoded strings; `ForgeKind` on the server (`webserver.go:60`), never sent | **Yes** — Phase 9, UX-73 |
-| 35 | Post when CI passes | N | Y (`internal/tui/messaging.go:394`) | N | CLI `announce --when-green` is FEAT-65's fit; web FEAT-82; not this plan |
-| 36 | Announced history (never re-offer) | **N** — no `Store` reference in `internal/cli` | Y (`internal/tui/messaging.go:204`) | **F** | **CLI yes, cheap** — record after posting, say when already announced. Phase 8, UX-60. Web: FEAT-66, declared |
+| 35 | Post when CI passes | N | Y (`internal/tui/messaging.go:393`) | N | CLI `announce --when-green` is FEAT-65's fit; web FEAT-82; not this plan |
+| 36 | Announced history (never re-offer) | **N** — no `Store` reference in `internal/cli` | Y (`internal/tui/messaging.go:203`) | **F** | **CLI yes, cheap** — record after posting, say when already announced. Phase 8, UX-60. Web: FEAT-66, declared |
 | 37 | Choose the channel | N (config only) | Y (`←`/`→`) | Y | CLI `--channel`: UX-62 |
 | 38 | Standup | Y | N | N | Reasonable CLI-only (an `$EDITOR` flow); `--dry-run`/`--yes` since Phase 2 (`offerToPost`, `internal/cli/standup.go:144`) |
 
@@ -500,10 +500,10 @@ Closes UX-67. Depends on Phase 5 (every overlay outcome then flows through
   there is none, one line — replaces the fourteen `failedGlyph() +
   err.Error()` rail sites (`internal/tui/checks.go:97`, `diff.go:79`, `issuewrite.go:120`,
   `:122`, `internal/tui/picker.go:209`, `:246`, `internal/tui/switchtask.go:107`, `:147`,
-  `internal/tui/messaging.go:147`, `internal/tui/review.go:218`, `internal/tui/run.go:211`, `internal/tui/composer.go:164`,
+  `internal/tui/messaging.go:146`, `internal/tui/review.go:218`, `internal/tui/run.go:211`, `internal/tui/composer.go:164`,
   `:176`, `internal/tui/fields.go:171`).
 - The seven bare notices (`comment.go:76`, `internal/tui/composer.go:77`,
-  `internal/tui/messaging.go:378`, `internal/tui/checks.go:233`, `:241`,
+  `internal/tui/messaging.go:377`, `internal/tui/checks.go:233`, `:241`,
   `internal/tui/merge.go:66`, `:68`) go through `m.noticed(m.failureLine(err))`;
   `render.go:386` `configErrorStatus` is styled.
 - `forgeReason` (`internal/tui/review.go:360`), `rerunReason`

@@ -29,14 +29,13 @@ type messagingState struct {
 	// moment it marked, so one pull request can be announced at each of its
 	// moments — opened, then merged — without a moment being offered twice.
 	posted []postedMoment
-	// sending is a post Slack has not answered yet, which is not offered
-	// again until it does.
-	sending bool
+	// send is a post the service has not answered yet, which is not offered
+	// again until it does, or why the last one failed.
+	send    sendState
 	pending queuedPost
 	// dropped records a post given up on and why, so the reason outlives the
 	// transient footer notice that first reports it.
 	dropped string
-	err     error
 	author  string
 }
 
@@ -141,10 +140,10 @@ func (m Model) messagingRail(_ int) string {
 // messagingState says what has happened in Slack this session.
 func (m Model) messagingState() string {
 	switch {
-	case m.messaging.sending:
+	case m.messaging.send.sending:
 		return m.marks.inFlight + " posting" + m.marks.ellipsis
-	case m.messaging.err != nil:
-		return m.failedGlyph() + " " + m.messaging.err.Error()
+	case m.messaging.send.err != nil:
+		return m.failedGlyph() + " " + m.messaging.send.err.Error()
 	case m.announced():
 		return m.marks.done + " posted"
 	case m.messaging.pending.waiting():
@@ -237,7 +236,7 @@ func (msg announcesLoaded) apply(m Model) (Model, tea.Cmd) {
 // of it already made or on its way.
 func (m Model) canPost() bool {
 	return m.review.found && m.deps.Messaging.Post != nil && m.cfg.Messaging.Mode() != config.MessagingNone &&
-		!m.announced() && !m.messaging.sending
+		!m.announced() && !m.messaging.send.sending
 }
 
 // messagingKeys offers composing the post.
@@ -405,7 +404,7 @@ func (p messagingPreview) postWhenGreen(m Model) (Model, tea.Cmd) {
 	}
 
 	m = m.closeOverlay().noticed(m.marks.inFlight + " will post to " + p.destination() + " once CI passes")
-	m.messaging.pending, m.messaging.err, m.messaging.dropped = queuedPost{
+	m.messaging.pending, m.messaging.send.err, m.messaging.dropped = queuedPost{
 		pull: m.review.pull.Number, text: p.text, channel: p.channel,
 	}, nil, ""
 
@@ -417,7 +416,7 @@ func (p messagingPreview) postWhenGreen(m Model) (Model, tea.Cmd) {
 // it twice.
 func (m Model) sendToMessaging(channel, text string, moment messaging.Moment) (Model, tea.Cmd) {
 	post, pull := m.deps.Messaging.Post, m.review.pull.Number
-	m.messaging.sending, m.messaging.pending, m.messaging.dropped = true, queuedPost{}, ""
+	m.messaging.send, m.messaging.pending, m.messaging.dropped = starting(), queuedPost{}, ""
 
 	return m, func() tea.Msg { return messagingPosted{pull: pull, moment: moment, err: post(channel, text)} }
 }
@@ -489,10 +488,9 @@ type messagingPosted struct {
 // in the pane if the post was one waiting for CI.
 func (msg messagingPosted) apply(m Model) (Model, tea.Cmd) {
 	preview, open := m.overlay.(messagingPreview)
-	m.messaging.sending = false
 
 	if msg.err != nil {
-		m.messaging.err = msg.err
+		m.messaging.send = m.messaging.send.failed(msg.err)
 
 		if open {
 			preview.send = preview.send.failed(msg.err)
@@ -502,8 +500,8 @@ func (msg messagingPosted) apply(m Model) (Model, tea.Cmd) {
 		return m.noticed(m.failure(msg.err)), nil
 	}
 
-	m.messaging.posted, m.messaging.err = append(slices.Clone(m.messaging.posted),
-		postedMoment{pull: msg.pull, moment: msg.moment}), nil
+	m.messaging.posted, m.messaging.send = append(slices.Clone(m.messaging.posted),
+		postedMoment{pull: msg.pull, moment: msg.moment}), sendState{}
 	m.recordAnnounce(msg.pull, msg.moment)
 
 	if open {

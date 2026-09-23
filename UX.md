@@ -144,7 +144,7 @@ the pull request's URL.
 Impact: medium · Effort: small
 
 **Today.** The interface seeds `posted` from the store at start
-(`internal/tui/messaging.go:204`) and records each post per moment (`:196`), so a restart
+(`internal/tui/messaging.go:203`) and records each post per moment (`:195`), so a restart
 never re-offers an announcement that already went out. `workflow announce`
 consults no store at all — no `Store`, `RecordAnnounce` or `Announced`
 reference exists anywhere in `internal/cli` — so a second run posts a second
@@ -209,7 +209,7 @@ work: `ctrl+w` (worktree) is filed under "Branch and Commits" (`keys.go:225`)
 and listed under pane 2 in `docs/content/docs/usage.md:91`, but only the branch creator
 answers it (`internal/tui/branch.go:404`); `w` post-when-green is filed under "Review and
 Slack" (`keys.go:245`) and listed under pane 5 in `docs/content/docs/usage.md:103`, but only the
-preview answers it (`internal/tui/messaging.go:355`).
+preview answers it (`internal/tui/messaging.go:354`).
 
 **Instead.** The Issues pane's `keys(m)` includes the five when their seams
 are wired; the two overlay-only keys move to the overlay groups; the docs
@@ -251,7 +251,7 @@ at …: dial tcp …` instead of the sentence. Fourteen rail sites are
 `issuewrite.go:120`, `internal/tui/picker.go:209`, `internal/tui/switchtask.go:107`, `internal/tui/review.go:218`,
 `internal/tui/run.go:211`, `internal/tui/composer.go:164`, `internal/tui/fields.go:171`, …); eight are glyph-only
 summaries; seven are notices with no glyph and no red (`comment.go:76`,
-`internal/tui/composer.go:77`, `internal/tui/messaging.go:378`, `internal/tui/checks.go:233`,
+`internal/tui/composer.go:77`, `internal/tui/messaging.go:377`, `internal/tui/checks.go:233`,
 `:241`, `internal/tui/merge.go:66`, `:68`); one config screen is unstyled
 (`render.go:386`). `render.go:372` points at `workflow doctor` only for a
 *missing* setting, never a failing one; `forgeReason` (`internal/tui/review.go:360`),

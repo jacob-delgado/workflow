@@ -66,7 +66,7 @@ Severity: low · Confidence: measured
 `scripts/check-file-length.sh --list` flags four source files past the
 500-line soft target — `internal/forge/github.go` (551),
 `internal/gitrepo/branch.go` (532), `internal/tui/prcomposer.go` (522) and
-`internal/tui/messaging.go` (514) — and five test files
+`internal/tui/messaging.go` (512) — and five test files
 (`internal/messaging/post_test.go` 738, `internal/tui/messaging_test.go`
 606, `internal/webserver/pullrequest_test.go` 601,
 `internal/tui/composer_test.go` 566, `internal/jira/detail_test.go` 501).
@@ -85,26 +85,6 @@ the same commit.
 
 **Done when.** `check-file-length.sh --list` flags nothing `soft`.
 
-### DEBT-56 The Messaging pane keeps its own "in flight" flag instead of `sendState`
-
-Severity: low · Confidence: read
-
-`sendState` (`internal/tui/sendstate.go:10`) exists so that "in flight, then
-failed with this" is named once, and every overlay that sends a request
-now uses it — the task switcher (`internal/tui/switchtask.go:81`) and the
-merge and finish previews (`internal/tui/merge.go:132`,
-`internal/tui/finish.go:66`) the latest, the two previews since keeping a
-refusal pinned in the overlay rather than demoting it to a notice. One
-place still carries its own pair: the Messaging pane's
-`messagingState.sending` beside its `err` (`internal/tui/messaging.go:34`).
-It loses no refusal — the pane shows it — so what is left is the second
-spelling of one idea.
-
-**One way to fix it.** The pane's state adopts `sendState`.
-
-**Done when.** `grep -nE '(sending|merging|finishing)\s+bool'
-internal/tui/*.go` matches only `sendstate.go`.
-
 ### DEBT-57 The same overlay shapes, written twelve, five and three times
 
 Severity: low · Confidence: read
@@ -115,7 +95,7 @@ Severity: low · Confidence: read
   `internal/tui/issuelink.go:98`, `internal/tui/preditor.go:162`,
   `internal/tui/prcomposer.go:486`, `internal/tui/hookgen.go:153`,
   `internal/tui/switchtask.go:228`, `internal/tui/comment.go:169`,
-  `internal/tui/messaging.go:491`, `internal/tui/checks.go:224`,
+  `internal/tui/messaging.go:490`, `internal/tui/checks.go:224`,
   `internal/tui/merge.go:88`, `internal/tui/finish.go:141`.
 - Five list-picker bodies with identical `up`/`down`/`confirm`/`esc` and a
   `window`-scrolled `rows`: `internal/tui/picker.go:225`, `internal/tui/picker.go:423`,
@@ -127,8 +107,8 @@ Severity: low · Confidence: read
   `internal/tui/prcomposer.go:301`) and two blur-all-then-focus-one switches
   (`internal/tui/composer.go:295`, `internal/tui/prcomposer.go:322`).
 
-The rule of three is met several times over. DEBT-56 and the failure-voice
-work in UX.md reduce the first group as a side effect; a generic picker
+The rule of three is met several times over. A helper that pins a failure
+in whichever overlay asked would serve the first group, and a generic picker
 would remove the second.
 
 **Done when.** One picker type renders the five lists; the appliers share a

@@ -3,10 +3,11 @@
 
 package tui
 
-// sendState is an overlay's outbound request: whether it is in flight, and the
-// error it came back with. Every overlay that posts, applies or writes carries
-// one, so "in flight, then failed with this" is written and named one way rather
-// than as a sending bool beside an err, an applyErr or a problem.
+// sendState is an outbound request: whether it is in flight, and the error it
+// came back with. Every overlay that posts, applies or writes carries one, and
+// so does the Messaging pane's own post, so "in flight, then failed with this"
+// is written and named one way rather than as a sending bool beside an err, an
+// applyErr or a problem.
 type sendState struct {
 	sending bool
 	err     error
