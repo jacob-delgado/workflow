@@ -43,7 +43,10 @@ type prSeams struct {
 	// ReviewStatus is the status an issue moves to once its pull request is open,
 	// offered after opening. Empty makes no offer.
 	ReviewStatus string
-	Confirm      func(question string) (bool, error)
+	// Kind is the forge, whose own words — a merge request, marked "!" on
+	// GitLab — the questions and the result use.
+	Kind    forge.Kind
+	Confirm func(question string) (bool, error)
 }
 
 // newPRCmd builds `workflow pr`.
@@ -93,6 +96,7 @@ func runPRCommand(cmd *cobra.Command, prompt Prompt, opts writeOptions) error {
 		Transitions:  deps.Jira.Transitions,
 		Transition:   deps.Jira.Transition,
 		ReviewStatus: cfg.Jira.ReviewStatus,
+		Kind:         deps.Forge.Kind,
 		Confirm:      func(question string) (bool, error) { return confirm(prompt, question) },
 	}
 
@@ -110,8 +114,10 @@ func runPR(out output, seams prSeams, opts writeOptions) error {
 	fmt.Fprintln(out.artifact, "Open "+request.Title)
 	fmt.Fprintln(out.artifact, "  "+branch.Name+" → "+request.Base)
 
+	noun := seams.Kind.Noun()
+
 	proceed, err := opts.proceed(out.notes, seams.Confirm, writePrompt{
-		question: "Open the pull request?",
+		question: openQuestion(branch, noun),
 		dryRun:   "dry run: would " + pushClause(branch) + "open " + request.Title,
 		declined: "Not opened.",
 	})
@@ -126,10 +132,10 @@ func runPR(out output, seams prSeams, opts writeOptions) error {
 
 	pull, err := seams.CreatePull(request)
 	if err != nil {
-		return fmt.Errorf("opening the pull request: %w", err)
+		return fmt.Errorf("opening the %s: %w", noun, err)
 	}
 
-	fmt.Fprintln(out.artifact, "Opened #"+strconv.Itoa(pull.Number)+" "+pull.URL)
+	fmt.Fprintln(out.artifact, "Opened "+seams.Kind.Sigil()+strconv.Itoa(pull.Number)+" "+pull.URL)
 
 	key, _ := convention.IssueKey(branch.Name, seams.Options.Project)
 
@@ -191,6 +197,17 @@ func offerReviewStatus(notes io.Writer, seams prSeams, issueKey jira.Key, opts w
 	fmt.Fprintln(notes, "Moved "+string(issueKey)+" to "+target.ToStatus)
 
 	return nil
+}
+
+// openQuestion asks to open the pull request, named by the forge's noun, and
+// names the push that comes first when the branch is not yet on its remote, so
+// a yes is never taken for more than was asked.
+func openQuestion(branch gitrepo.Branch, noun string) string {
+	if branch.Pushed() {
+		return "Open the " + noun + "?"
+	}
+
+	return "Push " + branch.Name + " and open the " + noun + "?"
 }
 
 // pushClause names the push a not-yet-pushed branch needs first, for the dry-run

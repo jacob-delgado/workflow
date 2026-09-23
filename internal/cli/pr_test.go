@@ -34,6 +34,66 @@ func prRepo(t *testing.T, branch string) string {
 	return repo
 }
 
+func TestPRQuestionNamesThePush(t *testing.T) {
+	cases := map[string]struct {
+		published bool
+		want      string
+	}{
+		"a branch not yet pushed": {want: "Push fix/PROJ-2-thing and open the pull request?"},
+		"a branch already pushed": {published: true, want: "Open the pull request?"},
+	}
+
+	for name, tt := range cases {
+		t.Run(name, func(t *testing.T) {
+			// Arrange
+			fakeGh(t, ghResponses{})
+			repo := githubRepo(t, "fix/PROJ-2-thing")
+
+			if tt.published {
+				pretendPushed(t, repo)
+			}
+
+			writeFile(t, repo, `{"forge":{"cli":true,"kind":"github","host":"github.com"}}`)
+
+			var asked []string
+
+			// Act
+			_, err := runStreams(t, repo, answering("n", &asked), "pr")
+
+			// Assert
+			if err != nil || len(asked) != 1 || !strings.HasPrefix(asked[0], tt.want) {
+				t.Errorf("pr = %v, asked %q; want the one question %q", err, asked, tt.want)
+			}
+		})
+	}
+}
+
+func TestPROpensAMergeRequestInGitLabsWords(t *testing.T) {
+	// Arrange
+	fakeGlab(t)
+	repo := prRepo(t, "fix/PROJ-2-thing")
+	git(t, repo, "remote", "add", "origin", "https://gitlab.com/owner/repo.git")
+	pretendPushed(t, repo)
+	writeFile(t, repo, `{"forge":{"cli":true,"kind":"gitlab","host":"gitlab.com"}}`)
+
+	var asked []string
+
+	// Act
+	printed, err := runStreams(t, repo, answering("y", &asked), "pr")
+	// Assert
+	if err != nil {
+		t.Fatalf("pr: %v (%+v)", err, printed)
+	}
+
+	if len(asked) != 1 || !strings.HasPrefix(asked[0], "Open the merge request?") {
+		t.Errorf("pr asked %q, want GitLab's noun in its question", asked)
+	}
+
+	if !strings.Contains(printed.stdout, "Opened !7 "+gitlabMergeRequest) {
+		t.Errorf("pr printed %q, want the merge request marked with GitLab's sigil", printed.stdout)
+	}
+}
+
 func TestPRDryRunPreviewsWithoutOpening(t *testing.T) {
 	// Arrange
 	repo := prRepo(t, "fix/PROJ-2-thing")

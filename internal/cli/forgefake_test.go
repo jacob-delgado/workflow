@@ -95,6 +95,40 @@ func fakeGh(t *testing.T, responses ghResponses) {
 	t.Setenv("PATH", dir+string(os.PathListSeparator)+os.Getenv("PATH"))
 }
 
+// gitlabMergeRequest is the merge request a fake glab opens.
+const gitlabMergeRequest = "https://gitlab.com/owner/repo/-/merge_requests/7"
+
+// fakeGlab installs a stand-in `glab` on PATH that answers `glab api --include
+// <path>` as a GitLab project with no merge request yet, and opens one when
+// asked, so a black-box test drives a GitLab forge through its CLI transport.
+func fakeGlab(t *testing.T) {
+	t.Helper()
+
+	dir := t.TempDir()
+	bodies := map[string]string{
+		"list":    "[]",
+		"create":  `{"iid":7,"web_url":"` + gitlabMergeRequest + `","title":"work","state":"opened"}`,
+		"default": `{}`,
+	}
+
+	for name, body := range bodies {
+		writeExecutable(t, filepath.Join(dir, "resp-"+name), body, 0o644)
+	}
+
+	script := "#!/bin/sh\n" +
+		"for a in \"$@\"; do path=\"$a\"; done\n" +
+		"case \"$path\" in\n" +
+		"  *\"/merge_requests?\"*) f=list ;;\n" +
+		"  *\"/merge_requests\") f=create ;;\n" +
+		"  *) f=default ;;\n" +
+		"esac\n" +
+		"printf 'HTTP/1.1 200 OK\\r\\nContent-Type: application/json\\r\\n\\r\\n'\n" +
+		"cat \"" + dir + "/resp-$f\"\n"
+
+	writeExecutable(t, filepath.Join(dir, "glab"), script, 0o755)
+	t.Setenv("PATH", dir+string(os.PathListSeparator)+os.Getenv("PATH"))
+}
+
 // writeRepoFile writes contents to a path under repo, creating parent directories
 // — for a repository file the command reads, such as a pull request template.
 func writeRepoFile(t *testing.T, repo, rel, contents string) {

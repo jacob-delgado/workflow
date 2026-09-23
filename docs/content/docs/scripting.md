@@ -85,7 +85,7 @@ asks, and the error itself, prefixed `workflow:`.
 | `config init` | with `--dry-run`, the file it would write, as JSON, masked | progress, the checks, "Wrote …", what to do next, a warning when the file is not ignored by git |
 | `standup` | the draft | "Nothing to share.", the dry-run line, "Not posted.", "Posted to …" |
 | `branch` | `Branch NAME from BASE and switch to it`, then `Created NAME` | the dry-run line, "Not created." |
-| `pr` | `Open TITLE` and `BRANCH → BASE`, then `Opened #N URL` | the dry-run line, "Not opened.", the review-status offer and its outcome |
+| `pr` | `Open TITLE` and `BRANCH → BASE`, then `Opened #N URL` (`!N` on GitLab) | the dry-run line, "Not opened.", the review-status offer and its outcome |
 | `announce` | the message and where it goes | the dry-run line, "Not posted.", "Posted to …" |
 | `workflow --web` | | the address it serves on |
 
