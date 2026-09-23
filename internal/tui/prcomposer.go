@@ -16,6 +16,7 @@ import (
 	"github.com/jacob-delgado/workflow/internal/convention"
 	"github.com/jacob-delgado/workflow/internal/forge"
 	"github.com/jacob-delgado/workflow/internal/jira"
+	"github.com/jacob-delgado/workflow/internal/loop"
 )
 
 // prLabelWidth is the columns a pull request field's marker, label, prompt and
@@ -104,11 +105,7 @@ func (c prComposer) restore(draft prDraft) prComposer {
 // openPullRequestComposer proposes a pull request for the branch.
 func (m Model) openPullRequestComposer() (Model, tea.Cmd) {
 	branch := m.branch.branch
-
-	subjects := make([]string, 0, len(branch.Commits))
-	for _, commit := range branch.Commits {
-		subjects = append(subjects, commit.Subject)
-	}
+	subjects := loop.Subjects(branch.Commits)
 
 	issueKey, _ := m.branchIssue()
 	issue, _ := m.issues.find(issueKey)

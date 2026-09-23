@@ -12,7 +12,7 @@ import (
 	"github.com/jacob-delgado/workflow/internal/convention"
 	"github.com/jacob-delgado/workflow/internal/forge"
 	"github.com/jacob-delgado/workflow/internal/gitrepo"
-	"github.com/jacob-delgado/workflow/internal/jira"
+	"github.com/jacob-delgado/workflow/internal/loop"
 )
 
 // errNothingToOpen refuses opening a pull request when there is nothing to open
@@ -59,9 +59,9 @@ func (s *server) OpenPullRequest(
 		return openUnprocessable("a title and a base branch are required"), nil
 	}
 
-	err := s.ensurePushed(branch)
+	err := loop.EnsurePushed(s.deps.Push, branch)
 	if err != nil {
-		return openUnprocessable(err.Error()), nil
+		return openUnprocessable(pushFailure(err)), nil
 	}
 
 	pull, err := s.deps.CreatePull(newPull)
@@ -89,83 +89,24 @@ func (s *server) canOpenPull() bool {
 
 // composePullRequest builds the pull request to propose for the checked-out
 // branch from its commits, the branch's issue, and the repository's template.
-// It reports false when there is nothing to open: the tree is not on a branch,
-// the branch has no commits, or a pull request is already open for it.
+// It reports false when there is nothing to open — the tree is not on a branch,
+// the branch has no commits or cannot be read, or a pull request is already open
+// for it — which every caller answers with the same 409.
 func (s *server) composePullRequest() (forge.NewPullRequest, gitrepo.Branch, bool) {
-	if s.deps.Branch == nil || s.deps.FindPull == nil {
-		return forge.NewPullRequest{}, gitrepo.Branch{}, false
-	}
+	cfg := s.config()
 
-	branch, err := s.deps.Branch()
-	if err != nil || branch.Name == "" || len(branch.Commits) == 0 {
-		return forge.NewPullRequest{}, gitrepo.Branch{}, false
-	}
+	draft, branch, err := loop.ComposePull(loop.PullSeams{
+		Branch:    s.deps.Branch,
+		FindPull:  s.deps.FindPull,
+		Templates: s.deps.Templates,
+		Issue:     s.deps.Issue,
+		BrowseURL: s.deps.BrowseURL,
+	}, loop.PullOptions{
+		Project:     cfg.Jira.Project,
+		TitleSource: convention.TitleSource(cfg.PullRequest.TitleSource),
+	})
 
-	// Only an open pull request means there is nothing to open. A merged one is
-	// also found, but its branch may still carry new commits worth a fresh pull
-	// request, so it does not stand in the way of proposing one; nor does a forge
-	// that cannot be read, whose own answer comes back when the open is tried.
-	pull, found, err := s.deps.FindPull(branch.Name)
-	if err == nil && found && pull.IsOpen() {
-		return forge.NewPullRequest{}, gitrepo.Branch{}, false
-	}
-
-	return s.draftFor(branch), branch, true
-}
-
-// draftFor composes the pull request for branch: a title and body from its
-// commits, the issue, and the repository's first template, and the base branch
-// it would merge into.
-func (s *server) draftFor(branch gitrepo.Branch) forge.NewPullRequest {
-	subjects := commitSubjects(branch.Commits)
-	key, _ := convention.IssueKey(branch.Name, s.config().Jira.Project)
-	issueKey := jira.Key(key)
-
-	titleSource := convention.TitleSource(s.config().PullRequest.TitleSource)
-
-	return forge.NewPullRequest{
-		Title: convention.PullRequestTitleFrom(titleSource, subjects, key, s.issueSummary(issueKey)),
-		Body:  convention.PullRequestBody(s.template(), subjects, key, s.issueURL(issueKey)),
-		Head:  branch.Name,
-		Base:  branch.BaseName(),
-		Draft: false,
-	}
-}
-
-// commitSubjects is the subject line of each commit, oldest first, for the title
-// and body proposals.
-func commitSubjects(commits []gitrepo.Commit) []string {
-	subjects := make([]string, 0, len(commits))
-	for _, commit := range commits {
-		subjects = append(subjects, commit.Subject)
-	}
-
-	return subjects
-}
-
-// template is the first repository pull request template's body, or empty when
-// there is none — the body then falls back to the branch's commits.
-func (s *server) template() string {
-	if s.deps.Templates == nil {
-		return ""
-	}
-
-	templates := s.deps.Templates()
-	if len(templates) == 0 {
-		return ""
-	}
-
-	return templates[0].Body
-}
-
-// ensurePushed publishes the branch when it is not yet on its remote, since a
-// pull request cannot open from an unpushed branch. A pushed branch is a no-op.
-func (s *server) ensurePushed(branch gitrepo.Branch) error {
-	if branch.Pushed() {
-		return nil
-	}
-
-	return s.pushBranch(branch.Name)
+	return draft, branch, err == nil
 }
 
 // pullFromRequest builds the pull request to open from the request body and the

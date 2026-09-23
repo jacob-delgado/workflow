@@ -11,6 +11,7 @@ import (
 
 	"github.com/jacob-delgado/workflow/internal/api"
 	"github.com/jacob-delgado/workflow/internal/gitrepo"
+	"github.com/jacob-delgado/workflow/internal/loop"
 )
 
 // errPushFailed carries the push's own output, so the caller learns why it did
@@ -37,9 +38,9 @@ func (s *server) Push(_ context.Context, _ api.PushRequestObject) (api.PushRespo
 		return api.Push409ApplicationProblemPlusJSONResponse(problem(api.Conflict, "there is nothing to push")), nil
 	}
 
-	err = s.pushBranch(branch.Name)
+	err = loop.Push(s.deps.Push, branch.Name)
 	if err != nil {
-		return pushUnprocessable(err.Error()), nil
+		return pushUnprocessable(pushFailure(err)), nil
 	}
 
 	return api.Push200JSONResponse(branchDTO(s.publishedBranch(branch))), nil
@@ -57,25 +58,14 @@ func nothingToPush(branch gitrepo.Branch) bool {
 	return branch.Upstream != "" && branch.Ahead == 0
 }
 
-// pushBranch pushes branchName, draining the output so the push runs to
-// completion, and reports a failed push with the output that explains why.
-func (s *server) pushBranch(branchName string) error {
-	output, err := s.deps.Push(branchName)
-	if err != nil {
-		return fmt.Errorf("starting the push: %w", err)
+// pushFailure words a push that did not publish the branch: the push's own
+// output when it ran and failed, and why it could not start otherwise.
+func pushFailure(err error) string {
+	if failed, ok := errors.AsType[loop.PushFailedError](err); ok {
+		return fmt.Errorf("%w:\n%s", errPushFailed, strings.Join(failed.Output, "\n")).Error()
 	}
 
-	var lines []string
-	for line := range output.Lines {
-		lines = append(lines, line)
-	}
-
-	err = output.Wait()
-	if err != nil {
-		return fmt.Errorf("%w:\n%s", errPushFailed, strings.Join(lines, "\n"))
-	}
-
-	return nil
+	return fmt.Errorf("starting the push: %w", err).Error()
 }
 
 // publishedBranch re-reads the branch after a successful push, for the upstream

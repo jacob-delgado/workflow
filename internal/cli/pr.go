@@ -18,6 +18,7 @@ import (
 	"github.com/jacob-delgado/workflow/internal/forge"
 	"github.com/jacob-delgado/workflow/internal/gitrepo"
 	"github.com/jacob-delgado/workflow/internal/jira"
+	"github.com/jacob-delgado/workflow/internal/loop"
 	"github.com/jacob-delgado/workflow/internal/proc"
 	"github.com/jacob-delgado/workflow/internal/wiring"
 )
@@ -35,19 +36,13 @@ var errPushFailed = errors.New("the branch could not be pushed")
 // prSeams are what `workflow pr` reads and does, so a test can answer without a
 // repository or a forge.
 type prSeams struct {
-	Branch      func() (gitrepo.Branch, error)
-	FindPull    func(branch string) (forge.PullRequest, bool, error)
-	Templates   func() []forge.Template
-	Issue       func(jira.Key) (jira.IssueDetail, error)
-	BrowseURL   func(jira.Key) string
+	// Compose and Options are what the pull request is composed from, and under.
+	Compose     loop.PullSeams
+	Options     loop.PullOptions
 	Push        func(branch string) (proc.Output, error)
 	CreatePull  func(forge.NewPullRequest) (forge.PullRequest, error)
 	Transitions func(jira.Key) ([]jira.Transition, error)
 	Transition  func(jira.Key, jira.Transition, []jira.FieldValue) error
-	Project     string
-	// TitleSource decides where a pull request's title comes from: the branch's
-	// oldest commit by default, or the issue it names.
-	TitleSource convention.TitleSource
 	// ReviewStatus is the status an issue moves to once its pull request is open,
 	// offered after opening. Empty makes no offer.
 	ReviewStatus string
@@ -89,17 +84,21 @@ func runPRCommand(cmd *cobra.Command, prompt Prompt, opts writeOptions) error {
 	deps := wiring.Deps(ctx, cfg, wiring.Locate(ctx, dir), nil)
 
 	seams := prSeams{
-		Branch:       deps.Git.Branch,
-		FindPull:     deps.Forge.FindPullRequest,
-		Templates:    deps.Forge.Templates,
-		Issue:        deps.Jira.Issue,
-		BrowseURL:    deps.Jira.BrowseURL,
+		Compose: loop.PullSeams{
+			Branch:    deps.Git.Branch,
+			FindPull:  deps.Forge.FindPullRequest,
+			Templates: deps.Forge.Templates,
+			Issue:     deps.Jira.Issue,
+			BrowseURL: deps.Jira.BrowseURL,
+		},
+		Options: loop.PullOptions{
+			Project:     cfg.Jira.Project,
+			TitleSource: convention.TitleSource(cfg.PullRequest.TitleSource),
+		},
 		Push:         deps.Git.Push,
 		CreatePull:   deps.Forge.CreatePullRequest,
 		Transitions:  deps.Jira.Transitions,
 		Transition:   deps.Jira.Transition,
-		Project:      cfg.Jira.Project,
-		TitleSource:  convention.TitleSource(cfg.PullRequest.TitleSource),
 		ReviewStatus: cfg.Jira.ReviewStatus,
 		Confirm:      func(question string) (bool, error) { return confirm(prompt, question) },
 	}
@@ -110,20 +109,11 @@ func runPRCommand(cmd *cobra.Command, prompt Prompt, opts writeOptions) error {
 // runPR composes the pull request, previews it, pushes the branch when needed,
 // and opens it once confirmed.
 func runPR(out io.Writer, seams prSeams, opts writeOptions) error {
-	branch, err := seams.Branch()
+	request, branch, err := loop.ComposePull(seams.Compose, seams.Options)
 	if err != nil {
-		return fmt.Errorf("reading the branch: %w", err)
+		return composeRefusal(err)
 	}
 
-	if branch.Name == "" || len(branch.Commits) == 0 {
-		return errNoCommitsToOpen
-	}
-
-	if pull, found, _ := seams.FindPull(branch.Name); found && pull.IsOpen() {
-		return errPullAlreadyOpen
-	}
-
-	request := composePR(seams, branch)
 	fmt.Fprintln(out, "Open "+request.Title)
 	fmt.Fprintln(out, "  "+branch.Name+" → "+request.Base)
 
@@ -136,9 +126,9 @@ func runPR(out io.Writer, seams prSeams, opts writeOptions) error {
 		return err
 	}
 
-	err = ensurePushed(seams, branch)
+	err = loop.EnsurePushed(seams.Push, branch)
 	if err != nil {
-		return err
+		return pushFailure(branch.Name, err)
 	}
 
 	pull, err := seams.CreatePull(request)
@@ -148,9 +138,31 @@ func runPR(out io.Writer, seams prSeams, opts writeOptions) error {
 
 	fmt.Fprintln(out, "Opened #"+strconv.Itoa(pull.Number)+" "+pull.URL)
 
-	key, _ := convention.IssueKey(branch.Name, seams.Project)
+	key, _ := convention.IssueKey(branch.Name, seams.Options.Project)
 
 	return offerReviewStatus(out, seams, jira.Key(key), opts)
+}
+
+// composeRefusal words a refusal to compose in the command line's own terms.
+func composeRefusal(err error) error {
+	switch {
+	case errors.Is(err, loop.ErrNothingToOpen):
+		return errNoCommitsToOpen
+	case errors.Is(err, loop.ErrPullAlreadyOpen):
+		return errPullAlreadyOpen
+	default:
+		return err
+	}
+}
+
+// pushFailure words a push that did not publish the branch: with the push's own
+// output when it ran and failed, and with why it could not start otherwise.
+func pushFailure(name string, err error) error {
+	if failed, ok := errors.AsType[loop.PushFailedError](err); ok {
+		return fmt.Errorf("%w:\n%s", errPushFailed, strings.Join(failed.Output, "\n"))
+	}
+
+	return fmt.Errorf("pushing %s: %w", name, err)
 }
 
 // offerReviewStatus offers to move the branch's issue to the configured review
@@ -217,50 +229,6 @@ func transitionTo(moves []jira.Transition, status string) (jira.Transition, bool
 	return jira.Transition{}, false
 }
 
-// composePR builds the pull request from the branch's commits, the issue, and
-// the repository's first template.
-func composePR(seams prSeams, branch gitrepo.Branch) forge.NewPullRequest {
-	subjects := make([]string, 0, len(branch.Commits))
-	for _, commit := range branch.Commits {
-		subjects = append(subjects, commit.Subject)
-	}
-
-	key, _ := convention.IssueKey(branch.Name, seams.Project)
-	issueKey := jira.Key(key)
-
-	return forge.NewPullRequest{
-		Title: convention.PullRequestTitleFrom(seams.TitleSource, subjects, key, issueSummary(seams, issueKey)),
-		Body:  convention.PullRequestBody(prTemplate(seams), subjects, key, issueURL(seams, issueKey)),
-		Head:  branch.Name,
-		Base:  branch.BaseName(),
-	}
-}
-
-// ensurePushed publishes the branch when origin does not have it yet, since a
-// pull request cannot open from an unpushed branch.
-func ensurePushed(seams prSeams, branch gitrepo.Branch) error {
-	if branch.Pushed() {
-		return nil
-	}
-
-	output, err := seams.Push(branch.Name)
-	if err != nil {
-		return fmt.Errorf("pushing %s: %w", branch.Name, err)
-	}
-
-	var lines []string
-	for line := range output.Lines {
-		lines = append(lines, line)
-	}
-
-	err = output.Wait()
-	if err != nil {
-		return fmt.Errorf("%w:\n%s", errPushFailed, strings.Join(lines, "\n"))
-	}
-
-	return nil
-}
-
 // pushClause names the push a not-yet-pushed branch needs first, for the dry-run
 // line, or nothing when the branch is already up.
 func pushClause(branch gitrepo.Branch) string {
@@ -269,40 +237,4 @@ func pushClause(branch gitrepo.Branch) string {
 	}
 
 	return "push " + branch.Name + " and "
-}
-
-// prTemplate is the first repository pull request template's body, or empty when
-// there is none.
-func prTemplate(seams prSeams) string {
-	templates := seams.Templates()
-	if len(templates) == 0 {
-		return ""
-	}
-
-	return templates[0].Body
-}
-
-// issueSummary is the branch issue's summary, or empty when the branch names no
-// issue or the tracker cannot say — the pull request reads without it.
-func issueSummary(seams prSeams, key jira.Key) string {
-	if key == "" {
-		return ""
-	}
-
-	detail, err := seams.Issue(key)
-	if err != nil {
-		return ""
-	}
-
-	return detail.Issue.Summary
-}
-
-// issueURL links the issue, or empty when the branch names no issue or the
-// tracker has no web address for one — issues read from the forge have none.
-func issueURL(seams prSeams, key jira.Key) string {
-	if key == "" || seams.BrowseURL == nil {
-		return ""
-	}
-
-	return seams.BrowseURL(key)
 }

@@ -241,6 +241,22 @@ func TestPRRefusesASecondPullRequest(t *testing.T) {
 	}
 }
 
+func TestPRRefusesASecondPullRequestInItsOwnWords(t *testing.T) {
+	// Arrange
+	// The refusal is the command line's own sentence, not the shared layer's.
+	fakeGh(t, ghResponses{pulls: openPull("Add login")})
+	repo := githubRepo(t, "fix/PROJ-2-thing")
+	writeFile(t, repo, `{"forge":{"cli":true,"kind":"github","host":"github.com"}}`)
+
+	// Act
+	_, err := run(t, repo, "pr", "--yes")
+
+	// Assert
+	if err == nil || !strings.Contains(err.Error(), "an open pull request already exists for this branch") {
+		t.Errorf("pr = %v, want the command line's refusal of a second pull request", err)
+	}
+}
+
 func TestPRRefusesABranchWithNoCommits(t *testing.T) {
 	// Arrange
 	// A branch level with main has nothing to propose.

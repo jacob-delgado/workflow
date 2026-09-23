@@ -78,7 +78,7 @@ Impact: medium · Effort: medium
   with its fields, comment, assign and log work; the command line can do
   none of those on its own — `workflow branch <tab>` completes assigned keys
   (`internal/cli/scriptable.go:70`) and `workflow pr` transitions as a side
-  effect (`internal/cli/pr.go:161`), and that is all. A script that wants
+  effect (`internal/cli/pr.go:173`), and that is all. A script that wants
   "the issues in my view" or "move PROJ-1 to In Review" has nothing to call.
 - Touches: `internal/cli` (new `issues`, `issue`, `transition`, `comment`,
   `assign` and `worklog` commands over the seams already on `tui.Deps` —
