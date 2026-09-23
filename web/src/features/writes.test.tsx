@@ -283,6 +283,7 @@ const writes: Write[] = [
     said: 'Staged notes.txt.',
     endpoint: '/api/stage',
     fallback: 'notes.txt was not staged. Try again, or stage it from a terminal to see why.',
+    keeps: 'Unstage notes.txt',
   },
   {
     name: 'unstage a file',
@@ -296,6 +297,7 @@ const writes: Write[] = [
     said: 'Unstaged notes.txt.',
     endpoint: '/api/unstage',
     fallback: 'notes.txt was not unstaged. Try again, or unstage it from a terminal to see why.',
+    keeps: 'Stage notes.txt',
   },
   {
     name: 'stage all',
@@ -453,32 +455,29 @@ test.each(previews)('$name refused with no reason says what to do next', async (
 // acceptingOnce is the routes each taking the first request and refusing every
 // one after it, with no reason of its own.
 function acceptingOnce(routes: Record<string, unknown>): Record<string, unknown> {
-  return Object.fromEntries(
-    Object.entries(routes).map(([path, answer]) => {
-      let taken = 0
+  const taken = new Set<string>()
+  const answer = (path: string) => {
+    const first = !taken.has(path)
+    taken.add(path)
 
-      return [
-        path,
-        () => {
-          taken += 1
+    return first ? routes[path] : Response.json({}, { status: 500 })
+  }
 
-          return taken === 1 ? answer : Response.json({}, { status: 500 })
-        },
-      ]
-    }),
-  )
+  return Object.fromEntries(Object.keys(routes).map((path) => [path, () => answer(path)]))
 }
 
 // The writes whose control stays to be pressed again while the snapshot stands
-// still, each sent to its one route.
-const repeatable = writes.filter((write) =>
-  [
-    'commit',
-    'push',
-    'check out from the list',
-    'check out from the work story',
-    'start work',
-  ].includes(write.name),
+// still: all but those that step aside once made, and the save, whose read
+// shares its route.
+const repeatable = writes.filter(
+  (write) =>
+    ![
+      'open a pull request',
+      'link it on the issue',
+      'move the issue',
+      'announce',
+      'save the configuration',
+    ].includes(write.name),
 )
 
 test.each(repeatable)('$name made again and refused takes the last success away', async (write) => {

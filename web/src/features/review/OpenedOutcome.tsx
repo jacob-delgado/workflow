@@ -1,8 +1,7 @@
-import { useEffect, useRef } from 'react'
 import type { FollowUp, OpenedPullRequest } from '@/api/generated/types.gen.ts'
 import { useForgeWords } from '@/api/health.ts'
-import { useAsyncAction, type AsyncState } from '@/lib/useAsyncAction.ts'
-import { cn } from '@/lib/utils.ts'
+import { OutcomeLine, useOutcome } from '@/lib/Outcome.tsx'
+import { useAsyncAction } from '@/lib/useAsyncAction.ts'
 import { linkOnIssue, moveToReview } from './followUpApi.ts'
 
 // OpenedOutcome follows the line saying the pull request opened: the warning
@@ -63,22 +62,19 @@ function offerWords(offer: FollowUp, pull: string, noun: string): OfferWords {
   }
 }
 
-// FollowUpOffer is one offer after opening: a button that makes the write, and
-// a live line that says how it went. Once the write is made the button goes —
-// it cannot be made twice — and focus lands on what it said.
+// FollowUpOffer is one offer after opening: a button that makes the write, a
+// live line that says it was made, and why when it was refused. Once the write
+// is made the button goes — it cannot be made twice — and focus follows to what
+// it said, unless the user has moved on.
 function FollowUpOffer({ offer, pull, noun }: { offer: FollowUp; pull: string; noun: string }) {
   const words = offerWords(offer, pull, noun)
-  const { state, message, error, run } = useAsyncAction(words.act, {
+  const outcome = useOutcome()
+  const { state, error, run } = useAsyncAction(words.act, {
     fallback: words.fallback,
     done: () => words.done,
+    onStart: outcome.clear,
+    onDone: outcome.say,
   })
-  const outcome = useRef<HTMLParagraphElement>(null)
-
-  useEffect(() => {
-    if (state === 'done') {
-      outcome.current?.focus()
-    }
-  }, [state])
 
   return (
     <div className="flex flex-col gap-1">
@@ -94,24 +90,12 @@ function FollowUpOffer({ offer, pull, noun }: { offer: FollowUp; pull: string; n
           {state === 'running' ? words.busy : words.label}
         </button>
       )}
-      <p
-        ref={outcome}
-        role="status"
-        tabIndex={-1}
-        className={cn('text-sm', state === 'error' ? 'text-destructive' : 'text-success')}
-      >
-        {outcomeText(state, message, error)}
-      </p>
+      <OutcomeLine said={outcome.said} />
+      {state === 'error' ? (
+        <p role="alert" className="text-sm text-destructive">
+          {error}
+        </p>
+      ) : null}
     </div>
   )
-}
-
-// outcomeText is what an offer's live line says: what was done, why it was
-// not, or nothing yet.
-function outcomeText(state: AsyncState, done: string, error: string): string {
-  if (state === 'done') {
-    return done
-  }
-
-  return state === 'error' ? error : ''
 }

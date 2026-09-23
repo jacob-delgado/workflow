@@ -1,6 +1,6 @@
-import { useEffect, useRef } from 'react'
 import type { Change } from '@/api/generated/types.gen.ts'
-import { useAsyncAction, type AsyncState } from '@/lib/useAsyncAction.ts'
+import { OutcomeLine, useOutcome } from '@/lib/Outcome.tsx'
+import { useAsyncAction } from '@/lib/useAsyncAction.ts'
 import { cn } from '@/lib/utils.ts'
 import { CommitForm } from './CommitForm.tsx'
 import { stageEverything, stageFile, unstageFile } from './stagingApi.ts'
@@ -65,21 +65,24 @@ function stagedTag(change: Change): string {
   return change.has_unstaged ? 'partly staged' : 'staged'
 }
 
-// ChangeRow is one changed file with its stage or unstage button and a live
-// line that says what the last press did. The row outlives the snapshot that
-// shows the file moved — it is keyed by the path — so what it said stays, and
-// says what was done then, not what the button offers now.
+// ChangeRow is one changed file with its stage or unstage button, the live
+// line that says what the last press did, and why when it was refused. The row
+// outlives the snapshot that shows the file moved — it is keyed by the path —
+// so what it said stays, and says what was done then, not what the button
+// offers now.
 function ChangeRow({ change }: { change: Change }) {
   const stage = offersStage(change)
   const verb = stage ? 'Stage' : 'Unstage'
-  const { state, message, error, run } = useAsyncAction(
+  const outcome = useOutcome()
+  const { state, error, run } = useAsyncAction(
     () => (stage ? stageFile(change.path) : unstageFile(change.path)),
     {
       fallback: `${change.path} was not ${stage ? 'staged' : 'unstaged'}. Try again, or ${verb.toLowerCase()} it from a terminal to see why.`,
       done: () => `${stage ? 'Staged' : 'Unstaged'} ${change.path}.`,
+      onStart: outcome.clear,
+      onDone: outcome.say,
     },
   )
-  const outcome = useFocusOnDone(state)
 
   return (
     <li className="flex flex-col gap-1 text-sm">
@@ -101,7 +104,12 @@ function ChangeRow({ change }: { change: Change }) {
           {verb}
         </button>
       </div>
-      <Outcome ref={outcome} state={state} text={state === 'error' ? error : message} />
+      <OutcomeLine said={outcome.said} />
+      {state === 'error' ? (
+        <p role="alert" className="text-sm text-destructive">
+          {error}
+        </p>
+      ) : null}
     </li>
   )
 }
@@ -109,11 +117,13 @@ function ChangeRow({ change }: { change: Change }) {
 // StageAll stages every change the index does not hold yet, as the terminal's
 // `a` does, and says how it went.
 function StageAll({ anythingToStage }: { anythingToStage: boolean }) {
-  const { state, message, error, run } = useAsyncAction(stageEverything, {
+  const outcome = useOutcome()
+  const { state, error, run } = useAsyncAction(stageEverything, {
     fallback: 'Nothing was staged. Try again, or stage from a terminal to see why.',
     done: () => 'Staged every change.',
+    onStart: outcome.clear,
+    onDone: outcome.say,
   })
-  const outcome = useFocusOnDone(state)
 
   return (
     <div className="flex flex-col gap-1">
@@ -127,52 +137,13 @@ function StageAll({ anythingToStage }: { anythingToStage: boolean }) {
       >
         {state === 'running' ? 'Staging…' : 'Stage all'}
       </button>
-      <Outcome ref={outcome} state={state} text={state === 'error' ? error : message} />
+      <OutcomeLine said={outcome.said} />
+      {state === 'error' ? (
+        <p role="alert" className="text-sm text-destructive">
+          {error}
+        </p>
+      ) : null}
     </div>
-  )
-}
-
-// useFocusOnDone hands focus to an outcome line once its write is done: the
-// button is off while the write runs, which can drop its focus to the page.
-// Focus the user has moved elsewhere since — into the commit message, say —
-// stays where they put it.
-function useFocusOnDone(state: AsyncState) {
-  const outcome = useRef<HTMLParagraphElement>(null)
-
-  useEffect(() => {
-    if (state !== 'done') {
-      return
-    }
-    const focused = document.activeElement
-    const group = outcome.current?.parentElement
-    if (focused === document.body || group?.contains(focused)) {
-      outcome.current?.focus()
-    }
-  }, [state])
-
-  return outcome
-}
-
-interface OutcomeProps {
-  ref: React.Ref<HTMLParagraphElement>
-  state: AsyncState
-  text: string
-}
-
-// Outcome is a write's live line: what was done, or why not, once there is
-// something to say.
-function Outcome({ ref, state, text }: OutcomeProps) {
-  const settled = state === 'done' || state === 'error'
-
-  return (
-    <p
-      ref={ref}
-      role="status"
-      tabIndex={-1}
-      className={cn('text-sm', state === 'error' ? 'text-destructive' : 'text-success')}
-    >
-      {settled ? text : ''}
-    </p>
   )
 }
 

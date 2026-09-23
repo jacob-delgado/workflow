@@ -1,11 +1,13 @@
 import { useEffect, useRef, useState } from 'react'
 import { cn } from './utils.ts'
 
-// Said is what a write said, and the element that had focus as it said it —
-// the write's own control, as a rule.
+// Said is what a write said, the element that had focus as it said it — the
+// write's own control, as a rule — and whether that was already somewhere
+// other than the control the write was started from: the user moved on.
 interface Said {
   text: string
   from: Element | null
+  movedOn: boolean
 }
 
 // Teller is what a write's control is handed of its panel's outcome: clear, as
@@ -20,17 +22,24 @@ export interface Teller {
 // OutcomeLine, and clear takes it away again. The line stays mounted when the
 // snapshot confirming the write takes the write's control away — the button
 // that checked out a branch goes once the branch is on HEAD — so what was said
-// stays said until the next write starts.
+// stays said until the next write starts. clear, as the write starts, notes the
+// control it was started from: a write said once focus has left that control
+// leaves focus where the user put it, at once, rather than waiting on whatever
+// holds it — which the user may yet press for a write of its own.
 export function useOutcome() {
   const [said, setSaid] = useState<Said | null>(null)
+  const started = useRef<Element | null>(null)
 
   return {
     said,
     clear: () => {
+      started.current = document.activeElement
       setSaid(null)
     },
     say: (text: string) => {
-      setSaid({ text, from: document.activeElement })
+      const from = document.activeElement
+      const movedOn = started.current !== null && from !== started.current && from !== document.body
+      setSaid({ text, from, movedOn })
     },
   }
 }
@@ -40,8 +49,8 @@ export function useOutcome() {
 // changes. When the control that had focus as the write was said can no longer
 // hold it — gone from the page, or disabled — or focus had already fallen to
 // the page, focus follows to the line rather than staying lost; focus the user
-// has moved on to since, even to the page itself while that control stands,
-// stays where they put it.
+// has moved on to, before the write was said or since, even to the page itself
+// while that control stands, stays where they put it.
 export function OutcomeLine({ said, className }: { said: Said | null; className?: string }) {
   const line = useRef<HTMLParagraphElement>(null)
   // The last outcome whose focus is settled: handed to the line, or left with
@@ -54,7 +63,7 @@ export function OutcomeLine({ said, className }: { said: Said | null; className?
     }
 
     const focused = document.activeElement
-    if (focused !== document.body && focused !== said.from) {
+    if (said.movedOn || (focused !== document.body && focused !== said.from)) {
       settled.current = said
 
       return

@@ -132,7 +132,7 @@ test('what a stage said survives the snapshot that shows the file staged', async
   expect(screen.getByText('Staged b.go.')).toBeTruthy()
 })
 
-test('focus lands on what the stage said', async () => {
+test('focus stays on the button that staged, which is still there to hold it', async () => {
   // Arrange
   const user = userEvent.setup()
   streamTree([change('b.go')])
@@ -140,9 +140,10 @@ test('focus lands on what the stage said', async () => {
 
   // Act
   await user.click(screen.getByRole('button', { name: 'Stage b.go' }))
+  await screen.findByText('Staged b.go.')
 
   // Assert
-  expect(document.activeElement).toBe(await screen.findByText('Staged b.go.'))
+  expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Stage b.go' }))
 })
 
 test('focus that fell to the page while staging lands on what the stage said', async () => {
