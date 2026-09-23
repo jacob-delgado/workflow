@@ -66,37 +66,6 @@ them, re-counted at this commit.
 
 ## The command line
 
-### UX-58 `pr`'s `--yes` does not say how much it answers
-
-Impact: low · Effort: small
-
-**Today.** `pr`'s question names the push when one is coming
-(`openQuestion`, `internal/cli/pr.go:205`), but a single `--yes` answers it
-and also the offer to move the issue to the review status that follows
-(`offerReviewStatus`, `:177`), while its help says only "go ahead without
-the confirmation" (`writeOptions.addFlags`, `internal/cli/scriptable.go:49`).
-
-**Instead.** `--yes`'s help on `pr` says it covers the push, the open and
-the status move.
-
-**Done when.** `workflow pr --help` names everything `--yes` answers.
-
-### UX-59 `pr` never links the pull request on the issue
-
-Impact: medium · Effort: small
-
-**Today.** The terminal interface, after opening, asks to link the pull
-request on the issue and then offers the review status
-(`internal/tui/prcomposer.go:510`, `issuelink.go:20`). `workflow pr` offers only the
-status (`internal/cli/pr.go:177`); it never calls `Jira.LinkPullRequest`, though the seam
-is on the same `tui.Deps` it already holds. (The web does neither — UX-75.)
-
-**Instead.** `pr` offers the link before the status, under the same
-`--yes`.
-
-**Done when.** `workflow pr --yes` calls the fake `LinkPullRequest` with
-the pull request's URL.
-
 ### UX-60 `announce` will announce the same pull request again
 
 Impact: medium · Effort: small
@@ -232,7 +201,7 @@ Impact: medium · Effort: medium
 
 **Today.** The interface links the pull request on the issue and then
 offers the configured review status (`internal/tui/prcomposer.go:510`, `internal/tui/picker.go:186`);
-the CLI offers the status (`internal/cli/pr.go:177`). `internal/webserver/pullrequest.go`
+so does the CLI (`followUp`, `internal/cli/pr.go:163`). `internal/webserver/pullrequest.go`
 touches neither `Jira.ReviewStatus` nor `LinkPullRequest`; after `Pull
 request opened.` (`ReviewPanel.tsx:141`) there is nothing more to do.
 

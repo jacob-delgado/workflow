@@ -55,14 +55,14 @@ gap, and which phase closes it.
 
 | # | Action | CLI | TUI | Web | Warranted? |
 | --- | --- | --- | --- | --- | --- |
-| 1 | List the view's issues | P (only `branch <tab>` completion, `completeAssignedIssues`, `internal/cli/scriptable.go:121`) | Y | Y (the stream's page, and more on request since Phase 3) | CLI read: a feature, FEAT-78 |
+| 1 | List the view's issues | P (only `branch <tab>` completion, `completeAssignedIssues`, `internal/cli/scriptable.go:125`) | Y | Y (the stream's page, and more on request since Phase 3) | CLI read: a feature, FEAT-78 |
 | 2 | Switch view / next page | N | Y (`v`, `ctrl+n`) | Y since Phase 3 — a view select from `listViews` (`ViewSelect`, `web/src/features/issues/IssueListControls.tsx:37`), `useEventStream(view)` (`web/src/api/snapshot.ts:34`), and Load more over `start_at` (`useMoreIssues`, `web/src/features/issues/issueApi.ts:73`); an unknown view is 404 | — |
 | 3 | Filter the list | N | Y (`/`, `internal/tui/issues.go:159`) | Y since Phase 3 — the same `KEY summary` match (`matchesFilter`, `web/src/features/issues/IssuesPanel.tsx:311`) | CLI no |
 | 4 | Read an issue in full | N | Y (`internal/tui/detail.go:285`) | Y since Phase 3 — description, comments, reporter, assignee (`IssueDetailPanel`, `web/src/features/issues/IssueDetailPanel.tsx:16`) | CLI: FEAT-78 |
-| 5 | Transition, with field forms | P (`pr`'s side effect, fields-less, `internal/cli/pr.go:177`) | Y (`internal/tui/picker.go:155`) | N | The post-PR **review-status offer** both other surfaces make: Phase 9, UX-74. A general transition: FEAT-78 (CLI), FEAT-80 (web) |
+| 5 | Transition, with field forms | P (`pr`'s side effect, fields-less, `internal/cli/pr.go:236`) | Y (`internal/tui/picker.go:155`) | N | The post-PR **review-status offer** both other surfaces make: Phase 9, UX-74. A general transition: FEAT-78 (CLI), FEAT-80 (web) |
 | 6 | Comment | N | Y (`internal/tui/comment.go:41`) | N | FEAT-78 / FEAT-80; not this plan |
 | 7 | Assign / log work | N | Y (`internal/tui/issuewrite.go:74`, `:81`) | N | FEAT-78 / FEAT-80; not this plan |
-| 8 | Link the pull request on the issue | **N** (`pr` never links) | Y (`issuelink.go`, `internal/tui/prcomposer.go:510`) | N | **Yes on both** — the seam exists (`Jira.LinkPullRequest`) and the flow is the interface's. Phase 8 (CLI, UX-59), Phase 9 (web, UX-74) |
+| 8 | Link the pull request on the issue | Y since Phase 8 — `pr` offers it before the status, under the same `--yes` (`offerLink`, `internal/cli/pr.go:176`) | Y (`issuelink.go`, `internal/tui/prcomposer.go:510`) | N | **Web yes** — the seam exists (`Jira.LinkPullRequest`) and the flow is the interface's. Phase 9, UX-74 |
 | 9 | Open / copy the issue URL | n/a | Y (`o`, `y`) | Y since Phase 3 — "Open in Jira" from the detail's `url` (`web/src/features/issues/IssueDetailPanel.tsx:77`); copying is the browser's own link menu | — |
 | 10 | Cache-seeded first paint | n/a | Y (`internal/tui/issues.go:53`) | **F** | FEAT-68, declared |
 | 11 | Branch for the issue | Y | Y | Y | The CLI's help and preview say it switches to the branch, since Phase 8 (`internal/cli/branch.go:40`, `:99`) |
@@ -95,7 +95,7 @@ gap, and which phase closes it.
 | --- | --- | --- | --- | --- | --- |
 | 24 | Find the pull request and its CI | Y (`status --json`) | Y | Y | — |
 | 25 | Compose and open (push first) | Y (`pr`) | Y (`n`) | Y | CLI and web compose it once, in `internal/loop` (Phase 1, which closed DEBT-50); the terminal's composer is its own editor. CLI lacks draft/base/reviewer flags; CLI and web take `templates[0]` only: UX-62 |
-| 26 | After opening: link, then the review-status offer | P (status only) | Y | **N** (`webserver/pullrequest.go` never touches `Jira.ReviewStatus`) | **Yes** — Phase 8 (CLI link), Phase 9 (web both), UX-59/UX-74 |
+| 26 | After opening: link, then the review-status offer | Y since Phase 8 (`followUp`, `internal/cli/pr.go:163`) | Y | **N** (`webserver/pullrequest.go` never touches `Jira.ReviewStatus`) | **Web yes** — Phase 9, UX-74 |
 | 27 | Edit the pull request | N | Y (`e`, `preditor.go`) | N | `gh pr edit` is the twin; web idea, FEAT-79 |
 | 28 | Checks list; a failure into `$EDITOR` | N | Y (`checks.go`) | P (a CI link) | A terminal gesture; web list idea, UX-88 |
 | 29 | Follow CI; notify on settle | n/a | Y (`internal/tui/review.go:189`) | P (5 s tick, no signal) | Web "CI settled" idea, UX-86 |
@@ -124,7 +124,7 @@ gap, and which phase closes it.
 | 42 | Status across the loop | Y (`status DIR…`) | Y (the spine) | Y (`WorkStory`) | — |
 | 43 | Dry run | Y (one persistent `--dry-run` since Phase 2, `internal/cli/cli.go:204`) | Y (per seam, `dryrun.go:25`) | Y since Phase 3 — a read-only banner (`web/src/shell/AppShell.tsx:54`) and one hold over every write before it is sent (`web/src/api/client.ts:24`), over the server's 403 (`guard.go:46`) | — |
 | 44 | Request log `--log` | Y (persistent since Phase 2, `internal/cli/cli.go:206`) | Y | Y | — |
-| 45 | Help / discoverability | Y since Phase 8 — an unknown command or flag points at `--help`, after cobra's closest commands (`usageHint`, `internal/cli/scriptable.go:206`) | Y since Phase 7 — `?` lists all 57 bindings where each works, held to a table of every placement (`internal/tui/help_test.go:211`), and the Issues footer shows every key it answers (`internal/tui/detail.go:186`) | n/a | Web `?` idea, UX-88 |
+| 45 | Help / discoverability | Y since Phase 8 — an unknown command or flag points at `--help`, after cobra's closest commands (`usageHint`, `internal/cli/scriptable.go:210`) | Y since Phase 7 — `?` lists all 57 bindings where each works, held to a table of every placement (`internal/tui/help_test.go:211`), and the Issues footer shows every key it answers (`internal/tui/detail.go:186`) | n/a | Web `?` idea, UX-88 |
 | 46 | Version | Y | n/a | Y since Phase 3 — in the header (`web/src/shell/AppShell.tsx:43`) | — |
 
 ## Where a surface breaks a convention
@@ -139,21 +139,21 @@ to see the shape.
 | --- | --- | --- |
 | `--help` on every command; useful long help | Met | `internal/cli/cli.go:26` `longHelp`; pinned by `internal/cli/cli_test.go:295` |
 | `--version` | Met, and in the generated reference since Phase 2 | `cmd/docsgen/main.go` |
-| Exit codes distinguish failure kinds | Met since Phase 2 — 0/1/2/3/4/5/130 | `cli.ExitStatus`, `internal/cli/scriptable.go:261`; `docs/content/docs/scripting.md` |
+| Exit codes distinguish failure kinds | Met since Phase 2 — 0/1/2/3/4/5/130 | `cli.ExitStatus`, `internal/cli/scriptable.go:265`; `docs/content/docs/scripting.md` |
 | stdout = artifact, stderr = commentary | Met since Phase 2 | `output`, `internal/cli/scriptable.go:29` |
 | Root flags compose with subcommands | Met since Phase 2 for `--dry-run` and `--log`; `--web` is the root's alone | `internal/cli/cli.go:204` |
 | POSIX short flags | **Gap** — none declared | UX-62 |
 | `--json` on reads | Partial — `status`, `reviews`, `doctor`, and `config show` parses since Phase 2; not `standup` | UX-62 |
 | No color/prompts off a TTY; `NO_COLOR` | Met by construction (no color emitted); a prompt with no terminal says to pass `--yes` since Phase 2 | `errNoTerminal`, `internal/cli/prompt.go:14` |
-| Confirm before outward acts; `--yes`; `--dry-run` | Met, on `standup` and `config init` too since Phase 2 | `writeOptions.proceed`, `internal/cli/scriptable.go:77` |
-| Preview before the write | Met | `internal/cli/branch.go:99`, `internal/cli/pr.go:114`, `internal/cli/announce.go:113`, `internal/cli/standup.go:135` |
+| Confirm before outward acts; `--yes`; `--dry-run` | Met, on `standup` and `config init` too since Phase 2 | `writeOptions.proceed`, `internal/cli/scriptable.go:81` |
+| Preview before the write | Met | `internal/cli/branch.go:99`, `internal/cli/pr.go:121`, `internal/cli/announce.go:113`, `internal/cli/standup.go:135` |
 | Progress for slow operations | **Gap** — silent | UX-61 |
 | Ctrl-C | Met | `internal/cli/cli.go:102` `signal.NotifyContext` |
-| Errors say what to do next | Met since Phase 8 — strong in `doctor`/`config`, and each refusal names its next step: `git switch NAME`, the open pull request's address, the messaging keys and `workflow doctor`, `workflow pr` | `runBranch`, `internal/cli/branch.go:79`; `composeRefusal`, `internal/cli/pr.go:149`; `runAnnounce`, `internal/cli/announce.go:95` |
-| A hint on misuse | Met since Phase 8 — `SilenceErrors` still stops cobra's usage dump; an unknown command or flag points at `--help`, after the closest commands | `usageHint`, `internal/cli/scriptable.go:206` |
-| No surprises | Partial — since Phase 8 `branch` says it switches and `pr`'s question names the push; `pr --yes` answers the status move too without its help saying so | UX-58 |
+| Errors say what to do next | Met since Phase 8 — strong in `doctor`/`config`, and each refusal names its next step: `git switch NAME`, the open pull request's address, the messaging keys and `workflow doctor`, `workflow pr` | `runBranch`, `internal/cli/branch.go:79`; `composeRefusal`, `internal/cli/pr.go:208`; `runAnnounce`, `internal/cli/announce.go:95` |
+| A hint on misuse | Met since Phase 8 — `SilenceErrors` still stops cobra's usage dump; an unknown command or flag points at `--help`, after the closest commands | `usageHint`, `internal/cli/scriptable.go:210` |
+| No surprises | Met since Phase 8 — `branch` says it switches; `pr`'s question names the push, and its `--yes` help names the push, the link and the status move it answers | `internal/cli/branch.go:99`; `openQuestion`, `internal/cli/pr.go:264` |
 | Secrets never printed | Met | pinned by `internal/cli/cli_test.go:270`, `doctor_json_test.go:65` |
-| Shell completion | Met, incl. dynamic issue keys | `internal/cli/scriptable.go:121` |
+| Shell completion | Met, incl. dynamic issue keys | `internal/cli/scriptable.go:125` |
 | Docs cover the commands | Met since Phase 2 | `docs/content/docs/scripting.md` |
 
 ### The terminal interface
@@ -341,13 +341,13 @@ without it, classify the CLI-local sentinels and re-point later).
 - **Streams.** The rule: stdout carries the artifact (JSON, the preview
   text, the created thing's URL, the standup draft); stderr carries
   commentary (`Warning:` `internal/cli/config_cmd.go:333`, `Not opened.` and `dry run:
-  would …` `internal/cli/scriptable.go:79`, `:98`, the no-config guidance
+  would …` `internal/cli/scriptable.go:83`, `:102`, the no-config guidance
   (`showLoadError`, `internal/cli/config_cmd.go:96`), the web banner
   `internal/cli/cli.go:266`, `config show`'s `# <path>` header
   (`runConfigShow`, `internal/cli/config_cmd.go:340`)). Split the harness
   **first** (`runStreams`, `internal/cli/cli_test.go:56`, returns both streams).
 - **Flags.** `--dry-run` and `--log` become root `PersistentFlags`;
-  `writeOptions.addFlags` (`internal/cli/scriptable.go:48`) stops declaring its own
+  `writeOptions.addFlags` (`internal/cli/scriptable.go:52`) stops declaring its own
   `--dry-run`; the seven wiring preambles (`runReviewsCommand`,
   `runBranchCommand`, `runPRCommand`, `status`'s `seamsFor`,
   `runStandupCommand`, `runAnnounceCommand`, `completeAssignedIssues`, and
@@ -574,7 +574,7 @@ Phase 2 (notices are on stderr).
 - `branch`'s help and preview say it switches (`internal/cli/branch.go:40`, `:96`;
   `internal/gitrepo/branch.go:305`).
 - `pr`'s question names the push when the branch is unpushed — "Push NAME
-  and open the pull request?" (`internal/cli/pr.go:120`); `pr` offers to link the pull
+  and open the pull request?" (`internal/cli/pr.go:127`); `pr` offers to link the pull
   request on the issue before the status offer (`loop.ReviewTransition` +
   `Jira.LinkPullRequest`, matrix row 8), under the same `--yes`, and
   `--yes`'s help says it covers all three.

@@ -15,7 +15,7 @@ listed in the [command reference]({{< relref "/docs/reference" >}}).
 ```sh
 workflow status --json                 # where the work stands, as data
 workflow --dry-run pr                  # what pr would push and open
-workflow pr --yes                      # push and open it, without asking
+workflow pr --yes                      # push, open, link and move, without asking
 workflow standup --no-edit --yes       # post the day's standup, unattended
 workflow --log requests.log doctor --online   # a bug report's evidence
 ```
@@ -85,7 +85,7 @@ asks, and the error itself, prefixed `workflow:`.
 | `config init` | with `--dry-run`, the file it would write, as JSON, masked | progress, the checks, "Wrote …", what to do next, a warning when the file is not ignored by git |
 | `standup` | the draft | "Nothing to share.", the dry-run line, "Not posted.", "Posted to …" |
 | `branch` | `Branch NAME from BASE and switch to it`, then `Created NAME` | the dry-run line, "Not created." |
-| `pr` | `Open TITLE` and `BRANCH → BASE`, then `Opened #N URL` (`!N` on GitLab) | the dry-run line, "Not opened.", the review-status offer and its outcome |
+| `pr` | `Open TITLE` and `BRANCH → BASE`, then `Opened #N URL` (`!N` on GitLab) | the dry-run line, "Not opened.", the offers to link it on the issue and to move the issue to the review status, and their outcomes |
 | `announce` | the message and where it goes | the dry-run line, "Not posted.", "Posted to …" |
 | `workflow --web` | | the address it serves on |
 
@@ -161,9 +161,11 @@ and with `--online`, `results`: `service`, `status` — `ok`, `rejected` or
 `branch`, `pr`, `announce` and `standup` print a preview and ask before they
 write. Two flags change that:
 
-- **`--yes`** goes ahead without asking. On `pr` it also answers the offer to
-  move the issue to the review status. It does not skip `standup`'s editor:
-  add `--no-edit` for that.
+- **`--yes`** goes ahead without asking. On `pr` it answers every question:
+  the push, the open, and the offers that follow it — to link the pull request
+  on the branch's issue and to move the issue to the review status. A link
+  that fails is said on stderr, the move is still made, and the command exits
+  non-zero. It does not skip `standup`'s editor: add `--no-edit` for that.
 - **`--dry-run`** prints the preview and what the command would do, and
   writes nothing. It is one flag for every command, given before the command's
   name or after it: `workflow --dry-run pr` and `workflow pr --dry-run` are
