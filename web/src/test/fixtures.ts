@@ -41,3 +41,7 @@ export function makeHealth(overrides: Partial<Health> = {}): Health {
     ...overrides,
   }
 }
+
+// What a server on a GitLab remote says in its health: GitLab's own words for a
+// proposed change and the mark before its number.
+export const gitLabWords: Partial<Health> = { forge_noun: 'merge request', forge_sigil: '!' }

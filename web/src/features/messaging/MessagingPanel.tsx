@@ -1,11 +1,13 @@
 import { useState } from 'react'
 import { apiErrorMessage } from '@/api/apiError.ts'
+import { useForgeWords } from '@/api/health.ts'
 import { useSnapshotStore } from '@/api/snapshot.ts'
 import { EmptyState } from '@/shell/EmptyState.tsx'
 import { announce, previewAnnouncement } from './announceApi.ts'
 
 export function MessagingPanel() {
   const snapshot = useSnapshotStore((state) => state.snapshot)
+  const { noun } = useForgeWords()
 
   if (!snapshot) {
     return <EmptyState>Connecting…</EmptyState>
@@ -47,7 +49,7 @@ export function MessagingPanel() {
           />
         ) : (
           <p className="text-sm text-muted-foreground">
-            Open a pull request first — there is nothing to announce yet.
+            Open a {noun} first — there is nothing to announce yet.
           </p>
         )}
       </section>

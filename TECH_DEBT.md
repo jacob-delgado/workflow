@@ -152,17 +152,17 @@ cancels; the detail read is keyed so a stale answer is dropped.
 
 ## The web
 
-### DEBT-62 One frontend function is 304 lines, and nothing measures a function's length
+### DEBT-62 One frontend function is 305 lines, and nothing measures a function's length
 
 Severity: medium · Confidence: measured
 
 `web/eslint.config.js:80` sets `complexity`, `max-params`, `max-depth` and
 `max-nested-callbacks` but no `max-lines-per-function`. The result:
-`ConfigForm` (`web/src/features/settings/SettingsPanel.tsx:24`) is 304
-lines, `PullRequestForm` (`web/src/features/review/ReviewPanel.tsx:214`)
-124 and `CommitForm` (`web/src/features/branch/CommitForm.tsx:36`) 105. Files
+`ConfigForm` (`web/src/features/settings/SettingsPanel.tsx:25`) is 305
+lines, `PullRequestForm` (`web/src/features/review/ReviewPanel.tsx:220`)
+125 and `CommitForm` (`web/src/features/branch/CommitForm.tsx:36`) 105. Files
 are measured — `scripts/check-file-length.sh` holds `.ts` and `.tsx` to the
-500/800 targets, and the longest, `SettingsPanel.tsx`, is 371 lines — but a
+500/800 targets, and the longest, `SettingsPanel.tsx`, is 373 lines — but a
 function can grow to fill one with nothing to say so.
 
 **One way to fix it.** Add `max-lines-per-function` to eslint at a number
@@ -179,12 +179,12 @@ Severity: medium · Confidence: read
 start-work. Five components hand-roll the same machine instead:
 `PushButton` (`web/src/features/branch/BranchPanel.tsx:125`), `CommitForm`
 (`CommitForm.tsx:58`), `AnnounceControls`
-(`web/src/features/messaging/MessagingPanel.tsx:109`), `OpenPullRequest`
-(`web/src/features/review/ReviewPanel.tsx:114`) and `ConfigForm`
-(`SettingsPanel.tsx:33`). Alongside: `splitList` (`ReviewPanel.tsx:204`),
+(`web/src/features/messaging/MessagingPanel.tsx:111`), `OpenPullRequest`
+(`web/src/features/review/ReviewPanel.tsx:120`) and `ConfigForm`
+(`SettingsPanel.tsx:35`). Alongside: `splitList` (`web/src/features/review/ReviewPanel.tsx:210`),
 `trimmedList` (`internal/webserver/pullrequest.go:145`) and an inline third
-copy (`SettingsPanel.tsx:203`) all trim a comma-separated list; and
-`SettingsPanel.errorMessage` (`SettingsPanel.tsx:331`) is now a one-line
+copy (`SettingsPanel.tsx:205`) all trim a comma-separated list; and
+`SettingsPanel.errorMessage` (`SettingsPanel.tsx:333`) is now a one-line
 wrapper over `apiErrorMessage` that stays exported only so its own test can
 repeat four of the five assertions in `web/src/api/apiError.test.ts`.
 

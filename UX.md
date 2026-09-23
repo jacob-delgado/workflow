@@ -154,28 +154,27 @@ horizontal axis.
 
 ## The web
 
-### UX-73 On GitLab the web still says "pull request"; the nav says one thing and the button another
+### UX-73 The nav says one thing and the button another; "start" has three names
 
 Impact: medium · Effort: small
 
-**Today.** The interface, the CLI and the web *server* all resolve "merge
-request" on GitLab through `forge.Kind.Noun` (`internal/forge/remote.go:60`)
-— the server for the announcement text only. The web *UI* hardcodes "pull request" in six strings (`ReviewPanel.tsx:141`,
-`:172`, `:181`, `:326`; `WorkStory.tsx:40`; `MessagingPanel.tsx:50`);
-`ForgeKind` is on the server (`internal/webserver/webserver.go:61`) and never sent to the
-browser. The nav section is `Messaging` (`sections.ts:10`) while its buttons
-say `Announce to Slack` / `Post to Slack` (`MessagingPanel.tsx:170`, `:239`);
+**Today.** The web says "merge request" and `!7` on GitLab, from the forge's
+words the health read carries (`useForgeWords`,
+`web/src/api/health.ts:28`). But the nav section is `Messaging`
+(`web/src/shell/sections.ts:10`) while its buttons say `Announce to Slack` /
+`Post to Slack` (`web/src/features/messaging/MessagingPanel.tsx:172`,
+`:241`), and the interface titles that pane with the service's name; and
 "start" has three names across the surfaces (`branch for issue`, `new
-branch`, `Start work on this issue`); the web has five sections where the
-interface has six (Commits folded into Branch, Reviews absent — UX-84,
-Settings added).
+branch`, `Start work on this issue`,
+`web/src/features/issues/WorkStory.tsx:280`). The web has five sections
+where the interface has six (Commits folded into Branch, Reviews absent —
+UX-83, Settings added).
 
-**Instead.** `getHealth` sends the forge's noun (send the words; do not port
-`Kind.Noun` to TypeScript); the section reads the service's name from the
-snapshot; one verb for starting.
+**Instead.** The section reads the service's name from the snapshot; one
+verb for starting.
 
-**Done when.** With a GitLab forge faked, the Review section reads "merge
-request" throughout.
+**Done when.** A Teams setup's nav and heading read "Teams"; the web starts
+work under one name.
 
 ### UX-74 After opening a pull request, the web stops
 
@@ -185,7 +184,7 @@ Impact: medium · Effort: medium
 offers the configured review status (`internal/tui/prcomposer.go:510`, `internal/tui/picker.go:186`);
 so does the CLI (`followUp`, `internal/cli/pr.go:163`). `internal/webserver/pullrequest.go`
 touches neither `Jira.ReviewStatus` nor `LinkPullRequest`; after `Pull
-request opened.` (`ReviewPanel.tsx:141`) there is nothing more to do.
+request opened.` (`web/src/features/review/ReviewPanel.tsx:147`) there is nothing more to do.
 
 **Instead.** Two operations, spec first — `POST /api/issues/{key}/link` and
 `POST /api/issues/{key}/transition` (fields-less; 409 when Jira wants
@@ -223,7 +222,7 @@ Impact: medium · Effort: small
 `commit.default_scope` (`internal/tui/composer.go:131` `startingScope`). The web's
 `CommitForm` hardcodes `scope: ''` (`CommitForm.tsx:45`) — while
 `commit.default_scope` is an editable field in the Settings form
-(`SettingsPanel.tsx:182`). A setting the user can change with no visible
+(`SettingsPanel.tsx:184`). A setting the user can change with no visible
 effect.
 
 **Instead.** The snapshot's `changes` carries `suggested_scope` — the store's
@@ -238,8 +237,8 @@ form; a table test covers the store-then-config fallback.
 
 Impact: high · Effort: small
 
-**Today.** `Pull request opened.` (`ReviewPanel.tsx:141`), `Announced…`
-(`MessagingPanel.tsx:137`) and `Saved.` (`SettingsPanel.tsx:321`) confirm.
+**Today.** `Pull request opened.` (`web/src/features/review/ReviewPanel.tsx:147`), `Announced…`
+(`web/src/features/messaging/MessagingPanel.tsx:139`) and `Saved.` (`SettingsPanel.tsx:323`) confirm.
 Commit (`CommitForm.tsx:70`), push (`BranchPanel.tsx:130`), check-out and
 start-work (`useAsyncAction.ts:19`) reset and say nothing; the stated
 rationale is that the snapshot is the confirmation (`useAsyncAction.ts:8`),
@@ -264,8 +263,8 @@ Impact: high · Effort: small
 Load more, which hands focus to the first issue a page adds
 (`web/src/features/issues/IssuesPanel.tsx:145`). On success
 `OpenPullRequest` unmounts the form and renders a `<p>` in its place
-(`ReviewPanel.tsx:138`); `AnnounceControls` does the same
-(`MessagingPanel.tsx:135`); `PushButton` swaps its idle and confirming
+(`web/src/features/review/ReviewPanel.tsx:144`); `AnnounceControls` does the same
+(`web/src/features/messaging/MessagingPanel.tsx:137`); `PushButton` swaps its idle and confirming
 states (`BranchPanel.tsx:139`). The focused button disappears and focus
 falls to `<body>`. Changing section from the nav rail or a work-story row
 never moves focus to `<main>`, though `tabIndex={-1}` is there for it
@@ -285,7 +284,7 @@ Impact: medium · Effort: small
 uncommitted changes; commit or stash them before switching`, `internal/webserver/checkout.go:19`;
 `nothing is staged to commit`, `internal/webserver/commit.go:21`). But the client fallbacks
 are vague and near-apologetic — `The branch could not be checked out.`
-(`web/src/features/issues/IssuesPanel.tsx:337`), `Work could not be started.` (`WorkStory.tsx:260`),
+(`web/src/features/issues/IssuesPanel.tsx:337`), `Work could not be started.` (`web/src/features/issues/WorkStory.tsx:267`),
 `The push failed.` (`BranchPanel.tsx:132`), `The commit could not be
 created.` (`CommitForm.tsx:74`) — and three handlers replace the tool's
 reason with one of those sentences: `internal/webserver/checkout.go:44`, `internal/webserver/branchcreate.go:44`,
@@ -308,11 +307,11 @@ Impact: low · Effort: small
 first — there is nothing to announce yet.`, `{service} is not configured.
 Add a token or webhook in Settings.` Dead ends: `This directory is not a
 Git repository.` (`BranchPanel.tsx:22`) and `The configuration could not be
-loaded.` (`SettingsPanel.tsx:16`) offer nothing to do. And the one condition
+loaded.` (`SettingsPanel.tsx:17`) offer nothing to do. And the one condition
 "no snapshot yet" reads `Connecting to the tracker…`, `Connecting to the
 workspace…`, `Connecting to the forge…` and `Connecting…` in four panels
-(`web/src/features/issues/IssuesPanel.tsx:19`, `BranchPanel.tsx:14`, `ReviewPanel.tsx:31`,
-`MessagingPanel.tsx:11`).
+(`web/src/features/issues/IssuesPanel.tsx:19`, `BranchPanel.tsx:14`, `web/src/features/review/ReviewPanel.tsx:33`,
+`web/src/features/messaging/MessagingPanel.tsx:13`).
 
 **Instead.** One connecting line, in the shell; a retry on the config
 error; the not-a-repository state says what a repository would give it.
@@ -325,10 +324,10 @@ button.
 Impact: medium · Effort: small
 
 **Today.** Every disabled button uses `disabled:opacity-60` — thirteen
-places (`web/src/features/issues/IssuesPanel.tsx:349`, `WorkStory.tsx:241`, `:271`,
-`BranchPanel.tsx:168`, `CommitForm.tsx:128`, `ReviewPanel.tsx:179`, `:317`,
-`:324`, `MessagingPanel.tsx:168`, `:214`, `:229`, `:237`,
-`SettingsPanel.tsx:316`) — which CLAUDE.md's accessibility rule names as the
+places (`web/src/features/issues/IssuesPanel.tsx:349`, `web/src/features/issues/WorkStory.tsx:248`, `:278`,
+`BranchPanel.tsx:168`, `CommitForm.tsx:128`, `web/src/features/review/ReviewPanel.tsx:185`, `:324`,
+`:331`, `web/src/features/messaging/MessagingPanel.tsx:170`, `:216`, `:231`, `:239`,
+`SettingsPanel.tsx:318`) — which CLAUDE.md's accessibility rule names as the
 thing not to do (opacity dims text below the contrast floor) and which axe
 does not catch on disabled controls. The app has only two `transition-colors`
 and no animation, but no `prefers-reduced-motion` rule either; the a11y spec
@@ -387,14 +386,14 @@ periwinkle accent `#8b93f8` chosen "clear of the green/amber/red the status
 lights own" (`web/src/index.css:24`) plus a three-color CI language; Jira is
 not blue, git is not yellow, the forge is not green anywhere; the `NavRail`
 icons are all muted (`NavRail.tsx:28`). State marks are the web's own:
-`StageMarker` (`WorkStory.tsx:284`) invents three, and `ciDot`
-(`ReviewPanel.tsx:14`) and `StreamStatus` (`StreamStatus.tsx:4`) are
+`StageMarker` (`web/src/features/issues/WorkStory.tsx:291`) invents three, and `ciDot`
+(`web/src/features/review/ReviewPanel.tsx:15`) and `StreamStatus` (`StreamStatus.tsx:4`) are
 color-only dots of one shape (mitigated by a text label beside each). And
 the page shows the template tells the interface avoids: nine `uppercase`
-eyebrow headings from seven class strings (`SettingsPanel.tsx:341`,
+eyebrow headings from seven class strings (`SettingsPanel.tsx:343`,
 `BranchPanel.tsx:67`, `:91`, `web/src/features/issues/IssueDetailPanel.tsx:8`
-— the work story, description and comments share it — `ReviewPanel.tsx:70`,
-`MessagingPanel.tsx:39`, `:59`) as the *only* heading treatment; no type or spacing tokens (raw `text-2xl`
+— the work story, description and comments share it — `web/src/features/review/ReviewPanel.tsx:75`,
+`web/src/features/messaging/MessagingPanel.tsx:41`, `:61`) as the *only* heading treatment; no type or spacing tokens (raw `text-2xl`
 … `text-xs`, `gap-8` … `gap-0.5` per component); one radius on everything
 (`rounded-md` ×28). To its credit: no shadows, no gradients, no `→`, and a
 real color-token system with hand-picked contrast (`index.css:9-96`).
@@ -420,7 +419,7 @@ Impact: medium · Effort: medium
 shrink-0` issues list (`web/src/features/issues/IssuesPanel.tsx:102`) and a `flex-1` detail squeezes
 the detail to nothing near 640 px; definition lists use fixed first columns
 (`grid-cols-[6rem_1fr]` `BranchPanel.tsx:49`, `[8rem_1fr]`
-`MessagingPanel.tsx:29`, `[9rem_1fr]` `ReviewPanel.tsx:56`); panels cap at
+`web/src/features/messaging/MessagingPanel.tsx:31`, `[9rem_1fr]` `web/src/features/review/ReviewPanel.tsx:61`); panels cap at
 `max-w-2xl` and never reflow; the issues `<ul>` is not scrollable, so a long
 list scrolls the page. The viewport meta tag is present (`index.html:5`) and
 nothing responds to it. (From code; no viewport was rendered.)
@@ -454,7 +453,7 @@ region saying so.
 Impact: low · Effort: medium
 
 **Today.** The form seeds itself with the whole `Config`
-(`SettingsPanel.tsx:25`) so `ui`, `timing`, `headers`, `views` and
+(`SettingsPanel.tsx:26`) so `ui`, `timing`, `headers`, `views` and
 `branch.prefixes` survive a save unchanged — and cannot be edited. There is
 no guided, credential-checking flow like `workflow config init`; the web
 edits an existing file only.
