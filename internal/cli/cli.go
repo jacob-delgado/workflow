@@ -145,8 +145,11 @@ type runTUI func(ctx context.Context, model tui.Model, out io.Writer) error
 
 // runWeb starts the local web server and blocks until the context is canceled.
 // It is serveWeb in production and a fake in tests, so the --web flag's wiring
-// can be exercised without binding a port.
-type runWeb func(ctx context.Context, cfg config.Config, deps webserver.Deps, info webserver.Info, out io.Writer) error
+// can be exercised without binding a port. What it says about the server goes to
+// notes, stderr: the server has no artifact for stdout to carry.
+type runWeb func(
+	ctx context.Context, cfg config.Config, deps webserver.Deps, info webserver.Info, notes io.Writer,
+) error
 
 // NewRootCmd builds the command tree. Bare `workflow` opens the TUI. The prompt
 // is how `config init` asks for credentials; a zero one is fine for a caller
@@ -187,7 +190,7 @@ func newRootCmd(prompt Prompt, run runTUI, serve runWeb) *cobra.Command {
 
 				info := webserver.Info{Version: buildinfo.Current(), DryRun: dryRun, ForgeKind: conn.deps.Forge.Kind}
 
-				return serve(ctx, conn.cfg, webDeps(conn.deps), info, cmd.OutOrStdout())
+				return serve(ctx, conn.cfg, webDeps(conn.deps), info, cmd.ErrOrStderr())
 			}
 
 			return openInterface(ctx, run, interfaceInput{
@@ -250,7 +253,7 @@ func subcommands(prompt Prompt) []*cobra.Command {
 // interface until the context is canceled. Handler fails only when the embedded
 // spec cannot load, which is a build defect rather than a runtime condition.
 func serveWeb(
-	ctx context.Context, cfg config.Config, deps webserver.Deps, info webserver.Info, out io.Writer,
+	ctx context.Context, cfg config.Config, deps webserver.Deps, info webserver.Info, notes io.Writer,
 ) error {
 	assets, _ := web.Assets()
 
@@ -259,7 +262,7 @@ func serveWeb(
 		return fmt.Errorf("building the web server: %w", err)
 	}
 
-	fmt.Fprintf(out, "workflow web: serving http://%s — press Ctrl+C to stop\n", webserver.LoopbackAddr)
+	fmt.Fprintf(notes, "workflow web: serving http://%s — press Ctrl+C to stop\n", webserver.LoopbackAddr)
 
 	return webserver.Serve(ctx, webserver.LoopbackAddr, handler)
 }

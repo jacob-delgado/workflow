@@ -23,6 +23,19 @@ import (
 	"github.com/jacob-delgado/workflow/internal/messaging"
 )
 
+// output is where a command writes: the artifact — the preview, the JSON, what
+// it created — on stdout, and what it says about it — a notice, a dry-run line,
+// a warning — on stderr, so a script capturing stdout gets data alone.
+type output struct {
+	artifact io.Writer
+	notes    io.Writer
+}
+
+// outputOf is the command's stdout and stderr.
+func outputOf(cmd *cobra.Command) output {
+	return output{artifact: cmd.OutOrStdout(), notes: cmd.ErrOrStderr()}
+}
+
 // writeOptions are the flags every scriptable write shares: a dry run that
 // changes nothing, and a yes that skips the confirmation for unattended use.
 type writeOptions struct {
@@ -47,10 +60,11 @@ type writePrompt struct {
 
 // proceed reports whether to go ahead with a write, the preview already printed.
 // A dry run says what it would do and stops; --yes goes ahead without asking;
-// otherwise it asks, and a declined answer says so and stops.
-func (o *writeOptions) proceed(out io.Writer, confirm func(string) (bool, error), say writePrompt) (bool, error) {
+// otherwise it asks, and a declined answer says so and stops. What it says is
+// commentary, written to notes.
+func (o *writeOptions) proceed(notes io.Writer, confirm func(string) (bool, error), say writePrompt) (bool, error) {
 	if o.dryRun {
-		fmt.Fprintln(out, say.dryRun)
+		fmt.Fprintln(notes, say.dryRun)
 
 		return false, nil
 	}
@@ -65,7 +79,7 @@ func (o *writeOptions) proceed(out io.Writer, confirm func(string) (bool, error)
 	}
 
 	if !ok {
-		fmt.Fprintln(out, say.declined)
+		fmt.Fprintln(notes, say.declined)
 	}
 
 	return ok, nil

@@ -66,40 +66,16 @@ them, re-counted at this commit.
 
 ## The command line
 
-### UX-51 Commentary lands on stdout, where a script is reading
-
-Impact: high · Effort: small
-
-**Today.** Errors go to stderr (`SilenceErrors`, `internal/cli/cli.go:172`; `cmd/workflow/main.go:37`)
-and prompts go to stderr (`terminalPrompt`, `cmd/workflow/main.go:51`) — correct,
-and so does `config show`'s path header, leaving its stdout JSON alone
-(`runConfigShow`, `internal/cli/config_cmd.go:291`). But the gitignore
-**warning** (`warnIfNotIgnored`, `internal/cli/config_cmd.go:284`), the
-`Not posted.`/`Not opened.` decline notices and the `dry run: would …` lines
-(`writeOptions.proceed`, `internal/cli/scriptable.go:53`, `:68`), the web
-server's `serving http://…` banner (`internal/cli/cli.go:262`), and
-`standup`'s and `config init`'s own notices all go to stdout, where a script
-capturing the artifact gets prose mixed into it. No test pins any of this
-to a stream: the harness can keep them apart (`runStreams`,
-`internal/cli/cli_test.go:58`), but only `pr`'s opened line and `config
-show`'s JSON are checked that way (DEBT-54).
-
-**Instead.** stdout carries the artifact — the JSON, the preview, the URL
-of the thing created, the standup draft; stderr carries everything said
-*about* it.
-
-**Done when.** A test asserts the decline notice is on stderr.
-
 ### UX-52 The root's flags do not reach the subcommands
 
 Impact: medium · Effort: small
 
 **Today.** `--dry-run`, `--log` and `--web` are declared on `root.Flags()`
-(`internal/cli/cli.go:199-204`), not `PersistentFlags()`, so `workflow --dry-run pr` and
+(`internal/cli/cli.go:202-207`), not `PersistentFlags()`, so `workflow --dry-run pr` and
 `workflow --log f status` are unknown-flag errors; the write commands
-declare their own, unrelated `--dry-run` (`internal/cli/scriptable.go:36`) with different
+declare their own, unrelated `--dry-run` (`internal/cli/scriptable.go:49`) with different
 help; and every subcommand passes `nil` for the request log, so the `--log`
-facility the root's help advertises for bug reports (`internal/cli/cli.go:203`) works
+facility the root's help advertises for bug reports (`internal/cli/cli.go:206`) works
 only for the interface (DEBT-51).
 
 **Instead.** `--dry-run` and `--log` persistent on the root, declared once;
@@ -116,7 +92,7 @@ Impact: medium · Effort: small
 a terminal. With stdin piped and `--yes` omitted, `branch`, `pr`, `announce`
 and `standup` still call `confirm` (`prompt.go:32`); `ReadString` returns
 `io.EOF`, which is propagated as an error (`:35`). `TestBranchStopsWhenThe
-ConfirmationCannotBeRead` (`internal/cli/branch_test.go:192`) pins that it stops, not
+ConfirmationCannotBeRead` (`internal/cli/branch_test.go:194`) pins that it stops, not
 that it explains.
 
 **Instead.** `confirm` turns `io.EOF` into "no terminal to confirm on; pass
@@ -130,10 +106,10 @@ names `--yes`.
 Impact: medium · Effort: small
 
 **Today.** `standup` is the only write command with no `--dry-run` and no
-`--yes`: after the draft it *offers to post* (`offerToPost`, `internal/cli/standup.go:128`)
+`--yes`: after the draft it *offers to post* (`offerToPost`, `internal/cli/standup.go:129`)
 with no bypass, so it cannot run from a script, and `--days` is unvalidated
-— a negative value flows into `gitSince` as `"-1 days ago"` (`:193`) and into
-the JQL as `updated >= --1d` (`:200`). `config init`'s guided flow has no
+— a negative value flows into `gitSince` as `"-1 days ago"` (`:194`) and into
+the JQL as `updated >= --1d` (`:201`). `config init`'s guided flow has no
 `--dry-run` either; its only unattended path is `--template`.
 
 **Instead.** `standup` takes the same `writeOptions` as the others and
@@ -147,7 +123,7 @@ redacted file it would write.
 
 Impact: medium · Effort: small
 
-**Today.** `--version` works (`Version: buildinfo.Current()`, `internal/cli/cli.go:170`),
+**Today.** `--version` works (`Version: buildinfo.Current()`, `internal/cli/cli.go:173`),
 but `cmd/docsgen/main.go` never calls cobra's `InitDefaultVersionFlag`, so
 `docs/content/docs/reference/workflow.md` lists `--dry-run`, `--help`,
 `--log` and `--web` only; `help` and `completion` have no page. And
@@ -168,7 +144,7 @@ and a scripting page in the site.
 
 Impact: low · Effort: small
 
-**Today.** `SilenceUsage` and `SilenceErrors` on the root (`internal/cli/cli.go:171`) are
+**Today.** `SilenceUsage` and `SilenceErrors` on the root (`internal/cli/cli.go:174`) are
 inherited by every subcommand, and cobra gates its "Run 'workflow --help'
 for usage." hint and its suggestion list on `!SilenceErrors`. A mistyped command name prints `workflow: unknown command …` and nothing else.
 
@@ -186,11 +162,11 @@ Impact: medium · Effort: small
 overwrite)` (`internal/cli/config_cmd.go:142`), the `chmod 600` line (`doctor.go:456`),
 `run gh auth login` (`doctor.go:232`), `Create one with workflow config
 init` (`internal/config/config.go:24`). The bare sentinels do not: `a branch for
-this issue already exists` (`internal/cli/branch.go:21`) does not say to switch to it;
+this issue already exists` (`internal/cli/branch.go:20`) does not say to switch to it;
 `an open pull request already exists for this branch` (`internal/cli/pr.go:28`) gives no
-URL; `no messaging transport is configured` (`internal/cli/announce.go:23`) names
+URL; `no messaging transport is configured` (`internal/cli/announce.go:22`) names
 neither `messaging.kind` nor `workflow config init`; `there is no pull
-request on this branch to announce` (`internal/cli/announce.go:19`) does not suggest
+request on this branch to announce` (`internal/cli/announce.go:18`) does not suggest
 `workflow pr`.
 
 **Instead.** Each carries its next step: the branch name and `git switch
@@ -206,12 +182,12 @@ Impact: medium · Effort: small
 
 **Today.** `workflow branch` runs `git switch --create`
 (`internal/gitrepo/branch.go:305`), moving the working tree, but neither its help
-(`internal/cli/branch.go:41`) nor its preview (`:97`) says "and switch to it". `workflow
+(`internal/cli/branch.go:40`) nor its preview (`:96`) says "and switch to it". `workflow
 pr` pushes the branch first when it is unpushed (`loop.EnsurePushed`,
-`internal/cli/pr.go:122`) — the dry-run line says so (`pushClause`, `:193`)
+`internal/cli/pr.go:122`) — the dry-run line says so (`pushClause`, `:194`)
 but the live question is only "Open the pull request?" (`:114`) — and a
 single `--yes` also authorizes
-the Jira status transition that follows (`offerReviewStatus`, `:172`).
+the Jira status transition that follows (`offerReviewStatus`, `:173`).
 
 **Instead.** The help and the preview say "create NAME from BASE and switch
 to it"; the question reads "Push NAME and open the pull request?" when a
@@ -228,7 +204,7 @@ Impact: medium · Effort: small
 **Today.** The terminal interface, after opening, asks to link the pull
 request on the issue and then offers the review status
 (`internal/tui/prcomposer.go:509`, `issuelink.go:20`). `workflow pr` offers only the
-status (`internal/cli/pr.go:166`); it never calls `Jira.LinkPullRequest`, though the seam
+status (`internal/cli/pr.go:167`); it never calls `Jira.LinkPullRequest`, though the seam
 is on the same `tui.Deps` it already holds. (The web does neither — UX-75.)
 
 **Instead.** `pr` offers the link before the status, under the same
@@ -262,7 +238,7 @@ Impact: low · Effort: medium
 **Today.** No spinner, no elapsed time, no "checking…". `doctor --online`
 makes three round trips in silence (`reportCredentials`, `doctor.go:141`);
 `standup` fires up to fifteen forge requests plus a Jira search
-(`gatherPulls`, `internal/cli/standup.go:178`); `status DIR…` visits each directory in
+(`gatherPulls`, `internal/cli/standup.go:179`); `status DIR…` visits each directory in
 series (`statusesOf`, `internal/cli/status.go:163`). The only trace is `--log`, which
 the subcommands cannot use (UX-52).
 
@@ -519,7 +495,7 @@ Impact: medium · Effort: medium
 
 **Today.** The interface links the pull request on the issue and then
 offers the configured review status (`internal/tui/prcomposer.go:509`, `internal/tui/picker.go:186`);
-the CLI offers the status (`internal/cli/pr.go:166`). `internal/webserver/pullrequest.go`
+the CLI offers the status (`internal/cli/pr.go:167`). `internal/webserver/pullrequest.go`
 touches neither `Jira.ReviewStatus` nor `LinkPullRequest`; after `Pull
 request opened.` (`ReviewPanel.tsx:141`) there is nothing more to do.
 

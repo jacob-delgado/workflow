@@ -47,6 +47,63 @@ func TestAnnounceCommandNeedsMessaging(t *testing.T) {
 	wantExit(t, err, 3)
 }
 
+func TestDeclineNoticeGoesToStderr(t *testing.T) {
+	// Arrange
+	server := jiraServer(t, http.StatusOK, issueFixture("PROJ-7", "Bug", "login"), new(atomic.Bool))
+	repo := repoForBranch(t, server.URL)
+
+	// Act
+	printed, err := runStreams(t, repo, scripted([]string{"n"}, nil), "branch", "PROJ-7")
+	if err != nil {
+		t.Fatalf("branch: %v (%+v)", err, printed)
+	}
+
+	// Assert
+	// The preview is the artifact a script reads; the decline is said about it.
+	if !strings.Contains(printed.stdout, "Branch fix/PROJ-7-login") ||
+		!strings.Contains(printed.stderr, "Not created.") || strings.Contains(printed.stdout, "Not created.") {
+		t.Errorf("the preview or the decline is on the wrong stream:\nstdout:\n%s\nstderr:\n%s",
+			printed.stdout, printed.stderr)
+	}
+}
+
+func TestDryRunLineGoesToStderr(t *testing.T) {
+	// Arrange
+	repo := prRepo(t, "fix/PROJ-2-thing")
+
+	// Act
+	printed, err := runStreams(t, repo, unusedPrompt(t), "pr", "--dry-run")
+	if err != nil {
+		t.Fatalf("pr --dry-run: %v (%+v)", err, printed)
+	}
+
+	// Assert
+	if !strings.HasPrefix(printed.stdout, "Open ") || !strings.Contains(printed.stdout, "fix/PROJ-2-thing → main") ||
+		!strings.Contains(printed.stderr, "dry run: would") || strings.Contains(printed.stdout, "dry run:") {
+		t.Errorf("the preview or the dry-run line is on the wrong stream:\nstdout:\n%s\nstderr:\n%s",
+			printed.stdout, printed.stderr)
+	}
+}
+
+func TestConfigInitSaysWhatItWroteOnStderr(t *testing.T) {
+	// Arrange
+	dir := t.TempDir()
+
+	// Act
+	printed, err := runStreams(t, dir, unusedPrompt(t), "config", "init", "--template")
+	if err != nil {
+		t.Fatalf("config init --template: %v (%+v)", err, printed)
+	}
+
+	// Assert
+	// The artifact of config init is the file; what it says about the file,
+	// and what to do next, is commentary.
+	if printed.stdout != "" || !strings.Contains(printed.stderr, "Wrote ") || !strings.Contains(printed.stderr, "Next:") {
+		t.Errorf("config init put its notices on the wrong stream:\nstdout:\n%s\nstderr:\n%s",
+			printed.stdout, printed.stderr)
+	}
+}
+
 // searchFixture is the Jira body for a search of the issues assigned to you.
 func searchFixture(keys ...string) string {
 	issues := make([]string, 0, len(keys))

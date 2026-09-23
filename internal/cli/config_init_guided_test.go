@@ -102,14 +102,17 @@ func TestGuidedInitWarnsWhenTheFileIsNotGitIgnored(t *testing.T) {
 	prompt := scripted([]string{""}, []string{""})
 
 	// Act
-	output, err := runGuided(t, dir, prompt, "config", "init")
+	printed, err := runStreams(t, dir, prompt, "config", "init")
 	if err != nil {
-		t.Fatalf("config init: %v (%s)", err, output)
+		t.Fatalf("config init: %v (%+v)", err, printed)
 	}
 
 	// Assert
-	if !strings.Contains(output, "not ignored by git") {
-		t.Errorf("expected a git-ignore warning:\n%s", output)
+	// A warning is said about the file written, not part of anything a script
+	// would capture, so it is on stderr alone.
+	if !strings.Contains(printed.stderr, "not ignored by git") || strings.Contains(printed.stdout, "not ignored") {
+		t.Errorf("expected a git-ignore warning on stderr alone:\nstdout:\n%s\nstderr:\n%s",
+			printed.stdout, printed.stderr)
 	}
 }
 

@@ -6,7 +6,6 @@ package cli
 import (
 	"errors"
 	"fmt"
-	"io"
 	"slices"
 
 	"github.com/spf13/cobra"
@@ -70,13 +69,13 @@ func runBranchCommand(cmd *cobra.Command, prompt Prompt, issueKey string, opts w
 		Confirm:      func(question string) (bool, error) { return confirm(prompt, question) },
 	}
 
-	return runBranch(cmd.OutOrStdout(), seams, issueKey, opts)
+	return runBranch(outputOf(cmd), seams, issueKey, opts)
 }
 
 // runBranch names a branch for the issue, previews it, and creates it off the
 // current branch's base once confirmed. A branch that already exists is
 // refused rather than recreated.
-func runBranch(out io.Writer, seams branchSeams, issueKey string, opts writeOptions) error {
+func runBranch(out output, seams branchSeams, issueKey string, opts writeOptions) error {
 	detail, err := seams.Issue(jira.Key(issueKey))
 	if err != nil {
 		return fmt.Errorf("reading issue %s: %w", issueKey, err)
@@ -94,9 +93,9 @@ func runBranch(out io.Writer, seams branchSeams, issueKey string, opts writeOpti
 	}
 
 	base := currentBase(seams.Branch)
-	fmt.Fprintln(out, "Branch "+name+" from "+baseLabel(base))
+	fmt.Fprintln(out.artifact, "Branch "+name+" from "+baseLabel(base))
 
-	proceed, err := opts.proceed(out, seams.Confirm, writePrompt{
+	proceed, err := opts.proceed(out.notes, seams.Confirm, writePrompt{
 		question: "Create branch " + name + "?",
 		dryRun:   "dry run: would create " + name,
 		declined: "Not created.",
@@ -110,7 +109,7 @@ func runBranch(out io.Writer, seams branchSeams, issueKey string, opts writeOpti
 		return fmt.Errorf("creating %s: %w", name, err)
 	}
 
-	fmt.Fprintln(out, "Created "+name)
+	fmt.Fprintln(out.artifact, "Created "+name)
 
 	return nil
 }

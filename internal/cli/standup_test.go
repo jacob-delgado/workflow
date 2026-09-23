@@ -183,14 +183,15 @@ func TestStandupWithNothingLeftSaysSo(t *testing.T) {
 	prompt := cli.Prompt{Compose: func(string) (string, error) { return "   \n\t", nil }}
 
 	// Act
-	out, err := runGuided(t, repo, prompt, "standup")
+	printed, err := runStreams(t, repo, prompt, "standup")
 	if err != nil {
-		t.Fatalf("standup: %v (%s)", err, out)
+		t.Fatalf("standup: %v (%+v)", err, printed)
 	}
 
 	// Assert
-	if !strings.Contains(out, "Nothing to share.") || strings.Contains(out, "Posted to Slack.") {
-		t.Errorf("an emptied draft was posted or not reported:\n%s", out)
+	if !strings.Contains(printed.stderr, "Nothing to share.") || printed.stdout != "" {
+		t.Errorf("an emptied draft was not reported on stderr alone:\nstdout:\n%s\nstderr:\n%s",
+			printed.stdout, printed.stderr)
 	}
 }
 
@@ -201,14 +202,17 @@ func TestStandupIsNotPostedWhenDeclined(t *testing.T) {
 	writeFile(t, repo, `{"messaging":{"webhook_url":"https://hooks.slack.example/services/x"}}`)
 
 	// Act
-	out, err := runGuided(t, repo, scripted([]string{"n"}, nil), "standup", "--no-edit")
+	printed, err := runStreams(t, repo, scripted([]string{"n"}, nil), "standup", "--no-edit")
 	if err != nil {
-		t.Fatalf("standup: %v (%s)", err, out)
+		t.Fatalf("standup: %v (%+v)", err, printed)
 	}
 
 	// Assert
-	if !strings.Contains(out, "Not posted.") || strings.Contains(out, "Posted to Slack.") {
-		t.Errorf("a declined standup was posted:\n%s", out)
+	// The draft is the artifact; the decline is said about it.
+	if !strings.Contains(printed.stdout, "# Standup") || !strings.Contains(printed.stderr, "Not posted.") ||
+		strings.Contains(printed.stdout, "Not posted.") {
+		t.Errorf("a declined standup put its draft or its notice on the wrong stream:\nstdout:\n%s\nstderr:\n%s",
+			printed.stdout, printed.stderr)
 	}
 }
 
