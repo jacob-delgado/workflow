@@ -280,11 +280,15 @@ func commitWith(ctx context.Context, root, message string) (proc.Output, error) 
 func messagingDeps(
 	ctx context.Context, settings config.Messaging, timeout time.Duration, log *RequestLog,
 ) tui.MessagingDeps {
+	// A webhook's path is its credential; only a bot posts to a route.
+	wrap := log.wrapWebhook
+
 	if settings.Mode() == config.MessagingBot {
 		settings.Token, _, _ = ResolveToken(ctx, settings.Token, settings.TokenCommand, settings.TokenEnv)
+		wrap = log.Wrap
 	}
-	//nolint:bodyclose // Wrap only relays the response; the slack client reads and closes its body.
-	client := messaging.New(log.Wrap("slack", messaging.HTTPClient(timeout).Do), messaging.APIBase, settings)
+	//nolint:bodyclose // wrap only relays the response; the slack client reads and closes its body.
+	client := messaging.New(wrap("slack", messaging.HTTPClient(timeout).Do), messaging.APIBase, settings)
 
 	return tui.MessagingDeps{Post: func(channel, text string) error { return client.Post(ctx, channel, text) }}
 }

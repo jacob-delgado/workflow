@@ -177,9 +177,10 @@ has no way to be answered, so it stops, says to pass `--yes`, and exits 2.
 `--log FILE` appends a one-line outline of every request a command makes —
 the time, the service, the method, the path, the status and how long it took
 — to `FILE`. Like `--dry-run`, it is accepted before or after any command.
-It records nothing else: never a header, a body, a query string or a host, and
-a Slack webhook's path, which is itself the credential, is cut short. The
-file is created readable only by you.
+It records nothing else: never a header, a body, a query string or a host,
+and never the path of a messaging webhook — Slack's, Teams', Discord's or a
+plain one — which is itself the credential. The file is created readable only
+by you.
 
 ```text
 2026-09-22T18:04:11Z jira  GET  /rest/api/2/myself 200 184ms

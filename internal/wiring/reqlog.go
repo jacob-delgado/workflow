@@ -13,14 +13,18 @@ import (
 	"time"
 )
 
-// webhookPrefix is the start of a Slack incoming-webhook path. The rest of that
-// path is the credential itself, so it is the one path that must never be logged
-// in full.
+// webhookPrefix is the start of a Slack incoming-webhook path, whose rest is
+// the credential. A webhook is posted through wrapWebhook, which records no
+// path at all; Wrap still cuts this one short, should a webhook reach it.
 const webhookPrefix = "/services/"
+
+// redacted stands in for the part of a path that is a credential.
+const redacted = "[redacted]"
 
 // RequestLog records the outline of each HTTP request — its service, method,
 // path, status and duration — for a bug report. It records nothing else: never a
-// header, a body, a query string or a host, so no credential reaches the file.
+// header, a body, a query string or a host, and never the path of a messaging
+// webhook, which is the credential itself; so no credential reaches the file.
 type RequestLog struct {
 	mu  sync.Mutex
 	out io.Writer
@@ -42,6 +46,24 @@ func NewRequestLog(out io.Writer, now func() time.Time) *RequestLog {
 // is on.
 func (l *RequestLog) Wrap(service string, next func(*http.Request) (*http.Response, error),
 ) func(*http.Request) (*http.Response, error) {
+	//nolint:bodyclose // wrap only relays the response; the caller's client reads and closes its body.
+	return l.wrap(service, next, func(request *http.Request) string { return loggedPath(request.URL.Path) })
+}
+
+// wrapWebhook is Wrap for a Doer that posts to a messaging webhook. Every
+// kind's webhook path — Slack's, Teams', Discord's or a plain one — is its
+// credential, whatever its shape, so the whole path is recorded as redacted.
+func (l *RequestLog) wrapWebhook(service string, next func(*http.Request) (*http.Response, error),
+) func(*http.Request) (*http.Response, error) {
+	//nolint:bodyclose // wrap only relays the response; the caller's client reads and closes its body.
+	return l.wrap(service, next, func(*http.Request) string { return redacted })
+}
+
+// wrap decorates next, recording each request under service with the path
+// safePath gives for it.
+func (l *RequestLog) wrap(service string, next func(*http.Request) (*http.Response, error),
+	safePath func(*http.Request) string,
+) func(*http.Request) (*http.Response, error) {
 	if l == nil {
 		return next
 	}
@@ -49,7 +71,7 @@ func (l *RequestLog) Wrap(service string, next func(*http.Request) (*http.Respon
 	return func(request *http.Request) (*http.Response, error) {
 		start := l.now()
 		response, err := next(request)
-		l.record(service, request, response, start, l.now().Sub(start))
+		l.record(service, request.Method, safePath(request), response, start, l.now().Sub(start))
 
 		return response, err
 	}
@@ -58,14 +80,14 @@ func (l *RequestLog) Wrap(service string, next func(*http.Request) (*http.Respon
 // record writes one outline line: the start time, the service, the method, the
 // safe path, the status, and how long the request took.
 func (l *RequestLog) record(
-	service string, request *http.Request, response *http.Response, start time.Time, elapsed time.Duration,
+	service, method, safePath string, response *http.Response, start time.Time, elapsed time.Duration,
 ) {
 	l.mu.Lock()
 	defer l.mu.Unlock()
 
 	fmt.Fprintf(l.out, "%s %-5s %-4s %s %s %s\n",
-		start.UTC().Format(time.RFC3339), service, request.Method,
-		loggedPath(request.URL.Path), status(response), elapsed.Round(time.Millisecond))
+		start.UTC().Format(time.RFC3339), service, method,
+		safePath, status(response), elapsed.Round(time.Millisecond))
 }
 
 // status is the response's code, or a dash when the request never got one.
@@ -82,7 +104,7 @@ func status(response *http.Response) string {
 // route, not a secret, and is kept.
 func loggedPath(path string) string {
 	if strings.HasPrefix(path, webhookPrefix) {
-		return webhookPrefix + "[redacted]"
+		return webhookPrefix + redacted
 	}
 
 	return path

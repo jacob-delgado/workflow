@@ -10,6 +10,7 @@ import (
 	"os"
 	"path/filepath"
 	"slices"
+	"strings"
 	"sync"
 	"testing"
 
@@ -222,6 +223,45 @@ func TestTheSlackSeamRefusesAnInsecureWebhookBeforeSending(t *testing.T) {
 	// Assert
 	if !errors.Is(err, messaging.ErrInsecureWebhook) {
 		t.Errorf("Post = %v, want the webhook refused before anything is sent", err)
+	}
+}
+
+func TestTheMessagingSeamNeverLogsAWebhooksPath(t *testing.T) {
+	t.Parallel()
+
+	// Every kind's webhook path is its credential, whatever its shape. Nothing
+	// listens on port 1, so each post fails, but it is still recorded.
+	const secret = "not-a-real-token"
+
+	cases := map[config.MessagingKind]string{
+		config.KindSlack:   "/services/T0/B0/" + secret,
+		config.KindTeams:   "/webhookb2/g@t/IncomingWebhook/c/" + secret,
+		config.KindDiscord: "/api/webhooks/1/" + secret,
+		config.KindWebhook: "/hooks/" + secret,
+	}
+
+	for kind, path := range cases {
+		t.Run(string(kind), func(t *testing.T) {
+			t.Parallel()
+
+			// Arrange
+			cfg := config.Default()
+			cfg.Messaging = config.Messaging{Kind: kind, WebhookURL: config.Secret("https://127.0.0.1:1" + path)}
+
+			var logged strings.Builder
+
+			requestLog := wiring.NewRequestLog(&logged, nil)
+			seams := wiring.Deps(t.Context(), cfg, wiring.Workspace{Root: t.TempDir(), Remote: ""}, requestLog).Messaging
+
+			// Act
+			_ = seams.Post("", "hi")
+
+			// Assert
+			line := logged.String()
+			if !strings.Contains(line, "POST") || strings.Contains(line, secret) || strings.Contains(line, path) {
+				t.Errorf("log = %q, want the post recorded without its webhook's path", line)
+			}
+		})
 	}
 }
 
