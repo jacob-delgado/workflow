@@ -185,7 +185,7 @@ met and stay.
 | Accessible names, landmarks, skip link, focus ring, axe both themes | Met | enforced |
 | Disabled by opacity; reduced motion | **Gap** — thirteen places; no rule | UX-81 |
 | Responsive | **Gap** — zero breakpoints | UX-85 |
-| Vocabulary shared with the interface | Partial since Phase 9 — the forge's own noun and sigil, and the messaging section named after its service (`sectionLabel`, `web/src/shell/sections.ts:17`); "start" still has three names, and five sections vs six | UX-73, UX-83 |
+| Vocabulary shared with the interface | Met since Phase 9 but for the sections — the forge's own noun and sigil, the messaging section named after its service (`sectionLabel`, `web/src/shell/sections.ts:17`) and one verb for starting, "Start work"; five sections vs six | UX-83 |
 | Dry run visible | Met since Phase 3 — a banner, and every write held before it is sent | `web/src/shell/AppShell.tsx:54`, `web/src/api/client.ts:24` |
 | The contract it never calls | Met since Phase 3 for `getIssue`, `getHealth`, `listViews` and pagination; the generated `streamEvents` stays unused | DEBT-67 |
 

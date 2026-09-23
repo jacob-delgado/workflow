@@ -154,24 +154,6 @@ horizontal axis.
 
 ## The web
 
-### UX-73 "Start" has three names
-
-Impact: medium · Effort: small
-
-**Today.** The web says "merge request" and `!7` on GitLab, from the forge's
-words the health read carries (`useForgeWords`,
-`web/src/api/health.ts:28`), and names the messaging section after its
-service as the interface titles that pane (`sectionLabel`,
-`web/src/shell/sections.ts:17`). But "start" has three names across the
-surfaces (`branch for issue`, `new branch`, `Start work on this issue`,
-`web/src/features/issues/WorkStory.tsx:280`). The web has five sections
-where the interface has six (Commits folded into Branch, Reviews absent —
-UX-83, Settings added).
-
-**Instead.** One verb for starting.
-
-**Done when.** The web starts work under one name.
-
 ### UX-74 After opening a pull request, the web stops
 
 Impact: medium · Effort: medium

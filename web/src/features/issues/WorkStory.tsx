@@ -166,7 +166,7 @@ function stageState(stage: Stage, index: number, activeIndex: number): StageStat
 // its stages speak for themselves.
 function storyNote(branch: TaskBranch | undefined, noun: string): string | null {
   if (!branch) {
-    return `Not in progress — its branch, changes, and ${noun} appear here once you pick it up.`
+    return `Not in progress — its branch, changes, and ${noun} appear here once you start work on it.`
   }
   if (!branch.current) {
     return `In progress on ${branch.name} — its changes and ${noun} show when it is the branch you are on.`
@@ -277,7 +277,7 @@ function StartWorkButton({ issueKey }: { issueKey: string }) {
         }}
         className="self-start rounded-md bg-primary px-3 py-1.5 text-sm font-medium text-primary-foreground hover:bg-primary/90 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none disabled:opacity-60"
       >
-        {state === 'running' ? 'Starting…' : 'Start work on this issue'}
+        {state === 'running' ? 'Starting…' : 'Start work'}
       </button>
       {state === 'error' ? (
         <p role="alert" className="text-sm text-destructive">

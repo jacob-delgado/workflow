@@ -227,7 +227,7 @@ test('shows the reason when a checkout is refused', async () => {
   expect(await screen.findByText(/uncommitted changes/i)).toBeTruthy()
 })
 
-test('offers to start work on a not-started issue', () => {
+test('offers to start work on a not-started issue, in the one verb for it', () => {
   // Arrange
   useSnapshotStore.setState({ status: 'live', snapshot: makeSnapshot() })
 
@@ -235,7 +235,8 @@ test('offers to start work on a not-started issue', () => {
   render(<WorkStory issueKey="PROJ-999" />)
 
   // Assert
-  expect(screen.getByRole('button', { name: /start work on this issue/i })).toBeTruthy()
+  expect(screen.getByRole('button', { name: 'Start work' })).toBeTruthy()
+  expect(screen.getByText(/appear here once you start work on it\./i)).toBeTruthy()
 })
 
 test('does not offer to start work on an issue already in flight', () => {
@@ -246,7 +247,7 @@ test('does not offer to start work on an issue already in flight', () => {
   render(<WorkStory issueKey="PROJ-2" />)
 
   // Assert
-  expect(screen.queryByRole('button', { name: /start work on this issue/i })).toBeNull()
+  expect(screen.queryByRole('button', { name: 'Start work' })).toBeNull()
 })
 
 test('starts work when its button is clicked', async () => {
@@ -257,7 +258,7 @@ test('starts work when its button is clicked', async () => {
   render(<WorkStory issueKey="PROJ-999" />)
 
   // Act
-  await user.click(screen.getByRole('button', { name: /start work on this issue/i }))
+  await user.click(screen.getByRole('button', { name: 'Start work' }))
 
   // Assert
   expect(mockStartWork).toHaveBeenCalledWith('PROJ-999')
@@ -274,7 +275,7 @@ test('shows the reason when starting work is refused', async () => {
   render(<WorkStory issueKey="PROJ-999" />)
 
   // Act
-  await user.click(screen.getByRole('button', { name: /start work on this issue/i }))
+  await user.click(screen.getByRole('button', { name: 'Start work' }))
 
   // Assert
   expect(await screen.findByText(/already exists/i)).toBeTruthy()
