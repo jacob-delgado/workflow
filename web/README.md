@@ -32,7 +32,10 @@ yarn". `corepack yarn` runs the pinned yarn straight from Node.
 
 The repo's `task check` runs the first three beside the Go gates, installing
 dependencies first when they are missing. The Playwright suite
-(`corepack yarn test:e2e`) stays outside it and runs in CI.
+(`corepack yarn test:e2e`) stays outside it and runs in CI. It serves two builds:
+the production one, and a VITE_MOCK one whose populated sections the specs
+tagged `@populated` scan with axe and screenshot at 640, 1024 and 1440 px into
+`test-results/` (CI uploads them as the `screens` artifact).
 
 ## Conventions
 
