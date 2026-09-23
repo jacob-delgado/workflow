@@ -683,6 +683,17 @@ type Snapshot struct {
 	Review    Review               `json:"review"`
 }
 
+// StagingRequest What to stage or unstage: one changed file, or all of them — one or the other, never both.
+type StagingRequest struct {
+	// All Every change: for staging, each one the index does not hold yet; for unstaging, each staged one.
+	All *bool `json:"all,omitempty"`
+
+	// Path A changed file, by the path the working tree's changes list it under (a rename's new path).
+	//
+	// Example: internal/config/config.go
+	Path *string `json:"path,omitempty"`
+}
+
 // StatusCategory defines model for StatusCategory.
 type StatusCategory string
 
@@ -770,3 +781,9 @@ type UpdateConfigJSONRequestBody = Config
 
 // OpenPullRequestJSONRequestBody defines body for OpenPullRequest for application/json ContentType.
 type OpenPullRequestJSONRequestBody = OpenPullRequestRequest
+
+// StageJSONRequestBody defines body for Stage for application/json ContentType.
+type StageJSONRequestBody = StagingRequest
+
+// UnstageJSONRequestBody defines body for Unstage for application/json ContentType.
+type UnstageJSONRequestBody = StagingRequest

@@ -1039,7 +1039,7 @@ phase disagree, the correction wins.
    coverage, not per-condition.
 5. **Spec changes are three-way.** `api/openapi.yaml` → `task gen` (Go) →
    `yarn gen` (client and `zSnapshot`). The SSE endpoint is hand-registered
-   (`internal/webserver/webserver.go:125`) and the frame parser hand-written
+   (`internal/webserver/webserver.go:134`) and the frame parser hand-written
    (`snapshot.ts:50`), so a `Snapshot` field added in Go without
    regenerating the client makes the browser **silently drop every frame**
    (Phase 11 makes that visible). Run `task web:build` before trusting a

@@ -253,11 +253,11 @@ server, and the web's coverage floor measures each condition both ways.
 
 Severity: medium · Confidence: read
 
-`GET /api/events` is registered by hand (`internal/webserver/webserver.go:125`
+`GET /api/events` is registered by hand (`internal/webserver/webserver.go:134`
 — "a streaming response the strict, one-response-object interface cannot
 express") and the browser consumes it with a raw `new EventSource`
 (`web/src/api/snapshot.ts:50`); the generated `streamEvents`
-(`web/src/api/generated/sdk.gen.ts:253`) is never called. The only thing
+(`web/src/api/generated/sdk.gen.ts:283`) is never called. The only thing
 keeping the payload honest is the runtime `zSnapshot.safeParse`
 (`web/src/api/snapshot.ts:66`), and a frame that fails it is dropped
 (`web/src/api/snapshot.ts:63`)

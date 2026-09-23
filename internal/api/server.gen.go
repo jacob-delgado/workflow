@@ -75,6 +75,12 @@ type ServerInterface interface {
 	// GetReview The branch's pull request and its CI, if one is open.
 	// (GET /api/review)
 	GetReview(w http.ResponseWriter, r *http.Request)
+	// Stage Stage a changed file, or every change the index does not hold yet.
+	// (POST /api/stage)
+	Stage(w http.ResponseWriter, r *http.Request)
+	// Unstage Take a changed file out of the index, or every staged change.
+	// (POST /api/unstage)
+	Unstage(w http.ResponseWriter, r *http.Request)
 	// ListViews The configured issue views (saved JQL), in order.
 	// (GET /api/views)
 	ListViews(w http.ResponseWriter, r *http.Request)
@@ -423,6 +429,34 @@ func (siw *ServerInterfaceWrapper) GetReview(w http.ResponseWriter, r *http.Requ
 	handler.ServeHTTP(w, r)
 }
 
+// Stage operation middleware
+func (siw *ServerInterfaceWrapper) Stage(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.Stage(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// Unstage operation middleware
+func (siw *ServerInterfaceWrapper) Unstage(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.Unstage(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // ListViews operation middleware
 func (siw *ServerInterfaceWrapper) ListViews(w http.ResponseWriter, r *http.Request) {
 
@@ -565,6 +599,8 @@ func HandlerWithOptions(si ServerInterface, options StdHTTPServerOptions) http.H
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/api/issues/{key}/transition", wrapper.TransitionIssue)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/branch", wrapper.GetBranch)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/changes", wrapper.ListChanges)
+	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/api/stage", wrapper.Stage)
+	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/api/unstage", wrapper.Unstage)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/review", wrapper.GetReview)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/messaging", wrapper.GetMessaging)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/config", wrapper.GetConfig)
@@ -1609,6 +1645,140 @@ func (response GetReviewdefaultApplicationProblemPlusJSONResponse) VisitGetRevie
 	return err
 }
 
+type StageRequestObject struct {
+	Body *StageJSONRequestBody
+}
+
+type StageResponseObject interface {
+	VisitStageResponse(w http.ResponseWriter) error
+}
+
+type Stage200JSONResponse ChangeList
+
+func (response Stage200JSONResponse) VisitStageResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type Stage404ApplicationProblemPlusJSONResponse Problem
+
+func (response Stage404ApplicationProblemPlusJSONResponse) VisitStageResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type Stage422ApplicationProblemPlusJSONResponse Problem
+
+func (response Stage422ApplicationProblemPlusJSONResponse) VisitStageResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(422)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type StagedefaultApplicationProblemPlusJSONResponse struct {
+	Body       Problem
+	StatusCode int
+}
+
+func (response StagedefaultApplicationProblemPlusJSONResponse) VisitStageResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type UnstageRequestObject struct {
+	Body *UnstageJSONRequestBody
+}
+
+type UnstageResponseObject interface {
+	VisitUnstageResponse(w http.ResponseWriter) error
+}
+
+type Unstage200JSONResponse ChangeList
+
+func (response Unstage200JSONResponse) VisitUnstageResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type Unstage404ApplicationProblemPlusJSONResponse Problem
+
+func (response Unstage404ApplicationProblemPlusJSONResponse) VisitUnstageResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type Unstage422ApplicationProblemPlusJSONResponse Problem
+
+func (response Unstage422ApplicationProblemPlusJSONResponse) VisitUnstageResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(422)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type UnstagedefaultApplicationProblemPlusJSONResponse struct {
+	Body       Problem
+	StatusCode int
+}
+
+func (response UnstagedefaultApplicationProblemPlusJSONResponse) VisitUnstageResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
 type ListViewsRequestObject struct {
 }
 
@@ -1706,6 +1876,12 @@ type StrictServerInterface interface {
 	// GetReview The branch's pull request and its CI, if one is open.
 	// (GET /api/review)
 	GetReview(ctx context.Context, request GetReviewRequestObject) (GetReviewResponseObject, error)
+	// Stage Stage a changed file, or every change the index does not hold yet.
+	// (POST /api/stage)
+	Stage(ctx context.Context, request StageRequestObject) (StageResponseObject, error)
+	// Unstage Take a changed file out of the index, or every staged change.
+	// (POST /api/unstage)
+	Unstage(ctx context.Context, request UnstageRequestObject) (UnstageResponseObject, error)
 	// ListViews The configured issue views (saved JQL), in order.
 	// (GET /api/views)
 	ListViews(ctx context.Context, request ListViewsRequestObject) (ListViewsResponseObject, error)
@@ -2249,6 +2425,68 @@ func (sh *strictHandler) GetReview(w http.ResponseWriter, r *http.Request) {
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
 	} else if validResponse, ok := response.(GetReviewResponseObject); ok {
 		if err := validResponse.VisitGetReviewResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// Stage operation middleware
+func (sh *strictHandler) Stage(w http.ResponseWriter, r *http.Request) {
+	var request StageRequestObject
+
+	var body StageJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.Stage(ctx, request.(StageRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "Stage")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(StageResponseObject); ok {
+		if err := validResponse.VisitStageResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// Unstage operation middleware
+func (sh *strictHandler) Unstage(w http.ResponseWriter, r *http.Request) {
+	var request UnstageRequestObject
+
+	var body UnstageJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.Unstage(ctx, request.(UnstageRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "Unstage")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(UnstageResponseObject); ok {
+		if err := validResponse.VisitUnstageResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {

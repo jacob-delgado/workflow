@@ -118,3 +118,33 @@ func TestStageAllWithoutAStageSeamIsUnavailable(t *testing.T) {
 		t.Errorf("StageAll = %v, want %v", err, loop.ErrStagingUnavailable)
 	}
 }
+
+func TestUnstageAllTakesEveryStagedChangeOut(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	var unstaged []string
+
+	// Act
+	err := loop.UnstageAll(workTree(), recordingStage(&unstaged))
+
+	// Assert
+	// The wholly staged file and the staged part of the partly staged one; not
+	// what the index does not hold, and not a conflict, which is not staged.
+	want := []string{"redact.go", partlyStagedEdit().Path}
+	if err != nil || !slices.Equal(unstaged, want) {
+		t.Errorf("UnstageAll = %v, unstaged %q; want %q and no error", err, unstaged, want)
+	}
+}
+
+func TestUnstageAllWithoutAnUnstageSeamIsUnavailable(t *testing.T) {
+	t.Parallel()
+
+	// Act
+	err := loop.UnstageAll(workTree(), nil)
+
+	// Assert
+	if !errors.Is(err, loop.ErrStagingUnavailable) {
+		t.Errorf("UnstageAll = %v, want %v", err, loop.ErrStagingUnavailable)
+	}
+}

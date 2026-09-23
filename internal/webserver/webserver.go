@@ -53,6 +53,11 @@ type Deps struct {
 	LinkPullRequest func(issueKey jira.Key, pullURL, title string) error
 	Transitions     func(issueKey jira.Key) ([]jira.Transition, error)
 	Transition      func(issueKey jira.Key, to jira.Transition, values []jira.FieldValue) error
+	// Stage and Unstage move one change into and out of the index: a change as
+	// Changes read it, carrying a rename's original path — never a path a
+	// request names.
+	Stage   func(change gitrepo.Change) error
+	Unstage func(change gitrepo.Change) error
 }
 
 // Info is the build and run facts the API reports and the server needs.
@@ -96,6 +101,10 @@ type server struct {
 
 	mu  sync.RWMutex
 	cfg config.Config
+
+	// indexWrites queues the staging requests: git lets one process write the
+	// index at a time, and one that finds it taken fails rather than waits.
+	indexWrites sync.Mutex
 }
 
 var _ api.StrictServerInterface = (*server)(nil)

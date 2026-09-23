@@ -15,10 +15,10 @@ info:
     The API behind `workflow --web`. It exposes the same information the
     terminal UI shows — the assigned issues, the current branch, the working
     tree, the pull request and its CI, and where it announces — makes the
-    loop's writes (a checkout, a branch, a commit, a push, a pull request and
-    its follow-ups on the issue, an announcement), and lets the whole
-    configuration file be read and written. It reuses the same domain seams the
-    TUI and the CLI use, and stores nothing between requests.
+    loop's writes (a checkout, a branch, staging, a commit, a push, a pull
+    request and its follow-ups on the issue, an announcement), and lets the
+    whole configuration file be read and written. It reuses the same domain
+    seams the TUI and the CLI use, and stores nothing between requests.
   version: 1.0.0
 servers:
   - url: http://127.0.0.1:7000
@@ -230,6 +230,87 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ChangeList"
+        default: {$ref: "#/components/responses/Problem"}
+
+  /api/stage:
+    post:
+      operationId: stage
+      summary: Stage a changed file, or every change the index does not hold yet.
+      description: >-
+        Takes a changed file into the index — the terminal interface's space —
+        or, with all, every change the index does not hold yet: the rest of a
+        partly staged file, an edit, an untracked file, and a conflict, which
+        staging marks resolved (the terminal's a). The file is named by the
+        path the working tree's changes list it under, and the server finds
+        that change there, so a rename stages both of its paths and no path of
+        the caller's own reaches git. Refused with 404 when no change is at
+        that path, and 422 when staging is not available, the request names
+        neither a path nor all (or both), or git will not stage it.
+      tags: [repository]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/StagingRequest"
+      responses:
+        "200":
+          description: The working tree's changes, now staged.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ChangeList"
+        "404":
+          description: No change is at that path; nothing was staged.
+          content:
+            application/problem+json:
+              schema: {$ref: "#/components/schemas/Problem"}
+        "422":
+          description: >-
+            Staging is not available, the request names neither a path nor
+            all, or git would not stage the change.
+          content:
+            application/problem+json:
+              schema: {$ref: "#/components/schemas/Problem"}
+        default: {$ref: "#/components/responses/Problem"}
+
+  /api/unstage:
+    post:
+      operationId: unstage
+      summary: Take a changed file out of the index, or every staged change.
+      description: >-
+        Takes a file's staged changes out of the index, leaving the work tree
+        as it is — the terminal interface's space on a wholly staged file — or,
+        with all, every staged change. The file is named and found as for
+        POST /api/stage. Refused with 404 when no change is at that path, and
+        422 when staging is not available, the request names neither a path
+        nor all (or both), or git will not unstage it.
+      tags: [repository]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/StagingRequest"
+      responses:
+        "200":
+          description: The working tree's changes, now unstaged.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ChangeList"
+        "404":
+          description: No change is at that path; nothing was unstaged.
+          content:
+            application/problem+json:
+              schema: {$ref: "#/components/schemas/Problem"}
+        "422":
+          description: >-
+            Staging is not available, the request names neither a path nor
+            all, or git would not unstage the change.
+          content:
+            application/problem+json:
+              schema: {$ref: "#/components/schemas/Problem"}
         default: {$ref: "#/components/responses/Problem"}
 
   /api/review:
@@ -674,6 +755,25 @@ components:
         channel:
           type: string
           description: The channel to post to; empty uses the configured channel or the webhook.
+      additionalProperties: false
+
+    StagingRequest:
+      type: object
+      description: >-
+        What to stage or unstage: one changed file, or all of them — one or
+        the other, never both.
+      properties:
+        path:
+          type: string
+          description: >-
+            A changed file, by the path the working tree's changes list it
+            under (a rename's new path).
+          example: internal/config/config.go
+        all:
+          type: boolean
+          description: >-
+            Every change: for staging, each one the index does not hold yet;
+            for unstaging, each staged one.
       additionalProperties: false
 
     CommitRequest:

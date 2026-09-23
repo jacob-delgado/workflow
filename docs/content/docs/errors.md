@@ -44,7 +44,9 @@ parameter that did not fit the contract.
 Status 404. The addressed resource does not exist: most often an issue that is
 not in the tracker, or a `view` the configuration does not name — the issue list
 and the event stream both refuse a view they do not know rather than answering
-with the default one.
+with the default one. Staging and unstaging answer it too for a path the working
+tree does not list as changed: they move a change the server read, never a path
+of the caller's own.
 
 ## Conflict
 
@@ -58,11 +60,12 @@ filled for (the terminal interface's status picker asks for them).
 
 Status 422. The request was understood but cannot be carried out as asked — an
 invalid configuration body, a request for an issue when no tracker is
-configured, no `jira.review_status` to move an issue to, or a change Jira
-refused. A Jira token that is not configured or that Jira did not accept, a
-`jira.base_url` that is not a usable address, and one with no Jira API behind
-it are answered here too, pointing at `workflow doctor` rather than naming the
-address.
+configured, no `jira.review_status` to move an issue to, a change Jira
+refused, or a file git would not stage or unstage (git's own words stay off the
+wire, since a fetch it makes on the way can name the remote). A Jira token
+that is not configured or that Jira did not accept, a `jira.base_url` that is
+not a usable address, and one with no Jira API behind it are answered here
+too, pointing at `workflow doctor` rather than naming the address.
 
 ## Unreachable
 

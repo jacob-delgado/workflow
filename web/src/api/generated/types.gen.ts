@@ -75,6 +75,20 @@ export type AnnounceRequest = {
 };
 
 /**
+ * What to stage or unstage: one changed file, or all of them — one or the other, never both.
+ */
+export type StagingRequest = {
+    /**
+     * A changed file, by the path the working tree's changes list it under (a rename's new path).
+     */
+    path?: string;
+    /**
+     * Every change: for staging, each one the index does not hold yet; for unstaging, each staged one.
+     */
+    all?: boolean;
+};
+
+/**
  * The parts of a Conventional Commit message for the staged changes.
  */
 export type CommitRequest = {
@@ -850,6 +864,72 @@ export type ListChangesResponses = {
 };
 
 export type ListChangesResponse = ListChangesResponses[keyof ListChangesResponses];
+
+export type StageData = {
+    body: StagingRequest;
+    path?: never;
+    query?: never;
+    url: '/api/stage';
+};
+
+export type StageErrors = {
+    /**
+     * No change is at that path; nothing was staged.
+     */
+    404: Problem;
+    /**
+     * Staging is not available, the request names neither a path nor all, or git would not stage the change.
+     */
+    422: Problem;
+    /**
+     * An RFC 9457 problem details object describing the failure.
+     */
+    default: Problem;
+};
+
+export type StageError = StageErrors[keyof StageErrors];
+
+export type StageResponses = {
+    /**
+     * The working tree's changes, now staged.
+     */
+    200: ChangeList;
+};
+
+export type StageResponse = StageResponses[keyof StageResponses];
+
+export type UnstageData = {
+    body: StagingRequest;
+    path?: never;
+    query?: never;
+    url: '/api/unstage';
+};
+
+export type UnstageErrors = {
+    /**
+     * No change is at that path; nothing was unstaged.
+     */
+    404: Problem;
+    /**
+     * Staging is not available, the request names neither a path nor all, or git would not unstage the change.
+     */
+    422: Problem;
+    /**
+     * An RFC 9457 problem details object describing the failure.
+     */
+    default: Problem;
+};
+
+export type UnstageError = UnstageErrors[keyof UnstageErrors];
+
+export type UnstageResponses = {
+    /**
+     * The working tree's changes, now unstaged.
+     */
+    200: ChangeList;
+};
+
+export type UnstageResponse = UnstageResponses[keyof UnstageResponses];
 
 export type GetReviewData = {
     body?: never;
