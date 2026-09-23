@@ -55,6 +55,26 @@ func (k Kind) String() string {
 	}
 }
 
+// Noun is what this forge calls a proposed change: a merge request on GitLab,
+// and a pull request everywhere else, including a forge it cannot name.
+func (k Kind) Noun() string {
+	if k == KindGitLab {
+		return "merge request"
+	}
+
+	return "pull request"
+}
+
+// Sigil is the mark this forge writes before a proposed change's number: "!" on
+// GitLab, "#" everywhere else.
+func (k Kind) Sigil() string {
+	if k == KindGitLab {
+		return "!"
+	}
+
+	return "#"
+}
+
 // Repo identifies a repository on a forge.
 type Repo struct {
 	// Kind is the forge, where the host says which one.

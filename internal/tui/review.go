@@ -45,11 +45,7 @@ type reviewVocab struct {
 
 // forgeVocab is the vocabulary for a forge kind.
 func forgeVocab(kind forge.Kind) reviewVocab {
-	if kind == forge.KindGitLab {
-		return reviewVocab{noun: "merge request", sigil: "!"}
-	}
-
-	return reviewVocab{noun: "pull request", sigil: "#"}
+	return reviewVocab{noun: kind.Noun(), sigil: kind.Sigil()}
 }
 
 // findPullRequest is the command that looks for the branch's open pull request.

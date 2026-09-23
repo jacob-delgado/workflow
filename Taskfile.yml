@@ -38,10 +38,10 @@ vars:
   # pr / announce). This module's tests are black-box only (package <name>_test,
   # driving the CLI through cli.Execute, never its unexported seams), and a few of
   # the commands' condition arms have no black-box reach: the working-directory
-  # read failing, a Slack post SUCCEEDING (there is a stand-in for the forge CLI
-  # but none for the Slack transport, so only a failed post is reachable), and the
-  # GitLab-only "merge request" noun (which would need a second forge CLI stood
-  # up). See internal/cli/*_test.go.
+  # read failing and a Slack post SUCCEEDING (there is a stand-in for the forge CLI
+  # but none for the Slack transport, so only a failed post is reachable). See
+  # internal/cli/*_test.go. The GitLab-only "merge request" noun was a third until
+  # it moved onto forge.Kind, whose own tests reach it.
   #
   # It then stepped 92→91 when the white-box tests were removed to make
   # testpackage strict (.golangci.yml — every *_test.go must be package
