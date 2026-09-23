@@ -156,7 +156,7 @@ export function CommitForm({
         <button
           type="submit"
           disabled={blocked !== null || commit.state === 'running'}
-          className="self-start rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none disabled:opacity-60"
+          className="self-start rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none disabled:cursor-not-allowed disabled:bg-disabled disabled:text-disabled-foreground"
         >
           {commit.state === 'running' ? 'Committing…' : 'Commit staged changes'}
         </button>

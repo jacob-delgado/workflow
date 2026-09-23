@@ -26,7 +26,7 @@ export function NavRail() {
               setSection(key)
             }}
             className={cn(
-              'flex flex-col items-center gap-1.5 rounded-md px-1 py-2 text-xs font-medium transition-colors',
+              'flex flex-col items-center gap-1.5 rounded-md px-1 py-2 text-xs font-medium motion-safe:transition-colors',
               'text-muted-foreground hover:bg-accent hover:text-foreground',
               'focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none',
               active && 'bg-accent text-foreground',

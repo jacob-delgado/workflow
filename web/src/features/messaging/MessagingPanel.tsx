@@ -191,7 +191,7 @@ function AnnounceControls({
           post.reset()
           void preview.run()
         }}
-        className="self-start rounded-md bg-primary px-3 py-1.5 text-sm font-medium text-primary-foreground hover:bg-primary/90 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none disabled:opacity-60"
+        className="self-start rounded-md bg-primary px-3 py-1.5 text-sm font-medium text-primary-foreground hover:bg-primary/90 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none disabled:cursor-not-allowed disabled:bg-disabled disabled:text-disabled-foreground"
       >
         {preview.state === 'running' ? 'Preparing…' : `Announce to ${service}`}
       </button>
@@ -245,7 +245,7 @@ function AnnouncePreview({
             onChange={(event) => {
               onChannel(event.target.value)
             }}
-            className="rounded-md border border-input bg-transparent px-2 py-1 text-sm disabled:opacity-60"
+            className="rounded-md border border-input bg-transparent px-2 py-1 text-sm disabled:cursor-not-allowed disabled:bg-disabled disabled:text-disabled-foreground"
           >
             {channels.map((option) => (
               <option key={option} value={option}>
@@ -260,7 +260,7 @@ function AnnouncePreview({
           type="button"
           disabled={posting}
           onClick={onCancel}
-          className="rounded-md border border-input px-3 py-1.5 text-sm hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none disabled:opacity-60"
+          className="rounded-md border border-input px-3 py-1.5 text-sm hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none disabled:cursor-not-allowed disabled:bg-disabled disabled:text-disabled-foreground"
         >
           Cancel
         </button>
@@ -268,7 +268,7 @@ function AnnouncePreview({
           type="button"
           disabled={posting}
           onClick={onPost}
-          className="rounded-md bg-primary px-3 py-1.5 text-sm font-medium text-primary-foreground hover:bg-primary/90 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none disabled:opacity-60"
+          className="rounded-md bg-primary px-3 py-1.5 text-sm font-medium text-primary-foreground hover:bg-primary/90 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none disabled:cursor-not-allowed disabled:bg-disabled disabled:text-disabled-foreground"
         >
           {posting ? 'Announcing…' : 'Announce now'}
         </button>

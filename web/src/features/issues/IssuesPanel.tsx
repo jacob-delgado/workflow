@@ -202,7 +202,7 @@ function IssueRows({ issues, branches, rowRefs, outcome }: IssueRowsProps) {
                 selectIssue(issue.key)
               }}
               className={cn(
-                'flex flex-1 flex-col gap-1 rounded-md border border-transparent px-3 py-2 text-left transition-colors',
+                'flex flex-1 flex-col gap-1 rounded-md border border-transparent px-3 py-2 text-left motion-safe:transition-colors',
                 'hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none',
                 issue.key === selected && 'border-border bg-accent',
               )}
@@ -368,7 +368,7 @@ function RowCheckout({ branch, issueKey, outcome }: RowCheckoutProps) {
         onClick={() => {
           void run()
         }}
-        className="shrink-0 rounded-md border border-input px-2 py-1 text-xs hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none disabled:opacity-60"
+        className="shrink-0 rounded-md border border-input px-2 py-1 text-xs hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none disabled:cursor-not-allowed disabled:bg-disabled disabled:text-disabled-foreground"
       >
         {state === 'running' ? 'Switching…' : 'Check out'}
       </button>

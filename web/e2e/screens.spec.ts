@@ -34,8 +34,10 @@ for (const theme of themes) {
           // Act: open the section.
           await nav.getByRole('button', { name, exact: true }).click()
 
-          // Assert: its heading has settled; then the screen is saved as drawn.
+          // Assert: its heading has settled; then the screen is saved as drawn,
+          // with the pointer parked off the controls so none is caught mid-hover.
           await expect(page.getByRole('heading', { level: 1, name })).toBeVisible()
+          await page.mouse.move(0, 0)
           await page.screenshot({
             path: testInfo.outputPath(`${String(width)}-${theme}-${name.toLowerCase()}.png`),
             fullPage: true,

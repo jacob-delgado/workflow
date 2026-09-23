@@ -203,7 +203,7 @@ Severity: medium · Confidence: read
 
 `task check` (`Taskfile.yml:477`) runs the web's lint, client-drift check and
 unit tests beside the Go gates, but what those tests are held to is thinner.
-`web/vitest.config.ts:35` sets `thresholds: { lines: 85, branches: 85 }`
+`web/vitest.config.ts:38` sets `thresholds: { lines: 85, branches: 85 }`
 under the v8 provider — statement branches, not gobco-style per-condition
 coverage, and nine points below the Go statement floor of 94. The e2e suite
 is four specs (`web/e2e/a11y.spec.ts`, `web/e2e/screens.spec.ts`,
