@@ -234,7 +234,7 @@ func TestAnnounceNeverForwardsTheWebhook(t *testing.T) {
 		"the message refused":    {messaging.ErrPostRefused, unprocessable, "announce from a terminal to see its reason"},
 		"an undocumented answer": {messaging.ErrUnexpectedStatus, unreachable, "answered with a status it does not document"},
 		"no answer":              {messaging.ErrUnreachable, unreachable, "check the network, then try again"},
-		"asked to wait":          {messaging.ErrRateLimited, unreachable, "wait and try again"},
+		"asked to wait":          {messaging.ErrRateLimited, unreachable, waitAndTryAgain},
 		"a redirect refused":     {messaging.ErrRedirected, unreachable, "check its configured address"},
 		"a failure of no kind":   {errSeam, http.StatusInternalServerError, "try again"},
 	}
@@ -314,7 +314,7 @@ func TestAnnouncingIsAConflictWithoutAPullRequest(t *testing.T) {
 
 			return deps
 		},
-		"no forge seam": func(deps webserver.Deps) webserver.Deps {
+		noForgeSeam: func(deps webserver.Deps) webserver.Deps {
 			deps.FindPull = nil
 
 			return deps

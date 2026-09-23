@@ -20,8 +20,14 @@ import (
 	"github.com/jacob-delgado/workflow/internal/webserver"
 )
 
-// credentialRefused is how Jira's refusal of the configured credential is told.
-const credentialRefused = "did not accept the configured credential"
+const (
+	// credentialRefused is how Jira's refusal of the configured credential is
+	// told.
+	credentialRefused = "did not accept the configured credential"
+	// undocumentedStatus is how a status the forge does not document is told,
+	// whether or not the forge explained it.
+	undocumentedStatus = "does not document"
+)
 
 func TestTransitionNeverForwardsTheJiraHost(t *testing.T) {
 	t.Parallel()
@@ -67,7 +73,7 @@ func TestTransitionNeverForwardsTheJiraHost(t *testing.T) {
 		},
 		"asked to wait": {
 			err:        fmt.Errorf("reading https://%s: %w", jiraHost, httpx.RateLimited(http.Header{"Retry-After": {"30"}})),
-			wantStatus: http.StatusBadGateway, want: "wait and try again",
+			wantStatus: http.StatusBadGateway, want: waitAndTryAgain,
 		},
 	}
 
@@ -113,9 +119,9 @@ func TestAForgeFailureSaysWhatToDo(t *testing.T) {
 		"no API at the address":         {forge.ErrNoAPI, unprocessable, "no forge API answered"},
 		"an answer that is not JSON":    {forge.ErrNotJSON, unprocessable, "no forge API answered"},
 		"a refusal that may be a limit": {forge.ErrRefused, unreachable, "wait a minute"},
-		"a status it does not document": {forge.ErrUnexpectedStatus, unreachable, "does not document"},
+		"a status it does not document": {forge.ErrUnexpectedStatus, unreachable, undocumentedStatus},
 		"a status the forge explained": {
-			fmt.Errorf("%w: 500 Internal Server Error", forge.ErrRejected), unreachable, "does not document",
+			fmt.Errorf("%w: 500 Internal Server Error", forge.ErrRejected), unreachable, undocumentedStatus,
 		},
 	}
 

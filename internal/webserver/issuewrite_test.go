@@ -161,9 +161,9 @@ func TestLinkIsUnavailableWithoutItsSeams(t *testing.T) {
 	t.Parallel()
 
 	cases := map[string]func(*webserver.Deps){
-		"no link seam":  func(deps *webserver.Deps) { deps.LinkPullRequest = nil },
-		noBranchSeam:    func(deps *webserver.Deps) { deps.Branch = nil },
-		"no forge seam": func(deps *webserver.Deps) { deps.FindPull = nil },
+		"no link seam": func(deps *webserver.Deps) { deps.LinkPullRequest = nil },
+		noBranchSeam:   func(deps *webserver.Deps) { deps.Branch = nil },
+		noForgeSeam:    func(deps *webserver.Deps) { deps.FindPull = nil },
 	}
 
 	for name, unwire := range cases {

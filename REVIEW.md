@@ -408,7 +408,7 @@ Phase 0.
 - A view switcher from `listViews`; `useEventStream(view)` reconnects with
   `?view=`; `No issues match this view.` (`IssuesPanel.tsx:23`) gains the
   switcher beside it.
-- Server: `resolveJQL` (`internal/webserver/handlers.go:234`) answers
+- Server: `resolveJQL` (`internal/webserver/handlers.go:267`) answers
   `not_found` for an unknown view instead of `views[0]`; the stream
   validates `?view=` before upgrading.
 
@@ -1117,7 +1117,7 @@ phase disagree, the correction wins.
    coverage, not per-condition.
 5. **Spec changes are three-way.** `api/openapi.yaml` → `task gen` (Go) →
    `yarn gen` (client and `zSnapshot`). The SSE endpoint is hand-registered
-   (`internal/webserver/webserver.go:156`) and the frame parser hand-written
+   (`internal/webserver/webserver.go:159`) and the frame parser hand-written
    (`snapshot.ts:50`), so a `Snapshot` field added in Go without
    regenerating the client makes the browser **silently drop every frame**
    (Phase 11 makes that visible). Run `task web:build` before trusting a

@@ -14,7 +14,8 @@ info:
   description: >-
     The API behind `workflow --web`. It exposes the same information the
     terminal UI shows — the assigned issues, the current branch, the working
-    tree, the pull request and its CI, and where it announces — makes the
+    tree, the pull request and its CI, the pull requests waiting on your
+    review, and where it announces — makes the
     loop's writes (a checkout, a branch, staging, a commit, a push, a pull
     request and its follow-ups on the issue, an announcement), and lets the
     whole configuration file be read and written. It reuses the same domain
@@ -34,6 +35,8 @@ tags:
     description: The current branch and working tree.
   - name: review
     description: The branch's pull request and its CI.
+  - name: reviews
+    description: The pull requests on the forge that wait on your review.
   - name: messaging
     description: Where and as whom an announcement would post.
   - name: config
@@ -327,6 +330,29 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Review"
+        default: {$ref: "#/components/responses/Problem"}
+
+  /api/reviews:
+    get:
+      operationId: listReviews
+      summary: The pull requests on the forge that wait on your review.
+      description: >-
+        The review queue `workflow reviews` prints and the terminal's Reviews
+        pane shows: the open pull or merge requests, across repositories,
+        that ask for your review, the longest-waiting first. It is a search
+        of the forge, not a snapshot field, so the stream does not carry it.
+      tags: [reviews]
+      responses:
+        "200":
+          description: >-
+            The queue. With no forge to ask — outside a repository, or with an
+            origin on no forge workflow can read — available is false and the
+            queue is empty: an answer about where the server runs, not a
+            missing resource, so never a 404.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ReviewQueue"
         default: {$ref: "#/components/responses/Problem"}
 
   /api/messaging:
@@ -1110,6 +1136,53 @@ components:
         ci:
           nullable: true
           allOf: [{$ref: "#/components/schemas/CI"}]
+      additionalProperties: false
+
+    ReviewQueue:
+      type: object
+      required: [available, requests]
+      properties:
+        available:
+          type: boolean
+          description: >-
+            Whether there is a forge to ask. False outside a repository, and
+            when origin is on no forge workflow can read — not GitHub or
+            GitLab, or a self-hosted one forge.kind and forge.host do not name
+            — and requests is then empty.
+        requests:
+          type: array
+          description: >-
+            The open pull or merge requests that ask for your review, the
+            longest-waiting first. Empty when none does, or when there is no
+            forge to ask.
+          items: {$ref: "#/components/schemas/ReviewRequest"}
+      additionalProperties: false
+
+    ReviewRequest:
+      type: object
+      required: [number, url, title, author, repository, draft, ci, opened_at]
+      properties:
+        number:
+          type: integer
+          description: The GitHub number or GitLab IID.
+        url: {type: string}
+        title: {type: string}
+        author:
+          type: string
+          description: Who opened it, and so who asks for the review.
+        repository:
+          type: string
+          description: >-
+            The owner/name (GitHub) or group/project (GitLab) it is in, since
+            the queue spans repositories; empty when the forge did not say.
+          example: jacob-delgado/workflow
+        draft: {type: boolean}
+        ci:
+          $ref: "#/components/schemas/CIState"
+        opened_at:
+          type: string
+          format: date-time
+          description: RFC 3339; when it was opened, which is how long it has waited — the zero time if the forge did not give one.
       additionalProperties: false
 
     OpenedPullRequest:

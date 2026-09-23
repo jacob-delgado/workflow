@@ -43,6 +43,11 @@ const (
 	// noBranchSeam is the shared name for the "no branch seam" case the write
 	// handlers' unavailability tables each exercise.
 	noBranchSeam = "no branch seam"
+	// noForgeSeam is its twin for the reads and writes that ask the forge.
+	noForgeSeam = "no forge seam"
+	// waitAndTryAgain is what an answer to a service limiting requests says to
+	// do, whichever service it is.
+	waitAndTryAgain = "wait and try again"
 	// loopbackHost is the Host the shared request helpers send, so requests pass
 	// the loopback guard the same way a browser on 127.0.0.1 does. A test that
 	// exercises the guard sets its own Host instead.

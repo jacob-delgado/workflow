@@ -190,6 +190,39 @@ func (s *server) review(pull forge.PullRequest, found bool, head string) api.Rev
 	return result
 }
 
+// ListReviews returns the pull requests on the forge that ask for your review,
+// the longest-waiting first — the queue `workflow reviews` prints and the
+// interface's Reviews pane lists. With no forge to ask, it answers that the
+// queue is not available rather than failing: that is where the server runs,
+// not something the page asked for wrongly.
+func (s *server) ListReviews(
+	_ context.Context, _ api.ListReviewsRequestObject,
+) (api.ListReviewsResponseObject, error) {
+	if s.deps.ReviewRequests == nil {
+		return api.ListReviews200JSONResponse(noReviewQueue()), nil
+	}
+
+	requests, err := s.deps.ReviewRequests()
+	if noForgeToAsk(err) {
+		return api.ListReviews200JSONResponse(noReviewQueue()), nil
+	}
+
+	if err != nil {
+		body, code := fault(err)
+
+		return api.ListReviewsdefaultApplicationProblemPlusJSONResponse{Body: body, StatusCode: code}, nil
+	}
+
+	return api.ListReviews200JSONResponse(reviewQueueDTO(forge.OldestFirst(requests))), nil
+}
+
+// noForgeToAsk reports a review read that found no forge to ask: no remote —
+// outside a repository, or with no origin — or an origin on a host that is not
+// a forge workflow can read.
+func noForgeToAsk(err error) bool {
+	return errors.Is(err, forge.ErrNotARemote) || errors.Is(err, forge.ErrUnknownForge)
+}
+
 // GetMessaging returns the service, and where and as whom an announcement would
 // post.
 func (s *server) GetMessaging(

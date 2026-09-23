@@ -292,6 +292,8 @@ func WebDeps(deps tui.Deps) webserver.Deps {
 		Author:       deps.Forge.Author,
 		Post:         deps.Messaging.Post,
 
+		ReviewRequests: deps.Forge.ReviewRequests,
+
 		LinkPullRequest: deps.Jira.LinkPullRequest,
 		Transitions:     deps.Jira.Transitions,
 		Transition:      deps.Jira.Transition,

@@ -235,6 +235,22 @@ export const zCiState = z.enum([
     'failed'
 ]);
 
+export const zReviewRequest = z.object({
+    number: z.int(),
+    url: z.string(),
+    title: z.string(),
+    author: z.string(),
+    repository: z.string(),
+    draft: z.boolean(),
+    ci: zCiState,
+    opened_at: z.iso.datetime({ offset: true })
+});
+
+export const zReviewQueue = z.object({
+    available: z.boolean(),
+    requests: z.array(zReviewRequest)
+});
+
 export const zCheck = z.object({
     name: z.string(),
     state: zCiState,
@@ -453,6 +469,11 @@ export const zUnstageResponse = zChangeList;
  * The review state; pull and ci are null when none is found.
  */
 export const zGetReviewResponse = zReview;
+
+/**
+ * The queue. With no forge to ask — outside a repository, or with an origin on no forge workflow can read — available is false and the queue is empty: an answer about where the server runs, not a missing resource, so never a 404.
+ */
+export const zListReviewsResponse = zReviewQueue;
 
 /**
  * The messaging destination.
