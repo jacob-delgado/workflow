@@ -664,46 +664,87 @@ outcome of an open goes when another branch is checked out*, *the hints name
 the forge's own noun*. The accessibility scan covers the offers in both
 themes. `yarn gen:check`.
 
-### Phase 10 — The web can stage, and picks the scope the interface would
+### Phase 10 — The web can stage, and picks the scope the interface would — done
 
 Closes UX-75, UX-76. Depends on Phases 1 (`loop.RefuseNothingStaged`) and 3.
 
-- `POST /api/stage` and `POST /api/unstage` taking `{path}` or `{all:
-  true}`, in one `staging.go`; `webserver.Deps` gains `Stage`, `Unstage`.
-  The path is resolved against the working tree's own changes — a 404
-  otherwise — and "all" is `loop.StageAll`, which the terminal's `a` now
-  shares (`internal/loop/stage.go:35`). The working-tree list (`WorkingTree`,
-  `web/src/features/branch/WorkingTree.tsx:12`) gets Stage / Unstage per file
-  and Stage all, each with a `role="status"` line; the commit form is always
-  mounted, with a "Nothing staged yet — stage a file above" state instead of
-  vanishing (`:34`).
-- The snapshot — not its `changes`, so `GET /api/changes` stays a git read —
-  gains `suggested_scope`: the store's last scope, else
-  `commit.default_scope`, the interface's rule
-  (`internal/tui/composer.go:131-137`); `Deps.LastScope`/`RecordScope` from
+- `loop.Stageable` and `loop.StageAll` (`internal/loop/stage.go:35`) name
+  what "stage all" stages once, and the terminal's `a` hands its staging to
+  them; `loop.UnstageAll` sits beside them.
+- Spec first: `POST /api/stage` and `POST /api/unstage` taking `{path}` or
+  `{all: true}`, in one `staging.go`; `webserver.Deps` gains `Stage`,
+  `Unstage`, mapped in `cli.WebDeps`. The path is resolved against the
+  working tree's own changes (`moveChanges`,
+  `internal/webserver/staging.go:91`), and the change found there — a
+  rename's original path with it — is what reaches git; a path the tree does
+  not list is a 404, neither-or-both a 422, and git's refusal a 422 whose
+  detail never carries git's own words, which can name the remote. Staging
+  requests take turns on the server, since git fails a second index writer
+  rather than making it wait, and the stream's status read takes no index
+  lock (`--no-optional-locks`).
+- The working-tree list (`WorkingTree`,
+  `web/src/features/branch/WorkingTree.tsx:12`) gets Stage / Unstage per
+  file, by the terminal's rule for `space`, and Stage all, each on
+  `useAsyncAction` with its own `role="status"` line that takes focus once
+  done, unless the user has moved it on, and outlives the snapshot that
+  shows the file moved; the commit form is always mounted, with a "Nothing
+  staged yet — stage a file above" state instead of vanishing (`:34`).
+- Spec first: the snapshot — not its `changes`, so `GET /api/changes` stays
+  a git read — gains a required `suggested_scope`: the store's last scope,
+  else `commit.default_scope`, the interface's rule (`suggestedScope`,
+  `internal/webserver/commit.go:138`); `Deps.LastScope`/`RecordScope` from
   `deps.Store`, the learned scope read once and again only after a commit
-  records one, never under `--dry-run`; `CommitForm` opens on it and never
-  overwrites a scope being typed; the server records a non-blank scope
-  after a commit.
+  records one — so `store.disabled` learns nothing, as in the terminal —
+  never under `--dry-run`; the server records a non-blank scope, trimmed,
+  after a commit. `CommitForm` opens on it and takes a later frame's
+  suggestion only while its scope is untouched (`useScopeSuggestion`,
+  `web/src/features/branch/CommitForm.tsx:177`).
 
-**Touches.** `api/openapi.yaml`, `internal/webserver/{webserver, staging
-(new), commit, stream, dto}.go`, `internal/cli/cli.go`,
-`web/src/features/branch/{BranchPanel,CommitForm}.tsx`, new
-`stagingApi.ts`.
+**Touches.** `api/openapi.yaml`, `internal/loop/stage.go` (new),
+`internal/tui/commits.go`, `internal/gitrepo/status.go`,
+`internal/webserver/{webserver, staging (new), commit, stream}.go`,
+`internal/cli/cli.go`,
+`web/src/features/branch/{BranchPanel, CommitForm, WorkingTree (new)}.tsx`,
+new `web/src/features/branch/stagingApi.ts`,
+`web/src/features/settings/SettingsPanel.tsx`, `web/src/test/fixtures.ts`,
+`web/src/dev/mockSnapshot.ts`, `web/e2e/a11y.spec.ts`,
+`docs/content/docs/{errors, configuration}.md`.
 
-**Budget.** **`internal/webserver` → 17** with a history row. Note: the
-three bumps across Phases 9, 10 and 12 are the WHY's own anticipated path
-("grows only when the API gains an operation, which the spec records
-first") — a split would separate handlers that change together, so bump,
-don't split.
+**Budget.** **`internal/webserver` 16 → 17** with the WHY rewritten (a file
+holds a write or a pair of them, as `issuewrite.go` already did) and a
+history row, in the same commit as `staging.go`. The three bumps across
+Phases 9, 10 and 12 are the WHY's own anticipated path ("grows only when the
+API gains an operation, which the spec records first") — a split would
+separate handlers that change together, so bump, don't split.
 
 **Done when.** A browser can stage, commit, and see the scope pre-filled;
-`commit.default_scope` edited in Settings is honored on the next form.
+with no scope learned in the repository, `commit.default_scope` edited in
+Settings pre-fills the next form (once one is learned, it wins, as in the
+interface); `--dry-run` refuses both new POSTs in both forms.
 
-**Proof.** `webserver_test.TestStageAllStagesEveryChange`;
+**Proof.** `loop_test.TestStageAllStagesEveryStageableChange` and
+`TestUnstageAllTakesEveryStagedChangeOut`;
+`webserver_test.TestStageAllStagesEveryChange`,
+`TestStageResolvesThePathAgainstTheChanges`,
+`TestStageRefusesAPathThatIsNotAChange` (404),
+`TestStagingNeverForwardsGitsOwnWords` (nor the remote's host),
+`TestStagingAnswersTheTreeAsItNowStands`,
+`TestStagingWritesWaitForEachOther` and `TestDryRunRefusesStaging`;
+`gitrepo_test.TestStatusReadsTheWorkTree` (without the optional locks);
 `TestSnapshotCarriesTheSuggestedScope` (a table over the store-then-config
-fallback); vitest *the commit form opens on the suggested scope*, *Stage all
-makes the commit form live*.
+fallback), `TestEveryFrameNamesTheSuggestedScopeEvenWhenEmpty`,
+`TestTheStoreIsReadOnceAcrossFrames` (learned or not),
+`TestADryRunSuggestsTheDefaultWithoutOpeningTheStore`,
+`TestCommitRecordsTheScope` (a disabled store keeps the default) and
+`TestADefaultScopeSavedInSettingsIsSuggestedWhileNoneIsLearned`;
+`TestWebDepsHandsTheServerEverySeam`. vitest *Stage all makes the commit
+form live*, *what a stage said survives the snapshot that shows the file
+staged*, *focus lands on what the stage said*, *staging leaves focus in a
+subject being typed*, *the commit form opens on the suggested scope*, *a new
+frame does not overwrite a typed scope*, *after a commit with no scope the
+form opens on the suggestion again*, *keeps the scope a frame suggests for
+the next commit*. The accessibility scan stages a file in both themes.
+`yarn gen:check`.
 
 ### Phase 11 — Feedback, focus and wording on the web
 
