@@ -124,7 +124,7 @@ gap, and which phase closes it.
 | 42 | Status across the loop | Y (`status DIR…`) | Y (the spine) | Y (`WorkStory`) | — |
 | 43 | Dry run | Y (one persistent `--dry-run` since Phase 2, `internal/cli/cli.go:204`) | Y (per seam, `dryrun.go:25`) | Y since Phase 3 — a read-only banner (`web/src/shell/AppShell.tsx:54`) and one hold over every write before it is sent (`web/src/api/client.ts:24`), over the server's 403 (`guard.go:46`) | — |
 | 44 | Request log `--log` | Y (persistent since Phase 2, `internal/cli/cli.go:206`) | Y | Y | — |
-| 45 | Help / discoverability | P (no hint on a typo, `internal/cli/cli.go:174`) | Y since Phase 7 — `?` lists all 57 bindings where each works, held to a table of every placement (`internal/tui/help_test.go:211`), and the Issues footer shows every key it answers (`internal/tui/detail.go:186`) | n/a | Phase 8 (UX-56); web `?` idea, UX-88 |
+| 45 | Help / discoverability | Y since Phase 8 — an unknown command or flag points at `--help`, after cobra's closest commands (`usageHint`, `internal/cli/scriptable.go:206`) | Y since Phase 7 — `?` lists all 57 bindings where each works, held to a table of every placement (`internal/tui/help_test.go:211`), and the Issues footer shows every key it answers (`internal/tui/detail.go:186`) | n/a | Web `?` idea, UX-88 |
 | 46 | Version | Y | n/a | Y since Phase 3 — in the header (`web/src/shell/AppShell.tsx:43`) | — |
 
 ## Where a surface breaks a convention
@@ -139,7 +139,7 @@ to see the shape.
 | --- | --- | --- |
 | `--help` on every command; useful long help | Met | `internal/cli/cli.go:26` `longHelp`; pinned by `internal/cli/cli_test.go:283` |
 | `--version` | Met, and in the generated reference since Phase 2 | `cmd/docsgen/main.go` |
-| Exit codes distinguish failure kinds | Met since Phase 2 — 0/1/2/3/4/5/130 | `cli.ExitStatus`, `internal/cli/scriptable.go:228`; `docs/content/docs/scripting.md` |
+| Exit codes distinguish failure kinds | Met since Phase 2 — 0/1/2/3/4/5/130 | `cli.ExitStatus`, `internal/cli/scriptable.go:261`; `docs/content/docs/scripting.md` |
 | stdout = artifact, stderr = commentary | Met since Phase 2 | `output`, `internal/cli/scriptable.go:29` |
 | Root flags compose with subcommands | Met since Phase 2 for `--dry-run` and `--log`; `--web` is the root's alone | `internal/cli/cli.go:204` |
 | POSIX short flags | **Gap** — none declared | UX-62 |
@@ -150,7 +150,7 @@ to see the shape.
 | Progress for slow operations | **Gap** — silent | UX-61 |
 | Ctrl-C | Met | `internal/cli/cli.go:102` `signal.NotifyContext` |
 | Errors say what to do next | Partial — strong in `doctor`/`config`; bare sentinels do not | UX-57 |
-| A hint on misuse | **Gap** — `SilenceUsage`+`SilenceErrors` swallow cobra's | UX-56 |
+| A hint on misuse | Met since Phase 8 — `SilenceErrors` still stops cobra's usage dump; an unknown command or flag points at `--help`, after the closest commands | `usageHint`, `internal/cli/scriptable.go:206` |
 | No surprises | Partial — `branch` switches silently; `pr` pushes and transitions under one question | UX-58 |
 | Secrets never printed | Met | pinned by `internal/cli/cli_test.go:258`, `doctor_json_test.go:65` |
 | Shell completion | Met, incl. dynamic issue keys | `internal/cli/scriptable.go:121` |

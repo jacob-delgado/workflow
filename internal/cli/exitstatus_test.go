@@ -129,6 +129,63 @@ func TestExitStatusMarksMisuse(t *testing.T) {
 	}
 }
 
+// rootHelp is the pointer at the root's help that a misuse of the root ends with.
+const rootHelp = "Run 'workflow --help' for usage."
+
+func TestUnknownCommandPointsAtHelp(t *testing.T) {
+	cases := map[string]struct {
+		args  string
+		meant string
+		help  string
+	}{
+		"a mistyped command":    {args: "brnch PROJ-1", meant: "branch", help: rootHelp},
+		"a mistyped subcommand": {args: "config initt", meant: "init", help: "Run 'workflow config --help' for usage."},
+		// The flag belongs to the command meant, so it is the name that is wrong.
+		"a mistyped command before a flag": {args: "annunce --yes", meant: "announce", help: rootHelp},
+	}
+
+	for name, tt := range cases {
+		t.Run(name, func(t *testing.T) {
+			// Act
+			printed, err := runStreams(t, t.TempDir(), unusedPrompt(t), strings.Fields(tt.args)...)
+
+			// Assert
+			wantExit(t, err, 2)
+
+			if err == nil || !strings.Contains(err.Error(), "Did you mean this?\n\t"+tt.meant+"\n") ||
+				!strings.HasSuffix(err.Error(), tt.help) || printed.stdout != "" {
+				t.Errorf("workflow %s = %v, want the closest command, %q, then %q, and nothing on stdout (%q)",
+					tt.args, err, tt.meant, tt.help, printed.stdout)
+			}
+		})
+	}
+}
+
+func TestMisuseWithNothingToSuggestPointsAtHelpAlone(t *testing.T) {
+	cases := map[string]struct {
+		args string
+		help string
+	}{
+		"an unknown flag":         {args: "status --no-such-flag", help: "Run 'workflow status --help' for usage."},
+		"a name like no command":  {args: "zzzzzz", help: rootHelp},
+		"an argument it takes no": {args: "pr extra", help: "Run 'workflow pr --help' for usage."},
+	}
+
+	for name, tt := range cases {
+		t.Run(name, func(t *testing.T) {
+			// Act
+			_, err := run(t, t.TempDir(), strings.Fields(tt.args)...)
+
+			// Assert
+			wantExit(t, err, 2)
+
+			if err == nil || !strings.HasSuffix(err.Error(), tt.help) || strings.Contains(err.Error(), "Did you mean") {
+				t.Errorf("workflow %s = %v, want %q and no suggestion", tt.args, err, tt.help)
+			}
+		})
+	}
+}
+
 func TestBareConfigPrintsItsHelp(t *testing.T) {
 	// Act
 	printed, err := runStreams(t, t.TempDir(), unusedPrompt(t), "config")
