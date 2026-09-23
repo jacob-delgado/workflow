@@ -84,23 +84,6 @@ the seven wiring preambles collapse into one that opens the log.
 **Done when.** `workflow --dry-run pr` is accepted and previews;
 `workflow --log FILE status` appends a request line to `FILE`.
 
-### UX-53 With no terminal, a confirmation fails without saying why
-
-Impact: medium · Effort: small
-
-**Today.** Nothing in `internal/cli` or `cmd/workflow` asks whether stdin is
-a terminal. With stdin piped and `--yes` omitted, `branch`, `pr`, `announce`
-and `standup` still call `confirm` (`prompt.go:32`); `ReadString` returns
-`io.EOF`, which is propagated as an error (`:35`). `TestBranchStopsWhenThe
-ConfirmationCannotBeRead` (`internal/cli/branch_test.go:194`) pins that it stops, not
-that it explains.
-
-**Instead.** `confirm` turns `io.EOF` into "no terminal to confirm on; pass
-`--yes` to proceed without one".
-
-**Done when.** Piped-stdin `workflow pr` exits non-zero with a message that
-names `--yes`.
-
 ### UX-54 `standup` cannot be previewed or run unattended
 
 Impact: medium · Effort: small

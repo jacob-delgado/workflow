@@ -3,7 +3,15 @@
 
 package cli
 
-import "strings"
+import (
+	"errors"
+	"io"
+	"strings"
+)
+
+// errNoTerminal reports a question asked with nothing to answer it: stdin was
+// closed, or piped and already read to its end.
+var errNoTerminal = errors.New("no terminal to answer on")
 
 // Prompt is the guided command's seams: reading an answer, and offering to keep
 // a secret in the operating system's keychain. Each is a seam so a test can
@@ -28,9 +36,14 @@ type Prompt struct {
 }
 
 // confirm asks a yes/no question, defaulting to no, so a bare enter is the safe
-// answer.
+// answer. With nothing to read an answer from, it says so rather than passing
+// on a bare end-of-file.
 func confirm(prompt Prompt, question string) (bool, error) {
 	answer, err := prompt.Line(question + " [y/N]: ")
+	if errors.Is(err, io.EOF) {
+		return false, errNoTerminal
+	}
+
 	if err != nil {
 		return false, err
 	}

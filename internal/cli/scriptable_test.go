@@ -4,11 +4,14 @@
 package cli_test
 
 import (
+	"io"
 	"net/http"
 	"strconv"
 	"strings"
 	"sync/atomic"
 	"testing"
+
+	"github.com/jacob-delgado/workflow/internal/cli"
 )
 
 // The scriptable write commands are wired end to end here; without a tracker,
@@ -83,6 +86,23 @@ func TestDryRunLineGoesToStderr(t *testing.T) {
 		t.Errorf("the preview or the dry-run line is on the wrong stream:\nstdout:\n%s\nstderr:\n%s",
 			printed.stdout, printed.stderr)
 	}
+}
+
+func TestConfirmWithoutATerminalNamesYes(t *testing.T) {
+	// Arrange
+	// Stdin is piped and empty, so the confirmation reads end-of-file.
+	repo := prRepo(t, "fix/PROJ-2-thing")
+	closed := cli.Prompt{Line: func(string) (string, error) { return "", io.EOF }}
+
+	// Act
+	_, err := runGuided(t, repo, closed, "pr")
+
+	// Assert
+	if err == nil || !strings.Contains(err.Error(), "pass --yes") {
+		t.Errorf("pr with no terminal = %v, want it to say to pass --yes", err)
+	}
+
+	wantExit(t, err, 2)
 }
 
 func TestConfigInitSaysWhatItWroteOnStderr(t *testing.T) {
