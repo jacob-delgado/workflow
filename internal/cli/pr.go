@@ -62,7 +62,7 @@ func newPRCmd(prompt Prompt) *cobra.Command {
 		},
 	}
 
-	opts.addFlags(cmd, "opening")
+	opts.addFlags(cmd)
 
 	return cmd
 }

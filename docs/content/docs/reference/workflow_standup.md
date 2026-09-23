@@ -25,10 +25,16 @@ workflow standup [flags]
 
 ```
       --days int   how many days back to gather, 1 or more (default 1)
-      --dry-run    preview without posting anything
   -h, --help       help for standup
       --no-edit    skip the editor and use the draft as it is
       --yes        go ahead without the confirmation
+```
+
+### Options inherited from parent commands
+
+```
+      --dry-run      hold back every write to Jira, the forge, Slack, git and files, and say what it would have done
+      --log string   append a one-line outline of each request (method, path, status, duration) to FILE, for a bug report
 ```
 
 ### SEE ALSO

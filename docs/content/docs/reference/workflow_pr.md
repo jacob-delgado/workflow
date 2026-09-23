@@ -22,9 +22,15 @@ workflow pr [flags]
 ### Options
 
 ```
-      --dry-run   preview without opening anything
-  -h, --help      help for pr
-      --yes       go ahead without the confirmation
+  -h, --help   help for pr
+      --yes    go ahead without the confirmation
+```
+
+### Options inherited from parent commands
+
+```
+      --dry-run      hold back every write to Jira, the forge, Slack, git and files, and say what it would have done
+      --log string   append a one-line outline of each request (method, path, status, duration) to FILE, for a bug report
 ```
 
 ### SEE ALSO

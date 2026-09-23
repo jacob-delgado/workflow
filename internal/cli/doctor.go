@@ -45,35 +45,6 @@ var (
 // labelWidth keeps the report's values in one column so the eye can scan them.
 const labelWidth = 14
 
-// tool is an external program workflow uses, and what its absence costs.
-type tool struct {
-	name     string
-	required bool
-	effect   string
-}
-
-// externalTools names the programs doctor looks for. Built by a function rather
-// than held in a package-level variable, which gochecknoglobals forbids.
-func externalTools() []tool {
-	return []tool{
-		{
-			name:     "git",
-			required: true,
-			effect:   "every repository action runs through it",
-		},
-		{
-			name:     "lefthook",
-			required: false,
-			effect:   "the hook keys are not offered without it",
-		},
-		{
-			name:     "gh",
-			required: false,
-			effect:   "supplies a GitHub token when none is configured",
-		},
-	}
-}
-
 // newDoctorCmd builds `workflow doctor`.
 func newDoctorCmd() *cobra.Command {
 	var (
@@ -93,13 +64,20 @@ func newDoctorCmd() *cobra.Command {
 			"facts as data, with the same masking.",
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			cfg, err := loadFromEnvironment()
+			requestLog, closeLog, err := requestLogFor(cmd)
+			if err != nil {
+				return err
+			}
+			defer closeLog()
+
+			cfg, loadErr := loadFromEnvironment()
+			run := doctorRun{cfg: cfg, loadErr: loadErr, online: online, log: requestLog}
 
 			if asJSON {
-				return runDoctorJSON(cmd.Context(), cmd.OutOrStdout(), cfg, err, online)
+				return runDoctorJSON(cmd.Context(), cmd.OutOrStdout(), run)
 			}
 
-			return runDoctor(cmd.Context(), cmd.OutOrStdout(), cfg, err, online)
+			return runDoctor(cmd.Context(), cmd.OutOrStdout(), run)
 		},
 	}
 
@@ -109,10 +87,20 @@ func newDoctorCmd() *cobra.Command {
 	return cmd
 }
 
+// doctorRun is what one doctor run reports on: the configuration and why it did
+// not load, if it did not; whether to ask each service about its credential;
+// and the request log those questions are outlined in, nil for none.
+type doctorRun struct {
+	cfg     config.Config
+	loadErr error
+	online  bool
+	log     *wiring.RequestLog
+}
+
 // runDoctor writes the report. Every section runs even when an earlier one found
 // a problem: someone running doctor wants the whole picture, not the first thing
 // that went wrong.
-func runDoctor(ctx context.Context, out io.Writer, cfg config.Config, loadErr error, online bool) error {
+func runDoctor(ctx context.Context, out io.Writer, run doctorRun) error {
 	// The version leads the report because it is the first thing a bug report
 	// needs, and doctor's output is what the bug report template invites people
 	// to paste.
@@ -125,12 +113,12 @@ func runDoctor(ctx context.Context, out io.Writer, cfg config.Config, loadErr er
 	toolingErr := reportTooling(out)
 	fmt.Fprintln(out)
 
-	configErr := reportConfiguration(out, cfg, loadErr)
-	if loadErr != nil {
+	configErr := reportConfiguration(out, run.cfg, run.loadErr)
+	if run.loadErr != nil {
 		return errors.Join(toolingErr, configErr)
 	}
 
-	return errors.Join(toolingErr, configErr, reportCredentials(ctx, out, cfg, repo.Remote, online))
+	return errors.Join(toolingErr, configErr, reportCredentials(ctx, out, run, repo.Remote))
 }
 
 // reportCredentials asks each service whether its credential works.
@@ -138,8 +126,8 @@ func runDoctor(ctx context.Context, out io.Writer, cfg config.Config, loadErr er
 // Offline unless asked, because doctor is otherwise fast, hermetic and safe to
 // run on a machine behind a proxy or on a plane — and because its output is
 // what the bug report template invites people to paste.
-func reportCredentials(ctx context.Context, out io.Writer, cfg config.Config, remote string, online bool) error {
-	if !online {
+func reportCredentials(ctx context.Context, out io.Writer, run doctorRun, remote string) error {
+	if !run.online {
 		fmt.Fprintf(out, "\nCredentials were not checked. Add --online to ask each service.\n")
 
 		return nil
@@ -147,22 +135,41 @@ func reportCredentials(ctx context.Context, out io.Writer, cfg config.Config, re
 
 	fmt.Fprintf(out, "\nCredentials:\n")
 
-	doer := onlineDoer(cfg)
+	doers := onlineDoers(run.cfg, run.log)
 
 	return errors.Join(
-		checkJira(ctx, out, doer, cfg.Jira),
-		checkMessaging(ctx, out, doer, messaging.APIBase, cfg.Messaging),
-		checkForge(ctx, out, doer, cfg.Forge, remote),
+		checkJira(ctx, out, doers.jira, run.cfg.Jira),
+		checkMessaging(ctx, out, doers.messaging, messaging.APIBase, run.cfg.Messaging),
+		checkForge(ctx, out, doers.forge, run.cfg.Forge, remote),
 	)
 }
 
 // onlineDoer is the transport doctor's --online checks travel over: the
 // redirect-refusing client, bounded by the configured request timeout so a
-// hung service does not hang doctor, or the default when none is set. It is one
-// value threaded into every check, which is also the seam a test drives with a
-// client pointed at a server it controls.
+// hung service does not hang doctor, or the default when none is set.
 func onlineDoer(cfg config.Config) httpx.Doer {
 	return httpx.Client(cmp.Or(cfg.RequestTimeout(), wiring.RequestTimeout)).Do
+}
+
+// serviceDoers are the online transport once per service, each outlining its
+// requests in the request log under that service's name, as the commands that
+// wire the services do.
+type serviceDoers struct {
+	jira      httpx.Doer
+	messaging httpx.Doer
+	forge     httpx.Doer
+}
+
+// onlineDoers wraps the online transport for each service in log, which may be
+// nil for no log.
+func onlineDoers(cfg config.Config, log *wiring.RequestLog) serviceDoers {
+	doer := onlineDoer(cfg)
+
+	return serviceDoers{
+		jira:      log.Wrap("jira", doer),
+		messaging: log.Wrap("slack", doer),
+		forge:     log.Wrap("forge", doer),
+	}
 }
 
 // forgeRepo reads the remote, reporting whether there is a forge to ask about at
@@ -388,42 +395,6 @@ func branchLabel(repo gitrepo.Repo) string {
 	}
 
 	return repo.Branch
-}
-
-// reportTooling lists the external programs and returns an error naming any
-// required one that is absent.
-func reportTooling(out io.Writer) error {
-	fmt.Fprintln(out, "Tooling:")
-
-	var missing []string
-
-	for _, program := range externalTools() {
-		installed := proc.Available(program.name)
-		fmt.Fprintf(out, "  %-10s %s\n", program.name, toolStatus(program, installed))
-
-		if !installed && program.required {
-			missing = append(missing, program.name)
-		}
-	}
-
-	if len(missing) > 0 {
-		return fmt.Errorf("%w: %s", errMissingTooling, strings.Join(missing, ", "))
-	}
-
-	return nil
-}
-
-// toolStatus says whether a program was found, and what its absence costs.
-func toolStatus(program tool, installed bool) string {
-	if installed {
-		return "found"
-	}
-
-	if program.required {
-		return "MISSING — " + program.effect
-	}
-
-	return "not found — " + program.effect
 }
 
 // reportConfiguration writes the configuration section. A load error is part of

@@ -28,11 +28,17 @@ workflow config init [flags]
 ### Options
 
 ```
-      --dry-run    print the file it would write, masked, and write nothing
       --force      overwrite an existing file
       --global     write to the home directory instead of here
   -h, --help       help for init
       --template   write a blank file to edit by hand instead of being asked
+```
+
+### Options inherited from parent commands
+
+```
+      --dry-run      hold back every write to Jira, the forge, Slack, git and files, and say what it would have done
+      --log string   append a one-line outline of each request (method, path, status, duration) to FILE, for a bug report
 ```
 
 ### SEE ALSO

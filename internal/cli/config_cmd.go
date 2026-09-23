@@ -16,6 +16,7 @@ import (
 
 	"github.com/jacob-delgado/workflow/internal/config"
 	"github.com/jacob-delgado/workflow/internal/gitrepo"
+	"github.com/jacob-delgado/workflow/internal/jira"
 	"github.com/jacob-delgado/workflow/internal/proc"
 )
 
@@ -65,6 +66,8 @@ func newConfigInitCmd(prompt Prompt) *cobra.Command {
 			"nothing in the keychain, and prints the file it would write, masked.",
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
+			opts.dryRun = dryRunRequested(cmd)
+
 			dir, err := targetDir(opts.global)
 			if err != nil {
 				return err
@@ -82,7 +85,6 @@ func newConfigInitCmd(prompt Prompt) *cobra.Command {
 	cmd.Flags().BoolVar(&opts.force, "force", false, "overwrite an existing file")
 	cmd.Flags().BoolVar(&opts.global, "global", false, "write to the home directory instead of here")
 	cmd.Flags().BoolVar(&opts.template, "template", false, "write a blank file to edit by hand instead of being asked")
-	cmd.Flags().BoolVar(&opts.dryRun, "dry-run", false, "print the file it would write, masked, and write nothing")
 
 	return cmd
 }
@@ -200,12 +202,18 @@ func runGuidedInit(cmd *cobra.Command, path string, opts initOptions, prompt Pro
 		prompt.StoreSecret = nil
 	}
 
+	requestLog, closeLog, err := requestLogFor(cmd)
+	if err != nil {
+		return err
+	}
+	defer closeLog()
+
 	out := cmd.ErrOrStderr()
 	fmt.Fprintf(out, "Setting up %s. Leave a prompt blank to skip it.\n\n", path)
 
 	cfg := config.Default()
 
-	cfg.Jira, err = collectJira(cmd.Context(), out, prompt)
+	cfg.Jira, err = collectJira(cmd.Context(), out, prompt, requestLog.Wrap("jira", onlineDoer(config.Config{})))
 	if err != nil {
 		return err
 	}
@@ -230,9 +238,9 @@ func runGuidedInit(cmd *cobra.Command, path string, opts initOptions, prompt Pro
 	return nil
 }
 
-// collectJira asks for the Jira address and token, checks them, and keeps them
-// only if the check passed or the user chose to save them regardless.
-func collectJira(ctx context.Context, out io.Writer, prompt Prompt) (config.Jira, error) {
+// collectJira asks for the Jira address and token, checks them over doer, and
+// keeps them only if the check passed or the user chose to save them regardless.
+func collectJira(ctx context.Context, out io.Writer, prompt Prompt, doer jira.Doer) (config.Jira, error) {
 	baseURL, err := prompt.Line("Jira base URL (e.g. https://jira.example.com), blank to skip: ")
 	if err != nil {
 		return config.Jira{}, err
@@ -250,7 +258,7 @@ func collectJira(ctx context.Context, out io.Writer, prompt Prompt) (config.Jira
 
 	settings := config.Jira{BaseURL: baseURL, Token: config.Secret(strings.TrimSpace(token))}
 
-	kept, err := keepIfChecked(prompt, "jira", checkJira(ctx, out, onlineDoer(config.Config{}), settings))
+	kept, err := keepIfChecked(prompt, "jira", checkJira(ctx, out, doer, settings))
 	if err != nil || !kept {
 		return config.Jira{}, err
 	}

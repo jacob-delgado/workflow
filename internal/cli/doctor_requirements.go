@@ -7,9 +7,11 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"strings"
 
 	"github.com/jacob-delgado/workflow/internal/config"
 	"github.com/jacob-delgado/workflow/internal/forge"
+	"github.com/jacob-delgado/workflow/internal/proc"
 	"github.com/jacob-delgado/workflow/internal/tui"
 )
 
@@ -77,4 +79,69 @@ func countedError(sentinel error, count int, noun string) error {
 	}
 
 	return fmt.Errorf("%w: %d %s", sentinel, count, noun)
+}
+
+// tool is an external program workflow uses, and what its absence costs.
+type tool struct {
+	name     string
+	required bool
+	effect   string
+}
+
+// externalTools names the programs doctor looks for. Built by a function rather
+// than held in a package-level variable, which gochecknoglobals forbids.
+func externalTools() []tool {
+	return []tool{
+		{
+			name:     "git",
+			required: true,
+			effect:   "every repository action runs through it",
+		},
+		{
+			name:     "lefthook",
+			required: false,
+			effect:   "the hook keys are not offered without it",
+		},
+		{
+			name:     "gh",
+			required: false,
+			effect:   "supplies a GitHub token when none is configured",
+		},
+	}
+}
+
+// reportTooling lists the external programs and returns an error naming any
+// required one that is absent.
+func reportTooling(out io.Writer) error {
+	fmt.Fprintln(out, "Tooling:")
+
+	var missing []string
+
+	for _, program := range externalTools() {
+		installed := proc.Available(program.name)
+		fmt.Fprintf(out, "  %-10s %s\n", program.name, toolStatus(program, installed))
+
+		if !installed && program.required {
+			missing = append(missing, program.name)
+		}
+	}
+
+	if len(missing) > 0 {
+		return fmt.Errorf("%w: %s", errMissingTooling, strings.Join(missing, ", "))
+	}
+
+	return nil
+}
+
+// toolStatus says whether a program was found, and what its absence costs.
+func toolStatus(program tool, installed bool) string {
+	if installed {
+		return "found"
+	}
+
+	if program.required {
+		return "MISSING — " + program.effect
+	}
+
+	return "not found — " + program.effect
 }

@@ -6,7 +6,7 @@ spots, and docs that have drifted from the code. It is a record, not a plan.
 Nothing here is scheduled.
 
 Two readers are in mind: a contributor looking for something worth fixing,
-and a later Claude Code session asked to "pick up DEBT-51". Each entry says
+and a later Claude Code session asked to "pick up DEBT-57". Each entry says
 what is wrong, where, what it costs, one way to fix it, and how to tell when
 it is fixed. [FEATURES.md](FEATURES.md) and [UX.md](UX.md) hold the ideas;
 this file holds the debts. An earlier edition of this file was retired once
@@ -56,33 +56,6 @@ rule. This pass found none: the loopback bind, the `Host` and `Origin` guards,
 the dry-run gate, the fixed configuration path, the `0600` request log and
 the redaction paths all hold. The entries below contain nothing that helps
 anyone misuse a credential, a terminal or a release.
-
-## The composition of the loop
-
-### DEBT-51 `--log` reaches no subcommand, and `--dry-run` is two flags
-
-Severity: medium · Confidence: read
-
-Every command now connects through one `connect` (`internal/cli/cli.go:312`),
-which opens the request log the command's `--log` names
-(`requestLogFor`, `internal/cli/cli.go:377`). But `--log` is declared on
-`root.Flags()` (`internal/cli/cli.go:205`), not `PersistentFlags()`, so no
-subcommand has one: the facility the root's help advertises for bug reports
-is still unavailable to any scriptable command. And the root's `--dry-run`
-(`internal/cli/cli.go:202`) and the write commands' `--dry-run`
-(`internal/cli/scriptable.go:49`) are two unrelated flags with different
-help text, neither persistent, so `workflow --dry-run pr` is an
-unknown-flag error.
-
-**What it costs.** A bug report about a subcommand cannot carry a request
-log, and a script has to know which `--dry-run` a command takes.
-
-**One way to fix it.** `--dry-run` and `--log` declared once as persistent
-root flags, with `writeOptions.addFlags` (`internal/cli/scriptable.go:48`)
-keeping only `--yes`.
-
-**Done when.** `workflow --log FILE status` appends a request line to
-`FILE`; `workflow --dry-run pr` is accepted.
 
 ## The terminal interface
 
@@ -406,7 +379,7 @@ Severity: low · Confidence: read
 
 `wiring.Deps` (`internal/wiring/wiring.go:72`) returns `tui.Deps`, so the
 wiring package imports the terminal interface; the CLI's `webDeps`
-(`internal/cli/cli.go:273`) then narrows that bundle for the web server.
+(`internal/cli/cli.go:274`) then narrows that bundle for the web server.
 The seams are not the terminal's — they are the loop's. That import no
 longer stands in the way of shared composition: `internal/loop` takes each
 seam as a plain argument (`loop.PullSeams`, `loop.AnnounceSeams`) and never

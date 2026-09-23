@@ -199,10 +199,11 @@ func newRootCmd(prompt Prompt, run runTUI, serve runWeb) *cobra.Command {
 		},
 	}
 
-	root.Flags().BoolVar(&dryRun, "dry-run", false,
+	// Declared once, on the root, for every command: a script passes them before
+	// the command's name or after it. Each command reads them back by name.
+	root.PersistentFlags().BoolVar(&dryRun, dryRunFlag, false,
 		"hold back every write to Jira, the forge, Slack, git and files, and say what it would have done")
-	// connect reads --log back by name, so no variable holds it here.
-	root.Flags().String(logFlag, "",
+	root.PersistentFlags().String(logFlag, "",
 		"append a one-line outline of each request (method, path, status, duration) to FILE, for a bug report")
 	root.Flags().BoolVar(&web, "web", false,
 		"serve the web interface on http://"+webserver.LoopbackAddr+" instead of opening the terminal interface")
@@ -372,13 +373,11 @@ func (c connection) unreadConfiguration() error {
 	return c.loadErr
 }
 
-// requestLogFor opens the request log the command's --log names, or none when
-// it names no file or the command has no --log.
+// requestLogFor opens the request log --log names, or none when it names no
+// file. The root declares --log for every command, so it is always there to
+// read.
 func requestLogFor(cmd *cobra.Command) (*wiring.RequestLog, func(), error) {
-	path := ""
-	if flag := cmd.Flag(logFlag); flag != nil {
-		path = flag.Value.String()
-	}
+	path, _ := cmd.Flags().GetString(logFlag)
 
 	return openRequestLog(path)
 }
