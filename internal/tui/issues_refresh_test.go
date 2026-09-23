@@ -18,7 +18,7 @@ func TestAFailedSearchReadsAsAFailureInTheDetail(t *testing.T) {
 	view := issuesScreen(t, failing(jira.ErrUnauthorized)).View().Content
 
 	// Assert
-	requireScreen(t, view, "✗ the credential was not accepted")
+	requireScreen(t, view, "✗ Jira did not accept the token")
 	refuseScreen(t, view, "issues: the credential was not accepted")
 }
 

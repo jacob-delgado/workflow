@@ -120,7 +120,7 @@ func (m Model) branchDetail(width int) string {
 		// Why, in the words of whatever refused: a directory that is no
 		// repository is one reason among several, and only the reason says
 		// what to do about it.
-		return wrap(m.branchRail(0), width) + "\n\n" + m.failureWithin(m.branch.err, width)
+		return wrap(m.branchRail(0), width) + "\n\n" + m.failureBlock(m.branch.err, width)
 	case m.branch.branch.Detached:
 		return wrap(m.branchRail(0)+"\n\nCheck out a branch, or press b to start one for the selected issue.", width)
 	}

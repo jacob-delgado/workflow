@@ -62,7 +62,7 @@ gap, and which phase closes it.
 | 5 | Transition, with field forms | P (`pr`'s side effect, fields-less, `internal/cli/pr.go:167`) | Y (`internal/tui/picker.go:155`) | N | The post-PR **review-status offer** both other surfaces make: Phase 9, UX-74. A general transition: FEAT-78 (CLI), FEAT-80 (web) |
 | 6 | Comment | N | Y (`comment.go:37`) | N | FEAT-78 / FEAT-80; not this plan |
 | 7 | Assign / log work | N | Y (`issuewrite.go:74`, `:81`) | N | FEAT-78 / FEAT-80; not this plan |
-| 8 | Link the pull request on the issue | **N** (`pr` never links) | Y (`issuelink.go`, `internal/tui/prcomposer.go:509`) | N | **Yes on both** — the seam exists (`Jira.LinkPullRequest`) and the flow is the interface's. Phase 8 (CLI, UX-59), Phase 9 (web, UX-74) |
+| 8 | Link the pull request on the issue | **N** (`pr` never links) | Y (`issuelink.go`, `internal/tui/prcomposer.go:510`) | N | **Yes on both** — the seam exists (`Jira.LinkPullRequest`) and the flow is the interface's. Phase 8 (CLI, UX-59), Phase 9 (web, UX-74) |
 | 9 | Open / copy the issue URL | n/a | Y (`o`, `y`) | Y since Phase 3 — "Open in Jira" from the detail's `url` (`web/src/features/issues/IssueDetailPanel.tsx:77`); copying is the browser's own link menu | — |
 | 10 | Cache-seeded first paint | n/a | Y (`internal/tui/issues.go:53`) | **F** | FEAT-68, declared |
 | 11 | Branch for the issue | Y | Y | Y | CLI help never says it switches (`internal/cli/branch.go:40`). Phase 8, UX-58 |
@@ -98,9 +98,9 @@ gap, and which phase closes it.
 | 26 | After opening: link, then the review-status offer | P (status only) | Y | **N** (`webserver/pullrequest.go` never touches `Jira.ReviewStatus`) | **Yes** — Phase 8 (CLI link), Phase 9 (web both), UX-59/UX-74 |
 | 27 | Edit the pull request | N | Y (`e`, `preditor.go`) | N | `gh pr edit` is the twin; web idea, FEAT-79 |
 | 28 | Checks list; a failure into `$EDITOR` | N | Y (`checks.go`) | P (a CI link) | A terminal gesture; web list idea, UX-88 |
-| 29 | Follow CI; notify on settle | n/a | Y (`internal/tui/review.go:190`) | P (5 s tick, no signal) | Web "CI settled" idea, UX-86 |
-| 30 | Re-run CI | N | Y, previewed since Phase 4 (`previewRerun`, `internal/tui/checks.go:180`, through `lastLook`) | **F** | `gh run rerun` is the CLI's. Web declared (`FEATURES.md:148`), FEAT-79 |
-| 31 | Merge | N | Y (`M`, gated `internal/tui/merge.go:25`) | **F** | FEAT-31 chose the interface; web declared (`FEATURES.md:150`), FEAT-79 |
+| 29 | Follow CI; notify on settle | n/a | Y (`internal/tui/review.go:189`) | P (5 s tick, no signal) | Web "CI settled" idea, UX-86 |
+| 30 | Re-run CI | N | Y, previewed since Phase 4 (`previewRerun`, `internal/tui/checks.go:181`, through `lastLook`) | **F** | `gh run rerun` is the CLI's. Web declared (`FEATURES.md:148`), FEAT-79 |
+| 31 | Merge | N | Y (`M`, gated `internal/tui/merge.go:20`) | **F** | FEAT-31 chose the interface; web declared (`FEATURES.md:150`), FEAT-79 |
 | 32 | The review queue | Y (`reviews --json`) | Y (pane 6) | **N** (no section) | **Yes** — a read both other surfaces have, over a seam that exists. Phase 12, UX-83 |
 
 ### Messaging
@@ -263,7 +263,7 @@ as a method on the section that owns its four fields (`config.Branch`).
 
 One commit each, red first, in this order:
 
-1. `forge.Kind.Noun()` and `Sigil()` replace `internal/tui/review.go:46`
+1. `forge.Kind.Noun()` and `Sigil()` replace `internal/tui/review.go:45`
    `forgeVocab`, `internal/cli/announce.go` `forgeNoun`,
    `internal/webserver/announce.go` `noun`. Add the methods to an
    existing `forge` file — `internal/forge` is 11 of 12.
@@ -437,7 +437,7 @@ Closes UX-65. Before 5–7, so the goldens move once.
 Generalize `pushPreview` (it was `internal/tui/run.go:394`) into `lastLook{title,
 body, verb, proceed func(Model) (Model, tea.Cmd)}` (now `internal/tui/overlay.go:131`)
 — three users now, the rule of three is met — and route `rerunChecks`
-(`internal/tui/checks.go:198`, a forge write) and `startRebase`
+(`internal/tui/checks.go:199`, a forge write) and `startRebase`
 (`internal/tui/run.go:419`, rewrites local history) through it;
 the dry-run narration moves inside `proceed`. Relabel the footers
 ("re-run", "rebase"); `usage.md`'s key rows follow.
@@ -469,9 +469,9 @@ Closes UX-66, DEBT-55 (for `review.go`), DEBT-56. Depends on Phase 4.
    row in `scripts/package-size-budget-history.md` — same commit, or the
    commit is red.
 2. `mergePicker.merging bool` → `send sendState` (now `mergePicker.send`,
-   `internal/tui/merge.go:132`); `mergeRequested.apply`
-   (`internal/tui/merge.go:86`) keeps the overlay open through
-   `pinnedOutcome` (`internal/tui/failure.go:95`) instead of
+   `internal/tui/merge.go:116`); `mergeRequested.apply`
+   (`internal/tui/merge.go:81`) keeps the overlay open through
+   `pinnedOutcome` (`internal/tui/failure.go:366`) instead of
    `closeOverlay().noticed(…)`. A write-scope refusal is wrapped in
    `errNeedsWriteScope` so the pinned line keeps the hint until Phase 6.
 3. The same for `finishPreview` (`internal/tui/finish.go:59`,
@@ -501,20 +501,21 @@ likewise with a git failure. The merge and finish goldens change once.
 Closes UX-67. Depends on Phase 5 (every overlay outcome then flows through
 `pinnedOutcome`).
 
-- `failureBlock` (`internal/tui/failure.go:88`) consults `errorSentence` —
+- `failureBlock` (`internal/tui/failure.go:348`) consults `errorSentence` —
   fixes all eleven `pinnedOutcome` overlays at once.
 - `m.failureLine(err)` — glyph plus the sentence, or the raw text when
   there is none, one line — replaces the fourteen `failedGlyph() +
-  err.Error()` rail sites (`internal/tui/checks.go:97`, `diff.go:79`, `issuewrite.go:120`,
+  err.Error()` rail sites (`internal/tui/checks.go:98`, `diff.go:79`, `issuewrite.go:120`,
   `:122`, `internal/tui/picker.go:209`, `:246`, `internal/tui/switchtask.go:107`, `:147`,
-  `internal/tui/messaging.go:146`, `internal/tui/review.go:218`, `internal/tui/run.go:212`, `internal/tui/composer.go:164`,
+  `internal/tui/messaging.go:146`, `internal/tui/review.go:217`, `internal/tui/run.go:212`, `internal/tui/composer.go:164`,
   `:176`, `internal/tui/fields.go:171`).
 - The seven bare notices (`comment.go:76`, `internal/tui/composer.go:77`,
-  `internal/tui/messaging.go:377`, `internal/tui/checks.go:233`, `:241`,
-  `internal/tui/merge.go:66`, `:68`) go through `m.noticed(m.failureLine(err))`;
+  `internal/tui/messaging.go:377`, `internal/tui/checks.go:235`, `:243`,
+  `internal/tui/merge.go:61`, `:63`) go through `m.noticed(m.failureLine(err))`;
   `render.go:383` `configErrorStatus` is styled.
-- `forgeReason` (`internal/tui/review.go:360`), `rerunReason`
-  (`internal/tui/checks.go:254`) and `errNeedsWriteScope` (`internal/tui/merge.go:21`) fold into `errorSentence`'s table
+- `forgeReason` (it was in `internal/tui/review.go`), `rerunReason` (in
+  `internal/tui/checks.go`) and `errNeedsWriteScope` (in `internal/tui/merge.go`,
+  now `internal/tui/failure.go:50`) fold into `errorSentence`'s table
   (`forge.ErrRefused`/`ErrUnauthorized` → the write-scope sentence;
   `jira.ErrNotFound`; `forge.ErrNoRepository`; `errDryRun`).
 

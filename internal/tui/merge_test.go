@@ -109,14 +109,14 @@ func TestRefusedMergeStaysInItsPreview(t *testing.T) {
 
 	// Assert: the preview is still open, the write scope the token may lack
 	// pinned in it beside the forge's own hedge, ready to try again
-	requireScreen(t, refused.View().Content, "Merge by:", "✗ the token may lack the write scope",
-		"may be rate limiting", "enter merge")
+	requireScreen(t, refused.View().Content, "Merge by:",
+		"✗ The forge refused the write: the token may lack the write scope", "may be rate limiting", "enter merge")
 
 	// Act: close it
 	closed := typing(t, refused, keyEsc)
 
 	// Assert: the preview is gone, and the refused merge was asked for once
-	refuseScreen(t, closed.View().Content, "Merge by:", "the token may lack the write scope")
+	refuseScreen(t, closed.View().Content, "Merge by:", lacksWriteScope)
 
 	if calls := reviewing.asked("merge 42"); len(calls) != 1 {
 		t.Errorf("merge calls = %q, want the one refused", calls)
@@ -186,17 +186,17 @@ func TestAMergeThatFailsSurfacesTheForgesReason(t *testing.T) {
 		"the forge's own reason": {
 			err:    fmt.Errorf("%w: the base branch moved on", forge.ErrRejected),
 			want:   "✗ the forge rejected the request: the base branch moved on",
-			refuse: []string{"the token may lack the write scope"},
+			refuse: []string{lacksWriteScope},
 		},
 		"a credential the forge did not accept": {
 			err:  forge.ErrUnauthorized,
-			want: "✗ the token may lack the write scope",
+			want: "✗ The forge refused the write: the token may lack the write scope",
 		},
 		// The forge's own words, not a paraphrase that drops the cause.
 		"a forge that never answered": {
 			err:    fmt.Errorf("%w: dial tcp: i/o timeout", forge.ErrUnreachable),
 			want:   "dial tcp: i/o timeout",
-			refuse: []string{"the token may lack the write scope"},
+			refuse: []string{lacksWriteScope},
 		},
 	}
 

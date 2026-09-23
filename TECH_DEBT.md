@@ -65,16 +65,16 @@ Severity: low · Confidence: measured
 
 `scripts/check-file-length.sh --list` flags four source files past the
 500-line soft target — `internal/forge/github.go` (551),
-`internal/gitrepo/branch.go` (532), `internal/tui/prcomposer.go` (522) and
+`internal/gitrepo/branch.go` (532), `internal/tui/prcomposer.go` (523) and
 `internal/tui/messaging.go` (512) — and five test files
 (`internal/messaging/post_test.go` 738, `internal/tui/messaging_test.go`
 606, `internal/webserver/pullrequest_test.go` 601,
-`internal/tui/composer_test.go` 566, `internal/jira/detail_test.go` 501).
+`internal/tui/composer_test.go` 565, `internal/jira/detail_test.go` 501).
 None is over the 800 hard ceiling. The first edition of this entry missed
 the two source files outside `internal/tui`. Its headline file,
 `internal/tui/review.go` at 727 lines, is paid: the merge picker moved to
 `internal/tui/merge.go` and the re-run to `internal/tui/checks.go`,
-leaving it at 467.
+leaving it at 447.
 
 **What it costs.** `scripts/check-file-length.sh` warns on every run, so the
 warning has stopped meaning anything.
@@ -93,17 +93,17 @@ Severity: low · Confidence: read
   `overlay.(T)` / `send.failed` / reassign shape:
   `internal/tui/branchresult.go:109`, `internal/tui/issuewrite.go:194`,
   `internal/tui/issuelink.go:98`, `internal/tui/preditor.go:162`,
-  `internal/tui/prcomposer.go:486`, `internal/tui/hookgen.go:153`,
+  `internal/tui/prcomposer.go:487`, `internal/tui/hookgen.go:153`,
   `internal/tui/switchtask.go:228`, `internal/tui/comment.go:169`,
-  `internal/tui/messaging.go:490`, `internal/tui/checks.go:224`,
-  `internal/tui/merge.go:88`, `internal/tui/finish.go:141`,
+  `internal/tui/messaging.go:490`, `internal/tui/checks.go:225`,
+  `internal/tui/merge.go:83`, `internal/tui/finish.go:141`,
   `internal/tui/picker.go:114`, `internal/tui/comment.go:67`.
 - Five list-picker bodies with identical `up`/`down`/`confirm`/`esc` and a
   `window`-scrolled `rows`: `internal/tui/picker.go:225`, `internal/tui/picker.go:423`,
-  `internal/tui/switchtask.go:119`, `internal/tui/checks.go:65`, `internal/tui/run.go:257`.
+  `internal/tui/switchtask.go:119`, `internal/tui/checks.go:66`, `internal/tui/run.go:257`.
 - Three focus-guarded "re-clamp the shared scroll after a shrinking reload"
-  blocks: `internal/tui/commits.go:50`, `reviewqueue.go:52`, plus `internal/tui/commits.go:249`
-  `followChange` / `reviewqueue.go:213`.
+  blocks: `internal/tui/commits.go:50`, `internal/tui/reviewqueue.go:52`, plus `internal/tui/commits.go:249`
+  `followChange` / `internal/tui/reviewqueue.go:213`.
 - Two `onFieldNav` + `*CanComplete` pairs (`scopesuggest.go:17`,
   `internal/tui/prcomposer.go:301`) and two blur-all-then-focus-one switches
   (`internal/tui/composer.go:295`, `internal/tui/prcomposer.go:322`).
@@ -122,7 +122,7 @@ Severity: medium · Confidence: read
 `m.scroll` (`internal/tui/tui.go:51`) is a single offset shared by every
 pane, reset on focus (`tui.go:269` `focusOn`). It is the reason for the
 focus-guarded re-clamps in DEBT-57, and the reason `pickChange`
-(`internal/tui/commits.go:255`) and `pickReview` (`reviewqueue.go:220`) must add
+(`internal/tui/commits.go:255`) and `pickReview` (`internal/tui/reviewqueue.go:220`) must add
 `m.scroll` to a clicked line while `pickIssue` (`internal/tui/detail.go:260`) must not —
 three click paths that disagree about the same number.
 
@@ -139,7 +139,7 @@ to a pane restores its position (a screen test).
 
 Severity: low · Confidence: read
 
-`reviewState.generation` (`internal/tui/review.go:33`) exists solely to
+`reviewState.generation` (`internal/tui/review.go:32`) exists solely to
 stop a superseded CI polling chain from applying — a workaround for having
 no way to cancel the earlier chain. `detailLoaded.apply`
 (`internal/tui/detail.go:50`) documents a last-writer-wins race between two

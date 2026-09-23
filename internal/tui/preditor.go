@@ -161,7 +161,7 @@ func (msg pullEdited) apply(m Model) (Model, tea.Cmd) {
 	if msg.err != nil {
 		editor, open := m.overlay.(prEditor)
 		if open {
-			editor.send = editor.send.failed(msg.err)
+			editor.send = editor.send.failed(writeRefusal(msg.err))
 			m.overlay = editor
 		}
 

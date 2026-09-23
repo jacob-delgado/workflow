@@ -277,7 +277,7 @@ func (m Model) pickIssue(line, rows int, inRail bool) (Model, tea.Cmd) {
 // failure.
 func (m Model) issueDetailView(width int) string {
 	if m.issues.err != nil {
-		return m.failureWithin(m.issues.err, width) + "\n\n" + m.status()
+		return m.failureBlock(m.issues.err, width) + "\n\n" + m.status()
 	}
 
 	selected, ok := m.issues.current()
@@ -315,7 +315,7 @@ func (m Model) fullDetail(issueKey jira.Key, width int) []string {
 	case m.detail.key != issueKey || !m.detail.loaded:
 		return []string{"", m.styles.label.Render("loading the description and comments" + m.marks.ellipsis)}
 	case m.detail.err != nil:
-		return []string{"", m.failureWithin(m.detail.err, width), "press r to try again"}
+		return []string{"", m.failureBlock(m.detail.err, width), "press r to try again"}
 	}
 
 	detail := m.detail.detail

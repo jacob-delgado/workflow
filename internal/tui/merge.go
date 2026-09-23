@@ -5,7 +5,6 @@ package tui
 
 import (
 	"cmp"
-	"errors"
 	"fmt"
 	"strconv"
 	"strings"
@@ -15,10 +14,6 @@ import (
 
 	"github.com/jacob-delgado/workflow/internal/forge"
 )
-
-// errNeedsWriteScope leads a merge the forge refused with its likeliest fix, a
-// wider token scope, claiming no more than the forge's own refusal does.
-var errNeedsWriteScope = errors.New("the token may lack the write scope a merge needs")
 
 // canMerge reports a pull request that can be merged here: found, mergeable,
 // green and approved, with a forge that can merge it.
@@ -63,7 +58,7 @@ type mergeMethodsLoaded struct {
 func (msg mergeMethodsLoaded) apply(m Model) (Model, tea.Cmd) {
 	switch {
 	case msg.err != nil:
-		return m.noticed("cannot merge: " + forgeReason(msg.err)), nil
+		return m.noticed(m.failure(fmt.Errorf("cannot merge: %w", msg.err))), nil
 	case len(msg.methods) == 0:
 		return m.noticed("cannot merge: the repository permits no merge method"), nil
 	}
@@ -86,7 +81,7 @@ type mergeRequested struct {
 func (msg mergeRequested) apply(m Model) (Model, tea.Cmd) {
 	if msg.err != nil {
 		if picker, open := m.overlay.(mergePicker); open {
-			picker.send = picker.send.failed(mergeRefusal(msg.err))
+			picker.send = picker.send.failed(writeRefusal(msg.err))
 			m.overlay = picker
 		}
 
@@ -96,17 +91,6 @@ func (msg mergeRequested) apply(m Model) (Model, tea.Cmd) {
 	merged := m.closeOverlay().noticed(m.marks.done + " merged " + m.vocab.sigil + strconv.Itoa(msg.pull.Number))
 
 	return merged, merged.findPullRequest()
-}
-
-// mergeRefusal is a failed merge as its preview pins it: the refusal a
-// read-only token hits leads with the write scope it may lack, and any other
-// failure keeps the forge's own words rather than a paraphrase of them.
-func mergeRefusal(err error) error {
-	if errors.Is(err, forge.ErrRefused) || errors.Is(err, forge.ErrUnauthorized) {
-		return fmt.Errorf("%w: %w", errNeedsWriteScope, err)
-	}
-
-	return err
 }
 
 // mergeMethodLabel names a merge method for the preview.

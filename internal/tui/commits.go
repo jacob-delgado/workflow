@@ -120,7 +120,7 @@ func (m Model) commitsDetail(width int) string {
 	}
 
 	if m.changes.err != nil {
-		return m.failureWithin(m.changes.err, width)
+		return m.failureBlock(m.changes.err, width)
 	}
 
 	lines := m.changeRows()

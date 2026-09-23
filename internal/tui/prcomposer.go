@@ -482,10 +482,11 @@ type pullCreated struct {
 // open with the forge's reason. A pull that opened but whose reviewers could
 // not be added is shown all the same, with a note, rather than lost.
 func (msg pullCreated) apply(m Model) (Model, tea.Cmd) {
-	if msg.err != nil && !msg.pull.Opened() {
+	refusal := writeRefusal(msg.err)
+	if refusal != nil && !msg.pull.Opened() {
 		composer, open := m.overlay.(prComposer)
 		if open {
-			composer.send = composer.send.failed(msg.err)
+			composer.send = composer.send.failed(refusal)
 			m.overlay = composer
 		}
 
@@ -493,8 +494,8 @@ func (msg pullCreated) apply(m Model) (Model, tea.Cmd) {
 	}
 
 	notice := m.marks.done + " opened " + m.vocab.sigil + strconv.Itoa(msg.pull.Number) + " " + msg.pull.URL
-	if msg.err != nil {
-		notice += "; could not add every reviewer, assignee or label: " + forgeReason(msg.err)
+	if refusal != nil {
+		notice += "; could not add every reviewer, assignee or label: " + briefly(refusal)
 	}
 
 	m = m.noticed(notice)
