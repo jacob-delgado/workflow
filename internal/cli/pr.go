@@ -171,7 +171,7 @@ func pushFailure(name string, err error) error {
 // or one whose transition needs fields this command cannot fill, is passed over
 // quietly — the pull request is already open.
 func offerReviewStatus(out io.Writer, seams prSeams, issueKey jira.Key, opts writeOptions) error {
-	target, ok := reviewTarget(seams, issueKey)
+	target, ok := loop.ReviewTransition(seams.Transitions, issueKey, seams.ReviewStatus)
 	if !ok {
 		return nil
 	}
@@ -193,40 +193,6 @@ func offerReviewStatus(out io.Writer, seams prSeams, issueKey jira.Key, opts wri
 	fmt.Fprintln(out, "Moved "+string(issueKey)+" to "+target.ToStatus)
 
 	return nil
-}
-
-// reviewTarget is the transition to the configured review status and whether the
-// command should offer it: the status must be configured, the seams present, the
-// transition offered by Jira, and fillable without a form this command cannot
-// show. A tracker read that fails is passed over — the pull request is open.
-func reviewTarget(seams prSeams, issueKey jira.Key) (jira.Transition, bool) {
-	if seams.ReviewStatus == "" || issueKey == "" || seams.Transitions == nil || seams.Transition == nil {
-		return jira.Transition{}, false
-	}
-
-	moves, err := seams.Transitions(issueKey)
-	if err != nil {
-		return jira.Transition{}, false
-	}
-
-	target, found := transitionTo(moves, seams.ReviewStatus)
-	if !found || len(target.Fields) > 0 {
-		return jira.Transition{}, false
-	}
-
-	return target, true
-}
-
-// transitionTo is the transition leading to a status of the given name, matched
-// case-insensitively.
-func transitionTo(moves []jira.Transition, status string) (jira.Transition, bool) {
-	for _, move := range moves {
-		if strings.EqualFold(move.ToStatus, status) {
-			return move, true
-		}
-	}
-
-	return jira.Transition{}, false
 }
 
 // pushClause names the push a not-yet-pushed branch needs first, for the dry-run

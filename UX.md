@@ -60,7 +60,7 @@ them, re-counted at this commit.
 | "`?` lists every key" | `docs/content/docs/usage.md:56` | **Yes, by construction.** Help is generated from the bindings (`internal/tui/keys.go:134` `helpBuilder.place`, rendered at `render.go:211`): 57 of 57. The one guard is that construction; `render.go:225` skips a binding with empty help silently, and the tests are three-string spot checks (`focus_test.go:124`). |
 | "the one way the interface says something broke" | `failure`, `internal/tui/render.go:421` | **Partly, and this is the weakest.** Of 52 places that render an error, 19 go through the `failure` family, but only 11 reach the actionable `errorSentence` (`render.go:401`): `failureBlock` (`render.go:450`) red-wraps the raw chain, so all 8 `pinnedOutcome` overlays show the raw error; 14 sites are `failedGlyph + err.Error()`; 8 are glyph-only rail summaries; 9 are notices with no glyph and no red at all. See UX-67. |
 | "Nothing outward facing is sent without" a last look | `internal/tui/comment.go:60` | **16 of 18.** `R` re-run CI (`internal/tui/review.go:479`, a forge write) and `u` rebase (`internal/tui/run.go:447`, rewrites local history) are one key, straight to the request. See UX-65. |
-| "a refused change must never go unseen" | `internal/tui/picker.go:282` | **13 of 13 guard while in flight** (the previous edition counted 1 of 7). 11 keep the refusal in the overlay; `mergePicker` (`internal/tui/review.go:593`) and `finishPreview` (`finish.go:139`) close and demote it to a one-line notice. See UX-66. |
+| "a refused change must never go unseen" | `internal/tui/picker.go:269` | **13 of 13 guard while in flight** (the previous edition counted 1 of 7). 11 keep the refusal in the overlay; `mergePicker` (`internal/tui/review.go:593`) and `finishPreview` (`finish.go:139`) close and demote it to a one-line notice. See UX-66. |
 | "Each pane fails on its own" | `docs/content/docs/usage.md:62` | Yes. `tui.go:157` batches six loads; each pane holds and renders its own error. |
 | State is "carried by the SHAPE of a glyph rather than its color" | `internal/tui/glyphs.go:16` | Yes. `unicodeGlyphs` and `asciiGlyphs` differ in shape (`glyphs.go:31`, `:43`); `NO_COLOR` keeps bold and faint (`tui.go:139`). One residue: the progress spine's per-system hue is color-only, mitigated by the name or its initial. |
 
@@ -236,7 +236,7 @@ Impact: medium · Effort: small
 (`internal/gitrepo/branch.go:305`), moving the working tree, but neither its help
 (`internal/cli/branch.go:44`) nor its preview (`:106`) says "and switch to it". `workflow
 pr` pushes the branch first when it is unpushed (`loop.EnsurePushed`,
-`internal/cli/pr.go:129`) — the dry-run line says so (`pushClause`, `:234`)
+`internal/cli/pr.go:129`) — the dry-run line says so (`pushClause`, `:200`)
 but the live question is only "Open the pull request?" (`:121`) — and a
 single `--yes` also authorizes
 the Jira status transition that follows (`offerReviewStatus`, `:179`).
@@ -383,7 +383,7 @@ same for `u`.
 
 Impact: medium · Effort: small
 
-**Today.** "A refused change must never go unseen" (`picker.go:282`) holds
+**Today.** "A refused change must never go unseen" (`internal/tui/picker.go:269`) holds
 in 13 of 13 overlays while a request is in flight, and 11 keep the refusal
 where it happened. `mergeRequested.apply` (`internal/tui/review.go:593`) and
 `finished.apply` (`finish.go:139`) instead close the overlay and pass the
@@ -409,7 +409,7 @@ sentences live ("Check the VPN, then press `r`", "Run `gh auth login`"). Of
 calls it, so all 8 `pinnedOutcome` overlays show `could not reach the forge
 at …: dial tcp …` instead of the sentence. Fourteen rail sites are
 `failedGlyph + err.Error()` (`checks.go:96`, `diff.go:79`,
-`issuewrite.go:120`, `picker.go:222`, `switchtask.go:107`, `internal/tui/review.go:219`,
+`issuewrite.go:120`, `internal/tui/picker.go:209`, `switchtask.go:107`, `internal/tui/review.go:219`,
 `internal/tui/run.go:211`, `composer.go:163`, `internal/tui/fields.go:171`, …); eight are glyph-only
 summaries; nine are notices with no glyph and no red (`comment.go:76`,
 `composer.go:76`, `internal/tui/messaging.go:389`, `finish.go:141`, `internal/tui/review.go:509`,
@@ -546,7 +546,7 @@ request" throughout.
 Impact: medium · Effort: medium
 
 **Today.** The interface links the pull request on the issue and then
-offers the configured review status (`internal/tui/prcomposer.go:509`, `picker.go:199`);
+offers the configured review status (`internal/tui/prcomposer.go:509`, `internal/tui/picker.go:186`);
 the CLI offers the status (`internal/cli/pr.go:173`). `internal/webserver/pullrequest.go`
 touches neither `Jira.ReviewStatus` nor `LinkPullRequest`; after `Pull
 request opened.` (`ReviewPanel.tsx:141`) there is nothing more to do.
@@ -554,9 +554,10 @@ request opened.` (`ReviewPanel.tsx:141`) there is nothing more to do.
 **Instead.** Two operations, spec first — `POST /api/issues/{key}/link` and
 `POST /api/issues/{key}/transition` (fields-less; 409 when Jira wants
 fields) — and, after opening, two inline offers: "Link it on KEY" and "Move
-KEY to STATUS", each with a `role="status"` outcome. This is the first place
-the shared composition layer (DEBT-50) pays for itself: the offer logic is
-the terminal's and the CLI's, used a third time instead of copied.
+KEY to STATUS", each with a `role="status"` outcome. This is where the shared
+composition layer, `internal/loop`, pays for itself: the web's offer takes
+`loop.ReviewTransition` (`internal/loop/pull.go:154`), the CLI's rule,
+rather than a third copy.
 
 **Done when.** After a faked open, the panel offers the move and the link;
 a form transition answers 409; `--dry-run` refuses both.

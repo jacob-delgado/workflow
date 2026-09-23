@@ -301,3 +301,37 @@ func TestApplyTransitionWithoutACredentialSendsNothing(t *testing.T) {
 		t.Error("a transition went out with no credential to send")
 	}
 }
+
+func TestFindTransition(t *testing.T) {
+	t.Parallel()
+
+	moves := []jira.Transition{
+		{ID: "11", ToStatus: inProgress},
+		{ID: "21", ToStatus: "In Review"},
+		{ID: "31", ToStatus: "in review"},
+	}
+
+	cases := map[string]struct {
+		status    string
+		wantIndex int
+		wantFound bool
+	}{
+		"a status matched as written":         {status: inProgress, wantIndex: 0, wantFound: true},
+		"a status matched regardless of case": {status: "IN REVIEW", wantIndex: 1, wantFound: true},
+		"a status no transition leads to":     {status: "Closed", wantIndex: 0, wantFound: false},
+	}
+
+	for name, tt := range cases {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			// Act
+			index, found := jira.FindTransition(moves, tt.status)
+
+			// Assert
+			if index != tt.wantIndex || found != tt.wantFound {
+				t.Errorf("FindTransition(%q) = %d, %t; want %d, %t", tt.status, index, found, tt.wantIndex, tt.wantFound)
+			}
+		})
+	}
+}
