@@ -66,28 +66,6 @@ them, re-counted at this commit.
 
 ## The command line
 
-### UX-57 A refusal tells you what, not what next
-
-Impact: medium · Effort: small
-
-**Today.** The strong messages say the next step — `(pass --force to
-overwrite)` (`internal/cli/config_cmd.go:151`), the `chmod 600` line (`internal/cli/doctor.go:427`),
-`run gh auth login` (`internal/cli/doctor.go:239`), `Create one with workflow config
-init` (`internal/config/config.go:24`). The bare sentinels do not: `a branch for
-this issue already exists` (`internal/cli/branch.go:20`) does not say to switch to it;
-`an open pull request already exists for this branch` (`internal/cli/pr.go:28`) gives no
-URL; `no messaging transport is configured` (`internal/cli/announce.go:22`) names
-neither `messaging.kind` nor `workflow config init`; `there is no pull
-request on this branch to announce` (`internal/cli/announce.go:18`) does not suggest
-`workflow pr`.
-
-**Instead.** Each carries its next step: the branch name and `git switch
-NAME`; the pull request's URL; the config keys and `workflow doctor`;
-`workflow pr`.
-
-**Done when.** Every sentinel's message contains a command or a key the
-user can act on, asserted per sentinel.
-
 ### UX-58 `branch` switches your working tree and does not say so; `pr` pushes, transitions, and asks about one thing
 
 Impact: medium · Effort: small
@@ -116,7 +94,7 @@ Impact: medium · Effort: small
 **Today.** The terminal interface, after opening, asks to link the pull
 request on the issue and then offers the review status
 (`internal/tui/prcomposer.go:510`, `issuelink.go:20`). `workflow pr` offers only the
-status (`internal/cli/pr.go:167`); it never calls `Jira.LinkPullRequest`, though the seam
+status (`internal/cli/pr.go:171`); it never calls `Jira.LinkPullRequest`, though the seam
 is on the same `tui.Deps` it already holds. (The web does neither — UX-75.)
 
 **Instead.** `pr` offers the link before the status, under the same
@@ -260,7 +238,7 @@ Impact: medium · Effort: medium
 
 **Today.** The interface links the pull request on the issue and then
 offers the configured review status (`internal/tui/prcomposer.go:510`, `internal/tui/picker.go:186`);
-the CLI offers the status (`internal/cli/pr.go:167`). `internal/webserver/pullrequest.go`
+the CLI offers the status (`internal/cli/pr.go:171`). `internal/webserver/pullrequest.go`
 touches neither `Jira.ReviewStatus` nor `LinkPullRequest`; after `Pull
 request opened.` (`ReviewPanel.tsx:141`) there is nothing more to do.
 

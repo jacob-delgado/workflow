@@ -89,7 +89,7 @@ func runBranch(out output, seams branchSeams, issueKey string, opts writeOptions
 	}
 
 	if exists {
-		return errBranchExists
+		return fmt.Errorf("%w: %s (switch to it with git switch %s)", errBranchExists, name, name)
 	}
 
 	base := currentBase(seams.Branch)
