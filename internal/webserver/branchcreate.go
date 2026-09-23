@@ -10,7 +10,6 @@ import (
 	"slices"
 
 	"github.com/jacob-delgado/workflow/internal/api"
-	"github.com/jacob-delgado/workflow/internal/convention"
 	"github.com/jacob-delgado/workflow/internal/gitrepo"
 	"github.com/jacob-delgado/workflow/internal/jira"
 )
@@ -79,11 +78,7 @@ func (s *server) branchNameFor(issueKey string) (string, error) {
 		return "", err
 	}
 
-	cfg := s.config()
-	naming := convention.NewBranchNaming(cfg.Branch.Template, cfg.Branch.DefaultPrefix,
-		cfg.Branch.Prefixes, cfg.Branch.SlugLimit)
-
-	return naming.Name(detail.Issue.Type, string(detail.Issue.Key), detail.Issue.Summary), nil
+	return s.config().Branch.Naming().Name(detail.Issue.Type, string(detail.Issue.Key), detail.Issue.Summary), nil
 }
 
 // branchExists reports whether a local branch already goes by name. Without a

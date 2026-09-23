@@ -70,10 +70,6 @@ the terminal interface declares. It does not hold for what the surfaces
 *do* with those seams. `internal/wiring` (six files) constructs clients and
 nothing else, so each surface composes the loop for itself:
 
-- Branch naming — three identical `convention.NewBranchNaming(cfg.Branch.
-  Template, cfg.Branch.DefaultPrefix, cfg.Branch.Prefixes,
-  cfg.Branch.SlugLimit)` calls: `internal/tui/branch.go:296` `branchNaming`,
-  `internal/cli/branch.go:78`, `internal/webserver/branchcreate.go:83`.
 - Composing a pull request — `internal/cli/pr.go:222` `composePR` and
   `internal/webserver/pullrequest.go:127` `draftFor` are near line-for-line
   copies; the terminal has its own in `internal/tui/prcomposer.go:119`.
@@ -101,9 +97,9 @@ only `config`, `convention`, `forge`, `gitrepo`, `jira`, `messaging` and
 `wiring` (which imports `tui` for `tui.Deps`, so `tui` importing it back is a
 cycle), in `tui` (the web server must not import the terminal), or in
 `convention` (`config` imports it, so it can never take a `config.Config`).
-Two of the duplicates have better homes than a new package: the noun as a
-method on `forge.Kind` (the open/closed spelling CLAUDE.md asks for) and the
-naming as `config.Branch.Naming()` (four of its own fields). A `depguard`
+Two duplicates have already moved to better homes than a new package: the
+noun is a method on `forge.Kind` and the naming is `config.Branch.Naming()`.
+A `depguard`
 rule holds the direction. The CLI's and the web server's copies deleting
 cleanly, with their tests unchanged, is the proof the layer is right.
 

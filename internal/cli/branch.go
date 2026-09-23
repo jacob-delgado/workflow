@@ -75,9 +75,8 @@ func runBranchCommand(cmd *cobra.Command, prompt Prompt, issueKey string, opts w
 		Branches:     deps.Git.Branches,
 		CreateBranch: deps.Git.CreateBranch,
 		Branch:       deps.Git.Branch,
-		Naming: convention.NewBranchNaming(cfg.Branch.Template, cfg.Branch.DefaultPrefix,
-			cfg.Branch.Prefixes, cfg.Branch.SlugLimit),
-		Confirm: func(question string) (bool, error) { return confirm(prompt, question) },
+		Naming:       cfg.Branch.Naming(),
+		Confirm:      func(question string) (bool, error) { return confirm(prompt, question) },
 	}
 
 	return runBranch(cmd.OutOrStdout(), seams, issueKey, opts)
