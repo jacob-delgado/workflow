@@ -86,7 +86,7 @@ asks, and the error itself, prefixed `workflow:`.
 | `standup` | the draft | "Nothing to share.", the dry-run line, "Not posted.", "Posted to …" |
 | `branch` | `Branch NAME from BASE and switch to it`, then `Created NAME` | the dry-run line, "Not created." |
 | `pr` | `Open TITLE` and `BRANCH → BASE`, then `Opened #N URL` (`!N` on GitLab) | the dry-run line, "Not opened.", the offers to link it on the issue and to move the issue to the review status, and their outcomes |
-| `announce` | the message and where it goes | the dry-run line, "Not posted.", "Posted to …" |
+| `announce` | the message and where it goes | that an earlier session already announced this moment, the dry-run line, "Not posted.", "Posted to …" |
 | `workflow --web` | | the address it serves on |
 
 So `workflow config show | jq .` parses, and `workflow reviews | wc -l` counts
@@ -165,7 +165,10 @@ write. Two flags change that:
   the push, the open, and the offers that follow it — to link the pull request
   on the branch's issue and to move the issue to the review status. A link
   that fails is said on stderr, the move is still made, and the command exits
-  non-zero. It does not skip `standup`'s editor: add `--no-edit` for that.
+  non-zero. On `announce` it never repeats an announcement: when the store
+  says this pull request was already announced at the moment it is at, it
+  says so on stderr, posts nothing, and exits 0 — run without `--yes` to be
+  asked. It does not skip `standup`'s editor: add `--no-edit` for that.
 - **`--dry-run`** prints the preview and what the command would do, and
   writes nothing. It is one flag for every command, given before the command's
   name or after it: `workflow --dry-run pr` and `workflow pr --dry-run` are
@@ -174,7 +177,9 @@ write. Two flags change that:
   Bare `workflow --dry-run` is the interface with every write held back.
 
 A write run without `--yes` and without a terminal — stdin piped or closed —
-has no way to be answered, so it stops, says to pass `--yes`, and exits 2.
+has no way to be answered, so it stops, says to pass `--yes`, and exits 2. The
+one exception is `announce` at a moment already announced, which `--yes` would
+leave as it is: it says to run it at a terminal instead.
 
 ## A log for a bug report: `--log`
 

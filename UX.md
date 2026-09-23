@@ -66,24 +66,6 @@ them, re-counted at this commit.
 
 ## The command line
 
-### UX-60 `announce` will announce the same pull request again
-
-Impact: medium · Effort: small
-
-**Today.** The interface seeds `posted` from the store at start
-(`internal/tui/messaging.go:216`) and records each post per moment (`:208`), so a restart
-never re-offers an announcement that already went out. `workflow announce`
-consults no store at all — no `Store`, `RecordAnnounce` or `Announced`
-reference exists anywhere in `internal/cli` — so a second run posts a second
-time.
-
-**Instead.** After posting, record it; before the preview, say "already
-announced at this moment in an earlier session" and ask whether to post
-again.
-
-**Done when.** A second `workflow announce` says it already posted; the
-store fake records one entry.
-
 ### UX-61 A slow command is silent while it works
 
 Impact: low · Effort: medium

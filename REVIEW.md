@@ -110,7 +110,7 @@ gap, and which phase closes it.
 | 33 | Announce: compose → preview → post | Y | Y | Y | CLI and web compose it once, in `internal/loop` (Phase 1, which closed DEBT-50); the terminal renders its own from cached state, with `loop.AnnounceMoment` |
 | 34 | Call it a "merge request" on GitLab | Y (`forge.Kind.Noun`, `internal/forge/remote.go:60`) | Y (the same) | **N** — six hardcoded strings; `ForgeKind` on the server (`webserver.go:60`), never sent | **Yes** — Phase 9, UX-73 |
 | 35 | Post when CI passes | N | Y (`internal/tui/messaging.go:406`) | N | CLI `announce --when-green` is FEAT-65's fit; web FEAT-82; not this plan |
-| 36 | Announced history (never re-offer) | **N** — no `Store` reference in `internal/cli` | Y (`internal/tui/messaging.go:216`) | **F** | **CLI yes, cheap** — record after posting, say when already announced. Phase 8, UX-60. Web: FEAT-66, declared |
+| 36 | Announced history (never re-offer) | Y since Phase 8 — `announce` records each post in the store the interface reads, and says when an earlier session already announced the moment (`offerAgain`, `internal/cli/announce.go:167`; `loop.Deliver`, `internal/loop/announce.go:179`) | Y (`internal/tui/messaging.go:216`) | **F** | Web: FEAT-66, declared |
 | 37 | Choose the channel | N (config only) | Y (`←`/`→`) | Y | CLI `--channel`: UX-62 |
 | 38 | Standup | Y | N | N | Reasonable CLI-only (an `$EDITOR` flow); `--dry-run`/`--yes` since Phase 2 (`offerToPost`, `internal/cli/standup.go:144`) |
 
@@ -146,10 +146,10 @@ to see the shape.
 | `--json` on reads | Partial — `status`, `reviews`, `doctor`, and `config show` parses since Phase 2; not `standup` | UX-62 |
 | No color/prompts off a TTY; `NO_COLOR` | Met by construction (no color emitted); a prompt with no terminal says to pass `--yes` since Phase 2 | `errNoTerminal`, `internal/cli/prompt.go:14` |
 | Confirm before outward acts; `--yes`; `--dry-run` | Met, on `standup` and `config init` too since Phase 2 | `writeOptions.proceed`, `internal/cli/scriptable.go:81` |
-| Preview before the write | Met | `internal/cli/branch.go:99`, `internal/cli/pr.go:121`, `internal/cli/announce.go:113`, `internal/cli/standup.go:135` |
+| Preview before the write | Met | `internal/cli/branch.go:99`, `internal/cli/pr.go:121`, `internal/cli/announce.go:132`, `internal/cli/standup.go:135` |
 | Progress for slow operations | **Gap** — silent | UX-61 |
 | Ctrl-C | Met | `internal/cli/cli.go:102` `signal.NotifyContext` |
-| Errors say what to do next | Met since Phase 8 — strong in `doctor`/`config`, and each refusal names its next step: `git switch NAME`, the open pull request's address, the messaging keys and `workflow doctor`, `workflow pr` | `runBranch`, `internal/cli/branch.go:79`; `composeRefusal`, `internal/cli/pr.go:208`; `runAnnounce`, `internal/cli/announce.go:95` |
+| Errors say what to do next | Met since Phase 8 — strong in `doctor`/`config`, and each refusal names its next step: `git switch NAME`, the open pull request's address, the messaging keys and `workflow doctor`, `workflow pr` | `runBranch`, `internal/cli/branch.go:79`; `composeRefusal`, `internal/cli/pr.go:208`; `runAnnounce`, `internal/cli/announce.go:107` |
 | A hint on misuse | Met since Phase 8 — `SilenceErrors` still stops cobra's usage dump; an unknown command or flag points at `--help`, after the closest commands | `usageHint`, `internal/cli/scriptable.go:210` |
 | No surprises | Met since Phase 8 — `branch` says it switches; `pr`'s question names the push, and its `--yes` help names the push, the link and the status move it answers | `internal/cli/branch.go:99`; `openQuestion`, `internal/cli/pr.go:264` |
 | Secrets never printed | Met | pinned by `internal/cli/cli_test.go:270`, `doctor_json_test.go:65` |
@@ -569,9 +569,9 @@ Phase 2 (notices are on stderr).
 - Sentinels carry a next step: `errBranchExists` names the branch and
   `git switch NAME` (`internal/cli/branch.go:20`); `errPullAlreadyOpen` carries the URL
   (`internal/cli/pr.go:28`); `errMessagingNotConfigured` names the keys and `workflow
-  doctor` (`internal/cli/announce.go:22`); `errNoPullRequest` points at `workflow pr`
-  (`:18`).
-- `branch`'s help and preview say it switches (`internal/cli/branch.go:40`, `:96`;
+  doctor` (`internal/cli/announce.go:26`); `errNoPullRequest` points at `workflow pr`
+  (`:22`).
+- `branch`'s help and preview say it switches (`internal/cli/branch.go:40`, `:99`;
   `internal/gitrepo/branch.go:305`).
 - `pr`'s question names the push when the branch is unpushed — "Push NAME
   and open the pull request?" (`internal/cli/pr.go:127`); `pr` offers to link the pull
