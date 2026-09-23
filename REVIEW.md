@@ -185,7 +185,7 @@ met and stay.
 | Accessible names, landmarks, skip link, focus ring, axe both themes | Met | enforced |
 | Disabled by opacity; reduced motion | **Gap** — thirteen places; no rule | UX-81 |
 | Responsive | **Gap** — zero breakpoints | UX-85 |
-| Vocabulary shared with the interface | **Gap** — "pull request" on GitLab; `Messaging` vs `Slack`; five sections vs six | UX-73, UX-83 |
+| Vocabulary shared with the interface | Partial since Phase 9 — the forge's own noun and sigil, and the messaging section named after its service (`sectionLabel`, `web/src/shell/sections.ts:17`); "start" still has three names, and five sections vs six | UX-73, UX-83 |
 | Dry run visible | Met since Phase 3 — a banner, and every write held before it is sent | `web/src/shell/AppShell.tsx:54`, `web/src/api/client.ts:24` |
 | The contract it never calls | Met since Phase 3 for `getIssue`, `getHealth`, `listViews` and pagination; the generated `streamEvents` stays unused | DEBT-67 |
 
@@ -604,7 +604,7 @@ Closes UX-73, UX-74. Depends on Phases 1 and 3.
   to TypeScript. The six hardcoded "pull request" strings
   (`ReviewPanel.tsx:141`, `:172`, `:181`, `:326`; `WorkStory.tsx:40`;
   `MessagingPanel.tsx:50`) read it; the Messaging section label reads the
-  service from the snapshot (`sections.ts:10` vs `web/src/features/messaging/MessagingPanel.tsx:172`);
+  service from the snapshot (`web/src/shell/sections.ts:10` vs `web/src/features/messaging/MessagingPanel.tsx:172`);
   one name for "start" across `WorkStory` and `IssuesPanel`.
 - Spec first: `POST /api/issues/{key}/link` and `POST
   /api/issues/{key}/transition` (fields-less only; 409 when Jira wants
@@ -684,7 +684,7 @@ Phase 3.
   `Announced…` (`web/src/features/messaging/MessagingPanel.tsx:139`) become live regions.
 - Focus moves to the outcome when a form unmounts (`web/src/features/review/ReviewPanel.tsx:144`,
   `web/src/features/messaging/MessagingPanel.tsx:137`, the `PushButton` swap) and to `<main>` on a
-  section change (`AppShell.tsx:68`).
+  section change (`web/src/shell/AppShell.tsx:68`).
 - One announce verb through the flow — **decided: "Announce to X"** (opens
   the preview) and "Announce now" (sends), on every surface.
 - `internal/webserver/checkout.go:44` and `internal/webserver/branchcreate.go:44` pass git's own reason through
@@ -749,7 +749,7 @@ interface's own system does not change.
 - Four system hues as tokens in both themes — Jira, git, the forge,
   messaging (`internal/tui/glyphs.go:96-127`; the spine, `internal/tui/spine.go:68`) —
   at AA contrast, carrying *identity*: the active `NavRail` icon
-  (`NavRail.tsx:28`), section headings. **Periwinkle stays the
+  (`web/src/shell/NavRail.tsx:30`), section headings. **Periwinkle stays the
   interactive-control accent** (`index.css:24` is a documented choice)
   — **decided: it stays**, and the identity hues stay distinct from it.
 - One `StateMark` component drawing `○ ◐ ● ✗` for CI (`web/src/features/review/ReviewPanel.tsx:15`),

@@ -1,12 +1,12 @@
 import { Lock, Workflow } from 'lucide-react'
 import { useHealth, useHealthStore } from '@/api/health.ts'
-import { useEventStream } from '@/api/snapshot.ts'
+import { useEventStream, useSnapshotStore } from '@/api/snapshot.ts'
 import { useRefreshViews } from '@/features/issues/issueApi.ts'
 import { NavRail } from './NavRail.tsx'
 import { SectionPanel } from './SectionPanel.tsx'
 import { StreamStatus } from './StreamStatus.tsx'
 import { ThemeToggle } from './ThemeToggle.tsx'
-import { sectionMeta } from './sections.ts'
+import { sectionLabel } from './sections.ts'
 import { useApplyTheme } from './useApplyTheme.ts'
 import { useUiStore } from './uiStore.ts'
 
@@ -24,7 +24,7 @@ export function AppShell() {
   useApplyTheme()
   const health = useHealthStore((state) => state.health)
   const section = useUiStore((state) => state.section)
-  const { label } = sectionMeta[section]
+  const service = useSnapshotStore((state) => state.snapshot?.messaging.service)
 
   return (
     <div className="flex min-h-dvh flex-col">
@@ -68,7 +68,9 @@ export function AppShell() {
           tabIndex={-1}
           className="flex-1 overflow-auto px-6 py-5 focus-visible:outline-none"
         >
-          <h1 className="text-2xl font-semibold tracking-tight">{label}</h1>
+          <h1 className="text-2xl font-semibold tracking-tight">
+            {sectionLabel(section, service)}
+          </h1>
           <SectionPanel section={section} />
         </main>
       </div>
