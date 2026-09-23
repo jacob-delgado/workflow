@@ -104,6 +104,21 @@ func TestBranchRefusesAnIssueThatAlreadyHasABranch(t *testing.T) {
 	wantExit(t, err, 4)
 }
 
+func TestBranchExistsSaysHowToSwitch(t *testing.T) {
+	// Arrange
+	server := jiraServer(t, http.StatusOK, issueFixture("PROJ-7", "Bug", "login"), new(atomic.Bool))
+	repo := repoForBranch(t, server.URL)
+	git(t, repo, "branch", "fix/PROJ-7-login")
+
+	// Act
+	_, err := run(t, repo, "branch", "PROJ-7", "--yes")
+
+	// Assert
+	if err == nil || !strings.Contains(err.Error(), "git switch fix/PROJ-7-login") {
+		t.Errorf("branch = %v, want the refusal to name the command that switches to the branch", err)
+	}
+}
+
 func TestBranchDryRunCreatesNothing(t *testing.T) {
 	// Arrange
 	server := jiraServer(t, http.StatusOK, issueFixture("PROJ-7", "Story", "login"), new(atomic.Bool))

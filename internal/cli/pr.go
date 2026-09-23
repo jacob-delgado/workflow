@@ -136,16 +136,20 @@ func runPR(out output, seams prSeams, opts writeOptions) error {
 	return offerReviewStatus(out.notes, seams, jira.Key(key), opts)
 }
 
-// composeRefusal words a refusal to compose in the command line's own terms.
+// composeRefusal words a refusal to compose in the command line's own terms,
+// pointing at the pull request that is already open. The shared layer's words
+// stay the same on every surface; the address is added here, where it is shown
+// to the person who asked.
 func composeRefusal(err error) error {
-	switch {
-	case errors.Is(err, loop.ErrNothingToOpen):
-		return errNoCommitsToOpen
-	case errors.Is(err, loop.ErrPullAlreadyOpen):
-		return errPullAlreadyOpen
-	default:
-		return err
+	if open, ok := errors.AsType[loop.PullAlreadyOpenError](err); ok {
+		return fmt.Errorf("%w: %s", errPullAlreadyOpen, open.Pull.URL)
 	}
+
+	if errors.Is(err, loop.ErrNothingToOpen) {
+		return errNoCommitsToOpen
+	}
+
+	return err
 }
 
 // pushFailure words a push that did not publish the branch: with the push's own

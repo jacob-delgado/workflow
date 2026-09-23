@@ -94,12 +94,13 @@ func runAnnounceCommand(cmd *cobra.Command, prompt Prompt, opts writeOptions) er
 // it, and posts it once confirmed.
 func runAnnounce(out output, seams announceSeams, opts writeOptions) error {
 	if seams.Post == nil {
-		return errMessagingNotConfigured
+		return fmt.Errorf("%w: set messaging.kind and messaging.webhook_url — or messaging.token, for a "+
+			"Slack bot — in %s, then check them with workflow doctor", errMessagingNotConfigured, config.FileName)
 	}
 
 	announcement, _, err := loop.ComposeAnnouncement(seams.Compose, seams.Messaging, seams.Project, seams.Kind)
 	if errors.Is(err, loop.ErrNoPullRequest) {
-		return errNoPullRequest
+		return fmt.Errorf("%w (open one with workflow pr)", errNoPullRequest)
 	}
 
 	if err != nil {

@@ -144,6 +144,33 @@ func TestAnnounceRefusesABranchWithNoPullRequestInItsOwnWords(t *testing.T) {
 	}
 }
 
+func TestNoPullRequestPointsAtPR(t *testing.T) {
+	// Arrange
+	fakeGh(t, ghResponses{pulls: "[]"})
+	repo := githubRepo(t, "fix/PROJ-2-thing")
+	writeFile(t, repo, forgeCLIConfig)
+
+	// Act
+	_, err := run(t, repo, "announce", "--yes")
+
+	// Assert
+	if err == nil || !strings.Contains(err.Error(), "workflow pr") {
+		t.Errorf("announce = %v, want the refusal to name the command that opens a pull request", err)
+	}
+}
+
+func TestMessagingNotConfiguredNamesTheKeysAndDoctor(t *testing.T) {
+	// Act
+	_, err := run(t, t.TempDir(), "announce")
+
+	// Assert
+	for _, next := range []string{"messaging.kind", "messaging.webhook_url", "messaging.token", "workflow doctor"} {
+		if err == nil || !strings.Contains(err.Error(), next) {
+			t.Errorf("announce = %v, want the refusal to name %s", err, next)
+		}
+	}
+}
+
 func TestAnnounceDryRunComposesForAKeylessBranch(t *testing.T) {
 	// Arrange
 	// The branch names no issue, so the announcement is composed without one.
