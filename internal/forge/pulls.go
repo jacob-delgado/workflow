@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"net/url"
+	"slices"
 	"strings"
 	"time"
 )
@@ -143,6 +144,19 @@ type ReviewRequest struct {
 	// request per entry.
 	CI       CIState
 	OpenedAt time.Time
+}
+
+// OldestFirst is the review queue in the order it is worked through, the
+// longest-waiting request first — the order every surface lists it in. Requests
+// opened at the same moment keep the forge's order, and the forge's answer is
+// left as it came.
+func OldestFirst(requests []ReviewRequest) []ReviewRequest {
+	queue := slices.Clone(requests)
+	slices.SortStableFunc(queue, func(left, right ReviewRequest) int {
+		return left.OpenedAt.Compare(right.OpenedAt)
+	})
+
+	return queue
 }
 
 // dialect is how one forge answers the questions a review needs. The two

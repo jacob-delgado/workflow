@@ -6,7 +6,6 @@ package cli
 import (
 	"fmt"
 	"io"
-	"slices"
 	"strconv"
 	"time"
 
@@ -61,14 +60,12 @@ func runReviewsCommand(cmd *cobra.Command, asJSON bool) error {
 
 // runReviews lists the reviews waiting on you, the longest-waiting first.
 func runReviews(out output, seams reviewsSeams, asJSON bool) error {
-	reviews, err := seams.List()
+	answered, err := seams.List()
 	if err != nil {
 		return fmt.Errorf("reading review requests: %w", err)
 	}
 
-	slices.SortStableFunc(reviews, func(left, right forge.ReviewRequest) int {
-		return left.OpenedAt.Compare(right.OpenedAt)
-	})
+	reviews := forge.OldestFirst(answered)
 
 	now := seams.Now()
 	if asJSON {
