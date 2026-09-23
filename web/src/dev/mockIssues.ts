@@ -1,4 +1,4 @@
-import type { IssueDetail } from '@/api/generated/types.gen.ts'
+import type { IssueDetail, ViewList } from '@/api/generated/types.gen.ts'
 import { mockSnapshot } from './mockSnapshot.ts'
 
 // mockIssueDetail reads a mock snapshot issue in full for `task web:mockup`:
@@ -29,4 +29,12 @@ export function mockIssueDetail(key: string): IssueDetail {
     comment_total: 1,
     url: `https://jira.example.com/browse/${key}`,
   }
+}
+
+// mockViews are the saved views the mockup's view select offers.
+export const mockViews: ViewList = {
+  views: [
+    { name: 'Assigned to me', jql: 'assignee = currentUser() AND resolution = Unresolved' },
+    { name: 'Team bugs', jql: 'project = PROJ AND type = Bug AND resolution = Unresolved' },
+  ],
 }

@@ -335,24 +335,21 @@ horizontal axis.
 
 ## The web
 
-### UX-72 One view, one page, no filter
+### UX-72 One page, no filter
 
 Impact: medium · Effort: small
 
-**Today.** `listViews` and the `view` query on the stream exist
-(`api/openapi.yaml:56`, `:494`; `internal/webserver/stream.go:36`) and the
-web opens `EventSource('/api/events')` with no `?view=`
-(`web/src/api/snapshot.ts:39`); the stream always pushes page 0
-(`internal/webserver/stream.go:136`); there is no client-side
-filter. `No issues match this view.`
-(`web/src/features/issues/IssuesPanel.tsx:23`) is a dead end
-with no view to change.
+**Today.** The stream always pushes page 0
+(`internal/webserver/stream.go:136`), and though `listIssues` takes
+`start_at` (`api/openapi.yaml:81`) the web never reads past it; there is no
+client-side filter like the interface's `/` (`visible`,
+`internal/tui/issues.go:90`).
 
-**Instead.** A view select from `listViews` beside the list; the stream
-reconnects with `?view=`; a "load more" using `start_at`; a filter box like
-the interface's `/`.
+**Instead.** A "load more" using `start_at`; a filter box like the
+interface's `/`.
 
-**Done when.** Choosing a view changes the stream's query.
+**Done when.** Load more reads the next page and appends it; the filter
+narrows the list by key or summary.
 
 ### UX-73 On GitLab the web still says "pull request"; the nav says one thing and the button another
 
@@ -467,7 +464,7 @@ Impact: high · Effort: small
 states (`BranchPanel.tsx:139`). The focused button disappears and focus
 falls to `<body>`. Changing section from the nav rail or a work-story row
 never moves focus to `<main>`, though `tabIndex={-1}` is there for it
-(`web/src/shell/AppShell.tsx:59`).
+(`web/src/shell/AppShell.tsx:68`).
 
 **Instead.** Focus the outcome when a form closes; focus `<main>` on a
 section change.
@@ -483,7 +480,7 @@ Impact: medium · Effort: small
 uncommitted changes; commit or stash them before switching`, `internal/webserver/checkout.go:19`;
 `nothing is staged to commit`, `internal/webserver/commit.go:21`). But the client fallbacks
 are vague and near-apologetic — `The branch could not be checked out.`
-(`web/src/features/issues/IssuesPanel.tsx:105`), `Work could not be started.` (`WorkStory.tsx:260`),
+(`web/src/features/issues/IssuesPanel.tsx:129`), `Work could not be started.` (`WorkStory.tsx:260`),
 `The push failed.` (`BranchPanel.tsx:132`), `The commit could not be
 created.` (`CommitForm.tsx:74`) — and three handlers replace the tool's
 reason with one of those sentences: `internal/webserver/checkout.go:44`, `internal/webserver/branchcreate.go:44`,
@@ -509,7 +506,7 @@ Git repository.` (`BranchPanel.tsx:22`) and `The configuration could not be
 loaded.` (`SettingsPanel.tsx:16`) offer nothing to do. And the one condition
 "no snapshot yet" reads `Connecting to the tracker…`, `Connecting to the
 workspace…`, `Connecting to the forge…` and `Connecting…` in four panels
-(`web/src/features/issues/IssuesPanel.tsx:17`, `BranchPanel.tsx:14`, `ReviewPanel.tsx:31`,
+(`web/src/features/issues/IssuesPanel.tsx:20`, `BranchPanel.tsx:14`, `ReviewPanel.tsx:31`,
 `MessagingPanel.tsx:11`).
 
 **Instead.** One connecting line, in the shell; a retry on the config
@@ -523,7 +520,7 @@ button.
 Impact: medium · Effort: small
 
 **Today.** Every disabled button uses `disabled:opacity-60` — thirteen
-places (`web/src/features/issues/IssuesPanel.tsx:117`, `WorkStory.tsx:241`, `:271`,
+places (`web/src/features/issues/IssuesPanel.tsx:141`, `WorkStory.tsx:241`, `:271`,
 `BranchPanel.tsx:168`, `CommitForm.tsx:128`, `ReviewPanel.tsx:179`, `:317`,
 `:324`, `MessagingPanel.tsx:168`, `:214`, `:229`, `:237`,
 `SettingsPanel.tsx:316`) — which CLAUDE.md's accessibility rule names as the
@@ -543,7 +540,7 @@ on the two transitions and one reduced-motion rule in `index.css`.
 Impact: medium · Effort: small
 
 **Today.** A frame that fails `zSnapshot.safeParse` is dropped
-(`snapshot.ts:52`); the last good snapshot stays on screen and
+(`web/src/api/snapshot.ts:63`); the last good snapshot stays on screen and
 `StreamStatus` still says `Live`. A field added on the server without
 regenerating the client makes every frame vanish, indistinguishably from a
 quiet repository (DEBT-67).
@@ -615,7 +612,7 @@ Impact: medium · Effort: medium
 
 **Today.** There is not one `sm:`, `md:`, `lg:` or `xl:` utility in any
 `.tsx` under `web/src`. A `w-20` rail (`NavRail.tsx:12`) beside a `w-80
-shrink-0` issues list (`web/src/features/issues/IssuesPanel.tsx:31`) and a `flex-1` detail squeezes
+shrink-0` issues list (`web/src/features/issues/IssuesPanel.tsx:52`) and a `flex-1` detail squeezes
 the detail to nothing near 640 px; definition lists use fixed first columns
 (`grid-cols-[6rem_1fr]` `BranchPanel.tsx:49`, `[8rem_1fr]`
 `MessagingPanel.tsx:29`, `[9rem_1fr]` `ReviewPanel.tsx:56`); panels cap at

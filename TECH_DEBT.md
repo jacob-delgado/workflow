@@ -290,10 +290,11 @@ Severity: medium · Confidence: read
 `GET /api/events` is registered by hand (`internal/webserver/webserver.go:117`
 — "a streaming response the strict, one-response-object interface cannot
 express") and the browser consumes it with a raw `new EventSource`
-(`web/src/api/snapshot.ts:39`); the generated `streamEvents`
+(`web/src/api/snapshot.ts:50`); the generated `streamEvents`
 (`web/src/api/generated/sdk.gen.ts:231`) is never called. The only thing
 keeping the payload honest is the runtime `zSnapshot.safeParse`
-(`snapshot.ts:55`), and a frame that fails it is dropped (`snapshot.ts:52`)
+(`web/src/api/snapshot.ts:66`), and a frame that fails it is dropped
+(`web/src/api/snapshot.ts:63`)
 with the last good snapshot left on screen and no signal to the user. A
 `Snapshot` field added in Go without regenerating the client therefore
 makes every frame vanish.
@@ -464,7 +465,7 @@ know about.
   cost is that the config query never refetches on its own and a stalled
   stream leaves stale data with no refetch to fall back on. The issue
   detail is the one query with a finite `staleTime`
-  (`web/src/features/issues/issueApi.ts:18`): the stream carries only the
+  (`web/src/features/issues/issueApi.ts:22`): the stream carries only the
   list's slim issues, so a reopened issue is read again after a minute.
 - **The progress spine's per-system hue is color-only** (`internal/tui/spine.go:68`),
   mitigated by the stage name, or its initial when compact (`spine.go:51`).

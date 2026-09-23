@@ -1,13 +1,14 @@
-import { render, screen } from '@testing-library/react'
+import { screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import App from '@/App.tsx'
 import { listenerCount } from '@/test/matchMedia.ts'
+import { renderWithClient } from '@/test/renderWithClient.tsx'
 import { readStoredChoice } from './themeStore.ts'
 
 test('the theme toggle cycles system, light, dark and remembers the choice', async () => {
   // Arrange
   const user = userEvent.setup()
-  render(<App />)
+  renderWithClient(<App />)
 
   // Act: it opens following the system
   // Assert
@@ -31,7 +32,7 @@ test('the theme toggle cycles system, light, dark and remembers the choice', asy
 test('following the system registers one OS listener and drops it when set to light', async () => {
   // Arrange
   const user = userEvent.setup()
-  render(<App />)
+  renderWithClient(<App />)
 
   // Act: it opens following the system
   // Assert: exactly one OS-change listener is registered to follow it

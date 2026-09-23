@@ -1,6 +1,6 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { updateConfig } from '@/api/generated'
-import { getConfigOptions } from '@/api/generated/@tanstack/react-query.gen.ts'
+import { getConfigOptions, listViewsQueryKey } from '@/api/generated/@tanstack/react-query.gen.ts'
 import type { Config } from '@/api/generated/types.gen.ts'
 
 // The VITE_MOCK check is read inline (not via a helper) so Vite statically
@@ -43,13 +43,15 @@ async function saveConfig(config: Config): Promise<Config> {
 // useSaveConfig saves the configuration and refreshes the cached copy with the
 // stored result. The refresh matters: the config query never refetches on its
 // own (staleTime is Infinity), so without it a reopened Settings would show the
-// pre-save values.
+// pre-save values. The issue views live in the configuration too, so their list
+// is read again: the view select offers only the views the server lists.
 export function useSaveConfig(): (config: Config) => Promise<Config> {
   const queryClient = useQueryClient()
 
   return async (config) => {
     const saved = await saveConfig(config)
     queryClient.setQueryData(getConfigOptions().queryKey, saved)
+    void queryClient.invalidateQueries({ queryKey: listViewsQueryKey() })
 
     return saved
   }

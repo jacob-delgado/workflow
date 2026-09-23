@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react'
+import { screen } from '@testing-library/react'
 import { vi } from 'vitest'
 import { useSnapshotStore } from '@/api/snapshot.ts'
 import { makeSnapshot } from '@/test/fixtures.ts'
@@ -18,7 +18,7 @@ test.each(readSections)('routes the %s section to its panel', (section, marker) 
   useSnapshotStore.setState({ status: 'live', snapshot: makeSnapshot() })
 
   // Act
-  render(<SectionPanel section={section} />)
+  renderWithClient(<SectionPanel section={section} />)
 
   // Assert
   expect(screen.getByText(marker)).toBeTruthy()

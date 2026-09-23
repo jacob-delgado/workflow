@@ -5,9 +5,12 @@ type Listener = (event: MessageEvent) => void
 // push events and assert what the stream does with them.
 export class FakeEventSource {
   static instances: FakeEventSource[] = []
+  static readonly CLOSED = 2
 
   readonly url: string
   closed = false
+  // The connection's state as EventSource reports it; only refuse changes it.
+  readyState = 0
   private readonly listeners = new Map<string, Listener[]>()
 
   constructor(url: string | URL) {
@@ -33,6 +36,14 @@ export class FakeEventSource {
     for (const listener of this.listeners.get(type) ?? []) {
       listener(new MessageEvent(type, { data }))
     }
+  }
+
+  // refuse stands for a server that answers with something other than a
+  // stream, as it does (404) for a view it does not have: the browser closes
+  // the source for good, without retrying, and fires one error.
+  refuse(): void {
+    this.readyState = FakeEventSource.CLOSED
+    this.emit('error', '')
   }
 
   static reset(): void {
