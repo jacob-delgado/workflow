@@ -496,7 +496,7 @@ is under 500 lines (467).
 write-scope reason; `esc` closes it. `TestRefusedFinishStaysInItsPreview`
 likewise with a git failure. The merge and finish goldens change once.
 
-### Phase 6 — One voice for failure, measured
+### Phase 6 — One voice for failure, measured — done
 
 Closes UX-67. Depends on Phase 5 (every overlay outcome then flows through
 `pinnedOutcome`).
@@ -505,7 +505,7 @@ Closes UX-67. Depends on Phase 5 (every overlay outcome then flows through
   fixes all eleven `pinnedOutcome` overlays at once.
 - `m.failureLine(err)` — glyph plus the sentence, or the raw text when
   there is none, one line — replaces the fourteen `failedGlyph() +
-  err.Error()` rail sites (`internal/tui/checks.go:100`, `diff.go:79`, `issuewrite.go:120`,
+  err.Error()` rail sites (`internal/tui/checks.go:100`, `internal/tui/diff.go:79`, `internal/tui/issuewrite.go:120`,
   `:122`, `internal/tui/picker.go:209`, `:246`, `internal/tui/switchtask.go:107`, `:147`,
   `internal/tui/messaging.go:155`, `internal/tui/review.go:217`, `internal/tui/run.go:212`, `internal/tui/composer.go:166`,
   `:178`, `internal/tui/fields.go:171`).
@@ -521,7 +521,7 @@ Closes UX-67. Depends on Phase 5 (every overlay outcome then flows through
 
 **Target.** From 11 of 53 to *every site that renders an error's text* —
 the eight width-one glyph-only rail cells excepted, by name. Operationally:
-`err.Error()` appears in no non-test `internal/tui` file but `render.go`.
+`err.Error()` appears in no non-test `internal/tui` file but `failure.go`.
 
 **Touches.** `internal/tui/render.go` and the nine files above;
 `failure_test.go`. **Budget.** None.
