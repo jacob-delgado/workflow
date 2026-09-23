@@ -55,7 +55,7 @@ gap, and which phase closes it.
 
 | # | Action | CLI | TUI | Web | Warranted? |
 | --- | --- | --- | --- | --- | --- |
-| 1 | List the view's issues | P (only `branch <tab>` completion, `completeAssignedIssues`, `internal/cli/scriptable.go:105`) | Y | Y (page 0 of the stream) | CLI read: a feature, FEAT-78 |
+| 1 | List the view's issues | P (only `branch <tab>` completion, `completeAssignedIssues`, `internal/cli/scriptable.go:109`) | Y | Y (page 0 of the stream) | CLI read: a feature, FEAT-78 |
 | 2 | Switch view / next page | N | Y (`v`, `ctrl+n`) | N (`web/src/api/snapshot.ts:39` sends no `?view=`) | **Web yes** — the stream already takes `?view=` (`internal/webserver/stream.go:38`). Phase 3, UX-72 |
 | 3 | Filter the list | N | Y (`/`, `internal/tui/issues.go:154`) | N | Web idea, UX-72; CLI no |
 | 4 | Read an issue in full | N | Y (`internal/tui/detail.go:225`) | **N** — `IssuesPanel.tsx:83` renders the slim snapshot `Issue` | **Web yes, cheap** — `getIssue` exists (`api/openapi.yaml:95`, `handlers.go:66`) and is never called. Phase 3, UX-70. CLI: FEAT-78 |
@@ -153,7 +153,7 @@ to see the shape.
 | A hint on misuse | **Gap** — `SilenceUsage`+`SilenceErrors` swallow cobra's | UX-56 |
 | No surprises | Partial — `branch` switches silently; `pr` pushes and transitions under one question | UX-58 |
 | Secrets never printed | Met | pinned by `internal/cli/cli_test.go:228`, `doctor_json_test.go:65` |
-| Shell completion | Met, incl. dynamic issue keys | `internal/cli/scriptable.go:105` |
+| Shell completion | Met, incl. dynamic issue keys | `internal/cli/scriptable.go:109` |
 | Docs cover the commands | **Gap** — `usage.md` is TUI-only | UX-55 |
 
 ### The terminal interface
@@ -338,7 +338,7 @@ without it, classify the CLI-local sentinels and re-point later).
 - **Streams.** The rule: stdout carries the artifact (JSON, the preview
   text, the created thing's URL, the standup draft); stderr carries
   commentary (`Warning:` `internal/cli/config_cmd.go:285`, `Not opened.` and `dry run:
-  would …` `internal/cli/scriptable.go:67`, `:82`, the no-config guidance
+  would …` `internal/cli/scriptable.go:67`, `:86`, the no-config guidance
   (`showLoadError`, `internal/cli/config_cmd.go:88`), the web banner
   `internal/cli/cli.go:265`, `config show`'s `# <path>` header
   (`runConfigShow`, `internal/cli/config_cmd.go:292`)). Split the harness
@@ -354,7 +354,7 @@ without it, classify the CLI-local sentinels and re-point later).
   and rejects `--days < 1` (`:194`, `:201`) as a usage error; `config init
   --dry-run` prints the redacted file it would write, if the guided flow
   bends easily. One JSON encoder (DEBT-53).
-- **Non-TTY.** `confirm` (`prompt.go:32`) turns `io.EOF` into `errNoTerminal`:
+- **Non-TTY.** `confirm` (`internal/cli/prompt.go:41`) turns `io.EOF` into `errNoTerminal`:
   "no terminal to confirm on; pass --yes".
 - **Reference.** `cmd/docsgen/main.go` calls `InitDefaultVersionFlag`,
   `InitDefaultHelpCmd`, `InitDefaultCompletionCmd` before generating; a new

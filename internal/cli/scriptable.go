@@ -74,6 +74,10 @@ func (o *writeOptions) proceed(notes io.Writer, confirm func(string) (bool, erro
 	}
 
 	ok, err := confirm(say.question)
+	if errors.Is(err, errNoTerminal) {
+		return false, fmt.Errorf("%w; pass --yes to go ahead without asking", err)
+	}
+
 	if err != nil {
 		return false, err
 	}
@@ -249,7 +253,7 @@ func (f exitFamily) holds(err error) bool {
 // package-level variable, which gochecknoglobals forbids.
 func exitFamilies() []exitFamily {
 	return []exitFamily{
-		{status: exitUsage, members: []error{errUsage}},
+		{status: exitUsage, members: []error{errUsage, errNoTerminal}},
 		{status: exitConfiguration, members: configurationErrors()},
 		{status: exitRefused, members: refusalErrors()},
 		{status: exitUnreachable, members: unreachableErrors()},
