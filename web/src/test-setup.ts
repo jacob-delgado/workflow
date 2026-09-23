@@ -55,4 +55,5 @@ afterEach(() => {
   resetMatchMedia()
   vi.unstubAllEnvs()
   vi.unstubAllGlobals()
+  vi.useRealTimers()
 })

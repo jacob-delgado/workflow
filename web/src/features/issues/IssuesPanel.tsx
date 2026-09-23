@@ -1,12 +1,12 @@
-import type { Issue, TaskBranch } from '@/api/generated/types.gen.ts'
+import type { TaskBranch } from '@/api/generated/types.gen.ts'
 import { useSnapshotStore } from '@/api/snapshot.ts'
 import { cn } from '@/lib/utils.ts'
 import { EmptyState } from '@/shell/EmptyState.tsx'
 import { useUiStore } from '@/shell/uiStore.ts'
 import { checkoutBranch } from './checkoutApi.ts'
+import { IssueDetailPanel } from './IssueDetailPanel.tsx'
 import { StatusBadge } from './StatusBadge.tsx'
 import { useAsyncAction } from './useAsyncAction.ts'
-import { WorkStory } from './WorkStory.tsx'
 
 export function IssuesPanel() {
   const snapshot = useSnapshotStore((state) => state.snapshot)
@@ -24,7 +24,7 @@ export function IssuesPanel() {
   }
 
   const branchesByKey = groupBranchesByKey(snapshot.branches)
-  const current = issues.find((issue) => issue.key === selected) ?? null
+  const listed = issues.find((issue) => issue.key === selected)
 
   return (
     <div className="mt-4 flex gap-6">
@@ -70,42 +70,13 @@ export function IssuesPanel() {
       </ul>
 
       <div className="flex-1">
-        {current ? (
-          <IssueDetail issue={current} />
-        ) : (
+        {selected === null ? (
           <EmptyState>Select an issue to see its detail.</EmptyState>
+        ) : (
+          <IssueDetailPanel key={selected} issueKey={selected} listed={listed} />
         )}
       </div>
     </div>
-  )
-}
-
-function IssueDetail({ issue }: { issue: Issue }) {
-  return (
-    <article aria-labelledby="issue-detail-heading" className="flex flex-col gap-6">
-      <div className="flex flex-col gap-2">
-        <span className="flex items-center gap-2">
-          <span className="font-mono text-sm text-muted-foreground">{issue.key}</span>
-          <StatusBadge category={issue.status_category} label={issue.status} />
-        </span>
-        <h2 id="issue-detail-heading" className="text-lg font-medium">
-          {issue.summary}
-        </h2>
-        <p className="text-sm text-muted-foreground">
-          {issue.type}
-          {issue.priority ? ` · ${issue.priority} priority` : ''}
-        </p>
-      </div>
-      <section aria-labelledby="work-story-heading" className="flex flex-col gap-4">
-        <h3
-          id="work-story-heading"
-          className="text-sm font-semibold text-muted-foreground uppercase"
-        >
-          Work story
-        </h3>
-        <WorkStory issueKey={issue.key} />
-      </section>
-    </article>
   )
 }
 

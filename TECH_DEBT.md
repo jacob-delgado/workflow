@@ -462,7 +462,10 @@ know about.
 - **`staleTime: Infinity`** (`web/src/queryClient.ts:8`) with the event
   stream as the sole freshness source. Correct for a pushed snapshot; the
   cost is that the config query never refetches on its own and a stalled
-  stream leaves stale data with no refetch to fall back on.
+  stream leaves stale data with no refetch to fall back on. The issue
+  detail is the one query with a finite `staleTime`
+  (`web/src/features/issues/issueApi.ts:18`): the stream carries only the
+  list's slim issues, so a reopened issue is read again after a minute.
 - **The progress spine's per-system hue is color-only** (`internal/tui/spine.go:68`),
   mitigated by the stage name, or its initial when compact (`spine.go:51`).
   Part of the visual system UX.md says should not change; the cost is one
