@@ -61,19 +61,26 @@ filled for (the terminal interface's status picker asks for them).
 Status 422. The request was understood but cannot be carried out as asked — an
 invalid configuration body, a request for an issue when no tracker is
 configured, no `jira.review_status` to move an issue to, a change Jira
-refused, or a file git would not stage or unstage (git's own words stay off the
-wire, since a fetch it makes on the way can name the remote). A Jira token
-that is not configured or that Jira did not accept, a `jira.base_url` that is
-not a usable address, and one with no Jira API behind it are answered here
-too, pointing at `workflow doctor` rather than naming the address.
+refused, a file git would not stage or unstage, or a branch git would not
+switch to or create (git's own words stay off the wire, since a fetch it
+makes on the way can name the remote; the detail says how to see them). A
+Jira token that is not configured or that Jira did not accept, a
+`jira.base_url` that is not a usable address, and one with no Jira API behind
+it are answered here too, pointing at `workflow doctor` rather than naming the
+address. So is an announcement the messaging service refused, or could not
+be sent because messaging is not set up or its webhook is not https — never
+with the service's own error, which can name the webhook.
 
 ## Unreachable
 
-Status 502. An upstream service — Jira or the Git forge — could not be
-reached, or asked to wait because it is limiting requests. The request was well
-formed; try again once the service is back.
+Status 502. An upstream service — Jira, the Git forge or the messaging
+service — could not be reached, asked to wait because it is limiting
+requests, answered with a redirect (refused, so a credential goes nowhere
+else), or, for the messaging service, answered with a status it does not
+document. The request was well formed; try again once the service is back.
 
 ## Internal
 
 Status 500. An unexpected failure the caller cannot act on. The detail stays
-generic on purpose; the cause is in the server's own output, not the response.
+generic on purpose, and says to try again and to run `workflow doctor` if it
+keeps failing; the cause is in the server's own output, not the response.

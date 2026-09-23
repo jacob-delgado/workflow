@@ -12,7 +12,9 @@ import (
 
 	"github.com/jacob-delgado/workflow/internal/api"
 	"github.com/jacob-delgado/workflow/internal/forge"
+	"github.com/jacob-delgado/workflow/internal/httpx"
 	"github.com/jacob-delgado/workflow/internal/jira"
+	"github.com/jacob-delgado/workflow/internal/messaging"
 )
 
 // problemBase is where a problem's type URI points: one anchor per code on the
@@ -74,18 +76,22 @@ func writeRequestError(w http.ResponseWriter, _ *http.Request, _ error) {
 }
 
 // writeResponseError is the safety net for a handler that returns an error
-// rather than a typed response: an opaque 500, so an unexpected failure never
-// leaks its detail.
+// rather than a typed response, or an answer that could not be written: an
+// opaque 500, so an unexpected failure never leaks its detail, that still says
+// what to do.
 func writeResponseError(w http.ResponseWriter, _ *http.Request, _ error) {
-	writeProblem(w, api.Internal, "something went wrong")
+	writeProblem(w, api.Internal, "the server could not answer; "+tryAgain)
 }
+
+// tryAgain is what to do about a failure nothing more is known of.
+const tryAgain = "try again, and run workflow doctor if it keeps failing"
 
 // fault maps a seam's error onto an RFC 9457 problem and its status. The class
 // comes from the error — one of faultClasses (a missing resource, an upstream
-// that could not be reached or asked to wait, a Jira setting it cannot use,
-// Jira's refusal) or else an unexpected failure — but the detail is curated
-// and safe: the raw cause carries a host or a credential and never reaches the
-// wire.
+// that could not be reached, asked to wait or answered oddly, a setting it
+// cannot use, a service's refusal) or else an unexpected failure — but the
+// detail is curated and safe: the raw cause carries a host, a webhook or a
+// credential and never reaches the wire.
 func fault(err error) (api.Problem, int) {
 	prob := faultProblem(err)
 
@@ -101,7 +107,7 @@ func faultProblem(err error) api.Problem {
 		}
 	}
 
-	return problem(api.Internal, "the request could not be completed")
+	return problem(api.Internal, "the request could not be completed; "+tryAgain)
 }
 
 // faultClass is one kind of seam failure: the sentinels that belong to it, and
@@ -116,21 +122,38 @@ type faultClass struct {
 // faultClasses are the failures fault tells apart, most specific first: a Jira
 // 404 that carries a reason is a missing resource before it is a refusal.
 func faultClasses() []faultClass {
+	return slices.Concat(transportFaults(), jiraFaults(), messagingFaults())
+}
+
+// transportFaults are the failures any upstream can answer with.
+func transportFaults() []faultClass {
 	return []faultClass{
 		{
 			causes: []error{jira.ErrNotFound, forge.ErrNoRepository},
 			code:   api.NotFound, detail: "the requested resource was not found",
 		},
 		{
-			causes: []error{jira.ErrUnreachable, forge.ErrUnreachable},
-			code:   api.Unreachable, detail: "the service could not be reached",
+			causes: []error{jira.ErrUnreachable, forge.ErrUnreachable, messaging.ErrUnreachable},
+			code:   api.Unreachable, detail: "the service could not be reached; check the network, then try again",
 		},
-		// jira.ErrRateLimited is the one sentinel the forge answers a 429 with
-		// too, so the detail names neither service.
+		// Every client answers a 429 and a redirect with the transport's own
+		// sentinels, so these details name no service.
 		{
-			causes: []error{jira.ErrRateLimited},
+			causes: []error{httpx.ErrRateLimited},
 			code:   api.Unreachable, detail: "the service is limiting requests; wait and try again",
 		},
+		{
+			causes: []error{httpx.ErrRedirected},
+			code:   api.Unreachable,
+			detail: "the service answered with a redirect, refused so the credential goes nowhere else; " +
+				"check its configured address",
+		},
+	}
+}
+
+// jiraFaults are the tracker's failures.
+func jiraFaults() []faultClass {
+	return []faultClass{
 		// The client refuses the next two classes before it asks Jira anything, so
 		// their details name the setting, not what Jira did.
 		{
@@ -154,6 +177,42 @@ func faultClasses() []faultClass {
 		{
 			causes: []error{jira.ErrRejected},
 			code:   api.Unprocessable, detail: "Jira refused the request",
+		},
+	}
+}
+
+// messagingFaults are the messaging service's failures, told the same whichever
+// service it is. None forwards the error's own text: a client's error can name
+// the webhook, whose address is its credential.
+func messagingFaults() []faultClass {
+	return []faultClass{
+		{
+			causes: []error{messaging.ErrNoCredential},
+			code:   api.Unprocessable, detail: "messaging is not set up; add a token or a webhook URL in Settings",
+		},
+		{
+			causes: []error{messaging.ErrInsecureWebhook},
+			code:   api.Unprocessable,
+			detail: "messaging.webhook_url is not an https address; copy the webhook's https address into it in Settings",
+		},
+		// Every 4xx a post meets is this one, and a webhook — the only transport
+		// Teams, Discord and a plain webhook have — is one workflow doctor cannot
+		// check, so the detail points at the settings rather than at doctor.
+		{
+			causes: []error{messaging.ErrRejected},
+			code:   api.Unprocessable,
+			detail: "the messaging service refused the announcement; " +
+				"check the token, or that the webhook URL is current, in Settings",
+		},
+		{
+			causes: []error{messaging.ErrPostRefused},
+			code:   api.Unprocessable,
+			detail: "the messaging service refused the message; announce from a terminal to see its reason",
+		},
+		{
+			causes: []error{messaging.ErrUnexpectedStatus},
+			code:   api.Unreachable,
+			detail: "the messaging service answered with a status it does not document; try again",
 		},
 	}
 }

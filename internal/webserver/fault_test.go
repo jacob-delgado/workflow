@@ -4,16 +4,23 @@
 package webserver_test
 
 import (
+	"bytes"
+	"encoding/json"
 	"fmt"
 	"net/http"
+	"net/http/httptest"
 	"strings"
 	"testing"
 
 	"github.com/jacob-delgado/workflow/internal/api"
+	"github.com/jacob-delgado/workflow/internal/config"
 	"github.com/jacob-delgado/workflow/internal/httpx"
 	"github.com/jacob-delgado/workflow/internal/jira"
 	"github.com/jacob-delgado/workflow/internal/webserver"
 )
+
+// credentialRefused is how Jira's refusal of the configured credential is told.
+const credentialRefused = "did not accept the configured credential"
 
 func TestTransitionNeverForwardsTheJiraHost(t *testing.T) {
 	t.Parallel()
@@ -37,11 +44,11 @@ func TestTransitionNeverForwardsTheJiraHost(t *testing.T) {
 		},
 		"a credential not accepted": {
 			err:        fmt.Errorf("reading https://%s: %w", jiraHost, jira.ErrUnauthorized),
-			wantStatus: unprocessable, want: "did not accept the configured credential",
+			wantStatus: unprocessable, want: credentialRefused,
 		},
 		"a credential refused": {
 			err:        fmt.Errorf("reading https://%s: %w", jiraHost, jira.ErrForbidden),
-			wantStatus: unprocessable, want: "did not accept the configured credential",
+			wantStatus: unprocessable, want: credentialRefused,
 		},
 		// The client refuses these three before it asks Jira anything, so the
 		// answer names what is missing or unusable, not what Jira did.
@@ -130,3 +137,58 @@ func TestAMissingIssueIsNotFoundBeforeARefusal(t *testing.T) {
 		})
 	}
 }
+
+func TestAnAnswerThatCannotBeWrittenSaysWhatToDo(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	// The health answer's body cannot be written, so the safety net answers in
+	// its place, opaque about why and plain about what to do.
+	writer := &firstWriteFails{}
+	request := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/api/health", nil)
+	request.Host = loopbackHost
+
+	// Act
+	serve(t, filledDeps(), config.Default()).ServeHTTP(writer, request)
+
+	// Assert
+	var failure api.Problem
+
+	err := json.Unmarshal(writer.body.Bytes(), &failure)
+	if err != nil || failure.Code != api.Internal || !strings.Contains(failure.Detail, "try again") {
+		t.Errorf("answer = %q (%v), want an internal problem that says to try again", writer.body.String(), err)
+	}
+}
+
+// firstWriteFails fails the first body write, as a connection can, and keeps
+// what is written after it.
+type firstWriteFails struct {
+	header http.Header
+	failed bool
+	body   bytes.Buffer
+}
+
+func (f *firstWriteFails) Header() http.Header {
+	if f.header == nil {
+		f.header = http.Header{}
+	}
+
+	return f.header
+}
+
+func (f *firstWriteFails) Write(written []byte) (int, error) {
+	if !f.failed {
+		f.failed = true
+
+		return 0, errSeam
+	}
+
+	kept, err := f.body.Write(written)
+	if err != nil {
+		return kept, fmt.Errorf("keeping the answer: %w", err)
+	}
+
+	return kept, nil
+}
+
+func (f *firstWriteFails) WriteHeader(int) {}
