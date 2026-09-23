@@ -67,7 +67,7 @@ func TestAnnounceDryRunComposesTheReadyMoment(t *testing.T) {
 		t.Errorf("stdout does not preview the ready-for-review moment:\n%s", printed.stdout)
 	}
 
-	if !strings.Contains(printed.stderr, "dry run: would post to") || strings.Contains(printed.stdout, "dry run:") {
+	if !strings.Contains(printed.stderr, "dry run: would announce to") || strings.Contains(printed.stdout, "dry run:") {
 		t.Errorf("the dry-run line is not on stderr alone:\nstdout:\n%s\nstderr:\n%s", printed.stdout, printed.stderr)
 	}
 }
@@ -148,6 +148,29 @@ func TestAnnounceDryRunNamesTheService(t *testing.T) {
 	}
 }
 
+func TestAnnounceAsksToAnnounce(t *testing.T) {
+	// Arrange
+	fakeGh(t, ghResponses{pulls: openPull("Add login")})
+	repo := githubRepo(t, "fix/PROJ-2-thing")
+	writeFile(t, repo, forgeCLIConfig)
+
+	var asked []string
+
+	// Act
+	printed, err := runStreams(t, repo, answering("n", &asked), "announce")
+	// Assert
+	if err != nil {
+		t.Fatalf("announce: %v (%+v)", err, printed)
+	}
+
+	// The command is announce, and it says so: its question and its decline use
+	// the verb the interface and the web use, not "post".
+	if len(asked) != 1 || !strings.HasPrefix(asked[0], "Announce to Slack?") ||
+		!strings.Contains(printed.stderr, "Not announced.") {
+		t.Errorf("announce asked %q and said %q; want it to ask to announce, and say it did not", asked, printed.stderr)
+	}
+}
+
 func TestAnnounceSaysWhenAlreadyPosted(t *testing.T) {
 	// Arrange
 	fakeGh(t, ghResponses{pulls: openPull("Add login")})
@@ -184,7 +207,8 @@ func TestAnnounceYesSkipsWhatWasAlreadyAnnounced(t *testing.T) {
 		t.Fatalf("announce --yes = %v, want the repeat skipped and nothing posted (%+v)", err, printed)
 	}
 
-	if !strings.Contains(printed.stderr, alreadyAnnounced) || !strings.Contains(printed.stderr, "without --yes") ||
+	if !strings.Contains(printed.stderr, alreadyAnnounced) ||
+		!strings.Contains(printed.stderr, "Not announced again; run without --yes to be asked.") ||
 		printed.stdout != "" {
 		t.Errorf("announce --yes does not skip the repeat, saying so on stderr alone:\nstdout:\n%s\nstderr:\n%s",
 			printed.stdout, printed.stderr)
@@ -207,7 +231,7 @@ func TestAnnounceAsksBeforeAnnouncingAgain(t *testing.T) {
 		t.Fatalf("announce: %v (%+v)", err, printed)
 	}
 
-	if len(asked) != 1 || !strings.Contains(asked[0], " again?") {
+	if len(asked) != 1 || !strings.HasPrefix(asked[0], "Announce to Slack again?") {
 		t.Errorf("announce asked %q, want it to ask whether to announce again", asked)
 	}
 }
@@ -392,8 +416,8 @@ func TestAnnounceReportsAFailedPost(t *testing.T) {
 	_, err := run(t, repo, "announce", "--yes")
 
 	// Assert
-	if err == nil || !strings.Contains(err.Error(), "Slack") {
-		t.Errorf("announce = %v, want the failed post reported", err)
+	if err == nil || !strings.Contains(err.Error(), "announcing to Slack") {
+		t.Errorf("announce = %v, want the failed announcement reported", err)
 	}
 
 	wantExit(t, err, 5)

@@ -50,13 +50,13 @@ func newAnnounceCmd(prompt Prompt) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "announce",
 		Short: "Announce the branch's pull request to your team's chat",
-		Long: "Post the message the messaging pane would — the branch's pull request, its\n" +
+		Long: "Announce what the messaging pane would — the branch's pull request, its\n" +
 			"issue, and where it stands (ready for review, merged, or CI red) — to the\n" +
 			"configured Slack, Teams, Discord or webhook. A preview is printed and\n" +
-			"confirmed before anything posts.\n\n" +
-			"What it posts is remembered, with what the interface posts: a pull request\n" +
-			"already announced at the moment it is at is said to be, and asked about again\n" +
-			"rather than repeated — with --yes, it is left as it is.",
+			"confirmed before anything is announced.\n\n" +
+			"What it announces is remembered, with what the interface announces: a pull\n" +
+			"request already announced at the moment it is at is said to be, and asked about\n" +
+			"again rather than repeated — with --yes, it is left as it is.",
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			return runAnnounceCommand(cmd, prompt, opts)
@@ -102,8 +102,8 @@ func runAnnounceCommand(cmd *cobra.Command, prompt Prompt, opts writeOptions) er
 }
 
 // runAnnounce composes the announcement for the branch's pull request, previews
-// it, and posts it once confirmed, remembering it so a later run does not repeat
-// it unasked.
+// it, and announces it once confirmed, remembering it so a later run does not
+// repeat it unasked.
 func runAnnounce(out output, seams announceSeams, opts writeOptions) error {
 	if seams.Post == nil {
 		return fmt.Errorf("%w: set messaging.kind and messaging.webhook_url — or messaging.token, for a "+
@@ -133,9 +133,9 @@ func runAnnounce(out output, seams announceSeams, opts writeOptions) error {
 	fmt.Fprintln(out.artifact, "to "+target)
 
 	proceed, err := opts.proceed(out.notes, seams.Confirm, writePrompt{
-		question: postQuestion(service, again),
-		dryRun:   "dry run: would post to " + target,
-		declined: "Not posted.",
+		question: announceQuestion(service, again),
+		dryRun:   "dry run: would announce to " + target,
+		declined: "Not announced.",
 	})
 	if err != nil || !proceed {
 		return unattendedAgain(err, again)
@@ -143,16 +143,16 @@ func runAnnounce(out output, seams announceSeams, opts writeOptions) error {
 
 	err = loop.Deliver(seams.Post, seams.Memory, loop.Delivery{Channel: seams.Messaging.Channel, Text: text, Made: made})
 	if err != nil {
-		return fmt.Errorf("posting to %s: %w", service, err)
+		return fmt.Errorf("announcing to %s: %w", service, err)
 	}
 
-	fmt.Fprintln(out.notes, "Posted to "+target)
+	fmt.Fprintln(out.notes, "Announced to "+target)
 
 	return nil
 }
 
-// announceTarget names where a post goes: the configured channel, or the
-// service's own destination when none is set (a webhook carries its own).
+// announceTarget names where an announcement goes: the configured channel, or
+// the service's own destination when none is set (a webhook carries its own).
 func announceTarget(channel, service string) string {
 	if channel == "" {
 		return "the configured " + service + " channel"
@@ -168,7 +168,7 @@ func offerAgain(notes io.Writer, pull string, opts writeOptions) bool {
 	fmt.Fprintln(notes, pull+" was already announced at this moment in an earlier session.")
 
 	if opts.yes {
-		fmt.Fprintln(notes, "Not posted again; run without --yes to be asked.")
+		fmt.Fprintln(notes, "Not announced again; run without --yes to be asked.")
 
 		return false
 	}
@@ -176,14 +176,14 @@ func offerAgain(notes io.Writer, pull string, opts writeOptions) bool {
 	return true
 }
 
-// postQuestion asks to post to the service, and whether to post again when an
-// earlier session already did.
-func postQuestion(service string, again bool) string {
+// announceQuestion asks to announce to the service, and whether to announce
+// again when an earlier session already did.
+func announceQuestion(service string, again bool) string {
 	if again {
-		return "Post to " + service + " again?"
+		return "Announce to " + service + " again?"
 	}
 
-	return "Post to " + service + "?"
+	return "Announce to " + service + "?"
 }
 
 // announceMemory is the store's record of the announcements made in this

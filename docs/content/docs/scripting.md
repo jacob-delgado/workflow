@@ -86,7 +86,7 @@ asks, and the error itself, prefixed `workflow:`.
 | `standup` | the draft | "Nothing to share.", the dry-run line, "Not posted.", "Posted to …" |
 | `branch` | `Branch NAME from BASE and switch to it`, then `Created NAME` | the dry-run line, "Not created." |
 | `pr` | `Open TITLE` and `BRANCH → BASE`, then `Opened #N URL` (`!N` on GitLab) | the dry-run line, "Not opened.", the offers to link it on the issue and to move the issue to the review status, and their outcomes |
-| `announce` | the message and where it goes | that an earlier session already announced this moment, the dry-run line, "Not posted.", "Posted to …" |
+| `announce` | the message and where it goes | that an earlier session already announced this moment, the dry-run line, "Not announced.", "Announced to …" |
 | `workflow --web` | | the address it serves on |
 
 So `workflow config show | jq .` parses, and `workflow reviews | wc -l` counts
@@ -167,7 +167,7 @@ write. Two flags change that:
   that fails is said on stderr, the move is still made, and the command exits
   non-zero. On `announce` it never repeats an announcement: when the store
   says this pull request was already announced at the moment it is at, it
-  says so on stderr, posts nothing, and exits 0 — run without `--yes` to be
+  says so on stderr, announces nothing, and exits 0 — run without `--yes` to be
   asked. It does not skip `standup`'s editor: add `--no-edit` for that.
 - **`--dry-run`** prints the preview and what the command would do, and
   writes nothing. It is one flag for every command, given before the command's
