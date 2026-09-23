@@ -19,6 +19,12 @@ workflow            # open the interface
 workflow --dry-run  # the same, with every write held back
 ```
 
+The steps a script or a shell prompt wants also run as commands, without the
+interface — `workflow status`, `reviews`, `standup`, `branch`, `pr` and
+`announce`. [Scripting]({{< relref "/docs/scripting" >}}) says what a script
+can rely on from them: exit codes, which stream carries what, `--json`,
+`--yes`, `--dry-run` and `--log`.
+
 ## The screen
 
 ```text

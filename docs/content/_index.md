@@ -38,6 +38,8 @@ format that may still change before 1.0.
   and the loop from issue to Slack.
 - **[Configuration]({{< relref "/docs/configuration" >}})** — every field of
   `.workflow.json`, and how to get the Jira and Slack tokens.
+- **[Scripting]({{< relref "/docs/scripting" >}})** — the commands without the
+  interface: exit codes, streams, `--json`, `--yes`, `--dry-run` and `--log`.
 - **[Command reference]({{< relref "/docs/reference" >}})** — every command and
   flag, generated from the code.
 - **[Development]({{< relref "/docs/contributing" >}})** — the toolchain, the

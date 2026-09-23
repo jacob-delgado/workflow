@@ -246,7 +246,7 @@ the web lint and unit tests; `depcruise` fails a deliberate feature-file
 ### Phase 1 — The shared composition layer: `internal/loop` — done
 
 Closes DEBT-50. The layer is a **new leaf package**, `internal/loop` ("the
-loop" is the house word — `usage.md:104`, `FEATURES.md:153`). It imports
+loop" is the house word — `docs/content/docs/usage.md:110`, `FEATURES.md:153`). It imports
 only `config`, `convention`, `forge`, `gitrepo`, `jira`, `messaging`, `proc`;
 it is imported by `cli`, `tui`, `webserver`. It cannot be `wiring` (which
 imports `tui` for `tui.Deps` — `tui` importing it back is a cycle), `tui`
@@ -529,7 +529,7 @@ The Issues pane's `keys(m)` gains `a`, `w`, `/` when the Jira write seams
 exist, and `enter`/`esc` in the collapsed layout (`issuekeys.go:22-85` vs
 `render.go:336`); `ctrl+w` moves from "Branch and Commits" (`keys.go:225`)
 to the composer's group; `w` post-when-green (`keys.go:245`) to the
-preview's; `usage.md:45`, `:57` follow. Replace the three-string spot check
+preview's; `docs/content/docs/usage.md:91`, `:102` follow. Replace the three-string spot check
 (`focus_test.go:124`) with a structural test that every placed binding with
 help text is rendered by `?`. `ShortHelp`'s omissions (`shift+tab`, `m`,
 the scroll keys, `ctrl+c`) are the deliberate tail — leave them.
@@ -787,8 +787,8 @@ Closes DEBT-69, DEBT-70. Last, so it documents the end state. TDD-exempt.
 - The web server's sanitize exemption, one sentence beside the RFC 9457
   convention (React escapes; `dangerouslySetInnerHTML` is banned;
   what would change that).
-- `usage.md`: six panes (`:49`), `1`–`6` (`:71`), Reviews in the mock
-  (`:24-43`), `R` and `u` now previewed, the moved keys; and **a web page**
+- `usage.md`: six panes (`:55`), `1`–`6` (`:77`), Reviews in the mock
+  (`:30-49`), `R` and `u` now previewed, the moved keys; and **a web page**
   — the six sections, the stream, the theme, the actions the web supports —
   written last so it is true. README mentions `--web`.
 - Residual "Slack": `internal/cli/cli.go:171`, `groupReviewSlack`
@@ -797,7 +797,7 @@ Closes DEBT-69, DEBT-70. Last, so it documents the end state. TDD-exempt.
   settled-decision text corrected, not a decision reopened; say so.
   `FEATURES.md:12` re-pinned; the `Done:` notes on FEAT-26 (`:118`) and
   FEAT-31 (`:143`) removed per the standing rule.
-- `usage.md:253`'s threading limit → point at FEAT-81.
+- `docs/content/docs/usage.md:259`'s threading limit → point at FEAT-81.
 
 **Proof.** `task lint:markdown`, `task docs:check`, `task docs:build`.
 
@@ -892,7 +892,7 @@ phase disagree, the correction wins.
 - **Phase 4.** DEBT-60 first: a `Deps.After` timer seam, then a harness that
   drains on a fake clock, before any screen assertion moves. `lastLook`
   lives in `overlay.go`; a refused re-run stays pinned in it. usage.md has
-  no `R` row today; the `u` row is at `:84`.
+  no `R` row today; the `u` row is at `:90`.
 - **Phase 5.** The re-run block moves to `checks.go` as well, or
   `review.go` stays over 500 lines. The messaging pane's own `sending` flag
   adopts `sendState` too, or the Done-when grep cannot pass.

@@ -57,35 +57,14 @@ them, re-counted at this commit.
 | The promise | Where it is made | Kept? |
 | --- | --- | --- |
 | "a key it does not show does nothing" | No longer stated anywhere; the sentence the previous edition cited at `usage.md:55` is gone. Folds into the next row. | — |
-| "`?` lists every key" | `docs/content/docs/usage.md:56` | **Yes, by construction.** Help is generated from the bindings (`internal/tui/keys.go:134` `helpBuilder.place`, rendered at `render.go:211`): 57 of 57. The one guard is that construction; `render.go:225` skips a binding with empty help silently, and the tests are three-string spot checks (`focus_test.go:124`). |
+| "`?` lists every key" | `docs/content/docs/usage.md:62` | **Yes, by construction.** Help is generated from the bindings (`internal/tui/keys.go:134` `helpBuilder.place`, rendered at `render.go:211`): 57 of 57. The one guard is that construction; `render.go:225` skips a binding with empty help silently, and the tests are three-string spot checks (`focus_test.go:124`). |
 | "the one way the interface says something broke" | `failure`, `internal/tui/render.go:421` | **Partly, and this is the weakest.** Of 52 places that render an error, 19 go through the `failure` family, but only 11 reach the actionable `errorSentence` (`render.go:401`): `failureBlock` (`render.go:450`) red-wraps the raw chain, so all 8 `pinnedOutcome` overlays show the raw error; 14 sites are `failedGlyph + err.Error()`; 8 are glyph-only rail summaries; 9 are notices with no glyph and no red at all. See UX-67. |
 | "Nothing outward facing is sent without" a last look | `internal/tui/comment.go:60` | **16 of 18.** `R` re-run CI (`internal/tui/review.go:479`, a forge write) and `u` rebase (`internal/tui/run.go:447`, rewrites local history) are one key, straight to the request. See UX-65. |
 | "a refused change must never go unseen" | `internal/tui/picker.go:269` | **13 of 13 guard while in flight** (the previous edition counted 1 of 7). 11 keep the refusal in the overlay; `mergePicker` (`internal/tui/review.go:593`) and `finishPreview` (`finish.go:139`) close and demote it to a one-line notice. See UX-66. |
-| "Each pane fails on its own" | `docs/content/docs/usage.md:62` | Yes. `tui.go:157` batches six loads; each pane holds and renders its own error. |
+| "Each pane fails on its own" | `docs/content/docs/usage.md:68` | Yes. `tui.go:157` batches six loads; each pane holds and renders its own error. |
 | State is "carried by the SHAPE of a glyph rather than its color" | `internal/tui/glyphs.go:16` | Yes. `unicodeGlyphs` and `asciiGlyphs` differ in shape (`glyphs.go:31`, `:43`); `NO_COLOR` keeps bold and faint (`tui.go:139`). One residue: the progress spine's per-system hue is color-only, mitigated by the name or its initial. |
 
 ## The command line
-
-### UX-55 The generated reference omits `--version`, `help` and `completion`; the usage page never mentions the commands
-
-Impact: medium · Effort: small
-
-**Today.** `--version` works (`Version: buildinfo.Current()`, `internal/cli/cli.go:173`),
-but `cmd/docsgen/main.go` never calls cobra's `InitDefaultVersionFlag`, so
-`docs/content/docs/reference/workflow.md` lists `--dry-run`, `--help`,
-`--log` and `--web` only; `help` and `completion` have no page. And
-`docs/content/docs/usage.md` is entirely about the terminal interface — it
-never names `status`, `reviews`, `standup`, `branch`, `pr` or `announce` as
-commands, and no page explains piping, the `--json` shapes or the exit
-codes. The scriptable commands exist in a `README.md:46` bullet list and
-the generated reference alone.
-
-**Instead.** docsgen initializes the default version, help and completion
-commands before generating; a short `scripting.md` page: exit codes,
-streams, `--json`, `--yes`, `--dry-run`.
-
-**Done when.** `task docs:check` is green with `--version` in the reference
-and a scripting page in the site.
 
 ### UX-56 A typo gets no pointer to `--help`
 
@@ -227,9 +206,9 @@ Issues pane answers `a` assign, `w` log work, `/` filter, and `enter`/`esc`
 in the collapsed layout (`issuekeys.go:22`, `:46`, `:48`, `:81`, `:85`), but
 none of the five reaches the footer. Two keys are shown where they do not
 work: `ctrl+w` (worktree) is filed under "Branch and Commits" (`keys.go:225`)
-and listed under pane 2 in `usage.md:45`, but only the branch creator
+and listed under pane 2 in `docs/content/docs/usage.md:91`, but only the branch creator
 answers it (`internal/tui/branch.go:389`); `w` post-when-green is filed under "Review and
-Slack" (`keys.go:245`) and listed under pane 5 in `usage.md:57`, but only the
+Slack" (`keys.go:245`) and listed under pane 5 in `docs/content/docs/usage.md:102`, but only the
 preview answers it (`internal/tui/messaging.go:355`).
 
 **Instead.** The Issues pane's `keys(m)` includes the five when their seams

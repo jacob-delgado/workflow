@@ -88,6 +88,7 @@ workflow [flags]
       --dry-run      hold back every write to Jira, the forge, Slack, git and files, and say what it would have done
   -h, --help         help for workflow
       --log string   append a one-line outline of each request (method, path, status, duration) to FILE, for a bug report
+  -v, --version      version for workflow
       --web          serve the web interface on http://127.0.0.1:7000 instead of opening the terminal interface
 ```
 
@@ -95,6 +96,7 @@ workflow [flags]
 
 * [workflow announce](../workflow_announce/)	 - Announce the branch's pull request to your team's chat
 * [workflow branch](../workflow_branch/)	 - Branch for an issue, named by the convention
+* [workflow completion](../workflow_completion/)	 - Generate the autocompletion script for the specified shell
 * [workflow config](../workflow_config/)	 - Create and inspect the configuration file
 * [workflow doctor](../workflow_doctor/)	 - Report the repository, tooling, and configuration in effect
 * [workflow pr](../workflow_pr/)	 - Open a pull request for the current branch
