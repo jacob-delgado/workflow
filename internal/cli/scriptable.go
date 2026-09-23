@@ -4,6 +4,7 @@
 package cli
 
 import (
+	"encoding/json"
 	"fmt"
 	"io"
 	"os"
@@ -62,6 +63,20 @@ func (o *writeOptions) proceed(out io.Writer, confirm func(string) (bool, error)
 	}
 
 	return ok, nil
+}
+
+// encodeJSON writes value as indented JSON: the one encoder every command's
+// data goes out through, so each one's output is shaped and worded the same.
+func encodeJSON(out io.Writer, value any) error {
+	encoder := json.NewEncoder(out)
+	encoder.SetIndent("", "  ")
+
+	err := encoder.Encode(value)
+	if err != nil {
+		return fmt.Errorf("encoding the output: %w", err)
+	}
+
+	return nil
 }
 
 // completeAssignedIssues completes an issue argument with the keys of the issues

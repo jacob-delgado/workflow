@@ -66,15 +66,15 @@ Severity: medium · Confidence: read
 The preamble `os.Getwd → os.UserHomeDir → config.Load → wiring.Locate →
 wiring.Deps(ctx, cfg, where, nil)` is written out in
 `internal/cli/reviews.go:59` `runReviewsCommand`, `internal/cli/branch.go:63`
-`runBranchCommand`, `internal/cli/pr.go:77` `runPRCommand`, `internal/cli/status.go:117` `seamsFor`,
+`runBranchCommand`, `internal/cli/pr.go:77` `runPRCommand`, `internal/cli/status.go:116` `seamsFor`,
 `standup.go:75` `runStandupCommand`, `internal/cli/announce.go:69` `runAnnounceCommand`
-and `scriptable.go:71` `completeAssignedIssues`, with an eighth variant in
+and `internal/cli/scriptable.go:86` `completeAssignedIssues`, with an eighth variant in
 the root's `RunE` (`cli.go:161`). The copies do not agree: `branch`, `pr`,
 `standup` and `announce` fail on a `Getwd` error while `reviews` discards it
 (`reviews.go:59`). Every subcommand passes `nil` for the request log, so the
 `--log` facility the root's help advertises for bug reports (`cli.go:195`)
 is unavailable to any scriptable command; and the root's `--dry-run`
-(`cli.go:193`) and the write commands' `--dry-run` (`scriptable.go:29`) are
+(`cli.go:193`) and the write commands' `--dry-run` (`internal/cli/scriptable.go:30`) are
 two unrelated flags with different help text, neither persistent, so
 `workflow --dry-run pr` is an unknown-flag error.
 
@@ -83,7 +83,7 @@ a log — is a seven-place edit, and the seven have already drifted.
 
 **One way to fix it.** One `connect(cmd) (cfg, deps, where, closeLog, err)`
 that every subcommand calls; `--dry-run` and `--log` declared once as
-persistent root flags, with `writeOptions.addFlags` (`scriptable.go:28`)
+persistent root flags, with `writeOptions.addFlags` (`internal/cli/scriptable.go:29`)
 keeping only `--yes`.
 
 **Done when.** `wiring.Deps(` is called from one function in `internal/cli`;
@@ -94,10 +94,10 @@ keeping only `--yes`.
 
 Severity: low · Confidence: read
 
-`seamsFor` (`internal/cli/status.go:117`) builds the full `deps` bundle and
+`seamsFor` (`internal/cli/status.go:116`) builds the full `deps` bundle and
 then ignores `deps.Git.Branch` and `deps.Git.Changes`, constructing a second
 `gitrepo.At(proc.Run, where.Root)` and calling `ReadBranch` and `Status`
-directly (`internal/cli/status.go:122-131`) — although `GitDeps.Branch` and
+directly (`internal/cli/status.go:121-130`) — although `GitDeps.Branch` and
 `GitDeps.Changes` exist (`internal/tui/deps.go:74`) and `pr`, `announce` and
 `branch` all go through them. `standup` does the same (`internal/cli/standup.go:87`),
 and there only half of it is forced: `RecentCommits` has no `GitDeps`
@@ -117,17 +117,6 @@ beside the call, directly.
 **Done when.** `gitrepo.At(` appears in `internal/cli` only inside the
 wiring preamble (or not at all, once DEBT-51 lands).
 
-### DEBT-53 Three ways to write JSON
-
-Severity: low · Confidence: read
-
-`encodeJSON` (`internal/cli/status.go:305`, commented "the one place a
-command encodes it") and `encodeReport` (`internal/cli/doctor_json.go:109`)
-are the same four lines with different error wording, and `runConfigShow`
-uses a third path, `json.MarshalIndent` (`internal/cli/config_cmd.go:288`).
-
-**Done when.** One encoder, called from all three.
-
 ## The command line's tests
 
 ### DEBT-54 No CLI test says which stream a line belongs on
@@ -139,9 +128,9 @@ but `run` and `runGuided` still join them for every older test, and only
 `pr`'s opened line (`TestPRPrintsTheOpenedPullRequestOnStdout`) is pinned
 to a stream. So the stream discipline clig.dev asks for — the artifact on
 stdout, commentary on stderr — is still unenforced. Today the gitignore
-warning (`config_cmd.go:279`), the decline notices and `dry run: would …`
-lines (`scriptable.go:46`, `:61`), the no-configuration guidance
-(`config_cmd.go:90`) and the web server's banner (`cli.go:255`) all go to
+warning (`internal/cli/config_cmd.go:278`), the decline notices and `dry run: would …`
+lines (`internal/cli/scriptable.go:47`, `:62`), the no-configuration guidance
+(`internal/cli/config_cmd.go:89`) and the web server's banner (`cli.go:255`) all go to
 stdout, and no test would notice either way.
 
 **What it costs.** `workflow config show | jq .` fails on the `# <path>`
