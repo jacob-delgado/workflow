@@ -4,10 +4,10 @@
 // Package loop composes the developer loop once, for every surface: the pull
 // request a branch proposes and the push it needs first, the review status it
 // moves the issue to, the announcement of where it stands and the memory of
-// what was announced before, and the guards a switch or a commit respects. The
-// command line, the terminal interface and the web server each hand it their
-// seams — plain functions over the domain clients — and word its refusals in
-// their own terms.
+// what was announced before, what "stage all" stages, and the guards a switch
+// or a commit respects. The command line, the terminal interface and the web
+// server each hand it their seams — plain functions over the domain clients —
+// and word its refusals in their own terms.
 //
 // It sits below the three surfaces and above the domain packages: it imports
 // config, convention, forge, gitrepo, jira, messaging and proc, and nothing that

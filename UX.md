@@ -162,7 +162,7 @@ Impact: high · Effort: medium
 read-only, and the commit form is mounted only when something is *already*
 staged (`:111`). A browser user with unstaged changes has a list they cannot
 act on and no form — the flow the interface completes with `space` and `a`
-(`internal/tui/commits.go:267`, `:288`) is not there.
+(`internal/tui/commits.go:267`, `:289`) is not there.
 
 **Instead.** `POST /api/stage` and `/api/unstage` taking `{path}` or
 `{all: true}`; Stage / Unstage per file and Stage all; the commit form

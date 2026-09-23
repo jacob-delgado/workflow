@@ -4,7 +4,6 @@
 package tui
 
 import (
-	"errors"
 	"fmt"
 	"slices"
 	"strconv"
@@ -14,6 +13,7 @@ import (
 	tea "charm.land/bubbletea/v2"
 
 	"github.com/jacob-delgado/workflow/internal/gitrepo"
+	"github.com/jacob-delgado/workflow/internal/loop"
 	"github.com/jacob-delgado/workflow/internal/proc"
 	"github.com/jacob-delgado/workflow/internal/sanitize"
 )
@@ -284,16 +284,10 @@ func (m Model) toggleStaged() (Model, tea.Cmd) {
 	return m, func() tea.Msg { return staged{err: act(change)} }
 }
 
-// stageAll stages every file with changes not yet staged.
+// stageAll stages every file with changes not yet staged, by loop's rule, so
+// every surface that stages all takes the same files.
 func (m Model) stageAll() (Model, tea.Cmd) {
-	var pending []gitrepo.Change
-
-	for _, change := range m.changes.changes {
-		if change.HasUnstaged() || change.Conflicted() {
-			pending = append(pending, change)
-		}
-	}
-
+	pending := loop.Stageable(m.changes.changes)
 	if len(pending) == 0 || m.deps.Git.Stage == nil {
 		return m, nil
 	}
@@ -304,15 +298,7 @@ func (m Model) stageAll() (Model, tea.Cmd) {
 
 	stage := m.deps.Git.Stage
 
-	return m, func() tea.Msg {
-		failures := make([]error, 0, len(pending))
-
-		for _, change := range pending {
-			failures = append(failures, stage(change))
-		}
-
-		return staged{err: errors.Join(failures...)}
-	}
+	return m, func() tea.Msg { return staged{err: loop.StageAll(pending, stage)} }
 }
 
 // staged reports how staging went.
