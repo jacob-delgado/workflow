@@ -4,6 +4,7 @@
 package loop_test
 
 import (
+	"errors"
 	"testing"
 
 	"github.com/jacob-delgado/workflow/internal/jira"
@@ -94,5 +95,67 @@ func TestReviewTransitionAsksNothingWithoutAReviewStatus(t *testing.T) {
 	// Assert
 	if ok || asked {
 		t.Errorf("ReviewTransition = %+v, %t, asked = %t; want no offer and the tracker not asked", target, ok, asked)
+	}
+}
+
+func TestFindReviewTransitionSaysWhyThereIsNoMove(t *testing.T) {
+	t.Parallel()
+
+	needsFields := jira.Transition{ID: "21", ToStatus: reviewStatus, Fields: []jira.Field{{ID: "resolution"}}}
+
+	cases := map[string]struct {
+		transitions func(jira.Key) ([]jira.Transition, error)
+		key         jira.Key
+		status      string
+		want        error
+	}{
+		"no review status configured": {
+			transitions: offering(jira.Transition{ToStatus: reviewStatus}), key: issueKey, want: loop.ErrNoReviewStatus,
+		},
+		"a branch that names no issue": {
+			transitions: offering(jira.Transition{ToStatus: reviewStatus}), status: reviewStatus,
+			want: loop.ErrNoReviewTransition,
+		},
+		"no way to read the transitions": {key: issueKey, status: reviewStatus, want: loop.ErrNoReviewTransition},
+		"a read that fails": {
+			transitions: func(jira.Key) ([]jira.Transition, error) { return nil, errSeam },
+			key:         issueKey, status: reviewStatus, want: errSeam,
+		},
+		"a status Jira does not offer": {
+			transitions: offering(jira.Transition{ToStatus: "Done"}), key: issueKey, status: reviewStatus,
+			want: loop.ErrNoReviewTransition,
+		},
+		"a move that needs fields": {
+			transitions: offering(needsFields), key: issueKey, status: reviewStatus, want: loop.ErrReviewNeedsFields,
+		},
+	}
+
+	for name, tt := range cases {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			// Act
+			target, err := loop.FindReviewTransition(tt.transitions, tt.key, tt.status)
+
+			// Assert
+			if !errors.Is(err, tt.want) {
+				t.Errorf("FindReviewTransition = %+v, %v; want %v", target, err, tt.want)
+			}
+		})
+	}
+}
+
+func TestFindReviewTransitionFindsTheFieldlessMove(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	transitions := offering(jira.Transition{ID: "21", ToStatus: "In review"})
+
+	// Act
+	target, err := loop.FindReviewTransition(transitions, issueKey, reviewStatus)
+
+	// Assert
+	if err != nil || target.ID != "21" {
+		t.Errorf("FindReviewTransition = %+v, %v; want transition 21", target, err)
 	}
 }

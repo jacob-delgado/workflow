@@ -146,6 +146,19 @@ func firstTemplate(read func() []forge.Template) string {
 	return templates[0].Body
 }
 
+// Why no move to the review status is offered, for a surface that answers a
+// request for one rather than offering it.
+var (
+	// ErrNoReviewStatus is a configuration with no jira.review_status to move to.
+	ErrNoReviewStatus = errors.New("no review status is configured (jira.review_status)")
+	// ErrNoReviewTransition is an issue Jira offers no move to the review status
+	// for, from where it stands — or no issue, or no tracker to ask.
+	ErrNoReviewTransition = errors.New("jira offers no move to the review status")
+	// ErrReviewNeedsFields is a move to the review status that asks for fields,
+	// which a move made without a form cannot fill.
+	ErrReviewNeedsFields = errors.New("the move to the review status asks for fields")
+)
+
 // ReviewTransition is the move to the configured review status for an issue
 // whose pull request is now open, and whether there is one worth offering: the
 // status is configured, the branch names an issue, Jira offers a move to that
@@ -154,19 +167,39 @@ func firstTemplate(read func() []forge.Template) string {
 func ReviewTransition(
 	transitions func(jira.Key) ([]jira.Transition, error), key jira.Key, status string,
 ) (jira.Transition, bool) {
-	if status == "" || key == "" || transitions == nil {
-		return jira.Transition{}, false
+	move, err := FindReviewTransition(transitions, key, status)
+
+	return move, err == nil
+}
+
+// FindReviewTransition is ReviewTransition saying why there is no move: no
+// review status configured, no move Jira offers — or no issue or tracker to ask
+// — a move that asks for fields, or the tracker's own error when it cannot be
+// read. With no status configured the tracker is not asked at all.
+func FindReviewTransition(
+	transitions func(jira.Key) ([]jira.Transition, error), key jira.Key, status string,
+) (jira.Transition, error) {
+	if status == "" {
+		return jira.Transition{}, ErrNoReviewStatus
+	}
+
+	if key == "" || transitions == nil {
+		return jira.Transition{}, ErrNoReviewTransition
 	}
 
 	moves, err := transitions(key)
 	if err != nil {
-		return jira.Transition{}, false
+		return jira.Transition{}, fmt.Errorf("reading the transitions of %s: %w", key, err)
 	}
 
 	index, found := jira.FindTransition(moves, status)
-	if !found || len(moves[index].Fields) > 0 {
-		return jira.Transition{}, false
+	if !found {
+		return jira.Transition{}, ErrNoReviewTransition
 	}
 
-	return moves[index], true
+	if len(moves[index].Fields) > 0 {
+		return jira.Transition{}, ErrReviewNeedsFields
+	}
+
+	return moves[index], nil
 }

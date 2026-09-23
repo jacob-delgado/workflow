@@ -169,7 +169,7 @@ request opened.` (`web/src/features/review/ReviewPanel.tsx:147`) there is nothin
 fields) — and, after opening, two inline offers: "Link it on KEY" and "Move
 KEY to STATUS", each with a `role="status"` outcome. This is where the shared
 composition layer, `internal/loop`, pays for itself: the web's offer takes
-`loop.ReviewTransition` (`internal/loop/pull.go:154`), the CLI's rule,
+`loop.ReviewTransition` (`internal/loop/pull.go:167`), the CLI's rule,
 rather than a third copy.
 
 **Done when.** After a faked open, the panel offers the move and the link;
