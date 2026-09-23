@@ -333,8 +333,8 @@ without it, classify the CLI-local sentinels and re-point later).
   refined table under *Decisions the maintainer made* supersedes this one.
   Align `config show` with `doctor` when there is no file
   (`internal/cli/config_cmd.go:88` vs `doctor.go:463`, both → 3) and `status` with
-  `status .` outside a repository (`statusHere`, `internal/cli/status.go:72`,
-  vs `statusAcross`, `:86`).
+  `status .` outside a repository (`statusHere`, `internal/cli/status.go:74`,
+  vs `statusAcross`, `:89`).
 - **Streams.** The rule: stdout carries the artifact (JSON, the preview
   text, the created thing's URL, the standup draft); stderr carries
   commentary (`Warning:` `internal/cli/config_cmd.go:284`, `Not opened.` and `dry run:

@@ -5,7 +5,7 @@ something goes wrong. Like [FEATURES.md](FEATURES.md), this is a brainstorm,
 not a plan: nothing here is agreed or scheduled.
 
 It is written for two readers: a contributor deciding what to improve, and a
-later Claude Code session asked to "pick up UX-50". Each entry says what
+later Claude Code session asked to "pick up UX-61". Each entry says what
 happens today, what could happen instead, where the change would land, and
 how to tell when it is done. The numbering continues from the entries that
 have since shipped, so an ID is never reused.
@@ -65,24 +65,6 @@ them, re-counted at this commit.
 | State is "carried by the SHAPE of a glyph rather than its color" | `internal/tui/glyphs.go:16` | Yes. `unicodeGlyphs` and `asciiGlyphs` differ in shape (`glyphs.go:31`, `:43`); `NO_COLOR` keeps bold and faint (`tui.go:139`). One residue: the progress spine's per-system hue is color-only, mitigated by the name or its initial. |
 
 ## The command line
-
-### UX-50 `status` and `status .` exit differently outside a repository
-
-Impact: high · Effort: small
-
-**Today.** Each kind of failure now has its own exit status
-(`cli.ExitStatus`, `internal/cli/scriptable.go:196`), and `config show`
-fails like `doctor` without a file, but two forms of one command still
-disagree: outside a repository `status` exits 4 (`statusHere`,
-`internal/cli/status.go:72`) while `status .` prints `not a git repository`
-and exits 0 (`statusAcross`, `:86`).
-
-**Instead.** `status DIR…` prints every row and exits 4 when a directory is
-not a repository, like bare `status`.
-
-**Touches.** `status.go`.
-
-**Done when.** `status` and `status .` exit alike outside a repository.
 
 ### UX-51 Commentary lands on stdout, where a script is reading
 
@@ -281,7 +263,7 @@ Impact: low · Effort: medium
 makes three round trips in silence (`reportCredentials`, `doctor.go:141`);
 `standup` fires up to fifteen forge requests plus a Jira search
 (`gatherPulls`, `internal/cli/standup.go:178`); `status DIR…` visits each directory in
-series (`statusesOf`, `internal/cli/status.go:130`). The only trace is `--log`, which
+series (`statusesOf`, `internal/cli/status.go:163`). The only trace is `--log`, which
 the subcommands cannot use (UX-52).
 
 **Instead.** A one-line "checking Jira…" on stderr when stderr is a
@@ -296,7 +278,7 @@ Impact: low · Effort: medium
 
 **Today.** No command declares a single shorthand — there is no `VarP(`
 call in `internal/cli` — so `-n`, `-y`, `-j` do not exist; `status` emits
-`●◐✗○` (`statusGlyph`, `internal/cli/status.go:357`) with ASCII selectable only through
+`●◐✗○` (`statusGlyph`, `internal/cli/status.go:390`) with ASCII selectable only through
 `ui.ascii` in the file, no `--plain`; `standup` has no `--json`; `pr` has no
 draft, base, reviewer, title or body flag; `announce` has no `--channel`
 (the channel comes from `messaging.channel` alone); both `pr` and the web

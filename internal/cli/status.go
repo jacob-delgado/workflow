@@ -5,6 +5,7 @@ package cli
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -45,7 +46,8 @@ func newStatusCmd() *cobra.Command {
 			"top row shows, for a shell prompt or a status bar. --json prints it as data.\n\n" +
 			"Given one or more directories, it prints a labeled line for each, so\n" +
 			"`workflow status ~/src/*` reports every repository at once. Each reads its\n" +
-			"own configuration.",
+			"own configuration. A directory that cannot be read still gets its line,\n" +
+			"saying why, and the command then fails, as it does outside a repository.",
 		Args: cobra.ArbitraryArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runStatusCommand(cmd, asJSON, args)
@@ -82,7 +84,8 @@ func statusHere(cmd *cobra.Command, asJSON bool) error {
 }
 
 // statusAcross prints one labeled status per named directory. A directory that
-// is no repository is noted rather than failing the rest.
+// cannot be read is noted in its row rather than stopping the rest, and then
+// fails the command, as bare status fails outside a repository.
 func statusAcross(cmd *cobra.Command, dirs []string, asJSON bool) error {
 	requestLog, closeLog, err := requestLogFor(cmd)
 	if err != nil {
@@ -94,21 +97,51 @@ func statusAcross(cmd *cobra.Command, dirs []string, asJSON bool) error {
 	statuses := statusesOf(cmd.Context(), dirs, requestLog)
 
 	if asJSON {
-		return statusesJSON(out, statuses)
+		err = statusesJSON(out, statuses)
+	} else {
+		statusLines(out, statuses)
 	}
 
+	return errors.Join(err, unreadDirectories(statuses))
+}
+
+// statusLines prints each directory's labeled line, or why it has none.
+func statusLines(out io.Writer, statuses []directoryStatus) {
 	for _, status := range statuses {
+		fmt.Fprintf(out, "%s  ", status.label)
+
 		if status.err != nil {
-			fmt.Fprintf(out, "%s  not a git repository\n", status.label)
+			fmt.Fprintln(out, unreadReason(status.err))
 
 			continue
 		}
 
-		fmt.Fprintf(out, "%s  ", status.label)
 		renderStatusLine(out, status.facts, status.ascii)
 	}
+}
 
-	return nil
+// unreadReason says why a directory has no status: that it is no repository,
+// or, for a repository that could not be read, the error itself.
+func unreadReason(err error) string {
+	if errors.Is(err, gitrepo.ErrNotARepository) {
+		return gitrepo.ErrNotARepository.Error()
+	}
+
+	return err.Error()
+}
+
+// unreadDirectories joins the error of every directory that could not be read,
+// each named, so the exit status tells a script one of them failed.
+func unreadDirectories(statuses []directoryStatus) error {
+	var failures []error
+
+	for _, status := range statuses {
+		if status.err != nil {
+			failures = append(failures, fmt.Errorf("%s: %w", status.label, status.err))
+		}
+	}
+
+	return errors.Join(failures...)
 }
 
 // directoryStatus is one named directory's status, or why it has none.
@@ -321,8 +354,8 @@ type repoStatus struct {
 }
 
 // statusesJSON prints the status of each directory as a JSON array, one object
-// per repository, so a directory that is no repository is a row with an error
-// rather than a failure of the whole command.
+// per repository, so a directory that cannot be read is a row with an error
+// rather than a gap in the array.
 func statusesJSON(out io.Writer, statuses []directoryStatus) error {
 	reports := make([]repoStatus, 0, len(statuses))
 
@@ -330,7 +363,7 @@ func statusesJSON(out io.Writer, statuses []directoryStatus) error {
 		report := repoStatus{Repository: status.label}
 
 		if status.err != nil {
-			report.Error = "not a git repository"
+			report.Error = unreadReason(status.err)
 		} else {
 			facts := status.facts
 			report.Issue, report.Summary = facts.issue, facts.summary

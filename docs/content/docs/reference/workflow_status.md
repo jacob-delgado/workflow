@@ -17,7 +17,8 @@ top row shows, for a shell prompt or a status bar. --json prints it as data.
 
 Given one or more directories, it prints a labeled line for each, so
 `workflow status ~/src/*` reports every repository at once. Each reads its
-own configuration.
+own configuration. A directory that cannot be read still gets its line,
+saying why, and the command then fails, as it does outside a repository.
 
 ```
 workflow status [directory...] [flags]
