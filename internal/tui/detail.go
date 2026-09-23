@@ -252,7 +252,7 @@ func (m Model) soonDetail() (Model, tea.Cmd) {
 
 	m.scroll = 0
 
-	return m, tea.Tick(detailDelay, func(time.Time) tea.Msg { return detailDue{key: selected.Key} })
+	return m, m.deps.after(detailDelay, func(time.Time) tea.Msg { return detailDue{key: selected.Key} })
 }
 
 // pickIssue selects the issue on a clicked line of the list, wherever the list
