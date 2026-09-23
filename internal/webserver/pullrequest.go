@@ -66,16 +66,7 @@ func (s *server) OpenPullRequest(
 
 	pull, err := s.deps.CreatePull(newPull)
 	if err != nil && !pull.Opened() {
-		// An unreachable forge carries its host in the error, so it goes through
-		// the curated fault mapping (a 502) rather than into the detail. A forge
-		// rejection carries its own reason, which is safe and useful to show.
-		if errors.Is(err, forge.ErrUnreachable) {
-			body, code := fault(err)
-
-			return api.OpenPullRequestdefaultApplicationProblemPlusJSONResponse{Body: body, StatusCode: code}, nil
-		}
-
-		return openUnprocessable(err.Error()), nil
+		return openFailure(err), nil
 	}
 
 	// A pull that opened but whose reviewers, assignees or labels could not all
@@ -110,11 +101,12 @@ func (s *server) composePullRequest() (forge.NewPullRequest, gitrepo.Branch, boo
 		return forge.NewPullRequest{}, gitrepo.Branch{}, false
 	}
 
+	// Only an open pull request means there is nothing to open. A merged one is
+	// also found, but its branch may still carry new commits worth a fresh pull
+	// request, so it does not stand in the way of proposing one; nor does a forge
+	// that cannot be read, whose own answer comes back when the open is tried.
 	pull, found, err := s.deps.FindPull(branch.Name)
-	if err != nil || (found && pull.IsOpen()) {
-		// Only an open pull request means there is nothing to open. A merged one is
-		// also found, but its branch may still carry new commits worth a fresh pull
-		// request, so it does not stand in the way of proposing one.
+	if err == nil && found && pull.IsOpen() {
 		return forge.NewPullRequest{}, gitrepo.Branch{}, false
 	}
 
@@ -230,4 +222,22 @@ func draftDTO(draft forge.NewPullRequest, branch gitrepo.Branch) api.PullRequest
 // open.
 func openUnprocessable(message string) api.OpenPullRequest422ApplicationProblemPlusJSONResponse {
 	return api.OpenPullRequest422ApplicationProblemPlusJSONResponse(problem(api.Unprocessable, message))
+}
+
+// openFailure answers an open the forge did not make. Two failures carry a host
+// in their error and never reach the detail: an unreachable forge, which goes
+// through the curated fault mapping (a 502), and a remote whose forge cannot be
+// told apart, which the wiring words with its host so a terminal can say which
+// one. A forge rejection carries its own reason, which is safe and useful to show.
+func openFailure(err error) api.OpenPullRequestResponseObject {
+	switch {
+	case errors.Is(err, forge.ErrUnreachable):
+		body, code := fault(err)
+
+		return api.OpenPullRequestdefaultApplicationProblemPlusJSONResponse{Body: body, StatusCode: code}
+	case errors.Is(err, forge.ErrUnknownForge):
+		return openUnprocessable("cannot tell which forge this repository is on; set forge.kind and forge.host")
+	default:
+		return openUnprocessable(err.Error())
+	}
 }

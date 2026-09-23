@@ -228,6 +228,51 @@ func TestGetPullRequestDraftComposesOverAMergedPull(t *testing.T) {
 	}
 }
 
+func TestGetPullRequestDraftComposesWhenTheForgeCannotBeRead(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	// A forge that cannot say whether a pull request is open does not stand in
+	// the way of proposing one; the open is where the forge's own answer lands.
+	deps := openableDeps()
+	deps.FindPull = func(string) (forge.PullRequest, bool, error) { return forge.PullRequest{}, false, errSeam }
+
+	// Act
+	recorder := get(t, serve(t, deps, config.Default()), "/api/pull-request/draft")
+
+	// Assert
+	if recorder.Code != http.StatusOK {
+		t.Fatalf("status = %d, want 200 when the forge cannot be read, not a 409", recorder.Code)
+	}
+
+	if draft := decode[api.PullRequestDraft](t, recorder); draft.Head != testBranchName {
+		t.Errorf("draft head = %q, want the checked-out %q", draft.Head, testBranchName)
+	}
+}
+
+func TestOpenPullRequestOpensWhenTheForgeCannotBeRead(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	opened := false
+
+	deps := openableDeps()
+	deps.FindPull = func(string) (forge.PullRequest, bool, error) { return forge.PullRequest{}, false, errSeam }
+	deps.CreatePull = func(forge.NewPullRequest) (forge.PullRequest, error) {
+		opened = true
+
+		return forge.PullRequest{Number: 7, URL: prURL, Title: prTitle}, nil
+	}
+
+	// Act
+	recorder := doOpen(t, deps, openRequestBody)
+
+	// Assert
+	if recorder.Code != http.StatusOK || !opened {
+		t.Errorf("status = %d, opened = %t; want 200 and the open attempted", recorder.Code, opened)
+	}
+}
+
 func TestGetPullRequestDraftIsAConflictWhenNothingToOpen(t *testing.T) {
 	t.Parallel()
 
@@ -486,6 +531,35 @@ func TestOpenPullRequestIsUnreachableAndHidesTheForgeHost(t *testing.T) {
 	}
 
 	if strings.Contains(recorder.Body.String(), "git.internal.example") {
+		t.Errorf("body = %q, leaks the forge host", recorder.Body.String())
+	}
+}
+
+func TestOpenPullRequestDetailOmitsAnUnknownForgesHost(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	// A remote on a host that names neither forge cannot connect, and the wiring
+	// words that failure with the host. The forge was never read, so the open is
+	// tried; its 422 must say what to set without naming the host.
+	const host = "git.corp.example"
+
+	unknown := fmt.Errorf("%s — set forge.kind and forge.host: %w", host, forge.ErrUnknownForge)
+	deps := openableDeps()
+	deps.Branch = func() (gitrepo.Branch, error) { return pushedBranch(), nil }
+	deps.FindPull = func(string) (forge.PullRequest, bool, error) { return forge.PullRequest{}, false, unknown }
+	deps.CreatePull = func(forge.NewPullRequest) (forge.PullRequest, error) { return forge.PullRequest{}, unknown }
+
+	// Act
+	recorder := doOpen(t, deps, openRequestBody)
+
+	// Assert
+	failure := decode[api.Problem](t, recorder)
+	if recorder.Code != http.StatusUnprocessableEntity || !strings.Contains(failure.Detail, "forge.kind") {
+		t.Errorf("status/detail = %d/%q, want 422 saying what to set", recorder.Code, failure.Detail)
+	}
+
+	if strings.Contains(recorder.Body.String(), host) {
 		t.Errorf("body = %q, leaks the forge host", recorder.Body.String())
 	}
 }

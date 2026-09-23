@@ -309,7 +309,7 @@ call in `internal/cli` — so `-n`, `-y`, `-j` do not exist; `status` emits
 `ui.ascii` in the file, no `--plain`; `standup` has no `--json`; `pr` has no
 draft, base, reviewer, title or body flag; `announce` has no `--channel`
 (the channel comes from `messaging.channel` alone); both `pr` and the web
-take the first repository template only (`pr.go`, `internal/webserver/pullrequest.go:166`),
+take the first repository template only (`pr.go`, `internal/webserver/pullrequest.go:158`),
 where the interface cycles them (`ctrl+t`).
 
 **Instead.** Shorthands for the three common flags; `--plain` on `status`;
@@ -834,7 +834,7 @@ Impact: low · Effort: medium
 a failure in `$EDITOR` (`checks.go:37`, `internal/tui/run.go:366`), edits an open pull
 request (`preditor.go`), and cycles the repository's pull-request templates
 (`ctrl+t`). None has a web equivalent, and the web takes the first template
-only (`internal/webserver/pullrequest.go:166`). A `?` shortcut sheet, which the interface has,
+only (`internal/webserver/pullrequest.go:158`). A `?` shortcut sheet, which the interface has,
 would give the web's five sections keyboard reach.
 
 **Instead.** In rough order of value: a template select on the pull-request
