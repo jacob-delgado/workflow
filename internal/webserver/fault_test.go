@@ -14,6 +14,7 @@ import (
 
 	"github.com/jacob-delgado/workflow/internal/api"
 	"github.com/jacob-delgado/workflow/internal/config"
+	"github.com/jacob-delgado/workflow/internal/forge"
 	"github.com/jacob-delgado/workflow/internal/httpx"
 	"github.com/jacob-delgado/workflow/internal/jira"
 	"github.com/jacob-delgado/workflow/internal/webserver"
@@ -89,6 +90,56 @@ func TestTransitionNeverForwardsTheJiraHost(t *testing.T) {
 
 			if strings.Contains(recorder.Body.String(), jiraHost) {
 				t.Errorf("body = %q, leaks the Jira host", recorder.Body.String())
+			}
+		})
+	}
+}
+
+func TestAForgeFailureSaysWhatToDo(t *testing.T) {
+	t.Parallel()
+
+	// Each failure the forge's client can answer a read with, carrying the host
+	// the way a wrapped error can; the answer tells the classes apart — a
+	// setting to fix before one to wait out — and never names the host.
+	unprocessable, unreachable := http.StatusUnprocessableEntity, http.StatusBadGateway
+	cases := map[string]struct {
+		cause      error
+		wantStatus int
+		want       string
+	}{
+		"no token found":                {forge.ErrNoToken, unprocessable, "no forge token was found"},
+		"a kind without its host":       {forge.ErrKindNeedsHost, unprocessable, "forge.kind is set without forge.host"},
+		"a token not accepted":          {forge.ErrUnauthorized, unprocessable, "did not accept the token"},
+		"no API at the address":         {forge.ErrNoAPI, unprocessable, "no forge API answered"},
+		"an answer that is not JSON":    {forge.ErrNotJSON, unprocessable, "no forge API answered"},
+		"a refusal that may be a limit": {forge.ErrRefused, unreachable, "wait a minute"},
+		"a status it does not document": {forge.ErrUnexpectedStatus, unreachable, "does not document"},
+		"a status the forge explained": {
+			fmt.Errorf("%w: 500 Internal Server Error", forge.ErrRejected), unreachable, "does not document",
+		},
+	}
+
+	for name, tt := range cases {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			// Arrange
+			deps := filledDeps()
+			deps.FindPull = func(string) (forge.PullRequest, bool, error) {
+				return forge.PullRequest{}, false, fmt.Errorf("reading https://%s/api/v3: %w", forgeHost, tt.cause)
+			}
+
+			// Act
+			recorder := get(t, serve(t, deps, config.Default()), "/api/review")
+
+			// Assert
+			failure := decode[api.Problem](t, recorder)
+			if recorder.Code != tt.wantStatus || !strings.Contains(failure.Detail, tt.want) {
+				t.Errorf("status/detail = %d/%q, want %d saying %q", recorder.Code, failure.Detail, tt.wantStatus, tt.want)
+			}
+
+			if strings.Contains(recorder.Body.String(), forgeHost) {
+				t.Errorf("body = %q, leaks the forge host", recorder.Body.String())
 			}
 		})
 	}
