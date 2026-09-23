@@ -18,10 +18,16 @@ import (
 // terminal interface's task switcher applies.
 var errDirtyTree = errors.New("the working tree has uncommitted changes; commit or stash them before switching")
 
+// errSwitchRefused is git declining the switch. Its own words stay off the
+// wire: in a partial clone a switch fetches the files the branch needs, and a
+// fetch that fails names the remote.
+var errSwitchRefused = errors.New("git refused the switch")
+
 // Checkout switches the working tree to the requested branch. It refuses a dirty
 // tree with 409 so a switch never carries work in progress onto another branch,
-// and answers a branch it cannot check out with 422. On success it returns the
-// branch now in effect; the event stream re-pushes the rest of the state.
+// and answers a branch it cannot check out with 422 — saying, when git refused,
+// how to see git's reason. On success it returns the branch now in effect; the
+// event stream re-pushes the rest of the state.
 func (s *server) Checkout(
 	_ context.Context, request api.CheckoutRequestObject,
 ) (api.CheckoutResponseObject, error) {
@@ -40,8 +46,11 @@ func (s *server) Checkout(
 		return api.Checkout200JSONResponse(branchDTO(branch)), nil
 	case errors.Is(err, loop.ErrDirtyTree):
 		return api.Checkout409ApplicationProblemPlusJSONResponse(problem(api.Conflict, errDirtyTree.Error())), nil
+	case errors.Is(err, errSwitchRefused):
+		return unprocessable("git would not switch to " + request.Body.Branch +
+			"; switch from a terminal to see git's reason"), nil
 	default:
-		return unprocessable("the branch could not be checked out"), nil
+		return unprocessable("the branch could not be checked out; try again, or switch from a terminal to see why"), nil
 	}
 }
 
@@ -55,7 +64,7 @@ func (s *server) switchTo(name string) (gitrepo.Branch, error) {
 
 	err = s.deps.Checkout(name)
 	if err != nil {
-		return gitrepo.Branch{}, fmt.Errorf("checking out %s: %w", name, err)
+		return gitrepo.Branch{}, fmt.Errorf("%w: checking out %s: %w", errSwitchRefused, name, err)
 	}
 
 	return s.deps.Branch()

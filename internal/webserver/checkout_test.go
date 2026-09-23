@@ -4,8 +4,10 @@
 package webserver_test
 
 import (
+	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 
 	"github.com/jacob-delgado/workflow/internal/api"
@@ -218,11 +220,44 @@ func TestCheckoutReportsAChangesReadFailure(t *testing.T) {
 	recorder := doCheckout(t, deps, targetBranch)
 
 	// Assert
-	if recorder.Code != http.StatusUnprocessableEntity {
-		t.Fatalf("status = %d, want 422 when the working tree cannot be read", recorder.Code)
+	want := "the branch could not be checked out; try again, or switch from a terminal to see why"
+
+	failure := decode[api.Problem](t, recorder)
+	if recorder.Code != http.StatusUnprocessableEntity || failure.Detail != want {
+		t.Fatalf("status = %d, detail %q; want 422 saying %q", recorder.Code, failure.Detail, want)
 	}
 
 	if called {
 		t.Error("checkout ran despite an unreadable working tree")
+	}
+}
+
+func TestCheckoutNeverForwardsGitsOwnWords(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	// In a partial clone, a switch fetches the files the branch needs, so git's
+	// own words can name the remote; the detail names the branch and what to do,
+	// and never the host.
+	deps := filledDeps()
+	deps.Changes = func() ([]gitrepo.Change, error) { return nil, nil }
+	deps.Checkout = func(string) error {
+		return fmt.Errorf("switching to %s: %w: fatal: unable to access 'https://%s/acme/repo.git/'",
+			targetBranch, errSeam, gitHost)
+	}
+
+	// Act
+	recorder := doCheckout(t, deps, targetBranch)
+
+	// Assert
+	want := "git would not switch to " + targetBranch + "; switch from a terminal to see git's reason"
+
+	failure := decode[api.Problem](t, recorder)
+	if recorder.Code != http.StatusUnprocessableEntity || failure.Detail != want {
+		t.Errorf("status = %d, detail %q; want 422 saying %q", recorder.Code, failure.Detail, want)
+	}
+
+	if strings.Contains(recorder.Body.String(), gitHost) {
+		t.Errorf("body = %q, leaks the remote's host", recorder.Body.String())
 	}
 }

@@ -160,22 +160,24 @@ Impact: medium · Effort: small
 
 **Today.** Server reasons are good where they exist (`the working tree has
 uncommitted changes; commit or stash them before switching`, `internal/webserver/checkout.go:19`;
-`nothing is staged to commit`, `internal/webserver/commit.go:21`). But the client fallbacks
+`nothing is staged to commit`, `internal/webserver/commit.go:21`), and a
+switch or a new branch that git refuses now says which, and how to see git's
+reason (`internal/webserver/checkout.go:53`, `internal/webserver/branchcreate.go:55`):
+git's own words stay off the wire, since in a partial clone a switch fetches
+from the remote and a failed fetch names it. But the client fallbacks
 are vague and near-apologetic — `The branch could not be checked out.`
 (`web/src/features/issues/IssuesPanel.tsx:356`), `Work could not be started.` (`web/src/features/issues/WorkStory.tsx:289`),
 `The push failed.` (`web/src/features/branch/BranchPanel.tsx:101`), `The commit could not be
-created.` (`web/src/features/branch/CommitForm.tsx:99`) — and three handlers replace the tool's
-reason with one of those sentences: `internal/webserver/checkout.go:44`, `internal/webserver/branchcreate.go:44`,
-`internal/webserver/announce.go:53`. `writeResponseError` answers `something went wrong`
+created.` (`web/src/features/branch/CommitForm.tsx:99`) — and `announce` replaces the service's
+reason with one of those sentences (`internal/webserver/announce.go:53`). `writeResponseError` answers `something went wrong`
 (`internal/webserver/errors.go:80`). A user gets a dead end with no next step.
 
-**Instead.** `checkout` and `branchcreate` pass git's own reason through
-the classified problem mapping; `announce` classifies by the messaging
-sentinels and never forwards the text (a messaging error can name the
-webhook URL); every fallback names a next step.
+**Instead.** `announce` classifies by the messaging sentinels and never
+forwards the text (a messaging error can name the webhook URL); every
+fallback names a next step.
 
-**Done when.** A checkout refused by git shows git's reason in the alert; a
-test proves the announce error never carries the webhook.
+**Done when.** A test proves the announce error never carries the webhook,
+and every fallback says what to do next.
 
 ### UX-80 Dead-end empty states, and four ways to say "connecting"
 
