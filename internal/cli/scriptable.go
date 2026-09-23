@@ -165,16 +165,19 @@ const (
 // the same.
 var errUsage = errors.New("invalid argument")
 
-// usageError is a mistake in how a command was called, in cobra's own words.
+// usageError is a mistake in how a command was called, in cobra's own words,
+// followed by the hint cobra would print were its own errors not silenced: the
+// commands a mistyped name may have meant, and where to read how it is called.
 type usageError struct {
-	err error
+	err  error
+	hint string
 }
 
 var _ error = usageError{}
 
-// Error is cobra's message, unchanged.
+// Error is cobra's message, then the hint.
 func (e usageError) Error() string {
-	return e.err.Error()
+	return e.err.Error() + "\n\n" + e.hint
 }
 
 // Unwrap lets errors.Is match both cobra's error and errUsage.
@@ -182,21 +185,49 @@ func (e usageError) Unwrap() []error {
 	return []error{e.err, errUsage}
 }
 
-// asUsage marks err, when there is one, as a mistake in how the command was
-// called.
-func asUsage(err error) error {
+// asUsage marks err, when there is one, as a mistake in how cmd was called with
+// args: the ones it refused, or those read before a flag it could not read.
+func asUsage(cmd *cobra.Command, err error, args []string) error {
 	if err == nil {
 		return nil
 	}
 
-	return usageError{err: err}
+	return usageError{err: err, hint: usageHint(cmd, args)}
+}
+
+// typoDistance is how many edits away a mistyped command name may be and still
+// be suggested: cobra's own default, which it applies only on a path this tree,
+// whose commands all declare their arguments, never takes.
+const typoDistance = 2
+
+// usageHint points at cmd's help, after the subcommands the first of args may
+// have been meant as, even when a flag was what failed: that flag is the meant
+// command's. A command with no subcommands has no name to suggest.
+func usageHint(cmd *cobra.Command, args []string) string {
+	var hint strings.Builder
+
+	if len(args) > 0 {
+		if meant := cmd.SuggestionsFor(args[0]); len(meant) > 0 {
+			hint.WriteString("Did you mean this?\n")
+
+			for _, name := range meant {
+				hint.WriteString("\t" + name + "\n")
+			}
+
+			hint.WriteString("\n")
+		}
+	}
+
+	hint.WriteString("Run '" + cmd.CommandPath() + " --help' for usage.")
+
+	return hint.String()
 }
 
 // markMisuse makes every command in the tree report its flag and argument
 // errors as usage errors: a flag it does not know, a wrong argument count, and
 // an unknown command, which is an argument to a command that takes none.
 func markMisuse(root *cobra.Command) {
-	root.SetFlagErrorFunc(func(_ *cobra.Command, err error) error { return asUsage(err) })
+	root.SetFlagErrorFunc(func(cmd *cobra.Command, err error) error { return asUsage(cmd, err, cmd.Flags().Args()) })
 	markArgsMisuse(root)
 }
 
@@ -209,10 +240,12 @@ func markArgsMisuse(cmd *cobra.Command) {
 		cmd.RunE = func(cmd *cobra.Command, _ []string) error { return cmd.Help() }
 	}
 
+	cmd.SuggestionsMinimumDistance = typoDistance
+
 	// A command that declares no check, such as cobra's help, is left to
 	// cobra's own.
 	if check := cmd.Args; check != nil {
-		cmd.Args = func(cmd *cobra.Command, args []string) error { return asUsage(check(cmd, args)) }
+		cmd.Args = func(cmd *cobra.Command, args []string) error { return asUsage(cmd, check(cmd, args), args) }
 	}
 
 	for _, child := range cmd.Commands() {

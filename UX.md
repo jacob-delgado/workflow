@@ -66,20 +66,6 @@ them, re-counted at this commit.
 
 ## The command line
 
-### UX-56 A typo gets no pointer to `--help`
-
-Impact: low · Effort: small
-
-**Today.** `SilenceUsage` and `SilenceErrors` on the root (`internal/cli/cli.go:174`) are
-inherited by every subcommand, and cobra gates its "Run 'workflow --help'
-for usage." hint and its suggestion list on `!SilenceErrors`. A mistyped command name prints `workflow: unknown command …` and nothing else.
-
-**Instead.** Keep the flags (they stop the usage dump on a *real* error)
-and have `Execute` print the hint and cobra's suggestions on an
-unknown-command or unknown-flag error.
-
-**Done when.** A mistyped command name gets the `--help` hint and cobra's closest suggestion.
-
 ### UX-57 A refusal tells you what, not what next
 
 Impact: medium · Effort: small
