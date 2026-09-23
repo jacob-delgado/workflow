@@ -214,11 +214,11 @@ Impact: medium · Effort: large
   open one, but cannot re-run failed checks, merge, finish the merged
   branch or edit the pull request's title and body — all of which the
   interface does with `R`, `M`, `F` and `e` (`internal/tui/checks.go:180`,
-  `internal/tui/merge.go:112`, `finish.go:44`, `preditor.go:37`). FEAT-31's own note already
+  `internal/tui/merge.go:125`, `finish.go:44`, `preditor.go:37`). FEAT-31's own note already
   records the web merge as a follow-up; this formalizes the set.
 - Touches: `api/openapi.yaml` (four operations), `internal/webserver` (a
   handler per action, each a budget row; merge gated exactly as `canMerge`
-  gates it, `internal/tui/merge.go:20`, over the shared composition —
+  gates it, `internal/tui/merge.go:25`, over the shared composition —
   REVIEW.md Phase 1), `web/src/features/review`, `web/e2e` (a write driven
   against a running server, which the suite does not yet do —
   TECH_DEBT.md DEBT-65).

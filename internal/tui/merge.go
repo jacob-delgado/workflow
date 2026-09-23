@@ -6,6 +6,7 @@ package tui
 import (
 	"cmp"
 	"errors"
+	"fmt"
 	"strconv"
 	"strings"
 
@@ -14,6 +15,10 @@ import (
 
 	"github.com/jacob-delgado/workflow/internal/forge"
 )
+
+// errNeedsWriteScope leads a merge the forge refused with its likeliest fix, a
+// wider token scope, claiming no more than the forge's own refusal does.
+var errNeedsWriteScope = errors.New("the token may lack the write scope a merge needs")
 
 // canMerge reports a pull request that can be merged here: found, mergeable,
 // green and approved, with a forge that can merge it.
@@ -63,7 +68,9 @@ func (msg mergeMethodsLoaded) apply(m Model) (Model, tea.Cmd) {
 		return m.noticed("cannot merge: the repository permits no merge method"), nil
 	}
 
-	m.overlay = mergePicker{marks: m.marks, vocab: m.vocab, pull: m.review.pull, methods: msg.methods}
+	m.overlay = mergePicker{
+		marks: m.marks, styles: m.styles, vocab: m.vocab, pull: m.review.pull, methods: msg.methods,
+	}
 
 	return m, nil
 }
@@ -74,11 +81,16 @@ type mergeRequested struct {
 	err  error
 }
 
-// apply reports a merge and refreshes the pane, or closes the preview with why
-// the merge was refused.
+// apply reports a merge and refreshes the pane, or keeps the preview open with
+// why the merge was refused, pinned under its title until esc.
 func (msg mergeRequested) apply(m Model) (Model, tea.Cmd) {
 	if msg.err != nil {
-		return m.closeOverlay().noticed("could not merge: " + mergeReason(msg.err)), nil
+		if picker, open := m.overlay.(mergePicker); open {
+			picker.send = picker.send.failed(mergeRefusal(msg.err))
+			m.overlay = picker
+		}
+
+		return m, nil
 	}
 
 	merged := m.closeOverlay().noticed(m.marks.done + " merged " + m.vocab.sigil + strconv.Itoa(msg.pull.Number))
@@ -86,14 +98,15 @@ func (msg mergeRequested) apply(m Model) (Model, tea.Cmd) {
 	return merged, merged.findPullRequest()
 }
 
-// mergeReason names why a merge was refused, spelling out the write scope a
-// read-only token lacks so the fix is plain.
-func mergeReason(err error) string {
+// mergeRefusal is a failed merge as its preview pins it: the refusal a
+// read-only token hits leads with the write scope it may lack, and any other
+// failure keeps the forge's own words rather than a paraphrase of them.
+func mergeRefusal(err error) error {
 	if errors.Is(err, forge.ErrRefused) || errors.Is(err, forge.ErrUnauthorized) {
-		return "the token needs a write scope the read path does not"
+		return fmt.Errorf("%w: %w", errNeedsWriteScope, err)
 	}
 
-	return forgeReason(err)
+	return err
 }
 
 // mergeMethodLabel names a merge method for the preview.
@@ -111,25 +124,24 @@ func mergeMethodLabel(method forge.MergeMethod) string {
 // to use, sent only once it is confirmed.
 type mergePicker struct {
 	marks    glyphs
+	styles   styles
 	vocab    reviewVocab
 	pull     forge.PullRequest
 	methods  []forge.MergeMethod
 	selected int
-	merging  bool
+	send     sendState
 }
 
 var _ overlay = mergePicker{}
 
-// view draws the pull request and the methods it may be merged by.
-func (p mergePicker) view(_, _ int) (string, string) {
-	lines := []string{p.vocab.sigil + strconv.Itoa(p.pull.Number) + " " + p.pull.Title, "", "Merge by:"}
+// view draws the pull request and the methods it may be merged by, the merge's
+// outcome pinned under the title.
+func (p mergePicker) view(width, _ int) (string, string) {
+	lines := pinnedOutcome(p.styles, p.marks, p.send, "merging", width)
+	lines = append(lines, p.vocab.sigil+strconv.Itoa(p.pull.Number)+" "+p.pull.Title, "", "Merge by:")
 
 	for index, method := range p.methods {
 		lines = append(lines, p.marks.marker(index == p.selected)+mergeMethodLabel(method))
-	}
-
-	if p.merging {
-		lines = append(lines, "", "merging…")
 	}
 
 	return "Merge " + p.vocab.noun, strings.Join(lines, "\n")
@@ -137,7 +149,7 @@ func (p mergePicker) view(_, _ int) (string, string) {
 
 // footer offers moving between the methods, merging, and leaving.
 func (p mergePicker) footer(keys keyMap) []key.Binding {
-	if p.merging {
+	if p.send.sending {
 		return []key.Binding{keys.interrupt}
 	}
 
@@ -147,7 +159,7 @@ func (p mergePicker) footer(keys keyMap) []key.Binding {
 // handleKey answers a key while the merge is being previewed.
 func (p mergePicker) handleKey(m Model, msg tea.KeyPressMsg) (Model, tea.Cmd) {
 	switch {
-	case p.merging:
+	case p.send.sending:
 		return m, nil
 	case key.Matches(msg, m.keys.closeOverlay):
 		return m.closeOverlay(), nil
@@ -173,7 +185,7 @@ func (p mergePicker) confirm(m Model) (Model, tea.Cmd) {
 			strconv.Itoa(p.pull.Number) + " by " + mergeMethodLabel(method)), nil
 	}
 
-	p.merging = true
+	p.send = starting()
 	m.overlay = p
 	pull, merge := p.pull, m.deps.Forge.Merge
 
