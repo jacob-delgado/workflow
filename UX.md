@@ -248,7 +248,7 @@ sentences live ("Check the VPN, then press `r`", "Run `gh auth login`"). Of
 calls it, so all 11 `pinnedOutcome` overlays show `could not reach the forge
 at …: dial tcp …` instead of the sentence. Fourteen rail sites are
 `failedGlyph + err.Error()` (`internal/tui/checks.go:97`, `diff.go:79`,
-`issuewrite.go:120`, `internal/tui/picker.go:209`, `internal/tui/switchtask.go:108`, `internal/tui/review.go:218`,
+`issuewrite.go:120`, `internal/tui/picker.go:209`, `internal/tui/switchtask.go:107`, `internal/tui/review.go:218`,
 `internal/tui/run.go:211`, `internal/tui/composer.go:164`, `internal/tui/fields.go:171`, …); eight are glyph-only
 summaries; seven are notices with no glyph and no red (`comment.go:76`,
 `internal/tui/composer.go:77`, `internal/tui/messaging.go:378`, `internal/tui/checks.go:233`,
