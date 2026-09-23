@@ -27,10 +27,8 @@ var errUnexpectedPrompt = errors.New("unexpected prompt read")
 // reads; t.Chdir restores it when the test ends. These tests therefore do not
 // call t.Parallel().
 //
-// The home directory and git's global and system configuration are the
-// developer's own, and none of them may decide a result: a ~/.workflow.json
-// would stand in for a missing file, and a global commit.gpgsign would fail a
-// commit. Each run gets an empty home and no git configuration but its own.
+// Each run gets an empty home of its own and none of the developer's
+// environment: see isolatedEnvironment.
 func run(t *testing.T, dir string, args ...string) (string, error) {
 	t.Helper()
 
@@ -57,16 +55,48 @@ type streams struct {
 // it on stderr.
 func runStreams(t *testing.T, dir string, prompt cli.Prompt, args ...string) (streams, error) {
 	t.Helper()
-	t.Setenv("HOME", t.TempDir())
-	t.Setenv("GIT_CONFIG_GLOBAL", os.DevNull)
-	t.Setenv("GIT_CONFIG_NOSYSTEM", "1")
-	t.Chdir(dir)
+
+	return runStreamsAt(t, place{dir: dir, home: t.TempDir()}, prompt, args...)
+}
+
+// place is where a run happens: the working directory, and the home directory
+// the test chose, for a test that puts something there first.
+type place struct {
+	dir  string
+	home string
+}
+
+// runStreamsAt is runStreams in the home directory the test chose.
+func runStreamsAt(t *testing.T, where place, prompt cli.Prompt, args ...string) (streams, error) {
+	t.Helper()
+
+	for name, value := range isolatedEnvironment(where.home) {
+		t.Setenv(name, value)
+	}
+
+	t.Chdir(where.dir)
 
 	var stdout, stderr bytes.Buffer
 
 	err := cli.Execute(args, &stdout, &stderr, prompt)
 
 	return streams{stdout: stdout.String(), stderr: stderr.String()}, err
+}
+
+// isolatedEnvironment is the environment every run gets, so nothing of the
+// developer's own decides a result or is touched by one: the home is the
+// test's — a ~/.workflow.json would stand in for a missing file — and the store
+// is kept under it, not in $XDG_STATE_HOME or %AppData%, where the developer's
+// own store is; and git reads no configuration but the repository's — a global
+// commit.gpgsign would fail a commit.
+func isolatedEnvironment(home string) map[string]string {
+	return map[string]string{
+		"HOME":                home,
+		"XDG_STATE_HOME":      "",
+		"AppData":             filepath.Join(home, "AppData"),
+		"GIT_CONFIG_GLOBAL":   os.DevNull,
+		"GIT_CONFIG_NOSYSTEM": "1",
+	}
 }
 
 // unusedPrompt fails the test if a command reads from it: only the guided
@@ -294,6 +324,24 @@ func TestConfigShowMasksTheWebhookURL(t *testing.T) {
 	if strings.Contains(output, "hooks.slack.com") || strings.Contains(output, "secretpath") ||
 		!strings.Contains(output, "****1234") {
 		t.Errorf("config show did not mask the webhook URL to its tail:\n%s", output)
+	}
+}
+
+func TestConfigShowReadsTheHomeConfigurationWhenTheDirectoryHasNone(t *testing.T) {
+	// Arrange
+	home := t.TempDir()
+	path := writeFile(t, home, `{"messaging": {"channel": "#from-home"}}`)
+
+	// Act
+	printed, err := runStreamsAt(t, place{dir: t.TempDir(), home: home}, unusedPrompt(t), "config", "show")
+	if err != nil {
+		t.Fatalf("config show: %v (%+v)", err, printed)
+	}
+
+	// Assert
+	if !strings.Contains(printed.stdout, "#from-home") || !strings.Contains(printed.stderr, path) {
+		t.Errorf("config show did not fall back to the home directory's file %s:\nstdout:\n%s\nstderr:\n%s",
+			path, printed.stdout, printed.stderr)
 	}
 }
 

@@ -229,18 +229,16 @@ func TestGuidedInitReportsAFailureReadingTheToken(t *testing.T) {
 
 func TestConfigInitTemplateWritesGloballyToHome(t *testing.T) {
 	// Arrange
-	dir := t.TempDir()
+	where := place{dir: t.TempDir(), home: t.TempDir()}
 
 	// Act
-	output, err := run(t, dir, "config", "init", "--template", "--global")
+	printed, err := runStreamsAt(t, where, unusedPrompt(t), "config", "init", "--template", "--global")
 	if err != nil {
-		t.Fatalf("config init --template --global: %v (%s)", err, output)
+		t.Fatalf("config init --template --global: %v (%+v)", err, printed)
 	}
 
 	// Assert
-	home := os.Getenv("HOME")
-
-	_, err = os.Stat(filepath.Join(home, config.FileName))
+	_, err = os.Stat(filepath.Join(where.home, config.FileName))
 	if err != nil {
 		t.Errorf("--global did not write to the home directory: %v", err)
 	}

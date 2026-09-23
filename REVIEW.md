@@ -137,7 +137,7 @@ to see the shape.
 
 | Convention | Verdict | Where |
 | --- | --- | --- |
-| `--help` on every command; useful long help | Met | `internal/cli/cli.go:26` `longHelp`; pinned by `internal/cli/cli_test.go:253` |
+| `--help` on every command; useful long help | Met | `internal/cli/cli.go:26` `longHelp`; pinned by `internal/cli/cli_test.go:283` |
 | `--version` | Met, and in the generated reference since Phase 2 | `cmd/docsgen/main.go` |
 | Exit codes distinguish failure kinds | Met since Phase 2 — 0/1/2/3/4/5/130 | `cli.ExitStatus`, `internal/cli/scriptable.go:228`; `docs/content/docs/scripting.md` |
 | stdout = artifact, stderr = commentary | Met since Phase 2 | `output`, `internal/cli/scriptable.go:29` |
@@ -152,7 +152,7 @@ to see the shape.
 | Errors say what to do next | Partial — strong in `doctor`/`config`; bare sentinels do not | UX-57 |
 | A hint on misuse | **Gap** — `SilenceUsage`+`SilenceErrors` swallow cobra's | UX-56 |
 | No surprises | Partial — `branch` switches silently; `pr` pushes and transitions under one question | UX-58 |
-| Secrets never printed | Met | pinned by `internal/cli/cli_test.go:228`, `doctor_json_test.go:65` |
+| Secrets never printed | Met | pinned by `internal/cli/cli_test.go:258`, `doctor_json_test.go:65` |
 | Shell completion | Met, incl. dynamic issue keys | `internal/cli/scriptable.go:121` |
 | Docs cover the commands | Met since Phase 2 | `docs/content/docs/scripting.md` |
 
@@ -345,7 +345,7 @@ without it, classify the CLI-local sentinels and re-point later).
   (`showLoadError`, `internal/cli/config_cmd.go:96`), the web banner
   `internal/cli/cli.go:266`, `config show`'s `# <path>` header
   (`runConfigShow`, `internal/cli/config_cmd.go:340`)). Split the harness
-  **first** (`runStreams`, `internal/cli/cli_test.go:58`, returns both streams).
+  **first** (`runStreams`, `internal/cli/cli_test.go:56`, returns both streams).
 - **Flags.** `--dry-run` and `--log` become root `PersistentFlags`;
   `writeOptions.addFlags` (`internal/cli/scriptable.go:48`) stops declaring its own
   `--dry-run`; the seven wiring preambles (`runReviewsCommand`,
