@@ -1,0 +1,8 @@
+id: 1
+event: snapshot
+data: {"branch":{"ahead":2,"base":"origin/main","behind":0,"commits":[{"hash":"abc123","subject":"feat: redact"}],"detached":false,"head":"abc123","name":"fix/PROJ-412","upstream":""},"branches":[{"current":true,"issue_key":"PROJ-412","name":"fix/PROJ-412"},{"current":false,"issue_key":"PROJ-500","name":"feat/PROJ-500-metrics"}],"changes":{"changes":[{"conflicted":false,"has_unstaged":true,"kind":"modified","path":"internal/config/config.go","staged":true}]},"issues":{"issues":[{"key":"PROJ-412","priority":"High","status":"In Progress","status_category":"indeterminate","summary":"Fix token redaction","type":"Bug"}],"start_at":0,"total":1},"messaging":{"author":"octocat","channel":"#dev-workflow","channels":[],"configured":false,"service":"Slack"},"review":{"ci":{"checks":[{"name":"build","state":"passed","url":""}],"done":3,"failed":0,"state":"passed","total":3},"found":true,"pull":{"approvals":0,"changes_requested":false,"draft":false,"mergeable":"clean","number":42,"title":"redact","url":"https://x/42"}},"suggested_scope":"api"}
+
+id: 1
+event: snapshot
+data: {"branch":{"ahead":0,"base":"","behind":0,"commits":[],"detached":false,"head":"","name":"","upstream":""},"branches":[],"changes":{"changes":[]},"issues":{"issues":[],"start_at":0,"total":0},"messaging":{"author":"","channel":"","channels":[],"configured":false,"service":"Slack"},"review":{"found":false},"suggested_scope":""}
+

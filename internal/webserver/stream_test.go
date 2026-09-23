@@ -6,8 +6,10 @@ package webserver_test
 import (
 	"context"
 	"encoding/json"
+	"flag"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -20,6 +22,18 @@ import (
 	"github.com/jacob-delgado/workflow/internal/jira"
 	"github.com/jacob-delgado/workflow/internal/webserver"
 )
+
+// goldenFrames is the file the web client's frame test reads: what the stream
+// writes for a filled workspace and an empty one, byte for byte as the browser
+// receives it. It lives beside the client's test helpers, where it is read.
+const goldenFrames = "../../web/src/test/snapshot-frames.sse"
+
+// regenerateFrames is how to bring goldenFrames up to date with the stream.
+const regenerateFrames = "regenerate it with: " +
+	"go test ./internal/webserver -run TestStreamFrameMatchesTheClientGolden -update"
+
+//nolint:gochecknoglobals // go test's -update flag has to be registered before the tests run
+var updateGolden = flag.Bool("update", false, "rewrite the golden files from what the code writes")
 
 // snapshots decodes every snapshot event's data from an event-stream body, in
 // the order the stream pushed them.
@@ -343,3 +357,41 @@ func (f *failingFlushWriter) Header() http.Header {
 func (f *failingFlushWriter) Write([]byte) (int, error) { return 0, errSeam }
 func (f *failingFlushWriter) WriteHeader(int)           {}
 func (f *failingFlushWriter) Flush()                    {}
+
+func TestStreamFrameMatchesTheClientGolden(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	// A workspace with every part of the snapshot filled — issues, the branch
+	// and its commit, a change, the pull request and its CI, the issues in
+	// flight, a learned scope — and one with nothing wired at all.
+	filled := filledDeps()
+	filled.Branches = func() ([]string, error) { return []string{testBranchName, targetBranch}, nil }
+	filled.LastScope = func() (string, bool) { return "api", true }
+
+	cfg := config.Default()
+	cfg.Messaging.Channel = testChannel
+
+	// Act
+	frames := streamOnce(t, serve(t, filled, cfg), "/api/events").Body.String() +
+		streamOnce(t, serve(t, webserver.Deps{}, config.Default()), "/api/events").Body.String()
+
+	// Assert
+	path := filepath.FromSlash(goldenFrames)
+	if *updateGolden {
+		err := os.WriteFile(path, []byte(frames), 0o644)
+		if err != nil {
+			t.Fatalf("writing %s: %v", path, err)
+		}
+	}
+
+	want, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatalf("reading %s: %v; %s", path, err, regenerateFrames)
+	}
+
+	if string(want) != frames {
+		t.Errorf("the stream's frames differ from %s, which the web client's test reads; %s\n got: %s\nwant: %s",
+			path, regenerateFrames, frames, want)
+	}
+}
