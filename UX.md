@@ -222,8 +222,8 @@ Impact: high · Effort: small
 **Today.** `Pull request opened.` (`web/src/features/review/ReviewPanel.tsx:147`), `Announced…`
 (`web/src/features/messaging/MessagingPanel.tsx:139`) and `Saved.` (`SettingsPanel.tsx:323`) confirm.
 Commit (`CommitForm.tsx:70`), push (`BranchPanel.tsx:130`), check-out and
-start-work (`useAsyncAction.ts:19`) reset and say nothing; the stated
-rationale is that the snapshot is the confirmation (`useAsyncAction.ts:8`),
+start-work (`web/src/lib/useAsyncAction.ts:20`) reset and say nothing; the stated
+rationale is that the snapshot is the confirmation (`web/src/lib/useAsyncAction.ts:8`),
 but the stream re-pushes on a 5 s tick (`stream.go:20`), so a commit is
 silent for up to five seconds. And the two successes that do exist are
 plain `<p>` elements, not live regions — announced to nobody using a screen
