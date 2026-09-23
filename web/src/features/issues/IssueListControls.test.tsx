@@ -227,3 +227,112 @@ test('goes back to the default view on another section too', async () => {
   // Assert
   expect(FakeEventSource.latest().url).toBe('/api/events')
 })
+
+const twoIssues = makeSnapshot({
+  issues: {
+    total: 2,
+    start_at: 0,
+    issues: [
+      {
+        key: 'PROJ-1',
+        summary: 'Fix the token leak',
+        status: 'In Progress',
+        status_category: 'indeterminate',
+        type: 'Bug',
+      },
+      {
+        key: 'PROJ-12',
+        summary: 'Write the setup docs',
+        status: 'To Do',
+        status_category: 'new',
+        type: 'Task',
+      },
+    ],
+  },
+})
+
+// statusTexts is the text of every status region on screen.
+function statusTexts(): string[] {
+  return screen.getAllByRole('status').map((region) => region.textContent)
+}
+
+// listedSummaries is the summaries the issue list shows, in order.
+function listedSummaries(): string[] {
+  const list = screen.getByRole('list', { name: 'Issues' })
+
+  return within(list)
+    .getAllByRole('listitem')
+    .map((item) => (/Fix the token leak|Write the setup docs/.exec(item.textContent) ?? [''])[0])
+}
+
+test('the filter narrows the list by key', async () => {
+  // Arrange
+  const user = userEvent.setup()
+  fakeApi({ '/api/views': views })
+  useSnapshotStore.setState({ status: 'live', snapshot: twoIssues })
+  renderWithClient(<IssuesPanel />)
+
+  // Act
+  await user.type(screen.getByRole('searchbox', { name: /filter/i }), 'proj-12')
+
+  // Assert
+  expect(listedSummaries()).toEqual(['Write the setup docs'])
+})
+
+test('the filter narrows the list by summary, whatever the case', async () => {
+  // Arrange
+  const user = userEvent.setup()
+  fakeApi({ '/api/views': views })
+  useSnapshotStore.setState({ status: 'live', snapshot: twoIssues })
+  renderWithClient(<IssuesPanel />)
+
+  // Act
+  await user.type(screen.getByRole('searchbox', { name: /filter/i }), 'TOKEN')
+
+  // Assert
+  expect(listedSummaries()).toEqual(['Fix the token leak'])
+})
+
+test('says when no loaded issue matches the filter', async () => {
+  // Arrange
+  const user = userEvent.setup()
+  fakeApi({ '/api/views': views })
+  useSnapshotStore.setState({ status: 'live', snapshot: twoIssues })
+  renderWithClient(<IssuesPanel />)
+
+  // Act
+  await user.type(screen.getByRole('searchbox', { name: /filter/i }), 'nothing like it')
+
+  // Assert
+  expect(statusTexts()).toContain('No loaded issue matches the filter.')
+})
+
+test('says how many loaded issues the filter matches', async () => {
+  // Arrange
+  const user = userEvent.setup()
+  fakeApi({ '/api/views': views })
+  useSnapshotStore.setState({ status: 'live', snapshot: twoIssues })
+  renderWithClient(<IssuesPanel />)
+
+  // Act
+  await user.type(screen.getByRole('searchbox', { name: /filter/i }), 'proj-12')
+
+  // Assert
+  expect(statusTexts()).toContain('1 of 2 loaded issues match.')
+})
+
+test('keeps the selected issue open when the filter hides it', async () => {
+  // Arrange
+  const user = userEvent.setup()
+  fakeApi({ '/api/views': views })
+  useSnapshotStore.setState({ status: 'live', snapshot: twoIssues })
+  renderWithClient(<IssuesPanel />)
+  await user.click(screen.getByRole('button', { name: /fix the token leak/i }))
+
+  // Act
+  await user.type(screen.getByRole('searchbox', { name: /filter/i }), 'setup docs')
+
+  // Assert
+  expect(listedSummaries()).toEqual(['Write the setup docs'])
+  expect(screen.getByRole('heading', { level: 2, name: /fix the token leak/i })).toBeTruthy()
+})

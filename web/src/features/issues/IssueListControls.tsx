@@ -2,11 +2,29 @@ import { useEffect } from 'react'
 import { useUiStore } from '@/shell/uiStore.ts'
 import { useViews } from './issueApi.ts'
 
-// IssueListControls sits above the issue list and says what the list is of.
-export function IssueListControls() {
+interface ListControlsProps {
+  filter: string
+  onFilter: (filter: string) => void
+}
+
+// IssueListControls sits above the issue list: the view it is of, and a filter
+// over the issues already loaded, as the interface's `/` filters its list.
+export function IssueListControls({ filter, onFilter }: ListControlsProps) {
   return (
     <div className="flex flex-wrap items-center gap-3">
       <ViewSelect />
+      <label className="flex items-center gap-2 text-sm">
+        <span className="text-muted-foreground">Filter</span>
+        <input
+          type="search"
+          value={filter}
+          placeholder="Key or summary"
+          onChange={(event) => {
+            onFilter(event.target.value)
+          }}
+          className="w-48 rounded-md border border-input bg-background px-2 py-1 placeholder:text-muted-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+        />
+      </label>
     </div>
   )
 }
