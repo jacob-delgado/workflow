@@ -12,11 +12,8 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/jacob-delgado/workflow/internal/config"
-	"github.com/jacob-delgado/workflow/internal/convention"
 	"github.com/jacob-delgado/workflow/internal/forge"
-	"github.com/jacob-delgado/workflow/internal/gitrepo"
-	"github.com/jacob-delgado/workflow/internal/jira"
-	"github.com/jacob-delgado/workflow/internal/messaging"
+	"github.com/jacob-delgado/workflow/internal/loop"
 	"github.com/jacob-delgado/workflow/internal/wiring"
 )
 
@@ -30,24 +27,16 @@ var errMessagingNotConfigured = errors.New("no messaging transport is configured
 // announceSeams are what `workflow announce` reads and does, so a test can
 // answer without a repository, a forge or Slack.
 type announceSeams struct {
-	Branch    func() (gitrepo.Branch, error)
-	FindPull  func(branch string) (forge.PullRequest, bool, error)
-	Author    func() (string, error)
-	Issue     func(jira.Key) (jira.IssueDetail, error)
-	BrowseURL func(jira.Key) string
-	CheckCI   func(pull forge.PullRequest, head string) (forge.CI, error)
-	Post      func(channel, text string) error
-	Kind      forge.Kind
-	Project   string
-	Channel   string
-	Template  string
-	// MessagingKind is the service the announcement is rendered for: it decides
-	// the link markup Text() emits.
-	MessagingKind config.MessagingKind
-	// Service names the messaging service for the user — "Slack", "Teams",
-	// "Discord" or "webhook" — in the prompt and notices.
-	Service string
-	Confirm func(question string) (bool, error)
+	// Compose is what the announcement is composed from.
+	Compose loop.AnnounceSeams
+	Post    func(channel, text string) error
+	Kind    forge.Kind
+	Project string
+	// Messaging is where the announcement goes and how it is rendered: the
+	// channel, the service — whose name the prompt and notices use — and the
+	// team's template.
+	Messaging config.Messaging
+	Confirm   func(question string) (bool, error)
 }
 
 // newAnnounceCmd builds `workflow announce`.
@@ -87,19 +76,18 @@ func runAnnounceCommand(cmd *cobra.Command, prompt Prompt, opts writeOptions) er
 	deps := wiring.Deps(ctx, cfg, wiring.Locate(ctx, dir), nil)
 
 	seams := announceSeams{
-		Branch:        deps.Git.Branch,
-		FindPull:      deps.Forge.FindPullRequest,
-		Author:        deps.Forge.Author,
-		Issue:         deps.Jira.Issue,
-		BrowseURL:     deps.Jira.BrowseURL,
-		CheckCI:       deps.Forge.CheckStatus,
-		Kind:          deps.Forge.Kind,
-		Project:       cfg.Jira.Project,
-		Channel:       cfg.Messaging.Channel,
-		Template:      cfg.Messaging.Announcement,
-		MessagingKind: cfg.Messaging.Kind,
-		Service:       cfg.Messaging.Service(),
-		Confirm:       func(question string) (bool, error) { return confirm(prompt, question) },
+		Compose: loop.AnnounceSeams{
+			Branch:    deps.Git.Branch,
+			FindPull:  deps.Forge.FindPullRequest,
+			Author:    deps.Forge.Author,
+			Issue:     deps.Jira.Issue,
+			BrowseURL: deps.Jira.BrowseURL,
+			CheckCI:   deps.Forge.CheckStatus,
+		},
+		Kind:      deps.Forge.Kind,
+		Project:   cfg.Jira.Project,
+		Messaging: cfg.Messaging,
+		Confirm:   func(question string) (bool, error) { return confirm(prompt, question) },
 	}
 
 	if cfg.Messaging.Mode() != config.MessagingNone {
@@ -116,77 +104,38 @@ func runAnnounce(out io.Writer, seams announceSeams, opts writeOptions) error {
 		return errMessagingNotConfigured
 	}
 
-	branch, err := seams.Branch()
-	if err != nil {
-		return fmt.Errorf("reading the branch: %w", err)
-	}
-
-	pull, found, err := seams.FindPull(branch.Name)
-	if err != nil {
-		return fmt.Errorf("reading the pull request: %w", err)
-	}
-
-	if !found {
+	announcement, _, err := loop.ComposeAnnouncement(seams.Compose, seams.Messaging, seams.Project, seams.Kind)
+	if errors.Is(err, loop.ErrNoPullRequest) {
 		return errNoPullRequest
 	}
 
-	text := composeAnnouncement(seams, branch, pull).Text()
+	if err != nil {
+		return err
+	}
+
+	service := seams.Messaging.Service()
+	target := announceTarget(seams.Messaging.Channel, service)
+	text := announcement.Text()
 	fmt.Fprintln(out, text)
-	fmt.Fprintln(out, "to "+announceTarget(seams.Channel, seams.Service))
+	fmt.Fprintln(out, "to "+target)
 
 	proceed, err := opts.proceed(out, seams.Confirm, writePrompt{
-		question: "Post to " + seams.Service + "?",
-		dryRun:   "dry run: would post to " + announceTarget(seams.Channel, seams.Service),
+		question: "Post to " + service + "?",
+		dryRun:   "dry run: would post to " + target,
 		declined: "Not posted.",
 	})
 	if err != nil || !proceed {
 		return err
 	}
 
-	err = seams.Post(seams.Channel, text)
+	err = seams.Post(seams.Messaging.Channel, text)
 	if err != nil {
-		return fmt.Errorf("posting to %s: %w", seams.Service, err)
+		return fmt.Errorf("posting to %s: %w", service, err)
 	}
 
-	fmt.Fprintln(out, "Posted to "+announceTarget(seams.Channel, seams.Service))
+	fmt.Fprintln(out, "Posted to "+target)
 
 	return nil
-}
-
-// composeAnnouncement builds the announcement for the branch's pull request,
-// marking the moment it is at.
-func composeAnnouncement(seams announceSeams, branch gitrepo.Branch, pull forge.PullRequest) messaging.Announcement {
-	key, _ := convention.IssueKey(branch.Name, seams.Project)
-	issueKey := jira.Key(key)
-
-	return messaging.Announcement{
-		Author:           announceAuthor(seams),
-		PullRequestURL:   pull.URL,
-		PullRequestTitle: pull.Title,
-		IssueKey:         key,
-		IssueSummary:     announceIssueSummary(seams, issueKey),
-		IssueURL:         announceIssueURL(seams, issueKey),
-		Noun:             seams.Kind.Noun(),
-		Moment:           announceMoment(seams, pull, branch.Head),
-		Kind:             seams.MessagingKind,
-		Template:         seams.Template,
-	}
-}
-
-// announceMoment is the moment the pull request is at: merged, its CI red, or —
-// the common case — ready for review. A CI read that fails leaves the moment at
-// ready rather than failing the announcement.
-func announceMoment(seams announceSeams, pull forge.PullRequest, head string) messaging.Moment {
-	if pull.State == forge.StateMerged {
-		return messaging.MomentMerged
-	}
-
-	ci, err := seams.CheckCI(pull, head)
-	if err == nil && ci.State == forge.CIFailed {
-		return messaging.MomentCIRed
-	}
-
-	return messaging.MomentReady
 }
 
 // announceTarget names where a post goes: the configured channel, or the
@@ -197,40 +146,4 @@ func announceTarget(channel, service string) string {
 	}
 
 	return channel
-}
-
-// announceAuthor is who the forge credential belongs to, or empty when it will
-// not say — the announcement reads without it.
-func announceAuthor(seams announceSeams) string {
-	author, err := seams.Author()
-	if err != nil {
-		return ""
-	}
-
-	return author
-}
-
-// announceIssueSummary is the branch issue's summary, or empty when the branch
-// names no issue or the tracker cannot say.
-func announceIssueSummary(seams announceSeams, key jira.Key) string {
-	if key == "" {
-		return ""
-	}
-
-	detail, err := seams.Issue(key)
-	if err != nil {
-		return ""
-	}
-
-	return detail.Issue.Summary
-}
-
-// announceIssueURL links the issue, or empty when the branch names no issue or
-// the tracker has no web address for one — issues read from the forge have none.
-func announceIssueURL(seams announceSeams, key jira.Key) string {
-	if key == "" || seams.BrowseURL == nil {
-		return ""
-	}
-
-	return seams.BrowseURL(key)
 }

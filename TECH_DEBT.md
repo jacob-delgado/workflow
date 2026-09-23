@@ -70,10 +70,6 @@ the terminal interface declares. It does not hold for what the surfaces
 *do* with those seams. `internal/wiring` (six files) constructs clients and
 nothing else, so each surface composes the loop for itself:
 
-- The announcement and its moment — built three times:
-  `internal/tui/messaging.go:137` `announcement` / `:125` `announceMoment`,
-  `internal/cli/announce.go:158` `composeAnnouncement` / `:180`
-  `announceMoment`, `internal/webserver/announce.go:68` / `:102`.
 - The guards — `internal/webserver/checkout.go:16` and `internal/webserver/commit.go:18` each
   carry a comment saying they are "the same guard the terminal interface
   applies" (`internal/tui/switchtask.go:88`, the composer), copied rather
@@ -87,12 +83,13 @@ added to a surface becomes a fourth copy, and a fix to the composition (a
 changed moment rule, a new trailer) has to be made three times or diverges.
 
 **One way to fix it.** `internal/loop` now composes the pull request, its
-push and the review-status offer after it (`loop.ComposePull`,
-`loop.EnsurePushed`, `loop.ReviewTransition`) below the three surfaces,
-held there by the `loop-below-the-surfaces` depguard rule, and
+push, the review-status offer after it and the announcement
+(`loop.ComposePull`, `loop.EnsurePushed`, `loop.ReviewTransition`,
+`loop.ComposeAnnouncement`, `loop.AnnounceMoment`) below the three
+surfaces, held there by the `loop-below-the-surfaces` depguard rule, and
 the noun and the branch naming live on `forge.Kind` and `config.Branch`.
-What is left is to move the announcement and the guards into it the same
-way, each surface keeping its own words for the refusals.
+What is left is to move the guards into it the same way, each surface
+keeping its own words for the refusal.
 
 **Done when.** `grep -rn 'NewBranchNaming(' internal/{cli,tui,webserver}`
 and `grep -rn '"merge request"' internal/{cli,tui,webserver}` both print
@@ -108,7 +105,7 @@ The preamble `os.Getwd → os.UserHomeDir → config.Load → wiring.Locate →
 wiring.Deps(ctx, cfg, where, nil)` is written out in
 `internal/cli/reviews.go:59` `runReviewsCommand`, `internal/cli/branch.go:63`
 `runBranchCommand`, `internal/cli/pr.go:77` `runPRCommand`, `internal/cli/status.go:117` `seamsFor`,
-`standup.go:75` `runStandupCommand`, `internal/cli/announce.go:80` `runAnnounceCommand`
+`standup.go:75` `runStandupCommand`, `internal/cli/announce.go:69` `runAnnounceCommand`
 and `scriptable.go:71` `completeAssignedIssues`, with an eighth variant in
 the root's `RunE` (`cli.go:161`). The copies do not agree: `branch`, `pr`,
 `standup` and `announce` fail on a `Getwd` error while `reviews` discards it
@@ -248,7 +245,7 @@ Severity: low · Confidence: read
   `overlay.(T)` / `send.failed` / reassign shape: `branchresult.go:109`,
   `issuewrite.go:194`, `issuelink.go:98`, `preditor.go:162`,
   `internal/tui/prcomposer.go:486`, `hookgen.go:153`, `switchtask.go:228`,
-  `comment.go:169`, `internal/tui/messaging.go:502`.
+  `comment.go:169`, `internal/tui/messaging.go:491`.
 - Five list-picker bodies with identical `up`/`down`/`confirm`/`esc` and a
   `window`-scrolled `rows`: `internal/tui/picker.go:225`, `internal/tui/picker.go:423`,
   `switchtask.go:119`, `checks.go:64`, `internal/tui/run.go:255`.

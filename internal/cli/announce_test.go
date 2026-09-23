@@ -125,6 +125,22 @@ func TestAnnounceRefusesABranchWithNoPullRequest(t *testing.T) {
 	}
 }
 
+func TestAnnounceRefusesABranchWithNoPullRequestInItsOwnWords(t *testing.T) {
+	// Arrange
+	// The refusal is the command line's own sentence, not the shared layer's.
+	fakeGh(t, ghResponses{pulls: "[]"})
+	repo := githubRepo(t, "fix/PROJ-2-thing")
+	writeFile(t, repo, forgeCLIConfig)
+
+	// Act
+	_, err := run(t, repo, "announce", "--yes")
+
+	// Assert
+	if err == nil || !strings.Contains(err.Error(), "there is no pull request on this branch to announce") {
+		t.Errorf("announce = %v, want the command line's refusal of a branch with no pull request", err)
+	}
+}
+
 func TestAnnounceDryRunComposesForAKeylessBranch(t *testing.T) {
 	// Arrange
 	// The branch names no issue, so the announcement is composed without one.
