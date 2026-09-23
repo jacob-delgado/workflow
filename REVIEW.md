@@ -712,10 +712,11 @@ new `web/src/features/branch/stagingApi.ts`,
 
 **Budget.** **`internal/webserver` 16 → 17** with the WHY rewritten (a file
 holds a write or a pair of them, as `issuewrite.go` already did) and a
-history row, in the same commit as `staging.go`. The three bumps across
-Phases 9, 10 and 12 are the WHY's own anticipated path ("grows only when the
-API gains an operation, which the spec records first") — a split would
-separate handlers that change together, so bump, don't split.
+history row, in the same commit as `staging.go`. The bumps in Phases 9 and
+10 are the WHY's own anticipated path ("grows only when the API gains an
+operation, which the spec records first") — a split would separate handlers
+that change together, so bump, don't split. (Phase 12's read joined
+`handlers.go` instead, and needed none.)
 
 **Done when.** A browser can stage, commit, and see the scope pre-filled;
 with no scope learned in the repository, `commit.default_scope` edited in
@@ -821,30 +822,99 @@ writes says what it did in a line the snapshot leaves standing* (text and
 `TestStreamFrameMatchesTheClientGolden`; axe e2e in both themes in both
 projects.
 
-### Phase 12 — The web's Reviews section
+### Phase 12 — The web's Reviews section — done
 
-Closes UX-83. Depends on Phase 3's patterns.
+Closed UX-83. Depends on Phase 3's patterns.
 
-`GET /api/reviews` over `Forge.ReviewRequests` (the seam the CLI and the
-interface use) in `reviews.go`; polled by the query client with a
-`staleTime` (it is a cross-repository forge search, not a snapshot field);
-a sixth section `reviews` (`uiStore.ts:6`, `sections.ts`) with
-`web/src/features/reviews/`; number, title, repository, requester, CI, age;
-open/copy links. The a11y spec covers the sixth section in both themes.
+- **One order.** `forge.OldestFirst` (`internal/forge/pulls.go:153`) orders
+  the queue once, longest-waiting first; `workflow reviews`, the terminal's
+  Reviews pane and the web now all go through it.
+- **The forge's own failures.** `fault` knew only an unreachable forge and
+  a repository it would not show; `forgeFaults`
+  (`internal/webserver/errors.go:188`) now tells apart no token found, a
+  token the forge did not accept, `forge.kind` without `forge.host` and an
+  address with no forge API (422s naming the setting and `workflow
+  doctor`) from a refusal that may be rate limiting and a status it does not
+  document, explained in its body or not (502s to wait out) — every forge
+  read through `fault` answers better for it, and the detail still never
+  carries the host. The scripting page's table of exit statuses against
+  problem codes says so too.
+- **Spec first.** `GET /api/reviews` answers a `ReviewQueue` — `available`
+  and `requests`, each with number, URL, title, author, repository, draft,
+  CI state and `opened_at`, so the page words the age by its own clock —
+  from `ListReviews` in `handlers.go` beside the other reads
+  (`internal/webserver/handlers.go:198`), as the correction decided: no
+  budget bump. `webserver.Deps` gains `ReviewRequests`, mapped in
+  `cli.WebDeps`. No forge to ask — outside a repository, no origin, or an
+  origin on a host workflow cannot read (`noForgeToAsk`, `:222`) — is
+  `available: false` with an empty queue, never a 404; the queue is always
+  a list, never null.
+- **The section.** `reviews`, labeled "Reviews", sixth in the rail after
+  the messaging section as in the interface (`sections`,
+  `web/src/shell/uiStore.ts:7`), in `web/src/features/reviewqueue/`
+  (`ReviewQueuePanel`, `web/src/features/reviewqueue/ReviewQueuePanel.tsx:34`).
+  Each request shows its number in the forge's mark, title, repository, who
+  asks, the age in the interface's words, Draft, and CI as a text label
+  (`ciLabel`, `:13` — Phase 13's `StateMark` gives it a shape), with Open
+  (a new tab, `noopener`) and Copy URL, the interface's own "copy url",
+  which says what it did in the panel's `OutcomeLine`. It reads its own endpoint, not the stream, so it
+  does not wait on the shell's connecting line, as Settings does not.
+- **Freshness.** `useReviewQueue`
+  (`web/src/features/reviewqueue/reviewQueueApi.ts:22`): a `staleTime` of a
+  minute, so opening the section reads the queue again unless it was read
+  within the minute; a Refresh button; no interval. A failed read is not
+  retried on its own — the app's client would have retried three times,
+  spending a rate limit the server already reported. Retry and Refresh are
+  one button, marked `aria-disabled` while reading rather than disabled, so
+  the read it starts never takes a keyboard user's focus — and a retry
+  after a failed first read keeps the queue's place rather than falling
+  back to the first read's placeholder, which would take the button.
+- **States.** Empty: "Nothing is waiting on your review."; no forge: what
+  would give it one (a repository on GitHub or GitLab, or `forge.kind` and
+  `forge.host`); a failure: the server's detail, or a sentence that says to
+  press Retry, as an alert beside the count, and a failed refresh keeps the
+  queue it last read. How many wait is a status line that stays mounted, so
+  a screen reader hears what each read found as it lands.
 
-**Touches.** `api/openapi.yaml`, `internal/webserver/{webserver, reviews
-(new)}.go`, `internal/cli/cli.go`, new `web/src/features/reviews/`,
-`web/src/shell/{uiStore,sections}.ts`, `web/e2e/a11y.spec.ts`.
+**Touches.** `internal/forge/pulls.go`, `internal/cli/{reviews, cli}.go`,
+`internal/tui/reviewqueue.go`, `api/openapi.yaml`,
+`internal/webserver/{webserver, handlers, dto, errors}.go`,
+`docs/content/docs/{errors, scripting}.md`, new `web/src/features/reviewqueue/`, new
+`web/src/dev/mockReviews.ts`, `web/src/shell/{uiStore, sections}.ts`,
+`web/src/shell/SectionPanel.tsx`, `web/src/test/fixtures.ts`,
+`web/e2e/{a11y, screens}.spec.ts`.
 
-**Budget.** **`internal/webserver` → 18** with a history row;
-`web/src/shell` stays 10 of 12 (no new file); the new feature directory
-answers to the default.
+**Budget.** None bumped: `internal/webserver` stays 17 (the read joined
+`handlers.go`, now 285 lines); `web/src/shell` stays 10 of 12;
+`web/src/features/reviewqueue` is 2 and `web/src/dev` 4, each under the
+default 12.
 
 **Done when.** The web has the interface's six sections and lists the same
-requests `workflow reviews` prints.
+requests `workflow reviews` prints, in the same order.
 
-**Proof.** `webserver_test.TestListReviewsAnswersTheForgeQueue`; vitest *the
-Reviews section lists requests by role*; axe on the new section.
+**Proof.** `webserver_test.TestListReviewsAnswersTheForgeQueue`,
+`TestListReviewsAnswersAnEmptyQueueAsAnEmptyList`,
+`TestListReviewsSaysThereIsNoForgeToAsk`,
+`TestListReviewsDetailOmitsTheForgeHost`, `TestAForgeFailureSaysWhatToDo`;
+`forge_test.TestOldestFirstPutsTheLongestWaitingFirst`;
+`cli_test.TestWebDepsHandsTheServerEverySeam`. vitest *the Reviews section
+lists requests by role and name*, *Refresh reads the queue from the forge
+again*, *a refresh in flight says so, keeps its focus, and is not asked
+twice*, *Retry reads the queue again and keeps focus, as Refresh*, *a
+retry after a failed first read keeps its place and its focus*, *Retry
+says the queue it read in the status line it already had* (and that
+nothing waits), *a failed refresh says why and keeps the queue it last
+read*, *a retry in flight after a failed refresh says so and keeps its
+focus*, *a failed read is said at once, never retried behind the user's
+back*, *opening the section reads again a queue read over a minute ago*
+(and nothing for one read within it), *Copy URL puts the address on the
+clipboard and says so*, the empty, no-forge and failure states; the
+rail's six sections (`web/src/shell/NavRail.test.tsx`), the section from
+the rail (`web/src/App.test.tsx`) and without the stream
+(`web/src/shell/SectionPanel.test.tsx`). Axe on the section in both themes
+in both projects — a failed read and its Retry in the hermetic one, the
+mockup's queue in the populated one — and its screenshots at 640, 1024 and
+1440 px. Each web test was checked to fail with its hunk reverted.
 
 ### Phase 13 — The web's visual system
 
@@ -858,7 +928,9 @@ interface's own system does not change.
   (`web/src/shell/NavRail.tsx:30`), section headings. **Periwinkle stays the
   interactive-control accent** (`index.css:24` is a documented choice)
   — **decided: it stays**, and the identity hues stay distinct from it.
-- One `StateMark` component drawing `○ ◐ ● ✗` for CI (`web/src/features/review/ReviewPanel.tsx:21`),
+- One `StateMark` component drawing `○ ◐ ● ✗` for CI (`web/src/features/review/ReviewPanel.tsx:21`,
+  and the Reviews section's text-only label, `ciLabel`,
+  `web/src/features/reviewqueue/ReviewQueuePanel.tsx:12`),
   the stream (`StreamStatus.tsx:4`) and the work story
   (`web/src/features/issues/WorkStory.tsx:302`); the text label stays, the mark is `aria-hidden`.
 - The seven `uppercase` eyebrows (`web/src/features/settings/SettingsPanel.tsx:353`,
@@ -886,8 +958,8 @@ Closes UX-85. Depends on Phase 13 (tokens).
 
 Breakpoints (none today): the rail collapses to icons under `md`; list and
 detail stack under `lg` (`IssuesPanel.tsx:108-109`); `grid-cols-[6rem_1fr]`
-and its siblings go responsive; `max-w-2xl` goes fluid; the issues `<ul>`
-scrolls inside its panel.
+and its siblings go responsive; `max-w-2xl` (and the Reviews list's
+`max-w-3xl`) goes fluid; the issues `<ul>` scrolls inside its panel.
 
 **Touches.** `web/src/**/*.tsx`, a new `web/e2e/layout.spec.ts` (`web/e2e`
 4 → 5 of 12).
@@ -1100,8 +1172,9 @@ phase disagree, the correction wins.
    Phase 1's first commit so the build holds the direction. `config →
    convention`, so nothing in `convention` may take a `config.Config`.
 2. **Zero-headroom budgets.** The bumps this plan needs: `internal/tui`
-   38 → 39 (Phase 5); `internal/webserver` 15 → 16 → 17 → 18 (Phases 9, 10,
-   12); possibly `internal/cli` 13 → 14 (Phase 2). Each WHY rewrite and
+   38 → 39 (Phase 5); `internal/webserver` 15 → 16 → 17 (Phases 9 and 10;
+   Phase 12's read joined `handlers.go`); possibly `internal/cli` 13 → 14
+   (Phase 2). Each WHY rewrite and
    history row rides in the **same commit** as the new file, or that commit
    fails `task check` and cannot land under rebase-only `main`.
    `internal/loop` is new and answers to the default 12.
