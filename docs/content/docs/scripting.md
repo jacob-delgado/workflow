@@ -30,7 +30,7 @@ the message, which is prose and may change.
 | 0 | Success. | |
 | 1 | Any other failure. | An issue that is not in the tracker, a push that was rejected, git missing, a repository whose branch cannot be read. |
 | 2 | Usage: the command was called wrongly. | An unknown flag, command or subcommand; a wrong number of arguments; `standup --days 0`; a confirmation with no terminal to answer it. |
-| 3 | Configuration: fix the file. | No `.workflow.json` for `doctor` or `config show`; a file that does not parse; a required field or credential left empty, or set unusably; a file other users can read; a credential a service rejected; no messaging configured for `announce`. |
+| 3 | Configuration: fix the file, a credential or a login. | No `.workflow.json` for `doctor` or `config show`; a file that does not parse; a required field left empty, or set unusably; a file other users can read; no messaging configured for `announce`; a credential that is missing — a Jira token, or a forge token from the file, the environment or `gh auth login` — or one a service rejected. |
 | 4 | A refused precondition: the command would not go ahead because of what it found. | A pull request already open; no commits to open one for; no pull request to announce; a branch or configuration file that already exists; a directory that is not a git repository. |
 | 5 | Unreachable: a service did not answer, or asked you to wait. | Jira, the forge or the messaging service could not be reached; rate limiting. |
 | 130 | Interrupted by Ctrl+C. | |
