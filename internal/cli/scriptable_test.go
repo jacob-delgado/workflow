@@ -43,6 +43,8 @@ func TestAnnounceCommandNeedsMessaging(t *testing.T) {
 	if err == nil || !strings.Contains(err.Error(), "messaging") {
 		t.Errorf("announce with no messaging returned %v, want a not-configured error", err)
 	}
+
+	wantExit(t, err, 3)
 }
 
 // searchFixture is the Jira body for a search of the issues assigned to you.

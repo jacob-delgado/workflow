@@ -113,13 +113,27 @@ func execute(ctx context.Context, args []string, stdout, stderr io.Writer, promp
 	root.SetArgs(args)
 	root.SetOut(stdout)
 	root.SetErr(stderr)
+	// cobra adds its help and completion commands only as the tree runs, after
+	// any walk could meet them. Adding them here lets markMisuse reach them too,
+	// and only once the streams are set: a completion script keeps the stdout
+	// its command was added under.
+	root.InitDefaultHelpCmd()
+	root.InitDefaultCompletionCmd()
+	markMisuse(root)
 
 	err := root.ExecuteContext(ctx)
-	if err != nil {
-		return fmt.Errorf("workflow: %w", err)
+	if err == nil {
+		return nil
 	}
 
-	return nil
+	// A git or gh child stopped by the interrupt fails with its own exit
+	// status, and a failed git read is then reported as no repository at all;
+	// neither carries ctx's error, so put it back for ExitStatus to find.
+	if ctx.Err() != nil {
+		return fmt.Errorf("workflow: %w: %w", ctx.Err(), err)
+	}
+
+	return fmt.Errorf("workflow: %w", err)
 }
 
 // runTUI starts the interface and blocks until the user quits. It is tui.Run in

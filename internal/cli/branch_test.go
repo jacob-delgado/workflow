@@ -98,6 +98,8 @@ func TestBranchRefusesAnIssueThatAlreadyHasABranch(t *testing.T) {
 	if err == nil || !strings.Contains(err.Error(), "already exists") {
 		t.Fatalf("branch = %v, want a refusal naming the existing branch:\n%s", err, output)
 	}
+
+	wantExit(t, err, 4)
 }
 
 func TestBranchDryRunCreatesNothing(t *testing.T) {

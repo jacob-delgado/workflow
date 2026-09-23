@@ -55,7 +55,7 @@ gap, and which phase closes it.
 
 | # | Action | CLI | TUI | Web | Warranted? |
 | --- | --- | --- | --- | --- | --- |
-| 1 | List the view's issues | P (only `branch <tab>` completion, `completeAssignedIssues`, `internal/cli/scriptable.go:83`) | Y | Y (page 0 of the stream) | CLI read: a feature, FEAT-78 |
+| 1 | List the view's issues | P (only `branch <tab>` completion, `completeAssignedIssues`, `internal/cli/scriptable.go:91`) | Y | Y (page 0 of the stream) | CLI read: a feature, FEAT-78 |
 | 2 | Switch view / next page | N | Y (`v`, `ctrl+n`) | N (`web/src/api/snapshot.ts:39` sends no `?view=`) | **Web yes** — the stream already takes `?view=` (`internal/webserver/stream.go:38`). Phase 3, UX-72 |
 | 3 | Filter the list | N | Y (`/`, `internal/tui/issues.go:154`) | N | Web idea, UX-72; CLI no |
 | 4 | Read an issue in full | N | Y (`internal/tui/detail.go:225`) | **N** — `IssuesPanel.tsx:83` renders the slim snapshot `Issue` | **Web yes, cheap** — `getIssue` exists (`api/openapi.yaml:95`, `handlers.go:66`) and is never called. Phase 3, UX-70. CLI: FEAT-78 |
@@ -122,9 +122,9 @@ gap, and which phase closes it.
 | 40 | Write / initialize the config | Y (`config init`) | N | P (7 sections; five carried but not editable) | Interface: `config init` + `doctor` are the path — no. Web remainder: UX-87 |
 | 41 | Doctor | Y | N | N | Reasonable CLI-only; the interface points at it (`render.go:377`) |
 | 42 | Status across the loop | Y (`status DIR…`) | Y (the spine) | Y (`WorkStory`) | — |
-| 43 | Dry run | Y (two unrelated flags: `internal/cli/cli.go:184`, `internal/cli/scriptable.go:28`) | Y (per seam, `dryrun.go:25`) | **P** — a blanket 403 (`guard.go:46`), and `getHealth.dry_run` is never fetched | **Web yes, cheap** — the flag is on the wire. Phase 3, UX-71. CLI one flag: Phase 2, UX-52 |
+| 43 | Dry run | Y (two unrelated flags: `internal/cli/cli.go:198`, `internal/cli/scriptable.go:36`) | Y (per seam, `dryrun.go:25`) | **P** — a blanket 403 (`guard.go:46`), and `getHealth.dry_run` is never fetched | **Web yes, cheap** — the flag is on the wire. Phase 3, UX-71. CLI one flag: Phase 2, UX-52 |
 | 44 | Request log `--log` | P (root only; subcommands pass `nil`) | Y | Y | Phase 2, UX-52 |
-| 45 | Help / discoverability | P (no hint on a typo, `internal/cli/cli.go:156`) | P (`?` 57/57; five Issues keys off the footer, `render.go:336`) | n/a | Phase 8 (UX-56), Phase 7 (UX-63); web `?` idea, UX-88 |
+| 45 | Help / discoverability | P (no hint on a typo, `internal/cli/cli.go:170`) | P (`?` 57/57; five Issues keys off the footer, `render.go:336`) | n/a | Phase 8 (UX-56), Phase 7 (UX-63); web `?` idea, UX-88 |
 | 46 | Version | Y | n/a | P (`getHealth.version` never fetched) | Folds into Phase 3's health call |
 
 ## Where a surface breaks a convention
@@ -137,7 +137,7 @@ to see the shape.
 
 | Convention | Verdict | Where |
 | --- | --- | --- |
-| `--help` on every command; useful long help | Met | `internal/cli/cli.go:25` `longHelp`; pinned by `cli_test.go:233` |
+| `--help` on every command; useful long help | Met | `internal/cli/cli.go:25` `longHelp`; pinned by `internal/cli/cli_test.go:235` |
 | `--version` | Met at runtime, missing from the generated reference | UX-55 |
 | Exit codes distinguish failure kinds | **Gap** — one code; the same condition exits differently in two commands | UX-50 |
 | stdout = artifact, stderr = commentary | **Partial** — warnings, notices, guidance and the web banner on stdout; `config show`'s `#` header breaks `jq` | UX-51, DEBT-54 |
@@ -152,8 +152,8 @@ to see the shape.
 | Errors say what to do next | Partial — strong in `doctor`/`config`; bare sentinels do not | UX-57 |
 | A hint on misuse | **Gap** — `SilenceUsage`+`SilenceErrors` swallow cobra's | UX-56 |
 | No surprises | Partial — `branch` switches silently; `pr` pushes and transitions under one question | UX-58 |
-| Secrets never printed | Met | pinned by `cli_test.go:208`, `doctor_json_test.go:65` |
-| Shell completion | Met, incl. dynamic issue keys | `internal/cli/scriptable.go:83` |
+| Secrets never printed | Met | pinned by `internal/cli/cli_test.go:210`, `doctor_json_test.go:65` |
+| Shell completion | Met, incl. dynamic issue keys | `internal/cli/scriptable.go:91` |
 | Docs cover the commands | **Gap** — `usage.md` is TUI-only | UX-55 |
 
 ### The terminal interface
@@ -322,7 +322,7 @@ DEBT-54. Depends softly on Phase 1 (`ExitStatus` classifies `loop.Err*`;
 without it, classify the CLI-local sentinels and re-point later).
 
 - **Exit codes.** `cli.ExitStatus(err) int`, called from
-  `cmd/workflow/main.go:35`: **0** success · **1** failure · **2** usage
+  `cmd/workflow/main.go:38`: **0** success · **1** failure · **2** usage
   (cobra's flag and argument errors, via `SetFlagErrorFunc`) · **3**
   configuration (`config.ErrNotFound`, `ErrInvalid`) · **4** refused
   precondition (`loop.ErrPullAlreadyOpen`, `ErrNothingToOpen`,
@@ -332,18 +332,18 @@ without it, classify the CLI-local sentinels and re-point later).
   problem codes use (`docs/content/docs/errors.md`). **Decided** — the
   refined table under *Decisions the maintainer made* supersedes this one.
   Align `config show` with `doctor` when there is no file
-  (`internal/cli/config_cmd.go:83` vs `doctor.go:463`, both → 3) and `status` with
+  (`internal/cli/config_cmd.go:86` vs `doctor.go:463`, both → 3) and `status` with
   `status .` outside a repository (`statusHere`, `internal/cli/status.go:72`,
   vs `statusAcross`, `:86`).
 - **Streams.** The rule: stdout carries the artifact (JSON, the preview
   text, the created thing's URL, the standup draft); stderr carries
-  commentary (`Warning:` `internal/cli/config_cmd.go:278`, `Not opened.` and `dry run:
-  would …` `internal/cli/scriptable.go:45`, `:60`, the no-config guidance
-  `internal/cli/config_cmd.go:89`, the web banner `internal/cli/cli.go:247`, `config show`'s
-  `# <path>` header `internal/cli/config_cmd.go:285`). Split the harness
+  commentary (`Warning:` `internal/cli/config_cmd.go:281`, `Not opened.` and `dry run:
+  would …` `internal/cli/scriptable.go:53`, `:68`, the no-config guidance
+  `internal/cli/config_cmd.go:92`, the web banner `internal/cli/cli.go:261`, `config show`'s
+  `# <path>` header `internal/cli/config_cmd.go:288`). Split the harness
   **first** (`runStreams`, `internal/cli/cli_test.go:57`, returns both streams).
 - **Flags.** `--dry-run` and `--log` become root `PersistentFlags`;
-  `writeOptions.addFlags` (`internal/cli/scriptable.go:28`) stops declaring its own
+  `writeOptions.addFlags` (`internal/cli/scriptable.go:36`) stops declaring its own
   `--dry-run`; the seven wiring preambles (`runReviewsCommand`,
   `runBranchCommand`, `runPRCommand`, `status`'s `seamsFor`,
   `runStandupCommand`, `runAnnounceCommand`, `completeAssignedIssues`, and
@@ -549,7 +549,7 @@ Phase 2 (notices are on stderr).
 
 - Typo hint: keep `SilenceErrors` (it stops the usage dump on a real
   error) and have `Execute` print "Run 'workflow --help' for usage." plus
-  cobra's suggestions on an unknown command or flag (`internal/cli/cli.go:156`).
+  cobra's suggestions on an unknown command or flag (`internal/cli/cli.go:170`).
 - Sentinels carry a next step: `errBranchExists` names the branch and
   `git switch NAME` (`internal/cli/branch.go:21`); `errPullAlreadyOpen` carries the URL
   (`internal/cli/pr.go:28`); `errMessagingNotConfigured` names the keys and `workflow
@@ -593,7 +593,7 @@ Closes UX-73, UX-74. Depends on Phases 1 and 3.
   /api/issues/{key}/transition` (fields-less only; 409 when Jira wants
   fields), in one handler file `issuewrite.go` (mirrors
   `internal/tui/issuewrite.go`); `webserver.Deps` gains `LinkPullRequest`,
-  `Transitions`, `Transition` (mapped in `cli.webDeps`, `internal/cli/cli.go:255`).
+  `Transitions`, `Transition` (mapped in `cli.webDeps`, `internal/cli/cli.go:269`).
   `OpenedPullRequest` gains `follow_ups` (via `loop.ReviewTransition`).
   After `Pull request opened.`, the panel offers "Link it on KEY" and "Move
   KEY to STATUS" inline, each with a `role="status"` outcome.
@@ -790,7 +790,7 @@ Closes DEBT-69, DEBT-70. Last, so it documents the end state. TDD-exempt.
   (`:24-43`), `R` and `u` now previewed, the moved keys; and **a web page**
   — the six sections, the stream, the theme, the actions the web supports —
   written last so it is true. README mentions `--web`.
-- Residual "Slack": `internal/cli/cli.go:153`, `groupReviewSlack`
+- Residual "Slack": `internal/cli/cli.go:167`, `groupReviewSlack`
   `internal/tui/keys.go:80`, `web/index.html:9`, `FEATURES.md:30`.
 - **`FEATURES.md:52` "Five panes down the left" → six** — stale
   settled-decision text corrected, not a decision reopened; say so.

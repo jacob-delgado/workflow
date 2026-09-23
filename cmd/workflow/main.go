@@ -31,14 +31,11 @@ const standupHelp = "Edit your standup above this line, then save and close.\n" 
 // keychainService is the name the Jira token is stored under in the keychain.
 const keychainService = "workflow-jira"
 
-// exitFailure is the status returned when a command reports an error.
-const exitFailure = 1
-
 func main() {
 	err := cli.Execute(os.Args[1:], os.Stdout, os.Stderr, terminalPrompt())
 	if err != nil {
 		fmt.Fprintln(os.Stderr, err)
-		os.Exit(exitFailure)
+		os.Exit(cli.ExitStatus(err))
 	}
 }
 

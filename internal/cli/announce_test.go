@@ -123,6 +123,8 @@ func TestAnnounceRefusesABranchWithNoPullRequest(t *testing.T) {
 	if err == nil || !strings.Contains(err.Error(), "no pull request") {
 		t.Errorf("announce = %v, want it to refuse a branch with no pull request", err)
 	}
+
+	wantExit(t, err, 4)
 }
 
 func TestAnnounceRefusesABranchWithNoPullRequestInItsOwnWords(t *testing.T) {
@@ -221,6 +223,8 @@ func TestAnnounceReportsAFailedPost(t *testing.T) {
 	if err == nil || !strings.Contains(err.Error(), "Slack") {
 		t.Errorf("announce = %v, want the failed post reported", err)
 	}
+
+	wantExit(t, err, 5)
 }
 
 func TestAnnounceOutsideARepositoryReportsSo(t *testing.T) {

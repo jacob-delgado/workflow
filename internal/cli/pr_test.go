@@ -246,6 +246,8 @@ func TestPRReportsAFailedPush(t *testing.T) {
 	if err == nil || !strings.Contains(err.Error(), "pushed") {
 		t.Errorf("pr = %v, want a failed push reported", err)
 	}
+
+	wantExit(t, err, 1)
 }
 
 func TestPRRefusesASecondPullRequest(t *testing.T) {
@@ -262,6 +264,8 @@ func TestPRRefusesASecondPullRequest(t *testing.T) {
 	if err == nil || !strings.Contains(err.Error(), "already") {
 		t.Errorf("pr = %v, want it to refuse a second pull request", err)
 	}
+
+	wantExit(t, err, 4)
 }
 
 func TestPRRefusesASecondPullRequestInItsOwnWords(t *testing.T) {
@@ -296,4 +300,6 @@ func TestPRRefusesABranchWithNoCommits(t *testing.T) {
 	if err == nil || !strings.Contains(err.Error(), "commits") {
 		t.Errorf("pr = %v, want a refusal that there are no commits to open", err)
 	}
+
+	wantExit(t, err, 4)
 }

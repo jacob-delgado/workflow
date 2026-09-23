@@ -28,6 +28,9 @@ func newConfigCmd(prompt Prompt) *cobra.Command {
 		Use:   "config",
 		Short: "Create and inspect the configuration file",
 		Args:  cobra.NoArgs,
+		// Runnable, so NoArgs refuses an unknown subcommand as misuse; declared
+		// here, not left to markMisuse, so the generated reference shows it too.
+		RunE: func(cmd *cobra.Command, _ []string) error { return cmd.Help() },
 	}
 
 	cmd.AddCommand(newConfigInitCmd(prompt), newConfigShowCmd())

@@ -38,6 +38,8 @@ func TestDoctorReportsAMissingFile(t *testing.T) {
 	if err == nil || !strings.Contains(output, "config init") {
 		t.Errorf("doctor = %v, want an error saying how to create a config:\n%s", err, output)
 	}
+
+	wantExit(t, err, 3)
 }
 
 func TestDoctorNamesMissingFields(t *testing.T) {
@@ -52,6 +54,8 @@ func TestDoctorNamesMissingFields(t *testing.T) {
 	if err == nil {
 		t.Fatalf("expected an error for an incomplete config, got none (%s)", output)
 	}
+
+	wantExit(t, err, 3)
 
 	if !strings.Contains(output, "messaging.token or messaging.webhook_url") {
 		t.Errorf("doctor does not offer both Slack transports:\n%s", output)
@@ -120,6 +124,8 @@ func TestDoctorFailsOnAConfigurationOthersCanRead(t *testing.T) {
 	if err == nil || !strings.Contains(output, "0644") || !strings.Contains(output, "chmod 600 "+path) {
 		t.Errorf("doctor = %v, want it to refuse a file others can read and say how to fix it:\n%s", err, output)
 	}
+
+	wantExit(t, err, 3)
 }
 
 // gitInit makes dir a real repository, so doctor's repository section can be
@@ -419,7 +425,7 @@ func TestDoctorReportsSetButInvalidValues(t *testing.T) {
 	// is not http(s), an insecure webhook, and a forge kind that names no forge.
 	dir := t.TempDir()
 	writeFile(t, dir, `{"jira":{"base_url":"ftp://jira.example.com","token":"t"},`+
-		`"messaging":{"webhook_url":"http://hooks.example.com/x"},"forge":{"kind":"githb"}}`)
+		`"messaging":{"webhook_url":"http://hooks.example.com/x"},"forge":{"kind":"githb","host":"github.com"}}`)
 
 	// Act
 	out, err := run(t, dir, "doctor")
@@ -429,9 +435,15 @@ func TestDoctorReportsSetButInvalidValues(t *testing.T) {
 		t.Errorf("doctor passed a configuration with invalid values:\n%s", out)
 	}
 
+	wantExit(t, err, 3)
+
 	for _, want := range []string{"Problems", "jira.base_url", "messaging.webhook_url", "forge.kind"} {
 		if !strings.Contains(out, want) {
 			t.Errorf("doctor did not flag %q:\n%s", want, out)
 		}
+	}
+
+	if strings.Contains(out, "Missing") {
+		t.Errorf("doctor reported a missing field in a complete configuration:\n%s", out)
 	}
 }

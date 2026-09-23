@@ -159,6 +159,8 @@ func TestConfigInitRefusesToOverwriteWithoutForce(t *testing.T) {
 		t.Fatalf("expected an error, got none (%s)", output)
 	}
 
+	wantExit(t, err, 4)
+
 	// The refusal is the point: that file holds credentials that cannot be
 	// recovered once overwritten.
 	contents, err := os.ReadFile(path)
