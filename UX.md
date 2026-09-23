@@ -409,10 +409,10 @@ sentences live ("Check the VPN, then press `r`", "Run `gh auth login`"). Of
 calls it, so all 8 `pinnedOutcome` overlays show `could not reach the forge
 at …: dial tcp …` instead of the sentence. Fourteen rail sites are
 `failedGlyph + err.Error()` (`checks.go:96`, `diff.go:79`,
-`issuewrite.go:120`, `internal/tui/picker.go:209`, `switchtask.go:107`, `internal/tui/review.go:219`,
-`internal/tui/run.go:211`, `composer.go:163`, `internal/tui/fields.go:171`, …); eight are glyph-only
+`issuewrite.go:120`, `internal/tui/picker.go:209`, `internal/tui/switchtask.go:108`, `internal/tui/review.go:219`,
+`internal/tui/run.go:211`, `internal/tui/composer.go:164`, `internal/tui/fields.go:171`, …); eight are glyph-only
 summaries; nine are notices with no glyph and no red (`comment.go:76`,
-`composer.go:76`, `internal/tui/messaging.go:378`, `finish.go:141`, `internal/tui/review.go:509`,
+`internal/tui/composer.go:77`, `internal/tui/messaging.go:378`, `finish.go:141`, `internal/tui/review.go:509`,
 `:511`, `:575`, `:577`, `:595`); one config screen is unstyled
 (`render.go:386`). `render.go:372` points at `workflow doctor` only for a
 *missing* setting, never a failing one; `forgeReason` (`internal/tui/review.go:361`),
@@ -432,7 +432,7 @@ sentence.
 
 Impact: low · Effort: large
 
-**Today.** Drafts survive `esc` (commit `composer.go:251`, pull request
+**Today.** Drafts survive `esc` (commit `internal/tui/composer.go:252`, pull request
 `internal/tui/prcomposer.go:275`), a dirty tree blocks a switch instead of stashing, and
 quit is guarded while a post waits. But a posted comment, an applied
 transition, a merge and the `branch -D` in finish have no undo, and the
@@ -570,7 +570,7 @@ Impact: high · Effort: medium
 read-only, and the commit form is mounted only when something is *already*
 staged (`:111`). A browser user with unstaged changes has a list they cannot
 act on and no form — the flow the interface completes with `space` and `a`
-(`commits.go:273`, `:294`) is not there.
+(`internal/tui/commits.go:267`, `:288`) is not there.
 
 **Instead.** `POST /api/stage` and `/api/unstage` taking `{path}` or
 `{all: true}`; Stage / Unstage per file and Stage all; the commit form
@@ -584,7 +584,7 @@ can commit.
 Impact: medium · Effort: small
 
 **Today.** The interface's composer opens on the learned scope, else
-`commit.default_scope` (`composer.go:129` `startingScope`). The web's
+`commit.default_scope` (`internal/tui/composer.go:130` `startingScope`). The web's
 `CommitForm` hardcodes `scope: ''` (`CommitForm.tsx:45`) — while
 `commit.default_scope` is an editable field in the Settings form
 (`SettingsPanel.tsx:182`). A setting the user can change with no visible
@@ -644,13 +644,13 @@ outcome (`toHaveFocus`).
 Impact: medium · Effort: small
 
 **Today.** Server reasons are good where they exist (`the working tree has
-uncommitted changes; commit or stash them before switching`, `checkout.go:17`;
-`nothing is staged to commit`, `internal/webserver/commit.go:20`). But the client fallbacks
+uncommitted changes; commit or stash them before switching`, `internal/webserver/checkout.go:19`;
+`nothing is staged to commit`, `internal/webserver/commit.go:21`). But the client fallbacks
 are vague and near-apologetic — `The branch could not be checked out.`
 (`IssuesPanel.tsx:134`), `Work could not be started.` (`WorkStory.tsx:260`),
 `The push failed.` (`BranchPanel.tsx:132`), `The commit could not be
 created.` (`CommitForm.tsx:74`) — and three handlers replace the tool's
-reason with one of those sentences: `checkout.go:42`, `internal/webserver/branchcreate.go:44`,
+reason with one of those sentences: `internal/webserver/checkout.go:44`, `internal/webserver/branchcreate.go:44`,
 `internal/webserver/announce.go:57`. `writeResponseError` answers `something went wrong`
 (`errors.go:79`). A user gets a dead end with no next step.
 
@@ -868,7 +868,8 @@ to branch from what you have when the fetch fails (`internal/tui/branch.go:449`)
 no fetch, no worktree.
 
 **Instead.** `--worktree` and `--fetch` on `branch`; a worktree toggle on
-the web's start-work flow; both through the shared composition (DEBT-50).
+the web's start-work flow; both through the shared composition layer,
+`internal/loop`.
 
 **Done when.** `workflow branch KEY --worktree` creates a directory beside
 the repository and says where.

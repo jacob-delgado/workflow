@@ -16,6 +16,7 @@ import (
 
 	"github.com/jacob-delgado/workflow/internal/convention"
 	"github.com/jacob-delgado/workflow/internal/jira"
+	"github.com/jacob-delgado/workflow/internal/loop"
 	"github.com/jacob-delgado/workflow/internal/proc"
 )
 
@@ -72,7 +73,7 @@ func (m Model) openCommitComposer() (Model, tea.Cmd) {
 		return m, nil
 	}
 
-	if m.changes.staged() == 0 {
+	if loop.RefuseNothingStaged(m.changes.changes) != nil {
 		return m.noticed("nothing is staged: space stages the selected file"), nil
 	}
 

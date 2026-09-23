@@ -82,12 +82,6 @@ func (l changeList) current() (gitrepo.Change, bool) {
 	return l.changes[l.selected], true
 }
 
-// dirty reports a work tree with changes, which a task switch must not carry
-// onto another branch.
-func (l changeList) dirty() bool {
-	return len(l.changes) > 0
-}
-
 // staged counts the changes in the index.
 func (l changeList) staged() int {
 	count := 0
