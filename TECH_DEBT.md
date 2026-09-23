@@ -337,8 +337,8 @@ change that.
 Severity: low · Confidence: read
 
 `wiring.Deps` (`internal/wiring/wiring.go:72`) returns `tui.Deps`, so the
-wiring package imports the terminal interface; the CLI's `webDeps`
-(`internal/cli/cli.go:274`) then narrows that bundle for the web server.
+wiring package imports the terminal interface; the CLI's `WebDeps`
+(`internal/cli/cli.go:276`) then narrows that bundle for the web server.
 The seams are not the terminal's — they are the loop's. That import no
 longer stands in the way of shared composition: `internal/loop` takes each
 seam as a plain argument (`loop.PullSeams`, `loop.AnnounceSeams`) and never

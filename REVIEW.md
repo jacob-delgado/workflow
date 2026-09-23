@@ -610,7 +610,7 @@ Closes UX-73, UX-74. Depends on Phases 1 and 3.
   /api/issues/{key}/transition` (fields-less only; 409 when Jira wants
   fields), in one handler file `issuewrite.go` (mirrors
   `internal/tui/issuewrite.go`); `webserver.Deps` gains `LinkPullRequest`,
-  `Transitions`, `Transition` (mapped in `cli.webDeps`, `internal/cli/cli.go:274`).
+  `Transitions`, `Transition` (mapped in `cli.WebDeps`, `internal/cli/cli.go:276`).
   `OpenedPullRequest` gains `follow_ups` (via `loop.ReviewTransition`).
   After `Pull request opened.`, the panel offers "Link it on KEY" and "Move
   KEY to STATUS" inline, each with a `role="status"` outcome.
