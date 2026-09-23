@@ -213,12 +213,12 @@ Impact: medium · Effort: large
 - Why: The web's Review section shows a pull request and its CI and can
   open one, but cannot re-run failed checks, merge, finish the merged
   branch or edit the pull request's title and body — all of which the
-  interface does with `R`, `M`, `F` and `e` (`internal/tui/review.go:479`,
-  `:626`, `finish.go:44`, `preditor.go:37`). FEAT-31's own note already
+  interface does with `R`, `M`, `F` and `e` (`internal/tui/review.go:480`,
+  `:656`, `finish.go:44`, `preditor.go:37`). FEAT-31's own note already
   records the web merge as a follow-up; this formalizes the set.
 - Touches: `api/openapi.yaml` (four operations), `internal/webserver` (a
   handler per action, each a budget row; merge gated exactly as `canMerge`
-  gates it, `internal/tui/review.go:534`, over the shared composition —
+  gates it, `internal/tui/review.go:564`, over the shared composition —
   REVIEW.md Phase 1), `web/src/features/review`, `web/e2e` (a write driven
   against a running server, which the suite does not yet do —
   TECH_DEBT.md DEBT-65).
@@ -244,7 +244,7 @@ Impact: medium · Effort: medium
   STRICT, migrated forward), `internal/messaging` (a `thread_ts` on a
   bot-token post — a webhook cannot thread, so this is bot-only and the
   preview says so), the announcement composition shared by all three
-  surfaces (REVIEW.md Phase 1), `docs/content/docs/usage.md:259`.
+  surfaces (REVIEW.md Phase 1), `docs/content/docs/usage.md:260`.
 - Done when: the second announcement of a pull request is posted as a reply
   to the first when a bot token is configured; with a webhook it posts
   top-level and the preview says why; the store still holds no token.

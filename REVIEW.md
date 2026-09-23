@@ -99,8 +99,8 @@ gap, and which phase closes it.
 | 27 | Edit the pull request | N | Y (`e`, `preditor.go`) | N | `gh pr edit` is the twin; web idea, FEAT-79 |
 | 28 | Checks list; a failure into `$EDITOR` | N | Y (`checks.go`) | P (a CI link) | A terminal gesture; web list idea, UX-88 |
 | 29 | Follow CI; notify on settle | n/a | Y (`internal/tui/review.go:191`) | P (5 s tick, no signal) | Web "CI settled" idea, UX-86 |
-| 30 | Re-run CI | N | Y, **unpreviewed** (`internal/tui/review.go:479`) | **F** | `gh run rerun` is the CLI's. Web declared (`FEATURES.md:148`), FEAT-79. The interface's last look: Phase 4, UX-65 |
-| 31 | Merge | N | Y (`M`, gated `internal/tui/review.go:534`) | **F** | FEAT-31 chose the interface; web declared (`FEATURES.md:150`), FEAT-79 |
+| 30 | Re-run CI | N | Y, previewed since Phase 4 (`previewRerun`, `internal/tui/review.go:480`, through `lastLook`) | **F** | `gh run rerun` is the CLI's. Web declared (`FEATURES.md:148`), FEAT-79 |
+| 31 | Merge | N | Y (`M`, gated `internal/tui/review.go:564`) | **F** | FEAT-31 chose the interface; web declared (`FEATURES.md:150`), FEAT-79 |
 | 32 | The review queue | Y (`reviews --json`) | Y (pane 6) | **N** (no section) | **Yes** — a read both other surfaces have, over a seam that exists. Phase 12, UX-83 |
 
 ### Messaging
@@ -160,9 +160,10 @@ to see the shape.
 
 The seven promises, re-counted, are the table in UX.md. In one line each:
 `?` lists every key (57/57, by construction); one voice for failure is
-kept by **11 of 52** sites (UX-67); a last look before anything outward by
-**16 of 18** — `R` and `u` are the two (UX-65); a refused change stays in
-view in **11 of 13** overlays — merge and finish demote it (UX-66); panes
+kept by **11 of 53** sites (UX-67); a last look before anything outward by
+**17 of 18** since Phase 4 gave `R` one — `u` is the other (UX-65); a refused
+change stays in view in **12 of 14** overlays — merge and finish demote it
+(UX-66); panes
 fail alone and state is by shape (kept). Beyond the promises: five Issues
 keys never reach the footer and two keys are filed under panes that do not
 answer them (UX-63); `Esc`/`Enter`, loading, success and empty states,
@@ -248,7 +249,7 @@ the web lint and unit tests; `depcruise` fails a deliberate feature-file
 ### Phase 1 — The shared composition layer: `internal/loop` — done
 
 Closes DEBT-50. The layer is a **new leaf package**, `internal/loop` ("the
-loop" is the house word — `docs/content/docs/usage.md:110`, `FEATURES.md:153`). It imports
+loop" is the house word — `docs/content/docs/usage.md:111`, `FEATURES.md:153`). It imports
 only `config`, `convention`, `forge`, `gitrepo`, `jira`, `messaging`, `proc`;
 it is imported by `cli`, `tui`, `webserver`. It cannot be `wiring` (which
 imports `tui` for `tui.Deps` — `tui` importing it back is a cycle), `tui`
@@ -436,7 +437,7 @@ Closes UX-65. Before 5–7, so the goldens move once.
 
 Generalize `pushPreview` (`internal/tui/run.go:394`) into `lastLook{title,
 body, verb, proceed func(Model) (Model, tea.Cmd)}` — three users now, the
-rule of three is met — and route `rerunChecks` (`internal/tui/review.go:479`, a forge
+rule of three is met — and route `rerunChecks` (`internal/tui/review.go:498`, a forge
 write) and `startRebase` (`internal/tui/run.go:447`, rewrites local history) through it;
 the dry-run narration moves inside `proceed`. Relabel the footers
 ("re-run", "rebase"); `usage.md`'s key rows follow.
@@ -459,14 +460,14 @@ tests to press `enter`.
 Closes UX-66, DEBT-55 (for `review.go`), DEBT-56. Depends on Phase 4.
 
 1. `refactor(tui): split the merge picker out of review.go` — `canMerge …
-   mergePicker.confirm` (`internal/tui/review.go:534-697`) to `merge.go`.
+   mergePicker.confirm` (`internal/tui/review.go:564-727`) to `merge.go`.
    **`internal/tui` 38 → 39 in this commit**, with the WHY rewritten
    ("merge.go: the Review pane's merge picker and its permitted-methods
    read, split out of review.go when it passed the 500-line target") and a
    row in `scripts/package-size-budget-history.md` — same commit, or the
    commit is red.
-2. `mergePicker.merging bool` (`:632`) → `send sendState`
-   (`sendstate.go:10`); `mergeRequested.apply` (`:597`) keeps the overlay
+2. `mergePicker.merging bool` (`:662`) → `send sendState`
+   (`sendstate.go:10`); `mergeRequested.apply` (`:623`) keeps the overlay
    open through `pinnedOutcome` (`render.go:457`) instead of
    `closeOverlay().noticed(…)`.
 3. The same for `finishPreview` (`finish.go:65`, `finished.apply` `:139`).
@@ -477,8 +478,9 @@ Closes UX-66, DEBT-55 (for `review.go`), DEBT-56. Depends on Phase 4.
 `scripts/package-size-budgets.txt`, `scripts/package-size-budget-history.md`.
 
 **Done when.** `grep -nE '(sending|merging|finishing)\s+bool'
-internal/tui/*.go` matches only `sendstate.go`; the promise is 13 of 13
-*held in the overlay*; `review.go` is under 500 lines.
+internal/tui/*.go` matches only `sendstate.go`; the promise is 14 of 14
+*held in the overlay* (Phase 4's re-run look is the fourteenth); `review.go`
+is under 500 lines.
 
 **Proof.** `TestRefusedMergeStaysInItsPreview` — `Merge` returns
 `forge.ErrRefused`; the merge overlay is still open and shows the
@@ -491,7 +493,7 @@ Closes UX-67. Depends on Phase 5 (every overlay outcome then flows through
 `pinnedOutcome`).
 
 - `failureBlock` (`internal/tui/render.go:450`) consults `errorSentence` —
-  fixes all eight `pinnedOutcome` overlays at once.
+  fixes all nine `pinnedOutcome` overlays at once.
 - `m.failureLine(err)` — glyph plus the sentence, or the raw text when
   there is none, one line — replaces the fourteen `failedGlyph() +
   err.Error()` rail sites (`checks.go:96`, `diff.go:79`, `issuewrite.go:120`,
@@ -499,15 +501,15 @@ Closes UX-67. Depends on Phase 5 (every overlay outcome then flows through
   `internal/tui/messaging.go:147`, `internal/tui/review.go:219`, `internal/tui/run.go:211`, `internal/tui/composer.go:164`,
   `:176`, `internal/tui/fields.go:171`).
 - The nine bare notices (`comment.go:76`, `internal/tui/composer.go:77`,
-  `internal/tui/messaging.go:378`, `finish.go:141`, `internal/tui/review.go:509`, `:511`, `:575`,
-  `:577`, `:595`) go through `m.noticed(m.failureLine(err))`;
+  `internal/tui/messaging.go:378`, `finish.go:141`, `internal/tui/review.go:533`, `:541`, `:605`,
+  `:607`, `:625`) go through `m.noticed(m.failureLine(err))`;
   `render.go:386` `configErrorStatus` is styled.
-- `forgeReason` (`internal/tui/review.go:361`), `rerunReason` (`:524`) and
-  `mergeReason` (`:605`) fold into `errorSentence`'s table
+- `forgeReason` (`internal/tui/review.go:361`), `rerunReason` (`:554`) and
+  `mergeReason` (`:635`) fold into `errorSentence`'s table
   (`forge.ErrRefused`/`ErrUnauthorized` → the write-scope sentence;
   `jira.ErrNotFound`; `forge.ErrNoRepository`; `errDryRun`).
 
-**Target.** From 11 of 52 to *every site that renders an error's text* —
+**Target.** From 11 of 53 to *every site that renders an error's text* —
 the eight width-one glyph-only rail cells excepted, by name. Operationally:
 `err.Error()` appears in no non-test `internal/tui` file but `render.go`.
 
@@ -531,7 +533,7 @@ The Issues pane's `keys(m)` gains `a`, `w`, `/` when the Jira write seams
 exist, and `enter`/`esc` in the collapsed layout (`issuekeys.go:22-85` vs
 `render.go:336`); `ctrl+w` moves from "Branch and Commits" (`keys.go:225`)
 to the composer's group; `w` post-when-green (`keys.go:245`) to the
-preview's; `docs/content/docs/usage.md:91`, `:102` follow. Replace the three-string spot check
+preview's; `docs/content/docs/usage.md:91`, `:103` follow. Replace the three-string spot check
 (`focus_test.go:124`) with a structural test that every placed binding with
 help text is rendered by `?`. `ShortHelp`'s omissions (`shift+tab`, `m`,
 the scroll keys, `ctrl+c`) are the deliberate tail — leave them.
@@ -799,7 +801,7 @@ Closes DEBT-69, DEBT-70. Last, so it documents the end state. TDD-exempt.
   settled-decision text corrected, not a decision reopened; say so.
   `FEATURES.md:12` re-pinned; the `Done:` notes on FEAT-26 (`:118`) and
   FEAT-31 (`:143`) removed per the standing rule.
-- `docs/content/docs/usage.md:259`'s threading limit → point at FEAT-81.
+- `docs/content/docs/usage.md:260`'s threading limit → point at FEAT-81.
 
 **Proof.** `task lint:markdown`, `task docs:check`, `task docs:build`.
 
@@ -897,8 +899,9 @@ phase disagree, the correction wins.
   drains on a fake clock, before any screen assertion moves. `lastLook`
   lives in `overlay.go`; a refused re-run stays pinned in it. usage.md has
   no `R` row today; the `u` row is at `:90`.
-- **Phase 5.** The re-run block moves to `checks.go` as well, or
-  `review.go` stays over 500 lines. The messaging pane's own `sending` flag
+- **Phase 5.** The re-run block (`canRerun … rerunReason`, Phase 4's
+  `previewRerun` included) moves to `checks.go` as well, or `review.go`
+  stays over 500 lines. The messaging pane's own `sending` flag
   adopts `sendState` too, or the Done-when grep cannot pass.
 - **Phase 6.** First, red: `failureHeadline` never matches production's
   `git: exit status N`. The failure family moves to `failure.go` (renamed

@@ -27,16 +27,20 @@ var (
 func TestNothingInterruptsAWriteBeingSent(t *testing.T) {
 	t.Parallel()
 
+	failedCI := []forge.CI{{State: forge.CIFailed, Total: 1, Done: 1, Failed: 1}}
+
 	cases := map[string]struct {
 		pullMissing bool
 		gitHooks    []hooks.GitHook
+		ci          []forge.CI
 		keys        []string
 		sending     string
 	}{
-		"a branch":         {keys: []string{"b"}, sending: "creating…"},
-		"a pull request":   {pullMissing: true, keys: []string{"4", "n"}, sending: "opening…"},
-		"a messaging post": {keys: []string{"5", "p"}, sending: "posting…"},
-		"a configuration":  {gitHooks: legacyHooks(), keys: []string{"3", "g"}, sending: "writing…"},
+		"a branch":           {keys: []string{"b"}, sending: "creating…"},
+		"a pull request":     {pullMissing: true, keys: []string{"4", "n"}, sending: "opening…"},
+		"a messaging post":   {keys: []string{"5", "p"}, sending: "posting…"},
+		"a configuration":    {gitHooks: legacyHooks(), keys: []string{"3", "g"}, sending: "writing…"},
+		"a re-run of checks": {ci: failedCI, keys: []string{"4", "R"}, sending: "re-running…"},
 	}
 
 	for name, tt := range cases {
@@ -46,6 +50,11 @@ func TestNothingInterruptsAWriteBeingSent(t *testing.T) {
 			// Arrange
 			sending := newWorld()
 			sending.pullFound, sending.gitHooks = !tt.pullMissing, tt.gitHooks
+
+			if tt.ci != nil {
+				sending.ci = tt.ci
+			}
+
 			overlay := typing(t, sending.live(t, 120, 50), tt.keys...)
 
 			// Act: send it

@@ -124,10 +124,10 @@ func (m Model) closeOverlay() Model {
 
 // lastLook is an outward act held for a last look before it goes — a push, a
 // re-run of CI, a rebase — so an act reachable from a single key is never one
-// key from its request. enter proceeds and esc backs out. A look whose proceed
-// sends a request of its own keeps the keys while it is in flight, and keeps a
-// refusal pinned under its title until esc; one whose proceed opens a run hands
-// the screen to that run instead.
+// key from its request. esc backs out; enter marks the look in flight and calls
+// proceed, which either sends a request of its own — the look then keeps the
+// keys until the answer, and a refusal stays pinned under its title until esc —
+// or closes the look or opens a run in its place.
 type lastLook struct {
 	marks  glyphs
 	styles styles
@@ -169,6 +169,9 @@ func (l lastLook) handleKey(m Model, msg tea.KeyPressMsg) (Model, tea.Cmd) {
 	case key.Matches(msg, m.keys.closeOverlay):
 		return m.closeOverlay(), nil
 	case key.Matches(msg, m.keys.confirm):
+		l.send = starting()
+		m.overlay = l
+
 		return l.proceed(m)
 	default:
 		return m, nil

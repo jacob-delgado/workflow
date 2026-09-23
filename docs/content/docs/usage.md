@@ -97,6 +97,7 @@ scroll the detail pane.
 | | `h` | Run the pre-commit hook now |
 | | `g` | Set up lefthook for hooks it does not manage |
 | 4 Review | `n` | Open a pull or merge request |
+| | `R` | Re-run failed CI, once a last look at the pull request is confirmed |
 | | `r` | Look for the pull request and its CI again |
 | 5 Slack | `p` | Preview the post announcing the pull request |
 | | `w` | Post automatically once CI passes |
