@@ -152,18 +152,20 @@ cancels; the detail read is keyed so a stale answer is dropped.
 
 ## The web
 
-### DEBT-62 One frontend function is 293 lines, and nothing measures a function's length
+### DEBT-62 One frontend function is 299 lines, and nothing measures a function's length
 
 Severity: medium · Confidence: measured
 
-`web/eslint.config.js:80` sets `complexity`, `max-params`, `max-depth` and
+`web/eslint.config.js:90` sets `complexity`, `max-params`, `max-depth` and
 `max-nested-callbacks` but no `max-lines-per-function`. The result:
-`ConfigForm` (`web/src/features/settings/SettingsPanel.tsx:40`) is 293
+`ConfigForm` (`web/src/features/settings/SettingsPanel.tsx:47`) is 299
 lines, `PullRequestForm` (`web/src/features/review/ReviewPanel.tsx:233`)
-125 and `CommitForm` (`web/src/features/branch/CommitForm.tsx:39`) 126. Files
-are measured — `scripts/check-file-length.sh` holds `.ts` and `.tsx` to the
-500/800 targets, and the longest, `web/src/features/issues/IssuesPanel.tsx`,
-is 359 lines — but a function can grow to fill one with nothing to say so.
+131 and `CommitForm` (`web/src/features/branch/CommitForm.tsx:39`) 135.
+Files are measured — `scripts/check-file-length.sh` holds `.ts` and `.tsx`
+to the 500/800 targets, and the longest,
+`web/src/features/branch/BranchPanel.test.tsx`, is 510 lines (the longest
+component file, `web/src/features/settings/SettingsPanel.tsx`, 383) — but a
+function can grow to fill one with nothing to say so.
 
 **One way to fix it.** Add `max-lines-per-function` to eslint at a number
 the split `ConfigForm` meets; split `ConfigForm` by fieldset.
@@ -369,7 +371,7 @@ know about.
   documents it): every unsafe method answers 403 at one gate, where the
   terminal simulates each write and narrates it. The browser reads
   `dry_run` from `getHealth`, says so in a banner, and holds every write
-  before sending it (`web/src/api/client.ts:24`), so the server's 403 is
+  before sending it (`web/src/api/client.ts:25`), so the server's 403 is
   only the backstop. The cost is that a web write under dry run is refused
   outright rather than simulated: the browser cannot show what the write
   would have done, as the terminal's narration does. The blanket refusal

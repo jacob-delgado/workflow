@@ -56,14 +56,14 @@ gap, and which phase closes it.
 | # | Action | CLI | TUI | Web | Warranted? |
 | --- | --- | --- | --- | --- | --- |
 | 1 | List the view's issues | P (only `branch <tab>` completion, `completeAssignedIssues`, `internal/cli/scriptable.go:125`) | Y | Y (the stream's page, and more on request since Phase 3) | CLI read: a feature, FEAT-78 |
-| 2 | Switch view / next page | N | Y (`v`, `ctrl+n`) | Y since Phase 3 — a view select from `listViews` (`ViewSelect`, `web/src/features/issues/IssueListControls.tsx:37`), `useEventStream(view)` (`web/src/api/snapshot.ts:34`), and Load more over `start_at` (`useMoreIssues`, `web/src/features/issues/issueApi.ts:73`); an unknown view is 404 | — |
-| 3 | Filter the list | N | Y (`/`, `internal/tui/issues.go:159`) | Y since Phase 3 — the same `KEY summary` match (`matchesFilter`, `web/src/features/issues/IssuesPanel.tsx:311`) | CLI no |
-| 4 | Read an issue in full | N | Y (`internal/tui/detail.go:285`) | Y since Phase 3 — description, comments, reporter, assignee (`IssueDetailPanel`, `web/src/features/issues/IssueDetailPanel.tsx:16`) | CLI: FEAT-78 |
+| 2 | Switch view / next page | N | Y (`v`, `ctrl+n`) | Y since Phase 3 — a view select from `listViews` (`ViewSelect`, `web/src/features/issues/IssueListControls.tsx:37`), `useEventStream(view)` (`web/src/api/snapshot.ts:46`), and Load more over `start_at` (`useMoreIssues`, `web/src/features/issues/issueApi.ts:73`); an unknown view is 404 | — |
+| 3 | Filter the list | N | Y (`/`, `internal/tui/issues.go:159`) | Y since Phase 3 — the same `KEY summary` match (`matchesFilter`, `web/src/features/issues/IssuesPanel.tsx:324`) | CLI no |
+| 4 | Read an issue in full | N | Y (`internal/tui/detail.go:285`) | Y since Phase 3 — description, comments, reporter, assignee (`IssueDetailPanel`, `web/src/features/issues/IssueDetailPanel.tsx:17`) | CLI: FEAT-78 |
 | 5 | Transition, with field forms | P (`pr`'s side effect, fields-less, `internal/cli/pr.go:236`) | Y (`internal/tui/picker.go:155`) | P since Phase 9 — the review-status move offered after opening, fields-less and nowhere else (`TransitionIssue`, `internal/webserver/issuewrite.go:106`) | A general transition: FEAT-78 (CLI), FEAT-80 (web) |
 | 6 | Comment | N | Y (`internal/tui/comment.go:41`) | N | FEAT-78 / FEAT-80; not this plan |
 | 7 | Assign / log work | N | Y (`internal/tui/issuewrite.go:74`, `:81`) | N | FEAT-78 / FEAT-80; not this plan |
 | 8 | Link the pull request on the issue | Y since Phase 8 — `pr` offers it before the status, under the same `--yes` (`offerLink`, `internal/cli/pr.go:176`) | Y (`issuelink.go`, `internal/tui/prcomposer.go:510`) | Y since Phase 9 — offered after opening; the server links the branch's own pull request, never a URL the page sends (`LinkPullRequest`, `internal/webserver/issuewrite.go:35`) | — |
-| 9 | Open / copy the issue URL | n/a | Y (`o`, `y`) | Y since Phase 3 — "Open in Jira" from the detail's `url` (`web/src/features/issues/IssueDetailPanel.tsx:77`); copying is the browser's own link menu | — |
+| 9 | Open / copy the issue URL | n/a | Y (`o`, `y`) | Y since Phase 3 — "Open in Jira" from the detail's `url` (`web/src/features/issues/IssueDetailPanel.tsx:134`); copying is the browser's own link menu | — |
 | 10 | Cache-seeded first paint | n/a | Y (`internal/tui/issues.go:53`) | **F** | FEAT-68, declared |
 | 11 | Branch for the issue | Y | Y | Y | The CLI's help and preview say it switches to the branch, since Phase 8 (`internal/cli/branch.go:40`, `:99`) |
 
@@ -85,7 +85,7 @@ gap, and which phase closes it.
 | 18 | Discard a change | N | N | N | FEAT-23, already filed; all three lack it |
 | 19 | Per-file diff | N | Y (`internal/tui/diff.go:29`) | N | Web idea, UX-88 |
 | 20 | Commit with the convention | N | Y | Y (`web/src/features/branch/CommitForm.tsx:39`) | CLI: `git commit` + the commit-msg hook |
-| 21 | Scope from `commit.default_scope` / the learned scope | n/a | Y (`internal/tui/composer.go:131`) | Y since Phase 10 — every snapshot's `suggested_scope`, by the interface's rule (`suggestedScope`, `internal/webserver/commit.go:142`), read from the store once and recorded after a commit; the form opens on it and takes a later one only while its scope is untouched (`useScopeSuggestion`, `web/src/features/branch/CommitForm.tsx:177`), so a `default_scope` saved in Settings pre-fills the next form while no scope is learned | — |
+| 21 | Scope from `commit.default_scope` / the learned scope | n/a | Y (`internal/tui/composer.go:131`) | Y since Phase 10 — every snapshot's `suggested_scope`, by the interface's rule (`suggestedScope`, `internal/webserver/commit.go:142`), read from the store once and recorded after a commit; the form opens on it and takes a later one only while its scope is untouched (`useScopeSuggestion`, `web/src/features/branch/CommitForm.tsx:201`), so a `default_scope` saved in Settings pre-fills the next form while no scope is learned | — |
 | 22 | Amend / fixup | N | Y | N | git is the twin; web idea, UX-88 |
 | 23 | Run a hook / generate `lefthook.yml` | N | Y (`h`, `g`) | N | `lefthook` is the twin — no |
 
@@ -95,7 +95,7 @@ gap, and which phase closes it.
 | --- | --- | --- | --- | --- | --- |
 | 24 | Find the pull request and its CI | Y (`status --json`) | Y | Y | — |
 | 25 | Compose and open (push first) | Y (`pr`) | Y (`n`) | Y | CLI and web compose it once, in `internal/loop` (Phase 1, which closed DEBT-50); the terminal's composer is its own editor. CLI lacks draft/base/reviewer flags; CLI and web take `templates[0]` only: UX-62 |
-| 26 | After opening: link, then the review-status offer | Y since Phase 8 (`followUp`, `internal/cli/pr.go:163`) | Y | Y since Phase 9 — the open answers `follow_ups` (`followUps`, `internal/webserver/issuewrite.go:160`), which the panel offers inline in a slot the next snapshot leaves standing (`OpenedOutcome`, `web/src/features/review/OpenedOutcome.tsx:15`) | — |
+| 26 | After opening: link, then the review-status offer | Y since Phase 8 (`followUp`, `internal/cli/pr.go:163`) | Y | Y since Phase 9 — the open answers `follow_ups` (`followUps`, `internal/webserver/issuewrite.go:160`), which the panel offers inline in a slot the next snapshot leaves standing (`OpenedOutcome`, `web/src/features/review/OpenedOutcome.tsx:14`) | — |
 | 27 | Edit the pull request | N | Y (`e`, `preditor.go`) | N | `gh pr edit` is the twin; web idea, FEAT-79 |
 | 28 | Checks list; a failure into `$EDITOR` | N | Y (`checks.go`) | P (a CI link) | A terminal gesture; web list idea, UX-88 |
 | 29 | Follow CI; notify on settle | n/a | Y (`internal/tui/review.go:189`) | P (5 s tick, no signal) | Web "CI settled" idea, UX-86 |
@@ -122,7 +122,7 @@ gap, and which phase closes it.
 | 40 | Write / initialize the config | Y (`config init`) | N | P (7 sections; five carried but not editable) | Interface: `config init` + `doctor` are the path — no. Web remainder: UX-87 |
 | 41 | Doctor | Y | N | N | Reasonable CLI-only; the interface points at it (`internal/tui/render.go:443`) |
 | 42 | Status across the loop | Y (`status DIR…`) | Y (the spine) | Y (`WorkStory`) | — |
-| 43 | Dry run | Y (one persistent `--dry-run` since Phase 2, `internal/cli/cli.go:204`) | Y (per seam, `dryrun.go:25`) | Y since Phase 3 — a read-only banner (`web/src/shell/AppShell.tsx:54`) and one hold over every write before it is sent (`web/src/api/client.ts:24`), over the server's 403 (`guard.go:46`) | — |
+| 43 | Dry run | Y (one persistent `--dry-run` since Phase 2, `internal/cli/cli.go:204`) | Y (per seam, `dryrun.go:25`) | Y since Phase 3 — a read-only banner (`web/src/shell/AppShell.tsx:54`) and one hold over every write before it is sent (`web/src/api/client.ts:25`), over the server's 403 (`guard.go:46`) | — |
 | 44 | Request log `--log` | Y (persistent since Phase 2, `internal/cli/cli.go:206`) | Y | Y | — |
 | 45 | Help / discoverability | Y since Phase 8 — an unknown command or flag points at `--help`, after cobra's closest commands (`usageHint`, `internal/cli/scriptable.go:210`) | Y since Phase 7 — `?` lists all 57 bindings where each works, held to a table of every placement (`internal/tui/help_test.go:211`), and the Issues footer shows every key it answers (`internal/tui/detail.go:186`) | n/a | Web `?` idea, UX-88 |
 | 46 | Version | Y | n/a | Y since Phase 3 — in the header (`web/src/shell/AppShell.tsx:43`) | — |
@@ -179,15 +179,15 @@ met and stay.
 | The product's five hues and shape-for-state | **Gap** — one accent, color-only dots | UX-84 |
 | ALL-CAPS eyebrow headings | **Gap** — the only heading treatment, nine headings from seven class strings | UX-84 |
 | Buttons say what happens | Met | `Open pull request`, `Commit staged changes`, `Push branch` |
-| An action keeps its name; errors direct; empty states invite | Partial | UX-79, UX-80 |
-| Feedback after a write | **8 of 12** since Phase 9's link and move and Phase 10's stage, unstage and stage all; two successes are not live regions | UX-77 |
-| Focus management | **Gap** — but for Load more and, since Phases 9 and 10, the offers after opening and the staging buttons | UX-78 |
+| An action keeps its name; errors direct; empty states invite | Met since Phase 11 — one announce verb ("Announce to X" opens the preview, "Announce now" sends); every fallback, and the server's own failures, say what to do next; one connecting line; a Retry and a not-a-repository line that invites | `web/src/features/writes.test.tsx` |
+| Feedback after a write | Met since Phase 11 — 12 of 12, each in a live line that keeps the button's verb and outlives the snapshot confirming the write (`OutcomeLine`, `web/src/lib/Outcome.tsx:54`) | `web/src/features/writes.test.tsx` |
+| Focus management | Met since Phase 11 — to the outcome when a write's control goes, through each step's swap and back on Cancel or a refusal (`web/src/lib/focus.ts`), and to `<main>` on a section change (`useSectionFocus`, `web/src/shell/AppShell.tsx:89`) | — |
 | Accessible names, landmarks, skip link, focus ring, axe both themes | Met | enforced |
-| Disabled by opacity; reduced motion | **Gap** — fifteen places; no rule | UX-81 |
+| Disabled by opacity; reduced motion | Met since Phase 11 — `--disabled` tokens (`web/src/index.css:48`), held to 4.5:1 in both themes by `web/src/tokens.test.ts`, and no `opacity-N` class past the web lint; transitions `motion-safe:`, and one reduced-motion rule (`web/src/index.css:153`) | — |
 | Responsive | **Gap** — zero breakpoints | UX-85 |
 | Vocabulary shared with the interface | Met since Phase 9 but for the sections — the forge's own noun and sigil, the messaging section named after its service (`sectionLabel`, `web/src/shell/sections.ts:17`) and one verb for starting, "Start work"; five sections vs six | UX-83 |
-| Dry run visible | Met since Phase 3 — a banner, and every write held before it is sent | `web/src/shell/AppShell.tsx:54`, `web/src/api/client.ts:24` |
-| The contract it never calls | Met since Phase 3 for `getIssue`, `getHealth`, `listViews` and pagination; the generated `streamEvents` stays unused | DEBT-67 |
+| Dry run visible | Met since Phase 3 — a banner, and every write held before it is sent | `web/src/shell/AppShell.tsx:54`, `web/src/api/client.ts:25` |
+| The contract it never calls | Met since Phase 3 for `getIssue`, `getHealth`, `listViews` and pagination; the generated `streamEvents` stays unused, but since Phase 11 the frames the server writes are held in `web/src/test/snapshot-frames.sse` and read back losslessly (`web/src/api/snapshot.frames.test.ts`) | — |
 
 ## The plan
 
@@ -619,7 +619,7 @@ Closes UX-73, UX-74. Depends on Phases 1 and 3.
   `ReviewTransition` is built on it. `OpenedPullRequest` gains
   `follow_ups`. After `Pull request opened.`, the panel offers "Link it on
   KEY" and "Move KEY to STATUS" inline (`OpenedOutcome`,
-  `web/src/features/review/OpenedOutcome.tsx:15`), each with a `role="status"`
+  `web/src/features/review/OpenedOutcome.tsx:14`), each with a `role="status"`
   outcome, in a slot the next snapshot leaves standing — for that open, on
   that branch: a second open offers afresh, and a checkout drops it;
   `useAsyncAction` moved to `web/src/lib` and gained `done`.
@@ -698,7 +698,7 @@ Closes UX-75, UX-76. Depends on Phases 1 (`loop.RefuseNothingStaged`) and 3.
   never under `--dry-run`; the server records a non-blank scope, trimmed,
   after a commit. `CommitForm` opens on it and takes a later frame's
   suggestion only while its scope is untouched (`useScopeSuggestion`,
-  `web/src/features/branch/CommitForm.tsx:177`).
+  `web/src/features/branch/CommitForm.tsx:201`).
 
 **Touches.** `api/openapi.yaml`, `internal/loop/stage.go` (new),
 `internal/tui/commits.go`, `internal/gitrepo/status.go`,
@@ -739,57 +739,87 @@ fallback), `TestEveryFrameNamesTheSuggestedScopeEvenWhenEmpty`,
 `TestADefaultScopeSavedInSettingsIsSuggestedWhileNoneIsLearned`;
 `TestWebDepsHandsTheServerEverySeam`. vitest *Stage all makes the commit
 form live*, *what a stage said survives the snapshot that shows the file
-staged*, *focus lands on what the stage said*, *staging leaves focus in a
+staged*, *focus that fell to the page while staging lands on what the stage
+said*, *staging leaves focus in a
 subject being typed*, *the commit form opens on the suggested scope*, *a new
 frame does not overwrite a typed scope*, *after a commit with no scope the
 form opens on the suggestion again*, *keeps the scope a frame suggests for
 the next commit*. The accessibility scan stages a file in both themes.
 `yarn gen:check`.
 
-### Phase 11 — Feedback, focus and wording on the web
+### Phase 11 — Feedback, focus and wording on the web — done
 
-Closes UX-77, UX-78, UX-79, UX-80, UX-81, UX-82 and DEBT-63. Depends on
-Phase 3.
+Closed UX-77, UX-78, UX-79, UX-80, UX-81, UX-82, DEBT-63 and DEBT-67.
 
-- `useAsyncAction` (`web/src/lib/useAsyncAction.ts:12`), which has a `done` state since
-  Phase 9, gains a message; the five hand-rolled copies (`PushButton`, `CommitForm`,
-  `AnnounceControls`, `OpenPullRequest`, `ConfigForm`) adopt it — six
-  machines → one. Commit, push, check-out and start-work confirm in a
-  `role="status"` that keeps the button's verb ("Pushed NAME", "Committed
-  abc123 subject"); `Pull request opened.` (`web/src/features/review/OpenedOutcome.tsx:21`) and
-  `Announced…` (`web/src/features/messaging/MessagingPanel.tsx:139`) become live regions.
-- Focus moves to the outcome when a form unmounts (`web/src/features/review/ReviewPanel.tsx:174`,
-  `web/src/features/messaging/MessagingPanel.tsx:137`, the `PushButton` swap) and to `<main>` on a
-  section change (`web/src/shell/AppShell.tsx:68`).
-- One announce verb through the flow — **decided: "Announce to X"** (opens
-  the preview) and "Announce now" (sends), on every surface.
-- `internal/webserver/checkout.go:44` and `internal/webserver/branchcreate.go:44` pass git's own reason through
-  `fault`. **`internal/webserver/announce.go:53` does not**: a messaging error can name the
-  webhook URL, so classify by `messaging.ErrRejected`/`ErrUnreachable` and
-  never forward the text. `"something went wrong"` (`internal/webserver/errors.go:80`) → a
-  directive sentence. One "connecting" phrasing (`IssuesPanel.tsx:19`,
-  `web/src/features/branch/BranchPanel.tsx:14`, `web/src/features/review/ReviewPanel.tsx:37`, `web/src/features/messaging/MessagingPanel.tsx:13`);
-  dead ends get a way out (`web/src/features/branch/BranchPanel.tsx:22`, a Retry at
-  `web/src/features/settings/SettingsPanel.tsx:17`).
-- A dropped stream frame sets `status: 'stale'` with the reason
-  (`snapshot.ts:63-69`).
-- `opacity-60` ×15 → a `disabled:` color treatment (CLAUDE.md's rule);
-  `motion-safe:` on the two transitions and a `prefers-reduced-motion`
-  rule in `index.css`.
+- **A populated e2e project** first: a VITE_MOCK build served beside the
+  production one, whose `@populated` specs scan every filled section with
+  axe in both themes and screenshot each at 640, 1024 and 1440 px into
+  `test-results/` (CI uploads them as `screens`, pass or fail); no baseline
+  is committed.
+- **One state machine.** `useAsyncAction` (`web/src/lib/useAsyncAction.ts:31`)
+  takes the write's arguments, keeps what it answered, gains `reset` and a
+  message from `done`; push, commit, announce (preview, then post), open a
+  pull request (compose, then open) and the configuration's save adopt it.
+  The `grep -rnE "type \w+(State|Status) = 'idle'" web/src` matches only
+  `web/src/lib/useAsyncAction.ts`. `splitList` moved to `web/src/lib/utils.ts`;
+  `SettingsPanel.errorMessage` went with its duplicate test.
+- **Outcomes survive the snapshot.** The write wrappers return what the
+  server answered (canned under VITE_MOCK), and each panel says what a write
+  did in an always-mounted `OutcomeLine` (`web/src/lib/Outcome.tsx:54`) outside
+  the part the confirming snapshot swaps: "Committed a1b2c3d subject.",
+  "Pushed NAME.", "Checked out NAME.", "Started work on NAME.", "Opened pull
+  request #7." (the forge's noun and sigil), "Announced to #dev.", "Saved.".
+  The working tree's rows and the follow-up offers say theirs in the same
+  line. Focus follows to it when the control that had it goes or is
+  disabled, and stays where the user moved it otherwise; the next write
+  clears what the last one said.
+- **Focus through the steps**: the push confirm, the announcement preview
+  and the pull request form's title take it as they open, Cancel (or a
+  refused push or post) hands it back, the form a Retry loads takes it, and
+  a section change focuses `<main>`.
+- **The verb**: "Announce to Slack" opens the preview, "Announce now" sends
+  ("Announcing…" in flight), the work story reads "Announce to #dev", and the
+  panel lists who it is "Announcing as".
+- **Server errors.** A switch or a new branch git refuses names the target
+  and how to see git's reason — git's own text stays off the wire, because in
+  a partial clone a switch fetches from the remote and a failed fetch names
+  it (Phase 10's staging rule), so UX-79's "shows git's reason" became "says
+  how to see it"; an issue the tracker could not read is answered through
+  `fault`, and any other failure says to try again. `announce` answers
+  through `fault`, which classifies every messaging sentinel (and the
+  transport's redirect) with a curated detail; the safety net and the opaque
+  500 say to try again. Every client fallback names a next step, a fetch
+  that never reached the server included (only a `--dry-run` hold shows its
+  own words), and an issue that could not be read offers a Retry.
+- **Empty states**: one "Connecting to workflow…" in the shell (Settings
+  exempt), a Retry on the configuration's load error, and a not-a-repository
+  line that says what a repository would show.
+- **Stream states**: "Reconnecting" for a dropped connection, "Out of date"
+  with why (read out, and on hover) for a frame the page cannot read.
+- **The frames**: `TestStreamFrameMatchesTheClientGolden` holds a filled and
+  an empty frame in `web/src/test/snapshot-frames.sse` (`-update` rewrites
+  it); `web/src/api/snapshot.frames.test.ts` feeds each through the real
+  `useEventStream` and checks `zSnapshot.parse` loses nothing.
+- **Disabled and motion**: `--disabled`/`--disabled-foreground` in both
+  themes instead of `opacity-60` (now 0 under `web/src`, and refused by the
+  web lint), `motion-safe:` transitions, and a reduced-motion rule.
 
-**Touches.** `web/src/features/**`, `web/src/api/snapshot.ts`,
-`web/src/index.css`, `internal/webserver/{checkout,branchcreate,errors}.go`.
-**Budget.** None.
+**Budget.** None bumped: `web/e2e` 3 → 4, `web/src/lib` 2 → 4 and
+`web/src/test` 5 → 6, each under the default 12.
 
-**Done when.** 12 of 12 writes confirm; every outcome is a live region;
-`grep -c opacity-60 web/src` is 0; a schema-mismatched frame shows in
-`StreamStatus`.
-
-**Proof.** vitest *every write reports its success in a status region* (a
-table over the seven), *focus lands on the outcome after a form closes*
-(`toHaveFocus`), *a frame that fails the schema marks the stream stale*;
-`webserver_test.TestCheckoutCarriesGitsReason`,
-`TestAnnounceNeverForwardsTheWebhook`; axe e2e in both themes.
+**Proof.** vitest `web/src/features/writes.test.tsx` — *each of the twelve
+writes says what it did in a line the snapshot leaves standing* (text and
+`document.activeElement`), *refused with no reason says what to do next*,
+*made again and refused takes the last success away*; the focus tests in
+`web/src/App.test.tsx` and the panels';
+`web/src/api/snapshot.test.tsx`, `web/src/shell/StreamStatus.test.tsx`,
+`web/src/tokens.test.ts`; `webserver_test.TestAnnounceNeverForwardsTheWebhook`,
+`TestCheckoutNeverForwardsGitsOwnWords`,
+`TestCreateBranchNeverForwardsGitsOwnWords`,
+`TestCreateBranchSaysWhyTheIssueCouldNotBeRead`,
+`TestAnAnswerThatCannotBeWrittenSaysWhatToDo`,
+`TestStreamFrameMatchesTheClientGolden`; axe e2e in both themes in both
+projects.
 
 ### Phase 12 — The web's Reviews section
 
@@ -828,16 +858,16 @@ interface's own system does not change.
   (`web/src/shell/NavRail.tsx:30`), section headings. **Periwinkle stays the
   interactive-control accent** (`index.css:24` is a documented choice)
   — **decided: it stays**, and the identity hues stay distinct from it.
-- One `StateMark` component drawing `○ ◐ ● ✗` for CI (`web/src/features/review/ReviewPanel.tsx:20`),
+- One `StateMark` component drawing `○ ◐ ● ✗` for CI (`web/src/features/review/ReviewPanel.tsx:21`),
   the stream (`StreamStatus.tsx:4`) and the work story
-  (`web/src/features/issues/WorkStory.tsx:291`); the text label stays, the mark is `aria-hidden`.
-- The seven `uppercase` eyebrows (`web/src/features/settings/SettingsPanel.tsx:343`,
-  `web/src/features/branch/BranchPanel.tsx:67`, `web/src/features/branch/WorkingTree.tsx:21`, `IssueDetailPanel.tsx:8`, `web/src/features/review/ReviewPanel.tsx:105`,
-  `web/src/features/messaging/MessagingPanel.tsx:41`, `:61`) → sentence-case headings on a
+  (`web/src/features/issues/WorkStory.tsx:302`); the text label stays, the mark is `aria-hidden`.
+- The seven `uppercase` eyebrows (`web/src/features/settings/SettingsPanel.tsx:353`,
+  `web/src/features/branch/BranchPanel.tsx:80`, `web/src/features/branch/WorkingTree.tsx:21`, `web/src/features/issues/IssueDetailPanel.tsx:9`, `web/src/features/review/ReviewPanel.tsx:116`,
+  `web/src/features/messaging/MessagingPanel.tsx:95`, `:49`) → sentence-case headings on a
   `--text-*`/`--space-*` scale in `@theme`; the four-step radius actually
   used.
-- Split `ConfigForm` (305 lines, `web/src/features/settings/SettingsPanel.tsx:25`) per fieldset and
-  add `max-lines-per-function` to `web/eslint.config.js:80` at a number the
+- Split `ConfigForm` (299 lines, `web/src/features/settings/SettingsPanel.tsx:47`) per fieldset and
+  add `max-lines-per-function` to `web/eslint.config.js:90` at a number the
   split meets.
 
 **Touches.** `web/src/index.css`, `web/src/shell/*`, `web/src/features/**`,
@@ -855,12 +885,12 @@ both themes is the contrast proof; `yarn lint`.
 Closes UX-85. Depends on Phase 13 (tokens).
 
 Breakpoints (none today): the rail collapses to icons under `md`; list and
-detail stack under `lg` (`IssuesPanel.tsx:101-102`); `grid-cols-[6rem_1fr]`
+detail stack under `lg` (`IssuesPanel.tsx:108-109`); `grid-cols-[6rem_1fr]`
 and its siblings go responsive; `max-w-2xl` goes fluid; the issues `<ul>`
 scrolls inside its panel.
 
 **Touches.** `web/src/**/*.tsx`, a new `web/e2e/layout.spec.ts` (`web/e2e`
-3 → 4 of 12).
+4 → 5 of 12).
 
 **Done when.** At 640, 1024 and 1440 px there is no horizontal scroll and
 every control is reachable.
@@ -1061,7 +1091,7 @@ phase disagree, the correction wins.
   `staleTime: Infinity` under a pushed stream; the spine's color-only hue
   residue; and every part of the interface's visual system.
 - **Security:** nothing in this file is a security finding. The one
-  security-adjacent constraint is Phase 11's rule for `internal/webserver/announce.go:53`.
+  security-adjacent constraint is Phase 11's rule for `internal/webserver/announce.go:54`.
 
 ## Risks before starting
 
@@ -1099,6 +1129,6 @@ phase disagree, the correction wins.
 7. **New write endpoints** (Phases 9 and 10) each need the CLAUDE.md-
    required "detail omits the host" test and a test that `--dry-run`
    refuses them.
-8. **A security-adjacent constraint, not a finding.** `internal/webserver/announce.go:53`
+8. **A security-adjacent constraint, not a finding.** `internal/webserver/announce.go:54`
    hides its error because a messaging error can carry the webhook URL;
    Phase 11 classifies it by sentinel and never forwards the text.
