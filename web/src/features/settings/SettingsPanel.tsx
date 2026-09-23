@@ -2,6 +2,7 @@ import { useState, type ReactNode } from 'react'
 import { useForm } from 'react-hook-form'
 import { apiErrorMessage } from '@/api/apiError.ts'
 import type { Config } from '@/api/generated/types.gen.ts'
+import { useForgeWords } from '@/api/health.ts'
 import { EmptyState } from '@/shell/EmptyState.tsx'
 import { useConfig, useSaveConfig } from './configApi.ts'
 
@@ -26,6 +27,7 @@ function ConfigForm({ config }: { config: Config }) {
   // does not edit (ui, timing, branch, commit, headers, views…) ride back
   // unchanged on save rather than being dropped.
   const { register, handleSubmit, reset } = useForm<Config>({ defaultValues: config })
+  const { noun } = useForgeWords()
   const save = useSaveConfig()
   const [status, setStatus] = useState<SaveStatus>('idle')
   const [error, setError] = useState('')
@@ -81,7 +83,7 @@ function ConfigForm({ config }: { config: Config }) {
         <Field
           id="jira.review_status"
           label="Review status"
-          hint='The status an issue moves to once its pull request is open, e.g. "In Review". Empty makes no offer.'
+          hint={`The status an issue moves to once its ${noun} is open, e.g. "In Review". Empty makes no offer.`}
         >
           <input
             id="jira.review_status"
@@ -288,7 +290,7 @@ function ConfigForm({ config }: { config: Config }) {
         <Field
           id="pull_request.title_source"
           label="Title source"
-          hint="Where a pull request's title comes from."
+          hint={`Where a ${noun}'s title comes from.`}
         >
           <select
             id="pull_request.title_source"

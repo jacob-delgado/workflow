@@ -1,9 +1,10 @@
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { vi } from 'vitest'
+import { useHealthStore } from '@/api/health.ts'
 import { useSnapshotStore } from '@/api/snapshot.ts'
-import { makeSnapshot } from '@/test/fixtures.ts'
-import { openPr } from './openPrApi.ts'
+import { gitLabWords, makeHealth, makeSnapshot } from '@/test/fixtures.ts'
+import { openPr, previewPullRequest } from './openPrApi.ts'
 import { ReviewPanel } from './ReviewPanel.tsx'
 
 vi.mock('./openPrApi.ts', () => ({
@@ -20,6 +21,7 @@ vi.mock('./openPrApi.ts', () => ({
   openPr: vi.fn(() => Promise.resolve('')),
 }))
 const mockOpenPr = vi.mocked(openPr)
+const mockPreview = vi.mocked(previewPullRequest)
 
 const pull = {
   number: 128,
@@ -215,6 +217,90 @@ test('keeps the form and shows the reason when opening is refused', async () => 
   // Assert: the forge's own reason shows and the form is still there to retry
   expect(await screen.findByText(/base branch trunk does not exist/i)).toBeTruthy()
   expect(screen.getByRole('form', { name: /open a pull request/i })).toBeTruthy()
+})
+
+test('names a merge request, marked with its !number, on GitLab', () => {
+  // Arrange
+  useHealthStore.setState({ health: makeHealth(gitLabWords) })
+  useSnapshotStore.setState({
+    status: 'live',
+    snapshot: makeSnapshot({ review: { found: true, pull: { ...pull, number: 7 } } }),
+  })
+
+  // Act
+  render(<ReviewPanel />)
+
+  // Assert
+  expect(screen.getByRole('heading', { level: 2 }).textContent).toMatch(/^!7/)
+  expect(document.body.textContent).not.toMatch(/pull request/i)
+})
+
+test('offers and opens a merge request in GitLab words throughout', async () => {
+  // Arrange
+  const user = userEvent.setup()
+  useHealthStore.setState({ health: makeHealth(gitLabWords) })
+  useSnapshotStore.setState({
+    status: 'live',
+    snapshot: makeSnapshot({ review: { found: false } }),
+  })
+  render(<ReviewPanel />)
+
+  // Assert: the offer names a merge request
+  expect(screen.getByText('No open merge request for this branch yet.')).toBeTruthy()
+  expect(document.body.textContent).not.toMatch(/pull request/i)
+
+  // Act: open the form
+  await user.click(screen.getByRole('button', { name: 'Open a merge request' }))
+  await screen.findByRole('form', { name: 'Open a merge request' })
+
+  // Assert: the form names it too
+  expect(screen.getByRole('button', { name: 'Open merge request' })).toBeTruthy()
+  expect(document.body.textContent).not.toMatch(/pull request/i)
+
+  // Act: confirm it
+  await user.click(screen.getByRole('button', { name: 'Open merge request' }))
+
+  // Assert: and so does the outcome
+  expect(await screen.findByText('Merge request opened.')).toBeTruthy()
+  expect(document.body.textContent).not.toMatch(/pull request/i)
+})
+
+test('says a merge request could not be composed, on GitLab, when the forge gives no reason', async () => {
+  // Arrange
+  mockPreview.mockRejectedValueOnce({})
+  const user = userEvent.setup()
+  useHealthStore.setState({ health: makeHealth(gitLabWords) })
+  useSnapshotStore.setState({
+    status: 'live',
+    snapshot: makeSnapshot({ review: { found: false } }),
+  })
+  render(<ReviewPanel />)
+
+  // Act
+  await user.click(screen.getByRole('button', { name: 'Open a merge request' }))
+
+  // Assert
+  expect(await screen.findByText('A merge request could not be composed.')).toBeTruthy()
+})
+
+test('says a merge request could not be opened, on GitLab, when the forge gives no reason', async () => {
+  // Arrange
+  mockOpenPr.mockRejectedValueOnce({})
+  const user = userEvent.setup()
+  useHealthStore.setState({ health: makeHealth(gitLabWords) })
+  useSnapshotStore.setState({
+    status: 'live',
+    snapshot: makeSnapshot({ review: { found: false } }),
+  })
+  render(<ReviewPanel />)
+  await user.click(screen.getByRole('button', { name: 'Open a merge request' }))
+  await screen.findByRole('form', { name: 'Open a merge request' })
+
+  // Act
+  await user.click(screen.getByRole('button', { name: 'Open merge request' }))
+
+  // Assert
+  expect(await screen.findByText('The merge request could not be opened.')).toBeTruthy()
 })
 
 test('prompts to connect before any snapshot arrives', () => {

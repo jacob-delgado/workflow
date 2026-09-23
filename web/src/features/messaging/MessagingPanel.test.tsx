@@ -2,8 +2,9 @@ import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { vi } from 'vitest'
 import type { Snapshot } from '@/api/generated/types.gen.ts'
+import { useHealthStore } from '@/api/health.ts'
 import { useSnapshotStore } from '@/api/snapshot.ts'
-import { makeSnapshot } from '@/test/fixtures.ts'
+import { gitLabWords, makeHealth, makeSnapshot } from '@/test/fixtures.ts'
 import { announce, previewAnnouncement } from './announceApi.ts'
 import { MessagingPanel } from './MessagingPanel.tsx'
 
@@ -173,6 +174,18 @@ test('says there is nothing to announce without a pull request', () => {
   // Assert
   expect(screen.getByText(/nothing to announce/i)).toBeTruthy()
   expect(screen.queryByRole('button', { name: /announce to slack/i })).toBeNull()
+})
+
+test('says to open a merge request first on GitLab', () => {
+  // Arrange
+  useHealthStore.setState({ health: makeHealth(gitLabWords) })
+  useSnapshotStore.setState({ status: 'live', snapshot: makeSnapshot() })
+
+  // Act
+  render(<MessagingPanel />)
+
+  // Assert
+  expect(screen.getByText(/open a merge request first/i)).toBeTruthy()
 })
 
 test('previews the message, then posts it on confirm', async () => {

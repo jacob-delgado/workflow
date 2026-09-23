@@ -1,13 +1,14 @@
 import { useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { apiErrorMessage } from '@/api/apiError.ts'
+import { useForgeWords } from '@/api/health.ts'
 import type {
   CiState,
   OpenPullRequestRequest,
   PullRequestDraft,
 } from '@/api/generated/types.gen.ts'
 import { useSnapshotStore } from '@/api/snapshot.ts'
-import { cn } from '@/lib/utils.ts'
+import { capitalized, cn } from '@/lib/utils.ts'
 import { EmptyState } from '@/shell/EmptyState.tsx'
 import { openPr, previewPullRequest } from './openPrApi.ts'
 
@@ -26,6 +27,7 @@ const mergeableLabel: Record<'unknown' | 'clean' | 'conflicts', string> = {
 
 export function ReviewPanel() {
   const snapshot = useSnapshotStore((state) => state.snapshot)
+  const { sigil } = useForgeWords()
 
   if (!snapshot) {
     return <EmptyState>Connecting to the forge…</EmptyState>
@@ -43,7 +45,10 @@ export function ReviewPanel() {
     <div className="mt-4 flex max-w-2xl flex-col gap-8">
       <section aria-labelledby="pr-heading" className="flex flex-col gap-3">
         <h2 id="pr-heading" className="flex items-baseline gap-2 text-lg font-medium">
-          <span className="text-muted-foreground">#{pull.number}</span>
+          <span className="text-muted-foreground">
+            {sigil}
+            {pull.number}
+          </span>
           <a
             href={pull.url}
             target="_blank"
@@ -106,6 +111,7 @@ type OpenState = 'idle' | 'loading' | 'form' | 'opening' | 'done' | 'error'
 // confirm — pushing the branch first when it is not yet published. On success
 // the event stream brings back the new pull request, which replaces this.
 function OpenPullRequest() {
+  const { noun } = useForgeWords()
   const [state, setState] = useState<OpenState>('idle')
   const [draft, setDraft] = useState<PullRequestDraft | null>(null)
   const [error, setError] = useState('')
@@ -118,7 +124,7 @@ function OpenPullRequest() {
       setError('')
       setState('form')
     } catch (caught) {
-      setError(apiErrorMessage(caught, 'A pull request could not be composed.'))
+      setError(apiErrorMessage(caught, `A ${noun} could not be composed.`))
       setState('error')
     }
   }
@@ -130,7 +136,7 @@ function OpenPullRequest() {
       setError('')
       setState('done')
     } catch (caught) {
-      setError(apiErrorMessage(caught, 'The pull request could not be opened.'))
+      setError(apiErrorMessage(caught, `The ${noun} could not be opened.`))
       setState('error')
     }
   }
@@ -138,7 +144,7 @@ function OpenPullRequest() {
   if (state === 'done') {
     return (
       <div className="mt-4 flex flex-col gap-1">
-        <p className="text-sm text-success">Pull request opened.</p>
+        <p className="text-sm text-success">{capitalized(noun)} opened.</p>
         {warning === '' ? null : (
           <p role="status" className="text-sm text-warning">
             {warning}
@@ -169,7 +175,7 @@ function OpenPullRequest() {
 
   return (
     <div className="mt-4 flex flex-col gap-2">
-      <p className="text-sm text-muted-foreground">No open pull request for this branch yet.</p>
+      <p className="text-sm text-muted-foreground">No open {noun} for this branch yet.</p>
       <button
         type="button"
         disabled={state === 'loading'}
@@ -178,7 +184,7 @@ function OpenPullRequest() {
         }}
         className="self-start rounded-md bg-primary px-3 py-1.5 text-sm font-medium text-primary-foreground hover:bg-primary/90 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none disabled:opacity-60"
       >
-        {state === 'loading' ? 'Preparing…' : 'Open a pull request'}
+        {state === 'loading' ? 'Preparing…' : `Open a ${noun}`}
       </button>
       {state === 'error' ? (
         <p role="alert" className="text-sm whitespace-pre-line text-destructive">
@@ -224,6 +230,7 @@ function PullRequestForm({
   onCancel: () => void
   onSubmit: (request: OpenPullRequestRequest) => void
 }) {
+  const { noun } = useForgeWords()
   const { register, handleSubmit } = useForm<PullRequestFields>({
     defaultValues: {
       title: draft.title,
@@ -250,7 +257,7 @@ function PullRequestForm({
 
   return (
     <form
-      aria-label="Open a pull request"
+      aria-label={`Open a ${noun}`}
       onSubmit={(event) => {
         void submit(event)
       }}
@@ -323,7 +330,7 @@ function PullRequestForm({
           disabled={opening}
           className="rounded-md bg-primary px-3 py-1.5 text-sm font-medium text-primary-foreground hover:bg-primary/90 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none disabled:opacity-60"
         >
-          {opening ? 'Opening…' : 'Open pull request'}
+          {opening ? 'Opening…' : `Open ${noun}`}
         </button>
       </div>
 

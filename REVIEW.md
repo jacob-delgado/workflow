@@ -85,7 +85,7 @@ gap, and which phase closes it.
 | 18 | Discard a change | N | N | N | FEAT-23, already filed; all three lack it |
 | 19 | Per-file diff | N | Y (`internal/tui/diff.go:29`) | N | Web idea, UX-88 |
 | 20 | Commit with the convention | N | Y | Y (`CommitForm.tsx:36`) | CLI: `git commit` + the commit-msg hook |
-| 21 | Scope from `commit.default_scope` / the learned scope | n/a | Y (`internal/tui/composer.go:131`) | **N** — `CommitForm.tsx:45` hardcodes `''`, though `default_scope` is *editable* in Settings (`SettingsPanel.tsx:182`) | **Yes** — a setting silently ignored is a defect; the learned scope is not a declared follow-up. Phase 10, UX-76 |
+| 21 | Scope from `commit.default_scope` / the learned scope | n/a | Y (`internal/tui/composer.go:131`) | **N** — `CommitForm.tsx:45` hardcodes `''`, though `default_scope` is *editable* in Settings (`SettingsPanel.tsx:184`) | **Yes** — a setting silently ignored is a defect; the learned scope is not a declared follow-up. Phase 10, UX-76 |
 | 22 | Amend / fixup | N | Y | N | git is the twin; web idea, UX-88 |
 | 23 | Run a hook / generate `lefthook.yml` | N | Y (`h`, `g`) | N | `lefthook` is the twin — no |
 
@@ -108,7 +108,7 @@ gap, and which phase closes it.
 | # | Action | CLI | TUI | Web | Warranted? |
 | --- | --- | --- | --- | --- | --- |
 | 33 | Announce: compose → preview → post | Y | Y | Y | CLI and web compose it once, in `internal/loop` (Phase 1, which closed DEBT-50); the terminal renders its own from cached state, with `loop.AnnounceMoment` |
-| 34 | Call it a "merge request" on GitLab | Y (`forge.Kind.Noun`, `internal/forge/remote.go:60`) | Y (the same) | **N** — six hardcoded strings; `ForgeKind` on the server (`internal/webserver/webserver.go:61`), never sent | **Yes** — Phase 9, UX-73 |
+| 34 | Call it a "merge request" on GitLab | Y (`forge.Kind.Noun`, `internal/forge/remote.go:60`) | Y (the same) | Y since Phase 9 — the health read carries the forge's noun and sigil, which the page reads through `useForgeWords` (`web/src/api/health.ts:28`), and the server words its own details in the noun | — |
 | 35 | Post when CI passes | N | Y (`internal/tui/messaging.go:406`) | N | CLI `announce --when-green` is FEAT-65's fit; web FEAT-82; not this plan |
 | 36 | Announced history (never re-offer) | Y since Phase 8 — `announce` records each post in the store the interface reads, and says when an earlier session already announced the moment (`offerAgain`, `internal/cli/announce.go:167`; `loop.Deliver`, `internal/loop/announce.go:179`) | Y (`internal/tui/messaging.go:216`) | **F** | Web: FEAT-66, declared |
 | 37 | Choose the channel | N (config only) | Y (`←`/`→`) | Y | CLI `--channel`: UX-62 |
@@ -604,7 +604,7 @@ Closes UX-73, UX-74. Depends on Phases 1 and 3.
   to TypeScript. The six hardcoded "pull request" strings
   (`ReviewPanel.tsx:141`, `:172`, `:181`, `:326`; `WorkStory.tsx:40`;
   `MessagingPanel.tsx:50`) read it; the Messaging section label reads the
-  service from the snapshot (`sections.ts:10` vs `MessagingPanel.tsx:170`);
+  service from the snapshot (`sections.ts:10` vs `web/src/features/messaging/MessagingPanel.tsx:172`);
   one name for "start" across `WorkStory` and `IssuesPanel`.
 - Spec first: `POST /api/issues/{key}/link` and `POST
   /api/issues/{key}/transition` (fields-less only; 409 when Jira wants
@@ -680,10 +680,10 @@ Phase 3.
   `AnnounceControls`, `OpenPullRequest`, `ConfigForm`) adopt it — six
   machines → one. Commit, push, check-out and start-work confirm in a
   `role="status"` that keeps the button's verb ("Pushed NAME", "Committed
-  abc123 subject"); `Pull request opened.` (`ReviewPanel.tsx:141`) and
-  `Announced…` (`MessagingPanel.tsx:137`) become live regions.
-- Focus moves to the outcome when a form unmounts (`ReviewPanel.tsx:138`,
-  `MessagingPanel.tsx:135`, the `PushButton` swap) and to `<main>` on a
+  abc123 subject"); `Pull request opened.` (`web/src/features/review/ReviewPanel.tsx:147`) and
+  `Announced…` (`web/src/features/messaging/MessagingPanel.tsx:139`) become live regions.
+- Focus moves to the outcome when a form unmounts (`web/src/features/review/ReviewPanel.tsx:144`,
+  `web/src/features/messaging/MessagingPanel.tsx:137`, the `PushButton` swap) and to `<main>` on a
   section change (`AppShell.tsx:68`).
 - One announce verb through the flow — **decided: "Announce to X"** (opens
   the preview) and "Announce now" (sends), on every surface.
@@ -692,9 +692,9 @@ Phase 3.
   webhook URL, so classify by `messaging.ErrRejected`/`ErrUnreachable` and
   never forward the text. `"something went wrong"` (`errors.go:79`) → a
   directive sentence. One "connecting" phrasing (`IssuesPanel.tsx:19`,
-  `BranchPanel.tsx:14`, `ReviewPanel.tsx:31`, `MessagingPanel.tsx:11`);
+  `BranchPanel.tsx:14`, `web/src/features/review/ReviewPanel.tsx:33`, `web/src/features/messaging/MessagingPanel.tsx:13`);
   dead ends get a way out (`BranchPanel.tsx:22`, a Retry at
-  `SettingsPanel.tsx:16`).
+  `SettingsPanel.tsx:17`).
 - A dropped stream frame sets `status: 'stale'` with the reason
   (`snapshot.ts:63-69`).
 - `opacity-60` ×13 → a `disabled:` color treatment (CLAUDE.md's rule);
@@ -752,15 +752,15 @@ interface's own system does not change.
   (`NavRail.tsx:28`), section headings. **Periwinkle stays the
   interactive-control accent** (`index.css:24` is a documented choice)
   — **decided: it stays**, and the identity hues stay distinct from it.
-- One `StateMark` component drawing `○ ◐ ● ✗` for CI (`ReviewPanel.tsx:14`),
+- One `StateMark` component drawing `○ ◐ ● ✗` for CI (`web/src/features/review/ReviewPanel.tsx:15`),
   the stream (`StreamStatus.tsx:4`) and the work story
-  (`WorkStory.tsx:284`); the text label stays, the mark is `aria-hidden`.
-- The seven `uppercase` eyebrows (`SettingsPanel.tsx:341`,
-  `BranchPanel.tsx:67`, `:91`, `IssueDetailPanel.tsx:8`, `ReviewPanel.tsx:70`,
-  `MessagingPanel.tsx:39`, `:59`) → sentence-case headings on a
+  (`web/src/features/issues/WorkStory.tsx:291`); the text label stays, the mark is `aria-hidden`.
+- The seven `uppercase` eyebrows (`SettingsPanel.tsx:343`,
+  `BranchPanel.tsx:67`, `:91`, `IssueDetailPanel.tsx:8`, `web/src/features/review/ReviewPanel.tsx:75`,
+  `web/src/features/messaging/MessagingPanel.tsx:41`, `:61`) → sentence-case headings on a
   `--text-*`/`--space-*` scale in `@theme`; the four-step radius actually
   used.
-- Split `ConfigForm` (304 lines, `SettingsPanel.tsx:24`) per fieldset and
+- Split `ConfigForm` (305 lines, `SettingsPanel.tsx:25`) per fieldset and
   add `max-lines-per-function` to `web/eslint.config.js:80` at a number the
   split meets.
 

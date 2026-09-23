@@ -7,3 +7,9 @@ import { twMerge } from 'tailwind-merge'
 export function cn(...inputs: ClassValue[]): string {
   return twMerge(clsx(inputs))
 }
+
+// capitalized starts text with a capital, for a word the server sends lowercase
+// — the forge's "merge request" — that opens a sentence or names a stage.
+export function capitalized(text: string): string {
+  return text.charAt(0).toUpperCase() + text.slice(1)
+}

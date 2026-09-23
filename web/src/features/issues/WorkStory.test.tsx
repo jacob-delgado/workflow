@@ -1,8 +1,9 @@
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { vi } from 'vitest'
+import { useHealthStore } from '@/api/health.ts'
 import { useSnapshotStore } from '@/api/snapshot.ts'
-import { makeSnapshot } from '@/test/fixtures.ts'
+import { gitLabWords, makeHealth, makeSnapshot } from '@/test/fixtures.ts'
 import { useUiStore } from '@/shell/uiStore.ts'
 import { checkoutBranch } from './checkoutApi.ts'
 import { startWork } from './startWorkApi.ts'
@@ -277,6 +278,52 @@ test('shows the reason when starting work is refused', async () => {
 
   // Assert
   expect(await screen.findByText(/already exists/i)).toBeTruthy()
+})
+
+test.each([
+  ['not started', 'PROJ-999'],
+  ['in flight elsewhere', 'PROJ-2'],
+  ['on the checked-out branch', 'PROJ-1'],
+])('names the merge request on GitLab for an issue %s', (_, issueKey) => {
+  // Arrange
+  useHealthStore.setState({ health: makeHealth(gitLabWords) })
+  offHead()
+
+  // Act
+  render(<WorkStory issueKey={issueKey} />)
+
+  // Assert
+  expect(screen.getByText('Merge request')).toBeTruthy()
+  expect(document.body.textContent).not.toMatch(/pull request/i)
+})
+
+test('marks the open merge request with its !number on GitLab', () => {
+  // Arrange
+  useHealthStore.setState({ health: makeHealth(gitLabWords) })
+  useSnapshotStore.setState({
+    status: 'live',
+    snapshot: makeSnapshot({
+      branches: onHead,
+      review: {
+        found: true,
+        pull: {
+          number: 7,
+          url: 'https://x/7',
+          title: 'the change',
+          draft: false,
+          approvals: 0,
+          changes_requested: false,
+          mergeable: 'unknown',
+        },
+      },
+    }),
+  })
+
+  // Act
+  render(<WorkStory issueKey="PROJ-1" />)
+
+  // Assert
+  expect(screen.getByText('!7')).toBeTruthy()
 })
 
 test('renders nothing before a snapshot arrives', () => {

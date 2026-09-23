@@ -2,6 +2,8 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { vi } from 'vitest'
+import { useHealthStore } from '@/api/health.ts'
+import { gitLabWords, makeHealth } from '@/test/fixtures.ts'
 import { renderWithClient } from '@/test/renderWithClient.tsx'
 import { errorMessage, SettingsPanel } from './SettingsPanel.tsx'
 
@@ -83,6 +85,29 @@ test('surfaces the branch and pull-request fields', async () => {
   expect(screen.getByLabelText('Slug limit')).toBeTruthy()
   expect(titleSource).toBeTruthy()
   expect(screen.getByRole('option', { name: /the issue it names/i })).toBeTruthy()
+})
+
+test("the hints name the forge's own noun: a merge request on GitLab", async () => {
+  // Arrange
+  vi.stubEnv('VITE_MOCK', 'true')
+  useHealthStore.setState({ health: makeHealth(gitLabWords) })
+
+  // Act
+  renderWithClient(<SettingsPanel />)
+
+  // Assert
+  await screen.findByRole('textbox', { name: 'Review status' })
+  const reviewHint =
+    'The status an issue moves to once its merge request is open, e.g. "In Review". Empty makes no offer.'
+  expect(
+    screen.getByRole('textbox', { name: 'Review status', description: reviewHint }),
+  ).toBeTruthy()
+  expect(
+    screen.getByRole('combobox', {
+      name: 'Title source',
+      description: "Where a merge request's title comes from.",
+    }),
+  ).toBeTruthy()
 })
 
 test('editing the commit types saves them as a trimmed list', async () => {

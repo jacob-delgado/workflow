@@ -15,6 +15,23 @@ interface HealthState {
 // banner, and the server's own guard still refuses every write under dry run.
 export const useHealthStore = create<HealthState>(() => ({ health: null }))
 
+// ForgeWords are what the repository's forge calls a proposed change, lowercase,
+// and the mark it writes before one's number: "merge request" and "!" on GitLab.
+export interface ForgeWords {
+  noun: string
+  sigil: string
+}
+
+// useForgeWords reads the forge's own words from the server's health, so the
+// page says what the terminal and the command line say. Until the health read
+// lands — or when it fails — they are the words most forges use.
+export function useForgeWords(): ForgeWords {
+  const noun = useHealthStore((state) => state.health?.forge_noun ?? 'pull request')
+  const sigil = useHealthStore((state) => state.health?.forge_sigil ?? '#')
+
+  return { noun, sigil }
+}
+
 // useHealth reads the server's health on mount, and again when the stream
 // reconnects after a drop: the server listens on a fixed port, so the one a tab
 // reconnects to may be a restart in the other mode. Mount it once, near the

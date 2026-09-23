@@ -1,7 +1,8 @@
 import { Check } from 'lucide-react'
 import type { Snapshot, TaskBranch } from '@/api/generated/types.gen.ts'
+import { useForgeWords, type ForgeWords } from '@/api/health.ts'
 import { useSnapshotStore } from '@/api/snapshot.ts'
-import { cn } from '@/lib/utils.ts'
+import { capitalized, cn } from '@/lib/utils.ts'
 import { useUiStore, type Section } from '@/shell/uiStore.ts'
 import { checkoutBranch } from './checkoutApi.ts'
 import { startWork } from './startWorkApi.ts'
@@ -20,24 +21,29 @@ interface Stage {
 // request and get CI green, announce it. An issue with no local branch has not
 // started. One with a branch that is not checked out has begun, but the detail
 // panels describe only the checked-out branch, so its later stages wait. The
-// issue on HEAD reads every stage's state from the stream.
-function buildStages(snapshot: Snapshot, branch: TaskBranch | undefined): Stage[] {
+// issue on HEAD reads every stage's state from the stream. The pull request is
+// named in the forge's own words — a merge request on GitLab.
+function buildStages(
+  snapshot: Snapshot,
+  branch: TaskBranch | undefined,
+  words: ForgeWords,
+): Stage[] {
   if (!branch) {
-    return notStartedStages()
+    return notStartedStages(words.noun)
   }
   if (!branch.current) {
-    return offHeadStages(branch.name)
+    return offHeadStages(branch.name, words.noun)
   }
 
-  return onHeadStages(snapshot)
+  return onHeadStages(snapshot, words)
 }
 
 // notStartedStages is the story for an issue with no local branch yet.
-function notStartedStages(): Stage[] {
+function notStartedStages(noun: string): Stage[] {
   return [
     { title: 'Branch', section: 'branch', done: false, detail: 'No branch for this issue yet' },
     { title: 'Changes', section: 'branch', done: false, detail: 'Nothing committed yet' },
-    { title: 'Pull request', section: 'review', done: false, detail: 'No pull request yet' },
+    { title: capitalized(noun), section: 'review', done: false, detail: `No ${noun} yet` },
     { title: 'Announce', section: 'messaging', done: false, detail: 'Not announced' },
   ]
 }
@@ -45,20 +51,20 @@ function notStartedStages(): Stage[] {
 // offHeadStages is the story for an in-flight issue whose branch is not checked
 // out: the branch exists, but its changes and pull request are only visible from
 // the checked-out branch, so those stages stay pending here.
-function offHeadStages(branchName: string): Stage[] {
+function offHeadStages(branchName: string, noun: string): Stage[] {
   const elsewhere = 'Shown for the checked-out branch'
 
   return [
     { title: 'Branch', section: 'branch', done: true, detail: branchName },
     { title: 'Changes', section: 'branch', done: false, detail: elsewhere },
-    { title: 'Pull request', section: 'review', done: false, detail: elsewhere },
+    { title: capitalized(noun), section: 'review', done: false, detail: elsewhere },
     { title: 'Announce', section: 'messaging', done: false, detail: 'Not announced' },
   ]
 }
 
 // onHeadStages is the full story for the issue that owns the checked-out branch,
 // with each stage's state read from the stream.
-function onHeadStages(snapshot: Snapshot): Stage[] {
+function onHeadStages(snapshot: Snapshot, words: ForgeWords): Stage[] {
   const { branch, changes, messaging } = snapshot
 
   return [
@@ -80,10 +86,10 @@ function onHeadStages(snapshot: Snapshot): Stage[] {
       detail: changesDetail(snapshot),
     },
     {
-      title: 'Pull request',
+      title: capitalized(words.noun),
       section: 'review',
       done: pullRequestDone(snapshot),
-      detail: reviewDetail(snapshot),
+      detail: reviewDetail(snapshot, words),
     },
     {
       title: 'Announce',
@@ -133,15 +139,15 @@ function changesDetail(snapshot: Snapshot): string {
   return 'Nothing committed yet'
 }
 
-function reviewDetail(snapshot: Snapshot): string {
+function reviewDetail(snapshot: Snapshot, { noun, sigil }: ForgeWords): string {
   const { review } = snapshot
   if (!review.found || !review.pull) {
-    return 'No pull request yet'
+    return `No ${noun} yet`
   }
 
-  const number = String(review.pull.number)
+  const number = `${sigil}${String(review.pull.number)}`
 
-  return review.ci ? `#${number} · CI ${review.ci.state}` : `#${number}`
+  return review.ci ? `${number} · CI ${review.ci.state}` : number
 }
 
 function stageState(stage: Stage, index: number, activeIndex: number): StageState {
@@ -158,12 +164,12 @@ function stageState(stage: Stage, index: number, activeIndex: number): StageStat
 // storyNote explains an issue that is not the checked-out one: never started, or
 // in flight on a branch that is not on HEAD. The issue on HEAD needs no note —
 // its stages speak for themselves.
-function storyNote(branch: TaskBranch | undefined): string | null {
+function storyNote(branch: TaskBranch | undefined, noun: string): string | null {
   if (!branch) {
-    return 'Not in progress — its branch, changes, and pull request appear here once you pick it up.'
+    return `Not in progress — its branch, changes, and ${noun} appear here once you pick it up.`
   }
   if (!branch.current) {
-    return `In progress on ${branch.name} — its changes and pull request show when it is the branch you are on.`
+    return `In progress on ${branch.name} — its changes and ${noun} show when it is the branch you are on.`
   }
 
   return null
@@ -172,15 +178,16 @@ function storyNote(branch: TaskBranch | undefined): string | null {
 export function WorkStory({ issueKey }: { issueKey: string }) {
   const snapshot = useSnapshotStore((state) => state.snapshot)
   const setSection = useUiStore((state) => state.setSection)
+  const words = useForgeWords()
 
   if (!snapshot) {
     return null
   }
 
   const branch = snapshot.branches.find((entry) => entry.issue_key === issueKey)
-  const stages = buildStages(snapshot, branch)
+  const stages = buildStages(snapshot, branch, words)
   const activeIndex = stages.findIndex((stage) => !stage.done)
-  const note = storyNote(branch)
+  const note = storyNote(branch, words.noun)
 
   return (
     <div className="flex flex-col gap-3">
