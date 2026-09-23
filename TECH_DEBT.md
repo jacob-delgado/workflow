@@ -465,7 +465,7 @@ know about.
   cost is that the config query never refetches on its own and a stalled
   stream leaves stale data with no refetch to fall back on. The issue
   detail is the one query with a finite `staleTime`
-  (`web/src/features/issues/issueApi.ts:22`): the stream carries only the
+  (`web/src/features/issues/issueApi.ts:23`): the stream carries only the
   list's slim issues, so a reopened issue is read again after a minute.
 - **The progress spine's per-system hue is color-only** (`internal/tui/spine.go:68`),
   mitigated by the stage name, or its initial when compact (`spine.go:51`).
