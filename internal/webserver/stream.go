@@ -31,11 +31,19 @@ func (s *server) streamEvents(w http.ResponseWriter, request *http.Request) {
 		return
 	}
 
+	// An unknown view is refused before the upgrade: once the event-stream
+	// headers are out, the only answer left is a stream of the wrong view.
+	view := request.URL.Query().Get("view")
+	if _, known := resolveJQL(s.config(), view); !known {
+		writeProblem(w, api.NotFound, unknownView(view))
+
+		return
+	}
+
 	w.Header().Set("Content-Type", "text/event-stream")
 	w.Header().Set("Cache-Control", "no-cache")
 	w.Header().Set("Connection", "keep-alive")
 
-	view := request.URL.Query().Get("view")
 	interval := s.info.streamInterval()
 
 	for eventID := 1; ; eventID++ {
@@ -117,13 +125,15 @@ func (s *server) currentBranchName() string {
 }
 
 // snapshotIssues is the first page of the view's issues, or an empty page when
-// the tracker is not configured or the search fails.
+// the tracker is not configured, the search fails, or a configuration save has
+// removed the view since the stream opened.
 func (s *server) snapshotIssues(view string) api.IssuesPage {
-	if s.deps.Search == nil {
+	jql, known := resolveJQL(s.config(), view)
+	if s.deps.Search == nil || !known {
 		return issuesPageDTO(jira.SearchResult{}, 0)
 	}
 
-	result, err := s.deps.Search(resolveJQL(s.config(), view), 0)
+	result, err := s.deps.Search(jql, 0)
 	if err != nil {
 		return issuesPageDTO(jira.SearchResult{}, 0)
 	}

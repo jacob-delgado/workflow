@@ -42,7 +42,9 @@ parameter that did not fit the contract.
 ## Not found
 
 Status 404. The addressed resource does not exist: most often an issue that is
-not in the tracker.
+not in the tracker, or a `view` the configuration does not name — the issue list
+and the event stream both refuse a view they do not know rather than answering
+with the default one.
 
 ## Conflict
 

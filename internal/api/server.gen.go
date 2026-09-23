@@ -1070,6 +1070,20 @@ func (response ListIssues200JSONResponse) VisitListIssuesResponse(w http.Respons
 	return err
 }
 
+type ListIssues404ApplicationProblemPlusJSONResponse Problem
+
+func (response ListIssues404ApplicationProblemPlusJSONResponse) VisitListIssuesResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
 type ListIssuesdefaultApplicationProblemPlusJSONResponse struct {
 	Body       Problem
 	StatusCode int

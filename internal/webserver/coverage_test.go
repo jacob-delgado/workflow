@@ -30,10 +30,10 @@ func TestListIssuesUsesTheNamedView(t *testing.T) {
 	}
 
 	cfg := config.Default()
-	cfg.Jira.Views = []config.JiraView{{Name: "Bugs", JQL: testBugJQL}}
+	cfg.Jira.Views = []config.JiraView{{Name: testBugView, JQL: testBugJQL}}
 
 	// Act
-	_ = get(t, serve(t, deps, cfg), "/api/issues?view=Bugs")
+	_ = get(t, serve(t, deps, cfg), "/api/issues?view="+testBugView)
 
 	// Assert
 	if gotJQL != testBugJQL {

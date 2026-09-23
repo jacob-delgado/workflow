@@ -296,18 +296,14 @@ keeping the payload honest is the runtime `zSnapshot.safeParse`
 (`snapshot.ts:55`), and a frame that fails it is dropped (`snapshot.ts:52`)
 with the last good snapshot left on screen and no signal to the user. A
 `Snapshot` field added in Go without regenerating the client therefore
-makes every frame vanish. Beside it, `resolveJQL`
-(`internal/webserver/handlers.go:211`) falls through to `views[0]` for an
-unknown view name, so a typo in `?view=` silently returns the default view.
+makes every frame vanish.
 
 **One way to fix it.** A parse failure sets the stream status to *stale*
-with the reason; an unknown view answers `not_found`; and the SSE frame
-shape is asserted by a test that decodes a server-produced frame with the
-client's schema.
+with the reason, and the SSE frame shape is asserted by a test that decodes
+a server-produced frame with the client's schema.
 
-**Done when.** A schema-mismatched frame shows in `StreamStatus`; `GET
-/api/issues?view=nope` is 404; a Go test feeds `stream.go`'s frame through
-`zSnapshot`.
+**Done when.** A schema-mismatched frame shows in `StreamStatus`, and a Go
+test feeds `stream.go`'s frame through `zSnapshot`.
 
 ### DEBT-68 Dependency posture worth knowing
 
