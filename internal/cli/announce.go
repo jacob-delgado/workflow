@@ -6,12 +6,16 @@ package cli
 import (
 	"errors"
 	"fmt"
+	"io"
+	"strconv"
 
 	"github.com/spf13/cobra"
 
 	"github.com/jacob-delgado/workflow/internal/config"
 	"github.com/jacob-delgado/workflow/internal/forge"
 	"github.com/jacob-delgado/workflow/internal/loop"
+	"github.com/jacob-delgado/workflow/internal/messaging"
+	"github.com/jacob-delgado/workflow/internal/tui"
 )
 
 // errNoPullRequest refuses announcing a branch that has no pull request.
@@ -33,7 +37,10 @@ type announceSeams struct {
 	// channel, the service — whose name the prompt and notices use — and the
 	// team's template.
 	Messaging config.Messaging
-	Confirm   func(question string) (bool, error)
+	// Memory is what the store remembers being announced in this repository —
+	// the interface's record as well as this command's.
+	Memory  loop.AnnounceMemory
+	Confirm func(question string) (bool, error)
 }
 
 // newAnnounceCmd builds `workflow announce`.
@@ -46,7 +53,10 @@ func newAnnounceCmd(prompt Prompt) *cobra.Command {
 		Long: "Post the message the messaging pane would — the branch's pull request, its\n" +
 			"issue, and where it stands (ready for review, merged, or CI red) — to the\n" +
 			"configured Slack, Teams, Discord or webhook. A preview is printed and\n" +
-			"confirmed before anything posts.",
+			"confirmed before anything posts.\n\n" +
+			"What it posts is remembered, with what the interface posts: a pull request\n" +
+			"already announced at the moment it is at is said to be, and asked about again\n" +
+			"rather than repeated — with --yes, it is left as it is.",
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			return runAnnounceCommand(cmd, prompt, opts)
@@ -80,6 +90,7 @@ func runAnnounceCommand(cmd *cobra.Command, prompt Prompt, opts writeOptions) er
 		Kind:      deps.Forge.Kind,
 		Project:   cfg.Jira.Project,
 		Messaging: cfg.Messaging,
+		Memory:    announceMemory(deps.Store),
 		Confirm:   func(question string) (bool, error) { return confirm(prompt, question) },
 	}
 
@@ -91,20 +102,28 @@ func runAnnounceCommand(cmd *cobra.Command, prompt Prompt, opts writeOptions) er
 }
 
 // runAnnounce composes the announcement for the branch's pull request, previews
-// it, and posts it once confirmed.
+// it, and posts it once confirmed, remembering it so a later run does not repeat
+// it unasked.
 func runAnnounce(out output, seams announceSeams, opts writeOptions) error {
 	if seams.Post == nil {
 		return fmt.Errorf("%w: set messaging.kind and messaging.webhook_url — or messaging.token, for a "+
 			"Slack bot — in %s, then check them with workflow doctor", errMessagingNotConfigured, config.FileName)
 	}
 
-	announcement, _, err := loop.ComposeAnnouncement(seams.Compose, seams.Messaging, seams.Project, seams.Kind)
+	announcement, pull, err := loop.ComposeAnnouncement(seams.Compose, seams.Messaging, seams.Project, seams.Kind)
 	if errors.Is(err, loop.ErrNoPullRequest) {
 		return fmt.Errorf("%w (open one with workflow pr)", errNoPullRequest)
 	}
 
 	if err != nil {
 		return err
+	}
+
+	made := loop.Announced{Pull: pull.Number, Moment: announcement.Moment}
+
+	again := seams.Memory.Holds(made)
+	if again && !offerAgain(out.notes, seams.Kind.Sigil()+strconv.Itoa(pull.Number), opts) {
+		return nil
 	}
 
 	service := seams.Messaging.Service()
@@ -114,15 +133,15 @@ func runAnnounce(out output, seams announceSeams, opts writeOptions) error {
 	fmt.Fprintln(out.artifact, "to "+target)
 
 	proceed, err := opts.proceed(out.notes, seams.Confirm, writePrompt{
-		question: "Post to " + service + "?",
+		question: postQuestion(service, again),
 		dryRun:   "dry run: would post to " + target,
 		declined: "Not posted.",
 	})
 	if err != nil || !proceed {
-		return err
+		return unattendedAgain(err, again)
 	}
 
-	err = seams.Post(seams.Messaging.Channel, text)
+	err = loop.Deliver(seams.Post, seams.Memory, loop.Delivery{Channel: seams.Messaging.Channel, Text: text, Made: made})
 	if err != nil {
 		return fmt.Errorf("posting to %s: %w", service, err)
 	}
@@ -140,4 +159,59 @@ func announceTarget(channel, service string) string {
 	}
 
 	return channel
+}
+
+// offerAgain says that an earlier session already made this announcement, and
+// reports whether to offer it again: asked, yes, but never repeated under --yes,
+// which answers only the question it can see coming.
+func offerAgain(notes io.Writer, pull string, opts writeOptions) bool {
+	fmt.Fprintln(notes, pull+" was already announced at this moment in an earlier session.")
+
+	if opts.yes {
+		fmt.Fprintln(notes, "Not posted again; run without --yes to be asked.")
+
+		return false
+	}
+
+	return true
+}
+
+// postQuestion asks to post to the service, and whether to post again when an
+// earlier session already did.
+func postQuestion(service string, again bool) string {
+	if again {
+		return "Post to " + service + " again?"
+	}
+
+	return "Post to " + service + "?"
+}
+
+// announceMemory is the store's record of the announcements made in this
+// repository, which the interface keeps too, in the shared layer's terms.
+func announceMemory(kept tui.StoreDeps) loop.AnnounceMemory {
+	return loop.AnnounceMemory{
+		Recorded: func() []loop.Announced {
+			posts := kept.Announced()
+
+			made := make([]loop.Announced, 0, len(posts))
+			for _, post := range posts {
+				made = append(made, loop.Announced{Pull: post.Pull, Moment: messaging.Moment(post.Moment)})
+			}
+
+			return made
+		},
+		Record: func(made loop.Announced) {
+			kept.RecordAnnounce(tui.AnnouncedPost{Pull: made.Pull, Moment: int(made.Moment)})
+		},
+	}
+}
+
+// unattendedAgain words a repeat that nothing could confirm: --yes leaves a
+// moment already announced as it is, so the way on is a terminal, not --yes.
+func unattendedAgain(err error, again bool) error {
+	if again && errors.Is(err, errNoTerminal) {
+		return fmt.Errorf("%w; run it at a terminal to be asked whether to announce it again", errNoTerminal)
+	}
+
+	return err
 }

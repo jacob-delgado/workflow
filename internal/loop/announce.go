@@ -6,6 +6,7 @@ package loop
 import (
 	"errors"
 	"fmt"
+	"slices"
 
 	"github.com/jacob-delgado/workflow/internal/config"
 	"github.com/jacob-delgado/workflow/internal/convention"
@@ -15,9 +16,13 @@ import (
 	"github.com/jacob-delgado/workflow/internal/messaging"
 )
 
-// ErrNoPullRequest refuses an announcement when the branch has no pull request
-// to announce, or there is no way to find one.
-var ErrNoPullRequest = errors.New("there is no pull request to announce")
+var (
+	// ErrNoPullRequest refuses an announcement when the branch has no pull
+	// request to announce, or there is no way to find one.
+	ErrNoPullRequest = errors.New("there is no pull request to announce")
+	// ErrAnnounceUnavailable refuses an announcement with no way to post one.
+	ErrAnnounceUnavailable = errors.New("announcing is not available")
+)
 
 // AnnounceSeams are what composing an announcement reads. A nil Branch or
 // FindPull means there is nothing to announce; a nil Author, Issue, BrowseURL
@@ -132,4 +137,58 @@ func authorName(read func() (string, error)) string {
 	}
 
 	return name
+}
+
+// Announced is one announcement made: a pull request, and the moment it marked.
+// A pull request is announced once at each of its moments — ready for review,
+// its CI red, merged — so the pair is what a later session is told was made.
+type Announced struct {
+	Pull   int
+	Moment messaging.Moment
+}
+
+// AnnounceMemory is what is remembered of the announcements made in this
+// repository, in this session or an earlier one: every one recorded, and the
+// record of a new one. A nil Recorded knows of none, and a nil Record
+// remembers nothing.
+type AnnounceMemory struct {
+	Recorded func() []Announced
+	Record   func(Announced)
+}
+
+// Holds reports whether made was already announced.
+func (m AnnounceMemory) Holds(made Announced) bool {
+	if m.Recorded == nil {
+		return false
+	}
+
+	return slices.Contains(m.Recorded(), made)
+}
+
+// Delivery is an announcement on its way out: the channel it goes to — empty
+// for the service's own — its text, and the announcement it makes.
+type Delivery struct {
+	Channel string
+	Text    string
+	Made    Announced
+}
+
+// Deliver posts the delivery and, once it has gone out, records what it made,
+// so a later session knows not to make it again. A post that fails records
+// nothing; the error is the post's own, for the caller to word.
+func Deliver(post func(channel, text string) error, memory AnnounceMemory, delivery Delivery) error {
+	if post == nil {
+		return ErrAnnounceUnavailable
+	}
+
+	err := post(delivery.Channel, delivery.Text)
+	if err != nil {
+		return err
+	}
+
+	if memory.Record != nil {
+		memory.Record(delivery.Made)
+	}
+
+	return nil
 }

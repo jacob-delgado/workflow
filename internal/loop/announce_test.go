@@ -5,6 +5,7 @@ package loop_test
 
 import (
 	"errors"
+	"slices"
 	"strings"
 	"testing"
 
@@ -310,5 +311,131 @@ func TestComposeAnnouncementNamesNoIssueForAKeylessBranch(t *testing.T) {
 	// Assert
 	if err != nil || announcement.IssueKey != "" || announcement.IssueSummary != "" || announcement.IssueURL != "" {
 		t.Errorf("announcement = %+v (%v), want no issue named", announcement, err)
+	}
+}
+
+// remembering is a memory that recorded made in an earlier session.
+func remembering(made ...loop.Announced) loop.AnnounceMemory {
+	return loop.AnnounceMemory{Recorded: func() []loop.Announced { return made }}
+}
+
+func TestAnnounceMemoryHoldsWhatAnEarlierSessionAnnounced(t *testing.T) {
+	t.Parallel()
+
+	opened := loop.Announced{Pull: 9, Moment: messaging.MomentReady}
+
+	cases := map[string]struct {
+		memory loop.AnnounceMemory
+		made   loop.Announced
+		want   bool
+	}{
+		"the pull request at the same moment": {memory: remembering(opened), made: opened, want: true},
+		"the pull request at a later moment": {
+			memory: remembering(opened), made: loop.Announced{Pull: 9, Moment: messaging.MomentMerged},
+		},
+		"another pull request":         {memory: remembering(opened), made: loop.Announced{Pull: 10}},
+		"no way to read what was made": {made: opened},
+	}
+
+	for name, tt := range cases {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			// Act & Assert
+			if got := tt.memory.Holds(tt.made); got != tt.want {
+				t.Errorf("Holds(%+v) = %t, want %t", tt.made, got, tt.want)
+			}
+		})
+	}
+}
+
+// deliveries records what a Post seam was asked to send.
+type deliveries struct {
+	posted   []string
+	recorded []loop.Announced
+}
+
+// post is a Post seam that sends, answering with err.
+func (d *deliveries) post(err error) func(channel, text string) error {
+	return func(channel, text string) error {
+		d.posted = append(d.posted, channel+" "+text)
+
+		return err
+	}
+}
+
+// memory records every announcement made.
+func (d *deliveries) memory() loop.AnnounceMemory {
+	return loop.AnnounceMemory{Record: func(made loop.Announced) { d.recorded = append(d.recorded, made) }}
+}
+
+// merged is the delivery these tests send: the pull request's merge, to #dev.
+func merged() loop.Delivery {
+	return loop.Delivery{Channel: "#dev", Text: "merged", Made: loop.Announced{Pull: 9, Moment: messaging.MomentMerged}}
+}
+
+func TestDeliverRecordsTheAnnouncementOnceItIsPosted(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	var sent deliveries
+
+	// Act
+	err := loop.Deliver(sent.post(nil), sent.memory(), merged())
+
+	// Assert
+	if err != nil || !slices.Equal(sent.posted, []string{"#dev merged"}) ||
+		!slices.Equal(sent.recorded, []loop.Announced{merged().Made}) {
+		t.Errorf("Deliver = %v, posted %q, recorded %+v; want one post, then its record", err, sent.posted, sent.recorded)
+	}
+}
+
+func TestDeliverRecordsNothingItCouldNotPost(t *testing.T) {
+	t.Parallel()
+
+	cases := map[string]struct {
+		post func(*deliveries) func(channel, text string) error
+		want error
+	}{
+		"a post that fails": {
+			post: func(sent *deliveries) func(channel, text string) error { return sent.post(errSeam) },
+			want: errSeam,
+		},
+		"no way to post": {
+			post: func(*deliveries) func(channel, text string) error { return nil },
+			want: loop.ErrAnnounceUnavailable,
+		},
+	}
+
+	for name, tt := range cases {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			// Arrange
+			var sent deliveries
+
+			// Act
+			err := loop.Deliver(tt.post(&sent), sent.memory(), merged())
+
+			// Assert
+			if !errors.Is(err, tt.want) || len(sent.recorded) != 0 {
+				t.Errorf("Deliver = %v, recorded %+v; want %v and nothing recorded", err, sent.recorded, tt.want)
+			}
+		})
+	}
+}
+
+func TestDeliverPostsWithNothingToRememberItIn(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	var sent deliveries
+
+	// Act
+	err := loop.Deliver(sent.post(nil), loop.AnnounceMemory{}, merged())
+
+	// Assert
+	if err != nil || len(sent.posted) != 1 {
+		t.Errorf("Deliver = %v, posted %q; want it posted though nothing records it", err, sent.posted)
 	}
 }

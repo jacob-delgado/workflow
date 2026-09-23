@@ -4,11 +4,49 @@
 package cli_test
 
 import (
+	"io"
 	"net/http"
+	"runtime"
 	"strings"
 	"sync/atomic"
 	"testing"
+	"time"
+
+	"github.com/jacob-delgado/workflow/internal/cli"
+	"github.com/jacob-delgado/workflow/internal/messaging"
+	"github.com/jacob-delgado/workflow/internal/store"
 )
+
+// announcedEarlier is a home whose store remembers the fake forge's pull request
+// 7 announced at moment, as an earlier session — of the interface or of
+// announce — leaves it: keyed by the repository's host and path.
+func announcedEarlier(t *testing.T, moment messaging.Moment) string {
+	t.Helper()
+
+	home := t.TempDir()
+	env := isolatedEnvironment(home)
+
+	dir, err := store.Dir(runtime.GOOS, home, func(name string) (string, bool) {
+		value, ok := env[name]
+
+		return value, ok
+	})
+	if err != nil {
+		t.Fatalf("finding the store under %s: %v", home, err)
+	}
+
+	err = store.New(dir, false).RecordAnnounce(t.Context(), "github.com/owner/repo",
+		store.Announce{Pull: 7, Moment: int(moment)}, time.Now())
+	if err != nil {
+		t.Fatalf("seeding the store: %v", err)
+	}
+
+	return home
+}
+
+// alreadyAnnounced is what announce says of a pull request an earlier session
+// announced at the moment it is at.
+const alreadyAnnounced = "#7 was already announced at this moment in an earlier session"
 
 func TestAnnounceDryRunComposesTheReadyMoment(t *testing.T) {
 	// Arrange
@@ -107,6 +145,112 @@ func TestAnnounceDryRunNamesTheService(t *testing.T) {
 
 	if !strings.Contains(output, "Teams") || strings.Contains(output, "Slack") {
 		t.Errorf("preview should name Teams, not Slack:\n%s", output)
+	}
+}
+
+func TestAnnounceSaysWhenAlreadyPosted(t *testing.T) {
+	// Arrange
+	fakeGh(t, ghResponses{pulls: openPull("Add login")})
+	repo := githubRepo(t, "fix/PROJ-2-thing")
+	writeFile(t, repo, forgeCLIConfig)
+	home := announcedEarlier(t, messaging.MomentReady)
+
+	// Act
+	printed, err := runStreamsAt(t, place{dir: repo, home: home}, unusedPrompt(t), "announce", "--dry-run")
+	// Assert
+	if err != nil {
+		t.Fatalf("announce --dry-run: %v (%+v)", err, printed)
+	}
+
+	if !strings.Contains(printed.stderr, alreadyAnnounced) || strings.Contains(printed.stdout, alreadyAnnounced) {
+		t.Errorf("announce does not say, on stderr, that it already announced this moment:"+
+			"\nstdout:\n%s\nstderr:\n%s", printed.stdout, printed.stderr)
+	}
+}
+
+func TestAnnounceYesSkipsWhatWasAlreadyAnnounced(t *testing.T) {
+	// Arrange
+	// A post would fail — the webhook is on a reserved domain — so succeeding is
+	// what proves nothing was posted.
+	fakeGh(t, ghResponses{pulls: openPull("Add login")})
+	repo := githubRepo(t, "fix/PROJ-2-thing")
+	writeFile(t, repo, forgeCLIConfig)
+	home := announcedEarlier(t, messaging.MomentReady)
+
+	// Act
+	printed, err := runStreamsAt(t, place{dir: repo, home: home}, unusedPrompt(t), "announce", "--yes")
+	// Assert
+	if err != nil {
+		t.Fatalf("announce --yes = %v, want the repeat skipped and nothing posted (%+v)", err, printed)
+	}
+
+	if !strings.Contains(printed.stderr, alreadyAnnounced) || !strings.Contains(printed.stderr, "without --yes") ||
+		printed.stdout != "" {
+		t.Errorf("announce --yes does not skip the repeat, saying so on stderr alone:\nstdout:\n%s\nstderr:\n%s",
+			printed.stdout, printed.stderr)
+	}
+}
+
+func TestAnnounceAsksBeforeAnnouncingAgain(t *testing.T) {
+	// Arrange
+	fakeGh(t, ghResponses{pulls: openPull("Add login")})
+	repo := githubRepo(t, "fix/PROJ-2-thing")
+	writeFile(t, repo, forgeCLIConfig)
+	home := announcedEarlier(t, messaging.MomentReady)
+
+	var asked []string
+
+	// Act
+	printed, err := runStreamsAt(t, place{dir: repo, home: home}, answering("n", &asked), "announce")
+	// Assert
+	if err != nil {
+		t.Fatalf("announce: %v (%+v)", err, printed)
+	}
+
+	if len(asked) != 1 || !strings.Contains(asked[0], " again?") {
+		t.Errorf("announce asked %q, want it to ask whether to announce again", asked)
+	}
+}
+
+func TestAnnounceAgainWithNoTerminalDoesNotPointAtYes(t *testing.T) {
+	// Arrange
+	// --yes leaves a moment already announced as it is, so the refusal must not
+	// send a script there: it names the one way to announce again.
+	fakeGh(t, ghResponses{pulls: openPull("Add login")})
+	repo := githubRepo(t, "fix/PROJ-2-thing")
+	writeFile(t, repo, forgeCLIConfig)
+	home := announcedEarlier(t, messaging.MomentReady)
+	noTerminal := cli.Prompt{Line: func(string) (string, error) { return "", io.EOF }}
+
+	// Act
+	_, err := runStreamsAt(t, place{dir: repo, home: home}, noTerminal, "announce")
+
+	// Assert
+	wantExit(t, err, 2)
+
+	if err == nil || strings.Contains(err.Error(), "--yes") || !strings.Contains(err.Error(), "at a terminal") {
+		t.Errorf("announce = %v, want it to say to run it at a terminal, not to pass --yes", err)
+	}
+}
+
+func TestAnnounceOffersAMomentNotYetAnnounced(t *testing.T) {
+	// Arrange
+	// The earlier session announced the pull request's merge; it is open now,
+	// which is another moment.
+	fakeGh(t, ghResponses{pulls: openPull("Add login")})
+	repo := githubRepo(t, "fix/PROJ-2-thing")
+	writeFile(t, repo, forgeCLIConfig)
+	home := announcedEarlier(t, messaging.MomentMerged)
+
+	// Act
+	printed, err := runStreamsAt(t, place{dir: repo, home: home}, unusedPrompt(t), "announce", "--dry-run")
+	// Assert
+	if err != nil {
+		t.Fatalf("announce --dry-run: %v (%+v)", err, printed)
+	}
+
+	if strings.Contains(printed.stderr, "already announced") || !strings.Contains(printed.stderr, "dry run:") {
+		t.Errorf("announce treated another moment as already announced:\n%s", printed.stderr)
 	}
 }
 

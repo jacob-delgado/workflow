@@ -16,6 +16,10 @@ issue, and where it stands (ready for review, merged, or CI red) — to the
 configured Slack, Teams, Discord or webhook. A preview is printed and
 confirmed before anything posts.
 
+What it posts is remembered, with what the interface posts: a pull request
+already announced at the moment it is at is said to be, and asked about again
+rather than repeated — with --yes, it is left as it is.
+
 ```
 workflow announce [flags]
 ```

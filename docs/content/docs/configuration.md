@@ -458,9 +458,10 @@ changes where it starts.
 
 workflow keeps a little state on disk so it can pick up where you left off — the
 commit scope you last used in a repository, which pull requests you have
-announced, and the last issue list it saw, so the interface opens on it while the
-live one loads. It lives in a small SQLite database under your platform's data
-directory:
+announced — in the interface or with `workflow announce`, and at which moment,
+so neither announces the same one twice unasked — and the last issue list it
+saw, so the interface opens on it while the live one loads. It lives in a small
+SQLite database under your platform's data directory:
 
 - macOS — `~/Library/Application Support/workflow`
 - Linux — `$XDG_STATE_HOME/workflow`, or `~/.local/state/workflow`
