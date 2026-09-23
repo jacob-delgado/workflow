@@ -134,8 +134,13 @@ func (r Repository) Diff(ctx context.Context, change Change) ([]string, error) {
 }
 
 // Status lists every changed file in the work tree, untracked files included.
+// It reads without git's optional locks, as git advises for a status read in
+// the background — the web's event stream reads it every few seconds: a plain
+// status takes the index lock to write back what it refreshed, and a stage or
+// a commit that meets the lock fails rather than waits.
 func (r Repository) Status(ctx context.Context) ([]Change, error) {
-	out, err := r.run(ctx, "git", "-C", r.dir, "status", "--porcelain=v1", "-z", "--untracked-files=all")
+	out, err := r.run(ctx, gitProgram, "--no-optional-locks", "-C", r.dir,
+		"status", "--porcelain=v1", "-z", "--untracked-files=all")
 	if err != nil {
 		return nil, readFailure(ctx, r.run, r.dir, "reading the status of "+r.dir, err)
 	}

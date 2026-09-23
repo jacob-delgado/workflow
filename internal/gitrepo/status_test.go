@@ -23,7 +23,7 @@ const (
 )
 
 // statusCommand is the exact status invocation Status runs.
-const statusCommand = "git -C /work status --porcelain=v1 -z --untracked-files=all"
+const statusCommand = "git --no-optional-locks -C /work status --porcelain=v1 -z --untracked-files=all"
 
 func TestStatusReadsTheWorkTree(t *testing.T) {
 	t.Parallel()
@@ -288,8 +288,8 @@ func TestStatusReportsADirectoryOutsideARepository(t *testing.T) {
 
 	// Arrange
 	run := fakeRunner(t, map[string]reply{
-		"git -C /work status --porcelain=v1 -z --untracked-files=all": {err: errIndexLocked},
-		showToplevel: {err: errIndexLocked},
+		statusCommand: {err: errIndexLocked},
+		showToplevel:  {err: errIndexLocked},
 	})
 
 	// Act
