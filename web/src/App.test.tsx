@@ -165,3 +165,23 @@ test('opening the cockpit leaves focus where the browser put it', () => {
   // Assert
   expect(document.activeElement).toBe(document.body)
 })
+
+test('a frame that fails the schema shows the stream out of date in the header', () => {
+  // Arrange
+  renderWithClient(<App />)
+  act(() => {
+    FakeEventSource.latest().emit('snapshot', JSON.stringify(makeSnapshot()))
+  })
+
+  // Act
+  act(() => {
+    FakeEventSource.latest().emit('snapshot', JSON.stringify({ issues: 'not a page' }))
+  })
+
+  // Assert
+  const header = screen.getByRole('banner')
+  const stream = within(header)
+    .getAllByRole('status')
+    .find((region) => region.textContent.includes('Out of date'))
+  expect(stream?.textContent).toMatch(/reload the page/)
+})

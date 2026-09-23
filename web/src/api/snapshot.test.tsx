@@ -38,30 +38,74 @@ test('keeps the scope a frame suggests for the next commit', () => {
   expect(useSnapshotStore.getState().snapshot?.suggested_scope).toBe('api')
 })
 
-test('drops a payload that does not match the contract', () => {
+test.each([
+  ['does not match the contract', JSON.stringify({ issues: 'not a page' })],
+  ['is not JSON', 'not json{'],
+])('a frame that %s leaves the last good snapshot, marked out of date and why', (_, frame) => {
   // Arrange
   renderHook(() => {
     useEventStream(null, vi.fn())
   })
+  FakeEventSource.latest().emit('snapshot', JSON.stringify(validSnapshot))
 
   // Act
-  FakeEventSource.latest().emit('snapshot', JSON.stringify({ issues: 'not a page' }))
+  FakeEventSource.latest().emit('snapshot', frame)
 
   // Assert
-  expect(useSnapshotStore.getState().snapshot).toBeNull()
+  const { snapshot, status, reason } = useSnapshotStore.getState()
+  expect(snapshot?.issues.total).toBe(3)
+  expect(status).toBe('stale')
+  expect(reason).toMatch(/reload/i)
 })
 
-test('drops a snapshot frame that is not valid JSON', () => {
+test('a good frame after a bad one brings the stream back to live', () => {
   // Arrange
   renderHook(() => {
     useEventStream(null, vi.fn())
   })
-
-  // Act
   FakeEventSource.latest().emit('snapshot', 'not json{')
 
+  // Act
+  FakeEventSource.latest().emit('snapshot', JSON.stringify(validSnapshot))
+
   // Assert
-  expect(useSnapshotStore.getState().snapshot).toBeNull()
+  expect(useSnapshotStore.getState()).toMatchObject({ status: 'live', reason: '' })
+})
+
+// A stale stream's reason is dropped by whatever happens to the stream next,
+// so the header never pairs another state with "reload the page".
+test.each([
+  { event: 'error', status: 'reconnecting' },
+  { event: 'open', status: 'live' },
+])('a stream that goes $status after a bad frame says no reason', ({ event, status }) => {
+  // Arrange
+  renderHook(() => {
+    useEventStream(null, vi.fn())
+  })
+  FakeEventSource.latest().emit('snapshot', 'not json{')
+
+  // Act
+  FakeEventSource.latest().emit(event, '')
+
+  // Assert
+  expect(useSnapshotStore.getState()).toMatchObject({ status, reason: '' })
+})
+
+test('a view chosen after a bad frame connects with no reason', () => {
+  // Arrange
+  const { rerender } = renderHook(
+    ({ view }: { view: string | null }) => {
+      useEventStream(view, vi.fn())
+    },
+    { initialProps: { view: null as string | null } },
+  )
+  FakeEventSource.latest().emit('snapshot', 'not json{')
+
+  // Act
+  rerender({ view: 'Team bugs' })
+
+  // Assert
+  expect(useSnapshotStore.getState()).toMatchObject({ status: 'connecting', reason: '' })
 })
 
 test('marks the stream live when it opens', () => {
@@ -77,7 +121,7 @@ test('marks the stream live when it opens', () => {
   expect(useSnapshotStore.getState().status).toBe('live')
 })
 
-test('marks the stream stale when it errors', () => {
+test('marks the stream reconnecting when it errors', () => {
   // Arrange
   renderHook(() => {
     useEventStream(null, vi.fn())
@@ -87,7 +131,7 @@ test('marks the stream stale when it errors', () => {
   FakeEventSource.latest().emit('error', '')
 
   // Assert
-  expect(useSnapshotStore.getState().status).toBe('stale')
+  expect(useSnapshotStore.getState().status).toBe('reconnecting')
 })
 
 test('seeds mock data instead of connecting when VITE_MOCK is set', async () => {
@@ -205,10 +249,10 @@ test('leaves a dropped view stream to reconnect on its own', () => {
 
   // Assert
   expect(onViewRefused).not.toHaveBeenCalled()
-  expect(useSnapshotStore.getState().status).toBe('stale')
+  expect(useSnapshotStore.getState().status).toBe('reconnecting')
 })
 
-test('marks a refused default stream stale, with no view to hand back', () => {
+test('marks a refused default stream reconnecting, with no view to hand back', () => {
   // Arrange
   const onViewRefused = vi.fn()
   renderHook(() => {
@@ -220,5 +264,5 @@ test('marks a refused default stream stale, with no view to hand back', () => {
 
   // Assert
   expect(onViewRefused).not.toHaveBeenCalled()
-  expect(useSnapshotStore.getState().status).toBe('stale')
+  expect(useSnapshotStore.getState().status).toBe('reconnecting')
 })

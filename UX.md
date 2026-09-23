@@ -177,22 +177,6 @@ on the two transitions and one reduced-motion rule in `index.css`.
 
 **Done when.** `grep -c opacity-60 web/src` is 0; axe passes both themes.
 
-### UX-82 A bad stream frame disappears without a trace
-
-Impact: medium · Effort: small
-
-**Today.** A frame that fails `zSnapshot.safeParse` is dropped
-(`web/src/api/snapshot.ts:63`); the last good snapshot stays on screen and
-`StreamStatus` still says `Live`. A field added on the server without
-regenerating the client makes every frame vanish, indistinguishably from a
-quiet repository (DEBT-67).
-
-**Instead.** A dropped frame sets the stream status to `stale` with the
-reason, shown in the same pill.
-
-**Done when.** Feeding the store a schema-mismatched frame shows `stale` in
-`StreamStatus`.
-
 ### UX-83 The web has no Reviews section
 
 Impact: medium · Effort: medium
@@ -225,7 +209,7 @@ lights own" (`web/src/index.css:24`) plus a three-color CI language; Jira is
 not blue, git is not yellow, the forge is not green anywhere; the `NavRail`
 icons are all muted (`web/src/shell/NavRail.tsx:30`). State marks are the web's own:
 `StageMarker` (`web/src/features/issues/WorkStory.tsx:316`) invents three, and `ciDot`
-(`web/src/features/review/ReviewPanel.tsx:21`) and `StreamStatus` (`StreamStatus.tsx:4`) are
+(`web/src/features/review/ReviewPanel.tsx:21`) and `StreamStatus` (`web/src/shell/StreamStatus.tsx:4`) are
 color-only dots of one shape (mitigated by a text label beside each). And
 the page shows the template tells the interface avoids: nine `uppercase`
 eyebrow headings from seven class strings (`web/src/features/settings/SettingsPanel.tsx:340`,
