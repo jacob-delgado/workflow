@@ -199,10 +199,13 @@ func (m Model) canPush() bool {
 		m.deps.Git.Push != nil
 }
 
-// previewPush shows what a push would send, so an outward-facing act reachable
-// from a single key still gets a last look before it leaves.
+// previewPush holds the push for a last look at what it sends and where.
 func (m Model) previewPush() (Model, tea.Cmd) {
-	m.overlay = pushPreview{branch: m.branch.branch.Name, remote: m.branch.remote()}
+	m.overlay = lastLook{
+		marks: m.marks, styles: m.styles, title: "Push branch",
+		body: "push " + m.branch.branch.Name + " to " + m.branch.remote(), verb: "push",
+		proceed: func(m Model) (Model, tea.Cmd) { return m.startPush(nil) },
+	}
 
 	return m, nil
 }
