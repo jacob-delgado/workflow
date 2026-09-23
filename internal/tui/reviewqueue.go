@@ -99,7 +99,7 @@ func (m Model) reviewQueueRail(_ int) string {
 	case !m.reviewQueue.loaded:
 		return "looking" + m.marks.ellipsis
 	case m.reviewQueue.err != nil:
-		return m.failedGlyph() + " " + forgeReason(m.reviewQueue.err)
+		return m.failureSummary(m.reviewQueue.err)
 	case len(m.reviewQueue.requests) == 0:
 		return "none waiting on you"
 	}
@@ -115,7 +115,7 @@ func (m Model) reviewQueueDetail(width int) string {
 	case !m.reviewQueue.loaded:
 		return "looking" + m.marks.ellipsis
 	case m.reviewQueue.err != nil:
-		return m.failureWithin(m.reviewQueue.err, width)
+		return m.failureBlock(m.reviewQueue.err, width)
 	case len(m.reviewQueue.requests) == 0:
 		return "No pull requests are waiting on your review."
 	}

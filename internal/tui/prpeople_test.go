@@ -4,15 +4,13 @@
 package tui_test
 
 import (
-	"errors"
+	"fmt"
 	"slices"
 	"strings"
 	"testing"
-)
 
-// errReviewersRefused is how the forge reports a pull it opened but whose
-// reviewers the token could not add.
-var errReviewersRefused = errors.New("the forge refused the reviewers")
+	"github.com/jacob-delgado/workflow/internal/forge"
+)
 
 func TestTheComposerOpensWithReviewersAssigneesAndLabels(t *testing.T) {
 	t.Parallel()
@@ -61,10 +59,10 @@ func TestAPullThatOpensButCannotAddReviewersIsNotLost(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
-	// The pull opens, but the token cannot request its reviewers.
+	// The pull opens, but the forge knows no reviewer by that name.
 	opening := withoutPull()
-	opening.reviewerErr = errReviewersRefused
-	model := opening.live(t, 120, 40)
+	opening.reviewerErr = fmt.Errorf("%w: ana", forge.ErrNoUser)
+	model := opening.live(t, 200, 40)
 
 	keys := append([]string{"4", "n", keyTab, keyTab}, letters("ana")...)
 
@@ -72,7 +70,8 @@ func TestAPullThatOpensButCannotAddReviewersIsNotLost(t *testing.T) {
 	opened := typing(t, model, append(keys, keyEnter)...)
 
 	// Assert
-	requireScreen(t, opened.View().Content, "opened #42", "could not add every reviewer, assignee or label")
+	requireScreen(t, opened.View().Content, "opened #42",
+		"could not add every reviewer, assignee or label: the forge has no such user")
 	refuseScreen(t, opened.View().Content, "┏━ Open pull request")
 }
 

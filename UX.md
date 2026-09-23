@@ -58,9 +58,9 @@ them, re-counted at this commit.
 | --- | --- | --- |
 | "a key it does not show does nothing" | No longer stated anywhere; the sentence the previous edition cited at `usage.md:55` is gone. Folds into the next row. | — |
 | "`?` lists every key" | `docs/content/docs/usage.md:62` | **Yes, by construction.** Help is generated from the bindings (`internal/tui/keys.go:134` `helpBuilder.place`, rendered at `render.go:208`): 57 of 57. The one guard is that construction; `render.go:222` skips a binding with empty help silently, and the tests are three-string spot checks (`focus_test.go:124`). |
-| "the one way the interface says something broke" | `failure`, `internal/tui/failure.go:63` | **Partly, and this is the weakest.** Of 53 places that render an error, 22 go through the `failure` family, but only 11 reach the actionable `errorSentence` (`internal/tui/failure.go:39`): `failureBlock` (`internal/tui/failure.go:88`) red-wraps the raw chain, so all 11 `pinnedOutcome` overlays show the raw error; 14 sites are `failedGlyph + err.Error()`; 8 are glyph-only rail summaries; 7 are notices with no glyph and no red at all. See UX-67. |
+| "the one way the interface says something broke" | `failure`, `internal/tui/failure.go:316` | **Partly, and this is the weakest.** The panes and all 11 `pinnedOutcome` overlays speak the actionable `errorSentence` (`internal/tui/failure.go:97`) through `failureBlock` (`internal/tui/failure.go:348`), and two rails its brief form; but 14 sites are still `failedGlyph + err.Error()`, 8 are glyph-only rail summaries, and 7 are notices with no glyph and no red at all. See UX-67. |
 | "Nothing outward facing is sent without" a last look | `internal/tui/comment.go:60` | **Yes: 18 of 18.** Every outward act waits on a preview or a confirmation; the push, `R`'s re-run of CI and `u`'s rebase share one last look, `lastLook` (`internal/tui/overlay.go:131`). |
-| "a refused change must never go unseen" | `internal/tui/picker.go:269` | **Yes: 14 of 14.** Every overlay that sends a request guards it while in flight (the previous edition counted 1 of 7), and every one keeps a refusal in the overlay, where it happened, until `esc` — the merge and finish previews last, through `pinnedOutcome` (`internal/tui/failure.go:95`). |
+| "a refused change must never go unseen" | `internal/tui/picker.go:269` | **Yes: 14 of 14.** Every overlay that sends a request guards it while in flight (the previous edition counted 1 of 7), and every one keeps a refusal in the overlay, where it happened, until `esc` — the merge and finish previews last, through `pinnedOutcome` (`internal/tui/failure.go:366`). |
 | "Each pane fails on its own" | `docs/content/docs/usage.md:68` | Yes. `tui.go:157` batches six loads; each pane holds and renders its own error. |
 | State is "carried by the SHAPE of a glyph rather than its color" | `internal/tui/glyphs.go:16` | Yes. `unicodeGlyphs` and `asciiGlyphs` differ in shape (`glyphs.go:31`, `:43`); `NO_COLOR` keeps bold and faint (`tui.go:139`). One residue: the progress spine's per-system hue is color-only, mitigated by the name or its initial. |
 
@@ -129,7 +129,7 @@ Impact: medium · Effort: small
 
 **Today.** The terminal interface, after opening, asks to link the pull
 request on the issue and then offers the review status
-(`internal/tui/prcomposer.go:509`, `issuelink.go:20`). `workflow pr` offers only the
+(`internal/tui/prcomposer.go:510`, `issuelink.go:20`). `workflow pr` offers only the
 status (`internal/cli/pr.go:167`); it never calls `Jira.LinkPullRequest`, though the seam
 is on the same `tui.Deps` it already holds. (The web does neither — UX-75.)
 
@@ -236,34 +236,34 @@ always`; `ui.detail_delay` in milliseconds.
 
 **Done when.** Each setting is read and honored by a screen test.
 
-### UX-67 One voice for failure — 11 places of 53 speak it
+### UX-67 One voice for failure — the rows and notices do not speak it yet
 
 Impact: high · Effort: medium
 
-**Today.** `failure` (`internal/tui/failure.go:63`) is "the one way the interface says
-something broke", and `errorSentence` (`internal/tui/failure.go:39`) is where the useful
-sentences live ("Check the VPN, then press `r`", "Run `gh auth login`"). Of
-53 places that render an error, only 11 reach `errorSentence`.
-`failureBlock` (`internal/tui/failure.go:88`) red-wraps the raw error chain and never
-calls it, so all 11 `pinnedOutcome` overlays show `could not reach the forge
-at …: dial tcp …` instead of the sentence. Fourteen rail sites are
-`failedGlyph + err.Error()` (`internal/tui/checks.go:97`, `diff.go:79`,
-`issuewrite.go:120`, `internal/tui/picker.go:209`, `internal/tui/switchtask.go:107`, `internal/tui/review.go:218`,
-`internal/tui/run.go:212`, `internal/tui/composer.go:164`, `internal/tui/fields.go:171`, …); eight are glyph-only
-summaries; seven are notices with no glyph and no red (`comment.go:76`,
-`internal/tui/composer.go:77`, `internal/tui/messaging.go:377`, `internal/tui/checks.go:233`,
-`:241`, `internal/tui/merge.go:66`, `:68`); one config screen is unstyled
-(`render.go:383`). `render.go:369` points at `workflow doctor` only for a
-*missing* setting, never a failing one; `forgeReason` (`internal/tui/review.go:360`),
-`rerunReason` (`internal/tui/checks.go:254`) and `errNeedsWriteScope` (`internal/tui/merge.go:21`) each carry a sentence
-`errorSentence` does not know.
+**Today.** `errorSentence` (`internal/tui/failure.go:97`) words every
+sentinel the seams return — in brief for a summary row, in full with the
+way out everywhere else — and `failureBlock` (`internal/tui/failure.go:348`)
+consults it, so the panes and all 11 `pinnedOutcome` overlays speak the
+sentence, and the Review and Reviews rails speak it in brief
+(`failureSummary`, `internal/tui/failure.go:340`). The rest do not. Fourteen
+rows are `failedGlyph + err.Error()` (`internal/tui/checks.go:98`,
+`internal/tui/diff.go:79`, `internal/tui/issuewrite.go:120`,
+`internal/tui/picker.go:209`, `internal/tui/switchtask.go:107`,
+`internal/tui/review.go:217`, `internal/tui/run.go:212`,
+`internal/tui/composer.go:164`, `internal/tui/fields.go:171`, …); seven
+notices have no glyph and no red (`internal/tui/comment.go:76`,
+`internal/tui/composer.go:77`, `internal/tui/messaging.go:377`,
+`internal/tui/checks.go:235`, `:243`, `internal/tui/merge.go:61`, `:63`);
+and the configuration screen shows its error unstyled
+(`internal/tui/render.go:383`).
 
-**Instead.** `failureBlock` consults `errorSentence`; a one-line
-`failureLine(err)` replaces the fourteen raw sites; the seven notices go
-through it; the three helpers fold into `errorSentence`'s table.
+**Instead.** A one-line `failureLine(err)` replaces the fourteen raw rows;
+a failure notice wears the failure style, and a guidance notice keeps one
+home for its words; the configuration screen shows its error through the
+failure family.
 
 **Done when.** `err.Error()` appears in no non-test file under
-`internal/tui` except `render.go`; a table test asserts, for every seam
+`internal/tui` except `failure.go`; a table test asserts, for every seam
 sentinel, that each channel (pane, pinned overlay, notice, rail) shows the
 sentence.
 
@@ -326,7 +326,7 @@ request" throughout.
 Impact: medium · Effort: medium
 
 **Today.** The interface links the pull request on the issue and then
-offers the configured review status (`internal/tui/prcomposer.go:509`, `internal/tui/picker.go:186`);
+offers the configured review status (`internal/tui/prcomposer.go:510`, `internal/tui/picker.go:186`);
 the CLI offers the status (`internal/cli/pr.go:167`). `internal/webserver/pullrequest.go`
 touches neither `Jira.ReviewStatus` nor `LinkPullRequest`; after `Pull
 request opened.` (`ReviewPanel.tsx:141`) there is nothing more to do.
@@ -584,7 +584,7 @@ Impact: low · Effort: medium
 nothing says when the last snapshot arrived, and a panel that changed
 because CI settled looks exactly like one that re-rendered. There is no
 toast, and no "CI passed" moment on the web where the interface rings the
-terminal (`internal/tui/review.go:141`).
+terminal (`internal/tui/review.go:140`).
 
 **Instead.** A "updated 3 s ago" beside the pill; a brief highlight on the
 row a snapshot changed; a status line when CI settles, honoring
@@ -616,7 +616,7 @@ Impact: low · Effort: medium
 
 **Today.** The interface shows a per-file diff under the changes list
 (`diff.go:29`), amends (`A`) and fixups (`f`), lists CI checks and jumps to
-a failure in `$EDITOR` (`internal/tui/checks.go:38`, `internal/tui/run.go:368`), edits an open pull
+a failure in `$EDITOR` (`internal/tui/checks.go:39`, `internal/tui/run.go:368`), edits an open pull
 request (`preditor.go`), and cycles the repository's pull-request templates
 (`ctrl+t`). None has a web equivalent, and the web takes the first template
 only (`firstTemplate`, `internal/loop/pull.go:136`). A `?` shortcut sheet, which the interface has,

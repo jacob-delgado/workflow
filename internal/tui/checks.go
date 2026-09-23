@@ -5,6 +5,7 @@ package tui
 
 import (
 	"errors"
+	"fmt"
 	"strconv"
 	"strings"
 
@@ -225,12 +226,13 @@ func (msg rerunRequested) apply(m Model) (Model, tea.Cmd) {
 	asked := open && look.send.sending
 
 	if msg.err != nil {
+		refusal := writeRefusal(msg.err)
 		if asked {
-			look.send = look.send.failed(msg.err)
+			look.send = look.send.failed(refusal)
 			m.overlay = look
 		}
 
-		return m.noticed(rerunReason(msg.err)), nil
+		return m.noticed(m.failure(fmt.Errorf("re-run failed: %w", refusal))), nil
 	}
 
 	if asked {
@@ -247,14 +249,4 @@ func (msg rerunRequested) apply(m Model) (Model, tea.Cmd) {
 	// The re-run has only just started, so a check now would still read the old
 	// failure; let the poll the set-to-running schedules read it once it moves.
 	return m.keepPolling(nil)
-}
-
-// rerunReason names why a re-run could not be asked for, spelling out the one a
-// read-only token hits so the fix — a wider scope — is plain.
-func rerunReason(err error) string {
-	if errors.Is(err, forge.ErrRefused) || errors.Is(err, forge.ErrUnauthorized) {
-		return "cannot re-run: the token needs a checks write scope the read path does not"
-	}
-
-	return "re-run failed: " + forgeReason(err)
 }

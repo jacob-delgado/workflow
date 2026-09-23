@@ -5,6 +5,7 @@ package tui_test
 
 import (
 	"errors"
+	"fmt"
 	"slices"
 	"strings"
 	"testing"
@@ -151,13 +152,14 @@ func TestTheReviewPaneSaysWhenTheForgeDoesNotAnswer(t *testing.T) {
 
 	// Arrange
 	unanswered := withoutPull()
-	unanswered.pullErr = errUnreachable
+	unanswered.pullErr = fmt.Errorf("finding the pull request: %w", forge.ErrUnreachable)
 
 	// Act
 	view := typing(t, unanswered.live(t, 120, 40), "4").View().Content
 
 	// Assert
-	requireScreen(t, view, "✗ the forge did not answer", "✗ could not reach the forge")
+	// Briefly on the summary line the rail shares, in full in the block below it.
+	requireScreen(t, view, "✗ could not reach the forge", "✗ The forge did not answer in time. Check the network,")
 }
 
 func TestTheReviewPaneMarksADraft(t *testing.T) {

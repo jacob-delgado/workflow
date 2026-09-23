@@ -4,7 +4,6 @@
 package tui
 
 import (
-	"errors"
 	"strconv"
 	"strings"
 	"time"
@@ -251,7 +250,7 @@ func (m Model) reviewRail(_ int) string {
 	case !m.review.loaded:
 		return "looking" + m.marks.ellipsis
 	case m.review.err != nil:
-		return m.failedGlyph() + " " + forgeReason(m.review.err)
+		return m.failureSummary(m.review.err)
 	case !m.review.found:
 		return "no " + m.vocab.noun + " yet"
 	}
@@ -276,7 +275,7 @@ func (m Model) reviewDetail(width int) string {
 		lines := []string{m.reviewRail(0)}
 
 		if m.review.err != nil {
-			lines = append(lines, "", m.failureWithin(m.review.err, width))
+			lines = append(lines, "", m.failureBlock(m.review.err, width))
 		}
 
 		if m.canOpenPullRequest() {
@@ -354,25 +353,6 @@ func (m Model) canOpenPullRequest() bool {
 // checks the state rather than found alone.
 func (m Model) canEditPullRequest() bool {
 	return m.review.found && m.review.pull.IsOpen() && m.deps.Forge.EditPullRequest != nil
-}
-
-// forgeReason names why the forge could not be reached, by cause.
-func forgeReason(err error) string {
-	switch {
-	case errors.Is(err, forge.ErrNoToken):
-		return "no forge token"
-	case errors.Is(err, forge.ErrNotARemote), errors.Is(err, forge.ErrUnknownForge),
-		errors.Is(err, forge.ErrKindNeedsHost):
-		return "origin is not GitHub or GitLab"
-	case errors.Is(err, forge.ErrUnreachable):
-		return "could not reach the forge"
-	case errors.Is(err, forge.ErrRejected):
-		// The forge turned the request down and said why; that reason, already
-		// sanitized where it was read, is more use than a generic line.
-		return err.Error()
-	default:
-		return "the forge did not answer"
-	}
 }
 
 // reviewKeys offers opening a pull request, listing its checks, or checking

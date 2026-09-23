@@ -113,7 +113,7 @@ func (msg transitionApplied) apply(m Model) (Model, tea.Cmd) {
 	if msg.err != nil {
 		picker, open := m.overlay.(statusPicker)
 		if open {
-			picker.send, picker.form = picker.send.failed(msg.err), fieldForm{}
+			picker.send, picker.form = picker.send.failed(writeRefusal(msg.err)), fieldForm{}
 			m.overlay = picker
 		}
 

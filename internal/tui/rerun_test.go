@@ -49,7 +49,7 @@ func TestARerunThatFailsPlainlySaysWhy(t *testing.T) {
 
 	// Assert
 	requireScreen(t, view, "re-run failed")
-	refuseScreen(t, view, "checks write scope")
+	refuseScreen(t, view, "write scope")
 }
 
 func TestRerunSaysWhenThereIsNothingToReRun(t *testing.T) {
@@ -120,7 +120,7 @@ func TestARefusedRerunNamesTheMissingScope(t *testing.T) {
 	view := typing(t, reviewing.live(t, 120, 40), "4", "R", keyEnter).View().Content
 
 	// Assert
-	requireScreen(t, view, "the token needs a checks write scope")
+	requireScreen(t, view, "✗ The forge refused the write: the token may lack the write scope")
 }
 
 func TestADryRunReRunsNothing(t *testing.T) {
@@ -196,13 +196,13 @@ func TestRefusedRerunStaysInItsLastLook(t *testing.T) {
 	refused := typing(t, look, keyEnter)
 
 	// Assert: the look is still open, the refusal pinned in it, ready to try again
-	requireScreen(t, refused.View().Content, "Re-run checks", "✗ the forge refused the request", "enter re-run")
+	requireScreen(t, refused.View().Content, "Re-run checks", "✗ The forge refused the write", "enter re-run")
 
 	// Act: close it
 	closed := typing(t, refused, keyEsc)
 
 	// Assert: the look is gone, and the refused re-run was asked for once
-	refuseScreen(t, closed.View().Content, "Re-run checks", "✗ the forge refused the request")
+	refuseScreen(t, closed.View().Content, "Re-run checks", "✗ The forge refused the write")
 
 	if calls := reviewing.asked("rerun"); len(calls) != 1 {
 		t.Errorf("rerun calls = %q, want the one refused", calls)
