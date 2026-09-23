@@ -342,7 +342,7 @@ func TestAPostWaitingForCIIsDroppedWhenCIFails(t *testing.T) {
 
 	// Arrange
 	// CI is running when the post is queued — a "ready for review" moment — and
-	// fails on the next check. The interval is above the harness's patience so the
+	// fails on the next check. The interval is past the harness's horizon so the
 	// initial poll does not fast-forward CI to failed before the post is queued.
 	failing := newWorld()
 	failing.ciInterval = 2 * time.Second
@@ -398,14 +398,24 @@ func TestNothingMorePostsWhileAPostIsOnItsWay(t *testing.T) {
 	// Arrange
 	slow := newWorld()
 	slow.ci = []forge.CI{{State: forge.CIRunning}, {State: forge.CIPassed}}
-	slow.postGate = make(chan struct{})
+	slow.postParked, slow.postRelease = make(chan struct{}, 1), make(chan struct{})
 
-	t.Cleanup(func() { close(slow.postGate) })
+	t.Cleanup(func() { close(slow.postRelease) })
 
-	model := slow.live(t, 120, 40)
+	previewing := typing(t, slow.live(t, 120, 40), "5", "p")
 
-	// Act: post when CI passes, which it has by the time w is pressed
-	sending := typing(t, model, "5", "p", "w")
+	// Act: post when CI passes, which it has by the time w is pressed; the post
+	// goes, and Slack has not answered when the screen is read
+	checking, check := pressed(t, previewing, "w")
+	sending, post := finish(t, checking, check)
+
+	go post()
+
+	select {
+	case <-slow.postParked:
+	case <-time.After(failsafe):
+		t.Fatalf("the post had not reached Slack after %v: w did not send it", failsafe)
+	}
 
 	// Assert: the post went, Slack has not answered, and it is not offered again
 	requireScreen(t, sending.View().Content,
@@ -532,8 +542,8 @@ func TestADroppedPostLeavesALineInThePane(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
-	// CI is running when the post is queued, then fails; the interval is above the
-	// harness's patience so the queue happens before CI settles.
+	// CI is running when the post is queued, then fails; the interval is past the
+	// harness's horizon so the queue happens before CI settles.
 	failing := newWorld()
 	failing.ciInterval = 2 * time.Second
 	failing.ci = []forge.CI{{State: forge.CIRunning}, {State: forge.CIFailed}}

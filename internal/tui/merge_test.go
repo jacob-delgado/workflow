@@ -242,19 +242,16 @@ func TestTheMergePreviewShowsItIsMerging(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
-	// The merge is held open so the in-flight preview can be seen, and a key
-	// pressed then is ignored rather than starting a second merge.
-	reviewing := mergeable()
-	reviewing.mergeGate = make(chan struct{})
-	model := reviewing.live(t, 120, 40)
+	// The merge is never answered, so the in-flight preview can be seen, and a
+	// key pressed then is ignored rather than starting a second merge.
+	previewing := typing(t, mergeable().live(t, 120, 40), "4", "M")
 
 	// Act
-	merging := typing(t, model, "4", "M", keyEnter, "j")
+	merging, _ := pressed(t, previewing, keyEnter)
+	merging, _ = pressed(t, merging, "j")
 
 	// Assert
 	requireScreen(t, merging.View().Content, "merging")
-
-	close(reviewing.mergeGate)
 }
 
 func TestADryRunMergeSaysWhatItWouldDo(t *testing.T) {

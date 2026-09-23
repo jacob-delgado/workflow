@@ -30,9 +30,10 @@ func assigned(issues ...jira.Issue) func(startAt int) (jira.SearchResult, error)
 	}
 }
 
-// searching is an interface whose only outside dependency is this search.
+// searching is an interface whose only outside dependency is this search, its
+// waits on the harness's fake clock.
 func searching(search func(startAt int) (jira.SearchResult, error)) tui.Deps {
-	return tui.Deps{Jira: tui.JiraDeps{Search: ignoreJQL(search)}}
+	return tui.Deps{Jira: tui.JiraDeps{Search: ignoreJQL(search)}, After: fakeAfter}
 }
 
 // ignoreJQL adapts a search that does not care which view it answers to the

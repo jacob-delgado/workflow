@@ -27,10 +27,6 @@ func (w *world) gitDeps() tui.GitDeps {
 		Diff: func(change gitrepo.Change) ([]string, error) {
 			w.record("diff " + change.Path)
 
-			if w.diffGate != nil {
-				<-w.diffGate
-			}
-
 			return slices.Clone(w.diff), w.diffErr
 		},
 		Stage: func(change gitrepo.Change) error {
@@ -80,10 +76,6 @@ func (w *world) gitDeps() tui.GitDeps {
 		},
 		Finish: func(branch, base string) error {
 			w.record("finish " + branch + " onto " + base)
-
-			if w.finishGate != nil {
-				<-w.finishGate
-			}
 
 			return w.finishErr
 		},

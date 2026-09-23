@@ -22,18 +22,6 @@ import (
 	"github.com/jacob-delgado/workflow/internal/tui"
 )
 
-// patience is how long a command may take before a test stops waiting for it.
-// Everything these tests fake answers at once; what does not is a timer — the
-// wait between CI checks — that a test only cares about when it shortens it.
-//
-// This wall-clock cap is deliberate, not a step toward Bubble Tea quiescence.
-// Settling on quiescence instead would have to tell a scheduled timer (which
-// reschedules itself forever) from real work, which the framework gives no way
-// to introspect; the cap sidesteps that by dropping whatever overruns. The known
-// cost is that a genuinely slow command under a loaded -race runner can be
-// dropped too — raise patience there rather than reworking the drain.
-const patience = 400 * time.Millisecond
-
 // testNow is the time the fake clock tells.
 func testNow() time.Time {
 	return time.Date(2026, 9, 16, 16, 0, 0, 0, time.UTC)
@@ -88,15 +76,12 @@ type world struct {
 	linkErr       error
 	postedChannel string
 
-	branch      gitrepo.Branch
-	branches    []string
-	branchesErr error
-	diff        []string
-	diffErr     error
-	noDiff      bool
-	// diffGate, when set, holds every diff read until it is closed, so a test can
-	// see the pane while the diff is still being read.
-	diffGate          chan struct{}
+	branch            gitrepo.Branch
+	branches          []string
+	branchesErr       error
+	diff              []string
+	diffErr           error
+	noDiff            bool
 	remoteBranches    []string
 	remoteBranchesErr error
 	noRemoteBranches  bool
@@ -112,22 +97,19 @@ type world struct {
 	worktreeErr       error
 	checkoutErr       error
 	finishErr         error
-	// finishGate, when set, holds every finish until it is closed, so a test can
-	// see the preview while the finish is still under way.
-	finishGate  chan struct{}
-	fetchErr    error
-	commitLines []string
-	commitErr   error
-	pushLines   []string
-	pushErr     error
-	amendLines  []string
-	amendErr    error
-	noAmend     bool
-	fixupLines  []string
-	fixupErr    error
-	noFixup     bool
-	rebaseLines []string
-	rebaseErr   error
+	fetchErr          error
+	commitLines       []string
+	commitErr         error
+	pushLines         []string
+	pushErr           error
+	amendLines        []string
+	amendErr          error
+	noAmend           bool
+	fixupLines        []string
+	fixupErr          error
+	noFixup           bool
+	rebaseLines       []string
+	rebaseErr         error
 
 	commitStartErr  error
 	ciErr           error
@@ -136,19 +118,13 @@ type world struct {
 	mergeErr        error
 	mergeMethods    []forge.MergeMethod
 	mergeMethodsErr error
-	// mergeGate, when set, holds every merge until it is closed, so a test can
-	// see the preview while the merge is still under way.
-	mergeGate chan struct{}
-	authorErr error
+	authorErr       error
 
 	pull        forge.PullRequest
 	pullFound   bool
 	pullErr     error
 	openErr     error
 	editPullErr error
-	// editGate, when set, holds the forge edit until it is closed, so a test can
-	// see the editor's in-flight state.
-	editGate    chan struct{}
 	reviewerErr error
 	reviews     []forge.ReviewRequest
 	reviewsErr  error
@@ -157,12 +133,14 @@ type world struct {
 	forgeKind   forge.Kind
 	author      string
 	postErr     error
-	// postGate, when set, holds every post, already recorded, until it is
-	// closed: a Slack that is slow to answer.
-	postGate   chan struct{}
-	gitHooks   []hooks.GitHook
-	configured bool
-	writeErr   error
+	// postParked, when set, is told of each post once it is recorded, and the post
+	// then waits for postRelease to close: a Slack slow to answer, caught with
+	// the post sent and not yet answered.
+	postParked  chan struct{}
+	postRelease chan struct{}
+	gitHooks    []hooks.GitHook
+	configured  bool
+	writeErr    error
 	// learnedScope is the commit scope the store reports as last used here; empty
 	// means nothing was recorded.
 	learnedScope string
@@ -264,41 +242,6 @@ func (w *world) asked(prefix string) []string {
 	return matching
 }
 
-// requestPeople names the reviewers, assignees and labels a pull request
-// carries, or "" when it carries none, so a test can assert on them without
-// changing the recorded call for the pull requests that name nobody.
-func requestPeople(request forge.NewPullRequest) string {
-	var parts []string
-
-	if len(request.Reviewers) > 0 {
-		parts = append(parts, "reviewers="+strings.Join(request.Reviewers, ","))
-	}
-
-	if len(request.Assignees) > 0 {
-		parts = append(parts, "assignees="+strings.Join(request.Assignees, ","))
-	}
-
-	if len(request.Labels) > 0 {
-		parts = append(parts, "labels="+strings.Join(request.Labels, ","))
-	}
-
-	return strings.Join(parts, " ")
-}
-
-// nextCI is the next CI answer: each check takes the next, and the last one
-// repeats.
-func (w *world) nextCI() forge.CI {
-	w.mu.Lock()
-	defer w.mu.Unlock()
-
-	answer := w.ci[0]
-	if len(w.ci) > 1 {
-		w.ci = w.ci[1:]
-	}
-
-	return answer
-}
-
 // output is a program's output that is already complete.
 func output(lines []string, err error) proc.Output {
 	stream := make(chan string, len(lines))
@@ -321,8 +264,10 @@ func (w *world) deps() tui.Deps {
 			w.record("post " + text)
 			w.rememberChannel(channel)
 
-			if w.postGate != nil {
-				<-w.postGate
+			if w.postParked != nil {
+				w.postParked <- struct{}{}
+
+				<-w.postRelease
 			}
 
 			return w.postErr
@@ -332,6 +277,7 @@ func (w *world) deps() tui.Deps {
 		Store:      w.storeDeps(),
 		Clock:      testNow,
 		CIInterval: w.ciInterval,
+		After:      fakeAfter,
 		Notify:     func() { w.record("notify") },
 		OpenURL: func(url string) error {
 			w.record("browse " + url)
@@ -436,86 +382,6 @@ func (w *world) jiraDeps() tui.JiraDeps {
 			return w.linkErr
 		},
 		BrowseURL: func(key jira.Key) string { return "https://jira.example.com/browse/" + string(key) },
-	}
-}
-
-// forgeDeps fakes the forge.
-func (w *world) forgeDeps() tui.ForgeDeps {
-	return tui.ForgeDeps{
-		FindPullRequest: func(branch string) (forge.PullRequest, bool, error) {
-			w.record("find " + branch)
-
-			return w.pull, w.pullFound, w.pullErr
-		},
-		CreatePullRequest: func(request forge.NewPullRequest) (forge.PullRequest, error) {
-			call := "open " + request.Title + " " + request.Head + ">" + request.Base + " draft=" +
-				map[bool]string{false: "no", true: "yes"}[request.Draft]
-			if people := requestPeople(request); people != "" {
-				call += " " + people
-			}
-
-			w.record(call + "\n" + request.Body)
-
-			// A refused create returns no pull, the way the real forge does; a pull
-			// whose reviewers could not be added returns the pull with the error.
-			if w.openErr != nil {
-				return forge.PullRequest{}, w.openErr
-			}
-
-			return w.pull, w.reviewerErr
-		},
-		EditPullRequest: func(pull forge.PullRequest, edit forge.PullRequestEdit) (forge.PullRequest, error) {
-			w.record("edit " + strconv.Itoa(pull.Number) + " " + edit.Title + "\n" + edit.Body)
-
-			if w.editGate != nil {
-				<-w.editGate
-			}
-
-			if w.editPullErr != nil {
-				return forge.PullRequest{}, w.editPullErr
-			}
-
-			updated := pull
-			updated.Title, updated.Body = edit.Title, edit.Body
-
-			return updated, nil
-		},
-		CheckStatus: func(_ forge.PullRequest, head string) (forge.CI, error) {
-			w.record("ci " + head)
-
-			return w.nextCI(), w.ciErr
-		},
-		Rerun: func(_ forge.PullRequest, head string) (bool, error) {
-			w.record("rerun " + head)
-
-			return !w.nothingToRerun, w.rerunErr
-		},
-		Merge: func(pull forge.PullRequest, method forge.MergeMethod) error {
-			w.record("merge " + strconv.Itoa(pull.Number) + " " + string(method))
-
-			if w.mergeGate != nil {
-				<-w.mergeGate
-			}
-
-			return w.mergeErr
-		},
-		MergeMethods: func() ([]forge.MergeMethod, error) {
-			w.record("merge-methods")
-
-			if w.mergeMethods == nil && w.mergeMethodsErr == nil {
-				return []forge.MergeMethod{forge.MergeCommit, forge.MergeSquash}, nil
-			}
-
-			return w.mergeMethods, w.mergeMethodsErr
-		},
-		ReviewRequests: func() ([]forge.ReviewRequest, error) {
-			w.record("reviews")
-
-			return w.reviews, w.reviewsErr
-		},
-		Templates: func() []forge.Template { return w.templates },
-		Author:    func() (string, error) { return w.author, w.authorErr },
-		Kind:      w.forgeKind,
 	}
 }
 

@@ -8,6 +8,7 @@ package tui_test
 // world_test.go.
 
 import (
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -18,15 +19,97 @@ import (
 	"github.com/jacob-delgado/workflow/internal/tui"
 )
 
-// drain runs a command and every command it leads to, delivering each message,
-// the way Bubble Tea would — until nothing is left, or what is left is a timer
-// longer than patience.
+// horizon is how far a drain lets fake time run: past the 150 ms a selection
+// rests before its issue is read and the millisecond CI polls a test asks for,
+// and short of the two-second interval a test sets to keep CI from being asked
+// again before its next key, and the twenty-second default. A wait due later
+// never fires.
+const horizon = time.Second
+
+// failsafe is how long a drain may take on the wall clock before the test fails.
+// Every fake answers at once and every wait is on the fake clock, so only a fake
+// left blocked, or a model that never stops asking, can reach it — and either is
+// a broken test to be told about, not a slow command to drop.
+const failsafe = 10 * time.Second
+
+// scheduled is a wait the interface asked the fake timer for: fire's message,
+// once after has passed.
+type scheduled struct {
+	after time.Duration
+	fire  func(time.Time) tea.Msg
+}
+
+// fakeAfter is the timer the tests hand the interface. It spends no time: its
+// command hands the wait back for the drain to run on a fake clock.
+func fakeAfter(wait time.Duration, fire func(time.Time) tea.Msg) tea.Cmd {
+	return func() tea.Msg { return scheduled{after: wait, fire: fire} }
+}
+
+// timer is a wait on a drain's fake clock, due some way into the drain.
+type timer struct {
+	due  time.Duration
+	fire func(time.Time) tea.Msg
+}
+
+// fakeClock is the time a drain lets pass: how far in it has run, and the waits
+// still to fire, soonest first.
+type fakeClock struct {
+	elapsed time.Duration
+	waits   []timer
+}
+
+// schedule puts a wait on the clock, after every wait due no later, so two waits
+// due together fire in the order they were asked for.
+func (c *fakeClock) schedule(wait scheduled) {
+	due := c.elapsed + wait.after
+
+	at := slices.IndexFunc(c.waits, func(queued timer) bool { return queued.due > due })
+	if at < 0 {
+		at = len(c.waits)
+	}
+
+	c.waits = slices.Insert(c.waits, at, timer{due: due, fire: wait.fire})
+}
+
+// next moves the clock on to the soonest wait and returns the command that fires
+// it, or reports that no wait falls due before horizon.
+func (c *fakeClock) next() (tea.Cmd, bool) {
+	if len(c.waits) == 0 || c.waits[0].due > horizon {
+		return nil, false
+	}
+
+	wait := c.waits[0]
+	c.waits = c.waits[1:]
+	c.elapsed = wait.due
+	at := testNow().Add(wait.due)
+
+	return func() tea.Msg { return wait.fire(at) }, true
+}
+
+// drain runs a command and every command it leads to, one at a time in the order
+// they were made, delivering each message the way Bubble Tea would. A wait the
+// interface asked the fake timer for fires once nothing else is left to run,
+// soonest first, until the next one falls past horizon.
 func drain(t *testing.T, model tui.Model, cmd tea.Cmd) tui.Model {
 	t.Helper()
 
+	deadline := time.NewTimer(failsafe)
+	defer deadline.Stop()
+
+	var clock fakeClock
+
 	pending := []tea.Cmd{cmd}
 
-	for steps := 0; len(pending) > 0 && steps < 300; steps++ {
+	for {
+		if len(pending) == 0 {
+			fire, due := clock.next()
+			if !due {
+				return model
+			}
+
+			pending = append(pending, fire)
+		}
+
 		next := pending[0]
 		pending = pending[1:]
 
@@ -34,39 +117,38 @@ func drain(t *testing.T, model tui.Model, cmd tea.Cmd) tui.Model {
 			continue
 		}
 
-		msg, arrived := within(next)
-		if !arrived {
-			continue
+		switch msg := await(t, next, deadline.C).(type) {
+		case tea.BatchMsg:
+			pending = append(pending, msg...)
+		case scheduled:
+			clock.schedule(msg)
+		default:
+			updated, follow := model.Update(msg)
+			model = concrete(t, updated)
+
+			pending = append(pending, follow)
 		}
-
-		if batch, isBatch := msg.(tea.BatchMsg); isBatch {
-			pending = append(pending, batch...)
-
-			continue
-		}
-
-		updated, follow := model.Update(msg)
-		model = concrete(t, updated)
-
-		pending = append(pending, follow)
 	}
-
-	return model
 }
 
-// within runs a command, giving up after patience.
+// await runs a command and returns its message, failing the test if the drain's
+// deadline passes first.
 //
 //nolint:ireturn // tea.Msg is Bubble Tea's type for any message at all
-func within(cmd tea.Cmd) (tea.Msg, bool) {
+func await(t *testing.T, cmd tea.Cmd, deadline <-chan time.Time) tea.Msg {
+	t.Helper()
+
 	answer := make(chan tea.Msg, 1)
 
 	go func() { answer <- cmd() }()
 
 	select {
 	case msg := <-answer:
-		return msg, true
-	case <-time.After(patience):
-		return nil, false
+		return msg
+	case <-deadline:
+		t.Fatalf("the model had not settled after %v: a fake is blocked, or the model never stops asking", failsafe)
+
+		return nil
 	}
 }
 

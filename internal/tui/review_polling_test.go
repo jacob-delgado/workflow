@@ -22,7 +22,7 @@ func TestPollingStopsAndShowsTheErrorAfterAFailedCheck(t *testing.T) {
 
 	// Arrange
 	// CI is running, but every check of it fails. The interval is short enough that
-	// an unbounded poll would fire many times within the test's patience.
+	// an unbounded poll would fire many times within the harness's horizon.
 	failing := newWorld()
 	failing.ci = []forge.CI{{State: forge.CIRunning, Total: 1, Done: 0}}
 	failing.ciErr = errForgeDown
