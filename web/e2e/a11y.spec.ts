@@ -1,11 +1,11 @@
 import { AxeBuilder } from '@axe-core/playwright'
-import { expect, test, type Page } from '@playwright/test'
+import { expect, test, type Locator, type Page } from '@playwright/test'
 
 // Every section, in both themes: a light theme is only real once its contrast
 // holds up, so the scan runs the whole cockpit in each. The section labels are
 // the nav buttons' accessible names and the content heading's text.
 const themes = ['dark', 'light'] as const
-const sectionNames = ['Issues', 'Branch', 'Review', 'Messaging', 'Settings']
+const sectionNames = ['Issues', 'Branch', 'Review', 'Messaging', 'Reviews', 'Settings']
 
 // Scan the resting state, not mid-animation frames: reduced motion collapses
 // transitions to instant, so axe never samples a half-faded element (whose
@@ -13,6 +13,13 @@ const sectionNames = ['Issues', 'Branch', 'Review', 'Messaging', 'Settings']
 test.beforeEach(async ({ page }) => {
   await page.emulateMedia({ reducedMotion: 'reduce' })
 })
+
+// settled is what shows once a section has drawn what it will: Reviews reads
+// its own endpoint after its heading appears, so the scan waits on that read's
+// outcome (the one given); every other section settles with its heading.
+function settled(page: Page, name: string, reviews: Locator): Locator {
+  return name === 'Reviews' ? reviews : page.getByRole('heading', { level: 1, name })
+}
 
 // scan returns the WCAG A/AA violations axe finds on whatever is on screen.
 async function scan(page: Page) {
@@ -38,15 +45,31 @@ for (const theme of themes) {
         json: { version: '1.2.3', dry_run: true, forge_noun: 'pull request', forge_sigil: '#' },
       }),
     )
+    // The review queue's read fails, so its reason and Retry are scanned; the
+    // populated build scans the queue itself.
+    await page.route('**/api/reviews', (route) =>
+      route.fulfill({
+        status: 502,
+        contentType: 'application/problem+json',
+        body: JSON.stringify({
+          type: 'https://jacob-delgado.github.io/workflow/docs/errors/#unreachable',
+          title: 'Upstream unreachable',
+          status: 502,
+          detail: 'the service could not be reached; check the network, then try again',
+          code: 'unreachable',
+        }),
+      }),
+    )
     await page.goto('/')
     await expect(page.getByText(/every write is held back/i)).toBeVisible()
 
     const nav = page.getByRole('navigation', { name: 'Sections' })
 
     for (const name of sectionNames) {
-      // Act: open the section and let its heading settle.
+      // Act: open the section and let it settle.
       await nav.getByRole('button', { name, exact: true }).click()
       await expect(page.getByRole('heading', { level: 1, name })).toBeVisible()
+      await expect(settled(page, name, page.getByRole('button', { name: 'Retry' }))).toBeVisible()
 
       // Assert: axe finds nothing on this section in this theme.
       const violations = await scan(page)
@@ -58,7 +81,7 @@ for (const theme of themes) {
 
 // The populated build's sections: the mockup's messaging service is Slack, so
 // its section is named for it.
-const populatedSectionNames = ['Issues', 'Branch', 'Review', 'Slack', 'Settings']
+const populatedSectionNames = ['Issues', 'Branch', 'Review', 'Slack', 'Reviews', 'Settings']
 
 for (const theme of themes) {
   test(
@@ -79,9 +102,12 @@ for (const theme of themes) {
       const nav = page.getByRole('navigation', { name: 'Sections' })
 
       for (const name of populatedSectionNames) {
-        // Act: open the section and let its heading settle.
+        // Act: open the section and let it settle.
         await nav.getByRole('button', { name, exact: true }).click()
         await expect(page.getByRole('heading', { level: 1, name })).toBeVisible()
+        await expect(
+          settled(page, name, page.getByRole('list', { name: 'Review requests' })),
+        ).toBeVisible()
 
         // Assert: axe finds nothing on this section, filled, in this theme.
         const violations = await scan(page)
@@ -237,7 +263,7 @@ for (const theme of themes) {
     await page.goto('/')
     await page
       .getByRole('navigation', { name: 'Sections' })
-      .getByRole('button', { name: 'Review' })
+      .getByRole('button', { name: 'Review', exact: true })
       .click()
     await page.getByRole('button', { name: 'Open a pull request' }).click()
     await page.getByRole('button', { name: 'Open pull request' }).click()

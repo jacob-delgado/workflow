@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test'
+import { expect, test, type Locator, type Page } from '@playwright/test'
 
 // Screenshots of every populated section, in both themes, at a narrow, a
 // middling and a wide window — saved into test-results, which CI uploads, for
@@ -8,7 +8,16 @@ import { expect, test } from '@playwright/test'
 const themes = ['dark', 'light'] as const
 const widths = [640, 1024, 1440] as const
 // The mockup's messaging service is Slack, so its section is named for it.
-const sectionNames = ['Issues', 'Branch', 'Review', 'Slack', 'Settings']
+const sectionNames = ['Issues', 'Branch', 'Review', 'Slack', 'Reviews', 'Settings']
+
+// settled is what shows once a section has drawn what it will: Reviews reads
+// its own queue after its heading appears; every other section settles with its
+// heading.
+function settled(page: Page, name: string): Locator {
+  return name === 'Reviews'
+    ? page.getByRole('list', { name: 'Review requests' })
+    : page.getByRole('heading', { level: 1, name })
+}
 
 for (const theme of themes) {
   for (const width of widths) {
@@ -34,9 +43,10 @@ for (const theme of themes) {
           // Act: open the section.
           await nav.getByRole('button', { name, exact: true }).click()
 
-          // Assert: its heading has settled; then the screen is saved as drawn,
-          // with the pointer parked off the controls so none is caught mid-hover.
+          // Assert: it has settled; then the screen is saved as drawn, with the
+          // pointer parked off the controls so none is caught mid-hover.
           await expect(page.getByRole('heading', { level: 1, name })).toBeVisible()
+          await expect(settled(page, name)).toBeVisible()
           await page.mouse.move(0, 0)
           await page.screenshot({
             path: testInfo.outputPath(`${String(width)}-${theme}-${name.toLowerCase()}.png`),

@@ -2,8 +2,9 @@ import { act, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { vi } from 'vitest'
 import App from './App.tsx'
+import { fakeApi } from './test/fakeApi.ts'
 import { FakeEventSource } from './test/fakeEventSource.ts'
-import { makeHealth, makeSnapshot } from './test/fixtures.ts'
+import { makeHealth, makeReviewRequest, makeSnapshot } from './test/fixtures.ts'
 import { renderWithClient } from './test/renderWithClient.tsx'
 
 test('shows the sections and opens on the Issues view', () => {
@@ -117,6 +118,25 @@ test('drops the read-only banner when the stream comes back from a server that w
   await waitFor(() => {
     expect(screen.queryByText(/every write is held back/i)).toBeNull()
   })
+})
+
+test('opens the Reviews section on the queue waiting on you', async () => {
+  // Arrange
+  const user = userEvent.setup()
+  fakeApi({
+    '/api/health': makeHealth(),
+    '/api/reviews': { available: true, requests: [makeReviewRequest()] },
+  })
+  renderWithClient(<App />)
+
+  // Act
+  await user.click(screen.getByRole('button', { name: 'Reviews' }))
+
+  // Assert
+  expect(screen.getByRole('heading', { level: 1, name: 'Reviews' })).toBeTruthy()
+  const list = await screen.findByRole('list', { name: 'Review requests' })
+  expect(within(list).getByRole('link', { name: 'Open #42 (opens in a new tab)' })).toBeTruthy()
+  expect(document.activeElement).toBe(screen.getByRole('main'))
 })
 
 test('choosing a section from the rail moves focus to its content', async () => {

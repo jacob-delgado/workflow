@@ -154,24 +154,6 @@ horizontal axis.
 
 ## The web
 
-### UX-83 The web has no Reviews section
-
-Impact: medium · Effort: medium
-
-**Today.** The review queue — pull requests waiting on you — is a pane in
-the interface (`internal/tui/reviewqueue.go`) and a command (`workflow
-reviews --json`, `internal/cli/reviews.go`), both over `Forge.ReviewRequests`.
-The web's `web/src/shell/sections.ts:6` has no such section, and the contract has no
-operation for it.
-
-**Instead.** `GET /api/reviews` over the same seam, polled by the query
-client (it is a cross-repository forge search, not a snapshot field), and a
-sixth section listing number, title, repository, requester, CI and age with
-open/copy links.
-
-**Done when.** The web lists the same requests the CLI prints, by role and
-name.
-
 ### UX-84 The web's visual system is not the product's
 
 Impact: medium · Effort: large
@@ -274,7 +256,7 @@ a failure in `$EDITOR` (`internal/tui/checks.go:41`, `internal/tui/run.go:368`),
 request (`preditor.go`), and cycles the repository's pull-request templates
 (`ctrl+t`). None has a web equivalent, and the web takes the first template
 only (`firstTemplate`, `internal/loop/pull.go:136`). A `?` shortcut sheet, which the interface has,
-would give the web's five sections keyboard reach.
+would give the web's six sections keyboard reach.
 
 **Instead.** In rough order of value: a template select on the pull-request
 form; a checks list with links; a diff view; `?`.

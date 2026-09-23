@@ -101,7 +101,7 @@ gap, and which phase closes it.
 | 29 | Follow CI; notify on settle | n/a | Y (`internal/tui/review.go:189`) | P (5 s tick, no signal) | Web "CI settled" idea, UX-86 |
 | 30 | Re-run CI | N | Y, previewed since Phase 4 (`previewRerun`, `internal/tui/checks.go:183`, through `lastLook`) | **F** | `gh run rerun` is the CLI's. Web declared (`FEATURES.md:148`), FEAT-79 |
 | 31 | Merge | N | Y (`M`, gated `internal/tui/merge.go:23`) | **F** | FEAT-31 chose the interface; web declared (`FEATURES.md:150`), FEAT-79 |
-| 32 | The review queue | Y (`reviews --json`) | Y (pane 6) | **N** (no section) | **Yes** — a read both other surfaces have, over a seam that exists. Phase 12, UX-83 |
+| 32 | The review queue | Y (`reviews --json`) | Y (pane 6) | Y since Phase 12 — the Reviews section lists the queue `reviews --json` prints, oldest first by `forge.OldestFirst` on all three surfaces, over `GET /api/reviews` (`ListReviews`, `internal/webserver/handlers.go:198`), with Open and Copy URL per request, read as the section opens and on Refresh (`ReviewQueuePanel`, `web/src/features/reviewqueue/ReviewQueuePanel.tsx:34`) | — |
 
 ### Messaging
 
@@ -185,7 +185,7 @@ met and stay.
 | Accessible names, landmarks, skip link, focus ring, axe both themes | Met | enforced |
 | Disabled by opacity; reduced motion | Met since Phase 11 — `--disabled` tokens (`web/src/index.css:48`), held to 4.5:1 in both themes by `web/src/tokens.test.ts`, and no `opacity-N` class past the web lint; transitions `motion-safe:`, and one reduced-motion rule (`web/src/index.css:153`) | — |
 | Responsive | **Gap** — zero breakpoints | UX-85 |
-| Vocabulary shared with the interface | Met since Phase 9 but for the sections — the forge's own noun and sigil, the messaging section named after its service (`sectionLabel`, `web/src/shell/sections.ts:17`) and one verb for starting, "Start work"; five sections vs six | UX-83 |
+| Vocabulary shared with the interface | Met since Phase 12 — the forge's own noun and sigil, the messaging section named after its service (`sectionLabel`, `web/src/shell/sections.ts:26`), one verb for starting, "Start work", and the interface's six sections, Reviews among them (`sections`, `web/src/shell/uiStore.ts:7`) | — |
 | Dry run visible | Met since Phase 3 — a banner, and every write held before it is sent | `web/src/shell/AppShell.tsx:54`, `web/src/api/client.ts:25` |
 | The contract it never calls | Met since Phase 3 for `getIssue`, `getHealth`, `listViews` and pagination; the generated `streamEvents` stays unused, but since Phase 11 the frames the server writes are held in `web/src/test/snapshot-frames.sse` and read back losslessly (`web/src/api/snapshot.frames.test.ts`) | — |
 
@@ -606,7 +606,7 @@ Closes UX-73, UX-74. Depends on Phases 1 and 3.
   the Settings legend, which names the `pull_request` section as its
   siblings name theirs — and so do the server's own details the page shows;
   the Messaging section label reads the service from the snapshot
-  (`sectionLabel`, `web/src/shell/sections.ts:17`); "Start work" is the
+  (`sectionLabel`, `web/src/shell/sections.ts:26`); "Start work" is the
   web's one verb for starting.
 - Spec first: `POST /api/issues/{key}/link` (the server finds the branch's
   pull request; `{key}` must be the Jira issue the branch names) and `POST

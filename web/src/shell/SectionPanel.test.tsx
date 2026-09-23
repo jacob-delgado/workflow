@@ -1,6 +1,7 @@
 import { screen } from '@testing-library/react'
 import { vi } from 'vitest'
 import { useSnapshotStore } from '@/api/snapshot.ts'
+import { fakeApi } from '@/test/fakeApi.ts'
 import { makeSnapshot } from '@/test/fixtures.ts'
 import { renderWithClient } from '@/test/renderWithClient.tsx'
 import { SectionPanel } from './SectionPanel.tsx'
@@ -46,3 +47,15 @@ test.each(['issues', 'branch', 'review', 'messaging'] as const)(
     expect(screen.getAllByText(/connecting/i)).toHaveLength(1)
   },
 )
+
+test('routes the reviews section to its queue, which reads without waiting on the stream', async () => {
+  // Arrange
+  fakeApi({ '/api/reviews': { available: true, requests: [] } })
+
+  // Act
+  renderWithClient(<SectionPanel section="reviews" />)
+
+  // Assert
+  expect(await screen.findAllByText('Nothing is waiting on your review.')).not.toHaveLength(0)
+  expect(screen.queryByText(/connecting/i)).toBeNull()
+})
