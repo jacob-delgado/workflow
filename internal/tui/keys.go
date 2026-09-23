@@ -51,16 +51,20 @@ type keyMap struct {
 	changeStatus, comment, assign, logWork, branchForIssue, filter, nextView, loadMore key.Binding
 
 	// Branch and Commits.
-	newBranch, switchTask, worktree, rebase, push, stage, stageAll, commit, amend, fixup, runHooks, hookConfig key.Binding
+	newBranch, switchTask, rebase, push, stage, stageAll, commit, amend, fixup, runHooks, hookConfig key.Binding
 
 	// Review and Slack.
-	newPullRequest, checks, rerun, merge, finish, compose, postWhenGreen key.Binding
+	newPullRequest, checks, rerun, merge, finish, compose key.Binding
 
 	// Opening and copying a link, on the Issues and Review panes.
 	openLink, copyLink key.Binding
 
 	// In composers and previews.
 	edit, editBody, nextTemplate, toggleDraft, toggleBreaking, verbatim, fullOutput key.Binding
+
+	// In the branch creator, and in the messaging preview.
+	worktree, postWhenGreen key.Binding
+
 	// In a field form.
 	toggleOption key.Binding
 
@@ -222,7 +226,6 @@ func issueKeys(builder *helpBuilder, into *keyMap) {
 func branchAndCommitKeys(builder *helpBuilder, into *keyMap) {
 	into.newBranch = builder.bind(groupBranchCommits, "new-branch", "new branch", "b")
 	into.switchTask = builder.bind(groupBranchCommits, "switch-task", "switch task", "s")
-	into.worktree = builder.bind(groupBranchCommits, "worktree", "worktree", "ctrl+w")
 	into.rebase = builder.bind(groupBranchCommits, "rebase", "rebase onto base", "u")
 	into.push = builder.bind(groupBranchCommits, "push", "push", "P")
 	into.stage = builder.bind(groupBranchCommits, "stage", "stage/unstage", "space")
@@ -242,10 +245,12 @@ func reviewAndSlackKeys(builder *helpBuilder, into *keyMap, reviewNoun, messagin
 	into.merge = builder.bind(groupReviewSlack, "merge", "merge", "M")
 	into.finish = builder.bind(groupReviewSlack, "finish-branch", "finish branch", "F")
 	into.compose = builder.bind(groupReviewSlack, "post", "post to "+strings.ToLower(messagingService), "p")
-	into.postWhenGreen = builder.bind(groupReviewSlack, "post-when-green", "post when CI passes", "w")
 }
 
-// composerKeys are the composer, preview and field-form bindings.
+// composerKeys are the composer, preview and field-form bindings, the branch
+// creator's and the messaging preview's own keys among them: only those overlays
+// answer them, so they are listed where they work rather than under the pane
+// that opens the overlay.
 func composerKeys(builder *helpBuilder, into *keyMap, marks glyphs) {
 	into.edit = builder.bind(groupComposer, "edit", "edit", "e")
 	into.editBody = builder.bind(groupComposer, "edit-body", "edit body", "ctrl+o")
@@ -258,6 +263,8 @@ func composerKeys(builder *helpBuilder, into *keyMap, marks glyphs) {
 	into.cycleLeft = builder.bindShown(groupComposer, "cycle-type-left", marks.sideways, "change type", "left")
 	into.cycleRight = builder.bindShown(groupComposer, "cycle-type-right", "", "", "right")
 	into.toggleOption = builder.bind(groupComposer, "toggle-option", "select", "space")
+	into.worktree = builder.bind(groupComposer, "worktree", "worktree", "ctrl+w")
+	into.postWhenGreen = builder.bind(groupComposer, "post-when-green", "post when CI passes", "w")
 }
 
 // runningKeys are the bindings available while a command runs.
@@ -329,9 +336,11 @@ func (c keyContext) covers(placed placement) bool {
 // handled outside the group they are filed under, so a context also names those:
 // the list actions refresh, open-link and copy-link act on the Branch, Commits,
 // Review and review-requests panes though they are filed under Issues; edit acts
-// on the Review pane and the Slack preview; and a field form reads up and down,
-// which a composer otherwise excludes so that its tab can mean next-field rather
-// than next-pane.
+// on the Review pane as well as in a preview; and a field form reads up and
+// down, which a composer otherwise excludes so that its tab can mean next-field
+// rather than next-pane. An overlay's own keys, the branch creator's worktree
+// and the messaging preview's wait for CI and channel among them, are filed
+// with the composer's, so they are live there and not on the pane behind it.
 func keyContexts() []keyContext {
 	return []keyContext{
 		{"the Issues pane", []int{groupMoving, groupEverywhere, groupIssues}, nil},
@@ -339,7 +348,7 @@ func keyContexts() []keyContext {
 		{
 			"the Review and Slack panes",
 			[]int{groupMoving, groupEverywhere, groupReviewSlack},
-			[]string{actionOpenLink, actionCopyLink, actionRefresh, "edit", "cycle-type-left", "cycle-type-right"},
+			[]string{actionOpenLink, actionCopyLink, actionRefresh, "edit"},
 		},
 		{
 			"the review-requests pane",
@@ -347,7 +356,7 @@ func keyContexts() []keyContext {
 			[]string{actionOpenLink, actionCopyLink, actionRefresh},
 		},
 		{"a running command", []int{groupMoving, groupEverywhere, groupRunning}, nil},
-		{"a composer", []int{groupEverywhere, groupComposer}, []string{"up", "down"}},
+		{"a composer or preview", []int{groupEverywhere, groupComposer}, []string{"up", "down"}},
 	}
 }
 
@@ -406,7 +415,7 @@ func (k keyMap) FullHelp() [][]key.Binding {
 func helpGroups(messagingService string) []string {
 	return []string{
 		"Moving around", "Issues", "Branch and Commits", "Review and " + messagingService,
-		"In a composer", "While a command runs", "Everywhere",
+		"In a composer or preview", "While a command runs", "Everywhere",
 	}
 }
 

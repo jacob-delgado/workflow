@@ -124,7 +124,7 @@ gap, and which phase closes it.
 | 42 | Status across the loop | Y (`status DIR…`) | Y (the spine) | Y (`WorkStory`) | — |
 | 43 | Dry run | Y (one persistent `--dry-run` since Phase 2, `internal/cli/cli.go:204`) | Y (per seam, `dryrun.go:25`) | Y since Phase 3 — a read-only banner (`web/src/shell/AppShell.tsx:54`) and one hold over every write before it is sent (`web/src/api/client.ts:24`), over the server's 403 (`guard.go:46`) | — |
 | 44 | Request log `--log` | Y (persistent since Phase 2, `internal/cli/cli.go:206`) | Y | Y | — |
-| 45 | Help / discoverability | P (no hint on a typo, `internal/cli/cli.go:174`) | P (`?` 57/57; the Issues footer shows every key it answers since Phase 7, `internal/tui/detail.go:186`; two keys filed under panes that do not answer them) | n/a | Phase 8 (UX-56), Phase 7 (UX-63); web `?` idea, UX-88 |
+| 45 | Help / discoverability | P (no hint on a typo, `internal/cli/cli.go:174`) | Y since Phase 7 — `?` lists all 57 bindings where each works, held to a table of every placement (`internal/tui/help_test.go:211`), and the Issues footer shows every key it answers (`internal/tui/detail.go:186`) | n/a | Phase 8 (UX-56); web `?` idea, UX-88 |
 | 46 | Version | Y | n/a | Y since Phase 3 — in the header (`web/src/shell/AppShell.tsx:43`) | — |
 
 ## Where a surface breaks a convention
@@ -164,9 +164,9 @@ enumerates every placement); one voice for failure is
 kept by every site that renders an error's text since Phase 6; a last look before anything outward by
 **18 of 18** since Phase 4 gave `R` and `u` one; a refused change stays in
 view in **14 of 14** overlays since Phase 5 kept merge's and finish's; panes
-fail alone and state is by shape (kept). Beyond the promises: the Issues
-footer shows every key it answers since Phase 7, but two keys are filed
-under panes that do not answer them (UX-63); `Esc`/`Enter`, loading, success and empty states,
+fail alone and state is by shape (kept). Beyond the promises: since Phase 7
+the Issues footer shows every key it answers, and every key is filed under
+the panes or overlays that answer it; `Esc`/`Enter`, loading, success and empty states,
 resize down to 24 rows, mouse, `NO_COLOR`/`ui.ascii` and rebinding are all
 met and stay.
 
@@ -542,9 +542,9 @@ Closes UX-63. Depends on Phase 4 (relabels).
 
 The Issues pane's `keys(m)` gains `a`, `w`, `/` when the Jira write seams
 exist, and `enter`/`esc` in the collapsed layout (`internal/tui/issuekeys.go:22-85` vs
-`internal/tui/render.go:338`); `ctrl+w` moves from "Branch and Commits" (`internal/tui/keys.go:225`)
-to the composer's group; `w` post-when-green (`internal/tui/keys.go:245`) to the
-preview's; `docs/content/docs/usage.md:95`, `:107` follow. Replace the three-string spot check
+`internal/tui/render.go:338`); `ctrl+w` moves from "Branch and Commits" (`branchAndCommitKeys`)
+to the composer's group; `w` post-when-green (`reviewAndSlackKeys`) to the
+preview's (both now in `composerKeys`, `internal/tui/keys.go:266-267`); `docs/content/docs/usage.md:106`, `:107` follow. Replace the three-string spot check
 (`TestHelpShowsEveryKey` in `internal/tui/focus_test.go`) with a structural test that every placed binding with
 help text is rendered by `?`. `ShortHelp`'s omissions (`shift+tab`, `m`,
 the scroll keys, `ctrl+c`) are the deliberate tail — leave them.
@@ -807,7 +807,7 @@ Closes DEBT-69, DEBT-70. Last, so it documents the end state. TDD-exempt.
   — the six sections, the stream, the theme, the actions the web supports —
   written last so it is true. README mentions `--web`.
 - Residual "Slack": `internal/cli/cli.go:171`, `groupReviewSlack`
-  `internal/tui/keys.go:80`, `web/index.html:9`, `FEATURES.md:30`.
+  `internal/tui/keys.go:88`, `web/index.html:9`, `FEATURES.md:30`.
 - **`FEATURES.md:52` "Five panes down the left" → six** — stale
   settled-decision text corrected, not a decision reopened; say so.
   `FEATURES.md:12` re-pinned; the `Done:` notes on FEAT-26 (`:118`) and

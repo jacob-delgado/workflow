@@ -78,7 +78,7 @@ take turns rather than sharing the width; below 60 the borders go as well; below
 `j`/`k` or the arrow keys move within a list, and `J`/`K` or `pgdn`/`pgup`
 scroll the detail pane.
 
-| Pane | Key | Does |
+| Where | Key | Does |
 | --- | --- | --- |
 | 1 Issues | `t` | Change the selected issue's status |
 | | `c` | Comment on it |
@@ -92,7 +92,6 @@ scroll the detail pane.
 | 2 Branch | `b` | Start a branch |
 | | `s` | Switch to another issue's branch |
 | | `u` | Rebase the branch onto its base, once a last look is confirmed |
-| | `ctrl+w` | Add a git worktree for a branch |
 | | `P` | Push a branch that has unpushed commits |
 | | `r` | Read the repository again |
 | 3 Commits | `space` | Stage or unstage the selected file |
@@ -104,7 +103,8 @@ scroll the detail pane.
 | | `R` | Re-run failed CI, once a last look at the pull request is confirmed |
 | | `r` | Look for the pull request and its CI again |
 | 5 Slack | `p` | Preview the post announcing the pull request |
-| | `w` | Post automatically once CI passes |
+| New branch | `ctrl+w` | Create it in a new git worktree rather than switching to it |
+| Slack preview | `w` | Post automatically once CI passes |
 | Anywhere | `m` | Turn mouse capture off or on, for this session |
 | | `?` | Every key |
 | | `q` | Quit (`ctrl+c` works even with a preview open) |

@@ -134,6 +134,67 @@ func TestCheckKeysCatchesConflictsOnCrossPaneKeys(t *testing.T) {
 	}
 }
 
+func TestCheckKeysRefusesAnOverlayKeyOnAKeyLiveBesideItInAComposer(t *testing.T) {
+	t.Parallel()
+
+	// Only the branch creator answers worktree and only the messaging preview
+	// answers post-when-green, so each is live beside the composer's keys.
+	cases := []struct {
+		name     string
+		override map[string]string
+		collides string
+	}{
+		{"worktree onto edit", map[string]string{"worktree": "e"}, "edit"},
+		{"post-when-green onto verbatim", map[string]string{"post-when-green": "v"}, "verbatim"},
+	}
+
+	for _, testCase := range cases {
+		t.Run(testCase.name, func(t *testing.T) {
+			t.Parallel()
+
+			// Arrange
+			rebound, collides := testCase.override, testCase.collides
+
+			// Act
+			err := tui.CheckKeys(rebound)
+
+			// Assert
+			if !errors.Is(err, tui.ErrKeyConflict) {
+				t.Fatalf("CheckKeys(%v) = %v, want ErrKeyConflict", rebound, err)
+			}
+
+			if got := err.Error(); !strings.Contains(got, collides) || !strings.Contains(got, "a composer") {
+				t.Errorf("CheckKeys error %q does not name %q in a composer", got, collides)
+			}
+		})
+	}
+}
+
+func TestCheckKeysAcceptsAnOverlayKeyOnAKeyOfThePaneBehindIt(t *testing.T) {
+	t.Parallel()
+
+	// The pane behind an open overlay does not answer while it is open, so an
+	// overlay's key may share a key with that pane's own.
+	cases := map[string]map[string]string{
+		"worktree onto switch-task":           {"worktree": "s"},
+		"post-when-green onto merge":          {"post-when-green": "M"},
+		"cycle-type-left onto open a request": {"cycle-type-left": "n"},
+	}
+
+	for name, rebound := range cases {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			// Act
+			err := tui.CheckKeys(rebound)
+			// Assert
+			if err != nil {
+				t.Errorf("CheckKeys(%v) = %v, want no conflict", rebound, err)
+			}
+		})
+	}
+}
+
 func TestCheckKeysRefusesAnUnknownAction(t *testing.T) {
 	t.Parallel()
 
