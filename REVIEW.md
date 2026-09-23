@@ -65,7 +65,7 @@ gap, and which phase closes it.
 | 8 | Link the pull request on the issue | **N** (`pr` never links) | Y (`issuelink.go`, `internal/tui/prcomposer.go:510`) | N | **Yes on both** — the seam exists (`Jira.LinkPullRequest`) and the flow is the interface's. Phase 8 (CLI, UX-59), Phase 9 (web, UX-74) |
 | 9 | Open / copy the issue URL | n/a | Y (`o`, `y`) | Y since Phase 3 — "Open in Jira" from the detail's `url` (`web/src/features/issues/IssueDetailPanel.tsx:77`); copying is the browser's own link menu | — |
 | 10 | Cache-seeded first paint | n/a | Y (`internal/tui/issues.go:53`) | **F** | FEAT-68, declared |
-| 11 | Branch for the issue | Y | Y | Y | CLI help never says it switches (`internal/cli/branch.go:40`). Phase 8, UX-58 |
+| 11 | Branch for the issue | Y | Y | Y | The CLI's help and preview say it switches to the branch, since Phase 8 (`internal/cli/branch.go:40`, `:99`) |
 
 ### Branch
 
@@ -137,7 +137,7 @@ to see the shape.
 
 | Convention | Verdict | Where |
 | --- | --- | --- |
-| `--help` on every command; useful long help | Met | `internal/cli/cli.go:26` `longHelp`; pinned by `internal/cli/cli_test.go:283` |
+| `--help` on every command; useful long help | Met | `internal/cli/cli.go:26` `longHelp`; pinned by `internal/cli/cli_test.go:295` |
 | `--version` | Met, and in the generated reference since Phase 2 | `cmd/docsgen/main.go` |
 | Exit codes distinguish failure kinds | Met since Phase 2 — 0/1/2/3/4/5/130 | `cli.ExitStatus`, `internal/cli/scriptable.go:261`; `docs/content/docs/scripting.md` |
 | stdout = artifact, stderr = commentary | Met since Phase 2 | `output`, `internal/cli/scriptable.go:29` |
@@ -146,13 +146,13 @@ to see the shape.
 | `--json` on reads | Partial — `status`, `reviews`, `doctor`, and `config show` parses since Phase 2; not `standup` | UX-62 |
 | No color/prompts off a TTY; `NO_COLOR` | Met by construction (no color emitted); a prompt with no terminal says to pass `--yes` since Phase 2 | `errNoTerminal`, `internal/cli/prompt.go:14` |
 | Confirm before outward acts; `--yes`; `--dry-run` | Met, on `standup` and `config init` too since Phase 2 | `writeOptions.proceed`, `internal/cli/scriptable.go:77` |
-| Preview before the write | Met | `internal/cli/branch.go:96`, `internal/cli/pr.go:110`, `internal/cli/announce.go:113`, `internal/cli/standup.go:135` |
+| Preview before the write | Met | `internal/cli/branch.go:99`, `internal/cli/pr.go:110`, `internal/cli/announce.go:113`, `internal/cli/standup.go:135` |
 | Progress for slow operations | **Gap** — silent | UX-61 |
 | Ctrl-C | Met | `internal/cli/cli.go:102` `signal.NotifyContext` |
-| Errors say what to do next | Met since Phase 8 — strong in `doctor`/`config`, and each refusal names its next step: `git switch NAME`, the open pull request's address, the messaging keys and `workflow doctor`, `workflow pr` | `runBranch`, `internal/cli/branch.go:78`; `composeRefusal`, `internal/cli/pr.go:143`; `runAnnounce`, `internal/cli/announce.go:95` |
+| Errors say what to do next | Met since Phase 8 — strong in `doctor`/`config`, and each refusal names its next step: `git switch NAME`, the open pull request's address, the messaging keys and `workflow doctor`, `workflow pr` | `runBranch`, `internal/cli/branch.go:79`; `composeRefusal`, `internal/cli/pr.go:143`; `runAnnounce`, `internal/cli/announce.go:95` |
 | A hint on misuse | Met since Phase 8 — `SilenceErrors` still stops cobra's usage dump; an unknown command or flag points at `--help`, after the closest commands | `usageHint`, `internal/cli/scriptable.go:206` |
-| No surprises | Partial — `branch` switches silently; `pr` pushes and transitions under one question | UX-58 |
-| Secrets never printed | Met | pinned by `internal/cli/cli_test.go:258`, `doctor_json_test.go:65` |
+| No surprises | Partial — `branch` says it switches since Phase 8; `pr` pushes and transitions under one question | UX-58 |
+| Secrets never printed | Met | pinned by `internal/cli/cli_test.go:270`, `doctor_json_test.go:65` |
 | Shell completion | Met, incl. dynamic issue keys | `internal/cli/scriptable.go:121` |
 | Docs cover the commands | Met since Phase 2 | `docs/content/docs/scripting.md` |
 

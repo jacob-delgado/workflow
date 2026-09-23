@@ -119,6 +119,43 @@ func TestBranchExistsSaysHowToSwitch(t *testing.T) {
 	}
 }
 
+func TestBranchPreviewSaysItSwitchesToTheBranch(t *testing.T) {
+	// Arrange
+	server := jiraServer(t, http.StatusOK, issueFixture("PROJ-7", "Bug", "login"), new(atomic.Bool))
+	repo := repoForBranch(t, server.URL)
+
+	// Act
+	printed, err := runStreams(t, repo, unusedPrompt(t), "branch", "PROJ-7", "--dry-run")
+	// Assert
+	if err != nil {
+		t.Fatalf("branch --dry-run: %v (%+v)", err, printed)
+	}
+
+	// The working tree moves onto the new branch, which the preview and the dry
+	// run each say rather than leave to be discovered.
+	if !strings.Contains(printed.stdout, "Branch fix/PROJ-7-login from ") ||
+		!strings.HasSuffix(strings.TrimSpace(printed.stdout), " and switch to it") ||
+		!strings.Contains(printed.stderr, "dry run: would create fix/PROJ-7-login from ") ||
+		!strings.HasSuffix(strings.TrimSpace(printed.stderr), " and switch to it") {
+		t.Errorf("branch does not say it switches to the branch it creates:\nstdout:\n%s\nstderr:\n%s",
+			printed.stdout, printed.stderr)
+	}
+}
+
+func TestBranchHelpSaysItSwitchesToTheBranch(t *testing.T) {
+	// Act
+	printed, err := runStreams(t, t.TempDir(), unusedPrompt(t), "branch", "--help")
+	// Assert
+	if err != nil {
+		t.Fatalf("branch --help: %v", err)
+	}
+
+	// Read as prose, whatever the line breaks.
+	if !strings.Contains(strings.Join(strings.Fields(printed.stdout), " "), "base and switch to it") {
+		t.Errorf("branch's help does not say it switches to the branch it creates:\n%s", printed.stdout)
+	}
+}
+
 func TestBranchDryRunCreatesNothing(t *testing.T) {
 	// Arrange
 	server := jiraServer(t, http.StatusOK, issueFixture("PROJ-7", "Story", "login"), new(atomic.Bool))
@@ -165,12 +202,19 @@ func TestBranchDeclinedCreatesNothing(t *testing.T) {
 	repo := repoForBranch(t, server.URL)
 	before := currentBranch(t, repo)
 
+	var asked []string
+
 	// Act
 	// The confirmation is answered "no".
-	output, err := runGuided(t, repo, scripted([]string{"n"}, nil), "branch", "PROJ-7")
+	output, err := runGuided(t, repo, answering("n", &asked), "branch", "PROJ-7")
 	// Assert
 	if err != nil {
 		t.Fatalf("branch: %v (%s)", err, output)
+	}
+
+	// The question is where consent is given, so it names the switch as well.
+	if len(asked) != 1 || !strings.HasPrefix(asked[0], "Create fix/PROJ-7-login and switch to it?") {
+		t.Errorf("branch asked %q, want it to ask to create the branch and switch to it", asked)
 	}
 
 	if !strings.Contains(output, "Not created.") {

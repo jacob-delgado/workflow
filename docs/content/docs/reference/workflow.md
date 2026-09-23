@@ -95,7 +95,7 @@ workflow [flags]
 ### SEE ALSO
 
 * [workflow announce](../workflow_announce/)	 - Announce the branch's pull request to your team's chat
-* [workflow branch](../workflow_branch/)	 - Branch for an issue, named by the convention
+* [workflow branch](../workflow_branch/)	 - Branch for an issue, named by the convention, and switch to it
 * [workflow completion](../workflow_completion/)	 - Generate the autocompletion script for the specified shell
 * [workflow config](../workflow_config/)	 - Create and inspect the configuration file
 * [workflow doctor](../workflow_doctor/)	 - Report the repository, tooling, and configuration in effect

@@ -7,13 +7,14 @@ weight: 20
 
 ## workflow branch
 
-Branch for an issue, named by the convention
+Branch for an issue, named by the convention, and switch to it
 
 ### Synopsis
 
 Name a branch for an issue the way the interface does — from the issue's
-type and summary — and create it off the current branch's base. A preview is
-printed and confirmed before anything is created.
+type and summary — then create it off the current branch's base and switch to
+it, which moves the working tree onto the new branch. A preview is printed and
+confirmed before anything is created.
 
 ```
 workflow branch <issue> [flags]
