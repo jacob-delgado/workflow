@@ -154,28 +154,6 @@ horizontal axis.
 
 ## The web
 
-### UX-78 Focus is dropped when a step swaps its control, and on a section change
-
-Impact: high · Effort: small
-
-**Today.** A write's outcome takes focus when the snapshot confirming it takes
-the write's control away (`OutcomeLine`, `web/src/lib/Outcome.tsx:52`), and
-so do the offers after opening and the staging buttons. The steps before a
-write still drop it: `PushButton` swaps its button for the confirm
-(`web/src/features/branch/BranchPanel.tsx:105`), `AnnounceControls` its opener
-for the preview, and `OpenPullRequest` its opener for the form
-(`web/src/features/review/ReviewPanel.tsx:170`), and Cancel swaps each back.
-The focused button disappears and focus falls to `<body>`. Changing section
-from the nav rail or a work-story row never moves focus to `<main>`, though
-`tabIndex={-1}` is there for it (`web/src/shell/AppShell.tsx:68`).
-
-**Instead.** Hand focus to the next step as a control swaps — the confirm's
-question, the composed message, the form's title — back to the opener on
-Cancel, and to `<main>` on a section change.
-
-**Done when.** After *Push branch*, `document.activeElement` is in the
-confirm, and after a nav click it is `<main>`.
-
 ### UX-79 The fallback says what could not happen; the server sometimes says nothing
 
 Impact: medium · Effort: small
@@ -185,7 +163,7 @@ uncommitted changes; commit or stash them before switching`, `internal/webserver
 `nothing is staged to commit`, `internal/webserver/commit.go:21`). But the client fallbacks
 are vague and near-apologetic — `The branch could not be checked out.`
 (`web/src/features/issues/IssuesPanel.tsx:356`), `Work could not be started.` (`web/src/features/issues/WorkStory.tsx:289`),
-`The push failed.` (`web/src/features/branch/BranchPanel.tsx:98`), `The commit could not be
+`The push failed.` (`web/src/features/branch/BranchPanel.tsx:101`), `The commit could not be
 created.` (`web/src/features/branch/CommitForm.tsx:99`) — and three handlers replace the tool's
 reason with one of those sentences: `internal/webserver/checkout.go:44`, `internal/webserver/branchcreate.go:44`,
 `internal/webserver/announce.go:53`. `writeResponseError` answers `something went wrong`
@@ -206,12 +184,12 @@ Impact: low · Effort: small
 **Today.** Good: `Select an issue to see its detail.`, `Open a pull request
 first — there is nothing to announce yet.`, `{service} is not configured.
 Add a token or webhook in Settings.` Dead ends: `This directory is not a
-Git repository.` (`web/src/features/branch/BranchPanel.tsx:23`) and `The configuration could not be
+Git repository.` (`web/src/features/branch/BranchPanel.tsx:24`) and `The configuration could not be
 loaded.` (`web/src/features/settings/SettingsPanel.tsx:18`) offer nothing to do. And the one condition
 "no snapshot yet" reads `Connecting to the tracker…`, `Connecting to the
 workspace…`, `Connecting to the forge…` and `Connecting…` in four panels
-(`web/src/features/issues/IssuesPanel.tsx:20`, `web/src/features/branch/BranchPanel.tsx:15`, `web/src/features/review/ReviewPanel.tsx:38`,
-`web/src/features/messaging/MessagingPanel.tsx:14`).
+(`web/src/features/issues/IssuesPanel.tsx:20`, `web/src/features/branch/BranchPanel.tsx:16`, `web/src/features/review/ReviewPanel.tsx:39`,
+`web/src/features/messaging/MessagingPanel.tsx:15`).
 
 **Instead.** One connecting line, in the shell; a retry on the config
 error; the not-a-repository state says what a repository would give it.
@@ -225,11 +203,11 @@ Impact: medium · Effort: small
 
 **Today.** Every disabled button uses `disabled:opacity-60` — fifteen
 places (`web/src/features/issues/IssuesPanel.tsx:370`, `web/src/features/issues/WorkStory.tsx:265`, `:302`,
-`web/src/features/branch/BranchPanel.tsx:135`, `web/src/features/branch/CommitForm.tsx:158`,
+`web/src/features/branch/BranchPanel.tsx:128`, `web/src/features/branch/CommitForm.tsx:158`,
 `web/src/features/branch/WorkingTree.tsx:180` — the staging buttons' shared
-class — `web/src/features/review/ReviewPanel.tsx:203`, `:333`,
-`:340`, `web/src/features/review/OpenedOutcome.tsx:92`,
-`web/src/features/messaging/MessagingPanel.tsx:181`, `:227`, `:242`, `:250`,
+class — `web/src/features/review/ReviewPanel.tsx:207`, `:343`,
+`:350`, `web/src/features/review/OpenedOutcome.tsx:92`,
+`web/src/features/messaging/MessagingPanel.tsx:191`, `:246`, `:261`, `:269`,
 `web/src/features/settings/SettingsPanel.tsx:305`) — which CLAUDE.md's accessibility rule names as the
 thing not to do (opacity dims text below the contrast floor) and which axe
 does not catch on disabled controls. The app has only two `transition-colors`
@@ -290,13 +268,13 @@ lights own" (`web/src/index.css:24`) plus a three-color CI language; Jira is
 not blue, git is not yellow, the forge is not green anywhere; the `NavRail`
 icons are all muted (`web/src/shell/NavRail.tsx:30`). State marks are the web's own:
 `StageMarker` (`web/src/features/issues/WorkStory.tsx:315`) invents three, and `ciDot`
-(`web/src/features/review/ReviewPanel.tsx:21`) and `StreamStatus` (`StreamStatus.tsx:4`) are
+(`web/src/features/review/ReviewPanel.tsx:22`) and `StreamStatus` (`StreamStatus.tsx:4`) are
 color-only dots of one shape (mitigated by a text label beside each). And
 the page shows the template tells the interface avoids: nine `uppercase`
 eyebrow headings from seven class strings (`web/src/features/settings/SettingsPanel.tsx:324`,
-`web/src/features/branch/BranchPanel.tsx:73`, `web/src/features/branch/WorkingTree.tsx:21`, `web/src/features/issues/IssueDetailPanel.tsx:8`
-— the work story, description and comments share it — `web/src/features/review/ReviewPanel.tsx:115`,
-`web/src/features/messaging/MessagingPanel.tsx:41`, `:47`) as the *only* heading treatment; no type or spacing tokens (raw `text-2xl`
+`web/src/features/branch/BranchPanel.tsx:74`, `web/src/features/branch/WorkingTree.tsx:21`, `web/src/features/issues/IssueDetailPanel.tsx:8`
+— the work story, description and comments share it — `web/src/features/review/ReviewPanel.tsx:116`,
+`web/src/features/messaging/MessagingPanel.tsx:42`, `:48`) as the *only* heading treatment; no type or spacing tokens (raw `text-2xl`
 … `text-xs`, `gap-8` … `gap-0.5` per component); one radius on everything
 (`rounded-md` ×28). To its credit: no shadows, no gradients, no `→`, and a
 real color-token system with hand-picked contrast (`index.css:9-96`).
@@ -321,8 +299,8 @@ Impact: medium · Effort: medium
 `.tsx` under `web/src`. A `w-20` rail (`web/src/shell/NavRail.tsx:14`) beside a `w-80
 shrink-0` issues list (`web/src/features/issues/IssuesPanel.tsx:108`) and a `flex-1` detail squeezes
 the detail to nothing near 640 px; definition lists use fixed first columns
-(`grid-cols-[6rem_1fr]` `web/src/features/branch/BranchPanel.tsx:54`, `[8rem_1fr]`
-`web/src/features/messaging/MessagingPanel.tsx:32`, `[9rem_1fr]` `web/src/features/review/ReviewPanel.tsx:101`); panels cap at
+(`grid-cols-[6rem_1fr]` `web/src/features/branch/BranchPanel.tsx:55`, `[8rem_1fr]`
+`web/src/features/messaging/MessagingPanel.tsx:33`, `[9rem_1fr]` `web/src/features/review/ReviewPanel.tsx:102`); panels cap at
 `max-w-2xl` and never reflow; the issues `<ul>` is not scrollable, so a long
 list scrolls the page. The viewport meta tag is present (`index.html:5`) and
 nothing responds to it. (From code; no viewport was rendered.)
