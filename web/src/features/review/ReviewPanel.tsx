@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { useForgeWords } from '@/api/health.ts'
 import type {
@@ -11,6 +11,7 @@ import type {
   Review,
 } from '@/api/generated/types.gen.ts'
 import { useSnapshotStore } from '@/api/snapshot.ts'
+import { useFocusHandback } from '@/lib/focus.ts'
 import { OutcomeLine, useOutcome } from '@/lib/Outcome.tsx'
 import { useAsyncAction } from '@/lib/useAsyncAction.ts'
 import { cn, splitList } from '@/lib/utils.ts'
@@ -156,6 +157,7 @@ function OpenPullRequest({
   onOpened: (opened: OpenedPullRequest, said: string) => void
 }) {
   const { noun, sigil } = useForgeWords()
+  const [opener, handBack] = useFocusHandback<HTMLButtonElement>()
   const compose = useAsyncAction(previewPullRequest, {
     fallback: `A ${noun} could not be composed.`,
   })
@@ -181,6 +183,7 @@ function OpenPullRequest({
         opening={open.state === 'running'}
         error={open.state === 'error' ? open.error : ''}
         onCancel={() => {
+          handBack()
           open.reset()
           compose.reset()
         }}
@@ -195,6 +198,7 @@ function OpenPullRequest({
     <div className="flex flex-col gap-2">
       <p className="text-sm text-muted-foreground">No open {noun} for this branch yet.</p>
       <button
+        ref={opener}
         type="button"
         disabled={compose.state === 'running'}
         onClick={() => {
@@ -223,9 +227,9 @@ interface PullRequestFields {
   labels: string
 }
 
-// PullRequestForm is the composed pull request, editable, with a confirm that
-// opens it and a cancel. It is disabled while the open is in flight, so a second
-// click cannot open a second pull request.
+// PullRequestForm is the composed pull request, editable, opening on its title,
+// with a confirm that opens it and a cancel. It is disabled while the open is in
+// flight, so a second click cannot open a second pull request.
 function PullRequestForm({
   draft,
   opening,
@@ -240,7 +244,7 @@ function PullRequestForm({
   onSubmit: (request: OpenPullRequestRequest) => void
 }) {
   const { noun } = useForgeWords()
-  const { register, handleSubmit } = useForm<PullRequestFields>({
+  const { register, handleSubmit, setFocus } = useForm<PullRequestFields>({
     defaultValues: {
       title: draft.title,
       base: draft.base,
@@ -251,6 +255,12 @@ function PullRequestForm({
       labels: '',
     },
   })
+
+  // The form appears only because it was asked for, so focus goes with the
+  // person asking to its first field.
+  useEffect(() => {
+    setFocus('title')
+  }, [setFocus])
 
   const submit = handleSubmit((fields) => {
     onSubmit({

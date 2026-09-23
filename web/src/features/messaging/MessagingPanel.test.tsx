@@ -336,3 +336,40 @@ test('prompts to connect before any snapshot arrives', () => {
   // Assert
   expect(screen.getByText(/connecting/i)).toBeTruthy()
 })
+
+test('the preview takes focus as it opens, and Cancel hands it back', async () => {
+  // Arrange
+  const user = userEvent.setup()
+  withPullRequest()
+  render(<MessagingPanel />)
+
+  // Act: open the preview
+  await user.click(screen.getByRole('button', { name: /announce to slack/i }))
+  const preview = await screen.findByRole('group', { name: 'Announcement preview' })
+
+  // Assert: focus is on what would be sent
+  expect(document.activeElement).toBe(preview)
+
+  // Act: back out
+  await user.click(screen.getByRole('button', { name: /cancel/i }))
+
+  // Assert: focus is back on the button that opened it
+  expect(document.activeElement).toBe(screen.getByRole('button', { name: /announce to slack/i }))
+})
+
+test('a refused post hands focus back to the button, beside its reason', async () => {
+  // Arrange
+  mockAnnounce.mockRejectedValueOnce({ code: 'unprocessable', detail: 'the channel is archived' })
+  const user = userEvent.setup()
+  withPullRequest()
+  render(<MessagingPanel />)
+  await user.click(screen.getByRole('button', { name: /announce to slack/i }))
+  await screen.findByRole('group', { name: 'Announcement preview' })
+
+  // Act
+  await user.click(screen.getByRole('button', { name: /post to slack/i }))
+
+  // Assert
+  await screen.findByText('the channel is archived')
+  expect(document.activeElement).toBe(screen.getByRole('button', { name: /announce to slack/i }))
+})

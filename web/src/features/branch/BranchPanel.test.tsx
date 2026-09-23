@@ -429,3 +429,67 @@ test('says so when the workspace is not a Git repository', () => {
   // Assert
   expect(screen.getByText(/not a git repository/i)).toBeTruthy()
 })
+
+test('the confirm takes focus as it opens, and Cancel hands it back', async () => {
+  // Arrange
+  const user = userEvent.setup()
+  pushable()
+  render(<BranchPanel />)
+
+  // Act: ask to push
+  await user.click(screen.getByRole('button', { name: 'Push branch' }))
+
+  // Assert: focus is on the question
+  expect(document.activeElement).toBe(
+    screen.getByRole('group', { name: /push \d+ commit\(s\) to the remote\?/i }),
+  )
+
+  // Act: back out
+  await user.click(screen.getByRole('button', { name: 'Cancel' }))
+
+  // Assert: focus is back on the button that asked
+  expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Push branch' }))
+})
+
+test('a refused push hands focus back to the button, beside its reason', async () => {
+  // Arrange
+  mockPush.mockRejectedValueOnce({ code: 'conflict', detail: 'the remote refused the push' })
+  const user = userEvent.setup()
+  pushable()
+  render(<BranchPanel />)
+  await user.click(screen.getByRole('button', { name: 'Push branch' }))
+
+  // Act
+  await user.click(screen.getByRole('button', { name: 'Push' }))
+
+  // Assert
+  await screen.findByText('the remote refused the push')
+  expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Push branch' }))
+})
+
+test('focus moved on while a push runs stays put when the push is refused', async () => {
+  // Arrange
+  let refusePush = () => {}
+  mockPush.mockImplementationOnce(
+    () =>
+      new Promise<Branch>((_, reject) => {
+        refusePush = () => {
+          reject(new Error('refused'))
+        }
+      }),
+  )
+  const user = userEvent.setup()
+  pushable()
+  render(<BranchPanel />)
+  await user.click(screen.getByRole('button', { name: 'Push branch' }))
+  await user.click(screen.getByRole('button', { name: 'Push' }))
+  const subject = screen.getByLabelText('Subject')
+  subject.focus()
+
+  // Act
+  refusePush()
+
+  // Assert
+  await screen.findByRole('alert')
+  expect(document.activeElement).toBe(subject)
+})

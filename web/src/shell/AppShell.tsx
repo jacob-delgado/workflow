@@ -1,4 +1,5 @@
 import { Lock, Workflow } from 'lucide-react'
+import { useEffect, useRef } from 'react'
 import { useHealth, useHealthStore } from '@/api/health.ts'
 import { useEventStream, useSnapshotStore } from '@/api/snapshot.ts'
 import { useRefreshViews } from '@/features/issues/issueApi.ts'
@@ -8,7 +9,7 @@ import { StreamStatus } from './StreamStatus.tsx'
 import { ThemeToggle } from './ThemeToggle.tsx'
 import { sectionLabel } from './sections.ts'
 import { useApplyTheme } from './useApplyTheme.ts'
-import { useUiStore } from './uiStore.ts'
+import { useUiStore, type Section } from './uiStore.ts'
 
 export function AppShell() {
   const view = useUiStore((state) => state.view)
@@ -24,6 +25,7 @@ export function AppShell() {
   useApplyTheme()
   const health = useHealthStore((state) => state.health)
   const section = useUiStore((state) => state.section)
+  const main = useSectionFocus(section)
   const service = useSnapshotStore((state) => state.snapshot?.messaging.service)
 
   return (
@@ -64,6 +66,7 @@ export function AppShell() {
       <div className="flex flex-1">
         <NavRail />
         <main
+          ref={main}
           id="main"
           tabIndex={-1}
           className="flex-1 overflow-auto px-6 py-5 focus-visible:outline-none"
@@ -76,4 +79,25 @@ export function AppShell() {
       </div>
     </div>
   )
+}
+
+// useSectionFocus hands focus to the content area whenever the section changes —
+// from the nav rail or a work-story stage — so a keyboard or screen reader user
+// lands in the section they chose rather than being left in the rail, or on a
+// button the change took away. The first section is no change: on load, focus
+// stays where the browser puts it.
+function useSectionFocus(section: Section) {
+  const main = useRef<HTMLElement>(null)
+  const shown = useRef(section)
+
+  useEffect(() => {
+    if (shown.current === section) {
+      return
+    }
+
+    shown.current = section
+    main.current?.focus()
+  }, [section])
+
+  return main
 }

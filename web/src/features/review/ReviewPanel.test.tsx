@@ -367,3 +367,26 @@ test('prompts to connect before any snapshot arrives', () => {
   // Assert
   expect(screen.getByText(/connecting/i)).toBeTruthy()
 })
+
+test('the form opens on its title, and Cancel hands focus back', async () => {
+  // Arrange
+  const user = userEvent.setup()
+  useSnapshotStore.setState({
+    status: 'live',
+    snapshot: makeSnapshot({ review: { found: false } }),
+  })
+  render(<ReviewPanel />)
+
+  // Act: open the form
+  await user.click(screen.getByRole('button', { name: 'Open a pull request' }))
+  await screen.findByRole('form', { name: 'Open a pull request' })
+
+  // Assert: focus is on its first field
+  expect(document.activeElement).toBe(screen.getByLabelText('Title'))
+
+  // Act: back out
+  await user.click(screen.getByRole('button', { name: 'Cancel' }))
+
+  // Assert: focus is back on the button that opened it
+  expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Open a pull request' }))
+})

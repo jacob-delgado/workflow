@@ -1,7 +1,8 @@
 import { GitBranch } from 'lucide-react'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import type { Branch } from '@/api/generated/types.gen.ts'
 import { useSnapshotStore } from '@/api/snapshot.ts'
+import { useFocusHandback, useFocusOnMount } from '@/lib/focus.ts'
 import { OutcomeLine, useOutcome, type Teller } from '@/lib/Outcome.tsx'
 import { useAsyncAction } from '@/lib/useAsyncAction.ts'
 import { EmptyState } from '@/shell/EmptyState.tsx'
@@ -91,9 +92,11 @@ function Commits({ commits }: { commits: Branch['commits'] }) {
 
 // PushButton publishes the branch, behind a confirm step: pushing is outward and
 // not undone with a click, so it asks first. What it pushed is said in the
-// panel's outcome, and a failed push is shown inline.
+// panel's outcome, and a failed push is shown inline. Focus goes to the confirm
+// as it opens, and back to the button on Cancel or a refusal.
 function PushButton({ branch, outcome }: { branch: Branch; outcome: Teller }) {
   const [confirming, setConfirming] = useState(false)
+  const [opener, handBack] = useFocusHandback<HTMLButtonElement>()
   const push = useAsyncAction(pushBranch, {
     fallback: 'The push failed.',
     done: (published) => `Pushed ${published.name}.`,
@@ -101,33 +104,31 @@ function PushButton({ branch, outcome }: { branch: Branch; outcome: Teller }) {
     onDone: outcome.say,
   })
 
+  // A refused push comes back to the button, beside its reason: the confirm that
+  // had focus is gone. Focus the user has moved on to stays where they put it.
+  useEffect(() => {
+    if (push.state === 'error' && document.activeElement === document.body) {
+      opener.current?.focus()
+    }
+  }, [push.state, opener])
+
   return (
     <div className="flex flex-col gap-2">
       {confirming ? (
-        <div className="flex items-center gap-2 text-sm">
-          <span>Push {branch.commits.length} commit(s) to the remote?</span>
-          <button
-            type="button"
-            onClick={() => {
-              setConfirming(false)
-            }}
-            className="rounded-md border border-input px-2 py-1 hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
-          >
-            Cancel
-          </button>
-          <button
-            type="button"
-            onClick={() => {
-              setConfirming(false)
-              void push.run()
-            }}
-            className="rounded-md bg-primary px-2 py-1 text-primary-foreground hover:bg-primary/90 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
-          >
-            Push
-          </button>
-        </div>
+        <PushConfirm
+          commits={branch.commits.length}
+          onCancel={() => {
+            handBack()
+            setConfirming(false)
+          }}
+          onPush={() => {
+            setConfirming(false)
+            void push.run()
+          }}
+        />
       ) : (
         <button
+          ref={opener}
           type="button"
           disabled={push.state === 'running'}
           onClick={() => {
@@ -143,6 +144,44 @@ function PushButton({ branch, outcome }: { branch: Branch; outcome: Teller }) {
           {push.error}
         </p>
       ) : null}
+    </div>
+  )
+}
+
+interface PushConfirmProps {
+  commits: number
+  onCancel: () => void
+  onPush: () => void
+}
+
+// PushConfirm asks before the push, and takes focus as it opens, so a screen
+// reader hears the question.
+function PushConfirm({ commits, onCancel, onPush }: PushConfirmProps) {
+  const question = useFocusOnMount<HTMLDivElement>()
+
+  return (
+    <div
+      ref={question}
+      role="group"
+      aria-labelledby="push-question"
+      tabIndex={-1}
+      className="flex items-center gap-2 text-sm"
+    >
+      <span id="push-question">Push {commits} commit(s) to the remote?</span>
+      <button
+        type="button"
+        onClick={onCancel}
+        className="rounded-md border border-input px-2 py-1 hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+      >
+        Cancel
+      </button>
+      <button
+        type="button"
+        onClick={onPush}
+        className="rounded-md bg-primary px-2 py-1 text-primary-foreground hover:bg-primary/90 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+      >
+        Push
+      </button>
     </div>
   )
 }

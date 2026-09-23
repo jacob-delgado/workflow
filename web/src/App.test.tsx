@@ -118,3 +118,50 @@ test('drops the read-only banner when the stream comes back from a server that w
     expect(screen.queryByText(/every write is held back/i)).toBeNull()
   })
 })
+
+test('choosing a section from the rail moves focus to its content', async () => {
+  // Arrange
+  const user = userEvent.setup()
+  renderWithClient(<App />)
+
+  // Act
+  await user.click(screen.getByRole('button', { name: 'Branch' }))
+
+  // Assert
+  expect(document.activeElement).toBe(screen.getByRole('main'))
+})
+
+test('a work-story stage moves focus to the section it opens', async () => {
+  // Arrange
+  const user = userEvent.setup()
+  renderWithClient(<App />)
+  const issue = {
+    key: 'PROJ-1',
+    summary: 'Redact tokens',
+    status: 'To Do',
+    status_category: 'new' as const,
+    type: 'Bug',
+  }
+  act(() => {
+    FakeEventSource.latest().emit(
+      'snapshot',
+      JSON.stringify(makeSnapshot({ issues: { issues: [issue], total: 1, start_at: 0 } })),
+    )
+  })
+  await user.click(screen.getByRole('button', { name: /redact tokens/i }))
+
+  // Act
+  await user.click(screen.getByRole('button', { name: /^changes/i }))
+
+  // Assert
+  expect(screen.getByRole('heading', { level: 1, name: 'Branch' })).toBeTruthy()
+  expect(document.activeElement).toBe(screen.getByRole('main'))
+})
+
+test('opening the cockpit leaves focus where the browser put it', () => {
+  // Act
+  renderWithClient(<App />)
+
+  // Assert
+  expect(document.activeElement).toBe(document.body)
+})

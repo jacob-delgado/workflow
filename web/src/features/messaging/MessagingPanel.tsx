@@ -2,6 +2,7 @@ import { useState } from 'react'
 import type { Snapshot } from '@/api/generated/types.gen.ts'
 import { useForgeWords } from '@/api/health.ts'
 import { useSnapshotStore } from '@/api/snapshot.ts'
+import { useFocusHandback, useFocusOnMount } from '@/lib/focus.ts'
 import { OutcomeLine, useOutcome } from '@/lib/Outcome.tsx'
 import { useAsyncAction } from '@/lib/useAsyncAction.ts'
 import { EmptyState } from '@/shell/EmptyState.tsx'
@@ -122,7 +123,8 @@ interface AnnounceControlsProps {
 // confirmation, and posts only on confirm — announcing is outward and not undone.
 // The preview and the post are two steps, each its own action; a refused post
 // goes back to the button, with its reason. Once posted, the controls step
-// aside, and where it went is said through onAnnounced.
+// aside, and where it went is said through onAnnounced. Focus goes to the
+// preview as it opens, and back to the button when it closes unposted.
 function AnnounceControls({
   service,
   channels,
@@ -130,6 +132,7 @@ function AnnounceControls({
   onAnnounced,
 }: AnnounceControlsProps) {
   const [channel, setChannel] = useState(() => firstNonEmpty(defaultChannel, channels[0] ?? ''))
+  const [opener, handBack] = useFocusHandback<HTMLButtonElement>()
   const preview = useAsyncAction(
     async () => {
       const composed = await previewAnnouncement()
@@ -159,8 +162,14 @@ function AnnounceControls({
         channels={channels}
         posting={post.state === 'running'}
         onChannel={setChannel}
-        onCancel={preview.reset}
+        onCancel={() => {
+          handBack()
+          preview.reset()
+        }}
         onPost={() => {
+          // Back to the button if the post is refused; a posted announcement
+          // hands focus to the line that says where it went instead.
+          handBack()
           void post.run()
         }}
       />
@@ -172,6 +181,7 @@ function AnnounceControls({
   return (
     <div className="flex flex-col gap-1">
       <button
+        ref={opener}
         type="button"
         disabled={preview.state === 'running'}
         onClick={() => {
@@ -192,7 +202,8 @@ function AnnounceControls({
 }
 
 // AnnouncePreview shows the composed message and the channel it will post to,
-// with a confirm and a cancel.
+// with a confirm and a cancel. It takes focus as it opens, so what is about to
+// be sent is what a screen reader reads next.
 function AnnouncePreview({
   service,
   text,
@@ -212,8 +223,16 @@ function AnnouncePreview({
   onCancel: () => void
   onPost: () => void
 }) {
+  const shown = useFocusOnMount<HTMLDivElement>()
+
   return (
-    <div className="flex flex-col gap-3 rounded-md border border-border p-4">
+    <div
+      ref={shown}
+      role="group"
+      aria-label="Announcement preview"
+      tabIndex={-1}
+      className="flex flex-col gap-3 rounded-md border border-border p-4"
+    >
       <pre className="rounded-md bg-muted p-3 text-sm whitespace-pre-wrap">{text}</pre>
       {channels.length > 0 ? (
         <label className="flex items-center gap-2 text-sm">
