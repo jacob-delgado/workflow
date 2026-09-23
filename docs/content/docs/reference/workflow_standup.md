@@ -13,7 +13,9 @@ Draft what you did — commits, issues and pull requests — to share
 
 Gather the commits you made, the issues you touched and the open pull
 requests on your branches over the last day, open the draft in your editor,
-and offer to post it to your team's chat. Nothing is posted until you confirm.
+and offer to post it to your team's chat. Nothing is posted until you confirm;
+--yes posts without asking, and --dry-run prints the draft and posts nothing.
+--yes does not skip the editor: add --no-edit to run it unattended.
 
 ```
 workflow standup [flags]
@@ -22,9 +24,11 @@ workflow standup [flags]
 ### Options
 
 ```
-      --days int   how many days back to gather (default 1)
+      --days int   how many days back to gather, 1 or more (default 1)
+      --dry-run    preview without posting anything
   -h, --help       help for standup
       --no-edit    skip the editor and use the draft as it is
+      --yes        go ahead without the confirmation
 ```
 
 ### SEE ALSO

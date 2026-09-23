@@ -84,23 +84,23 @@ the seven wiring preambles collapse into one that opens the log.
 **Done when.** `workflow --dry-run pr` is accepted and previews;
 `workflow --log FILE status` appends a request line to `FILE`.
 
-### UX-54 `standup` cannot be previewed or run unattended
+### UX-54 `config init` cannot be previewed
 
 Impact: medium · Effort: small
 
-**Today.** `standup` is the only write command with no `--dry-run` and no
-`--yes`: after the draft it *offers to post* (`offerToPost`, `internal/cli/standup.go:129`)
-with no bypass, so it cannot run from a script, and `--days` is unvalidated
-— a negative value flows into `gitSince` as `"-1 days ago"` (`:194`) and into
-the JQL as `updated >= --1d` (`:201`). `config init`'s guided flow has no
-`--dry-run` either; its only unattended path is `--template`.
+**Today.** Every other write command now takes `--dry-run` and `--yes` —
+`standup` too, which also refuses `--days` below 1 as a usage error — but
+`config init` has no `--dry-run`: its guided flow (`runGuidedInit`,
+`internal/cli/config_cmd.go:161`) writes the file and may store a token in
+the keychain as soon as the questions are answered, and `--template`
+(`runConfigInit`, `internal/cli/config_cmd.go:139`) writes a file straight
+away, so neither can be looked at before it is written.
 
-**Instead.** `standup` takes the same `writeOptions` as the others and
-rejects `--days < 1` as a usage error; `config init --dry-run` prints the
-redacted file it would write.
+**Instead.** `config init --dry-run` runs the same checks, writes nothing —
+no file, no keychain entry — and prints the redacted file it would write.
 
-**Done when.** `workflow standup --dry-run --yes` posts nothing and exits 0;
-`--days -1` is a usage error.
+**Done when.** `config init --dry-run` leaves no file behind and prints
+JSON that decodes to the configuration it would have written.
 
 ### UX-55 The generated reference omits `--version`, `help` and `completion`; the usage page never mentions the commands
 
@@ -221,7 +221,7 @@ Impact: low · Effort: medium
 **Today.** No spinner, no elapsed time, no "checking…". `doctor --online`
 makes three round trips in silence (`reportCredentials`, `doctor.go:141`);
 `standup` fires up to fifteen forge requests plus a Jira search
-(`gatherPulls`, `internal/cli/standup.go:179`); `status DIR…` visits each directory in
+(`gatherPulls`, `internal/cli/standup.go:192`); `status DIR…` visits each directory in
 series (`statusesOf`, `internal/cli/status.go:163`). The only trace is `--log`, which
 the subcommands cannot use (UX-52).
 
