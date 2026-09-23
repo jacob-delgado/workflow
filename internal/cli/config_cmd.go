@@ -5,7 +5,6 @@ package cli
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -285,12 +284,5 @@ func runConfigShow(cmd *cobra.Command, cfg config.Config) error {
 	out := cmd.OutOrStdout()
 	fmt.Fprintf(out, "# %s\n", cfg.Path)
 
-	encoded, err := json.MarshalIndent(cfg.Redacted(), "", "  ")
-	if err != nil {
-		return fmt.Errorf("encoding configuration: %w", err)
-	}
-
-	fmt.Fprintf(out, "%s\n", encoded)
-
-	return nil
+	return encodeJSON(out, cfg.Redacted())
 }

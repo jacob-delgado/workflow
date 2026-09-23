@@ -5,7 +5,6 @@ package cli
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"io"
 	"os"
@@ -299,19 +298,6 @@ func renderStatusJSON(out io.Writer, facts statusFacts) error {
 		Stages:  stageReports(facts.stages),
 		CI:      ciWord(facts.ci),
 	})
-}
-
-// encodeJSON writes value as indented JSON, the one place a command encodes it.
-func encodeJSON(out io.Writer, value any) error {
-	encoder := json.NewEncoder(out)
-	encoder.SetIndent("", "  ")
-
-	err := encoder.Encode(value)
-	if err != nil {
-		return fmt.Errorf("encoding the output: %w", err)
-	}
-
-	return nil
 }
 
 // repoStatus is one repository's status in the array `status DIR...` prints.

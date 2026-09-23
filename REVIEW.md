@@ -55,7 +55,7 @@ gap, and which phase closes it.
 
 | # | Action | CLI | TUI | Web | Warranted? |
 | --- | --- | --- | --- | --- | --- |
-| 1 | List the view's issues | P (only `branch <tab>` completion, `internal/cli/scriptable.go:78`) | Y | Y (page 0 of the stream) | CLI read: a feature, FEAT-78 |
+| 1 | List the view's issues | P (only `branch <tab>` completion, `internal/cli/scriptable.go:93`) | Y | Y (page 0 of the stream) | CLI read: a feature, FEAT-78 |
 | 2 | Switch view / next page | N | Y (`v`, `ctrl+n`) | N (`web/src/api/snapshot.ts:39` sends no `?view=`) | **Web yes** — the stream already takes `?view=` (`internal/webserver/stream.go:38`). Phase 3, UX-72 |
 | 3 | Filter the list | N | Y (`/`, `internal/tui/issues.go:154`) | N | Web idea, UX-72; CLI no |
 | 4 | Read an issue in full | N | Y (`internal/tui/detail.go:225`) | **N** — `IssuesPanel.tsx:83` renders the slim snapshot `Issue` | **Web yes, cheap** — `getIssue` exists (`api/openapi.yaml:95`, `handlers.go:66`) and is never called. Phase 3, UX-70. CLI: FEAT-78 |
@@ -122,7 +122,7 @@ gap, and which phase closes it.
 | 40 | Write / initialize the config | Y (`config init`) | N | P (7 sections; five carried but not editable) | Interface: `config init` + `doctor` are the path — no. Web remainder: UX-87 |
 | 41 | Doctor | Y | N | N | Reasonable CLI-only; the interface points at it (`render.go:377`) |
 | 42 | Status across the loop | Y (`status DIR…`) | Y (the spine) | Y (`WorkStory`) | — |
-| 43 | Dry run | Y (two unrelated flags: `cli.go:193`, `scriptable.go:29`) | Y (per seam, `dryrun.go:25`) | **P** — a blanket 403 (`guard.go:46`), and `getHealth.dry_run` is never fetched | **Web yes, cheap** — the flag is on the wire. Phase 3, UX-71. CLI one flag: Phase 2, UX-52 |
+| 43 | Dry run | Y (two unrelated flags: `cli.go:193`, `internal/cli/scriptable.go:30`) | Y (per seam, `dryrun.go:25`) | **P** — a blanket 403 (`guard.go:46`), and `getHealth.dry_run` is never fetched | **Web yes, cheap** — the flag is on the wire. Phase 3, UX-71. CLI one flag: Phase 2, UX-52 |
 | 44 | Request log `--log` | P (root only; subcommands pass `nil`) | Y | Y | Phase 2, UX-52 |
 | 45 | Help / discoverability | P (no hint on a typo, `cli.go:157`) | P (`?` 57/57; five Issues keys off the footer, `render.go:336`) | n/a | Phase 8 (UX-56), Phase 7 (UX-63); web `?` idea, UX-88 |
 | 46 | Version | Y | n/a | P (`getHealth.version` never fetched) | Folds into Phase 3's health call |
@@ -153,7 +153,7 @@ to see the shape.
 | A hint on misuse | **Gap** — `SilenceUsage`+`SilenceErrors` swallow cobra's | UX-56 |
 | No surprises | Partial — `branch` switches silently; `pr` pushes and transitions under one question | UX-58 |
 | Secrets never printed | Met | pinned by `cli_test.go:208`, `doctor_json_test.go:65` |
-| Shell completion | Met, incl. dynamic issue keys | `scriptable.go:70` |
+| Shell completion | Met, incl. dynamic issue keys | `internal/cli/scriptable.go:85` |
 | Docs cover the commands | **Gap** — `usage.md` is TUI-only | UX-55 |
 
 ### The terminal interface
@@ -332,19 +332,20 @@ without it, classify the CLI-local sentinels and re-point later).
   problem codes use (`docs/content/docs/errors.md`). **Decided** — the
   refined table under *Decisions the maintainer made* supersedes this one.
   Align `config show` with `doctor` when there is no file
-  (`config_cmd.go:84` vs `doctor.go:463`, both → 3) and `status` with
-  `status .` outside a repository (`internal/cli/status.go:82` vs `:95`).
+  (`internal/cli/config_cmd.go:83` vs `doctor.go:463`, both → 3) and `status` with
+  `status .` outside a repository (`internal/cli/status.go:81` vs `:94`).
 - **Streams.** The rule: stdout carries the artifact (JSON, the preview
   text, the created thing's URL, the standup draft); stderr carries
-  commentary (`Warning:` `config_cmd.go:279`, `Not opened.` and `dry run:
-  would …` `scriptable.go:46`, `:61`, the no-config guidance `:90`, the web
-  banner `cli.go:255`, `config show`'s `# <path>` header `:286`). Split the
-  harness **first** (`cli_test.go:51` returns both streams).
+  commentary (`Warning:` `internal/cli/config_cmd.go:278`, `Not opened.` and `dry run:
+  would …` `internal/cli/scriptable.go:47`, `:62`, the no-config guidance
+  `internal/cli/config_cmd.go:89`, the web banner `cli.go:255`, `config show`'s
+  `# <path>` header `internal/cli/config_cmd.go:285`). Split the harness
+  **first** (`runStreams`, `internal/cli/cli_test.go:57`, returns both streams).
 - **Flags.** `--dry-run` and `--log` become root `PersistentFlags`;
-  `writeOptions.addFlags` (`scriptable.go:29`) stops declaring its own
+  `writeOptions.addFlags` (`internal/cli/scriptable.go:30`) stops declaring its own
   `--dry-run`; the seven wiring preambles (`reviews.go:59`, `internal/cli/branch.go:63`,
-  `internal/cli/pr.go:77`, `internal/cli/status.go:117`, `standup.go:75`, `internal/cli/announce.go:69`,
-  `scriptable.go:71`, and the root's `cli.go:161`) collapse into one
+  `internal/cli/pr.go:77`, `internal/cli/status.go:116`, `standup.go:75`, `internal/cli/announce.go:69`,
+  `internal/cli/scriptable.go:86`, and the root's `cli.go:161`) collapse into one
   `connect(cmd)` returning `{cfg, deps, where, closeLog}`, so `--log` reaches
   every subcommand. `standup` gains `--dry-run`/`--yes` (`standup.go:132`)
   and rejects `--days < 1` (`:197`, `:204`) as a usage error; `config init

@@ -5,7 +5,6 @@ package cli
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -93,7 +92,7 @@ func runDoctorJSON(ctx context.Context, out io.Writer, cfg config.Config, loadEr
 	credentials, credErr := credentialFacts(ctx, cfg, remote, online)
 	report.Credentials = credentials
 
-	err := encodeReport(out, report)
+	err := encodeJSON(out, report)
 	if err != nil {
 		return err
 	}
@@ -103,19 +102,6 @@ func runDoctorJSON(ctx context.Context, out io.Writer, cfg config.Config, loadEr
 	}
 
 	return errors.Join(toolingErr, configErr, credErr)
-}
-
-// encodeReport writes the report as indented JSON.
-func encodeReport(out io.Writer, report doctorReport) error {
-	encoder := json.NewEncoder(out)
-	encoder.SetIndent("", "  ")
-
-	err := encoder.Encode(report)
-	if err != nil {
-		return fmt.Errorf("encoding the report: %w", err)
-	}
-
-	return nil
 }
 
 // repositoryFactsFor gathers the git facts, returning the raw remote alongside

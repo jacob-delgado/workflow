@@ -78,10 +78,10 @@ error the CLI returns — `doctor`'s six sentinels (`internal/cli/doctor.go:29`)
 from "the service is unreachable" from "the credential was rejected" without
 parsing prose. Worse, the same condition exits differently: with no
 configuration file, `config show` prints guidance and exits **0**
-(`showLoadError`, `config_cmd.go:84`) while `doctor` exits **1**
+(`showLoadError`, `internal/cli/config_cmd.go:83`) while `doctor` exits **1**
 (`reportLoadError`, `doctor.go:463`); outside a repository `status` exits 1
-(`internal/cli/status.go:82`) but `status .` prints `not a git repository` and exits 0
-(`:95`).
+(`internal/cli/status.go:81`) but `status .` prints `not a git repository` and exits 0
+(`:94`).
 
 **Instead.** A small table — 0 success, 1 failure, 2 usage, 3 configuration,
 4 refused precondition, 5 unreachable — the same families the web API's
@@ -101,12 +101,12 @@ Impact: high · Effort: small
 
 **Today.** Errors go to stderr (`SilenceErrors`, `cli.go:158`; `cmd/workflow/main.go:40`)
 and prompts go to stderr (`terminalPrompt`, `cmd/workflow/main.go:54`) — correct. But the
-gitignore **warning** (`warnIfNotIgnored`, `config_cmd.go:279`), the
+gitignore **warning** (`warnIfNotIgnored`, `internal/cli/config_cmd.go:278`), the
 `Not posted.`/`Not opened.` decline notices and the `dry run: would …` lines
-(`writeOptions.proceed`, `scriptable.go:46`, `:61`), the no-configuration
-guidance (`config_cmd.go:90`) and the web server's `serving http://…` banner
+(`writeOptions.proceed`, `internal/cli/scriptable.go:47`, `:62`), the no-configuration
+guidance (`internal/cli/config_cmd.go:89`) and the web server's `serving http://…` banner
 (`cli.go:255`) all go to stdout. `config show` prefixes its JSON with a
-`# <path>` line (`config_cmd.go:286`, then `:293`), so `workflow config
+`# <path>` line (`internal/cli/config_cmd.go:285`, then `:287`), so `workflow config
 show | jq .` fails and there is no flag to suppress the header. No test
 pins any of this to a stream: the harness can keep them apart
 (`runStreams`, `internal/cli/cli_test.go:57`), but only `pr`'s opened line
@@ -126,7 +126,7 @@ Impact: medium · Effort: small
 **Today.** `--dry-run`, `--log` and `--web` are declared on `root.Flags()`
 (`cli.go:193-197`), not `PersistentFlags()`, so `workflow --dry-run pr` and
 `workflow --log f status` are unknown-flag errors; the write commands
-declare their own, unrelated `--dry-run` (`scriptable.go:29`) with different
+declare their own, unrelated `--dry-run` (`internal/cli/scriptable.go:30`) with different
 help; and every subcommand passes `nil` for the request log, so the `--log`
 facility the root's help advertises for bug reports (`cli.go:195`) works
 only for the interface (DEBT-51).
@@ -212,7 +212,7 @@ unknown-command or unknown-flag error.
 Impact: medium · Effort: small
 
 **Today.** The strong messages say the next step — `(pass --force to
-overwrite)` (`config_cmd.go:137`), the `chmod 600` line (`doctor.go:456`),
+overwrite)` (`internal/cli/config_cmd.go:136`), the `chmod 600` line (`doctor.go:456`),
 `run gh auth login` (`doctor.go:232`), `Create one with workflow config
 init` (`internal/config/config.go:24`). The bare sentinels do not: `a branch for
 this issue already exists` (`internal/cli/branch.go:24`) does not say to switch to it;
@@ -292,7 +292,7 @@ Impact: low · Effort: medium
 makes three round trips in silence (`reportCredentials`, `doctor.go:141`);
 `standup` fires up to fifteen forge requests plus a Jira search
 (`gatherPulls`, `standup.go:182`); `status DIR…` visits each directory in
-series (`statusAcross`, `internal/cli/status.go:100`). The only trace is `--log`, which
+series (`statusAcross`, `internal/cli/status.go:99`). The only trace is `--log`, which
 the subcommands cannot use (UX-52).
 
 **Instead.** A one-line "checking Jira…" on stderr when stderr is a
@@ -307,7 +307,7 @@ Impact: low · Effort: medium
 
 **Today.** No command declares a single shorthand — there is no `VarP(`
 call in `internal/cli` — so `-n`, `-y`, `-j` do not exist; `status` emits
-`●◐✗○` (`statusGlyph`, `internal/cli/status.go:361`) with ASCII selectable only through
+`●◐✗○` (`statusGlyph`, `internal/cli/status.go:347`) with ASCII selectable only through
 `ui.ascii` in the file, no `--plain`; `standup` has no `--json`; `pr` has no
 draft, base, reviewer, title or body flag; `announce` has no `--channel`
 (the channel comes from `messaging.channel` alone); both `pr` and the web
