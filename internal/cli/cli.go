@@ -190,7 +190,7 @@ func newRootCmd(prompt Prompt, run runTUI, serve runWeb) *cobra.Command {
 
 				info := webserver.Info{Version: buildinfo.Current(), DryRun: dryRun, ForgeKind: conn.deps.Forge.Kind}
 
-				return serve(ctx, conn.cfg, webDeps(conn.deps), info, cmd.ErrOrStderr())
+				return serve(ctx, conn.cfg, WebDeps(conn.deps), info, cmd.ErrOrStderr())
 			}
 
 			return openInterface(ctx, run, interfaceInput{
@@ -268,10 +268,12 @@ func serveWeb(
 	return webserver.Serve(ctx, webserver.LoopbackAddr, handler)
 }
 
-// webDeps adapts the interface's dependency bundle to the web server's narrower
+// WebDeps adapts the interface's dependency bundle to the web server's narrower
 // one. They are the same seams, which is why the web server is another consumer
-// of the wiring rather than a second implementation.
-func webDeps(deps tui.Deps) webserver.Deps {
+// of the wiring rather than a second implementation. A seam the interface wires
+// is never dropped on the way: the server would answer that write as not
+// available.
+func WebDeps(deps tui.Deps) webserver.Deps {
 	return webserver.Deps{
 		Search:       deps.Jira.Search,
 		Issue:        deps.Jira.Issue,
