@@ -73,7 +73,7 @@ func TestARefusalNoticeWearsTheFailureStyle(t *testing.T) {
 				w.ciInterval, w.ci = 2*time.Second, []forge.CI{{State: forge.CIRunning}, {State: forge.CIFailed}}
 			},
 			keys: []string{"5", "p", "w"},
-			want: "CI failed, so nothing was posted to Slack",
+			want: "CI failed, so nothing was announced to Slack",
 		},
 		"a queued post the service would not take once CI passed": {
 			prepare: func(w *world) {
@@ -131,7 +131,7 @@ func TestAGuidanceNoticeStaysPlain(t *testing.T) {
 		"a message emptied": {
 			prepare: func(w *world) { w.edited = "  " },
 			keys:    []string{"5", "p", "e", keyEnter},
-			want:    "nothing to post: the message was empty",
+			want:    "nothing to announce: the message was empty",
 		},
 	}
 

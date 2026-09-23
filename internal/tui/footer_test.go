@@ -79,3 +79,15 @@ func TestACutFooterEndsOnAWholeKeyAndAnEllipsis(t *testing.T) {
 		}
 	}
 }
+
+func TestTheAnnouncementPreviewKeepsItsWayOutOnANarrowTerminal(t *testing.T) {
+	t.Parallel()
+
+	// Act
+	// A pull request ready for review, with CI, to one channel: every key the
+	// preview offers, down to the one that backs out before anything is sent.
+	footer := footerLine(typing(t, newWorld().live(t, 62, 30), "5", "p").View().Content)
+
+	// Assert
+	requireScreen(t, footer, "enter announce now", "w when CI passes", "e edit", "esc discard")
+}

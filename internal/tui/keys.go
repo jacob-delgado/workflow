@@ -244,7 +244,7 @@ func reviewAndSlackKeys(builder *helpBuilder, into *keyMap, reviewNoun, messagin
 	into.rerun = builder.bind(groupReviewSlack, "rerun-checks", "re-run checks", "R")
 	into.merge = builder.bind(groupReviewSlack, "merge", "merge", "M")
 	into.finish = builder.bind(groupReviewSlack, "finish-branch", "finish branch", "F")
-	into.compose = builder.bind(groupReviewSlack, "post", "post to "+strings.ToLower(messagingService), "p")
+	into.compose = builder.bind(groupReviewSlack, "post", "announce to "+strings.ToLower(messagingService), "p")
 }
 
 // composerKeys are the composer, preview and field-form bindings, the branch
@@ -264,7 +264,7 @@ func composerKeys(builder *helpBuilder, into *keyMap, marks glyphs) {
 	into.cycleRight = builder.bindShown(groupComposer, "cycle-type-right", "", "", "right")
 	into.toggleOption = builder.bind(groupComposer, "toggle-option", "select", "space")
 	into.worktree = builder.bind(groupComposer, "worktree", "worktree", "ctrl+w")
-	into.postWhenGreen = builder.bind(groupComposer, "post-when-green", "post when CI passes", "w")
+	into.postWhenGreen = builder.bind(groupComposer, "post-when-green", "announce when CI passes", "w")
 }
 
 // runningKeys are the bindings available while a command runs.

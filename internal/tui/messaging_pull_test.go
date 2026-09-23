@@ -6,6 +6,7 @@ package tui_test
 import (
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/jacob-delgado/workflow/internal/forge"
 )
@@ -14,9 +15,9 @@ import (
 // world's second issue.
 const secondPullURL = "https://github.com/example/repo/pull/43"
 
-// droppedPost is what the interface says when it gives up on a post that was
-// waiting for the world's first pull request.
-const droppedPost = "✗ dropped the Slack post waiting for #42, which is no longer this branch's pull request"
+// droppedPost is what the interface says when it gives up on an announcement
+// that was waiting for the world's first pull request.
+const droppedPost = "✗ dropped the announcement to Slack waiting for #42, which is no longer this branch's pull request"
 
 // anotherPull makes the world's pull request a different one, whose CI has
 // passed.
@@ -52,7 +53,7 @@ func TestAPostWaitingForCIIsNotSentForAnotherPullRequest(t *testing.T) {
 	waiting := typing(t, model, "5", "p", "w")
 
 	// Assert: it waits
-	requireScreen(t, waiting.View().Content, "◐ will post to "+slackChannel+" once CI passes")
+	requireScreen(t, waiting.View().Content, "◐ will announce to "+slackChannel+" once CI passes")
 
 	// Act: switch to other work, whose CI has passed
 	switchToOtherWork(switching)
@@ -71,7 +72,7 @@ func TestAPostWaitingForCIIsNotSentForAnotherPullRequest(t *testing.T) {
 	pane := typing(t, switched, "5").View().Content
 
 	// Assert: nothing is waiting any more
-	requireScreen(t, pane, "state  ○ nothing posted")
+	requireScreen(t, pane, "state  ○ nothing announced")
 }
 
 func TestAPostWaitingForCIIsDroppedWhenThePullRequestIsReplaced(t *testing.T) {
@@ -110,8 +111,8 @@ func TestEachPullRequestIsAnnouncedOnce(t *testing.T) {
 	second := typing(t, first, "2", "r", "5").View().Content
 
 	// Assert: its pull request has not been announced, and can be
-	requireScreen(t, second, "state  ○ nothing posted", "○ Slack")
-	requireScreen(t, footerLine(second), "p post to slack")
+	requireScreen(t, second, "state  ○ nothing announced", "○ Slack")
+	requireScreen(t, footerLine(second), "p announce to slack")
 
 	// Act: announce it
 	both := typing(t, first, "2", "r", "5", "p", keyEnter)
@@ -128,8 +129,8 @@ func TestEachPullRequestIsAnnouncedOnce(t *testing.T) {
 	back := typing(t, both, "2", "r", "5").View().Content
 
 	// Assert: it is still announced, and is not offered again
-	requireScreen(t, back, "state  ● posted")
-	refuseScreen(t, footerLine(back), "p post")
+	requireScreen(t, back, "state  ● announced")
+	refuseScreen(t, footerLine(back), "p announce")
 }
 
 func TestAPostWaitingForCIDoesNotOutliveABranchSwitch(t *testing.T) {
@@ -159,4 +160,40 @@ func TestAPostWaitingForCIDoesNotOutliveABranchSwitch(t *testing.T) {
 	if calls := away.asked("post "); len(calls) != 0 {
 		t.Errorf("posted %q on coming back to the branch", calls)
 	}
+}
+
+func TestAnAnnouncementCIFailedNamesTheServiceItWasFor(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	// The interval is past the harness's horizon, so the announcement is queued
+	// before CI fails.
+	failing := newWorld()
+	failing.cfg.Messaging = teamsMessaging()
+	failing.ciInterval = 2 * time.Second
+	failing.ci = []forge.CI{{State: forge.CIRunning}, {State: forge.CIFailed}}
+
+	// Act
+	dropped := typing(t, failing.live(t, 120, 40), "5", "p", "w")
+
+	// Assert
+	requireScreen(t, dropped.View().Content, "✗ CI failed, so nothing was announced to Teams")
+}
+
+func TestAnAnnouncementDroppedForAnotherPullRequestNamesTheServiceItWasFor(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	switching := newWorld()
+	switching.cfg.Messaging = teamsMessaging()
+	switching.ci = []forge.CI{{State: forge.CIRunning}}
+	waiting := typing(t, switching.live(t, 200, 40), "5", "p", "w")
+
+	switchToOtherWork(switching)
+
+	// Act
+	switched := typing(t, waiting, "2", "r")
+
+	// Assert
+	requireScreen(t, switched.View().Content, "✗ dropped the announcement to Teams waiting for #42")
 }

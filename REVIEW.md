@@ -536,7 +536,7 @@ frame contains the sentence and, where styled, the failure style. Expect
 the widest golden churn of the terminal track; regenerate deliberately,
 file by file, with eyes on each diff.
 
-### Phase 7 — Keys shown where they work
+### Phase 7 — Keys shown where they work — done
 
 Closes UX-63. Depends on Phase 4 (relabels).
 
@@ -812,7 +812,7 @@ Closes DEBT-69, DEBT-70. Last, so it documents the end state. TDD-exempt.
   settled-decision text corrected, not a decision reopened; say so.
   `FEATURES.md:12` re-pinned; the `Done:` notes on FEAT-26 (`:118`) and
   FEAT-31 (`:143`) removed per the standing rule.
-- `docs/content/docs/usage.md:265`'s threading limit → point at FEAT-81.
+- `docs/content/docs/usage.md:266`'s threading limit → point at FEAT-81.
 
 **Proof.** `task lint:markdown`, `task docs:check`, `task docs:build`.
 

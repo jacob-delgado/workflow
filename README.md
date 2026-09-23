@@ -210,10 +210,10 @@ the right. The bottom row shows only the keys that do something right now.
 | `h` | Commits | Run the pre-commit hook |
 | `P` | Branch | Push |
 | `n` | Review | Open the pull or merge request |
-| `p` | Slack | Preview the announcement; post now or once CI passes |
+| `p` | Slack | Preview the announcement; announce now or once CI passes |
 | `?` | anywhere | Every key |
 
-Comments, commit bodies, pull request descriptions and Slack posts are written
+Comments, commit bodies, pull request descriptions and announcements are written
 in `$EDITOR` and previewed before they send. `workflow --dry-run` holds every
 write back. The
 [usage guide](https://jacob-delgado.github.io/workflow/docs/usage/) has the

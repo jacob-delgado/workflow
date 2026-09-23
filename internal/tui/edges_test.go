@@ -38,7 +38,7 @@ func TestNothingInterruptsAWriteBeingSent(t *testing.T) {
 	}{
 		"a branch":           {keys: []string{"b"}, sending: "creating…"},
 		"a pull request":     {pullMissing: true, keys: []string{"4", "n"}, sending: "opening…"},
-		"a messaging post":   {keys: []string{"5", "p"}, sending: "posting…"},
+		"an announcement":    {keys: []string{"5", "p"}, sending: "announcing…"},
 		"a configuration":    {gitHooks: legacyHooks(), keys: []string{"3", "g"}, sending: "writing…"},
 		"a re-run of checks": {ci: failedCI, keys: []string{"4", "R"}, sending: "re-running…"},
 	}
@@ -86,7 +86,7 @@ func TestOverlaysIgnoreKeysThatMeanNothingInThem(t *testing.T) {
 	}{
 		"the lefthook offer": {gitHooks: legacyHooks(), keys: []string{"3", "g"}},
 		"a comment preview":  {edited: greeting, keys: []string{"c"}},
-		"the post to Slack":  {keys: []string{"5", "p"}},
+		"the announcement":   {keys: []string{"5", "p"}},
 		"the rebase's look":  {keys: []string{"2", "u"}},
 		// The type is chosen with arrows, so typing on it changes nothing.
 		"the commit type field": {keys: []string{"3", "c", keyShiftTab, keyShiftTab}},
@@ -309,7 +309,7 @@ func TestAPostWaitingForCIThatNeverReportsKeepsWaiting(t *testing.T) {
 	waiting := typing(t, unreported.live(t, 120, 40), "5", "p", "w", "j")
 
 	// Assert
-	requireScreen(t, waiting.View().Content, "state  ◐ posts when CI passes")
+	requireScreen(t, waiting.View().Content, "state  ◐ announces when CI passes")
 
 	if calls := unreported.asked("post "); len(calls) != 0 {
 		t.Errorf("posted with no CI reported: %q", calls)
