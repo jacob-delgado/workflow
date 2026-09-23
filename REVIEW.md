@@ -55,15 +55,15 @@ gap, and which phase closes it.
 
 | # | Action | CLI | TUI | Web | Warranted? |
 | --- | --- | --- | --- | --- | --- |
-| 1 | List the view's issues | P (only `branch <tab>` completion, `completeAssignedIssues`, `internal/cli/scriptable.go:121`) | Y | Y (page 0 of the stream) | CLI read: a feature, FEAT-78 |
-| 2 | Switch view / next page | N | Y (`v`, `ctrl+n`) | N (`web/src/api/snapshot.ts:39` sends no `?view=`) | **Web yes** — the stream already takes `?view=` (`internal/webserver/stream.go:38`). Phase 3, UX-72 |
-| 3 | Filter the list | N | Y (`/`, `internal/tui/issues.go:154`) | N | Web idea, UX-72; CLI no |
-| 4 | Read an issue in full | N | Y (`internal/tui/detail.go:225`) | **N** — `IssuesPanel.tsx:83` renders the slim snapshot `Issue` | **Web yes, cheap** — `getIssue` exists (`api/openapi.yaml:95`, `handlers.go:66`) and is never called. Phase 3, UX-70. CLI: FEAT-78 |
+| 1 | List the view's issues | P (only `branch <tab>` completion, `completeAssignedIssues`, `internal/cli/scriptable.go:121`) | Y | Y (the stream's page, and more on request since Phase 3) | CLI read: a feature, FEAT-78 |
+| 2 | Switch view / next page | N | Y (`v`, `ctrl+n`) | Y since Phase 3 — a view select from `listViews` (`ViewSelect`, `web/src/features/issues/IssueListControls.tsx:37`), `useEventStream(view)` (`web/src/api/snapshot.ts:34`), and Load more over `start_at` (`useMoreIssues`, `web/src/features/issues/issueApi.ts:73`); an unknown view is 404 | — |
+| 3 | Filter the list | N | Y (`/`, `internal/tui/issues.go:154`) | Y since Phase 3 — the same `KEY summary` match (`matchesFilter`, `web/src/features/issues/IssuesPanel.tsx:311`) | CLI no |
+| 4 | Read an issue in full | N | Y (`internal/tui/detail.go:225`) | Y since Phase 3 — description, comments, reporter, assignee (`IssueDetailPanel`, `web/src/features/issues/IssueDetailPanel.tsx:16`) | CLI: FEAT-78 |
 | 5 | Transition, with field forms | P (`pr`'s side effect, fields-less, `internal/cli/pr.go:167`) | Y (`internal/tui/picker.go:155`) | N | The post-PR **review-status offer** both other surfaces make: Phase 9, UX-74. A general transition: FEAT-78 (CLI), FEAT-80 (web) |
 | 6 | Comment | N | Y (`comment.go:37`) | N | FEAT-78 / FEAT-80; not this plan |
 | 7 | Assign / log work | N | Y (`issuewrite.go:74`, `:81`) | N | FEAT-78 / FEAT-80; not this plan |
 | 8 | Link the pull request on the issue | **N** (`pr` never links) | Y (`issuelink.go`, `internal/tui/prcomposer.go:509`) | N | **Yes on both** — the seam exists (`Jira.LinkPullRequest`) and the flow is the interface's. Phase 8 (CLI, UX-59), Phase 9 (web, UX-74) |
-| 9 | Open / copy the issue URL | n/a | Y (`o`, `y`) | N | Web: trivial once detail loads. Phase 3 |
+| 9 | Open / copy the issue URL | n/a | Y (`o`, `y`) | Y since Phase 3 — "Open in Jira" from the detail's `url` (`web/src/features/issues/IssueDetailPanel.tsx:77`); copying is the browser's own link menu | — |
 | 10 | Cache-seeded first paint | n/a | Y (`internal/tui/issues.go:53`) | **F** | FEAT-68, declared |
 | 11 | Branch for the issue | Y | Y | Y | CLI help never says it switches (`internal/cli/branch.go:40`). Phase 8, UX-58 |
 
@@ -122,10 +122,10 @@ gap, and which phase closes it.
 | 40 | Write / initialize the config | Y (`config init`) | N | P (7 sections; five carried but not editable) | Interface: `config init` + `doctor` are the path — no. Web remainder: UX-87 |
 | 41 | Doctor | Y | N | N | Reasonable CLI-only; the interface points at it (`render.go:377`) |
 | 42 | Status across the loop | Y (`status DIR…`) | Y (the spine) | Y (`WorkStory`) | — |
-| 43 | Dry run | Y (one persistent `--dry-run` since Phase 2, `internal/cli/cli.go:204`) | Y (per seam, `dryrun.go:25`) | **P** — a blanket 403 (`guard.go:46`), and `getHealth.dry_run` is never fetched | **Web yes, cheap** — the flag is on the wire. Phase 3, UX-71 |
+| 43 | Dry run | Y (one persistent `--dry-run` since Phase 2, `internal/cli/cli.go:204`) | Y (per seam, `dryrun.go:25`) | Y since Phase 3 — a read-only banner (`web/src/shell/AppShell.tsx:54`) and one hold over every write before it is sent (`web/src/api/client.ts:24`), over the server's 403 (`guard.go:46`) | — |
 | 44 | Request log `--log` | Y (persistent since Phase 2, `internal/cli/cli.go:206`) | Y | Y | — |
 | 45 | Help / discoverability | P (no hint on a typo, `internal/cli/cli.go:174`) | P (`?` 57/57; five Issues keys off the footer, `render.go:336`) | n/a | Phase 8 (UX-56), Phase 7 (UX-63); web `?` idea, UX-88 |
-| 46 | Version | Y | n/a | P (`getHealth.version` never fetched) | Folds into Phase 3's health call |
+| 46 | Version | Y | n/a | Y since Phase 3 — in the header (`web/src/shell/AppShell.tsx:43`) | — |
 
 ## Where a surface breaks a convention
 
@@ -176,7 +176,7 @@ met and stay.
 | Color tokens; no shadows, gradients or `→` | Met | `web/src/index.css:9-96` |
 | Type and spacing scale | **Gap** — none | UX-84 |
 | The product's five hues and shape-for-state | **Gap** — one accent, color-only dots | UX-84 |
-| ALL-CAPS eyebrow headings | **Gap** — the only heading treatment, seven places | UX-84 |
+| ALL-CAPS eyebrow headings | **Gap** — the only heading treatment, nine headings from seven class strings | UX-84 |
 | Buttons say what happens | Met | `Open pull request`, `Commit staged changes`, `Push branch` |
 | An action keeps its name; errors direct; empty states invite | Partial | UX-79, UX-80 |
 | Feedback after a write | **3 of 7**; two successes are not live regions | UX-77 |
@@ -185,8 +185,8 @@ met and stay.
 | Disabled by opacity; reduced motion | **Gap** — thirteen places; no rule | UX-81 |
 | Responsive | **Gap** — zero breakpoints | UX-85 |
 | Vocabulary shared with the interface | **Gap** — "pull request" on GitLab; `Messaging` vs `Slack`; five sections vs six | UX-73, UX-83 |
-| Dry run visible | **Gap** | UX-71 |
-| The contract it never calls | `getIssue`, `getHealth`, `listViews`, pagination | UX-70, UX-71, UX-72 |
+| Dry run visible | Met since Phase 3 — a banner, and every write held before it is sent | `web/src/shell/AppShell.tsx:54`, `web/src/api/client.ts:24` |
+| The contract it never calls | Met since Phase 3 for `getIssue`, `getHealth`, `listViews` and pagination; the generated `streamEvents` stays unused | DEBT-67 |
 
 ## The plan
 
@@ -194,10 +194,12 @@ Sixteen phases in three tracks after the first two — **CLI** (2, 8),
 **terminal** (4 → 5 → 6 → 7), **web** (3 → 9 → 10 → 11 → 12 → 13 → 14) — and
 15 closes. The maintainer chose to land them **in numeric order as one pull
 request** (branch `feat/surface-review`), with an adversarial review after
-each phase; each phase is a series of commits that *each* pass `task check`
-on their own, because `main` merges by rebase and every commit lands as
-written. A phase that is finished says so in its heading. Before acting on
-a phase, read its entry under
+each phase; each phase is a series of commits, and because `main` merges by
+rebase and every commit lands as written, every commit gets the targeted
+checks for what it touches and the commit-message check, while the full
+gate — `task check` — runs on the last commit of each phase. A phase that
+is finished says so in its heading. Before acting on a phase, read its
+entry under
 [Corrections from the feasibility pass](#corrections-from-the-feasibility-pass)
 — they override the phase text where the two disagree. Red-first, black-box tests (`package x_test`),
 Arrange/Act/Assert marked, `task check` green before a phase is called
@@ -386,7 +388,7 @@ WithoutAConfig`; `TestStatusExitsAlikeOutsideARepository`;
 `TestConfirmWithoutATerminalNamesYes`; `TestStandupRejectsNegativeDays`;
 `task docs:check`.
 
-### Phase 3 — The web uses what the contract already offers
+### Phase 3 — The web uses what the contract already offers — done
 
 Closes UX-70, UX-71, UX-72 and the `resolveJQL` half of DEBT-67. Depends on
 Phase 0.
@@ -668,19 +670,19 @@ Phase 3.
   `Announced…` (`MessagingPanel.tsx:137`) become live regions.
 - Focus moves to the outcome when a form unmounts (`ReviewPanel.tsx:138`,
   `MessagingPanel.tsx:135`, the `PushButton` swap) and to `<main>` on a
-  section change (`AppShell.tsx:39`).
+  section change (`AppShell.tsx:68`).
 - One announce verb through the flow — **decided: "Announce to X"** (opens
   the preview) and "Announce now" (sends), on every surface.
 - `internal/webserver/checkout.go:44` and `internal/webserver/branchcreate.go:44` pass git's own reason through
   `fault`. **`internal/webserver/announce.go:57` does not**: a messaging error can name the
   webhook URL, so classify by `messaging.ErrRejected`/`ErrUnreachable` and
   never forward the text. `"something went wrong"` (`errors.go:79`) → a
-  directive sentence. One "connecting" phrasing (`IssuesPanel.tsx:17`,
+  directive sentence. One "connecting" phrasing (`IssuesPanel.tsx:19`,
   `BranchPanel.tsx:14`, `ReviewPanel.tsx:31`, `MessagingPanel.tsx:11`);
   dead ends get a way out (`BranchPanel.tsx:22`, a Retry at
   `SettingsPanel.tsx:16`).
 - A dropped stream frame sets `status: 'stale'` with the reason
-  (`snapshot.ts:52-58`).
+  (`snapshot.ts:63-69`).
 - `opacity-60` ×13 → a `disabled:` color treatment (CLAUDE.md's rule);
   `motion-safe:` on the two transitions and a `prefers-reduced-motion`
   rule in `index.css`.
@@ -740,7 +742,7 @@ interface's own system does not change.
   the stream (`StreamStatus.tsx:4`) and the work story
   (`WorkStory.tsx:284`); the text label stays, the mark is `aria-hidden`.
 - The seven `uppercase` eyebrows (`SettingsPanel.tsx:341`,
-  `BranchPanel.tsx:67`, `:91`, `IssuesPanel.tsx:102`, `ReviewPanel.tsx:70`,
+  `BranchPanel.tsx:67`, `:91`, `IssueDetailPanel.tsx:8`, `ReviewPanel.tsx:70`,
   `MessagingPanel.tsx:39`, `:59`) → sentence-case headings on a
   `--text-*`/`--space-*` scale in `@theme`; the four-step radius actually
   used.
@@ -763,7 +765,7 @@ both themes is the contrast proof; `yarn lint`.
 Closes UX-85. Depends on Phase 13 (tokens).
 
 Breakpoints (none today): the rail collapses to icons under `md`; list and
-detail stack under `lg` (`IssuesPanel.tsx:30-31`); `grid-cols-[6rem_1fr]`
+detail stack under `lg` (`IssuesPanel.tsx:101-102`); `grid-cols-[6rem_1fr]`
 and its siblings go responsive; `max-w-2xl` goes fluid; the issues `<ul>`
 scrolls inside its panel.
 
@@ -807,7 +809,9 @@ Settled on 2026-09-22, before Phase 0 began.
 
 - **Delivery** — all sixteen phases, in numeric order, as one pull request;
   an adversarial review after each phase; this file marks each phase done
-  and is deleted by the last commit.
+  and is deleted by the last commit. On 2026-09-23 the maintainer set the
+  gate's cadence: targeted checks and the commit-message check on every
+  commit, and the full `task check` on each phase's last commit.
 - **Scope beyond the phases** — also close DEBT-52 (Phase 2), DEBT-60
   (Phase 4, before any screen assertion moves), the rest of UX-72 — load
   more and a filter (Phase 3) — and DEBT-67's cross-language frame test
@@ -992,7 +996,7 @@ phase disagree, the correction wins.
 5. **Spec changes are three-way.** `api/openapi.yaml` → `task gen` (Go) →
    `yarn gen` (client and `zSnapshot`). The SSE endpoint is hand-registered
    (`webserver.go:117`) and the frame parser hand-written
-   (`snapshot.ts:39`), so a `Snapshot` field added in Go without
+   (`snapshot.ts:50`), so a `Snapshot` field added in Go without
    regenerating the client makes the browser **silently drop every frame**
    (Phase 11 makes that visible). Run `task web:build` before trusting a
    `--web` run.
