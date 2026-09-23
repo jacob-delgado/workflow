@@ -8,6 +8,7 @@ import (
 
 	"charm.land/bubbles/v2/key"
 	tea "charm.land/bubbletea/v2"
+	"charm.land/lipgloss/v2"
 )
 
 // lightBordered marks an overlay drawn with the light border rather than the
@@ -21,12 +22,13 @@ type lightBordered interface {
 // it wears the light border because it acts on nothing, and it carries its own
 // scroll so opening it does not move the detail pane's.
 type helpOverlay struct {
-	// content is the two-column key list, rendered once when the help opens. It
-	// comes from the model's bindings, which do not change while it is open, so
-	// there is nothing to recompute on each frame.
-	content  string
-	ellipsis string
-	scroll   int
+	// wide is the key list in two columns and narrow the same list in one, both
+	// rendered once when the help opens. They come from the model's bindings,
+	// which do not change while it is open, so there is nothing to recompute on
+	// each frame but which of them the pane's width holds.
+	wide, narrow string
+	ellipsis     string
+	scroll       int
 }
 
 var (
@@ -38,14 +40,25 @@ func (helpOverlay) lightBorder() {}
 
 // view is the key list scrolled to fit, with a mark on the last row when there
 // is more below it.
-func (h helpOverlay) view(_, rows int) (string, string) {
-	if strings.Count(h.content, "\n")+1 <= h.scroll+rows {
-		return helpTitle, scrolled(h.content, h.scroll, rows)
+func (h helpOverlay) view(width, rows int) (string, string) {
+	content := h.fitting(width)
+	if strings.Count(content, "\n")+1 <= h.scroll+rows {
+		return helpTitle, scrolled(content, h.scroll, rows)
 	}
 
-	shown := strings.Split(scrolled(h.content, h.scroll, max(1, rows-1)), "\n")
+	shown := strings.Split(scrolled(content, h.scroll, max(1, rows-1)), "\n")
 
 	return helpTitle, strings.Join(append(shown, h.ellipsis+" more below"), "\n")
+}
+
+// fitting is the key list in two columns where the pane holds them, and in one
+// where the second would be cut at the edge, taking a key's name with it.
+func (h helpOverlay) fitting(width int) string {
+	if lipgloss.Width(h.wide) <= width {
+		return h.wide
+	}
+
+	return h.narrow
 }
 
 // footer is what works while the help is open: close it, or quit.
@@ -74,7 +87,11 @@ func (h helpOverlay) handleKey(m Model, msg tea.KeyPressMsg) (Model, tea.Cmd) {
 
 // openHelp opens the key list, rendering it from the current bindings.
 func (m Model) openHelp() (Model, tea.Cmd) {
-	m.overlay = helpOverlay{content: m.helpView(), ellipsis: m.marks.ellipsis}
+	m.overlay = helpOverlay{
+		wide:     m.helpView(),
+		narrow:   m.helpColumn(0, len(helpGroups(m.cfg.Messaging.Service()))),
+		ellipsis: m.marks.ellipsis,
+	}
 
 	return m, nil
 }

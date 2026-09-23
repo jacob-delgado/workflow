@@ -234,6 +234,82 @@ func TestHelpListsEveryPlacedBinding(t *testing.T) {
 	}
 }
 
+// helpPageCount is how many screens helpPages reads: enough, a half page apart,
+// to reach the end of the help on the shortest terminal a test opens it on.
+const helpPageCount = 9
+
+// helpPages opens the help and pages down through it, one screen after
+// another, so a terminal too short for the whole list still shows every line.
+func helpPages(t *testing.T, model tui.Model) string {
+	t.Helper()
+
+	model = typing(t, model, "?")
+	pages := make([]string, 0, helpPageCount)
+
+	for range helpPageCount {
+		pages = append(pages, plain(model.View().Content))
+		model = typing(t, model, "pgdown")
+	}
+
+	return strings.Join(pages, "\n")
+}
+
+// cutHelpLines is the help's lines that end in an ellipsis at the pane's edge,
+// read from the column where the help starts so the rail beside it is not.
+func cutHelpLines(t *testing.T, view string) []string {
+	t.Helper()
+
+	lines := strings.Split(plain(view), "\n")
+	top := slices.IndexFunc(lines, func(line string) bool { return strings.Contains(line, "Moving around") })
+
+	if top < 0 {
+		t.Fatalf("the help is not on screen:\n%s", view)
+	}
+
+	left := runeColumn(lines[top], "Moving around")
+
+	var cut []string
+
+	for _, line := range lines[top : len(lines)-1] {
+		runes := []rune(line)
+		if len(runes) > left && strings.HasSuffix(strings.TrimRight(string(runes[left:]), " │"), "…") {
+			cut = append(cut, line)
+		}
+	}
+
+	return cut
+}
+
+func TestOnAnEightyColumnTerminalTheHelpNamesEveryKeyWhole(t *testing.T) {
+	t.Parallel()
+
+	// Act
+	pages := helpPages(t, newWorld().live(t, 80, 24))
+
+	// Assert
+	requireScreen(t, pages, "In a composer or preview", "ctrl+w    worktree", "w         post when CI passes")
+}
+
+func TestTheHelpCutsNoLineShortAtThePanesEdge(t *testing.T) {
+	t.Parallel()
+
+	widths := map[string]int{"beside a narrow rail": 80, "beside a wider rail": 100, "in two columns": 160}
+
+	for name, width := range widths {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			// Act
+			view := typing(t, newWorld().live(t, width, 40), "?").View().Content
+
+			// Assert
+			if cut := cutHelpLines(t, view); len(cut) > 0 {
+				t.Errorf("the help cuts %d lines short at the edge:\n%s", len(cut), strings.Join(cut, "\n"))
+			}
+		})
+	}
+}
+
 func TestCheckKeysKnowsEveryPlacedAction(t *testing.T) {
 	t.Parallel()
 
