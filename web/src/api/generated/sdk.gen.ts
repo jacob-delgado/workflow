@@ -2,8 +2,8 @@
 
 import type { Client, ClientMeta, Options as Options2, RequestResult, ServerSentEventsResult, TDataShape } from './client';
 import { client } from './client.gen';
-import type { AnnounceData, AnnounceErrors, AnnounceResponses, CheckoutData, CheckoutErrors, CheckoutResponses, CommitData, CommitErrors, CommitResponses, CreateBranchData, CreateBranchErrors, CreateBranchResponses, GetAnnouncementData, GetAnnouncementErrors, GetAnnouncementResponses, GetBranchData, GetBranchErrors, GetBranchResponses, GetConfigData, GetConfigErrors, GetConfigResponses, GetHealthData, GetHealthErrors, GetHealthResponses, GetIssueData, GetIssueErrors, GetIssueResponses, GetMessagingData, GetMessagingErrors, GetMessagingResponses, GetPullRequestDraftData, GetPullRequestDraftErrors, GetPullRequestDraftResponses, GetReviewData, GetReviewErrors, GetReviewResponses, LinkPullRequestData, LinkPullRequestErrors, LinkPullRequestResponses, ListChangesData, ListChangesErrors, ListChangesResponses, ListIssuesData, ListIssuesErrors, ListIssuesResponses, ListViewsData, ListViewsErrors, ListViewsResponses, OpenPullRequestData, OpenPullRequestErrors, OpenPullRequestResponses, PushData, PushErrors, PushResponses, StreamEventsData, StreamEventsErrors, StreamEventsResponse, StreamEventsResponses, TransitionIssueData, TransitionIssueErrors, TransitionIssueResponses, UpdateConfigData, UpdateConfigErrors, UpdateConfigResponses } from './types.gen';
-import { zAnnounceResponse, zCheckoutResponse, zCommitResponse, zCreateBranchResponse, zGetAnnouncementResponse, zGetBranchResponse, zGetConfigResponse, zGetHealthResponse, zGetIssueResponse, zGetMessagingResponse, zGetPullRequestDraftResponse, zGetReviewResponse, zLinkPullRequestResponse, zListChangesResponse, zListIssuesResponse, zListViewsResponse, zOpenPullRequestResponse, zPushResponse, zStreamEventsResponse, zTransitionIssueResponse, zUpdateConfigResponse } from './zod.gen';
+import type { AnnounceData, AnnounceErrors, AnnounceResponses, CheckoutData, CheckoutErrors, CheckoutResponses, CommitData, CommitErrors, CommitResponses, CreateBranchData, CreateBranchErrors, CreateBranchResponses, GetAnnouncementData, GetAnnouncementErrors, GetAnnouncementResponses, GetBranchData, GetBranchErrors, GetBranchResponses, GetConfigData, GetConfigErrors, GetConfigResponses, GetHealthData, GetHealthErrors, GetHealthResponses, GetIssueData, GetIssueErrors, GetIssueResponses, GetMessagingData, GetMessagingErrors, GetMessagingResponses, GetPullRequestDraftData, GetPullRequestDraftErrors, GetPullRequestDraftResponses, GetReviewData, GetReviewErrors, GetReviewResponses, LinkPullRequestData, LinkPullRequestErrors, LinkPullRequestResponses, ListChangesData, ListChangesErrors, ListChangesResponses, ListIssuesData, ListIssuesErrors, ListIssuesResponses, ListViewsData, ListViewsErrors, ListViewsResponses, OpenPullRequestData, OpenPullRequestErrors, OpenPullRequestResponses, PushData, PushErrors, PushResponses, StageData, StageErrors, StageResponses, StreamEventsData, StreamEventsErrors, StreamEventsResponse, StreamEventsResponses, TransitionIssueData, TransitionIssueErrors, TransitionIssueResponses, UnstageData, UnstageErrors, UnstageResponses, UpdateConfigData, UpdateConfigErrors, UpdateConfigResponses } from './types.gen';
+import { zAnnounceResponse, zCheckoutResponse, zCommitResponse, zCreateBranchResponse, zGetAnnouncementResponse, zGetBranchResponse, zGetConfigResponse, zGetHealthResponse, zGetIssueResponse, zGetMessagingResponse, zGetPullRequestDraftResponse, zGetReviewResponse, zLinkPullRequestResponse, zListChangesResponse, zListIssuesResponse, zListViewsResponse, zOpenPullRequestResponse, zPushResponse, zStageResponse, zStreamEventsResponse, zTransitionIssueResponse, zUnstageResponse, zUpdateConfigResponse } from './zod.gen';
 
 export type Options<TData extends TDataShape = TDataShape, ThrowOnError extends boolean = boolean, TResponse = unknown> = Options2<TData, ThrowOnError, TResponse> & {
     /**
@@ -93,6 +93,36 @@ export const listChanges = <ThrowOnError extends boolean = false>(options?: Opti
     responseValidator: async (data) => await zListChangesResponse.parseAsync(data),
     url: '/api/changes',
     ...options
+});
+
+/**
+ * Stage a changed file, or every change the index does not hold yet.
+ *
+ * Takes a changed file into the index — the terminal interface's space — or, with all, every change the index does not hold yet: the rest of a partly staged file, an edit, an untracked file, and a conflict, which staging marks resolved (the terminal's a). The file is named by the path the working tree's changes list it under, and the server finds that change there, so a rename stages both of its paths and no path of the caller's own reaches git. Refused with 404 when no change is at that path, and 422 when staging is not available, the request names neither a path nor all (or both), or git will not stage it.
+ */
+export const stage = <ThrowOnError extends boolean = false>(options: Options<StageData, ThrowOnError>): RequestResult<StageResponses, StageErrors, ThrowOnError> => (options.client ?? client).post<StageResponses, StageErrors, ThrowOnError>({
+    responseValidator: async (data) => await zStageResponse.parseAsync(data),
+    url: '/api/stage',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * Take a changed file out of the index, or every staged change.
+ *
+ * Takes a file's staged changes out of the index, leaving the work tree as it is — the terminal interface's space on a wholly staged file — or, with all, every staged change. The file is named and found as for POST /api/stage. Refused with 404 when no change is at that path, and 422 when staging is not available, the request names neither a path nor all (or both), or git will not unstage it.
+ */
+export const unstage = <ThrowOnError extends boolean = false>(options: Options<UnstageData, ThrowOnError>): RequestResult<UnstageResponses, UnstageErrors, ThrowOnError> => (options.client ?? client).post<UnstageResponses, UnstageErrors, ThrowOnError>({
+    responseValidator: async (data) => await zUnstageResponse.parseAsync(data),
+    url: '/api/unstage',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
 });
 
 /**

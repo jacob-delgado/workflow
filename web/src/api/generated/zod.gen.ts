@@ -50,6 +50,14 @@ export const zAnnounceRequest = z.object({
 });
 
 /**
+ * What to stage or unstage: one changed file, or all of them — one or the other, never both.
+ */
+export const zStagingRequest = z.object({
+    path: z.string().optional(),
+    all: z.boolean().optional()
+});
+
+/**
  * The parts of a Conventional Commit message for the staged changes.
  */
 export const zCommitRequest = z.object({
@@ -425,6 +433,20 @@ export const zGetBranchResponse = zBranch;
  * The changes, which may be empty.
  */
 export const zListChangesResponse = zChangeList;
+
+export const zStageBody = zStagingRequest;
+
+/**
+ * The working tree's changes, now staged.
+ */
+export const zStageResponse = zChangeList;
+
+export const zUnstageBody = zStagingRequest;
+
+/**
+ * The working tree's changes, now unstaged.
+ */
+export const zUnstageResponse = zChangeList;
 
 /**
  * The review state; pull and ci are null when none is found.

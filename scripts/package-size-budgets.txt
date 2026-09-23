@@ -66,20 +66,21 @@ internal/config 13
 # 500-line target, the re-run moving to checks.go beside the checks it acts on).
 internal/tui 39
 
-# internal/webserver — the loopback REST surface: one file per write operation
-# (announce, branchcreate, checkout, commit, config, issuewrite, pullrequest,
-# push) beside handlers.go, which holds the reads no write owns (a write's own
-# read — the draft, the announcement, the config — sits in its file); stream.go
-# (the event stream), static.go (the embedded app), dto.go (the wire shapes),
-# validator.go (the contract check), guard.go and errors.go (the loopback and
-# dry-run guards and the RFC 9457 errors), and webserver.go (the server and its
-# seams). One responsibility (turn a guarded request into a seam call and a DTO)
-# spelled handler-per-operation; like internal/tui it is cohesive and grows only
-# when the API gains an operation, which is a decision the OpenAPI spec records
-# first. 16 = issuewrite.go, the two post-open Jira writes the interface and the
-# CLI offer — link the pull request, move the issue to the review status. Frozen
-# here so that growth stays deliberate.
-internal/webserver 16
+# internal/webserver — the loopback REST surface: a file per write (announce,
+# branchcreate, checkout, commit, config, pullrequest, push), or per pair of
+# writes that share their checks (issuewrite: link the pull request and move the
+# issue; staging: stage and unstage), beside handlers.go, which holds the reads
+# no write owns (a write's own read — the draft, the announcement, the config —
+# sits in its file); stream.go (the event stream), static.go (the embedded app),
+# dto.go (the wire shapes), validator.go (the contract check), guard.go and
+# errors.go (the loopback and dry-run guards and the RFC 9457 errors), and
+# webserver.go (the server and its seams). One responsibility (turn a guarded
+# request into a seam call and a DTO) spelled handler-per-operation; like
+# internal/tui it is cohesive and grows only when the API gains an operation,
+# which is a decision the OpenAPI spec records first. 17 = staging.go, the web's
+# stage and unstage — one changed file, or all of them — which the terminal
+# makes with space and a. Frozen here so that growth stays deliberate.
+internal/webserver 17
 
 # internal/cli — the Cobra command tree, one file per command: the read commands
 # (doctor, split across doctor.go/doctor_json.go/doctor_requirements.go; status;

@@ -5,6 +5,7 @@ package loop
 
 import (
 	"errors"
+	"slices"
 
 	"github.com/jacob-delgado/workflow/internal/gitrepo"
 )
@@ -32,15 +33,29 @@ func Stageable(changes []gitrepo.Change) []gitrepo.Change {
 // git refuses so one failure does not hold back the rest, and reports every
 // failure joined.
 func StageAll(changes []gitrepo.Change, stage func(gitrepo.Change) error) error {
-	if stage == nil {
+	return each(Stageable(changes), stage)
+}
+
+// UnstageAll takes every staged change out of the index through unstage — a
+// partly staged file's staged part too, leaving its work tree edits alone —
+// going on past a file git refuses, and reports every failure joined.
+func UnstageAll(changes []gitrepo.Change, unstage func(gitrepo.Change) error) error {
+	staged := slices.DeleteFunc(slices.Clone(changes), func(change gitrepo.Change) bool { return !change.IsStaged() })
+
+	return each(staged, unstage)
+}
+
+// each hands every change to act in turn, whatever the ones before it answered,
+// and joins the failures.
+func each(changes []gitrepo.Change, act func(gitrepo.Change) error) error {
+	if act == nil {
 		return ErrStagingUnavailable
 	}
 
-	pending := Stageable(changes)
-	failures := make([]error, 0, len(pending))
+	failures := make([]error, 0, len(changes))
 
-	for _, change := range pending {
-		failures = append(failures, stage(change))
+	for _, change := range changes {
+		failures = append(failures, act(change))
 	}
 
 	return errors.Join(failures...)
