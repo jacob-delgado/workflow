@@ -4,8 +4,10 @@
 package webserver_test
 
 import (
+	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 
 	"github.com/jacob-delgado/workflow/internal/api"
@@ -29,6 +31,20 @@ func wantBranchName(t *testing.T) string {
 	return convention.NewBranchNaming(cfg.Branch.Template, cfg.Branch.DefaultPrefix,
 		cfg.Branch.Prefixes, cfg.Branch.SlugLimit).
 		Name("Bug", startIssue, "Fix token redaction")
+}
+
+// assertCreateBranchSaysTryAgain checks a start-work request answered 422, with
+// a detail that names the issue and what to do next.
+func assertCreateBranchSaysTryAgain(t *testing.T, recorder *httptest.ResponseRecorder) {
+	t.Helper()
+
+	want := "the branch for " + startIssue + " could not be created; try again, or run workflow branch " +
+		startIssue + " from a terminal to see why"
+
+	failure := decode[api.Problem](t, recorder)
+	if recorder.Code != http.StatusUnprocessableEntity || failure.Detail != want {
+		t.Errorf("status = %d, detail %q; want 422 saying %q", recorder.Code, failure.Detail, want)
+	}
 }
 
 // doCreateBranch posts a start-work request for startIssue against a server over
@@ -125,21 +141,57 @@ func TestCreateBranchRefusesWhenOneAlreadyExists(t *testing.T) {
 	}
 }
 
-func TestCreateBranchReportsATrackerFailure(t *testing.T) {
+func TestCreateBranchSaysWhyTheIssueCouldNotBeRead(t *testing.T) {
 	t.Parallel()
 
-	// Arrange
-	// Without the issue's type and summary the branch cannot be named.
-	deps := filledDeps()
-	deps.Issue = func(jira.Key) (jira.IssueDetail, error) { return jira.IssueDetail{}, errSeam }
-	deps.CreateBranch = func(string, string) error { return nil }
+	// Without the issue's type and summary the branch cannot be named. The
+	// tracker's failure is answered as fault tells its class — the error carries
+	// the tracker's address the way its client words it — and never names the
+	// host.
+	cases := map[string]struct {
+		cause      error
+		wantStatus int
+		want       string
+	}{
+		"a credential not accepted": {
+			cause: jira.ErrUnauthorized, wantStatus: http.StatusUnprocessableEntity,
+			want: "Jira did not accept the configured credential",
+		},
+		"no answer": {
+			cause: jira.ErrUnreachable, wantStatus: http.StatusBadGateway,
+			want: "could not be reached",
+		},
+		"no such issue": {
+			cause: jira.ErrNotFound, wantStatus: http.StatusNotFound,
+			want: "was not found",
+		},
+	}
 
-	// Act
-	recorder := doCreateBranch(t, deps)
+	for name, tt := range cases {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
 
-	// Assert
-	if recorder.Code != http.StatusUnprocessableEntity {
-		t.Errorf("status = %d, want 422 when the issue cannot be read", recorder.Code)
+			// Arrange
+			deps := filledDeps()
+			deps.Issue = func(jira.Key) (jira.IssueDetail, error) {
+				return jira.IssueDetail{}, fmt.Errorf("reading https://%s/rest/api/2/issue/%s: %w",
+					jiraHost, startIssue, tt.cause)
+			}
+			deps.CreateBranch = func(string, string) error { return nil }
+
+			// Act
+			recorder := doCreateBranch(t, deps)
+
+			// Assert
+			failure := decode[api.Problem](t, recorder)
+			if recorder.Code != tt.wantStatus || !strings.Contains(failure.Detail, tt.want) {
+				t.Errorf("status = %d, detail %q; want %d saying %q", recorder.Code, failure.Detail, tt.wantStatus, tt.want)
+			}
+
+			if strings.Contains(recorder.Body.String(), jiraHost) {
+				t.Errorf("body = %q, leaks the tracker's host", recorder.Body.String())
+			}
+		})
 	}
 }
 
@@ -171,9 +223,7 @@ func TestCreateBranchReportsABranchListFailure(t *testing.T) {
 	recorder := doCreateBranch(t, deps)
 
 	// Assert
-	if recorder.Code != http.StatusUnprocessableEntity {
-		t.Errorf("status = %d, want 422 when the branch list cannot be read", recorder.Code)
-	}
+	assertCreateBranchSaysTryAgain(t, recorder)
 }
 
 func TestCreateBranchRejectsAnEmptyIssue(t *testing.T) {
@@ -215,9 +265,7 @@ func TestCreateBranchReportsWhenTheNewBranchCannotBeRead(t *testing.T) {
 	recorder := doCreateBranch(t, deps)
 
 	// Assert
-	if recorder.Code != http.StatusUnprocessableEntity {
-		t.Errorf("status = %d, want 422 when the new branch cannot be read", recorder.Code)
-	}
+	assertCreateBranchSaysTryAgain(t, recorder)
 }
 
 func TestCreateBranchIsUnavailableWithoutAGitSeam(t *testing.T) {
@@ -260,5 +308,35 @@ func TestCreateBranchIsUnavailableWithoutAGitSeam(t *testing.T) {
 				t.Errorf("status = %d, want 422 when creating a branch is not available", recorder.Code)
 			}
 		})
+	}
+}
+
+func TestCreateBranchNeverForwardsGitsOwnWords(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	// Switching to the new branch checks its tree out, which in a partial clone
+	// fetches from the remote, so git's own words can name it; the detail names
+	// the issue and what to do, and never the host.
+	deps := filledDeps()
+	deps.CreateBranch = func(name, _ string) error {
+		return fmt.Errorf("creating branch %s: %w: fatal: unable to access 'https://%s/acme/repo.git/'",
+			name, errSeam, gitHost)
+	}
+
+	// Act
+	recorder := doCreateBranch(t, deps)
+
+	// Assert
+	want := "git would not create the branch for " + startIssue +
+		"; run workflow branch " + startIssue + " from a terminal to see git's reason"
+
+	failure := decode[api.Problem](t, recorder)
+	if recorder.Code != http.StatusUnprocessableEntity || failure.Detail != want {
+		t.Errorf("status = %d, detail %q; want 422 saying %q", recorder.Code, failure.Detail, want)
+	}
+
+	if strings.Contains(recorder.Body.String(), gitHost) {
+		t.Errorf("body = %q, leaks the remote's host", recorder.Body.String())
 	}
 }
