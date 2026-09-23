@@ -342,14 +342,6 @@ test('checks out the most recent branch when several name one issue', async () =
   expect(mockCheckout).toHaveBeenCalledWith('feat/PROJ-1-redo')
 })
 
-test('prompts to connect before any snapshot arrives', () => {
-  // Act
-  renderWithClient(<IssuesPanel />)
-
-  // Assert
-  expect(screen.getByText(/connecting/i)).toBeTruthy()
-})
-
 test('says when no issues match the view', () => {
   // Arrange
   useSnapshotStore.setState({

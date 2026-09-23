@@ -34,3 +34,15 @@ test('routes the settings section to the config form', () => {
   // Assert
   expect(screen.getByText(/loading the configuration/i)).toBeTruthy()
 })
+
+test.each(['issues', 'branch', 'review', 'messaging'] as const)(
+  'the %s section says it is connecting in the one line every section shares',
+  (section) => {
+    // Act
+    renderWithClient(<SectionPanel section={section} />)
+
+    // Assert
+    expect(screen.getByText('Connecting to workflow…')).toBeTruthy()
+    expect(screen.getAllByText(/connecting/i)).toHaveLength(1)
+  },
+)

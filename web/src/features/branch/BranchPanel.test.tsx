@@ -363,14 +363,6 @@ test('asking to push again after a refusal shows the confirm, not the old reason
   expect(screen.queryByText('the remote refused the push')).toBeNull()
 })
 
-test('invites connecting before the first snapshot arrives', () => {
-  // Act
-  render(<BranchPanel />)
-
-  // Assert
-  expect(screen.getByText(/connecting/i)).toBeTruthy()
-})
-
 test('shows placeholders for an unpublished branch with a clean tree', () => {
   // Arrange
   useSnapshotStore.setState({
@@ -424,7 +416,7 @@ test('shows a detached HEAD rather than calling it not a repository', () => {
   expect(screen.getByRole('heading', { name: /detached head at abcdef1/i })).toBeTruthy()
 })
 
-test('says so when the workspace is not a Git repository', () => {
+test('says so when the workspace is not a Git repository, and what one would show', () => {
   // Arrange
   useSnapshotStore.setState({
     status: 'live',
@@ -446,7 +438,11 @@ test('says so when the workspace is not a Git repository', () => {
   render(<BranchPanel />)
 
   // Assert
-  expect(screen.getByText(/not a git repository/i)).toBeTruthy()
+  expect(
+    screen.getByText(
+      'This directory is not a Git repository. Start workflow --web inside one to see its branch, commits and working tree here.',
+    ),
+  ).toBeTruthy()
 })
 
 test('the confirm takes focus as it opens, and Cancel hands it back', async () => {

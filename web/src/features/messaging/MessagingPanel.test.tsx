@@ -329,14 +329,6 @@ test('announces again after a refused post', async () => {
   expect(await screen.findByRole('button', { name: 'Announce now' })).toBeTruthy()
 })
 
-test('prompts to connect before any snapshot arrives', () => {
-  // Act
-  render(<MessagingPanel />)
-
-  // Assert
-  expect(screen.getByText(/connecting/i)).toBeTruthy()
-})
-
 test('the preview takes focus as it opens, and Cancel hands it back', async () => {
   // Arrange
   const user = userEvent.setup()

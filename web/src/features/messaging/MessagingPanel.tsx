@@ -11,8 +11,9 @@ import { announce, previewAnnouncement } from './announceApi.ts'
 export function MessagingPanel() {
   const snapshot = useSnapshotStore((state) => state.snapshot)
 
+  // The shell says it is connecting until the first snapshot lands.
   if (!snapshot) {
-    return <EmptyState>Connecting…</EmptyState>
+    return null
   }
 
   const { messaging, review } = snapshot

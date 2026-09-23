@@ -154,38 +154,18 @@ horizontal axis.
 
 ## The web
 
-### UX-80 Dead-end empty states, and four ways to say "connecting"
-
-Impact: low · Effort: small
-
-**Today.** Good: `Select an issue to see its detail.`, `Open a pull request
-first — there is nothing to announce yet.`, `{service} is not configured.
-Add a token or webhook in Settings.` Dead ends: `This directory is not a
-Git repository.` (`web/src/features/branch/BranchPanel.tsx:24`) and `The configuration could not be
-loaded.` (`web/src/features/settings/SettingsPanel.tsx:18`) offer nothing to do. And the one condition
-"no snapshot yet" reads `Connecting to the tracker…`, `Connecting to the
-workspace…`, `Connecting to the forge…` and `Connecting…` in four panels
-(`web/src/features/issues/IssuesPanel.tsx:20`, `web/src/features/branch/BranchPanel.tsx:16`, `web/src/features/review/ReviewPanel.tsx:39`,
-`web/src/features/messaging/MessagingPanel.tsx:15`).
-
-**Instead.** One connecting line, in the shell; a retry on the config
-error; the not-a-repository state says what a repository would give it.
-
-**Done when.** One string for connecting; the settings error has a Retry
-button.
-
 ### UX-81 Disabled by dimming, and no rule for reduced motion
 
 Impact: medium · Effort: small
 
 **Today.** Every disabled button uses `disabled:opacity-60` — fifteen
-places (`web/src/features/issues/IssuesPanel.tsx:374`, `web/src/features/issues/WorkStory.tsx:266`, `:303`,
-`web/src/features/branch/BranchPanel.tsx:128`, `web/src/features/branch/CommitForm.tsx:158`,
+places (`web/src/features/issues/IssuesPanel.tsx:375`, `web/src/features/issues/WorkStory.tsx:266`, `:303`,
+`web/src/features/branch/BranchPanel.tsx:134`, `web/src/features/branch/CommitForm.tsx:158`,
 `web/src/features/branch/WorkingTree.tsx:180` — the staging buttons' shared
 class — `web/src/features/review/ReviewPanel.tsx:207`, `:343`,
 `:350`, `web/src/features/review/OpenedOutcome.tsx:92`,
-`web/src/features/messaging/MessagingPanel.tsx:193`, `:247`, `:262`, `:270`,
-`web/src/features/settings/SettingsPanel.tsx:305`) — which CLAUDE.md's accessibility rule names as the
+`web/src/features/messaging/MessagingPanel.tsx:194`, `:248`, `:263`, `:271`,
+`web/src/features/settings/SettingsPanel.tsx:321`) — which CLAUDE.md's accessibility rule names as the
 thing not to do (opacity dims text below the contrast floor) and which axe
 does not catch on disabled controls. The app has only two `transition-colors`
 and no animation, but no `prefers-reduced-motion` rule either; the a11y spec
@@ -245,13 +225,13 @@ lights own" (`web/src/index.css:24`) plus a three-color CI language; Jira is
 not blue, git is not yellow, the forge is not green anywhere; the `NavRail`
 icons are all muted (`web/src/shell/NavRail.tsx:30`). State marks are the web's own:
 `StageMarker` (`web/src/features/issues/WorkStory.tsx:316`) invents three, and `ciDot`
-(`web/src/features/review/ReviewPanel.tsx:22`) and `StreamStatus` (`StreamStatus.tsx:4`) are
+(`web/src/features/review/ReviewPanel.tsx:21`) and `StreamStatus` (`StreamStatus.tsx:4`) are
 color-only dots of one shape (mitigated by a text label beside each). And
 the page shows the template tells the interface avoids: nine `uppercase`
-eyebrow headings from seven class strings (`web/src/features/settings/SettingsPanel.tsx:324`,
-`web/src/features/branch/BranchPanel.tsx:74`, `web/src/features/branch/WorkingTree.tsx:21`, `web/src/features/issues/IssueDetailPanel.tsx:8`
+eyebrow headings from seven class strings (`web/src/features/settings/SettingsPanel.tsx:340`,
+`web/src/features/branch/BranchPanel.tsx:80`, `web/src/features/branch/WorkingTree.tsx:21`, `web/src/features/issues/IssueDetailPanel.tsx:8`
 — the work story, description and comments share it — `web/src/features/review/ReviewPanel.tsx:116`,
-`web/src/features/messaging/MessagingPanel.tsx:42`, `:48`) as the *only* heading treatment; no type or spacing tokens (raw `text-2xl`
+`web/src/features/messaging/MessagingPanel.tsx:43`, `:49`) as the *only* heading treatment; no type or spacing tokens (raw `text-2xl`
 … `text-xs`, `gap-8` … `gap-0.5` per component); one radius on everything
 (`rounded-md` ×28). To its credit: no shadows, no gradients, no `→`, and a
 real color-token system with hand-picked contrast (`index.css:9-96`).
@@ -274,10 +254,10 @@ Impact: medium · Effort: medium
 
 **Today.** There is not one `sm:`, `md:`, `lg:` or `xl:` utility in any
 `.tsx` under `web/src`. A `w-20` rail (`web/src/shell/NavRail.tsx:14`) beside a `w-80
-shrink-0` issues list (`web/src/features/issues/IssuesPanel.tsx:108`) and a `flex-1` detail squeezes
+shrink-0` issues list (`web/src/features/issues/IssuesPanel.tsx:109`) and a `flex-1` detail squeezes
 the detail to nothing near 640 px; definition lists use fixed first columns
-(`grid-cols-[6rem_1fr]` `web/src/features/branch/BranchPanel.tsx:55`, `[8rem_1fr]`
-`web/src/features/messaging/MessagingPanel.tsx:33`, `[9rem_1fr]` `web/src/features/review/ReviewPanel.tsx:102`); panels cap at
+(`grid-cols-[6rem_1fr]` `web/src/features/branch/BranchPanel.tsx:61`, `[8rem_1fr]`
+`web/src/features/messaging/MessagingPanel.tsx:34`, `[9rem_1fr]` `web/src/features/review/ReviewPanel.tsx:102`); panels cap at
 `max-w-2xl` and never reflow; the issues `<ul>` is not scrollable, so a long
 list scrolls the page. The viewport meta tag is present (`index.html:5`) and
 nothing responds to it. (From code; no viewport was rendered.)
@@ -311,7 +291,7 @@ region saying so.
 Impact: low · Effort: medium
 
 **Today.** The form seeds itself with the whole `Config`
-(`web/src/features/settings/SettingsPanel.tsx:25`) so `ui`, `timing`, `headers`, `views` and
+(`web/src/features/settings/SettingsPanel.tsx:41`) so `ui`, `timing`, `headers`, `views` and
 `branch.prefixes` survive a save unchanged — and cannot be edited. There is
 no guided, credential-checking flow like `workflow config init`; the web
 edits an existing file only.

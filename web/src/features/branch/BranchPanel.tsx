@@ -12,8 +12,9 @@ import { WorkingTree } from './WorkingTree.tsx'
 export function BranchPanel() {
   const snapshot = useSnapshotStore((state) => state.snapshot)
 
+  // The shell says it is connecting until the first snapshot lands.
   if (!snapshot) {
-    return <EmptyState>Connecting to the workspace…</EmptyState>
+    return null
   }
 
   const { branch, changes } = snapshot
@@ -21,7 +22,12 @@ export function BranchPanel() {
   // An empty name means either no repository or a detached HEAD — the latter
   // still points at a real commit, so only the former is "not a repository".
   if (branch.name === '' && !branch.detached) {
-    return <EmptyState>This directory is not a Git repository.</EmptyState>
+    return (
+      <EmptyState>
+        This directory is not a Git repository. Start workflow --web inside one to see its branch,
+        commits and working tree here.
+      </EmptyState>
+    )
   }
 
   return (
