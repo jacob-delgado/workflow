@@ -59,7 +59,7 @@ gap, and which phase closes it.
 | 2 | Switch view / next page | N | Y (`v`, `ctrl+n`) | Y since Phase 3 — a view select from `listViews` (`ViewSelect`, `web/src/features/issues/IssueListControls.tsx:37`), `useEventStream(view)` (`web/src/api/snapshot.ts:34`), and Load more over `start_at` (`useMoreIssues`, `web/src/features/issues/issueApi.ts:73`); an unknown view is 404 | — |
 | 3 | Filter the list | N | Y (`/`, `internal/tui/issues.go:159`) | Y since Phase 3 — the same `KEY summary` match (`matchesFilter`, `web/src/features/issues/IssuesPanel.tsx:311`) | CLI no |
 | 4 | Read an issue in full | N | Y (`internal/tui/detail.go:285`) | Y since Phase 3 — description, comments, reporter, assignee (`IssueDetailPanel`, `web/src/features/issues/IssueDetailPanel.tsx:16`) | CLI: FEAT-78 |
-| 5 | Transition, with field forms | P (`pr`'s side effect, fields-less, `internal/cli/pr.go:171`) | Y (`internal/tui/picker.go:155`) | N | The post-PR **review-status offer** both other surfaces make: Phase 9, UX-74. A general transition: FEAT-78 (CLI), FEAT-80 (web) |
+| 5 | Transition, with field forms | P (`pr`'s side effect, fields-less, `internal/cli/pr.go:177`) | Y (`internal/tui/picker.go:155`) | N | The post-PR **review-status offer** both other surfaces make: Phase 9, UX-74. A general transition: FEAT-78 (CLI), FEAT-80 (web) |
 | 6 | Comment | N | Y (`internal/tui/comment.go:41`) | N | FEAT-78 / FEAT-80; not this plan |
 | 7 | Assign / log work | N | Y (`internal/tui/issuewrite.go:74`, `:81`) | N | FEAT-78 / FEAT-80; not this plan |
 | 8 | Link the pull request on the issue | **N** (`pr` never links) | Y (`issuelink.go`, `internal/tui/prcomposer.go:510`) | N | **Yes on both** — the seam exists (`Jira.LinkPullRequest`) and the flow is the interface's. Phase 8 (CLI, UX-59), Phase 9 (web, UX-74) |
@@ -146,12 +146,12 @@ to see the shape.
 | `--json` on reads | Partial — `status`, `reviews`, `doctor`, and `config show` parses since Phase 2; not `standup` | UX-62 |
 | No color/prompts off a TTY; `NO_COLOR` | Met by construction (no color emitted); a prompt with no terminal says to pass `--yes` since Phase 2 | `errNoTerminal`, `internal/cli/prompt.go:14` |
 | Confirm before outward acts; `--yes`; `--dry-run` | Met, on `standup` and `config init` too since Phase 2 | `writeOptions.proceed`, `internal/cli/scriptable.go:77` |
-| Preview before the write | Met | `internal/cli/branch.go:99`, `internal/cli/pr.go:110`, `internal/cli/announce.go:113`, `internal/cli/standup.go:135` |
+| Preview before the write | Met | `internal/cli/branch.go:99`, `internal/cli/pr.go:114`, `internal/cli/announce.go:113`, `internal/cli/standup.go:135` |
 | Progress for slow operations | **Gap** — silent | UX-61 |
 | Ctrl-C | Met | `internal/cli/cli.go:102` `signal.NotifyContext` |
-| Errors say what to do next | Met since Phase 8 — strong in `doctor`/`config`, and each refusal names its next step: `git switch NAME`, the open pull request's address, the messaging keys and `workflow doctor`, `workflow pr` | `runBranch`, `internal/cli/branch.go:79`; `composeRefusal`, `internal/cli/pr.go:143`; `runAnnounce`, `internal/cli/announce.go:95` |
+| Errors say what to do next | Met since Phase 8 — strong in `doctor`/`config`, and each refusal names its next step: `git switch NAME`, the open pull request's address, the messaging keys and `workflow doctor`, `workflow pr` | `runBranch`, `internal/cli/branch.go:79`; `composeRefusal`, `internal/cli/pr.go:149`; `runAnnounce`, `internal/cli/announce.go:95` |
 | A hint on misuse | Met since Phase 8 — `SilenceErrors` still stops cobra's usage dump; an unknown command or flag points at `--help`, after the closest commands | `usageHint`, `internal/cli/scriptable.go:206` |
-| No surprises | Partial — `branch` says it switches since Phase 8; `pr` pushes and transitions under one question | UX-58 |
+| No surprises | Partial — since Phase 8 `branch` says it switches and `pr`'s question names the push; `pr --yes` answers the status move too without its help saying so | UX-58 |
 | Secrets never printed | Met | pinned by `internal/cli/cli_test.go:270`, `doctor_json_test.go:65` |
 | Shell completion | Met, incl. dynamic issue keys | `internal/cli/scriptable.go:121` |
 | Docs cover the commands | Met since Phase 2 | `docs/content/docs/scripting.md` |
@@ -574,7 +574,7 @@ Phase 2 (notices are on stderr).
 - `branch`'s help and preview say it switches (`internal/cli/branch.go:40`, `:96`;
   `internal/gitrepo/branch.go:305`).
 - `pr`'s question names the push when the branch is unpushed — "Push NAME
-  and open the pull request?" (`internal/cli/pr.go:114`); `pr` offers to link the pull
+  and open the pull request?" (`internal/cli/pr.go:120`); `pr` offers to link the pull
   request on the issue before the status offer (`loop.ReviewTransition` +
   `Jira.LinkPullRequest`, matrix row 8), under the same `--yes`, and
   `--yes`'s help says it covers all three.
