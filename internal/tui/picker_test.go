@@ -244,7 +244,7 @@ func TestAPickerWithNothingToApplyIgnoresEnter(t *testing.T) {
 		listErr error
 		want    string
 	}{
-		"the listing failed":          {listErr: jira.ErrUnauthorized, want: "✗ the credential was not accepted"},
+		"the listing failed":          {listErr: jira.ErrUnauthorized, want: "✗ Jira did not accept the token."},
 		"the workflow offers nothing": {want: "Jira offers no status change for OPS-1"},
 	}
 

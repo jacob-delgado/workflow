@@ -206,7 +206,7 @@ func (p statusPicker) view(width, rows int) (string, string) {
 	case !p.settled:
 		lines = append(lines, "loading statuses"+p.marks.ellipsis)
 	case p.listErr != nil:
-		lines = append(lines, failedGlyph(p.styles, p.marks)+" "+p.listErr.Error())
+		lines = append(lines, failureLine(p.styles, p.marks, p.listErr))
 	case len(p.found) == 0:
 		lines = append(lines, "Jira offers no status change for "+string(p.issue.Key))
 	case p.form.open():
@@ -243,7 +243,7 @@ func (p statusPicker) outcome() []string {
 
 		return []string{"", "changing " + string(p.issue.Key) + " to " + chosen.ToStatus + p.marks.ellipsis}
 	case p.send.err != nil:
-		return []string{"", failedGlyph(p.styles, p.marks) + " " + p.send.err.Error()}
+		return []string{"", failureLine(p.styles, p.marks, p.send.err)}
 	default:
 		return nil
 	}

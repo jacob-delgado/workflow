@@ -209,7 +209,7 @@ func (r commandRun) state() string {
 	case r.stopped:
 		return r.marks.notStarted + " stopped"
 	case r.err != nil:
-		return failedGlyph(r.styles, r.marks) + " " + r.failureHeadline()
+		return r.failureHeadline()
 	default:
 		return r.marks.done + " done"
 	}
@@ -218,7 +218,7 @@ func (r commandRun) state() string {
 // failureHeadline names the step that failed in words. It stands in only for a
 // failure status — git's "exit status 1", which says nothing on its own; an
 // error that already carries its cause — a message that could not be written,
-// say — is shown as it is.
+// say — is told the way every failure is.
 func (r commandRun) failureHeadline() string {
 	sentences := map[string]string{
 		"git commit":         "the commit was refused",
@@ -231,10 +231,10 @@ func (r commandRun) failureHeadline() string {
 
 	sentence, known := sentences[r.title]
 	if known && errors.Is(r.err, proc.ErrExitStatus) {
-		return sentence
+		return failedGlyph(r.styles, r.marks) + " " + sentence
 	}
 
-	return r.err.Error()
+	return failureLine(r.styles, r.marks, r.err)
 }
 
 // jobs is lefthook's jobs, each with its glyph, when the output is lefthook's.

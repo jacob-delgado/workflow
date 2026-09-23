@@ -117,9 +117,9 @@ func (w issueWrite) outcome() []string {
 	case w.send.sending:
 		return []string{"", "sending" + w.marks.ellipsis}
 	case w.send.err != nil:
-		return []string{"", failedGlyph(w.styles, w.marks) + " " + w.send.err.Error()}
+		return []string{"", failureLine(w.styles, w.marks, w.send.err)}
 	case w.problem != nil:
-		return []string{"", failedGlyph(w.styles, w.marks) + " " + w.problem.Error()}
+		return []string{"", failureLine(w.styles, w.marks, w.problem)}
 	default:
 		return nil
 	}

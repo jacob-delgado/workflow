@@ -104,7 +104,7 @@ func (p branchPicker) view(_, rows int) (string, string) {
 	case !p.settled:
 		lines = append(lines, "loading branches"+p.marks.ellipsis)
 	case p.listErr != nil:
-		lines = append(lines, failedGlyph(p.styles, p.marks)+" "+p.listErr.Error())
+		lines = append(lines, failureLine(p.styles, p.marks, p.listErr))
 	case len(p.branches) == 0:
 		lines = append(lines, "No other task branch to switch to.")
 	default:
@@ -144,7 +144,7 @@ func (p branchPicker) outcome() []string {
 	case p.send.sending:
 		return []string{"", "switching" + p.marks.ellipsis}
 	case p.send.err != nil:
-		return []string{"", failedGlyph(p.styles, p.marks) + " " + p.send.err.Error()}
+		return []string{"", failureLine(p.styles, p.marks, p.send.err)}
 	default:
 		return nil
 	}

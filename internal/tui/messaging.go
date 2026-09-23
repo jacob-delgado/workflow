@@ -143,7 +143,7 @@ func (m Model) messagingState() string {
 	case m.messaging.send.sending:
 		return m.marks.inFlight + " posting" + m.marks.ellipsis
 	case m.messaging.send.err != nil:
-		return m.failedGlyph() + " " + m.messaging.send.err.Error()
+		return m.failureSummary(m.messaging.send.err)
 	case m.announced():
 		return m.marks.done + " posted"
 	case m.messaging.pending.waiting():
@@ -176,6 +176,10 @@ func (m Model) messagingDetail(width int) string {
 		m.styles.label.Render("to     ") + m.cfg.Messaging.Target(),
 		m.styles.label.Render("CI     ") + m.ciSummary(),
 		m.styles.label.Render("state  ") + m.messagingState(),
+	}
+
+	if m.messaging.send.err != nil {
+		lines = append(lines, "", m.failureBlock(m.messaging.send.err, width))
 	}
 
 	return wrap(strings.Join(lines, "\n"), width)

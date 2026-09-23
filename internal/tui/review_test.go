@@ -176,6 +176,25 @@ func TestTheReviewPaneMarksADraft(t *testing.T) {
 	requireScreen(t, view, "draft")
 }
 
+func TestTheReviewPaneKeepsADraftAboveTheCIFailure(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	draft := newWorld()
+	draft.pull.Draft = true
+	draft.ciErr = fmt.Errorf("checking CI: %w", forge.ErrRefused)
+
+	// Act
+	view := plain(typing(t, draft.live(t, 120, 40), "4").View().Content)
+
+	// Assert
+	// The draft mark belongs with the CI and review rows, not under the error.
+	marked, failed := strings.Index(view, "draft"), strings.Index(view, "checking CI:")
+	if marked < 0 || failed < 0 || marked > failed {
+		t.Errorf("the draft mark sits at %d and the CI failure at %d, want the draft first\n%s", marked, failed, view)
+	}
+}
+
 func TestNOpensAComposerStartedFromTheBranch(t *testing.T) {
 	t.Parallel()
 

@@ -214,7 +214,7 @@ func (m Model) ciSummary() string {
 
 	switch {
 	case m.review.ciErr != nil:
-		return m.failedGlyph() + " " + m.review.ciErr.Error()
+		return m.failureSummary(m.review.ciErr)
 	case !m.review.checked:
 		return "checking" + m.marks.ellipsis
 	case reported.State == forge.CINone:
@@ -301,6 +301,10 @@ func (m Model) reviewDetail(width int) string {
 
 	if pull.Draft {
 		lines = append(lines, m.styles.label.Render("draft"))
+	}
+
+	if m.review.ciErr != nil {
+		lines = append(lines, "", m.failureBlock(m.review.ciErr, width))
 	}
 
 	if m.canEditPullRequest() {
