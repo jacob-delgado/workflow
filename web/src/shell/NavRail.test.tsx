@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react'
+import { render, screen, within } from '@testing-library/react'
 import { useSnapshotStore } from '@/api/snapshot.ts'
 import { makeSnapshot } from '@/test/fixtures.ts'
 import { NavRail } from './NavRail.tsx'
@@ -36,4 +36,16 @@ test('calls the messaging section Messaging until the stream names the service',
 
   // Assert
   expect(screen.getByRole('button', { name: 'Messaging' })).toBeTruthy()
+})
+
+test("offers the interface's six sections, in its order, Settings last", () => {
+  // Act
+  render(<NavRail />)
+
+  // Assert
+  const rail = screen.getByRole('navigation', { name: 'Sections' })
+  const names = within(rail)
+    .getAllByRole('button')
+    .map((button) => button.textContent)
+  expect(names).toEqual(['Issues', 'Branch', 'Review', 'Messaging', 'Reviews', 'Settings'])
 })

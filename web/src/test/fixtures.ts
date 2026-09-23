@@ -1,4 +1,4 @@
-import type { Branch, Health, Snapshot } from '@/api/generated/types.gen.ts'
+import type { Branch, Health, ReviewRequest, Snapshot } from '@/api/generated/types.gen.ts'
 
 // A contract-valid branch for tests — the one makeSnapshot checks out, and
 // what a write that switches or publishes answers with — with the fields a
@@ -54,3 +54,19 @@ export function makeHealth(overrides: Partial<Health> = {}): Health {
 // What a server on a GitLab remote says in its health: GitLab's own words for a
 // proposed change and the mark before its number.
 export const gitLabWords: Partial<Health> = { forge_noun: 'merge request', forge_sigil: '!' }
+
+// A contract-valid review request for tests — a pull request waiting three
+// days, CI failed — with the fields a case cares about overridden.
+export function makeReviewRequest(overrides: Partial<ReviewRequest> = {}): ReviewRequest {
+  return {
+    number: 42,
+    url: 'https://github.com/acme/api/pull/42',
+    title: 'fix: redact the token before it reaches the log',
+    author: 'ana',
+    repository: 'acme/api',
+    draft: false,
+    ci: 'failed',
+    opened_at: new Date(Date.now() - (3 * 24 + 1) * 3_600_000).toISOString(),
+    ...overrides,
+  }
+}

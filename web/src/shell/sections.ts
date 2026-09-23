@@ -1,4 +1,12 @@
-import { CircleDot, GitBranch, GitPullRequest, Send, Settings, type LucideIcon } from 'lucide-react'
+import {
+  CircleDot,
+  GitBranch,
+  GitPullRequest,
+  Inbox,
+  Send,
+  Settings,
+  type LucideIcon,
+} from 'lucide-react'
 import type { Section } from './uiStore.ts'
 
 // The label and rail icon for each section — one source, read by the nav rail
@@ -8,6 +16,7 @@ export const sectionMeta: Record<Section, { label: string; Icon: LucideIcon }> =
   branch: { label: 'Branch', Icon: GitBranch },
   review: { label: 'Review', Icon: GitPullRequest },
   messaging: { label: 'Messaging', Icon: Send },
+  reviews: { label: 'Reviews', Icon: Inbox },
   settings: { label: 'Settings', Icon: Settings },
 }
 
