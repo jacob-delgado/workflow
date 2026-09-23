@@ -5,6 +5,7 @@ package cli_test
 
 import (
 	"bytes"
+	"encoding/json"
 	"errors"
 	"os"
 	"path/filepath"
@@ -298,14 +299,72 @@ func TestConfigShowMasksTheWebhookURL(t *testing.T) {
 
 func TestConfigShowNamesHowToCreateAConfiguration(t *testing.T) {
 	// Act
-	output, err := run(t, t.TempDir(), "config", "show")
+	printed, err := runStreams(t, t.TempDir(), unusedPrompt(t), "config", "show")
+
 	// Assert
-	if err != nil {
-		t.Fatalf("config show = %v, want it to guide rather than fail:\n%s", err, output)
+	if !errors.Is(err, config.ErrNotFound) {
+		t.Errorf("config show = %v, want it to fail as having no configuration", err)
 	}
 
-	if !strings.Contains(output, "workflow config init") {
-		t.Errorf("config show does not name the command that creates a configuration:\n%s", output)
+	// The guidance is said about the missing file, so it is commentary, and a
+	// script reading stdout gets nothing it could mistake for a configuration.
+	if !strings.Contains(printed.stderr, "workflow config init") || printed.stdout != "" {
+		t.Errorf("config show does not name, on stderr alone, the command that creates a configuration:"+
+			"\nstdout:\n%s\nstderr:\n%s", printed.stdout, printed.stderr)
+	}
+}
+
+func TestConfigShowExitsLikeDoctorWithoutAConfig(t *testing.T) {
+	// Arrange
+	_, doctorErr := run(t, t.TempDir(), "doctor")
+
+	// Act
+	_, err := run(t, t.TempDir(), "config", "show")
+
+	// Assert
+	if got, doctor := cli.ExitStatus(err), cli.ExitStatus(doctorErr); got != doctor || got != 3 {
+		t.Errorf("without a configuration config show exits %d and doctor %d, want both 3", got, doctor)
+	}
+}
+
+func TestConfigShowWritesOnlyJSONToStdout(t *testing.T) {
+	// Arrange
+	dir := t.TempDir()
+	path := writeFile(t, dir, `{"jira": {"base_url": "https://jira.example.com", "token": "t"}}`)
+
+	// Act
+	printed, err := runStreams(t, dir, unusedPrompt(t), "config", "show")
+	if err != nil {
+		t.Fatalf("config show: %v (%+v)", err, printed)
+	}
+
+	// Assert
+	var shown map[string]any
+
+	err = json.Unmarshal([]byte(printed.stdout), &shown)
+	if err != nil {
+		t.Errorf("config show's stdout is not JSON alone, so `| jq .` fails: %v\n%s", err, printed.stdout)
+	}
+
+	// Which file is in effect is still said, where a person reads it.
+	if !strings.Contains(printed.stderr, path) {
+		t.Errorf("config show does not name the file in effect on stderr:\n%s", printed.stderr)
+	}
+}
+
+func TestConfigShowRefusesAMalformedConfiguration(t *testing.T) {
+	// Arrange
+	dir := t.TempDir()
+	writeFile(t, dir, "{not json")
+
+	// Act
+	printed, err := runStreams(t, dir, unusedPrompt(t), "config", "show")
+
+	// Assert
+	// A file that exists but cannot be read is not a missing one: nothing tells
+	// the user to create a file they already have.
+	if !errors.Is(err, config.ErrInvalid) || strings.Contains(printed.stdout+printed.stderr, "config init") {
+		t.Errorf("config show = %v, want the malformed file refused without creation advice:\n%+v", err, printed)
 	}
 }
 
