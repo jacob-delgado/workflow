@@ -1,11 +1,11 @@
 import { GitBranch } from 'lucide-react'
 import { useState } from 'react'
 import { apiErrorMessage } from '@/api/apiError.ts'
-import type { Branch, Change } from '@/api/generated/types.gen.ts'
+import type { Branch } from '@/api/generated/types.gen.ts'
 import { useSnapshotStore } from '@/api/snapshot.ts'
 import { EmptyState } from '@/shell/EmptyState.tsx'
-import { CommitForm } from './CommitForm.tsx'
 import { pushBranch } from './pushApi.ts'
+import { WorkingTree } from './WorkingTree.tsx'
 
 export function BranchPanel() {
   const snapshot = useSnapshotStore((state) => state.snapshot)
@@ -79,36 +79,6 @@ function Commits({ commits }: { commits: Branch['commits'] }) {
           ))}
         </ul>
       )}
-    </section>
-  )
-}
-
-function WorkingTree({ changes }: { changes: Change[] }) {
-  const anythingStaged = changes.some((change) => change.staged)
-
-  return (
-    <section aria-labelledby="changes-heading" className="flex flex-col gap-3">
-      <h3 id="changes-heading" className="text-sm font-semibold text-muted-foreground uppercase">
-        Working tree
-      </h3>
-      {changes.length === 0 ? (
-        <p className="text-sm text-muted-foreground">Clean — nothing to commit.</p>
-      ) : (
-        <ul className="flex flex-col gap-1.5">
-          {changes.map((change) => (
-            <li key={change.path} className="flex items-center gap-3 text-sm">
-              <span className="w-20 shrink-0 text-muted-foreground">{change.kind}</span>
-              <code className="flex-1">{change.path}</code>
-              <span
-                className={change.staged ? 'text-xs text-success' : 'text-xs text-muted-foreground'}
-              >
-                {change.staged ? 'staged' : 'unstaged'}
-              </span>
-            </li>
-          ))}
-        </ul>
-      )}
-      {anythingStaged ? <CommitForm /> : null}
     </section>
   )
 }

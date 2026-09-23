@@ -216,3 +216,80 @@ for (const theme of themes) {
     expect(violations, `${theme} / offers: ${summary}`).toEqual([])
   })
 }
+
+// A working tree with a file wholly staged, one partly staged and one the
+// index does not hold, on a branch with nothing to push, so each file's stage
+// or unstage button, Stage all and the commit form are all on screen.
+const workingTreeSnapshot = {
+  ...issuesSnapshot,
+  branch: {
+    name: 'fix/PROJ-1',
+    detached: false,
+    head: 'abc1234',
+    upstream: 'origin/fix/PROJ-1',
+    ahead: 0,
+    behind: 0,
+    base: 'origin/main',
+    commits: [],
+  },
+  changes: {
+    changes: [
+      {
+        path: 'internal/wiring/reqlog.go',
+        kind: 'modified',
+        staged: true,
+        has_unstaged: false,
+        conflicted: false,
+      },
+      {
+        path: 'internal/config/redact.go',
+        kind: 'modified',
+        staged: true,
+        has_unstaged: true,
+        conflicted: false,
+      },
+      {
+        path: 'notes.txt',
+        kind: 'untracked',
+        staged: false,
+        has_unstaged: true,
+        conflicted: false,
+      },
+    ],
+  },
+}
+
+for (const theme of themes) {
+  test(`no accessibility violations in the working tree in the ${theme} theme`, async ({
+    page,
+  }) => {
+    // Arrange: the stream's working tree, and the stage answered here, so a
+    // file's outcome line is on screen beside the buttons and the form.
+    await page.addInitScript((value) => {
+      window.localStorage.setItem('workflow-theme', value)
+    }, theme)
+    await page.route('**/api/events**', (route) =>
+      route.fulfill({
+        contentType: 'text/event-stream',
+        body: `event: snapshot\ndata: ${JSON.stringify(workingTreeSnapshot)}\n\n`,
+      }),
+    )
+    await page.route('**/api/stage', (route) =>
+      route.fulfill({ json: workingTreeSnapshot.changes }),
+    )
+    await page.goto('/')
+    await page
+      .getByRole('navigation', { name: 'Sections' })
+      .getByRole('button', { name: 'Branch' })
+      .click()
+
+    // Act: stage the untracked file.
+    await page.getByRole('button', { name: 'Stage notes.txt' }).click()
+    await expect(page.getByText('Staged notes.txt.')).toBeVisible()
+
+    // Assert: axe finds nothing on the working tree and its commit form.
+    const violations = await scan(page)
+    const summary = violations.map((v) => `${v.id} (${String(v.nodes.length)})`).join(', ')
+    expect(violations, `${theme} / working tree: ${summary}`).toEqual([])
+  })
+}

@@ -81,11 +81,11 @@ gap, and which phase closes it.
 
 | # | Action | CLI | TUI | Web | Warranted? |
 | --- | --- | --- | --- | --- | --- |
-| 17 | Stage / unstage / stage all | N | Y (`space`, `a`) | **N** — the list is read-only (`BranchPanel.tsx:86`) and the form appears only when already staged (`:111`) | CLI: `git add`. **Web yes** — its own commit flow is unreachable from the browser. Phase 10, UX-75 |
+| 17 | Stage / unstage / stage all | N | Y (`space`, `a`) | Y since Phase 10 — Stage / Unstage per file and Stage all (`WorkingTree`, `web/src/features/branch/WorkingTree.tsx:12`) over `POST /api/stage` and `/api/unstage`, which move only a change the server read itself (`moveChanges`, `internal/webserver/staging.go:91`); "all" is `loop.StageAll` on both surfaces (`internal/loop/stage.go:35`), and the commit form stays in place, saying what it waits for | CLI: `git add` is the twin — no |
 | 18 | Discard a change | N | N | N | FEAT-23, already filed; all three lack it |
 | 19 | Per-file diff | N | Y (`internal/tui/diff.go:29`) | N | Web idea, UX-88 |
-| 20 | Commit with the convention | N | Y | Y (`CommitForm.tsx:36`) | CLI: `git commit` + the commit-msg hook |
-| 21 | Scope from `commit.default_scope` / the learned scope | n/a | Y (`internal/tui/composer.go:131`) | **N** — `CommitForm.tsx:45` hardcodes `''`, though `default_scope` is *editable* in Settings (`SettingsPanel.tsx:184`) | **Yes** — a setting silently ignored is a defect; the learned scope is not a declared follow-up. Phase 10, UX-76 |
+| 20 | Commit with the convention | N | Y | Y (`web/src/features/branch/CommitForm.tsx:38`) | CLI: `git commit` + the commit-msg hook |
+| 21 | Scope from `commit.default_scope` / the learned scope | n/a | Y (`internal/tui/composer.go:131`) | **N** — `web/src/features/branch/CommitForm.tsx:47` hardcodes `''`, though `default_scope` is *editable* in Settings (`SettingsPanel.tsx:184`) | **Yes** — a setting silently ignored is a defect; the learned scope is not a declared follow-up. Phase 10, UX-76 |
 | 22 | Amend / fixup | N | Y | N | git is the twin; web idea, UX-88 |
 | 23 | Run a hook / generate `lefthook.yml` | N | Y (`h`, `g`) | N | `lefthook` is the twin — no |
 
@@ -180,10 +180,10 @@ met and stay.
 | ALL-CAPS eyebrow headings | **Gap** — the only heading treatment, nine headings from seven class strings | UX-84 |
 | Buttons say what happens | Met | `Open pull request`, `Commit staged changes`, `Push branch` |
 | An action keeps its name; errors direct; empty states invite | Partial | UX-79, UX-80 |
-| Feedback after a write | **5 of 9** since Phase 9's link and move; two successes are not live regions | UX-77 |
-| Focus management | **Gap** — but for Load more and, since Phase 9, the offers after opening | UX-78 |
+| Feedback after a write | **8 of 12** since Phase 9's link and move and Phase 10's stage, unstage and stage all; two successes are not live regions | UX-77 |
+| Focus management | **Gap** — but for Load more and, since Phases 9 and 10, the offers after opening and the staging buttons | UX-78 |
 | Accessible names, landmarks, skip link, focus ring, axe both themes | Met | enforced |
-| Disabled by opacity; reduced motion | **Gap** — fourteen places; no rule | UX-81 |
+| Disabled by opacity; reduced motion | **Gap** — fifteen places; no rule | UX-81 |
 | Responsive | **Gap** — zero breakpoints | UX-85 |
 | Vocabulary shared with the interface | Met since Phase 9 but for the sections — the forge's own noun and sigil, the messaging section named after its service (`sectionLabel`, `web/src/shell/sections.ts:17`) and one verb for starting, "Start work"; five sections vs six | UX-83 |
 | Dry run visible | Met since Phase 3 — a banner, and every write held before it is sent | `web/src/shell/AppShell.tsx:54`, `web/src/api/client.ts:24` |
@@ -670,9 +670,13 @@ Closes UX-75, UX-76. Depends on Phases 1 (`loop.RefuseNothingStaged`) and 3.
 
 - `POST /api/stage` and `POST /api/unstage` taking `{path}` or `{all:
   true}`, in one `staging.go`; `webserver.Deps` gains `Stage`, `Unstage`.
-  The working-tree list (`BranchPanel.tsx:86`) gets Stage / Unstage per
-  file and Stage all; the commit form is always mounted, with a "Nothing
-  staged yet — stage a file above" state instead of vanishing (`:111`).
+  The path is resolved against the working tree's own changes — a 404
+  otherwise — and "all" is `loop.StageAll`, which the terminal's `a` now
+  shares (`internal/loop/stage.go:35`). The working-tree list (`WorkingTree`,
+  `web/src/features/branch/WorkingTree.tsx:12`) gets Stage / Unstage per file
+  and Stage all, each with a `role="status"` line; the commit form is always
+  mounted, with a "Nothing staged yet — stage a file above" state instead of
+  vanishing (`:28`).
 - The snapshot's `changes` gains `suggested_scope` — the store's last
   scope, else `commit.default_scope` — the interface's rule
   (`internal/tui/composer.go:131-137`); `Deps.LastScope`/`RecordScope` from
@@ -720,12 +724,12 @@ Phase 3.
   webhook URL, so classify by `messaging.ErrRejected`/`ErrUnreachable` and
   never forward the text. `"something went wrong"` (`internal/webserver/errors.go:80`) → a
   directive sentence. One "connecting" phrasing (`IssuesPanel.tsx:19`,
-  `BranchPanel.tsx:14`, `web/src/features/review/ReviewPanel.tsx:37`, `web/src/features/messaging/MessagingPanel.tsx:13`);
-  dead ends get a way out (`BranchPanel.tsx:22`, a Retry at
+  `web/src/features/branch/BranchPanel.tsx:14`, `web/src/features/review/ReviewPanel.tsx:37`, `web/src/features/messaging/MessagingPanel.tsx:13`);
+  dead ends get a way out (`web/src/features/branch/BranchPanel.tsx:22`, a Retry at
   `SettingsPanel.tsx:17`).
 - A dropped stream frame sets `status: 'stale'` with the reason
   (`snapshot.ts:63-69`).
-- `opacity-60` ×14 → a `disabled:` color treatment (CLAUDE.md's rule);
+- `opacity-60` ×15 → a `disabled:` color treatment (CLAUDE.md's rule);
   `motion-safe:` on the two transitions and a `prefers-reduced-motion`
   rule in `index.css`.
 
@@ -733,7 +737,7 @@ Phase 3.
 `web/src/index.css`, `internal/webserver/{checkout,branchcreate,errors}.go`.
 **Budget.** None.
 
-**Done when.** 7 of 7 writes confirm; every outcome is a live region;
+**Done when.** 12 of 12 writes confirm; every outcome is a live region;
 `grep -c opacity-60 web/src` is 0; a schema-mismatched frame shows in
 `StreamStatus`.
 
@@ -784,7 +788,7 @@ interface's own system does not change.
   the stream (`StreamStatus.tsx:4`) and the work story
   (`web/src/features/issues/WorkStory.tsx:291`); the text label stays, the mark is `aria-hidden`.
 - The seven `uppercase` eyebrows (`SettingsPanel.tsx:343`,
-  `BranchPanel.tsx:67`, `:91`, `IssueDetailPanel.tsx:8`, `web/src/features/review/ReviewPanel.tsx:105`,
+  `web/src/features/branch/BranchPanel.tsx:67`, `web/src/features/branch/WorkingTree.tsx:15`, `IssueDetailPanel.tsx:8`, `web/src/features/review/ReviewPanel.tsx:105`,
   `web/src/features/messaging/MessagingPanel.tsx:41`, `:61`) → sentence-case headings on a
   `--text-*`/`--space-*` scale in `@theme`; the four-step radius actually
   used.

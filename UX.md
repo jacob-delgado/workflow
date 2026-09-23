@@ -154,30 +154,13 @@ horizontal axis.
 
 ## The web
 
-### UX-75 The web cannot stage, so its commit form is unreachable from a clean start
-
-Impact: high · Effort: medium
-
-**Today.** The working-tree list (`BranchPanel.tsx:86` `WorkingTree`) is
-read-only, and the commit form is mounted only when something is *already*
-staged (`:111`). A browser user with unstaged changes has a list they cannot
-act on and no form — the flow the interface completes with `space` and `a`
-(`internal/tui/commits.go:267`, `:289`) is not there.
-
-**Instead.** `POST /api/stage` and `/api/unstage` taking `{path}` or
-`{all: true}`; Stage / Unstage per file and Stage all; the commit form
-always present, saying "Nothing staged yet — stage a file above" until it
-can commit.
-
-**Done when.** Stage all in the browser makes the commit form live.
-
 ### UX-76 `commit.default_scope` can be edited in Settings and is never used
 
 Impact: medium · Effort: small
 
 **Today.** The interface's composer opens on the learned scope, else
 `commit.default_scope` (`internal/tui/composer.go:131` `startingScope`). The web's
-`CommitForm` hardcodes `scope: ''` (`CommitForm.tsx:45`) — while
+`CommitForm` hardcodes `scope: ''` (`web/src/features/branch/CommitForm.tsx:47`) — while
 `commit.default_scope` is an editable field in the Settings form
 (`SettingsPanel.tsx:184`). A setting the user can change with no visible
 effect.
@@ -190,15 +173,17 @@ interface does.
 **Done when.** Editing `default_scope` in Settings pre-fills the next commit
 form; a table test covers the store-then-config fallback.
 
-### UX-77 Four of nine writes succeed in silence
+### UX-77 Four of twelve writes succeed in silence
 
 Impact: high · Effort: small
 
 **Today.** `Pull request opened.` (`web/src/features/review/OpenedOutcome.tsx:21`), `Announced…`
 (`web/src/features/messaging/MessagingPanel.tsx:139`) and `Saved.` (`SettingsPanel.tsx:323`) confirm,
 and so do the link and the move offered after opening, each in a
-`role="status"` line (`FollowUpOffer`, `web/src/features/review/OpenedOutcome.tsx:70`).
-Commit (`CommitForm.tsx:70`), push (`BranchPanel.tsx:130`), check-out and
+`role="status"` line (`FollowUpOffer`, `web/src/features/review/OpenedOutcome.tsx:70`), and a
+file's stage or unstage and Stage all, each in its own (`ChangeRow`,
+`web/src/features/branch/WorkingTree.tsx:66`; `StageAll`, `:106`).
+Commit (`web/src/features/branch/CommitForm.tsx:72`), push (`web/src/features/branch/BranchPanel.tsx:100`), check-out and
 start-work say nothing: `useAsyncAction` ends in `done`
 (`web/src/lib/useAsyncAction.ts:21`), but neither button reads it; the stated
 rationale is that the snapshot is the confirmation (`web/src/lib/useAsyncAction.ts:9`),
@@ -221,12 +206,13 @@ Impact: high · Effort: small
 **Today.** The only `.focus()` calls under `web/src` are the issue list's
 Load more, which hands focus to the first issue a page adds
 (`web/src/features/issues/IssuesPanel.tsx:145`), and the offers after
-opening, which hand it to what they said
-(`web/src/features/review/OpenedOutcome.tsx:77`). On success
+opening and the staging buttons, which hand it to what they said
+(`web/src/features/review/OpenedOutcome.tsx:77`,
+`web/src/features/branch/WorkingTree.tsx:145`). On success
 `OpenPullRequest` unmounts the form for the outcome the panel shows above it
 (`web/src/features/review/ReviewPanel.tsx:174`); `AnnounceControls` swaps its
 form for a `<p>` (`web/src/features/messaging/MessagingPanel.tsx:137`);
-`PushButton` swaps its idle and confirming states (`BranchPanel.tsx:139`).
+`PushButton` swaps its idle and confirming states (`web/src/features/branch/BranchPanel.tsx:109`).
 The focused button disappears and focus falls to `<body>`. Changing section
 from the nav rail or a work-story row never moves focus to `<main>`, though
 `tabIndex={-1}` is there for it (`web/src/shell/AppShell.tsx:68`).
@@ -246,8 +232,8 @@ uncommitted changes; commit or stash them before switching`, `internal/webserver
 `nothing is staged to commit`, `internal/webserver/commit.go:21`). But the client fallbacks
 are vague and near-apologetic — `The branch could not be checked out.`
 (`web/src/features/issues/IssuesPanel.tsx:337`), `Work could not be started.` (`web/src/features/issues/WorkStory.tsx:267`),
-`The push failed.` (`BranchPanel.tsx:132`), `The commit could not be
-created.` (`CommitForm.tsx:74`) — and three handlers replace the tool's
+`The push failed.` (`web/src/features/branch/BranchPanel.tsx:102`), `The commit could not be
+created.` (`web/src/features/branch/CommitForm.tsx:76`) — and three handlers replace the tool's
 reason with one of those sentences: `internal/webserver/checkout.go:44`, `internal/webserver/branchcreate.go:44`,
 `internal/webserver/announce.go:53`. `writeResponseError` answers `something went wrong`
 (`internal/webserver/errors.go:80`). A user gets a dead end with no next step.
@@ -267,11 +253,11 @@ Impact: low · Effort: small
 **Today.** Good: `Select an issue to see its detail.`, `Open a pull request
 first — there is nothing to announce yet.`, `{service} is not configured.
 Add a token or webhook in Settings.` Dead ends: `This directory is not a
-Git repository.` (`BranchPanel.tsx:22`) and `The configuration could not be
+Git repository.` (`web/src/features/branch/BranchPanel.tsx:22`) and `The configuration could not be
 loaded.` (`SettingsPanel.tsx:17`) offer nothing to do. And the one condition
 "no snapshot yet" reads `Connecting to the tracker…`, `Connecting to the
 workspace…`, `Connecting to the forge…` and `Connecting…` in four panels
-(`web/src/features/issues/IssuesPanel.tsx:19`, `BranchPanel.tsx:14`, `web/src/features/review/ReviewPanel.tsx:37`,
+(`web/src/features/issues/IssuesPanel.tsx:19`, `web/src/features/branch/BranchPanel.tsx:14`, `web/src/features/review/ReviewPanel.tsx:37`,
 `web/src/features/messaging/MessagingPanel.tsx:13`).
 
 **Instead.** One connecting line, in the shell; a retry on the config
@@ -284,9 +270,11 @@ button.
 
 Impact: medium · Effort: small
 
-**Today.** Every disabled button uses `disabled:opacity-60` — fourteen
+**Today.** Every disabled button uses `disabled:opacity-60` — fifteen
 places (`web/src/features/issues/IssuesPanel.tsx:349`, `web/src/features/issues/WorkStory.tsx:248`, `:278`,
-`BranchPanel.tsx:168`, `CommitForm.tsx:128`, `web/src/features/review/ReviewPanel.tsx:206`, `:345`,
+`web/src/features/branch/BranchPanel.tsx:138`, `web/src/features/branch/CommitForm.tsx:130`,
+`web/src/features/branch/WorkingTree.tsx:176` — the staging buttons' shared
+class — `web/src/features/review/ReviewPanel.tsx:206`, `:345`,
 `:352`, `web/src/features/review/OpenedOutcome.tsx:90`,
 `web/src/features/messaging/MessagingPanel.tsx:170`, `:216`, `:231`, `:239`,
 `SettingsPanel.tsx:318`) — which CLAUDE.md's accessibility rule names as the
@@ -353,7 +341,7 @@ icons are all muted (`web/src/shell/NavRail.tsx:30`). State marks are the web's 
 color-only dots of one shape (mitigated by a text label beside each). And
 the page shows the template tells the interface avoids: nine `uppercase`
 eyebrow headings from seven class strings (`SettingsPanel.tsx:343`,
-`BranchPanel.tsx:67`, `:91`, `web/src/features/issues/IssueDetailPanel.tsx:8`
+`web/src/features/branch/BranchPanel.tsx:67`, `web/src/features/branch/WorkingTree.tsx:15`, `web/src/features/issues/IssueDetailPanel.tsx:8`
 — the work story, description and comments share it — `web/src/features/review/ReviewPanel.tsx:105`,
 `web/src/features/messaging/MessagingPanel.tsx:41`, `:61`) as the *only* heading treatment; no type or spacing tokens (raw `text-2xl`
 … `text-xs`, `gap-8` … `gap-0.5` per component); one radius on everything
@@ -380,7 +368,7 @@ Impact: medium · Effort: medium
 `.tsx` under `web/src`. A `w-20` rail (`web/src/shell/NavRail.tsx:14`) beside a `w-80
 shrink-0` issues list (`web/src/features/issues/IssuesPanel.tsx:102`) and a `flex-1` detail squeezes
 the detail to nothing near 640 px; definition lists use fixed first columns
-(`grid-cols-[6rem_1fr]` `BranchPanel.tsx:49`, `[8rem_1fr]`
+(`grid-cols-[6rem_1fr]` `web/src/features/branch/BranchPanel.tsx:49`, `[8rem_1fr]`
 `web/src/features/messaging/MessagingPanel.tsx:31`, `[9rem_1fr]` `web/src/features/review/ReviewPanel.tsx:91`); panels cap at
 `max-w-2xl` and never reflow; the issues `<ul>` is not scrollable, so a long
 list scrolls the page. The viewport meta tag is present (`index.html:5`) and

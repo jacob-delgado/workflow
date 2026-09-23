@@ -21,7 +21,7 @@ test('offers the built-in commit types when none are configured', () => {
   mockConfig.mockReturnValue(configResult(undefined))
 
   // Act
-  render(<CommitForm />)
+  render(<CommitForm blocked={null} />)
 
   // Assert
   expect(screen.getByRole('option', { name: 'feat' })).toBeTruthy()
@@ -34,7 +34,7 @@ test("offers a team's configured commit types instead of the built-in set", asyn
   mockConfig.mockReturnValue(configResult({ commit: { types: ['hotfix', 'chore'] } }))
 
   // Act
-  render(<CommitForm />)
+  render(<CommitForm blocked={null} />)
 
   // Assert
   expect(screen.getByRole('option', { name: 'hotfix' })).toBeTruthy()
@@ -53,7 +53,7 @@ test('keeps a configured type after a commit for a team that excludes fix', asyn
   // revert its type to the built-in "fix" default the server would reject.
   mockConfig.mockReturnValue(configResult({ commit: { types: ['hotfix', 'chore'] } }))
   const user = userEvent.setup()
-  render(<CommitForm />)
+  render(<CommitForm blocked={null} />)
 
   // Act: commit once, then commit again without touching the Type dropdown
   await user.type(screen.getByLabelText('Subject'), 'first change')

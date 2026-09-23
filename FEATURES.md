@@ -157,7 +157,9 @@ Impact: medium · Effort: small
 
 - Why: `a` stages every file and nothing reverses it. A stray edit can only be
   dropped from a shell.
-- Touches: `internal/gitrepo/status.go`, `internal/tui/commits.go`.
+- Touches: `internal/gitrepo/status.go`, `internal/tui/commits.go`. Unstaging
+  all is already `loop.UnstageAll` (`internal/loop/stage.go:42`), which the
+  web server's `POST /api/unstage` answers `{all: true}` with.
 - Constraints: discarding destroys work, so it previews the file and needs
   `enter`, unlike staging.
 - Done when: one key unstages all, and another discards the selected file's
