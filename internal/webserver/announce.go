@@ -5,15 +5,11 @@ package webserver
 
 import (
 	"context"
-	"errors"
 
 	"github.com/jacob-delgado/workflow/internal/api"
 	"github.com/jacob-delgado/workflow/internal/loop"
 	"github.com/jacob-delgado/workflow/internal/messaging"
 )
-
-// errNoPullRequest refuses an announcement with nothing to announce.
-var errNoPullRequest = errors.New("there is no pull request to announce")
 
 // GetAnnouncement composes the announcement for the checked-out branch's pull
 // request without posting it, for a preview. It is a 409 when there is no pull
@@ -23,7 +19,7 @@ func (s *server) GetAnnouncement(
 ) (api.GetAnnouncementResponseObject, error) {
 	announcement, ok := s.announcement()
 	if !ok {
-		return api.GetAnnouncement409ApplicationProblemPlusJSONResponse(problem(api.Conflict, errNoPullRequest.Error())), nil
+		return api.GetAnnouncement409ApplicationProblemPlusJSONResponse(s.nothingToAnnounce()), nil
 	}
 
 	return api.GetAnnouncement200JSONResponse(announcementDTO(announcement, s.config().Messaging.Channel)), nil
@@ -43,7 +39,7 @@ func (s *server) Announce(_ context.Context, request api.AnnounceRequestObject) 
 
 	announcement, ok := s.announcement()
 	if !ok {
-		return api.Announce409ApplicationProblemPlusJSONResponse(problem(api.Conflict, errNoPullRequest.Error())), nil
+		return api.Announce409ApplicationProblemPlusJSONResponse(s.nothingToAnnounce()), nil
 	}
 
 	channel := request.Body.Channel
@@ -88,4 +84,10 @@ func announcementDTO(announcement messaging.Announcement, channel string) api.An
 // not post.
 func announceUnprocessable(message string) api.Announce422ApplicationProblemPlusJSONResponse {
 	return api.Announce422ApplicationProblemPlusJSONResponse(problem(api.Unprocessable, message))
+}
+
+// nothingToAnnounce refuses an announcement with no pull request to announce,
+// named in the forge's own noun.
+func (s *server) nothingToAnnounce() api.Problem {
+	return problem(api.Conflict, "there is no "+s.noun()+" to announce")
 }

@@ -289,7 +289,7 @@ are vague and near-apologetic — `The branch could not be checked out.`
 `The push failed.` (`BranchPanel.tsx:132`), `The commit could not be
 created.` (`CommitForm.tsx:74`) — and three handlers replace the tool's
 reason with one of those sentences: `internal/webserver/checkout.go:44`, `internal/webserver/branchcreate.go:44`,
-`internal/webserver/announce.go:57`. `writeResponseError` answers `something went wrong`
+`internal/webserver/announce.go:53`. `writeResponseError` answers `something went wrong`
 (`errors.go:79`). A user gets a dead end with no next step.
 
 **Instead.** `checkout` and `branchcreate` pass git's own reason through

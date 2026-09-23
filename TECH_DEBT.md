@@ -182,7 +182,7 @@ start-work. Five components hand-roll the same machine instead:
 (`web/src/features/messaging/MessagingPanel.tsx:109`), `OpenPullRequest`
 (`web/src/features/review/ReviewPanel.tsx:114`) and `ConfigForm`
 (`SettingsPanel.tsx:33`). Alongside: `splitList` (`ReviewPanel.tsx:204`),
-`trimmedList` (`internal/webserver/pullrequest.go:138`) and an inline third
+`trimmedList` (`internal/webserver/pullrequest.go:145`) and an inline third
 copy (`SettingsPanel.tsx:203`) all trim a comma-separated list; and
 `SettingsPanel.errorMessage` (`SettingsPanel.tsx:331`) is now a one-line
 wrapper over `apiErrorMessage` that stays exported only so its own test can

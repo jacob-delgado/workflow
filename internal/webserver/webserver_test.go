@@ -215,6 +215,70 @@ func TestGetHealthNamesTheForgesOwnWords(t *testing.T) {
 	}
 }
 
+func TestWhatThePageIsToldSaysMergeRequestOnGitLab(t *testing.T) {
+	t.Parallel()
+
+	nothingOpen := func(deps webserver.Deps) webserver.Deps {
+		deps.FindPull = func(string) (forge.PullRequest, bool, error) { return forge.PullRequest{}, false, nil }
+
+		return deps
+	}
+	alreadyOpen := func(deps webserver.Deps) webserver.Deps {
+		deps.FindPull = func(string) (forge.PullRequest, bool, error) { return forge.PullRequest{Number: 1}, true, nil }
+
+		return deps
+	}
+	reviewersRefused := func(deps webserver.Deps) webserver.Deps {
+		deps.CreatePull = func(forge.NewPullRequest) (forge.PullRequest, error) {
+			return forge.PullRequest{Number: 7, URL: prURL, Title: prTitle}, forge.ErrRefused
+		}
+
+		return deps
+	}
+	noCreate := func(deps webserver.Deps) webserver.Deps {
+		deps.CreatePull = nil
+
+		return deps
+	}
+
+	// Each case is a request the page makes and the answer it shows, on GitLab.
+	const openPath = "/api/pull-request"
+
+	announceBody := `{"channel":"#dev"}`
+	cases := map[string]struct {
+		mutate       func(webserver.Deps) webserver.Deps
+		method, path string
+		body         string
+	}{
+		"nothing to draft":         {alreadyOpen, http.MethodGet, "/api/pull-request/draft", ""},
+		"nothing to open":          {alreadyOpen, http.MethodPost, openPath, openRequestBody},
+		"opening is not available": {noCreate, http.MethodPost, openPath, openRequestBody},
+		"reviewers were not added": {reviewersRefused, http.MethodPost, openPath, openRequestBody},
+		"nothing to preview":       {nothingOpen, http.MethodGet, "/api/announcement", ""},
+		"nothing to announce":      {nothingOpen, http.MethodPost, "/api/announce", announceBody},
+	}
+
+	for name, tt := range cases {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			// Arrange
+			deps := tt.mutate(openableDeps())
+			deps.Post = func(string, string) error { return nil }
+			info := webserver.Info{Version: testVersion, ForgeKind: forge.KindGitLab}
+
+			// Act
+			recorder := send(t, serveWith(t, deps, config.Default(), info), tt.method, tt.path, tt.body)
+
+			// Assert
+			told := recorder.Body.String()
+			if !strings.Contains(told, "merge request") || strings.Contains(told, "pull request") {
+				t.Errorf("answer = %q, want it in GitLab's words: a merge request", told)
+			}
+		})
+	}
+}
+
 func TestListViewsFallsBackToTheBuiltInList(t *testing.T) {
 	t.Parallel()
 
