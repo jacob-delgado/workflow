@@ -234,7 +234,7 @@ Impact: medium · Effort: small
 
 **Today.** `workflow branch` runs `git switch --create`
 (`internal/gitrepo/branch.go:305`), moving the working tree, but neither its help
-(`internal/cli/branch.go:44`) nor its preview (`:107`) says "and switch to it". `workflow
+(`internal/cli/branch.go:44`) nor its preview (`:106`) says "and switch to it". `workflow
 pr` pushes the branch first when it is unpushed (`ensurePushed`, `pr.go:241`)
 — the dry-run line says so (`pushClause`, `:266`) but the live question is
 only "Open the pull request?" (`:131`) — and a single `--yes` also authorizes
@@ -330,7 +330,7 @@ in the collapsed layout (`issuekeys.go:22`, `:46`, `:48`, `:81`, `:85`), but
 none of the five reaches the footer. Two keys are shown where they do not
 work: `ctrl+w` (worktree) is filed under "Branch and Commits" (`keys.go:225`)
 and listed under pane 2 in `usage.md:45`, but only the branch creator
-answers it (`internal/tui/branch.go:396`); `w` post-when-green is filed under "Review and
+answers it (`internal/tui/branch.go:389`); `w` post-when-green is filed under "Review and
 Slack" (`keys.go:245`) and listed under pane 5 in `usage.md:57`, but only the
 preview answers it (`internal/tui/messaging.go:366`).
 
@@ -648,7 +648,7 @@ are vague and near-apologetic — `The branch could not be checked out.`
 (`IssuesPanel.tsx:134`), `Work could not be started.` (`WorkStory.tsx:260`),
 `The push failed.` (`BranchPanel.tsx:132`), `The commit could not be
 created.` (`CommitForm.tsx:74`) — and three handlers replace the tool's
-reason with one of those sentences: `checkout.go:42`, `internal/webserver/branchcreate.go:45`,
+reason with one of those sentences: `checkout.go:42`, `internal/webserver/branchcreate.go:44`,
 `internal/webserver/announce.go:59`. `writeResponseError` answers `something went wrong`
 (`errors.go:79`). A user gets a dead end with no next step.
 
@@ -860,9 +860,9 @@ question is the web's, and it is UX-84.
 Impact: low · Effort: medium
 
 **Today.** The interface's branch creator fetches `origin` first and offers
-to branch from what you have when the fetch fails (`internal/tui/branch.go:456`), and
+to branch from what you have when the fetch fails (`internal/tui/branch.go:449`), and
 `ctrl+w` creates the branch in a worktree beside the repository
-(`internal/tui/branch.go:396`). `workflow branch` and `POST /api/branches` do neither:
+(`internal/tui/branch.go:389`). `workflow branch` and `POST /api/branches` do neither:
 no fetch, no worktree.
 
 **Instead.** `--worktree` and `--fetch` on `branch`; a worktree toggle on

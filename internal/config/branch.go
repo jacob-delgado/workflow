@@ -7,6 +7,8 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+
+	"github.com/jacob-delgado/workflow/internal/convention"
 )
 
 // ErrInvalidBranch reports a branch template that could hide the issue key.
@@ -33,6 +35,13 @@ type Branch struct {
 	// SlugLimit caps the summary slug in a branch name, in characters; zero keeps
 	// the built-in 48.
 	SlugLimit int `json:"slug_limit"`
+}
+
+// Naming is how a branch is named for an issue under this section: the
+// configured template and prefixes, and the built-in convention for any piece
+// left empty.
+func (b Branch) Naming() convention.BranchNaming {
+	return convention.NewBranchNaming(b.Template, b.DefaultPrefix, b.Prefixes, b.SlugLimit)
 }
 
 // validateBranch refuses a template that could hide the issue key or a negative
