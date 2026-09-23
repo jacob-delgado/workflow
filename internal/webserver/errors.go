@@ -122,7 +122,7 @@ type faultClass struct {
 // faultClasses are the failures fault tells apart, most specific first: a Jira
 // 404 that carries a reason is a missing resource before it is a refusal.
 func faultClasses() []faultClass {
-	return slices.Concat(transportFaults(), jiraFaults(), messagingFaults())
+	return slices.Concat(transportFaults(), jiraFaults(), forgeFaults(), messagingFaults())
 }
 
 // transportFaults are the failures any upstream can answer with.
@@ -177,6 +177,45 @@ func jiraFaults() []faultClass {
 		{
 			causes: []error{jira.ErrRejected},
 			code:   api.Unprocessable, detail: "Jira refused the request",
+		},
+	}
+}
+
+// forgeFaults are GitHub's and GitLab's failures. The first two are found
+// before the forge is asked anything, so their details name what to set; a
+// refusal may be the forge limiting requests, so it is waited out rather than
+// blamed on the token.
+func forgeFaults() []faultClass {
+	return []faultClass{
+		{
+			causes: []error{forge.ErrNoToken},
+			code:   api.Unprocessable,
+			detail: "no forge token was found; sign in with gh or glab, or set forge.token, which workflow doctor checks",
+		},
+		{
+			causes: []error{forge.ErrKindNeedsHost},
+			code:   api.Unprocessable, detail: "forge.kind is set without forge.host; set the host it describes",
+		},
+		{
+			causes: []error{forge.ErrUnauthorized},
+			code:   api.Unprocessable,
+			detail: "the forge did not accept the token, which may have expired; workflow doctor --online checks it",
+		},
+		{
+			causes: []error{forge.ErrNoAPI, forge.ErrNotJSON},
+			code:   api.Unprocessable,
+			detail: "no forge API answered; check forge.host, which workflow doctor --online tests",
+		},
+		{
+			causes: []error{forge.ErrRefused},
+			code:   api.Unreachable,
+			detail: "the forge refused the request, which may be rate limiting; wait a minute, then try again",
+		},
+		{
+			// An explained status is the same undocumented status with the
+			// forge's reason, which stays off the wire.
+			causes: []error{forge.ErrUnexpectedStatus, forge.ErrRejected},
+			code:   api.Unreachable, detail: "the forge answered with a status it does not document; try again",
 		},
 	}
 }
