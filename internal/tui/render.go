@@ -6,6 +6,7 @@ package tui
 import (
 	"errors"
 	"fmt"
+	"slices"
 	"strconv"
 	"strings"
 
@@ -326,26 +327,58 @@ func (m Model) footer(width int) string {
 		return m.noticeRow(width)
 	}
 
-	keys := help.New()
-	keys.Styles.ShortKey = m.styles.strong
-	keys.Styles.ShortDesc = m.styles.label
-	keys.Styles.ShortSeparator = m.styles.label
-	keys.ShortSeparator, keys.Ellipsis = m.marks.helpSeparator, m.marks.ellipsis
-	// Keys that do not fit are dropped whole, and an ellipsis says so. The pane's
-	// own verbs come first; the way to the rest is kept while they leave room.
-	keys.SetWidth(width - 1)
-
-	return ansi.Truncate(" "+keys.ShortHelpView(m.footerKeys()), width, "")
+	return ansi.Truncate(" "+m.footerRow(width-1), width, "")
 }
 
-// footerKeys offers the keys that do something where the user is, then the way
-// to the rest: never a verb with nothing to act on.
-func (m Model) footerKeys() []key.Binding {
+// footerRow offers the keys that do something where the user is, then the way
+// to the rest — never a verb with nothing to act on — in room columns. Keys
+// that do not fit are dropped whole, from the end, and an ellipsis says so. The
+// pane's own verbs come first, but ? is reserved: where they would push it off,
+// the last of them give way instead, since it lists every key the row cannot.
+func (m Model) footerRow(room int) string {
+	row := m.keyRow()
 	if m.overlay != nil {
-		return m.overlay.footer(m.keys)
+		row.SetWidth(room)
+
+		return row.ShortHelpView(m.overlay.footer(m.keys))
 	}
 
-	return append(behaviorOf(m.focus).keys(m), m.keys.ShortHelp()...)
+	verbs := behaviorOf(m.focus).keys(m)
+	if lipgloss.Width(row.ShortHelpView(slices.Concat(verbs, []key.Binding{m.keys.toggleHelp}))) <= room {
+		row.SetWidth(room)
+
+		return row.ShortHelpView(slices.Concat(verbs, m.keys.ShortHelp()))
+	}
+
+	ellipsis := " " + row.Styles.Ellipsis.Inline(true).Render(row.Ellipsis)
+	kept := m.keysBeside(row, verbs, room-lipgloss.Width(ellipsis))
+
+	return row.ShortHelpView(kept) + ellipsis
+}
+
+// keysBeside is as many of verbs as fit in room columns with ? after them,
+// followed by ?.
+func (m Model) keysBeside(row help.Model, verbs []key.Binding, room int) []key.Binding {
+	reserved := []key.Binding{m.keys.toggleHelp}
+
+	count := len(verbs)
+	for count > 0 && lipgloss.Width(row.ShortHelpView(slices.Concat(verbs[:count], reserved))) > room {
+		count--
+	}
+
+	return slices.Concat(verbs[:count], reserved)
+}
+
+// keyRow is the footer's key renderer, in this session's styles and marks, with
+// no width of its own: footerRow decides what fits.
+func (m Model) keyRow() help.Model {
+	row := help.New()
+	row.Styles.ShortKey = m.styles.strong
+	row.Styles.ShortDesc = m.styles.label
+	row.Styles.ShortSeparator = m.styles.label
+	row.ShortSeparator, row.Ellipsis = m.marks.helpSeparator, m.marks.ellipsis
+
+	return row
 }
 
 // relabel is a binding with help that says what it does here.

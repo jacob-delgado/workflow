@@ -388,8 +388,8 @@ func (b *helpBuilder) conflictIn(context keyContext) error {
 
 // ShortHelp is the footer's tail: enough to move around and to find the rest,
 // with the way to every other key first among them. It follows the focused
-// pane's own verbs, and a footer too narrow for all of them drops from the end,
-// so an action-dense pane can push the tail off a very narrow terminal.
+// pane's own verbs, and a footer too narrow for all of them drops from the end —
+// all but ?, which the pane's last verbs give way to instead.
 func (k keyMap) ShortHelp() []key.Binding {
 	return []key.Binding{k.toggleHelp, k.next, k.jump, k.quit}
 }

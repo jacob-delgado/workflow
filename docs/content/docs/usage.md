@@ -59,8 +59,8 @@ can rely on from them: exit codes, which stream carries what, `--json`,
   composers and previews open here too, and take the keyboard until they close.
 - **The bottom row** shows what the focused pane can do right now; it changes
   with the pane and with what that pane has loaded. On a narrow terminal the
-  keys that do not fit are dropped whole and an ellipsis says so. `?` lists
-  every key.
+  keys that do not fit are dropped whole and an ellipsis says so, but `?` is
+  never among them: it lists every key.
 - **A result** — a push sent, a post made, a change refused — appears on its
   own row above the keys, where it stays while you look around and clears when
   the next action starts.
