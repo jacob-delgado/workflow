@@ -1,8 +1,9 @@
-import { useState, type ReactNode } from 'react'
+import type { ReactNode } from 'react'
 import { useForm } from 'react-hook-form'
-import { apiErrorMessage } from '@/api/apiError.ts'
 import type { Config } from '@/api/generated/types.gen.ts'
 import { useForgeWords } from '@/api/health.ts'
+import { useAsyncAction } from '@/lib/useAsyncAction.ts'
+import { splitList } from '@/lib/utils.ts'
 import { EmptyState } from '@/shell/EmptyState.tsx'
 import { useConfig, useSaveConfig } from './configApi.ts'
 
@@ -20,29 +21,20 @@ export function SettingsPanel() {
   return <ConfigForm config={query.data} />
 }
 
-type SaveStatus = 'idle' | 'saving' | 'saved' | 'error'
-
 function ConfigForm({ config }: { config: Config }) {
   // The whole config seeds the form, so the sections and collections this form
   // does not edit (ui, timing, branch, commit, headers, views…) ride back
   // unchanged on save rather than being dropped.
   const { register, handleSubmit, reset } = useForm<Config>({ defaultValues: config })
   const { noun } = useForgeWords()
-  const save = useSaveConfig()
-  const [status, setStatus] = useState<SaveStatus>('idle')
-  const [error, setError] = useState('')
-
-  const onSubmit = handleSubmit(async (values) => {
-    setStatus('saving')
-    try {
-      reset(await save(values))
-      setError('')
-      setStatus('saved')
-    } catch (caught) {
-      setError(errorMessage(caught))
-      setStatus('error')
-    }
-  })
+  const saveConfig = useSaveConfig()
+  const save = useAsyncAction(
+    async (values: Config) => {
+      reset(await saveConfig(values))
+    },
+    { fallback: 'The configuration could not be saved.' },
+  )
+  const onSubmit = handleSubmit((values) => save.run(values))
 
   return (
     <form
@@ -204,12 +196,7 @@ function ConfigForm({ config }: { config: Config }) {
             aria-describedby="commit.types-hint"
             {...register('commit.types', {
               setValueAs: (value: unknown) =>
-                typeof value === 'string'
-                  ? value
-                      .split(',')
-                      .map((type) => type.trim())
-                      .filter(Boolean)
-                  : value,
+                typeof value === 'string' ? splitList(value) : value,
             })}
           />
         </Field>
@@ -314,24 +301,18 @@ function ConfigForm({ config }: { config: Config }) {
       <div className="flex items-center gap-3">
         <button
           type="submit"
-          disabled={status === 'saving'}
+          disabled={save.state === 'running'}
           className="rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground disabled:opacity-60"
         >
-          {status === 'saving' ? 'Saving…' : 'Save changes'}
+          {save.state === 'running' ? 'Saving…' : 'Save changes'}
         </button>
         <span role="status" className="text-sm">
-          {status === 'saved' ? <span className="text-success">Saved.</span> : null}
-          {status === 'error' ? <span className="text-destructive">{error}</span> : null}
+          {save.state === 'done' ? <span className="text-success">Saved.</span> : null}
+          {save.state === 'error' ? <span className="text-destructive">{save.error}</span> : null}
         </span>
       </div>
     </form>
   )
-}
-
-// The API throws an RFC 9457 problem details object as-is; surface its detail
-// (or title) through the shared reader, else a fallback specific to saving.
-export function errorMessage(caught: unknown): string {
-  return apiErrorMessage(caught, 'The configuration could not be saved.')
 }
 
 const inputClass =

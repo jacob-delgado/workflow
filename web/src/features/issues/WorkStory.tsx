@@ -232,10 +232,9 @@ export function WorkStory({ issueKey }: { issueKey: string }) {
 // success the event stream reflects the switch, so there is nothing to update
 // here; a refusal — a dirty tree — is shown inline for the user to act on.
 function CheckoutButton({ branch }: { branch: string }) {
-  const { state, error, run } = useAsyncAction(
-    () => checkoutBranch(branch),
-    'The branch could not be checked out.',
-  )
+  const { state, error, run } = useAsyncAction(() => checkoutBranch(branch), {
+    fallback: 'The branch could not be checked out.',
+  })
 
   return (
     <div className="flex flex-col gap-1">
@@ -262,10 +261,9 @@ function CheckoutButton({ branch }: { branch: string }) {
 // event stream reflects the new branch on success; a refusal (a branch already
 // exists) is shown inline.
 function StartWorkButton({ issueKey }: { issueKey: string }) {
-  const { state, error, run } = useAsyncAction(
-    () => startWork(issueKey),
-    'Work could not be started.',
-  )
+  const { state, error, run } = useAsyncAction(() => startWork(issueKey), {
+    fallback: 'Work could not be started.',
+  })
 
   return (
     <div className="flex flex-col gap-1">

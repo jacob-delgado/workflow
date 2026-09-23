@@ -1,7 +1,7 @@
 import { useEffect, useRef } from 'react'
 import type { FollowUp, OpenedPullRequest } from '@/api/generated/types.gen.ts'
 import { useForgeWords } from '@/api/health.ts'
-import { useAsyncAction } from '@/lib/useAsyncAction.ts'
+import { useAsyncAction, type AsyncState } from '@/lib/useAsyncAction.ts'
 import { capitalized, cn } from '@/lib/utils.ts'
 import { linkOnIssue, moveToReview } from './followUpApi.ts'
 
@@ -69,7 +69,7 @@ function offerWords(offer: FollowUp, pull: string, noun: string): OfferWords {
 // it cannot be made twice — and focus lands on what it said.
 function FollowUpOffer({ offer, pull, noun }: { offer: FollowUp; pull: string; noun: string }) {
   const words = offerWords(offer, pull, noun)
-  const { state, error, run } = useAsyncAction(words.act, words.fallback)
+  const { state, error, run } = useAsyncAction(words.act, { fallback: words.fallback })
   const outcome = useRef<HTMLParagraphElement>(null)
 
   useEffect(() => {
@@ -106,11 +106,7 @@ function FollowUpOffer({ offer, pull, noun }: { offer: FollowUp; pull: string; n
 
 // outcomeText is what an offer's live line says: what was done, why it was
 // not, or nothing yet.
-function outcomeText(
-  state: ReturnType<typeof useAsyncAction>['state'],
-  done: string,
-  error: string,
-): string {
+function outcomeText(state: AsyncState, done: string, error: string): string {
   if (state === 'done') {
     return done
   }

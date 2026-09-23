@@ -1,7 +1,7 @@
 import { useState } from 'react'
-import { apiErrorMessage } from '@/api/apiError.ts'
 import { useForgeWords } from '@/api/health.ts'
 import { useSnapshotStore } from '@/api/snapshot.ts'
+import { useAsyncAction } from '@/lib/useAsyncAction.ts'
 import { EmptyState } from '@/shell/EmptyState.tsx'
 import { announce, previewAnnouncement } from './announceApi.ts'
 
@@ -75,8 +75,6 @@ export function MessagingPanel() {
   )
 }
 
-type AnnounceState = 'idle' | 'loading' | 'preview' | 'posting' | 'done' | 'error'
-
 // firstNonEmpty is the first value that is not the empty string, or '' when
 // none is. It keeps the channel the preview posts to matching a listed option:
 // falling through an unset configured channel to the first known channel rather
@@ -94,6 +92,8 @@ function firstNonEmpty(...values: string[]): string {
 // AnnounceControls posts the pull request's announcement to the configured
 // service behind a preview step: it fetches the composed message, shows it for
 // confirmation, and posts only on confirm — announcing is outward and not undone.
+// The preview and the post are two steps, each its own action; a refused post
+// goes back to the button, with its reason.
 function AnnounceControls({
   service,
   channels,
@@ -103,79 +103,63 @@ function AnnounceControls({
   channels: string[]
   defaultChannel: string
 }) {
-  const [state, setState] = useState<AnnounceState>('idle')
-  const [text, setText] = useState('')
   const [channel, setChannel] = useState(() => firstNonEmpty(defaultChannel, channels[0] ?? ''))
-  const [error, setError] = useState('')
+  const preview = useAsyncAction(
+    async () => {
+      const composed = await previewAnnouncement()
+      setChannel(firstNonEmpty(composed.channel, defaultChannel, channels[0] ?? ''))
 
-  const openPreview = async () => {
-    setState('loading')
-    try {
-      const preview = await previewAnnouncement()
-      setText(preview.text)
-      setChannel(firstNonEmpty(preview.channel, defaultChannel, channels[0] ?? ''))
-      setError('')
-      setState('preview')
-    } catch (caught) {
-      setError(apiErrorMessage(caught, 'The announcement could not be previewed.'))
-      setState('error')
-    }
-  }
+      return composed.text
+    },
+    { fallback: 'The announcement could not be previewed.' },
+  )
+  const post = useAsyncAction(() => announce(channel), {
+    fallback: 'The announcement could not be posted.',
+  })
 
-  const post = async () => {
-    setState('posting')
-    try {
-      await announce(channel)
-      setError('')
-      setState('done')
-    } catch (caught) {
-      setError(apiErrorMessage(caught, 'The announcement could not be posted.'))
-      setState('error')
-    }
-  }
-
-  if (state === 'done') {
+  if (post.state === 'done') {
     return (
       <p className="text-sm text-success">Announced{channel === '' ? '' : ` to ${channel}`}.</p>
     )
   }
 
-  if (state === 'preview' || state === 'posting') {
+  if (preview.state === 'done' && post.state !== 'error') {
     return (
       <AnnouncePreview
         service={service}
-        text={text}
+        text={preview.result ?? ''}
         channel={channel}
         channels={channels}
-        posting={state === 'posting'}
+        posting={post.state === 'running'}
         onChannel={setChannel}
-        onCancel={() => {
-          setState('idle')
-        }}
+        onCancel={preview.reset}
         onPost={() => {
-          void post()
+          void post.run()
         }}
       />
     )
   }
 
+  const failure = preview.state === 'error' ? preview.error : post.error
+
   return (
     <div className="flex flex-col gap-1">
       <button
         type="button"
-        disabled={state === 'loading'}
+        disabled={preview.state === 'running'}
         onClick={() => {
-          void openPreview()
+          post.reset()
+          void preview.run()
         }}
         className="self-start rounded-md bg-primary px-3 py-1.5 text-sm font-medium text-primary-foreground hover:bg-primary/90 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none disabled:opacity-60"
       >
-        {state === 'loading' ? 'Preparing…' : `Announce to ${service}`}
+        {preview.state === 'running' ? 'Preparing…' : `Announce to ${service}`}
       </button>
-      {state === 'error' ? (
+      {failure === '' ? null : (
         <p role="alert" className="text-sm text-destructive">
-          {error}
+          {failure}
         </p>
-      ) : null}
+      )}
     </div>
   )
 }

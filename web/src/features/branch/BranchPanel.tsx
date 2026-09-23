@@ -1,8 +1,8 @@
 import { GitBranch } from 'lucide-react'
 import { useState } from 'react'
-import { apiErrorMessage } from '@/api/apiError.ts'
 import type { Branch } from '@/api/generated/types.gen.ts'
 import { useSnapshotStore } from '@/api/snapshot.ts'
+import { useAsyncAction } from '@/lib/useAsyncAction.ts'
 import { EmptyState } from '@/shell/EmptyState.tsx'
 import { pushBranch } from './pushApi.ts'
 import { WorkingTree } from './WorkingTree.tsx'
@@ -83,36 +83,22 @@ function Commits({ commits }: { commits: Branch['commits'] }) {
   )
 }
 
-type PushStatus = 'idle' | 'confirming' | 'pushing' | 'error'
-
 // PushButton publishes the branch, behind a confirm step: pushing is outward and
 // not undone with a click, so it asks first. The event stream reflects the
 // published branch on success, and a failed push is shown inline.
 function PushButton({ branch }: { branch: Branch }) {
-  const [status, setStatus] = useState<PushStatus>('idle')
-  const [error, setError] = useState('')
-
-  const onPush = async () => {
-    setStatus('pushing')
-    try {
-      await pushBranch()
-      setError('')
-      setStatus('idle')
-    } catch (caught) {
-      setError(apiErrorMessage(caught, 'The push failed.'))
-      setStatus('error')
-    }
-  }
+  const [confirming, setConfirming] = useState(false)
+  const push = useAsyncAction(pushBranch, { fallback: 'The push failed.' })
 
   return (
     <div className="flex flex-col gap-2">
-      {status === 'confirming' ? (
+      {confirming ? (
         <div className="flex items-center gap-2 text-sm">
           <span>Push {branch.commits.length} commit(s) to the remote?</span>
           <button
             type="button"
             onClick={() => {
-              setStatus('idle')
+              setConfirming(false)
             }}
             className="rounded-md border border-input px-2 py-1 hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
           >
@@ -121,7 +107,8 @@ function PushButton({ branch }: { branch: Branch }) {
           <button
             type="button"
             onClick={() => {
-              void onPush()
+              setConfirming(false)
+              void push.run()
             }}
             className="rounded-md bg-primary px-2 py-1 text-primary-foreground hover:bg-primary/90 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
           >
@@ -131,18 +118,18 @@ function PushButton({ branch }: { branch: Branch }) {
       ) : (
         <button
           type="button"
-          disabled={status === 'pushing'}
+          disabled={push.state === 'running'}
           onClick={() => {
-            setStatus('confirming')
+            setConfirming(true)
           }}
           className="self-start rounded-md border border-input px-3 py-1.5 text-sm hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none disabled:opacity-60"
         >
-          {status === 'pushing' ? 'Pushing…' : 'Push branch'}
+          {push.state === 'running' ? 'Pushing…' : 'Push branch'}
         </button>
       )}
-      {status === 'error' ? (
+      {push.state === 'error' && !confirming ? (
         <p role="alert" className="text-sm whitespace-pre-line text-destructive">
-          {error}
+          {push.error}
         </p>
       ) : null}
     </div>

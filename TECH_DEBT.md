@@ -152,54 +152,23 @@ cancels; the detail read is keyed so a stale answer is dropped.
 
 ## The web
 
-### DEBT-62 One frontend function is 305 lines, and nothing measures a function's length
+### DEBT-62 One frontend function is 293 lines, and nothing measures a function's length
 
 Severity: medium · Confidence: measured
 
 `web/eslint.config.js:80` sets `complexity`, `max-params`, `max-depth` and
 `max-nested-callbacks` but no `max-lines-per-function`. The result:
-`ConfigForm` (`web/src/features/settings/SettingsPanel.tsx:25`) is 305
-lines, `PullRequestForm` (`web/src/features/review/ReviewPanel.tsx:241`)
-125 and `CommitForm` (`web/src/features/branch/CommitForm.tsx:39`) 132. Files
+`ConfigForm` (`web/src/features/settings/SettingsPanel.tsx:24`) is 293
+lines, `PullRequestForm` (`web/src/features/review/ReviewPanel.tsx:214`)
+125 and `CommitForm` (`web/src/features/branch/CommitForm.tsx:37`) 126. Files
 are measured — `scripts/check-file-length.sh` holds `.ts` and `.tsx` to the
-500/800 targets, and the longest, `SettingsPanel.tsx`, is 373 lines — but a
-function can grow to fill one with nothing to say so.
+500/800 targets, and the longest, `web/src/features/issues/IssuesPanel.tsx`,
+is 359 lines — but a function can grow to fill one with nothing to say so.
 
 **One way to fix it.** Add `max-lines-per-function` to eslint at a number
 the split `ConfigForm` meets; split `ConfigForm` by fieldset.
 
 **Done when.** `yarn lint` fails a 300-line component.
-
-### DEBT-63 The async-write state machine is written six times
-
-Severity: medium · Confidence: read
-
-`useAsyncAction` (`web/src/lib/useAsyncAction.ts:12`) names the
-`idle → running → done | error` machine once, and is used by check-out,
-start-work, the two offers after opening (`FollowUpOffer`,
-`web/src/features/review/OpenedOutcome.tsx:70`) and the staging buttons
-(`ChangeRow` and `StageAll`, `web/src/features/branch/WorkingTree.tsx:72`,
-`:112`). Five components hand-roll the same machine instead:
-`PushButton` (`web/src/features/branch/BranchPanel.tsx:95`), `CommitForm`
-(`web/src/features/branch/CommitForm.tsx:74`), `AnnounceControls`
-(`web/src/features/messaging/MessagingPanel.tsx:111`), `OpenPullRequest`
-(`web/src/features/review/ReviewPanel.tsx:150`) and `ConfigForm`
-(`web/src/features/settings/SettingsPanel.tsx:35`). Alongside: `splitList` (`web/src/features/review/ReviewPanel.tsx:231`),
-`trimmedList` (`internal/webserver/pullrequest.go:145`) and an inline third
-copy (`web/src/features/settings/SettingsPanel.tsx:205`) all trim a comma-separated list; and
-`SettingsPanel.errorMessage` (`web/src/features/settings/SettingsPanel.tsx:333`) is now a one-line
-wrapper over `apiErrorMessage` that stays exported only so its own test can
-repeat four of the five assertions in `web/src/api/apiError.test.ts`.
-
-**What it costs.** A success state (which four of the twelve writes lack —
-see UX.md) has to be added in six places; the six already differ in how
-they clear an error.
-
-**One way to fix it.** `useAsyncAction`, which has had a `done` state since
-Phase 9's offers, grows a message; the five adopt it; `splitList` moves to `web/src/api` and the
-server's `trimmedList` stays (they are on different sides of the wire).
-
-**Done when.** `set('running')` appears in one file under `web/src`.
 
 ## The gates, the build and the tests
 

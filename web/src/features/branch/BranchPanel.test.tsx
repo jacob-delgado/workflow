@@ -159,6 +159,34 @@ test('shows the reason when a commit is refused', async () => {
   expect(await screen.findByText(/nothing is staged/i)).toBeTruthy()
 })
 
+test('locks the commit while it is in flight', async () => {
+  // Arrange
+  // Hold the commit open so the in-flight state is observable rather than
+  // transient; a live button here would let a double click commit twice.
+  let releaseCommit = () => {}
+  mockCommit.mockImplementationOnce(
+    () =>
+      new Promise<void>((resolve) => {
+        releaseCommit = resolve
+      }),
+  )
+  const user = userEvent.setup()
+  staged()
+  render(<BranchPanel />)
+  await user.type(screen.getByLabelText('Subject'), 'redact tokens')
+
+  // Act
+  await user.click(screen.getByRole('button', { name: 'Commit staged changes' }))
+
+  // Assert: the button reads "Committing…" and is off, and only one commit went out
+  const committing = await screen.findByRole('button', { name: 'Committing…' })
+  expect(committing.hasAttribute('disabled')).toBe(true)
+  expect(mockCommit).toHaveBeenCalledTimes(1)
+
+  releaseCommit()
+  await screen.findByRole('button', { name: 'Commit staged changes' })
+})
+
 test('offers to push a branch with unpushed commits', () => {
   // Arrange
   pushable()
@@ -263,6 +291,52 @@ test('shows the reason when a push fails', async () => {
 
   // Assert
   expect(await screen.findByText(/the push failed/i)).toBeTruthy()
+})
+
+test('locks the push while it is in flight', async () => {
+  // Arrange
+  // Hold the push open so the in-flight state is observable rather than
+  // transient; a live button here would let a second push go out behind it.
+  let releasePush = () => {}
+  mockPush.mockImplementationOnce(
+    () =>
+      new Promise<void>((resolve) => {
+        releasePush = resolve
+      }),
+  )
+  const user = userEvent.setup()
+  pushable()
+  render(<BranchPanel />)
+
+  // Act: ask, then confirm, leaving the push unresolved
+  await user.click(screen.getByRole('button', { name: 'Push branch' }))
+  await user.click(screen.getByRole('button', { name: 'Push' }))
+
+  // Assert: the button reads "Pushing…" and is off, and only one push went out
+  const pushing = await screen.findByRole('button', { name: 'Pushing…' })
+  expect(pushing.hasAttribute('disabled')).toBe(true)
+  expect(mockPush).toHaveBeenCalledTimes(1)
+
+  releasePush()
+  await screen.findByRole('button', { name: 'Push branch' })
+})
+
+test('asking to push again after a refusal shows the confirm, not the old reason', async () => {
+  // Arrange
+  mockPush.mockRejectedValueOnce({ code: 'conflict', detail: 'the remote refused the push' })
+  const user = userEvent.setup()
+  pushable()
+  render(<BranchPanel />)
+  await user.click(screen.getByRole('button', { name: 'Push branch' }))
+  await user.click(screen.getByRole('button', { name: 'Push' }))
+  await screen.findByText('the remote refused the push')
+
+  // Act
+  await user.click(screen.getByRole('button', { name: 'Push branch' }))
+
+  // Assert
+  expect(screen.getByRole('button', { name: 'Push' })).toBeTruthy()
+  expect(screen.queryByText('the remote refused the push')).toBeNull()
 })
 
 test('invites connecting before the first snapshot arrives', () => {
