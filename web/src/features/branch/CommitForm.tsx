@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { apiErrorMessage } from '@/api/apiError.ts'
 import { useConfig } from '@/features/settings/configApi.ts'
@@ -34,8 +34,15 @@ type CommitStatus = 'idle' | 'committing' | 'error'
 // server assembles the message and adds the Refs trailer for the branch's issue;
 // on success the event stream reflects the commit, and a refusal is shown inline.
 // It stays in place while nothing is staged — blocked says why, in the form,
-// with its button off — so a message can be written before the files are.
-export function CommitForm({ blocked }: { blocked: string | null }) {
+// with its button off — so a message can be written before the files are. It
+// opens on the scope the server suggests, the terminal composer's own.
+export function CommitForm({
+  blocked,
+  suggestedScope,
+}: {
+  blocked: string | null
+  suggestedScope: string
+}) {
   const { data: config } = useConfig()
   // A team's own commit types, in the order to offer them, or the built-in set.
   const commitTypes = useMemo(() => {
@@ -44,8 +51,15 @@ export function CommitForm({ blocked }: { blocked: string | null }) {
   }, [config])
 
   const { register, handleSubmit, reset, getValues, setValue } = useForm<CommitFields>({
-    defaultValues: { type: 'fix', scope: '', subject: '', body: '', breaking: false },
+    defaultValues: { type: 'fix', scope: suggestedScope, subject: '', body: '', breaking: false },
   })
+  const applyScope = useCallback(
+    (scope: string) => {
+      setValue('scope', scope)
+    },
+    [setValue],
+  )
+  const scopeSuggestion = useScopeSuggestion(suggestedScope, applyScope)
   const [status, setStatus] = useState<CommitStatus>('idle')
   const [error, setError] = useState('')
 
@@ -68,8 +82,18 @@ export function CommitForm({ blocked }: { blocked: string | null }) {
         breaking: fields.breaking,
       })
       // Reset to a type the convention allows, not the static "fix" default,
-      // which a team that excludes it would leave selected and the server reject.
-      reset({ type: commitTypes[0] ?? 'fix', scope: '', subject: '', body: '', breaking: false })
+      // which a team that excludes it would leave selected and the server reject;
+      // and to the scope just used, which a store that keeps it suggests from
+      // now on, or to the suggestion a blank scope left standing.
+      const usedScope = fields.scope.trim()
+      reset({
+        type: commitTypes[0] ?? 'fix',
+        scope: usedScope === '' ? suggestedScope : usedScope,
+        subject: '',
+        body: '',
+        breaking: false,
+      })
+      scopeSuggestion.release()
       setError('')
       setStatus('idle')
     } catch (caught) {
@@ -99,7 +123,10 @@ export function CommitForm({ blocked }: { blocked: string | null }) {
         </label>
         <label className="flex flex-1 flex-col gap-1 text-xs text-muted-foreground">
           Scope (optional)
-          <input {...register('scope')} className={commitInputClass} />
+          <input
+            {...register('scope', { onChange: scopeSuggestion.typing })}
+            className={commitInputClass}
+          />
         </label>
       </div>
 
@@ -140,6 +167,30 @@ export function CommitForm({ blocked }: { blocked: string | null }) {
       </div>
     </form>
   )
+}
+
+// useScopeSuggestion keeps the scope field on the scope the stream suggests
+// while no one has typed in it: a later frame's suggestion — a default_scope
+// saved in Settings, say — applies to an untouched field, and never to one
+// someone is typing in. typing marks the field as someone's; release hands it
+// back, once the commit it was typed for has landed.
+function useScopeSuggestion(suggested: string, apply: (scope: string) => void) {
+  const typed = useRef(false)
+
+  useEffect(() => {
+    if (!typed.current) {
+      apply(suggested)
+    }
+  }, [suggested, apply])
+
+  return {
+    typing: () => {
+      typed.current = true
+    },
+    release: () => {
+      typed.current = false
+    },
+  }
 }
 
 const commitInputClass =

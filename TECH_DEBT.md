@@ -160,7 +160,7 @@ Severity: medium · Confidence: measured
 `max-nested-callbacks` but no `max-lines-per-function`. The result:
 `ConfigForm` (`web/src/features/settings/SettingsPanel.tsx:25`) is 305
 lines, `PullRequestForm` (`web/src/features/review/ReviewPanel.tsx:241`)
-125 and `CommitForm` (`web/src/features/branch/CommitForm.tsx:38`) 106. Files
+125 and `CommitForm` (`web/src/features/branch/CommitForm.tsx:39`) 132. Files
 are measured — `scripts/check-file-length.sh` holds `.ts` and `.tsx` to the
 500/800 targets, and the longest, `SettingsPanel.tsx`, is 373 lines — but a
 function can grow to fill one with nothing to say so.
@@ -178,16 +178,16 @@ Severity: medium · Confidence: read
 `idle → running → done | error` machine once, and is used by check-out,
 start-work, the two offers after opening (`FollowUpOffer`,
 `web/src/features/review/OpenedOutcome.tsx:70`) and the staging buttons
-(`ChangeRow` and `StageAll`, `web/src/features/branch/WorkingTree.tsx:66`,
-`:106`). Five components hand-roll the same machine instead:
+(`ChangeRow` and `StageAll`, `web/src/features/branch/WorkingTree.tsx:72`,
+`:112`). Five components hand-roll the same machine instead:
 `PushButton` (`web/src/features/branch/BranchPanel.tsx:95`), `CommitForm`
-(`web/src/features/branch/CommitForm.tsx:60`), `AnnounceControls`
+(`web/src/features/branch/CommitForm.tsx:74`), `AnnounceControls`
 (`web/src/features/messaging/MessagingPanel.tsx:111`), `OpenPullRequest`
 (`web/src/features/review/ReviewPanel.tsx:150`) and `ConfigForm`
-(`SettingsPanel.tsx:35`). Alongside: `splitList` (`web/src/features/review/ReviewPanel.tsx:231`),
+(`web/src/features/settings/SettingsPanel.tsx:35`). Alongside: `splitList` (`web/src/features/review/ReviewPanel.tsx:231`),
 `trimmedList` (`internal/webserver/pullrequest.go:145`) and an inline third
-copy (`SettingsPanel.tsx:205`) all trim a comma-separated list; and
-`SettingsPanel.errorMessage` (`SettingsPanel.tsx:333`) is now a one-line
+copy (`web/src/features/settings/SettingsPanel.tsx:205`) all trim a comma-separated list; and
+`SettingsPanel.errorMessage` (`web/src/features/settings/SettingsPanel.tsx:333`) is now a one-line
 wrapper over `apiErrorMessage` that stays exported only so its own test can
 repeat four of the five assertions in `web/src/api/apiError.test.ts`.
 

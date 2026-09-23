@@ -83,7 +83,7 @@ which one was read.
 | `branch.template` | no | Shape of a proposed branch name from `{prefix}`, `{key}` and `{slug}`. Must contain `{key}`. Defaults to `{prefix}/{key}-{slug}`. |
 | `branch.prefixes` | no | Map from issue type to branch prefix, e.g. `{"bug": "bugfix"}`. The type is matched without regard to case, and this replaces the built-in `{"bug": "fix"}` rather than adding to it. |
 | `branch.default_prefix` | no | Prefix for an issue type not named in `branch.prefixes`. Defaults to `feat`. |
-| `commit.default_scope` | no | Scope the commit composer opens with when no kept draft has one, e.g. `api`. Must be a valid Conventional Commit scope. Empty (the default) opens with no scope. |
+| `commit.default_scope` | no | Scope the commit composer — and the `--web` commit form — opens with when no kept draft has one and no commit in this repository has used one yet, e.g. `api`; the scope last used wins once there is one. Must be a valid Conventional Commit scope. Empty (the default) opens with no scope. |
 | `store.disabled` | no | Keep nothing on disk between sessions. Defaults to `false` — the store remembers a few conveniences, never a secret. See [What is kept between sessions](#what-is-kept-between-sessions). |
 
 Unknown keys are an error rather than being ignored. A misspelled key that
@@ -457,7 +457,8 @@ changes where it starts.
 ## What is kept between sessions
 
 workflow keeps a little state on disk so it can pick up where you left off — the
-commit scope you last used in a repository, which pull requests you have
+commit scope you last used in a repository, in the interface or with `--web`
+(which reads it once and never under `--dry-run`), which pull requests you have
 announced — in the interface or with `workflow announce`, and at which moment,
 so neither announces the same one twice unasked — and the last issue list it
 saw, so the interface opens on it while the live one loads. It lives in a small

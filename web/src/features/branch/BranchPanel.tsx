@@ -26,7 +26,7 @@ export function BranchPanel() {
     <div className="mt-4 flex max-w-2xl flex-col gap-8">
       <BranchSummary branch={branch} />
       <Commits commits={branch.commits} />
-      <WorkingTree changes={changes.changes} />
+      <WorkingTree changes={changes.changes} suggestedScope={snapshot.suggested_scope} />
     </div>
   )
 }

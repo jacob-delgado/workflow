@@ -84,8 +84,8 @@ gap, and which phase closes it.
 | 17 | Stage / unstage / stage all | N | Y (`space`, `a`) | Y since Phase 10 — Stage / Unstage per file and Stage all (`WorkingTree`, `web/src/features/branch/WorkingTree.tsx:12`) over `POST /api/stage` and `/api/unstage`, which move only a change the server read itself (`moveChanges`, `internal/webserver/staging.go:91`); "all" is `loop.StageAll` on both surfaces (`internal/loop/stage.go:35`), and the commit form stays in place, saying what it waits for | CLI: `git add` is the twin — no |
 | 18 | Discard a change | N | N | N | FEAT-23, already filed; all three lack it |
 | 19 | Per-file diff | N | Y (`internal/tui/diff.go:29`) | N | Web idea, UX-88 |
-| 20 | Commit with the convention | N | Y | Y (`web/src/features/branch/CommitForm.tsx:38`) | CLI: `git commit` + the commit-msg hook |
-| 21 | Scope from `commit.default_scope` / the learned scope | n/a | Y (`internal/tui/composer.go:131`) | **N** — `web/src/features/branch/CommitForm.tsx:47` hardcodes `''`, though `default_scope` is *editable* in Settings (`SettingsPanel.tsx:184`) | **Yes** — a setting silently ignored is a defect; the learned scope is not a declared follow-up. Phase 10, UX-76 |
+| 20 | Commit with the convention | N | Y | Y (`web/src/features/branch/CommitForm.tsx:39`) | CLI: `git commit` + the commit-msg hook |
+| 21 | Scope from `commit.default_scope` / the learned scope | n/a | Y (`internal/tui/composer.go:131`) | Y since Phase 10 — every snapshot's `suggested_scope`, by the interface's rule (`suggestedScope`, `internal/webserver/commit.go:138`), read from the store once and recorded after a commit; the form opens on it and takes a later one only while its scope is untouched (`useScopeSuggestion`, `web/src/features/branch/CommitForm.tsx:177`), so a `default_scope` saved in Settings pre-fills the next form while no scope is learned | — |
 | 22 | Amend / fixup | N | Y | N | git is the twin; web idea, UX-88 |
 | 23 | Run a hook / generate `lefthook.yml` | N | Y (`h`, `g`) | N | `lefthook` is the twin — no |
 
@@ -676,11 +676,14 @@ Closes UX-75, UX-76. Depends on Phases 1 (`loop.RefuseNothingStaged`) and 3.
   `web/src/features/branch/WorkingTree.tsx:12`) gets Stage / Unstage per file
   and Stage all, each with a `role="status"` line; the commit form is always
   mounted, with a "Nothing staged yet — stage a file above" state instead of
-  vanishing (`:28`).
-- The snapshot's `changes` gains `suggested_scope` — the store's last
-  scope, else `commit.default_scope` — the interface's rule
+  vanishing (`:34`).
+- The snapshot — not its `changes`, so `GET /api/changes` stays a git read —
+  gains `suggested_scope`: the store's last scope, else
+  `commit.default_scope`, the interface's rule
   (`internal/tui/composer.go:131-137`); `Deps.LastScope`/`RecordScope` from
-  `deps.Store`; `CommitForm` opens on it; the server records the scope
+  `deps.Store`, the learned scope read once and again only after a commit
+  records one, never under `--dry-run`; `CommitForm` opens on it and never
+  overwrites a scope being typed; the server records a non-blank scope
   after a commit.
 
 **Touches.** `api/openapi.yaml`, `internal/webserver/{webserver, staging
@@ -726,7 +729,7 @@ Phase 3.
   directive sentence. One "connecting" phrasing (`IssuesPanel.tsx:19`,
   `web/src/features/branch/BranchPanel.tsx:14`, `web/src/features/review/ReviewPanel.tsx:37`, `web/src/features/messaging/MessagingPanel.tsx:13`);
   dead ends get a way out (`web/src/features/branch/BranchPanel.tsx:22`, a Retry at
-  `SettingsPanel.tsx:17`).
+  `web/src/features/settings/SettingsPanel.tsx:17`).
 - A dropped stream frame sets `status: 'stale'` with the reason
   (`snapshot.ts:63-69`).
 - `opacity-60` ×15 → a `disabled:` color treatment (CLAUDE.md's rule);
@@ -787,12 +790,12 @@ interface's own system does not change.
 - One `StateMark` component drawing `○ ◐ ● ✗` for CI (`web/src/features/review/ReviewPanel.tsx:20`),
   the stream (`StreamStatus.tsx:4`) and the work story
   (`web/src/features/issues/WorkStory.tsx:291`); the text label stays, the mark is `aria-hidden`.
-- The seven `uppercase` eyebrows (`SettingsPanel.tsx:343`,
-  `web/src/features/branch/BranchPanel.tsx:67`, `web/src/features/branch/WorkingTree.tsx:15`, `IssueDetailPanel.tsx:8`, `web/src/features/review/ReviewPanel.tsx:105`,
+- The seven `uppercase` eyebrows (`web/src/features/settings/SettingsPanel.tsx:343`,
+  `web/src/features/branch/BranchPanel.tsx:67`, `web/src/features/branch/WorkingTree.tsx:21`, `IssueDetailPanel.tsx:8`, `web/src/features/review/ReviewPanel.tsx:105`,
   `web/src/features/messaging/MessagingPanel.tsx:41`, `:61`) → sentence-case headings on a
   `--text-*`/`--space-*` scale in `@theme`; the four-step radius actually
   used.
-- Split `ConfigForm` (305 lines, `SettingsPanel.tsx:25`) per fieldset and
+- Split `ConfigForm` (305 lines, `web/src/features/settings/SettingsPanel.tsx:25`) per fieldset and
   add `max-lines-per-function` to `web/eslint.config.js:80` at a number the
   split meets.
 
