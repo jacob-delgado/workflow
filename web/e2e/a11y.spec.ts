@@ -146,3 +146,73 @@ for (const theme of themes) {
     expect(violations, `${theme} / issues: ${summary}`).toEqual([])
   })
 }
+
+const openedPull = {
+  number: 7,
+  url: 'https://forge.example.com/pull/7',
+  title: 'fix: redact tokens before they reach the request log',
+  draft: false,
+  approvals: 0,
+  changes_requested: false,
+  mergeable: 'unknown',
+}
+
+for (const theme of themes) {
+  test(`no accessibility violations in the offers after opening in the ${theme} theme`, async ({
+    page,
+  }) => {
+    // Arrange: a stream with no pull request yet, and the draft, the open and
+    // the link answered here, so the open's outcome, its offers and a done
+    // offer's status line are all on screen for the scan.
+    await page.addInitScript((value) => {
+      window.localStorage.setItem('workflow-theme', value)
+    }, theme)
+    await page.route('**/api/events**', (route) =>
+      route.fulfill({
+        contentType: 'text/event-stream',
+        body: `event: snapshot\ndata: ${JSON.stringify(issuesSnapshot)}\n\n`,
+      }),
+    )
+    await page.route('**/api/pull-request/draft', (route) =>
+      route.fulfill({
+        json: {
+          title: openedPull.title,
+          body: 'Redacts the Authorization header.',
+          base: 'main',
+          head: 'fix/PROJ-1',
+          draft: false,
+          needs_push: false,
+        },
+      }),
+    )
+    await page.route('**/api/pull-request', (route) =>
+      route.fulfill({
+        json: {
+          pull: openedPull,
+          follow_ups: [
+            { action: 'link', issue_key: 'PROJ-1' },
+            { action: 'transition', issue_key: 'PROJ-1', status: 'In Review' },
+          ],
+        },
+      }),
+    )
+    await page.route('**/api/issues/PROJ-1/link', (route) => route.fulfill({ json: openedPull }))
+    await page.goto('/')
+    await page
+      .getByRole('navigation', { name: 'Sections' })
+      .getByRole('button', { name: 'Review' })
+      .click()
+    await page.getByRole('button', { name: 'Open a pull request' }).click()
+    await page.getByRole('button', { name: 'Open pull request' }).click()
+
+    // Act: link it, leaving the move offered beside what the link said.
+    await page.getByRole('button', { name: 'Link it on PROJ-1' }).click()
+    await expect(page.getByText('Linked #7 on PROJ-1.')).toBeVisible()
+    await expect(page.getByRole('button', { name: 'Move PROJ-1 to In Review' })).toBeVisible()
+
+    // Assert: axe finds nothing on the outcome and its offers.
+    const violations = await scan(page)
+    const summary = violations.map((v) => `${v.id} (${String(v.nodes.length)})`).join(', ')
+    expect(violations, `${theme} / offers: ${summary}`).toEqual([])
+  })
+}

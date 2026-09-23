@@ -59,10 +59,10 @@ gap, and which phase closes it.
 | 2 | Switch view / next page | N | Y (`v`, `ctrl+n`) | Y since Phase 3 — a view select from `listViews` (`ViewSelect`, `web/src/features/issues/IssueListControls.tsx:37`), `useEventStream(view)` (`web/src/api/snapshot.ts:34`), and Load more over `start_at` (`useMoreIssues`, `web/src/features/issues/issueApi.ts:73`); an unknown view is 404 | — |
 | 3 | Filter the list | N | Y (`/`, `internal/tui/issues.go:159`) | Y since Phase 3 — the same `KEY summary` match (`matchesFilter`, `web/src/features/issues/IssuesPanel.tsx:311`) | CLI no |
 | 4 | Read an issue in full | N | Y (`internal/tui/detail.go:285`) | Y since Phase 3 — description, comments, reporter, assignee (`IssueDetailPanel`, `web/src/features/issues/IssueDetailPanel.tsx:16`) | CLI: FEAT-78 |
-| 5 | Transition, with field forms | P (`pr`'s side effect, fields-less, `internal/cli/pr.go:236`) | Y (`internal/tui/picker.go:155`) | P since Phase 9 — the server moves an issue to the review status, fields-less and nowhere else (`TransitionIssue`, `internal/webserver/issuewrite.go:106`); the panel's offer is UX-74 | A general transition: FEAT-78 (CLI), FEAT-80 (web) |
+| 5 | Transition, with field forms | P (`pr`'s side effect, fields-less, `internal/cli/pr.go:236`) | Y (`internal/tui/picker.go:155`) | P since Phase 9 — the review-status move offered after opening, fields-less and nowhere else (`TransitionIssue`, `internal/webserver/issuewrite.go:106`) | A general transition: FEAT-78 (CLI), FEAT-80 (web) |
 | 6 | Comment | N | Y (`internal/tui/comment.go:41`) | N | FEAT-78 / FEAT-80; not this plan |
 | 7 | Assign / log work | N | Y (`internal/tui/issuewrite.go:74`, `:81`) | N | FEAT-78 / FEAT-80; not this plan |
-| 8 | Link the pull request on the issue | Y since Phase 8 — `pr` offers it before the status, under the same `--yes` (`offerLink`, `internal/cli/pr.go:176`) | Y (`issuelink.go`, `internal/tui/prcomposer.go:510`) | P since Phase 9 — the server links the branch's own pull request, never a URL the page sends (`LinkPullRequest`, `internal/webserver/issuewrite.go:35`) | **Web yes** — the panel's offer: Phase 9, UX-74 |
+| 8 | Link the pull request on the issue | Y since Phase 8 — `pr` offers it before the status, under the same `--yes` (`offerLink`, `internal/cli/pr.go:176`) | Y (`issuelink.go`, `internal/tui/prcomposer.go:510`) | Y since Phase 9 — offered after opening; the server links the branch's own pull request, never a URL the page sends (`LinkPullRequest`, `internal/webserver/issuewrite.go:35`) | — |
 | 9 | Open / copy the issue URL | n/a | Y (`o`, `y`) | Y since Phase 3 — "Open in Jira" from the detail's `url` (`web/src/features/issues/IssueDetailPanel.tsx:77`); copying is the browser's own link menu | — |
 | 10 | Cache-seeded first paint | n/a | Y (`internal/tui/issues.go:53`) | **F** | FEAT-68, declared |
 | 11 | Branch for the issue | Y | Y | Y | The CLI's help and preview say it switches to the branch, since Phase 8 (`internal/cli/branch.go:40`, `:99`) |
@@ -95,7 +95,7 @@ gap, and which phase closes it.
 | --- | --- | --- | --- | --- | --- |
 | 24 | Find the pull request and its CI | Y (`status --json`) | Y | Y | — |
 | 25 | Compose and open (push first) | Y (`pr`) | Y (`n`) | Y | CLI and web compose it once, in `internal/loop` (Phase 1, which closed DEBT-50); the terminal's composer is its own editor. CLI lacks draft/base/reviewer flags; CLI and web take `templates[0]` only: UX-62 |
-| 26 | After opening: link, then the review-status offer | Y since Phase 8 (`followUp`, `internal/cli/pr.go:163`) | Y | P since Phase 9 — the open answers `follow_ups` (`followUps`, `internal/webserver/issuewrite.go:160`); the panel does not read them yet | **Web yes** — Phase 9, UX-74 |
+| 26 | After opening: link, then the review-status offer | Y since Phase 8 (`followUp`, `internal/cli/pr.go:163`) | Y | Y since Phase 9 — the open answers `follow_ups` (`followUps`, `internal/webserver/issuewrite.go:160`), which the panel offers inline in a slot the next snapshot leaves standing (`OpenedOutcome`, `web/src/features/review/OpenedOutcome.tsx:15`) | — |
 | 27 | Edit the pull request | N | Y (`e`, `preditor.go`) | N | `gh pr edit` is the twin; web idea, FEAT-79 |
 | 28 | Checks list; a failure into `$EDITOR` | N | Y (`checks.go`) | P (a CI link) | A terminal gesture; web list idea, UX-88 |
 | 29 | Follow CI; notify on settle | n/a | Y (`internal/tui/review.go:189`) | P (5 s tick, no signal) | Web "CI settled" idea, UX-86 |
@@ -180,10 +180,10 @@ met and stay.
 | ALL-CAPS eyebrow headings | **Gap** — the only heading treatment, nine headings from seven class strings | UX-84 |
 | Buttons say what happens | Met | `Open pull request`, `Commit staged changes`, `Push branch` |
 | An action keeps its name; errors direct; empty states invite | Partial | UX-79, UX-80 |
-| Feedback after a write | **3 of 7**; two successes are not live regions | UX-77 |
-| Focus management | **Gap** — none | UX-78 |
+| Feedback after a write | **5 of 9** since Phase 9's link and move; two successes are not live regions | UX-77 |
+| Focus management | **Gap** — but for Load more and, since Phase 9, the offers after opening | UX-78 |
 | Accessible names, landmarks, skip link, focus ring, axe both themes | Met | enforced |
-| Disabled by opacity; reduced motion | **Gap** — thirteen places; no rule | UX-81 |
+| Disabled by opacity; reduced motion | **Gap** — fourteen places; no rule | UX-81 |
 | Responsive | **Gap** — zero breakpoints | UX-85 |
 | Vocabulary shared with the interface | Met since Phase 9 but for the sections — the forge's own noun and sigil, the messaging section named after its service (`sectionLabel`, `web/src/shell/sections.ts:17`) and one verb for starting, "Start work"; five sections vs six | UX-83 |
 | Dry run visible | Met since Phase 3 — a banner, and every write held before it is sent | `web/src/shell/AppShell.tsx:54`, `web/src/api/client.ts:24` |
@@ -675,14 +675,14 @@ makes the commit form live*.
 Closes UX-77, UX-78, UX-79, UX-80, UX-81, UX-82 and DEBT-63. Depends on
 Phase 3.
 
-- `useAsyncAction` (`web/src/lib/useAsyncAction.ts:12`) gains a `done` state with a
-  message; the five hand-rolled copies (`PushButton`, `CommitForm`,
+- `useAsyncAction` (`web/src/lib/useAsyncAction.ts:12`), which has a `done` state since
+  Phase 9, gains a message; the five hand-rolled copies (`PushButton`, `CommitForm`,
   `AnnounceControls`, `OpenPullRequest`, `ConfigForm`) adopt it — six
   machines → one. Commit, push, check-out and start-work confirm in a
   `role="status"` that keeps the button's verb ("Pushed NAME", "Committed
-  abc123 subject"); `Pull request opened.` (`web/src/features/review/ReviewPanel.tsx:147`) and
+  abc123 subject"); `Pull request opened.` (`web/src/features/review/OpenedOutcome.tsx:21`) and
   `Announced…` (`web/src/features/messaging/MessagingPanel.tsx:139`) become live regions.
-- Focus moves to the outcome when a form unmounts (`web/src/features/review/ReviewPanel.tsx:144`,
+- Focus moves to the outcome when a form unmounts (`web/src/features/review/ReviewPanel.tsx:174`,
   `web/src/features/messaging/MessagingPanel.tsx:137`, the `PushButton` swap) and to `<main>` on a
   section change (`web/src/shell/AppShell.tsx:68`).
 - One announce verb through the flow — **decided: "Announce to X"** (opens
@@ -692,12 +692,12 @@ Phase 3.
   webhook URL, so classify by `messaging.ErrRejected`/`ErrUnreachable` and
   never forward the text. `"something went wrong"` (`internal/webserver/errors.go:80`) → a
   directive sentence. One "connecting" phrasing (`IssuesPanel.tsx:19`,
-  `BranchPanel.tsx:14`, `web/src/features/review/ReviewPanel.tsx:33`, `web/src/features/messaging/MessagingPanel.tsx:13`);
+  `BranchPanel.tsx:14`, `web/src/features/review/ReviewPanel.tsx:37`, `web/src/features/messaging/MessagingPanel.tsx:13`);
   dead ends get a way out (`BranchPanel.tsx:22`, a Retry at
   `SettingsPanel.tsx:17`).
 - A dropped stream frame sets `status: 'stale'` with the reason
   (`snapshot.ts:63-69`).
-- `opacity-60` ×13 → a `disabled:` color treatment (CLAUDE.md's rule);
+- `opacity-60` ×14 → a `disabled:` color treatment (CLAUDE.md's rule);
   `motion-safe:` on the two transitions and a `prefers-reduced-motion`
   rule in `index.css`.
 
@@ -752,11 +752,11 @@ interface's own system does not change.
   (`web/src/shell/NavRail.tsx:30`), section headings. **Periwinkle stays the
   interactive-control accent** (`index.css:24` is a documented choice)
   — **decided: it stays**, and the identity hues stay distinct from it.
-- One `StateMark` component drawing `○ ◐ ● ✗` for CI (`web/src/features/review/ReviewPanel.tsx:15`),
+- One `StateMark` component drawing `○ ◐ ● ✗` for CI (`web/src/features/review/ReviewPanel.tsx:20`),
   the stream (`StreamStatus.tsx:4`) and the work story
   (`web/src/features/issues/WorkStory.tsx:291`); the text label stays, the mark is `aria-hidden`.
 - The seven `uppercase` eyebrows (`SettingsPanel.tsx:343`,
-  `BranchPanel.tsx:67`, `:91`, `IssueDetailPanel.tsx:8`, `web/src/features/review/ReviewPanel.tsx:75`,
+  `BranchPanel.tsx:67`, `:91`, `IssueDetailPanel.tsx:8`, `web/src/features/review/ReviewPanel.tsx:105`,
   `web/src/features/messaging/MessagingPanel.tsx:41`, `:61`) → sentence-case headings on a
   `--text-*`/`--space-*` scale in `@theme`; the four-step radius actually
   used.

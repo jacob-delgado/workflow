@@ -159,7 +159,7 @@ Severity: medium · Confidence: measured
 `web/eslint.config.js:80` sets `complexity`, `max-params`, `max-depth` and
 `max-nested-callbacks` but no `max-lines-per-function`. The result:
 `ConfigForm` (`web/src/features/settings/SettingsPanel.tsx:25`) is 305
-lines, `PullRequestForm` (`web/src/features/review/ReviewPanel.tsx:220`)
+lines, `PullRequestForm` (`web/src/features/review/ReviewPanel.tsx:241`)
 125 and `CommitForm` (`web/src/features/branch/CommitForm.tsx:36`) 105. Files
 are measured — `scripts/check-file-length.sh` holds `.ts` and `.tsx` to the
 500/800 targets, and the longest, `SettingsPanel.tsx`, is 373 lines — but a
@@ -175,25 +175,27 @@ the split `ConfigForm` meets; split `ConfigForm` by fieldset.
 Severity: medium · Confidence: read
 
 `useAsyncAction` (`web/src/lib/useAsyncAction.ts:12`) names the
-`idle → running → idle | error` machine once, and is used by check-out and
-start-work. Five components hand-roll the same machine instead:
+`idle → running → done | error` machine once, and is used by check-out,
+start-work and the two offers after opening (`FollowUpOffer`,
+`web/src/features/review/OpenedOutcome.tsx:70`). Five components hand-roll the
+same machine instead:
 `PushButton` (`web/src/features/branch/BranchPanel.tsx:125`), `CommitForm`
 (`CommitForm.tsx:58`), `AnnounceControls`
 (`web/src/features/messaging/MessagingPanel.tsx:111`), `OpenPullRequest`
-(`web/src/features/review/ReviewPanel.tsx:120`) and `ConfigForm`
-(`SettingsPanel.tsx:35`). Alongside: `splitList` (`web/src/features/review/ReviewPanel.tsx:210`),
+(`web/src/features/review/ReviewPanel.tsx:150`) and `ConfigForm`
+(`SettingsPanel.tsx:35`). Alongside: `splitList` (`web/src/features/review/ReviewPanel.tsx:231`),
 `trimmedList` (`internal/webserver/pullrequest.go:145`) and an inline third
 copy (`SettingsPanel.tsx:205`) all trim a comma-separated list; and
 `SettingsPanel.errorMessage` (`SettingsPanel.tsx:333`) is now a one-line
 wrapper over `apiErrorMessage` that stays exported only so its own test can
 repeat four of the five assertions in `web/src/api/apiError.test.ts`.
 
-**What it costs.** A success state (which four of the seven writes lack —
+**What it costs.** A success state (which four of the nine writes lack —
 see UX.md) has to be added in six places; the six already differ in how
 they clear an error.
 
-**One way to fix it.** `useAsyncAction` grows a `done` state and a
-message; the five adopt it; `splitList` moves to `web/src/api` and the
+**One way to fix it.** `useAsyncAction`, which has had a `done` state since
+Phase 9's offers, grows a message; the five adopt it; `splitList` moves to `web/src/api` and the
 server's `trimmedList` stays (they are on different sides of the wire).
 
 **Done when.** `set('running')` appears in one file under `web/src`.

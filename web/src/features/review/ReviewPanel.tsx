@@ -3,13 +3,18 @@ import { useForm } from 'react-hook-form'
 import { apiErrorMessage } from '@/api/apiError.ts'
 import { useForgeWords } from '@/api/health.ts'
 import type {
+  Ci,
   CiState,
+  OpenedPullRequest,
   OpenPullRequestRequest,
+  PullRequest,
   PullRequestDraft,
+  Review,
 } from '@/api/generated/types.gen.ts'
 import { useSnapshotStore } from '@/api/snapshot.ts'
-import { capitalized, cn } from '@/lib/utils.ts'
+import { cn } from '@/lib/utils.ts'
 import { EmptyState } from '@/shell/EmptyState.tsx'
+import { OpenedOutcome } from './OpenedOutcome.tsx'
 import { openPr, previewPullRequest } from './openPrApi.ts'
 
 const ciDot: Record<CiState, string> = {
@@ -27,22 +32,47 @@ const mergeableLabel: Record<'unknown' | 'clean' | 'conflicts', string> = {
 
 export function ReviewPanel() {
   const snapshot = useSnapshotStore((state) => state.snapshot)
-  const { sigil } = useForgeWords()
 
   if (!snapshot) {
     return <EmptyState>Connecting to the forge…</EmptyState>
   }
 
-  const { review } = snapshot
+  // Keyed by the branch, so checking out another starts its review afresh: an
+  // open's outcome offers to write to its own branch's issue, and it goes
+  // rather than offer a link the server would refuse — or, back on its branch,
+  // a second one.
+  return <BranchReview key={snapshot.branch.name} review={snapshot.review} />
+}
 
-  if (!review.found || !review.pull) {
-    return <OpenPullRequest />
-  }
-
-  const { pull, ci } = review
+// BranchReview is the checked-out branch's pull request, or the offer to open
+// one, beneath what the last open answered.
+function BranchReview({ review }: { review: Review }) {
+  // What the open answered, held here — above the switch between offering to
+  // open and showing the pull request — so the snapshot that brings the new pull
+  // request back leaves the outcome and its offers where they were. The outcome
+  // is keyed by its pull request, so a second open offers its own writes rather
+  // than inheriting what the first one's did.
+  const [opened, setOpened] = useState<OpenedPullRequest | null>(null)
 
   return (
     <div className="mt-4 flex max-w-2xl flex-col gap-8">
+      {opened === null ? null : <OpenedOutcome key={opened.pull.url} opened={opened} />}
+      {review.found && review.pull ? (
+        <PullRequestSummary pull={review.pull} ci={review.ci ?? null} />
+      ) : (
+        <OpenPullRequest onOpened={setOpened} />
+      )}
+    </div>
+  )
+}
+
+// PullRequestSummary is the branch's pull request — its number in the forge's
+// own mark, its title, state and reviews — and its CI checks.
+function PullRequestSummary({ pull, ci }: { pull: PullRequest; ci: Ci | null }) {
+  const { sigil } = useForgeWords()
+
+  return (
+    <>
       <section aria-labelledby="pr-heading" className="flex flex-col gap-3">
         <h2 id="pr-heading" className="flex items-baseline gap-2 text-lg font-medium">
           <span className="text-muted-foreground">
@@ -100,7 +130,7 @@ export function ReviewPanel() {
           </ul>
         </section>
       ) : null}
-    </div>
+    </>
   )
 }
 
@@ -108,14 +138,14 @@ type OpenState = 'idle' | 'loading' | 'form' | 'opening' | 'done' | 'error'
 
 // OpenPullRequest opens a pull request for a branch that has none yet, behind a
 // preview: it composes the proposal, shows it as an editable form, and opens on
-// confirm — pushing the branch first when it is not yet published. On success
-// the event stream brings back the new pull request, which replaces this.
-function OpenPullRequest() {
+// confirm — pushing the branch first when it is not yet published. On success it
+// hands what the open answered to the panel, which says so above it, and steps
+// aside until the event stream brings back the new pull request.
+function OpenPullRequest({ onOpened }: { onOpened: (opened: OpenedPullRequest) => void }) {
   const { noun } = useForgeWords()
   const [state, setState] = useState<OpenState>('idle')
   const [draft, setDraft] = useState<PullRequestDraft | null>(null)
   const [error, setError] = useState('')
-  const [warning, setWarning] = useState('')
 
   const openForm = async () => {
     setState('loading')
@@ -132,7 +162,7 @@ function OpenPullRequest() {
   const submit = async (request: OpenPullRequestRequest) => {
     setState('opening')
     try {
-      setWarning(await openPr(request))
+      onOpened(await openPr(request))
       setError('')
       setState('done')
     } catch (caught) {
@@ -142,16 +172,7 @@ function OpenPullRequest() {
   }
 
   if (state === 'done') {
-    return (
-      <div className="mt-4 flex flex-col gap-1">
-        <p className="text-sm text-success">{capitalized(noun)} opened.</p>
-        {warning === '' ? null : (
-          <p role="status" className="text-sm text-warning">
-            {warning}
-          </p>
-        )}
-      </div>
-    )
+    return null
   }
 
   // A failed open keeps the form up with its reason, so the edits are not lost;
@@ -174,7 +195,7 @@ function OpenPullRequest() {
   }
 
   return (
-    <div className="mt-4 flex flex-col gap-2">
+    <div className="flex flex-col gap-2">
       <p className="text-sm text-muted-foreground">No open {noun} for this branch yet.</p>
       <button
         type="button"
@@ -261,7 +282,7 @@ function PullRequestForm({
       onSubmit={(event) => {
         void submit(event)
       }}
-      className="mt-4 flex max-w-2xl flex-col gap-3 rounded-md border border-border p-4"
+      className="flex flex-col gap-3 rounded-md border border-border p-4"
     >
       <label className="flex flex-col gap-1 text-xs text-muted-foreground">
         Title
