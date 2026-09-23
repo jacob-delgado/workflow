@@ -1,4 +1,5 @@
-import { Workflow } from 'lucide-react'
+import { Lock, Workflow } from 'lucide-react'
+import { useHealth, useHealthStore } from '@/api/health.ts'
 import { useEventStream } from '@/api/snapshot.ts'
 import { NavRail } from './NavRail.tsx'
 import { SectionPanel } from './SectionPanel.tsx'
@@ -10,7 +11,9 @@ import { useUiStore } from './uiStore.ts'
 
 export function AppShell() {
   useEventStream()
+  useHealth()
   useApplyTheme()
+  const health = useHealthStore((state) => state.health)
   const section = useUiStore((state) => state.section)
   const { label } = sectionMeta[section]
 
@@ -26,12 +29,29 @@ export function AppShell() {
         <span className="flex items-center gap-2 font-semibold tracking-tight">
           <Workflow aria-hidden className="size-5 text-primary" />
           workflow
+          {health ? (
+            <span className="font-mono text-xs font-normal text-muted-foreground">
+              {health.version}
+            </span>
+          ) : null}
         </span>
         <div className="flex items-center gap-3">
           <ThemeToggle />
           <StreamStatus />
         </div>
       </header>
+      {health?.dry_run ? (
+        <p
+          role="status"
+          className="flex items-center gap-2 border-b border-border bg-muted px-4 py-2 text-sm"
+        >
+          <Lock aria-hidden className="size-4 shrink-0 text-muted-foreground" />
+          <span>
+            Read-only: started with <code className="font-mono">--dry-run</code>; every write is
+            held back.
+          </span>
+        </p>
+      ) : null}
       <div className="flex flex-1">
         <NavRail />
         <main

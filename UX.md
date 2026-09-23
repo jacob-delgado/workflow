@@ -354,26 +354,6 @@ loading and error states; an "Open in Jira" link from `url`.
 **Done when.** Selecting an issue shows its description and its comments
 (a role/name test against a faked `getIssue`).
 
-### UX-71 Under `--dry-run`, every button fails and nothing says why
-
-Impact: high · Effort: small
-
-**Today.** `refuseWritesInDryRun` (`internal/webserver/guard.go:46`) answers
-403 to every unsafe method — the documented design. `getHealth` carries
-`dry_run` (and `version`) on the wire (`openapi.yaml:42`) and the web never
-fetches it, so the browser has no idea it is in that mode: each write
-button sends its request and shows a refusal with no explanation, and the
-version is shown nowhere.
-
-**Instead.** One `getHealth` at mount: the version in the header; when
-`dry_run`, a `role="status"` banner ("Read-only: started with `--dry-run`;
-every write is held back") and each write, when clicked, says so *without*
-sending — the interface's narration (`internal/tui/dryrun.go:25`) rather
-than a disabled control (CLAUDE.md forbids the opacity route anyway).
-
-**Done when.** Against a fake `getHealth` reporting `dry_run: true`, the
-banner is visible and clicking Push sends no request.
-
 ### UX-72 One view, one page, no filter
 
 Impact: medium · Effort: small
@@ -505,7 +485,7 @@ Impact: high · Effort: small
 states (`BranchPanel.tsx:139`). The focused button disappears and focus
 falls to `<body>`. Changing section from the nav rail or a work-story row
 never moves focus to `<main>`, though `tabIndex={-1}` is there for it
-(`AppShell.tsx:39`).
+(`web/src/shell/AppShell.tsx:59`).
 
 **Instead.** Focus the outcome when a form closes; focus `<main>` on a
 section change.
