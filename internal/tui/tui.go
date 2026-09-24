@@ -48,6 +48,10 @@ type Model struct {
 	// runs counts the programs started, so the output of one run is never
 	// shown in another.
 	runs int
+	// reviewsBegun counts the reviews begun, so a CI poll scheduled in one since
+	// replaced ends its chain rather than polling beside the new one's. It lives
+	// here, not in reviewState, where each new review's literal would reset it.
+	reviewsBegun int
 	// draft is the commit message last composed and not yet committed.
 	draft commitDraft
 	// prDraft is the pull request last composed and not yet opened, kept per

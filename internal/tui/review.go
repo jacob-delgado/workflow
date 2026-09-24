@@ -27,11 +27,17 @@ type reviewState struct {
 	checkedAt time.Time
 	ciErr     error
 	polling   bool
-	// generation rises each time a genuinely new review begins, so a poll left
-	// over from an earlier one recognizes itself as stale and stops rather than
-	// starting a fresh chain of its own.
-	generation int
-	scroll     int
+	scroll    int
+}
+
+// beginReview replaces the review with next — another pull request, or none —
+// and counts it begun, so a poll scheduled for the one replaced ends its chain.
+// Every new review goes through here.
+func (m Model) beginReview(next reviewState) Model {
+	m.reviewsBegun++
+	m.review = next
+
+	return m
 }
 
 // ciCheckedFormat stamps the CI line with when it was last read.
@@ -83,10 +89,7 @@ func (msg pullFound) apply(m Model) (Model, tea.Cmd) {
 		// polling chain beside the one already going.
 		m.review.pull, m.review.err = msg.pull, msg.err
 	} else {
-		m.review = reviewState{
-			pull: msg.pull, found: msg.found, loaded: true, err: msg.err,
-			generation: m.review.generation + 1,
-		}
+		m = m.beginReview(reviewState{pull: msg.pull, found: msg.found, loaded: true, err: msg.err})
 	}
 
 	if !m.review.found {
@@ -165,7 +168,7 @@ func (m Model) keepPolling(then tea.Cmd) (Model, tea.Cmd) {
 	}
 
 	m.review.polling = true
-	poll := ciPoll{number: m.review.pull.Number, generation: m.review.generation}
+	poll := ciPoll{review: m.reviewsBegun}
 
 	return m, tea.Batch(then, m.deps.after(m.pollInterval(), func(time.Time) tea.Msg { return poll }))
 }
@@ -186,17 +189,16 @@ func (m Model) pollInterval() time.Duration {
 	return m.deps.ciInterval()
 }
 
-// ciPoll is time to ask about CI again, for the pull request and the review it
-// was scheduled in. A poll from a review since replaced is stale.
+// ciPoll is time to ask about CI again, for the review it was scheduled in,
+// counted among the reviews begun. A poll from a review since replaced is stale.
 type ciPoll struct {
-	number     int
-	generation int
+	review int
 }
 
 // apply asks again, unless it belongs to a review that has since been replaced,
 // in which case it does nothing and its chain ends here.
 func (msg ciPoll) apply(m Model) (Model, tea.Cmd) {
-	if !m.review.found || msg.number != m.review.pull.Number || msg.generation != m.review.generation {
+	if msg.review != m.reviewsBegun {
 		return m, nil
 	}
 

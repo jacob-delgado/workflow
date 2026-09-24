@@ -74,7 +74,7 @@ None is over the 800 hard ceiling. The first edition of this entry missed
 the two source files outside `internal/tui`. Its headline file,
 `internal/tui/review.go` at 727 lines, is paid: the merge picker moved to
 `internal/tui/merge.go` and the re-run to `internal/tui/checks.go`,
-leaving it at 453.
+leaving it at 455.
 
 **What it costs.** `scripts/check-file-length.sh` warns on every run, so the
 warning has stopped meaning anything.
@@ -108,20 +108,22 @@ then.
 
 **Done when.** The two pairs are written down under Deliberate trade-offs.
 
-### DEBT-59 A generation counter stands in for cancellation, and a race is left on purpose
+### DEBT-59 A race between two reads of the same issue is left on purpose
 
 Severity: low · Confidence: read
 
-`reviewState.generation` (`internal/tui/review.go:33`) exists solely to
-stop a superseded CI polling chain from applying — a workaround for having
-no way to cancel the earlier chain. `detailLoaded.apply`
-(`internal/tui/detail.go:55`) documents a last-writer-wins race between two
-in-flight reads of the same issue and consciously declines to fix it. Both
-are honest about what they are; both are the kind of thing the next
-concurrency change trips on.
+`detailLoaded.apply` (`internal/tui/detail.go:55`) documents a
+last-writer-wins race between two in-flight reads of the same issue and
+consciously declines to fix it. It is honest about what it is, and the kind
+of thing the next concurrency change trips on.
 
-**Done when.** Polling chains carry a context that the next generation
-cancels; the detail read is keyed so a stale answer is dropped.
+The rest of this entry is paid: the CI polling generation lives on `Model`
+(`Model.reviewsBegun`, `internal/tui/tui.go:54`), counted by `beginReview`
+(`internal/tui/review.go:36`), so no new review's `reviewState` literal can
+reset it, and a branch left and returned to within one poll interval keeps
+one polling chain, not two.
+
+**Done when.** The detail read is keyed so a stale answer is dropped.
 
 ## The web
 
