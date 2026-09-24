@@ -230,6 +230,7 @@ tasks:
       - scripts/coverage-gate_test.sh
       - scripts/coverage-summary_test.sh
       - scripts/gobco-report_test.sh
+      - scripts/hook-environment_test.sh
       - scripts/tool-versions_test.sh
       - scripts/release/push-release-tag_test.sh
 
