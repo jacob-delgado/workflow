@@ -60,12 +60,17 @@ func TestTheForgeSeamsExplainAForgeThatCannotBeReached(t *testing.T) {
 			_, createErr := seams.CreatePullRequest(forge.NewPullRequest{})
 			_, editErr := seams.EditPullRequest(forge.PullRequest{}, forge.PullRequestEdit{})
 			_, checkErr := seams.CheckStatus(forge.PullRequest{}, "abc")
+			_, rerunErr := seams.Rerun(forge.PullRequest{}, "abc")
+			mergeErr := seams.Merge(forge.PullRequest{}, forge.MergeSquash)
+			_, methodsErr := seams.MergeMethods()
+			_, reviewErr := seams.ReviewRequests()
 			_, authorErr := seams.Author()
 
 			// Assert
 			for seam, err := range map[string]error{
 				"FindPullRequest": findErr, "CreatePullRequest": createErr, "EditPullRequest": editErr,
-				"CheckStatus": checkErr, "Author": authorErr,
+				"CheckStatus": checkErr, "Rerun": rerunErr, "Merge": mergeErr, "MergeMethods": methodsErr,
+				"ReviewRequests": reviewErr, "Author": authorErr,
 			} {
 				if !errors.Is(err, tt.want) {
 					t.Errorf("%s = %v, want %v", seam, err, tt.want)
