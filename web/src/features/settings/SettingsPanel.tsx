@@ -350,7 +350,7 @@ const inputClass =
 function Fieldset({ legend, children }: { legend: string; children: ReactNode }) {
   return (
     <fieldset className="flex flex-col gap-group">
-      <legend className="text-sm font-semibold text-muted-foreground uppercase">{legend}</legend>
+      <legend className="mb-group text-base font-semibold">{legend}</legend>
       {children}
     </fieldset>
   )

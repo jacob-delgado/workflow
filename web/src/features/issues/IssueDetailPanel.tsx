@@ -6,7 +6,7 @@ import { useIssue } from './issueApi.ts'
 import { IssueStatus } from './IssueStatus.tsx'
 import { WorkStory } from './WorkStory.tsx'
 
-const sectionHeading = 'text-sm font-semibold text-muted-foreground uppercase'
+const sectionHeading = 'text-base font-semibold'
 
 // IssueDetailPanel shows one issue in full, read on its own from the tracker.
 // The heading follows the list's row while the list holds the issue — the

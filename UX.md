@@ -154,31 +154,6 @@ horizontal axis.
 
 ## The web
 
-### UX-84 The web's visual system is not the product's
-
-Impact: medium · Effort: small
-
-**Today.** The web now carries the interface's system: the four systems'
-hues as tokens (`web/src/index.css:62`) on the active rail icon, each
-section's heading and the work story's stages; every state drawn by its
-shape — `○ ◐ ● ✗ ·` — through one `StateMark`
-(`web/src/shell/StateMark.tsx:33`); and one scale each for type, space and
-corners (`web/src/index.css:162`). What remains is the template tell the
-interface avoids: nine `uppercase` eyebrow headings from seven class strings
-(`web/src/features/settings/SettingsPanel.tsx:353`,
-`web/src/features/branch/BranchPanel.tsx:80`,
-`web/src/features/branch/WorkingTree.tsx:21`,
-`web/src/features/issues/IssueDetailPanel.tsx:9` — the work story,
-description and comments share it —
-`web/src/features/review/ReviewPanel.tsx:109`,
-`web/src/features/messaging/MessagingPanel.tsx:95`, `:49`) as the *only*
-heading treatment.
-
-**Instead.** Sentence-case headings on the type scale. The interface's own
-system does not change.
-
-**Done when.** No `uppercase` heading remains.
-
 ### UX-85 The layout has no breakpoints
 
 Impact: medium · Effort: medium
@@ -259,8 +234,20 @@ for five systems (Jira blue, git yellow, the forge green, chat magenta),
 all taken from the terminal's own palette so the user's theme decides the
 shades; shape for state (`○ ◐ ● ✗`); border weight for focus; red for
 failure and nothing else. None of that should change. This edition found
-no place in the terminal where the system is not applied; the one open
-question is the web's, and it is UX-84.
+no place in the terminal where the system is not applied.
+
+The web now speaks it too. The four systems' hues are tokens in both
+themes (`web/src/index.css:62`), in the terminal's hue families but held at
+least 30° of OKLCH hue from the status lights, the periwinkle control
+accent and each other, and at 4.5:1 as text, by `web/src/tokens.test.ts`;
+they mark whose a thing is — the active rail icon, each section's heading,
+the work story's stages and an issue's local branch — and never how it
+stands. Every state is drawn by its shape through one `StateMark`
+(`web/src/shell/StateMark.tsx:33`), hidden from assistive tech beside its
+words. Type, space and corners each have one scale
+(`web/src/index.css:162`), headings are set in sentence case — the web lint
+refuses an `uppercase` class — and monospace is for code alone. Periwinkle
+stays the one control accent, and the middle dot the separator.
 
 ## Across the surfaces
 

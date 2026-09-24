@@ -77,7 +77,7 @@ function BranchSummary({ branch }: { branch: Branch }) {
 function Commits({ commits }: { commits: Branch['commits'] }) {
   return (
     <section aria-labelledby="commits-heading" className="flex flex-col gap-group">
-      <h3 id="commits-heading" className="text-sm font-semibold text-muted-foreground uppercase">
+      <h3 id="commits-heading" className="text-base font-semibold">
         Commits
       </h3>
       {commits.length === 0 ? (
