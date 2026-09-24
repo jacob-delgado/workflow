@@ -74,6 +74,20 @@ and a table-driven test is preferred when cases differ only in data. `task lint`
 and the pre-commit hook check the markers; CLAUDE.md's TDD process section has
 the rules.
 
+A test that runs git must first clear the variables git exports to a hook, the
+names `git rev-parse --local-env-vars` prints. From a linked worktree, a hook's
+or `git rebase --exec`'s `GIT_DIR` is an absolute path into the shared
+repository, and a test's `git -C <temp dir>` would work on that repository
+instead: one pre-push set `core.bare`, moved `main` and rewrote the config that
+way. The gate is safe to run from a hook or a linked worktree only because of
+this. The Go packages that run git (`internal/cli`, `internal/wiring`) clear
+them in `TestMain`, each proven by
+`TestTheTestsLeaveTheRepositoryAHookNamesAlone`. Every script test that runs git
+unsets them, which `scripts/hook-environment_test.sh` checks. The pre-push hook,
+`task test`, `task test:cover`, `task cover:branch` and `task test:summary` all
+unset them before running the Go tests as well. A new package or script test
+that runs git needs the same.
+
 Two Go coverage floors gate a change, both configured in `Taskfile.yml` and
 both printing the available ratchet when you clear them:
 

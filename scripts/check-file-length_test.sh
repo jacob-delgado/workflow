@@ -7,6 +7,11 @@
 #   scripts/check-file-length_test.sh
 set -euo pipefail
 
+# A git hook or `git rebase --exec` exports the variables that locate its
+# repository; the repositories this test builds must not inherit them.
+# shellcheck disable=SC2046 # word splitting is the point: one name per word
+unset $(git rev-parse --local-env-vars)
+
 here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 readonly check="${here}/check-file-length.sh"
 
