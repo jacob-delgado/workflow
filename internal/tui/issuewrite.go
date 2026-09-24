@@ -194,7 +194,7 @@ func (msg issueWritten) apply(m Model) (Model, tea.Cmd) {
 		return keepOpenWith[issueWrite](m, msg.err), nil
 	}
 
-	return m.closeOverlay().noticed(m.marks.done + " " + msg.note), m.reloadDetail(msg.issueKey)
+	return m.closeOverlay().noticed(m.marks.done + " " + msg.note).reloadDetail(msg.issueKey)
 }
 
 // failed is the form kept open with the reason the write was refused.

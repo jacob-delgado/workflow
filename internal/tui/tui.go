@@ -52,6 +52,9 @@ type Model struct {
 	// replaced ends its chain rather than polling beside the new one's. It lives
 	// here, not in reviewState, where each new review's literal would reset it.
 	reviewsBegun int
+	// detailReads counts the issue reads started, so the answer to one a later
+	// read superseded is dropped rather than shown over the later one's.
+	detailReads int
 	// draft is the commit message last composed and not yet committed.
 	draft commitDraft
 	// prDraft is the pull request last composed and not yet opened, kept per

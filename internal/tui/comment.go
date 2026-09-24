@@ -172,7 +172,7 @@ func (msg commentPosted) apply(m Model) (Model, tea.Cmd) {
 
 	m = m.closeOverlay().noticed(m.marks.done + " commented on " + string(msg.issueKey))
 
-	return m, m.reloadDetail(msg.issueKey)
+	return m.reloadDetail(msg.issueKey)
 }
 
 // failed is the preview kept open with the reason, the comment still in it.
