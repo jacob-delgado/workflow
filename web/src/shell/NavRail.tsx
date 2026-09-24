@@ -15,7 +15,7 @@ export function NavRail() {
   return (
     <nav
       aria-label="Sections"
-      className="flex w-14 shrink-0 flex-col gap-tight border-r border-border bg-card px-2 py-3 md:w-20"
+      className="relative flex w-14 shrink-0 flex-col gap-tight overflow-y-auto border-r border-border bg-card px-2 py-3 md:w-20"
     >
       {sections.map((key) => {
         const { Icon, hue } = sectionMeta[key]

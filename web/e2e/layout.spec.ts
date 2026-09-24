@@ -3,8 +3,9 @@ import { expect, test, type Page } from '@playwright/test'
 import { height, openCockpit, openSection, sectionNames, themes, widths } from './cockpit.ts'
 
 // The populated cockpit at a narrow, a middling and a wide window, in both
-// themes: nothing scrolls sideways, every control the keyboard can reach is in
-// view once it has focus, and axe finds nothing.
+// themes: nothing scrolls sideways, the page does not scroll at all, every
+// control the keyboard can reach is in view once it has focus, and axe finds
+// nothing.
 
 // A control counts as in view when this much of it is, allowing a rounding
 // pixel at a scrolled edge.
@@ -32,6 +33,12 @@ function sidewaysScrollers(): string[] {
   return scrollers
 }
 
+// pageScrolls says whether the page itself scrolls down, which the shell never
+// does: the content, or a pane in it, scrolls instead.
+function pageScrolls(): boolean {
+  return (document.scrollingElement?.scrollHeight ?? 0) > window.innerHeight
+}
+
 // tabStops are where Tab stops: every link, button and field not disabled or
 // taken out of the order.
 function tabStops(): HTMLElement[] {
@@ -55,40 +62,66 @@ function drawnOnly(stops: HTMLElement[]): HTMLElement[] {
 interface Stop {
   // index is where the focused control sits among the drawn ones, or -1.
   index: number
-  name: string
-  // shown is how much of the focused control is in view: its box clipped by
-  // the window and by every part of the page that scrolls or clips.
+  // words are the focused control's text, to name one that is not drawn.
+  words: string
+  // shown is how much of the focused control is in view.
   shown: number
 }
 
-// focusedStop says which control has focus, and how much of it is in view.
+// focusedStop says which control has focus, and how much of it is in view:
+// what focus must reveal of it, clipped by the window and by every part of the
+// page around it that scrolls or clips.
 function focusedStop(controls: HTMLElement[]): Stop {
-  const focused = document.activeElement
-  if (!(focused instanceof HTMLElement) || focused === document.body) {
-    return { index: -1, name: 'the page', shown: 1 }
-  }
+  // revealed is what focus must bring into view: the whole control, or a text
+  // area's first line, since the browser brings the caret into view, not the
+  // whole box.
+  function revealed(control: HTMLElement): { top: number; bottom: number } {
+    const box = control.getBoundingClientRect()
+    if (!(control instanceof HTMLTextAreaElement)) {
+      return box
+    }
 
-  const box = focused.getBoundingClientRect()
-  const view = { left: 0, top: 0, right: window.innerWidth, bottom: window.innerHeight }
-  for (let clip = focused.parentElement; clip !== null; clip = clip.parentElement) {
-    const style = getComputedStyle(clip)
-    if (style.overflowX !== 'visible' || style.overflowY !== 'visible') {
-      const area = clip.getBoundingClientRect()
-      view.left = Math.max(view.left, area.left + clip.clientLeft)
-      view.top = Math.max(view.top, area.top + clip.clientTop)
-      view.right = Math.min(view.right, area.left + clip.clientLeft + clip.clientWidth)
-      view.bottom = Math.min(view.bottom, area.top + clip.clientTop + clip.clientHeight)
+    const style = getComputedStyle(control)
+    const line = ['borderTopWidth', 'paddingTop', 'lineHeight'] as const
+
+    return {
+      top: box.top,
+      bottom: box.top + line.reduce((sum, key) => sum + parseFloat(style[key]), 0),
     }
   }
 
-  const across = Math.max(0, Math.min(box.right, view.right) - Math.max(box.left, view.left))
-  const down = Math.max(0, Math.min(box.bottom, view.bottom) - Math.max(box.top, view.top))
-  const name = focused.getAttribute('aria-label') ?? focused.textContent.trim()
+  // visibleArea is the part of the window a control can be seen through.
+  function visibleArea(control: HTMLElement) {
+    const view = { left: 0, top: 0, right: window.innerWidth, bottom: window.innerHeight }
+    for (let clip = control.parentElement; clip !== null; clip = clip.parentElement) {
+      const style = getComputedStyle(clip)
+      if (style.overflowX !== 'visible' || style.overflowY !== 'visible') {
+        const area = clip.getBoundingClientRect()
+        view.left = Math.max(view.left, area.left + clip.clientLeft)
+        view.top = Math.max(view.top, area.top + clip.clientTop)
+        view.right = Math.min(view.right, area.left + clip.clientLeft + clip.clientWidth)
+        view.bottom = Math.min(view.bottom, area.top + clip.clientTop + clip.clientHeight)
+      }
+    }
+
+    return view
+  }
+
+  const focused = document.activeElement
+  if (!(focused instanceof HTMLElement) || focused === document.body) {
+    return { index: -1, words: 'the page', shown: 1 }
+  }
+
+  const { left, right, width } = focused.getBoundingClientRect()
+  const { top, bottom } = revealed(focused)
+  const view = visibleArea(focused)
+  const across = Math.max(0, Math.min(right, view.right) - Math.max(left, view.left))
+  const down = Math.max(0, Math.min(bottom, view.bottom) - Math.max(top, view.top))
 
   return {
     index: controls.indexOf(focused),
-    name: name || focused.id,
-    shown: (across * down) / (box.width * box.height),
+    words: focused.textContent.trim(),
+    shown: (across * down) / (width * (bottom - top)),
   }
 }
 
@@ -109,6 +142,7 @@ async function walkTabOrder(page: Page): Promise<{ missed: string[]; hidden: str
   const stops = await page.evaluateHandle(tabStops)
   const lap = (await stops.evaluate((all) => all.length)) + 1
   const controls = await stops.evaluateHandle(drawnOnly)
+  const names = await controls.evaluate(controlNames)
   const reached = new Set<number>()
   const hidden: string[] = []
   for (let step = 0; step < lap; step++) {
@@ -116,11 +150,10 @@ async function walkTabOrder(page: Page): Promise<{ missed: string[]; hidden: str
     const stop = await controls.evaluate(focusedStop)
     reached.add(stop.index)
     if (stop.shown < inView) {
-      hidden.push(`${stop.name} (${String(Math.round(stop.shown * 100))}% in view)`)
+      const name = names[stop.index] ?? stop.words
+      hidden.push(`${name} (${String(Math.round(stop.shown * 100))}% in view)`)
     }
   }
-
-  const names = await controls.evaluate(controlNames)
 
   return { missed: names.filter((_, index) => !reached.has(index)), hidden }
 }
@@ -147,9 +180,11 @@ for (const theme of themes) {
           await openSection(page, name)
           const { missed, hidden } = await walkTabOrder(page)
 
-          // Assert: nothing scrolls sideways; Tab reaches every drawn control,
-          // each in view as it has focus; and axe finds nothing.
+          // Assert: nothing scrolls sideways, nor the page down; Tab reaches
+          // every drawn control, each in view as it has focus; and axe finds
+          // nothing.
           expect(await page.evaluate(sidewaysScrollers), `${name}: scrolls sideways`).toEqual([])
+          expect(await page.evaluate(pageScrolls), `${name}: the page scrolls`).toBe(false)
           expect(missed, `${name}: never reached by Tab`).toEqual([])
           expect(hidden, `${name}: out of view with focus`).toEqual([])
           expect(await axeViolations(page), `${name}: axe`).toBe('')
@@ -195,6 +230,79 @@ for (const { width, named } of railCases) {
         await expect(button).toHaveAttribute('title', sectionNames[index])
       }
       expect(drawn).toEqual(sectionNames.map(() => named))
+    },
+  )
+}
+
+// The header holds still while a section scrolls beneath it: the page itself
+// never scrolls, the content does.
+for (const width of widths) {
+  test(
+    `the header stays in view as a long section scrolls at ${String(width)} px`,
+    { tag: '@populated' },
+    async ({ page }) => {
+      // Arrange: the settings, longer than the window.
+      await page.setViewportSize({ width, height })
+      await page.goto('/')
+      await openSection(page, 'Settings')
+      const save = page.getByRole('button', { name: 'Save changes' })
+
+      // Act: take the form's last control into view.
+      await save.focus()
+
+      // Assert: it is in view, and so is the header above it.
+      await expect(save).toBeInViewport()
+      await expect(page.getByRole('button', { name: /change theme/i })).toBeInViewport()
+    },
+  )
+}
+
+// In a window shorter than the rail, the rail scrolls itself, not the page:
+// the header stays in view as the rail's last section takes focus.
+test(
+  'the rail scrolls itself in a window shorter than it',
+  { tag: '@populated' },
+  async ({ page }) => {
+    // Arrange
+    await page.setViewportSize({ width: 640, height: 240 })
+    await page.goto('/')
+    const rail = page.getByRole('navigation', { name: 'Sections' })
+    const settings = rail.getByRole('button', { name: 'Settings', exact: true })
+
+    // Act
+    await settings.focus()
+
+    // Assert
+    await expect(settings).toBeInViewport()
+    await expect(page.getByRole('button', { name: /change theme/i })).toBeInViewport()
+    expect(await page.evaluate(pageScrolls), 'the page scrolls').toBe(false)
+  },
+)
+
+// The skip link is the first stop, drawn as it has focus, and it hands focus to
+// the content.
+for (const width of widths) {
+  test(
+    `the skip link takes focus to the content at ${String(width)} px`,
+    { tag: '@populated' },
+    async ({ page }) => {
+      // Arrange
+      await page.setViewportSize({ width, height })
+      await page.goto('/')
+      const skip = page.getByRole('link', { name: 'Skip to content' })
+
+      // Act: the first Tab
+      await page.keyboard.press('Tab')
+
+      // Assert: it lands on the skip link, drawn in view
+      await expect(skip).toBeFocused()
+      await expect(skip).toBeInViewport({ ratio: 1 })
+
+      // Act: follow it
+      await page.keyboard.press('Enter')
+
+      // Assert: the content has focus
+      await expect(page.getByRole('main')).toBeFocused()
     },
   )
 }

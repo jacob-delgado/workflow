@@ -29,15 +29,23 @@ export function AppShell() {
   const main = useSectionFocus(section)
   const service = useSnapshotStore((state) => state.snapshot?.messaging.service)
 
+  // The shell is the window's height and never scrolls: the header and the
+  // rail hold still, and the content scrolls beneath the header — or, where a
+  // section splits into panes, each pane scrolls on its own. Every link in the
+  // chain down to the scrolling part sets min-h-0, or it would grow to its
+  // content and scroll the page instead. And a scrolling part that holds text
+  // kept for a screen reader (sr-only, drawn out of the flow) is positioned,
+  // so that text is placed, scrolled and clipped inside it: placed against the
+  // window, it would grow the page.
   return (
-    <div className="flex min-h-dvh flex-col">
+    <div className="flex h-dvh flex-col">
       <a
         href="#main"
         className="sr-only focus-visible:not-sr-only focus-visible:absolute focus-visible:left-4 focus-visible:top-2 focus-visible:z-10 focus-visible:rounded-md focus-visible:bg-card focus-visible:px-3 focus-visible:py-1.5 focus-visible:text-sm focus-visible:ring-2 focus-visible:ring-ring"
       >
         Skip to content
       </a>
-      <header className="flex items-center justify-between border-b border-border px-4 py-2.5">
+      <header className="flex flex-wrap items-center justify-between gap-x-group gap-y-tight border-b border-border px-4 py-2.5">
         <span className="flex items-center gap-2 font-semibold tracking-tight">
           <Workflow aria-hidden className="size-5 text-primary" />
           workflow
@@ -64,13 +72,13 @@ export function AppShell() {
           </span>
         </p>
       ) : null}
-      <div className="flex flex-1">
+      <div className="flex min-h-0 flex-1">
         <NavRail />
         <main
           ref={main}
           id="main"
           tabIndex={-1}
-          className="flex flex-1 flex-col gap-block overflow-auto p-block focus-visible:outline-none"
+          className="relative flex flex-1 flex-col gap-block overflow-auto p-block focus-visible:outline-none"
         >
           <SectionHeading section={section} service={service} />
           <SectionPanel section={section} />

@@ -1,4 +1,4 @@
-import { test } from '@playwright/test'
+import { test, type Page } from '@playwright/test'
 import { height, openCockpit, openSection, sectionNames, themes, widths } from './cockpit.ts'
 
 // Screenshots of every populated section, in both themes, at a narrow, a
@@ -6,6 +6,17 @@ import { height, openCockpit, openSection, sectionNames, themes, widths } from '
 // a reviewer to read a visual change by eye. Nothing is compared: a baseline
 // would differ by the OS's fonts, and would commit images that a reviewer
 // cannot diff anyway.
+
+// fitToContent grows the window by as much as the content scrolls, so the
+// saved screen holds the whole section: the page itself holds still under its
+// header, and a full-page capture sees only the window.
+async function fitToContent(page: Page, width: number): Promise<void> {
+  const overflow = await page
+    .getByRole('main')
+    .evaluate((main) => main.scrollHeight - main.clientHeight)
+  await page.setViewportSize({ width, height: height + overflow })
+}
+
 for (const theme of themes) {
   for (const width of widths) {
     test(
@@ -19,7 +30,9 @@ for (const theme of themes) {
         await openCockpit(page, { width, height }, theme)
 
         for (const name of sectionNames) {
-          // Act: open the section, and let it settle.
+          // Act: open the section in a window of the height the run began at,
+          // and let it settle.
+          await page.setViewportSize({ width, height })
           await openSection(page, name)
 
           // Assert: the screen is saved as drawn, with the pointer parked off
@@ -29,6 +42,7 @@ for (const theme of themes) {
           // strokes a frame or more after the text beside it: the capture
           // finishes those transitions first rather than catching the last
           // section's colors on the way out.
+          await fitToContent(page, width)
           await page.mouse.move(0, 0)
           await page.screenshot({
             path: testInfo.outputPath(`${String(width)}-${theme}-${name.toLowerCase()}.png`),
