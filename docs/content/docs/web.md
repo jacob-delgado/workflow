@@ -127,7 +127,13 @@ The configuration file in effect, in seven parts — Jira, the forge, messaging,
 branches, commits, pull requests and the store — and **Save changes** writes it
 back. A credential is shown masked and kept as it is unless you type a new one.
 The parts the form does not show yet (`ui`, `timing`, `headers`, `views` and
-`branch.prefixes`) are kept unchanged when you save.
+`branch.prefixes`) are kept unchanged when you save. Settings reads the file
+each time it opens, and a save never overwrites a change it has not seen: when
+the file changed after Settings read it (edited on disk, rewritten by `workflow
+config init --force`, or saved from another tab), nothing is written, and
+**Reload** reads it again in place of your edits so you can make the change
+again. When the file on disk is not valid, Settings says so in place of the
+form, and `workflow doctor` says what is wrong with it.
 
 ## What stays in the terminal
 

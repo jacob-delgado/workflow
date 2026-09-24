@@ -37,8 +37,9 @@ export function useIssue(key: string) {
 }
 
 // useViews reads the configured issue views, in order — the ones the stream can
-// carry. Saving the configuration refreshes it (see useSaveConfig). Under
-// VITE_MOCK it serves the fixture's views.
+// carry. Saving the configuration, reloading it, and a read of it that may have
+// taken up an edit refresh it (see configApi.ts). Under VITE_MOCK it serves the
+// fixture's views.
 export function useViews() {
   const options = listViewsOptions()
 
