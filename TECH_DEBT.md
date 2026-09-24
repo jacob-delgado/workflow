@@ -59,29 +59,30 @@ anyone misuse a credential, a terminal or a release.
 
 ## The terminal interface
 
-### DEBT-55 Two source files sit past the 500-line soft target
+### DEBT-55 A source file sits past the 500-line soft target
 
 Severity: low · Confidence: measured
 
-`scripts/check-file-length.sh --list` flags two source files past the
-500-line soft target — `internal/forge/github.go` (551) and
-`internal/gitrepo/branch.go` (532). Neither is over the 800 hard ceiling.
-The first edition of this entry missed both. Three are paid: its headline
-file, `internal/tui/review.go` at 727 lines, gave its merge picker to
-`internal/tui/merge.go` and its re-run to `internal/tui/checks.go`, leaving
-it at 455; `internal/tui/messaging.go` (529) gave its announcement preview
-to `internal/tui/messagingpreview.go`, leaving it at 323; and
-`internal/tui/prcomposer.go` (527) gave opening the pull request to
-`internal/tui/prcreate.go`, leaving it at 400. The test files past the
+`scripts/check-file-length.sh --list` flags one source file past the
+500-line soft target — `internal/gitrepo/branch.go` (532), under the 800
+hard ceiling. The first edition of this entry missed it. Four are paid:
+its headline file, `internal/tui/review.go` at 727 lines, gave its merge
+picker to `internal/tui/merge.go` and its re-run to
+`internal/tui/checks.go`, leaving it at 455; `internal/tui/messaging.go`
+(529) gave its announcement preview to `internal/tui/messagingpreview.go`,
+leaving it at 323; `internal/tui/prcomposer.go` (527) gave opening the pull
+request to `internal/tui/prcreate.go`, leaving it at 400; and
+`internal/forge/github.go` (551) gave its CI reads to
+`internal/forge/githubci.go`, leaving it at 399. The test files past the
 target stay long by decision, and move to the deliberate trade-offs when
 this entry closes.
 
 **What it costs.** `scripts/check-file-length.sh` warns on every run, so the
-warning has stopped meaning anything, and each of these files carries more
-than one concern.
+warning has stopped meaning anything, and the file carries more than one
+concern.
 
-**One way to fix it.** Split each by the concern it carries, as the three
-in `internal/tui` were.
+**One way to fix it.** Split it by the concern it carries, as the other
+four were.
 
 **Done when.** `check-file-length.sh --list` flags no source file `soft`.
 
@@ -234,13 +235,15 @@ These were chosen on purpose and are written down at their sites. They are
 not debt; they are listed because each one costs something a reader should
 know about.
 
-- **Four packages sit exactly at their file budget** — `internal/tui`
+- **Five packages sit exactly at their file budget** — `internal/tui`
   41/41, `internal/webserver` 17/17, `internal/cli` 13/13,
-  `internal/config` 13/13 (`scripts/package-size-budgets.txt`). That is the
-  gate working as designed: the next file in any of them is a decision (a
-  split, or a bump with the WHY rewritten), not an accident. The cost is
-  that any change adding a file there must carry its budget row in the same
-  commit or fail `task check`.
+  `internal/config` 13/13 (`scripts/package-size-budgets.txt`), and
+  `internal/forge` 12/12, at the default the gate applies to a directory the
+  file does not list. That is the gate working as designed: the next file in
+  any of them is a decision (a split, or a bump with the WHY rewritten, or
+  for `internal/forge` a first entry with its WHY), not an accident. The
+  cost is that any change adding a file there must carry its budget row in
+  the same commit or fail `task check`.
 - **The web is read-only under `--dry-run`** (`internal/webserver/guard.go:40`
   documents it): every unsafe method answers 403 at one gate, where the
   terminal simulates each write and narrates it. The browser reads
