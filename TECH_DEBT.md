@@ -230,11 +230,9 @@ Severity: low · Confidence: read
 - Residual "Slack" after the rename: the root command's `Short`
   (`internal/cli/cli.go:171`), the help group `groupReviewSlack`
   (`internal/tui/keys.go:88`), `FEATURES.md:30`, `web/index.html:9`.
-- `docs/content/docs/usage.md:56` says "the five panes" and `:78` says
-  "`1`–`5`"; `internal/tui/panes.go:27` has `paneCount = 6` and the jump
-  binding shows `1-6` (`internal/tui/keys.go:202`); the screen mock at `docs/content/docs/usage.md:30-49`
-  omits the Reviews pane. `FEATURES.md:52`'s settled-decision text says
-  "Five panes" for the same reason — stale text, not a decision reopened.
+- `FEATURES.md:52`'s settled-decision text says "Five panes down the
+  left"; `internal/tui/panes.go:27` has `paneCount = 6` — stale text, not a
+  decision reopened.
 - `usage.md` never mentions `--web`, and neither does `README.md`; the only
   user-facing references are the flag's one line in the generated
   reference, the errors page, and the problem-code and streams sections of
@@ -244,7 +242,7 @@ Severity: low · Confidence: read
   (`:118`) and FEAT-31 (`:143`) carry inline `Done:` notes instead of the
   removal the standing rule asks for.
 
-**Done when.** `usage.md` says six and the docs have a web page.
+**Done when.** `FEATURES.md` says six and the docs have a web page.
 
 ### DEBT-71 `wiring` returns `tui.Deps`, though three surfaces consume the seams
 
