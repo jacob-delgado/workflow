@@ -82,6 +82,27 @@ func TestCheckKeysRefusesTwoActionsSharingAKeyInOneContext(t *testing.T) {
 	}
 }
 
+func TestCheckKeysNamesTheReviewPanesForNoParticularService(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	// merge and edit both answer on the Review pane. The check runs before any
+	// service is chosen, so the context it names must fit Teams as well as Slack.
+	colliding := map[string]string{mergeAction: "e"}
+
+	// Act
+	err := tui.CheckKeys(colliding)
+
+	// Assert
+	if err == nil {
+		t.Fatal("CheckKeys accepted merge rebound onto edit's key")
+	}
+
+	if got := err.Error(); !strings.Contains(got, "the Review and messaging panes") {
+		t.Errorf("CheckKeys error %q does not name the Review and messaging panes", got)
+	}
+}
+
 func TestCheckKeysCatchesConflictsOnCrossPaneKeys(t *testing.T) {
 	t.Parallel()
 
