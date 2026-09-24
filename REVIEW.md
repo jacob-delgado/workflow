@@ -181,7 +181,7 @@ met and stay.
 | Buttons say what happens | Met | `Open pull request`, `Commit staged changes`, `Push branch` |
 | An action keeps its name; errors direct; empty states invite | Met since Phase 11 — one announce verb ("Announce to X" opens the preview, "Announce now" sends); every fallback, and the server's own failures, say what to do next; one connecting line; a Retry and a not-a-repository line that invites | `web/src/features/writes.test.tsx` |
 | Feedback after a write | Met since Phase 11 — 12 of 12, each in a live line that keeps the button's verb and outlives the snapshot confirming the write (`OutcomeLine`, `web/src/lib/Outcome.tsx:54`) | `web/src/features/writes.test.tsx` |
-| Focus management | Met since Phase 11 — to the outcome when a write's control goes, through each step's swap and back on Cancel or a refusal (`web/src/lib/focus.ts`), and to `<main>` on a section change (`useSectionFocus`, `web/src/shell/AppShell.tsx:112`) | — |
+| Focus management | Met since Phase 11 — to the outcome when a write's control goes, through each step's swap and back on Cancel or a refusal (`web/src/lib/focus.ts`), and to `<main>` on a section change (`useSectionFocus`, `web/src/shell/AppShell.tsx:113`) | — |
 | Accessible names, landmarks, skip link, focus ring, axe both themes | Met | enforced |
 | Disabled by opacity; reduced motion | Met since Phase 11 — `--disabled` tokens (`web/src/index.css:48`), held to 4.5:1 in both themes by `web/src/tokens.test.ts`, and no `opacity-N` class past the web lint; transitions `motion-safe:`, and one reduced-motion rule (`web/src/index.css:222`) | — |
 | Responsive | **Gap** — zero breakpoints | UX-85 |
