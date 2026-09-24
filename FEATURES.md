@@ -104,7 +104,7 @@ Impact: medium · Effort: large
   (`TransitionIssue`, `internal/webserver/issuewrite.go:106`). Beyond those
   it has no transition with its field form, no comment, no assign, no log
   work — all of which the interface offers from the Issues pane
-  (`internal/tui/picker.go:206`, `internal/tui/comment.go:41`, `internal/tui/issuewrite.go:74`).
+  (`internal/tui/picker.go:207`, `internal/tui/comment.go:41`, `internal/tui/issuewrite.go:74`).
   This is the rest.
 - Touches: `api/openapi.yaml` (operations for a transition with fields,
   comment, assign, worklog), `internal/webserver` (`issuewrite.go` holds the

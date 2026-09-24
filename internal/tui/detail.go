@@ -43,22 +43,19 @@ type issueDetail struct {
 	scroll int
 }
 
-// detailLoaded carries an issue read in full.
+// detailLoaded carries an issue read in full, and which read it answers.
 type detailLoaded struct {
 	key    jira.Key
+	read   int
 	detail jira.IssueDetail
 	err    error
 }
 
-// apply records the issue, unless the selection has moved on from it.
-//
-// Two reads of the SAME key in flight at once — a load and a reload after a
-// comment, say — are last-to-arrive-wins: the message carries no sequence
-// number, so a stale read landing after a fresh one would overwrite it. Every
-// request is bounded by the request timeout, which keeps that window to a few
-// seconds; a sequence guard is not worth threading through every load for it.
+// apply records the issue, unless the selection has moved on from it or a later
+// read has started — a load and then a reload after a comment, say — whose
+// answer is the one to show, whichever of the two arrives last.
 func (msg detailLoaded) apply(m Model) (Model, tea.Cmd) {
-	if msg.key != m.detail.key {
+	if msg.key != m.detail.key || msg.read != m.detailReads {
 		return m, nil
 	}
 
@@ -125,27 +122,29 @@ func (m Model) loadDetail() (Model, tea.Cmd) {
 
 	m.detail = issueDetail{key: selected.Key, loaded: false, err: nil, detail: jira.IssueDetail{}}
 
-	return m, m.fetchDetail(selected.Key)
+	return m.readDetail()
 }
 
 // reloadDetail reads an issue in full again, when it is the one shown — after a
 // comment or a change of status. What is shown stays until the answer arrives.
-func (m Model) reloadDetail(issueKey jira.Key) tea.Cmd {
+func (m Model) reloadDetail(issueKey jira.Key) (Model, tea.Cmd) {
 	if m.deps.Jira.Issue == nil || m.detail.key != issueKey {
-		return nil
+		return m, nil
 	}
 
-	return m.fetchDetail(issueKey)
+	return m.readDetail()
 }
 
-// fetchDetail is the command that reads an issue in full.
-func (m Model) fetchDetail(issueKey jira.Key) tea.Cmd {
-	read := m.deps.Jira.Issue
+// readDetail starts a read of the issue shown, numbered so that only the latest
+// read's answer is shown. Every read goes through here.
+func (m Model) readDetail() (Model, tea.Cmd) {
+	m.detailReads++
+	read, issueKey, number := m.deps.Jira.Issue, m.detail.key, m.detailReads
 
-	return func() tea.Msg {
+	return m, func() tea.Msg {
 		detail, err := read(issueKey)
 
-		return detailLoaded{key: issueKey, detail: detail, err: err}
+		return detailLoaded{key: issueKey, read: number, detail: detail, err: err}
 	}
 }
 

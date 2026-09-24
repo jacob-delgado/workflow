@@ -6,7 +6,7 @@ spots, and docs that have drifted from the code. It is a record, not a plan.
 Nothing here is scheduled.
 
 Two readers are in mind: a contributor looking for something worth fixing,
-and a later Claude Code session asked to "pick up DEBT-57". Each entry says
+and a later Claude Code session asked to "pick up DEBT-64". Each entry says
 what is wrong, where, what it costs, one way to fix it, and how to tell when
 it is fixed. [FEATURES.md](FEATURES.md) and [UX.md](UX.md) hold the ideas;
 this file holds the debts. An earlier edition of this file was retired once
@@ -84,46 +84,6 @@ warning has stopped meaning anything.
 the same commit.
 
 **Done when.** `check-file-length.sh --list` flags nothing `soft`.
-
-### DEBT-57 Composer pairs, written twice
-
-Severity: low · Confidence: read
-
-Two `onFieldNav` + `*CanComplete` pairs (`internal/tui/scopesuggest.go:17`,
-`internal/tui/prcomposer.go:304`) and two blur-all-then-focus-one switches
-(`internal/tui/composer.go:297`, `internal/tui/prcomposer.go:325`). Two is
-not yet the rule of three: they stay until a third composer needs them.
-
-The rest of this entry is paid: the fourteen "keep the overlay open with the
-reason" appliers share `keepOpenWith` (`internal/tui/overlay.go:143`), the
-five list pickers draw through one `pickList`
-(`internal/tui/picker.go:26`), and the focus-guarded scroll re-clamps are
-gone now that each pane keeps its own scroll and each list pane re-follows
-its selection after every reload (`changeList.following`,
-`internal/tui/commits.go:72`; `reviewQueueState.following`,
-`internal/tui/reviewqueue.go:64`).
-
-**What it costs.** A third composer must copy the pairs or extract them
-then.
-
-**Done when.** The two pairs are written down under Deliberate trade-offs.
-
-### DEBT-59 A race between two reads of the same issue is left on purpose
-
-Severity: low · Confidence: read
-
-`detailLoaded.apply` (`internal/tui/detail.go:55`) documents a
-last-writer-wins race between two in-flight reads of the same issue and
-consciously declines to fix it. It is honest about what it is, and the kind
-of thing the next concurrency change trips on.
-
-The rest of this entry is paid: the CI polling generation lives on `Model`
-(`Model.reviewsBegun`, `internal/tui/tui.go:54`), counted by `beginReview`
-(`internal/tui/review.go:36`), so no new review's `reviewState` literal can
-reset it, and a branch left and returned to within one poll interval keeps
-one polling chain, not two.
-
-**Done when.** The detail read is keyed so a stale answer is dropped.
 
 ## The web
 
@@ -301,6 +261,16 @@ know about.
   mitigated by the stage name, or its initial when compact (`internal/tui/spine.go:51`).
   Part of the visual system UX.md says should not change; the cost is one
   channel the monochrome reader does not get.
+- **The two composers' field handling is written twice.** The commit and
+  pull request composers each pair an `onFieldNav` with a `*CanComplete`
+  check (`commitComposer.onFieldNav`, `internal/tui/scopesuggest.go:17`;
+  `prComposer.onFieldNav`, `internal/tui/prcomposer.go:304`), and each blurs
+  every field before focusing one (`commitComposer.focusOn`,
+  `internal/tui/composer.go:297`; `prComposer.focusOn`,
+  `internal/tui/prcomposer.go:325`). Two is not yet the rule of three, so
+  they stay apart until a third composer needs them. The cost is that a
+  change to field navigation is made twice, and a third composer must copy
+  the pairs or extract them then.
 - **A condition-coverage skip list of two** (`UNANALYZABLE`,
   `scripts/gobco-report.sh:82`): gobco ignores build tags, so it cannot read
   a package whose files come in tagged twins, and `internal/proc/pgroup` and

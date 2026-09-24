@@ -165,8 +165,9 @@ func (msg transitionApplied) apply(m Model) (Model, tea.Cmd) {
 	}
 
 	m = m.closeOverlay().noticed(m.marks.done + " " + string(msg.issueKey) + " is now " + msg.to.ToStatus)
+	m, detail := m.reloadDetail(msg.issueKey)
 
-	return m, tea.Batch(m.searchIssues(), m.reloadDetail(msg.issueKey))
+	return m, tea.Batch(m.searchIssues(), detail)
 }
 
 // failed is the picker back on its transitions with the reason, the field form

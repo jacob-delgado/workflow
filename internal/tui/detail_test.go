@@ -469,12 +469,16 @@ func TestRRetriesAFailedDetailLoad(t *testing.T) {
 	failing.detailErr = errNotVisible
 	model := failing.live(t, 120, 40)
 	before := len(failing.asked("issue " + issueKey))
+	failing.detailErr = nil
 
 	// Act
-	typing(t, model, "r")
+	retried := typing(t, model, "r")
 
 	// Assert
 	if after := len(failing.asked("issue " + issueKey)); after != before+1 {
 		t.Errorf("asked Jira for the issue %d times, want one more than the %d before r", after, before)
 	}
+
+	requireScreen(t, retried.View().Content, "Tokens reach the log.")
+	refuseScreen(t, retried.View().Content, errNotVisible.Error())
 }

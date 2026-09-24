@@ -146,15 +146,18 @@ func (m Model) extendFilterWith(msg tea.KeyPressMsg) (Model, tea.Cmd) {
 	return m.loadDetail()
 }
 
-// refreshIssues reads the list again, and the selected issue in full whether or
-// not it changed, so r retries a detail load that failed.
+// refreshIssues reads the list again, and the issue shown in full whether or not
+// it changed, so r retries a detail load that failed. An issue the selection has
+// only just reached is left to the read its rest will start.
 func (m Model) refreshIssues() (Model, tea.Cmd) {
 	m.issues.loading = true
 
 	selected, ok := m.issues.current()
-	if !ok || m.deps.Jira.Issue == nil {
+	if !ok {
 		return m, m.searchIssues()
 	}
 
-	return m, tea.Batch(m.searchIssues(), m.fetchDetail(selected.Key))
+	m, detail := m.reloadDetail(selected.Key)
+
+	return m, tea.Batch(m.searchIssues(), detail)
 }

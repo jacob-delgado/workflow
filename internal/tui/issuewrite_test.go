@@ -46,6 +46,7 @@ func TestAssigningPostsTheAssigneeAfterAPreview(t *testing.T) {
 	}
 
 	// Act: confirm
+	repo.detail.Description = "Fred has it now."
 	view := typing(t, form, keyEnter).View().Content
 
 	// Assert: it posts the assignee, says so, and re-reads the issue to show it
@@ -58,6 +59,8 @@ func TestAssigningPostsTheAssigneeAfterAPreview(t *testing.T) {
 	if reads := repo.asked("issue " + issueKey); len(reads) != 2 {
 		t.Errorf("issue reads = %d, want two: the initial load and the refresh after assigning", len(reads))
 	}
+
+	requireScreen(t, view, "Fred has it now.")
 }
 
 func TestLoggingWorkPostsTheDuration(t *testing.T) {
@@ -65,9 +68,11 @@ func TestLoggingWorkPostsTheDuration(t *testing.T) {
 
 	// Arrange
 	repo := newWorld()
+	form := typeInto(t, repo, "w", "2h")
+	repo.detail.Description = "Two hours in."
 
 	// Act
-	view := typing(t, typeInto(t, repo, "w", "2h"), keyEnter).View().Content
+	view := typing(t, form, keyEnter).View().Content
 
 	// Assert
 	if got := repo.asked("worklog " + issueKey + " 2h "); len(got) != 1 {
@@ -79,6 +84,8 @@ func TestLoggingWorkPostsTheDuration(t *testing.T) {
 	if reads := repo.asked("issue " + issueKey); len(reads) != 2 {
 		t.Errorf("issue reads = %d, want two: the initial load and the refresh after logging work", len(reads))
 	}
+
+	requireScreen(t, view, "Two hours in.")
 }
 
 func TestAnIssueWriteHeldBackInADryRun(t *testing.T) {

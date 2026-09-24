@@ -247,3 +247,20 @@ func TestAStatusChangeIsSaidInPlainWords(t *testing.T) {
 		"● PROJ-412 is now In Review")
 	refuseScreen(t, done.View().Content, "moved to", "moving")
 }
+
+func TestAMoveShowsTheIssueReadAgain(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	moving := newWorld()
+	moving.moves = workflowMoves()
+	picker := typing(t, moving.live(t, 120, 40), "t")
+	moving.detail.Description = "Moved along."
+
+	// Act
+	moved := typing(t, picker, keyEnter)
+
+	// Assert
+	requireScreen(t, moved.View().Content, "Moved along.")
+	refuseScreen(t, moved.View().Content, "Tokens reach the log.")
+}
