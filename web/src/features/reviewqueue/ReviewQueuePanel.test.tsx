@@ -7,6 +7,7 @@ import type { ReviewQueue } from '@/api/generated/types.gen.ts'
 import { useHealthStore } from '@/api/health.ts'
 import { fakeApi } from '@/test/fakeApi.ts'
 import { gitLabWords, makeHealth, makeReviewRequest } from '@/test/fixtures.ts'
+import { drawnMark, markShape } from '@/test/marks.tsx'
 import { renderWithClient } from '@/test/renderWithClient.tsx'
 import { ReviewQueuePanel } from './ReviewQueuePanel.tsx'
 
@@ -69,6 +70,36 @@ test('the Reviews section lists requests by role and name', async () => {
     /#42.*redact the token.*acme\/api · by ana · 3d ago · Draft.*CI failed/,
   )
   expect(rows[1]?.textContent).toMatch(/#7.*acme\/web · by sam · 5h ago.*CI passed/)
+})
+
+test('draws how CI stands on each request as its mark, beside the words', async () => {
+  // Arrange
+  const stands = [
+    { ci: 'none', words: 'CI not reported', mark: 'unknown' },
+    { ci: 'running', words: 'CI running', mark: 'in-flight' },
+    { ci: 'passed', words: 'CI passed', mark: 'done' },
+    { ci: 'failed', words: 'CI failed', mark: 'failed' },
+  ] as const
+  fakeApi({
+    [reviewsPath]: queueOf(
+      ...stands.map(({ ci }, index) =>
+        makeReviewRequest({
+          ci,
+          number: index + 1,
+          url: `https://github.com/acme/api/pull/${String(index + 1)}`,
+        }),
+      ),
+    ),
+  })
+
+  // Act
+  renderWithClient(<ReviewQueuePanel />)
+
+  // Assert
+  await screen.findByRole('list', { name: 'Review requests' })
+  expect(stands.map(({ words }) => markShape(screen.getByText(words)))).toEqual(
+    stands.map(({ mark }) => drawnMark(mark)),
+  )
 })
 
 test('the mockup lists its own queue without a server', async () => {

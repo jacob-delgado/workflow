@@ -6,12 +6,13 @@ import { OutcomeLine, useOutcome, type Teller } from '@/lib/Outcome.tsx'
 import { useAsyncAction } from '@/lib/useAsyncAction.ts'
 import { cn } from '@/lib/utils.ts'
 import { EmptyState } from '@/shell/EmptyState.tsx'
+import { StateMark } from '@/shell/StateMark.tsx'
 import { useUiStore } from '@/shell/uiStore.ts'
 import { checkoutBranch } from './checkoutApi.ts'
 import { useMoreIssues } from './issueApi.ts'
 import { IssueDetailPanel } from './IssueDetailPanel.tsx'
 import { IssueListControls } from './IssueListControls.tsx'
-import { StatusBadge } from './StatusBadge.tsx'
+import { IssueStatus } from './IssueStatus.tsx'
 
 export function IssuesPanel() {
   const snapshot = useSnapshotStore((state) => state.snapshot)
@@ -209,11 +210,11 @@ function IssueRows({ issues, branches, rowRefs, outcome }: IssueRowsProps) {
             >
               <span className="flex items-center gap-2">
                 <span className="font-mono text-xs text-muted-foreground">{issue.key}</span>
-                <StatusBadge category={issue.status_category} label={issue.status} />
+                <IssueStatus category={issue.status_category} label={issue.status} />
                 {newest ? (
-                  <span className="ml-auto flex items-center gap-1 text-xs text-primary">
-                    <span aria-hidden className="size-1.5 rounded-full bg-primary" />
-                    <span className="sr-only">in flight</span>
+                  <span className="ml-auto flex items-center gap-1 text-xs whitespace-nowrap text-muted-foreground">
+                    <StateMark state="in-flight" className="size-3 text-git" />
+                    <span>in flight</span>
                   </span>
                 ) : null}
               </span>

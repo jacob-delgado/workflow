@@ -5,6 +5,7 @@ import type { OpenedPullRequest } from '@/api/generated/types.gen.ts'
 import { useHealthStore } from '@/api/health.ts'
 import { useSnapshotStore } from '@/api/snapshot.ts'
 import { gitLabWords, makeHealth, makeSnapshot } from '@/test/fixtures.ts'
+import { drawnMark, markShape } from '@/test/marks.tsx'
 import { openPr, previewPullRequest } from './openPrApi.ts'
 import { ReviewPanel } from './ReviewPanel.tsx'
 
@@ -90,6 +91,45 @@ test('shows the pull request and its CI checks', () => {
   expect(screen.getByRole('link', { name: /redact tokens/i })).toBeTruthy()
   expect(screen.getByText('build')).toBeTruthy()
   expect(screen.getByText('e2e')).toBeTruthy()
+})
+
+test('draws each check as the mark of how it stands, beside the words', () => {
+  // Arrange
+  const checks = [
+    { name: 'lint', state: 'none', mark: 'unknown' },
+    { name: 'e2e', state: 'running', mark: 'in-flight' },
+    { name: 'build', state: 'passed', mark: 'done' },
+    { name: 'test', state: 'failed', mark: 'failed' },
+  ] as const
+  useSnapshotStore.setState({
+    status: 'live',
+    snapshot: makeSnapshot({
+      review: {
+        found: true,
+        pull,
+        ci: {
+          state: 'failed',
+          total: 4,
+          done: 3,
+          failed: 1,
+          checks: checks.map(({ name, state }) => ({ name, state, url: '' })),
+        },
+      },
+    }),
+  })
+
+  // Act
+  render(<ReviewPanel />)
+
+  // Assert
+  const rows = screen.getAllByRole('listitem')
+  expect(rows.map(markShape)).toEqual(checks.map(({ mark }) => drawnMark(mark)))
+  expect(rows.map((row) => row.textContent)).toEqual([
+    'lintnone',
+    'e2erunning',
+    'buildpassed',
+    'testfailed',
+  ])
 })
 
 test('shows a pull request that has no CI', () => {

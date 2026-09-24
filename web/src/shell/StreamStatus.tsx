@@ -1,11 +1,14 @@
 import { useSnapshotStore, type StreamStatus as Status } from '@/api/snapshot.ts'
-import { cn } from '@/lib/utils.ts'
+import { StateMark, type MarkState } from './StateMark.tsx'
 
-const meta: Record<Status, { label: string; dot: string }> = {
-  connecting: { label: 'Connecting', dot: 'bg-warning' },
-  live: { label: 'Live', dot: 'bg-success' },
-  reconnecting: { label: 'Reconnecting', dot: 'bg-destructive' },
-  stale: { label: 'Out of date', dot: 'bg-destructive' },
+// Each state of the stream, by its words and its mark: nothing yet while it
+// first connects, done while live, in flight while it finds its way back, and
+// failed once a frame it cannot read has left the page out of date.
+const meta: Record<Status, { label: string; mark: MarkState }> = {
+  connecting: { label: 'Connecting', mark: 'not-started' },
+  live: { label: 'Live', mark: 'done' },
+  reconnecting: { label: 'Reconnecting', mark: 'in-flight' },
+  stale: { label: 'Out of date', mark: 'failed' },
 }
 
 // StreamStatus says how current the page is. Why it is out of date is read out
@@ -14,15 +17,15 @@ const meta: Record<Status, { label: string; dot: string }> = {
 export function StreamStatus() {
   const status = useSnapshotStore((state) => state.status)
   const reason = useSnapshotStore((state) => state.reason)
-  const { label, dot } = meta[status]
+  const { label, mark } = meta[status]
 
   return (
     <div
       role="status"
       title={reason === '' ? undefined : reason}
-      className="flex items-center gap-2 text-xs text-muted-foreground"
+      className="flex items-center gap-1.5 text-xs text-muted-foreground"
     >
-      <span aria-hidden className={cn('size-2 rounded-full', dot)} />
+      <StateMark state={mark} className="size-3" />
       {label}
       {reason === '' ? null : <span className="sr-only">: {reason}</span>}
     </div>

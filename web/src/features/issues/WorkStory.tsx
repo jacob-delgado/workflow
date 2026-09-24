@@ -1,15 +1,26 @@
-import { Check } from 'lucide-react'
 import type { Snapshot, TaskBranch } from '@/api/generated/types.gen.ts'
 import { useForgeWords, type ForgeWords } from '@/api/health.ts'
 import { useSnapshotStore } from '@/api/snapshot.ts'
 import { OutcomeLine, useOutcome, type Teller } from '@/lib/Outcome.tsx'
 import { useAsyncAction } from '@/lib/useAsyncAction.ts'
 import { capitalized, cn } from '@/lib/utils.ts'
+import { sectionMeta } from '@/shell/sections.ts'
+import { StateMark, type MarkState } from '@/shell/StateMark.tsx'
 import { useUiStore, type Section } from '@/shell/uiStore.ts'
 import { checkoutBranch } from './checkoutApi.ts'
 import { startWork } from './startWorkApi.ts'
 
 type StageState = 'done' | 'active' | 'upcoming'
+
+// A stage's mark: done, the stage the work is at, and the stages still to
+// come. It takes the hue of the system the stage belongs to, as the
+// interface's spine does (internal/tui/spine.go), so a stage and the section
+// it opens share a color.
+const stageMark: Record<StageState, MarkState> = {
+  done: 'done',
+  active: 'in-flight',
+  upcoming: 'not-started',
+}
 
 interface Stage {
   title: string
@@ -207,13 +218,12 @@ export function WorkStory({ issueKey }: { issueKey: string }) {
 
           return (
             <li key={stage.title} className="flex gap-3">
-              <div className="flex flex-col items-center">
-                <StageMarker state={state} />
-                {last ? null : (
-                  <span
-                    className={cn('w-0.5 flex-1', stage.done ? 'bg-success/40' : 'bg-border')}
-                  />
-                )}
+              <div className="flex flex-col items-center gap-1 pt-1">
+                <StateMark
+                  state={stageMark[state]}
+                  className={cn('size-4', sectionMeta[stage.section].hue)}
+                />
+                {last ? null : <span className="w-px flex-1 bg-border" />}
               </div>
               <button
                 type="button"
@@ -297,23 +307,4 @@ function StartWorkButton({ issueKey, outcome }: { issueKey: string; outcome: Tel
       ) : null}
     </div>
   )
-}
-
-function StageMarker({ state }: { state: StageState }) {
-  if (state === 'done') {
-    return (
-      <span className="flex size-6 items-center justify-center rounded-full bg-success text-success-foreground">
-        <Check aria-hidden className="size-3.5" />
-      </span>
-    )
-  }
-  if (state === 'active') {
-    return (
-      <span className="flex size-6 items-center justify-center rounded-full border-2 border-primary">
-        <span className="size-2 rounded-full bg-primary" />
-      </span>
-    )
-  }
-
-  return <span className="size-6 rounded-full border-2 border-border" />
 }

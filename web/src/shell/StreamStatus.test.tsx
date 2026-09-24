@@ -1,5 +1,6 @@
 import { render, screen } from '@testing-library/react'
 import { useSnapshotStore } from '@/api/snapshot.ts'
+import { drawnMark, markShape } from '@/test/marks.tsx'
 import { StreamStatus } from './StreamStatus.tsx'
 
 test('reflects the live stream state', () => {
@@ -35,4 +36,20 @@ test('says a dropped stream is reconnecting', () => {
 
   // Assert
   expect(screen.getByRole('status').textContent).toContain('Reconnecting')
+})
+
+test.each([
+  ['connecting', 'not-started'],
+  ['live', 'done'],
+  ['reconnecting', 'in-flight'],
+  ['stale', 'failed'],
+] as const)('draws a %s stream as the %s mark, beside its words', (status, mark) => {
+  // Arrange
+  useSnapshotStore.setState({ status })
+
+  // Act
+  render(<StreamStatus />)
+
+  // Assert
+  expect(markShape(screen.getByRole('status'))).toBe(drawnMark(mark))
 })
