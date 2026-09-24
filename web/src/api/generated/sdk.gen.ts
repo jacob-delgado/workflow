@@ -156,6 +156,8 @@ export const getMessaging = <ThrowOnError extends boolean = false>(options?: Opt
 
 /**
  * The configuration in effect, with secrets masked.
+ *
+ * Reads the configuration file on each request, so an edit made to it on disk since the server last read or wrote it (by hand, or by `workflow config init --force`) becomes the configuration in effect. A file that has been deleted leaves the configuration in effect as it was, and a write puts the file back. The ETag names that configuration, even when its file is gone, and a write sends it back in If-Match.
  */
 export const getConfig = <ThrowOnError extends boolean = false>(options?: Options<GetConfigData, ThrowOnError>): RequestResult<GetConfigResponses, GetConfigErrors, ThrowOnError> => (options?.client ?? client).get<GetConfigResponses, GetConfigErrors, ThrowOnError>({
     responseValidator: async (data) => await zGetConfigResponse.parseAsync(data),
@@ -166,7 +168,7 @@ export const getConfig = <ThrowOnError extends boolean = false>(options?: Option
 /**
  * Write the configuration file.
  *
- * Replaces the configuration file. A secret field (jira.token, messaging.token, messaging.webhook_url, forge.token) left empty or sent back with its masked value keeps the stored secret; a new value replaces it. The body is validated the same way a file read is, and rejected with 422 when it is invalid.
+ * Replaces the configuration file, but only while it is still at the revision If-Match names, so a change made since that read, on disk or by another tab's save, is never overwritten. A secret field (jira.token, messaging.token, messaging.webhook_url, forge.token) left empty or sent back with its masked value keeps the stored secret; a new value replaces it. The body is validated the same way a file read is, and rejected with 422 when it is invalid.
  */
 export const updateConfig = <ThrowOnError extends boolean = false>(options: Options<UpdateConfigData, ThrowOnError>): RequestResult<UpdateConfigResponses, UpdateConfigErrors, ThrowOnError> => (options.client ?? client).put<UpdateConfigResponses, UpdateConfigErrors, ThrowOnError>({
     responseValidator: async (data) => await zUpdateConfigResponse.parseAsync(data),

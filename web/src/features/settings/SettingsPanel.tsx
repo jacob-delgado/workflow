@@ -3,7 +3,7 @@ import { useForm } from 'react-hook-form'
 import type { Config } from '@/api/generated/types.gen.ts'
 import { useAsyncAction } from '@/lib/useAsyncAction.ts'
 import { EmptyState } from '@/shell/EmptyState.tsx'
-import { useConfig, useSaveConfig } from './configApi.ts'
+import { type ConfigRead, useConfigRead, useSaveConfig } from './configApi.ts'
 import { BranchFieldset } from './fieldsets/BranchFieldset.tsx'
 import { CommitFieldset } from './fieldsets/CommitFieldset.tsx'
 import { ForgeFieldset } from './fieldsets/ForgeFieldset.tsx'
@@ -12,7 +12,7 @@ import { MessagingFieldset } from './fieldsets/MessagingFieldset.tsx'
 import { PullRequestFieldset, StoreFieldset } from './fieldsets/PullRequestAndStoreFieldsets.tsx'
 
 export function SettingsPanel() {
-  const query = useConfig()
+  const query = useConfigRead()
   // A Retry is swapped for the form it loads, so the form takes the focus the
   // Retry had rather than letting it fall to the page.
   const [retried, setRetried] = useState(false)
@@ -42,21 +42,29 @@ export function SettingsPanel() {
     )
   }
 
-  return <ConfigForm config={query.data} takesFocus={retried} />
+  return <ConfigForm read={query.data} takesFocus={retried} />
 }
 
 // ConfigForm edits the configuration, one fieldset per section it can edit. It
 // takes focus, on its first field, only when it replaces a control that had
 // it — a Retry — and otherwise leaves focus where the section change put it.
-function ConfigForm({ config, takesFocus }: { config: Config; takesFocus: boolean }) {
+function ConfigForm({ read, takesFocus }: { read: ConfigRead; takesFocus: boolean }) {
   // The whole config seeds the form, so the sections and collections this form
   // does not edit (ui, timing, headers, views…) ride back unchanged on save
   // rather than being dropped.
-  const { register, handleSubmit, reset, setFocus } = useForm<Config>({ defaultValues: config })
+  const { register, handleSubmit, reset, setFocus } = useForm<Config>({
+    defaultValues: read.config,
+  })
+  // The revision of the file the form's values stand for: the read that seeded
+  // it, then each save. A save names it, so it never writes over a change the
+  // form has not seen, even once the cached read has moved on.
+  const [revision, setRevision] = useState(read.revision)
   const saveConfig = useSaveConfig()
   const save = useAsyncAction(
     async (values: Config) => {
-      reset(await saveConfig(values))
+      const saved = await saveConfig(values, revision)
+      reset(saved.config)
+      setRevision(saved.revision)
     },
     { fallback: 'The configuration was not saved. Try again — your edits are still in the form.' },
   )

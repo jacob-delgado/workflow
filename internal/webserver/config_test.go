@@ -6,6 +6,7 @@ package webserver_test
 import (
 	"encoding/json"
 	"net/http"
+	"net/http/httptest"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -25,6 +26,33 @@ func marshal(t *testing.T, cfg config.Config) string {
 	}
 
 	return string(data)
+}
+
+// putConfig saves body as Settings does: it reads the configuration first, and
+// saves over the revision that read returned.
+func putConfig(t *testing.T, handler http.Handler, body string) *httptest.ResponseRecorder {
+	t.Helper()
+
+	return putConfigOver(t, handler, body, get(t, handler, "/api/config").Header().Get("ETag"))
+}
+
+// putConfigOver saves body over the revision etag names, sent as If-Match; an
+// empty etag sends none.
+func putConfigOver(t *testing.T, handler http.Handler, body, etag string) *httptest.ResponseRecorder {
+	t.Helper()
+
+	request := httptest.NewRequestWithContext(t.Context(), http.MethodPut, "/api/config", strings.NewReader(body))
+	request.Host = loopbackHost
+	request.Header.Set("Content-Type", "application/json")
+
+	if etag != "" {
+		request.Header.Set("If-Match", etag)
+	}
+
+	recorder := httptest.NewRecorder()
+	handler.ServeHTTP(recorder, request)
+
+	return recorder
 }
 
 func TestGetConfigMasksSecrets(t *testing.T) {
@@ -59,7 +87,7 @@ func TestUpdateConfigWritesTheFile(t *testing.T) {
 	next.Jira.BaseURL = "https://new.example.com"
 
 	// Act
-	recorder := send(t, serve(t, webserver.Deps{}, cfg), http.MethodPut, "/api/config", marshal(t, next))
+	recorder := putConfig(t, serve(t, webserver.Deps{}, cfg), marshal(t, next))
 
 	// Assert
 	if recorder.Code != http.StatusOK {
@@ -87,7 +115,7 @@ func TestUpdateConfigRejectsAnInvalidConfig(t *testing.T) {
 	bad.Timing.RequestTimeout = "soon" // not a duration
 
 	// Act
-	recorder := send(t, serve(t, webserver.Deps{}, cfg), http.MethodPut, "/api/config", marshal(t, bad))
+	recorder := putConfig(t, serve(t, webserver.Deps{}, cfg), marshal(t, bad))
 
 	// Assert
 	if recorder.Code != http.StatusUnprocessableEntity {
@@ -111,7 +139,7 @@ func TestUpdateConfigKeepsAMaskedBaseURLPassword(t *testing.T) {
 	cfg.Jira.BaseURL = "https://user:s3cret@jira.example.com"
 
 	// Act
-	recorder := send(t, serve(t, webserver.Deps{}, cfg), http.MethodPut, "/api/config", marshal(t, cfg.Redacted()))
+	recorder := putConfig(t, serve(t, webserver.Deps{}, cfg), marshal(t, cfg.Redacted()))
 
 	// Assert
 	if recorder.Code != http.StatusOK {
@@ -139,7 +167,7 @@ func TestUpdateConfigKeepsAMaskedSecret(t *testing.T) {
 	cfg.Jira.Token = "real-secret-wxyz"
 
 	// Act
-	recorder := send(t, serve(t, webserver.Deps{}, cfg), http.MethodPut, "/api/config", marshal(t, cfg.Redacted()))
+	recorder := putConfig(t, serve(t, webserver.Deps{}, cfg), marshal(t, cfg.Redacted()))
 
 	// Assert
 	if recorder.Code != http.StatusOK {

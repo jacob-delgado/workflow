@@ -15,6 +15,7 @@ export const zProblem = z.object({
         'not_found',
         'conflict',
         'unprocessable',
+        'precondition_required',
         'unreachable',
         'internal'
     ])
@@ -486,6 +487,10 @@ export const zGetMessagingResponse = zMessagingDestination;
 export const zGetConfigResponse = zConfig;
 
 export const zUpdateConfigBody = zConfig;
+
+export const zUpdateConfigHeaders = z.object({
+    'If-Match': z.string().optional()
+});
 
 /**
  * The configuration as written, redacted.

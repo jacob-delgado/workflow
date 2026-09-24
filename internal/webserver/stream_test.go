@@ -200,7 +200,7 @@ func TestStreamEmptiesTheIssuesWhenItsViewIsRemoved(t *testing.T) {
 	<-searched
 
 	// Act
-	saved := send(t, handler, http.MethodPut, "/api/config", marshal(t, config.Default()))
+	saved := putConfig(t, handler, marshal(t, config.Default()))
 
 	time.Sleep(40 * time.Millisecond)
 	cancel()

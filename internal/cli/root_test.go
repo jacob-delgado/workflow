@@ -233,3 +233,27 @@ func TestTheWebServerSaysWhereItServesAndStopsWithItsRun(t *testing.T) {
 		t.Errorf("the web server said %q, want where it serves", notes.String())
 	}
 }
+
+func TestTheWebServerRefusesAConfigurationPathItCannotRead(t *testing.T) {
+	// Arrange
+	// The configuration's path is a directory, so its revision cannot be read.
+	cfg := config.Default()
+	cfg.Path = t.TempDir()
+
+	ctx, cancel := context.WithCancel(t.Context())
+	cancel()
+
+	var notes bytes.Buffer
+
+	// Act
+	err := cli.WebServerAt("127.0.0.1:0")(ctx, cfg, webserver.Deps{}, webserver.Info{}, &notes)
+
+	// Assert
+	if err == nil || !strings.Contains(err.Error(), "building the web server") {
+		t.Errorf("the web server over an unreadable configuration returned %v, want it not built", err)
+	}
+
+	if notes.Len() != 0 {
+		t.Errorf("the web server said %q, want nothing served", notes.String())
+	}
+}

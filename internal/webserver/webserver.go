@@ -110,6 +110,14 @@ type server struct {
 	mu  sync.RWMutex
 	cfg config.Config
 
+	// seen is the revision of the file cfg was last read from or written as,
+	// under mu with it: a read of the configuration that finds the file at
+	// another revision takes the file up as the configuration in effect. A read
+	// that finds the file gone leaves both standing and sets gone, so the ETag
+	// of that read names the configuration it served, not merely no file.
+	seen config.Revision
+	gone bool
+
 	// indexWrites queues the page's index writes (a stage, a commit, a new
 	// branch): git lets one process write the index at a time, and one that
 	// finds it taken fails rather than waits. A checkout needs no place in the
@@ -139,15 +147,22 @@ var _ api.StrictServerInterface = (*server)(nil)
 // single-page app under every other path. The whole surface is behind the
 // loopback guard, so a browser aimed at the server from a foreign origin is
 // refused. A nil ui serves a notice instead of the app, for a build with no
-// frontend embedded. It fails only when the embedded spec cannot be loaded,
-// which is a build defect rather than a runtime condition.
+// frontend embedded. The server starts from the configuration file at cfg.Path
+// as startingPoint reads it, not from cfg alone, which the process read a
+// moment before. It fails when the embedded spec cannot be loaded, which is a
+// build defect, or when that file cannot be read.
 func Handler(deps Deps, cfg config.Config, info Info, assets fs.FS) (http.Handler, error) {
 	doc, err := loadSpec()
 	if err != nil {
 		return nil, err
 	}
 
-	srv := &server{deps: deps, info: info, path: cfg.Path, cfg: cfg}
+	inEffect, seen, err := startingPoint(cfg)
+	if err != nil {
+		return nil, fmt.Errorf("reading the configuration file: %w", err)
+	}
+
+	srv := &server{deps: deps, info: info, path: cfg.Path, cfg: inEffect, seen: seen}
 
 	strict := api.NewStrictHandlerWithOptions(srv, nil, api.StrictHTTPServerOptions{
 		RequestErrorHandlerFunc:  writeRequestError,
@@ -172,6 +187,32 @@ func Handler(deps Deps, cfg config.Config, info Info, assets fs.FS) (http.Handle
 	root.Handle("/", uiHandler(assets))
 
 	return guardLoopback(refuseWritesInDryRun(info.DryRun, root)), nil
+}
+
+// startingPoint is the configuration the server starts from, with the revision
+// of the file it stands for, both from one read of the file at cfg.Path: an
+// edit made since the process read cfg is taken up, never paired with the
+// revision of a configuration it replaced, or a save over the first read would
+// overwrite it. With no file there, cfg stands at the no-file revision. With a
+// file that has turned invalid since the process read it, cfg, which the
+// process read, also stands at the no-file revision, rather than at a revision
+// learned by reading the file again: reads answer 422 until the file is fixed,
+// and the first read that finds it valid takes it up.
+func startingPoint(cfg config.Config) (config.Config, config.Revision, error) {
+	loaded, seen, err := config.LoadFileAt(cfg.Path)
+	if errors.Is(err, config.ErrInvalid) {
+		return cfg, config.Revision{}, nil
+	}
+
+	if err != nil {
+		return config.Config{}, config.Revision{}, err
+	}
+
+	if !seen.Exists() {
+		return cfg, seen, nil
+	}
+
+	return loaded, seen, nil
 }
 
 // uiHandler serves the embedded app, or a notice when no assets are embedded.

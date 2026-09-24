@@ -27,7 +27,7 @@ export type Problem = {
     /**
      * A stable, machine-readable reason.
      */
-    code: 'bad_request' | 'not_found' | 'conflict' | 'unprocessable' | 'unreachable' | 'internal';
+    code: 'bad_request' | 'not_found' | 'conflict' | 'unprocessable' | 'precondition_required' | 'unreachable' | 'internal';
 };
 
 /**
@@ -1053,6 +1053,10 @@ export type GetConfigData = {
 
 export type GetConfigErrors = {
     /**
+     * The configuration file on disk is not valid; the configuration in effect is unchanged. workflow doctor says what is wrong with it.
+     */
+    422: Problem;
+    /**
      * An RFC 9457 problem details object describing the failure.
      */
     default: Problem;
@@ -1071,6 +1075,12 @@ export type GetConfigResponse = GetConfigResponses[keyof GetConfigResponses];
 
 export type UpdateConfigData = {
     body: Config;
+    headers?: {
+        /**
+         * The ETag of the read the change was made over. A write without it is refused with 428, one whose value is not in the form of an ETag a read returns with 400, and one naming a revision the file is no longer at with 409.
+         */
+        'If-Match'?: string;
+    };
     path?: never;
     query?: never;
     url: '/api/config';
@@ -1078,9 +1088,17 @@ export type UpdateConfigData = {
 
 export type UpdateConfigErrors = {
     /**
+     * The configuration file changed since the revision If-Match names, edited on disk or saved from another tab; nothing was written. Read it again, then make the change again.
+     */
+    409: Problem;
+    /**
      * The configuration is invalid; nothing was written.
      */
     422: Problem;
+    /**
+     * The request named no revision in If-Match; nothing was written.
+     */
+    428: Problem;
     /**
      * An RFC 9457 problem details object describing the failure.
      */

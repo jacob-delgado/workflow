@@ -373,26 +373,54 @@ paths:
     get:
       operationId: getConfig
       summary: The configuration in effect, with secrets masked.
+      description: >-
+        Reads the configuration file on each request, so an edit made to it on
+        disk since the server last read or wrote it (by hand, or by `workflow
+        config init --force`) becomes the configuration in effect. A file that
+        has been deleted leaves the configuration in effect as it was, and a
+        write puts the file back. The ETag names that configuration, even when
+        its file is gone, and a write sends it back in If-Match.
       tags: [config]
       responses:
         "200":
           description: The configuration, redacted.
+          headers:
+            ETag:
+              $ref: "#/components/headers/ConfigRevision"
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/Config"
+        "422":
+          description: >-
+            The configuration file on disk is not valid; the configuration in
+            effect is unchanged. workflow doctor says what is wrong with it.
+          content:
+            application/problem+json:
+              schema: {$ref: "#/components/schemas/Problem"}
         default: {$ref: "#/components/responses/Problem"}
     put:
       operationId: updateConfig
       summary: Write the configuration file.
       description: >-
-        Replaces the configuration file. A secret field (jira.token,
-        messaging.token, messaging.webhook_url, forge.token) left empty or sent
-        back with its masked value keeps the stored secret; a new value replaces
-        it. The
-        body is validated the same way a file read is, and rejected with 422 when
-        it is invalid.
+        Replaces the configuration file, but only while it is still at the
+        revision If-Match names, so a change made since that read, on disk or
+        by another tab's save, is never overwritten. A secret field
+        (jira.token, messaging.token, messaging.webhook_url, forge.token) left
+        empty or sent back with its masked value keeps the stored secret; a new
+        value replaces it. The body is validated the same way a file read is,
+        and rejected with 422 when it is invalid.
       tags: [config]
+      parameters:
+        - name: If-Match
+          in: header
+          required: false
+          description: >-
+            The ETag of the read the change was made over. A write without it
+            is refused with 428, one whose value is not in the form of an ETag
+            a read returns with 400, and one naming a revision the file is no
+            longer at with 409.
+          schema: {type: string}
       requestBody:
         required: true
         content:
@@ -402,12 +430,28 @@ paths:
       responses:
         "200":
           description: The configuration as written, redacted.
+          headers:
+            ETag:
+              $ref: "#/components/headers/ConfigRevision"
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/Config"
+        "409":
+          description: >-
+            The configuration file changed since the revision If-Match names,
+            edited on disk or saved from another tab; nothing was written. Read
+            it again, then make the change again.
+          content:
+            application/problem+json:
+              schema: {$ref: "#/components/schemas/Problem"}
         "422":
           description: The configuration is invalid; nothing was written.
+          content:
+            application/problem+json:
+              schema: {$ref: "#/components/schemas/Problem"}
+        "428":
+          description: The request named no revision in If-Match; nothing was written.
           content:
             application/problem+json:
               schema: {$ref: "#/components/schemas/Problem"}
@@ -716,6 +760,16 @@ components:
           schema:
             $ref: "#/components/schemas/Problem"
 
+  headers:
+    ConfigRevision:
+      description: >-
+        What the configuration in effect stands for, quoted: an opaque token
+        naming the revision of the file it was read from or written as, and
+        whether a read has since found that file gone. It changes whenever the
+        file's bytes do, and the server honors it until it restarts.
+      required: true
+      schema: {type: string}
+
   schemas:
     Problem:
       type: object
@@ -741,7 +795,7 @@ components:
         code:
           type: string
           description: A stable, machine-readable reason.
-          enum: [bad_request, not_found, conflict, unprocessable, unreachable, internal]
+          enum: [bad_request, not_found, conflict, unprocessable, precondition_required, unreachable, internal]
       additionalProperties: false
 
     CheckoutRequest:

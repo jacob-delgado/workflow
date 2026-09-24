@@ -207,6 +207,8 @@ export const getConfigQueryKey = (options?: Options<GetConfigData>) => createQue
 
 /**
  * The configuration in effect, with secrets masked.
+ *
+ * Reads the configuration file on each request, so an edit made to it on disk since the server last read or wrote it (by hand, or by `workflow config init --force`) becomes the configuration in effect. A file that has been deleted leaves the configuration in effect as it was, and a write puts the file back. The ETag names that configuration, even when its file is gone, and a write sends it back in If-Match.
  */
 export const getConfigOptions = (options?: Options<GetConfigData>) => queryOptions<GetConfigResponse, GetConfigError, GetConfigResponse, ReturnType<typeof getConfigQueryKey>>({
     queryFn: async ({ queryKey, signal }) => {
