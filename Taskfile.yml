@@ -52,7 +52,17 @@ vars:
   # The rule does not bend; the floor does.
   BRANCH_COVERAGE_MIN: 91
   # Container tasks work with docker or podman: CONTAINER_RUNTIME=podman task ...
+  # container:check needs a VM of about 8 GiB: knip's parser reserves 6 GiB in
+  # one allocation, and golangci-lint alone is killed for memory in the 2 GiB a
+  # podman machine or colima starts with. Stop the machine and run
+  # `podman machine set --memory 8192`, or `colima start --memory 8`.
   CONTAINER_RUNTIME: '{{.CONTAINER_RUNTIME | default "docker"}}'
+  # Runs the container as the invoking user, whose "$(id -u):$(id -g)" the task
+  # shell expands on the host. Rootless podman maps that user to root inside
+  # the container, so under a bare --user the checkout reads as root's; keep-id
+  # maps it to its own uid instead.
+  CONTAINER_USER: >-
+    {{if eq .CONTAINER_RUNTIME "podman"}}--userns=keep-id{{else}}--user "$(id -u):$(id -g)"{{end}}
   BUILD_IMAGE: '{{.BUILD_IMAGE | default "workflow-build:local"}}'
   # Release targets, as GOOS/GOARCH pairs: Apple Silicon macOS, and amd64 on
   # Linux and Windows.
@@ -502,27 +512,36 @@ tasks:
         {{.CONTAINER_RUNTIME}} build $(scripts/tool-versions.sh)
         -t {{.BUILD_IMAGE}} -f build/Dockerfile .
 
+  # Both run as the invoking user (CONTAINER_USER), under an init. Root would
+  # list a directory a permission test locked, and leave root-owned files in a
+  # Linux checkout. The init at PID 1 reaps the orphans a cancel test waits to
+  # see gone.
+  #
   # The anonymous volume over web/node_modules keeps the host's out of the
   # container: its native bindings are built for the host's platform (darwin on
   # a Mac) and fail to load on Linux, and an install inside the container would
   # otherwise overwrite them. The container installs its own, and --rm drops
-  # them with it.
+  # them with it. Each task first makes web/node_modules on the host, as the
+  # invoking user: a missing mount point is made by the runtime as root, in the
+  # checkout, before the user flag applies, and --rm leaves it behind.
   container:check:
     desc: Run the full gate inside the build container
     deps: [container:build]
     cmds:
+      - mkdir -p web/node_modules
       - >-
-        {{.CONTAINER_RUNTIME}} run --rm -v "$(pwd)":/src
-        -v /src/web/node_modules -w /src
+        {{.CONTAINER_RUNTIME}} run --rm --init {{.CONTAINER_USER}}
+        -v "$(pwd)":/src -v /src/web/node_modules -w /src
         {{.BUILD_IMAGE}} task check
 
   container:release:
     desc: Cross-compile release binaries into dist/
     deps: [container:build]
     cmds:
+      - mkdir -p web/node_modules
       - >-
-        {{.CONTAINER_RUNTIME}} run --rm -v "$(pwd)":/src
-        -v /src/web/node_modules -w /src
+        {{.CONTAINER_RUNTIME}} run --rm --init {{.CONTAINER_USER}}
+        -v "$(pwd)":/src -v /src/web/node_modules -w /src
         {{.BUILD_IMAGE}} task release:binaries
 
   release:binaries:

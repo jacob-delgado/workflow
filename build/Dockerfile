@@ -113,7 +113,7 @@ RUN set -eux; \
     go install "golang.org/x/vuln/cmd/govulncheck@v${GOVULNCHECK_VERSION}"; \
     go install "github.com/zricethezav/gitleaks/v8@v${GITLEAKS_VERSION}"; \
     go install "github.com/rillig/gobco@v${GOBCO_VERSION}"; \
-    rm -rf /root/.cache/go-build
+    go clean -cache -modcache
 
 # yamllint is Python; the image is not a Python project, so installing into the
 # system environment is what --break-system-packages is for here.
@@ -176,7 +176,24 @@ RUN set -eux; \
     npm cache clean --force; \
     markdownlint-cli2 --version
 
+# The container:* tasks run the gate as the invoking user, who has no passwd
+# entry here, so HOME names a directory any user can write: Go's build cache,
+# golangci-lint's, corepack's yarn and yarn's own cache all live under it. The
+# module cache moves under it too, because its default, /go/pkg/mod, sits in a
+# /go/pkg that root made in the go install step above. node_modules is made
+# here, open to any user, because the anonymous volume the tasks mount over
+# web/node_modules copies this directory's mode. Everything under HOME stays in
+# the container's writable layer and goes with --rm. Docker Desktop reports the
+# bind-mounted /src itself as root's, and git refuses a checkout another uid
+# owns, so the image trusts that one path.
+RUN set -eux; \
+    mkdir -p /home/gate /src/web/node_modules; \
+    chmod 1777 /home/gate /src/web/node_modules; \
+    git config --system --add safe.directory /src
+
 ENV GOTOOLCHAIN=local \
+    HOME=/home/gate \
+    GOMODCACHE=/home/gate/go/pkg/mod \
     PATH="/go/bin:${PATH}"
 
 WORKDIR /src

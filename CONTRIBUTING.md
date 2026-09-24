@@ -40,7 +40,10 @@ Two alternatives, if you would rather not install a toolchain:
 - **Devcontainer** — `.devcontainer/` works with VS Code, GoLand/Gateway,
   GitHub Codespaces, and the devcontainer CLI.
 - **Build container** — `task container:check` runs the whole gate inside a
-  container built from the same pinned versions.
+  container built from the same pinned versions. Under podman or colima, give
+  the VM about 8 GiB first (`podman machine set --memory 8192`, or
+  `colima start --memory 8`): at their 2 GiB default, golangci-lint and knip
+  run out of memory.
 
 ## Day to day
 
