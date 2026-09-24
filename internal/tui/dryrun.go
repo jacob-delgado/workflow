@@ -108,7 +108,8 @@ func heldBackStreams(deps GitDeps) GitDeps {
 	return deps
 }
 
-// heldBackServices holds back the writes to the forge, Slack and lefthook.
+// heldBackServices holds back the writes to the forge, the messaging service and
+// lefthook.
 func heldBackServices(deps Deps) Deps {
 	if deps.Forge.CreatePullRequest != nil {
 		deps.Forge.CreatePullRequest = func(forge.NewPullRequest) (forge.PullRequest, error) {
