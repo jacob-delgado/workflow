@@ -122,10 +122,10 @@ gap, and which phase closes it.
 | 40 | Write / initialize the config | Y (`config init`) | N | P (7 sections; five carried but not editable) | Interface: `config init` + `doctor` are the path — no. Web remainder: UX-87 |
 | 41 | Doctor | Y | N | N | Reasonable CLI-only; the interface points at it (`internal/tui/render.go:443`) |
 | 42 | Status across the loop | Y (`status DIR…`) | Y (the spine) | Y (`WorkStory`) | — |
-| 43 | Dry run | Y (one persistent `--dry-run` since Phase 2, `internal/cli/cli.go:204`) | Y (per seam, `dryrun.go:25`) | Y since Phase 3 — a read-only banner (`web/src/shell/AppShell.tsx:55`) and one hold over every write before it is sent (`web/src/api/client.ts:25`), over the server's 403 (`guard.go:46`) | — |
+| 43 | Dry run | Y (one persistent `--dry-run` since Phase 2, `internal/cli/cli.go:204`) | Y (per seam, `dryrun.go:25`) | Y since Phase 3 — a read-only banner (`web/src/shell/AppShell.tsx:63`) and one hold over every write before it is sent (`web/src/api/client.ts:25`), over the server's 403 (`guard.go:46`) | — |
 | 44 | Request log `--log` | Y (persistent since Phase 2, `internal/cli/cli.go:206`) | Y | Y | — |
 | 45 | Help / discoverability | Y since Phase 8 — an unknown command or flag points at `--help`, after cobra's closest commands (`usageHint`, `internal/cli/scriptable.go:210`) | Y since Phase 7 — `?` lists all 57 bindings where each works, held to a table of every placement (`internal/tui/help_test.go:211`), and the Issues footer shows every key it answers (`internal/tui/detail.go:186`) | n/a | Web `?` idea, UX-88 |
-| 46 | Version | Y | n/a | Y since Phase 3 — in the header (`web/src/shell/AppShell.tsx:44`) | — |
+| 46 | Version | Y | n/a | Y since Phase 3 — in the header (`web/src/shell/AppShell.tsx:52`) | — |
 
 ## Where a surface breaks a convention
 
@@ -181,12 +181,12 @@ met and stay.
 | Buttons say what happens | Met | `Open pull request`, `Commit staged changes`, `Push branch` |
 | An action keeps its name; errors direct; empty states invite | Met since Phase 11 — one announce verb ("Announce to X" opens the preview, "Announce now" sends); every fallback, and the server's own failures, say what to do next; one connecting line; a Retry and a not-a-repository line that invites | `web/src/features/writes.test.tsx` |
 | Feedback after a write | Met since Phase 11 — 12 of 12, each in a live line that keeps the button's verb and outlives the snapshot confirming the write (`OutcomeLine`, `web/src/lib/Outcome.tsx:54`) | `web/src/features/writes.test.tsx` |
-| Focus management | Met since Phase 11 — to the outcome when a write's control goes, through each step's swap and back on Cancel or a refusal (`web/src/lib/focus.ts`), and to `<main>` on a section change (`useSectionFocus`, `web/src/shell/AppShell.tsx:104`) | — |
+| Focus management | Met since Phase 11 — to the outcome when a write's control goes, through each step's swap and back on Cancel or a refusal (`web/src/lib/focus.ts`), and to `<main>` on a section change (`useSectionFocus`, `web/src/shell/AppShell.tsx:112`) | — |
 | Accessible names, landmarks, skip link, focus ring, axe both themes | Met | enforced |
 | Disabled by opacity; reduced motion | Met since Phase 11 — `--disabled` tokens (`web/src/index.css:48`), held to 4.5:1 in both themes by `web/src/tokens.test.ts`, and no `opacity-N` class past the web lint; transitions `motion-safe:`, and one reduced-motion rule (`web/src/index.css:222`) | — |
 | Responsive | **Gap** — zero breakpoints | UX-85 |
 | Vocabulary shared with the interface | Met since Phase 12 — the forge's own noun and sigil, the messaging section named after its service (`sectionLabel`, `web/src/shell/sections.ts:29`), one verb for starting, "Start work", and the interface's six sections, Reviews among them (`sections`, `web/src/shell/uiStore.ts:7`) | — |
-| Dry run visible | Met since Phase 3 — a banner, and every write held before it is sent | `web/src/shell/AppShell.tsx:55`, `web/src/api/client.ts:25` |
+| Dry run visible | Met since Phase 3 — a banner, and every write held before it is sent | `web/src/shell/AppShell.tsx:63`, `web/src/api/client.ts:25` |
 | The contract it never calls | Met since Phase 3 for `getIssue`, `getHealth`, `listViews` and pagination; the generated `streamEvents` stays unused, but since Phase 11 the frames the server writes are held in `web/src/test/snapshot-frames.sse` and read back losslessly (`web/src/api/snapshot.frames.test.ts`) | — |
 
 ## The plan
@@ -929,7 +929,7 @@ product's system; the interface's own system does not change.
   control: an azure, an ocher, a teal-green and a magenta. They carry
   identity only: the active rail icon (`web/src/shell/NavRail.tsx:41`),
   each section's heading beside the rail's icon for it (`SectionHeading`,
-  `web/src/shell/AppShell.tsx:88`) and the work story's stages; Settings
+  `web/src/shell/AppShell.tsx:96`) and the work story's stages; Settings
   stays in the ink. `web/src/tokens.test.ts` holds each, in both themes,
   to 4.5:1 on the page and on a card, to 3:1 as an icon on the active
   rail item, and to at least 30° of OKLCH hue (at a chroma of 0.07 or
