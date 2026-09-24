@@ -112,9 +112,20 @@ pre-push:
     # The module's own packages, as Taskfile.yml's GO_PKGS names them. Not
     # `./...`: web/node_modules ships a stray Go package (flatted's Go port),
     # and every `task check` now installs it.
+    #
+    # Git exports the variables that locate this repository to its hooks, and
+    # from a linked worktree GIT_DIR is an absolute path into the shared one:
+    # a test's `git -C <temp dir>` then works on this repository instead. One
+    # pre-push set core.bare, moved main and rewrote the config that way. The
+    # packages that run git clear them in their TestMain; clearing them here
+    # as well, with git's own list (githooks(5)), covers a package that starts
+    # running git before it has one. Taskfile.yml's tasks that run the Go tests
+    # do the same, for `git rebase --exec 'task check'`.
     unit-go:
       glob: "{*.go,go.mod,go.sum}"
-      run: go test -race ./cmd/... ./internal/...
+      run: |
+        unset $(git rev-parse --local-env-vars)
+        go test -race ./cmd/... ./internal/...
 
     # The pre-commit hook runs golangci-lint with --new-from-rev=HEAD~, so it
     # only ever sees the lines this commit changed. That is the right trade for
