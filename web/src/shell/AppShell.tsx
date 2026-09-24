@@ -107,19 +107,22 @@ function SectionHeading({ section, service }: { section: Section; service: strin
 // useSectionFocus hands focus to the content area whenever the section changes —
 // from the nav rail or a work-story stage — so a keyboard or screen reader user
 // lands in the section they chose rather than being left in the rail, or on a
-// button the change took away. The first section is no change: on load, focus
-// stays where the browser puts it.
+// button the change took away. The section opens at its top, rather than as far
+// down as the last one was scrolled. The first section is no change: on load,
+// focus stays where the browser puts it.
 function useSectionFocus(section: Section) {
   const main = useRef<HTMLElement>(null)
   const shown = useRef(section)
 
   useEffect(() => {
-    if (shown.current === section) {
+    const content = main.current
+    if (shown.current === section || content === null) {
       return
     }
 
     shown.current = section
-    main.current?.focus()
+    content.scrollTop = 0
+    content.focus()
   }, [section])
 
   return main

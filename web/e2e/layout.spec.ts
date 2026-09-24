@@ -306,3 +306,27 @@ for (const width of widths) {
     },
   )
 }
+
+// A section opens at its top, wherever the last one was scrolled to, so the
+// content that takes focus as it opens shows its heading.
+for (const width of widths) {
+  test(
+    `a section opens at its top at ${String(width)} px`,
+    { tag: '@populated' },
+    async ({ page }) => {
+      // Arrange: the settings, scrolled to their end.
+      await page.setViewportSize({ width, height })
+      await page.goto('/')
+      await openSection(page, 'Settings')
+      await page.getByRole('button', { name: 'Save changes' }).focus()
+
+      // Act
+      await openSection(page, 'Branch')
+
+      // Assert
+      await expect(page.getByRole('heading', { level: 1, name: 'Branch' })).toBeInViewport({
+        ratio: 1,
+      })
+    },
+  )
+}
