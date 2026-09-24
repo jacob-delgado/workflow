@@ -149,20 +149,6 @@ repository so one spec can commit, push and open a pull request.
 
 **Done when.** One Playwright spec performs a write against a running server.
 
-### DEBT-68 Dependency posture worth knowing
-
-Severity: low · Confidence: read
-
-The generated TypeScript tree is owned by a pre-1.0 generator,
-`@hey-api/openapi-ts ^0.99.0` (`web/package.json`), whose minor releases
-change output; a `resolutions: { "js-yaml": "^4.3.2" }` override carries no
-comment saying why; and `typescript ~6.0.3` is the only patch-pinned
-dependency, with no note on what a minor bump breaks. On the Go side
-`charmbracelet/ultraviolet` is an indirect pseudo-version.
-
-**Done when.** Each pin and override carries a one-line reason beside it,
-or is removed.
-
 ### DEBT-71 `wiring` returns `tui.Deps`, though three surfaces consume the seams
 
 Severity: low · Confidence: read

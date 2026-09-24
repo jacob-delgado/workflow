@@ -49,3 +49,27 @@ tagged `@populated` scan with axe and screenshot at 640, 1024 and 1440 px into
   `src/api` and a feature's `*Api.ts` wrapper import its values — a component
   calls the wrapper, never the SDK — and any file may import its types.
   `depcruise` (the `sdk-only-through-api` rule) holds the line.
+
+## Dependency notes
+
+`package.json` cannot hold a comment, so why each of its pins stands is here.
+
+- **`resolutions` `js-yaml ^4.3.2`** lifts the js-yaml 4.2.0 that
+  `@hey-api/json-schema-ref-parser` pins to 4.3.2, which fixes three
+  high-severity advisories (GHSA-52cp-r559-cp3m, GHSA-5p4m-2wfm-xmqj,
+  GHSA-2883-xcg3-v3hh). It is unscoped, so it rewrites every js-yaml
+  request: remove it once `yarn.lock` records none below 4.3.2, and no later
+  than the openapi-ts bump that brings a ref-parser asking for js-yaml 5,
+  which it would force back to 4.
+- **`typescript ~6.0.3`** stays on 6.0: typescript-eslint accepts only
+  `<6.1.0`. TypeScript 7 waits on typescript-eslint and on
+  `@hey-api/openapi-ts`, which builds the client with the compiler API that
+  7's `typescript` package no longer exports.
+- **`@hey-api/openapi-ts ^0.99.0`** is pre-1.0, so the caret admits only
+  0.99.x patches. A minor changes the generated client: land it in one commit
+  with the `corepack yarn gen` output, or `task web:gen:check` fails.
+- **`@types/node` 26 over mise's Node 24** is left as is on purpose. It types
+  only what `tsconfig.node.json` includes — the Vite, Vitest, Playwright and
+  openapi-ts configs and `e2e/` — which call nothing past `node:url` and
+  `process.env`. A Node 26-only call there would type-check and then fail on
+  24; pinning `^24`, a downgrade, would close that.
