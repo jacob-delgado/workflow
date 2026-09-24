@@ -19,6 +19,8 @@ vars:
   # --web/--log dispatch, the by-construction help/dry-run/buffer-cap guarantees —
   # which a black-box test cannot reach, so that coverage falls to each package's
   # own tests and the floor lowers to match. The rule does not bend; the floor does.
+  # The --web dispatch has since gained a public surface (cli.NewRootCmdOver) and
+  # its tests are back, in internal/cli/root_test.go.
   COVERAGE_MIN: 94
   # The condition (branch) coverage floor, enforced over every package gobco can
   # read — scripts/gobco-report.sh's skip list names only the two build-tagged
@@ -49,7 +51,8 @@ vars:
   # public surface at all — signal-context cancellation reaching a subprocess,
   # the --web/--log dispatch, and the by-construction help/dry-run/buffer-cap
   # guarantees — so those tests were deleted and this floor lowered to match.
-  # The rule does not bend; the floor does.
+  # The rule does not bend; the floor does. The --web dispatch has since gained
+  # one (cli.NewRootCmdOver, tested in internal/cli/root_test.go).
   BRANCH_COVERAGE_MIN: 91
   # Container tasks work with docker or podman: CONTAINER_RUNTIME=podman task ...
   # container:check needs a VM of about 8 GiB: knip's parser reserves 6 GiB in
