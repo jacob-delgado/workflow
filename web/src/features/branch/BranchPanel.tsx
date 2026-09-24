@@ -5,6 +5,7 @@ import { useSnapshotStore } from '@/api/snapshot.ts'
 import { useFocusHandback, useFocusOnMount } from '@/lib/focus.ts'
 import { OutcomeLine, useOutcome, type Teller } from '@/lib/Outcome.tsx'
 import { useAsyncAction } from '@/lib/useAsyncAction.ts'
+import { definitionList } from '@/lib/utils.ts'
 import { EmptyState } from '@/shell/EmptyState.tsx'
 import { pushBranch } from './pushApi.ts'
 import { WorkingTree } from './WorkingTree.tsx'
@@ -58,7 +59,7 @@ function BranchSummary({ branch }: { branch: Branch }) {
           {heading}
         </h2>
       </div>
-      <dl className="grid grid-cols-[6rem_1fr] gap-x-group gap-y-tight text-sm">
+      <dl className={definitionList}>
         <dt className="text-muted-foreground">Base</dt>
         <dd className="font-mono">{branch.base === '' ? '—' : branch.base}</dd>
         <dt className="text-muted-foreground">Upstream</dt>

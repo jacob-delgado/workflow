@@ -172,7 +172,7 @@ function MessageFields({ register, commitTypes, onScopeTyping }: MessageFieldsPr
             ))}
           </select>
         </label>
-        <label className={cn('flex-1', labelClass)}>
+        <label className={cn('min-w-0 flex-1', labelClass)}>
           Scope (optional)
           <input {...register('scope', { onChange: onScopeTyping })} className={commitInputClass} />
         </label>

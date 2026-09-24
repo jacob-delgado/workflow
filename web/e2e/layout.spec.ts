@@ -347,11 +347,7 @@ function streamedIssue(number: number) {
 // A stream carrying the first eight of the view's twelve issues, so the list
 // offers to load more.
 const pagedSnapshot = {
-  issues: {
-    total: issuesTotal,
-    start_at: 0,
-    issues: [1, 2, 3, 4, 5, 6, 7, 8].map(streamedIssue),
-  },
+  issues: { total: issuesTotal, start_at: 0, issues: [1, 2, 3, 4, 5, 6, 7, 8].map(streamedIssue) },
   branch: {
     name: '',
     detached: false,
@@ -369,17 +365,22 @@ const pagedSnapshot = {
   suggested_scope: '',
 }
 
+// streams answers the event stream with one snapshot.
+async function streams(page: Page, snapshot: object): Promise<void> {
+  await page.route('**/api/events**', (route) =>
+    route.fulfill({
+      contentType: 'text/event-stream',
+      body: `event: snapshot\ndata: ${JSON.stringify(snapshot)}\n\n`,
+    }),
+  )
+}
+
 test('a loaded page hands focus to its first issue, in view in the list, at 640 px', async ({
   page,
 }) => {
   // Arrange: the stream's eight issues, and the next page answered here, in a
   // window where the list scrolls in its pane.
-  await page.route('**/api/events**', (route) =>
-    route.fulfill({
-      contentType: 'text/event-stream',
-      body: `event: snapshot\ndata: ${JSON.stringify(pagedSnapshot)}\n\n`,
-    }),
-  )
+  await streams(page, pagedSnapshot)
   await page.route(/\/api\/issues\?/, (route) =>
     route.fulfill({
       json: { total: issuesTotal, start_at: 8, issues: [9, 10, 11, 12].map(streamedIssue) },
@@ -395,4 +396,79 @@ test('a loaded page hands focus to its first issue, in view in the list, at 640 
   const added = page.getByRole('button', { name: /^PROJ-9/ })
   await expect(added).toBeFocused()
   await expect(added).toBeInViewport({ ratio: 1 })
+})
+
+// A branch and a file whose names each hold a word wider than the content.
+const unbrokenSnapshot = {
+  ...pagedSnapshot,
+  branch: {
+    ...pagedSnapshot.branch,
+    name: 'fix/PROJ-1',
+    head: 'abc1234',
+    upstream: 'origin/redact_every_authorization_header_before_the_request_log_writes_it',
+    base: 'origin/main',
+  },
+  changes: {
+    changes: [
+      {
+        path: 'internal/tui/testdata/TestScreenDrawsEveryPaneAtTheNarrowestWidthItAllows.golden',
+        kind: 'modified',
+        staged: false,
+        has_unstaged: true,
+        conflicted: false,
+      },
+    ],
+  },
+}
+
+// A source build's health: its version is a commit marked dirty, the widest
+// the header draws.
+const sourceBuild = {
+  version: 'ddbb935d6c04-dirty',
+  dry_run: false,
+  forge_noun: 'pull request',
+  forge_sigil: '#',
+}
+
+// widthDrawn is how wide an element is drawn.
+function widthDrawn(element: Element): number {
+  return element.getBoundingClientRect().width
+}
+
+// termsSlack is how much wider the terms' column is than the widest term in it.
+function termsSlack(terms: Element[]): number {
+  const column = Math.max(...terms.map((term) => term.getBoundingClientRect().width))
+  const words = terms.map((term) => {
+    const range = document.createRange()
+    range.selectNodeContents(term)
+
+    return range.getBoundingClientRect().width
+  })
+
+  return column - Math.max(...words)
+}
+
+test('the branch and the header fit 320 px, wrapping a name wider than the content', async ({
+  page,
+}) => {
+  // Arrange: the stream's branch and working tree, and a source build's
+  // version in the header, at the narrowest width a page must reflow to.
+  await streams(page, unbrokenSnapshot)
+  await page.route('**/api/health', (route) => route.fulfill({ json: sourceBuild }))
+  await page.setViewportSize({ width: 320, height })
+  await page.goto('/')
+
+  // Act
+  await openSection(page, 'Branch')
+
+  // Assert: nothing scrolls sideways; the file's path takes a line of its
+  // own; and the terms' column is as wide as its widest term.
+  const path = page.getByText(/^internal\/tui\/testdata/)
+  const row = page.getByRole('listitem').filter({ has: path })
+  await expect(path).toBeVisible()
+  expect(await page.evaluate(sidewaysScrollers)).toEqual([])
+  expect(await path.evaluate(widthDrawn), 'the path takes the row').toBeGreaterThanOrEqual(
+    (await row.evaluate(widthDrawn)) - 1,
+  )
+  expect(await page.getByRole('term').evaluateAll(termsSlack), 'the terms column').toBeLessThan(1)
 })

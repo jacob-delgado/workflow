@@ -5,6 +5,7 @@ import { useSnapshotStore } from '@/api/snapshot.ts'
 import { useFocusHandback, useFocusOnMount } from '@/lib/focus.ts'
 import { OutcomeLine, useOutcome } from '@/lib/Outcome.tsx'
 import { useAsyncAction } from '@/lib/useAsyncAction.ts'
+import { definitionList } from '@/lib/utils.ts'
 import { EmptyState } from '@/shell/EmptyState.tsx'
 import { announce, previewAnnouncement } from './announceApi.ts'
 
@@ -31,7 +32,7 @@ export function MessagingPanel() {
 
   return (
     <div className="flex max-w-2xl flex-col gap-section">
-      <dl className="grid grid-cols-[8rem_1fr] gap-x-group gap-y-tight text-sm">
+      <dl className={definitionList}>
         <dt className="text-muted-foreground">Service</dt>
         <dd>{messaging.service}</dd>
         <dt className="text-muted-foreground">Channel</dt>

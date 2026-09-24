@@ -13,7 +13,7 @@ import { useSnapshotStore } from '@/api/snapshot.ts'
 import { useFocusHandback } from '@/lib/focus.ts'
 import { OutcomeLine, useOutcome } from '@/lib/Outcome.tsx'
 import { useAsyncAction } from '@/lib/useAsyncAction.ts'
-import { splitList } from '@/lib/utils.ts'
+import { definitionList, splitList } from '@/lib/utils.ts'
 import { ciMark, StateMark } from '@/shell/StateMark.tsx'
 import { OpenedOutcome } from './OpenedOutcome.tsx'
 import { openPr, previewPullRequest } from './openPrApi.ts'
@@ -92,7 +92,7 @@ function PullRequestSummary({ pull, ci }: { pull: PullRequest; ci: Ci | null }) 
             {pull.title}
           </a>
         </h2>
-        <dl className="grid grid-cols-[9rem_1fr] gap-x-group gap-y-tight text-sm">
+        <dl className={definitionList}>
           <dt className="text-muted-foreground">State</dt>
           <dd>{pull.draft ? 'Draft' : 'Ready for review'}</dd>
           <dt className="text-muted-foreground">Mergeable</dt>

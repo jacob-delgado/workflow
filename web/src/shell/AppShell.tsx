@@ -36,7 +36,9 @@ export function AppShell() {
   // content and scroll the page instead. And a scrolling part that holds text
   // kept for a screen reader (sr-only, drawn out of the flow) is positioned,
   // so that text is placed, scrolled and clipped inside it: placed against the
-  // window, it would grow the page.
+  // window, it would grow the page. The content never scrolls sideways: a word
+  // wider than it — a branch, a path, a title the server sends — breaks where
+  // it must rather than widen the content past the window.
   return (
     <div className="flex h-dvh flex-col">
       <a
@@ -78,7 +80,7 @@ export function AppShell() {
           ref={main}
           id="main"
           tabIndex={-1}
-          className="relative flex flex-1 flex-col gap-block overflow-auto p-block focus-visible:outline-none"
+          className="relative flex flex-1 flex-col gap-block overflow-auto p-block wrap-anywhere focus-visible:outline-none"
         >
           <SectionHeading section={section} service={service} />
           <SectionPanel section={section} />
