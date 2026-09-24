@@ -1015,23 +1015,83 @@ from the lights, periwinkle and each other — in both themes. The existing
 role/name tests pass unchanged. Axe in both themes in both e2e projects,
 and the screens at 640, 1024 and 1440 px before and after.
 
-### Phase 14 — The web responds to its viewport
+### Phase 14 — The web responds to its viewport — done
 
-Closes UX-85. Depends on Phase 13 (tokens).
+Closed UX-85. Depended on Phase 13 (tokens).
 
-Breakpoints (none today): the rail collapses to icons under `md`; list and
-detail stack under `lg` (`IssuesPanel.tsx:109-110`); `grid-cols-[6rem_1fr]`
-and its siblings go responsive; `max-w-2xl` (and the Reviews list's
-`max-w-3xl`) goes fluid; the issues `<ul>` scrolls inside its panel.
+Breakpoints, where there were none, on Tailwind's own steps:
 
-**Touches.** `web/src/**/*.tsx`, a new `web/e2e/layout.spec.ts` (`web/e2e`
-4 → 5 of 12).
+- **The rail.** Below `md` it keeps its icons alone, 56 pixels wide; each
+  name stays in its button as visually hidden text, so every section is
+  named alike at every width, and as the title a pointer resting on the
+  icon shows (`NavRail`, `web/src/shell/NavRail.tsx:10`).
+- **The issue panes.** Below `lg` the list sits over the detail, in a
+  bordered pane of a few rows that scrolls on its own, over a line that
+  says how many the view holds; from `lg` the two sit side by side, fill
+  the window's height and scroll each on its own (`ListAndDetail`,
+  `web/src/features/issues/IssuesPanel.tsx:107`). Each pane keeps a few
+  pixels inside its edge for a row's focus ring. The detail's pane opens
+  each issue at its top, and the list's brings the selected issue into
+  view as it opens (`useSelectedRowInView`,
+  `web/src/features/issues/IssuesPanel.tsx:249`).
+- **The shell.** It is the window's height and never scrolls
+  (`web/src/shell/AppShell.tsx:43`): the header holds still, the content
+  scrolls beneath it, and every link down to a scrolling pane sets
+  `min-h-0`. The rail, the content and the detail's pane are positioned,
+  so text kept for a screen reader scrolls inside them rather than grow
+  the page. The header wraps rather than overflow. A section opens at
+  its top (`useSectionFocus`, `web/src/shell/AppShell.tsx:115`), where the
+  content used to keep the last section's scroll. A word wider than the
+  content, such as a branch named with underscores, breaks rather than
+  scroll it sideways.
+- **Inside the panels.** The four definition lists share one layout whose
+  term column is as wide as its longest term (`definitionList`,
+  `web/src/lib/utils.ts:21`), in place of fixed 6, 8 and 9rem columns;
+  the working tree's kind column is fixed only from `sm`, and below it
+  the path takes a line of its own
+  (`web/src/features/branch/WorkingTree.tsx:90`); the commit form's scope
+  field can shrink (`web/src/features/branch/CommitForm.tsx:175`).
+- **The caps needed nothing.** A `max-w-2xl` (or the Reviews list's
+  `max-w-3xl`) only caps, so below it each panel already took the
+  content's width; what did not reflow was inside them.
 
-**Done when.** At 640, 1024 and 1440 px there is no horizontal scroll and
-every control is reachable.
+**Touches.** `NavRail`, `AppShell`, `IssuesPanel`, `WorkingTree`,
+`CommitForm`, the four panels with a definition list, `web/src/lib/utils.ts`,
+`web/e2e/screens.spec.ts` (it grows the window by what the content, or a
+pane that follows the window's height, scrolls before each capture, since
+a full-page capture now sees only the window), new `web/e2e/layout.spec.ts`
+and `web/e2e/panes.spec.ts`, and `web/e2e/cockpit.ts`, which opens the
+populated cockpit for the three specs that did so each in a copy of their
+own (`web/e2e` 4 → 7 of 12, no budget change).
 
-**Proof.** Playwright `layout.spec.ts` over the three viewports, axe
-included.
+**Done when.** At 640, 1024 and 1440 px, in both themes, nothing scrolls
+sideways and every control is reachable — met.
+
+**Proof.** `web/e2e/layout.spec.ts`, in the populated project: every
+section at the three widths in both themes, where nothing scrolls sideways
+(the page or any part of it) and the page does not scroll down, one lap of
+Tab reaches every drawn control and each is in view as it has focus (a
+text area by its first line, which is what the browser brings into view),
+and axe finds nothing; the rail's names drawn only from `md`, each button
+still found by its name and titled with it; the header in view with the
+settings' last control focused, and with the rail's last section focused
+in a window shorter than the rail; the skip link the first stop, handing
+focus to the content; a section opening at its top. Two hermetic cases: a
+loaded page hands focus to its first issue, in view in a list that scrolls
+in its pane; and the branch and the header at 320 px, with a branch and a
+file whose names each hold a word wider than the content and a source
+build's version, scroll nothing sideways, the path takes a line of its
+own, and the terms' column is as wide as its widest term.
+`web/e2e/panes.spec.ts`: the detail under the list at 640 px and beside
+it from 1024, the list scrolling in its pane and, from `lg`, the content
+not scrolling at all; an issue opening at the top of its pane; the
+selected issue in view as the issues reopen; the first row's focus ring,
+and from `lg` the detail link's, drawn whole in their panes. A vitest case
+holds the count under a list the stream carries whole. Every change a spec
+can see was proved red first, or with its hunk reverted; what none can,
+the rail's narrower width below `md` and the list pane's border, shows in
+the screens. The vitest role and name tests pass unchanged. Screens at
+640, 1024 and 1440 px, before and after.
 
 ### Phase 15 — Docs that lag the code
 
@@ -1219,7 +1279,7 @@ phase disagree, the correction wins.
   middle-dot separator (`glyphs.go:35` makes it house vocabulary);
   `ShortHelp`'s deliberate tail; the three narrow production `//nolint`s
   in `internal/tui`; zero TODOs; the web's dependencies sitting on major
-  boundaries; `web/src/shell` at 10 of 12; `Save changes` → `Saved.`; ASCII
+  boundaries; `web/src/shell` at 11 of 12; `Save changes` → `Saved.`; ASCII
   via `ui.ascii`; the `status --json` shapes; the four packages sitting
   exactly at budget (that is the gate working); the web's blanket-403 dry
   run (`guard.go:40` documents it — only its *invisibility* is the gap);
