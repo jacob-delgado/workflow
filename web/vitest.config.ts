@@ -20,7 +20,7 @@ export default defineConfig({
     css: { include: [/src\/index\.css/] },
     coverage: {
       provider: 'v8',
-      // text for the console; json-summary feeds a CI coverage comment later.
+      // text for the console; json-summary feeds `task test:summary`.
       reporter: ['text', 'json-summary'],
       include: ['src/**'],
       // src/api/generated is hey-api's generated SDK/types/zod — generated code
@@ -33,11 +33,18 @@ export default defineConfig({
         'src/test/**',
         'src/dev/**',
       ],
-      // Branches level with lines deliberately: a line threshold alone goes
-      // green while error and edge arms stay unexercised.
+      // Each metric is held at floor(measured) − 2, the ratchet CLAUDE.md sets
+      // for the Go floors: raise one only once the coverage is already there.
+      // Branches sits beside lines because a line threshold alone goes green
+      // while error arms stay unexercised; functions and statements make a new
+      // untested component or handler show. v8 counts a branch covered once its
+      // range has run: unlike gobco's Go floor, it never asks for each
+      // condition both ways.
       thresholds: {
-        lines: 85,
-        branches: 85,
+        lines: 96,
+        statements: 96,
+        branches: 94,
+        functions: 98,
       },
     },
   },
