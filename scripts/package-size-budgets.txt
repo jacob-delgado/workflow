@@ -51,7 +51,7 @@ internal/config 13
 # CLAUDE.md names as one that must not be split to chase a number; the entry
 # freezes the count so a new concern is a decision, not drift, not a target to
 # shrink toward. layout/ and frame/ are already the pure leaves that could leave.
-# 39 = the panes, overlays and composers, including issuewrite.go (the assign
+# 40 = the panes, overlays and composers, including issuewrite.go (the assign
 # and log-work forms), issuekeys.go (the Issues pane's key routing, split out of
 # detail.go when it crossed the 500-line file ceiling), scopesuggest.go (the
 # commit scope's completion from the staged directory and the log) and diff.go
@@ -61,10 +61,12 @@ internal/config 13
 # of review.go when merge and finish together pushed it past the 800-line hard
 # ceiling; preditor.go (the Review pane's edit-an-open-pull-request overlay —
 # title and description — kept a dedicated overlay rather than an edit-mode
-# flag bolted onto composer.go); and merge.go (the Review pane's merge picker
-# and its permitted-methods read, split out of review.go when it passed the
-# 500-line target, the re-run moving to checks.go beside the checks it acts on).
-internal/tui 39
+# flag bolted onto composer.go); merge.go (the Review pane's merge picker and
+# its permitted-methods read, split out of review.go when it passed the
+# 500-line target, the re-run moving to checks.go beside the checks it acts
+# on); and messagingpreview.go (the Messaging pane's announcement preview and
+# its send, split out of messaging.go when it passed the 500-line target).
+internal/tui 40
 
 # internal/webserver — the loopback REST surface: a file per write (announce,
 # branchcreate, checkout, commit, config, pullrequest, push), or per pair of
