@@ -12,6 +12,7 @@ import (
 	"strings"
 	"sync/atomic"
 	"testing"
+	"testing/iotest"
 
 	"github.com/jacob-delgado/workflow/internal/config"
 	"github.com/jacob-delgado/workflow/internal/messaging"
@@ -163,6 +164,30 @@ func webhookCredentials(address string) config.Messaging {
 }
 
 // messagingWebhook posts through a kind's webhook at address.
+// brokenAnswer answers every post with a body that breaks off mid-read.
+func brokenAnswer(*http.Request) (*http.Response, error) {
+	return &http.Response{StatusCode: http.StatusOK, Body: io.NopCloser(iotest.ErrReader(errBrokenAnswer))}, nil
+}
+
+// errBrokenAnswer is a connection dropped while the answer was being read.
+var errBrokenAnswer = errors.New("connection reset")
+
+func TestABrokenAnswerNamesTheServiceItCameFrom(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	client := messaging.New(brokenAnswer, messaging.APIBase,
+		messagingWebhook(config.KindTeams, "https://hooks.example.com/teams"))
+
+	// Act
+	err := client.Post(t.Context(), "", "hello")
+
+	// Assert
+	if err == nil || !strings.Contains(err.Error(), "Teams") || strings.Contains(err.Error(), "Slack") {
+		t.Errorf("Post = %v, want the failure to name Teams, the service it came from", err)
+	}
+}
+
 func messagingWebhook(kind config.MessagingKind, address string) config.Messaging {
 	return config.Messaging{Kind: kind, WebhookURL: config.Secret(address)}
 }

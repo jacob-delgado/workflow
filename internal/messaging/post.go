@@ -194,7 +194,7 @@ func (c Client) deliver(request *http.Request) ([]byte, error) {
 
 	body, err := io.ReadAll(io.LimitReader(response.Body, bodyLimit))
 	if err != nil {
-		return nil, fmt.Errorf("reading the answer from Slack: %w", err)
+		return nil, fmt.Errorf("reading the answer from %s: %w", c.creds.Service(), err)
 	}
 
 	switch {

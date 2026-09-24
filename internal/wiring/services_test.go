@@ -261,6 +261,10 @@ func TestTheMessagingSeamNeverLogsAWebhooksPath(t *testing.T) {
 			if !strings.Contains(line, "POST") || strings.Contains(line, secret) || strings.Contains(line, path) {
 				t.Errorf("log = %q, want the post recorded without its webhook's path", line)
 			}
+
+			if service := strings.ToLower(cfg.Messaging.Service()); !strings.Contains(line, service) {
+				t.Errorf("log = %q, want the post recorded under %q, the service it went to", line, service)
+			}
 		})
 	}
 }

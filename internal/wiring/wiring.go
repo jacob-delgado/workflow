@@ -287,8 +287,10 @@ func messagingDeps(
 		settings.Token, _, _ = ResolveToken(ctx, settings.Token, settings.TokenCommand, settings.TokenEnv)
 		wrap = log.Wrap
 	}
-	//nolint:bodyclose // wrap only relays the response; the slack client reads and closes its body.
-	client := messaging.New(wrap("slack", messaging.HTTPClient(timeout).Do), messaging.APIBase, settings)
+
+	service := strings.ToLower(settings.Service())
+	//nolint:bodyclose // wrap only relays the response; the messaging client reads and closes its body.
+	client := messaging.New(wrap(service, messaging.HTTPClient(timeout).Do), messaging.APIBase, settings)
 
 	return tui.MessagingDeps{Post: func(channel, text string) error { return client.Post(ctx, channel, text) }}
 }

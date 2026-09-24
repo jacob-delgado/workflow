@@ -81,7 +81,7 @@ func New(do Doer, base string, creds config.Messaging) Client {
 	return Client{do: do, base: strings.TrimRight(base, "/"), creds: creds}
 }
 
-// HTTPClient is the redirect-refusing transport a Slack credential travels
+// HTTPClient is the redirect-refusing transport a messaging credential travels
 // over; see httpx.Client for why refusing matters.
 func HTTPClient(timeout time.Duration) *http.Client {
 	return httpx.Client(timeout)
