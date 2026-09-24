@@ -107,6 +107,11 @@ export default tseslint.config(
       'max-nested-callbacks': ['error', 3],
       'no-nested-ternary': 'error',
       'no-param-reassign': 'error',
+      // A function that does one thing fits on a screen. JSX spends lines, so
+      // the cap is looser than CLAUDE.md's ~25 for Go; a component that
+      // outgrows it splits out its parts, as the settings, commit and pull
+      // request forms did.
+      'max-lines-per-function': ['error', { max: 80, skipBlankLines: true, skipComments: true }],
       // React escapes all interpolated content; never bypass it. Nor dim with
       // opacity, nor head a part in capitals.
       'no-restricted-syntax': ['error', ...noReactEscapeBypass, ...noOpacityDimming, ...noAllCaps],

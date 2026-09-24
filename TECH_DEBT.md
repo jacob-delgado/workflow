@@ -152,26 +152,9 @@ cancels; the detail read is keyed so a stale answer is dropped.
 
 ## The web
 
-### DEBT-62 Nothing measures a function's length
-
-Severity: medium · Confidence: measured
-
-`web/eslint.config.js:100` sets `complexity`, `max-params`, `max-depth` and
-`max-nested-callbacks` but no `max-lines-per-function`. The functions that
-grew long are split — the settings form by fieldset
-(`web/src/features/settings/fieldsets/`), `PullRequestForm`
-(`web/src/features/review/ReviewPanel.tsx:227`, 70 lines) and `CommitForm`
-(`web/src/features/branch/CommitForm.tsx:40`, 77) by their fields — but
-nothing keeps them so. Files are measured — `scripts/check-file-length.sh`
-holds `.ts` and `.tsx` to the 500/800 targets, and the longest,
-`web/src/features/branch/BranchPanel.test.tsx`, is 510 lines (the longest
-component file, `web/src/features/issues/IssuesPanel.tsx`, 383) — but a
-function can grow to fill one with nothing to say so.
-
-**One way to fix it.** Add `max-lines-per-function` to eslint at a number
-the split forms meet.
-
-**Done when.** `yarn lint` fails a 300-line component.
+No open entry of its own. What the web's gates still lack — a condition
+gate, and an end-to-end run that drives a write — is DEBT-65, with the other
+gates below.
 
 ## The gates, the build and the tests
 
