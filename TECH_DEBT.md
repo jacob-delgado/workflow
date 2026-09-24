@@ -59,29 +59,29 @@ anyone misuse a credential, a terminal or a release.
 
 ## The terminal interface
 
-### DEBT-55 Three source files sit past the 500-line soft target
+### DEBT-55 Two source files sit past the 500-line soft target
 
 Severity: low · Confidence: measured
 
-`scripts/check-file-length.sh --list` flags three source files past the
-500-line soft target — `internal/forge/github.go` (551),
-`internal/gitrepo/branch.go` (532) and `internal/tui/prcomposer.go` (527).
-None is over the 800 hard ceiling. The first edition of this entry missed
-the two outside `internal/tui`. Two are paid: its headline file,
-`internal/tui/review.go` at 727 lines, gave its merge picker to
+`scripts/check-file-length.sh --list` flags two source files past the
+500-line soft target — `internal/forge/github.go` (551) and
+`internal/gitrepo/branch.go` (532). Neither is over the 800 hard ceiling.
+The first edition of this entry missed both. Three are paid: its headline
+file, `internal/tui/review.go` at 727 lines, gave its merge picker to
 `internal/tui/merge.go` and its re-run to `internal/tui/checks.go`, leaving
 it at 455; `internal/tui/messaging.go` (529) gave its announcement preview
-to `internal/tui/messagingpreview.go`, leaving it at 323. The test files
-past the target stay long by decision, and move to the deliberate
-trade-offs when this entry closes.
+to `internal/tui/messagingpreview.go`, leaving it at 323; and
+`internal/tui/prcomposer.go` (527) gave opening the pull request to
+`internal/tui/prcreate.go`, leaving it at 400. The test files past the
+target stay long by decision, and move to the deliberate trade-offs when
+this entry closes.
 
 **What it costs.** `scripts/check-file-length.sh` warns on every run, so the
 warning has stopped meaning anything, and each of these files carries more
 than one concern.
 
-**One way to fix it.** Split each by the concern it carries, as
-`review.go` and `messaging.go` were — a new file in `internal/tui` carries
-its budget bump in the same commit.
+**One way to fix it.** Split each by the concern it carries, as the three
+in `internal/tui` were.
 
 **Done when.** `check-file-length.sh --list` flags no source file `soft`.
 
@@ -235,7 +235,7 @@ not debt; they are listed because each one costs something a reader should
 know about.
 
 - **Four packages sit exactly at their file budget** — `internal/tui`
-  38/38, `internal/webserver` 15/15, `internal/cli` 13/13,
+  41/41, `internal/webserver` 17/17, `internal/cli` 13/13,
   `internal/config` 13/13 (`scripts/package-size-budgets.txt`). That is the
   gate working as designed: the next file in any of them is a decision (a
   split, or a bump with the WHY rewritten), not an accident. The cost is
