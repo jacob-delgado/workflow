@@ -63,8 +63,6 @@
   --git: #b0b55b;
   --forge: #49c7c0;
   --messaging: #e88fcb;
-
-  --radius: 0.625rem;
 }
 
 /* The same desk by daylight: a cool off-white console, dark ink, and the same
@@ -119,10 +117,10 @@
   --messaging: #953d7c;
 }
 
-/* Map the tokens to Tailwind's color and radius scales, so `bg-background`,
-   `text-muted-foreground`, `border-border`, `rounded-lg`, and the rest resolve.
+/* Map the tokens to Tailwind's color scale, so `bg-background`,
+   `text-muted-foreground`, `border-border`, `text-jira` and the rest resolve.
    inline: the utilities reference the :root vars above rather than re-declaring
-   them, which is what lets a future light theme reassign one place. */
+   them, which is what lets the light theme reassign one place. */
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
@@ -153,11 +151,63 @@
   --color-git: var(--git);
   --color-forge: var(--forge);
   --color-messaging: var(--messaging);
+}
 
-  --radius-sm: calc(var(--radius) - 4px);
-  --radius-md: calc(var(--radius) - 2px);
-  --radius-lg: var(--radius);
-  --radius-xl: calc(var(--radius) + 4px);
+/* The page's type, space and corners: one scale each, the same in both themes.
+   Type and corners reset Tailwind's own steps first, so a size or radius off
+   the scale draws nothing. Space names five steps for the gaps between things
+   and keeps the numeric ones for an element's own padding, so a gap off the
+   scale still draws, for review to catch. Sizes keep Tailwind's own keys,
+   which tailwind-merge knows; web/src/lib/utils.ts teaches it the space names. */
+@theme {
+  /* The platform's own interface face — San Francisco, Segoe, the Linux
+     desktop's — so the cockpit reads as a native tool beside the terminal; no
+     web font, no fetch. */
+  --font-sans:
+    system-ui, -apple-system, 'Segoe UI Variable Text', 'Segoe UI', Ubuntu, Cantarell, 'Noto Sans',
+    'Helvetica Neue', Arial, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji';
+  /* The terminal's own code face — Terminal.app's, Windows Terminal's, the
+     Linux default — for what a reader would type or paste into one: a branch,
+     a commit, a path, a command. Nothing else is set in it. */
+  --font-mono:
+    ui-monospace, 'SF Mono', SFMono-Regular, 'Cascadia Mono', Menlo, Consolas, 'DejaVu Sans Mono',
+    'Liberation Mono', monospace;
+
+  /* Type, by role: 2xl titles a section; lg titles the thing shown — an issue,
+     a pull request, a branch; base heads a part of a panel; sm is the body
+     text of a dense tool; xs is what sits beside it — a hint, a key, a time. */
+  --text-*: initial;
+  --text-xs: 0.75rem;
+  --text-xs--line-height: 1rem;
+  --text-sm: 0.875rem;
+  --text-sm--line-height: 1.25rem;
+  --text-base: 1rem;
+  --text-base--line-height: 1.5rem;
+  --text-lg: 1.125rem;
+  --text-lg--line-height: 1.625rem;
+  --text-lg--font-weight: 500;
+  --text-2xl: 1.5rem;
+  --text-2xl--line-height: 2rem;
+  --text-2xl--font-weight: 600;
+  --text-2xl--letter-spacing: -0.015em;
+
+  /* Space between things, by how closely they belong: the parts of one unit
+     (a label and its control), the items of a list, a heading and what it
+     heads, the blocks of one column, the sections of a panel. The space inside
+     one element — a control's padding, an icon beside its own words — is that
+     element's, and stays on the numeric steps. */
+  --spacing-tight: 0.25rem;
+  --spacing-item: 0.5rem;
+  --spacing-group: 0.75rem;
+  --spacing-block: 1.5rem;
+  --spacing-section: 2rem;
+
+  /* Corners, by level, shrinking inward so nested ones read as one family: a
+     small inline control or chip, a control, a container of controls. */
+  --radius-*: initial;
+  --radius-sm: 0.25rem;
+  --radius-md: 0.375rem;
+  --radius-lg: 0.625rem;
 }
 
 @layer base {

@@ -31,7 +31,7 @@ export function BranchPanel() {
   }
 
   return (
-    <div className="mt-4 flex max-w-2xl flex-col gap-8">
+    <div className="flex max-w-2xl flex-col gap-section">
       <BranchSummary branch={branch} />
       <Commits commits={branch.commits} />
       <WorkingTree changes={changes.changes} suggestedScope={snapshot.suggested_scope} />
@@ -51,14 +51,14 @@ function BranchSummary({ branch }: { branch: Branch }) {
   const canPush = branch.name !== '' && (branch.upstream === '' || branch.ahead > 0)
 
   return (
-    <section aria-labelledby="branch-heading" className="flex flex-col gap-3">
+    <section aria-labelledby="branch-heading" className="flex flex-col gap-group">
       <div className="flex items-center gap-2">
         <GitBranch aria-hidden className="size-4 text-muted-foreground" />
-        <h2 id="branch-heading" className="font-mono text-lg font-medium">
+        <h2 id="branch-heading" className="font-mono text-lg">
           {heading}
         </h2>
       </div>
-      <dl className="grid grid-cols-[6rem_1fr] gap-x-4 gap-y-1.5 text-sm">
+      <dl className="grid grid-cols-[6rem_1fr] gap-x-group gap-y-tight text-sm">
         <dt className="text-muted-foreground">Base</dt>
         <dd className="font-mono">{branch.base === '' ? '—' : branch.base}</dd>
         <dt className="text-muted-foreground">Upstream</dt>
@@ -76,16 +76,16 @@ function BranchSummary({ branch }: { branch: Branch }) {
 
 function Commits({ commits }: { commits: Branch['commits'] }) {
   return (
-    <section aria-labelledby="commits-heading" className="flex flex-col gap-3">
+    <section aria-labelledby="commits-heading" className="flex flex-col gap-group">
       <h3 id="commits-heading" className="text-sm font-semibold text-muted-foreground uppercase">
         Commits
       </h3>
       {commits.length === 0 ? (
         <p className="text-sm text-muted-foreground">No commits yet on this branch.</p>
       ) : (
-        <ul className="flex flex-col gap-2">
+        <ul className="flex flex-col gap-item">
           {commits.map((commit) => (
-            <li key={commit.hash} className="flex gap-3 text-sm">
+            <li key={commit.hash} className="flex gap-item text-sm">
               <code className="text-muted-foreground">{commit.hash.slice(0, 7)}</code>
               <span>{commit.subject}</span>
             </li>
@@ -119,7 +119,7 @@ function PushButton({ branch, outcome }: { branch: Branch; outcome: Teller }) {
   }, [push.state, opener])
 
   return (
-    <div className="flex flex-col gap-2">
+    <div className="flex flex-col gap-item">
       {confirming ? (
         <PushConfirm
           commits={branch.commits.length}
@@ -171,20 +171,20 @@ function PushConfirm({ commits, onCancel, onPush }: PushConfirmProps) {
       role="group"
       aria-labelledby="push-question"
       tabIndex={-1}
-      className="flex items-center gap-2 text-sm"
+      className="flex items-center gap-item text-sm"
     >
       <span id="push-question">Push {commits} commit(s) to the remote?</span>
       <button
         type="button"
         onClick={onCancel}
-        className="rounded-md border border-input px-2 py-1 hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+        className="rounded-sm border border-input px-2 py-1 hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
       >
         Cancel
       </button>
       <button
         type="button"
         onClick={onPush}
-        className="rounded-md bg-primary px-2 py-1 text-primary-foreground hover:bg-primary/90 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+        className="rounded-sm bg-primary px-2 py-1 text-primary-foreground hover:bg-primary/90 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
       >
         Push
       </button>

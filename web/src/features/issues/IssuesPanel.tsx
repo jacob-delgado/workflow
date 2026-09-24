@@ -58,8 +58,8 @@ function IssueBrowser({ streamed, branches }: { streamed: IssuesPage; branches: 
   }
 
   return (
-    <div className="mt-4 flex flex-col gap-4">
-      <div className="flex flex-col gap-2">
+    <div className="flex flex-col gap-group">
+      <div className="flex flex-col gap-item">
         <IssueListControls filter={filter} onFilter={setFilter} />
         <p role="status" className="text-sm text-muted-foreground">
           {filterOutcome(filter, shown.length, loaded.length)}
@@ -106,8 +106,8 @@ function ListAndDetail(props: ListAndDetailProps) {
   }
 
   return (
-    <div className="flex gap-6">
-      <div className="flex w-80 shrink-0 flex-col gap-3">
+    <div className="flex gap-block">
+      <div className="flex w-80 shrink-0 flex-col gap-group">
         {shown.length === 0 ? null : (
           <IssueRows issues={shown} branches={branches} rowRefs={focus.rows} outcome={outcome} />
         )}
@@ -176,7 +176,7 @@ function IssueRows({ issues, branches, rowRefs, outcome }: IssueRowsProps) {
   const branchesByKey = groupBranchesByKey(branches)
 
   return (
-    <ul aria-label="Issues" className="flex flex-col gap-1">
+    <ul aria-label="Issues" className="flex flex-col gap-tight">
       {issues.map((issue) => {
         // An issue can have more than one local branch; it is on HEAD when any
         // of them is, and check-out targets the most recent one (branches
@@ -186,7 +186,7 @@ function IssueRows({ issues, branches, rowRefs, outcome }: IssueRowsProps) {
         const onHead = issueBranches.some((branch) => branch.current)
 
         return (
-          <li key={issue.key} className="flex flex-wrap items-center gap-1">
+          <li key={issue.key} className="flex flex-wrap items-center gap-tight">
             <button
               ref={(element) => {
                 if (element !== null) {
@@ -203,13 +203,13 @@ function IssueRows({ issues, branches, rowRefs, outcome }: IssueRowsProps) {
                 selectIssue(issue.key)
               }}
               className={cn(
-                'flex flex-1 flex-col gap-1 rounded-md border border-transparent px-3 py-2 text-left motion-safe:transition-colors',
+                'flex flex-1 flex-col gap-tight rounded-md border border-transparent px-3 py-2 text-left motion-safe:transition-colors',
                 'hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none',
                 issue.key === selected && 'border-border bg-accent',
               )}
             >
-              <span className="flex items-center gap-2">
-                <span className="font-mono text-xs text-muted-foreground">{issue.key}</span>
+              <span className="flex items-center gap-item">
+                <span className="text-xs text-muted-foreground tabular-nums">{issue.key}</span>
                 <IssueStatus category={issue.status_category} label={issue.status} />
                 {newest ? (
                   <span className="ml-auto flex items-center gap-1 text-xs whitespace-nowrap text-muted-foreground">
@@ -250,7 +250,7 @@ function MoreIssues({ more, streamed, loaded, statusLine, onLoadMore }: MoreIssu
 
   return (
     <>
-      <div className="flex items-center gap-3 px-3 text-sm">
+      <div className="flex items-center gap-item px-3 text-sm">
         <p ref={statusLine} role="status" tabIndex={-1} className="text-muted-foreground">
           {loadOutcome(loaded, streamed.total, remain, paged)}
         </p>
@@ -261,7 +261,7 @@ function MoreIssues({ more, streamed, loaded, statusLine, onLoadMore }: MoreIssu
             onClick={() => {
               void onLoadMore()
             }}
-            className="rounded-md border border-input px-2 py-1 hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+            className="rounded-sm border border-input px-2 py-1 hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
           >
             {more.isFetchingNextPage ? 'Loading more…' : 'Load more'}
           </button>
@@ -369,7 +369,7 @@ function RowCheckout({ branch, issueKey, outcome }: RowCheckoutProps) {
         onClick={() => {
           void run()
         }}
-        className="shrink-0 rounded-md border border-input px-2 py-1 text-xs hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none disabled:cursor-not-allowed disabled:bg-disabled disabled:text-disabled-foreground"
+        className="shrink-0 rounded-sm border border-input px-2 py-1 text-xs hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none disabled:cursor-not-allowed disabled:bg-disabled disabled:text-disabled-foreground"
       >
         {state === 'running' ? 'Switching…' : 'Check out'}
       </button>

@@ -11,9 +11,9 @@ interface ListControlsProps {
 // over the issues already loaded, as the interface's `/` filters its list.
 export function IssueListControls({ filter, onFilter }: ListControlsProps) {
   return (
-    <div className="flex flex-wrap items-center gap-3">
+    <div className="flex flex-wrap items-center gap-group">
       <ViewSelect />
-      <label className="flex items-center gap-2 text-sm">
+      <label className="flex items-center gap-item text-sm">
         <span className="text-muted-foreground">Filter</span>
         <input
           type="search"
@@ -52,7 +52,7 @@ function ViewSelect() {
   }
 
   return (
-    <label className="flex items-center gap-2 text-sm">
+    <label className="flex items-center gap-item text-sm">
       <span className="text-muted-foreground">View</span>
       <select
         value={view ?? names[0]}

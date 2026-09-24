@@ -17,13 +17,13 @@ export function WorkingTree({
   suggestedScope: string
 }) {
   return (
-    <section aria-labelledby="changes-heading" className="flex flex-col gap-3">
+    <section aria-labelledby="changes-heading" className="flex flex-col gap-group">
       <h3 id="changes-heading" className="text-sm font-semibold text-muted-foreground uppercase">
         Working tree
       </h3>
       {changes.length === 0 ? null : (
         <>
-          <ul className="flex flex-col gap-1.5">
+          <ul className="flex flex-col gap-item">
             {changes.map((change) => (
               <ChangeRow key={change.path} change={change} />
             ))}
@@ -85,8 +85,8 @@ function ChangeRow({ change }: { change: Change }) {
   )
 
   return (
-    <li className="flex flex-col gap-1 text-sm">
-      <div className="flex items-center gap-3">
+    <li className="flex flex-col gap-tight text-sm">
+      <div className="flex items-center gap-item">
         <span className="w-20 shrink-0 text-muted-foreground">{change.kind}</span>
         <code className="flex-1">{change.path}</code>
         <span className={change.staged ? 'text-xs text-success' : 'text-xs text-muted-foreground'}>
@@ -126,7 +126,7 @@ function StageAll({ anythingToStage }: { anythingToStage: boolean }) {
   })
 
   return (
-    <div className="flex flex-col gap-1">
+    <div className="flex flex-col gap-tight">
       <button
         type="button"
         disabled={!anythingToStage || state === 'running'}
@@ -148,4 +148,4 @@ function StageAll({ anythingToStage }: { anythingToStage: boolean }) {
 }
 
 const stagingButtonClass =
-  'rounded-md border border-input px-2 py-1 text-xs hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none disabled:cursor-not-allowed disabled:bg-disabled disabled:text-disabled-foreground'
+  'rounded-sm border border-input px-2 py-1 text-xs hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none disabled:cursor-not-allowed disabled:bg-disabled disabled:text-disabled-foreground'

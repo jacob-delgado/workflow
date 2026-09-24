@@ -30,7 +30,7 @@ export function IssueDetailPanel({ issueKey, listed }: { issueKey: string; liste
   }, [data, error])
 
   return (
-    <article aria-labelledby="issue-detail-heading" className="flex flex-col gap-6">
+    <article aria-labelledby="issue-detail-heading" className="flex flex-col gap-block">
       <IssueHeading issueKey={issueKey} issue={listed ?? data} heading={heading} />
       {isPending ? <p className="text-sm text-muted-foreground">Reading {issueKey}…</p> : null}
       {error ? (
@@ -47,7 +47,7 @@ export function IssueDetailPanel({ issueKey, listed }: { issueKey: string; liste
         />
       ) : null}
       {data ? <IssuePeople detail={data} /> : null}
-      <section aria-labelledby="work-story-heading" className="flex flex-col gap-4">
+      <section aria-labelledby="work-story-heading" className="flex flex-col gap-group">
         <h3 id="work-story-heading" className={sectionHeading}>
           Work story
         </h3>
@@ -71,7 +71,7 @@ function IssueUnread({
   onRetry: () => void
 }) {
   return (
-    <div className="flex flex-col items-start gap-2">
+    <div className="flex flex-col items-start gap-item">
       <p role="alert" className="text-sm text-destructive">
         {reason}
       </p>
@@ -97,12 +97,12 @@ interface IssueHeadingProps {
 // once the issue is read, so it can hold focus without being a tab stop.
 function IssueHeading({ issueKey, issue, heading }: IssueHeadingProps) {
   return (
-    <div className="flex flex-col gap-2">
-      <span className="flex items-center gap-2">
-        <span className="font-mono text-sm text-muted-foreground">{issueKey}</span>
+    <div className="flex flex-col gap-tight">
+      <span className="flex items-center gap-item">
+        <span className="text-sm text-muted-foreground tabular-nums">{issueKey}</span>
         {issue ? <IssueStatus category={issue.status_category} label={issue.status} /> : null}
       </span>
-      <h2 ref={heading} id="issue-detail-heading" tabIndex={-1} className="text-lg font-medium">
+      <h2 ref={heading} id="issue-detail-heading" tabIndex={-1} className="text-lg">
         {issue ? issue.summary : issueKey}
       </h2>
       {issue ? (
@@ -117,8 +117,8 @@ function IssueHeading({ issueKey, issue, heading }: IssueHeadingProps) {
 
 function IssuePeople({ detail }: { detail: IssueDetail }) {
   return (
-    <div className="flex flex-col gap-3">
-      <dl className="grid grid-cols-[6rem_1fr] gap-x-4 gap-y-1.5 text-sm">
+    <div className="flex flex-col gap-group">
+      <dl className="grid grid-cols-[6rem_1fr] gap-x-group gap-y-tight text-sm">
         <dt className="text-muted-foreground">Reporter</dt>
         <dd>{detail.reporter === '' ? '—' : detail.reporter}</dd>
         <dt className="text-muted-foreground">Assignee</dt>
@@ -142,7 +142,7 @@ function IssuePeople({ detail }: { detail: IssueDetail }) {
 
 function Description({ text }: { text: string }) {
   return (
-    <section aria-labelledby="description-heading" className="flex flex-col gap-3">
+    <section aria-labelledby="description-heading" className="flex flex-col gap-group">
       <h3 id="description-heading" className={sectionHeading}>
         Description
       </h3>
@@ -159,13 +159,13 @@ function Description({ text }: { text: string }) {
 // more the issue holds when the tracker sent only some.
 function Comments({ comments, total }: { comments: Comment[]; total: number }) {
   return (
-    <section aria-labelledby="comments-heading" className="flex flex-col gap-3">
+    <section aria-labelledby="comments-heading" className="flex flex-col gap-group">
       <h3 id="comments-heading" className={sectionHeading}>
         Comments
       </h3>
       {total === 0 ? <p className="text-sm text-muted-foreground">No comments.</p> : null}
       {comments.length > 0 ? (
-        <ol aria-labelledby="comments-heading" className="flex flex-col gap-4">
+        <ol aria-labelledby="comments-heading" className="flex flex-col gap-group">
           {comments.map((comment, index) => (
             <CommentItem key={`${String(index)}-${comment.created}`} comment={comment} />
           ))}
@@ -184,7 +184,7 @@ function CommentItem({ comment }: { comment: Comment }) {
   const written = commentDate(comment.created)
 
   return (
-    <li className="flex flex-col gap-1 text-sm">
+    <li className="flex flex-col gap-tight text-sm">
       <p className="text-muted-foreground">
         <span className="text-foreground">{comment.author}</span>
         {written === null ? null : (

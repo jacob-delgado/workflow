@@ -52,9 +52,9 @@ function BranchReview({ review }: { review: Review }) {
   const outcome = useOutcome()
 
   return (
-    <div className="mt-4 flex max-w-2xl flex-col gap-8">
+    <div className="flex max-w-2xl flex-col gap-section">
       {/* The line sits close above the offers it introduces. */}
-      <OutcomeLine said={outcome.said} className={opened === null ? undefined : '-mb-6'} />
+      <OutcomeLine said={outcome.said} className={opened === null ? undefined : '-mb-block'} />
       {opened === null ? null : <OpenedOutcome key={opened.pull.url} opened={opened} />}
       {review.found && review.pull ? (
         <PullRequestSummary pull={review.pull} ci={review.ci ?? null} />
@@ -77,8 +77,8 @@ function PullRequestSummary({ pull, ci }: { pull: PullRequest; ci: Ci | null }) 
 
   return (
     <>
-      <section aria-labelledby="pr-heading" className="flex flex-col gap-3">
-        <h2 id="pr-heading" className="flex items-baseline gap-2 text-lg font-medium">
+      <section aria-labelledby="pr-heading" className="flex flex-col gap-group">
+        <h2 id="pr-heading" className="flex items-baseline gap-2 text-lg">
           <span className="text-muted-foreground">
             {sigil}
             {pull.number}
@@ -92,7 +92,7 @@ function PullRequestSummary({ pull, ci }: { pull: PullRequest; ci: Ci | null }) 
             {pull.title}
           </a>
         </h2>
-        <dl className="grid grid-cols-[9rem_1fr] gap-x-4 gap-y-1.5 text-sm">
+        <dl className="grid grid-cols-[9rem_1fr] gap-x-group gap-y-tight text-sm">
           <dt className="text-muted-foreground">State</dt>
           <dd>{pull.draft ? 'Draft' : 'Ready for review'}</dd>
           <dt className="text-muted-foreground">Mergeable</dt>
@@ -105,13 +105,13 @@ function PullRequestSummary({ pull, ci }: { pull: PullRequest; ci: Ci | null }) 
       </section>
 
       {ci ? (
-        <section aria-labelledby="ci-heading" className="flex flex-col gap-3">
+        <section aria-labelledby="ci-heading" className="flex flex-col gap-group">
           <h3 id="ci-heading" className="text-sm font-semibold text-muted-foreground uppercase">
             CI — {ci.done}/{ci.total} done{ci.failed > 0 ? `, ${String(ci.failed)} failed` : ''}
           </h3>
-          <ul className="flex flex-col gap-1.5">
+          <ul className="flex flex-col gap-item">
             {ci.checks.map((check) => (
-              <li key={check.name} className="flex items-center gap-3 text-sm">
+              <li key={check.name} className="flex items-center gap-item text-sm">
                 <StateMark state={ciMark[check.state]} />
                 {check.url === '' ? (
                   <span>{check.name}</span>
@@ -185,7 +185,7 @@ function OpenPullRequest({
   }
 
   return (
-    <div className="flex flex-col gap-2">
+    <div className="flex flex-col gap-item">
       <p className="text-sm text-muted-foreground">No open {noun} for this branch yet.</p>
       <button
         ref={opener}
@@ -270,19 +270,19 @@ function PullRequestForm({
       onSubmit={(event) => {
         void submit(event)
       }}
-      className="flex flex-col gap-3 rounded-md border border-border p-4"
+      className="flex flex-col gap-group rounded-lg border border-border p-4"
     >
-      <label className="flex flex-col gap-1 text-xs text-muted-foreground">
+      <label className="flex flex-col gap-tight text-sm text-muted-foreground">
         Title
         <input {...register('title')} required className={prInputClass} />
       </label>
 
-      <label className="flex flex-col gap-1 text-xs text-muted-foreground">
+      <label className="flex flex-col gap-tight text-sm text-muted-foreground">
         Base branch
         <input {...register('base')} required className={prInputClass} />
       </label>
 
-      <label className="flex flex-col gap-1 text-xs text-muted-foreground">
+      <label className="flex flex-col gap-tight text-sm text-muted-foreground">
         Reviewers
         <input
           {...register('reviewers')}
@@ -291,7 +291,7 @@ function PullRequestForm({
         />
       </label>
 
-      <label className="flex flex-col gap-1 text-xs text-muted-foreground">
+      <label className="flex flex-col gap-tight text-sm text-muted-foreground">
         Assignees
         <input
           {...register('assignees')}
@@ -300,7 +300,7 @@ function PullRequestForm({
         />
       </label>
 
-      <label className="flex flex-col gap-1 text-xs text-muted-foreground">
+      <label className="flex flex-col gap-tight text-sm text-muted-foreground">
         Labels
         <input
           {...register('labels')}
@@ -309,7 +309,7 @@ function PullRequestForm({
         />
       </label>
 
-      <label className="flex flex-col gap-1 text-xs text-muted-foreground">
+      <label className="flex flex-col gap-tight text-sm text-muted-foreground">
         Description
         <textarea {...register('body')} rows={6} className={prInputClass} />
       </label>
@@ -325,7 +325,7 @@ function PullRequestForm({
         </p>
       ) : null}
 
-      <div className="flex items-center gap-2">
+      <div className="flex items-center gap-item">
         <button
           type="button"
           disabled={opening}

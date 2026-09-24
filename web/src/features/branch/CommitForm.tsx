@@ -110,10 +110,10 @@ export function CommitForm({
       onSubmit={(event) => {
         void onSubmit(event)
       }}
-      className="flex flex-col gap-3 rounded-md border border-border p-4"
+      className="flex flex-col gap-group rounded-lg border border-border p-4"
     >
-      <div className="flex gap-2">
-        <label className="flex flex-col gap-1 text-xs text-muted-foreground">
+      <div className="flex gap-item">
+        <label className="flex flex-col gap-tight text-sm text-muted-foreground">
           Type
           <select {...register('type')} className={commitInputClass}>
             {commitTypes.map((type) => (
@@ -123,7 +123,7 @@ export function CommitForm({
             ))}
           </select>
         </label>
-        <label className="flex flex-1 flex-col gap-1 text-xs text-muted-foreground">
+        <label className="flex flex-1 flex-col gap-tight text-sm text-muted-foreground">
           Scope (optional)
           <input
             {...register('scope', { onChange: scopeSuggestion.typing })}
@@ -132,7 +132,7 @@ export function CommitForm({
         </label>
       </div>
 
-      <label className="flex flex-col gap-1 text-xs text-muted-foreground">
+      <label className="flex flex-col gap-tight text-sm text-muted-foreground">
         Subject
         <input
           {...register('subject')}
@@ -142,7 +142,7 @@ export function CommitForm({
         />
       </label>
 
-      <label className="flex flex-col gap-1 text-xs text-muted-foreground">
+      <label className="flex flex-col gap-tight text-sm text-muted-foreground">
         Body (optional)
         <textarea {...register('body')} rows={3} className={commitInputClass} />
       </label>
@@ -152,7 +152,7 @@ export function CommitForm({
         Breaking change
       </label>
 
-      <div className="flex items-center gap-3">
+      <div className="flex items-center gap-item">
         <button
           type="submit"
           disabled={blocked !== null || commit.state === 'running'}

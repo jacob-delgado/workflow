@@ -16,7 +16,7 @@ export function OpenedOutcome({ opened }: { opened: OpenedPullRequest }) {
   const pull = `${sigil}${String(opened.pull.number)}`
 
   return (
-    <div className="flex flex-col gap-2">
+    <div className="flex flex-col gap-item">
       {opened.warning === undefined || opened.warning === '' ? null : (
         <p role="status" className="text-sm text-warning">
           {opened.warning}
@@ -77,7 +77,7 @@ function FollowUpOffer({ offer, pull, noun }: { offer: FollowUp; pull: string; n
   })
 
   return (
-    <div className="flex flex-col gap-1">
+    <div className="flex flex-col gap-tight">
       {state === 'done' ? null : (
         <button
           type="button"
