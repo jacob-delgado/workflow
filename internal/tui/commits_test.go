@@ -295,8 +295,8 @@ func TestClickingAfterTheTreeShrinksStagesTheVisibleFile(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
-	// Scroll a long file list, then let a reload return a much shorter one. Unless
-	// the shared scroll offset is re-clamped, a click maps past the shorter list.
+	// Scroll a long file list, then let a reload return a much shorter one. A click
+	// must count from the rows drawn, not from an offset the longer list left.
 	shrinking := newWorld()
 	shrinking.changes = changedFiles("old", 20)
 
@@ -315,8 +315,8 @@ func TestClickingAfterTheTreeShrinksStagesTheVisibleFile(t *testing.T) {
 	typing(t, click(t, reloaded, 60, 3), keySpace)
 
 	// Assert
-	// The click reached b.go, which holds only if the scroll offset was re-clamped
-	// to the shorter list — otherwise the click maps past the end and stages a.go.
+	// The click reached b.go, the file drawn there. Counted from the longer list's
+	// offset, it maps past the end, and space stages a.go.
 	if got := shrinking.asked("stage b.go"); len(got) != 1 {
 		t.Errorf("stage calls = %v, want the clicked visible file b.go", shrinking.asked("stage"))
 	}

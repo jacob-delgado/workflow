@@ -175,7 +175,7 @@ func (m Model) detailContent(shape layout.Layout) (string, string, frame.Style) 
 		return title, behavior.narrow(m, rows), border
 	}
 
-	return title, scrolled(behavior.detail(m, width), m.scroll, rows), border
+	return title, scrolled(behavior.detail(m, width), *behavior.scroll(&m), rows), border
 }
 
 // paneTitle adds the in-flight glyph to a pane's title while it is loading, so a
@@ -262,14 +262,26 @@ func (m Model) detailWidth() int {
 	return max(1, shape.Detail.Width-detailPadding)
 }
 
-// scrolled is the window of text that fits in rows, starting offset lines in —
-// and no further than lets the last line reach the bottom.
+// detailLines is how many lines the focused pane's detail runs to, wrapped to
+// the detail pane's width.
+func (m Model) detailLines() int {
+	return strings.Count(behaviorOf(m.focus).detail(m, m.detailWidth()), "\n") + 1
+}
+
+// scrolled is the window of text that fits in rows, starting offset lines in.
 func scrolled(text string, offset, rows int) string {
 	lines := strings.Split(text, "\n")
-	first := min(max(0, offset), max(0, len(lines)-rows))
+	first := firstShown(len(lines), offset, rows)
 	last := min(len(lines), first+max(0, rows))
 
 	return strings.Join(lines[first:last], "\n")
+}
+
+// firstShown is the first of count lines a window of rows shows when it starts
+// offset lines in — no further than lets the last line reach the bottom, so an
+// offset past the end is drawn, and so is clicked and scrolled from, as the end.
+func firstShown(count, offset, rows int) int {
+	return min(max(0, offset), max(0, count-rows))
 }
 
 // wrap breaks text into lines no wider than width. It breaks only at spaces —

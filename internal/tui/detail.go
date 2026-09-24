@@ -32,12 +32,15 @@ const (
 // when ui.comments_shown is not set.
 const defaultCommentsShown = 5
 
-// issueDetail is the selected issue in full, as far as it has loaded.
+// issueDetail is the selected issue in full, as far as it has loaded, and how
+// far the Issues pane's detail is scrolled — which another issue starts at the
+// top.
 type issueDetail struct {
 	key    jira.Key
 	loaded bool
 	err    error
 	detail jira.IssueDetail
+	scroll int
 }
 
 // detailLoaded carries an issue read in full.
@@ -59,7 +62,7 @@ func (msg detailLoaded) apply(m Model) (Model, tea.Cmd) {
 		return m, nil
 	}
 
-	m.detail = issueDetail{key: msg.key, loaded: true, err: msg.err, detail: msg.detail}
+	m.detail.loaded, m.detail.err, m.detail.detail = true, msg.err, msg.detail
 
 	return m, nil
 }
@@ -287,9 +290,8 @@ func (m Model) moveIssue(step int) (Model, tea.Cmd) {
 	m.issues.moved = true
 
 	m, page := m.pageIfAtEnd()
-	m, detail := m.soonDetail()
 
-	return m, tea.Batch(page, detail)
+	return m, tea.Batch(page, m.soonDetail())
 }
 
 // pageIfAtEnd reads the next page once the selection reaches the last loaded
@@ -304,15 +306,13 @@ func (m Model) pageIfAtEnd() (Model, tea.Cmd) {
 
 // soonDetail reads the selected issue after detailDelay, unless it is already
 // shown.
-func (m Model) soonDetail() (Model, tea.Cmd) {
+func (m Model) soonDetail() tea.Cmd {
 	selected, ok := m.issues.current()
 	if !ok || m.detail.key == selected.Key {
-		return m, nil
+		return nil
 	}
 
-	m.scroll = 0
-
-	return m, m.deps.after(detailDelay, func(time.Time) tea.Msg { return detailDue{key: selected.Key} })
+	return m.deps.after(detailDelay, func(time.Time) tea.Msg { return detailDue{key: selected.Key} })
 }
 
 // pickIssue selects the issue on a clicked line of the list, wherever the list
@@ -329,7 +329,7 @@ func (m Model) pickIssue(line, rows int, inRail bool) (Model, tea.Cmd) {
 
 	m.issues.selected, m.issues.moved = index, true
 
-	return m.soonDetail()
+	return m, m.soonDetail()
 }
 
 // issueDetailView describes the selected issue in full, or explains why there

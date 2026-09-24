@@ -78,6 +78,18 @@ func (m Model) pick(line, rows int, inRail bool) (Model, tea.Cmd) {
 	return picker(m, line, rows, inRail)
 }
 
+// detailLineAt is the line of the focused pane's detail drawn on a row of the
+// detail pane, counted from the first line the drawing showed rather than from
+// the pane's stored offset, which can sit past the end. A row outside the lines
+// drawn, the border's among them, is no line, even where one lies scrolled out
+// of sight just past it: the rule issueList.rowAt holds a click on the rail to.
+func (m Model) detailLineAt(row int) (int, bool) {
+	rows := m.detailRows()
+	first := firstShown(m.detailLines(), *behaviorOf(m.focus).scroll(&m), rows)
+
+	return first + row, row >= 0 && row < rows
+}
+
 // wheel scrolls: an open overlay's list, or the detail pane.
 func (m Model) wheel(shape layout.Layout, column, row, step int) (Model, tea.Cmd) {
 	if !shape.Detail.Contains(column, row) {

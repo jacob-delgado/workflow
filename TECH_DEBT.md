@@ -66,7 +66,7 @@ Severity: low · Confidence: measured
 `scripts/check-file-length.sh --list` flags four source files past the
 500-line soft target — `internal/forge/github.go` (551),
 `internal/gitrepo/branch.go` (532), `internal/tui/prcomposer.go` (527) and
-`internal/tui/messaging.go` (528) — and five test files
+`internal/tui/messaging.go` (529) — and five test files
 (`internal/messaging/post_test.go` 738, `internal/tui/messaging_test.go`
 612, `internal/webserver/pullrequest_test.go` 601,
 `internal/tui/composer_test.go` 568, `internal/jira/detail_test.go` 501).
@@ -74,7 +74,7 @@ None is over the 800 hard ceiling. The first edition of this entry missed
 the two source files outside `internal/tui`. Its headline file,
 `internal/tui/review.go` at 727 lines, is paid: the merge picker moved to
 `internal/tui/merge.go` and the re-run to `internal/tui/checks.go`,
-leaving it at 451.
+leaving it at 453.
 
 **What it costs.** `scripts/check-file-length.sh` warns on every run, so the
 warning has stopped meaning anything.
@@ -85,59 +85,37 @@ the same commit.
 
 **Done when.** `check-file-length.sh --list` flags nothing `soft`.
 
-### DEBT-57 Scroll re-clamps and composer pairs, written three times and twice
+### DEBT-57 Composer pairs, written twice
 
 Severity: low · Confidence: read
 
-- Three focus-guarded "re-clamp the shared scroll after a shrinking reload"
-  blocks: `internal/tui/commits.go:50`, `internal/tui/reviewqueue.go:47`, plus `internal/tui/commits.go:249`
-  `followChange` / `internal/tui/reviewqueue.go:208`. They exist only because
-  every pane shares one scroll offset, so they go with DEBT-58's scroll per
-  pane.
-- Two `onFieldNav` + `*CanComplete` pairs (`internal/tui/scopesuggest.go:17`,
-  `internal/tui/prcomposer.go:304`) and two blur-all-then-focus-one switches
-  (`internal/tui/composer.go:297`, `internal/tui/prcomposer.go:325`). Two is
-  not yet the rule of three: they stay until a third composer needs them.
+Two `onFieldNav` + `*CanComplete` pairs (`internal/tui/scopesuggest.go:17`,
+`internal/tui/prcomposer.go:304`) and two blur-all-then-focus-one switches
+(`internal/tui/composer.go:297`, `internal/tui/prcomposer.go:325`). Two is
+not yet the rule of three: they stay until a third composer needs them.
 
 The rest of this entry is paid: the fourteen "keep the overlay open with the
-reason" appliers share `keepOpenWith` (`internal/tui/overlay.go:143`), and
-the five list pickers draw through one `pickList`
-(`internal/tui/picker.go:26`).
+reason" appliers share `keepOpenWith` (`internal/tui/overlay.go:143`), the
+five list pickers draw through one `pickList`
+(`internal/tui/picker.go:26`), and the focus-guarded scroll re-clamps are
+gone now that each pane keeps its own scroll and each list pane re-follows
+its selection after every reload (`changeList.following`,
+`internal/tui/commits.go:72`; `reviewQueueState.following`,
+`internal/tui/reviewqueue.go:64`).
 
-**What it costs.** A reload that shrinks a list must remember the guard, and
-a third composer must copy the pairs or extract them then.
+**What it costs.** A third composer must copy the pairs or extract them
+then.
 
-**Done when.** The re-clamps are gone with DEBT-58, and the two pairs are
-written down under Deliberate trade-offs.
-
-### DEBT-58 One scroll offset for six panes
-
-Severity: medium · Confidence: read
-
-`m.scroll` (`internal/tui/tui.go:51`) is a single offset shared by every
-pane, reset on focus (`internal/tui/tui.go:269` `focusOn`). It is the reason for the
-focus-guarded re-clamps in DEBT-57, and the reason `pickChange`
-(`internal/tui/commits.go:255`) and `pickReview` (`internal/tui/reviewqueue.go:215`) must add
-`m.scroll` to a clicked line while `pickIssue` (`internal/tui/detail.go:320`) must not —
-three click paths that disagree about the same number.
-
-**What it costs.** Switching panes loses the scroll position; every
-scroll-aware change has to remember which pane the one offset currently
-belongs to.
-
-**One way to fix it.** A scroll per pane, held on the pane's state.
-
-**Done when.** `focusOn` no longer touches a scroll; leaving and returning
-to a pane restores its position (a screen test).
+**Done when.** The two pairs are written down under Deliberate trade-offs.
 
 ### DEBT-59 A generation counter stands in for cancellation, and a race is left on purpose
 
 Severity: low · Confidence: read
 
-`reviewState.generation` (`internal/tui/review.go:32`) exists solely to
+`reviewState.generation` (`internal/tui/review.go:33`) exists solely to
 stop a superseded CI polling chain from applying — a workaround for having
 no way to cancel the earlier chain. `detailLoaded.apply`
-(`internal/tui/detail.go:51`) documents a last-writer-wins race between two
+(`internal/tui/detail.go:55`) documents a last-writer-wins race between two
 in-flight reads of the same issue and consciously declines to fix it. Both
 are honest about what they are; both are the kind of thing the next
 concurrency change trips on.
