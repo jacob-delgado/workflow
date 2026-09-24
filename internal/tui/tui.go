@@ -252,14 +252,15 @@ func (m Model) halfPage() int {
 	return max(1, m.detailRows()/2) //nolint:mnd // half, as in half a page
 }
 
-// scrollDetail moves the detail by delta lines and clamps the result to the
-// content. Clamping where the offset is written — not only where it is drawn —
-// is what stops an over-scroll from stranding the view past the end, so one
-// scroll-up moves it rather than undoing offsets the content never had.
+// scrollDetail moves the detail by delta lines from where it is drawn, and
+// clamps the result to the content. A stored offset can sit past the end — a
+// taller terminal or a shorter body leaves it there — so it is clamped before
+// it moves as well as after: otherwise one scroll-up spends itself undoing
+// offsets the content no longer has, and the view does not move.
 func (m Model) scrollDetail(delta int) Model {
 	body := behaviorOf(m.focus).detail(m, m.detailWidth())
 	maxOffset := max(0, strings.Count(body, "\n")+1-m.detailRows())
-	m.scroll = min(max(0, m.scroll+delta), maxOffset)
+	m.scroll = min(max(0, min(m.scroll, maxOffset)+delta), maxOffset)
 
 	return m
 }
