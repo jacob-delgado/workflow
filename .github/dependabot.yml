@@ -4,16 +4,17 @@
 # minor and patch updates into a single pull request, so a weekly sweep costs one
 # CI run instead of one per dependency. Majors are deliberately left out of the
 # groups: a breaking bump should arrive as its own pull request, with its own CI
-# evidence, and be reviewable on its own merits.
+# evidence, and be reviewable on its own merits. One web package also arrives
+# alone, for the reason its npm entry gives.
 #
 # COOLDOWN APPLIES ONLY TO SCHEDULED VERSION UPDATES. Dependabot *security*
 # updates — the ones raised from a published advisory against something already
-# in go.sum — bypass both the cooldown and the schedule, and GitHub raises them
-# immediately. There is no configuration knob for that because none is needed:
-# it is the unconditional default, and it is exactly the behavior this project
-# wants. The seven-day cooldown guards against unknown compromised releases, not
-# against published fixes for known ones; shipping a known CVE is the worse risk.
-# That rule is written down in CLAUDE.md as well.
+# in go.sum or yarn.lock — bypass both the cooldown and the schedule, and GitHub
+# raises them immediately. There is no configuration knob for that because none
+# is needed: it is the unconditional default, and it is exactly the behavior
+# this project wants. The seven-day cooldown guards against unknown compromised
+# releases, not against published fixes for known ones; shipping a known CVE is
+# the worse risk. That rule is written down in CLAUDE.md as well.
 version: 2
 updates:
   # Go modules.
@@ -29,6 +30,24 @@ updates:
     groups:
       go-minor-patch:
         update-types: ["minor", "patch"]
+
+  # The web frontend's packages (web/package.json and web/yarn.lock).
+  - package-ecosystem: npm
+    directory: "/web"
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+    commit-message:
+      prefix: build
+    cooldown:
+      default-days: 7
+    groups:
+      web-minor-patch:
+        update-types: ["minor", "patch"]
+        # openapi-ts copies its client runtime into src/api/generated, so its
+        # bump must land with `corepack yarn gen` output or gen:check fails.
+        # It arrives as its own pull request so it cannot hold up the group.
+        exclude-patterns: ["@hey-api/openapi-ts"]
 
   # The actions used by CI, all of which are SHA-pinned with a version comment;
   # Dependabot updates both together. Official GitHub actions are a trusted
