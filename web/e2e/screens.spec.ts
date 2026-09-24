@@ -44,13 +44,19 @@ for (const theme of themes) {
           await nav.getByRole('button', { name, exact: true }).click()
 
           // Assert: it has settled; then the screen is saved as drawn, with the
-          // pointer parked off the controls so none is caught mid-hover.
+          // pointer parked off the controls so none is caught mid-hover. Under
+          // reduced motion every element transitions every property for 0.01ms
+          // (web/src/index.css), so an inherited color reaches an icon's
+          // strokes a frame or more after the text beside it: the capture
+          // finishes those transitions first rather than catching the last
+          // section's colors on the way out.
           await expect(page.getByRole('heading', { level: 1, name })).toBeVisible()
           await expect(settled(page, name)).toBeVisible()
           await page.mouse.move(0, 0)
           await page.screenshot({
             path: testInfo.outputPath(`${String(width)}-${theme}-${name.toLowerCase()}.png`),
             fullPage: true,
+            animations: 'disabled',
           })
         }
       },
