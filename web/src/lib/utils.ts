@@ -15,6 +15,12 @@ export function cn(...inputs: ClassValue[]): string {
   return twMerge(clsx(inputs))
 }
 
+// definitionList lays out a <dl> of terms beside their values: the terms in a
+// column as wide as the longest of them, the values in what is left of the
+// width, wrapping within it.
+export const definitionList =
+  'grid grid-cols-[max-content_minmax(0,1fr)] gap-x-group gap-y-tight text-sm'
+
 // capitalized starts text with a capital, for a word the server sends lowercase
 // — the forge's "merge request" — that opens a sentence or names a stage.
 export function capitalized(text: string): string {

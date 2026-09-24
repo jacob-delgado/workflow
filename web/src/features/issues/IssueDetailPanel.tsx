@@ -2,6 +2,7 @@ import { ExternalLink } from 'lucide-react'
 import { useEffect, useRef, type RefObject } from 'react'
 import { apiErrorMessage } from '@/api/apiError.ts'
 import type { Comment, Issue, IssueDetail } from '@/api/generated/types.gen.ts'
+import { definitionList } from '@/lib/utils.ts'
 import { useIssue } from './issueApi.ts'
 import { IssueStatus } from './IssueStatus.tsx'
 import { WorkStory } from './WorkStory.tsx'
@@ -118,7 +119,7 @@ function IssueHeading({ issueKey, issue, heading }: IssueHeadingProps) {
 function IssuePeople({ detail }: { detail: IssueDetail }) {
   return (
     <div className="flex flex-col gap-group">
-      <dl className="grid grid-cols-[6rem_1fr] gap-x-group gap-y-tight text-sm">
+      <dl className={definitionList}>
         <dt className="text-muted-foreground">Reporter</dt>
         <dd>{detail.reporter === '' ? '—' : detail.reporter}</dd>
         <dt className="text-muted-foreground">Assignee</dt>

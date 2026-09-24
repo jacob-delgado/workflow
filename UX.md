@@ -154,30 +154,6 @@ horizontal axis.
 
 ## The web
 
-### UX-85 The panels' contents do not reflow
-
-Impact: medium · Effort: small
-
-**Today.** The rail keeps its icons alone below `md`, and the issue list
-sits over its detail below `lg`, scrolling in its own pane. What does not
-reflow is inside the panels (their `max-w-2xl` caps only cap, so below
-them each panel already takes the content's width): definition lists fix
-their first column at a guess of its longest term (`grid-cols-[6rem_1fr]`
-`web/src/features/branch/BranchPanel.tsx:61`, `[8rem_1fr]`
-`web/src/features/messaging/MessagingPanel.tsx:34`, `[9rem_1fr]`
-`web/src/features/review/ReviewPanel.tsx:95`); the working tree's kind
-column is a fixed `w-20` (`web/src/features/branch/WorkingTree.tsx:90`);
-and a word wider than the content, such as a branch named with
-underscores or a golden file's name, widens the content past the window,
-which then scrolls sideways.
-
-**Instead.** The grids and the kind column go fluid, and such a word
-breaks rather than widen the content.
-
-**Done when.** `web/e2e/layout.spec.ts` finds nothing scrolling sideways
-with a branch and a file whose names each hold a word wider than the
-content.
-
 ### UX-86 Nothing marks a change the stream just made
 
 Impact: low · Effort: medium
@@ -251,6 +227,16 @@ words. Type, space and corners each have one scale
 (`web/src/index.css:162`), headings are set in sentence case — the web lint
 refuses an `uppercase` class — and monospace is for code alone. Periwinkle
 stays the one control accent, and the middle dot the separator.
+
+It follows the window, too. Below `md` the rail keeps its icons alone, each
+name kept for assistive tech and shown on hover; below `lg` the issue list
+sits over its detail, and at every width it scrolls in its own pane, over a
+line saying how many it holds. The header holds still while the content
+scrolls beneath it, and a word wider than the content breaks rather than
+scroll it sideways. `web/e2e/layout.spec.ts` holds every section to 640,
+1024 and 1440 px in both themes: nothing scrolls sideways, nor the page
+down, Tab reaches every control, each in view as it takes focus, and axe
+finds nothing.
 
 ## Across the surfaces
 

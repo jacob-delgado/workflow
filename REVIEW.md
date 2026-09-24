@@ -58,12 +58,12 @@ gap, and which phase closes it.
 | 1 | List the view's issues | P (only `branch <tab>` completion, `completeAssignedIssues`, `internal/cli/scriptable.go:125`) | Y | Y (the stream's page, and more on request since Phase 3) | CLI read: a feature, FEAT-78 |
 | 2 | Switch view / next page | N | Y (`v`, `ctrl+n`) | Y since Phase 3 — a view select from `listViews` (`ViewSelect`, `web/src/features/issues/IssueListControls.tsx:37`), `useEventStream(view)` (`web/src/api/snapshot.ts:46`), and Load more over `start_at` (`useMoreIssues`, `web/src/features/issues/issueApi.ts:73`); an unknown view is 404 | — |
 | 3 | Filter the list | N | Y (`/`, `internal/tui/issues.go:159`) | Y since Phase 3 — the same `KEY summary` match (`matchesFilter`, `web/src/features/issues/IssuesPanel.tsx:365`) | CLI no |
-| 4 | Read an issue in full | N | Y (`internal/tui/detail.go:285`) | Y since Phase 3 — description, comments, reporter, assignee (`IssueDetailPanel`, `web/src/features/issues/IssueDetailPanel.tsx:17`) | CLI: FEAT-78 |
+| 4 | Read an issue in full | N | Y (`internal/tui/detail.go:285`) | Y since Phase 3 — description, comments, reporter, assignee (`IssueDetailPanel`, `web/src/features/issues/IssueDetailPanel.tsx:18`) | CLI: FEAT-78 |
 | 5 | Transition, with field forms | P (`pr`'s side effect, fields-less, `internal/cli/pr.go:236`) | Y (`internal/tui/picker.go:155`) | P since Phase 9 — the review-status move offered after opening, fields-less and nowhere else (`TransitionIssue`, `internal/webserver/issuewrite.go:106`) | A general transition: FEAT-78 (CLI), FEAT-80 (web) |
 | 6 | Comment | N | Y (`internal/tui/comment.go:41`) | N | FEAT-78 / FEAT-80; not this plan |
 | 7 | Assign / log work | N | Y (`internal/tui/issuewrite.go:74`, `:81`) | N | FEAT-78 / FEAT-80; not this plan |
 | 8 | Link the pull request on the issue | Y since Phase 8 — `pr` offers it before the status, under the same `--yes` (`offerLink`, `internal/cli/pr.go:176`) | Y (`issuelink.go`, `internal/tui/prcomposer.go:510`) | Y since Phase 9 — offered after opening; the server links the branch's own pull request, never a URL the page sends (`LinkPullRequest`, `internal/webserver/issuewrite.go:35`) | — |
-| 9 | Open / copy the issue URL | n/a | Y (`o`, `y`) | Y since Phase 3 — "Open in Jira" from the detail's `url` (`web/src/features/issues/IssueDetailPanel.tsx:134`); copying is the browser's own link menu | — |
+| 9 | Open / copy the issue URL | n/a | Y (`o`, `y`) | Y since Phase 3 — "Open in Jira" from the detail's `url` (`web/src/features/issues/IssueDetailPanel.tsx:135`); copying is the browser's own link menu | — |
 | 10 | Cache-seeded first paint | n/a | Y (`internal/tui/issues.go:53`) | **F** | FEAT-68, declared |
 | 11 | Branch for the issue | Y | Y | Y | The CLI's help and preview say it switches to the branch, since Phase 8 (`internal/cli/branch.go:40`, `:99`) |
 
@@ -122,10 +122,10 @@ gap, and which phase closes it.
 | 40 | Write / initialize the config | Y (`config init`) | N | P (7 sections; five carried but not editable) | Interface: `config init` + `doctor` are the path — no. Web remainder: UX-87 |
 | 41 | Doctor | Y | N | N | Reasonable CLI-only; the interface points at it (`internal/tui/render.go:443`) |
 | 42 | Status across the loop | Y (`status DIR…`) | Y (the spine) | Y (`WorkStory`) | — |
-| 43 | Dry run | Y (one persistent `--dry-run` since Phase 2, `internal/cli/cli.go:204`) | Y (per seam, `dryrun.go:25`) | Y since Phase 3 — a read-only banner (`web/src/shell/AppShell.tsx:63`) and one hold over every write before it is sent (`web/src/api/client.ts:25`), over the server's 403 (`guard.go:46`) | — |
+| 43 | Dry run | Y (one persistent `--dry-run` since Phase 2, `internal/cli/cli.go:204`) | Y (per seam, `dryrun.go:25`) | Y since Phase 3 — a read-only banner (`web/src/shell/AppShell.tsx:65`) and one hold over every write before it is sent (`web/src/api/client.ts:25`), over the server's 403 (`guard.go:46`) | — |
 | 44 | Request log `--log` | Y (persistent since Phase 2, `internal/cli/cli.go:206`) | Y | Y | — |
 | 45 | Help / discoverability | Y since Phase 8 — an unknown command or flag points at `--help`, after cobra's closest commands (`usageHint`, `internal/cli/scriptable.go:210`) | Y since Phase 7 — `?` lists all 57 bindings where each works, held to a table of every placement (`internal/tui/help_test.go:211`), and the Issues footer shows every key it answers (`internal/tui/detail.go:186`) | n/a | Web `?` idea, UX-88 |
-| 46 | Version | Y | n/a | Y since Phase 3 — in the header (`web/src/shell/AppShell.tsx:52`) | — |
+| 46 | Version | Y | n/a | Y since Phase 3 — in the header (`web/src/shell/AppShell.tsx:54`) | — |
 
 ## Where a surface breaks a convention
 
@@ -181,12 +181,12 @@ met and stay.
 | Buttons say what happens | Met | `Open pull request`, `Commit staged changes`, `Push branch` |
 | An action keeps its name; errors direct; empty states invite | Met since Phase 11 — one announce verb ("Announce to X" opens the preview, "Announce now" sends); every fallback, and the server's own failures, say what to do next; one connecting line; a Retry and a not-a-repository line that invites | `web/src/features/writes.test.tsx` |
 | Feedback after a write | Met since Phase 11 — 12 of 12, each in a live line that keeps the button's verb and outlives the snapshot confirming the write (`OutcomeLine`, `web/src/lib/Outcome.tsx:54`) | `web/src/features/writes.test.tsx` |
-| Focus management | Met since Phase 11 — to the outcome when a write's control goes, through each step's swap and back on Cancel or a refusal (`web/src/lib/focus.ts`), and to `<main>` on a section change (`useSectionFocus`, `web/src/shell/AppShell.tsx:113`) | — |
+| Focus management | Met since Phase 11 — to the outcome when a write's control goes, through each step's swap and back on Cancel or a refusal (`web/src/lib/focus.ts`), and to `<main>` on a section change (`useSectionFocus`, `web/src/shell/AppShell.tsx:115`) | — |
 | Accessible names, landmarks, skip link, focus ring, axe both themes | Met | enforced |
 | Disabled by opacity; reduced motion | Met since Phase 11 — `--disabled` tokens (`web/src/index.css:48`), held to 4.5:1 in both themes by `web/src/tokens.test.ts`, and no `opacity-N` class past the web lint; transitions `motion-safe:`, and one reduced-motion rule (`web/src/index.css:222`) | — |
-| Responsive | **Gap** — zero breakpoints | UX-85 |
+| Responsive | Met since Phase 14 — below `md` the rail keeps its icons alone, each name kept for assistive tech and shown on hover (`NavRail`, `web/src/shell/NavRail.tsx:10`); below `lg` the issue list sits over its detail, and at every width scrolls in its own pane (`ListAndDetail`, `web/src/features/issues/IssuesPanel.tsx:107`); the shell is the window's height, its header still and its content scrolling beneath, where a word wider than the content breaks (`web/src/shell/AppShell.tsx:43`); definition lists size their terms' column to the longest term (`definitionList`, `web/src/lib/utils.ts:21`) | `web/e2e/layout.spec.ts`, `web/e2e/panes.spec.ts` |
 | Vocabulary shared with the interface | Met since Phase 12 — the forge's own noun and sigil, the messaging section named after its service (`sectionLabel`, `web/src/shell/sections.ts:29`), one verb for starting, "Start work", and the interface's six sections, Reviews among them (`sections`, `web/src/shell/uiStore.ts:7`) | — |
-| Dry run visible | Met since Phase 3 — a banner, and every write held before it is sent | `web/src/shell/AppShell.tsx:63`, `web/src/api/client.ts:25` |
+| Dry run visible | Met since Phase 3 — a banner, and every write held before it is sent | `web/src/shell/AppShell.tsx:65`, `web/src/api/client.ts:25` |
 | The contract it never calls | Met since Phase 3 for `getIssue`, `getHealth`, `listViews` and pagination; the generated `streamEvents` stays unused, but since Phase 11 the frames the server writes are held in `web/src/test/snapshot-frames.sse` and read back losslessly (`web/src/api/snapshot.frames.test.ts`) | — |
 
 ## The plan
@@ -929,7 +929,7 @@ product's system; the interface's own system does not change.
   control: an azure, an ocher, a teal-green and a magenta. They carry
   identity only: the active rail icon (`web/src/shell/NavRail.tsx:41`),
   each section's heading beside the rail's icon for it (`SectionHeading`,
-  `web/src/shell/AppShell.tsx:96`) and the work story's stages; Settings
+  `web/src/shell/AppShell.tsx:98`) and the work story's stages; Settings
   stays in the ink. `web/src/tokens.test.ts` holds each, in both themes,
   to 4.5:1 on the page and on a card, to 3:1 as an icon on the active
   rail item, and to at least 30° of OKLCH hue (at a chroma of 0.07 or
@@ -965,10 +965,10 @@ product's system; the interface's own system does not change.
 - **Sentence case.** The seven `uppercase` eyebrows are headings on the
   scale: CI (`web/src/features/review/ReviewPanel.tsx:109`, now "CI
   checks · 1 of 2 done, 1 failed"), the announcement and the channels
-  (`web/src/features/messaging/MessagingPanel.tsx:92`, `:47`), the
-  commits and the changes (`web/src/features/branch/BranchPanel.tsx:80`,
+  (`web/src/features/messaging/MessagingPanel.tsx:93`, `:48`), the
+  commits and the changes (`web/src/features/branch/BranchPanel.tsx:81`,
   `web/src/features/branch/WorkingTree.tsx:21`), an issue's parts
-  (`sectionHeading`, `web/src/features/issues/IssueDetailPanel.tsx:9`)
+  (`sectionHeading`, `web/src/features/issues/IssueDetailPanel.tsx:10`)
   and a settings legend (`web/src/features/settings/fieldsets/Field.tsx:35`).
   The web lint's `noAllCaps` (`web/eslint.config.js:37`) refuses an
   `uppercase` class in any variant or important form, as it refuses

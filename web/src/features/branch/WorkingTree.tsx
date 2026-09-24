@@ -86,9 +86,9 @@ function ChangeRow({ change }: { change: Change }) {
 
   return (
     <li className="flex flex-col gap-tight text-sm">
-      <div className="flex items-center gap-item">
-        <span className="w-20 shrink-0 text-muted-foreground">{change.kind}</span>
-        <code className="flex-1">{change.path}</code>
+      <div className="flex flex-wrap items-center gap-x-item gap-y-tight">
+        <span className="shrink-0 text-muted-foreground sm:w-20">{change.kind}</span>
+        <code className="grow basis-full sm:basis-0">{change.path}</code>
         <span className={change.staged ? 'text-xs text-success' : 'text-xs text-muted-foreground'}>
           {stagedTag(change)}
         </span>
