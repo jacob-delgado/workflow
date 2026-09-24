@@ -1,24 +1,11 @@
-import { expect, test, type Locator, type Page } from '@playwright/test'
+import { test } from '@playwright/test'
+import { height, openCockpit, openSection, sectionNames, themes, widths } from './cockpit.ts'
 
 // Screenshots of every populated section, in both themes, at a narrow, a
 // middling and a wide window — saved into test-results, which CI uploads, for
 // a reviewer to read a visual change by eye. Nothing is compared: a baseline
 // would differ by the OS's fonts, and would commit images that a reviewer
 // cannot diff anyway.
-const themes = ['dark', 'light'] as const
-const widths = [640, 1024, 1440] as const
-// The mockup's messaging service is Slack, so its section is named for it.
-const sectionNames = ['Issues', 'Branch', 'Review', 'Slack', 'Reviews', 'Settings']
-
-// settled is what shows once a section has drawn what it will: Reviews reads
-// its own queue after its heading appears; every other section settles with its
-// heading.
-function settled(page: Page, name: string): Locator {
-  return name === 'Reviews'
-    ? page.getByRole('list', { name: 'Review requests' })
-    : page.getByRole('heading', { level: 1, name })
-}
-
 for (const theme of themes) {
   for (const width of widths) {
     test(
@@ -27,31 +14,21 @@ for (const theme of themes) {
         tag: '@populated',
       },
       async ({ page }, testInfo) => {
-        // Arrange: pin the theme before the app paints, size the window, and
-        // open the checked-out issue so the Issues screen shows its story.
-        await page.addInitScript((value) => {
-          window.localStorage.setItem('workflow-theme', value)
-        }, theme)
-        await page.emulateMedia({ reducedMotion: 'reduce' })
-        await page.setViewportSize({ width, height: 900 })
-        await page.goto('/')
-        await page.getByRole('button', { name: /redact tokens before/i }).click()
-        await expect(page.getByRole('link', { name: /open in jira/i })).toBeVisible()
-        const nav = page.getByRole('navigation', { name: 'Sections' })
+        // Arrange: the populated cockpit in this theme at this width, with the
+        // checked-out issue open so the Issues screen shows its story.
+        await openCockpit(page, { width, height }, theme)
 
         for (const name of sectionNames) {
-          // Act: open the section.
-          await nav.getByRole('button', { name, exact: true }).click()
+          // Act: open the section, and let it settle.
+          await openSection(page, name)
 
-          // Assert: it has settled; then the screen is saved as drawn, with the
-          // pointer parked off the controls so none is caught mid-hover. Under
-          // reduced motion every element transitions every property for 0.01ms
+          // Assert: the screen is saved as drawn, with the pointer parked off
+          // the controls so none is caught mid-hover. Under reduced motion
+          // every element transitions every property for 0.01ms
           // (web/src/index.css), so an inherited color reaches an icon's
           // strokes a frame or more after the text beside it: the capture
           // finishes those transitions first rather than catching the last
           // section's colors on the way out.
-          await expect(page.getByRole('heading', { level: 1, name })).toBeVisible()
-          await expect(settled(page, name)).toBeVisible()
           await page.mouse.move(0, 0)
           await page.screenshot({
             path: testInfo.outputPath(`${String(width)}-${theme}-${name.toLowerCase()}.png`),

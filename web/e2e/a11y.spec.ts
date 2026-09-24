@@ -1,10 +1,10 @@
 import { AxeBuilder } from '@axe-core/playwright'
 import { expect, test, type Locator, type Page } from '@playwright/test'
+import { sectionNames as populatedSectionNames, themes } from './cockpit.ts'
 
 // Every section, in both themes: a light theme is only real once its contrast
 // holds up, so the scan runs the whole cockpit in each. The section labels are
 // the nav buttons' accessible names and the content heading's text.
-const themes = ['dark', 'light'] as const
 const sectionNames = ['Issues', 'Branch', 'Review', 'Messaging', 'Reviews', 'Settings']
 
 // Scan the resting state, not mid-animation frames: reduced motion collapses
@@ -78,10 +78,6 @@ for (const theme of themes) {
     }
   })
 }
-
-// The populated build's sections: the mockup's messaging service is Slack, so
-// its section is named for it.
-const populatedSectionNames = ['Issues', 'Branch', 'Review', 'Slack', 'Reviews', 'Settings']
 
 for (const theme of themes) {
   test(
