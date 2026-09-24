@@ -61,9 +61,10 @@ In scope:
 - The workflow codebase: `cmd/`, `internal/`, `scripts/`, `build/`, and every
   file under `.github/workflows/`.
 - The published release binaries and their checksums and attestations.
-- Credential handling in particular — anything that writes a Jira or Slack
-  token somewhere it should not go, logs one, or prints one unmasked, is a
-  security bug. `.workflow.json` is written `0600`, is gitignored, and every
+- Credential handling in particular — anything that writes a Jira, forge or
+  messaging credential (a token, or a webhook URL, which is itself the
+  credential) somewhere it should not go, logs one, or prints one unmasked, is
+  a security bug. `.workflow.json` is written `0600`, is gitignored, and every
   code path that surfaces a token passes it through `config.Redact` first.
 - Data at rest. The on-disk store (`internal/store`, a SQLite database under the
   OS-native data directory) keeps workflow state between sessions — the commit
@@ -91,7 +92,8 @@ Out of scope:
 
 workflow makes **no analytics, crash-reporting, or phone-home network calls of
 any kind.** It talks only to the services you configure — your Jira instance,
-your Slack workspace, and your Git forge — and nowhere else.
+your Git forge and your messaging service (Slack, Teams, Discord or a webhook
+you name) — and nowhere else.
 
 If you find code that breaks that property, sending data anywhere the user did
 not configure, that **is** a security bug. Report it the same way as any other.

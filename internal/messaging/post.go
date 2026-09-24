@@ -80,10 +80,9 @@ type verdict struct {
 	Error string `json:"error"`
 }
 
-// Post posts text to Slack through whichever transport is configured.
-// Post sends text to Slack, to channel when it is a bot post naming one, or to
-// the configured default otherwise. A webhook carries its own channel, so
-// channel does not apply to it.
+// Post sends text to the configured messaging service: to channel when it is a
+// Slack bot post naming one, or to the configured default otherwise. A webhook
+// carries its own channel, so channel does not apply to it.
 func (c Client) Post(ctx context.Context, channel, text string) error {
 	//nolint:exhaustive // MessagingNone has no transport by design; its lookup miss is the not-configured path.
 	transports := map[config.MessagingMode]func(context.Context, string, string) error{

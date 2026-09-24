@@ -24,13 +24,13 @@ See each sub-command's help for details on how to use the generated script.
 ### Options inherited from parent commands
 
 ```
-      --dry-run      hold back every write to Jira, the forge, Slack, git and files, and say what it would have done
+      --dry-run      hold back every write to Jira, the forge, the messaging service, git and files, and say what it would have done
       --log string   append a one-line outline of each request (method, path, status, duration) to FILE, for a bug report
 ```
 
 ### SEE ALSO
 
-* [workflow](../workflow/)	 - Run your Jira, Slack, and Git forge workflow from the terminal
+* [workflow](../workflow/)	 - Run your Jira, Git forge and messaging workflow from the terminal
 * [workflow completion bash](../workflow_completion_bash/)	 - Generate the autocompletion script for bash
 * [workflow completion fish](../workflow_completion_fish/)	 - Generate the autocompletion script for fish
 * [workflow completion powershell](../workflow_completion_powershell/)	 - Generate the autocompletion script for powershell

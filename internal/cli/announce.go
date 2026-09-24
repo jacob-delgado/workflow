@@ -26,7 +26,7 @@ var errNoPullRequest = errors.New("there is no pull request on this branch to an
 var errMessagingNotConfigured = errors.New("no messaging transport is configured")
 
 // announceSeams are what `workflow announce` reads and does, so a test can
-// answer without a repository, a forge or Slack.
+// answer without a repository, a forge or a messaging service.
 type announceSeams struct {
 	// Compose is what the announcement is composed from.
 	Compose loop.AnnounceSeams
@@ -68,8 +68,8 @@ func newAnnounceCmd(prompt Prompt) *cobra.Command {
 	return cmd
 }
 
-// runAnnounceCommand wires the real repository, forge, Jira and Slack to the
-// announce flow.
+// runAnnounceCommand wires the real repository, forge, Jira and messaging
+// service to the announce flow.
 func runAnnounceCommand(cmd *cobra.Command, prompt Prompt, opts writeOptions) error {
 	conn, err := connect(cmd)
 	if err != nil {

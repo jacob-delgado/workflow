@@ -35,11 +35,11 @@ workflow doctor [flags]
 ### Options inherited from parent commands
 
 ```
-      --dry-run      hold back every write to Jira, the forge, Slack, git and files, and say what it would have done
+      --dry-run      hold back every write to Jira, the forge, the messaging service, git and files, and say what it would have done
       --log string   append a one-line outline of each request (method, path, status, duration) to FILE, for a bug report
 ```
 
 ### SEE ALSO
 
-* [workflow](../workflow/)	 - Run your Jira, Slack, and Git forge workflow from the terminal
+* [workflow](../workflow/)	 - Run your Jira, Git forge and messaging workflow from the terminal
 

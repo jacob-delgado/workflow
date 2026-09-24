@@ -1,7 +1,7 @@
 // Copyright 2026 Jacob Delgado
 // SPDX-License-Identifier: Apache-2.0
 
-// Command workflow runs your Jira, Slack, and Git forge workflow from the
+// Command workflow runs your Jira, Git forge and messaging workflow from the
 // terminal.
 package main
 

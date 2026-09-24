@@ -74,7 +74,7 @@ Impact: low · Effort: medium
 makes three round trips in silence (`reportCredentials`,
 `internal/cli/doctor.go:129`);
 `standup` fires up to fifteen forge requests plus a Jira search
-(`gatherPulls`, `internal/cli/standup.go:192`); `status DIR…` visits each directory in
+(`gatherPulls`, `internal/cli/standup.go:185`); `status DIR…` visits each directory in
 series (`statusesOf`, `internal/cli/status.go:165`). The only trace is `--log`,
 which outlines each request in a file for a bug report and shows the person
 waiting nothing.
