@@ -174,8 +174,8 @@ met and stay.
 
 | Point | Verdict | Where |
 | --- | --- | --- |
-| Color tokens; no shadows, gradients or `→` | Met | `web/src/index.css:9-120` |
-| Type and spacing scale | **Gap** — none | UX-84 |
+| Color tokens; no shadows, gradients or `→` | Met | `web/src/index.css:9-118` |
+| Type and spacing scale | Met since Phase 13 — five type roles on Tailwind's own keys, five spacing steps named for the level they separate, three radii by level, type and radius reset so a size or corner off their scale draws nothing (spacing keeps Tailwind's numeric steps for an element's own padding, so a gap off the scale is caught only in review); the platform's own faces, the code face for code alone (`web/src/index.css:162`) | — |
 | The product's five hues and shape-for-state | Met since Phase 13 — the four systems' hues as tokens, held apart from the status lights and periwinkle by `web/src/tokens.test.ts`, on the active rail icon, each section's heading and the work story's stages; every state drawn by its shape through one `StateMark` (`web/src/shell/StateMark.tsx:33`) | — |
 | ALL-CAPS eyebrow headings | **Gap** — the only heading treatment, nine headings from seven class strings | UX-84 |
 | Buttons say what happens | Met | `Open pull request`, `Commit staged changes`, `Push branch` |
@@ -183,7 +183,7 @@ met and stay.
 | Feedback after a write | Met since Phase 11 — 12 of 12, each in a live line that keeps the button's verb and outlives the snapshot confirming the write (`OutcomeLine`, `web/src/lib/Outcome.tsx:54`) | `web/src/features/writes.test.tsx` |
 | Focus management | Met since Phase 11 — to the outcome when a write's control goes, through each step's swap and back on Cancel or a refusal (`web/src/lib/focus.ts`), and to `<main>` on a section change (`useSectionFocus`, `web/src/shell/AppShell.tsx:104`) | — |
 | Accessible names, landmarks, skip link, focus ring, axe both themes | Met | enforced |
-| Disabled by opacity; reduced motion | Met since Phase 11 — `--disabled` tokens (`web/src/index.css:48`), held to 4.5:1 in both themes by `web/src/tokens.test.ts`, and no `opacity-N` class past the web lint; transitions `motion-safe:`, and one reduced-motion rule (`web/src/index.css:172`) | — |
+| Disabled by opacity; reduced motion | Met since Phase 11 — `--disabled` tokens (`web/src/index.css:48`), held to 4.5:1 in both themes by `web/src/tokens.test.ts`, and no `opacity-N` class past the web lint; transitions `motion-safe:`, and one reduced-motion rule (`web/src/index.css:222`) | — |
 | Responsive | **Gap** — zero breakpoints | UX-85 |
 | Vocabulary shared with the interface | Met since Phase 12 — the forge's own noun and sigil, the messaging section named after its service (`sectionLabel`, `web/src/shell/sections.ts:29`), one verb for starting, "Start work", and the interface's six sections, Reviews among them (`sections`, `web/src/shell/uiStore.ts:7`) | — |
 | Dry run visible | Met since Phase 3 — a banner, and every write held before it is sent | `web/src/shell/AppShell.tsx:55`, `web/src/api/client.ts:25` |

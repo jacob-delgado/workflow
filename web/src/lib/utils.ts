@@ -1,5 +1,12 @@
 import { clsx, type ClassValue } from 'clsx'
-import { twMerge } from 'tailwind-merge'
+import { extendTailwindMerge } from 'tailwind-merge'
+
+// tailwind-merge knows the numeric spacing steps; the named ones index.css
+// declares — tight, item, group, block, section — are taught to it here, so a
+// later `gap-section` replaces an earlier `gap-item` rather than both standing.
+const twMerge = extendTailwindMerge({
+  extend: { theme: { spacing: ['tight', 'item', 'group', 'block', 'section'] } },
+})
 
 // Merge Tailwind class lists, letting a later class win over an earlier one that
 // sets the same property (clsx joins, tailwind-merge dedupes the conflict). The

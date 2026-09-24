@@ -93,8 +93,8 @@ function Queue({ requests, readAt, failure, failed, reading, onReadAgain }: Queu
   const outcome = useOutcome()
 
   return (
-    <div className="mt-4 flex max-w-3xl flex-col gap-4">
-      <div className="flex items-center justify-between gap-4">
+    <div className="flex max-w-3xl flex-col gap-group">
+      <div className="flex items-center justify-between gap-group">
         <div className="flex flex-col">
           <p role="status" className="text-sm text-muted-foreground">
             {requests === undefined ? '' : queueSummary(requests.length, noun)}
@@ -186,9 +186,9 @@ function RequestRow({ request, readAt, teller }: RequestRowProps) {
   const mark = `${sigil}${String(request.number)}`
 
   return (
-    <li className="flex flex-col gap-1.5 px-4 py-3">
+    <li className="flex flex-col gap-tight px-4 py-3">
       <p className="flex items-baseline gap-2">
-        <span className="font-mono text-sm text-muted-foreground">{mark}</span>
+        <span className="text-sm text-muted-foreground tabular-nums">{mark}</span>
         <span className="font-medium">{request.title}</span>
       </p>
       <p className="text-sm text-muted-foreground">
@@ -196,7 +196,7 @@ function RequestRow({ request, readAt, teller }: RequestRowProps) {
         <time dateTime={request.opened_at}>{waited(request.opened_at, readAt)}</time>
         {request.draft ? ' · Draft' : ''}
       </p>
-      <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-sm">
+      <div className="flex flex-wrap items-center gap-x-group gap-y-item text-sm">
         <span className="flex items-center gap-1.5">
           <StateMark state={ciMark[request.ci]} />
           {ciLabel[request.ci]}

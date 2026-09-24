@@ -20,7 +20,7 @@ export function SettingsPanel() {
   if (query.isError) {
     return (
       <EmptyState>
-        <span className="flex flex-col items-center gap-3">
+        <span className="flex flex-col items-center gap-group">
           The configuration could not be loaded.
           <button
             type="button"
@@ -70,7 +70,7 @@ function ConfigForm({ config, takesFocus }: { config: Config; takesFocus: boolea
       onSubmit={(event) => {
         void onSubmit(event)
       }}
-      className="mt-4 flex max-w-2xl flex-col gap-8"
+      className="flex max-w-2xl flex-col gap-section"
     >
       <Fieldset legend="Jira">
         <Field id="jira.base_url" label="Base URL">
@@ -327,11 +327,11 @@ function ConfigForm({ config, takesFocus }: { config: Config; takesFocus: boolea
         </label>
       </Fieldset>
 
-      <div className="flex items-center gap-3">
+      <div className="flex items-center gap-item">
         <button
           type="submit"
           disabled={save.state === 'running'}
-          className="rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground disabled:cursor-not-allowed disabled:bg-disabled disabled:text-disabled-foreground"
+          className="rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none disabled:cursor-not-allowed disabled:bg-disabled disabled:text-disabled-foreground"
         >
           {save.state === 'running' ? 'Saving…' : 'Save changes'}
         </button>
@@ -349,7 +349,7 @@ const inputClass =
 
 function Fieldset({ legend, children }: { legend: string; children: ReactNode }) {
   return (
-    <fieldset className="flex flex-col gap-4">
+    <fieldset className="flex flex-col gap-group">
       <legend className="text-sm font-semibold text-muted-foreground uppercase">{legend}</legend>
       {children}
     </fieldset>
@@ -368,7 +368,7 @@ function Field({
   children: ReactNode
 }) {
   return (
-    <div className="flex flex-col gap-1">
+    <div className="flex flex-col gap-tight">
       <label htmlFor={id} className="text-sm text-muted-foreground">
         {label}
       </label>

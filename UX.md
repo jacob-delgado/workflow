@@ -156,13 +156,14 @@ horizontal axis.
 
 ### UX-84 The web's visual system is not the product's
 
-Impact: medium · Effort: medium
+Impact: medium · Effort: small
 
 **Today.** The web now carries the interface's system: the four systems'
 hues as tokens (`web/src/index.css:62`) on the active rail icon, each
-section's heading and the work story's stages, and every state drawn by its
+section's heading and the work story's stages; every state drawn by its
 shape — `○ ◐ ● ✗ ·` — through one `StateMark`
-(`web/src/shell/StateMark.tsx:33`). What remains are the template tells the
+(`web/src/shell/StateMark.tsx:33`); and one scale each for type, space and
+corners (`web/src/index.css:162`). What remains is the template tell the
 interface avoids: nine `uppercase` eyebrow headings from seven class strings
 (`web/src/features/settings/SettingsPanel.tsx:353`,
 `web/src/features/branch/BranchPanel.tsx:80`,
@@ -171,13 +172,10 @@ interface avoids: nine `uppercase` eyebrow headings from seven class strings
 description and comments share it —
 `web/src/features/review/ReviewPanel.tsx:109`,
 `web/src/features/messaging/MessagingPanel.tsx:95`, `:49`) as the *only*
-heading treatment; no type or spacing tokens (raw `text-2xl` … `text-xs`,
-`gap-8` … `gap-0.5` per component); one radius on everything (`rounded-md`
-×28). To its credit: no shadows, no gradients, no `→`, and a real
-color-token system with hand-picked contrast (`web/src/index.css:9-120`).
+heading treatment.
 
-**Instead.** Sentence-case headings on a `--text-*`/`--space-*` scale; the
-radius scale actually used. The interface's own system does not change.
+**Instead.** Sentence-case headings on the type scale. The interface's own
+system does not change.
 
 **Done when.** No `uppercase` heading remains.
 

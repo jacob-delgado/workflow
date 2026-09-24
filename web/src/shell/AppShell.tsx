@@ -42,12 +42,12 @@ export function AppShell() {
           <Workflow aria-hidden className="size-5 text-primary" />
           workflow
           {health ? (
-            <span className="font-mono text-xs font-normal text-muted-foreground">
+            <span className="text-xs font-normal text-muted-foreground tabular-nums">
               {health.version}
             </span>
           ) : null}
         </span>
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-item">
           <ThemeToggle />
           <StreamStatus />
         </div>
@@ -70,7 +70,7 @@ export function AppShell() {
           ref={main}
           id="main"
           tabIndex={-1}
-          className="flex-1 overflow-auto px-6 py-5 focus-visible:outline-none"
+          className="flex flex-1 flex-col gap-block overflow-auto p-block focus-visible:outline-none"
         >
           <SectionHeading section={section} service={service} />
           <SectionPanel section={section} />
@@ -89,7 +89,7 @@ function SectionHeading({ section, service }: { section: Section; service: strin
   const { Icon, hue } = sectionMeta[section]
 
   return (
-    <h1 className={cn('flex items-center gap-2 text-2xl font-semibold tracking-tight', hue)}>
+    <h1 className={cn('flex items-center gap-2 text-2xl', hue)}>
       <Icon aria-hidden className={cn('size-6 shrink-0', hue)} />
       {sectionLabel(section, service)}
     </h1>

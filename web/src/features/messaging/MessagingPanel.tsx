@@ -30,12 +30,12 @@ export function MessagingPanel() {
   }
 
   return (
-    <div className="mt-4 flex max-w-2xl flex-col gap-6">
-      <dl className="grid grid-cols-[8rem_1fr] gap-x-4 gap-y-1.5 text-sm">
+    <div className="flex max-w-2xl flex-col gap-section">
+      <dl className="grid grid-cols-[8rem_1fr] gap-x-group gap-y-tight text-sm">
         <dt className="text-muted-foreground">Service</dt>
         <dd>{messaging.service}</dd>
         <dt className="text-muted-foreground">Channel</dt>
-        <dd className="font-mono">{messaging.channel === '' ? '—' : messaging.channel}</dd>
+        <dd>{messaging.channel === '' ? '—' : messaging.channel}</dd>
         <dt className="text-muted-foreground">Announcing as</dt>
         <dd>{messaging.author === '' ? 'the webhook' : messaging.author}</dd>
       </dl>
@@ -43,16 +43,16 @@ export function MessagingPanel() {
       <AnnounceSection messaging={messaging} found={review.found} />
 
       {messaging.channels.length > 0 ? (
-        <section aria-labelledby="channels-heading" className="flex flex-col gap-2">
+        <section aria-labelledby="channels-heading" className="flex flex-col gap-group">
           <h2
             id="channels-heading"
             className="text-sm font-semibold text-muted-foreground uppercase"
           >
             Channels
           </h2>
-          <ul className="flex flex-wrap gap-2">
+          <ul className="flex flex-wrap gap-item">
             {messaging.channels.map((channel) => (
-              <li key={channel} className="rounded-md bg-muted px-2 py-1 font-mono text-xs">
+              <li key={channel} className="rounded-sm bg-muted px-2 py-1 text-xs">
                 {channel}
               </li>
             ))}
@@ -91,7 +91,7 @@ function AnnounceSection({
   const outcome = useOutcome()
 
   return (
-    <section aria-labelledby="announce-heading" className="flex flex-col gap-2">
+    <section aria-labelledby="announce-heading" className="flex flex-col gap-group">
       <h2 id="announce-heading" className="text-sm font-semibold text-muted-foreground uppercase">
         Announce
       </h2>
@@ -182,7 +182,7 @@ function AnnounceControls({
   const failure = preview.state === 'error' ? preview.error : post.error
 
   return (
-    <div className="flex flex-col gap-1">
+    <div className="flex flex-col gap-tight">
       <button
         ref={opener}
         type="button"
@@ -233,11 +233,11 @@ function AnnouncePreview({
       role="group"
       aria-label="Announcement preview"
       tabIndex={-1}
-      className="flex flex-col gap-3 rounded-md border border-border p-4"
+      className="flex flex-col gap-group rounded-lg border border-border p-4"
     >
-      <pre className="rounded-md bg-muted p-3 text-sm whitespace-pre-wrap">{text}</pre>
+      <pre className="rounded-md bg-muted p-3 font-sans text-sm whitespace-pre-wrap">{text}</pre>
       {channels.length > 0 ? (
-        <label className="flex items-center gap-2 text-sm">
+        <label className="flex items-center gap-item text-sm">
           <span className="text-muted-foreground">Channel</span>
           <select
             value={channel}
@@ -255,7 +255,7 @@ function AnnouncePreview({
           </select>
         </label>
       ) : null}
-      <div className="flex items-center gap-2">
+      <div className="flex items-center gap-item">
         <button
           type="button"
           disabled={posting}

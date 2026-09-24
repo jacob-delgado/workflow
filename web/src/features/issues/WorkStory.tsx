@@ -206,7 +206,7 @@ export function WorkStory({ issueKey }: { issueKey: string }) {
   const note = storyNote(branch, words.noun)
 
   return (
-    <div className="flex flex-col gap-3">
+    <div className="flex flex-col gap-group">
       {note === null ? null : <p className="text-sm text-muted-foreground">{note}</p>}
       {branch === undefined ? <StartWorkButton issueKey={issueKey} outcome={outcome} /> : null}
       {branch && !branch.current ? <CheckoutButton branch={branch.name} outcome={outcome} /> : null}
@@ -217,8 +217,8 @@ export function WorkStory({ issueKey }: { issueKey: string }) {
           const last = index === stages.length - 1
 
           return (
-            <li key={stage.title} className="flex gap-3">
-              <div className="flex flex-col items-center gap-1 pt-1">
+            <li key={stage.title} className="flex gap-item">
+              <div className="flex flex-col items-center gap-tight pt-1.5">
                 <StateMark
                   state={stageMark[state]}
                   className={cn('size-4', sectionMeta[stage.section].hue)}
@@ -230,7 +230,7 @@ export function WorkStory({ issueKey }: { issueKey: string }) {
                 onClick={() => {
                   setSection(stage.section)
                 }}
-                className="flex flex-1 flex-col gap-0.5 rounded-md px-2 pt-0.5 pb-6 text-left hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+                className="flex flex-1 flex-col gap-tight rounded-md px-2 pt-0.5 pb-block text-left hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
               >
                 <span className="font-medium">{stage.title}</span>
                 <span className="sr-only">{state}</span>
@@ -257,7 +257,7 @@ function CheckoutButton({ branch, outcome }: { branch: string; outcome: Teller }
   })
 
   return (
-    <div className="flex flex-col gap-1">
+    <div className="flex flex-col gap-tight">
       <button
         type="button"
         disabled={state === 'running'}
@@ -289,7 +289,7 @@ function StartWorkButton({ issueKey, outcome }: { issueKey: string; outcome: Tel
   })
 
   return (
-    <div className="flex flex-col gap-1">
+    <div className="flex flex-col gap-tight">
       <button
         type="button"
         disabled={state === 'running'}
