@@ -65,9 +65,8 @@ field handling written twice, and the spine's color-only hue — is under
 
 ## The web
 
-No open entry of its own. What the web's gates still lack — a condition
-gate, and an end-to-end run that drives a write — is DEBT-65, with the other
-gates below.
+No open entry of its own. What the web's gates still lack — an end-to-end
+run that drives a write — is DEBT-65, with the other gates below.
 
 ## The gates, the build and the tests
 
@@ -131,16 +130,13 @@ the report is the worklist, most of it in `internal/tui`, `internal/cli` and
 the four above, and reads 94.0 % or more, so `BRANCH_COVERAGE_MIN` ratchets
 to 92.
 
-### DEBT-65 The web has no condition gate, and its e2e drives no write
+### DEBT-65 The web's e2e drives no write
 
 Severity: medium · Confidence: read
 
 `task check` (`Taskfile.yml:502`) runs the web's lint, client-drift check and
-unit tests beside the Go gates, but what those tests are held to is thinner.
-`web/vitest.config.ts:38` sets `thresholds: { lines: 85, branches: 85 }`
-under the v8 provider — statement branches, not gobco-style per-condition
-coverage, and nine points below the Go statement floor of 94. The e2e suite
-is six specs (`web/e2e/a11y.spec.ts`, `web/e2e/layout.spec.ts`,
+unit tests beside the Go gates, but not its end-to-end suite. That suite is
+six specs (`web/e2e/a11y.spec.ts`, `web/e2e/layout.spec.ts`,
 `web/e2e/panes.spec.ts`, `web/e2e/screens.spec.ts`,
 `web/e2e/smoke.spec.ts`, `web/e2e/theme.spec.ts`), outside `task check`
 (CI's `e2e` job and `yarn test:e2e` run it), with no `workflow --web`
@@ -149,11 +145,9 @@ specs answer the API themselves, or read a VITE_MOCK build's fixtures) — so
 no test drives any of the twelve write actions end to end.
 
 **One way to fix it.** The e2e job starts `workflow --web` against a fixture
-repository so one spec can commit, push and open a pull request; the web's
-branch floor becomes per-condition.
+repository so one spec can commit, push and open a pull request.
 
-**Done when.** One Playwright spec performs a write against a running
-server, and the web's coverage floor measures each condition both ways.
+**Done when.** One Playwright spec performs a write against a running server.
 
 ### DEBT-68 Dependency posture worth knowing
 
@@ -273,3 +267,9 @@ know about.
   the gate rather than shrinking the number. The cost is that the two named
   packages' conditions go unmeasured — platform glue and an embed stub, with
   no branch worth the count — and that the next tagged twin must join them.
+- **The web's branch floor is v8's range-based count**
+  (`web/vitest.config.ts:43` `thresholds`), not a gobco-style per-condition
+  one: v8 marks a branch covered once its range of code has run, and never
+  asks which way each operand of a condition went. The cost is that an
+  `a && b` only ever seen with `b` true still passes the web's floor, where
+  the Go side's `task cover:branch` would name it.
