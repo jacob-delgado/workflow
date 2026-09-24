@@ -21,8 +21,8 @@
   --popover: #161922;
   --popover-foreground: #e7e9ee;
 
-  /* Periwinkle: interactive, and deliberately clear of the green/amber/red the
-     status lights own. */
+  /* Periwinkle: interactive — the one control accent — and deliberately clear
+     of the green/amber/red the status lights own and of the systems' hues. */
   --primary: #8b93f8;
   --primary-foreground: #0b0d12;
 
@@ -53,6 +53,16 @@
   --success-foreground: #0b0d12;
   --warning: #f2b338;
   --warning-foreground: #0b0d12;
+
+  /* Identity: one hue for each system the loop crosses — the terminal spine's
+     blue, yellow, green and magenta (internal/tui/spine.go) — saying whose a
+     thing is, never how it stands. Each sits at least 30° of OKLCH hue from
+     the status lights, periwinkle and each other, so none reads as a state or
+     a control, and holds 4.5:1 as text; web/src/tokens.test.ts keeps both. */
+  --jira: #62bbf5;
+  --git: #b0b55b;
+  --forge: #49c7c0;
+  --messaging: #e88fcb;
 
   --radius: 0.625rem;
 }
@@ -102,6 +112,12 @@
   --success-foreground: #ffffff;
   --warning: #7a4a00;
   --warning-foreground: #ffffff;
+
+  /* The same four systems by daylight: darker, for 4.5:1 on the pale page. */
+  --jira: #0e6a9b;
+  --git: #656818;
+  --forge: #0c6c68;
+  --messaging: #953d7c;
 }
 
 /* Map the tokens to Tailwind's color and radius scales, so `bg-background`,
@@ -134,6 +150,10 @@
   --color-success-foreground: var(--success-foreground);
   --color-warning: var(--warning);
   --color-warning-foreground: var(--warning-foreground);
+  --color-jira: var(--jira);
+  --color-git: var(--git);
+  --color-forge: var(--forge);
+  --color-messaging: var(--messaging);
 
   --radius-sm: calc(var(--radius) - 4px);
   --radius-md: calc(var(--radius) - 2px);

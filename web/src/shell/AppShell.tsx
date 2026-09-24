@@ -3,11 +3,12 @@ import { useEffect, useRef } from 'react'
 import { useHealth, useHealthStore } from '@/api/health.ts'
 import { useEventStream, useSnapshotStore } from '@/api/snapshot.ts'
 import { useRefreshViews } from '@/features/issues/issueApi.ts'
+import { cn } from '@/lib/utils.ts'
 import { NavRail } from './NavRail.tsx'
 import { SectionPanel } from './SectionPanel.tsx'
 import { StreamStatus } from './StreamStatus.tsx'
 import { ThemeToggle } from './ThemeToggle.tsx'
-import { sectionLabel } from './sections.ts'
+import { sectionLabel, sectionMeta } from './sections.ts'
 import { useApplyTheme } from './useApplyTheme.ts'
 import { useUiStore, type Section } from './uiStore.ts'
 
@@ -71,13 +72,27 @@ export function AppShell() {
           tabIndex={-1}
           className="flex-1 overflow-auto px-6 py-5 focus-visible:outline-none"
         >
-          <h1 className="text-2xl font-semibold tracking-tight">
-            {sectionLabel(section, service)}
-          </h1>
+          <SectionHeading section={section} service={service} />
           <SectionPanel section={section} />
         </main>
       </div>
     </div>
+  )
+}
+
+// SectionHeading names the section in its system's hue, beside the icon the
+// rail shows for it, so the heading and the rail's active item read as one.
+// The icon takes the hue itself rather than inheriting it: under reduced
+// motion every property transitions for 0.01ms (web/src/index.css), and an
+// inherited color reaches an icon's strokes a frame after the heading's text.
+function SectionHeading({ section, service }: { section: Section; service: string | undefined }) {
+  const { Icon, hue } = sectionMeta[section]
+
+  return (
+    <h1 className={cn('flex items-center gap-2 text-2xl font-semibold tracking-tight', hue)}>
+      <Icon aria-hidden className={cn('size-6 shrink-0', hue)} />
+      {sectionLabel(section, service)}
+    </h1>
   )
 }
 

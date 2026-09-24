@@ -158,35 +158,34 @@ horizontal axis.
 
 Impact: medium · Effort: large
 
-**Today.** The interface's system — five hues for five systems (Jira blue,
-git yellow, the forge green, chat magenta; red for failure and nothing
-else) and state carried by the *shape* of `○ ◐ ● ✗` (`internal/tui/glyphs.go:16`,
-`:96-127`; the spine at `internal/tui/spine.go:68`) — is stated, and the previous edition
-says none of it should change. The web carries none of it across: one
-periwinkle accent `#8b93f8` chosen "clear of the green/amber/red the status
-lights own" (`web/src/index.css:24`) plus a three-color CI language; Jira is
-not blue, git is not yellow, the forge is not green anywhere; the `NavRail`
-icons are all muted (`web/src/shell/NavRail.tsx:30`). State marks are the web's own:
-`StageMarker` (`web/src/features/issues/WorkStory.tsx:302`) invents three, and `ciDot`
-(`web/src/features/review/ReviewPanel.tsx:21`) and `StreamStatus` (`web/src/shell/StreamStatus.tsx:4`) are
-color-only dots of one shape (mitigated by a text label beside each). And
-the page shows the template tells the interface avoids: nine `uppercase`
-eyebrow headings from seven class strings (`web/src/features/settings/SettingsPanel.tsx:353`,
-`web/src/features/branch/BranchPanel.tsx:80`, `web/src/features/branch/WorkingTree.tsx:21`, `web/src/features/issues/IssueDetailPanel.tsx:9`
-— the work story, description and comments share it — `web/src/features/review/ReviewPanel.tsx:116`,
-`web/src/features/messaging/MessagingPanel.tsx:95`, `:49`) as the *only* heading treatment; no type or spacing tokens (raw `text-2xl`
-… `text-xs`, `gap-8` … `gap-0.5` per component); one radius on everything
-(`rounded-md` ×28). To its credit: no shadows, no gradients, no `→`, and a
-real color-token system with hand-picked contrast (`web/src/index.css:9-105`).
+**Today.** The interface's system — a hue for each system and state carried
+by the *shape* of `○ ◐ ● ✗` (`internal/tui/glyphs.go:16`, `:96-127`) — is
+stated, and the previous edition says none of it should change. The web now
+has the hues: the four systems' tokens in both themes, held apart from the
+status lights and the periwinkle control accent by `web/src/tokens.test.ts`,
+on the active rail icon and each section's heading (`web/src/index.css:62`).
+Its state marks are still its own: `StageMarker`
+(`web/src/features/issues/WorkStory.tsx:302`) invents three, and `ciDot`
+(`web/src/features/review/ReviewPanel.tsx:21`) and `StreamStatus`
+(`web/src/shell/StreamStatus.tsx:4`) are color-only dots of one shape
+(mitigated by a text label beside each). And the page shows the template
+tells the interface avoids: nine `uppercase` eyebrow headings from seven
+class strings (`web/src/features/settings/SettingsPanel.tsx:353`,
+`web/src/features/branch/BranchPanel.tsx:80`,
+`web/src/features/branch/WorkingTree.tsx:21`,
+`web/src/features/issues/IssueDetailPanel.tsx:9` — the work story,
+description and comments share it —
+`web/src/features/review/ReviewPanel.tsx:116`,
+`web/src/features/messaging/MessagingPanel.tsx:95`, `:49`) as the *only*
+heading treatment; no type or spacing tokens (raw `text-2xl` … `text-xs`,
+`gap-8` … `gap-0.5` per component); one radius on everything (`rounded-md`
+×28). To its credit: no shadows, no gradients, no `→`, and a real
+color-token system with hand-picked contrast (`web/src/index.css:9-121`).
 
-**Instead.** The four system hues as tokens in both themes, at AA
-contrast, carrying identity (the active nav icon, section headings); one
-`StateMark` component that draws `○ ◐ ● ✗` for CI, the stream and the work
-story (label kept, mark `aria-hidden`); sentence-case headings on a
-`--text-*`/`--space-*` scale; the radius scale actually used. The periwinkle
-accent can stay for interactive controls — it was chosen on purpose — or be
-replaced; that is the maintainer's call. The interface's own system does
-not change.
+**Instead.** One `StateMark` component that draws `○ ◐ ● ✗` for CI, the
+stream and the work story (label kept, mark `aria-hidden`); sentence-case
+headings on a `--text-*`/`--space-*` scale; the radius scale actually used.
+The interface's own system does not change.
 
 **Done when.** No `uppercase` heading remains; every state has a distinct
 shape; both themes pass axe.

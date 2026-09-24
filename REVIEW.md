@@ -122,10 +122,10 @@ gap, and which phase closes it.
 | 40 | Write / initialize the config | Y (`config init`) | N | P (7 sections; five carried but not editable) | Interface: `config init` + `doctor` are the path — no. Web remainder: UX-87 |
 | 41 | Doctor | Y | N | N | Reasonable CLI-only; the interface points at it (`internal/tui/render.go:443`) |
 | 42 | Status across the loop | Y (`status DIR…`) | Y (the spine) | Y (`WorkStory`) | — |
-| 43 | Dry run | Y (one persistent `--dry-run` since Phase 2, `internal/cli/cli.go:204`) | Y (per seam, `dryrun.go:25`) | Y since Phase 3 — a read-only banner (`web/src/shell/AppShell.tsx:54`) and one hold over every write before it is sent (`web/src/api/client.ts:25`), over the server's 403 (`guard.go:46`) | — |
+| 43 | Dry run | Y (one persistent `--dry-run` since Phase 2, `internal/cli/cli.go:204`) | Y (per seam, `dryrun.go:25`) | Y since Phase 3 — a read-only banner (`web/src/shell/AppShell.tsx:55`) and one hold over every write before it is sent (`web/src/api/client.ts:25`), over the server's 403 (`guard.go:46`) | — |
 | 44 | Request log `--log` | Y (persistent since Phase 2, `internal/cli/cli.go:206`) | Y | Y | — |
 | 45 | Help / discoverability | Y since Phase 8 — an unknown command or flag points at `--help`, after cobra's closest commands (`usageHint`, `internal/cli/scriptable.go:210`) | Y since Phase 7 — `?` lists all 57 bindings where each works, held to a table of every placement (`internal/tui/help_test.go:211`), and the Issues footer shows every key it answers (`internal/tui/detail.go:186`) | n/a | Web `?` idea, UX-88 |
-| 46 | Version | Y | n/a | Y since Phase 3 — in the header (`web/src/shell/AppShell.tsx:43`) | — |
+| 46 | Version | Y | n/a | Y since Phase 3 — in the header (`web/src/shell/AppShell.tsx:44`) | — |
 
 ## Where a surface breaks a convention
 
@@ -174,19 +174,19 @@ met and stay.
 
 | Point | Verdict | Where |
 | --- | --- | --- |
-| Color tokens; no shadows, gradients or `→` | Met | `web/src/index.css:9-96` |
+| Color tokens; no shadows, gradients or `→` | Met | `web/src/index.css:9-121` |
 | Type and spacing scale | **Gap** — none | UX-84 |
 | The product's five hues and shape-for-state | **Gap** — one accent, color-only dots | UX-84 |
 | ALL-CAPS eyebrow headings | **Gap** — the only heading treatment, nine headings from seven class strings | UX-84 |
 | Buttons say what happens | Met | `Open pull request`, `Commit staged changes`, `Push branch` |
 | An action keeps its name; errors direct; empty states invite | Met since Phase 11 — one announce verb ("Announce to X" opens the preview, "Announce now" sends); every fallback, and the server's own failures, say what to do next; one connecting line; a Retry and a not-a-repository line that invites | `web/src/features/writes.test.tsx` |
 | Feedback after a write | Met since Phase 11 — 12 of 12, each in a live line that keeps the button's verb and outlives the snapshot confirming the write (`OutcomeLine`, `web/src/lib/Outcome.tsx:54`) | `web/src/features/writes.test.tsx` |
-| Focus management | Met since Phase 11 — to the outcome when a write's control goes, through each step's swap and back on Cancel or a refusal (`web/src/lib/focus.ts`), and to `<main>` on a section change (`useSectionFocus`, `web/src/shell/AppShell.tsx:89`) | — |
+| Focus management | Met since Phase 11 — to the outcome when a write's control goes, through each step's swap and back on Cancel or a refusal (`web/src/lib/focus.ts`), and to `<main>` on a section change (`useSectionFocus`, `web/src/shell/AppShell.tsx:104`) | — |
 | Accessible names, landmarks, skip link, focus ring, axe both themes | Met | enforced |
-| Disabled by opacity; reduced motion | Met since Phase 11 — `--disabled` tokens (`web/src/index.css:48`), held to 4.5:1 in both themes by `web/src/tokens.test.ts`, and no `opacity-N` class past the web lint; transitions `motion-safe:`, and one reduced-motion rule (`web/src/index.css:153`) | — |
+| Disabled by opacity; reduced motion | Met since Phase 11 — `--disabled` tokens (`web/src/index.css:48`), held to 4.5:1 in both themes by `web/src/tokens.test.ts`, and no `opacity-N` class past the web lint; transitions `motion-safe:`, and one reduced-motion rule (`web/src/index.css:173`) | — |
 | Responsive | **Gap** — zero breakpoints | UX-85 |
-| Vocabulary shared with the interface | Met since Phase 12 — the forge's own noun and sigil, the messaging section named after its service (`sectionLabel`, `web/src/shell/sections.ts:26`), one verb for starting, "Start work", and the interface's six sections, Reviews among them (`sections`, `web/src/shell/uiStore.ts:7`) | — |
-| Dry run visible | Met since Phase 3 — a banner, and every write held before it is sent | `web/src/shell/AppShell.tsx:54`, `web/src/api/client.ts:25` |
+| Vocabulary shared with the interface | Met since Phase 12 — the forge's own noun and sigil, the messaging section named after its service (`sectionLabel`, `web/src/shell/sections.ts:29`), one verb for starting, "Start work", and the interface's six sections, Reviews among them (`sections`, `web/src/shell/uiStore.ts:7`) | — |
+| Dry run visible | Met since Phase 3 — a banner, and every write held before it is sent | `web/src/shell/AppShell.tsx:55`, `web/src/api/client.ts:25` |
 | The contract it never calls | Met since Phase 3 for `getIssue`, `getHealth`, `listViews` and pagination; the generated `streamEvents` stays unused, but since Phase 11 the frames the server writes are held in `web/src/test/snapshot-frames.sse` and read back losslessly (`web/src/api/snapshot.frames.test.ts`) | — |
 
 ## The plan
@@ -606,7 +606,7 @@ Closes UX-73, UX-74. Depends on Phases 1 and 3.
   the Settings legend, which names the `pull_request` section as its
   siblings name theirs — and so do the server's own details the page shows;
   the Messaging section label reads the service from the snapshot
-  (`sectionLabel`, `web/src/shell/sections.ts:26`); "Start work" is the
+  (`sectionLabel`, `web/src/shell/sections.ts:29`); "Start work" is the
   web's one verb for starting.
 - Spec first: `POST /api/issues/{key}/link` (the server finds the branch's
   pull request; `{key}` must be the Jira issue the branch names) and `POST
