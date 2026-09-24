@@ -59,31 +59,31 @@ anyone misuse a credential, a terminal or a release.
 
 ## The terminal interface
 
-### DEBT-55 Four source files and five test files sit past the 500-line soft target
+### DEBT-55 Three source files sit past the 500-line soft target
 
 Severity: low · Confidence: measured
 
-`scripts/check-file-length.sh --list` flags four source files past the
+`scripts/check-file-length.sh --list` flags three source files past the
 500-line soft target — `internal/forge/github.go` (551),
-`internal/gitrepo/branch.go` (532), `internal/tui/prcomposer.go` (527) and
-`internal/tui/messaging.go` (529) — and five test files
-(`internal/messaging/post_test.go` 738, `internal/tui/messaging_test.go`
-612, `internal/webserver/pullrequest_test.go` 601,
-`internal/tui/composer_test.go` 568, `internal/jira/detail_test.go` 501).
+`internal/gitrepo/branch.go` (532) and `internal/tui/prcomposer.go` (527).
 None is over the 800 hard ceiling. The first edition of this entry missed
-the two source files outside `internal/tui`. Its headline file,
-`internal/tui/review.go` at 727 lines, is paid: the merge picker moved to
-`internal/tui/merge.go` and the re-run to `internal/tui/checks.go`,
-leaving it at 455.
+the two outside `internal/tui`. Two are paid: its headline file,
+`internal/tui/review.go` at 727 lines, gave its merge picker to
+`internal/tui/merge.go` and its re-run to `internal/tui/checks.go`, leaving
+it at 455; `internal/tui/messaging.go` (529) gave its announcement preview
+to `internal/tui/messagingpreview.go`, leaving it at 323. The test files
+past the target stay long by decision, and move to the deliberate
+trade-offs when this entry closes.
 
 **What it costs.** `scripts/check-file-length.sh` warns on every run, so the
-warning has stopped meaning anything.
+warning has stopped meaning anything, and each of these files carries more
+than one concern.
 
 **One way to fix it.** Split each by the concern it carries, as
-`review.go` was — a new file in `internal/tui` carries its budget bump in
-the same commit.
+`review.go` and `messaging.go` were — a new file in `internal/tui` carries
+its budget bump in the same commit.
 
-**Done when.** `check-file-length.sh --list` flags nothing `soft`.
+**Done when.** `check-file-length.sh --list` flags no source file `soft`.
 
 ## The web
 
