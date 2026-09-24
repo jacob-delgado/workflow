@@ -145,6 +145,10 @@ or [UX.md](https://github.com/jacob-delgado/workflow/blob/main/UX.md):
   ([FEAT-80](https://github.com/jacob-delgado/workflow/blob/main/FEATURES.md#feat-80-issue-writes-on-the-web)).
 - **Editing an announcement before it is sent, and announcing once CI
   passes** — the terminal's `e` and `w` in the announcement preview.
+- **Knowing an announcement was already made** — the web neither records an
+  announcement nor reads one, so it offers one again that the terminal or
+  `workflow announce` already made
+  ([FEAT-84](https://github.com/jacob-delgado/workflow/blob/main/FEATURES.md#feat-84-the-web-remembers-what-was-announced)).
 - **Rebasing onto the base, amending, fixing up, reading a file's diff,
   choosing among pull request templates, creating a branch in a worktree,
   running the pre-commit hook on its own and generating a `lefthook.yml`** —
