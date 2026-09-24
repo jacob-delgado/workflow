@@ -227,9 +227,9 @@ or is removed.
 
 Severity: low · Confidence: read
 
-- Residual "Slack" after the rename: the root command's `Short`
-  (`internal/cli/cli.go:171`), the help group `groupReviewSlack`
-  (`internal/tui/keys.go:88`), `FEATURES.md:30`, `web/index.html:9`.
+- Residual "Slack" after the rename: the help group `groupReviewSlack`
+  (`internal/tui/keys.go:88`) and the key-conflict context it names,
+  `FEATURES.md:28`, `web/index.html:9`.
 - `FEATURES.md:52`'s settled-decision text says "Five panes down the
   left"; `internal/tui/panes.go:27` has `paneCount = 6` — stale text, not a
   decision reopened.
@@ -246,14 +246,14 @@ Severity: low · Confidence: read
 
 `wiring.Deps` (`internal/wiring/wiring.go:72`) returns `tui.Deps`, so the
 wiring package imports the terminal interface; the CLI's `WebDeps`
-(`internal/cli/cli.go:276`) then narrows that bundle for the web server.
+(`internal/cli/cli.go:277`) then narrows that bundle for the web server.
 The seams are not the terminal's — they are the loop's. That import no
 longer stands in the way of shared composition: `internal/loop` takes each
 seam as a plain argument (`loop.PullSeams`, `loop.AnnounceSeams`) and never
 needed `wiring`. What is left is narrower: a seam only the CLI or the web
 needs must still be declared on `tui.Deps`, as a `RecentCommits` for
 `standup` would be — which is why `standup` reads its commits from the
-repository directly instead (`internal/cli/standup.go:97`).
+repository directly instead (`internal/cli/standup.go:98`).
 
 **One way to fix it.** Move the bundles that depend only on leaf types —
 `JiraDeps`, `GitDeps`, `ForgeDeps`, `MessagingDeps`, `HookDeps` — to a

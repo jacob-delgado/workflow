@@ -23,7 +23,8 @@ import (
 	"github.com/jacob-delgado/workflow/internal/wiring"
 )
 
-const longHelp = `workflow ties Jira, Slack, and your Git forge into one terminal workflow.
+const longHelp = `workflow ties Jira, your Git forge and your team's messaging service into one
+terminal workflow.
 
 CONFIGURATION
 
@@ -168,7 +169,7 @@ func newRootCmd(prompt Prompt, run runTUI, serve runWeb) *cobra.Command {
 
 	root := &cobra.Command{
 		Use:           "workflow",
-		Short:         "Run your Jira, Slack, and Git forge workflow from the terminal",
+		Short:         "Run your Jira, Git forge and messaging workflow from the terminal",
 		Long:          longHelp,
 		Version:       buildinfo.Current(),
 		SilenceUsage:  true,
@@ -202,7 +203,7 @@ func newRootCmd(prompt Prompt, run runTUI, serve runWeb) *cobra.Command {
 	// Declared once, on the root, for every command: a script passes them before
 	// the command's name or after it. Each command reads them back by name.
 	root.PersistentFlags().BoolVar(&dryRun, dryRunFlag, false,
-		"hold back every write to Jira, the forge, Slack, git and files, and say what it would have done")
+		"hold back every write to Jira, the forge, the messaging service, git and files, and say what it would have done")
 	root.PersistentFlags().String(logFlag, "",
 		"append a one-line outline of each request (method, path, status, duration) to FILE, for a bug report")
 	root.Flags().BoolVar(&web, "web", false,

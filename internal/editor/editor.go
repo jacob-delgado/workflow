@@ -4,7 +4,7 @@
 // Package editor hands text and files to the user's own editor.
 //
 // Every multi-line thing workflow asks for — a commit body, a Jira comment, a
-// pull request description, a Slack message — is written in $EDITOR rather than
+// pull request description, an announcement — is written in $EDITOR rather than
 // in a text box drawn inside the interface: people already have an editor they
 // are fast in, and a text box would be a worse one.
 package editor

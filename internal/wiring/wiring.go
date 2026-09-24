@@ -2,8 +2,8 @@
 // SPDX-License-Identifier: Apache-2.0
 
 // Package wiring connects the terminal interface to the real Jira, repository,
-// forge, Slack, lefthook and editor. It is the one place each seam the interface
-// declares meets the client that answers it.
+// forge, messaging service, lefthook and editor. It is the one place each seam
+// the interface declares meets the client that answers it.
 package wiring
 
 import (
@@ -66,9 +66,9 @@ func Locate(ctx context.Context, dir string) Workspace {
 	return Workspace{Root: repo.Root, Remote: repo.Remote}
 }
 
-// Deps connects the interface to the real Jira, repository, forge, Slack,
-// lefthook and editor. A non-nil log records the outline of every request each
-// service makes.
+// Deps connects the interface to the real Jira, repository, forge, messaging
+// service, lefthook and editor. A non-nil log records the outline of every
+// request each service makes.
 func Deps(ctx context.Context, cfg config.Config, where Workspace, log *RequestLog) tui.Deps {
 	timeout := requestTimeout(cfg)
 

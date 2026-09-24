@@ -1,7 +1,7 @@
 // Copyright 2026 Jacob Delgado
 // SPDX-License-Identifier: Apache-2.0
 
-// Package httpx is the HTTP transport the Jira, forge and Slack clients share:
+// Package httpx is the HTTP transport the Jira, forge and messaging clients share:
 // the one-method Doer seam they accept, and a client that refuses redirects so a
 // credential never follows one.
 package httpx

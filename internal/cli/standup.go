@@ -74,7 +74,8 @@ func newStandupCmd(prompt Prompt) *cobra.Command {
 	return cmd
 }
 
-// runStandupCommand wires the real repository, forge, Jira and Slack to standup.
+// runStandupCommand wires the real repository, forge, Jira and messaging service
+// to standup.
 func runStandupCommand(cmd *cobra.Command, prompt Prompt, opts standupOptions) error {
 	// A window of no days, or fewer, gathers nothing and asks git and Jira for
 	// dates they read differently, so it is refused as a mistake in the call.
