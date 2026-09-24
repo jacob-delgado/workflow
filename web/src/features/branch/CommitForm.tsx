@@ -1,9 +1,10 @@
 import { useCallback, useEffect, useMemo, useRef } from 'react'
-import { useForm } from 'react-hook-form'
+import { useForm, type UseFormRegister } from 'react-hook-form'
 import type { Branch } from '@/api/generated/types.gen.ts'
 import { useConfig } from '@/features/settings/configApi.ts'
 import { OutcomeLine, useOutcome } from '@/lib/Outcome.tsx'
 import { useAsyncAction } from '@/lib/useAsyncAction.ts'
+import { cn } from '@/lib/utils.ts'
 import { commitChanges } from './commitApi.ts'
 
 // The built-in Conventional Commit types, in the order the terminal composer
@@ -43,13 +44,7 @@ export function CommitForm({
   blocked: string | null
   suggestedScope: string
 }) {
-  const { data: config } = useConfig()
-  // A team's own commit types, in the order to offer them, or the built-in set.
-  const commitTypes = useMemo(() => {
-    const configured = config?.commit.types
-    return configured && configured.length > 0 ? configured : defaultCommitTypes
-  }, [config])
-
+  const commitTypes = useCommitTypes()
   const { register, handleSubmit, reset, getValues, setValue } = useForm<CommitFields>({
     defaultValues: { type: 'fix', scope: suggestedScope, subject: '', body: '', breaking: false },
   })
@@ -79,18 +74,7 @@ export function CommitForm({
         body: fields.body,
         breaking: fields.breaking,
       })
-      // Reset to a type the convention allows, not the static "fix" default,
-      // which a team that excludes it would leave selected and the server reject;
-      // and to the scope just used, which a store that keeps it suggests from
-      // now on, or to the suggestion a blank scope left standing.
-      const usedScope = fields.scope.trim()
-      reset({
-        type: commitTypes[0] ?? 'fix',
-        scope: usedScope === '' ? suggestedScope : usedScope,
-        subject: '',
-        body: '',
-        breaking: false,
-      })
+      reset(nextMessage(fields, commitTypes, suggestedScope))
       scopeSuggestion.release()
 
       return committed
@@ -112,46 +96,11 @@ export function CommitForm({
       }}
       className="flex flex-col gap-group rounded-lg border border-border p-4"
     >
-      <div className="flex gap-item">
-        <label className="flex flex-col gap-tight text-sm text-muted-foreground">
-          Type
-          <select {...register('type')} className={commitInputClass}>
-            {commitTypes.map((type) => (
-              <option key={type} value={type}>
-                {type}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label className="flex flex-1 flex-col gap-tight text-sm text-muted-foreground">
-          Scope (optional)
-          <input
-            {...register('scope', { onChange: scopeSuggestion.typing })}
-            className={commitInputClass}
-          />
-        </label>
-      </div>
-
-      <label className="flex flex-col gap-tight text-sm text-muted-foreground">
-        Subject
-        <input
-          {...register('subject')}
-          required
-          placeholder="what the change does, in the imperative"
-          className={commitInputClass}
-        />
-      </label>
-
-      <label className="flex flex-col gap-tight text-sm text-muted-foreground">
-        Body (optional)
-        <textarea {...register('body')} rows={3} className={commitInputClass} />
-      </label>
-
-      <label className="flex items-center gap-2 text-sm">
-        <input type="checkbox" {...register('breaking')} className="size-4" />
-        Breaking change
-      </label>
-
+      <MessageFields
+        register={register}
+        commitTypes={commitTypes}
+        onScopeTyping={scopeSuggestion.typing}
+      />
       <div className="flex items-center gap-item">
         <button
           type="submit"
@@ -169,6 +118,86 @@ export function CommitForm({
         ) : null}
       </div>
     </form>
+  )
+}
+
+// useCommitTypes is a team's own commit types, in the order to offer them, or
+// the built-in set when it configures none.
+function useCommitTypes(): string[] {
+  const { data: config } = useConfig()
+
+  return useMemo(() => {
+    const configured = config?.commit.types
+    return configured && configured.length > 0 ? configured : defaultCommitTypes
+  }, [config])
+}
+
+// nextMessage is what the form holds once a commit lands: a type the
+// convention allows, not the static "fix" default, which a team that excludes
+// it would leave selected and the server reject; and the scope just used,
+// which a store that keeps it suggests from now on, or the suggestion a blank
+// scope left standing.
+function nextMessage(used: CommitFields, types: string[], suggested: string): CommitFields {
+  const scope = used.scope.trim()
+
+  return {
+    type: types[0] ?? 'fix',
+    scope: scope === '' ? suggested : scope,
+    subject: '',
+    body: '',
+    breaking: false,
+  }
+}
+
+interface MessageFieldsProps {
+  register: UseFormRegister<CommitFields>
+  commitTypes: string[]
+  // onScopeTyping marks the scope as the user's, so no suggestion replaces it.
+  onScopeTyping: () => void
+}
+
+// MessageFields are the parts of a Conventional Commit message: its type and
+// scope, its subject and body, and whether it breaks anything.
+function MessageFields({ register, commitTypes, onScopeTyping }: MessageFieldsProps) {
+  return (
+    <>
+      <div className="flex gap-item">
+        <label className={labelClass}>
+          Type
+          <select {...register('type')} className={commitInputClass}>
+            {commitTypes.map((type) => (
+              <option key={type} value={type}>
+                {type}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label className={cn('flex-1', labelClass)}>
+          Scope (optional)
+          <input {...register('scope', { onChange: onScopeTyping })} className={commitInputClass} />
+        </label>
+      </div>
+
+      <label className={labelClass}>
+        Subject
+        <input
+          {...register('subject')}
+          required
+          placeholder="what the change does, in the imperative"
+          className={commitInputClass}
+        />
+      </label>
+
+      <label className={labelClass}>
+        Body (optional)
+        <textarea {...register('body')} rows={3} className={commitInputClass} />
+      </label>
+
+      <label className="flex items-center gap-2 text-sm">
+        <input type="checkbox" {...register('breaking')} className="size-4" />
+        Breaking change
+      </label>
+    </>
   )
 }
 
@@ -216,6 +245,8 @@ function useScopeSuggestion(suggested: string, apply: (scope: string) => void) {
     },
   }
 }
+
+const labelClass = 'flex flex-col gap-tight text-sm text-muted-foreground'
 
 const commitInputClass =
   'rounded-md border border-input bg-transparent px-3 py-2 text-sm text-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none'

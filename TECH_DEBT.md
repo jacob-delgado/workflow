@@ -157,19 +157,19 @@ cancels; the detail read is keyed so a stale answer is dropped.
 Severity: medium · Confidence: measured
 
 `web/eslint.config.js:100` sets `complexity`, `max-params`, `max-depth` and
-`max-nested-callbacks` but no `max-lines-per-function`. The settings form
-that grew to 299 lines is split by fieldset now
-(`web/src/features/settings/fieldsets/`), but `PullRequestForm`
-(`web/src/features/review/ReviewPanel.tsx:227`) is 117 lines and
-`CommitForm` (`web/src/features/branch/CommitForm.tsx:39`) 119. Files are
-measured — `scripts/check-file-length.sh` holds `.ts` and `.tsx` to the
-500/800 targets, and the longest, `web/src/features/branch/BranchPanel.test.tsx`,
-is 510 lines (the longest component file,
-`web/src/features/issues/IssuesPanel.tsx`, 383) — but a function can grow to
-fill one with nothing to say so.
+`max-nested-callbacks` but no `max-lines-per-function`. The functions that
+grew long are split — the settings form by fieldset
+(`web/src/features/settings/fieldsets/`), `PullRequestForm`
+(`web/src/features/review/ReviewPanel.tsx:227`, 70 lines) and `CommitForm`
+(`web/src/features/branch/CommitForm.tsx:40`, 77) by their fields — but
+nothing keeps them so. Files are measured — `scripts/check-file-length.sh`
+holds `.ts` and `.tsx` to the 500/800 targets, and the longest,
+`web/src/features/branch/BranchPanel.test.tsx`, is 510 lines (the longest
+component file, `web/src/features/issues/IssuesPanel.tsx`, 383) — but a
+function can grow to fill one with nothing to say so.
 
 **One way to fix it.** Add `max-lines-per-function` to eslint at a number
-the split settings form meets, splitting what else it catches.
+the split forms meet.
 
 **Done when.** `yarn lint` fails a 300-line component.
 

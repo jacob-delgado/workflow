@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { useForm } from 'react-hook-form'
+import { useForm, type UseFormRegister } from 'react-hook-form'
 import { useForgeWords } from '@/api/health.ts'
 import type {
   Ci,
@@ -257,15 +257,7 @@ function PullRequestForm({
   }, [setFocus])
 
   const submit = handleSubmit((fields) => {
-    onSubmit({
-      title: fields.title,
-      base: fields.base,
-      body: fields.body,
-      draft: fields.draft,
-      reviewers: splitList(fields.reviewers),
-      assignees: splitList(fields.assignees),
-      labels: splitList(fields.labels),
-    })
+    onSubmit(proposal(fields))
   })
 
   return (
@@ -276,52 +268,7 @@ function PullRequestForm({
       }}
       className="flex flex-col gap-group rounded-lg border border-border p-4"
     >
-      <label className="flex flex-col gap-tight text-sm text-muted-foreground">
-        Title
-        <input {...register('title')} required className={prInputClass} />
-      </label>
-
-      <label className="flex flex-col gap-tight text-sm text-muted-foreground">
-        Base branch
-        <input {...register('base')} required className={prInputClass} />
-      </label>
-
-      <label className="flex flex-col gap-tight text-sm text-muted-foreground">
-        Reviewers
-        <input
-          {...register('reviewers')}
-          placeholder="comma-separated usernames"
-          className={prInputClass}
-        />
-      </label>
-
-      <label className="flex flex-col gap-tight text-sm text-muted-foreground">
-        Assignees
-        <input
-          {...register('assignees')}
-          placeholder="comma-separated usernames"
-          className={prInputClass}
-        />
-      </label>
-
-      <label className="flex flex-col gap-tight text-sm text-muted-foreground">
-        Labels
-        <input
-          {...register('labels')}
-          placeholder="comma-separated labels"
-          className={prInputClass}
-        />
-      </label>
-
-      <label className="flex flex-col gap-tight text-sm text-muted-foreground">
-        Description
-        <textarea {...register('body')} rows={6} className={prInputClass} />
-      </label>
-
-      <label className="flex items-center gap-2 text-sm">
-        <input type="checkbox" {...register('draft')} className="size-4" />
-        Open as a draft
-      </label>
+      <ProposalFields register={register} />
 
       {draft.needs_push ? (
         <p className="text-xs text-muted-foreground">
@@ -355,6 +302,78 @@ function PullRequestForm({
     </form>
   )
 }
+
+// proposal is the request the form's fields make, each comma-separated list
+// read into its trimmed entries.
+function proposal(fields: PullRequestFields): OpenPullRequestRequest {
+  return {
+    title: fields.title,
+    base: fields.base,
+    body: fields.body,
+    draft: fields.draft,
+    reviewers: splitList(fields.reviewers),
+    assignees: splitList(fields.assignees),
+    labels: splitList(fields.labels),
+  }
+}
+
+// ProposalFields are what a pull request opens with, each editable: its title
+// and base, the people and labels it asks for, its description, and whether
+// it opens as a draft.
+function ProposalFields({ register }: { register: UseFormRegister<PullRequestFields> }) {
+  return (
+    <>
+      <label className={labelClass}>
+        Title
+        <input {...register('title')} required className={prInputClass} />
+      </label>
+
+      <label className={labelClass}>
+        Base branch
+        <input {...register('base')} required className={prInputClass} />
+      </label>
+
+      <label className={labelClass}>
+        Reviewers
+        <input
+          {...register('reviewers')}
+          placeholder="comma-separated usernames"
+          className={prInputClass}
+        />
+      </label>
+
+      <label className={labelClass}>
+        Assignees
+        <input
+          {...register('assignees')}
+          placeholder="comma-separated usernames"
+          className={prInputClass}
+        />
+      </label>
+
+      <label className={labelClass}>
+        Labels
+        <input
+          {...register('labels')}
+          placeholder="comma-separated labels"
+          className={prInputClass}
+        />
+      </label>
+
+      <label className={labelClass}>
+        Description
+        <textarea {...register('body')} rows={6} className={prInputClass} />
+      </label>
+
+      <label className="flex items-center gap-2 text-sm">
+        <input type="checkbox" {...register('draft')} className="size-4" />
+        Open as a draft
+      </label>
+    </>
+  )
+}
+
+const labelClass = 'flex flex-col gap-tight text-sm text-muted-foreground'
 
 const prInputClass =
   'rounded-md border border-input bg-transparent px-3 py-2 text-sm text-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none'
