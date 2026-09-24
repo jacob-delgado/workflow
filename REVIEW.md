@@ -84,8 +84,8 @@ gap, and which phase closes it.
 | 17 | Stage / unstage / stage all | N | Y (`space`, `a`) | Y since Phase 10 — Stage / Unstage per file and Stage all (`WorkingTree`, `web/src/features/branch/WorkingTree.tsx:12`) over `POST /api/stage` and `/api/unstage`, which move only a change the server read itself (`moveChanges`, `internal/webserver/staging.go:91`); "all" is `loop.StageAll` on both surfaces (`internal/loop/stage.go:35`), and the commit form stays in place, saying what it waits for | CLI: `git add` is the twin — no |
 | 18 | Discard a change | N | N | N | FEAT-23, already filed; all three lack it |
 | 19 | Per-file diff | N | Y (`internal/tui/diff.go:29`) | N | Web idea, UX-88 |
-| 20 | Commit with the convention | N | Y | Y (`web/src/features/branch/CommitForm.tsx:39`) | CLI: `git commit` + the commit-msg hook |
-| 21 | Scope from `commit.default_scope` / the learned scope | n/a | Y (`internal/tui/composer.go:131`) | Y since Phase 10 — every snapshot's `suggested_scope`, by the interface's rule (`suggestedScope`, `internal/webserver/commit.go:142`), read from the store once and recorded after a commit; the form opens on it and takes a later one only while its scope is untouched (`useScopeSuggestion`, `web/src/features/branch/CommitForm.tsx:201`), so a `default_scope` saved in Settings pre-fills the next form while no scope is learned | — |
+| 20 | Commit with the convention | N | Y | Y (`web/src/features/branch/CommitForm.tsx:40`) | CLI: `git commit` + the commit-msg hook |
+| 21 | Scope from `commit.default_scope` / the learned scope | n/a | Y (`internal/tui/composer.go:131`) | Y since Phase 10 — every snapshot's `suggested_scope`, by the interface's rule (`suggestedScope`, `internal/webserver/commit.go:142`), read from the store once and recorded after a commit; the form opens on it and takes a later one only while its scope is untouched (`useScopeSuggestion`, `web/src/features/branch/CommitForm.tsx:230`), so a `default_scope` saved in Settings pre-fills the next form while no scope is learned | — |
 | 22 | Amend / fixup | N | Y | N | git is the twin; web idea, UX-88 |
 | 23 | Run a hook / generate `lefthook.yml` | N | Y (`h`, `g`) | N | `lefthook` is the twin — no |
 
@@ -698,7 +698,7 @@ Closes UX-75, UX-76. Depends on Phases 1 (`loop.RefuseNothingStaged`) and 3.
   never under `--dry-run`; the server records a non-blank scope, trimmed,
   after a commit. `CommitForm` opens on it and takes a later frame's
   suggestion only while its scope is untouched (`useScopeSuggestion`,
-  `web/src/features/branch/CommitForm.tsx:201`).
+  `web/src/features/branch/CommitForm.tsx:230`).
 
 **Touches.** `api/openapi.yaml`, `internal/loop/stage.go` (new),
 `internal/tui/commits.go`, `internal/gitrepo/status.go`,
