@@ -7,6 +7,7 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"reflect"
 	"strings"
 	"testing"
 
@@ -186,6 +187,78 @@ func TestLoadFileReportsAnUnreadableFile(t *testing.T) {
 	// Assert
 	if !errors.Is(err, os.ErrNotExist) {
 		t.Errorf("error = %v, want it to wrap os.ErrNotExist", err)
+	}
+}
+
+func TestLoadFileAtReadsTheConfigurationWithItsRevision(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	path := write(t, t.TempDir(), readContents)
+
+	// Act
+	cfg, revision, err := config.LoadFileAt(path)
+	// Assert
+	if err != nil {
+		t.Fatalf("LoadFileAt: %v", err)
+	}
+
+	if cfg.Jira.BaseURL != "https://read.example.com" || cfg.Path != path {
+		t.Errorf("LoadFileAt = Jira at %q from %q, want the file's configuration from %q", cfg.Jira.BaseURL, cfg.Path, path)
+	}
+
+	if want := revisionOf(t, path); revision != want || !revision.Exists() {
+		t.Errorf("LoadFileAt revision = %v, want the file's, %v", revision, want)
+	}
+}
+
+func TestLoadFileAtNoFileIsTheDefaultsAtNoFile(t *testing.T) {
+	t.Parallel()
+
+	cases := map[string]func(dir string) string{
+		"a missing file": func(dir string) string { return filepath.Join(dir, config.FileName) },
+		"an empty path":  func(string) string { return "" },
+	}
+
+	for name, pathIn := range cases {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			// Act
+			cfg, revision, err := config.LoadFileAt(pathIn(t.TempDir()))
+
+			// Assert
+			if err != nil || revision != (config.Revision{}) || !reflect.DeepEqual(cfg, config.Default()) {
+				t.Errorf("LoadFileAt = %+v at %v, %v; want the defaults at the no-file revision", cfg, revision, err)
+			}
+		})
+	}
+}
+
+func TestLoadFileAtRefusesAFileThatIsNotValid(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	path := write(t, t.TempDir(), `{"jira": `)
+
+	// Act
+	_, _, err := config.LoadFileAt(path)
+
+	// Assert
+	if !errors.Is(err, config.ErrInvalid) {
+		t.Errorf("LoadFileAt = %v, want ErrInvalid", err)
+	}
+}
+
+func TestLoadFileAtReportsAFileItCannotRead(t *testing.T) {
+	t.Parallel()
+
+	// Act
+	_, _, err := config.LoadFileAt(t.TempDir())
+
+	// Assert
+	if err == nil || errors.Is(err, os.ErrNotExist) || errors.Is(err, config.ErrInvalid) {
+		t.Errorf("LoadFileAt a directory = %v, want the read's own failure", err)
 	}
 }
 
