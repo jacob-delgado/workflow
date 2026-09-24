@@ -1,5 +1,4 @@
 {
   "$schema": "https://unpkg.com/knip@6/schema.json",
-  "ignore": ["src/api/generated/**"],
-  "ignoreDependencies": ["@hey-api/client-fetch"]
+  "ignore": ["src/api/generated/**"]
 }

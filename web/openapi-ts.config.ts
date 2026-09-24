@@ -8,6 +8,8 @@ export default defineConfig({
   input: '../api/openapi.yaml',
   output: 'src/api/generated',
   plugins: [
+    // A plugin, not a package: openapi-ts copies this client into
+    // src/api/generated/client, so nothing imports @hey-api/client-fetch.
     '@hey-api/client-fetch',
     '@hey-api/typescript',
     // Response-only zod validation: every response is runtime-validated against
@@ -17,8 +19,8 @@ export default defineConfig({
     // false failure before the request is even sent.
     { name: '@hey-api/sdk', validator: { request: false, response: true } },
     // The generated queryOptions ARE the app's query layer, re-exported through
-    // one-line adapters in features/*/*Api.ts. Mutation factories are off: v1
-    // has no writes but the config PUT, which is an imperative call.
+    // one-line adapters in features/*/*Api.ts. Mutation factories are off:
+    // every write is an imperative call run through useAsyncAction.
     { name: '@tanstack/react-query', mutationOptions: false },
     // offset: true keeps the datetime validators on the full RFC 3339 grammar
     // the contract's `format: date-time` permits — the Go server serializes
