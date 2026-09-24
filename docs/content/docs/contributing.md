@@ -29,7 +29,10 @@ CI cannot drift apart. Naming each tool here would only drift from it.
 
 Prefer not to install anything? `task container:check` runs the entire gate
 inside a container built from those same pins, and there is a devcontainer for
-VS Code, GoLand, Codespaces, and the devcontainer CLI.
+VS Code, GoLand, Codespaces, and the devcontainer CLI. Under podman or colima,
+give the VM about 8 GiB first (`podman machine set --memory 8192`, or
+`colima start --memory 8`): at their 2 GiB default, golangci-lint and knip run
+out of memory.
 
 ## The gate
 
