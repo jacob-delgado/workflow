@@ -13,7 +13,8 @@ this file holds the debts. An earlier edition of this file was retired once
 every entry in it was done; this one starts fresh, and its numbering
 continues where that one stopped, so an ID is never reused.
 
-Checked against commit `5e69cb8` on 2026-09-22 (PR #125's tip, merged to main). Line numbers drift, so every pointer
+Checked against commit `f7b671f` on 2026-09-24 (main after the surface
+review, PRs #128–#133). Line numbers drift, so every pointer
 also names the symbol it means.
 
 ## How this was produced
