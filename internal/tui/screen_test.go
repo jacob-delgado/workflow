@@ -249,22 +249,6 @@ func TestLongDetailScrolls(t *testing.T) {
 	refuseScreen(t, back.View().Content, "THE END")
 }
 
-func TestMovingToAnotherPaneStartsTheDetailAtTheTop(t *testing.T) {
-	t.Parallel()
-
-	// Arrange
-	wordy := newWorld()
-	wordy.detail.Description = strings.Repeat("line of the description\n", 60) + "THE END"
-	scrolled := typing(t, wordy.live(t, 120, 30), "pgdown", "pgdown", "pgdown", "pgdown", "pgdown", "J")
-
-	// Act
-	view := typing(t, scrolled, keyTab, keyShiftTab).View().Content
-
-	// Assert
-	requireScreen(t, view, detailTop)
-	refuseScreen(t, view, "THE END")
-}
-
 func TestTheHelpListsEveryGroupAndScrolls(t *testing.T) {
 	t.Parallel()
 

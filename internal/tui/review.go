@@ -15,7 +15,8 @@ import (
 )
 
 // reviewState is the branch's pull request and its CI, as far as they have
-// loaded.
+// loaded, and how far the Review pane's detail is scrolled — which another pull
+// request starts at the top.
 type reviewState struct {
 	pull      forge.PullRequest
 	found     bool
@@ -30,6 +31,7 @@ type reviewState struct {
 	// over from an earlier one recognizes itself as stale and stops rather than
 	// starting a fresh chain of its own.
 	generation int
+	scroll     int
 }
 
 // ciCheckedFormat stamps the CI line with when it was last read.

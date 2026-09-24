@@ -16,12 +16,14 @@ import (
 )
 
 // reviewQueueState is the pull requests on the forge that ask for your review —
-// the queue the Reviews pane shows, as far as it has loaded.
+// the queue the Reviews pane shows, as far as it has loaded, and how far that
+// pane's detail is scrolled.
 type reviewQueueState struct {
 	requests []forge.ReviewRequest
 	loaded   bool
 	err      error
 	selected int
+	scroll   int
 }
 
 // reviewsLoaded carries the forge's answer about the review queue.
@@ -39,14 +41,7 @@ func (msg reviewsLoaded) apply(m Model) (Model, tea.Cmd) {
 
 	m.reviewQueue = reviewQueueState{requests: forge.OldestFirst(msg.requests), loaded: true, err: msg.err}
 	m.reviewQueue.selected = m.reviewQueue.indexOf(previous)
-
-	// A refresh can return a shorter queue, leaving the scroll offset past the
-	// end; re-clamp it so a click still lands on the row it appears to. Only when
-	// this pane is the focused one, since the offset is shared with the others and
-	// this load may arrive while another pane is being read.
-	if m.focus == paneReviews {
-		m.scroll, _ = window(m.reviewQueue.selected, len(m.reviewQueue.requests), m.detailRows())
-	}
+	m.reviewQueue = m.reviewQueue.following(m.detailRows())
 
 	return m, nil
 }
@@ -63,6 +58,13 @@ func (m Model) loadReviewQueue() tea.Cmd {
 
 		return reviewsLoaded{requests: requests, err: err}
 	}
+}
+
+// following is the queue scrolled so its selection shows in rows lines.
+func (s reviewQueueState) following(rows int) reviewQueueState {
+	s.scroll, _ = window(s.selected, len(s.requests), rows)
+
+	return s
 }
 
 // current is the selected review request, if there is one.
@@ -205,15 +207,15 @@ func (m Model) moveReviewSelection(msg tea.KeyPressMsg) Model {
 		m.reviewQueue.selected = max(0, m.reviewQueue.selected-1)
 	}
 
-	m.scroll, _ = window(m.reviewQueue.selected, len(m.reviewQueue.requests), m.detailRows())
+	m.reviewQueue = m.reviewQueue.following(m.detailRows())
 
 	return m
 }
 
 // pickReview selects the request on a clicked line of the detail.
 func (m Model) pickReview(line, _ int, inRail bool) (Model, tea.Cmd) {
-	index := line + m.scroll
-	if inRail || index < 0 || index >= len(m.reviewQueue.requests) {
+	index, drawn := m.detailLineAt(line)
+	if inRail || !drawn || index >= len(m.reviewQueue.requests) {
 		return m, nil
 	}
 

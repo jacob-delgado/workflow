@@ -21,11 +21,13 @@ import (
 // was started outside a git work tree, so the fact is stated one way.
 const notInRepository = "Not inside a git repository. Start `workflow` from one to use this pane."
 
-// branchState is the checked-out branch, as far as it has loaded.
+// branchState is the checked-out branch, as far as it has loaded, and how far
+// the Branch pane's detail is scrolled, which another branch starts at the top.
 type branchState struct {
 	branch gitrepo.Branch
 	loaded bool
 	err    error
+	scroll int
 }
 
 // branchLoaded carries the branch as git reports it.
@@ -38,14 +40,16 @@ type branchLoaded struct {
 // request.
 func (msg branchLoaded) apply(m Model) (Model, tea.Cmd) {
 	previous := m.branch.branch.Name
-	m.branch = branchState{branch: msg.branch, loaded: true, err: msg.err}
+	m.branch = branchState{branch: msg.branch, loaded: true, err: msg.err, scroll: m.branch.scroll}
 
 	if previous != msg.branch.Name {
 		m.review = reviewState{}
 		m = m.withoutQueuedPost()
 		// The failed-post error, its author and its dropped reason belonged to
-		// the branch just left; on a new branch they are stale.
+		// the branch just left; on a new branch they are stale, and so is how far
+		// the Branch and messaging details were scrolled into it.
 		m.messaging.send.err, m.messaging.author, m.messaging.dropped = nil, "", ""
+		m.branch.scroll, m.messaging.scroll = 0, 0
 	}
 
 	m, detail := m.resumeIssue().loadDetail()

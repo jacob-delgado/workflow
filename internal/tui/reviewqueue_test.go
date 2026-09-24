@@ -323,9 +323,8 @@ func TestClickingAfterTheQueueShrinksMapsToTheVisibleRow(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
-	// Scroll a long queue to the bottom, then refresh to a much shorter one. Unless
-	// the scroll offset is re-clamped to the new length, a click maps past the end
-	// of the shorter list.
+	// Scroll a long queue to the bottom, then refresh to a much shorter one. A click
+	// must count from the rows drawn, not from an offset the longer queue left.
 	repo := newWorld()
 	repo.reviews = manyReviews(20)
 

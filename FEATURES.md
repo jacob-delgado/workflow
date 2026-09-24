@@ -244,7 +244,7 @@ Impact: medium · Effort: medium
   STRICT, migrated forward), `internal/messaging` (a `thread_ts` on a
   bot-token post — a webhook cannot thread, so this is bot-only and the
   preview says so), the announcement composition shared by all three
-  surfaces (`internal/loop/announce.go`), `docs/content/docs/usage.md:329`.
+  surfaces (`internal/loop/announce.go`), `docs/content/docs/usage.md:332`.
 - Done when: the second announcement of a pull request is posted as a reply
   to the first when a bot token is configured; with a webhook it posts
   top-level and the preview says why; the store still holds no token.
@@ -255,7 +255,7 @@ Impact: low · Effort: medium
 
 - Why: The interface's preview offers `w` — announce when CI goes
   green — and keeps the queued announcement until it does or the run fails
-  (`internal/tui/messaging.go:409`). The web announces now or not at all.
+  (`internal/tui/messaging.go:410`). The web announces now or not at all.
 - Touches: `internal/webserver` (a queued post needs somewhere to live
   across requests — the store, or the stream's server state),
   `api/openapi.yaml`, `web/src/features/messaging`.

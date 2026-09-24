@@ -21,12 +21,14 @@ import (
 // preCommit is the hook h runs.
 const preCommit = "pre-commit"
 
-// changeList is the work tree's changed files, as far as they have loaded.
+// changeList is the work tree's changed files, as far as they have loaded, and
+// how far the Commits pane's detail is scrolled.
 type changeList struct {
 	changes  []gitrepo.Change
 	loaded   bool
 	err      error
 	selected int
+	scroll   int
 }
 
 // changesLoaded carries the work tree's status.
@@ -42,14 +44,7 @@ func (msg changesLoaded) apply(m Model) (Model, tea.Cmd) {
 
 	index := slices.IndexFunc(msg.changes, func(change gitrepo.Change) bool { return change.Path == previous.Path })
 	m.changes.selected = max(0, min(index, len(msg.changes)-1))
-
-	// A reload can return fewer files, leaving the shared scroll offset past the
-	// end; re-clamp it so a click still lands on the row it appears to. Only while
-	// this pane is focused, since the offset is shared and this reload may arrive
-	// from a background stage while another pane is being read.
-	if m.focus == paneCommits {
-		m.scroll, _ = window(m.changes.selected, len(m.changes.changes), m.detailRows())
-	}
+	m.changes = m.changes.following(m.detailRows())
 
 	// Staging an untracked file, or an edit behind a refresh, changes a file's
 	// diff without changing its path, so drop the loaded one to force a fresh
@@ -71,6 +66,13 @@ func (m Model) loadChanges() tea.Cmd {
 
 		return changesLoaded{changes: changes, err: err}
 	}
+}
+
+// following is the list scrolled so its selection shows in rows lines.
+func (l changeList) following(rows int) changeList {
+	l.scroll, _ = window(l.selected, len(l.changes), rows)
+
+	return l
 }
 
 // current is the selected change, if there is one.
@@ -238,23 +240,15 @@ func (m Model) moveChangeSelection(msg tea.KeyPressMsg) (Model, tea.Cmd) {
 		m.changes.selected = max(0, m.changes.selected-1)
 	}
 
-	m = m.followChange()
+	m.changes = m.changes.following(m.detailRows())
 
 	return m, m.loadDiff()
 }
 
-// followChange scrolls the detail so the selected file stays on screen, the way
-// the Issues list keeps its selection in view.
-func (m Model) followChange() Model {
-	m.scroll, _ = window(m.changes.selected, len(m.changes.changes), m.detailRows())
-
-	return m
-}
-
 // pickChange selects the file on a clicked line of the detail.
 func (m Model) pickChange(line, _ int, inRail bool) (Model, tea.Cmd) {
-	index := line + m.scroll
-	if inRail || index < 0 || index >= len(m.changes.changes) {
+	index, drawn := m.detailLineAt(line)
+	if inRail || !drawn || index >= len(m.changes.changes) {
 		return m, nil
 	}
 

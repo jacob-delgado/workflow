@@ -69,6 +69,9 @@ type behavior struct {
 	// pick selects the row of the pane's list drawn on a line; nil for a pane
 	// with no list to pick from. inRail says which drawing was clicked.
 	pick func(m Model, line, rows int, inRail bool) (Model, tea.Cmd)
+	// scroll is where the pane keeps how far its detail is scrolled, on its own
+	// state, so leaving the pane and coming back finds it where it was.
+	scroll func(m *Model) *int
 	// listInDetail marks a pane whose selectable list lives in the detail rather
 	// than the rail, so the heavy focus border belongs on the detail, where the
 	// cursor is, not on the rail's summary.
@@ -81,28 +84,32 @@ func behaviorOf(target pane) behavior {
 		paneIssues: {
 			rail: Model.issuesRail, detail: Model.issueDetailView, narrow: Model.issuesNarrow,
 			keys: Model.issuesKeys, handle: Model.handleIssuesKey, pick: Model.pickIssue,
+			scroll: func(m *Model) *int { return &m.detail.scroll },
 		},
 		paneBranch: {
 			rail: Model.branchRail, detail: Model.branchDetail, narrow: nil,
 			keys: Model.branchKeys, handle: Model.handleBranchKey, pick: nil,
+			scroll: func(m *Model) *int { return &m.branch.scroll },
 		},
 		paneCommits: {
 			rail: Model.commitsRail, detail: Model.commitsDetail, narrow: nil,
 			keys: Model.commitsKeys, handle: Model.handleCommitsKey, pick: Model.pickChange,
-			listInDetail: true,
+			scroll: func(m *Model) *int { return &m.changes.scroll }, listInDetail: true,
 		},
 		paneReview: {
 			rail: Model.reviewRail, detail: Model.reviewDetail, narrow: nil,
 			keys: Model.reviewKeys, handle: Model.handleReviewKey, pick: nil,
+			scroll: func(m *Model) *int { return &m.review.scroll },
 		},
 		paneMessaging: {
 			rail: Model.messagingRail, detail: Model.messagingDetail, narrow: nil,
 			keys: Model.messagingKeys, handle: Model.handleMessagingKey, pick: nil,
+			scroll: func(m *Model) *int { return &m.messaging.scroll },
 		},
 		paneReviews: {
 			rail: Model.reviewQueueRail, detail: Model.reviewQueueDetail, narrow: nil,
 			keys: Model.reviewQueueKeys, handle: Model.handleReviewQueueKey, pick: Model.pickReview,
-			listInDetail: true,
+			scroll: func(m *Model) *int { return &m.reviewQueue.scroll }, listInDetail: true,
 		},
 	}[target]
 }

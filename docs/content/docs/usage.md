@@ -89,8 +89,11 @@ each stage its initial and glyph.
 
 `tab` and `shift+tab` move between panes, and `1`–`6` jump straight to one.
 `j`/`k` or the arrow keys move within a list, and `J`/`K` or `pgdn`/`pgup`
-scroll the detail pane. The table below holds every key `?` lists, by where it
-works.
+scroll the detail pane. Each pane keeps its own place: come back to one and
+its detail is scrolled where you left it, unless it shows another branch,
+issue or pull request, which starts at the top, or its list reloaded while you
+were away, which scrolls to keep the selection in sight. The table below holds
+every key `?` lists, by where it works.
 
 | Where | Key | Does |
 | --- | --- | --- |

@@ -11,7 +11,6 @@ import (
 	"fmt"
 	"io"
 	"os"
-	"strings"
 
 	"charm.land/bubbles/v2/key"
 	tea "charm.land/bubbletea/v2"
@@ -46,9 +45,6 @@ type Model struct {
 	focus         pane
 	mouse         bool
 	dryRun        bool
-	// scroll is how far the detail pane is scrolled; moving to another issue or
-	// pane starts it at the top again.
-	scroll int
 	// runs counts the programs started, so the output of one run is never
 	// shown in another.
 	runs int
@@ -252,23 +248,26 @@ func (m Model) halfPage() int {
 	return max(1, m.detailRows()/2) //nolint:mnd // half, as in half a page
 }
 
-// scrollDetail moves the detail by delta lines from where it is drawn, and
-// clamps the result to the content. A stored offset can sit past the end — a
-// taller terminal or a shorter body leaves it there — so it is clamped before
-// it moves as well as after: otherwise one scroll-up spends itself undoing
-// offsets the content no longer has, and the view does not move.
+// scrollDetail moves the focused pane's detail by delta lines from where it is
+// drawn, and clamps the result to the content. A stored offset can sit past the
+// end — a taller terminal, or a body that shrank while its pane was away, leaves
+// it there — so it is clamped before it moves as well as after: otherwise one
+// scroll-up spends itself undoing offsets the content no longer has, and the
+// view does not move.
 func (m Model) scrollDetail(delta int) Model {
-	body := behaviorOf(m.focus).detail(m, m.detailWidth())
-	maxOffset := max(0, strings.Count(body, "\n")+1-m.detailRows())
-	m.scroll = min(max(0, min(m.scroll, maxOffset)+delta), maxOffset)
+	lines, rows := m.detailLines(), m.detailRows()
+	offset := behaviorOf(m.focus).scroll(&m)
+	from := firstShown(lines, *offset, rows)
+	*offset = firstShown(lines, from+delta, rows)
 
 	return m
 }
 
-// focusOn moves focus to a pane, with its detail scrolled to the top. Leaving
-// the Issues pane cancels any filter, so it never narrows a list you cannot see.
+// focusOn moves focus to a pane, which comes back scrolled where it was left.
+// Leaving the Issues pane cancels any filter, so it never narrows a list you
+// cannot see.
 func (m Model) focusOn(target pane) Model {
-	m.focus, m.scroll = target, 0
+	m.focus = target
 	m.issues = m.issues.clearFilter()
 
 	return m
