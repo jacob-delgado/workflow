@@ -59,32 +59,9 @@ anyone misuse a credential, a terminal or a release.
 
 ## The terminal interface
 
-### DEBT-55 A source file sits past the 500-line soft target
-
-Severity: low · Confidence: measured
-
-`scripts/check-file-length.sh --list` flags one source file past the
-500-line soft target — `internal/gitrepo/branch.go` (532), under the 800
-hard ceiling. The first edition of this entry missed it. Four are paid:
-its headline file, `internal/tui/review.go` at 727 lines, gave its merge
-picker to `internal/tui/merge.go` and its re-run to
-`internal/tui/checks.go`, leaving it at 455; `internal/tui/messaging.go`
-(529) gave its announcement preview to `internal/tui/messagingpreview.go`,
-leaving it at 323; `internal/tui/prcomposer.go` (527) gave opening the pull
-request to `internal/tui/prcreate.go`, leaving it at 400; and
-`internal/forge/github.go` (551) gave its CI reads to
-`internal/forge/githubci.go`, leaving it at 399. The test files past the
-target stay long by decision, and move to the deliberate trade-offs when
-this entry closes.
-
-**What it costs.** `scripts/check-file-length.sh` warns on every run, so the
-warning has stopped meaning anything, and the file carries more than one
-concern.
-
-**One way to fix it.** Split it by the concern it carries, as the other
-four were.
-
-**Done when.** `check-file-length.sh --list` flags no source file `soft`.
+No open entry of its own. What it carries on purpose — the two composers'
+field handling written twice, and the spine's color-only hue — is under
+[Deliberate trade-offs](#deliberate-trade-offs-that-carry-a-cost).
 
 ## The web
 
@@ -244,6 +221,23 @@ know about.
   for `internal/forge` a first entry with its WHY), not an accident. The
   cost is that any change adding a file there must carry its budget row in
   the same commit or fail `task check`.
+- **Seven test files stay past the 500-line soft target**, all under the
+  800 ceiling (`scripts/check-file-length.sh --list`). They were left whole
+  on purpose when the source files past the target were split by concern;
+  each holds the cases of one behavior. Announcing:
+  `internal/messaging/post_test.go` (763, the post to each service and the
+  announcement's text) and `internal/tui/messaging_test.go` (612, the
+  terminal's Messaging pane). Opening a pull request:
+  `internal/webserver/pullrequest_test.go` (601, the web's draft and open).
+  Staging, committing and pushing: `internal/tui/composer_test.go` (568,
+  the terminal's commit composer), `internal/webserver/staging_test.go`
+  (533, the web's stage and unstage) and
+  `web/src/features/branch/BranchPanel.test.tsx` (510, the web's commit and
+  push). Reading and writing an issue: `internal/jira/detail_test.go` (501,
+  Jira's issue read, comment and pull request link). The cost is that
+  `scripts/check-file-length.sh` still warns on every run, so a source file
+  newly past the target is one more line among seven a reader has learned
+  to skim.
 - **The web is read-only under `--dry-run`** (`internal/webserver/guard.go:40`
   documents it): every unsafe method answers 403 at one gate, where the
   terminal simulates each write and narrates it. The browser reads
