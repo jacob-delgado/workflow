@@ -138,17 +138,18 @@ func execute(ctx context.Context, args []string, stdout, stderr io.Writer, promp
 	return fmt.Errorf("workflow: %w", err)
 }
 
-// runTUI starts the interface and blocks until the user quits. It is tui.Run in
-// production and a fake in tests, so the root command's own wiring — loading the
-// configuration, building the model, applying dry run — can be exercised without
-// a real terminal.
-type runTUI func(ctx context.Context, model tui.Model, out io.Writer) error
+// RunInterface starts the interface and blocks until the user quits. It is
+// tui.Run in production and a fake in tests, so the root command's own wiring —
+// loading the configuration, building the model, applying dry run — can be
+// exercised without a real terminal.
+type RunInterface func(ctx context.Context, model tui.Model, out io.Writer) error
 
-// runWeb starts the local web server and blocks until the context is canceled.
-// It is serveWeb in production and a fake in tests, so the --web flag's wiring
-// can be exercised without binding a port. What it says about the server goes to
-// notes, stderr: the server has no artifact for stdout to carry.
-type runWeb func(
+// RunWeb starts the local web server and blocks until the context is canceled.
+// It is WebServerAt the loopback address in production and a fake in tests, so
+// the --web flag's wiring can be exercised without binding a port. What it says
+// about the server goes to notes, stderr: the server has no artifact for stdout
+// to carry.
+type RunWeb func(
 	ctx context.Context, cfg config.Config, deps webserver.Deps, info webserver.Info, notes io.Writer,
 ) error
 
@@ -156,12 +157,13 @@ type runWeb func(
 // is how `config init` asks for credentials; a zero one is fine for a caller
 // that only walks the tree, such as the reference generator.
 func NewRootCmd(prompt Prompt) *cobra.Command {
-	return newRootCmd(prompt, tui.Run, serveWeb)
+	return NewRootCmdOver(prompt, tui.Run, WebServerAt(webserver.LoopbackAddr))
 }
 
-// newRootCmd builds the command tree over an injected interface runner and web
-// server.
-func newRootCmd(prompt Prompt, run runTUI, serve runWeb) *cobra.Command {
+// NewRootCmdOver builds the command tree over the interface and web server a
+// caller hands it, so a test can see what bare `workflow` and `workflow --web`
+// open without a terminal or a port.
+func NewRootCmdOver(prompt Prompt, run RunInterface, serve RunWeb) *cobra.Command {
 	var (
 		dryRun bool
 		web    bool
@@ -228,7 +230,7 @@ type interfaceInput struct {
 // with a conflict or an unknown action should say so and stop, not open an
 // interface that answers the wrong keys — then builds the model, applies dry
 // run, and runs it.
-func openInterface(ctx context.Context, run runTUI, input interfaceInput) error {
+func openInterface(ctx context.Context, run RunInterface, input interfaceInput) error {
 	err := tui.CheckKeys(input.cfg.UI.Keys)
 	if err != nil {
 		return err
@@ -251,22 +253,26 @@ func subcommands(prompt Prompt) []*cobra.Command {
 	}
 }
 
-// serveWeb builds the web server over the seams and serves it on the loopback
-// interface until the context is canceled. Handler fails only when the embedded
-// spec cannot load, which is a build defect rather than a runtime condition.
-func serveWeb(
-	ctx context.Context, cfg config.Config, deps webserver.Deps, info webserver.Info, notes io.Writer,
-) error {
-	assets, _ := web.Assets()
+// WebServerAt is the web server, built over the seams and served on addr until
+// the context is canceled. Production serves only webserver.LoopbackAddr, through
+// NewRootCmd; a test hands it a port of its own. Handler fails only when the
+// embedded spec cannot load, which is a build defect rather than a runtime
+// condition.
+func WebServerAt(addr string) RunWeb {
+	return func(
+		ctx context.Context, cfg config.Config, deps webserver.Deps, info webserver.Info, notes io.Writer,
+	) error {
+		assets, _ := web.Assets()
 
-	handler, err := webserver.Handler(deps, cfg, info, assets)
-	if err != nil {
-		return fmt.Errorf("building the web server: %w", err)
+		handler, err := webserver.Handler(deps, cfg, info, assets)
+		if err != nil {
+			return fmt.Errorf("building the web server: %w", err)
+		}
+
+		fmt.Fprintf(notes, "workflow web: serving http://%s — press Ctrl+C to stop\n", addr)
+
+		return webserver.Serve(ctx, addr, handler)
 	}
-
-	fmt.Fprintf(notes, "workflow web: serving http://%s — press Ctrl+C to stop\n", webserver.LoopbackAddr)
-
-	return webserver.Serve(ctx, webserver.LoopbackAddr, handler)
 }
 
 // WebDeps adapts the interface's dependency bundle to the web server's narrower

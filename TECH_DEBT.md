@@ -71,36 +71,71 @@ gates below.
 
 ## The gates, the build and the tests
 
-### DEBT-64 The condition-coverage worklist: 324 one-sided conditions, and `internal/store` is the worst
+### DEBT-64 The condition-coverage worklist: 237 one-sided conditions, and 9 never evaluated
 
-Severity: medium · Confidence: measured
+Severity: low · Confidence: measured
 
-At this commit the gobco report (`task cover:branch`, floor 91 %) shows 324
-of 1,960 conditions observed only one way. By package: `internal/tui`
-112/753, `internal/cli` 60/194, `internal/forge` 31/184, **`internal/store`
-29/43** — nearly every `err != nil` in `announce.go` and `cache.go` is never
-true — `internal/webserver` 25/162, `internal/wiring` 21/69. Nine conditions
-were never evaluated at all: six in `internal/cli/cli.go` (`:177`, `:178`,
-`:221`, `:226`, `:251` — the `--web` and dry-run branches of the root
-command) and three in `internal/wiring/forge.go` (`:47`, `:56`, `:95`).
+Re-measured after the store, forge-wiring and root-command tests (`task
+cover:branch` on macOS, floor 91 %): 3,821 of 4,076 arms, 93.7 %. Of 2,038
+conditions, 237 were observed only one way — 72 of them an `err != nil`
+never seen true. By package: `internal/tui` 88, `internal/cli` 39,
+`internal/forge` 31, `internal/webserver` 16, `internal/wiring` 12,
+`internal/jira` 12, `internal/config` 11, `internal/messaging` 8,
+`internal/store` 5, `internal/tui/frame` 5, and ten across `buildinfo`,
+`editor` and `hooks` (two each) and `convention`, `gitrepo`, `httpx` and
+`proc` (one each).
 
-**What it costs.** The floor holds at 91.3 %, three tenths above the line,
-so the next feature with an untested error path fails the gate on someone
-else's PR. The store's error paths are exactly the ones a locked or corrupt
-database would take.
+The store is under ten. Its five are `sql.Open` in `Store.open`
+(`internal/store/store.go:148`), which fails only for an unregistered
+driver, and four that need SQLite to fail partway through a statement:
+`BeginTx` and `Commit` in `Store.CacheIssues` (`internal/store/cache.go:110`,
+`:121`), and `rows.Err` in `readCachedIssues` (`internal/store/cache.go:88`)
+and `Store.Announces` (`internal/store/announce.go:80`).
 
-**One way to fix it.** The report is the worklist: a store test against a
-read-only or pre-corrupted database file; a `--web` root-command test; the
-three forge-wiring conditions.
+Nine conditions were never evaluated. Five are a test away:
 
-**Done when.** `internal/store` is under 10 one-sided conditions and no
-condition in the module is never-evaluated.
+- `internal/cli/doctor_json.go:237` — `credentialStatus`'s `errUnreachable`
+  case: no `doctor --json --online` test has a credential check fail.
+- `internal/tui/messaging.go:90` and `:92` — `quitGuard.handleKey`'s confirm
+  and stay: `TestQuittingWithAQueuedPostAsksFirst` opens the guard but
+  presses neither enter (quit) nor esc (stay) in it.
+- `internal/tui/prcreate.go:134` — `pullCreated.apply`'s `named` case: every
+  test that opens a pull request on an issue's branch wires
+  `Jira.LinkPullRequest`.
+- `internal/wiring/wiring.go:232` — `fetchOrigin`, git failing to start: no
+  wiring test fetches.
+
+Four no black-box test reaches without changing the code:
+
+- `internal/tui/tui.go:142` and `:149` — inside `tui.Run`, which needs a real
+  terminal.
+- `internal/wiring/wiring.go:144` — `browserCommand`'s `"windows"` case,
+  evaluated only where `runtime.GOOS` is not `"darwin"`: CI's Linux run reaches
+  it, a Mac never does.
+- `internal/wiring/forgecli.go:59` — `forgeProgram`'s `forge.KindUnknown`
+  case, which `exhaustive` requires but `connectForge` never passes, since
+  `Repo.APIBase` refuses an unknown forge first.
+
+**What it costs.** Branch coverage reads 93.7 %, 2.7 points above the 91 %
+floor, which is the ratchet's own slack, so an untested error path in the
+next feature no longer fails the gate on someone else's pull request. The
+cost now is the ratchet: floor(93.7) − 2 is today's 91, so
+`BRANCH_COVERAGE_MIN` cannot rise until the report reads 94.0 % — 3,830
+arms, 9 more than today, since the gate rounds to one decimal first.
+
+**One way to fix it.** The five reachable sites above, one test each; then
+the report is the worklist, most of it in `internal/tui`, `internal/cli` and
+`internal/forge`.
+
+**Done when.** `task cover:branch` names no never-evaluated condition but
+the four above, and reads 94.0 % or more, so `BRANCH_COVERAGE_MIN` ratchets
+to 92.
 
 ### DEBT-65 The web has no condition gate, and its e2e drives no write
 
 Severity: medium · Confidence: read
 
-`task check` (`Taskfile.yml:487`) runs the web's lint, client-drift check and
+`task check` (`Taskfile.yml:490`) runs the web's lint, client-drift check and
 unit tests beside the Go gates, but what those tests are held to is thinner.
 `web/vitest.config.ts:38` sets `thresholds: { lines: 85, branches: 85 }`
 under the v8 provider — statement branches, not gobco-style per-condition
@@ -142,7 +177,7 @@ Severity: low · Confidence: read
 
 `wiring.Deps` (`internal/wiring/wiring.go:72`) returns `tui.Deps`, so the
 wiring package imports the terminal interface; the CLI's `WebDeps`
-(`internal/cli/cli.go:277`) then narrows that bundle for the web server.
+(`internal/cli/cli.go:283`) then narrows that bundle for the web server.
 The seams are not the terminal's — they are the loop's. That import no
 longer stands in the way of shared composition: `internal/loop` takes each
 seam as a plain argument (`loop.PullSeams`, `loop.AnnounceSeams`) and never
