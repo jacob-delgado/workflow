@@ -223,21 +223,6 @@ is an indirect pseudo-version.
 **Done when.** Each pin and override carries a one-line reason beside it,
 or is removed.
 
-### DEBT-69 Docs that lag the code
-
-Severity: low · Confidence: read
-
-- Residual "Slack" after the rename: `FEATURES.md:28`.
-- `FEATURES.md:52`'s settled-decision text says "Five panes down the
-  left"; `internal/tui/panes.go:27` has `paneCount = 6` — stale text, not a
-  decision reopened.
-- `FEATURES.md:12` is pinned to `817d323`, twenty-odd commits back; FEAT-26
-  (`:118`) and FEAT-31 (`:143`) carry inline `Done:` notes instead of the
-  removal the standing rule asks for.
-
-**Done when.** `FEATURES.md` says six, and "Slack" is left only where
-it names that service.
-
 ### DEBT-71 `wiring` returns `tui.Deps`, though three surfaces consume the seams
 
 Severity: low · Confidence: read
@@ -275,8 +260,8 @@ build container, and that run fails whatever the change under test:
   `TestRunReportsADirectoryItCannotList` sets its temporary directory to
   mode `0o100` and expects `Run` to fail listing it. `build/Dockerfile`
   declares no `USER`, so the container runs the gate as root, root lists
-  the directory whatever its mode, and the test fails. Reproduced during
-  the surface review's Phase 0, on a `git archive a3e773d` tree.
+  the directory whatever its mode, and the test fails. Reproduced in the
+  build container on 2026-09-22.
 - **A cancel test that failed once.**
   `internal/proc/group_unix_test.go:20`
   `TestStartKillsTheGrandchildWhenTheRunIsCanceled` failed once under
