@@ -18,7 +18,6 @@
     "preview": "vite preview"
   },
   "dependencies": {
-    "@hey-api/client-fetch": "^0.13.1",
     "@tanstack/react-query": "^5.102.8",
     "clsx": "^2.1.1",
     "lucide-react": "^1.45.0",

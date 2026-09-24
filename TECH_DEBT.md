@@ -155,12 +155,10 @@ Severity: low · Confidence: read
 
 The generated TypeScript tree is owned by a pre-1.0 generator,
 `@hey-api/openapi-ts ^0.99.0` (`web/package.json`), whose minor releases
-change output; `@hey-api/client-fetch` is in `dependencies` but listed under
-knip's `ignoreDependencies` because only the generated tree imports it; a
-`resolutions: { "js-yaml": "^4.3.2" }` override carries no comment saying
-why; and `typescript ~6.0.3` is the only patch-pinned dependency, with no
-note on what a minor bump breaks. On the Go side `charmbracelet/ultraviolet`
-is an indirect pseudo-version.
+change output; a `resolutions: { "js-yaml": "^4.3.2" }` override carries no
+comment saying why; and `typescript ~6.0.3` is the only patch-pinned
+dependency, with no note on what a minor bump breaks. On the Go side
+`charmbracelet/ultraviolet` is an indirect pseudo-version.
 
 **Done when.** Each pin and override carries a one-line reason beside it,
 or is removed.

@@ -535,15 +535,6 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@hey-api/client-fetch@npm:^0.13.1":
-  version: 0.13.1
-  resolution: "@hey-api/client-fetch@npm:0.13.1"
-  peerDependencies:
-    "@hey-api/openapi-ts": < 2
-  checksum: 10c0/2c144edd852475062ac2631a08e611d06d7c09b2cdf608ac02eb95de96df12fc83f49954f655733958f4279ab6cc5f179d2f8ba1c8e074bb0f476f51604a2623
-  languageName: node
-  linkType: hard
-
 "@hey-api/codegen-core@npm:0.9.1":
   version: 0.9.1
   resolution: "@hey-api/codegen-core@npm:0.9.1"
@@ -5888,7 +5879,6 @@ __metadata:
   dependencies:
     "@axe-core/playwright": "npm:^4.13.0"
     "@eslint/js": "npm:^10.0.1"
-    "@hey-api/client-fetch": "npm:^0.13.1"
     "@hey-api/openapi-ts": "npm:^0.99.0"
     "@playwright/test": "npm:^1.63.0"
     "@tailwindcss/vite": "npm:^4.3.3"
