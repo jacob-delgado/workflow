@@ -154,26 +154,28 @@ horizontal axis.
 
 ## The web
 
-### UX-85 The layout has no breakpoints
+### UX-85 The issue panes and the panels' contents do not reflow
 
 Impact: medium · Effort: medium
 
-**Today.** There is not one `sm:`, `md:`, `lg:` or `xl:` utility in any
-`.tsx` under `web/src`. A `w-20` rail (`web/src/shell/NavRail.tsx:14`) beside a `w-80
-shrink-0` issues list (`web/src/features/issues/IssuesPanel.tsx:110`) and a `flex-1` detail squeezes
-the detail to nothing near 640 px; definition lists use fixed first columns
-(`grid-cols-[6rem_1fr]` `web/src/features/branch/BranchPanel.tsx:61`, `[8rem_1fr]`
-`web/src/features/messaging/MessagingPanel.tsx:34`, `[9rem_1fr]` `web/src/features/review/ReviewPanel.tsx:95`); panels cap at
-`max-w-2xl` and never reflow; the issues `<ul>` is not scrollable, so a long
-list scrolls the page. The viewport meta tag is present (`index.html:5`) and
-nothing responds to it. (From code; no viewport was rendered.)
+**Today.** Only the section rail answers the window: below `md` it keeps
+its icons alone (`web/src/shell/NavRail.tsx:42`). A `w-80 shrink-0` issues
+list (`web/src/features/issues/IssuesPanel.tsx:110`) beside a `flex-1`
+detail squeezes the detail to nothing near 640 px; definition lists use
+fixed first columns (`grid-cols-[6rem_1fr]`
+`web/src/features/branch/BranchPanel.tsx:61`, `[8rem_1fr]`
+`web/src/features/messaging/MessagingPanel.tsx:34`, `[9rem_1fr]`
+`web/src/features/review/ReviewPanel.tsx:95`); panels cap at `max-w-2xl`
+and never reflow; the issues `<ul>` is not scrollable, so a long list
+scrolls the page.
 
-**Instead.** The rail collapses to icons under `md`; list and detail stack
-under `lg`; the grids and the caps go fluid; the list scrolls inside its
-panel.
+**Instead.** List and detail stack under `lg`; the grids and the caps go
+fluid; the list scrolls inside its panel.
 
-**Done when.** A Playwright spec at 640, 1024 and 1440 px finds no horizontal
-scroll and every control reachable.
+**Done when.** `web/e2e/layout.spec.ts`, which already holds every section
+at 640, 1024 and 1440 px to no sideways scroll and every control
+reachable, also finds the detail under the list below `lg`, the list
+scrolling in its pane, and a word wider than the content wrapping.
 
 ### UX-86 Nothing marks a change the stream just made
 

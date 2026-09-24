@@ -158,3 +158,43 @@ for (const theme of themes) {
     )
   }
 }
+
+// From md (768 px) the rail names each section beside its icon; below it, the
+// rail keeps only the icons, and each name stays the button's accessible name,
+// and its title, which a pointer resting on the icon shows.
+const railCases = [
+  { width: 640, named: false },
+  { width: 1024, named: true },
+  { width: 1440, named: true },
+]
+
+for (const { width, named } of railCases) {
+  test(
+    `the rail ${named ? 'names its sections' : 'keeps only its icons'} at ${String(width)} px`,
+    { tag: '@populated' },
+    async ({ page }) => {
+      // Arrange
+      await page.setViewportSize({ width, height })
+      await page.goto('/')
+      const rail = page.getByRole('navigation', { name: 'Sections' })
+      const buttons = sectionNames.map((name) => rail.getByRole('button', { name, exact: true }))
+
+      // Act: measure each name as it is drawn.
+      const drawn = await Promise.all(
+        buttons.map(async (button, index) => {
+          const name = await button.getByText(sectionNames[index], { exact: true }).boundingBox()
+
+          return (name?.width ?? 0) > 1
+        }),
+      )
+
+      // Assert: each button keeps its name, as its title too, drawn only from
+      // md up.
+      for (const [index, button] of buttons.entries()) {
+        await expect(button).toBeVisible()
+        await expect(button).toHaveAttribute('title', sectionNames[index])
+      }
+      expect(drawn).toEqual(sectionNames.map(() => named))
+    },
+  )
+}
