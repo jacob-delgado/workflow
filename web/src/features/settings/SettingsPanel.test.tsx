@@ -126,6 +126,36 @@ test('editing the commit types saves them as a trimmed list', async () => {
   expect((reopened as HTMLInputElement).value).toBe('hotfix,chore')
 })
 
+test('an emptied subject limit saves as 0, which keeps the default', async () => {
+  // Arrange
+  vi.stubEnv('VITE_MOCK', 'true')
+  const user = userEvent.setup()
+  const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+  const view = render(
+    <QueryClientProvider client={client}>
+      <SettingsPanel />
+    </QueryClientProvider>,
+  )
+  const limit = await screen.findByLabelText('Subject limit')
+  await user.type(limit, '50')
+  await user.clear(limit)
+
+  // Act: save, then reopen against the same client
+  await user.click(screen.getByRole('button', { name: /save changes/i }))
+  await screen.findByText(/saved/i)
+  view.unmount()
+  render(
+    <QueryClientProvider client={client}>
+      <SettingsPanel />
+    </QueryClientProvider>,
+  )
+
+  // Assert
+  // A count typed empty is the number 0, not an empty string.
+  const reopened = await screen.findByLabelText('Subject limit')
+  expect((reopened as HTMLInputElement).value).toBe('0')
+})
+
 test('offers turning the store off and rides it back through a save', async () => {
   // Arrange
   vi.stubEnv('VITE_MOCK', 'true')

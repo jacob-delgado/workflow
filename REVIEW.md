@@ -933,7 +933,7 @@ interface's own system does not change.
   `web/src/features/reviewqueue/ReviewQueuePanel.tsx:12`),
   the stream (`StreamStatus.tsx:4`) and the work story
   (`web/src/features/issues/WorkStory.tsx:302`); the text label stays, the mark is `aria-hidden`.
-- The seven `uppercase` eyebrows (`web/src/features/settings/SettingsPanel.tsx:353`,
+- The seven `uppercase` eyebrows (`web/src/features/settings/fieldsets/Field.tsx:35`, the settings legend since the split,
   `web/src/features/branch/BranchPanel.tsx:80`, `web/src/features/branch/WorkingTree.tsx:21`, `web/src/features/issues/IssueDetailPanel.tsx:9`, `web/src/features/review/ReviewPanel.tsx:116`,
   `web/src/features/messaging/MessagingPanel.tsx:95`, `:49`) → sentence-case headings on a
   `--text-*`/`--space-*` scale in `@theme`; the four-step radius actually
