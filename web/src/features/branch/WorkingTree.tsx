@@ -18,7 +18,7 @@ export function WorkingTree({
 }) {
   return (
     <section aria-labelledby="changes-heading" className="flex flex-col gap-group">
-      <h3 id="changes-heading" className="text-sm font-semibold text-muted-foreground uppercase">
+      <h3 id="changes-heading" className="text-base font-semibold">
         Working tree
       </h3>
       {changes.length === 0 ? null : (

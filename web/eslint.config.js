@@ -29,6 +29,16 @@ const noOpacityDimming = [
   { selector: 'TemplateElement[value.raw=/opacity-[0-9]/]', message: opacityDimming },
 ]
 
+// Headings in sentence case, never capitals (all source + tests), in any
+// variant (md:, hover:) or important (!) form: an all-caps eyebrow is a
+// template's heading, not this product's, whose type scale does the work.
+const allCaps =
+  'Set a heading in sentence case on the type scale (web/src/index.css), not in capitals: an uppercase eyebrow is template chrome.'
+const noAllCaps = [
+  { selector: 'Literal[value=/(^|[\\s:!])uppercase!?(\\s|$)/]', message: allCaps },
+  { selector: 'TemplateElement[value.raw=/(^|[\\s:!])uppercase!?(\\s|$)/]', message: allCaps },
+]
+
 // Black-box test smells: assert on user-facing semantics, not implementation
 // details. `no-node-access` would catch these but over-fires on the legitimate
 // focus (`document.activeElement`) and native-dialog tests where the DOM *is*
@@ -98,8 +108,8 @@ export default tseslint.config(
       'no-nested-ternary': 'error',
       'no-param-reassign': 'error',
       // React escapes all interpolated content; never bypass it. Nor dim with
-      // opacity.
-      'no-restricted-syntax': ['error', ...noReactEscapeBypass, ...noOpacityDimming],
+      // opacity, nor head a part in capitals.
+      'no-restricted-syntax': ['error', ...noReactEscapeBypass, ...noOpacityDimming, ...noAllCaps],
     },
   },
   // Black-box test discipline (the TS analogue of Go's external `_test`
@@ -117,6 +127,7 @@ export default tseslint.config(
         'error',
         ...noReactEscapeBypass,
         ...noOpacityDimming,
+        ...noAllCaps,
         ...noTestImplDetails,
       ],
     },

@@ -106,8 +106,12 @@ function PullRequestSummary({ pull, ci }: { pull: PullRequest; ci: Ci | null }) 
 
       {ci ? (
         <section aria-labelledby="ci-heading" className="flex flex-col gap-group">
-          <h3 id="ci-heading" className="text-sm font-semibold text-muted-foreground uppercase">
-            CI — {ci.done}/{ci.total} done{ci.failed > 0 ? `, ${String(ci.failed)} failed` : ''}
+          <h3 id="ci-heading" className="text-base font-semibold">
+            CI checks{' '}
+            <span className="font-normal text-muted-foreground">
+              · {ci.done} of {ci.total} done
+              {ci.failed > 0 ? `, ${String(ci.failed)} failed` : ''}
+            </span>
           </h3>
           <ul className="flex flex-col gap-item">
             {ci.checks.map((check) => (

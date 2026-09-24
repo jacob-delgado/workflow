@@ -93,6 +93,45 @@ test('shows the pull request and its CI checks', () => {
   expect(screen.getByText('e2e')).toBeTruthy()
 })
 
+// The heading counts the checks that are done, and the failed ones only when
+// there are any.
+const ciCounts = [
+  { done: 1, failed: 1, heading: 'CI checks · 1 of 2 done, 1 failed' },
+  { done: 2, failed: 0, heading: 'CI checks · 2 of 2 done' },
+] as const
+
+test.each(ciCounts)(
+  'heads the CI checks with how many are done: $heading',
+  ({ done, failed, heading }) => {
+    // Arrange
+    useSnapshotStore.setState({
+      status: 'live',
+      snapshot: makeSnapshot({
+        review: {
+          found: true,
+          pull,
+          ci: {
+            state: failed > 0 ? 'failed' : 'passed',
+            total: 2,
+            done,
+            failed,
+            checks: [
+              { name: 'build', state: 'passed', url: '' },
+              { name: 'e2e', state: failed > 0 ? 'failed' : 'passed', url: '' },
+            ],
+          },
+        },
+      }),
+    })
+
+    // Act
+    render(<ReviewPanel />)
+
+    // Assert
+    expect(screen.getByRole('heading', { level: 3, name: heading })).toBeTruthy()
+  },
+)
+
 test('draws each check as the mark of how it stands, beside the words', () => {
   // Arrange
   const checks = [

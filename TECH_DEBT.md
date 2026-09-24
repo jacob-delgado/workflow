@@ -156,10 +156,10 @@ cancels; the detail read is keyed so a stale answer is dropped.
 
 Severity: medium · Confidence: measured
 
-`web/eslint.config.js:90` sets `complexity`, `max-params`, `max-depth` and
+`web/eslint.config.js:100` sets `complexity`, `max-params`, `max-depth` and
 `max-nested-callbacks` but no `max-lines-per-function`. The result:
 `ConfigForm` (`web/src/features/settings/SettingsPanel.tsx:47`) is 299
-lines, `PullRequestForm` (`web/src/features/review/ReviewPanel.tsx:223`)
+lines, `PullRequestForm` (`web/src/features/review/ReviewPanel.tsx:227`)
 131 and `CommitForm` (`web/src/features/branch/CommitForm.tsx:39`) 135.
 Files are measured — `scripts/check-file-length.sh` holds `.ts` and `.tsx`
 to the 500/800 targets, and the longest,

@@ -44,10 +44,7 @@ export function MessagingPanel() {
 
       {messaging.channels.length > 0 ? (
         <section aria-labelledby="channels-heading" className="flex flex-col gap-group">
-          <h2
-            id="channels-heading"
-            className="text-sm font-semibold text-muted-foreground uppercase"
-          >
+          <h2 id="channels-heading" className="text-base font-semibold">
             Channels
           </h2>
           <ul className="flex flex-wrap gap-item">
@@ -92,7 +89,7 @@ function AnnounceSection({
 
   return (
     <section aria-labelledby="announce-heading" className="flex flex-col gap-group">
-      <h2 id="announce-heading" className="text-sm font-semibold text-muted-foreground uppercase">
+      <h2 id="announce-heading" className="text-base font-semibold">
         Announce
       </h2>
       {found ? (
