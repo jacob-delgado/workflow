@@ -65,8 +65,8 @@ Severity: low · Confidence: measured
 
 `scripts/check-file-length.sh --list` flags four source files past the
 500-line soft target — `internal/forge/github.go` (551),
-`internal/gitrepo/branch.go` (532), `internal/tui/prcomposer.go` (523) and
-`internal/tui/messaging.go` (525) — and five test files
+`internal/gitrepo/branch.go` (532), `internal/tui/prcomposer.go` (527) and
+`internal/tui/messaging.go` (528) — and five test files
 (`internal/messaging/post_test.go` 738, `internal/tui/messaging_test.go`
 612, `internal/webserver/pullrequest_test.go` 601,
 `internal/tui/composer_test.go` 565, `internal/jira/detail_test.go` 501).
@@ -85,35 +85,24 @@ the same commit.
 
 **Done when.** `check-file-length.sh --list` flags nothing `soft`.
 
-### DEBT-57 The same overlay shapes, written fourteen, five and three times
+### DEBT-57 The same overlay shapes, written five and three times
 
 Severity: low · Confidence: read
 
-- Fourteen "keep the overlay open with the reason" appliers of the same
-  `overlay.(T)` / `send.failed` / reassign shape:
-  `internal/tui/branchresult.go:109`, `internal/tui/issuewrite.go:194`,
-  `internal/tui/issuelink.go:98`, `internal/tui/preditor.go:162`,
-  `internal/tui/prcomposer.go:487`, `internal/tui/hookgen.go:153`,
-  `internal/tui/switchtask.go:228`, `internal/tui/comment.go:173`,
-  `internal/tui/messaging.go:503`, `internal/tui/checks.go:227`,
-  `internal/tui/merge.go:86`, `internal/tui/finish.go:141`,
-  `internal/tui/picker.go:114`, `internal/tui/comment.go:71`.
 - Five list-picker bodies with identical `up`/`down`/`confirm`/`esc` and a
-  `window`-scrolled `rows`: `internal/tui/picker.go:225`, `internal/tui/picker.go:423`,
+  `window`-scrolled `rows`: `internal/tui/picker.go:227`, `internal/tui/picker.go:425`,
   `internal/tui/switchtask.go:119`, `internal/tui/checks.go:68`, `internal/tui/run.go:257`.
 - Three focus-guarded "re-clamp the shared scroll after a shrinking reload"
   blocks: `internal/tui/commits.go:50`, `internal/tui/reviewqueue.go:47`, plus `internal/tui/commits.go:249`
   `followChange` / `internal/tui/reviewqueue.go:208`.
-- Two `onFieldNav` + `*CanComplete` pairs (`scopesuggest.go:17`,
-  `internal/tui/prcomposer.go:301`) and two blur-all-then-focus-one switches
-  (`internal/tui/composer.go:297`, `internal/tui/prcomposer.go:322`).
+- Two `onFieldNav` + `*CanComplete` pairs (`internal/tui/scopesuggest.go:17`,
+  `internal/tui/prcomposer.go:304`) and two blur-all-then-focus-one switches
+  (`internal/tui/composer.go:297`, `internal/tui/prcomposer.go:325`).
 
-The rule of three is met several times over. A helper that pins a failure
-in whichever overlay asked would serve the first group, and a generic picker
-would remove the second.
+The rule of three is met several times over. A generic picker would remove
+the first group.
 
-**Done when.** One picker type renders the five lists; the appliers share a
-helper.
+**Done when.** One picker type renders the five lists.
 
 ### DEBT-58 One scroll offset for six panes
 

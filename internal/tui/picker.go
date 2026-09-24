@@ -111,18 +111,20 @@ type transitionApplied struct {
 // changed.
 func (msg transitionApplied) apply(m Model) (Model, tea.Cmd) {
 	if msg.err != nil {
-		picker, open := m.overlay.(statusPicker)
-		if open {
-			picker.send, picker.form = picker.send.failed(writeRefusal(msg.err)), fieldForm{}
-			m.overlay = picker
-		}
-
-		return m, nil
+		return keepOpenWith[statusPicker](m, writeRefusal(msg.err)), nil
 	}
 
 	m = m.closeOverlay().noticed(m.marks.done + " " + string(msg.issueKey) + " is now " + msg.to.ToStatus)
 
 	return m, tea.Batch(m.searchIssues(), m.reloadDetail(msg.issueKey))
+}
+
+// failed is the picker back on its transitions with the reason, the field form
+// it was filling in closed, to choose again.
+func (p statusPicker) failed(err error) statusPicker {
+	p.send, p.form = p.send.failed(err), fieldForm{}
+
+	return p
 }
 
 // statusPicker is the change-status picker: the transitions Jira offers the issue
@@ -146,8 +148,8 @@ type statusPicker struct {
 }
 
 var (
-	_ overlay   = statusPicker{}
-	_ clickable = statusPicker{}
+	_ failable[statusPicker] = statusPicker{}
+	_ clickable              = statusPicker{}
 )
 
 // openStatusPicker opens the picker on the selected issue and starts listing its

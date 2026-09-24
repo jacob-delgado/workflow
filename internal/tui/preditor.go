@@ -30,7 +30,10 @@ type prEditor struct {
 	send  sendState
 }
 
-var _ editable = prEditor{}
+var (
+	_ editable           = prEditor{}
+	_ failable[prEditor] = prEditor{}
+)
 
 // openPullRequestEditor opens the editor on the branch's pull request, seeded
 // with its current title and description.
@@ -159,16 +162,17 @@ type pullEdited struct {
 // forge turned the change down.
 func (msg pullEdited) apply(m Model) (Model, tea.Cmd) {
 	if msg.err != nil {
-		editor, open := m.overlay.(prEditor)
-		if open {
-			editor.send = editor.send.failed(writeRefusal(msg.err))
-			m.overlay = editor
-		}
-
-		return m, nil
+		return keepOpenWith[prEditor](m, writeRefusal(msg.err)), nil
 	}
 
 	m.review.pull.Title, m.review.pull.Body = msg.pull.Title, msg.pull.Body
 
 	return m.closeOverlay().noticed(m.marks.done + " updated " + m.vocab.sigil + strconv.Itoa(msg.pull.Number)), nil
+}
+
+// failed is the editor kept open with the reason the change was turned down.
+func (p prEditor) failed(err error) prEditor {
+	p.send = p.send.failed(err)
+
+	return p
 }

@@ -315,7 +315,10 @@ func (p messagingPreview) destination() string {
 	return p.fallback
 }
 
-var _ editable = messagingPreview{}
+var (
+	_ editable                   = messagingPreview{}
+	_ failable[messagingPreview] = messagingPreview{}
+)
 
 // view shows the message as it will be posted, where, and how CI stands, its
 // outcome pinned under the title so a long refusal is seen, not clipped.
@@ -500,26 +503,26 @@ type messagingPosted struct {
 // apply records the post, or why it failed — in the preview if it is open, and
 // in the pane if the post was one waiting for CI.
 func (msg messagingPosted) apply(m Model) (Model, tea.Cmd) {
-	preview, open := m.overlay.(messagingPreview)
-
 	if msg.err != nil {
 		m.messaging.send = m.messaging.send.failed(msg.err)
 
-		if open {
-			preview.send = preview.send.failed(msg.err)
-			m.overlay = preview
-		}
-
-		return m.noticedFailure(msg.err), nil
+		return keepOpenWith[messagingPreview](m, msg.err).noticedFailure(msg.err), nil
 	}
 
 	m.messaging.posted, m.messaging.send = append(slices.Clone(m.messaging.posted),
 		postedMoment{pull: msg.pull, moment: msg.moment}), sendState{}
 	m.recordAnnounce(msg.pull, msg.moment)
 
-	if open {
+	if _, open := m.overlay.(messagingPreview); open {
 		m = m.closeOverlay()
 	}
 
 	return m.noticed(m.marks.done + " announced to " + m.cfg.Messaging.Target()), nil
+}
+
+// failed is the preview kept open with the reason the post failed.
+func (p messagingPreview) failed(err error) messagingPreview {
+	p.send = p.send.failed(err)
+
+	return p
 }

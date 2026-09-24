@@ -104,7 +104,7 @@ Impact: medium · Effort: large
   (`TransitionIssue`, `internal/webserver/issuewrite.go:106`). Beyond those
   it has no transition with its field form, no comment, no assign, no log
   work — all of which the interface offers from the Issues pane
-  (`internal/tui/picker.go:155`, `internal/tui/comment.go:41`, `internal/tui/issuewrite.go:74`).
+  (`internal/tui/picker.go:157`, `internal/tui/comment.go:41`, `internal/tui/issuewrite.go:74`).
   This is the rest.
 - Touches: `api/openapi.yaml` (operations for a transition with fields,
   comment, assign, worklog), `internal/webserver` (`issuewrite.go` holds the
@@ -212,8 +212,8 @@ Impact: medium · Effort: large
   open one, but cannot re-run failed checks, merge, finish the merged
   branch or edit the pull request's title and body — all of which the
   interface does with `R`, `M`, `F` and `e` (`internal/tui/checks.go:183`,
-  `internal/tui/merge.go:112`, `internal/tui/finish.go:44`,
-  `internal/tui/preditor.go:37`). The terminal's merge and finish shipped
+  `internal/tui/merge.go:114`, `internal/tui/finish.go:44`,
+  `internal/tui/preditor.go:40`). The terminal's merge and finish shipped
   with the web's left for later; this is that later, with the re-run and
   the edit beside them.
 - Touches: `api/openapi.yaml` (four operations), `internal/webserver` (a
@@ -255,7 +255,7 @@ Impact: low · Effort: medium
 
 - Why: The interface's preview offers `w` — announce when CI goes
   green — and keeps the queued announcement until it does or the run fails
-  (`internal/tui/messaging.go:406`). The web announces now or not at all.
+  (`internal/tui/messaging.go:409`). The web announces now or not at all.
 - Touches: `internal/webserver` (a queued post needs somewhere to live
   across requests — the store, or the stream's server state),
   `api/openapi.yaml`, `web/src/features/messaging`.

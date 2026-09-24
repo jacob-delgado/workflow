@@ -70,7 +70,7 @@ type branchCreated struct {
 // along.
 func (msg branchCreated) apply(m Model) (Model, tea.Cmd) {
 	if msg.err != nil {
-		return failedCreation(m, msg.err), nil
+		return keepOpenWith[branchCreator](m, msg.err), nil
 	}
 
 	m = m.closeOverlay().noticed(m.marks.done + " created and switched to " + msg.name)
@@ -98,20 +98,16 @@ type worktreeCreated struct {
 // is a separate directory to move to.
 func (msg worktreeCreated) apply(m Model) (Model, tea.Cmd) {
 	if msg.err != nil {
-		return failedCreation(m, msg.err), nil
+		return keepOpenWith[branchCreator](m, msg.err), nil
 	}
 
 	return m.closeOverlay().noticed(m.marks.done + " worktree for " + msg.name + " at " + msg.path), nil
 }
 
-// failedCreation keeps the branch creator open, carrying the reason it could not
-// create what was asked, so it can be corrected and tried again.
-func failedCreation(m Model, err error) Model {
-	creator, open := m.overlay.(branchCreator)
-	if open {
-		creator.send = creator.send.failed(err)
-		m.overlay = creator
-	}
+// failed is the creator kept open with the reason it could not create what was
+// asked, so it can be corrected and tried again.
+func (c branchCreator) failed(err error) branchCreator {
+	c.send = c.send.failed(err)
 
-	return m
+	return c
 }

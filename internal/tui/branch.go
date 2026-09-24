@@ -280,7 +280,7 @@ type branchCreator struct {
 	canWorktree bool
 }
 
-var _ overlay = branchCreator{}
+var _ failable[branchCreator] = branchCreator{}
 
 // openBranchCreator proposes a branch for the selected issue, started from the
 // branch work merges into.

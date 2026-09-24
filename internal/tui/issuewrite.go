@@ -68,7 +68,7 @@ type issueWrite struct {
 	problem error
 }
 
-var _ overlay = issueWrite{}
+var _ failable[issueWrite] = issueWrite{}
 
 // openAssign opens the assign form on the selected issue.
 func (m Model) openAssign() (Model, tea.Cmd) {
@@ -191,13 +191,15 @@ var _ applier = issueWritten{}
 // and refreshes the issue when it worked.
 func (msg issueWritten) apply(m Model) (Model, tea.Cmd) {
 	if msg.err != nil {
-		if form, open := m.overlay.(issueWrite); open {
-			form.send = form.send.failed(msg.err)
-			m.overlay = form
-		}
-
-		return m, nil
+		return keepOpenWith[issueWrite](m, msg.err), nil
 	}
 
 	return m.closeOverlay().noticed(m.marks.done + " " + msg.note), m.reloadDetail(msg.issueKey)
+}
+
+// failed is the form kept open with the reason the write was refused.
+func (w issueWrite) failed(err error) issueWrite {
+	w.send = w.send.failed(err)
+
+	return w
 }
