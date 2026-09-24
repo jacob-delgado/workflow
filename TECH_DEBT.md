@@ -69,7 +69,7 @@ Severity: low · Confidence: measured
 `internal/tui/messaging.go` (528) — and five test files
 (`internal/messaging/post_test.go` 738, `internal/tui/messaging_test.go`
 612, `internal/webserver/pullrequest_test.go` 601,
-`internal/tui/composer_test.go` 565, `internal/jira/detail_test.go` 501).
+`internal/tui/composer_test.go` 568, `internal/jira/detail_test.go` 501).
 None is over the 800 hard ceiling. The first edition of this entry missed
 the two source files outside `internal/tui`. Its headline file,
 `internal/tui/review.go` at 727 lines, is paid: the merge picker moved to

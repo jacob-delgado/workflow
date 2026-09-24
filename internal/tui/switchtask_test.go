@@ -249,3 +249,20 @@ func TestSwitchingTaskUnderDryRunSwitchesNothing(t *testing.T) {
 
 	requireScreen(t, view, "dry run", otherTaskBranch)
 }
+
+func TestTheSwitcherChecksOutTheBranchMovedTo(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	repo := newWorld()
+	repo.changes, repo.branches = nil, manyTaskBranches()
+	opened := typing(t, repo.live(t, 120, 40), "2", "s")
+
+	// Act
+	typing(t, opened, "j", keyEnter)
+
+	// Assert
+	if got := repo.asked("checkout"); len(got) != 1 || got[0] != "checkout fix/PROJ-102-task" {
+		t.Errorf("checkout calls = %v, want one for the branch moved to", got)
+	}
+}

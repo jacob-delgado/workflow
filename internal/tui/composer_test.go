@@ -428,7 +428,7 @@ func TestHRunsThePreCommitHookWithoutCommitting(t *testing.T) {
 
 	// Arrange
 	hooked := newWorld()
-	hooked.commitLines = []string{"┃  lint ❯ ", "summary: (done in 1.0 seconds)", "✔️ lint (1.0 seconds)"}
+	hooked.commitLines = []string{lintJobStarts, "summary: (done in 1.0 seconds)", "✔️ lint (1.0 seconds)"}
 	model := hooked.live(t, 120, 40)
 
 	// Act: run the hook
@@ -487,12 +487,15 @@ func TestADryRunCommitsNothing(t *testing.T) {
 	}
 }
 
+// lintJobStarts is how lefthook opens a lint job's output.
+const lintJobStarts = "┃  lint ❯ "
+
 // failingLint is a world whose commit fails a lint job with two places to look.
 func failingLint() *world {
 	failing := newWorld()
 	failing.commitErr = errHookFailed
 	failing.commitLines = []string{
-		"┃  lint ❯ ", "a.go:1:1: first", "b.go:2:1: second",
+		lintJobStarts, "a.go:1:1: first", "b.go:2:1: second",
 		"summary: (done in 1 seconds)", "🥊 lint (1 seconds)",
 	}
 
