@@ -1,9 +1,10 @@
-import { render, screen } from '@testing-library/react'
+import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { vi } from 'vitest'
 import { useHealthStore } from '@/api/health.ts'
 import { useSnapshotStore } from '@/api/snapshot.ts'
 import { gitLabWords, makeBranch, makeHealth, makeSnapshot } from '@/test/fixtures.ts'
+import { drawnMark, markShape } from '@/test/marks.tsx'
 import { useUiStore } from '@/shell/uiStore.ts'
 import { checkoutBranch } from './checkoutApi.ts'
 import { startWork } from './startWorkApi.ts'
@@ -56,6 +57,39 @@ test('lays out the in-flight stages for the issue that owns the branch', () => {
   expect(screen.getByText('Branch')).toBeTruthy()
   expect(screen.getByText('Pull request')).toBeTruthy()
   expect(screen.getByText(/1 file\(s\) to commit/)).toBeTruthy()
+})
+
+test("draws each stage as the mark of how far it has come, beside the stage's state", () => {
+  // Arrange
+  useSnapshotStore.setState({
+    status: 'live',
+    snapshot: makeSnapshot({
+      branches: onHead,
+      changes: {
+        changes: [
+          { path: 'a.go', kind: 'modified', staged: false, has_unstaged: true, conflicted: false },
+        ],
+      },
+    }),
+  })
+
+  // Act
+  render(<WorkStory issueKey="PROJ-1" />)
+
+  // Assert
+  const stages = screen.getAllByRole('listitem')
+  expect(stages.map(markShape)).toEqual([
+    drawnMark('done'),
+    drawnMark('in-flight'),
+    drawnMark('not-started'),
+    drawnMark('not-started'),
+  ])
+  expect(stages.map((stage) => within(stage).getByRole('button').textContent)).toEqual([
+    expect.stringContaining('done'),
+    expect.stringContaining('active'),
+    expect.stringContaining('upcoming'),
+    expect.stringContaining('upcoming'),
+  ])
 })
 
 test('reads a committed clean tree and a green pull request', () => {

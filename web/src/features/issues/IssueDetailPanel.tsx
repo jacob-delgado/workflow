@@ -3,7 +3,7 @@ import { useEffect, useRef, type RefObject } from 'react'
 import { apiErrorMessage } from '@/api/apiError.ts'
 import type { Comment, Issue, IssueDetail } from '@/api/generated/types.gen.ts'
 import { useIssue } from './issueApi.ts'
-import { StatusBadge } from './StatusBadge.tsx'
+import { IssueStatus } from './IssueStatus.tsx'
 import { WorkStory } from './WorkStory.tsx'
 
 const sectionHeading = 'text-sm font-semibold text-muted-foreground uppercase'
@@ -100,7 +100,7 @@ function IssueHeading({ issueKey, issue, heading }: IssueHeadingProps) {
     <div className="flex flex-col gap-2">
       <span className="flex items-center gap-2">
         <span className="font-mono text-sm text-muted-foreground">{issueKey}</span>
-        {issue ? <StatusBadge category={issue.status_category} label={issue.status} /> : null}
+        {issue ? <IssueStatus category={issue.status_category} label={issue.status} /> : null}
       </span>
       <h2 ref={heading} id="issue-detail-heading" tabIndex={-1} className="text-lg font-medium">
         {issue ? issue.summary : issueKey}

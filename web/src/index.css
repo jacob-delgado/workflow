@@ -105,9 +105,8 @@
   --disabled: #e2e5eb;
   --disabled-foreground: #565e6c;
 
-  /* Dark enough that the status chips — `bg-success/15 text-success` and the
-     warning twin — still clear 4.5:1 for their text over the pale same-color
-     tint, not only as solid fills. */
+  /* Dark enough that a status light clears 4.5:1 as text — an outcome line, a
+     warning — on the pale page and on a card, not only as a state's mark. */
   --success: #0f6a3f;
   --success-foreground: #ffffff;
   --warning: #7a4a00;

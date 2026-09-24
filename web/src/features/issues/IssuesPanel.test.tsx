@@ -4,6 +4,7 @@ import { vi } from 'vitest'
 import type { Issue } from '@/api/generated/types.gen.ts'
 import { useSnapshotStore } from '@/api/snapshot.ts'
 import { makeBranch, makeSnapshot } from '@/test/fixtures.ts'
+import { drawnMark, markShape } from '@/test/marks.tsx'
 import { renderWithClient } from '@/test/renderWithClient.tsx'
 import { checkoutBranch } from './checkoutApi.ts'
 import { IssuesPanel } from './IssuesPanel.tsx'
@@ -232,6 +233,38 @@ test('marks only the issues a local branch names as in flight', () => {
 
   // Assert
   expect(screen.getAllByText('in flight')).toHaveLength(1)
+})
+
+test("draws each issue's status category as its mark, beside the status", () => {
+  // Arrange
+  const shipped: Issue = { ...setupDocs, key: 'PROJ-3', status: 'Done', status_category: 'done' }
+  streamIssues([tokenLeak, setupDocs, shipped])
+
+  // Act
+  renderWithClient(<IssuesPanel />)
+
+  // Assert
+  expect(
+    ['To Do', 'In Progress', 'Done'].map((status) => markShape(screen.getByText(status))),
+  ).toEqual([drawnMark('not-started'), drawnMark('in-flight'), drawnMark('done')])
+})
+
+test('marks an issue in flight with the in-flight mark, beside the words', () => {
+  // Arrange
+  withIssues()
+  useSnapshotStore.setState((state) => ({
+    snapshot: state.snapshot && {
+      ...state.snapshot,
+      branches: [{ name: 'fix/PROJ-1-leak', issue_key: 'PROJ-1', current: true }],
+    },
+  }))
+
+  // Act
+  renderWithClient(<IssuesPanel />)
+
+  // Assert
+  const words = screen.getByText('in flight')
+  expect(markShape(words.parentElement ?? words)).toBe(drawnMark('in-flight'))
 })
 
 test('checks out an in-flight branch from the list without opening the detail', async () => {

@@ -57,7 +57,7 @@ gap, and which phase closes it.
 | --- | --- | --- | --- | --- | --- |
 | 1 | List the view's issues | P (only `branch <tab>` completion, `completeAssignedIssues`, `internal/cli/scriptable.go:125`) | Y | Y (the stream's page, and more on request since Phase 3) | CLI read: a feature, FEAT-78 |
 | 2 | Switch view / next page | N | Y (`v`, `ctrl+n`) | Y since Phase 3 — a view select from `listViews` (`ViewSelect`, `web/src/features/issues/IssueListControls.tsx:37`), `useEventStream(view)` (`web/src/api/snapshot.ts:46`), and Load more over `start_at` (`useMoreIssues`, `web/src/features/issues/issueApi.ts:73`); an unknown view is 404 | — |
-| 3 | Filter the list | N | Y (`/`, `internal/tui/issues.go:159`) | Y since Phase 3 — the same `KEY summary` match (`matchesFilter`, `web/src/features/issues/IssuesPanel.tsx:324`) | CLI no |
+| 3 | Filter the list | N | Y (`/`, `internal/tui/issues.go:159`) | Y since Phase 3 — the same `KEY summary` match (`matchesFilter`, `web/src/features/issues/IssuesPanel.tsx:325`) | CLI no |
 | 4 | Read an issue in full | N | Y (`internal/tui/detail.go:285`) | Y since Phase 3 — description, comments, reporter, assignee (`IssueDetailPanel`, `web/src/features/issues/IssueDetailPanel.tsx:17`) | CLI: FEAT-78 |
 | 5 | Transition, with field forms | P (`pr`'s side effect, fields-less, `internal/cli/pr.go:236`) | Y (`internal/tui/picker.go:155`) | P since Phase 9 — the review-status move offered after opening, fields-less and nowhere else (`TransitionIssue`, `internal/webserver/issuewrite.go:106`) | A general transition: FEAT-78 (CLI), FEAT-80 (web) |
 | 6 | Comment | N | Y (`internal/tui/comment.go:41`) | N | FEAT-78 / FEAT-80; not this plan |
@@ -101,7 +101,7 @@ gap, and which phase closes it.
 | 29 | Follow CI; notify on settle | n/a | Y (`internal/tui/review.go:189`) | P (5 s tick, no signal) | Web "CI settled" idea, UX-86 |
 | 30 | Re-run CI | N | Y, previewed since Phase 4 (`previewRerun`, `internal/tui/checks.go:183`, through `lastLook`) | **F** | `gh run rerun` is the CLI's. Web declared (`FEATURES.md:148`), FEAT-79 |
 | 31 | Merge | N | Y (`M`, gated `internal/tui/merge.go:23`) | **F** | FEAT-31 chose the interface; web declared (`FEATURES.md:150`), FEAT-79 |
-| 32 | The review queue | Y (`reviews --json`) | Y (pane 6) | Y since Phase 12 — the Reviews section lists the queue `reviews --json` prints, oldest first by `forge.OldestFirst` on all three surfaces, over `GET /api/reviews` (`ListReviews`, `internal/webserver/handlers.go:198`), with Open and Copy URL per request, read as the section opens and on Refresh (`ReviewQueuePanel`, `web/src/features/reviewqueue/ReviewQueuePanel.tsx:34`) | — |
+| 32 | The review queue | Y (`reviews --json`) | Y (pane 6) | Y since Phase 12 — the Reviews section lists the queue `reviews --json` prints, oldest first by `forge.OldestFirst` on all three surfaces, over `GET /api/reviews` (`ListReviews`, `internal/webserver/handlers.go:198`), with Open and Copy URL per request, read as the section opens and on Refresh (`ReviewQueuePanel`, `web/src/features/reviewqueue/ReviewQueuePanel.tsx:35`) | — |
 
 ### Messaging
 
@@ -174,16 +174,16 @@ met and stay.
 
 | Point | Verdict | Where |
 | --- | --- | --- |
-| Color tokens; no shadows, gradients or `→` | Met | `web/src/index.css:9-121` |
+| Color tokens; no shadows, gradients or `→` | Met | `web/src/index.css:9-120` |
 | Type and spacing scale | **Gap** — none | UX-84 |
-| The product's five hues and shape-for-state | **Gap** — one accent, color-only dots | UX-84 |
+| The product's five hues and shape-for-state | Met since Phase 13 — the four systems' hues as tokens, held apart from the status lights and periwinkle by `web/src/tokens.test.ts`, on the active rail icon, each section's heading and the work story's stages; every state drawn by its shape through one `StateMark` (`web/src/shell/StateMark.tsx:33`) | — |
 | ALL-CAPS eyebrow headings | **Gap** — the only heading treatment, nine headings from seven class strings | UX-84 |
 | Buttons say what happens | Met | `Open pull request`, `Commit staged changes`, `Push branch` |
 | An action keeps its name; errors direct; empty states invite | Met since Phase 11 — one announce verb ("Announce to X" opens the preview, "Announce now" sends); every fallback, and the server's own failures, say what to do next; one connecting line; a Retry and a not-a-repository line that invites | `web/src/features/writes.test.tsx` |
 | Feedback after a write | Met since Phase 11 — 12 of 12, each in a live line that keeps the button's verb and outlives the snapshot confirming the write (`OutcomeLine`, `web/src/lib/Outcome.tsx:54`) | `web/src/features/writes.test.tsx` |
 | Focus management | Met since Phase 11 — to the outcome when a write's control goes, through each step's swap and back on Cancel or a refusal (`web/src/lib/focus.ts`), and to `<main>` on a section change (`useSectionFocus`, `web/src/shell/AppShell.tsx:104`) | — |
 | Accessible names, landmarks, skip link, focus ring, axe both themes | Met | enforced |
-| Disabled by opacity; reduced motion | Met since Phase 11 — `--disabled` tokens (`web/src/index.css:48`), held to 4.5:1 in both themes by `web/src/tokens.test.ts`, and no `opacity-N` class past the web lint; transitions `motion-safe:`, and one reduced-motion rule (`web/src/index.css:173`) | — |
+| Disabled by opacity; reduced motion | Met since Phase 11 — `--disabled` tokens (`web/src/index.css:48`), held to 4.5:1 in both themes by `web/src/tokens.test.ts`, and no `opacity-N` class past the web lint; transitions `motion-safe:`, and one reduced-motion rule (`web/src/index.css:172`) | — |
 | Responsive | **Gap** — zero breakpoints | UX-85 |
 | Vocabulary shared with the interface | Met since Phase 12 — the forge's own noun and sigil, the messaging section named after its service (`sectionLabel`, `web/src/shell/sections.ts:29`), one verb for starting, "Start work", and the interface's six sections, Reviews among them (`sections`, `web/src/shell/uiStore.ts:7`) | — |
 | Dry run visible | Met since Phase 3 — a banner, and every write held before it is sent | `web/src/shell/AppShell.tsx:55`, `web/src/api/client.ts:25` |
@@ -852,10 +852,10 @@ Closed UX-83. Depends on Phase 3's patterns.
 - **The section.** `reviews`, labeled "Reviews", sixth in the rail after
   the messaging section as in the interface (`sections`,
   `web/src/shell/uiStore.ts:7`), in `web/src/features/reviewqueue/`
-  (`ReviewQueuePanel`, `web/src/features/reviewqueue/ReviewQueuePanel.tsx:34`).
+  (`ReviewQueuePanel`, `web/src/features/reviewqueue/ReviewQueuePanel.tsx:35`).
   Each request shows its number in the forge's mark, title, repository, who
   asks, the age in the interface's words, Draft, and CI as a text label
-  (`ciLabel`, `:13` — Phase 13's `StateMark` gives it a shape), with Open
+  (`ciLabel`, `:14` — Phase 13's `StateMark` gives it a shape), with Open
   (a new tab, `noopener`) and Copy URL, the interface's own "copy url",
   which says what it did in the panel's `OutcomeLine`. It reads its own endpoint, not the stream, so it
   does not wait on the shell's connecting line, as Settings does not.
@@ -957,7 +957,7 @@ both themes is the contrast proof; `yarn lint`.
 Closes UX-85. Depends on Phase 13 (tokens).
 
 Breakpoints (none today): the rail collapses to icons under `md`; list and
-detail stack under `lg` (`IssuesPanel.tsx:108-109`); `grid-cols-[6rem_1fr]`
+detail stack under `lg` (`IssuesPanel.tsx:109-110`); `grid-cols-[6rem_1fr]`
 and its siblings go responsive; `max-w-2xl` (and the Reviews list's
 `max-w-3xl`) goes fluid; the issues `<ul>` scrolls inside its panel.
 

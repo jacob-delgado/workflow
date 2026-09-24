@@ -3,7 +3,6 @@ import { useForm } from 'react-hook-form'
 import { useForgeWords } from '@/api/health.ts'
 import type {
   Ci,
-  CiState,
   OpenedPullRequest,
   OpenPullRequestRequest,
   PullRequest,
@@ -14,16 +13,10 @@ import { useSnapshotStore } from '@/api/snapshot.ts'
 import { useFocusHandback } from '@/lib/focus.ts'
 import { OutcomeLine, useOutcome } from '@/lib/Outcome.tsx'
 import { useAsyncAction } from '@/lib/useAsyncAction.ts'
-import { cn, splitList } from '@/lib/utils.ts'
+import { splitList } from '@/lib/utils.ts'
+import { ciMark, StateMark } from '@/shell/StateMark.tsx'
 import { OpenedOutcome } from './OpenedOutcome.tsx'
 import { openPr, previewPullRequest } from './openPrApi.ts'
-
-const ciDot: Record<CiState, string> = {
-  none: 'bg-muted-foreground',
-  running: 'bg-warning',
-  passed: 'bg-success',
-  failed: 'bg-destructive',
-}
 
 const mergeableLabel: Record<'unknown' | 'clean' | 'conflicts', string> = {
   unknown: 'Mergeability unknown',
@@ -119,10 +112,7 @@ function PullRequestSummary({ pull, ci }: { pull: PullRequest; ci: Ci | null }) 
           <ul className="flex flex-col gap-1.5">
             {ci.checks.map((check) => (
               <li key={check.name} className="flex items-center gap-3 text-sm">
-                <span
-                  aria-hidden
-                  className={cn('size-2 shrink-0 rounded-full', ciDot[check.state])}
-                />
+                <StateMark state={ciMark[check.state]} />
                 {check.url === '' ? (
                   <span>{check.name}</span>
                 ) : (

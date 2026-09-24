@@ -156,39 +156,30 @@ horizontal axis.
 
 ### UX-84 The web's visual system is not the product's
 
-Impact: medium · Effort: large
+Impact: medium · Effort: medium
 
-**Today.** The interface's system — a hue for each system and state carried
-by the *shape* of `○ ◐ ● ✗` (`internal/tui/glyphs.go:16`, `:96-127`) — is
-stated, and the previous edition says none of it should change. The web now
-has the hues: the four systems' tokens in both themes, held apart from the
-status lights and the periwinkle control accent by `web/src/tokens.test.ts`,
-on the active rail icon and each section's heading (`web/src/index.css:62`).
-Its state marks are still its own: `StageMarker`
-(`web/src/features/issues/WorkStory.tsx:302`) invents three, and `ciDot`
-(`web/src/features/review/ReviewPanel.tsx:21`) and `StreamStatus`
-(`web/src/shell/StreamStatus.tsx:4`) are color-only dots of one shape
-(mitigated by a text label beside each). And the page shows the template
-tells the interface avoids: nine `uppercase` eyebrow headings from seven
-class strings (`web/src/features/settings/SettingsPanel.tsx:353`,
+**Today.** The web now carries the interface's system: the four systems'
+hues as tokens (`web/src/index.css:62`) on the active rail icon, each
+section's heading and the work story's stages, and every state drawn by its
+shape — `○ ◐ ● ✗ ·` — through one `StateMark`
+(`web/src/shell/StateMark.tsx:33`). What remains are the template tells the
+interface avoids: nine `uppercase` eyebrow headings from seven class strings
+(`web/src/features/settings/SettingsPanel.tsx:353`,
 `web/src/features/branch/BranchPanel.tsx:80`,
 `web/src/features/branch/WorkingTree.tsx:21`,
 `web/src/features/issues/IssueDetailPanel.tsx:9` — the work story,
 description and comments share it —
-`web/src/features/review/ReviewPanel.tsx:116`,
+`web/src/features/review/ReviewPanel.tsx:109`,
 `web/src/features/messaging/MessagingPanel.tsx:95`, `:49`) as the *only*
 heading treatment; no type or spacing tokens (raw `text-2xl` … `text-xs`,
 `gap-8` … `gap-0.5` per component); one radius on everything (`rounded-md`
 ×28). To its credit: no shadows, no gradients, no `→`, and a real
-color-token system with hand-picked contrast (`web/src/index.css:9-121`).
+color-token system with hand-picked contrast (`web/src/index.css:9-120`).
 
-**Instead.** One `StateMark` component that draws `○ ◐ ● ✗` for CI, the
-stream and the work story (label kept, mark `aria-hidden`); sentence-case
-headings on a `--text-*`/`--space-*` scale; the radius scale actually used.
-The interface's own system does not change.
+**Instead.** Sentence-case headings on a `--text-*`/`--space-*` scale; the
+radius scale actually used. The interface's own system does not change.
 
-**Done when.** No `uppercase` heading remains; every state has a distinct
-shape; both themes pass axe.
+**Done when.** No `uppercase` heading remains.
 
 ### UX-85 The layout has no breakpoints
 
@@ -196,10 +187,10 @@ Impact: medium · Effort: medium
 
 **Today.** There is not one `sm:`, `md:`, `lg:` or `xl:` utility in any
 `.tsx` under `web/src`. A `w-20` rail (`web/src/shell/NavRail.tsx:14`) beside a `w-80
-shrink-0` issues list (`web/src/features/issues/IssuesPanel.tsx:109`) and a `flex-1` detail squeezes
+shrink-0` issues list (`web/src/features/issues/IssuesPanel.tsx:110`) and a `flex-1` detail squeezes
 the detail to nothing near 640 px; definition lists use fixed first columns
 (`grid-cols-[6rem_1fr]` `web/src/features/branch/BranchPanel.tsx:61`, `[8rem_1fr]`
-`web/src/features/messaging/MessagingPanel.tsx:34`, `[9rem_1fr]` `web/src/features/review/ReviewPanel.tsx:102`); panels cap at
+`web/src/features/messaging/MessagingPanel.tsx:34`, `[9rem_1fr]` `web/src/features/review/ReviewPanel.tsx:95`); panels cap at
 `max-w-2xl` and never reflow; the issues `<ul>` is not scrollable, so a long
 list scrolls the page. The viewport meta tag is present (`index.html:5`) and
 nothing responds to it. (From code; no viewport was rendered.)

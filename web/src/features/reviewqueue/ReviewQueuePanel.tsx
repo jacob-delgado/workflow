@@ -6,6 +6,7 @@ import { useForgeWords } from '@/api/health.ts'
 import { OutcomeLine, useOutcome, type Teller } from '@/lib/Outcome.tsx'
 import { useAsyncAction } from '@/lib/useAsyncAction.ts'
 import { EmptyState } from '@/shell/EmptyState.tsx'
+import { ciMark, StateMark } from '@/shell/StateMark.tsx'
 import { useReviewQueue } from './reviewQueueApi.ts'
 
 // ciLabel says how CI stands on a request, in words: the queue is read without
@@ -196,7 +197,10 @@ function RequestRow({ request, readAt, teller }: RequestRowProps) {
         {request.draft ? ' · Draft' : ''}
       </p>
       <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-sm">
-        <span>{ciLabel[request.ci]}</span>
+        <span className="flex items-center gap-1.5">
+          <StateMark state={ciMark[request.ci]} />
+          {ciLabel[request.ci]}
+        </span>
         <a
           href={request.url}
           target="_blank"
