@@ -119,6 +119,18 @@ test('offers no load more when the stream carries every issue', () => {
   expect(screen.queryByRole('button', { name: /load more/i })).toBeNull()
 })
 
+test('says all are loaded when the stream carries every issue', () => {
+  // Arrange
+  servePages(['PROJ-1', 'PROJ-2'], 2)
+  streamFirstPage(['PROJ-1', 'PROJ-2'], 2)
+
+  // Act
+  renderWithClient(<IssuesPanel />)
+
+  // Assert
+  expect(statusSaying('All 2 loaded.')).toBeDefined()
+})
+
 test('load more reads the chosen view', async () => {
   // Arrange
   const user = userEvent.setup()

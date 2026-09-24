@@ -58,7 +58,7 @@ function IssueBrowser({ streamed, branches }: { streamed: IssuesPage; branches: 
   }
 
   return (
-    <div className="flex flex-col gap-group">
+    <div className="flex flex-col gap-group lg:min-h-0 lg:flex-1">
       <div className="flex flex-col gap-item">
         <IssueListControls filter={filter} onFilter={setFilter} />
         <p role="status" className="text-sm text-muted-foreground">
@@ -96,7 +96,14 @@ interface ListAndDetailProps {
 }
 
 // ListAndDetail is the view's list, with its loading of more, beside the
-// selected issue's detail — or the view's empty state when it holds none.
+// selected issue's detail — or the view's empty state when it holds none. Below
+// lg the list sits over the detail, in a pane of a few rows, so the detail it
+// opens starts just beneath; from lg the two sit side by side and fill the
+// window's height, each scrolling on its own. Each pane keeps a few pixels
+// inside the edge it scrolls within, so a row's focus ring is not clipped.
+// The detail's pane opens each issue at its top, as a section opens, and is
+// positioned, as the content around it is, so the text it keeps for a screen
+// reader scrolls and clips with it rather than growing the content.
 function ListAndDetail(props: ListAndDetailProps) {
   const { loaded, shown, branches, more, streamed, focus, onLoadMore, outcome } = props
   const selected = useUiStore((state) => state.selectedIssue)
@@ -106,8 +113,8 @@ function ListAndDetail(props: ListAndDetailProps) {
   }
 
   return (
-    <div className="flex gap-block">
-      <div className="flex w-80 shrink-0 flex-col gap-group">
+    <div className="flex flex-col gap-block lg:min-h-0 lg:flex-1 lg:flex-row">
+      <div className="flex flex-col gap-group lg:min-h-0 lg:w-80 lg:shrink-0">
         {shown.length === 0 ? null : (
           <IssueRows issues={shown} branches={branches} rowRefs={focus.rows} outcome={outcome} />
         )}
@@ -119,7 +126,7 @@ function ListAndDetail(props: ListAndDetailProps) {
           onLoadMore={onLoadMore}
         />
       </div>
-      <div className="flex-1">
+      <div key={selected ?? ''} className="relative min-w-0 flex-1 lg:overflow-y-auto lg:px-1">
         {selected === null ? (
           <EmptyState>Select an issue to see its detail.</EmptyState>
         ) : (
@@ -174,9 +181,14 @@ function IssueRows({ issues, branches, rowRefs, outcome }: IssueRowsProps) {
   const selected = useUiStore((state) => state.selectedIssue)
   const selectIssue = useUiStore((state) => state.selectIssue)
   const branchesByKey = groupBranchesByKey(branches)
+  const pane = useSelectedRowInView(rowRefs, selected)
 
   return (
-    <ul aria-label="Issues" className="flex flex-col gap-tight">
+    <ul
+      ref={pane}
+      aria-label="Issues"
+      className="flex max-h-80 min-h-0 flex-col gap-tight overflow-y-auto rounded-lg border border-border p-1 lg:max-h-none lg:rounded-none lg:border-0"
+    >
       {issues.map((issue) => {
         // An issue can have more than one local branch; it is on HEAD when any
         // of them is, and check-out targets the most recent one (branches
@@ -230,6 +242,36 @@ function IssueRows({ issues, branches, rowRefs, outcome }: IssueRowsProps) {
   )
 }
 
+// useSelectedRowInView brings the selected issue's row into view in the list's
+// pane, scrolling the pane alone and only as far as it must. The selection
+// outlives a change of section and the pane's scroll does not, so the list
+// would reopen at its top with the issue its detail shows out of sight.
+function useSelectedRowInView(
+  rowRefs: RefObject<Map<string, HTMLButtonElement>>,
+  selected: string | null,
+) {
+  const pane = useRef<HTMLUListElement>(null)
+
+  useEffect(() => {
+    const list = pane.current
+    const row = selected === null ? undefined : rowRefs.current.get(selected)
+    if (list === null || row === undefined) {
+      return
+    }
+
+    const top = row.getBoundingClientRect().top - list.getBoundingClientRect().top - list.clientTop
+    const bottom = top + row.offsetHeight
+    const inset = parseFloat(getComputedStyle(list).paddingTop)
+    if (top < 0) {
+      list.scrollTop += top - inset
+    } else if (bottom > list.clientHeight) {
+      list.scrollTop += bottom - list.clientHeight + inset
+    }
+  }, [rowRefs, selected])
+
+  return pane
+}
+
 interface MoreIssuesProps {
   more: ReturnType<typeof useMoreIssues>
   streamed: IssuesPage
@@ -252,7 +294,7 @@ function MoreIssues({ more, streamed, loaded, statusLine, onLoadMore }: MoreIssu
     <>
       <div className="flex items-center gap-item px-3 text-sm">
         <p ref={statusLine} role="status" tabIndex={-1} className="text-muted-foreground">
-          {loadOutcome(loaded, streamed.total, remain, paged)}
+          {loadOutcome(loaded, streamed.total, remain)}
         </p>
         {remain ? (
           <button
@@ -280,14 +322,14 @@ function MoreIssues({ more, streamed, loaded, statusLine, onLoadMore }: MoreIssu
 }
 
 // loadOutcome says how much of the view is loaded: how many of how many while
-// more remain, that all are once a read reached the end, and nothing when the
-// stream's page held the whole view.
-function loadOutcome(loaded: number, total: number, remain: boolean, paged: boolean): string {
+// more remain, and that all are once none do — also when the stream's page
+// held the whole view, since the list's pane can hold fewer rows than that.
+function loadOutcome(loaded: number, total: number, remain: boolean): string {
   if (remain) {
     return `${String(loaded)} of ${String(total)} loaded`
   }
 
-  return paged ? `All ${String(loaded)} loaded.` : ''
+  return `All ${String(loaded)} loaded.`
 }
 
 // filterOutcome says what the filter left of the loaded issues: nothing while
