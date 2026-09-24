@@ -57,7 +57,7 @@ gap, and which phase closes it.
 | --- | --- | --- | --- | --- | --- |
 | 1 | List the view's issues | P (only `branch <tab>` completion, `completeAssignedIssues`, `internal/cli/scriptable.go:125`) | Y | Y (the stream's page, and more on request since Phase 3) | CLI read: a feature, FEAT-78 |
 | 2 | Switch view / next page | N | Y (`v`, `ctrl+n`) | Y since Phase 3 — a view select from `listViews` (`ViewSelect`, `web/src/features/issues/IssueListControls.tsx:37`), `useEventStream(view)` (`web/src/api/snapshot.ts:46`), and Load more over `start_at` (`useMoreIssues`, `web/src/features/issues/issueApi.ts:73`); an unknown view is 404 | — |
-| 3 | Filter the list | N | Y (`/`, `internal/tui/issues.go:159`) | Y since Phase 3 — the same `KEY summary` match (`matchesFilter`, `web/src/features/issues/IssuesPanel.tsx:325`) | CLI no |
+| 3 | Filter the list | N | Y (`/`, `internal/tui/issues.go:159`) | Y since Phase 3 — the same `KEY summary` match (`matchesFilter`, `web/src/features/issues/IssuesPanel.tsx:365`) | CLI no |
 | 4 | Read an issue in full | N | Y (`internal/tui/detail.go:285`) | Y since Phase 3 — description, comments, reporter, assignee (`IssueDetailPanel`, `web/src/features/issues/IssueDetailPanel.tsx:17`) | CLI: FEAT-78 |
 | 5 | Transition, with field forms | P (`pr`'s side effect, fields-less, `internal/cli/pr.go:236`) | Y (`internal/tui/picker.go:155`) | P since Phase 9 — the review-status move offered after opening, fields-less and nowhere else (`TransitionIssue`, `internal/webserver/issuewrite.go:106`) | A general transition: FEAT-78 (CLI), FEAT-80 (web) |
 | 6 | Comment | N | Y (`internal/tui/comment.go:41`) | N | FEAT-78 / FEAT-80; not this plan |
@@ -948,7 +948,7 @@ product's system; the interface's own system does not change.
   `web/src/features/issues/IssueStatus.tsx:16`, once `StatusBadge`, which
   lost its pill) and the in-flight mark on an issue with a local branch,
   whose words it shows because the status mark on its row can draw the
-  same shape (`web/src/features/issues/IssuesPanel.tsx:217`). A mark
+  same shape (`web/src/features/issues/IssuesPanel.tsx:230`). A mark
   reporting a service takes its status light; a mark on the loop — a
   work-story stage, the in-flight mark — takes its system's hue.
 - **Type, space and corners.** One plain `@theme`

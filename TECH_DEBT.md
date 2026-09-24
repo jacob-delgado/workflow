@@ -192,9 +192,9 @@ unit tests beside the Go gates, but what those tests are held to is thinner.
 `web/vitest.config.ts:38` sets `thresholds: { lines: 85, branches: 85 }`
 under the v8 provider — statement branches, not gobco-style per-condition
 coverage, and nine points below the Go statement floor of 94. The e2e suite
-is five specs (`web/e2e/a11y.spec.ts`, `web/e2e/layout.spec.ts`,
-`web/e2e/screens.spec.ts`, `web/e2e/smoke.spec.ts`,
-`web/e2e/theme.spec.ts`), outside `task check`
+is six specs (`web/e2e/a11y.spec.ts`, `web/e2e/layout.spec.ts`,
+`web/e2e/panes.spec.ts`, `web/e2e/screens.spec.ts`,
+`web/e2e/smoke.spec.ts`, `web/e2e/theme.spec.ts`), outside `task check`
 (CI's `e2e` job and `yarn test:e2e` run it), with no `workflow --web`
 backend — acknowledged at `.github/workflows/ci.yml:100` ("No backend": the
 specs answer the API themselves, or read a VITE_MOCK build's fixtures) — so

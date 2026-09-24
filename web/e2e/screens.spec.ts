@@ -7,13 +7,24 @@ import { height, openCockpit, openSection, sectionNames, themes, widths } from '
 // would differ by the OS's fonts, and would commit images that a reviewer
 // cannot diff anyway.
 
-// fitToContent grows the window by as much as the content scrolls, so the
-// saved screen holds the whole section: the page itself holds still under its
-// header, and a full-page capture sees only the window.
+// fitToContent grows the window by as much as the content scrolls, or a pane
+// in it that grows with the window, so the saved screen holds the whole
+// section: the page itself holds still under its header, and a full-page
+// capture sees only the window. A pane capped at a height, and a text area,
+// grow with nothing, so they are left out.
 async function fitToContent(page: Page, width: number): Promise<void> {
-  const overflow = await page
-    .getByRole('main')
-    .evaluate((main) => main.scrollHeight - main.clientHeight)
+  const overflow = await page.getByRole('main').evaluate((main) =>
+    Math.max(
+      ...[main, ...main.querySelectorAll<HTMLElement>('*')]
+        .filter((part) => {
+          const { overflowY, maxHeight } = getComputedStyle(part)
+          const pane = /auto|scroll/.test(overflowY) && maxHeight === 'none'
+
+          return part === main || (pane && part.localName !== 'textarea')
+        })
+        .map((part) => part.scrollHeight - part.clientHeight),
+    ),
+  )
   await page.setViewportSize({ width, height: height + overflow })
 }
 

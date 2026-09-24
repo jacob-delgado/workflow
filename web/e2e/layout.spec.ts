@@ -330,3 +330,69 @@ for (const width of widths) {
     },
   )
 }
+
+const issuesTotal = 12
+
+// streamedIssue is one of the issues the stream carries, or a later page adds.
+function streamedIssue(number: number) {
+  return {
+    key: `PROJ-${String(number)}`,
+    summary: `Issue number ${String(number)} of the view`,
+    status: 'To Do',
+    status_category: 'new',
+    type: 'Task',
+  }
+}
+
+// A stream carrying the first eight of the view's twelve issues, so the list
+// offers to load more.
+const pagedSnapshot = {
+  issues: {
+    total: issuesTotal,
+    start_at: 0,
+    issues: [1, 2, 3, 4, 5, 6, 7, 8].map(streamedIssue),
+  },
+  branch: {
+    name: '',
+    detached: false,
+    head: '',
+    upstream: '',
+    ahead: 0,
+    behind: 0,
+    base: '',
+    commits: [],
+  },
+  changes: { changes: [] },
+  review: { found: false },
+  messaging: { service: 'Slack', configured: false, channel: '', channels: [], author: '' },
+  branches: [],
+  suggested_scope: '',
+}
+
+test('a loaded page hands focus to its first issue, in view in the list, at 640 px', async ({
+  page,
+}) => {
+  // Arrange: the stream's eight issues, and the next page answered here, in a
+  // window where the list scrolls in its pane.
+  await page.route('**/api/events**', (route) =>
+    route.fulfill({
+      contentType: 'text/event-stream',
+      body: `event: snapshot\ndata: ${JSON.stringify(pagedSnapshot)}\n\n`,
+    }),
+  )
+  await page.route(/\/api\/issues\?/, (route) =>
+    route.fulfill({
+      json: { total: issuesTotal, start_at: 8, issues: [9, 10, 11, 12].map(streamedIssue) },
+    }),
+  )
+  await page.setViewportSize({ width: 640, height: 700 })
+  await page.goto('/')
+
+  // Act
+  await page.getByRole('button', { name: 'Load more' }).click()
+
+  // Assert: the first issue the page added has focus, and is in view.
+  const added = page.getByRole('button', { name: /^PROJ-9/ })
+  await expect(added).toBeFocused()
+  await expect(added).toBeInViewport({ ratio: 1 })
+})
