@@ -255,9 +255,10 @@ func subcommands(prompt Prompt) []*cobra.Command {
 
 // WebServerAt is the web server, built over the seams and served on addr until
 // the context is canceled. Production serves only webserver.LoopbackAddr, through
-// NewRootCmd; a test hands it a port of its own. Handler fails only when the
-// embedded spec cannot load, which is a build defect rather than a runtime
-// condition.
+// NewRootCmd; a test hands it a port of its own. The handler reads the
+// configuration file cfg came from once more, so it starts from an edit made
+// since, with that edit's revision. Building it fails when the embedded spec
+// cannot load, a build defect, or when that file cannot be read again.
 func WebServerAt(addr string) RunWeb {
 	return func(
 		ctx context.Context, cfg config.Config, deps webserver.Deps, info webserver.Info, notes io.Writer,

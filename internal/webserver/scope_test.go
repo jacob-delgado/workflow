@@ -308,7 +308,7 @@ func TestADefaultScopeSavedInSettingsIsSuggestedWhileNoneIsLearned(t *testing.T)
 			saved := withDefaultScope(configuredScope)
 
 			// Act
-			recorder := send(t, handler, http.MethodPut, "/api/config", marshal(t, saved))
+			recorder := putConfig(t, handler, marshal(t, saved))
 
 			// Assert
 			if recorder.Code != http.StatusOK {

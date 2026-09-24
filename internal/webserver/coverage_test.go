@@ -200,7 +200,7 @@ func TestUpdateConfigSetsANewSecret(t *testing.T) {
 	next.Jira.Token = "brand-new-secret-1111" // a real new value, neither empty nor the mask
 
 	// Act
-	recorder := send(t, serve(t, webserver.Deps{}, cfg), http.MethodPut, "/api/config", marshal(t, next))
+	recorder := putConfig(t, serve(t, webserver.Deps{}, cfg), marshal(t, next))
 
 	// Assert
 	if recorder.Code != http.StatusOK {
@@ -231,7 +231,7 @@ func TestUpdateConfigResolvesHeaders(t *testing.T) {
 	next.Jira.Headers = map[string]string{"CF-Id": config.Redact("stored-id-secret"), "CF-Team": "new-team"}
 
 	// Act
-	recorder := send(t, serve(t, webserver.Deps{}, cfg), http.MethodPut, "/api/config", marshal(t, next))
+	recorder := putConfig(t, serve(t, webserver.Deps{}, cfg), marshal(t, next))
 
 	// Assert
 	if recorder.Code != http.StatusOK {
@@ -261,7 +261,7 @@ func TestUpdateConfigReportsASaveFailure(t *testing.T) {
 	cfg.Path = filepath.Join(t.TempDir(), "missing", ".workflow.json")
 
 	// Act
-	recorder := send(t, serve(t, webserver.Deps{}, cfg), http.MethodPut, "/api/config", marshal(t, config.Default()))
+	recorder := putConfig(t, serve(t, webserver.Deps{}, cfg), marshal(t, config.Default()))
 
 	// Assert
 	if recorder.Code != http.StatusInternalServerError {

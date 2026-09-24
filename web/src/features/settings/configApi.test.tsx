@@ -24,7 +24,7 @@ test('saving the configuration reads the issue views again', async () => {
   })
 
   // Act
-  await act(() => result.current.save(mockConfig))
+  await act(() => result.current.save(mockConfig, '"read-1"'))
 
   // Assert
   await waitFor(() => {

@@ -44,7 +44,7 @@ type ServerInterface interface {
 	GetConfig(w http.ResponseWriter, r *http.Request)
 	// UpdateConfig Write the configuration file.
 	// (PUT /api/config)
-	UpdateConfig(w http.ResponseWriter, r *http.Request)
+	UpdateConfig(w http.ResponseWriter, r *http.Request, params UpdateConfigParams)
 	// GetHealth Server and build information.
 	// (GET /api/health)
 	GetHealth(w http.ResponseWriter, r *http.Request)
@@ -213,8 +213,35 @@ func (siw *ServerInterfaceWrapper) GetConfig(w http.ResponseWriter, r *http.Requ
 // UpdateConfig operation middleware
 func (siw *ServerInterfaceWrapper) UpdateConfig(w http.ResponseWriter, r *http.Request) {
 
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params UpdateConfigParams
+
+	headers := r.Header
+
+	// ------------- Optional header parameter "If-Match" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("If-Match")]; found {
+		var IfMatch string
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandlerFunc(w, r, &TooManyValuesForParamError{ParamName: "If-Match", Count: n})
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "If-Match", valueList[0], &IfMatch, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: false, Type: "string", Format: ""})
+		if err != nil {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "If-Match", Err: err})
+			return
+		}
+
+		params.IfMatch = &IfMatch
+
+	}
+
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.UpdateConfig(w, r)
+		siw.Handler.UpdateConfig(w, r, params)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -1040,16 +1067,38 @@ type GetConfigResponseObject interface {
 	VisitGetConfigResponse(w http.ResponseWriter) error
 }
 
-type GetConfig200JSONResponse Config
+type GetConfig200ResponseHeaders struct {
+	ETag string
+}
+
+type GetConfig200JSONResponse struct {
+	Body    Config
+	Headers GetConfig200ResponseHeaders
+}
 
 func (response GetConfig200JSONResponse) VisitGetConfigResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("ETag", fmt.Sprint(response.Headers.ETag))
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetConfig422ApplicationProblemPlusJSONResponse Problem
+
+func (response GetConfig422ApplicationProblemPlusJSONResponse) VisitGetConfigResponse(w http.ResponseWriter) error {
 
 	var buf bytes.Buffer
 	if err := json.NewEncoder(&buf).Encode(response); err != nil {
 		return err
 	}
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(200)
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(422)
 	_, err := buf.WriteTo(w)
 	return err
 }
@@ -1072,23 +1121,46 @@ func (response GetConfigdefaultApplicationProblemPlusJSONResponse) VisitGetConfi
 }
 
 type UpdateConfigRequestObject struct {
-	Body *UpdateConfigJSONRequestBody
+	Params UpdateConfigParams
+	Body   *UpdateConfigJSONRequestBody
 }
 
 type UpdateConfigResponseObject interface {
 	VisitUpdateConfigResponse(w http.ResponseWriter) error
 }
 
-type UpdateConfig200JSONResponse Config
+type UpdateConfig200ResponseHeaders struct {
+	ETag string
+}
+
+type UpdateConfig200JSONResponse struct {
+	Body    Config
+	Headers UpdateConfig200ResponseHeaders
+}
 
 func (response UpdateConfig200JSONResponse) VisitUpdateConfigResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("ETag", fmt.Sprint(response.Headers.ETag))
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type UpdateConfig409ApplicationProblemPlusJSONResponse Problem
+
+func (response UpdateConfig409ApplicationProblemPlusJSONResponse) VisitUpdateConfigResponse(w http.ResponseWriter) error {
 
 	var buf bytes.Buffer
 	if err := json.NewEncoder(&buf).Encode(response); err != nil {
 		return err
 	}
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(200)
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(409)
 	_, err := buf.WriteTo(w)
 	return err
 }
@@ -1103,6 +1175,20 @@ func (response UpdateConfig422ApplicationProblemPlusJSONResponse) VisitUpdateCon
 	}
 	w.Header().Set("Content-Type", "application/problem+json")
 	w.WriteHeader(422)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type UpdateConfig428ApplicationProblemPlusJSONResponse Problem
+
+func (response UpdateConfig428ApplicationProblemPlusJSONResponse) VisitUpdateConfigResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(428)
 	_, err := buf.WriteTo(w)
 	return err
 }
@@ -2206,8 +2292,10 @@ func (sh *strictHandler) GetConfig(w http.ResponseWriter, r *http.Request) {
 }
 
 // UpdateConfig operation middleware
-func (sh *strictHandler) UpdateConfig(w http.ResponseWriter, r *http.Request) {
+func (sh *strictHandler) UpdateConfig(w http.ResponseWriter, r *http.Request, params UpdateConfigParams) {
 	var request UpdateConfigRequestObject
+
+	request.Params = params
 
 	var body UpdateConfigJSONRequestBody
 	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {

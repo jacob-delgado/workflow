@@ -48,6 +48,8 @@ func codeMeaning(code api.ProblemCode) (int, string) {
 		return http.StatusConflict, "Conflict"
 	case api.Unprocessable:
 		return http.StatusUnprocessableEntity, "Unprocessable content"
+	case api.PreconditionRequired:
+		return http.StatusPreconditionRequired, "Precondition required"
 	case api.Unreachable:
 		return http.StatusBadGateway, "Upstream unreachable"
 	case api.Internal:

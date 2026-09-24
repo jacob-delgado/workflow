@@ -132,12 +132,13 @@ func (e MessagingConfigKind) Valid() bool {
 
 // Defines values for ProblemCode.
 const (
-	BadRequest    ProblemCode = "bad_request"
-	Conflict      ProblemCode = "conflict"
-	Internal      ProblemCode = "internal"
-	NotFound      ProblemCode = "not_found"
-	Unprocessable ProblemCode = "unprocessable"
-	Unreachable   ProblemCode = "unreachable"
+	BadRequest           ProblemCode = "bad_request"
+	Conflict             ProblemCode = "conflict"
+	Internal             ProblemCode = "internal"
+	NotFound             ProblemCode = "not_found"
+	PreconditionRequired ProblemCode = "precondition_required"
+	Unprocessable        ProblemCode = "unprocessable"
+	Unreachable          ProblemCode = "unreachable"
 )
 
 // Valid indicates whether the value is a known member of the ProblemCode enum.
@@ -150,6 +151,8 @@ func (e ProblemCode) Valid() bool {
 	case Internal:
 		return true
 	case NotFound:
+		return true
+	case PreconditionRequired:
 		return true
 	case Unprocessable:
 		return true
@@ -782,6 +785,12 @@ type UIConfig struct {
 // ViewList defines model for ViewList.
 type ViewList struct {
 	Views []JiraView `json:"views"`
+}
+
+// UpdateConfigParams defines parameters for UpdateConfig.
+type UpdateConfigParams struct {
+	// IfMatch The ETag of the read the change was made over. A write without it is refused with 428, one whose value is not in the form of an ETag a read returns with 400, and one naming a revision the file is no longer at with 409.
+	IfMatch *string `json:"If-Match,omitempty"`
 }
 
 // StreamEventsParams defines parameters for StreamEvents.

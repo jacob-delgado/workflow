@@ -36,8 +36,10 @@ The codes below are the whole set.
 
 ## Bad request
 
-Status 400. The request could not be understood — a malformed body, or a query
-parameter that did not fit the contract.
+Status 400. The request could not be understood — a malformed body, a query
+parameter that did not fit the contract, or a configuration save whose
+`If-Match` is not in the form of the `ETag` a read of the configuration
+returns.
 
 ## Not found
 
@@ -53,15 +55,18 @@ of the caller's own.
 Status 409. The request cannot be applied to the current state — a working tree
 with uncommitted changes, a branch that already exists, nothing staged to commit,
 no pull request to announce or to link, an issue the checked-out branch does not
-name, or a move to the review status that Jira does not offer or wants fields
-filled for (the terminal interface's status picker asks for them).
+name, a move to the review status that Jira does not offer or wants fields
+filled for (the terminal interface's status picker asks for them), or a
+configuration file that changed since Settings read it — edited on disk, or
+saved from another tab — which a save refuses rather than overwrite.
 
 ## Unprocessable
 
 Status 422. The request was understood but cannot be carried out as asked — an
-invalid configuration body, a request for an issue when no tracker is
-configured, no `jira.review_status` to move an issue to, a change Jira
-refused, a file git would not stage or unstage, or a branch git would not
+invalid configuration body, a configuration file on disk that no longer reads
+as valid (the configuration in effect stands), a request for an issue when no
+tracker is configured, no `jira.review_status` to move an issue to, a change
+Jira refused, a file git would not stage or unstage, or a branch git would not
 switch to or create (git's own words stay off the wire, since a fetch it
 makes on the way can name the remote; the detail says how to see them). A
 Jira token that is not configured or that Jira did not accept, a
@@ -72,6 +77,12 @@ accept, a `forge.kind` set without its `forge.host`, and a forge address with
 no forge API behind it. So is an announcement the messaging service refused,
 or could not be sent because messaging is not set up or its webhook is not
 https — never with the service's own error, which can name the webhook.
+
+## Precondition required
+
+Status 428. A configuration save named no revision to write over: it carried no
+`If-Match` header with the `ETag` its read returned. Settings always sends one,
+so from the browser this is a fault in the page; reload it, then save again.
 
 ## Unreachable
 
