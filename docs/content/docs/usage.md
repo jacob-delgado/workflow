@@ -17,7 +17,10 @@ disk.
 ```sh
 workflow            # open the interface
 workflow --dry-run  # the same, with every write held back
+workflow --web      # serve the loop in a browser instead
 ```
+
+The browser's side of it has [a page of its own]({{< relref "/docs/web" >}}).
 
 The steps a script or a shell prompt wants also run as commands, without the
 interface — `workflow status`, `reviews`, `standup`, `branch`, `pr` and
