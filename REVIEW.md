@@ -916,41 +916,104 @@ in both projects — a failed read and its Retry in the hermetic one, the
 mockup's queue in the populated one — and its screenshots at 640, 1024 and
 1440 px. Each web test was checked to fail with its hunk reverted.
 
-### Phase 13 — The web's visual system
+### Phase 13 — The web's visual system — done
 
-Closes UX-84 and the `ConfigForm` half of DEBT-62. Depends on Phase 11.
-The maintainer chose this: the web aligns to the product's system; the
-interface's own system does not change.
+Closed UX-84 and the rest of DEBT-62 (its gate half closed in Phase 0).
+Depends on Phase 11. The maintainer chose this: the web aligns to the
+product's system; the interface's own system does not change.
 
-- Four system hues as tokens in both themes — Jira, git, the forge,
-  messaging (`internal/tui/glyphs.go:96-127`; the spine, `internal/tui/spine.go:68`) —
-  at AA contrast, carrying *identity*: the active `NavRail` icon
-  (`web/src/shell/NavRail.tsx:30`), section headings. **Periwinkle stays the
-  interactive-control accent** (`index.css:24` is a documented choice)
-  — **decided: it stays**, and the identity hues stay distinct from it.
-- One `StateMark` component drawing `○ ◐ ● ✗` for CI (`web/src/features/review/ReviewPanel.tsx:21`,
-  and the Reviews section's text-only label, `ciLabel`,
-  `web/src/features/reviewqueue/ReviewQueuePanel.tsx:12`),
-  the stream (`StreamStatus.tsx:4`) and the work story
-  (`web/src/features/issues/WorkStory.tsx:302`); the text label stays, the mark is `aria-hidden`.
-- The seven `uppercase` eyebrows (`web/src/features/settings/fieldsets/Field.tsx:35`, the settings legend since the split,
-  `web/src/features/branch/BranchPanel.tsx:80`, `web/src/features/branch/WorkingTree.tsx:21`, `web/src/features/issues/IssueDetailPanel.tsx:9`, `web/src/features/review/ReviewPanel.tsx:116`,
-  `web/src/features/messaging/MessagingPanel.tsx:95`, `:49`) → sentence-case headings on a
-  `--text-*`/`--space-*` scale in `@theme`; the four-step radius actually
-  used.
-- Split `ConfigForm` (299 lines, `web/src/features/settings/SettingsPanel.tsx:47`) per fieldset and
-  add `max-lines-per-function` to `web/eslint.config.js:90` at a number the
-  split meets.
+- **The systems' hues.** Four tokens in both themes — `--jira`, `--git`,
+  `--forge` and `--messaging` (`web/src/index.css:62`) — in the
+  interface's hue families (`internal/tui/glyphs.go:96-127`; the spine,
+  `internal/tui/spine.go:68`), shifted so none reads as a state or a
+  control: an azure, an ocher, a teal-green and a magenta. They carry
+  identity only: the active rail icon (`web/src/shell/NavRail.tsx:35`),
+  each section's heading beside the rail's icon for it (`SectionHeading`,
+  `web/src/shell/AppShell.tsx:88`) and the work story's stages; Settings
+  stays in the ink. `web/src/tokens.test.ts` holds each, in both themes,
+  to 4.5:1 on the page and on a card, to 3:1 as an icon on the active
+  rail item, and to at least 30° of OKLCH hue (at a chroma of 0.07 or
+  more) from the three status lights, periwinkle and each other.
+  **Periwinkle stays the interactive-control accent**
+  (`web/src/index.css:24`).
+- **Shape for state.** One `StateMark` (`web/src/shell/StateMark.tsx:33`)
+  draws the interface's `○ ◐ ● ✗`, and `·` for a service that reports
+  none, as inline SVG — the same on every platform, where a font's
+  glyphs are not — hidden from assistive tech beside the state's words.
+  It replaced `ciDot` and the work story's invented `StageMarker`, gave
+  the Reviews section's `ciLabel`
+  (`web/src/features/reviewqueue/ReviewQueuePanel.tsx:14`) and the
+  stream's `meta` (`web/src/shell/StreamStatus.tsx:7`) a shape, and draws
+  an issue's status category (`IssueStatus`,
+  `web/src/features/issues/IssueStatus.tsx:16`, once `StatusBadge`, which
+  lost its pill) and the in-flight mark on an issue with a local branch,
+  whose words it shows because the status mark on its row can draw the
+  same shape (`web/src/features/issues/IssuesPanel.tsx:217`). A mark
+  reporting a service takes its status light; a mark on the loop — a
+  work-story stage, the in-flight mark — takes its system's hue.
+- **Type, space and corners.** One plain `@theme`
+  (`web/src/index.css:162`): five sizes on Tailwind's own `text-*` keys,
+  by role, each with its line height and weight; five spacing steps named
+  for the level they separate (`tight`, `item`, `group`, `block`,
+  `section`), which `cn` (`web/src/lib/utils.ts`) teaches tailwind-merge;
+  three radii by level, not the four the plan named. Type and radius
+  reset Tailwind's own steps, so a size or corner off the scale draws
+  nothing; spacing keeps the numeric steps for an element's own padding,
+  so a gap off the scale is left to review. The faces are declared: the
+  platform's own interface face, and `ui-monospace` for what a reader
+  would type — a branch, a commit, a path, a command — and nothing else.
+- **Sentence case.** The seven `uppercase` eyebrows are headings on the
+  scale: CI (`web/src/features/review/ReviewPanel.tsx:109`, now "CI
+  checks · 1 of 2 done, 1 failed"), the announcement and the channels
+  (`web/src/features/messaging/MessagingPanel.tsx:92`, `:47`), the
+  commits and the changes (`web/src/features/branch/BranchPanel.tsx:80`,
+  `web/src/features/branch/WorkingTree.tsx:21`), an issue's parts
+  (`sectionHeading`, `web/src/features/issues/IssueDetailPanel.tsx:9`)
+  and a settings legend (`web/src/features/settings/fieldsets/Field.tsx:35`).
+  The web lint's `noAllCaps` (`web/eslint.config.js:37`) refuses an
+  `uppercase` class in any variant or important form, as it refuses
+  opacity.
+- **The split and the cap.** `ConfigForm`
+  (`web/src/features/settings/SettingsPanel.tsx:51`) went from 287 lines
+  to 45 by fieldset, into `web/src/features/settings/fieldsets/` on shared
+  `TextField`, `SelectField` and `CheckboxField`. Then
+  `max-lines-per-function` at 80, blank lines and comments aside
+  (`web/eslint.config.js:114`), which forced the commit form (119 → 77)
+  and the pull request form (117 → 70) to split out their fields too.
+- **The screens.** The screens spec finishes transitions before a
+  capture: under reduced motion every property transitions for 0.01ms,
+  and a screenshot taken as a section's heading appeared caught the rail
+  on its way, the last section's icon still drawn as the active one.
 
-**Touches.** `web/src/index.css`, `web/src/shell/*`, `web/src/features/**`,
-`web/eslint.config.js`. **Budget.** `web/src/features/settings` 2 → ~6 of
-12; `web/src/shell` 10 → 11 (`StateMark.tsx`).
+**Touches.** `web/src/index.css`, `web/src/lib/utils.ts`,
+`web/src/shell/{AppShell, NavRail, StateMark, StreamStatus}.tsx`,
+`web/src/shell/sections.ts`, `web/src/features/**`, new
+`web/src/features/settings/fieldsets/`, new `web/src/test/marks.tsx`,
+`web/eslint.config.js`, `web/e2e/screens.spec.ts`.
+
+**Budget.** None bumped: `web/src/features/settings` stays 2 and the new
+`web/src/features/settings/fieldsets` is 7; `web/src/shell` 10 → 11
+(`StateMark.tsx`) and `web/src/test` 6 → 7 (`marks.tsx`), each under the
+default 12; `web/src/features/issues` stays 8, `IssueStatus.tsx` in
+`StatusBadge.tsx`'s place.
 
 **Done when.** No `uppercase` heading remains; every state has a distinct
-shape; both themes pass axe; `max-lines-per-function` green.
+shape; both themes pass axe; `max-lines-per-function` is green.
 
-**Proof.** The black-box vitest role/name tests are unchanged; axe e2e in
-both themes is the contrast proof; `yarn lint`.
+**Proof.** vitest *draws each state in a shape of its own, hidden from
+assistive tech* (`web/src/shell/StateMark.test.tsx`) and a mark test
+for each consumer: *draws each check as the mark of how it stands*, *draws
+how CI stands on each request as its mark*, *draws a … stream as the …
+mark*, *draws each issue's status category as its mark*, *marks an issue
+in flight with the in-flight mark, beside the words* and *draws each stage
+as the mark of how far it has come*. *Heads the CI checks with how many are
+done*, both with failures and without; *an emptied subject limit saves as
+0, which keeps the default*, the shared text field's one branch; *a later
+spacing step wins over an earlier one* (`web/src/lib/utils.test.ts`); and
+`web/src/tokens.test.ts`'s identity cases — as text, as an icon, and apart
+from the lights, periwinkle and each other — in both themes. The existing
+role/name tests pass unchanged. Axe in both themes in both e2e projects,
+and the screens at 640, 1024 and 1440 px before and after.
 
 ### Phase 14 — The web responds to its viewport
 
