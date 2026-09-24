@@ -14,8 +14,9 @@ every entry in it was done; this one starts fresh, and its numbering
 continues where that one stopped, so an ID is never reused.
 
 Checked against commit `f7b671f` on 2026-09-24 (main after the surface
-review, PRs #128–#133). Line numbers drift, so every pointer
-also names the symbol it means.
+review, PRs #128–#133); an entry a later change touched was checked again
+in that change. Line numbers drift, so every pointer also names the symbol
+it means.
 
 ## How this was produced
 
@@ -30,8 +31,9 @@ also names the symbol it means.
    read again while writing this file; a claim that could not be pointed at
    a line was dropped or marked *read* rather than *measured*.
 3. **Measurement.** The condition-coverage figures come from the gobco
-   report written at this commit (`task cover:branch`); the file lengths
-   from `git ls-files` and `wc`; the budget standings from
+   report (`task cover:branch`), written at this commit or, where an entry
+   says it was re-measured, at that point; the file lengths from
+   `git ls-files` and `wc`; the budget standings from
    `scripts/check-package-size.sh --list`.
 
 ## How to read an entry
@@ -155,7 +157,7 @@ Severity: low · Confidence: read
 
 `wiring.Deps` (`internal/wiring/wiring.go:72`) returns `tui.Deps`, so the
 wiring package imports the terminal interface; the CLI's `WebDeps`
-(`internal/cli/cli.go:283`) then narrows that bundle for the web server.
+(`internal/cli/cli.go:284`) then narrows that bundle for the web server.
 The seams are not the terminal's — they are the loop's. That import no
 longer stands in the way of shared composition: `internal/loop` takes each
 seam as a plain argument (`loop.PullSeams`, `loop.AnnounceSeams`) and never
@@ -181,15 +183,16 @@ These were chosen on purpose and are written down at their sites. They are
 not debt; they are listed because each one costs something a reader should
 know about.
 
-- **Five packages sit exactly at their file budget** — `internal/tui`
-  41/41, `internal/webserver` 17/17, `internal/cli` 13/13,
-  `internal/config` 13/13 (`scripts/package-size-budgets.txt`), and
-  `internal/forge` 12/12, at the default the gate applies to a directory the
-  file does not list. That is the gate working as designed: the next file in
-  any of them is a decision (a split, or a bump with the WHY rewritten, or
-  for `internal/forge` a first entry with its WHY), not an accident. The
-  cost is that any change adding a file there must carry its budget row in
-  the same commit or fail `task check`.
+- **Every package with a declared file budget sits exactly at it** — the
+  numbers are in `scripts/package-size-budgets.txt`, and
+  `scripts/check-package-size.sh --list` shows the standings. That is the
+  gate working as designed, since a budget left above its count fails too:
+  the next file in any of them is a decision (a split, or a bump with the
+  WHY rewritten and a history row), not an accident. A directory the file
+  does not list answers to the default, which `internal/forge` fills
+  exactly, so its next file is a first entry with its WHY. The cost is
+  that any change adding a file there must carry its budget row in the
+  same commit or fail `task check`.
 - **Seven test files stay past the 500-line soft target**, all under the
   800 ceiling (`scripts/check-file-length.sh --list`). They were left whole
   on purpose when the source files past the target were split by concern;
@@ -229,10 +232,11 @@ know about.
   commit form read it again each time they open. A save that still meets a
   change it has not seen is refused (409) and nothing is written; Settings
   offers **Reload**.
-- **The progress spine's per-system hue is color-only** (`internal/tui/spine.go:68`),
-  mitigated by the stage name, or its initial when compact (`internal/tui/spine.go:51`).
-  Part of the visual system UX.md says should not change; the cost is one
-  channel the monochrome reader does not get.
+- **The progress spine's per-system hue is color-only**
+  (`internal/tui/spine.go:68`), mitigated by the stage name, or its initial
+  when compact (`internal/tui/spine.go:51`). Part of the visual system UX.md
+  says should not change; the cost is one channel the monochrome reader does
+  not get.
 - **The two composers' field handling is written twice.** The commit and
   pull request composers each pair an `onFieldNav` with a `*CanComplete`
   check (`commitComposer.onFieldNav`, `internal/tui/scopesuggest.go:17`;
