@@ -346,7 +346,7 @@ func keyContexts() []keyContext {
 		{"the Issues pane", []int{groupMoving, groupEverywhere, groupIssues}, nil},
 		{"the Branch and Commits panes", []int{groupMoving, groupEverywhere, groupBranchCommits}, []string{actionRefresh}},
 		{
-			"the Review and Slack panes",
+			"the Review and messaging panes",
 			[]int{groupMoving, groupEverywhere, groupReviewMessaging},
 			[]string{actionOpenLink, actionCopyLink, actionRefresh, "edit"},
 		},
