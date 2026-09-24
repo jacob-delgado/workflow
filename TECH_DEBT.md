@@ -227,7 +227,7 @@ or is removed.
 
 Severity: low · Confidence: read
 
-- Residual "Slack" after the rename: `FEATURES.md:28`, `web/index.html:9`.
+- Residual "Slack" after the rename: `FEATURES.md:28`.
 - `FEATURES.md:52`'s settled-decision text says "Five panes down the
   left"; `internal/tui/panes.go:27` has `paneCount = 6` — stale text, not a
   decision reopened.
