@@ -24,7 +24,7 @@ function revisionOf(response: Response): string | undefined {
 // readConfig reads the configuration with secrets masked, and its revision.
 // Under VITE_MOCK it serves the fixture (code-split, dev-only) so Settings
 // works with no backend.
-async function readConfig(signal: AbortSignal): Promise<ConfigRead> {
+async function readConfig(signal?: AbortSignal): Promise<ConfigRead> {
   if (import.meta.env.VITE_MOCK === 'true') {
     const { mockConfig } = await import('@/dev/mockConfig.ts')
 
@@ -36,11 +36,35 @@ async function readConfig(signal: AbortSignal): Promise<ConfigRead> {
   return { config: data, revision: revisionOf(response) }
 }
 
-// configQuery is the one read of the configuration every surface shares.
+// configQuery is the one read of the configuration every surface shares. It is
+// the one query that reads again whenever a surface showing it opens: the file
+// can change on disk, which no event reports, and a form seeded from an older
+// read only learns so when its save is refused. It reads again at no other
+// time — a reconnect says nothing about the file, and a read that failed then
+// would take an open form, and the edits in it, away — and a failed read is
+// not retried on its own: a problem answer, such as a file on disk that is not
+// valid, stands until the file changes, and retrying would only hide its
+// reason behind "Loading…" for seconds. Retry is the user's to press. Under
+// VITE_MOCK there is no file to change, and reading the fixture again would
+// undo a save's echo.
 function configQuery() {
   return queryOptions({
     queryKey: getConfigQueryKey(),
-    queryFn: ({ signal }) => readConfig(signal),
+    queryFn: async ({ signal, client, queryKey }) => {
+      const before = client.getQueryData<ConfigRead>(queryKey)
+      const read = await readConfig(signal)
+      // A read takes up an edit made on disk, which can change the issue views,
+      // so one at a revision other than the cached read's (or with none cached,
+      // where it cannot tell) reads their list again, as a save and Reload do.
+      if (before?.revision !== read.revision) {
+        void client.invalidateQueries({ queryKey: listViewsQueryKey() })
+      }
+
+      return read
+    },
+    staleTime: import.meta.env.VITE_MOCK === 'true' ? Infinity : 0,
+    refetchOnReconnect: false,
+    retry: false,
   })
 }
 
@@ -74,11 +98,11 @@ async function saveConfig(config: Config, over: string | undefined): Promise<Con
 }
 
 // useSaveConfig saves the configuration over the revision it was read at, and
-// refreshes the cached copy with the stored result. The refresh matters: the
-// config query never refetches on its own (staleTime is Infinity), so without
-// it a reopened Settings would show the pre-save values. The issue views live
-// in the configuration too, so their list is read again: the view select
-// offers only the views the server lists.
+// refreshes the cached copy with the stored result, so a surface that reads the
+// cache before its next read — and every one, under VITE_MOCK, which never
+// reads again — shows the save. The issue views live in the configuration too,
+// so their list is read again: the view select offers only the views the
+// server lists.
 export function useSaveConfig(): (config: Config, over: string | undefined) => Promise<ConfigRead> {
   const queryClient = useQueryClient()
 
@@ -89,4 +113,31 @@ export function useSaveConfig(): (config: Config, over: string | undefined) => P
 
     return saved
   }
+}
+
+// useReloadConfig reads the configuration again and returns it: what Settings
+// offers when a save finds the file has changed. The read goes around the
+// query, so one that fails leaves the query, and the form it seeded, as they
+// were; one that answers replaces the cached copy every surface shares. A
+// reload can take up an edit to the views, so their list is read again, as
+// after a save.
+export function useReloadConfig(): () => Promise<ConfigRead> {
+  const queryClient = useQueryClient()
+
+  return async () => {
+    const read = await readConfig()
+    queryClient.setQueryData(configQuery().queryKey, read)
+    void queryClient.invalidateQueries({ queryKey: listViewsQueryKey() })
+
+    return read
+  }
+}
+
+// changedSinceRead reports a save refused because the file has moved on from
+// the revision it named — edited on disk, or saved from another tab — which
+// reading it again, not saving again, answers.
+export function changedSinceRead(caught: unknown): boolean {
+  return (
+    typeof caught === 'object' && caught !== null && 'code' in caught && caught.code === 'conflict'
+  )
 }

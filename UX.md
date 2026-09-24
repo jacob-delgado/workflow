@@ -177,7 +177,7 @@ region saying so.
 Impact: low · Effort: medium
 
 **Today.** The form seeds itself with the whole `Config`
-(`web/src/features/settings/SettingsPanel.tsx:52`) so `ui`, `timing`, `headers`, `views` and
+(`web/src/features/settings/SettingsPanel.tsx:66`) so `ui`, `timing`, `headers`, `views` and
 `branch.prefixes` survive a save unchanged — and cannot be edited. There is
 no guided, credential-checking flow like `workflow config init`; the web
 edits an existing file only.

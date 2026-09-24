@@ -238,13 +238,19 @@ know about.
   outright rather than simulated: the browser cannot show what the write
   would have done, as the terminal's narration does. The blanket refusal
   itself is the intended design.
-- **`staleTime: Infinity`** (`web/src/queryClient.ts:8`) with the event
+- **`staleTime: Infinity`** (`web/src/queryClient.ts:12`) with the event
   stream as the sole freshness source. Correct for a pushed snapshot; the
-  cost is that the config query never refetches on its own and a stalled
-  stream leaves stale data with no refetch to fall back on. The issue
-  detail is the one query with a finite `staleTime`
-  (`web/src/features/issues/issueApi.ts:23`): the stream carries only the
-  list's slim issues, so a reopened issue is read again after a minute.
+  cost is that a stalled stream leaves stale data with no refetch to fall
+  back on. Three queries set their own `staleTime`. The issue detail's and
+  the review queue's are a minute (`web/src/features/issues/issueApi.ts:23`,
+  `web/src/features/reviewqueue/reviewQueueApi.ts:23`): the stream carries
+  only the list's slim issues and never the queue, so each is read again
+  when reopened after a minute, and the queue's Refresh reads it at once.
+  The configuration's is 0 (`web/src/features/settings/configApi.ts:65`):
+  the file can change on disk, which no event reports, so Settings and the
+  commit form read it again each time they open. A save that still meets a
+  change it has not seen is refused (409) and nothing is written; Settings
+  offers **Reload**.
 - **The progress spine's per-system hue is color-only** (`internal/tui/spine.go:68`),
   mitigated by the stage name, or its initial when compact (`internal/tui/spine.go:51`).
   Part of the visual system UX.md says should not change; the cost is one
