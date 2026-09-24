@@ -4,10 +4,12 @@
 package config
 
 import (
+	"bytes"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"strings"
@@ -119,7 +121,36 @@ func LoadFile(path string) (Config, error) {
 	}
 	defer file.Close() //nolint:errcheck // read-only file; a failed close is not actionable
 
-	cfg, err := Parse(file)
+	return parseFile(path, file)
+}
+
+// LoadFileAt reads the configuration from an exact path as LoadFile does,
+// with the revision of the file it was read from. Both come from one read, so
+// an edit landing between two reads cannot pair one state's revision with
+// another's configuration. A file that does not exist, or an empty path, which
+// names none, is the defaults at the no-file revision rather than an error.
+func LoadFileAt(path string) (Config, Revision, error) {
+	//nolint:gosec // the path is the user's own config file, by design
+	contents, err := os.ReadFile(path)
+	if errors.Is(err, fs.ErrNotExist) {
+		return Default(), Revision{}, nil
+	}
+
+	if err != nil {
+		return Default(), Revision{}, fmt.Errorf("reading %s: %w", path, err)
+	}
+
+	cfg, err := parseFile(path, bytes.NewReader(contents))
+	if err != nil {
+		return Default(), Revision{}, err
+	}
+
+	return cfg, revisionOfContents(contents), nil
+}
+
+// parseFile parses the configuration the file at path holds, as read from r.
+func parseFile(path string, r io.Reader) (Config, error) {
+	cfg, err := Parse(r)
 	if err != nil {
 		return Default(), fmt.Errorf("%s: %w", path, err)
 	}
