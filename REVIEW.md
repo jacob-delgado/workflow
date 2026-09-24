@@ -927,7 +927,7 @@ product's system; the interface's own system does not change.
   interface's hue families (`internal/tui/glyphs.go:96-127`; the spine,
   `internal/tui/spine.go:68`), shifted so none reads as a state or a
   control: an azure, an ocher, a teal-green and a magenta. They carry
-  identity only: the active rail icon (`web/src/shell/NavRail.tsx:35`),
+  identity only: the active rail icon (`web/src/shell/NavRail.tsx:41`),
   each section's heading beside the rail's icon for it (`SectionHeading`,
   `web/src/shell/AppShell.tsx:88`) and the work story's stages; Settings
   stays in the ink. `web/src/tokens.test.ts` holds each, in both themes,
