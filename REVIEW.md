@@ -1093,7 +1093,7 @@ the rail's narrower width below `md` and the list pane's border, shows in
 the screens. The vitest role and name tests pass unchanged. Screens at
 640, 1024 and 1440 px, before and after.
 
-### Phase 15 — Docs that lag the code
+### Phase 15 — Docs that lag the code — done
 
 Closes DEBT-69, DEBT-70. Last, so it documents the end state. TDD-exempt.
 
