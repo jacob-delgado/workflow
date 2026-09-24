@@ -503,7 +503,7 @@ func (msg pullCreated) apply(m Model) (Model, tea.Cmd) {
 	}
 
 	m = m.noticed(notice)
-	m.review = reviewState{pull: msg.pull, found: true, loaded: true}
+	m = m.beginReview(reviewState{pull: msg.pull, found: true, loaded: true})
 	m.prDraft = prDraft{}
 
 	cmds := tea.Batch(m.checkCI(), m.loadAuthor())

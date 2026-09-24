@@ -10,6 +10,7 @@ package tui_test
 
 import (
 	"slices"
+	"sync"
 	"testing"
 	"time"
 
@@ -32,12 +33,57 @@ func (r *recordingTimer) after(wait time.Duration, fire func(time.Time) tea.Msg)
 	return func() tea.Msg { return fire(testNow().Add(wait)) }
 }
 
-// timed is the world's interface, started, with its waits going to timer.
-func timed(t *testing.T, repo *world, timer *recordingTimer) tui.Model {
+// heldTimer is an After that holds every wait until the test releases it, so a
+// wait can outlive the keys typed while it is due: a poll scheduled on one branch
+// still fires after a switch away and back, as it would on the wall clock.
+type heldTimer struct {
+	mu    sync.Mutex
+	fires []func(time.Time) tea.Msg
+}
+
+// after holds the wait once its command runs. The command yields nothing, so the
+// drain that asked for the wait finishes without it.
+func (h *heldTimer) after(_ time.Duration, fire func(time.Time) tea.Msg) tea.Cmd {
+	return func() tea.Msg {
+		h.mu.Lock()
+		defer h.mu.Unlock()
+
+		h.fires = append(h.fires, fire)
+
+		return nil
+	}
+}
+
+// waiting is how many waits are held.
+func (h *heldTimer) waiting() int {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+
+	return len(h.fires)
+}
+
+// release fires every wait held so far against model, each finished before the
+// next — as waits falling due apart would be — and holds any wait the firing asks
+// for anew.
+func (h *heldTimer) release(t *testing.T, model tui.Model) {
+	t.Helper()
+
+	h.mu.Lock()
+	due := h.fires
+	h.fires = nil
+	h.mu.Unlock()
+
+	for _, fire := range due {
+		model = drain(t, model, func() tea.Msg { return fire(testNow()) })
+	}
+}
+
+// timed is the world's interface, started, with its waits going to after.
+func timed(t *testing.T, repo *world, after func(time.Duration, func(time.Time) tea.Msg) tea.Cmd) tui.Model {
 	t.Helper()
 
 	deps := repo.deps()
-	deps.After = timer.after
+	deps.After = after
 	model := sized(t, tui.New(repo.cfg, nil, deps), 120, 40)
 
 	return drain(t, model, model.Init())
@@ -48,7 +94,7 @@ func TestTheSelectionRestsOnTheTimerItWasGiven(t *testing.T) {
 
 	// Arrange
 	timer := &recordingTimer{}
-	screen := timed(t, newWorld(), timer)
+	screen := timed(t, newWorld(), timer.after)
 	timer.waits = nil
 
 	// Act
@@ -72,7 +118,7 @@ func TestCIIsAskedAgainOnTheTimerItWasGiven(t *testing.T) {
 	timer := &recordingTimer{}
 
 	// Act
-	timed(t, running, timer)
+	timed(t, running, timer.after)
 
 	// Assert
 	if want := []time.Duration{7 * time.Second}; !slices.Equal(timer.waits, want) {

@@ -61,8 +61,8 @@ them, re-counted at this commit.
 | "the one way the interface says something broke" | `wording`, `internal/tui/failure.go:63` | **Yes: every site that renders an error's text.** Each tells it through `errorSentence` (`internal/tui/failure.go:100`), which words every sentinel the seams return briefly and in full: 6 panes, the configuration screen, 11 `pinnedOutcome` overlays and the 2 details that repeat a summary row's failure beneath it through `failureBlock` (`internal/tui/failure.go:395`), 12 one-failure rows through `failureLine`, 4 rail and summary rows through `failureSummary`, and 11 failure notices through `noticedFailure`, drawn in the failure style, the merge's and the re-run's led by what failed so a clipped row still names it; a run's headline names the step a failure status stopped, and a pull request opened without every reviewer says why in brief. The 3 guidance notices stay plain, since red means something broke. The width-one glyph-only marks — a failed check, job, stage or review CI — the three rails that point at their detail, and the branch creator's fixed "could not fetch" line carry no error text to word. |
 | "Nothing outward facing is sent without" a last look | `internal/tui/comment.go:64` | **Yes: 18 of 18.** Every outward act waits on a preview or a confirmation; the push, `R`'s re-run of CI and `u`'s rebase share one last look, `lastLook` (`internal/tui/overlay.go:157`). |
 | "a refused change must never go unseen" | `internal/tui/picker.go:311` | **Yes: 14 of 14.** Every overlay that sends a request guards it while in flight (the previous edition counted 1 of 7), and every one keeps a refusal in the overlay, where it happened, until `esc` — the merge and finish previews last, through `pinnedOutcome` (`internal/tui/failure.go:413`). |
-| "Each pane fails on its own" | `docs/content/docs/usage.md:80` | Yes. `internal/tui/tui.go:153` batches six loads; each pane holds and renders its own error. |
-| State is "carried by the SHAPE of a glyph rather than its color" | `internal/tui/glyphs.go:16` | Yes. `unicodeGlyphs` and `asciiGlyphs` differ in shape (`glyphs.go:31`, `:43`); `NO_COLOR` keeps bold and faint (`internal/tui/tui.go:135`). One residue: the progress spine's per-system hue is color-only, mitigated by the name or its initial. |
+| "Each pane fails on its own" | `docs/content/docs/usage.md:80` | Yes. `internal/tui/tui.go:157` batches six loads; each pane holds and renders its own error. |
+| State is "carried by the SHAPE of a glyph rather than its color" | `internal/tui/glyphs.go:16` | Yes. `unicodeGlyphs` and `asciiGlyphs` differ in shape (`glyphs.go:31`, `:43`); `NO_COLOR` keeps bold and faint (`internal/tui/tui.go:139`). One residue: the progress spine's per-system hue is color-only, mitigated by the name or its initial. |
 
 ## The command line
 
@@ -110,7 +110,7 @@ where the interface cycles them (`ctrl+t`).
 
 Impact: low · Effort: medium
 
-**Today.** `NO_COLOR` and `ui.color: never` keep bold and faint (`internal/tui/tui.go:135`);
+**Today.** `NO_COLOR` and `ui.color: never` keep bold and faint (`internal/tui/tui.go:139`);
 `ui.ascii` swaps glyphs and borders (`glyphs.go:43`); escapes in server text
 are neutralized. But there is no screen-reader mode; the alternate screen
 is unconditional (`internal/tui/render.go:38` `view.AltScreen = true`), so nothing the
@@ -162,7 +162,7 @@ Impact: low · Effort: medium
 nothing says when the last snapshot arrived, and a panel that changed
 because CI settled looks exactly like one that re-rendered. There is no
 toast, and no "CI passed" moment on the web where the interface rings the
-terminal (`internal/tui/review.go:142`).
+terminal (`internal/tui/review.go:145`).
 
 **Instead.** A "updated 3 s ago" beside the pill; a brief highlight on the
 row a snapshot changed; a status line when CI settles, honoring
