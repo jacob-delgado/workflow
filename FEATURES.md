@@ -116,6 +116,21 @@ Impact: medium · Effort: large
   write is refused under `--dry-run`, and its problem `detail` omits the
   tracker's host.
 
+### FEAT-85 The web paints from the cached issue list
+
+Impact: low · Effort: small
+
+- Why: The interface opens on the view's cached issues, shown at once while
+  Jira is asked again (`seededIssues`, `internal/tui/issues.go:53`, over
+  `Store.CachedIssues`, `internal/store/cache.go:31`). The web's stream reads
+  Jira before it sends its first frame (`snapshotIssues`,
+  `internal/webserver/stream.go:132`), so every section says *Connecting to
+  workflow…* until Jira answers.
+- Touches: `internal/webserver` (the stream's first frame, from a
+  cached-issues seam on `Deps`), `internal/store`.
+- Done when: with a cached view, the web lists its issues before Jira
+  answers.
+
 ## Branch
 
 ### FEAT-15 Work with a fork
@@ -247,6 +262,27 @@ Impact: low · Effort: medium
 - Done when: "Announce when CI passes" queues the announcement and the
   section shows it waiting; it is sent on the first snapshot with green CI; a
   red run drops it with the reason.
+
+### FEAT-84 The web remembers what was announced
+
+Impact: low · Effort: small
+
+- Why: The interface and `workflow announce` record each announcement in the
+  store and do not offer again a moment an earlier session announced
+  (`loop.Deliver`, `internal/loop/announce.go:179`; `offerAgain`,
+  `internal/cli/announce.go:167`). The web's `Announce`
+  (`internal/webserver/announce.go:33`) posts through `Deps.Post` and
+  neither records nor reads, so an announcement made in the browser is
+  invisible to the terminal, which offers it again, and the web's work story
+  never marks its Announce step done (`onHeadStages`,
+  `web/src/features/issues/WorkStory.tsx:79`).
+- Touches: `internal/webserver` (post through `loop.Deliver`, with the
+  store's memory on `Deps` as `RecordScope` is), `api/openapi.yaml` (the
+  snapshot carries what was announced), `web/src/features/issues`,
+  `web/src/features/messaging`.
+- Done when: an announcement sent from the web shows as announced in the
+  terminal, and one sent from any surface marks the web's Announce step
+  done.
 
 ## Across the loop
 
