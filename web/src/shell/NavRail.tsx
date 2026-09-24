@@ -14,7 +14,7 @@ export function NavRail() {
       className="flex w-20 shrink-0 flex-col gap-1 border-r border-border bg-card px-2 py-3"
     >
       {sections.map((key) => {
-        const { Icon } = sectionMeta[key]
+        const { Icon, hue } = sectionMeta[key]
         const active = key === section
 
         return (
@@ -32,7 +32,7 @@ export function NavRail() {
               active && 'bg-accent text-foreground',
             )}
           >
-            <Icon aria-hidden className="size-5" />
+            <Icon aria-hidden className={cn('size-5', active && hue)} />
             {sectionLabel(key, service)}
           </button>
         )
