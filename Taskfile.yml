@@ -206,7 +206,15 @@ tasks:
   test:
     desc: Run the tests with the race detector
     cmds:
-      - go test -race {{.GO_PKGS}}
+      # Git exports the variables that locate a repository to a hook and to
+      # `git rebase --exec`, and from a linked worktree GIT_DIR is an absolute
+      # path into the shared repository: a test's `git -C <temp dir>` then works
+      # on that repository instead. The packages that run git clear them in
+      # their TestMain; clearing them here as well, with git's own list
+      # (githooks(5)) as lefthook.yml's pre-push does, covers a package that
+      # starts running git before it has one. Each cmd is a shell of its own,
+      # so the unset shares the line with the tests it protects.
+      - unset $(git rev-parse --local-env-vars); go test -race {{.GO_PKGS}}
       - task: test:scripts
 
   test:scripts:
@@ -228,7 +236,8 @@ tasks:
   test:cover:
     desc: Run the tests and enforce the coverage floor
     cmds:
-      - go test -race -coverprofile=coverage.out -covermode=atomic {{.GO_PKGS}}
+      # The same scrub as `test`, for the same reason.
+      - unset $(git rev-parse --local-env-vars); go test -race -coverprofile=coverage.out -covermode=atomic {{.GO_PKGS}}
       - scripts/coverage-gate.sh coverage.out {{.COVERAGE_MIN}}
       - task: test:scripts
 
@@ -255,7 +264,8 @@ tasks:
       # Statement coverage cannot see this: an `if a && b` counts as covered the
       # moment the line runs. gobco reports each condition never observed both
       # ways, which is a list of missing test cases rather than a number to chase.
-      - scripts/gobco-report.sh {{.BRANCH_COVERAGE_MIN}}
+      # gobco measures a package by running its tests: the same scrub as `test`.
+      - unset $(git rev-parse --local-env-vars); scripts/gobco-report.sh {{.BRANCH_COVERAGE_MIN}}
 
   cover:html:
     desc: Open the coverage profile as HTML
@@ -270,7 +280,8 @@ tasks:
       # Runs the Go, web (vitest) and Playwright suites and prints one markdown
       # table of counts and coverage. In CI it also appends to the run summary.
       # Advisory: it reports, it does not gate — the gates are the test jobs.
-      - scripts/test-summary.sh
+      # It runs the Go tests too: the same scrub as `test`.
+      - unset $(git rev-parse --local-env-vars); scripts/test-summary.sh
 
   lint:
     desc: Run every linter

@@ -135,7 +135,7 @@ to 92.
 
 Severity: medium · Confidence: read
 
-`task check` (`Taskfile.yml:490`) runs the web's lint, client-drift check and
+`task check` (`Taskfile.yml:501`) runs the web's lint, client-drift check and
 unit tests beside the Go gates, but what those tests are held to is thinner.
 `web/vitest.config.ts:38` sets `thresholds: { lines: 85, branches: 85 }`
 under the v8 provider — statement branches, not gobco-style per-condition
