@@ -68,11 +68,8 @@ func (msg commentEdited) apply(m Model) (Model, tea.Cmd) {
 	case msg.err != nil:
 		// A re-edit that failed keeps the preview it came from, so the comment
 		// written the first time is not lost to the editor.
-		if preview, editing := m.overlay.(commentPreview); editing {
-			preview.send = preview.send.failed(msg.err)
-			m.overlay = preview
-
-			return m, nil
+		if _, editing := m.overlay.(commentPreview); editing {
+			return keepOpenWith[commentPreview](m, msg.err), nil
 		}
 
 		return m.closeOverlay().noticedFailure(msg.err), nil
@@ -101,7 +98,7 @@ type commentPreview struct {
 	send     sendState
 }
 
-var _ overlay = commentPreview{}
+var _ failable[commentPreview] = commentPreview{}
 
 // view shows the comment as it will be stored — the wiki markup when Markdown
 // conversion is on, otherwise the text verbatim — its outcome pinned under the
@@ -170,16 +167,17 @@ type commentPosted struct {
 // to show it, or keeps the preview open with Jira's reason.
 func (msg commentPosted) apply(m Model) (Model, tea.Cmd) {
 	if msg.err != nil {
-		preview, open := m.overlay.(commentPreview)
-		if open {
-			preview.send = preview.send.failed(msg.err)
-			m.overlay = preview
-		}
-
-		return m, nil
+		return keepOpenWith[commentPreview](m, msg.err), nil
 	}
 
 	m = m.closeOverlay().noticed(m.marks.done + " commented on " + string(msg.issueKey))
 
 	return m, m.reloadDetail(msg.issueKey)
+}
+
+// failed is the preview kept open with the reason, the comment still in it.
+func (p commentPreview) failed(err error) commentPreview {
+	p.send = p.send.failed(err)
+
+	return p
 }

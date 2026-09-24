@@ -74,7 +74,7 @@ type hookgenOffer struct {
 	send      sendState
 }
 
-var _ overlay = hookgenOffer{}
+var _ failable[hookgenOffer] = hookgenOffer{}
 
 // view lists the hooks found and the configuration that would run them, its
 // outcome pinned under the title so a long refusal is seen, not clipped.
@@ -150,14 +150,15 @@ type hooksWritten struct {
 // apply closes the offer once written, or keeps it open with the reason.
 func (msg hooksWritten) apply(m Model) (Model, tea.Cmd) {
 	if msg.err != nil {
-		offer, open := m.overlay.(hookgenOffer)
-		if open {
-			offer.send = offer.send.failed(msg.err)
-			m.overlay = offer
-		}
-
-		return m, nil
+		return keepOpenWith[hookgenOffer](m, msg.err), nil
 	}
 
 	return m.closeOverlay().noticed(m.marks.done + " wrote lefthook.yml and installed lefthook"), nil
+}
+
+// failed is the offer kept open with the reason the write failed.
+func (o hookgenOffer) failed(err error) hookgenOffer {
+	o.send = o.send.failed(err)
+
+	return o
 }

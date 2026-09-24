@@ -70,7 +70,10 @@ type prComposer struct {
 	send      sendState
 }
 
-var _ editable = prComposer{}
+var (
+	_ editable             = prComposer{}
+	_ failable[prComposer] = prComposer{}
+)
 
 // prDraft is a pull request the composer was filled with, kept for the session
 // so a push that fails, or an esc, does not throw the work away.
@@ -472,6 +475,13 @@ func (c prComposer) create(m Model) (Model, tea.Cmd) {
 	}
 }
 
+// failed is the composer kept open with the reason the pull request did not open.
+func (c prComposer) failed(err error) prComposer {
+	c.send = c.send.failed(err)
+
+	return c
+}
+
 // pullCreated reports how opening a pull request went.
 type pullCreated struct {
 	pull forge.PullRequest
@@ -484,13 +494,7 @@ type pullCreated struct {
 func (msg pullCreated) apply(m Model) (Model, tea.Cmd) {
 	refusal := writeRefusal(msg.err)
 	if refusal != nil && !msg.pull.Opened() {
-		composer, open := m.overlay.(prComposer)
-		if open {
-			composer.send = composer.send.failed(refusal)
-			m.overlay = composer
-		}
-
-		return m, nil
+		return keepOpenWith[prComposer](m, refusal), nil
 	}
 
 	notice := m.marks.done + " opened " + m.vocab.sigil + strconv.Itoa(msg.pull.Number) + " " + msg.pull.URL

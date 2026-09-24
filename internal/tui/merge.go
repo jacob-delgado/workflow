@@ -83,17 +83,19 @@ type mergeRequested struct {
 // why the merge was refused, pinned under its title until esc.
 func (msg mergeRequested) apply(m Model) (Model, tea.Cmd) {
 	if msg.err != nil {
-		if picker, open := m.overlay.(mergePicker); open {
-			picker.send = picker.send.failed(writeRefusal(msg.err))
-			m.overlay = picker
-		}
-
-		return m, nil
+		return keepOpenWith[mergePicker](m, writeRefusal(msg.err)), nil
 	}
 
 	merged := m.closeOverlay().noticed(m.marks.done + " merged " + m.vocab.sigil + strconv.Itoa(msg.pull.Number))
 
 	return merged, merged.findPullRequest()
+}
+
+// failed is the preview kept open with the reason the merge was refused.
+func (p mergePicker) failed(err error) mergePicker {
+	p.send = p.send.failed(err)
+
+	return p
 }
 
 // mergeMethodLabel names a merge method for the preview.
@@ -119,7 +121,7 @@ type mergePicker struct {
 	send     sendState
 }
 
-var _ overlay = mergePicker{}
+var _ failable[mergePicker] = mergePicker{}
 
 // view draws the pull request and the methods it may be merged by, the merge's
 // outcome pinned under the title.

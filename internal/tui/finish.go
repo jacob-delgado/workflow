@@ -66,7 +66,7 @@ type finishPreview struct {
 	send   sendState
 }
 
-var _ overlay = finishPreview{}
+var _ failable[finishPreview] = finishPreview{}
 
 // commands are the three git commands a finish runs, as they are shown and run.
 func (p finishPreview) commands() []string {
@@ -138,15 +138,17 @@ type finished struct {
 // pinned under its title until esc.
 func (msg finished) apply(m Model) (Model, tea.Cmd) {
 	if msg.err != nil {
-		if preview, open := m.overlay.(finishPreview); open {
-			preview.send = preview.send.failed(msg.err)
-			m.overlay = preview
-		}
-
-		return m, nil
+		return keepOpenWith[finishPreview](m, msg.err), nil
 	}
 
 	done := m.closeOverlay().noticed(m.marks.done + " finished " + msg.branch)
 
 	return done, done.loadBranch()
+}
+
+// failed is the preview kept open with the reason the finish failed.
+func (p finishPreview) failed(err error) finishPreview {
+	p.send = p.send.failed(err)
+
+	return p
 }

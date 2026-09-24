@@ -26,7 +26,7 @@ type issueLinker struct {
 	send     sendState
 }
 
-var _ overlay = issueLinker{}
+var _ failable[issueLinker] = issueLinker{}
 
 // issueToLink is the issue a just-opened pull request should be linked to: the
 // branch's issue, when Jira can take the link. Empty when there is neither.
@@ -95,17 +95,18 @@ type issueLinked struct {
 // apply reports the link, or keeps the confirmation open with Jira's reason.
 func (msg issueLinked) apply(m Model) (Model, tea.Cmd) {
 	if msg.err != nil {
-		linker, open := m.overlay.(issueLinker)
-		if open {
-			linker.send = linker.send.failed(msg.err)
-			m.overlay = linker
-		}
-
-		return m, nil
+		return keepOpenWith[issueLinker](m, msg.err), nil
 	}
 
 	m = m.noticed(m.marks.done + " linked " + m.vocab.sigil +
 		strconv.Itoa(msg.pull.Number) + " on " + string(msg.issueKey))
 
 	return m.offerReviewStatus(msg.issueKey)
+}
+
+// failed is the confirmation kept open with the reason the link failed.
+func (l issueLinker) failed(err error) issueLinker {
+	l.send = l.send.failed(err)
+
+	return l
 }

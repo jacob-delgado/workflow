@@ -230,8 +230,7 @@ func (msg rerunRequested) apply(m Model) (Model, tea.Cmd) {
 	if msg.err != nil {
 		refusal := writeRefusal(msg.err)
 		if asked {
-			look.send = look.send.failed(refusal)
-			m.overlay = look
+			m = keepOpenWith[lastLook](m, refusal)
 		}
 
 		return m.noticedFailureLedBy("re-run failed: ", refusal), nil

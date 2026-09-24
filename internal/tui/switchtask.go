@@ -81,7 +81,7 @@ type branchPicker struct {
 	send     sendState
 }
 
-var _ overlay = branchPicker{}
+var _ failable[branchPicker] = branchPicker{}
 
 // openBranchPicker opens the task switcher and starts listing the local
 // branches.
@@ -225,16 +225,17 @@ type taskSwitched struct {
 // with git's reason.
 func (msg taskSwitched) apply(m Model) (Model, tea.Cmd) {
 	if msg.err != nil {
-		picker, open := m.overlay.(branchPicker)
-		if open {
-			picker.send = picker.send.failed(msg.err)
-			m.overlay = picker
-		}
-
-		return m, nil
+		return keepOpenWith[branchPicker](m, msg.err), nil
 	}
 
 	m = m.closeOverlay().noticed(m.marks.done + " switched to " + msg.name)
 
 	return m, tea.Batch(m.loadBranch(), m.loadChanges())
+}
+
+// failed is the switcher kept open with the reason it could not switch.
+func (p branchPicker) failed(err error) branchPicker {
+	p.send = p.send.failed(err)
+
+	return p
 }

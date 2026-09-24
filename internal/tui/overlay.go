@@ -130,6 +130,24 @@ func (m Model) closeOverlay() Model {
 	return m
 }
 
+// failable is an overlay that stays open when the request it sent fails, and
+// says why. T is the overlay's own type, so a failure lands only in the kind of
+// overlay that sent the request.
+type failable[T any] interface {
+	overlay
+	failed(err error) T
+}
+
+// keepOpenWith pins err in the open overlay when it is a T — the kind that sent
+// the request — and changes nothing when that overlay has since closed.
+func keepOpenWith[T failable[T]](m Model, err error) Model {
+	if open, isOpen := m.overlay.(T); isOpen {
+		m.overlay = open.failed(err)
+	}
+
+	return m
+}
+
 // lastLook is an outward act held for a last look before it goes — a push, a
 // re-run of CI, a rebase — so an act reachable from a single key is never one
 // key from its request. esc backs out; enter marks the look in flight and calls
@@ -150,13 +168,20 @@ type lastLook struct {
 	send    sendState
 }
 
-var _ overlay = lastLook{}
+var _ failable[lastLook] = lastLook{}
 
 // view names the act and what it acts on, its outcome pinned under the title.
 func (l lastLook) view(width, _ int) (string, string) {
 	lines := pinnedOutcome(l.styles, l.marks, l.send, l.doing, width)
 
 	return l.title, strings.Join(append(lines, wrap(l.body, width)), "\n")
+}
+
+// failed is the look kept open with the reason its act was refused.
+func (l lastLook) failed(err error) lastLook {
+	l.send = l.send.failed(err)
+
+	return l
 }
 
 // footer offers going ahead or backing out, and nothing while the act is in
