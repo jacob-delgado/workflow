@@ -298,11 +298,7 @@ func TestClickingAfterTheTreeShrinksStagesTheVisibleFile(t *testing.T) {
 	// Scroll a long file list, then let a reload return a much shorter one. Unless
 	// the shared scroll offset is re-clamped, a click maps past the shorter list.
 	shrinking := newWorld()
-	shrinking.changes = make([]gitrepo.Change, 20)
-
-	for index := range shrinking.changes {
-		shrinking.changes[index] = gitrepo.Change{Path: "old" + strconv.Itoa(index) + ".go", Staged: ' ', Unstaged: 'M'}
-	}
+	shrinking.changes = changedFiles("old", 20)
 
 	down := append([]string{"3"}, slices.Repeat([]string{"j"}, 19)...)
 	scrolled := typing(t, shrinking.live(t, 120, 20), down...)
