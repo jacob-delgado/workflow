@@ -148,7 +148,7 @@ type ForgeDeps struct {
 	Kind forge.Kind
 }
 
-// MessagingDeps is what the interface asks of Slack.
+// MessagingDeps is what the interface asks of the messaging service.
 type MessagingDeps struct {
 	// Post sends text to a channel, or to the configured default when channel is
 	// empty. A webhook ignores the channel and posts where it is bound.

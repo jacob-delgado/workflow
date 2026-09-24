@@ -53,7 +53,7 @@ type keyMap struct {
 	// Branch and Commits.
 	newBranch, switchTask, rebase, push, stage, stageAll, commit, amend, fixup, runHooks, hookConfig key.Binding
 
-	// Review and Slack.
+	// Review and messaging.
 	newPullRequest, checks, rerun, merge, finish, compose key.Binding
 
 	// Opening and copying a link, on the Issues and Review panes.
@@ -85,7 +85,7 @@ const (
 	groupMoving = iota
 	groupIssues
 	groupBranchCommits
-	groupReviewSlack
+	groupReviewMessaging
 	groupComposer
 	groupRunning
 	groupEverywhere
@@ -177,7 +177,7 @@ func compileKeys(marks glyphs, reviewNoun, messagingService string, overrides ma
 	movingKeys(&builder, &keys, marks)
 	issueKeys(&builder, &keys)
 	branchAndCommitKeys(&builder, &keys)
-	reviewAndSlackKeys(&builder, &keys, reviewNoun, messagingService)
+	reviewAndMessagingKeys(&builder, &keys, reviewNoun, messagingService)
 	composerKeys(&builder, &keys, marks)
 	runningKeys(&builder, &keys)
 	everywhereKeys(&builder, &keys)
@@ -237,14 +237,14 @@ func branchAndCommitKeys(builder *helpBuilder, into *keyMap) {
 	into.hookConfig = builder.bind(groupBranchCommits, "set-up-lefthook", "set up lefthook", "g")
 }
 
-// reviewAndSlackKeys are the Review and messaging panes' bindings.
-func reviewAndSlackKeys(builder *helpBuilder, into *keyMap, reviewNoun, messagingService string) {
-	into.newPullRequest = builder.bind(groupReviewSlack, "open-pull-request", "open "+reviewNoun, "n")
-	into.checks = builder.bind(groupReviewSlack, "checks", "checks", "c")
-	into.rerun = builder.bind(groupReviewSlack, "rerun-checks", "re-run checks", "R")
-	into.merge = builder.bind(groupReviewSlack, "merge", "merge", "M")
-	into.finish = builder.bind(groupReviewSlack, "finish-branch", "finish branch", "F")
-	into.compose = builder.bind(groupReviewSlack, "post", "announce to "+strings.ToLower(messagingService), "p")
+// reviewAndMessagingKeys are the Review and messaging panes' bindings.
+func reviewAndMessagingKeys(builder *helpBuilder, into *keyMap, reviewNoun, messagingService string) {
+	into.newPullRequest = builder.bind(groupReviewMessaging, "open-pull-request", "open "+reviewNoun, "n")
+	into.checks = builder.bind(groupReviewMessaging, "checks", "checks", "c")
+	into.rerun = builder.bind(groupReviewMessaging, "rerun-checks", "re-run checks", "R")
+	into.merge = builder.bind(groupReviewMessaging, "merge", "merge", "M")
+	into.finish = builder.bind(groupReviewMessaging, "finish-branch", "finish branch", "F")
+	into.compose = builder.bind(groupReviewMessaging, "post", "announce to "+strings.ToLower(messagingService), "p")
 }
 
 // composerKeys are the composer, preview and field-form bindings, the branch
@@ -347,7 +347,7 @@ func keyContexts() []keyContext {
 		{"the Branch and Commits panes", []int{groupMoving, groupEverywhere, groupBranchCommits}, []string{actionRefresh}},
 		{
 			"the Review and Slack panes",
-			[]int{groupMoving, groupEverywhere, groupReviewSlack},
+			[]int{groupMoving, groupEverywhere, groupReviewMessaging},
 			[]string{actionOpenLink, actionCopyLink, actionRefresh, "edit"},
 		},
 		{
