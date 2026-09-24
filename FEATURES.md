@@ -9,7 +9,7 @@ and a later Claude Code session asked to "pick up FEAT-12". Each entry
 therefore says why it matters, which files it would touch, and how to tell
 when it is done.
 
-Checked against commit `817d323` on 2026-09-17. Line numbers drift, so every
+Checked against commit `f7b671f` on 2026-09-24. Line numbers drift, so every
 pointer also names the symbol it means.
 
 ## How to read an entry
