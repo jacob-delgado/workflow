@@ -27,26 +27,39 @@ Layout:
 cmd/workflow/         thin main; wires cli.Execute and the exit status
 internal/cli/         the Cobra command tree
 internal/config/      .workflow.json loading, redaction, validation
+internal/keychain/    storing a token in the OS keychain and reading it back
 internal/wiring/      connects the interface's seams to the real clients
 internal/loop/        the loop composed once for every surface, over their seams
+internal/progress/    how far along the loop the work is, derived each time
 internal/tui/         the Bubble Tea interface; every outside call is a Deps seam
+internal/tui/frame/   a titled, bordered box of an exact size
+internal/tui/layout/  where each region of the interface goes, per terminal size
+internal/webserver/   the --web REST API and event stream, bound to 127.0.0.1
+internal/web/         the built web app, embedded under the embedui build tag
+internal/api/         the Go types and server interface generated from api/
+internal/store/       the on-disk SQLite store; never a secret
 internal/jira/        Jira Data Center REST v2
 internal/forge/       GitHub and GitLab: remotes, tokens, pull requests, CI
-internal/slack/       posting through a bot token or a webhook
+internal/messaging/   posting to Slack, Teams, Discord or a plain webhook
 internal/httpx/       the redirect-refusing HTTP transport the clients share
 internal/gitrepo/     reading and changing the repository through git
 internal/hooks/       lefthook: output, config, and generating lefthook.yml
 internal/convention/  branch names, Conventional Commits, pull request text
 internal/editor/      handing text and files to $EDITOR
 internal/proc/        running programs; the one place exec lives
+internal/proc/pgroup/ canceling a streamed child's whole process group (Unix)
 internal/sanitize/    neutralizing terminal controls in server text
+internal/buildinfo/   which build is running, from what the Go toolchain stamps
 internal/testshape/   the Arrange-Act-Assert check behind cmd/testshape
 cmd/docsgen/          generates the command reference from the Cobra tree
 cmd/testshape/        the thin main that runs internal/testshape
+api/                  the OpenAPI contract for --web, embedded in the binary
+web/                  the React + TypeScript frontend --web serves
 scripts/              the gate scripts lefthook, task and CI share
 build/                the build container
 docs/                 the Hugo documentation site
 .devcontainer/        the development container definition
+.github/              CI workflows, and the issue and pull request templates
 ```
 
 ## Common commands
@@ -227,7 +240,10 @@ without agreement on direction.
   in `yarn lint` / `task check`), and a runtime **axe** scan
   (`web/e2e/a11y.spec.ts`, `yarn test:e2e`) fails on any WCAG 2.1 A/AA violation —
   across every section **and both themes**, because a light theme is only real
-  once its contrast holds. Keep both green: give every control an accessible name
+  once its contrast holds. `web/e2e/layout.spec.ts` stands guard beside it: every
+  section at a narrow, a middling and a wide window, in both themes, must not
+  scroll sideways, must not scroll the page, and must keep every control Tab
+  reaches in view. Keep them green: give every control an accessible name
   (an icon-only button carries an `aria-label`), keep the skip link and the
   `:focus-visible` ring, and de-emphasize with color rather than `opacity` (which
   dims text below the contrast floor). The web tests are black-box — assert on
@@ -500,6 +516,13 @@ than observable, public behavior.
   add the code there when you add one to the enum. The OpenAPI spec is the source:
   change `api/openapi.yaml`, then `task gen` (Go) and `yarn gen` (the web client)
   so both stay generated from it.
+
+- **The web server does not sanitize on the way out**, though the store's rule
+  above asks the seam that renders stored text to: the web's rendering seam is
+  React, which escapes every text node, and `web/eslint.config.js` bans
+  `dangerouslySetInnerHTML` and `innerHTML`, so server text reaches the page only
+  as inert text — rendering server text as HTML, or handing it to a sink React
+  does not escape, ends that exemption and brings the sanitize pass to that seam.
 
 - **Use `tmp/` under the repo root for ad-hoc scratch files** — never `/tmp/…` or
   any path outside the repo. PR-body drafts, intermediate output, log dumps:

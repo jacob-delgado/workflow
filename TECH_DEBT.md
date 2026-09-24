@@ -227,11 +227,6 @@ or is removed.
 
 Severity: low · Confidence: read
 
-- `CLAUDE.md:35` lists `internal/slack/`; the package was renamed to
-  `internal/messaging` in `d229dc1`, and the layout block also omits
-  `api/`, `internal/api`, `internal/keychain`, `internal/progress`,
-  `internal/buildinfo`, `internal/store`, `internal/web`,
-  `internal/webserver`, `internal/tui/frame` and `internal/tui/layout`.
 - Residual "Slack" after the rename: the root command's `Short`
   (`internal/cli/cli.go:171`), the help group `groupReviewSlack`
   (`internal/tui/keys.go:88`), `FEATURES.md:30`, `web/index.html:9`.
@@ -249,25 +244,7 @@ Severity: low · Confidence: read
   (`:118`) and FEAT-31 (`:143`) carry inline `Done:` notes instead of the
   removal the standing rule asks for.
 
-**Done when.** `grep -n 'internal/slack' CLAUDE.md` prints nothing;
-`usage.md` has a web page and says six.
-
-### DEBT-70 The web server's sanitize exemption is not written down
-
-Severity: low · Confidence: read
-
-CLAUDE.md's database standard asks that stored text be sanitized "again on
-the way out through `internal/sanitize` at the seam that renders it".
-`internal/webserver` makes no call into `internal/sanitize`. That is
-defensible — the web's rendering seam is React, which escapes text nodes,
-and `dangerouslySetInnerHTML`/`innerHTML` are banned by
-`web/eslint.config.js:11` — but the exemption is stated nowhere, so the next
-reader either adds a redundant sanitize pass or wonders whether one was
-forgotten.
-
-**Done when.** One sentence beside the RFC 9457 convention in CLAUDE.md
-says why the web server does not sanitize on the way out, and what would
-change that.
+**Done when.** `usage.md` says six and the docs have a web page.
 
 ### DEBT-71 `wiring` returns `tui.Deps`, though three surfaces consume the seams
 
