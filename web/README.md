@@ -68,6 +68,8 @@ tagged `@populated` scan with axe and screenshot at 640, 1024 and 1440 px into
 - **`@hey-api/openapi-ts ^0.99.0`** is pre-1.0, so the caret admits only
   0.99.x patches. A minor changes the generated client: land it in one commit
   with the `corepack yarn gen` output, or `task web:gen:check` fails.
+  Dependabot raises it apart from the weekly group for that reason, so the
+  regeneration goes onto its own pull request.
 - **`@types/node` 26 over mise's Node 24** is left as is on purpose. It types
   only what `tsconfig.node.json` includes — the Vite, Vitest, Playwright and
   openapi-ts configs and `e2e/` — which call nothing past `node:url` and
