@@ -26,12 +26,11 @@ var errNothingToRerun = errors.New("nothing to re-run: this failure has no job t
 // checkList lists the pull request's checks, so which one failed is plain, and
 // opens the page of whichever is selected.
 type checkList struct {
-	marks    glyphs
-	styles   styles
-	checks   []forge.Check
-	selected int
-	outcome  string
-	err      error
+	marks   glyphs
+	styles  styles
+	checks  pickList[forge.Check]
+	outcome string
+	err     error
 }
 
 var _ overlay = checkList{}
@@ -39,7 +38,7 @@ var _ overlay = checkList{}
 // openChecks lists the checks reported on the pull request. Its caller offers it
 // only when canOpenChecks reports there are checks and an opener for their pages.
 func (m Model) openChecks() (Model, tea.Cmd) {
-	m.overlay = checkList{marks: m.marks, styles: m.styles, checks: m.review.ci.Checks}
+	m.overlay = checkList{marks: m.marks, styles: m.styles, checks: pickList[forge.Check]{items: m.review.ci.Checks}}
 
 	return m, nil
 }
@@ -52,9 +51,9 @@ func (m Model) canOpenChecks() bool {
 
 // view lists the checks, each by its state and name.
 func (c checkList) view(_, rows int) (string, string) {
-	lines := make([]string, 0, len(c.checks)+headerAndOutcomeRows)
+	lines := make([]string, 0, len(c.checks.items)+headerAndOutcomeRows)
 	lines = append(lines, "Open a check's page with enter.", "")
-	lines = append(lines, c.rows(rows-len(lines)-outcomeRows)...)
+	lines = append(lines, c.checks.rows(c.marks, rows-len(lines)-outcomeRows, c.checkRow)...)
 	lines = append(lines, c.outcomeLines()...)
 
 	return checksTitle, strings.Join(lines, "\n")
@@ -64,17 +63,9 @@ func (c checkList) view(_, rows int) (string, string) {
 // line plus outcome below them, so the slice is sized without a regrow.
 const headerAndOutcomeRows = 4
 
-// rows draws as many checks as fit, scrolled so the selection stays on screen.
-func (c checkList) rows(space int) []string {
-	first, last := window(c.selected, len(c.checks), space)
-	lines := make([]string, 0, last-first)
-
-	for index := first; index < last; index++ {
-		check := c.checks[index]
-		lines = append(lines, c.marks.marker(index == c.selected)+c.stateGlyph(check.State)+" "+check.Name)
-	}
-
-	return lines
+// checkRow names a check by how it stands and its name.
+func (c checkList) checkRow(check forge.Check) string {
+	return c.stateGlyph(check.State) + " " + check.Name
 }
 
 // stateGlyph is how a check stands, by shape.
@@ -116,9 +107,9 @@ func (c checkList) handleKey(m Model, msg tea.KeyPressMsg) (Model, tea.Cmd) {
 	case key.Matches(msg, m.keys.closeOverlay):
 		return m.closeOverlay(), nil
 	case key.Matches(msg, m.keys.down):
-		c.selected = max(0, min(c.selected+1, len(c.checks)-1))
+		c.checks = c.checks.moved(1)
 	case key.Matches(msg, m.keys.up):
-		c.selected = max(0, c.selected-1)
+		c.checks = c.checks.moved(-1)
 	case key.Matches(msg, m.keys.confirm):
 		return c.open(m)
 	}
@@ -131,7 +122,7 @@ func (c checkList) handleKey(m Model, msg tea.KeyPressMsg) (Model, tea.Cmd) {
 // open opens the selected check's page, leaving the list up so another can be
 // opened after it. The list is never empty: it opens only over reported checks.
 func (c checkList) open(m Model) (Model, tea.Cmd) {
-	check := c.checks[c.selected]
+	check, _ := c.checks.chosen()
 	if check.URL == "" {
 		c.err, c.outcome = errNoCheckPage, ""
 		m.overlay = c

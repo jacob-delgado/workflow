@@ -104,7 +104,7 @@ Impact: medium · Effort: large
   (`TransitionIssue`, `internal/webserver/issuewrite.go:106`). Beyond those
   it has no transition with its field form, no comment, no assign, no log
   work — all of which the interface offers from the Issues pane
-  (`internal/tui/picker.go:157`, `internal/tui/comment.go:41`, `internal/tui/issuewrite.go:74`).
+  (`internal/tui/picker.go:206`, `internal/tui/comment.go:41`, `internal/tui/issuewrite.go:74`).
   This is the rest.
 - Touches: `api/openapi.yaml` (operations for a transition with fields,
   comment, assign, worklog), `internal/webserver` (`issuewrite.go` holds the
@@ -211,7 +211,7 @@ Impact: medium · Effort: large
 - Why: The web's Review section shows a pull request and its CI and can
   open one, but cannot re-run failed checks, merge, finish the merged
   branch or edit the pull request's title and body — all of which the
-  interface does with `R`, `M`, `F` and `e` (`internal/tui/checks.go:183`,
+  interface does with `R`, `M`, `F` and `e` (`internal/tui/checks.go:174`,
   `internal/tui/merge.go:114`, `internal/tui/finish.go:44`,
   `internal/tui/preditor.go:40`). The terminal's merge and finish shipped
   with the web's left for later; this is that later, with the re-run and

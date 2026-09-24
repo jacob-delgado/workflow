@@ -85,24 +85,30 @@ the same commit.
 
 **Done when.** `check-file-length.sh --list` flags nothing `soft`.
 
-### DEBT-57 The same overlay shapes, written five and three times
+### DEBT-57 Scroll re-clamps and composer pairs, written three times and twice
 
 Severity: low · Confidence: read
 
-- Five list-picker bodies with identical `up`/`down`/`confirm`/`esc` and a
-  `window`-scrolled `rows`: `internal/tui/picker.go:227`, `internal/tui/picker.go:425`,
-  `internal/tui/switchtask.go:119`, `internal/tui/checks.go:68`, `internal/tui/run.go:257`.
 - Three focus-guarded "re-clamp the shared scroll after a shrinking reload"
   blocks: `internal/tui/commits.go:50`, `internal/tui/reviewqueue.go:47`, plus `internal/tui/commits.go:249`
-  `followChange` / `internal/tui/reviewqueue.go:208`.
+  `followChange` / `internal/tui/reviewqueue.go:208`. They exist only because
+  every pane shares one scroll offset, so they go with DEBT-58's scroll per
+  pane.
 - Two `onFieldNav` + `*CanComplete` pairs (`internal/tui/scopesuggest.go:17`,
   `internal/tui/prcomposer.go:304`) and two blur-all-then-focus-one switches
-  (`internal/tui/composer.go:297`, `internal/tui/prcomposer.go:325`).
+  (`internal/tui/composer.go:297`, `internal/tui/prcomposer.go:325`). Two is
+  not yet the rule of three: they stay until a third composer needs them.
 
-The rule of three is met several times over. A generic picker would remove
-the first group.
+The rest of this entry is paid: the fourteen "keep the overlay open with the
+reason" appliers share `keepOpenWith` (`internal/tui/overlay.go:143`), and
+the five list pickers draw through one `pickList`
+(`internal/tui/picker.go:26`).
 
-**Done when.** One picker type renders the five lists.
+**What it costs.** A reload that shrinks a list must remember the guard, and
+a third composer must copy the pairs or extract them then.
+
+**Done when.** The re-clamps are gone with DEBT-58, and the two pairs are
+written down under Deliberate trade-offs.
 
 ### DEBT-58 One scroll offset for six panes
 

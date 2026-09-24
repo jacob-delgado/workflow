@@ -48,8 +48,7 @@ type commandRun struct {
 	// stopped rather than as a failure, and what would come next is not run.
 	stopped    bool
 	err        error
-	failures   []hooks.Location
-	selected   int
+	failures   pickList[hooks.Location]
 	showOutput bool
 }
 
@@ -156,7 +155,7 @@ func (msg runFinished) apply(m Model) (Model, tea.Cmd) {
 
 	run.done, run.err = true, msg.err
 	if msg.err != nil {
-		run.failures = m.deps.resolvedFailures(hooks.Failures(run.lines, runtime.GOOS))
+		run.failures = pickList[hooks.Location]{items: m.deps.resolvedFailures(hooks.Failures(run.lines, runtime.GOOS))}
 	}
 
 	m.overlay = run
@@ -178,8 +177,8 @@ func rowsIn(wrapped string) int {
 func (r commandRun) view(width, rows int) (string, string) {
 	lines := r.header(width)
 
-	if len(r.failures) > 0 && !r.showOutput {
-		lines = append(lines, r.failureRows(rows-len(lines))...)
+	if len(r.failures.items) > 0 && !r.showOutput {
+		lines = append(lines, r.failures.rows(r.marks, rows-len(lines), placeRow)...)
 	} else {
 		lines = append(lines, tail(r.lines, rows-len(lines))...)
 	}
@@ -253,18 +252,9 @@ func (r commandRun) jobs() string {
 	return strings.Join(parts, r.marks.separator)
 }
 
-// failureRows lists the places to jump to, scrolled to the selection.
-func (r commandRun) failureRows(rows int) []string {
-	first, last := window(r.selected, len(r.failures), rows)
-	lines := make([]string, 0, last-first)
-
-	for index := first; index < last; index++ {
-		failure := r.failures[index]
-		lines = append(lines, r.marks.marker(index == r.selected)+failure.File+":"+strconv.Itoa(failure.Line)+" "+
-			failure.Message)
-	}
-
-	return lines
+// placeRow names a place to jump to by its file, line and what the tool said.
+func placeRow(place hooks.Location) string {
+	return place.File + ":" + strconv.Itoa(place.Line) + " " + place.Message
 }
 
 // tail is the last rows lines of output.
@@ -293,12 +283,12 @@ func (r commandRun) footer(keys keyMap) []key.Binding {
 	switch {
 	case !r.done:
 		return []key.Binding{keys.stopRun, keys.interrupt}
-	case len(r.failures) > 0 && !r.showOutput:
+	case len(r.failures.items) > 0 && !r.showOutput:
 		return []key.Binding{
 			keys.up, keys.down, relabel(keys.confirm, "open in editor"),
 			relabel(keys.fullOutput, "full output"), keys.retry, keys.closeOverlay,
 		}
-	case len(r.failures) > 0:
+	case len(r.failures.items) > 0:
 		return []key.Binding{relabel(keys.fullOutput, "places"), keys.retry, keys.closeOverlay}
 	default:
 		return []key.Binding{keys.retry, keys.closeOverlay}
@@ -320,9 +310,9 @@ func (r commandRun) handleKey(m Model, msg tea.KeyPressMsg) (Model, tea.Cmd) {
 	case key.Matches(msg, m.keys.fullOutput):
 		r.showOutput = !r.showOutput
 	case key.Matches(msg, m.keys.down):
-		r.selected = min(r.selected+1, max(0, len(r.failures)-1))
+		r.failures = r.failures.moved(1)
 	case key.Matches(msg, m.keys.up):
-		r.selected = max(0, r.selected-1)
+		r.failures = r.failures.moved(-1)
 	}
 
 	m.overlay = r
@@ -347,18 +337,14 @@ func (r commandRun) stopRun(m Model, msg tea.KeyPressMsg) (Model, tea.Cmd) {
 
 // click selects the place on a clicked line.
 func (r commandRun) click(m Model, line int) (Model, tea.Cmd) {
-	// The offset is the header the view drew, in display rows — the jobs line
-	// wraps to as many rows as it took, so a click below it skips every one.
-	offset := rowsIn(strings.Join(r.header(m.detailWidth()), "\n"))
-
-	first, last := window(r.selected, len(r.failures), m.detailRows()-offset)
-	index := first + line - offset
-
-	if !r.done || line < offset || index >= last {
+	if !r.done {
 		return m, nil
 	}
 
-	r.selected = index
+	// The offset is the header the view drew, in display rows — the jobs line
+	// wraps to as many rows as it took, so a click below it skips every one.
+	offset := rowsIn(strings.Join(r.header(m.detailWidth()), "\n"))
+	r.failures = r.failures.clicked(line-offset, m.detailRows()-offset)
 	m.overlay = r
 
 	return m, nil
@@ -366,11 +352,10 @@ func (r commandRun) click(m Model, line int) (Model, tea.Cmd) {
 
 // openFailure opens the selected place in the editor, at its line.
 func (r commandRun) openFailure(m Model) (Model, tea.Cmd) {
-	if len(r.failures) == 0 || m.deps.Editor.Open == nil {
+	failure, found := r.failures.chosen()
+	if !found || m.deps.Editor.Open == nil {
 		return m, nil
 	}
-
-	failure := r.failures[r.selected]
 
 	return m, m.deps.Editor.Open(failure.File, failure.Line, func(err error) tea.Msg {
 		return editorClosed{err: err}

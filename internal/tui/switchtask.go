@@ -44,7 +44,8 @@ func (msg branchesListed) apply(m Model) (Model, tea.Cmd) {
 		return m, nil
 	}
 
-	picker.branches, picker.listErr, picker.settled = m.taskBranches(msg.found), msg.err, true
+	picker.branches = pickList[taskBranch]{items: m.taskBranches(msg.found)}
+	picker.listErr, picker.settled = msg.err, true
 	m.overlay = picker
 
 	return m, nil
@@ -74,10 +75,9 @@ func (m Model) taskBranches(names []string) []taskBranch {
 type branchPicker struct {
 	marks    glyphs
 	styles   styles
-	branches []taskBranch
+	branches pickList[taskBranch]
 	listErr  error
 	settled  bool
-	selected int
 	send     sendState
 }
 
@@ -105,26 +105,14 @@ func (p branchPicker) view(_, rows int) (string, string) {
 		lines = append(lines, "loading branches"+p.marks.ellipsis)
 	case p.listErr != nil:
 		lines = append(lines, failureLine(p.styles, p.marks, p.listErr))
-	case len(p.branches) == 0:
+	case len(p.branches.items) == 0:
 		lines = append(lines, "No other task branch to switch to.")
 	default:
-		lines = append(lines, p.rows(rows-len(lines)-outcomeRows)...)
+		lines = append(lines, p.branches.rows(p.marks, rows-len(lines)-outcomeRows, p.label)...)
 		lines = append(lines, p.outcome()...)
 	}
 
 	return switchTitle, strings.Join(lines, "\n")
-}
-
-// rows draws as many branches as fit, scrolled so the selection stays on screen.
-func (p branchPicker) rows(space int) []string {
-	first, last := window(p.selected, len(p.branches), space)
-	lines := make([]string, 0, last-first)
-
-	for index := first; index < last; index++ {
-		lines = append(lines, p.marks.marker(index == p.selected)+p.label(p.branches[index]))
-	}
-
-	return lines
 }
 
 // label names a branch by its issue, with the summary when the issue is one of
@@ -168,9 +156,9 @@ func (p branchPicker) handleKey(m Model, msg tea.KeyPressMsg) (Model, tea.Cmd) {
 	case key.Matches(msg, m.keys.closeOverlay):
 		return m.closeOverlay(), nil
 	case key.Matches(msg, m.keys.down):
-		p.selected = max(0, min(p.selected+1, len(p.branches)-1))
+		p.branches = p.branches.moved(1)
 	case key.Matches(msg, m.keys.up):
-		p.selected = max(0, p.selected-1)
+		p.branches = p.branches.moved(-1)
 	case key.Matches(msg, m.keys.confirm):
 		return p.choose(m)
 	}
@@ -180,19 +168,10 @@ func (p branchPicker) handleKey(m Model, msg tea.KeyPressMsg) (Model, tea.Cmd) {
 	return m, nil
 }
 
-// chosen is the selected branch, if there is one to switch to.
-func (p branchPicker) chosen() (taskBranch, bool) {
-	if len(p.branches) == 0 {
-		return taskBranch{}, false
-	}
-
-	return p.branches[p.selected], true
-}
-
 // choose switches to the selected branch, refusing a dirty tree with the reason
 // rather than carrying uncommitted work across.
 func (p branchPicker) choose(m Model) (Model, tea.Cmd) {
-	branch, ok := p.chosen()
+	branch, ok := p.branches.chosen()
 	if !ok {
 		return m, nil
 	}

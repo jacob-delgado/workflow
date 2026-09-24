@@ -20,6 +20,56 @@ const pickerTitle = "Change status"
 // outcomeRows is the room kept under the list for how applying is going.
 const outcomeRows = 2
 
+// pickList is a list to choose one row from: the rows, and which is chosen.
+// Every picker that windows its list keeps it in one, so moving, the window
+// that keeps the choice in sight, and a click all count rows the same way.
+type pickList[T any] struct {
+	items    []T
+	selected int
+}
+
+// moved is the list with the choice moved by step rows, held within the list.
+func (l pickList[T]) moved(step int) pickList[T] {
+	l.selected = max(0, min(l.selected+step, len(l.items)-1))
+
+	return l
+}
+
+// chosen is the chosen row, or false when the list has none.
+func (l pickList[T]) chosen() (T, bool) {
+	if len(l.items) == 0 {
+		var none T
+
+		return none, false
+	}
+
+	return l.items[l.selected], true
+}
+
+// rows draws as many rows as fit in space, scrolled so the choice stays in
+// sight, each labeled behind the selection marker.
+func (l pickList[T]) rows(marks glyphs, space int, label func(T) string) []string {
+	first, last := window(l.selected, len(l.items), space)
+	lines := make([]string, 0, last-first)
+
+	for index := first; index < last; index++ {
+		lines = append(lines, marks.marker(index == l.selected)+label(l.items[index]))
+	}
+
+	return lines
+}
+
+// clicked is the list with the row rows drew on line chosen, line counted from
+// the first row it drew; a line that drew no row changes nothing.
+func (l pickList[T]) clicked(line, space int) pickList[T] {
+	first, last := window(l.selected, len(l.items), space)
+	if index := first + line; line >= 0 && index < last {
+		l.selected = index
+	}
+
+	return l
+}
+
 // transitionsListed carries Jira's transitions for one issue back into the update
 // loop.
 type transitionsListed struct {
@@ -43,8 +93,8 @@ func (msg transitionsListed) apply(m Model) (Model, tea.Cmd) {
 		return m.closeOverlay(), nil
 	}
 
-	picker.found, picker.listErr, picker.settled = msg.found, msg.err, true
-	picker.selected = picker.offer.pick(msg.found)
+	picker.transitions = pickList[jira.Transition]{items: msg.found, selected: picker.offer.pick(msg.found)}
+	picker.listErr, picker.settled = msg.err, true
 
 	m.overlay = picker
 
@@ -131,14 +181,13 @@ func (p statusPicker) failed(err error) statusPicker {
 // it was opened on, then the fields the chosen one needs, and how applying it is
 // going.
 type statusPicker struct {
-	marks    glyphs
-	styles   styles
-	issue    jira.Issue
-	found    []jira.Transition
-	listErr  error
-	send     sendState
-	settled  bool
-	selected int
+	marks       glyphs
+	styles      styles
+	issue       jira.Issue
+	transitions pickList[jira.Transition]
+	listErr     error
+	send        sendState
+	settled     bool
 	// offer pre-selects a transition once the list arrives, for an offer made
 	// after branching or after a pull request; the zero value pre-selects none.
 	offer statusOffer
@@ -209,39 +258,30 @@ func (p statusPicker) view(width, rows int) (string, string) {
 		lines = append(lines, "loading statuses"+p.marks.ellipsis)
 	case p.listErr != nil:
 		lines = append(lines, failureLine(p.styles, p.marks, p.listErr))
-	case len(p.found) == 0:
+	case len(p.transitions.items) == 0:
 		lines = append(lines, "Jira offers no status change for "+string(p.issue.Key))
 	case p.form.open():
 		lines = append(lines, p.form.view(p.marks, p.styles, width, rows-len(lines)-outcomeRows)...)
 		lines = append(lines, p.outcome()...)
 	default:
-		lines = append(lines, p.rows(rows-len(lines)-outcomeRows)...)
+		lines = append(lines, p.transitions.rows(p.marks, rows-len(lines)-outcomeRows, p.transitionRow)...)
 		lines = append(lines, p.outcome()...)
 	}
 
 	return pickerTitle, strings.Join(lines, "\n")
 }
 
-// rows draws as many transitions as fit, scrolled so the selection stays on
-// screen. A transition that needs fields says which.
-func (p statusPicker) rows(space int) []string {
-	first, last := window(p.selected, len(p.found), space)
-	lines := make([]string, 0, last-first)
-
-	for index := first; index < last; index++ {
-		move := p.found[index]
-		lines = append(lines, p.marks.marker(index == p.selected)+p.marks.status(move.ToStatusCategory)+" "+
-			transitionLabel(p.marks, move)+needs(p.marks, move))
-	}
-
-	return lines
+// transitionRow names a transition by where it leads, and says which fields it
+// needs, if any.
+func (p statusPicker) transitionRow(move jira.Transition) string {
+	return p.marks.status(move.ToStatusCategory) + " " + transitionLabel(p.marks, move) + needs(p.marks, move)
 }
 
 // outcome says how applying the chosen transition is going, if it was tried.
 func (p statusPicker) outcome() []string {
 	switch {
 	case p.send.sending:
-		chosen, _ := p.chosen()
+		chosen, _ := p.transitions.chosen()
 
 		return []string{"", "changing " + string(p.issue.Key) + " to " + chosen.ToStatus + p.marks.ellipsis}
 	case p.send.err != nil:
@@ -276,9 +316,9 @@ func (p statusPicker) handleKey(m Model, msg tea.KeyPressMsg) (Model, tea.Cmd) {
 	case key.Matches(msg, m.keys.closeOverlay):
 		return m.closeOverlay(), nil
 	case key.Matches(msg, m.keys.down):
-		p.selected = max(0, min(p.selected+1, len(p.found)-1))
+		p.transitions = p.transitions.moved(1)
 	case key.Matches(msg, m.keys.up):
-		p.selected = max(0, p.selected-1)
+		p.transitions = p.transitions.moved(-1)
 	case key.Matches(msg, m.keys.confirm):
 		return p.choose(m)
 	}
@@ -290,35 +330,22 @@ func (p statusPicker) handleKey(m Model, msg tea.KeyPressMsg) (Model, tea.Cmd) {
 
 // click selects the transition on a clicked line.
 func (p statusPicker) click(m Model, line int) (Model, tea.Cmd) {
-	header := len(p.header())
-	rows := m.detailRows() - header - outcomeRows
-	first, last := window(p.selected, len(p.found), rows)
-
-	index := first + line - header
-	if p.send.sending || p.form.open() || line < header || index >= last {
+	if p.send.sending || p.form.open() {
 		return m, nil
 	}
 
-	p.selected = index
+	header := len(p.header())
+	p.transitions = p.transitions.clicked(line-header, m.detailRows()-header-outcomeRows)
 	m.overlay = p
 
 	return m, nil
-}
-
-// chosen is the selected transition, if there is one to apply.
-func (p statusPicker) chosen() (jira.Transition, bool) {
-	if len(p.found) == 0 {
-		return jira.Transition{}, false
-	}
-
-	return p.found[p.selected], true
 }
 
 // choose goes on with the selected transition: to its fields if it needs any it
 // can have filled in here, straight to applying it if it needs none, and nowhere
 // if it needs one only Jira's own screen can fill.
 func (p statusPicker) choose(m Model) (Model, tea.Cmd) {
-	chosen, ok := p.chosen()
+	chosen, ok := p.transitions.chosen()
 	if !ok {
 		return m, nil
 	}
@@ -386,10 +413,9 @@ const fixupTitle = "Fix up a commit"
 
 // fixupPicker chooses which unpushed commit to record a fixup! of.
 type fixupPicker struct {
-	marks    glyphs
-	styles   styles
-	commits  []gitrepo.Commit
-	selected int
+	marks   glyphs
+	styles  styles
+	commits pickList[gitrepo.Commit]
 }
 
 var _ overlay = fixupPicker{}
@@ -403,7 +429,7 @@ func (m Model) openFixupPicker() (Model, tea.Cmd) {
 
 	newestFirst := slices.Clone(m.branch.branch.Unpushed())
 	slices.Reverse(newestFirst)
-	m.overlay = fixupPicker{marks: m.marks, styles: m.styles, commits: newestFirst}
+	m.overlay = fixupPicker{marks: m.marks, styles: m.styles, commits: pickList[gitrepo.Commit]{items: newestFirst}}
 
 	return m, nil
 }
@@ -416,23 +442,14 @@ func (p fixupPicker) header() []string {
 // view draws the commits to choose from, in as many rows as fit.
 func (p fixupPicker) view(_, rows int) (string, string) {
 	lines := p.header()
-	lines = append(lines, p.rows(rows-len(lines))...)
+	lines = append(lines, p.commits.rows(p.marks, rows-len(lines), p.commitRow)...)
 
 	return fixupTitle, strings.Join(lines, "\n")
 }
 
-// rows draws as many commits as fit, scrolled so the selection stays on screen.
-func (p fixupPicker) rows(space int) []string {
-	first, last := window(p.selected, len(p.commits), space)
-	lines := make([]string, 0, last-first)
-
-	for index := first; index < last; index++ {
-		commit := p.commits[index]
-		lines = append(lines, p.marks.marker(index == p.selected)+
-			p.styles.label.Render(commit.Hash)+" "+commit.Subject)
-	}
-
-	return lines
+// commitRow names a commit by its hash and subject.
+func (p fixupPicker) commitRow(commit gitrepo.Commit) string {
+	return p.styles.label.Render(commit.Hash) + " " + commit.Subject
 }
 
 // footer offers moving, choosing and leaving.
@@ -446,11 +463,12 @@ func (p fixupPicker) handleKey(m Model, msg tea.KeyPressMsg) (Model, tea.Cmd) {
 	case key.Matches(msg, m.keys.closeOverlay):
 		return m.closeOverlay(), nil
 	case key.Matches(msg, m.keys.down):
-		p.selected = min(p.selected+1, len(p.commits)-1)
+		p.commits = p.commits.moved(1)
 	case key.Matches(msg, m.keys.up):
-		p.selected = max(0, p.selected-1)
+		p.commits = p.commits.moved(-1)
 	case key.Matches(msg, m.keys.confirm):
-		chosen := p.commits[p.selected]
+		// The picker opens only over unpushed commits, so one is always chosen.
+		chosen, _ := p.commits.chosen()
 
 		return m.applyFixup(chosen.Hash, chosen.Subject)
 	}
