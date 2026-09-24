@@ -259,8 +259,7 @@ the repository and says where.
 
 ## Ideas that would reopen a settled decision
 
-None this edition. One note for the record: `FEATURES.md:52` states the
-settled decision as "Five panes down the left"; the code has six
-(`internal/tui/panes.go:27`), and has since the Reviews pane landed. That is
-stale text to correct (TECH_DEBT.md DEBT-69), not a decision to reopen —
-the six-pane rail *is* the decision as built.
+None this edition. FEATURES.md's settled decisions once said "Five panes
+down the left" while the code had six (`internal/tui/panes.go:27`); that
+stale text has been corrected there, and no decision was reopened — the
+six-pane rail *is* the decision as built.

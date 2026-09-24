@@ -24,9 +24,9 @@ pointer also names the symbol it means.
   reading, not a complete list.
 - **Done when** is an observable result, phrased so a test can assert it.
 
-The sections follow the order the work goes in, the same order as the panes:
-Issues, Branch, Commits, Review, Slack. Entries are not ranked within a
-section. Ranking is the maintainer's call.
+The sections follow the order the work goes in, the same order as the first
+five panes: Issues, Branch, Commits, Review, Messaging. Entries are not ranked
+within a section. Ranking is the maintainer's call.
 
 Before building any of these, open an issue, as
 [CONTRIBUTING.md](CONTRIBUTING.md) asks for anything significant. An entry
@@ -49,8 +49,10 @@ that needs one of them reopened goes in the
 - **`git` is the only program that must be installed.** `lefthook` and an
   editor make more of the interface work, and their absence only hides the
   parts that need them.
-- **Five panes down the left, one progress row across the top.** Focus is
-  shown by the weight of a border, not by color.
+- **Six panes down the left, one progress row across the top.** Focus is
+  shown by the weight of a border, not by color. (This said five, text that
+  went stale when the Reviews pane landed; correcting it reopens nothing —
+  the six-pane rail is the decision as built.)
 - **Pure Go.** `CGO_ENABLED=0`, because the release cross-compiles to five
   platforms.
 - **A new dependency needs approval first**, and a release younger than seven
@@ -83,7 +85,7 @@ Impact: medium · Effort: medium
 - Touches: `internal/cli` (new `issues`, `issue`, `transition`, `comment`,
   `assign` and `worklog` commands over the seams already on `tui.Deps` —
   `Jira.Search`, `Issue`, `Transitions`, `ApplyTransition`, `AddComment`,
-  `Assign`, `AddWorklog`), the shared composition layer (REVIEW.md Phase 1)
+  `Assign`, `AddWorklog`), the shared composition layer (`internal/loop`)
   so the transition lookup is the one the other surfaces use,
   `docs/content/docs/reference` (regenerated).
 - Done when: `workflow issues --json` prints the default view; `workflow
@@ -144,7 +146,7 @@ Impact: low · Effort: small
   right, with no preview and no check that the branch really merged.
 - Touches: `internal/cli` (a `finish` command over `Git.Finish`, previewed
   like `branch` and `pr`, with `--dry-run`/`--yes`), the shared composition
-  layer (REVIEW.md Phase 1).
+  layer (`internal/loop`).
 - Done when: `workflow finish --dry-run` prints the three commands and runs
   none; `--yes` runs them and says the branch is gone; a branch that has not
   merged is refused with the reason.
@@ -180,37 +182,12 @@ Impact: low · Effort: small
 
 Impact: low · Effort: small
 
-- Done: the `Refs:` trailer now stays inside git's trailer block
-  (`trailerJoin`/`endsWithTrailerBlock`, `internal/convention/convention.go`), so
-  `git interpret-trailers --parse` reads it alongside a `Co-authored-by:` the
-  author typed by hand.
 - What remains: picking recent authors as co-authors and a key that toggles
   `Signed-off-by:`. `convention.Message` takes only the subject, body and issue
   key, and the composer's fields are type, scope, subject and body.
 - Done when: recent authors can be picked as co-authors and a toggle signs off.
 
 ## Review
-
-### FEAT-31 Merge
-
-Impact: medium · Effort: medium
-
-- Why: the last outward step of the loop is a button in a browser.
-- Touches: `internal/forge` (merge, and which methods the repository allows),
-  `internal/tui/review.go`.
-- Constraints: previewed like every other write; offered only when the forge
-  says it can merge; uses the method the repository permits.
-- Done when: a green, approved pull request can be merged after a preview,
-  and FEAT-17 follows.
-- Done: `forge.Client.Merge` merges by a `MergeMethod` the repository permits,
-  and `MergeMethods` reads which those are — GitHub from its allow flags,
-  GitLab from the project's merge method and squash option. `M` on a green,
-  approved, clean pull request opens a preview of the permitted methods; enter
-  merges by the chosen one, esc cancels, a refusal names the missing write
-  scope, and a dry run reports it. Held back at the seam like every write. The
-  web review panel shows a pull request but has no write actions yet (like
-  re-run checks); a web merge is a follow-up. FEAT-17 (finishing the merged
-  branch) follows.
 
 ### FEAT-79 Review actions on the web
 
@@ -221,12 +198,13 @@ Impact: medium · Effort: large
   branch or edit the pull request's title and body — all of which the
   interface does with `R`, `M`, `F` and `e` (`internal/tui/checks.go:183`,
   `internal/tui/merge.go:112`, `internal/tui/finish.go:44`,
-  `internal/tui/preditor.go:37`). FEAT-31's own note already records the
-  web merge as a follow-up; this formalizes the set.
+  `internal/tui/preditor.go:37`). The terminal's merge and finish shipped
+  with the web's left for later; this is that later, with the re-run and
+  the edit beside them.
 - Touches: `api/openapi.yaml` (four operations), `internal/webserver` (a
   handler per action, each a budget row; merge gated exactly as `canMerge`
-  gates it, `internal/tui/merge.go:23`, over the shared composition —
-  REVIEW.md Phase 1), `web/src/features/review`, `web/e2e` (a write driven
+  gates it, `internal/tui/merge.go:23`, over the shared composition in
+  `internal/loop`), `web/src/features/review`, `web/e2e` (a write driven
   against a running server, which the suite does not yet do —
   TECH_DEBT.md DEBT-65).
 - Done when: a green, approved pull request can be merged from the browser
@@ -251,24 +229,24 @@ Impact: medium · Effort: medium
   STRICT, migrated forward), `internal/messaging` (a `thread_ts` on a
   bot-token post — a webhook cannot thread, so this is bot-only and the
   preview says so), the announcement composition shared by all three
-  surfaces (REVIEW.md Phase 1), `docs/content/docs/usage.md:329`.
+  surfaces (`internal/loop/announce.go`), `docs/content/docs/usage.md:329`.
 - Done when: the second announcement of a pull request is posted as a reply
   to the first when a bot token is configured; with a webhook it posts
   top-level and the preview says why; the store still holds no token.
 
-### FEAT-82 Post when CI passes, from the web
+### FEAT-82 Announce when CI passes, from the web
 
 Impact: low · Effort: medium
 
-- Why: The interface's preview offers `w` — post the announcement when CI
-  goes green — and keeps the queued post until it does or the run fails
+- Why: The interface's preview offers `w` — announce when CI goes
+  green — and keeps the queued announcement until it does or the run fails
   (`internal/tui/messaging.go:406`). The web announces now or not at all.
 - Touches: `internal/webserver` (a queued post needs somewhere to live
   across requests — the store, or the stream's server state),
   `api/openapi.yaml`, `web/src/features/messaging`.
-- Done when: "Post when CI passes" queues the announcement and the section
-  shows it waiting; it posts on the first snapshot with green CI; a red run
-  drops it with the reason.
+- Done when: "Announce when CI passes" queues the announcement and the
+  section shows it waiting; it is sent on the first snapshot with green CI; a
+  red run drops it with the reason.
 
 ## Across the loop
 
