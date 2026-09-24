@@ -233,16 +233,12 @@ Severity: low · Confidence: read
 - `FEATURES.md:52`'s settled-decision text says "Five panes down the
   left"; `internal/tui/panes.go:27` has `paneCount = 6` — stale text, not a
   decision reopened.
-- `usage.md` never mentions `--web`, and neither does `README.md`; the only
-  user-facing references are the flag's one line in the generated
-  reference, the errors page, and the problem-code and streams sections of
-  `docs/content/docs/scripting.md`. There is no page naming the web's
-  sections, its stream, its theme or which actions it supports.
 - `FEATURES.md:12` is pinned to `817d323`, twenty-odd commits back; FEAT-26
   (`:118`) and FEAT-31 (`:143`) carry inline `Done:` notes instead of the
   removal the standing rule asks for.
 
-**Done when.** `FEATURES.md` says six and the docs have a web page.
+**Done when.** `FEATURES.md` says six, and "Slack" is left only where
+it names that service.
 
 ### DEBT-71 `wiring` returns `tui.Deps`, though three surfaces consume the seams
 

@@ -251,7 +251,7 @@ Impact: medium · Effort: medium
   STRICT, migrated forward), `internal/messaging` (a `thread_ts` on a
   bot-token post — a webhook cannot thread, so this is bot-only and the
   preview says so), the announcement composition shared by all three
-  surfaces (REVIEW.md Phase 1), `docs/content/docs/usage.md:326`.
+  surfaces (REVIEW.md Phase 1), `docs/content/docs/usage.md:329`.
 - Done when: the second announcement of a pull request is posted as a reply
   to the first when a bot token is configured; with a webhook it posts
   top-level and the preview says why; the store still holds no token.

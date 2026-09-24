@@ -18,8 +18,8 @@
 
 A terminal UI for the loop a developer actually runs all day: pick up a Jira
 issue, start a branch for it, open the pull or merge request, and tell the team
-in Slack — without leaving the keyboard or reconstructing the same context in
-three browser tabs.
+in Slack, Teams or Discord — without leaving the keyboard or reconstructing the
+same context in three browser tabs.
 
 ## Status
 
@@ -30,22 +30,25 @@ format that may still change before 1.0.
   change its status, branch for it, stage and commit through the repository's
   own hooks — opening a failure at its line in `$EDITOR` — push, open the pull
   or merge request from the repository's template, follow its CI, and announce
-  it in Slack. `?` lists the keys.
+  it to your team. `?` lists the keys.
 - `workflow --dry-run` does all of that with every write held back, saying what
   it would have done.
+- `workflow --web` serves the same loop in a browser, on `127.0.0.1` alone —
+  issues, branch, commit, push, the pull request and its announcement, your
+  review queue and the settings — pushed live as the repository changes.
 - With no Jira configured, the Issues pane lists the issues assigned to you on
   your forge (GitHub or GitLab) instead — pick one up, branch for it, and the
   pull request closes it on merge.
 - A repository with hooks in `.git/hooks` and no lefthook configuration is
   offered a `lefthook.yml` that runs them.
 - `workflow doctor` reports the repository, tooling and configuration in effect;
-  `workflow doctor --online` asks Jira, Slack and your forge whether each
-  credential actually works.
+  `workflow doctor --online` asks Jira, your messaging service and your forge
+  whether each credential actually works.
 - `workflow config init` writes a starting configuration file, and
   `workflow config show` prints the one in effect, credentials masked.
 - `workflow standup` drafts what you did — your recent commits, the issues you
   touched and the open pull requests on your branches — for you to edit and,
-  optionally, post to Slack.
+  optionally, post to your team.
 - `workflow reviews` lists the pull requests on your forge that are waiting on
   your review — the longest-waiting first, with the author, how CI stands and
   how long each has waited.
@@ -198,19 +201,21 @@ an address. Nothing in this repo will print a credential in full.
 
 ## Use
 
-Run `workflow` in a repository. Five panes run down the left — Issues, Branch,
-Commits, Review, Slack — in the order the work goes, and the one in focus fills
-the right. The bottom row shows only the keys that do something right now.
+Run `workflow` in a repository. Six panes run down the left — Issues, Branch,
+Commits, Review and your messaging service, named for it, in the order the work
+goes, then Reviews, the pull requests waiting on your review — and the one in
+focus fills the right. The bottom row shows only the keys that do something
+right now.
 
 | Key | Where | Does |
 | --- | --- | --- |
-| `tab` / `1`–`5` | anywhere | Move between panes |
+| `tab` / `1`–`6` | anywhere | Move between panes |
 | `t` / `c` / `b` | Issues | Change status, comment, branch for the issue |
 | `space` / `a` / `c` | Commits | Stage a file, stage all, commit |
 | `h` | Commits | Run the pre-commit hook |
 | `P` | Branch | Push |
 | `n` | Review | Open the pull or merge request |
-| `p` | Slack | Preview the announcement; announce now or once CI passes |
+| `p` | messaging | Preview the announcement; announce now or once CI passes |
 | `?` | anywhere | Every key |
 
 Comments, commit bodies, pull request descriptions and announcements are written
@@ -218,6 +223,13 @@ in `$EDITOR` and previewed before they send. `workflow --dry-run` holds every
 write back. The
 [usage guide](https://jacob-delgado.github.io/workflow/docs/usage/) has the
 whole loop.
+
+`workflow --web` serves the loop in a browser instead, at
+`http://127.0.0.1:7000`: six sections — Issues, Branch, Review, your messaging
+service, Reviews and Settings — kept live by the server, in a light or a dark
+theme. `--web --dry-run` makes it read-only. Re-running CI, merging, finishing
+a branch and most issue writes stay in the terminal for now;
+[the web page](https://jacob-delgado.github.io/workflow/docs/web/) says which.
 
 ## Development
 
@@ -238,8 +250,9 @@ system fits together — the surfaces, the seams, and the two kinds of local sta
 
 Full documentation is at
 **[jacob-delgado.github.io/workflow](https://jacob-delgado.github.io/workflow/)**
-— install, usage, configuration, and a command reference generated from the
-code. The source is in [`docs/`](docs/); `task docs:serve` previews it locally.
+— install, usage, the web interface, configuration, and a command reference
+generated from the code. The source is in [`docs/`](docs/); `task docs:serve`
+previews it locally.
 
 ## Releases
 

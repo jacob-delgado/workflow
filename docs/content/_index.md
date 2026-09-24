@@ -7,8 +7,8 @@ type: docs
 
 A terminal UI for the loop a developer actually runs all day: pick up a Jira
 issue, start a branch for it, open the pull or merge request, and tell the team
-in Slack — without leaving the keyboard or rebuilding the same context across
-three browser tabs.
+in Slack, Teams or Discord — without leaving the keyboard or rebuilding the same
+context across three browser tabs.
 
 ## Status
 
@@ -19,9 +19,10 @@ format that may still change before 1.0.
   change its status, branch for it, stage and commit through the repository's
   own hooks — opening a failure at its line in `$EDITOR` — push, open the pull
   or merge request from the repository's template, follow its CI, and announce
-  it in Slack. `?` lists the keys.
+  it to your team. `?` lists the keys.
 - `workflow --dry-run` does all of that with every write held back, saying what
   it would have done.
+- `workflow --web` serves the same loop in a browser, on `127.0.0.1` alone.
 - A repository with hooks in `.git/hooks` and no lefthook configuration is
   offered a `lefthook.yml` that runs them.
 - `workflow doctor` reports the repository, tooling and configuration in effect;
@@ -35,9 +36,12 @@ format that may still change before 1.0.
 - **[Install]({{< relref "/docs/install" >}})** — `go install`, release binaries,
   or build from source.
 - **[Using workflow]({{< relref "/docs/usage" >}})** — the panes, the keys,
-  and the loop from issue to Slack.
+  and the loop from issue to announcement.
+- **[The web interface]({{< relref "/docs/web" >}})** — `workflow --web`: its
+  sections, its live stream, and what it leaves to the terminal.
 - **[Configuration]({{< relref "/docs/configuration" >}})** — every field of
-  `.workflow.json`, and how to get the Jira and Slack tokens.
+  `.workflow.json`, and how to get the Jira token and a messaging webhook or
+  Slack bot token.
 - **[Scripting]({{< relref "/docs/scripting" >}})** — the commands without the
   interface: exit codes, streams, `--json`, `--yes`, `--dry-run` and `--log`.
 - **[Command reference]({{< relref "/docs/reference" >}})** — every command and
