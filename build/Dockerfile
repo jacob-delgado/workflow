@@ -19,10 +19,21 @@ ARG GO_VERSION=1.27.1
 # Pinned by digest as well as by tag, so what gets pulled cannot change under a
 # tag that was re-pushed. The digest is the multi-architecture index, so amd64
 # and arm64 both resolve from it. Dependabot's docker ecosystem updates this
-# line; GO_VERSION and the digest move together, and if they ever disagree the
-# digest wins and GOTOOLCHAIN=local fails loudly rather than building quietly
-# against the wrong Go.
+# line. Once a digest is given the tag is not consulted: the digest alone
+# decides which Go the image holds, so GO_VERSION and the digest move together,
+# and the check below stops the build when they do not.
 FROM golang:${GO_VERSION}-trixie@sha256:9baa6b4187bbb98d240372a8a235ac0bb6b5ddd52bba1431dc2f7c0705862728
+
+# go.mod names only the series, so GOTOOLCHAIN=local would accept a base image
+# one patch behind mise.toml's Go and build quietly against it. Stop here
+# instead, naming both, so a Go bump in mise.toml has to bring its digest.
+ARG GO_VERSION
+RUN set -eu; \
+    image_go="$(go env GOVERSION)"; \
+    if [ "${image_go}" != "go${GO_VERSION}" ]; then \
+    echo "the base image holds ${image_go}, but mise.toml pins go${GO_VERSION}: move the digest on FROM with the pin" >&2; \
+    exit 1; \
+    fi
 
 ARG TASK_VERSION
 ARG GOLANGCI_LINT_VERSION
