@@ -36,11 +36,26 @@ func reportCredentials(ctx context.Context, out io.Writer, run doctorRun, remote
 
 	doers := onlineDoers(run.cfg, run.log)
 
-	return errors.Join(
+	return credentialVerdict(
 		checkJira(ctx, out, doers.jira, run.cfg.Jira),
 		checkMessaging(ctx, out, doers.messaging, messaging.APIBase, run.cfg.Messaging),
 		checkForge(ctx, out, doers.forge, run.cfg.Forge, remote),
 	)
+}
+
+// credentialVerdict joins the checks' outcomes into the run's verdict, leaving
+// out a check doctor could not make: nothing is known to be wrong with a
+// credential nobody could ask about, so it must not fail the run.
+func credentialVerdict(outcomes ...error) error {
+	var counted []error
+
+	for _, outcome := range outcomes {
+		if !errors.Is(outcome, errUnchecked) {
+			counted = append(counted, outcome)
+		}
+	}
+
+	return errors.Join(counted...)
 }
 
 // onlineDoer is the transport doctor's --online checks travel over: the
@@ -98,24 +113,20 @@ func apiBase(repo forge.Repo) (string, bool) {
 func checkForge(ctx context.Context, out io.Writer, doer forge.Doer, settings config.Forge, remote string) error {
 	repo, ok := forgeRepo(remote)
 	if !ok {
-		fmt.Fprintf(out, "  %-10s no repository remote, so there is no forge to ask\n", "forge")
-
-		return nil
+		return credentialUnchecked(out, "forge", "no repository remote, so there is no forge to ask")
 	}
 
+	// The configuration section fails a forge.kind that cannot be used; here it
+	// only means there is no forge to ask.
 	repo, err := repo.WithConfiguredKind(wiring.ForgeSettings(settings))
 	if err != nil {
-		fmt.Fprintf(out, "  %-10s %v\n", "forge", err)
-
-		return fmt.Errorf("%w: forge", errCredentialRejected)
+		return credentialUnchecked(out, "forge", err.Error())
 	}
 
 	base, known := apiBase(repo)
 	if !known {
-		fmt.Fprintf(out, "  %-10s %s is neither github.com nor gitlab.com — set forge.kind and forge.host\n",
-			"forge", repo.Host)
-
-		return nil
+		return credentialUnchecked(out, "forge",
+			repo.Host+" is neither github.com nor gitlab.com — set forge.kind and forge.host")
 	}
 
 	token, source, err := wiring.ForgeResolver(settings).Resolve(ctx, repo.Kind, repo.Host)
@@ -176,15 +187,15 @@ func checkMessaging(
 	client := messaging.New(doer, base, creds)
 
 	identity, err := client.AuthTest(ctx)
+	// A webhook that cannot be checked is not a failed check. Nothing is wrong
+	// with the configuration; there is simply nothing to ask, because the only
+	// way to test a webhook is to post into somebody's channel.
+	if errors.Is(err, messaging.ErrWebhookUncheckable) {
+		return credentialUnchecked(out, label, err.Error())
+	}
+
 	if err != nil {
 		fmt.Fprintf(out, "  %-10s %v\n", label, err)
-
-		// A webhook that cannot be checked is not a failed check. Nothing is
-		// wrong with the configuration; there is simply nothing to ask, because
-		// the only way to test a webhook is to post into somebody's channel.
-		if errors.Is(err, messaging.ErrWebhookUncheckable) {
-			return nil
-		}
 
 		return credentialOutcome(err, label)
 	}
@@ -220,6 +231,14 @@ func credentialMissing(out io.Writer, service, why string) error {
 	return fmt.Errorf("%w: %s", errCredentialMissing, service)
 }
 
+// credentialUnchecked says why doctor could not ask about service's credential,
+// and reports it unchecked: a check not made is neither a pass nor a failure.
+func credentialUnchecked(out io.Writer, service, why string) error {
+	fmt.Fprintf(out, "  %-10s %s\n", service, why)
+
+	return fmt.Errorf("%w: %s", errUnchecked, service)
+}
+
 // checkJira asks Jira who the configured token authenticates as.
 func checkJira(ctx context.Context, out io.Writer, doer jira.Doer, settings config.Jira) error {
 	token, source, err := wiring.ResolveToken(ctx, settings.Token, settings.TokenCommand, settings.TokenEnv)
@@ -235,6 +254,12 @@ func checkJira(ctx context.Context, out io.Writer, doer jira.Doer, settings conf
 	client := jira.New(doer, settings)
 
 	user, err := client.Myself(ctx)
+	// The configuration section fails an address the client cannot use; here it
+	// only means there is no Jira to ask.
+	if errors.Is(err, jira.ErrInvalidBaseURL) {
+		return credentialUnchecked(out, "jira", err.Error()+" — the configuration section fails it; Jira was not asked")
+	}
+
 	if err != nil {
 		fmt.Fprintf(out, "  %-10s %v (token from %s)\n", "jira", err, source)
 

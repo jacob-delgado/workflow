@@ -190,67 +190,6 @@ README's line 39 state the same rule; and `grep -n forge
 docs/content/docs/usage.md` prints a line number that falls between the
 "Pick up an issue" heading and the next heading.
 
-### DEBT-79 `doctor --json` calls a missing credential "rejected" and an unchecked webhook "ok"
-
-Severity: medium · Confidence: read
-
-`credentialStatus` (`internal/cli/doctor_json.go:197`) has three arms — nil
-is `ok`, `errUnreachable` is `unreachable`, anything else is `rejected` —
-and its comment (`:195`) defines `ok` as a working credential. Two outcomes
-are misnamed in the machine field a script keys on:
-
-- `internal/cli/doctor_credentials.go:202` — `credentialOutcome` wraps every
-  error that is not the unreachable sentinel as `errCredentialRejected`
-  (`:207`),
-  `jira.ErrNoCredential` and `messaging.ErrNoCredential` included.
-- `internal/wiring/token.go:38` — `ResolveToken` resolves an unset token to
-  `""` with a nil error, so the check goes on to the service and is refused
-  there.
-- `internal/jira/jira.go:113` — `Client.newRequest` returns
-  `ErrNoCredential` when no auth mode is configured: the route a missing
-  `jira.token` takes to "rejected".
-- `internal/messaging/messaging.go:121` — `checkable` returns
-  `ErrNoCredential` for `MessagingNone`: the same route for a missing
-  messaging credential.
-- `internal/cli/doctor_credentials.go:216` — `checkJira` wraps a
-  `token_command` that failed in `errCredentialRejected`, though nothing was
-  rejected.
-- `internal/cli/doctor_credentials.go:172` — `checkMessaging` does the same
-  for a messaging `token_command`.
-- `internal/cli/doctor_credentials.go:110` — `checkForge` wraps a
-  `forge.kind` naming no forge in `errCredentialRejected`, and (`:125`) no
-  forge token resolved.
-- `internal/cli/doctor.go:33` — `errCredentialRejected`'s comment, "a
-  credential a service would not accept", no longer covers a missing
-  credential, a failed `token_command` or a bad `forge.kind`.
-- `internal/cli/doctor_credentials.go:185` — `checkMessaging` returns nil
-  for `ErrWebhookUncheckable`, which `credentialStatus` turns into `ok`.
-- `docs/content/docs/scripting.md:154` — `status` is documented as `ok`,
-  `rejected` or `unreachable`; there is no value for missing or unchecked.
-- `internal/cli/online_test.go:151` —
-  `TestDoctorOnlineSaysAWebhookCannotBeChecked` reads the prose only; no
-  `--json` case reads the status.
-
-The exit family is right either way (3 for a missing credential, 0 for the
-uncheckable webhook), but `status` cannot tell "rotate the token" from
-"there is no token" or "fix `forge.kind`", the last stderr line contradicts
-the report line above it ("no jira.token is configured", then "a credential
-was rejected: jira"), and a script trusts a webhook `doctor` never tried.
-
-**One way to fix it.** Wrap resolver and kind failures in the services' own
-sentinels (`jira.ErrNoCredential`, `messaging.ErrNoCredential`,
-`forge.ErrNoToken`, `forge.ErrKindNeedsHost`, all already in
-`configurationErrors`), let `credentialOutcome` keep them distinct from a
-rejection, and give `credentialStatus` a `missing` arm and an `unchecked`
-arm (the latter for `messaging.ErrWebhookUncheckable`, keeping the nil
-aggregate so the exit stays 0); document both at
-`docs/content/docs/scripting.md:154`.
-
-**Done when.** A test runs `doctor --json --online` with no `jira.token` and
-reads `status: "missing"` for jira with no "rejected" in the error text;
-`TestDoctorOnlineSaysAWebhookCannotBeChecked` gains a `--json` case that
-reads `status: "unchecked"` and exit 0.
-
 ### DEBT-81 `cmd/workflow/main.go` is not the thin main CLAUDE.md describes
 
 Severity: low · Confidence: read
@@ -519,11 +458,11 @@ The README and the docs index:
 - The README (line 45) and `docs/content/_index.md:29` — "`workflow doctor
   --online` asks Jira, your messaging service and your forge whether each
   credential actually works"; `checkMessaging`'s comment
-  (`internal/cli/doctor_credentials.go:162`) says a webhook is uncheckable,
-  `ErrWebhookUncheckable` returns nil (`:185`), `credentialStatus` reads
-  that as `ok` (`internal/cli/doctor_json.go:201`), and
+  (`internal/cli/doctor_credentials.go:170`) says a webhook is uncheckable,
+  `ErrWebhookUncheckable` is reported unchecked (`:193`), `credentialStatus`
+  names that `unchecked` (`internal/cli/doctor_json.go:202`), and
   `TestDoctorOnlineSaysAWebhookCannotBeChecked`
-  (`internal/cli/online_test.go:169`) pins "cannot be checked".
+  (`internal/cli/online_test.go:153`) pins "cannot be checked".
 - The README's line 262 — "There are no releases yet." while nine tags
   exist, v0.3.0 the latest; the README's line 66 and
   `docs/content/docs/install.md:37` still say that until the first tag

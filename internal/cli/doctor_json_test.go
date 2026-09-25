@@ -167,6 +167,10 @@ const (
 	messagingService = "slack"
 )
 
+// uncheckedStatus is the status the online report gives a check doctor could
+// not make.
+const uncheckedStatus = "unchecked"
+
 // credentialStatusIn is the status the online report gives service, or "" when
 // the report names no such service.
 func credentialStatusIn(report map[string]any, service string) string {
@@ -359,5 +363,94 @@ func TestDoctorJSONOnlineAsksJiraNothingWhenItsTokenEnvIsEmpty(t *testing.T) {
 
 	if got := credentialStatusIn(decodeReport(t, output), jiraService); got != "missing" {
 		t.Errorf("the online report calls an empty %s %q, want missing:\n%s", emptyTokenVariable, got, output)
+	}
+}
+
+// forgeKindRepository is a repository on a host that names neither forge, with
+// a configuration whose forge block is forgeFields.
+func forgeKindRepository(t *testing.T, forgeFields string) string {
+	t.Helper()
+
+	dir := repoWithRemote(t, unreachableForge)
+	writeFile(t, dir, `{"jira": {"base_url": "`+workingJira(t)+`", "token": "t"}, `+slackWebhook+`,`+
+		` "forge": {`+forgeFields+`}}`)
+
+	return dir
+}
+
+func TestDoctorJSONOnlineCallsAForgeItCannotAskUnchecked(t *testing.T) {
+	// A forge.kind that cannot be used still exits 3, through the configuration
+	// section that names it; the forge's credential is not what is wrong.
+	cases := map[string]struct {
+		setup    func(t *testing.T) string
+		wantExit int
+	}{
+		"no repository remote": {wantExit: 0, setup: func(t *testing.T) string {
+			t.Helper()
+
+			dir := t.TempDir()
+			gitInit(t, dir)
+			writeConfigFor(t, dir, workingJira(t))
+
+			return dir
+		}},
+		"a host that names neither forge": {wantExit: 0, setup: func(t *testing.T) string {
+			t.Helper()
+
+			dir := repoWithRemote(t, unreachableForge)
+			writeConfigFor(t, dir, workingJira(t))
+
+			return dir
+		}},
+		"a forge.kind naming no forge": {wantExit: 3, setup: func(t *testing.T) string {
+			t.Helper()
+
+			return forgeKindRepository(t, `"kind": "bitbucket", "host": "`+unreachableHost+`"`)
+		}},
+		"a forge.kind with no forge.host": {wantExit: 3, setup: func(t *testing.T) string {
+			t.Helper()
+
+			return forgeKindRepository(t, `"kind": "github"`)
+		}},
+	}
+
+	for name, tt := range cases {
+		t.Run(name, func(t *testing.T) {
+			// Arrange
+			clearForgeEnvironment(t)
+			dir := tt.setup(t)
+
+			// Act
+			output, err := run(t, dir, "doctor", "--json", "--online")
+
+			// Assert
+			wantExit(t, err, tt.wantExit)
+
+			if got := credentialStatusIn(decodeReport(t, output), "forge"); got != uncheckedStatus {
+				t.Errorf("the online report calls a forge it could not ask %q, want unchecked:\n%s", got, output)
+			}
+		})
+	}
+}
+
+func TestDoctorJSONOnlineCallsJiraUncheckedAtAnAddressItCannotUse(t *testing.T) {
+	// Arrange
+	// The configuration section fails the address, so the run still exits 3;
+	// Jira is never asked, so no credential is what is wrong.
+	dir := t.TempDir()
+	writeConfigFor(t, dir, "ftp://jira.example.com")
+
+	// Act
+	output, err := run(t, dir, "doctor", "--json", "--online")
+
+	// Assert
+	wantExit(t, err, 3)
+
+	if got := credentialStatusIn(decodeReport(t, output), jiraService); got != uncheckedStatus {
+		t.Errorf("the online report calls a Jira at an unusable address %q, want unchecked:\n%s", got, output)
+	}
+
+	if err != nil && strings.Contains(err.Error(), "a credential was rejected") {
+		t.Errorf("doctor --json --online = %v, want no credential rejected when Jira was never asked", err)
 	}
 }
