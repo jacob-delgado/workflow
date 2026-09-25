@@ -9,6 +9,7 @@ import (
 	"bufio"
 	"fmt"
 	"os"
+	"os/user"
 	"runtime"
 	"strings"
 
@@ -53,7 +54,7 @@ func terminalPrompt() cli.Prompt {
 
 			return string(secret), err
 		},
-		StoreSecret: keychain.Storer(runtime.GOOS, proc.Capture),
+		StoreSecret: keychain.Storer(runtime.GOOS, proc.Capture, user.Current, os.Getenv),
 		Compose: func(draft, help string) (string, error) {
 			return editor.Compose(os.Getenv, draft, help)
 		},

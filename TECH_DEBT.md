@@ -151,7 +151,7 @@ The command line:
 
 - `CLAUDE.md:27` — the layout row "thin main; wires cli.Execute and the exit
   status" leaves out the two terminal reads `terminalPrompt`
-  (`cmd/workflow/main.go:36`) keeps there, beside the keychain and editor it
+  (`cmd/workflow/main.go:37`) keeps there, beside the keychain and editor it
   takes from their own packages.
 
 The clients:

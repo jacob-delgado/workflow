@@ -244,7 +244,7 @@ pointer.
   `workflow config init < /dev/null` prints "workflow: EOF" and exits 1
   with no mention of `--template`. A final line typed without a newline
   comes back from `terminalPrompt`'s `ReadString` together with `io.EOF`
-  (`cmd/workflow/main.go:43`) and is discarded with it.
+  (`cmd/workflow/main.go:44`) and is discarded with it.
 - `internal/cli/cli.go:192` (`NewRootCmdOver`'s `--web` branch): every
   load error, `ErrNotFound` included, prints "configuration did not load
   cleanly: %v" and then serves (`:199`). Its siblings branch on
@@ -1996,7 +1996,7 @@ script is told to press a key it does not have.
 - `rejectionReason`, `internal/messaging/post.go:175`, `:177` and `:178`:
   three sentences end "then press enter to try again" inside a domain
   error; `runAnnounce`, `internal/cli/announce.go:146`, wraps it with `%w`
-  and `main`, `cmd/workflow/main.go:26`, prints it on stderr, key and all —
+  and `main`, `cmd/workflow/main.go:27`, prints it on stderr, key and all —
   against the interface's own rule, in the doc comment above `wording` at
   `internal/tui/failure.go:76`, that a full form names no key to press.
 
