@@ -73,19 +73,19 @@ func TestRedactedMasksEveryJiraHeaderValue(t *testing.T) {
 	// Arrange
 	const secret = "cf-access-secret-value"
 
-	cfg := config.Config{Jira: config.Jira{Headers: map[string]string{"CF-Access-Client-Secret": secret}}}
+	cfg := config.Config{Jira: config.Jira{Headers: map[string]config.Secret{"CF-Access-Client-Secret": secret}}}
 
 	// Act
 	redacted := cfg.Redacted()
 
 	// Assert
-	if strings.Contains(redacted.Jira.Headers["CF-Access-Client-Secret"], secret) {
-		t.Errorf("header value leaked: %q", redacted.Jira.Headers["CF-Access-Client-Secret"])
+	if shown := redacted.Jira.Headers["CF-Access-Client-Secret"].Reveal(); strings.Contains(shown, secret) {
+		t.Errorf("header value leaked: %q", shown)
 	}
 
 	// Redaction must not mutate the original map.
-	if cfg.Jira.Headers["CF-Access-Client-Secret"] != secret {
-		t.Errorf("Redacted mutated the original header: %q", cfg.Jira.Headers["CF-Access-Client-Secret"])
+	if kept := cfg.Jira.Headers["CF-Access-Client-Secret"].Reveal(); kept != secret {
+		t.Errorf("Redacted mutated the original header: %q", kept)
 	}
 }
 

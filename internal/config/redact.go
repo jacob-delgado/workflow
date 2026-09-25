@@ -34,14 +34,14 @@ func redactSecret(secret Secret) Secret {
 // redactHeaders masks the value of every extra Jira header. A header a proxy
 // checks — a Cloudflare Access secret, say — is a credential, and there is no
 // way to tell a secret one from a harmless one, so every value is masked.
-func redactHeaders(headers map[string]string) map[string]string {
+func redactHeaders(headers map[string]Secret) map[string]Secret {
 	if headers == nil {
 		return nil
 	}
 
-	masked := make(map[string]string, len(headers))
+	masked := make(map[string]Secret, len(headers))
 	for name, value := range headers {
-		masked[name] = Redact(value)
+		masked[name] = redactSecret(value)
 	}
 
 	return masked

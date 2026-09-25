@@ -290,13 +290,11 @@ func keepSecret(incoming, stored config.Secret) config.Secret {
 	return incoming
 }
 
-// keepHeaders applies keepSecret's rule to each Jira header value, which is
-// masked on read the same way a token is.
-func keepHeaders(incoming, stored map[string]string) map[string]string {
+// keepHeaders applies keepSecret to each Jira header value, which is masked on
+// read the same way a token is.
+func keepHeaders(incoming, stored map[string]config.Secret) map[string]config.Secret {
 	for key, value := range incoming {
-		if value == "" || value == config.Redact(stored[key]) {
-			incoming[key] = stored[key]
-		}
+		incoming[key] = keepSecret(value, stored[key])
 	}
 
 	return incoming

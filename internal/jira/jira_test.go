@@ -174,7 +174,7 @@ func TestExtraHeadersAreSentWithEveryRequest(t *testing.T) {
 
 	settings := config.Jira{
 		BaseURL: server.URL, Token: token,
-		Headers: map[string]string{"Cf-Access-Client-Id": "gateway-id"},
+		Headers: map[string]config.Secret{"Cf-Access-Client-Id": "gateway-id"},
 	}
 	client := jira.New(server.Client().Do, settings)
 

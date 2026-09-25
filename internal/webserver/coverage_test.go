@@ -225,10 +225,12 @@ func TestUpdateConfigResolvesHeaders(t *testing.T) {
 	// new value (replace it).
 	cfg := config.Default()
 	cfg.Path = filepath.Join(t.TempDir(), ".workflow.json")
-	cfg.Jira.Headers = map[string]string{"CF-Id": "stored-id-secret", "CF-Team": "stored-team"}
+	cfg.Jira.Headers = map[string]config.Secret{"CF-Id": "stored-id-secret", "CF-Team": "stored-team"}
 
 	next := cfg
-	next.Jira.Headers = map[string]string{"CF-Id": config.Redact("stored-id-secret"), "CF-Team": "new-team"}
+	next.Jira.Headers = map[string]config.Secret{
+		"CF-Id": config.Secret(config.Redact("stored-id-secret")), "CF-Team": "new-team",
+	}
 
 	// Act
 	recorder := putConfig(t, serve(t, webserver.Deps{}, cfg), marshal(t, next))
@@ -243,12 +245,12 @@ func TestUpdateConfigResolvesHeaders(t *testing.T) {
 		t.Fatalf("reading the saved file: %v", err)
 	}
 
-	if saved.Jira.Headers["CF-Id"] != "stored-id-secret" {
-		t.Errorf("CF-Id = %q, want the stored value kept behind the mask", saved.Jira.Headers["CF-Id"])
+	if got := saved.Jira.Headers["CF-Id"].Reveal(); got != "stored-id-secret" {
+		t.Errorf("CF-Id = %q, want the stored value kept behind the mask", got)
 	}
 
-	if saved.Jira.Headers["CF-Team"] != "new-team" {
-		t.Errorf("CF-Team = %q, want the new value written", saved.Jira.Headers["CF-Team"])
+	if got := saved.Jira.Headers["CF-Team"].Reveal(); got != "new-team" {
+		t.Errorf("CF-Team = %q, want the new value written", got)
 	}
 }
 
