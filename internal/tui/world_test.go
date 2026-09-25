@@ -233,7 +233,8 @@ func newWorld() *world {
 			CommentTotal: 1,
 		},
 		branch: gitrepo.Branch{
-			Name: featureName, Head: "abc123", Upstream: "origin/" + featureName, Base: baseRef,
+			Name: featureName, Head: "abc123", Base: baseRef,
+			Upstream: "origin/" + featureName, PushRemote: gitrepo.DefaultRemote,
 			Commits: []gitrepo.Commit{{Hash: "1a2b3c4", Subject: pullTitle}},
 		},
 		changes:   []gitrepo.Change{{Path: "internal/config/redact.go", Staged: 'M', Unstaged: ' '}},

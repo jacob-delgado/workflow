@@ -108,7 +108,7 @@ func TestEnsurePushedSkipsAPushedBranch(t *testing.T) {
 	var pushed []string
 
 	branch := openable(branchName)
-	branch.Upstream = "origin/" + branchName
+	branch.Upstream, branch.PushRemote = "origin/"+branchName, gitrepo.DefaultRemote
 
 	// Act
 	err := loop.EnsurePushed(recordingPush(&pushed), branch)
@@ -125,7 +125,7 @@ func TestEnsurePushedPushesAnUnpublishedBranch(t *testing.T) {
 	cases := map[string]gitrepo.Branch{
 		"a branch with no upstream": openable(branchName),
 		"a branch ahead of its upstream": {
-			Name: branchName, Upstream: "origin/" + branchName, Ahead: 1,
+			Name: branchName, Upstream: "origin/" + branchName, PushRemote: gitrepo.DefaultRemote, Ahead: 1,
 		},
 	}
 

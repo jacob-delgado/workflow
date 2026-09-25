@@ -33,7 +33,7 @@ const openRequestBody = `{"title":"` + prTitle + `","base":"` + prBase + `","bod
 func pushedBranch() gitrepo.Branch {
 	return gitrepo.Branch{
 		Name: testBranchName, Base: testBase, Upstream: "origin/" + testBranchName, Ahead: 0,
-		Commits: []gitrepo.Commit{{Hash: testCommitHash, Subject: testCommitSubject}},
+		PushRemote: gitrepo.DefaultRemote, Commits: []gitrepo.Commit{{Hash: testCommitHash, Subject: testCommitSubject}},
 	}
 }
 

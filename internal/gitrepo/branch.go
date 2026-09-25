@@ -62,8 +62,11 @@ type Branch struct {
 	Detached bool
 	// Head is the commit checked out, or empty before the first commit.
 	Head string
-	// Upstream is the remote branch it pushes to, or empty if never pushed.
+	// Upstream is the remote branch it tracks, or empty if never pushed.
 	Upstream string
+	// PushRemote is the remote a push of it goes to, read only when it has an
+	// upstream to compare with, and empty otherwise.
+	PushRemote string
 	// Ahead and Behind count commits against the upstream.
 	Ahead, Behind int
 	// Base is the branch this one would merge into — origin's default branch
@@ -79,12 +82,19 @@ type Branch struct {
 	Truncated bool
 }
 
-// Pushed reports whether origin holds this branch, under its own name, with
-// every commit. The name matters: a branch created from origin/main without
-// --no-track tracks origin/main, is ahead of it by nothing, and is not on the
-// remote at all.
+// PushTarget is the remote branch a push of this one lands on, "fork/feat" for
+// feat pushed to fork. It names no remote for a branch with no upstream, whose
+// push remote is not read.
+func (b Branch) PushTarget() string {
+	return b.PushRemote + "/" + b.Name
+}
+
+// Pushed reports whether the remote a push goes to holds this branch, under its
+// own name, with every commit. The name matters: a branch created from
+// origin/main without --no-track tracks origin/main, is ahead of it by nothing,
+// and is not on the remote at all.
 func (b Branch) Pushed() bool {
-	return b.Name != "" && b.Upstream == remoteBranch(b.Name) && b.Ahead == 0
+	return b.Name != "" && b.Upstream == b.PushTarget() && b.Ahead == 0
 }
 
 // Unpushed are the commits on this branch that have not reached the upstream,
@@ -158,6 +168,7 @@ func (r Repository) ReadBranch(ctx context.Context) (Branch, error) {
 
 	if branch.Upstream != "" {
 		branch.Behind, branch.Ahead = counts(git("rev-list", "--left-right", "--count", "@{upstream}...HEAD"))
+		branch.PushRemote = r.PushRemote(ctx)
 	}
 
 	if branch.Base != "" && branch.Head != "" {
