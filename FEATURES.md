@@ -44,8 +44,8 @@ that needs one of them reopened goes in the
   conveniences — the scope last used, what was announced, the last issue list —
   and never a secret. `store.disabled` keeps nothing on disk, the way it once
   always was.
-- **Every service is reached over the standard library's `net/http`.** `gh` is
-  an optional source of a token and nothing more.
+- **Every service is reached over `net/http`, except the forge when
+  `forge.cli` routes it through `gh` or `glab`.**
 - **`git` is the only program that must be installed.** `lefthook` and an
   editor make more of the interface work, and their absence only hides the
   parts that need them.
