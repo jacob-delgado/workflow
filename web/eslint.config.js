@@ -58,7 +58,7 @@ const noTestImplDetails = [
   },
   {
     selector:
-      'CallExpression[callee.property.name=/^(get|has)Attribute$/][arguments.0.value=/^data-/]',
+      'CallExpression[callee.property.name=/^(get|has|toHave)Attribute$/][arguments.0.value=/^data-/]',
     message: 'Assert on user-facing behavior, not internal data-* hooks.',
   },
   {
@@ -128,6 +128,22 @@ export default tseslint.config(
     rules: {
       ...vitest.configs.recommended.rules,
       'testing-library/no-node-access': 'off',
+      'no-restricted-syntax': [
+        'error',
+        ...noReactEscapeBypass,
+        ...noOpacityDimming,
+        ...noAllCaps,
+        ...noTestImplDetails,
+      ],
+    },
+  },
+  // The same black-box assertion rules for the Playwright specs and their
+  // helpers: a spec asserts what a user can perceive, not a data-* hook, class
+  // or style. testing-library and vitest stay off here — they police jsdom and
+  // vitest, which e2e does not use.
+  {
+    files: ['e2e/**/*.ts'],
+    rules: {
       'no-restricted-syntax': [
         'error',
         ...noReactEscapeBypass,
