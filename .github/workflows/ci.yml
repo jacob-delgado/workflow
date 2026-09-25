@@ -365,7 +365,7 @@ jobs:
   # of mistake: add a job here, add it to `needs`, and protection keeps working.
   ci-gate:
     name: ci-gate
-    needs: [lint, test, build, web, e2e, scan, commit-lint]
+    needs: [lint, test, build, web, e2e, cross, scan, commit-lint]
     # always(), so the gate reports a verdict even when a dependency fails —
     # without it the gate would be skipped, and a skipped required check never
     # goes green.
@@ -387,7 +387,9 @@ jobs:
           fi
           echo "All required jobs succeeded."
 
-  # Deliberately NOT in the gate: Coverage comment and Coverage baseline. Both
-  # are reporting, not gating — the coverage FLOORS live inside the Test job, so
-  # a coverage regression already fails there. The baseline job is also skipped
-  # on pull requests by design, and a gate should not have to special-case that.
+  # Deliberately NOT in the gate: Test summary, Coverage comment and Coverage
+  # baseline. All three are reporting, not gating — Test summary reruns suites
+  # the Test, Web and E2E jobs already gate on, and the coverage FLOORS live
+  # inside the Test job, so a coverage regression already fails there. The
+  # baseline job is also skipped on pull requests by design, and a gate should
+  # not have to special-case that.

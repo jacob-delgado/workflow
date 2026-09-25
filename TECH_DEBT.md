@@ -3777,33 +3777,6 @@ form's fields among the controls reached, each at least 99 % in view, at 640
 px; and the hermetic Settings scan waits on the Retry button, so a
 deliberate delay in the config read does not change what axe reports on.
 
-### DEBT-149 The cross-compile job is not in `ci-gate`, so its failure merges
-
-Severity: medium · Confidence: read
-
-The `cross` job in `.github/workflows/ci.yml:164` exists, its comment says,
-so a broken cross-compilation "is caught on the pull request rather than at
-the tag"; it runs `task release:binaries` and `task release:verify`. But
-`ci-gate`'s `needs` (`.github/workflows/ci.yml:367`) lists `lint`, `test`,
-`build`, `web`, `e2e`, `scan` and `commit-lint` and omits `cross`, and
-`ci-gate` is the one required check, so a pull request whose Cross-compile
-job is red still merges. The closing comment
-(`.github/workflows/ci.yml:389`) names only Coverage comment and Coverage
-baseline as deliberately outside the gate, so the omission reads as an
-oversight. `task check` (`Taskfile.yml:508`) never builds the release
-targets either, so the release gate
-(`.github/workflows/release-please.yml:80`, `task check`) passes,
-`scripts/release/push-release-tag.sh:80` pushes the tag, and
-`.github/workflows/release.yml` fails at the build: a tag with no release
-behind it, which release-please.yml's `Verify the gate before tagging` step
-(`.github/workflows/release-please.yml:78`) exists to prevent.
-
-**One way to fix it.** Add `cross` to `ci-gate`'s `needs` list.
-
-**Done when.** `needs` on `ci-gate` in `.github/workflows/ci.yml` lists
-`cross`, and a pull request with a failing Cross-compile job shows `ci-gate`
-red.
-
 ### DEBT-152 The mise version and the container's Go patch drift ungated
 
 Severity: low · Confidence: read
