@@ -203,7 +203,7 @@ while it runs.
   (`internal/cli/config_cmd.go:327`) only warns when it is not, and nothing
   writes a `.gitignore`; the sentence is true of this repository's own
   `.gitignore:34`, not the user's. `README.md:198` and
-  `docs/content/docs/configuration.md:496` (both under "Keeping the tokens
+  `docs/content/docs/configuration.md:497` (both under "Keeping the tokens
   safe") say the same.
 - `internal/cli/config_cmd.go:58` and `:59` (`newConfigInitCmd`'s `Short`
   and `Long`): "asking for and checking each credential", "check each
@@ -368,7 +368,7 @@ that explains the machine, has no row for either.
   directory; the doc comment above (`:298`) calls the no-op intended, "the
   interface simply learns nothing", which is what makes this a
   discoverability gap rather than a defect.
-- `internal/store/store.go:134` (`Store.off`): `s.disabled || s.dir ==
+- `internal/store/store.go:135` (`Store.off`): `s.disabled || s.dir ==
   ""`, so every seam no-ops on the empty directory with no signal outward.
   On a home-less machine the interface opens with no seeded issue list and
   forgets the last scope and every announcement, while `store.disabled` is

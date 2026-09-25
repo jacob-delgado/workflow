@@ -471,9 +471,10 @@ SQLite database under your platform's data directory:
 
 The store **never holds a secret**. It is keyed only by a repository's host and
 path and by a hash of your Jira URL — never by a credential, and never by the raw
-URL — so a token embedded in a remote cannot reach it. The database file is
-`0600` in a `0700` directory, readable only by you, and what it holds is
-disposable: delete it and the next session simply rebuilds it.
+URL — so a token embedded in a remote cannot reach it. Where the filesystem
+keeps Unix modes, the database file is `0600` in a `0700` directory, readable
+only by you. What it holds is disposable: delete it and the next session simply
+rebuilds it.
 
 The store is on by default. Set `store.disabled` to keep nothing on disk; with it
 set, workflow behaves exactly as it did before the store existed, working
