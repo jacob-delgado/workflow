@@ -373,7 +373,7 @@ that explains the machine, has no row for either.
   On a home-less machine the interface opens with no seeded issue list and
   forgets the last scope and every announcement, while `store.disabled` is
   still false.
-- `internal/cli/doctor_requirements.go:106` (`externalTools`): the tool
+- `internal/cli/doctor_requirements.go:122` (`externalTools`): the tool
   list is git, lefthook and gh; no doctor file mentions the store, and
   `glab` is absent.
 - `internal/wiring/forgecli.go:34` (`forgeTransport`): `if !ok ||

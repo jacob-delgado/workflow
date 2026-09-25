@@ -154,12 +154,15 @@ whole array.
 `repository` (`inside_work_tree`, `root`, `branch`, `detached`, `remote`,
 `forge`); `tooling`, one entry per program (`name`, `found`, `required`,
 `effect`); `configuration` (`path`, `jira_url`, `jira_auth_mode`,
-`messaging_target`, `messaging_mode`, `world_readable`, `missing`), or
-`config_problem` when the file did not load; and `credentials` (`checked`,
-and with `--online` over a file that loaded, `results`: `service`, `status`
-— `ok`, `rejected` or `unreachable` — and `detail`). It exits as the prose
-report does. A service that answers with a redirect, or asks you to wait, is
-`unreachable` and exits 5: it never judged the credential.
+`messaging_target`, `messaging_mode`, `world_readable`, then `missing` and
+`problems`: the required fields still empty and the values filled in wrong,
+each `null` when there are none), or `config_problem` when the file did not
+load; and `credentials` (`checked`, and with `--online` over a file that
+loaded, `results`: `service`, `status` — `ok`, `rejected` or `unreachable` —
+and `detail`). It exits as the prose report does: a field missing, a value
+filled in wrong or a file other users can reach exits 3. A service that
+answers with a redirect, or asks you to wait, is `unreachable` and exits 5:
+it never judged the credential.
 
 `workflow config show` prints the configuration file's own shape, as
 [Configuration]({{< relref "/docs/configuration" >}}) describes it.

@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"slices"
 	"strings"
 	"sync/atomic"
 	"testing"
@@ -63,6 +64,46 @@ func TestDoctorJSONReportsTheFactsAsData(t *testing.T) {
 
 	if _, old := configuration["slack_mode"]; old {
 		t.Errorf("the report still carries the retired slack_mode key:\n%s", output)
+	}
+
+	// Nothing is filled in wrong, so problems is present and null, as missing is.
+	if problems, present := configuration["problems"]; !present || problems != nil {
+		t.Errorf("configuration.problems = %v (present %t), want null:\n%s", problems, present, output)
+	}
+}
+
+// unmentioned is the first of wants that no item in items mentions, or "" when
+// every one is mentioned.
+func unmentioned(items []any, wants ...string) string {
+	for _, want := range wants {
+		if !slices.ContainsFunc(items, func(item any) bool {
+			text, isText := item.(string)
+
+			return isText && strings.Contains(text, want)
+		}) {
+			return want
+		}
+	}
+
+	return ""
+}
+
+func TestDoctorJSONFailsOnSetButInvalidValues(t *testing.T) {
+	// Arrange
+	dir := t.TempDir()
+	writeFile(t, dir, invalidValuesConfig)
+
+	// Act
+	output, err := run(t, dir, "doctor", "--json")
+
+	// Assert
+	wantExit(t, err, 3)
+
+	configuration, _ := decodeReport(t, output)["configuration"].(map[string]any)
+	problems, _ := configuration["problems"].([]any)
+
+	if missed := unmentioned(problems, "jira.base_url", "messaging.webhook_url", "forge.kind", "stage-all"); missed != "" {
+		t.Errorf("configuration.problems = %v, want an entry naming %q:\n%s", problems, missed, output)
 	}
 }
 

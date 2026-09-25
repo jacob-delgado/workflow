@@ -425,21 +425,22 @@ func reportConfiguration(out io.Writer, cfg config.Config, loadErr error) error 
 	// this output is what the bug report template invites people to paste.
 	field(out, cfg.Messaging.Service(), fmt.Sprintf("%s (%s)", cfg.Messaging.Target(), cfg.Messaging.Mode()))
 
-	return errors.Join(reportSharedMode(out, cfg.Path), reportRequirements(out, cfg))
+	review := reviewConfiguration(cfg)
+	reportSharedMode(out, cfg.Path, review)
+	reportRequirements(out, cfg.Path, review)
+
+	return review.err()
 }
 
-// reportSharedMode refuses a configuration file that anyone but its owner can
-// read or write, and says the one command that puts it right.
-func reportSharedMode(out io.Writer, path string) error {
-	mode, shared := config.SharedMode(path)
-	if !shared {
-		return nil
+// reportSharedMode says when anyone but its owner can read or write the
+// configuration file, and the one command that puts it right.
+func reportSharedMode(out io.Writer, path string, review configReview) {
+	if !review.shared {
+		return
 	}
 
-	field(out, "Permissions", fmt.Sprintf("%#o, so other users can reach this file", mode))
+	field(out, "Permissions", fmt.Sprintf("%#o, so other users can reach this file", review.mode))
 	fmt.Fprintf(out, "\nIt holds credentials. Make it yours alone with `chmod 600 %s`.\n", path)
-
-	return fmt.Errorf("%w: mode %#o", errShared, mode)
 }
 
 // reportLoadError explains a configuration that could not be read, and says what
