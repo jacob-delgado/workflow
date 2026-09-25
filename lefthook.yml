@@ -3,8 +3,13 @@
 # Skip one hook for one commit: LEFTHOOK_EXCLUDE=name-of-hook git commit ...
 # Skip all hooks for one commit: LEFTHOOK=0 git commit ...
 #
-# Pre-commit hooks run against ONLY the staged diff ({staged_files}); pre-push
-# runs the test suite, so a green push is very likely a green CI.
+# Pre-commit hooks run against ONLY the staged diff ({staged_files}). Pre-push
+# runs five commands over the working tree: unit-go (the Go tests) and
+# lint-go-all (golangci-lint) when the push carries a Go change, web (the web's
+# lint, client-drift check and unit tests) when it carries a web/ or API-spec
+# change, and file-length and package-size on every push. The rest of
+# `task check` — the Go coverage floors, the whole-tree linters and secret
+# scan, govulncheck — and CI's end-to-end suites run only there.
 #
 # DO NOT reach for `LEFTHOOK=0` to get past a blocked commit. A failing hook is
 # the hook working — fix the underlying issue. The only legitimate bypass is a
@@ -103,9 +108,11 @@ pre-commit:
     gitleaks:
       run: gitleaks git --staged --redact --no-banner
 
-# Pre-push: the tests, plus the two whole-tree checks that a staged-diff hook
-# cannot see. A red result here is a guaranteed red CI, and learning that
-# locally costs seconds instead of a CI round trip.
+# Pre-push: the Go tests (unit-go), golangci-lint over every Go file
+# (lint-go-all), the web's gates (web), and the two whole-tree counts a
+# staged-diff hook cannot see (file-length, package-size). A red result here is
+# a guaranteed red CI, and learning that locally costs far less than a CI round
+# trip.
 pre-push:
   parallel: false
   commands:
@@ -134,6 +141,22 @@ pre-push:
     lint-go-all:
       glob: "{*.go,go.mod,go.sum}"
       run: golangci-lint run
+
+    # The web twin of unit-go and lint-go-all: the same three web tasks
+    # `task check` and CI's Web job run (eslint, tsc, prettier, knip and the
+    # import boundaries; the generated client against api/openapi.yaml; vitest
+    # with its coverage floor). The spec is in the glob because a change to it
+    # alone is what leaves the generated client behind.
+    #
+    # The same scrub as unit-go: from a linked worktree git exports GIT_DIR
+    # but not GIT_WORK_TREE, so the client check's
+    # `git diff -- src/api/generated`, run from web/, would take web/ as the
+    # top of the worktree and match nothing.
+    web:
+      glob: "{web/**,api/openapi.yaml}"
+      run: |
+        unset $(git rev-parse --local-env-vars)
+        task web:lint web:gen:check web:test
 
     # Deliberately no glob: file length changes by editing a file, and a commit
     # that only moves or renames one still changes which paths are measured.
