@@ -285,6 +285,35 @@ func TestDoctorReportsAMalformedConfiguration(t *testing.T) {
 	}
 }
 
+func TestDoctorSaysItCannotReadTheConfiguration(t *testing.T) {
+	// Arrange
+	if os.Geteuid() == 0 {
+		t.Skip("root opens a file whatever its mode, so the sealed one would be read")
+	}
+
+	dir := t.TempDir()
+	path := writeFile(t, dir, `{}`)
+
+	err := os.Chmod(path, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Act
+	output, err := run(t, dir, "doctor")
+
+	// Assert
+	if got := fieldValue(output, "Configuration"); !strings.Contains(got, "cannot be read") {
+		t.Errorf("doctor's Configuration line = %q, want it to say the file cannot be read:\n%s", got, output)
+	}
+
+	if !strings.Contains(output, "permission denied") {
+		t.Errorf("doctor does not say why the configuration cannot be read:\n%s", output)
+	}
+
+	wantExit(t, err, 1)
+}
+
 func TestDoctorAcceptsAWebhookWithoutAChannel(t *testing.T) {
 	// Arrange
 	dir := t.TempDir()
