@@ -17,11 +17,13 @@ test('the system theme resolves to the OS scheme and follows it as it changes', 
   await page.goto('/')
 
   // Assert: the first paint resolved to dark
+  // eslint-disable-next-line no-restricted-syntax -- data-theme is the resolved theme itself, the value index.html's pre-paint script and useApplyTheme set; no role, name or text carries it
   await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark')
 
   // Act: the OS switches to light while the app is open
   await page.emulateMedia({ colorScheme: 'light' })
 
   // Assert: it follows, without a reload
+  // eslint-disable-next-line no-restricted-syntax -- data-theme is the resolved theme itself, the value index.html's pre-paint script and useApplyTheme set; no role, name or text carries it
   await expect(page.locator('html')).toHaveAttribute('data-theme', 'light')
 })
