@@ -343,7 +343,7 @@ func (m Model) noticedFailure(err error) Model {
 }
 
 // noticedFailureLedBy is noticedFailure with what failed leading the row —
-// "cannot merge: " — for a notice no open overlay names: the footer clips a
+// "re-run failed: " — for a notice no open overlay names: the footer clips a
 // long sentence, and the lead must survive it.
 func (m Model) noticedFailureLedBy(lead string, err error) Model {
 	words := []string{m.marks.failed + " " + lead + inFull(err)}
