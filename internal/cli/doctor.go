@@ -40,6 +40,11 @@ var (
 	// errUnreachable reports a service that never answered, as distinct from one
 	// that answered by refusing the credential.
 	errUnreachable = errors.New("the service could not be reached")
+	// errUnchecked reports a credential doctor could not ask about: a webhook,
+	// which only posting would test, a forge it cannot name, or a Jira at an
+	// address the client cannot use. It belongs to no exit family, and
+	// credentialVerdict leaves it out of the run's verdict.
+	errUnchecked = errors.New("the credential could not be checked")
 )
 
 // labelWidth keeps the report's values in one column so the eye can scan them.

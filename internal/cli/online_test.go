@@ -148,26 +148,44 @@ func TestDoctorOnlineFallsBackToTheLoginName(t *testing.T) {
 	}
 }
 
+// Nothing is wrong with the configuration — there is simply nothing to ask,
+// because the only way to test a webhook is to post into someone's channel.
 func TestDoctorOnlineSaysAWebhookCannotBeChecked(t *testing.T) {
-	// Arrange
-	var reached atomic.Bool
+	cases := map[string]struct {
+		command string
+		says    func(t *testing.T, output string) bool
+	}{
+		"the prose says why": {command: "doctor --online", says: func(_ *testing.T, output string) bool {
+			return strings.Contains(output, "cannot be checked")
+		}},
+		"the JSON calls it unchecked": {command: "doctor --json --online", says: func(t *testing.T, output string) bool {
+			t.Helper()
 
-	dir := t.TempDir()
-	server := jiraServer(t, http.StatusOK, jiraFixture, &reached)
-	writeConfigFor(t, dir, server.URL)
-
-	// Act
-	output, err := run(t, dir, "doctor", "--online")
-
-	// Assert
-	if err != nil || !reached.Load() {
-		t.Fatalf("doctor --online failed on a webhook it merely cannot check: %v (%s)", err, output)
+			return credentialStatusIn(decodeReport(t, output), messagingService) == uncheckedStatus
+		}},
 	}
 
-	// Nothing is wrong with the configuration — there is simply nothing to ask,
-	// because the only way to test a webhook is to post into someone's channel.
-	if !strings.Contains(output, "cannot be checked") {
-		t.Errorf("doctor does not explain why the webhook went unchecked:\n%s", output)
+	for name, tt := range cases {
+		t.Run(name, func(t *testing.T) {
+			// Arrange
+			var reached atomic.Bool
+
+			dir := t.TempDir()
+			server := jiraServer(t, http.StatusOK, jiraFixture, &reached)
+			writeConfigFor(t, dir, server.URL)
+
+			// Act
+			output, err := run(t, dir, strings.Fields(tt.command)...)
+
+			// Assert
+			if err != nil || !reached.Load() {
+				t.Fatalf("%s failed on a webhook it merely cannot check: %v (%s)", tt.command, err, output)
+			}
+
+			if !tt.says(t, output) {
+				t.Errorf("%s does not say the webhook went unchecked:\n%s", tt.command, output)
+			}
+		})
 	}
 }
 
