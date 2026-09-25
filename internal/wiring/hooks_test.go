@@ -94,8 +94,8 @@ func TestTheHookSeamsOfferNothingOutsideARepository(t *testing.T) {
 	found, configured := seams.Existing()
 
 	// Assert
-	if len(found) != 0 || !configured {
-		t.Errorf("Existing outside a repository = %+v, %v; want nothing offered", found, configured)
+	if len(found) != 0 || configured {
+		t.Errorf("Existing outside a repository = %+v, %v; want nothing found and not configured", found, configured)
 	}
 }
 

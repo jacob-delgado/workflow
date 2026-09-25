@@ -395,7 +395,7 @@ func hookDeps(ctx context.Context, root string) tui.HookDeps {
 		Existing: func() ([]hooks.GitHook, bool) {
 			dir, err := gitrepo.At(gitRunner, root).HooksDir(ctx)
 			if err != nil {
-				return nil, true
+				return nil, false
 			}
 
 			return hooks.ExistingHooks(os.DirFS(dir), runtime.GOOS), hooks.HasConfig(os.DirFS(root))

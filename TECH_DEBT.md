@@ -960,9 +960,9 @@ and `grep -n 'two shells\|Shell 2' Taskfile.yml` prints nothing above the
 
 What is open here is a set of appliers and guards that read stale state or skip
 a check the other surfaces make, two configuration sections nothing validates,
-the composition the interface keeps beside `loop`'s, the hook seam with its
-failure resolver and the `lefthook.yml` it writes, and a color read no black-box
-test reaches; what it carries on purpose — the two composers' field handling
+the composition the interface keeps beside `loop`'s, the hook-failure resolver
+and the `lefthook.yml` the interface writes, and a color read no black-box test
+reaches; what it carries on purpose — the two composers' field handling
 written twice, and the spine's color-only hue — is under [Deliberate
 trade-offs](#deliberate-trade-offs-that-carry-a-cost).
 
@@ -1463,29 +1463,6 @@ and do it in the `tea.Cmd` that delivers `runFinished` rather than in
 **Done when.** A test resolving N package-relative places against a tree
 with a counting fs sees one walk, and a screen test shows the run
 overlay's failures without the walk running in `Update`.
-
-### DEBT-124 `Hooks.Existing` answers configured=true when it cannot read the hooks dir
-
-Severity: low · Confidence: read
-
-`hookDeps` (`internal/wiring/wiring.go:420`) returns `nil, true` from
-`Existing` when `HooksDir` fails, using the bool the seam documents as
-"whether the repository already configures lefthook" (`HookDeps.Existing`,
-`internal/tui/deps.go:191`) to mean "offer nothing", and
-`TestTheHookSeamsOfferNothingOutsideARepository`
-(`internal/wiring/hooks_test.go:97`) pins the contradictory answer with
-`!configured`. The contract and the answer disagree; a caller that showed
-"lefthook is configured" from this bool would lie outside a repository. It
-works only because `hooksFound.apply` (`internal/tui/hookgen.go:44`)
-happens to treat `configured` and an empty list alike — a sentinel with
-two meanings, which CLAUDE.md's catalog names.
-
-**One way to fix it.** Return `nil, false` on the error — an empty hook
-list already yields no offer in `hooksFound.apply` — and drop the test's
-expectation that `configured` is true.
-
-**Done when.** `TestTheHookSeamsOfferNothingOutsideARepository` asserts
-`found` is empty and `configured` is false.
 
 ### DEBT-125 The interface composes what `loop` composes once: announcement, draft, memory
 
