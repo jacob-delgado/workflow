@@ -5,8 +5,10 @@ package tui_test
 
 import (
 	"errors"
+	"slices"
 	"testing"
 
+	"github.com/jacob-delgado/workflow/internal/gitrepo"
 	"github.com/jacob-delgado/workflow/internal/tui"
 )
 
@@ -20,7 +22,14 @@ const switchIntro = "Switch to another task"
 var (
 	errNoGitRepo      = errors.New("fatal: not a git repository")
 	errWouldOverwrite = errors.New("fatal: local changes would be overwritten")
+	errIndexCorrupt   = errors.New("fatal: index file corrupt")
 )
+
+// editedNotes is a file edited in another terminal after the Commits pane last
+// read the tree.
+func editedNotes() []gitrepo.Change {
+	return []gitrepo.Change{{Path: untrackedNotes, Staged: ' ', Unstaged: 'M'}}
+}
 
 // cleanSwitcher is a world on a clean tree with a second task branch to switch
 // to.
@@ -80,8 +89,11 @@ func TestSwitchingTaskReloadsThePanesForTheNewBranch(t *testing.T) {
 	typing(t, model, "2", "s", keyEnter)
 
 	// Assert
-	if changes := repo.asked("changes"); len(changes) < 2 {
-		t.Errorf("changes reads = %v, want another after the switch", changes)
+	calls := repo.asked("")
+	switched := slices.Index(calls, "checkout "+otherTaskBranch)
+
+	if switched < 0 || !slices.Contains(calls[switched+1:], "changes") {
+		t.Errorf("calls = %v, want the changes read again after the checkout", calls)
 	}
 }
 
@@ -102,6 +114,61 @@ func TestSwitchingTaskRefusesADirtyTree(t *testing.T) {
 	}
 
 	requireScreen(t, view, "commit or stash")
+}
+
+func TestSwitchingTaskReadsTheTreeWhenChosen(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	repo := cleanSwitcher()
+	model := repo.live(t, 120, 40)
+	repo.changes = editedNotes()
+
+	// Act
+	view := typing(t, model, "2", "s", keyEnter).View().Content
+
+	// Assert
+	if got := repo.asked("checkout"); len(got) != 0 {
+		t.Errorf("checkout calls = %v, want none on a tree edited since it was loaded", got)
+	}
+
+	requireScreen(t, view, switchIntro, "commit or stash")
+}
+
+func TestSwitchingTaskRefusesATreeThatCannotBeRead(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	repo := cleanSwitcher()
+	model := repo.live(t, 120, 40)
+	repo.changesErr = errIndexCorrupt
+
+	// Act
+	view := typing(t, model, "2", "s", keyEnter).View().Content
+
+	// Assert
+	if got := repo.asked("checkout"); len(got) != 0 {
+		t.Errorf("checkout calls = %v, want none when the tree cannot be read", got)
+	}
+
+	requireScreen(t, view, switchIntro, "index file corrupt")
+}
+
+func TestSwitchingTaskWithNoWayToReadTheTreeTakesItAsClean(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	repo := cleanSwitcher()
+	repo.noChanges = true
+	model := repo.live(t, 120, 40)
+
+	// Act
+	typing(t, model, "2", "s", keyEnter)
+
+	// Assert
+	if got := repo.asked("checkout"); len(got) != 1 || got[0] != "checkout "+otherTaskBranch {
+		t.Errorf("checkout calls = %v, want one for the chosen branch", got)
+	}
 }
 
 func TestSwitchingTaskSaysWhenThereIsNowhereToSwitch(t *testing.T) {
@@ -248,6 +315,25 @@ func TestSwitchingTaskUnderDryRunSwitchesNothing(t *testing.T) {
 	}
 
 	requireScreen(t, view, "dry run", otherTaskBranch)
+}
+
+// A dry run reads the tree too, so it never says it would switch a tree the
+// real switch would refuse.
+func TestADryRunSwitchRefusesATreeEditedSinceItWasLoaded(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	repo := cleanSwitcher()
+	model := sized(t, dryInterface(repo), 120, 40)
+	model = drain(t, model, model.Init())
+	repo.changes = editedNotes()
+
+	// Act
+	view := typing(t, model, "2", "s", keyEnter).View().Content
+
+	// Assert
+	requireScreen(t, view, "commit or stash")
+	refuseScreen(t, view, "would switch")
 }
 
 func TestTheSwitcherChecksOutTheBranchMovedTo(t *testing.T) {

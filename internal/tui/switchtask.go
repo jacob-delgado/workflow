@@ -11,6 +11,7 @@ import (
 	tea "charm.land/bubbletea/v2"
 
 	"github.com/jacob-delgado/workflow/internal/convention"
+	"github.com/jacob-delgado/workflow/internal/gitrepo"
 	"github.com/jacob-delgado/workflow/internal/jira"
 	"github.com/jacob-delgado/workflow/internal/loop"
 )
@@ -168,30 +169,57 @@ func (p branchPicker) handleKey(m Model, msg tea.KeyPressMsg) (Model, tea.Cmd) {
 	return m, nil
 }
 
-// choose switches to the selected branch, refusing a dirty tree with the reason
-// rather than carrying uncommitted work across.
+// choose reads the working tree before switching to the selected branch, as
+// the web does, so a file edited since the Commits pane last loaded is refused
+// rather than carried across. With no way to read the tree it reads as clean.
 func (p branchPicker) choose(m Model) (Model, tea.Cmd) {
 	branch, ok := p.branches.chosen()
 	if !ok {
 		return m, nil
 	}
 
-	if loop.RefuseDirty(m.changes.changes) != nil {
-		p.send = p.send.failed(errDirtyTree)
-		m.overlay = p
+	p.send = starting()
+	m.overlay = p
+	read := m.deps.Git.Changes
 
+	return m, func() tea.Msg {
+		if read == nil {
+			return treeChecked{name: branch.name}
+		}
+
+		changes, err := read()
+
+		return treeChecked{name: branch.name, changes: changes, err: err}
+	}
+}
+
+// treeChecked is the working tree as it stood when a switch was chosen.
+type treeChecked struct {
+	name    string
+	changes []gitrepo.Change
+	err     error
+}
+
+// apply switches to the chosen branch, or keeps the switcher open with the
+// reason it will not: the tree could not be read, or it holds uncommitted work
+// the switch would carry onto the other branch.
+func (msg treeChecked) apply(m Model) (Model, tea.Cmd) {
+	if _, open := m.overlay.(branchPicker); !open {
 		return m, nil
 	}
 
-	if m.dryRun {
-		return m.closeOverlay().noticed("dry run: would switch to " + branch.name), nil
+	switch {
+	case msg.err != nil:
+		return keepOpenWith[branchPicker](m, msg.err), nil
+	case loop.RefuseDirty(msg.changes) != nil:
+		return keepOpenWith[branchPicker](m, errDirtyTree), nil
+	case m.dryRun:
+		return m.closeOverlay().noticed("dry run: would switch to " + msg.name), nil
 	}
 
-	p.send = starting()
-	m.overlay = p
-	checkout := m.deps.Git.Checkout
+	checkout, name := m.deps.Git.Checkout, msg.name
 
-	return m, func() tea.Msg { return taskSwitched{name: branch.name, err: checkout(branch.name)} }
+	return m, func() tea.Msg { return taskSwitched{name: name, err: checkout(name)} }
 }
 
 // taskSwitched reports how switching to a branch went.
