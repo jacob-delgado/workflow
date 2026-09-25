@@ -232,7 +232,7 @@ Impact: low · Effort: small
 
 **Today.** The scriptable writes say what to do when stdin is closed:
 "pass --yes", exit 2 (`writeOptions.proceed`,
-`internal/cli/scriptable.go:93`, and `docs/content/docs/scripting.md:180`
+`internal/cli/scriptable.go:93`, and `docs/content/docs/scripting.md:201`
 under "Writing without a person"). Three other moments end without a
 pointer.
 
@@ -2045,7 +2045,7 @@ disagree about the same act.
   before `followUp` at `:149`; the "dry run: would push … open TITLE" line
   (`:128`) is all `pr --dry-run` says, and the dry-run lines of `offerLink`
   (`:185`) and `offerReviewStatus` (`:244`) never print — though "Writing
-  without a person", `docs/content/docs/scripting.md:165`, says `--yes`
+  without a person", `docs/content/docs/scripting.md:186`, says `--yes`
   answers the push, the open and the offers. DEBT-94 counts these two
   strings as dead arms; this entry makes them reachable rather than
   deleting them.
@@ -2055,8 +2055,8 @@ disagree about the same act.
   `:171`) even with `--dry-run` — so the documented unattended form plus
   the documented safe form together show nothing of the announcement. The
   `--yes` bullet of "Writing without a person"
-  (`docs/content/docs/scripting.md:169`) settles the skip, and the
-  `--dry-run` bullet (`:173`) promises "the preview and what the command
+  (`docs/content/docs/scripting.md:186`) settles the skip, and the
+  `--dry-run` bullet (`:194`) promises "the preview and what the command
   would do"; the two leave the combination unspecified, and the code
   answers it with the skip.
 
