@@ -37,6 +37,9 @@ var (
 	ErrInvalidScope = errors.New("a scope is lowercase letters, digits and . _ / -")
 	// ErrNoDescription reports a subject with nothing after the colon.
 	ErrNoDescription = errors.New("the subject needs a description")
+	// ErrSubjectNotOneLine reports a description holding a line break or another
+	// control character, which would make the subject more than one line of text.
+	ErrSubjectNotOneLine = errors.New("the subject is one line of plain text")
 	// ErrTrailingPeriod reports a description ending in a period.
 	ErrTrailingPeriod = errors.New("a subject does not end with a period")
 	// ErrSubjectTooLong reports a subject past the convention's subject limit.
