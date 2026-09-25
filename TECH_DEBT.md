@@ -499,9 +499,9 @@ a weak assertion, so every one clears the gate.
 
 The terminal:
 
-- `internal/tui/hookgen_test.go:214` — `TestTheOfferIsMadeOnlyWhenItHelps`
+- `internal/tui/hookgen_test.go:222` — `TestTheOfferIsMadeOnlyWhenItHelps`
   calls `refuseScreen` on the start screen, where
-  `TestTheLefthookOfferOpensFromTheCommitsPaneNotAtStart` (`:70`) shows the
+  `TestTheLefthookOfferOpensFromTheCommitsPaneNotAtStart` (`:78`) shows the
   offer never opens at start; it cannot see the `msg.configured` check in
   `hooksFound.apply` (`internal/tui/hookgen.go:47`).
 - `internal/tui/commits_test.go:84` —
@@ -2289,11 +2289,11 @@ nil "before then, and for a run started by a fake that supplies none", which
 names a test fixture in production code. `Start`
 (`internal/proc/start.go:131`), the only production constructor of a live
 `proc.Output`, always sets `Stop: cancel`; the test world's `output` helper
-(`internal/tui/world_test.go:271`) builds a `proc.Output` without one, a
+(`internal/tui/world_test.go:275`) builds a `proc.Output` without one, a
 fake that cuts a corner the real seam never does. `stopRun`
 (`internal/tui/run.go:327`) returns at once when `stop` is nil, so pressing
 `s` on any fake run does nothing and no test would notice; only
-`blockingOutput` (`internal/tui/world_test.go:202`) supplies a `Stop`.
+`blockingOutput` (`internal/tui/world_test.go:204`) supplies a `Stop`.
 
 **One way to fix it.** Have `output` return a no-op `Stop`, as `proc.Start`
 always does, and trim the comment to the real case: nil before `runStarted`

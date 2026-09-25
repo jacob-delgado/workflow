@@ -300,8 +300,10 @@ them:
 - `esc` skips it.
 
 Both write the configuration, then run `lefthook install`, which keeps the old
-hooks as `.git/hooks/*.old`. An existing `lefthook.yml` is never overwritten.
-The offer only appears when `lefthook` is installed.
+hooks as `.git/hooks/*.old`. Should that install fail, the offer closes and says
+why rather than offer to write the file again; run `lefthook install` once the
+cause is fixed. An existing `lefthook.yml` is never overwritten. The offer only
+appears when `lefthook` is installed.
 
 ## Editor
 

@@ -137,26 +137,45 @@ func (o hookgenOffer) write(m Model, generated hooks.Generated) (Model, tea.Cmd)
 
 	o.send = starting()
 	m.overlay = o
-	write := m.deps.Hooks.Write
+	write, existing := m.deps.Hooks.Write, m.deps.Hooks.Existing
 
-	return m, func() tea.Msg { return hooksWritten{err: write(generated)} }
+	return m, func() tea.Msg {
+		err := write(generated)
+		if err == nil {
+			return hooksWritten{err: nil, configured: true}
+		}
+
+		// lefthook.yml is written before lefthook is installed, so a failed
+		// install leaves a configuration behind.
+		_, configured := existing()
+
+		return hooksWritten{err: err, configured: configured}
+	}
 }
 
-// hooksWritten reports how writing the configuration went.
+// hooksWritten reports how writing the configuration went, and whether a
+// configuration exists after it.
 type hooksWritten struct {
-	err error
+	err        error
+	configured bool
 }
 
-// apply closes the offer once written, and makes it no more, or keeps it open
-// with the reason.
+// apply closes the offer once a configuration exists, and makes it no more —
+// saying why when lefthook then failed to install — or, while none does, keeps
+// it open with the reason.
 func (msg hooksWritten) apply(m Model) (Model, tea.Cmd) {
-	if msg.err != nil {
+	if !msg.configured {
 		return keepOpenWith[hookgenOffer](m, msg.err), nil
 	}
 
 	m.hookgen.hooks = nil
+	m = m.closeOverlay()
 
-	return m.closeOverlay().noticed(m.marks.done + " wrote lefthook.yml and installed lefthook"), nil
+	if msg.err != nil {
+		return m.noticedFailure(msg.err), nil
+	}
+
+	return m.noticed(m.marks.done + " wrote lefthook.yml and installed lefthook"), nil
 }
 
 // failed is the offer kept open with the reason the write failed.

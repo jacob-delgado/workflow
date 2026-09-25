@@ -15,6 +15,14 @@ import (
 // errConfigExists stands in for a configuration appearing before it was written.
 var errConfigExists = errors.New("file already exists: this repository already has a lefthook configuration")
 
+// errScriptExists stands in for a write that stops part-way, which hooks.Write
+// undoes, so no configuration is left.
+var errScriptExists = errors.New("creating .lefthook/commit-msg/commit-msg: file already exists")
+
+// errInstallFailed stands in for lefthook failing to install over the
+// configuration just written.
+var errInstallFailed = errors.New("installing lefthook: exit status 1")
+
 // legacyHooks is a repository's hooks from before lefthook: one plain, one not.
 func legacyHooks() []hooks.GitHook {
 	return []hooks.GitHook{
@@ -240,13 +248,58 @@ func TestAConfigurationThatCannotBeWrittenSaysWhy(t *testing.T) {
 	// Arrange
 	refusing := newWorld()
 	refusing.gitHooks = legacyHooks()
-	refusing.writeErr = errConfigExists
+	refusing.writeErr = errScriptExists
 
 	// Act
 	refused := typing(t, refusing.live(t, 120, 50), "3", "g", keyEnter)
 
 	// Assert
-	requireScreen(t, refused.View().Content, "┏━ No lefthook configuration", "✗ file already exists")
+	requireScreen(t, refused.View().Content, "┏━ No lefthook configuration",
+		"✗ creating .lefthook/commit-msg/commit-msg: file already exists")
+}
+
+func TestAConfigurationWrittenMeanwhileEndsTheOffer(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	// lefthook is configured outside the interface while the offer is open, so
+	// the write is refused as a file that exists.
+	refusing := newWorld()
+	refusing.gitHooks = legacyHooks()
+	refusing.writeErr = errConfigExists
+	offer := typing(t, refusing.live(t, 200, 50), "3", "g")
+	refusing.configured = true
+
+	// Act
+	refused := typing(t, offer, keyEnter)
+
+	// Assert
+	requireScreen(t, refused.View().Content, "✗ file already exists")
+	refuseScreen(t, refused.View().Content, "No lefthook configuration")
+	refuseLefthookOffered(t, refused)
+}
+
+func TestAFailedInstallOverTheWrittenConfigurationEndsTheOffer(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	failing := newWorld()
+	failing.gitHooks = legacyHooks()
+	failing.installErr = errInstallFailed
+
+	// Act: open the interface on the Commits pane
+	commits := typing(t, failing.live(t, 200, 50), "3")
+
+	// Assert: it offers to set up lefthook
+	requireLefthookOffered(t, commits)
+
+	// Act: write the configuration, which lefthook then fails to install
+	failed := typing(t, commits, "g", keyEnter)
+
+	// Assert: the offer closes saying why, and is made no more
+	requireScreen(t, failed.View().Content, "✗ installing lefthook: exit status 1")
+	refuseScreen(t, failed.View().Content, "No lefthook configuration")
+	refuseLefthookOffered(t, failed)
 }
 
 func TestADryRunWritesNoConfiguration(t *testing.T) {
