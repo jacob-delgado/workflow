@@ -5,10 +5,13 @@ package cli_test
 
 import (
 	"encoding/json"
+	"errors"
 	"strconv"
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/jacob-delgado/workflow/internal/forge"
 )
 
 // reviewsForgeConfig points the forge at its CLI, so the reviews listing reads
@@ -47,12 +50,15 @@ func reviewsRepo(t *testing.T) string {
 
 func TestReviewsWithoutAForgeReportsSo(t *testing.T) {
 	// Act
+	// No repository, so no remote names a forge.
 	_, err := run(t, t.TempDir(), "reviews")
 
 	// Assert
-	if err == nil {
-		t.Error("reviews without a forge to ask returned no error")
+	if !errors.Is(err, forge.ErrNotARemote) {
+		t.Errorf("reviews without a forge to ask = %v, want it to say there is no remote", err)
 	}
+
+	wantExit(t, err, 3)
 }
 
 func TestReviewsShowsTheAuthorRepositoryCIAndAge(t *testing.T) {
