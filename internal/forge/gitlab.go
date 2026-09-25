@@ -316,14 +316,13 @@ func gitlabReviews(ctx context.Context, client Client) ([]ReviewRequest, error) 
 		return nil, err
 	}
 
-	query := url.Values{
-		"scope":             {queryAll},
-		queryState:          {stateOpened},
-		"reviewer_username": {viewer.Name()},
-		perPageParam:        {strconv.Itoa(perPage)},
-	}.Encode()
+	query := url.Values{"scope": {queryAll}, queryState: {stateOpened}, "reviewer_username": {viewer.Name()}}
 
-	merges, err := call[[]gitlabReviewMerge](ctx, client, http.MethodGet, "/merge_requests?"+query, nil)
+	merges, err := readPages(func(page int) ([]gitlabReviewMerge, int, error) {
+		one, err := call[[]gitlabReviewMerge](ctx, client, http.MethodGet, "/merge_requests?"+pageQuery(query, page), nil)
+
+		return one, uncounted, err
+	})
 	if err != nil {
 		return nil, err
 	}

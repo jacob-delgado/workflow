@@ -113,6 +113,55 @@ func TestReviewRequestsListsWhatEachForgeReturns(t *testing.T) {
 	}
 }
 
+func TestReviewRequestsReadsEveryPage(t *testing.T) {
+	t.Parallel()
+
+	cases := map[string]struct {
+		kind  forge.Kind
+		pages map[string][]string
+		want  int
+	}{
+		"GitHub reads on past a full page": {
+			kind:  forge.KindGitHub,
+			pages: map[string][]string{githubSearchPath: {searchPage(1, 100, 101), searchPage(101, 1, 101)}},
+			want:  101,
+		},
+		"GitHub stops where its search stops serving": {
+			kind: forge.KindGitHub,
+			pages: map[string][]string{githubSearchPath: fullPages(10, func(first int) string {
+				return searchPage(first, 100, 5000)
+			})},
+			want: 1000,
+		},
+		"GitLab reads on until a short page": {
+			kind: forge.KindGitLab,
+			pages: map[string][]string{
+				gitlabUserPath:    {gitlabWhoami},
+				gitlabReviewsPath: {listingOf(1, 100, gitlabNumbered), listingOf(101, 1, gitlabNumbered)},
+			},
+			want: 101,
+		},
+	}
+
+	for name, tt := range cases {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			// Arrange
+			client := forgePaging(t, tt.pages)
+
+			// Act
+			reviews, err := client.ReviewRequests(t.Context(), tt.kind)
+
+			// Assert
+			if err != nil || len(reviews) != tt.want || reviews[len(reviews)-1].Number != tt.want {
+				t.Errorf("ReviewRequests read %d reviews, %v; want %d, the last numbered %d",
+					len(reviews), err, tt.want, tt.want)
+			}
+		})
+	}
+}
+
 func TestReviewRequestsFiltersGitLabByReviewer(t *testing.T) {
 	t.Parallel()
 
