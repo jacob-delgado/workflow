@@ -1607,7 +1607,7 @@ for every kind.
 - `internal/messaging/post.go:130` — the comment on `postToWebhook` says a
   webhook "answers "ok" as plain text" — Slack's behavior stated for
   every kind.
-- `internal/messaging/post_test.go:246` —
+- `internal/messaging/post_test.go:247` —
   `TestAWebhookPostWrapsTheBodyAndMarkupPerKind`'s fake answers
   `http.StatusOK` for every kind.
 - `internal/loop/announce.go:185` — `Deliver` returns on the error before
@@ -1831,15 +1831,10 @@ surfaced.
 
 Severity: low · Confidence: read
 
-In three places a comment sits on, or names, a declaration it does not
-describe. No linter in the gate checks a comment's subject.
+A shared test fake's comment and failure message name a method other than
+the one most of its tests are for. No linter in the gate checks a
+comment's subject.
 
-- `internal/messaging/post_test.go:21` — "message is what a post sends."
-  sits above the `testAuthor` constant.
-- `internal/messaging/post_test.go:166` — "messagingWebhook posts through a
-  kind's webhook at address." sits above `brokenAnswer`, and
-  `messagingWebhook` itself (`internal/messaging/post_test.go:191`) has no
-  comment.
 - `internal/gitrepo/gitrepo_test.go:53` — the shared `fakeRunner` fails with
   `"Describe ran an unexpected command: %q"` whichever method the test is
   for, and its comment (`internal/gitrepo/gitrepo_test.go:42`) says it
@@ -1849,18 +1844,14 @@ describe. No linter in the gate checks a comment's subject.
   (`internal/gitrepo/finishbranch_test.go:24`) for `FinishBranch` through
   `recordingRunner`.
 
-godoc on the messaging test package pairs two sentences with the wrong
-symbol; and a failing `Status` or `FinishBranch` test sends its reader to
-`Describe` first.
+A failing `Status` or `FinishBranch` test sends its reader to `Describe`
+first.
 
-**One way to fix it.** Move the two test sentences above the declarations
-they describe and give `testAuthor` its own; and make `fakeRunner`'s
-comment and failure message name the repository, or take the method name
-as a parameter.
+**One way to fix it.** Make `fakeRunner`'s comment and failure message name
+the repository, or take the method name as a parameter.
 
-**Done when.** Each constant's and helper's comment in
-`internal/messaging/post_test.go` names it; and no `internal/gitrepo` test
-failure message names a method other than the one under test.
+**Done when.** No `internal/gitrepo` test failure message names a method
+other than the one under test.
 
 ### DEBT-105 The contributor documents restate counts and names the tree has moved past
 
@@ -3823,7 +3814,7 @@ know about.
   800 ceiling (`scripts/check-file-length.sh --list`). They were left whole
   on purpose when the source files past the target were split by concern;
   each holds the cases of one behavior. Announcing:
-  `internal/messaging/post_test.go` (763, the post to each service and the
+  `internal/messaging/post_test.go` (764, the post to each service and the
   announcement's text) and `internal/tui/messaging_test.go` (612, the
   terminal's Messaging pane). Opening a pull request:
   `internal/webserver/pullrequest_test.go` (601, the web's draft and open).

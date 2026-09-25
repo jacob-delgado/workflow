@@ -18,9 +18,10 @@ import (
 	"github.com/jacob-delgado/workflow/internal/messaging"
 )
 
-// message is what a post sends.
+// testAuthor is the author the announcement-text tests render.
 const testAuthor = "jacob"
 
+// message is what a post sends.
 const message = "jacob opened a pull request"
 
 // posted is what a fake Slack received.
@@ -163,7 +164,6 @@ func webhookCredentials(address string) config.Messaging {
 	return config.Messaging{Token: "", WebhookURL: config.Secret(address), Channel: ""}
 }
 
-// messagingWebhook posts through a kind's webhook at address.
 // brokenAnswer answers every post with a body that breaks off mid-read.
 func brokenAnswer(*http.Request) (*http.Response, error) {
 	return &http.Response{StatusCode: http.StatusOK, Body: io.NopCloser(iotest.ErrReader(errBrokenAnswer))}, nil
@@ -188,6 +188,7 @@ func TestABrokenAnswerNamesTheServiceItCameFrom(t *testing.T) {
 	}
 }
 
+// messagingWebhook posts through a kind's webhook at address.
 func messagingWebhook(kind config.MessagingKind, address string) config.Messaging {
 	return config.Messaging{Kind: kind, WebhookURL: config.Secret(address)}
 }
