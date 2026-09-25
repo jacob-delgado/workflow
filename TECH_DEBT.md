@@ -210,16 +210,16 @@ The clients:
   `internal/forge/issues.go:30`) or the templates
   (`internal/forge/templates.go`).
 - `internal/jira/jira.go:6` — the package comment names search, read, move,
-  comment, link and whoami, not `Assign` (`internal/jira/assignee.go:16`),
-  `AddWorklog` (`internal/jira/worklog.go:36`) or `WikiFromMarkdown`
+  comment, link and whoami, not `Assign` (`internal/jira/assignee.go:13`),
+  `AddWorklog` (`internal/jira/worklog.go:33`) or `WikiFromMarkdown`
   (`internal/jira/wiki.go:22`); `ARCHITECTURE.md:140` repeats the list
   without `Assign` and `AddWorklog`.
 - `internal/jira/search.go:135` — `wireIssue`'s comment says the fields
   "past Reporter ride only on the detail request"; `searchFields` (`:27`) is
   `summary,status,issuetype,priority`, so `Description` (`:148`) and
   `Reporter` are detail-only too.
-- `internal/jira/detail.go:35` — `LinkedIssue` is "a parent or a subtask";
-  `IssueLink.Issue` (`:48`) is a `LinkedIssue` too, as `wireLinked`'s
+- `internal/jira/detail.go:32` — `LinkedIssue` is "a parent or a subtask";
+  `IssueLink.Issue` (`:45`) is a `LinkedIssue` too, as `wireLinked`'s
   comment (`internal/jira/search.go:96`) says.
 - `internal/jira/wiki.go:14` — `boldSentinel`'s comment calls `"\x00"` "A
   caret-feed control byte"; it is NUL, and there is no caret-feed control.
@@ -1783,7 +1783,7 @@ literally. It is the fake that cuts a corner.
 - `web/src/dev/mockIssues.ts:18` — `mockIssueDetail` sets
   `assignee: 'ana.lopez'`, a username, beside `reporter: 'Ana Lopez'` at
   `web/src/dev/mockIssues.ts:17`; `toIssueDetail`
-  (`internal/jira/detail.go:182`) fills both from `DisplayName`.
+  (`internal/jira/detail.go:179`) fills both from `DisplayName`.
 - `web/src/dev/mockConfig.ts:47` — `mockConfig.branch` sets
   `template: '{type}/{key}-{slug}'`; `BranchNaming.Name`
   (`internal/convention/branch_naming.go:65`) replaces only `{prefix}`,
