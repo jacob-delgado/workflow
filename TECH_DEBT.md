@@ -3822,36 +3822,27 @@ behind it, which release-please.yml's `Verify the gate before tagging` step
 `cross`, and a pull request with a failing Cross-compile job shows `ci-gate`
 red.
 
-### DEBT-151 `scripts/test-summary.sh` counts a different run than the gates
+### DEBT-151 `scripts/test-summary.sh` reads Go coverage the gate does not
 
 Severity: low · Confidence: read
 
-`go_row` in `scripts/test-summary.sh:41` runs `go test -json -coverprofile …
-./...`, without `-race` and over the `./...` roots `Taskfile.yml:6` explains
-are never used (`web/node_modules` ships a stray Go package), and reads its
-statement number (`scripts/test-summary.sh:47`) with `go tool cover -func`
-on the unfiltered profile. `task test`, lefthook's `unit-go`
-(`lefthook.yml:128`) and CI's Test job run `go test -race` over the
-`GO_PKGS` roots (`./cmd/... ./internal/... ./api/...`), and
+`go_row` reads its statement number (`scripts/test-summary.sh:59`) with
+`go tool cover -func` on the unfiltered profile, while
 `scripts/coverage-gate.sh:30` filters `cmd/docsgen` and `internal/api` out
-of the profile first. On the checkout's `coverage.out`
-the two totals are 85.6 % and 96.6 %. `scripts/coverage-summary.sh:21` names
-this exact trap in its header and takes its number from the gate;
+of the profile first. On the checkout's `coverage.out` the two totals are
+85.6 % and 96.6 %. `scripts/coverage-summary.sh:21` names this exact trap
+in its header and takes its number from the gate;
 `scripts/test-summary.sh` does not. One CI run
-(`.github/workflows/ci.yml:162`, `task test:summary`) therefore shows two Go
-coverage numbers eleven points apart, and pass/skip/fail counts taken over a
-different package set and detector than the gate's. Advisory only, so
-friction, not a wrong result.
+(`.github/workflows/ci.yml:162`, `task test:summary`) therefore shows two
+Go coverage numbers eleven points apart. Advisory only, so friction, not a
+wrong result.
 
-**One way to fix it.** Use the same roots (`GO_PKGS`) and `-race` as
-`Taskfile.yml`'s `test` task, and have `go_row` read the statement number
-through `scripts/coverage-gate.sh` with a floor of 0, as
+**One way to fix it.** Have `go_row` read the statement number through
+`scripts/coverage-gate.sh` with a floor of 0, as
 `scripts/coverage-summary.sh` does.
 
-**Done when.** `task test:summary`'s Go row shows the same pass/skip/fail
-counts as `go test -race -json` over the `GO_PKGS` roots and the same
-statements percentage as the "Coverage N%" line of `task test:cover` on the
-same tree.
+**Done when.** `task test:summary`'s Go row shows the same statements
+percentage as the "Coverage N%" line of `task test:cover` on the same tree.
 
 ### DEBT-152 The mise version and the container's Go patch drift ungated
 
