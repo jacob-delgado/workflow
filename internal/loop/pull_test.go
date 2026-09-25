@@ -363,6 +363,26 @@ func TestJiraIssueIsOnlyAKeyWithItsProject(t *testing.T) {
 	}
 }
 
+func TestIsJiraKeyIsAKeyWithItsProject(t *testing.T) {
+	t.Parallel()
+
+	cases := map[jira.Key]bool{
+		issueKey: true,
+		"42":     false,
+	}
+
+	for key, want := range cases {
+		t.Run(string(key), func(t *testing.T) {
+			t.Parallel()
+
+			// Act & Assert
+			if got := loop.IsJiraKey(key); got != want {
+				t.Errorf("IsJiraKey(%q) = %t, want %t", key, got, want)
+			}
+		})
+	}
+}
+
 func TestSubjectsListsEachCommitOldestFirst(t *testing.T) {
 	t.Parallel()
 

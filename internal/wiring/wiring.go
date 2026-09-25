@@ -168,7 +168,7 @@ func jiraDeps(ctx context.Context, settings config.Jira, timeout time.Duration, 
 
 	return tui.JiraDeps{
 		Search: func(jql string, startAt int) (jira.SearchResult, error) { return client.Search(ctx, jql, startAt) },
-		Issue:  func(issueKey jira.Key) (jira.IssueDetail, error) { return client.Issue(ctx, issueKey) },
+		Issue:  func(issueKey jira.Key) (jira.IssueDetail, error) { return readJiraIssue(ctx, client, issueKey) },
 		Transitions: func(issueKey jira.Key) ([]jira.Transition, error) {
 			return client.Transitions(ctx, issueKey)
 		},
@@ -187,7 +187,7 @@ func jiraDeps(ctx context.Context, settings config.Jira, timeout time.Duration, 
 		LinkPullRequest: func(issueKey jira.Key, pullURL, title string) error {
 			return client.LinkPullRequest(ctx, issueKey, pullURL, title)
 		},
-		BrowseURL: client.BrowseURL,
+		BrowseURL: func(issueKey jira.Key) string { return browseJiraIssue(client, issueKey) },
 	}
 }
 

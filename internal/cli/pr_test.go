@@ -202,6 +202,29 @@ func TestPRTakesItsTitleFromTheConfiguredSource(t *testing.T) {
 	}
 }
 
+func TestPRTitlesAForgeIssueNumberFromItsCommitWithoutAskingJira(t *testing.T) {
+	// Arrange
+	// The branch names the forge's issue 42, not a Jira one: Jira would read 42
+	// as the id of an unrelated issue and title the pull request after it.
+	var reached atomic.Bool
+
+	server := jiraServer(t, http.StatusOK, issueFixture("OPS-7", "Bug", "an unrelated issue"), &reached)
+	repo := prRepo(t, "fix/42-typo")
+	writeFile(t, repo, `{"jira":{"base_url":"`+server.URL+`","token":"t"},`+
+		`"pull_request":{"title_source":"issue"}}`)
+
+	// Act
+	output, err := run(t, repo, "pr", "--dry-run")
+	// Assert
+	if err != nil {
+		t.Fatalf("pr --dry-run: %v (%s)", err, output)
+	}
+
+	if !strings.Contains(output, "Open work\n") || reached.Load() {
+		t.Errorf("a forge issue number was read on Jira (asked: %t):\n%s", reached.Load(), output)
+	}
+}
+
 func TestPROpensThePullRequest(t *testing.T) {
 	// Arrange
 	// The branch is already published and has no pull request, so one is opened.
