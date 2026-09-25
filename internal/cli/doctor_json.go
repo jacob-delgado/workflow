@@ -50,6 +50,7 @@ type toolFacts struct {
 // configFacts is the configuration in effect.
 type configFacts struct {
 	Path            string   `json:"path"`
+	Tracker         string   `json:"tracker"`
 	JiraURL         string   `json:"jira_url"`
 	JiraAuthMode    string   `json:"jira_auth_mode"`
 	MessagingTarget string   `json:"messaging_target"`
@@ -130,6 +131,7 @@ func configurationFacts(cfg config.Config) (configFacts, error) {
 
 	return configFacts{
 		Path:            cfg.Path,
+		Tracker:         trackerOf(cfg.Jira),
 		JiraURL:         config.DisplayURL(cfg.Jira.BaseURL),
 		JiraAuthMode:    cfg.Jira.AuthMode().String(),
 		MessagingTarget: cfg.Messaging.Target(),

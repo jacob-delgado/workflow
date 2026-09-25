@@ -118,7 +118,7 @@ func runDoctor(ctx context.Context, out io.Writer, run doctorRun) error {
 	toolingErr := reportTooling(out)
 	fmt.Fprintln(out)
 
-	configErr := reportConfiguration(out, run.cfg, run.loadErr)
+	configErr := reportConfiguration(out, run, repo.Remote)
 	if run.loadErr != nil {
 		return errors.Join(toolingErr, configErr)
 	}
@@ -194,15 +194,19 @@ func branchLabel(repo gitrepo.Repo) string {
 	return repo.Branch
 }
 
-// reportConfiguration writes the configuration section. A load error is part of
-// the report rather than a failure to produce one: "there is no configuration
-// file" is exactly what someone running doctor is asking about.
-func reportConfiguration(out io.Writer, cfg config.Config, loadErr error) error {
-	if loadErr != nil {
-		return reportLoadError(out, loadErr)
+// reportConfiguration writes the configuration section. The remote names the
+// forge whose issues are the tracker when there is no Jira. A load error is part
+// of the report rather than a failure to produce one: "there is no
+// configuration file" is exactly what someone running doctor is asking about.
+func reportConfiguration(out io.Writer, run doctorRun, remote string) error {
+	if run.loadErr != nil {
+		return reportLoadError(out, run.loadErr)
 	}
 
+	cfg := run.cfg
+
 	field(out, "Configuration", cfg.Path)
+	field(out, "Tracker", trackerLabel(cfg, remote))
 	field(out, "Jira", fmt.Sprintf("%s (%s)",
 		config.DisplayURL(cfg.Jira.BaseURL), cfg.Jira.AuthMode()))
 	// The target, never the credential: a webhook URL is itself the secret, and
@@ -214,6 +218,45 @@ func reportConfiguration(out io.Writer, cfg config.Config, loadErr error) error 
 	reportRequirements(out, cfg.Path, review)
 
 	return review.err()
+}
+
+// The trackers configuration.tracker names: Jira, or, with no jira.base_url,
+// the forge's own issues.
+const (
+	trackerJira  = "jira"
+	trackerForge = "forge"
+)
+
+// trackerOf names the tracker the Issues pane reads, as the JSON report carries
+// it.
+func trackerOf(settings config.Jira) string {
+	if settings.Configured() {
+		return trackerJira
+	}
+
+	return trackerForge
+}
+
+// trackerLabel says which tracker the Issues pane reads: Jira at its base URL,
+// or, with no jira.base_url, the issues of the forge the remote points at.
+func trackerLabel(cfg config.Config, remote string) string {
+	if trackerOf(cfg.Jira) == trackerJira {
+		return "Jira at " + config.DisplayURL(cfg.Jira.BaseURL)
+	}
+
+	return issuesForge(cfg.Forge, remote) + " issues (no jira.base_url)"
+}
+
+// issuesForge names the forge whose issues stand in for Jira, reading the
+// remote as the Issues pane does, with forge.kind naming an on-premises host.
+// A remote that names no forge leaves it unnamed.
+func issuesForge(settings config.Forge, remote string) string {
+	kind := wiring.ForgeKind(settings, remote)
+	if kind == forge.KindUnknown {
+		return "the forge's"
+	}
+
+	return kind.String()
 }
 
 // reportSharedMode says when anyone but its owner can read or write the
