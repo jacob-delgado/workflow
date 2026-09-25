@@ -129,6 +129,48 @@ func TestWritingTheConfigurationEndsTheOffer(t *testing.T) {
 	refuseLefthookOffered(t, written)
 }
 
+func TestARefreshFindsALefthookConfigurationWrittenElsewhere(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	offering := newWorld()
+	offering.gitHooks = legacyHooks()
+
+	// Act: open the interface on the Commits pane
+	commits := typing(t, offering.live(t, 200, 50), "3")
+
+	// Assert: it offers to set up lefthook
+	requireLefthookOffered(t, commits)
+
+	// Act: configure lefthook outside the interface, then refresh the pane
+	offering.configured = true
+	refreshed := typing(t, commits, "r")
+
+	// Assert: it offers it no more
+	refuseLefthookOffered(t, refreshed)
+}
+
+func TestARefreshFindsTheHooksRemovedElsewhere(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	offering := newWorld()
+	offering.gitHooks = legacyHooks()
+
+	// Act: open the interface on the Commits pane
+	commits := typing(t, offering.live(t, 200, 50), "3")
+
+	// Assert: it offers to set up lefthook
+	requireLefthookOffered(t, commits)
+
+	// Act: remove the hooks outside the interface, then refresh the pane
+	offering.gitHooks = nil
+	refreshed := typing(t, commits, "r")
+
+	// Assert: it offers it no more
+	refuseLefthookOffered(t, refreshed)
+}
+
 func TestTheOfferCanKeepEveryHookWhole(t *testing.T) {
 	t.Parallel()
 

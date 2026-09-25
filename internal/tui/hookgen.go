@@ -13,8 +13,8 @@ import (
 	"github.com/jacob-delgado/workflow/internal/hooks"
 )
 
-// hookgenState holds the hooks lefthook does not manage, found at start, so the
-// Commits pane can offer to generate a configuration for them on demand.
+// hookgenState holds the hooks lefthook does not manage, read at start and on
+// each Commits refresh, so that pane can offer a configuration for them.
 type hookgenState struct {
 	hooks []hooks.GitHook
 }
@@ -40,13 +40,13 @@ type hooksFound struct {
 }
 
 // apply stores hooks that predate lefthook, so the Commits pane can offer to
-// generate a configuration for them — rather than seizing the first screen.
+// generate a configuration for them — rather than seizing the first screen —
+// and forgets them once lefthook is configured, however that came about.
 func (msg hooksFound) apply(m Model) (Model, tea.Cmd) {
-	if msg.configured || len(msg.hooks) == 0 {
-		return m, nil
-	}
-
 	m.hookgen.hooks = msg.hooks
+	if msg.configured {
+		m.hookgen.hooks = nil
+	}
 
 	return m, nil
 }
