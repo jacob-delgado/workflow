@@ -123,30 +123,6 @@ func repositoryFactsFor(ctx context.Context) (repositoryFacts, string) {
 	}, repo.Remote
 }
 
-// toolingFacts lists the external programs and names any required one absent.
-func toolingFacts() ([]toolFacts, error) {
-	facts := make([]toolFacts, 0, len(externalTools()))
-
-	var missing []string
-
-	for _, program := range externalTools() {
-		installed := proc.Available(program.name)
-		facts = append(facts, toolFacts{
-			Name: program.name, Found: installed, Required: program.required, Effect: program.effect,
-		})
-
-		if !installed && program.required {
-			missing = append(missing, program.name)
-		}
-	}
-
-	if len(missing) > 0 {
-		return facts, fmt.Errorf("%w: %s", errMissingTooling, strings.Join(missing, ", "))
-	}
-
-	return facts, nil
-}
-
 // configurationFacts gathers the configuration in effect and names any problem
 // with it — a world-readable file, or a required field still empty.
 func configurationFacts(cfg config.Config) (configFacts, error) {
