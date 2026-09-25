@@ -68,7 +68,7 @@ type gitlabEditMerge struct {
 func gitlabUpdate(
 	ctx context.Context, client Client, repo Repo, pull PullRequest, edit PullRequestEdit,
 ) (PullRequest, error) {
-	path := gitlabProjectPath(repo) + "/merge_requests/" + strconv.Itoa(pull.Number)
+	path := gitlabMergePath(repo, pull.Number)
 
 	updated, err := repoCall[gitlabMerge](ctx, client, repo, http.MethodPut, path,
 		gitlabEditMerge{Title: edit.Title, Description: edit.Body})
@@ -102,7 +102,7 @@ type gitlabApprovals struct {
 // failing the whole find.
 func gitlabReviewState(ctx context.Context, client Client, repo Repo, pull *PullRequest) {
 	approvals, err := repoCall[gitlabApprovals](ctx, client, repo, http.MethodGet,
-		gitlabProjectPath(repo)+"/merge_requests/"+strconv.Itoa(pull.Number)+"/approvals", nil)
+		gitlabMergePath(repo, pull.Number)+"/approvals", nil)
 	if err == nil {
 		pull.Approvals = len(approvals.ApprovedBy)
 	}
@@ -163,6 +163,11 @@ func gitlabUserIDs(ctx context.Context, client Client, usernames []string) ([]in
 // name.
 func gitlabProjectPath(repo Repo) string {
 	return "/projects/" + url.PathEscape(repo.Path)
+}
+
+// gitlabMergePath is where one merge request lives in GitLab's API.
+func gitlabMergePath(repo Repo, number int) string {
+	return gitlabProjectPath(repo) + "/merge_requests/" + strconv.Itoa(number)
 }
 
 // gitlabFind finds the branch's merge request: an open one, or the merged one
@@ -373,8 +378,7 @@ func gitlabCreate(ctx context.Context, client Client, repo Repo, request NewPull
 // commit are not the same thing: checked on a public project, a commit carried
 // pipelines from unrelated workloads alongside the review's.
 func gitlabStatus(ctx context.Context, client Client, repo Repo, pull PullRequest, _ string) (CI, error) {
-	merge, err := repoCall[gitlabMerge](ctx, client, repo, http.MethodGet,
-		gitlabProjectPath(repo)+"/merge_requests/"+strconv.Itoa(pull.Number), nil)
+	merge, err := repoCall[gitlabMerge](ctx, client, repo, http.MethodGet, gitlabMergePath(repo, pull.Number), nil)
 	if err != nil {
 		return CI{}, err
 	}
@@ -395,8 +399,7 @@ func gitlabStatus(ctx context.Context, client Client, repo Repo, pull PullReques
 // pipeline, and reports whether it retried one. With no head pipeline there is
 // nothing to retry, so nothing is.
 func gitlabRerun(ctx context.Context, client Client, repo Repo, pull PullRequest, _ string) (bool, error) {
-	merge, err := repoCall[gitlabMerge](ctx, client, repo, http.MethodGet,
-		gitlabProjectPath(repo)+"/merge_requests/"+strconv.Itoa(pull.Number), nil)
+	merge, err := repoCall[gitlabMerge](ctx, client, repo, http.MethodGet, gitlabMergePath(repo, pull.Number), nil)
 	if err != nil {
 		return false, err
 	}
@@ -421,7 +424,7 @@ type gitlabMergeBody struct {
 // a rebase is the project's own setting, not chosen per merge, so the method
 // matters here only in whether it squashes.
 func gitlabMergePull(ctx context.Context, client Client, repo Repo, pull PullRequest, method MergeMethod) error {
-	path := fmt.Sprintf("%s/merge_requests/%d/merge", gitlabProjectPath(repo), pull.Number)
+	path := gitlabMergePath(repo, pull.Number) + "/merge"
 
 	return send(ctx, client, http.MethodPut, path, gitlabMergeBody{Squash: method == MergeSquash})
 }

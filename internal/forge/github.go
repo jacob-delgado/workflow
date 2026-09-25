@@ -6,7 +6,6 @@ package forge
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 	"net/http"
 	"net/url"
 	"strconv"
@@ -58,6 +57,11 @@ func githubRepoPath(repo Repo) string {
 	return "/repos/" + escapedPath(repo.Path)
 }
 
+// githubPullPath is where one pull request lives in GitHub's API.
+func githubPullPath(repo Repo, number int) string {
+	return githubRepoPath(repo) + "/pulls/" + strconv.Itoa(number)
+}
+
 // githubEditPull is the PATCH body that changes a pull request's title and body.
 type githubEditPull struct {
 	Title string `json:"title"`
@@ -68,7 +72,7 @@ type githubEditPull struct {
 func githubUpdate(
 	ctx context.Context, client Client, repo Repo, pull PullRequest, edit PullRequestEdit,
 ) (PullRequest, error) {
-	path := githubRepoPath(repo) + "/pulls/" + strconv.Itoa(pull.Number)
+	path := githubPullPath(repo, pull.Number)
 
 	updated, err := repoCall[githubPull](ctx, client, repo, http.MethodPatch, path, githubEditPull(edit))
 	if err != nil {
@@ -242,7 +246,7 @@ type githubReview struct {
 // mergeability. It is best effort: a call the token cannot make leaves the
 // fields as they are rather than failing the whole find.
 func githubReviewState(ctx context.Context, client Client, repo Repo, pull *PullRequest) {
-	base := githubRepoPath(repo) + "/pulls/" + strconv.Itoa(pull.Number)
+	base := githubPullPath(repo, pull.Number)
 
 	detail, err := repoCall[githubDetail](ctx, client, repo, http.MethodGet, base, nil)
 	if err == nil {
@@ -320,7 +324,7 @@ func githubCreate(ctx context.Context, client Client, repo Repo, request NewPull
 // back under, and takes reviewers on the pull while assignees and labels go on
 // its issue side.
 func githubAddPeople(ctx context.Context, client Client, repo Repo, number int, request NewPullRequest) error {
-	pull := githubRepoPath(repo) + "/pulls/" + strconv.Itoa(number)
+	pull := githubPullPath(repo, number)
 	issue := githubRepoPath(repo) + issuesSegment + "/" + strconv.Itoa(number)
 
 	err := githubPostList(ctx, client, repo, pull+"/requested_reviewers", "reviewers", request.Reviewers)
@@ -358,7 +362,7 @@ type githubMergeBody struct {
 
 // githubMergePull merges a pull request by the given method.
 func githubMergePull(ctx context.Context, client Client, repo Repo, pull PullRequest, method MergeMethod) error {
-	path := fmt.Sprintf("%s/pulls/%d/merge", githubRepoPath(repo), pull.Number)
+	path := githubPullPath(repo, pull.Number) + "/merge"
 
 	return send(ctx, client, http.MethodPut, path, githubMergeBody{MergeMethod: string(method)})
 }
