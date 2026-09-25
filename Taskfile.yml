@@ -185,7 +185,10 @@ tasks:
 
   # The web twin of gen:verify: regenerate the TypeScript client from
   # api/openapi.yaml and fail on any diff, so a spec change that skipped
-  # `yarn gen` is red locally rather than first in CI.
+  # `yarn gen` is red locally rather than first in CI. The diff runs from web/,
+  # so it takes the same scrub as `test`: under a hook or `git rebase --exec`
+  # from a linked worktree, git would otherwise take web/ as the top of the
+  # worktree and the diff would match nothing.
   web:gen:check:
     desc: Fail if the generated web client has drifted from api/openapi.yaml
     deps: [web:install]
@@ -193,7 +196,7 @@ tasks:
     env:
       COREPACK_ENABLE_DOWNLOAD_PROMPT: "0"
     cmds:
-      - corepack yarn gen:check
+      - unset $(git rev-parse --local-env-vars); corepack yarn gen:check
 
   web:test:
     desc: Run the web frontend's unit tests with the coverage floor
