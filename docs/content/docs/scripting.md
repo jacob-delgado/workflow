@@ -158,11 +158,15 @@ whole array.
 `problems`: the required fields still empty and the values filled in wrong,
 each `null` when there are none), or `config_problem` when the file did not
 load; and `credentials` (`checked`, and with `--online` over a file that
-loaded, `results`: `service`, `status` — `ok`, `rejected` or `unreachable` —
-and `detail`). It exits as the prose report does: a field missing, a value
-filled in wrong or a file other users can reach exits 3. A service that
-answers with a redirect, or asks you to wait, is `unreachable` and exits 5:
-it never judged the credential.
+loaded, `results`: `service`, `status` — `ok`, `missing`, `rejected` or
+`unreachable` — and `detail`). It exits as the prose report does: a field
+missing, a value filled in wrong or a file other users can reach exits 3. A
+`rejected` credential is one the service refused, or one `workflow` would not
+send, such as a password in `jira.base_url`. A credential that is `missing` —
+none configured, or a `token_command` or `token_env` that gave none — exits 3
+as a `rejected` one does, though it was never put to the service. A service
+that answers with a redirect, or asks you to wait, is `unreachable` and
+exits 5: it never judged the credential.
 
 `workflow config show` prints the configuration file's own shape, as
 [Configuration]({{< relref "/docs/configuration" >}}) describes it.

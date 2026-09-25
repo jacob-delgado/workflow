@@ -325,7 +325,7 @@ func configurationErrors() []error {
 		forge.ErrNoToken, forge.ErrKindNeedsHost, forge.ErrNotARemote, forge.ErrUnknownForge,
 		messaging.ErrNoCredential, messaging.ErrInsecureWebhook,
 		jira.ErrUnauthorized, jira.ErrForbidden, forge.ErrUnauthorized, messaging.ErrRejected,
-		errCredentialRejected, errIncomplete, errInvalid, errShared,
+		errCredentialRejected, errCredentialMissing, errIncomplete, errInvalid, errShared,
 		errMessagingNotConfigured,
 	}
 }

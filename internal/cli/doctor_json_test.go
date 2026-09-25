@@ -161,6 +161,12 @@ func TestDoctorJSONOnlineNamesTheIdentityWithoutTheToken(t *testing.T) {
 	}
 }
 
+// The services the online report names, as its results carry them.
+const (
+	jiraService      = "jira"
+	messagingService = "slack"
+)
+
 // credentialStatusIn is the status the online report gives service, or "" when
 // the report names no such service.
 func credentialStatusIn(report map[string]any, service string) string {
@@ -191,7 +197,7 @@ func TestDoctorJSONOnlineReportsARedirectAsUnreachable(t *testing.T) {
 	output, _ := run(t, dir, "doctor", "--json", "--online")
 
 	// Assert
-	if got := credentialStatusIn(decodeReport(t, output), "jira"); got != "unreachable" {
+	if got := credentialStatusIn(decodeReport(t, output), jiraService); got != "unreachable" {
 		t.Errorf("the online report calls Jira's redirect %q, want unreachable:\n%s", got, output)
 	}
 }
@@ -234,7 +240,7 @@ func TestDoctorJSONOnlineReportsARateLimitAsUnreachable(t *testing.T) {
 	output, err := run(t, dir, "doctor", "--json", "--online")
 
 	// Assert
-	if got := credentialStatusIn(decodeReport(t, output), "jira"); got != "unreachable" {
+	if got := credentialStatusIn(decodeReport(t, output), jiraService); got != "unreachable" {
 		t.Errorf("the online report calls Jira's rate limit %q, want unreachable:\n%s", got, output)
 	}
 
@@ -243,4 +249,115 @@ func TestDoctorJSONOnlineReportsARateLimitAsUnreachable(t *testing.T) {
 	}
 
 	wantExit(t, err, 5)
+}
+
+// emptyTokenVariable is a token_env the tests set to nothing, standing in for a
+// variable the shell never exported.
+const emptyTokenVariable = "WORKFLOW_TEST_EMPTY_TOKEN"
+
+// configuredWith is a directory holding a configuration made of fields, for a
+// test whose credential sits in the file rather than in a repository.
+func configuredWith(t *testing.T, fields string) string {
+	t.Helper()
+
+	dir := t.TempDir()
+	writeFile(t, dir, "{"+fields+"}")
+
+	return dir
+}
+
+func TestDoctorJSONOnlineCallsAnAbsentCredentialMissing(t *testing.T) {
+	cases := map[string]struct {
+		service string
+		setup   func(t *testing.T) string
+	}{
+		"no jira.token": {service: jiraService, setup: func(t *testing.T) string {
+			t.Helper()
+
+			return configuredWith(t, `"jira": {"base_url": "`+workingJira(t)+`"}, `+slackWebhook)
+		}},
+		"a jira token_command that fails": {service: jiraService, setup: func(t *testing.T) string {
+			t.Helper()
+
+			return configuredWith(t, `"jira": {"base_url": "`+workingJira(t)+`", "token_command": "false"}, `+slackWebhook)
+		}},
+		"a jira token_command that prints nothing": {service: jiraService, setup: func(t *testing.T) string {
+			t.Helper()
+
+			return configuredWith(t, `"jira": {"base_url": "`+workingJira(t)+`", "token_command": "true"}, `+slackWebhook)
+		}},
+		"no messaging credential": {service: messagingService, setup: func(t *testing.T) string {
+			t.Helper()
+
+			return configuredWith(t, `"jira": {"base_url": "`+workingJira(t)+`", "token": "t"}`)
+		}},
+		"a messaging token_command that fails": {service: messagingService, setup: func(t *testing.T) string {
+			t.Helper()
+
+			return configuredWith(t, `"jira": {"base_url": "`+workingJira(t)+`", "token": "t"}, `+
+				`"messaging": {"token_command": "false", "channel": "#dev"}`)
+		}},
+		"a messaging token_env naming an empty variable": {service: messagingService, setup: func(t *testing.T) string {
+			t.Helper()
+			t.Setenv(emptyTokenVariable, "")
+
+			return configuredWith(t, `"jira": {"base_url": "`+workingJira(t)+`", "token": "t"}, `+
+				`"messaging": {"token_env": "`+emptyTokenVariable+`", "channel": "#dev"}`)
+		}},
+		"no forge token": {service: "forge", setup: func(t *testing.T) string {
+			t.Helper()
+			clearForgeEnvironment(t)
+			pathWithOnlyGit(t)
+
+			dir := repoWithRemote(t, githubSSHRemote)
+			writeConfigFor(t, dir, workingJira(t))
+
+			return dir
+		}},
+	}
+
+	for name, tt := range cases {
+		t.Run(name, func(t *testing.T) {
+			// Arrange
+			dir := tt.setup(t)
+
+			// Act
+			output, err := run(t, dir, "doctor", "--json", "--online")
+
+			// Assert
+			wantExit(t, err, 3)
+
+			if got := credentialStatusIn(decodeReport(t, output), tt.service); got != "missing" {
+				t.Errorf("the online report calls %s's absent credential %q, want missing:\n%s", tt.service, got, output)
+			}
+
+			if err != nil && strings.Contains(err.Error(), "rejected") {
+				t.Errorf("doctor --json --online = %v, want nothing called rejected when nothing was asked", err)
+			}
+		})
+	}
+}
+
+func TestDoctorJSONOnlineAsksJiraNothingWhenItsTokenEnvIsEmpty(t *testing.T) {
+	// Arrange
+	var reached atomic.Bool
+
+	server := jiraServer(t, http.StatusOK, jiraFixture, &reached)
+	t.Setenv(emptyTokenVariable, "")
+	dir := configuredWith(t,
+		`"jira": {"base_url": "`+server.URL+`", "token_env": "`+emptyTokenVariable+`"}, `+slackWebhook)
+
+	// Act
+	output, err := run(t, dir, "doctor", "--json", "--online")
+
+	// Assert
+	wantExit(t, err, 3)
+
+	if reached.Load() {
+		t.Errorf("doctor asked Jira with the empty token %s gave it", emptyTokenVariable)
+	}
+
+	if got := credentialStatusIn(decodeReport(t, output), jiraService); got != "missing" {
+		t.Errorf("the online report calls an empty %s %q, want missing:\n%s", emptyTokenVariable, got, output)
+	}
 }

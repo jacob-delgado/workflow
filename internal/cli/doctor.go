@@ -30,8 +30,13 @@ var (
 	errShared = errors.New("the configuration file can be reached by other users")
 	// errMissingTooling reports a required external program that is absent.
 	errMissingTooling = errors.New("required tooling is missing")
-	// errCredentialRejected reports a credential a service would not accept.
+	// errCredentialRejected reports a credential refused by the service asked or
+	// by the client before sending it, as distinct from a credential there was
+	// none of to ask with and from a service that never answered.
 	errCredentialRejected = errors.New("a credential was rejected")
+	// errCredentialMissing reports a service doctor had no credential to ask
+	// about: none is configured, or its token_command or token_env gave none.
+	errCredentialMissing = errors.New("a credential is missing")
 	// errUnreachable reports a service that never answered, as distinct from one
 	// that answered by refusing the credential.
 	errUnreachable = errors.New("the service could not be reached")
