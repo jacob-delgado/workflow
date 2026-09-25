@@ -5,22 +5,26 @@ package wiring_test
 
 // The OpenURL seam hands a check's address to the platform's own browser
 // opener, but only a web address: a value a program could read as a flag, or one
-// naming a local file, is refused before any opener runs.
+// naming a local file, is refused before any opener runs. BrowserCommand names
+// that opener for each platform, with the URL as one argument of its own.
 
 import (
 	"os"
 	"path/filepath"
+	"reflect"
+	"slices"
 	"strings"
 	"testing"
 
 	"github.com/jacob-delgado/workflow/internal/config"
+	"github.com/jacob-delgado/workflow/internal/proc"
 	"github.com/jacob-delgado/workflow/internal/wiring"
 )
 
-// recordingOpeners installs a stand-in for every platform browser opener — open,
-// xdg-open and cmd — on PATH, each recording the arguments it was handed, and
-// returns the path they record to. Whichever opener this platform reaches, the
-// test can then see what OpenURL passed it.
+// recordingOpeners installs a stand-in for every platform browser opener —
+// open, xdg-open and rundll32 — on PATH, each recording the arguments it was
+// handed, and returns the path they record to. Whichever opener this platform
+// reaches, the test can then see what OpenURL passed it.
 func recordingOpeners(t *testing.T) string {
 	t.Helper()
 
@@ -28,7 +32,7 @@ func recordingOpeners(t *testing.T) string {
 	record := filepath.Join(dir, "opened")
 	script := "#!/bin/sh\nprintf '%s\\n' \"$@\" >> \"" + record + "\"\n"
 
-	for _, name := range []string{"open", "xdg-open", "cmd"} {
+	for _, name := range []string{"open", "xdg-open", "rundll32"} {
 		write(t, filepath.Join(dir, name), script, 0o755)
 	}
 
@@ -70,5 +74,51 @@ func TestOpenURLOpensOnlyWebAddresses(t *testing.T) {
 				t.Errorf("OpenURL(%q) = %v, opener saw %q; want it refused and nothing run", tt.raw, err, opened)
 			}
 		})
+	}
+}
+
+func TestBrowserCommandRunsEachPlatformsOwnOpener(t *testing.T) {
+	const checkURL = "https://ci.example.com/checks/42"
+
+	cases := map[string]struct {
+		goos string
+		want proc.Command
+	}{
+		"darwin": {goos: "darwin", want: proc.Command{Name: "open", Args: []string{checkURL}}},
+		"linux":  {goos: "linux", want: proc.Command{Name: "xdg-open", Args: []string{checkURL}}},
+		"windows": {
+			goos: "windows",
+			want: proc.Command{Name: "rundll32", Args: []string{"url.dll,FileProtocolHandler", checkURL}},
+		},
+	}
+
+	for name, tt := range cases {
+		t.Run(name, func(t *testing.T) {
+			// Act
+			got := wiring.BrowserCommand(tt.goos, checkURL)
+
+			// Assert
+			if !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("BrowserCommand(%q, %q) = %+v, want %+v", tt.goos, checkURL, got, tt.want)
+			}
+		})
+	}
+}
+
+func TestBrowserCommandHandsWindowsTheWholeURLAsOneArgument(t *testing.T) {
+	// Arrange
+	target := "https://ci.example.com/checks?a=1&b=2^3|4"
+
+	// Act
+	got := wiring.BrowserCommand("windows", target)
+
+	// Assert
+	program, _ := strings.CutSuffix(strings.ToLower(got.Name), ".exe")
+	if program == "cmd" {
+		t.Errorf("BrowserCommand(windows) runs %q; want an opener other than cmd", got.Name)
+	}
+
+	if !slices.Contains(got.Args, target) {
+		t.Errorf("BrowserCommand(windows) args = %q; want %q whole, as one argument", got.Args, target)
 	}
 }

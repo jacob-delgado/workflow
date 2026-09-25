@@ -363,9 +363,9 @@ that explains the machine, has no row for either.
 - `internal/store/dir.go:15` (`DefaultDir`): `home, _ :=
   os.UserHomeDir()` drops the error, so an empty home reaches `Dir`
   (`:24`), which returns `ErrNoDir` for it.
-- `internal/wiring/wiring.go:314` (`storeDeps`): `dir, _ :=
+- `internal/wiring/wiring.go:280` (`storeDeps`): `dir, _ :=
   store.DefaultDir()` drops `ErrNoDir`, and the store is built on an empty
-  directory; the doc comment above (`:309`) calls the no-op intended, "the
+  directory; the doc comment above (`:275`) calls the no-op intended, "the
   interface simply learns nothing", which is what makes this a
   discoverability gap rather than a defect.
 - `internal/store/store.go:135` (`Store.off`): `s.disabled || s.dir ==
@@ -660,7 +660,7 @@ preview's `w` hidden but live.
 
 - `internal/tui/detail.go:200` `Model.issueVerbKeys` offers "branch for
   KEY" whenever `Git.CreateBranch` is wired, with no `outsideRepository`
-  check; `gitDeps` (`internal/wiring/wiring.go:197`) wires it whether or
+  check; `gitDeps` (`internal/wiring/wiring.go:184`) wires it whether or
   not the directory is a repository, and `Model.branchKeys`
   (`internal/tui/branch.go:168`) returns nil there.
 - `internal/tui/detail.go:225` `Model.newBranchKeys` gates on

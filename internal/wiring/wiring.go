@@ -136,9 +136,7 @@ func openInBrowser(ctx context.Context, raw string) error {
 		return err
 	}
 
-	name, args := browserCommand(runtime.GOOS, target)
-
-	_, err = proc.Run(ctx, name, args...)
+	_, err = proc.RunCommand(ctx, BrowserCommand(runtime.GOOS, target))
 	if err != nil {
 		return fmt.Errorf("opening %s: %w", target, err)
 	}
@@ -158,17 +156,17 @@ func safeBrowserURL(raw string) (string, error) {
 	return raw, nil
 }
 
-// browserCommand is the command that opens a web URL on goos. It takes the
-// platform as an argument rather than reading it, so every branch can be tested
-// from one machine.
-func browserCommand(goos, target string) (string, []string) {
+// BrowserCommand is the command that opens target, a web URL, on goos: open on
+// macOS, rundll32 with url.dll,FileProtocolHandler on Windows, and xdg-open on
+// every other platform, each handed the URL as a single argument.
+func BrowserCommand(goos, target string) proc.Command {
 	switch goos {
 	case "darwin":
-		return "open", []string{target}
+		return proc.Command{Name: "open", Args: []string{target}}
 	case "windows":
-		return "cmd", []string{"/c", "start", "", target}
+		return proc.Command{Name: "rundll32", Args: []string{"url.dll,FileProtocolHandler", target}}
 	default:
-		return "xdg-open", []string{target}
+		return proc.Command{Name: "xdg-open", Args: []string{target}}
 	}
 }
 
