@@ -45,7 +45,9 @@ var (
 	ErrCredentialInBaseURL = errors.New("jira.base_url carries a username and password")
 	// ErrUnauthorized reports a credential the instance did not accept.
 	ErrUnauthorized = errors.New("the credential was not accepted")
-	// ErrForbidden reports a credential the instance refused to consider.
+	// ErrForbidden reports a 403: a credential the instance refused to consider,
+	// or would not let do this. A 403 Jira explained carries it alongside
+	// ErrRejected, so a caller can tell a refused token from any other rejection.
 	ErrForbidden = errors.New("the credential was refused")
 	// ErrNoAPI reports a URL with no Jira REST API behind it.
 	ErrNoAPI = errors.New("no Jira REST API answered at that address")

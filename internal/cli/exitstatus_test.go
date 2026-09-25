@@ -7,10 +7,13 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"net/http"
+	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/jacob-delgado/workflow/internal/cli"
 	"github.com/jacob-delgado/workflow/internal/config"
@@ -93,6 +96,52 @@ func TestExitStatusDistinguishesFailureKinds(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			// Act & Assert
 			wantExit(t, tt.err, tt.want)
+		})
+	}
+}
+
+// askJira asks the Jira at base who the token belongs to, over the
+// redirect-refusing transport the commands use, and returns what failed.
+func askJira(ctx context.Context, base string) error {
+	settings := config.Jira{BaseURL: base, Token: "jira-token-for-tests"}
+	_, err := jira.New(httpx.Client(time.Second).Do, settings).Myself(ctx)
+
+	return err
+}
+
+// answeringWith answers every request with status and body.
+func answeringWith(status int, body string) http.HandlerFunc {
+	return func(writer http.ResponseWriter, _ *http.Request) {
+		writer.WriteHeader(status)
+		_, _ = writer.Write([]byte(body))
+	}
+}
+
+func TestAServiceAnswerExitsInItsFamily(t *testing.T) {
+	// Each error is the one the service's own client makes of the answer, so
+	// the family is the one a command meeting it exits with.
+	cases := map[string]struct {
+		answer http.HandlerFunc
+		ask    func(context.Context, string) error
+		want   int
+	}{
+		"jira refused the token for this, and said why": {
+			answer: answeringWith(http.StatusForbidden, `{"errorMessages":["You do not have permission to browse."]}`),
+			ask:    askJira, want: 3,
+		},
+	}
+
+	for name, tt := range cases {
+		t.Run(name, func(t *testing.T) {
+			// Arrange
+			server := httptest.NewServer(tt.answer)
+			t.Cleanup(server.Close)
+
+			// Act
+			err := tt.ask(t.Context(), server.URL)
+
+			// Assert
+			wantExit(t, err, tt.want)
 		})
 	}
 }

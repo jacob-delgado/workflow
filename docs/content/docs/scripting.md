@@ -30,7 +30,7 @@ the message, which is prose and may change.
 | 0 | Success. | |
 | 1 | Any other failure. | An issue that is not in the tracker, a push that was rejected, git missing, a repository whose branch cannot be read. |
 | 2 | Usage: the command was called wrongly. | An unknown flag, command or subcommand; a wrong number of arguments; `standup --days 0`; a confirmation with no terminal to answer it. |
-| 3 | Configuration: fix the file, a credential or a login. | No `.workflow.json` for `doctor` or `config show`; a file that does not parse; a required field left empty, or set unusably; a file other users can read; no messaging configured for `announce`; a credential that is missing — a Jira token, or a forge token from the file, the environment or `gh auth login` — or one a service rejected. |
+| 3 | Configuration: fix the file, a credential or a login. | No `.workflow.json` for `doctor` or `config show`; a file that does not parse; a required field left empty, or set unusably; a file other users can read; no messaging configured for `announce`; a credential that is missing — a Jira token, or a forge token from the file, the environment or `gh auth login` — or one a service rejected, a Jira 403 that says what the token may not do among them. |
 | 4 | A refused precondition: the command would not go ahead because of what it found. | A pull request already open; no commits to open one for; no pull request to announce; a branch or configuration file that already exists; a directory that is not a git repository. |
 | 5 | Unreachable: a service did not answer, or asked you to wait. | Jira, the forge or the messaging service could not be reached; rate limiting. |
 | 130 | Interrupted by Ctrl+C. | |
@@ -60,14 +60,16 @@ that is not signed in reads as a forge that could not be reached: 5, not 3.
 | Exit status | Web problem code |
 | --- | --- |
 | 2 usage | `bad_request` (400); `precondition_required` (428), for a configuration save that names no revision to write over (no `If-Match`) |
-| 3 configuration | `unprocessable` (422), for a missing messaging service, an invalid configuration body, a configuration file on disk that no longer reads as valid, a Jira token not configured or not accepted, a `jira.base_url` that is not a usable address, a forge token not found or not accepted, and a `forge.kind` set without its `forge.host` |
+| 3 configuration | `unprocessable` (422), for a missing messaging service, an invalid configuration body, a configuration file on disk that no longer reads as valid, a Jira token not configured or not accepted, or refused with a 403 that says what it may not do, a `jira.base_url` that is not a usable address, a forge token not found or not accepted, and a `forge.kind` set without its `forge.host` |
 | 4 refused precondition | `conflict` (409) |
 | 5 unreachable | `unreachable` (502), for a service that could not be reached or asked to wait |
-| 1 failure | `internal` (500); the web also answers `not_found` (404) for a missing issue, `unprocessable` (422) for a change Jira refused, a `jira.base_url` with no Jira API behind it, a forge address with no forge API behind it, or a request the forge refused for the token's permissions, and `unreachable` (502) for a status the forge does not document — all of which the command line counts as a plain failure |
+| 1 failure | `internal` (500); the web also answers `not_found` (404) for a missing issue, `unprocessable` (422) for any other change Jira refused, a `jira.base_url` with no Jira API behind it, a forge address with no forge API behind it, or a request the forge refused for the token's permissions, and `unreachable` (502) for a status the forge does not document — all of which the command line counts as a plain failure |
 
 The web has no problem code of its own for a missing or rejected credential. A
 Jira or forge credential answers `unprocessable` and points at `workflow
-doctor`, as the command line exits 3.
+doctor`, as the command line exits 3 — except a Jira 403 that says what the
+token may not do, which says Jira refused the request: doctor checks who a
+token is, not what it may do.
 
 ## Standard output and standard error
 

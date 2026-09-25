@@ -73,23 +73,32 @@ func (c Client) answerError(response *http.Response, requested *url.URL) error {
 	}
 
 	rejected := fmt.Errorf("%w: %s", ErrRejected, reason)
-	if response.StatusCode == http.StatusNotFound {
-		return notFoundError{rejected}
-	}
 
-	return rejected
+	switch response.StatusCode {
+	case http.StatusNotFound:
+		return alsoError{err: rejected, also: ErrNotFound}
+	case http.StatusForbidden:
+		return alsoError{err: rejected, also: ErrForbidden}
+	default:
+		return rejected
+	}
 }
 
-// notFoundError marks a 404 answer as not-found without losing the more specific
-// error it wraps: errors.Is finds ErrNotFound here and the wrapped sentinel —
-// ErrNoAPI or ErrRejected — through Unwrap, and the message stays the wrapped one.
-type notFoundError struct{ err error }
+// alsoError marks an explained answer with what its status says as well — a
+// 404 not-found, a 403 forbidden — without losing Jira's reason: errors.Is finds
+// also here and ErrRejected through Unwrap, and the message stays the reason.
+type alsoError struct {
+	err  error
+	also error
+}
 
-func (e notFoundError) Error() string { return e.err.Error() }
+var _ error = alsoError{}
 
-func (e notFoundError) Unwrap() error { return e.err }
+func (e alsoError) Error() string { return e.err.Error() }
 
-func (e notFoundError) Is(target error) bool { return target == ErrNotFound }
+func (e alsoError) Unwrap() error { return e.err }
+
+func (e alsoError) Is(target error) bool { return target == e.also }
 
 // reason reads Jira's explanation from a failed answer, or "" when the body is
 // not one — such as the HTML page of a proxy standing where Jira should be.
