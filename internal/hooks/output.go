@@ -44,26 +44,12 @@ type Location struct {
 	Message string
 }
 
-// Jobs reads which jobs a lefthook run has reached and how each stands, from
-// its output so far. It works on partial output, a line at a time: a job is
-// running from its header until the summary reports it.
-func Jobs(lines []string) []Job {
-	var jobs []Job
-
-	inSummary := false
-
-	for _, raw := range lines {
-		jobs, inSummary = NextJob(jobs, inSummary, raw)
-	}
-
-	return jobs
-}
-
 // NextJob folds one more output line into the jobs seen so far, returning the
-// updated jobs and whether the summary has begun. It does not modify the jobs it
-// is given, so a caller streaming output can keep the running set on its own
-// value and never re-read the whole output — a chatty hook would otherwise cost
-// a full re-parse on every line, and again on every redraw.
+// updated jobs and whether the summary has begun: a job is running from its
+// header until the summary reports it. It does not modify the jobs it is given,
+// so a caller streaming output can keep the running set on its own value and
+// never re-read the whole output — a chatty hook would otherwise cost a full
+// re-parse on every line, and again on every redraw.
 func NextJob(jobs []Job, inSummary bool, raw string) ([]Job, bool) {
 	line := strings.TrimSpace(raw)
 	next := slices.Clone(jobs)
