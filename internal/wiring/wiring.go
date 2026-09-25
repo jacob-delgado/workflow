@@ -46,11 +46,11 @@ type Workspace struct {
 	Remote string
 }
 
-// gitRunner runs git with its terminal prompts turned off. Nothing inside the
-// interface can answer a credential prompt, so a git command that reaches the
-// network — a finish's fast-forward pull — must fail with a reason rather than
-// seize the terminal waiting for input that never comes. It is the Runner every
-// repository this package builds goes through.
+// gitRunner runs git with its terminal prompts turned off. What it runs is quick
+// and local — the fetch, pull and push that reach the network stream through
+// proc.Start instead — but nothing inside the interface could answer a
+// credential prompt, so should one ask, git fails rather than seize the
+// terminal. It is the Runner every repository this package builds goes through.
 func gitRunner(ctx context.Context, name string, args ...string) ([]byte, error) {
 	return proc.RunCommand(ctx, proc.Command{Name: name, Args: args, Env: []string{"GIT_TERMINAL_PROMPT=0"}})
 }
@@ -221,28 +221,31 @@ func gitDeps(ctx context.Context, root string) tui.GitDeps {
 			return proc.Start(ctx, gitrepo.RebaseCommand(root, base))
 		},
 		Finish: func(branch, base string) error {
-			return repo.FinishBranch(ctx, branch, base, func() error {
-				_, err := proc.RunCommand(ctx, gitrepo.PullCommand(root))
-
-				return err
-			})
+			return repo.FinishBranch(ctx, branch, base, func() error { return streamToEnd(ctx, gitrepo.PullCommand(root)) })
 		},
 	}
 }
 
-// streamToEnd runs a network git command unbounded, draining its output and
-// returning how it exited — a network error, or a credential git could not get
-// with prompts off.
+// streamToEnd runs a network git command unbounded and waits for it to exit. A
+// failure keeps what git printed, which is where its reason is: a network
+// error, a base that cannot fast-forward, a credential it could not ask for.
 func streamToEnd(ctx context.Context, command proc.Command) error {
 	output, err := proc.Start(ctx, command)
 	if err != nil {
 		return err
 	}
 
-	for range output.Lines { //nolint:revive // draining the stream is the point; there is nothing to do per line
+	var printed []string
+	for line := range output.Lines {
+		printed = append(printed, line)
 	}
 
-	return output.Wait()
+	err = output.Wait()
+	if err != nil {
+		return fmt.Errorf("%w:\n%s", err, sanitize.Text(strings.Join(printed, "\n")))
+	}
+
+	return nil
 }
 
 // commitWith commits with a message written to a private temporary file, which

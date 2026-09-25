@@ -594,39 +594,6 @@ on `Branch` (or pass it to `Pushed`), and compare the upstream against
 upstream `fork/<name>` and ahead 0 reports `Pushed()` true, and the Branch
 pane says "pushed".
 
-### DEBT-87 Finish's `git pull` runs under the quick-read 30 s bound
-
-Severity: medium · Confidence: read
-
-The finish seam runs `git pull --ff-only` through the bounded
-`proc.RunCommand`, while the interface's other network commands (fetch, push,
-rebase) stream through `Start` with no bound; a pull slower than 30 s is
-SIGKILLed mid-transfer:
-
-- `internal/wiring/wiring.go:225` — `gitDeps`' `Finish` hands
-  `Repository.FinishBranch` a pull that runs `gitrepo.PullCommand` through
-  `proc.RunCommand`.
-- `internal/proc/proc.go:55` — `RunCommand` is bounded by
-  `DefaultRunTimeout`.
-- `internal/proc/proc.go:30` — `DefaultRunTimeout`'s comment: streamed work
-  belongs under `Start`.
-- `internal/wiring/wiring.go:237` — `streamToEnd` fetches the same remote
-  through `proc.Start`, unbounded.
-- `internal/tui/finish.go:139` — `finished.apply` pins only the raw error
-  under the preview's title.
-
-On a slow link the finish switches to base, the pull is killed at 30 s, the
-branch is kept (the step order protects the delete) and the overlay reports
-"signal: killed"; the user is left on base with an unexplained failure while
-the branch creator's fetch of the same remote streams unbounded. Neither the
-trade-offs nor the usage page record the 30 s cost.
-
-**One way to fix it.** Run the finish's pull through `proc.Start`, as the
-fetch does, keeping git's words in the error the overlay pins.
-
-**Done when.** A wiring test shows the finish's pull started through
-`Start`.
-
 ### DEBT-88 A key one separator after another key-shaped token is missed
 
 Severity: medium · Confidence: read
@@ -3199,7 +3166,7 @@ Seventeen conditions were never evaluated. Five are a test away:
 - `internal/tui/prcreate.go:134` — `pullCreated.apply`'s `named` case: every
   test that opens a pull request on an issue's branch wires
   `Jira.LinkPullRequest`.
-- `internal/wiring/wiring.go:238` — `streamToEnd`, git failing to start: no
+- `internal/wiring/wiring.go:234` — `streamToEnd`, git failing to start: no
   wiring test fetches or pulls without git on `PATH`.
 
 Eight more came into view once each operand counted, and each is a test
