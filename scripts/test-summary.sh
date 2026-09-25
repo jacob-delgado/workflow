@@ -6,10 +6,21 @@
 # appends the same markdown there, so a CI run shows the numbers without opening
 # a log.
 #
+# Usage: test-summary.sh <go-package-root>...
+#
 # Advisory: this reports, it does not gate. The gates are the separate test jobs.
 # It runs each suite independently and reports a dash where a suite could not run
 # (for example Playwright without its browser), rather than failing the report.
+#
+# The Go roots are arguments rather than a list of its own: Taskfile.yml passes
+# GO_PKGS, the roots its test task runs, so the Go row counts the same packages.
 set -uo pipefail
+
+if (($# == 0)); then
+  echo "usage: test-summary.sh <go-package-root>..." >&2
+  exit 2
+fi
+readonly go_roots=("$@")
 
 root="$(cd "$(dirname "${0}")/.." && pwd)"
 readonly root
@@ -34,11 +45,12 @@ count_json() {
   ' "${1}" 2>/dev/null || echo "- - -"
 }
 
-# go_row runs the Go unit tests with a coverage profile, and records the counts
-# and the total statement coverage.
+# go_row runs the Go unit tests as the test task does — over the roots given,
+# with the race detector — with a coverage profile, and records the counts and
+# the total statement coverage.
 go_row() {
   local counts pct
-  go -C "${root}" test -json -coverprofile="${work}/go.cov" ./... >"${work}/go.json" 2>/dev/null || true
+  go -C "${root}" test -race -json -coverprofile="${work}/go.cov" "${go_roots[@]}" >"${work}/go.json" 2>/dev/null || true
   counts="$(count_json "${work}/go.json")"
 
   # A bare number (or a dash), so the report's pct helper adds the one % sign.

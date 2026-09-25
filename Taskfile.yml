@@ -232,6 +232,7 @@ tasks:
       - scripts/coverage-summary_test.sh
       - scripts/gobco-report_test.sh
       - scripts/hook-environment_test.sh
+      - scripts/test-summary_test.sh
       - scripts/tool-versions_test.sh
       - scripts/release/push-release-tag_test.sh
 
@@ -282,8 +283,9 @@ tasks:
       # Runs the Go, web (vitest) and Playwright suites and prints one markdown
       # table of counts and coverage. In CI it also appends to the run summary.
       # Advisory: it reports, it does not gate — the gates are the test jobs.
-      # It runs the Go tests too: the same scrub as `test`.
-      - unset $(git rev-parse --local-env-vars); scripts/test-summary.sh
+      # It runs the Go tests too, so it takes the same roots and the same scrub
+      # as `test`.
+      - unset $(git rev-parse --local-env-vars); scripts/test-summary.sh {{.GO_PKGS}}
 
   lint:
     desc: Run every linter
