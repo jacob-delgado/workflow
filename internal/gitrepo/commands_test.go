@@ -120,6 +120,23 @@ func TestFetchCommandUpdatesOriginWithoutPrompts(t *testing.T) {
 	}
 }
 
+func TestPullCommandFastForwardsWithoutPrompts(t *testing.T) {
+	t.Parallel()
+
+	// Act
+	pull := gitrepo.PullCommand(workDir)
+
+	// Assert
+	if pull.Dir != workDir || pull.Name != gitProgram ||
+		!slices.Equal(pull.Args, []string{"pull", "--ff-only"}) {
+		t.Errorf("PullCommand = %+v", pull)
+	}
+
+	if !slices.Contains(pull.Env, "GIT_TERMINAL_PROMPT=0") {
+		t.Errorf("PullCommand environment = %q, want prompts turned off", pull.Env)
+	}
+}
+
 func TestRebaseCommandReplaysOntoTheBaseWithoutPrompts(t *testing.T) {
 	t.Parallel()
 
