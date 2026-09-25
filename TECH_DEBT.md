@@ -986,34 +986,6 @@ and refuse on the fresh answer.
 changes to a modified file after `live()`, presses `s` then `enter`, and the
 switch is refused with no checkout call recorded.
 
-### DEBT-109 A failed transitions listing for the review-status offer closes silently
-
-Severity: medium · Confidence: read
-
-When the status picker opens as a named-status offer after a pull request
-and `Jira.Transitions` fails, `transitionsListed.apply`
-(`internal/tui/picker.go:90`) tests `picker.offer.absent(msg.found)` before
-it looks at `msg.err`. A failed read has an empty `found`, and
-`statusOffer.absent` (`internal/tui/picker.go:128`) judges a named status
-absent from an empty list, so the applier closes the overlay
-(`internal/tui/picker.go:93`) and the error goes with it. The in-progress
-and by-hand offers reach line 97, store `listErr`, and `statusPicker.view`
-(`internal/tui/picker.go:260`) renders it. With `jira.review_status` set
-and Jira unreachable, the link step reports and then the status offer
-vanishes with no word: one failure told two ways, one of them not at all,
-against the "one voice for failure" promise.
-
-**One way to fix it.** Check `msg.err` before `absent()`: record `listErr`
-and settle the picker so its view shows the failure, and close only on a
-successful listing that lacks the status.
-
-**Done when.** A test in `internal/tui/issuelink_test.go` with
-`ReviewStatus` configured and `Transitions` returning `jira.ErrUnreachable`
-(overriding the world's deps as
-`TestOutsideARepositoryEachRepoPaneSaysSoAndOffersNoRepoKeys` does at
-`internal/tui/branch_test.go:60`) shows "Jira did not answer in time" in
-the Change status overlay.
-
 ### DEBT-110 Below 80 columns, clicking the issue being read selects another issue
 
 Severity: medium · Confidence: read

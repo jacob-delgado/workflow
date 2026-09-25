@@ -87,9 +87,9 @@ func (msg transitionsListed) apply(m Model) (Model, tea.Cmd) {
 		return m, nil
 	}
 
-	if picker.offer.absent(msg.found) {
-		// A named-status offer with nothing to move to makes no offer, rather than
-		// opening the picker pre-selected on an unrelated transition.
+	if msg.err == nil && picker.offer.absent(msg.found) {
+		// A listing without the named status makes no offer, rather than pre-select
+		// an unrelated move; a failed listing stays open so its failure is shown.
 		return m.closeOverlay(), nil
 	}
 

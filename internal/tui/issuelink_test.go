@@ -5,9 +5,11 @@ package tui_test
 
 import (
 	"errors"
+	"fmt"
 	"testing"
 
 	"github.com/jacob-delgado/workflow/internal/jira"
+	"github.com/jacob-delgado/workflow/internal/tui"
 )
 
 // errLinkFailed is how Jira refuses a remote link.
@@ -73,6 +75,26 @@ func TestNoReviewOfferWhenJiraDoesNotHaveTheStatus(t *testing.T) {
 
 	// Assert
 	refuseScreen(t, skipped.View().Content, "Change status")
+}
+
+func TestAFailedListingKeepsTheReviewStatusOfferOpen(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	linking := withoutPull()
+	linking.cfg.Jira.ReviewStatus = statusInReview
+	deps := linking.deps()
+	deps.Jira.Transitions = func(jira.Key) ([]jira.Transition, error) {
+		return nil, fmt.Errorf("listing: %w", jira.ErrUnreachable)
+	}
+	model := sized(t, tui.New(linking.cfg, nil, deps), 120, 40)
+	opened := typing(t, drain(t, model, model.Init()), "4", "n", keyEnter)
+
+	// Act
+	linked := typing(t, opened, keyEnter)
+
+	// Assert
+	requireScreen(t, linked.View().Content, "Change status", "Jira did not answer in time")
 }
 
 func TestOpeningAPullRequestOffersToLinkItOnTheIssue(t *testing.T) {
