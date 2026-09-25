@@ -28,7 +28,7 @@ updates:
     cooldown:
       default-days: 7
     groups:
-      go-minor-patch:
+      go:
         update-types: ["minor", "patch"]
 
   # The web frontend's packages (web/package.json and web/yarn.lock).
@@ -42,7 +42,7 @@ updates:
     cooldown:
       default-days: 7
     groups:
-      web-minor-patch:
+      web:
         update-types: ["minor", "patch"]
         # openapi-ts copies its client runtime into src/api/generated, so its
         # bump must land with `corepack yarn gen` output or gen:check fails.
@@ -65,7 +65,7 @@ updates:
         - "actions/*"
         - "github/*"
     groups:
-      actions-minor-patch:
+      actions:
         update-types: ["minor", "patch"]
 
   # The build container's base image (build/Dockerfile).
@@ -78,7 +78,7 @@ updates:
     cooldown:
       default-days: 7
     groups:
-      docker-minor-patch:
+      docker:
         update-types: ["minor", "patch"]
 
   # The documentation site's Hugo module (docs/go.mod), a separate module the
@@ -92,7 +92,7 @@ updates:
     cooldown:
       default-days: 7
     groups:
-      docs-minor-patch:
+      docs:
         update-types: ["minor", "patch"]
 
   # The devcontainer's base image and features (.devcontainer/devcontainer.json).
@@ -105,5 +105,5 @@ updates:
     cooldown:
       default-days: 7
     groups:
-      devcontainer-minor-patch:
+      devcontainer:
         update-types: ["minor", "patch"]
