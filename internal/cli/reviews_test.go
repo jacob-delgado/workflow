@@ -61,6 +61,22 @@ func TestReviewsWithoutAForgeReportsSo(t *testing.T) {
 	wantExit(t, err, 3)
 }
 
+func TestReviewsOnAHostThatNamesNoForgeReportsSo(t *testing.T) {
+	// Arrange
+	// The hostname says neither GitHub nor GitLab, and no forge.kind says which.
+	repo := repoWithRemote(t, "git@git.example.com:acme/thing.git")
+
+	// Act
+	_, err := run(t, repo, "reviews")
+
+	// Assert
+	if !errors.Is(err, forge.ErrUnknownForge) {
+		t.Errorf("reviews on a host that names no forge = %v, want it to say it cannot tell the forge", err)
+	}
+
+	wantExit(t, err, 3)
+}
+
 func TestReviewsShowsTheAuthorRepositoryCIAndAge(t *testing.T) {
 	// Arrange
 	fakeGh(t, ghResponses{search: reviewSearch(
