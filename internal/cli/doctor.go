@@ -251,7 +251,7 @@ func askForge(
 	if err != nil {
 		fmt.Fprintf(out, "  %-10s %v (token from %s)\n", "forge", err, source)
 
-		return credentialOutcome(err, forge.ErrUnreachable, "forge")
+		return credentialOutcome(err, "forge")
 	}
 
 	fmt.Fprintf(out, "  %-10s authenticates as %s (token from %s)\n", "forge", identity.Name(), source)
@@ -287,7 +287,7 @@ func checkMessaging(
 			return nil
 		}
 
-		return credentialOutcome(err, messaging.ErrUnreachable, label)
+		return credentialOutcome(err, label)
 	}
 
 	fmt.Fprintf(out, "  %-10s %s in %s (token from %s)\n", label, identity.User, identity.Team, source)
@@ -296,11 +296,12 @@ func checkMessaging(
 }
 
 // credentialOutcome tells an unreachable service from a rejected credential, so
-// the outcome names the one the reader can act on. A refused redirect is
-// unreachable, as every command counts it: the credential never reached the
-// service to be judged.
-func credentialOutcome(err, unreachable error, service string) error {
-	if errors.Is(err, unreachable) || errors.Is(err, httpx.ErrRedirected) {
+// the outcome names the one the reader can act on. It reads unreachable as
+// every command's exit status does: a service that could not be reached, asked
+// the caller to wait, or answered with a refused redirect never judged the
+// credential.
+func credentialOutcome(err error, service string) error {
+	if (exitFamily{members: unreachableErrors()}).holds(err) {
 		return fmt.Errorf("%w: %s", errUnreachable, service)
 	}
 
@@ -323,7 +324,7 @@ func checkJira(ctx context.Context, out io.Writer, doer jira.Doer, settings conf
 	if err != nil {
 		fmt.Fprintf(out, "  %-10s %v (token from %s)\n", "jira", err, source)
 
-		return credentialOutcome(err, jira.ErrUnreachable, "jira")
+		return credentialOutcome(err, "jira")
 	}
 
 	fmt.Fprintf(out, "  %-10s authenticates as %s (token from %s)\n", "jira", identify(user), source)
