@@ -266,8 +266,14 @@ func credentialUnchecked(out io.Writer, service, why string) error {
 	return fmt.Errorf("%w: %s", errUnchecked, service)
 }
 
-// checkJira asks Jira who the configured token authenticates as.
+// checkJira asks Jira who the configured token authenticates as. With no
+// jira.base_url there is no Jira to ask: the forge's issues are the tracker, and
+// the forge's own check covers them.
 func checkJira(ctx context.Context, out io.Writer, doer jira.Doer, settings config.Jira) error {
+	if !settings.Configured() {
+		return credentialUnchecked(out, "jira", "not configured — the forge's issues are the tracker")
+	}
+
 	token, source, err := wiring.ResolveToken(ctx, settings.Token, settings.TokenCommand, settings.TokenEnv)
 	if err != nil {
 		return credentialMissing(out, "jira", err.Error())
