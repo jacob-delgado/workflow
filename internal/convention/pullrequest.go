@@ -19,13 +19,6 @@ const (
 	TitleFromIssue TitleSource = "issue"
 )
 
-// PullRequestTitle proposes a pull request's title from the default source, the
-// branch's oldest commit. A caller with a configured source uses
-// PullRequestTitleFrom.
-func PullRequestTitle(subjects []string, issueKey, summary string) string {
-	return PullRequestTitleFrom(TitleFromCommit, subjects, issueKey, summary)
-}
-
 // PullRequestTitleFrom proposes a pull request's title from the chosen source,
 // falling back to the other when the chosen one has nothing to offer.
 func PullRequestTitleFrom(source TitleSource, subjects []string, issueKey, summary string) string {

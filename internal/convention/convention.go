@@ -66,25 +66,6 @@ func ValidateScope(value string) error {
 	return nil
 }
 
-// CommitTypes are the built-in Conventional Commit types, in the order a composer
-// offers them. A team's own types come from CommitConvention.
-func CommitTypes() []string {
-	return DefaultCommitConvention().Types()
-}
-
-// BranchName proposes a branch for an issue with the built-in convention: fix/
-// for a bug and feat/ for anything else, then the key as Jira writes it, then a
-// slug of the summary. A caller with configured naming uses BranchNaming.Name.
-func BranchName(issueType, key, summary string) string {
-	return DefaultBranchNaming().Name(issueType, key, summary)
-}
-
-// BranchType is the built-in commit type a branch name begins with, when that
-// leading segment is one. A team's own types come from CommitConvention.
-func BranchType(branchName string) (string, bool) {
-	return DefaultCommitConvention().BranchType(branchName)
-}
-
 // slugOf reduces a summary to lowercase ASCII words joined by hyphens, cut at a
 // word boundary once it would pass limit.
 func slugOf(summary string, limit int) string {
@@ -292,13 +273,6 @@ func (s Subject) String() string {
 // convention. A team with its own types or limit uses CommitConvention.Validate.
 func (s Subject) Validate() error {
 	return DefaultCommitConvention().Validate(s)
-}
-
-// Message is a whole commit message under the built-in convention: the subject,
-// the body if there is one, and a Refs trailer naming the issue, unless the body
-// already carries it. A team with its own trailer uses CommitConvention.Message.
-func Message(subject Subject, body, issueKey string) string {
-	return DefaultCommitConvention().Message(subject, body, issueKey)
 }
 
 // hasTrailerLine reports a trailer already present as a whole line, so a longer

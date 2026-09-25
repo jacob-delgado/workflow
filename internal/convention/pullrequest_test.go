@@ -32,9 +32,12 @@ func TestPullRequestTitleIsTheOldestCommit(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
 
-			// Act & Assert
-			if got := convention.PullRequestTitle(tt.subjects, tt.key, tt.summary); got != tt.want {
-				t.Errorf("PullRequestTitle = %q, want %q", got, tt.want)
+			// Act
+			got := convention.PullRequestTitleFrom(convention.TitleFromCommit, tt.subjects, tt.key, tt.summary)
+
+			// Assert
+			if got != tt.want {
+				t.Errorf("PullRequestTitleFrom(TitleFromCommit) = %q, want %q", got, tt.want)
 			}
 		})
 	}
