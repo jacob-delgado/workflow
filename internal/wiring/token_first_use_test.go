@@ -27,6 +27,17 @@ import (
 // recordedToken is what the stand-in token command prints.
 const recordedToken = "token-from-the-command"
 
+// Token sources that give nothing: a command that fails, one that prints
+// nothing, and a variable no test sets.
+const (
+	failingCommand = "false"
+	silentCommand  = "true"
+	unsetVariable  = "WORKFLOW_TEST_VARIABLE_NEVER_SET"
+)
+
+// commandSource is the source a token from token_command names.
+const commandSource = "token_command"
+
 // tokenCommand is a stand-in token_command: a script that prints recordedToken
 // and marks each run in a file of its own.
 type tokenCommand struct {
@@ -148,16 +159,16 @@ func TestAJiraTokenSourceThatGivesNoTokenIsReportedAsNoCredential(t *testing.T) 
 		want     string
 	}{
 		"a command that fails": {
-			settings: config.Jira{TokenCommand: "false"},
+			settings: config.Jira{TokenCommand: failingCommand},
 			want:     "token command",
 		},
 		"a command that prints nothing": {
-			settings: config.Jira{TokenCommand: "true"},
-			want:     "token_command",
+			settings: config.Jira{TokenCommand: silentCommand},
+			want:     commandSource,
 		},
 		"an environment variable that is not set": {
-			settings: config.Jira{TokenEnv: "WORKFLOW_TEST_VARIABLE_NEVER_SET"},
-			want:     "WORKFLOW_TEST_VARIABLE_NEVER_SET",
+			settings: config.Jira{TokenEnv: unsetVariable},
+			want:     unsetVariable,
 		},
 	}
 
@@ -236,7 +247,7 @@ func TestEveryJiraSeamReportsATokenCommandThatFails(t *testing.T) {
 			// Arrange
 			jiraStandIn := newStandInJira(t)
 			cfg := config.Default()
-			cfg.Jira = config.Jira{BaseURL: jiraStandIn.url, TokenCommand: "false"}
+			cfg.Jira = config.Jira{BaseURL: jiraStandIn.url, TokenCommand: failingCommand}
 			seams := wired(t, cfg, wiring.Workspace{Root: t.TempDir(), Remote: ""}, nil).Jira
 
 			// Act

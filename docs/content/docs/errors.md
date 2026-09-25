@@ -75,9 +75,10 @@ and one with no Jira API behind it are answered here too, pointing at
 `workflow doctor` rather than naming the address. So are a forge token that was not found or that the forge did not
 accept, a `forge.kind` set without its `forge.host`, a forge address with no
 forge API behind it, and a request the forge refused, whose detail points at
-the token's scopes. So is an announcement the messaging service refused,
-or could not be sent because messaging is not set up or its webhook is not
-https — never with the service's own error, which can name the webhook.
+the token's scopes. So is an announcement the messaging service refused, or
+could not be sent because messaging has no credential (none set, or a token
+its command or variable did not give) or its webhook is not https — never with
+the service's own error, which can name the webhook.
 
 ## Precondition required
 

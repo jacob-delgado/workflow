@@ -72,30 +72,35 @@ func Locate(ctx context.Context, dir string) Workspace {
 // request each service makes. The services share one redirect-refusing HTTP
 // client, so a change to how it is built is made here once.
 //
-// Jira, like the forge, finds its token the first time it is asked, so a
-// command that never reaches it never runs its token command. The returned
-// resolveAhead finds it now instead, for the interface and the web server to
-// call before they start: once either holds the terminal, a token command that
-// asks on it could not be answered. A token not found then is looked for again
-// on first use, where its failure is reported.
+// Each service finds its token the first time it is asked, so a command that
+// never reaches Jira or the messaging service never runs that service's token
+// command. The returned resolveAhead finds both now instead, for the interface
+// and the web server to call before they start: once either holds the
+// terminal, a token command that asks on it could not be answered. A token not
+// found then is looked for again on first use, where its failure is reported.
 func Deps(ctx context.Context, cfg config.Config, where Workspace, log *RequestLog) (tui.Deps, func()) {
 	httpTransport := httpx.Client(requestTimeout(cfg)).Do
 	setup := forgeSetup{settings: cfg.Forge, where: where, httpTransport: httpTransport, log: log}
 	connect := onceConnected(func() (forgeConnection, error) { return connectForge(ctx, setup) })
 	jiraClient := onceConnected(func() (jira.Client, error) { return connectJira(ctx, cfg.Jira, httpTransport, log) })
+	messagingClient := onceConnected(func() (messaging.Client, error) {
+		return connectMessaging(ctx, cfg.Messaging, httpTransport, log)
+	})
 
 	// A failure here is left for first use, which looks again and reports it.
 	resolveAhead := func() {
 		if cfg.Jira.Configured() {
 			_, _ = jiraClient()
 		}
+
+		_, _ = messagingClient()
 	}
 
 	return tui.Deps{
 		Jira:       trackerDeps(ctx, cfg.Jira, jiraClient, connect),
 		Git:        gitDeps(ctx, where.Root),
 		Forge:      forgeDeps(ctx, setup, connect),
-		Messaging:  messagingDeps(ctx, cfg.Messaging, httpTransport, log),
+		Messaging:  messagingDeps(ctx, messagingClient),
 		Hooks:      hookDeps(ctx, where.Root),
 		Editor:     editorDeps(where.Root),
 		Store:      storeDeps(ctx, cfg, where),
@@ -267,27 +272,6 @@ func commitWith(ctx context.Context, root, message string) (proc.Output, error) 
 	}
 
 	return output, nil
-}
-
-// messagingDeps is what the interface asks of the messaging service. Only a Slack
-// bot token is resolved from a command or environment variable; the webhook
-// kinds carry the credential in the URL and need no token lookup.
-func messagingDeps(
-	ctx context.Context, settings config.Messaging, httpTransport httpx.Doer, log *RequestLog,
-) tui.MessagingDeps {
-	// A webhook's path is its credential; only a bot posts to a route.
-	wrap := log.wrapWebhook
-
-	if settings.Mode() == config.MessagingBot {
-		settings.Token, _, _ = ResolveToken(ctx, settings.Token, settings.TokenCommand, settings.TokenEnv)
-		wrap = log.Wrap
-	}
-
-	service := strings.ToLower(settings.Service())
-	//nolint:bodyclose // wrap only relays the response; the messaging client reads and closes its body.
-	client := messaging.New(wrap(service, httpTransport), messaging.APIBase, settings)
-
-	return tui.MessagingDeps{Post: func(channel, text string) error { return client.Post(ctx, channel, text) }}
 }
 
 // storeDeps binds the on-disk store to this repository, so the interface can open

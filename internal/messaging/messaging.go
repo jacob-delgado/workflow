@@ -36,8 +36,9 @@ const authTestPath = "/auth.test"
 // refused redirect and a rate limit come back as httpx's ErrRedirected and
 // ErrRateLimited, which every client shares.
 var (
-	// ErrNoCredential reports a configuration with neither transport set.
-	ErrNoCredential = errors.New("no messaging.token or messaging.webhook_url is configured")
+	// ErrNoCredential reports that messaging has no credential to post with:
+	// neither transport is set, or the bot token's source gave none.
+	ErrNoCredential = errors.New("messaging has no credential")
 	// ErrWebhookUncheckable reports that a webhook cannot be verified.
 	ErrWebhookUncheckable = errors.New("an incoming webhook cannot be checked without posting with it")
 	// ErrRejected reports a token Slack would not accept.

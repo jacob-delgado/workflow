@@ -205,8 +205,8 @@ func TestDoctorOnlineFailsWhenSlackIsNotConfigured(t *testing.T) {
 		t.Fatalf("doctor --online accepted a missing Slack credential:\n%s", output)
 	}
 
-	if !strings.Contains(output, "no messaging.token or messaging.webhook_url") {
-		t.Errorf("doctor does not name the missing Slack credential:\n%s", output)
+	if !strings.Contains(output, "messaging has no credential") {
+		t.Errorf("doctor does not say Slack has no credential:\n%s", output)
 	}
 }
 

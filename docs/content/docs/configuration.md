@@ -99,6 +99,7 @@ loaded silently would look exactly like a credential you never set.
 Leave `jira.user` empty to authenticate with that token as a bearer token, which
 is what Data Center expects. Set `jira.user` only if your instance requires HTTP
 Basic authentication, in which case the token is used as the password.
+`workflow doctor` reports which of the two modes is in effect.
 
 ## Jira behind single sign-on (Azure AD / Office 365, and others)
 
@@ -195,13 +196,13 @@ The file's own `token` wins when set, then `token_env`, then `token_command`.
 `workflow doctor --online` reports which source each credential came from,
 without ever printing the value.
 
-Jira's token is found the first time a command needs Jira, so one that never
-reaches it, such as `workflow reviews`, never runs `jira.token_command`. The
-interface and `--web` find it before they start, while a command that asks for
-a passphrase on the terminal can still be answered. A command that fails or
-prints nothing, or a variable that is empty, is reported as no token where Jira
-was wanted, and the token is looked for again the next time.
-`workflow doctor` reports which of the two modes is in effect.
+Each token is found the first time a command needs its service, so one that
+never reaches Jira or the messaging service, such as `workflow reviews`, never
+runs their token commands. The interface and `--web` find both before they
+start, while a command that asks for a passphrase on the terminal can still be
+answered. A command that fails or prints nothing, or a variable that is empty,
+is reported as no token where the service was wanted, and the token is looked
+for again the next time.
 
 ### The operating system's keychain
 

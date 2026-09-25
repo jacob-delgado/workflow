@@ -126,8 +126,9 @@ func everySeamFailure() map[string]spoken {
 			"The forge has no user by that name. Check the reviewers and assignees.",
 		},
 		"messaging no credential": {
-			fmt.Errorf("posting: %w", messaging.ErrNoCredential), "messaging is not set up",
-			"Messaging is not set up. Add `messaging.webhook_url` to `.workflow.json`.",
+			fmt.Errorf("posting: %w", messaging.ErrNoCredential), "messaging has no credential",
+			"Messaging has no credential. Set `messaging.webhook_url` or `messaging.token`, or check that " +
+				"`messaging.token_command` or `messaging.token_env` gives one.",
 		},
 		"messaging insecure webhook": {
 			fmt.Errorf("posting: %w", messaging.ErrInsecureWebhook), "the webhook is not https",

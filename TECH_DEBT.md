@@ -212,7 +212,7 @@ The clients:
 - `internal/jira/jira.go:6` — the package comment names search, read, move,
   comment, link and whoami, not `Assign` (`internal/jira/assignee.go:13`),
   `AddWorklog` (`internal/jira/worklog.go:33`) or `WikiFromMarkdown`
-  (`internal/jira/wiki.go:22`); `ARCHITECTURE.md:140` repeats the list
+  (`internal/jira/wiki.go:22`); `ARCHITECTURE.md:147` repeats the list
   without `Assign` and `AddWorklog`.
 - `internal/jira/search.go:135` — `wireIssue`'s comment says the fields
   "past Reporter ride only on the detail request"; `searchFields` (`:27`) is
@@ -348,13 +348,13 @@ The configuration page (the Fields table's missing rows are DEBT-91):
   `Discover`'s comment (`internal/config/load.go:18`, "searching workDir
   first and then homeDir"), where `Discover` (`:26`) calls `nearest`, which
   walks up to the directory holding `.git` (`:37`).
-- `docs/content/docs/configuration.md:375` — "While it is on and no
+- `docs/content/docs/configuration.md:383` — "While it is on and no
   `timing.ci_interval` is set, CI is polled every three minutes" gives two
   of `pollInterval`'s three conditions (`internal/tui/review.go:185`): no
   announcement may be waiting either.
-- `docs/content/docs/configuration.md:472` — the store is "keyed only by a
+- `docs/content/docs/configuration.md:480` — the store is "keyed only by a
   repository's host and path and by a hash of your Jira URL", and
-  `ARCHITECTURE.md:228` says the repository key is the remote's parsed host
+  `ARCHITECTURE.md:235` says the repository key is the remote's parsed host
   and path; `migrate` (`internal/store/store.go:202`) keys the cache by
   `(instance, view)`, where `Model.cacheIssues`
   (`internal/tui/issues.go:47`) passes the view's JQL text, and `repoKey`
@@ -496,7 +496,7 @@ UX-87.
 - `internal/config/timing.go:21` — `Timing.RequestTimeout`; 0 hits, and no
   `timing` row at all.
 - `internal/config/timing.go:24` — `Timing.CIInterval`, named once in
-  prose at `docs/content/docs/configuration.md:375` ("The interface:
+  prose at `docs/content/docs/configuration.md:383` ("The interface:
   mouse, ASCII and color") as if already introduced; its format and
   twenty-second default are nowhere.
 - `internal/config/branch.go:37` — `Branch.SlugLimit`, validated at `:55`;
@@ -734,7 +734,7 @@ three; no linter or knip rule sees any of it.
 
 - `internal/tui/branch.go:22` — `notInRepository` is a second wording of
   `gitrepo.ErrNotARepository`, under a comment (`:21`) saying the fact is
-  "stated one way"; `programErrors` (`internal/tui/failure.go:281`) holds
+  "stated one way"; `programErrors` (`internal/tui/failure.go:283`) holds
   the first.
 - `internal/tui/composer.go:378` — `Model.recordScope` tests `scope != ""`
   on the raw `c.scope.Value()` (`:143`), so `' '` is recorded;
@@ -760,7 +760,7 @@ three; no linter or knip rule sees any of it.
   classify.
 - `internal/config/ui.go:45` — the rebindable action names are listed
   in `UI.Keys`' comment, again under "Rebinding keys"
-  (`docs/content/docs/configuration.md:405`), and bound in `CheckKeys`
+  (`docs/content/docs/configuration.md:413`), and bound in `CheckKeys`
   (`internal/tui/keys.go:293`); no test holds the three to each other.
 - `internal/config/config.go:349` — `Config.Problems`' sentence
   "jira.base_url is not an absolute http or https URL" is
@@ -873,9 +873,9 @@ them.
 - `internal/cli/pr.go:185` — the two dry-run lines of `offerLink` and
   `offerReviewStatus` (`:244`) never print; UX-127 makes them print, which
   closes this arm.
-- `internal/messaging/messaging.go:120` — `Client.checkable` returns
+- `internal/messaging/messaging.go:112` — `Client.checkable` returns
   `ErrNoCredential` for `config.MessagingNone` and again in `default:`
-  (`:122`); `markupFor` (`internal/messaging/post.go:267`) returns
+  (`:114`); `markupFor` (`internal/messaging/post.go:267`) returns
   `slackMarkup()` for `config.KindSlack` and again in `default:`.
 - `internal/wiring/forgecli.go:58` — `forgeProgram`'s `case
   forge.KindUnknown:` and `default:` (`:60`) both return `"", false`; the
@@ -932,47 +932,6 @@ switches in `internal/cli/status.go`, `checkable` in
 once; and the v8 summary lists no uncovered null return for the four panels
 and none has a null check.
 
-### DEBT-102 Token commands run at wiring, for commands that never reach the service
-
-Severity: low · Confidence: read
-
-`jiraDeps` (`internal/wiring/wiring.go:166`) calls `ResolveToken` inside
-`Deps`, running `token_command` as a subprocess on every connect, and
-`messagingDeps` (`internal/wiring/wiring.go:291`) does the same for the
-messaging token, while the forge in the same package connects lazily through
-`onceConnected` (`Deps`, `internal/wiring/wiring.go:75`).
-`connectAt` (`internal/cli/cli.go:384`) builds `wiring.Deps` for every
-command, so `runReviewsCommand` (`internal/cli/reviews.go:56`), which uses
-only `Forge.ReviewRequests`, runs `jira.token_command` anyway, and
-`statusesOf` (`internal/cli/status.go:166`) calls `connectAt` per directory,
-so `status DIR…` runs it once per directory. A token command that prompts (a
-password manager with a biometric or passphrase prompt) fires on `workflow
-reviews`, on every command that only touches git or the forge, once per
-directory on `status`, and before the interface draws its first frame; a
-slow command delays every command by its run time.
-
-Both calls also discard `ResolveToken`'s error —
-`settings.Token, _, _ = ResolveToken(…)`. For messaging, a `token_command`
-that fails leaves the token empty while `hasToken`
-(`internal/config/config.go:314`) still counts the set command as a token
-and the mode stays bot; `postAsBot` (`internal/messaging/post.go:109`) then
-sends a `Bearer` header with nothing after the word, and the Messaging pane
-and `workflow announce` word a command that could not run as a refused
-credential. The gobco report shows the
-`MessagingBot` arm at `internal/wiring/wiring.go:297` "56 times false but
-never true".
-
-**One way to fix it.** Resolve the Jira and messaging tokens on first use,
-through the same `onceConnected` pattern the forge seams already use, so a
-failed resolve is retried rather than remembered, and return the resolve
-error, wrapped, from the first `Jira.Search` and the first `Messaging.Post`.
-
-**Done when.** A wiring test with `jira.token_command` pointing at a script
-that records each run sees zero runs after `Deps()` and after
-`Forge.ReviewRequests`, and one after the first `Jira.Search`; and a wiring
-test with `messaging.token_command` set to `false` sees `Messaging.Post`
-return an error naming the token command.
-
 ### DEBT-103 The request log's write and close errors are dropped
 
 Severity: low · Confidence: read
@@ -984,8 +943,7 @@ checked" does not hold for this file write, and `openRequestLog`
 (`internal/cli/cli.go:425`) hands the log an `*os.File` and ignores the
 close error too. A `--log` on a full disk records nothing and nobody is
 told, so the bug report the log exists for arrives empty; the reqlog tests
-write to a `strings.Builder`, so a failing writer is untested. The token
-command's dropped error is DEBT-102's.
+write to a `strings.Builder`, so a failing writer is untested.
 
 **One way to fix it.** Check the write once in `record` and keep the first
 error on the log for the command line to report at close; and make the
@@ -1309,7 +1267,7 @@ methods, and the editor is still open.
 Severity: medium · Confidence: read
 
 Two places assume the default key where `ui.keys`, which `CheckKeys`
-accepts and `docs/content/docs/configuration.md:405` ("Rebinding keys")
+accepts and `docs/content/docs/configuration.md:413` ("Rebinding keys")
 lists, can rebind it. `Model.handleGlobalKey` derives the pane from the
 pressed key's first byte, so an override of `jump-to-pane` to a non-digit
 indexes past the pane table and the next `View` panics: with
@@ -1816,7 +1774,7 @@ pull request for" instead of being classified through `fault`, as
   the branch: %w" (`internal/loop/pull.go:95`) into `nothingToOpen` at
   `GetPullRequestDraft` (`internal/webserver/pullrequest.go:26`) and
   `OpenPullRequest` (`internal/webserver/pullrequest.go:49`).
-- `internal/webserver/announce_test.go:312` —
+- `internal/webserver/announce_test.go:316` —
   `TestAnnouncingIsAConflictWithoutAPullRequest`'s case "the forge cannot
   be reached" pins the 409 for a `FindPull` error, the wrong answer.
 - `docs/content/docs/errors.md:89` — "## Unreachable" reserves 502 for an
@@ -2009,7 +1967,7 @@ pushed snapshot (the merged-pull `CheckCI` skip is DEBT-127).
 
 Severity: medium · Confidence: read
 
-"## Internal" in `docs/content/docs/errors.md:101` says the cause of a 500
+"## Internal" in `docs/content/docs/errors.md:102` says the cause of a 500
 "is in the server's own output, not the response". Both places that answer
 `internal` discard the error: `writeResponseError`
 (`internal/webserver/errors.go:84`) ignores its error argument, and
@@ -2491,7 +2449,7 @@ grep of the exact string: 12 lines in 6 files.
   `TestARefusalNoticeWearsTheFailureStyle`, `TestAGuidanceNoticeStaysPlain`,
   `TestADroppedPostIsNoticedAsAFailure` and
   `TestAShortTerminalsFooterDrawsAFailureInRed`.
-- `internal/tui/failure_channels_test.go:218` —
+- `internal/tui/failure_channels_test.go:222` —
   `TestEveryChannelSpeaksTheFailureSentence`.
 - `internal/tui/failure_test.go:391` —
   `TestTheConfigurationScreenShowsItsErrorAsAFailure`.

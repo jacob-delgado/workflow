@@ -25,7 +25,7 @@ func TestResolveTokenPrefersTheFileThenTheCommand(t *testing.T) {
 		},
 		"a command when the file is empty": {
 			command:   "echo command-token",
-			wantToken: "command-token", wantSource: "token_command",
+			wantToken: "command-token", wantSource: commandSource,
 		},
 		"nothing configured": {
 			wantToken: "", wantSource: "no token configured",
@@ -71,7 +71,7 @@ func TestResolveTokenReportsAFailedCommand(t *testing.T) {
 	t.Parallel()
 
 	// Act
-	_, _, err := wiring.ResolveToken(t.Context(), "", "false", "")
+	_, _, err := wiring.ResolveToken(t.Context(), "", failingCommand, "")
 
 	// Assert
 	if err == nil {

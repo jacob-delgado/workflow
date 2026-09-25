@@ -271,8 +271,8 @@ func TestTheWebServerRefusesAConfigurationPathItCannotRead(t *testing.T) {
 
 // Once the interface or the web server starts it holds the terminal, where a
 // token command that asks for a passphrase could not be answered, so the root
-// command runs Jira's before either starts.
-func TestTheInterfaceAndTheWebServerStartWithTheJiraTokenCommandRun(t *testing.T) {
+// command runs Jira's and the messaging service's before either starts.
+func TestTheInterfaceAndTheWebServerStartWithTheTokenCommandsRun(t *testing.T) {
 	for name, args := range map[string][]string{"the interface": nil, "the web server": {"--web"}} {
 		t.Run(name, func(t *testing.T) {
 			// Arrange
@@ -285,7 +285,8 @@ func TestTheInterfaceAndTheWebServerStartWithTheJiraTokenCommandRun(t *testing.T
 				t.Fatal(err)
 			}
 
-			writeFile(t, dir, `{"jira": {"base_url": "https://jira.example.net", "token_command": "`+command+`"}}`)
+			writeFile(t, dir, `{"jira": {"base_url": "https://jira.example.net", "token_command": "`+command+`"}, `+
+				`"messaging": {"token_command": "`+command+`", "channel": "#dev"}}`)
 
 			runsAtStart := -1
 			countRuns := func() {
@@ -308,8 +309,8 @@ func TestTheInterfaceAndTheWebServerStartWithTheJiraTokenCommandRun(t *testing.T
 				args...)
 
 			// Assert
-			if err != nil || runsAtStart != 1 {
-				t.Errorf("workflow %v = %v, and %s started with the token command run %d times; want once",
+			if err != nil || runsAtStart != 2 {
+				t.Errorf("workflow %v = %v, and %s started with the token commands run %d times; want once each",
 					args, err, name, runsAtStart)
 			}
 		})
