@@ -502,20 +502,20 @@ horizontal axis.
 
 **Done when.** `G` on the Issues list selects the last loaded issue.
 
-### UX-96 Ten sentences name a key that `ui.keys` can move
+### UX-96 Eleven sentences name a key that `ui.keys` can move
 
 Impact: low · Effort: small
 
 **Today.** `ui.keys` moves an action to another key and the help follows
 it — "The help then shows the new key", the `ui.keys` row of
-`docs/content/docs/configuration.md:82` — but ten sentences carry the
+`docs/content/docs/configuration.md:82` — but eleven sentences carry the
 default key as a literal, so a rebound user is told to press a key that
 does something else or nothing. `wording` (`internal/tui/failure.go:73`)
 states the design the first of them breaks: the full form names no key,
 and each surface's footer offers its own. Counted by reading every string
 literal in `internal/tui/*.go` (tests excluded) that names a key and
 checking that key's action is bound through `helpBuilder.bind`; no single
-grep finds all ten. DEBT-115 points here for the nothing-staged sentence.
+grep finds all eleven. DEBT-115 points here for the nothing-staged sentence.
 
 - `internal/tui/detail.go:377` `Model.fullDetail` appends "press r to try
   again" after the failure block, while refresh is rebindable
@@ -546,6 +546,10 @@ grep finds all ten. DEBT-115 points here for the nothing-staged sentence.
 - `internal/tui/finish.go:27` `Model.mergedDetail` says "F finishes the
   branch: …"; finish-branch is rebindable (`internal/tui/keys.go:246`,
   `reviewAndMessagingKeys`).
+- `internal/tui/finish.go:31` `Model.mergedDetail` says "n opens a new
+  pull request from this branch's commits." once one has merged;
+  open-pull-request is rebindable (`internal/tui/keys.go:242`,
+  `reviewAndMessagingKeys`), and the pane answers `m.keys.newPullRequest`.
 - `internal/tui/failure.go:127` `localErrors` words `loop.ErrNothingStaged`
   in full as "nothing is staged: space stages the selected file" — the
   very full form `wording` says names no key; stage is rebindable
@@ -568,15 +572,17 @@ intends.
 **Done when.** A screen test that rebinds refresh, new-branch, apply,
 set-up-lefthook, open-pull-request, edit, finish-branch, stage and
 edit-body through `cfg.UI.Keys`, as `internal/tui/issuesfooter_test.go:180`
-does for apply and close, sees the bound key, or no key, in each of the ten
-sentences and never the literal `r`, `b`, `enter`, `g`, `n`, `e`, `F`,
-`space` or `ctrl+o` there; the detached case of
+does for apply and close, sees the bound key, or no key, in each of the
+eleven sentences and never the literal `r`, `b`, `enter`, `g`, `n`, `e`,
+`F`, `space` or `ctrl+o` there; the detached case of
 `TestTheBranchPaneSaysWhereTheBranchStands`
 (`internal/tui/branch_test.go:79`),
 `TestAFailedFetchOffersToBranchFromWhatIsThere`
-(`internal/tui/fetch_test.go:35`) and the screens that pin the Review
+(`internal/tui/fetch_test.go:35`), the screens that pin the Review
 detail's two sentences (`internal/tui/review_test.go:146`,
-`internal/tui/preditor_test.go:24`) gain the rebound variant.
+`internal/tui/preditor_test.go:24`) and the merged detail's
+(`TestNIsOfferedWhileNoPullRequestIsOpen`,
+`internal/tui/review_offer_test.go`) gain the rebound variant.
 
 ### UX-97 The in-flight mark is missing on four panes and three searches
 
@@ -847,9 +853,9 @@ as what would fail.
 
 **Instead.** Gate `n` as `refuseAnOpenPull` does — a transient forge error
 (`ErrUnreachable`, `httpx.ErrRateLimited`) lets it through — except that
-a missing token still refuses, and fix the comment. DEBT-112 is the merged
-case of the same condition (`!m.review.found`), so whoever picks up either
-writes one table test with both inputs.
+a missing token still refuses, and fix the comment. The merged case of the
+same condition already offers `n`, and its table test
+(`internal/tui/review_offer_test.go`) takes this input as another case.
 
 **Done when.** A test with the find returning `forge.ErrUnreachable` sees
 "n open pull request" in the footer.
@@ -1912,8 +1918,8 @@ answers on the same branch: the command line says the review never began,
 the terminal's spine says it is still going, and the browser says the pull
 request is ready for review. `status` already reads the store's announce
 memory as the spine does, so its last stage agrees once it counts a merged
-pull request as found. The browser's side is DEBT-127, and the Review
-pane's missing `n` on the same state is DEBT-112.
+pull request as found. The browser's side is DEBT-127; the Review pane
+already offers `n` on the same state.
 
 - `status`: `○ Review` and the JSON state `not_started` (`gatherReview`,
   `internal/cli/status.go:286`; the comment at `:287` says a merged branch

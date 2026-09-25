@@ -252,7 +252,9 @@ each first shows a last look naming what it acts on, and does nothing until
 green and approved, `M` previews the merge methods the repository permits and
 merges by the one you choose; once it has merged, `F` previews the three git
 commands that finish the branch — switch to the base, catch it up, delete the
-branch — and runs them on `enter`.
+branch — and runs them on `enter`. `n` stays on offer after a merge, as
+`workflow pr` allows, so commits made on the branch since can go up in a new
+pull request.
 
 ### Announce it
 
