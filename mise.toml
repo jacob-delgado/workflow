@@ -2,8 +2,9 @@
 #
 # Single source of truth for every tool the build, the gates and CI use. The
 # Taskfile runs the recipes; mise provisions the binaries they call, and
-# build/Dockerfile reads its versions from this file (scripts/tool-versions.sh)
-# so the container can never drift from the host.
+# build/Dockerfile reads its versions from this file (scripts/tool-versions.sh).
+# The container's Go is the one exception: its base image's digest decides it,
+# and the image build fails unless that is the Go pinned below.
 #
 # After cloning:   mise trust && mise install && lefthook install
 # Update a pin:    edit below, then `mise install`

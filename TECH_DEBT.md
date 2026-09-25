@@ -3777,38 +3777,6 @@ form's fields among the controls reached, each at least 99 % in view, at 640
 px; and the hermetic Settings scan waits on the Retry button, so a
 deliberate delay in the config read does not change what axe reports on.
 
-### DEBT-152 The container's Go patch drifts ungated
-
-Severity: low · Confidence: read
-
-The container's Go patch can drift with no gate noticing, though
-`scripts/check-go-version.sh:3` gates the `ARG` that names it.
-
-- `build/Dockerfile:23` — the comment on `FROM` says that if `GO_VERSION`
-  and the digest ever disagree "the digest wins and GOTOOLCHAIN=local fails
-  loudly"; but `go.mod:3` pins only the series, `go 1.27`, so a digest still
-  at 1.27.1 after `mise.toml` moves to 1.27.2 builds quietly one patch
-  behind. The claim holds for a minor bump only.
-- `mise.toml:6` — the header says the container "can never drift from the
-  host"; `build/Dockerfile:25` is the digest that decides which Go patch it
-  builds with.
-
-After a Go patch bump, the weekly container check and
-`task container:check` run one patch behind until Dependabot's digest bump
-lands, with no message, while the comment promises the opposite.
-`CLAUDE.md:490`'s "Nothing else states a version" describes neither this nor
-the mise version the workflows and the devcontainer state, which
-`scripts/check-mise-version.sh` holds to `min_version`.
-
-**One way to fix it.** A first step in `container:check` asserting the
-container's `go env GOVERSION` equals `mise.toml`'s pin (`go_version` in
-`scripts/tool-versions.sh:28` already reads it), or a Dockerfile comment that
-says the digest decides and only the `ARG` line is gated.
-
-**Done when.** Building the image with `GO_VERSION` one patch ahead of the
-digest makes `task container:check` fail naming both versions, or the
-Dockerfile comment no longer claims a loud failure.
-
 ### DEBT-153 `.github/workflows/pages.yml`'s release trigger can never fire
 
 Severity: low · Confidence: read

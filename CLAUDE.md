@@ -487,10 +487,17 @@ than observable, public behavior.
   cooldown deliberately exempts `actions/*` and `github/*`: they are GitHub's own
   first-party actions, and this age-gate rule is what governs them by hand.
 
-- **Tool versions are exact, and they live in `mise.toml`.** Nothing else states
-  a version: `build/Dockerfile` reads them through
-  `scripts/tool-versions.sh`, and CI provisions them with mise. A floating
-  `latest` changes what the gate accepts without anyone deciding to.
+- **Tool versions are exact, and they live in `mise.toml`.** `build/Dockerfile`
+  reads them through `scripts/tool-versions.sh`, and CI provisions them with
+  mise. Every copy that has to live elsewhere is gated, not trusted: Go's
+  version in `go.mod`, `docs/go.mod`, the Dockerfile and the README badge
+  (`scripts/check-go-version.sh`); mise's own version, which mise cannot pin,
+  on every workflow's `jdx/mise-action` step and in
+  `.devcontainer/postCreate.sh` (`scripts/check-mise-version.sh`, held to
+  `min_version`); and the container's Go patch, which the base image's digest
+  decides and the Dockerfile's check after `FROM` refuses to build unless it is
+  `mise.toml`'s. A floating `latest` changes what the gate accepts without
+  anyone deciding to.
 
 - **Never log or print a secret.** Tokens are masked by `config.Redact` before
   they reach any output — `config show`, the TUI, and error messages all go
