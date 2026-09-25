@@ -149,9 +149,9 @@ func TestListReviewsDetailOmitsTheForgeHost(t *testing.T) {
 			cause:      fmt.Errorf("searching https://%s: %w", forgeHost, httpx.RateLimited(http.Header{})),
 			wantStatus: http.StatusBadGateway, want: waitAndTryAgain,
 		},
-		"a refusal that may be a limit": {
+		"a refusal of the token": {
 			cause:      fmt.Errorf("searching https://%s: %w", forgeHost, forge.ErrRefused),
-			wantStatus: http.StatusBadGateway, want: "wait a minute",
+			wantStatus: http.StatusUnprocessableEntity, want: "may lack a permission",
 		},
 		"a status the forge explained": {
 			cause: fmt.Errorf("searching https://%s: %w", forgeHost,

@@ -63,7 +63,7 @@ that is not signed in reads as a forge that could not be reached: 5, not 3.
 | 3 configuration | `unprocessable` (422), for a missing messaging service, an invalid configuration body, a configuration file on disk that no longer reads as valid, a Jira token not configured or not accepted, a `jira.base_url` that is not a usable address, a forge token not found or not accepted, and a `forge.kind` set without its `forge.host` |
 | 4 refused precondition | `conflict` (409) |
 | 5 unreachable | `unreachable` (502), for a service that could not be reached or asked to wait |
-| 1 failure | `internal` (500); the web also answers `not_found` (404) for a missing issue, `unprocessable` (422) for a change Jira refused, a `jira.base_url` with no Jira API behind it, or a forge address with no forge API behind it, and `unreachable` (502) for a refusal from the forge, which may be rate limiting, or a status the forge does not document — all of which the command line counts as a plain failure |
+| 1 failure | `internal` (500); the web also answers `not_found` (404) for a missing issue, `unprocessable` (422) for a change Jira refused, a `jira.base_url` with no Jira API behind it, a forge address with no forge API behind it, or a request the forge refused for the token's permissions, and `unreachable` (502) for a status the forge does not document — all of which the command line counts as a plain failure |
 
 The web has no problem code of its own for a missing or rejected credential. A
 Jira or forge credential answers `unprocessable` and points at `workflow

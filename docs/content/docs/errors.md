@@ -73,8 +73,9 @@ Jira token that is not configured or that Jira did not accept, a
 `jira.base_url` that is not a usable address, and one with no Jira API behind
 it are answered here too, pointing at `workflow doctor` rather than naming the
 address. So are a forge token that was not found or that the forge did not
-accept, a `forge.kind` set without its `forge.host`, and a forge address with
-no forge API behind it. So is an announcement the messaging service refused,
+accept, a `forge.kind` set without its `forge.host`, a forge address with no
+forge API behind it, and a request the forge refused, whose detail points at
+the token's scopes. So is an announcement the messaging service refused,
 or could not be sent because messaging is not set up or its webhook is not
 https — never with the service's own error, which can name the webhook.
 
@@ -88,11 +89,10 @@ so from the browser this is a fault in the page; reload it, then save again.
 
 Status 502. An upstream service — Jira, the Git forge or the messaging
 service — could not be reached, asked to wait because it is limiting
-requests, answered with a redirect (refused, so a credential goes nowhere
-else), or, for the forge or the messaging service, answered with a status it
-does not document. A forge's refusal is answered here too, since it may be the
-forge limiting requests rather than the token. The request was well formed;
-try again once the service is back.
+requests (a forge's refusal whose headers ask for a wait among them),
+answered with a redirect (refused, so a credential goes nowhere else), or,
+for the forge or the messaging service, answered with a status it does not
+document. The request was well formed; try again once the service is back.
 
 ## Internal
 
