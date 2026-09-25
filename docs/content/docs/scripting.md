@@ -158,8 +158,8 @@ whole array.
 `config_problem` when the file did not load; and `credentials` (`checked`,
 and with `--online` over a file that loaded, `results`: `service`, `status`
 — `ok`, `rejected` or `unreachable` — and `detail`). It exits as the prose
-report does. A service that answers with a redirect is `unreachable`, and
-exits 5: the credential never reached it to be rejected.
+report does. A service that answers with a redirect, or asks you to wait, is
+`unreachable` and exits 5: it never judged the credential.
 
 `workflow config show` prints the configuration file's own shape, as
 [Configuration]({{< relref "/docs/configuration" >}}) describes it.

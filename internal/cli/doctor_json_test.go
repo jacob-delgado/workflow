@@ -180,3 +180,26 @@ func TestDoctorJSONOnlineChecksNothingWhenTheFileDidNotLoad(t *testing.T) {
 		t.Errorf("doctor ran gh over a file that did not load (stat: %v)", statErr)
 	}
 }
+
+func TestDoctorJSONOnlineReportsARateLimitAsUnreachable(t *testing.T) {
+	// Arrange
+	server := httptest.NewServer(http.HandlerFunc(askingToWait))
+	t.Cleanup(server.Close)
+
+	dir := t.TempDir()
+	writeConfigFor(t, dir, server.URL)
+
+	// Act
+	output, err := run(t, dir, "doctor", "--json", "--online")
+
+	// Assert
+	if got := credentialStatusIn(decodeReport(t, output), "jira"); got != "unreachable" {
+		t.Errorf("the online report calls Jira's rate limit %q, want unreachable:\n%s", got, output)
+	}
+
+	if !strings.Contains(output, "30s") {
+		t.Errorf("the online report does not name the wait Jira asked for:\n%s", output)
+	}
+
+	wantExit(t, err, 5)
+}

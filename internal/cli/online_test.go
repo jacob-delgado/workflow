@@ -446,3 +446,30 @@ func TestDoctorOnlineCountsARedirectAsUnreachable(t *testing.T) {
 
 	wantExit(t, err, 5)
 }
+
+// askingToWait answers every request with a 429 that asks for thirty seconds.
+func askingToWait(writer http.ResponseWriter, _ *http.Request) {
+	writer.Header().Set("Retry-After", "30")
+	writer.WriteHeader(http.StatusTooManyRequests)
+}
+
+func TestDoctorOnlineCountsARateLimitAsUnreachable(t *testing.T) {
+	// Arrange
+	// Jira asks the caller to wait, which says nothing of the credential.
+	server := httptest.NewServer(http.HandlerFunc(askingToWait))
+	t.Cleanup(server.Close)
+
+	dir := t.TempDir()
+	writeConfigFor(t, dir, server.URL)
+
+	// Act
+	output, err := run(t, dir, "doctor", "--online")
+
+	// Assert
+	if err == nil || strings.Contains(err.Error(), "a credential was rejected") ||
+		!strings.Contains(output, "rate limited") {
+		t.Errorf("doctor --online = %v, want the rate limit told as unreachable, not rejected:\n%s", err, output)
+	}
+
+	wantExit(t, err, 5)
+}
