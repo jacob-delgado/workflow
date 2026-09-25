@@ -53,7 +53,7 @@ func terminalPrompt() cli.Prompt {
 
 			return string(secret), err
 		},
-		StoreSecret: keychain.Storer(runtime.GOOS, proc.Run),
+		StoreSecret: keychain.Storer(runtime.GOOS, proc.Capture),
 		Compose: func(draft, help string) (string, error) {
 			return editor.Compose(os.Getenv, draft, help)
 		},
