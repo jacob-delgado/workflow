@@ -5,8 +5,9 @@ on:
     branches: [main]
   pull_request:
 
-# The default token needs nothing but read access here; every job below only
-# reads the repository.
+# The default token reads the repository and nothing more. One job asks for
+# more: coverage-comment holds pull-requests: write, to post the coverage report
+# on its pull request. Every other job only reads.
 permissions:
   contents: read
 
