@@ -83,7 +83,7 @@ reaches.
 
 Severity: low · Confidence: read
 
-`wiring.Deps` (`internal/wiring/wiring.go:72`) returns `tui.Deps`, so the
+`wiring.Deps` (`internal/wiring/wiring.go:81`) returns `tui.Deps`, so the
 wiring package imports the terminal interface; the CLI's `WebDeps`
 (`internal/cli/cli.go:292`) then narrows that bundle for the web server.
 The seams are not the terminal's — they are the loop's. That import no
@@ -195,10 +195,6 @@ The plumbing:
   `WebDeps` (`internal/cli/cli.go:292`) hands the same bundle to the web,
   and the row below (`CLAUDE.md:32`) already says `loop` is "for every
   surface".
-- `internal/wiring/wiring.go:140` — `browserCommand`'s comment promises
-  every branch can be tested from one machine; its one caller,
-  `openInBrowser` (`:117`), passes `runtime.GOOS`, and the gobco report
-  shows the `goos == "windows"` condition never evaluated (DEBT-64).
 - `internal/gitrepo/gitrepo.go:4` — the package comment says `gitrepo`
   "reads the git repository"; `Repository`'s own doc (`:28`) says reads and
   changes, and `Repository.Stage` (`internal/gitrepo/status.go:191`) is one
@@ -312,7 +308,7 @@ The configuration page (the Fields table's missing rows are DEBT-91):
   and path; `migrate` (`internal/store/store.go:202`) keys the cache by
   `(instance, view)`, where `Model.cacheIssues`
   (`internal/tui/issues.go:47`) passes the view's JQL text, and `repoKey`
-  (`internal/wiring/wiring.go:405`) falls back to `where.Root` when there is
+  (`internal/wiring/wiring.go:371`) falls back to `where.Root` when there is
   no remote or it does not parse.
 
 The README and the docs index:
@@ -834,7 +830,7 @@ them.
 - `internal/wiring/forgecli.go:58` — `forgeProgram`'s `case
   forge.KindUnknown:` and `default:` (`:60`) both return `"", false`; the
   gobco report lists the `KindUnknown` condition as never evaluated, and
-  DEBT-64 counts `forgeProgram` among the four no black-box test reaches.
+  DEBT-64 counts `forgeProgram` among the three no black-box test reaches.
 - `web/src/features/review/ReviewPanel.tsx:32` — `ReviewPanel` returns null
   under `if (!snapshot)`, the file's only uncovered line; `BranchPanel`
   (`web/src/features/branch/BranchPanel.tsx:18`), `IssuesPanel`
@@ -1373,7 +1369,7 @@ package rather than taking the value or the decision from its caller, which is
 why the color branch there and the error return at `:149` are reachable by no
 black-box test: DEBT-64's "no black-box test reaches without changing the code"
 list names both. The repository already has the other pattern: `editorDeps`
-(`internal/wiring/wiring.go:468`) passes `os.Getenv` into `editor.Edit` as a
+(`internal/wiring/wiring.go:434`) passes `os.Getenv` into `editor.Edit` as a
 parameter, and CLAUDE.md's dependency-inversion example is `config.Load` taking
 its directories rather than reading the environment. The cost is that the
 `NO_COLOR` path and the `WithoutColor` call it makes are exercised only by hand.
@@ -2230,7 +2226,7 @@ whose printed sentence claims more than their check measures, CI jobs and
 triggers that do not do what their comments say, and tests named or shaped
 for something other than what they prove.
 
-### DEBT-64 The condition-coverage worklist: 431 one-sided conditions, and 15 never evaluated
+### DEBT-64 The condition-coverage worklist: 431 one-sided conditions, and 14 never evaluated
 
 Severity: low · Confidence: measured
 
@@ -2258,7 +2254,7 @@ the do-nothing guards' second operands, never seen true: `repo == ""` in
 `Store.CachedIssues` and `Store.CacheIssues` (`internal/store/cache.go:32`,
 `:99`), and `s.dir == ""` in `Store.off` (`internal/store/store.go:135`).
 
-Fifteen conditions were never evaluated. Four are a test away:
+Fourteen conditions were never evaluated. Four are a test away:
 
 - `internal/tui/messaging.go:90` and `:92` — `quitGuard.handleKey`'s confirm
   and stay: `TestQuittingWithAQueuedPostAsksFirst` opens the guard but
@@ -2266,7 +2262,7 @@ Fifteen conditions were never evaluated. Four are a test away:
 - `internal/tui/prcreate.go:134` — `pullCreated.apply`'s `named` case, a
   Jira issue with no link seam: every test that opens a pull request on a
   Jira issue's branch wires `Jira.LinkPullRequest`.
-- `internal/wiring/wiring.go:236` — `streamToEnd`, git failing to start: no
+- `internal/wiring/wiring.go:223` — `streamToEnd`, git failing to start: no
   wiring test fetches or pulls without git on `PATH`.
 
 Seven more came into view once each operand counted, and each is a test
@@ -2282,13 +2278,10 @@ away too:
   tea.KeySpace`: no filter test types a key without text, so `text == ""`
   never lets the `&&` read it.
 
-Four no black-box test reaches without changing the code:
+Three no black-box test reaches without changing the code:
 
 - `internal/tui/tui.go:142` and `:149` — inside `tui.Run`, which needs a real
   terminal.
-- `internal/wiring/wiring.go:146` — `browserCommand`'s `"windows"` case,
-  evaluated only where `runtime.GOOS` is not `"darwin"`: CI's Linux run reaches
-  it, a Mac never does.
 - `internal/wiring/forgecli.go:58` — `forgeProgram`'s `forge.KindUnknown`
   case, which `exhaustive` requires but `connectForge` never passes, since
   `Repo.APIBase` refuses an unknown forge first.
@@ -2305,7 +2298,7 @@ report is the worklist, most of it in `internal/tui`, `internal/cli` and
 `internal/forge`.
 
 **Done when.** `task cover:branch` names no never-evaluated condition but
-the four above, and reads 92.0 % or more, so `BRANCH_COVERAGE_MIN` ratchets
+the three above, and reads 92.0 % or more, so `BRANCH_COVERAGE_MIN` ratchets
 to 90.
 
 ### DEBT-65 The web's e2e drives no write
