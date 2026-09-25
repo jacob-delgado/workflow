@@ -3909,26 +3909,6 @@ rename nobody sees coming.
 `<prefix>: Bump the <group> group across 2 directories with 10 updates` is
 at most 72 characters.
 
-### DEBT-156 Budget history's PR column holds backlog IDs in nine of fifteen rows
-
-Severity: low · Confidence: read
-
-`scripts/package-size-budget-history.md:8` defines the table's second
-column: "**PR** is whichever PR landed the change". Nine of the fifteen rows
-(counted with `grep '^| 2026'`) put a `FEAT-`, `DEBT-` or `UX-` entry ID
-there instead: the first is the `internal/tui` 36 → 37 row
-(`scripts/package-size-budget-history.md:29`, `FEAT-17`), and the
-`internal/tui` 39 → 40 row (`scripts/package-size-budget-history.md:36`)
-shares `DEBT-55` with two other bumps (`:33`, `:37`). The column exists so a
-maintainer can open the pull request without `git blame`; for nine rows the
-pointer is a backlog entry that may since have been retired.
-
-**One way to fix it.** Fill the PR number for those rows (`git log --grep`
-on the entry ID finds them) and keep the entry ID in the rationale column.
-
-**Done when.** Every row's second column in
-`scripts/package-size-budget-history.md` matches `#[0-9]+`.
-
 ### DEBT-158 Five config tests are named for Slack or SaveOver and test neither
 
 Severity: low · Confidence: read
