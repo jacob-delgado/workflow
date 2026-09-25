@@ -4,6 +4,7 @@
 package proc_test
 
 import (
+	"context"
 	"errors"
 	"os"
 	"strings"
@@ -25,12 +26,30 @@ func TestRunWithinStopsAReadThatOverrunsItsBound(t *testing.T) {
 	_, err := proc.RunWithin(t.Context(), 100*time.Millisecond, os.Args[0], "-test.run=^$")
 
 	// Assert
-	if err == nil {
-		t.Fatal("RunWithin returned nil, want an error for a read that outran its bound")
+	if !errors.Is(err, proc.ErrTimedOut) || !strings.Contains(err.Error(), "100ms") {
+		t.Errorf("RunWithin returned %v, want ErrTimedOut naming its 100ms bound", err)
 	}
 
 	if elapsed := time.Since(start); elapsed > 10*time.Second {
 		t.Errorf("RunWithin took %s, want it stopped near its 100ms bound, not the minute the read wanted", elapsed)
+	}
+}
+
+func TestRunWithinLeavesATighterParentDeadlineUnclaimed(t *testing.T) {
+	// Not parallel: t.Setenv turns this test binary into the sleeping helper.
+	// Arrange
+	t.Setenv(helperMode, "sleep")
+
+	parent, cancel := context.WithTimeout(t.Context(), 100*time.Millisecond)
+	defer cancel()
+
+	// Act
+	// The caller's deadline ends the read long before RunWithin's own minute.
+	_, err := proc.RunWithin(parent, time.Minute, os.Args[0], "-test.run=^$")
+
+	// Assert
+	if err == nil || errors.Is(err, proc.ErrTimedOut) {
+		t.Errorf("RunWithin under a caller's tighter deadline returned %v, want a failure that is not its own timeout", err)
 	}
 }
 

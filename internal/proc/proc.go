@@ -24,11 +24,17 @@ import (
 // ErrNotFound reports a program that is not on PATH.
 var ErrNotFound = errors.New("program not found on PATH")
 
+// ErrTimedOut reports a Run stopped because it outlasted its own bound; the
+// error names the bound. A run the caller's context ended first — its own
+// deadline, a Ctrl-C — does not answer to it.
+var ErrTimedOut = errors.New("gave up waiting")
+
 // DefaultRunTimeout bounds a Run so a hung quick read — a git status on a dead
-// network mount, a gh call to a host that never answers — recovers on its own
-// rather than leaving a pane on "loading…" forever. It is generous because a Run
-// is a quick read; streamed work (Start) and piped work (Capture) can
-// legitimately run long and are not bounded here.
+// network mount, a gh call to a host that never answers — recovers on its own,
+// with an error answering to ErrTimedOut, rather than leaving a pane on
+// "loading…" forever. It is generous because a Run is a quick read; streamed
+// work (Start) and piped work (Capture) can legitimately run long and are not
+// bounded here.
 const DefaultRunTimeout = 30 * time.Second
 
 // Run executes name with args and returns what it wrote to standard output,
@@ -42,7 +48,8 @@ func Run(ctx context.Context, name string, args ...string) ([]byte, error) {
 }
 
 // RunWithin is Run bounded by an explicit timeout, for a read whose own limit
-// differs from the default. The tighter of timeout and ctx's own deadline wins.
+// differs from the default. The tighter of timeout and ctx's own deadline wins;
+// only timeout's own expiry answers to ErrTimedOut.
 func RunWithin(ctx context.Context, timeout time.Duration, name string, args ...string) ([]byte, error) {
 	return runWithin(ctx, timeout, Command{Name: name, Args: args})
 }
@@ -58,8 +65,12 @@ func RunCommand(ctx context.Context, program Command) ([]byte, error) {
 // runWithin runs a program bounded by timeout and returns its standard output,
 // wrapping a non-zero exit's standard error into the error. The tighter of
 // timeout and ctx's own deadline wins.
+//
+// The bound travels as the context's cause because Wait reports the killed
+// process's own "signal: killed" over the context's error; the cause is what
+// tells a run this bound stopped from one the caller's context ended.
 func runWithin(ctx context.Context, timeout time.Duration, program Command) ([]byte, error) {
-	ctx, cancel := context.WithTimeout(ctx, timeout)
+	ctx, cancel := context.WithTimeoutCause(ctx, timeout, fmt.Errorf("%w after %s", ErrTimedOut, timeout))
 	defer cancel()
 
 	command, err := build(ctx, program)
@@ -73,6 +84,11 @@ func runWithin(ctx context.Context, timeout time.Duration, program Command) ([]b
 
 	output, err := command.Output()
 	if err != nil {
+		cause := context.Cause(ctx)
+		if errors.Is(cause, ErrTimedOut) {
+			return nil, fmt.Errorf("%s: %w", program.Name, cause)
+		}
+
 		return nil, fmt.Errorf("%s: %w: %s", program.Name, err, strings.TrimSpace(sanitize.Text(stderr.String())))
 	}
 
