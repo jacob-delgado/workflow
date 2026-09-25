@@ -8,7 +8,6 @@ import (
 	"errors"
 	"fmt"
 	"strconv"
-	"time"
 
 	"github.com/jacob-delgado/workflow/internal/config"
 	"github.com/jacob-delgado/workflow/internal/forge"
@@ -36,26 +35,20 @@ var errNotAnIssueNumber = errors.New("not a forge issue number")
 // trackerDeps is what backs the Issues pane: Jira when it is configured, and
 // otherwise the forge's own issues, so a project without Jira still has a
 // tracker to run the loop against.
-func trackerDeps(
-	ctx context.Context, cfg config.Config, where Workspace, timeout time.Duration, log *RequestLog,
-) tui.JiraDeps {
-	if cfg.Jira.Configured() {
-		return jiraDeps(ctx, cfg.Jira, timeout, log)
+func trackerDeps(ctx context.Context, settings config.Jira, setup forgeSetup) tui.JiraDeps {
+	if settings.Configured() {
+		return jiraDeps(ctx, settings, setup.timeout, setup.log)
 	}
 
-	return forgeIssuesDeps(ctx, cfg.Forge, where, timeout, log)
+	return forgeIssuesDeps(ctx, setup)
 }
 
 // forgeIssuesDeps adapts the forge's issues to the tracker seam the Issues pane
 // reads. The pane, the detail and the status change run unchanged; a comment and
 // a remote link, which a forge issue has no equivalent for, are left nil so
 // those features simply do not appear.
-func forgeIssuesDeps(
-	ctx context.Context, settings config.Forge, where Workspace, timeout time.Duration, log *RequestLog,
-) tui.JiraDeps {
-	connect := onceConnected(func() (forgeConnection, error) {
-		return connectForge(ctx, settings, where.Remote, timeout, log)
-	})
+func forgeIssuesDeps(ctx context.Context, setup forgeSetup) tui.JiraDeps {
+	connect := onceConnected(func() (forgeConnection, error) { return connectForge(ctx, setup) })
 
 	return tui.JiraDeps{
 		Search:      func(string, int) (jira.SearchResult, error) { return listForgeIssues(ctx, connect) },
