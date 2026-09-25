@@ -77,6 +77,47 @@ func TestARejectionCarriesJirasReasons(t *testing.T) {
 	}
 }
 
+func TestAnExplainedStatusKeepsWhatItsStatusSays(t *testing.T) {
+	t.Parallel()
+
+	// Jira's reason leads the message, but a caller telling failures apart by
+	// the status — a missing issue, a token refused — still finds it.
+	cases := map[string]struct {
+		status int
+		reason string
+		also   error
+	}{
+		"a missing issue": {
+			status: http.StatusNotFound, reason: "Issue Does Not Exist", also: jira.ErrNotFound,
+		},
+		"a token refused for this": {
+			status: http.StatusForbidden, reason: "You do not have permission to assign issues.", also: jira.ErrForbidden,
+		},
+	}
+
+	for name, tt := range cases {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			// Arrange
+			body := `{"errorMessages":["` + tt.reason + `"],"errors":{}}`
+			client := serve(t, failWith(tt.status, body, servedUser))
+
+			// Act
+			_, err := client.Search(t.Context(), jira.AssignedToMe, 0)
+
+			// Assert
+			if !errors.Is(err, jira.ErrRejected) || !errors.Is(err, tt.also) {
+				t.Fatalf("Search returned %v, want both ErrRejected and %v", err, tt.also)
+			}
+
+			if !strings.Contains(err.Error(), tt.reason) || strings.Contains(err.Error(), tt.also.Error()) {
+				t.Errorf("Search returned %q, want Jira's reason %q in place of %q", err, tt.reason, tt.also)
+			}
+		})
+	}
+}
+
 func TestAStatusWithoutAReasonKeepsItsOwnError(t *testing.T) {
 	t.Parallel()
 

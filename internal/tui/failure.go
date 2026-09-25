@@ -151,6 +151,10 @@ func jiraErrors() []knownError {
 			brief: "Jira did not accept the token",
 			full:  "Jira did not accept the token. Check `jira.token`; `workflow doctor --online` tests it.",
 		}},
+		// Before ErrForbidden and ErrNotFound: a 403 or a 404 Jira explained
+		// answers to both, and Jira's reason — a permission the account lacks, a
+		// user that does not exist — beats a guess at what the status means.
+		{jira.ErrRejected, ownWords()},
 		{jira.ErrForbidden, wording{
 			brief: "Jira refused the token",
 			full:  "Jira refused the token for this. Check what its account may do; `workflow doctor --online` tests it.",
@@ -159,9 +163,6 @@ func jiraErrors() []knownError {
 			brief: "no Jira API at that address",
 			full:  "No Jira REST API answered at `jira.base_url`. Check the address; `workflow doctor --online` tests it.",
 		}},
-		// Before ErrNotFound: a 404 Jira explained answers to both, and Jira's
-		// reason — a user that does not exist, say — beats a guess at the issue.
-		{jira.ErrRejected, ownWords()},
 		{jira.ErrNotFound, wording{
 			brief: "no such issue",
 			full:  "No such issue: it may have moved, or the token cannot see it.",

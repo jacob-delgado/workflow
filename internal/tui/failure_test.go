@@ -73,33 +73,58 @@ func TestAPinnedRefusalSpeaksTheSentence(t *testing.T) {
 	refuseScreen(t, view, "press `r`")
 }
 
-// explainedNotFoundError is a 404 Jira explained, as its client returns it: Jira's
-// own reason, rejected, and marked not-found as well.
-type explainedNotFoundError struct{ reason string }
+// explainedError is a status Jira explained, as its client returns it: Jira's
+// own reason, rejected, and marked with what the status says as well — a 404
+// not-found, a 403 forbidden.
+type explainedError struct {
+	status error
+	reason string
+}
 
-var _ error = explainedNotFoundError{}
+var _ error = explainedError{}
 
-func (e explainedNotFoundError) Error() string { return jira.ErrRejected.Error() + ": " + e.reason }
+func (e explainedError) Error() string { return jira.ErrRejected.Error() + ": " + e.reason }
 
-func (e explainedNotFoundError) Unwrap() error { return jira.ErrRejected }
+func (e explainedError) Unwrap() error { return jira.ErrRejected }
 
-func (e explainedNotFoundError) Is(target error) bool { return target == jira.ErrNotFound }
+func (e explainedError) Is(target error) bool { return target == e.status }
 
-func TestJirasOwnReasonForANotFoundLeads(t *testing.T) {
+func TestJirasOwnReasonLeads(t *testing.T) {
 	t.Parallel()
 
-	// Arrange
-	missing := newWorld()
-	missing.detailErr = fmt.Errorf("reading PROJ-412: %w",
-		explainedNotFoundError{reason: "Issue does not exist or you do not have permission to see it."})
+	// Jira said why, so its reason leads rather than a guess at what the status
+	// means: that the issue moved, or that the token may do nothing here.
+	cases := map[string]struct {
+		status error
+		reason string
+		guess  string
+	}{
+		"a missing issue": {
+			status: jira.ErrNotFound, reason: "Issue does not exist or you do not have permission to see it.",
+			guess: "No such issue",
+		},
+		"a token refused for this": {
+			status: jira.ErrForbidden, reason: "You do not have permission to see this issue.",
+			guess: "Jira refused the token",
+		},
+	}
 
-	// Act
-	view := missing.live(t, 200, 40).View().Content
+	for name, tt := range cases {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
 
-	// Assert
-	// Jira said why, so its reason leads rather than a guess that the issue moved.
-	requireScreen(t, view, "✗ reading PROJ-412: jira rejected the request: Issue does not exist")
-	refuseScreen(t, view, "No such issue")
+			// Arrange
+			explained := newWorld()
+			explained.detailErr = fmt.Errorf("reading PROJ-412: %w", explainedError{status: tt.status, reason: tt.reason})
+
+			// Act
+			view := explained.live(t, 200, 40).View().Content
+
+			// Assert
+			requireScreen(t, view, "✗ reading PROJ-412: jira rejected the request: "+tt.reason)
+			refuseScreen(t, view, tt.guess)
+		})
+	}
 }
 
 func TestARailSpeaksInBrief(t *testing.T) {
@@ -281,7 +306,7 @@ func TestAFailureRowSpeaksTheSentence(t *testing.T) {
 		"an unknown assignee, in Jira's own words on the form's row": {
 			prepare: func(w *world) {
 				w.assignErr = fmt.Errorf("assigning PROJ-412: %w",
-					explainedNotFoundError{reason: "User 'fredd' does not exist."})
+					explainedError{status: jira.ErrNotFound, reason: "User 'fredd' does not exist."})
 			},
 			keys: append(append([]string{"a"}, letters("fredd")...), keyEnter),
 			want: "✗ assigning PROJ-412: jira rejected the request: User 'fredd' does not exist.",

@@ -57,6 +57,13 @@ func TestTransitionNeverForwardsTheJiraHost(t *testing.T) {
 			err:        fmt.Errorf("reading https://%s: %w", jiraHost, jira.ErrForbidden),
 			wantStatus: unprocessable, want: credentialRefused,
 		},
+		// Jira's client marks an explained 403 forbidden as well; the reason says
+		// what the token may not do, which doctor would not find.
+		"a refusal Jira explained, for what the token may do": {
+			err: fmt.Errorf("%w: %w: the project at https://%s forbids it",
+				jira.ErrRejected, jira.ErrForbidden, jiraHost),
+			wantStatus: unprocessable, want: "Jira refused",
+		},
 		// The client refuses these three before it asks Jira anything, so the
 		// answer names what is missing or unusable, not what Jira did.
 		"no token configured": {

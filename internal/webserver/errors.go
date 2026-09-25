@@ -167,6 +167,13 @@ func jiraFaults() []faultClass {
 			code:   api.Unprocessable,
 			detail: "jira.base_url is not a usable address; workflow doctor checks it",
 		},
+		// Before the credential's class: a 403 Jira explained answers to both, and
+		// doctor, which asks only who the token is, would pass a token that lacks
+		// one permission.
+		{
+			causes: []error{jira.ErrRejected},
+			code:   api.Unprocessable, detail: "Jira refused the request",
+		},
 		{
 			causes: []error{jira.ErrUnauthorized, jira.ErrForbidden},
 			code:   api.Unprocessable,
@@ -175,10 +182,6 @@ func jiraFaults() []faultClass {
 		{
 			causes: []error{jira.ErrNoAPI},
 			code:   api.Unprocessable, detail: "no Jira API answers at jira.base_url; workflow doctor checks it",
-		},
-		{
-			causes: []error{jira.ErrRejected},
-			code:   api.Unprocessable, detail: "Jira refused the request",
 		},
 	}
 }
