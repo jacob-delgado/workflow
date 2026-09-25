@@ -1024,28 +1024,30 @@ switches in `internal/cli/status.go`, `checkable` in
 once; and the v8 summary lists no uncovered null return for the four panels
 and none has a null check.
 
-### DEBT-99 `wiring` connects to the forge twice, over five clumped signatures
+### DEBT-99 `wiring` connects to the forge twice, over six clumped signatures
 
 Severity: low · Confidence: read
 
-`forgeConnection`'s comment (`internal/wiring/forge.go:19`) promises the
+`forgeConnection`'s comment (`internal/wiring/forge.go:20`) promises the
 connection is "found once, on first use", but `forgeDeps`
-(`internal/wiring/forge.go:31`) and `forgeIssuesDeps`
+(`internal/wiring/forge.go:32`) and `forgeIssuesDeps`
 (`internal/wiring/forgeissues.go:56`) each wrap `connectForge` in their own
 `onceConnected`, and `Deps` (`internal/wiring/wiring.go:76`) builds both
 bundles, so a session without Jira holds both caches and resolves the
 token twice — two `gh auth token` child processes, a failure remembered
 by neither. The values that connection needs travel positionally through
-`forgeDeps` (`internal/wiring/forge.go:28`; ctx, settings, where, timeout,
+`forgeDeps` (`internal/wiring/forge.go:29`; ctx, settings, where, timeout,
 log), `forgeIssuesDeps` (`internal/wiring/forgeissues.go:53`; the same
 five), `trackerDeps` (`internal/wiring/forgeissues.go:39`; ctx, cfg, where,
-timeout, log), `connectForge` (`internal/wiring/forge.go:228`; ctx,
-settings, remote, timeout, log) and `forgeTransport`
-(`internal/wiring/forgecli.go:25`; six), past the "5+ positional params"
-line in CLAUDE.md's catalog. The user-visible cost is one extra child
-process in the terminal; the larger cost is the next forge-backed seam,
-which adds a third cache, and the next value the connection needs, which
-edits five signatures. DEBT-71 holds the package's other composition debt.
+timeout, log), `connectForge` (`internal/wiring/forge.go:229`; ctx,
+settings, remote, timeout, log), `ReachForge`
+(`internal/wiring/forge.go:271`; ctx, settings, repo, base, timeout) and
+`forgeTransport` (`internal/wiring/forgecli.go:25`; six), past the "5+
+positional params" line in CLAUDE.md's catalog. The user-visible cost is
+one extra child process in the terminal; the larger cost is the next
+forge-backed seam, which adds a third cache, and the next value the
+connection needs, which edits six signatures. DEBT-71 holds the package's
+other composition debt.
 
 **One way to fix it.** A `forgeSetup` struct of settings, where, timeout and
 log, and one `connect` built once in `Deps` and passed to both bundles and
@@ -2118,7 +2120,7 @@ terminal skips a pull that is not open (DEBT-127).
   `messagingDTO(s.config(), s.author())` on every frame.
 - `internal/webserver/handlers.go:241` — `server.author` calls
   `s.deps.Author()` with no cache.
-- `internal/wiring/forge.go:112` — the `Author` seam runs
+- `internal/wiring/forge.go:113` — the `Author` seam runs
   `connection.client.Whoami(ctx)` on every call; only the connection is
   memoized.
 - `internal/forge/client.go:105` — `Client.Whoami` is one uncached GET of
