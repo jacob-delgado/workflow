@@ -47,16 +47,24 @@ count_json() {
 
 # go_row runs the Go unit tests as the test task does — over the roots given,
 # with the race detector — with a coverage profile, and records the counts and
-# the total statement coverage.
+# the statement coverage the gate reports.
 go_row() {
   local counts pct
   go -C "${root}" test -race -json -coverprofile="${work}/go.cov" "${go_roots[@]}" >"${work}/go.json" 2>/dev/null || true
   counts="$(count_json "${work}/go.json")"
 
-  # A bare number (or a dash), so the report's pct helper adds the one % sign.
+  # Taken from the gate, with a floor of 0 so it never fails, as
+  # coverage-summary.sh does: the gate leaves generated code out of the
+  # denominator, so a total read straight off the profile would differ from the
+  # number the build enforces. The gate runs `go tool cover`, which resolves the
+  # profile's paths against the module, hence from the root. A bare number (or
+  # a dash), so the report's pct helper adds the one % sign.
   pct="-"
   if [[ -s "${work}/go.cov" ]]; then
-    pct="$(go -C "${root}" tool cover -func="${work}/go.cov" 2>/dev/null | awk '/^total:/ {print $3}' | tr -d '%')"
+    pct="$(
+      cd "${root}" && scripts/coverage-gate.sh "${work}/go.cov" 0 2>/dev/null \
+        | awk '/^Coverage/ {match($0, /[0-9]+(\.[0-9]+)?%/); print substr($0, RSTART, RLENGTH - 1); exit}'
+    )"
   fi
 
   read -r go_pass go_skip go_fail <<<"${counts}"
