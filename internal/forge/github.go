@@ -257,10 +257,21 @@ func githubReviewState(ctx context.Context, client Client, repo Repo, pull *Pull
 		pull.Mergeable = mergeability(detail.Mergeable)
 	}
 
-	reviews, err := repoCall[[]githubReview](ctx, client, repo, http.MethodGet, base+"/reviews", nil)
+	reviews, err := githubPullReviews(ctx, client, repo, base)
 	if err == nil {
 		pull.Approvals, pull.ChangesRequested = tallyReviews(reviews)
 	}
+}
+
+// githubPullReviews reads every review on the pull request at base, oldest
+// first, to the end of the listing: a reviewer's latest stance is the one past
+// the first page.
+func githubPullReviews(ctx context.Context, client Client, repo Repo, base string) ([]githubReview, error) {
+	return readPages(func(page int) ([]githubReview, int, error) {
+		one, err := repoCall[[]githubReview](ctx, client, repo, http.MethodGet, base+"/reviews?"+pageQuery(nil, page), nil)
+
+		return one, uncounted, err
+	})
 }
 
 // mergeability reads GitHub's tri-state mergeable flag: null means still being

@@ -53,8 +53,9 @@ const (
 	maxPages     = 20
 )
 
-// uncounted is the count of a listing whose forge does not count it, as GitLab's
-// arrays do not: no read reaches it, so only a short page ends the listing.
+// uncounted is the count of a listing the forge does not count, as GitLab's
+// arrays and GitHub's reviews of a pull request do not: no read reaches it, so
+// only a short page ends the listing.
 const uncounted = math.MaxInt
 
 // Errors the client returns. Callers distinguish them with errors.Is.
