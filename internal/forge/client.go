@@ -35,14 +35,19 @@ const bodyLimit = 16 << 20
 // jsonMediaType is what an API answer must be before it is decoded.
 const jsonMediaType = "application/json"
 
+// rateLimitRemaining is the header in which GitHub counts the requests left
+// before its rate limit; it reads "0" on the 403 that limit answers with.
+const rateLimitRemaining = "X-Ratelimit-Remaining"
+
 // Errors the client returns. Callers distinguish them with errors.Is.
 var (
 	// ErrUnauthorized reports a credential the forge did not accept.
 	ErrUnauthorized = errors.New("the credential was not accepted")
-	// ErrRefused reports a request the forge would not serve. On GitHub this
-	// covers rate limiting and a temporary lockout as well as a bad request, so
-	// it deliberately does not claim the credential is wrong.
-	ErrRefused = errors.New("the forge refused the request, which may be rate limiting rather than the credential")
+	// ErrRefused reports a request the forge understood and would not serve
+	// for this token, which is a question of what the token may do rather than
+	// whether it is valid; the forge's own reason follows it in the message
+	// when it gave one. A 403 that asks to wait is ErrRateLimited instead.
+	ErrRefused = errors.New("the forge refused the request")
 	// ErrNoAPI reports an address with no forge API behind it.
 	ErrNoAPI = errors.New("no forge API answered at that address")
 	// ErrNotJSON reports an answer that was not JSON, which usually means the
@@ -60,7 +65,8 @@ var (
 	ErrUnreachable = errors.New("could not reach the forge")
 	// ErrRedirected reports a redirect this client declined to follow.
 	ErrRedirected = httpx.ErrRedirected
-	// ErrRateLimited reports a 429 from the forge, told apart from a refusal.
+	// ErrRateLimited reports a forge asking to wait — a 429, or a 403 whose
+	// headers ask for a wait — told apart from a refusal.
 	ErrRateLimited = httpx.ErrRateLimited
 )
 
@@ -158,16 +164,7 @@ func (c Client) accepted(request *http.Request) error {
 	}
 	defer func() { _ = response.Body.Close() }()
 
-	if response.StatusCode == http.StatusTooManyRequests {
-		return httpx.RateLimited(response.Header)
-	}
-
-	status := statusError(response.StatusCode)
-	if status != nil {
-		return explained(status, response.Body)
-	}
-
-	return nil
+	return answerError(response)
 }
 
 // newRequest builds an authenticated request, with payload encoded as its JSON
@@ -215,13 +212,9 @@ func (c Client) exchange(request *http.Request) ([]byte, error) {
 	}
 	defer func() { _ = response.Body.Close() }()
 
-	if response.StatusCode == http.StatusTooManyRequests {
-		return nil, httpx.RateLimited(response.Header)
-	}
-
-	err = statusError(response.StatusCode)
+	err = answerError(response)
 	if err != nil {
-		return nil, explained(err, response.Body)
+		return nil, err
 	}
 
 	err = mustBeJSON(response.Header.Get("Content-Type"))
@@ -254,10 +247,42 @@ func mustBeJSON(contentType string) error {
 	return nil
 }
 
-// statusError translates a response status into something a person can act on.
-// Its body is read only for a request the forge understood and turned down —
-// see explained — because GitHub answers a missing User-Agent and a rate limit
-// with the same 403, and neither body says which.
+// answerError is the error an answer stands for, or nil once the forge
+// accepted the request: a wait asked for is told apart from a refusal before
+// the status is read with whatever reason the forge gave for it.
+func answerError(response *http.Response) error {
+	if asksToWait(response) {
+		return httpx.RateLimited(response.Header)
+	}
+
+	status := statusError(response.StatusCode)
+	if status != nil {
+		return explained(status, response.Body)
+	}
+
+	return nil
+}
+
+// asksToWait reports an answer that is a rate limit: a 429 on either forge, or
+// GitHub's 403 once its headers say no requests are left or name a wait. Only
+// the headers tell that 403 from a token refused permission — its body reads
+// like any refusal's — and a request always carries a User-Agent, so a 403
+// without them is the permission answer.
+func asksToWait(response *http.Response) bool {
+	switch response.StatusCode {
+	case http.StatusTooManyRequests:
+		return true
+	case http.StatusForbidden:
+		return response.Header.Get(rateLimitRemaining) == "0" || response.Header.Get("Retry-After") != ""
+	default:
+		return false
+	}
+}
+
+// statusError translates a response status into something a person can act
+// on. A 403 is a refusal of what this token may do: answerError has already
+// told a rate limit apart by its headers, so explained keeps the forge's own
+// reason after it.
 func statusError(status int) error {
 	switch status {
 	case http.StatusOK, http.StatusCreated:

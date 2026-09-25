@@ -4,6 +4,7 @@
 package forge_test
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"net/http"
@@ -130,9 +131,8 @@ func TestWhoamiTranslatesEachStatus(t *testing.T) {
 	}{
 		// A bad token is 401 on both forges.
 		"unauthorized": {status: http.StatusUnauthorized, want: forge.ErrUnauthorized},
-		// 403 is NOT a bad credential on GitHub — it covers rate limiting, a
-		// temporary lockout that rejects valid credentials, and a missing
-		// User-Agent. Saying "not accepted" here would send someone to rotate a
+		// 403 is NOT a bad credential: the forge took the token and will not let
+		// it do this. Saying "not accepted" here would send someone to rotate a
 		// token that is fine.
 		"refused":      {status: http.StatusForbidden, want: forge.ErrRefused},
 		"rate limited": {status: http.StatusTooManyRequests, want: forge.ErrRateLimited},
@@ -161,6 +161,64 @@ func TestWhoamiTranslatesEachStatus(t *testing.T) {
 
 			if err != nil && strings.Contains(err.Error(), secret) {
 				t.Errorf("the error carried the token: %v", err)
+			}
+		})
+	}
+}
+
+func TestAForbiddenAnswerThatAsksToWaitIsARateLimit(t *testing.T) {
+	t.Parallel()
+
+	// GitHub answers a spent rate limit with a 403 like any refusal, and tells
+	// the two apart only in its headers: no requests left, or a wait named.
+	read := func(ctx context.Context, client forge.Client) error {
+		_, err := client.Whoami(ctx)
+
+		return err
+	}
+	write := func(ctx context.Context, client forge.Client) error {
+		return client.Merge(ctx, githubRepo(), forge.PullRequest{Number: 42}, forge.MergeCommit)
+	}
+
+	const (
+		remaining = "X-Ratelimit-Remaining"
+		wait      = "Retry-After"
+	)
+
+	cases := map[string]struct {
+		header, value string
+		ask           func(context.Context, forge.Client) error
+		want          error
+	}{
+		"a read with no requests left":  {header: remaining, value: "0", ask: read, want: forge.ErrRateLimited},
+		"a write with no requests left": {header: remaining, value: "0", ask: write, want: forge.ErrRateLimited},
+		"a read told to wait":           {header: wait, value: "60", ask: read, want: forge.ErrRateLimited},
+		"a write told to wait":          {header: wait, value: "60", ask: write, want: forge.ErrRateLimited},
+		"requests to spare":             {header: remaining, value: "4999", ask: read, want: forge.ErrRefused},
+	}
+
+	for name, tt := range cases {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			// Arrange
+			client := serveForge(t, func(writer http.ResponseWriter, _ *http.Request) {
+				writer.Header().Set(tt.header, tt.value)
+				writer.Header().Set("Content-Type", "application/json")
+				writer.WriteHeader(http.StatusForbidden)
+				_, _ = writer.Write([]byte(`{"message":"API rate limit exceeded for user ID 1."}`))
+			})
+
+			// Act
+			err := tt.ask(t.Context(), client)
+
+			// Assert
+			if !errors.Is(err, tt.want) {
+				t.Errorf("the forge's 403 returned %v, want %v", err, tt.want)
+			}
+
+			if errors.Is(err, forge.ErrRateLimited) == errors.Is(err, forge.ErrRefused) {
+				t.Errorf("the forge's 403 returned %v, want a rate limit or a refusal, not both or neither", err)
 			}
 		})
 	}

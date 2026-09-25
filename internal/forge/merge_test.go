@@ -7,6 +7,7 @@ import (
 	"errors"
 	"net/http"
 	"slices"
+	"strings"
 	"testing"
 
 	"github.com/jacob-delgado/workflow/internal/forge"
@@ -192,15 +193,44 @@ func TestMergeMethodsSurfacesAReadFailure(t *testing.T) {
 func TestARefusedMergeSaysWhy(t *testing.T) {
 	t.Parallel()
 
-	// Arrange
-	// The token can read the pull but not merge it, as an under-scoped one does.
-	client, _ := forgeAnswering(t, http.StatusForbidden, `{"message":"not allowed"}`)
+	// The token can read the pull but not merge it, and the forge says why.
+	cases := map[string]struct {
+		repo   forge.Repo
+		body   string
+		reason string
+	}{
+		"an under-scoped github token": {
+			repo:   githubRepo(),
+			body:   `{"message":"Resource not accessible by personal access token"}`,
+			reason: "Resource not accessible by personal access token",
+		},
+		"a github refusal in its own words": {
+			repo: githubRepo(), body: `{"message":"not allowed"}`, reason: "not allowed",
+		},
+		// A 403 on GitLab is a permission answer; its rate limit is a 429.
+		"a gitlab role that cannot merge": {
+			repo: gitlabRepo(), body: `{"message":"403 Forbidden"}`, reason: "403 Forbidden",
+		},
+	}
 
-	// Act
-	err := client.Merge(t.Context(), githubRepo(), forge.PullRequest{Number: 42}, forge.MergeCommit)
+	for name, tt := range cases {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
 
-	// Assert
-	if !errors.Is(err, forge.ErrRefused) {
-		t.Errorf("Merge returned %v, want ErrRefused", err)
+			// Arrange
+			client, _ := forgeAnswering(t, http.StatusForbidden, tt.body)
+
+			// Act
+			err := client.Merge(t.Context(), tt.repo, forge.PullRequest{Number: 42}, forge.MergeCommit)
+
+			// Assert
+			if !errors.Is(err, forge.ErrRefused) || !strings.Contains(err.Error(), tt.reason) {
+				t.Errorf("Merge returned %v, want ErrRefused saying %q", err, tt.reason)
+			}
+
+			if err != nil && strings.Contains(err.Error(), "rate limit") {
+				t.Errorf("Merge returned %v, want no rate-limit guess on a refusal", err)
+			}
+		})
 	}
 }

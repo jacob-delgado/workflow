@@ -369,21 +369,30 @@ func TestARepositoryTheTokenCannotSeeSaysSo(t *testing.T) {
 func TestOnlyARefusalTheForgeExplainsCarriesItsReason(t *testing.T) {
 	t.Parallel()
 
+	// A refusal keeps its own error with the reason after it, never a
+	// rejection's; a status explained with nothing keeps its bare error.
 	cases := map[string]struct {
-		status int
-		body   string
-		want   error
+		status   int
+		body     string
+		want     error
+		wantText string
 	}{
-		// GitHub's 403 body cannot tell a rate limit from a missing User-Agent,
-		// so it is not read as a reason.
 		"forbidden with a message": {
-			status: http.StatusForbidden, body: `{"message":"API rate limit exceeded"}`, want: forge.ErrRefused,
+			status: http.StatusForbidden, body: `{"message":"Resource not accessible by personal access token"}`,
+			want:     forge.ErrRefused,
+			wantText: forge.ErrRefused.Error() + ": Resource not accessible by personal access token",
+		},
+		"forbidden with nothing": {
+			status: http.StatusForbidden, body: `{}`,
+			want: forge.ErrRefused, wantText: forge.ErrRefused.Error(),
 		},
 		"unexplained": {
-			status: http.StatusUnprocessableEntity, body: `not json`, want: forge.ErrUnexpectedStatus,
+			status: http.StatusUnprocessableEntity, body: `not json`,
+			want: forge.ErrUnexpectedStatus, wantText: forge.ErrUnexpectedStatus.Error() + ": 422",
 		},
 		"explained with nothing": {
-			status: http.StatusUnprocessableEntity, body: `{"message":""}`, want: forge.ErrUnexpectedStatus,
+			status: http.StatusUnprocessableEntity, body: `{"message":""}`,
+			want: forge.ErrUnexpectedStatus, wantText: forge.ErrUnexpectedStatus.Error() + ": 422",
 		},
 	}
 
@@ -399,7 +408,11 @@ func TestOnlyARefusalTheForgeExplainsCarriesItsReason(t *testing.T) {
 
 			// Assert
 			if !errors.Is(err, tt.want) || errors.Is(err, forge.ErrRejected) {
-				t.Errorf("CreatePullRequest returned %v, want %v and no reason", err, tt.want)
+				t.Errorf("CreatePullRequest returned %v, want %v and not a rejection", err, tt.want)
+			}
+
+			if err != nil && err.Error() != tt.wantText {
+				t.Errorf("CreatePullRequest said %q, want %q", err, tt.wantText)
 			}
 		})
 	}

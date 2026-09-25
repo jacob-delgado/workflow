@@ -53,15 +53,17 @@ func Unreachable(unreachable error, base string, err error) error {
 	return fmt.Errorf("%w%s: %w", unreachable, atBase, cause)
 }
 
-// ErrRateLimited reports a server that answered 429 Too Many Requests. It is its
-// own error so a caller is told to wait rather than that its credential was
-// refused, which a shared 403/429 branch would say.
+// ErrRateLimited reports a server that asked the caller to wait: a 429 Too Many
+// Requests, or a forge's 403 whose headers ask for a wait. It is its own error
+// so a caller is told to wait rather than that its credential was refused,
+// which a shared 403/429 branch would say.
 var ErrRateLimited = errors.New("rate limited; wait and try again")
 
-// RateLimited reports a 429, naming how long to wait when the server said so in
-// a Retry-After header. The header's other, HTTP-date form — which these APIs do
-// not use for a 429 — and a missing or unreadable value fall back to the bare
-// ErrRateLimited, so a caller always gets an error that errors.Is matches.
+// RateLimited reports a rate limit, naming how long to wait when the server
+// said so in a Retry-After header. The header's other, HTTP-date form — which
+// these APIs do not use for a rate limit — and a missing or unreadable value
+// fall back to the bare ErrRateLimited, so a caller always gets an error that
+// errors.Is matches.
 func RateLimited(header http.Header) error {
 	wait, ok := retryAfter(header.Get("Retry-After"))
 	if !ok {

@@ -6,6 +6,7 @@ package forge_test
 import (
 	"errors"
 	"net/http"
+	"strings"
 	"testing"
 
 	"github.com/jacob-delgado/workflow/internal/forge"
@@ -98,8 +99,8 @@ func TestRerunChecksReportsARefusedRerun(t *testing.T) {
 	_, err := client.RerunChecks(t.Context(), githubRepo(), forge.PullRequest{Number: 42}, "abc123")
 
 	// Assert
-	if !errors.Is(err, forge.ErrRefused) {
-		t.Errorf("RerunChecks returned %v, want ErrRefused", err)
+	if !errors.Is(err, forge.ErrRefused) || !strings.Contains(err.Error(), "Resource not accessible") {
+		t.Errorf("RerunChecks returned %v, want ErrRefused with the forge's reason", err)
 	}
 }
 

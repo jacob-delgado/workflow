@@ -352,12 +352,14 @@ func TestADetailTellsTheFailureItsSummaryRowShortens(t *testing.T) {
 		want    []string
 	}{
 		"a refused CI read, on the Review detail": {
-			prepare: func(w *world) { w.ciErr = fmt.Errorf("checking CI: %w", forge.ErrRefused) },
-			keys:    []string{"4"},
+			prepare: func(w *world) {
+				w.ciErr = fmt.Errorf("checking CI: %w: Resource not accessible by integration", forge.ErrRefused)
+			},
+			keys: []string{"4"},
 			want: []string{
 				"CI     ✗ the forge refused the request",
 				"✗ The forge refused the request, which may be rate limiting.",
-				"rate limiting rather than the credential",
+				"Resource not accessible by integration",
 			},
 		},
 		"a refused announcement, on the Messaging detail once its preview is gone": {

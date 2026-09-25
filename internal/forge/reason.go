@@ -28,31 +28,45 @@ type wireReason struct {
 }
 
 // explained adds the forge's own reason to a status error, when the status is
-// one the forge explains — a request it understood and turned down, such as a
-// pull request that already exists. 401, 403 and 404 keep their own errors.
+// one the forge explains: a 403 refusing this token keeps its refusal with the
+// reason after it, and any other request the forge understood and turned down,
+// such as a pull request that already exists, becomes a rejection. 401 and 404
+// keep their own errors.
 func explained(statusErr error, body io.Reader) error {
-	if !errors.Is(statusErr, ErrUnexpectedStatus) {
+	if !errors.Is(statusErr, ErrRefused) && !errors.Is(statusErr, ErrUnexpectedStatus) {
 		return statusErr
 	}
 
+	reason, given := reasonIn(body)
+	if !given {
+		return statusErr
+	}
+
+	if errors.Is(statusErr, ErrRefused) {
+		return fmt.Errorf("%w: %s", statusErr, reason)
+	}
+
+	return fmt.Errorf("%w: %s", ErrRejected, reason)
+}
+
+// reasonIn reads the forge's own reason out of a refusal's body, reporting
+// false when it gave none that can be read.
+func reasonIn(body io.Reader) (string, bool) {
 	raw, err := io.ReadAll(io.LimitReader(body, reasonLimit))
 	if err != nil {
-		return statusErr
+		return "", false
 	}
 
 	var answer wireReason
 
 	err = json.Unmarshal(sanitize.JSON(raw), &answer)
 	if err != nil {
-		return statusErr
+		return "", false
 	}
 
 	reason := answer.text()
-	if reason == "" {
-		return statusErr
-	}
 
-	return fmt.Errorf("%w: %s", ErrRejected, reason)
+	return reason, reason != ""
 }
 
 // text joins every part of the reason that was given.
