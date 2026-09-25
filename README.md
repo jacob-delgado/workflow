@@ -237,7 +237,7 @@ a branch and most issue writes stay in the terminal for now;
 task --list        # every task, with a description
 task run           # run the TUI from source
 task test          # tests with the race detector
-task cover:branch  # condition coverage: which branches were never taken
+task cover:branch  # condition coverage: which conditions went only one way
 task check         # the full gate: lint, tests, coverage floors, vuln, secrets
 ```
 

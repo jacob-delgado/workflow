@@ -3712,52 +3712,6 @@ or `GetMessaging` test, and each of the package's other test files is named
 for a handler or a concern (`internal/webserver/webserver_test.go` keeps the
 package-wide tests).
 
-### DEBT-147 `cover:branch` passes `-branch`: it counts branches, not conditions
-
-Severity: medium · Confidence: measured
-
-The `gobco` invocation in `scripts/gobco-report.sh:210` passes `-branch`,
-which gobco's own help defines as "cover branches, not conditions": a
-compound `a && b` is instrumented as one counter and its operands are never
-seen apart, and a boolean expression that is not a branch is not
-instrumented at all. The report `task cover:branch` prints shows both:
-`remote`'s `found && before != ""` (`internal/tui/branch.go:240`) is named
-as one condition, "5 times true but never false", and `internal/keychain`
-reads 0/0 because `Supported`'s `return goos == "darwin"`
-(`internal/keychain/keychain.go:17`) is a boolean expression but not a
-branch. Five places promise the other metric:
-
-- `scripts/gobco-report.sh:8` — the header says `gobco` "instruments every
-  boolean expression" and names an `if a && b` seen one way; under `-branch`
-  it does neither.
-- `CLAUDE.md:440` — "Two coverage metrics" promises that `gobco` says
-  whether an `if a && b` was ever seen with `b` false.
-- `Taskfile.yml:266` — the comment on `cover:branch` says `gobco` reports
-  each condition never observed both ways, against statement coverage's `a
-  && b` blindness.
-- `Taskfile.yml:25` — the `BRANCH_COVERAGE_MIN` comment, "The condition
-  (branch) coverage floor", equates the two words the fix must separate.
-- `mise.toml:79` — the `gobco` pin's comment, "Condition (branch) coverage",
-  does the same.
-
-The blind spot the web's v8 count carries exists on the Go side too, as the
-trade-off "The web's branch floor is v8's range-based count" in this file
-now says. `BRANCH_COVERAGE_MIN` (91) is calibrated to the branch
-metric, so DEBT-64's counts are branch counts under a condition heading, and
-every future ratchet reading inherits the gap while five documents say it
-does not exist. The flag has been there unchanged since the bootstrap
-commit, with no recorded reason.
-
-**One way to fix it.** Drop `-branch` from the invocation, re-measure, set
-`BRANCH_COVERAGE_MIN` to floor(measured) − 2 in the same commit and re-count
-DEBT-64; or, if the branch metric is the one wanted, reword the five sites to
-say branch coverage and stop promising per-operand detection.
-
-**Done when.** `task cover:branch` names `found` and `before != ""` at
-`internal/tui/branch.go:240` as two conditions and reports a non-zero count
-for `internal/keychain`; or every site above says "branch" and none claims
-`b`-false detection.
-
 ### DEBT-148 Four clicked steps in the web are never scanned or walked
 
 Severity: medium · Confidence: read

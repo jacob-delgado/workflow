@@ -293,10 +293,11 @@ jobs:
                 '`BRANCH_COVERAGE_MIN` in `Taskfile.yml`. A number restated in prose drifts ' +
                 'from the one enforced._',
               '',
-              '_Conditions counts each branch arm separately: an `if a && b` is only covered ' +
-                'once both arms have been observed. gobco reads every package in this ' +
-                'module but the build-tagged twins `scripts/gobco-report.sh` lists; ' +
-                '`task cover:branch` fails if another drops out unlisted._',
+              '_Conditions counts each operand separately: an `if a && b` is only covered ' +
+                'once `a` and `b` have each been seen true and false. gobco reads every ' +
+                'package in this module but the build-tagged twins ' +
+                '`scripts/gobco-report.sh` lists; `task cover:branch` fails if another ' +
+                'drops out unlisted._',
             ].join('\n')
             const { owner, repo } = context.repo
             const issue_number = context.issue.number

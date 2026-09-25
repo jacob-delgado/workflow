@@ -30,8 +30,9 @@ if [[ -z "${statements}" ]]; then
   exit 1
 fi
 
-# Branch coverage over every gobco stats file present: arms observed / arms
-# present, the same arithmetic gobco-report.sh prints per package.
+# Condition coverage over every gobco stats file present: arms observed / arms
+# present, the same arithmetic gobco-report.sh prints per package. Its key stays
+# "branch": the PR comment compares it against the baseline stored from main.
 branch="$(
   jq -s -r '
     (map(length) | add // 0) as $conditions

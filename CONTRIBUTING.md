@@ -93,11 +93,11 @@ both printing the available ratchet when you clear them:
 
 - **Statements** (`task test:cover`) — did this line run.
 - **Conditions** (`task cover:branch`, via [gobco](https://github.com/rillig/gobco))
-  — was each branch seen both ways. Its output names every condition observed only
-  one way, which is a worklist of the tests still missing. gobco reads every
-  package in this module but the build-tagged twins `scripts/gobco-report.sh`
-  lists as unreadable, and the script fails if another ever drops out without
-  being listed.
+  — was each condition seen both ways, each operand of an `a && b` on its own.
+  Its output names every condition observed only one way, which is a worklist
+  of the tests still missing. gobco reads every package in this module but the
+  build-tagged twins `scripts/gobco-report.sh` lists as unreadable, and the
+  script fails if another ever drops out without being listed.
 
 The web frontend's unit tests (`task web:test`) hold their own floor, the
 `thresholds` in `web/vitest.config.ts`.

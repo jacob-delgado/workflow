@@ -52,7 +52,7 @@ any change done.
 | `task web:gen:check` | The generated TypeScript client still matches `api/openapi.yaml` |
 | `task test:cover` | Tests with the race detector, above the statement coverage floor |
 | `task web:test` | The web frontend's unit tests, above their own coverage floor |
-| `task cover:branch` | Condition coverage via gobco: was each branch seen both ways |
+| `task cover:branch` | Condition coverage via gobco: was each condition seen both ways |
 | `task vuln` | `govulncheck` against the dependency graph |
 | `task secrets` | `gitleaks` over the working tree |
 

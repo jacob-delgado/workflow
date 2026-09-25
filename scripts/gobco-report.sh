@@ -1,13 +1,16 @@
 #!/usr/bin/env bash
-# Condition (branch) coverage for the Go packages, via rillig/gobco.
+# Condition coverage for the Go packages, via rillig/gobco.
 #
 # Usage: gobco-report.sh <floor> [package...]
 #
 # What this measures that `go test -cover` cannot: Go ships STATEMENT coverage,
 # so an `if a && b` counts as covered the moment the line runs. gobco rewrites
-# each package and instruments every boolean expression, then reports the
-# conditions never observed BOTH true and false — "condition `err != nil` was 8
-# times false but never true". Each such line is one missing test case.
+# each package and instruments every boolean expression, each operand of an &&
+# or || on its own, then reports the conditions never observed BOTH true and
+# false — "condition `err != nil` was 8 times false but never true". Each such
+# line is one missing test case. That is why it runs without -branch: the flag
+# counts branches, one counter per `if a && b`, and skips a boolean that is not
+# a branch.
 #
 # The score is arms observed / arms present: every condition has two arms, and a
 # condition seen only one way scores 1 of 2.
@@ -270,12 +273,12 @@ fi
 measured_int="${total_percent%%.*}"
 
 if [[ "${measured_int}" -lt "${floor}" ]]; then
-  printf 'Branch coverage %s%% is below the %s%% floor.\n' "${total_percent}" "${floor}" >&2
+  printf 'Condition coverage %s%% is below the %s%% floor.\n' "${total_percent}" "${floor}" >&2
   printf 'Each condition listed above was never seen both ways — that is the worklist.\n' >&2
   exit 1
 fi
 
-printf 'Branch coverage %s%% (floor %s%%).\n' "${total_percent}" "${floor}"
+printf 'Condition coverage %s%% (floor %s%%).\n' "${total_percent}" "${floor}"
 
 suggested=$((measured_int - ratchet_slack))
 if [[ "${suggested}" -gt "${floor}" ]]; then
