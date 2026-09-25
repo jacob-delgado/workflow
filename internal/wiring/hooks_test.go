@@ -39,7 +39,7 @@ func TestTheHookSeamsReadWriteAndRunLefthook(t *testing.T) {
 	root := repository(t)
 	write(t, filepath.Join(root, ".git", "hooks", preCommit), "#!/bin/sh\necho checked\n", 0o700)
 
-	seams := wiring.Deps(t.Context(), config.Default(), wiring.Workspace{Root: root, Remote: ""}, nil).Hooks
+	seams := wired(t, config.Default(), wiring.Workspace{Root: root, Remote: ""}, nil).Hooks
 
 	// Act: read the hooks git runs
 	found, configured := seams.Existing()
@@ -88,7 +88,7 @@ func TestTheHookSeamsOfferNothingOutsideARepository(t *testing.T) {
 	requireLefthook(t)
 	isolateGit(t)
 
-	seams := wiring.Deps(t.Context(), config.Default(), wiring.Workspace{Root: t.TempDir(), Remote: ""}, nil).Hooks
+	seams := wired(t, config.Default(), wiring.Workspace{Root: t.TempDir(), Remote: ""}, nil).Hooks
 
 	// Act
 	found, configured := seams.Existing()
@@ -107,7 +107,7 @@ func TestTheHookSeamsNeverOverwriteAConfiguration(t *testing.T) {
 	root := repository(t)
 	write(t, filepath.Join(root, "lefthook.yml"), "# mine\n", 0o600)
 
-	seams := wiring.Deps(t.Context(), config.Default(), wiring.Workspace{Root: root, Remote: ""}, nil).Hooks
+	seams := wired(t, config.Default(), wiring.Workspace{Root: root, Remote: ""}, nil).Hooks
 
 	// Act
 	err := seams.Write(hooks.Verbatim([]hooks.GitHook{{Name: preCommit, Script: "#!/bin/sh\n"}}))
@@ -127,7 +127,7 @@ func TestWithoutLefthookNoHookActionIsOffered(t *testing.T) {
 	t.Setenv("PATH", t.TempDir())
 
 	// Act
-	seams := wiring.Deps(t.Context(), config.Default(), wiring.Workspace{Root: t.TempDir(), Remote: ""}, nil).Hooks
+	seams := wired(t, config.Default(), wiring.Workspace{Root: t.TempDir(), Remote: ""}, nil).Hooks
 
 	// Assert
 	if seams.Run != nil || seams.Existing != nil || seams.Write != nil {
@@ -144,7 +144,7 @@ func TestAFailedLefthookInstallSaysWhatLefthookSaid(t *testing.T) {
 
 	t.Setenv("PATH", bin)
 
-	seams := wiring.Deps(t.Context(), config.Default(), wiring.Workspace{Root: root, Remote: ""}, nil).Hooks
+	seams := wired(t, config.Default(), wiring.Workspace{Root: root, Remote: ""}, nil).Hooks
 
 	// Act
 	err := seams.Write(hooks.Verbatim([]hooks.GitHook{{Name: preCommit, Script: "#!/bin/sh\n"}}))

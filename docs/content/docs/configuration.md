@@ -194,6 +194,13 @@ program or an environment variable:
 The file's own `token` wins when set, then `token_env`, then `token_command`.
 `workflow doctor --online` reports which source each credential came from,
 without ever printing the value.
+
+Jira's token is found the first time a command needs Jira, so one that never
+reaches it, such as `workflow reviews`, never runs `jira.token_command`. The
+interface and `--web` find it before they start, while a command that asks for
+a passphrase on the terminal can still be answered. A command that fails or
+prints nothing, or a variable that is empty, is reported as no token where Jira
+was wanted, and the token is looked for again the next time.
 `workflow doctor` reports which of the two modes is in effect.
 
 ### The operating system's keychain

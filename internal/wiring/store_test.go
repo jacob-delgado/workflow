@@ -32,7 +32,7 @@ func TestTheStoreNeverHoldsARemotesCredential(t *testing.T) {
 		Root:   t.TempDir(),
 		Remote: "https://alice:" + token + "@github.com/org/repo.git",
 	}
-	deps := wiring.Deps(t.Context(), config.Default(), where, nil)
+	deps := wired(t, config.Default(), where, nil)
 
 	// Act
 	deps.Store.RecordScope("api")
@@ -57,9 +57,7 @@ func TestCachedIssuesReadBackAreSanitized(t *testing.T) {
 	t.Setenv("HOME", home)
 	t.Setenv("XDG_STATE_HOME", "")
 
-	const baseURL = "https://jira.example.com"
-
-	sum := sha256.Sum256([]byte(baseURL))
+	sum := sha256.Sum256([]byte(jiraAddress))
 	instance := hex.EncodeToString(sum[:])
 
 	dir, err := store.DefaultDir()
@@ -84,8 +82,8 @@ func TestCachedIssuesReadBackAreSanitized(t *testing.T) {
 	}
 
 	cfg := config.Default()
-	cfg.Jira.BaseURL = baseURL
-	deps := wiring.Deps(t.Context(), cfg, wiring.Workspace{Root: t.TempDir()}, nil)
+	cfg.Jira.BaseURL = jiraAddress
+	deps := wired(t, cfg, wiring.Workspace{Root: t.TempDir()}, nil)
 
 	// Act
 	issues, found := deps.Store.CachedIssues("assigned")

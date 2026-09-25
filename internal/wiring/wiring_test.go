@@ -87,6 +87,16 @@ func write(t *testing.T, path, contents string, mode os.FileMode) {
 	}
 }
 
+// wired is the seams wiring.Deps builds over cfg and where, each service's
+// token left to be found on first use.
+func wired(t *testing.T, cfg config.Config, where wiring.Workspace, log *wiring.RequestLog) tui.Deps {
+	t.Helper()
+
+	deps, _ := wiring.Deps(t.Context(), cfg, where, log)
+
+	return deps
+}
+
 // drained reads every line of a program's output and reports how it ended.
 func drained(output proc.Output) ([]string, error) {
 	var lines []string
@@ -148,7 +158,7 @@ func gitSeams(t *testing.T) (tui.GitDeps, string, string) {
 
 	root := repository(t)
 
-	return wiring.Deps(t.Context(), config.Default(), wiring.Workspace{Root: root, Remote: ""}, nil).Git, root, drafts
+	return wired(t, config.Default(), wiring.Workspace{Root: root, Remote: ""}, nil).Git, root, drafts
 }
 
 func TestTheGitSeamsStartABranchFromMain(t *testing.T) {
@@ -325,7 +335,7 @@ func TestACommitThatCannotWriteItsMessageSaysWhy(t *testing.T) {
 	// Arrange
 	t.Setenv("TMPDIR", filepath.Join(t.TempDir(), "missing"))
 
-	seams := wiring.Deps(t.Context(), config.Default(), wiring.Workspace{Root: t.TempDir(), Remote: ""}, nil).Git
+	seams := wired(t, config.Default(), wiring.Workspace{Root: t.TempDir(), Remote: ""}, nil).Git
 
 	// Act
 	_, err := seams.Commit("feat: x\n")
@@ -342,7 +352,7 @@ func TestACommitGitCannotRunLeavesNoMessageBehind(t *testing.T) {
 	t.Setenv("TMPDIR", drafts)
 	t.Setenv("PATH", t.TempDir())
 
-	seams := wiring.Deps(t.Context(), config.Default(), wiring.Workspace{Root: t.TempDir(), Remote: ""}, nil).Git
+	seams := wired(t, config.Default(), wiring.Workspace{Root: t.TempDir(), Remote: ""}, nil).Git
 
 	// Act
 	_, err := seams.Commit("feat: x\n")
@@ -369,7 +379,7 @@ func TestTheForgeSeamRetriesAfterAFailedConnection(t *testing.T) {
 	t.Setenv("GITHUB_TOKEN", "")
 	t.Setenv("GH_TOKEN", "")
 
-	forgeSeam := wiring.Deps(t.Context(),
+	forgeSeam := wired(t,
 		config.Config{Forge: config.Forge{Kind: githubKind}},
 		wiring.Workspace{Root: dir, Remote: githubRemote}, nil).Forge
 

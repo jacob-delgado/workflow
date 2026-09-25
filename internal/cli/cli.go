@@ -193,11 +193,14 @@ func NewRootCmdOver(prompt Prompt, run RunInterface, serve RunWeb) *cobra.Comman
 
 				info := webserver.Info{Version: buildinfo.Current(), DryRun: dryRun, ForgeKind: conn.deps.Forge.Kind}
 
+				conn.resolveAhead()
+
 				return serve(ctx, conn.cfg, WebDeps(conn.deps), info, cmd.ErrOrStderr())
 			}
 
 			return openInterface(ctx, run, interfaceInput{
-				cfg: conn.cfg, loadErr: conn.loadErr, deps: conn.deps, dryRun: dryRun, out: cmd.OutOrStdout(),
+				cfg: conn.cfg, loadErr: conn.loadErr, deps: conn.deps, resolveAhead: conn.resolveAhead,
+				dryRun: dryRun, out: cmd.OutOrStdout(),
 			})
 		},
 	}
@@ -219,17 +222,19 @@ func NewRootCmdOver(prompt Prompt, run RunInterface, serve RunWeb) *cobra.Comman
 // interfaceInput bundles what opening the terminal interface needs, so the
 // launcher does not take a long list of positional arguments.
 type interfaceInput struct {
-	cfg     config.Config
-	loadErr error
-	deps    tui.Deps
-	dryRun  bool
-	out     io.Writer
+	cfg          config.Config
+	loadErr      error
+	deps         tui.Deps
+	resolveAhead func()
+	dryRun       bool
+	out          io.Writer
 }
 
 // openInterface refuses a broken ui.keys map before building anything — a keymap
 // with a conflict or an unknown action should say so and stop, not open an
 // interface that answers the wrong keys — then builds the model, applies dry
-// run, and runs it.
+// run, finds the services' tokens while a token command can still ask on the
+// terminal, and runs it.
 func openInterface(ctx context.Context, run RunInterface, input interfaceInput) error {
 	err := tui.CheckKeys(input.cfg.UI.Keys)
 	if err != nil {
@@ -240,6 +245,8 @@ func openInterface(ctx context.Context, run RunInterface, input interfaceInput) 
 	if input.dryRun {
 		model = model.WithDryRun()
 	}
+
+	input.resolveAhead()
 
 	return run(ctx, model, input.out)
 }
@@ -318,14 +325,16 @@ func WebDeps(deps tui.Deps) webserver.Deps {
 const logFlag = "log"
 
 // connection is a command wired to where it runs: the configuration in effect
-// and, when it did not load, why; the repository; the seams over both; and the
-// close of the request log, which the caller defers.
+// and, when it did not load, why; the repository; the seams over both, and
+// what finds their tokens ahead of first use, which only the interface and the
+// web server call; and the close of the request log, which the caller defers.
 type connection struct {
-	cfg      config.Config
-	loadErr  error
-	where    wiring.Workspace
-	deps     tui.Deps
-	closeLog func()
+	cfg          config.Config
+	loadErr      error
+	where        wiring.Workspace
+	deps         tui.Deps
+	resolveAhead func()
+	closeLog     func()
 }
 
 // connect wires a command to its working directory, recording each request in
@@ -377,10 +386,10 @@ func connectLeniently(cmd *cobra.Command) (connection, error) {
 func connectAt(ctx context.Context, dir, home string, requestLog *wiring.RequestLog) connection {
 	cfg, loadErr := config.Load(dir, home)
 	where := wiring.Locate(ctx, dir)
+	deps, resolveAhead := wiring.Deps(ctx, cfg, where, requestLog)
 
 	return connection{
-		cfg: cfg, loadErr: loadErr, where: where,
-		deps:     wiring.Deps(ctx, cfg, where, requestLog),
+		cfg: cfg, loadErr: loadErr, where: where, deps: deps, resolveAhead: resolveAhead,
 		closeLog: func() {},
 	}
 }

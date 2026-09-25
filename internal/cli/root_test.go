@@ -8,6 +8,8 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -78,27 +80,36 @@ func (r *rootRun) spine() string {
 func runRoot(t *testing.T, dir string, args ...string) *rootRun {
 	t.Helper()
 
+	var ran rootRun
+
+	ran.stdout, ran.stderr, ran.err = executeRoot(t, dir, ran.runInterface, ran.serveWeb, args...)
+
+	return &ran
+}
+
+// executeRoot runs the root command in dir over the interface and web server
+// given, and returns what it said on stdout and on stderr, and how it ended.
+func executeRoot(
+	t *testing.T, dir string, run cli.RunInterface, serve cli.RunWeb, args ...string,
+) (string, string, error) {
+	t.Helper()
+
 	for name, value := range isolatedEnvironment(t.TempDir()) {
 		t.Setenv(name, value)
 	}
 
 	t.Chdir(dir)
 
-	var (
-		ran            rootRun
-		stdout, stderr bytes.Buffer
-	)
+	var stdout, stderr bytes.Buffer
 
-	root := cli.NewRootCmdOver(unusedPrompt(t), ran.runInterface, ran.serveWeb)
+	root := cli.NewRootCmdOver(unusedPrompt(t), run, serve)
 	root.SetArgs(args)
 	root.SetOut(&stdout)
 	root.SetErr(&stderr)
 
-	ran.err = root.ExecuteContext(t.Context())
-	ran.stdout = stdout.String()
-	ran.stderr = stderr.String()
+	err := root.ExecuteContext(t.Context())
 
-	return &ran
+	return stdout.String(), stderr.String(), err
 }
 
 func TestBareWorkflowOpensTheInterfaceWithItsWritesLive(t *testing.T) {
@@ -255,5 +266,52 @@ func TestTheWebServerRefusesAConfigurationPathItCannotRead(t *testing.T) {
 
 	if notes.Len() != 0 {
 		t.Errorf("the web server said %q, want nothing served", notes.String())
+	}
+}
+
+// Once the interface or the web server starts it holds the terminal, where a
+// token command that asks for a passphrase could not be answered, so the root
+// command runs Jira's before either starts.
+func TestTheInterfaceAndTheWebServerStartWithTheJiraTokenCommandRun(t *testing.T) {
+	for name, args := range map[string][]string{"the interface": nil, "the web server": {"--web"}} {
+		t.Run(name, func(t *testing.T) {
+			// Arrange
+			dir := t.TempDir()
+			record := filepath.Join(dir, "runs")
+			command := filepath.Join(dir, "token")
+
+			err := os.WriteFile(command, []byte("#!/bin/sh\nprintf 'x\\n' >> '"+record+"'\nprintf 'a-token\\n'\n"), 0o700)
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			writeFile(t, dir, `{"jira": {"base_url": "https://jira.example.net", "token_command": "`+command+`"}}`)
+
+			runsAtStart := -1
+			countRuns := func() {
+				ran, _ := os.ReadFile(record)
+				runsAtStart = strings.Count(string(ran), "x")
+			}
+
+			// Act
+			_, _, err = executeRoot(t, dir,
+				func(context.Context, tui.Model, io.Writer) error {
+					countRuns()
+
+					return nil
+				},
+				func(context.Context, config.Config, webserver.Deps, webserver.Info, io.Writer) error {
+					countRuns()
+
+					return nil
+				},
+				args...)
+
+			// Assert
+			if err != nil || runsAtStart != 1 {
+				t.Errorf("workflow %v = %v, and %s started with the token command run %d times; want once",
+					args, err, name, runsAtStart)
+			}
+		})
 	}
 }

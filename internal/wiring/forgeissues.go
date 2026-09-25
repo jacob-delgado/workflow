@@ -32,14 +32,16 @@ const (
 // Issues pane only offers numbers, but the web reads whatever key it is handed.
 var errNotAnIssueNumber = errors.New("not a forge issue number")
 
-// trackerDeps is what backs the Issues pane: Jira when it is configured, and
-// otherwise the forge's own issues, reached through connect, so a project
-// without Jira still has a tracker to run the loop against.
+// trackerDeps is what backs the Issues pane: Jira, reached through jiraClient,
+// when it is configured, and otherwise the forge's own issues, reached through
+// connect, so a project without Jira still has a tracker to run the loop
+// against.
 func trackerDeps(
-	ctx context.Context, settings config.Jira, setup forgeSetup, connect func() (forgeConnection, error),
+	ctx context.Context, settings config.Jira,
+	jiraClient func() (jira.Client, error), connect func() (forgeConnection, error),
 ) tui.JiraDeps {
 	if settings.Configured() {
-		return jiraDeps(ctx, settings, setup.httpTransport, setup.log)
+		return jiraDeps(ctx, settings, jiraClient)
 	}
 
 	return forgeIssuesDeps(ctx, connect)

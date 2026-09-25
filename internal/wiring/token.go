@@ -5,6 +5,7 @@ package wiring
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"strings"
@@ -20,6 +21,9 @@ const (
 	sourceCommand = "token_command"
 	sourceNone    = "no token configured"
 )
+
+// errNoToken is a token source that is set but gives nothing to send.
+var errNoToken = errors.New("no token")
 
 // ResolveToken finds a credential from the literal in the file, an environment
 // variable, or a command, in that order, and names where it came from — so a
@@ -55,4 +59,20 @@ func fromCommand(ctx context.Context, command string) (config.Secret, string, er
 	}
 
 	return config.Secret(strings.TrimSpace(string(out))), sourceCommand, nil
+}
+
+// resolveSetToken finds the token a source the configuration sets gives, and
+// refuses one that gives nothing: sent, an empty credential would only be
+// turned away, for a reason the user could not act on.
+func resolveSetToken(ctx context.Context, literal config.Secret, command, envVar string) (config.Secret, error) {
+	token, source, err := ResolveToken(ctx, literal, command, envVar)
+	if err != nil {
+		return "", err
+	}
+
+	if token == "" {
+		return "", fmt.Errorf("%w from %s", errNoToken, source)
+	}
+
+	return token, nil
 }

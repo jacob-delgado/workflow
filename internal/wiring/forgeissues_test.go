@@ -35,7 +35,7 @@ func forgeTracker(t *testing.T) tui.JiraDeps {
 	cfg := config.Config{Forge: config.Forge{CLI: true, Kind: githubKind, Host: hostGitHub}}
 	where := wiring.Workspace{Root: t.TempDir(), Remote: remoteGitHub}
 
-	return wiring.Deps(t.Context(), cfg, where, nil).Jira
+	return wired(t, cfg, where, nil).Jira
 }
 
 func TestTheForgeTrackerListsAssignedIssuesAsSearchRows(t *testing.T) {
@@ -233,7 +233,7 @@ func TestTheTrackerPicksJiraWhenConfiguredAndTheForgeOtherwise(t *testing.T) {
 		jiraBackend bool // the Jira-only Comment seam is present for the Jira backend alone
 	}{
 		"Jira when it is configured": {
-			cfg: config.Config{Jira: config.Jira{BaseURL: "https://jira.example.com"}}, jiraBackend: true,
+			cfg: config.Config{Jira: config.Jira{BaseURL: jiraAddress}}, jiraBackend: true,
 		},
 		"the forge otherwise": {cfg: config.Config{}, jiraBackend: false},
 	}
@@ -246,7 +246,7 @@ func TestTheTrackerPicksJiraWhenConfiguredAndTheForgeOtherwise(t *testing.T) {
 			where := wiring.Workspace{Root: t.TempDir(), Remote: githubRemote}
 
 			// Act
-			tracker := wiring.Deps(t.Context(), tt.cfg, where, nil).Jira
+			tracker := wired(t, tt.cfg, where, nil).Jira
 
 			// Assert
 			if tracker.Search == nil {

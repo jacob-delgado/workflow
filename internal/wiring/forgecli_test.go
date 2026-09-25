@@ -24,7 +24,7 @@ func TestTheForgeCLIReadsThroughGHWithTheFullURL(t *testing.T) {
 	ghStub := installForgeCLI(t, "gh", forgeReplies{})
 	cfg, where := githubCLIWorkspace(t)
 
-	seams := wiring.Deps(t.Context(), cfg, where, nil).Forge
+	seams := wired(t, cfg, where, nil).Forge
 
 	// Act
 	_, found, err := seams.FindPullRequest("feat/x")
@@ -49,7 +49,7 @@ func TestTheForgeCLISendsAWriteBodyOnStandardInput(t *testing.T) {
 	ghStub := installForgeCLI(t, "gh", forgeReplies{})
 	cfg, where := githubCLIWorkspace(t)
 
-	seams := wiring.Deps(t.Context(), cfg, where, nil).Forge
+	seams := wired(t, cfg, where, nil).Forge
 
 	// Act
 	_, err := seams.CreatePullRequest(forge.NewPullRequest{Title: "fix: token"})
@@ -73,7 +73,7 @@ func TestTheForgeCLITrimsTheBaseForGitLab(t *testing.T) {
 	cfg := config.Config{Forge: config.Forge{CLI: true}}
 	where := wiring.Workspace{Root: t.TempDir(), Remote: "https://gitlab.com/owner/repo.git"}
 
-	seams := wiring.Deps(t.Context(), cfg, where, nil).Forge
+	seams := wired(t, cfg, where, nil).Forge
 
 	// Act
 	_, _, err := seams.FindPullRequest("feat/x")
@@ -100,7 +100,7 @@ func TestTheForgeCLIReportsAnUnreadableReply(t *testing.T) {
 	installForgeCLI(t, "gh", forgeReplies{garbage: true})
 	cfg, where := githubCLIWorkspace(t)
 
-	seams := wiring.Deps(t.Context(), cfg, where, nil).Forge
+	seams := wired(t, cfg, where, nil).Forge
 
 	// Act
 	_, _, err := seams.FindPullRequest("feat/x")
@@ -116,7 +116,7 @@ func TestTheForgeCLIReportsACommandFailure(t *testing.T) {
 	installForgeCLI(t, "gh", forgeReplies{fail: true})
 	cfg, where := githubCLIWorkspace(t)
 
-	seams := wiring.Deps(t.Context(), cfg, where, nil).Forge
+	seams := wired(t, cfg, where, nil).Forge
 
 	// Act
 	_, _, err := seams.FindPullRequest("feat/x")
@@ -138,7 +138,7 @@ func TestTheForgeFallsBackToHTTPWhenTheCLIToolIsMissing(t *testing.T) {
 	cfg := config.Config{Forge: config.Forge{CLI: true, Kind: githubKind, Host: hostGitHub}}
 	where := wiring.Workspace{Root: t.TempDir(), Remote: remoteGitHub}
 
-	seams := wiring.Deps(t.Context(), cfg, where, nil).Forge
+	seams := wired(t, cfg, where, nil).Forge
 
 	// Act
 	_, _, err := seams.FindPullRequest("feat/x")
