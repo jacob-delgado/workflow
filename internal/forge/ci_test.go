@@ -300,3 +300,39 @@ func TestGitHubCIReadsEveryStatusNotJustTheFirstPage(t *testing.T) {
 		t.Errorf("CheckStatus = %+v, %v; want CIFailed once the 31st status is read", got, err)
 	}
 }
+
+func TestGitHubCIReadsAStatusListingTooLongToReadAsRunning(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	// Every page is full of passing statuses and GitHub counts far more than
+	// the bound lets a read reach, so what was read is not the whole of it and
+	// cannot be called a pass.
+	fullPage := make([]string, 100)
+	for index := range fullPage {
+		fullPage[index] = `{"state":"success"}`
+	}
+
+	server := httptest.NewServer(http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
+		writer.Header().Set("Content-Type", "application/json")
+
+		if strings.HasSuffix(request.URL.Path, "/check-runs") {
+			_, _ = writer.Write([]byte(`{"total_count":0,"check_runs":[]}`))
+
+			return
+		}
+
+		_, _ = writer.Write([]byte(`{"total_count":5000,"statuses":[` + strings.Join(fullPage, ",") + `]}`))
+	}))
+	t.Cleanup(server.Close)
+
+	client := forge.New(server.Client().Do, server.URL, secret)
+
+	// Act
+	got, err := client.CheckStatus(t.Context(), githubRepo(), forge.PullRequest{}, headCommit)
+
+	// Assert
+	if err != nil || got.State != forge.CIRunning {
+		t.Errorf("CheckStatus = %+v, %v; want CIRunning for a listing read only in part", got, err)
+	}
+}

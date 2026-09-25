@@ -26,11 +26,9 @@ const (
 	MergeConflicts
 )
 
-// queryState is the query parameter both forges name the open/closed filter,
-// and perPageParam bounds one page of a listing.
+// queryState is the query parameter both forges name the open/closed filter.
 const (
-	queryState   = "state"
-	perPageParam = "per_page"
+	queryState = "state"
 	// queryAll asks a forge for every state, so a find sees a merged pull and
 	// not only an open one; wireClosed is what both forges call a closed one.
 	queryAll   = "all"

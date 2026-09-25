@@ -196,12 +196,8 @@ func gitlabFind(ctx context.Context, client Client, repo Repo, branch string) (P
 	return pull, true, nil
 }
 
-// gitlabPerPage bounds one page of a listing; stateOpened is GitLab's name
-// for the open state.
-const (
-	gitlabPerPage = 100
-	stateOpened   = "opened"
-)
+// stateOpened is GitLab's name for the open state.
+const stateOpened = "opened"
 
 // gitlabReviewMerge is a merge request as GitLab's listing sends it, with the
 // fields a review queue shows: who opened it, since when, and its head pipeline.
@@ -269,7 +265,7 @@ func gitlabIssues(ctx context.Context, client Client, repo Repo) ([]Issue, error
 	query := url.Values{
 		queryState:          {stateOpened},
 		"assignee_username": {viewer.Name()},
-		perPageParam:        {strconv.Itoa(gitlabPerPage)},
+		perPageParam:        {strconv.Itoa(perPage)},
 	}.Encode()
 
 	listed, err := repoCall[[]gitlabIssue](ctx, client, repo, http.MethodGet,
@@ -324,7 +320,7 @@ func gitlabReviews(ctx context.Context, client Client) ([]ReviewRequest, error) 
 		"scope":             {queryAll},
 		queryState:          {stateOpened},
 		"reviewer_username": {viewer.Name()},
-		perPageParam:        {strconv.Itoa(gitlabPerPage)},
+		perPageParam:        {strconv.Itoa(perPage)},
 	}.Encode()
 
 	merges, err := call[[]gitlabReviewMerge](ctx, client, http.MethodGet, "/merge_requests?"+query, nil)
