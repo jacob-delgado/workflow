@@ -9,6 +9,7 @@
 package jira
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
@@ -135,6 +136,24 @@ func (c Client) newRequest(ctx context.Context, method, pathAndQuery string, bod
 	for name, value := range c.settings.Headers {
 		request.Header.Set(name, value.Reveal())
 	}
+
+	return request, nil
+}
+
+// newJSONRequest builds an authenticated request that sends body as JSON, the
+// shape every write to Jira takes.
+func (c Client) newJSONRequest(ctx context.Context, method, path string, body any) (*http.Request, error) {
+	payload, err := json.Marshal(body)
+	if err != nil {
+		return nil, fmt.Errorf("encoding the request: %w", err)
+	}
+
+	request, err := c.newRequest(ctx, method, path, bytes.NewReader(payload))
+	if err != nil {
+		return nil, err
+	}
+
+	request.Header.Set("Content-Type", "application/json")
 
 	return request, nil
 }

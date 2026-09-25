@@ -4,10 +4,7 @@
 package jira
 
 import (
-	"bytes"
 	"context"
-	"encoding/json"
-	"fmt"
 	"net/http"
 	"net/url"
 	"strconv"
@@ -199,17 +196,9 @@ func (c Client) AddComment(ctx context.Context, issueKey Key, text string) (Comm
 		text = WikiFromMarkdown(text)
 	}
 
-	payload, err := json.Marshal(struct {
+	request, err := c.newJSONRequest(ctx, http.MethodPost, issuePath(issueKey)+"/comment", struct {
 		Body string `json:"body"`
 	}{Body: text})
-	if err != nil {
-		return Comment{}, fmt.Errorf("encoding the comment: %w", err)
-	}
-
-	request, err := c.newRequest(ctx, http.MethodPost, issuePath(issueKey)+"/comment", bytes.NewReader(payload))
-	if err == nil {
-		request.Header.Set("Content-Type", "application/json")
-	}
 
 	wire, err := decode[wireComment](c, request, err)
 	if err != nil {
@@ -235,17 +224,11 @@ type remoteLinkObject struct {
 // server. Jira folds a repeat POST of the same URL into the existing link
 // rather than adding a second, so confirming twice is harmless.
 func (c Client) LinkPullRequest(ctx context.Context, issueKey Key, pullURL, title string) error {
-	payload, err := json.Marshal(remoteLink{Object: remoteLinkObject{URL: pullURL, Title: title}})
-	if err != nil {
-		return fmt.Errorf("encoding the link: %w", err)
-	}
-
-	request, err := c.newRequest(ctx, http.MethodPost, issuePath(issueKey)+"/remotelink", bytes.NewReader(payload))
+	request, err := c.newJSONRequest(ctx, http.MethodPost, issuePath(issueKey)+"/remotelink",
+		remoteLink{Object: remoteLinkObject{URL: pullURL, Title: title}})
 	if err != nil {
 		return err
 	}
-
-	request.Header.Set("Content-Type", "application/json")
 
 	_, err = c.exchange(request)
 

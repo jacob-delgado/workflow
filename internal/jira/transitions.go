@@ -4,10 +4,7 @@
 package jira
 
 import (
-	"bytes"
 	"context"
-	"encoding/json"
-	"fmt"
 	"net/http"
 	"net/url"
 	"strings"
@@ -76,17 +73,11 @@ func (c Client) Transitions(ctx context.Context, issueKey Key) ([]Transition, er
 // ApplyTransition moves an issue through a transition Transitions offered, with
 // a value for each field it needs.
 func (c Client) ApplyTransition(ctx context.Context, issueKey Key, to Transition, values []FieldValue) error {
-	payload, err := json.Marshal(transitionRequest{Transition: reference{ID: to.ID}, Fields: fieldsPayload(values)})
-	if err != nil {
-		return fmt.Errorf("encoding the transition: %w", err)
-	}
-
-	request, err := c.newRequest(ctx, http.MethodPost, transitionsPath(issueKey), bytes.NewReader(payload))
+	request, err := c.newJSONRequest(ctx, http.MethodPost, transitionsPath(issueKey),
+		transitionRequest{Transition: reference{ID: to.ID}, Fields: fieldsPayload(values)})
 	if err != nil {
 		return err
 	}
-
-	request.Header.Set("Content-Type", "application/json")
 
 	// Data Center answers 204 with no body: accepted is all there is to know.
 	_, err = c.exchange(request)
