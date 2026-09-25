@@ -208,7 +208,7 @@ for package in ${packages}; do
 
   # gobco's per-condition output is the worklist — print it, since a percentage
   # alone tells nobody which test to write next.
-  if ! gobco -branch -stats "${out_dir}/${slug}.json" -test=-vet=off "./${rel}" 2>&1; then
+  if ! gobco -stats "${out_dir}/${slug}.json" -test=-vet=off "./${rel}" 2>&1; then
     unexpected="${unexpected} ${rel}"
   fi
 done

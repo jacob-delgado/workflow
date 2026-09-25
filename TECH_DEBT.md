@@ -1420,8 +1420,8 @@ Severity: low · Confidence: read
 
 Arms and guards kept just in case that no input can reach. Each is YAGNI by
 CLAUDE.md's catalog; most sit permanently in DEBT-64's worklist where no
-test can close them, and the two compound guards hide from gobco because it
-reports an `||` as one condition.
+test can close them, the two compound guards' dead first operands among
+them.
 
 - `internal/cli/status.go:414` — `statusGlyph`'s `default` arm repeats the
   `NotStarted` case; `stateWord` (`:439`) and `ciWord` (`:455`) do the same,
@@ -1454,10 +1454,11 @@ reports an `||` as one condition.
   (`internal/webserver/pullrequest.go:39`), never true in the gobco report,
   and `server.Checkout` (`internal/webserver/checkout.go:34`) and
   `server.CreateBranch` (`internal/webserver/branchcreate.go:40`) carry it
-  as a dead first operand gobco cannot see. Every one of those bodies is
-  `required: true` in `api/openapi.yaml:569` (and `:634`, `:425`, `:697`,
-  `:471`, `:507`), and the strict handler sets `request.Body = &body`
-  unconditionally after a decode (`internal/api/server.gen.go:2083`).
+  as a dead first operand, never true there either. Every one of those
+  bodies is `required: true` in `api/openapi.yaml:569` (and `:634`,
+  `:425`, `:697`, `:471`, `:507`), and the strict handler sets
+  `request.Body = &body` unconditionally after a decode
+  (`internal/api/server.gen.go:2083`).
 - `internal/webserver/errors.go:57` — `codeMeaning`'s `default` arm
   duplicates the `api.Internal` arm, `code == api.Internal` 14 times true
   and never false, where `ciState` (`internal/webserver/dto.go:182`) states
@@ -3477,27 +3478,35 @@ whose printed sentence claims more than their check measures, CI jobs and
 triggers that do not do what their comments say, and tests named or shaped
 for something other than what they prove.
 
-### DEBT-64 The condition-coverage worklist: 236 one-sided conditions, and 9 never evaluated
+### DEBT-64 The condition-coverage worklist: 431 one-sided conditions, and 17 never evaluated
 
 Severity: low · Confidence: measured
 
-Re-measured at this commit (`task cover:branch` on macOS, floor 91 %, 23
-packages measured): 3,882 of 4,136 arms, 93.9 %. Of 2,068 conditions, 236
-were observed only one way — 71 of them an `err != nil` never seen true. By
-package: `internal/tui` 88, `internal/cli` 38, `internal/forge` 31,
-`internal/webserver` 16, `internal/jira` 12, `internal/wiring` 12,
-`internal/config` 11, `internal/messaging` 8, `internal/store` 5,
-`internal/tui/frame` 5, and ten across `buildinfo`, `editor` and `hooks`
-(two each) and `convention`, `gitrepo`, `httpx` and `proc` (one each).
+Re-measured at this commit (`task cover:branch` on macOS, floor 89 %, 23
+packages measured), with gobco counting every operand of an `&&` or `||` as
+a condition of its own: 4,873 of 5,338 arms, 91.3 %. Of 2,669 conditions,
+431 were observed only one way — 80 of them an `err != nil` never seen
+true. By package: `internal/tui` 172, `internal/cli` 48, `internal/forge`
+41, `internal/webserver` 25, `internal/config` 17, `internal/jira` 16,
+`internal/testshape` 15, `internal/messaging` 14, `internal/wiring` 14,
+`internal/gitrepo` 13, `internal/hooks` 12, `internal/store` 10,
+`internal/tui/frame` 10, `internal/convention` 8, `internal/editor` 6,
+`internal/buildinfo` 5, and five across `sanitize` (two) and `httpx`,
+`proc` and `tui/layout` (one each).
 
-The store is under ten. Its five are `sql.Open` in `Store.open`
+The store has ten. Five are `sql.Open` in `Store.open`
 (`internal/store/store.go:148`), which fails only for an unregistered
 driver, and four that need SQLite to fail partway through a statement:
 `BeginTx` and `Commit` in `Store.CacheIssues` (`internal/store/cache.go:110`,
 `:121`), and `rows.Err` in `readCachedIssues` (`internal/store/cache.go:88`)
-and `Store.Announces` (`internal/store/announce.go:80`).
+and `Store.Announces` (`internal/store/announce.go:80`). The other five are
+the do-nothing guards' second operands, never seen true: `repo == ""` in
+`Store.RecordAnnounce` and `Store.Announces`
+(`internal/store/announce.go:24`, `:50`), `instance == ""` in
+`Store.CachedIssues` and `Store.CacheIssues` (`internal/store/cache.go:32`,
+`:99`), and `s.dir == ""` in `Store.off` (`internal/store/store.go:134`).
 
-Nine conditions were never evaluated. Five are a test away:
+Seventeen conditions were never evaluated. Five are a test away:
 
 - `internal/cli/doctor_json.go:237` — `credentialStatus`'s `errUnreachable`
   case: no `doctor --json --online` test has a credential check fail.
@@ -3510,6 +3519,22 @@ Nine conditions were never evaluated. Five are a test away:
 - `internal/wiring/wiring.go:232` — `fetchOrigin`, git failing to start: no
   wiring test fetches.
 
+Eight more came into view once each operand counted, and each is a test
+away too:
+
+- `internal/cli/doctor_json.go:142` — `toolingFacts`'s `program.required`:
+  no test runs `doctor` with a tool missing from `PATH`, so `!installed`
+  never lets the `&&` read it.
+- `internal/config/config.go:400` and `:421` — `Problems`'
+  `absoluteWebURL(base)` and the four operands inside `absoluteWebURL`: no
+  `internal/config` test calls `Problems` with a `jira.base_url` set.
+- `internal/messaging/post.go:333` — `Announcement.Text`'s `a.Kind ==
+  config.KindSlack`: each test that renders a template leaves `Kind` empty,
+  so the `||` never reads it.
+- `internal/tui/issuekeys.go:136` — `extendFilterWith`'s `msg.Code ==
+  tea.KeySpace`: no filter test types a key without text, so `text == ""`
+  never lets the `&&` read it.
+
 Four no black-box test reaches without changing the code:
 
 - `internal/tui/tui.go:142` and `:149` — inside `tui.Run`, which needs a real
@@ -3521,20 +3546,20 @@ Four no black-box test reaches without changing the code:
   case, which `exhaustive` requires but `connectForge` never passes, since
   `Repo.APIBase` refuses an unknown forge first.
 
-**What it costs.** Branch coverage reads 93.9 %, 2.9 points above the 91 %
-floor, which is the ratchet's own slack, so an untested error path in the
-next feature no longer fails the gate on someone else's pull request. The
-cost now is the ratchet: floor(93.9) − 2 is today's 91, so
-`BRANCH_COVERAGE_MIN` cannot rise until the report reads 94.0 % — 3,886
-arms, 4 more than today, since the gate rounds to one decimal first.
+**What it costs.** Condition coverage reads 91.3 %, 2.3 points above the
+89 % floor, which is the ratchet's own slack, so an untested error path in
+the next feature no longer fails the gate on someone else's pull request.
+The cost now is the ratchet: floor(91.3) − 2 is today's 89, so
+`BRANCH_COVERAGE_MIN` cannot rise until the report reads 92.0 % — 4,909
+arms, 36 more than today, since the gate rounds to one decimal first.
 
-**One way to fix it.** The five reachable sites above, one test each; then
-the report is the worklist, most of it in `internal/tui`, `internal/cli` and
+**One way to fix it.** The reachable sites above, one test each; then the
+report is the worklist, most of it in `internal/tui`, `internal/cli` and
 `internal/forge`.
 
 **Done when.** `task cover:branch` names no never-evaluated condition but
-the four above, and reads 94.0 % or more, so `BRANCH_COVERAGE_MIN` ratchets
-to 92.
+the four above, and reads 92.0 % or more, so `BRANCH_COVERAGE_MIN` ratchets
+to 90.
 
 ### DEBT-65 The web's e2e drives no write
 
@@ -3618,8 +3643,11 @@ rail the interface never draws, and `TestRailAt`'s "last row of the rail"
 case (`internal/tui/layout/layout_test.go:248`) expects index 4. The
 six-pane geometry `Compute` (`internal/tui/layout/layout.go:71`) is asked
 for is exercised only through `internal/tui`'s screen tests, which render
-through the same call. The gobco report reads `internal/tui/layout` at 8 of
-8 arms, so the drift is in what the tests describe, not in what they reach.
+through the same call. The gobco report reads `internal/tui/layout` at 21
+of 22 arms; the one it misses, `column >= b.X` in `Box.Contains`
+(`internal/tui/layout/layout.go:58`) never seen false, has nothing to do
+with the rail's pane count, so the drift is in what the tests describe,
+not in what they reach.
 
 **One way to fix it.** Set `railPanes` to 6, name Reviews in the comment,
 and recompute the expected heights and the `RailAt` rows.
@@ -4292,5 +4320,4 @@ know about.
   (`web/vitest.config.ts:43` `thresholds`), not a gobco-style per-condition
   one: v8 marks a branch covered once its range of code has run, and never
   asks which way each operand of a condition went. The cost is that an
-  `a && b` only ever seen with `b` true still passes the web's floor — and,
-  under today's `-branch` flag, the Go side's too (DEBT-147).
+  `a && b` only ever seen with `b` true still passes the web's floor.
