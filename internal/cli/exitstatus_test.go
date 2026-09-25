@@ -117,6 +117,20 @@ func postToSlack(ctx context.Context, base string) error {
 	return messaging.New(httpx.Client(time.Second).Do, base, creds).Post(ctx, "", "a pull request is ready")
 }
 
+// askForge asks the forge API at base who the token belongs to, over the
+// redirect-refusing transport the commands use, and returns what failed.
+func askForge(ctx context.Context, base string) error {
+	_, err := forge.New(httpx.Client(time.Second).Do, base, "forge-token-for-tests").Whoami(ctx)
+
+	return err
+}
+
+// redirecting answers every request with a redirect to a sign-in page, as a
+// gateway in front of a service does.
+func redirecting(writer http.ResponseWriter, request *http.Request) {
+	http.Redirect(writer, request, "https://sso.example.com/login", http.StatusFound)
+}
+
 // answeringWith answers every request with status and body.
 func answeringWith(status int, body string) http.HandlerFunc {
 	return func(writer http.ResponseWriter, _ *http.Request) {
@@ -147,6 +161,11 @@ func TestAServiceAnswerExitsInItsFamily(t *testing.T) {
 			answer: answeringWith(http.StatusOK, `{"ok":false,"error":"not_in_channel"}`),
 			ask:    postToSlack, want: 1,
 		},
+		// A redirect is refused so the credential goes nowhere else: the service
+		// never answered the request, as a script waiting on 5 expects.
+		"jira answered with a redirect":      {answer: redirecting, ask: askJira, want: 5},
+		"the forge answered with a redirect": {answer: redirecting, ask: askForge, want: 5},
+		"slack answered with a redirect":     {answer: redirecting, ask: postToSlack, want: 5},
 	}
 
 	for name, tt := range cases {
