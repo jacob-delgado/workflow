@@ -33,7 +33,9 @@ const myselfPath = "/rest/api/2/myself"
 // comments is a few megabytes; an answer past this is not one worth decoding.
 const bodyLimit = 16 << 20
 
-// Errors this package returns. Callers distinguish them with errors.Is.
+// Errors this package returns. Callers distinguish them with errors.Is. A
+// refused redirect and a rate limit come back as httpx's ErrRedirected and
+// ErrRateLimited, which every client shares.
 var (
 	// ErrNoCredential reports a configuration with no Jira token at all.
 	ErrNoCredential = errors.New("no jira.token is configured")
@@ -58,10 +60,6 @@ var (
 	ErrUnexpectedStatus = errors.New("unexpected response status")
 	// ErrUnreachable reports a request that never got an answer.
 	ErrUnreachable = errors.New("could not reach the server")
-	// ErrRedirected reports a redirect this client declined to follow.
-	ErrRedirected = httpx.ErrRedirected
-	// ErrRateLimited reports a 429 from the instance.
-	ErrRateLimited = httpx.ErrRateLimited
 )
 
 // Doer is the HTTP seam this client accepts; see httpx.Doer.

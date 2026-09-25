@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"github.com/jacob-delgado/workflow/internal/forge"
+	"github.com/jacob-delgado/workflow/internal/httpx"
 )
 
 // Compile-time proof that an http.Client satisfies the seam Client takes.
@@ -135,7 +136,7 @@ func TestWhoamiTranslatesEachStatus(t *testing.T) {
 		// it do this. Saying "not accepted" here would send someone to rotate a
 		// token that is fine.
 		"refused":      {status: http.StatusForbidden, want: forge.ErrRefused},
-		"rate limited": {status: http.StatusTooManyRequests, want: forge.ErrRateLimited},
+		"rate limited": {status: http.StatusTooManyRequests, want: httpx.ErrRateLimited},
 		// GET /user needs no scope, so a 404 here is a wrong address rather than
 		// an under-scoped token.
 		"no api there":   {status: http.StatusNotFound, want: forge.ErrNoAPI},
@@ -190,10 +191,10 @@ func TestAForbiddenAnswerThatAsksToWaitIsARateLimit(t *testing.T) {
 		ask           func(context.Context, forge.Client) error
 		want          error
 	}{
-		"a read with no requests left":  {header: remaining, value: "0", ask: read, want: forge.ErrRateLimited},
-		"a write with no requests left": {header: remaining, value: "0", ask: write, want: forge.ErrRateLimited},
-		"a read told to wait":           {header: wait, value: "60", ask: read, want: forge.ErrRateLimited},
-		"a write told to wait":          {header: wait, value: "60", ask: write, want: forge.ErrRateLimited},
+		"a read with no requests left":  {header: remaining, value: "0", ask: read, want: httpx.ErrRateLimited},
+		"a write with no requests left": {header: remaining, value: "0", ask: write, want: httpx.ErrRateLimited},
+		"a read told to wait":           {header: wait, value: "60", ask: read, want: httpx.ErrRateLimited},
+		"a write told to wait":          {header: wait, value: "60", ask: write, want: httpx.ErrRateLimited},
 		"requests to spare":             {header: remaining, value: "4999", ask: read, want: forge.ErrRefused},
 	}
 
@@ -217,7 +218,7 @@ func TestAForbiddenAnswerThatAsksToWaitIsARateLimit(t *testing.T) {
 				t.Errorf("the forge's 403 returned %v, want %v", err, tt.want)
 			}
 
-			if errors.Is(err, forge.ErrRateLimited) == errors.Is(err, forge.ErrRefused) {
+			if errors.Is(err, httpx.ErrRateLimited) == errors.Is(err, forge.ErrRefused) {
 				t.Errorf("the forge's 403 returned %v, want a rate limit or a refusal, not both or neither", err)
 			}
 		})
@@ -335,7 +336,7 @@ func TestForgeHTTPClientRefusesARedirect(t *testing.T) {
 	_, err := client.Whoami(t.Context())
 
 	// Assert
-	if !errors.Is(err, forge.ErrRedirected) {
+	if !errors.Is(err, httpx.ErrRedirected) {
 		t.Errorf("Whoami returned %v, want ErrRedirected", err)
 	}
 

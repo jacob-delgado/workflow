@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/jacob-delgado/workflow/internal/config"
+	"github.com/jacob-delgado/workflow/internal/httpx"
 	"github.com/jacob-delgado/workflow/internal/jira"
 )
 
@@ -301,7 +302,7 @@ func TestMyselfRefusesARedirect(t *testing.T) {
 	_, err := client.Myself(t.Context())
 
 	// Assert
-	if !errors.Is(err, jira.ErrRedirected) {
+	if !errors.Is(err, httpx.ErrRedirected) {
 		t.Fatalf("Myself returned %v, want ErrRedirected", err)
 	}
 

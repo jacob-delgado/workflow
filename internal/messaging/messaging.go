@@ -33,7 +33,9 @@ const bodyLimit = 1 << 20
 // authTestPath answers "does this token work?" without posting anything.
 const authTestPath = "/auth.test"
 
-// Errors this package returns. Callers distinguish them with errors.Is.
+// Errors this package returns. Callers distinguish them with errors.Is. A
+// refused redirect and a rate limit come back as httpx's ErrRedirected and
+// ErrRateLimited, which every client shares.
 var (
 	// ErrNoCredential reports a configuration with neither transport set.
 	ErrNoCredential = errors.New("no messaging.token or messaging.webhook_url is configured")
@@ -49,10 +51,6 @@ var (
 	ErrUnexpectedStatus = errors.New("unexpected response status")
 	// ErrUnreachable reports a request that never got an answer.
 	ErrUnreachable = errors.New("could not reach the messaging service")
-	// ErrRedirected reports a redirect this client declined to follow.
-	ErrRedirected = httpx.ErrRedirected
-	// ErrRateLimited reports a 429 from Slack's API.
-	ErrRateLimited = httpx.ErrRateLimited
 )
 
 // Doer is the HTTP seam this client accepts; see httpx.Doer.

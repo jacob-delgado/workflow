@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/jacob-delgado/workflow/internal/config"
+	"github.com/jacob-delgado/workflow/internal/httpx"
 	"github.com/jacob-delgado/workflow/internal/messaging"
 )
 
@@ -224,7 +225,7 @@ func TestAuthTestTellsRateLimitingApart(t *testing.T) {
 	_, err := client.AuthTest(t.Context())
 
 	// Assert
-	if !errors.Is(err, messaging.ErrRateLimited) {
+	if !errors.Is(err, httpx.ErrRateLimited) {
 		t.Errorf("AuthTest returned %v, want ErrRateLimited", err)
 	}
 }
@@ -289,7 +290,7 @@ func TestHTTPClientRefusesARedirect(t *testing.T) {
 	_, err := client.AuthTest(t.Context())
 
 	// Assert
-	if !errors.Is(err, messaging.ErrRedirected) {
+	if !errors.Is(err, httpx.ErrRedirected) {
 		t.Errorf("AuthTest returned %v, want ErrRedirected", err)
 	}
 
