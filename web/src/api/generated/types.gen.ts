@@ -580,7 +580,7 @@ export type UiConfig = {
     /**
      * Empty for auto, or "never".
      */
-    color?: string;
+    color?: '' | 'never';
     notify?: boolean;
     /**
      * How many comments the detail shows; 0 means the built-in default.

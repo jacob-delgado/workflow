@@ -324,9 +324,9 @@ export const zForgeConfig = z.object({
 export const zUiConfig = z.object({
     mouse: z.boolean().optional(),
     ascii: z.boolean().optional(),
-    color: z.string().optional(),
+    color: z.enum(['', 'never']).optional(),
     notify: z.boolean().optional(),
-    comments_shown: z.int().optional(),
+    comments_shown: z.int().gte(0).optional(),
     keys: z.record(z.string(), z.string()).nullish()
 });
 
