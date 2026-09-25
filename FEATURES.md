@@ -5,11 +5,11 @@ scheduled or even agreed: it is a wide net, written down so that ideas are
 argued over in one place instead of rediscovered.
 
 Two readers are in mind. A contributor looking for something worth building,
-and a later Claude Code session asked to "pick up FEAT-12". Each entry
+and a later Claude Code session asked to "pick up FEAT-83". Each entry
 therefore says why it matters, which files it would touch, and how to tell
 when it is done.
 
-Checked against commit `f7b671f` on 2026-09-24. Line numbers drift, so every
+Checked against commit `f05ae9f` on 2026-09-24. Line numbers drift, so every
 pointer also names the symbol it means.
 
 ## How to read an entry
@@ -50,9 +50,7 @@ that needs one of them reopened goes in the
   editor make more of the interface work, and their absence only hides the
   parts that need them.
 - **Six panes down the left, one progress row across the top.** Focus is
-  shown by the weight of a border, not by color. (This said five, text that
-  went stale when the Reviews pane landed; correcting it reopens nothing —
-  the six-pane rail is the decision as built.)
+  shown by the weight of a border, not by color.
 - **Pure Go.** `CGO_ENABLED=0`, because the release cross-compiles to five
   platforms.
 - **A new dependency needs approval first**, and a release younger than seven
@@ -61,31 +59,41 @@ that needs one of them reopened goes in the
   test that proves it does not leak.
 - **One configuration file.** A file in the current directory replaces the one
   in the home directory, and an unknown key is an error.
+- **A chat service is posted to, never read.** `workflow` does not read a
+  channel's history, so it asks for no scope that would let it.
+- **One process, which ends when the interface closes.** Nothing runs once
+  it is gone, which the usage guide lists as a limit: *Nothing outlives the
+  session* (`docs/content/docs/usage.md:323`).
 
 ## Issues
 
-### FEAT-11 Create an issue — declined
-
-A bug found mid-task is worth capturing, but filing one — a project, a type,
-and a required-field set that differs by both — is a form the browser already
-does well, and rebuilding it here earns little over the one place it belongs.
-Out of scope by decision, not oversight; `workflow` picks issues up, it does not
-open them.
+Declined: FEAT-11, creating an issue. A bug found mid-task is worth
+capturing, but filing one — a project, a type, and a required-field set that
+differs by both — is a form the browser already does well, and rebuilding it
+here earns little over the one place it belongs. Out of scope by decision, not
+oversight; `workflow` picks issues up, it does not open them.
 
 ### FEAT-78 Issues from the command line
 
 Impact: medium · Effort: medium
 
 - Why: The interface can list a view, read an issue in full, transition it
-  with its fields, comment, assign and log work; the command line can do
-  none of those on its own — `workflow branch <tab>` completes assigned keys
-  (`internal/cli/scriptable.go:125`) and `workflow pr` links and transitions as
-  side effects (`followUp`, `internal/cli/pr.go:163`), and that is all. A script that wants
-  "the issues in my view" or "move PROJ-1 to In Review" has nothing to call.
+  with its fields, comment, assign and log work. The command line reads Jira
+  only in passing — `workflow branch <key>` reads the issue to name the
+  branch (`runBranch`, `internal/cli/branch.go:79`), `status` prints the
+  branch issue's summary (`gather`, `internal/cli/status.go:250`), `standup`
+  lists recently updated assigned issues inside its draft (`gatherStandup`,
+  `internal/cli/standup.go:172`) and `workflow branch <tab>` completes
+  assigned keys (`completeAssignedIssues`, `internal/cli/scriptable.go:125`)
+  — and writes to it only as `workflow pr`'s side effects, a link and a
+  transition (`followUp`, `internal/cli/pr.go:163`). No command lists a
+  view, prints an issue in full or writes one on its own. A script that
+  wants "the issues in my view" or "move PROJ-1 to In Review" has nothing to
+  call.
 - Touches: `internal/cli` (new `issues`, `issue`, `transition`, `comment`,
   `assign` and `worklog` commands over the seams already on `tui.Deps` —
-  `Jira.Search`, `Issue`, `Transitions`, `ApplyTransition`, `AddComment`,
-  `Assign`, `AddWorklog`), the shared composition layer (`internal/loop`)
+  `Jira.Search`, `Issue`, `Transitions`, `Transition`, `Comment`, `Assign`,
+  `AddWorklog`), the shared composition layer (`internal/loop`)
   so the transition lookup is the one the other surfaces use,
   `docs/content/docs/reference` (regenerated).
 - Done when: `workflow issues --json` prints the default view; `workflow
@@ -104,17 +112,21 @@ Impact: medium · Effort: large
   (`TransitionIssue`, `internal/webserver/issuewrite.go:106`). Beyond those
   it has no transition with its field form, no comment, no assign, no log
   work — all of which the interface offers from the Issues pane
-  (`internal/tui/picker.go:207`, `internal/tui/comment.go:41`, `internal/tui/issuewrite.go:74`).
-  This is the rest.
+  (`openStatusPicker`, `internal/tui/picker.go:207`; `startComment`,
+  `internal/tui/comment.go:41`; `openAssign`,
+  `internal/tui/issuewrite.go:74`). This is the rest.
 - Touches: `api/openapi.yaml` (operations for a transition with fields,
-  comment, assign, worklog), `internal/webserver` (`issuewrite.go` holds the
-  post-open link and move; each new write grows it or earns its own file and
-  budget row), `web/src/features/issues`, the shared composition
-  (`internal/loop`).
+  comment, assign, worklog), `internal/webserver`
+  (`internal/webserver/issuewrite.go` holds the post-open link and move; each
+  new write grows it or earns its own file and budget row),
+  `web/src/features/issues`, the shared composition (`internal/loop`).
 - Done when: a transition that needs a field shows its form and applies; a
-  comment posted from the browser appears among the issue's comments; each
-  write is refused under `--dry-run`, and its problem `detail` omits the
-  tracker's host.
+  comment posted from the browser appears among the issue's comments; the
+  handler tests answer each new write path 403 under `--dry-run` (every write
+  is a non-GET, so `refuseWritesInDryRun`,
+  `internal/webserver/guard.go:46`, covers it, as
+  `TestDryRunRefusesTheIssueWrites` asserts for the two writes today); and a
+  write's problem `detail` omits the tracker's host.
 
 ### FEAT-85 The web paints from the cached issue list
 
@@ -172,15 +184,20 @@ Impact: low · Effort: small
 
 Impact: medium · Effort: small
 
-- Why: `a` stages every file and nothing reverses it. A stray edit can only be
-  dropped from a shell.
-- Touches: `internal/gitrepo/status.go`, `internal/tui/commits.go`. Unstaging
-  all is already `loop.UnstageAll` (`internal/loop/stage.go:42`), which the
-  web server's `POST /api/unstage` answers `{all: true}` with.
+- Why: `a` in the terminal and Stage all on the web stage every file, and
+  nothing reverses either. A stray edit can only be dropped from a shell.
+- Touches: `internal/gitrepo/status.go`, `internal/tui/commits.go`,
+  `web/src/features/branch/WorkingTree.tsx:31` (`WorkingTree` renders
+  `StageAll` alone) and `web/src/features/branch/stagingApi.ts:33` (no
+  unstage-all beside `stageEverything`). Unstaging all is already
+  `loop.UnstageAll` (`internal/loop/stage.go:42`), which the web server's
+  `POST /api/unstage` answers `{all: true}` with.
 - Constraints: discarding destroys work, so it previews the file and needs
   `enter`, unlike staging.
 - Done when: one key unstages all, and another discards the selected file's
-  changes after a confirmation.
+  changes after a confirmation; a test in `web/src/features/writes.test.tsx`
+  keeps the requests `fakeApi` returns, clicks Unstage all with two staged
+  files and finds one `POST /api/unstage` whose body is `{all: true}`.
 
 ### FEAT-24 Run any hook, not only pre-commit
 
@@ -197,9 +214,14 @@ Impact: low · Effort: small
 
 Impact: low · Effort: small
 
-- What remains: picking recent authors as co-authors and a key that toggles
-  `Signed-off-by:`. `convention.Message` takes only the subject, body and issue
-  key, and the composer's fields are type, scope, subject and body.
+- Why: a commit that pairs or lands under a DCO needs its trailers typed by
+  hand. `CommitConvention.Message` takes only the subject, body and issue key
+  (`internal/convention/commit.go:151`), and the composer's fields are type,
+  scope, subject, body and a breaking toggle (`commitComposer`,
+  `internal/tui/composer.go:51`) — no trailer among them.
+- Touches: `internal/convention/commit.go` (trailers on `Message`),
+  `internal/tui/composer.go` (a co-author picker over recent authors and a
+  sign-off toggle), `internal/gitrepo` (the recent authors).
 - Done when: recent authors can be picked as co-authors and a toggle signs off.
 
 ## Review
@@ -243,8 +265,15 @@ Impact: medium · Effort: medium
 - Touches: `internal/store` (a reply-timestamp column on `announces`,
   STRICT, migrated forward), `internal/messaging` (a `thread_ts` on a
   bot-token post — a webhook cannot thread, so this is bot-only and the
-  preview says so), the announcement composition shared by all three
-  surfaces (`internal/loop/announce.go`), `docs/content/docs/usage.md:332`.
+  preview says so; `Post` in `internal/messaging/post.go` decodes no `ts`
+  from chat.postMessage's `verdict` and returns only an error, so it must
+  return the timestamp), the post seam that carries it to the record on
+  every surface (`loop.Deliver`'s `post` and `Announced`,
+  `internal/loop/announce.go:179`; the interface's `MessagingDeps.Post` and
+  `AnnouncedPost`, `internal/tui/deps.go:155`; `announceSeams.Post` in
+  `internal/cli/announce.go`; the web server's `Deps.Post`, which records
+  nothing yet — FEAT-84), and the *Each announcement is its own message*
+  limit in `docs/content/docs/usage.md:332`.
 - Done when: the second announcement of a pull request is posted as a reply
   to the first when a bot token is configured; with a webhook it posts
   top-level and the preview says why; the store still holds no token.
@@ -355,16 +384,23 @@ Impact: medium · Effort: large
 
 Impact: low · Effort: medium
 
-- Why: "what is left this sprint" is a board in a browser.
-- Touches: `internal/jira` (the Agile API), `internal/tui/issues.go`.
-- Done when: a view (FEAT-02) shows the active sprint grouped by status.
+- Why: a view on `sprint in openSprints()` already lists what is left this
+  sprint — the configuration guide's *Sprint board* example
+  (`docs/content/docs/configuration.md:169`) — but flat, one row per issue
+  with a status glyph, in update order (`issueList.render`,
+  `internal/tui/issues.go:243`). What is missing is grouping by status: how
+  much is to do, in progress or in review is read by scanning glyphs.
+- Touches: `internal/tui/issues.go` (status headings in the list), and
+  `internal/jira`'s Agile API only for what JQL cannot give — the sprint's
+  name and dates in the heading.
+- Done when: the Sprint view (`jira.views`, `internal/config/config.go:75`)
+  renders its issues under status headings.
 
 ## Build and platform
 
-Mac and Linux are the primary targets; Windows is secondary, run as the
-cross-compiled binary rather than through an installer. These are the platform
-and build-reproducibility items the debt file tracked — kept here because none
-can be exercised from a developer's own machine.
+Mac and Linux are the primary targets and Windows is secondary, run as the
+cross-compiled binary rather than through an installer, so what is open here
+cannot be exercised from a developer's own machine.
 
 ### FEAT-73 Windows as a tested target
 
@@ -393,38 +429,47 @@ first.
 
 Impact: medium · Effort: medium
 
-- A version that fits the decision: FEAT-81 replies in the announcement's
-  *own* thread from a timestamp the store keeps, and reads nothing.
+- A version that fits the decision: FEAT-81 would reply in the
+  announcement's *own* thread from a timestamp the store would keep, and
+  read nothing.
 - Reopens: reading a chat service's recent history — still a non-goal, since
   workflow posts but does not read a channel.
 - Why: "CI failed" and "merged" belong under the announcement, not beside it.
-  Threading needs the first message's timestamp; the store can keep that now, so
-  a no-history version may fit and this may move out of this section.
-- A version that fits: with a bot token, find the earlier message by searching
-  the channel's recent history for the pull request's URL. It costs a
-  `channels:history` scope and a request, and it cannot work with a webhook.
+  Threading needs the first message's timestamp; FEAT-81 would keep it in
+  the store, and this entry is the other way to find it.
+- The version fenced here: with a bot token, find the earlier message by
+  searching the channel's recent history for the pull request's URL. It
+  costs a `channels:history` scope and a request, and it cannot work with a
+  webhook.
+- Touches: `internal/messaging` (a history read on the bot-token client),
+  `internal/loop/announce.go`.
 - Done when: a later post about the same pull request arrives as a reply.
 
 ### FEAT-65 A queued post that survives quitting
 
 Impact: medium · Effort: large
 
-- Reopens: a single process that ends when the interface closes. The store can
+- Reopens: one process, which ends when the interface closes. The store can
   keep the queued post now, but nothing runs to send it once the interface is
   gone.
 - Why: "post when CI passes" is dropped if you quit first, which the usage
   guide lists as a limit. CI takes longer than most people keep a terminal
   open.
-- A version that fits: FEAT-41 makes `workflow announce --when-green` a
-  foreground command that a shell can background.
+- A version that fits: a `--when-green` flag on `workflow announce`
+  (`internal/cli/announce.go`) that waits in the foreground, where a shell
+  can background it.
+- Touches: `internal/cli/announce.go` (a command that stays resident),
+  `internal/store` (the queued post).
 - Done when: a post queued before quitting is sent when CI passes.
 
 ### FEAT-72 Notifications after the interface closes
 
 Impact: low · Effort: large
 
-- Reopens: a single process that ends when the interface closes.
+- Reopens: one process, which ends when the interface closes.
 - Why: CI results and review requests arrive when nobody is looking at the
   terminal.
+- Touches: the resident process FEAT-65 needs, and a desktop-notification
+  seam wired in `internal/wiring`.
 - Done when: a background process raises a desktop notification for a
   finished CI run.
