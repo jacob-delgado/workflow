@@ -76,6 +76,18 @@ func TestOutsideARepositoryEachRepoPaneSaysSoAndOffersNoRepoKeys(t *testing.T) {
 	}
 }
 
+// forkRemote is a remote a repository can push to in place of origin.
+const forkRemote = "fork"
+
+// pushedTo is the feature branch pushed to remote, which its pushes go to, and
+// ahead and behind the branch it landed on there.
+func pushedTo(remote string, ahead, behind int) gitrepo.Branch {
+	return gitrepo.Branch{
+		Name: featureName, Upstream: remote + "/" + featureName, PushRemote: remote,
+		Ahead: ahead, Behind: behind, Base: baseRef,
+	}
+}
+
 func TestTheBranchPaneSaysWhereTheBranchStands(t *testing.T) {
 	t.Parallel()
 
@@ -84,17 +96,21 @@ func TestTheBranchPaneSaysWhereTheBranchStands(t *testing.T) {
 		want   []string
 	}{
 		"pushed with nothing new": {
-			branch: gitrepo.Branch{
-				Name: featureName, Upstream: "origin/" + featureName, PushRemote: gitrepo.DefaultRemote, Base: baseRef,
-			},
-			want: []string{featureName, "upstream  pushed"},
+			branch: pushedTo(gitrepo.DefaultRemote, 0, 0),
+			want:   []string{featureName, "upstream  pushed"},
 		},
 		"ahead of origin": {
-			branch: gitrepo.Branch{
-				Name: featureName, Upstream: "origin/" + featureName, PushRemote: gitrepo.DefaultRemote,
-				Ahead: 2, Behind: 1, Base: baseRef,
-			},
-			want: []string{"↑2 ↓1 against origin/" + featureName},
+			branch: pushedTo(gitrepo.DefaultRemote, 2, 1),
+			want:   []string{"↑2 ↓1 against origin/" + featureName},
+		},
+		// remote.pushDefault sends a push elsewhere, and the upstream with it.
+		"pushed to the push default": {
+			branch: pushedTo(forkRemote, 0, 0),
+			want:   []string{"upstream  pushed"},
+		},
+		"ahead of the push default": {
+			branch: pushedTo(forkRemote, 2, 1),
+			want:   []string{"↑2 ↓1 against " + forkRemote + "/" + featureName},
 		},
 		"never pushed": {
 			branch: gitrepo.Branch{Name: featureName, Base: baseRef},
