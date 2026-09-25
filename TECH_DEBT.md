@@ -348,36 +348,6 @@ reads `status: "missing"` for jira with no "rejected" in the error text;
 `TestDoctorOnlineSaysAWebhookCannotBeChecked` gains a `--json` case that
 reads `status: "unchecked"` and exit 0.
 
-### DEBT-80 `doctor` says nothing about a configuration it cannot open
-
-Severity: low · Confidence: measured
-
-`reportLoadError` (`internal/cli/doctor.go:435`) switches on
-`config.ErrNotFound` and `config.ErrInvalid` only, and returns `loadErr`
-(`:445`) with no Configuration line written when neither matches. `LoadFile`
-(`internal/config/load.go:120`) wraps a failed `os.Open` as "opening %s: %w"
-with neither sentinel, so on a file that exists but cannot be read (mode 0)
-the prose report has Version, Repository and Tooling and then no
-Configuration section at all, with the reason only in the bare error `main`
-prints last. The gobco report (`task cover:branch`) confirms the
-fall-through has never run under test: the `errors.Is(loadErr,
-config.ErrInvalid)` condition in `reportLoadError`
-(`internal/cli/doctor.go:440`) was once true but never false.
-`TestACommandRefusesAConfigurationItCannotOpen`
-(`internal/cli/exitstatus_test.go:265`) makes the mode-0 file for `status`,
-not `doctor`.
-
-`doctor`'s whole purpose is to say what is wrong; on an unreadable file it
-stops short.
-
-**One way to fix it.** Add a default arm that writes a `Configuration` line
-saying the file cannot be read, followed by the error, as the `ErrInvalid`
-arm prints its own.
-
-**Done when.** A test chmods the file to 0, runs `doctor`, and finds a
-`Configuration:` line saying it cannot be read, with exit 1; `task
-cover:branch` no longer lists `internal/cli/doctor.go:440` as one-sided.
-
 ### DEBT-81 `cmd/workflow/main.go` is not the thin main CLAUDE.md describes
 
 Severity: low · Confidence: read

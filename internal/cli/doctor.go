@@ -452,6 +452,9 @@ func reportLoadError(out io.Writer, loadErr error) error {
 	case errors.Is(loadErr, config.ErrInvalid):
 		field(out, "Configuration", "cannot be parsed")
 		fmt.Fprintf(out, "\n%v\n", loadErr)
+	default:
+		field(out, "Configuration", "cannot be read")
+		fmt.Fprintf(out, "\n%v\n", loadErr)
 	}
 
 	return loadErr
