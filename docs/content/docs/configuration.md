@@ -65,7 +65,7 @@ which one was read.
 | `jira.views` | no | Named issue lists (`name` + `jql`) the pane moves between with `v`. Empty keeps the one built-in list. See below. |
 | `jira.headers` | no | Extra HTTP headers sent with every Jira request, for a Jira reached through an SSO proxy that checks one. Values are masked wherever the configuration is shown. See below. |
 | `jira.markdown_comments` | no | Write comments in Markdown and have them posted as Jira's wiki markup. Off by default, so a comment already in wiki markup is posted unchanged. |
-| `messaging.kind` | no | Service to post to: `slack` (the default when empty), `teams`, `discord`, or a plain `webhook`. It decides the message body and link markup. |
+| `messaging.kind` | no | Service to post to: `slack` (the default when empty), `teams`, `discord`, or a plain `webhook`, spelled in lowercase; any other value is refused when the file loads. It decides the message body and link markup. |
 | `messaging.token` | for a Slack bot | Bot token; starts with `xoxb-`. Or use `messaging.token_command` / `messaging.token_env`. Ignored by the webhook-only kinds. |
 | `messaging.token_command` | for a Slack bot | A program that prints the bot token. |
 | `messaging.token_env` | for a Slack bot | An environment variable that holds the bot token. |
