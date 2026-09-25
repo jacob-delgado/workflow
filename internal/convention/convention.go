@@ -46,9 +46,12 @@ var (
 // issueKey matches a Jira issue key as Jira writes it: an uppercase project key
 // of at least two characters, a hyphen, and a number. Uppercase only, because
 // that is what Jira's development panel links, and because a lowercase match
-// would read "utf-8" in a branch name as an issue.
+// would read "utf-8" in a branch name as an issue. Only the boundary before a
+// key is matched: the greedy number already ends where the digits do, and
+// consuming the character after it would leave the next match no boundary, so
+// the PROJ-412 in UTF-8-PROJ-412 would go unseen.
 func issueKey() *regexp.Regexp {
-	return regexp.MustCompile(`(?:^|[^A-Za-z0-9])([A-Z][A-Z0-9_]+-[1-9][0-9]*)(?:[^0-9]|$)`)
+	return regexp.MustCompile(`(?:^|[^A-Za-z0-9])([A-Z][A-Z0-9_]+-[1-9][0-9]*)`)
 }
 
 // scope is what a Conventional Commit scope may contain.
