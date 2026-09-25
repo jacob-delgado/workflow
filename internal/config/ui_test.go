@@ -44,6 +44,8 @@ func TestUISettingsKeepTheirDefaultsUnlessAValidFileSetsThem(t *testing.T) {
 		// The detail pane keeps the last comments_shown comments, so a negative
 		// count would reach past the end of the list.
 		"a negative comments_shown": {contents: `{"ui": {"comments_shown": -1}}`, want: defaults, wantErr: config.ErrInvalid},
+		// Only "never" turns the hues off, so a misspelling of it would draw them.
+		"a misspelled color": {contents: `{"ui": {"color": "nevr"}}`, want: defaults, wantErr: config.ErrInvalid},
 	}
 
 	for name, tt := range cases {

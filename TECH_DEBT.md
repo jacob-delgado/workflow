@@ -1049,7 +1049,7 @@ UX-87.
 - `internal/config/config.go:151` — `Forge.CLI`, which routes forge calls
   through `gh` or `glab`; on the site only at
   `docs/content/docs/scripting.md:51`.
-- `internal/config/ui.go:34` — `UI.CommentsShown`; 0 hits.
+- `internal/config/ui.go:37` — `UI.CommentsShown`; 0 hits.
 - `internal/config/timing.go:21` — `Timing.RequestTimeout`; 0 hits, and no
   `timing` row at all.
 - `internal/config/timing.go:24` — `Timing.CIInterval`, named once in
@@ -1315,7 +1315,7 @@ three; no linter or knip rule sees any of it.
   (`internal/forge/remote.go:186`) both know the `.ghe.com` rule, and
   `checkForge` (`internal/cli/doctor.go:216`) tells such a tenant to "set
   forge.kind and forge.host" for a host the code could classify.
-- `internal/config/ui.go:42` — the rebindable action names are listed
+- `internal/config/ui.go:45` — the rebindable action names are listed
   in `UI.Keys`' comment, again under "Rebinding keys"
   (`docs/content/docs/configuration.md:405`), and bound in `CheckKeys`
   (`internal/tui/keys.go:293`); no test holds the three to each other.
