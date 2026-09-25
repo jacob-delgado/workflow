@@ -218,7 +218,9 @@ the OS-native data directory:
 It is **on by default**; `store.disabled: true` in the config turns it off, and
 with it off the code path is identical to having no store at all — a disabled
 store no-ops every method, so the "nothing kept between sessions" behavior is
-still one flag away. The directory is `0700` and the file `0600`.
+still one flag away. Where the filesystem keeps Unix modes, the directory is
+`0700` and the file `0600`, set on every open so that a directory which already
+existed is narrowed too.
 
 Two invariants make the store safe to keep unencrypted:
 

@@ -32,9 +32,10 @@ import (
 	_ "modernc.org/sqlite" // registers the pure-Go "sqlite" driver, so CGO stays off
 )
 
-// The store is readable only by its owner: the directory is not traversable and
-// the database not readable by anyone else, which also guards the -wal and -shm
-// files SQLite writes beside it.
+// The store is readable only by its owner, where the filesystem keeps Unix
+// modes: the directory is not traversable and the database not readable by
+// anyone else, which also guards the -wal and -shm files SQLite writes beside
+// it.
 const (
 	dirPerm  os.FileMode = 0o700
 	filePerm os.FileMode = 0o600
@@ -135,12 +136,17 @@ func (s Store) off() bool {
 }
 
 // open makes the store directory, opens the database with the shared-access
-// pragmas, prepares the schema, and restricts the file to its owner.
+// pragmas, prepares the schema, and restricts the directory and file to their
+// owner.
 func (s Store) open(ctx context.Context) (*sql.DB, error) {
 	err := os.MkdirAll(s.dir, dirPerm)
 	if err != nil {
 		return nil, fmt.Errorf("creating the store directory: %w", err)
 	}
+
+	// MkdirAll leaves a directory that already exists at its own mode, so narrow
+	// it here rather than only on the path that created it.
+	restrictToOwner(s.dir, dirPerm)
 
 	path := filepath.Join(s.dir, dbName)
 
@@ -158,9 +164,16 @@ func (s Store) open(ctx context.Context) (*sql.DB, error) {
 
 	// The schema step created the file honoring the umask; narrow it now that it
 	// exists, so the database is readable only by its owner.
-	_ = os.Chmod(path, filePerm)
+	restrictToOwner(path, filePerm)
 
 	return database, nil
+}
+
+// restrictToOwner sets path to perm. A failed chmod is tolerated: a filesystem
+// without Unix modes (vfat, SMB) cannot keep them, and the store holds no
+// secret, so it keeps working there rather than switching itself off.
+func restrictToOwner(path string, perm os.FileMode) {
+	_ = os.Chmod(path, perm)
 }
 
 // migrate brings the schema up to date. It is forward-only and idempotent, so

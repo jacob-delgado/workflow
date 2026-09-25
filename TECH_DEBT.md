@@ -911,8 +911,8 @@ The configuration page (the Fields table's missing rows are DEBT-91):
   announcement may be waiting either.
 - `docs/content/docs/configuration.md:472` — the store is "keyed only by a
   repository's host and path and by a hash of your Jira URL", and
-  `ARCHITECTURE.md:226` says the repository key is the remote's parsed host
-  and path; `migrate` (`internal/store/store.go:189`) keys the cache by
+  `ARCHITECTURE.md:228` says the repository key is the remote's parsed host
+  and path; `migrate` (`internal/store/store.go:202`) keys the cache by
   `(instance, view)`, where `Model.cacheIssues`
   (`internal/tui/issues.go:47`) passes the view's JQL text, and `repoKey`
   (`internal/wiring/wiring.go:396`) falls back to `where.Root` when there is
@@ -1231,11 +1231,11 @@ The web:
 
 The store:
 
-- `internal/store/store.go:63` — `timestamp`, the RFC3339 rule, has no test
+- `internal/store/store.go:64` — `timestamp`, the RFC3339 rule, has no test
   behind it; `Store.CachedIssues` (`internal/store/cache.go:43`) scans
   `cached_at` (`:46`) into a variable nothing reads.
-- `internal/store/store.go:55` — `dsnPragmas`' `foreign_keys(1)` and the `ON
-  DELETE CASCADE` on `cached_issue` (`:202`) are exercised by nothing:
+- `internal/store/store.go:56` — `dsnPragmas`' `foreign_keys(1)` and the `ON
+  DELETE CASCADE` on `cached_issue` (`:215`) are exercised by nothing:
   `writeCachedIssues` (`internal/store/cache.go:142`) deletes the children
   itself, so the cascade guards nothing.
 - `internal/store/store_test.go:79` — `TestScopesAreKeptPerRepository`
@@ -1623,44 +1623,6 @@ per-kind test answer 204, and word `postToWebhook`'s comment per kind.
 **Done when.** A test whose fake Discord webhook answers 204 No Content
 sees `Post` return nil and the announcement recorded through
 `loop.Deliver`.
-
-### DEBT-98 The store's 0600-in-0700 promise holds only on the fresh path
-
-Severity: low · Confidence: read
-
-`Store.open` relies on `os.MkdirAll` for the 0700 directory that guards the
-`-wal` and `-shm` sidecars, which never narrows a directory that already
-exists with a looser mode, and discards `os.Chmod`'s error on the file
-with a bare `_ =` and no reason beside it. So the "readable only by you"
-that `docs/content/docs/configuration.md:475` and `ARCHITECTURE.md:221`
-promise holds only for a directory the store created and a filesystem
-whose chmod succeeds: a pre-existing 0755 directory stays 0755, and the
-only permission test covers a directory the store made itself. `errcheck`
-does not check a blank assignment unless `check-blank` is set, which
-`.golangci.yml:72` does not, and CLAUDE.md names `_ = f()` dropping a real
-error as a smell. The store holds no secret, so this is a kept promise,
-not a security finding.
-
-- `internal/store/store.go:140` — `Store.open` calls
-  `os.MkdirAll(s.dir, dirPerm)`, which leaves an existing directory's mode.
-- `internal/store/store.go:39` — `dirPerm` and `filePerm`, under a comment
-  promising the directory is not traversable.
-- `internal/store/store.go:161` — `Store.open` discards the chmod:
-  `_ = os.Chmod(path, filePerm)` with no reason.
-- `internal/store/store_test.go:131` —
-  `TestTheStoreIsReadableOnlyByItsOwner` covers only a directory the store
-  created.
-- `docs/content/docs/configuration.md:475` — "What is kept between
-  sessions": "`0600` in a `0700` directory, readable only by you".
-- `ARCHITECTURE.md:221` — "The store — `workflow.db`": the same promise.
-
-**One way to fix it.** Chmod the directory to `dirPerm` after `MkdirAll`,
-as the file is after creation, and either return the chmod error wrapped
-or state beside the discard why a filesystem without modes is tolerated.
-
-**Done when.** A test that pre-creates the store directory 0755 sees it
-0700 after the first write; either the chmod error is returned and a test
-sees it, or the discard carries its reason.
 
 ### DEBT-99 `wiring` connects to the forge twice, over five clumped signatures
 
@@ -3292,7 +3254,7 @@ true. By package: `internal/tui` 172, `internal/cli` 48, `internal/forge`
 `proc` and `tui/layout` (one each).
 
 The store has ten. Five are `sql.Open` in `Store.open`
-(`internal/store/store.go:148`), which fails only for an unregistered
+(`internal/store/store.go:154`), which fails only for an unregistered
 driver, and four that need SQLite to fail partway through a statement:
 `BeginTx` and `Commit` in `Store.CacheIssues` (`internal/store/cache.go:110`,
 `:121`), and `rows.Err` in `readCachedIssues` (`internal/store/cache.go:88`)
@@ -3301,7 +3263,7 @@ the do-nothing guards' second operands, never seen true: `repo == ""` in
 `Store.RecordAnnounce` and `Store.Announces`
 (`internal/store/announce.go:24`, `:50`), `instance == ""` in
 `Store.CachedIssues` and `Store.CacheIssues` (`internal/store/cache.go:32`,
-`:99`), and `s.dir == ""` in `Store.off` (`internal/store/store.go:134`).
+`:99`), and `s.dir == ""` in `Store.off` (`internal/store/store.go:135`).
 
 Seventeen conditions were never evaluated. Five are a test away:
 

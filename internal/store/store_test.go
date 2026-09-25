@@ -150,6 +150,43 @@ func TestTheStoreIsReadableOnlyByItsOwner(t *testing.T) {
 	}
 }
 
+func TestTheStoreNarrowsADirectoryItDidNotCreate(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	// The explicit chmod sets the loose mode whatever the umask, so a restrictive
+	// umask cannot make the directory owner-only before the store touches it.
+	dir := filepath.Join(t.TempDir(), "workflow")
+
+	err := os.Mkdir(dir, 0o755)
+	if err != nil {
+		t.Fatalf("creating the store directory: %v", err)
+	}
+
+	err = os.Chmod(dir, 0o755)
+	if err != nil {
+		t.Fatalf("loosening the store directory: %v", err)
+	}
+
+	kept := store.New(dir, false)
+
+	// Act
+	err = kept.RecordScope(t.Context(), repo, "config", theTime())
+	// Assert
+	if err != nil {
+		t.Fatalf("RecordScope returned %v, want nil", err)
+	}
+
+	info, err := os.Stat(dir)
+	if err != nil {
+		t.Fatalf("reading the store directory: %v", err)
+	}
+
+	if info.Mode().Perm() != 0o700 {
+		t.Errorf("store directory mode = %v, want 0700 after the first write", info.Mode().Perm())
+	}
+}
+
 func TestTwoStoresShareTheOneFile(t *testing.T) {
 	t.Parallel()
 

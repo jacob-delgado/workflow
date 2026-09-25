@@ -74,9 +74,10 @@ In scope:
   it before the tracker answers). It **never** holds a secret: no token, no
   credential, and the repository and instance it keys by are reduced to a
   credential-free host and path and a hash before they are stored.
-  The database is written `0600` inside a `0700` directory, so it is readable
-  only by its owner. `store.disabled` turns it off entirely, keeping nothing on
-  disk — anything the store persists that a token would not is still a bug.
+  Where the filesystem keeps Unix modes, the database is written `0600` inside
+  a `0700` directory, so it is readable only by its owner. `store.disabled`
+  turns it off entirely, keeping nothing on disk — anything the store persists
+  that a token would not is still a bug.
 
 Out of scope:
 
