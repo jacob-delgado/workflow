@@ -616,10 +616,6 @@ The clients:
 
 The plumbing:
 
-- `internal/wiring/forgeissues.go:32` — `errNotAnIssueNumber`'s comment says
-  it "cannot happen while the forge backs the tracker"; the comment beside
-  its use (`:131`) says the web API can send one and marks it not-found so
-  the API answers 404.
 - `internal/wiring/wiring.go:4` — the package comment "connects the terminal
   interface" to the clients, and the `CLAUDE.md:31` row "connects the
   interface's seams", name one of three consumers: `connectAt`
@@ -683,12 +679,11 @@ internal/tui/overlay.go`, `grep -n "does not call the forge"
 internal/cli/doctor.go`, `grep -n "guided command's seams"
 internal/cli/prompt.go`, `grep -n "checks Opened rather than trusting"
 internal/forge/pulls.go`, `grep -n "caret-feed" internal/jira/wiki.go`,
-`grep -n "cannot happen while the forge backs"
-internal/wiring/forgeissues.go`, `grep -n "status describes the
-configuration" internal/tui/render.go` and `grep -n "so the wire message
-carries no detail" internal/webserver/webserver_test.go`. The greps are a
-sample; every other cited sentence is checked the same way, by grepping the
-phrase its bullet quotes in the file it cites.
+`grep -n "status describes the configuration" internal/tui/render.go` and
+`grep -n "so the wire message carries no detail"
+internal/webserver/webserver_test.go`. The greps are a sample; every other
+cited sentence is checked the same way, by grepping the phrase its bullet
+quotes in the file it cites.
 
 ### DEBT-90 The docs site trails the code across usage, configuration, web and install
 
@@ -2731,50 +2726,6 @@ answer 405 with a problem (a new enum code, added to
 `docs/content/docs/errors.md`), or let the request through to the mux.
 
 **Done when.** A test sending POST /api/branch sees 405, not 404.
-
-### DEBT-138 The forge-backed tracker reads every issue as Open and connects before parsing
-
-Severity: low · Confidence: read
-
-`githubIssue` and `gitlabIssue` decode no state and `forgeIssueRow`
-hardcodes Open and new, so any read of a closed number — the web's GET
-/api/issues/{key}, or the terminal's detail after Close — says Open with
-the wrong glyph; and `connectToIssue` resolves the connection, which may
-run `gh auth token`, before `strconv.Atoi`, so with no token a non-numeric
-key answers the missing-token 422 rather than the 404 its own comment aims
-for. Both triggers are the web's, which reads any key through `deps.Issue`.
-
-- `internal/forge/github.go:170` — `githubIssue` decodes number, URL,
-  title, body and user; no state field.
-- `internal/forge/gitlab.go:237` — `gitlabIssue` likewise decodes no
-  state.
-- `internal/wiring/forgeissues.go:145` — `forgeIssueRow` sets
-  `Status: forgeOpenStatus, StatusCategory: forgeOpenCategory` for every
-  issue; the comment above `forgeOpenStatus`
-  (`internal/wiring/forgeissues.go:23`) states the open-while-listed
-  assumption.
-- `internal/wiring/forgeissues.go:124` — `connectToIssue` calls
-  `connect()` first.
-- `internal/wiring/forgeissues.go:129` — `strconv.Atoi` runs second; its
-  comment at `internal/wiring/forgeissues.go:131` wants a 404, which a
-  missing token pre-empts with 422.
-
-The listing hides the first: `githubIssues` lists only open issues
-(`is:open`, `internal/forge/github.go:147`), so the one state change the
-tracker offers is invisible on re-read. For the second, the cheap local
-check runs last, and the error for a bad key depends on the forge's
-reachability. The comment states the assumption, so this is a known
-shortcut with a narrow trigger.
-
-**One way to fix it.** Decode state on both forges into `IssueDetail` and
-map closed to `forgeClosedStatus` and `forgeDoneCategory` in the read;
-parse the number first in `connectToIssue`, then connect.
-
-**Done when.** A wiring test reading an issue the stand-in `gh` answers
-with `"state":"closed"` gets `StatusCategory` done, and
-`TestTheForgeTrackerRejectsANonNumericKey`
-(`internal/wiring/forgeissues_test.go:91`) passes with no token and an
-empty PATH.
 
 ### DEBT-139 The web derives its own stage rules, and they contradict `progress`
 

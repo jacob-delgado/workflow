@@ -29,9 +29,8 @@ const (
 	closeTransitionID = "close"
 )
 
-// errNotAnIssueNumber is a tracker key that is not a forge issue number, which
-// cannot happen while the forge backs the tracker but is reported rather than
-// guessed.
+// errNotAnIssueNumber is a tracker key that is not a forge issue number. The
+// Issues pane only offers numbers, but the web reads whatever key it is handed.
 var errNotAnIssueNumber = errors.New("not a forge issue number")
 
 // trackerDeps is what backs the Issues pane: Jira when it is configured, and
@@ -119,19 +118,21 @@ func closeForgeIssue(ctx context.Context, connect func() (forgeConnection, error
 	return connection.client.CloseIssue(ctx, connection.repo, number)
 }
 
-// connectToIssue resolves both the forge connection and the issue number a
-// tracker key names, the pair every single-issue call needs.
+// connectToIssue resolves both the issue number a tracker key names and the
+// forge connection, the pair every single-issue call needs. The key is read
+// first, so one that names no issue is reported as such whether or not the forge
+// can be reached.
 func connectToIssue(connect func() (forgeConnection, error), issueKey jira.Key) (forgeConnection, int, error) {
-	connection, err := connect()
-	if err != nil {
-		return forgeConnection{}, 0, err
-	}
-
 	number, err := strconv.Atoi(string(issueKey))
 	if err != nil {
 		// Also mark it not-found so the web API answers 404 rather than a 500: a
 		// key the forge cannot resolve to an issue is a missing resource.
 		return forgeConnection{}, 0, fmt.Errorf("%w: %w: %q", jira.ErrNotFound, errNotAnIssueNumber, issueKey)
+	}
+
+	connection, err := connect()
+	if err != nil {
+		return forgeConnection{}, 0, err
 	}
 
 	return connection, number, nil

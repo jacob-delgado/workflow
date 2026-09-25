@@ -104,20 +104,41 @@ func TestTheForgeTrackerClosesAnIssue(t *testing.T) {
 }
 
 func TestTheForgeTrackerRejectsANonNumericKey(t *testing.T) {
-	// Arrange
-	installForgeCLI(t, "gh", forgeReplies{})
+	// No gh to route through and no token, so only a key read before connecting
+	// is reported as the key it is.
+	t.Setenv("GITHUB_TOKEN", "")
+	t.Setenv("GH_TOKEN", "")
+	t.Setenv("PATH", t.TempDir())
+
 	tracker := forgeTracker(t)
 
-	// Act
-	err := tracker.Transition("PROJ-1", jira.Transition{ID: transitionClose}, nil)
+	const notANumber = "PROJ-1"
 
-	// Assert
-	if err == nil || !strings.Contains(err.Error(), "not a forge issue number") {
-		t.Errorf("Transition = %v, want a key that is not a forge issue number reported", err)
+	cases := map[string]func() error{
+		seamIssue: func() error {
+			_, err := tracker.Issue(notANumber)
+
+			return err
+		},
+		seamTransition: func() error {
+			return tracker.Transition(notANumber, jira.Transition{ID: transitionClose}, nil)
+		},
 	}
 
-	if !errors.Is(err, jira.ErrNotFound) {
-		t.Errorf("Transition = %v, want it marked not-found so the web API answers 404", err)
+	for name, act := range cases {
+		t.Run(name, func(t *testing.T) {
+			// Act
+			err := act()
+
+			// Assert
+			if err == nil || !strings.Contains(err.Error(), "not a forge issue number") {
+				t.Errorf("%s = %v, want a key that is not a forge issue number reported", name, err)
+			}
+
+			if !errors.Is(err, jira.ErrNotFound) {
+				t.Errorf("%s = %v, want it marked not-found so the web API answers 404", name, err)
+			}
+		})
 	}
 }
 
@@ -140,7 +161,7 @@ func TestTheForgeTrackerReportsAForgeThatCannotBeReached(t *testing.T) {
 
 			return err
 		},
-		"Transition": func() error {
+		seamTransition: func() error {
 			return tracker.Transition("42", jira.Transition{ID: transitionClose}, nil)
 		},
 	}

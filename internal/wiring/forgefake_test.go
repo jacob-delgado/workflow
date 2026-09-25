@@ -28,6 +28,7 @@ const (
 	remoteGitHub    = "https://github.com/owner/repo.git"
 	seamSearch      = "Search"
 	seamIssue       = "Issue"
+	seamTransition  = "Transition"
 	transitionClose = "close"
 )
 
