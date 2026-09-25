@@ -1831,27 +1831,9 @@ surfaced.
 
 Severity: low · Confidence: read
 
-In eleven places a comment sits on, or names, a declaration it does not
+In three places a comment sits on, or names, a declaration it does not
 describe. No linter in the gate checks a comment's subject.
 
-- `internal/forge/token.go:29` — "// String masks the token." precedes `var
-  _ fmt.Stringer = Token("")` (`:30`), with a blank line before the method,
-  so `go doc` attaches the sentence to the assertion and shows
-  `Token.String` bare.
-- `internal/forge/token.go:60` — "// String names the source for humans."
-  sits on `Source`'s assertion the same way.
-- `internal/forge/remote.go:42` — "// String names the forge for humans." on
-  `Kind`'s assertion.
-- `internal/config/secret.go:25` — "// String masks the secret." on
-  `Secret`'s assertion.
-- `internal/config/modes.go:21` — "// String names the authentication mode
-  for humans." on `AuthMode`'s assertion.
-- `internal/config/modes.go:107` — "// String names the transport for
-  humans." on `MessagingMode`'s assertion.
-- `internal/testshape/testshape.go:50` — "// String reads like a compiler
-  error, so editors can jump to it." on `Violation`'s assertion.
-- `internal/convention/convention.go:274` — "// String assembles the subject
-  line." on `Subject`'s assertion.
 - `internal/messaging/post_test.go:21` — "message is what a post sends."
   sits above the `testAuthor` constant.
 - `internal/messaging/post_test.go:166` — "messagingWebhook posts through a
@@ -1867,22 +1849,18 @@ describe. No linter in the gate checks a comment's subject.
   (`internal/gitrepo/finishbranch_test.go:24`) for `FinishBranch` through
   `recordingRunner`.
 
-`go doc` shows eight `String` methods bare and eight assertions with a
-sentence; godoc on the messaging test package pairs two sentences with the
-wrong symbol; and a failing `Status` or `FinishBranch` test sends its reader
-to `Describe` first.
+godoc on the messaging test package pairs two sentences with the wrong
+symbol; and a failing `Status` or `FinishBranch` test sends its reader to
+`Describe` first.
 
-**One way to fix it.** Move each `// String` sentence to the line above its
-method, leaving the assertion bare or with its own one-liner; move the two
-test sentences above the declarations they describe and give `testAuthor`
-its own; and make `fakeRunner`'s comment and failure message name the
-repository, or take the method name as a parameter.
+**One way to fix it.** Move the two test sentences above the declarations
+they describe and give `testAuthor` its own; and make `fakeRunner`'s
+comment and failure message name the repository, or take the method name
+as a parameter.
 
-**Done when.** `go doc` for each of the eight types shows the `String`
-method with its sentence and the assertion without one; each constant's and
-helper's comment in `internal/messaging/post_test.go` names it; and no
-`internal/gitrepo` test failure message names a method other than the one
-under test.
+**Done when.** Each constant's and helper's comment in
+`internal/messaging/post_test.go` names it; and no `internal/gitrepo` test
+failure message names a method other than the one under test.
 
 ### DEBT-105 The contributor documents restate counts and names the tree has moved past
 

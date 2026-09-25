@@ -26,9 +26,9 @@ const masked = "****"
 // is easy to find in review and impossible to do by accident.
 type Token string
 
-// String masks the token.
 var _ fmt.Stringer = Token("")
 
+// String masks the token.
 func (t Token) String() string {
 	if t == "" {
 		return ""
@@ -57,9 +57,9 @@ const (
 	SourceConfiguration
 )
 
-// String names the source for humans.
 var _ fmt.Stringer = Source(0)
 
+// String names the source for humans.
 func (s Source) String() string {
 	switch s {
 	case SourceNone:
