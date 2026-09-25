@@ -184,7 +184,7 @@ func TestPRTakesItsTitleFromTheConfiguredSource(t *testing.T) {
 	// With the issue as the title source, the previewed title is the issue rather
 	// than the branch's oldest commit ("work").
 	fakeGh(t, ghResponses{})
-	baseURL, _ := reviewJira(t, reviewMoves)
+	baseURL, _ := reviewJira(t)
 	repo := githubRepo(t, "fix/PROJ-2-thing")
 	writeFile(t, repo, `{"jira":{"base_url":"`+baseURL+`","token":"t"},`+
 		`"forge":{"cli":true,"kind":"github","host":"github.com"},`+
@@ -377,4 +377,28 @@ func TestPRRefusesABranchWithNoCommits(t *testing.T) {
 	}
 
 	wantExit(t, err, 4)
+}
+
+func TestPRDoesNotMoveAForgeIssueNumberOnJira(t *testing.T) {
+	// Arrange
+	// The branch names the forge's issue 42, not a Jira one, so there is no Jira
+	// issue to move to the review status: Jira would read 42 as the id of an
+	// unrelated issue.
+	fakeGh(t, ghResponses{})
+	baseURL, writes := reviewJira(t)
+	repo := githubRepo(t, "fix/42-typo")
+	pretendPushed(t, repo)
+	writeFile(t, repo, `{"jira":{"base_url":"`+baseURL+`","token":"t","review_status":"`+statusInReview+`"},`+
+		`"forge":{"cli":true,"kind":"github","host":"github.com"}}`)
+
+	// Act
+	printed, err := runStreams(t, repo, unusedPrompt(t), "pr", "--yes")
+	// Assert
+	if err != nil {
+		t.Fatalf("pr --yes: %v (%+v)", err, printed)
+	}
+
+	if writes.applied() != 0 || strings.Contains(printed.stderr, "Moved 42") {
+		t.Errorf("a forge issue number was moved on Jira (%d transitions):\n%s", writes.applied(), printed.stderr)
+	}
 }
