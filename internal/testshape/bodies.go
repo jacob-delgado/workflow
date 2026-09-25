@@ -83,14 +83,18 @@ type subtest struct {
 }
 
 // body checks a body as a leaf when it runs no subtests, and otherwise as the
-// outside of a table whose subtests carry the markers.
+// outside of a table whose subtests carry the markers, each in the scope the
+// body's own leads into.
 func (b bodyCheck) body(body *ast.BlockStmt, reportAt token.Pos) []Violation {
 	subtests := b.subtests(body)
+	literals := literalsOf(subtests)
+	b.scope = b.scope.enter(body, literals)
+
 	if len(subtests) == 0 {
 		return b.leaf(body, reportAt)
 	}
 
-	return b.outer(body, subtests)
+	return b.outer(body, subtests, literals)
 }
 
 // subtests are the t.Run and f.Fuzz calls in a body, not counting those inside
@@ -133,24 +137,29 @@ func (b bodyCheck) subtestFunction(call *ast.CallExpr) (ast.Expr, bool) {
 	}
 }
 
+// literalsOf are the function literals subtests run.
+func literalsOf(subtests []subtest) []*ast.FuncLit {
+	var literals []*ast.FuncLit
+
+	for _, subtest := range subtests {
+		if literal, ok := subtest.function.(*ast.FuncLit); ok {
+			literals = append(literals, literal)
+		}
+	}
+
+	return literals
+}
+
 // outer checks the outside of a table or fuzz test: no markers, and no
 // assertion once the subtests start. Setup before them, and its guards, may
 // fail the test. Then each subtest is checked as a body of its own.
-func (b bodyCheck) outer(body *ast.BlockStmt, subtests []subtest) []Violation {
-	var (
-		literals []*ast.FuncLit
-		problems []Violation
-	)
+func (b bodyCheck) outer(body *ast.BlockStmt, subtests []subtest, literals []*ast.FuncLit) []Violation {
+	var problems []Violation
 
 	for _, subtest := range subtests {
-		literal, ok := subtest.function.(*ast.FuncLit)
-		if !ok {
+		if _, ok := subtest.function.(*ast.FuncLit); !ok {
 			problems = append(problems, b.violation(subtest.function.Pos(), SubtestLiteral))
-
-			continue
 		}
-
-		literals = append(literals, literal)
 	}
 
 	found := b.pkg.readComments(b.file, body, literals)

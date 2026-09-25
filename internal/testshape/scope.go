@@ -6,7 +6,9 @@ package testshape
 import (
 	"go/ast"
 	"go/token"
+	"maps"
 	"path"
+	"slices"
 	"strings"
 )
 
@@ -22,22 +24,25 @@ const (
 // testingPath is the testing package's import path.
 const testingPath = "testing"
 
-// scope is what one top-level declaration can see: the file's imports, its own
-// testing values, the closures it stores and the types it declares names with.
+// scope is what a body in one top-level declaration can see: the file's
+// imports, the declaration's testing values, and the closures stored and the
+// types names are declared with in the body and around it. A subtest's body
+// sees what surrounds it, but nothing a sibling subtest declares.
 type scope struct {
 	pkg     *pkg
 	imports map[string]bool
 	values  map[string]valueKind
 	// closures are the function literals stored under a name or a field path,
-	// as in fail or deps.Post, and stored is every literal stored so: one
-	// counts only when its name is called or handed on.
+	// as in fail or deps.Post, and stored is every literal in the declaration
+	// stored so: one counts only when its name is called or handed on.
 	closures map[string]*ast.FuncLit
 	stored   map[*ast.FuncLit]bool
 	types    map[string]seenType
 }
 
-// newScope reads the testing values, closures and declared types anywhere in a
-// declaration.
+// newScope reads the testing values and stored literals anywhere in a
+// declaration, and the types of its receiver and parameters. What its body
+// declares, enter adds.
 func newScope(p *pkg, file *ast.File, function *ast.FuncDecl) scope {
 	visible := scope{
 		pkg: p, imports: importNames(file), values: map[string]valueKind{},
@@ -49,17 +54,16 @@ func newScope(p *pkg, file *ast.File, function *ast.FuncDecl) scope {
 		visible.declareFields(function.Recv)
 	}
 
+	visible.declareFields(function.Type.Params)
+
 	ast.Inspect(function, func(node ast.Node) bool {
 		switch node := node.(type) {
 		case *ast.FuncType:
 			visible.addValues(node, testing)
-			visible.declareFields(node.Params)
 		case *ast.AssignStmt:
-			visible.addAssignment(node)
+			visible.markStored(node.Rhs)
 		case *ast.ValueSpec:
-			visible.addSpec(node)
-		case *ast.RangeStmt:
-			visible.declareRange(node)
+			visible.markStored(node.Values)
 		}
 
 		return true
@@ -68,10 +72,53 @@ func newScope(p *pkg, file *ast.File, function *ast.FuncDecl) scope {
 	return visible
 }
 
+// helperScope is what a helper's whole body sees.
+func helperScope(p *pkg, file *ast.File, function *ast.FuncDecl) scope {
+	return newScope(p, file, function).enter(function.Body, nil)
+}
+
+// enter is the scope inside a body: what s sees, with the closures and types
+// the body declares over it, outside the subtests given, which enter scopes of
+// their own.
+func (s scope) enter(body *ast.BlockStmt, subtests []*ast.FuncLit) scope {
+	inner := s
+	inner.closures = maps.Clone(s.closures)
+	inner.types = maps.Clone(s.types)
+
+	ast.Inspect(body, func(node ast.Node) bool {
+		switch node := node.(type) {
+		case *ast.FuncLit:
+			return !slices.Contains(subtests, node)
+		case *ast.FuncType:
+			inner.declareFields(node.Params)
+		case *ast.AssignStmt:
+			inner.addAssignment(node)
+		case *ast.ValueSpec:
+			inner.addSpec(node)
+		case *ast.RangeStmt:
+			inner.declareRange(node)
+		}
+
+		return true
+	})
+
+	return inner
+}
+
+// markStored records the function literals among the values an assignment or
+// var declaration stores.
+func (s scope) markStored(values []ast.Expr) {
+	for _, value := range values {
+		if literal, ok := value.(*ast.FuncLit); ok {
+			s.stored[literal] = true
+		}
+	}
+}
+
 // addAssignment records the closures an assignment stores, and the names a :=
 // declares.
 func (s scope) addAssignment(assignment *ast.AssignStmt) {
-	s.addStored(assignment.Lhs, assignment.Rhs)
+	s.addClosures(assignment.Lhs, assignment.Rhs)
 
 	if assignment.Tok == token.DEFINE {
 		s.declareAssigned(assignment.Lhs, assignment.Rhs)
@@ -86,7 +133,7 @@ func (s scope) addSpec(spec *ast.ValueSpec) {
 		names[index] = name
 	}
 
-	s.addStored(names, spec.Values)
+	s.addClosures(names, spec.Values)
 	s.declareSpec(spec)
 }
 
@@ -122,18 +169,14 @@ func (s scope) addValues(function *ast.FuncType, testing string) {
 	}
 }
 
-// addStored records each function literal among values, under the name or
+// addClosures records each function literal among values under the name or
 // field path it is stored in.
-func (s scope) addStored(names, values []ast.Expr) {
+func (s scope) addClosures(names, values []ast.Expr) {
 	for index := range min(len(names), len(values)) {
-		literal, ok := values[index].(*ast.FuncLit)
-		if !ok {
-			continue
-		}
+		literal, isLiteral := values[index].(*ast.FuncLit)
+		path, named := pathOf(names[index])
 
-		s.stored[literal] = true
-
-		if path, ok := pathOf(names[index]); ok {
+		if isLiteral && named {
 			s.closures[path] = literal
 		}
 	}
