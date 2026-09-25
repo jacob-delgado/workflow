@@ -57,10 +57,10 @@ which one was read.
 
 | Field | Required | Description |
 | --- | --- | --- |
-| `jira.base_url` | yes | Root URL of your Jira instance, e.g. `https://jira.example.com`. |
-| `jira.token` | one of these three | Personal access token. |
-| `jira.token_command` | one of these three | A program that prints the token, e.g. `pass show jira/token`. See below. |
-| `jira.token_env` | one of these three | An environment variable that holds the token. |
+| `jira.base_url` | for Jira as the tracker | Root URL of your Jira instance, e.g. `https://jira.example.com`. Leave it empty to use the forge's issues instead: the Issues pane then lists the open issues assigned to you on your forge. |
+| `jira.token` | one of these three, with `jira.base_url` | Personal access token. |
+| `jira.token_command` | one of these three, with `jira.base_url` | A program that prints the token, e.g. `pass show jira/token`. See below. |
+| `jira.token_env` | one of these three, with `jira.base_url` | An environment variable that holds the token. |
 | `jira.user` | no | Only for instances requiring HTTP Basic. See below. |
 | `jira.views` | no | Named issue lists (`name` + `jql`) the pane moves between with `v`. Empty keeps the one built-in list. See below. |
 | `jira.headers` | no | Extra HTTP headers sent with every Jira request, for a Jira reached through an SSO proxy that checks one. Values are masked wherever the configuration is shown. See below. |

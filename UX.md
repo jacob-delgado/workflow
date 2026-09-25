@@ -250,7 +250,7 @@ pointer.
   cleanly: %v" and then serves (`:196`). Its siblings branch on
   `ErrNotFound` and print `NoConfigHeadline`, `InitStep` and `DoctorStep`:
   `showLoadError` (`internal/cli/config_cmd.go:97`), `reportLoadError`
-  (`internal/cli/doctor.go:224`) and the interface's `configErrorStatus`
+  (`internal/cli/doctor.go:275`) and the interface's `configErrorStatus`
   (`internal/tui/render.go:466`). The web cannot write a first file
   (`docs/content/docs/web.md:162`, "What stays in the terminal"), so the
   one surface that most needs `workflow config init` named is the one that
@@ -2193,7 +2193,7 @@ Impact: low · Effort: small
   validators name (`refs_trailer` with a colon,
   `internal/config/commit.go:58`; a bad `title_source`,
   `internal/config/pullrequest.go:30`), which `doctor` prints
-  (`reportLoadError`, `internal/cli/doctor.go:230`);
+  (`reportLoadError`, `internal/cli/doctor.go:275`);
   `TestUpdateConfigRejectsAnInvalidConfig`,
   `internal/webserver/config_test.go:107`, asserts status and code only.
 - `nothingToOpen`, `internal/webserver/pullrequest.go:88`, words
