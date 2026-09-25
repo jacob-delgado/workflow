@@ -313,14 +313,16 @@ func exitFamilies() []exitFamily {
 
 // configurationErrors are a configuration that is missing, unreadable,
 // incomplete — a credential or an address not set, or set unusably — shared,
-// or holding a credential a service would not accept: what the user fixes in
-// the file, the environment or a login. A command meeting a credential that is
-// not there exits as doctor does, reading the same file.
+// or holding a credential a service would not accept, and a repository with no
+// remote to name the forge: what the user fixes in the file, the environment, a
+// login or the repository's origin. A command meeting a credential that is not
+// there exits as doctor does, reading the same file.
 func configurationErrors() []error {
 	return []error{
 		config.ErrNotFound, config.ErrInvalid,
 		jira.ErrNoCredential, jira.ErrInvalidBaseURL, jira.ErrCredentialInBaseURL,
-		forge.ErrNoToken, forge.ErrKindNeedsHost, messaging.ErrNoCredential, messaging.ErrInsecureWebhook,
+		forge.ErrNoToken, forge.ErrKindNeedsHost, forge.ErrNotARemote,
+		messaging.ErrNoCredential, messaging.ErrInsecureWebhook,
 		jira.ErrUnauthorized, jira.ErrForbidden, forge.ErrUnauthorized, messaging.ErrRejected,
 		errCredentialRejected, errIncomplete, errInvalid, errShared,
 		errMessagingNotConfigured,

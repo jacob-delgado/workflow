@@ -872,14 +872,13 @@ The command line:
   `ErrUnreachable` — so "Unreachable" in its name is wrong.
 - `internal/cli/scriptable_test.go:25` — `TestBranchCommandNeedsATracker`
   asserts `err == nil` only and cannot tell the exit-3 refusal from any
-  other failure; `TestPRCommandReadsTheBranch` (`:36`),
+  other failure; `TestPRCommandReadsTheBranch` (`:36`) and
   `TestStandupOutsideARepositoryReportsSo`
-  (`internal/cli/standup_test.go:80`) and
-  `TestReviewsWithoutAForgeReportsSo` (`internal/cli/reviews_test.go:53`) do
-  the same, while `TestAnnounceCommandNeedsMessaging`
-  (`internal/cli/scriptable_test.go:46`) shows the file's own stronger
-  shape, `wantExit` (`internal/cli/exitstatus_test.go:30`) is the helper the
-  seven could call, and `TestRequestLogReportsAFileItCannotOpen`
+  (`internal/cli/standup_test.go:80`) do the same, while
+  `TestAnnounceCommandNeedsMessaging` (`internal/cli/scriptable_test.go:46`)
+  shows the file's own stronger shape, `wantExit`
+  (`internal/cli/exitstatus_test.go:30`) is the helper the six could call,
+  and `TestRequestLogReportsAFileItCannotOpen`
   (`internal/cli/reqlog_test.go:40`) explains why a bare error check proves
   nothing.
 
