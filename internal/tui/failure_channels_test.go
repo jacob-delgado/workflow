@@ -134,7 +134,8 @@ func everySeamFailure() map[string]spoken {
 		},
 		"messaging rejected": {
 			fmt.Errorf("%w: invalid_token", messaging.ErrRejected), "the announcement was refused",
-			"The messaging service refused the announcement: check the bot is in the channel or the webhook is current.",
+			"The messaging service refused the announcement: check the token, that the bot is in the channel, " +
+				"or that the webhook is current.",
 		},
 		"messaging post refused": {
 			fmt.Errorf("%w: #dev is archived", messaging.ErrPostRefused), "the message was refused",

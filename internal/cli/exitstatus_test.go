@@ -109,6 +109,14 @@ func askJira(ctx context.Context, base string) error {
 	return err
 }
 
+// postToSlack posts as a Slack bot through the API at base, over the
+// redirect-refusing transport the commands use, and returns what failed.
+func postToSlack(ctx context.Context, base string) error {
+	creds := config.Messaging{Token: "slack-token-for-tests", Channel: "#dev"}
+
+	return messaging.New(httpx.Client(time.Second).Do, base, creds).Post(ctx, "", "a pull request is ready")
+}
+
 // answeringWith answers every request with status and body.
 func answeringWith(status int, body string) http.HandlerFunc {
 	return func(writer http.ResponseWriter, _ *http.Request) {
@@ -128,6 +136,16 @@ func TestAServiceAnswerExitsInItsFamily(t *testing.T) {
 		"jira refused the token for this, and said why": {
 			answer: answeringWith(http.StatusForbidden, `{"errorMessages":["You do not have permission to browse."]}`),
 			ask:    askJira, want: 3,
+		},
+		// Slack answers a post 200 whatever it refused; its code tells the
+		// credential from the channel.
+		"slack refused a post's token": {
+			answer: answeringWith(http.StatusOK, `{"ok":false,"error":"invalid_auth"}`),
+			ask:    postToSlack, want: 3,
+		},
+		"slack refused a post for its channel": {
+			answer: answeringWith(http.StatusOK, `{"ok":false,"error":"not_in_channel"}`),
+			ask:    postToSlack, want: 1,
 		},
 	}
 

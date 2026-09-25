@@ -12,6 +12,7 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"slices"
 	"strings"
 
 	"github.com/jacob-delgado/workflow/internal/config"
@@ -121,10 +122,26 @@ func (c Client) postAsBot(ctx context.Context, channel, text string) error {
 	}
 
 	if !answer.OK {
-		return fmt.Errorf("%w: %s", ErrPostRefused, rejectionReason(answer.Error, channel))
+		return refusal(answer.Error, channel)
 	}
 
 	return nil
+}
+
+// refusal is Slack's ok:false to a post: a credential it would not take, which
+// is ErrRejected as auth.test's own no is, or a message it would not deliver.
+func refusal(code, channel string) error {
+	if slices.Contains(credentialCodes(), code) {
+		return fmt.Errorf("%w: %s", ErrRejected, code)
+	}
+
+	return fmt.Errorf("%w: %s", ErrPostRefused, rejectionReason(code, channel))
+}
+
+// credentialCodes are the error codes Slack answers a post with when the fault
+// is the token or the app it belongs to, not the message or its channel.
+func credentialCodes() []string {
+	return []string{"not_authed", "invalid_auth", "account_inactive", "token_revoked", "token_expired", "missing_scope"}
 }
 
 // postToWebhook posts to an incoming webhook. Each kind answers a delivered post
