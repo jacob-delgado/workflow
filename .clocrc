@@ -12,6 +12,12 @@
 --vcs=git
 
 # The command reference is written by `task docs:gen` from the Cobra tree, so
-# counting it measures the generator rather than anyone's work. go.sum is a
-# lockfile.
+# counting it measures the generator rather than anyone's work. Its directory is
+# left out whole, so a page docs:gen adds needs no list kept in step; the short
+# hand-written index goes with it. It is the only tracked directory named
+# reference. --exclude-dir, because --not-match-d excludes nothing from a
+# --vcs=git file list unless --fullpath is on.
+--exclude-dir=reference
+
+# go.sum is a lockfile.
 --exclude-list-file=.clocignore
