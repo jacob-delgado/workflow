@@ -92,8 +92,8 @@ func TestClickingPicksAnIssue(t *testing.T) {
 	}{
 		// The issue list in the focused rail pane: its second row is row 3.
 		"in the rail": {width: 120, height: 40, column: 5},
-		// On a narrow terminal the list is the detail.
-		"on a narrow terminal": {width: 80, height: 30, column: 10},
+		// Below 80 columns the rail is dropped and the list fills the detail.
+		"on a narrow terminal": {width: 79, height: 30, column: 10},
 	}
 
 	for name, tt := range cases {
