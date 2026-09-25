@@ -12,6 +12,7 @@ import (
 	"slices"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"testing"
 
 	tea "charm.land/bubbletea/v2"
@@ -152,6 +153,10 @@ func TestTemplatesAreReadFromTheRepository(t *testing.T) {
 	}
 }
 
+// jiraToken is the token each Jira seam test configures, so the client sends
+// its requests rather than refusing for want of one.
+const jiraToken = "a-token-for-tests"
+
 func TestTheJiraSeamsReachTheConfiguredJira(t *testing.T) {
 	t.Parallel()
 
@@ -175,7 +180,7 @@ func TestTheJiraSeamsReachTheConfiguredJira(t *testing.T) {
 	t.Cleanup(server.Close)
 
 	cfg := config.Default()
-	cfg.Jira = config.Jira{BaseURL: server.URL, Token: "a-token-for-tests", User: ""}
+	cfg.Jira = config.Jira{BaseURL: server.URL, Token: jiraToken, User: ""}
 
 	seams := wiring.Deps(t.Context(), cfg, wiring.Workspace{Root: t.TempDir(), Remote: ""}, nil).Jira
 
@@ -210,6 +215,55 @@ func TestTheJiraSeamsReachTheConfiguredJira(t *testing.T) {
 
 	if link != server.URL+"/browse/OPS-1" {
 		t.Errorf("BrowseURL = %q", link)
+	}
+}
+
+func TestTheJiraSeamReadsNoIssueForAForgeIssueNumber(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	// A branch like fix/42-typo names the forge's issue 42, not a Jira key. Jira
+	// would read 42 as the id of an unrelated issue, so the seam never asks.
+	var reached atomic.Bool
+
+	server := httptest.NewServer(http.HandlerFunc(func(writer http.ResponseWriter, _ *http.Request) {
+		reached.Store(true)
+		writer.Header().Set("Content-Type", "application/json")
+		_, _ = writer.Write([]byte(`{"key":"OPS-7","fields":{"summary":"an unrelated issue"}}`))
+	}))
+	t.Cleanup(server.Close)
+
+	cfg := config.Default()
+	cfg.Jira = config.Jira{BaseURL: server.URL, Token: jiraToken, User: ""}
+	seams := wiring.Deps(t.Context(), cfg, wiring.Workspace{Root: t.TempDir(), Remote: ""}, nil).Jira
+
+	// Act
+	_, err := seams.Issue("42")
+
+	// Assert
+	if !errors.Is(err, jira.ErrNotFound) {
+		t.Errorf("Issue(42) = %v, want an error that is jira.ErrNotFound", err)
+	}
+
+	if reached.Load() {
+		t.Error("Issue(42) asked Jira")
+	}
+}
+
+func TestTheJiraSeamLinksNoForgeIssueNumber(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	cfg := config.Default()
+	cfg.Jira = config.Jira{BaseURL: "https://jira.example.com", Token: jiraToken, User: ""}
+	seams := wiring.Deps(t.Context(), cfg, wiring.Workspace{Root: t.TempDir(), Remote: ""}, nil).Jira
+
+	// Act
+	link := seams.BrowseURL("42")
+
+	// Assert
+	if link != "" {
+		t.Errorf("BrowseURL(42) = %q, want no link", link)
 	}
 }
 

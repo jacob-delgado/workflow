@@ -148,16 +148,24 @@ func firstTemplate(read func() []forge.Template) string {
 }
 
 // JiraIssue is the Jira issue the branch names, and whether it names one: a key
-// with its project, PROJ-42. The bare forge issue number a branch can carry
-// instead, 42, is no Jira issue even with Jira as the tracker: Jira would refuse
-// that number, or read it as the id of an unrelated issue.
+// that IsJiraKey accepts.
 func JiraIssue(branch gitrepo.Branch, project string) (jira.Key, bool) {
 	key, named := convention.IssueKey(branch.Name, project)
-	if !named || !strings.Contains(key, "-") {
+	issueKey := jira.Key(key)
+
+	if !named || !IsJiraKey(issueKey) {
 		return "", false
 	}
 
-	return jira.Key(key), true
+	return issueKey, true
+}
+
+// IsJiraKey reports whether key names a Jira issue: a key with its project,
+// PROJ-42. The bare forge issue number a branch can carry instead, 42, is no
+// Jira issue even with Jira as the tracker: Jira would refuse that number, or
+// read it as the id of an unrelated issue.
+func IsJiraKey(key jira.Key) bool {
+	return strings.Contains(string(key), "-")
 }
 
 // Why no move to the review status is offered, for a surface that answers a
