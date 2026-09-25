@@ -3777,34 +3777,6 @@ form's fields among the controls reached, each at least 99 % in view, at 640
 px; and the hermetic Settings scan waits on the Retry button, so a
 deliberate delay in the config read does not change what axe reports on.
 
-### DEBT-153 `.github/workflows/pages.yml`'s release trigger can never fire
-
-Severity: low · Confidence: read
-
-The `release` trigger in `.github/workflows/pages.yml:30` listens for
-`types: [published]`, and the comment above it (`:25`) promises that "A
-release republishes the site, so the published docs describe the version
-people just got". But the "Publish the release" step
-(`.github/workflows/release.yml:95`) runs `softprops/action-gh-release` with
-no `token:`, so the release is published by the default `GITHUB_TOKEN`, and
-an event raised by `GITHUB_TOKEN` does not start a workflow — the same
-anti-loop rule `scripts/release/push-release-tag.sh:17` explains and works
-around for the tag with `gh workflow run` (`:83`). The site is only ever
-published by a push to main that touches the listed paths, or by hand; the
-release-time deploy is dead, so a release whose last docs deploy failed
-ships with a stale site and nobody is told.
-
-**One way to fix it.** Dispatch `.github/workflows/pages.yml` from the
-release path (`gh workflow run pages.yml --ref main` after the publish, as
-`scripts/release/push-release-tag.sh` already does for
-`.github/workflows/release.yml`) and drop the `release` trigger.
-
-**Done when.** `grep -n "release:" .github/workflows/pages.yml` prints
-nothing; `.github/workflows/release.yml` carries a step after "Publish the
-release" that runs `gh workflow run pages.yml --ref main`, and the release
-job's `permissions:` include `actions: write`; and the next published
-release then shows a Pages run it started.
-
 ### DEBT-154 Dependabot's group names leave no room under the 72-character subject gate
 
 Severity: low · Confidence: read

@@ -22,13 +22,13 @@ on:
       - "mise.toml"
       - "Taskfile.yml"
       - ".github/workflows/pages.yml"
-  # A release republishes the site, so the published docs describe the version
-  # people just got. This is a `release` trigger rather than `push: tags`,
-  # because a single push trigger requires BOTH its tag filter and its path
-  # filter to match — a release tag whose commit touched no docs would never
-  # deploy at all.
-  release:
-    types: [published]
+  # release.yml dispatches this on main once a release is published, so the
+  # published docs describe the version people just got, whether or not the
+  # release touched the docs. A dispatch rather than a trigger on the release
+  # event: release.yml publishes the release with GITHUB_TOKEN, and an event
+  # raised by GITHUB_TOKEN starts no workflow. workflow_dispatch is exempt from
+  # that rule, which is also how scripts/release/push-release-tag.sh starts
+  # release.yml.
   workflow_dispatch:
 
 permissions:
