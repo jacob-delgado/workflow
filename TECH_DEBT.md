@@ -1385,33 +1385,28 @@ and `ExitStatus` 3; and an exit-status case where the forge or Jira
 answers a redirect exits 5 (or the 3 `doctor --online` gives, whichever the
 maintainer picks), never 1.
 
-### DEBT-96 Five forge listings read one page of 100 and drop the rest
+### DEBT-96 Three forge listings read one page of 100 and drop the rest
 
 Severity: low · Confidence: read
 
-The issue and review listings on both forges and the workflow-run list ask
-for `per_page=100` (`githubPerPage`, `internal/forge/github.go:352`;
-`gitlabPerPage`, `internal/forge/gitlab.go:197`) and never a second page;
-only `githubPages` (`internal/forge/githubci.go:137`) walks CI to the end.
-So the Issues and Reviews panes — and `workflow reviews` and the web's
-queue, over the same seams — show a queue, issue list or run list past 100
-truncated with nothing said, and the 101st failed run is not re-run.
-Unlikely in the daily loop, but the 101st review request or assigned issue
-is invisible and no count says so.
+The review listings on both forges and the workflow-run list ask for one
+full page (`perPage`, `internal/forge/client.go:52`) and never a second;
+the issue listings and the CI reads walk theirs to the end through
+`readPages` (`internal/forge/client.go:330`). So the Reviews pane — and
+`workflow reviews` and the web's queue, over the same seams — show a queue
+or run list past 100 truncated with nothing said, and the 101st failed run
+is not re-run. Unlikely in the daily loop, but the 101st review request is
+invisible and no count says so.
 
-- `internal/forge/github.go:148` — `githubIssues` sends `perPageParam`
-  100 and no page parameter.
-- `internal/forge/github.go:214` — `githubReviews`, a search query with
+- `internal/forge/github.go:229` — `githubReviews`, a search query with
   `per_page` 100 and no page.
-- `internal/forge/gitlab.go:267` — `gitlabIssues`, `perPageParam` 100 and
-  no page.
-- `internal/forge/gitlab.go:322` — `gitlabReviews`, `perPageParam` 100 and
+- `internal/forge/gitlab.go:313` — `gitlabReviews`, `perPageParam` 100 and
   no page.
 - `internal/forge/githubci.go:94` — `githubRerun` lists
   `actions/runs?head_sha=…&per_page=100`, one page.
 
-**One way to fix it.** Page these through a `githubPages`-like loop, or
-carry a "more" flag the surfaces can show.
+**One way to fix it.** Page these through `readPages`, as the issue
+listings do.
 
 **Done when.** A test serving 101 items sees the 101st, or a truncated
 listing is reported as such.
