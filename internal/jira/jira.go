@@ -18,7 +18,6 @@ import (
 	"net/http"
 	"net/url"
 	"strings"
-	"time"
 
 	"github.com/jacob-delgado/workflow/internal/config"
 	"github.com/jacob-delgado/workflow/internal/httpx"
@@ -91,12 +90,6 @@ func New(do Doer, settings config.Jira) Client {
 	settings.BaseURL = strings.TrimRight(settings.BaseURL, "/")
 
 	return Client{do: do, settings: settings}
-}
-
-// HTTPClient is the redirect-refusing transport an on-prem Jira credential
-// travels over; see httpx.Client for why refusing matters.
-func HTTPClient(timeout time.Duration) *http.Client {
-	return httpx.Client(timeout)
 }
 
 // Myself reports who the configured credential authenticates as.

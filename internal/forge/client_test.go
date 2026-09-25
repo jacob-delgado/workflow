@@ -286,7 +286,7 @@ func TestWhoamiReportsAnUnreachableAPI(t *testing.T) {
 	base := server.URL
 	server.Close()
 
-	client := forge.New(forge.HTTPClient(2*time.Second).Do, base, secret)
+	client := forge.New(httpx.Client(2*time.Second).Do, base, secret)
 
 	// Act
 	_, err := client.Whoami(t.Context())
@@ -312,7 +312,7 @@ func TestWhoamiReportsAnUnreadableBody(t *testing.T) {
 	}
 }
 
-func TestForgeHTTPClientRefusesARedirect(t *testing.T) {
+func TestWhoamiRefusesARedirect(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
@@ -330,7 +330,7 @@ func TestForgeHTTPClientRefusesARedirect(t *testing.T) {
 	}))
 	t.Cleanup(first.Close)
 
-	client := forge.New(forge.HTTPClient(5*time.Second).Do, first.URL, secret)
+	client := forge.New(httpx.Client(5*time.Second).Do, first.URL, secret)
 
 	// Act
 	_, err := client.Whoami(t.Context())

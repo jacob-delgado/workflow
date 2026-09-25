@@ -11,10 +11,10 @@ import (
 	"io"
 	"net/http"
 	"strings"
-	"time"
 
 	"github.com/jacob-delgado/workflow/internal/config"
 	"github.com/jacob-delgado/workflow/internal/forge"
+	"github.com/jacob-delgado/workflow/internal/httpx"
 	"github.com/jacob-delgado/workflow/internal/proc"
 )
 
@@ -23,15 +23,15 @@ import (
 // The bool reports that the CLI was chosen, so the caller knows the request
 // carries its own authentication and no token is required.
 func forgeTransport(
-	ctx context.Context, settings config.Forge, repo forge.Repo, base string, timeout time.Duration,
+	ctx context.Context, settings config.Forge, repo forge.Repo, base string, httpTransport httpx.Doer,
 ) (forge.Doer, bool) {
 	if !settings.CLI {
-		return forge.HTTPClient(timeout).Do, false
+		return httpTransport, false
 	}
 
 	program, ok := forgeProgram(repo.Kind)
 	if !ok || !proc.Available(program) {
-		return forge.HTTPClient(timeout).Do, false
+		return httpTransport, false
 	}
 
 	return forgeCLIDoer(ctx, proc.Capture, program, base, repo.Kind), true

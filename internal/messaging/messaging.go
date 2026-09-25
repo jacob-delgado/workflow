@@ -15,7 +15,6 @@ import (
 	"io"
 	"net/http"
 	"strings"
-	"time"
 
 	"github.com/jacob-delgado/workflow/internal/config"
 	"github.com/jacob-delgado/workflow/internal/httpx"
@@ -77,12 +76,6 @@ type Client struct {
 // New builds a client. Pass APIBase unless you are a test.
 func New(do Doer, base string, creds config.Messaging) Client {
 	return Client{do: do, base: strings.TrimRight(base, "/"), creds: creds}
-}
-
-// HTTPClient is the redirect-refusing transport a messaging credential travels
-// over; see httpx.Client for why refusing matters.
-func HTTPClient(timeout time.Duration) *http.Client {
-	return httpx.Client(timeout)
 }
 
 // AuthTest reports which workspace and user the configured token belongs to.

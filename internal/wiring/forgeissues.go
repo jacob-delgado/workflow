@@ -39,7 +39,7 @@ func trackerDeps(
 	ctx context.Context, settings config.Jira, setup forgeSetup, connect func() (forgeConnection, error),
 ) tui.JiraDeps {
 	if settings.Configured() {
-		return jiraDeps(ctx, settings, setup.timeout, setup.log)
+		return jiraDeps(ctx, settings, setup.httpTransport, setup.log)
 	}
 
 	return forgeIssuesDeps(ctx, connect)

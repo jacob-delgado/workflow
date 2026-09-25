@@ -17,7 +17,6 @@ import (
 	"net/url"
 	"strconv"
 	"strings"
-	"time"
 
 	"github.com/jacob-delgado/workflow/internal/httpx"
 	"github.com/jacob-delgado/workflow/internal/sanitize"
@@ -116,12 +115,6 @@ type Client struct {
 // New builds a client. Pass the base URL from Repo.APIBase.
 func New(do Doer, base string, token Token) Client {
 	return Client{do: do, base: strings.TrimRight(base, "/"), token: token}
-}
-
-// HTTPClient is the redirect-refusing transport a forge credential travels
-// over; see httpx.Client for why refusing matters.
-func HTTPClient(timeout time.Duration) *http.Client {
-	return httpx.Client(timeout)
 }
 
 // Whoami reports which account the credential belongs to.

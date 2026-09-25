@@ -145,7 +145,7 @@ func checkForge(ctx context.Context, out io.Writer, run doctorRun, remote string
 	ctx, cancel := context.WithTimeoutCause(ctx, timeout, gaveUp)
 	defer cancel()
 
-	access, err := wiring.ReachForge(ctx, run.cfg.Forge, repo, base, timeout)
+	access, err := wiring.ReachForge(ctx, run.cfg.Forge, repo, base, httpx.Client(timeout).Do)
 	if err != nil {
 		return credentialMissing(out, "forge", noForgeTokenMessage(proc.Available, repo.Kind, repo.Host))
 	}
