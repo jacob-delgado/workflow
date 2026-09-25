@@ -211,7 +211,7 @@ func gitDeps(ctx context.Context, root string) tui.GitDeps {
 		CreateWorktree: func(name, start string) (string, error) {
 			return repo.WorktreeAdd(ctx, name, start)
 		},
-		Fetch:  func() error { return fetchOrigin(ctx, root) },
+		Fetch:  func() error { return streamToEnd(ctx, gitrepo.FetchCommand(root)) },
 		Commit: func(message string) (proc.Output, error) { return commitWith(ctx, root, message) },
 		Amend:  func() (proc.Output, error) { return proc.Start(ctx, gitrepo.AmendCommand(root)) },
 		Fixup:  func(hash string) (proc.Output, error) { return proc.Start(ctx, gitrepo.FixupCommand(root, hash)) },
@@ -224,11 +224,11 @@ func gitDeps(ctx context.Context, root string) tui.GitDeps {
 	}
 }
 
-// fetchOrigin updates origin's tracking refs, draining git's output and
+// streamToEnd runs a network git command unbounded, draining its output and
 // returning how it exited — a network error, or a credential git could not get
 // with prompts off.
-func fetchOrigin(ctx context.Context, root string) error {
-	output, err := proc.Start(ctx, gitrepo.FetchCommand(root))
+func streamToEnd(ctx context.Context, command proc.Command) error {
+	output, err := proc.Start(ctx, command)
 	if err != nil {
 		return err
 	}

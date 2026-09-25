@@ -612,7 +612,7 @@ mid-transfer:
   `DefaultRunTimeout`.
 - `internal/proc/proc.go:30` — `DefaultRunTimeout`'s comment: streamed work
   belongs under `Start`.
-- `internal/wiring/wiring.go:231` — `fetchOrigin` fetches the same remote
+- `internal/wiring/wiring.go:231` — `streamToEnd` fetches the same remote
   through `proc.Start`, unbounded.
 - `internal/tui/finish.go:139` — `finished.apply` pins only the raw error
   under the preview's title.
@@ -3203,8 +3203,8 @@ Seventeen conditions were never evaluated. Five are a test away:
 - `internal/tui/prcreate.go:134` — `pullCreated.apply`'s `named` case: every
   test that opens a pull request on an issue's branch wires
   `Jira.LinkPullRequest`.
-- `internal/wiring/wiring.go:232` — `fetchOrigin`, git failing to start: no
-  wiring test fetches.
+- `internal/wiring/wiring.go:232` — `streamToEnd`, git failing to start: no
+  wiring test fetches or pulls without git on `PATH`.
 
 Eight more came into view once each operand counted, and each is a test
 away too:
