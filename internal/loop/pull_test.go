@@ -332,6 +332,37 @@ func TestComposePullAsksTheTrackerNothingForAKeylessBranch(t *testing.T) {
 	}
 }
 
+func TestJiraIssueIsOnlyAKeyWithItsProject(t *testing.T) {
+	t.Parallel()
+
+	cases := map[string]struct {
+		branch  string
+		project string
+		want    jira.Key
+		named   bool
+	}{
+		"a key of the configured project":    {branch: branchName, project: project, want: issueKey, named: true},
+		"a key with no project configured":   {branch: "fix/ABC-9-thing", want: "ABC-9", named: true},
+		"a forge issue number":               {branch: "fix/42-typo"},
+		"a forge issue number and a project": {branch: "fix/42-typo", project: project},
+		"main, which names no issue":         {branch: "main", project: project},
+	}
+
+	for name, tt := range cases {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			// Act
+			key, named := loop.JiraIssue(openable(tt.branch), tt.project)
+
+			// Assert
+			if key != tt.want || named != tt.named {
+				t.Errorf("JiraIssue(%q, %q) = %q, %t; want %q, %t", tt.branch, tt.project, key, named, tt.want, tt.named)
+			}
+		})
+	}
+}
+
 func TestSubjectsListsEachCommitOldestFirst(t *testing.T) {
 	t.Parallel()
 

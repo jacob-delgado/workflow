@@ -7,10 +7,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"strings"
 
 	"github.com/jacob-delgado/workflow/internal/api"
-	"github.com/jacob-delgado/workflow/internal/convention"
 	"github.com/jacob-delgado/workflow/internal/forge"
 	"github.com/jacob-delgado/workflow/internal/gitrepo"
 	"github.com/jacob-delgado/workflow/internal/jira"
@@ -65,7 +63,7 @@ func (s *server) branchPull(issueKey jira.Key) (forge.PullRequest, error) {
 		return forge.PullRequest{}, fmt.Errorf("reading the branch: %w", err)
 	}
 
-	named, ok := s.branchIssue(branch)
+	named, ok := loop.JiraIssue(branch, s.config().Jira.Project)
 	if !ok || named != issueKey {
 		return forge.PullRequest{}, errNotTheBranchIssue
 	}
@@ -160,7 +158,7 @@ func transitionRefusal(err error, issueKey jira.Key, status string) api.Transiti
 func (s *server) followUps(branch gitrepo.Branch) []api.FollowUp {
 	offers := []api.FollowUp{}
 
-	issueKey, named := s.branchIssue(branch)
+	issueKey, named := loop.JiraIssue(branch, s.config().Jira.Project)
 	if !named {
 		return offers
 	}
@@ -179,16 +177,4 @@ func (s *server) followUps(branch gitrepo.Branch) []api.FollowUp {
 	}
 
 	return offers
-}
-
-// branchIssue is the Jira issue a branch names, and whether it names one: a key
-// with its project, PROJ-42 — never the bare forge issue number a branch can
-// carry too, which Jira would refuse or read as an unrelated issue's id.
-func (s *server) branchIssue(branch gitrepo.Branch) (jira.Key, bool) {
-	key, named := convention.IssueKey(branch.Name, s.config().Jira.Project)
-	if !named || !strings.Contains(key, "-") {
-		return "", false
-	}
-
-	return jira.Key(key), true
 }
