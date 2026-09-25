@@ -836,8 +836,7 @@ the next change, when the comment is trusted over the code.
 
 **One way to fix it.** One pass, file by file, rewording each sentence to
 what the code does now — or deleting the enumerations that go stale a verb
-at a time. The gate and CI sentences that claim more than their check
-measures are DEBT-161.
+at a time.
 
 **Done when.** `go doc` for `config`, `wiring`, `gitrepo`, `jira`,
 `convention` and `forge.Client.FindPullRequest` reads as the code does; both
@@ -3571,7 +3570,7 @@ six specs (`web/e2e/a11y.spec.ts`, `web/e2e/layout.spec.ts`,
 `web/e2e/panes.spec.ts`, `web/e2e/screens.spec.ts`,
 `web/e2e/smoke.spec.ts`, `web/e2e/theme.spec.ts`), outside `task check`
 (CI's `e2e` job and `yarn test:e2e` run it), with no `workflow --web`
-backend — acknowledged at `.github/workflows/ci.yml:100` ("No backend": the
+backend — acknowledged at `.github/workflows/ci.yml:101` ("No backend": the
 specs answer the API themselves, or read a VITE_MOCK build's fixtures) — so
 no test drives any of the twelve write actions end to end.
 
@@ -3867,100 +3866,6 @@ pointer.
 `forge` twins nowhere; and `httpx` exports no `Cause` while the
 URL-stripping assertion still runs.
 
-### DEBT-161 Ten gate and CI sentences claim more than their check measures
-
-Severity: low · Confidence: read
-
-Each gate's comment, or the rule beside it, claims a reach the check does
-not have. Three gates stop short of the web their rules cover:
-
-- `lefthook.yml:7` — the header says pre-push "runs the test suite, so a
-  green push is very likely a green CI", and the pre-push header
-  (`lefthook.yml:106`) names "the tests, plus the two whole-tree checks";
-  but `unit-go`'s `glob` (`lefthook.yml:125`) is `{*.go,go.mod,go.sum}`, so
-  a web-only push runs no test at all, and pre-push carries three non-test
-  commands (`lint-go-all`, `file-length`, `package-size`) and no eslint,
-  `tsc`, prettier, knip, vitest or `gen:check` — all of which `check`
-  (`Taskfile.yml:510`; `web:lint`, `web:gen:check`, `web:test`) and CI's Web
-  job run. A web-only change with a failing unit test or an unformatted file
-  pushes green locally and fails CI a round trip later.
-- `web/eslint.config.js:125` — the test rules block is scoped to
-  `**/*.test.{ts,tsx}`, leaving `e2e/*.spec.ts` under the general block
-  only, and `noTestImplDetails` (`web/eslint.config.js:61`) matches
-  `getAttribute` and `hasAttribute`, not Playwright's `toHaveAttribute`; so
-  `web/e2e/theme.spec.ts:20` and `:26` assert `toHaveAttribute('data-theme',
-  …)` against the rule `web/README.md:46` states ("never assert on classes,
-  styles, or `data-*` hooks"), and the annotated-disable escape hatch is
-  never exercised.
-- `api/openapi.yaml:798` — the `Problem` `code` enum's seven codes are tied
-  to nothing: `problem` (`internal/webserver/errors.go:32`) builds the
-  `type` fragment from the code to point at an anchor in
-  `docs/content/docs/errors.md`, whose intro (`:35`) says "The codes below
-  are the whole set", and CLAUDE.md asks that every code have a section
-  there; but the only docs-drift gate is the `diff` of the command reference
-  in `scripts/check-docs-drift.sh:34`. A new problem code with no section
-  dereferences to nothing and passes `task check`.
-
-Seven more print or state a sentence their check does not measure:
-
-- `scripts/gobco-report.sh:192` — the report header prints "short mode"; the
-  only `go test` option passed is `-vet=off` (`:210`) and nothing in the
-  module calls `testing.Short()`.
-- `scripts/gobco-report.sh:265` — the skipped list's "Their statement
-  coverage is still gated by scripts/coverage-gate.sh" is false for
-  `internal/proc/pgroup`, which is also in `NO_TESTS` (`:96`) and writes no
-  profile lines.
-- `scripts/check-goroutines.sh:70` — the success message "no goroutine is
-  started outside internal/proc", and the `lint:goroutines` desc
-  (`Taskfile.yml:391`), claim more than the `go`-keyword `pattern`
-  (`scripts/check-goroutines.sh:51`) measures: `Serve`
-  (`internal/webserver/webserver.go:254`) starts one through
-  `context.AfterFunc`.
-- `.github/workflows/ci.yml:8` — the comment above `permissions:` says
-  "every job below only reads the repository"; `coverage-comment` (`:238`)
-  holds `pull-requests: write` and updates or creates a comment (`:306`).
-- `.clocrc:14` — the comment says the generated command reference is
-  excluded; the exclude list (`.clocignore:1`) names five of the sixteen
-  pages under `docs/content/docs/reference`.
-- `web/vitest.config.ts:28` — the `coverage.exclude` comment "Both are
-  excluded" explains `src/api/generated` and `src/test`; the list (`:29`)
-  also carries `web/src/main.tsx` and `src/dev/**`.
-- `web/eslint.config.js:44` — the comment names "native-dialog tests" as a
-  reason `testing-library/no-node-access` is off (`:130`); no such test
-  exists.
-
-A reader of the coverage log or the CI file discounts the worklist for
-`testing.Short()` guards that do not exist, believes pgroup's statements are
-gated, or audits token scope from a header that says nothing writes.
-
-**One way to fix it.** A pre-push command with `glob: "web/**"` running
-`task web:lint web:gen:check web:test`, and a header that counts what
-pre-push carries; the `noTestImplDetails` block extended to `**/*.spec.ts`
-with a Playwright-shaped selector for `toHaveAttribute('data-…')`, and
-`web/e2e/theme.spec.ts`'s two lines given the annotated disable or a
-token-driven computed-color assertion; and a black-box test in
-`webserver_test` that reads `docs/content/docs/errors.md` and asserts a
-heading whose anchor matches each enum member's problem-type fragment. For
-the other seven, reword each sentence to what the check does or, where
-widening is cheaper, widen the check (the goroutine gate to
-`context.AfterFunc`, `time.AfterFunc` and `.Go(`; the cloc exclusion to a
-pattern over the generated reference).
-
-**Done when.** A push carrying a failing web unit test is refused by the
-pre-push hook and `lefthook.yml`'s header names every non-test command
-pre-push runs; `yarn lint` fails on a new `toHaveAttribute('data-x')` under
-`web/e2e`, and `web/e2e/theme.spec.ts` either carries an annotated disable
-or asserts without `data-theme`; removing one H2 from
-`docs/content/docs/errors.md` fails `task test`; the first line of `task
-cover:branch` no longer says "short mode" and its "still gated" line names
-only packages that write into `coverage.out`; `scripts/check-goroutines.sh`'s
-success line and the `lint:goroutines` desc claim no more than its pattern
-finds; the comment above `permissions:` in `.github/workflows/ci.yml` names
-the job that writes; `task cloc` reports no file under
-`docs/content/docs/reference` other than its index; and the comments in
-`web/vitest.config.ts` and `web/eslint.config.js` name only what their lists
-hold and the tests that exist.
-
 ## Deliberate trade-offs that carry a cost
 
 These were chosen on purpose and are written down at their sites. They are
@@ -4040,7 +3945,7 @@ know about.
   packages' conditions go unmeasured — platform glue and an embed stub, with
   no branch worth the count — and that the next tagged twin must join them.
 - **The web's branch floor is v8's range-based count**
-  (`web/vitest.config.ts:43` `thresholds`), not a gobco-style per-condition
+  (`web/vitest.config.ts:45` `thresholds`), not a gobco-style per-condition
   one: v8 marks a branch covered once its range of code has run, and never
   asks which way each operand of a condition went. The cost is that an
   `a && b` only ever seen with `b` true still passes the web's floor.
