@@ -4,6 +4,7 @@
 package wiring
 
 import (
+	"cmp"
 	"context"
 	"fmt"
 	"os"
@@ -238,23 +239,54 @@ func connectForge(
 		return forgeConnection{}, fmt.Errorf("%s — set forge.kind and forge.host: %w", repo.Host, err)
 	}
 
-	transport, usingCLI := forgeTransport(ctx, settings, repo, base, timeout, proc.Available)
-
-	token, _, err := ForgeResolver(settings).Resolve(ctx, repo.Kind, repo.Host)
-	if err != nil && !usingCLI {
+	access, err := ReachForge(ctx, settings, repo, base, timeout)
+	if err != nil {
 		return forgeConnection{}, err
 	}
 
-	if token == "" {
-		// The CLI transport authenticates itself; a placeholder satisfies the
-		// client's token guard without a real credential to resolve.
-		token = cliToken
-	}
-
 	//nolint:bodyclose // Wrap only relays the response; the forge client reads and closes its body.
-	client := forge.New(log.Wrap("forge", transport), base, token)
+	client := forge.New(log.Wrap("forge", access.Doer), base, access.Token)
 
 	return forgeConnection{client: client, repo: repo}, nil
+}
+
+// ForgeAccess is how requests reach a forge: the transport they travel over,
+// the token the client carries, and where the credential came from.
+type ForgeAccess struct {
+	// Doer carries each request: the forge's own CLI when forge.cli routes it
+	// there, otherwise the redirect-refusing HTTP client.
+	Doer forge.Doer
+	// Token is the resolved credential, or a placeholder the CLI never reads.
+	Token forge.Token
+	// Via names the credential's source for a report — "through gh", or "token
+	// from the environment" — and never the credential itself.
+	Via string
+}
+
+// ReachForge chooses how requests reach repo's forge at base, and finds the
+// credential they carry. A forge reached through its CLI needs no token, since
+// the CLI signs every request with the login it already holds. The commands and
+// doctor --online both reach the forge through here, so the two cannot come to
+// reach it differently.
+func ReachForge(
+	ctx context.Context, settings config.Forge, repo forge.Repo, base string, timeout time.Duration,
+) (ForgeAccess, error) {
+	transport, usingCLI := forgeTransport(ctx, settings, repo, base, timeout, proc.Available)
+
+	token, source, err := ForgeResolver(settings).Resolve(ctx, repo.Kind, repo.Host)
+	if !usingCLI {
+		if err != nil {
+			return ForgeAccess{}, err
+		}
+
+		return ForgeAccess{Doer: transport, Token: token, Via: "token from " + source.String()}, nil
+	}
+
+	program, _ := forgeProgram(repo.Kind)
+
+	// The CLI transport authenticates itself; a placeholder satisfies the
+	// client's token guard without a real credential to resolve.
+	return ForgeAccess{Doer: transport, Token: cmp.Or(token, cliToken), Via: "through " + program}, nil
 }
 
 // templatesFor reads the repository's pull request templates, where its forge
