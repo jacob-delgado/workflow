@@ -110,16 +110,20 @@ func externalTools() []tool {
 	}
 }
 
-// reportTooling lists the external programs and returns an error naming any
-// required one that is absent.
-func reportTooling(out io.Writer) error {
-	fmt.Fprintln(out, "Tooling:")
+// toolingFacts looks for each external program, and names any required one that
+// is absent. It is the one place the programs are looked for, so the prose and
+// JSON reports cannot disagree about what is installed.
+func toolingFacts() ([]toolFacts, error) {
+	programs := externalTools()
+	facts := make([]toolFacts, 0, len(programs))
 
 	var missing []string
 
-	for _, program := range externalTools() {
+	for _, program := range programs {
 		installed := proc.Available(program.name)
-		fmt.Fprintf(out, "  %-10s %s\n", program.name, toolStatus(program, installed))
+		facts = append(facts, toolFacts{
+			Name: program.name, Found: installed, Required: program.required, Effect: program.effect,
+		})
 
 		if !installed && program.required {
 			missing = append(missing, program.name)
@@ -127,21 +131,34 @@ func reportTooling(out io.Writer) error {
 	}
 
 	if len(missing) > 0 {
-		return fmt.Errorf("%w: %s", errMissingTooling, strings.Join(missing, ", "))
+		return facts, fmt.Errorf("%w: %s", errMissingTooling, strings.Join(missing, ", "))
 	}
 
-	return nil
+	return facts, nil
+}
+
+// reportTooling lists the external programs and returns an error naming any
+// required one that is absent.
+func reportTooling(out io.Writer) error {
+	fmt.Fprintln(out, "Tooling:")
+
+	facts, err := toolingFacts()
+	for _, program := range facts {
+		fmt.Fprintf(out, "  %-10s %s\n", program.Name, toolStatus(program))
+	}
+
+	return err
 }
 
 // toolStatus says whether a program was found, and what its absence costs.
-func toolStatus(program tool, installed bool) string {
-	if installed {
+func toolStatus(program toolFacts) string {
+	if program.Found {
 		return "found"
 	}
 
-	if program.required {
-		return "MISSING — " + program.effect
+	if program.Required {
+		return "MISSING — " + program.Effect
 	}
 
-	return "not found — " + program.effect
+	return "not found — " + program.Effect
 }
