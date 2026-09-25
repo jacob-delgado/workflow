@@ -352,7 +352,7 @@ func reportRepository(ctx context.Context, out io.Writer) gitrepo.Repo {
 
 	repo, err := gitrepo.At(proc.Run, dir).Describe(ctx)
 	if err != nil {
-		field(out, "Repository", fmt.Sprintf("(none — %s is not in a git work tree)", dir))
+		field(out, "Repository", noRepositoryReason(dir, err))
 
 		return gitrepo.Repo{}
 	}
@@ -364,6 +364,16 @@ func reportRepository(ctx context.Context, out io.Writer) gitrepo.Repo {
 	field(out, "Forge", forgeLabel(repo.Remote))
 
 	return repo
+}
+
+// noRepositoryReason says why dir has no repository to report: git is not
+// installed, or dir is outside any work tree.
+func noRepositoryReason(dir string, err error) string {
+	if errors.Is(err, proc.ErrNotFound) {
+		return "(none — git is not on PATH)"
+	}
+
+	return fmt.Sprintf("(none — %s is not in a git work tree)", dir)
 }
 
 // forgeLabel says which forge the remote points at, and where its API lives.

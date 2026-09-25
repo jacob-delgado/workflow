@@ -90,3 +90,17 @@ func TestDoctorOnlineExplainsWhyNoForgeTokenResolved(t *testing.T) {
 		})
 	}
 }
+
+func TestDoctorNamesAMissingGitOnTheRepositoryLine(t *testing.T) {
+	// Arrange
+	// An empty PATH is the portable way to make git unfindable.
+	t.Setenv("PATH", "")
+
+	// Act
+	output, _ := run(t, t.TempDir(), "doctor")
+
+	// Assert
+	if got := fieldValue(output, "Repository"); !strings.Contains(got, "git is not on PATH") {
+		t.Errorf("Repository = %q, want it to say git is missing:\n%s", got, output)
+	}
+}
