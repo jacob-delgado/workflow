@@ -23,9 +23,11 @@ export default defineConfig({
       // text for the console; json-summary feeds `task test:summary`.
       reporter: ['text', 'json-summary'],
       include: ['src/**'],
-      // src/api/generated is hey-api's generated SDK/types/zod — generated code
-      // is not ours to test. src/test holds test-only helpers (fakes), not
-      // production code. Both are excluded like prettier/eslint/knip.
+      // Left out: the tests themselves; src/main.tsx, the entry point that only
+      // mounts the app into the page; src/api/generated, hey-api's generated
+      // SDK, types and zod schemas, which are not ours to test; src/test, the
+      // test-only helpers and fakes; and src/dev, the mock data `task
+      // web:mockup` loads when VITE_MOCK is set.
       exclude: [
         'src/**/*.test.{ts,tsx}',
         'src/main.tsx',

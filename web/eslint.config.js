@@ -41,8 +41,9 @@ const noAllCaps = [
 
 // Black-box test smells: assert on user-facing semantics, not implementation
 // details. `no-node-access` would catch these but over-fires on the legitimate
-// focus (`document.activeElement`) and native-dialog tests where the DOM *is*
-// the behavior under test — so ban the specific patterns. The `.style` /
+// focus tests (`document.activeElement`) and on the state-mark test that climbs
+// from a state's words to the aria-hidden mark drawn beside them, where the DOM
+// *is* the behavior under test — so ban the specific patterns. The `.style` /
 // `.classList` reads are scoped to `expect()` so a fixture may still SET them;
 // only assertions are policed. The escape is an annotated
 // `eslint-disable-next-line no-restricted-syntax -- <reason>`, kept honest by
