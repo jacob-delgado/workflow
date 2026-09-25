@@ -232,10 +232,10 @@ func TestARefusedForgeWriteLeadsWithTheWriteScope(t *testing.T) {
 			view := typing(t, faked.live(t, 200, 40), tt.keys...).View().Content
 
 			// Assert
-			// A refused write leads with the scope; waiting out a rate limit is the
-			// lesser likelihood, not the headline.
+			// A refused write leads with the scope, and guesses at no rate limit:
+			// one that asks to wait is told apart before it reaches here.
 			requireScreen(t, view, tt.want)
-			refuseScreen(t, view, "which may be rate limiting. Wait a minute")
+			refuseScreen(t, view, "rate limit")
 		})
 	}
 }
@@ -358,7 +358,7 @@ func TestADetailTellsTheFailureItsSummaryRowShortens(t *testing.T) {
 			keys: []string{"4"},
 			want: []string{
 				"CI     ✗ the forge refused the request",
-				"✗ The forge refused the request, which may be rate limiting.",
+				"✗ The forge refused the request: the token may lack a permission this needs.",
 				"Resource not accessible by integration",
 			},
 		},

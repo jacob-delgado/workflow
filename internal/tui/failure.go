@@ -45,8 +45,8 @@ func (s sendState) failed(err error) sendState {
 // merging a pull request, a re-run of CI, closing an issue it tracks — with its
 // likeliest fix, a wider token scope, claiming no more than the forge's own
 // refusal does. It is wrapped where the write is made rather than read into
-// forge.ErrRefused everywhere, because a refused read is as likely rate
-// limiting as a scope.
+// forge.ErrRefused everywhere, because a refused read wants a permission to
+// read, not the write scope.
 var errNeedsWriteScope = errors.New("the token may lack the write scope this needs")
 
 // writeRefusal is a failed forge write as the interface tells it: the refusal a
@@ -118,8 +118,7 @@ func localErrors() []knownError {
 	return []knownError{
 		{errNeedsWriteScope, wording{
 			brief: "the token may lack write scope",
-			full: "The forge refused the write: the token may lack the write scope it needs, or the forge may be " +
-				"rate limiting. Widen the token's scope, or wait a minute, then try again.",
+			full:  "The forge refused the write: the token may lack the write scope it needs. Widen it, then try again.",
 		}},
 		{errDryRun, wording{
 			brief: "held back by dry run",
@@ -205,7 +204,7 @@ func forgeErrors() []knownError {
 		}},
 		{forge.ErrRefused, wording{
 			brief: "the forge refused the request",
-			full:  "The forge refused the request, which may be rate limiting. Wait a minute, then try again.",
+			full:  "The forge refused the request: the token may lack a permission this needs. Check its scopes.",
 		}},
 		{forge.ErrNoAPI, wording{
 			brief: "no forge API at that address",
