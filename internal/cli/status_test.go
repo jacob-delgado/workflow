@@ -5,6 +5,7 @@ package cli_test
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"strings"
 	"sync/atomic"
@@ -23,6 +24,24 @@ func TestStatusOutsideARepositoryReportsSo(t *testing.T) {
 	}
 
 	wantExit(t, err, 4)
+}
+
+func TestStatusWithoutGitNamesTheMissingProgram(t *testing.T) {
+	// Arrange
+	// An empty PATH is the portable way to make git unfindable.
+	t.Setenv("PATH", "")
+
+	// Act
+	_, err := run(t, t.TempDir(), "status")
+
+	// Assert
+	// The error is what main prints, so it is what names the program.
+	if said := fmt.Sprint(err); !strings.Contains(said, "not found on PATH: git") ||
+		strings.Contains(said, "not a git repository") {
+		t.Errorf("status without git said %q, want the missing program named", said)
+	}
+
+	wantExit(t, err, 1)
 }
 
 // featureRepo makes a repository on a branch for PROJ-2 with a commit, and

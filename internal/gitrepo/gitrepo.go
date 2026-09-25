@@ -57,9 +57,10 @@ type Repo struct {
 }
 
 // readFailure names a git read that failed: outside a work tree it is
-// ErrNotARepository, whatever git wrote; inside one it is git's own error, so a
-// real fault still reads in full. A read that timed out says so as it is, since
-// asking git where the work tree is would only wait out the same bound again.
+// ErrNotARepository, whatever git wrote, and without git it is the missing
+// program; inside one it is git's own error, so a real fault still reads in
+// full. A read that timed out says so as it is, since asking git where the
+// work tree is would only wait out the same bound again.
 func readFailure(ctx context.Context, run Runner, dir, what string, err error) error {
 	if errors.Is(err, proc.ErrTimedOut) {
 		return fmt.Errorf("%s: %w", what, err)
@@ -85,19 +86,25 @@ func requireWorkTree(ctx context.Context, run Runner, dir string) error {
 }
 
 // notInWorkTree is what a failed `rev-parse --show-toplevel` in dir says: that
-// it timed out, when it did, since whether dir is a repository is then unknown;
-// ErrNotARepository otherwise, whatever git wrote.
+// it timed out, or that git is not on PATH, when either is so, since whether dir
+// is a repository is then unknown; ErrNotARepository otherwise, whatever git
+// wrote. A missing git is the runner's own error, unchanged, so it reads and
+// exits as any other missing program does.
 func notInWorkTree(dir string, err error) error {
-	if errors.Is(err, proc.ErrTimedOut) {
+	switch {
+	case errors.Is(err, proc.ErrTimedOut):
 		return fmt.Errorf("finding the work tree of %s: %w", dir, err)
+	case errors.Is(err, proc.ErrNotFound):
+		return err
+	default:
+		return fmt.Errorf("%w: %s", ErrNotARepository, dir)
 	}
-
-	return fmt.Errorf("%w: %s", ErrNotARepository, dir)
 }
 
 // CheckIgnored reports whether git ignores path. Outside a work tree it returns
 // ErrNotARepository, because the question has no answer there — a caller warning
-// about a file that is not ignored simply stays quiet.
+// about a file that is not ignored simply stays quiet — and without git, the
+// missing program.
 func (r Repository) CheckIgnored(ctx context.Context, path string) (bool, error) {
 	err := requireWorkTree(ctx, r.run, r.dir)
 	if err != nil {
