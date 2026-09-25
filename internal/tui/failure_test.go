@@ -184,8 +184,8 @@ func TestTheMessagingRefusalNamesNoOneService(t *testing.T) {
 	view := typing(t, refused.live(t, 200, 40), "5", "p", keyEnter).View().Content
 
 	// Assert
-	requireScreen(t, view, "The messaging service refused the announcement: check the bot is in the channel "+
-		"or the webhook is current.")
+	requireScreen(t, view, "The messaging service refused the announcement: check the token, that the bot is in "+
+		"the channel, or that the webhook is current.")
 	refuseScreen(t, view, "Slack refused")
 }
 

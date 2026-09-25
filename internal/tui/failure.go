@@ -249,8 +249,8 @@ func messagingErrors() []knownError {
 		}},
 		{messaging.ErrRejected, wording{
 			brief: "the announcement was refused",
-			full: "The messaging service refused the announcement: check the bot is in the channel or the " +
-				"webhook is current.",
+			full: "The messaging service refused the announcement: check the token, that the bot is in the channel, " +
+				"or that the webhook is current.",
 		}},
 		{messaging.ErrPostRefused, ownWords()},
 		{messaging.ErrUnexpectedStatus, wording{
