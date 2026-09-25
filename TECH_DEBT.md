@@ -499,11 +499,11 @@ a weak assertion, so every one clears the gate.
 
 The terminal:
 
-- `internal/tui/hookgen_test.go:118` — `TestTheOfferIsMadeOnlyWhenItHelps`
+- `internal/tui/hookgen_test.go:214` — `TestTheOfferIsMadeOnlyWhenItHelps`
   calls `refuseScreen` on the start screen, where
-  `TestTheLefthookOfferOpensFromTheCommitsPaneNotAtStart` (`:36`) shows the
-  offer never opens at start; it cannot see the `msg.configured ||` guard in
-  `hooksFound.apply` (`internal/tui/hookgen.go:45`).
+  `TestTheLefthookOfferOpensFromTheCommitsPaneNotAtStart` (`:70`) shows the
+  offer never opens at start; it cannot see the `msg.configured` check in
+  `hooksFound.apply` (`internal/tui/hookgen.go:47`).
 - `internal/tui/commits_test.go:84` —
   `TestTheCommitsDetailWaitsForTheStatus` calls `requireScreen` for
   "loading" on the whole screen; `commitsRail`
@@ -658,9 +658,10 @@ own `--jq` over a fixture of pulls; exact JSON from
 raw-file reads that parse each `_at`, a cascade a test makes fire, and each
 Arrange's error fatal.
 
-**Done when.** Each named mutation fails a test: deleting `msg.configured
-||` from `hooksFound.apply`; setting `notifyPollInterval` to 20 seconds;
-removing `case p.send.sending` from `mergePicker.handleKey`,
+**Done when.** Each named mutation fails a test: deleting the
+`if msg.configured` branch from `hooksFound.apply`; setting
+`notifyPollInterval` to 20 seconds; removing `case p.send.sending` from
+`mergePicker.handleKey`,
 `finishPreview.handleKey` and `prEditor.handleKey`; changing `branch`'s
 non-repository exit from 4; returning a different sentinel for `KindUnknown`
 from `ReviewRequests` or the issue methods; removing `select(any(.labels[];
@@ -985,43 +986,6 @@ and refuse on the fresh answer.
 **Done when.** A test in `internal/tui/switchtask_test.go` sets the world's
 changes to a modified file after `live()`, presses `s` then `enter`, and the
 switch is refused with no checkout call recorded.
-
-### DEBT-111 After writing `lefthook.yml` the pane still nags and `g` reopens the offer
-
-Severity: medium · Confidence: read
-
-`hooksWritten.apply` closes the offer and notices, but never clears
-`m.hookgen.hooks`, and the only write to that field happens in
-`hooksFound.apply`, which runs once from `Init`. So for the rest of the
-session the Commits pane keeps saying a hook is unmanaged, keeps offering
-`g`, and a second `enter` is refused with "file already exists" — a
-refused write for something the user just did. The same staleness holds
-for a `lefthook.yml` written outside the interface: `r` on Commits reloads
-the changes and the branch, not the hooks. `docs/content/docs/usage.md:282`
-("Existing git hooks") promises the hint only while there is no lefthook
-configuration, and `TestExistingHooksAreOfferedALefthookConfiguration`
-(`internal/tui/hookgen_test.go:71`) stops at the success notice.
-
-- `internal/tui/hookgen.go:156` — `hooksWritten.apply` on success only
-  closes the overlay and notices; `m.hookgen.hooks` is left set.
-- `internal/tui/hookgen.go:49` — `hooksFound.apply`, the package's only
-  write to `m.hookgen.hooks`, reached only from `Init`'s `findHooks`
-  (`internal/tui/tui.go:161`).
-- `internal/tui/commits.go:225` — `Model.handleCommitsKey` keeps `g` live
-  on `len(m.hookgen.hooks) > 0` and reopens the offer.
-- `internal/tui/commits.go:228` — the refresh case of `handleCommitsKey`
-  batches `loadChanges` and `loadBranch` but not `findHooks`.
-- `internal/hooks/generate.go:375` — `Write` refuses the second write with
-  `fs.ErrExist`.
-
-**One way to fix it.** `hooksWritten.apply` clears `m.hookgen.hooks` on
-success (or re-runs `findHooks`), and the Commits refresh key batches
-`findHooks` beside `loadChanges` and `loadBranch`.
-
-**Done when.** A test writes the configuration, then asserts the Commits
-detail no longer shows the hint and the footer no longer lists `g`; a
-second test writes `lefthook.yml` into the world, presses `r` on Commits,
-and sees the same.
 
 ### DEBT-112 The Review pane never offers `n` after a merged pull request
 
