@@ -296,9 +296,11 @@ func checkMessaging(
 }
 
 // credentialOutcome tells an unreachable service from a rejected credential, so
-// the outcome names the one the reader can act on.
+// the outcome names the one the reader can act on. A refused redirect is
+// unreachable, as every command counts it: the credential never reached the
+// service to be judged.
 func credentialOutcome(err, unreachable error, service string) error {
-	if errors.Is(err, unreachable) {
+	if errors.Is(err, unreachable) || errors.Is(err, httpx.ErrRedirected) {
 		return fmt.Errorf("%w: %s", errUnreachable, service)
 	}
 

@@ -1212,67 +1212,6 @@ switches in `internal/cli/status.go`, `checkable` in
 once; and the v8 summary lists no uncovered null return for the four panels
 and none has a null check.
 
-### DEBT-95 Service answers that exit 1 where the contract promises 3 or 5
-
-Severity: medium · Confidence: read
-
-Three answers a service gives reach the command line under a sentinel the
-exit-family tables in `internal/cli/scriptable.go` do not list, or list
-inconsistently, so a script keyed on the documented status is misled:
-
-- `internal/jira/answer.go:75` — `Client.answerError` wraps the reason in
-  `ErrRejected` alone and returns it (`:80`); only a 404 gets the dual
-  identity of `notFoundError` (`:76`, `:86`), while `statusError`
-  (`internal/jira/jira.go:233`) makes a bodiless 403 `ErrForbidden`.
-  `configurationErrors` (`internal/cli/scriptable.go:324`) lists
-  `jira.ErrForbidden` (exit 3) and nothing lists `jira.ErrRejected` (exit
-  1), so a Jira 403 exits 3 when its body is empty and 1 when it carries a
-  reason — the shape `TestAssignReportsJirasReason`
-  (`internal/jira/assignee_test.go:61`) serves and asserts as `ErrRejected`
-  (`:67`), never `ErrForbidden`.
-- `internal/messaging/post.go:124` — `Client.postAsBot` turns every
-  `ok:false` into `ErrPostRefused`, which `configurationErrors`
-  (`internal/cli/scriptable.go:319`) lists in no family, so Slack's
-  `invalid_auth`, `token_revoked`, `not_authed` and `account_inactive` exit
-  1 from `announce`, while `Client.send`
-  (`internal/messaging/messaging.go:159`) maps the same `ok:false` from
-  `auth.test` to `ErrRejected` and exit 3.
-- `internal/httpx/httpx.go:50` — `Unreachable` returns `ErrRedirected`
-  without wrapping the caller's unreachable sentinel; `unreachableErrors`
-  (`internal/cli/scriptable.go:346`) lists the three services' sentinels,
-  `errUnreachable` and `httpx.ErrRateLimited` (`:347`) but not
-  `httpx.ErrRedirected`, so `ExitStatus` (`:282`) falls to `exitFailure`,
-  while `credentialOutcome` (`internal/cli/doctor.go:305`) maps the same
-  error to `errCredentialRejected` (exit 3) and `transportFaults`
-  (`internal/webserver/errors.go:148`) to `unreachable`.
-  `docs/content/docs/scripting.md:25` says a script tells failures apart by
-  the exit status and (`:35`) promises 5 for a service that did not answer,
-  `docs/content/docs/configuration.md:119` describes the login redirect an
-  SSO gateway sends, and `TestExitStatusDistinguishesFailureKinds`
-  (`internal/cli/exitstatus_test.go:71`) has a rate-limited case and no
-  redirect case.
-
-A script that re-provisions on exit 3 never sees a token that died between
-`doctor` and `announce`; one that retries on 3 after a login misses the 403
-with a reason; one that waits on 5 behind an SSO gateway gets 1 and gives
-up.
-
-**One way to fix it.** Wrap the 403 reason in a type whose `Is` matches
-`ErrForbidden` as `notFoundError` does for 404, then pick the one family; in
-`postAsBot` classify Slack's auth error codes as `ErrRejected` and the rest
-as `ErrPostRefused`; and have `httpx.Unreachable` wrap the caller's
-sentinel around `ErrRedirected` — or list `ErrRedirected` in
-`unreachableErrors` — so every surface classifies a redirect the same way.
-
-**Done when.** A case in `internal/jira/answer_test.go` serving 403 with a
-JSON reason asserts `errors.Is` holds for both `jira.ErrForbidden` and
-`jira.ErrRejected` with the reason in the message, and an exit-status test
-maps it to one family; a fake `chat.postMessage` answering
-`{"ok":false,"error":"invalid_auth"}` yields `errors.Is(err, ErrRejected)`
-and `ExitStatus` 3; and an exit-status case where the forge or Jira
-answers a redirect exits 5 (or the 3 `doctor --online` gives, whichever the
-maintainer picks), never 1.
-
 ### DEBT-99 `wiring` connects to the forge twice, over five clumped signatures
 
 Severity: low · Confidence: read
@@ -1368,7 +1307,7 @@ that fails leaves the token empty while `hasToken`
 and the mode stays bot; `postAsBot` (`internal/messaging/post.go:109`) then
 sends a `Bearer` header with nothing after the word, and the Messaging pane
 and `workflow announce` word a command that could not run as a refused
-credential, in the service's own words. The gobco report shows the
+credential. The gobco report shows the
 `MessagingBot` arm at `internal/wiring/wiring.go:286` "56 times false but
 never true".
 
@@ -2803,7 +2742,7 @@ whose printed sentence claims more than their check measures, CI jobs and
 triggers that do not do what their comments say, and tests named or shaped
 for something other than what they prove.
 
-### DEBT-64 The condition-coverage worklist: 431 one-sided conditions, and 17 never evaluated
+### DEBT-64 The condition-coverage worklist: 431 one-sided conditions, and 16 never evaluated
 
 Severity: low · Confidence: measured
 
@@ -2831,10 +2770,8 @@ the do-nothing guards' second operands, never seen true: `repo == ""` in
 `Store.CachedIssues` and `Store.CacheIssues` (`internal/store/cache.go:32`,
 `:99`), and `s.dir == ""` in `Store.off` (`internal/store/store.go:135`).
 
-Seventeen conditions were never evaluated. Five are a test away:
+Sixteen conditions were never evaluated. Four are a test away:
 
-- `internal/cli/doctor_json.go:237` — `credentialStatus`'s `errUnreachable`
-  case: no `doctor --json --online` test has a credential check fail.
 - `internal/tui/messaging.go:90` and `:92` — `quitGuard.handleKey`'s confirm
   and stay: `TestQuittingWithAQueuedPostAsksFirst` opens the guard but
   presses neither enter (quit) nor esc (stay) in it.

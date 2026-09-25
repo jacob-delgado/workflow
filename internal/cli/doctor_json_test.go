@@ -6,6 +6,7 @@ package cli_test
 import (
 	"encoding/json"
 	"net/http"
+	"net/http/httptest"
 	"strings"
 	"sync/atomic"
 	"testing"
@@ -113,5 +114,40 @@ func TestDoctorJSONOnlineNamesTheIdentityWithoutTheToken(t *testing.T) {
 
 	if !ok || credentials["checked"] != true || !strings.Contains(output, "authenticates as") {
 		t.Errorf("the online report does not name the identity as data:\n%s", output)
+	}
+}
+
+// credentialStatusIn is the status the online report gives service, or "" when
+// the report names no such service.
+func credentialStatusIn(report map[string]any, service string) string {
+	credentials, _ := report["credentials"].(map[string]any)
+	results, _ := credentials["results"].([]any)
+
+	for _, result := range results {
+		line, _ := result.(map[string]any)
+		if line["service"] == service {
+			status, _ := line["status"].(string)
+
+			return status
+		}
+	}
+
+	return ""
+}
+
+func TestDoctorJSONOnlineReportsARedirectAsUnreachable(t *testing.T) {
+	// Arrange
+	server := httptest.NewServer(http.HandlerFunc(redirecting))
+	t.Cleanup(server.Close)
+
+	dir := t.TempDir()
+	writeConfigFor(t, dir, server.URL)
+
+	// Act
+	output, _ := run(t, dir, "doctor", "--json", "--online")
+
+	// Assert
+	if got := credentialStatusIn(decodeReport(t, output), "jira"); got != "unreachable" {
+		t.Errorf("the online report calls Jira's redirect %q, want unreachable:\n%s", got, output)
 	}
 }
