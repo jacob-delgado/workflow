@@ -85,7 +85,7 @@ Severity: low · Confidence: read
 
 `wiring.Deps` (`internal/wiring/wiring.go:72`) returns `tui.Deps`, so the
 wiring package imports the terminal interface; the CLI's `WebDeps`
-(`internal/cli/cli.go:284`) then narrows that bundle for the web server.
+(`internal/cli/cli.go:292`) then narrows that bundle for the web server.
 The seams are not the terminal's — they are the loop's. That import no
 longer stands in the way of shared composition: `internal/loop` takes each
 seam as a plain argument (`loop.PullSeams`, `loop.AnnounceSeams`) and never
@@ -235,8 +235,8 @@ The plumbing:
 - `internal/wiring/wiring.go:4` — the package comment "connects the terminal
   interface" to the clients, and the `CLAUDE.md:31` row "connects the
   interface's seams", name one of three consumers: `connectAt`
-  (`internal/cli/cli.go:377`) builds every command over `wiring.Deps`,
-  `WebDeps` (`internal/cli/cli.go:284`) hands the same bundle to the web,
+  (`internal/cli/cli.go:387`) builds every command over `wiring.Deps`,
+  `WebDeps` (`internal/cli/cli.go:292`) hands the same bundle to the web,
   and the row below (`CLAUDE.md:32`) already says `loop` is "for every
   surface".
 - `internal/wiring/wiring.go:140` — `browserCommand`'s comment promises
@@ -803,9 +803,9 @@ three; no linter or knip rule sees any of it.
   inline in `CommitForm` (`web/src/features/branch/CommitForm.tsx:108`).
   The primary button's three sizes are UX-113; one `Button` component (or
   one primary and one secondary class) closes both.
-- `internal/cli/cli.go:366` — `connectLeniently` discards `os.UserHomeDir`'s
-  error under a "not a failure" comment (`:364`); `loadFromEnvironment`
-  (`:440`), `statusesOf` (`internal/cli/status.go:162`) and
+- `internal/cli/cli.go:376` — `connectLeniently` discards `os.UserHomeDir`'s
+  error under a "not a failure" comment (`:374`); `loadFromEnvironment`
+  (`:464`), `statusesOf` (`internal/cli/status.go:162`) and
   `completeAssignedIssues` (`internal/cli/scriptable.go:132`) repeat the
   discard and the comment, and `targetDir`
   (`internal/cli/config_cmd.go:128`) is the one caller that must keep the
@@ -931,26 +931,6 @@ switches in `internal/cli/status.go`, `checkable` in
 `TestCreateBranchRejectsAnEmptyIssue` still passing; the Internal arm exists
 once; and the v8 summary lists no uncovered null return for the four panels
 and none has a null check.
-
-### DEBT-103 The request log's write and close errors are dropped
-
-Severity: low · Confidence: read
-
-`record` (`internal/wiring/reqlog.go:88`) writes each outline with
-`fmt.Fprintf` and drops its error; `.golangci.yml:76` excludes `fmt.Fprintf`
-from `errcheck` by name, so its comment that "Writes to FILES are still
-checked" does not hold for this file write, and `openRequestLog`
-(`internal/cli/cli.go:425`) hands the log an `*os.File` and ignores the
-close error too. A `--log` on a full disk records nothing and nobody is
-told, so the bug report the log exists for arrives empty; the reqlog tests
-write to a `strings.Builder`, so a failing writer is untested.
-
-**One way to fix it.** Check the write once in `record` and keep the first
-error on the log for the command line to report at close; and make the
-`.golangci.yml` comment say which file writes are and are not covered.
-
-**Done when.** A reqlog test with a writer that fails sees the failure
-surfaced.
 
 ### DEBT-105 The contributor documents restate counts and names the tree has moved past
 
@@ -1655,7 +1635,7 @@ would close the window, is FEAT-79.
 - `internal/forge/pulls.go:213` — `pickPull` returns the merged pull
   request with found true when no open one exists, as `IsOpen`'s comment
   at `internal/forge/pulls.go:89` warns callers.
-- `internal/cli/cli.go:296` — `WebDeps` wires `FindPull` to the raw
+- `internal/cli/cli.go:304` — `WebDeps` wires `FindPull` to the raw
   `FindPullRequest`, so the web sees a merged pull as found.
 - `internal/webserver/stream.go:188` — `snapshotReview` passes that found
   through to `review` unchanged.
@@ -1975,13 +1955,13 @@ Severity: medium · Confidence: read
 internal problem without recording `err`. No non-test file in
 `internal/webserver` writes a log line (zero matches for `log.`, `slog` or
 `Stderr`, by grep) and nothing sets an `ErrorLog`. The notes writer the
-command line hands `serve` (`internal/cli/cli.go:196`, `cmd.ErrOrStderr()`)
+command line hands `serve` (`internal/cli/cli.go:199`, `cmd.ErrOrStderr()`)
 carries only the address line `WebServerAt` prints
-(`internal/cli/cli.go:273`).
+(`internal/cli/cli.go:281`).
 
 A user who meets a 500 is told to look at the terminal and finds only the
 address line; the unclassified seam error is gone, so neither the user nor
-a bug report can say what failed. `--log` (`internal/cli/cli.go:210`)
+a bug report can say what failed. `--log` (`internal/cli/cli.go:214`)
 outlines each request's method, path, status and duration, not the cause.
 CLAUDE.md says never to swallow an error.
 

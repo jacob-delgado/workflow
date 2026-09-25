@@ -11,6 +11,7 @@ import (
 	"io"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 
 	"github.com/spf13/cobra"
@@ -405,12 +406,13 @@ func (c connection) unreadConfiguration() error {
 }
 
 // requestLogFor opens the request log --log names, or none when it names no
-// file. The root declares --log for every command, so it is always there to
-// read.
+// file, warning on the command's stderr at close when it was not fully
+// written. The root declares --log for every command, so it is always there
+// to read.
 func requestLogFor(cmd *cobra.Command) (*wiring.RequestLog, func(), error) {
 	path, _ := cmd.Flags().GetString(logFlag)
 
-	return openRequestLog(path)
+	return openRequestLog(path, cmd.ErrOrStderr())
 }
 
 // logFileMode is the permission a request log is created with. Like the
@@ -420,7 +422,7 @@ const logFileMode os.FileMode = 0o600
 // openRequestLog opens the request-outline log named by path. An empty path
 // means no logging: the log is nil and the returned close is a no-op, so the
 // caller wires and closes it the same way either way.
-func openRequestLog(path string) (*wiring.RequestLog, func(), error) {
+func openRequestLog(path string, warn io.Writer) (*wiring.RequestLog, func(), error) {
 	if path == "" {
 		return nil, func() {}, nil
 	}
@@ -431,7 +433,20 @@ func openRequestLog(path string) (*wiring.RequestLog, func(), error) {
 		return nil, func() {}, fmt.Errorf("opening the request log: %w", err)
 	}
 
-	return wiring.NewRequestLog(file, nil), func() { _ = file.Close() }, nil
+	requestLog := wiring.NewRequestLog(file, nil)
+
+	return requestLog, func() { closeRequestLog(requestLog, file, warn) }, nil
+}
+
+// closeRequestLog closes the log's file and, when an outline was lost or the
+// file did not close cleanly, says so on warn in one line. The command's own
+// result stands: its work was done, and only the record of it is incomplete.
+func closeRequestLog(requestLog *wiring.RequestLog, file *os.File, warn io.Writer) {
+	err := errors.Join(requestLog.Err(), file.Close())
+	if err != nil {
+		reason := strings.ReplaceAll(err.Error(), "\n", "; ")
+		fmt.Fprintf(warn, "workflow: the request log could not be fully written: %s\n", reason)
+	}
 }
 
 // loadFromEnvironment loads the configuration that applies to this process,
