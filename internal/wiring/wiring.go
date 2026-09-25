@@ -25,6 +25,7 @@ import (
 	"github.com/jacob-delgado/workflow/internal/forge"
 	"github.com/jacob-delgado/workflow/internal/gitrepo"
 	"github.com/jacob-delgado/workflow/internal/hooks"
+	"github.com/jacob-delgado/workflow/internal/httpx"
 	"github.com/jacob-delgado/workflow/internal/jira"
 	"github.com/jacob-delgado/workflow/internal/messaging"
 	"github.com/jacob-delgado/workflow/internal/proc"
@@ -68,17 +69,18 @@ func Locate(ctx context.Context, dir string) Workspace {
 
 // Deps connects the interface to the real Jira, repository, forge, messaging
 // service, lefthook and editor. A non-nil log records the outline of every
-// request each service makes.
+// request each service makes. The services share one redirect-refusing HTTP
+// client, so a change to how it is built is made here once.
 func Deps(ctx context.Context, cfg config.Config, where Workspace, log *RequestLog) tui.Deps {
-	timeout := requestTimeout(cfg)
-	setup := forgeSetup{settings: cfg.Forge, where: where, timeout: timeout, log: log}
+	httpTransport := httpx.Client(requestTimeout(cfg)).Do
+	setup := forgeSetup{settings: cfg.Forge, where: where, httpTransport: httpTransport, log: log}
 	connect := onceConnected(func() (forgeConnection, error) { return connectForge(ctx, setup) })
 
 	return tui.Deps{
 		Jira:       trackerDeps(ctx, cfg.Jira, setup, connect),
 		Git:        gitDeps(ctx, where.Root),
 		Forge:      forgeDeps(ctx, setup, connect),
-		Messaging:  messagingDeps(ctx, cfg.Messaging, timeout, log),
+		Messaging:  messagingDeps(ctx, cfg.Messaging, httpTransport, log),
 		Hooks:      hookDeps(ctx, where.Root),
 		Editor:     editorDeps(where.Root),
 		Store:      storeDeps(ctx, cfg, where),
@@ -163,10 +165,10 @@ func requestTimeout(cfg config.Config) time.Duration {
 // jiraDeps is what the interface asks of Jira. It needs no guard for a missing
 // or malformed configuration: the client refuses before sending anything, and
 // the pane shows why.
-func jiraDeps(ctx context.Context, settings config.Jira, timeout time.Duration, log *RequestLog) tui.JiraDeps {
+func jiraDeps(ctx context.Context, settings config.Jira, httpTransport httpx.Doer, log *RequestLog) tui.JiraDeps {
 	settings.Token, _, _ = ResolveToken(ctx, settings.Token, settings.TokenCommand, settings.TokenEnv)
 	//nolint:bodyclose // Wrap only relays the response; the jira client reads and closes its body.
-	client := jira.New(log.Wrap("jira", jira.HTTPClient(timeout).Do), settings)
+	client := jira.New(log.Wrap("jira", httpTransport), settings)
 
 	return tui.JiraDeps{
 		Search: func(jql string, startAt int) (jira.SearchResult, error) { return client.Search(ctx, jql, startAt) },
@@ -289,7 +291,7 @@ func commitWith(ctx context.Context, root, message string) (proc.Output, error) 
 // bot token is resolved from a command or environment variable; the webhook
 // kinds carry the credential in the URL and need no token lookup.
 func messagingDeps(
-	ctx context.Context, settings config.Messaging, timeout time.Duration, log *RequestLog,
+	ctx context.Context, settings config.Messaging, httpTransport httpx.Doer, log *RequestLog,
 ) tui.MessagingDeps {
 	// A webhook's path is its credential; only a bot posts to a route.
 	wrap := log.wrapWebhook
@@ -301,7 +303,7 @@ func messagingDeps(
 
 	service := strings.ToLower(settings.Service())
 	//nolint:bodyclose // wrap only relays the response; the messaging client reads and closes its body.
-	client := messaging.New(wrap(service, messaging.HTTPClient(timeout).Do), messaging.APIBase, settings)
+	client := messaging.New(wrap(service, httpTransport), messaging.APIBase, settings)
 
 	return tui.MessagingDeps{Post: func(channel, text string) error { return client.Post(ctx, channel, text) }}
 }

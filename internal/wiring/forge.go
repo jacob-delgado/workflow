@@ -9,10 +9,10 @@ import (
 	"fmt"
 	"os"
 	"sync"
-	"time"
 
 	"github.com/jacob-delgado/workflow/internal/config"
 	"github.com/jacob-delgado/workflow/internal/forge"
+	"github.com/jacob-delgado/workflow/internal/httpx"
 	"github.com/jacob-delgado/workflow/internal/proc"
 	"github.com/jacob-delgado/workflow/internal/tui"
 )
@@ -27,13 +27,13 @@ type forgeConnection struct {
 }
 
 // forgeSetup is what connecting to the forge reads: the configuration's say, the
-// workspace whose origin names the repository, how long a request may take, and
-// the log that records each one.
+// workspace whose origin names the repository, the HTTP transport every service
+// shares, and the log that records each request.
 type forgeSetup struct {
-	settings config.Forge
-	where    Workspace
-	timeout  time.Duration
-	log      *RequestLog
+	settings      config.Forge
+	where         Workspace
+	httpTransport httpx.Doer
+	log           *RequestLog
 }
 
 // mergeSeams builds the two merge seams over a connect, kept out of forgeDeps
@@ -233,7 +233,7 @@ func connectForge(ctx context.Context, setup forgeSetup) (forgeConnection, error
 		return forgeConnection{}, fmt.Errorf("%s — set forge.kind and forge.host: %w", repo.Host, err)
 	}
 
-	access, err := ReachForge(ctx, setup.settings, repo, base, setup.timeout)
+	access, err := ReachForge(ctx, setup.settings, repo, base, setup.httpTransport)
 	if err != nil {
 		return forgeConnection{}, err
 	}
@@ -258,14 +258,16 @@ type ForgeAccess struct {
 }
 
 // ReachForge chooses how requests reach repo's forge at base, and finds the
-// credential they carry. A forge reached through its CLI needs no token, since
-// the CLI signs every request with the login it already holds. The commands and
-// doctor --online both reach the forge through here, so the two cannot come to
-// reach it differently.
+// credential they carry: through the forge's CLI when forge.cli routes them
+// there, and otherwise over httpTransport, the redirect-refusing client the
+// caller built with httpx.Client. A forge reached through its CLI needs no
+// token, since the CLI signs every request with the login it already holds.
+// The commands and doctor --online both reach the forge through here, so the
+// two cannot come to reach it differently.
 func ReachForge(
-	ctx context.Context, settings config.Forge, repo forge.Repo, base string, timeout time.Duration,
+	ctx context.Context, settings config.Forge, repo forge.Repo, base string, httpTransport httpx.Doer,
 ) (ForgeAccess, error) {
-	transport, usingCLI := forgeTransport(ctx, settings, repo, base, timeout)
+	transport, usingCLI := forgeTransport(ctx, settings, repo, base, httpTransport)
 
 	token, source, err := ForgeResolver(settings).Resolve(ctx, repo.Kind, repo.Host)
 	if !usingCLI {

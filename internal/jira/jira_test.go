@@ -296,7 +296,7 @@ func TestMyselfRefusesARedirect(t *testing.T) {
 	}))
 	t.Cleanup(first.Close)
 
-	client := jira.New(jira.HTTPClient(5*time.Second).Do, bearerConfig(first.URL))
+	client := jira.New(httpx.Client(5*time.Second).Do, bearerConfig(first.URL))
 
 	// Act
 	_, err := client.Myself(t.Context())
@@ -378,7 +378,7 @@ func TestMyselfReportsAnUnreachableServer(t *testing.T) {
 	baseURL := server.URL
 	server.Close()
 
-	client := jira.New(jira.HTTPClient(2*time.Second).Do, bearerConfig(baseURL))
+	client := jira.New(httpx.Client(2*time.Second).Do, bearerConfig(baseURL))
 
 	// Act
 	_, err := client.Myself(t.Context())

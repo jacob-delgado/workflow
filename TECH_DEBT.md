@@ -1064,38 +1064,6 @@ names; `grep -n 'web/' SECURITY.md` matches inside the in-scope list; `grep
 and `grep -n 'two shells\|Shell 2' Taskfile.yml` prints nothing above the
 `dev` task.
 
-### DEBT-106 Two helpers the clients spell by hand past the rule of three
-
-Severity: low · Confidence: read
-
-Two helpers the clients spell by hand past the rule of three. Both sit
-below `dupl`'s token threshold, so no gate sees them.
-
-- The JSON write. Jira's marshal, `newRequest`, `Content-Type` triple
-  appears in five write methods in two shapes: `Assign`
-  (`internal/jira/assignee.go:29`), `LinkPullRequest`
-  (`internal/jira/detail.go:248`) and `ApplyTransition`
-  (`internal/jira/transitions.go:89`) set the header after a return-early
-  check, while `AddComment` (`internal/jira/detail.go:211`) and `AddWorklog`
-  (`internal/jira/worklog.go:47`) set it inside `if err == nil`. The next
-  Jira write copies the triple a sixth time and picks a shape, and the
-  one-sided `err == nil` guards the copies carry sit in DEBT-64's worklist
-  (`internal/jira/worklog.go:46`, "2 times true but never false").
-- The transport. `HTTPClient` in `internal/messaging/messaging.go:86`,
-  `internal/jira/jira.go:98` and `internal/forge/client.go:101` each return
-  `httpx.Client(timeout)` unchanged — the middle man CLAUDE.md's catalog
-  names, written three times — while `onlineDoer`
-  (`internal/cli/doctor_credentials.go:71`) already calls `httpx.Client`
-  directly. A change to the transport's construction is a four-site edit.
-
-**One way to fix it.** One `newJSONRequest(ctx, method, path, body any)`
-in `jira` that marshals, calls `newRequest` and sets the header; and
-`wiring` calling `httpx.Client` once with the three wrappers deleted.
-
-**Done when.** `grep -c 'Content-Type'
-internal/jira/{assignee,detail,transitions,worklog}.go` reads 0 with one
-helper carrying it; and no package but `httpx` defines `HTTPClient`.
-
 ## The terminal interface
 
 What is open here is a set of appliers and guards that read stale state or skip
@@ -1997,7 +1965,7 @@ terminal skips a pull that is not open (DEBT-127).
 - `internal/wiring/forge.go:109` — the `Author` seam runs
   `connection.client.Whoami(ctx)` on every call; only the connection is
   memoized.
-- `internal/forge/client.go:105` — `Client.Whoami` is one uncached GET of
+- `internal/forge/client.go:121` — `Client.Whoami` is one uncached GET of
   `userPath`.
 - `internal/tui/messaging.go:102` — `Model.loadAuthor` skips the read once
   `m.messaging.author` is set; the web diverges on the same seam.
@@ -2352,7 +2320,7 @@ keeps git's words off the wire for exactly that reason.
 - `internal/httpx/httpx.go:50` — `Unreachable` wraps a redirect as
   `ErrRedirected` with " at "+base in its text and never the caller's
   sentinel.
-- `internal/forge/client.go:214` — `Client.exchange` passes `c.base` into
+- `internal/forge/client.go:218` — `Client.exchange` passes `c.base` into
   that text; nothing re-wraps it before the handler.
 - `internal/webserver/errors.go:148` — the `httpx.ErrRedirected` class in
   `faultClasses`, the curated 502 the read path gives for the same

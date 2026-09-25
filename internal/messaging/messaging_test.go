@@ -238,7 +238,7 @@ func TestAuthTestReportsAnUnreachableAPI(t *testing.T) {
 	base := server.URL
 	server.Close()
 
-	client := messaging.New(messaging.HTTPClient(2*time.Second).Do, base, botCredentials())
+	client := messaging.New(httpx.Client(2*time.Second).Do, base, botCredentials())
 
 	// Act
 	_, err := client.AuthTest(t.Context())
@@ -266,7 +266,7 @@ func TestAuthTestReportsAnUnreadableBody(t *testing.T) {
 	}
 }
 
-func TestHTTPClientRefusesARedirect(t *testing.T) {
+func TestAuthTestRefusesARedirect(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
@@ -284,7 +284,7 @@ func TestHTTPClientRefusesARedirect(t *testing.T) {
 	}))
 	t.Cleanup(first.Close)
 
-	client := messaging.New(messaging.HTTPClient(5*time.Second).Do, first.URL, botCredentials())
+	client := messaging.New(httpx.Client(5*time.Second).Do, first.URL, botCredentials())
 
 	// Act
 	_, err := client.AuthTest(t.Context())

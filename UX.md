@@ -379,7 +379,7 @@ that explains the machine, has no row for either.
 - `internal/wiring/forgecli.go:33` (`forgeTransport`): `if !ok ||
   !proc.Available(program)` falls back to plain HTTP with no note that
   `forge.cli` was set and ignored, and `forgeProgram` names `glab` for
-  GitLab (`:57`), the program doctor never looks for. A GitLab user who
+  GitLab (`:56`), the program doctor never looks for. A GitLab user who
   sets `forge.cli` and forgets to install glab has every forge call go
   over HTTP with nothing saying why SSO still blocks it.
 
