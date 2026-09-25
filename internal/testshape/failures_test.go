@@ -130,6 +130,44 @@ func TestAnAssertThatReachesAFailurePasses(t *testing.T) {
 			"\tfail := func() { t.Error(\"x\") }\n\thooks := struct{ on func() }{on: fail}\n\t_ = hooks\n"),
 		"through a closure listed in a slice literal": asserting(
 			"\tfail := func() { t.Error(\"x\") }\n\thooks := []func(){fail}\n\t_ = hooks\n"),
+		"through a closure declared around the subtest": test(`	fail := func() { t.Error("x") }
+
+	t.Run("x", func(t *testing.T) {
+		// Act
+		x := 1
+
+		// Assert
+		if x != 1 {
+			fail()
+		}
+	})
+`),
+		"through a receiver a sibling subtest declares otherwise": test(`	t.Run("world", func(t *testing.T) {
+		// Arrange
+		w := world{}
+
+		// Act
+		x := 1
+
+		// Assert
+		w.check(t, x)
+	})
+
+	t.Run("quiet", func(t *testing.T) {
+		// Arrange
+		w := quiet{}
+
+		// Act
+		x := 1
+
+		// Assert
+		w.note(t, x)
+		if x != 1 {
+			t.Error("x")
+		}
+	})
+`,
+			world, checkers),
 		"through a chain": asserting("\touter(t, x)\n",
 			"\nfunc outer(t *testing.T, x int) { inner(t, x) }\n",
 			"\nfunc inner(t *testing.T, x int) {\n\tif x != 1 {\n\t\tt.Error(\"x\")\n\t}\n}\n"),
@@ -223,6 +261,35 @@ func TestAnAssertThatReachesNoFailureIsReported(t *testing.T) {
 		"an unnamed import named like a helper": {
 			source: "package fixture_test\n\nimport (\n\t\"testing\"\n\n\t\"example.com/check\"\n)\n\n" +
 				"func TestX(t *testing.T) {\n\t// Act\n\tx := 1\n\n\t// Assert\n\tcheck.expect(t, x)\n}\n" + world,
+			line: 13,
+		},
+		"a closure only a sibling subtest declares asserting": {
+			source: test(`	t.Run("quiet", func(t *testing.T) {
+		// Arrange
+		fail := func() {}
+
+		// Act
+		x := 1
+
+		// Assert
+		if x != 1 {
+			fail()
+		}
+	})
+
+	t.Run("loud", func(t *testing.T) {
+		// Arrange
+		fail := func() { t.Error("x") }
+
+		// Act
+		x := 1
+
+		// Assert
+		if x != 1 {
+			fail()
+		}
+	})
+`),
 			line: 13,
 		},
 		"a failure only in the Arrange": {

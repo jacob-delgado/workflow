@@ -12,7 +12,10 @@
 // receiver's type where syntax shows that type (a composite literal, new, a
 // call of one of the package's functions, or a name declared with one of those
 // or with a type), and otherwise by name while every method of the name agrees
-// on whether it asserts; where they disagree, the call is reported.
+// on whether it asserts; where they disagree, the call is reported. A function
+// literal stored under a name counts where that name is called, handed to a
+// call or set in a composite literal, and a subtest sees the closures declared
+// around it but none a sibling subtest declares.
 package testshape
 
 import (

@@ -3909,38 +3909,6 @@ rename nobody sees coming.
 `<prefix>: Bump the <group> group across 2 directories with 10 updates` is
 at most 72 characters.
 
-### DEBT-155 `testshape` resolves a closure name across sibling subtests
-
-Severity: low · Confidence: read
-
-A table test's Assert can pass the assert-without-failure rule while
-asserting nothing. The package doc (`internal/testshape/testshape.go:8`)
-states the syntax-only design, but not this consequence.
-
-- `internal/testshape/scope.go:41` — `newScope` walks the whole
-  top-level declaration once, and `checkTest`
-  (`internal/testshape/bodies.go:70`) reuses that scope for every subtest's
-  Assert through `reaches` (`internal/testshape/sections.go:250`);
-  `addStored` (`internal/testshape/scope.go:125`) keys `closures` by
-  name with the last assignment winning, and `follow`
-  (`internal/testshape/failures.go:184`) resolves a called name through it.
-  In a table test where two `t.Run` closures each declare `fail := func()
-  {…}`, a non-asserting subtest's `fail()` resolves to a later sibling's
-  asserting literal.
-
-It is not tripped in this tree. The cost is the blind spot: the first pair
-of sibling subtests declaring one closure name silently widens what the
-gate passes.
-
-**One way to fix it.** Scope `closures` per `t.Run` literal, or refuse a
-name assigned twice in one declaration.
-
-**Done when.** A fixture in `TestAnAssertThatReachesNoFailureIsReported` —
-a table test whose non-asserting subtest `fail := func() {}` precedes a
-sibling's asserting `fail` — yields one assert-without-failure violation,
-while the existing "inside a closure", "inside a go" and "through a
-closure" cases still pass.
-
 ### DEBT-156 Budget history's PR column holds backlog IDs in nine of fifteen rows
 
 Severity: low · Confidence: read

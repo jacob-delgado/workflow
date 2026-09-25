@@ -94,7 +94,7 @@ func (p *pkg) findHelperOutcomes() {
 		changed = false
 
 		for function, file := range p.fileOf {
-			found := newScope(p, file, function).reaches(function.Body.List).outcome
+			found := helperScope(p, file, function).reaches(function.Body.List).outcome
 			if found > p.outcomes[function] {
 				p.outcomes[function], changed = found, true
 			}
