@@ -424,3 +424,25 @@ func TestDoctorOnlineDistinguishesAnUnreachableServiceFromARejection(t *testing.
 
 	wantExit(t, err, 5)
 }
+
+func TestDoctorOnlineCountsARedirectAsUnreachable(t *testing.T) {
+	// Arrange
+	// A sign-in gateway in front of Jira answers with a redirect, which is
+	// refused: the credential was never put to Jira, so it was not rejected.
+	server := httptest.NewServer(http.HandlerFunc(redirecting))
+	t.Cleanup(server.Close)
+
+	dir := t.TempDir()
+	writeConfigFor(t, dir, server.URL)
+
+	// Act
+	output, err := run(t, dir, "doctor", "--online")
+
+	// Assert
+	if err == nil || strings.Contains(err.Error(), "a credential was rejected") ||
+		!strings.Contains(output, "redirect") {
+		t.Errorf("doctor --online = %v, want the redirect told as unreachable, not rejected:\n%s", err, output)
+	}
+
+	wantExit(t, err, 5)
+}
