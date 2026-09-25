@@ -63,3 +63,21 @@ func TestABranchIsPushedWhenItsPushRemoteHasEverything(t *testing.T) {
 		})
 	}
 }
+
+func TestABranchNeverPushedNamesTheRemoteItsPushGoesTo(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	replies := with(featureBranch(), map[string]reply{
+		readPushDefault: {out: []byte(forkRemote + "\n")},
+		readUpstream:    {err: errNoUpstream},
+	})
+
+	// Act
+	branch, err := gitrepo.At(fakeRunner(t, replies), workDir).ReadBranch(t.Context())
+
+	// Assert
+	if err != nil || branch.Upstream != "" || branch.PushRemote != forkRemote {
+		t.Errorf("ReadBranch = %+v, %v; want no upstream and push remote %q", branch, err, forkRemote)
+	}
+}

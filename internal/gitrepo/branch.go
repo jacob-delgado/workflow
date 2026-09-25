@@ -64,8 +64,7 @@ type Branch struct {
 	Head string
 	// Upstream is the remote branch it tracks, or empty if never pushed.
 	Upstream string
-	// PushRemote is the remote a push of it goes to, read only when it has an
-	// upstream to compare with, and empty otherwise.
+	// PushRemote is the remote a push of it goes to.
 	PushRemote string
 	// Ahead and Behind count commits against the upstream.
 	Ahead, Behind int
@@ -83,8 +82,7 @@ type Branch struct {
 }
 
 // PushTarget is the remote branch a push of this one lands on, "fork/feat" for
-// feat pushed to fork. It names no remote for a branch with no upstream, whose
-// push remote is not read.
+// feat pushed to fork.
 func (b Branch) PushTarget() string {
 	return b.PushRemote + "/" + b.Name
 }
@@ -151,14 +149,15 @@ func (r Repository) ReadBranch(ctx context.Context) (Branch, error) {
 	}
 
 	branch := Branch{
-		Name:     text(name),
-		Detached: text(name) == "",
-		Head:     git("rev-parse", "HEAD"),
-		Upstream: git("rev-parse", "--abbrev-ref", "--symbolic-full-name", "@{upstream}"),
-		Ahead:    0,
-		Behind:   0,
-		Base:     base(git),
-		Commits:  nil,
+		Name:       text(name),
+		Detached:   text(name) == "",
+		Head:       git("rev-parse", "HEAD"),
+		Upstream:   git("rev-parse", "--abbrev-ref", "--symbolic-full-name", "@{upstream}"),
+		PushRemote: r.PushRemote(ctx),
+		Ahead:      0,
+		Behind:     0,
+		Base:       base(git),
+		Commits:    nil,
 	}
 
 	err = shownAsTheyAre(branch.Name, branch.Upstream, branch.Base)
@@ -168,7 +167,6 @@ func (r Repository) ReadBranch(ctx context.Context) (Branch, error) {
 
 	if branch.Upstream != "" {
 		branch.Behind, branch.Ahead = counts(git("rev-list", "--left-right", "--count", "@{upstream}...HEAD"))
-		branch.PushRemote = r.PushRemote(ctx)
 	}
 
 	if branch.Base != "" && branch.Head != "" {

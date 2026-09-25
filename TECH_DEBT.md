@@ -2633,9 +2633,10 @@ terminal skips a pull that is not open (DEBT-127).
   second.
 - `internal/webserver/stream.go:121` — `server.currentBranchName`, the
   third, called from `snapshotBranches`.
-- `internal/gitrepo/branch.go:134` — `Repository.ReadBranch` runs
-  `branch --show-current`, `rev-parse HEAD`, `rev-parse @{upstream}`, the
-  base lookup, `rev-list`, `log` and `log -1` per read.
+- `internal/gitrepo/branch.go:141` — `Repository.ReadBranch` runs
+  `branch --show-current`, `rev-parse HEAD`, `rev-parse @{upstream}`,
+  `config --get remote.pushDefault`, the base lookup, `rev-list`, `log` and
+  `log -1` per read.
 - `internal/webserver/handlers.go:182` — `server.review` calls `CheckCI`
   whenever a pull is found; `Model.checkCI` (`internal/tui/review.go:105`)
   does not unless `State == StateOpen`.
@@ -2648,8 +2649,8 @@ On GitHub with an open pull a frame is at least six forge requests —
 (`defaultStreamInterval`, `internal/webserver/stream.go:20`) against GitHub's
 5,000-an-hour limit; when the limit is hit, `snapshot` folds the failure into
 empty panels with no signal (its comment at `internal/webserver/stream.go:81`
-says so). About twenty-three git processes per frame — three branch reads of
-seven commands each, plus the changes and branches reads — where nine would do,
+says so). About twenty-six git processes per frame — three branch reads of
+eight commands each, plus the changes and branches reads — where ten would do,
 and a branch, review and in-flight marker read at three instants, so the panels
 can describe different branches when a checkout lands between the reads.
 
