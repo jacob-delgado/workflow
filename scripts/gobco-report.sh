@@ -193,7 +193,7 @@ fi
 rm -rf "${out_dir}"
 mkdir -p "${out_dir}"
 
-echo "Condition coverage (gobco, short mode, no -race):"
+echo "Condition coverage (gobco, no -race):"
 echo
 
 skipped=""
