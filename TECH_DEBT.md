@@ -1385,25 +1385,6 @@ and `ExitStatus` 3; and an exit-status case where the forge or Jira
 answers a redirect exits 5 (or the 3 `doctor --online` gives, whichever the
 maintainer picks), never 1.
 
-### DEBT-96 The workflow-run list reads one page of 100 and drops the rest
-
-Severity: low · Confidence: read
-
-The workflow-run list asks for one full page (`perPage`,
-`internal/forge/client.go:52`) and never a second; the issue and review
-listings and the CI reads walk theirs to the end through `readPages`
-(`internal/forge/client.go:330`). So the 101st failed run on a commit is
-not re-run, and nothing says so.
-
-- `internal/forge/githubci.go:94` — `githubRerun` lists
-  `actions/runs?head_sha=…&per_page=100`, one page.
-
-**One way to fix it.** Page it through `readPages`, as the other listings
-do.
-
-**Done when.** A test serving 101 items sees the 101st, or a truncated
-listing is reported as such.
-
 ### DEBT-99 `wiring` connects to the forge twice, over five clumped signatures
 
 Severity: low · Confidence: read

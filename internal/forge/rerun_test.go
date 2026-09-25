@@ -6,6 +6,7 @@ package forge_test
 import (
 	"errors"
 	"net/http"
+	"strconv"
 	"strings"
 	"testing"
 
@@ -36,8 +37,8 @@ func TestRerunChecksReRunsGitHubsFailedRuns(t *testing.T) {
 		t.Fatalf("RerunChecks = %v, %v, want a re-run", reran, err)
 	}
 
-	if got := requestTo(*seen, runsPath); got.query != "head_sha=abc123&per_page=100" {
-		t.Errorf("runs asked with query %q, want the head sha and a full page", got.query)
+	if got := requestTo(*seen, runsPath); got.query != "head_sha=abc123&page=1&per_page=100" {
+		t.Errorf("runs asked with query %q, want the head sha and a full first page", got.query)
 	}
 
 	if got := requestTo(*seen, failed); got.method != http.MethodPost {
@@ -46,6 +47,37 @@ func TestRerunChecksReRunsGitHubsFailedRuns(t *testing.T) {
 
 	if got := requestTo(*seen, succeeded); got.method != "" {
 		t.Errorf("re-ran the passed run with %q, want it left alone", got.method)
+	}
+}
+
+func TestRerunChecksReRunsAFailedRunPastTheFirstPage(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	// A hundred runs passed; the one that failed is the hundred-and-first, on
+	// the second page. Its re-run is the only one served, so any other would
+	// fail the test.
+	const (
+		runsPath = "/repos/example/repo/actions/runs"
+		lastRun  = runsPath + "/101/rerun-failed-jobs"
+	)
+
+	passed := func(number int) string { return `{"id":` + strconv.Itoa(number) + `,"conclusion":"success"}` }
+
+	client := forgePaging(t, map[string][]string{
+		runsPath: {
+			`{"total_count":101,"workflow_runs":` + listingOf(1, 100, passed) + `}`,
+			`{"total_count":101,"workflow_runs":[{"id":101,"conclusion":"failure"}]}`,
+		},
+		lastRun: {`{}`},
+	})
+
+	// Act
+	reran, err := client.RerunChecks(t.Context(), githubRepo(), forge.PullRequest{Number: 42}, "abc123")
+
+	// Assert
+	if err != nil || !reran {
+		t.Errorf("RerunChecks = %v, %v; want the failed run on the second page re-run", reran, err)
 	}
 }
 
