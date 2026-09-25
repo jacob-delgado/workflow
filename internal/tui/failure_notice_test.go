@@ -46,20 +46,6 @@ func TestARefusalNoticeWearsTheFailureStyle(t *testing.T) {
 			keys: []string{"4", "R", keyEnter},
 			want: "nothing to re-run: this failure has no job to restart",
 		},
-		"a repository that permits no merge method": {
-			prepare: func(w *world) {
-				w.pull.Approvals, w.pull.Mergeable, w.mergeMethods = 1, forge.MergeClean, []forge.MergeMethod{}
-			},
-			keys: []string{"4", "M"},
-			want: "cannot merge: the repository permits no merge method",
-		},
-		"merge methods the forge would not show": {
-			prepare: func(w *world) {
-				w.pull.Approvals, w.pull.Mergeable, w.mergeMethodsErr = 1, forge.MergeClean, forge.ErrUnreachable
-			},
-			keys: []string{"4", "M"},
-			want: "cannot merge: The forge did not answer in time.",
-		},
 		"a re-run the forge rejects": {
 			prepare: func(w *world) {
 				w.ci, w.rerunErr = []forge.CI{{State: forge.CIFailed, Total: 1, Done: 1, Failed: 1}}, forge.ErrRejected

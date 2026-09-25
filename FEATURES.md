@@ -234,7 +234,7 @@ Impact: medium · Effort: large
   open one, but cannot re-run failed checks, merge, finish the merged
   branch or edit the pull request's title and body — all of which the
   interface does with `R`, `M`, `F` and `e` (`internal/tui/checks.go:174`,
-  `internal/tui/merge.go:114`, `internal/tui/finish.go:44`,
+  `internal/tui/merge.go:124`, `internal/tui/finish.go:44`,
   `internal/tui/preditor.go:40`). The terminal's merge and finish shipped
   with the web's left for later; this is that later, with the re-run and
   the edit beside them.

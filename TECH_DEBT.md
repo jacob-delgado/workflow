@@ -514,10 +514,10 @@ The terminal:
   no ring; `horizon` (`internal/tui/harness_test.go:27`) is one second, so
   any beat over a second is indistinguishable from `notifyPollInterval`
   (`internal/tui/review.go:188`).
-- `internal/tui/merge_test.go:328` — `TestTheMergePreviewShowsItIsMerging`
+- `internal/tui/merge_test.go:468` — `TestTheMergePreviewShowsItIsMerging`
   presses `j` in flight and asserts only "merging"; without the
   `p.send.sending` guard in `mergePicker.handleKey`
-  (`internal/tui/merge.go:151`), `j` would move the selection and the word
+  (`internal/tui/merge.go:178`), `j` would move the selection and the word
   would still show.
 - `internal/tui/finish_test.go:226` —
   `TestTheFinishPreviewShowsItIsFinishing` presses `x`, a key
@@ -995,35 +995,6 @@ through `loop.ComposePull`'s draft and fill the composer from it.
 **Done when.** A test with `cfg.PullRequest.TitleSource = "issue"` and a
 branch naming an issue absent from the world's list sees the issue's
 summary as the title.
-
-### DEBT-114 The merge picker opens over whatever overlay is open
-
-Severity: medium · Confidence: read
-
-`Model.startMerge` (`internal/tui/merge.go:46`) returns the model untouched
-with only a command: no overlay, no `sendState`, and the keyboard still
-reaches the panes while `MergeMethods` is out. `mergeMethodsLoaded.apply`
-(`internal/tui/merge.go:69`) then assigns `m.overlay` with no check of what
-is open, so an overlay opened meanwhile — the pull request editor, the
-help — is replaced and its input lost. The `applier` contract
-(`internal/tui/overlay.go:62`) says a result for an overlay that has since
-closed does nothing, because the message checks what is open first; the
-sibling loaders `transitionsListed` and `branchesListed` open their overlay
-at once and check it is still open. Press `M`, then `e` and type a new
-title while the methods are still out: when they answer, the editor
-vanishes under the merge picker. Nothing on screen says the methods are
-being read, so a slow forge also invites a second `M` and a second read.
-UX.md's promises table (the "a refused change must never go unseen" row)
-counts 13 overlays that guard a request in flight, each holding a
-`sendState`; this read holds none, so the merge picker's methods read is
-outside the count.
-
-**One way to fix it.** Have `startMerge` open the picker at once in a
-"reading methods…" `sendState` and let `mergeMethodsLoaded.apply` fill it
-through `keepOpenWith`, as every other overlay result does.
-
-**Done when.** A test dispatches `M`, presses `e`, then delivers the
-methods, and the editor is still open.
 
 ### DEBT-115 A `ui.keys` override crashes `jump-to-pane` and leaves the wheel dead in every picker
 

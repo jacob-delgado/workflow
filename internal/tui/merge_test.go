@@ -10,6 +10,9 @@ import (
 	"github.com/jacob-delgado/workflow/internal/forge"
 )
 
+// readingMethods is the merge picker while the methods it offers are read.
+const readingMethods = "loading merge methods…"
+
 // mergeable is newWorld with the pull request green, approved and clean, so it
 // can be merged.
 func mergeable() *world {
@@ -124,23 +127,46 @@ func TestRefusedMergeStaysInItsPreview(t *testing.T) {
 	}
 }
 
-func TestMergeSaysWhyTheMethodsCannotBeRead(t *testing.T) {
-	t.Parallel()
+//nolint:paralleltest // forceANSI owns the global color profile; must run serially.
+func TestAMethodsReadThatFailsIsPinnedInTheMergePicker(t *testing.T) {
+	defer forceANSI(t)()
 
-	// Arrange
-	reviewing := mergeable()
-	reviewing.mergeMethodsErr = forge.ErrRefused
-	model := reviewing.live(t, 120, 40)
+	cases := map[string]struct {
+		prepare func(*world)
+		want    string
+	}{
+		"methods the token may not read": {
+			prepare: func(w *world) { w.mergeMethodsErr = forge.ErrRefused },
+			want:    "The forge refused the request",
+		},
+		"methods the forge would not show": {
+			prepare: func(w *world) { w.mergeMethodsErr = forge.ErrUnreachable },
+			want:    "The forge did not answer in time.",
+		},
+		"a repository that permits no merge method": {
+			prepare: func(w *world) { w.mergeMethods = []forge.MergeMethod{} },
+			want:    "cannot merge: the repository permits no merge method",
+		},
+	}
 
-	// Act
-	after := typing(t, model, "4", "M")
+	for name, tt := range cases {
+		t.Run(name, func(t *testing.T) {
+			// Arrange
+			reviewing := mergeable()
+			tt.prepare(reviewing)
 
-	// Assert
-	requireScreen(t, after.View().Content, "cannot merge")
-	refuseScreen(t, after.View().Content, "Merge by:")
+			// Act
+			view := typing(t, reviewing.live(t, 200, 40), "4", "M").View().Content
+
+			// Assert
+			requireFailureRow(t, view, tt.want)
+			requireScreen(t, view, "Merge pull request", "esc cancel")
+			refuseScreen(t, view, "Merge by:", "enter merge")
+		})
+	}
 }
 
-func TestTheMergeNoticeLeadsWithTheMergeOnANarrowTerminal(t *testing.T) {
+func TestTheMergePickerNamesTheMergeOnANarrowTerminal(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
@@ -151,24 +177,138 @@ func TestTheMergeNoticeLeadsWithTheMergeOnANarrowTerminal(t *testing.T) {
 	view := typing(t, reviewing.live(t, 80, 30), "4", "M").View().Content
 
 	// Assert
-	// The footer clips a long sentence, and no preview is open to name what
-	// failed, so the merge comes first on the row.
-	requireScreen(t, view, "✗ cannot merge: The forge refused the request")
+	// The row clips a long sentence, so the picker's title is what names the
+	// merge the failure stopped.
+	requireScreen(t, view, "Merge pull request", "✗ The forge refused the request")
 }
 
-func TestMergeSaysWhenTheRepositoryPermitsNoMethod(t *testing.T) {
+func TestTheMergePickerSaysItIsReadingTheMethods(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
-	reviewing := mergeable()
-	reviewing.mergeMethods = []forge.MergeMethod{}
-	model := reviewing.live(t, 120, 40)
+	onReview := typing(t, mergeable().live(t, 120, 40), "4")
 
 	// Act
-	after := typing(t, model, "4", "M")
+	// The read is never run, so the methods are still out.
+	reading, _ := pressed(t, onReview, "M")
 
 	// Assert
-	requireScreen(t, after.View().Content, "permits no merge method")
+	requireScreen(t, reading.View().Content, "Merge pull request", readingMethods, "esc cancel")
+	refuseScreen(t, reading.View().Content, "Merge by:", "enter merge")
+}
+
+func TestAMergePickerWithNoMethodTakesOnlyEsc(t *testing.T) {
+	t.Parallel()
+
+	cases := map[string]struct {
+		answered bool
+		key      string
+		showing  string
+	}{
+		"enter while the methods are read":       {key: keyEnter, showing: readingMethods},
+		"j while the methods are read":           {key: "j", showing: readingMethods},
+		"e while the methods are read":           {key: "e", showing: readingMethods},
+		"enter once the repository permits none": {answered: true, key: keyEnter, showing: "permits no merge method"},
+		"j once the repository permits none":     {answered: true, key: "j", showing: "permits no merge method"},
+	}
+
+	for name, tt := range cases {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			// Arrange
+			reviewing := mergeable()
+			reviewing.mergeMethods = []forge.MergeMethod{}
+			picker, read := pressed(t, typing(t, reviewing.live(t, 120, 40), "4"), "M")
+
+			if tt.answered {
+				picker, _ = finish(t, picker, read)
+			}
+
+			// Act
+			after, cmd := pressed(t, picker, tt.key)
+
+			// Assert
+			requireScreen(t, after.View().Content, "Merge pull request", tt.showing)
+
+			if cmd != nil {
+				t.Errorf("%q started work in a merge picker with no method to choose", tt.key)
+			}
+		})
+	}
+}
+
+func TestADownKeyWhileTheMethodsAreReadLeavesTheFirstChosen(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	// j is pressed while the methods are still out, and they land after it.
+	reviewing := mergeable()
+	reviewing.mergeMethods = []forge.MergeMethod{forge.MergeCommit, forge.MergeSquash}
+	picker, read := pressed(t, typing(t, reviewing.live(t, 120, 40), "4"), "M")
+	moved, _ := pressed(t, picker, "j")
+	loaded, _ := finish(t, moved, read)
+
+	// Act
+	typing(t, loaded, keyEnter)
+
+	// Assert
+	if calls := reviewing.asked("merge 42 merge"); len(calls) != 1 {
+		t.Errorf("merge calls = %q, want the first method", reviewing.asked("merge 42"))
+	}
+}
+
+func TestAMethodsAnswerLeavesAnOverlayOpenedMeanwhile(t *testing.T) {
+	t.Parallel()
+
+	cases := map[string]struct {
+		keys []string
+		want string
+	}{
+		"the pull request editor": {keys: []string{keyEsc, "e"}, want: "Edit pull request"},
+		"nothing at all":          {keys: []string{keyEsc}, want: "mergeable"},
+	}
+
+	for name, tt := range cases {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			// Arrange
+			// The picker is left while its methods are still out, and something
+			// else is opened in its place before they land.
+			asking, read := pressed(t, typing(t, mergeable().live(t, 120, 40), "4"), "M")
+			meanwhile := typing(t, asking, tt.keys...)
+
+			// Act
+			answered, _ := finish(t, meanwhile, read)
+
+			// Assert
+			requireScreen(t, answered.View().Content, tt.want)
+			refuseScreen(t, answered.View().Content, "Merge by:", readingMethods)
+		})
+	}
+}
+
+func TestALateMethodsAnswerKeepsTheChoiceBeingMade(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	// The picker is closed and reopened, so two reads are out; the first to land
+	// fills it, and a method is chosen before the second lands with other methods.
+	reviewing := mergeable()
+	reviewing.mergeMethods = []forge.MergeMethod{forge.MergeCommit, forge.MergeSquash}
+	first, firstRead := pressed(t, typing(t, reviewing.live(t, 120, 40), "4"), "M")
+	reopened, secondRead := pressed(t, typing(t, first, keyEsc), "M")
+	filled, _ := finish(t, reopened, firstRead)
+	choosing := typing(t, filled, "j")
+	reviewing.mergeMethods = []forge.MergeMethod{forge.MergeRebase}
+
+	// Act
+	answered, _ := finish(t, choosing, secondRead)
+
+	// Assert
+	requireScreen(t, answered.View().Content, "▸ squash and merge")
+	refuseScreen(t, answered.View().Content, "rebase and merge")
 }
 
 func TestARefusedMergeCanBeTriedAgain(t *testing.T) {
