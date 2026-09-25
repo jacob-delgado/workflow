@@ -804,12 +804,12 @@ The plumbing:
   concerns; `internal/convention/pullrequest.go` and
   `internal/convention/scopes.go` are two more, and the `CLAUDE.md:47` row
   already lists "pull request text".
-- `internal/messaging/post.go:326` — `Announcement.Text`'s comment says
-  "Every substituted value is escaped for Slack"; `markupFor` (`:265`)
-  escapes per kind, and `keepText` (`:314`) not at all.
+- `internal/messaging/post.go:328` — `Announcement.Text`'s comment says
+  "Every substituted value is escaped for Slack"; `markupFor` (`:267`)
+  escapes per kind, and `keepText` (`:316`) not at all.
 - `internal/messaging/messaging.go:42` — `ErrRejected` "reports a token
   Slack would not accept" and is returned for any kind's webhook 4xx by
-  `deliver` (`internal/messaging/post.go:206`); `ErrRateLimited`
+  `deliver` (`internal/messaging/post.go:208`); `ErrRateLimited`
   (`internal/messaging/messaging.go:54`) is "a 429 from Slack's API" and is
   returned for any kind.
 
@@ -1432,7 +1432,7 @@ them.
   closes this arm.
 - `internal/messaging/messaging.go:120` — `Client.checkable` returns
   `ErrNoCredential` for `config.MessagingNone` and again in `default:`
-  (`:122`); `markupFor` (`internal/messaging/post.go:265`) returns
+  (`:122`); `markupFor` (`internal/messaging/post.go:267`) returns
   `slackMarkup()` for `config.KindSlack` and again in `default:`.
 - `internal/wiring/forgecli.go:59` — `forgeProgram`'s `case
   forge.KindUnknown:` and `default:` (`:61`) both return `"", false`; the
@@ -1580,49 +1580,6 @@ carry a "more" flag the surfaces can show.
 
 **Done when.** A test serving 101 items sees the 101st, or a truncated
 listing is reported as such.
-
-### DEBT-97 A webhook answering 204 or 202 is reported as a failed post
-
-Severity: high · Confidence: read
-
-`Client.deliver` accepts only HTTP 200, so a Discord webhook's default 204
-No Content (and any 202 or 204 from a plain webhook) falls to
-`ErrUnexpectedStatus`. `loop.Deliver` returns on the error before `Record`,
-so the moment is never marked announced and every surface offers it again;
-the terminal's wording for that error says to try again, and a retry posts
-a second copy. A Discord announcement is delivered, then the Messaging
-pane, `workflow announce` and the web say the service answered with a
-status it does not document. Every webhook fake in
-`internal/messaging/post_test.go` answers 200, so the per-kind test cannot
-see it, and `postToWebhook`'s comment describes Slack's plain-text "ok"
-for every kind.
-
-- `internal/messaging/post.go:201` — `Client.deliver` takes only
-  `http.StatusOK` as success.
-- `internal/messaging/post.go:208` — every other 2xx falls to
-  `ErrUnexpectedStatus` in `deliver`'s default arm.
-- `internal/messaging/post.go:139` — `Client.postToWebhook` posts the
-  Discord URL as configured, never with `?wait=true`, so Discord answers
-  204.
-- `internal/messaging/post.go:130` — the comment on `postToWebhook` says a
-  webhook "answers "ok" as plain text" — Slack's behavior stated for
-  every kind.
-- `internal/messaging/post_test.go:247` —
-  `TestAWebhookPostWrapsTheBodyAndMarkupPerKind`'s fake answers
-  `http.StatusOK` for every kind.
-- `internal/loop/announce.go:185` — `Deliver` returns on the error before
-  `Record`, so a delivered post is offered again.
-- `internal/tui/failure.go:258` — `messagingErrors` words
-  `ErrUnexpectedStatus` as "Try the announcement again", which
-  double-posts.
-
-**One way to fix it.** Treat any 2xx as accepted in `deliver` (a 2xx with
-an empty body is a delivered webhook post), make the Discord case of the
-per-kind test answer 204, and word `postToWebhook`'s comment per kind.
-
-**Done when.** A test whose fake Discord webhook answers 204 No Content
-sees `Post` return nil and the announcement recorded through
-`loop.Deliver`.
 
 ### DEBT-99 `wiring` connects to the forge twice, over five clumped signatures
 
@@ -2572,7 +2529,7 @@ literally. It is the fake that cuts a corner.
   `announcement: 'Opened {pr} for {issue}'`; `Messaging.Announcement`'s doc
   comment (`internal/config/config.go:123`) names the seven placeholders —
   {author}, {noun}, {title}, {url}, {key}, {summary}, {issue_url} — and
-  `Announcement.rendered` (`internal/messaging/post.go:344`) substitutes
+  `Announcement.rendered` (`internal/messaging/post.go:346`) substitutes
   only those, so `{pr}` and `{issue}` would post literally. Beside it,
   `previewAnnouncement` (`web/src/features/messaging/announceApi.ts:9`)
   answers the built-in wording rather than that template's rendering.
@@ -3287,7 +3244,7 @@ away too:
 - `internal/config/config.go:348` and `:364` — `Problems`'
   `absoluteWebURL(base)` and the four operands inside `absoluteWebURL`: no
   `internal/config` test calls `Problems` with a `jira.base_url` set.
-- `internal/messaging/post.go:333` — `Announcement.Text`'s `a.Kind ==
+- `internal/messaging/post.go:335` — `Announcement.Text`'s `a.Kind ==
   config.KindSlack`: each test that renders a template leaves `Kind` empty,
   so the `||` never reads it.
 - `internal/tui/issuekeys.go:136` — `extendFilterWith`'s `msg.Code ==
@@ -3605,7 +3562,7 @@ know about.
   800 ceiling (`scripts/check-file-length.sh --list`). They were left whole
   on purpose when the source files past the target were split by concern;
   each holds the cases of one behavior. Announcing:
-  `internal/messaging/post_test.go` (764, the post to each service and the
+  `internal/messaging/post_test.go` (766, the post to each service and the
   announcement's text) and `internal/tui/messaging_test.go` (612, the
   terminal's Messaging pane). Opening a pull request:
   `internal/webserver/pullrequest_test.go` (601, the web's draft and open).
