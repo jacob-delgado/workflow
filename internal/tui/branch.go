@@ -92,14 +92,14 @@ func (m Model) branchRail(_ int) string {
 	return m.styles.strong.Render(m.branch.branch.Name) + "\n" + m.upstreamState()
 }
 
-// upstreamState says where the branch stands against origin.
+// upstreamState says where the branch stands against the remote it pushes to.
 func (m Model) upstreamState() string {
 	branch := m.branch.branch
 
 	switch {
 	case branch.Pushed():
 		return "pushed"
-	case branch.Upstream != gitrepo.DefaultRemote+"/"+branch.Name:
+	case branch.Upstream != branch.PushTarget():
 		return "not pushed yet"
 	default:
 		return m.marks.ahead + strconv.Itoa(branch.Ahead) + " " + m.marks.behind + strconv.Itoa(branch.Behind) +

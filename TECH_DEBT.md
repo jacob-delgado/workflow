@@ -552,48 +552,6 @@ existing wording and exit mapping for a missing program apply.
 `ErrNotARepository`; `workflow status` with git off PATH names the missing
 program.
 
-### DEBT-85 `Pushed()` requires `origin/<name>` while `PushRemote` may push elsewhere
-
-Severity: medium · Confidence: read
-
-`Repository.PushRemote` (`internal/gitrepo/branch.go:378`) honors
-`remote.pushDefault`, and `PushCommand` (`internal/gitrepo/branch.go:322`)
-pushes there with `--set-upstream`; `Branch.Pushed`
-(`internal/gitrepo/branch.go:87`) then compares the upstream against
-`remoteBranch(b.Name)`, which is `origin/<name>`. A branch pushed to the
-pushDefault remote reads as never pushed on every surface. FEAT-15 describes
-the wider fork gap; this is the half-step already taken contradicting
-itself.
-
-- `internal/gitrepo/branch.go:87` — `Branch.Pushed` is `b.Upstream ==
-  remoteBranch(b.Name) && b.Ahead == 0`.
-- `internal/gitrepo/branch.go:378` — `Repository.PushRemote` reads
-  `remote.pushDefault`.
-- `internal/wiring/wiring.go:219` — `gitDeps` pushes to `PushRemote()`.
-- `internal/loop/push.go:70` — `EnsurePushed` pushes again whenever
-  `Pushed()` is false.
-- `internal/tui/branch.go:102` — `Model.upstreamState` compares against
-  `gitrepo.DefaultRemote+"/"+branch.Name`.
-- `internal/webserver/pullrequest.go:165` — `draftDTO`'s `NeedsPush` stays
-  true after a push to the pushDefault remote.
-- `internal/cli/forgefake_test.go:204` — `localPushRemote` sets
-  `remote.pushDefault` for `TestPRPushesThenOpensAnUnpublishedBranch`
-  (`internal/cli/pr_test.go:256`), and `TestPRReportsAFailedPush` sets it
-  again (`:299`); neither reads `Pushed()` after the push.
-
-With `remote.pushDefault = fork`, a push succeeds and sets the upstream to
-`fork/<name>`; `Pushed()` is then false forever, so the Branch pane says
-"not pushed yet", `EnsurePushed` pushes again on every `pr` and web open,
-and the web's `needs_push` stays true.
-
-**One way to fix it.** Read the push remote once in `ReadBranch`, carry it
-on `Branch` (or pass it to `Pushed`), and compare the upstream against
-`<pushRemote>/<name>` in both `Pushed()` and `upstreamState`.
-
-**Done when.** A `ReadBranch` fixture with `remote.pushDefault=fork`,
-upstream `fork/<name>` and ahead 0 reports `Pushed()` true, and the Branch
-pane says "pushed".
-
 ### DEBT-88 A key one separator after another key-shaped token is missed
 
 Severity: medium · Confidence: read
