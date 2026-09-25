@@ -310,6 +310,7 @@ func emptyRepository() map[string]reply {
 		showCurrentBranch:             {out: []byte("main\n")},
 		"git -C /work rev-parse HEAD": {err: errDetachedRead},
 		readUpstream:                  {err: errNoUpstream},
+		readPushDefault:               {err: errNoRef},
 		originsHead:                   {out: []byte("origin/main\n")},
 	}
 }

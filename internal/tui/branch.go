@@ -207,7 +207,7 @@ func (m Model) canPush() bool {
 func (m Model) previewPush() (Model, tea.Cmd) {
 	m.overlay = lastLook{
 		marks: m.marks, styles: m.styles, title: "Push branch",
-		body: "push " + m.branch.branch.Name + " to " + m.branch.remote(), verb: "push",
+		body: "push " + m.branch.branch.Name + " to " + m.branch.branch.PushRemote, verb: "push",
 		proceed: func(m Model) (Model, tea.Cmd) { return m.startPush(nil) },
 	}
 
@@ -233,15 +233,6 @@ func (m Model) branchIssue() (jira.Key, bool) {
 	key, ok := convention.IssueKey(m.branch.branch.Name, m.cfg.Jira.Project)
 
 	return jira.Key(key), ok
-}
-
-// remote is the remote the branch's upstream lives on, or origin by default.
-func (s branchState) remote() string {
-	if before, _, found := strings.Cut(s.branch.Upstream, "/"); found && before != "" {
-		return before
-	}
-
-	return gitrepo.DefaultRemote
 }
 
 // handleBranchKey answers the Branch pane's own keys.
