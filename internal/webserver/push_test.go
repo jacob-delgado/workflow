@@ -50,6 +50,38 @@ func TestPushPublishesTheBranch(t *testing.T) {
 	}
 }
 
+func TestPushSendsABranchWhoseUpstreamIsOffItsPushRemote(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	// remote.pushDefault sends the push to fork, which does not hold the branch
+	// its upstream on origin is level with.
+	const forkRemote = "fork"
+
+	var pushed string
+
+	deps := filledDeps()
+	deps.Branch = func() (gitrepo.Branch, error) {
+		return gitrepo.Branch{
+			Name: testBranchName, Upstream: "origin/" + testBranchName, PushRemote: forkRemote,
+			Ahead: 0, Commits: []gitrepo.Commit{{Hash: testCommitHash, Subject: "feat: done"}},
+		}, nil
+	}
+	deps.Push = func(branch string) (proc.Output, error) {
+		pushed = branch
+
+		return fakeOutput(nil, nil), nil
+	}
+
+	// Act
+	recorder := doPush(t, deps)
+
+	// Assert
+	if recorder.Code != http.StatusOK || pushed != testBranchName {
+		t.Errorf("status = %d, pushed %q; want 200 with %q pushed", recorder.Code, pushed, testBranchName)
+	}
+}
+
 func TestPushRefusesWhenThereIsNothingToPush(t *testing.T) {
 	t.Parallel()
 
