@@ -26,9 +26,10 @@ const redacted = "[redacted]"
 // header, a body, a query string or a host, and never the path of a messaging
 // webhook, which is the credential itself; so no credential reaches the file.
 type RequestLog struct {
-	mu  sync.Mutex
-	out io.Writer
-	now func() time.Time
+	mu       sync.Mutex
+	out      io.Writer
+	now      func() time.Time
+	writeErr error
 }
 
 // NewRequestLog writes outlines to out, timestamped by now. A nil now means
@@ -48,6 +49,16 @@ func (l *RequestLog) Wrap(service string, next func(*http.Request) (*http.Respon
 ) func(*http.Request) (*http.Response, error) {
 	//nolint:bodyclose // wrap only relays the response; the caller's client reads and closes its body.
 	return l.wrap(service, next, func(request *http.Request) string { return loggedPath(request.URL.Path) })
+}
+
+// Err is why the first outline the log could not write failed, or nil when
+// every outline was written. A failed write does not stop the log: each later
+// request is still offered to the writer.
+func (l *RequestLog) Err() error {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+
+	return l.writeErr
 }
 
 // wrapWebhook is Wrap for a Doer that posts to a messaging webhook. Every
@@ -85,9 +96,12 @@ func (l *RequestLog) record(
 	l.mu.Lock()
 	defer l.mu.Unlock()
 
-	fmt.Fprintf(l.out, "%s %-5s %-4s %s %s %s\n",
+	_, err := fmt.Fprintf(l.out, "%s %-5s %-4s %s %s %s\n",
 		start.UTC().Format(time.RFC3339), service, method,
 		safePath, status(response), elapsed.Round(time.Millisecond))
+	if err != nil && l.writeErr == nil {
+		l.writeErr = err
+	}
 }
 
 // status is the response's code, or a dash when the request never got one.
