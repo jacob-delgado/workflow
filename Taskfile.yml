@@ -506,8 +506,11 @@ tasks:
       # The web frontend: React/TypeScript (.ts and .tsx, both counted as
       # TypeScript by cloc) and CSS, minus the hey-api generated client and the
       # vitest/Playwright tests, the same way the Go count drops _test.go.
+      # --exclude-dir, as in .clocrc: --not-match-d drops nothing from a
+      # --vcs=git file list. Given here it replaces .clocrc's own, which only
+      # left out Markdown this line does not count.
       - echo "Web (TypeScript/TSX and CSS), excluding generated code and tests:"
-      - cloc --config .clocrc --include-lang=TypeScript,CSS --not-match-f='(\.test\.tsx?|\.spec\.ts)$' --not-match-d='generated' .
+      - cloc --config .clocrc --include-lang=TypeScript,CSS --not-match-f='(\.test\.tsx?|\.spec\.ts)$' --exclude-dir=generated .
 
   deadcode:
     desc: Report code unreachable from main (advisory, never a gate)
