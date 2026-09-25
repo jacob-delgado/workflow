@@ -147,11 +147,14 @@ type hooksWritten struct {
 	err error
 }
 
-// apply closes the offer once written, or keeps it open with the reason.
+// apply closes the offer once written, and makes it no more, or keeps it open
+// with the reason.
 func (msg hooksWritten) apply(m Model) (Model, tea.Cmd) {
 	if msg.err != nil {
 		return keepOpenWith[hookgenOffer](m, msg.err), nil
 	}
+
+	m.hookgen.hooks = nil
 
 	return m.closeOverlay().noticed(m.marks.done + " wrote lefthook.yml and installed lefthook"), nil
 }

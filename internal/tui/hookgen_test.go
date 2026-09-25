@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	"github.com/jacob-delgado/workflow/internal/hooks"
+	"github.com/jacob-delgado/workflow/internal/tui"
 )
 
 // errConfigExists stands in for a configuration appearing before it was written.
@@ -19,6 +20,39 @@ func legacyHooks() []hooks.GitHook {
 	return []hooks.GitHook{
 		{Name: "pre-commit", Script: "#!/bin/sh\nset -e\ngofmt -l .\ngo vet ./...\n"},
 		{Name: "commit-msg", Script: "#!/usr/bin/env bash\ngrep -q '^feat' \"$1\"\n"},
+	}
+}
+
+// lefthookHint is the Commits detail's line offering to set up lefthook, and
+// lefthookKey the footer's key for it.
+const (
+	lefthookHint = "A hook is not managed by lefthook"
+	lefthookKey  = "g set up lefthook"
+)
+
+// requireLefthookOffered fails unless the Commits pane offers to set up
+// lefthook: the hint in its detail and g in the footer.
+func requireLefthookOffered(t *testing.T, model tui.Model) {
+	t.Helper()
+
+	view := model.View().Content
+	requireScreen(t, view, lefthookHint)
+
+	if footer := footerLine(view); !strings.Contains(footer, lefthookKey) {
+		t.Errorf("footer = %q, want it to offer %q", footer, lefthookKey)
+	}
+}
+
+// refuseLefthookOffered fails if the Commits pane still offers to set up
+// lefthook, in its detail or in the footer.
+func refuseLefthookOffered(t *testing.T, model tui.Model) {
+	t.Helper()
+
+	view := model.View().Content
+	refuseScreen(t, view, lefthookHint)
+
+	if footer := footerLine(view); strings.Contains(footer, lefthookKey) {
+		t.Errorf("footer = %q, still offers %q", footer, lefthookKey)
 	}
 }
 
@@ -73,6 +107,26 @@ func TestExistingHooksAreOfferedALefthookConfiguration(t *testing.T) {
 	if calls := offering.asked("write"); len(calls) != 1 || !strings.Contains(calls[0], "01-gofmt") {
 		t.Errorf("write calls = %q, want the structured configuration", calls)
 	}
+}
+
+func TestWritingTheConfigurationEndsTheOffer(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	offering := newWorld()
+	offering.gitHooks = legacyHooks()
+
+	// Act: open the interface on the Commits pane
+	commits := typing(t, offering.live(t, 200, 50), "3")
+
+	// Assert: it offers to set up lefthook
+	requireLefthookOffered(t, commits)
+
+	// Act: write the configuration
+	written := typing(t, commits, "g", keyEnter)
+
+	// Assert: it offers it no more
+	refuseLefthookOffered(t, written)
 }
 
 func TestTheOfferCanKeepEveryHookWhole(t *testing.T) {
