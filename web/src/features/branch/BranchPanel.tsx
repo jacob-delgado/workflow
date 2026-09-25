@@ -47,9 +47,12 @@ function BranchSummary({ branch }: { branch: Branch }) {
   const outcome = useOutcome()
   const heading = branch.name === '' ? `Detached HEAD at ${branch.head.slice(0, 7)}` : branch.name
   // There is something to push on a real branch (not a detached HEAD) that has no
-  // upstream yet, or that is ahead of the one it has. Commit count is not used —
-  // an undiscoverable base can leave it unknowable even for an ahead branch.
-  const canPush = branch.name !== '' && (branch.upstream === '' || branch.ahead > 0)
+  // upstream on the remote its push goes to, or that is ahead of the one it has.
+  // Commit count is not used — an undiscoverable base can leave it unknowable
+  // even for an ahead branch.
+  const canPush =
+    branch.name !== '' &&
+    (!branch.upstream.startsWith(`${branch.push_remote}/`) || branch.ahead > 0)
 
   return (
     <section aria-labelledby="branch-heading" className="flex flex-col gap-group">

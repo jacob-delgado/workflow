@@ -103,6 +103,7 @@ test('reads a committed clean tree and a green pull request', () => {
         detached: false,
         head: 'h1h2h3h',
         upstream: 'origin/fix/PROJ-1',
+        push_remote: 'origin',
         ahead: 1,
         behind: 0,
         base: 'origin/main',

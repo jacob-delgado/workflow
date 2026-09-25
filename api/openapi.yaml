@@ -1115,7 +1115,7 @@ components:
 
     Branch:
       type: object
-      required: [name, detached, head, upstream, ahead, behind, base, commits]
+      required: [name, detached, head, upstream, push_remote, ahead, behind, base, commits]
       properties:
         name: {type: string}
         detached:
@@ -1127,6 +1127,11 @@ components:
         upstream:
           type: string
           description: The tracking branch; empty if never pushed.
+        push_remote:
+          type: string
+          description: >-
+            The remote a push of the branch goes to: remote.pushDefault when
+            the repository sets one, origin otherwise.
         ahead: {type: integer}
         behind: {type: integer}
         base:

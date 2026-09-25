@@ -320,6 +320,10 @@ export type Branch = {
      * The tracking branch; empty if never pushed.
      */
     upstream: string;
+    /**
+     * The remote a push of the branch goes to: remote.pushDefault when the repository sets one, origin otherwise.
+     */
+    push_remote: string;
     ahead: number;
     behind: number;
     /**
