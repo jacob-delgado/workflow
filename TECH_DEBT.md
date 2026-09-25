@@ -2750,9 +2750,10 @@ from the description is what it hurts.
 
 - `api/openapi.yaml:600` — `push`'s description promises 409 "when there
   is nothing to push (no commits, or already up to date)"; `nothingToPush`
-  (`internal/webserver/push.go:58`) consults only the name and the
-  upstream, deliberately (its comment at `internal/webserver/push.go:49`),
-  so a branch with no upstream and no commits is pushed.
+  (`internal/webserver/push.go:59`) consults only the name and the
+  upstream on the push remote, deliberately (its comment at
+  `internal/webserver/push.go:49`), so a branch with no upstream and no
+  commits is pushed.
 - `api/openapi.yaml:45` — the `events` tag says snapshots are "pushed as
   they change", and `streamEvents`'s summary at `api/openapi.yaml:724`
   says the same; `defaultStreamInterval`'s comment

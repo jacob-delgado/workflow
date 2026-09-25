@@ -996,9 +996,9 @@ the two rows above it share the defect.
 - A long branch reads the cap: `Branch.Truncated`
   (`internal/gitrepo/branch.go:78`) says the list is the oldest of a longer
   history, and the wire `Branch` carries no such flag.
-- The server decides by upstream and ahead alone (`nothingToPush`,
-  `internal/webserver/push.go:58`), so the count the confirm shows is not
-  what the server checks.
+- The server decides by the upstream on the push remote and ahead alone
+  (`nothingToPush`, `internal/webserver/push.go:59`), so the count the
+  confirm shows is not what the server checks.
 - `BranchSummary` prints "{ahead} ahead, {behind} behind" whatever the
   upstream (`web/src/features/branch/BranchPanel.tsx:69`), so an
   unpublished branch reads "Upstream none / Tracking 0 ahead, 0 behind"
@@ -1010,7 +1010,7 @@ the two rows above it share the defect.
 - Push branch is offered on the base branch itself: `BranchSummary`'s
   `canPush` needs a name and no upstream or ahead > 0
   (`web/src/features/branch/BranchPanel.tsx:52`), and `nothingToPush`
-  accepts main ahead of origin/main (`internal/webserver/push.go:58`),
+  accepts main ahead of origin/main (`internal/webserver/push.go:59`),
   where the terminal's `canPush` also requires `onFeatureBranch()`
   (`internal/tui/branch.go:202`).
 
