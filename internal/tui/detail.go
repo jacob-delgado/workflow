@@ -314,10 +314,10 @@ func (m Model) soonDetail() tea.Cmd {
 	return m.deps.after(detailDelay, func(time.Time) tea.Msg { return detailDue{key: selected.Key} })
 }
 
-// pickIssue selects the issue on a clicked line of the list, wherever the list
-// is drawn: in the rail, or as the whole detail on a narrow terminal.
+// pickIssue selects the issue on a clicked line of the list wherever it is
+// drawn: in the rail, or in the collapsed detail when no issue is read there.
 func (m Model) pickIssue(line, rows int, inRail bool) (Model, tea.Cmd) {
-	if !inRail && !m.shape().Collapsed() {
+	if !inRail && (!m.shape().Collapsed() || m.issues.viewing) {
 		return m, nil
 	}
 

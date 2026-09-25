@@ -986,32 +986,6 @@ and refuse on the fresh answer.
 changes to a modified file after `live()`, presses `s` then `enter`, and the
 switch is refused with no checkout call recorded.
 
-### DEBT-110 Below 80 columns, clicking the issue being read selects another issue
-
-Severity: medium · Confidence: read
-
-`Model.pickIssue` (`internal/tui/detail.go:320`) maps a click in the detail
-to a list row whenever the layout is collapsed; its only early return is
-for a layout that is not. But in the collapsed layout `Model.issuesNarrow`
-(`internal/tui/detail.go:177`) draws the issue's text, not the list, once
-`viewing` is set, so there is no list row under the click, and `pickIssue`
-still sets `issues.selected` from the clicked line
-(`internal/tui/detail.go:329`) while `viewing` stays true. At 79 columns,
-press `enter` to read one issue, click the second line of its description,
-and the detail switches to whichever issue sits at that row; a following
-`t`, `c` or `a` acts on the issue the click chose. Mouse capture is on by
-default (`Default` sets `UI{Mouse: true}`, `internal/config/config.go:192`),
-and the narrow case of `TestClickingPicksAnIssue`
-(`internal/tui/mouse_test.go:96`) is width 80 with no `enter`, so
-collapsed-plus-viewing is untested.
-
-**One way to fix it.** Return early from `pickIssue` when
-`m.issues.viewing`, since no list is drawn to pick from.
-
-**Done when.** A test in `internal/tui/mouse_test.go` at 79x24 presses
-`enter`, clicks row 3 of the detail, and the screen still shows the first
-issue's description.
-
 ### DEBT-111 After writing `lefthook.yml` the pane still nags and `g` reopens the offer
 
 Severity: medium · Confidence: read
