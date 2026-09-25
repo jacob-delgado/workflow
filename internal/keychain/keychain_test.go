@@ -6,6 +6,7 @@ package keychain_test
 import (
 	"context"
 	"errors"
+	"os/user"
 	"slices"
 	"strings"
 	"testing"
@@ -17,6 +18,9 @@ import (
 
 // errKeychainLocked stands in for security refusing to store.
 var errKeychainLocked = errors.New("security: exit status 51")
+
+// errUnknownUser stands in for the OS failing to look up the current user.
+var errUnknownUser = errors.New("user: unknown userid 501")
 
 // ran is one program a fake Runner was asked to run, and what it was handed on
 // its standard input.
@@ -35,6 +39,35 @@ func recordingRunner(runs *[]ran, err error) keychain.Runner {
 	}
 }
 
+// loggedInAs is a user lookup that finds a user whose login name is name.
+func loggedInAs(name string) keychain.UserLookup {
+	return func() (*user.User, error) {
+		return &user.User{Username: name}, nil
+	}
+}
+
+// failedLookup is a user lookup the OS cannot answer.
+func failedLookup() (*user.User, error) {
+	return nil, errUnknownUser
+}
+
+// userIs is a getenv in which $USER is name and nothing else is set.
+func userIs(name string) func(string) string {
+	return func(key string) string {
+		if key == "USER" {
+			return name
+		}
+
+		return ""
+	}
+}
+
+// storerFor is the macOS store for a user logged in as jacob, running
+// security through a recordingRunner that answers with err.
+func storerFor(runs *[]ran, err error) func(secret string) (string, error) {
+	return keychain.Storer("darwin", recordingRunner(runs, err), loggedInAs("jacob"), userIs(""))
+}
+
 func TestStorerIsWiredForMacOSOnly(t *testing.T) {
 	t.Parallel()
 
@@ -48,7 +81,7 @@ func TestStorerIsWiredForMacOSOnly(t *testing.T) {
 			var runs []ran
 
 			// Act
-			store := keychain.Storer(goos, recordingRunner(&runs, nil))
+			store := keychain.Storer(goos, recordingRunner(&runs, nil), loggedInAs("jacob"), userIs(""))
 
 			// Assert
 			if got := store != nil; got != wired {
@@ -64,7 +97,7 @@ func TestStorerSavesUnderTheJiraServiceUpdatablyAndNamesTheReader(t *testing.T) 
 	// Arrange
 	var runs []ran
 
-	store := keychain.Storer("darwin", recordingRunner(&runs, nil))
+	store := storerFor(&runs, nil)
 
 	// Act
 	tokenCommand, err := store("s3cret")
@@ -76,7 +109,7 @@ func TestStorerSavesUnderTheJiraServiceUpdatablyAndNamesTheReader(t *testing.T) 
 
 	want := ran{
 		program: proc.Command{Name: "security", Args: []string{"-i"}},
-		input:   `add-generic-password -U -s workflow-jira -w "s3cret"` + "\n",
+		input:   `add-generic-password -U -a "jacob" -s workflow-jira -w "s3cret"` + "\n",
 	}
 	if len(runs) != 1 || runs[0].program.Name != want.program.Name ||
 		!slices.Equal(runs[0].program.Args, want.program.Args) || runs[0].input != want.input {
@@ -90,7 +123,7 @@ func TestStorerKeepsTheSecretOutOfTheArguments(t *testing.T) {
 	// Arrange
 	var runs []ran
 
-	store := keychain.Storer("darwin", recordingRunner(&runs, nil))
+	store := storerFor(&runs, nil)
 
 	// Act
 	_, err := store("s3cret")
@@ -131,13 +164,13 @@ func TestStorerQuotesTheSecretForSecurity(t *testing.T) {
 			// Arrange
 			var runs []ran
 
-			store := keychain.Storer("darwin", recordingRunner(&runs, nil))
+			store := storerFor(&runs, nil)
 
 			// Act
 			_, err := store(secret.plain)
 
 			// Assert
-			want := "add-generic-password -U -s workflow-jira -w " + secret.quoted + "\n"
+			want := `add-generic-password -U -a "jacob" -s workflow-jira -w ` + secret.quoted + "\n"
 			if err != nil || len(runs) != 1 || runs[0].input != want {
 				t.Errorf("store(%q) sent %+v, %v; want the line %q", secret.plain, runs, err, want)
 			}
@@ -161,7 +194,7 @@ func TestStorerRefusesASecretThatCannotBeOneLine(t *testing.T) {
 			// Arrange
 			var runs []ran
 
-			store := keychain.Storer("darwin", recordingRunner(&runs, nil))
+			store := storerFor(&runs, nil)
 
 			// Act
 			tokenCommand, err := store(secret)
@@ -184,7 +217,7 @@ func TestStorerReportsARefusedStore(t *testing.T) {
 	// Arrange
 	var runs []ran
 
-	store := keychain.Storer("darwin", recordingRunner(&runs, errKeychainLocked))
+	store := storerFor(&runs, errKeychainLocked)
 
 	// Act
 	tokenCommand, err := store("s3cret")
@@ -206,11 +239,12 @@ func TestStorerBoundsSecurityByTheDefaultRunTimeout(t *testing.T) {
 		bounded  bool
 	)
 
-	store := keychain.Storer("darwin", func(ctx context.Context, _ proc.Command, _ []byte) ([]byte, error) {
+	runner := func(ctx context.Context, _ proc.Command, _ []byte) ([]byte, error) {
 		deadline, bounded = ctx.Deadline()
 
 		return nil, nil
-	})
+	}
+	store := keychain.Storer("darwin", runner, loggedInAs("jacob"), userIs(""))
 	before := time.Now()
 
 	// Act
@@ -224,5 +258,79 @@ func TestStorerBoundsSecurityByTheDefaultRunTimeout(t *testing.T) {
 
 	if deadline.Before(before.Add(proc.DefaultRunTimeout)) || deadline.After(after.Add(proc.DefaultRunTimeout)) {
 		t.Errorf("security's deadline is %s after the store began, want %s", deadline.Sub(before), proc.DefaultRunTimeout)
+	}
+}
+
+func TestStorerNamesTheAccountAfterTheUser(t *testing.T) {
+	t.Parallel()
+
+	cases := map[string]struct {
+		lookup  keychain.UserLookup
+		user    string
+		account string
+	}{
+		"the current user's login name": {lookup: loggedInAs("jacob"), user: "someone-else", account: `"jacob"`},
+		"$USER when the lookup fails":   {lookup: failedLookup, user: "fallback", account: `"fallback"`},
+		"$USER when the user has no login name": {
+			lookup: loggedInAs(""), user: "fallback", account: `"fallback"`,
+		},
+		"a name quoted for security": {lookup: failedLookup, user: `two "words"`, account: `"two \"words\""`},
+	}
+
+	for name, tt := range cases {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			// Arrange
+			var runs []ran
+
+			store := keychain.Storer("darwin", recordingRunner(&runs, nil), tt.lookup, userIs(tt.user))
+
+			// Act
+			_, err := store("s3cret")
+
+			// Assert
+			want := "add-generic-password -U -a " + tt.account + ` -s workflow-jira -w "s3cret"` + "\n"
+			if err != nil || len(runs) != 1 || runs[0].input != want {
+				t.Errorf("store sent %+v, %v; want the line %q", runs, err, want)
+			}
+		})
+	}
+}
+
+func TestStorerRefusesWithoutAnAccountName(t *testing.T) {
+	t.Parallel()
+
+	cases := map[string]struct {
+		lookup keychain.UserLookup
+		causes []error
+	}{
+		"the lookup fails": {lookup: failedLookup, causes: []error{keychain.ErrNoAccount, errUnknownUser}},
+		"no login name":    {lookup: loggedInAs(""), causes: []error{keychain.ErrNoAccount}},
+	}
+
+	for name, tt := range cases {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			// Arrange
+			var runs []ran
+
+			store := keychain.Storer("darwin", recordingRunner(&runs, nil), tt.lookup, userIs(""))
+
+			// Act
+			tokenCommand, err := store("s3cret")
+
+			// Assert
+			for _, cause := range tt.causes {
+				if !errors.Is(err, cause) {
+					t.Errorf("store = %q, %v; want it to wrap %v", tokenCommand, err, cause)
+				}
+			}
+
+			if tokenCommand != "" || len(runs) != 0 {
+				t.Errorf("store = %q and ran %d programs without an account, want neither", tokenCommand, len(runs))
+			}
+		})
 	}
 }
