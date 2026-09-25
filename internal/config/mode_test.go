@@ -85,9 +85,27 @@ func TestMissingNamesWhatTheConfigurationStillNeeds(t *testing.T) {
 	}{
 		// The Slack credential is ONE entry, not two: either transport satisfies
 		// it, and naming both as separately missing would read as "set them both".
+		// Jira is not required at all: without it the forge's issues are the
+		// tracker.
 		"an empty configuration names every required field": {
 			cfg:  config.Config{},
-			want: []string{"jira.base_url", "jira.token", "messaging.token or messaging.webhook_url"},
+			want: []string{"messaging.token or messaging.webhook_url"},
+		},
+		"no jira.base_url leaves the tracker to the forge's issues": {
+			cfg: config.Config{
+				Jira:      config.Jira{BaseURL: "", Token: "", User: ""},
+				Messaging: config.Messaging{Token: "", WebhookURL: webhookURL, Channel: ""},
+				Path:      "",
+			},
+			want: nil,
+		},
+		"a jira.base_url still needs its token": {
+			cfg: config.Config{
+				Jira:      config.Jira{BaseURL: jiraURL, Token: "", User: ""},
+				Messaging: config.Messaging{Token: "", WebhookURL: webhookURL, Channel: ""},
+				Path:      "",
+			},
+			want: []string{"jira.token"},
 		},
 		// An incoming webhook is bound to one channel when it is created, so
 		// asking for messaging.channel as well would be asking for something with no
