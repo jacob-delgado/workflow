@@ -147,27 +147,39 @@ func (g githubReviewItem) reviewRequest() ReviewRequest {
 // owner. It searches with a repo filter, so @me needs no username, and with
 // is:issue so the pull requests that search also returns are left out.
 func githubIssues(ctx context.Context, client Client, repo Repo) ([]Issue, error) {
-	query := url.Values{
-		"q":          {"is:issue is:open assignee:@me repo:" + repo.Path},
-		perPageParam: {strconv.Itoa(perPage)},
-	}.Encode()
-
-	found, err := call[githubIssueSearch](ctx, client, http.MethodGet, "/search/issues?"+query, nil)
+	found, err := githubSearch[githubIssue](ctx, client, "is:issue is:open assignee:@me repo:"+repo.Path)
 	if err != nil {
 		return nil, err
 	}
 
-	issues := make([]Issue, 0, len(found.Items))
-	for _, item := range found.Items {
+	issues := make([]Issue, 0, len(found))
+	for _, item := range found {
 		issues = append(issues, item.issue())
 	}
 
 	return issues, nil
 }
 
-// githubIssueSearch is the search endpoint's answer, here all issues.
-type githubIssueSearch struct {
-	Items []githubIssue `json:"items"`
+// githubSearchServes is how many results GitHub's search serves, however many
+// it finds: a page past them is refused rather than answered empty.
+const githubSearchServes = 1000
+
+// githubSearchPage is one page of the search endpoint's answer: the items it
+// found, and how many it found in all.
+type githubSearchPage[T any] struct {
+	TotalCount int `json:"total_count"`
+	Items      []T `json:"items"`
+}
+
+// githubSearch reads every item an issue search finds, as far as the search
+// serves them.
+func githubSearch[T any](ctx context.Context, client Client, query string) ([]T, error) {
+	return readPages(func(page int) ([]T, int, error) {
+		found, err := call[githubSearchPage[T]](ctx, client, http.MethodGet,
+			"/search/issues?"+pageQuery(url.Values{"q": {query}}, page), nil)
+
+		return found.Items, min(found.TotalCount, githubSearchServes), err
+	})
 }
 
 // githubIssue is an issue as GitHub sends it, from the search or a single read.

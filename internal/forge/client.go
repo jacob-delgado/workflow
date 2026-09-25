@@ -11,6 +11,7 @@ import (
 	"fmt"
 	"io"
 	"maps"
+	"math"
 	"mime"
 	"net/http"
 	"net/url"
@@ -51,6 +52,10 @@ const (
 	perPage      = 100
 	maxPages     = 20
 )
+
+// uncounted is the count of a listing whose forge does not count it, as GitLab's
+// arrays do not: no read reaches it, so only a short page ends the listing.
+const uncounted = math.MaxInt
 
 // Errors the client returns. Callers distinguish them with errors.Is.
 var (

@@ -6,7 +6,9 @@ package forge_test
 import (
 	"context"
 	"net/http"
+	"net/http/httptest"
 	"net/url"
+	"strconv"
 	"strings"
 	"testing"
 
@@ -77,6 +79,131 @@ func TestAssignedIssuesListsAForgesRepoIssues(t *testing.T) {
 				if !strings.Contains(decoded, part) {
 					t.Errorf("query %q is missing %q", decoded, part)
 				}
+			}
+		})
+	}
+}
+
+// forgePaging serves each path's pages: the request's page parameter picks one
+// of the path's pages, the first when it names none. A page past the last fails
+// the test and is refused, as GitHub's search refuses a page past the results it
+// serves, because a listing read to its end never asks for one.
+func forgePaging(t *testing.T, pages map[string][]string) forge.Client {
+	t.Helper()
+
+	server := httptest.NewServer(http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
+		page, err := strconv.Atoi(request.URL.Query().Get("page"))
+		if err != nil {
+			page = 1
+		}
+
+		bodies := pages[request.URL.EscapedPath()]
+		if page < 1 || page > len(bodies) {
+			t.Errorf("asked for page %d of %s, which has %d", page, request.URL.EscapedPath(), len(bodies))
+			writer.WriteHeader(http.StatusUnprocessableEntity)
+
+			return
+		}
+
+		writer.Header().Set("Content-Type", "application/json; charset=utf-8")
+		_, _ = writer.Write([]byte(bodies[page-1]))
+	}))
+	t.Cleanup(server.Close)
+
+	return forge.New(server.Client().Do, server.URL, secret)
+}
+
+// listingOf is a JSON array of count items numbered on from first, each as item
+// writes it.
+func listingOf(first, count int, item func(number int) string) string {
+	items := make([]string, 0, count)
+	for number := first; number < first+count; number++ {
+		items = append(items, item(number))
+	}
+
+	return "[" + strings.Join(items, ",") + "]"
+}
+
+// githubNumbered and gitlabNumbered are a listed item as each forge numbers it.
+func githubNumbered(number int) string { return `{"number":` + strconv.Itoa(number) + `}` }
+
+func gitlabNumbered(number int) string { return `{"iid":` + strconv.Itoa(number) + `}` }
+
+// searchPage is one page of a GitHub search answer: count items numbered on
+// from first, of total found in all.
+func searchPage(first, count, total int) string {
+	return `{"total_count":` + strconv.Itoa(total) + `,"items":` + listingOf(first, count, githubNumbered) + `}`
+}
+
+// fullPages is count pages of a hundred items each, numbered on from 1, each as
+// page writes it from its first number.
+func fullPages(count int, page func(first int) string) []string {
+	const perPage = 100
+
+	bodies := make([]string, 0, count)
+	for index := range count {
+		bodies = append(bodies, page(index*perPage+1))
+	}
+
+	return bodies
+}
+
+func TestAssignedIssuesReadsEveryPage(t *testing.T) {
+	t.Parallel()
+
+	gitlabPage := func(first int) string { return listingOf(first, 100, gitlabNumbered) }
+
+	cases := map[string]struct {
+		repo  forge.Repo
+		pages map[string][]string
+		want  int
+	}{
+		"GitHub reads on past a full page": {
+			repo:  githubRepo(),
+			pages: map[string][]string{githubIssuesSearch: {searchPage(1, 100, 101), searchPage(101, 1, 101)}},
+			want:  101,
+		},
+		"GitHub asks for no page past its count": {
+			repo:  githubRepo(),
+			pages: map[string][]string{githubIssuesSearch: {searchPage(1, 100, 100)}},
+			want:  100,
+		},
+		"GitHub stops where its search stops serving": {
+			repo: githubRepo(),
+			pages: map[string][]string{githubIssuesSearch: fullPages(10, func(first int) string {
+				return searchPage(first, 100, 1500)
+			})},
+			want: 1000,
+		},
+		"GitLab reads on until a short page": {
+			repo: gitlabRepo(),
+			pages: map[string][]string{
+				gitlabUserPath:   {gitlabWhoami},
+				gitlabIssuesList: {gitlabPage(1), listingOf(101, 1, gitlabNumbered)},
+			},
+			want: 101,
+		},
+		"GitLab stops at the page bound": {
+			repo:  gitlabRepo(),
+			pages: map[string][]string{gitlabUserPath: {gitlabWhoami}, gitlabIssuesList: fullPages(21, gitlabPage)},
+			want:  2000,
+		},
+	}
+
+	for name, tt := range cases {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			// Arrange
+			client := forgePaging(t, tt.pages)
+
+			// Act
+			issues, err := client.AssignedIssues(t.Context(), tt.repo)
+
+			// Assert
+			if err != nil || len(issues) != tt.want || issues[len(issues)-1].Number != tt.want {
+				t.Errorf("AssignedIssues read %d issues, %v; want %d, the last numbered %d",
+					len(issues), err, tt.want, tt.want)
 			}
 		})
 	}

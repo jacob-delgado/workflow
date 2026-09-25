@@ -262,14 +262,14 @@ func gitlabIssues(ctx context.Context, client Client, repo Repo) ([]Issue, error
 		return nil, err
 	}
 
-	query := url.Values{
-		queryState:          {stateOpened},
-		"assignee_username": {viewer.Name()},
-		perPageParam:        {strconv.Itoa(perPage)},
-	}.Encode()
+	query := url.Values{queryState: {stateOpened}, "assignee_username": {viewer.Name()}}
+	path := gitlabProjectPath(repo) + issuesSegment + "?"
 
-	listed, err := repoCall[[]gitlabIssue](ctx, client, repo, http.MethodGet,
-		gitlabProjectPath(repo)+issuesSegment+"?"+query, nil)
+	listed, err := readPages(func(page int) ([]gitlabIssue, int, error) {
+		one, err := repoCall[[]gitlabIssue](ctx, client, repo, http.MethodGet, path+pageQuery(query, page), nil)
+
+		return one, uncounted, err
+	})
 	if err != nil {
 		return nil, err
 	}
