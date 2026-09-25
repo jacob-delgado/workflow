@@ -120,9 +120,7 @@ func checkForge(ctx context.Context, out io.Writer, doer forge.Doer, settings co
 
 	token, source, err := wiring.ForgeResolver(settings).Resolve(ctx, repo.Kind, repo.Host)
 	if err != nil {
-		fmt.Fprintf(out, "  %-10s %s\n", "forge", noForgeTokenMessage(proc.Available, repo.Kind, repo.Host))
-
-		return fmt.Errorf("%w: forge", errCredentialRejected)
+		return credentialMissing(out, "forge", noForgeTokenMessage(proc.Available, repo.Kind, repo.Host))
 	}
 
 	return askForge(ctx, out, doer, base, token, source)
@@ -167,9 +165,11 @@ func checkMessaging(
 
 	token, source, err := wiring.ResolveToken(ctx, creds.Token, creds.TokenCommand, creds.TokenEnv)
 	if err != nil {
-		fmt.Fprintf(out, "  %-10s %v\n", label, err)
+		return credentialMissing(out, label, err.Error())
+	}
 
-		return fmt.Errorf("%w: %s", errCredentialRejected, label)
+	if token == "" && creds.Mode() == config.MessagingBot {
+		return credentialMissing(out, label, "no token from "+source)
 	}
 
 	creds.Token = token
@@ -194,26 +194,41 @@ func checkMessaging(
 	return nil
 }
 
-// credentialOutcome tells an unreachable service from a rejected credential, so
-// the outcome names the one the reader can act on. It reads unreachable as
-// every command's exit status does: a service that could not be reached, asked
-// the caller to wait, or answered with a refused redirect never judged the
-// credential.
+// credentialOutcome names what a failed check found, so the outcome is the one
+// the reader can act on: no credential to ask with, a service that never judged
+// the one it was given, or a credential refused, by the service or by the
+// client before sending it. It reads unreachable as every command's exit status
+// does: a service not reached, one asking to wait, or a refused redirect.
 func credentialOutcome(err error, service string) error {
-	if (exitFamily{members: unreachableErrors()}).holds(err) {
-		return fmt.Errorf("%w: %s", errUnreachable, service)
-	}
+	noCredential := exitFamily{members: []error{jira.ErrNoCredential, messaging.ErrNoCredential, forge.ErrNoToken}}
 
-	return fmt.Errorf("%w: %s", errCredentialRejected, service)
+	switch {
+	case noCredential.holds(err):
+		return fmt.Errorf("%w: %s", errCredentialMissing, service)
+	case (exitFamily{members: unreachableErrors()}).holds(err):
+		return fmt.Errorf("%w: %s", errUnreachable, service)
+	default:
+		return fmt.Errorf("%w: %s", errCredentialRejected, service)
+	}
+}
+
+// credentialMissing says why service has no credential to ask about, and
+// reports it missing rather than rejected: nothing was put to the service.
+func credentialMissing(out io.Writer, service, why string) error {
+	fmt.Fprintf(out, "  %-10s %s\n", service, why)
+
+	return fmt.Errorf("%w: %s", errCredentialMissing, service)
 }
 
 // checkJira asks Jira who the configured token authenticates as.
 func checkJira(ctx context.Context, out io.Writer, doer jira.Doer, settings config.Jira) error {
 	token, source, err := wiring.ResolveToken(ctx, settings.Token, settings.TokenCommand, settings.TokenEnv)
 	if err != nil {
-		fmt.Fprintf(out, "  %-10s %v\n", "jira", err)
+		return credentialMissing(out, "jira", err.Error())
+	}
 
-		return fmt.Errorf("%w: jira", errCredentialRejected)
+	if token == "" && settings.AuthMode() != config.AuthNone {
+		return credentialMissing(out, "jira", "no token from "+source)
 	}
 
 	settings.Token = token

@@ -193,11 +193,14 @@ func captureCheck(service string, check func(io.Writer) error) (credentialLine, 
 }
 
 // credentialStatus names an outcome for the reader to act on: a working
-// credential, one the service refused, or a service that never answered.
+// credential, none to ask with, one the service refused, or a service that
+// never answered.
 func credentialStatus(err error) string {
 	switch {
 	case err == nil:
 		return "ok"
+	case errors.Is(err, errCredentialMissing):
+		return "missing"
 	case errors.Is(err, errUnreachable):
 		return "unreachable"
 	default:

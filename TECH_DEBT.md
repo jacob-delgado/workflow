@@ -113,7 +113,7 @@ Severity: medium · Confidence: read
 "`workflow doctor --online` says which it is" — `gh` or `glab`, or HTTP.
 `doctor` never reads `config.Forge.CLI`: `checkForge`
 (`internal/cli/doctor_credentials.go:121`) always resolves a token through
-`wiring.ForgeResolver` and fails with `errCredentialRejected` when none
+`wiring.ForgeResolver` and fails with `errCredentialMissing` when none
 resolves; `askForge` (`internal/cli/doctor_credentials.go:149`) calls
 `forge.New(doer, base, token).Whoami` over the doer that `onlineDoers`
 (`internal/cli/doctor_credentials.go:64`) builds from `httpx` alone; and
