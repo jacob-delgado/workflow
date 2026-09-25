@@ -211,7 +211,9 @@ the time, the service, the method, the path, the status and how long it took
 It records nothing else: never a header, a body, a query string or a host,
 and never the path of a messaging webhook — Slack's, Teams', Discord's or a
 plain one — which is itself the credential. The file is created readable only
-by you.
+by you. A line that cannot be written — on a full disk, say — neither stops
+the command nor changes its exit status: as it ends, the command says once on
+stderr that the request log could not be fully written.
 
 ```text
 2026-09-22T18:04:11Z jira  GET  /rest/api/2/myself 200 184ms

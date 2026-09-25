@@ -185,8 +185,8 @@ Impact: low · Effort: small
 `config init` that does not exist, and the command corrects them itself
 while it runs.
 
-- `internal/cli/cli.go:36` (`longHelp`): "Write a starting file with:
-  workflow config init", then "fill in the two credentials" (`:40`). That
+- `internal/cli/cli.go:37` (`longHelp`): "Write a starting file with:
+  workflow config init", then "fill in the two credentials" (`:41`). That
   is `--template`'s flow; bare `init` runs the guided one
   (`newConfigInitCmd`, `internal/cli/config_cmd.go:77`, branches on
   `opts.template` and otherwise calls `runGuidedInit`), so a reader who
@@ -198,7 +198,7 @@ while it runs.
   "# writes .workflow.json here", "Then fill in the two tokens", the same
   stale flow, while `docs/content/docs/configuration.md:36` (the
   "Configuration" intro) says it asks and checks.
-- `internal/cli/cli.go:90` (the `SECURITY` paragraph of `longHelp`): the
+- `internal/cli/cli.go:91` (the `SECURITY` paragraph of `longHelp`): the
   file "is listed in .gitignore". `warnIfNotIgnored`
   (`internal/cli/config_cmd.go:327`) only warns when it is not, and nothing
   writes a `.gitignore`; the sentence is true of this repository's own
@@ -245,9 +245,9 @@ pointer.
   with no mention of `--template`. A final line typed without a newline
   comes back from `terminalPrompt`'s `ReadString` together with `io.EOF`
   (`cmd/workflow/main.go:53`) and is discarded with it.
-- `internal/cli/cli.go:191` (`NewRootCmdOver`'s `--web` branch): every
+- `internal/cli/cli.go:192` (`NewRootCmdOver`'s `--web` branch): every
   load error, `ErrNotFound` included, prints "configuration did not load
-  cleanly: %v" and then serves (`:196`). Its siblings branch on
+  cleanly: %v" and then serves (`:199`). Its siblings branch on
   `ErrNotFound` and print `NoConfigHeadline`, `InitStep` and `DoctorStep`:
   `showLoadError` (`internal/cli/config_cmd.go:97`), `reportLoadError`
   (`internal/cli/doctor.go:275`) and the interface's `configErrorStatus`
@@ -1622,9 +1622,9 @@ Impact: low · Effort: small
 
 **Today.** `LoopbackAddr` is the constant `"127.0.0.1:7000"`
 (`internal/webserver/webserver.go:229`), the only address the server ever
-binds; `NewRootCmd` serves it (`internal/cli/cli.go:160`) though
-`WebServerAt` already takes an address (`:262`), and `NewRootCmdOver`'s
-`--web` help hard-codes it (`:212`). The root declares `--dry-run`, `--log`
+binds; `NewRootCmd` serves it (`internal/cli/cli.go:161`) though
+`WebServerAt` already takes an address (`:270`), and `NewRootCmdOver`'s
+`--web` help hard-codes it (`:216`). The root declares `--dry-run`, `--log`
 and `--web` and no port, and a grep for Port or 7000 in `internal/config`
 finds no setting. So a machine with 7000 taken cannot run `--web` at all —
 the listen fails and the command exits — and two repositories cannot be
