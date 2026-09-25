@@ -118,8 +118,8 @@ func folded(text string) string {
 //
 // It returns a string rather than a jira.Key on purpose: the result is also a
 // forge issue number, and typing it jira.Key would make this stateless package
-// depend on jira. The branch-derived string becomes a jira.Key at the one tui
-// boundary that needs it, not here.
+// depend on jira. A caller types it where it hands the key to a tracker, not
+// here.
 func IssueKey(text, project string) (string, bool) {
 	if key, found := jiraKey(text, project); found {
 		return key, true
