@@ -106,7 +106,8 @@ func TestAForgeFailureSaysWhatToDo(t *testing.T) {
 
 	// Each failure the forge's client can answer a read with, carrying the host
 	// the way a wrapped error can; the answer tells the classes apart — a
-	// setting to fix before one to wait out — and never names the host.
+	// setting or a permission to fix before one to wait out — and never names
+	// the host, nor guesses at a rate limit, which the transport tells apart.
 	unprocessable, unreachable := http.StatusUnprocessableEntity, http.StatusBadGateway
 	cases := map[string]struct {
 		cause      error
@@ -118,7 +119,7 @@ func TestAForgeFailureSaysWhatToDo(t *testing.T) {
 		"a token not accepted":          {forge.ErrUnauthorized, unprocessable, "did not accept the token"},
 		"no API at the address":         {forge.ErrNoAPI, unprocessable, "no forge API answered"},
 		"an answer that is not JSON":    {forge.ErrNotJSON, unprocessable, "no forge API answered"},
-		"a refusal that may be a limit": {forge.ErrRefused, unreachable, "wait a minute"},
+		"a refusal of the token":        {forge.ErrRefused, unprocessable, "may lack a permission"},
 		"a status it does not document": {forge.ErrUnexpectedStatus, unreachable, undocumentedStatus},
 		"a status the forge explained": {
 			fmt.Errorf("%w: 500 Internal Server Error", forge.ErrRejected), unreachable, undocumentedStatus,
@@ -146,6 +147,10 @@ func TestAForgeFailureSaysWhatToDo(t *testing.T) {
 
 			if strings.Contains(recorder.Body.String(), forgeHost) {
 				t.Errorf("body = %q, leaks the forge host", recorder.Body.String())
+			}
+
+			if strings.Contains(failure.Detail, "rate limit") {
+				t.Errorf("detail = %q, guesses at a rate limit", failure.Detail)
 			}
 		})
 	}

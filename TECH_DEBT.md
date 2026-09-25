@@ -467,63 +467,6 @@ interface's `branchIssue`.
 a pull request and sees no link offer, and `strings.Contains(…, "-")` as a
 Jira-key guard appears once in the module outside tests.
 
-### DEBT-83 A forge 403 drops its reason and hints at rate limiting
-
-Severity: medium · Confidence: read
-
-`statusError` (`internal/forge/client.go:268`) maps every 403 to a bare
-`ErrRefused`, and `explained` (`internal/forge/reason.go:34`) returns a
-status error unread unless it is `ErrUnexpectedStatus`, so a write refused
-for an under-scoped token reaches the command line as the sentinel's own
-text and exits 1 while the forge said exactly what was wrong:
-
-- `internal/forge/client.go:45` — `ErrRefused`'s text, "may be rate limiting
-  rather than the credential", is what every surface prints — on GitLab too,
-  where a 403 is a permission answer and rate limiting is a 429.
-- `internal/forge/client.go:43` — `ErrRefused`'s comment scopes the
-  rate-limit caveat to GitHub; the sentence does not.
-- `internal/tui/failure.go:208` — `forgeErrors` words `forge.ErrRefused` as
-  "may be rate limiting. Wait a minute, then try again.", the terminal's
-  version of the same caveat.
-- `internal/webserver/errors.go:214` — `forgeFaults` answers a 502 whose
-  detail is "the forge refused the request, which may be rate limiting; wait
-  a minute, then try again".
-- `internal/forge/merge_test.go:203` — `TestARefusedMergeSaysWhy` serves
-  `{"message":"not allowed"}` and asserts `errors.Is(err, forge.ErrRefused)`
-  only; the body is never looked for, so the test documents a contract the
-  code does not keep.
-- `docs/content/docs/errors.md:30` — "A write that is refused may include
-  the git or forge's own reason" is never true for a forge 403.
-
-`workflow pr`, a merge or a re-run with an under-scoped token prints "may be
-rate limiting" and the user waits instead of widening the token. The discard
-is a decision, not a gap: `statusError`'s comment
-(`internal/forge/client.go:257`) declines a 403's body because GitHub
-answers a missing User-Agent and a rate limit with the same 403 and neither
-body says which, and `TestOnlyARefusalTheForgeExplainsCarriesItsReason`
-(`internal/forge/pulls_test.go:377`) pins it. This entry reverses that
-choice on its merits: GitHub's `X-RateLimit-Remaining` header is the signal
-the comment says the body lacks, GitLab's rate limit is a 429 that never
-reaches this arm, and `TestRerunChecksReportsARefusedRerun`
-(`internal/forge/rerun_test.go:89`) already serves GitHub's "Resource not
-accessible by personal access token" body.
-
-**One way to fix it.** Read the 403 body's message as `explained` does for
-other statuses, at least when GitHub's `X-RateLimit-Remaining` header is not
-0, and append it after `ErrRefused` (the body is already sanitized); then
-make `TestARefusedMergeSaysWhy` assert the body's message and flip the 403
-case in `TestOnlyARefusalTheForgeExplainsCarriesItsReason`, rewording
-`statusError`'s comment to match, and word `ErrRefused`, `forgeErrors`' full
-form and `forgeFaults`' detail per forge kind, with no rate-limit clause on
-GitLab, where a 403 is a permission answer.
-
-**Done when.** A forge test answering 403 `{"message":"Resource not
-accessible by personal access token"}` to `Merge` asserts `errors.Is(err,
-ErrRefused)` and that `err.Error()` contains the message, and
-`TestARefusedMergeSaysWhy` fails when "not allowed" is absent from the error
-text; and a GitLab 403 case in the forge, terminal and web tests finds no
-"rate limiting" in the error text, the full form or the 502 detail.
-
 ### DEBT-84 `git` missing from PATH is reported as "not a git repository"
 
 Severity: medium · Confidence: read
@@ -3015,8 +2958,8 @@ Severity: medium · Confidence: read
 and `httpx.Unreachable` wraps a refused redirect as `ErrRedirected` with
 `the server at <base>` in its text, so a forge answering a login redirect
 makes POST /api/pull-request answer 422 naming the forge's API base — and
-a rate limit or `ErrRefused` answers 422 with sentinel text where the read
-path's `faultClasses` gives a curated 502. `pushFailure` joins git's push
+a rate limit answers 422 with sentinel text where the read path's
+`faultClasses` gives a curated 502. `pushFailure` joins git's push
 output verbatim into the detail, which git ends with `To <remote-url>` or
 `failed to push some refs to <url>`, and the open reuses it, while staging
 keeps git's words off the wire for exactly that reason.

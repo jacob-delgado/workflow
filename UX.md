@@ -844,10 +844,10 @@ only then does the composer call the forge, so it names the wrong thing
 as what would fail.
 
 **Instead.** Gate `n` as `refuseAnOpenPull` does — a transient forge error
-(`ErrUnreachable`, `ErrRefused`) lets it through — except that a missing
-token still refuses, and fix the comment. DEBT-112 is the merged case of
-the same condition (`!m.review.found`), so whoever picks up either writes
-one table test with both inputs.
+(`ErrUnreachable`, `httpx.ErrRateLimited`) lets it through — except that
+a missing token still refuses, and fix the comment. DEBT-112 is the merged
+case of the same condition (`!m.review.found`), so whoever picks up either
+writes one table test with both inputs.
 
 **Done when.** A test with the find returning `forge.ErrUnreachable` sees
 "n open pull request" in the footer.
@@ -1989,8 +1989,6 @@ script is told to press a key it does not have.
   names the variable and tool per host and `noForgeTokenMessage`,
   `internal/cli/doctor.go:242`, prints it — so `doctor` and the interface
   disagree on a GitLab host.
-- The rate-limit caveat every surface prints for a forge 403, GitLab's
-  included, is DEBT-83.
 - `rejectionReason`, `internal/messaging/post.go:175`, `:177` and `:178`:
   three sentences end "then press enter to try again" inside a domain
   error; `runAnnounce`, `internal/cli/announce.go:146`, wraps it with `%w`

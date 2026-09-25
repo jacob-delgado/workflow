@@ -185,8 +185,9 @@ func jiraFaults() []faultClass {
 
 // forgeFaults are GitHub's and GitLab's failures. The first two are found
 // before the forge is asked anything, so their details name what to set; a
-// refusal may be the forge limiting requests, so it is waited out rather than
-// blamed on the token.
+// refusal is the forge saying what the token may not do, so it points at the
+// token's scopes — a rate limit is told apart before it and answered with the
+// transport's own class.
 func forgeFaults() []faultClass {
 	return []faultClass{
 		{
@@ -210,8 +211,8 @@ func forgeFaults() []faultClass {
 		},
 		{
 			causes: []error{forge.ErrRefused},
-			code:   api.Unreachable,
-			detail: "the forge refused the request, which may be rate limiting; wait a minute, then try again",
+			code:   api.Unprocessable,
+			detail: "the forge refused the request; the token may lack a permission this needs, so check its scopes",
 		},
 		{
 			// An explained status is the same undocumented status with the
