@@ -95,6 +95,8 @@ type world struct {
 	recentSubjectsErr error
 	noRecentSubjects  bool
 	changes           []gitrepo.Change
+	changesErr        error
+	noChanges         bool
 	stageErr          error
 	createErr         error
 	worktreeErr       error

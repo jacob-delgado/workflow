@@ -963,30 +963,6 @@ reaches; what it carries on purpose — the two composers' field handling
 written twice, and the spine's color-only hue — is under [Deliberate
 trade-offs](#deliberate-trade-offs-that-carry-a-cost).
 
-### DEBT-108 The task switcher's dirty-tree guard reads a snapshot, not the tree
-
-Severity: medium · Confidence: read
-
-`branchPicker.choose` (`internal/tui/switchtask.go:179`) refuses a switch
-from `m.changes.changes`, the Commits pane's list as it was last loaded.
-`Model.openBranchPicker` (`internal/tui/switchtask.go:88`) lists the
-branches and nothing else, and no tick or focus event in `internal/tui`
-reloads the changes, so a file edited in another terminal after the last
-load passes the guard and `git switch` carries the edit onto the other
-branch — the very thing `errDirtyTree` says the guard prevents. The web
-reads the tree at request time: `server.refuseADirtyTree`
-(`internal/webserver/checkout.go:81`) calls `s.deps.Changes()` before it
-decides. git still refuses an edit that conflicts, so the harm is a
-non-conflicting change landing on another branch without a word.
-
-**One way to fix it.** Have `openBranchPicker` (or `choose`) read
-`Git.Changes` again before deciding, as the web's `refuseADirtyTree` does,
-and refuse on the fresh answer.
-
-**Done when.** A test in `internal/tui/switchtask_test.go` sets the world's
-changes to a modified file after `live()`, presses `s` then `enter`, and the
-switch is refused with no checkout call recorded.
-
 ### DEBT-112 The Review pane never offers `n` after a merged pull request
 
 Severity: medium · Confidence: read
