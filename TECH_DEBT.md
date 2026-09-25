@@ -962,32 +962,6 @@ reaches; what it carries on purpose — the two composers' field handling
 written twice, and the spine's color-only hue — is under [Deliberate
 trade-offs](#deliberate-trade-offs-that-carry-a-cost).
 
-### DEBT-107 A search answer for a view no longer shown replaces the list
-
-Severity: medium · Confidence: read
-
-`issuesLoaded.apply` (`internal/tui/issues.go:32`) settles whatever answer
-arrives into the current list with no look at which view it answers. The
-message carries the query — the `jql` field of `issuesLoaded`
-(`internal/tui/issues.go:24`) — but only `Model.cacheIssues`
-(`internal/tui/issues.go:47`) reads it, to file the page under its view.
-`Model.nextIssueView` (`internal/tui/views.go:58`) switches the view and
-starts a new search while the old one may still be out, so when the first
-view's answer lands last, the pane titled for the second view lists the
-first view's issues, and a following select or transition acts on an issue
-the title says is not there. `detailLoaded.apply` and
-`transitionsListed.apply` guard the same race by key; this applier does not.
-It self-corrects on the next `r` or `v`, and any action lands on the key
-actually shown, so the trigger is narrow.
-
-**One way to fix it.** In `issuesLoaded.apply`, cache the page under
-`msg.jql` as now, but settle it into the list only when `msg.jql` equals
-`m.activeView().jql`.
-
-**Done when.** A test in `internal/tui/views_test.go` holds `Init`'s batch,
-presses `v`, then delivers the first view's answer, and the screen shows the
-second view's issue and none of the first's.
-
 ### DEBT-108 The task switcher's dirty-tree guard reads a snapshot, not the tree
 
 Severity: medium · Confidence: read
