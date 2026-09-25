@@ -2491,7 +2491,7 @@ mrkdwn to Teams — and `workflow announce` does the same. Only `workflow
 doctor` notices, since `Config.Problems` is the one `Known()` check and
 `internal/cli/doctor_requirements.go` its one reader; nothing re-checks at
 use time, and `TestMessagingServiceNamesTheKind`
-(`internal/config/messaging_test.go:83`) asserts the Slack fallback for
+(`internal/config/messaging_test.go:97`) asserts the Slack fallback for
 "mastodon" as wanted. The web path is closed by the OpenAPI enum and a
 select, so the trigger is the file. The gobco report (`task cover:branch`)
 shows `webhookOnly`'s `k == KindSlack` at `internal/config/modes.go:86`
@@ -3213,7 +3213,7 @@ rewrite of an existing file, which is why it sits under the web, and
 `config init --force` is the other path.
 
 `SaveOver`'s revision guard checks staleness, not durability;
-`TestSaveOverReportsAPathItCannotUse` (`internal/config/save_test.go:122`)
+`TestSaveOverReportsAPathItCannotUse` (`internal/config/save_test.go:154`)
 asserts only that an error is returned, never that the previous contents
 survive; no trade-off records the choice.
 
@@ -3775,47 +3775,6 @@ and a `role=alert` refusal are each visible, in both themes;
 form's fields among the controls reached, each at least 99 % in view, at 640
 px; and the hermetic Settings scan waits on the Retry button, so a
 deliberate delay in the config read does not change what axe reports on.
-
-### DEBT-158 Five config tests are named for Slack or SaveOver and test neither
-
-Severity: low · Confidence: read
-
-Four tests in `internal/config/mode_test.go` keep Slack in their names after
-the rename `ErrSlackRenamed` records, and one in
-`internal/config/config_test.go` names `SaveOver` while calling `Save`.
-
-- `internal/config/mode_test.go:168` — `TestSlackModeSelectsTheTransport`
-  tests `Messaging.Mode` through a `slack` field of type `config.Messaging`.
-- `internal/config/mode_test.go:210` — `TestSlackModeString` tests
-  `MessagingMode.String`, and its failure message (`:230`) prints
-  `SlackMode(%d).String()`, a type that does not exist.
-- `internal/config/mode_test.go:236` — `TestSlackTarget` tests
-  `Messaging.Target` (`internal/config/config.go:327`), which answers for
-  every kind.
-- `internal/config/mode_test.go:276` —
-  `TestSlackTargetNeverRevealsTheWebhookURL`, the same stale name over
-  `config.Messaging` cases.
-- `internal/config/messaging_test.go:21` —
-  `TestMessagingModeReflectsTheKind` is the kind-aware twin the `Mode` cases
-  belong in.
-- `internal/config/config_test.go:240` —
-  `TestSaveOverAnExistingFileLeavesItOwnerOnly` is named for `SaveOver`, but
-  its Act (`:254`) is `config.Save`; `SaveOver`'s own tests in
-  `internal/config/save_test.go` never check the resulting mode.
-
-A failure would name a type a reader cannot find; a reader looking for
-`SaveOver`'s mode behavior is sent to a test of `Save`; two names exist for
-one behavior.
-
-**One way to fix it.** Rename with Messaging and merge the `Mode` cases into
-the kind-aware table; rename the save test to
-`TestSaveOverwritesAnExistingFileOwnerOnly` and add a mode assertion to a
-`SaveOver` test.
-
-**Done when.** `grep -rn SlackMode internal/config` prints nothing; no test
-in `internal/config` carries Slack in its name unless it tests a Slack-only
-field; no test named `TestSaveOver*` calls `Save` alone; and one `SaveOver`
-test asserts the file's mode.
 
 ### DEBT-159 Thirteen exports that only their tests reach
 
