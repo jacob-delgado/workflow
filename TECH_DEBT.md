@@ -2128,7 +2128,7 @@ failure answer.
 - `internal/webserver/handlers.go:228` — `server.GetMessaging`, no caller:
   the one-line `messagingDTO` that `server.snapshot` also builds at
   `internal/webserver/stream.go:90`.
-- `docs/content/docs/scripting.md:57` — "### The same families on the web"
+- `docs/content/docs/scripting.md:55` — "### The same families on the web"
   names the problem codes for scripts but no read endpoint.
 
 Four handlers and their tests exist for a caller that does not exist; the
