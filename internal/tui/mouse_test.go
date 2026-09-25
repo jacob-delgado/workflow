@@ -89,9 +89,12 @@ func TestClickingPicksAnIssue(t *testing.T) {
 
 	cases := map[string]struct {
 		width, height, column int
+		keys                  []string
 	}{
 		// The issue list in the focused rail pane: its second row is row 3.
 		"in the rail": {width: 120, height: 40, column: 5},
+		// Reading an issue only takes the list's place below 80 columns.
+		"in the rail while an issue is read": {width: 120, height: 40, column: 5, keys: []string{keyEnter}},
 		// Below 80 columns the rail is dropped and the list fills the detail.
 		"on a narrow terminal": {width: 79, height: 30, column: 10},
 	}
@@ -101,7 +104,7 @@ func TestClickingPicksAnIssue(t *testing.T) {
 			t.Parallel()
 
 			// Arrange
-			screen := newWorld().live(t, tt.width, tt.height)
+			screen := typing(t, newWorld().live(t, tt.width, tt.height), tt.keys...)
 
 			// Act
 			view := click(t, screen, tt.column, 3).View().Content
@@ -109,6 +112,29 @@ func TestClickingPicksAnIssue(t *testing.T) {
 			// Assert
 			requireScreen(t, view, "▸ ○ PROJ-388")
 		})
+	}
+}
+
+func TestClickingTheIssueBeingReadBelow80ColumnsPicksNothing(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	repo := newWorld()
+	reading := typing(t, repo.live(t, 79, 24), keyEnter)
+
+	// Act
+	// Row 3 holds the second issue while the list is drawn; now it is the
+	// first issue's text.
+	view := click(t, reading, 10, 3).View().Content
+
+	// Assert
+	// Every issue in the world shares one description, so the header and the
+	// reads tell which issue is shown.
+	requireScreen(t, view, issueKey+" "+issueSummary)
+	refuseScreen(t, view, "Add retries")
+
+	if reads := repo.asked("issue " + secondIssue); len(reads) != 0 {
+		t.Errorf("a click on the issue being read asked for %q", reads)
 	}
 }
 
