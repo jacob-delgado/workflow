@@ -3234,19 +3234,14 @@ form's fields among the controls reached, each at least 99 % in view, at 640
 px; and the hermetic Settings scan waits on the Retry button, so a
 deliberate delay in the config read does not change what axe reports on.
 
-### DEBT-159 Eight exports that only their tests reach
+### DEBT-159 Seven exports that only their tests reach
 
 Severity: low · Confidence: read
 
-Eight exported identifiers have no caller outside their own tests. `task
-deadcode` (`Taskfile.yml:494`) is "advisory, never a gate", and `unused`
+Seven exported identifiers have no caller outside their own tests. `unused`
 cannot see an exported identifier, so nothing objects; a contributor finds a
 public contract nothing honors.
 
-- `internal/hooks/output.go:50` — `Jobs`; the interface folds hook lines
-  through `NextJob` one at a time (`internal/tui/run.go:126`), so the
-  streaming contract it depends on is tested only through a wrapper no
-  caller uses. Unreachable.
 - `internal/messaging/messaging.go:53` and `:55` — `ErrRedirected` and
   `ErrRateLimited`, aliases of `httpx`'s sentinels;
   `internal/jira/jira.go:62` and `:64`, and `internal/forge/client.go:62`
@@ -3258,13 +3253,10 @@ public contract nothing honors.
   the same file and by one URL-stripping assertion
   (`internal/httpx/httpx_test.go:88`) that `Unreachable`'s test could carry.
 
-**One way to fix it.** Delete each and point its test at the caller's seam:
-fold the fixture lines through `NextJob`, asserting the input is unchanged;
-drop the six aliases and let tests match `httpx`'s sentinels; unexport
-`cause`.
+**One way to fix it.** Drop the six aliases and let tests match `httpx`'s
+sentinels; unexport `cause`.
 
-**Done when.** `task deadcode` reports no unreachable func in
-`internal/hooks`; grep finds `messaging.ErrRedirected`,
+**Done when.** grep finds `messaging.ErrRedirected`,
 `messaging.ErrRateLimited` and their `jira` and `forge` twins nowhere; and
 `httpx` exports no `Cause` while the URL-stripping assertion still runs.
 

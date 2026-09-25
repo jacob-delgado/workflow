@@ -39,7 +39,7 @@ summary: (done in 0.06 seconds)
 🥊 fails (0.01 seconds)`, "\n")
 }
 
-func TestJobsReadHowEachJobEnded(t *testing.T) {
+func TestNextJobReadsHowEachJobEnded(t *testing.T) {
 	t.Parallel()
 
 	cases := map[string]struct {
@@ -80,11 +80,30 @@ func TestJobsReadHowEachJobEnded(t *testing.T) {
 			t.Parallel()
 
 			// Act
-			got := hooks.Jobs(tt.lines)
+			var (
+				got       []hooks.Job
+				inSummary bool
+				altered   []string
+			)
+
+			for _, line := range tt.lines {
+				given := slices.Clone(got)
+				next, nextInSummary := hooks.NextJob(got, inSummary, line)
+
+				if !slices.Equal(got, given) {
+					altered = append(altered, line)
+				}
+
+				got, inSummary = next, nextInSummary
+			}
 
 			// Assert
 			if !slices.Equal(got, tt.want) {
-				t.Errorf("Jobs = %+v\nwant   %+v", got, tt.want)
+				t.Errorf("NextJob folded to %+v\nwant           %+v", got, tt.want)
+			}
+
+			if len(altered) > 0 {
+				t.Errorf("NextJob changed the jobs it was given on the lines %q", altered)
 			}
 		})
 	}
