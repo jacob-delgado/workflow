@@ -963,33 +963,6 @@ reaches; what it carries on purpose — the two composers' field handling
 written twice, and the spine's color-only hue — is under [Deliberate
 trade-offs](#deliberate-trade-offs-that-carry-a-cost).
 
-### DEBT-112 The Review pane never offers `n` after a merged pull request
-
-Severity: medium · Confidence: read
-
-`Model.canOpenPullRequest` (`internal/tui/review.go:364`) gates `n` on
-`!m.review.found`, and a find returns the merged pull request when no open
-one exists (`pickPull`, `internal/forge/pulls.go:213`), so a branch whose
-earlier pull request merged is never offered `n`. `refuseAnOpenPull`
-(`internal/loop/pull.go:114`), which the command line's `runPR`
-(`internal/cli/pr.go:116`) and the web's `composePullRequest`
-(`internal/webserver/pullrequest.go:105`) compose through, refuses only
-`pull.IsOpen()`, and its comment says why: a merged one's branch may carry
-new commits worth a fresh pull request. Once the branch does carry
-unpushed commits, `canFinish` (`internal/tui/finish.go:39`) withholds `F`
-too on `HasUnpushedWork`, leaving the pane with no way forward: `workflow
-pr` opens a new pull request where the terminal shows "merged" with neither
-`n` nor `F`. The two surfaces disagree on the shared layer's contract.
-
-**One way to fix it.** Gate `n` on `!m.review.found ||
-!m.review.pull.IsOpen()`, as `refuseAnOpenPull` does, and let
-`mergedDetail` say so. The same function's `err == nil` gate is UX-103; fix
-both in one change.
-
-**Done when.** A test in `internal/tui/review_test.go` with
-`pull.State = forge.StateMerged` and a commit on the branch sees "n open
-pull request" in the footer and opens one.
-
 ### DEBT-113 The pull request composer titles from the listed issue, not Jira
 
 Severity: medium · Confidence: read

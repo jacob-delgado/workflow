@@ -358,18 +358,25 @@ func mergeableLabel(mergeable forge.Mergeability) string {
 	return ""
 }
 
-// canOpenPullRequest reports a branch with commits and no pull request yet. A
-// forge failure offers nothing: n would open a composer whose push cannot land.
+// canOpenPullRequest reports a branch with commits and no open pull request —
+// none found, or only a merged one, whose branch may carry commits worth a new
+// one, as loop's refuseAnOpenPull allows. A forge failure offers nothing: n
+// would open a composer whose push cannot land.
 func (m Model) canOpenPullRequest() bool {
 	return m.branch.onFeatureBranch() && len(m.branch.branch.Commits) > 0 && m.review.loaded &&
-		m.review.err == nil && !m.review.found && m.deps.Forge.CreatePullRequest != nil
+		m.review.err == nil && !m.hasOpenPullRequest() && m.deps.Forge.CreatePullRequest != nil
+}
+
+// hasOpenPullRequest reports a pull request found open on the branch. A find
+// also returns a merged one, so found alone does not say so.
+func (m Model) hasOpenPullRequest() bool {
+	return m.review.found && m.review.pull.IsOpen()
 }
 
 // canEditPullRequest reports an open pull request whose title and body can be
-// edited here. A find also returns a merged pull, which cannot be edited, so it
-// checks the state rather than found alone.
+// edited here; a merged one cannot be.
 func (m Model) canEditPullRequest() bool {
-	return m.review.found && m.review.pull.IsOpen() && m.deps.Forge.EditPullRequest != nil
+	return m.hasOpenPullRequest() && m.deps.Forge.EditPullRequest != nil
 }
 
 // reviewKeys offers opening a pull request, listing its checks, or checking

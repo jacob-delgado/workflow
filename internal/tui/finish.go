@@ -13,8 +13,8 @@ import (
 	"github.com/jacob-delgado/workflow/internal/forge"
 )
 
-// mergedDetail describes a merged pull request: that it merged, and how to
-// finish its branch.
+// mergedDetail describes a merged pull request: that it merged, how to finish
+// its branch, and that a new one can still be opened from it.
 func (m Model) mergedDetail(pull forge.PullRequest) string {
 	lines := []string{
 		m.styles.strong.Render(m.vocab.sigil+strconv.Itoa(pull.Number)) + " " + pull.Title,
@@ -25,6 +25,10 @@ func (m Model) mergedDetail(pull forge.PullRequest) string {
 
 	if m.canFinish() {
 		lines = append(lines, "", "F finishes the branch: switch to "+m.branch.branch.BaseName()+", pull, delete it.")
+	}
+
+	if m.canOpenPullRequest() {
+		lines = append(lines, "", "n opens a new "+m.vocab.noun+" from this branch's commits.")
 	}
 
 	return strings.Join(lines, "\n")
