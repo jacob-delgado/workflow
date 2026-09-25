@@ -103,13 +103,13 @@ func (w *jiraWrites) sentBody() string {
 }
 
 // reviewJira serves the requests `pr` makes once a pull request is open: the
-// issue read during compose, adding the pull request's link, the transitions
-// list, and applying one. It records every link and transition, so a test can
-// prove what was sent — or that nothing was.
-func reviewJira(t *testing.T, transitions string) (string, *jiraWrites) {
+// issue read during compose, adding the pull request's link, reviewMoves as the
+// transitions list, and applying one. It records every link and transition, so
+// a test can prove what was sent — or that nothing was.
+func reviewJira(t *testing.T) (string, *jiraWrites) {
 	t.Helper()
 
-	return reviewJiraAnswering(t, transitions, jiraAccepts())
+	return reviewJiraAnswering(t, reviewMoves, jiraAccepts())
 }
 
 // jiraAnswers are the statuses a fake Jira answers its two writes with.
@@ -331,7 +331,7 @@ func TestPRStopsAtTheLinkWhenNothingCanAnswer(t *testing.T) {
 func TestPRLinksNothingForABranchWithoutAnIssue(t *testing.T) {
 	// Arrange
 	fakeGh(t, ghResponses{})
-	baseURL, writes := reviewJira(t, reviewMoves)
+	baseURL, writes := reviewJira(t)
 	repo := githubRepo(t, "chore/cleanup")
 	pretendPushed(t, repo)
 	writeFile(t, repo, `{"jira":{"base_url":"`+baseURL+`","token":"t","review_status":"`+statusInReview+`"},`+
@@ -354,7 +354,7 @@ func TestPRDoesNotLinkAForgeIssueNumberOnJira(t *testing.T) {
 	// The branch names the forge's issue 42, not a Jira one: Jira would refuse
 	// the link, or read 42 as the id of an unrelated issue.
 	fakeGh(t, ghResponses{})
-	baseURL, writes := reviewJira(t, reviewMoves)
+	baseURL, writes := reviewJira(t)
 	repo := githubRepo(t, "fix/42-typo")
 	pretendPushed(t, repo)
 	writeFile(t, repo, `{"jira":{"base_url":"`+baseURL+`","token":"t"},`+

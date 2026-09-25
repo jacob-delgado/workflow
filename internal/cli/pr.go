@@ -144,13 +144,13 @@ func runPR(out output, seams prSeams, opts writeOptions) error {
 
 	fmt.Fprintln(out.artifact, "Opened "+seams.Kind.Sigil()+strconv.Itoa(pull.Number)+" "+pull.URL)
 
-	key, _ := convention.IssueKey(branch.Name, seams.Options.Project)
+	issueKey, _ := loop.JiraIssue(branch, seams.Options.Project)
 
-	return followUp(out.notes, seams, openedPull{issueKey: jira.Key(key), pull: pull}, opts)
+	return followUp(out.notes, seams, openedPull{issueKey: issueKey, pull: pull}, opts)
 }
 
-// openedPull is a pull request just opened, and the issue its branch names —
-// empty when it names none.
+// openedPull is a pull request just opened, and the Jira issue its branch
+// names — empty when it names none, or only a forge issue number.
 type openedPull struct {
 	issueKey jira.Key
 	pull     forge.PullRequest
@@ -174,7 +174,7 @@ func followUp(notes io.Writer, seams prSeams, opened openedPull, opts writeOptio
 // issue, or a tracker that cannot take a link — the forge's own issues — is
 // offered nothing. A failed link is said at once, before the move is offered.
 func offerLink(notes io.Writer, seams prSeams, opened openedPull, opts writeOptions) error {
-	if seams.LinkPull == nil || !isJiraKey(opened.issueKey) {
+	if seams.LinkPull == nil || opened.issueKey == "" {
 		return nil
 	}
 
@@ -227,12 +227,12 @@ func pushFailure(name string, err error) error {
 	return fmt.Errorf("pushing %s: %w", name, err)
 }
 
-// offerReviewStatus offers to move the branch's issue to the configured review
-// status once the pull request is open, chosen by name because it shares a
-// category with "in progress". A read that fails, a status Jira does not offer,
-// or one whose transition needs fields this command cannot fill, is passed over
-// quietly — the pull request is already open. Everything it says is
-// commentary on the open, so it goes to notes.
+// offerReviewStatus offers to move the branch's Jira issue to the configured
+// review status once the pull request is open, chosen by name because it shares
+// a category with "in progress". No Jira issue, a read that fails, a status
+// Jira does not offer, or one whose transition needs fields this command cannot
+// fill, is passed over quietly — the pull request is already open. Everything
+// it says is commentary on the open, so it goes to notes.
 func offerReviewStatus(notes io.Writer, seams prSeams, issueKey jira.Key, opts writeOptions) error {
 	target, ok := loop.ReviewTransition(seams.Transitions, issueKey, seams.ReviewStatus)
 	if !ok {
@@ -277,11 +277,4 @@ func pushClause(branch gitrepo.Branch) string {
 	}
 
 	return "push " + branch.Name + " and "
-}
-
-// isJiraKey reports whether key names a Jira issue, PROJ-42, rather than none
-// or a forge issue number the branch named even with Jira as the tracker: Jira
-// would refuse that number, or read it as the id of an unrelated issue.
-func isJiraKey(key jira.Key) bool {
-	return strings.Contains(string(key), "-")
 }
