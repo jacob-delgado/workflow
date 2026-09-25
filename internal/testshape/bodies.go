@@ -172,7 +172,8 @@ func (b bodyCheck) outer(body *ast.BlockStmt, subtests []subtest) []Violation {
 }
 
 // assertionsAmongSubtests reports failures outside the subtests from the first
-// subtest on: in the loop after t.Run, or after the loop.
+// subtest on, in the loop after t.Run or after the loop, and calls there that
+// may fail the test through a method the check cannot pick.
 func (b bodyCheck) assertionsAmongSubtests(
 	body *ast.BlockStmt, subtests []subtest, literals []*ast.FuncLit,
 ) []Violation {
@@ -190,13 +191,19 @@ func (b bodyCheck) assertionsAmongSubtests(
 			return true
 		}
 
-		if b.scope.fails(call, map[*ast.FuncLit]bool{}) {
-			problems = append(problems, b.violation(call.Pos(), TableAssertion))
-
-			return false
+		found := b.scope.fails(call, map[*ast.FuncLit]bool{})
+		if found == silent {
+			return true
 		}
 
-		return true
+		rule := TableAssertion
+		if found == ambiguous {
+			rule = AmbiguousHelper
+		}
+
+		problems = append(problems, b.violation(call.Pos(), rule))
+
+		return false
 	})
 
 	return problems

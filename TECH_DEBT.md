@@ -3909,49 +3909,37 @@ rename nobody sees coming.
 `<prefix>: Bump the <group> group across 2 directories with 10 updates` is
 at most 72 characters.
 
-### DEBT-155 `testshape` resolves helpers by bare name
+### DEBT-155 `testshape` resolves a closure name across sibling subtests
 
 Severity: low · Confidence: read
 
-Two shapes pass the assert-without-failure rule while asserting nothing.
-The package doc (`internal/testshape/testshape.go:8`) states the
-syntax-only, by-name design, but not these consequences.
+A table test's Assert can pass the assert-without-failure rule while
+asserting nothing. The package doc (`internal/testshape/testshape.go:8`)
+states the syntax-only design, but not this consequence.
 
-- `internal/testshape/failures.go:342` — `selectorFails` accepts `q.check(t,
-  x)` through `anyAsserting(s.pkg.methods[function.Sel.Name])`, by method
-  name alone, because `index` (`internal/testshape/failures.go:84`) keys
-  methods by bare name across every receiver type; whenever any `check` in
-  the package asserts, every `check` does.
-- `internal/testshape/failures.go:131` — `newScope` walks the whole
+- `internal/testshape/scope.go:41` — `newScope` walks the whole
   top-level declaration once, and `checkTest`
   (`internal/testshape/bodies.go:70`) reuses that scope for every subtest's
-  Assert through `reaches` (`internal/testshape/sections.go:239`);
-  `addStored` (`internal/testshape/failures.go:193`) keys `closures` by
+  Assert through `reaches` (`internal/testshape/sections.go:250`);
+  `addStored` (`internal/testshape/scope.go:125`) keys `closures` by
   name with the last assignment winning, and `follow`
-  (`internal/testshape/failures.go:281`) resolves a called name through it.
+  (`internal/testshape/failures.go:184`) resolves a called name through it.
   In a table test where two `t.Run` closures each declare `fail := func()
   {…}`, a non-asserting subtest's `fail()` resolves to a later sibling's
   asserting literal.
 
-Neither is tripped in this tree: the only method names declared on more
-than one receiver in a test package (`after`, `deps`, `Error`, `Is` in
-`internal/tui`; `Header`, `Write`, `WriteHeader` in `internal/webserver`)
-reach no `t.Error` or `t.Fatal`. The cost is the blind spot: the first
-same-named helper pair where one asserts, or the first pair of sibling
-subtests declaring one closure name, silently widens what the gate passes.
+It is not tripped in this tree. The cost is the blind spot: the first pair
+of sibling subtests declaring one closure name silently widens what the
+gate passes.
 
-**One way to fix it.** Index methods by receiver type as well as name, and
-when a call's receiver type is not syntactically visible, report a name
-asserting on one type and not another as ambiguous rather than counting it;
-scope `closures` per `t.Run` literal, or refuse a name assigned twice in one
-declaration.
+**One way to fix it.** Scope `closures` per `t.Run` literal, or refuse a
+name assigned twice in one declaration.
 
-**Done when.** Two fixtures in `TestAnAssertThatReachesNoFailureIsReported`
-each yield one assert-without-failure violation — an Assert of `q :=
-quiet{}; q.check(t, x)` where `func (world) check` asserts and `func
-(quiet) check` logs; and a table test whose non-asserting subtest `fail :=
-func() {}` precedes a sibling's asserting `fail` — while the existing
-"inside a closure", "inside a go" and "through a closure" cases still pass.
+**Done when.** A fixture in `TestAnAssertThatReachesNoFailureIsReported` —
+a table test whose non-asserting subtest `fail := func() {}` precedes a
+sibling's asserting `fail` — yields one assert-without-failure violation,
+while the existing "inside a closure", "inside a go" and "through a
+closure" cases still pass.
 
 ### DEBT-156 Budget history's PR column holds backlog IDs in nine of fifteen rows
 
