@@ -207,7 +207,8 @@ commit messages above, so a well-formed commit is also a changelog entry:
    publishes until they do.
 3. Merging tags `vX.Y.Z`, which builds the binaries for macOS (arm64), Linux
    (amd64) and Windows (amd64), generates SHA256 checksums, attests the build
-   provenance, and publishes the GitHub Release with everything attached.
+   provenance, publishes the GitHub Release with everything attached, and then
+   republishes the documentation site.
 
 **Before 1.0, the minor digit is reserved for breaking changes.** Both `feat`
 and `fix` bump the patch; only a breaking change — marked with `!`, as in

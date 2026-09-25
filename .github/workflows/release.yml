@@ -1,7 +1,8 @@
 name: Release
 
-# Builds the cross-platform binaries for a vX.Y.Z tag and publishes the GitHub
-# Release with them attached, in two jobs:
+# Builds the cross-platform binaries for a vX.Y.Z tag, publishes the GitHub
+# Release with them attached, and republishes the documentation site, in three
+# jobs:
 #
 #   build    runs the gate, cross-compiles every release target, checks that
 #            each one built, writes the SBOM, and hands dist/ on as a workflow
@@ -9,6 +10,8 @@ name: Release
 #   release  takes that dist/, checksums it, attests its provenance and
 #            publishes the release. It checks nothing out and builds nothing,
 #            so what it attests and publishes is exactly what build verified.
+#   docs     dispatches pages.yml on main once the release is out, so the site
+#            describes the version people just got.
 #
 # Normally dispatched by release-please.yml right after it pushes the tag; the
 # push trigger is the manual path, for a tag pushed by hand. The release and its
@@ -163,3 +166,17 @@ jobs:
             dist/workflow_*
             dist/SHA256SUMS
             dist/workflow.spdx.json
+
+  # A dispatch because the release above is published with GITHUB_TOKEN, whose
+  # events start no workflow; pages.yml explains the rule and the exemption.
+  docs:
+    name: Republish the docs site
+    needs: release
+    runs-on: ubuntu-latest
+    permissions:
+      actions: write # dispatch pages.yml
+    steps:
+      - name: Dispatch the Pages workflow on main
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh workflow run pages.yml --ref main --repo "${GITHUB_REPOSITORY}"
