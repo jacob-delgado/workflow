@@ -99,6 +99,25 @@ func TestOpeningAPullRequestOffersToLinkItOnTheIssue(t *testing.T) {
 	}
 }
 
+func TestAForgeIssueNumberIsOfferedNoJiraLinkOrMove(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	// The branch names the forge's issue 42, not a Jira one: Jira would refuse
+	// the link, or read 42 as the id of an unrelated issue.
+	forgeNumber := withoutPull()
+	forgeNumber.branch.Name = "fix/42-typo"
+	forgeNumber.cfg.Jira.ReviewStatus = statusInReview
+	forgeNumber.moves = reviewTransitions()
+
+	// Act
+	view := typing(t, forgeNumber.live(t, 120, 40), "4", "n", keyEnter).View().Content
+
+	// Assert
+	requireScreen(t, view, "opened #42")
+	refuseScreen(t, view, "Link on", "Change status")
+}
+
 func TestSkippingTheLinkAddsNothing(t *testing.T) {
 	t.Parallel()
 
@@ -149,4 +168,21 @@ func TestADryRunSaysItWouldLinkThePullRequest(t *testing.T) {
 	if calls := append(dry.asked("open"), dry.asked("link")...); len(calls) != 0 {
 		t.Errorf("a dry run opened or linked: %q", calls)
 	}
+}
+
+func TestADryRunOffersNoJiraLinkForAForgeIssueNumber(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	dry := withoutPull()
+	dry.branch.Name = "fix/42-typo"
+	model := sized(t, dryInterface(dry), 120, 40)
+	model = drain(t, model, model.Init())
+
+	// Act
+	view := typing(t, model, "4", "n", keyEnter).View().Content
+
+	// Assert
+	requireScreen(t, view, "dry run: would")
+	refuseScreen(t, view, "and link it on")
 }

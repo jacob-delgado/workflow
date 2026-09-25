@@ -125,7 +125,7 @@ func (msg pullCreated) apply(m Model) (Model, tea.Cmd) {
 	// With a Jira issue, offer to link the pull request on it — so the team that
 	// watches Jira learns of it — and then to move it to the review status. When
 	// Jira cannot take the link, go straight to the status offer.
-	issueKey, named := m.branchIssue()
+	issueKey, named := m.jiraIssue()
 	switch {
 	case named && m.deps.Jira.LinkPullRequest != nil:
 		m.overlay = issueLinker{marks: m.marks, styles: m.styles, vocab: m.vocab, issueKey: issueKey, pull: msg.pull}
