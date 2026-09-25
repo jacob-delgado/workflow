@@ -240,6 +240,7 @@ type gitlabIssue struct {
 	URL         string `json:"web_url"`
 	Title       string `json:"title"`
 	Description string `json:"description"`
+	State       string `json:"state"`
 	Author      struct {
 		Username string `json:"username"`
 	} `json:"author"`
@@ -250,7 +251,7 @@ func (g gitlabIssue) issue() Issue {
 }
 
 func (g gitlabIssue) detail() IssueDetail {
-	return IssueDetail{Issue: g.issue(), Body: g.Description, Author: g.Author.Username}
+	return IssueDetail{Issue: g.issue(), Body: g.Description, Author: g.Author.Username, Closed: g.State == wireClosed}
 }
 
 // gitlabIssues lists the open issues in the project assigned to the token owner.

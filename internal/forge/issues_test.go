@@ -260,6 +260,48 @@ func TestReadIssueReadsBodyAndAuthor(t *testing.T) {
 	}
 }
 
+func TestReadIssueReadsWhetherTheIssueIsClosed(t *testing.T) {
+	t.Parallel()
+
+	cases := map[string]struct {
+		repo   forge.Repo
+		number int
+		path   string
+		reply  string
+		want   bool
+	}{
+		"a closed GitHub issue": {
+			repo: githubRepo(), number: 42, path: githubIssuePath, reply: `{"number":42,"state":"closed"}`, want: true,
+		},
+		"an open GitHub issue": {
+			repo: githubRepo(), number: 42, path: githubIssuePath, reply: `{"number":42,"state":"open"}`, want: false,
+		},
+		"a closed GitLab issue": {
+			repo: gitlabRepo(), number: 7, path: gitlabIssuePath, reply: `{"iid":7,"state":"closed"}`, want: true,
+		},
+		"an opened GitLab issue": {
+			repo: gitlabRepo(), number: 7, path: gitlabIssuePath, reply: `{"iid":7,"state":"opened"}`, want: false,
+		},
+	}
+
+	for name, tt := range cases {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			// Arrange
+			client, _ := forgeRouting(t, map[string]string{tt.path: tt.reply})
+
+			// Act
+			detail, err := client.ReadIssue(t.Context(), tt.repo, tt.number)
+
+			// Assert
+			if err != nil || detail.Closed != tt.want {
+				t.Errorf("ReadIssue = %+v, %v; want closed %v", detail, err, tt.want)
+			}
+		})
+	}
+}
+
 func TestCloseIssueClosesOnEachForge(t *testing.T) {
 	t.Parallel()
 
