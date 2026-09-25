@@ -3909,63 +3909,49 @@ rename nobody sees coming.
 `<prefix>: Bump the <group> group across 2 directories with 10 updates` is
 at most 72 characters.
 
-### DEBT-155 `testshape` resolves helpers by bare name and counts literals never called
+### DEBT-155 `testshape` resolves helpers by bare name
 
 Severity: low · Confidence: read
 
-Three shapes pass the assert-without-failure rule while asserting nothing.
+Two shapes pass the assert-without-failure rule while asserting nothing.
 The package doc (`internal/testshape/testshape.go:8`) states the
 syntax-only, by-name design, but not these consequences.
 
-- `internal/testshape/failures.go:216` — `reachesVisiting`'s `ast.Inspect`
-  enters every `FuncLit` body, invoked or not, and `:218` accepts the first
-  failing call it meets; so `verify := func() { t.Error("x") }; _ = verify`
-  reads as reaching a failure, while the method-reference twin `verify :=
-  w.expect; _ = verify` is reported
-  (`TestAnAssertThatReachesNoFailureIsReported`,
-  `internal/testshape/failures_test.go:127`).
-- `internal/testshape/failures.go:268` — `selectorFails` accepts `q.check(t,
+- `internal/testshape/failures.go:342` — `selectorFails` accepts `q.check(t,
   x)` through `anyAsserting(s.pkg.methods[function.Sel.Name])`, by method
   name alone, because `index` (`internal/testshape/failures.go:84`) keys
   methods by bare name across every receiver type; whenever any `check` in
   the package asserts, every `check` does.
-- `internal/testshape/failures.go:127` — `newScope` walks the whole
+- `internal/testshape/failures.go:131` — `newScope` walks the whole
   top-level declaration once, and `checkTest`
   (`internal/testshape/bodies.go:70`) reuses that scope for every subtest's
   Assert through `reaches` (`internal/testshape/sections.go:239`);
-  `addClosure` (`internal/testshape/failures.go:201`) keys `closures` by
-  bare name with the last assignment winning, and `fails`
-  (`internal/testshape/failures.go:240`) resolves a called name through it.
+  `addStored` (`internal/testshape/failures.go:193`) keys `closures` by
+  name with the last assignment winning, and `follow`
+  (`internal/testshape/failures.go:281`) resolves a called name through it.
   In a table test where two `t.Run` closures each declare `fail := func()
   {…}`, a non-asserting subtest's `fail()` resolves to a later sibling's
   asserting literal.
 
-None is tripped in this tree: no Assert stores a literal it never calls
-(grep of the three lines after every `// Assert` for `= func(` matches
-nothing), and the only method names declared on more than one receiver in a
-test package (`after`, `deps`, `Error`, `Is` in `internal/tui`; `Header`,
-`Write`, `WriteHeader` in `internal/webserver`) reach no `t.Error` or
-`t.Fatal`. The cost is the blind spot: the first same-named helper pair
-where one asserts, or the first stored-and-never-called literal, silently
-widens what the gate passes.
+Neither is tripped in this tree: the only method names declared on more
+than one receiver in a test package (`after`, `deps`, `Error`, `Is` in
+`internal/tui`; `Header`, `Write`, `WriteHeader` in `internal/webserver`)
+reach no `t.Error` or `t.Fatal`. The cost is the blind spot: the first
+same-named helper pair where one asserts, or the first pair of sibling
+subtests declaring one closure name, silently widens what the gate passes.
 
-**One way to fix it.** In `reachesVisiting`, do not descend into a function
-literal that is the right-hand side of an assignment or var spec — count it
-only through `scope.fails` when its name is called, keeping literals passed
-as arguments and `go func(){}()` as they are; index methods by receiver type
-as well as name, and when a call's receiver type is not syntactically
-visible, report a name asserting on one type and not another as ambiguous
-rather than counting it; scope `closures` per `t.Run` literal, or refuse a
-name assigned twice in one declaration.
+**One way to fix it.** Index methods by receiver type as well as name, and
+when a call's receiver type is not syntactically visible, report a name
+asserting on one type and not another as ambiguous rather than counting it;
+scope `closures` per `t.Run` literal, or refuse a name assigned twice in one
+declaration.
 
-**Done when.** Three fixtures in
-`TestAnAssertThatReachesNoFailureIsReported` each yield one
-assert-without-failure violation — an Assert of `verify := func() {
-t.Error("x") }` and `_ = verify`; an Assert of `q := quiet{}; q.check(t, x)`
-where `func (world) check` asserts and `func (quiet) check` logs; and a
-table test whose non-asserting subtest `fail := func() {}` precedes a
-sibling's asserting `fail` — while the existing "inside a closure", "inside
-a go" and "through a closure" cases still pass.
+**Done when.** Two fixtures in `TestAnAssertThatReachesNoFailureIsReported`
+each yield one assert-without-failure violation — an Assert of `q :=
+quiet{}; q.check(t, x)` where `func (world) check` asserts and `func
+(quiet) check` logs; and a table test whose non-asserting subtest `fail :=
+func() {}` precedes a sibling's asserting `fail` — while the existing
+"inside a closure", "inside a go" and "through a closure" cases still pass.
 
 ### DEBT-156 Budget history's PR column holds backlog IDs in nine of fifteen rows
 
