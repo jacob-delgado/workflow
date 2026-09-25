@@ -77,7 +77,7 @@ which one was read.
 | `forge.token` | **no** | GitHub or GitLab token. Usually leave it empty — see below. |
 | `ui.mouse` | no | Capture the mouse, so a click focuses a pane or selects a row. Defaults to `true`. |
 | `ui.ascii` | no | Draw borders and glyphs in plain ASCII. Defaults to `false`. |
-| `ui.color` | no | `never` turns off the system hues; bold, faint and the cursor stay. Empty (the default) draws them. `NO_COLOR` also turns them off. |
+| `ui.color` | no | `never` turns off the system hues; bold, faint and the cursor stay. Empty (the default) draws them; any other value is refused when the file loads. `NO_COLOR` also turns them off. |
 | `ui.notify` | no | Ring the terminal (and raise a desktop notification where it relays one) when CI finishes. Defaults to `false`. |
 | `ui.keys` | no | Rebind keys: a map from an action to the single key that triggers it, e.g. `{"commit": "C"}`. The help then shows the new key. See [Rebinding keys](#rebinding-keys) for the actions. |
 | `branch.template` | no | Shape of a proposed branch name from `{prefix}`, `{key}` and `{slug}`. Must contain `{key}`. Defaults to `{prefix}/{key}-{slug}`. |

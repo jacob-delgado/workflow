@@ -11,6 +11,9 @@ import (
 // ErrInvalidUI reports a ui setting the terminal interface could not honor.
 var ErrInvalidUI = errors.New("invalid ui setting")
 
+// colorNever is the ui.color that turns the system hues off.
+const colorNever = "never"
+
 // UI is how the terminal interface behaves.
 type UI struct {
 	// Mouse captures the mouse, so a click focuses a pane or selects a row.
@@ -60,14 +63,20 @@ type UI struct {
 // any value) and ui.color "never" both turn them off; bold, faint and reverse
 // stay.
 func (u UI) DrawColor(noColorEnv string) bool {
-	return noColorEnv == "" && u.Color != "never"
+	return noColorEnv == "" && u.Color != colorNever
 }
 
-// validateUI refuses a negative comments_shown: the detail pane keeps that many
-// of an issue's most recent comments, and no count below zero names any.
+// validateUI refuses a negative comments_shown — the detail pane keeps that many
+// of an issue's most recent comments, and no count below zero names any — and a
+// color other than empty or never, which would draw the hues a misspelled never
+// was meant to turn off.
 func (c Config) validateUI() error {
 	if c.UI.CommentsShown < 0 {
 		return fmt.Errorf("%w: comments_shown cannot be negative: %d", ErrInvalidUI, c.UI.CommentsShown)
+	}
+
+	if c.UI.Color != "" && c.UI.Color != colorNever {
+		return fmt.Errorf("%w: color is empty or never: %q", ErrInvalidUI, c.UI.Color)
 	}
 
 	return nil
