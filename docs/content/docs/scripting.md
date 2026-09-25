@@ -156,10 +156,10 @@ whole array.
 `effect`); `configuration` (`path`, `jira_url`, `jira_auth_mode`,
 `messaging_target`, `messaging_mode`, `world_readable`, `missing`), or
 `config_problem` when the file did not load; and `credentials` (`checked`,
-and with `--online`, `results`: `service`, `status` — `ok`, `rejected` or
-`unreachable` — and `detail`). It exits as the prose report does. A service
-that answers with a redirect is `unreachable`, and exits 5: the credential
-never reached it to be rejected.
+and with `--online` over a file that loaded, `results`: `service`, `status`
+— `ok`, `rejected` or `unreachable` — and `detail`). It exits as the prose
+report does. A service that answers with a redirect is `unreachable`, and
+exits 5: the credential never reached it to be rejected.
 
 `workflow config show` prints the configuration file's own shape, as
 [Configuration]({{< relref "/docs/configuration" >}}) describes it.

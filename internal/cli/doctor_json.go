@@ -97,10 +97,6 @@ func runDoctorJSON(ctx context.Context, out io.Writer, run doctorRun) error {
 		return err
 	}
 
-	if run.loadErr != nil {
-		return errors.Join(toolingErr, configErr)
-	}
-
 	return errors.Join(toolingErr, configErr, credErr)
 }
 
@@ -183,8 +179,12 @@ func configurationFacts(cfg config.Config) (configFacts, error) {
 // credentialFacts runs the online checks through the same functions the prose
 // report uses, capturing their already-masked output as data. Reusing them is
 // what keeps the two reports from ever masking differently.
+//
+// Like the prose report, it checks nothing when the file did not load: the
+// configuration in hand is then the defaults, not the user's.
 func credentialFacts(ctx context.Context, run doctorRun, remote string) (credentialsFacts, error) {
-	if !run.online {
+	if !run.online || run.loadErr != nil {
+		//nolint:nilerr // runDoctorJSON returns the load error as the configuration's problem
 		return credentialsFacts{Checked: false}, nil
 	}
 

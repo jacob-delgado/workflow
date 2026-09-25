@@ -5,8 +5,11 @@ package cli_test
 
 import (
 	"encoding/json"
+	"errors"
+	"io/fs"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"strings"
 	"sync/atomic"
 	"testing"
@@ -149,5 +152,31 @@ func TestDoctorJSONOnlineReportsARedirectAsUnreachable(t *testing.T) {
 	// Assert
 	if got := credentialStatusIn(decodeReport(t, output), "jira"); got != "unreachable" {
 		t.Errorf("the online report calls Jira's redirect %q, want unreachable:\n%s", got, output)
+	}
+}
+
+func TestDoctorJSONOnlineChecksNothingWhenTheFileDidNotLoad(t *testing.T) {
+	// Arrange
+	// Every forge variable is cleared, so only gh could answer for the forge:
+	// a token in the environment would resolve first and gh would never run.
+	clearForgeEnvironment(t)
+	dir := repoWithRemote(t, githubSSHRemote)
+	writeFile(t, dir, "{not json")
+	ghRan := ghSignedOutRecording(t)
+
+	// Act
+	output, err := run(t, dir, "doctor", "--json", "--online")
+
+	// Assert
+	wantExit(t, err, 3)
+
+	credentials, _ := decodeReport(t, output)["credentials"].(map[string]any)
+	if credentials["checked"] != false || credentials["results"] != nil {
+		t.Errorf("credentials = %v, want none checked over a file that did not load:\n%s", credentials, output)
+	}
+
+	_, statErr := os.Stat(ghRan)
+	if !errors.Is(statErr, fs.ErrNotExist) {
+		t.Errorf("doctor ran gh over a file that did not load (stat: %v)", statErr)
 	}
 }
