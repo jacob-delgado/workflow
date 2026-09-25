@@ -3234,26 +3234,15 @@ form's fields among the controls reached, each at least 99 % in view, at 640
 px; and the hermetic Settings scan waits on the Retry button, so a
 deliberate delay in the config read does not change what axe reports on.
 
-### DEBT-159 Thirteen exports that only their tests reach
+### DEBT-159 Eight exports that only their tests reach
 
 Severity: low · Confidence: read
 
-Thirteen exported identifiers have no caller outside their own tests. `task
+Eight exported identifiers have no caller outside their own tests. `task
 deadcode` (`Taskfile.yml:494`) is "advisory, never a gate", and `unused`
 cannot see an exported identifier, so nothing objects; a contributor finds a
-public contract nothing honors. FEAT-26 still names `convention.Message` as
-its seam.
+public contract nothing honors.
 
-- `internal/convention/convention.go:71` — `CommitTypes`; every surface uses
-  `CommitConvention.Types`. `deadcode` lists it unreachable.
-- `internal/convention/convention.go:78` — `BranchName`; production uses
-  `BranchNaming.Name`. Unreachable.
-- `internal/convention/convention.go:84` — `BranchType`; production uses
-  `CommitConvention.BranchType`. Unreachable.
-- `internal/convention/convention.go:300` — `Message`; production uses
-  `CommitConvention.Message`. Unreachable.
-- `internal/convention/pullrequest.go:25` — `PullRequestTitle`; production
-  uses `PullRequestTitleFrom`. Unreachable.
 - `internal/hooks/output.go:50` — `Jobs`; the interface folds hook lines
   through `NextJob` one at a time (`internal/tui/run.go:126`), so the
   streaming contract it depends on is tested only through a wrapper no
@@ -3269,19 +3258,15 @@ its seam.
   the same file and by one URL-stripping assertion
   (`internal/httpx/httpx_test.go:88`) that `Unreachable`'s test could carry.
 
-**One way to fix it.** Delete each and point its test at the caller's seam
-(`DefaultCommitConvention().Types()`, `DefaultBranchNaming().Name`,
-`CommitConvention.BranchType` and `.Message`,
-`PullRequestTitleFrom(TitleFromCommit, …)`); fold the fixture lines through
-`NextJob`, asserting the input is unchanged; drop the six aliases and let
-tests match `httpx`'s sentinels; unexport `cause`; correct FEAT-26's
-pointer.
+**One way to fix it.** Delete each and point its test at the caller's seam:
+fold the fixture lines through `NextJob`, asserting the input is unchanged;
+drop the six aliases and let tests match `httpx`'s sentinels; unexport
+`cause`.
 
 **Done when.** `task deadcode` reports no unreachable func in
-`internal/convention` or `internal/hooks`; grep finds
-`messaging.ErrRedirected`, `messaging.ErrRateLimited` and their `jira` and
-`forge` twins nowhere; and `httpx` exports no `Cause` while the
-URL-stripping assertion still runs.
+`internal/hooks`; grep finds `messaging.ErrRedirected`,
+`messaging.ErrRateLimited` and their `jira` and `forge` twins nowhere; and
+`httpx` exports no `Cause` while the URL-stripping assertion still runs.
 
 ## Deliberate trade-offs that carry a cost
 

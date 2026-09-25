@@ -69,16 +69,16 @@ func TestBranchNameReadsAsTheIssue(t *testing.T) {
 			t.Parallel()
 
 			// Act
-			got := convention.BranchName(tt.issueType, tt.key, tt.summary)
+			got := convention.DefaultBranchNaming().Name(tt.issueType, tt.key, tt.summary)
 
 			// Assert
 			if got != tt.want {
-				t.Errorf("BranchName = %q, want %q", got, tt.want)
+				t.Errorf("Name = %q, want %q", got, tt.want)
 			}
 
 			err := convention.ValidateBranchName(got)
 			if err != nil {
-				t.Errorf("BranchName proposed %q, which git would refuse: %v", got, err)
+				t.Errorf("Name proposed %q, which git would refuse: %v", got, err)
 			}
 		})
 	}
@@ -189,7 +189,7 @@ func TestBranchTypeReadsThePrefixWhenItIsACommitType(t *testing.T) {
 			t.Parallel()
 
 			// Act
-			got, ok := convention.BranchType(tt.branch)
+			got, ok := convention.DefaultCommitConvention().BranchType(tt.branch)
 
 			// Assert
 			if got != tt.want || ok != (tt.want != "") {
@@ -379,11 +379,11 @@ func TestCommitTypesOfferTheCommonOnesFirst(t *testing.T) {
 	t.Parallel()
 
 	// Act
-	types := convention.CommitTypes()
+	types := convention.DefaultCommitConvention().Types()
 
 	// Assert
 	if len(types) < 2 || types[0] != "feat" || types[1] != "fix" {
-		t.Errorf("CommitTypes() = %v, want feat and fix first", types)
+		t.Errorf("Types() = %v, want feat and fix first", types)
 	}
 
 	for _, each := range types {
@@ -439,7 +439,7 @@ func TestMessageAddsTheIssueAsATrailer(t *testing.T) {
 			t.Parallel()
 
 			// Act & Assert
-			if got := convention.Message(subject, tt.body, tt.key); got != tt.want {
+			if got := convention.DefaultCommitConvention().Message(subject, tt.body, tt.key); got != tt.want {
 				t.Errorf("Message() = %q, want %q", got, tt.want)
 			}
 		})
