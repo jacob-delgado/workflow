@@ -155,7 +155,7 @@ in the forge's issues when `Jira.Configured`
 says so — but the configuration still reads as incomplete on three surfaces,
 and two documents disagree about whether Jira is required:
 
-- `internal/config/config.go:437` — `Config.Missing` has no
+- `internal/config/config.go:432` — `Config.Missing` has no
   `Jira.Configured()` branch; `jira.base_url` and `jira.token` are listed
   whenever they are empty.
 - `internal/cli/doctor_requirements.go:43` — `reportRequirements` turns any
@@ -2419,55 +2419,11 @@ times then `pgup` once, and the first help line shown differs from before
 the `pgup`; a test opens the help at 120x40 and sees "Everywhere" and no
 "more below", or asserts the two columns differ by at most a few lines.
 
-### DEBT-121 An unknown `messaging.kind` loads and posts as Slack
-
-Severity: medium · Confidence: measured
-
-`Parse` validates six sections and never `messaging.kind`, which is a
-plain string with no lowercasing, so `"Teams"` or `"mastodon"` loads and
-falls to the Slack arm everywhere the kind is read: `MessagingKind.Service`
-names the pane Slack, `webhookOnly` answers false so a token beside it
-posts as a Slack bot, and the messaging package applies Slack markup. It
-hurts the terminal most — a hand-edited `"kind": "Teams"` beside a Teams
-webhook starts the interface with a pane titled Slack and posts Slack
-mrkdwn to Teams — and `workflow announce` does the same. Only `workflow
-doctor` notices, since `Config.Problems` is the one `Known()` check and
-`internal/cli/doctor_requirements.go` its one reader; nothing re-checks at
-use time, and `TestMessagingServiceNamesTheKind`
-(`internal/config/messaging_test.go:97`) asserts the Slack fallback for
-"mastodon" as wanted. The web path is closed by the OpenAPI enum and a
-select, so the trigger is the file. The gobco report (`task cover:branch`)
-shows `webhookOnly`'s `k == KindSlack` at `internal/config/modes.go:86`
-seen only true.
-
-- `internal/config/modes.go:74` — `MessagingKind.Service`'s default arm
-  returns "Slack" for any unknown kind.
-- `internal/config/modes.go:89` — `MessagingKind.webhookOnly`'s default
-  arm returns false, so an unknown kind with a token posts as a Slack bot.
-- `internal/config/load.go:182` — `Parse` joins the version, timing,
-  branch, views, commit and pull_request validators; none checks
-  `Messaging.Kind`.
-- `internal/config/config.go:408` — `Config.Problems`, the only `Known()`
-  check, read by `doctor` alone.
-- `internal/config/pullrequest.go:30` — `Config.validatePullRequest`, the
-  refusal shape to copy: "title_source is commit or issue".
-- `internal/wiring/wiring.go:286` — `messagingDeps` decides the transport
-  from `settings.Mode()`, computed from the unchecked kind.
-
-**One way to fix it.** Refuse an unknown kind in `Parse` with a sentinel
-wrapped in `ErrInvalid`, as `validatePullRequest` refuses an unknown
-`title_source`, and drop the "outside enum" expectation from
-`TestMessagingServiceNamesTheKind`.
-
-**Done when.** `Load` of `{"messaging": {"kind": "mastodon"}}` returns
-`ErrInvalid`, and `task cover:branch` reports `webhookOnly`'s condition at
-`internal/config/modes.go:86` seen both ways.
-
 ### DEBT-122 The `ui` section has no validator: a negative `comments_shown` panics
 
 Severity: medium · Confidence: read
 
-`Parse` joins six validators and none touches `UI`, so
+`Parse` joins seven validators and none touches `UI`, so
 `"comments_shown": -5` passes `Load`, `Parse` and the web's `PUT` (the
 schema sets no minimum), and the terminal's detail pane then slices past
 the end: `Model.comments` takes
@@ -2485,7 +2441,7 @@ The terminal is the only reader of both values.
 - `internal/tui/detail.go:455` — `Model.comments` slices from
   `max(0, len - cmp.Or(n, default))`; a negative `n` makes the low index
   exceed the length.
-- `internal/config/load.go:182` — `Parse` joins six validators; no
+- `internal/config/load.go:182` — `Parse` joins seven validators; no
   `validateUI`.
 - `internal/config/branch.go:55` — `Config.validateBranch`, the
   negative-number refusal to copy (`SlugLimit < 0`).
