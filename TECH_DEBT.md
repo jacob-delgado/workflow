@@ -248,48 +248,6 @@ tooling, so `externalTools()` is ranged over in one function and
 `configuration.problems` naming `jira.base_url`, `messaging.webhook_url` and
 `forge.kind`; `externalTools()` is ranged over in one function.
 
-### DEBT-78 `doctor --json --online` checks credentials over a configuration that did not load
-
-Severity: medium · Confidence: read
-
-The prose `runDoctor` returns before `reportCredentials` when `run.loadErr`
-is set (`internal/cli/doctor.go:117`); the JSON report does not mirror it:
-
-- `internal/cli/doctor_json.go:92` — `runDoctorJSON` calls `credentialFacts`
-  with no `run.loadErr` guard.
-- `internal/cli/doctor_json.go:186` — `credentialFacts` guards only on
-  `!run.online`, then runs `checkJira`, `checkMessaging` and `checkForge`
-  over `run.cfg` whatever `loadErr` says.
-- `internal/config/load.go:120` — `LoadFile` returns `Default()` on a failed
-  open, so those checks run over a configuration that is not the user's.
-- `internal/cli/doctor.go:222` — `checkForge` runs the forge resolver (an
-  environment lookup, and `gh` where it is installed, as
-  `noForgeTokenMessage`'s comment at `:232` says) and `askForge` then calls
-  `Whoami`, all over the defaults.
-- `internal/cli/doctor_json.go:100` — `runDoctorJSON` then drops `credErr`
-  from the joined error when `loadErr` is set, so the results it printed
-  affect nothing.
-- `internal/cli/doctor_json_test.go:81` —
-  `TestDoctorJSONReportsAMissingFileAsData`, the only missing-file `--json`
-  test, omits `--online`;
-  `TestDoctorJSONOnlineNamesTheIdentityWithoutTheToken` (`:92`) uses a valid
-  file.
-
-The two reports disagree on whether credentials were checked: the JSON says
-`credentials.checked` is true and lists results. It makes network and
-subprocess calls the prose report would not make on a broken file, and its
-results change nothing.
-
-**One way to fix it.** Return `credentialsFacts{Checked: false}` from
-`credentialFacts` when `run.loadErr` is set, mirroring `runDoctor`'s early
-return.
-
-**Done when.** A test writes `{not json`, runs `doctor --json --online` with
-a forge fake that records whether it was reached, and reads
-`credentials.checked == false` with the fake never reached. `Default()` has
-an empty Jira base URL, so `checked == false` is the assertion that carries
-weight.
-
 ### DEBT-79 `doctor --json` calls a missing credential "rejected" and an unchecked webhook "ok"
 
 Severity: medium · Confidence: read
@@ -2674,7 +2632,7 @@ whose printed sentence claims more than their check measures, CI jobs and
 triggers that do not do what their comments say, and tests named or shaped
 for something other than what they prove.
 
-### DEBT-64 The condition-coverage worklist: 431 one-sided conditions, and 16 never evaluated
+### DEBT-64 The condition-coverage worklist: 431 one-sided conditions, and 15 never evaluated
 
 Severity: low · Confidence: measured
 
@@ -2702,7 +2660,7 @@ the do-nothing guards' second operands, never seen true: `repo == ""` in
 `Store.CachedIssues` and `Store.CacheIssues` (`internal/store/cache.go:32`,
 `:99`), and `s.dir == ""` in `Store.off` (`internal/store/store.go:135`).
 
-Sixteen conditions were never evaluated. Four are a test away:
+Fifteen conditions were never evaluated. Four are a test away:
 
 - `internal/tui/messaging.go:90` and `:92` — `quitGuard.handleKey`'s confirm
   and stay: `TestQuittingWithAQueuedPostAsksFirst` opens the guard but
@@ -2713,12 +2671,9 @@ Sixteen conditions were never evaluated. Four are a test away:
 - `internal/wiring/wiring.go:234` — `streamToEnd`, git failing to start: no
   wiring test fetches or pulls without git on `PATH`.
 
-Eight more came into view once each operand counted, and each is a test
+Seven more came into view once each operand counted, and each is a test
 away too:
 
-- `internal/cli/doctor_json.go:142` — `toolingFacts`'s `program.required`:
-  no test runs `doctor` with a tool missing from `PATH`, so `!installed`
-  never lets the `&&` read it.
 - `internal/config/config.go:348` and `:364` — `Problems`'
   `absoluteWebURL(base)` and the four operands inside `absoluteWebURL`: no
   `internal/config` test calls `Problems` with a `jira.base_url` set.

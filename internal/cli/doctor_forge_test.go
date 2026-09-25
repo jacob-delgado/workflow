@@ -23,6 +23,15 @@ const githubSSHRemote = "git@github.com:owner/repo.git"
 func ghSignedOut(t *testing.T) {
 	t.Helper()
 
+	ghSignedOutRecording(t)
+}
+
+// ghSignedOutRecording is ghSignedOut with a gh that also creates a file each
+// time it runs, and returns that file's path, for a test that asserts gh was
+// never reached.
+func ghSignedOutRecording(t *testing.T) string {
+	t.Helper()
+
 	gitPath, err := exec.LookPath("git")
 	if err != nil {
 		t.Fatalf("these tests need git: %v", err)
@@ -35,12 +44,17 @@ func ghSignedOut(t *testing.T) {
 		t.Fatalf("linking git: %v", err)
 	}
 
-	err = os.WriteFile(filepath.Join(dir, "gh"), []byte("#!/bin/sh\nexit 1\n"), 0o755)
+	ran := filepath.Join(dir, "gh-ran")
+	script := "#!/bin/sh\n: >'" + ran + "'\nexit 1\n"
+
+	err = os.WriteFile(filepath.Join(dir, "gh"), []byte(script), 0o755)
 	if err != nil {
 		t.Fatalf("writing the fake gh: %v", err)
 	}
 
 	t.Setenv("PATH", dir)
+
+	return ran
 }
 
 func TestDoctorOnlineExplainsWhyNoForgeTokenResolved(t *testing.T) {
