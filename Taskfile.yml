@@ -54,7 +54,16 @@ vars:
   # guarantees — so those tests were deleted and this floor lowered to match.
   # The rule does not bend; the floor does. The --web dispatch has since gained
   # one (cli.NewRootCmdOver, tested in internal/cli/root_test.go).
-  BRANCH_COVERAGE_MIN: 91
+  #
+  # It moved 91→89 when the metric changed, not the tests. gobco had run with
+  # -branch, which counts branches: an `if a && b` was one counter whose operands
+  # were never seen apart, and a boolean outside a branch (`return goos ==
+  # "darwin"`) was not counted at all. Without the flag every operand and every
+  # boolean expression is a condition of its own, the metric this file and
+  # CLAUDE.md describe. It reads more arms and a lower share of them, so the floor
+  # was measured afresh and set to floor(measured) - 2. The name stays, and so
+  # does coverage-summary.sh's "branch" key the CI comment compares against main.
+  BRANCH_COVERAGE_MIN: 89
   # Container tasks work with docker or podman: CONTAINER_RUNTIME=podman task ...
   # container:check needs a VM of about 8 GiB: knip's parser reserves 6 GiB in
   # one allocation, and golangci-lint alone is killed for memory in the 2 GiB a
