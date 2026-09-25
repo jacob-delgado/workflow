@@ -241,8 +241,8 @@ func TestSaveReplacesASharedFileWithAnOwnerOnlyOne(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
-	// Writing into a file that already exists keeps the mode it had, so the
-	// mode has to be set and not only asked for.
+	// The file the save replaces is shared; the one it leaves in its place must
+	// be owner-only all the same, never carrying the old file's mode over.
 	path := filepath.Join(t.TempDir(), config.FileName)
 
 	err := os.WriteFile(path, []byte("{}"), sharedMode)

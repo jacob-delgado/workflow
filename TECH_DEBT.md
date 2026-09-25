@@ -775,7 +775,7 @@ The clients:
 - `internal/config/config.go:4` — the package comment says `config` "loads
   the workflow configuration file"; `Save`, `SaveOver`, `RevisionOf`,
   `ParseRevision` and `SharedMode` are exported from
-  `internal/config/save.go:105` onward, the `CLAUDE.md:29` row says
+  `internal/config/save.go:108` onward, the `CLAUDE.md:29` row says
   "loading, redaction, validation", and the budget file's WHY
   (`scripts/package-size-budgets.txt:36`) says "load and save".
 
@@ -951,8 +951,8 @@ The web page:
   fieldset.
 - `docs/content/docs/web.md:131` — "a save never overwrites a change it has
   not seen" is stronger than `SaveOver` makes it: its comment
-  (`internal/config/save.go:114`) says the check (`:118`) and the write
-  (`:127`) are not one step, and the `staleTime: Infinity` trade-off in this
+  (`internal/config/save.go:117`) says the check (`:121`) and the write
+  (`:130`) are not one step, and the `staleTime: Infinity` trade-off in this
   file repeats the page's phrasing.
 - `web/src/queryClient.ts:4` — the `queryClient` comment says "the stream's
   snapshots update it through setQueryData"; the stream handler in
@@ -3022,32 +3022,6 @@ answer 405 with a problem (a new enum code, added to
 `docs/content/docs/errors.md`), or let the request through to the mux.
 
 **Done when.** A test sending POST /api/branch sees 405, not 404.
-
-### DEBT-137 The credentials file is truncated before it is rewritten
-
-Severity: medium · Confidence: read
-
-`writePrivate` (`internal/config/save.go:158`) opens the configuration file
-with `O_WRONLY|O_CREATE|O_TRUNC`, chmods, then writes in place
-(`internal/config/save.go:165`) with no temp file, rename or backup, so a
-failure between the open and the write — a full disk, a kill — leaves an
-empty or partial file and the previous tokens are gone. Every save runs
-through it: the web's Settings PUT through `SaveOver` is the routine
-rewrite of an existing file, which is why it sits under the web, and
-`config init --force` is the other path.
-
-`SaveOver`'s revision guard checks staleness, not durability;
-`TestSaveOverReportsAPathItCannotUse` (`internal/config/save_test.go:154`)
-asserts only that an error is returned, never that the previous contents
-survive; no trade-off records the choice.
-
-**One way to fix it.** Write to a sibling temp file at `FileMode` and
-rename it over the path, keeping the explicit `Chmod` for the
-pre-existing-mode case the comment describes.
-
-**Done when.** A test that saves over an existing file into a directory
-made unwritable finds the previous contents intact afterward, and a
-successful `SaveOver` changes the target's inode.
 
 ### DEBT-138 The forge-backed tracker reads every issue as Open and connects before parsing
 
