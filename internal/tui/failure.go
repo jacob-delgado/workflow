@@ -288,6 +288,11 @@ func programErrors() []knownError {
 			brief: "",
 			full:  "A program workflow runs is not on PATH. Install it; `workflow doctor` names what is missing.",
 		}},
+		{proc.ErrTimedOut, wording{
+			brief: "timed out",
+			full: "A program workflow runs did not answer in time and was stopped. Check the disk or network " +
+				"it reads, then try again.",
+		}},
 		{proc.ErrExitStatus, ownWords()},
 		{editor.ErrNoSuchFile, wording{
 			brief: "no such file",

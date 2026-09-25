@@ -122,6 +122,13 @@ func TestARailSpeaksInBrief(t *testing.T) {
 			keys:    []string{"6"},
 			want:    "✗ the forge token is not valid",
 		},
+		"the Review rail, when a program it waited on timed out": {
+			start: withoutPull,
+			prepare: func(w *world) {
+				w.pullErr = fmt.Errorf("finding the pull request: %w", fmt.Errorf("gh: %w after 30s", proc.ErrTimedOut))
+			},
+			want: "✗ timed out",
+		},
 	}
 
 	for name, tt := range cases {
@@ -285,6 +292,13 @@ func TestAFailureRowSpeaksTheSentence(t *testing.T) {
 			},
 			keys: []string{"2", "s"},
 			want: notOnPath,
+		},
+		"branches git gave up listing, in full on the switcher's row": {
+			prepare: func(w *world) {
+				w.branchesErr = fmt.Errorf("listing branches: %w", fmt.Errorf("git: %w after 30s", proc.ErrTimedOut))
+			},
+			keys: []string{"2", "s"},
+			want: "✗ A program workflow runs did not answer in time and was stopped.",
 		},
 		"a switch git could not run, in full on the switcher's row": {
 			prepare: func(w *world) {
