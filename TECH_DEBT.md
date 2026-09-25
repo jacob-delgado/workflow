@@ -141,7 +141,7 @@ The terminal:
   review-requests panes; the contexts (`:347`) give Branch and Commits only
   `actionRefresh`, and open and copy are answered on Issues
   (`handleIssuesKey`, `internal/tui/issuekeys.go:18`), Review
-  (`handleReviewLink`, `internal/tui/review.go:448`) and Reviews
+  (`handleReviewLink`, `internal/tui/review.go:457`) and Reviews
   (`handleReviewQueueKey`, `internal/tui/reviewqueue.go:188`).
 - `internal/tui/keys.go:59` — `keyMap`'s comment on `openLink` and
   `copyLink`, "on the Issues and Review panes", omits the Reviews pane that
@@ -300,7 +300,7 @@ The configuration page (the Fields table's missing rows are DEBT-91):
   walks up to the directory holding `.git` (`:37`).
 - `docs/content/docs/configuration.md:383` — "While it is on and no
   `timing.ci_interval` is set, CI is polled every three minutes" gives two
-  of `pollInterval`'s three conditions (`internal/tui/review.go:185`): no
+  of `pollInterval`'s three conditions (`internal/tui/review.go:194`): no
   announcement may be waiting either.
 - `docs/content/docs/configuration.md:480` — the store is "keyed only by a
   repository's host and path and by a hash of your Jira URL", and
@@ -513,7 +513,7 @@ The terminal:
   `TestNotifyPollsOnALongerBeatWithNoIntervalSet` asserts only "running" and
   no ring; `horizon` (`internal/tui/harness_test.go:27`) is one second, so
   any beat over a second is indistinguishable from `notifyPollInterval`
-  (`internal/tui/review.go:179`).
+  (`internal/tui/review.go:188`).
 - `internal/tui/merge_test.go:328` — `TestTheMergePreviewShowsItIsMerging`
   presses `j` in flight and asserts only "merging"; without the
   `p.send.sending` guard in `mergePicker.handleKey`
@@ -967,7 +967,7 @@ trade-offs](#deliberate-trade-offs-that-carry-a-cost).
 
 Severity: medium · Confidence: read
 
-`Model.canOpenPullRequest` (`internal/tui/review.go:355`) gates `n` on
+`Model.canOpenPullRequest` (`internal/tui/review.go:364`) gates `n` on
 `!m.review.found`, and a find returns the merged pull request when no open
 one exists (`pickPull`, `internal/forge/pulls.go:213`), so a branch whose
 earlier pull request merged is never offered `n`. `refuseAnOpenPull`
@@ -1196,30 +1196,6 @@ in the footer; a test with `w.ci = []forge.CI{{State: forge.CINone}}`
 presses `5`, `p`, `w` and sees no "will announce" notice, the footer still
 offering `p`, and no further "ci" call recorded past the horizon.
 
-### DEBT-118 A failed find on a branch reload strands a queued announcement
-
-Severity: low · Confidence: read
-
-`pullFound.apply` (`internal/tui/review.go:92`) replaces the found review
-through `beginReview` whenever the answer is not for the same pull request
-number — and an answer carrying an error has `found` false, so it always
-is. `beginReview` bumps `reviewsBegun`, which is the chain `ciPoll.apply`
-(`internal/tui/review.go:201`) checks before polling again, and the applier
-returns before `checkCI`. Every branch reload batches `findPullRequest`
-(`branchLoaded.apply`, `internal/tui/branch.go:57`), so with `w` pressed
-and CI running, a commit, a push or `r` on Branch whose `FindPullRequest`
-fails transiently ends the polling: the queued post is neither sent nor
-dropped, the Review rail shows the failure, and `Model.messagingState`
-(`internal/tui/messaging.go:155`) keeps saying "announces when CI passes"
-for a post nothing will send until a later find succeeds.
-
-**One way to fix it.** In `pullFound.apply`, keep the found review when
-the answer is an error for the same branch (record `err` beside it, as the
-same-number branch does) so the chain and the queued post survive a blip.
-
-**Done when.** A test queues a post, delivers a `pullFound` with
-`ErrUnreachable`, then a green CI, and sees the post sent.
-
 ### DEBT-119 `tui.Run` reads `NO_COLOR` itself, which keeps its branch untestable
 
 Severity: low · Confidence: read
@@ -1428,7 +1404,7 @@ would close the window, is FEAT-79.
   through to `review` unchanged.
 - `internal/webserver/handlers.go:182` — `server.review` calls `CheckCI`
   for any found pull, merged included, on every snapshot; the terminal's
-  `checkCI` (`internal/tui/review.go:105`) returns early unless
+  `checkCI` (`internal/tui/review.go:114`) returns early unless
   `State == StateOpen`.
 - `web/src/features/review/ReviewPanel.tsx:97` — `PullRequestSummary`'s
   State row is `pull.draft ? 'Draft' : 'Ready for review'`, the only two
@@ -1443,7 +1419,7 @@ unknown" on GitHub, whose `githubFind` reads mergeability only while open,
 `gitlabMerge.pullRequest` maps `merge_status` for any state,
 `internal/forge/gitlab.go:42`) and lists CI checks read against the merged
 head. A user could wait on a review that already happened. The terminal's
-`reviewRail` says "merged" instead (`internal/tui/review.go:263`),
+`reviewRail` says "merged" instead (`internal/tui/review.go:272`),
 `gatherReview` (`internal/cli/status.go:286`) treats a merged pull as no
 open review, and `momentOf` (`internal/loop/announce.go:115`) never asks CI
 about one. The server also spends one forge request per stream tick asking
@@ -1705,7 +1681,7 @@ terminal skips a pull that is not open (DEBT-127).
   `config --get remote.pushDefault`, the base lookup, `rev-list`, `log` and
   `log -1` per read.
 - `internal/webserver/handlers.go:182` — `server.review` calls `CheckCI`
-  whenever a pull is found; `Model.checkCI` (`internal/tui/review.go:105`)
+  whenever a pull is found; `Model.checkCI` (`internal/tui/review.go:114`)
   does not unless `State == StateOpen`.
 - `internal/forge/githubci.go:41` — `githubStatus` pages both the combined
   status and the check runs, at least two requests per frame.

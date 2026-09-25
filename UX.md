@@ -69,7 +69,7 @@ them, re-counted at this commit.
 | "the one way the interface says something broke" | `wording`, `internal/tui/failure.go:63` | **Yes: every site that renders an error's text.** Each tells it through `errorSentence` (`internal/tui/failure.go:100`), which words every sentinel the seams return briefly and in full: 6 panes, the configuration screen, 11 `pinnedOutcome` overlays and the 2 details that repeat a summary row's failure beneath it through `failureBlock` (`internal/tui/failure.go:402`), 12 one-failure rows through `failureLine`, 4 rail and summary rows through `failureSummary`, and 12 failure notices through `noticedFailure`, drawn in the failure style, the merge's and the re-run's led by what failed so a clipped row still names it; a run's headline names the step a failure status stopped, and a pull request opened without every reviewer says why in brief. The 3 guidance notices stay plain, since red means something broke. The width-one glyph-only marks — a failed check, job, stage or review CI — and the three rails that point at their detail carry no error text to word. One site drops the text it has: the branch creator's fixed "could not fetch" line (UX-129). |
 | "Nothing outward facing is sent without" a last look | `internal/tui/comment.go:64` | **Yes: 20 of 20.** Every act that writes through a seam — five on Jira, nine through git, four on the forge, the post and the lefthook file — waits on a preview or a confirmation; the push, `R`'s re-run of CI and `u`'s rebase share one last look, `lastLook` (`internal/tui/overlay.go:157`). Of the twenty, eleven leave the machine: the Jira five, the forge four, the post and the push; the rest are local writes that still get a look. The acts are listed under the table. |
 | "a refused change must never go unseen" | `internal/tui/picker.go:312` | **Yes: 13 of 13.** Every overlay that sends a request guards it while in flight (an earlier edition counted 1 of 7; the last counted 14 by including the commit composer, which holds a `sendState` for a validation refusal only and hands its commit to a run overlay, `internal/tui/composer.go:364`), and every one keeps a refusal in the overlay, where it happened, until `esc` — the merge and finish previews last, through `pinnedOutcome` (`internal/tui/failure.go:420`). |
-| "Each pane fails on its own" | `docs/content/docs/usage.md:80` | Yes. `internal/tui/tui.go:160` batches six loads; five panes hold and render their own load's error through `failureBlock` (`internal/tui/detail.go:339`, `internal/tui/branch.go:127`, `internal/tui/commits.go:125`, `internal/tui/review.go:282`, `internal/tui/reviewqueue.go:115`). The Messaging pane's load, `loadAnnounces`, reads the store, whose errors the wiring drops before they reach the model, so it has no load error to hold; its `failureBlock` site (`internal/tui/messaging.go:187`) renders a failed post. |
+| "Each pane fails on its own" | `docs/content/docs/usage.md:80` | Yes. `internal/tui/tui.go:160` batches six loads; five panes hold and render their own load's error through `failureBlock` (`internal/tui/detail.go:339`, `internal/tui/branch.go:127`, `internal/tui/commits.go:125`, `internal/tui/review.go:291`, `internal/tui/reviewqueue.go:115`). The Messaging pane's load, `loadAnnounces`, reads the store, whose errors the wiring drops before they reach the model, so it has no load error to hold; its `failureBlock` site (`internal/tui/messaging.go:187`) renders a failed post. |
 | State is "carried by the SHAPE of a glyph rather than its color" | `internal/tui/glyphs.go:16` | Yes. `unicodeGlyphs` and `asciiGlyphs` differ in shape (`internal/tui/glyphs.go:31`, `:43`); `NO_COLOR` keeps bold and faint (`internal/tui/tui.go:142`). One residue: the progress spine's per-system hue is color-only, mitigated by the name or its initial. |
 
 What was counted, so the next re-count is a diff. The 20 acts behind a last
@@ -106,11 +106,11 @@ key while `send.sending`: `statusPicker` (`internal/tui/picker.go:311`),
 (`internal/tui/messagingpreview.go:94`) and `hookgenOffer`
 (`internal/tui/hookgen.go:118`). The failure-voice sites: `failureBlock` 9,
 the six panes (`internal/tui/detail.go:339`, `internal/tui/branch.go:127`,
-`internal/tui/commits.go:125`, `internal/tui/review.go:282`,
+`internal/tui/commits.go:125`, `internal/tui/review.go:291`,
 `internal/tui/reviewqueue.go:115`, and the Messaging pane's failed post at
 `internal/tui/messaging.go:187`), the
 configuration screen (`internal/tui/render.go:473`) and the two details
-(`internal/tui/detail.go:377`, `internal/tui/review.go:311`);
+(`internal/tui/detail.go:377`, `internal/tui/review.go:320`);
 `pinnedOutcome` 11 (`internal/tui/branch.go:326`,
 `internal/tui/comment.go:112`, `internal/tui/composer.go:157`,
 `internal/tui/finish.go:79`, `internal/tui/hookgen.go:82`,
@@ -122,7 +122,7 @@ configuration screen (`internal/tui/render.go:473`) and the two details
 `internal/tui/issuewrite.go:120`, `:122`, `internal/tui/picker.go:261`,
 `:289`, `internal/tui/run.go:236`, `internal/tui/switchtask.go:107`, `:135`);
 `failureSummary` 4 (`internal/tui/messaging.go:151`,
-`internal/tui/review.go:221`, `:257`, `internal/tui/reviewqueue.go:99`);
+`internal/tui/review.go:230`, `:266`, `internal/tui/reviewqueue.go:99`);
 `noticedFailure` 10 (`internal/tui/comment.go:75`, `internal/tui/checks.go:235`,
 `internal/tui/commits.go:307`, `internal/tui/hookgen.go:175`,
 `internal/tui/links.go:65`, `internal/tui/messaging.go:294`, `:317`,
@@ -536,11 +536,11 @@ grep finds all ten. DEBT-115 points here for the nothing-staged sentence.
   up lefthook" under a footer that reads its key from `keys.hookConfig`;
   set-up-lefthook is rebindable (`internal/tui/keys.go:237`,
   `branchAndCommitKeys`).
-- `internal/tui/review.go:286` `Model.reviewDetail` says "n opens one from
+- `internal/tui/review.go:295` `Model.reviewDetail` says "n opens one from
   this branch's commits and the repository's template."; open-pull-request
   is rebindable (`internal/tui/keys.go:242`, `reviewAndMessagingKeys`), and
   the pane answers `m.keys.newPullRequest`.
-- `internal/tui/review.go:315` `Model.reviewDetail` says "e edits its title
+- `internal/tui/review.go:324` `Model.reviewDetail` says "e edits its title
   and description."; edit is rebindable (`internal/tui/keys.go:255`,
   `composerKeys`), and the pane answers `m.keys.edit`.
 - `internal/tui/finish.go:27` `Model.mergedDetail` says "F finishes the
@@ -600,7 +600,7 @@ applied to one.
 
 - `internal/tui/render.go:192` `Model.loading` returns `m.issues.loading`
   for `paneIssues` and false for every other pane.
-- `internal/tui/review.go:425` `Model.handleReviewKey` batches
+- `internal/tui/review.go:434` `Model.handleReviewKey` batches
   `findPullRequest` and `checkCI` on refresh and sets no flag the title
   can read.
 - `internal/tui/branch.go:258` `Model.handleBranchKey` batches
@@ -667,11 +667,11 @@ preview's `w` hidden but live.
 - `internal/tui/detail.go:225` `Model.newBranchKeys` gates on
   `CreateBranch` alone, so "new branch" is offered outside a repository
   too.
-- `internal/tui/review.go:401` `Model.reviewKeys` appends refresh
+- `internal/tui/review.go:410` `Model.reviewKeys` appends refresh
   unconditionally; off a feature branch `Model.findPullRequest`
   (`internal/tui/review.go:58`) and `Model.checkCI`
-  (`internal/tui/review.go:103`) both return nil, so
-  `Model.handleReviewKey` (`internal/tui/review.go:425`) batches two nils.
+  (`internal/tui/review.go:112`) both return nil, so
+  `Model.handleReviewKey` (`internal/tui/review.go:434`) batches two nils.
 - `internal/tui/help.go:65` `helpOverlay.footer` returns `closeOverlay`
   and `quit` only, while `helpOverlay.handleKey`
   (`internal/tui/help.go:77`) also answers `scrollDown`/`down` and
@@ -780,7 +780,7 @@ the footer never offers to open or copy one, while the same keys work on
 every Jira issue and on the Review and Reviews panes. A draft asking for
 review looks like a ready one in the terminal's queue, is marked "· Draft"
 in the browser, and the Review pane labels the branch's own draft
-(`Model.reviewDetail`, `internal/tui/review.go:306`). The first site is a
+(`Model.reviewDetail`, `internal/tui/review.go:315`). The first site is a
 wiring file; what it costs is the terminal's Issues pane.
 
 - `internal/wiring/forgeissues.go:55` `forgeIssuesDeps` builds
@@ -832,14 +832,14 @@ and ben and sees "reviewers > ana".
 
 Impact: low · Effort: small
 
-**Today.** `Model.canOpenPullRequest` (`internal/tui/review.go:354`)
+**Today.** `Model.canOpenPullRequest` (`internal/tui/review.go:363`)
 requires `m.review.err == nil`, so any find error hides `n`, while the
 command line's `refuseAnOpenPull` (`internal/loop/pull.go:114`) lets an
 errored find through and `workflow pr` composes anyway — the decision
 already taken for the command line. With the forge rate limited or
 briefly unreachable the terminal offers only `r`, where `workflow pr`
 composes and lets the open itself fail with the forge's reason. The doc
-comment on `Model.canOpenPullRequest` (`internal/tui/review.go:353`)
+comment on `Model.canOpenPullRequest` (`internal/tui/review.go:362`)
 justifies the difference with "a composer whose push cannot land", but the
 push goes through git — `startPush` at `internal/tui/prcreate.go:58` — and
 only then does the composer call the forge, so it names the wrong thing
@@ -875,7 +875,7 @@ Impact: low · Effort: medium
 the last snapshot arrived, and a panel that changed
 because CI settled looks exactly like one that re-rendered. There is no
 toast, and no "CI passed" moment on the web where the interface rings the
-terminal (`internal/tui/review.go:145`).
+terminal (`internal/tui/review.go:154`).
 
 **Instead.** A "updated 3 s ago" beside the pill; a brief highlight on the
 row a snapshot changed; a status line when CI settles, honoring
@@ -943,7 +943,7 @@ terminal shows are absent on the web too, none of them among what
   `CopyURL` one section over has a tested clipboard outcome
   (`web/src/features/reviewqueue/ReviewQueuePanel.tsx:269`) and the
   terminal's `reviewKeys` offer `linkKeys` on the pull request
-  (`internal/tui/review.go:399`).
+  (`internal/tui/review.go:408`).
 - The Filter text survives a view change: `IssueBrowser` keeps `filter` in
   local state nothing resets
   (`web/src/features/issues/IssuesPanel.tsx:38`) and `ViewSelect`'s
@@ -1062,7 +1062,7 @@ whether CI has not started, is not configured, or failed to load.
 - `ciDTO` copies State, Total, Done and Failed through unchanged
   (`internal/webserver/dto.go:173`).
 - The terminal's `ciSummary` adds "(done of total finished)" only when
-  Total is positive (`internal/tui/review.go:232`) and says "no checks
+  Total is positive (`internal/tui/review.go:241`) and says "no checks
   reported" for `CINone` (`:225`).
 
 **Instead.** Print the count only when total is positive and otherwise the
@@ -1923,11 +1923,11 @@ pane's missing `n` on the same state is DEBT-112.
 - The spine: the review stage in flight on a fresh session. `reviewState`,
   `internal/progress/progress.go:115`, has no case for a merged pull and
   reaches `Done` only through `CIPassed`, while `pullFound.apply`,
-  `internal/tui/review.go:92`, keeps `found: msg.found` whatever the pull's
+  `internal/tui/review.go:101`, keeps `found: msg.found` whatever the pull's
   state — the opposite choice from `status`.
-- The review rail, `internal/tui/review.go:263`: "● merged", in the Review
+- The review rail, `internal/tui/review.go:272`: "● merged", in the Review
   pane below the spine's in-flight stage.
-- `checkCI`, `internal/tui/review.go:105`, never polls a merged pull, so
+- `checkCI`, `internal/tui/review.go:114`, never polls a merged pull, so
   the spine's stage never reaches `Done` through `CIPassed` either.
 - `Model.work`, `internal/tui/spine.go:91`, passes `m.review.found` as
   `PullRequestFound`, true for a merged pull as much as an open one.
@@ -1984,7 +1984,7 @@ script is told to press a key it does not have.
 - `Model.reviewQueueDetail`, `internal/tui/reviewqueue.go:111` and `:117`:
   "pull requests" whatever the forge; `Model.reviewRows`, `:132`, writes
   `" #"` where the Review pane's rail uses `m.vocab.sigil`
-  (`internal/tui/review.go:262`).
+  (`internal/tui/review.go:271`).
 - `prBodyHelp`, `internal/tui/prcomposer.go:30`: a fixed "Write the pull
   request description above this line", handed to `$EDITOR` by the
   composer (`:376`) and the editor (`internal/tui/preditor.go:109`).
@@ -2124,7 +2124,7 @@ header that says Live, with no reason and no Retry.
   drops `ci` from the answer; `PullRequestSummary`,
   `web/src/features/review/ReviewPanel.tsx:137`, renders nothing for a null
   `ci`, where the terminal's `Model.reviewDetail`,
-  `internal/tui/review.go:310`, shows the CI failure under the pull
+  `internal/tui/review.go:319`, shows the CI failure under the pull
   request.
 - `BranchReview`, `web/src/features/review/ReviewPanel.tsx:59`: `found`
   false falls through to the `OpenPullRequest` form, so a forge outage
