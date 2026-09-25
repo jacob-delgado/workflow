@@ -3777,33 +3777,6 @@ form's fields among the controls reached, each at least 99 % in view, at 640
 px; and the hermetic Settings scan waits on the Retry button, so a
 deliberate delay in the config read does not change what axe reports on.
 
-### DEBT-154 Dependabot's group names leave no room under the 72-character subject gate
-
-Severity: low · Confidence: read
-
-`scripts/check-commit-message.sh:32` sets `subject_limit` to 72, and
-`refuse` (`scripts/check-commit-message.sh:77`) rejects a longer subject;
-`ci-gate`'s `needs` (`.github/workflows/ci.yml:367`) requires `commit-lint`,
-so the refusal blocks the merge. In the "across N directories" form
-Dependabot used at `e09a37c` (72 characters exactly), `ci: Bump the
-actions-minor-patch group across 1 directory with 10 updates` is 73 and
-`build: Bump the devcontainer-minor-patch group across 1 directory with 2
-updates`, from the `devcontainer-minor-patch` entry under `groups` in
-`.github/dependabot.yml:108`, with the `build` prefix, is 80. Whether
-Dependabot always uses that form is not decidable from the tree: `f05ae9f`'s
-own subject omits "across N directories". A Dependabot pull request in that
-form with two-digit action updates, or any devcontainer group update, shows
-`ci-gate` red on a commit the maintainer did not write, and the fix is a
-rename nobody sees coming.
-
-**One way to fix it.** Shorter group names (`actions`, `go`, `web`,
-`docker`, `docs`, `devcontainer`) so the longest template shape stays under
-72.
-
-**Done when.** For every group in `.github/dependabot.yml`, the subject
-`<prefix>: Bump the <group> group across 2 directories with 10 updates` is
-at most 72 characters.
-
 ### DEBT-158 Five config tests are named for Slack or SaveOver and test neither
 
 Severity: low · Confidence: read
