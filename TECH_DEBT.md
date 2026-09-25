@@ -3232,23 +3232,6 @@ form's fields among the controls reached, each at least 99 % in view, at 640
 px; and the hermetic Settings scan waits on the Retry button, so a
 deliberate delay in the config read does not change what axe reports on.
 
-### DEBT-159 An export that only its test reaches
-
-Severity: low · Confidence: read
-
-An exported function has no caller outside its own package and test.
-`unused` cannot see an exported identifier, so nothing objects; a
-contributor finds a public contract nothing honors.
-
-- `internal/httpx/httpx.go:26` — `Cause` is called only by `Unreachable` in
-  the same file and by one URL-stripping assertion
-  (`internal/httpx/httpx_test.go:88`) that `Unreachable`'s test could carry.
-
-**One way to fix it.** Unexport `cause`.
-
-**Done when.** `httpx` exports no `Cause` while the URL-stripping assertion
-still runs.
-
 ## Deliberate trade-offs that carry a cost
 
 These were chosen on purpose and are written down at their sites. They are

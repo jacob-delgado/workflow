@@ -19,11 +19,11 @@ import (
 // ErrRedirected reports a redirect this client declined to follow.
 var ErrRedirected = errors.New("refused to follow a redirect")
 
-// Cause strips net/http's *url.Error down to what actually went wrong. Its
+// cause strips net/http's *url.Error down to what actually went wrong. Its
 // message quotes the whole request URL first — for a search, a long line of
 // encoded query a pane would clip — so the clients show the inner error rather
 // than let the address bury it, and read the same way while doing so.
-func Cause(err error) error {
+func cause(err error) error {
 	transportErr, ok := errors.AsType[*url.Error](err)
 	if ok {
 		return transportErr.Err
@@ -39,18 +39,18 @@ func Cause(err error) error {
 // sentinel (whose noun names the service). base is named when non-empty; a
 // client whose address is itself a credential — a Slack webhook — passes "".
 func Unreachable(unreachable error, base string, err error) error {
-	cause := Cause(err)
+	underlying := cause(err)
 
 	atBase := ""
 	if base != "" {
 		atBase = " at " + base
 	}
 
-	if errors.Is(cause, ErrRedirected) {
+	if errors.Is(underlying, ErrRedirected) {
 		return fmt.Errorf("the server%s redirected the request: %w", atBase, ErrRedirected)
 	}
 
-	return fmt.Errorf("%w%s: %w", unreachable, atBase, cause)
+	return fmt.Errorf("%w%s: %w", unreachable, atBase, underlying)
 }
 
 // ErrRateLimited reports a server that asked the caller to wait: a 429 Too Many

@@ -59,9 +59,12 @@ func TestClientReturnsANonRedirectResponse(t *testing.T) {
 	}
 }
 
-var errUnderlying = errors.New("no such host")
+var (
+	errUnderlying  = errors.New("no such host")
+	errUnreachable = errors.New("could not reach the server")
+)
 
-func TestCauseStripsTheURLFromATransportError(t *testing.T) {
+func TestUnreachableKeepsOnlyTheCauseOfATransportError(t *testing.T) {
 	t.Parallel()
 
 	// A *url.Error quotes the whole request URL, which for a search is a long
@@ -85,21 +88,19 @@ func TestCauseStripsTheURLFromATransportError(t *testing.T) {
 			t.Parallel()
 
 			// Act
-			got := httpx.Cause(testCase.err)
+			got := httpx.Unreachable(errUnreachable, "", testCase.err)
 
 			// Assert
-			if !errors.Is(got, testCase.want) {
-				t.Errorf("Cause(%v) = %v, want %v", testCase.err, got, testCase.want)
+			if !errors.Is(got, testCase.want) || !errors.Is(got, errUnreachable) {
+				t.Errorf("Unreachable(%v) = %v, want %v under the unreachable sentinel", testCase.err, got, testCase.want)
 			}
 
 			if strings.Contains(got.Error(), "secret-query") {
-				t.Errorf("Cause kept the request URL: %v", got)
+				t.Errorf("Unreachable kept the request URL: %v", got)
 			}
 		})
 	}
 }
-
-var errUnreachable = errors.New("could not reach the server")
 
 func TestUnreachableTellsARefusedRedirectApartFromNoAnswer(t *testing.T) {
 	t.Parallel()
