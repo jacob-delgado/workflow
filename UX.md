@@ -1828,7 +1828,7 @@ which is why this is low.
   `json:"title_source"` without `omitempty` (`:21`),
   `validatePullRequest` accepts `""` (`:27`), and `write`'s `MarshalIndent`
   of the whole struct writes the empty value
-  (`internal/config/save.go:137`).
+  (`internal/config/save.go:140`).
 - `MessagingConfig`'s `kind` `enum` is `["", slack, teams, discord,
   webhook]` (`api/openapi.yaml:1425`), so the spec allows what the select
   cannot show; the mock the screenshots show has `title_source: ''`

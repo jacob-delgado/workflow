@@ -13,6 +13,7 @@ import (
 	"fmt"
 	"io/fs"
 	"os"
+	"path/filepath"
 	"runtime"
 )
 
@@ -101,7 +102,9 @@ func revisionOfContents(contents []byte) Revision {
 	return Revision{digest: [sha256.Size]byte(mac.Sum(nil)), exists: true}
 }
 
-// Save writes the configuration to path at FileMode, over whatever is there.
+// Save writes the configuration to path at FileMode, replacing whatever is
+// there, or the file a link there points at. The new file is made in the
+// directory of the file it replaces, so that directory must be writable too.
 func Save(path string, cfg Config) error {
 	_, err := write(path, cfg)
 
@@ -149,23 +152,122 @@ func write(path string, cfg Config) ([]byte, error) {
 	return encoded, nil
 }
 
-// writePrivate writes a file only its owner can reach. Asking for FileMode when
-// opening it is not enough: that is honored for a file being created, and one
-// that already exists keeps the mode it had. So the mode is set on the open
-// file, before anything is written into it.
+// writePrivate replaces the file at path with one only its owner can reach,
+// holding contents. The new file is written in full beside the old one and
+// renamed over it, so a save that fails part way leaves the previous file as it
+// was rather than empty or cut short. An empty path names no file and is
+// refused before anything is written, as RevisionOf reads it as no file.
 func writePrivate(path string, contents []byte) error {
-	//nolint:gosec // the path is the user's own config file, by design
-	file, err := os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, FileMode)
+	if path == "" {
+		return &fs.PathError{Op: "open", Path: path, Err: fs.ErrNotExist}
+	}
+
+	target, err := followLinks(path)
 	if err != nil {
-		return fmt.Errorf("opening it: %w", err)
+		return err
 	}
 
-	err = file.Chmod(FileMode)
-	if err == nil {
-		_, err = file.Write(contents)
+	replacement, err := writeBeside(target, contents)
+	if err != nil {
+		return err
 	}
 
-	return errors.Join(err, file.Close())
+	err = os.Rename(replacement, target)
+	if err != nil {
+		return errors.Join(fmt.Errorf("putting its replacement in place: %w", err), os.Remove(replacement))
+	}
+
+	return nil
+}
+
+// followLinks is the file path names once every symbolic link on the way is
+// followed, so a linked configuration file is replaced where it lives and the
+// link is kept. A link to a file not yet written is followed to where that file
+// will be; a path that names neither a file nor a link is path itself.
+func followLinks(path string) (string, error) {
+	target, err := filepath.EvalSymlinks(path)
+	if errors.Is(err, fs.ErrNotExist) {
+		return followDanglingLink(path)
+	}
+
+	if err != nil {
+		return "", fmt.Errorf("following its links: %w", err)
+	}
+
+	return target, nil
+}
+
+// followDanglingLink follows a link to a file not yet written to the end of its
+// chain; path itself when path is no link. It ends: EvalSymlinks walked this
+// same chain and found a missing name rather than a loop, which it reports as
+// an error of its own.
+func followDanglingLink(path string) (string, error) {
+	info, err := os.Lstat(path)
+	if errors.Is(err, fs.ErrNotExist) || (err == nil && info.Mode()&fs.ModeSymlink == 0) {
+		return path, nil
+	}
+
+	if err != nil {
+		return "", fmt.Errorf("following its links: %w", err)
+	}
+
+	next, err := linkDestination(path)
+	if err != nil {
+		return "", err
+	}
+
+	return followLinks(next)
+}
+
+// linkDestination is the path the link at path names. A relative one is taken
+// from the link's own directory with that directory's links resolved, and is
+// appended rather than joined: joining cleans each ".." against the text before
+// it, where the system first follows any link in that text.
+func linkDestination(path string) (string, error) {
+	destination, err := os.Readlink(path)
+	if err != nil {
+		return "", fmt.Errorf("following its links: %w", err)
+	}
+
+	if filepath.IsAbs(destination) {
+		return destination, nil
+	}
+
+	dir, _ := filepath.Split(path)
+
+	resolved, err := filepath.EvalSymlinks(dir)
+	if err != nil {
+		return "", fmt.Errorf("following its links: %w", err)
+	}
+
+	return resolved + string(filepath.Separator) + destination, nil
+}
+
+// writeBeside writes contents to a new file in target's directory and returns
+// its path, removing the file again when the write fails.
+func writeBeside(target string, contents []byte) (string, error) {
+	file, err := os.CreateTemp(filepath.Dir(target), "."+FileName+".*")
+	if err != nil {
+		return "", fmt.Errorf("creating its replacement: %w", err)
+	}
+
+	err = fill(file, contents)
+	if err != nil {
+		return "", errors.Join(err, os.Remove(file.Name()))
+	}
+
+	return file.Name(), nil
+}
+
+// fill writes contents into file at FileMode and closes it. CreateTemp's mode
+// is whatever the umask leaves of 0600, so the mode is set rather than assumed,
+// before anything is written; and the contents are flushed to the disk before
+// the rename can give them the configuration file's name.
+func fill(file *os.File, contents []byte) error {
+	chmodErr := file.Chmod(FileMode)
+	_, writeErr := file.Write(contents)
+
+	return errors.Join(chmodErr, writeErr, file.Sync(), file.Close())
 }
 
 // othersMask is the permission bits that belong to anyone but a file's owner.

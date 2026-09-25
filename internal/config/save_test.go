@@ -21,6 +21,9 @@ const (
 	editedContents = `{"jira": {"base_url": "https://edited.example.com"}}`
 )
 
+// savedURL is the Jira base URL of the configuration these tests save.
+const savedURL = "https://saved.example.com"
+
 // revisionOf is the revision of the file at path, failing the test when it
 // cannot be read.
 func revisionOf(t *testing.T, path string) config.Revision {
@@ -34,10 +37,11 @@ func revisionOf(t *testing.T, path string) config.Revision {
 	return revision
 }
 
-// withBaseURL is the default configuration with Jira at baseURL.
-func withBaseURL(baseURL string) config.Config {
+// savedConfig is the configuration these tests save: the default, with Jira at
+// savedURL.
+func savedConfig() config.Config {
 	cfg := config.Default()
-	cfg.Jira.BaseURL = baseURL
+	cfg.Jira.BaseURL = savedURL
 
 	return cfg
 }
@@ -50,14 +54,14 @@ func TestSaveOverWritesOverTheRevisionItWasGiven(t *testing.T) {
 	read := revisionOf(t, path)
 
 	// Act
-	written, err := config.SaveOver(path, withBaseURL("https://saved.example.com"), read)
+	written, err := config.SaveOver(path, savedConfig(), read)
 	// Assert
 	if err != nil {
 		t.Fatalf("SaveOver: %v", err)
 	}
 
 	saved, err := config.LoadFile(path)
-	if err != nil || saved.Jira.BaseURL != "https://saved.example.com" {
+	if err != nil || saved.Jira.BaseURL != savedURL {
 		t.Errorf("the file reads back as Jira at %q (%v), want the saved configuration", saved.Jira.BaseURL, err)
 	}
 
@@ -73,7 +77,7 @@ func TestSaveOverWritesAFileThatIsStillMissing(t *testing.T) {
 	path := filepath.Join(t.TempDir(), config.FileName)
 
 	// Act
-	written, err := config.SaveOver(path, withBaseURL("https://saved.example.com"), config.Revision{})
+	written, err := config.SaveOver(path, savedConfig(), config.Revision{})
 	// Assert
 	if err != nil {
 		t.Fatalf("SaveOver: %v", err)
@@ -137,7 +141,7 @@ func TestSaveOverRefusesAFileThatChangedSinceItsRevision(t *testing.T) {
 			putFile(t, path, tt.after)
 
 			// Act
-			_, err := config.SaveOver(path, withBaseURL("https://saved.example.com"), read)
+			_, err := config.SaveOver(path, savedConfig(), read)
 
 			// Assert
 			if !errors.Is(err, config.ErrChangedOnDisk) {
