@@ -23,15 +23,14 @@ import (
 // The bool reports that the CLI was chosen, so the caller knows the request
 // carries its own authentication and no token is required.
 func forgeTransport(
-	ctx context.Context, settings config.Forge, repo forge.Repo, base string,
-	timeout time.Duration, available func(string) bool,
+	ctx context.Context, settings config.Forge, repo forge.Repo, base string, timeout time.Duration,
 ) (forge.Doer, bool) {
 	if !settings.CLI {
 		return forge.HTTPClient(timeout).Do, false
 	}
 
 	program, ok := forgeProgram(repo.Kind)
-	if !ok || !available(program) {
+	if !ok || !proc.Available(program) {
 		return forge.HTTPClient(timeout).Do, false
 	}
 

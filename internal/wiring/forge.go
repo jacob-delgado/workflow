@@ -25,20 +25,18 @@ type forgeConnection struct {
 	repo   forge.Repo
 }
 
-// forgeDeps is what the interface asks of GitHub or GitLab.
-func forgeDeps(
-	ctx context.Context, settings config.Forge, where Workspace, timeout time.Duration, log *RequestLog,
-) tui.ForgeDeps {
-	connect := onceConnected(func() (forgeConnection, error) {
-		return connectForge(ctx, settings, where.Remote, timeout, log)
-	})
-
-	return forgeDepsFrom(ctx, connect, func() []forge.Template { return templatesFor(settings, where) },
-		ForgeKind(settings, where.Remote))
+// forgeSetup is what connecting to the forge reads: the configuration's say, the
+// workspace whose origin names the repository, how long a request may take, and
+// the log that records each one.
+type forgeSetup struct {
+	settings config.Forge
+	where    Workspace
+	timeout  time.Duration
+	log      *RequestLog
 }
 
-// mergeSeams builds the two merge seams over a connect, kept out of
-// forgeDepsFrom so that builder stays within its length.
+// mergeSeams builds the two merge seams over a connect, kept out of forgeDeps
+// so that builder stays within its length.
 func mergeSeams(ctx context.Context, connect func() (forgeConnection, error)) (
 	func(forge.PullRequest, forge.MergeMethod) error,
 	func() ([]forge.MergeMethod, error),
@@ -64,12 +62,9 @@ func mergeSeams(ctx context.Context, connect func() (forgeConnection, error)) (
 	return merge, methods
 }
 
-// forgeDepsFrom builds the forge seams over a connect, split out so a test can
-// drive their success arms with a client pointed at a fake forge rather than a
-// real credential and a live GitHub.
-func forgeDepsFrom(
-	ctx context.Context, connect func() (forgeConnection, error), templates func() []forge.Template, kind forge.Kind,
-) tui.ForgeDeps {
+// forgeDeps is what the interface asks of GitHub or GitLab.
+func forgeDeps(ctx context.Context, setup forgeSetup) tui.ForgeDeps {
+	connect := onceConnected(func() (forgeConnection, error) { return connectForge(ctx, setup) })
 	merge, mergeMethods := mergeSeams(ctx, connect)
 
 	return tui.ForgeDeps{
@@ -109,7 +104,7 @@ func forgeDepsFrom(
 
 			return connection.client.ReviewRequests(ctx, connection.repo.Kind)
 		},
-		Templates: templates,
+		Templates: func() []forge.Template { return templatesFor(setup.settings, setup.where) },
 		Author: func() (string, error) {
 			connection, err := connect()
 			if err != nil {
@@ -120,12 +115,12 @@ func forgeDepsFrom(
 
 			return identity.Name(), err
 		},
-		Kind: kind,
+		Kind: ForgeKind(setup.settings, setup.where.Remote),
 	}
 }
 
-// createPullSeam is the open-a-pull-request seam, split out to keep
-// forgeDepsFrom within its length: it connects, then asks the client to open it.
+// createPullSeam is the open-a-pull-request seam, split out to keep forgeDeps
+// within its length: it connects, then asks the client to open it.
 func createPullSeam(
 	ctx context.Context, connect func() (forgeConnection, error),
 ) func(forge.NewPullRequest) (forge.PullRequest, error) {
@@ -139,9 +134,8 @@ func createPullSeam(
 	}
 }
 
-// editPullSeam is the edit-pull-request seam, split out to keep forgeDepsFrom
-// within its length: it connects, then asks the client to edit the title and
-// body.
+// editPullSeam is the edit-pull-request seam, split out to keep forgeDeps within
+// its length: it connects, then asks the client to edit the title and body.
 func editPullSeam(
 	ctx context.Context, connect func() (forgeConnection, error),
 ) func(forge.PullRequest, forge.PullRequestEdit) (forge.PullRequest, error) {
@@ -225,12 +219,10 @@ func onceConnected(connect func() (forgeConnection, error)) func() (forgeConnect
 	}
 }
 
-// connectForge finds the forge the remote points at and the token for it, the
-// same way doctor --online does.
-func connectForge(
-	ctx context.Context, settings config.Forge, remote string, timeout time.Duration, log *RequestLog,
-) (forgeConnection, error) {
-	repo, err := resolveRepo(settings, remote)
+// connectForge finds the forge the workspace's origin points at and the token
+// for it, the same way doctor --online does.
+func connectForge(ctx context.Context, setup forgeSetup) (forgeConnection, error) {
+	repo, err := resolveRepo(setup.settings, setup.where.Remote)
 	if err != nil {
 		return forgeConnection{}, fmt.Errorf("reading origin: %w", err)
 	}
@@ -240,13 +232,13 @@ func connectForge(
 		return forgeConnection{}, fmt.Errorf("%s — set forge.kind and forge.host: %w", repo.Host, err)
 	}
 
-	access, err := ReachForge(ctx, settings, repo, base, timeout)
+	access, err := ReachForge(ctx, setup.settings, repo, base, setup.timeout)
 	if err != nil {
 		return forgeConnection{}, err
 	}
 
 	//nolint:bodyclose // Wrap only relays the response; the forge client reads and closes its body.
-	client := forge.New(log.Wrap("forge", access.Doer), base, access.Token)
+	client := forge.New(setup.log.Wrap("forge", access.Doer), base, access.Token)
 
 	return forgeConnection{client: client, repo: repo}, nil
 }
@@ -272,7 +264,7 @@ type ForgeAccess struct {
 func ReachForge(
 	ctx context.Context, settings config.Forge, repo forge.Repo, base string, timeout time.Duration,
 ) (ForgeAccess, error) {
-	transport, usingCLI := forgeTransport(ctx, settings, repo, base, timeout, proc.Available)
+	transport, usingCLI := forgeTransport(ctx, settings, repo, base, timeout)
 
 	token, source, err := ForgeResolver(settings).Resolve(ctx, repo.Kind, repo.Host)
 	if !usingCLI {

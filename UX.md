@@ -363,9 +363,9 @@ that explains the machine, has no row for either.
 - `internal/store/dir.go:15` (`DefaultDir`): `home, _ :=
   os.UserHomeDir()` drops the error, so an empty home reaches `Dir`
   (`:24`), which returns `ErrNoDir` for it.
-- `internal/wiring/wiring.go:303` (`storeDeps`): `dir, _ :=
+- `internal/wiring/wiring.go:313` (`storeDeps`): `dir, _ :=
   store.DefaultDir()` drops `ErrNoDir`, and the store is built on an empty
-  directory; the doc comment above (`:298`) calls the no-op intended, "the
+  directory; the doc comment above (`:308`) calls the no-op intended, "the
   interface simply learns nothing", which is what makes this a
   discoverability gap rather than a defect.
 - `internal/store/store.go:135` (`Store.off`): `s.disabled || s.dir ==
@@ -376,8 +376,8 @@ that explains the machine, has no row for either.
 - `internal/cli/doctor_requirements.go:122` (`externalTools`): the tool
   list is git, lefthook and gh; no doctor file mentions the store, and
   `glab` is absent.
-- `internal/wiring/forgecli.go:34` (`forgeTransport`): `if !ok ||
-  !available(program)` falls back to plain HTTP with no note that
+- `internal/wiring/forgecli.go:33` (`forgeTransport`): `if !ok ||
+  !proc.Available(program)` falls back to plain HTTP with no note that
   `forge.cli` was set and ignored, and `forgeProgram` names `glab` for
   GitLab (`:57`), the program doctor never looks for. A GitLab user who
   sets `forge.cli` and forgets to install glab has every forge call go
@@ -660,7 +660,7 @@ preview's `w` hidden but live.
 
 - `internal/tui/detail.go:200` `Model.issueVerbKeys` offers "branch for
   KEY" whenever `Git.CreateBranch` is wired, with no `outsideRepository`
-  check; `gitDeps` (`internal/wiring/wiring.go:195`) wires it whether or
+  check; `gitDeps` (`internal/wiring/wiring.go:196`) wires it whether or
   not the directory is a repository, and `Model.branchKeys`
   (`internal/tui/branch.go:168`) returns nil there.
 - `internal/tui/detail.go:225` `Model.newBranchKeys` gates on
@@ -782,7 +782,7 @@ in the browser, and the Review pane labels the branch's own draft
 (`Model.reviewDetail`, `internal/tui/review.go:306`). The first site is a
 wiring file; what it costs is the terminal's Issues pane.
 
-- `internal/wiring/forgeissues.go:60` `forgeIssuesDeps` builds
+- `internal/wiring/forgeissues.go:53` `forgeIssuesDeps` builds
   `tui.JiraDeps` with `Search`, `Issue`, `Transitions` and `Transition`
   only — no `BrowseURL`, though `forge.Issue` already carries `URL`
   (`internal/forge/issues.go:17`); `Model.issueURL`
