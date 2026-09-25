@@ -13,11 +13,13 @@ import (
 // closed, or piped and already read to its end.
 var errNoTerminal = errors.New("no terminal to answer on")
 
-// Prompt is the guided command's seams: reading an answer, and offering to keep
-// a secret in the operating system's keychain. Each is a seam so a test can
-// drive the conversation without a terminal or a real keychain; the terminal
-// and keychain implementations live in the main package, where no test needs
-// either.
+// Prompt is how a command asks the person at the terminal: reading an answer,
+// for the guided init and every scriptable write's yes/no question; keeping a
+// secret in the operating system's keychain; and composing a note in the
+// editor. Each is a seam so a test can drive the conversation without a
+// terminal, a real keychain or an editor. The main package wires the two
+// terminal reads, which no test can make, and takes the keychain and the editor
+// from their own packages.
 //
 // A zero Prompt is enough for a command that never asks anything — the doctor,
 // or the reference generator that only walks the tree.

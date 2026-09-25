@@ -7,7 +7,6 @@ package main
 
 import (
 	"bufio"
-	"context"
 	"fmt"
 	"os"
 	"runtime"
@@ -21,9 +20,6 @@ import (
 	"github.com/jacob-delgado/workflow/internal/proc"
 )
 
-// keychainService is the name the Jira token is stored under in the keychain.
-const keychainService = "workflow-jira"
-
 func main() {
 	err := cli.Execute(os.Args[1:], os.Stdout, os.Stderr, terminalPrompt())
 	if err != nil {
@@ -32,10 +28,11 @@ func main() {
 	}
 }
 
-// terminalPrompt reads guided-init answers from the terminal: a visible line
-// through a reader shared across prompts, and a secret read without echo through
-// x/term. It lives here, in the untested main, because reading a real terminal
-// is what a test cannot do.
+// terminalPrompt answers a command's questions from the terminal: a visible
+// line through a reader shared across prompts, and a secret read without echo
+// through x/term. The two reads live here, in the untested main, because
+// reading a real terminal is what a test cannot do; keeping a secret in the
+// keychain and composing in the editor come from their own packages.
 func terminalPrompt() cli.Prompt {
 	reader := bufio.NewReader(os.Stdin)
 
@@ -56,29 +53,9 @@ func terminalPrompt() cli.Prompt {
 
 			return string(secret), err
 		},
-		StoreSecret: keychainStore(runtime.GOOS),
+		StoreSecret: keychain.Storer(runtime.GOOS, proc.Run),
 		Compose: func(draft, help string) (string, error) {
 			return editor.Compose(os.Getenv, draft, help)
 		},
-	}
-}
-
-// keychainStore stores a secret in the OS keychain and returns the token_command
-// that reads it back, or nil where storing is not wired for the platform, so
-// the guided flow keeps the token in the file there.
-func keychainStore(goos string) func(string) (string, error) {
-	if !keychain.Supported(goos) {
-		return nil
-	}
-
-	return func(secret string) (string, error) {
-		command := keychain.StoreCommand(keychainService, secret)
-
-		_, err := proc.Run(context.Background(), command.Name, command.Args...)
-		if err != nil {
-			return "", err
-		}
-
-		return keychain.LookupCommand(keychainService), nil
 	}
 }

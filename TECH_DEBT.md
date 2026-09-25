@@ -105,47 +105,6 @@ type, and `EditorDeps` carries Bubble Tea's `tea.Msg` and `tea.Cmd`, so
 import them without importing each other. Deferred — YAGNI until a seam the
 terminal does not use has to be added to `tui.Deps`.
 
-### DEBT-81 `cmd/workflow/main.go` is not the thin main CLAUDE.md describes
-
-Severity: low · Confidence: read
-
-`CLAUDE.md:27` describes `cmd/workflow/` as "thin main; wires cli.Execute
-and the exit status". The file is 128 lines and carries three
-implementations no test reaches, plus user-facing copy:
-
-- `cmd/workflow/main.go:28` — `standupHelp`, the copy the standup editor
-  shows below the scissors line, kept in the untested main.
-- `cmd/workflow/main.go:42` — `terminalPrompt`, whose comment says "in the
-  untested main".
-- `cmd/workflow/main.go:74` — `composeInEditor`, the standup compose path —
-  temp file, draft, editor, parse — of which only `command.Run()` needs a
-  terminal.
-- `cmd/workflow/main.go:75` — `composeInEditor`'s `os.CreateTemp`, write,
-  joined `Close` and `Remove`: the third copy of the draft-file dance.
-- `cmd/workflow/main.go:113` — `keychainStore`, a third implementation main
-  carries untested.
-- `internal/editor/editor.go:276` — `writeDraft`, in the package that
-  already owns the draft file; `composeInEditor` does not use it.
-- `internal/wiring/wiring.go:255` — `commitWith`, the second copy of the
-  temp-file dance.
-
-Most of the file is logic its own comments (`cmd/workflow/main.go:44`,
-`:72`) call untested, including the compose path a `standup` user drives and
-the scissors text they read. Only `command.Run()` needs a real editor; the
-file handling and the `Draft`/`Parse` round trip
-(`internal/editor/editor.go:119`, `:125`) are testable, and
-`internal/editor` already owns the draft file.
-
-**One way to fix it.** Move `composeInEditor` into `internal/editor` as an
-exported `Compose` over `writeDraft`, `Draft`, `Parse` and `Invocation`,
-tested with a scripted `$EDITOR`; move `standupHelp` beside the standup
-command; leave `main` with `Execute`, the exit status and the two terminal
-reads.
-
-**Done when.** `cmd/workflow/main.go` holds no `os.CreateTemp` and no
-user-facing string, and `go test ./internal/editor` covers a compose that
-round-trips a draft through a fake editor.
-
 ### DEBT-89 Comments and layout rows that no longer say what the code does
 
 Severity: low · Confidence: read
@@ -190,13 +149,10 @@ The terminal:
 
 The command line:
 
-- `internal/cli/prompt.go:16` — `Prompt` is "the guided command's seams"
-  though the `Compose` field's own comment (`:33`) says it edits a standup
-  note and `confirm` (`:41`) reads `prompt.Line` for every scriptable
-  write's yes/no question; `terminalPrompt` (`cmd/workflow/main.go:42`)
-  repeats the stale scope with "reads guided-init answers".
 - `CLAUDE.md:27` — the layout row "thin main; wires cli.Execute and the exit
-  status" no longer describes `cmd/workflow/main.go` (DEBT-81).
+  status" leaves out the two terminal reads `terminalPrompt`
+  (`cmd/workflow/main.go:36`) keeps there, beside the keychain and editor it
+  takes from their own packages.
 
 The clients:
 
@@ -289,8 +245,7 @@ pane lists in `internal/tui/keys.go` match the
 handlers; the `Deps` comment names the answers the handlers give; and each
 of these prints nothing — `grep -n "the one place the interface reads"
 internal/tui/branch.go`, `grep -n "cannot layer one view over another"
-internal/tui/overlay.go`, `grep -n "guided command's seams"
-internal/cli/prompt.go`, `grep -n "checks Opened rather than trusting"
+internal/tui/overlay.go`, `grep -n "checks Opened rather than trusting"
 internal/forge/pulls.go`, `grep -n "caret-feed" internal/jira/wiki.go`,
 `grep -n "status describes the configuration" internal/tui/render.go` and
 `grep -n "so the wire message carries no detail"
@@ -330,9 +285,8 @@ The usage page:
 - `docs/content/docs/usage.md:300` — "Editor" says "`$VISUAL`, else
   `$EDITOR`, else `vi`"; `chosen` (`internal/editor/editor.go:85`) consults
   `GIT_EDITOR` first and `defaultEditor` (`:97`) returns `notepad` on
-  Windows, while `defaultEditor`'s own comment (`:94`) and
-  `composeInEditor`'s (`cmd/workflow/main.go:71`, "$EDITOR (or $VISUAL, else
-  vi)") omit `$GIT_EDITOR` too.
+  Windows, while `defaultEditor`'s own comment (`:94`) omits `$GIT_EDITOR`
+  too.
 
 The configuration page (the Fields table's missing rows are DEBT-91):
 
@@ -428,23 +382,23 @@ own comment as the source of each sentence: say the webhook is saved
 unchecked on the configuration page and in `config init`'s Short and Long,
 then `task docs:gen`, and drop the `doctor` promise from the README and the
 docs index; state the editor order as git's (`$GIT_EDITOR`, `$VISUAL`,
-`$EDITOR`, else `vi`, `notepad` on Windows) on the usage page and in both
-comments; describe the walk to `.git` on the page and in `Discover`'s
-comment; name the three store identifiers and the root-path fallback on both
-pages; qualify "never overwrites" with the revision check's window; state
-the third notify condition; name `help` as the one command without a page;
-drop the "no releases yet" and "until the first tag" sentences and refresh
-the pinned example; reorder the web page's Settings list to the form's and
-name every carried key; add the field kinds, the fetch and the diff to the
-usage page; and reword the `queryClient` comment to `useSnapshotStore`.
+`$EDITOR`, else `vi`, `notepad` on Windows) on the usage page and in
+`defaultEditor`'s comment; describe the walk to `.git` on the page and in
+`Discover`'s comment; name the three store identifiers and the root-path
+fallback on both pages; qualify "never overwrites" with the revision check's
+window; state the third notify condition; name `help` as the one command
+without a page; drop the "no releases yet" and "until the first tag"
+sentences and refresh the pinned example; reorder the web page's Settings
+list to the form's and name every carried key; add the field kinds, the
+fetch and the diff to the usage page; and reword the `queryClient` comment
+to `useSnapshotStore`.
 
 **Done when.** `grep -c 'does the same for Slack'
 docs/content/docs/configuration.md`, `grep -c 'no releases yet' README.md`,
 `grep -ci 'until the first tag' README.md docs/content/docs/install.md` and
 `grep -c setQueryData web/src/queryClient.ts` all print 0; `grep -n
-GIT_EDITOR docs/content/docs/usage.md cmd/workflow/main.go
-internal/editor/editor.go`, `grep -n help
-docs/content/docs/reference/_index.md` and `grep -n '\.git'
+GIT_EDITOR docs/content/docs/usage.md internal/editor/editor.go`, `grep -n
+help docs/content/docs/reference/_index.md` and `grep -n '\.git'
 docs/content/docs/configuration.md` each match a sentence that says what the
 code does; the README and `docs/content/_index.md` no longer say `doctor`
 checks a webhook; the web page's Settings list reads in `ConfigForm`'s
