@@ -149,7 +149,7 @@ func (g githubReviewItem) reviewRequest() ReviewRequest {
 func githubIssues(ctx context.Context, client Client, repo Repo) ([]Issue, error) {
 	query := url.Values{
 		"q":          {"is:issue is:open assignee:@me repo:" + repo.Path},
-		perPageParam: {strconv.Itoa(githubPerPage)},
+		perPageParam: {strconv.Itoa(perPage)},
 	}.Encode()
 
 	found, err := call[githubIssueSearch](ctx, client, http.MethodGet, "/search/issues?"+query, nil)
@@ -215,7 +215,7 @@ func githubCloseIssue(ctx context.Context, client Client, repo Repo, number int)
 
 // githubReviews lists the pull requests that request the token owner's review.
 func githubReviews(ctx context.Context, client Client) ([]ReviewRequest, error) {
-	query := url.Values{"q": {githubSearchQuery}, perPageParam: {strconv.Itoa(githubPerPage)}}.Encode()
+	query := url.Values{"q": {githubSearchQuery}, perPageParam: {strconv.Itoa(perPage)}}.Encode()
 
 	found, err := call[githubReviewSearch](ctx, client, http.MethodGet, "/search/issues?"+query, nil)
 	if err != nil {
@@ -351,9 +351,6 @@ func githubPostList(ctx context.Context, client Client, repo Repo, path, key str
 
 	return err
 }
-
-// githubPerPage is a full page: the most GitHub returns in one listing request.
-const githubPerPage = 100
 
 // githubMergeBody is the body that merges a pull request: the method to use.
 type githubMergeBody struct {

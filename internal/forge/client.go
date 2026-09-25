@@ -10,8 +10,11 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"maps"
 	"mime"
 	"net/http"
+	"net/url"
+	"strconv"
 	"strings"
 	"time"
 
@@ -38,6 +41,16 @@ const jsonMediaType = "application/json"
 // rateLimitRemaining is the header in which GitHub counts the requests left
 // before its rate limit; it reads "0" on the 403 that limit answers with.
 const rateLimitRemaining = "X-Ratelimit-Remaining"
+
+// A listing is read a page at a time, numbered from 1: perPage is a full page,
+// the most either forge returns to one request, and maxPages bounds a listing
+// far above any real queue, issue list or commit's check count, so it is read
+// to its end without an unbounded loop.
+const (
+	perPageParam = "per_page"
+	perPage      = 100
+	maxPages     = 20
+)
 
 // Errors the client returns. Callers distinguish them with errors.Is.
 var (
@@ -296,4 +309,34 @@ func statusError(status int) error {
 	default:
 		return fmt.Errorf("%w: %d", ErrUnexpectedStatus, status)
 	}
+}
+
+// pageQuery is query asking for one full page of a listing.
+func pageQuery(query url.Values, page int) string {
+	paged := url.Values{perPageParam: {strconv.Itoa(perPage)}, "page": {strconv.Itoa(page)}}
+	maps.Copy(paged, query)
+
+	return paged.Encode()
+}
+
+// readPages reads a paged listing to its end: a page short of full, or as many
+// items as the forge counts in all, whichever comes first within maxPages.
+// fetch reads one page and returns its items and the forge's count.
+func readPages[T any](fetch func(page int) ([]T, int, error)) ([]T, error) {
+	var listed []T
+
+	for page := 1; page <= maxPages; page++ {
+		items, total, err := fetch(page)
+		if err != nil {
+			return nil, err
+		}
+
+		listed = append(listed, items...)
+
+		if len(items) < perPage || len(listed) >= total {
+			break
+		}
+	}
+
+	return listed, nil
 }

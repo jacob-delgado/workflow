@@ -10,27 +10,32 @@ import (
 	"net/url"
 )
 
-// githubCombined is a page of a commit's combined status: the statuses reported
-// through the older statuses API, and how many there are in all.
-type githubCombined struct {
-	TotalCount int `json:"total_count"`
-	Statuses   []struct {
-		State     string `json:"state"`
-		Context   string `json:"context"`
-		TargetURL string `json:"target_url"`
-	} `json:"statuses"`
+// githubCommitStatus is one status reported through the older statuses API.
+type githubCommitStatus struct {
+	State     string `json:"state"`
+	Context   string `json:"context"`
+	TargetURL string `json:"target_url"`
 }
 
-// githubRuns is a page of a commit's check runs: what GitHub Actions and most
-// apps report, and how many there are in all.
+// githubCombined is a page of a commit's combined status: its statuses, and how
+// many there are in all.
+type githubCombined struct {
+	TotalCount int                  `json:"total_count"`
+	Statuses   []githubCommitStatus `json:"statuses"`
+}
+
+// githubCheckRun is one check run: what GitHub Actions and most apps report.
+type githubCheckRun struct {
+	Status     string `json:"status"`
+	Conclusion string `json:"conclusion"`
+	Name       string `json:"name"`
+	HTMLURL    string `json:"html_url"`
+}
+
+// githubRuns is a page of a commit's check runs, and how many there are in all.
 type githubRuns struct {
-	TotalCount int `json:"total_count"`
-	Runs       []struct {
-		Status     string `json:"status"`
-		Conclusion string `json:"conclusion"`
-		Name       string `json:"name"`
-		HTMLURL    string `json:"html_url"`
-	} `json:"check_runs"`
+	TotalCount int              `json:"total_count"`
+	Runs       []githubCheckRun `json:"check_runs"`
 }
 
 // githubStatus reads both of GitHub's CI reports for a commit. A repository can
@@ -44,7 +49,7 @@ func githubStatus(ctx context.Context, client Client, repo Repo, _ PullRequest, 
 	var tally ciTally
 
 	statuses, statusesComplete, err := githubPages(ctx, client, repo, commit+"/status",
-		func(page githubCombined) (int, int) { return len(page.Statuses), page.TotalCount })
+		func(page githubCombined) ([]githubCommitStatus, int) { return page.Statuses, page.TotalCount })
 	if err != nil {
 		return CI{}, err
 	}
@@ -52,22 +57,18 @@ func githubStatus(ctx context.Context, client Client, repo Repo, _ PullRequest, 
 	// The combined status's own "state" is deliberately ignored: with no
 	// statuses at all it says "pending", which would wait forever for CI that
 	// is never coming. Only the statuses themselves count.
-	for _, page := range statuses {
-		for _, status := range page.Statuses {
-			tally.add(Check{Name: status.Context, State: statusState(status.State), URL: status.TargetURL})
-		}
+	for _, status := range statuses {
+		tally.add(Check{Name: status.Context, State: statusState(status.State), URL: status.TargetURL})
 	}
 
 	runs, runsComplete, err := githubPages(ctx, client, repo, commit+"/check-runs",
-		func(page githubRuns) (int, int) { return len(page.Runs), page.TotalCount })
+		func(page githubRuns) ([]githubCheckRun, int) { return page.Runs, page.TotalCount })
 	if err != nil {
 		return CI{}, err
 	}
 
-	for _, page := range runs {
-		for _, run := range page.Runs {
-			tally.add(Check{Name: run.Name, State: runState(run.Status, run.Conclusion), URL: run.HTMLURL})
-		}
+	for _, run := range runs {
+		tally.add(Check{Name: run.Name, State: runState(run.Status, run.Conclusion), URL: run.HTMLURL})
 	}
 
 	if !statusesComplete || !runsComplete {
@@ -92,7 +93,7 @@ type githubRunList struct {
 // which is why the caller is told rather than left to assume one started.
 func githubRerun(ctx context.Context, client Client, repo Repo, _ PullRequest, head string) (bool, error) {
 	runs := fmt.Sprintf("%s/actions/runs?head_sha=%s&per_page=%d",
-		githubRepoPath(repo), url.QueryEscape(head), githubPerPage)
+		githubRepoPath(repo), url.QueryEscape(head), perPage)
 
 	list, err := repoCall[githubRunList](ctx, client, repo, http.MethodGet, runs, nil)
 	if err != nil {
@@ -128,36 +129,25 @@ func runFailed(conclusion string) bool {
 	return conclusion != "" && !passing[conclusion]
 }
 
-// githubMaxPages bounds githubPages far above any real commit's check count, so
-// a listing is read to the end without an unbounded loop.
-const githubMaxPages = 20
-
-// githubPages reads a paged listing to its end, reporting whether every page was
-// read within the bound. counts returns a page's size and GitHub's total_count.
-func githubPages[T any](
-	ctx context.Context, client Client, repo Repo, base string, counts func(T) (int, int),
+// githubPages reads a GitHub listing to its end, and reports whether it read as
+// many items as GitHub counts: a listing cut short by the bound, or by a page
+// short of the count, is not the whole of it. items takes a page apart into its
+// items and total_count.
+func githubPages[P, T any](
+	ctx context.Context, client Client, repo Repo, path string, items func(P) ([]T, int),
 ) ([]T, bool, error) {
-	var pages []T
+	counted := 0
 
-	read := 0
+	listed, err := readPages(func(page int) ([]T, int, error) {
+		answer, err := repoCall[P](ctx, client, repo, http.MethodGet, path+"?"+pageQuery(nil, page), nil)
+		found, total := items(answer)
+		counted = total
 
-	for page := 1; page <= githubMaxPages; page++ {
-		path := fmt.Sprintf("%s?per_page=%d&page=%d", base, githubPerPage, page)
-
-		one, err := repoCall[T](ctx, client, repo, http.MethodGet, path, nil)
-		if err != nil {
-			return nil, false, err
-		}
-
-		pages = append(pages, one)
-
-		size, total := counts(one)
-		read += size
-
-		if size == 0 || read >= total {
-			return pages, read >= total, nil
-		}
+		return found, total, err
+	})
+	if err != nil {
+		return nil, false, err
 	}
 
-	return pages, false, nil
+	return listed, len(listed) >= counted, nil
 }
