@@ -30,9 +30,10 @@ type Prompt struct {
 	// that reads it back. It is nil where storing is not wired for the platform,
 	// and the guided flow then keeps the token in the file.
 	StoreSecret func(secret string) (string, error)
-	// Compose opens draft in the editor and returns what was left, for a standup
-	// note to be edited before it is posted.
-	Compose func(draft string) (string, error)
+	// Compose opens draft in the editor, with help below the scissors line, and
+	// returns what was left above it, for a standup note to be edited before it
+	// is posted.
+	Compose func(draft, help string) (string, error)
 }
 
 // confirm asks a yes/no question, defaulting to no, so a bare enter is the safe

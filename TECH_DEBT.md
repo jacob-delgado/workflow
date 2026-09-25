@@ -92,7 +92,7 @@ seam as a plain argument (`loop.PullSeams`, `loop.AnnounceSeams`) and never
 needed `wiring`. What is left is narrower: a seam only the CLI or the web
 needs must still be declared on `tui.Deps`, as a `RecentCommits` for
 `standup` would be — which is why `standup` reads its commits from the
-repository directly instead (`internal/cli/standup.go:98`).
+repository directly instead (`internal/cli/standup.go:103`).
 
 **One way to fix it.** Move the bundles that depend only on leaf types —
 `JiraDeps`, `GitDeps`, `ForgeDeps`, `MessagingDeps`, `HookDeps` — to a
@@ -1490,11 +1490,11 @@ goroutine, so ten such lines freeze the interface for ten walks before the
 run overlay shows its failures. `hooks.Failures` dedupes by file, line and
 column only, and nothing caches between places.
 
-- `internal/editor/editor.go:212` — `Resolve` calls `matchesBelow` for
+- `internal/editor/editor.go:240` — `Resolve` calls `matchesBelow` for
   every place `Locate` rejects.
-- `internal/editor/editor.go:228` — `matchesBelow` runs
+- `internal/editor/editor.go:256` — `matchesBelow` runs
   `filepath.WalkDir` over the whole root.
-- `internal/editor/editor.go:233` — the walk in `matchesBelow` skips only
+- `internal/editor/editor.go:261` — the walk in `matchesBelow` skips only
   `.git`.
 - `internal/tui/deps.go:220` — `Deps.resolvedFailures` calls `Resolve`
   once per `Location`, with no cache.
