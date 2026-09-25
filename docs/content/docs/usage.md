@@ -177,6 +177,15 @@ screen, because guessing at it would send something you did not choose.
 **Comment** (`c`) opens your editor. The comment is shown back to you before it
 is posted: `enter` posts it, `e` edits it again, `esc` discards it.
 
+**Without Jira**, when `jira.base_url` is empty, your forge's issues are the
+tracker: the pane lists the open issues assigned to you on the repository's
+GitHub or GitLab project. A branch for one is named by its number rather than
+a key, as in `feat/42-fix-typo`, and that number is how workflow finds the
+issue again. **Change status** (`t`) offers only Close. Comment, assign and
+log work (`c`, `a`, `w`), linking the pull request on the issue, the
+`jira.views` issue lists (`v`), and opening or copying the issue's URL
+(`o` / `y`) do not apply. `workflow doctor` names the tracker in effect.
+
 ### Branch
 
 `b` proposes a name from the selected issue: `fix/` for a bug and `feat/` for

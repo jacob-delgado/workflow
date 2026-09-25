@@ -73,11 +73,11 @@ terminal, a file on disk, the loopback server or a release.
 
 ## The command line
 
-What is open here is `doctor`'s two reports and their exit families, the
-clients and plumbing every command shares (the interface and the web reach
-them too), the drift between the docs, the comments and the code they
-describe, and three sweeps that cross every surface — tests that prove
-nothing, facts written twice and arms no input reaches.
+What is open here is the clients and plumbing every command shares (the
+interface and the web reach them too), the drift between the docs, the
+comments and the code they describe, and three sweeps that cross every
+surface — tests that prove nothing, facts written twice and arms no input
+reaches.
 
 ### DEBT-71 `wiring` returns `tui.Deps`, though three surfaces consume the seams
 
@@ -104,52 +104,6 @@ type, and `EditorDeps` carries Bubble Tea's `tea.Msg` and `tea.Cmd`, so
 **Done when.** The seam bundles are declared where all three surfaces can
 import them without importing each other. Deferred — YAGNI until a seam the
 terminal does not use has to be added to `tui.Deps`.
-
-### DEBT-76 The forge-issues mode is advertised, then `doctor` and the docs deny it
-
-Severity: medium · Confidence: read
-
-The README's line 39 advertises running with no Jira: "With no Jira
-configured, the Issues pane lists the issues assigned to you on your forge".
-The mode is real — `trackerDeps` (`internal/wiring/forgeissues.go:42`) swaps
-in the forge's issues when `Jira.Configured`
-(`internal/config/config.go:220`) is false, and that method's own comment
-says so — but the configuration still reads as incomplete on three surfaces,
-and two documents disagree about whether Jira is required:
-
-- `internal/config/config.go:380` — `Config.Missing` has no
-  `Jira.Configured()` branch; `jira.base_url` and `jira.token` are listed
-  whenever they are empty.
-- `internal/cli/doctor_requirements.go:55` — `configReview.err`, the verdict
-  both of doctor's reports give, turns any missing field into
-  `errIncomplete`, which `configurationErrors`
-  (`internal/cli/scriptable.go:325`) maps to exit 3.
-- `internal/tui/render.go:450` — the configuration screen's `status` reads
-  `m.cfg.Missing()` and repeats the list as incomplete.
-- `docs/content/docs/configuration.md:60` — the fields table marks
-  `jira.base_url` "Required: yes", contradicting the README's line 39.
-- `docs/content/docs/usage.md:166` — "Pick up an issue" describes the Issues
-  pane in Jira terms only; the fallback is never mentioned.
-
-A GitHub-only user follows the README, runs the recommended `workflow
-doctor`, and is told two Jira fields are missing with exit 3; a script
-gating on doctor's exit fails in this mode. The usage page never says what
-changes when the forge is the tracker: `IssueKey`'s comment
-(`internal/convention/convention.go:113`) explains that such a project names
-its branches by a number rather than a key, and no page does.
-
-**One way to fix it.** Have `Missing` skip the Jira fields when
-`Jira.Configured()` is false and a forge remote exists, have `doctor` say
-which tracker is in effect, qualify the `jira.base_url` row ("required for
-Jira as the tracker; leave empty to use the forge's issues"), and add a
-paragraph under "Pick up an issue" saying what the pane shows and which
-Issues keys do not apply.
-
-**Done when.** A doctor test with only a messaging block and a GitHub remote
-exits 0 and names the forge as the tracker; the `jira.base_url` row and the
-README's line 39 state the same rule; and `grep -n forge
-docs/content/docs/usage.md` prints a line number that falls between the
-"Pick up an issue" heading and the next heading.
 
 ### DEBT-81 `cmd/workflow/main.go` is not the thin main CLAUDE.md describes
 
@@ -414,7 +368,7 @@ The README and the docs index:
   credential actually works"; `checkMessaging`'s comment
   (`internal/cli/doctor_credentials.go:197`) says a webhook is uncheckable,
   `ErrWebhookUncheckable` is reported unchecked (`:220`), `credentialStatus`
-  names that `unchecked` (`internal/cli/doctor_json.go:200`), and
+  names that `unchecked` (`internal/cli/doctor_json.go:202`), and
   `TestDoctorOnlineSaysAWebhookCannotBeChecked`
   (`internal/cli/online_test.go:153`) pins "cannot be checked".
 - The README's line 262 — "There are no releases yet." while nine tags
