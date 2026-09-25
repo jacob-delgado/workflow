@@ -4175,30 +4175,6 @@ pointer.
 `forge` twins nowhere; and `httpx` exports no `Cause` while the
 URL-stripping assertion still runs.
 
-### DEBT-160 `task dev` deletes the whole tmp/ scratch tree on exit
-
-Severity: medium · Confidence: read
-
-`.air.toml:5` names `tmp` as air's `tmp_dir`, and `.air.toml:18` sets
-`clean_on_exit` to `true`, so stopping `task dev` — whose `dev:api`
-(`Taskfile.yml:118`) runs `air` — removes `tmp/` entirely. That is the
-directory `CLAUDE.md:527` designates for scratch files ("PR-body drafts,
-intermediate output, log dumps") and the one `scripts/gobco-report.sh:46`
-writes its per-package stats to (`out_dir`, `tmp/gobco`). A contributor who
-starts `task dev` and stops it loses every file under `tmp/`: drafts and
-logs CLAUDE.md told them to put there, `tmp/gobco` from the last `task
-cover:branch`, and this audit's own `tmp/audit`. Nothing warns;
-`.air.toml`'s header calls air "a dev convenience; never part of a gate",
-and the deletion is a side effect no other file mentions.
-
-**One way to fix it.** Give air a subdirectory of its own — `tmp_dir =
-"tmp/air"` with `cmd` and `bin` under it — or set `clean_on_exit = false`;
-either is one line in `.air.toml`.
-
-**Done when.** A file placed under `tmp/` is still there after `task dev` is
-started and stopped with Ctrl+C, and `.air.toml`'s `tmp_dir` names a
-directory nothing else in the repository writes to.
-
 ### DEBT-161 Ten gate and CI sentences claim more than their check measures
 
 Severity: low · Confidence: read

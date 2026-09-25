@@ -2,11 +2,12 @@
 # and restarts `workflow --web` on any .go change. The frontend hot-reloads
 # separately through Vite's HMR. A dev convenience; never part of a gate.
 root = "."
-tmp_dir = "tmp"
+# tmp/ is the shared scratch tree, so air keeps to tmp/air, all it deletes.
+tmp_dir = "tmp/air"
 
 [build]
-cmd = "go build -o ./tmp/workflow ./cmd/workflow"
-bin = "./tmp/workflow"
+cmd = "go build -o ./tmp/air/workflow ./cmd/workflow"
+bin = "./tmp/air/workflow"
 args_bin = ["--web"]
 include_ext = ["go"]
 exclude_dir = ["web", "tmp", "dist", "bin", "docs", "scripts", ".devcontainer"]
