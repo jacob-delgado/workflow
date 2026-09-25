@@ -419,54 +419,6 @@ reads.
 user-facing string, and `go test ./internal/editor` covers a compose that
 round-trips a draft through a fake editor.
 
-### DEBT-82 The interface offers to link a forge issue number on Jira
-
-Severity: medium · Confidence: read
-
-The rule that a branch's issue is a Jira key only when it contains a dash is
-written in two surfaces and missing from the third:
-
-- `internal/cli/pr.go:285` — `isJiraKey`, the dash guard, first copy, with
-  the comment (`:283`) saying why Jira must not see a bare number: it "would
-  refuse that number, or read it as the id of an unrelated issue".
-- `internal/webserver/issuewrite.go:189` — `server.branchIssue`, the dash
-  guard, second copy.
-- `internal/tui/branch.go:233` — `Model.branchIssue` has no guard:
-  `convention.IssueKey`'s forge-number fallback is typed as a `jira.Key`
-  with ok true.
-- `internal/convention/convention.go:128` — `IssueKey` falls back to
-  `forgeKey(text)` even with a Jira project configured, returning a bare
-  number with ok true.
-- `internal/tui/issuelink.go:34` — `Model.issueToLink` treats any named key
-  as linkable when `Jira.LinkPullRequest` is wired.
-- `internal/tui/issuelink.go:46` — `issueLinker.view` asks "Add this pull
-  request's link to 42?"; the last look does not mark 42 as a forge number.
-- `internal/tui/prcreate.go:130` — `pullCreated.apply` opens `issueLinker`
-  whenever `named && m.deps.Jira.LinkPullRequest != nil`, so the bare number
-  reaches a Jira write on confirm.
-- `internal/cli/pr.go:147` — `runPR` re-derives the key with
-  `convention.IssueKey` after `draft` (`internal/loop/pull.go:123`) already
-  derived it in the same run; `ComposeAnnouncement`
-  (`internal/loop/announce.go:67`) derives it a third time.
-
-On a branch like `fix/42-typo` with Jira configured, the command line and
-the web make no link offer, while the interface opens `issueLinker` on `42`
-and a confirm posts a remote link to Jira issue id 42. Commit e4bf56f's
-message acknowledges that the interface "shares the rule's edge, but asks
-before it links"; the acknowledgment is in no trade-off, and the last look
-does not name the edge. `internal/tui/issuelink_test.go` uses only
-`PROJ-412`; no interface test uses a bare-number branch.
-
-**One way to fix it.** Let `internal/loop` own it: a `JiraIssue(branch
-gitrepo.Branch, project string) (jira.Key, bool)` with the guard, returned
-from `ComposePull` alongside the branch and used by `pr` (dropping the
-re-derivation at `internal/cli/pr.go:147`), the web's `branchIssue` and the
-interface's `branchIssue`.
-
-**Done when.** An interface test on `fix/42-typo` with Jira configured opens
-a pull request and sees no link offer, and `strings.Contains(…, "-")` as a
-Jira-key guard appears once in the module outside tests.
-
 ### DEBT-84 `git` missing from PATH is reported as "not a git repository"
 
 Severity: medium · Confidence: read
@@ -510,7 +462,9 @@ The terminal:
 - `internal/tui/branch.go:230` — `Model.branchIssue`'s comment calls itself
   "the one place the interface reads a branch name as an issue key" while
   `branchDetail` (`:141`) and `taskBranches`
-  (`internal/tui/switchtask.go:62`) call `convention.IssueKey` too.
+  (`internal/tui/switchtask.go:62`) call `convention.IssueKey` too, and
+  `Model.jiraIssue` (`internal/tui/issuelink.go:35`) reads the branch's Jira
+  issue through `loop.JiraIssue`.
 - `internal/tui/run.go:267` — `maxRunLines`' comment says the places to jump
   to are folded in as the lines arrive; `runLine.apply` (`:126`) folds in
   only `hooks.NextJob`, and `runFinished.apply` (`:158`) computes
@@ -1739,7 +1693,7 @@ Severity: medium · Confidence: read
 `!m.review.found`, and a find returns the merged pull request when no open
 one exists (`pickPull`, `internal/forge/pulls.go:213`), so a branch whose
 earlier pull request merged is never offered `n`. `refuseAnOpenPull`
-(`internal/loop/pull.go:113`), which the command line's `runPR`
+(`internal/loop/pull.go:114`), which the command line's `runPR`
 (`internal/cli/pr.go:116`) and the web's `composePullRequest`
 (`internal/webserver/pullrequest.go:105`) compose through, refuses only
 `pull.IsOpen()`, and its comment says why: a merged one's branch may carry
@@ -2141,7 +2095,7 @@ hand. FEAT-84 would need a third adapter from `webserver.Deps`.
   `convention.PullRequestTitleFrom` with `loop.draft`'s arguments.
 - `internal/tui/prcomposer.go:203` — `prComposer.withTemplate` calls
   `convention.PullRequestBody` with `loop.draft`'s arguments.
-- `internal/loop/pull.go:127` — `draft`, the loop's own title and body
+- `internal/loop/pull.go:128` — `draft`, the loop's own title and body
   proposal.
 - `internal/tui/deps.go:183` — `AnnouncedPost` carries `Moment int` at the
   store seam.
@@ -2329,7 +2283,7 @@ pull request for" instead of being classified through `fault`, as
   `ErrNoPullRequest`, so the server could tell them apart and does not.
 - `internal/webserver/pullrequest.go:116` — `server.composePullRequest`
   returns `draft, branch, err == nil`, folding `branchToOpen`'s "reading
-  the branch: %w" (`internal/loop/pull.go:94`) into `nothingToOpen` at
+  the branch: %w" (`internal/loop/pull.go:95`) into `nothingToOpen` at
   `GetPullRequestDraft` (`internal/webserver/pullrequest.go:26`) and
   `OpenPullRequest` (`internal/webserver/pullrequest.go:49`).
 - `internal/webserver/announce_test.go:312` —
@@ -2389,7 +2343,7 @@ for itself.
   post-create `Branch` read (`:99`) is DEBT-141's.
 - `internal/webserver/staging.go:171` — `stagingProblem`'s default arm
   routes the same read failure through `fault`, a bare 500.
-- `internal/webserver/issuewrite.go:65` — `server.branchPull` wraps the
+- `internal/webserver/issuewrite.go:63` — `server.branchPull` wraps the
   `Branch` read and routes it through `fault`;
   `TestLinkReportsWhatItCouldNotRead`
   (`internal/webserver/issuewrite_test.go:199`) pins the 500.
@@ -2912,9 +2866,9 @@ Seventeen conditions were never evaluated. Five are a test away:
 - `internal/tui/messaging.go:90` and `:92` — `quitGuard.handleKey`'s confirm
   and stay: `TestQuittingWithAQueuedPostAsksFirst` opens the guard but
   presses neither enter (quit) nor esc (stay) in it.
-- `internal/tui/prcreate.go:134` — `pullCreated.apply`'s `named` case: every
-  test that opens a pull request on an issue's branch wires
-  `Jira.LinkPullRequest`.
+- `internal/tui/prcreate.go:134` — `pullCreated.apply`'s `named` case, a
+  Jira issue with no link seam: every test that opens a pull request on a
+  Jira issue's branch wires `Jira.LinkPullRequest`.
 - `internal/wiring/wiring.go:234` — `streamToEnd`, git failing to start: no
   wiring test fetches or pulls without git on `PATH`.
 

@@ -107,9 +107,9 @@ Impact: medium · Effort: large
 
 - Why: The browser can read an issue, and changes one only through the two
   offers after opening a pull request: it links the pull request on the
-  issue (`LinkPullRequest`, `internal/webserver/issuewrite.go:35`) and moves
+  issue (`LinkPullRequest`, `internal/webserver/issuewrite.go:33`) and moves
   the issue to the configured review status, fields-less and nowhere else
-  (`TransitionIssue`, `internal/webserver/issuewrite.go:106`). Beyond those
+  (`TransitionIssue`, `internal/webserver/issuewrite.go:104`). Beyond those
   it has no transition with its field form, no comment, no assign, no log
   work — all of which the interface offers from the Issues pane
   (`openStatusPicker`, `internal/tui/picker.go:207`; `startComment`,

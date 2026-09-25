@@ -12,6 +12,7 @@ import (
 
 	"github.com/jacob-delgado/workflow/internal/forge"
 	"github.com/jacob-delgado/workflow/internal/jira"
+	"github.com/jacob-delgado/workflow/internal/loop"
 )
 
 // issueLinker offers to record a just-opened pull request as a web link on the
@@ -28,10 +29,18 @@ type issueLinker struct {
 
 var _ failable[issueLinker] = issueLinker{}
 
+// jiraIssue is the Jira issue the current branch names, and whether it names
+// one: never the bare forge issue number a branch can carry instead, which is
+// what a pull request's follow-ups on Jira must not reach.
+func (m Model) jiraIssue() (jira.Key, bool) {
+	return loop.JiraIssue(m.branch.branch, m.cfg.Jira.Project)
+}
+
 // issueToLink is the issue a just-opened pull request should be linked to: the
-// branch's issue, when Jira can take the link. Empty when there is neither.
+// branch's Jira issue, when Jira can take the link. Empty when there is
+// neither.
 func (m Model) issueToLink() jira.Key {
-	issueKey, named := m.branchIssue()
+	issueKey, named := m.jiraIssue()
 	if !named || m.deps.Jira.LinkPullRequest == nil {
 		return ""
 	}

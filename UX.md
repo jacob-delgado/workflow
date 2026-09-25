@@ -77,7 +77,7 @@ look, each named by the seam its confirm captures: `Jira.Transition`
 (`internal/tui/picker.go:379`), `Jira.Comment` (`internal/tui/comment.go:149`),
 `Jira.Assign` (`internal/tui/issuewrite.go:76`) and `Jira.AddWorklog`
 (`:83`), both sent at `:172`, `Jira.LinkPullRequest`
-(`internal/tui/issuelink.go:77`), `Git.CreateBranch`
+(`internal/tui/issuelink.go:86`), `Git.CreateBranch`
 (`internal/tui/branchresult.go:27`), `Git.CreateWorktree`
 (`internal/tui/branchresult.go:18`), `Git.Checkout`
 (`internal/tui/switchtask.go:190`), `Git.Commit`
@@ -96,7 +96,7 @@ run (`:319`). The 13 overlays with an in-flight guard, each refusing every
 key while `send.sending`: `statusPicker` (`internal/tui/picker.go:311`),
 `commentPreview` (`internal/tui/comment.go:130`), `issueWrite`
 (`internal/tui/issuewrite.go:140`), `issueLinker`
-(`internal/tui/issuelink.go:64`), `branchCreator`
+(`internal/tui/issuelink.go:73`), `branchCreator`
 (`internal/tui/branch.go:404`), `branchPicker`
 (`internal/tui/switchtask.go:154`), `lastLook`
 (`internal/tui/overlay.go:200`), `prComposer`
@@ -114,7 +114,7 @@ configuration screen (`internal/tui/render.go:473`) and the two details
 `pinnedOutcome` 11 (`internal/tui/branch.go:326`,
 `internal/tui/comment.go:112`, `internal/tui/composer.go:157`,
 `internal/tui/finish.go:79`, `internal/tui/hookgen.go:82`,
-`internal/tui/issuelink.go:44`, `internal/tui/merge.go:129`,
+`internal/tui/issuelink.go:53`, `internal/tui/merge.go:129`,
 `internal/tui/messagingpreview.go:64`, `internal/tui/prcomposer.go:222`,
 `internal/tui/overlay.go:175`, `internal/tui/preditor.go:58`); `failureLine`
 12 (`internal/tui/checks.go:91`, `internal/tui/composer.go:166`, `:178`,
@@ -168,7 +168,7 @@ call in `internal/cli` — so `-n`, `-y`, `-j` do not exist; `status` emits
 `ui.ascii` in the file, no `--plain`; `pr` has no
 draft, base, reviewer, title or body flag; `announce` has no `--channel`
 (the channel comes from `messaging.channel` alone); both `pr` and the web
-take the first repository template only (`firstTemplate`, `internal/loop/pull.go:136`),
+take the first repository template only (`firstTemplate`, `internal/loop/pull.go:137`),
 where the interface cycles them (`ctrl+t`).
 
 **Instead.** Shorthands for the three common flags; `--plain` on `status`;
@@ -832,7 +832,7 @@ Impact: low · Effort: small
 
 **Today.** `Model.canOpenPullRequest` (`internal/tui/review.go:354`)
 requires `m.review.err == nil`, so any find error hides `n`, while the
-command line's `refuseAnOpenPull` (`internal/loop/pull.go:113`) lets an
+command line's `refuseAnOpenPull` (`internal/loop/pull.go:114`) lets an
 errored find through and `workflow pr` composes anyway — the decision
 already taken for the command line. With the forge rate limited or
 briefly unreachable the terminal offers only `r`, where `workflow pr`
@@ -908,7 +908,7 @@ Impact: low · Effort: medium
 a failure in `$EDITOR` (`internal/tui/run.go:354`), edits an open pull
 request (`internal/tui/preditor.go`), and cycles the repository's pull-request templates
 (`ctrl+t`). None has a web equivalent, and the web takes the first template
-only (`firstTemplate`, `internal/loop/pull.go:136`). A `?` shortcut sheet, which the interface has,
+only (`firstTemplate`, `internal/loop/pull.go:137`). A `?` shortcut sheet, which the interface has,
 would give the web's six sections keyboard reach. Five smaller things the
 terminal shows are absent on the web too, none of them among what
 `docs/content/docs/web.md` says stays in the terminal.
@@ -2033,7 +2033,7 @@ disagree about the same act.
   command line's dry-run line names (`runBranch`,
   `internal/cli/branch.go:103`).
 - `prComposer.dryRunNotice`, `internal/tui/prcreate.go:76`: appends " and
-  link it on KEY" whenever an issue is named, while the live path
+  link it on KEY" whenever a Jira issue is named, while the live path
   (`pullCreated.apply`, `:130-137`) offers the link and then the review
   status instead of making either.
 - `writeOptions.proceed`, `internal/cli/scriptable.go:82`: a dry run prints
@@ -2124,7 +2124,7 @@ header that says Live, with no reason and no Retry.
 - `BranchReview`, `web/src/features/review/ReviewPanel.tsx:59`: `found`
   false falls through to the `OpenPullRequest` form, so a forge outage
   offers to open a pull request. The offer is wrong copy, not a wrong
-  write: `ComposePull`'s comment, `internal/loop/pull.go:69`, lets a forge
+  write: `ComposePull`'s comment, `internal/loop/pull.go:70`, lets a forge
   that cannot say through, and the open lands on the forge's own answer.
 - `BranchPanel`, `web/src/features/branch/BranchPanel.tsx:25`: an empty
   name with `detached` false says "This directory is not a Git repository",
@@ -2194,7 +2194,7 @@ Impact: low · Effort: small
   `internal/webserver/config_test.go:107`, asserts status and code only.
 - `nothingToOpen`, `internal/webserver/pullrequest.go:88`, words
   `PullAlreadyOpenError` — which carries the open pull request "so a
-  surface can point at it" (`internal/loop/pull.go:29`) — and
+  surface can point at it" (`internal/loop/pull.go:30`) — and
   `ErrNothingToOpen` alike as "there is nothing to open a … for", where
   the command line names the open one's URL (`internal/cli/pr.go:210`); a
   stale tab that opens a pull request twice is told there is nothing to
