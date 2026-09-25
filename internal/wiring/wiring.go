@@ -72,11 +72,12 @@ func Locate(ctx context.Context, dir string) Workspace {
 func Deps(ctx context.Context, cfg config.Config, where Workspace, log *RequestLog) tui.Deps {
 	timeout := requestTimeout(cfg)
 	setup := forgeSetup{settings: cfg.Forge, where: where, timeout: timeout, log: log}
+	connect := onceConnected(func() (forgeConnection, error) { return connectForge(ctx, setup) })
 
 	return tui.Deps{
-		Jira:       trackerDeps(ctx, cfg.Jira, setup),
+		Jira:       trackerDeps(ctx, cfg.Jira, setup, connect),
 		Git:        gitDeps(ctx, where.Root),
-		Forge:      forgeDeps(ctx, setup),
+		Forge:      forgeDeps(ctx, setup, connect),
 		Messaging:  messagingDeps(ctx, cfg.Messaging, timeout, log),
 		Hooks:      hookDeps(ctx, where.Root),
 		Editor:     editorDeps(where.Root),

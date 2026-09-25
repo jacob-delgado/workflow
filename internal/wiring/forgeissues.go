@@ -33,23 +33,23 @@ const (
 var errNotAnIssueNumber = errors.New("not a forge issue number")
 
 // trackerDeps is what backs the Issues pane: Jira when it is configured, and
-// otherwise the forge's own issues, so a project without Jira still has a
-// tracker to run the loop against.
-func trackerDeps(ctx context.Context, settings config.Jira, setup forgeSetup) tui.JiraDeps {
+// otherwise the forge's own issues, reached through connect, so a project
+// without Jira still has a tracker to run the loop against.
+func trackerDeps(
+	ctx context.Context, settings config.Jira, setup forgeSetup, connect func() (forgeConnection, error),
+) tui.JiraDeps {
 	if settings.Configured() {
 		return jiraDeps(ctx, settings, setup.timeout, setup.log)
 	}
 
-	return forgeIssuesDeps(ctx, setup)
+	return forgeIssuesDeps(ctx, connect)
 }
 
 // forgeIssuesDeps adapts the forge's issues to the tracker seam the Issues pane
 // reads. The pane, the detail and the status change run unchanged; a comment and
 // a remote link, which a forge issue has no equivalent for, are left nil so
 // those features simply do not appear.
-func forgeIssuesDeps(ctx context.Context, setup forgeSetup) tui.JiraDeps {
-	connect := onceConnected(func() (forgeConnection, error) { return connectForge(ctx, setup) })
-
+func forgeIssuesDeps(ctx context.Context, connect func() (forgeConnection, error)) tui.JiraDeps {
 	return tui.JiraDeps{
 		Search:      func(string, int) (jira.SearchResult, error) { return listForgeIssues(ctx, connect) },
 		Issue:       func(issueKey jira.Key) (jira.IssueDetail, error) { return readForgeIssue(ctx, connect, issueKey) },
