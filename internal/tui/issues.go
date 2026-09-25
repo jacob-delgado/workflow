@@ -21,16 +21,22 @@ type issuesLoaded struct {
 	found   jira.SearchResult
 	err     error
 	startAt int
-	// jql is the query this answers, so a first page can be cached under the view
-	// it was for even if the reader has since moved to another.
+	// jql is the query this answers. A first page is cached under it whichever
+	// view is active, but the answer reaches the list only while jql is still the
+	// active view's: a reader who has moved on is waiting for another answer.
 	jql string
 }
 
-// apply records the answer, caches a fresh first page, and asks for the selected
-// issue in full.
+// apply caches a fresh first page, then, when the answer is for the view on
+// screen, records it and asks for the selected issue in full.
 func (msg issuesLoaded) apply(m Model) (Model, tea.Cmd) {
-	m.issues = m.issues.settle(msg)
 	m.cacheIssues(msg)
+
+	if msg.jql != m.activeView().jql {
+		return m, nil
+	}
+
+	m.issues = m.issues.settle(msg)
 	m = m.resumeIssue()
 
 	return m.loadDetail()
