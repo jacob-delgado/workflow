@@ -28,8 +28,10 @@ func TestASecretMasksUnderEveryVerbAndWhenNested(t *testing.T) {
 		"%v of the secret":  fmt.Sprintf("%v", config.Secret(plaintext)),
 		"%s in a sentence":  fmt.Sprintf("the token is %s here", config.Secret(plaintext)),
 		"%q of the secret":  fmt.Sprintf("%q", config.Secret(plaintext)),
+		"%#v of the secret": fmt.Sprintf("%#v", config.Secret(plaintext)),
 		"%v of the config":  fmt.Sprintf("%v", cfg),
 		"%+v of the config": fmt.Sprintf("%+v", cfg),
+		"%#v of the config": fmt.Sprintf("%#v", cfg),
 	}
 
 	for name, out := range printed {
@@ -39,6 +41,32 @@ func TestASecretMasksUnderEveryVerbAndWhenNested(t *testing.T) {
 			// Act & Assert
 			if strings.Contains(out, plaintext) {
 				t.Errorf("%s leaked the secret: %s", name, out)
+			}
+		})
+	}
+}
+
+func TestASecretPrintsAsAQuotedMaskUnderSharpV(t *testing.T) {
+	t.Parallel()
+
+	cases := map[string]struct {
+		secret config.Secret
+		want   string
+	}{
+		"a set secret is the mask, quoted":   {secret: config.Secret(plaintext), want: `"****"`},
+		"an empty secret is an empty string": {secret: config.Secret(""), want: `""`},
+	}
+
+	for name, tt := range cases {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			// Act
+			got := fmt.Sprintf("%#v", tt.secret)
+
+			// Assert
+			if got != tt.want {
+				t.Errorf("%%#v = %s, want %s", got, tt.want)
 			}
 		})
 	}
