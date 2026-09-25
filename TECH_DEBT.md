@@ -1694,40 +1694,6 @@ to `connectForge`.
 `FindPullRequest`, and `connectForge` and the two bundle builders take the
 struct and `ctx` only.
 
-### DEBT-100 `Secret`'s second line of defense stops short of `%#v` and `jira.headers`
-
-Severity: low · Confidence: read
-
-`Secret`'s comment (`internal/config/secret.go:17`) promises the mask under
-"every formatting verb — %v, %s, %q, and a Secret nested in any struct printed
-with %+v", but `String` (`internal/config/secret.go:28`) is the type's only
-method: `%#v` consults `GoStringer`, not `Stringer`, so a `Secret` prints its
-value there, and the verb table in `TestASecretMasksUnderEveryVerbAndWhenNested`
-(`internal/config/secret_test.go:27`) has no `%#v` case. The same comment
-(`internal/config/secret.go:20`) says "a future raw %v of a Config cannot leak
-what Redact was never asked to hide", but `Jira.Headers`
-(`internal/config/config.go:72`) is a `map[string]string`, so the one field its
-own comment calls a possible secret is outside the guard, and the nested
-`Config` the test prints (`internal/config/secret_test.go:21`) carries no
-header. Third, `FuzzLoadFileNeverLeaksACredential` builds its masked string
-(`internal/config/fuzz_test.go:99`) and its secrets list (`:102`) from three of
-the five credentials — `Jira.Token`, `Messaging.Token`, `Messaging.WebhookURL` —
-omitting `Forge.Token` and every header value. Nothing leaks today: no non-test
-`%#v` or `GoString` exists under `internal/` or `cmd/`, and `Redacted` masks
-headers on purpose. The guard has a hole exactly where a debugging print is most
-likely to reach for it, and the redaction of `Forge.Token` and the headers rests
-on the unit tests alone.
-
-**One way to fix it.** Add a `GoString` method returning the mask and a
-`%#v` case to the verb table; type the map's values as `Secret`
-(`map[string]Secret`) and put a header in the nested-verb test's `Config`;
-add `Forge.Token` and each `Jira.Headers` value to both the masked and the
-secrets lists of the fuzz.
-
-**Done when.** `TestASecretMasksUnderEveryVerbAndWhenNested` includes a `%#v
-of the config` case and a `jira.headers` value and passes, and the fuzz body
-compares every `Secret`-typed field and every header value.
-
 ### DEBT-101 `workflow status` never reads the store's `Announced`, so its last stage lags the spine
 
 Severity: medium · Confidence: read

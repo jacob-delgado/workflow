@@ -4,8 +4,10 @@
 package config_test
 
 import (
+	"maps"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 
@@ -69,6 +71,8 @@ func FuzzLoadFileNeverLeaksACredential(f *testing.F) {
 	f.Add([]byte(`{"jira":{"base_url":"https://jira.example.com","token":"t","user":""}}`))
 	f.Add([]byte(`{"messaging":{"token":"xoxb-aaaabbbbccccdddd","webhook_url":"","channel":"#c"}}`))
 	f.Add([]byte(`{"messaging":{"webhook_url":"https://hooks.slack.com/services/A/B/ccccdddd"}}`))
+	f.Add([]byte(`{"forge":{"token":"forge-aaaabbbbccccdddd"}}`))
+	f.Add([]byte(`{"jira":{"headers":{"X-Gateway-Id":"gateway-aaaabbbb","X-Gateway-Key":"gateway-ccccdddd"}}}`))
 	f.Add([]byte(`not json at all`))
 	f.Add([]byte(`{"unknown_key": 1}`))
 
@@ -95,21 +99,27 @@ func FuzzLoadFileNeverLeaksACredential(f *testing.F) {
 			return
 		}
 
-		redacted := cfg.Redacted()
-		masked := redacted.Jira.Token.Reveal() + "\n" + redacted.Messaging.Token.Reveal() + "\n" +
-			redacted.Messaging.WebhookURL.Reveal()
+		masked := credentials(cfg.Redacted())
 
-		secrets := []string{
-			cfg.Jira.Token.Reveal(), cfg.Messaging.Token.Reveal(), cfg.Messaging.WebhookURL.Reveal(),
-		}
-		for _, secret := range secrets {
+		for _, credential := range credentials(cfg) {
+			secret := credential.Reveal()
 			if len(secret) <= visibleTail {
 				continue
 			}
 
-			if strings.Contains(masked, secret) {
+			if slices.ContainsFunc(masked, func(shown config.Secret) bool {
+				return strings.Contains(shown.Reveal(), secret)
+			}) {
 				t.Fatalf("a credential survived Redacted(): %q", secret)
 			}
 		}
 	})
+}
+
+// credentials lists every credential cfg carries: each Secret-typed field and
+// every Jira header value.
+func credentials(cfg config.Config) []config.Secret {
+	return slices.AppendSeq(
+		[]config.Secret{cfg.Jira.Token, cfg.Messaging.Token, cfg.Messaging.WebhookURL, cfg.Forge.Token},
+		maps.Values(cfg.Jira.Headers))
 }
