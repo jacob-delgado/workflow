@@ -52,7 +52,7 @@ func TestTheForgeSeamsExplainAForgeThatCannotBeReached(t *testing.T) {
 			cfg := config.Default()
 			cfg.Forge.Kind, cfg.Forge.Host = tt.kind, tt.host
 
-			seams := wiring.Deps(t.Context(), cfg, wiring.Workspace{Root: t.TempDir(), Remote: tt.remote}, nil).Forge
+			seams := wired(t, cfg, wiring.Workspace{Root: t.TempDir(), Remote: tt.remote}, nil).Forge
 
 			// Act
 			// One behavior seen through each seam: every one of them connects to
@@ -94,7 +94,7 @@ func TestTheForgeSeamsOfferGitHubsOwnVariableOnlyToGitHubsOwnHosts(t *testing.T)
 	cfg := config.Default()
 	cfg.Forge.Kind, cfg.Forge.Host = githubKind, unnamedHostName
 
-	seams := wiring.Deps(t.Context(), cfg, wiring.Workspace{Root: t.TempDir(), Remote: unnamedHost}, nil).Forge
+	seams := wired(t, cfg, wiring.Workspace{Root: t.TempDir(), Remote: unnamedHost}, nil).Forge
 
 	// Act
 	_, _, err := seams.FindPullRequest("x")
@@ -135,7 +135,7 @@ func TestTemplatesAreReadFromTheRepository(t *testing.T) {
 			cfg := config.Default()
 			cfg.Forge.Kind = tt.kind
 
-			seams := wiring.Deps(t.Context(), cfg, wiring.Workspace{Root: root, Remote: tt.remote}, nil).Forge
+			seams := wired(t, cfg, wiring.Workspace{Root: root, Remote: tt.remote}, nil).Forge
 
 			// Act
 			found := seams.Templates()
@@ -156,6 +156,9 @@ func TestTemplatesAreReadFromTheRepository(t *testing.T) {
 // jiraToken is the token each Jira seam test configures, so the client sends
 // its requests rather than refusing for want of one.
 const jiraToken = "a-token-for-tests"
+
+// jiraAddress is a Jira base URL that no test ever reaches.
+const jiraAddress = "https://jira.example.com"
 
 func TestTheJiraSeamsReachTheConfiguredJira(t *testing.T) {
 	t.Parallel()
@@ -182,7 +185,7 @@ func TestTheJiraSeamsReachTheConfiguredJira(t *testing.T) {
 	cfg := config.Default()
 	cfg.Jira = config.Jira{BaseURL: server.URL, Token: jiraToken, User: ""}
 
-	seams := wiring.Deps(t.Context(), cfg, wiring.Workspace{Root: t.TempDir(), Remote: ""}, nil).Jira
+	seams := wired(t, cfg, wiring.Workspace{Root: t.TempDir(), Remote: ""}, nil).Jira
 
 	// Act
 	_, searchErr := seams.Search("assignee = currentUser()", 0)
@@ -235,7 +238,7 @@ func TestTheJiraSeamReadsNoIssueForAForgeIssueNumber(t *testing.T) {
 
 	cfg := config.Default()
 	cfg.Jira = config.Jira{BaseURL: server.URL, Token: jiraToken, User: ""}
-	seams := wiring.Deps(t.Context(), cfg, wiring.Workspace{Root: t.TempDir(), Remote: ""}, nil).Jira
+	seams := wired(t, cfg, wiring.Workspace{Root: t.TempDir(), Remote: ""}, nil).Jira
 
 	// Act
 	_, err := seams.Issue("42")
@@ -255,8 +258,8 @@ func TestTheJiraSeamLinksNoForgeIssueNumber(t *testing.T) {
 
 	// Arrange
 	cfg := config.Default()
-	cfg.Jira = config.Jira{BaseURL: "https://jira.example.com", Token: jiraToken, User: ""}
-	seams := wiring.Deps(t.Context(), cfg, wiring.Workspace{Root: t.TempDir(), Remote: ""}, nil).Jira
+	cfg.Jira = config.Jira{BaseURL: jiraAddress, Token: jiraToken, User: ""}
+	seams := wired(t, cfg, wiring.Workspace{Root: t.TempDir(), Remote: ""}, nil).Jira
 
 	// Act
 	link := seams.BrowseURL("42")
@@ -274,7 +277,7 @@ func TestTheSlackSeamRefusesAnInsecureWebhookBeforeSending(t *testing.T) {
 	cfg := config.Default()
 	cfg.Messaging = config.Messaging{Token: "", WebhookURL: "http://hooks.example.com/services/x", Channel: ""}
 
-	seams := wiring.Deps(t.Context(), cfg, wiring.Workspace{Root: t.TempDir(), Remote: ""}, nil).Messaging
+	seams := wired(t, cfg, wiring.Workspace{Root: t.TempDir(), Remote: ""}, nil).Messaging
 
 	// Act
 	err := seams.Post("", "hi")
@@ -310,7 +313,7 @@ func TestTheMessagingSeamNeverLogsAWebhooksPath(t *testing.T) {
 			var logged strings.Builder
 
 			requestLog := wiring.NewRequestLog(&logged, nil)
-			seams := wiring.Deps(t.Context(), cfg, wiring.Workspace{Root: t.TempDir(), Remote: ""}, requestLog).Messaging
+			seams := wired(t, cfg, wiring.Workspace{Root: t.TempDir(), Remote: ""}, requestLog).Messaging
 
 			// Act
 			_ = seams.Post("", "hi")
@@ -343,7 +346,7 @@ func TestTheEditSeamWritesADraftAndHandsOverTheTerminal(t *testing.T) {
 	drafts := t.TempDir()
 	t.Setenv("TMPDIR", drafts)
 
-	seams := wiring.Deps(t.Context(), config.Default(), wiring.Workspace{Root: t.TempDir(), Remote: ""}, nil).Editor
+	seams := wired(t, config.Default(), wiring.Workspace{Root: t.TempDir(), Remote: ""}, nil).Editor
 	finished := false
 
 	// Act
@@ -375,7 +378,7 @@ func TestTheOpenSeamHandsOverTheTerminal(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	seams := wiring.Deps(t.Context(), config.Default(), wiring.Workspace{Root: root, Remote: ""}, nil).Editor
+	seams := wired(t, config.Default(), wiring.Workspace{Root: root, Remote: ""}, nil).Editor
 	finished := false
 
 	// Act

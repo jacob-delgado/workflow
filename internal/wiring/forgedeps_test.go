@@ -15,7 +15,6 @@ import (
 
 	"github.com/jacob-delgado/workflow/internal/forge"
 	"github.com/jacob-delgado/workflow/internal/tui"
-	"github.com/jacob-delgado/workflow/internal/wiring"
 )
 
 // Every seam gets past its connect guard and returns the forge's answer, which
@@ -80,7 +79,7 @@ func TestTheForgeSeamsReturnTheForgesAnswerThroughTheCLI(t *testing.T) {
 
 			cfg, where := githubCLIWorkspace(t)
 
-			seams := wiring.Deps(t.Context(), cfg, where, nil).Forge
+			seams := wired(t, cfg, where, nil).Forge
 
 			// Act
 			got, err := seamCase.act(seams)
@@ -154,7 +153,7 @@ func TestTheForgeWriteSeamsHandTheForgeTheirRequestThroughTheCLI(t *testing.T) {
 			ghStub := installForgeCLI(t, "gh", forgeReplies{})
 			cfg, where := githubCLIWorkspace(t)
 
-			seams := wiring.Deps(t.Context(), cfg, where, nil).Forge
+			seams := wired(t, cfg, where, nil).Forge
 
 			// Act
 			got, err := seamCase.act(seams)
@@ -184,7 +183,7 @@ func TestTheTrackerAndForgeSeamsLookUpTheForgeTokenOnce(t *testing.T) {
 	t.Setenv("GITHUB_TOKEN", "")
 
 	cfg, where := githubCLIWorkspace(t)
-	deps := wiring.Deps(t.Context(), cfg, where, nil)
+	deps := wired(t, cfg, where, nil)
 
 	// Act
 	_, searchErr := deps.Jira.Search("", 0)

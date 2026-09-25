@@ -588,7 +588,7 @@ The command line:
   (`:306`), leaving the documented exit 4 unpinned, and
   `TestBranchReportsAnUnreachableTracker` (`:322`), whose fixture answers
   500 (`:315`) — a rejection, exit 1, since `statusError`
-  (`internal/jira/jira.go:240`) makes a 500 `ErrUnexpectedStatus`, never
+  (`internal/jira/jira.go:253`) makes a 500 `ErrUnexpectedStatus`, never
   `ErrUnreachable` — so "Unreachable" in its name is wrong.
 - `internal/cli/scriptable_test.go:25` — `TestBranchCommandNeedsATracker`
   asserts `err == nil` only and cannot tell the exit-3 refusal from any
@@ -764,10 +764,10 @@ three; no linter or knip rule sees any of it.
   (`internal/tui/keys.go:293`); no test holds the three to each other.
 - `internal/config/config.go:349` — `Config.Problems`' sentence
   "jira.base_url is not an absolute http or https URL" is
-  `ErrInvalidBaseURL`'s text verbatim (`internal/jira/jira.go:41`), and the
+  `ErrInvalidBaseURL`'s text verbatim (`internal/jira/jira.go:44`), and the
   rule behind it is written twice: `absoluteWebURL`
   (`internal/config/config.go:364`) accepts userinfo that `usable`
-  (`internal/jira/jira.go:151`) refuses first (`:147`).
+  (`internal/jira/jira.go:164`) refuses first (`:160`).
 - `.github/workflows/release-please.yml:67` — "Provision the toolchain for
   the gate" and "Verify the gate before tagging" (`:79`) each restate the
   release subject with `startsWith(…, 'chore(main): release ')`, "Push tag

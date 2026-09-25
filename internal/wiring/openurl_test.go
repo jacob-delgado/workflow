@@ -54,7 +54,7 @@ func TestOpenURLOpensOnlyWebAddresses(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			// Arrange
 			record := recordingOpeners(t)
-			open := wiring.Deps(t.Context(), config.Default(), wiring.Workspace{Root: t.TempDir(), Remote: ""}, nil).OpenURL
+			open := wired(t, config.Default(), wiring.Workspace{Root: t.TempDir(), Remote: ""}, nil).OpenURL
 
 			// Act
 			err := open(tt.raw)

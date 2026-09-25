@@ -71,13 +71,28 @@ func Locate(ctx context.Context, dir string) Workspace {
 // service, lefthook and editor. A non-nil log records the outline of every
 // request each service makes. The services share one redirect-refusing HTTP
 // client, so a change to how it is built is made here once.
-func Deps(ctx context.Context, cfg config.Config, where Workspace, log *RequestLog) tui.Deps {
+//
+// Jira, like the forge, finds its token the first time it is asked, so a
+// command that never reaches it never runs its token command. The returned
+// resolveAhead finds it now instead, for the interface and the web server to
+// call before they start: once either holds the terminal, a token command that
+// asks on it could not be answered. A token not found then is looked for again
+// on first use, where its failure is reported.
+func Deps(ctx context.Context, cfg config.Config, where Workspace, log *RequestLog) (tui.Deps, func()) {
 	httpTransport := httpx.Client(requestTimeout(cfg)).Do
 	setup := forgeSetup{settings: cfg.Forge, where: where, httpTransport: httpTransport, log: log}
 	connect := onceConnected(func() (forgeConnection, error) { return connectForge(ctx, setup) })
+	jiraClient := onceConnected(func() (jira.Client, error) { return connectJira(ctx, cfg.Jira, httpTransport, log) })
+
+	// A failure here is left for first use, which looks again and reports it.
+	resolveAhead := func() {
+		if cfg.Jira.Configured() {
+			_, _ = jiraClient()
+		}
+	}
 
 	return tui.Deps{
-		Jira:       trackerDeps(ctx, cfg.Jira, setup, connect),
+		Jira:       trackerDeps(ctx, cfg.Jira, jiraClient, connect),
 		Git:        gitDeps(ctx, where.Root),
 		Forge:      forgeDeps(ctx, setup, connect),
 		Messaging:  messagingDeps(ctx, cfg.Messaging, httpTransport, log),
@@ -89,7 +104,7 @@ func Deps(ctx context.Context, cfg config.Config, where Workspace, log *RequestL
 		Notify:     ringTerminal,
 		OpenURL:    func(url string) error { return openInBrowser(ctx, url) },
 		Copy:       tea.SetClipboard,
-	}
+	}, resolveAhead
 }
 
 // ciFinished is a terminal bell followed by an OSC 9 desktop notification. A
@@ -160,39 +175,6 @@ func requestTimeout(cfg config.Config) time.Duration {
 	}
 
 	return RequestTimeout
-}
-
-// jiraDeps is what the interface asks of Jira. It needs no guard for a missing
-// or malformed configuration: the client refuses before sending anything, and
-// the pane shows why.
-func jiraDeps(ctx context.Context, settings config.Jira, httpTransport httpx.Doer, log *RequestLog) tui.JiraDeps {
-	settings.Token, _, _ = ResolveToken(ctx, settings.Token, settings.TokenCommand, settings.TokenEnv)
-	//nolint:bodyclose // Wrap only relays the response; the jira client reads and closes its body.
-	client := jira.New(log.Wrap("jira", httpTransport), settings)
-
-	return tui.JiraDeps{
-		Search: func(jql string, startAt int) (jira.SearchResult, error) { return client.Search(ctx, jql, startAt) },
-		Issue:  func(issueKey jira.Key) (jira.IssueDetail, error) { return readJiraIssue(ctx, client, issueKey) },
-		Transitions: func(issueKey jira.Key) ([]jira.Transition, error) {
-			return client.Transitions(ctx, issueKey)
-		},
-		Transition: func(issueKey jira.Key, to jira.Transition, values []jira.FieldValue) error {
-			return client.ApplyTransition(ctx, issueKey, to, values)
-		},
-		Comment: func(issueKey jira.Key, text string) (jira.Comment, error) {
-			return client.AddComment(ctx, issueKey, text)
-		},
-		Assign: func(issueKey jira.Key, assignee string) error {
-			return client.Assign(ctx, issueKey, assignee)
-		},
-		AddWorklog: func(issueKey jira.Key, timeSpent, comment string) (jira.Worklog, error) {
-			return client.AddWorklog(ctx, issueKey, timeSpent, comment)
-		},
-		LinkPullRequest: func(issueKey jira.Key, pullURL, title string) error {
-			return client.LinkPullRequest(ctx, issueKey, pullURL, title)
-		},
-		BrowseURL: func(issueKey jira.Key) string { return browseJiraIssue(client, issueKey) },
-	}
 }
 
 // gitDeps is what the interface asks of the repository.

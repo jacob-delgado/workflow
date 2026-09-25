@@ -69,10 +69,10 @@ tracker is configured, no `jira.review_status` to move an issue to, a change
 Jira refused, a file git would not stage or unstage, or a branch git would not
 switch to or create (git's own words stay off the wire, since a fetch it
 makes on the way can name the remote; the detail says how to see them). A
-Jira token that is not configured or that Jira did not accept, a
-`jira.base_url` that is not a usable address, and one with no Jira API behind
-it are answered here too, pointing at `workflow doctor` rather than naming the
-address. So are a forge token that was not found or that the forge did not
+Jira token that is not configured, that its command or variable did not give,
+or that Jira did not accept, a `jira.base_url` that is not a usable address,
+and one with no Jira API behind it are answered here too, pointing at
+`workflow doctor` rather than naming the address. So are a forge token that was not found or that the forge did not
 accept, a `forge.kind` set without its `forge.host`, a forge address with no
 forge API behind it, and a request the forge refused, whose detail points at
 the token's scopes. So is an announcement the messaging service refused,

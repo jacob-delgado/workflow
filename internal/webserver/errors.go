@@ -160,7 +160,9 @@ func jiraFaults() []faultClass {
 		// their details name the setting, not what Jira did.
 		{
 			causes: []error{jira.ErrNoCredential},
-			code:   api.Unprocessable, detail: "no Jira token is configured; set jira.token, which workflow doctor checks",
+			code:   api.Unprocessable,
+			detail: "Jira has no token; set jira.token, or check that jira.token_command or jira.token_env gives one " +
+				"— workflow doctor --online tests it",
 		},
 		{
 			causes: []error{jira.ErrInvalidBaseURL, jira.ErrCredentialInBaseURL},

@@ -782,7 +782,7 @@ in the browser, and the Review pane labels the branch's own draft
 (`Model.reviewDetail`, `internal/tui/review.go:306`). The first site is a
 wiring file; what it costs is the terminal's Issues pane.
 
-- `internal/wiring/forgeissues.go:53` `forgeIssuesDeps` builds
+- `internal/wiring/forgeissues.go:55` `forgeIssuesDeps` builds
   `tui.JiraDeps` with `Search`, `Issue`, `Transitions` and `Transition`
   only — no `BrowseURL`, though `forge.Issue` already carries `URL`
   (`internal/forge/issues.go:17`); `Model.issueURL`

@@ -37,8 +37,9 @@ const bodyLimit = 16 << 20
 // refused redirect and a rate limit come back as httpx's ErrRedirected and
 // ErrRateLimited, which every client shares.
 var (
-	// ErrNoCredential reports a configuration with no Jira token at all.
-	ErrNoCredential = errors.New("no jira.token is configured")
+	// ErrNoCredential reports that Jira has no token to send: none is
+	// configured, or the configured source gave none.
+	ErrNoCredential = errors.New("no Jira token to send")
 	// ErrInvalidBaseURL reports a jira.base_url that is not an absolute URL.
 	ErrInvalidBaseURL = errors.New("jira.base_url is not an absolute http or https URL")
 	// ErrCredentialInBaseURL reports userinfo embedded in jira.base_url.

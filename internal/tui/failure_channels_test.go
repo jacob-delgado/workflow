@@ -38,8 +38,9 @@ func ownWordsOf(err error) spoken {
 func everySeamFailure() map[string]spoken {
 	return map[string]spoken{
 		"jira no credential": {
-			fmt.Errorf("searching: %w", jira.ErrNoCredential), "Jira is not set up",
-			"Jira is not set up. Add `jira.token` to `.workflow.json`.",
+			fmt.Errorf("searching: %w", jira.ErrNoCredential), "Jira has no token",
+			"Jira has no token. Set `jira.token`, or check that `jira.token_command` or `jira.token_env` gives one; " +
+				"`workflow doctor --online` tests it.",
 		},
 		"jira invalid base URL": {
 			fmt.Errorf("searching: %w", jira.ErrInvalidBaseURL), "jira.base_url is not a URL",

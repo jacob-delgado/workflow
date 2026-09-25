@@ -136,8 +136,9 @@ func localErrors() []knownError {
 func jiraErrors() []knownError {
 	return []knownError{
 		{jira.ErrNoCredential, wording{
-			brief: "Jira is not set up",
-			full:  "Jira is not set up. Add `jira.token` to `.workflow.json`.",
+			brief: "Jira has no token",
+			full: "Jira has no token. Set `jira.token`, or check that `jira.token_command` or `jira.token_env` gives one; " +
+				"`workflow doctor --online` tests it.",
 		}},
 		{jira.ErrInvalidBaseURL, wording{
 			brief: "jira.base_url is not a URL",
