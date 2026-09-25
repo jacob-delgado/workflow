@@ -17,8 +17,9 @@ import (
 )
 
 // The status a forge issue has, mapped onto the two Jira strings the pane reads:
-// a name to show, and a category that chooses the glyph. A forge issue is open
-// while it is listed, and closed once the loop resolves it.
+// a name to show, and a category that chooses the glyph. A listed issue is open,
+// because the listing asks only for open ones; an issue read in full says which
+// it is, so one the loop has closed reads as closed.
 const (
 	forgeOpenStatus   = "Open"
 	forgeOpenCategory = "new"
@@ -102,7 +103,7 @@ func readForgeIssue(
 	}
 
 	return jira.IssueDetail{
-		Issue:       forgeIssueRow(detail.Issue),
+		Issue:       forgeDetailRow(detail),
 		Description: detail.Body,
 		Reporter:    detail.Author,
 	}, nil
@@ -136,8 +137,9 @@ func connectToIssue(connect func() (forgeConnection, error), issueKey jira.Key) 
 	return connection, number, nil
 }
 
-// forgeIssueRow shapes a forge issue as a search row: its number as the key, its
-// title as the summary, and its open state mapped onto the glyph's category.
+// forgeIssueRow shapes a listed forge issue as a search row: its number as the
+// key, its title as the summary, and the open state every listed issue has
+// mapped onto the glyph's category.
 func forgeIssueRow(issue forge.Issue) jira.Issue {
 	return jira.Issue{
 		Key:            jira.Key(strconv.Itoa(issue.Number)),
@@ -145,6 +147,17 @@ func forgeIssueRow(issue forge.Issue) jira.Issue {
 		Status:         forgeOpenStatus,
 		StatusCategory: forgeOpenCategory,
 	}
+}
+
+// forgeDetailRow shapes an issue read in full as a row, closed when the forge
+// says it is.
+func forgeDetailRow(detail forge.IssueDetail) jira.Issue {
+	row := forgeIssueRow(detail.Issue)
+	if detail.Closed {
+		row.Status, row.StatusCategory = forgeClosedStatus, forgeDoneCategory
+	}
+
+	return row
 }
 
 // forgeIssueTransitions is the one state change a forge issue has: close it. It

@@ -70,6 +70,21 @@ func TestTheForgeTrackerReadsAnIssueAsDetail(t *testing.T) {
 	}
 }
 
+func TestTheForgeTrackerReadsAClosedIssueAsDone(t *testing.T) {
+	// Arrange
+	closed := strings.TrimSuffix(theBugDetail, "}") + `,"state":"closed"}`
+	installForgeCLI(t, "gh", forgeReplies{issue: closed})
+	tracker := forgeTracker(t)
+
+	// Act
+	detail, err := tracker.Issue("42")
+
+	// Assert
+	if err != nil || detail.Issue.Status != "Closed" || detail.Issue.StatusCategory != jira.CategoryDone {
+		t.Errorf("Issue = %+v, %v; want a closed issue in the done category", detail.Issue, err)
+	}
+}
+
 func TestTheForgeTrackerClosesAnIssue(t *testing.T) {
 	// Arrange
 	ghStub := installForgeCLI(t, "gh", forgeReplies{issue: theBugDetail})
