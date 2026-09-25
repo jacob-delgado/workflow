@@ -153,24 +153,52 @@ func Edit(getenv Getenv, dir, text, help string, done func(string, error) tea.Ms
 	return tea.ExecProcess(command, Collect(path, done))
 }
 
+// Compose is Edit for a command that holds the terminal itself: it hands text
+// to the user's editor on this process's own standard streams, waits for the
+// editor to close, and returns what was left above the scissors line. The
+// draft goes to $TMPDIR as Edit's does, and is gone again when Compose returns.
+func Compose(getenv Getenv, text, help string) (string, error) {
+	path, err := writeDraft(getenv("TMPDIR"), Draft(text, help))
+	if err != nil {
+		return "", err
+	}
+
+	command, err := proc.Interactive(Invocation(getenv, filepath.Dir(path), path, 0))
+	if err != nil {
+		_ = os.Remove(path)
+
+		return "", err
+	}
+
+	command.Stdin, command.Stdout, command.Stderr = os.Stdin, os.Stdout, os.Stderr
+
+	return readBack(path, command.Run())
+}
+
 // Collect is what happens once the editor closes: the draft at path is read
-// back, parsed, reported through done, and removed. An editor that exited with
-// an error keeps nothing, the way git treats an aborted commit message.
+// back, parsed, reported through done, and removed.
 func Collect(path string, done func(string, error) tea.Msg) func(error) tea.Msg {
 	return func(editorErr error) tea.Msg {
-		defer func() { _ = os.Remove(path) }()
-
-		if editorErr != nil {
-			return done("", fmt.Errorf("the editor exited with an error, so nothing was kept: %w", editorErr))
-		}
-
-		saved, err := os.ReadFile(path) //nolint:gosec // the path is the draft Edit wrote
-		if err != nil {
-			return done("", fmt.Errorf("reading the draft back: %w", err))
-		}
-
-		return done(Parse(string(saved)), nil)
+		return done(readBack(path, editorErr))
 	}
+}
+
+// readBack is what the editor left in the draft at path, parsed, once it has
+// closed; the draft is removed either way. An editor that exited with an error
+// keeps nothing, the way git treats an aborted commit message.
+func readBack(path string, editorErr error) (string, error) {
+	defer func() { _ = os.Remove(path) }()
+
+	if editorErr != nil {
+		return "", fmt.Errorf("the editor exited with an error, so nothing was kept: %w", editorErr)
+	}
+
+	saved, err := os.ReadFile(path) //nolint:gosec // the path is the draft writeDraft made
+	if err != nil {
+		return "", fmt.Errorf("reading the draft back: %w", err)
+	}
+
+	return Parse(string(saved)), nil
 }
 
 // ErrNoSuchFile reports a place to open that names no file.

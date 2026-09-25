@@ -26,7 +26,7 @@ type standupSeams struct {
 	Branches func() ([]string, error)
 	FindPull func(branch string) (forge.PullRequest, bool, error)
 	Search   func(jql string, startAt int) (jira.SearchResult, error)
-	Compose  func(draft string) (string, error)
+	Compose  func(draft, help string) (string, error)
 	Post     func(text string) error
 	Confirm  func(question string) (bool, error)
 	// Service names the messaging service in use, for the confirmation and result.
@@ -35,6 +35,11 @@ type standupSeams struct {
 	// offered.
 	Configured bool
 }
+
+// standupHelp sits below the scissors line in the standup draft, and is cut
+// away with everything under it when the editor closes.
+const standupHelp = "Edit your standup above this line, then save and close.\n" +
+	"Lines below the scissors are removed. An empty draft posts nothing."
 
 // standupBranchLimit bounds how many recent local branches are asked about, so a
 // repository with a long history of branches does not fire a forge request for
@@ -120,7 +125,7 @@ func runStandup(out output, seams standupSeams, opts standupOptions) error {
 	}
 
 	if !opts.noEdit && seams.Compose != nil {
-		draft, err = seams.Compose(draft)
+		draft, err = seams.Compose(draft, standupHelp)
 		if err != nil {
 			return fmt.Errorf("editing the standup: %w", err)
 		}

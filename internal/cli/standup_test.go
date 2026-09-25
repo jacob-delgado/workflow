@@ -152,11 +152,11 @@ func TestStandupOpensTheDraftInTheEditor(t *testing.T) {
 	repo := repoWithCommit(t)
 	writeFile(t, repo, `{"jira":{"base_url":"`+server.URL+`","token":"t"}}`)
 
-	var seen string
+	var seen, help string
 
 	prompt := cli.Prompt{
-		Compose: func(draft string) (string, error) {
-			seen = draft
+		Compose: func(draft, below string) (string, error) {
+			seen, help = draft, below
 
 			return "# Standup\n\nwhat I actually did", nil
 		},
@@ -172,6 +172,10 @@ func TestStandupOpensTheDraftInTheEditor(t *testing.T) {
 	if !strings.Contains(seen, "PROJ-7") || !strings.Contains(out, "what I actually did") {
 		t.Errorf("the editor was not handed the draft, or its edit was dropped:\nseen=%q\nout=%s", seen, out)
 	}
+
+	if !strings.Contains(help, "Edit your standup above this line") {
+		t.Errorf("the editor was handed help %q, want the standup's own", help)
+	}
 }
 
 func TestStandupWithNothingLeftSaysSo(t *testing.T) {
@@ -180,7 +184,7 @@ func TestStandupWithNothingLeftSaysSo(t *testing.T) {
 	repo := repoWithCommit(t)
 	writeFile(t, repo, `{"messaging":{"webhook_url":"https://hooks.slack.example/services/x"}}`)
 
-	prompt := cli.Prompt{Compose: func(string) (string, error) { return "   \n\t", nil }}
+	prompt := cli.Prompt{Compose: func(string, string) (string, error) { return "   \n\t", nil }}
 
 	// Act
 	printed, err := runStreams(t, repo, prompt, "standup")

@@ -83,7 +83,7 @@ Impact: medium · Effort: medium
   branch (`runBranch`, `internal/cli/branch.go:79`), `status` prints the
   branch issue's summary (`gather`, `internal/cli/status.go:250`), `standup`
   lists recently updated assigned issues inside its draft (`gatherStandup`,
-  `internal/cli/standup.go:172`) and `workflow branch <tab>` completes
+  `internal/cli/standup.go:177`) and `workflow branch <tab>` completes
   assigned keys (`completeAssignedIssues`, `internal/cli/scriptable.go:125`)
   — and writes to it only as `workflow pr`'s side effects, a link and a
   transition (`followUp`, `internal/cli/pr.go:163`). No command lists a

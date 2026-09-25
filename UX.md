@@ -147,7 +147,7 @@ Impact: low · Effort: medium
 makes three round trips in silence (`reportCredentials`,
 `internal/cli/doctor_credentials.go:29`);
 `standup` fires up to fifteen forge requests plus a Jira search
-(`gatherPulls`, `internal/cli/standup.go:185`); `status DIR…` visits each directory in
+(`gatherPulls`, `internal/cli/standup.go:190`); `status DIR…` visits each directory in
 series (`statusesOf`, `internal/cli/status.go:165`). The only trace is `--log`,
 which outlines each request in a file for a bug report and shows the person
 waiting nothing.
@@ -239,7 +239,7 @@ pointer.
 - `internal/cli/config_cmd.go:244` (`collectJira`): the guided `init`,
   which asks four questions, returns `prompt.Line`'s error raw (`:246`).
   Only `confirm` maps `io.EOF` to `errNoTerminal`
-  (`internal/cli/prompt.go:43`), and `io.EOF` belongs to no family in
+  (`internal/cli/prompt.go:44`), and `io.EOF` belongs to no family in
   `exitFamilies` (`internal/cli/scriptable.go:307`), so
   `workflow config init < /dev/null` prints "workflow: EOF" and exits 1
   with no mention of `--template`. A final line typed without a newline
@@ -300,7 +300,7 @@ time to compare, and no JSON at all from `pr` or `standup`. This entry owns
   "Opened " + `Sigil()` + number + URL, and the sigil is `!` on GitLab
   (`internal/forge/remote.go:70`). `docs/content/docs/scripting.md:98`
   keeps `--json` to the reads, a description rather than a decision.
-- `internal/cli/standup.go:70` (`newStandupCmd`): the command declares
+- `internal/cli/standup.go:75` (`newStandupCmd`): the command declares
   `--days` and `--no-edit` and nothing else, so the gathered issues and
   pull requests reach a script only as the Markdown draft.
 
@@ -336,7 +336,7 @@ confirmed first." (`:64`). The interface shows the body's first
 for the form to show (`internal/webserver/pullrequest.go:161`), and the
 command line's sibling writes print their whole payload (`runAnnounce`,
 `internal/cli/announce.go:132`; `standup` at
-`internal/cli/standup.go:136`). A stale or wrong template is discovered on
+`internal/cli/standup.go:141`). A stale or wrong template is discovered on
 the forge, after the open, on the one surface whose help promises a last
 look.
 `docs/content/docs/scripting.md:89` (the `pr` row under "Standard output
@@ -1978,7 +1978,7 @@ script is told to press a key it does not have.
   `:103`, writes `#%d` before every number.
 - `docs/content/docs/scripting.md:83`, the `reviews` row of the stdout and
   stderr table: quotes that sentence verbatim, so the row moves with it.
-- `writePulls`, `internal/cli/standup.go:267`: `- #` before each number;
+- `writePulls`, `internal/cli/standup.go:272`: `- #` before each number;
   `standupSeams` carries no `Kind`.
 - `Model.reviewQueueDetail`, `internal/tui/reviewqueue.go:111` and `:117`:
   "pull requests" whatever the forge; `Model.reviewRows`, `:132`, writes
@@ -2100,14 +2100,14 @@ header that says Live, with no reason and no Retry.
 - "Standard output and standard error", `docs/content/docs/scripting.md:76`:
   "Standard error carries … warnings" — the contract `status` does not
   meet.
-- `gatherStandup`, `internal/cli/standup.go:178`: `issues, _ :=
-  seams.Search(…)` discards the search error; its doc comment at `:170`
+- `gatherStandup`, `internal/cli/standup.go:183`: `issues, _ :=
+  seams.Search(…)` discards the search error; its doc comment at `:175`
   settles "leaves its section empty rather than failing", not silence.
-- `gatherPulls`, `internal/cli/standup.go:186`: a `Branches` error returns
-  nil with no note, and at `:198` `err == nil && found && pull.IsOpen()`
+- `gatherPulls`, `internal/cli/standup.go:191`: a `Branches` error returns
+  nil with no note, and at `:203` `err == nil && found && pull.IsOpen()`
   drops every `FindPull` error and keeps looping, up to
   `standupBranchLimit` failing requests.
-- `writeIssues`, `internal/cli/standup.go:250`, and `writePulls`, `:262`:
+- `writeIssues`, `internal/cli/standup.go:255`, and `writePulls`, `:267`:
   "- none" whether the service answered or refused; `--no-edit --yes` posts
   it.
 - `server.snapshot`, `internal/webserver/stream.go:82`: the comment
@@ -2251,7 +2251,7 @@ Impact: low · Effort: small
   without a period, as do `offerLink`'s "Linked … on …"
   (`internal/cli/pr.go:199`) and `offerReviewStatus`'s "Moved … to …"
   (`:256`), while `offerLink`'s "Could not link … ." (`:194`),
-  `offerToPost`'s "Posted to %s." (`internal/cli/standup.go:164`) and every
+  `offerToPost`'s "Posted to %s." (`internal/cli/standup.go:169`) and every
   web notice (`offerWords`, `web/src/features/review/OpenedOutcome.tsx:48`)
   carry one; a `pr --yes` run whose link fails mixes both.
 - `placeholder`, `internal/tui/fields.go:101`: returns `dateLayout`, Go's
