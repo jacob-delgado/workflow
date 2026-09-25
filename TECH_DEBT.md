@@ -3929,27 +3929,6 @@ on the entry ID finds them) and keep the entry ID in the rationale column.
 **Done when.** Every row's second column in
 `scripts/package-size-budget-history.md` matches `#[0-9]+`.
 
-### DEBT-157 Nine forge seams run under two Acts in `internal/wiring/forgedeps_test.go`
-
-Severity: low · Confidence: read
-
-`TestTheForgeSeamsReturnTheForgesAnswerThroughTheCLI`
-(`internal/wiring/forgedeps_test.go:29`) runs `FindPullRequest`,
-`CreatePullRequest`, `CheckStatus`, `ReviewRequests` and `Author` under one
-`// Act`, and `TestTheForgeWriteSeamsHandTheForgeTheirRequestThroughTheCLI`
-(`internal/wiring/forgedeps_test.go:68`) runs `EditPullRequest`, `Merge`,
-`MergeMethods` and `Rerun` under another, no call depending on the previous
-one — the independent scenarios CLAUDE.md asks to be separate tests or table
-cases. `testshape` checks marker order, not the number of acts, so the gate
-cannot see it. A failure names the test, not the seam, and one broken seam
-hides the others' results.
-
-**One way to fix it.** A table of seam name to act func (and, for the
-writes, the expected `gh` arguments), with the markers inside each `t.Run`.
-
-**Done when.** Each of the nine seams has its own subtest in
-`internal/wiring/forgedeps_test.go`.
-
 ### DEBT-158 Five config tests are named for Slack or SaveOver and test neither
 
 Severity: low · Confidence: read
