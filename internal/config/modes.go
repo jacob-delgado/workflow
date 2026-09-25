@@ -87,9 +87,10 @@ func (k MessagingKind) Service() string {
 		return "Discord"
 	case KindWebhook:
 		return "Webhook"
-	case "", KindSlack:
+	case KindSlack:
 		return "Slack"
 	default:
+		// Parse refuses every other kind, so this is the empty one, read as Slack.
 		return "Slack"
 	}
 }
@@ -101,9 +102,10 @@ func (k MessagingKind) webhookOnly() bool {
 	switch k {
 	case KindTeams, KindDiscord, KindWebhook:
 		return true
-	case "", KindSlack:
+	case KindSlack:
 		return false
 	default:
+		// Parse refuses every other kind, so this is the empty one, read as Slack.
 		return false
 	}
 }
