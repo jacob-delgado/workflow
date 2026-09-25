@@ -1815,8 +1815,8 @@ which is why this is low.
   explicit `['', 'Auto-detect']`
   (`web/src/features/settings/fieldsets/ForgeFieldset.tsx:13`).
 - `Default` sets no `PullRequest`, so `title_source` is `""`
-  (`internal/config/config.go:238`), and its `Messaging` leaves `Kind` `""`
-  (`:242`); `collectMessaging` returns `config.Messaging{}` when Slack is
+  (`internal/config/config.go:186`), and its `Messaging` leaves `Kind` `""`
+  (`:190`); `collectMessaging` returns `config.Messaging{}` when Slack is
   skipped (`internal/cli/config_cmd.go:305`), so the guided init writes
   kind `""` and the Service select draws empty while the messaging
   section's rail label and heading say "Slack" — two surfaces disagreeing
@@ -2236,7 +2236,7 @@ Impact: low · Effort: small
   channel" for a webhook and for a bot with no channel, used by
   `runAnnounce` for the `to` line (`:133`), the dry-run line (`:137`) and
   the done notice (`:149`) — where `Messaging.Target`,
-  `internal/config/config.go:331`, says "(no channel set)" and, at `:336`,
+  `internal/config/config.go:279`, says "(no channel set)" and, at `:284`,
   "the channel its webhook is bound to", which the interface's notice uses
   (`internal/tui/messagingpreview.go:217`), and the web's `AnnounceControls`
   says "Announced to SERVICE." for a webhook
