@@ -1323,7 +1323,7 @@ three; no linter or knip rule sees any of it.
   "jira.base_url is not an absolute http or https URL" is
   `ErrInvalidBaseURL`'s text verbatim (`internal/jira/jira.go:41`), and the
   rule behind it is written twice: `absoluteWebURL`
-  (`internal/config/config.go:421`) accepts userinfo that `usable`
+  (`internal/config/config.go:416`) accepts userinfo that `usable`
   (`internal/jira/jira.go:151`) refuses first (`:147`).
 - `.github/workflows/release-please.yml:67` — "Provision the toolchain for
   the gate" and "Verify the gate before tagging" (`:79`) each restate the
@@ -3467,7 +3467,7 @@ away too:
 - `internal/cli/doctor_json.go:142` — `toolingFacts`'s `program.required`:
   no test runs `doctor` with a tool missing from `PATH`, so `!installed`
   never lets the `&&` read it.
-- `internal/config/config.go:400` and `:421` — `Problems`'
+- `internal/config/config.go:400` and `:416` — `Problems`'
   `absoluteWebURL(base)` and the four operands inside `absoluteWebURL`: no
   `internal/config` test calls `Problems` with a `jira.base_url` set.
 - `internal/messaging/post.go:333` — `Announcement.Text`'s `a.Kind ==

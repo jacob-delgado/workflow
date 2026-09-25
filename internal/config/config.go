@@ -405,11 +405,6 @@ func (c Config) Problems() []string {
 		problems = append(problems, "messaging.webhook_url is not an https URL")
 	}
 
-	if !c.Messaging.Kind.Known() {
-		problems = append(problems,
-			"messaging.kind is not one of slack, teams, discord or webhook")
-	}
-
 	return problems
 }
 

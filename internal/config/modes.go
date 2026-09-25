@@ -3,7 +3,14 @@
 
 package config
 
-import "fmt"
+import (
+	"errors"
+	"fmt"
+)
+
+// ErrInvalidMessaging reports a messaging block naming a service this build does
+// not post to.
+var ErrInvalidMessaging = errors.New("invalid messaging")
 
 // AuthMode is how a request authenticates to Jira.
 type AuthMode int
@@ -58,6 +65,17 @@ func (k MessagingKind) Known() bool {
 	default:
 		return false
 	}
+}
+
+// validateMessaging refuses a kind this build does not post to, rather than let
+// it post as Slack.
+func (c Config) validateMessaging() error {
+	if !c.Messaging.Kind.Known() {
+		return fmt.Errorf("%w: kind is slack, teams, discord or webhook: %q",
+			ErrInvalidMessaging, c.Messaging.Kind)
+	}
+
+	return nil
 }
 
 // Service names the messaging service for display: the pane title and doctor.

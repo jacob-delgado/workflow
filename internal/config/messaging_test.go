@@ -5,6 +5,7 @@ package config_test
 
 import (
 	"errors"
+	"slices"
 	"strings"
 	"testing"
 
@@ -94,7 +95,6 @@ func TestMessagingServiceNamesTheKind(t *testing.T) {
 		"discord":        {kind: config.KindDiscord, want: "Discord"},
 		"a plain kind":   {kind: config.KindWebhook, want: serviceWebhook},
 		"empty is slack": {kind: "", want: serviceSlack},
-		"outside enum":   {kind: config.MessagingKind("mastodon"), want: serviceSlack},
 	}
 
 	for name, tt := range cases {
@@ -129,65 +129,31 @@ func TestMissingNamesOnlyTheWebhookForAWebhookOnlyKind(t *testing.T) {
 	}
 }
 
-func TestProblemsFlagsAnUnknownKindAndAnInsecureWebhook(t *testing.T) {
+func TestProblemsFlagsAnInsecureWebhook(t *testing.T) {
 	t.Parallel()
 
-	cases := map[string]struct {
-		messaging config.Messaging
-		want      string
-	}{
-		"an unknown kind": {
-			messaging: config.Messaging{Kind: config.MessagingKind("mastodon"), WebhookURL: webhookURL},
-			want:      "messaging.kind",
-		},
-		"a plain-http webhook": {
-			messaging: config.Messaging{Kind: config.KindTeams, WebhookURL: "http://hooks.example.com/x"},
-			want:      "messaging.webhook_url is not an https URL",
-		},
+	// Arrange
+	cfg := config.Config{
+		Messaging: config.Messaging{Kind: config.KindTeams, WebhookURL: "http://hooks.example.com/x"},
 	}
 
-	for name, tt := range cases {
-		t.Run(name, func(t *testing.T) {
-			t.Parallel()
+	// Act
+	got := cfg.Problems()
 
-			// Act
-			got := config.Config{Messaging: tt.messaging}.Problems()
-
-			// Assert
-			if !containsSubstring(got, tt.want) {
-				t.Errorf("Problems() = %v, want one naming %q", got, tt.want)
-			}
-		})
+	// Assert
+	if !slices.Contains(got, "messaging.webhook_url is not an https URL") {
+		t.Errorf("Problems() = %v, want the plain-http webhook named", got)
 	}
 }
 
-func TestProblemsAcceptsEveryKnownKind(t *testing.T) {
-	t.Parallel()
-
-	kinds := []config.MessagingKind{
-		"", config.KindSlack, config.KindTeams, config.KindDiscord, config.KindWebhook,
-	}
-	for _, kind := range kinds {
-		t.Run(string(kind), func(t *testing.T) {
-			t.Parallel()
-
-			// Act
-			problems := config.Config{Messaging: config.Messaging{Kind: kind}}.Problems()
-
-			// Assert
-			if containsSubstring(problems, "messaging.kind") {
-				t.Errorf("Problems() = %v, want no complaint about a known kind %q", problems, kind)
-			}
-		})
-	}
-}
-
-func TestParseReadsAMessagingKind(t *testing.T) {
+func TestLoadReadsEveryKnownMessagingKind(t *testing.T) {
 	t.Parallel()
 
 	cases := map[string]struct {
 		kind config.MessagingKind
 	}{
+		"empty":        {kind: ""},
+		"slack":        {kind: config.KindSlack},
 		"teams":        {kind: config.KindTeams},
 		"discord":      {kind: config.KindDiscord},
 		"a plain kind": {kind: config.KindWebhook},
@@ -203,13 +169,43 @@ func TestParseReadsAMessagingKind(t *testing.T) {
 
 			// Act
 			cfg, err := config.Load(workDir, t.TempDir())
+			// Assert
 			if err != nil {
-				t.Fatalf("Load returned %v, want nil", err)
+				t.Fatalf("Load returned %v, want messaging.kind %q accepted", err, tt.kind)
 			}
 
-			// Assert
 			if cfg.Messaging.Kind != tt.kind {
 				t.Errorf("messaging.kind = %q, want %q", cfg.Messaging.Kind, tt.kind)
+			}
+		})
+	}
+}
+
+func TestAnUnknownMessagingKindIsRefused(t *testing.T) {
+	t.Parallel()
+
+	cases := map[string]struct {
+		kind string
+	}{
+		"a service it does not know": {kind: "mastodon"},
+		// The kind is read as written, so a capital letter is not folded away.
+		"a known kind in another case": {kind: "Teams"},
+	}
+
+	for name, tt := range cases {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			// Arrange
+			workDir := t.TempDir()
+			write(t, workDir, `{"messaging": {"kind": "`+tt.kind+`", "webhook_url": "`+webhookURL+`"}}`)
+
+			// Act
+			_, err := config.Load(workDir, t.TempDir())
+
+			// Assert
+			if !errors.Is(err, config.ErrInvalid) || !errors.Is(err, config.ErrInvalidMessaging) {
+				t.Errorf("Load returned %v, want messaging.kind %q refused", err, tt.kind)
 			}
 		})
 	}
@@ -254,15 +250,4 @@ func TestRedactedMasksAMessagingWebhookAndToken(t *testing.T) {
 	if cfg.Messaging.WebhookURL != webhookURL {
 		t.Errorf("Redacted mutated the receiver: %q", cfg.Messaging.WebhookURL)
 	}
-}
-
-// containsSubstring reports whether any entry contains want.
-func containsSubstring(entries []string, want string) bool {
-	for _, entry := range entries {
-		if strings.Contains(entry, want) {
-			return true
-		}
-	}
-
-	return false
 }
