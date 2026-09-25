@@ -191,17 +191,17 @@ func ForgeResolver(settings config.Forge) forge.Resolver {
 	}
 }
 
-// onceConnected caches a forge connection once it succeeds, and retries after a
+// onceConnected caches a connection once it succeeds, and retries after a
 // failure rather than remembering it: a token added, or gh signed in, in another
 // terminal is found on the next attempt instead of only on a restart.
-func onceConnected(connect func() (forgeConnection, error)) func() (forgeConnection, error) {
+func onceConnected[T any](connect func() (T, error)) func() (T, error) {
 	var (
 		lock   sync.Mutex
-		cached forgeConnection
+		cached T
 		ok     bool
 	)
 
-	return func() (forgeConnection, error) {
+	return func() (T, error) {
 		lock.Lock()
 		defer lock.Unlock()
 
@@ -211,7 +211,9 @@ func onceConnected(connect func() (forgeConnection, error)) func() (forgeConnect
 
 		connection, err := connect()
 		if err != nil {
-			return forgeConnection{}, err
+			var none T
+
+			return none, err
 		}
 
 		cached, ok = connection, true
