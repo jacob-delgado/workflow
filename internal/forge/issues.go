@@ -18,11 +18,13 @@ type Issue struct {
 	Title  string
 }
 
-// IssueDetail is one issue read in full: its body, and who opened it.
+// IssueDetail is one issue read in full: its body, who opened it, and whether
+// it has been closed since it was listed.
 type IssueDetail struct {
 	Issue  Issue
 	Body   string
 	Author string
+	Closed bool
 }
 
 // AssignedIssues lists the open issues in the repository assigned to the token's

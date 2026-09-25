@@ -182,6 +182,7 @@ type githubIssue struct {
 	URL    string `json:"html_url"`
 	Title  string `json:"title"`
 	Body   string `json:"body"`
+	State  string `json:"state"`
 	User   struct {
 		Login string `json:"login"`
 	} `json:"user"`
@@ -192,7 +193,7 @@ func (g githubIssue) issue() Issue {
 }
 
 func (g githubIssue) detail() IssueDetail {
-	return IssueDetail{Issue: g.issue(), Body: g.Body, Author: g.User.Login}
+	return IssueDetail{Issue: g.issue(), Body: g.Body, Author: g.User.Login, Closed: g.State == wireClosed}
 }
 
 // githubReadIssue reads one issue's body and author.
