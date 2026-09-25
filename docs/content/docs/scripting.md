@@ -121,8 +121,11 @@ each to its last four characters, and the others never print one.
 A stage's `state` is `done`, `in_flight`, `failed` or `not_started`; `ci` is
 `running`, `passed`, `failed` or `none`. The last stage is named for the
 messaging service `messaging.kind` configures — `Slack`, `Teams`, `Discord`
-or `Webhook` — so read the stages by position rather than by that name. `issue` and `summary` are left out
-when the branch names no issue.
+or `Webhook` — so read the stages by position rather than by that name.
+That stage reads `done` once the open pull request was announced at the
+moment it is at now — ready for review, or CI red — by `announce` or the
+interface, as the store remembers it; with `store.disabled` it never does.
+`issue` and `summary` are left out when the branch names no issue.
 
 `workflow status --json DIR…` prints an array, one object per directory, each
 with a `repository` label. A directory that cannot be read has an `error`

@@ -30,10 +30,10 @@ type Stage struct {
 	State State
 }
 
-// Work is everything the stages are derived from. The three session fields are
-// knowledge the terminal interface has and a one-shot command does not; a
-// command leaves them false, so its messaging stage reads not-started and its
-// Issue stage never reads in-flight.
+// Work is everything the stages are derived from. The two session fields,
+// IssueSelected and PostPending, are knowledge the terminal interface has and a
+// one-shot command does not; a command leaves them false, so neither its Issue
+// stage nor its messaging stage ever reads in-flight.
 type Work struct {
 	// OnFeatureBranch is a named branch other than the base.
 	OnFeatureBranch bool
@@ -53,7 +53,8 @@ type Work struct {
 	// ChangesRequested is that a reviewer asked for changes.
 	ChangesRequested bool
 	// Announced is that the pull request was announced on the messaging
-	// service. Session knowledge.
+	// service at the moment it is at now, in this session or, as the store
+	// remembers, an earlier one.
 	Announced bool
 	// PostPending is that an announcement is waiting for CI. Session knowledge.
 	PostPending bool

@@ -18,6 +18,7 @@ import (
 	"github.com/jacob-delgado/workflow/internal/forge"
 	"github.com/jacob-delgado/workflow/internal/gitrepo"
 	"github.com/jacob-delgado/workflow/internal/jira"
+	"github.com/jacob-delgado/workflow/internal/loop"
 	"github.com/jacob-delgado/workflow/internal/progress"
 	"github.com/jacob-delgado/workflow/internal/wiring"
 )
@@ -30,6 +31,8 @@ type statusSeams struct {
 	FindPull    func(branch string) (forge.PullRequest, bool, error)
 	CheckStatus func(pull forge.PullRequest, head string) (forge.CI, error)
 	Issue       func(issueKey jira.Key) (jira.IssueDetail, error)
+	// Memory is what the store remembers of the announcements made here.
+	Memory loop.AnnounceMemory
 	// Project is the configured Jira project; empty falls back to the shape guard.
 	Project string
 	// Service is the configured messaging service, which names the last stage.
@@ -185,7 +188,7 @@ func statusOf(conn connection) (statusFacts, error) {
 	return statusFromSeams(seamsFor(conn))
 }
 
-// seamsFor reads the repository, forge and Jira a connection wired.
+// seamsFor reads the repository, forge, Jira and store a connection wired.
 func seamsFor(conn connection) statusSeams {
 	return statusSeams{
 		Branch:      conn.deps.Git.Branch,
@@ -193,6 +196,7 @@ func seamsFor(conn connection) statusSeams {
 		FindPull:    conn.deps.Forge.FindPullRequest,
 		CheckStatus: conn.deps.Forge.CheckStatus,
 		Issue:       conn.deps.Jira.Issue,
+		Memory:      announceMemory(conn.deps.Store),
 		Project:     conn.cfg.Jira.Project,
 		Service:     conn.cfg.Messaging.Service(),
 	}
@@ -244,7 +248,8 @@ func statusFromSeams(seams statusSeams) (statusFacts, error) {
 	return gather(seams, branch), nil
 }
 
-// gather reads the issue, the pull request and its CI, and derives the stages.
+// gather reads the issue, the pull request, its CI and whether it was
+// announced, and derives the stages.
 // A service that will not answer leaves its stage not-started rather than
 // failing the whole line.
 func gather(seams statusSeams, branch gitrepo.Branch) statusFacts {
@@ -252,10 +257,7 @@ func gather(seams statusSeams, branch gitrepo.Branch) statusFacts {
 	facts := statusFacts{issue: issueKey}
 
 	if named {
-		detail, err := seams.Issue(jira.Key(issueKey))
-		if err == nil {
-			facts.summary = detail.Issue.Summary
-		}
+		facts.summary = issueSummary(seams, issueKey)
 	}
 
 	onFeature := branch.Name != "" && branch.Name != branch.BaseName()
@@ -270,9 +272,26 @@ func gather(seams statusSeams, branch gitrepo.Branch) statusFacts {
 		PullRequestFound:   found,
 		CI:                 ciState,
 		ChangesRequested:   pull.ChangesRequested,
+		Announced:          found && announcedNow(seams.Memory, pull, ciState),
 	}, seams.Service)
 
 	return facts
+}
+
+// issueSummary is the named issue's summary, or none when Jira will not answer.
+func issueSummary(seams statusSeams, issueKey string) string {
+	detail, err := seams.Issue(jira.Key(issueKey))
+	if err != nil {
+		return ""
+	}
+
+	return detail.Issue.Summary
+}
+
+// announcedNow reports that the store remembers the pull request announced at
+// the moment it is at now, which is what the interface's top row reads too.
+func announcedNow(memory loop.AnnounceMemory, pull forge.PullRequest, ciState forge.CIState) bool {
+	return memory.Holds(loop.Announced{Pull: pull.Number, Moment: loop.AnnounceMoment(pull, forge.CI{State: ciState})})
 }
 
 // gatherReview looks for the branch's pull request and its CI, on a feature
