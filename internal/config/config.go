@@ -374,18 +374,22 @@ func secureURL(raw string) bool {
 // Missing names the configuration fields that are still empty, in the order a
 // person would fill them in. An empty result means the configuration is
 // complete.
+//
+// Jira is optional: with no jira.base_url the forge's own issues are the
+// tracker, so no Jira field is required. Once jira.base_url is set, Jira is
+// the tracker and its token is required with it.
 func (c Config) Missing() []string {
-	var missing []string
+	return append(append(c.Jira.missing(), c.Messaging.missing()...), c.Forge.missing()...)
+}
 
-	if c.Jira.BaseURL == "" {
-		missing = append(missing, "jira.base_url")
+// missing names the Jira field still needed: none when Jira is not the
+// tracker, and the token when it is.
+func (j Jira) missing() []string {
+	if j.Configured() && !j.hasToken() {
+		return []string{"jira.token"}
 	}
 
-	if !c.Jira.hasToken() {
-		missing = append(missing, "jira.token")
-	}
-
-	return append(append(missing, c.Messaging.missing()...), c.Forge.missing()...)
+	return nil
 }
 
 // missing names the forge field still needed. forge.kind describes forge.host,
