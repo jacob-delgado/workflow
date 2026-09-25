@@ -321,6 +321,9 @@ func TestSubjectValidationSaysWhatIsWrong(t *testing.T) {
 	t.Parallel()
 
 	valid := convention.Subject{Type: fixType, Scope: "", Description: redactTokens, Breaking: false}
+	describe := func(description string) func(*convention.Subject) {
+		return func(s *convention.Subject) { s.Description = description }
+	}
 
 	cases := map[string]struct {
 		change func(*convention.Subject)
@@ -332,16 +335,15 @@ func TestSubjectValidationSaysWhatIsWrong(t *testing.T) {
 			change: func(s *convention.Subject) { s.Scope = "two words" }, want: convention.ErrInvalidScope,
 		},
 		"a capitalized scope": {change: func(s *convention.Subject) { s.Scope = "Config" }, want: convention.ErrInvalidScope},
-		"no description": {
-			change: func(s *convention.Subject) { s.Description = "  " }, want: convention.ErrNoDescription,
-		},
-		"a trailing period": {
-			change: func(s *convention.Subject) { s.Description = "redact tokens." }, want: convention.ErrTrailingPeriod,
-		},
-		"too long": {
-			change: func(s *convention.Subject) { s.Description = strings.Repeat("x", 68) },
-			want:   convention.ErrSubjectTooLong,
-		},
+		"no description":      {change: describe("  "), want: convention.ErrNoDescription},
+		"a trailing period":   {change: describe("redact tokens."), want: convention.ErrTrailingPeriod},
+		"too long":            {change: describe(strings.Repeat("x", 68)), want: convention.ErrSubjectTooLong},
+		"a line break":        {change: describe("a\nb"), want: convention.ErrSubjectNotOneLine},
+		"a carriage return":   {change: describe("a\rb"), want: convention.ErrSubjectNotOneLine},
+		"a tab":               {change: describe("a\tb"), want: convention.ErrSubjectNotOneLine},
+		"an escape sequence":  {change: describe("a\x1b[2Jb"), want: convention.ErrSubjectNotOneLine},
+		"a delete":            {change: describe("a\x7fb"), want: convention.ErrSubjectNotOneLine},
+		"a C1 next line":      {change: describe("a\xc2\x85b"), want: convention.ErrSubjectNotOneLine},
 	}
 
 	for name, tt := range cases {

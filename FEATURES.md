@@ -216,7 +216,7 @@ Impact: low · Effort: small
 
 - Why: a commit that pairs or lands under a DCO needs its trailers typed by
   hand. `CommitConvention.Message` takes only the subject, body and issue key
-  (`internal/convention/commit.go:151`), and the composer's fields are type,
+  (`internal/convention/commit.go:154`), and the composer's fields are type,
   scope, subject, body and a breaking toggle (`commitComposer`,
   `internal/tui/composer.go:51`) — no trailer among them.
 - Touches: `internal/convention/commit.go` (trailers on `Message`),

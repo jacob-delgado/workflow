@@ -174,7 +174,7 @@ A GitHub-only user follows the README, runs the recommended `workflow
 doctor`, and is told two Jira fields are missing with exit 3; a script
 gating on doctor's exit fails in this mode. The usage page never says what
 changes when the forge is the tracker: `IssueKey`'s comment
-(`internal/convention/convention.go:127`) explains that such a project names
+(`internal/convention/convention.go:113`) explains that such a project names
 its branches by a number rather than a key, and no page does.
 
 **One way to fix it.** Have `Missing` skip the Jira fields when
@@ -434,7 +434,7 @@ written in two surfaces and missing from the third:
 - `internal/tui/branch.go:233` — `Model.branchIssue` has no guard:
   `convention.IssueKey`'s forge-number fallback is typed as a `jira.Key`
   with ok true.
-- `internal/convention/convention.go:141` — `IssueKey` falls back to
+- `internal/convention/convention.go:128` — `IssueKey` falls back to
   `forgeKey(text)` even with a Jira project configured, returning a bare
   number with ok true.
 - `internal/tui/issuelink.go:34` — `Model.issueToLink` treats any named key
@@ -1094,7 +1094,7 @@ three; no linter or knip rule sees any of it.
 - `internal/tui/composer.go:378` — `Model.recordScope` tests `scope != ""`
   on the raw `c.scope.Value()` (`:143`), so `' '` is recorded;
   `server.rememberScope` (`internal/webserver/commit.go:174`) trims first,
-  and `ValidateScope` (`internal/convention/convention.go:62`) accepts a
+  and `ValidateScope` (`internal/convention/convention.go:65`) accepts a
   whitespace-only scope.
 - `internal/tui/run.go:222` — `commandRun.failureHeadline` is a map keyed by
   run-title literals, "the fixup was refused" (`:225`) untested, while six
@@ -1132,7 +1132,7 @@ three; no linter or knip rule sees any of it.
   (`web/e2e/layout.spec.ts:351`) are untyped literals of the empty snapshot
   shape that `makeSnapshot` (`web/src/test/fixtures.ts:23`) builds typed.
 - `web/src/features/branch/CommitForm.tsx:12` — `defaultCommitTypes` copies
-  the eleven Go types (`internal/convention/commit.go:40`) in order, and
+  the eleven Go types (`internal/convention/commit.go:41`) in order, and
   `useCommitTypes` (`web/src/features/branch/CommitForm.tsx:131`) falls back
   to it when `config.commit.types` is empty; `server.commitConvention`
   (`internal/webserver/commit.go:73`) resolves the same empty list through
@@ -1164,7 +1164,7 @@ three; no linter or knip rule sees any of it.
   discard and the comment, and `targetDir`
   (`internal/cli/config_cmd.go:128`) is the one caller that must keep the
   error.
-- `internal/convention/commit.go:23` — `commitType` is `^[a-z][a-z0-9]*$`
+- `internal/convention/commit.go:24` — `commitType` is `^[a-z][a-z0-9]*$`
   while `scopeInSubject` (`internal/convention/scopes.go:15`) is
   `^[a-z]+\(([^)]+)\)!?:`; the two disagree on a digit.
 
@@ -2397,9 +2397,9 @@ for itself.
   same failure through `fault`.
 - `internal/webserver/errors.go:126` — `faultClasses` has no git-read
   class, so `fault` falls to the internal problem for every read failure.
-- `internal/webserver/commit_test.go:244`,
-  `internal/webserver/commit_test.go:261` and
-  `internal/webserver/commit_test.go:278` —
+- `internal/webserver/commit_test.go:274`,
+  `internal/webserver/commit_test.go:291` and
+  `internal/webserver/commit_test.go:308` —
   `TestCommitReportsAChangesReadFailure`, `TestCommitReportsAFailedStart`
   and `TestCommitReportsWhenTheBranchCannotBeReadAfter` assert the status
   alone, so any detail passes.
@@ -2749,31 +2749,6 @@ snapshot schema has a stages array the web renders, or, until then,
 `pullRequestDone` reads `changes_requested` and a CI state of none as the Go
 table does.
 
-### DEBT-140 `Validate` accepts a description with a newline
-
-Severity: low · Confidence: read
-
-`CommitConvention.Validate` (`internal/convention/commit.go:133`) checks a
-description for emptiness, a trailing period and length only, so a
-description holding a newline passes and `Subject.String`
-(`internal/convention/convention.go:288`) keeps it, writing a subject that
-spans two lines. `CommitRequest.subject` is an unconstrained string
-(`api/openapi.yaml:877`), so POST /api/commit can produce a message that is
-not a well-formed Conventional Commit despite the handler's 422 promise.
-Neither the browser's Subject, an `<input>` as the test "after a commit the
-form opens on the scope just used" reads it
-(`web/src/features/branch/CommitForm.test.tsx:84`), nor the terminal's text
-input can produce the input, so only a hand-built request reaches it.
-
-With lefthook the commit-msg hook refuses the commit after the fact;
-without it a two-line subject lands.
-
-**One way to fix it.** Add an `ErrMultilineSubject` sentinel and refuse a
-description containing a newline or a control character in `Validate`.
-
-**Done when.** `Validate(Subject{Type: "fix", Description: "a\nb"})`
-returns the sentinel and POST /api/commit with that subject answers 422.
-
 ### DEBT-141 A commit, create or checkout that landed is reported failed
 
 Severity: medium · Confidence: read
@@ -2792,7 +2767,7 @@ fails.
   the commit's failure.
 - `internal/webserver/commit.go:64` — `server.Commit`'s default arm
   answers that error as 422 with `err.Error()` as the detail.
-- `internal/webserver/commit_test.go:278` —
+- `internal/webserver/commit_test.go:308` —
   `TestCommitReportsWhenTheBranchCannotBeReadAfter` pins the 422 for a
   commit that ran.
 - `internal/webserver/branchcreate.go:99` — `server.startWork` returns

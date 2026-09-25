@@ -11,6 +11,7 @@ import (
 
 	"github.com/jacob-delgado/workflow/internal/api"
 	"github.com/jacob-delgado/workflow/internal/config"
+	"github.com/jacob-delgado/workflow/internal/convention"
 	"github.com/jacob-delgado/workflow/internal/gitrepo"
 	"github.com/jacob-delgado/workflow/internal/proc"
 	"github.com/jacob-delgado/workflow/internal/webserver"
@@ -213,6 +214,35 @@ func TestCommitRejectsAnInvalidMessage(t *testing.T) {
 
 	if called {
 		t.Error("committed despite an invalid message")
+	}
+}
+
+func TestCommitRejectsASubjectSpanningLines(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	called := false
+	deps := filledDeps()
+	deps.Commit = func(string) (proc.Output, error) {
+		called = true
+
+		return fakeOutput(nil, nil), nil
+	}
+
+	// Act
+	recorder := doCommit(t, deps, `{"type":"fix","subject":"a\nb"}`)
+
+	// Assert
+	if recorder.Code != http.StatusUnprocessableEntity {
+		t.Fatalf("status = %d, want 422 for a subject spanning lines", recorder.Code)
+	}
+
+	if called {
+		t.Error("committed a subject spanning lines")
+	}
+
+	if detail := decode[api.Problem](t, recorder).Detail; detail != convention.ErrSubjectNotOneLine.Error() {
+		t.Errorf("detail = %q, want %q", detail, convention.ErrSubjectNotOneLine)
 	}
 }
 

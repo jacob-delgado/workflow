@@ -8,6 +8,7 @@ import (
 	"regexp"
 	"slices"
 	"strings"
+	"unicode"
 	"unicode/utf8"
 )
 
@@ -135,6 +136,8 @@ func (c CommitConvention) Validate(subject Subject) error {
 	switch {
 	case description == "":
 		return ErrNoDescription
+	case strings.ContainsFunc(description, unicode.IsControl):
+		return ErrSubjectNotOneLine
 	case strings.HasSuffix(description, "."):
 		return ErrTrailingPeriod
 	case utf8.RuneCountInString(subject.String()) > c.subjectLimit:
