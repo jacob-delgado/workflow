@@ -9,6 +9,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/jacob-delgado/workflow/internal/httpx"
 	"github.com/jacob-delgado/workflow/internal/jira"
 )
 
@@ -103,7 +104,7 @@ func TestAStatusWithoutAReasonKeepsItsOwnError(t *testing.T) {
 		// rather than that its credential is wrong.
 		"rate limited": {
 			status: http.StatusTooManyRequests, body: `{}`, user: servedUser,
-			want: jira.ErrRateLimited,
+			want: httpx.ErrRateLimited,
 		},
 		// Served anonymously, Jira's reason describes what an anonymous user may
 		// not do — true, and useless: the configured token is what failed.

@@ -58,14 +58,17 @@ const (
 // only a short page ends the listing.
 const uncounted = math.MaxInt
 
-// Errors the client returns. Callers distinguish them with errors.Is.
+// Errors the client returns. Callers distinguish them with errors.Is. A
+// refused redirect and a rate limit come back as httpx's ErrRedirected and
+// ErrRateLimited, which every client shares.
 var (
 	// ErrUnauthorized reports a credential the forge did not accept.
 	ErrUnauthorized = errors.New("the credential was not accepted")
 	// ErrRefused reports a request the forge understood and would not serve
 	// for this token, which is a question of what the token may do rather than
 	// whether it is valid; the forge's own reason follows it in the message
-	// when it gave one. A 403 that asks to wait is ErrRateLimited instead.
+	// when it gave one. A 403 that asks to wait is httpx.ErrRateLimited
+	// instead.
 	ErrRefused = errors.New("the forge refused the request")
 	// ErrNoAPI reports an address with no forge API behind it.
 	ErrNoAPI = errors.New("no forge API answered at that address")
@@ -82,11 +85,6 @@ var (
 	ErrUnexpectedStatus = errors.New("unexpected response status")
 	// ErrUnreachable reports a request that never got an answer.
 	ErrUnreachable = errors.New("could not reach the forge")
-	// ErrRedirected reports a redirect this client declined to follow.
-	ErrRedirected = httpx.ErrRedirected
-	// ErrRateLimited reports a forge asking to wait — a 429, or a 403 whose
-	// headers ask for a wait — told apart from a refusal.
-	ErrRateLimited = httpx.ErrRateLimited
 )
 
 // Doer is the HTTP seam this client accepts; see httpx.Doer.

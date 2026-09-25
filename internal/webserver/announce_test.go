@@ -13,6 +13,7 @@ import (
 	"github.com/jacob-delgado/workflow/internal/api"
 	"github.com/jacob-delgado/workflow/internal/config"
 	"github.com/jacob-delgado/workflow/internal/forge"
+	"github.com/jacob-delgado/workflow/internal/httpx"
 	"github.com/jacob-delgado/workflow/internal/jira"
 	"github.com/jacob-delgado/workflow/internal/messaging"
 	"github.com/jacob-delgado/workflow/internal/webserver"
@@ -234,8 +235,8 @@ func TestAnnounceNeverForwardsTheWebhook(t *testing.T) {
 		"the message refused":    {messaging.ErrPostRefused, unprocessable, "announce from a terminal to see its reason"},
 		"an undocumented answer": {messaging.ErrUnexpectedStatus, unreachable, "answered with a status it does not document"},
 		"no answer":              {messaging.ErrUnreachable, unreachable, "check the network, then try again"},
-		"asked to wait":          {messaging.ErrRateLimited, unreachable, waitAndTryAgain},
-		"a redirect refused":     {messaging.ErrRedirected, unreachable, "check its configured address"},
+		"asked to wait":          {httpx.ErrRateLimited, unreachable, waitAndTryAgain},
+		"a redirect refused":     {httpx.ErrRedirected, unreachable, "check its configured address"},
 		"a failure of no kind":   {errSeam, http.StatusInternalServerError, "try again"},
 	}
 

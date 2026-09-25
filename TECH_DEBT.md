@@ -638,11 +638,9 @@ The plumbing:
 - `internal/messaging/post.go:328` — `Announcement.Text`'s comment says
   "Every substituted value is escaped for Slack"; `markupFor` (`:267`)
   escapes per kind, and `keepText` (`:316`) not at all.
-- `internal/messaging/messaging.go:42` — `ErrRejected` "reports a token
+- `internal/messaging/messaging.go:44` — `ErrRejected` "reports a token
   Slack would not accept" and is returned for any kind's webhook 4xx by
-  `deliver` (`internal/messaging/post.go:208`); `ErrRateLimited`
-  (`internal/messaging/messaging.go:54`) is "a 429 from Slack's API" and is
-  returned for any kind.
+  `deliver` (`internal/messaging/post.go:208`).
 
 The web server:
 
@@ -3234,31 +3232,22 @@ form's fields among the controls reached, each at least 99 % in view, at 640
 px; and the hermetic Settings scan waits on the Retry button, so a
 deliberate delay in the config read does not change what axe reports on.
 
-### DEBT-159 Seven exports that only their tests reach
+### DEBT-159 An export that only its test reaches
 
 Severity: low · Confidence: read
 
-Seven exported identifiers have no caller outside their own tests. `unused`
-cannot see an exported identifier, so nothing objects; a contributor finds a
-public contract nothing honors.
+An exported function has no caller outside its own package and test.
+`unused` cannot see an exported identifier, so nothing objects; a
+contributor finds a public contract nothing honors.
 
-- `internal/messaging/messaging.go:53` and `:55` — `ErrRedirected` and
-  `ErrRateLimited`, aliases of `httpx`'s sentinels;
-  `internal/jira/jira.go:62` and `:64`, and `internal/forge/client.go:62`
-  and `:64`, carry the same two. Every production classifier matches
-  `httpx`'s sentinels directly (`unreachableErrors`,
-  `internal/cli/scriptable.go:347`, names `httpx.ErrRateLimited`), so "who
-  handles `messaging.ErrRateLimited`" finds nobody.
-- `internal/httpx/httpx.go:24` — `Cause` is called only by `Unreachable` in
+- `internal/httpx/httpx.go:26` — `Cause` is called only by `Unreachable` in
   the same file and by one URL-stripping assertion
   (`internal/httpx/httpx_test.go:88`) that `Unreachable`'s test could carry.
 
-**One way to fix it.** Drop the six aliases and let tests match `httpx`'s
-sentinels; unexport `cause`.
+**One way to fix it.** Unexport `cause`.
 
-**Done when.** grep finds `messaging.ErrRedirected`,
-`messaging.ErrRateLimited` and their `jira` and `forge` twins nowhere; and
-`httpx` exports no `Cause` while the URL-stripping assertion still runs.
+**Done when.** `httpx` exports no `Cause` while the URL-stripping assertion
+still runs.
 
 ## Deliberate trade-offs that carry a cost
 
