@@ -495,37 +495,6 @@ existing wording and exit mapping for a missing program apply.
 `ErrNotARepository`; `workflow status` with git off PATH names the missing
 program.
 
-### DEBT-88 A key one separator after another key-shaped token is missed
-
-Severity: medium · Confidence: read
-
-`issueKey`'s pattern (`internal/convention/convention.go:51`) ends in
-`(?:[^0-9]|$)`, which consumes the separator after a candidate, and
-`jiraKey` (`internal/convention/convention.go:146`) walks
-`FindAllStringSubmatch`, which resumes where neither `^` nor `[^A-Za-z0-9]`
-can match; `forgeKey` (`:178`) then sees no digit after `^` or `/`. So in
-`fix/UTF-8-PROJ-412` (no project) or `feat/ABC-1-PROJ-9` (project PROJ) the
-real key is never found, contrary to `standardAbbreviations`' comment
-(`:188`), which promises a real key beside a standard is still found. The
-only test, the "a standard then a key" case of
-`TestIssueKeyIsFoundWhereJiraWouldFindIt`
-(`internal/convention/convention_test.go:140`), separates the two by a word
-(`UTF-8-and-PROJ-412`).
-
-Such a branch reads as having no issue on every surface that reads the
-branch — the interface's panes, `status`, `pr`, `announce`, the commit
-trailer and the web's task list: no `Refs` trailer, no issue in the
-announcement, no transition offered. Generated branches never trip it (key
-first, then the slug); a hand-named branch or another project's key directly
-before the real one does.
-
-**One way to fix it.** Match the bare key with `FindAllStringSubmatchIndex`
-and check the neighboring characters by index rather than consuming them in
-the pattern.
-
-**Done when.** `IssueKey("fix/UTF-8-PROJ-412", "")` and
-`IssueKey("feat/ABC-1-PROJ-9", "PROJ")` return the PROJ key, as table cases.
-
 ### DEBT-89 Comments and layout rows that no longer say what the code does
 
 Severity: low · Confidence: read

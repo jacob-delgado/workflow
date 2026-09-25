@@ -26,6 +26,8 @@ const (
 	redactSubject = "fix(config): redact tokens"
 	// issueSummary is the summary of the issue projKey names.
 	issueSummary = "Fix token redaction"
+	// project is the Jira project projKey belongs to.
+	project = "PROJ"
 )
 
 func TestBranchNameReadsAsTheIssue(t *testing.T) {
@@ -119,8 +121,7 @@ func TestIssueKeyIsFoundWhereJiraWouldFindIt(t *testing.T) {
 	t.Parallel()
 
 	cases := map[string]struct {
-		text string
-		want string
+		text, project, want string
 	}{
 		"a generated branch":      {text: "fix/PROJ-412-token-redaction", want: projKey},
 		"a bare key":              {text: "OPS-7", want: "OPS-7"},
@@ -136,8 +137,11 @@ func TestIssueKeyIsFoundWhereJiraWouldFindIt(t *testing.T) {
 		"an encoding is not a key": {text: "fix/UTF-8-decoding", want: ""},
 		"a hash is not a key":      {text: "feat/SHA-256-support", want: ""},
 		"a CVE is not a key":       {text: "fix/CVE-2024-1-patch", want: ""},
-		// A real key after a standard is still found.
-		"a standard then a key": {text: "fix/UTF-8-and-PROJ-412", want: projKey},
+		// A real key after a standard or another project's key is still
+		// found, even with only a separator between them.
+		"a standard then a key":                 {text: "fix/UTF-8-and-PROJ-412", want: projKey},
+		"a standard directly before a key":      {text: "fix/UTF-8-PROJ-412", want: projKey},
+		"another project's key directly before": {text: "feat/ABC-1-PROJ-9", project: project, want: "PROJ-9"},
 	}
 
 	for name, tt := range cases {
@@ -145,11 +149,11 @@ func TestIssueKeyIsFoundWhereJiraWouldFindIt(t *testing.T) {
 			t.Parallel()
 
 			// Act
-			got, ok := convention.IssueKey(tt.text, "")
+			got, ok := convention.IssueKey(tt.text, tt.project)
 
 			// Assert
 			if got != tt.want || ok != (tt.want != "") {
-				t.Errorf("IssueKey(%q) = %q, %v, want %q", tt.text, got, ok, tt.want)
+				t.Errorf("IssueKey(%q, %q) = %q, %v, want %q", tt.text, tt.project, got, ok, tt.want)
 			}
 		})
 	}
@@ -453,8 +457,8 @@ func TestIssueKeyRestrictsToTheConfiguredProject(t *testing.T) {
 		text, project, want string
 		found               bool
 	}{
-		"the configured project matches":     {text: "feat/PROJ-42-thing", project: "PROJ", want: "PROJ-42", found: true},
-		"another project is not read as one": {text: "feat/ABC-123-thing", project: "PROJ", want: "", found: false},
+		"the configured project matches":     {text: "feat/PROJ-42-thing", project: project, want: "PROJ-42", found: true},
+		"another project is not read as one": {text: "feat/ABC-123-thing", project: project, want: "", found: false},
 		"no project falls back to the guard": {text: "fix/UTF-8-decoding", project: "", want: "", found: false},
 		"no project still reads a real key":  {text: "feat/PROJ-42-thing", project: "", want: "PROJ-42", found: true},
 	}
