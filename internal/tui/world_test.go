@@ -144,6 +144,8 @@ type world struct {
 	gitHooks    []hooks.GitHook
 	configured  bool
 	writeErr    error
+	// installErr is lefthook failing to install once lefthook.yml is written.
+	installErr error
 	// learnedScope is the commit scope the store reports as last used here; empty
 	// means nothing was recorded.
 	learnedScope string
@@ -428,7 +430,13 @@ func (w *world) hookDeps() tui.HookDeps {
 		Write: func(generated hooks.Generated) error {
 			w.record("write " + generated.Config)
 
-			return w.writeErr
+			if w.writeErr != nil {
+				return w.writeErr
+			}
+
+			w.configured = true
+
+			return w.installErr
 		},
 	}
 }
