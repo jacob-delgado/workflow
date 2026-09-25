@@ -449,9 +449,8 @@ What is open here is a screen-reader mode, the alternate screen and a fixed
 delay; undo; vim's missing keys; sentences that name a rebindable key; the
 in-flight mark on four panes and three searches; footers that break the
 overlay contract; two second-path acts; the two loose applications of the
-visual system (UX-100); two forge fields that stop before the screen; a
-reviewers completion tab cannot take; and a forge read failure that hides
-`n`.
+visual system (UX-100); two forge fields that stop before the screen; and
+a reviewers completion tab cannot take.
 
 ### UX-64 A screen reader, an alternate screen you cannot turn off, and a delay you cannot tune
 
@@ -833,32 +832,6 @@ so the ghost text stops promising.
 
 **Done when.** A test types `a` then tab in reviewers with code owners ana
 and ben and sees "reviewers > ana".
-
-### UX-103 A forge read failure hides `n`, with a wrong reason
-
-Impact: low · Effort: small
-
-**Today.** `Model.canOpenPullRequest` (`internal/tui/review.go:363`)
-requires `m.review.err == nil`, so any find error hides `n`, while the
-command line's `refuseAnOpenPull` (`internal/loop/pull.go:114`) lets an
-errored find through and `workflow pr` composes anyway — the decision
-already taken for the command line. With the forge rate limited or
-briefly unreachable the terminal offers only `r`, where `workflow pr`
-composes and lets the open itself fail with the forge's reason. The doc
-comment on `Model.canOpenPullRequest` (`internal/tui/review.go:362`)
-justifies the difference with "a composer whose push cannot land", but the
-push goes through git — `startPush` at `internal/tui/prcreate.go:58` — and
-only then does the composer call the forge, so it names the wrong thing
-as what would fail.
-
-**Instead.** Gate `n` as `refuseAnOpenPull` does — a transient forge error
-(`ErrUnreachable`, `httpx.ErrRateLimited`) lets it through — except that
-a missing token still refuses, and fix the comment. The merged case of the
-same condition already offers `n`, and its table test
-(`internal/tui/review_offer_test.go`) takes this input as another case.
-
-**Done when.** A test with the find returning `forge.ErrUnreachable` sees
-"n open pull request" in the footer.
 
 ## The web
 
