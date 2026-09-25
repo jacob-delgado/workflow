@@ -115,18 +115,23 @@ func (p *pkg) anyAsserting(helpers []*ast.FuncDecl) bool {
 }
 
 // scope is what one top-level declaration can see: the file's imports, its own
-// testing values, and the closures it assigns to names.
+// testing values, and the closures it stores.
 type scope struct {
-	pkg      *pkg
-	imports  map[string]bool
-	values   map[string]valueKind
+	pkg     *pkg
+	imports map[string]bool
+	values  map[string]valueKind
+	// closures are the function literals stored under a name or a field path,
+	// as in fail or deps.Post, and stored is every literal stored so: one
+	// counts only when its name is called or handed on.
 	closures map[string]*ast.FuncLit
+	stored   map[*ast.FuncLit]bool
 }
 
 // newScope reads the testing values and closures anywhere in a declaration.
 func newScope(p *pkg, file *ast.File, function *ast.FuncDecl) scope {
 	visible := scope{
-		pkg: p, imports: importNames(file), values: map[string]valueKind{}, closures: map[string]*ast.FuncLit{},
+		pkg: p, imports: importNames(file), values: map[string]valueKind{},
+		closures: map[string]*ast.FuncLit{}, stored: map[*ast.FuncLit]bool{},
 	}
 	testing := testingName(file)
 
@@ -135,13 +140,14 @@ func newScope(p *pkg, file *ast.File, function *ast.FuncDecl) scope {
 		case *ast.FuncType:
 			visible.addValues(node, testing)
 		case *ast.AssignStmt:
-			visible.addAssignedClosures(node.Lhs, node.Rhs)
+			visible.addStored(node.Lhs, node.Rhs)
 		case *ast.ValueSpec:
+			names := make([]ast.Expr, len(node.Names))
 			for index, name := range node.Names {
-				if index < len(node.Values) {
-					visible.addClosure(name, node.Values[index])
-				}
+				names[index] = name
 			}
+
+			visible.addStored(names, node.Values)
 		}
 
 		return true
@@ -182,23 +188,35 @@ func (s scope) addValues(function *ast.FuncType, testing string) {
 	}
 }
 
-// addAssignedClosures records each name assigned a function literal.
-func (s scope) addAssignedClosures(names, values []ast.Expr) {
-	if len(names) != len(values) {
-		return
-	}
+// addStored records each function literal among values, under the name or
+// field path it is stored in.
+func (s scope) addStored(names, values []ast.Expr) {
+	for index := range min(len(names), len(values)) {
+		literal, ok := values[index].(*ast.FuncLit)
+		if !ok {
+			continue
+		}
 
-	for index, name := range names {
-		if ident, ok := name.(*ast.Ident); ok {
-			s.addClosure(ident, values[index])
+		s.stored[literal] = true
+
+		if path, ok := pathOf(names[index]); ok {
+			s.closures[path] = literal
 		}
 	}
 }
 
-// addClosure records name as a closure when value is a function literal.
-func (s scope) addClosure(name *ast.Ident, value ast.Expr) {
-	if literal, ok := value.(*ast.FuncLit); ok {
-		s.closures[name.Name] = literal
+// pathOf is the name or field path an expression spells, as in fail or
+// deps.Post.
+func pathOf(expr ast.Expr) (string, bool) {
+	switch expr := expr.(type) {
+	case *ast.Ident:
+		return expr.Name, true
+	case *ast.SelectorExpr:
+		outer, ok := pathOf(expr.X)
+
+		return outer + "." + expr.Sel.Name, ok
+	default:
+		return "", false
 	}
 }
 
@@ -208,23 +226,12 @@ func (s scope) reaches(nodes []ast.Stmt) bool {
 }
 
 // reachesVisiting is reaches, remembering the closures already followed so a
-// closure that calls itself ends.
+// closure that calls itself ends. A stored literal is not walked where it is
+// stored: it counts where its name is called, or handed to a call or set in a
+// composite literal, from where it may run.
 func (s scope) reachesVisiting(nodes []ast.Stmt, visited map[*ast.FuncLit]bool) bool {
 	for _, node := range nodes {
-		found := false
-
-		ast.Inspect(node, func(node ast.Node) bool {
-			call, ok := node.(*ast.CallExpr)
-			if found || (ok && s.fails(call, visited)) {
-				found = true
-
-				return false
-			}
-
-			return true
-		})
-
-		if found {
+		if s.reachesFrom(node, visited) {
 			return true
 		}
 	}
@@ -232,17 +239,84 @@ func (s scope) reachesVisiting(nodes []ast.Stmt, visited map[*ast.FuncLit]bool) 
 	return false
 }
 
+// reachesFrom reports whether anything in one statement can fail the test.
+func (s scope) reachesFrom(statement ast.Stmt, visited map[*ast.FuncLit]bool) bool {
+	found := false
+
+	ast.Inspect(statement, func(node ast.Node) bool {
+		if found {
+			return false
+		}
+
+		switch node := node.(type) {
+		case *ast.FuncLit:
+			return !s.stored[node]
+		case *ast.CallExpr:
+			found = s.fails(node, visited) || s.handsOnClosure(node.Args, visited)
+		case *ast.CompositeLit:
+			found = s.handsOnClosure(fieldValues(node.Elts), visited)
+		}
+
+		return !found
+	})
+
+	return found
+}
+
+// handsOnClosure reports whether any of the values names a stored closure that
+// can fail the test.
+func (s scope) handsOnClosure(values []ast.Expr, visited map[*ast.FuncLit]bool) bool {
+	for _, value := range values {
+		if reached, _ := s.follow(value, visited); reached {
+			return true
+		}
+	}
+
+	return false
+}
+
+// follow reports whether the closure an expression names can fail the test,
+// and whether it names one at all. A closure already followed reaches nothing
+// more, so one that calls itself ends.
+func (s scope) follow(expr ast.Expr, visited map[*ast.FuncLit]bool) (bool, bool) {
+	path, ok := pathOf(expr)
+	if !ok {
+		return false, false
+	}
+
+	literal, isClosure := s.closures[path]
+	if !isClosure || visited[literal] {
+		return false, isClosure
+	}
+
+	visited[literal] = true
+
+	return s.reachesVisiting(literal.Body.List, visited), true
+}
+
+// fieldValues are the values a composite literal sets, keyed or not.
+func fieldValues(elements []ast.Expr) []ast.Expr {
+	values := make([]ast.Expr, len(elements))
+
+	for index, element := range elements {
+		values[index] = element
+		if pair, ok := element.(*ast.KeyValueExpr); ok {
+			values[index] = pair.Value
+		}
+	}
+
+	return values
+}
+
 // fails reports whether a call can fail the test: a failure method on a test
 // value, a closure that reaches one, or an asserting helper handed the test.
 func (s scope) fails(call *ast.CallExpr, visited map[*ast.FuncLit]bool) bool {
+	if reached, isClosure := s.follow(call.Fun, visited); isClosure {
+		return reached
+	}
+
 	switch function := call.Fun.(type) {
 	case *ast.Ident:
-		if literal, ok := s.closures[function.Name]; ok && !visited[literal] {
-			visited[literal] = true
-
-			return s.reachesVisiting(literal.Body.List, visited)
-		}
-
 		return s.passesTest(call) && s.pkg.anyAsserting(s.pkg.funcs[function.Name])
 	case *ast.SelectorExpr:
 		return s.selectorFails(call, function)

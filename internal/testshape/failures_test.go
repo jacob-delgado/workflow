@@ -71,6 +71,14 @@ func TestAnAssertThatReachesAFailurePasses(t *testing.T) {
 			"\tvar holder struct{ hook func() }\n\tholder.hook = func() {}\n\trespond(nil, x)\n\texpect(t, x)\n",
 			expectHelper, "\nfunc respond(w *strings.Builder, x int) {}\n"),
 		"through a closure": asserting("\tfail := func() { t.Fatal(\"x\") }\n\tif x != 1 {\n\t\tfail()\n\t}\n"),
+		"through a closure stored in a field": asserting(
+			"\tvar holder struct{ hook func() }\n\tholder.hook = func() { t.Error(\"x\") }\n\tholder.hook()\n"),
+		"through a closure handed to a call": asserting("\tfail := func(int) { t.Error(\"x\") }\n\teach(x, fail)\n",
+			"\nfunc each(n int, visit func(int)) { visit(n) }\n"),
+		"through a closure set in a composite literal": asserting(
+			"\tfail := func() { t.Error(\"x\") }\n\thooks := struct{ on func() }{on: fail}\n\t_ = hooks\n"),
+		"through a closure listed in a slice literal": asserting(
+			"\tfail := func() { t.Error(\"x\") }\n\thooks := []func(){fail}\n\t_ = hooks\n"),
 		"through a chain": asserting("\touter(t, x)\n",
 			"\nfunc outer(t *testing.T, x int) { inner(t, x) }\n",
 			"\nfunc inner(t *testing.T, x int) {\n\tif x != 1 {\n\t\tt.Error(\"x\")\n\t}\n}\n"),
@@ -134,6 +142,18 @@ func TestAnAssertThatReachesNoFailureIsReported(t *testing.T) {
 		},
 		"a closure that does not fail": {
 			source: asserting("\tnote := func() { t.Log(\"x\") }\n\tnote()\n"),
+			line:   assertMarkerLine,
+		},
+		"a closure stored and never called": {
+			source: asserting("\tverify := func() { t.Error(\"x\") }\n\t_ = verify\n"),
+			line:   assertMarkerLine,
+		},
+		"a closure stored by index": {
+			source: asserting("\thooks := make([]func(), 1)\n\thooks[0] = func() { t.Error(\"x\") }\n\t_ = hooks\n"),
+			line:   assertMarkerLine,
+		},
+		"a closure stored in a field and never called": {
+			source: asserting("\tvar holder struct{ hook func() }\n\tholder.hook = func() { t.Error(\"x\") }\n\t_ = holder\n"),
 			line:   assertMarkerLine,
 		},
 		"an imported function named like a helper": {
