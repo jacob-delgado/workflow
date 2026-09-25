@@ -113,12 +113,6 @@ func githubFind(ctx context.Context, client Client, repo Repo, branch string) (P
 // user's own name is never needed.
 const githubSearchQuery = "is:pr is:open review-requested:@me"
 
-// githubReviewSearch is the search endpoint's answer: the matching issues, which
-// for this query are all pull requests.
-type githubReviewSearch struct {
-	Items []githubReviewItem `json:"items"`
-}
-
 // githubReviewItem is one pull request as GitHub's search sends it.
 type githubReviewItem struct {
 	Number    int       `json:"number"`
@@ -227,15 +221,13 @@ func githubCloseIssue(ctx context.Context, client Client, repo Repo, number int)
 
 // githubReviews lists the pull requests that request the token owner's review.
 func githubReviews(ctx context.Context, client Client) ([]ReviewRequest, error) {
-	query := url.Values{"q": {githubSearchQuery}, perPageParam: {strconv.Itoa(perPage)}}.Encode()
-
-	found, err := call[githubReviewSearch](ctx, client, http.MethodGet, "/search/issues?"+query, nil)
+	found, err := githubSearch[githubReviewItem](ctx, client, githubSearchQuery)
 	if err != nil {
 		return nil, err
 	}
 
-	reviews := make([]ReviewRequest, 0, len(found.Items))
-	for _, item := range found.Items {
+	reviews := make([]ReviewRequest, 0, len(found))
+	for _, item := range found {
 		reviews = append(reviews, item.reviewRequest())
 	}
 
