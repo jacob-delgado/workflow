@@ -13,6 +13,8 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+
+	"github.com/jacob-delgado/workflow/internal/proc"
 )
 
 // ErrNotARepository reports a directory outside any git work tree.
@@ -56,34 +58,55 @@ type Repo struct {
 
 // readFailure names a git read that failed: outside a work tree it is
 // ErrNotARepository, whatever git wrote; inside one it is git's own error, so a
-// real fault still reads in full.
+// real fault still reads in full. A read that timed out says so as it is, since
+// asking git where the work tree is would only wait out the same bound again.
 func readFailure(ctx context.Context, run Runner, dir, what string, err error) error {
-	if !withinWorkTree(ctx, run, dir) {
-		return fmt.Errorf("%w: %s", ErrNotARepository, dir)
+	if errors.Is(err, proc.ErrTimedOut) {
+		return fmt.Errorf("%s: %w", what, err)
+	}
+
+	outside := requireWorkTree(ctx, run, dir)
+	if outside != nil {
+		return outside
 	}
 
 	return fmt.Errorf("%s: %w", what, err)
 }
 
-// withinWorkTree reports a directory inside a git work tree, by the same probe
-// Describe uses to find the root.
-func withinWorkTree(ctx context.Context, run Runner, dir string) bool {
+// requireWorkTree answers nil for a directory inside a git work tree, by the
+// same probe Describe uses to find the root, and why not otherwise.
+func requireWorkTree(ctx context.Context, run Runner, dir string) error {
 	_, err := run(ctx, "git", "-C", dir, "rev-parse", "--show-toplevel")
+	if err != nil {
+		return notInWorkTree(dir, err)
+	}
 
-	return err == nil
+	return nil
+}
+
+// notInWorkTree is what a failed `rev-parse --show-toplevel` in dir says: that
+// it timed out, when it did, since whether dir is a repository is then unknown;
+// ErrNotARepository otherwise, whatever git wrote.
+func notInWorkTree(dir string, err error) error {
+	if errors.Is(err, proc.ErrTimedOut) {
+		return fmt.Errorf("finding the work tree of %s: %w", dir, err)
+	}
+
+	return fmt.Errorf("%w: %s", ErrNotARepository, dir)
 }
 
 // CheckIgnored reports whether git ignores path. Outside a work tree it returns
 // ErrNotARepository, because the question has no answer there — a caller warning
 // about a file that is not ignored simply stays quiet.
 func (r Repository) CheckIgnored(ctx context.Context, path string) (bool, error) {
-	if !withinWorkTree(ctx, r.run, r.dir) {
-		return false, fmt.Errorf("%w: %s", ErrNotARepository, r.dir)
+	err := requireWorkTree(ctx, r.run, r.dir)
+	if err != nil {
+		return false, err
 	}
 
 	// check-ignore exits zero when the path is ignored and non-zero when it is
 	// not, so a non-zero exit here is the answer "no", not a failure to answer.
-	_, err := r.run(ctx, "git", "-C", r.dir, "check-ignore", path)
+	_, err = r.run(ctx, "git", "-C", r.dir, "check-ignore", path)
 
 	return err == nil, nil
 }
@@ -92,7 +115,7 @@ func (r Repository) CheckIgnored(ctx context.Context, path string) (bool, error)
 func (r Repository) Describe(ctx context.Context) (Repo, error) {
 	root, err := r.run(ctx, "git", "-C", r.dir, "rev-parse", "--show-toplevel")
 	if err != nil {
-		return Repo{}, fmt.Errorf("%w: %s", ErrNotARepository, r.dir)
+		return Repo{}, notInWorkTree(r.dir, err)
 	}
 
 	// `branch --show-current` rather than `rev-parse --abbrev-ref HEAD`: it prints
