@@ -1674,25 +1674,13 @@ names; `grep -n 'web/' SECURITY.md` matches inside the in-scope list; `grep
 and `grep -n 'two shells\|Shell 2' Taskfile.yml` prints nothing above the
 `dev` task.
 
-### DEBT-106 Three helpers the clients spell by hand past the rule of three
+### DEBT-106 Two helpers the clients spell by hand past the rule of three
 
 Severity: low · Confidence: read
 
-Three helpers the clients spell by hand past the rule of three. All sit
+Two helpers the clients spell by hand past the rule of three. Both sit
 below `dupl`'s token threshold, so no gate sees them.
 
-- The pull path. `/pulls/<n>` and `/merge_requests/<n>` are built at nine
-  sites in two spellings, with no pull-path helper beside the repo-path
-  ones: `githubUpdate` (`internal/forge/github.go:71`), `githubReviewState`
-  (`:245`) and `githubAddPeople` (`:323`) concatenate
-  `githubRepoPath(repo) + "/pulls/" + strconv.Itoa(…)`, while
-  `githubMergePull` (`internal/forge/github.go:361`) writes
-  `fmt.Sprintf("%s/pulls/%d/merge", …)`; `gitlabUpdate`
-  (`internal/forge/gitlab.go:71`), `gitlabReviewState` (`:105`),
-  `gitlabStatus` (`:377`) and `gitlabRerun` (`:399`) concatenate
-  `"/merge_requests/"`, while `gitlabMergePull`
-  (`internal/forge/gitlab.go:424`) uses `Sprintf`. A change to how a number
-  is escaped is nine edits.
 - The JSON write. Jira's marshal, `newRequest`, `Content-Type` triple
   appears in five write methods in two shapes: `Assign`
   (`internal/jira/assignee.go:29`), `LinkPullRequest`
@@ -1710,15 +1698,11 @@ below `dupl`'s token threshold, so no gate sees them.
   (`internal/cli/doctor.go:151`) already calls `httpx.Client` directly. A
   change to the transport's construction is a four-site edit.
 
-**One way to fix it.** `githubPullPath(repo, number)` and
-`gitlabMergePath(repo, number)` beside the repo-path helpers; one
-`newJSONRequest(ctx, method, path, body any)` in `jira` that marshals, calls
-`newRequest` and sets the header; and `wiring` calling `httpx.Client` once
-with the three wrappers deleted.
+**One way to fix it.** One `newJSONRequest(ctx, method, path, body any)`
+in `jira` that marshals, calls `newRequest` and sets the header; and
+`wiring` calling `httpx.Client` once with the three wrappers deleted.
 
-**Done when.** A grep for `/pulls/" +`, `/merge_requests/" +`, `/pulls/%d`
-and `/merge_requests/%d` in `internal/forge` matches only the two helpers;
-`grep -c 'Content-Type'
+**Done when.** `grep -c 'Content-Type'
 internal/jira/{assignee,detail,transitions,worklog}.go` reads 0 with one
 helper carrying it; and no package but `httpx` defines `HTTPClient`.
 
