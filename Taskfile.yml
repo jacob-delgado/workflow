@@ -236,6 +236,7 @@ tasks:
       - scripts/check-go-version_test.sh
       - scripts/check-goroutines_test.sh
       - scripts/check-license-headers_test.sh
+      - scripts/check-mise-version_test.sh
       - scripts/check-package-size_test.sh
       - scripts/coverage-gate_test.sh
       - scripts/coverage-summary_test.sh
@@ -312,6 +313,7 @@ tasks:
       - task: lint:filelength
       - task: lint:packagesize
       - task: lint:goversion
+      - task: lint:miseversion
       - task: lint:goroutines
       - task: docs:check
       - task: gen:verify
@@ -398,6 +400,11 @@ tasks:
     desc: Check that the Go version agrees across the files that pin it
     cmds:
       - scripts/check-go-version.sh
+
+  lint:miseversion:
+    desc: Check that the mise version agrees across mise.toml, the workflows and the devcontainer
+    cmds:
+      - scripts/check-mise-version.sh
 
   lint:goroutines:
     desc: Check that no goroutine is started outside internal/proc
