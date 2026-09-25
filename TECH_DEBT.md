@@ -528,10 +528,10 @@ text; and a GitLab 403 case in the forge, terminal and web tests finds no
 
 Severity: medium · Confidence: read
 
-`Repository.Describe` (`internal/gitrepo/gitrepo.go:93`) turns every failure
-of `git rev-parse --show-toplevel` into `ErrNotARepository`, discarding the
-runner's error, and `withinWorkTree` (`internal/gitrepo/gitrepo.go:71`), the
-same probe behind the other reads, answers false for any error; `build`
+`notInWorkTree` (`internal/gitrepo/gitrepo.go:90`), which
+`Repository.Describe` and the probe behind the other reads share, turns every
+failure of `git rev-parse --show-toplevel` but a timeout into
+`ErrNotARepository`, discarding the runner's error; `build`
 (`internal/proc/start.go:214`) is where a missing git becomes
 `proc.ErrNotFound`, which gitrepo then discards. So on a machine without the
 one program the settled decisions require, `unreadReason`
@@ -543,8 +543,8 @@ the `proc.ErrNotFound` wording in `programErrors`
 missing") is unreachable from gitrepo. Only `doctor` notices, through its
 own `proc.Available` check.
 
-**One way to fix it.** In `Describe` and `withinWorkTree`, return or report
-the runner's error unchanged when `errors.Is(err, proc.ErrNotFound)`, so the
+**One way to fix it.** In `notInWorkTree`, keep the runner's error when
+`errors.Is(err, proc.ErrNotFound)`, as it already keeps a timeout, so the
 existing wording and exit mapping for a missing program apply.
 
 **Done when.** A `Describe` test whose fake runner returns
