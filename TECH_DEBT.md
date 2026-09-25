@@ -151,11 +151,11 @@ The README's line 39 advertises running with no Jira: "With no Jira
 configured, the Issues pane lists the issues assigned to you on your forge".
 The mode is real — `trackerDeps` (`internal/wiring/forgeissues.go:42`) swaps
 in the forge's issues when `Jira.Configured`
-(`internal/config/config.go:272`) is false, and that method's own comment
+(`internal/config/config.go:220`) is false, and that method's own comment
 says so — but the configuration still reads as incomplete on three surfaces,
 and two documents disagree about whether Jira is required:
 
-- `internal/config/config.go:432` — `Config.Missing` has no
+- `internal/config/config.go:380` — `Config.Missing` has no
   `Jira.Configured()` branch; `jira.base_url` and `jira.token` are listed
   whenever they are empty.
 - `internal/cli/doctor_requirements.go:43` — `reportRequirements` turns any
@@ -1037,7 +1037,7 @@ UX-87.
 - `docs/content/docs/configuration.md:10` — the sample file under
   "Configuration" lists `jira`, `messaging`, `forge` and `ui`; no
   `version`.
-- `internal/config/config.go:216` — `Config.Version`, written first by
+- `internal/config/config.go:164` — `Config.Version`, written first by
   `config init` and validated; 0 hits on the page.
 - `internal/config/config.go:80` — `Jira.Project`, the branch-name key
   guard; 0 hits.
@@ -1049,7 +1049,7 @@ UX-87.
 - `internal/config/config.go:151` — `Forge.CLI`, which routes forge calls
   through `gh` or `glab`; on the site only at
   `docs/content/docs/scripting.md:51`.
-- `internal/config/config.go:174` — `UI.CommentsShown`; 0 hits.
+- `internal/config/ui.go:26` — `UI.CommentsShown`; 0 hits.
 - `internal/config/timing.go:21` — `Timing.RequestTimeout`; 0 hits, and no
   `timing` row at all.
 - `internal/config/timing.go:24` — `Timing.CIInterval`, named once in
@@ -1315,15 +1315,15 @@ three; no linter or knip rule sees any of it.
   (`internal/forge/remote.go:186`) both know the `.ghe.com` rule, and
   `checkForge` (`internal/cli/doctor.go:216`) tells such a tenant to "set
   forge.kind and forge.host" for a host the code could classify.
-- `internal/config/config.go:182` — the rebindable action names are listed
+- `internal/config/ui.go:34` — the rebindable action names are listed
   in `UI.Keys`' comment, again under "Rebinding keys"
   (`docs/content/docs/configuration.md:405`), and bound in `CheckKeys`
   (`internal/tui/keys.go:293`); no test holds the three to each other.
-- `internal/config/config.go:401` — `Config.Problems`' sentence
+- `internal/config/config.go:349` — `Config.Problems`' sentence
   "jira.base_url is not an absolute http or https URL" is
   `ErrInvalidBaseURL`'s text verbatim (`internal/jira/jira.go:41`), and the
   rule behind it is written twice: `absoluteWebURL`
-  (`internal/config/config.go:416`) accepts userinfo that `usable`
+  (`internal/config/config.go:364`) accepts userinfo that `usable`
   (`internal/jira/jira.go:151`) refuses first (`:147`).
 - `.github/workflows/release-please.yml:67` — "Provision the toolchain for
   the gate" and "Verify the gate before tagging" (`:79`) each restate the
@@ -1787,7 +1787,7 @@ slow command delays every command by its run time.
 Both calls also discard `ResolveToken`'s error —
 `settings.Token, _, _ = ResolveToken(…)`. For messaging, a `token_command`
 that fails leaves the token empty while `hasToken`
-(`internal/config/config.go:366`) still counts the set command as a token
+(`internal/config/config.go:314`) still counts the set command as a token
 and the mode stays bot; `postAsBot` (`internal/messaging/post.go:109`) then
 sends a `Bearer` header with nothing after the word, and the Messaging pane
 and `workflow announce` word a command that could not run as a refused
@@ -2047,7 +2047,7 @@ still sets `issues.selected` from the clicked line
 press `enter` to read one issue, click the second line of its description,
 and the detail switches to whichever issue sits at that row; a following
 `t`, `c` or `a` acts on the issue the click chose. Mouse capture is on by
-default (`Default` sets `UI{Mouse: true}`, `internal/config/config.go:244`),
+default (`Default` sets `UI{Mouse: true}`, `internal/config/config.go:192`),
 and the narrow case of `TestClickingPicksAnIssue`
 (`internal/tui/mouse_test.go:96`) is width 80 with no `enter`, so
 collapsed-plus-viewing is untested.
@@ -2436,7 +2436,7 @@ unknown `title_source` is refused, and against the configuration page's
 own rule that a misspelled key must not look like a value you never set.
 The terminal is the only reader of both values.
 
-- `internal/config/config.go:174` — `UI.CommentsShown`, an int no
+- `internal/config/ui.go:26` — `UI.CommentsShown`, an int no
   validator checks.
 - `internal/tui/detail.go:455` — `Model.comments` slices from
   `max(0, len - cmp.Or(n, default))`; a negative `n` makes the low index
@@ -2445,9 +2445,9 @@ The terminal is the only reader of both values.
   `validateUI`.
 - `internal/config/branch.go:55` — `Config.validateBranch`, the
   negative-number refusal to copy (`SlugLimit < 0`).
-- `internal/config/config.go:167` — `UI.Color`, a free string no validator
+- `internal/config/ui.go:19` — `UI.Color`, a free string no validator
   checks.
-- `internal/config/config.go:203` — `UI.DrawColor` compares against
+- `internal/config/ui.go:55` — `UI.DrawColor` compares against
   "never" only, so any other value draws color.
 - `internal/config/pullrequest.go:27` — `Config.validatePullRequest`, the
   enum refusal shape to copy.
@@ -3423,7 +3423,7 @@ away too:
 - `internal/cli/doctor_json.go:142` — `toolingFacts`'s `program.required`:
   no test runs `doctor` with a tool missing from `PATH`, so `!installed`
   never lets the `&&` read it.
-- `internal/config/config.go:400` and `:416` — `Problems`'
+- `internal/config/config.go:348` and `:364` — `Problems`'
   `absoluteWebURL(base)` and the four operands inside `absoluteWebURL`: no
   `internal/config` test calls `Problems` with a `jira.base_url` set.
 - `internal/messaging/post.go:333` — `Announcement.Text`'s `a.Kind ==

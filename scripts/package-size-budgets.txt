@@ -36,12 +36,13 @@
 # root Config with its load and save (config.go, load.go, save.go), credential
 # redaction and secret resolution (redact.go, secret.go), the messaging mode
 # rules (modes.go), and a file per configurable section, each carrying its own
-# validation — branch, commit, pull_request, store, timing, version and views.
-# One responsibility (read and validate the configuration) spelled section-per-
-# file; it grows only when a feature adds a section, which is a deliberate
-# decision. 13 registers pull_request.go (FEAT-14) and store.go (FEAT-67) as they
-# crossed the default budget, each one more section beside branch.go/commit.go.
-internal/config 13
+# validation — branch, commit, pull_request, store, timing, ui, version and
+# views. One responsibility (read and validate the configuration) spelled
+# section-per-file; it grows only when a feature adds a section, which is a
+# deliberate decision. 13 registered pull_request.go (FEAT-14) and store.go
+# (FEAT-67) as they crossed the default budget; 14 is ui.go, the terminal's
+# section moved out of config.go to carry the validation it had gone without.
+internal/config 14
 
 # internal/tui — the Bubble Tea interface, one file per pane, overlay and
 # composer. It is a single responsibility (drive the terminal UI) spelled
