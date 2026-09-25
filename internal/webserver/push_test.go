@@ -56,7 +56,8 @@ func TestPushRefusesWhenThereIsNothingToPush(t *testing.T) {
 	commit := []gitrepo.Commit{{Hash: testCommitHash, Subject: "feat: done"}}
 	cases := map[string]gitrepo.Branch{
 		"already up to date": {
-			Name: testBranchName, Upstream: "origin/" + testBranchName, Ahead: 0, Commits: commit,
+			Name: testBranchName, Upstream: "origin/" + testBranchName, PushRemote: gitrepo.DefaultRemote,
+			Ahead: 0, Commits: commit,
 		},
 		// A detached HEAD is not on a branch, so there is nothing to push — and it
 		// must not reach `git push origin ""`.
@@ -158,7 +159,7 @@ func TestPushReturnsThePublishedBranch(t *testing.T) {
 	// The push sets the upstream, so the branch read after it differs from the one
 	// read before; the response must carry the published (after) branch.
 	before := gitrepo.Branch{Name: testBranchName, Ahead: 1, Commits: []gitrepo.Commit{{Hash: "a", Subject: "x"}}}
-	after := gitrepo.Branch{Name: testBranchName, Upstream: "origin/" + testBranchName}
+	after := gitrepo.Branch{Name: testBranchName, Upstream: "origin/" + testBranchName, PushRemote: gitrepo.DefaultRemote}
 	reads := 0
 
 	deps := filledDeps()

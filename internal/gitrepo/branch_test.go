@@ -17,19 +17,20 @@ import (
 // errNoUpstream is what git says for a branch that was never pushed.
 var errNoUpstream = errors.New("fatal: no upstream configured for branch")
 
-// errNoRef is what rev-parse --verify --quiet and symbolic-ref --quiet exit with.
+// errNoRef is what git exits with when rev-parse --verify --quiet, symbolic-ref
+// --quiet or config --get finds nothing.
 var errNoRef = errors.New("exit status 1")
 
-// featureBranch is a pushed feature branch two commits ahead of its upstream.
+// featureBranch is a feature branch pushed to origin, which sets no push
+// default, and two commits ahead of its upstream.
 func featureBranch() map[string]reply {
 	return map[string]reply{
 		showCurrentBranch:             {out: []byte("fix/PROJ-412-token-redaction\n")},
 		"git -C /work rev-parse HEAD": {out: []byte("9f0e3885f06a\n")},
-		"git -C /work rev-parse --abbrev-ref --symbolic-full-name @{upstream}": {
-			out: []byte("origin/fix/PROJ-412-token-redaction\n"),
-		},
-		"git -C /work rev-list --left-right --count @{upstream}...HEAD": {out: []byte("1\t2\n")},
-		originsHead: {out: []byte("origin/main\n")},
+		readUpstream:                  {out: []byte("origin/fix/PROJ-412-token-redaction\n")},
+		countAhead:                    {out: []byte("1\t2\n")},
+		readPushDefault:               {err: errNoRef},
+		originsHead:                   {out: []byte("origin/main\n")},
 		// Real log output under -z: a NUL after the hash, and one after each
 		// subject where git would otherwise put a newline.
 		logFromMain: {
@@ -47,13 +48,14 @@ const (
 
 // Commands the branch fixtures answer.
 const (
-	readUpstream = "git -C /work rev-parse --abbrev-ref --symbolic-full-name @{upstream}"
-	countAhead   = "git -C /work rev-list --left-right --count @{upstream}...HEAD"
-	logCommits   = "git -C /work log -z --reverse --format=%h%x00%s "
-	logFromMain  = logCommits + "origin/main..HEAD"
-	readHooksDir = "git -C /work rev-parse --git-path hooks"
-	originsHead  = "git -C /work symbolic-ref --quiet --short refs/remotes/origin/HEAD"
-	baseAge      = "git -C /work log -1 --format=%cI "
+	readUpstream    = "git -C /work rev-parse --abbrev-ref --symbolic-full-name @{upstream}"
+	countAhead      = "git -C /work rev-list --left-right --count @{upstream}...HEAD"
+	readPushDefault = "git -C /work config --get remote.pushDefault"
+	logCommits      = "git -C /work log -z --reverse --format=%h%x00%s "
+	logFromMain     = logCommits + "origin/main..HEAD"
+	readHooksDir    = "git -C /work rev-parse --git-path hooks"
+	originsHead     = "git -C /work symbolic-ref --quiet --short refs/remotes/origin/HEAD"
+	baseAge         = "git -C /work log -1 --format=%cI "
 )
 
 // baseUpdatedISO is when featureBranch's base last moved, as git writes %cI.

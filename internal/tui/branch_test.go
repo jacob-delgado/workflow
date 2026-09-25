@@ -84,12 +84,17 @@ func TestTheBranchPaneSaysWhereTheBranchStands(t *testing.T) {
 		want   []string
 	}{
 		"pushed with nothing new": {
-			branch: gitrepo.Branch{Name: featureName, Upstream: "origin/" + featureName, Base: baseRef},
-			want:   []string{featureName, "upstream  pushed"},
+			branch: gitrepo.Branch{
+				Name: featureName, Upstream: "origin/" + featureName, PushRemote: gitrepo.DefaultRemote, Base: baseRef,
+			},
+			want: []string{featureName, "upstream  pushed"},
 		},
 		"ahead of origin": {
-			branch: gitrepo.Branch{Name: featureName, Upstream: "origin/" + featureName, Ahead: 2, Behind: 1, Base: baseRef},
-			want:   []string{"↑2 ↓1 against origin/" + featureName},
+			branch: gitrepo.Branch{
+				Name: featureName, Upstream: "origin/" + featureName, PushRemote: gitrepo.DefaultRemote,
+				Ahead: 2, Behind: 1, Base: baseRef,
+			},
+			want: []string{"↑2 ↓1 against origin/" + featureName},
 		},
 		"never pushed": {
 			branch: gitrepo.Branch{Name: featureName, Base: baseRef},

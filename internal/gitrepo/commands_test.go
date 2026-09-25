@@ -83,11 +83,9 @@ func TestPushRemoteHonorsPushDefaultAndFallsBackToOrigin(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
-	const query = "git -C " + workDir + " config --get remote.pushDefault"
-
-	set := fakeRunner(t, map[string]reply{query: {out: []byte("upstream\n")}})
+	set := fakeRunner(t, map[string]reply{readPushDefault: {out: []byte("upstream\n")}})
 	// git exits non-zero when the key is unset.
-	unset := fakeRunner(t, map[string]reply{query: {err: errUnexpectedCommand}})
+	unset := fakeRunner(t, map[string]reply{readPushDefault: {err: errNoRef}})
 
 	// Act
 	configured := gitrepo.At(set, workDir).PushRemote(t.Context())
