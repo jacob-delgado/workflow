@@ -126,7 +126,7 @@ implementations no test reaches, plus user-facing copy:
   carries untested.
 - `internal/editor/editor.go:276` — `writeDraft`, in the package that
   already owns the draft file; `composeInEditor` does not use it.
-- `internal/wiring/wiring.go:254` — `commitWith`, the second copy of the
+- `internal/wiring/wiring.go:255` — `commitWith`, the second copy of the
   temp-file dance.
 
 Most of the file is logic its own comments (`cmd/workflow/main.go:44`,
@@ -239,9 +239,9 @@ The plumbing:
   `WebDeps` (`internal/cli/cli.go:284`) hands the same bundle to the web,
   and the row below (`CLAUDE.md:32`) already says `loop` is "for every
   surface".
-- `internal/wiring/wiring.go:139` — `browserCommand`'s comment promises
+- `internal/wiring/wiring.go:140` — `browserCommand`'s comment promises
   every branch can be tested from one machine; its one caller,
-  `openInBrowser` (`:116`), passes `runtime.GOOS`, and the gobco report
+  `openInBrowser` (`:117`), passes `runtime.GOOS`, and the gobco report
   shows the `goos == "windows"` condition never evaluated (DEBT-64).
 - `internal/gitrepo/gitrepo.go:4` — the package comment says `gitrepo`
   "reads the git repository"; `Repository`'s own doc (`:28`) says reads and
@@ -358,7 +358,7 @@ The configuration page (the Fields table's missing rows are DEBT-91):
   and path; `migrate` (`internal/store/store.go:202`) keys the cache by
   `(instance, view)`, where `Model.cacheIssues`
   (`internal/tui/issues.go:47`) passes the view's JQL text, and `repoKey`
-  (`internal/wiring/wiring.go:404`) falls back to `where.Root` when there is
+  (`internal/wiring/wiring.go:405`) falls back to `where.Root` when there is
   no remote or it does not parse.
 
 The README and the docs index:
@@ -932,37 +932,15 @@ switches in `internal/cli/status.go`, `checkable` in
 once; and the v8 summary lists no uncovered null return for the four panels
 and none has a null check.
 
-### DEBT-99 `wiring` connects to the forge twice
-
-Severity: low · Confidence: read
-
-`forgeConnection`'s comment (`internal/wiring/forge.go:20`) promises the
-connection is "found once, on first use", but `forgeDeps`
-(`internal/wiring/forge.go:67`) and `forgeIssuesDeps`
-(`internal/wiring/forgeissues.go:51`) each wrap `connectForge` in their own
-`onceConnected`, and `Deps` (`internal/wiring/wiring.go:72`) builds both
-bundles, so a session without Jira holds both caches and resolves the
-token twice — two `gh auth token` child processes, a failure remembered
-by neither. The user-visible cost is one extra child process in the
-terminal; the larger cost is the next forge-backed seam, which adds a
-third cache. DEBT-71 holds the package's other composition debt.
-
-**One way to fix it.** One `connect` built once in `Deps` and passed to
-both bundles.
-
-**Done when.** A wiring test with no token in the environment and a stand-in
-`gh` answering `auth token` sees one such invocation across `Search` and
-`FindPullRequest`.
-
 ### DEBT-102 Token commands run at wiring, for commands that never reach the service
 
 Severity: low · Confidence: read
 
-`jiraDeps` (`internal/wiring/wiring.go:165`) calls `ResolveToken` inside
+`jiraDeps` (`internal/wiring/wiring.go:166`) calls `ResolveToken` inside
 `Deps`, running `token_command` as a subprocess on every connect, and
-`messagingDeps` (`internal/wiring/wiring.go:290`) does the same for the
+`messagingDeps` (`internal/wiring/wiring.go:291`) does the same for the
 messaging token, while the forge in the same package connects lazily through
-`onceConnected` (`forgeIssuesDeps`, `internal/wiring/forgeissues.go:51`).
+`onceConnected` (`Deps`, `internal/wiring/wiring.go:75`).
 `connectAt` (`internal/cli/cli.go:384`) builds `wiring.Deps` for every
 command, so `runReviewsCommand` (`internal/cli/reviews.go:56`), which uses
 only `Forge.ReviewRequests`, runs `jira.token_command` anyway, and
@@ -981,7 +959,7 @@ and the mode stays bot; `postAsBot` (`internal/messaging/post.go:109`) then
 sends a `Bearer` header with nothing after the word, and the Messaging pane
 and `workflow announce` word a command that could not run as a refused
 credential. The gobco report shows the
-`MessagingBot` arm at `internal/wiring/wiring.go:296` "56 times false but
+`MessagingBot` arm at `internal/wiring/wiring.go:297` "56 times false but
 never true".
 
 **One way to fix it.** Resolve the Jira and messaging tokens on first use,
@@ -1535,7 +1513,7 @@ package rather than taking the value or the decision from its caller, which is
 why the color branch there and the error return at `:149` are reachable by no
 black-box test: DEBT-64's "no black-box test reaches without changing the code"
 list names both. The repository already has the other pattern: `editorDeps`
-(`internal/wiring/wiring.go:467`) passes `os.Getenv` into `editor.Edit` as a
+(`internal/wiring/wiring.go:468`) passes `os.Getenv` into `editor.Edit` as a
 parameter, and CLAUDE.md's dependency-inversion example is `config.Load` taking
 its directories rather than reading the environment. The cost is that the
 `NO_COLOR` path and the `WithoutColor` call it makes are exercised only by hand.
@@ -1630,7 +1608,7 @@ overlay's failures without the walk running in `Update`.
 
 Severity: low · Confidence: read
 
-`hookDeps` (`internal/wiring/wiring.go:419`) returns `nil, true` from
+`hookDeps` (`internal/wiring/wiring.go:420`) returns `nil, true` from
 `Existing` when `HooksDir` fails, using the bool the seam documents as
 "whether the repository already configures lefthook" (`HookDeps.Existing`,
 `internal/tui/deps.go:191`) to mean "offer nothing", and
@@ -2016,7 +1994,7 @@ terminal skips a pull that is not open (DEBT-127).
   `messagingDTO(s.config(), s.author())` on every frame.
 - `internal/webserver/handlers.go:241` — `server.author` calls
   `s.deps.Author()` with no cache.
-- `internal/wiring/forge.go:108` — the `Author` seam runs
+- `internal/wiring/forge.go:109` — the `Author` seam runs
   `connection.client.Whoami(ctx)` on every call; only the connection is
   memoized.
 - `internal/forge/client.go:105` — `Client.Whoami` is one uncached GET of
@@ -2451,7 +2429,7 @@ Fifteen conditions were never evaluated. Four are a test away:
 - `internal/tui/prcreate.go:134` — `pullCreated.apply`'s `named` case, a
   Jira issue with no link seam: every test that opens a pull request on a
   Jira issue's branch wires `Jira.LinkPullRequest`.
-- `internal/wiring/wiring.go:235` — `streamToEnd`, git failing to start: no
+- `internal/wiring/wiring.go:236` — `streamToEnd`, git failing to start: no
   wiring test fetches or pulls without git on `PATH`.
 
 Seven more came into view once each operand counted, and each is a test
@@ -2471,7 +2449,7 @@ Four no black-box test reaches without changing the code:
 
 - `internal/tui/tui.go:142` and `:149` — inside `tui.Run`, which needs a real
   terminal.
-- `internal/wiring/wiring.go:145` — `browserCommand`'s `"windows"` case,
+- `internal/wiring/wiring.go:146` — `browserCommand`'s `"windows"` case,
   evaluated only where `runtime.GOOS` is not `"darwin"`: CI's Linux run reaches
   it, a Mac never does.
 - `internal/wiring/forgecli.go:58` — `forgeProgram`'s `forge.KindUnknown`

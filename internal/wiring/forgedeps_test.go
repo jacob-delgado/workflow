@@ -174,3 +174,28 @@ func TestTheForgeWriteSeamsHandTheForgeTheirRequestThroughTheCLI(t *testing.T) {
 		})
 	}
 }
+
+// Without Jira the forge's issues back the tracker, so the tracker and the
+// forge seams reach one forge through one connection: the token is looked up
+// once for both, not once for each.
+func TestTheTrackerAndForgeSeamsLookUpTheForgeTokenOnce(t *testing.T) {
+	// Arrange
+	ghStub := installForgeCLI(t, "gh", forgeReplies{})
+	t.Setenv("GITHUB_TOKEN", "")
+
+	cfg, where := githubCLIWorkspace(t)
+	deps := wiring.Deps(t.Context(), cfg, where, nil)
+
+	// Act
+	_, searchErr := deps.Jira.Search("", 0)
+	_, _, findErr := deps.Forge.FindPullRequest(featureBranch)
+
+	// Assert
+	if searchErr != nil || findErr != nil {
+		t.Fatalf("Search = %v, FindPullRequest = %v; want both answered", searchErr, findErr)
+	}
+
+	if lookups := ghStub.tokenLookups(); lookups != 1 {
+		t.Errorf("gh auth token ran %d times across Search and FindPullRequest, want once", lookups)
+	}
+}

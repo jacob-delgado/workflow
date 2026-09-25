@@ -18,8 +18,9 @@ import (
 )
 
 // forgeConnection is the forge client and the repository it serves, found once,
-// on first use: resolving a token can run `gh auth token`, which is not worth
-// doing for a session that never touches the forge.
+// on first use, and shared by every seam that reaches the forge: resolving a
+// token can run `gh auth token`, which is not worth doing for a session that
+// never touches the forge, nor worth doing twice for one that does.
 type forgeConnection struct {
 	client forge.Client
 	repo   forge.Repo
@@ -62,9 +63,9 @@ func mergeSeams(ctx context.Context, connect func() (forgeConnection, error)) (
 	return merge, methods
 }
 
-// forgeDeps is what the interface asks of GitHub or GitLab.
-func forgeDeps(ctx context.Context, setup forgeSetup) tui.ForgeDeps {
-	connect := onceConnected(func() (forgeConnection, error) { return connectForge(ctx, setup) })
+// forgeDeps is what the interface asks of GitHub or GitLab, each seam reaching
+// the forge through connect.
+func forgeDeps(ctx context.Context, setup forgeSetup, connect func() (forgeConnection, error)) tui.ForgeDeps {
 	merge, mergeMethods := mergeSeams(ctx, connect)
 
 	return tui.ForgeDeps{

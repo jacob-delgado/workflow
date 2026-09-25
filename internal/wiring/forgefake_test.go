@@ -62,7 +62,8 @@ type forgeCLI struct {
 // installForgeCLI puts a stand-in program on PATH answering the forge's API
 // routes, and returns a handle to its recordings. A token is placed in the
 // environment so the CLI transport is never asked for one through `gh auth
-// token`, leaving the fake invoked only for the api calls a test drives.
+// token`, leaving the fake invoked only for the api calls a test drives; a test
+// that clears it has the fake answer `gh auth token` too, and count each ask.
 func installForgeCLI(t *testing.T, program string, replies forgeReplies) *forgeCLI {
 	t.Helper()
 
@@ -100,7 +101,8 @@ func installForgeCLI(t *testing.T, program string, replies forgeReplies) *forgeC
 
 // forgeScript is the shell body of the stand-in program: it records its
 // arguments and standard input, then either fails as asked or answers the route
-// the request's URL names with a well-formed HTTP response.
+// the request's URL names with a well-formed HTTP response. Asked for a token
+// instead, it answers as tokenLookup does.
 func forgeScript(dir string, replies forgeReplies) string {
 	record := "printf '%s\\n' \"$@\" >> \"" + dir + "/args\"\n" +
 		"cat >> \"" + dir + "/stdin\"\n"
@@ -114,7 +116,7 @@ func forgeScript(dir string, replies forgeReplies) string {
 	case replies.garbage:
 		return "#!/bin/sh\n" + record + "printf 'not a valid http response\\n'\n"
 	default:
-		return "#!/bin/sh\n" + record +
+		return "#!/bin/sh\n" + tokenLookup(dir) + record +
 			"for a in \"$@\"; do url=\"$a\"; done\n" +
 			"case \"$url\" in\n" +
 			"  *\"/search/issues\"*) f=search ;;\n" +
@@ -132,6 +134,23 @@ func forgeScript(dir string, replies forgeReplies) string {
 			"printf 'HTTP/1.1 200 OK\\r\\nContent-Type: application/json\\r\\n\\r\\n'\n" +
 			"cat \"" + dir + "/resp-$f\"\n"
 	}
+}
+
+// tokenLookup is the stand-in's answer to `gh auth token`: it marks the ask in a
+// file of its own, so a test can count them, and prints a token.
+func tokenLookup(dir string) string {
+	return "if [ \"$1\" = auth ]; then\n" +
+		"  printf 'x\\n' >> \"" + dir + "/token-lookups\"\n" +
+		"  printf 'stand-in-token\\n'\n" +
+		"  exit 0\n" +
+		"fi\n"
+}
+
+// tokenLookups is how many times the fake was asked for a token.
+func (f *forgeCLI) tokenLookups() int {
+	data, _ := os.ReadFile(filepath.Join(f.dir, "token-lookups"))
+
+	return strings.Count(string(data), "x")
 }
 
 // args are the arguments the fake was last handed, one per recorded line.
