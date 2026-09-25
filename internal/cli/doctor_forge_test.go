@@ -398,3 +398,47 @@ func TestDoctorJSONNamesTheTrackerInEffect(t *testing.T) {
 		})
 	}
 }
+
+// forgeTrackerRepository is a GitHub repository with no Jira configured, so
+// the forge's issues are the tracker, and whose forge answers through a
+// signed-out gh, so the forge check passes.
+func forgeTrackerRepository(t *testing.T) string {
+	t.Helper()
+
+	clearForgeEnvironment(t)
+	dir := repoWithRemote(t, githubSSHRemote)
+	writeFile(t, dir, `{`+slackWebhook+`, "forge": {"cli": true}}`)
+	ghSignedOutButAnswering(t)
+
+	return dir
+}
+
+func TestDoctorOnlineSaysTheForgeStandsInForJira(t *testing.T) {
+	// Arrange
+	dir := forgeTrackerRepository(t)
+
+	// Act
+	output, err := run(t, dir, "doctor", "--online")
+
+	// Assert
+	wantExit(t, err, 0)
+
+	if !strings.Contains(output, "jira       not configured — the forge's issues are the tracker") {
+		t.Errorf("doctor --online does not say why Jira went unchecked:\n%s", output)
+	}
+}
+
+func TestDoctorJSONOnlineCallsJiraUncheckedWhenTheForgeIsTheTracker(t *testing.T) {
+	// Arrange
+	dir := forgeTrackerRepository(t)
+
+	// Act
+	output, err := run(t, dir, "doctor", "--json", "--online")
+
+	// Assert
+	wantExit(t, err, 0)
+
+	if got := credentialStatusIn(decodeReport(t, output), jiraService); got != uncheckedStatus {
+		t.Errorf("the online report calls Jira %q with no jira.base_url, want unchecked:\n%s", got, output)
+	}
+}
