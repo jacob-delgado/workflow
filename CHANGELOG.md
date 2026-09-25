@@ -1,5 +1,67 @@
 # Changelog
 
+## [0.3.1](https://github.com/jacob-delgado/workflow/compare/v0.3.0...v0.3.1) (2026-09-25)
+
+
+### Features
+
+* **config:** write the configuration only over the revision last read ([fc8dabf](https://github.com/jacob-delgado/workflow/commit/fc8dabf7bb74e71bdc1ac839096ccc67b7171614))
+* **web:** offer Reload when Settings meets a change it has not seen ([076da0d](https://github.com/jacob-delgado/workflow/commit/076da0d944040585e857e33a3ee1328b701dcbea))
+
+
+### Bug Fixes
+
+* **scripts:** keep script tests out of the repository a hook names ([95964ea](https://github.com/jacob-delgado/workflow/commit/95964ea4aef374e58d31cc08a57c194fec4b98d6))
+* **test:** keep git fixtures out of the repository a hook runs them in ([af55616](https://github.com/jacob-delgado/workflow/commit/af5561691c8c3738eaf32dae23083a03c0cdc1fe))
+* **tui:** drop an issue read a later read superseded ([3bfe49f](https://github.com/jacob-delgado/workflow/commit/3bfe49fc44002045136d72aabeca121d9b5d51fe))
+* **tui:** keep each pane's scroll when focus leaves and returns ([0b2971f](https://github.com/jacob-delgado/workflow/commit/0b2971f7294259014b353717d6f908920cea155c))
+* **tui:** keep the CI polling generation on Model ([273aa15](https://github.com/jacob-delgado/workflow/commit/273aa1567e2bb5879884b256894aa3630b052b8d))
+* **tui:** move a scroll stranded past the end on the first key ([9076d6d](https://github.com/jacob-delgado/workflow/commit/9076d6dace7b81ded7f9fb595f4df0d7bf0e1baa))
+* **webserver:** refuse a Settings save over a change it has not seen ([38dbf38](https://github.com/jacob-delgado/workflow/commit/38dbf3877cc3c304e85d87cc880b63ae9355d9cc))
+
+
+### Refactors
+
+* **cli:** let a caller hand the root its interface and web server ([f55e833](https://github.com/jacob-delgado/workflow/commit/f55e8331728dda0582791f664fb7c04c5192ff38))
+* **forge:** split GitHub's CI reads out of github.go ([8056091](https://github.com/jacob-delgado/workflow/commit/80560914dec184f8553e45a5c97570cbf9b94315))
+* **gitrepo:** split changing branches out of branch.go ([7a7271e](https://github.com/jacob-delgado/workflow/commit/7a7271e4b7794dede87784c876ba759547a8e31a))
+* **tui:** draw every picker's list through one pickList ([5884259](https://github.com/jacob-delgado/workflow/commit/5884259bfcb5bf5ecb52347d6fa70fa545221aca))
+* **tui:** keep an overlay open with its failure through one helper ([afa58d4](https://github.com/jacob-delgado/workflow/commit/afa58d4b4ac42837ca453ae8d989e420d9703fb4))
+* **tui:** split opening a pull request out of prcomposer.go ([e34cab6](https://github.com/jacob-delgado/workflow/commit/e34cab66e5f1af337b97f89c05de00db76662518))
+* **tui:** split the announcement preview out of messaging.go ([b318832](https://github.com/jacob-delgado/workflow/commit/b3188322436f45488064b37c3f8204776bd7c76f))
+
+
+### Documentation
+
+* **backlog:** audit every surface, package and gate at f05ae9f ([df7e209](https://github.com/jacob-delgado/workflow/commit/df7e2097912051e2fbfdaf3a93a5c9fe08928d8c))
+* **backlog:** re-pin the backlogs to the merged surface review ([89fef1b](https://github.com/jacob-delgado/workflow/commit/89fef1b7a18314cb622e967b29c64b861bbf51df))
+* **debt:** refresh the trade-offs the gates changed ([a796ab8](https://github.com/jacob-delgado/workflow/commit/a796ab890ba4231f20bc31645a185748fc12e985))
+* **features:** re-pin the ideas and correct what the audit disproved ([f989268](https://github.com/jacob-delgado/workflow/commit/f9892684da7d86548bde661c271491643f1093dc))
+* **web:** write down why each dependency pin stands ([52feddf](https://github.com/jacob-delgado/workflow/commit/52feddf5818e27f867f59a0f270642c4733d2e2f))
+
+
+### Build & Packaging
+
+* Bump the web-minor-patch group across 1 directory with 11 updates ([996c3f3](https://github.com/jacob-delgado/workflow/commit/996c3f30b2c37459ac146233f0cd3b89b15596fb))
+* run the container gate as the invoking user, under an init ([8737a8f](https://github.com/jacob-delgado/workflow/commit/8737a8fd27b18fa3075f5af92d2b5bc90e8bd6fc))
+* **web:** drop @hey-api/client-fetch, which openapi-ts bundles ([c81e1b6](https://github.com/jacob-delgado/workflow/commit/c81e1b6957b4453c0cee0c1138f674555c28553a))
+
+
+### CI
+
+* Bump the actions-minor-patch group with 4 updates ([f05ae9f](https://github.com/jacob-delgado/workflow/commit/f05ae9f89e500c4f709ebd29e0ca9b5a33d28bd7))
+* **dependabot:** schedule the web's npm updates ([6d2767a](https://github.com/jacob-delgado/workflow/commit/6d2767ad5ab1f2271614e212fa86e8a967e943d1))
+
+
+### Tests
+
+* **store:** report a directory, file or schema the store cannot use ([541ef9a](https://github.com/jacob-delgado/workflow/commit/541ef9a9b2c937e534e6dc33546a54296ce3410e))
+* **tui:** hold every picker's selection in sight on a long list ([428ecd8](https://github.com/jacob-delgado/workflow/commit/428ecd8b9f97402f311bde5318f7770bbbe9beaf))
+* **tui:** pin a failure in full in every overlay that pins one ([5212461](https://github.com/jacob-delgado/workflow/commit/5212461fcbe20276c25339c2352dd4abbdccc5ab))
+* **tui:** pin where a pane starts and where a click lands ([8333a2e](https://github.com/jacob-delgado/workflow/commit/8333a2eefffe5412847b5f9910b15d69f918bd3a))
+* **web:** hold the unit tests to floor(measured) − 2 on every metric ([9def03f](https://github.com/jacob-delgado/workflow/commit/9def03f8ef60c648eb0af21348c54983420758e5))
+* **wiring:** drive the merge, merge-method and re-run seams both ways ([291dfe5](https://github.com/jacob-delgado/workflow/commit/291dfe57198d0cd023f05abc25acc7f9a7f020cf))
+
 ## [0.3.0](https://github.com/jacob-delgado/workflow/compare/v0.2.0...v0.3.0) (2026-09-24)
 
 
