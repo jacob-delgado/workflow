@@ -76,7 +76,7 @@ air = "1.67.4"
 # Go-source tools, built with the pinned Go above. A prebuilt binary compiled
 # against an older Go can reject a project targeting a newer one.
 "go:golang.org/x/vuln/cmd/govulncheck" = "1.8.0"
-# Condition (branch) coverage. Exact-pinned twice over: gobco's version changes
+# Condition coverage. Exact-pinned twice over: gobco's version changes
 # the number it reports, and that number is a gate here (BRANCH_COVERAGE_MIN in
 # Taskfile.yml), so a bump must be a deliberate commit that carries its fixes.
 "go:github.com/rillig/gobco" = "1.3.4"

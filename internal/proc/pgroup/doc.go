@@ -6,5 +6,5 @@
 // Unix-only; off Unix Isolate is a no-op and the default child-only cancel
 // stands. It lives in its own package because its two build-tagged halves are a
 // twin gobco cannot read (see scripts/gobco-report.sh), which keeps that from
-// costing the rest of internal/proc its branch coverage.
+// costing the rest of internal/proc its condition coverage.
 package pgroup

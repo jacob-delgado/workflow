@@ -23,7 +23,7 @@ vars:
   # The --web dispatch has since gained a public surface (cli.NewRootCmdOver) and
   # its tests are back, in internal/cli/root_test.go.
   COVERAGE_MIN: 94
-  # The condition (branch) coverage floor, enforced over every package gobco can
+  # The condition coverage floor, enforced over every package gobco can
   # read — scripts/gobco-report.sh's skip list names only the two build-tagged
   # twins it cannot, and the script fails on any package that drops out
   # unannounced.
@@ -271,7 +271,7 @@ tasks:
         done
 
   cover:branch:
-    desc: Condition (branch) coverage via gobco, with its floor
+    desc: Condition coverage via gobco, with its floor
     cmds:
       # Statement coverage cannot see this: an `if a && b` counts as covered the
       # moment the line runs. gobco reports each condition never observed both
