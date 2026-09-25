@@ -165,49 +165,7 @@ func TestMissingIsEmptyForCompleteConfig(t *testing.T) {
 	}
 }
 
-func TestSlackModeSelectsTheTransport(t *testing.T) {
-	t.Parallel()
-
-	cases := map[string]struct {
-		slack config.Messaging
-		want  config.MessagingMode
-	}{
-		"nothing configured": {
-			slack: config.Messaging{Token: "", WebhookURL: "", Channel: ""},
-			want:  config.MessagingNone,
-		},
-		"bot token": {
-			slack: config.Messaging{Token: botToken, WebhookURL: "", Channel: devChannel},
-			want:  config.MessagingBot,
-		},
-		"webhook only": {
-			slack: config.Messaging{Token: "", WebhookURL: webhookURL, Channel: ""},
-			want:  config.MessagingWebhook,
-		},
-		// Both is not an error. The bot token is the more capable transport, so
-		// it wins rather than the configuration being called ambiguous.
-		"both prefers the bot token": {
-			slack: config.Messaging{Token: botToken, WebhookURL: webhookURL, Channel: devChannel},
-			want:  config.MessagingBot,
-		},
-	}
-
-	for name, tt := range cases {
-		t.Run(name, func(t *testing.T) {
-			t.Parallel()
-
-			// Act
-			got := tt.slack.Mode()
-
-			// Assert
-			if got != tt.want {
-				t.Errorf("Mode() = %v, want %v", got, tt.want)
-			}
-		})
-	}
-}
-
-func TestSlackModeString(t *testing.T) {
+func TestMessagingModeString(t *testing.T) {
 	t.Parallel()
 
 	cases := map[string]struct {
@@ -227,34 +185,34 @@ func TestSlackModeString(t *testing.T) {
 
 			// Act & Assert
 			if got := tt.mode.String(); got != tt.want {
-				t.Errorf("SlackMode(%d).String() = %q, want %q", tt.mode, got, tt.want)
+				t.Errorf("MessagingMode(%d).String() = %q, want %q", tt.mode, got, tt.want)
 			}
 		})
 	}
 }
 
-func TestSlackTarget(t *testing.T) {
+func TestMessagingTarget(t *testing.T) {
 	t.Parallel()
 
 	cases := map[string]struct {
-		slack config.Messaging
-		want  string
+		messaging config.Messaging
+		want      string
 	}{
 		"nothing configured": {
-			slack: config.Messaging{Token: "", WebhookURL: "", Channel: ""},
-			want:  "(not set)",
+			messaging: config.Messaging{Token: "", WebhookURL: "", Channel: ""},
+			want:      "(not set)",
 		},
 		"bot names its channel": {
-			slack: config.Messaging{Token: botToken, WebhookURL: "", Channel: devChannel},
-			want:  devChannel,
+			messaging: config.Messaging{Token: botToken, WebhookURL: "", Channel: devChannel},
+			want:      devChannel,
 		},
 		"bot without a channel says so": {
-			slack: config.Messaging{Token: botToken, WebhookURL: "", Channel: ""},
-			want:  "(no channel set)",
+			messaging: config.Messaging{Token: botToken, WebhookURL: "", Channel: ""},
+			want:      "(no channel set)",
 		},
 		"webhook describes its binding": {
-			slack: config.Messaging{Token: "", WebhookURL: webhookURL, Channel: ""},
-			want:  "the channel its webhook is bound to",
+			messaging: config.Messaging{Token: "", WebhookURL: webhookURL, Channel: ""},
+			want:      "the channel its webhook is bound to",
 		},
 	}
 
@@ -263,7 +221,7 @@ func TestSlackTarget(t *testing.T) {
 			t.Parallel()
 
 			// Act & Assert
-			if got := tt.slack.Target(); got != tt.want {
+			if got := tt.messaging.Target(); got != tt.want {
 				t.Errorf("Target() = %q, want %q", got, tt.want)
 			}
 		})
@@ -273,7 +231,7 @@ func TestSlackTarget(t *testing.T) {
 // The channel a webhook posts to is not knowable without calling Slack, and the
 // URL that would reveal it is the credential itself. Whatever else is set
 // alongside a webhook, Target() must describe where posts go without quoting it.
-func TestSlackTargetNeverRevealsTheWebhookURL(t *testing.T) {
+func TestMessagingTargetNeverRevealsTheWebhookURL(t *testing.T) {
 	t.Parallel()
 
 	cases := map[string]config.Messaging{
@@ -283,12 +241,12 @@ func TestSlackTargetNeverRevealsTheWebhookURL(t *testing.T) {
 		"a webhook beside no channel": {Token: botToken, WebhookURL: webhookURL, Channel: ""},
 	}
 
-	for name, slack := range cases {
+	for name, messaging := range cases {
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
 
 			// Act
-			target := slack.Target()
+			target := messaging.Target()
 
 			// Assert
 			if target == "" || strings.Contains(target, "hooks.slack.com") || strings.Contains(target, "fakefake") {

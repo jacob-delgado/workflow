@@ -25,6 +25,10 @@ func TestMessagingModeReflectsTheKind(t *testing.T) {
 		messaging config.Messaging
 		want      config.MessagingMode
 	}{
+		"nothing configured": {
+			messaging: config.Messaging{},
+			want:      config.MessagingNone,
+		},
 		// A webhook-only kind has no bot token, so one set beside it is ignored and
 		// the mode is decided by the webhook alone.
 		"teams ignores a token and needs the webhook": {
@@ -46,6 +50,16 @@ func TestMessagingModeReflectsTheKind(t *testing.T) {
 		// Slack is the exception: a bot token is its more capable transport.
 		"slack with a bot token": {
 			messaging: config.Messaging{Kind: config.KindSlack, Token: botToken, Channel: devChannel},
+			want:      config.MessagingBot,
+		},
+		"slack over its webhook": {
+			messaging: config.Messaging{Kind: config.KindSlack, WebhookURL: webhookURL},
+			want:      config.MessagingWebhook,
+		},
+		// Both is not an error. The bot token is the more capable transport, so
+		// it wins rather than the configuration being called ambiguous.
+		"slack with both prefers the bot token": {
+			messaging: config.Messaging{Kind: config.KindSlack, Token: botToken, WebhookURL: webhookURL, Channel: devChannel},
 			want:      config.MessagingBot,
 		},
 		// An empty kind is read as Slack, so a block written before kinds existed
