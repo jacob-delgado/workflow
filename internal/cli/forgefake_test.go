@@ -6,7 +6,9 @@ package cli_test
 import (
 	"os"
 	"path/filepath"
+	"strconv"
 	"testing"
+	"time"
 )
 
 // ghResponses are the canned bodies a fake gh returns per route; an empty field
@@ -18,7 +20,14 @@ type ghResponses struct {
 	search      string // GET .../search/issues?...      — a {"items":[...]} object
 	userError   bool   // when set, GET .../user answers unreadably, so Whoami fails
 	createError bool   // when set, POST .../pulls answers unreadably, so the open fails
+	signedOut   bool   // when set, `gh auth token` exits 1, so no token resolves through gh
+	apiHangs    bool   // when set, `gh api` answers nothing for ghHang, as behind a stalled gateway
 }
+
+// ghHang is how long a fake gh whose api hangs takes to give up on its own:
+// long enough that a test waiting it out cannot be mistaken for one that did
+// not.
+const ghHang = 10 * time.Second
 
 // openPull is a forge pull request array with one open pull request.
 func openPull(title string) string {
@@ -75,7 +84,21 @@ func fakeGh(t *testing.T, responses ghResponses) {
 		writeExecutable(t, filepath.Join(dir, "resp-"+name), body, 0o644)
 	}
 
-	script := "#!/bin/sh\n" +
+	// A signed-out gh fails `gh auth token` the way the real one does, while its
+	// `api` command still answers.
+	signIn := ""
+	if responses.signedOut {
+		signIn = "if [ \"$1\" = auth ]; then exit 1; fi\n"
+	}
+
+	// exec hands the pipes to sleep itself, so killing the hung gh closes them
+	// rather than leaving a child that holds them open.
+	hang := ""
+	if responses.apiHangs {
+		hang = "if [ \"$1\" = api ]; then exec sleep " + strconv.Itoa(int(ghHang/time.Second)) + "; fi\n"
+	}
+
+	script := "#!/bin/sh\n" + signIn + hang +
 		"for a in \"$@\"; do url=\"$a\"; done\n" +
 		"case \"$url\" in\n" +
 		"  *\"/pulls?\"*) f=pulls ;;\n" +
@@ -99,8 +122,9 @@ func fakeGh(t *testing.T, responses ghResponses) {
 const gitlabMergeRequest = "https://gitlab.com/owner/repo/-/merge_requests/7"
 
 // fakeGlab installs a stand-in `glab` on PATH that answers `glab api --include
-// <path>` as a GitLab project with no merge request yet, and opens one when
-// asked, so a black-box test drives a GitLab forge through its CLI transport.
+// <path>` as a GitLab project with no merge request yet, opens one when asked,
+// and names its user, so a black-box test drives a GitLab forge through its CLI
+// transport.
 func fakeGlab(t *testing.T) {
 	t.Helper()
 
@@ -108,6 +132,7 @@ func fakeGlab(t *testing.T) {
 	bodies := map[string]string{
 		"list":    "[]",
 		"create":  `{"iid":7,"web_url":"` + gitlabMergeRequest + `","title":"work","state":"opened"}`,
+		"user":    `{"username":"tanuki"}`,
 		"default": `{}`,
 	}
 
@@ -120,6 +145,7 @@ func fakeGlab(t *testing.T) {
 		"case \"$path\" in\n" +
 		"  *\"/merge_requests?\"*) f=list ;;\n" +
 		"  *\"/merge_requests\") f=create ;;\n" +
+		"  user) f=user ;;\n" +
 		"  *) f=default ;;\n" +
 		"esac\n" +
 		"printf 'HTTP/1.1 200 OK\\r\\nContent-Type: application/json\\r\\n\\r\\n'\n" +

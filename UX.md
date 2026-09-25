@@ -145,7 +145,7 @@ Impact: low · Effort: medium
 
 **Today.** No spinner, no elapsed time, no "checking…". `doctor --online`
 makes three round trips in silence (`reportCredentials`,
-`internal/cli/doctor_credentials.go:28`);
+`internal/cli/doctor_credentials.go:29`);
 `standup` fires up to fifteen forge requests plus a Jira search
 (`gatherPulls`, `internal/cli/standup.go:185`); `status DIR…` visits each directory in
 series (`statusesOf`, `internal/cli/status.go:165`). The only trace is `--log`,
@@ -383,9 +383,10 @@ that explains the machine, has no row for either.
   sets `forge.cli` and forgets to install glab has every forge call go
   over HTTP with nothing saying why SSO still blocks it.
 
-`doctor --online`'s blindness to `forge.cli` is DEBT-75: its fix reports
-the credential's source, this one adds the Tooling row that says the
-program is absent. glab's line in install.md's needs list is DEBT-91's.
+`doctor --online` already names `gh` or `glab` as the forge credential's
+source when `forge.cli` routes the forge through it; this one adds the
+Tooling row that says the program is absent. glab's line in install.md's
+needs list is DEBT-91's.
 
 **Instead.** A doctor row that prints the store's directory, or
 `ErrNoDir`'s sentence when there is none; and glab in `externalTools` with
@@ -1939,7 +1940,7 @@ pane's missing `n` on the same state is DEBT-112.
   done" — what no surface's stage says.
 
 No test in `internal/cli/status_test.go` or `internal/progress` uses a
-merged fixture; `mergedPull` (`internal/cli/forgefake_test.go:31`) serves
+merged fixture; `mergedPull` (`internal/cli/forgefake_test.go:40`) serves
 the announce and standup tests only.
 
 **Instead.** Give `progress.Work` the pull's state (open, merged or none)
@@ -1990,7 +1991,7 @@ script is told to press a key it does not have.
   `forge.ErrNoToken` says "Run `gh auth login`, or set `$GITHUB_TOKEN`" for
   every host, though `Sources`, `internal/forge/token.go:245`, already
   names the variable and tool per host and `noForgeTokenMessage`,
-  `internal/cli/doctor_credentials.go:141`, prints it — so `doctor` and
+  `internal/cli/doctor_credentials.go:163`, prints it — so `doctor` and
   the interface disagree on a GitLab host.
 - `rejectionReason`, `internal/messaging/post.go:175`, `:177` and `:178`:
   three sentences end "then press enter to try again" inside a domain

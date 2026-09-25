@@ -167,9 +167,12 @@ const (
 	messagingService = "slack"
 )
 
-// uncheckedStatus is the status the online report gives a check doctor could
-// not make.
-const uncheckedStatus = "unchecked"
+// The statuses the online report gives a check doctor could not make, and a
+// service that never answered.
+const (
+	uncheckedStatus   = "unchecked"
+	unreachableStatus = "unreachable"
+)
 
 // credentialStatusIn is the status the online report gives service, or "" when
 // the report names no such service.
@@ -201,7 +204,7 @@ func TestDoctorJSONOnlineReportsARedirectAsUnreachable(t *testing.T) {
 	output, _ := run(t, dir, "doctor", "--json", "--online")
 
 	// Assert
-	if got := credentialStatusIn(decodeReport(t, output), jiraService); got != "unreachable" {
+	if got := credentialStatusIn(decodeReport(t, output), jiraService); got != unreachableStatus {
 		t.Errorf("the online report calls Jira's redirect %q, want unreachable:\n%s", got, output)
 	}
 }
@@ -244,7 +247,7 @@ func TestDoctorJSONOnlineReportsARateLimitAsUnreachable(t *testing.T) {
 	output, err := run(t, dir, "doctor", "--json", "--online")
 
 	// Assert
-	if got := credentialStatusIn(decodeReport(t, output), jiraService); got != "unreachable" {
+	if got := credentialStatusIn(decodeReport(t, output), jiraService); got != unreachableStatus {
 		t.Errorf("the online report calls Jira's rate limit %q, want unreachable:\n%s", got, output)
 	}
 
