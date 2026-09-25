@@ -89,13 +89,17 @@ internal/tui 41
 internal/webserver 17
 
 # internal/cli — the Cobra command tree, one file per command: the read commands
-# (doctor, split across doctor.go/doctor_json.go/doctor_requirements.go; status;
-# reviews; standup), the guided config, the root wiring, and the scriptable write
-# commands from FEAT-41 (branch.go, pr.go, announce.go) with their shared
-# preview/confirm/dry-run helper (scriptable.go). One responsibility — turn a
-# command line into a wiring seam call and printed output — spelled command-per-
-# file; it grows when the tool gains a command, which the docs reference records.
-internal/cli 13
+# (doctor, split by section across doctor.go for the command, the repository and
+# the configuration, doctor_requirements.go for the tooling and the
+# configuration review, doctor_credentials.go for the --online checks, and
+# doctor_json.go for --json; status; reviews; standup), the guided config, the
+# root wiring, and the scriptable write commands from FEAT-41 (branch.go, pr.go,
+# announce.go) with their shared preview/confirm/dry-run helper (scriptable.go).
+# One responsibility — turn a command line into a wiring seam call and printed
+# output — spelled command-per-file; it grows when the tool gains a command,
+# which the docs reference records, or when one command's sections outgrow a
+# file, as doctor's did.
+internal/cli 14
 
 # web/src/api/generated — the @hey-api client generated from api/openapi.yaml by
 # `yarn gen`. Never hand-edited, regenerated wholesale, and gated for drift by

@@ -112,13 +112,14 @@ Severity: medium · Confidence: read
 `docs/content/docs/scripting.md:53` promises, under `forge.cli`, that
 "`workflow doctor --online` says which it is" — `gh` or `glab`, or HTTP.
 `doctor` never reads `config.Forge.CLI`: `checkForge`
-(`internal/cli/doctor.go:222`) always resolves a token through
+(`internal/cli/doctor_credentials.go:121`) always resolves a token through
 `wiring.ForgeResolver` and fails with `errCredentialRejected` when none
-resolves; `askForge` (`internal/cli/doctor.go:250`) calls `forge.New(doer,
-base, token).Whoami` over the doer that `onlineDoers`
-(`internal/cli/doctor.go:165`) builds from `httpx` alone; and `doctor --json
---online` shares the same `checkForge` through `credentialFacts`
-(`internal/cli/doctor_json.go:165`), so the JSON verdict is wrong too. The
+resolves; `askForge` (`internal/cli/doctor_credentials.go:149`) calls
+`forge.New(doer, base, token).Whoami` over the doer that `onlineDoers`
+(`internal/cli/doctor_credentials.go:64`) builds from `httpx` alone; and
+`doctor --json --online` shares the same `checkForge` through
+`credentialFacts` (`internal/cli/doctor_json.go:165`), so the JSON verdict
+is wrong too. The
 commands' own path, `connectForge` (`internal/wiring/forge.go:244`),
 tolerates a missing token when the CLI is in use (`if err != nil &&
 !usingCLI`); `doctor` has no such branch.
@@ -198,8 +199,9 @@ is `ok`, `errUnreachable` is `unreachable`, anything else is `rejected` —
 and its comment (`:195`) defines `ok` as a working credential. Two outcomes
 are misnamed in the machine field a script keys on:
 
-- `internal/cli/doctor.go:300` — `credentialOutcome` wraps every error that
-  is not the unreachable sentinel as `errCredentialRejected` (`:305`),
+- `internal/cli/doctor_credentials.go:202` — `credentialOutcome` wraps every
+  error that is not the unreachable sentinel as `errCredentialRejected`
+  (`:207`),
   `jira.ErrNoCredential` and `messaging.ErrNoCredential` included.
 - `internal/wiring/token.go:38` — `ResolveToken` resolves an unset token to
   `""` with a nil error, so the check goes on to the service and is refused
@@ -210,17 +212,19 @@ are misnamed in the machine field a script keys on:
 - `internal/messaging/messaging.go:121` — `checkable` returns
   `ErrNoCredential` for `MessagingNone`: the same route for a missing
   messaging credential.
-- `internal/cli/doctor.go:314` — `checkJira` wraps a `token_command` that
-  failed in `errCredentialRejected`, though nothing was rejected.
-- `internal/cli/doctor.go:273` — `checkMessaging` does the same for a
-  messaging `token_command`.
-- `internal/cli/doctor.go:211` — `checkForge` wraps a `forge.kind` naming no
-  forge in `errCredentialRejected`, and (`:226`) no forge token resolved.
-- `internal/cli/doctor.go:38` — `errCredentialRejected`'s comment, "a
+- `internal/cli/doctor_credentials.go:216` — `checkJira` wraps a
+  `token_command` that failed in `errCredentialRejected`, though nothing was
+  rejected.
+- `internal/cli/doctor_credentials.go:172` — `checkMessaging` does the same
+  for a messaging `token_command`.
+- `internal/cli/doctor_credentials.go:110` — `checkForge` wraps a
+  `forge.kind` naming no forge in `errCredentialRejected`, and (`:125`) no
+  forge token resolved.
+- `internal/cli/doctor.go:33` — `errCredentialRejected`'s comment, "a
   credential a service would not accept", no longer covers a missing
   credential, a failed `token_command` or a bad `forge.kind`.
-- `internal/cli/doctor.go:286` — `checkMessaging` returns nil for
-  `ErrWebhookUncheckable`, which `credentialStatus` turns into `ok`.
+- `internal/cli/doctor_credentials.go:185` — `checkMessaging` returns nil
+  for `ErrWebhookUncheckable`, which `credentialStatus` turns into `ok`.
 - `docs/content/docs/scripting.md:154` — `status` is documented as `ok`,
   `rejected` or `unreachable`; there is no value for missing or unchecked.
 - `internal/cli/online_test.go:151` —
@@ -332,10 +336,10 @@ The terminal:
 
 The command line:
 
-- `internal/cli/doctor.go:196` — `checkForge`'s comment says it "does not
-  call the forge" and (`:198`) "costs no network round trip"; `askForge`
-  (`:250`) calls `forge.New(doer, base, token).Whoami(ctx)`, reached from
-  `checkForge` at `:229`, and
+- `internal/cli/doctor_credentials.go:95` — `checkForge`'s comment says it
+  "does not call the forge" and (`:97`) "costs no network round trip";
+  `askForge` (`:149`) calls `forge.New(doer, base, token).Whoami(ctx)`,
+  reached from `checkForge` at `:128`, and
   `TestDoctorOnlineNamesWhereTheForgeTokenCameFrom`
   (`internal/cli/online_test.go:267`) exercises that round trip.
 - `internal/cli/prompt.go:16` — `Prompt` is "the guided command's seams"
@@ -438,7 +442,7 @@ handlers; the `Deps` comment names the answers the handlers give; and each
 of these prints nothing — `grep -n "the one place the interface reads"
 internal/tui/branch.go`, `grep -n "cannot layer one view over another"
 internal/tui/overlay.go`, `grep -n "does not call the forge"
-internal/cli/doctor.go`, `grep -n "guided command's seams"
+internal/cli/doctor_credentials.go`, `grep -n "guided command's seams"
 internal/cli/prompt.go`, `grep -n "checks Opened rather than trusting"
 internal/forge/pulls.go`, `grep -n "caret-feed" internal/jira/wiki.go`,
 `grep -n "status describes the configuration" internal/tui/render.go` and
@@ -515,8 +519,8 @@ The README and the docs index:
 - The README (line 45) and `docs/content/_index.md:29` — "`workflow doctor
   --online` asks Jira, your messaging service and your forge whether each
   credential actually works"; `checkMessaging`'s comment
-  (`internal/cli/doctor.go:263`) says a webhook is uncheckable,
-  `ErrWebhookUncheckable` returns nil (`:286`), `credentialStatus` reads
+  (`internal/cli/doctor_credentials.go:162`) says a webhook is uncheckable,
+  `ErrWebhookUncheckable` returns nil (`:185`), `credentialStatus` reads
   that as `ok` (`internal/cli/doctor_json.go:201`), and
   `TestDoctorOnlineSaysAWebhookCannotBeChecked`
   (`internal/cli/online_test.go:169`) pins "cannot be checked".
@@ -904,8 +908,9 @@ three; no linter or knip rule sees any of it.
   `.ghe.com` host is `KindUnknown`; `githubsOwn`
   (`internal/forge/host.go:40`) and `githubAPIBase`
   (`internal/forge/remote.go:186`) both know the `.ghe.com` rule, and
-  `checkForge` (`internal/cli/doctor.go:216`) tells such a tenant to "set
-  forge.kind and forge.host" for a host the code could classify.
+  `checkForge` (`internal/cli/doctor_credentials.go:115`) tells such a
+  tenant to "set forge.kind and forge.host" for a host the code could
+  classify.
 - `internal/config/ui.go:45` — the rebindable action names are listed
   in `UI.Keys`' comment, again under "Rebinding keys"
   (`docs/content/docs/configuration.md:405`), and bound in `CheckKeys`
@@ -1265,8 +1270,8 @@ below `dupl`'s token threshold, so no gate sees them.
   `internal/jira/jira.go:98` and `internal/forge/client.go:101` each return
   `httpx.Client(timeout)` unchanged — the middle man CLAUDE.md's catalog
   names, written three times — while `onlineDoer`
-  (`internal/cli/doctor.go:151`) already calls `httpx.Client` directly. A
-  change to the transport's construction is a four-site edit.
+  (`internal/cli/doctor_credentials.go:50`) already calls `httpx.Client`
+  directly. A change to the transport's construction is a four-site edit.
 
 **One way to fix it.** One `newJSONRequest(ctx, method, path, body any)`
 in `jira` that marshals, calls `newRequest` and sets the header; and

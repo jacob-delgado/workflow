@@ -145,7 +145,7 @@ Impact: low · Effort: medium
 
 **Today.** No spinner, no elapsed time, no "checking…". `doctor --online`
 makes three round trips in silence (`reportCredentials`,
-`internal/cli/doctor.go:129`);
+`internal/cli/doctor_credentials.go:28`);
 `standup` fires up to fifteen forge requests plus a Jira search
 (`gatherPulls`, `internal/cli/standup.go:185`); `status DIR…` visits each directory in
 series (`statusesOf`, `internal/cli/status.go:165`). The only trace is `--log`,
@@ -250,7 +250,7 @@ pointer.
   cleanly: %v" and then serves (`:196`). Its siblings branch on
   `ErrNotFound` and print `NoConfigHeadline`, `InitStep` and `DoctorStep`:
   `showLoadError` (`internal/cli/config_cmd.go:97`), `reportLoadError`
-  (`internal/cli/doctor.go:436`) and the interface's `configErrorStatus`
+  (`internal/cli/doctor.go:224`) and the interface's `configErrorStatus`
   (`internal/tui/render.go:466`). The web cannot write a first file
   (`docs/content/docs/web.md:162`, "What stays in the terminal"), so the
   one surface that most needs `workflow config init` named is the one that
@@ -1990,8 +1990,8 @@ script is told to press a key it does not have.
   `forge.ErrNoToken` says "Run `gh auth login`, or set `$GITHUB_TOKEN`" for
   every host, though `Sources`, `internal/forge/token.go:245`, already
   names the variable and tool per host and `noForgeTokenMessage`,
-  `internal/cli/doctor.go:242`, prints it — so `doctor` and the interface
-  disagree on a GitLab host.
+  `internal/cli/doctor_credentials.go:141`, prints it — so `doctor` and
+  the interface disagree on a GitLab host.
 - `rejectionReason`, `internal/messaging/post.go:175`, `:177` and `:178`:
   three sentences end "then press enter to try again" inside a domain
   error; `runAnnounce`, `internal/cli/announce.go:146`, wraps it with `%w`
@@ -2192,7 +2192,7 @@ Impact: low · Effort: small
   validators name (`refs_trailer` with a colon,
   `internal/config/commit.go:58`; a bad `title_source`,
   `internal/config/pullrequest.go:30`), which `doctor` prints
-  (`reportLoadError`, `internal/cli/doctor.go:442`);
+  (`reportLoadError`, `internal/cli/doctor.go:230`);
   `TestUpdateConfigRejectsAnInvalidConfig`,
   `internal/webserver/config_test.go:107`, asserts status and code only.
 - `nothingToOpen`, `internal/webserver/pullrequest.go:88`, words
