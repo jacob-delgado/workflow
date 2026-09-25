@@ -40,11 +40,13 @@ func TestMain(m *testing.M) {
 
 func TestTheTestsLeaveTheRepositoryAHookNamesAlone(t *testing.T) {
 	// Arrange
-	// A repository made, committed to and branched, and a push to origin: the
-	// test's own repository has none, but the one a hook names does.
+	// A repository made, committed to and branched, a push to origin, and a
+	// finish that pulls and deletes a branch: each would land in the
+	// repository a hook names, were git's environment inherited.
 	fixtures := []string{
 		"TestTheGitSeamsReportAPushGitRefuses",
 		"TestTheGitSeamsCommitWhatIsStagedAndLeaveNoMessageBehind",
+		"TestTheGitSeamsFinishAMergedBranch",
 	}
 
 	isolateGit(t)

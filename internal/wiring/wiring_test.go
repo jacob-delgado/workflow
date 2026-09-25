@@ -36,11 +36,14 @@ const githubKind = "github"
 const featureBranch = "feat/PROJ-1-x"
 
 // isolateGit keeps a developer's own git configuration — global hooks, a
-// signing key, a default branch — out of a test.
+// signing key, a default branch — and language out of a test.
 func isolateGit(t *testing.T) {
 	t.Helper()
 	t.Setenv("GIT_CONFIG_GLOBAL", os.DevNull)
 	t.Setenv("GIT_CONFIG_NOSYSTEM", "1")
+	// git translates its messages, and a test that reads git's reason must
+	// read it in one language.
+	t.Setenv("LC_ALL", "C")
 }
 
 // git runs git in dir, failing the test if it fails.
@@ -248,6 +251,61 @@ func TestTheGitSeamsReportAPushGitRefuses(t *testing.T) {
 	// With no origin a push fails, through git, with git's reason.
 	if err == nil || !strings.Contains(strings.Join(lines, "\n"), "origin") {
 		t.Errorf("Push ended %v saying %q, want git's refusal naming origin", err, lines)
+	}
+}
+
+func TestTheGitSeamsFinishAMergedBranch(t *testing.T) {
+	// Arrange
+	seams, root, _ := gitSeams(t)
+
+	origin := filepath.Join(t.TempDir(), "origin.git")
+	git(t, root, "clone", "--quiet", "--bare", root, origin)
+	git(t, root, "remote", "add", "origin", origin)
+	git(t, root, "fetch", "--quiet", "origin")
+	git(t, root, "branch", "--quiet", "--set-upstream-to=origin/main", "main")
+
+	err := seams.CreateBranch(featureBranch, "main")
+	if err != nil {
+		t.Fatalf("CreateBranch: %v", err)
+	}
+
+	// Act
+	err = seams.Finish(featureBranch, "main")
+	// Assert
+	if err != nil {
+		t.Fatalf("Finish: %v", err)
+	}
+
+	if current := git(t, root, "branch", "--show-current"); current != "main" {
+		t.Errorf("on %q after the finish, want main", current)
+	}
+
+	if left := git(t, root, "branch", "--list", featureBranch); left != "" {
+		t.Errorf("the finished branch is still there: %q", left)
+	}
+}
+
+func TestAFinishWhosePullGitRefusesKeepsTheBranchAndGitsReason(t *testing.T) {
+	// Arrange
+	seams, root, _ := gitSeams(t)
+
+	err := seams.CreateBranch(featureBranch, "main")
+	if err != nil {
+		t.Fatalf("CreateBranch: %v", err)
+	}
+
+	// Act
+	err = seams.Finish(featureBranch, "main")
+
+	// Assert
+	// main tracks nothing, so git refuses the pull. Only a run streamed
+	// through proc.Start answers to ErrExitStatus; its output is the reason.
+	if !errors.Is(err, proc.ErrExitStatus) || !strings.Contains(err.Error(), "no tracking information") {
+		t.Errorf("Finish = %v, want the pull's failure status and git's reason", err)
+	}
+
+	if kept := git(t, root, "branch", "--list", featureBranch); kept == "" {
+		t.Error("the branch was deleted although its base did not catch up")
 	}
 }
 
