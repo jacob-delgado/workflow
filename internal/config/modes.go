@@ -18,9 +18,9 @@ const (
 	AuthBasic
 )
 
-// String names the authentication mode for humans.
 var _ fmt.Stringer = AuthMode(0)
 
+// String names the authentication mode for humans.
 func (a AuthMode) String() string {
 	switch a {
 	case AuthNone:
@@ -104,9 +104,9 @@ const (
 	MessagingWebhook
 )
 
-// String names the transport for humans.
 var _ fmt.Stringer = MessagingMode(0)
 
+// String names the transport for humans.
 func (m MessagingMode) String() string {
 	switch m {
 	case MessagingNone:

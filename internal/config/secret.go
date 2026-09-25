@@ -22,9 +22,9 @@ const secretMask = "****"
 // which is easy to find in review and impossible to do by accident.
 type Secret string
 
-// String masks the secret.
 var _ fmt.Stringer = Secret("")
 
+// String masks the secret.
 func (s Secret) String() string {
 	if s == "" {
 		return ""
