@@ -77,17 +77,26 @@ type pullFound struct {
 }
 
 // apply records the pull request, unless the branch has changed since, and
-// checks its CI and who opened it.
+// checks its CI and who opened it. A find that fails keeps the pull request
+// already found, beside the failure.
 func (msg pullFound) apply(m Model) (Model, tea.Cmd) {
 	if msg.branch != m.branch.branch.Name {
 		return m, nil
+	}
+
+	if m.review.found && msg.err != nil {
+		// A failed find says nothing about the pull request already found: keep
+		// it and its poll, and read CI again for a head that may have moved.
+		m.review.err = msg.err
+
+		return m, m.checkCI()
 	}
 
 	if m.review.found && msg.found && msg.pull.Number == m.review.pull.Number {
 		// The same pull request, found again: keep its CI and any poll already
 		// running, so a refresh does not blank the display or start a second
 		// polling chain beside the one already going.
-		m.review.pull, m.review.err = msg.pull, msg.err
+		m.review.pull, m.review.err = msg.pull, nil
 	} else {
 		m = m.beginReview(reviewState{pull: msg.pull, found: msg.found, loaded: true, err: msg.err})
 	}

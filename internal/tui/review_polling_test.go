@@ -5,10 +5,12 @@ package tui_test
 
 // CI polling backs off once a check fails: a failed check would only fail again
 // at the same rate, so the interface stops asking until the next refresh rather
-// than hammering the forge for as long as it runs.
+// than hammering the forge for as long as it runs. A failed find for the pull
+// request is not a failed check, and the poll carries on through it.
 
 import (
 	"errors"
+	"fmt"
 	"testing"
 
 	"github.com/jacob-delgado/workflow/internal/forge"
@@ -105,4 +107,77 @@ func TestRefreshingTheSamePullRequestKeepsItsPollingChain(t *testing.T) {
 	if chains := timer.waiting(); chains != 1 {
 		t.Errorf("%d polls are scheduled after it, want one: the refresh must neither end the chain nor add one", chains)
 	}
+}
+
+func TestAFailedFindKeepsAQueuedPostWaitingForCI(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	// A post waits on CI that is running when the interface starts and when w is
+	// pressed, and has passed by the poll held for it. Before that poll falls due,
+	// a reload of the branch finds no pull request, failing as the forge does when
+	// it cannot be reached.
+	repo := newWorld()
+	repo.ci = []forge.CI{{State: forge.CIRunning}, {State: forge.CIRunning}, {State: forge.CIPassed, Total: 1, Done: 1}}
+	timer := &heldTimer{}
+	waiting := typing(t, timed(t, repo, timer.after), "5", "p", "w")
+
+	repo.pullFound, repo.pullErr = false, fmt.Errorf("finding the pull request: %w", forge.ErrUnreachable)
+	reloaded := typing(t, waiting, "2", "r")
+
+	// Act
+	timer.release(t, reloaded)
+
+	// Assert
+	if posts := repo.asked("post "); len(posts) != 1 {
+		t.Errorf("posted %d times once CI passed, want once: a failed find must not end the poll the post waits on",
+			len(posts))
+	}
+}
+
+func TestAFailedFindReadsCIAgainForTheNewHead(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	// CI passed on the head the pull request was found at, so it can be merged. A
+	// commit then moves the head, and the reload that follows cannot find the pull
+	// request.
+	repo := mergeable()
+	repo.ci = []forge.CI{{State: forge.CIPassed, Total: 1, Done: 1}, {State: forge.CIRunning, Total: 1}}
+	model := repo.live(t, 120, 40)
+	repo.branch.Head = "def456"
+	repo.pullFound, repo.pullErr = false, fmt.Errorf("finding the pull request: %w", forge.ErrUnreachable)
+
+	// Act
+	view := typing(t, model, "2", "r", "4").View().Content
+
+	// Assert
+	if checks := repo.asked("ci def456"); len(checks) != 1 {
+		t.Errorf("CI on the new head was checked %d times, want once: %q", len(checks), repo.asked("ci "))
+	}
+
+	refuseScreen(t, footerLine(view), "M merge")
+}
+
+func TestAFindThatSucceedsClearsTheFailedFindBeforeIt(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	repo := newWorld()
+	model := repo.live(t, 120, 40)
+	repo.pullFound, repo.pullErr = false, fmt.Errorf("finding the pull request: %w", forge.ErrUnreachable)
+
+	// Act: a reload's find fails
+	failed := typing(t, model, "2", "r")
+
+	// Assert: the failure shows
+	requireScreen(t, failed.View().Content, "could not reach the forge")
+
+	// Act: the forge answers again, and the next reload's find succeeds
+	repo.pullFound, repo.pullErr = true, nil
+	recovered := typing(t, failed, "2", "r")
+
+	// Assert: the failure is gone, and the pull request shows in its place
+	refuseScreen(t, recovered.View().Content, "could not reach the forge")
+	requireScreen(t, recovered.View().Content, "#42 "+pullTitle)
 }
