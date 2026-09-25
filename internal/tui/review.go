@@ -4,6 +4,7 @@
 package tui
 
 import (
+	"errors"
 	"strconv"
 	"strings"
 	"time"
@@ -360,11 +361,13 @@ func mergeableLabel(mergeable forge.Mergeability) string {
 
 // canOpenPullRequest reports a branch with commits and no open pull request —
 // none found, or only a merged one, whose branch may carry commits worth a new
-// one, as loop's refuseAnOpenPull allows. A forge failure offers nothing: n
-// would open a composer whose push cannot land.
+// one — as loop's refuseAnOpenPull allows. A failed find offers it all the
+// same, leaving the open to answer with the forge's reason, except for a
+// missing forge token, which no open gets past.
 func (m Model) canOpenPullRequest() bool {
 	return m.branch.onFeatureBranch() && len(m.branch.branch.Commits) > 0 && m.review.loaded &&
-		m.review.err == nil && !m.hasOpenPullRequest() && m.deps.Forge.CreatePullRequest != nil
+		!errors.Is(m.review.err, forge.ErrNoToken) && !m.hasOpenPullRequest() &&
+		m.deps.Forge.CreatePullRequest != nil
 }
 
 // hasOpenPullRequest reports a pull request found open on the branch. A find

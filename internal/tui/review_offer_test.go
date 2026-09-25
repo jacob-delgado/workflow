@@ -4,7 +4,18 @@
 package tui_test
 
 import (
+	"fmt"
 	"testing"
+
+	"github.com/jacob-delgado/workflow/internal/forge"
+	"github.com/jacob-delgado/workflow/internal/httpx"
+)
+
+// The Review pane's sentence for n: after a merged pull request, and where
+// none was found.
+const (
+	nOpensANewOne = "n opens a new pull request"
+	nOpensOne     = "n opens one"
 )
 
 // mergedWithACommitSince is a merged branch that has since gained a commit not
@@ -16,9 +27,21 @@ func mergedWithACommitSince() *world {
 	return w
 }
 
+// failedFind is the world before a pull request is opened, with the find
+// failing for cause, as a forge does that cannot answer it.
+func failedFind(cause error) func() *world {
+	return func() *world {
+		w := withoutPull()
+		w.pullErr = fmt.Errorf("finding the pull request: %w", cause)
+
+		return w
+	}
+}
+
 // TestNIsOfferedWhileNoPullRequestIsOpen holds the Review pane to the rule
 // workflow pr and the web compose by: a new pull request is refused only while
-// one is open.
+// one is open, and a find that fails for any reason but a missing token lets
+// the open itself answer.
 func TestNIsOfferedWhileNoPullRequestIsOpen(t *testing.T) {
 	t.Parallel()
 
@@ -26,8 +49,11 @@ func TestNIsOfferedWhileNoPullRequestIsOpen(t *testing.T) {
 		world  func() *world
 		detail string
 	}{
-		"merged, nothing since":  {world: mergedBranch, detail: "n opens a new pull request"},
-		"merged, a commit since": {world: mergedWithACommitSince, detail: "n opens a new pull request"},
+		"merged, nothing since":      {world: mergedBranch, detail: nOpensANewOne},
+		"merged, a commit since":     {world: mergedWithACommitSince, detail: nOpensANewOne},
+		"the forge did not answer":   {world: failedFind(forge.ErrUnreachable), detail: nOpensOne},
+		"the forge refused the find": {world: failedFind(forge.ErrRefused), detail: nOpensOne},
+		"the forge asked to wait":    {world: failedFind(httpx.ErrRateLimited), detail: nOpensOne},
 	}
 
 	for name, tt := range cases {
@@ -55,4 +81,22 @@ func TestNIsOfferedWhileNoPullRequestIsOpen(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestAFailedFindOffersNoNewPullRequestBesideAnOpenOne(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	// The pull request found open is kept through a later find that fails, and
+	// it is still the open one n would duplicate.
+	open := newWorld()
+	model := open.live(t, 120, 40)
+	open.pullFound, open.pullErr = false, fmt.Errorf("finding the pull request: %w", forge.ErrUnreachable)
+
+	// Act
+	view := typing(t, model, "4", "r").View().Content
+
+	// Assert
+	requireScreen(t, view, "#42 "+pullTitle, "could not reach the forge")
+	refuseScreen(t, footerLine(view), "open pull request")
 }
