@@ -3,6 +3,14 @@
 
 package config
 
+import (
+	"errors"
+	"fmt"
+)
+
+// ErrInvalidUI reports a ui setting the terminal interface could not honor.
+var ErrInvalidUI = errors.New("invalid ui setting")
+
 // UI is how the terminal interface behaves.
 type UI struct {
 	// Mouse captures the mouse, so a click focuses a pane or selects a row.
@@ -53,4 +61,14 @@ type UI struct {
 // stay.
 func (u UI) DrawColor(noColorEnv string) bool {
 	return noColorEnv == "" && u.Color != "never"
+}
+
+// validateUI refuses a negative comments_shown: the detail pane keeps that many
+// of an issue's most recent comments, and no count below zero names any.
+func (c Config) validateUI() error {
+	if c.UI.CommentsShown < 0 {
+		return fmt.Errorf("%w: comments_shown cannot be negative: %d", ErrInvalidUI, c.UI.CommentsShown)
+	}
+
+	return nil
 }

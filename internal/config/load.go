@@ -181,7 +181,7 @@ func Parse(r io.Reader) (Config, error) {
 
 	err = errors.Join(cfg.validateVersion(), cfg.validateTiming(),
 		cfg.validateBranch(), cfg.validateViews(), cfg.validateCommit(), cfg.validatePullRequest(),
-		cfg.validateMessaging())
+		cfg.validateMessaging(), cfg.validateUI())
 	if err != nil {
 		return Default(), fmt.Errorf("%w: %w", ErrInvalid, err)
 	}

@@ -41,6 +41,9 @@ func TestUISettingsKeepTheirDefaultsUnlessAValidFileSetsThem(t *testing.T) {
 		// it opens with the mouse working to say what is wrong.
 		"a setting of the wrong type": {contents: `{"ui": {"mouse": "yes"}}`, want: defaults, wantErr: config.ErrInvalid},
 		"a misspelled setting":        {contents: `{"ui": {"mice": false}}`, want: defaults, wantErr: config.ErrInvalid},
+		// The detail pane keeps the last comments_shown comments, so a negative
+		// count would reach past the end of the list.
+		"a negative comments_shown": {contents: `{"ui": {"comments_shown": -1}}`, want: defaults, wantErr: config.ErrInvalid},
 	}
 
 	for name, tt := range cases {
