@@ -34,7 +34,7 @@ func forgeDeps(
 	})
 
 	return forgeDepsFrom(ctx, connect, func() []forge.Template { return templatesFor(settings, where) },
-		forgeKind(settings, where.Remote))
+		ForgeKind(settings, where.Remote))
 }
 
 // mergeSeams builds the two merge seams over a connect, kept out of
@@ -167,10 +167,11 @@ func resolveRepo(settings config.Forge, remote string) (forge.Repo, error) {
 	return repo.WithConfiguredKind(ForgeSettings(settings))
 }
 
-// forgeKind is which forge the remote points at, read without a network call so
+// ForgeKind is which forge the remote points at, read without a network call so
 // the interface can name a change correctly from the start. An unparsable remote
-// is simply unknown.
-func forgeKind(settings config.Forge, remote string) forge.Kind {
+// is simply unknown. doctor names the tracker's forge through it too, so the two
+// cannot come to read the remote differently.
+func ForgeKind(settings config.Forge, remote string) forge.Kind {
 	repo, err := resolveRepo(settings, remote)
 	if err != nil {
 		return forge.KindUnknown

@@ -64,7 +64,7 @@ func TestReviewsWithoutAForgeReportsSo(t *testing.T) {
 func TestReviewsOnAHostThatNamesNoForgeReportsSo(t *testing.T) {
 	// Arrange
 	// The hostname says neither GitHub nor GitLab, and no forge.kind says which.
-	repo := repoWithRemote(t, "git@git.example.com:acme/thing.git")
+	repo := repoWithRemote(t, onPremisesRemote)
 
 	// Act
 	_, err := run(t, repo, "reviews")

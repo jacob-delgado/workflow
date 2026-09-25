@@ -400,7 +400,7 @@ func TestDoctorNamesTheForgeAndItsAPI(t *testing.T) {
 		// Neither forge announces itself in an on-premises hostname, and their
 		// API paths differ, so guessing would send a token to the wrong service.
 		"an on-premises host": {
-			remote: "git@git.example.com:acme/thing.git",
+			remote: onPremisesRemote,
 			want:   "acme/thing on git.example.com (cannot tell GitHub Enterprise from self-managed GitLab)",
 		},
 		// The remote can carry userinfo; the forge is still named, without it.

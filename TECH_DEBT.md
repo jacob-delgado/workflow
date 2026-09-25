@@ -993,9 +993,9 @@ by neither. The values that connection needs travel positionally through
 `forgeDeps` (`internal/wiring/forge.go:29`; ctx, settings, where, timeout,
 log), `forgeIssuesDeps` (`internal/wiring/forgeissues.go:53`; the same
 five), `trackerDeps` (`internal/wiring/forgeissues.go:39`; ctx, cfg, where,
-timeout, log), `connectForge` (`internal/wiring/forge.go:229`; ctx,
+timeout, log), `connectForge` (`internal/wiring/forge.go:230`; ctx,
 settings, remote, timeout, log), `ReachForge`
-(`internal/wiring/forge.go:271`; ctx, settings, repo, base, timeout) and
+(`internal/wiring/forge.go:272`; ctx, settings, repo, base, timeout) and
 `forgeTransport` (`internal/wiring/forgecli.go:25`; six), past the "5+
 positional params" line in CLAUDE.md's catalog. The user-visible cost is
 one extra child process in the terminal; the larger cost is the next

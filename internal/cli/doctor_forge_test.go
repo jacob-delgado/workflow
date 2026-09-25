@@ -18,6 +18,10 @@ import (
 // resolves to github.com without a token in the URL.
 const githubSSHRemote = "git@github.com:owner/repo.git"
 
+// onPremisesRemote is an origin on a host whose name says neither GitHub nor
+// GitLab, so only forge.kind can say which forge it is.
+const onPremisesRemote = "git@git.example.com:acme/thing.git"
+
 // ghSignedOut puts git and a gh on PATH where gh exits non-zero for every
 // invocation, standing in for a gh that is installed but signed out of every
 // host: `gh auth token` then yields no credential, though gh itself is found.
@@ -266,5 +270,131 @@ func TestLogReachesDoctorOnlinesForgeCheckThroughItsCLI(t *testing.T) {
 
 	if logged := readLog(t, logPath); !strings.Contains(logged, "forge GET  /user") {
 		t.Errorf("the request log does not outline doctor's check of the forge:\n%s", logged)
+	}
+}
+
+// workTree is a directory for doctor to run in: a repository whose origin is
+// remote, or a plain directory outside any repository when remote is empty.
+func workTree(t *testing.T, remote string) string {
+	t.Helper()
+
+	if remote == "" {
+		return t.TempDir()
+	}
+
+	return repoWithRemote(t, remote)
+}
+
+// jiraTracker is a configuration with Jira as the tracker at baseURL, and a
+// webhook doctor never posts to.
+func jiraTracker(baseURL string) string {
+	return `{"jira": {"base_url": "` + baseURL + `", "token": "t"}, ` + slackWebhook + `}`
+}
+
+func TestDoctorNamesTheTrackerInEffect(t *testing.T) {
+	cases := map[string]struct {
+		remote string
+		config string
+		want   string
+	}{
+		"no jira.base_url and a GitHub remote names GitHub's issues": {
+			remote: githubSSHRemote,
+			config: `{` + slackWebhook + `}`,
+			want:   "GitHub issues (no jira.base_url)",
+		},
+		"forge.kind names an on-premises forge's issues": {
+			remote: onPremisesRemote,
+			config: `{` + slackWebhook + `, "forge": {"kind": "gitlab", "host": "git.example.com"}}`,
+			want:   "GitLab issues (no jira.base_url)",
+		},
+		"an on-premises host without forge.kind leaves the forge unnamed": {
+			remote: onPremisesRemote,
+			config: `{` + slackWebhook + `}`,
+			want:   "the forge's issues (no jira.base_url)",
+		},
+		"no remote leaves the forge unnamed": {
+			remote: "",
+			config: `{` + slackWebhook + `}`,
+			want:   "the forge's issues (no jira.base_url)",
+		},
+		"a jira.base_url makes Jira the tracker": {
+			remote: githubSSHRemote,
+			config: jiraTracker("https://jira.example.com"),
+			want:   "Jira at https://jira.example.com",
+		},
+	}
+
+	for name, tt := range cases {
+		t.Run(name, func(t *testing.T) {
+			// Arrange
+			dir := workTree(t, tt.remote)
+			writeFile(t, dir, tt.config)
+
+			// Act
+			output, err := run(t, dir, "doctor")
+
+			// Assert
+			wantExit(t, err, 0)
+
+			if got := fieldValue(output, "Tracker"); got != tt.want {
+				t.Errorf("Tracker = %q, want %q:\n%s", got, tt.want, output)
+			}
+		})
+	}
+}
+
+// A base URL can carry a password, and this output is what the bug report
+// template invites people to paste. The exit is left unasserted: it answers to
+// how the configuration reads a password there, not to the masking.
+func TestDoctorMasksAJiraBaseURLsPassword(t *testing.T) {
+	// Arrange
+	dir := workTree(t, githubSSHRemote)
+	writeFile(t, dir, jiraTracker("https://fred:hunter2@jira.example.com"))
+
+	// Act
+	output, _ := run(t, dir, "doctor")
+
+	// Assert
+	if got := fieldValue(output, "Tracker"); got != "Jira at https://xxxxx@jira.example.com" {
+		t.Errorf("Tracker = %q, want the password masked:\n%s", got, output)
+	}
+
+	if strings.Contains(output, "hunter2") {
+		t.Errorf("doctor printed jira.base_url's password:\n%s", output)
+	}
+}
+
+func TestDoctorJSONNamesTheTrackerInEffect(t *testing.T) {
+	cases := map[string]struct {
+		config string
+		want   string
+	}{
+		"a jira.base_url makes Jira the tracker": {
+			config: jiraTracker("https://jira.example.com"),
+			want:   "jira",
+		},
+		"no jira.base_url leaves the forge's issues": {
+			config: `{` + slackWebhook + `}`,
+			want:   "forge",
+		},
+	}
+
+	for name, tt := range cases {
+		t.Run(name, func(t *testing.T) {
+			// Arrange
+			dir := repoWithRemote(t, githubSSHRemote)
+			writeFile(t, dir, tt.config)
+
+			// Act
+			output, err := run(t, dir, "doctor", "--json")
+
+			// Assert
+			wantExit(t, err, 0)
+
+			configuration, _ := decodeReport(t, output)["configuration"].(map[string]any)
+			if got := configuration["tracker"]; got != tt.want {
+				t.Errorf("configuration.tracker = %v, want %q:\n%s", got, tt.want, output)
+			}
+		})
 	}
 }
