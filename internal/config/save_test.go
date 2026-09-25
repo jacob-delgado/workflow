@@ -84,6 +84,38 @@ func TestSaveOverWritesAFileThatIsStillMissing(t *testing.T) {
 	}
 }
 
+func TestSaveOverLeavesAnExistingFileOwnerOnly(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	// The file is shared with a chmod, not by the mode it is created with, which
+	// the process's umask can narrow to the owner alone.
+	path := write(t, t.TempDir(), readContents)
+
+	err := os.Chmod(path, sharedMode)
+	if err != nil {
+		t.Fatalf("sharing the existing file: %v", err)
+	}
+
+	read := revisionOf(t, path)
+
+	// Act
+	_, err = config.SaveOver(path, config.Default(), read)
+	// Assert
+	if err != nil {
+		t.Fatalf("SaveOver: %v", err)
+	}
+
+	info, err := os.Stat(path)
+	if err != nil {
+		t.Fatalf("Stat: %v", err)
+	}
+
+	if info.Mode().Perm() != config.FileMode {
+		t.Errorf("mode = %#o, want %#o", info.Mode().Perm(), config.FileMode)
+	}
+}
+
 func TestSaveOverRefusesAFileThatChangedSinceItsRevision(t *testing.T) {
 	t.Parallel()
 

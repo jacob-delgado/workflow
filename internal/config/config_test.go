@@ -237,7 +237,7 @@ func TestSavedTemplateLoadsBack(t *testing.T) {
 // sharedMode is a file its owner's group and everyone else can read.
 const sharedMode os.FileMode = 0o644
 
-func TestSaveOverAnExistingFileLeavesItOwnerOnly(t *testing.T) {
+func TestSaveReplacesASharedFileWithAnOwnerOnlyOne(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
