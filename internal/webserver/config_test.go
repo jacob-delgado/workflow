@@ -183,3 +183,37 @@ func TestUpdateConfigKeepsAMaskedSecret(t *testing.T) {
 		t.Errorf("saved jira.token = %q, want the stored secret kept, not the mask", saved.Jira.Token.Reveal())
 	}
 }
+
+func TestUpdateConfigRefusesAUIValueOutsideTheContract(t *testing.T) {
+	t.Parallel()
+
+	cases := map[string]config.UI{
+		"a negative comments_shown": {Mouse: true, CommentsShown: -1},
+		"a misspelled color":        {Mouse: true, Color: "nevr"},
+	}
+
+	for name, outOfContract := range cases {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			// Arrange
+			cfg := config.Default()
+			cfg.Path = filepath.Join(t.TempDir(), ".workflow.json")
+
+			bad := config.Default()
+			bad.UI = outOfContract
+
+			// Act
+			recorder := putConfig(t, serve(t, webserver.Deps{}, cfg), marshal(t, bad))
+
+			// Assert
+			if recorder.Code != http.StatusBadRequest {
+				t.Fatalf("status = %d, want 400: %s", recorder.Code, recorder.Body.String())
+			}
+
+			if failure := decode[api.Problem](t, recorder); failure.Code != api.BadRequest {
+				t.Errorf("code = %q, want bad_request", failure.Code)
+			}
+		})
+	}
+}

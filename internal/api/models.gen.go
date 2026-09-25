@@ -205,6 +205,24 @@ func (e StatusCategory) Valid() bool {
 	}
 }
 
+// Defines values for UIConfigColor.
+const (
+	UIConfigColorEmpty UIConfigColor = ""
+	UIConfigColorNever UIConfigColor = "never"
+)
+
+// Valid indicates whether the value is a known member of the UIConfigColor enum.
+func (e UIConfigColor) Valid() bool {
+	switch e {
+	case UIConfigColorEmpty:
+		return true
+	case UIConfigColorNever:
+		return true
+	default:
+		return false
+	}
+}
+
 // AnnounceRequest Where to post the announcement.
 type AnnounceRequest struct {
 	// Channel The channel to post to; empty uses the configured channel or the webhook.
@@ -771,7 +789,7 @@ type UIConfig struct {
 	ASCII *bool `json:"ascii,omitempty"`
 
 	// Color Empty for auto, or "never".
-	Color *string `json:"color,omitempty"`
+	Color *UIConfigColor `json:"color,omitempty"`
 
 	// CommentsShown How many comments the detail shows; 0 means the built-in default.
 	CommentsShown *int `json:"comments_shown,omitempty"`
@@ -781,6 +799,9 @@ type UIConfig struct {
 	Mouse  *bool              `json:"mouse,omitempty"`
 	Notify *bool              `json:"notify,omitempty"`
 }
+
+// UIConfigColor Empty for auto, or "never".
+type UIConfigColor string
 
 // ViewList defines model for ViewList.
 type ViewList struct {

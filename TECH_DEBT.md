@@ -2419,47 +2419,6 @@ times then `pgup` once, and the first help line shown differs from before
 the `pgup`; a test opens the help at 120x40 and sees "Everywhere" and no
 "more below", or asserts the two columns differ by at most a few lines.
 
-### DEBT-122 The `ui` section has no validator: a negative `comments_shown` panics
-
-Severity: medium · Confidence: read
-
-`Parse` joins seven validators and none touches `UI`, so
-`"comments_shown": -5` passes `Load`, `Parse` and the web's `PUT` (the
-schema sets no minimum), and the terminal's detail pane then slices past
-the end: `Model.comments` takes
-`Comments[max(0, len-cmp.Or(n, default)):]`, and `cmp.Or(-5, 5)` is -5, so
-the low index is `len+5`, which panics for every issue with a comment, with
-no recover in the interface. The same missing `validateUI` lets a
-misspelled `ui.color` such as `"nevr"` load and draw color, since
-`UI.DrawColor` compares against the literal "never" only — where an
-unknown `title_source` is refused, and against the configuration page's
-own rule that a misspelled key must not look like a value you never set.
-The terminal is the only reader of both values.
-
-- `internal/config/ui.go:26` — `UI.CommentsShown`, an int no
-  validator checks.
-- `internal/tui/detail.go:455` — `Model.comments` slices from
-  `max(0, len - cmp.Or(n, default))`; a negative `n` makes the low index
-  exceed the length.
-- `internal/config/load.go:182` — `Parse` joins seven validators; no
-  `validateUI`.
-- `internal/config/branch.go:55` — `Config.validateBranch`, the
-  negative-number refusal to copy (`SlugLimit < 0`).
-- `internal/config/ui.go:19` — `UI.Color`, a free string no validator
-  checks.
-- `internal/config/ui.go:55` — `UI.DrawColor` compares against
-  "never" only, so any other value draws color.
-- `internal/config/pullrequest.go:27` — `Config.validatePullRequest`, the
-  enum refusal shape to copy.
-
-**One way to fix it.** A `validateUI` beside the other negative-number and
-enum checks: refuse a negative `comments_shown` and any `ui.color` but `""`
-and `"never"` (and whatever UX-64 adds), each wrapped in `ErrInvalid`.
-
-**Done when.** `Load` of `{"ui": {"comments_shown": -1}}` and of
-`{"ui": {"color": "nevr"}}` each return `ErrInvalid`, as rows in
-`internal/config/ui_test.go`'s table.
-
 ### DEBT-123 Resolving hook failures walks the whole work tree per place, in `Update`
 
 Severity: medium · Confidence: read
@@ -3037,7 +2996,7 @@ from the description is what it hurts.
   relies on it ("A file that has been deleted leaves the configuration in
   effect as it was").
 - `api/openapi.yaml:328` — `getReview`'s 200 says "pull and ci are null
-  when none is found"; `Review` in `internal/api/models.gen.go:674` marks
+  when none is found"; `Review` in `internal/api/models.gen.go:692` marks
   both `omitempty` and `server.review`
   (`internal/webserver/handlers.go:170`) leaves them nil, so they are
   absent, as the not-found frame in `web/src/test/snapshot-frames.sse:7`

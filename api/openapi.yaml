@@ -1463,9 +1463,11 @@ components:
         color:
           type: string
           description: Empty for auto, or "never".
+          enum: ["", never]
         notify: {type: boolean}
         comments_shown:
           type: integer
+          minimum: 0
           description: How many comments the detail shows; 0 means the built-in default.
         keys:
           type: object

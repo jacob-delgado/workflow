@@ -465,7 +465,9 @@ terminal that does support color; and the 150 ms detail delay
 (`internal/tui/detail.go:22`) is fixed.
 
 **Instead.** `ui.alt_screen: false` for inline rendering; `ui.color:
-always`; `ui.detail_delay` in milliseconds.
+always`, which `validateUI` (`internal/config/ui.go:78`) and the
+`UIConfig.color` enum (`api/openapi.yaml:1466`) refuse until they list it;
+`ui.detail_delay` in milliseconds.
 
 **Done when.** Each setting is read and honored by a screen test.
 
