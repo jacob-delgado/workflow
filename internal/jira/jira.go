@@ -133,7 +133,7 @@ func (c Client) newRequest(ctx context.Context, method, pathAndQuery string, bod
 	// wants — and so an intentional override, such as a different Authorization,
 	// is the one that survives.
 	for name, value := range c.settings.Headers {
-		request.Header.Set(name, value)
+		request.Header.Set(name, value.Reveal())
 	}
 
 	return request, nil
