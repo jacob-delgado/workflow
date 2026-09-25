@@ -118,7 +118,7 @@ resolves; `askForge` (`internal/cli/doctor.go:250`) calls `forge.New(doer,
 base, token).Whoami` over the doer that `onlineDoers`
 (`internal/cli/doctor.go:165`) builds from `httpx` alone; and `doctor --json
 --online` shares the same `checkForge` through `credentialFacts`
-(`internal/cli/doctor_json.go:201`), so the JSON verdict is wrong too. The
+(`internal/cli/doctor_json.go:165`), so the JSON verdict is wrong too. The
 commands' own path, `connectForge` (`internal/wiring/forge.go:244`),
 tolerates a missing token when the CLI is in use (`if err != nil &&
 !usingCLI`); `doctor` has no such branch.
@@ -158,11 +158,10 @@ and two documents disagree about whether Jira is required:
 - `internal/config/config.go:380` — `Config.Missing` has no
   `Jira.Configured()` branch; `jira.base_url` and `jira.token` are listed
   whenever they are empty.
-- `internal/cli/doctor_requirements.go:43` — `reportRequirements` turns any
-  missing field into `errIncomplete`, which `configurationErrors`
+- `internal/cli/doctor_requirements.go:55` — `configReview.err`, the verdict
+  both of doctor's reports give, turns any missing field into
+  `errIncomplete`, which `configurationErrors`
   (`internal/cli/scriptable.go:325`) maps to exit 3.
-- `internal/cli/doctor_json.go:177` — `configurationFacts` raises the same
-  `errIncomplete` in the JSON report.
 - `internal/tui/render.go:450` — the configuration screen's `status` reads
   `m.cfg.Missing()` and repeats the list as incomplete.
 - `docs/content/docs/configuration.md:60` — the fields table marks
@@ -190,71 +189,13 @@ README's line 39 state the same rule; and `grep -n forge
 docs/content/docs/usage.md` prints a line number that falls between the
 "Pick up an issue" heading and the next heading.
 
-### DEBT-77 `doctor --json` exits 0 on a configuration the prose report fails
-
-Severity: high · Confidence: read
-
-`doctor` gathers its facts twice, once per report, and the configuration
-pair has diverged. `runDoctorJSON`'s comment
-(`internal/cli/doctor_json.go:77`) promises "the same aggregate error the
-prose report would", and `docs/content/docs/scripting.md:155` says "It exits
-as the prose report does"; neither holds for a set-but-invalid value:
-
-- `internal/cli/doctor_requirements.go:23` — `reportRequirements` appends
-  `cfg.Problems()` and `forgeKindProblem(cfg.Forge)` to the problems it
-  counts as `errInvalid`.
-- `internal/cli/doctor_requirements.go:25` — `reportRequirements` also
-  counts `tui.CheckKeys(cfg.UI.Keys)` as a problem.
-- `internal/cli/doctor_json.go:156` — `configurationFacts` reads only
-  `cfg.Missing()` and `config.SharedMode`; it never asks `cfg.Problems()`,
-  `forgeKindProblem` or `tui.CheckKeys`.
-- `internal/cli/doctor_json.go:176` — `configurationFacts` joins only
-  `errShared` and `errIncomplete`, so `errInvalid` is never produced and
-  exit 3 never reached for an invalid value.
-- `docs/content/docs/scripting.md:151` — the `configuration` field list has
-  no `problems` entry a script could inspect instead.
-- `internal/cli/doctor_test.go:422` — `TestDoctorReportsSetButInvalidValues`
-  drives the invalid-values fixture (`:427`) through the prose report only;
-  it has no `--json` twin.
-- `internal/cli/doctor_requirements.go:120` — `reportTooling` ranges
-  `externalTools()`, builds the missing list and the `errMissingTooling`
-  error.
-- `internal/cli/doctor_json.go:136` — `toolingFacts` ranges
-  `externalTools()` again and builds the same list and the same error; it
-  has simply not diverged yet.
-- `internal/cli/doctor_json.go:183` — `credentialFacts`'s comment gives the
-  reason the credential checks are shared ("what keeps the two reports from
-  ever masking differently"); the reasoning is not applied to configuration
-  or tooling.
-
-A file with an `ftp://` base URL, an `http` webhook, a `forge.kind` of
-`githb` or a conflicting `ui.keys` map exits 3 under `doctor` and 0 under
-`doctor --json`. A script keyed on the exit status, the documented way,
-reads an invalid configuration as healthy, and the JSON carries no
-`problems` field. Nothing on the load path closes the gap: `tui.CheckKeys`
-runs only in `openInterface` (`internal/cli/cli.go:234`) and in the prose
-report.
-
-**One way to fix it.** Gather `Missing`, `Problems`, the forge-kind problem
-and the key problems once into a facts value that both `reportRequirements`
-and `configurationFacts` render, adding a `problems` array to `configFacts`
-and documenting it at `docs/content/docs/scripting.md:151`; do the same for
-tooling, so `externalTools()` is ranged over in one function and
-`reportTooling` renders `toolingFacts()`'s result.
-
-**Done when.** A test runs `doctor --json` over the fixture
-`TestDoctorReportsSetButInvalidValues` writes
-(`internal/cli/doctor_test.go:427`) and gets exit 3 with
-`configuration.problems` naming `jira.base_url`, `messaging.webhook_url` and
-`forge.kind`; `externalTools()` is ranged over in one function.
-
 ### DEBT-79 `doctor --json` calls a missing credential "rejected" and an unchecked webhook "ok"
 
 Severity: medium · Confidence: read
 
-`credentialStatus` (`internal/cli/doctor_json.go:233`) has three arms — nil
+`credentialStatus` (`internal/cli/doctor_json.go:197`) has three arms — nil
 is `ok`, `errUnreachable` is `unreachable`, anything else is `rejected` —
-and its comment (`:231`) defines `ok` as a working credential. Two outcomes
+and its comment (`:195`) defines `ok` as a working credential. Two outcomes
 are misnamed in the machine field a script keys on:
 
 - `internal/cli/doctor.go:300` — `credentialOutcome` wraps every error that
@@ -576,7 +517,7 @@ The README and the docs index:
   credential actually works"; `checkMessaging`'s comment
   (`internal/cli/doctor.go:263`) says a webhook is uncheckable,
   `ErrWebhookUncheckable` returns nil (`:286`), `credentialStatus` reads
-  that as `ok` (`internal/cli/doctor_json.go:237`), and
+  that as `ok` (`internal/cli/doctor_json.go:201`), and
   `TestDoctorOnlineSaysAWebhookCannotBeChecked`
   (`internal/cli/online_test.go:169`) pins "cannot be checked".
 - The README's line 262 — "There are no releases yet." while nine tags

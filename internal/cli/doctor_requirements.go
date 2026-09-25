@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"os"
 	"strings"
 
 	"github.com/jacob-delgado/workflow/internal/config"
@@ -15,11 +16,20 @@ import (
 	"github.com/jacob-delgado/workflow/internal/tui"
 )
 
-// reportRequirements names the fields still to fill in and the ones filled in
-// wrong, or says everything is in order. A set-but-invalid value is a problem
-// doctor exists to catch, not an all-clear.
-func reportRequirements(out io.Writer, cfg config.Config) error {
-	missing := cfg.Missing()
+// configReview is everything doctor finds wrong with a configuration that
+// loaded: the fields still empty, the values filled in wrong, and whether other
+// users can reach the file. The prose and JSON reports each render one review,
+// so they reach one verdict.
+type configReview struct {
+	missing  []string
+	problems []string
+	mode     os.FileMode
+	shared   bool
+}
+
+// reviewConfiguration gathers everything doctor checks in a loaded
+// configuration, once for both reports.
+func reviewConfiguration(cfg config.Config) configReview {
 	problems := append(cfg.Problems(), forgeKindProblem(cfg.Forge)...)
 
 	keyErr := tui.CheckKeys(cfg.UI.Keys)
@@ -27,22 +37,41 @@ func reportRequirements(out io.Writer, cfg config.Config) error {
 		problems = append(problems, keyErr.Error())
 	}
 
-	if len(missing) == 0 && len(problems) == 0 {
-		fmt.Fprintf(out, "\nEverything required is set.\n")
+	mode, shared := config.SharedMode(cfg.Path)
 
-		return nil
+	return configReview{missing: cfg.Missing(), problems: problems, mode: mode, shared: shared}
+}
+
+// err is the review's verdict: nil for a configuration with nothing wrong,
+// otherwise every kind of fault it found, each counted.
+func (review configReview) err() error {
+	var sharedErr error
+	if review.shared {
+		sharedErr = fmt.Errorf("%w: mode %#o", errShared, review.mode)
 	}
 
-	reportList(out, "Missing", missing)
-	reportList(out, "Problems", problems)
-
-	fmt.Fprintf(out, "\nEdit %s, then run `workflow doctor` again.\n", cfg.Path)
-	fmt.Fprintf(out, "`workflow --help` explains how to create each token.\n")
-
 	return errors.Join(
-		countedError(errIncomplete, len(missing), "field(s) missing"),
-		countedError(errInvalid, len(problems), "invalid value(s)"),
+		sharedErr,
+		countedError(errIncomplete, len(review.missing), "field(s) missing"),
+		countedError(errInvalid, len(review.problems), "invalid value(s)"),
 	)
+}
+
+// reportRequirements names the fields still to fill in and the ones filled in
+// wrong, or says everything is in order. A set-but-invalid value is a problem
+// doctor exists to catch, not an all-clear.
+func reportRequirements(out io.Writer, path string, review configReview) {
+	if len(review.missing) == 0 && len(review.problems) == 0 {
+		fmt.Fprintf(out, "\nEverything required is set.\n")
+
+		return
+	}
+
+	reportList(out, "Missing", review.missing)
+	reportList(out, "Problems", review.problems)
+
+	fmt.Fprintf(out, "\nEdit %s, then run `workflow doctor` again.\n", path)
+	fmt.Fprintf(out, "`workflow --help` explains how to create each token.\n")
 }
 
 // forgeKindProblem reports a forge.kind that names no forge this build knows.

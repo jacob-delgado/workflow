@@ -448,13 +448,18 @@ func TestDoctorSaysWhenThereIsNoRemote(t *testing.T) {
 	}
 }
 
+// invalidValuesConfig misses nothing but fills four values in wrong: a base URL
+// that is not http(s), an insecure webhook, a forge kind that names no forge,
+// and a key override that collides. Each still loads, so only doctor's review
+// of the loaded file can catch them — in both of its reports.
+const invalidValuesConfig = `{"jira":{"base_url":"ftp://jira.example.com","token":"t"},` +
+	`"messaging":{"webhook_url":"http://hooks.example.com/x"},` +
+	`"forge":{"kind":"githb","host":"github.com"},"ui":{"keys":{"commit":"a"}}}`
+
 func TestDoctorReportsSetButInvalidValues(t *testing.T) {
 	// Arrange
-	// Nothing is missing, but three values are filled in wrong: a base URL that
-	// is not http(s), an insecure webhook, and a forge kind that names no forge.
 	dir := t.TempDir()
-	writeFile(t, dir, `{"jira":{"base_url":"ftp://jira.example.com","token":"t"},`+
-		`"messaging":{"webhook_url":"http://hooks.example.com/x"},"forge":{"kind":"githb","host":"github.com"}}`)
+	writeFile(t, dir, invalidValuesConfig)
 
 	// Act
 	out, err := run(t, dir, "doctor")
@@ -466,7 +471,7 @@ func TestDoctorReportsSetButInvalidValues(t *testing.T) {
 
 	wantExit(t, err, 3)
 
-	for _, want := range []string{"Problems", "jira.base_url", "messaging.webhook_url", "forge.kind"} {
+	for _, want := range []string{"Problems", "jira.base_url", "messaging.webhook_url", "forge.kind", "stage-all"} {
 		if !strings.Contains(out, want) {
 			t.Errorf("doctor did not flag %q:\n%s", want, out)
 		}

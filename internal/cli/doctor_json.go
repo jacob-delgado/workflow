@@ -6,7 +6,6 @@ package cli
 import (
 	"context"
 	"errors"
-	"fmt"
 	"io"
 	"os"
 	"strings"
@@ -57,6 +56,7 @@ type configFacts struct {
 	MessagingMode   string   `json:"messaging_mode"`
 	WorldReadable   bool     `json:"world_readable"`
 	Missing         []string `json:"missing"`
+	Problems        []string `json:"problems"`
 }
 
 // credentialsFacts is the outcome of the online checks, or that none were run.
@@ -123,33 +123,21 @@ func repositoryFactsFor(ctx context.Context) (repositoryFacts, string) {
 	}, repo.Remote
 }
 
-// configurationFacts gathers the configuration in effect and names any problem
-// with it — a world-readable file, or a required field still empty.
+// configurationFacts is the configuration in effect and the same review the
+// prose report prints, so the JSON reaches the prose report's verdict.
 func configurationFacts(cfg config.Config) (configFacts, error) {
-	mode, shared := config.SharedMode(cfg.Path)
-	missing := cfg.Missing()
+	review := reviewConfiguration(cfg)
 
-	facts := configFacts{
+	return configFacts{
 		Path:            cfg.Path,
 		JiraURL:         config.DisplayURL(cfg.Jira.BaseURL),
 		JiraAuthMode:    cfg.Jira.AuthMode().String(),
 		MessagingTarget: cfg.Messaging.Target(),
 		MessagingMode:   cfg.Messaging.Mode().String(),
-		WorldReadable:   shared,
-		Missing:         missing,
-	}
-
-	var problems []error
-
-	if shared {
-		problems = append(problems, fmt.Errorf("%w: mode %#o", errShared, mode))
-	}
-
-	if len(missing) > 0 {
-		problems = append(problems, fmt.Errorf("%w: %d field(s) missing", errIncomplete, len(missing)))
-	}
-
-	return facts, errors.Join(problems...)
+		WorldReadable:   review.shared,
+		Missing:         review.missing,
+		Problems:        review.problems,
+	}, review.err()
 }
 
 // credentialFacts runs the online checks through the same functions the prose
