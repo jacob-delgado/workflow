@@ -100,9 +100,14 @@ func (r Repository) Checkout(ctx context.Context, name string) error {
 	return nil
 }
 
-// FinishBranch finishes a merged branch: switch to base, fast-forward it, and
-// delete the branch. It is for after the branch's pull request has merged, so
-// the local repository catches up and the branch is cleaned away.
+// FinishBranch finishes a merged branch: switch to base, fast-forward it through
+// pull, and delete the branch. It is for after the branch's pull request has
+// merged, so the local repository catches up and the branch is cleaned away. A
+// step that fails stops the rest, so a base that did not catch up keeps the
+// branch.
+//
+// The pull is the caller's to run — PullCommand is the command — because it
+// reaches the network, and so streams without the Runner's quick-read bound.
 //
 // The delete is a force delete (-D) on purpose: a squash or rebase merge leaves
 // the branch's own commits unreachable from base, so the safe -d would refuse a
@@ -110,18 +115,26 @@ func (r Repository) Checkout(ctx context.Context, name string) error {
 // offers the finish only for a merged branch with no unpushed commits (see
 // Branch.HasUnpushedWork), so the commits -D discards are the ones origin and
 // the merge already hold.
-func (r Repository) FinishBranch(ctx context.Context, branch, base string) error {
-	steps := [][]string{
-		{"switch", base},
-		{"pull", "--ff-only"},
-		{"branch", "-D", branch},
+func (r Repository) FinishBranch(ctx context.Context, branch, base string, pull func() error) error {
+	err := r.finishStep(ctx, "switch", base)
+	if err != nil {
+		return err
 	}
 
-	for _, step := range steps {
-		_, err := r.run(ctx, gitProgram, append([]string{"-C", r.dir}, step...)...)
-		if err != nil {
-			return fmt.Errorf("git %s: %w", strings.Join(step, " "), err)
-		}
+	err = pull()
+	if err != nil {
+		return fmt.Errorf("git pull --ff-only: %w", err)
+	}
+
+	return r.finishStep(ctx, "branch", "-D", branch)
+}
+
+// finishStep runs one of the git commands a finish runs itself, naming it in
+// its failure.
+func (r Repository) finishStep(ctx context.Context, step ...string) error {
+	_, err := r.run(ctx, gitProgram, append([]string{"-C", r.dir}, step...)...)
+	if err != nil {
+		return fmt.Errorf("git %s: %w", strings.Join(step, " "), err)
 	}
 
 	return nil

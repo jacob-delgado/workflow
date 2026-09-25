@@ -598,21 +598,19 @@ pane says "pushed".
 
 Severity: medium · Confidence: read
 
-`Repository.FinishBranch` runs `git pull --ff-only` through the bounded
-`Runner`, while the interface's other network commands (fetch, push, rebase)
-stream through `Start` with no bound; a pull slower than 30 s is SIGKILLed
-mid-transfer:
+The finish seam runs `git pull --ff-only` through the bounded
+`proc.RunCommand`, while the interface's other network commands (fetch, push,
+rebase) stream through `Start` with no bound; a pull slower than 30 s is
+SIGKILLed mid-transfer:
 
-- `internal/gitrepo/branching.go:116` — `Repository.FinishBranch` lists
-  `{"pull", "--ff-only"}` among its steps, each run through `r.run`
-  (`:121`).
-- `internal/wiring/wiring.go:55` — `gitRunner`, the runner every repository
-  this package builds goes through, is `proc.RunCommand`.
+- `internal/wiring/wiring.go:225` — `gitDeps`' `Finish` hands
+  `Repository.FinishBranch` a pull that runs `gitrepo.PullCommand` through
+  `proc.RunCommand`.
 - `internal/proc/proc.go:55` — `RunCommand` is bounded by
   `DefaultRunTimeout`.
 - `internal/proc/proc.go:30` — `DefaultRunTimeout`'s comment: streamed work
   belongs under `Start`.
-- `internal/wiring/wiring.go:231` — `streamToEnd` fetches the same remote
+- `internal/wiring/wiring.go:237` — `streamToEnd` fetches the same remote
   through `proc.Start`, unbounded.
 - `internal/tui/finish.go:139` — `finished.apply` pins only the raw error
   under the preview's title.
@@ -623,13 +621,11 @@ branch is kept (the step order protects the delete) and the overlay reports
 the branch creator's fetch of the same remote streams unbounded. Neither the
 trade-offs nor the usage page record the 30 s cost.
 
-**One way to fix it.** Add a `PullCommand` builder beside `FetchCommand`
-(prompts off) and run the finish's pull through `proc.Start`, streaming its
-lines in the finish overlay, with `FinishBranch` taking the pull as a seam.
+**One way to fix it.** Run the finish's pull through `proc.Start`, as the
+fetch does, keeping git's words in the error the overlay pins.
 
 **Done when.** A wiring test shows the finish's pull started through
-`Start`, and `FinishBranch`'s fixture no longer answers a bounded `pull
---ff-only` command line.
+`Start`.
 
 ### DEBT-88 A key one separator after another key-shaped token is missed
 
@@ -3203,7 +3199,7 @@ Seventeen conditions were never evaluated. Five are a test away:
 - `internal/tui/prcreate.go:134` — `pullCreated.apply`'s `named` case: every
   test that opens a pull request on an issue's branch wires
   `Jira.LinkPullRequest`.
-- `internal/wiring/wiring.go:232` — `streamToEnd`, git failing to start: no
+- `internal/wiring/wiring.go:238` — `streamToEnd`, git failing to start: no
   wiring test fetches or pulls without git on `PATH`.
 
 Eight more came into view once each operand counted, and each is a test

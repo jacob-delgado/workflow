@@ -310,6 +310,21 @@ func FetchCommand(dir string) proc.Command {
 	}
 }
 
+// PullCommand fast-forwards the checked-out branch from its upstream, and
+// refuses rather than merge when it cannot: the pull a finish runs once it has
+// switched to the base.
+//
+// Prompts are off, as they are for a fetch: a pull can need a credential, and
+// nobody can answer for one from inside the interface.
+func PullCommand(dir string) proc.Command {
+	return proc.Command{
+		Dir:  dir,
+		Name: gitProgram,
+		Args: []string{"pull", "--ff-only"},
+		Env:  []string{noTerminalPrompt},
+	}
+}
+
 // PushCommand pushes a branch to remote and makes it the upstream.
 //
 // Prompts are off: nobody can answer a credential prompt from inside the

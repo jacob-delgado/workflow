@@ -204,7 +204,6 @@ func gitDeps(ctx context.Context, root string) tui.GitDeps {
 		CreateBranch:   func(name, start string) error { return repo.CreateBranch(ctx, name, start) },
 		Branches:       func() ([]string, error) { return repo.LocalBranches(ctx) },
 		Checkout:       func(name string) error { return repo.Checkout(ctx, name) },
-		Finish:         func(branch, base string) error { return repo.FinishBranch(ctx, branch, base) },
 		RemoteBranches: func() ([]string, error) { return repo.RemoteBranches(ctx) },
 		CodeOwners:     func() ([]string, error) { return repo.CodeOwners(ctx) },
 		RecentSubjects: func() ([]string, error) { return repo.RecentSubjects(ctx) },
@@ -220,6 +219,13 @@ func gitDeps(ctx context.Context, root string) tui.GitDeps {
 		},
 		Rebase: func(base string) (proc.Output, error) {
 			return proc.Start(ctx, gitrepo.RebaseCommand(root, base))
+		},
+		Finish: func(branch, base string) error {
+			return repo.FinishBranch(ctx, branch, base, func() error {
+				_, err := proc.RunCommand(ctx, gitrepo.PullCommand(root))
+
+				return err
+			})
 		},
 	}
 }
