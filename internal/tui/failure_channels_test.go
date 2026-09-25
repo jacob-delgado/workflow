@@ -96,7 +96,7 @@ func everySeamFailure() map[string]spoken {
 		},
 		"forge refused": {
 			fmt.Errorf("finding: %w", forge.ErrRefused), "the forge refused the request",
-			"The forge refused the request, which may be rate limiting. Wait a minute, then try again.",
+			"The forge refused the request: the token may lack a permission this needs. Check its scopes.",
 		},
 		"forge no API": {
 			fmt.Errorf("finding: %w", forge.ErrNoAPI), "no forge API at that address",

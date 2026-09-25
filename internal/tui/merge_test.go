@@ -108,9 +108,10 @@ func TestRefusedMergeStaysInItsPreview(t *testing.T) {
 	refused := typing(t, preview, keyEnter)
 
 	// Assert: the preview is still open, the write scope the token may lack
-	// pinned in it beside the forge's own hedge, ready to try again
+	// pinned in it with no rate-limit guess, ready to try again
 	requireScreen(t, refused.View().Content, "Merge by:",
-		"✗ The forge refused the write: the token may lack the write scope", "may be rate limiting", "enter merge")
+		"✗ The forge refused the write: the token may lack the write scope", "enter merge")
+	refuseScreen(t, refused.View().Content, "rate limit")
 
 	// Act: close it
 	closed := typing(t, refused, keyEsc)
