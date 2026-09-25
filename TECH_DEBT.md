@@ -594,35 +594,6 @@ on `Branch` (or pass it to `Pushed`), and compare the upstream against
 upstream `fork/<name>` and ahead 0 reports `Pushed()` true, and the Branch
 pane says "pushed".
 
-### DEBT-86 A `Run` past its bound reads "signal: killed", not a timeout
-
-Severity: medium · Confidence: read
-
-`runWithin` (`internal/proc/proc.go:62`) derives the timeout context inside
-the function and, when `DefaultRunTimeout` elapses, wraps
-`command.Output()`'s error verbatim (`:76`): Go's `Wait` keeps the process's
-own error over `ctx.Err()`, so the text is "git: signal: killed: " and no
-caller can `errors.Is` a timeout. `DefaultRunTimeout`'s comment
-(`internal/proc/proc.go:29`) says the bound exists so a pane does not sit on
-"loading…" forever; the result says "killed". `ownText`
-(`internal/tui/failure.go:302`) falls through to the raw error text, since
-there is no sentinel to word. The only test of the bound,
-`TestRunWithinStopsAReadThatOverrunsItsBound`
-(`internal/proc/proc_test.go:28`), asserts `err != nil` and would pass for
-any error.
-
-A `git status` on a dead network mount ends after 30 s with a pane or a
-command-line line saying something killed git, not that workflow gave up
-waiting.
-
-**One way to fix it.** After `Output()`, when `ctx.Err()` is
-`context.DeadlineExceeded`, wrap a package sentinel (`ErrTimedOut`) that
-names the bound, and give `programErrors` a wording for it.
-
-**Done when.** `TestRunWithinStopsAReadThatOverrunsItsBound` asserts
-`errors.Is(err, proc.ErrTimedOut)` and that the text names the bound; a
-terminal test words it.
-
 ### DEBT-87 Finish's `git pull` runs under the quick-read 30 s bound
 
 Severity: medium · Confidence: read
