@@ -78,13 +78,18 @@ func githubStatus(ctx context.Context, client Client, repo Repo, _ PullRequest, 
 	return tally.ci(), nil
 }
 
-// githubRunList is a commit's workflow runs: each run's id and how it concluded,
-// so the failed ones can be re-run.
+// githubRun is one workflow run: its id and how it concluded, so a failed one
+// can be re-run.
+type githubRun struct {
+	ID         int64  `json:"id"`
+	Conclusion string `json:"conclusion"`
+}
+
+// githubRunList is a page of a commit's workflow runs, and how many there are
+// in all.
 type githubRunList struct {
-	Runs []struct {
-		ID         int64  `json:"id"`
-		Conclusion string `json:"conclusion"`
-	} `json:"workflow_runs"`
+	TotalCount int         `json:"total_count"`
+	Runs       []githubRun `json:"workflow_runs"`
 }
 
 // githubRerun re-runs the failed jobs of every failed workflow run on the head
@@ -92,17 +97,14 @@ type githubRunList struct {
 // reported by something other than Actions has no run to re-run, so nothing is,
 // which is why the caller is told rather than left to assume one started.
 func githubRerun(ctx context.Context, client Client, repo Repo, _ PullRequest, head string) (bool, error) {
-	runs := fmt.Sprintf("%s/actions/runs?head_sha=%s&per_page=%d",
-		githubRepoPath(repo), url.QueryEscape(head), perPage)
-
-	list, err := repoCall[githubRunList](ctx, client, repo, http.MethodGet, runs, nil)
+	runs, err := githubWorkflowRuns(ctx, client, repo, head)
 	if err != nil {
 		return false, err
 	}
 
 	reran := false
 
-	for _, run := range list.Runs {
+	for _, run := range runs {
 		if !runFailed(run.Conclusion) {
 			continue
 		}
@@ -118,6 +120,18 @@ func githubRerun(ctx context.Context, client Client, repo Repo, _ PullRequest, h
 	}
 
 	return reran, nil
+}
+
+// githubWorkflowRuns reads every workflow run on a commit.
+func githubWorkflowRuns(ctx context.Context, client Client, repo Repo, head string) ([]githubRun, error) {
+	path := githubRepoPath(repo) + "/actions/runs?"
+	query := url.Values{"head_sha": {head}}
+
+	return readPages(func(page int) ([]githubRun, int, error) {
+		list, err := repoCall[githubRunList](ctx, client, repo, http.MethodGet, path+pageQuery(query, page), nil)
+
+		return list.Runs, list.TotalCount, err
+	})
 }
 
 // runFailed reports a completed workflow run that did not pass, by the same rule

@@ -144,7 +144,7 @@ func TestTheForgeWriteSeamsHandTheForgeTheirRequestThroughTheCLI(t *testing.T) {
 				return fmt.Sprintf("reran=%t", reran), err
 			},
 			want:     "reran=false",
-			wantArgs: []string{"https://api.github.com/repos/owner/repo/actions/runs?head_sha=abc123&per_page=100"},
+			wantArgs: []string{"https://api.github.com/repos/owner/repo/actions/runs?head_sha=abc123&page=1&per_page=100"},
 		},
 	}
 
