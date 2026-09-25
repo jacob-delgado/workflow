@@ -198,12 +198,12 @@ func TestResolveTokenTakesTheFirstSourceThatHasOne(t *testing.T) {
 func TestTokenNeverPrintsItself(t *testing.T) {
 	t.Parallel()
 
-	// The guard is the type, not a convention: every formatting verb goes
-	// through String(), including one nested in a struct.
+	// The guard is the type, not a convention: every verb a string takes goes
+	// through String or GoString, including for a Token nested in a struct.
 	token := forge.Token(secret)
 	subjects := map[string]any{"a token": token, "a token in a struct": struct{ Token forge.Token }{Token: token}}
 
-	for _, verb := range []string{"%v", "%s", "%q", "%+v"} {
+	for _, verb := range []string{"%v", "%s", "%q", "%+v", "%#v"} {
 		for subject, value := range subjects {
 			t.Run(subject+" printed with "+verb, func(t *testing.T) {
 				t.Parallel()
@@ -217,6 +217,32 @@ func TestTokenNeverPrintsItself(t *testing.T) {
 				}
 			})
 		}
+	}
+}
+
+func TestTokenPrintsAsAQuotedMaskUnderSharpV(t *testing.T) {
+	t.Parallel()
+
+	cases := map[string]struct {
+		token forge.Token
+		want  string
+	}{
+		"a set token is the mask, quoted":   {token: forge.Token(secret), want: `"****"`},
+		"an empty token is an empty string": {token: forge.Token(""), want: `""`},
+	}
+
+	for name, tt := range cases {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			// Act
+			got := fmt.Sprintf("%#v", tt.token)
+
+			// Assert
+			if got != tt.want {
+				t.Errorf("%%#v = %s, want %s", got, tt.want)
+			}
+		})
 	}
 }
 

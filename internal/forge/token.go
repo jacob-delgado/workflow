@@ -7,6 +7,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strconv"
 	"strings"
 )
 
@@ -19,14 +20,20 @@ const masked = "****"
 
 // Token is a forge credential.
 //
-// It is a named type with a String method rather than a bare string, and that
-// is a guard rather than a decoration: every formatting verb — %v, %s, %q, and a
-// Token nested inside any struct printed with %+v — goes through String and
-// yields the mask. Reading the real value takes an explicit Secret call, which
-// is easy to find in review and impossible to do by accident.
+// It is a named type with a String and a GoString rather than a bare string,
+// and that is a guard rather than a decoration: every verb a string takes — %v,
+// %s, %q, %x, %X and %#v — goes through one of them and yields the mask, as does
+// a Token in an exported field printed with %v, %+v or %#v. fmt calls neither
+// method for a verb a string rejects (%d, %t, ...), which go vet's printf check
+// flags, nor for a Token in an unexported field. Reading the real value takes
+// an explicit Secret call, which is easy to find in review and impossible to do
+// by accident.
 type Token string
 
-var _ fmt.Stringer = Token("")
+var (
+	_ fmt.Stringer   = Token("")
+	_ fmt.GoStringer = Token("")
+)
 
 // String masks the token.
 func (t Token) String() string {
@@ -35,6 +42,12 @@ func (t Token) String() string {
 	}
 
 	return masked
+}
+
+// GoString masks the token under %#v, quoted so the output still reads as Go
+// syntax: "****", or "" for an empty Token.
+func (t Token) GoString() string {
+	return strconv.Quote(t.String())
 }
 
 // Secret returns the real value. Call it only where the credential is being
