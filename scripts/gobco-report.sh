@@ -157,8 +157,9 @@ else
   #
   # Explicit roots, not ./...: web/node_modules ships stray Go (flatted's Go
   # port) that ./... would sweep in as an untested package and fail this gate.
-  # The module's own code is cmd/ and internal/, and nothing else carries Go.
-  go_roots="./cmd/... ./internal/..."
+  # The module's own code is cmd/, internal/ and api/, the roots Taskfile.yml's
+  # GO_PKGS names.
+  go_roots="./cmd/... ./internal/... ./api/..."
   # shellcheck disable=SC2086 # the roots are a deliberate multi-arg word list
   packages="$(go list -f '{{if or .TestGoFiles .XTestGoFiles}}{{.ImportPath}}{{end}}' ${go_roots})"
   # shellcheck disable=SC2086 # the roots are a deliberate multi-arg word list

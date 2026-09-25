@@ -125,7 +125,7 @@ pre-push:
       glob: "{*.go,go.mod,go.sum}"
       run: |
         unset $(git rev-parse --local-env-vars)
-        go test -race ./cmd/... ./internal/...
+        go test -race ./cmd/... ./internal/... ./api/...
 
     # The pre-commit hook runs golangci-lint with --new-from-rev=HEAD~, so it
     # only ever sees the lines this commit changed. That is the right trade for

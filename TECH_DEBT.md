@@ -3822,35 +3822,6 @@ behind it, which release-please.yml's `Verify the gate before tagging` step
 `cross`, and a pull request with a failing Cross-compile job shows `ci-gate`
 red.
 
-### DEBT-150 `api/` carries Go, but no Go tool's roots reach it
-
-Severity: low · Confidence: read
-
-`Taskfile.yml:8` says "The module's own code is cmd/ and internal/, and
-nothing else carries Go", and `GO_PKGS` (`Taskfile.yml:9`) is `./cmd/...
-./internal/...`; `scripts/gobco-report.sh:160` repeats the sentence above
-`go_roots` (`:161`), the same two roots. But `api/embed.go:8` declares
-`package apispec`, and `internal/webserver/validator.go:14` imports it. The
-roots therefore never take `api/` for `go test`, the coverage profile,
-deadcode, fuzz or gobco, and the `api` entry in `NO_TESTS`
-(`scripts/gobco-report.sh:96`), explained at `:94` two screens above the
-roots that exclude it, can never be consulted: one script holds two
-contradictory statements about `api/`. Today the cost is nil — `api/` has no
-tests and no logic, and `govulncheck` reaches it transitively — but the
-gobco gate's "every package is accounted for" promise stops one directory
-short, and a future test or logic file under `api/` would go untested and
-unmeasured without any gate noticing.
-
-**One way to fix it.** Add `./api/...` to `GO_PKGS` and to `go_roots`, so
-the `NO_TESTS` entry is live and every package in the module is a root of
-every Go tool, and delete the "nothing else carries Go" sentence from both
-files.
-
-**Done when.** `go list ./cmd/... ./internal/... ./api/...` lists
-`github.com/jacob-delgado/workflow/api`; removing `api` from `NO_TESTS`
-makes `task cover:branch` fail naming `api` as a package with no tests; and
-neither comment says nothing else carries Go.
-
 ### DEBT-151 `scripts/test-summary.sh` counts a different run than the gates
 
 Severity: low · Confidence: read
@@ -3860,9 +3831,10 @@ Severity: low · Confidence: read
 are never used (`web/node_modules` ships a stray Go package), and reads its
 statement number (`scripts/test-summary.sh:47`) with `go tool cover -func`
 on the unfiltered profile. `task test`, lefthook's `unit-go`
-(`lefthook.yml:128`) and CI's Test job run `go test -race ./cmd/...
-./internal/...`, and `scripts/coverage-gate.sh:30` filters `cmd/docsgen` and
-`internal/api` out of the profile first. On the checkout's `coverage.out`
+(`lefthook.yml:128`) and CI's Test job run `go test -race` over the
+`GO_PKGS` roots (`./cmd/... ./internal/... ./api/...`), and
+`scripts/coverage-gate.sh:30` filters `cmd/docsgen` and `internal/api` out
+of the profile first. On the checkout's `coverage.out`
 the two totals are 85.6 % and 96.6 %. `scripts/coverage-summary.sh:21` names
 this exact trap in its header and takes its number from the gate;
 `scripts/test-summary.sh` does not. One CI run
@@ -3877,7 +3849,7 @@ through `scripts/coverage-gate.sh` with a floor of 0, as
 `scripts/coverage-summary.sh` does.
 
 **Done when.** `task test:summary`'s Go row shows the same pass/skip/fail
-counts as `go test -race -json ./cmd/... ./internal/...` and the same
+counts as `go test -race -json` over the `GO_PKGS` roots and the same
 statements percentage as the "Coverage N%" line of `task test:cover` on the
 same tree.
 
