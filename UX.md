@@ -289,16 +289,16 @@ time to compare, and no JSON at all from `pr` or `standup`. This entry owns
   (`TestStatusAcrossLabelsTheCurrentDirectory`,
   `internal/cli/status_test.go:79`, pins that prefix) and `status ~/a/api
   ~/b/api` gives two rows the same `repository`, the only key
-  `docs/content/docs/scripting.md:126` (under "JSON") offers.
+  `docs/content/docs/scripting.md:131` (under "JSON") offers.
 - `internal/cli/reviews.go:130` (`reviewReport.Age`): a string, filled by
   `renderReviewsJSON` through `humanizeAge` (`:141`), which rounds 25 h
   and 47 h alike to "1d"; `ReviewRequest.OpenedAt`
   (`internal/forge/pulls.go:146`) holds the time and never reaches the
-  JSON. `docs/content/docs/scripting.md:142` documents `"age": "3d"` as
+  JSON. `docs/content/docs/scripting.md:147` documents `"age": "3d"` as
   the shape, so `jq 'map(select(.age > "2d"))'` compares strings.
 - `internal/cli/pr.go:145` (`runPR`): the only machine-facing result is
   "Opened " + `Sigil()` + number + URL, and the sigil is `!` on GitLab
-  (`internal/forge/remote.go:70`). `docs/content/docs/scripting.md:98`
+  (`internal/forge/remote.go:70`). `docs/content/docs/scripting.md:100`
   keeps `--json` to the reads, a description rather than a decision.
 - `internal/cli/standup.go:75` (`newStandupCmd`): the command declares
   `--days` and `--no-edit` and nothing else, so the gathered issues and
@@ -339,7 +339,7 @@ command line's sibling writes print their whole payload (`runAnnounce`,
 `internal/cli/standup.go:141`). A stale or wrong template is discovered on
 the forge, after the open, on the one surface whose help promises a last
 look.
-`docs/content/docs/scripting.md:89` (the `pr` row under "Standard output
+`docs/content/docs/scripting.md:91` (the `pr` row under "Standard output
 and standard error") documents the two-line stdout, and no commit or doc
 records a decision to omit the body.
 
@@ -1976,7 +1976,7 @@ script is told to press a key it does not have.
 - `renderReviews`, `internal/cli/reviews.go:84`: "No pull requests are
   waiting on your review." with no forge kind in reach; `reviewLine`,
   `:103`, writes `#%d` before every number.
-- `docs/content/docs/scripting.md:83`, the `reviews` row of the stdout and
+- `docs/content/docs/scripting.md:85`, the `reviews` row of the stdout and
   stderr table: quotes that sentence verbatim, so the row moves with it.
 - `writePulls`, `internal/cli/standup.go:272`: `- #` before each number;
   `standupSeams` carries no `Kind`.
@@ -2019,7 +2019,7 @@ composer's `ctrl+o` help all see "merge request" and `!` and never "pull
 request" or `#`; a screen test with a gitlab.com remote and no token shows
 `$GITLAB_TOKEN` and not `gh auth login`; an `announce` test whose fake
 Slack answers `not_in_channel` sees the fix on stderr and no "press enter";
-`docs/content/docs/scripting.md:83` matches the new `reviews` note.
+`docs/content/docs/scripting.md:85` matches the new `reviews` note.
 
 ### UX-127 Four dry runs say less than the live path would do
 
