@@ -1908,13 +1908,16 @@ Impact: medium · Effort: medium
 **Today.** Once a pull request has merged, the three surfaces give three
 answers on the same branch: the command line says the review never began,
 the terminal's spine says it is still going, and the browser says the pull
-request is ready for review. DEBT-101 is the Announced half of the same
-status-versus-spine gap. The browser's side is DEBT-127, and the Review
+request is ready for review. `status` already reads the store's announce
+memory as the spine does, so its last stage agrees once it counts a merged
+pull request as found. The browser's side is DEBT-127, and the Review
 pane's missing `n` on the same state is DEBT-112.
 
 - `status`: `○ Review` and the JSON state `not_started` (`gatherReview`,
   `internal/cli/status.go:286`; the comment at `:287` says a merged branch
-  is treated as having no open review).
+  is treated as having no open review). The scripting guide's last-stage
+  sentence (`docs/content/docs/scripting.md:125`) says `done` only for an
+  open pull request, and widens to a merged one with this fix.
 - The spine: the review stage in flight on a fresh session. `reviewState`,
   `internal/progress/progress.go:115`, has no case for a merged pull and
   reaches `Done` only through `CIPassed`, while `pullFound.apply`,
@@ -2083,8 +2086,8 @@ made in silence and the team receives a standup saying nothing happened; in
 the browser three sections carry misleading copy during an outage under a
 header that says Live, with no reason and no Retry.
 
-- `gather`, `internal/cli/status.go:256`: `if err == nil` — the issue read's
-  error is dropped and the summary left blank.
+- `issueSummary`, `internal/cli/status.go:283`: `if err != nil` returns
+  `""` — the issue read's error is dropped and the summary left blank.
 - `gatherReview`, `internal/cli/status.go:286`: `err != nil` is folded into
   the not-found return, so an unreachable forge reads `○ Review`; at `:294`
   a `CheckStatus` error becomes `forge.CINone`, the same as no CI.

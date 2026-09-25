@@ -12,6 +12,7 @@ import (
 	"testing"
 
 	"github.com/jacob-delgado/workflow/internal/cli"
+	"github.com/jacob-delgado/workflow/internal/messaging"
 )
 
 func TestStatusOutsideARepositoryReportsSo(t *testing.T) {
@@ -301,6 +302,70 @@ func TestStatusJSONReportsTheSameAsData(t *testing.T) {
 	if report.Issue != "PROJ-7" || report.CI != "passed" || len(report.Stages) != 5 ||
 		report.Stages[3]["state"] != "done" {
 		t.Errorf("status JSON = %+v, want the issue, passed CI and five stages", report)
+	}
+}
+
+func TestStatusLineReadsTheAnnouncementAtTheCurrentMoment(t *testing.T) {
+	cases := map[string]struct {
+		status     string
+		remembered messaging.Moment
+		mark       string
+	}{
+		"ready, announced ready":       {status: runningStatus(), remembered: messaging.MomentReady, mark: "● Slack"},
+		"ready, announced only merged": {status: runningStatus(), remembered: messaging.MomentMerged, mark: "○ Slack"},
+		"CI red, announced CI red":     {status: failingStatus(), remembered: messaging.MomentCIRed, mark: "● Slack"},
+		"CI red, announced only ready": {status: failingStatus(), remembered: messaging.MomentReady, mark: "○ Slack"},
+	}
+
+	for name, tt := range cases {
+		t.Run(name, func(t *testing.T) {
+			// Arrange
+			// The store remembers pull request 7 announced at one moment, as an
+			// earlier announce, or session of the interface, leaves it.
+			server := jiraServer(t, http.StatusOK, issueFixture("PROJ-7", "Bug", "Fix login"), new(atomic.Bool))
+			fakeGh(t, ghResponses{pulls: openPull("Add login"), status: tt.status})
+			repo := statusFeatureRepo(t, server.URL)
+			home := announcedEarlier(t, tt.remembered)
+
+			// Act
+			printed, err := runStreamsAt(t, place{dir: repo, home: home}, unusedPrompt(t), "status")
+			if err != nil {
+				t.Fatalf("status: %v (%+v)", err, printed)
+			}
+
+			// Assert
+			if !strings.Contains(printed.stdout, tt.mark) {
+				t.Errorf("status line missing %q:\n%s", tt.mark, printed.stdout)
+			}
+		})
+	}
+}
+
+func TestStatusJSONReadsAnEarlierAnnouncementAsDone(t *testing.T) {
+	// Arrange
+	server := jiraServer(t, http.StatusOK, issueFixture("PROJ-7", "Bug", "Fix login"), new(atomic.Bool))
+	fakeGh(t, ghResponses{pulls: openPull("Add login"), status: runningStatus()})
+	repo := statusFeatureRepo(t, server.URL)
+	home := announcedEarlier(t, messaging.MomentReady)
+
+	// Act
+	printed, err := runStreamsAt(t, place{dir: repo, home: home}, unusedPrompt(t), "status", "--json")
+	if err != nil {
+		t.Fatalf("status --json: %v (%+v)", err, printed)
+	}
+
+	// Assert
+	var report struct {
+		Stages []map[string]any `json:"stages"`
+	}
+
+	err = json.Unmarshal([]byte(printed.stdout), &report)
+	if err != nil {
+		t.Fatalf("output is not JSON: %v\n%s", err, printed.stdout)
+	}
+
+	if len(report.Stages) != 5 || report.Stages[4]["name"] != "Slack" || report.Stages[4]["state"] != "done" {
+		t.Errorf("status JSON stages = %+v, want the Slack stage done", report.Stages)
 	}
 }
 

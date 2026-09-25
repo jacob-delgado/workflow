@@ -1243,43 +1243,6 @@ to `connectForge`.
 `FindPullRequest`, and `connectForge` and the two bundle builders take the
 struct and `ctx` only.
 
-### DEBT-101 `workflow status` never reads the store's `Announced`, so its last stage lags the spine
-
-Severity: medium · Confidence: read
-
-`newStatusCmd`'s long help (`internal/cli/status.go:47`) promises "the same
-progress the interface's top row shows", but the command builds its
-`progress.Work` without the announce memory the spine reads. The
-merged-pull disagreement between `status` and the spine is UX-125.
-
-- `internal/cli/status.go:191` — `seamsFor` wires seven seams, none from
-  `conn.deps.Store`, and `gather` (`internal/cli/status.go:265`) builds
-  `progress.Work` without setting `Announced`; the spine's `work`
-  (`internal/tui/spine.go:94`) passes `Announced: m.announced()`, which
-  `announced` (`internal/tui/messaging.go:196`) reads from this session or,
-  from the store, an earlier one. After `workflow announce` (or an
-  announcement from the interface), `status` and `status --json` print the
-  messaging stage not started while the spine, seeded from the same store,
-  prints it done.
-- `internal/progress/progress.go:56` — the `Announced` field's comment
-  still calls it "Session knowledge", and the `Work` comment (`:33`) says a
-  one-shot command leaves it false, which predates the store's announce
-  memory (f99e34a; `internal/store/announce.go`, wired into
-  `loop.AnnounceMemory` at `internal/cli/announce.go:190`).
-
-A script reading `status --json` after an announcement acts on a wrong last
-stage. `internal/cli/status_test.go` never asserts the last stage after an
-announcement.
-
-**One way to fix it.** Give `statusSeams` the store's `Announced` and set
-`Work.Announced` when the found pull's current moment is in it, as the
-interface's `announced` does; reword the `Work` comment so only
-`IssueSelected` and `PostPending` are session knowledge.
-
-**Done when.** A status test whose `Store.Announced` holds the open pull
-request at its ready moment prints the messaging stage done in the line and
-in `--json`.
-
 ### DEBT-102 Token commands run at wiring, for commands that never reach the service
 
 Severity: low · Confidence: read
@@ -2012,7 +1975,7 @@ hand. FEAT-84 would need a third adapter from `webserver.Deps`.
 - `internal/loop/announce.go:147` — `Announced` carries
   `Moment messaging.Moment` in the loop.
 - `internal/cli/announce.go:198` — `announceMemory` converts between the
-  two shapes by hand.
+  two shapes by hand, for `announce` and for `status`'s last stage.
 - `internal/tui/messaging.go:199` — `Model.announced` reimplements
   `AnnounceMemory.Holds` over its own posted list.
 - `internal/loop/announce.go:165` — `AnnounceMemory.Holds`, the seam the
