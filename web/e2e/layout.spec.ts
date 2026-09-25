@@ -353,6 +353,7 @@ const pagedSnapshot = {
     detached: false,
     head: '',
     upstream: '',
+    push_remote: '',
     ahead: 0,
     behind: 0,
     base: '',

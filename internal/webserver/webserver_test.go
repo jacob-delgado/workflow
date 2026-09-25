@@ -81,7 +81,7 @@ func filledDeps() webserver.Deps {
 		},
 		Branch: func() (gitrepo.Branch, error) {
 			return gitrepo.Branch{
-				Name: testBranchName, Base: testBase, Ahead: 2, Head: "abc123",
+				Name: testBranchName, Base: testBase, Ahead: 2, Head: "abc123", PushRemote: gitrepo.DefaultRemote,
 				Commits: []gitrepo.Commit{{Hash: "abc123", Subject: testCommitSubject}},
 			}, nil
 		},
@@ -353,6 +353,26 @@ func TestGetBranchReturnsTheBranch(t *testing.T) {
 	// Assert
 	if branch.Name != testBranchName || branch.Base != testBase || branch.Ahead != 2 {
 		t.Errorf("branch = %+v, want the current branch", branch)
+	}
+}
+
+func TestGetBranchNamesTheRemoteItsPushGoesTo(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	const forkRemote = "fork"
+
+	deps := filledDeps()
+	deps.Branch = func() (gitrepo.Branch, error) {
+		return gitrepo.Branch{Name: testBranchName, PushRemote: forkRemote}, nil
+	}
+
+	// Act
+	branch := decode[api.Branch](t, get(t, serve(t, deps, config.Default()), "/api/branch"))
+
+	// Assert
+	if branch.PushRemote != forkRemote {
+		t.Errorf("push_remote = %q, want %q", branch.PushRemote, forkRemote)
 	}
 }
 

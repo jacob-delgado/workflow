@@ -162,6 +162,7 @@ export const zBranch = z.object({
     detached: z.boolean(),
     head: z.string(),
     upstream: z.string(),
+    push_remote: z.string(),
     ahead: z.int(),
     behind: z.int(),
     base: z.string(),

@@ -3463,7 +3463,7 @@ know about.
   Staging, committing and pushing: `internal/tui/composer_test.go` (568,
   the terminal's commit composer), `internal/webserver/staging_test.go`
   (533, the web's stage and unstage) and
-  `web/src/features/branch/BranchPanel.test.tsx` (510, the web's commit and
+  `web/src/features/branch/BranchPanel.test.tsx` (517, the web's commit and
   push). Reading and writing an issue: `internal/jira/detail_test.go` (501,
   Jira's issue read, comment and pull request link). The cost is that
   `scripts/check-file-length.sh` still warns on every run, so a source file

@@ -80,14 +80,15 @@ func branchDTO(branch gitrepo.Branch) api.Branch {
 	}
 
 	return api.Branch{
-		Name:     branch.Name,
-		Detached: branch.Detached,
-		Head:     branch.Head,
-		Upstream: branch.Upstream,
-		Ahead:    branch.Ahead,
-		Behind:   branch.Behind,
-		Base:     branch.Base,
-		Commits:  commits,
+		Name:       branch.Name,
+		Detached:   branch.Detached,
+		Head:       branch.Head,
+		Upstream:   branch.Upstream,
+		PushRemote: branch.PushRemote,
+		Ahead:      branch.Ahead,
+		Behind:     branch.Behind,
+		Base:       branch.Base,
+		Commits:    commits,
 	}
 }
 

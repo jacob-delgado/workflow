@@ -256,6 +256,9 @@ type Branch struct {
 	Head string `json:"head"`
 	Name string `json:"name"`
 
+	// PushRemote The remote a push of the branch goes to: remote.pushDefault when the repository sets one, origin otherwise.
+	PushRemote string `json:"push_remote"`
+
 	// Upstream The tracking branch; empty if never pushed.
 	Upstream string `json:"upstream"`
 }

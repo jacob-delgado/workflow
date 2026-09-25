@@ -1008,8 +1008,8 @@ the two rows above it share the defect.
   empty (`web/src/features/branch/BranchPanel.tsx:85`), a base of `""`
   included, where the count is unknown.
 - Push branch is offered on the base branch itself: `BranchSummary`'s
-  `canPush` needs a name and no upstream or ahead > 0
-  (`web/src/features/branch/BranchPanel.tsx:52`), and `nothingToPush`
+  `canPush` needs a name and no upstream on the push remote or ahead > 0
+  (`web/src/features/branch/BranchPanel.tsx:53`), and `nothingToPush`
   accepts main ahead of origin/main (`internal/webserver/push.go:59`),
   where the terminal's `canPush` also requires `onFeatureBranch()`
   (`internal/tui/branch.go:202`).
@@ -1019,8 +1019,8 @@ The terminal's last look names the branch and the remote and no count
 says "not pushed yet" for a branch with no upstream (`:103`).
 
 **Instead.** Word the confirm as the terminal does — "Push fix/PROJ-1 to
-origin?" — naming branch and remote (the upstream's prefix, or origin) and
-no count; with no upstream the Tracking row says "not pushed yet" and the
+origin?" — naming branch and remote (the branch's `push_remote`) and no
+count; with no upstream the Tracking row says "not pushed yet" and the
 counts appear only once there is one; with no base the Commits section
 says the base is unknown rather than that there are no commits; hide the
 push when `branch.name` equals the base's short name, or move that guard
