@@ -8,7 +8,11 @@
 // It reads syntax alone, without type checking: test values are recognized by
 // their declared types, and helpers by name within the package. That is enough
 // here, because thelper fixes what a test's parameter is called, and it keeps
-// the check to the standard library.
+// the check to the standard library. A helper method is picked by its
+// receiver's type where syntax shows that type (a composite literal, new, a
+// call of one of the package's functions, or a name declared with one of those
+// or with a type), and otherwise by name while every method of the name agrees
+// on whether it asserts; where they disagree, the call is reported.
 package testshape
 
 import (
@@ -33,6 +37,7 @@ const (
 	LabelRequired        Rule = "label-required"
 	LabelUnexpected      Rule = "label-unexpected"
 	AssertWithoutFailure Rule = "assert-without-failure"
+	AmbiguousHelper      Rule = "ambiguous-helper"
 	SubtestLiteral       Rule = "subtest-literal"
 	TableMarker          Rule = "table-marker"
 	TableAssertion       Rule = "table-assertion"
@@ -102,6 +107,9 @@ func messages() map[Rule]string {
 			"the test name is the label",
 		AssertWithoutFailure: "this Assert reaches no t.Error or t.Fatal, directly or through a helper, " +
 			"so it asserts nothing",
+		AmbiguousHelper: "this call may reach a failure only through a method whose receiver's type is not " +
+			"visible, and methods of that name on different types disagree on asserting: " +
+			"declare the receiver with its type, as in q := T{} or var q T, or rename one of the methods",
 		SubtestLiteral: "t.Run and f.Fuzz need a function literal, so its body can carry the markers",
 		TableMarker:    "this test runs subtests: the markers go inside each t.Run or f.Fuzz closure",
 		TableAssertion: "an assertion outside the subtests; move it into a case, or into a test of its own",

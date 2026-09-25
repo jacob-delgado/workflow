@@ -236,11 +236,26 @@ func (b bodyCheck) contents(sections []section) []Violation {
 		case len(section.statements) == 0:
 			problems = append(problems, b.violation(section.marker.pos, EmptySection))
 		case section.marker.kind == assert || section.marker.kind == actAndAssert:
-			if !b.scope.reaches(section.statements) {
-				problems = append(problems, b.violation(section.marker.pos, AssertWithoutFailure))
-			}
+			problems = append(problems, b.unasserted(section)...)
 		}
 	}
 
 	return problems
+}
+
+// unasserted reports an Assert that reaches no failure, at its marker, and one
+// that reaches a failure only through a method the check cannot pick, at that
+// method's call.
+func (b bodyCheck) unasserted(section section) []Violation {
+	found := b.scope.reaches(section.statements)
+
+	if found.outcome == failing {
+		return nil
+	}
+
+	if found.outcome == ambiguous {
+		return []Violation{b.violation(found.at, AmbiguousHelper)}
+	}
+
+	return []Violation{b.violation(section.marker.pos, AssertWithoutFailure)}
 }

@@ -176,6 +176,67 @@ func TestSubtestsCarryTheMarkers(t *testing.T) {
 `),
 			want: []found{at(15, testshape.TableAssertion)},
 		},
+		"an assertion after the loop through the method its receiver's type declares": {
+			source: test(`	for _, want := range []int{1} {
+		t.Run("case", func(t *testing.T) {
+			// Act & Assert
+			if got := want; got != want {
+				t.Error("got")
+			}
+		})
+	}
+
+	w := world{}
+	w.check(t, 3)
+`, world, checkers),
+			want: []found{at(16, testshape.TableAssertion)},
+		},
+		"a call after the loop to a method its receiver's type declares that does not assert": {
+			source: test(`	for _, want := range []int{1} {
+		t.Run("case", func(t *testing.T) {
+			// Act & Assert
+			if got := want; got != want {
+				t.Error("got")
+			}
+		})
+	}
+
+	q := quiet{}
+	q.check(t, 3)
+`, world, checkers),
+		},
+		"a call after the loop to a method the check cannot pick, on a field": {
+			source: test(`	var holder struct{ w world }
+
+	for _, want := range []int{1} {
+		t.Run("case", func(t *testing.T) {
+			// Act & Assert
+			if got := want; got != want {
+				t.Error("got")
+			}
+		})
+	}
+
+	holder.w.check(t, 3)
+`, world, checkers),
+			want: []found{at(17, testshape.AmbiguousHelper)},
+		},
+		"a call after the loop to a method the check cannot pick, on an interface": {
+			source: test(`	var q checker = world{}
+
+	for _, want := range []int{1} {
+		t.Run("case", func(t *testing.T) {
+			// Act & Assert
+			if got := want; got != want {
+				t.Error("got")
+			}
+		})
+	}
+
+	q.check(t, 1)
+`, world, checkers, "\ntype checker interface{ check(*testing.T, int) }\n"),
+			want: []found{at(17, testshape.AmbiguousHelper)},
+		},
 		"a subtest run from a function value": {
 			source: test(`	check := func(t *testing.T) {
 		t.Helper()

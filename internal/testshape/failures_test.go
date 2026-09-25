@@ -5,6 +5,7 @@ package testshape_test
 
 import (
 	"slices"
+	"strings"
 	"testing"
 
 	"github.com/jacob-delgado/workflow/internal/testshape"
@@ -25,6 +26,36 @@ func (world) expect(t *testing.T, x int) {
 }
 
 func (world) asked(x int) bool { return x == 1 }
+`
+
+// checkers declares three methods on world and on quiet: check, which only
+// world's asserts, note, which neither's does, and must, which both do.
+const checkers = `
+type quiet struct{}
+
+func (world) check(t *testing.T, x int) {
+	if x != 1 {
+		t.Error("x")
+	}
+}
+
+func (quiet) check(t *testing.T, x int) { t.Log(x) }
+
+func (world) note(t *testing.T, x int) { t.Log(x) }
+
+func (quiet) note(t *testing.T, x int) { t.Log(x) }
+
+func (world) must(t *testing.T, x int) {
+	if x != 1 {
+		t.Error("x")
+	}
+}
+
+func (quiet) must(t *testing.T, x int) {
+	if x != 1 {
+		t.Error("x")
+	}
+}
 `
 
 // expectHelper is a helper function that asserts.
@@ -71,6 +102,26 @@ func TestAnAssertThatReachesAFailurePasses(t *testing.T) {
 			"\tvar holder struct{ hook func() }\n\tholder.hook = func() {}\n\trespond(nil, x)\n\texpect(t, x)\n",
 			expectHelper, "\nfunc respond(w *strings.Builder, x int) {}\n"),
 		"through a closure": asserting("\tfail := func() { t.Fatal(\"x\") }\n\tif x != 1 {\n\t\tfail()\n\t}\n"),
+		"through the method its receiver's type declares": asserting("\tw := world{}\n\tw.check(t, x)\n", world, checkers),
+		"through a method on a pointer":                   asserting("\tw := &world{}\n\tw.check(t, x)\n", world, checkers),
+		"through a method on new":                         asserting("\tw := new(world)\n\tw.check(t, x)\n", world, checkers),
+		"through a method on a variable of a declared type": asserting("\tvar w world\n\tw.check(t, x)\n",
+			world, checkers),
+		"through a method on a variable declared with a value": asserting("\tvar w = world{}\n\tw.check(t, x)\n",
+			world, checkers),
+		"through a method on a typed parameter": asserting("\tinspect(t, &world{}, x)\n", world, checkers,
+			"\nfunc inspect(t *testing.T, w *world, x int) { w.check(t, x) }\n"),
+		"through a method on its own receiver": asserting("\tworld{}.verify(t, x)\n", world, checkers,
+			"\nfunc (w world) verify(t *testing.T, x int) { w.check(t, x) }\n"),
+		"through a method on a call's result of its type": asserting("\tnewWorld().check(t, x)\n", world, checkers,
+			"\nfunc newWorld() world { return world{} }\n"),
+		"through a method only one type of its name declares": asserting(
+			"\tvar holder struct{ w world }\n\tholder.w.expect(t, x)\n", world, checkers),
+		"through a method every type of its name asserts": asserting(
+			"\tvar holder struct{ q quiet }\n\tholder.q.must(t, x)\n", world, checkers),
+		"with a method the check cannot pick beside a failure": asserting(
+			"\tvar holder struct{ q quiet }\n\tholder.q.check(t, x)\n\tif x != 1 {\n\t\tt.Error(\"x\")\n\t}\n",
+			world, checkers),
 		"through a closure stored in a field": asserting(
 			"\tvar holder struct{ hook func() }\n\tholder.hook = func() { t.Error(\"x\") }\n\tholder.hook()\n"),
 		"through a closure handed to a call": asserting("\tfail := func(int) { t.Error(\"x\") }\n\teach(x, fail)\n",
@@ -134,6 +185,14 @@ func TestAnAssertThatReachesNoFailureIsReported(t *testing.T) {
 		"an asserting helper not given t": {source: asserting("\texpect(nil, x)\n", expectHelper), line: assertMarkerLine},
 		"an asserting method never called": {
 			source: asserting("\tw := world{}\n\tverify := w.expect\n\t_ = verify\n", world),
+			line:   assertMarkerLine,
+		},
+		"the method its receiver's type declares, that does not assert": {
+			source: asserting("\tq := quiet{}\n\tq.check(t, x)\n", world, checkers),
+			line:   assertMarkerLine,
+		},
+		"a method no type of its name asserts": {
+			source: asserting("\tvar holder struct{ q quiet }\n\tholder.q.note(t, x)\n", world, checkers),
 			line:   assertMarkerLine,
 		},
 		"a closure that calls itself": {
@@ -213,5 +272,51 @@ func TestHelpersResolveAcrossThePackagesFiles(t *testing.T) {
 	want := []found{{file: "fixture1_test.go", line: 5, rule: testshape.MissingMarkers}}
 	if !slices.Equal(got, want) {
 		t.Errorf("violations = %v, want %v", got, want)
+	}
+}
+
+func TestAMethodTheCheckCannotPickIsReportedAtItsCall(t *testing.T) {
+	t.Parallel()
+
+	cases := map[string]string{
+		"on a field":                     "\tvar holder struct{ q quiet }\n\tholder.q.check(t, x)\n",
+		"from a call of two results":     "\tq, err := two()\n\t_ = err\n\tq.check(t, x)\n",
+		"from a var of two results":      "\tvar q, err = two()\n\t_ = err\n\tq.check(t, x)\n",
+		"of a generic type":              "\tq := box[int]{}\n\tq.check(t, x)\n",
+		"from new without a type":        "\tq := new()\n\tq.check(t, x)\n",
+		"from a function with no result": "\tq := nothing()\n\tq.check(t, x)\n",
+		"from another package's call":    "\tq := tools.New()\n\tq.check(t, x)\n",
+		"of an interface type":           "\tvar q checker = quiet{}\n\tq.check(t, x)\n",
+		"promoted from an embedded type": "\tq := fixture{}\n\tq.check(t, x)\n",
+		"declared again with another type": "\tif x == 1 {\n\t\tq := world{}\n\t\t_ = q\n\t}\n" +
+			"\tq := quiet{}\n\tq.check(t, x)\n",
+		"a range variable over an earlier one": "\tq := world{}\n\t_ = q\n" +
+			"\tfor _, q := range []quiet{{}} { q.check(t, x) }\n",
+		"through a helper that calls one": "\tinspect(t, keeper{}, x)\n",
+	}
+	declarations := "\ntype checker interface{ check(*testing.T, int) }\n" +
+		"\ntype fixture struct{ world }\n" +
+		"\nfunc two() (quiet, error) { return quiet{}, nil }\n" +
+		"\ntype box[T any] struct{}\n\nfunc (box[T]) check(t *testing.T, x int) { t.Log(x) }\n" +
+		"\nfunc nothing() {}\n" +
+		"\ntype keeper struct{ q quiet }\n\nfunc inspect(t *testing.T, k keeper, x int) { k.q.check(t, x) }\n"
+
+	for name, assert := range cases {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			// Arrange
+			source := asserting(assert, world, checkers, declarations)
+			call := assertMarkerLine + strings.Count(assert, "\n")
+
+			// Act
+			got := check(t, source)
+
+			// Assert
+			want := []found{at(call, testshape.AmbiguousHelper)}
+			if !slices.Equal(got, want) {
+				t.Errorf("violations = %v, want %v", got, want)
+			}
+		})
 	}
 }
