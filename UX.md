@@ -1985,7 +1985,7 @@ script is told to press a key it does not have.
   composer (`:376`) and the editor (`internal/tui/preditor.go:109`).
 - `forgeErrors`, `internal/tui/failure.go:188`: the full form of
   `forge.ErrNoToken` says "Run `gh auth login`, or set `$GITHUB_TOKEN`" for
-  every host, though `Sources`, `internal/forge/token.go:232`, already
+  every host, though `Sources`, `internal/forge/token.go:245`, already
   names the variable and tool per host and `noForgeTokenMessage`,
   `internal/cli/doctor.go:242`, prints it — so `doctor` and the interface
   disagree on a GitLab host.
@@ -2003,7 +2003,7 @@ script is told to press a key it does not have.
 request" and `#` through `Kind.Noun()` / `Kind.Sigil()` on the command line
 and `m.vocab` in the terminal and the editor help, keeping the sentinels for
 `errors.Is`. Wrap `ErrNoToken` with `Sources(kind, host)` where `Resolve`
-fails (`internal/forge/token.go:149`) so every surface carries the per-host
+fails (`internal/forge/token.go:162`) so every surface carries the per-host
 hint. Keep `rejectionReason` to the fix ("invite the bot to #dev") and leave the
 key out, as the terminal's rule already asks — it keeps `ErrPostRefused` in
 its own words (`ownWords`, `internal/tui/failure.go:255`) and the overlay's
