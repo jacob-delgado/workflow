@@ -70,10 +70,12 @@ linters:
             - pkg: github.com/jacob-delgado/workflow/internal/wiring
               desc: wiring imports the terminal; the web server takes its seams through webserver.Deps
     errcheck:
-      # Writes to a command's output stream. There is nothing to do about a
-      # failed write to stdout — the channel you would report it on is the one
-      # that just failed — and checking each one triples the length of every
-      # help and report function. Writes to FILES are still checked.
+      # fmt.Fprint* is excluded whatever it writes to. Most of its writes go to
+      # a command's output stream, where there is nothing to do about a failed
+      # write — the channel you would report it on is the one that just failed
+      # — and checking each one triples the length of every help and report
+      # function. A file written through fmt.Fprint* is therefore checked by
+      # hand, as the request log checks each outline it writes.
       exclude-functions:
         - fmt.Fprint
         - fmt.Fprintf

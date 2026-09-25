@@ -16,6 +16,35 @@ import (
 // errTransport is what a Doer answers when a request never reaches the service.
 var errTransport = errors.New("dial tcp: timeout")
 
+// errDiskFull and errLogClosed are what a log's writer answers when a line
+// cannot be written.
+var (
+	errDiskFull  = errors.New("no space left on device")
+	errLogClosed = errors.New("file already closed")
+)
+
+// scriptedWriter answers each write with the next of its errors, and writes a
+// line through to written when that error is nil or the errors have run out.
+type scriptedWriter struct {
+	errs    []error
+	written strings.Builder
+}
+
+func (w *scriptedWriter) Write(line []byte) (int, error) {
+	if len(w.errs) > 0 {
+		err := w.errs[0]
+		w.errs = w.errs[1:]
+
+		if err != nil {
+			return 0, err
+		}
+	}
+
+	w.written.Write(line)
+
+	return len(line), nil
+}
+
 // steppingClock advances by step on each call, so a request's start time and
 // its duration are deterministic.
 func steppingClock(step time.Duration) func() time.Time {
@@ -142,5 +171,29 @@ func TestANilRequestLogWrapsToTheSameDoer(t *testing.T) {
 	// Assert
 	if !called {
 		t.Error("a nil log's wrap did not call through to the Doer")
+	}
+}
+
+func TestRequestLogKeepsItsFirstFailedWriteAndGoesOnWriting(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	out := &scriptedWriter{errs: []error{errDiskFull, nil, errLogClosed}}
+	log := wiring.NewRequestLog(out, steppingClock(time.Millisecond))
+	wrapped := log.Wrap("jira", okDoer)
+
+	// Act
+	for _, path := range []string{"/first", "/second", "/third"} {
+		_, _ = wrapped(request(t, http.MethodGet, "https://jira.example.com"+path))
+	}
+
+	// Assert
+	err := log.Err()
+	if !errors.Is(err, errDiskFull) || errors.Is(err, errLogClosed) {
+		t.Errorf("Err() = %v, want the first failed write's %q alone", err, errDiskFull)
+	}
+
+	if written := out.written.String(); !strings.Contains(written, "/second") {
+		t.Errorf("the log stopped writing after a write failed: %q", written)
 	}
 }

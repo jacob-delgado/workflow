@@ -868,7 +868,7 @@ them.
 - `internal/cli/status.go:414` — `statusGlyph`'s `default` arm repeats the
   `NotStarted` case; `stateWord` (`:439`) and `ciWord` (`:455`) do the same,
   and the gobco report shows each last case true many times and never false.
-  `exhaustive` (`.golangci.yml:87`) checks switch and map, so a missing enum
+  `exhaustive` (`.golangci.yml:89`) checks switch and map, so a missing enum
   case already fails lint and the default arms guard nothing.
 - `internal/cli/pr.go:185` — the two dry-run lines of `offerLink` and
   `offerReviewStatus` (`:244`) never print; UX-127 makes them print, which
