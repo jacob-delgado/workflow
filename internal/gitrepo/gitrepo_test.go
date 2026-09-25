@@ -40,8 +40,8 @@ type reply struct {
 }
 
 // fakeRunner answers the exact command lines it is given and fails the test on
-// any other, so a change in which git commands Describe runs cannot pass
-// unnoticed.
+// any other, so a change in which git commands the code under test runs cannot
+// pass unnoticed.
 func fakeRunner(t *testing.T, replies map[string]reply) gitrepo.Runner {
 	t.Helper()
 
@@ -50,7 +50,7 @@ func fakeRunner(t *testing.T, replies map[string]reply) gitrepo.Runner {
 
 		answer, ok := replies[key]
 		if !ok {
-			t.Errorf("Describe ran an unexpected command: %q", key)
+			t.Errorf("git ran an unexpected command: %q", key)
 
 			return nil, errUnexpectedCommand
 		}

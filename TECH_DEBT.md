@@ -1827,32 +1827,6 @@ error on the log for the command line to report at close; and make the
 **Done when.** A reqlog test with a writer that fails sees the failure
 surfaced.
 
-### DEBT-104 Comments on the wrong declaration; a fake that names the wrong method
-
-Severity: low · Confidence: read
-
-A shared test fake's comment and failure message name a method other than
-the one most of its tests are for. No linter in the gate checks a
-comment's subject.
-
-- `internal/gitrepo/gitrepo_test.go:53` — the shared `fakeRunner` fails with
-  `"Describe ran an unexpected command: %q"` whichever method the test is
-  for, and its comment (`internal/gitrepo/gitrepo_test.go:42`) says it
-  exists for "which git commands Describe runs";
-  `TestStatusReadsTheWorkTree` (`internal/gitrepo/status_test.go:55`) reuses
-  it for `Status`, and `TestFinishBranchSwitchesPullsAndDeletes`
-  (`internal/gitrepo/finishbranch_test.go:24`) for `FinishBranch` through
-  `recordingRunner`.
-
-A failing `Status` or `FinishBranch` test sends its reader to `Describe`
-first.
-
-**One way to fix it.** Make `fakeRunner`'s comment and failure message name
-the repository, or take the method name as a parameter.
-
-**Done when.** No `internal/gitrepo` test failure message names a method
-other than the one under test.
-
 ### DEBT-105 The contributor documents restate counts and names the tree has moved past
 
 Severity: low · Confidence: read
