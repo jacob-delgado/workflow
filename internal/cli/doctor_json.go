@@ -162,9 +162,7 @@ func credentialFacts(ctx context.Context, run doctorRun, remote string) (credent
 		{service: strings.ToLower(cfg.Messaging.Service()), run: func(out io.Writer) error {
 			return checkMessaging(ctx, out, doers.messaging, messaging.APIBase, cfg.Messaging)
 		}},
-		{service: "forge", run: func(out io.Writer) error {
-			return checkForge(ctx, out, doers.forge, cfg.Forge, remote)
-		}},
+		{service: "forge", run: func(out io.Writer) error { return checkForge(ctx, out, run, remote) }},
 	}
 
 	results := make([]credentialLine, 0, len(checks))

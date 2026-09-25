@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/jacob-delgado/workflow/internal/forge"
 )
@@ -116,5 +117,154 @@ func TestDoctorNamesAMissingGitOnTheRepositoryLine(t *testing.T) {
 	// Assert
 	if got := fieldValue(output, "Repository"); !strings.Contains(got, "git is not on PATH") {
 		t.Errorf("Repository = %q, want it to say git is missing:\n%s", got, output)
+	}
+}
+
+// forgeCLIRepository is a repository whose origin is remote, configured to reach
+// the forge through its CLI with no forge token anywhere: none in the
+// environment, where a laptop's or CI's own would otherwise resolve, and none in
+// the file.
+func forgeCLIRepository(t *testing.T, remote string) string {
+	t.Helper()
+
+	clearForgeEnvironment(t)
+	dir := repoWithRemote(t, remote)
+	writeFile(t, dir, `{"jira": {"base_url": "`+workingJira(t)+`", "token": "t"}, `+slackWebhook+`,`+
+		` "forge": {"cli": true}}`)
+
+	return dir
+}
+
+// ghSignedOutButAnswering puts a gh on PATH whose `gh auth token` yields nothing
+// while its `api` command answers, so a forge check can pass only by asking
+// through gh itself.
+func ghSignedOutButAnswering(t *testing.T) {
+	t.Helper()
+
+	fakeGh(t, ghResponses{signedOut: true})
+}
+
+func TestDoctorOnlineAsksTheForgeThroughItsCLI(t *testing.T) {
+	cases := map[string]struct {
+		remote string
+		onPath func(*testing.T)
+		want   string
+	}{
+		"a GitHub remote asks through gh": {
+			remote: githubSSHRemote,
+			onPath: ghSignedOutButAnswering,
+			want:   "authenticates as octo (through gh)",
+		},
+		"a GitLab remote asks through glab": {
+			remote: "git@gitlab.com:group/proj.git",
+			onPath: fakeGlab,
+			want:   "authenticates as tanuki (through glab)",
+		},
+	}
+
+	for name, tt := range cases {
+		t.Run(name, func(t *testing.T) {
+			// Arrange
+			dir := forgeCLIRepository(t, tt.remote)
+			tt.onPath(t)
+
+			// Act
+			output, err := run(t, dir, "doctor", "--online")
+			// Assert
+			if err != nil {
+				t.Fatalf("doctor --online = %v, want a forge its CLI answers for to pass:\n%s", err, output)
+			}
+
+			if !strings.Contains(output, tt.want) {
+				t.Errorf("doctor does not name the CLI it asked through: want %q\n%s", tt.want, output)
+			}
+		})
+	}
+}
+
+func TestDoctorJSONOnlineCallsAForgeItsCLIAnswersForOK(t *testing.T) {
+	// Arrange
+	dir := forgeCLIRepository(t, githubSSHRemote)
+	ghSignedOutButAnswering(t)
+
+	// Act
+	output, err := run(t, dir, "doctor", "--json", "--online")
+
+	// Assert
+	wantExit(t, err, 0)
+
+	if got := credentialStatusIn(decodeReport(t, output), "forge"); got != "ok" {
+		t.Errorf("the online report calls a forge gh answered for %q, want ok:\n%s", got, output)
+	}
+}
+
+// A signed-out CLI cannot reach the forge for doctor any more than for the
+// commands, which exit 5 over it; no token to resolve is not what is wrong.
+func TestDoctorJSONOnlineCallsAForgeItsSignedOutCLIUnreachable(t *testing.T) {
+	// Arrange
+	dir := forgeCLIRepository(t, githubSSHRemote)
+	ghSignedOut(t)
+
+	// Act
+	output, err := run(t, dir, "doctor", "--json", "--online")
+
+	// Assert
+	wantExit(t, err, 5)
+
+	if got := credentialStatusIn(decodeReport(t, output), "forge"); got != unreachableStatus {
+		t.Errorf("the online report calls a forge a signed-out gh could not reach %q, want unreachable:\n%s",
+			got, output)
+	}
+
+	if !strings.Contains(output, "through gh") {
+		t.Errorf("the forge's detail does not say it was asked through gh:\n%s", output)
+	}
+}
+
+// onlineRequestTimeout is the request timeout a test sets when it waits for
+// doctor to give up on a check.
+const onlineRequestTimeout = "500ms"
+
+func TestDoctorOnlineGivesUpOnAForgeCLIThatNeverAnswers(t *testing.T) {
+	// Arrange
+	clearForgeEnvironment(t)
+	dir := repoWithRemote(t, githubSSHRemote)
+	writeFile(t, dir, `{"jira": {"base_url": "`+workingJira(t)+`", "token": "t"}, `+slackWebhook+`,`+
+		` "forge": {"cli": true}, "timing": {"request_timeout": "`+onlineRequestTimeout+`"}}`)
+	fakeGh(t, ghResponses{signedOut: true, apiHangs: true})
+
+	started := time.Now()
+
+	// Act
+	output, err := run(t, dir, "doctor", "--online")
+
+	// Assert
+	if elapsed := time.Since(started); elapsed >= ghHang/2 {
+		t.Fatalf("doctor --online took %s over a gh that never answers, want it to give up after %s:\n%s",
+			elapsed, onlineRequestTimeout, output)
+	}
+
+	wantExit(t, err, 5)
+
+	if want := "gave up after " + onlineRequestTimeout + " (through gh)"; !strings.Contains(output, want) {
+		t.Errorf("doctor does not say it gave up on the forge: want %q\n%s", want, output)
+	}
+}
+
+func TestLogReachesDoctorOnlinesForgeCheckThroughItsCLI(t *testing.T) {
+	// Arrange
+	dir := forgeCLIRepository(t, githubSSHRemote)
+	ghSignedOutButAnswering(t)
+	logPath := filepath.Join(t.TempDir(), "requests.log")
+
+	// Act
+	output, err := run(t, dir, "doctor", "--online", "--log", logPath)
+	// Assert
+	if err != nil {
+		t.Fatalf("doctor --online: %v (%s)", err, output)
+	}
+
+	if logged := readLog(t, logPath); !strings.Contains(logged, "forge GET  /user") {
+		t.Errorf("the request log does not outline doctor's check of the forge:\n%s", logged)
 	}
 }

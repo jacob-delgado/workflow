@@ -105,45 +105,6 @@ type, and `EditorDeps` carries Bubble Tea's `tea.Msg` and `tea.Cmd`, so
 import them without importing each other. Deferred — YAGNI until a seam the
 terminal does not use has to be added to `tui.Deps`.
 
-### DEBT-75 `doctor --online` ignores `forge.cli` and asks the forge over HTTP
-
-Severity: medium · Confidence: read
-
-`docs/content/docs/scripting.md:53` promises, under `forge.cli`, that
-"`workflow doctor --online` says which it is" — `gh` or `glab`, or HTTP.
-`doctor` never reads `config.Forge.CLI`: `checkForge`
-(`internal/cli/doctor_credentials.go:121`) always resolves a token through
-`wiring.ForgeResolver` and fails with `errCredentialMissing` when none
-resolves; `askForge` (`internal/cli/doctor_credentials.go:149`) calls
-`forge.New(doer, base, token).Whoami` over the doer that `onlineDoers`
-(`internal/cli/doctor_credentials.go:64`) builds from `httpx` alone; and
-`doctor --json --online` shares the same `checkForge` through
-`credentialFacts` (`internal/cli/doctor_json.go:165`), so the JSON verdict
-is wrong too. The
-commands' own path, `connectForge` (`internal/wiring/forge.go:244`),
-tolerates a missing token when the CLI is in use (`if err != nil &&
-!usingCLI`); `doctor` has no such branch.
-
-Behind the SSO gateway `forge.cli` exists for, every command works through
-`gh` or `glab` while `doctor --online` reports the token as missing (exit 3)
-or the forge as unreachable (exit 5) and sends the user to fix a credential
-the commands do not need. No doctor test sets `forge.cli`.
-
-**One way to fix it.** Have `checkForge` build its doer through `wiring`'s
-forge transport (exported or wrapped), tolerate a missing token when the CLI
-is in use as `connectForge` does, and report "through gh" or "through glab"
-as the credential's source. This leans on `forge.cli` asking the forge
-through the CLI, which `FEATURES.md`'s settled line "gh is an optional
-source of a token and nothing more" does not admit; that line is the stale
-side — commit 015a5f4, which added `forgeTransport`
-(`internal/wiring/forgecli.go:25`), says it reopens the net/http rule
-deliberately and opt-in — so the maintainer refreshes the settled line
-rather than this fix.
-
-**Done when.** A doctor test with `forge.cli` true, no token in the
-environment or the file, and a fake `gh` on PATH exits 0 and names `gh` as
-the source; the same with a GitLab remote and a fake `glab`.
-
 ### DEBT-76 The forge-issues mode is advertised, then `doctor` and the docs deny it
 
 Severity: medium · Confidence: read
@@ -275,12 +236,6 @@ The terminal:
 
 The command line:
 
-- `internal/cli/doctor_credentials.go:95` — `checkForge`'s comment says it
-  "does not call the forge" and (`:97`) "costs no network round trip";
-  `askForge` (`:149`) calls `forge.New(doer, base, token).Whoami(ctx)`,
-  reached from `checkForge` at `:128`, and
-  `TestDoctorOnlineNamesWhereTheForgeTokenCameFrom`
-  (`internal/cli/online_test.go:267`) exercises that round trip.
 - `internal/cli/prompt.go:16` — `Prompt` is "the guided command's seams"
   though the `Compose` field's own comment (`:33`) says it edits a standup
   note and `confirm` (`:41`) reads `prompt.Line` for every scriptable
@@ -366,9 +321,9 @@ The web server:
 
 A reader of `go doc`, of CLAUDE.md's layout table or of ARCHITECTURE.md is told
 something the code beside it does not do, and acts on it: changes one call site
-of three, expects `doctor --online` to stay off the forge, treats a merged pull
-as open, or tries a layering the v2 upgrade already allows. The cost is paid at
-the next change, when the comment is trusted over the code.
+of three, treats a merged pull as open, or tries a layering the v2 upgrade
+already allows. The cost is paid at the next change, when the comment is
+trusted over the code.
 
 **One way to fix it.** One pass, file by file, rewording each sentence to
 what the code does now — or deleting the enumerations that go stale a verb
@@ -380,8 +335,7 @@ pane lists in `internal/tui/keys.go` match the
 handlers; the `Deps` comment names the answers the handlers give; and each
 of these prints nothing — `grep -n "the one place the interface reads"
 internal/tui/branch.go`, `grep -n "cannot layer one view over another"
-internal/tui/overlay.go`, `grep -n "does not call the forge"
-internal/cli/doctor_credentials.go`, `grep -n "guided command's seams"
+internal/tui/overlay.go`, `grep -n "guided command's seams"
 internal/cli/prompt.go`, `grep -n "checks Opened rather than trusting"
 internal/forge/pulls.go`, `grep -n "caret-feed" internal/jira/wiki.go`,
 `grep -n "status describes the configuration" internal/tui/render.go` and
@@ -458,9 +412,9 @@ The README and the docs index:
 - The README (line 45) and `docs/content/_index.md:29` — "`workflow doctor
   --online` asks Jira, your messaging service and your forge whether each
   credential actually works"; `checkMessaging`'s comment
-  (`internal/cli/doctor_credentials.go:170`) says a webhook is uncheckable,
-  `ErrWebhookUncheckable` is reported unchecked (`:193`), `credentialStatus`
-  names that `unchecked` (`internal/cli/doctor_json.go:202`), and
+  (`internal/cli/doctor_credentials.go:197`) says a webhook is uncheckable,
+  `ErrWebhookUncheckable` is reported unchecked (`:220`), `credentialStatus`
+  names that `unchecked` (`internal/cli/doctor_json.go:200`), and
   `TestDoctorOnlineSaysAWebhookCannotBeChecked`
   (`internal/cli/online_test.go:153`) pins "cannot be checked".
 - The README's line 262 — "There are no releases yet." while nine tags
@@ -847,7 +801,7 @@ three; no linter or knip rule sees any of it.
   `.ghe.com` host is `KindUnknown`; `githubsOwn`
   (`internal/forge/host.go:40`) and `githubAPIBase`
   (`internal/forge/remote.go:186`) both know the `.ghe.com` rule, and
-  `checkForge` (`internal/cli/doctor_credentials.go:115`) tells such a
+  `checkForge` (`internal/cli/doctor_credentials.go:121`) tells such a
   tenant to "set forge.kind and forge.host" for a host the code could
   classify.
 - `internal/config/ui.go:45` — the rebindable action names are listed
@@ -1211,7 +1165,7 @@ below `dupl`'s token threshold, so no gate sees them.
   `internal/jira/jira.go:98` and `internal/forge/client.go:101` each return
   `httpx.Client(timeout)` unchanged — the middle man CLAUDE.md's catalog
   names, written three times — while `onlineDoer`
-  (`internal/cli/doctor_credentials.go:50`) already calls `httpx.Client`
+  (`internal/cli/doctor_credentials.go:71`) already calls `httpx.Client`
   directly. A change to the transport's construction is a four-site edit.
 
 **One way to fix it.** One `newJSONRequest(ctx, method, path, body any)`

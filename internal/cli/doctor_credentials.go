@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"io"
 	"strings"
+	"time"
 
 	"github.com/jacob-delgado/workflow/internal/config"
 	"github.com/jacob-delgado/workflow/internal/forge"
@@ -39,7 +40,7 @@ func reportCredentials(ctx context.Context, out io.Writer, run doctorRun, remote
 	return credentialVerdict(
 		checkJira(ctx, out, doers.jira, run.cfg.Jira),
 		checkMessaging(ctx, out, doers.messaging, messaging.APIBase, run.cfg.Messaging),
-		checkForge(ctx, out, doers.forge, run.cfg.Forge, remote),
+		checkForge(ctx, out, run, remote),
 	)
 }
 
@@ -58,20 +59,26 @@ func credentialVerdict(outcomes ...error) error {
 	return errors.Join(counted...)
 }
 
-// onlineDoer is the transport doctor's --online checks travel over: the
-// redirect-refusing client, bounded by the configured request timeout so a
-// hung service does not hang doctor, or the default when none is set.
-func onlineDoer(cfg config.Config) httpx.Doer {
-	return httpx.Client(cmp.Or(cfg.RequestTimeout(), wiring.RequestTimeout)).Do
+// onlineTimeout bounds each of doctor's --online checks by the configured
+// request timeout, so a hung service does not hang doctor, or by the default
+// when none is set.
+func onlineTimeout(cfg config.Config) time.Duration {
+	return cmp.Or(cfg.RequestTimeout(), wiring.RequestTimeout)
 }
 
-// serviceDoers are the online transport once per service, each outlining its
-// requests in the request log under that service's name, as the commands that
-// wire the services do.
+// onlineDoer is the transport the tracker and messaging checks travel over: the
+// redirect-refusing client, bounded by onlineTimeout.
+func onlineDoer(cfg config.Config) httpx.Doer {
+	return httpx.Client(onlineTimeout(cfg)).Do
+}
+
+// serviceDoers are the online transport once per HTTP-only service, each
+// outlining its requests in the request log under that service's name, as the
+// commands that wire the services do. The forge is not among them: forge.cli
+// can route it through gh or glab, which wiring.ReachForge decides.
 type serviceDoers struct {
 	jira      httpx.Doer
 	messaging httpx.Doer
-	forge     httpx.Doer
 }
 
 // onlineDoers wraps the online transport for each service in log, which may be
@@ -82,7 +89,6 @@ func onlineDoers(cfg config.Config, log *wiring.RequestLog) serviceDoers {
 	return serviceDoers{
 		jira:      log.Wrap("jira", doer),
 		messaging: log.Wrap("slack", doer),
-		forge:     log.Wrap("forge", doer),
 	}
 }
 
@@ -105,12 +111,14 @@ func apiBase(repo forge.Repo) (string, bool) {
 	return base, err == nil
 }
 
-// checkForge says where the forge credential comes from.
+// checkForge asks the forge who the credential belongs to, reaching it the way
+// the commands do — through gh or glab when forge.cli routes it there — and
+// says how it was reached.
 //
-// It reports the SOURCE rather than the token, and does not call the forge:
-// knowing which of three places a credential was taken from is what answers
-// "why is it using that one?", and it costs no network round trip.
-func checkForge(ctx context.Context, out io.Writer, doer forge.Doer, settings config.Forge, remote string) error {
+// It reports the credential's SOURCE rather than the token: knowing which of
+// three places a credential was taken from, or that the forge's own CLI signed
+// the request, is what answers "why is it using that one?".
+func checkForge(ctx context.Context, out io.Writer, run doctorRun, remote string) error {
 	repo, ok := forgeRepo(remote)
 	if !ok {
 		return credentialUnchecked(out, "forge", "no repository remote, so there is no forge to ask")
@@ -118,7 +126,7 @@ func checkForge(ctx context.Context, out io.Writer, doer forge.Doer, settings co
 
 	// The configuration section fails a forge.kind that cannot be used; here it
 	// only means there is no forge to ask.
-	repo, err := repo.WithConfiguredKind(wiring.ForgeSettings(settings))
+	repo, err := repo.WithConfiguredKind(wiring.ForgeSettings(run.cfg.Forge))
 	if err != nil {
 		return credentialUnchecked(out, "forge", err.Error())
 	}
@@ -129,12 +137,22 @@ func checkForge(ctx context.Context, out io.Writer, doer forge.Doer, settings co
 			repo.Host+" is neither github.com nor gitlab.com — set forge.kind and forge.host")
 	}
 
-	token, source, err := wiring.ForgeResolver(settings).Resolve(ctx, repo.Kind, repo.Host)
+	// One limit for the whole check: a request through gh or glab runs under this
+	// context, which the HTTP client's own timeout does not reach.
+	timeout := onlineTimeout(run.cfg)
+	gaveUp := fmt.Errorf("%w: gave up after %s", forge.ErrUnreachable, timeout)
+
+	ctx, cancel := context.WithTimeoutCause(ctx, timeout, gaveUp)
+	defer cancel()
+
+	access, err := wiring.ReachForge(ctx, run.cfg.Forge, repo, base, timeout)
 	if err != nil {
 		return credentialMissing(out, "forge", noForgeTokenMessage(proc.Available, repo.Kind, repo.Host))
 	}
 
-	return askForge(ctx, out, doer, base, token, source)
+	client := forge.New(run.log.Wrap("forge", access.Doer), base, access.Token)
+
+	return askForge(ctx, out, client, access.Via)
 }
 
 // noForgeTokenMessage explains why no forge token resolved. When gh is the
@@ -150,21 +168,30 @@ func noForgeTokenMessage(available func(string) bool, kind forge.Kind, host stri
 	return "none — " + forge.Sources(kind, host)
 }
 
-// askForge asks the forge who the credential belongs to.
-func askForge(
-	ctx context.Context, out io.Writer, doer forge.Doer,
-	base string, token forge.Token, source forge.Source,
-) error {
-	identity, err := forge.New(doer, base, token).Whoami(ctx)
+// askForge asks the forge who the credential belongs to, and says beside the
+// answer where that credential came from, or which CLI signed the request.
+func askForge(ctx context.Context, out io.Writer, client forge.Client, via string) error {
+	identity, err := client.Whoami(ctx)
 	if err != nil {
-		fmt.Fprintf(out, "  %-10s %v (token from %s)\n", "forge", err, source)
+		fmt.Fprintf(out, "  %-10s %v (%s)\n", "forge", unansweredBecause(ctx, err), via)
 
 		return credentialOutcome(err, "forge")
 	}
 
-	fmt.Fprintf(out, "  %-10s authenticates as %s (token from %s)\n", "forge", identity.Name(), source)
+	fmt.Fprintf(out, "  %-10s authenticates as %s (%s)\n", "forge", identity.Name(), via)
 
 	return nil
+}
+
+// unansweredBecause says why a forge request failed: its own error, or why the
+// check's context ended when that is what stopped it, since a gh or glab killed
+// at the time limit can say only that it was killed.
+func unansweredBecause(ctx context.Context, err error) string {
+	if ctx.Err() != nil {
+		return context.Cause(ctx).Error()
+	}
+
+	return err.Error()
 }
 
 // checkMessaging asks the messaging service which workspace the bot token
