@@ -229,7 +229,10 @@ func TestAnnounceNeverForwardsTheWebhook(t *testing.T) {
 		wantStatus int
 		want       string
 	}{
-		"nothing set up":         {messaging.ErrNoCredential, unprocessable, "add a token or a webhook URL in Settings"},
+		"nothing set up": {
+			messaging.ErrNoCredential, unprocessable,
+			"add a token or a webhook URL in Settings, or check that messaging.token_command or messaging.token_env gives one",
+		},
 		"a webhook not on https": {messaging.ErrInsecureWebhook, unprocessable, "not an https address"},
 		"the service refused":    {messaging.ErrRejected, unprocessable, "or that the webhook URL is current"},
 		"the message refused":    {messaging.ErrPostRefused, unprocessable, "announce from a terminal to see its reason"},

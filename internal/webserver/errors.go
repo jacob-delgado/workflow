@@ -235,7 +235,9 @@ func messagingFaults() []faultClass {
 	return []faultClass{
 		{
 			causes: []error{messaging.ErrNoCredential},
-			code:   api.Unprocessable, detail: "messaging is not set up; add a token or a webhook URL in Settings",
+			code:   api.Unprocessable,
+			detail: "messaging has no credential; add a token or a webhook URL in Settings, " +
+				"or check that messaging.token_command or messaging.token_env gives one",
 		},
 		{
 			causes: []error{messaging.ErrInsecureWebhook},

@@ -76,13 +76,16 @@ place those seams meet the real clients. This is dependency inversion in the
 plain Go form the codebase prefers: a one-method dependency is a function
 variable, not an interface.
 
-`wiring.Deps(ctx, cfg, where, log)` returns a `tui.Deps` bundle. It composes one
-grouped seam per external system (`Jira`, `Git`, `Forge`, `Messaging`, `Hooks`,
-`Editor`, `Store`) plus a few environment seams (`Clock`, `CIInterval`, `After`,
-`Notify`, `OpenURL`, `Copy`). Each grouped seam is a struct of closures that
-capture the context and the resolved credential, so the TUI model itself never
-holds either — which is exactly what lets its tests hand it canned answers with
-no network.
+`wiring.Deps(ctx, cfg, where, log)` returns a `tui.Deps` bundle and a
+`resolveAhead` hook. It composes one grouped seam per external system (`Jira`,
+`Git`, `Forge`, `Messaging`, `Hooks`, `Editor`, `Store`) plus a few environment
+seams (`Clock`, `CIInterval`, `After`, `Notify`, `OpenURL`, `Copy`). Each
+grouped seam is a struct of closures that capture the context and a
+once-connected client. Jira, the messaging service and the forge each find their
+token the first time a seam asks, and a failure is retried on the next ask
+rather than remembered. So a command that never reaches a service never looks up
+its token, and the TUI model itself never holds a credential — which is exactly
+what lets its tests hand it canned answers with no network.
 
 - `Workspace{Root, Remote}` tells wiring where it is running — the repository
   root (or the start directory when there is no repo) and the origin remote URL.
@@ -90,7 +93,11 @@ no network.
 - The CLI builds this bundle once in its root `RunE`; `--web` reuses **the same
   bundle**, adapted to the web server's shape. That shared construction is one
   half of why there is one implementation behind three front doors;
-  `internal/loop`, below, is the other.
+  `internal/loop`, below, is the other. Before the interface or `--web` starts,
+  the CLI calls `resolveAhead`, which looks up the Jira and messaging tokens in
+  advance, so a token command that prompts on the terminal can be answered
+  before either takes the terminal over. A token not found then is looked for
+  again on first use, where its failure is reported.
 
 A seam speaks the interface's own domain types, and wiring translates at the
 boundary. The store seam is the clearest example: the TUI's `StoreDeps.CachedIssues`

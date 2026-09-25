@@ -66,9 +66,9 @@ them, re-counted at this commit.
 | --- | --- | --- |
 | "a key it does not show does nothing" | No longer stated anywhere; the sentence an earlier edition cited in `docs/content/docs/usage.md` is gone. Folds into the next row. | — |
 | "`?` lists every key" | `docs/content/docs/usage.md:75` | **Yes, by construction, and a test enumerates every placement.** Help is generated from the bindings (`internal/tui/keys.go:138` `helpBuilder.place`, rendered at `internal/tui/render.go:219`): 57 of 57, on 56 lines, since `cycle-type-right` rides `cycle-type-left`'s line (`internal/tui/render.go:233` skips a binding with no help of its own). `TestHelpListsEveryPlacedBinding` (`internal/tui/help_test.go:211`) reads `?` back and holds it to a table of every placement, group by group, and each action moved to a free key must be listed on its own line in its group. |
-| "the one way the interface says something broke" | `wording`, `internal/tui/failure.go:63` | **Yes: every site that renders an error's text.** Each tells it through `errorSentence` (`internal/tui/failure.go:100`), which words every sentinel the seams return briefly and in full: 6 panes, the configuration screen, 11 `pinnedOutcome` overlays and the 2 details that repeat a summary row's failure beneath it through `failureBlock` (`internal/tui/failure.go:395`), 12 one-failure rows through `failureLine`, 4 rail and summary rows through `failureSummary`, and 11 failure notices through `noticedFailure`, drawn in the failure style, the merge's and the re-run's led by what failed so a clipped row still names it; a run's headline names the step a failure status stopped, and a pull request opened without every reviewer says why in brief. The 3 guidance notices stay plain, since red means something broke. The width-one glyph-only marks — a failed check, job, stage or review CI — and the three rails that point at their detail carry no error text to word. One site drops the text it has: the branch creator's fixed "could not fetch" line (UX-129). |
+| "the one way the interface says something broke" | `wording`, `internal/tui/failure.go:63` | **Yes: every site that renders an error's text.** Each tells it through `errorSentence` (`internal/tui/failure.go:100`), which words every sentinel the seams return briefly and in full: 6 panes, the configuration screen, 11 `pinnedOutcome` overlays and the 2 details that repeat a summary row's failure beneath it through `failureBlock` (`internal/tui/failure.go:402`), 12 one-failure rows through `failureLine`, 4 rail and summary rows through `failureSummary`, and 11 failure notices through `noticedFailure`, drawn in the failure style, the merge's and the re-run's led by what failed so a clipped row still names it; a run's headline names the step a failure status stopped, and a pull request opened without every reviewer says why in brief. The 3 guidance notices stay plain, since red means something broke. The width-one glyph-only marks — a failed check, job, stage or review CI — and the three rails that point at their detail carry no error text to word. One site drops the text it has: the branch creator's fixed "could not fetch" line (UX-129). |
 | "Nothing outward facing is sent without" a last look | `internal/tui/comment.go:64` | **Yes: 20 of 20.** Every act that writes through a seam — five on Jira, nine through git, four on the forge, the post and the lefthook file — waits on a preview or a confirmation; the push, `R`'s re-run of CI and `u`'s rebase share one last look, `lastLook` (`internal/tui/overlay.go:157`). Of the twenty, eleven leave the machine: the Jira five, the forge four, the post and the push; the rest are local writes that still get a look. The acts are listed under the table. |
-| "a refused change must never go unseen" | `internal/tui/picker.go:312` | **Yes: 13 of 13.** Every overlay that sends a request guards it while in flight (an earlier edition counted 1 of 7; the last counted 14 by including the commit composer, which holds a `sendState` for a validation refusal only and hands its commit to a run overlay, `internal/tui/composer.go:364`), and every one keeps a refusal in the overlay, where it happened, until `esc` — the merge and finish previews last, through `pinnedOutcome` (`internal/tui/failure.go:413`). |
+| "a refused change must never go unseen" | `internal/tui/picker.go:312` | **Yes: 13 of 13.** Every overlay that sends a request guards it while in flight (an earlier edition counted 1 of 7; the last counted 14 by including the commit composer, which holds a `sendState` for a validation refusal only and hands its commit to a run overlay, `internal/tui/composer.go:364`), and every one keeps a refusal in the overlay, where it happened, until `esc` — the merge and finish previews last, through `pinnedOutcome` (`internal/tui/failure.go:420`). |
 | "Each pane fails on its own" | `docs/content/docs/usage.md:80` | Yes. `internal/tui/tui.go:160` batches six loads; five panes hold and render their own load's error through `failureBlock` (`internal/tui/detail.go:339`, `internal/tui/branch.go:127`, `internal/tui/commits.go:125`, `internal/tui/review.go:282`, `internal/tui/reviewqueue.go:115`). The Messaging pane's load, `loadAnnounces`, reads the store, whose errors the wiring drops before they reach the model, so it has no load error to hold; its `failureBlock` site (`internal/tui/messaging.go:187`) renders a failed post. |
 | State is "carried by the SHAPE of a glyph rather than its color" | `internal/tui/glyphs.go:16` | Yes. `unicodeGlyphs` and `asciiGlyphs` differ in shape (`internal/tui/glyphs.go:31`, `:43`); `NO_COLOR` keeps bold and faint (`internal/tui/tui.go:142`). One residue: the progress spine's per-system hue is color-only, mitigated by the name or its initial. |
 
@@ -203,7 +203,7 @@ while it runs.
   (`internal/cli/config_cmd.go:327`) only warns when it is not, and nothing
   writes a `.gitignore`; the sentence is true of this repository's own
   `.gitignore:34`, not the user's. `README.md:198` and
-  `docs/content/docs/configuration.md:497` (both under "Keeping the tokens
+  `docs/content/docs/configuration.md:505` (both under "Keeping the tokens
   safe") say the same.
 - `internal/cli/config_cmd.go:58` and `:59` (`newConfigInitCmd`'s `Short`
   and `Long`): "asking for and checking each credential", "check each
@@ -545,7 +545,7 @@ grep finds all ten. DEBT-115 points here for the nothing-staged sentence.
 - `internal/tui/finish.go:27` `Model.mergedDetail` says "F finishes the
   branch: …"; finish-branch is rebindable (`internal/tui/keys.go:246`,
   `reviewAndMessagingKeys`).
-- `internal/tui/failure.go:130` `localErrors` words `loop.ErrNothingStaged`
+- `internal/tui/failure.go:127` `localErrors` words `loop.ErrNothingStaged`
   in full as "nothing is staged: space stages the selected file" — the
   very full form `wording` says names no key; stage is rebindable
   (`internal/tui/keys.go:231`, `branchAndCommitKeys`).
@@ -1182,7 +1182,7 @@ carried and misdescribed.
   `jira.Token` and sets `TokenCommand` (`internal/cli/config_cmd.go:287`).
   A user who types a token to "fix" it writes a secret into the file, and
   "The file's own `token` wins when set"
-  (`docs/content/docs/configuration.md:194`, under "Keeping tokens out of
+  (`docs/content/docs/configuration.md:195`, under "Keeping tokens out of
   the file") — what `config init` worked to avoid.
 - `MessagingFieldset`'s Bot token hint is "Slack only; leave as-is to keep
   the stored token."
@@ -1987,7 +1987,7 @@ script is told to press a key it does not have.
 - `prBodyHelp`, `internal/tui/prcomposer.go:30`: a fixed "Write the pull
   request description above this line", handed to `$EDITOR` by the
   composer (`:376`) and the editor (`internal/tui/preditor.go:109`).
-- `forgeErrors`, `internal/tui/failure.go:188`: the full form of
+- `forgeErrors`, `internal/tui/failure.go:189`: the full form of
   `forge.ErrNoToken` says "Run `gh auth login`, or set `$GITHUB_TOKEN`" for
   every host, though `Sources`, `internal/forge/token.go:245`, already
   names the variable and tool per host and `noForgeTokenMessage`,
@@ -2008,7 +2008,7 @@ and `m.vocab` in the terminal and the editor help, keeping the sentinels for
 fails (`internal/forge/token.go:162`) so every surface carries the per-host
 hint. Keep `rejectionReason` to the fix ("invite the bot to #dev") and leave the
 key out, as the terminal's rule already asks — it keeps `ErrPostRefused` in
-its own words (`ownWords`, `internal/tui/failure.go:255`) and the overlay's
+its own words (`ownWords`, `internal/tui/failure.go:257`) and the overlay's
 footer offers enter itself; change the `reviews` row of scripting.md with
 it.
 
@@ -2258,10 +2258,12 @@ Impact: low · Effort: small
   reference date `2006-01-02` (`:36`), as the hint, while `errNeedsDate`,
   `:29`, says "must be a date like 2026-09-21" — the hint reads as a stale
   date rather than a shape.
-- `Model.messagingDetail`, `internal/tui/messaging.go:167`: "to ~/" +
-  `config.FileName`, with a literal newline mid-sentence that `wrap`
-  re-breaks, where `messagingErrors`, `internal/tui/failure.go:244`, words
-  the same condition as ".workflow.json" with no `~/`, and `FileName`'s
+- `Model.messagingDetail`, `internal/tui/messaging.go:167`: "SERVICE is
+  not set up" and "to ~/" + `config.FileName`, with a literal newline
+  mid-sentence that `wrap` re-breaks, where `messagingErrors`'
+  `messaging.ErrNoCredential` wording, `internal/tui/failure.go:243`, words
+  the same condition as "Messaging has no credential", names
+  `token_command` and `token_env` as well, and names no file; `FileName`'s
   comment, `internal/config/config.go:15`, says the name serves both search
   locations.
 - `prComposer.footer`, `internal/tui/prcomposer.go:263`: relabels
@@ -2290,9 +2292,10 @@ discard.
 commands' tests all end with a period;
 `TestATransitionFillsAUserDateAndSeveralVersions` and
 `TestADateFieldRefusesWhatIsNotADate` agree on one example;
-`TestTheSlackPaneNamesWhatItNeedsWhenUnset` refuses `~/` and the two
-sentences share their file name; `TestAFailedPushKeepsThePullRequestDraft`
-asserts the footer's `esc` label is not "discard".
+`TestTheSlackPaneNamesWhatItNeedsWhenUnset` refuses `~/` and the pane and
+the failure wording name the same settings;
+`TestAFailedPushKeepsThePullRequestDraft` asserts the footer's `esc` label
+is not "discard".
 
 ## Ideas that would reopen a settled decision
 

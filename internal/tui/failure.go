@@ -241,8 +241,9 @@ func forgeErrors() []knownError {
 func messagingErrors() []knownError {
 	return []knownError{
 		{messaging.ErrNoCredential, wording{
-			brief: "messaging is not set up",
-			full:  "Messaging is not set up. Add `messaging.webhook_url` to `.workflow.json`.",
+			brief: "messaging has no credential",
+			full: "Messaging has no credential. Set `messaging.webhook_url` or `messaging.token`, or check that " +
+				"`messaging.token_command` or `messaging.token_env` gives one.",
 		}},
 		{messaging.ErrInsecureWebhook, wording{
 			brief: "the webhook is not https",

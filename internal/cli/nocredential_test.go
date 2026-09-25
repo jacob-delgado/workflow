@@ -25,3 +25,23 @@ func TestAJiraTokenVariableThatGivesNothingIsNamedNotCalledUnconfigured(t *testi
 		t.Errorf("branch = %v, want the error to name %s and not call the token unconfigured", err, emptyTokenVariable)
 	}
 }
+
+// A bot token's token_env that gives nothing is a configured source, so the
+// error names the variable rather than saying no token is configured.
+func TestAMessagingTokenVariableThatGivesNothingIsNamedNotCalledUnconfigured(t *testing.T) {
+	// Arrange
+	t.Setenv(emptyTokenVariable, "")
+	fakeGh(t, ghResponses{pulls: openPull("Add login")})
+
+	repo := githubRepo(t, "fix/PROJ-2-thing")
+	writeFile(t, repo, `{"forge":{"cli":true,"kind":"github","host":"github.com"},`+
+		`"messaging":{"token_env":"`+emptyTokenVariable+`","channel":"#dev"}}`)
+
+	// Act
+	_, err := run(t, repo, "announce", "--yes")
+
+	// Assert
+	if err == nil || strings.Contains(err.Error(), "is configured") || !strings.Contains(err.Error(), emptyTokenVariable) {
+		t.Errorf("announce = %v, want the error to name %s and not call the token unconfigured", err, emptyTokenVariable)
+	}
+}
