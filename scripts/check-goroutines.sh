@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# Fail if a goroutine is started outside internal/proc.
+# Fail on a `go` statement outside internal/proc and the test files.
 #
 # Usage:
 #   scripts/check-goroutines.sh          # the gate
@@ -8,10 +8,12 @@
 #
 # Concurrency in this program lives in two places by design: Bubble Tea runs the
 # model's work through tea.Cmd, and internal/proc drains a subprocess's pipe on
-# one goroutine. Nowhere else starts one — an ad-hoc `go` in the app logic is how
-# a TUI grows races it cannot reproduce. The audit checked this by reading; this
-# keeps it true, confining a bare `go` statement to internal/proc, where the pipe
-# drainer lives, and to the test files that spawn helpers of their own.
+# one goroutine. An ad-hoc `go` in the app logic is how a TUI grows races it
+# cannot reproduce. The audit checked this by reading; this keeps it true,
+# confining a bare `go` statement to internal/proc, where the pipe drainer lives,
+# and to the test files that spawn helpers of their own. It measures the keyword
+# only: a goroutine a library starts for the program, such as the one
+# context.AfterFunc runs the web server's shutdown on, is not a `go` statement.
 #
 #   TRACKED FILES ONLY, like the file-length gate: `git ls-files` measures what
 #   is committed or staged, so scratch files cannot fail it and a new file counts
@@ -61,10 +63,10 @@ if [[ "${mode}" == "list" ]]; then
 fi
 
 if [[ -n "${matches}" ]]; then
-  echo "check-goroutines: a goroutine is started outside internal/proc:" >&2
+  echo "check-goroutines: a \`go\` statement outside internal/proc and the tests:" >&2
   echo "${matches}" >&2
   echo "Run the model's work through tea.Cmd, and a subprocess's through internal/proc." >&2
   exit 1
 fi
 
-echo "check-goroutines: no goroutine is started outside internal/proc."
+echo "check-goroutines: no \`go\` statement outside internal/proc and the tests."

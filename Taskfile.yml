@@ -407,7 +407,7 @@ tasks:
       - scripts/check-mise-version.sh
 
   lint:goroutines:
-    desc: Check that no goroutine is started outside internal/proc
+    desc: Check that no `go` statement sits outside internal/proc and the tests
     cmds:
       - scripts/check-goroutines.sh
 
