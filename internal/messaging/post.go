@@ -127,8 +127,10 @@ func (c Client) postAsBot(ctx context.Context, channel, text string) error {
 	return nil
 }
 
-// postToWebhook posts to an incoming webhook, which answers "ok" as plain text,
-// and a refusal as a status with its reason as plain text.
+// postToWebhook posts to an incoming webhook. Each kind answers a delivered post
+// with its own 2xx: Slack 200 with "ok" as plain text, Discord 204 with no body,
+// Teams 200 or 202, and a plain webhook whichever 2xx it chooses. A refusal is a
+// status with its reason as plain text.
 func (c Client) postToWebhook(ctx context.Context, _, text string) error {
 	address, err := url.Parse(c.creds.WebhookURL.Reveal())
 	if err != nil || address.Scheme != "https" || address.Host == "" {
@@ -183,8 +185,8 @@ func rejectionReason(code, channel string) string {
 	return code
 }
 
-// deliver performs a post and returns the answer's body. Neither error names
-// the address: for a webhook, the address is the credential.
+// deliver performs a post and returns the body of any 2xx answer. Neither error
+// names the address: for a webhook, the address is the credential.
 func (c Client) deliver(request *http.Request) ([]byte, error) {
 	response, err := c.do(request)
 	if err != nil {
@@ -198,7 +200,7 @@ func (c Client) deliver(request *http.Request) ([]byte, error) {
 	}
 
 	switch {
-	case response.StatusCode == http.StatusOK:
+	case response.StatusCode >= http.StatusOK && response.StatusCode < http.StatusMultipleChoices:
 		return body, nil
 	case response.StatusCode == http.StatusTooManyRequests:
 		return nil, httpx.RateLimited(response.Header)

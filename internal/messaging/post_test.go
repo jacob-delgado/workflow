@@ -213,29 +213,31 @@ func TestAWebhookPostWrapsTheBodyAndMarkupPerKind(t *testing.T) {
 
 	cases := map[string]struct {
 		kind       config.MessagingKind
+		status     int
+		answer     string
 		wantKey    string
 		wantAbsent string
 		wantMarkup string
 	}{
-		// Slack keeps its mrkdwn <url|text> link under the "text" key.
+		// Slack keeps its mrkdwn <url|text> link under the "text" key, and answers "ok".
 		"slack": {
 			kind: config.KindSlack, wantKey: bodyKeyText, wantAbsent: bodyKeyContent,
-			wantMarkup: "<https://x/pull/1|fix: redact>",
+			wantMarkup: "<https://x/pull/1|fix: redact>", status: http.StatusOK, answer: "ok",
 		},
-		// Teams reads Markdown and takes the "text" key.
+		// Teams reads Markdown and takes the "text" key; a Workflows webhook answers 202.
 		"teams": {
 			kind: config.KindTeams, wantKey: bodyKeyText, wantAbsent: bodyKeyContent,
-			wantMarkup: "[fix: redact](https://x/pull/1)",
+			wantMarkup: "[fix: redact](https://x/pull/1)", status: http.StatusAccepted,
 		},
-		// Discord reads Markdown but names its body key "content".
+		// Discord reads Markdown but names its body key "content", and answers 204.
 		"discord": {
 			kind: config.KindDiscord, wantKey: bodyKeyContent, wantAbsent: bodyKeyText,
-			wantMarkup: "[fix: redact](https://x/pull/1)",
+			wantMarkup: "[fix: redact](https://x/pull/1)", status: http.StatusNoContent,
 		},
 		// A plain webhook takes bare text under "text": title then its URL.
 		"webhook": {
 			kind: config.KindWebhook, wantKey: bodyKeyText, wantAbsent: bodyKeyContent,
-			wantMarkup: "fix: redact https://x/pull/1",
+			wantMarkup: "fix: redact https://x/pull/1", status: http.StatusOK,
 		},
 	}
 
@@ -244,7 +246,7 @@ func TestAWebhookPostWrapsTheBodyAndMarkupPerKind(t *testing.T) {
 			t.Parallel()
 
 			// Arrange
-			server, seen := webhookReceiving(t, http.StatusOK, "ok")
+			server, seen := webhookReceiving(t, tt.status, tt.answer)
 			client := messaging.New(server.Client().Do, messaging.APIBase, messagingWebhook(tt.kind, server.URL+"/hook"))
 
 			// Act

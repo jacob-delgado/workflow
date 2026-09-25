@@ -1991,7 +1991,7 @@ script is told to press a key it does not have.
   disagree on a GitLab host.
 - The rate-limit caveat every surface prints for a forge 403, GitLab's
   included, is DEBT-83.
-- `rejectionReason`, `internal/messaging/post.go:173`, `:175` and `:176`:
+- `rejectionReason`, `internal/messaging/post.go:175`, `:177` and `:178`:
   three sentences end "then press enter to try again" inside a domain
   error; `runAnnounce`, `internal/cli/announce.go:146`, wraps it with `%w`
   and `main`, `cmd/workflow/main.go:37`, prints it on stderr, key and all —
