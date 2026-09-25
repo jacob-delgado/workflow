@@ -419,34 +419,6 @@ reads.
 user-facing string, and `go test ./internal/editor` covers a compose that
 round-trips a draft through a fake editor.
 
-### DEBT-84 `git` missing from PATH is reported as "not a git repository"
-
-Severity: medium · Confidence: read
-
-`notInWorkTree` (`internal/gitrepo/gitrepo.go:90`), which
-`Repository.Describe` and the probe behind the other reads share, turns every
-failure of `git rev-parse --show-toplevel` but a timeout into
-`ErrNotARepository`, discarding the runner's error; `build`
-(`internal/proc/start.go:214`) is where a missing git becomes
-`proc.ErrNotFound`, which gitrepo then discards. So on a machine without the
-one program the settled decisions require, `unreadReason`
-(`internal/cli/status.go:129`) prints `gitrepo.ErrNotARepository.Error()`
-and `status` exits 4 under the wrong family, `Model.outsideRepository`
-(`internal/tui/branch.go:112`) has every pane give the work-tree advice, and
-the `proc.ErrNotFound` wording in `programErrors`
-(`internal/tui/failure.go:287`, "Install it; `workflow doctor` names what is
-missing") is unreachable from gitrepo. Only `doctor` notices, through its
-own `proc.Available` check.
-
-**One way to fix it.** In `notInWorkTree`, keep the runner's error when
-`errors.Is(err, proc.ErrNotFound)`, as it already keeps a timeout, so the
-existing wording and exit mapping for a missing program apply.
-
-**Done when.** A `Describe` test whose fake runner returns
-`proc.ErrNotFound` gets an error that `errors.Is` `proc.ErrNotFound` and not
-`ErrNotARepository`; `workflow status` with git off PATH names the missing
-program.
-
 ### DEBT-89 Comments and layout rows that no longer say what the code does
 
 Severity: low · Confidence: read
