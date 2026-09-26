@@ -31,9 +31,10 @@ var (
 // from the request and a Refs trailer for the branch's issue. An empty index is
 // a 409; a message that is not a valid Conventional Commit, a commit its hooks
 // reject — whose output the answer carries — or one that cannot be started is a
-// 422. On success it returns the branch with the new commit, or, when the
-// branch cannot be read back, the branch as it stood with no head or commits
-// named: the commit landed all the same.
+// 422; a working tree that cannot be read is answered by fault. On success it
+// returns the branch with the new commit, or, when the branch cannot be read
+// back, the branch as it stood with no head or commits named: the commit landed
+// all the same.
 func (s *server) Commit(_ context.Context, request api.CommitRequestObject) (api.CommitResponseObject, error) {
 	if request.Body == nil {
 		return commitUnprocessable("a commit message is required"), nil
@@ -58,18 +59,31 @@ func (s *server) Commit(_ context.Context, request api.CommitRequestObject) (api
 	}
 
 	branch, err := s.commitStaged(conv, subject, orZero(request.Body.Body))
+	if err != nil {
+		return commitFailure(err), nil
+	}
 
+	s.rememberScope(subject.Scope)
+
+	return api.Commit200JSONResponse(branchDTO(branch)), nil
+}
+
+// commitFailure answers a commit that did not land: an empty index, a commit
+// its hooks refused — with their output, the one cause worth forwarding — one
+// that could not start, saying how to see why, and a working tree that could
+// not be read, classified by fault.
+func commitFailure(err error) api.CommitResponseObject {
 	switch {
-	case err == nil:
-		s.rememberScope(subject.Scope)
-
-		return api.Commit200JSONResponse(branchDTO(branch)), nil
 	case errors.Is(err, loop.ErrNothingStaged):
-		return api.Commit409ApplicationProblemPlusJSONResponse(problem(api.Conflict, errNothingStaged.Error())), nil
+		return api.Commit409ApplicationProblemPlusJSONResponse(problem(api.Conflict, errNothingStaged.Error()))
+	case errors.Is(err, errCommitFailed):
+		return commitUnprocessable(err.Error())
 	case errors.Is(err, errCommitNotStarted):
-		return commitUnprocessable(errCommitNotStarted.Error() + "; commit from a terminal to see why"), nil
+		return commitUnprocessable(errCommitNotStarted.Error() + "; commit from a terminal to see why")
 	default:
-		return commitUnprocessable(err.Error()), nil
+		body, code := fault(err)
+
+		return api.CommitdefaultApplicationProblemPlusJSONResponse{Body: body, StatusCode: code}
 	}
 }
 

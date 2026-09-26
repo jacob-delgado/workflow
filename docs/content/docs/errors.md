@@ -98,6 +98,10 @@ document. The request was well formed; try again once the service is back.
 
 ## Internal
 
-Status 500. An unexpected failure the caller cannot act on. The detail stays
-generic on purpose, and says to try again and to run `workflow doctor` if it
-keeps failing; the cause is in the server's own output, not the response.
+Status 500. An unexpected failure the caller cannot act on — among them a
+read of the repository that git could not answer, when the request cannot go
+ahead without it (a write that has already landed answers all the same, naming
+the branch as far as it can, and the event stream shows that panel empty). The
+detail stays generic on purpose, and says to try again and to run `workflow
+doctor` if it keeps failing; the cause is in the server's own output, not the
+response.

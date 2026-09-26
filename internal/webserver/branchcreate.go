@@ -18,11 +18,6 @@ import (
 // that branch should be checked out, not recreated.
 var errBranchExists = errors.New("a branch for this issue already exists")
 
-// errIssueUnread is the tracker failing to read the issue the branch is named
-// for. Its cause is answered as fault classifies it — the tracker's own words
-// can carry its address.
-var errIssueUnread = errors.New("the issue could not be read")
-
 // errCreateRefused is git declining to create or switch to the new branch. Its
 // own words stay off the wire: switching checks the branch's tree out, which in
 // a partial clone fetches from the remote, and a fetch that fails names it.
@@ -30,10 +25,11 @@ var errCreateRefused = errors.New("git refused the new branch")
 
 // CreateBranch names a branch for an issue by the branch-name convention,
 // creates it off the base branch, and switches to it — how a not-started issue
-// is picked up. A branch that already exists is a 409, and an issue the tracker
-// could not read is answered by fault; anything else that stops the creation is
-// a 422, which says how to see why. On success it returns the branch now in
-// effect, or the created branch by its name alone when it cannot be read back.
+// is picked up. A branch that already exists is a 409, git refusing the branch
+// is a 422, which says how to see git's reason, and an issue the tracker could
+// not read or a branch list git could not give is answered by fault. On success
+// it returns the branch now in effect, or the created branch by its name alone
+// when it cannot be read back.
 func (s *server) CreateBranch(
 	_ context.Context, request api.CreateBranchRequestObject,
 ) (api.CreateBranchResponseObject, error) {
@@ -54,23 +50,20 @@ func (s *server) CreateBranch(
 }
 
 // createBranchFailure answers a start of work that made no branch: a branch
-// already there, an issue the tracker could not read — classified by fault, so
-// its address stays off the wire — git's refusal, or anything else, each saying
-// what to do next.
+// already there, git's refusal, saying how to see its reason, or a read that
+// failed — the issue from the tracker, the branch list from git — classified by
+// fault, so neither's own words reach the wire.
 func createBranchFailure(err error, key string) api.CreateBranchResponseObject {
 	switch {
 	case errors.Is(err, errBranchExists):
 		return api.CreateBranch409ApplicationProblemPlusJSONResponse(problem(api.Conflict, errBranchExists.Error()))
-	case errors.Is(err, errIssueUnread):
-		body, code := fault(err)
-
-		return api.CreateBranchdefaultApplicationProblemPlusJSONResponse{Body: body, StatusCode: code}
 	case errors.Is(err, errCreateRefused):
 		return createBranchUnprocessable("git would not create the branch for " + key +
 			"; run workflow branch " + key + " from a terminal to see git's reason")
 	default:
-		return createBranchUnprocessable("the branch for " + key + " could not be created; try again, or run " +
-			"workflow branch " + key + " from a terminal to see why")
+		body, code := fault(err)
+
+		return api.CreateBranchdefaultApplicationProblemPlusJSONResponse{Body: body, StatusCode: code}
 	}
 }
 
@@ -106,7 +99,7 @@ func (s *server) startWork(issueKey string) (gitrepo.Branch, error) {
 func (s *server) branchNameFor(issueKey string) (string, error) {
 	detail, err := s.deps.Issue(jira.Key(issueKey))
 	if err != nil {
-		return "", fmt.Errorf("%w: %w", errIssueUnread, err)
+		return "", fmt.Errorf("reading %s: %w", issueKey, err)
 	}
 
 	return s.config().Branch.Naming().Name(detail.Issue.Type, string(detail.Issue.Key), detail.Issue.Summary), nil

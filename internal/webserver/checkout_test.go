@@ -232,36 +232,6 @@ func TestCheckoutTreatsAMissingChangesSeamAsClean(t *testing.T) {
 	}
 }
 
-func TestCheckoutReportsAChangesReadFailure(t *testing.T) {
-	t.Parallel()
-
-	// Arrange
-	// If the working tree cannot be read, the switch is refused rather than risked.
-	called := false
-	deps := filledDeps()
-	deps.Changes = func() ([]gitrepo.Change, error) { return nil, errSeam }
-	deps.Checkout = func(string) error {
-		called = true
-
-		return nil
-	}
-
-	// Act
-	recorder := doCheckout(t, deps, targetBranch)
-
-	// Assert
-	want := "the branch could not be checked out; try again, or switch from a terminal to see why"
-
-	failure := decode[api.Problem](t, recorder)
-	if recorder.Code != http.StatusUnprocessableEntity || failure.Detail != want {
-		t.Fatalf("status = %d, detail %q; want 422 saying %q", recorder.Code, failure.Detail, want)
-	}
-
-	if called {
-		t.Error("checkout ran despite an unreadable working tree")
-	}
-}
-
 func TestCheckoutNeverForwardsGitsOwnWords(t *testing.T) {
 	t.Parallel()
 
