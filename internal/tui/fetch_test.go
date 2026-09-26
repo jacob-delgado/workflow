@@ -44,8 +44,10 @@ func TestAFailedFetchOffersToBranchFromWhatIsThere(t *testing.T) {
 	// Act: create the branch, and have the fetch fail
 	failed := typing(t, model, "b", keyEnter)
 
-	// Assert: nothing is created, and the offer to branch anyway is shown
-	requireScreen(t, failed.View().Content, "could not fetch; enter branches from what you already have")
+	// Assert: nothing is created, and git's reason is shown above the offer to
+	// branch anyway
+	requireScreen(t, failed.View().Content, "could not read from remote repository",
+		"could not fetch; enter branches from what you already have")
 
 	if calls := branching.asked("create"); len(calls) != 0 {
 		t.Errorf("created a branch though the fetch failed: %q", calls)
