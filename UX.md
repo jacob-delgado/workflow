@@ -465,7 +465,7 @@ terminal that does support color; and the 150 ms detail delay
 (`internal/tui/detail.go:22`) is fixed.
 
 **Instead.** `ui.alt_screen: false` for inline rendering; `ui.color:
-always`, which `validateUI` (`internal/config/ui.go:78`) and the
+always`, which `validateUI` (`internal/config/ui.go:66`) and the
 `UIConfig.color` enum (`api/openapi.yaml:1469`) refuse until they list it;
 `ui.detail_delay` in milliseconds.
 
@@ -1184,9 +1184,9 @@ the gates promise, and 4.58:1 in the dark theme.
 (137,139,144) on (246,247,249). Two input styles disagree on one page, and
 the gate cannot see it.
 
-- `commitInputClass` (`web/src/features/branch/CommitForm.tsx:258`) has no
+- `commitInputClass` (`web/src/features/branch/CommitForm.tsx:235`) has no
   placeholder color, so `MessageFields`' Subject hint "what the change
-  does, in the imperative" (`:186`), the only hint of what the field wants,
+  does, in the imperative" (`:163`), the only hint of what the field wants,
   is drawn at 3.18:1.
 - `prInputClass` (`web/src/features/review/ReviewPanel.tsx:379`) the same,
   so `ProposalFields`' three placeholders (`:340`) are too.
@@ -1237,7 +1237,7 @@ which is why this is medium and not high.
 - The settings `inputClass` is `bg-transparent border-input`
   (`web/src/features/settings/fieldsets/Field.tsx:23`): the border is the
   field's only boundary. `commitInputClass`
-  (`web/src/features/branch/CommitForm.tsx:258`), `prInputClass`
+  (`web/src/features/branch/CommitForm.tsx:235`), `prInputClass`
   (`web/src/features/review/ReviewPanel.tsx:379`) and `AnnouncePreview`'s
   channel select (`web/src/features/messaging/MessagingPanel.tsx:246`) are
   the same.
@@ -1420,7 +1420,7 @@ past them. `WorkingTree` renders nothing between the heading and the form
 when `changes` is empty (`web/src/features/branch/WorkingTree.tsx:24`); the
 explanation is `commitBlocker`'s line (`:55`), which `CommitForm` shows
 beside the disabled submit, below the fields
-(`web/src/features/branch/CommitForm.tsx:112`).
+(`web/src/features/branch/CommitForm.tsx:100`).
 
 **Instead.** A muted line under the heading, "Clean — nothing to commit.",
 with the form's foot line kept for the nothing-staged case.
@@ -1547,7 +1547,7 @@ header versus content, browser versus terminal.
   loaded." with one (`:332`).
 - Five placeholders split four lowercase to one sentence case: "what the
   change does, in the imperative" (`MessageFields`,
-  `web/src/features/branch/CommitForm.tsx:186`), "comma-separated
+  `web/src/features/branch/CommitForm.tsx:163`), "comma-separated
   usernames" twice and "comma-separated labels" (`ProposalFields`,
   `web/src/features/review/ReviewPanel.tsx:340`, `:349`, `:358`), against
   "Key or summary" (`IssueListControls`,
