@@ -36,13 +36,18 @@ on:
     branches: [main]
 
 permissions:
-  contents: write # commit the release PR, push the tag
-  pull-requests: write # open the release PR, flip its label
-  actions: write # dispatch release.yml after tagging
+  contents: read
 
+# Three jobs, each needing the one before, so they run in the order their steps
+# once ran in one job: release-please, the gate, the tag. After release-please,
+# the tag job alone holds write permissions; the gate job's checkout, toolchain
+# and task check run on a read-only token.
 jobs:
   release-please:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write # commit the release PR
+      pull-requests: write # open the release PR
     steps:
       - uses: googleapis/release-please-action@45996ed1f6d02564a971a2fa1b5860e934307cf7 # v5
         with:
@@ -50,20 +55,26 @@ jobs:
           config-file: release-please-config.json
           manifest-file: .release-please-manifest.json
 
-      # fetch-depth: 0 because the tag script reads local history.
-      # persist-credentials: false is wrong here. This job pushes the release
-      # branch, so the checkout credential is the point rather than an
-      # oversight. It uploads no artifacts, which is the path artipacked warns
-      # a persisted credential can escape through.
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1 # zizmor: ignore[artipacked]
+  gate:
+    needs: release-please
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    outputs:
+      version: ${{ steps.release.outputs.version }}
+    steps:
+      # fetch-depth: 0 because the tag script reads local history. The checkout
+      # keeps no credential: nothing in this job pushes.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          token: ${{ secrets.GITHUB_TOKEN }}
           fetch-depth: 0
+          persist-credentials: false
 
       # The tag script alone says what a release commit is: it writes
       # version=vX.Y.Z, or version= for any other push, and every step below
-      # reads that answer instead of restating the subject. The commit message
-      # reaches it as an environment variable, not through the run: line.
+      # and the tag job, through this job's output, read that answer instead of
+      # restating the subject. The commit message reaches it as an environment
+      # variable, not through the run: line.
       - name: Decide whether this is a release commit
         id: release
         env:
@@ -82,21 +93,40 @@ jobs:
           version: 2026.9.3 # the mise binary itself; see min_version in mise.toml
           cache: false
 
-      # Gate before the tag step tags anything. A failed step stops the job, so
-      # the tag step below never runs and no tag is pushed — a tag with no release
-      # behind it is the failure this guards, and a published release cannot be
-      # taken back. release.yml runs the gate again for the manual tag-push path
-      # it also answers.
+      # Gate before the tag job tags anything. A failed step fails this job, so
+      # the tag job, which needs it, never runs and no tag is pushed — a tag with
+      # no release behind it is the failure this guards, and a published release
+      # cannot be taken back. release.yml runs the gate again for the manual
+      # tag-push path it also answers.
       - name: Verify the gate before tagging
         if: steps.release.outputs.version != ''
         run: task check
 
+  tag:
+    needs: gate
+    if: needs.gate.outputs.version != ''
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write # push the tag
+      pull-requests: write # flip the release PR's label
+      actions: write # dispatch release.yml after tagging
+    steps:
+      # fetch-depth: 0 because the tag script reads local history. The checkout
+      # keeps no credential: the push step gets the token through its own env.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      # GH_TOKEN carries the job's token to gh, and `gh auth setup-git` has git
+      # ask gh for it when the script pushes the tag, so it is written to no file.
       - name: Push tag for a merged release PR
-        if: steps.release.outputs.version != ''
         env:
           # The commit message is attacker-influenceable, so it reaches the script
           # as an environment variable rather than being interpolated into the
           # run: line where it would be shell input.
           HEAD_COMMIT_MSG: ${{ github.event.head_commit.message }}
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: bash scripts/release/push-release-tag.sh
+        run: |
+          gh auth setup-git
+          bash scripts/release/push-release-tag.sh
