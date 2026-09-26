@@ -90,9 +90,9 @@ all three surfaces.
 
 The terminal:
 
-- `internal/tui/branch.go:236` — `Model.branchIssue`'s comment calls itself
+- `internal/tui/branch.go:233` — `Model.branchIssue`'s comment calls itself
   "the one place the interface reads a branch name as an issue key" while
-  `branchDetail` (`:147`) and `taskBranches`
+  `branchDetail` (`:144`) and `taskBranches`
   (`internal/tui/switchtask.go:63`) call `convention.IssueKey` too, and
   `Model.jiraIssue` (`internal/tui/issuelink.go:35`) reads the branch's Jira
   issue through `loop.JiraIssue`.
@@ -162,8 +162,8 @@ The plumbing:
   its client, and the `CLAUDE.md:32` row "connects the interface's seams";
   both name one of three consumers, and the row above (`CLAUDE.md:31`) says
   `internal/seams` declares the seams for every surface: `connectAt`
-  (`internal/cli/cli.go:404`) builds every command over `wiring.Deps`,
-  `WebDeps` (`internal/cli/cli.go:306`) hands the same bundle to the web,
+  (`internal/cli/cli.go:408`) builds every command over `wiring.Deps`,
+  `WebDeps` (`internal/cli/cli.go:313`) hands the same bundle to the web,
   and the row below (`CLAUDE.md:33`) already says `loop` is "for every
   surface".
 - `internal/gitrepo/gitrepo.go:4` — the package comment says `gitrepo`
@@ -193,7 +193,7 @@ The web server:
   (`internal/loop/announce.go:114`) reports as `ErrNoPullRequest`.
 - `internal/webserver/webserver_test.go:25` — `errSeam`'s comment, "generic
   500 so the wire message carries no detail", predates `fault`
-  (`internal/webserver/errors.go:91`), which classes by sentinel before the
+  (`internal/webserver/errors.go:93`), which classes by sentinel before the
   internal fallback.
 
 A reader of `go doc`, of CLAUDE.md's layout table or of ARCHITECTURE.md is told
@@ -233,13 +233,13 @@ The usage page:
 
 - `docs/content/docs/usage.md:173` — "Pick up an issue" names three field
   cases (a fixed set, text, any other kind sent to Jira) where
-  `fieldForm.textual` (`internal/tui/fields.go:79`) fills `FieldUser` and
+  `fieldForm.textual` (`internal/tui/fields.go:80`) fills `FieldUser` and
   `FieldDate` as typed inputs and `fieldForm.multi` (`:90`) takes any number
   of a `FieldOptionList`'s options.
 - `docs/content/docs/usage.md:185` — "Branch" says the branch "starts from
   origin's default branch, which the overlay names" with no word of the
-  fetch (`branchCreator.create`, `internal/tui/branch.go:442`), the "fetched
-  AGE" line (`branchCreator.start`, `:364`) or the offer after a failed
+  fetch (`branchCreator.create`, `internal/tui/branch.go:439`), the "fetched
+  AGE" line (`branchCreator.start`, `:361`) or the offer after a failed
   fetch (`fetched.apply`, `internal/tui/branchresult.go:49`).
 - `docs/content/docs/usage.md:192` — "Stage and commit" describes the list
   and the composer; the page never mentions a diff (`grep -ic diff` is 0)
@@ -269,11 +269,11 @@ The configuration page (the Fields table's missing rows are DEBT-91):
   `Discover`'s comment (`internal/config/load.go:18`, "searching workDir
   first and then homeDir"), where `Discover` (`:26`) calls `nearest`, which
   walks up to the directory holding `.git` (`:37`).
-- `docs/content/docs/configuration.md:383` — "While it is on and no
+- `docs/content/docs/configuration.md:386` — "While it is on and no
   `timing.ci_interval` is set, CI is polled every three minutes" gives two
   of `pollInterval`'s three conditions (`internal/tui/review.go:195`): no
   announcement may be waiting either.
-- `docs/content/docs/configuration.md:482` — the store is "keyed only by a
+- `docs/content/docs/configuration.md:485` — the store is "keyed only by a
   repository's host and path and by a hash of your Jira URL", and
   `ARCHITECTURE.md:256` says the repository key is the remote's parsed host
   and path; `migrate` (`internal/store/store.go:258`) keys the cache by
@@ -300,29 +300,29 @@ The README and the docs index:
 
 The web page:
 
-- `docs/content/docs/web.md:126` — Settings lists its seven parts as Jira,
+- `docs/content/docs/web.md:138` — Settings lists its seven parts as Jira,
   the forge, messaging, branches, commits, pull requests and the store;
-  `ConfigForm` (`web/src/features/settings/SettingsPanel.tsx:127`) renders
+  `ConfigForm` (`web/src/features/settings/SettingsPanel.tsx:123`) renders
   Jira, Messaging, Forge, Commit, Branch, Pull request, Store.
-- `docs/content/docs/web.md:129` — "The parts the form does not show yet
+- `docs/content/docs/web.md:141` — "The parts the form does not show yet
   (`ui`, `timing`, `headers`, `views` and `branch.prefixes`)" names five of
   ten carried keys, as UX-87 in `UX.md` ("carry five it cannot show") and
-  `ConfigForm`'s comment (`web/src/features/settings/SettingsPanel.tsx:67`)
+  `ConfigForm`'s comment (`web/src/features/settings/SettingsPanel.tsx:63`)
   do; the whole `Config` seeds the form and rides back, and `token_command`
-  and `token_env` (`api/openapi.yaml:1399`; messaging's at `:1434`) and
-  `channels` (`:1440`; `Messaging.Channels`,
+  and `token_env` (`api/openapi.yaml:1499`; messaging's at `:1534`) and
+  `channels` (`:1540`; `Messaging.Channels`,
   `internal/config/config.go:125`) are in the schema and registered by no
   fieldset.
-- `docs/content/docs/web.md:131` — "a save never overwrites a change it has
+- `docs/content/docs/web.md:143` — "a save never overwrites a change it has
   not seen" is stronger than `SaveOver` makes it: its comment
   (`internal/config/save.go:117`) says the check (`:121`) and the write
   (`:130`) are not one step, and the `staleTime: Infinity` trade-off in this
   file repeats the page's phrasing.
 - `web/src/queryClient.ts:4` — the `queryClient` comment says "the stream's
   snapshots update it through setQueryData"; the stream handler in
-  `useEventStream` (`web/src/api/snapshot.ts:71`) writes `useSnapshotStore`,
+  `useEventStream` (`web/src/api/snapshot.ts:85`) writes `useSnapshotStore`,
   and the only `setQueryData` callers are `useReloadConfig`
-  (`web/src/features/settings/configApi.ts:129`) and the save (`:111`).
+  (`web/src/features/settings/configApi.ts:124`) and the save (`:106`).
 
 The reference index:
 
@@ -417,7 +417,7 @@ UX-87.
 - `internal/config/timing.go:21` — `Timing.RequestTimeout`; 0 hits, and no
   `timing` row at all.
 - `internal/config/timing.go:25` — `Timing.CIInterval`, named once in
-  prose at `docs/content/docs/configuration.md:383` ("The interface:
+  prose at `docs/content/docs/configuration.md:386` ("The interface:
   mouse, ASCII and color") as if already introduced; its twenty-second
   default is given only beside the web page's stream
   (`docs/content/docs/web.md:48`) and in the event stream's description in
@@ -657,27 +657,27 @@ themes and every control Tab reaches in view at three widths; for the clicked
 steps only jsx-a11y's static rules apply. DEBT-65 (a write against a real
 server) does not cover this: it is the runtime floor's reach, not the backend's.
 
-- `web/e2e/a11y.spec.ts:102` — the populated-sections test clicks each of
+- `web/e2e/a11y.spec.ts:104` — the populated-sections test clicks each of
   `populatedSectionNames` and scans at once; the populated snapshot's
   `review` has `found: true` (`web/src/dev/mockSnapshot.ts:108`), so the
   pull branch is taken and `PullRequestForm` never mounts there.
-- `web/e2e/a11y.spec.ts:265` — the offers test clicks "Open a pull request"
+- `web/e2e/a11y.spec.ts:264` — the offers test clicks "Open a pull request"
   and then "Open pull request" with no scan between compose and submit, and
   `scan` runs (`web/e2e/a11y.spec.ts:274`) after `OpenPullRequest`
-  (`web/src/features/review/ReviewPanel.tsx:166`) has returned null on
+  (`web/src/features/review/ReviewPanel.tsx:162`) has returned null on
   `open.state === 'done'`, so the form is gone.
 - `web/e2e/a11y.spec.ts:22` — `settled` returns the level-1 heading for
   every section but Reviews, and the heading is drawn regardless of panel
-  state; the hermetic loop (`web/e2e/a11y.spec.ts:72`) scans as soon as it
+  state; the hermetic loop (`web/e2e/a11y.spec.ts:76`) scans as soon as it
   is visible, before the config read fails to Retry, so it may land on
   `SettingsPanel`'s "Loading the configuration…" placeholder
-  (`web/src/features/settings/SettingsPanel.tsx:30`).
-- `web/e2e/layout.spec.ts:180` — the every-section-fits test runs
+  (`web/src/features/settings/SettingsPanel.tsx:31`).
+- `web/e2e/layout.spec.ts:181` — the every-section-fits test runs
   `openSection` then `walkTabOrder` once per section with no click between.
 - `web/src/features/branch/stagingApi.ts:13` — `stageFile` under `VITE_MOCK`
   returns before the SDK, so no write can fail and no `role=alert` refusal
   appears.
-- `web/src/features/review/ReviewPanel.tsx:265` — `PullRequestForm`'s
+- `web/src/features/review/ReviewPanel.tsx:261` — `PullRequestForm`'s
   `aria-label="Open a …"` form, with its seven labeled fields, is scanned
   and walked in neither build.
 - `web/src/features/branch/BranchPanel.tsx:172` — `PushConfirm`'s

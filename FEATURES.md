@@ -81,12 +81,12 @@ Impact: medium · Effort: medium
   with its fields, comment, assign and log work. The command line reads Jira
   only in passing — `workflow branch <key>` reads the issue to name the
   branch (`runBranch`, `internal/cli/branch.go:79`), `status` prints the
-  branch issue's summary (`gather`, `internal/cli/status.go:249`), `standup`
+  branch issue's summary (`gather`, `internal/cli/status.go:246`), `standup`
   lists recently updated assigned issues inside its draft (`gatherStandup`,
   `internal/cli/standup.go:177`) and `workflow branch <tab>` completes
   assigned keys (`completeAssignedIssues`, `internal/cli/scriptable.go:126`)
   — and writes to it only as `workflow pr`'s side effects, a link and a
-  transition (`followUp`, `internal/cli/pr.go:163`). No command lists a
+  transition (`followUp`, `internal/cli/pr.go:174`). No command lists a
   view, prints an issue in full or writes one on its own. A script that
   wants "the issues in my view" or "move PROJ-1 to In Review" has nothing to
   call.
@@ -136,7 +136,7 @@ Impact: low · Effort: small
   Jira is asked again (`seededIssues`, `internal/tui/issues.go:59`, over
   `Store.CachedIssues`, `internal/store/cache.go:30`). The web's stream reads
   Jira before it sends its first frame (`snapshotIssues`,
-  `internal/webserver/stream.go:181`), so every section says *Connecting to
+  `internal/webserver/stream.go:182`), so every section says *Connecting to
   workflow…* until Jira answers.
 - Touches: `internal/webserver` (the stream's first frame, from a
   cached-issues seam on `Deps`), `internal/store`.
@@ -187,7 +187,7 @@ Impact: medium · Effort: small
 - Why: `a` in the terminal and Stage all on the web stage every file, and
   nothing reverses either. A stray edit can only be dropped from a shell.
 - Touches: `internal/gitrepo/status.go`, `internal/tui/commits.go`,
-  `web/src/features/branch/WorkingTree.tsx:31` (`WorkingTree` renders
+  `web/src/features/branch/WorkingTree.tsx:33` (`WorkingTree` renders
   `StageAll` alone) and `web/src/features/branch/stagingApi.ts:33` (no
   unstage-all beside `stageEverything`). Unstaging all is already
   `loop.UnstageAll` (`internal/loop/stage.go:42`), which the web server's
@@ -301,12 +301,12 @@ Impact: low · Effort: small
 - Why: The interface and `workflow announce` record each announcement in the
   store and do not offer again a moment an earlier session announced
   (`loop.Deliver`, `internal/loop/announce.go:206`; `offerAgain`,
-  `internal/cli/announce.go:165`). The web's `Announce`
+  `internal/cli/announce.go:162`). The web's `Announce`
   (`internal/webserver/announce.go:33`) posts through `Deps.Post` and
   neither records nor reads, so an announcement made in the browser is
   invisible to the terminal, which offers it again, and the web's work story
   never marks its Announce step done (`onHeadStages`,
-  `web/src/features/issues/WorkStory.tsx:91`).
+  `web/src/features/issues/WorkStory.tsx:92`).
 - Touches: `internal/webserver` (post through `loop.Deliver`, with the
   store's memory on `Deps` as `RecordScope` is), `api/openapi.yaml` (the
   snapshot carries what was announced), `web/src/features/issues`,
