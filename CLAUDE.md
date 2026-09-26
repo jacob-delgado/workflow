@@ -26,7 +26,7 @@ Layout:
 ```text
 cmd/workflow/         thin main: cli.Execute, its exit status, the terminal prompt
 internal/cli/         the Cobra command tree
-internal/config/      .workflow.json loading, redaction, validation
+internal/config/      .workflow.json loading, saving, redaction, validation
 internal/keychain/    storing a token in the OS keychain and reading it back
 internal/seams/       the seams every surface shares, over domain and loop types
 internal/wiring/      connects the interface's seams to the real clients

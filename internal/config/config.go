@@ -1,7 +1,7 @@
 // Copyright 2026 Jacob Delgado
 // SPDX-License-Identifier: Apache-2.0
 
-// Package config loads the workflow configuration file that holds the
+// Package config owns the workflow configuration file, which holds the
 // credentials for the services workflow talks to.
 package config
 
