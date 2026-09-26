@@ -1199,7 +1199,7 @@ export type GetAnnouncementData = {
 
 export type GetAnnouncementErrors = {
     /**
-     * There is no pull request to announce.
+     * There is no pull request to announce, or the server is not running in a git repository.
      */
     409: Problem;
     /**
@@ -1228,7 +1228,7 @@ export type AnnounceData = {
 
 export type AnnounceErrors = {
     /**
-     * There is no pull request to announce.
+     * There is no pull request to announce, or the server is not running in a git repository.
      */
     409: Problem;
     /**
