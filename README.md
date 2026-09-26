@@ -124,10 +124,11 @@ workflow doctor           # says what is still missing
 }
 ```
 
-workflow reads `.workflow.json` from the current directory, and falls back to
-your home directory. **A file in the current directory replaces the one in your
-home directory** — they are never merged, so a repository-local configuration is
-always the whole story.
+workflow reads `.workflow.json` from the current directory or the nearest
+directory above it, no higher than the repository root, and falls back to your
+home directory. **A file found there replaces the one in your home directory** —
+they are never merged, so a repository-local configuration is always the whole
+story.
 
 workflow keeps a little state between sessions in an on-disk store — the commit
 scope you last used, which pull requests you have announced, and the last issue

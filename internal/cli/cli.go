@@ -32,10 +32,11 @@ terminal workflow.
 
 CONFIGURATION
 
-  workflow reads ` + config.FileName + ` from the current directory, and falls
-  back to your home directory. A file in the current directory REPLACES the one
-  in your home directory — the two are never merged, so a repository-local
-  configuration is always the whole story.
+  workflow reads ` + config.FileName + ` from the current directory or the
+  nearest directory above it, no higher than the repository root, and falls
+  back to your home directory. A file found there REPLACES the one in your home
+  directory — the two are never merged, so a repository-local configuration is
+  always the whole story.
 
   Write a starting file with:
 
@@ -459,9 +460,10 @@ func (c connection) unreadConfiguration() error {
 }
 
 // loadFromEnvironment loads the configuration that applies to this process,
-// searching the working directory and then the home directory. A missing or
-// unreadable file is reported through the error; the zero Config is still
-// usable, which is what lets doctor explain what is wrong.
+// searching up from the working directory to the repository root and then the
+// home directory. A missing or unreadable file is reported through the error;
+// the zero Config is still usable, which is what lets doctor explain what is
+// wrong.
 func loadFromEnvironment() (config.Config, error) {
 	workDir, err := os.Getwd()
 	if err != nil {

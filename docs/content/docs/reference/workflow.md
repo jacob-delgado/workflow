@@ -16,10 +16,11 @@ terminal workflow.
 
 CONFIGURATION
 
-  workflow reads .workflow.json from the current directory, and falls
-  back to your home directory. A file in the current directory REPLACES the one
-  in your home directory — the two are never merged, so a repository-local
-  configuration is always the whole story.
+  workflow reads .workflow.json from the current directory or the
+  nearest directory above it, no higher than the repository root, and falls
+  back to your home directory. A file found there REPLACES the one in your home
+  directory — the two are never merged, so a repository-local configuration is
+  always the whole story.
 
   Write a starting file with:
 

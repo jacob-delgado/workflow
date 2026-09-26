@@ -44,14 +44,17 @@ fill in by hand instead of being asked.
 
 ## Where it looks, and what wins
 
-workflow looks for `.workflow.json` in the current directory first, then in your
-home directory.
+workflow looks for `.workflow.json` in the current directory first, then in each
+directory above it up to the repository root — the directory holding `.git` —
+and then in your home directory. Outside a repository the walk goes on up to
+the top of the filesystem. The first file found is the one read, so a
+subdirectory of a repository reads the repository's own file.
 
-**A file in the current directory replaces the one in your home directory.** The
-two are never merged. A repository-local configuration is therefore the whole
-story for that repository, and the two files can never combine into a state that
-neither of them describes — which is the failure mode that makes "why is it
-using that project?" so hard to debug.
+**A file found in or above the current directory replaces the one in your home
+directory.** The two are never merged. A repository-local configuration is
+therefore the whole story for that repository, and the two files can never
+combine into a state that neither of them describes — which is the failure mode
+that makes "why is it using that project?" so hard to debug.
 
 `workflow doctor` names the file in effect, so there is never a question about
 which one was read.

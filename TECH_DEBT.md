@@ -105,11 +105,6 @@ The usage page:
 
 The configuration page:
 
-- `docs/content/docs/configuration.md:44` — "looks for .workflow.json in the
-  current directory first, then in your home directory", as does
-  `Discover`'s comment (`internal/config/load.go:18`, "searching workDir
-  first and then homeDir"), where `Discover` (`:26`) calls `nearest`, which
-  walks up to the directory holding `.git` (`:37`).
 - `docs/content/docs/configuration.md:386` — "While it is on and no
   `timing.ci_interval` is set, CI is polled every three minutes" gives two
   of `pollInterval`'s three conditions (`internal/tui/review.go:195`): no
