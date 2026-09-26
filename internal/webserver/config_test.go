@@ -110,24 +110,77 @@ func TestUpdateConfigWritesTheFile(t *testing.T) {
 func TestUpdateConfigRejectsAnInvalidConfig(t *testing.T) {
 	t.Parallel()
 
+	// The refusal names the setting or the value refused, and never a
+	// credential the posted configuration carries beside it.
+	const jiraToken = "jira-token-not-for-the-page"
+
+	cases := map[string]struct {
+		refuse func(*config.Config)
+		want   string
+	}{
+		"a timing that is not a duration": {func(c *config.Config) { c.Timing.RequestTimeout = "soon" }, `"soon"`},
+		"a refs trailer with a colon":     {func(c *config.Config) { c.Commit.RefsTrailer = "Refs:" }, "refs_trailer"},
+		"an unknown title source":         {func(c *config.Config) { c.PullRequest.TitleSource = "branch" }, "title_source"},
+	}
+
+	for name, tt := range cases {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			// Arrange
+			cfg := config.Default()
+			cfg.Path = filepath.Join(t.TempDir(), ".workflow.json")
+
+			bad := config.Default()
+			bad.Jira.Token = jiraToken
+			bad.Messaging.WebhookURL = config.Secret("https://hooks.slack.com/services/" + webhookSecret)
+			tt.refuse(&bad)
+
+			// Act
+			recorder := putConfig(t, serve(t, webserver.Deps{}, cfg), marshal(t, bad))
+
+			// Assert
+			failure := decode[api.Problem](t, recorder)
+			if recorder.Code != http.StatusUnprocessableEntity || failure.Code != api.Unprocessable {
+				t.Errorf("status = %d, code %q; want 422 and unprocessable", recorder.Code, failure.Code)
+			}
+
+			if !strings.Contains(failure.Detail, tt.want) {
+				t.Errorf("detail = %q, want it to name %s", failure.Detail, tt.want)
+			}
+
+			if body := recorder.Body.String(); strings.Contains(body, jiraToken) || strings.Contains(body, webhookSecret) {
+				t.Errorf("body = %q, carries a credential the configuration holds", body)
+			}
+		})
+	}
+}
+
+func TestUpdateConfigNamesEveryRefusalOnOneLine(t *testing.T) {
+	t.Parallel()
+
 	// Arrange
 	cfg := config.Default()
 	cfg.Path = filepath.Join(t.TempDir(), ".workflow.json")
 
 	bad := config.Default()
-	bad.Timing.RequestTimeout = "soon" // not a duration
+	bad.Timing.RequestTimeout = "soon"
+	bad.Commit.RefsTrailer = "Refs:"
 
 	// Act
 	recorder := putConfig(t, serve(t, webserver.Deps{}, cfg), marshal(t, bad))
 
 	// Assert
-	if recorder.Code != http.StatusUnprocessableEntity {
-		t.Fatalf("status = %d, want 422", recorder.Code)
+	// The detail names no file, since a posted configuration is not one yet,
+	// and joins the timing's reason to the trailer's on the one line.
+	detail := decode[api.Problem](t, recorder).Detail
+	if !strings.HasPrefix(detail, "the configuration is not valid: ") ||
+		strings.Contains(detail, config.ErrInvalid.Error()) || strings.Contains(detail, "\n") {
+		t.Errorf("detail = %q, want one line after the refusal, naming no file", detail)
 	}
 
-	failure := decode[api.Problem](t, recorder)
-	if failure.Code != api.Unprocessable {
-		t.Errorf("code = %q, want unprocessable", failure.Code)
+	if !strings.Contains(detail, `"soon"; invalid commit default`) {
+		t.Errorf("detail = %q, want the timing's reason and the trailer's joined by \"; \"", detail)
 	}
 }
 

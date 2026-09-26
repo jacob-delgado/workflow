@@ -1806,8 +1806,7 @@ finds nothing.
 
 What is open here is worktrees and a fresh base beyond the terminal,
 GitHub- and terminal-shaped sentences, four dry runs that say less than the
-live path, failed reads told as empty answers, failures that tell less than
-the seam knows, and sentences that disagree.
+live path, failed reads told as empty answers, and sentences that disagree.
 
 ### UX-89 Worktrees and a fresh base on the command line and the web
 
@@ -2039,28 +2038,6 @@ render such snapshots by role alert rather than as the open-a-pull-request
 form, the not-a-repository state or "No issues match this view."; a
 ReviewPanel test with `ci` null and `ci_error` set finds the alert naming
 the reason.
-
-### UX-129 A refused configuration's detail tells less than the seam knows
-
-Impact: low · Effort: small
-
-**Today.** One place holds a reason it does not show.
-
-- `server.writeOver`, `internal/webserver/config.go:110`: any `fromDTO`
-  failure — `config.Parse` behind it (`:269`) — answers 422 with the fixed
-  detail "the configuration is not valid", dropping the field and value the
-  validators name (`refs_trailer` with a colon,
-  `internal/config/commit.go:58`; a bad `title_source`,
-  `internal/config/pullrequest.go:30`), which `doctor` prints
-  (`reportLoadError`, `internal/cli/doctor.go:275`);
-  `TestUpdateConfigRejectsAnInvalidConfig`,
-  `internal/webserver/config_test.go:110`, asserts status and code only.
-
-**Instead.** Carry `Parse`'s wrapped reason after the `ErrInvalid` prefix in
-the 422 detail.
-
-**Done when.** `TestUpdateConfigRejectsAnInvalidConfig` asserts the detail
-names the refused field or value.
 
 ### UX-130 Six sentences that disagree with a neighbor or a sibling surface
 
