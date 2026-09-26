@@ -1438,8 +1438,8 @@ the row's listitem.
 Impact: low · Effort: small
 
 **Today.** `keepSecret` treats an emptied secret field as "keep the stored
-value" (`internal/webserver/config.go:298`) and `preserveSecrets` applies
-it to all four secrets (`:270`), so Settings has no way to clear
+value" (`internal/webserver/config.go:310`) and `preserveSecrets` applies
+it to all four secrets (`:282`), so Settings has no way to clear
 `jira.token`, `messaging.token`, `messaging.webhook_url` or `forge.token`:
 clearing a token in the form and saving keeps it, and moving from a bot
 token to a webhook leaves the old token in the file, to be removed by

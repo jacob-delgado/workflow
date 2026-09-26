@@ -113,11 +113,6 @@ The README and the docs index:
 
 The web page:
 
-- `docs/content/docs/web.md:143` — "a save never overwrites a change it has
-  not seen" is stronger than `SaveOver` makes it: its comment
-  (`internal/config/save.go:117`) says the check (`:121`) and the write
-  (`:130`) are not one step, and the `staleTime: Infinity` trade-off in this
-  file repeats the page's phrasing.
 - `web/src/queryClient.ts:4` — the `queryClient` comment says "the stream's
   snapshots update it through setQueryData"; the stream handler in
   `useEventStream` (`web/src/api/snapshot.ts:85`) writes `useSnapshotStore`,
@@ -391,8 +386,10 @@ know about.
   again each time it opens. The commit form's types come from the snapshot
   and, like commit validation, follow the configuration the server last
   read or saved, so an edit made on disk reaches them once Settings is
-  opened or a save lands. A save that still meets a change it has not seen
-  is refused (409) and nothing is written; Settings offers **Reload**.
+  opened or a save lands. A save that finds the file changed since Settings
+  read it is refused (409) and nothing is written; Settings offers
+  **Reload**. A change landing between that check and the write is not
+  caught (`SaveOver`, `internal/config/save.go:114`).
 - **The progress spine's per-system hue is color-only**
   (`internal/tui/spine.go:69`), mitigated by the stage name, or its initial
   when compact (`internal/tui/spine.go:51`). Part of the visual system UX.md
