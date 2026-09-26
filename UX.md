@@ -997,11 +997,11 @@ mark.
 check finds the heading "CI checks · running" and no "0 of 0"; one with
 state none and no checks finds "No checks reported" and no list role.
 
-### UX-106 Fourteen buttons let keyboard focus fall to the page
+### UX-106 Thirteen buttons let keyboard focus fall to the page
 
 Impact: low · Effort: small
 
-**Today.** Fourteen controls set native `disabled` while their request
+**Today.** Thirteen controls set native `disabled` while their request
 runs, which drops focus in Chromium and WebKit, and nothing re-takes it. A
 keyboard user who is refused — a dirty tree, a branch that already exists,
 the dry-run hold on every Start work press — hears the reason and is left
@@ -1009,51 +1009,55 @@ at the top of the page. `useAsyncAction`'s catch sets the error and the
 state only (`web/src/lib/useAsyncAction.ts:51`), so `onDone` never runs on
 a refusal and the panel's `OutcomeLine` has nothing to follow. Counted
 from `grep -rn "disabled={" web/src --include='*.tsx'`, tests and
-`aria-disabled` excluded: 19 sites, of which 14 stay mounted after a
+`aria-disabled` excluded: 18 sites, of which 13 stay mounted after a
 refusal with no code that re-takes focus. The other five are the push
 (`PushButton` re-focuses its opener on an error,
-`web/src/features/branch/BranchPanel.tsx:116`), the announce preview's
+`web/src/features/branch/BranchPanel.tsx:119`), the announce preview's
 three (`handBack()` runs before `post.run()`,
 `web/src/features/messaging/MessagingPanel.tsx:173`), and the pull request
-form's Cancel (`web/src/features/review/ReviewPanel.tsx:282`), which is
+form's Cancel (`web/src/features/review/ReviewPanel.tsx:303`), which is
 not the control that had focus.
 
 - The list row's `RowCheckout` is `disabled={state === 'running'}`
-  (`web/src/features/issues/IssuesPanel.tsx:410`) and re-enables beside a
-  `role="alert"` nothing re-focuses (`:419`).
-- The story's `CheckoutButton` (`web/src/features/issues/WorkStory.tsx:283`,
-  alert at `:292`) and `StartWorkButton` (`:315`, alert at `:324`) do the
+  (`web/src/features/issues/IssuesPanel.tsx:405`) and re-enables beside a
+  `role="alert"` nothing re-focuses (`:414`).
+- The story's `CheckoutButton` (`web/src/features/issues/WorkStory.tsx:284`,
+  alert at `:293`) and `StartWorkButton` (`:316`, alert at `:325`) do the
   same; the latter is the path every dry-run press takes.
-- The issue detail's Retry is `disabled={retrying}` (`IssueUnread`,
-  `web/src/features/issues/IssueDetailPanel.tsx:81`), and
-  `IssueDetailPanel` hands focus to the heading only when `data && !error`
-  (`:29`), so a second refusal takes no branch.
 - Settings' Save is `disabled={state === 'running'}` (`SaveControls`,
-  `web/src/features/settings/SettingsPanel.tsx:150`) and reports "Saved."
-  through its own `role="status"` span (`:155`), a second state machine
+  `web/src/features/settings/SettingsPanel.tsx:144`) and reports "Saved."
+  through its own `role="status"` span (`:147`), a second state machine
   beside the shared `OutcomeLine`, so a mouse-clicked Save disables itself
   under focus and the span does not take it.
 - Settings' Retry is `disabled={query.isFetching}` (`SettingsPanel`,
-  `web/src/features/settings/SettingsPanel.tsx:40`), its message in an
+  `web/src/features/settings/SettingsPanel.tsx:41`), its message in an
   `EmptyState` rather than an alert, and the changed-since-read Reload
-  (`ChangedSinceRead`, `:182`, alert at `:191`) the same.
-- The working tree's `ChangeRow` (`web/src/features/branch/WorkingTree.tsx:98`,
-  alert at `:109`) and `StageAll` (`:132`, alert at `:142`).
-- `CommitForm`'s submit (`web/src/features/branch/CommitForm.tsx:107`,
-  alert at `:115`).
+  (`ChangedSinceRead`, `:174`, alert at `:182`) the same.
+- The working tree's `ChangeRow` (`web/src/features/branch/WorkingTree.tsx:104`,
+  alert at `:115`) and `StageAll` (`:138`, alert at `:148`).
+- `CommitForm`'s submit (`web/src/features/branch/CommitForm.tsx:95`,
+  alert at `:103`).
 - `OpenPullRequest`'s compose button
-  (`web/src/features/review/ReviewPanel.tsx:197`, alert at `:206`), whose
+  (`web/src/features/review/ReviewPanel.tsx:220`, alert at `:229`), whose
   `handBack()` runs only on the form's cancel, and `PullRequestForm`'s
-  submit (`:290`, alert at `:298`), which stays up on a refused open.
+  submit (`:306`, alert at `:312`), which stays up on a refused open.
 - `AnnounceControls`' preview button
   (`web/src/features/messaging/MessagingPanel.tsx:187`, alert at `:197`).
-- `FollowUpOffer`'s button (`web/src/features/review/OpenedOutcome.tsx:84`,
-  alert at `:95`).
+- `FollowUpOffer`'s button (`web/src/features/review/OpenedOutcome.tsx:85`,
+  alert at `:96`).
+- The issue detail's Retry beside an issue never read unmounts while it
+  reads again. TanStack Query clears `error` when a query with no data is
+  read again, so `IssueUnread` goes and "Reading KEY…" shows
+  (`web/src/features/issues/IssueDetailPanel.tsx:37`), and focus falls to
+  the page. `IssueDetailPanel` re-takes focus only when `data && !error`
+  (`:28`), so a second refusal draws a new Retry that nothing focuses.
+  This is an unmount, not native `disabled`, so it is outside the
+  thirteen.
 
 The project already knows the rule: Load more holds with `aria-disabled`
-(`MoreIssues`, `web/src/features/issues/IssuesPanel.tsx:302`), so does the
+(`MoreIssues`, `web/src/features/issues/IssuesPanel.tsx:297`), so does the
 review queue's Retry (`Queue`,
-`web/src/features/reviewqueue/ReviewQueuePanel.tsx:110`), and
+`web/src/features/reviewqueue/ReviewQueuePanel.tsx:108`), and
 `canHoldFocus` treats a disabled control as unable to hold focus
 (`web/src/lib/Outcome.tsx:99`).
 
@@ -1062,7 +1066,7 @@ review queue's Retry (`Queue`,
 say Settings' save result through `useOutcome` and `OutcomeLine` as the
 other panels do, keeping the changed-since-read alert separate.
 
-**Done when.** A test presses each of the fourteen buttons against a refused
+**Done when.** A test presses each of the thirteen buttons against a refused
 request and finds `document.activeElement` still on the button once the
 refusal is shown; a `SettingsPanel` test clicks Save with the mouse, awaits
 "Saved.", and finds `document.activeElement` on the status line, not

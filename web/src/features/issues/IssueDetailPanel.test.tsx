@@ -337,3 +337,39 @@ test('a Retry refused again beside an issue already read keeps its focus', async
   expect(await screen.findByRole('button', { name: 'Retry' })).toBe(retry)
   expect(document.activeElement).toBe(retry)
 })
+
+test('a Retry in flight beside an issue already read keeps its focus and is not asked twice', async () => {
+  // Arrange
+  // The issue was read, then read again once stale and refused, so the Retry
+  // stands beside what the first read showed. The retried read hangs, so the
+  // Retry is caught mid-read: a disabled control would drop the focus a
+  // keyboard user pressed it with, so it is marked busy instead, and a press
+  // while busy starts nothing.
+  vi.useFakeTimers({ toFake: ['Date'] })
+  vi.setSystemTime(new Date('2026-09-23T12:00:00Z'))
+  const answers = [
+    Promise.resolve(Response.json(detailOf())),
+    Promise.resolve(Response.json({}, { status: 500 })),
+  ]
+  const fetch = vi.fn(() => answers.shift() ?? new Promise<Response>(() => undefined))
+  vi.stubGlobal('fetch', fetch)
+  const user = userEvent.setup()
+  renderWithClient(<IssueDetailPanel issueKey="PROJ-1" />)
+  await screen.findByText('Tokens reach the request log.')
+  vi.setSystemTime(new Date('2026-09-23T12:01:01Z'))
+  act(() => {
+    window.dispatchEvent(new Event('visibilitychange'))
+  })
+  const retry = await screen.findByRole('button', { name: 'Retry' })
+  await user.click(retry)
+  await screen.findByRole('button', { name: 'Retrying…' })
+
+  // Act
+  await user.click(retry)
+
+  // Assert
+  expect(retry.getAttribute('aria-disabled')).toBe('true')
+  expect(retry.hasAttribute('disabled')).toBe(false)
+  expect(document.activeElement).toBe(retry)
+  expect(fetch).toHaveBeenCalledTimes(3)
+})

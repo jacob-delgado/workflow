@@ -465,19 +465,9 @@ docs/content/docs/install.md` prints a line.
 
 Severity: low · Confidence: read
 
-Across `internal/store` and the web's vitest suite, tests named for a rule
-would pass with the rule gone. `testshape` checks only that a failure call
-is reachable and v8's range count cannot see a weak assertion, so every one
+Across `internal/store`, tests named for a rule would pass with the rule
+gone. `testshape` checks only that a failure call is reachable, so every one
 clears the gate.
-
-The web:
-
-- `web/src/features/issues/IssueDetailPanel.test.tsx:311` — "a Retry refused
-  again beside an issue already read keeps its focus" names a browser
-  outcome jsdom cannot observe: `expect(document.activeElement).toBe(retry)`
-  (`:338`) passes because jsdom does not move focus off a disabled control,
-  while `IssueUnread`'s `disabled={retrying}`
-  (`web/src/features/issues/IssueDetailPanel.tsx:81`) drops it in Chromium.
 
 The store:
 
@@ -498,10 +488,9 @@ The store:
 The regressions these tests exist to catch pass the suite green: a
 `timestamp()` that writes `now.String()`.
 
-**One way to fix it.** Sharpen each Assert to what its name claims:
-`aria-disabled` on Retry or a Playwright focus case; raw-file reads that
-parse each `_at`, a cascade a test makes fire, and each Arrange's error
-fatal.
+**One way to fix it.** Sharpen each Assert to what its name claims: raw-file
+reads that parse each `_at`, a cascade a test makes fire, and each Arrange's
+error fatal.
 
 **Done when.** Each named mutation fails a test: changing `timestamp()` to
 `now.String()`, removing `foreign_keys(1)` from `dsnPragmas`, or making
