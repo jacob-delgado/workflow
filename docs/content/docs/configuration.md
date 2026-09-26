@@ -9,6 +9,7 @@ workflow reads a single JSON file, `.workflow.json`.
 
 ```json
 {
+  "version": "1",
   "jira": {
     "base_url": "https://jira.example.com",
     "token": "",
@@ -57,6 +58,7 @@ which one was read.
 
 | Field | Required | Description |
 | --- | --- | --- |
+| `version` | no | The file format's version, which `workflow config init` writes first. `"1"` is the only one this build reads; empty (the default) means the current one, and any other value is refused when the file loads rather than half-read against a format it was not written for. |
 | `jira.base_url` | for Jira as the tracker | Root URL of your Jira instance, e.g. `https://jira.example.com`. Leave it empty to use the forge's issues instead: the Issues pane then lists the open issues assigned to you on your forge. |
 | `jira.token` | one of these three, with `jira.base_url` | Personal access token. |
 | `jira.token_command` | one of these three, with `jira.base_url` | A program that prints the token, e.g. `pass show jira/token`. See below. |
@@ -64,26 +66,38 @@ which one was read.
 | `jira.user` | no | Only for instances requiring HTTP Basic. See below. |
 | `jira.views` | no | Named issue lists (`name` + `jql`) the pane moves between with `v`. Empty keeps the one built-in list. See below. |
 | `jira.headers` | no | Extra HTTP headers sent with every Jira request, for a Jira reached through an SSO proxy that checks one. Values are masked wherever the configuration is shown. See below. |
+| `jira.project` | no | The Jira project key, e.g. `PROJ`. When set, only a branch naming a key in that project is read as an issue, so a name like `fix/UTF-8-decoding` is not mistaken for one. Empty (the default) falls back to a looser guard that rejects common technical tokens (`UTF`, `SHA`, `CVE`) by shape alone. |
 | `jira.markdown_comments` | no | Write comments in Markdown and have them posted as Jira's wiki markup. Off by default, so a comment already in wiki markup is posted unchanged. |
+| `jira.review_status` | no | The status an issue moves to once its pull request is open, e.g. `In Review`. Opening a pull request offers the move to this status by name. Empty (the default) makes no offer. |
 | `messaging.kind` | no | Service to post to: `slack` (the default when empty), `teams`, `discord`, or a plain `webhook`, spelled in lowercase; any other value is refused when the file loads. It decides the message body and link markup. |
 | `messaging.token` | for a Slack bot | Bot token; starts with `xoxb-`. Or use `messaging.token_command` / `messaging.token_env`. Ignored by the webhook-only kinds. |
 | `messaging.token_command` | for a Slack bot | A program that prints the bot token. |
 | `messaging.token_env` | for a Slack bot | An environment variable that holds the bot token. |
 | `messaging.webhook_url` | for a webhook | Incoming webhook URL. **This is a credential**, not just an address. The only transport for Teams, Discord and a plain webhook. |
 | `messaging.channel` | only with a Slack bot | Channel to post in, e.g. `#dev-workflow`. A webhook carries its own. |
+| `messaging.channels` | no | Further channels a bot-token announcement can go to, for a change that concerns another team, e.g. `["#platform"]`. The announcement preview offers them after `messaging.channel`, which is always a choice; invite the bot to each. A webhook carries its own channel and offers none. |
 | `messaging.announcement` | no | Slack template for the review message, from `{author}`, `{noun}`, `{title}`, `{url}`, `{key}`, `{summary}`, `{issue_url}`. Empty, or any non-Slack kind, uses the built-in message. |
 | `forge.kind` | on-prem only | `github` or `gitlab`, for a host whose name says neither. |
 | `forge.host` | with `forge.kind` | The host `forge.kind` and `forge.token` are for, e.g. `git.example.com`. |
 | `forge.token` | **no** | GitHub or GitLab token. Usually leave it empty — see below. |
+| `forge.cli` | no | Route forge API calls through the forge's own command-line tool — `gh` for GitHub, `glab` for GitLab — instead of over HTTP, so the login that tool already holds carries the request. This is what reaches a forge behind an SSO gateway a bare token cannot. Falls back to HTTP when the tool is not installed. Defaults to `false`. |
 | `ui.mouse` | no | Capture the mouse, so a click focuses a pane or selects a row. Defaults to `true`. |
 | `ui.ascii` | no | Draw borders and glyphs in plain ASCII. Defaults to `false`. |
 | `ui.color` | no | `never` turns off the system hues; bold, faint and the cursor stay. Empty (the default) draws them; any other value is refused when the file loads. `NO_COLOR` also turns them off. |
 | `ui.notify` | no | Ring the terminal (and raise a desktop notification where it relays one) when CI finishes. Defaults to `false`. |
+| `ui.comments_shown` | no | How many of an issue's most recent comments the detail pane draws. Defaults to 5, which `0` also keeps; a negative count is refused when the file loads. |
 | `ui.keys` | no | Rebind keys: a map from an action to the single key that triggers it, e.g. `{"commit": "C"}`. The help then shows the new key. See [Rebinding keys](#rebinding-keys) for the actions. |
+| `timing.request_timeout` | no | How long each request to a service may take, as a Go duration such as `30s`. Defaults to ten seconds. See [Timing](#timing). |
+| `timing.ci_interval` | no | How often CI is asked about while it runs, and how often the `--web` page's stream asks the forge about the branch, as a Go duration such as `1m`. Defaults to twenty seconds. See [Timing](#timing). |
 | `branch.template` | no | Shape of a proposed branch name from `{prefix}`, `{key}` and `{slug}`. Must contain `{key}`. Defaults to `{prefix}/{key}-{slug}`. |
 | `branch.prefixes` | no | Map from issue type to branch prefix, e.g. `{"bug": "bugfix"}`. The type is matched without regard to case, and this replaces the built-in `{"bug": "fix"}` rather than adding to it. |
 | `branch.default_prefix` | no | Prefix for an issue type not named in `branch.prefixes`. Defaults to `feat`. |
+| `branch.slug_limit` | no | The longest the summary's slug in a proposed branch name may be, in characters. Defaults to 48, which `0` also keeps; a negative limit is refused when the file loads. |
 | `commit.default_scope` | no | Scope the commit composer — and the `--web` commit form — opens with when no kept draft has one and no commit in this repository has used one yet, e.g. `api`; the scope last used wins once there is one. Must be a valid Conventional Commit scope. Empty (the default) opens with no scope. |
+| `commit.types` | no | The commit types the composer — and the `--web` commit form — offers and checks a subject against, in the order to offer them, e.g. `["feat", "fix", "chore"]`. Each is a lowercase word; a branch whose prefix is one of them opens the composer on that type. Empty keeps the built-in Conventional Commit types; a type that is not a lowercase word is refused when the file loads. |
+| `commit.subject_limit` | no | The longest a commit subject may be, in characters; the composer's ruler counts against it. Defaults to 72, which `0` also keeps; a negative limit is refused when the file loads. |
+| `commit.refs_trailer` | no | The label of the trailer that names the issue in a commit body, e.g. `Closes`. Defaults to `Refs`. It is a single word with no colon; anything else is refused when the file loads. |
+| `pull_request.title_source` | no | Where a proposed pull request's title comes from: `commit` (the default) takes the branch's oldest commit subject, `issue` the issue's key and summary. Any other value is refused when the file loads. See [Pull requests](#pull-requests). |
 | `store.disabled` | no | Keep nothing on disk between sessions. Defaults to `false` — the store remembers a few conveniences, never a secret. See [What is kept between sessions](#what-is-kept-between-sessions). |
 
 Unknown keys are an error rather than being ignored. A misspelled key that
@@ -383,9 +397,9 @@ glyphs already say by shape what the colors say by hue, so nothing is lost.
 passes or fails — so you can open a pull request, switch to something else, and
 be told rather than checking back. On a terminal that understands the OSC 9
 notification sequence it also raises a desktop notification; the rest just ring.
-While it is on and no `timing.ci_interval` is set, CI is polled every three
-minutes rather than every twenty seconds, since a notification you stepped away
-for is not in a hurry.
+While it is on and no [`timing.ci_interval`](#timing) is set, CI is polled
+every three minutes rather than every twenty seconds, since a notification you
+stepped away for is not in a hurry.
 
 A setting left out of the file keeps its default, so a configuration written
 before these existed behaves exactly as it did.
@@ -438,6 +452,30 @@ The actions you can rebind, grouped by where they work, are:
 A key is named as its terminal name: a letter (`C`), or a combination such as
 `ctrl+e` or `shift+tab`.
 
+## Timing
+
+The waits are set for a nearby network and a forge with room in its rate limit.
+When yours is slower or tighter, stretch them:
+
+```json
+{
+  "timing": {
+    "request_timeout": "30s",
+    "ci_interval": "1m"
+  }
+}
+```
+
+- `request_timeout` bounds each request to a service — ten seconds unless set.
+  Raise it for an on-premises host that is slow to answer.
+- `ci_interval` is how often CI is asked about while it runs — twenty seconds
+  unless set — and at most how often the `--web` page's stream asks the forge
+  about the branch. Lengthen it to spend less of the forge's rate limit.
+
+Each is a Go duration: a number and a unit, such as `30s`, `1m` or `1m30s`. A
+value that is not a positive duration is refused when the file loads, rather
+than quietly falling back to the default.
+
 ## Branch names
 
 When you branch for an issue, workflow proposes a name. By default it is
@@ -464,9 +502,27 @@ summary. You can shape it to your team's convention:
   the file loads.
 - `prefixes` maps an issue type to its prefix. What you write here is the whole
   rule: a type you do not list takes `default_prefix`, not the built-in `fix`.
+- `slug_limit` caps the slug at that many characters — 48 unless set.
 
 You can still edit the proposed name before creating the branch; this only
 changes where it starts.
+
+## Pull requests
+
+When you open a pull request, workflow proposes its title from the branch's
+oldest commit subject, which on a branch of Conventional Commits already reads
+as one. A team that titles its pull requests after the issue can say so:
+
+```json
+{
+  "pull_request": { "title_source": "issue" }
+}
+```
+
+`issue` proposes the issue's key and summary, such as
+`PROJ-412: Fix token redaction`, and falls back to the oldest commit when the
+branch names no issue or its summary is not known. `commit` is the default, and
+any other value is refused when the file loads.
 
 ## What is kept between sessions
 
