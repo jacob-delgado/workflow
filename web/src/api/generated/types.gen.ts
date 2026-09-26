@@ -267,7 +267,7 @@ export type Issue = {
      */
     type: string;
     /**
-     * May be empty.
+     * Absent when the issue has none.
      */
     priority?: string;
 };
@@ -352,7 +352,7 @@ export type ChangeList = {
 export type Change = {
     path: string;
     /**
-     * The former path for a rename or copy; empty otherwise.
+     * The former path for a rename or copy; absent otherwise.
      */
     original_path?: string;
     /**
@@ -375,7 +375,13 @@ export type Review = {
      * Whether a pull request was found for the branch.
      */
     found: boolean;
+    /**
+     * The branch's pull request; absent when none is found.
+     */
     pull?: PullRequest | null;
+    /**
+     * The pull request's CI; absent when none is found, the pull request is not open, or its CI cannot be read.
+     */
     ci?: Ci | null;
 };
 
@@ -999,7 +1005,7 @@ export type GetReviewError = GetReviewErrors[keyof GetReviewErrors];
 
 export type GetReviewResponses = {
     /**
-     * The review state; pull and ci are null when none is found.
+     * The review state; pull and ci are absent when none is found.
      */
     200: Review;
 };

@@ -939,82 +939,11 @@ handling written twice, and the spine's color-only hue — is under
 
 ## The web
 
-What is open here is the contract's prose; what the web's gates still
-lack — an end-to-end run that drives a write — is DEBT-65, with the other
-gates below.
-
-### DEBT-135 The contract's prose disagrees with the code at eight places
-
-Severity: low · Confidence: read
-
-`api/openapi.yaml` describes behavior the server does not have.
-kin-openapi's `Validate` passes on all of it (`loadSpec`,
-`internal/webserver/validator.go:29`), so no gate sees it; a client written
-from the description is what it hurts.
-
-- `api/openapi.yaml:603` — `push`'s description promises 409 "when there
-  is nothing to push (no commits, or already up to date)"; `nothingToPush`
-  (`internal/webserver/push.go:59`) consults only the name and the
-  upstream on the push remote, deliberately (its comment at
-  `internal/webserver/push.go:49`), so a branch with no upstream and no
-  commits is pushed.
-- `api/openapi.yaml:45` — the `events` tag says snapshots are "pushed as
-  they change", and `streamEvents`'s summary at `api/openapi.yaml:727`
-  says the same; `defaultStreamInterval`'s comment
-  (`internal/webserver/stream.go:20`) says the server re-reads on a
-  cadence and pushes the result, with no comparison to the previous frame,
-  as "**The stream**" in `docs/content/docs/web.md:46` also says.
-- `api/openapi.yaml:4` — the header comment credits `task gen:verify` with
-  failing CI "if either drifts"; `gen:verify` (`Taskfile.yml:433`) diffs
-  only `internal/api`, and the web client is checked by `web:gen:check`
-  (`Taskfile.yml:179`).
-- `api/openapi.yaml:472` — `checkout` carries `tags: [branches]`, as do
-  `createBranch` (`api/openapi.yaml:508`), `push` (`api/openapi.yaml:605`)
-  and `commit` (`api/openapi.yaml:635`); the `tags` list at
-  `api/openapi.yaml:29` never declares `branches`.
-- `api/openapi.yaml:22` — the `info` description says the server "keeps
-  nothing between requests but the commit scope it learns"; `server` holds
-  `cfg` and `seen` (`internal/webserver/webserver.go:121`) across
-  requests, and `getConfig`'s own description at `api/openapi.yaml:380`
-  relies on it ("A file that has been deleted leaves the configuration in
-  effect as it was"); it keeps the forge's author too, from its first
-  answer (`authorCache`, `internal/webserver/webserver.go:150`).
-- `api/openapi.yaml:328` — `getReview`'s 200 says "pull and ci are null
-  when none is found"; `Review` in `internal/api/models.gen.go:692` marks
-  both `omitempty` and `server.review`
-  (`internal/webserver/handlers.go:230`) leaves them nil, so they are
-  absent, as the not-found frame in `web/src/test/snapshot-frames.sse:7`
-  shows.
-- `api/openapi.yaml:1070` — `Issue.priority` "May be empty"; `issueDTO`
-  (`internal/webserver/dto.go:33`) passes it through `optional`, which
-  sends an empty string as an absent field.
-- `api/openapi.yaml:1168` — `Change.original_path` is "empty otherwise";
-  `changesDTO` (`internal/webserver/dto.go:122`) passes it through
-  `optional`, which omits it.
-
-A client written to the description checks `pull === null` or
-`priority === ''` and never matches, expects a 409 it never gets, and
-expects a quiet event-driven stream; a contributor who runs `gen:verify`
-after a spec change may believe the TypeScript client is current;
-`getConfig`'s own description depends on state the `info` block says does
-not exist.
-
-**One way to fix it.** One pass over `api/openapi.yaml`: reword the push
-409 as "a detached HEAD, or a published branch that is not ahead"; say
-snapshots are pushed on connect and every few seconds; name `web:gen:check`
-in the header; retag the four operations as `repository` or declare
-`branches`; say the server keeps the configuration in effect, the learned
-scope and the author; say "absent" for pull, ci, priority and original_path.
-
-**Done when.** The push description and `nothingToPush`'s comment name the
-same two cases; the `events` tag and the `streamEvents` summary match
-`defaultStreamInterval`'s comment; the header names `web:gen:check`; every
-tag an operation uses appears in the top-level `tags` list; the `info`
-description names the configuration in effect and the author; the review
-200 description matches the not-found frame in
-`web/src/test/snapshot-frames.sse`, which carries no `pull` key; the three
-optional strings use one word for one wire shape; and `task gen` leaves the
-generated code unchanged.
+Nothing is open here. What the web's gates still lack — an end-to-end run
+that drives a write — is DEBT-65, with the other gates below; what the web
+carries on purpose — read-only under `--dry-run`, and queries the stream
+keeps fresh — is under
+[Deliberate trade-offs](#deliberate-trade-offs-that-carry-a-cost).
 
 ## The gates, the build and the tests
 
