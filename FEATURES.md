@@ -134,7 +134,7 @@ Impact: low · Effort: small
 
 - Why: The interface opens on the view's cached issues, shown at once while
   Jira is asked again (`seededIssues`, `internal/tui/issues.go:59`, over
-  `Store.CachedIssues`, `internal/store/cache.go:31`). The web's stream reads
+  `Store.CachedIssues`, `internal/store/cache.go:30`). The web's stream reads
   Jira before it sends its first frame (`snapshotIssues`,
   `internal/webserver/stream.go:181`), so every section says *Connecting to
   workflow…* until Jira answers.

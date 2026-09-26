@@ -472,8 +472,7 @@ clears the gate.
 The store:
 
 - `internal/store/store.go:70` — `timestamp`, the RFC3339 rule, has no test
-  behind it; `Store.CachedIssues` (`internal/store/cache.go:43`) scans
-  `cached_at` (`:46`) into a variable nothing reads.
+  behind it.
 - `internal/store/store.go:57` — `dsnPragmas`' `foreign_keys(1)` and the `ON
   DELETE CASCADE` on `cached_issue` (`:271`) are exercised by nothing:
   `writeCachedIssues` (`internal/store/cache.go:142`) deletes the children
@@ -610,14 +609,14 @@ The store has eleven. Six are failures no test causes: `sql.Open` in
 `Store.open` (`internal/store/store.go:192`) and in `Store.openAsItIs`
 (`:221`), which fails only for an unregistered driver, and four that need
 SQLite to fail partway through a statement: `BeginTx` and `Commit` in
-`Store.CacheIssues` (`internal/store/cache.go:110`, `:121`), and `rows.Err`
-in `readCachedIssues` (`internal/store/cache.go:88`) and `Store.Announces`
+`Store.CacheIssues` (`internal/store/cache.go:109`, `:120`), and `rows.Err`
+in `readCachedIssues` (`internal/store/cache.go:87`) and `Store.Announces`
 (`internal/store/announce.go:80`). The other five are
 the do-nothing guards' second operands, never seen true: `repo == ""` in
 `Store.RecordAnnounce` and `Store.Announces`
 (`internal/store/announce.go:24`, `:50`), `instance == ""` in
-`Store.CachedIssues` and `Store.CacheIssues` (`internal/store/cache.go:32`,
-`:99`), and `s.dir == ""` in `Store.off` (`internal/store/store.go:149`).
+`Store.CachedIssues` and `Store.CacheIssues` (`internal/store/cache.go:31`,
+`:98`), and `s.dir == ""` in `Store.off` (`internal/store/store.go:149`).
 
 Seven conditions were never evaluated. Four are a test away:
 

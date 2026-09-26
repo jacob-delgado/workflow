@@ -6,7 +6,6 @@ package store
 import (
 	"context"
 	"database/sql"
-	"errors"
 	"fmt"
 	"time"
 )
@@ -40,16 +39,16 @@ func (s Store) CachedIssues(ctx context.Context, instance, view string) ([]Cache
 	defer func() { _ = database.Close() }()
 
 	// The parent row records that the view was cached, even when it held no issues.
-	var cachedAt string
+	var cached bool
 
 	err = database.QueryRowContext(ctx,
-		`SELECT cached_at FROM issue_cache WHERE instance = ? AND view = ?`, instance, view).Scan(&cachedAt)
+		`SELECT EXISTS (SELECT 1 FROM issue_cache WHERE instance = ? AND view = ?)`, instance, view).Scan(&cached)
 
 	switch {
-	case errors.Is(err, sql.ErrNoRows):
-		return nil, false, nil
 	case err != nil:
 		return nil, false, fmt.Errorf("reading the cached view: %w", err)
+	case !cached:
+		return nil, false, nil
 	}
 
 	issues, err := readCachedIssues(ctx, database, instance, view)
