@@ -170,9 +170,12 @@ workflow opens, so you land back where you left off.
 
 **Change status** (`t`) lists the transitions Jira's workflow offers from the
 issue's status. A transition that needs fields filled in says which. Choosing
-it asks for them: a field with a fixed set of values gets a picker, a text field
-gets an input. A field of any other kind is named with a pointer to Jira's own
-screen, because guessing at it would send something you did not choose.
+it asks for them, one at a time: a field with a fixed set of values gets a
+picker, and one that takes several of them a picker where `space` selects as
+many as you need, at least one; a text, user or date field gets an input, a
+user by username and a date as year-month-day, such as `2026-09-21`. A field of
+any other kind, such as a cascading select, is named with a pointer to Jira's
+own screen, because guessing at it would send something you did not choose.
 
 **Comment** (`c`) opens your editor. The comment is shown back to you before it
 is posted: `enter` posts it, `e` edits it again, `esc` discards it.
@@ -192,13 +195,20 @@ log work (`c`, `a`, `w`), linking the pull request on the issue, the
 anything else, then the key and the summary, as in
 `fix/PROJ-412-token-redaction`. Edit it freely; a name git would refuse says so
 as you type. The branch starts from origin's default branch, which the overlay
-names, and is not set to track it, so it reads as unpushed until it is.
-`ctrl+w` creates it in a new git worktree beside the repository instead of
-switching to it.
+names with how long ago it last moved, as in
+`from origin/main, fetched 3d ago`. `enter` fetches from origin first, so the
+branch starts from what origin holds now; if the fetch fails, the overlay says
+why, and `enter` again branches from what you already have. The branch is not
+set to track its base, so it reads as unpushed until it is. `ctrl+w` creates it
+in a new git worktree beside the repository instead of switching to it.
 
 ### Stage and commit
 
 The Commits pane lists changed files, one per row. Staging is by whole file.
+Beneath the list is the selected file's diff against the last commit, staged
+and unstaged changes together, with each added line marked `+` and each removed
+one `-`, so the marks read without color. An untracked file has no diff until
+it is staged, and says so.
 
 `c` opens the commit composer. The subject is built from its parts so it is
 always a well-formed [Conventional Commit](https://www.conventionalcommits.org/):
