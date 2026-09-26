@@ -40,10 +40,6 @@ var (
 	// ErrNoCredential reports that Jira has no token to send: none is
 	// configured, or the configured source gave none.
 	ErrNoCredential = errors.New("no Jira token to send")
-	// ErrInvalidBaseURL reports a jira.base_url that is not an absolute URL.
-	ErrInvalidBaseURL = errors.New("jira.base_url is not an absolute http or https URL")
-	// ErrCredentialInBaseURL reports userinfo embedded in jira.base_url.
-	ErrCredentialInBaseURL = errors.New("jira.base_url carries a username and password")
 	// ErrUnauthorized reports a credential the instance did not accept.
 	ErrUnauthorized = errors.New("the credential was not accepted")
 	// ErrForbidden reports a 403: a credential the instance refused to consider,
@@ -112,10 +108,10 @@ func (c Client) newRequest(ctx context.Context, method, pathAndQuery string, bod
 	if err != nil {
 		// Deliberately unwrapped: the parse error quotes the whole URL, so a
 		// base_url carrying userinfo would put the password into this message.
-		return nil, ErrInvalidBaseURL
+		return nil, config.ErrInvalidBaseURL
 	}
 
-	err = usable(request.URL)
+	err = config.CheckBaseURL(c.settings.BaseURL)
 	if err != nil {
 		return nil, err
 	}
@@ -150,22 +146,6 @@ func (c Client) newJSONRequest(ctx context.Context, method, path string, body an
 	request.Header.Set("Content-Type", "application/json")
 
 	return request, nil
-}
-
-// usable reports whether a parsed base URL can carry a credential.
-func usable(address *url.URL) error {
-	// net/http turns userinfo into an Authorization header of its own, which
-	// would compete with the configured token — and the winner is not the one
-	// the reader of the configuration file expects.
-	if address.User != nil {
-		return ErrCredentialInBaseURL
-	}
-
-	if address.Host == "" || (address.Scheme != "https" && address.Scheme != "http") {
-		return ErrInvalidBaseURL
-	}
-
-	return nil
 }
 
 // authenticators maps each usable mode to the way it signs a request.
@@ -247,7 +227,7 @@ func statusError(status int, requested *url.URL) error {
 	case http.StatusNotFound:
 		// The address is the useful part here: a missing context path, such as
 		// the /jira that many on-prem instances live under, looks exactly like
-		// this. Redacted() masks any userinfo that slipped past usable.
+		// this. Redacted() masks any userinfo that slipped past CheckBaseURL.
 		return fmt.Errorf("%w: %s", ErrNoAPI, requested.Redacted())
 	default:
 		return fmt.Errorf("%w: %d", ErrUnexpectedStatus, status)

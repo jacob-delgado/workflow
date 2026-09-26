@@ -9,6 +9,7 @@ import (
 	"slices"
 	"strings"
 
+	"github.com/jacob-delgado/workflow/internal/config"
 	"github.com/jacob-delgado/workflow/internal/editor"
 	"github.com/jacob-delgado/workflow/internal/forge"
 	"github.com/jacob-delgado/workflow/internal/gitrepo"
@@ -140,11 +141,11 @@ func jiraErrors() []knownError {
 			full: "Jira has no token. Set `jira.token`, or check that `jira.token_command` or `jira.token_env` gives one; " +
 				"`workflow doctor --online` tests it.",
 		}},
-		{jira.ErrInvalidBaseURL, wording{
+		{config.ErrInvalidBaseURL, wording{
 			brief: "jira.base_url is not a URL",
 			full:  "`jira.base_url` is not an absolute http or https address. Fix it; `workflow doctor` checks it.",
 		}},
-		{jira.ErrCredentialInBaseURL, wording{
+		{config.ErrCredentialInBaseURL, wording{
 			brief: "jira.base_url holds a password",
 			full:  "`jira.base_url` carries a username and password. Take them out and set `jira.token` instead.",
 		}},

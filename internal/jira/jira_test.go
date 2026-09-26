@@ -328,12 +328,12 @@ func TestMyselfRefusesABaseURLItCannotUse(t *testing.T) {
 		// would compete with the configured token. Refuse it outright.
 		"one carrying credentials": {
 			jira:   config.Jira{BaseURL: "https://alice:sekret@jira.example.com", Token: token, User: ""},
-			want:   jira.ErrCredentialInBaseURL,
+			want:   config.ErrCredentialInBaseURL,
 			hidden: "sekret",
 		},
 		"one that is not absolute": {
 			jira:   bearerConfig("jira.example.com/jira"),
-			want:   jira.ErrInvalidBaseURL,
+			want:   config.ErrInvalidBaseURL,
 			hidden: token,
 		},
 		// A control character is what url.Parse refuses outright, which is the
@@ -342,7 +342,7 @@ func TestMyselfRefusesABaseURLItCannotUse(t *testing.T) {
 		// userinfo would otherwise put the password in the error.
 		"one url.Parse refuses": {
 			jira:   bearerConfig("https://jira.example.com/\x7f"),
-			want:   jira.ErrInvalidBaseURL,
+			want:   config.ErrInvalidBaseURL,
 			hidden: "jira.example.com",
 		},
 		"one with no credential to send": {

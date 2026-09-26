@@ -322,7 +322,7 @@ func exitFamilies() []exitFamily {
 func configurationErrors() []error {
 	return []error{
 		config.ErrNotFound, config.ErrInvalid,
-		jira.ErrNoCredential, jira.ErrInvalidBaseURL, jira.ErrCredentialInBaseURL,
+		jira.ErrNoCredential, config.ErrInvalidBaseURL, config.ErrCredentialInBaseURL,
 		forge.ErrNoToken, forge.ErrKindNeedsHost, forge.ErrNotARemote, forge.ErrUnknownForge,
 		messaging.ErrNoCredential, messaging.ErrInsecureWebhook,
 		jira.ErrUnauthorized, jira.ErrForbidden, forge.ErrUnauthorized, messaging.ErrRejected,

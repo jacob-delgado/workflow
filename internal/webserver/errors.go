@@ -11,6 +11,7 @@ import (
 	"strings"
 
 	"github.com/jacob-delgado/workflow/internal/api"
+	"github.com/jacob-delgado/workflow/internal/config"
 	"github.com/jacob-delgado/workflow/internal/forge"
 	"github.com/jacob-delgado/workflow/internal/gitrepo"
 	"github.com/jacob-delgado/workflow/internal/httpx"
@@ -196,7 +197,7 @@ func jiraFaults() []faultClass {
 				"— workflow doctor --online tests it",
 		},
 		{
-			causes: []error{jira.ErrInvalidBaseURL, jira.ErrCredentialInBaseURL},
+			causes: []error{config.ErrInvalidBaseURL, config.ErrCredentialInBaseURL},
 			code:   api.Unprocessable,
 			detail: "jira.base_url is not a usable address; workflow doctor checks it",
 		},

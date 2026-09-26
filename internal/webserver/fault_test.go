@@ -73,11 +73,11 @@ func TestTransitionNeverForwardsTheJiraHost(t *testing.T) {
 			want:       "Jira has no token; set jira.token, or check that jira.token_command or jira.token_env gives one",
 		},
 		"a base URL that is no address": {
-			err:        fmt.Errorf("reading https://%s: %w", jiraHost, jira.ErrInvalidBaseURL),
+			err:        fmt.Errorf("reading https://%s: %w", jiraHost, config.ErrInvalidBaseURL),
 			wantStatus: unprocessable, want: "jira.base_url is not a usable address",
 		},
 		"a base URL holding a password": {
-			err:        fmt.Errorf("reading https://%s: %w", jiraHost, jira.ErrCredentialInBaseURL),
+			err:        fmt.Errorf("reading https://%s: %w", jiraHost, config.ErrCredentialInBaseURL),
 			wantStatus: unprocessable, want: "jira.base_url is not a usable address",
 		},
 		"asked to wait": {

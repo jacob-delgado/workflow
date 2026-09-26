@@ -10,6 +10,7 @@ import (
 
 	"github.com/charmbracelet/x/ansi"
 
+	"github.com/jacob-delgado/workflow/internal/config"
 	"github.com/jacob-delgado/workflow/internal/editor"
 	"github.com/jacob-delgado/workflow/internal/forge"
 	"github.com/jacob-delgado/workflow/internal/gitrepo"
@@ -43,11 +44,11 @@ func everySeamFailure() map[string]spoken {
 				"`workflow doctor --online` tests it.",
 		},
 		"jira invalid base URL": {
-			fmt.Errorf("searching: %w", jira.ErrInvalidBaseURL), "jira.base_url is not a URL",
+			fmt.Errorf("searching: %w", config.ErrInvalidBaseURL), "jira.base_url is not a URL",
 			"`jira.base_url` is not an absolute http or https address. Fix it; `workflow doctor` checks it.",
 		},
 		"jira credential in base URL": {
-			fmt.Errorf("searching: %w", jira.ErrCredentialInBaseURL), "jira.base_url holds a password",
+			fmt.Errorf("searching: %w", config.ErrCredentialInBaseURL), "jira.base_url holds a password",
 			"`jira.base_url` carries a username and password. Take them out and set `jira.token` instead.",
 		},
 		"jira unauthorized": {
