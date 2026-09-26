@@ -20,7 +20,7 @@ var errLocked = errors.New("fatal: Unable to create '.git/index.lock': File exis
 // workTree is a work tree with every kind of change.
 func workTree() []gitrepo.Change {
 	return []gitrepo.Change{
-		{Path: "internal/config/redact.go", Staged: 'M', Unstaged: ' '},
+		{Path: redactPath, Staged: 'M', Unstaged: ' '},
 		{Path: "internal/log/debug.go", Staged: 'M', Unstaged: 'M'},
 		{Path: untrackedNotes, Staged: '?', Unstaged: '?'},
 		{Path: "new.go", OriginalPath: "old.go", Staged: 'R', Unstaged: ' '},
@@ -155,6 +155,38 @@ func TestStageAllWithEverythingStagedStagesNothing(t *testing.T) {
 	// Assert
 	if calls := nothing.asked("stage"); len(calls) != 0 {
 		t.Errorf("stage all staged what was staged already: %q", calls)
+	}
+}
+
+func TestTheCommitsFooterOffersStageAllOnlyWithAFileLeftToStage(t *testing.T) {
+	t.Parallel()
+
+	cases := map[string]struct {
+		changes []gitrepo.Change
+		offered bool
+	}{
+		"every file staged": {
+			changes: []gitrepo.Change{{Path: redactPath, Staged: 'M', Unstaged: ' '}},
+		},
+		"a file left to stage": {changes: workTree(), offered: true},
+	}
+
+	for name, tt := range cases {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			// Arrange
+			staging := newWorld()
+			staging.changes = tt.changes
+
+			// Act
+			footer := footerLine(typing(t, staging.live(t, 200, 40), "3").View().Content)
+
+			// Assert
+			if offered := strings.Contains(footer, "a stage all"); offered != tt.offered {
+				t.Errorf("the footer offers a stage all: %t, want %t:\n%s", offered, tt.offered, footer)
+			}
+		})
 	}
 }
 
