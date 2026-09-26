@@ -1,5 +1,5 @@
 import { ExternalLink } from 'lucide-react'
-import { useEffect, useRef, type RefObject } from 'react'
+import { useEffect, useRef, useState, type RefObject } from 'react'
 import { apiErrorMessage } from '@/api/apiError.ts'
 import type { Comment, Issue, IssueDetail } from '@/api/generated/types.gen.ts'
 import { Button } from '@/lib/Button.tsx'
@@ -17,12 +17,13 @@ const sectionHeading = 'text-base font-semibold'
 // the comments wait for that read, and a read that fails offers to be tried
 // again. The work story reads the stream, so it never waits.
 export function IssueDetailPanel({ issueKey, listed }: { issueKey: string; listed?: Issue }) {
-  const { data, error, isPending, isFetching, refetch } = useIssue(issueKey)
+  const { data, error, errorUpdateCount, isPending, isFetching, refetch } = useIssue(issueKey)
   // A Retry goes once the issue it reads again arrives, so its focus follows to
   // the issue's heading rather than falling to the page — once, so a later read
   // of the issue leaves focus wherever the user has put it since.
   const retried = useRef(false)
   const heading = useRef<HTMLHeadingElement>(null)
+  const refusal = useShownRefusal(error, isPending)
 
   useEffect(() => {
     if (retried.current && data && !error) {
@@ -34,20 +35,23 @@ export function IssueDetailPanel({ issueKey, listed }: { issueKey: string; liste
   return (
     <article aria-labelledby="issue-detail-heading" className="flex flex-col gap-block">
       <IssueHeading issueKey={issueKey} issue={listed ?? data} heading={heading} />
-      {isPending ? <p className="text-sm text-muted-foreground">Reading {issueKey}…</p> : null}
-      {error ? (
+      {isPending && refusal === null ? (
+        <p className="text-sm text-muted-foreground">Reading {issueKey}…</p>
+      ) : null}
+      {refusal === null ? null : (
         <IssueUnread
           reason={apiErrorMessage(
-            error,
+            refusal,
             `${issueKey} could not be read. Press Retry to try again.`,
           )}
+          refusals={errorUpdateCount}
           retrying={isFetching}
           onRetry={() => {
             retried.current = true
             void refetch()
           }}
         />
-      ) : null}
+      )}
       {data ? <IssuePeople detail={data} /> : null}
       <section aria-labelledby="work-story-heading" className="flex flex-col gap-group">
         <h3 id="work-story-heading" className={sectionHeading}>
@@ -61,23 +65,41 @@ export function IssueDetailPanel({ issueKey, listed }: { issueKey: string; liste
   )
 }
 
+// useShownRefusal is the refusal the issue's reads last met. Reading again an
+// issue that was never read clears the error its last read met, so the last
+// refusal is kept and shown until the read answers: the busy Retry beside it
+// keeps its place, and the focus it was pressed with, rather than giving way
+// to "Reading…".
+function useShownRefusal<Refusal>(error: Refusal | null, isPending: boolean): Refusal | null {
+  const [lastRefusal, setLastRefusal] = useState<Refusal | null>(null)
+  if (error !== null && error !== lastRefusal) {
+    setLastRefusal(error)
+  }
+
+  return error ?? (isPending ? lastRefusal : null)
+}
+
 // IssueUnread says why the issue could not be read, beside a Retry that reads
 // it again: selecting the issue that is already selected reads nothing. While
 // it reads, the Retry is marked busy rather than disabled, so it keeps the
 // focus it was pressed with through another refusal, and a press while busy
-// starts nothing.
+// starts nothing. Each refusal is told in an alert of its own, keyed by how
+// many there have been: an alert that keeps its words is not spoken again, and
+// the Retry, outside it, keeps its place.
 function IssueUnread({
   reason,
+  refusals,
   retrying,
   onRetry,
 }: {
   reason: string
+  refusals: number
   retrying: boolean
   onRetry: () => void
 }) {
   return (
     <div className="flex flex-col items-start gap-item">
-      <p role="alert" className="text-sm text-destructive">
+      <p key={refusals} role="alert" className="text-sm text-destructive">
         {reason}
       </p>
       <Button
