@@ -364,6 +364,7 @@ const pagedSnapshot = {
   review: { found: false },
   messaging: { service: 'Slack', configured: false, channel: '', channels: [], author: '' },
   branches: [],
+  commit_types: ['feat', 'fix'],
   suggested_scope: '',
 } satisfies Snapshot
 

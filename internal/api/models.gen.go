@@ -766,11 +766,16 @@ type Snapshot struct {
 	Branch Branch `json:"branch"`
 
 	// Branches The local branches named for an issue — the record of what is in flight. The detail panels (branch, changes, review) describe the checked-out branch alone; this lists every issue that has a branch, so the issues list can mark them all in flight, not the one on HEAD.
-	Branches  []TaskBranch         `json:"branches"`
-	Changes   ChangeList           `json:"changes"`
-	Issues    IssuesPage           `json:"issues"`
-	Messaging MessagingDestination `json:"messaging"`
-	Review    Review               `json:"review"`
+	Branches []TaskBranch `json:"branches"`
+	Changes  ChangeList   `json:"changes"`
+
+	// CommitTypes The commit types a new commit may take, in the order to offer them — the terminal composer's list: commit.types, trimmed, when the configuration names any, else the built-in Conventional Commit types. A commit whose type is not among them is refused.
+	//
+	// Example: ["feat","fix","docs"]
+	CommitTypes []string             `json:"commit_types"`
+	Issues      IssuesPage           `json:"issues"`
+	Messaging   MessagingDestination `json:"messaging"`
+	Review      Review               `json:"review"`
 
 	// SuggestedScope The scope a new commit opens on — the terminal composer's rule: the scope last committed with in this repository, else commit.default_scope, else empty. The server reads the learned one from its store once, and once more after a commit here records one, not on every message, and never under --dry-run, when the default alone applies.
 	//

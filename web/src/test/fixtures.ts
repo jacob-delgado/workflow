@@ -35,6 +35,7 @@ export function makeSnapshot(overrides: Partial<Snapshot> = {}): Snapshot {
       author: 'octocat',
     },
     branches: [],
+    commit_types: ['feat', 'fix', 'docs'],
     suggested_scope: '',
     ...overrides,
   }
