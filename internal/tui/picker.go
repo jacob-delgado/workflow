@@ -237,11 +237,17 @@ func (m Model) pickStatusFor(issue jira.Issue, offer statusOffer) (Model, tea.Cm
 // Jira does not offer it. The status is chosen by name because it shares a
 // category with "in progress".
 func (m Model) offerReviewStatus(issueKey jira.Key) (Model, tea.Cmd) {
-	if m.cfg.Jira.ReviewStatus == "" || m.deps.Jira.Transitions == nil {
+	if !m.offersReviewStatus() {
 		return m.closeOverlay(), nil
 	}
 
 	return m.pickStatusFor(jira.Issue{Key: issueKey}, statusOffer{status: m.cfg.Jira.ReviewStatus})
+}
+
+// offersReviewStatus reports whether an open pull request is followed by the
+// offer of the review status: one is configured, and Jira can list the moves.
+func (m Model) offersReviewStatus() bool {
+	return m.cfg.Jira.ReviewStatus != "" && m.deps.Jira.Transitions != nil
 }
 
 // header is the rows above the picker's list: the issue, its status, and a

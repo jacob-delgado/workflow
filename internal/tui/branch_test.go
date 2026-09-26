@@ -21,7 +21,7 @@ var (
 
 // dryInterface is the world's interface in dry-run mode.
 func dryInterface(w *world) tui.Model {
-	return tui.New(completeConfig(), nil, w.deps()).WithDryRun()
+	return tui.New(w.cfg, nil, w.deps()).WithDryRun()
 }
 
 func TestTheBranchOverlayShowsHowOldTheBaseIs(t *testing.T) {

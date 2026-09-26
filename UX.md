@@ -1852,60 +1852,6 @@ request" or `#`; a screen test with a gitlab.com remote and no token shows
 Slack answers `not_in_channel` sees the fix on stderr and no "press enter";
 `docs/content/docs/scripting.md:85` matches the new `reviews` note.
 
-### UX-127 Four dry runs say less than the live path would do
-
-Impact: low · Effort: small
-
-**Today.** A rehearsal on either surface leaves out a write the live path
-makes, or claims one it would first ask about, and the two surfaces
-disagree about the same act.
-
-- `branchCreator.create`, `internal/tui/branch.go:436`: "dry run: would " +
-  `dryRunAction()` + the name + the start, and `dryRunAction`, `:453`,
-  yields "fetch origin, then create " or "create a worktree for " — never
-  the switch that the success notice reports ("created and switched to",
-  `branchCreated.apply`, `internal/tui/branchresult.go:76`) and that the
-  command line's dry-run line names (`runBranch`,
-  `internal/cli/branch.go:103`).
-- `prComposer.dryRunNotice`, `internal/tui/prcreate.go:76`: appends " and
-  link it on KEY" whenever a Jira issue is named, while the live path
-  (`pullCreated.apply`, `:130-137`) offers the link and then the review
-  status instead of making either.
-- `writeOptions.proceed`, `internal/cli/scriptable.go:83`: a dry run prints
-  one line and returns false, so `runPR`, `internal/cli/pr.go:131`, returns
-  before `followUp` at `:149`; the "dry run: would push … open TITLE" line
-  (`:128`) is all `pr --dry-run` says, and the dry-run lines of `offerLink`
-  (`:185`) and `offerReviewStatus` (`:244`) never print — though "Writing
-  without a person", `docs/content/docs/scripting.md:186`, says `--yes`
-  answers the push, the open and the offers. DEBT-94 counts these two
-  strings as dead arms; this entry makes them reachable rather than
-  deleting them.
-- `runAnnounce`, `internal/cli/announce.go:122`: `offerAgain` runs before
-  the preview at `:130` and `proceed` at `:133`, and under `--yes` prints
-  "Not announced again; run without --yes to be asked." (`offerAgain`,
-  `:169`) even with `--dry-run` — so the documented unattended form plus
-  the documented safe form together show nothing of the announcement. The
-  `--yes` bullet of "Writing without a person"
-  (`docs/content/docs/scripting.md:186`) settles the skip, and the
-  `--dry-run` bullet (`:194`) promises "the preview and what the command
-  would do"; the two leave the combination unspecified, and the code
-  answers it with the skip.
-
-**Instead.** Append "and switch to it" (or "in a worktree at …") to
-`dryRunAction`'s sentence, and have `dryRunNotice` name the offers rather
-than the link. After `pr`'s open line, print `dry run: would link it on
-KEY` and `dry run: would move KEY to STATUS` when those offers would be
-made. In `announce`, check `dryRun` before the `--yes` skip, say the moment
-was already announced, still print the preview and end with a dry-run line
-saying `--yes` would leave it as it is — keeping the settled skip.
-
-**Done when.** `TestADryRunBranchIsOnlyDescribed` requires "and switch to
-it"; `TestADryRunOpensNothing`'s expected notice names the offers rather
-than the link; a `pr --dry-run` test on a review-configured repository sees
-the open, link and move `dry run: would …` lines on stderr and no Jira
-write; an `announce --yes --dry-run` test with an announced moment sees the
-message on stdout and no "run without --yes" on stderr.
-
 ### UX-128 Failed reads pass as empty answers in status, standup and the web
 
 Impact: medium · Effort: medium

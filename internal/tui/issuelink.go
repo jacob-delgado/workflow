@@ -36,16 +36,26 @@ func (m Model) jiraIssue() (jira.Key, bool) {
 	return loop.JiraIssue(m.branch.branch, m.cfg.Jira.Project)
 }
 
-// issueToLink is the issue a just-opened pull request should be linked to: the
-// branch's Jira issue, when Jira can take the link. Empty when there is
-// neither.
-func (m Model) issueToLink() jira.Key {
+// pullOffers are what opening a pull request goes on to offer, in order, for a
+// dry run to name: to link it on the branch's Jira issue, when Jira can take
+// the link, and to move that issue to the review status, when one is
+// configured. None when the branch names no Jira issue.
+func (m Model) pullOffers() []string {
 	issueKey, named := m.jiraIssue()
-	if !named || m.deps.Jira.LinkPullRequest == nil {
-		return ""
+	if !named {
+		return nil
 	}
 
-	return issueKey
+	var offers []string
+	if m.deps.Jira.LinkPullRequest != nil {
+		offers = append(offers, "to link it on "+string(issueKey))
+	}
+
+	if m.offersReviewStatus() {
+		offers = append(offers, "to move "+string(issueKey)+" to "+m.cfg.Jira.ReviewStatus)
+	}
+
+	return offers
 }
 
 // view previews the link the confirmation would add.

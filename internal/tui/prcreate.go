@@ -10,7 +10,6 @@ import (
 	tea "charm.land/bubbletea/v2"
 
 	"github.com/jacob-delgado/workflow/internal/forge"
-	"github.com/jacob-delgado/workflow/internal/jira"
 )
 
 // request is the pull request the composer describes.
@@ -49,7 +48,7 @@ func (c prComposer) open(m Model) (Model, tea.Cmd) {
 	case request.Base == "":
 		c.send.err = errNoBase
 	case m.dryRun:
-		return m.closeOverlay().noticed(c.dryRunNotice(request, m.branch.branch.Pushed(), m.issueToLink())), nil
+		return m.closeOverlay().noticed(c.dryRunNotice(request, m.branch.branch.Pushed(), m.pullOffers())), nil
 	case m.branch.branch.Pushed():
 		return c.create(m)
 	default:
@@ -69,11 +68,12 @@ func (c prComposer) open(m Model) (Model, tea.Cmd) {
 }
 
 // dryRunNotice says what opening the pull request would do, including the push
-// that enter does first when origin does not have every commit.
-func (c prComposer) dryRunNotice(request forge.NewPullRequest, pushed bool, linkTo jira.Key) string {
+// that enter does first when origin does not have every commit, and the offers
+// the open goes on to make: offers, not writes, as the live path makes them.
+func (c prComposer) dryRunNotice(request forge.NewPullRequest, pushed bool, offers []string) string {
 	open := "open \"" + request.Title + "\" from " + request.Head + " into " + request.Base
-	if linkTo != "" {
-		open += " and link it on " + string(linkTo)
+	if len(offers) > 0 {
+		open += ", then offer " + strings.Join(offers, " and ")
 	}
 
 	if pushed {
