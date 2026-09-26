@@ -666,11 +666,6 @@ them.
   verbatim, each uncovered, while `SectionPanel`
   (`web/src/shell/SectionPanel.tsx:20`) returns the connecting state before
   any of the four renders.
-- `internal/webserver/errors.go:57` — `codeMeaning`'s `default` arm
-  duplicates the `api.Internal` arm, `code == api.Internal` 14 times true
-  and never false, where `ciState` (`internal/webserver/dto.go:182`) states
-  the package's own rule: a map, not a switch, so there is no last-case arm
-  gobco can never see.
 
 The condition figure is held down where no test can raise it; the web's
 review panel carries an uncovered line nothing reaches; the next panel and

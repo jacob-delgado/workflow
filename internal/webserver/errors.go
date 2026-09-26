@@ -39,28 +39,26 @@ func problem(code api.ProblemCode, detail string) api.Problem {
 	}
 }
 
-// codeMeaning is the HTTP status and human title fixed for each problem code.
+// codeMeaning is the HTTP status and human title fixed for each problem code. A
+// map, not a switch, as ciState is, so there is no last-case arm gobco can never
+// see; exhaustive keeps it complete, and every code is one of the spec's
+// constants.
 func codeMeaning(code api.ProblemCode) (int, string) {
-	switch code {
-	case api.BadRequest:
-		return http.StatusBadRequest, "Bad request"
-	case api.NotFound:
-		return http.StatusNotFound, "Not found"
-	case api.MethodNotAllowed:
-		return http.StatusMethodNotAllowed, "Method not allowed"
-	case api.Conflict:
-		return http.StatusConflict, "Conflict"
-	case api.Unprocessable:
-		return http.StatusUnprocessableEntity, "Unprocessable content"
-	case api.PreconditionRequired:
-		return http.StatusPreconditionRequired, "Precondition required"
-	case api.Unreachable:
-		return http.StatusBadGateway, "Upstream unreachable"
-	case api.Internal:
-		return http.StatusInternalServerError, "Internal error"
-	default:
-		return http.StatusInternalServerError, "Internal error"
-	}
+	meaning := map[api.ProblemCode]struct {
+		status int
+		title  string
+	}{
+		api.BadRequest:           {status: http.StatusBadRequest, title: "Bad request"},
+		api.NotFound:             {status: http.StatusNotFound, title: "Not found"},
+		api.MethodNotAllowed:     {status: http.StatusMethodNotAllowed, title: "Method not allowed"},
+		api.Conflict:             {status: http.StatusConflict, title: "Conflict"},
+		api.Unprocessable:        {status: http.StatusUnprocessableEntity, title: "Unprocessable content"},
+		api.PreconditionRequired: {status: http.StatusPreconditionRequired, title: "Precondition required"},
+		api.Unreachable:          {status: http.StatusBadGateway, title: "Upstream unreachable"},
+		api.Internal:             {status: http.StatusInternalServerError, title: "Internal error"},
+	}[code]
+
+	return meaning.status, meaning.title
 }
 
 // writeProblem writes a problem details object as application/problem+json, for
