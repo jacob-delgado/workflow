@@ -12,7 +12,7 @@ import (
 	"github.com/jacob-delgado/workflow/internal/store"
 )
 
-// theTime is a fixed moment the recording tests stamp with; none asserts on it.
+// theTime is the fixed moment the recording tests stamp with.
 func theTime() time.Time {
 	return time.Date(2026, 9, 22, 12, 0, 0, 0, time.UTC)
 }
