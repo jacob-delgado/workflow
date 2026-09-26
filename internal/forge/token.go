@@ -255,8 +255,10 @@ func Sources(kind Kind, host string) string {
 		return "set $GITLAB_TOKEN, or set forge.token"
 	case kind == KindGitLab:
 		return "set $GITLAB_TOKEN with $GITLAB_HOST naming " + name + ", or set forge.token with forge.host"
-	case githubsOwn(host):
+	case name == githubCom:
 		return "set $GITHUB_TOKEN, run `gh auth login`, or set forge.token"
+	case githubsOwn(host):
+		return "set $GITHUB_TOKEN, run `gh auth login --hostname " + name + "`, or set forge.token with forge.host"
 	default:
 		return "set $GH_ENTERPRISE_TOKEN with $GH_HOST naming " + name + ", run `gh auth login --hostname " + name +
 			"`, or set forge.token with forge.host"
