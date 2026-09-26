@@ -63,7 +63,7 @@ that needs one of them reopened goes in the
   channel's history, so it asks for no scope that would let it.
 - **One process, which ends when the interface closes.** Nothing runs once
   it is gone, which the usage guide lists as a limit: *Nothing outlives the
-  session* (`docs/content/docs/usage.md:323`).
+  session* (`docs/content/docs/usage.md:336`).
 
 ## Issues
 
@@ -133,7 +133,7 @@ Impact: medium · Effort: large
 Impact: low · Effort: small
 
 - Why: The interface opens on the view's cached issues, shown at once while
-  Jira is asked again (`seededIssues`, `internal/tui/issues.go:53`, over
+  Jira is asked again (`seededIssues`, `internal/tui/issues.go:59`, over
   `Store.CachedIssues`, `internal/store/cache.go:31`). The web's stream reads
   Jira before it sends its first frame (`snapshotIssues`,
   `internal/webserver/stream.go:132`), so every section says *Connecting to
@@ -168,8 +168,8 @@ Impact: low · Effort: small
 
 - Why: Finishing a merged branch is three git commands in a fixed order —
   switch to the base, `pull --ff-only`, `branch -D` — that the interface
-  composes and previews (`internal/tui/finish.go:44`, the commands at
-  `:72`). On the command line that is three commands to remember and get
+  composes and previews (`internal/tui/finish.go:48`, the commands at
+  `:76`). On the command line that is three commands to remember and get
   right, with no preview and no check that the branch really merged.
 - Touches: `internal/cli` (a `finish` command over `Git.Finish`, previewed
   like `branch` and `pr`, with `--dry-run`/`--yes`), the shared composition
@@ -234,7 +234,7 @@ Impact: medium · Effort: large
   open one, but cannot re-run failed checks, merge, finish the merged
   branch or edit the pull request's title and body — all of which the
   interface does with `R`, `M`, `F` and `e` (`internal/tui/checks.go:174`,
-  `internal/tui/merge.go:124`, `internal/tui/finish.go:44`,
+  `internal/tui/merge.go:124`, `internal/tui/finish.go:48`,
   `internal/tui/preditor.go:40`). The terminal's merge and finish shipped
   with the web's left for later; this is that later, with the re-run and
   the edit beside them.
@@ -273,7 +273,7 @@ Impact: medium · Effort: medium
   `AnnouncedPost`, `internal/tui/deps.go:155`; `announceSeams.Post` in
   `internal/cli/announce.go`; the web server's `Deps.Post`, which records
   nothing yet — FEAT-84), and the *Each announcement is its own message*
-  limit in `docs/content/docs/usage.md:332`.
+  limit in `docs/content/docs/usage.md:345`.
 - Done when: the second announcement of a pull request is posted as a reply
   to the first when a bot token is configured; with a webhook it posts
   top-level and the preview says why; the store still holds no token.
@@ -388,7 +388,7 @@ Impact: low · Effort: medium
   sprint — the configuration guide's *Sprint board* example
   (`docs/content/docs/configuration.md:170`) — but flat, one row per issue
   with a status glyph, in update order (`issueList.render`,
-  `internal/tui/issues.go:243`). What is missing is grouping by status: how
+  `internal/tui/issues.go:249`). What is missing is grouping by status: how
   much is to do, in progress or in review is read by scanning glyphs.
 - Touches: `internal/tui/issues.go` (status headings in the list), and
   `internal/jira`'s Agile API only for what JQL cannot give — the sprint's

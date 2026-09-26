@@ -120,7 +120,7 @@ The terminal:
 - `internal/tui/branch.go:230` — `Model.branchIssue`'s comment calls itself
   "the one place the interface reads a branch name as an issue key" while
   `branchDetail` (`:141`) and `taskBranches`
-  (`internal/tui/switchtask.go:62`) call `convention.IssueKey` too, and
+  (`internal/tui/switchtask.go:63`) call `convention.IssueKey` too, and
   `Model.jiraIssue` (`internal/tui/issuelink.go:35`) reads the branch's Jira
   issue through `loop.JiraIssue`.
 - `internal/tui/run.go:267` — `maxRunLines`' comment says the places to jump
@@ -141,7 +141,7 @@ The terminal:
   review-requests panes; the contexts (`:347`) give Branch and Commits only
   `actionRefresh`, and open and copy are answered on Issues
   (`handleIssuesKey`, `internal/tui/issuekeys.go:18`), Review
-  (`handleReviewLink`, `internal/tui/review.go:457`) and Reviews
+  (`handleReviewLink`, `internal/tui/review.go:467`) and Reviews
   (`handleReviewQueueKey`, `internal/tui/reviewqueue.go:188`).
 - `internal/tui/keys.go:59` — `keyMap`'s comment on `openLink` and
   `copyLink`, "on the Issues and Review panes", omits the Reviews pane that
@@ -278,7 +278,7 @@ The usage page:
   commit subject" is true only when `pull_request.title_source`
   (`PullRequest.TitleSource`, `internal/config/pullrequest.go:21`) is the
   default; the key is validated (`:24`) and on no docs page.
-- `docs/content/docs/usage.md:300` — "Editor" says "`$VISUAL`, else
+- `docs/content/docs/usage.md:313` — "Editor" says "`$VISUAL`, else
   `$EDITOR`, else `vi`"; `chosen` (`internal/editor/editor.go:85`) consults
   `GIT_EDITOR` first and `defaultEditor` (`:97`) returns `notepad` on
   Windows, while `defaultEditor`'s own comment (`:94`) omits `$GIT_EDITOR`
@@ -300,14 +300,14 @@ The configuration page (the Fields table's missing rows are DEBT-91):
   walks up to the directory holding `.git` (`:37`).
 - `docs/content/docs/configuration.md:383` — "While it is on and no
   `timing.ci_interval` is set, CI is polled every three minutes" gives two
-  of `pollInterval`'s three conditions (`internal/tui/review.go:194`): no
+  of `pollInterval`'s three conditions (`internal/tui/review.go:195`): no
   announcement may be waiting either.
 - `docs/content/docs/configuration.md:480` — the store is "keyed only by a
   repository's host and path and by a hash of your Jira URL", and
   `ARCHITECTURE.md:235` says the repository key is the remote's parsed host
   and path; `migrate` (`internal/store/store.go:202`) keys the cache by
   `(instance, view)`, where `Model.cacheIssues`
-  (`internal/tui/issues.go:47`) passes the view's JQL text, and `repoKey`
+  (`internal/tui/issues.go:53`) passes the view's JQL text, and `repoKey`
   (`internal/wiring/wiring.go:371`) falls back to `where.Root` when there is
   no remote or it does not parse.
 
@@ -467,7 +467,7 @@ UX-87.
 - `docs/content/docs/usage.md:225` — "Open the pull request": "The title
   is the branch's oldest commit subject" stated as fixed though
   `pull_request.title_source` can switch it to the issue.
-- `docs/content/docs/usage.md:259` — "Announce it" promises a channel
+- `docs/content/docs/usage.md:270` — "Announce it" promises a channel
   choice "with more than one channel to choose from" that the
   configuration page never says how to set up.
 - `docs/content/docs/install.md:14` — "What it needs" lists `gh` only, as an
@@ -513,7 +513,7 @@ The terminal:
   `TestNotifyPollsOnALongerBeatWithNoIntervalSet` asserts only "running" and
   no ring; `horizon` (`internal/tui/harness_test.go:27`) is one second, so
   any beat over a second is indistinguishable from `notifyPollInterval`
-  (`internal/tui/review.go:188`).
+  (`internal/tui/review.go:189`).
 - `internal/tui/merge_test.go:468` — `TestTheMergePreviewShowsItIsMerging`
   presses `j` in flight and asserts only "merging"; without the
   `p.send.sending` guard in `mergePicker.handleKey`
@@ -521,7 +521,7 @@ The terminal:
   would still show.
 - `internal/tui/finish_test.go:226` —
   `TestTheFinishPreviewShowsItIsFinishing` presses `x`, a key
-  `finishPreview.handleKey` (`internal/tui/finish.go:99`) ignores anyway,
+  `finishPreview.handleKey` (`internal/tui/finish.go:103`) ignores anyway,
   and asserts only "finishing".
 - `internal/tui/preditor_test.go:179` — `TestTheEditorShowsItIsSaving`
   presses `x` and asserts only "saving"; without the guard in
@@ -1026,7 +1026,7 @@ in every picker. The nothing-staged guidance that names `space` is UX-96's.
   `tea.KeyPressMsg{Code: tea.KeyDown}` rather than the bound key.
 - `internal/tui/picker.go:319` — `statusPicker.handleKey` matches the
   synthesized key against `m.keys.down`; so do
-  `branchPicker.handleKey` (`internal/tui/switchtask.go:158`),
+  `branchPicker.handleKey` (`internal/tui/switchtask.go:159`),
   `statusPicker.handleFormKey` (`internal/tui/fields.go:240`) and
   `fixupPicker.handleKey` (`internal/tui/picker.go:466`).
 
@@ -1055,7 +1055,7 @@ guard alone: a future edit path that drops the `if m.dryRun` in
 no test enumerates the write seams against `heldBack`. And `heldBack`
 holds back Jira, git, the forge, the messaging service and the hook writes
 but never `deps.Store`, so under `--dry-run` each first issue page is still
-written through `Store.CacheIssues`, where `docs/content/docs/usage.md:274`
+written through `Store.CacheIssues`, where `docs/content/docs/usage.md:285`
 says a dry run "writes nothing" and the web server refuses even to open the
 store. The world records "cache N" and `TestASearchCachesTheIssueList`
 (`internal/tui/issuecache_test.go:45`) asks for it on the live path, but no
@@ -1073,10 +1073,10 @@ dry run covers the web, not the terminal's store writes.
   that is the editor's only guard.
 - `internal/tui/dryrun.go:25` — `heldBack` touches `Jira`, `Git` and the
   services, never `deps.Store`.
-- `internal/tui/issues.go:47` — `Model.cacheIssues`, called from
+- `internal/tui/issues.go:53` — `Model.cacheIssues`, called from
   `issuesLoaded.apply` with no dry-run guard, writes the first page under
   `--dry-run`.
-- `docs/content/docs/usage.md:274` — "Dry run": `workflow --dry-run`
+- `docs/content/docs/usage.md:285` — "Dry run": `workflow --dry-run`
   "writes nothing".
 - `internal/webserver/commit.go:152` — the web's contrary rule on
   `server.learnedScope`: "A dry run never reads it: the store makes its
@@ -1106,7 +1106,7 @@ that does nothing — on the default world (one file, wholly staged) it reads
 (`internal/tui/commits_test.go:146`) pins. `commit`, by contrast, is
 offered only when something is staged. The announcement preview omits `w`
 from its footer when the pull request reports no CI, as
-`docs/content/docs/usage.md:325` promises, yet `handleKey` still routes `w`
+`docs/content/docs/usage.md:338` promises, yet `handleKey` still routes `w`
 to `postWhenGreen`, which never reads `noCI`: pressing it out of habit
 closes the preview with "will announce … once CI passes", marks the spine's
 last stage in flight, blocks quitting behind the quit guard and polls
@@ -1127,7 +1127,7 @@ result. UX-98 records more footer keys that break the same contract (dead
 - `internal/tui/messagingpreview.go:108` — `messagingPreview.handleKey`
   routes `w` to `postWhenGreen`, which gates on the moment and `CIPassed`
   only (`:148`), never on `noCI`.
-- `docs/content/docs/usage.md:325` — "Limits": "`w` needs checks to wait
+- `docs/content/docs/usage.md:338` — "Limits": "`w` needs checks to wait
   for" and the preview "does not offer it"; the key still acts.
 
 **One way to fix it.** Offer `stageAll` only when
@@ -1348,7 +1348,7 @@ would close the window, is FEAT-79.
   through to `review` unchanged.
 - `internal/webserver/handlers.go:182` — `server.review` calls `CheckCI`
   for any found pull, merged included, on every snapshot; the terminal's
-  `checkCI` (`internal/tui/review.go:114`) returns early unless
+  `checkCI` (`internal/tui/review.go:115`) returns early unless
   `State == StateOpen`.
 - `web/src/features/review/ReviewPanel.tsx:97` — `PullRequestSummary`'s
   State row is `pull.draft ? 'Draft' : 'Ready for review'`, the only two
@@ -1363,7 +1363,7 @@ unknown" on GitHub, whose `githubFind` reads mergeability only while open,
 `gitlabMerge.pullRequest` maps `merge_status` for any state,
 `internal/forge/gitlab.go:42`) and lists CI checks read against the merged
 head. A user could wait on a review that already happened. The terminal's
-`reviewRail` says "merged" instead (`internal/tui/review.go:272`),
+`reviewRail` says "merged" instead (`internal/tui/review.go:273`),
 `gatherReview` (`internal/cli/status.go:286`) treats a merged pull as no
 open review, and `momentOf` (`internal/loop/announce.go:115`) never asks CI
 about one. The server also spends one forge request per stream tick asking
@@ -1625,7 +1625,7 @@ terminal skips a pull that is not open (DEBT-127).
   `config --get remote.pushDefault`, the base lookup, `rev-list`, `log` and
   `log -1` per read.
 - `internal/webserver/handlers.go:182` — `server.review` calls `CheckCI`
-  whenever a pull is found; `Model.checkCI` (`internal/tui/review.go:114`)
+  whenever a pull is found; `Model.checkCI` (`internal/tui/review.go:115`)
   does not unless `State == StateOpen`.
 - `internal/forge/githubci.go:41` — `githubStatus` pages both the combined
   status and the check runs, at least two requests per frame.
@@ -2129,7 +2129,7 @@ grep of the exact string: 12 lines in 6 files.
   nothing.
 - `internal/tui/failure_color_test.go:20` —
   `TestEveryFailureGlyphRendersRed`.
-- `internal/tui/failure_notice_test.go:33`, `:112`, `:157` and `:175` —
+- `internal/tui/failure_notice_test.go:33`, `:98`, `:143` and `:161` —
   `TestARefusalNoticeWearsTheFailureStyle`, `TestAGuidanceNoticeStaysPlain`,
   `TestADroppedPostIsNoticedAsAFailure` and
   `TestAShortTerminalsFooterDrawsAFailureInRed`.
@@ -2185,11 +2185,11 @@ nil "before then, and for a run started by a fake that supplies none", which
 names a test fixture in production code. `Start`
 (`internal/proc/start.go:131`), the only production constructor of a live
 `proc.Output`, always sets `Stop: cancel`; the test world's `output` helper
-(`internal/tui/world_test.go:275`) builds a `proc.Output` without one, a
+(`internal/tui/world_test.go:277`) builds a `proc.Output` without one, a
 fake that cuts a corner the real seam never does. `stopRun`
 (`internal/tui/run.go:327`) returns at once when `stop` is nil, so pressing
 `s` on any fake run does nothing and no test would notice; only
-`blockingOutput` (`internal/tui/world_test.go:204`) supplies a `Stop`.
+`blockingOutput` (`internal/tui/world_test.go:206`) supplies a `Stop`.
 
 **One way to fix it.** Have `output` return a no-op `Stop`, as `proc.Start`
 always does, and trim the comment to the real case: nil before `runStarted`
