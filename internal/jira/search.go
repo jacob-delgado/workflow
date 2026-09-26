@@ -132,7 +132,7 @@ func (w wireIssueLink) link() (IssueLink, bool) {
 }
 
 // wireIssue is an issue as Jira sends it, in a search or on its own. The fields
-// past Reporter ride only on the detail request; a search leaves them zero.
+// past Priority ride only on the detail request; a search leaves them zero.
 type wireIssue struct {
 	Key    string `json:"key"`
 	Fields struct {

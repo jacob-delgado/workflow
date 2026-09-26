@@ -2,10 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
 // Package jira talks to a Jira Data Center instance over its REST v2 API.
-//
-// It searches issues, reads one in full, moves it through its workflow,
-// comments on it, links a pull request to it, and asks who the configured
-// credential authenticates as.
 package jira
 
 import (
