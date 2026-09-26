@@ -83,14 +83,6 @@ Severity: low · Confidence: read
 The documents a contributor and a later session read first restate numbers
 and names the tree has moved past. No gate reads any of them.
 
-- `CLAUDE.md:75` — the `task lint` row's parenthetical lists twelve checks;
-  the `lint` task (`Taskfile.yml:290`) runs sixteen sub-tasks, and the row
-  omits `lint:packagesize` (`Taskfile.yml:301`), `lint:goversion`,
-  `lint:goroutines` and `gen:verify`. `CLAUDE.md:157` says the package-size
-  gate runs in `task lint`, contradicting the row in the same file.
-- `docs/content/docs/contributing.md:50` — the `task lint` row names nine
-  checks and omits `lint:markdown`, `lint:toml`, `lint:filelength`,
-  `lint:packagesize`, `lint:goversion`, `lint:goroutines` and `gen:verify`.
 - `CLAUDE.md:504` — the never-print-a-secret rule names `slack.token`, a key
   the decoder refuses: `ErrSlackRenamed` (`internal/config/config.go:50`)
   says the "slack" block was renamed to "messaging", and the field is

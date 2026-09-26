@@ -72,7 +72,7 @@ docs/                 the Hugo documentation site
 | `task run` | run from source; `task run -- doctor --online` passes arguments |
 | `task test` | tests with the race detector |
 | `task test:cover` | tests plus the coverage floor |
-| `task lint` | every linter (Go, shell, YAML, Dockerfile, Actions + security, Markdown, TOML, headers, spelling, file length, test markers, docs drift) |
+| `task lint` | every `lint:*` task (each linter and repository check) plus `docs:check` and `gen:verify`; `task --list` names each |
 | `task fmt` | format everything in place |
 | `task cloc` | count the source lines, and the Go test ratio (advisory) |
 | `task check` | **the full gate** — lint, tests + coverage, govulncheck, gitleaks; plus the web's lint, client-drift check and unit tests |
