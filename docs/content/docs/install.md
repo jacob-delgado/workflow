@@ -31,16 +31,16 @@ The binary lands in `$(go env GOPATH)/bin`, which needs to be on your `PATH`:
 export PATH="$(go env GOPATH)/bin:$PATH"
 ```
 
-For a reproducible install, name the version instead of `@latest`:
+`@latest` resolves to the newest release tag. For a reproducible install, name
+the version instead:
+
+<!-- x-release-please-start-version -->
 
 ```sh
-go install github.com/jacob-delgado/workflow/cmd/workflow@v0.0.5
+go install github.com/jacob-delgado/workflow/cmd/workflow@v0.3.1
 ```
 
-`@latest` resolves to the newest release tag. Until the first tag exists, it
-resolves to the most recent commit on `main` — so early installs are of
-unreleased code, which is worth knowing while the configuration format is still
-moving.
+<!-- x-release-please-end -->
 
 ## From a release
 

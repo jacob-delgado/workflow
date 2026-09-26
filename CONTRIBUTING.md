@@ -204,7 +204,8 @@ Releases are automated with
 commit messages above, so a well-formed commit is also a changelog entry:
 
 1. Commits land on `main`. release-please keeps a release pull request open,
-   with the next version and the generated `CHANGELOG.md`.
+   with the next version and the generated `CHANGELOG.md`, and moves the
+   pinned `go install` version in `README.md` and the install page to it.
 2. A maintainer merges that pull request when the release is ready. Nothing
    publishes until they do.
 3. Merging tags `vX.Y.Z`, which builds the binaries for macOS (arm64), Linux
