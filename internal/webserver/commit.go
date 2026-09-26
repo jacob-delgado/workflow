@@ -149,8 +149,8 @@ func (s *server) suggestedScope() string {
 }
 
 // learnedScope is the scope last used in this repository, read from the store
-// the first time it is asked for. A dry run never reads it: the store makes
-// its directory and opens its database even to read.
+// the first time it is asked for. A dry run opens no store, so it never reads
+// the learned scope and suggests the configured default.
 func (s *server) learnedScope() (string, bool) {
 	s.scope.mu.Lock()
 	defer s.scope.mu.Unlock()

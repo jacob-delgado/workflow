@@ -15,6 +15,7 @@ import (
 
 	"github.com/jacob-delgado/workflow/internal/config"
 	"github.com/jacob-delgado/workflow/internal/store"
+	"github.com/jacob-delgado/workflow/internal/tui"
 	"github.com/jacob-delgado/workflow/internal/wiring"
 )
 
@@ -107,6 +108,25 @@ func TestCachedIssuesReadBackAreSanitized(t *testing.T) {
 		if strings.ContainsRune(value, '\x1b') {
 			t.Errorf("the %s read back still holds a terminal escape: %q", name, value)
 		}
+	}
+}
+
+func TestADryRunReadsWhatALiveSessionAnnounced(t *testing.T) {
+	// Arrange
+	// Both are keyed by the same repository, so what the live store recorded is
+	// what the read-only one finds.
+	t.Setenv("HOME", t.TempDir())
+	t.Setenv("XDG_STATE_HOME", "")
+
+	where := wiring.Workspace{Root: t.TempDir(), Remote: "https://github.com/org/repo.git"}
+	wired(t, config.Default(), where, nil).Store.RecordAnnounce(tui.AnnouncedPost{Pull: 7, Moment: 1})
+
+	// Act
+	posts := wiring.ReadOnlyStore(t.Context(), config.Default(), where).Announced()
+
+	// Assert
+	if len(posts) != 1 || posts[0] != (tui.AnnouncedPost{Pull: 7, Moment: 1}) {
+		t.Errorf("the dry run read %+v, want the one announcement the live session recorded", posts)
 	}
 }
 

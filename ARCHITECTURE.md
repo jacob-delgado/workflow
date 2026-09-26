@@ -227,7 +227,12 @@ with it off the code path is identical to having no store at all — a disabled
 store no-ops every method, so the "nothing kept between sessions" behavior is
 still one flag away. Where the filesystem keeps Unix modes, the directory is
 `0700` and the file `0600`, set on every open so that a directory which already
-existed is narrowed too.
+existed is narrowed too. The one exception is `--dry-run`: a command opens a
+store that is already there read-only, so it never creates one or writes a row
+to it. Like any reader of a write-ahead-logged database, SQLite may leave the
+log's two owner-only companion files, `workflow.db-wal` and `workflow.db-shm`,
+beside it until the next live open clears them. The interface and `--web` open
+none at all.
 
 Two invariants make the store safe to keep unencrypted:
 
@@ -297,14 +302,15 @@ Three rules from `CLAUDE.md` are visible in the schema:
 - **Timestamps are RFC3339 UTC text** in `_at` columns — never `DATETIME` or
   `CURRENT_TIMESTAMP` (a `STRICT` table has no date type), and the moment is a
   passed-in `now`, keeping the clock a testable seam.
-- **Referential integrity is enforced**: the connection sets
+- **Referential integrity is enforced**: a writing connection sets
   `PRAGMA foreign_keys=ON` (SQLite honors `ON DELETE CASCADE` only per-connection
   when it is on), the child cascades from its parent, and a re-cache **replaces
   the whole group in one transaction** — upsert the parent, delete the children,
   insert the new ones — so a view is never left half-updated.
 
-Migrations are forward-only and idempotent (every open runs them); pre-1.0 there
-are no migration shims for the unreleased schema.
+Migrations are forward-only and idempotent (every open that may write runs them;
+a `--dry-run` command's read-only open migrates nothing); pre-1.0 there are no
+migration shims for the unreleased schema.
 
 ## Trust boundaries and data flow
 

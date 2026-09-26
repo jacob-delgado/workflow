@@ -131,7 +131,7 @@ func completeAssignedIssues(cmd *cobra.Command, _ []string, toComplete string) (
 
 	// Completion runs on every <tab>, so it records nothing in a request log.
 	home, _ := os.UserHomeDir()
-	conn := connectAt(cmd.Context(), dir, home, nil)
+	conn := connectAt(cmd, dir, home, nil)
 
 	result, err := conn.deps.Jira.Search(jira.AssignedToMe, 0)
 	if err != nil {

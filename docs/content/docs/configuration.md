@@ -483,8 +483,12 @@ path and by a hash of your Jira URL — never by a credential, and never by the 
 URL — so a token embedded in a remote cannot reach it. Where the filesystem
 keeps Unix modes, the database file is `0600` in a `0700` directory, readable
 only by you. What it holds is disposable: delete it and the next session simply
-rebuilds it. Under `--dry-run`, neither the interface nor `--web` opens it at
-all, since even a read creates the directory and the database.
+rebuilds it. A `--dry-run` never creates it or changes what it holds: neither
+the interface nor `--web` opens it at all, and a command such as `announce` or
+`status` opens it read-only, and only when it is already there. That read may
+leave SQLite's two owner-only companion files, `workflow.db-wal` and
+`workflow.db-shm`, beside the database until the next session's open removes
+them.
 
 The store is on by default. Set `store.disabled` to keep nothing on disk; with it
 set, workflow behaves exactly as it did before the store existed, working

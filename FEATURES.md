@@ -81,7 +81,7 @@ Impact: medium · Effort: medium
   with its fields, comment, assign and log work. The command line reads Jira
   only in passing — `workflow branch <key>` reads the issue to name the
   branch (`runBranch`, `internal/cli/branch.go:79`), `status` prints the
-  branch issue's summary (`gather`, `internal/cli/status.go:250`), `standup`
+  branch issue's summary (`gather`, `internal/cli/status.go:249`), `standup`
   lists recently updated assigned issues inside its draft (`gatherStandup`,
   `internal/cli/standup.go:177`) and `workflow branch <tab>` completes
   assigned keys (`completeAssignedIssues`, `internal/cli/scriptable.go:126`)

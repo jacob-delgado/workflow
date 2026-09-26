@@ -188,8 +188,8 @@ func TestADryRunSuggestsTheDefaultWithoutOpeningTheStore(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
-	// Even a read opens the store's database and makes its directory, which a
-	// dry run must not do; the configured default still applies.
+	// A dry run opens no store, so it reads no learned scope; the configured
+	// default still applies.
 	store := &scopeStore{scope: learnedScope, holds: true}
 	deps := filledDeps()
 	store.wire(&deps)

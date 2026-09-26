@@ -92,30 +92,38 @@ func (r *rootRun) huesDrawn() []string {
 }
 
 // runRoot runs the root command in dir over a stand-in interface and web
-// server. Like run, it sets the working directory and the environment, so its
-// tests are not parallel.
+// server, in an empty home of its own. Like run, it sets the working directory
+// and the environment, so its tests are not parallel.
 func runRoot(t *testing.T, dir string, args ...string) *rootRun {
+	t.Helper()
+
+	return runRootAt(t, place{dir: dir, home: t.TempDir()}, args...)
+}
+
+// runRootAt is runRoot in the home directory the test chose.
+func runRootAt(t *testing.T, where place, args ...string) *rootRun {
 	t.Helper()
 
 	var ran rootRun
 
-	ran.stdout, ran.stderr, ran.err = executeRoot(t, dir, ran.runInterface, ran.serveWeb, args...)
+	ran.stdout, ran.stderr, ran.err = executeRoot(t, where, ran.runInterface, ran.serveWeb, args...)
 
 	return &ran
 }
 
-// executeRoot runs the root command in dir over the interface and web server
-// given, and returns what it said on stdout and on stderr, and how it ended.
+// executeRoot runs the root command where the test chose over the interface
+// and web server given, and returns what it said on stdout and on stderr, and
+// how it ended.
 func executeRoot(
-	t *testing.T, dir string, run cli.RunInterface, serve cli.RunWeb, args ...string,
+	t *testing.T, where place, run cli.RunInterface, serve cli.RunWeb, args ...string,
 ) (string, string, error) {
 	t.Helper()
 
-	for name, value := range isolatedEnvironment(t.TempDir()) {
+	for name, value := range isolatedEnvironment(where.home) {
 		t.Setenv(name, value)
 	}
 
-	t.Chdir(dir)
+	t.Chdir(where.dir)
 
 	var stdout, stderr bytes.Buffer
 
@@ -177,10 +185,11 @@ func storeKept(t *testing.T) (string, bool) {
 	return dir, err == nil
 }
 
-func TestADryRunOpensTheInterfaceWithNoStore(t *testing.T) {
+func TestADryRunInterfaceLeavesNoStoreOnDisk(t *testing.T) {
 	// Arrange
-	// With a Jira to key it by, the interface seeds its issue list from the
-	// store, and the store makes its directory even to read.
+	// With a Jira to key it by, the interface would seed its issue list from any
+	// store it is handed. Nothing on disk shows only that none was made; that a
+	// dry run drops the store is TestADryRunInterfaceOpensWithoutTheKeptIssueList.
 	dir := t.TempDir()
 	writeFile(t, dir, `{"jira": {"base_url": "https://jira.example.net"}}`)
 
@@ -442,7 +451,7 @@ func TestTheInterfaceAndTheWebServerStartWithTheTokenCommandsRun(t *testing.T) {
 			}
 
 			// Act
-			_, _, err = executeRoot(t, dir,
+			_, _, err = executeRoot(t, place{dir: dir, home: t.TempDir()},
 				func(context.Context, tui.Model, io.Writer) error {
 					countRuns()
 
