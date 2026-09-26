@@ -77,7 +77,7 @@ function offHeadStages(branchName: string, noun: string): Stage[] {
 // onHeadStages is the full story for the issue that owns the checked-out branch,
 // with each stage's state read from the stream.
 function onHeadStages(snapshot: Snapshot, words: ForgeWords): Stage[] {
-  const { branch, changes, messaging } = snapshot
+  const { branch, messaging } = snapshot
 
   return [
     {
@@ -92,9 +92,10 @@ function onHeadStages(snapshot: Snapshot, words: ForgeWords): Stage[] {
     {
       title: 'Changes',
       section: 'branch',
-      // Committed, not merely clean: a fresh branch with nothing committed is
-      // still at this stage, so it needs a clean tree AND at least one commit.
-      done: changes.changes.length === 0 && branch.commits.length > 0,
+      // Done on a commit, as progress.commitState reads it: files still to
+      // commit do not undo one already made, and a fresh branch with nothing
+      // committed is still at this stage however clean its tree.
+      done: branch.commits.length > 0,
       detail: changesDetail(snapshot),
     },
     {
