@@ -21,6 +21,7 @@ const (
 
 // The variables and configuration keys the cases set and look for.
 const (
+	githubToken   = "GITHUB_TOKEN"
 	enterpriseGH  = "GH_ENTERPRISE_TOKEN"
 	hostForGH     = "GH_HOST"
 	gitlabToken   = "GITLAB_TOKEN"
@@ -59,7 +60,7 @@ func TestResolveOffersATokenOnlyToTheHostItIsFor(t *testing.T) {
 	}{
 		// GitHub's own variables are for GitHub's own hosts, as gh reads them.
 		"github's variable on github.com": {
-			resolver: onlyEnv(map[string]string{"GITHUB_TOKEN": secret}),
+			resolver: onlyEnv(map[string]string{githubToken: secret}),
 			kind:     forge.KindGitHub, host: githubHost, wantSource: forge.SourceEnvironment,
 		},
 		"github's variable on a ghe.com tenant": {
@@ -67,7 +68,7 @@ func TestResolveOffersATokenOnlyToTheHostItIsFor(t *testing.T) {
 			kind:     forge.KindGitHub, host: gheTenant, wantSource: forge.SourceEnvironment,
 		},
 		"github's variable on any other host": {
-			resolver: onlyEnv(map[string]string{"GITHUB_TOKEN": secret, "GH_TOKEN": secret}),
+			resolver: onlyEnv(map[string]string{githubToken: secret, "GH_TOKEN": secret}),
 			kind:     forge.KindGitHub, host: onPremHost, wantErr: forge.ErrNoToken,
 		},
 		// The enterprise variables are for the one host GH_HOST names.
@@ -174,15 +175,20 @@ func TestSourcesNamesWhatWouldBeReadForTheHost(t *testing.T) {
 	}{
 		"GitHub's own host": {
 			kind: forge.KindGitHub, host: githubHost,
-			want:     []string{"$GITHUB_TOKEN", "gh auth login", tokenKey},
+			want:     []string{"$" + githubToken, "gh auth login", tokenKey},
 			unwanted: []string{hostForGH, hostKey},
+		},
+		"an Enterprise Cloud tenant": {
+			kind: forge.KindGitHub, host: gheTenant,
+			want:     []string{"$" + githubToken, "gh auth login --hostname " + gheTenant, tokenKey, hostKey},
+			unwanted: []string{hostForGH, enterpriseGH},
 		},
 		"another GitHub host": {
 			kind: forge.KindGitHub, host: onPremSSH,
 			want: []string{
 				"$" + enterpriseGH, "$" + hostForGH, "gh auth login --hostname " + onPremHost, tokenKey, hostKey,
 			},
-			unwanted: []string{"$GITHUB_TOKEN", "2222"},
+			unwanted: []string{"$" + githubToken, "2222"},
 		},
 		"GitLab's own host": {
 			kind: forge.KindGitLab, host: gitlabHost,
