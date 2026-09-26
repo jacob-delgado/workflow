@@ -167,10 +167,10 @@ var _ api.StrictServerInterface = (*server)(nil)
 // refused. A nil ui serves a notice instead of the app, for a build with no
 // frontend embedded. The server starts from the configuration file at cfg.Path
 // as startingPoint reads it, not from cfg alone, which the process read a
-// moment before. It fails when the embedded spec cannot be loaded, which is a
-// build defect, or when that file cannot be read.
+// moment before. It fails when the embedded spec cannot be loaded or routed,
+// which is a build defect, or when that file cannot be read.
 func Handler(deps Deps, cfg config.Config, info Info, assets fs.FS) (http.Handler, error) {
-	doc, err := loadSpec()
+	validator, err := validate()
 	if err != nil {
 		return nil, err
 	}
@@ -201,7 +201,7 @@ func Handler(deps Deps, cfg config.Config, info Info, assets fs.FS) (http.Handle
 	// The API is validated against the contract; the app is not, since its paths
 	// are not in the spec, so only the /api subtree passes through the validator.
 	root := http.NewServeMux()
-	root.Handle("/api/", validate(doc)(apiHandler))
+	root.Handle("/api/", validator(apiHandler))
 	root.Handle("/", uiHandler(assets))
 
 	return guardLoopback(refuseWritesInDryRun(info.DryRun, root)), nil

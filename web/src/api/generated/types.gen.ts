@@ -27,7 +27,7 @@ export type Problem = {
     /**
      * A stable, machine-readable reason.
      */
-    code: 'bad_request' | 'not_found' | 'conflict' | 'unprocessable' | 'precondition_required' | 'unreachable' | 'internal';
+    code: 'bad_request' | 'not_found' | 'method_not_allowed' | 'conflict' | 'unprocessable' | 'precondition_required' | 'unreachable' | 'internal';
 };
 
 /**

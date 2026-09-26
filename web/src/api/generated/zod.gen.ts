@@ -13,6 +13,7 @@ export const zProblem = z.object({
     code: z.enum([
         'bad_request',
         'not_found',
+        'method_not_allowed',
         'conflict',
         'unprocessable',
         'precondition_required',

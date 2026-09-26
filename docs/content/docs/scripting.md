@@ -59,7 +59,7 @@ that is not signed in reads as a forge that could not be reached: 5, not 3.
 
 | Exit status | Web problem code |
 | --- | --- |
-| 2 usage | `bad_request` (400); `precondition_required` (428), for a configuration save that names no revision to write over (no `If-Match`) |
+| 2 usage | `bad_request` (400); `method_not_allowed` (405), for a method the path does not answer; `precondition_required` (428), for a configuration save that names no revision to write over (no `If-Match`) |
 | 3 configuration | `unprocessable` (422), for a missing messaging service, an invalid configuration body or `ui.keys` map, a configuration file on disk that no longer reads as valid, a Jira token not configured or not accepted, or refused with a 403 that says what it may not do, a `jira.base_url` that is not a usable address, a forge token not found or not accepted, and a `forge.kind` set without its `forge.host` |
 | 4 refused precondition | `conflict` (409) |
 | 5 unreachable | `unreachable` (502), for a service that could not be reached, answered with a redirect or asked to wait |

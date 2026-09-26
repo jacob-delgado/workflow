@@ -135,6 +135,7 @@ const (
 	BadRequest           ProblemCode = "bad_request"
 	Conflict             ProblemCode = "conflict"
 	Internal             ProblemCode = "internal"
+	MethodNotAllowed     ProblemCode = "method_not_allowed"
 	NotFound             ProblemCode = "not_found"
 	PreconditionRequired ProblemCode = "precondition_required"
 	Unprocessable        ProblemCode = "unprocessable"
@@ -149,6 +150,8 @@ func (e ProblemCode) Valid() bool {
 	case Conflict:
 		return true
 	case Internal:
+		return true
+	case MethodNotAllowed:
 		return true
 	case NotFound:
 		return true
