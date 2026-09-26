@@ -112,6 +112,42 @@ for (const theme of themes) {
   )
 }
 
+// The steps a click opens on the populated build before a write goes out:
+// each is a group, named for what it asks.
+const confirmSteps = [
+  { step: 'push confirmation', section: 'Branch', opener: 'Push branch', group: /^Push / },
+  {
+    step: 'announcement preview',
+    section: 'Slack',
+    opener: 'Announce to Slack',
+    group: 'Announcement preview',
+  },
+]
+
+for (const theme of themes) {
+  for (const { step, section, opener, group } of confirmSteps) {
+    test(
+      `no accessibility violations in the ${step} in the ${theme} theme`,
+      { tag: '@populated' },
+      async ({ page }) => {
+        // Arrange: the populated cockpit in this theme, on the step's section.
+        await pinTheme(page, theme)
+        await page.goto('/')
+        await openSection(page, section)
+
+        // Act: open the step.
+        await page.getByRole('button', { name: opener }).click()
+        await expect(page.getByRole('group', { name: group })).toBeVisible()
+
+        // Assert: axe finds nothing on the step and the section around it.
+        const violations = await scan(page)
+        const summary = violations.map((v) => `${v.id} (${String(v.nodes.length)})`).join(', ')
+        expect(violations, `${theme} / populated ${step}: ${summary}`).toEqual([])
+      },
+    )
+  }
+}
+
 // A snapshot with more issues than its page carries, so the list, its view
 // select, filter and "Load more" are all on screen for the scan.
 const issuesSnapshot = {
