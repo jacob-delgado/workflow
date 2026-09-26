@@ -218,13 +218,14 @@ func requireFailureRow(t *testing.T, view, want string) {
 	t.Errorf("no row shows %q after a red %q:\n%s", want, failGlyph, ansi.Strip(view))
 }
 
-//nolint:paralleltest // forceANSI owns the global color profile; must run serially.
 func TestEveryChannelSpeaksTheFailureSentence(t *testing.T) {
-	defer forceANSI(t)()
+	t.Parallel()
 
 	for name, failure := range everySeamFailure() {
 		for channelName, channel := range failureChannels() {
 			t.Run(name+" in a "+channelName, func(t *testing.T) {
+				t.Parallel()
+
 				// Arrange
 				faked := newWorld()
 				channel.put(faked, failure.err)

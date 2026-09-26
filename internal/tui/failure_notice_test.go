@@ -30,9 +30,8 @@ func requireFailureNotice(t *testing.T, view, want string) {
 	}
 }
 
-//nolint:paralleltest // forceANSI owns the global color profile; must run serially.
 func TestARefusalNoticeWearsTheFailureStyle(t *testing.T) {
-	defer forceANSI(t)()
+	t.Parallel()
 
 	cases := map[string]struct {
 		prepare func(*world)
@@ -82,6 +81,8 @@ func TestARefusalNoticeWearsTheFailureStyle(t *testing.T) {
 
 	for name, tt := range cases {
 		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
 			// Arrange
 			faked := newWorld()
 			tt.prepare(faked)
@@ -95,9 +96,8 @@ func TestARefusalNoticeWearsTheFailureStyle(t *testing.T) {
 	}
 }
 
-//nolint:paralleltest // forceANSI owns the global color profile; must run serially.
 func TestAGuidanceNoticeStaysPlain(t *testing.T) {
-	defer forceANSI(t)()
+	t.Parallel()
 
 	cases := map[string]struct {
 		prepare func(*world)
@@ -123,6 +123,8 @@ func TestAGuidanceNoticeStaysPlain(t *testing.T) {
 
 	for name, tt := range cases {
 		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
 			// Arrange
 			faked := newWorld()
 			tt.prepare(faked)
@@ -140,11 +142,10 @@ func TestAGuidanceNoticeStaysPlain(t *testing.T) {
 	}
 }
 
-//nolint:paralleltest // forceANSI owns the global color profile; must run serially.
 func TestADroppedPostIsNoticedAsAFailure(t *testing.T) {
-	// Arrange
-	defer forceANSI(t)()
+	t.Parallel()
 
+	// Arrange
 	switching := newWorld()
 	switching.ci = []forge.CI{{State: forge.CIRunning}}
 	waiting := typing(t, switching.live(t, 200, 40), "5", "p", "w")
@@ -158,12 +159,11 @@ func TestADroppedPostIsNoticedAsAFailure(t *testing.T) {
 	requireFailureNotice(t, view, strings.TrimPrefix(droppedPost, failGlyph+" "))
 }
 
-//nolint:paralleltest // forceANSI owns the global color profile; must run serially.
 func TestAShortTerminalsFooterDrawsAFailureInRed(t *testing.T) {
+	t.Parallel()
+
 	// Arrange
 	// Too short for a notice row of its own, so the footer stands in for it.
-	defer forceANSI(t)()
-
 	faked := newWorld()
 	faked.stageErr = fmt.Errorf("staging: %w", fmt.Errorf("%w: git", proc.ErrNotFound))
 

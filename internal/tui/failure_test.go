@@ -429,11 +429,10 @@ func rowShowing(view, want string) string {
 	return ""
 }
 
-//nolint:paralleltest // forceANSI owns the global color profile; must run serially.
 func TestTheConfigurationScreenShowsItsErrorAsAFailure(t *testing.T) {
-	// Arrange
-	defer forceANSI(t)()
+	t.Parallel()
 
+	// Arrange
 	model := sized(t, tui.New(config.Config{}, fmt.Errorf("%w: unexpected end of JSON input", config.ErrInvalid),
 		tui.Deps{}), 120, 40)
 

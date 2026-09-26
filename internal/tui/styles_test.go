@@ -10,11 +10,10 @@ import (
 	"github.com/jacob-delgado/workflow/internal/gitrepo"
 )
 
-//nolint:paralleltest // forceANSI owns the global color profile; must run serially.
 func TestTheFooterUsesTheThemeNotFixedGrays(t *testing.T) {
-	// Arrange
-	defer forceANSI(t)()
+	t.Parallel()
 
+	// Arrange
 	model := newWorld().live(t, 120, 40)
 
 	// Act
@@ -33,9 +32,8 @@ func TestTheFooterUsesTheThemeNotFixedGrays(t *testing.T) {
 	}
 }
 
-//nolint:paralleltest // forceANSI owns the global color profile; must run serially.
 func TestEmptyStateSentencesAreNotDrawnFaint(t *testing.T) {
-	defer forceANSI(t)()
+	t.Parallel()
 
 	cases := map[string]struct {
 		prepare  func(*world)
@@ -57,6 +55,8 @@ func TestEmptyStateSentencesAreNotDrawnFaint(t *testing.T) {
 
 	for name, tt := range cases {
 		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
 			// Arrange
 			staged := newWorld()
 			tt.prepare(staged)
@@ -74,11 +74,10 @@ func TestEmptyStateSentencesAreNotDrawnFaint(t *testing.T) {
 	}
 }
 
-//nolint:paralleltest // forceANSI owns the global color profile; must run serially.
 func TestNoColorKeepsTheCursorButDropsTheHue(t *testing.T) {
-	// Arrange
-	defer forceANSI(t)()
+	t.Parallel()
 
+	// Arrange
 	// Color removed, with a text field open so a cursor is on screen.
 	model := newWorld().live(t, 120, 40).WithoutColor()
 	field := typing(t, model, "2", "b")
@@ -100,11 +99,10 @@ func TestNoColorKeepsTheCursorButDropsTheHue(t *testing.T) {
 	}
 }
 
-//nolint:paralleltest // forceANSI owns the global color profile; must run serially.
 func TestTheFocusedPaneWearsABoldTitle(t *testing.T) {
-	// Arrange
-	defer forceANSI(t)()
+	t.Parallel()
 
+	// Arrange
 	// Focus starts on Issues.
 	model := newWorld().live(t, 120, 40)
 
