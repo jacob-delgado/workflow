@@ -72,6 +72,10 @@ func writesWired(ran *int) webserver.Deps {
 	return deps
 }
 
+// notARepository is what the answer to a server outside a work tree tells the
+// caller to do.
+const notARepository = "start workflow --web from a repository's work tree"
+
 // gitReadAnswer is the problem a request whose read failed is answered with:
 // its status, its code, and a phrase its curated detail carries.
 type gitReadAnswer struct {
@@ -124,6 +128,57 @@ func TestAFailedGitReadAnswersEveryWriteAlike(t *testing.T) {
 
 			// Assert
 			assertGitReadAnswer(t, recorder, ran, gitReadAnswer{http.StatusInternalServerError, api.Internal, "try again"})
+		})
+	}
+}
+
+func TestAServerOutsideARepositoryAnswersEveryWriteWithAConflict(t *testing.T) {
+	t.Parallel()
+
+	// Outside a work tree gitrepo says so, naming the directory it looked in.
+	readErr := fmt.Errorf("%w: %s", gitrepo.ErrNotARepository, repoPath)
+
+	for name, write := range gitReadWrites() {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			// Arrange
+			ran := 0
+			deps := writesWired(&ran)
+			write.failRead(&deps, readErr)
+
+			// Act
+			recorder := send(t, serve(t, deps, config.Default()), http.MethodPost, write.path, write.body)
+
+			// Assert
+			assertGitReadAnswer(t, recorder, ran, gitReadAnswer{http.StatusConflict, api.Conflict, notARepository})
+		})
+	}
+}
+
+func TestAServerOutsideARepositoryAnswersItsReadsWithAConflict(t *testing.T) {
+	t.Parallel()
+
+	readErr := fmt.Errorf("%w: %s", gitrepo.ErrNotARepository, repoPath)
+	cases := map[string]string{
+		"the branch":  "/api/branch",
+		"the changes": "/api/changes",
+	}
+
+	for name, path := range cases {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			// Arrange
+			deps := filledDeps()
+			deps.Branch = func() (gitrepo.Branch, error) { return gitrepo.Branch{}, readErr }
+			deps.Changes = func() ([]gitrepo.Change, error) { return nil, readErr }
+
+			// Act
+			recorder := get(t, serve(t, deps, config.Default()), path)
+
+			// Assert
+			assertGitReadAnswer(t, recorder, 0, gitReadAnswer{http.StatusConflict, api.Conflict, notARepository})
 		})
 	}
 }

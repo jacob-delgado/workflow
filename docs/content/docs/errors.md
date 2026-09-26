@@ -52,13 +52,16 @@ of the caller's own.
 
 ## Conflict
 
-Status 409. The request cannot be applied to the current state — a working tree
-with uncommitted changes, a branch that already exists, nothing staged to commit,
-no pull request to announce or to link, an issue the checked-out branch does not
-name, a move to the review status that Jira does not offer or wants fields
-filled for (the terminal interface's status picker asks for them), or a
-configuration file that changed since Settings read it — edited on disk, or
-saved from another tab — which a save refuses rather than overwrite.
+Status 409. The request cannot be applied to the current state — a server not
+running in a git repository, for a request that cannot go ahead without reading
+it (the command line exits 4 there; the event stream shows the branch, changes
+and review empty instead), a working tree with uncommitted changes, a branch
+that already exists, nothing staged to commit, no pull request to announce or
+to link, an issue the checked-out branch does not name, a move to the review
+status that Jira does not offer or wants fields filled for (the terminal
+interface's status picker asks for them), or a configuration file that changed
+since Settings read it — edited on disk, or saved from another tab — which a
+save refuses rather than overwrite.
 
 ## Unprocessable
 
