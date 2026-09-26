@@ -1187,7 +1187,7 @@ the gate cannot see it.
 - The Filter's input sits on `placeholder:text-muted-foreground`
   (`IssueListControls`, `web/src/features/issues/IssueListControls.tsx:25`),
   6.10:1 in the light theme.
-- `scan`'s axe tag set (`web/e2e/a11y.spec.ts:31`) has no rule that samples
+- `scan`'s axe tag set (`web/e2e/a11y.spec.ts:45`) has no rule that samples
   `::placeholder`, and `web/src/tokens.test.ts` compares tokens only, so
   `yarn test:e2e` stays green.
 
@@ -1756,7 +1756,9 @@ scrolls beneath it, and a word wider than the content breaks rather than
 scroll it sideways. `web/e2e/layout.spec.ts` holds every section to 640,
 1024 and 1440 px in both themes: nothing scrolls sideways, nor the page
 down, Tab reaches every control, each in view as it takes focus, and axe
-finds nothing.
+finds nothing. It holds the steps a click opens to the same widths — the
+pull request form, the push confirmation, the announcement preview and a
+refused write.
 
 ## Across the surfaces
 

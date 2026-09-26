@@ -549,10 +549,11 @@ keeps fresh — is under
 
 ## The gates, the build and the tests
 
-What is open here is the coverage worklist and the metric behind it, gates
-whose printed sentence claims more than their check measures, CI jobs and
-triggers that do not do what their comments say, and tests named or shaped
-for something other than what they prove.
+What is open here is the coverage worklist and the metric behind it, and
+an end-to-end run that drives a write against a running server. The clicked
+steps the web's axe scans and Tab walks once missed — the pull request
+form, the push confirmation, the announcement preview and a refused write —
+are scanned in both themes and walked at every width.
 
 ### DEBT-64 The condition-coverage worklist: 432 one-sided conditions, and 7 never evaluated
 
@@ -642,71 +643,6 @@ no test drives any of the twelve write actions end to end.
 repository so one spec can commit, push and open a pull request.
 
 **Done when.** One Playwright spec performs a write against a running server.
-
-### DEBT-148 Four clicked steps in the web are never scanned or walked
-
-Severity: medium · Confidence: read
-
-The axe scans reach the issue detail, the opened pull's offers and a staged file
-after a click, and the Tab walk runs once, on each section as it opens. Four
-steps a user reaches by clicking — the pull request form, the push confirmation,
-the announcement preview and a write's refusal — are scanned and walked in
-neither theme, and the hermetic Settings scan settles on the heading rather than
-on the read's outcome. `CLAUDE.md:240` promises axe across every section in both
-themes and every control Tab reaches in view at three widths; for the clicked
-steps only jsx-a11y's static rules apply. DEBT-65 (a write against a real
-server) does not cover this: it is the runtime floor's reach, not the backend's.
-
-- `web/e2e/a11y.spec.ts:104` — the populated-sections test clicks each of
-  `populatedSectionNames` and scans at once; the populated snapshot's
-  `review` has `found: true` (`web/src/dev/mockSnapshot.ts:108`), so the
-  pull branch is taken and `PullRequestForm` never mounts there.
-- `web/e2e/a11y.spec.ts:264` — the offers test clicks "Open a pull request"
-  and then "Open pull request" with no scan between compose and submit, and
-  `scan` runs (`web/e2e/a11y.spec.ts:274`) after `OpenPullRequest`
-  (`web/src/features/review/ReviewPanel.tsx:162`) has returned null on
-  `open.state === 'done'`, so the form is gone.
-- `web/e2e/a11y.spec.ts:22` — `settled` returns the level-1 heading for
-  every section but Reviews, and the heading is drawn regardless of panel
-  state; the hermetic loop (`web/e2e/a11y.spec.ts:76`) scans as soon as it
-  is visible, before the config read fails to Retry, so it may land on
-  `SettingsPanel`'s "Loading the configuration…" placeholder
-  (`web/src/features/settings/SettingsPanel.tsx:31`).
-- `web/e2e/layout.spec.ts:181` — the every-section-fits test runs
-  `openSection` then `walkTabOrder` once per section with no click between.
-- `web/src/features/branch/stagingApi.ts:13` — `stageFile` under `VITE_MOCK`
-  returns before the SDK, so no write can fail and no `role=alert` refusal
-  appears.
-- `web/src/features/review/ReviewPanel.tsx:261` — `PullRequestForm`'s
-  `aria-label="Open a …"` form, with its seven labeled fields, is scanned
-  and walked in neither build.
-- `web/src/features/branch/BranchPanel.tsx:172` — `PushConfirm`'s
-  `role="group"` with `aria-labelledby` sits behind `confirming`, which no
-  spec sets.
-- `web/src/features/messaging/MessagingPanel.tsx:231` — `AnnouncePreview`'s
-  `role="group"` sits behind `preview.state === 'done'`, which no spec
-  reaches.
-
-So `PushConfirm`'s `aria-labelledby` resolving, the form's label
-associations, and the focus order of a form that opens inside the scrolling
-pane — exactly where a focused control is clipped at 640 px — can regress
-green. The hermetic Settings scan is timing-dependent; what it can hide is
-one `EmptyState` with a Retry button.
-
-**One way to fix it.** In `web/e2e/a11y.spec.ts`, scan with the pull request
-form, the push confirmation and the announcement preview open, and with one
-write routed to a 500 so its alert is on screen, in both themes; in
-`web/e2e/layout.spec.ts`, walk again after opening each step and add a
-hermetic pull-request-form case at 640 px; settle hermetic Settings on Retry
-the way Reviews settles on its list.
-
-**Done when.** `web/e2e/a11y.spec.ts` scans a page on which the "Open a pull
-request" form, the push confirmation group, the "Announcement preview" group
-and a `role=alert` refusal are each visible, in both themes;
-`web/e2e/layout.spec.ts` reports Push, Cancel, Channel, Announce now and the
-form's fields among the controls reached, each at least 99 % in view, at 640
-px; and the hermetic Settings scan waits on the Retry button, so a
-deliberate delay in the config read does not change what axe reports on.
 
 ## Deliberate trade-offs that carry a cost
 
