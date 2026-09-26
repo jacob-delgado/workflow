@@ -39,6 +39,17 @@ func TestTheBranchOverlayShowsHowOldTheBaseIs(t *testing.T) {
 	requireScreen(t, view, "from "+baseRef, "3d ago")
 }
 
+// outsideARepository has git answer, of the branch and the status, that the
+// directory is not a repository.
+func outsideARepository(deps *tui.Deps) {
+	deps.Git.Branch = func() (gitrepo.Branch, error) {
+		return gitrepo.Branch{}, fmt.Errorf("%w: /home/example", gitrepo.ErrNotARepository)
+	}
+	deps.Git.Changes = func() ([]gitrepo.Change, error) {
+		return nil, fmt.Errorf("reading the status: %w", gitrepo.ErrNotARepository)
+	}
+}
+
 func TestOutsideARepositoryEachRepoPaneSaysSoAndOffersNoRepoKeys(t *testing.T) {
 	t.Parallel()
 
@@ -57,12 +68,7 @@ func TestOutsideARepositoryEachRepoPaneSaysSoAndOffersNoRepoKeys(t *testing.T) {
 
 			// Arrange
 			deps := newWorld().deps()
-			deps.Git.Branch = func() (gitrepo.Branch, error) {
-				return gitrepo.Branch{}, fmt.Errorf("%w: /home/example", gitrepo.ErrNotARepository)
-			}
-			deps.Git.Changes = func() ([]gitrepo.Change, error) {
-				return nil, fmt.Errorf("reading the status: %w", gitrepo.ErrNotARepository)
-			}
+			outsideARepository(&deps)
 			model := sized(t, tui.New(completeConfig(), nil, deps), 120, 40)
 			model = drain(t, model, model.Init())
 

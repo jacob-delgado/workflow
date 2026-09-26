@@ -117,9 +117,9 @@ below is the same drift DEBT-71 records at the type level.
 
 The terminal:
 
-- `internal/tui/branch.go:230` — `Model.branchIssue`'s comment calls itself
+- `internal/tui/branch.go:236` — `Model.branchIssue`'s comment calls itself
   "the one place the interface reads a branch name as an issue key" while
-  `branchDetail` (`:141`) and `taskBranches`
+  `branchDetail` (`:147`) and `taskBranches`
   (`internal/tui/switchtask.go:63`) call `convention.IssueKey` too, and
   `Model.jiraIssue` (`internal/tui/issuelink.go:35`) reads the branch's Jira
   issue through `loop.JiraIssue`.
