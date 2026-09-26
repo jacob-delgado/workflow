@@ -465,19 +465,10 @@ docs/content/docs/install.md` prints a line.
 
 Severity: low · Confidence: read
 
-Across `internal/config`, `internal/store`, the release and coverage scripts
-and the web's vitest suite, tests named for a rule would pass with the rule
-gone. `testshape` checks only that a failure call is reachable and v8's
-range count cannot see a weak assertion, so every one clears the gate.
-
-The clients:
-
-- `internal/config/load_test.go:169` —
-  `TestDiscoverIgnoresAnEmptyDirectory`'s comment describes a machine with
-  no home directory, but the Act (`:170`) passes `""` as workDir, so
-  `nearest("")` never enters its loop, and the `dir == ""` guard in `fileIn`
-  (`internal/config/load.go:85`) the test means to cover was, per the gobco
-  report, 66 times false and never true.
+Across `internal/store`, the release and coverage scripts and the web's
+vitest suite, tests named for a rule would pass with the rule gone.
+`testshape` checks only that a failure call is reachable and v8's range
+count cannot see a weak assertion, so every one clears the gate.
 
 The scripts:
 
