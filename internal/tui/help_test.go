@@ -310,6 +310,38 @@ func TestTheHelpCutsNoLineShortAtThePanesEdge(t *testing.T) {
 	}
 }
 
+// firstHelpLine is the help's top line as the Keys box shows it, read from the
+// box's left edge so the rail beside it is not.
+func firstHelpLine(t *testing.T, view string) string {
+	t.Helper()
+
+	lines := strings.Split(plain(view), "\n")
+	top := slices.IndexFunc(lines, func(line string) bool { return strings.Contains(line, "┌─ Keys") })
+
+	if top < 0 || top+1 == len(lines) {
+		t.Fatalf("the help is not on screen:\n%s", view)
+	}
+
+	return string([]rune(lines[top+1])[runeColumn(lines[top], "┌─ Keys"):])
+}
+
+func TestTheHelpPagesBackAtOnceAfterPagingPastTheEnd(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	help := typing(t, newWorld().live(t, 120, 20), "?")
+	pastTheEnd := typing(t, help, pagesDown(helpPageCount)...)
+	before := firstHelpLine(t, pastTheEnd.View().Content)
+
+	// Act
+	back := typing(t, pastTheEnd, "pgup")
+
+	// Assert
+	if after := firstHelpLine(t, back.View().Content); after == before {
+		t.Errorf("one pgup after paging past the end left the help's top line at %q, want it moved up", after)
+	}
+}
+
 func TestAHelpThatFitsThePaneOffersNoScrollKeys(t *testing.T) {
 	t.Parallel()
 

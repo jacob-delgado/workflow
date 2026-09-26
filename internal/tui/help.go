@@ -43,7 +43,7 @@ func (helpOverlay) lightBorder() {}
 // is more below it.
 func (h helpOverlay) view(width, rows int) (string, string) {
 	content := h.fitting(width)
-	if strings.Count(content, "\n")+1 <= h.scroll+rows {
+	if h.lines(width) <= h.scroll+rows {
 		return helpTitle, scrolled(content, h.scroll, rows)
 	}
 
@@ -62,10 +62,15 @@ func (h helpOverlay) fitting(width int) string {
 	return h.narrow
 }
 
+// lines is how many lines the key list runs to at a width.
+func (h helpOverlay) lines(width int) int {
+	return strings.Count(h.fitting(width), "\n") + 1
+}
+
 // scrolls reports whether the key list is taller than the pane, so the scroll
 // keys move it.
 func (h helpOverlay) scrolls(width, rows int) bool {
-	return strings.Count(h.fitting(width), "\n")+1 > rows
+	return h.lines(width) > rows
 }
 
 // footer is what works while the help is open: close it, or quit. A list
@@ -83,14 +88,25 @@ func (h helpOverlay) handleKey(m Model, msg tea.KeyPressMsg) (Model, tea.Cmd) {
 	case key.Matches(msg, m.keys.toggleHelp, m.keys.closeOverlay):
 		return m.closeOverlay(), nil
 	case key.Matches(msg, m.keys.scrollDown, m.keys.down):
-		h.scroll += m.halfPage()
+		h = h.scrollBy(m, m.halfPage())
 	case key.Matches(msg, m.keys.scrollUp, m.keys.up):
-		h.scroll = max(0, h.scroll-m.halfPage())
+		h = h.scrollBy(m, -m.halfPage())
 	}
 
 	m.overlay = h
 
 	return m, nil
+}
+
+// scrollBy moves the key list by delta lines from where it is drawn, clamped to
+// the list before and after the move as the detail pane's scroll is, so paging
+// past the end leaves no offset for the next page up to spend first.
+func (h helpOverlay) scrollBy(m Model, delta int) helpOverlay {
+	lines, rows := h.lines(m.detailWidth()), m.detailRows()
+	from := firstShown(lines, h.scroll, rows)
+	h.scroll = firstShown(lines, from+delta, rows)
+
+	return h
 }
 
 // openHelp opens the key list, rendering it from the current bindings.
