@@ -73,49 +73,7 @@ terminal, a file on disk, the loopback server or a release.
 
 ## The command line
 
-What is open here is the drift between the contributor documents and the
-tree they describe.
-
-### DEBT-105 The contributor documents restate counts and names the tree has moved past
-
-Severity: low · Confidence: read
-
-The documents a contributor and a later session read first restate numbers
-and names the tree has moved past. No gate reads any of them.
-
-- `web/README.md:13` — "Running the cockpit takes two shells", with `task
-  dev` and `task web:mockup` mentioned nowhere. `web:mockup`
-  (`Taskfile.yml:139`, "Serve the web UI against mock data in one shell")
-  is undocumented in the README.
-
-A session reading CLAUDE.md learns a platform count the gate does not hold,
-a lint list that omits four gates it will trip on, and a secret key it
-cannot find in the code; a contributor tripped by `lint:goversion` or
-`lint:packagesize` finds no mention on the published page; a reporter can
-read SECURITY.md literally and not report a hole in the React client or the
-contract; a frontend contributor opens two terminals and never learns about
-`task dev` or the mock mode.
-
-**One way to fix it.** Replace each count with a pointer at its source
-(`RELEASE_PLATFORMS`, `task --list`) or the full list, at every site in one
-commit; name `jira.token`, `messaging.token`, `messaging.webhook_url` and
-`forge.token` — or "any `Secret` field" — in the secret rule and the four
-services in the opening line; add `web/` and `api/` to SECURITY.md's scope
-with the loopback server and the browser named; lead `web/README.md` with
-`task dev`, add one line for `task web:mockup`, and move the two-shell
-comment to the `web` and `web:ui` pair it describes.
-
-**Done when.** `grep -n 'five platforms' CLAUDE.md ARCHITECTURE.md` prints
-nothing, the `CGO_ENABLED=0` bullet in `FEATURES.md` names no platform
-count (the phrase wraps there, so grep it with `-z` or read it), and `grep
--n 'slack.token' CLAUDE.md` prints nothing; every
-sub-task under `Taskfile.yml`'s `lint` is named in, or referenced by,
-CLAUDE.md's and `docs/content/docs/contributing.md`'s `task lint` rows;
-CLAUDE.md's opening line names the services its `internal/messaging` row
-names; `grep -n 'web/' SECURITY.md` matches inside the in-scope list; `grep
--n 'task dev' web/README.md` and `grep -n 'web:mockup' web/README.md` match;
-and `grep -n 'two shells\|Shell 2' Taskfile.yml` prints nothing above the
-`dev` task.
+Nothing is open here.
 
 ## The terminal interface
 

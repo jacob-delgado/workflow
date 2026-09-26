@@ -10,14 +10,25 @@ single source of truth, from which the typed client is generated.
 
 Node is pinned in the repo's `mise.toml`; run `mise install` from the repo root.
 yarn is not pinned there — Corepack (bundled with Node) runs the version the
-`packageManager` field names. Running the cockpit takes two shells:
+`packageManager` field names. One command, from the repo root, runs the whole
+cockpit:
+
+```sh
+task dev        # the Go API and event stream on 127.0.0.1:13579, rebuilt on any .go change,
+                # and the web UI on :5173 with hot reload (installs deps, proxies /api to :13579)
+```
+
+Then open <http://localhost:5173>. To run the two halves apart, use two shells
+instead; the Go API is then built once rather than rebuilt on a change:
 
 ```sh
 task web        # shell 1: the Go API and event stream on 127.0.0.1:13579
 task web:ui     # shell 2: the web UI on :5173 (installs deps, proxies /api to :13579)
 ```
 
-Then open <http://localhost:5173>.
+`task web:mockup` serves the web UI on :5173 against mock data, with no backend
+at all: every section is populated, so the whole cockpit can be reviewed without
+a Jira, a forge or a messaging service.
 
 To run yarn directly, invoke it as **`corepack yarn <cmd>`**, not bare `yarn`: a
 mise `yarn` shim otherwise shadows it and fails with "No version is set for shim:
