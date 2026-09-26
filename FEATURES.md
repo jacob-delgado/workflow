@@ -269,11 +269,12 @@ Impact: medium · Effort: medium
   from chat.postMessage's `verdict` and returns only an error, so it must
   return the timestamp), the post seam that carries it to the record on
   every surface (`loop.Deliver`'s `post` and `Announced`,
-  `internal/loop/announce.go:179`; the interface's `MessagingDeps.Post` and
-  `AnnouncedPost`, `internal/tui/deps.go:155`; `announceSeams.Post` in
-  `internal/cli/announce.go`; the web server's `Deps.Post`, which records
-  nothing yet — FEAT-84), and the *Each announcement is its own message*
-  limit in `docs/content/docs/usage.md:345`.
+  `internal/loop/announce.go:206`, which the interface's
+  `MessagingDeps.Post`, `internal/tui/deps.go:156`, and `announceSeams.Post`
+  in `internal/cli/announce.go` both post through; the web server's
+  `Deps.Post`, which records nothing yet — FEAT-84), and the *Each
+  announcement is its own message* limit in
+  `docs/content/docs/usage.md:345`.
 - Done when: the second announcement of a pull request is posted as a reply
   to the first when a bot token is configured; with a webhook it posts
   top-level and the preview says why; the store still holds no token.
@@ -284,7 +285,7 @@ Impact: low · Effort: medium
 
 - Why: The interface's preview offers `w` — announce when CI goes
   green — and keeps the queued announcement until it does or the run fails
-  (`messagingPreview.postWhenGreen`, `internal/tui/messagingpreview.go:147`).
+  (`messagingPreview.postWhenGreen`, `internal/tui/messagingpreview.go:152`).
   The web announces now or not at all.
 - Touches: `internal/webserver` (a queued post needs somewhere to live
   across requests — the store, or the stream's server state),
@@ -299,8 +300,8 @@ Impact: low · Effort: small
 
 - Why: The interface and `workflow announce` record each announcement in the
   store and do not offer again a moment an earlier session announced
-  (`loop.Deliver`, `internal/loop/announce.go:179`; `offerAgain`,
-  `internal/cli/announce.go:167`). The web's `Announce`
+  (`loop.Deliver`, `internal/loop/announce.go:206`; `offerAgain`,
+  `internal/cli/announce.go:165`). The web's `Announce`
   (`internal/webserver/announce.go:33`) posts through `Deps.Post` and
   neither records nor reads, so an announcement made in the browser is
   invisible to the terminal, which offers it again, and the web's work story

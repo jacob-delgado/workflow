@@ -115,3 +115,19 @@ func TestTheAnnouncementPreviewedIsTheOneLoopComposes(t *testing.T) {
 		})
 	}
 }
+
+func TestAnAnnouncementTheServiceRefusedIsNotRemembered(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	refusing := newWorld()
+	refusing.postErr = errNotInChannel
+
+	// Act
+	typing(t, refusing.live(t, 120, 40), "5", "p", keyEnter)
+
+	// Assert
+	if posts, recorded := refusing.asked("post "), refusing.asked("announce"); len(posts) != 1 || len(recorded) != 0 {
+		t.Errorf("posted %q and recorded %q, want the one refused post and nothing remembered", posts, recorded)
+	}
+}

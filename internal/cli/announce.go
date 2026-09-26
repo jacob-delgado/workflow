@@ -14,8 +14,6 @@ import (
 	"github.com/jacob-delgado/workflow/internal/config"
 	"github.com/jacob-delgado/workflow/internal/forge"
 	"github.com/jacob-delgado/workflow/internal/loop"
-	"github.com/jacob-delgado/workflow/internal/messaging"
-	"github.com/jacob-delgado/workflow/internal/tui"
 )
 
 // errNoPullRequest refuses announcing a branch that has no pull request.
@@ -90,7 +88,7 @@ func runAnnounceCommand(cmd *cobra.Command, prompt Prompt, opts writeOptions) er
 		Kind:      deps.Forge.Kind,
 		Project:   cfg.Jira.Project,
 		Messaging: cfg.Messaging,
-		Memory:    announceMemory(deps.Store),
+		Memory:    loop.AnnounceMemory{Recorded: deps.Store.Announced, Record: deps.Store.RecordAnnounce},
 		Confirm:   func(question string) (bool, error) { return confirm(prompt, question) },
 	}
 
@@ -184,26 +182,6 @@ func announceQuestion(service string, again bool) string {
 	}
 
 	return "Announce to " + service + "?"
-}
-
-// announceMemory is the store's record of the announcements made in this
-// repository, which the interface keeps too, in the shared layer's terms.
-func announceMemory(kept tui.StoreDeps) loop.AnnounceMemory {
-	return loop.AnnounceMemory{
-		Recorded: func() []loop.Announced {
-			posts := kept.Announced()
-
-			made := make([]loop.Announced, 0, len(posts))
-			for _, post := range posts {
-				made = append(made, loop.Announced{Pull: post.Pull, Moment: messaging.Moment(post.Moment)})
-			}
-
-			return made
-		},
-		Record: func(made loop.Announced) {
-			kept.RecordAnnounce(tui.AnnouncedPost{Pull: made.Pull, Moment: int(made.Moment)})
-		},
-	}
 }
 
 // unattendedAgain words a repeat that nothing could confirm: --yes leaves a

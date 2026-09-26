@@ -69,7 +69,7 @@ them, re-counted at this commit.
 | "the one way the interface says something broke" | `wording`, `internal/tui/failure.go:63` | **Yes: every site that renders an error's text.** Each tells it through `errorSentence` (`internal/tui/failure.go:100`), which words every sentinel the seams return briefly and in full: 6 panes, the configuration screen, 11 `pinnedOutcome` overlays and the 2 details that repeat a summary row's failure beneath it through `failureBlock` (`internal/tui/failure.go:402`), 13 one-failure rows through `failureLine`, 4 rail and summary rows through `failureSummary`, and 10 failure notices through `noticedFailure`, drawn in the failure style, the re-run's led by what failed so a clipped row still names it; a run's headline names the step a failure status stopped, and a pull request opened without every reviewer says why in brief. The 3 guidance notices stay plain, since red means something broke. The width-one glyph-only marks — a failed check, job, stage or review CI — and the three rails that point at their detail carry no error text to word. One site drops the text it has: the branch creator's fixed "could not fetch" line (UX-129). |
 | "Nothing outward facing is sent without" a last look | `internal/tui/comment.go:64` | **Yes: 20 of 20.** Every act that writes through a seam — five on Jira, nine through git, four on the forge, the post and the lefthook file — waits on a preview or a confirmation; the push, `R`'s re-run of CI and `u`'s rebase share one last look, `lastLook` (`internal/tui/overlay.go:158`). Of the twenty, eleven leave the machine: the Jira five, the forge four, the post and the push; the rest are local writes that still get a look. The acts are listed under the table. |
 | "a refused change must never go unseen" | `internal/tui/picker.go:312` | **Yes: 13 of 13.** Every overlay that sends a request guards it while in flight (an earlier edition counted 1 of 7; the last counted 14 by including the commit composer, which holds a `sendState` for a validation refusal only and hands its commit to a run overlay, `internal/tui/composer.go:364`), and every one keeps a refusal in the overlay, where it happened, until `esc` — the merge and finish previews last, through `pinnedOutcome` (`internal/tui/failure.go:420`). |
-| "Each pane fails on its own" | `docs/content/docs/usage.md:80` | Yes. `internal/tui/tui.go:154` batches six loads; five panes hold and render their own load's error through `failureBlock` (`internal/tui/detail.go:339`, `internal/tui/branch.go:133`, `internal/tui/commits.go:125`, `internal/tui/review.go:292`, `internal/tui/reviewqueue.go:115`). The Messaging pane's load, `loadAnnounces`, reads the store, whose errors the wiring drops before they reach the model, so it has no load error to hold; its `failureBlock` site (`internal/tui/messaging.go:187`) renders a failed post. |
+| "Each pane fails on its own" | `docs/content/docs/usage.md:80` | Yes. `internal/tui/tui.go:154` batches six loads; five panes hold and render their own load's error through `failureBlock` (`internal/tui/detail.go:339`, `internal/tui/branch.go:133`, `internal/tui/commits.go:125`, `internal/tui/review.go:292`, `internal/tui/reviewqueue.go:115`). The Messaging pane's load, `loadAnnounces`, reads the store, whose errors the wiring drops before they reach the model, so it has no load error to hold; its `failureBlock` site (`internal/tui/messaging.go:181`) renders a failed post. |
 | State is "carried by the SHAPE of a glyph rather than its color" | `internal/tui/glyphs.go:16` | Yes. `unicodeGlyphs` and `asciiGlyphs` differ in shape (`internal/tui/glyphs.go:31`, `:43`); `NO_COLOR` keeps bold and faint (`internal/tui/tui.go:129`). One residue: the progress spine's per-system hue is color-only, mitigated by the name or its initial. |
 
 What was counted, so the next re-count is a diff. The 20 acts behind a last
@@ -88,8 +88,8 @@ look, each named by the seam its confirm captures: `Jira.Transition`
 (`internal/tui/checks.go:197`), `Forge.CreatePullRequest`
 (`internal/tui/prcreate.go:88`), `Forge.EditPullRequest`
 (`internal/tui/preditor.go:143`), `Forge.Merge` (`internal/tui/merge.go:206`),
-`Messaging.Post` (`internal/tui/messagingpreview.go:138`, posted through
-`sendToMessaging` at `:172`) and `Hooks.Write`
+`Messaging.Post` (`internal/tui/messagingpreview.go:140`, posted through
+`sendToMessaging` at `:173`) and `Hooks.Write`
 (`internal/tui/hookgen.go:138`); the local writes with no look are stage and
 unstage (`internal/tui/commits.go:269`), stage all (`:293`) and the pre-commit
 run (`:319`). The 13 overlays with an in-flight guard, each refusing every
@@ -103,34 +103,34 @@ key while `send.sending`: `statusPicker` (`internal/tui/picker.go:311`),
 (`internal/tui/prcomposer.go:338`), `prEditor`
 (`internal/tui/preditor.go:83`), `mergePicker` (`internal/tui/merge.go:178`),
 `finishPreview` (`internal/tui/finish.go:105`), `messagingPreview`
-(`internal/tui/messagingpreview.go:94`) and `hookgenOffer`
+(`internal/tui/messagingpreview.go:93`) and `hookgenOffer`
 (`internal/tui/hookgen.go:118`). The failure-voice sites: `failureBlock` 9,
 the six panes (`internal/tui/detail.go:339`, `internal/tui/branch.go:133`,
 `internal/tui/commits.go:125`, `internal/tui/review.go:292`,
 `internal/tui/reviewqueue.go:115`, and the Messaging pane's failed post at
-`internal/tui/messaging.go:187`), the
+`internal/tui/messaging.go:181`), the
 configuration screen (`internal/tui/render.go:473`) and the two details
 (`internal/tui/detail.go:377`, `internal/tui/review.go:321`);
 `pinnedOutcome` 11 (`internal/tui/branch.go:326`,
 `internal/tui/comment.go:112`, `internal/tui/composer.go:157`,
 `internal/tui/finish.go:83`, `internal/tui/hookgen.go:82`,
 `internal/tui/issuelink.go:53`, `internal/tui/merge.go:141`,
-`internal/tui/messagingpreview.go:64`, `internal/tui/prcomposer.go:285`,
+`internal/tui/messagingpreview.go:65`, `internal/tui/prcomposer.go:285`,
 `internal/tui/overlay.go:176`, `internal/tui/preditor.go:58`); `failureLine`
 13 (`internal/tui/checks.go:91`, `internal/tui/composer.go:166`, `:178`,
 `internal/tui/diff.go:79`, `internal/tui/fields.go:171`,
 `internal/tui/issuewrite.go:120`, `:122`, `internal/tui/merge.go:148`,
 `internal/tui/picker.go:261`, `:289`, `internal/tui/run.go:236`,
 `internal/tui/switchtask.go:108`, `:136`);
-`failureSummary` 4 (`internal/tui/messaging.go:151`,
+`failureSummary` 4 (`internal/tui/messaging.go:145`,
 `internal/tui/review.go:231`, `:267`, `internal/tui/reviewqueue.go:99`);
 `noticedFailure` 9 (`internal/tui/comment.go:75`, `internal/tui/checks.go:235`,
 `internal/tui/commits.go:307`, `internal/tui/hookgen.go:175`,
-`internal/tui/links.go:65`, `internal/tui/messaging.go:294`, `:317`,
-`internal/tui/messagingpreview.go:206`, `internal/tui/run.go:373`) plus
+`internal/tui/links.go:65`, `internal/tui/messaging.go:279`, `:302`,
+`internal/tui/messagingpreview.go:213`, `internal/tui/run.go:373`) plus
 `noticedFailureLedBy` 1 (`internal/tui/checks.go:227`); `noticedGuidance` 3
 (`internal/tui/comment.go:77`, `internal/tui/composer.go:78`,
-`internal/tui/messagingpreview.go:131`).
+`internal/tui/messagingpreview.go:130`).
 
 ## The command line
 
@@ -169,7 +169,7 @@ call in `internal/cli` — so `-n`, `-y`, `-j` do not exist; `status` emits
 `ui.ascii` in the file, no `--plain`; `pr` has no
 draft, base, reviewer, title or body flag; `announce` has no `--channel`
 (the channel comes from `messaging.channel` alone); both `pr` and the web
-take the first repository template only (`firstTemplate`, `internal/loop/pull.go:137`),
+take the first repository template only (`firstTemplate`, `internal/loop/pull.go:164`),
 where the interface cycles them (`ctrl+t`).
 
 **Instead.** Shorthands for the three common flags; `--plain` on `status`;
@@ -261,7 +261,7 @@ pointer.
   spine keeps "nothing announced" in view
   (`docs/content/docs/usage.md:52`, "The screen") and `announce`'s own
   refusal points the other way, "(open one with workflow pr)"
-  (`runAnnounce`, `internal/cli/announce.go:115`).
+  (`runAnnounce`, `internal/cli/announce.go:113`).
 
 **Instead.** Map `io.EOF` from the guided flow's prompts to
 `errNoTerminal` with "pass --template to write a file to edit by hand",
@@ -336,7 +336,7 @@ confirmed first." (`:64`). The interface shows the body's first
 (`internal/tui/prcomposer.go:298`), the web's `draftDTO` carries `Body`
 for the form to show (`internal/webserver/pullrequest.go:161`), and the
 command line's sibling writes print their whole payload (`runAnnounce`,
-`internal/cli/announce.go:132`; `standup` at
+`internal/cli/announce.go:130`; `standup` at
 `internal/cli/standup.go:141`). A stale or wrong template is discovered on
 the forge, after the open, on the one surface whose help promises a last
 look.
@@ -364,9 +364,9 @@ that explains the machine, has no row for either.
 - `internal/store/dir.go:15` (`DefaultDir`): `home, _ :=
   os.UserHomeDir()` drops the error, so an empty home reaches `Dir`
   (`:24`), which returns `ErrNoDir` for it.
-- `internal/wiring/wiring.go:284` (`onDisk`): `dir, _ :=
+- `internal/wiring/wiring.go:285` (`onDisk`): `dir, _ :=
   store.DefaultDir()` drops `ErrNoDir`, and the store is built on an empty
-  directory; `storeDeps`' doc comment (`:289`) calls the no-op intended, "the
+  directory; `storeDeps`' doc comment (`:290`) calls the no-op intended, "the
   interface simply learns nothing", which is what makes this a
   discoverability gap rather than a defect.
 - `internal/store/store.go:149` (`Store.off`): `s.disabled || s.dir ==
@@ -833,7 +833,7 @@ Impact: low · Effort: medium
 a failure in `$EDITOR` (`internal/tui/run.go:354`), edits an open pull
 request (`internal/tui/preditor.go`), and cycles the repository's pull-request templates
 (`ctrl+t`). None has a web equivalent, and the web takes the first template
-only (`firstTemplate`, `internal/loop/pull.go:137`). A `?` shortcut sheet, which the interface has,
+only (`firstTemplate`, `internal/loop/pull.go:164`). A `?` shortcut sheet, which the interface has,
 would give the web's six sections keyboard reach. Five smaller things the
 terminal shows are absent on the web too, none of them among what
 `docs/content/docs/web.md` says stays in the terminal.
@@ -857,7 +857,7 @@ terminal shows are absent on the web too, none of them among what
   (`web/src/features/review/ReviewPanel.tsx:247`) and `ProposalFields`
   shows a generic placeholder (`:340`), where the terminal's
   `proposePullRequest` calls `withReviewerSuggestions` with
-  `CodeOwners` (`internal/tui/prcomposer.go:150`) and the owners become
+  `CodeOwners` (`internal/tui/prcomposer.go:152`) and the owners become
   the placeholder (`:241`); `PullRequestDraft` carries no reviewer field
   (`api/openapi.yaml:895`).
 - The Review section has no Copy URL: the title link is the only handle on
@@ -1894,9 +1894,9 @@ script is told to press a key it does not have.
   `:28`: fixed "pull request" sentences that `composeRefusal` returns
   (`:214`, `:210`), while the same command's question uses
   `seams.Kind.Noun()` (`:124`) and its success line `Kind.Sigil()` (`:145`).
-- `errNoPullRequest`, `internal/cli/announce.go:22`: fixed "pull request",
-  wrapped at `:115` without the noun, though `announceSeams` carries `Kind`
-  and uses it at `:125`.
+- `errNoPullRequest`, `internal/cli/announce.go:20`: fixed "pull request",
+  wrapped at `:113` without the noun, though `announceSeams` carries `Kind`
+  and uses it at `:123`.
 - `renderReviews`, `internal/cli/reviews.go:84`: "No pull requests are
   waiting on your review." with no forge kind in reach; `reviewLine`,
   `:103`, writes `#%d` before every number.
@@ -1919,7 +1919,7 @@ script is told to press a key it does not have.
   the interface disagree on a GitLab host.
 - `rejectionReason`, `internal/messaging/post.go:175`, `:177` and `:178`:
   three sentences end "then press enter to try again" inside a domain
-  error; `runAnnounce`, `internal/cli/announce.go:146`, wraps it with `%w`
+  error; `runAnnounce`, `internal/cli/announce.go:144`, wraps it with `%w`
   and `main`, `cmd/workflow/main.go:27`, prints it on stderr, key and all —
   against the interface's own rule, in the doc comment above `wording` at
   `internal/tui/failure.go:76`, that a full form names no key to press.
@@ -1973,10 +1973,10 @@ disagree about the same act.
   answers the push, the open and the offers. DEBT-94 counts these two
   strings as dead arms; this entry makes them reachable rather than
   deleting them.
-- `runAnnounce`, `internal/cli/announce.go:124`: `offerAgain` runs before
-  the preview at `:132` and `proceed` at `:135`, and under `--yes` prints
+- `runAnnounce`, `internal/cli/announce.go:122`: `offerAgain` runs before
+  the preview at `:130` and `proceed` at `:133`, and under `--yes` prints
   "Not announced again; run without --yes to be asked." (`offerAgain`,
-  `:171`) even with `--dry-run` — so the documented unattended form plus
+  `:169`) even with `--dry-run` — so the documented unattended form plus
   the documented safe form together show nothing of the announcement. The
   `--yes` bullet of "Writing without a person"
   (`docs/content/docs/scripting.md:186`) settles the skip, and the
@@ -2160,18 +2160,18 @@ Impact: low · Effort: small
   `internal/webserver/checkout.go:19`, a third — one guard, three
   sentences, so a user who meets the refusal in the browser and then in the
   terminal reads two, and a change to the guidance is made in three places.
-- `announceTarget`, `internal/cli/announce.go:156`: "the configured SERVICE
+- `announceTarget`, `internal/cli/announce.go:154`: "the configured SERVICE
   channel" for a webhook and for a bot with no channel, used by
-  `runAnnounce` for the `to` line (`:133`), the dry-run line (`:137`) and
-  the done notice (`:149`) — where `Messaging.Target`,
+  `runAnnounce` for the `to` line (`:131`), the dry-run line (`:135`) and
+  the done notice (`:147`) — where `Messaging.Target`,
   `internal/config/config.go:279`, says "(no channel set)" and, at `:284`,
   "the channel its webhook is bound to", which the interface's notice uses
-  (`internal/tui/messagingpreview.go:217`), and the web's `AnnounceControls`
+  (`internal/tui/messagingpreview.go:222`), and the web's `AnnounceControls`
   says "Announced to SERVICE." for a webhook
   (`web/src/features/messaging/MessagingPanel.tsx:150`). With a bot token
   and no channel the command line's preview claims a channel that does not
   exist and the post then fails.
-- `runAnnounce`, `internal/cli/announce.go:149`: "Announced to …" ends
+- `runAnnounce`, `internal/cli/announce.go:147`: "Announced to …" ends
   without a period, as do `offerLink`'s "Linked … on …"
   (`internal/cli/pr.go:199`) and `offerReviewStatus`'s "Moved … to …"
   (`:256`), while `offerLink`'s "Could not link … ." (`:194`),
@@ -2182,7 +2182,7 @@ Impact: low · Effort: small
   reference date `2006-01-02` (`:36`), as the hint, while `errNeedsDate`,
   `:29`, says "must be a date like 2026-09-21" — the hint reads as a stale
   date rather than a shape.
-- `Model.messagingDetail`, `internal/tui/messaging.go:167`: "SERVICE is
+- `Model.messagingDetail`, `internal/tui/messaging.go:161`: "SERVICE is
   not set up" and "to ~/" + `config.FileName`, with a literal newline
   mid-sentence that `wrap` re-breaks, where `messagingErrors`'
   `messaging.ErrNoCredential` wording, `internal/tui/failure.go:243`, words

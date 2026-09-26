@@ -12,6 +12,7 @@ import (
 	"github.com/jacob-delgado/workflow/internal/gitrepo"
 	"github.com/jacob-delgado/workflow/internal/hooks"
 	"github.com/jacob-delgado/workflow/internal/jira"
+	"github.com/jacob-delgado/workflow/internal/loop"
 	"github.com/jacob-delgado/workflow/internal/proc"
 )
 
@@ -166,21 +167,14 @@ type StoreDeps struct {
 	RecordScope func(scope string)
 	// Announced is every pull request announced in this repository in an earlier
 	// session, so the messaging pane opens knowing what has already been posted.
-	Announced func() []AnnouncedPost
+	Announced func() []loop.Announced
 	// RecordAnnounce remembers that a pull request was just announced at a moment.
-	RecordAnnounce func(post AnnouncedPost)
+	RecordAnnounce func(made loop.Announced)
 	// CachedIssues is the issue list last seen for a view, so the pane can show it
 	// at once before the tracker answers.
 	CachedIssues func(view string) ([]jira.Issue, bool)
 	// CacheIssues remembers the issue list just seen for a view.
 	CacheIssues func(view string, issues []jira.Issue)
-}
-
-// AnnouncedPost is one announcement the store remembers: which pull request, and
-// the moment it marked.
-type AnnouncedPost struct {
-	Pull   int
-	Moment int
 }
 
 // HookDeps is what the interface asks of lefthook.

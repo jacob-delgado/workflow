@@ -114,8 +114,13 @@ its issue and the repository's template, push the branch before opening it,
 find the move to the review status after, announce the pull request at the
 moment it is at, and refuse a switch that would carry uncommitted work or a
 commit with nothing staged — lives once, in `internal/loop`, rather than once
-per surface. The terminal renders its announcement from state it has already
-loaded, so it takes only the rule for the moment (`loop.AnnounceMoment`).
+per surface. The terminal already holds the facts an announcement and a pull
+request's proposal are made from, so it hands them to the value-level
+`loop.Announcement` and `loop.Draft` rather than have `loop` read them again
+through seams; the command line and the web keep `loop.ComposeAnnouncement` and
+`loop.ComposePull`, which read them through seams and delegate to those two. The
+terminal posts an announcement and remembers it through `loop.Deliver`, as the
+command line does; the web does not yet remember what it announced.
 
 Each surface hands `loop` the seams it holds and words the answer in its own
 terms: a refusal comes back as a `loop.Err…` sentinel, and the command line,

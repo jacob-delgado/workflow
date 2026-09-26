@@ -83,7 +83,7 @@ reaches.
 
 Severity: low · Confidence: read
 
-`wiring.Deps` (`internal/wiring/wiring.go:81`) returns `tui.Deps`, so the
+`wiring.Deps` (`internal/wiring/wiring.go:82`) returns `tui.Deps`, so the
 wiring package imports the terminal interface; the CLI's `WebDeps`
 (`internal/cli/cli.go:292`) then narrows that bundle for the web server.
 The seams are not the terminal's — they are the loop's. That import no
@@ -97,8 +97,9 @@ repository directly instead (`internal/cli/standup.go:103`).
 **One way to fix it.** Move the bundles that depend only on leaf types —
 `JiraDeps`, `GitDeps`, `ForgeDeps`, `MessagingDeps`, `HookDeps` — to a
 package all three surfaces import, with type aliases left in `tui`.
-`StoreDeps` carries `tui.AnnouncedPost`, so it could move only with that
-type, and `EditorDeps` carries Bubble Tea's `tea.Msg` and `tea.Cmd`, so
+`StoreDeps` declares what it remembers of announcements as
+`loop.Announced`, which every surface already imports, so it can move with
+them; `EditorDeps` carries Bubble Tea's `tea.Msg` and `tea.Cmd`, so
 `wiring` would still return `tui.Deps`.
 
 **Done when.** The seam bundles are declared where all three surfaces can
@@ -164,7 +165,7 @@ The clients:
 - `internal/jira/jira.go:6` — the package comment names search, read, move,
   comment, link and whoami, not `Assign` (`internal/jira/assignee.go:13`),
   `AddWorklog` (`internal/jira/worklog.go:33`) or `WikiFromMarkdown`
-  (`internal/jira/wiki.go:22`); `ARCHITECTURE.md:147` repeats the list
+  (`internal/jira/wiki.go:22`); `ARCHITECTURE.md:152` repeats the list
   without `Assign` and `AddWorklog`.
 - `internal/jira/search.go:135` — `wireIssue`'s comment says the fields
   "past Reporter ride only on the detail request"; `searchFields` (`:27`) is
@@ -215,7 +216,7 @@ The web server:
   `server.GetAnnouncement` (`internal/webserver/announce.go:22`) and
   `server.GetPullRequestDraft` (`internal/webserver/pullrequest.go:26`)
   answer 409 for a nil `Branch` or `FindPull`, which `pullToAnnounce`
-  (`internal/loop/announce.go:87`) reports as `ErrNoPullRequest`.
+  (`internal/loop/announce.go:114`) reports as `ErrNoPullRequest`.
 - `internal/webserver/webserver_test.go:25` — `errSeam`'s comment, "generic
   500 so the wire message carries no detail", predates `fault`
   (`internal/webserver/errors.go:91`), which classes by sentinel before the
@@ -300,11 +301,11 @@ The configuration page (the Fields table's missing rows are DEBT-91):
   announcement may be waiting either.
 - `docs/content/docs/configuration.md:482` — the store is "keyed only by a
   repository's host and path and by a hash of your Jira URL", and
-  `ARCHITECTURE.md:240` says the repository key is the remote's parsed host
+  `ARCHITECTURE.md:245` says the repository key is the remote's parsed host
   and path; `migrate` (`internal/store/store.go:258`) keys the cache by
   `(instance, view)`, where `Model.cacheIssues`
   (`internal/tui/issues.go:53`) passes the view's JQL text, and `repoKey`
-  (`internal/wiring/wiring.go:383`) falls back to `where.Root` when there is
+  (`internal/wiring/wiring.go:384`) falls back to `where.Root` when there is
   no remote or it does not parse.
 
 The README and the docs index:
@@ -952,69 +953,12 @@ and `grep -n 'two shells\|Shell 2' Taskfile.yml` prints nothing above the
 
 ## The terminal interface
 
-What is open here is the composition the interface keeps beside `loop`'s;
-what it carries on purpose — the two composers' field handling written twice,
-and the spine's color-only hue — is under [Deliberate
-trade-offs](#deliberate-trade-offs-that-carry-a-cost).
-
-### DEBT-125 The interface composes what `loop` composes once: announcement, draft, memory
-
-Severity: low · Confidence: read
-
-`internal/loop` says it composes the developer loop once for every
-surface, but the interface builds the `messaging.Announcement` literal
-field for field beside `loop.ComposeAnnouncement`, calls
-`convention.PullRequestTitleFrom` and `convention.PullRequestBody` with the
-arguments `loop.draft` passes, and keeps its own posted-moment list and
-post-then-record beside `AnnounceMemory.Holds` and `Deliver` — over a store
-seam typed `tui.AnnouncedPost` (`Moment int`) that the command line adapts
-to `loop.Announced` (`Moment messaging.Moment`) by hand. A new
-announcement field (FEAT-81's thread timestamp) is added in two places or
-the interface's post differs from the command line's and the web's; giving
-the command line and the web a template choice (UX-62, UX-88) means
-changing `loop.draft` and hoping it still matches `prcomposer`; a moment
-is converted between a typed value and a bare int twice, and the
-interface's "already announced" logic must be kept in step with `Holds` by
-hand. FEAT-84 would need a third adapter from `webserver.Deps`.
-
-- `internal/tui/messaging.go:133` — `Model.announcement` builds the
-  ten-field `messaging.Announcement` literal.
-- `internal/loop/announce.go:70` — `ComposeAnnouncement` builds the same
-  literal from seams.
-- `internal/loop/loop.go:4` — the package comment of `loop`: "composes the
-  developer loop once, for every surface".
-- `internal/tui/prcomposer.go:139` — `proposePullRequest` calls
-  `convention.PullRequestTitleFrom` with `loop.draft`'s arguments, and
-  `readTitleIssue` (`:181`) calls it again with the summary it reads.
-- `internal/tui/prcomposer.go:266` — `prComposer.withTemplate` calls
-  `convention.PullRequestBody` with `loop.draft`'s arguments.
-- `internal/loop/pull.go:128` — `draft`, the loop's own title and body
-  proposal.
-- `internal/tui/deps.go:183` — `AnnouncedPost` carries `Moment int` at the
-  store seam.
-- `internal/loop/announce.go:147` — `Announced` carries
-  `Moment messaging.Moment` in the loop.
-- `internal/cli/announce.go:198` — `announceMemory` converts between the
-  two shapes by hand, for `announce` and for `status`'s last stage.
-- `internal/tui/messaging.go:199` — `Model.announced` reimplements
-  `AnnounceMemory.Holds` over its own posted list.
-- `internal/loop/announce.go:165` — `AnnounceMemory.Holds`, the seam the
-  interface does not use.
-
-**One way to fix it.** Split `loop.ComposeAnnouncement` into a pure
-value-level compose the interface calls with what it holds and the
-seam-reading wrapper the command line and the web keep; expose a
-value-level `loop.Draft(subjects, key, summary, url, template,
-titleSource)` both `loop.draft` and the composer call; declare
-`StoreDeps.Announced` and `RecordAnnounce` over `loop.Announced` and have
-the interface hold a `loop.AnnounceMemory`.
-
-**Done when.** `internal/tui` contains no `messaging.Announcement` literal
-and `internal/tui/prcomposer.go` calls no `convention.PullRequest*`
-function (grep); `tui.AnnouncedPost` is gone and
-`internal/cli/announce.go`'s `announceMemory` adapter is deleted; the
-interface's announcement text in a screen test equals `loop`'s for the
-same inputs.
+Nothing is open here: the interface announces and drafts a pull request
+through `loop`, as the command line and the web do, and remembers what it
+announced through `loop.Deliver`, as the command line does (the web does not
+yet: FEAT-84). What it carries on purpose — the two composers' field
+handling written twice, and the spine's color-only hue — is under
+[Deliberate trade-offs](#deliberate-trade-offs-that-carry-a-cost).
 
 ## The web
 
@@ -1063,7 +1007,7 @@ unknown" on GitHub, whose `githubFind` reads mergeability only while open,
 head. A user could wait on a review that already happened. The terminal's
 `reviewRail` says "merged" instead (`internal/tui/review.go:273`),
 `gatherReview` (`internal/cli/status.go:285`) treats a merged pull as no
-open review, and `momentOf` (`internal/loop/announce.go:115`) never asks CI
+open review, and `momentOf` (`internal/loop/announce.go:142`) never asks CI
 about one. The server also spends one forge request per stream tick asking
 CI about a pull that has no live CI. No test in
 `internal/webserver/review_test.go` or
@@ -1150,7 +1094,7 @@ pull request for" instead of being classified through `fault`, as
   absent pull request.
 - `internal/webserver/announce.go:44` — `Announce` answers the same 409
   for the same collapsed error.
-- `internal/loop/announce.go:93` and `internal/loop/announce.go:98` —
+- `internal/loop/announce.go:120` and `internal/loop/announce.go:125` —
   `pullToAnnounce` wraps a `Branch` and a `FindPull` failure as "reading
   the branch: %w" and "reading the pull request: %w", without
   `ErrNoPullRequest`, so the server could tell them apart and does not.
@@ -1268,9 +1212,9 @@ text they previewed.
   body carries no text or moment.
 - `web/src/features/messaging/announceApi.ts:31` — `announce` sends
   `{ channel }` and nothing else.
-- `internal/tui/messagingpreview.go:141` — `messagingPreview.post` sends
+- `internal/tui/messagingpreview.go:140` — `messagingPreview.post` sends
   `p.text`, the previewed text.
-- `internal/cli/announce.go:144` — `runAnnounce` delivers the same `text`
+- `internal/cli/announce.go:142` — `runAnnounce` delivers the same `text`
   it printed.
 - `docs/content/docs/web.md:114` — "### The messaging service" promises
   nothing is sent before the second press, which reads as a promise that
@@ -1310,7 +1254,7 @@ terminal skips a pull that is not open (DEBT-127).
   memoized.
 - `internal/forge/client.go:121` — `Client.Whoami` is one uncached GET of
   `userPath`.
-- `internal/tui/messaging.go:102` — `Model.loadAuthor` skips the read once
+- `internal/tui/messaging.go:95` — `Model.loadAuthor` skips the read once
   `m.messaging.author` is set; the web diverges on the same seam.
 - `internal/webserver/stream.go:153` — `server.snapshotBranch`, the
   frame's first `deps.Branch()`.
@@ -1735,13 +1679,13 @@ the do-nothing guards' second operands, never seen true: `repo == ""` in
 
 Thirteen conditions were never evaluated. Four are a test away:
 
-- `internal/tui/messaging.go:90` and `:92` — `quitGuard.handleKey`'s confirm
+- `internal/tui/messaging.go:83` and `:85` — `quitGuard.handleKey`'s confirm
   and stay: `TestQuittingWithAQueuedPostAsksFirst` opens the guard but
   presses neither enter (quit) nor esc (stay) in it.
 - `internal/tui/prcreate.go:134` — `pullCreated.apply`'s `named` case, a
   Jira issue with no link seam: every test that opens a pull request on a
   Jira issue's branch wires `Jira.LinkPullRequest`.
-- `internal/wiring/wiring.go:223` — `streamToEnd`, git failing to start: no
+- `internal/wiring/wiring.go:224` — `streamToEnd`, git failing to start: no
   wiring test fetches or pulls without git on `PATH`.
 
 Seven more came into view once each operand counted, and each is a test
@@ -1918,7 +1862,7 @@ know about.
   on purpose when the source files past the target were split by concern;
   each holds the cases of one behavior. Announcing:
   `internal/messaging/post_test.go` (766, the post to each service and the
-  announcement's text) and `internal/tui/messaging_test.go` (612, the
+  announcement's text) and `internal/tui/messaging_test.go` (614, the
   terminal's Messaging pane). Opening a pull request:
   `internal/webserver/pullrequest_test.go` (601, the web's draft and open).
   Staging, committing and pushing: `internal/tui/composer_test.go` (568,
