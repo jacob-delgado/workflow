@@ -103,13 +103,6 @@ The usage page:
   while `diffSection` (`internal/tui/diff.go:67`) draws the selected file's
   diff beneath the list.
 
-The configuration page:
-
-- `docs/content/docs/configuration.md:386` — "While it is on and no
-  `timing.ci_interval` is set, CI is polled every three minutes" gives two
-  of `pollInterval`'s three conditions (`internal/tui/review.go:195`): no
-  announcement may be waiting either.
-
 The README and the docs index:
 
 - The README's line 262 — "There are no releases yet." while nine tags

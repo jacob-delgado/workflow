@@ -402,9 +402,11 @@ glyphs already say by shape what the colors say by hue, so nothing is lost.
 passes or fails — so you can open a pull request, switch to something else, and
 be told rather than checking back. On a terminal that understands the OSC 9
 notification sequence it also raises a desktop notification; the rest just ring.
-While it is on and no [`timing.ci_interval`](#timing) is set, CI is polled
-every three minutes rather than every twenty seconds, since a notification you
-stepped away for is not in a hurry.
+While it is on, no [`timing.ci_interval`](#timing) is set and no announcement
+is waiting for CI to pass, CI is polled every three minutes rather than every
+twenty seconds, since a notification you stepped away for is not in a hurry.
+An announcement waiting for CI keeps the twenty-second beat, so it goes out
+soon after CI passes.
 
 A setting left out of the file keeps its default, so a configuration written
 before these existed behaves exactly as it did.
