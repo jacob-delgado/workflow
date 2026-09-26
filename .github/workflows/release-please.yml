@@ -9,8 +9,10 @@ name: release-please
 #   1. Conventional commits land on main (enforced by lefthook and CI).
 #   2. release-please opens or updates a release PR.
 #   3. A maintainer merges that PR. Nothing is released until they do.
-#   4. push-release-tag.sh (below) checks that commit against the manifest and
-#      the release PR's label, tags it, and dispatches release.yml.
+#   4. push-release-tag.sh (below) decides from the subject whether that commit
+#      is a release; if so, the gate runs, and the script checks the commit
+#      against the manifest and the release PR's label, tags it, and dispatches
+#      release.yml.
 #   5. release.yml builds, checksums, attests, and publishes the release with
 #      every asset in one call.
 #
@@ -58,13 +60,23 @@ jobs:
           token: ${{ secrets.GITHUB_TOKEN }}
           fetch-depth: 0
 
+      # The tag script alone says what a release commit is: it writes
+      # version=vX.Y.Z, or version= for any other push, and every step below
+      # reads that answer instead of restating the subject. The commit message
+      # reaches it as an environment variable, not through the run: line.
+      - name: Decide whether this is a release commit
+        id: release
+        env:
+          HEAD_COMMIT_MSG: ${{ github.event.head_commit.message }}
+        run: bash scripts/release/push-release-tag.sh decide
+
       # Provision the pinned toolchain to run the gate in the next step. Only for
-      # a release commit: every other push to main exits the tag script early and
+      # a release commit, as the step above decided: any other push to main
       # needs nothing installed here. cache: false for the reason release.yml sets
       # it — a restored cache is attacker-influenceable state, and this gate
       # decides whether a release ships.
       - name: Provision the toolchain for the gate
-        if: "${{ startsWith(github.event.head_commit.message, 'chore(main): release ') }}"
+        if: steps.release.outputs.version != ''
         uses: jdx/mise-action@c2a87611a18de5b3828c5652fe268e992400cb5c # v4.3.0
         with:
           version: 2026.9.3 # the mise binary itself; see min_version in mise.toml
@@ -76,10 +88,11 @@ jobs:
       # taken back. release.yml runs the gate again for the manual tag-push path
       # it also answers.
       - name: Verify the gate before tagging
-        if: "${{ startsWith(github.event.head_commit.message, 'chore(main): release ') }}"
+        if: steps.release.outputs.version != ''
         run: task check
 
       - name: Push tag for a merged release PR
+        if: steps.release.outputs.version != ''
         env:
           # The commit message is attacker-influenceable, so it reaches the script
           # as an environment variable rather than being interpolated into the
