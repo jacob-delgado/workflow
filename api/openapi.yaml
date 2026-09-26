@@ -33,7 +33,7 @@ tags:
   - name: issues
     description: The tracker's issues and their detail.
   - name: repository
-    description: The current branch and working tree.
+    description: The current branch and working tree, and the writes that change them.
   - name: review
     description: The branch's pull request and its CI.
   - name: reviews
@@ -475,7 +475,7 @@ paths:
         changes, the same guard the terminal interface applies, so switching
         never carries work in progress onto another branch, and when the server
         is not running in a git repository.
-      tags: [branches]
+      tags: [repository]
       requestBody:
         required: true
         content:
@@ -516,7 +516,7 @@ paths:
         is refused with 409 when a branch for the issue already exists — check
         that one out instead — and when the server is not running in a git
         repository.
-      tags: [branches]
+      tags: [repository]
       requestBody:
         required: true
         content:
@@ -628,7 +628,7 @@ paths:
         branch already published on its push remote and not ahead of it there)
         or the server is not running in a git repository, and 422 when the push
         fails.
-      tags: [branches]
+      tags: [repository]
       responses:
         "200":
           description: The branch, now published.
@@ -662,7 +662,7 @@ paths:
         refused with 409 when nothing is staged or the server is not running in
         a git repository, and 422 when the message is not a valid Conventional
         Commit or the commit (its hooks) fails.
-      tags: [branches]
+      tags: [repository]
       requestBody:
         required: true
         content:
