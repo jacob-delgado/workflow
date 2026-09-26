@@ -24,7 +24,7 @@ export const mockConfig: Config = {
     webhook_url: '',
     channel: '#dev-workflow',
     channels: ['#dev-workflow', '#releases'],
-    announcement: 'Opened {pr} for {issue}',
+    announcement: '{author} opened <{url}|{title}> for {key}: {summary}',
   },
   forge: {
     kind: 'github',
@@ -44,7 +44,7 @@ export const mockConfig: Config = {
     ci_interval: '30s',
   },
   branch: {
-    template: '{type}/{key}-{slug}',
+    template: '{prefix}/{key}-{slug}',
     prefixes: null,
     default_prefix: 'feat',
   },
