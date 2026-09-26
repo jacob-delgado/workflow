@@ -96,8 +96,8 @@ test('shows no read-only banner when the server writes', async () => {
 
 test('drops the read-only banner when the stream comes back from a server that writes', async () => {
   // Arrange
-  // The server restarts on its fixed port, this time without --dry-run; the
-  // stream drops and reconnects to it.
+  // The server restarts at the same address, this time without --dry-run;
+  // the stream drops and reconnects to it.
   const dryRuns = [true, false]
   vi.stubGlobal(
     'fetch',

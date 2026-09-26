@@ -786,8 +786,8 @@ section's push, the CI counts and the detached HEAD; keyboard focus,
 placeholder, field-boundary and focus-ring contrast; a staged state drawn
 as a colored word; one primary button in three sizes, type and measure
 outside the scale; ragged rows, an empty form's heading and a far-off Copy
-URL confirm; a fixed port; links, stages and controls that tell less than
-their siblings; and copy settled site by site.
+URL confirm; links, stages and controls that tell less than their
+siblings; and copy settled site by site.
 
 ### UX-86 Nothing marks a change the stream just made
 
@@ -1495,29 +1495,6 @@ outside the `EmptyState`.
 
 **Done when.** A `SettingsPanel` test with a failing configuration read
 finds the reason by role alert; a screenshot shows it in the failure color.
-
-### UX-121 The web port is fixed at 7000 and cannot be chosen
-
-Impact: low · Effort: small
-
-**Today.** `LoopbackAddr` is the constant `"127.0.0.1:7000"`
-(`internal/webserver/webserver.go:258`), the only address the server ever
-binds; `NewRootCmd` serves it (`internal/cli/cli.go:162`) though
-`WebServerAt` already takes an address (`:285`), and `NewRootCmdOver`'s
-`--web` help hard-codes it (`:217`). The root declares `--dry-run`, `--log`
-and `--web` and no port, and a grep for Port or 7000 in `internal/config`
-finds no setting. So a machine with 7000 taken cannot run `--web` at all —
-the listen fails and the command exits — and two repositories cannot be
-served side by side. `docs/content/docs/web.md:21`, under "Start it",
-documents the fixed port. UX-62 lists the scriptable commands' missing
-flags and does not mention `--port`.
-
-**Instead.** A `--port` flag (loopback stays fixed) threaded to
-`WebServerAt`, printed in the address line on stderr and documented in
-`docs/content/docs/web.md`.
-
-**Done when.** `workflow --web --port 7001` serves on `127.0.0.1:7001`, and
-the spec's servers entry or its description says the port may vary.
 
 ### UX-122 Web copy settles plurals, case, periods and state words site by site
 

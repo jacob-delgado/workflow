@@ -33,9 +33,9 @@ export function useForgeWords(): ForgeWords {
 }
 
 // useHealth reads the server's health on mount, and again when the stream
-// reconnects after a drop: the server listens on a fixed port, so the one a tab
-// reconnects to may be a restart in the other mode. Mount it once, near the
-// root, beside the event stream.
+// reconnects after a drop: a tab reconnects to the address it was served
+// from, and a server restarted there may be in the other mode. Mount it
+// once, near the root, beside the event stream.
 export function useHealth(): void {
   const status = useSnapshotStore((state) => state.status)
   const dropped = useRef(false)

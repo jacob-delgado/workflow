@@ -15,7 +15,9 @@ import (
 	"errors"
 	"fmt"
 	"io/fs"
+	"net"
 	"net/http"
+	"strconv"
 	"sync"
 	"time"
 
@@ -253,9 +255,16 @@ func uiHandler(assets fs.FS) http.Handler {
 	return spaHandler(assets)
 }
 
-// LoopbackAddr is where the server listens in production: the loopback
-// interface only, so the API is reachable from this machine and nowhere else.
-const LoopbackAddr = "127.0.0.1:7000"
+// DefaultPort is the port the server listens on when `workflow --web` is given
+// no --port.
+const DefaultPort = 7000
+
+// LoopbackAddr is where the server listens in production, on port: the
+// loopback interface only, so the API is reachable from this machine and
+// nowhere else.
+func LoopbackAddr(port int) string {
+	return net.JoinHostPort("127.0.0.1", strconv.Itoa(port))
+}
 
 // readHeaderTimeout bounds how long a client may take to send its headers, so a
 // slow or stuck connection cannot tie up the server.
@@ -267,7 +276,7 @@ const shutdownGrace = 5 * time.Second
 
 // Serve runs handler at addr until ctx is canceled, then drains in-flight
 // requests within shutdownGrace and returns. A clean shutdown is not an error.
-// Production passes LoopbackAddr; a test passes a loopback address with port 0.
+// Production passes a LoopbackAddr; a test passes a loopback address with port 0.
 func Serve(ctx context.Context, addr string, handler http.Handler) error {
 	srv := &http.Server{
 		Addr:              addr,

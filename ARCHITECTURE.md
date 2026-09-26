@@ -369,10 +369,11 @@ exist only to hold a line:
   `Authorization` header to any redirect target on the same hostname — ignoring
   port and scheme — so an HTTPS→HTTP redirect on the same host would leak the
   token to a plaintext hop.
-- **The web server is loopback-only and guarded.** It binds `127.0.0.1:7000`,
-  rejects any request whose `Host` is not a loopback host (closing DNS-rebinding),
-  requires a state-changing request that carries an `Origin` to be same-origin
-  (closing cross-origin CSRF from a co-resident page), and — under `--dry-run` —
+- **The web server is loopback-only and guarded.** It binds `127.0.0.1`
+  alone, on port 7000 unless `--port` names another, rejects any request
+  whose `Host` is not a loopback host (closing DNS-rebinding), requires a
+  state-changing request that carries an `Origin` to be same-origin (closing
+  cross-origin CSRF from a co-resident page), and — under `--dry-run` —
   refuses every write at one gate, making the whole surface read-only. There is
   no auth scheme, by design: a single local user over loopback.
 - **Secrets are masked before any output** and are never written to the store;

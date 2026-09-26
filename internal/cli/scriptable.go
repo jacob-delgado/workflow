@@ -22,6 +22,7 @@ import (
 	"github.com/jacob-delgado/workflow/internal/loop"
 	"github.com/jacob-delgado/workflow/internal/messaging"
 	"github.com/jacob-delgado/workflow/internal/tui"
+	"github.com/jacob-delgado/workflow/internal/wiring"
 )
 
 // output is where a command writes: the artifact — the preview, the JSON, what
@@ -65,6 +66,53 @@ func dryRunRequested(cmd *cobra.Command) bool {
 	dryRun, _ := cmd.Flags().GetBool(dryRunFlag)
 
 	return dryRun
+}
+
+// logFlag names the root's flag that turns on the request log.
+const logFlag = "log"
+
+// requestLogFor opens the request log --log names, or none when it names no
+// file, warning on the command's stderr at close when it was not fully
+// written. The root declares --log for every command, so it is always there
+// to read.
+func requestLogFor(cmd *cobra.Command) (*wiring.RequestLog, func(), error) {
+	path, _ := cmd.Flags().GetString(logFlag)
+
+	return openRequestLog(path, cmd.ErrOrStderr())
+}
+
+// logFileMode is the permission a request log is created with. Like the
+// configuration, it is the user's own file and nobody else's to read.
+const logFileMode os.FileMode = 0o600
+
+// openRequestLog opens the request-outline log named by path. An empty path
+// means no logging: the log is nil and the returned close is a no-op, so the
+// caller wires and closes it the same way either way.
+func openRequestLog(path string, warn io.Writer) (*wiring.RequestLog, func(), error) {
+	if path == "" {
+		return nil, func() {}, nil
+	}
+
+	//nolint:gosec // the path is the user's own --log argument, by design.
+	file, err := os.OpenFile(path, os.O_CREATE|os.O_APPEND|os.O_WRONLY, logFileMode)
+	if err != nil {
+		return nil, func() {}, fmt.Errorf("opening the request log: %w", err)
+	}
+
+	requestLog := wiring.NewRequestLog(file, nil)
+
+	return requestLog, func() { closeRequestLog(requestLog, file, warn) }, nil
+}
+
+// closeRequestLog closes the log's file and, when an outline was lost or the
+// file did not close cleanly, says so on warn in one line. The command's own
+// result stands: its work was done, and only the record of it is incomplete.
+func closeRequestLog(requestLog *wiring.RequestLog, file *os.File, warn io.Writer) {
+	err := errors.Join(requestLog.Err(), file.Close())
+	if err != nil {
+		reason := strings.ReplaceAll(err.Error(), "\n", "; ")
+		fmt.Fprintf(warn, "workflow: the request log could not be fully written: %s\n", reason)
+	}
 }
 
 // writePrompt is what a scriptable write says around its confirmation: the
