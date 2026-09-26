@@ -663,9 +663,6 @@ them.
   and the gobco report shows each last case true many times and never false.
   `exhaustive` (`.golangci.yml:110`) checks switch and map, so a missing enum
   case already fails lint and the default arms guard nothing.
-- `internal/cli/pr.go:185` — the two dry-run lines of `offerLink` and
-  `offerReviewStatus` (`:244`) never print; UX-127 makes them print, which
-  closes this arm.
 - `internal/messaging/messaging.go:112` — `Client.checkable` returns
   `ErrNoCredential` for `config.MessagingNone` and again in `default:`
   (`:114`); `markupFor` (`internal/messaging/post.go:267`) returns

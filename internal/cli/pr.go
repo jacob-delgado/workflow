@@ -111,7 +111,8 @@ func runPRCommand(cmd *cobra.Command, prompt Prompt, opts writeOptions) error {
 }
 
 // runPR composes the pull request, previews it, pushes the branch when needed,
-// and opens it once confirmed, then follows up on the branch's issue.
+// and opens it once confirmed, then follows up on the branch's issue. A dry run
+// says what it would do at each of those steps, the offers included.
 func runPR(out output, seams prSeams, opts writeOptions) error {
 	request, branch, err := loop.ComposePull(seams.Compose, seams.Options)
 	if err != nil {
@@ -122,14 +123,25 @@ func runPR(out output, seams prSeams, opts writeOptions) error {
 	fmt.Fprintln(out.artifact, "  "+branch.Name+" → "+request.Base)
 
 	noun := seams.Kind.Noun()
+	issueKey, _ := loop.JiraIssue(branch, seams.Options.Project)
 
 	proceed, err := opts.proceed(out.notes, seams.Confirm, writePrompt{
 		question: openQuestion(branch, noun),
 		dryRun:   "dry run: would " + pushClause(branch) + "open " + request.Title,
 		declined: "Not opened.",
 	})
-	if err != nil || !proceed {
+	if err != nil {
 		return err
+	}
+
+	if opts.dryRun {
+		// Nothing was opened, so each offer the open would lead to says so in its
+		// own dry-run line.
+		return followUp(out.notes, seams, openedPull{issueKey: issueKey}, opts)
+	}
+
+	if !proceed {
+		return nil
 	}
 
 	err = loop.EnsurePushed(seams.Push, branch)
@@ -144,13 +156,12 @@ func runPR(out output, seams prSeams, opts writeOptions) error {
 
 	fmt.Fprintln(out.artifact, "Opened "+seams.Kind.Sigil()+strconv.Itoa(pull.Number)+" "+pull.URL)
 
-	issueKey, _ := loop.JiraIssue(branch, seams.Options.Project)
-
 	return followUp(out.notes, seams, openedPull{issueKey: issueKey, pull: pull}, opts)
 }
 
-// openedPull is a pull request just opened, and the Jira issue its branch
-// names — empty when it names none, or only a forge issue number.
+// openedPull is a pull request just opened — under a dry run, the one that
+// would be, with no number yet — and the Jira issue its branch names: empty
+// when it names none, or only a forge issue number.
 type openedPull struct {
 	issueKey jira.Key
 	pull     forge.PullRequest
@@ -182,7 +193,7 @@ func offerLink(notes io.Writer, seams prSeams, opened openedPull, opts writeOpti
 
 	proceed, err := opts.proceed(notes, seams.Confirm, writePrompt{
 		question: "Link " + pull + " on " + issue + "?",
-		dryRun:   "dry run: would link " + pull + " on " + issue,
+		dryRun:   "dry run: would link it on " + issue,
 		declined: "Left " + issue + " unlinked.",
 	})
 	if err != nil || !proceed {
