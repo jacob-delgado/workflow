@@ -28,6 +28,7 @@ var errSeam = errors.New("the seam failed")
 // Fixtures the tests share.
 const (
 	testKey        = "PROJ-412"
+	testProject    = "PROJ"
 	testReporter   = "Ana Lopez"
 	testBranchName = "fix/PROJ-412"
 	testAuthor     = "octocat"

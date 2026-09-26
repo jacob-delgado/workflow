@@ -1983,14 +1983,16 @@ header that says Live, with no reason and no Retry.
   it.
 - `server.snapshot`, `internal/webserver/stream.go:82`: the comment
   codifies the rule — a seam that fails yields an empty panel;
-  `snapshotIssues`, `:138`, returns an empty first page when `Search`
-  fails, `snapshotBranch`, `:154`, returns `branchDTO(gitrepo.Branch{})`,
-  `snapshotChanges`, `:169`, `changesDTO(nil)`, and `snapshotReview`,
-  `:184` and `:189`, `api.Review{Found: false}` — indistinguishable from no
-  pull request.
+  `snapshotIssues`, `:141`, returns an empty first page when `Search`
+  fails, `frameBranch`, `:103`, answers an empty `gitrepo.Branch{}` when
+  the `Branch` read fails (`:106`), which `snapshot` hands to `branchDTO`
+  (`:89`) and which makes `snapshotReview` answer not found,
+  `snapshotChanges`, `:152`, `changesDTO(nil)`, and `snapshotReview`,
+  `:162` and `:167`, `api.Review{Found: false}` — indistinguishable from
+  no pull request.
 - `Review`, `api/openapi.yaml:1183`: carries `found`, `pull` and `ci` only,
   and `Snapshot` (`:992`) has no per-panel problem.
-- `server.review`, `internal/webserver/handlers.go:196`: a `CheckCI` error
+- `server.review`, `internal/webserver/handlers.go:233`: a `CheckCI` error
   drops `ci` from the answer; `PullRequestSummary`,
   `web/src/features/review/ReviewPanel.tsx:137`, renders nothing for a null
   `ci`, where the terminal's `Model.reviewDetail`,

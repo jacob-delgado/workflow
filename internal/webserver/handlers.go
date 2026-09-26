@@ -122,8 +122,8 @@ func (s *server) GetBranch(_ context.Context, _ api.GetBranchRequestObject) (api
 }
 
 // readBranch is the checked-out branch, or an empty one when no repository is
-// configured: the one read behind GET /api/branch and the event stream's branch
-// panel.
+// configured: the one read behind GET /api/branch and the event stream's frame
+// (frameBranch), which reads it once for every panel that describes it.
 func (s *server) readBranch() (gitrepo.Branch, error) {
 	if s.deps.Branch == nil {
 		return gitrepo.Branch{}, nil
@@ -182,8 +182,8 @@ func (s *server) GetReview(_ context.Context, _ api.GetReviewRequestObject) (api
 }
 
 // readReview is the checked-out branch's pull request and its CI, or none found
-// when no repository or forge is configured: the one read behind GET
-// /api/review and the event stream's review panel.
+// when no repository or forge is configured: the read behind GET /api/review.
+// Without a forge the branch is not read, since nothing would ask about it.
 func (s *server) readReview() (api.Review, error) {
 	if s.deps.Branch == nil || s.deps.FindPull == nil {
 		return api.Review{Found: false}, nil
@@ -192,6 +192,17 @@ func (s *server) readReview() (api.Review, error) {
 	branch, err := s.deps.Branch()
 	if err != nil {
 		return api.Review{}, err
+	}
+
+	return s.reviewFor(branch)
+}
+
+// reviewFor is the branch's pull request and its CI, or none found when no
+// forge is configured: the one read behind GET /api/review and the event
+// stream's review panel, which hands it the branch its frame read.
+func (s *server) reviewFor(branch gitrepo.Branch) (api.Review, error) {
+	if s.deps.FindPull == nil {
+		return api.Review{Found: false}, nil
 	}
 
 	pull, found, err := s.deps.FindPull(branch.Name)

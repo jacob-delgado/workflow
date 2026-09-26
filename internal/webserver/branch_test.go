@@ -44,7 +44,7 @@ func TestGetBranchNamesTheRemoteItsPushGoesTo(t *testing.T) {
 	}
 }
 
-func TestGetBranchIsEmptyOutsideARepository(t *testing.T) {
+func TestGetBranchIsEmptyWhenNoRepositoryIsConfigured(t *testing.T) {
 	t.Parallel()
 
 	// Arrange

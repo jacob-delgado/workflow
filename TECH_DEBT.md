@@ -939,9 +939,9 @@ handling written twice, and the spine's color-only hue — is under
 ## The web
 
 What is open here is the answers the server gives when a read or a write
-fails, the reads it repeats on every frame, the contract's prose, and the
-rules the browser derives for itself; what the web's gates still lack — an
-end-to-end run that drives a write — is DEBT-65, with the other gates below.
+fails, the contract's prose, and the rules the browser derives for itself;
+what the web's gates still lack — an end-to-end run that drives a write — is
+DEBT-65, with the other gates below.
 
 ### DEBT-128 Three mock fixtures show a shape the server never sends
 
@@ -992,35 +992,6 @@ with the mock snapshot's values.
 `{key}` and `{slug}`; `mockConfig.messaging.announcement` contains only the
 seven documented placeholders, and the mock preview text equals that
 template rendered with the mock snapshot's values.
-
-### DEBT-132 Every stream frame re-asks what it could read once
-
-Severity: medium · Confidence: read
-
-`snapshot` reads the checked-out branch three times a frame, each read
-running `ReadBranch`'s eight git commands.
-
-- `internal/webserver/stream.go:144` — `server.snapshotBranch`, the
-  frame's first `deps.Branch()`.
-- `internal/webserver/handlers.go:187` — `server.readReview`, behind
-  `snapshotReview`, the second.
-- `internal/webserver/stream.go:116` — `server.currentBranchName`, the
-  third, called from `snapshotBranches`.
-- `internal/gitrepo/branch.go:141` — `Repository.ReadBranch` runs
-  `branch --show-current`, `rev-parse HEAD`, `rev-parse @{upstream}`,
-  `config --get remote.pushDefault`, the base lookup, `rev-list`, `log` and
-  `log -1` per read.
-
-About twenty-six git processes per frame — three branch reads of eight
-commands each, plus the changes and branches reads — where ten would do, and
-a branch, review and in-flight marker read at three instants, so the panels
-can describe different branches when a checkout lands between the reads.
-
-**One way to fix it.** Read the branch once in `snapshot` and pass it to the
-review and branches builders.
-
-**Done when.** A stream test with a counting `Branch` seam sees one `Branch`
-call per pushed snapshot.
 
 ### DEBT-133 The errors page points a 500's cause at output nothing writes
 
@@ -1092,7 +1063,7 @@ from the description is what it hurts.
 - `api/openapi.yaml:328` — `getReview`'s 200 says "pull and ci are null
   when none is found"; `Review` in `internal/api/models.gen.go:692` marks
   both `omitempty` and `server.review`
-  (`internal/webserver/handlers.go:183`) leaves them nil, so they are
+  (`internal/webserver/handlers.go:220`) leaves them nil, so they are
   absent, as the not-found frame in `web/src/test/snapshot-frames.sse:7`
   shows.
 - `api/openapi.yaml:1070` — `Issue.priority` "May be empty"; `issueDTO`
