@@ -24,6 +24,7 @@
     "vitest.config.ts",
     "openapi-ts.config.ts",
     "playwright.config.ts",
+    "playwright.server.config.ts",
     "e2e"
   ]
 }

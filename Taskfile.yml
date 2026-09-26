@@ -243,6 +243,7 @@ tasks:
       - scripts/check-package-size_test.sh
       - scripts/coverage-gate_test.sh
       - scripts/coverage-summary_test.sh
+      - scripts/e2e-server_test.sh
       - scripts/gobco-report_test.sh
       - scripts/hook-environment_test.sh
       - scripts/test-summary_test.sh
