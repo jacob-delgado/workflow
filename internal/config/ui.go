@@ -41,21 +41,9 @@ type UI struct {
 	// interface refuses to start on a map that names an action it does not know,
 	// moves jump-to-pane (its keys are the pane numbers, which no one key can
 	// stand in for), or binds two actions in the same context to one key. The
-	// actions it can rebind, by where they work, are:
-	//
-	//   Moving:  next-pane, previous-pane, up, down, scroll-up, scroll-down
-	//   Issues:  change-status, comment, assign, log-work, branch-for-issue,
-	//            filter, switch-view, load-more, open-link, copy-link, refresh
-	//   Branch:  new-branch, switch-task, rebase, push, stage, stage-all,
-	//            commit, amend, fixup, run-pre-commit, set-up-lefthook
-	//   Review:  open-pull-request, checks, rerun-checks, merge, finish-branch,
-	//            post
-	//   Composer or preview: edit, edit-body, next-template, toggle-draft,
-	//            toggle-breaking, verbatim, next-field, previous-field,
-	//            cycle-type-left, cycle-type-right, toggle-option, worktree,
-	//            post-when-green
-	//   Running: stop, run-again, full-output
-	//   Everywhere: apply, close, toggle-mouse, toggle-help, quit, interrupt
+	// actions it can rebind are listed under "Rebinding keys" in
+	// docs/content/docs/configuration.md, which a terminal test holds to the
+	// bound ones.
 	Keys map[string]string `json:"keys"`
 }
 
