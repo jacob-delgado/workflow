@@ -102,17 +102,13 @@ The usage page:
   and the composer; the page never mentions a diff (`grep -ic diff` is 0)
   while `diffSection` (`internal/tui/diff.go:67`) draws the selected file's
   diff beneath the list.
-- `docs/content/docs/usage.md:225` — "The title is the branch's oldest
-  commit subject" is true only when `pull_request.title_source`
-  (`PullRequest.TitleSource`, `internal/config/pullrequest.go:21`) is the
-  default; the key is validated (`:24`) and on no docs page.
 - `docs/content/docs/usage.md:313` — "Editor" says "`$VISUAL`, else
   `$EDITOR`, else `vi`"; `chosen` (`internal/editor/editor.go:85`) consults
   `GIT_EDITOR` first and `defaultEditor` (`:97`) returns `notepad` on
   Windows, while `defaultEditor`'s own comment (`:94`) omits `$GIT_EDITOR`
   too.
 
-The configuration page (the Fields table's missing rows are DEBT-91):
+The configuration page:
 
 - `docs/content/docs/configuration.md:37` — "does the same for Slack" claims
   `config init` checks the webhook; `newConfigInitCmd`'s Short
@@ -228,94 +224,6 @@ code does; the README and `docs/content/_index.md` no longer say `doctor`
 checks a webhook; the web page's Settings list reads in `ConfigForm`'s
 fieldset order; the usage page names user, date and multi-select fields, the
 fetch and the diff; and `task docs:check` is green after `task docs:gen`.
-
-### DEBT-91 The configuration page's Fields table omits thirteen keys the code reads
-
-Severity: low · Confidence: read
-
-Thirteen keys the loader reads, validates or writes — `version`, `jira.project`,
-`jira.review_status`, `forge.cli`, `messaging.channels`, `ui.comments_shown`,
-`timing.request_timeout`, `timing.ci_interval`, `branch.slug_limit`,
-`commit.types`, `commit.subject_limit`, `commit.refs_trailer` and
-`pull_request.title_source` — have no row in the Fields table of
-`docs/content/docs/configuration.md:58`, the `timing` and `pull_request`
-sections are never named, and the sample file at the top of the page omits the
-`version` key `config init` writes first. Counted by grepping each key on the
-page: 0 hits each, `ci_interval` once in prose. The page says an unknown key is
-an error, then omits thirteen it accepts. A user who meets "Review status" or
-"Use the forge CLI" in the browser, the channel cycle in the terminal, the
-72-character ruler or the `Refs:` trailer in the composer, or `"version": "1"`
-at the top of a file `config init` just wrote, opens the reference and finds
-nothing; `forge.cli`, the setting that reaches a forge behind SSO, is documented
-in the README (line 191) and `docs/content/docs/scripting.md:51` but has no row
-on the configuration page; usage.md presents the limit, the trailer and the
-oldest-commit title as fixed when each has a key. `doctor` and the Settings form
-honor every one, and no gate sees the page. The web side of the same gap is
-UX-87.
-
-- `docs/content/docs/configuration.md:58` — the Fields table the thirteen
-  rows are missing from.
-- `docs/content/docs/configuration.md:10` — the sample file under
-  "Configuration" lists `jira`, `messaging`, `forge` and `ui`; no
-  `version`.
-- `internal/config/config.go:168` — `Config.Version`, written first by
-  `config init` and validated; 0 hits on the page.
-- `internal/config/config.go:84` — `Jira.Project`, the branch-name key
-  guard; 0 hits.
-- `internal/config/config.go:94` — `Jira.ReviewStatus`, which drives the
-  post-open transition offer; named in errors.md and the `pr` reference
-  only.
-- `internal/config/config.go:125` — `Messaging.Channels`, the channel
-  cycle's source; 0 hits.
-- `internal/config/config.go:155` — `Forge.CLI`, which routes forge calls
-  through `gh` or `glab`; on the site only at
-  `docs/content/docs/scripting.md:51`.
-- `internal/config/ui.go:37` — `UI.CommentsShown`; 0 hits.
-- `internal/config/timing.go:21` — `Timing.RequestTimeout`; 0 hits, and no
-  `timing` row at all.
-- `internal/config/timing.go:25` — `Timing.CIInterval`, named once in
-  prose at `docs/content/docs/configuration.md:386` ("The interface:
-  mouse, ASCII and color") as if already introduced; its twenty-second
-  default is given only beside the web page's stream
-  (`docs/content/docs/web.md:48`) and in the event stream's description in
-  `api/openapi.yaml`, and its format nowhere.
-- `internal/config/branch.go:37` — `Branch.SlugLimit`, validated at `:55`;
-  0 hits, and the Branch names section lists the other three fields only.
-- `internal/config/commit.go:29` — `Commit.Types`, validated at load; 0
-  hits.
-- `internal/config/commit.go:32` — `Commit.SubjectLimit`, default 72; 0
-  hits.
-- `internal/config/commit.go:35` — `Commit.RefsTrailer`, default `Refs`; 0
-  hits.
-- `internal/config/pullrequest.go:21` — `PullRequest.TitleSource`, refused
-  when unknown at load; the whole `pull_request` block is absent from the
-  page.
-- `docs/content/docs/usage.md:197` — "Stage and commit": "the 72-character
-  limit" stated as fixed though `commit.subject_limit` changes it.
-- `docs/content/docs/usage.md:198` — "A `Refs:` trailer" stated as fixed
-  though `commit.refs_trailer` relabels it.
-- `docs/content/docs/usage.md:225` — "Open the pull request": "The title
-  is the branch's oldest commit subject" stated as fixed though
-  `pull_request.title_source` can switch it to the issue.
-- `docs/content/docs/usage.md:270` — "Announce it" promises a channel
-  choice "with more than one channel to choose from" that the
-  configuration page never says how to set up.
-- `docs/content/docs/install.md:14` — "What it needs" lists `gh` only, as an
-  optional place to find a GitHub token; `glab`, which `forge.cli` needs on
-  GitLab, is not listed.
-
-**One way to fix it.** One row per key in the Fields table with the struct
-field's own comment as the text and the default stated (ten seconds,
-twenty seconds, 48, 72, `Refs`, `commit`); `"version": "1"` in the sample
-file; `timing` and `pull_request` named as sections; usage.md's sentences
-on the subject limit, the trailer and the title qualified with "by
-default"; and `glab` beside `gh` in install.md's needs list.
-
-**Done when.** For each of the thirteen keys
-`grep -c '<key>' docs/content/docs/configuration.md` returns at least 1,
-`grep -c '"version"' docs/content/docs/configuration.md` returns at least
-1, `task docs:check` stays green, and `grep -n glab
-docs/content/docs/install.md` prints a line.
 
 ### DEBT-105 The contributor documents restate counts and names the tree has moved past
 

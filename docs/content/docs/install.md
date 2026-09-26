@@ -11,8 +11,11 @@ weight: 10
 - **[lefthook](https://lefthook.dev)**, for running hooks on demand and for
   turning existing `.git/hooks` into a `lefthook.yml`. Without it those two
   actions are not offered; commits still run whatever hooks git has.
-- **`gh`**, optionally, as a place to find a GitHub token. See
+- **`gh`**, optionally, as a place to find a GitHub token, and as the tool
+  `forge.cli` routes GitHub calls through. See
   [Configuration]({{< relref "/docs/configuration" >}}).
+- **`glab`**, only with `forge.cli` on GitLab, as the tool it routes GitLab
+  calls through. Without it those calls go over HTTP.
 
 ## With Go
 
