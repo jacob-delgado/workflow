@@ -162,17 +162,24 @@ func kindOf(host string) Kind {
 
 // APIBase is the root of the REST API serving this repository.
 func (r Repo) APIBase() (string, error) {
-	switch r.Kind {
-	case KindGitHub:
-		return githubAPIBase(r.Host), nil
-	case KindGitLab:
-		// The same path for gitlab.com and for every self-managed instance.
-		return "https://" + r.Host + "/api/v4", nil
-	case KindUnknown:
-		return "", ErrUnknownForge
-	default:
+	//nolint:exhaustive // KindUnknown has no API on purpose; its lookup miss is the ErrUnknownForge below.
+	bases := map[Kind]func(host string) string{
+		KindGitHub: githubAPIBase,
+		KindGitLab: gitlabAPIBase,
+	}
+
+	base, ok := bases[r.Kind]
+	if !ok {
 		return "", ErrUnknownForge
 	}
+
+	return base(r.Host), nil
+}
+
+// gitlabAPIBase is the same path for gitlab.com and for every self-managed
+// instance.
+func gitlabAPIBase(host string) string {
+	return "https://" + host + "/api/v4"
 }
 
 // githubAPIBase picks between GitHub's three API shapes, which is the rule gh

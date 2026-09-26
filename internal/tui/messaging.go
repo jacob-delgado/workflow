@@ -291,18 +291,34 @@ func (m Model) postIfGreen() (Model, tea.Cmd) {
 		return m.withoutQueuedPost(), nil
 	}
 
-	switch m.review.ci.State {
-	case forge.CIPassed:
-		// A queued post is always a "ready for review" one: it is what waits for CI.
-		return m.sendToMessaging(m.messaging.pending.channel, m.messaging.pending.text, messaging.MomentReady)
-	case forge.CIFailed:
-		m.messaging.pending = queuedPost{}
-		m.messaging.dropped = "CI failed at " + m.deps.now().Format(droppedTimeFormat)
+	// A map, not a switch, so there is no last-case arm gobco can never see;
+	// exhaustive keeps it complete.
+	settle := map[forge.CIState]func() (Model, tea.Cmd){
+		forge.CIPassed:  m.postQueued,
+		forge.CIFailed:  m.dropQueued,
+		forge.CINone:    m.keepQueued,
+		forge.CIRunning: m.keepQueued,
+	}[m.review.ci.State]
 
-		return m.noticedFailure(fmt.Errorf("%w to %s", errCIFailedUnannounced, m.cfg.Messaging.Service())), nil
-	case forge.CINone, forge.CIRunning:
-		return m, nil
-	default:
-		return m, nil
-	}
+	return settle()
+}
+
+// postQueued sends the post that waited for CI. It is always a "ready for
+// review" one: that is what waits for CI.
+func (m Model) postQueued() (Model, tea.Cmd) {
+	return m.sendToMessaging(m.messaging.pending.channel, m.messaging.pending.text, messaging.MomentReady)
+}
+
+// dropQueued gives up on the post that waited for CI, which failed, and says
+// so.
+func (m Model) dropQueued() (Model, tea.Cmd) {
+	m.messaging.pending = queuedPost{}
+	m.messaging.dropped = "CI failed at " + m.deps.now().Format(droppedTimeFormat)
+
+	return m.noticedFailure(fmt.Errorf("%w to %s", errCIFailedUnannounced, m.cfg.Messaging.Service())), nil
+}
+
+// keepQueued leaves the post waiting while CI has not finished.
+func (m Model) keepQueued() (Model, tea.Cmd) {
+	return m, nil
 }

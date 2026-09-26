@@ -75,14 +75,14 @@ func newFieldForm(move jira.Transition) fieldForm {
 // textual reports whether the field is filled by typing rather than by
 // choosing from a list.
 func (f fieldForm) textual() bool {
-	switch f.field().Kind {
-	case jira.FieldText, jira.FieldUser, jira.FieldDate:
-		return true
-	case jira.FieldUnsupported, jira.FieldOption, jira.FieldOptionList:
-		return false
-	default:
-		return false
-	}
+	return map[jira.FieldKind]bool{
+		jira.FieldText:        true,
+		jira.FieldUser:        true,
+		jira.FieldDate:        true,
+		jira.FieldUnsupported: false,
+		jira.FieldOption:      false,
+		jira.FieldOptionList:  false,
+	}[f.field().Kind]
 }
 
 // multi reports whether the field takes any number of its options.

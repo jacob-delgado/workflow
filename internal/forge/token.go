@@ -194,16 +194,18 @@ func (r Resolver) fromCLI(ctx context.Context, kind Kind, host string) (Token, b
 // environmentNames lists the variables that may hold a token for a host, in
 // order.
 func (r Resolver) environmentNames(kind Kind, host string) []string {
-	switch kind {
-	case KindGitHub:
-		return r.githubNames(host)
-	case KindGitLab:
-		return r.gitlabNames(host)
-	case KindUnknown:
-		return nil
-	default:
+	//nolint:exhaustive // KindUnknown has no variables on purpose; its lookup miss is the nil below.
+	namers := map[Kind]func(host string) []string{
+		KindGitHub: r.githubNames,
+		KindGitLab: r.gitlabNames,
+	}
+
+	names, ok := namers[kind]
+	if !ok {
 		return nil
 	}
+
+	return names(host)
 }
 
 // githubNames reads GitHub's variables as gh does: its own two are for the
