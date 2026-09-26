@@ -42,7 +42,9 @@ tags:
   - name: config
     description: The configuration file, read and written.
   - name: events
-    description: A live stream of state snapshots, pushed as they change.
+    description: >-
+      A live stream of state snapshots, pushed on connect and then every few
+      seconds.
 
 paths:
   /api/health:
@@ -774,18 +776,21 @@ paths:
   /api/events:
     get:
       operationId: streamEvents
-      summary: A stream of state snapshots, pushed on connect and as they change.
+      summary: A stream of state snapshots, pushed on connect and then every few seconds.
       description: >-
         A Server-Sent Events stream (text/event-stream). Each message is a
         "snapshot" event whose data is a Snapshot: the current issues, branch,
         changes, review, messaging destination, the issues in flight, and the
-        scope a new commit opens on. The browser subscribes once and updates
-        from the pushes rather than polling. The review is the forge's answer,
-        read at most once every timing.ci_interval (twenty seconds unless set)
-        for every stream together, and again at once for another branch or
-        head commit, or after a pull request is opened here. A read that fails
-        keeps the last answer for the same branch and head commit, and with no
-        answer to keep reports none found until a read succeeds.
+        scope a new commit opens on. The first is pushed on connect and another
+        every few seconds after, whether or not anything changed: the upstreams
+        send no notice of a change, so the server reads them again on that
+        cadence. The browser subscribes once and updates from the pushes rather
+        than polling. The review is the forge's answer, read at most once every
+        timing.ci_interval (twenty seconds unless set) for every stream
+        together, and again at once for another branch or head commit, or after
+        a pull request is opened here. A read that fails keeps the last answer
+        for the same branch and head commit, and with no answer to keep reports
+        none found until a read succeeds.
       tags: [events]
       parameters:
         - name: view
