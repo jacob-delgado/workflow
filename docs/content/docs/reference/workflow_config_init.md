@@ -7,12 +7,13 @@ weight: 30
 
 ## workflow config init
 
-Set up the configuration file, asking for and checking each credential
+Set up the configuration file, asking for each credential and checking the Jira token
 
 ### Synopsis
 
-Ask for the Jira and Slack credentials, check each one, and write a
-.workflow.json with what passed.
+Ask for the Jira address and token and a Slack incoming webhook, check the
+Jira token, and write a .workflow.json with what passed. The webhook is
+saved unchecked, since a webhook cannot be checked without posting.
 
 By default it lands at the repository root, so every subdirectory sees it;
 outside a repository it lands in the current directory. Use --global to

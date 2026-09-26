@@ -34,9 +34,11 @@ workflow reads a single JSON file, `.workflow.json`.
 }
 ```
 
-Run `workflow config init` and it asks for the Jira address and token, checks
-them, does the same for Slack, warns if the file would not be ignored by git,
-and writes what passed — nothing is echoed as you type a token. Add `--global`
+Run `workflow config init` and it asks for the Jira address and token and
+checks them, then asks for a Slack incoming webhook, which it saves unchecked,
+since a webhook cannot be checked without posting. It warns if the file would
+not be ignored by git, and writes what passed — nothing is echoed as you type a
+token or the webhook. Add `--global`
 to write it to your home directory, or `--template` to write a blank file to
 fill in by hand instead of being asked.
 

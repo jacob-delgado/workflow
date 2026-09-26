@@ -110,13 +110,6 @@ The usage page:
 
 The configuration page:
 
-- `docs/content/docs/configuration.md:37` — "does the same for Slack" claims
-  `config init` checks the webhook; `newConfigInitCmd`'s Short
-  (`internal/cli/config_cmd.go:58`, "asking for and checking each
-  credential") and Long (`:59`, "check each one") say the same, reproduced
-  at `docs/content/docs/reference/workflow_config_init.md:10` and `:14`,
-  while `collectMessaging` (`internal/cli/config_cmd.go:308`) prints "saved
-  (a webhook cannot be checked without posting)".
 - `docs/content/docs/configuration.md:44` — "looks for .workflow.json in the
   current directory first, then in your home directory", as does
   `Discover`'s comment (`internal/config/load.go:18`, "searching workDir

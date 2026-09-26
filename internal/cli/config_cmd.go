@@ -48,16 +48,17 @@ type initOptions struct {
 }
 
 // newConfigInitCmd builds `workflow config init`. It asks for each credential
-// and checks it, unless --template is given, which writes a blank file to edit
-// by hand.
+// and checks the Jira token, saving a webhook unchecked, unless --template is
+// given, which writes a blank file to edit by hand.
 func newConfigInitCmd(prompt Prompt) *cobra.Command {
 	var opts initOptions
 
 	cmd := &cobra.Command{
 		Use:   "init",
-		Short: "Set up the configuration file, asking for and checking each credential",
-		Long: "Ask for the Jira and Slack credentials, check each one, and write a\n" +
-			config.FileName + " with what passed.\n\n" +
+		Short: "Set up the configuration file, asking for each credential and checking the Jira token",
+		Long: "Ask for the Jira address and token and a Slack incoming webhook, check the\n" +
+			"Jira token, and write a " + config.FileName + " with what passed. The webhook is\n" +
+			"saved unchecked, since a webhook cannot be checked without posting.\n\n" +
 			"By default it lands at the repository root, so every subdirectory sees it;\n" +
 			"outside a repository it lands in the current directory. Use --global to\n" +
 			"write it to your home directory instead, where every directory can see it.\n" +
@@ -188,10 +189,10 @@ func runConfigInit(cmd *cobra.Command, path string, opts initOptions) error {
 	return nil
 }
 
-// runGuidedInit asks for each credential, checks it, and writes what passed,
-// unless the file is already there. A dry run asks and checks the same, but
-// offers no keychain — which would store the token — and prints the file
-// rather than writing it.
+// runGuidedInit asks for each credential, checks the Jira token, saves a
+// webhook unchecked, and writes what it kept, unless the file is already
+// there. A dry run asks and checks the same, but offers no keychain — which
+// would store the token — and prints the file rather than writing it.
 func runGuidedInit(cmd *cobra.Command, path string, opts initOptions, prompt Prompt) error {
 	err := refuseOverwrite(path, opts.force)
 	if err != nil {
