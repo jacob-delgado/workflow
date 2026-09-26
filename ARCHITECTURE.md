@@ -392,6 +392,7 @@ exist only to hold a line:
 - `CLAUDE.md` — the rules for changing this code, including the full database
   standards and the package-size and file-length budgets.
 - `api/openapi.yaml` — the REST contract; the Go server and TS client are
-  generated from it, and `task gen:verify` fails CI on drift.
+  generated from it. `task gen:verify` fails when the Go code drifts from it
+  and `task web:gen:check` when the TypeScript client does; CI runs both.
 - `internal/wiring/wiring.go` — the one place the seams meet the clients.
 - `internal/store/store.go` — the authoritative schema.
