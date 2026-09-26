@@ -658,11 +658,6 @@ Facts the code needs in more than one place are written in each, with
 nothing keeping the copies equal. CLAUDE.md names the smell and the rule of
 three; no linter or knip rule sees any of it.
 
-- `internal/config/ui.go:46` — the rebindable action names are listed
-  in `UI.Keys`' comment, again under "Rebinding keys"
-  (`docs/content/docs/configuration.md:415`), and bound in `CheckKeys`
-  (`internal/tui/keys.go:302`), which binds `jump-to-pane` too but refuses
-  to move it; no test holds the three to each other.
 - `internal/config/config.go:349` — `Config.Problems`' sentence
   "jira.base_url is not an absolute http or https URL" is
   `ErrInvalidBaseURL`'s text verbatim (`internal/jira/jira.go:44`), and the
@@ -722,22 +717,18 @@ never saw, or silently tags nothing; a required snapshot field added to the
 contract dies in the e2e specs as a locator timeout; and a change to the
 focus ring is eight edits.
 
-**One way to fix it.** One owner per fact: a terminal test that reads the
-action names out of the configuration page and holds `CheckKeys` to them;
-one base-URL rule in `config` that `jira` wraps; the tag script owning the
-release-commit decision and the workflow reading its answer; `satisfies
-Snapshot` on the e2e literals; the server sending the effective commit types
-so the form holds no list; an exported `storageKey` a test checks
-`web/index.html` against; one `Button` component or two class constants; one
-`configHome()` the four callers share; and `scopeInSubject` built from
-`commitType`'s class.
+**One way to fix it.** One owner per fact: one base-URL rule in `config`
+that `jira` wraps; the tag script owning the release-commit decision and the
+workflow reading its answer; `satisfies Snapshot` on the e2e literals; the
+server sending the effective commit types so the form holds no list; an
+exported `storageKey` a test checks `web/index.html` against; one `Button`
+component or two class constants; one `configHome()` the four callers share;
+and `scopeInSubject` built from `commitType`'s class.
 
-**Done when.** A test fails when the configuration page's action list and
-the bind sites differ;
-one function decides a base URL's shape and both packages' tests import it;
-`chore(main): release` appears in exactly one file under `.github/` and
-`scripts/`; removing a required snapshot field from the e2e literals fails
-`tsc -b`; `grep -n "'revert'" web/src/features/branch/CommitForm.tsx` is
+**Done when.** One function decides a base URL's shape and both packages'
+tests import it; `chore(main): release` appears in exactly one file under
+`.github/` and `scripts/`; removing a required snapshot field from the e2e
+literals fails `tsc -b`; `grep -n "'revert'" web/src/features/branch/CommitForm.tsx` is
 empty and the options come from a server field; a test fails when
 `web/index.html`'s key differs from `themeStore`'s;
 `grep -rn "border border-input px-3 py-1.5" web/src --include='*.tsx'`
