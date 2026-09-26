@@ -675,8 +675,7 @@ three; no linter or knip rule sees any of it.
   the push (`internal/tui/run.go:398`) and the rebase (`:418`).
 - `internal/tui/spine.go:68` — `Model.stages` hard-codes five hues in stage
   order and indexes them (`:74`) by the position of `Stages`' result
-  (`internal/progress/progress.go:92`), the one place the stages are
-  derived.
+  (`internal/progress/progress.go:96`), where Go derives the stages.
 - `internal/forge/remote.go:153` — `kindOf` knows `github.com` only, so a
   `.ghe.com` host is `KindUnknown`; `githubsOwn`
   (`internal/forge/host.go:40`) and `githubAPIBase`
@@ -940,10 +939,9 @@ handling written twice, and the spine's color-only hue — is under
 
 ## The web
 
-What is open here is the mock fixtures the page is shown with, the
-contract's prose, and the rules the browser derives for itself; what the
-web's gates still lack — an end-to-end run that drives a write — is DEBT-65,
-with the other gates below.
+What is open here is the mock fixtures the page is shown with and the
+contract's prose; what the web's gates still lack — an end-to-end run that
+drives a write — is DEBT-65, with the other gates below.
 
 ### DEBT-128 Three mock fixtures show a shape the server never sends
 
@@ -1067,61 +1065,6 @@ description names the configuration in effect and the author; the review
 `web/src/test/snapshot-frames.sse`, which carries no `pull` key; the three
 optional strings use one word for one wire shape; and `task gen` leaves the
 generated code unchanged.
-
-### DEBT-139 The web derives its own stage rules, and they contradict `progress`
-
-Severity: medium · Confidence: read
-
-`WorkStory` derives the work story's stages in TypeScript with rules that
-disagree with `internal/progress`: its Changes stage is done only with a
-clean tree and a commit, where `commitState` reads Done on any commit; and
-`pullRequestDone` reads done with no CI or with changes requested, where
-`reviewState` reads in flight and failed. The package comment that says the
-rule "lives in one place" no longer holds. No FEATURES entry carries the
-stages in the snapshot; the first fix below is that change.
-
-- `web/src/features/issues/WorkStory.tsx:79` — `onHeadStages`, the second
-  derivation: four stages with their own names and rules.
-- `web/src/features/issues/WorkStory.tsx:97` — `onHeadStages` marks
-  Changes done only when
-  `changes.changes.length === 0 && branch.commits.length > 0`;
-  `commitState` (`internal/progress/progress.go:126`) returns Done on
-  `OnFeatureBranch && Commits > 0` before it reads `UncommittedChanges`.
-- `web/src/features/issues/WorkStory.tsx:124` — `pullRequestDone` is done
-  unless CI is `running` or `failed`, so a CI state of none reads done and
-  `changes_requested` is never read; `reviewState`
-  (`internal/progress/progress.go:141`) is Done on a merged pull request
-  (the wire `state`), Failed on `CIFailed || ChangesRequested`, Done on
-  `CIPassed`, and in flight otherwise.
-- `internal/progress/progress.go:8` — the package comment: both the spine
-  and `workflow status` read it, "so the rule lives in one place".
-- `internal/progress/progress_test.go:47` —
-  `TestStagesDeriveHowFarTheWorkHasGot` has no case with both
-  `Commits > 0` and `UncommittedChanges > 0`, so the Go precedence is
-  unpinned; `web/src/features/issues/WorkStory.test.tsx` sets
-  `changes_requested` only to false and never a CI state of none.
-
-On a branch with one commit and an edited file, the spine and `status` show
-Commits done while the browser shows Changes still active. A repository
-without CI reads Review in flight in the terminal and done in the browser;
-a reviewer's changes requested reads failed in the terminal and done in the
-browser, though the snapshot carries `changes_requested`.
-
-**One way to fix it.** Derive once in Go and carry the stages in the
-snapshot (`progress.Stages` over a `Work` the server builds) so the web
-renders rather than re-derives; until then port `ChangesRequested` and the
-CI-none rule to `pullRequestDone`, add the commits-plus-changes case to
-`internal/progress/progress_test.go`, and make the package comment name
-every place a stage is derived.
-
-**Done when.** A web test with one commit and one change shows the state
-the Go table case gives; one with `review.found`, no CI and
-`changes_requested` true shows the review stage failed, matching the Go case
-"changes requested stops review reading done"; the commits-plus-changes
-case exists in `internal/progress/progress_test.go`; and either the
-snapshot schema has a stages array the web renders, or, until then,
-`pullRequestDone` reads `changes_requested` and a CI state of none as the Go
-table does.
 
 ## The gates, the build and the tests
 
