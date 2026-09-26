@@ -503,10 +503,11 @@ than observable, public behavior.
   `mise.toml`'s. A floating `latest` changes what the gate accepts without
   anyone deciding to.
 
-- **Never log or print a secret.** Tokens are masked by `config.Redact` before
-  they reach any output — `config show`, the TUI, and error messages all go
-  through it. When adding a code path that touches `jira.token` or
-  `slack.token`, the test that proves it doesn't leak is part of the change.
+- **Never log or print a secret.** Any credential — a `config.Secret` field:
+  the tokens, the webhook URL and every `jira.headers` value — is masked by
+  `config.Redact` before it reaches any output; `config show`, the TUI, and
+  error messages all go through it. When adding a code path that touches one,
+  the test that proves it never reaches output unmasked is part of the change.
   `gitleaks` (`task secrets`) is the backstop, not the plan.
 
 - **Web API errors are RFC 9457 problem details.** Every error the `--web` API's
