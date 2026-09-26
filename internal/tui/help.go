@@ -34,6 +34,7 @@ type helpOverlay struct {
 var (
 	_ overlay       = helpOverlay{}
 	_ lightBordered = helpOverlay{}
+	_ scrollable    = helpOverlay{}
 )
 
 func (helpOverlay) lightBorder() {}
@@ -61,7 +62,14 @@ func (h helpOverlay) fitting(width int) string {
 	return h.narrow
 }
 
-// footer is what works while the help is open: close it, or quit.
+// scrolls reports whether the key list is taller than the pane, so the scroll
+// keys move it.
+func (h helpOverlay) scrolls(width, rows int) bool {
+	return strings.Count(h.fitting(width), "\n")+1 > rows
+}
+
+// footer is what works while the help is open: close it, or quit. A list
+// taller than the pane adds the scroll keys after these.
 func (helpOverlay) footer(keys keyMap) []key.Binding {
 	return []key.Binding{keys.closeOverlay, keys.quit}
 }

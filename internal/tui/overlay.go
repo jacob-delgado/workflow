@@ -31,6 +31,27 @@ type clickable interface {
 	click(m Model, line int) (Model, tea.Cmd)
 }
 
+// scrollable is an overlay that can be taller than the pane it is drawn in. It
+// says when it is, so its footer offers the scroll keys only where they move it.
+type scrollable interface {
+	scrolls(width, rows int) bool
+}
+
+// overlayKeys is the open overlay's footer, followed by the scroll keys where
+// the overlay is taller than the detail pane that draws it. They come last
+// because a footer too narrow for every key drops them from the end, and the
+// key that closes the overlay matters more.
+func (m Model) overlayKeys() []key.Binding {
+	keys := m.overlay.footer(m.keys)
+
+	tall, canScroll := m.overlay.(scrollable)
+	if !canScroll || !tall.scrolls(m.detailWidth(), m.detailRows()) {
+		return keys
+	}
+
+	return append(keys, m.keys.scrollUp, m.keys.scrollDown)
+}
+
 // editable is an overlay that has handed its body to $EDITOR and takes the
 // result back. One textEdited message serves them all: the open overlay is the
 // one that asked, so it updates whichever overlay is editing rather than each

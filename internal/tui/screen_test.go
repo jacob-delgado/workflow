@@ -262,7 +262,8 @@ func TestTheHelpListsEveryGroupAndScrolls(t *testing.T) {
 	// of the taller column is out of sight
 	requireScreen(t, short.View().Content, "┌─ Keys", "Moving around", "… more below")
 	refuseScreen(t, short.View().Content, "Review and Slack")
-	requireScreen(t, footerLine(short.View().Content), "esc close", "q quit")
+	requireScreen(t, footerLine(short.View().Content),
+		"pgup/K scroll up", "pgdn/J scroll down", "esc close", "q quit")
 
 	// Act: page down
 	paged := typing(t, short, "pgdown", "pgdown", "pgdown")

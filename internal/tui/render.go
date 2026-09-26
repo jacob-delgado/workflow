@@ -370,7 +370,7 @@ func (m Model) footerRow(room int) string {
 func (m Model) capturedKeys() ([]key.Binding, bool) {
 	switch {
 	case m.overlay != nil:
-		return m.overlay.footer(m.keys), true
+		return m.overlayKeys(), true
 	case m.filteringIssues():
 		return m.filterKeys(), true
 	default:

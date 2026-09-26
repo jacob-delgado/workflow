@@ -310,6 +310,31 @@ func TestTheHelpCutsNoLineShortAtThePanesEdge(t *testing.T) {
 	}
 }
 
+func TestAHelpThatFitsThePaneOffersNoScrollKeys(t *testing.T) {
+	t.Parallel()
+
+	// Act
+	view := typing(t, newWorld().live(t, 160, 70), "?").View().Content
+
+	// Assert
+	refuseScreen(t, view, "more below")
+	requireScreen(t, footerLine(view), "esc close")
+	refuseScreen(t, footerLine(view), "scroll")
+}
+
+func TestANarrowHelpKeepsTheKeyThatClosesIt(t *testing.T) {
+	t.Parallel()
+
+	// Act
+	// At 50 columns the help is one column, taller than the pane, and the
+	// footer has room for only some of its keys.
+	view := typing(t, newWorld().live(t, 50, 30), "?").View().Content
+
+	// Assert
+	requireScreen(t, view, "more below")
+	requireScreen(t, footerLine(view), "esc close")
+}
+
 func TestCheckKeysKnowsEveryPlacedAction(t *testing.T) {
 	t.Parallel()
 
