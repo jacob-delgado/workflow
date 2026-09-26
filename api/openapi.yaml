@@ -621,9 +621,10 @@ paths:
       description: >-
         Publishes the checked-out branch to the push remote, setting upstream if
         it has none — the first outward step of opening a pull request. It is
-        refused with 409 when there is nothing to push (no commits, or already
-        up to date) or the server is not running in a git repository, and 422
-        when the push fails.
+        refused with 409 when there is nothing to push (a detached HEAD, or a
+        branch already published on its push remote and not ahead of it there)
+        or the server is not running in a git repository, and 422 when the push
+        fails.
       tags: [branches]
       responses:
         "200":
@@ -634,8 +635,9 @@ paths:
                 $ref: "#/components/schemas/Branch"
         "409":
           description: >-
-            There is nothing to push, or the server is not running in a git
-            repository.
+            There is nothing to push — a detached HEAD, or a branch already
+            published on its push remote and not ahead of it there — or the
+            server is not running in a git repository.
           content:
             application/problem+json:
               schema: {$ref: "#/components/schemas/Problem"}

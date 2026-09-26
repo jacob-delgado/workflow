@@ -1265,7 +1265,7 @@ export type PushData = {
 
 export type PushErrors = {
     /**
-     * There is nothing to push, or the server is not running in a git repository.
+     * There is nothing to push — a detached HEAD, or a branch already published on its push remote and not ahead of it there — or the server is not running in a git repository.
      */
     409: Problem;
     /**

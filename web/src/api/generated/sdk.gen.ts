@@ -239,7 +239,7 @@ export const announce = <ThrowOnError extends boolean = false>(options: Options<
 /**
  * Push the current branch to its remote, setting upstream.
  *
- * Publishes the checked-out branch to the push remote, setting upstream if it has none — the first outward step of opening a pull request. It is refused with 409 when there is nothing to push (no commits, or already up to date) or the server is not running in a git repository, and 422 when the push fails.
+ * Publishes the checked-out branch to the push remote, setting upstream if it has none — the first outward step of opening a pull request. It is refused with 409 when there is nothing to push (a detached HEAD, or a branch already published on its push remote and not ahead of it there) or the server is not running in a git repository, and 422 when the push fails.
  */
 export const push = <ThrowOnError extends boolean = false>(options?: Options<PushData, ThrowOnError>): RequestResult<PushResponses, PushErrors, ThrowOnError> => (options?.client ?? client).post<PushResponses, PushErrors, ThrowOnError>({
     responseValidator: async (data) => await zPushResponse.parseAsync(data),
