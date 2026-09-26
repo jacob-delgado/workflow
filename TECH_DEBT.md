@@ -127,8 +127,8 @@ The terminal:
   to are folded in as the lines arrive; `runLine.apply` (`:126`) folds in
   only `hooks.NextJob`, and `runFinished.apply` (`:158`) computes
   `hooks.Failures` from the capped lines after exit.
-- `internal/tui/tui.go:188` — `Model.handleKey`'s comment orders overlay,
-  help, global keys, pane; the switch (`:196`) has overlay,
+- `internal/tui/tui.go:181` — `Model.handleKey`'s comment orders overlay,
+  help, global keys, pane; the switch (`:189`) has overlay,
   `filteringIssues`, global, and no help step.
 - `internal/tui/overlay.go:15` — `overlay`'s comment says "Lip Gloss v1
   cannot layer one view over another" while the module requires
@@ -831,7 +831,7 @@ them.
 - `internal/wiring/forgecli.go:58` — `forgeProgram`'s `case
   forge.KindUnknown:` and `default:` (`:60`) both return `"", false`; the
   gobco report lists the `KindUnknown` condition as never evaluated, and
-  DEBT-64 counts `forgeProgram` among the three no black-box test reaches.
+  DEBT-64 counts `forgeProgram` among the two no black-box test reaches.
 - `web/src/features/review/ReviewPanel.tsx:32` — `ReviewPanel` returns null
   under `if (!snapshot)`, the file's only uncovered line; `BranchPanel`
   (`web/src/features/branch/BranchPanel.tsx:18`), `IssuesPanel`
@@ -957,10 +957,10 @@ and `grep -n 'two shells\|Shell 2' Taskfile.yml` prints nothing above the
 
 What is open here is a set of appliers and guards that read stale state or skip
 a check the other surfaces make, two configuration sections nothing validates,
-the composition the interface keeps beside `loop`'s, the hook-failure resolver,
-and a color read no black-box test reaches; what it carries on purpose — the
-two composers' field handling written twice, and the spine's color-only hue —
-is under [Deliberate trade-offs](#deliberate-trade-offs-that-carry-a-cost).
+the composition the interface keeps beside `loop`'s, and the hook-failure
+resolver; what it carries on purpose — the two composers' field handling
+written twice, and the spine's color-only hue — is under [Deliberate
+trade-offs](#deliberate-trade-offs-that-carry-a-cost).
 
 ### DEBT-113 The pull request composer titles from the listed issue, not Jira
 
@@ -1012,8 +1012,8 @@ and `tea.KeyUp` for overlays, which the pickers match against
 `m.keys.down` and `m.keys.up`, so a rebound `down` leaves the wheel dead
 in every picker. The nothing-staged guidance that names `space` is UX-96's.
 
-- `internal/tui/tui.go:241` — `Model.handleGlobalKey` computes
-  `pane(msg.String()[0] - '1')` under a comment (`:239`) that assumes only
+- `internal/tui/tui.go:234` — `Model.handleGlobalKey` computes
+  `pane(msg.String()[0] - '1')` under a comment (`:232`) that assumes only
   digits match.
 - `internal/tui/keys.go:150` — `helpBuilder.bindingFor` replaces the whole
   key list with the override, so `paneNumbers()` is gone.
@@ -1139,32 +1139,6 @@ in the footer; a test with `w.ci = []forge.CI{{State: forge.CINone}}`
 presses `5`, `p`, `w` and sees no "will announce" notice, the footer still
 offering `p`, and no further "ci" call recorded past the horizon.
 
-### DEBT-119 `tui.Run` reads `NO_COLOR` itself, which keeps its branch untestable
-
-Severity: low · Confidence: read
-
-`Run` (`internal/tui/tui.go:142`) calls `os.Getenv("NO_COLOR")` inside the
-package rather than taking the value or the decision from its caller, which is
-why the color branch there and the error return at `:149` are reachable by no
-black-box test: DEBT-64's "no black-box test reaches without changing the code"
-list names both. The repository already has the other pattern: `editorDeps`
-(`internal/wiring/wiring.go:434`) passes `os.Getenv` into `editor.Edit` as a
-parameter, and CLAUDE.md's dependency-inversion example is `config.Load` taking
-its directories rather than reading the environment. The cost is that the
-`NO_COLOR` path and the `WithoutColor` call it makes are exercised only by hand.
-This is the design shortcut behind one of DEBT-64's accepted-unreachable
-conditions, not a restatement of that entry.
-
-**One way to fix it.** Have the command line decide
-(`cfg.UI.DrawColor(os.Getenv("NO_COLOR"))`) and pass a model already
-`WithoutColor` into `Run`, or give `Run` a `getenv` parameter as
-`editor.Edit` takes one, so the branch is a plain function of its inputs.
-
-**Done when.** A test builds the model the root command hands to its
-`RunInterface` fake with `NO_COLOR` set and sees the no-hue styles, and
-`task cover:branch` no longer lists `internal/tui/tui.go:142` as never
-evaluated.
-
 ### DEBT-120 The help overlay's scroll is unclamped and its column split unbalanced
 
 Severity: low · Confidence: read
@@ -1188,7 +1162,7 @@ and needs a scroll a balanced layout would not.
   `h.scroll += m.halfPage()` with no clamp; `:80` only floors at 0.
 - `internal/tui/help.go:49` — `helpOverlay.view` clamps only at draw,
   through `scrolled`.
-- `internal/tui/tui.go:264` — `Model.scrollDetail`, the pane path that
+- `internal/tui/tui.go:257` — `Model.scrollDetail`, the pane path that
   clamps before and after through `firstShown`, the pattern the help
   lacks.
 - `internal/tui/render.go:202` — `helpColumnSplit` is 4 under a comment
@@ -1985,7 +1959,7 @@ whose printed sentence claims more than their check measures, CI jobs and
 triggers that do not do what their comments say, and tests named or shaped
 for something other than what they prove.
 
-### DEBT-64 The condition-coverage worklist: 431 one-sided conditions, and 14 never evaluated
+### DEBT-64 The condition-coverage worklist: 431 one-sided conditions, and 13 never evaluated
 
 Severity: low · Confidence: measured
 
@@ -2013,7 +1987,7 @@ the do-nothing guards' second operands, never seen true: `repo == ""` in
 `Store.CachedIssues` and `Store.CacheIssues` (`internal/store/cache.go:32`,
 `:99`), and `s.dir == ""` in `Store.off` (`internal/store/store.go:135`).
 
-Fourteen conditions were never evaluated. Four are a test away:
+Thirteen conditions were never evaluated. Four are a test away:
 
 - `internal/tui/messaging.go:90` and `:92` — `quitGuard.handleKey`'s confirm
   and stay: `TestQuittingWithAQueuedPostAsksFirst` opens the guard but
@@ -2037,9 +2011,9 @@ away too:
   tea.KeySpace`: no filter test types a key without text, so `text == ""`
   never lets the `&&` read it.
 
-Three no black-box test reaches without changing the code:
+Two no black-box test reaches without changing the code:
 
-- `internal/tui/tui.go:142` and `:149` — inside `tui.Run`, which needs a real
+- `internal/tui/tui.go:142` — `tui.Run`'s error return, which needs a real
   terminal.
 - `internal/wiring/forgecli.go:58` — `forgeProgram`'s `forge.KindUnknown`
   case, which `exhaustive` requires but `connectForge` never passes, since
@@ -2057,7 +2031,7 @@ report is the worklist, most of it in `internal/tui`, `internal/cli` and
 `internal/forge`.
 
 **Done when.** `task cover:branch` names no never-evaluated condition but
-the three above, and reads 92.0 % or more, so `BRANCH_COVERAGE_MIN` ratchets
+the two above, and reads 92.0 % or more, so `BRANCH_COVERAGE_MIN` ratchets
 to 90.
 
 ### DEBT-65 The web's e2e drives no write

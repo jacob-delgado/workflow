@@ -10,7 +10,6 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"os"
 
 	"charm.land/bubbles/v2/key"
 	tea "charm.land/bubbletea/v2"
@@ -84,6 +83,10 @@ type Model struct {
 	messaging   messagingState
 	reviewQueue reviewQueueState
 	hookgen     hookgenState
+
+	// programOptions are what Run adds to the program it starts, so a choice
+	// made on the model, such as dropping color, reaches the terminal too.
+	programOptions []tea.ProgramOption
 }
 
 // New builds the interface for a configuration, the error if any from loading
@@ -119,31 +122,21 @@ func (m Model) WithDryRun() Model {
 	return m
 }
 
-// WithoutColor draws no hue while keeping the bold, faint and reverse that carry
-// meaning without it.
+// WithoutColor draws no hue while keeping the bold, faint and reverse-video
+// cursor that carry meaning without it: its styles hold no hue, and Run forces
+// the ANSI profile, which still draws those attributes.
 func (m Model) WithoutColor() Model {
 	m.styles = newStyles(false)
+	m.programOptions = []tea.ProgramOption{tea.WithColorProfile(colorprofile.ANSI)}
 
 	return m
 }
 
 // Run starts the interface and blocks until the user quits. The context cancels
-// the program, so a caller can shut the interface down.
+// the program, so a caller can shut the interface down. The alternate screen
+// and mouse mode are set declaratively in View, as v2 asks.
 func Run(ctx context.Context, model Model, out io.Writer) error {
-	options := []tea.ProgramOption{
-		tea.WithOutput(out),
-		tea.WithContext(ctx),
-	}
-
-	// NO_COLOR and ui.color "never" drop the hues, but not the bold, faint and
-	// reverse-video cursor that carry meaning without them: force a profile that
-	// keeps those, then strip the hues at the style level. The alternate screen
-	// and mouse mode are set declaratively in View, as v2 asks.
-	if !model.cfg.UI.DrawColor(os.Getenv("NO_COLOR")) {
-		options = append(options, tea.WithColorProfile(colorprofile.ANSI))
-
-		model = model.WithoutColor()
-	}
+	options := append([]tea.ProgramOption{tea.WithOutput(out), tea.WithContext(ctx)}, model.programOptions...)
 
 	_, err := tea.NewProgram(model, options...).Run()
 	if err != nil {

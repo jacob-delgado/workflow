@@ -69,8 +69,8 @@ them, re-counted at this commit.
 | "the one way the interface says something broke" | `wording`, `internal/tui/failure.go:63` | **Yes: every site that renders an error's text.** Each tells it through `errorSentence` (`internal/tui/failure.go:100`), which words every sentinel the seams return briefly and in full: 6 panes, the configuration screen, 11 `pinnedOutcome` overlays and the 2 details that repeat a summary row's failure beneath it through `failureBlock` (`internal/tui/failure.go:402`), 13 one-failure rows through `failureLine`, 4 rail and summary rows through `failureSummary`, and 10 failure notices through `noticedFailure`, drawn in the failure style, the re-run's led by what failed so a clipped row still names it; a run's headline names the step a failure status stopped, and a pull request opened without every reviewer says why in brief. The 3 guidance notices stay plain, since red means something broke. The width-one glyph-only marks — a failed check, job, stage or review CI — and the three rails that point at their detail carry no error text to word. One site drops the text it has: the branch creator's fixed "could not fetch" line (UX-129). |
 | "Nothing outward facing is sent without" a last look | `internal/tui/comment.go:64` | **Yes: 20 of 20.** Every act that writes through a seam — five on Jira, nine through git, four on the forge, the post and the lefthook file — waits on a preview or a confirmation; the push, `R`'s re-run of CI and `u`'s rebase share one last look, `lastLook` (`internal/tui/overlay.go:158`). Of the twenty, eleven leave the machine: the Jira five, the forge four, the post and the push; the rest are local writes that still get a look. The acts are listed under the table. |
 | "a refused change must never go unseen" | `internal/tui/picker.go:312` | **Yes: 13 of 13.** Every overlay that sends a request guards it while in flight (an earlier edition counted 1 of 7; the last counted 14 by including the commit composer, which holds a `sendState` for a validation refusal only and hands its commit to a run overlay, `internal/tui/composer.go:364`), and every one keeps a refusal in the overlay, where it happened, until `esc` — the merge and finish previews last, through `pinnedOutcome` (`internal/tui/failure.go:420`). |
-| "Each pane fails on its own" | `docs/content/docs/usage.md:80` | Yes. `internal/tui/tui.go:160` batches six loads; five panes hold and render their own load's error through `failureBlock` (`internal/tui/detail.go:339`, `internal/tui/branch.go:127`, `internal/tui/commits.go:125`, `internal/tui/review.go:292`, `internal/tui/reviewqueue.go:115`). The Messaging pane's load, `loadAnnounces`, reads the store, whose errors the wiring drops before they reach the model, so it has no load error to hold; its `failureBlock` site (`internal/tui/messaging.go:187`) renders a failed post. |
-| State is "carried by the SHAPE of a glyph rather than its color" | `internal/tui/glyphs.go:16` | Yes. `unicodeGlyphs` and `asciiGlyphs` differ in shape (`internal/tui/glyphs.go:31`, `:43`); `NO_COLOR` keeps bold and faint (`internal/tui/tui.go:142`). One residue: the progress spine's per-system hue is color-only, mitigated by the name or its initial. |
+| "Each pane fails on its own" | `docs/content/docs/usage.md:80` | Yes. `internal/tui/tui.go:153` batches six loads; five panes hold and render their own load's error through `failureBlock` (`internal/tui/detail.go:339`, `internal/tui/branch.go:127`, `internal/tui/commits.go:125`, `internal/tui/review.go:292`, `internal/tui/reviewqueue.go:115`). The Messaging pane's load, `loadAnnounces`, reads the store, whose errors the wiring drops before they reach the model, so it has no load error to hold; its `failureBlock` site (`internal/tui/messaging.go:187`) renders a failed post. |
+| State is "carried by the SHAPE of a glyph rather than its color" | `internal/tui/glyphs.go:16` | Yes. `unicodeGlyphs` and `asciiGlyphs` differ in shape (`internal/tui/glyphs.go:31`, `:43`); `NO_COLOR` keeps bold and faint (`internal/tui/tui.go:128`). One residue: the progress spine's per-system hue is color-only, mitigated by the name or its initial. |
 
 What was counted, so the next re-count is a diff. The 20 acts behind a last
 look, each named by the seam its confirm captures: `Jira.Transition`
@@ -457,7 +457,7 @@ a reviewers completion tab cannot take.
 Impact: low · Effort: medium
 
 **Today.** `NO_COLOR` and `ui.color: never` keep bold and faint
-(`internal/tui/tui.go:142`); `ui.ascii` swaps glyphs and borders
+(`internal/tui/tui.go:128`); `ui.ascii` swaps glyphs and borders
 (`internal/tui/glyphs.go:43`); escapes in server text are neutralized. But
 there is no screen-reader mode; the alternate screen is unconditional
 (`internal/tui/render.go:38` `view.AltScreen = true`), so nothing the
@@ -625,8 +625,8 @@ applied to one.
   follows at `internal/tui/views.go:58`; the seeded arm has never run
   under a test (`tmp/audit/cover-branch.log:269`: "was 2 times true but
   never false").
-- `internal/tui/tui.go:107` `New` seeds `model.issues` from the cache with
-  no loading flag while `Model.Init` (`internal/tui/tui.go:160`) always
+- `internal/tui/tui.go:110` `New` seeds `model.issues` from the cache with
+  no loading flag while `Model.Init` (`internal/tui/tui.go:153`) always
   starts `searchIssues` — the same gap at startup.
 
 **Instead.** Give each refreshable state — branch, changes, review, review
