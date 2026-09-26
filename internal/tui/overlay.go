@@ -11,9 +11,9 @@ import (
 )
 
 // overlay is something that takes the keyboard until it is closed: a picker, a
-// composer, a preview, a running hook. It draws in the detail pane — Lip Gloss
-// v1 cannot layer one view over another — and is drawn with focus while open,
-// so there is never a second pane that looks like it has the keys.
+// composer, a preview, a running hook. It draws in the detail pane and is
+// drawn with focus while open, so there is never a second pane that looks like
+// it has the keys.
 //
 // Overlays are values. handleKey returns the whole model, so an overlay can
 // replace itself, close itself, or change what the panes show as it finishes.

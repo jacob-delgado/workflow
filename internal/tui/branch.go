@@ -229,9 +229,8 @@ func (m Model) previewRebase() (Model, tea.Cmd) {
 	return m, nil
 }
 
-// branchIssue is the issue the current branch names, and whether it names one —
-// the one place the interface reads a branch name as an issue key, and where the
-// branch-derived string becomes a typed jira.Key.
+// branchIssue is the issue the current branch names, typed as a jira.Key, and
+// whether it names one.
 func (m Model) branchIssue() (jira.Key, bool) {
 	key, ok := convention.IssueKey(m.branch.branch.Name, m.cfg.Jira.Project)
 

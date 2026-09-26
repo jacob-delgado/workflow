@@ -81,40 +81,11 @@ shares (the interface and the web reach them too).
 
 Severity: low · Confidence: read
 
-Across the terminal, the command line, the clients, the plumbing, the web
-server and the two layout maps, doc comments and layout rows describe an
-earlier shape of the code. No linter reads a comment, so every one passes
-the gate. The `wiring` package comment below still names the terminal as
-the owner of the seams it fills, which `internal/seams` now declares for
-all three surfaces.
-
-The terminal:
-
-- `internal/tui/branch.go:233` — `Model.branchIssue`'s comment calls itself
-  "the one place the interface reads a branch name as an issue key" while
-  `branchDetail` (`:144`) and `taskBranches`
-  (`internal/tui/switchtask.go:63`) call `convention.IssueKey` too, and
-  `Model.jiraIssue` (`internal/tui/issuelink.go:35`) reads the branch's Jira
-  issue through `loop.JiraIssue`.
-- `internal/tui/tui.go:182` — `Model.handleKey`'s comment orders overlay,
-  help, global keys, pane; the switch (`:190`) has overlay,
-  `filteringIssues`, global, and no help step.
-- `internal/tui/overlay.go:15` — `overlay`'s comment says "Lip Gloss v1
-  cannot layer one view over another" while the module requires
-  `charm.land/lipgloss/v2`.
-- `internal/tui/render.go:427` — "status describes the configuration…" sits
-  atop `messagingLabel`'s comment block; `Model.status` (`:435`) has no
-  comment.
-- `internal/tui/keys.go:350` — `keyContexts`' comment says refresh,
-  open-link and copy-link act on the Branch, Commits, Review and
-  review-requests panes; the contexts (`:360`) give Branch and Commits only
-  `actionRefresh`, and open and copy are answered on Issues
-  (`handleIssuesKey`, `internal/tui/issuekeys.go:18`), Review
-  (`handleReviewLink`, `internal/tui/review.go:467`) and Reviews
-  (`handleReviewQueueKey`, `internal/tui/reviewqueue.go:188`).
-- `internal/tui/keys.go:62` — `keyMap`'s comment on `openLink` and
-  `copyLink`, "on the Issues and Review panes", omits the Reviews pane that
-  `handleReviewQueueKey` (`internal/tui/reviewqueue.go:188`) handles.
+Across the command line, the clients, the plumbing, the web server and the
+two layout maps, doc comments and layout rows describe an earlier shape of
+the code. No linter reads a comment, so every one passes the gate. The
+`wiring` package comment below still names the terminal as the owner of the
+seams it fills, which `internal/seams` now declares for all three surfaces.
 
 The command line:
 
