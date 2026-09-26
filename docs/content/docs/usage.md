@@ -203,9 +203,11 @@ The Commits pane lists changed files, one per row. Staging is by whole file.
 `c` opens the commit composer. The subject is built from its parts so it is
 always a well-formed [Conventional Commit](https://www.conventionalcommits.org/):
 `←`/`→` choose the type, `tab` moves to the scope and the description, and a
-ruler counts against the 72-character limit. `ctrl+b` marks it a breaking
-change, and `ctrl+o` writes the body in your editor. A `Refs:` trailer naming
-the issue is added unless the body already has one.
+ruler counts against the subject limit, 72 characters by default
+(`commit.subject_limit`). `ctrl+b` marks it a breaking change, and `ctrl+o`
+writes the body in your editor. A trailer naming the issue — `Refs:` by
+default, relabeled by `commit.refs_trailer` — is added unless the body already
+has one.
 
 With something staged and a commit not yet pushed, `A` folds the staged changes
 into the last commit and `f` records them as a `fixup!` of one you pick, each
@@ -231,8 +233,10 @@ would, so stage something first.
 
 `n` in the Review pane opens the composer:
 
-- **The title** is the branch's oldest commit subject, which on a branch of
-  Conventional Commits already reads as one.
+- **The title** is, by default, the branch's oldest commit subject, which on a
+  branch of Conventional Commits already reads as one. Set
+  `pull_request.title_source` to `issue` to start from the issue's key and
+  summary instead.
 - **The description** is the repository's pull request template, found where
   GitHub or GitLab looks for it. `ctrl+t` moves between several. With no
   template it lists the branch's commits. Either way it links the branch's
@@ -244,7 +248,8 @@ would, so stage something first.
 `enter` pushes the branch first if it is not pushed — pre-push hooks stream just
 as commit hooks do — and opens the pull request only if the push succeeded.
 
-The Review pane then follows CI, asking every twenty seconds while checks run.
+The Review pane then follows CI while checks run, asking every twenty seconds
+by default (`timing.ci_interval`).
 `c` lists the checks and opens the selected one's page. `R` re-runs the failed
 ones, and `u` on the Branch pane rebases the branch onto its base; like a push,
 each first shows a last look naming what it acts on, and does nothing until
@@ -267,10 +272,10 @@ jacob opened a pull request: <https://github.com/…/pull/42|fix(config): redact
 ```
 
 `e` edits it in your editor, `enter` announces it now, and `w` announces it
-once CI passes; with a bot token and more than one channel to choose from,
-`←`/`→` change the channel. An announcement waiting for CI is dropped, saying
-so, if CI fails. Announcing now replaces one that is waiting, so the channel
-never reads it twice.
+once CI passes; with a bot token and more than one channel to choose from
+(`messaging.channels` names the others), `←`/`→` change the channel. An
+announcement waiting for CI is dropped, saying so, if CI fails. Announcing now
+replaces one that is waiting, so the channel never reads it twice.
 
 An announcement waits for the pull request it was written for, and no other.
 Switch to another branch while it waits, or replace the pull request, and it is
