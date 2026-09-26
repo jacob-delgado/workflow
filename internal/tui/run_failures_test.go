@@ -110,11 +110,14 @@ func TestAFailedRunOffersAPlacePrintedBeforeTheTailItKeeps(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
-	// A chatty hook names its one place first, then prints far more lines than
-	// a run keeps for its tail before it fails.
+	// A chatty hook names its one place first, then prints more lines than a
+	// run keeps for its tail (5,000) before it fails, so the place's own line is
+	// gone from what the run keeps. Only just more: every line is a message of
+	// its own through the harness, and a run far past the bound only slows the
+	// test under -race.
 	failing := failingLint()
 	failing.commitLines = slices.Concat(
-		[]string{lintJobStarts, firstFailureLine}, slices.Repeat([]string{"compiling"}, 10000),
+		[]string{lintJobStarts, firstFailureLine}, slices.Repeat([]string{"compiling"}, 5100),
 	)
 
 	// Act
