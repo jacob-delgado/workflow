@@ -75,9 +75,7 @@ func (p messagingPreview) footer(keys keyMap) []key.Binding {
 	}
 
 	buttons := []key.Binding{relabel(keys.confirm, "announce now")}
-	if p.moment == messaging.MomentReady && !p.noCI {
-		// Only a "ready for review" announcement waits for CI. A merge or a red
-		// CI has already happened; there is nothing to wait for.
+	if p.waitsForCI() {
 		buttons = append(buttons, relabel(keys.postWhenGreen, "when CI passes"))
 	}
 
@@ -141,11 +139,17 @@ func (p messagingPreview) post(m Model) (Model, tea.Cmd) {
 	return m.sendToMessaging(p.channel, p.text, p.moment)
 }
 
-// postWhenGreen posts once CI passes: now, if it already has. Only a "ready for
-// review" post waits for CI; a merge or a red CI has already happened, so there
-// is nothing to wait for and the key does nothing.
+// waitsForCI reports whether this post can wait for CI to pass. Only a "ready
+// for review" announcement can: a merge or a red CI has already happened, and a
+// pull request that reports no CI has none to wait for.
+func (p messagingPreview) waitsForCI() bool {
+	return p.moment == messaging.MomentReady && !p.noCI
+}
+
+// postWhenGreen posts once CI passes: now, if it already has. Where the post
+// cannot wait for CI, the preview does not offer the key, and it does nothing.
 func (p messagingPreview) postWhenGreen(m Model) (Model, tea.Cmd) {
-	if p.moment != messaging.MomentReady {
+	if !p.waitsForCI() {
 		return m, nil
 	}
 

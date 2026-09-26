@@ -1041,54 +1041,6 @@ unchanged, with no panic, and `TestTheWheelMovesAnOverlaysList`
 (`internal/tui/mouse_test.go:66`) passes with `cfg.UI.Keys` rebinding
 `down` and `up`.
 
-### DEBT-117 The footer offers a dead key and hides a live one
-
-Severity: low · Confidence: read
-
-Two sites break the footer's contract in opposite directions.
-`Model.commitsKeys` lists `stageAll` whenever a change is selected and
-`Stage` is wired, but `Model.stageAll` returns without a notice when
-`loop.Stageable` is empty, so with every file staged the footer shows a key
-that does nothing — on the default world (one file, wholly staged) it reads
-"a stage all", pressing `a` changes nothing and says nothing, which
-`TestStageAllWithEverythingStagedStagesNothing`
-(`internal/tui/commits_test.go:146`) pins. `commit`, by contrast, is
-offered only when something is staged. The announcement preview omits `w`
-from its footer when the pull request reports no CI, as
-`docs/content/docs/usage.md:338` promises, yet `handleKey` still routes `w`
-to `postWhenGreen`, which never reads `noCI`: pressing it out of habit
-closes the preview with "will announce … once CI passes", marks the spine's
-last stage in flight, blocks quitting behind the quit guard and polls
-`CheckStatus` on every interval for checks that will never report. It is
-recoverable by announcing with `enter`, so friction rather than a wrong
-result. UX-98 records more footer keys that break the same contract (dead
-`b` and `r`, and two scroll keys the footer omits); fix them together.
-
-- `internal/tui/commits.go:192` — `Model.commitsKeys` appends
-  `m.keys.stageAll` on a selected change and a wired `Stage`, not on
-  anything being stageable.
-- `internal/tui/commits.go:195` — the sibling gate `commit` already has:
-  `m.changes.staged() > 0`.
-- `internal/tui/commits.go:285` — `Model.stageAll` returns silently when
-  `loop.Stageable` is empty.
-- `internal/tui/messagingpreview.go:78` — `messagingPreview.footer` reads
-  `noCI` (declared at `:43`) only to hide `w`.
-- `internal/tui/messagingpreview.go:108` — `messagingPreview.handleKey`
-  routes `w` to `postWhenGreen`, which gates on the moment and `CIPassed`
-  only (`:148`), never on `noCI`.
-- `docs/content/docs/usage.md:338` — "Limits": "`w` needs checks to wait
-  for" and the preview "does not offer it"; the key still acts.
-
-**One way to fix it.** Offer `stageAll` only when
-`loop.Stageable(m.changes.changes)` is non-empty, as `commit` is gated on
-`staged()`; return early in `postWhenGreen` under the same condition
-`footer` uses (`p.noCI`).
-
-**Done when.** A screen test with every file staged refuses "a stage all"
-in the footer; a test with `w.ci = []forge.CI{{State: forge.CINone}}`
-presses `5`, `p`, `w` and sees no "will announce" notice, the footer still
-offering `p`, and no further "ci" call recorded past the horizon.
-
 ### DEBT-120 The help overlay's scroll is unclamped and its column split unbalanced
 
 Severity: low · Confidence: read

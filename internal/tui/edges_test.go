@@ -301,8 +301,11 @@ func TestAPostWaitingForCIThatNeverReportsKeepsWaiting(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
+	// CI is still running when w queues the post, and its next answer reports
+	// none. The interval is past the harness's horizon, so that answer is the
+	// one w's own check reads.
 	unreported := newWorld()
-	unreported.ciInterval = time.Millisecond
+	unreported.ciInterval = 2 * time.Second
 	unreported.ci = []forge.CI{{State: forge.CIRunning}, {State: forge.CINone}}
 
 	// Act
