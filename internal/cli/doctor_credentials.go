@@ -21,7 +21,7 @@ import (
 	"github.com/jacob-delgado/workflow/internal/wiring"
 )
 
-// reportCredentials asks each service whether its credential works.
+// reportCredentials puts each credential that can be checked to its service.
 //
 // Offline unless asked, because doctor is otherwise fast, hermetic and safe to
 // run on a machine behind a proxy or on a plane — and because its output is

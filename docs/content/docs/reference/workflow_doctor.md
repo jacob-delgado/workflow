@@ -16,9 +16,9 @@ programs are installed, which .workflow.json is in effect,
 and which required fields are still empty.
 
 Makes no network calls by default, so it is safe to run anywhere and
-tells you only that a credential is present. Add --online to ask each
-service whether the credential actually works. Add --json for the same
-facts as data, with the same masking.
+tells you only that a credential is present. Add --online to ask Jira,
+your forge and Slack whether each credential works; a webhook is left
+unchecked. Add --json for the same facts as data, with the same masking.
 
 ```
 workflow doctor [flags]
@@ -29,7 +29,7 @@ workflow doctor [flags]
 ```
   -h, --help     help for doctor
       --json     print the report as JSON
-      --online   ask each service whether its credential works
+      --online   ask Jira, the forge and Slack if each credential works (not a webhook)
 ```
 
 ### Options inherited from parent commands
