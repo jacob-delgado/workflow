@@ -938,10 +938,10 @@ handling written twice, and the spine's color-only hue — is under
 
 ## The web
 
-What is open here is the answers the server gives when a read or a write
-fails, the contract's prose, and the rules the browser derives for itself;
-what the web's gates still lack — an end-to-end run that drives a write — is
-DEBT-65, with the other gates below.
+What is open here is the mock fixtures the page is shown with, the
+contract's prose, and the rules the browser derives for itself; what the
+web's gates still lack — an end-to-end run that drives a write — is DEBT-65,
+with the other gates below.
 
 ### DEBT-128 Three mock fixtures show a shape the server never sends
 
@@ -992,37 +992,6 @@ with the mock snapshot's values.
 `{key}` and `{slug}`; `mockConfig.messaging.announcement` contains only the
 seven documented placeholders, and the mock preview text equals that
 template rendered with the mock snapshot's values.
-
-### DEBT-133 The errors page points a 500's cause at output nothing writes
-
-Severity: medium · Confidence: read
-
-"## Internal" in `docs/content/docs/errors.md:103` says the cause of a 500
-"is in the server's own output, not the response". Both places that answer
-`internal` discard the error: `writeResponseError`
-(`internal/webserver/errors.go:84`) ignores its error argument, and
-`faultProblem` (`internal/webserver/errors.go:112`) returns the generic
-internal problem without recording `err`. No non-test file in
-`internal/webserver` writes a log line (zero matches for `log.`, `slog` or
-`Stderr`, by grep) and nothing sets an `ErrorLog`. The notes writer the
-command line hands `serve` (`internal/cli/cli.go:200`, `cmd.ErrOrStderr()`)
-carries only the address line `WebServerAt` prints
-(`internal/cli/cli.go:282`).
-
-A user who meets a 500 is told to look at the terminal and finds only the
-address line; the unclassified seam error is gone, so neither the user nor
-a bug report can say what failed. `--log` (`internal/cli/cli.go:215`)
-outlines each request's method, path, status and duration, not the cause.
-CLAUDE.md says never to swallow an error.
-
-**One way to fix it.** Write the discarded error to the notes writer the
-command line already hands `serve`, one line per internal problem, through
-a func-var seam on `Handler`; or drop the sentence from
-`docs/content/docs/errors.md`.
-
-**Done when.** A test with a failing seam that no fault class matches sees
-the error's text in the notes writer, or `docs/content/docs/errors.md` no
-longer says the cause is in the output.
 
 ### DEBT-135 The contract's prose disagrees with the code at eight places
 

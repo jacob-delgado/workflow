@@ -3,7 +3,13 @@
 
 package config
 
-import "net/url"
+import (
+	"cmp"
+	"maps"
+	"net/url"
+	"slices"
+	"strings"
+)
 
 // visibleSuffix is how many trailing characters of a token stay readable, so a
 // person can tell two tokens apart without the value being usable.
@@ -88,4 +94,53 @@ func Redact(secret string) string {
 	}
 
 	return "****" + secret[len(secret)-visibleSuffix:]
+}
+
+// RedactText masks every credential c holds wherever text carries it, each as
+// Redacted shows it — a token, a webhook URL or a Jira header value down to
+// its recognizable tail, the userinfo of jira.base_url whole — so text another
+// program wrote, which could quote one, can be printed.
+func (c Config) RedactText(text string) string {
+	masks := c.credentialMasks()
+
+	// Longest first, so a credential that holds another is masked whole rather
+	// than around the one inside it, which would leave the rest showing.
+	slices.SortStableFunc(masks, func(a, b credentialMask) int {
+		return cmp.Compare(len(b.credential), len(a.credential))
+	})
+
+	redacted := text
+	for _, mask := range masks {
+		redacted = strings.ReplaceAll(redacted, mask.credential, mask.shown)
+	}
+
+	return redacted
+}
+
+// credentialMask is a credential and what is shown in its place.
+type credentialMask struct {
+	credential string
+	shown      string
+}
+
+// credentialMasks pairs each credential c holds with its mask. An unset one
+// is left out: replacing "" would splice the mask between every character.
+func (c Config) credentialMasks() []credentialMask {
+	secrets := append([]Secret{c.Jira.Token, c.Messaging.Token, c.Messaging.WebhookURL, c.Forge.Token},
+		slices.Collect(maps.Values(c.Jira.Headers))...)
+
+	masks := make([]credentialMask, 0, len(secrets)+1)
+
+	for _, secret := range secrets {
+		if secret != "" {
+			masks = append(masks, credentialMask{credential: secret.Reveal(), shown: Redact(secret.Reveal())})
+		}
+	}
+
+	parsed, err := url.Parse(c.Jira.BaseURL)
+	if err == nil && parsed.User != nil {
+		masks = append(masks, credentialMask{credential: parsed.User.String(), shown: maskedUserinfo})
+	}
+
+	return masks
 }

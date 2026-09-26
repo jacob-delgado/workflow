@@ -93,7 +93,7 @@ asks, and the error itself, prefixed `workflow:`.
 | `branch` | `Branch NAME from BASE and switch to it`, then `Created NAME` | the dry-run line, "Not created." |
 | `pr` | `Open TITLE` and `BRANCH → BASE`, then `Opened #N URL` (`!N` on GitLab) | the dry-run line, "Not opened.", the offers to link it on the issue and to move the issue to the review status, and their outcomes |
 | `announce` | the message and where it goes | that an earlier session already announced this moment, the dry-run line, "Not announced.", "Announced to …" |
-| `workflow --web` | | the address it serves on |
+| `workflow --web` | | the address it serves on, why the configuration did not load cleanly, and the cause of each failure it answers as `internal`, credentials masked |
 
 So `workflow config show | jq .` parses, and `workflow reviews | wc -l` counts
 reviews and nothing else.
