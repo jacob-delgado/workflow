@@ -1,4 +1,5 @@
 import { expect, test } from '@playwright/test'
+import { pinTheme } from './cockpit.ts'
 
 // The "system" choice resolves to the OS color scheme — before paint, in the
 // inline script in index.html, and as it changes, through the matchMedia
@@ -8,9 +9,7 @@ test('the system theme resolves to the OS scheme and follows it as it changes', 
   page,
 }) => {
   // Arrange: choose "system" and open under a dark OS
-  await page.addInitScript(() => {
-    window.localStorage.setItem('workflow-theme', 'system')
-  })
+  await pinTheme(page, 'system')
   await page.emulateMedia({ colorScheme: 'dark' })
 
   // Act: load the app

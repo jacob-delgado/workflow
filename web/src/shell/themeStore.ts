@@ -1,15 +1,11 @@
 import { create } from 'zustand'
+import { themeStorageKey } from './themeKey.ts'
 
 // The theme choices, in the order the header toggle cycles them: follow the OS,
 // then force light, then force dark, then back to following the OS.
 const themeChoices = ['system', 'light', 'dark'] as const
 
 export type ThemeChoice = (typeof themeChoices)[number]
-
-// The key the choice is saved under. The pre-paint script in index.html reads
-// it too, so the saved choice takes effect before React mounts; theme.test.tsx
-// holds that script to this key.
-export const themeStorageKey = 'workflow-theme'
 
 // readStoredChoice recovers the saved choice, defaulting to "system" when there
 // is none or storage is blocked (a private window, cleared site data). Exported

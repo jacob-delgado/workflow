@@ -1,4 +1,5 @@
 import { expect, type Locator, type Page } from '@playwright/test'
+import { themeStorageKey } from '../src/shell/themeKey.ts'
 
 // The populated cockpit as the specs that hold it or picture it open it: in
 // both themes, at a narrow, a middling and a wide window.
@@ -7,6 +8,17 @@ export const widths = [640, 1024, 1440] as const
 export const height = 900
 // The mockup's messaging service is Slack, so its section is named for it.
 export const sectionNames = ['Issues', 'Branch', 'Review', 'Slack', 'Reviews', 'Settings']
+
+// pinTheme saves a theme choice before the app paints, so the whole run is in
+// it from the first frame.
+export async function pinTheme(page: Page, choice: string): Promise<void> {
+  await page.addInitScript(
+    ({ key, value }) => {
+      window.localStorage.setItem(key, value)
+    },
+    { key: themeStorageKey, value: choice },
+  )
+}
 
 // openCockpit opens the populated cockpit in a theme in a window of a size,
 // with the checked-out issue's detail open beside, or under, the list. The
@@ -17,9 +29,7 @@ export async function openCockpit(
   size: { width: number; height: number },
   theme: string,
 ): Promise<void> {
-  await page.addInitScript((value) => {
-    window.localStorage.setItem('workflow-theme', value)
-  }, theme)
+  await pinTheme(page, theme)
   await page.emulateMedia({ reducedMotion: 'reduce' })
   await page.setViewportSize(size)
   await page.goto('/')

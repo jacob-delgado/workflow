@@ -1,7 +1,7 @@
 import { AxeBuilder } from '@axe-core/playwright'
 import { expect, test, type Locator, type Page } from '@playwright/test'
 import type { Snapshot } from '../src/api/generated/types.gen.ts'
-import { openSection, sectionNames as populatedSectionNames, themes } from './cockpit.ts'
+import { openSection, pinTheme, sectionNames as populatedSectionNames, themes } from './cockpit.ts'
 
 // Every section, in both themes: a light theme is only real once its contrast
 // holds up, so the scan runs the whole cockpit in each. The section labels are
@@ -41,9 +41,7 @@ for (const theme of themes) {
     // Arrange: pin the theme before the app paints, so the whole run is in it,
     // and answer the health read as a --dry-run server would, so the read-only
     // banner is on screen for every scan (the hermetic server has no API).
-    await page.addInitScript((value) => {
-      window.localStorage.setItem('workflow-theme', value)
-    }, theme)
+    await pinTheme(page, theme)
     await page.route('**/api/health', (route) =>
       route.fulfill({
         json: { version: '1.2.3', dry_run: true, forge_noun: 'pull request', forge_sigil: '#' },
@@ -92,9 +90,7 @@ for (const theme of themes) {
     async ({ page }) => {
       // Arrange: pin the theme before the app paints, and open the checked-out
       // issue, so its detail and work story are on screen beside the list.
-      await page.addInitScript((value) => {
-        window.localStorage.setItem('workflow-theme', value)
-      }, theme)
+      await pinTheme(page, theme)
       await page.goto('/')
       await page.getByRole('button', { name: /redact tokens before/i }).click()
       await expect(page.getByRole('link', { name: /open in jira/i })).toBeVisible()
@@ -171,9 +167,7 @@ for (const theme of themes) {
   }) => {
     // Arrange: the hermetic server has no API, so the stream, the views and the
     // issue are answered here — enough for the list's controls and the detail.
-    await page.addInitScript((value) => {
-      window.localStorage.setItem('workflow-theme', value)
-    }, theme)
+    await pinTheme(page, theme)
     await page.route('**/api/events**', (route) =>
       route.fulfill({
         contentType: 'text/event-stream',
@@ -224,9 +218,7 @@ for (const theme of themes) {
     // Arrange: a stream with no pull request yet, and the draft, the open and
     // the link answered here, so the open's outcome, its offers and a done
     // offer's status line are all on screen for the scan.
-    await page.addInitScript((value) => {
-      window.localStorage.setItem('workflow-theme', value)
-    }, theme)
+    await pinTheme(page, theme)
     await page.route('**/api/events**', (route) =>
       route.fulfill({
         contentType: 'text/event-stream',
@@ -326,9 +318,7 @@ for (const theme of themes) {
   }) => {
     // Arrange: the stream's working tree, and the stage answered here, so a
     // file's outcome line is on screen beside the buttons and the form.
-    await page.addInitScript((value) => {
-      window.localStorage.setItem('workflow-theme', value)
-    }, theme)
+    await pinTheme(page, theme)
     await page.route('**/api/events**', (route) =>
       route.fulfill({
         contentType: 'text/event-stream',
