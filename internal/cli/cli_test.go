@@ -308,6 +308,7 @@ func TestHelpExplainsBothTokens(t *testing.T) {
 		config.FileName,
 		"REPLACES",
 		"no higher than the repository root",
+		"Jira is optional",
 	}
 
 	for _, want := range wants {
