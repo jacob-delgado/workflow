@@ -5,6 +5,7 @@ package forge_test
 
 import (
 	"context"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -398,8 +399,8 @@ func TestForgeIssueMethodsRejectAnUnknownForge(t *testing.T) {
 			err := call(client, unknown)
 
 			// Assert
-			if err == nil {
-				t.Errorf("%s returned no error for an unknown forge", name)
+			if !errors.Is(err, forge.ErrUnknownForge) {
+				t.Errorf("%s for an unknown forge returned %v, want ErrUnknownForge", name, err)
 			}
 		})
 	}

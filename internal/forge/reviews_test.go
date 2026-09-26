@@ -4,6 +4,7 @@
 package forge_test
 
 import (
+	"errors"
 	"net/http"
 	"slices"
 	"strings"
@@ -231,8 +232,8 @@ func TestReviewRequestsForAnUnknownForge(t *testing.T) {
 	_, err := client.ReviewRequests(t.Context(), forge.KindUnknown)
 
 	// Assert
-	if err == nil {
-		t.Error("ReviewRequests for an unknown forge returned no error")
+	if !errors.Is(err, forge.ErrUnknownForge) {
+		t.Errorf("ReviewRequests for an unknown forge returned %v, want ErrUnknownForge", err)
 	}
 }
 
