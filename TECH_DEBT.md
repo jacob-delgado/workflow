@@ -89,20 +89,6 @@ which `internal/seams` now declares for all three surfaces.
 
 The clients:
 
-- `internal/jira/jira.go:6` — the package comment names search, read, move,
-  comment, link and whoami, not `Assign` (`internal/jira/assignee.go:13`),
-  `AddWorklog` (`internal/jira/worklog.go:33`) or `WikiFromMarkdown`
-  (`internal/jira/wiki.go:22`); `ARCHITECTURE.md:163` repeats the list
-  without `Assign` and `AddWorklog`.
-- `internal/jira/search.go:135` — `wireIssue`'s comment says the fields
-  "past Reporter ride only on the detail request"; `searchFields` (`:27`) is
-  `summary,status,issuetype,priority`, so `Description` (`:148`) and
-  `Reporter` are detail-only too.
-- `internal/jira/detail.go:32` — `LinkedIssue` is "a parent or a subtask";
-  `IssueLink.Issue` (`:45`) is a `LinkedIssue` too, as `wireLinked`'s
-  comment (`internal/jira/search.go:96`) says.
-- `internal/jira/wiki.go:14` — `boldSentinel`'s comment calls `"\x00"` "A
-  caret-feed control byte"; it is NUL, and there is no caret-feed control.
 - `internal/config/config.go:4` — the package comment says `config` "loads
   the workflow configuration file"; `Save`, `SaveOver`, `RevisionOf`,
   `ParseRevision` and `SharedMode` are exported from

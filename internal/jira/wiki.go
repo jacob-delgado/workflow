@@ -11,7 +11,7 @@ import (
 
 // boldSentinel stands in for wiki-bold's single asterisk while the emphasis
 // rewrites run, so the italic pass does not read a just-made bold as an italic.
-// A caret-feed control byte, which comment text does not carry.
+// A NUL byte, which comment text does not carry.
 const boldSentinel = "\x00"
 
 // WikiFromMarkdown rewrites the Markdown a comment was written in as the wiki

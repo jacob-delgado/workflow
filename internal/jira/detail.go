@@ -29,9 +29,9 @@ type Comment struct {
 	Created time.Time
 }
 
-// LinkedIssue is another issue referred to from this one — a parent or a
-// subtask — by key, summary and status. Its zero value (an empty Key) means
-// there is none.
+// LinkedIssue is another issue referred to from this one — a parent, a
+// subtask, or the far side of an issue link — by key, summary and status. Its
+// zero value (an empty Key) means there is none.
 type LinkedIssue struct {
 	Key     string
 	Summary string
