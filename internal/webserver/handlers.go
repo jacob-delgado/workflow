@@ -66,7 +66,7 @@ func (s *server) ListIssues(
 
 	result, err := s.deps.Search(jql, startAt)
 	if err != nil {
-		body, code := fault(err)
+		body, code := s.fault(err)
 
 		return api.ListIssuesdefaultApplicationProblemPlusJSONResponse{Body: body, StatusCode: code}, nil
 	}
@@ -90,7 +90,7 @@ func (s *server) GetIssue(_ context.Context, request api.GetIssueRequestObject) 
 				problem(api.NotFound, "issue "+request.Key+" was not found")), nil
 		}
 
-		body, code := fault(err)
+		body, code := s.fault(err)
 
 		return api.GetIssuedefaultApplicationProblemPlusJSONResponse{Body: body, StatusCode: code}, nil
 	}
@@ -113,7 +113,7 @@ func (s *server) browseURL(key jira.Key) string {
 func (s *server) GetBranch(_ context.Context, _ api.GetBranchRequestObject) (api.GetBranchResponseObject, error) {
 	branch, err := s.readBranch()
 	if err != nil {
-		body, code := fault(err)
+		body, code := s.fault(err)
 
 		return api.GetBranchdefaultApplicationProblemPlusJSONResponse{Body: body, StatusCode: code}, nil
 	}
@@ -150,7 +150,7 @@ func (s *server) branchAfter(fallback gitrepo.Branch) gitrepo.Branch {
 func (s *server) ListChanges(_ context.Context, _ api.ListChangesRequestObject) (api.ListChangesResponseObject, error) {
 	changes, err := s.readChanges()
 	if err != nil {
-		body, code := fault(err)
+		body, code := s.fault(err)
 
 		return api.ListChangesdefaultApplicationProblemPlusJSONResponse{Body: body, StatusCode: code}, nil
 	}
@@ -173,7 +173,7 @@ func (s *server) readChanges() ([]gitrepo.Change, error) {
 func (s *server) GetReview(_ context.Context, _ api.GetReviewRequestObject) (api.GetReviewResponseObject, error) {
 	review, err := s.readReview()
 	if err != nil {
-		body, code := fault(err)
+		body, code := s.fault(err)
 
 		return api.GetReviewdefaultApplicationProblemPlusJSONResponse{Body: body, StatusCode: code}, nil
 	}
@@ -259,7 +259,7 @@ func (s *server) ListReviews(
 	}
 
 	if err != nil {
-		body, code := fault(err)
+		body, code := s.fault(err)
 
 		return api.ListReviewsdefaultApplicationProblemPlusJSONResponse{Body: body, StatusCode: code}, nil
 	}

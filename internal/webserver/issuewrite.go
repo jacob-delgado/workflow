@@ -47,7 +47,7 @@ func (s *server) LinkPullRequest(
 
 	err = s.deps.LinkPullRequest(issueKey, pull.URL, pull.Title)
 	if err != nil {
-		body, code := fault(err)
+		body, code := s.fault(err)
 
 		return api.LinkPullRequestdefaultApplicationProblemPlusJSONResponse{Body: body, StatusCode: code}, nil
 	}
@@ -91,7 +91,7 @@ func (s *server) linkRefusal(err error, issueKey jira.Key) api.LinkPullRequestRe
 		return api.LinkPullRequest409ApplicationProblemPlusJSONResponse(problem(api.Conflict,
 			"the checked-out branch has no "+s.noun()+" to link on "+string(issueKey)))
 	default:
-		body, code := fault(err)
+		body, code := s.fault(err)
 
 		return api.LinkPullRequestdefaultApplicationProblemPlusJSONResponse{Body: body, StatusCode: code}
 	}
@@ -114,12 +114,12 @@ func (s *server) TransitionIssue(
 
 	move, err := loop.FindReviewTransition(s.deps.Transitions, issueKey, status)
 	if err != nil {
-		return transitionRefusal(err, issueKey, status), nil
+		return s.transitionRefusal(err, issueKey, status), nil
 	}
 
 	err = s.deps.Transition(issueKey, move, nil)
 	if err != nil {
-		body, code := fault(err)
+		body, code := s.fault(err)
 
 		return api.TransitionIssuedefaultApplicationProblemPlusJSONResponse{Body: body, StatusCode: code}, nil
 	}
@@ -130,7 +130,7 @@ func (s *server) TransitionIssue(
 // transitionRefusal answers a move to the review status that was not made, in
 // words that say what to do; a tracker that could not be read is the curated
 // fault, which never carries the tracker's address.
-func transitionRefusal(err error, issueKey jira.Key, status string) api.TransitionIssueResponseObject {
+func (s *server) transitionRefusal(err error, issueKey jira.Key, status string) api.TransitionIssueResponseObject {
 	switch {
 	case errors.Is(err, loop.ErrNoReviewStatus):
 		return api.TransitionIssue422ApplicationProblemPlusJSONResponse(problem(api.Unprocessable,
@@ -143,7 +143,7 @@ func transitionRefusal(err error, issueKey jira.Key, status string) api.Transiti
 		return api.TransitionIssue409ApplicationProblemPlusJSONResponse(problem(api.Conflict,
 			"Jira offers no move of "+string(issueKey)+" to "+status+" from where it stands"))
 	default:
-		body, code := fault(err)
+		body, code := s.fault(err)
 
 		return api.TransitionIssuedefaultApplicationProblemPlusJSONResponse{Body: body, StatusCode: code}
 	}

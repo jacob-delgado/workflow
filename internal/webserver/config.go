@@ -28,14 +28,14 @@ func (s *server) GetConfig(_ context.Context, _ api.GetConfigRequestObject) (api
 	}
 
 	if err != nil {
-		body, code := fault(err)
+		body, code := s.fault(err)
 
 		return api.GetConfigdefaultApplicationProblemPlusJSONResponse{Body: body, StatusCode: code}, nil
 	}
 
 	out, err := configDTO(cfg)
 	if err != nil {
-		body, code := fault(err)
+		body, code := s.fault(err)
 
 		return api.GetConfigdefaultApplicationProblemPlusJSONResponse{Body: body, StatusCode: code}, nil
 	}
@@ -124,14 +124,14 @@ func (s *server) writeOver(posted api.Config, over basis) api.UpdateConfigRespon
 	}
 
 	if err != nil {
-		body, code := fault(err)
+		body, code := s.fault(err)
 
 		return api.UpdateConfigdefaultApplicationProblemPlusJSONResponse{Body: body, StatusCode: code}
 	}
 
 	out, err := configDTO(saved)
 	if err != nil {
-		body, code := fault(err)
+		body, code := s.fault(err)
 
 		return api.UpdateConfigdefaultApplicationProblemPlusJSONResponse{Body: body, StatusCode: code}
 	}
