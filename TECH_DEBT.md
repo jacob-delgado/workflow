@@ -478,11 +478,6 @@ The web:
   (`:338`) passes because jsdom does not move focus off a disabled control,
   while `IssueUnread`'s `disabled={retrying}`
   (`web/src/features/issues/IssueDetailPanel.tsx:81`) drops it in Chromium.
-- `web/src/features/issues/IssueListControls.test.tsx:124` — "offers no view
-  select when the views cannot be read" waits only for a request, and
-  `queryByRole('combobox')` (`:126`) is null while pending too, since
-  `ViewSelect` (`web/src/features/issues/IssueListControls.tsx:50`) returns
-  null for an empty list either way.
 - `web/src/features/writes.test.tsx:326` — the writes table discards the
   `Request[]` that `fakeApi` (`web/src/test/fakeApi.ts:14`) returns for
   exactly this, so `breaking: fields.breaking` in `CommitForm`
@@ -512,15 +507,13 @@ The regressions these tests exist to catch pass the suite green: a
 or body.
 
 **One way to fix it.** Sharpen each Assert to what its name claims:
-`aria-disabled` on Retry or a Playwright focus case; the refused read
-awaited before asserting the select is absent; the recorded requests read
-for their bodies; raw-file reads that parse each `_at`, a cascade a test
-makes fire, and each Arrange's error fatal.
+`aria-disabled` on Retry or a Playwright focus case; the recorded requests
+read for their bodies; raw-file reads that parse each `_at`, a cascade a
+test makes fire, and each Arrange's error fatal.
 
 **Done when.** Each named mutation fails a test: changing `timestamp()` to
 `now.String()`, removing `foreign_keys(1)` from `dsnPragmas`, or making
-`RecordScope` or `CacheIssues` return nil without writing; rendering a
-select while `useViews` is in error; and deleting
+`RecordScope` or `CacheIssues` return nil without writing; and deleting
 `breaking: fields.breaking` from `web/src/features/branch/CommitForm.tsx`.
 
 ### DEBT-105 The contributor documents restate counts and names the tree has moved past
