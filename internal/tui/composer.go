@@ -365,17 +365,8 @@ func (c commitComposer) commit(m Model) (Model, tea.Cmd) {
 		func(done Model) (Model, tea.Cmd) {
 			done.draft = commitDraft{}
 			done = done.closeOverlay().noticed(done.marks.done + " committed " + subject.String())
-			done.recordScope(subject.Scope)
+			loop.RememberScope(done.deps.Store.RecordScope, subject.Scope)
 
 			return done, tea.Batch(done.loadChanges(), done.loadBranch())
 		})
-}
-
-// recordScope remembers a real scope just committed, so the composer opens on it
-// next time. An empty scope is not recorded: it would otherwise erase a learned
-// scope and mask the configured default.
-func (m Model) recordScope(scope string) {
-	if scope != "" && m.deps.Store.RecordScope != nil {
-		m.deps.Store.RecordScope(scope)
-	}
 }
