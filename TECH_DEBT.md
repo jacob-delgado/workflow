@@ -992,29 +992,6 @@ through `loop.ComposePull`'s draft and fill the composer from it.
 branch naming an issue absent from the world's list sees the issue's
 summary as the title.
 
-### DEBT-115 A `ui.keys` override of `down` or `up` leaves the wheel dead in every picker
-
-Severity: medium · Confidence: read
-
-The wheel synthesizes `tea.KeyDown` and `tea.KeyUp` for overlays, which the
-pickers match against `m.keys.down` and `m.keys.up`, so a `down` or `up`
-that `ui.keys` rebinds leaves the wheel dead in every picker.
-
-- `internal/tui/mouse.go:100` — `Model.wheel` builds
-  `tea.KeyPressMsg{Code: tea.KeyDown}` rather than the bound key.
-- `internal/tui/picker.go:319` — `statusPicker.handleKey` matches the
-  synthesized key against `m.keys.down`; so do
-  `branchPicker.handleKey` (`internal/tui/switchtask.go:159`),
-  `statusPicker.handleFormKey` (`internal/tui/fields.go:240`) and
-  `fixupPicker.handleKey` (`internal/tui/picker.go:466`).
-
-**One way to fix it.** Give `pickList` a `moved(step)` path the wheel calls
-through a small overlay method.
-
-**Done when.** `TestTheWheelMovesAnOverlaysList`
-(`internal/tui/mouse_test.go:66`) passes with `cfg.UI.Keys` rebinding
-`down` and `up`.
-
 ### DEBT-125 The interface composes what `loop` composes once: announcement, draft, memory
 
 Severity: low · Confidence: read

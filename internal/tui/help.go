@@ -35,6 +35,7 @@ var (
 	_ overlay       = helpOverlay{}
 	_ lightBordered = helpOverlay{}
 	_ scrollable    = helpOverlay{}
+	_ steppable     = helpOverlay{}
 )
 
 func (helpOverlay) lightBorder() {}
@@ -88,14 +89,22 @@ func (h helpOverlay) handleKey(m Model, msg tea.KeyPressMsg) (Model, tea.Cmd) {
 	case key.Matches(msg, m.keys.toggleHelp, m.keys.closeOverlay):
 		return m.closeOverlay(), nil
 	case key.Matches(msg, m.keys.scrollDown, m.keys.down):
-		h = h.scrollBy(m, m.halfPage())
+		return h.step(m, 1), nil
 	case key.Matches(msg, m.keys.scrollUp, m.keys.up):
-		h = h.scrollBy(m, -m.halfPage())
+		return h.step(m, -1), nil
 	}
 
 	m.overlay = h
 
 	return m, nil
+}
+
+// step scrolls the key list by delta half pages, as the scroll keys and up and
+// down do.
+func (h helpOverlay) step(m Model, delta int) Model {
+	m.overlay = h.scrollBy(m, delta*m.halfPage())
+
+	return m
 }
 
 // scrollBy moves the key list by delta lines from where it is drawn, clamped to

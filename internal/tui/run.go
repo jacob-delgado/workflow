@@ -58,6 +58,7 @@ type commandRun struct {
 var (
 	_ overlay   = commandRun{}
 	_ clickable = commandRun{}
+	_ steppable = commandRun{}
 )
 
 // startRun opens a run and starts its program.
@@ -336,14 +337,23 @@ func (r commandRun) handleKey(m Model, msg tea.KeyPressMsg) (Model, tea.Cmd) {
 	case key.Matches(msg, m.keys.fullOutput):
 		r.showOutput = !r.showOutput
 	case key.Matches(msg, m.keys.down):
-		r.failures = r.failures.moved(1)
+		return r.step(m, 1), nil
 	case key.Matches(msg, m.keys.up):
-		r.failures = r.failures.moved(-1)
+		return r.step(m, -1), nil
 	}
 
 	m.overlay = r
 
 	return m, nil
+}
+
+// step moves the choice of place by delta. A run still going has no places yet:
+// they are found once it fails.
+func (r commandRun) step(m Model, delta int) Model {
+	r.failures = r.failures.moved(delta)
+	m.overlay = r
+
+	return m
 }
 
 // stopRun kills a running program when the stop key is pressed, and ends the

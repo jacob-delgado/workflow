@@ -9,6 +9,8 @@ import (
 
 	tea "charm.land/bubbletea/v2"
 
+	"github.com/jacob-delgado/workflow/internal/forge"
+	"github.com/jacob-delgado/workflow/internal/jira"
 	"github.com/jacob-delgado/workflow/internal/tui"
 )
 
@@ -63,25 +65,197 @@ func TestTheWheelScrollsTheDetail(t *testing.T) {
 	}
 }
 
+// The actions a turn of the wheel stands in for, as ui.keys names them.
+const (
+	downAction = "down"
+	upAction   = "up"
+)
+
+// choosingStatus is a world whose issue can move two ways.
+func choosingStatus() *world {
+	choosing := newWorld()
+	choosing.moves = workflowMoves()
+
+	return choosing
+}
+
+// resolvingIssue is a world whose one move asks for a resolution, chosen from
+// two, and then a root cause, typed in.
+func resolvingIssue() *world {
+	resolving := newWorld()
+	resolving.moves = []jira.Transition{resolveIssue()}
+
+	return resolving
+}
+
+// switchingTwoWays is a clean tree with two other task branches to switch to.
+func switchingTwoWays() *world {
+	switching := cleanSwitcher()
+	switching.branches = append(switching.branches, "feat/PROJ-500-add-metrics")
+
+	return switching
+}
+
+// mergeableTwoWays is a pull request ready to merge by either of two methods.
+func mergeableTwoWays() *world {
+	reviewing := mergeable()
+	reviewing.mergeMethods = []forge.MergeMethod{forge.MergeCommit, forge.MergeSquash}
+
+	return reviewing
+}
+
+// wheeledOverlay is an overlay that moves on up and down: the world it opens
+// in, the keys that open it, and what it shows once the wheel has turned a
+// notch down and then a notch back up.
+type wheeledOverlay struct {
+	world    func() *world
+	height   int
+	open     []string
+	down, up string
+}
+
+// overlaysTheWheelMoves is every overlay that moves on up and down, each with
+// something to move through.
+func overlaysTheWheelMoves() map[string]wheeledOverlay {
+	return map[string]wheeledOverlay{
+		"the status picker": {
+			world: choosingStatus, height: 40, open: []string{"t"}, down: "▸ ● Done", up: "▸ ◐ Start Review",
+		},
+		"a transition's options": {
+			world: resolvingIssue, height: 40, open: []string{"t", keyEnter}, down: "▸ Won't Fix", up: "▸ Fixed",
+		},
+		"the task switcher": {
+			world: switchingTwoWays, height: 40, open: []string{"2", "s"}, down: "▸ PROJ-500", up: "▸ PROJ-388",
+		},
+		"the fixup picker": {
+			world: twoUnpushedWorld, height: 40, open: []string{"3", "f"}, down: "▸ aaa1111", up: "▸ bbb2222",
+		},
+		"the merge preview": {
+			world: mergeableTwoWays, height: 40, open: []string{"4", "M"},
+			down: "▸ squash and merge", up: "▸ merge commit",
+		},
+		"the checks": {
+			world: checkedCI, height: 40, open: []string{"4", "c"}, down: "▸ ● build", up: "▸ ✗ lint",
+		},
+		"a failed run's places": {
+			world: failingLint, height: 40, open: commitKeys("x"), down: "▸ b.go:2 second", up: "▸ a.go:1 first",
+		},
+		"the help": {
+			world: newWorld, height: 20, open: []string{"?"}, down: "Branch and Commits", up: "Moving around",
+		},
+	}
+}
+
 func TestTheWheelMovesAnOverlaysList(t *testing.T) {
 	t.Parallel()
 
+	keymaps := map[string]map[string]string{
+		"on the default keys": nil,
+		// The wheel moves an overlay as its up and down do, wherever ui.keys has
+		// moved them, and not by pressing the arrow keys they are bound to by default.
+		"with up and down rebound": {downAction: "ctrl+j", upAction: "ctrl+k"},
+	}
+
+	for overlayName, overlay := range overlaysTheWheelMoves() {
+		for keymapName, keymap := range keymaps {
+			t.Run(overlayName+" "+keymapName, func(t *testing.T) {
+				t.Parallel()
+
+				// Arrange
+				moving := overlay.world()
+				moving.cfg.UI.Keys = keymap
+				opened := typing(t, moving.live(t, 120, overlay.height), overlay.open...)
+
+				// Act: wheel down
+				down := wheel(t, opened, 80, 10, tea.MouseWheelDown)
+
+				// Assert: the overlay moves down
+				requireScreen(t, down.View().Content, overlay.down)
+
+				// Act: wheel up
+				up := wheel(t, down, 80, 10, tea.MouseWheelUp)
+
+				// Assert: and back up
+				requireScreen(t, up.View().Content, overlay.up)
+			})
+		}
+	}
+}
+
+func TestTheWheelCyclesAComposersSuggestions(t *testing.T) {
+	t.Parallel()
+
 	// Arrange
-	choosing := newWorld()
-	choosing.moves = workflowMoves()
-	picker := typing(t, choosing.live(t, 120, 40), "t")
+	// A composer has no list of its own to step, so the wheel turns as the arrow
+	// keys do there: through the scopes offered for what is typed. There are
+	// three, so turning back up cannot land where a second turn down would.
+	world := newWorld()
+	world.recentSubjects = []string{"feat(ideas): a", "fix(infra): b", "docs(inputs): c"}
+	opened := typing(t, world.live(t, 120, 40), append([]string{"3", "c", keyShiftTab}, letters("i")...)...)
 
 	// Act: wheel down
-	down := wheel(t, picker, 80, 10, tea.MouseWheelDown)
+	down := wheel(t, opened, 80, 10, tea.MouseWheelDown)
 
-	// Assert: the selection moves down
-	requireScreen(t, down.View().Content, "▸ ● Done")
+	// Assert: the next scope is offered
+	requireScreen(t, down.View().Content, "scope   > infra")
+	refuseScreen(t, down.View().Content, "ideas")
 
 	// Act: wheel up
 	up := wheel(t, down, 80, 10, tea.MouseWheelUp)
 
-	// Assert: and back up
-	requireScreen(t, up.View().Content, "▸ ◐ Start Review")
+	// Assert: and the first again
+	requireScreen(t, up.View().Content, "scope   > ideas")
+}
+
+func TestTheWheelMovesNothingWhileAnOverlaySends(t *testing.T) {
+	t.Parallel()
+
+	// Each overlay is opened and enter pressed, its request left unanswered.
+	cases := map[string]struct {
+		world func() *world
+		open  []string
+	}{
+		"a status change": {world: choosingStatus, open: []string{"t"}},
+		"a switch":        {world: switchingTwoWays, open: []string{"2", "s"}},
+		"a merge":         {world: mergeableTwoWays, open: []string{"4", "M"}},
+	}
+
+	for name, tt := range cases {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			// Arrange
+			opened := typing(t, tt.world().live(t, 120, 40), tt.open...)
+			sending, _ := pressed(t, opened, keyEnter)
+
+			// Act
+			after := wheel(t, sending, 80, 10, tea.MouseWheelDown)
+
+			// Assert
+			if after.View().Content != sending.View().Content {
+				t.Errorf("the wheel changed the screen while %s is sent:\n%s", name, plain(after.View().Content))
+			}
+		})
+	}
+}
+
+func TestTheWheelWhileTheMethodsAreReadLeavesTheFirstChosen(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	// The wheel turns while the methods are still out, and they land after it.
+	reviewing := mergeableTwoWays()
+	picker, read := pressed(t, typing(t, reviewing.live(t, 120, 40), "4"), "M")
+	turned := wheel(t, picker, 80, 10, tea.MouseWheelDown)
+	loaded, _ := finish(t, turned, read)
+
+	// Act
+	typing(t, loaded, keyEnter)
+
+	// Assert
+	if calls := reviewing.asked("merge 42 merge"); len(calls) != 1 {
+		t.Errorf("merge calls = %q, want the first method", reviewing.asked("merge 42"))
+	}
 }
 
 func TestClickingPicksAnIssue(t *testing.T) {

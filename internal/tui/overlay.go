@@ -31,6 +31,13 @@ type clickable interface {
 	click(m Model, line int) (Model, tea.Cmd)
 }
 
+// steppable is an overlay that moves on up and down: through a list, or down its
+// lines. step moves it by delta, as those keys do, so the wheel moves it
+// without pressing a key that ui.keys may have moved elsewhere.
+type steppable interface {
+	step(m Model, delta int) Model
+}
+
 // scrollable is an overlay that can be taller than the pane it is drawn in. It
 // says when it is, so its footer offers the scroll keys only where they move it.
 type scrollable interface {
