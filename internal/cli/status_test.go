@@ -15,6 +15,9 @@ import (
 	"github.com/jacob-delgado/workflow/internal/messaging"
 )
 
+// stageDone is the JSON word for a stage that is complete.
+const stageDone = "done"
+
 func TestStatusOutsideARepositoryReportsSo(t *testing.T) {
 	// Act
 	_, err := run(t, t.TempDir(), "status")
@@ -300,7 +303,7 @@ func TestStatusJSONReportsTheSameAsData(t *testing.T) {
 	}
 
 	if report.Issue != "PROJ-7" || report.CI != "passed" || len(report.Stages) != 5 ||
-		report.Stages[3]["state"] != "done" {
+		report.Stages[3]["state"] != stageDone {
 		t.Errorf("status JSON = %+v, want the issue, passed CI and five stages", report)
 	}
 }
@@ -364,7 +367,7 @@ func TestStatusJSONReadsAnEarlierAnnouncementAsDone(t *testing.T) {
 		t.Fatalf("output is not JSON: %v\n%s", err, printed.stdout)
 	}
 
-	if len(report.Stages) != 5 || report.Stages[4]["name"] != "Slack" || report.Stages[4]["state"] != "done" {
+	if len(report.Stages) != 5 || report.Stages[4]["name"] != "Slack" || report.Stages[4]["state"] != stageDone {
 		t.Errorf("status JSON stages = %+v, want the Slack stage done", report.Stages)
 	}
 }

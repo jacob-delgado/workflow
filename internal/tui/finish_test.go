@@ -52,6 +52,22 @@ func TestAMergedBranchDoesNotSitOnCheckingCI(t *testing.T) {
 	refuseScreen(t, view, "checking")
 }
 
+func TestTheSpineReadsTheReviewOfAMergedBranchAsDone(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	// A merged pull request has no CI to pass, so only its merge can finish the
+	// review stage the rail already calls merged.
+	merged := mergedBranch()
+
+	// Act
+	view := typing(t, merged.live(t, 120, 40), "4").View().Content
+
+	// Assert
+	requireScreen(t, view, "● merged")
+	requireScreen(t, spineLine(view), "● Commits ─ ● Review ─")
+}
+
 func TestFinishIsNotOfferedWithUnpushedCommits(t *testing.T) {
 	t.Parallel()
 

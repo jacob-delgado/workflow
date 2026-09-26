@@ -1804,10 +1804,10 @@ finds nothing.
 
 ## Across the surfaces
 
-What is open here is worktrees and a fresh base beyond the terminal, a
-merged branch's stage, GitHub- and terminal-shaped sentences, four dry runs
-that say less than the live path, failed reads told as empty answers,
-failures that tell less than the seam knows, and sentences that disagree.
+What is open here is worktrees and a fresh base beyond the terminal,
+GitHub- and terminal-shaped sentences, four dry runs that say less than the
+live path, failed reads told as empty answers, failures that tell less than
+the seam knows, and sentences that disagree.
 
 ### UX-89 Worktrees and a fresh base on the command line and the web
 
@@ -1825,52 +1825,6 @@ the web's start-work flow; both through the shared composition layer,
 
 **Done when.** `workflow branch KEY --worktree` creates a directory beside
 the repository and says where.
-
-### UX-125 The surfaces disagree on a merged branch's review stage
-
-Impact: medium · Effort: medium
-
-**Today.** Once a pull request has merged, the surfaces disagree on the
-same branch: the command line says the review never began, the terminal's
-spine says it is still going, and only the browser says it merged. `status`
-already reads the store's announce memory as the spine does, so its last
-stage agrees once it counts a merged pull request as found. The Review pane
-already offers `n` on the same state.
-
-- `status`: `○ Review` and the JSON state `not_started` (`gatherReview`,
-  `internal/cli/status.go:285`; the comment at `:286` says a merged branch
-  is treated as having no open review). The scripting guide's last-stage
-  sentence (`docs/content/docs/scripting.md:125`) says `done` only for an
-  open pull request, and widens to a merged one with this fix.
-- The spine: the review stage in flight on a fresh session. `reviewState`,
-  `internal/progress/progress.go:115`, has no case for a merged pull and
-  reaches `Done` only through `CIPassed`, while `pullFound.apply`,
-  `internal/tui/review.go:102`, keeps `found: msg.found` whatever the pull's
-  state — the opposite choice from `status`.
-- The review rail, `internal/tui/review.go:273`: "● merged", in the Review
-  pane below the spine's in-flight stage.
-- `checkCI`, `internal/tui/review.go:115`, never polls a merged pull, so
-  the spine's stage never reaches `Done` through `CIPassed` either.
-- `Model.work`, `internal/tui/spine.go:91`, passes `m.review.found` as
-  `PullRequestFound`, true for a merged pull as much as an open one.
-- `Work.PullRequestFound`, `internal/progress/progress.go:49`, is
-  documented as an open pull request, which the spine does not hold to.
-- `StateMerged`, `internal/forge/pulls.go:61`: "so its branch's work is
-  done" — what no surface's stage says.
-
-No test in `internal/cli/status_test.go` or `internal/progress` uses a
-merged fixture; `mergedPull` (`internal/cli/forgefake_test.go:40`) serves
-the announce and standup tests only.
-
-**Instead.** Give `progress.Work` the pull's state (open, merged or none)
-and let `reviewState` read merged as `Done`, set from both `gatherReview`
-and the interface's `work()`, so the command line, the spine and the rail
-agree; the browser's State row already reads the wire `state`.
-
-**Done when.** A `status` test with a merged pull request fixture prints
-`● Review` and JSON state `done`, a spine screen test on the same fixture
-shows the review stage done beside the rail's "● merged", and a progress
-table case for a merged pull exists.
 
 ### UX-126 Sentences that assume GitHub or the terminal, told elsewhere
 

@@ -260,7 +260,7 @@ func gather(seams statusSeams, branch gitrepo.Branch) statusFacts {
 	}
 
 	onFeature := branch.Name != "" && branch.Name != branch.BaseName()
-	pull, found, ciState := gatherReview(seams, branch, onFeature)
+	pull, review, ciState := gatherReview(seams, branch, onFeature)
 	facts.ci = ciState
 
 	facts.stages = progress.Stages(progress.Work{
@@ -268,10 +268,10 @@ func gather(seams statusSeams, branch gitrepo.Branch) statusFacts {
 		IssueNamed:         named,
 		Commits:            len(branch.Commits),
 		UncommittedChanges: countChanges(seams),
-		PullRequestFound:   found,
+		PullRequest:        review,
 		CI:                 ciState,
 		ChangesRequested:   pull.ChangesRequested,
-		Announced:          found && announcedNow(seams.Memory, pull, ciState),
+		Announced:          review != progress.NoPullRequest && announcedNow(seams.Memory, pull, ciState),
 	}, seams.Service)
 
 	return facts
@@ -293,26 +293,32 @@ func announcedNow(memory loop.AnnounceMemory, pull forge.PullRequest, ciState fo
 	return memory.Holds(loop.Announced{Pull: pull.Number, Moment: loop.AnnounceMoment(pull, forge.CI{State: ciState})})
 }
 
-// gatherReview looks for the branch's pull request and its CI, on a feature
-// branch with a forge to ask.
-func gatherReview(seams statusSeams, branch gitrepo.Branch, onFeature bool) (forge.PullRequest, bool, forge.CIState) {
+// gatherReview looks for the branch's pull request, where it stands and its
+// CI, on a feature branch with a forge to ask.
+func gatherReview(
+	seams statusSeams, branch gitrepo.Branch, onFeature bool,
+) (forge.PullRequest, progress.PullState, forge.CIState) {
 	if !onFeature {
-		return forge.PullRequest{}, false, forge.CINone
+		return forge.PullRequest{}, progress.NoPullRequest, forge.CINone
 	}
 
 	pull, found, err := seams.FindPull(branch.Name)
-	if err != nil || !found || !pull.IsOpen() {
-		// A merged pull request is found but has no live CI to poll, so the status
-		// line treats a merged branch as having no open review.
-		return forge.PullRequest{}, false, forge.CINone
+	if err != nil || !found {
+		return forge.PullRequest{}, progress.NoPullRequest, forge.CINone
+	}
+
+	if !pull.IsOpen() {
+		// A merged pull request has no live CI to poll: its review is over, as
+		// the interface's spine and rail say too.
+		return pull, progress.PullStateOf(pull.State), forge.CINone
 	}
 
 	status, err := seams.CheckStatus(pull, branch.Head)
 	if err != nil {
-		return pull, true, forge.CINone
+		return pull, progress.PullRequestOpen, forge.CINone
 	}
 
-	return pull, true, status.State
+	return pull, progress.PullRequestOpen, status.State
 }
 
 // countChanges is how many files have uncommitted changes, or zero when they

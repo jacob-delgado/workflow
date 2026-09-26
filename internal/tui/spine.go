@@ -88,12 +88,22 @@ func (m Model) work() progress.Work {
 		IssueSelected:      selected,
 		Commits:            len(m.branch.branch.Commits),
 		UncommittedChanges: len(m.changes.changes),
-		PullRequestFound:   m.review.found,
+		PullRequest:        m.pullState(),
 		CI:                 m.review.ci.State,
 		ChangesRequested:   m.review.pull.ChangesRequested,
 		Announced:          m.announced(),
 		PostPending:        m.messaging.pending.waiting(),
 	}
+}
+
+// pullState is where the branch's pull request stands, for the stages: a
+// merged one, as the rail says, has finished its review.
+func (m Model) pullState() progress.PullState {
+	if !m.review.found {
+		return progress.NoPullRequest
+	}
+
+	return progress.PullStateOf(m.review.pull.State)
 }
 
 // glyphFor is the mark for a stage's state, in this session's glyph set.
