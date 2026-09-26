@@ -156,8 +156,8 @@ type MessagingDeps struct {
 }
 
 // StoreDeps is what the interface asks of the on-disk store, bound to this
-// repository. Nil functions mean no store — a disabled one, or nowhere to keep
-// it — so the interface simply learns nothing.
+// repository. Nil functions mean no store — a disabled one, nowhere to keep it,
+// or a dry run — so the interface simply learns nothing.
 type StoreDeps struct {
 	// LastScope is the commit scope last used in this repository, if one was, so
 	// the composer can open on it.
