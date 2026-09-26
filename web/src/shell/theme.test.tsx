@@ -4,7 +4,8 @@ import App from '@/App.tsx'
 import { listenerCount } from '@/test/matchMedia.ts'
 import { renderWithClient } from '@/test/renderWithClient.tsx'
 import indexHtml from '../../index.html?raw'
-import { readStoredChoice, themeStorageKey } from './themeStore.ts'
+import { themeStorageKey } from './themeKey.ts'
+import { readStoredChoice } from './themeStore.ts'
 
 test('the theme toggle cycles system, light, dark and remembers the choice', async () => {
   // Arrange

@@ -5,6 +5,7 @@ import { useHealthStore } from './api/health.ts'
 import { useSnapshotStore } from './api/snapshot.ts'
 import { FakeEventSource } from './test/fakeEventSource.ts'
 import { installMatchMedia, resetMatchMedia } from './test/matchMedia.ts'
+import { themeStorageKey } from './shell/themeKey.ts'
 import { useThemeStore } from './shell/themeStore.ts'
 import { useUiStore } from './shell/uiStore.ts'
 
@@ -50,7 +51,7 @@ afterEach(() => {
   useSnapshotStore.setState(initialSnapshot)
   useHealthStore.setState(initialHealth)
   useThemeStore.setState({ choice: 'system' })
-  localStorage.removeItem('workflow-theme')
+  localStorage.removeItem(themeStorageKey)
   FakeEventSource.reset()
   resetMatchMedia()
   vi.unstubAllEnvs()

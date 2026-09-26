@@ -720,10 +720,10 @@ know about.
   gate working as designed, since a budget left above its count fails too:
   the next file in any of them is a decision (a split, or a bump with the
   WHY rewritten and a history row), not an accident. A directory the file
-  does not list answers to the default, which `internal/forge` fills
-  exactly, so its next file is a first entry with its WHY. The cost is
-  that any change adding a file there must carry its budget row in the
-  same commit or fail `task check`.
+  does not list answers to the default, which `internal/forge` and
+  `web/src/shell` fill exactly, so the next file in either is a first
+  entry with its WHY. The cost is that any change adding a file there
+  must carry its budget row in the same commit or fail `task check`.
 - **Seven test files stay past the 500-line soft target**, all under the
   800 ceiling (`scripts/check-file-length.sh --list`). They were left whole
   on purpose when the source files past the target were split by concern;
