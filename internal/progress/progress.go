@@ -28,10 +28,27 @@ const (
 	Failed
 )
 
-// Stage is one step of the loop and how far it has got.
+// System is where a stage's work happens, which the terminal's spine colors it
+// by.
+type System int
+
+const (
+	// Tracker is the issue tracker: Jira, or the forge's own issues.
+	Tracker System = iota
+	// Git is the repository.
+	Git
+	// Forge is the pull request's host: GitHub or GitLab.
+	Forge
+	// Messaging is the service the work is announced on.
+	Messaging
+)
+
+// Stage is one step of the loop, the system its work happens in, and how far
+// it has got.
 type Stage struct {
-	Name  string
-	State State
+	Name   string
+	System System
+	State  State
 }
 
 // PullState is where the branch's pull request stands, as far as the loop is
@@ -90,16 +107,16 @@ type Work struct {
 	PostPending bool
 }
 
-// Stages is the loop's five stages, in order, each with how far it has got. The
-// last is named for the messaging service the work is announced on — Slack,
-// Teams, Discord or Webhook — as the configuration names it.
+// Stages is the loop's five stages, in order, each with its system and how far
+// it has got. The last is named for the messaging service the work is announced
+// on — Slack, Teams, Discord or Webhook — as the configuration names it.
 func Stages(work Work, messagingService string) []Stage {
 	return []Stage{
-		{Name: "Issue", State: issueState(work)},
-		{Name: "Branch", State: branchState(work)},
-		{Name: "Commits", State: commitState(work)},
-		{Name: "Review", State: reviewState(work)},
-		{Name: messagingService, State: announceState(work)},
+		{Name: "Issue", System: Tracker, State: issueState(work)},
+		{Name: "Branch", System: Git, State: branchState(work)},
+		{Name: "Commits", System: Git, State: commitState(work)},
+		{Name: "Review", System: Forge, State: reviewState(work)},
+		{Name: messagingService, System: Messaging, State: announceState(work)},
 	}
 }
 

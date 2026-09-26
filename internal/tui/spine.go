@@ -62,16 +62,20 @@ func (m Model) paintGlyph(s stage) string {
 	return s.hue.Render(s.glyph)
 }
 
-// stages works out how far along the loop the work is, in each stage's own hue,
-// from the shared derivation both this spine and `workflow status` read.
+// stages works out how far along the loop the work is, in the hue of each
+// stage's system, from the shared derivation both this spine and `workflow
+// status` read.
 func (m Model) stages() []stage {
-	hues := []lipgloss.Style{m.styles.jira, m.styles.git, m.styles.git, m.styles.forge, m.styles.messaging}
+	hues := map[progress.System]lipgloss.Style{
+		progress.Tracker: m.styles.jira, progress.Git: m.styles.git,
+		progress.Forge: m.styles.forge, progress.Messaging: m.styles.messaging,
+	}
 
 	derived := progress.Stages(m.work(), m.cfg.Messaging.Service())
 	stages := make([]stage, len(derived))
 
 	for index, each := range derived {
-		stages[index] = stage{name: each.Name, glyph: m.glyphFor(each.State), hue: hues[index]}
+		stages[index] = stage{name: each.Name, glyph: m.glyphFor(each.State), hue: hues[each.System]}
 	}
 
 	return stages

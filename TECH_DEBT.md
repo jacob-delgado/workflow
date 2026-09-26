@@ -658,9 +658,6 @@ Facts the code needs in more than one place are written in each, with
 nothing keeping the copies equal. CLAUDE.md names the smell and the rule of
 three; no linter or knip rule sees any of it.
 
-- `internal/tui/spine.go:68` — `Model.stages` hard-codes five hues in stage
-  order and indexes them (`:74`) by the position of `Stages`' result
-  (`internal/progress/progress.go:96`), where Go derives the stages.
 - `internal/forge/remote.go:153` — `kindOf` knows `github.com` only, so a
   `.ghe.com` host is `KindUnknown`; `githubsOwn`
   (`internal/forge/host.go:40`) and `githubAPIBase`
@@ -726,28 +723,24 @@ three; no linter or knip rule sees any of it.
   `^[a-z]+\(([^)]+)\)!?:`; the two disagree on a digit.
 
 A configured `hotfix2` type validates but its scopes are never suggested; a
-sixth progress stage compiles and panics in the spine; a `.ghe.com` tenant
-is told by `doctor` to set what the code could infer; a renamed theme key in
-`web/index.html` passes every gate and shows only as a flash before first
-paint; a drifted release prefix pushes a tag the gate never saw, or silently
-tags nothing; a required snapshot field added to the contract dies in the
-e2e specs as a locator timeout; and a change to the focus ring is eight
-edits.
+`.ghe.com` tenant is told by `doctor` to set what the code could infer; a
+renamed theme key in `web/index.html` passes every gate and shows only as a
+flash before first paint; a drifted release prefix pushes a tag the gate
+never saw, or silently tags nothing; a required snapshot field added to the
+contract dies in the e2e specs as a locator timeout; and a change to the
+focus ring is eight edits.
 
-**One way to fix it.** One owner per fact: a system field on
-`progress.Stage` the spine looks up in a map `exhaustive` checks; `kindOf`
-consulting `githubsOwn`; a terminal test that reads the action names out of
-the configuration page and holds `CheckKeys` to them; one base-URL rule in
-`config` that `jira` wraps; the tag script owning the release-commit
-decision and the workflow reading its answer; `satisfies Snapshot` on the
-e2e literals; the server sending the effective commit types so the form
-holds no list; an exported `storageKey` a test checks `web/index.html`
-against; one `Button` component or two class constants; one `configHome()`
-the four callers share; and `scopeInSubject` built from `commitType`'s
-class.
+**One way to fix it.** One owner per fact: `kindOf` consulting `githubsOwn`;
+a terminal test that reads the action names out of the configuration page
+and holds `CheckKeys` to them; one base-URL rule in `config` that `jira`
+wraps; the tag script owning the release-commit decision and the workflow
+reading its answer; `satisfies Snapshot` on the e2e literals; the server
+sending the effective commit types so the form holds no list; an exported
+`storageKey` a test checks `web/index.html` against; one `Button` component
+or two class constants; one `configHome()` the four callers share; and
+`scopeInSubject` built from `commitType`'s class.
 
-**Done when.** The spine's hue comes from a field on `progress.Stage` and
-`exhaustive` fails the build when a system has no hue;
+**Done when.**
 `ParseRemote("git@acme.ghe.com:owner/repo.git").Kind == KindGitHub`; a test
 fails when the configuration page's action list and the bind sites differ;
 one function decides a base URL's shape and both packages' tests import it;
@@ -755,10 +748,11 @@ one function decides a base URL's shape and both packages' tests import it;
 `scripts/`; removing a required snapshot field from the e2e literals fails
 `tsc -b`; `grep -n "'revert'" web/src/features/branch/CommitForm.tsx` is
 empty and the options come from a server field; a test fails when
-`web/index.html`'s key differs from `themeStore`'s; `grep -rn "border
-border-input px-3 py-1.5" web/src --include='*.tsx'` matches one definition
-site; `grep -n UserHomeDir internal/cli/*.go` returns the helper and
-`targetDir`; and `Scopes([]string{"hotfix2(api): x"})` returns `["api"]`.
+`web/index.html`'s key differs from `themeStore`'s;
+`grep -rn "border border-input px-3 py-1.5" web/src --include='*.tsx'`
+matches one definition site; `grep -n UserHomeDir internal/cli/*.go` returns
+the helper and `targetDir`; and `Scopes([]string{"hotfix2(api): x"})`
+returns `["api"]`.
 
 ### DEBT-94 Arms and guards no input can reach, on every surface
 
@@ -1146,7 +1140,7 @@ know about.
   change it has not seen is refused (409) and nothing is written; Settings
   offers **Reload**.
 - **The progress spine's per-system hue is color-only**
-  (`internal/tui/spine.go:68`), mitigated by the stage name, or its initial
+  (`internal/tui/spine.go:69`), mitigated by the stage name, or its initial
   when compact (`internal/tui/spine.go:51`). Part of the visual system UX.md
   says should not change; the cost is one channel the monochrome reader does
   not get.
