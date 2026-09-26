@@ -48,9 +48,19 @@ func TestStagesDeriveHowFarTheWorkHasGot(t *testing.T) {
 			work: progress.Work{OnFeatureBranch: true, IssueNamed: true, UncommittedChanges: 2},
 			want: []progress.State{done, done, wip, todo, todo},
 		},
+		"committed, with changes still to commit": {
+			work: progress.Work{OnFeatureBranch: true, IssueNamed: true, Commits: 1, UncommittedChanges: 2},
+			want: []progress.State{done, done, done, todo, todo},
+		},
 		"committed, review open, CI running": {
 			work: progress.Work{
 				OnFeatureBranch: true, IssueNamed: true, Commits: 3, PullRequest: progress.PullRequestOpen, CI: forge.CIRunning,
+			},
+			want: []progress.State{done, done, done, wip, todo},
+		},
+		"review open, no CI to pass": {
+			work: progress.Work{
+				OnFeatureBranch: true, IssueNamed: true, Commits: 1, PullRequest: progress.PullRequestOpen, CI: forge.CINone,
 			},
 			want: []progress.State{done, done, done, wip, todo},
 		},
@@ -71,6 +81,13 @@ func TestStagesDeriveHowFarTheWorkHasGot(t *testing.T) {
 			work: progress.Work{
 				OnFeatureBranch: true, IssueNamed: true, Commits: 1,
 				PullRequest: progress.PullRequestOpen, CI: forge.CIPassed, ChangesRequested: true,
+			},
+			want: []progress.State{done, done, done, oops, todo},
+		},
+		"changes requested, with no CI, stop review reading done": {
+			work: progress.Work{
+				OnFeatureBranch: true, IssueNamed: true, Commits: 1,
+				PullRequest: progress.PullRequestOpen, CI: forge.CINone, ChangesRequested: true,
 			},
 			want: []progress.State{done, done, done, oops, todo},
 		},
