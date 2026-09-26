@@ -17,13 +17,26 @@ test.beforeEach(async ({ page }) => {
 })
 
 // settled is what shows once a section has drawn what it will with no API to
-// answer it: Reviews reads its own endpoint after its heading appears, so the
-// scan waits on that read's Retry; every other section settles with its
-// heading.
+// answer it: Reviews and Settings each read their own endpoint after their
+// heading appears, and the read fails here, so the scan waits on its Retry;
+// every other section settles with its heading.
 function settled(page: Page, name: string): Locator {
-  return name === 'Reviews'
+  return name === 'Reviews' || name === 'Settings'
     ? page.getByRole('button', { name: 'Retry' })
     : page.getByRole('heading', { level: 1, name })
+}
+
+// unreachable is the answer a read gets when the service behind it is down.
+const unreachable = {
+  status: 502,
+  contentType: 'application/problem+json',
+  body: JSON.stringify({
+    type: 'https://jacob-delgado.github.io/workflow/docs/errors/#unreachable',
+    title: 'Upstream unreachable',
+    status: 502,
+    detail: 'the service could not be reached; check the network, then try again',
+    code: 'unreachable',
+  }),
 }
 
 // scan returns the WCAG A/AA violations axe finds on whatever is on screen.
@@ -48,21 +61,11 @@ for (const theme of themes) {
         json: { version: '1.2.3', dry_run: true, forge_noun: 'pull request', forge_sigil: '#' },
       }),
     )
-    // The review queue's read fails, so its reason and Retry are scanned; the
-    // populated build scans the queue itself.
-    await page.route('**/api/reviews', (route) =>
-      route.fulfill({
-        status: 502,
-        contentType: 'application/problem+json',
-        body: JSON.stringify({
-          type: 'https://jacob-delgado.github.io/workflow/docs/errors/#unreachable',
-          title: 'Upstream unreachable',
-          status: 502,
-          detail: 'the service could not be reached; check the network, then try again',
-          code: 'unreachable',
-        }),
-      }),
-    )
+    // The review queue's read and the configuration's fail, so each reason and
+    // its Retry are scanned, whenever the answer comes; the populated build
+    // scans the queue and the form themselves.
+    await page.route('**/api/reviews', (route) => route.fulfill(unreachable))
+    await page.route('**/api/config', (route) => route.fulfill(unreachable))
     await page.goto('/')
     await expect(page.getByText(/every write is held back/i)).toBeVisible()
 
