@@ -40,10 +40,6 @@ func (s *server) GetPullRequestDraft(
 func (s *server) OpenPullRequest(
 	_ context.Context, request api.OpenPullRequestRequestObject,
 ) (api.OpenPullRequestResponseObject, error) {
-	if request.Body == nil {
-		return openUnprocessable("a request body is required"), nil
-	}
-
 	if !s.canOpenPull() {
 		return openUnprocessable("opening a " + s.noun() + " is not available"), nil
 	}

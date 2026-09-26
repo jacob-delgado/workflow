@@ -36,10 +36,6 @@ var (
 // back, the branch as it stood with no head or commits named: the commit landed
 // all the same.
 func (s *server) Commit(_ context.Context, request api.CommitRequestObject) (api.CommitResponseObject, error) {
-	if request.Body == nil {
-		return commitUnprocessable("a commit message is required"), nil
-	}
-
 	if s.deps.Commit == nil || s.deps.Changes == nil || s.deps.Branch == nil {
 		return commitUnprocessable("committing is not available"), nil
 	}

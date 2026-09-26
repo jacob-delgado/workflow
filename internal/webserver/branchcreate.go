@@ -33,7 +33,7 @@ var errCreateRefused = errors.New("git refused the new branch")
 func (s *server) CreateBranch(
 	_ context.Context, request api.CreateBranchRequestObject,
 ) (api.CreateBranchResponseObject, error) {
-	if request.Body == nil || request.Body.IssueKey == "" {
+	if request.Body.IssueKey == "" {
 		return createBranchUnprocessable("an issue is required"), nil
 	}
 
