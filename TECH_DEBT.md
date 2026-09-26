@@ -474,8 +474,7 @@ a weak assertion, so every one clears the gate.
 The command line:
 
 - `internal/cli/branch_test.go:289` — `TestBranchReportsAFailedCreate`
-  asserts `err == nil` only; so do `TestBranchReportsAnUnreadableRepository`
-  (`:306`), leaving the documented exit 4 unpinned, and
+  asserts `err == nil` only; so does
   `TestBranchReportsAnUnreachableTracker` (`:322`), whose fixture answers
   500 (`:315`) — a rejection, exit 1, since `statusError`
   (`internal/jira/jira.go:253`) makes a 500 `ErrUnexpectedStatus`, never
@@ -577,11 +576,11 @@ The store:
   asserts only that another view and instance read nothing (`:92`), so a
   `RecordScope` or `CacheIssues` that writes nothing passes.
 
-The regressions these tests exist to catch pass the suite green: `branch`
-exiting 1 where the contract says 4; a lost `ErrUnknownForge` or
-`ErrUnknownVersion` wrap; a release-label filter typo found at the next
-release; a `timestamp()` that writes `now.String()`; a commit sent without
-its `!` or body; the "opening will push it first" note deleted.
+The regressions these tests exist to catch pass the suite green: a lost
+`ErrUnknownForge` or `ErrUnknownVersion` wrap; a release-label filter typo
+found at the next release; a `timestamp()` that writes `now.String()`; a
+commit sent without its `!` or body; the "opening will push it first" note
+deleted.
 
 **One way to fix it.** Sharpen each Assert to what its name claims:
 `wantExit` or `errors.Is` with the family or sentinel meant, and rename the
@@ -593,16 +592,15 @@ JSON from `scripts/coverage-summary.sh`; a stub gobco for the gate's
 refusals; raw-file reads that parse each `_at`, a cascade a test makes fire,
 and each Arrange's error fatal.
 
-**Done when.** Each named mutation fails a test: changing `branch`'s
-non-repository exit from 4; returning a different sentinel for `KindUnknown`
-from `ReviewRequests` or the issue methods; removing
-`select(any(.labels[]; …))` from `scripts/release/push-release-tag.sh`;
-changing `($conditions * 2)` to `$conditions` in
-`scripts/coverage-summary.sh`; deleting a name from `NO_TESTS` in
-`scripts/gobco-report.sh`; changing `timestamp()` to `now.String()`,
-removing `foreign_keys(1)` from `dsnPragmas`, or making `RecordScope` or
-`CacheIssues` return nil without writing; rendering a select while
-`useViews` is in error; replacing the check anchor in
+**Done when.** Each named mutation fails a test: returning a different
+sentinel for `KindUnknown` from `ReviewRequests` or the issue methods;
+removing `select(any(.labels[]; …))` from
+`scripts/release/push-release-tag.sh`; changing `($conditions * 2)` to
+`$conditions` in `scripts/coverage-summary.sh`; deleting a name from
+`NO_TESTS` in `scripts/gobco-report.sh`; changing `timestamp()` to
+`now.String()`, removing `foreign_keys(1)` from `dsnPragmas`, or making
+`RecordScope` or `CacheIssues` return nil without writing; rendering a
+select while `useViews` is in error; replacing the check anchor in
 `web/src/features/review/ReviewPanel.tsx` with a span; deleting
 `breaking: fields.breaking` from `web/src/features/branch/CommitForm.tsx`;
 and deleting the "opening will push it first" paragraph.

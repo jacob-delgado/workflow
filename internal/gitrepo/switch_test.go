@@ -4,6 +4,7 @@
 package gitrepo_test
 
 import (
+	"context"
 	"errors"
 	"slices"
 	"testing"
@@ -120,7 +121,7 @@ func TestRemoteBranchesReportAFailureToList(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
-	replies := map[string]reply{listRemotes: {err: errNoBranch}}
+	replies := map[string]reply{listRemotes: {err: errNoBranch}, showToplevel: {out: []byte("/work\n")}}
 
 	// Act
 	_, err := gitrepo.At(fakeRunner(t, replies), workDir).RemoteBranches(t.Context())
@@ -138,7 +139,7 @@ func TestLocalBranchesReportsAFailureToList(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
-	replies := map[string]reply{listBranches: {err: errNoBranch}}
+	replies := map[string]reply{listBranches: {err: errNoBranch}, showToplevel: {out: []byte("/work\n")}}
 
 	// Act
 	_, err := gitrepo.At(fakeRunner(t, replies), workDir).LocalBranches(t.Context())
@@ -146,6 +147,38 @@ func TestLocalBranchesReportsAFailureToList(t *testing.T) {
 	// Assert
 	if !errors.Is(err, errNoBranch) {
 		t.Errorf("LocalBranches returned %v, want git's error", err)
+	}
+}
+
+func TestListingBranchesOutsideARepositoryReportsSo(t *testing.T) {
+	t.Parallel()
+
+	cases := map[string]struct {
+		command string
+		list    func(gitrepo.Repository, context.Context) ([]string, error)
+	}{
+		"local branches":  {command: listBranches, list: gitrepo.Repository.LocalBranches},
+		"remote branches": {command: listRemotes, list: gitrepo.Repository.RemoteBranches},
+	}
+
+	for name, tt := range cases {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			// Arrange
+			replies := map[string]reply{
+				tt.command:   {err: errNotARepository},
+				showToplevel: {err: errNotARepository},
+			}
+
+			// Act
+			_, err := tt.list(gitrepo.At(fakeRunner(t, replies), workDir), t.Context())
+
+			// Assert
+			if !errors.Is(err, gitrepo.ErrNotARepository) {
+				t.Errorf("listing %s returned %v, want ErrNotARepository", name, err)
+			}
+		})
 	}
 }
 

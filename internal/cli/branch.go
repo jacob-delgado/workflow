@@ -121,7 +121,7 @@ func runBranch(out output, seams branchSeams, issueKey string, opts writeOptions
 func branchNamed(seams branchSeams, name string) (bool, error) {
 	names, err := seams.Branches()
 	if err != nil {
-		return false, fmt.Errorf("listing branches: %w", err)
+		return false, err
 	}
 
 	return slices.Contains(names, name), nil
