@@ -386,8 +386,8 @@ that explains the machine, has no row for either.
 
 `doctor --online` already names `gh` or `glab` as the forge credential's
 source when `forge.cli` routes the forge through it; this one adds the
-Tooling row that says the program is absent. glab's line in install.md's
-needs list is DEBT-91's.
+Tooling row that says the program is absent. install.md already lists glab
+among what it needs.
 
 **Instead.** A doctor row that prints the store's directory, or
 `ErrNoDir`'s sentence when there is none; and glab in `externalTools` with
