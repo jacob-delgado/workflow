@@ -25,7 +25,7 @@ func TestCommitNeedsSomethingStaged(t *testing.T) {
 	view := typing(t, unstaged.live(t, 120, 40), "3", "c").View().Content
 
 	// Assert
-	requireScreen(t, view, "nothing is staged: space stages the selected file")
+	requireScreen(t, view, "nothing is staged: stage a file, then commit")
 	refuseScreen(t, view, "┏━ Commit ")
 }
 

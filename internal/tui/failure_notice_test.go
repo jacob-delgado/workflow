@@ -107,7 +107,7 @@ func TestAGuidanceNoticeStaysPlain(t *testing.T) {
 		"nothing staged to commit": {
 			prepare: func(w *world) { w.changes = []gitrepo.Change{{Path: untrackedNotes, Staged: '?', Unstaged: '?'}} },
 			keys:    []string{"3", "c"},
-			want:    "nothing is staged: space stages the selected file",
+			want:    "nothing is staged: stage a file, then commit",
 		},
 		"a comment saved empty": {
 			prepare: func(w *world) { w.edited = "   " },
