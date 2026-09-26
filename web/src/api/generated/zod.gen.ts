@@ -475,7 +475,7 @@ export const zUnstageBody = zStagingRequest;
 export const zUnstageResponse = zChangeList;
 
 /**
- * The review state; pull and ci are null when none is found.
+ * The review state; pull and ci are absent when none is found.
  */
 export const zGetReviewResponse = zReview;
 

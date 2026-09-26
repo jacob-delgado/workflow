@@ -333,7 +333,7 @@ paths:
       tags: [review]
       responses:
         "200":
-          description: The review state; pull and ci are null when none is found.
+          description: The review state; pull and ci are absent when none is found.
           content:
             application/json:
               schema:
@@ -1139,7 +1139,7 @@ components:
           description: The issue type name, such as Bug or Story.
         priority:
           type: string
-          description: May be empty.
+          description: Absent when the issue has none.
       additionalProperties: false
 
     StatusCategory:
@@ -1245,7 +1245,7 @@ components:
         path: {type: string}
         original_path:
           type: string
-          description: The former path for a rename or copy; empty otherwise.
+          description: The former path for a rename or copy; absent otherwise.
         kind:
           type: string
           description: What kind of change this is.
@@ -1268,9 +1268,13 @@ components:
           type: boolean
           description: Whether a pull request was found for the branch.
         pull:
+          description: The branch's pull request; absent when none is found.
           nullable: true
           allOf: [{$ref: "#/components/schemas/PullRequest"}]
         ci:
+          description: >-
+            The pull request's CI; absent when none is found, the pull request
+            is not open, or its CI cannot be read.
           nullable: true
           allOf: [{$ref: "#/components/schemas/CI"}]
       additionalProperties: false

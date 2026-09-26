@@ -326,7 +326,7 @@ type Change struct {
 	// Kind What kind of change this is.
 	Kind ChangeKind `json:"kind"`
 
-	// OriginalPath The former path for a rename or copy; empty otherwise.
+	// OriginalPath The former path for a rename or copy; absent otherwise.
 	OriginalPath *string `json:"original_path,omitempty"`
 	Path         string  `json:"path"`
 
@@ -487,7 +487,7 @@ type Issue struct {
 	// Key Example: PROJ-412
 	Key string `json:"key"`
 
-	// Priority May be empty.
+	// Priority Absent when the issue has none.
 	Priority *string `json:"priority,omitempty"`
 
 	// Status The human status name, such as "In Progress".
@@ -721,11 +721,14 @@ type PullRequestDraft struct {
 
 // Review defines model for Review.
 type Review struct {
+	// Ci The pull request's CI; absent when none is found, the pull request is not open, or its CI cannot be read.
 	Ci *CI `json:"ci,omitempty"`
 
 	// Found Whether a pull request was found for the branch.
-	Found bool         `json:"found"`
-	Pull  *PullRequest `json:"pull,omitempty"`
+	Found bool `json:"found"`
+
+	// Pull The branch's pull request; absent when none is found.
+	Pull *PullRequest `json:"pull,omitempty"`
 }
 
 // ReviewQueue defines model for ReviewQueue.
