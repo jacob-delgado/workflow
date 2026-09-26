@@ -69,6 +69,10 @@ type Deps struct {
 	// CheckKeys says why the terminal interface would refuse a ui.keys map,
 	// or nil where it would start on it. Nil here means no map is checked.
 	CheckKeys func(keys map[string]string) error
+	// Unexpected hears each failure the server answers as an internal error —
+	// one no class of failure explains, or an answer that could not be
+	// written — whose cause the answer leaves out. Nil says nothing.
+	Unexpected func(err error)
 }
 
 // Info is the build and run facts the API reports and the server needs.
@@ -184,7 +188,7 @@ func Handler(deps Deps, cfg config.Config, info Info, assets fs.FS) (http.Handle
 
 	strict := api.NewStrictHandlerWithOptions(srv, nil, api.StrictHTTPServerOptions{
 		RequestErrorHandlerFunc:  writeRequestError,
-		ResponseErrorHandlerFunc: writeResponseError,
+		ResponseErrorHandlerFunc: srv.writeResponseError,
 	})
 
 	apiMux := http.NewServeMux()

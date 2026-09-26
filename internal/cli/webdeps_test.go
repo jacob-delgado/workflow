@@ -28,6 +28,12 @@ func TestWebDepsHandsTheServerEverySeam(t *testing.T) {
 
 	// Assert
 	for seam, field := range web.Fields() {
+		// Unexpected is where the server reports its own failures, not one of
+		// the interface's seams, so the interface has none to hand it.
+		if seam.Name == "Unexpected" {
+			continue
+		}
+
 		if field.Kind() == reflect.Func && field.IsNil() {
 			t.Errorf("webserver.Deps.%s is nil though the interface wires every seam", seam.Name)
 		}

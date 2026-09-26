@@ -6,6 +6,7 @@ package webserver_test
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
@@ -227,6 +228,70 @@ func TestAnAnswerThatCannotBeWrittenSaysWhatToDo(t *testing.T) {
 	err := json.Unmarshal(writer.body.Bytes(), &failure)
 	if err != nil || failure.Code != api.Internal || !strings.Contains(failure.Detail, "try again") {
 		t.Errorf("answer = %q (%v), want an internal problem that says to try again", writer.body.String(), err)
+	}
+}
+
+func TestOnlyAFailureNoClassExplainsIsHandedToUnexpected(t *testing.T) {
+	t.Parallel()
+
+	// The internal problem's detail says nothing of its cause, so the cause goes
+	// to Unexpected; a failure a class explains is answered in its own words.
+	cases := map[string]struct {
+		cause      error
+		wantStatus int
+		wantHeard  int
+	}{
+		"a failure no class explains": {cause: errSeam, wantStatus: http.StatusInternalServerError, wantHeard: 1},
+		"a failure a class explains":  {cause: jira.ErrUnreachable, wantStatus: http.StatusBadGateway, wantHeard: 0},
+	}
+
+	for name, tt := range cases {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			// Arrange
+			var heard []error
+
+			deps := filledDeps()
+			deps.Search = func(string, int) (jira.SearchResult, error) {
+				return jira.SearchResult{}, fmt.Errorf("searching: %w", tt.cause)
+			}
+			deps.Unexpected = func(err error) { heard = append(heard, err) }
+
+			// Act
+			recorder := get(t, serve(t, deps, config.Default()), "/api/issues")
+
+			// Assert
+			if recorder.Code != tt.wantStatus {
+				t.Errorf("status = %d, want %d", recorder.Code, tt.wantStatus)
+			}
+
+			if len(heard) != tt.wantHeard || (tt.wantHeard > 0 && !errors.Is(heard[0], tt.cause)) {
+				t.Errorf("Unexpected heard %v, want %s %d times", heard, tt.cause, tt.wantHeard)
+			}
+		})
+	}
+}
+
+func TestAnAnswerThatCannotBeWrittenIsHandedToUnexpected(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	var heard []error
+
+	deps := filledDeps()
+	deps.Unexpected = func(err error) { heard = append(heard, err) }
+
+	writer := &firstWriteFails{}
+	request := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/api/health", nil)
+	request.Host = loopbackHost
+
+	// Act
+	serve(t, deps, config.Default()).ServeHTTP(writer, request)
+
+	// Assert
+	if len(heard) != 1 || !errors.Is(heard[0], errSeam) {
+		t.Errorf("Unexpected heard %v, want the failed write once", heard)
 	}
 }
 
