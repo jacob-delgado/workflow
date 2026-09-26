@@ -658,10 +658,6 @@ CLAUDE.md's catalog; most sit permanently in DEBT-64's worklist where no
 test can close them, the two compound guards' dead first operands among
 them.
 
-- `internal/messaging/messaging.go:112` — `Client.checkable` returns
-  `ErrNoCredential` for `config.MessagingNone` and again in `default:`
-  (`:114`); `markupFor` (`internal/messaging/post.go:267`) returns
-  `slackMarkup()` for `config.KindSlack` and again in `default:`.
 - `internal/wiring/forgecli.go:58` — `forgeProgram`'s `case
   forge.KindUnknown:` and `default:` (`:60`) both return `"", false`; the
   gobco report lists the `KindUnknown` condition as never evaluated, and
