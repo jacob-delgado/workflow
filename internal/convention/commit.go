@@ -18,10 +18,15 @@ const (
 	defaultRefsLabel    = "Refs"
 )
 
-// commitType is what a Conventional Commit type may contain: a lowercase word,
-// as "feat" or "hotfix" — the same shape a branch prefix takes.
+// commitTypePattern is what a Conventional Commit type may contain: a lowercase
+// word, as "feat" or "hotfix2" — the same shape a branch prefix takes. The check
+// of a configured type and the reading of a subject's scope are both built on
+// it, so a type one accepts is one the other reads past.
+const commitTypePattern = `[a-z][a-z0-9]*`
+
+// commitType matches a whole Conventional Commit type.
 func commitType() *regexp.Regexp {
-	return regexp.MustCompile(`^[a-z][a-z0-9]*$`)
+	return regexp.MustCompile(`^` + commitTypePattern + `$`)
 }
 
 // ValidateType reports what is wrong with a configured commit type, or nil when

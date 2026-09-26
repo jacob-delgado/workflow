@@ -12,7 +12,7 @@ import (
 // "feat(tui): add a pane" and "feat(api)!: drop a field" both yield the
 // parenthesized scope. A subject with no scope does not match.
 func scopeInSubject() *regexp.Regexp {
-	return regexp.MustCompile(`^[a-z]+\(([^)]+)\)!?:`)
+	return regexp.MustCompile(`^` + commitTypePattern + `\(([^)]+)\)!?:`)
 }
 
 // Scopes reads the Conventional Commit scopes out of commit subjects, keeping
