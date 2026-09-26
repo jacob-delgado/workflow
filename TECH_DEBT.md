@@ -84,12 +84,9 @@ The documents a contributor and a later session read first restate numbers
 and names the tree has moved past. No gate reads any of them.
 
 - `web/README.md:13` — "Running the cockpit takes two shells", with `task
-  dev` and `task web:mockup` mentioned nowhere; the comment above `dev`
-  (`Taskfile.yml:104`) names `web` and `web:ui` as the two shells, directly
-  above the one-shell `dev` task (`Taskfile.yml:111`, "Run the whole cockpit
-  in one shell"), and `web:ui`'s `desc` (`Taskfile.yml:145`) still says
-  "Shell 2". `web:mockup` (`Taskfile.yml:130`, "Serve the web UI against
-  mock data in one shell") is undocumented in the README.
+  dev` and `task web:mockup` mentioned nowhere. `web:mockup`
+  (`Taskfile.yml:139`, "Serve the web UI against mock data in one shell")
+  is undocumented in the README.
 
 A session reading CLAUDE.md learns a platform count the gate does not hold,
 a lint list that omits four gates it will trip on, and a secret key it
