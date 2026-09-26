@@ -997,55 +997,30 @@ template rendered with the mock snapshot's values.
 
 Severity: medium · Confidence: read
 
-`snapshot` calls `s.author()` on every push and the `Author` seam is an
-uncached `Whoami` GET, so each open tab spends one forge request per
-interval on a value fixed for the session; the same frame calls
-`deps.Branch()` three times, each running `ReadBranch`'s seven git
-commands.
+`snapshot` reads the checked-out branch three times a frame, each read
+running `ReadBranch`'s eight git commands.
 
-- `internal/webserver/stream.go:90` — `server.snapshot` builds
-  `messagingDTO(s.config(), s.author())` on every frame.
-- `internal/webserver/handlers.go:250` — `server.author` calls
-  `s.deps.Author()` with no cache.
-- `internal/wiring/forge.go:109` — the `Author` seam runs
-  `connection.client.Whoami(ctx)` on every call; only the connection is
-  memoized.
-- `internal/forge/client.go:121` — `Client.Whoami` is one uncached GET of
-  `userPath`.
-- `internal/tui/messaging.go:95` — `Model.loadAuthor` skips the read once
-  `m.messaging.author` is set; the web diverges on the same seam.
-- `internal/webserver/stream.go:153` — `server.snapshotBranch`, the
+- `internal/webserver/stream.go:144` — `server.snapshotBranch`, the
   frame's first `deps.Branch()`.
-- `internal/webserver/stream.go:183` — `server.snapshotReview`, the
-  second.
-- `internal/webserver/stream.go:121` — `server.currentBranchName`, the
+- `internal/webserver/handlers.go:187` — `server.readReview`, behind
+  `snapshotReview`, the second.
+- `internal/webserver/stream.go:116` — `server.currentBranchName`, the
   third, called from `snapshotBranches`.
 - `internal/gitrepo/branch.go:141` — `Repository.ReadBranch` runs
   `branch --show-current`, `rev-parse HEAD`, `rev-parse @{upstream}`,
   `config --get remote.pushDefault`, the base lookup, `rev-list`, `log` and
   `log -1` per read.
-- `internal/forge/githubci.go:41` — `githubStatus` pages both the combined
-  status and the check runs, at least two requests per frame.
 
-On GitHub with an open pull a frame is at least six forge requests —
-`githubFind`'s one plus `githubReviewState`'s two, `githubStatus`'s two,
-`Whoami`'s one — about 4,320 an hour for one tab at the 5 s default
-(`defaultStreamInterval`, `internal/webserver/stream.go:20`) against GitHub's
-5,000-an-hour limit; when the limit is hit, `snapshot` folds the failure into
-empty panels with no signal (its comment at `internal/webserver/stream.go:81`
-says so). About twenty-six git processes per frame — three branch reads of
-eight commands each, plus the changes and branches reads — where ten would do,
-and a branch, review and in-flight marker read at three instants, so the panels
+About twenty-six git processes per frame — three branch reads of eight
+commands each, plus the changes and branches reads — where ten would do, and
+a branch, review and in-flight marker read at three instants, so the panels
 can describe different branches when a checkout lands between the reads.
 
-**One way to fix it.** Read the author once per server, as `scopeCache`
-(`internal/webserver/webserver.go:139`) reads the scope, re-reading only
-after a failure; and read the branch once in `snapshot` and pass it to the
+**One way to fix it.** Read the branch once in `snapshot` and pass it to the
 review and branches builders.
 
-**Done when.** A stream test with counting `Author` and `Branch` seams sees
-one `Author` call across three pushed snapshots and one `Branch` call per
-pushed snapshot.
+**Done when.** A stream test with a counting `Branch` seam sees one `Branch`
+call per pushed snapshot.
 
 ### DEBT-133 The errors page points a 500's cause at output nothing writes
 
@@ -1112,7 +1087,8 @@ from the description is what it hurts.
   `cfg` and `seen` (`internal/webserver/webserver.go:121`) across
   requests, and `getConfig`'s own description at `api/openapi.yaml:380`
   relies on it ("A file that has been deleted leaves the configuration in
-  effect as it was").
+  effect as it was"); it keeps the forge's author too, from its first
+  answer (`authorCache`, `internal/webserver/webserver.go:143`).
 - `api/openapi.yaml:328` — `getReview`'s 200 says "pull and ci are null
   when none is found"; `Review` in `internal/api/models.gen.go:692` marks
   both `omitempty` and `server.review`
@@ -1137,17 +1113,18 @@ not exist.
 409 as "a detached HEAD, or a published branch that is not ahead"; say
 snapshots are pushed on connect and every few seconds; name `web:gen:check`
 in the header; retag the four operations as `repository` or declare
-`branches`; say the server keeps the configuration in effect and the
-learned scope; say "absent" for pull, ci, priority and original_path.
+`branches`; say the server keeps the configuration in effect, the learned
+scope and the author; say "absent" for pull, ci, priority and original_path.
 
 **Done when.** The push description and `nothingToPush`'s comment name the
 same two cases; the `events` tag and the `streamEvents` summary match
 `defaultStreamInterval`'s comment; the header names `web:gen:check`; every
 tag an operation uses appears in the top-level `tags` list; the `info`
-description names the configuration in effect; the review 200 description
-matches the not-found frame in `web/src/test/snapshot-frames.sse`, which
-carries no `pull` key; the three optional strings use one word for one wire
-shape; and `task gen` leaves the generated code unchanged.
+description names the configuration in effect and the author; the review
+200 description matches the not-found frame in
+`web/src/test/snapshot-frames.sse`, which carries no `pull` key; the three
+optional strings use one word for one wire shape; and `task gen` leaves the
+generated code unchanged.
 
 ### DEBT-136 A wrong method on a known path is answered 404, not 405
 

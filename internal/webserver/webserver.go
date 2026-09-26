@@ -129,6 +129,21 @@ type server struct {
 
 	// scope is the commit scope learned in this repository, held once read.
 	scope scopeCache
+
+	// author is who a post would come from, held once the forge answers.
+	author authorCache
+}
+
+// authorCache is who the forge says a post would come from, kept from its first
+// answer for the stream, GET /api/messaging and the announcement alike: the
+// forge connection it comes through is kept once made, so the answer does not
+// change while the server runs, and asking every frame spent a forge request
+// per open page each interval. A failed read is not kept, so the next read asks
+// again. Its lock is its own, since every open stream reads it.
+type authorCache struct {
+	mu    sync.Mutex
+	name  string
+	known bool
 }
 
 // scopeCache is the store's last commit scope, read the first time a frame
