@@ -1,9 +1,10 @@
 # The contract for the local web API `workflow --web` serves.
 #
 # Single source of truth: the Go server (oapi-codegen) and the TypeScript client
-# (@hey-api/openapi-ts) are both generated from this file, and `task gen:verify`
-# fails CI if either drifts from it. Hand-write this; never hand-edit the
-# generated trees.
+# (@hey-api/openapi-ts) are both generated from this file. `task gen:verify`
+# fails when the Go code drifts from it, and `task web:gen:check` when the
+# TypeScript client does; CI runs both checks. Hand-write this; never hand-edit
+# the generated trees.
 #
 # Field naming is snake_case, matching the rest of the project's JSON (the
 # `tagliatelle` linter). Enum values are snake_case too. The server binds to
