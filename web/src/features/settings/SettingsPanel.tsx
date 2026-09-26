@@ -59,9 +59,9 @@ export function SettingsPanel() {
 // it — a Retry, or a Reload — and otherwise leaves focus where the section
 // change put it.
 function ConfigForm({ read, takesFocus }: { read: ConfigRead; takesFocus: boolean }) {
-  // The whole config seeds the form, so the sections and collections this form
-  // does not edit (ui, timing, headers, views…) ride back unchanged on save
-  // rather than being dropped.
+  // The whole config seeds the form, so every key no fieldset registers — ui,
+  // timing, jira.views and the token commands among them — rides back unchanged
+  // on save rather than being dropped.
   const { register, handleSubmit, reset, setFocus } = useForm<Config>({
     defaultValues: read.config,
   })
