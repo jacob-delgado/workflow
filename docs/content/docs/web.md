@@ -13,13 +13,13 @@ second implementation, and the terminal stays the fuller of the two.
 ## Start it
 
 ```sh
-workflow --web              # serve http://127.0.0.1:7000
+workflow --web              # serve http://127.0.0.1:13579
 workflow --web --dry-run    # the same, read-only
 workflow --web --port 7001  # serve http://127.0.0.1:7001
 ```
 
 Run it inside a repository, then open the address it prints on stderr. It
-listens on the loopback interface alone, on port 7000 unless `--port` names
+listens on the loopback interface alone, on port 13579 unless `--port` names
 another (1 to 65535; `--port` goes only with `--web`), and refuses a write
 from a page served anywhere else, so a site open in another tab cannot drive
 it. `ctrl+c` in the terminal stops it.
@@ -202,7 +202,7 @@ describes each answer's fields, and every other request the API serves.
 | `GET /api/messaging` | The messaging service, and where and as whom an announcement would post |
 
 ```sh
-curl -s http://127.0.0.1:7000/api/review
+curl -s http://127.0.0.1:13579/api/review
 ```
 
 They are reads, so they answer under `--dry-run` too. When git or the forge

@@ -225,7 +225,7 @@ write back. The
 whole loop.
 
 `workflow --web` serves the loop in a browser instead, at
-`http://127.0.0.1:7000`: six sections — Issues, Branch, Review, your messaging
+`http://127.0.0.1:13579`: six sections — Issues, Branch, Review, your messaging
 service, Reviews and Settings — kept live by the server, in a light or a dark
 theme. `--web --dry-run` makes it read-only. Re-running CI, merging, finishing
 a branch and most issue writes stay in the terminal for now;

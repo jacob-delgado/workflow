@@ -89,7 +89,7 @@ workflow [flags]
       --dry-run      hold back every write to Jira, the forge, the messaging service, git and files, and say what it would have done
   -h, --help         help for workflow
       --log string   append a one-line outline of each request (method, path, status, duration) to FILE, for a bug report
-      --port int     the port --web serves on, from 1 to 65535 (default 7000)
+      --port int     the port --web serves on, from 1 to 65535 (default 13579)
   -v, --version      version for workflow
       --web          serve the web interface on http://127.0.0.1 instead of opening the terminal interface
 ```

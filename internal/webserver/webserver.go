@@ -256,8 +256,10 @@ func uiHandler(assets fs.FS) http.Handler {
 }
 
 // DefaultPort is the port the server listens on when `workflow --web` is given
-// no --port.
-const DefaultPort = 7000
+// no --port. IANA assigns 13579 to no service, and it sits below the range
+// Linux, macOS and Windows hand out to outgoing connections, so another
+// program is unlikely to hold it.
+const DefaultPort = 13579
 
 // LoopbackAddr is where the server listens in production, on port: the
 // loopback interface only, so the API is reachable from this machine and

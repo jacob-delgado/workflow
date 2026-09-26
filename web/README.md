@@ -2,7 +2,7 @@
 
 A React + TypeScript single-page app that shows what the terminal interface shows
 and lets you edit the configuration file, served locally by `workflow --web` on
-`http://127.0.0.1:7000`. It talks to the Go server over the REST + Server-Sent
+`http://127.0.0.1:13579`. It talks to the Go server over the REST + Server-Sent
 Events surface described by [`../api/openapi.yaml`](../api/openapi.yaml) — the
 single source of truth, from which the typed client is generated.
 
@@ -13,8 +13,8 @@ yarn is not pinned there — Corepack (bundled with Node) runs the version the
 `packageManager` field names. Running the cockpit takes two shells:
 
 ```sh
-task web        # shell 1: the Go API and event stream on 127.0.0.1:7000
-task web:ui     # shell 2: the web UI on :5173 (installs deps, proxies /api to :7000)
+task web        # shell 1: the Go API and event stream on 127.0.0.1:13579
+task web:ui     # shell 2: the web UI on :5173 (installs deps, proxies /api to :13579)
 ```
 
 Then open <http://localhost:5173>.
@@ -37,10 +37,10 @@ production one, and a VITE_MOCK one whose populated sections the specs tagged
 `@populated` scan with axe and screenshot at 640, 1024 and 1440 px into
 `test-results/` (CI uploads them as the `screens` artifact).
 `corepack yarn test:e2e:server` runs the specs under `e2e/server` against the
-binary `task build` makes: `scripts/e2e-server.sh` serves `workflow --web` on
-port 7000 from a throwaway repository with a bare origin, and a spec stages,
-commits and pushes through the page. Nothing may already be listening on port
-7000 — on macOS, AirPlay Receiver does unless it is turned off.
+binary `task build` makes: `scripts/e2e-server.sh` serves
+`workflow --web --port 13580` from a throwaway repository with a bare origin,
+and a spec stages, commits and pushes through the page. Nothing else may be
+listening on port 13580.
 
 ## Conventions
 

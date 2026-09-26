@@ -84,7 +84,7 @@ func TestACrossOriginWriteIsRefused(t *testing.T) {
 	handler := serve(t, filledDeps(), config.Default())
 
 	// A foreign host, and a page on another loopback port — both cross-origin to
-	// the server's own 127.0.0.1:7000, so both must be refused.
+	// the server's own 127.0.0.1:13579, so both must be refused.
 	for _, origin := range []string{"http://evil.example.com", "http://127.0.0.1:3000", "http://localhost:5173"} {
 		t.Run(origin, func(t *testing.T) {
 			t.Parallel()
@@ -146,7 +146,7 @@ func TestASameOriginWriteIsNotRefused(t *testing.T) {
 	// Act
 	// A loopback Origin passes the guard and reaches the handler; filledDeps has a
 	// dirty tree, so the checkout is refused with 409 — not the guard's 403.
-	recorder := postCheckout(t, handler, "http://127.0.0.1:7000")
+	recorder := postCheckout(t, handler, "http://127.0.0.1:13579")
 
 	// Assert
 	if recorder.Code == http.StatusForbidden {
@@ -160,7 +160,7 @@ func TestLoopbackHostsReachTheAPI(t *testing.T) {
 	handler := serve(t, webserver.Deps{}, config.Default())
 
 	// The loopback name and IP literals, with and without a port.
-	for _, host := range []string{"127.0.0.1:7000", "localhost:7000", "[::1]:7000", "127.0.0.1"} {
+	for _, host := range []string{"127.0.0.1:13579", "localhost:13579", "[::1]:13579", "127.0.0.1"} {
 		t.Run(host, func(t *testing.T) {
 			t.Parallel()
 

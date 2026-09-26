@@ -24,7 +24,7 @@ holds its own copy of the logic. They are all **consumers of the same seams**.
 | --- | --- | --- |
 | **TUI** (default) | Bubble Tea, Bubbles, Lip Gloss | bare `workflow` |
 | **CLI** | Cobra command tree | `workflow <command>` |
-| **Web** | React + TypeScript over a local REST API | `workflow --web` (serves `http://127.0.0.1:7000`) |
+| **Web** | React + TypeScript over a local REST API | `workflow --web` (serves `http://127.0.0.1:13579`) |
 
 The web frontend lives in `web/` and is embedded into the binary at build time;
 the REST surface it drives is described by `api/openapi.yaml`, the single source
@@ -370,7 +370,7 @@ exist only to hold a line:
   port and scheme — so an HTTPS→HTTP redirect on the same host would leak the
   token to a plaintext hop.
 - **The web server is loopback-only and guarded.** It binds `127.0.0.1`
-  alone, on port 7000 unless `--port` names another, rejects any request
+  alone, on port 13579 unless `--port` names another, rejects any request
   whose `Host` is not a loopback host (closing DNS-rebinding), requires a
   state-changing request that carries an `Origin` to be same-origin (closing
   cross-origin CSRF from a co-resident page), and — under `--dry-run` —

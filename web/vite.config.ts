@@ -25,7 +25,7 @@ export default defineConfig({
   // the /api/events stream) resolve without CORS.
   server: {
     proxy: {
-      '/api': { target: 'http://127.0.0.1:7000', changeOrigin: true },
+      '/api': { target: 'http://127.0.0.1:13579', changeOrigin: true },
     },
   },
 })

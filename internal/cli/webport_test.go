@@ -151,7 +151,7 @@ func TestTheWebFlagServesTheLoopbackInterface(t *testing.T) {
 		args []string
 		want string
 	}{
-		"on its default port": {args: []string{webFlag}, want: "127.0.0.1:7000"},
+		"on its default port": {args: []string{webFlag}, want: "127.0.0.1:13579"},
 		"on the port named":   {args: []string{webFlag, "--port", "7001"}, want: "127.0.0.1:7001"},
 	}
 

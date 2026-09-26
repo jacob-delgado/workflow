@@ -147,12 +147,12 @@ tasks:
       - corepack yarn dev
 
   web:
-    desc: "Serve only the cockpit's API and event stream on 127.0.0.1:7000"
+    desc: "Serve only the cockpit's API and event stream on 127.0.0.1:13579"
     cmds:
       - go run {{.PKG}} --web
 
   web:ui:
-    desc: "Shell 2 — install and serve the web UI on :5173 (proxies /api to :7000)"
+    desc: "Shell 2 — install and serve the web UI on :5173 (proxies /api to :13579)"
     dir: web
     env:
       COREPACK_ENABLE_DOWNLOAD_PROMPT: "0"
@@ -530,7 +530,7 @@ tasks:
     # The web frontend's lint, client-drift check and unit tests sit beside
     # their Go twins, so a broken frontend fails here and not first in CI. The
     # Playwright suites stay out: each needs a browser installed, and the
-    # server-backed one needs `task build`'s binary and port 7000 free as
+    # server-backed one needs `task build`'s binary and port 13580 free as
     # well. CI's e2e and e2e-server jobs run them (`yarn test:e2e` and
     # `yarn test:e2e:server` by hand).
     cmds:

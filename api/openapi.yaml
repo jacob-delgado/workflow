@@ -28,10 +28,10 @@ info:
     the forge is read again (streamEvents says when).
   version: 1.0.0
 servers:
-  - url: http://127.0.0.1:7000
+  - url: http://127.0.0.1:13579
     description: >-
       The local server, bound to the loopback interface only. Its port is the
-      one `workflow --web --port` names; 7000 when it names none.
+      one `workflow --web --port` names; 13579 when it names none.
 tags:
   - name: meta
     description: Server and build information.
