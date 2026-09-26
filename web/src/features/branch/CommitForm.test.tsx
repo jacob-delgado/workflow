@@ -92,6 +92,23 @@ test('after a commit with no scope the form opens on the suggestion again', asyn
   expect(scope.value).toBe('api')
 })
 
+test('sends the breaking mark and the body with the commit', async () => {
+  // Arrange
+  const user = userEvent.setup()
+  render(<CommitForm blocked={null} suggestedScope="" commitTypes={types} />)
+  await user.type(screen.getByLabelText('Subject'), 'drop the v1 endpoints')
+  await user.type(screen.getByLabelText('Body (optional)'), 'Clients move to v2.')
+  await user.click(screen.getByLabelText('Breaking change'))
+
+  // Act
+  await user.click(screen.getByRole('button', { name: 'Commit staged changes' }))
+
+  // Assert
+  expect(mockCommit).toHaveBeenLastCalledWith(
+    expect.objectContaining({ breaking: true, body: 'Clients move to v2.' }),
+  )
+})
+
 test('says a commit by the header it was made with when the branch does not reach it', async () => {
   // Arrange
   // A branch with no base lists no commits, so the header git recorded is not
