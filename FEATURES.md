@@ -136,7 +136,7 @@ Impact: low · Effort: small
   Jira is asked again (`seededIssues`, `internal/tui/issues.go:59`, over
   `Store.CachedIssues`, `internal/store/cache.go:31`). The web's stream reads
   Jira before it sends its first frame (`snapshotIssues`,
-  `internal/webserver/stream.go:133`), so every section says *Connecting to
+  `internal/webserver/stream.go:181`), so every section says *Connecting to
   workflow…* until Jira answers.
 - Touches: `internal/webserver` (the stream's first frame, from a
   cached-issues seam on `Deps`), `internal/store`.

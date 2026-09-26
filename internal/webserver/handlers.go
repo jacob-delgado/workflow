@@ -194,20 +194,30 @@ func (s *server) readReview() (api.Review, error) {
 		return api.Review{}, err
 	}
 
-	return s.reviewFor(branch)
+	read, err := s.readForge(branch)
+
+	return read.review, err
 }
 
-// reviewFor is the branch's pull request and its CI, or none found when no
+// forgeRead is what one read of the forge found for a branch: the review, and
+// the error of a CI read that failed, which leaves the review without CI just
+// as no CI would.
+type forgeRead struct {
+	review api.Review
+	ciErr  error
+}
+
+// readForge is the branch's pull request and its CI, or none found when no
 // forge is configured: the one read behind GET /api/review and the event
-// stream's review panel, which hands it the branch its frame read.
-func (s *server) reviewFor(branch gitrepo.Branch) (api.Review, error) {
+// stream's forge cache, which hands it the branch its frame read.
+func (s *server) readForge(branch gitrepo.Branch) (forgeRead, error) {
 	if s.deps.FindPull == nil {
-		return api.Review{Found: false}, nil
+		return forgeRead{review: api.Review{Found: false}}, nil
 	}
 
 	pull, found, err := s.deps.FindPull(branch.Name)
 	if err != nil {
-		return api.Review{}, err
+		return forgeRead{}, err
 	}
 
 	return s.review(pull, found, branch.Head), nil
@@ -216,29 +226,29 @@ func (s *server) reviewFor(branch gitrepo.Branch) (api.Review, error) {
 // review assembles the review state, folding in CI when an open pull request is
 // found and CI can be read. A merged pull request has no live CI, so it is not
 // asked about, as the terminal does not ask. A CI read that fails leaves the pull
-// request without it rather than failing the whole answer.
-func (s *server) review(pull forge.PullRequest, found bool, head string) api.Review {
+// request without it rather than failing the whole answer, its error beside.
+func (s *server) review(pull forge.PullRequest, found bool, head string) forgeRead {
 	result := api.Review{Found: found}
 	if !found {
-		return result
+		return forgeRead{review: result}
 	}
 
 	dto := pullDTO(pull)
 	result.Pull = &dto
 
 	if s.deps.CheckCI == nil || !pull.IsOpen() {
-		return result
+		return forgeRead{review: result}
 	}
 
 	status, err := s.deps.CheckCI(pull, head)
 	if err != nil {
-		return result
+		return forgeRead{review: result, ciErr: err}
 	}
 
 	ci := ciDTO(status)
 	result.Ci = &ci
 
-	return result
+	return forgeRead{review: result}
 }
 
 // ListReviews returns the pull requests on the forge that ask for your review,

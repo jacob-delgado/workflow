@@ -1607,7 +1607,7 @@ header versus content, browser versus terminal.
   `EventSource` error, one before any open included
   (`web/src/api/snapshot.ts:87`); so the header says "Reconnecting" over
   every section's "Connecting to workflow…" at once, where
-  `docs/content/docs/web.md:51`, under "The page", defines Reconnecting as
+  `docs/content/docs/web.md:57`, under "The page", defines Reconnecting as
   "the connection dropped" and Connecting as no first update yet.
 - The empty review queue is "Nothing is waiting on your review." on the
   web (`queueSummary`,
@@ -1683,7 +1683,7 @@ say.
   `web/src/features/issues/WorkStory.tsx:231`), yet it is styled only with
   `hover:bg-accent` and a focus ring (`:233`) and its sr-only span carries
   the state alone (`:236`): nothing at rest or in its name says it
-  navigates, though `docs/content/docs/web.md:74` promises under "Issues"
+  navigates, though `docs/content/docs/web.md:80` promises under "Issues"
   "each step opening the section it belongs to", so the story reads as a
   plain timeline.
 - The Settings `<form>` has `onSubmit` and a `className` only
@@ -1981,19 +1981,23 @@ header that says Live, with no reason and no Retry.
 - `writeIssues`, `internal/cli/standup.go:255`, and `writePulls`, `:267`:
   "- none" whether the service answered or refused; `--no-edit --yes` posts
   it.
-- `server.snapshot`, `internal/webserver/stream.go:82`: the comment
-  codifies the rule — a seam that fails yields an empty panel;
-  `snapshotIssues`, `:141`, returns an empty first page when `Search`
-  fails, `frameBranch`, `:103`, answers an empty `gitrepo.Branch{}` when
-  the `Branch` read fails (`:106`), which `snapshot` hands to `branchDTO`
-  (`:89`) and which makes `snapshotReview` answer not found,
-  `snapshotChanges`, `:152`, `changesDTO(nil)`, and `snapshotReview`,
-  `:162` and `:167`, `api.Review{Found: false}` — indistinguishable from
-  no pull request.
+- `server.snapshot`, `internal/webserver/stream.go:129`: the comment
+  codifies the rule — a seam that fails yields an empty panel, the forge's
+  keeping its last answer; `snapshotIssues`, `:189`, returns an empty first
+  page when `Search` fails, `frameBranch`, `:151`, answers an empty
+  `gitrepo.Branch{}` when the `Branch` read fails (`:154`), which
+  `snapshot` hands to `branchDTO` (`:137`) and which makes
+  `snapshotReview` answer not found (`:211`), and `snapshotChanges`,
+  `:200`, `changesDTO(nil)`. `forgeReview`, `:220`, keeps the answer it
+  holds for the branch at its head when a read fails (`:238`); with none
+  held it keeps and serves `readForge`'s empty review for an interval
+  (`:246`) — indistinguishable from no pull request.
 - `Review`, `api/openapi.yaml:1183`: carries `found`, `pull` and `ci` only,
   and `Snapshot` (`:992`) has no per-panel problem.
-- `server.review`, `internal/webserver/handlers.go:233`: a `CheckCI` error
-  drops `ci` from the answer; `PullRequestSummary`,
+- `server.review`, `internal/webserver/handlers.go:243`: a `CheckCI` error
+  drops `ci` from the answer, which the stream fills only with the CI it
+  holds for the same pull request (`internal/webserver/stream.go:243`);
+  `PullRequestSummary`,
   `web/src/features/review/ReviewPanel.tsx:137`, renders nothing for a null
   `ci`, where the terminal's `Model.reviewDetail`,
   `internal/tui/review.go:320`, shows the CI failure under the pull
@@ -2035,7 +2039,8 @@ sees an empty stderr; a `standup` test with a 500 from Jira sees the draft
 on stdout and a note naming Jira on stderr, while
 `TestStandupWithNoWorkSaysEachSectionIsEmpty` still sees three "- none" and
 no note; a stream test with a failing `FindPull` sees a review panel
-carrying a problem, and ReviewPanel, BranchPanel and IssuesPanel tests
+carrying a problem, beside the last answer held for that branch and head
+when there is one, and ReviewPanel, BranchPanel and IssuesPanel tests
 render such snapshots by role alert rather than as the open-a-pull-request
 form, the not-a-repository state or "No issues match this view."; a
 ReviewPanel test with `ci` null and `ci_error` set finds the alert naming

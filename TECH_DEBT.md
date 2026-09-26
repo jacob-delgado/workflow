@@ -418,10 +418,12 @@ UX-87.
 - `internal/config/ui.go:37` — `UI.CommentsShown`; 0 hits.
 - `internal/config/timing.go:21` — `Timing.RequestTimeout`; 0 hits, and no
   `timing` row at all.
-- `internal/config/timing.go:24` — `Timing.CIInterval`, named once in
+- `internal/config/timing.go:25` — `Timing.CIInterval`, named once in
   prose at `docs/content/docs/configuration.md:383` ("The interface:
-  mouse, ASCII and color") as if already introduced; its format and
-  twenty-second default are nowhere.
+  mouse, ASCII and color") as if already introduced; its twenty-second
+  default is given only beside the web page's stream
+  (`docs/content/docs/web.md:48`) and in the event stream's description in
+  `api/openapi.yaml`, and its format nowhere.
 - `internal/config/branch.go:37` — `Branch.SlugLimit`, validated at `:55`;
   0 hits, and the Branch names section lists the other three fields only.
 - `internal/config/commit.go:29` — `Commit.Types`, validated at load; 0
@@ -1011,7 +1013,7 @@ from the description is what it hurts.
 - `api/openapi.yaml:45` — the `events` tag says snapshots are "pushed as
   they change", and `streamEvents`'s summary at `api/openapi.yaml:727`
   says the same; `defaultStreamInterval`'s comment
-  (`internal/webserver/stream.go:19`) says the server re-reads on a
+  (`internal/webserver/stream.go:20`) says the server re-reads on a
   cadence and pushes the result, with no comparison to the previous frame,
   as "**The stream**" in `docs/content/docs/web.md:46` also says.
 - `api/openapi.yaml:4` — the header comment credits `task gen:verify` with
@@ -1028,11 +1030,11 @@ from the description is what it hurts.
   requests, and `getConfig`'s own description at `api/openapi.yaml:380`
   relies on it ("A file that has been deleted leaves the configuration in
   effect as it was"); it keeps the forge's author too, from its first
-  answer (`authorCache`, `internal/webserver/webserver.go:143`).
+  answer (`authorCache`, `internal/webserver/webserver.go:150`).
 - `api/openapi.yaml:328` — `getReview`'s 200 says "pull and ci are null
   when none is found"; `Review` in `internal/api/models.gen.go:692` marks
   both `omitempty` and `server.review`
-  (`internal/webserver/handlers.go:220`) leaves them nil, so they are
+  (`internal/webserver/handlers.go:230`) leaves them nil, so they are
   absent, as the not-found frame in `web/src/test/snapshot-frames.sse:7`
   shows.
 - `api/openapi.yaml:1070` — `Issue.priority` "May be empty"; `issueDTO`

@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"sync"
 	"time"
 
 	"github.com/jacob-delgado/workflow/internal/api"
@@ -17,7 +18,53 @@ import (
 // defaultStreamInterval is how often the event stream re-pushes a snapshot when
 // Info names no interval. The upstreams have no change notification, so the
 // server re-reads on this cadence and pushes the result; the browser never polls.
+// The forge is asked on a slower cadence of its own: see forgeCache.
 const defaultStreamInterval = 5 * time.Second
+
+// defaultForgeInterval is how long the forge's answer serves every stream when
+// timing.ci_interval names no interval: the terminal's own CI poll, often
+// enough to see a check finish soon after it does, rarely enough that a page
+// left open does not spend the forge's rate limit.
+const defaultForgeInterval = 20 * time.Second
+
+// forgeCache is the forge's part of a frame — the branch's pull request, its
+// reviews and its CI — held for every stream alike, so the forge is asked at
+// most once an interval however many pages are open, while the repository is
+// read on every frame. It holds the answer for one branch at one head commit:
+// a frame for another asks at once. A read that fails keeps the answer held
+// for the same branch and head until the next read is due, and a CI read that
+// fails keeps the CI held for the same pull request. Its lock is held across
+// the read, so streams that find a read due together make one.
+type forgeCache struct {
+	mu     sync.Mutex
+	held   bool
+	key    forgeKey
+	readAt time.Time
+	review api.Review
+}
+
+// forgeKey is what a forge answer was read for: a branch, by name, at a head.
+type forgeKey struct {
+	branch string
+	head   string
+}
+
+// drop forgets the held answer, so the next frame asks the forge: a write here
+// that changes what the forge would say shows on the next frame rather than an
+// interval later.
+func (c *forgeCache) drop() {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	c.held = false
+}
+
+// holdsPull reports whether the held answer is about the pull request of this
+// number, so the CI held for it can stand in for a CI read that failed; the CI
+// of another pull request, or of none, cannot. The caller holds the lock.
+func (c *forgeCache) holdsPull(number int) bool {
+	return c.review.Pull != nil && c.review.Pull.Number == number
+}
 
 // streamEvents serves the Server-Sent Events stream: a snapshot on connect, then
 // another every interval, until the client disconnects and its request context is
@@ -80,7 +127,8 @@ func writeSnapshot(w http.ResponseWriter, flusher http.Flusher, eventID int, sna
 
 // snapshot assembles the full read state the stream carries. A seam that is not
 // configured, or that fails, yields an empty panel rather than failing the whole
-// snapshot, so one unreachable upstream does not blank the cockpit.
+// snapshot, so one unreachable upstream does not blank the cockpit; the forge's
+// panel keeps its last answer instead (forgeReview).
 func (s *server) snapshot(view string) api.Snapshot {
 	branch, known := s.frameBranch()
 
@@ -155,17 +203,67 @@ func (s *server) snapshotChanges() api.ChangeList {
 	return changesDTO(changes)
 }
 
-// snapshotReview is the frame's branch's pull request and CI, or an empty review
-// when the branch is not known, no pull can be found, or a read fails.
+// snapshotReview is the frame's branch's pull request and CI as the forge last
+// answered for it, or an empty review when the branch is not known, no pull
+// can be found, or the forge has not answered for this branch at this head.
 func (s *server) snapshotReview(branch gitrepo.Branch, known bool) api.Review {
 	if !known {
 		return api.Review{Found: false}
 	}
 
-	review, err := s.reviewFor(branch)
-	if err != nil {
-		return api.Review{Found: false}
+	return s.forgeReview(branch)
+}
+
+// forgeReview is the branch's review from the forge cache, read again when the
+// cache holds none for the branch at its head, or once the forge interval has
+// passed since the last read.
+func (s *server) forgeReview(branch gitrepo.Branch) api.Review {
+	interval := s.forgeInterval()
+	key := forgeKey{branch: branch.Name, head: branch.Head}
+
+	s.forgeAnswer.mu.Lock()
+	defer s.forgeAnswer.mu.Unlock()
+
+	now := s.now()
+	held := s.forgeAnswer.held && s.forgeAnswer.key == key
+
+	if held && now.Sub(s.forgeAnswer.readAt) < interval {
+		return s.forgeAnswer.review
 	}
 
+	read, err := s.readForge(branch)
+	s.forgeAnswer.readAt = now
+
+	if err != nil && held {
+		return s.forgeAnswer.review
+	}
+
+	review := read.review
+	if held && read.ciErr != nil && s.forgeAnswer.holdsPull(review.Pull.Number) {
+		review.Ci = s.forgeAnswer.review.Ci
+	}
+
+	s.forgeAnswer.held, s.forgeAnswer.key, s.forgeAnswer.review = true, key, review
+
 	return review
+}
+
+// forgeInterval is how long a forge answer serves the stream:
+// timing.ci_interval in the configuration in effect, or defaultForgeInterval.
+func (s *server) forgeInterval() time.Duration {
+	interval := s.config().CIInterval()
+	if interval <= 0 {
+		return defaultForgeInterval
+	}
+
+	return interval
+}
+
+// now is the time by the clock the server was given.
+func (s *server) now() time.Time {
+	if s.deps.Clock == nil {
+		return time.Now()
+	}
+
+	return s.deps.Clock()
 }

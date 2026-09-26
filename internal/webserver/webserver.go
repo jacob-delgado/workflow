@@ -73,6 +73,9 @@ type Deps struct {
 	// one no class of failure explains, or an answer that could not be
 	// written — whose cause the answer leaves out. Nil says nothing.
 	Unexpected func(err error)
+	// Clock tells the time, for when the event stream last asked the forge.
+	// Nil means the system clock.
+	Clock func() time.Time
 }
 
 // Info is the build and run facts the API reports and the server needs.
@@ -136,6 +139,10 @@ type server struct {
 
 	// author is who a post would come from, held once the forge answers.
 	author authorCache
+
+	// forgeAnswer is the forge's part of the stream's frames, held for an
+	// interval.
+	forgeAnswer forgeCache
 }
 
 // authorCache is who the forge says a post would come from, kept from its first

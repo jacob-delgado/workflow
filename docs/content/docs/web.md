@@ -44,7 +44,13 @@ operating system; the choice is remembered in this browser.
 
 **The stream** keeps the page current. The server reads the repository and
 the services every five seconds and pushes what it finds, so nothing on the
-page needs refreshing by hand. Its state is beside the theme:
+page needs refreshing by hand. The forge — the pull request, its reviews and
+its CI — is asked less often: at most once every `timing.ci_interval` (twenty
+seconds unless set), however many tabs are open, and at once when another
+branch is checked out, its head commit moves, or the page opens a pull
+request. A forge read that fails keeps the last answer for the same branch
+and head commit; with no answer to keep, the page shows no pull request
+until a read succeeds. The stream's state is beside the theme:
 
 - **Connecting** — the page has not had its first update yet.
 - **Live** — updates are arriving.
