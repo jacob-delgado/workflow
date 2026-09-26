@@ -447,10 +447,9 @@ non-repository directory produces.
 
 What is open here is a screen-reader mode, the alternate screen and a fixed
 delay; undo; vim's missing keys; sentences that name a rebindable key; the
-in-flight mark on four panes and three searches; footers that break the
-overlay contract; two second-path acts; the two loose applications of the
-visual system (UX-100); two forge fields that stop before the screen; and
-a reviewers completion tab cannot take.
+in-flight mark on four panes and three searches; two second-path acts; the
+two loose applications of the visual system (UX-100); two forge fields that
+stop before the screen; and a reviewers completion tab cannot take.
 
 ### UX-64 A screen reader, an alternate screen you cannot turn off, and a delay you cannot tune
 
@@ -643,31 +642,6 @@ presses `4`, `r` and sees "Review ◐" in the title, and the same for `2`,
 move and the refresh's answer; a views test with `CachedIssues` for the
 second view shows "◐" after `v` until the search answers, and a `New` with
 a seeded cache shows it until `Init`'s search answers.
-
-### UX-98 The help's footer omits the two keys that scroll it
-
-Impact: low · Effort: small
-
-**Today.** The `overlay` interface (`internal/tui/overlay.go:23`) defines
-the footer as "the keys that do something in it right now", and the
-help's footer breaks it. On a short terminal the help ends with "… more
-below" and its footer reads "esc close · q quit"; every other scrolling
-overlay shows its up and down keys (`keyMap.listKeys`,
-`internal/tui/keys.go:424`), and `Model.reviewQueueKeys`
-(`internal/tui/reviewqueue.go:164`) already omits every key when it can do
-nothing.
-
-- `internal/tui/help.go:65` `helpOverlay.footer` returns `closeOverlay`
-  and `quit` only, while `helpOverlay.handleKey`
-  (`internal/tui/help.go:77`) also answers `scrollDown`/`down` and
-  `scrollUp`/`up`.
-
-**Instead.** Add `scrollDown` and `scrollUp` to the help's footer when its
-content is taller than the pane.
-
-**Done when.** `TestTheHelpListsEveryGroupAndScrolls`
-(`internal/tui/screen_test.go:252`) at 120×20 sees "pgdn/J", or the bound
-key, beside "esc close".
 
 ### UX-99 The worktree and review-status paths give less than their twins
 
