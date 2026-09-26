@@ -28,11 +28,16 @@ export async function openCockpit(
 }
 
 // settled is what shows once a section has drawn what it will: Reviews reads
-// its own queue after its heading appears; every other section settles with its
-// heading.
+// its own queue after its heading appears, and Settings the configuration, so
+// each settles with what its read fills in; every other section settles with
+// its heading.
 function settled(page: Page, name: string): Locator {
-  return name === 'Reviews'
-    ? page.getByRole('list', { name: 'Review requests' })
+  if (name === 'Reviews') {
+    return page.getByRole('list', { name: 'Review requests' })
+  }
+
+  return name === 'Settings'
+    ? page.getByRole('button', { name: 'Save changes' })
     : page.getByRole('heading', { level: 1, name })
 }
 

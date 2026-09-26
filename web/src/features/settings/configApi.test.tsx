@@ -5,7 +5,7 @@ import { mockConfig } from '@/dev/mockConfig.ts'
 import { useViews } from '@/features/issues/issueApi.ts'
 import { fakeApi } from '@/test/fakeApi.ts'
 import { appQueryClient } from '@/test/renderWithClient.tsx'
-import { useConfig, useReloadConfig, useSaveConfig } from './configApi.ts'
+import { useConfigRead, useReloadConfig, useSaveConfig } from './configApi.ts'
 
 // The issue views the server lists in these tests.
 const listedViews = { views: [{ name: 'Assigned to me', jql: 'assignee = currentUser()' }] }
@@ -93,14 +93,14 @@ test('each surface that opens reads the configuration again', async () => {
   const wrapper = ({ children }: { children: ReactNode }) => (
     <QueryClientProvider client={client}>{children}</QueryClientProvider>
   )
-  const { result: first, unmount } = renderHook(() => useConfig(), { wrapper })
+  const { result: first, unmount } = renderHook(() => useConfigRead(), { wrapper })
   await waitFor(() => {
     expect(first.current.isSuccess).toBe(true)
   })
   unmount()
 
   // Act
-  const { result: second } = renderHook(() => useConfig(), { wrapper })
+  const { result: second } = renderHook(() => useConfigRead(), { wrapper })
 
   // Assert
   await waitFor(() => {
@@ -121,7 +121,7 @@ test('a first read of the configuration reads the issue views again', async () =
   })
 
   // Act
-  renderHook(() => useConfig(), { wrapper })
+  renderHook(() => useConfigRead(), { wrapper })
 
   // Assert
   await waitFor(() => {
@@ -136,7 +136,7 @@ test('opening a surface over a file at a new revision reads the issue views agai
   const answers = [configAt('read-1'), configAt('read-2')]
   const requests = fakeApi({ '/api/views': listedViews, '/api/config': () => answers.shift() })
   const wrapper = appWrapper()
-  const { result: first, unmount } = renderHook(() => useConfig(), { wrapper })
+  const { result: first, unmount } = renderHook(() => useConfigRead(), { wrapper })
   await waitFor(() => {
     expect(first.current.isSuccess).toBe(true)
   })
@@ -147,7 +147,7 @@ test('opening a surface over a file at a new revision reads the issue views agai
   })
 
   // Act
-  renderHook(() => useConfig(), { wrapper })
+  renderHook(() => useConfigRead(), { wrapper })
 
   // Assert
   await waitFor(() => {
@@ -163,11 +163,11 @@ test('reloading the configuration replaces the cached copy every surface reads',
   }
   const answers = [configAt('read-1'), configAt('read-2', edited)]
   fakeApi({ '/api/config': () => answers.shift() })
-  const { result } = renderHook(() => ({ config: useConfig(), reload: useReloadConfig() }), {
+  const { result } = renderHook(() => ({ config: useConfigRead(), reload: useReloadConfig() }), {
     wrapper: appWrapper(),
   })
   await waitFor(() => {
-    expect(result.current.config.data?.jira.base_url).toBe(mockConfig.jira.base_url)
+    expect(result.current.config.data?.config.jira.base_url).toBe(mockConfig.jira.base_url)
   })
 
   // Act
@@ -175,7 +175,7 @@ test('reloading the configuration replaces the cached copy every surface reads',
 
   // Assert
   await waitFor(() => {
-    expect(result.current.config.data?.jira.base_url).toBe(edited.jira.base_url)
+    expect(result.current.config.data?.config.jira.base_url).toBe(edited.jira.base_url)
   })
 })
 
@@ -184,7 +184,7 @@ test('a reconnect does not read the configuration again', async () => {
   // A reconnect says nothing about the file, and a read that failed then would
   // take an open form, and the edits in it, away.
   const requests = fakeApi({ '/api/config': mockConfig })
-  const { result } = renderHook(() => useConfig(), { wrapper: appWrapper() })
+  const { result } = renderHook(() => useConfigRead(), { wrapper: appWrapper() })
   await waitFor(() => {
     expect(result.current.isSuccess).toBe(true)
   })

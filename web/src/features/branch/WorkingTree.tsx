@@ -12,9 +12,11 @@ import { stageEverything, stageFile, unstageFile } from './stagingApi.ts'
 export function WorkingTree({
   changes,
   suggestedScope,
+  commitTypes,
 }: {
   changes: Change[]
   suggestedScope: string
+  commitTypes: string[]
 }) {
   return (
     <section aria-labelledby="changes-heading" className="flex flex-col gap-group">
@@ -31,7 +33,11 @@ export function WorkingTree({
           <StageAll anythingToStage={changes.some(offersStage)} />
         </>
       )}
-      <CommitForm blocked={commitBlocker(changes)} suggestedScope={suggestedScope} />
+      <CommitForm
+        blocked={commitBlocker(changes)}
+        suggestedScope={suggestedScope}
+        commitTypes={commitTypes}
+      />
     </section>
   )
 }

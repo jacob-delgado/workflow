@@ -8,10 +8,6 @@ import { useHealthStore } from './health.ts'
 import { useSnapshotStore } from './snapshot.ts'
 import './client.ts'
 
-// The commit form beside the push reads the configuration; with none it offers
-// the built-in types, and these tests never reach it.
-vi.mock('@/features/settings/configApi.ts', () => ({ useConfig: () => ({ data: undefined }) }))
-
 // fakeServer stands in for fetch, answering every request with the snapshot's
 // branch (what a push returns), and records each request's method so a test can
 // count what left the browser.

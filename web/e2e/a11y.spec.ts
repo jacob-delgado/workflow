@@ -1,7 +1,7 @@
 import { AxeBuilder } from '@axe-core/playwright'
 import { expect, test, type Locator, type Page } from '@playwright/test'
 import type { Snapshot } from '../src/api/generated/types.gen.ts'
-import { sectionNames as populatedSectionNames, themes } from './cockpit.ts'
+import { openSection, sectionNames as populatedSectionNames, themes } from './cockpit.ts'
 
 // Every section, in both themes: a light theme is only real once its contrast
 // holds up, so the scan runs the whole cockpit in each. The section labels are
@@ -15,11 +15,14 @@ test.beforeEach(async ({ page }) => {
   await page.emulateMedia({ reducedMotion: 'reduce' })
 })
 
-// settled is what shows once a section has drawn what it will: Reviews reads
-// its own endpoint after its heading appears, so the scan waits on that read's
-// outcome (the one given); every other section settles with its heading.
-function settled(page: Page, name: string, reviews: Locator): Locator {
-  return name === 'Reviews' ? reviews : page.getByRole('heading', { level: 1, name })
+// settled is what shows once a section has drawn what it will with no API to
+// answer it: Reviews reads its own endpoint after its heading appears, so the
+// scan waits on that read's Retry; every other section settles with its
+// heading.
+function settled(page: Page, name: string): Locator {
+  return name === 'Reviews'
+    ? page.getByRole('button', { name: 'Retry' })
+    : page.getByRole('heading', { level: 1, name })
 }
 
 // scan returns the WCAG A/AA violations axe finds on whatever is on screen.
@@ -70,7 +73,7 @@ for (const theme of themes) {
       // Act: open the section and let it settle.
       await nav.getByRole('button', { name, exact: true }).click()
       await expect(page.getByRole('heading', { level: 1, name })).toBeVisible()
-      await expect(settled(page, name, page.getByRole('button', { name: 'Retry' }))).toBeVisible()
+      await expect(settled(page, name)).toBeVisible()
 
       // Assert: axe finds nothing on this section in this theme.
       const violations = await scan(page)
@@ -96,15 +99,9 @@ for (const theme of themes) {
       await page.getByRole('button', { name: /redact tokens before/i }).click()
       await expect(page.getByRole('link', { name: /open in jira/i })).toBeVisible()
 
-      const nav = page.getByRole('navigation', { name: 'Sections' })
-
       for (const name of populatedSectionNames) {
         // Act: open the section and let it settle.
-        await nav.getByRole('button', { name, exact: true }).click()
-        await expect(page.getByRole('heading', { level: 1, name })).toBeVisible()
-        await expect(
-          settled(page, name, page.getByRole('list', { name: 'Review requests' })),
-        ).toBeVisible()
+        await openSection(page, name)
 
         // Assert: axe finds nothing on this section, filled, in this theme.
         const violations = await scan(page)

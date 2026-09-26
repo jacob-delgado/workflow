@@ -846,9 +846,9 @@ terminal shows are absent on the web too, none of them among what
   (`internal/tui/commits.go:159`).
 - The commit subject has no length against `commit.subject_limit`:
   `MessageFields` is a bare `<input required placeholder>`
-  (`web/src/features/branch/CommitForm.tsx:183`) though the form already
-  reads `useConfig` and `subject_limit` is on the wire (`CommitConfig`,
-  `web/src/api/generated/types.gen.ts:646`); the terminal's
+  (`web/src/features/branch/CommitForm.tsx:158`) though `subject_limit` is
+  on the wire (`CommitConfig`,
+  `web/src/api/generated/types.gen.ts:659`); the terminal's
   `commitComposer.view` shows "n/limit" as typed
   (`internal/tui/composer.go:151`). The limit is met only as a 422 after
   the click.

@@ -73,11 +73,6 @@ export function useConfigRead() {
   return useQuery(configQuery())
 }
 
-// useConfig reads the configuration alone, for a surface that only reads it.
-export function useConfig() {
-  return useQuery({ ...configQuery(), select: (read) => read.config })
-}
-
 // saveConfig writes the whole configuration back over the revision named, and
 // returns it as stored, with secrets re-masked, and the revision written. A
 // secret left at its masked value keeps the stored one — the server preserves

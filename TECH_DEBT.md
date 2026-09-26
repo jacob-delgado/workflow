@@ -591,7 +591,7 @@ The web:
 - `web/src/features/writes.test.tsx:326` — the writes table discards the
   `Request[]` that `fakeApi` (`web/src/test/fakeApi.ts:14`) returns for
   exactly this, so `breaking: fields.breaking` in `CommitForm`
-  (`web/src/features/branch/CommitForm.tsx:75`) can be dropped —
+  (`web/src/features/branch/CommitForm.tsx:61`) can be dropped —
   `CommitRequest.breaking` is optional
   (`web/src/api/generated/types.gen.ts:114`), so it compiles — and no test
   fails.
@@ -658,13 +658,6 @@ Facts the code needs in more than one place are written in each, with
 nothing keeping the copies equal. CLAUDE.md names the smell and the rule of
 three; no linter or knip rule sees any of it.
 
-- `web/src/features/branch/CommitForm.tsx:12` — `defaultCommitTypes` copies
-  the eleven Go types (`internal/convention/commit.go:45`) in order, and
-  `useCommitTypes` (`web/src/features/branch/CommitForm.tsx:131`) falls back
-  to it when `config.commit.types` is empty; `server.commitConvention`
-  (`internal/webserver/commit.go:75`) resolves the same empty list through
-  `convention.NewCommitConvention`, so the server's default is never sent,
-  and no test compares the two.
 - `web/src/shell/themeStore.ts:11` — `storageKey` is `'workflow-theme'` with
   a "Keep the two in step" comment and is not exported; `web/index.html:25`
   spells it again in the pre-paint script, `web/src/shell/theme.test.tsx:21`
@@ -688,14 +681,11 @@ three; no linter or knip rule sees any of it.
 A renamed theme key in `web/index.html` passes every gate and shows only as
 a flash before first paint; and a change to the focus ring is eight edits.
 
-**One way to fix it.** One owner per fact: the server sending the effective
-commit types so the form holds no list; an exported `storageKey` a test
+**One way to fix it.** One owner per fact: an exported `storageKey` a test
 checks `web/index.html` against; and one `Button` component or two class
 constants.
 
-**Done when.**
-`grep -n "'revert'" web/src/features/branch/CommitForm.tsx` is empty and the
-options come from a server field; a test fails when
+**Done when.** A test fails when
 `web/index.html`'s key differs from `themeStore`'s;
 `grep -rn "border border-input px-3 py-1.5" web/src --include='*.tsx'`
 matches one definition site.
@@ -982,10 +972,10 @@ server) does not cover this: it is the runtime floor's reach, not the backend's.
   pull branch is taken and `PullRequestForm` never mounts there.
 - `web/e2e/a11y.spec.ts:265` — the offers test clicks "Open a pull request"
   and then "Open pull request" with no scan between compose and submit, and
-  `scan` runs (`web/e2e/a11y.spec.ts:273`) after `OpenPullRequest`
+  `scan` runs (`web/e2e/a11y.spec.ts:274`) after `OpenPullRequest`
   (`web/src/features/review/ReviewPanel.tsx:166`) has returned null on
   `open.state === 'done'`, so the form is gone.
-- `web/e2e/a11y.spec.ts:21` — `settled` returns the level-1 heading for
+- `web/e2e/a11y.spec.ts:22` — `settled` returns the level-1 heading for
   every section but Reviews, and the heading is drawn regardless of panel
   state; the hermetic loop (`web/e2e/a11y.spec.ts:72`) scans as soon as it
   is visible, before the config read fails to Retry, so it may land on
@@ -1054,7 +1044,7 @@ know about.
   Staging, committing and pushing: `internal/tui/composer_test.go` (568,
   the terminal's commit composer), `internal/webserver/staging_test.go`
   (533, the web's stage and unstage) and
-  `web/src/features/branch/BranchPanel.test.tsx` (517, the web's commit and
+  `web/src/features/branch/BranchPanel.test.tsx` (513, the web's commit and
   push). Reading and writing an issue: `internal/jira/detail_test.go` (501,
   Jira's issue read, comment and pull request link). The cost is that
   `scripts/check-file-length.sh` still warns on every run, so a source file
@@ -1078,10 +1068,12 @@ know about.
   only the list's slim issues and never the queue, so each is read again
   when reopened after a minute, and the queue's Refresh reads it at once.
   The configuration's is 0 (`web/src/features/settings/configApi.ts:65`):
-  the file can change on disk, which no event reports, so Settings and the
-  commit form read it again each time they open. A save that still meets a
-  change it has not seen is refused (409) and nothing is written; Settings
-  offers **Reload**.
+  the file can change on disk, which no event reports, so Settings reads it
+  again each time it opens. The commit form's types come from the snapshot
+  and, like commit validation, follow the configuration the server last
+  read or saved, so an edit made on disk reaches them once Settings is
+  opened or a save lands. A save that still meets a change it has not seen
+  is refused (409) and nothing is written; Settings offers **Reload**.
 - **The progress spine's per-system hue is color-only**
   (`internal/tui/spine.go:69`), mitigated by the stage name, or its initial
   when compact (`internal/tui/spine.go:51`). Part of the visual system UX.md

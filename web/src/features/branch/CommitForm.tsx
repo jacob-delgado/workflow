@@ -1,27 +1,10 @@
-import { useCallback, useEffect, useMemo, useRef } from 'react'
+import { useCallback, useEffect, useRef } from 'react'
 import { useForm, type UseFormRegister } from 'react-hook-form'
 import type { Branch } from '@/api/generated/types.gen.ts'
-import { useConfig } from '@/features/settings/configApi.ts'
 import { OutcomeLine, useOutcome } from '@/lib/Outcome.tsx'
 import { useAsyncAction } from '@/lib/useAsyncAction.ts'
 import { cn } from '@/lib/utils.ts'
 import { commitChanges } from './commitApi.ts'
-
-// The built-in Conventional Commit types, in the order the terminal composer
-// offers them, used when a team configures none of its own.
-const defaultCommitTypes = [
-  'feat',
-  'fix',
-  'docs',
-  'refactor',
-  'test',
-  'perf',
-  'build',
-  'ci',
-  'chore',
-  'style',
-  'revert',
-]
 
 interface CommitFields {
   type: string
@@ -36,15 +19,17 @@ interface CommitFields {
 // it says which commit it made, and a refusal is shown inline.
 // It stays in place while nothing is staged — blocked says why, in the form,
 // with its button off — so a message can be written before the files are. It
-// opens on the scope the server suggests, the terminal composer's own.
+// offers the commit types the server allows, in its order, and opens on the
+// scope the server suggests, the terminal composer's own.
 export function CommitForm({
   blocked,
   suggestedScope,
+  commitTypes,
 }: {
   blocked: string | null
   suggestedScope: string
+  commitTypes: string[]
 }) {
-  const commitTypes = useCommitTypes()
   const { register, handleSubmit, reset, getValues, setValue } = useForm<CommitFields>({
     defaultValues: { type: 'fix', scope: suggestedScope, subject: '', body: '', breaking: false },
   })
@@ -57,8 +42,9 @@ export function CommitForm({
   const scopeSuggestion = useScopeSuggestion(suggestedScope, applyScope)
   const outcome = useOutcome()
 
-  // Keep the chosen type one the convention allows, so a team whose types load
-  // after the form, or exclude "fix", does not submit a type the server rejects.
+  // Keep the chosen type one the convention allows, so a team whose types
+  // change after the form opens, or exclude "fix", does not submit a type the
+  // server rejects.
   useEffect(() => {
     if (!commitTypes.includes(getValues('type'))) {
       setValue('type', commitTypes[0] ?? 'fix')
@@ -119,17 +105,6 @@ export function CommitForm({
       </div>
     </form>
   )
-}
-
-// useCommitTypes is a team's own commit types, in the order to offer them, or
-// the built-in set when it configures none.
-function useCommitTypes(): string[] {
-  const { data: config } = useConfig()
-
-  return useMemo(() => {
-    const configured = config?.commit.types
-    return configured && configured.length > 0 ? configured : defaultCommitTypes
-  }, [config])
 }
 
 // nextMessage is what the form holds once a commit lands: a type the
