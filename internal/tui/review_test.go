@@ -401,15 +401,18 @@ func TestADryRunOpensNothing(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
+	// Opened for real, it would go on to offer the link and then the move.
 	dry := withoutPull()
-	model := sized(t, dryInterface(dry), 120, 40)
+	dry.cfg.Jira.ReviewStatus = statusInReview
+	model := sized(t, dryInterface(dry), 200, 40)
 	model = drain(t, model, model.Init())
 
 	// Act
 	view := typing(t, model, "4", "n", keyEnter).View().Content
 
 	// Assert
-	requireScreen(t, view, "dry run: would open \""+pullTitle+"\" from "+featureName+" into main")
+	requireScreen(t, view, "dry run: would open \""+pullTitle+"\" from "+featureName+" into main, then offer "+
+		"to link it on "+issueKey+" and to move "+issueKey+" to "+statusInReview)
 
 	if calls := append(dry.asked("open "), dry.asked("push")...); len(calls) != 0 {
 		t.Errorf("a dry run pushed or opened: %q", calls)

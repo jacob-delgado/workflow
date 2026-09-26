@@ -173,19 +173,21 @@ func TestAFailedLinkKeepsTheConfirmationOpen(t *testing.T) {
 	requireScreen(t, failed.View().Content, "Link on PROJ-412", errLinkFailed.Error())
 }
 
-func TestADryRunSaysItWouldLinkThePullRequest(t *testing.T) {
+func TestADryRunSaysItWouldOfferToLinkThePullRequest(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
+	// With no review status configured, the link is the one offer.
 	dry := withoutPull()
-	model := sized(t, dryInterface(dry), 120, 40)
+	model := sized(t, dryInterface(dry), 200, 40)
 	model = drain(t, model, model.Init())
 
 	// Act
 	view := typing(t, model, "4", "n", keyEnter).View().Content
 
 	// Assert
-	requireScreen(t, view, "and link it on")
+	requireScreen(t, view, "into main, then offer to link it on "+issueKey)
+	refuseScreen(t, view, "to move")
 
 	if calls := append(dry.asked("open"), dry.asked("link")...); len(calls) != 0 {
 		t.Errorf("a dry run opened or linked: %q", calls)
@@ -198,7 +200,8 @@ func TestADryRunOffersNoJiraLinkForAForgeIssueNumber(t *testing.T) {
 	// Arrange
 	dry := withoutPull()
 	dry.branch.Name = "fix/42-typo"
-	model := sized(t, dryInterface(dry), 120, 40)
+	dry.cfg.Jira.ReviewStatus = statusInReview
+	model := sized(t, dryInterface(dry), 200, 40)
 	model = drain(t, model, model.Init())
 
 	// Act
@@ -206,5 +209,5 @@ func TestADryRunOffersNoJiraLinkForAForgeIssueNumber(t *testing.T) {
 
 	// Assert
 	requireScreen(t, view, "dry run: would")
-	refuseScreen(t, view, "and link it on")
+	refuseScreen(t, view, "then offer")
 }
