@@ -1830,12 +1830,11 @@ the repository and says where.
 
 Impact: medium · Effort: medium
 
-**Today.** Once a pull request has merged, the three surfaces give three
-answers on the same branch: the command line says the review never began,
-the terminal's spine says it is still going, and the browser says the pull
-request is ready for review. `status` already reads the store's announce
-memory as the spine does, so its last stage agrees once it counts a merged
-pull request as found. The browser's side is DEBT-127; the Review pane
+**Today.** Once a pull request has merged, the surfaces disagree on the
+same branch: the command line says the review never began, the terminal's
+spine says it is still going, and only the browser says it merged. `status`
+already reads the store's announce memory as the spine does, so its last
+stage agrees once it counts a merged pull request as found. The Review pane
 already offers `n` on the same state.
 
 - `status`: `○ Review` and the JSON state `not_started` (`gatherReview`,
@@ -1856,10 +1855,6 @@ already offers `n` on the same state.
   `PullRequestFound`, true for a merged pull as much as an open one.
 - `Work.PullRequestFound`, `internal/progress/progress.go:49`, is
   documented as an open pull request, which the spine does not hold to.
-- The browser: `server.review`, `internal/webserver/handlers.go:182`, polls
-  CI for a merged pull, and `PullRequestSummary`'s State row,
-  `web/src/features/review/ReviewPanel.tsx:97`, can say only Draft or Ready
-  for review (DEBT-127).
 - `StateMerged`, `internal/forge/pulls.go:61`: "so its branch's work is
   done" — what no surface's stage says.
 
@@ -1870,12 +1865,11 @@ the announce and standup tests only.
 **Instead.** Give `progress.Work` the pull's state (open, merged or none)
 and let `reviewState` read merged as `Done`, set from both `gatherReview`
 and the interface's `work()`, so the command line, the spine and the rail
-agree; the browser's State row follows DEBT-127's wire `state`.
+agree; the browser's State row already reads the wire `state`.
 
 **Done when.** A `status` test with a merged pull request fixture prints
 `● Review` and JSON state `done`, a spine screen test on the same fixture
-shows the review stage done beside the rail's "● merged", a `ReviewPanel`
-test with a merged pull finds the State row saying merged, and a progress
+shows the review stage done beside the rail's "● merged", and a progress
 table case for a merged pull exists.
 
 ### UX-126 Sentences that assume GitHub or the terminal, told elsewhere
