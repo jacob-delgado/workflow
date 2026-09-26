@@ -97,7 +97,7 @@ const tryAgain = "try again, and run workflow doctor if it keeps failing"
 // answered oddly, a setting it cannot use, a service's refusal) or else an
 // unexpected failure — but the detail is curated and safe: the raw cause
 // carries a host, a path, a webhook or a credential and never reaches the wire.
-func fault(err error) (api.Problem, int) {
+func (s *server) fault(err error) (api.Problem, int) {
 	prob := faultProblem(err)
 
 	return prob, prob.Status

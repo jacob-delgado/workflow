@@ -65,7 +65,7 @@ func (s *server) OpenPullRequest(
 
 	pull, err := s.deps.CreatePull(newPull)
 	if err != nil && !pull.Opened() {
-		return openFailure(err), nil
+		return s.openFailure(err), nil
 	}
 
 	// A pull that opened but whose reviewers, assignees or labels could not all
@@ -111,7 +111,7 @@ func (s *server) draftRefusal(err error) api.GetPullRequestDraftResponseObject {
 		return api.GetPullRequestDraft409ApplicationProblemPlusJSONResponse(conflict)
 	}
 
-	body, code := fault(err)
+	body, code := s.fault(err)
 
 	return api.GetPullRequestDraftdefaultApplicationProblemPlusJSONResponse{Body: body, StatusCode: code}
 }
@@ -122,7 +122,7 @@ func (s *server) openRefusal(err error) api.OpenPullRequestResponseObject {
 		return api.OpenPullRequest409ApplicationProblemPlusJSONResponse(conflict)
 	}
 
-	body, code := fault(err)
+	body, code := s.fault(err)
 
 	return api.OpenPullRequestdefaultApplicationProblemPlusJSONResponse{Body: body, StatusCode: code}
 }
@@ -219,14 +219,14 @@ func openUnprocessable(message string) api.OpenPullRequest422ApplicationProblemP
 // classified by fault, whose detail names no host: an unreachable forge, a
 // redirect the client refused and a missing repository all carry one in their
 // text.
-func openFailure(err error) api.OpenPullRequestResponseObject {
+func (s *server) openFailure(err error) api.OpenPullRequestResponseObject {
 	switch {
 	case errors.Is(err, forge.ErrRejected), errors.Is(err, forge.ErrNoUser):
 		return openUnprocessable(err.Error())
 	case errors.Is(err, forge.ErrUnknownForge):
 		return openUnprocessable("cannot tell which forge this repository is on; set forge.kind and forge.host")
 	default:
-		body, code := fault(err)
+		body, code := s.fault(err)
 
 		return api.OpenPullRequestdefaultApplicationProblemPlusJSONResponse{Body: body, StatusCode: code}
 	}

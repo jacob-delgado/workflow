@@ -59,7 +59,7 @@ func (s *server) Stage(_ context.Context, request api.StageRequestObject) (api.S
 
 	target, changes, err := s.moveChanges(*request.Body, direction)
 	if err != nil {
-		failure := stagingProblem(err, direction.verb, target)
+		failure := s.stagingProblem(err, direction.verb, target)
 
 		return api.StagedefaultApplicationProblemPlusJSONResponse{Body: failure, StatusCode: failure.Status}, nil
 	}
@@ -75,7 +75,7 @@ func (s *server) Unstage(_ context.Context, request api.UnstageRequestObject) (a
 
 	target, changes, err := s.moveChanges(*request.Body, direction)
 	if err != nil {
-		failure := stagingProblem(err, direction.verb, target)
+		failure := s.stagingProblem(err, direction.verb, target)
 
 		return api.UnstagedefaultApplicationProblemPlusJSONResponse{Body: failure, StatusCode: failure.Status}, nil
 	}
@@ -156,7 +156,7 @@ func (s *server) changesAfter(before []gitrepo.Change) []gitrepo.Change {
 // path the changes do not list, a 422 that says what to do for one the server
 // will not or git would not move, and the curated fault for a tree it could not
 // read.
-func stagingProblem(err error, verb string, target stagingTarget) api.Problem {
+func (s *server) stagingProblem(err error, verb string, target stagingTarget) api.Problem {
 	switch {
 	case errors.Is(err, loop.ErrStagingUnavailable):
 		return problem(api.Unprocessable, "staging is not available")
@@ -168,7 +168,7 @@ func stagingProblem(err error, verb string, target stagingTarget) api.Problem {
 		return problem(api.Unprocessable,
 			"git would not "+verb+" "+target.words()+"; "+verb+" from a terminal to see git's reason")
 	default:
-		failure, _ := fault(err)
+		failure, _ := s.fault(err)
 
 		return failure
 	}

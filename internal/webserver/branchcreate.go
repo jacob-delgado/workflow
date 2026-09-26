@@ -43,7 +43,7 @@ func (s *server) CreateBranch(
 
 	branch, err := s.startWork(request.Body.IssueKey)
 	if err != nil {
-		return createBranchFailure(err, request.Body.IssueKey), nil
+		return s.createBranchFailure(err, request.Body.IssueKey), nil
 	}
 
 	return api.CreateBranch200JSONResponse(branchDTO(branch)), nil
@@ -53,7 +53,7 @@ func (s *server) CreateBranch(
 // already there, git's refusal, saying how to see its reason, or a read that
 // failed — the issue from the tracker, the branch list from git — classified by
 // fault, so neither's own words reach the wire.
-func createBranchFailure(err error, key string) api.CreateBranchResponseObject {
+func (s *server) createBranchFailure(err error, key string) api.CreateBranchResponseObject {
 	switch {
 	case errors.Is(err, errBranchExists):
 		return api.CreateBranch409ApplicationProblemPlusJSONResponse(problem(api.Conflict, errBranchExists.Error()))
@@ -61,7 +61,7 @@ func createBranchFailure(err error, key string) api.CreateBranchResponseObject {
 		return createBranchUnprocessable("git would not create the branch for " + key +
 			"; run workflow branch " + key + " from a terminal to see git's reason")
 	default:
-		body, code := fault(err)
+		body, code := s.fault(err)
 
 		return api.CreateBranchdefaultApplicationProblemPlusJSONResponse{Body: body, StatusCode: code}
 	}

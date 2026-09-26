@@ -60,7 +60,7 @@ func (s *server) Commit(_ context.Context, request api.CommitRequestObject) (api
 
 	branch, err := s.commitStaged(conv, subject, orZero(request.Body.Body))
 	if err != nil {
-		return commitFailure(err), nil
+		return s.commitFailure(err), nil
 	}
 
 	s.rememberScope(subject.Scope)
@@ -72,7 +72,7 @@ func (s *server) Commit(_ context.Context, request api.CommitRequestObject) (api
 // its hooks refused — with their output, the one cause worth forwarding — one
 // that could not start, saying how to see why, and a working tree that could
 // not be read, classified by fault.
-func commitFailure(err error) api.CommitResponseObject {
+func (s *server) commitFailure(err error) api.CommitResponseObject {
 	switch {
 	case errors.Is(err, loop.ErrNothingStaged):
 		return api.Commit409ApplicationProblemPlusJSONResponse(problem(api.Conflict, errNothingStaged.Error()))
@@ -81,7 +81,7 @@ func commitFailure(err error) api.CommitResponseObject {
 	case errors.Is(err, errCommitNotStarted):
 		return commitUnprocessable(errCommitNotStarted.Error() + "; commit from a terminal to see why")
 	default:
-		body, code := fault(err)
+		body, code := s.fault(err)
 
 		return api.CommitdefaultApplicationProblemPlusJSONResponse{Body: body, StatusCode: code}
 	}

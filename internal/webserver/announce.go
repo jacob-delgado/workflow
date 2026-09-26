@@ -25,7 +25,7 @@ func (s *server) GetAnnouncement(
 	}
 
 	if err != nil {
-		body, code := fault(err)
+		body, code := s.fault(err)
 
 		return api.GetAnnouncementdefaultApplicationProblemPlusJSONResponse{Body: body, StatusCode: code}, nil
 	}
@@ -55,7 +55,7 @@ func (s *server) Announce(_ context.Context, request api.AnnounceRequestObject) 
 	}
 
 	if err != nil {
-		return announceFault(err), nil
+		return s.announceFault(err), nil
 	}
 
 	if changedSincePreview(request.Body.Text, announcement) {
@@ -70,7 +70,7 @@ func (s *server) Announce(_ context.Context, request api.AnnounceRequestObject) 
 
 	err = s.deps.Post(channel, announcement.Text())
 	if err != nil {
-		return announceFault(err), nil
+		return s.announceFault(err), nil
 	}
 
 	return api.Announce200JSONResponse(announcementDTO(announcement, channel)), nil
@@ -121,8 +121,8 @@ func announcementDTO(announcement messaging.Announcement, channel string) api.An
 
 // announceFault answers an announcement that failed, in reading what it
 // announces or in posting it, through fault.
-func announceFault(err error) api.AnnounceResponseObject {
-	body, code := fault(err)
+func (s *server) announceFault(err error) api.AnnounceResponseObject {
+	body, code := s.fault(err)
 
 	return api.AnnouncedefaultApplicationProblemPlusJSONResponse{Body: body, StatusCode: code}
 }
