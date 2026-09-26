@@ -2,9 +2,9 @@ import type { Page } from '@playwright/test'
 import type { Snapshot } from '../src/api/generated/types.gen.ts'
 
 // What the layout and accessibility specs share: a lap of the Tab order that
-// says which drawn controls it never reached and which had focus out of view,
-// and a hermetic stream that answers with one snapshot, so a spec can open a
-// step before it walks or scans it.
+// says which drawn controls it reached, which it never reached and which had
+// focus out of view, and a hermetic stream that answers with one snapshot, so
+// a spec can open a step before it walks or scans it.
 
 // A control counts as in view when this much of it is, allowing a rounding
 // pixel at a scrolled edge.
@@ -96,20 +96,44 @@ function focusedStop(controls: HTMLElement[]): Stop {
   }
 }
 
-// controlNames are how a failure names each control: its label, or its words.
+// controlNames are how a walk names each control: its label's own words, or
+// its words.
 function controlNames(controls: HTMLElement[]): string[] {
-  return controls.map((control) => {
+  // labelWords are what a control's label says around it, leaving out the
+  // control's own text, such as the options of a select the label holds.
+  function labelWords(control: HTMLElement): string | undefined {
     const { labels } = control as Partial<Pick<HTMLInputElement, 'labels'>>
-    const label = labels ? [...labels].at(0)?.textContent : null
+    const label = labels ? [...labels].at(0) : undefined
+    if (label === undefined) {
+      return undefined
+    }
 
-    return control.getAttribute('aria-label') ?? label ?? control.textContent.trim()
-  })
+    const around = [...label.childNodes].filter((part) => !part.contains(control))
+
+    return around
+      .map((part) => part.textContent)
+      .join('')
+      .trim()
+  }
+
+  return controls.map(
+    (control) =>
+      control.getAttribute('aria-label') ?? labelWords(control) ?? control.textContent.trim(),
+  )
+}
+
+// TabWalk is what one lap of the Tab order found: the drawn controls it
+// reached, those it never reached, and those that had focus while out of view.
+interface TabWalk {
+  reached: string[]
+  missed: string[]
+  hidden: string[]
 }
 
 // walkTabOrder presses Tab once round the page — each stop, and the page
-// itself as the order wraps — and reports the drawn controls it never reached
-// and the ones that had focus while out of view.
-export async function walkTabOrder(page: Page): Promise<{ missed: string[]; hidden: string[] }> {
+// itself as the order wraps — and reports what it reached, what it never
+// reached, and what had focus while out of view.
+export async function walkTabOrder(page: Page): Promise<TabWalk> {
   const stops = await page.evaluateHandle(tabStops)
   const lap = (await stops.evaluate((all) => all.length)) + 1
   const controls = await stops.evaluateHandle(drawnOnly)
@@ -126,7 +150,11 @@ export async function walkTabOrder(page: Page): Promise<{ missed: string[]; hidd
     }
   }
 
-  return { missed: names.filter((_, index) => !reached.has(index)), hidden }
+  return {
+    reached: names.filter((_, index) => reached.has(index)),
+    missed: names.filter((_, index) => !reached.has(index)),
+    hidden,
+  }
 }
 
 // streams answers the event stream with one snapshot.

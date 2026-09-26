@@ -1,6 +1,6 @@
 import { AxeBuilder } from '@axe-core/playwright'
 import { expect, test, type Page } from '@playwright/test'
-import type { Issue, Snapshot } from '../src/api/generated/types.gen.ts'
+import type { Issue, PullRequestDraft, Snapshot } from '../src/api/generated/types.gen.ts'
 import { height, openCockpit, openSection, sectionNames, themes, widths } from './cockpit.ts'
 import { streams, walkTabOrder } from './tabwalk.ts'
 
@@ -70,6 +70,56 @@ for (const theme of themes) {
         }
       },
     )
+  }
+}
+
+// The steps a click opens on the populated build before a write goes out, and
+// the controls each adds, which Tab must reach in view.
+const confirmSteps = [
+  {
+    step: 'push confirmation',
+    section: 'Branch',
+    opener: 'Push branch',
+    group: /^Push /,
+    adds: ['Cancel', 'Push'],
+  },
+  {
+    step: 'announcement preview',
+    section: 'Slack',
+    opener: 'Announce to Slack',
+    group: 'Announcement preview',
+    adds: ['Channel', 'Cancel', 'Announce now'],
+  },
+]
+
+for (const theme of themes) {
+  for (const width of widths) {
+    for (const { step, section, opener, group, adds } of confirmSteps) {
+      test(
+        `the ${step} fits ${String(width)} px in the ${theme} theme, reachable and clean`,
+        { tag: '@populated' },
+        async ({ page }) => {
+          // Arrange: the populated cockpit at this width, on the step's section.
+          await openCockpit(page, { width, height }, theme)
+          await openSection(page, section)
+
+          // Act: open the step, and Tab once round the page.
+          await page.getByRole('button', { name: opener }).click()
+          await expect(page.getByRole('group', { name: group })).toBeVisible()
+          const { reached, missed, hidden } = await walkTabOrder(page)
+
+          // Assert: nothing scrolls sideways, nor the page down; Tab reaches
+          // the step's controls and every other drawn one, each in view as it
+          // has focus; and axe finds nothing.
+          expect(await page.evaluate(sidewaysScrollers), 'scrolls sideways').toEqual([])
+          expect(await page.evaluate(pageScrolls), 'the page scrolls').toBe(false)
+          expect(reached, 'reached by Tab').toEqual(expect.arrayContaining(adds))
+          expect(missed, 'never reached by Tab').toEqual([])
+          expect(hidden, 'out of view with focus').toEqual([])
+          expect(await axeViolations(page), 'axe').toBe('')
+        },
+      )
+    }
   }
 }
 
@@ -343,3 +393,79 @@ test('the branch and the header fit 320 px, wrapping a name wider than the conte
   )
   expect(await page.getByRole('term').evaluateAll(termsSlack), 'the terms column').toBeLessThan(1)
 })
+
+// The pull request the branch's work composes, as the draft read answers it.
+const pullDraft = {
+  title: 'fix: redact tokens before they reach the request log',
+  body: 'Redacts the Authorization header.',
+  base: 'main',
+  head: 'fix/PROJ-1',
+  draft: false,
+  needs_push: false,
+} satisfies PullRequestDraft
+
+// The pull request form's fields and buttons, named as a walk names them.
+const formControls = [
+  'Title',
+  'Base branch',
+  'Reviewers',
+  'Assignees',
+  'Labels',
+  'Description',
+  'Open as a draft',
+  'Cancel',
+  'Open pull request',
+]
+
+for (const width of widths) {
+  test(`the pull request form fits ${String(width)} px, each field reached in view`, async ({
+    page,
+  }) => {
+    // Arrange: a stream with no pull request yet, and the draft answered here.
+    await streams(page, pagedSnapshot)
+    await page.route('**/api/pull-request/draft', (route) => route.fulfill({ json: pullDraft }))
+    await page.emulateMedia({ reducedMotion: 'reduce' })
+    await page.setViewportSize({ width, height })
+    await page.goto('/')
+    await openSection(page, 'Review')
+
+    // Act: compose the pull request, and Tab once round the page.
+    await page.getByRole('button', { name: 'Open a pull request' }).click()
+    await expect(page.getByRole('form', { name: 'Open a pull request' })).toBeVisible()
+    const { reached, missed, hidden } = await walkTabOrder(page)
+
+    // Assert: nothing scrolls sideways, nor the page down; and Tab reaches
+    // each of the form's fields and every other drawn control, in view.
+    expect(await page.evaluate(sidewaysScrollers), 'scrolls sideways').toEqual([])
+    expect(await page.evaluate(pageScrolls), 'the page scrolls').toBe(false)
+    expect(reached, 'reached by Tab').toEqual(expect.arrayContaining(formControls))
+    expect(missed, 'never reached by Tab').toEqual([])
+    expect(hidden, 'out of view with focus').toEqual([])
+  })
+}
+
+for (const width of widths) {
+  test(`a refused write fits ${String(width)} px, every control reached in view`, async ({
+    page,
+  }) => {
+    // Arrange: the stream's working tree, and a stage the server refuses.
+    await streams(page, unbrokenSnapshot)
+    await page.route('**/api/stage', (route) => route.fulfill({ status: 500 }))
+    await page.emulateMedia({ reducedMotion: 'reduce' })
+    await page.setViewportSize({ width, height })
+    await page.goto('/')
+    await openSection(page, 'Branch')
+
+    // Act: stage the file, let the refusal land, and Tab once round the page.
+    await page.getByRole('button', { name: /^Stage internal\/tui/ }).click()
+    await expect(page.getByRole('alert')).toBeVisible()
+    const { missed, hidden } = await walkTabOrder(page)
+
+    // Assert: nothing scrolls sideways, nor the page down; and Tab reaches
+    // every drawn control beside the refusal, each in view.
+    expect(await page.evaluate(sidewaysScrollers), 'scrolls sideways').toEqual([])
+    expect(await page.evaluate(pageScrolls), 'the page scrolls').toBe(false)
+    expect(missed, 'never reached by Tab').toEqual([])
+    expect(hidden, 'out of view with focus').toEqual([])
+  })
+}
