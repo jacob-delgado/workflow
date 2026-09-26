@@ -25,6 +25,12 @@ func TestScopesReadsTheScopesOutOfSubjects(t *testing.T) {
 			subjects: []string{"feat(api)!: drop a field"},
 			want:     []string{"api"},
 		},
+		// A type may hold a digit after its first letter, as ValidateType
+		// accepts one.
+		"a scope after a type with a digit is read": {
+			subjects: []string{"hotfix2(api): x"},
+			want:     []string{"api"},
+		},
 		"a scopeless subject contributes nothing": {
 			subjects: []string{"fix: a typo", "docs: a note"},
 			want:     nil,

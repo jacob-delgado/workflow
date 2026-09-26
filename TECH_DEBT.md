@@ -668,7 +668,7 @@ three; no linter or knip rule sees any of it.
   (`web/e2e/layout.spec.ts:351`) are untyped literals of the empty snapshot
   shape that `makeSnapshot` (`web/src/test/fixtures.ts:23`) builds typed.
 - `web/src/features/branch/CommitForm.tsx:12` — `defaultCommitTypes` copies
-  the eleven Go types (`internal/convention/commit.go:41`) in order, and
+  the eleven Go types (`internal/convention/commit.go:45`) in order, and
   `useCommitTypes` (`web/src/features/branch/CommitForm.tsx:131`) falls back
   to it when `config.commit.types` is empty; `server.commitConvention`
   (`internal/webserver/commit.go:75`) resolves the same empty list through
@@ -693,13 +693,9 @@ three; no linter or knip rule sees any of it.
   inline in `CommitForm` (`web/src/features/branch/CommitForm.tsx:108`).
   The primary button's three sizes are UX-113; one `Button` component (or
   one primary and one secondary class) closes both.
-- `internal/convention/commit.go:24` — `commitType` is `^[a-z][a-z0-9]*$`
-  while `scopeInSubject` (`internal/convention/scopes.go:15`) is
-  `^[a-z]+\(([^)]+)\)!?:`; the two disagree on a digit.
 
-A configured `hotfix2` type validates but its scopes are never suggested; a
-renamed theme key in `web/index.html` passes every gate and shows only as a
-flash before first paint; a drifted release prefix pushes a tag the gate
+A renamed theme key in `web/index.html` passes every gate and shows only as
+a flash before first paint; a drifted release prefix pushes a tag the gate
 never saw, or silently tags nothing; a required snapshot field added to the
 contract dies in the e2e specs as a locator timeout; and a change to the
 focus ring is eight edits.
@@ -708,8 +704,8 @@ focus ring is eight edits.
 release-commit decision and the workflow reading its answer; `satisfies
 Snapshot` on the e2e literals; the server sending the effective commit types
 so the form holds no list; an exported `storageKey` a test checks
-`web/index.html` against; one `Button` component or two class constants; and
-`scopeInSubject` built from `commitType`'s class.
+`web/index.html` against; and one `Button` component or two class
+constants.
 
 **Done when.** `chore(main): release` appears in exactly one file under
 `.github/` and `scripts/`; removing a required snapshot field from the e2e
@@ -718,8 +714,7 @@ literals fails `tsc -b`;
 options come from a server field; a test fails when
 `web/index.html`'s key differs from `themeStore`'s;
 `grep -rn "border border-input px-3 py-1.5" web/src --include='*.tsx'`
-matches one definition site; and `Scopes([]string{"hotfix2(api): x"})`
-returns `["api"]`.
+matches one definition site.
 
 ### DEBT-94 Arms and guards no input can reach, on every surface
 
