@@ -120,16 +120,43 @@ func refuseAnOpenPull(find func(branch string) (forge.PullRequest, bool, error),
 
 // draft composes the pull request for branch.
 func draft(seams PullSeams, opts PullOptions, branch gitrepo.Branch) forge.NewPullRequest {
-	subjects := Subjects(branch.Commits)
 	key, _ := convention.IssueKey(branch.Name, opts.Project)
 	issueKey := jira.Key(key)
 
-	return forge.NewPullRequest{
-		Title: convention.PullRequestTitleFrom(opts.TitleSource, subjects, key, issueSummary(seams.Issue, issueKey)),
-		Body:  convention.PullRequestBody(firstTemplate(seams.Templates), subjects, key, issueURL(seams.BrowseURL, issueKey)),
-		Head:  branch.Name,
-		Base:  branch.BaseName(),
-	}
+	title, body := Draft(DraftInput{
+		Subjects:     Subjects(branch.Commits),
+		IssueKey:     issueKey,
+		IssueSummary: issueSummary(seams.Issue, issueKey),
+		IssueURL:     issueURL(seams.BrowseURL, issueKey),
+		Template:     firstTemplate(seams.Templates),
+		TitleSource:  opts.TitleSource,
+	})
+
+	return forge.NewPullRequest{Title: title, Body: body, Head: branch.Name, Base: branch.BaseName()}
+}
+
+// DraftInput is what a pull request's title and body are proposed from: the
+// branch's commit subjects, oldest first; the issue it names, with the
+// summary and link the tracker gave — empty where it gave none; the template
+// the body starts from, empty for none; and where the title comes from.
+type DraftInput struct {
+	Subjects     []string
+	IssueKey     jira.Key
+	IssueSummary string
+	IssueURL     string
+	Template     string
+	TitleSource  convention.TitleSource
+}
+
+// Draft proposes a pull request's title, then its body, from what a surface
+// already holds. ComposePull reads the input through seams and the
+// repository's first template; a surface that holds it already, as the
+// terminal's composer does, passes it here.
+func Draft(input DraftInput) (string, string) {
+	key := string(input.IssueKey)
+
+	return convention.PullRequestTitleFrom(input.TitleSource, input.Subjects, key, input.IssueSummary),
+		convention.PullRequestBody(input.Template, input.Subjects, key, input.IssueURL)
 }
 
 // firstTemplate is the repository's first pull request template's body, or
