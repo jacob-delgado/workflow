@@ -62,7 +62,10 @@ export function IssueDetailPanel({ issueKey, listed }: { issueKey: string; liste
 }
 
 // IssueUnread says why the issue could not be read, beside a Retry that reads
-// it again: selecting the issue that is already selected reads nothing.
+// it again: selecting the issue that is already selected reads nothing. While
+// it reads, the Retry is marked busy rather than disabled, so it keeps the
+// focus it was pressed with through another refusal, and a press while busy
+// starts nothing.
 function IssueUnread({
   reason,
   retrying,
@@ -77,7 +80,15 @@ function IssueUnread({
       <p role="alert" className="text-sm text-destructive">
         {reason}
       </p>
-      <Button variant="secondary" disabled={retrying} onClick={onRetry}>
+      <Button
+        variant="secondary"
+        aria-disabled={retrying}
+        onClick={() => {
+          if (!retrying) {
+            onRetry()
+          }
+        }}
+      >
         {retrying ? 'Retrying…' : 'Retry'}
       </Button>
     </div>
