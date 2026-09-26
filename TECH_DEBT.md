@@ -127,8 +127,8 @@ The terminal:
   to are folded in as the lines arrive; `runLine.apply` (`:126`) folds in
   only `hooks.NextJob`, and `runFinished.apply` (`:158`) computes
   `hooks.Failures` from the capped lines after exit.
-- `internal/tui/tui.go:181` — `Model.handleKey`'s comment orders overlay,
-  help, global keys, pane; the switch (`:189`) has overlay,
+- `internal/tui/tui.go:182` — `Model.handleKey`'s comment orders overlay,
+  help, global keys, pane; the switch (`:190`) has overlay,
   `filteringIssues`, global, and no help step.
 - `internal/tui/overlay.go:15` — `overlay`'s comment says "Lip Gloss v1
   cannot layer one view over another" while the module requires
@@ -1012,8 +1012,8 @@ and `tea.KeyUp` for overlays, which the pickers match against
 `m.keys.down` and `m.keys.up`, so a rebound `down` leaves the wheel dead
 in every picker. The nothing-staged guidance that names `space` is UX-96's.
 
-- `internal/tui/tui.go:234` — `Model.handleGlobalKey` computes
-  `pane(msg.String()[0] - '1')` under a comment (`:232`) that assumes only
+- `internal/tui/tui.go:235` — `Model.handleGlobalKey` computes
+  `pane(msg.String()[0] - '1')` under a comment (`:233`) that assumes only
   digits match.
 - `internal/tui/keys.go:150` — `helpBuilder.bindingFor` replaces the whole
   key list with the override, so `paneNumbers()` is gone.
@@ -1162,7 +1162,7 @@ and needs a scroll a balanced layout would not.
   `h.scroll += m.halfPage()` with no clamp; `:80` only floors at 0.
 - `internal/tui/help.go:49` — `helpOverlay.view` clamps only at draw,
   through `scrolled`.
-- `internal/tui/tui.go:257` — `Model.scrollDetail`, the pane path that
+- `internal/tui/tui.go:258` — `Model.scrollDetail`, the pane path that
   clamps before and after through `firstShown`, the pattern the help
   lacks.
 - `internal/tui/render.go:202` — `helpColumnSplit` is 4 under a comment
@@ -2013,7 +2013,7 @@ away too:
 
 Two no black-box test reaches without changing the code:
 
-- `internal/tui/tui.go:142` — `tui.Run`'s error return, which needs a real
+- `internal/tui/tui.go:143` — `tui.Run`'s error return, which needs a real
   terminal.
 - `internal/wiring/forgecli.go:58` — `forgeProgram`'s `forge.KindUnknown`
   case, which `exhaustive` requires but `connectForge` never passes, since
