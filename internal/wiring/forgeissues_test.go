@@ -15,7 +15,7 @@ import (
 	"github.com/jacob-delgado/workflow/internal/config"
 	"github.com/jacob-delgado/workflow/internal/forge"
 	"github.com/jacob-delgado/workflow/internal/jira"
-	"github.com/jacob-delgado/workflow/internal/tui"
+	"github.com/jacob-delgado/workflow/internal/seams"
 	"github.com/jacob-delgado/workflow/internal/wiring"
 )
 
@@ -29,7 +29,7 @@ const (
 
 // forgeTracker is the Issues-pane tracker backed by the forge — no Jira
 // configured — pointed at github.com through its CLI.
-func forgeTracker(t *testing.T) tui.JiraDeps {
+func forgeTracker(t *testing.T) seams.Jira {
 	t.Helper()
 
 	cfg := config.Config{Forge: config.Forge{CLI: true, Kind: githubKind, Host: hostGitHub}}

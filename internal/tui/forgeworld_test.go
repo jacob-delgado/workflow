@@ -8,7 +8,7 @@ import (
 	"strings"
 
 	"github.com/jacob-delgado/workflow/internal/forge"
-	"github.com/jacob-delgado/workflow/internal/tui"
+	"github.com/jacob-delgado/workflow/internal/seams"
 )
 
 // requestPeople names the reviewers, assignees and labels a pull request
@@ -47,8 +47,8 @@ func (w *world) nextCI() forge.CI {
 }
 
 // forgeDeps fakes the forge.
-func (w *world) forgeDeps() tui.ForgeDeps {
-	return tui.ForgeDeps{
+func (w *world) forgeDeps() seams.Forge {
+	return seams.Forge{
 		FindPullRequest: func(branch string) (forge.PullRequest, bool, error) {
 			w.record("find " + branch)
 

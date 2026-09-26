@@ -21,6 +21,7 @@ import (
 	"github.com/jacob-delgado/workflow/internal/jira"
 	"github.com/jacob-delgado/workflow/internal/loop"
 	"github.com/jacob-delgado/workflow/internal/proc"
+	"github.com/jacob-delgado/workflow/internal/seams"
 	"github.com/jacob-delgado/workflow/internal/tui"
 )
 
@@ -293,7 +294,7 @@ func (w *world) deps() tui.Deps {
 		Jira:  w.jiraDeps(),
 		Git:   w.gitDeps(),
 		Forge: w.forgeDeps(),
-		Messaging: tui.MessagingDeps{Post: func(channel, text string) error {
+		Messaging: seams.Messaging{Post: func(channel, text string) error {
 			w.record("post " + text)
 			w.rememberChannel(channel)
 
@@ -332,8 +333,8 @@ func (w *world) deps() tui.Deps {
 
 // storeDeps fakes the on-disk store: it reports learnedScope as the last one used
 // here and records what a commit remembers.
-func (w *world) storeDeps() tui.StoreDeps {
-	return tui.StoreDeps{
+func (w *world) storeDeps() seams.Store {
+	return seams.Store{
 		LastScope: func() (string, bool) {
 			return w.learnedScope, w.learnedScope != ""
 		},
@@ -356,8 +357,8 @@ func (w *world) storeDeps() tui.StoreDeps {
 }
 
 // jiraDeps fakes Jira.
-func (w *world) jiraDeps() tui.JiraDeps {
-	return tui.JiraDeps{
+func (w *world) jiraDeps() seams.Jira {
+	return seams.Jira{
 		Search: func(jql string, startAt int) (jira.SearchResult, error) {
 			w.record("search " + jql)
 
@@ -419,8 +420,8 @@ func (w *world) jiraDeps() tui.JiraDeps {
 }
 
 // hookDeps fakes lefthook.
-func (w *world) hookDeps() tui.HookDeps {
-	return tui.HookDeps{
+func (w *world) hookDeps() seams.Hooks {
+	return seams.Hooks{
 		Run: func(hook string) (proc.Output, error) {
 			w.record("hook " + hook)
 

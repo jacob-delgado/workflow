@@ -14,7 +14,7 @@ import (
 	"github.com/jacob-delgado/workflow/internal/forge"
 	"github.com/jacob-delgado/workflow/internal/httpx"
 	"github.com/jacob-delgado/workflow/internal/proc"
-	"github.com/jacob-delgado/workflow/internal/tui"
+	"github.com/jacob-delgado/workflow/internal/seams"
 )
 
 // forgeConnection is the forge client and the repository it serves, found once,
@@ -63,12 +63,12 @@ func mergeSeams(ctx context.Context, connect func() (forgeConnection, error)) (
 	return merge, methods
 }
 
-// forgeDeps is what the interface asks of GitHub or GitLab, each seam reaching
+// forgeDeps is what a surface asks of GitHub or GitLab, each seam reaching
 // the forge through connect.
-func forgeDeps(ctx context.Context, setup forgeSetup, connect func() (forgeConnection, error)) tui.ForgeDeps {
+func forgeDeps(ctx context.Context, setup forgeSetup, connect func() (forgeConnection, error)) seams.Forge {
 	merge, mergeMethods := mergeSeams(ctx, connect)
 
-	return tui.ForgeDeps{
+	return seams.Forge{
 		FindPullRequest: func(branch string) (forge.PullRequest, bool, error) {
 			connection, err := connect()
 			if err != nil {

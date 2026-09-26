@@ -14,7 +14,7 @@ import (
 	"testing"
 
 	"github.com/jacob-delgado/workflow/internal/forge"
-	"github.com/jacob-delgado/workflow/internal/tui"
+	"github.com/jacob-delgado/workflow/internal/seams"
 )
 
 // Every seam gets past its connect guard and returns the forge's answer, which
@@ -22,13 +22,13 @@ import (
 func TestTheForgeSeamsReturnTheForgesAnswerThroughTheCLI(t *testing.T) {
 	cases := []struct {
 		seam string
-		act  func(seams tui.ForgeDeps) (string, error)
+		act  func(forgeSeams seams.Forge) (string, error)
 		want string
 	}{
 		{
 			seam: "FindPullRequest",
-			act: func(seams tui.ForgeDeps) (string, error) {
-				_, found, err := seams.FindPullRequest("feat/x")
+			act: func(forgeSeams seams.Forge) (string, error) {
+				_, found, err := forgeSeams.FindPullRequest("feat/x")
 
 				return fmt.Sprintf("found=%t", found), err
 			},
@@ -36,8 +36,8 @@ func TestTheForgeSeamsReturnTheForgesAnswerThroughTheCLI(t *testing.T) {
 		},
 		{
 			seam: "CreatePullRequest",
-			act: func(seams tui.ForgeDeps) (string, error) {
-				created, err := seams.CreatePullRequest(forge.NewPullRequest{Title: "fix: token"})
+			act: func(forgeSeams seams.Forge) (string, error) {
+				created, err := forgeSeams.CreatePullRequest(forge.NewPullRequest{Title: "fix: token"})
 
 				return fmt.Sprintf("#%d", created.Number), err
 			},
@@ -45,8 +45,8 @@ func TestTheForgeSeamsReturnTheForgesAnswerThroughTheCLI(t *testing.T) {
 		},
 		{
 			seam: "CheckStatus",
-			act: func(seams tui.ForgeDeps) (string, error) {
-				ci, err := seams.CheckStatus(forge.PullRequest{Number: 43}, "abc123")
+			act: func(forgeSeams seams.Forge) (string, error) {
+				ci, err := forgeSeams.CheckStatus(forge.PullRequest{Number: 43}, "abc123")
 
 				return fmt.Sprintf("%d checks", len(ci.Checks)), err
 			},
@@ -54,8 +54,8 @@ func TestTheForgeSeamsReturnTheForgesAnswerThroughTheCLI(t *testing.T) {
 		},
 		{
 			seam: "ReviewRequests",
-			act: func(seams tui.ForgeDeps) (string, error) {
-				reviews, err := seams.ReviewRequests()
+			act: func(forgeSeams seams.Forge) (string, error) {
+				reviews, err := forgeSeams.ReviewRequests()
 
 				return fmt.Sprintf("%d requests", len(reviews)), err
 			},
@@ -63,8 +63,8 @@ func TestTheForgeSeamsReturnTheForgesAnswerThroughTheCLI(t *testing.T) {
 		},
 		{
 			seam: "Author",
-			act: func(seams tui.ForgeDeps) (string, error) {
-				return seams.Author()
+			act: func(forgeSeams seams.Forge) (string, error) {
+				return forgeSeams.Author()
 			},
 			want: "octo",
 		},
@@ -79,10 +79,10 @@ func TestTheForgeSeamsReturnTheForgesAnswerThroughTheCLI(t *testing.T) {
 
 			cfg, where := githubCLIWorkspace(t)
 
-			seams := wired(t, cfg, where, nil).Forge
+			forgeSeams := wired(t, cfg, where, nil).Forge
 
 			// Act
-			got, err := seamCase.act(seams)
+			got, err := seamCase.act(forgeSeams)
 
 			// Assert
 			if err != nil || got != seamCase.want {
@@ -102,15 +102,15 @@ func TestTheForgeWriteSeamsHandTheForgeTheirRequestThroughTheCLI(t *testing.T) {
 
 	cases := []struct {
 		seam      string
-		act       func(seams tui.ForgeDeps) (string, error)
+		act       func(forgeSeams seams.Forge) (string, error)
 		want      string
 		wantArgs  []string
 		wantStdin string
 	}{
 		{
 			seam: "EditPullRequest",
-			act: func(seams tui.ForgeDeps) (string, error) {
-				_, err := seams.EditPullRequest(pull, forge.PullRequestEdit{Title: "retitled"})
+			act: func(forgeSeams seams.Forge) (string, error) {
+				_, err := forgeSeams.EditPullRequest(pull, forge.PullRequestEdit{Title: "retitled"})
 
 				return "", err
 			},
@@ -119,16 +119,16 @@ func TestTheForgeWriteSeamsHandTheForgeTheirRequestThroughTheCLI(t *testing.T) {
 		},
 		{
 			seam: "Merge",
-			act: func(seams tui.ForgeDeps) (string, error) {
-				return "", seams.Merge(pull, forge.MergeSquash)
+			act: func(forgeSeams seams.Forge) (string, error) {
+				return "", forgeSeams.Merge(pull, forge.MergeSquash)
 			},
 			wantArgs:  []string{"PUT", "https://api.github.com/repos/owner/repo/pulls/43/merge"},
 			wantStdin: `{"merge_method":"squash"}`,
 		},
 		{
 			seam: "MergeMethods",
-			act: func(seams tui.ForgeDeps) (string, error) {
-				methods, err := seams.MergeMethods()
+			act: func(forgeSeams seams.Forge) (string, error) {
+				methods, err := forgeSeams.MergeMethods()
 
 				return fmt.Sprintf("%d methods", len(methods)), err
 			},
@@ -137,8 +137,8 @@ func TestTheForgeWriteSeamsHandTheForgeTheirRequestThroughTheCLI(t *testing.T) {
 		},
 		{
 			seam: "Rerun",
-			act: func(seams tui.ForgeDeps) (string, error) {
-				reran, err := seams.Rerun(pull, "abc123")
+			act: func(forgeSeams seams.Forge) (string, error) {
+				reran, err := forgeSeams.Rerun(pull, "abc123")
 
 				return fmt.Sprintf("reran=%t", reran), err
 			},
@@ -153,10 +153,10 @@ func TestTheForgeWriteSeamsHandTheForgeTheirRequestThroughTheCLI(t *testing.T) {
 			ghStub := installForgeCLI(t, "gh", forgeReplies{})
 			cfg, where := githubCLIWorkspace(t)
 
-			seams := wired(t, cfg, where, nil).Forge
+			forgeSeams := wired(t, cfg, where, nil).Forge
 
 			// Act
-			got, err := seamCase.act(seams)
+			got, err := seamCase.act(forgeSeams)
 
 			// Assert
 			if err != nil || got != seamCase.want {

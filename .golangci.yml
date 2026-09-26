@@ -58,6 +58,27 @@ linters:
             - github.com/jacob-delgado/workflow/internal/jira
             - github.com/jacob-delgado/workflow/internal/messaging
             - github.com/jacob-delgado/workflow/internal/proc
+        # internal/seams declares the seam bundles the surfaces share, so it sits
+        # below all three and above internal/loop, whose Announced record
+        # seams.Store speaks (loop can therefore never take a bundle: that would be
+        # a cycle). The terminal imports it, so importing the terminal back is a
+        # cycle the compiler refuses; this rule holds the rest, so no terminal
+        # library or surface drifts into the bundles and any surface can import them
+        # without the terminal. strict mode allows only the domain packages and
+        # internal/loop, whose types the bundles speak.
+        seams-below-the-surfaces:
+          list-mode: strict
+          files:
+            - "**/internal/seams/**"
+            - "!$test"
+          allow:
+            - $gostd
+            - github.com/jacob-delgado/workflow/internal/forge
+            - github.com/jacob-delgado/workflow/internal/gitrepo
+            - github.com/jacob-delgado/workflow/internal/hooks
+            - github.com/jacob-delgado/workflow/internal/jira
+            - github.com/jacob-delgado/workflow/internal/loop
+            - github.com/jacob-delgado/workflow/internal/proc
         # The web server is a surface beside the terminal, not built on it: what
         # the two share lives in internal/loop and the domain packages. wiring is
         # denied with it, because wiring imports the terminal.

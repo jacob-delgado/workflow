@@ -270,10 +270,10 @@ Impact: medium · Effort: medium
   return the timestamp), the post seam that carries it to the record on
   every surface (`loop.Deliver`'s `post` and `Announced`,
   `internal/loop/announce.go:206`, which the interface's
-  `MessagingDeps.Post`, `internal/tui/deps.go:156`, and `announceSeams.Post`
-  in `internal/cli/announce.go` both post through; the web server's
-  `Deps.Post`, which records nothing yet — FEAT-84), and the *Each
-  announcement is its own message* limit in
+  `seams.Messaging.Post`, `internal/seams/seams.go:126`, and
+  `announceSeams.Post` in `internal/cli/announce.go` both post through; the
+  web server's `Deps.Post`, which records nothing yet — FEAT-84), and the
+  *Each announcement is its own message* limit in
   `docs/content/docs/usage.md:345`.
 - Done when: the second announcement of a pull request is posted as a reply
   to the first when a bot token is configured; with a webhook it posts
@@ -339,7 +339,7 @@ Impact: high · Effort: large
   Format, and signs in with an email and an API token.
 - Touches: `internal/jira` (a second client or a dialect, as `internal/forge`
   has), `internal/config/config.go`, `internal/wiring/wiring.go`.
-- Constraints: `tui.JiraDeps` is already plain functions, so the interface
+- Constraints: `seams.Jira` is already plain functions, so the interface
   does not change. The work is the wire format.
 - Done when: the whole loop runs against a Cloud site, and `doctor` says which
   kind of Jira it found.

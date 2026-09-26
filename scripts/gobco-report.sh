@@ -96,7 +96,9 @@ readonly UNANALYZABLE="internal/proc/pgroup internal/web"
 # internal/api is the oapi-codegen output — generated types and server surface
 # with no logic of ours; `task gen:verify` guards it. api is package apispec: a
 # single //go:embed of the OpenAPI document, data with no branches to measure.
-readonly NO_TESTS="cmd/workflow cmd/docsgen cmd/testshape internal/proc/pgroup internal/api api"
+# internal/seams declares only structs of function fields, with no function body
+# and so no condition; the wiring and terminal tests fill and call every field.
+readonly NO_TESTS="cmd/workflow cmd/docsgen cmd/testshape internal/proc/pgroup internal/api api internal/seams"
 
 # gobco carries the go/types of the Go that built it (see above), so a gobco
 # built by an older Go silently shrinks what this gate covers. Refuse to run.

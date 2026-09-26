@@ -79,33 +79,6 @@ comments and the code they describe, and three sweeps that cross every
 surface — tests that prove nothing, facts written twice and arms no input
 reaches.
 
-### DEBT-71 `wiring` returns `tui.Deps`, though three surfaces consume the seams
-
-Severity: low · Confidence: read
-
-`wiring.Deps` (`internal/wiring/wiring.go:82`) returns `tui.Deps`, so the
-wiring package imports the terminal interface; the CLI's `WebDeps`
-(`internal/cli/cli.go:292`) then narrows that bundle for the web server.
-The seams are not the terminal's — they are the loop's. That import no
-longer stands in the way of shared composition: `internal/loop` takes each
-seam as a plain argument (`loop.PullSeams`, `loop.AnnounceSeams`) and never
-needed `wiring`. What is left is narrower: a seam only the CLI or the web
-needs must still be declared on `tui.Deps`, as a `RecentCommits` for
-`standup` would be — which is why `standup` reads its commits from the
-repository directly instead (`internal/cli/standup.go:103`).
-
-**One way to fix it.** Move the bundles that depend only on leaf types —
-`JiraDeps`, `GitDeps`, `ForgeDeps`, `MessagingDeps`, `HookDeps` — to a
-package all three surfaces import, with type aliases left in `tui`.
-`StoreDeps` declares what it remembers of announcements as
-`loop.Announced`, which every surface already imports, so it can move with
-them; `EditorDeps` carries Bubble Tea's `tea.Msg` and `tea.Cmd`, so
-`wiring` would still return `tui.Deps`.
-
-**Done when.** The seam bundles are declared where all three surfaces can
-import them without importing each other. Deferred — YAGNI until a seam the
-terminal does not use has to be added to `tui.Deps`.
-
 ### DEBT-89 Comments and layout rows that no longer say what the code does
 
 Severity: low · Confidence: read
@@ -113,8 +86,9 @@ Severity: low · Confidence: read
 Across the terminal, the command line, the clients, the plumbing, the web
 server and the two layout maps, doc comments and layout rows describe an
 earlier shape of the code. No linter reads a comment, so every one passes
-the gate. The `wiring` package comment
-below is the same drift DEBT-71 records at the type level.
+the gate. The `wiring` package comment below still names the terminal as
+the owner of the seams it fills, which `internal/seams` now declares for
+all three surfaces.
 
 The terminal:
 
@@ -158,14 +132,14 @@ The clients:
   `Number != 0`, true for a merged pull, and `IsOpen` is meant.
 - `internal/forge/pulls.go:92` — `IsOpen`'s comment says "(Opened, above,
   …)"; `Opened` is declared at `:118`, below.
-- `CLAUDE.md:42` — the layout row for `internal/forge/` lists "remotes,
+- `CLAUDE.md:43` — the layout row for `internal/forge/` lists "remotes,
   tokens, pull requests, CI", not the issues (`AssignedIssues`,
   `internal/forge/issues.go:30`) or the templates
   (`internal/forge/templates.go`).
 - `internal/jira/jira.go:6` — the package comment names search, read, move,
   comment, link and whoami, not `Assign` (`internal/jira/assignee.go:13`),
   `AddWorklog` (`internal/jira/worklog.go:33`) or `WikiFromMarkdown`
-  (`internal/jira/wiki.go:22`); `ARCHITECTURE.md:152` repeats the list
+  (`internal/jira/wiki.go:22`); `ARCHITECTURE.md:163` repeats the list
   without `Assign` and `AddWorklog`.
 - `internal/jira/search.go:135` — `wireIssue`'s comment says the fields
   "past Reporter ride only on the detail request"; `searchFields` (`:27`) is
@@ -186,11 +160,13 @@ The clients:
 The plumbing:
 
 - `internal/wiring/wiring.go:4` — the package comment "connects the terminal
-  interface" to the clients, and the `CLAUDE.md:31` row "connects the
-  interface's seams", name one of three consumers: `connectAt`
-  (`internal/cli/cli.go:403`) builds every command over `wiring.Deps`,
-  `WebDeps` (`internal/cli/cli.go:305`) hands the same bundle to the web,
-  and the row below (`CLAUDE.md:32`) already says `loop` is "for every
+  interface" to the clients, where each seam "the interface declares" meets
+  its client, and the `CLAUDE.md:32` row "connects the interface's seams";
+  both name one of three consumers, and the row above (`CLAUDE.md:31`) says
+  `internal/seams` declares the seams for every surface: `connectAt`
+  (`internal/cli/cli.go:404`) builds every command over `wiring.Deps`,
+  `WebDeps` (`internal/cli/cli.go:306`) hands the same bundle to the web,
+  and the row below (`CLAUDE.md:33`) already says `loop` is "for every
   surface".
 - `internal/gitrepo/gitrepo.go:4` — the package comment says `gitrepo`
   "reads the git repository"; `Repository`'s own doc (`:28`) says reads and
@@ -198,7 +174,7 @@ The plumbing:
   of the writes.
 - `internal/convention/convention.go:4` — the package comment names three
   concerns; `internal/convention/pullrequest.go` and
-  `internal/convention/scopes.go` are two more, and the `CLAUDE.md:47` row
+  `internal/convention/scopes.go` are two more, and the `CLAUDE.md:48` row
   already lists "pull request text".
 - `internal/messaging/post.go:328` — `Announcement.Text`'s comment says
   "Every substituted value is escaped for Slack"; `markupFor` (`:267`)
@@ -301,11 +277,11 @@ The configuration page (the Fields table's missing rows are DEBT-91):
   announcement may be waiting either.
 - `docs/content/docs/configuration.md:482` — the store is "keyed only by a
   repository's host and path and by a hash of your Jira URL", and
-  `ARCHITECTURE.md:245` says the repository key is the remote's parsed host
+  `ARCHITECTURE.md:256` says the repository key is the remote's parsed host
   and path; `migrate` (`internal/store/store.go:258`) keys the cache by
   `(instance, view)`, where `Model.cacheIssues`
   (`internal/tui/issues.go:53`) passes the view's JQL text, and `repoKey`
-  (`internal/wiring/wiring.go:384`) falls back to `where.Root` when there is
+  (`internal/wiring/wiring.go:385`) falls back to `where.Root` when there is
   no remote or it does not parse.
 
 The README and the docs index:
@@ -583,8 +559,8 @@ The scripts:
   `scripts/coverage-summary.sh:41` is unprotected.
 - `scripts/gobco-report_test.sh:23` — the suite's only case is the no-floor
   argument; the untested-package refusal (`unaccounted`,
-  `scripts/gobco-report.sh:176`) and the no-statistics refusal (`summary`,
-  `:241`) are exercised only in their passing direction.
+  `scripts/gobco-report.sh:181`) and the no-statistics refusal (`summary`,
+  `:246`) are exercised only in their passing direction.
 
 The web:
 
@@ -752,9 +728,9 @@ three; no linter or knip rule sees any of it.
   inline in `CommitForm` (`web/src/features/branch/CommitForm.tsx:108`).
   The primary button's three sizes are UX-113; one `Button` component (or
   one primary and one secondary class) closes both.
-- `internal/cli/cli.go:391` — `connectLeniently` discards `os.UserHomeDir`'s
-  error under a "not a failure" comment (`:390`); `loadFromEnvironment`
-  (`:477`), `statusesOf` (`internal/cli/status.go:161`) and
+- `internal/cli/cli.go:392` — `connectLeniently` discards `os.UserHomeDir`'s
+  error under a "not a failure" comment (`:391`); `loadFromEnvironment`
+  (`:478`), `statusesOf` (`internal/cli/status.go:161`) and
   `completeAssignedIssues` (`internal/cli/scriptable.go:133`) repeat the
   discard and the comment, and `targetDir`
   (`internal/cli/config_cmd.go:128`) is the one caller that must keep the
@@ -817,7 +793,7 @@ them.
 - `internal/cli/status.go:413` — `statusGlyph`'s `default` arm repeats the
   `NotStarted` case; `stateWord` (`:438`) and `ciWord` (`:454`) do the same,
   and the gobco report shows each last case true many times and never false.
-  `exhaustive` (`.golangci.yml:89`) checks switch and map, so a missing enum
+  `exhaustive` (`.golangci.yml:110`) checks switch and map, so a missing enum
   case already fails lint and the default arms guard nothing.
 - `internal/cli/pr.go:185` — the two dry-run lines of `offerLink` and
   `offerReviewStatus` (`:244`) never print; UX-127 makes them print, which
@@ -888,27 +864,27 @@ Severity: low · Confidence: read
 The documents a contributor and a later session read first restate numbers
 and names the tree has moved past. No gate reads any of them.
 
-- `CLAUDE.md:101`, `ARCHITECTURE.md:14` and `FEATURES.md:54` — each pairs
+- `CLAUDE.md:102`, `ARCHITECTURE.md:14` and `FEATURES.md:54` — each pairs
   `CGO_ENABLED` with the same count: "the release binaries cross-compile to
   five platforms", "so it cross-compiles to five platforms", "because the
   release cross-compiles to five platforms". `RELEASE_PLATFORMS`
   (`Taskfile.yml:73`) names three GOOS/GOARCH pairs, mirrored by the binary
   table in `.github/workflows/release.yml:108`, and `CONTRIBUTING.md:208`
   already says so: "macOS (arm64), Linux (amd64) and Windows (amd64)".
-- `CLAUDE.md:74` — the `task lint` row's parenthetical lists twelve checks;
+- `CLAUDE.md:75` — the `task lint` row's parenthetical lists twelve checks;
   the `lint` task (`Taskfile.yml:290`) runs sixteen sub-tasks, and the row
   omits `lint:packagesize` (`Taskfile.yml:301`), `lint:goversion`,
-  `lint:goroutines` and `gen:verify`. `CLAUDE.md:156` says the package-size
+  `lint:goroutines` and `gen:verify`. `CLAUDE.md:157` says the package-size
   gate runs in `task lint`, contradicting the row in the same file.
 - `docs/content/docs/contributing.md:50` — the `task lint` row names nine
   checks and omits `lint:markdown`, `lint:toml`, `lint:filelength`,
   `lint:packagesize`, `lint:goversion`, `lint:goroutines` and `gen:verify`.
-- `CLAUDE.md:503` — the never-print-a-secret rule names `slack.token`, a key
+- `CLAUDE.md:504` — the never-print-a-secret rule names `slack.token`, a key
   the decoder refuses: `ErrSlackRenamed` (`internal/config/config.go:50`)
   says the "slack" block was renamed to "messaging", and the field is
   `Messaging.Token` (`internal/config/config.go:106`, `json:"token"`).
 - `CLAUDE.md:9` — the opening line names Slack alone where the same file's
-  layout row (`CLAUDE.md:43`) names "Slack, Teams, Discord or a plain
+  layout row (`CLAUDE.md:44`) names "Slack, Teams, Discord or a plain
   webhook".
 - `SECURITY.md:61` — the in-scope list is "`cmd/`, `internal/`, `scripts/`,
   `build/`, and every file under `.github/workflows/`": no `web/`, no
@@ -984,7 +960,7 @@ would close the window, is FEAT-79.
 - `internal/forge/pulls.go:213` — `pickPull` returns the merged pull
   request with found true when no open one exists, as `IsOpen`'s comment
   at `internal/forge/pulls.go:89` warns callers.
-- `internal/cli/cli.go:305` — `WebDeps` wires `FindPull` to the raw
+- `internal/cli/cli.go:306` — `WebDeps` wires `FindPull` to the raw
   `FindPullRequest`, so the web sees a merged pull as found.
 - `internal/webserver/stream.go:188` — `snapshotReview` passes that found
   through to `review` unchanged.
@@ -1304,13 +1280,13 @@ Severity: medium · Confidence: read
 internal problem without recording `err`. No non-test file in
 `internal/webserver` writes a log line (zero matches for `log.`, `slog` or
 `Stderr`, by grep) and nothing sets an `ErrorLog`. The notes writer the
-command line hands `serve` (`internal/cli/cli.go:199`, `cmd.ErrOrStderr()`)
+command line hands `serve` (`internal/cli/cli.go:200`, `cmd.ErrOrStderr()`)
 carries only the address line `WebServerAt` prints
-(`internal/cli/cli.go:281`).
+(`internal/cli/cli.go:282`).
 
 A user who meets a 500 is told to look at the terminal and finds only the
 address line; the unclassified seam error is gone, so neither the user nor
-a bug report can say what failed. `--log` (`internal/cli/cli.go:214`)
+a bug report can say what failed. `--log` (`internal/cli/cli.go:215`)
 outlines each request's method, path, status and duration, not the cause.
 CLAUDE.md says never to swallow an error.
 
@@ -1685,7 +1661,7 @@ Thirteen conditions were never evaluated. Four are a test away:
 - `internal/tui/prcreate.go:134` — `pullCreated.apply`'s `named` case, a
   Jira issue with no link seam: every test that opens a pull request on a
   Jira issue's branch wires `Jira.LinkPullRequest`.
-- `internal/wiring/wiring.go:224` — `streamToEnd`, git failing to start: no
+- `internal/wiring/wiring.go:225` — `streamToEnd`, git failing to start: no
   wiring test fetches or pulls without git on `PATH`.
 
 Seven more came into view once each operand counted, and each is a test
@@ -1785,7 +1761,7 @@ after a click, and the Tab walk runs once, on each section as it opens. Four
 steps a user reaches by clicking — the pull request form, the push confirmation,
 the announcement preview and a write's refusal — are scanned and walked in
 neither theme, and the hermetic Settings scan settles on the heading rather than
-on the read's outcome. `CLAUDE.md:239` promises axe across every section in both
+on the read's outcome. `CLAUDE.md:240` promises axe across every section in both
 themes and every control Tab reaches in view at three widths; for the clicked
 steps only jsx-a11y's static rules apply. DEBT-65 (a write against a real
 server) does not cover this: it is the runtime floor's reach, not the backend's.
@@ -1912,7 +1888,7 @@ know about.
   change to field navigation is made twice, and a third composer must copy
   the pairs or extract them then.
 - **A condition-coverage skip list of two** (`UNANALYZABLE`,
-  `scripts/gobco-report.sh:82`): gobco ignores build tags, so it cannot read
+  `scripts/gobco-report.sh:85`): gobco ignores build tags, so it cannot read
   a package whose files come in tagged twins, and `internal/proc/pgroup` and
   `internal/web` are named there with that reason beside them. Every other
   package is read, and one that becomes unreadable without being named fails

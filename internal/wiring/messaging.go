@@ -11,14 +11,14 @@ import (
 	"github.com/jacob-delgado/workflow/internal/config"
 	"github.com/jacob-delgado/workflow/internal/httpx"
 	"github.com/jacob-delgado/workflow/internal/messaging"
-	"github.com/jacob-delgado/workflow/internal/tui"
+	"github.com/jacob-delgado/workflow/internal/seams"
 )
 
-// messagingDeps is what the interface asks of the messaging service, each post
+// messagingDeps is what a surface asks of the messaging service, each post
 // reaching it through messagingClient, which finds a bot token the first time a
 // post needs one.
-func messagingDeps(ctx context.Context, messagingClient func() (messaging.Client, error)) tui.MessagingDeps {
-	return tui.MessagingDeps{Post: func(channel, text string) error {
+func messagingDeps(ctx context.Context, messagingClient func() (messaging.Client, error)) seams.Messaging {
+	return seams.Messaging{Post: func(channel, text string) error {
 		client, err := messagingClient()
 		if err != nil {
 			return err

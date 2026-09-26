@@ -28,7 +28,7 @@ import (
 )
 
 // Deps is what the server asks of the world, as plain functions over the domain
-// clients — the same seams the interface declares, narrowed to what the API
+// clients — the same seams internal/seams declares, narrowed to what the API
 // needs. A nil function means the service is not configured: a read answers
 // with an empty result rather than an error, and a write as not available.
 type Deps struct {

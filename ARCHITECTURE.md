@@ -87,6 +87,17 @@ rather than remembered. So a command that never reaches a service never looks up
 its token, and the TUI model itself never holds a credential — which is exactly
 what lets its tests hand it canned answers with no network.
 
+Every grouped seam but `Editor` is declared in `internal/seams` (`seams.Jira`,
+`seams.Git`, `seams.Store` and the rest), over the domain packages' own types
+and `loop.Announced`, so any surface can take one without importing the
+terminal. The command line and the terminal take the bundles, and the web server
+takes the same functions narrowed into a `webserver.Deps` by `cli.WebDeps`.
+`Editor` speaks Bubble Tea's messages and commands, so it stays in `tui`, and
+the bundle `wiring` returns is still a `tui.Deps`. The
+`seams-below-the-surfaces` `depguard` rule in `.golangci.yml` allows
+`internal/seams` only the domain packages and `internal/loop` its bundles speak,
+so it sits below the surfaces and above `internal/loop`.
+
 - `Workspace{Root, Remote}` tells wiring where it is running — the repository
   root (or the start directory when there is no repo) and the origin remote URL.
   It is discovered once, up front, by `Locate`.
@@ -100,7 +111,7 @@ what lets its tests hand it canned answers with no network.
   again on first use, where its failure is reported.
 
 A seam speaks the interface's own domain types, and wiring translates at the
-boundary. The store seam is the clearest example: the TUI's `StoreDeps.CachedIssues`
+boundary. The store seam is the clearest example: `seams.Store.CachedIssues`
 returns `[]jira.Issue`, while the store on disk speaks its own decoupled
 `store.CachedIssue`. Wiring converts between them — and runs every field through
 `internal/sanitize` on the way through, because bytes read back from disk are
@@ -130,11 +141,11 @@ wording to another.
 
 `internal/loop` is a leaf above the domain packages and below the surfaces. It
 imports only `config`, `convention`, `forge`, `gitrepo`, `jira`, `messaging` and
-`proc`, and is imported by `cli`, `tui` and `webserver`. It cannot live in
-`wiring`, which imports `tui` for `tui.Deps` (the terminal importing it back
-would be a cycle), nor in `tui`, which the web server must not import, nor in
-`convention`, which `config` imports and so can never take a `config.Config`.
-Two `depguard` rules in `.golangci.yml` hold the direction:
+`proc`, and is imported by `cli`, `seams`, `tui`, `webserver` and `wiring`. It
+cannot live in `wiring`, which imports `tui` for `tui.Deps` (the terminal
+importing it back would be a cycle), nor in `tui`, which the web server must not
+import, nor in `convention`, which `config` imports and so can never take a
+`config.Config`. Two `depguard` rules in `.golangci.yml` hold its direction:
 `loop-below-the-surfaces` allows `internal/loop` only that list, and
 `webserver-not-terminal` keeps the web server off `tui` and `wiring`.
 
