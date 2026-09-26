@@ -658,9 +658,6 @@ Facts the code needs in more than one place are written in each, with
 nothing keeping the copies equal. CLAUDE.md names the smell and the rule of
 three; no linter or knip rule sees any of it.
 
-- `web/e2e/a11y.spec.ts:141` — `issuesSnapshot` and `pagedSnapshot`
-  (`web/e2e/layout.spec.ts:351`) are untyped literals of the empty snapshot
-  shape that `makeSnapshot` (`web/src/test/fixtures.ts:23`) builds typed.
 - `web/src/features/branch/CommitForm.tsx:12` — `defaultCommitTypes` copies
   the eleven Go types (`internal/convention/commit.go:45`) in order, and
   `useCommitTypes` (`web/src/features/branch/CommitForm.tsx:131`) falls back
@@ -689,17 +686,14 @@ three; no linter or knip rule sees any of it.
   one primary and one secondary class) closes both.
 
 A renamed theme key in `web/index.html` passes every gate and shows only as
-a flash before first paint; a required snapshot field added to the contract
-dies in the e2e specs as a locator timeout; and a change to the focus ring
-is eight edits.
+a flash before first paint; and a change to the focus ring is eight edits.
 
-**One way to fix it.** One owner per fact: `satisfies Snapshot` on the e2e
-literals; the server sending the effective commit types so the form holds
-no list; an exported `storageKey` a test checks `web/index.html` against;
-and one `Button` component or two class constants.
+**One way to fix it.** One owner per fact: the server sending the effective
+commit types so the form holds no list; an exported `storageKey` a test
+checks `web/index.html` against; and one `Button` component or two class
+constants.
 
-**Done when.** Removing a required snapshot field from the e2e literals
-fails `tsc -b`;
+**Done when.**
 `grep -n "'revert'" web/src/features/branch/CommitForm.tsx` is empty and the
 options come from a server field; a test fails when
 `web/index.html`'s key differs from `themeStore`'s;
