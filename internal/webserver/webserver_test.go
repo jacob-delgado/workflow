@@ -48,6 +48,9 @@ const (
 	// waitAndTryAgain is what an answer to a service limiting requests says to
 	// do, whichever service it is.
 	waitAndTryAgain = "wait and try again"
+	// tryAgain is what the internal problem's detail says to do, whichever
+	// request met it.
+	tryAgain = "try again"
 	// repoPath is where the repository sits on disk, which a git error can
 	// carry and no answer may repeat.
 	repoPath = "/home/dev/src/acme"

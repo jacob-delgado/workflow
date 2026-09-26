@@ -15,6 +15,8 @@ import (
 	"github.com/jacob-delgado/workflow/internal/api"
 	"github.com/jacob-delgado/workflow/internal/config"
 	"github.com/jacob-delgado/workflow/internal/forge"
+	"github.com/jacob-delgado/workflow/internal/gitrepo"
+	"github.com/jacob-delgado/workflow/internal/proc"
 )
 
 // route is a request to one endpoint: its method, path and body.
@@ -28,6 +30,15 @@ func announceRoutes() map[string]route {
 	return map[string]route{
 		"the preview": {method: http.MethodGet, path: "/api/announcement"},
 		"the post":    {method: http.MethodPost, path: "/api/announce", body: `{"channel":"#dev"}`},
+	}
+}
+
+// pullRoutes are the two requests that compose a pull request: the draft, and
+// the open.
+func pullRoutes() map[string]route {
+	return map[string]route{
+		"the draft": {method: http.MethodGet, path: "/api/pull-request/draft"},
+		"the open":  {method: http.MethodPost, path: "/api/pull-request", body: openRequestBody},
 	}
 }
 
@@ -70,6 +81,41 @@ func TestAnUnreachableForgeIsNotNothingToAnnounce(t *testing.T) {
 			if posted {
 				t.Error("posted an announcement though its pull request could not be read")
 			}
+		})
+	}
+}
+
+func TestAFailedBranchReadIsNotNothingToOpen(t *testing.T) {
+	t.Parallel()
+
+	// A read that fails says where the repository is, as gitrepo words it.
+	readErr := fmt.Errorf("reading the current branch of %s: %w", repoPath, errSeam)
+
+	for name, request := range pullRoutes() {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			// Arrange
+			wrote := 0
+
+			deps := openableDeps()
+			deps.Branch = func() (gitrepo.Branch, error) { return gitrepo.Branch{}, readErr }
+			deps.Push = func(string) (proc.Output, error) {
+				wrote++
+
+				return fakeOutput(nil, nil), nil
+			}
+			deps.CreatePull = func(forge.NewPullRequest) (forge.PullRequest, error) {
+				wrote++
+
+				return forge.PullRequest{}, nil
+			}
+
+			// Act
+			recorder := send(t, serve(t, deps, config.Default()), request.method, request.path, request.body)
+
+			// Assert
+			assertGitReadAnswer(t, recorder, wrote, gitReadAnswer{http.StatusInternalServerError, api.Internal, tryAgain})
 		})
 	}
 }

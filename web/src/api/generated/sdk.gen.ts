@@ -265,7 +265,7 @@ export const commit = <ThrowOnError extends boolean = false>(options: Options<Co
 /**
  * The pull request that would be opened for the branch, for a preview.
  *
- * Composes a pull request for the checked-out branch — a title and body from its commits, the issue, and the repository's template, with the base it would merge into — without opening it, so the browser can edit it before confirming. Answered 409 when there is nothing to open: the tree is not on a branch, the branch has no commits, or a pull request is already open for it.
+ * Composes a pull request for the checked-out branch — a title and body from its commits, the issue, and the repository's template, with the base it would merge into — without opening it, so the browser can edit it before confirming. Answered 409 when there is nothing to open: the tree is not on a branch, the branch has no commits, or a pull request is already open for it; and when the server is not running in a git repository.
  */
 export const getPullRequestDraft = <ThrowOnError extends boolean = false>(options?: Options<GetPullRequestDraftData, ThrowOnError>): RequestResult<GetPullRequestDraftResponses, GetPullRequestDraftErrors, ThrowOnError> => (options?.client ?? client).get<GetPullRequestDraftResponses, GetPullRequestDraftErrors, ThrowOnError>({
     responseValidator: async (data) => await zGetPullRequestDraftResponse.parseAsync(data),
@@ -276,7 +276,7 @@ export const getPullRequestDraft = <ThrowOnError extends boolean = false>(option
 /**
  * Open a pull request for the current branch, pushing it first if needed.
  *
- * Opens a pull request from the checked-out branch with the given title, body, base, and draft flag. The branch is always the checked-out one, not the caller's to choose; when it is not yet published, it is pushed first, as opening a pull request from an unpushed branch cannot work. Refused with 409 when there is nothing to open (see GET /api/pull-request/draft) and 422 when the push or the open fails, or the title or base is missing.
+ * Opens a pull request from the checked-out branch with the given title, body, base, and draft flag. The branch is always the checked-out one, not the caller's to choose; when it is not yet published, it is pushed first, as opening a pull request from an unpushed branch cannot work. Refused with 409 when there is nothing to open (see GET /api/pull-request/draft) or the server is not running in a git repository, and 422 when the push or the open fails, or the title or base is missing.
  */
 export const openPullRequest = <ThrowOnError extends boolean = false>(options: Options<OpenPullRequestData, ThrowOnError>): RequestResult<OpenPullRequestResponses, OpenPullRequestErrors, ThrowOnError> => (options.client ?? client).post<OpenPullRequestResponses, OpenPullRequestErrors, ThrowOnError>({
     responseValidator: async (data) => await zOpenPullRequestResponse.parseAsync(data),

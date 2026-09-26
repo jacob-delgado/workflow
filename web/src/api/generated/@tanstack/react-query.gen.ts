@@ -248,7 +248,7 @@ export const getPullRequestDraftQueryKey = (options?: Options<GetPullRequestDraf
 /**
  * The pull request that would be opened for the branch, for a preview.
  *
- * Composes a pull request for the checked-out branch — a title and body from its commits, the issue, and the repository's template, with the base it would merge into — without opening it, so the browser can edit it before confirming. Answered 409 when there is nothing to open: the tree is not on a branch, the branch has no commits, or a pull request is already open for it.
+ * Composes a pull request for the checked-out branch — a title and body from its commits, the issue, and the repository's template, with the base it would merge into — without opening it, so the browser can edit it before confirming. Answered 409 when there is nothing to open: the tree is not on a branch, the branch has no commits, or a pull request is already open for it; and when the server is not running in a git repository.
  */
 export const getPullRequestDraftOptions = (options?: Options<GetPullRequestDraftData>) => queryOptions<GetPullRequestDraftResponse, GetPullRequestDraftError, GetPullRequestDraftResponse, ReturnType<typeof getPullRequestDraftQueryKey>>({
     queryFn: async ({ queryKey, signal }) => {
