@@ -5,6 +5,7 @@ package webserver_test
 
 import (
 	"net/http"
+	"sync/atomic"
 	"testing"
 
 	"github.com/jacob-delgado/workflow/internal/api"
@@ -131,5 +132,35 @@ func TestGetReviewOmitsCIWhenUnavailable(t *testing.T) {
 	// Assert
 	if !review.Found || review.Ci != nil {
 		t.Errorf("review = %+v, want the pull without CI", review)
+	}
+}
+
+func TestGetReviewAsksNoCIAboutAMergedPull(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	// A merged pull request has no live CI, as the terminal already knows.
+	var asked atomic.Int32
+
+	deps := filledDeps()
+	deps.FindPull = func(string) (forge.PullRequest, bool, error) {
+		return forge.PullRequest{Number: 42, State: forge.StateMerged}, true, nil
+	}
+	deps.CheckCI = func(forge.PullRequest, string) (forge.CI, error) {
+		asked.Add(1)
+
+		return forge.CI{State: forge.CIPassed}, nil
+	}
+
+	// Act
+	review := decode[api.Review](t, get(t, serve(t, deps, config.Default()), "/api/review"))
+
+	// Assert
+	if !review.Found || review.Pull == nil {
+		t.Fatalf("review = %+v, want the merged pull request found", review)
+	}
+
+	if calls := asked.Load(); calls != 0 || review.Ci != nil {
+		t.Errorf("CI asked %d times, ci = %+v; want no CI asked about a merged pull request", calls, review.Ci)
 	}
 }

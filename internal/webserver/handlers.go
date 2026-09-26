@@ -163,9 +163,10 @@ func (s *server) GetReview(_ context.Context, _ api.GetReviewRequestObject) (api
 	return api.GetReview200JSONResponse(s.review(pull, found, branch.Head)), nil
 }
 
-// review assembles the review state, folding in CI when a pull request is found
-// and CI can be read. A CI read that fails leaves the pull request without it
-// rather than failing the whole answer.
+// review assembles the review state, folding in CI when an open pull request is
+// found and CI can be read. A merged pull request has no live CI, so it is not
+// asked about, as the terminal does not ask. A CI read that fails leaves the pull
+// request without it rather than failing the whole answer.
 func (s *server) review(pull forge.PullRequest, found bool, head string) api.Review {
 	result := api.Review{Found: found}
 	if !found {
@@ -175,7 +176,7 @@ func (s *server) review(pull forge.PullRequest, found bool, head string) api.Rev
 	dto := pullDTO(pull)
 	result.Pull = &dto
 
-	if s.deps.CheckCI == nil {
+	if s.deps.CheckCI == nil || !pull.IsOpen() {
 		return result
 	}
 
