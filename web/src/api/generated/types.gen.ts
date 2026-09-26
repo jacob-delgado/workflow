@@ -799,7 +799,7 @@ export type LinkPullRequestData = {
 
 export type LinkPullRequestErrors = {
     /**
-     * The checked-out branch does not name this issue, or has no pull request to link; nothing was linked.
+     * The checked-out branch does not name this issue, or has no pull request to link, or the server is not running in a git repository; nothing was linked.
      */
     409: Problem;
     /**
@@ -1133,7 +1133,7 @@ export type CheckoutData = {
 
 export type CheckoutErrors = {
     /**
-     * The working tree has uncommitted changes; nothing was switched.
+     * The working tree has uncommitted changes, or the server is not running in a git repository; nothing was switched.
      */
     409: Problem;
     /**
@@ -1166,7 +1166,7 @@ export type CreateBranchData = {
 
 export type CreateBranchErrors = {
     /**
-     * A branch for the issue already exists; nothing was created.
+     * A branch for the issue already exists, or the server is not running in a git repository; nothing was created.
      */
     409: Problem;
     /**
@@ -1261,7 +1261,7 @@ export type PushData = {
 
 export type PushErrors = {
     /**
-     * There is nothing to push.
+     * There is nothing to push, or the server is not running in a git repository.
      */
     409: Problem;
     /**
@@ -1294,7 +1294,7 @@ export type CommitData = {
 
 export type CommitErrors = {
     /**
-     * Nothing is staged; there is nothing to commit.
+     * Nothing is staged, or the server is not running in a git repository; nothing was committed.
      */
     409: Problem;
     /**

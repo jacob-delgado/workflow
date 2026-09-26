@@ -139,8 +139,9 @@ paths:
         make once a pull request is open. The caller names only the issue; the
         pull request, its address and its title are the server's to find, never
         the caller's to supply. Refused with 409 when the branch does not name
-        that issue or has no pull request, and 422 when the tracker cannot take
-        a link or refuses this one.
+        that issue or has no pull request, or the server is not running in a
+        git repository, and 422 when the tracker cannot take a link or refuses
+        this one.
       tags: [issues]
       parameters:
         - name: key
@@ -158,7 +159,8 @@ paths:
         "409":
           description: >-
             The checked-out branch does not name this issue, or has no pull
-            request to link; nothing was linked.
+            request to link, or the server is not running in a git repository;
+            nothing was linked.
           content:
             application/problem+json:
               schema: {$ref: "#/components/schemas/Problem"}
@@ -468,7 +470,8 @@ paths:
         Switches to the named local branch — the write half of moving between
         issues. It is refused with 409 when the working tree has uncommitted
         changes, the same guard the terminal interface applies, so switching
-        never carries work in progress onto another branch.
+        never carries work in progress onto another branch, and when the server
+        is not running in a git repository.
       tags: [branches]
       requestBody:
         required: true
@@ -486,7 +489,9 @@ paths:
               schema:
                 $ref: "#/components/schemas/Branch"
         "409":
-          description: The working tree has uncommitted changes; nothing was switched.
+          description: >-
+            The working tree has uncommitted changes, or the server is not
+            running in a git repository; nothing was switched.
           content:
             application/problem+json:
               schema: {$ref: "#/components/schemas/Problem"}
@@ -506,7 +511,8 @@ paths:
         issue's type and summary) and creates it off the base branch, switching
         the working tree to it. This is how a not-started issue is picked up. It
         is refused with 409 when a branch for the issue already exists — check
-        that one out instead.
+        that one out instead — and when the server is not running in a git
+        repository.
       tags: [branches]
       requestBody:
         required: true
@@ -524,7 +530,9 @@ paths:
               schema:
                 $ref: "#/components/schemas/Branch"
         "409":
-          description: A branch for the issue already exists; nothing was created.
+          description: >-
+            A branch for the issue already exists, or the server is not running
+            in a git repository; nothing was created.
           content:
             application/problem+json:
               schema: {$ref: "#/components/schemas/Problem"}
@@ -605,7 +613,8 @@ paths:
         Publishes the checked-out branch to the push remote, setting upstream if
         it has none — the first outward step of opening a pull request. It is
         refused with 409 when there is nothing to push (no commits, or already
-        up to date) and 422 when the push fails.
+        up to date) or the server is not running in a git repository, and 422
+        when the push fails.
       tags: [branches]
       responses:
         "200":
@@ -615,7 +624,9 @@ paths:
               schema:
                 $ref: "#/components/schemas/Branch"
         "409":
-          description: There is nothing to push.
+          description: >-
+            There is nothing to push, or the server is not running in a git
+            repository.
           content:
             application/problem+json:
               schema: {$ref: "#/components/schemas/Problem"}
@@ -634,8 +645,9 @@ paths:
         Commits what is already staged, with a message assembled from the
         Conventional Commit parts and a Refs trailer for the branch's issue.
         Staging is done elsewhere; this commits the index as it stands. It is
-        refused with 409 when nothing is staged, and 422 when the message is not
-        a valid Conventional Commit or the commit (its hooks) fails.
+        refused with 409 when nothing is staged or the server is not running in
+        a git repository, and 422 when the message is not a valid Conventional
+        Commit or the commit (its hooks) fails.
       tags: [branches]
       requestBody:
         required: true
@@ -655,7 +667,9 @@ paths:
               schema:
                 $ref: "#/components/schemas/Branch"
         "409":
-          description: Nothing is staged; there is nothing to commit.
+          description: >-
+            Nothing is staged, or the server is not running in a git repository;
+            nothing was committed.
           content:
             application/problem+json:
               schema: {$ref: "#/components/schemas/Problem"}

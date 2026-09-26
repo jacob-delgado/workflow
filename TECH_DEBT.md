@@ -1046,67 +1046,6 @@ answer 502 `unreachable` with no host in the body; a test whose `Branch`
 read fails makes GET /api/pull-request/draft answer through `fault` rather
 than 409.
 
-### DEBT-130 A git read that fails gets three answers, one of them verbatim
-
-Severity: medium · Confidence: read
-
-A `Branch`, `Branches` or `Changes` read that fails is answered three ways
-across the handlers: a bare 500 through `fault` on `GetReview`,
-`LinkPullRequest` and staging; a generic 422 on `Push`, `Checkout` and
-`CreateBranch`; and a verbatim 422 on `Commit`, whose default arm forwards
-`err.Error()`. `Repository.ReadBranch` words its failure with the repository's
-on-disk path (`internal/gitrepo/branch.go:136`, "reading the current branch of
-"+r.dir), where "`detail`" in `docs/content/docs/errors.md:31` promises a read
-failure stays generic. `faultClasses` has no git class, so each handler decides
-for itself.
-
-- `internal/webserver/commit.go:66` — `server.Commit`'s default arm puts
-  `err.Error()` in the 422 detail for every error but `ErrNothingStaged`.
-- `internal/webserver/commit.go:89` — `server.commitStaged` returns the
-  raw `Changes` read error.
-- `internal/webserver/push.go:34` — `server.Push` answers a generic 422
-  "the branch could not be read" for the same failure.
-- `internal/webserver/checkout.go:84` — `server.refuseADirtyTree` returns
-  the raw `Changes` error, which `server.Checkout`'s default arm at
-  `internal/webserver/checkout.go:54` words generically.
-- `internal/webserver/branchcreate.go:122` — `server.branchExists` reads
-  the `Branches` listing, and `server.startWork` (`:89`) returns its raw
-  error, which `createBranchFailure`'s default arm at
-  `internal/webserver/branchcreate.go:72` words generically; the
-  post-create `Branch` read (`:101`) fails no request.
-- `internal/webserver/staging.go:171` — `stagingProblem`'s default arm
-  routes the same read failure through `fault`, a bare 500.
-- `internal/webserver/issuewrite.go:63` — `server.branchPull` wraps the
-  `Branch` read and routes it through `fault`;
-  `TestLinkReportsWhatItCouldNotRead`
-  (`internal/webserver/issuewrite_test.go:199`) pins the 500.
-- `internal/webserver/handlers.go:164` — `server.GetReview` routes the
-  same failure through `fault`.
-- `internal/webserver/errors.go:126` — `faultClasses` has no git-read
-  class, so `fault` falls to the internal problem for every read failure.
-- `internal/webserver/commit_test.go:274` and
-  `internal/webserver/commit_test.go:291` —
-  `TestCommitReportsAChangesReadFailure` and `TestCommitReportsAFailedStart`
-  assert the status alone, so any detail passes.
-
-A script switching on `code` sees `internal` on one write and
-`unprocessable` on the next for the same broken repository; on Commit the
-repository's absolute path reaches the page, and `runCommit`'s start arm
-(`internal/webserver/commit.go:133`) forwards the seam's error the same
-way.
-
-**One way to fix it.** Add a git-read class to `faultClasses`
-(`gitrepo.ErrNotARepository` and a wrapped read sentinel), route every
-handler's read failure through `fault`, keep `err.Error()` on Commit for
-`errCommitFailed`'s hook output only, and pin the detail in the commit
-tests as `internal/webserver/checkout_test.go` pins its own.
-
-**Done when.** One table test sends the same failing `Branch` seam to
-/api/push, /api/checkout, /api/commit and /api/issues/{key}/link, and a
-failing `Branches` seam to POST /api/branches, and gets one status and
-code; `TestCommitReportsAChangesReadFailure` asserts the
-detail names neither the seam error's text nor a path, and passes.
-
 ### DEBT-131 The announcement posted may not be the one previewed
 
 Severity: medium · Confidence: read

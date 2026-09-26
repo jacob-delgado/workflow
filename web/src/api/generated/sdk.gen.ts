@@ -58,7 +58,7 @@ export const getIssue = <ThrowOnError extends boolean = false>(options: Options<
 /**
  * Link the checked-out branch's pull request on its issue.
  *
- * Records the pull request the forge has for the checked-out branch as a link on the issue that branch names, so the team that watches the tracker sees it — the offer the terminal interface and `workflow pr` make once a pull request is open. The caller names only the issue; the pull request, its address and its title are the server's to find, never the caller's to supply. Refused with 409 when the branch does not name that issue or has no pull request, and 422 when the tracker cannot take a link or refuses this one.
+ * Records the pull request the forge has for the checked-out branch as a link on the issue that branch names, so the team that watches the tracker sees it — the offer the terminal interface and `workflow pr` make once a pull request is open. The caller names only the issue; the pull request, its address and its title are the server's to find, never the caller's to supply. Refused with 409 when the branch does not name that issue or has no pull request, or the server is not running in a git repository, and 422 when the tracker cannot take a link or refuses this one.
  */
 export const linkPullRequest = <ThrowOnError extends boolean = false>(options: Options<LinkPullRequestData, ThrowOnError>): RequestResult<LinkPullRequestResponses, LinkPullRequestErrors, ThrowOnError> => (options.client ?? client).post<LinkPullRequestResponses, LinkPullRequestErrors, ThrowOnError>({
     responseValidator: async (data) => await zLinkPullRequestResponse.parseAsync(data),
@@ -183,7 +183,7 @@ export const updateConfig = <ThrowOnError extends boolean = false>(options: Opti
 /**
  * Check out a local branch, switching the working tree to it.
  *
- * Switches to the named local branch — the write half of moving between issues. It is refused with 409 when the working tree has uncommitted changes, the same guard the terminal interface applies, so switching never carries work in progress onto another branch.
+ * Switches to the named local branch — the write half of moving between issues. It is refused with 409 when the working tree has uncommitted changes, the same guard the terminal interface applies, so switching never carries work in progress onto another branch, and when the server is not running in a git repository.
  */
 export const checkout = <ThrowOnError extends boolean = false>(options: Options<CheckoutData, ThrowOnError>): RequestResult<CheckoutResponses, CheckoutErrors, ThrowOnError> => (options.client ?? client).post<CheckoutResponses, CheckoutErrors, ThrowOnError>({
     responseValidator: async (data) => await zCheckoutResponse.parseAsync(data),
@@ -198,7 +198,7 @@ export const checkout = <ThrowOnError extends boolean = false>(options: Options<
 /**
  * Create and switch to a branch for an issue — start work on it.
  *
- * Names a branch for the issue by the branch-name convention (from the issue's type and summary) and creates it off the base branch, switching the working tree to it. This is how a not-started issue is picked up. It is refused with 409 when a branch for the issue already exists — check that one out instead.
+ * Names a branch for the issue by the branch-name convention (from the issue's type and summary) and creates it off the base branch, switching the working tree to it. This is how a not-started issue is picked up. It is refused with 409 when a branch for the issue already exists — check that one out instead — and when the server is not running in a git repository.
  */
 export const createBranch = <ThrowOnError extends boolean = false>(options: Options<CreateBranchData, ThrowOnError>): RequestResult<CreateBranchResponses, CreateBranchErrors, ThrowOnError> => (options.client ?? client).post<CreateBranchResponses, CreateBranchErrors, ThrowOnError>({
     responseValidator: async (data) => await zCreateBranchResponse.parseAsync(data),
@@ -239,7 +239,7 @@ export const announce = <ThrowOnError extends boolean = false>(options: Options<
 /**
  * Push the current branch to its remote, setting upstream.
  *
- * Publishes the checked-out branch to the push remote, setting upstream if it has none — the first outward step of opening a pull request. It is refused with 409 when there is nothing to push (no commits, or already up to date) and 422 when the push fails.
+ * Publishes the checked-out branch to the push remote, setting upstream if it has none — the first outward step of opening a pull request. It is refused with 409 when there is nothing to push (no commits, or already up to date) or the server is not running in a git repository, and 422 when the push fails.
  */
 export const push = <ThrowOnError extends boolean = false>(options?: Options<PushData, ThrowOnError>): RequestResult<PushResponses, PushErrors, ThrowOnError> => (options?.client ?? client).post<PushResponses, PushErrors, ThrowOnError>({
     responseValidator: async (data) => await zPushResponse.parseAsync(data),
@@ -250,7 +250,7 @@ export const push = <ThrowOnError extends boolean = false>(options?: Options<Pus
 /**
  * Commit the staged changes with a Conventional Commit message.
  *
- * Commits what is already staged, with a message assembled from the Conventional Commit parts and a Refs trailer for the branch's issue. Staging is done elsewhere; this commits the index as it stands. It is refused with 409 when nothing is staged, and 422 when the message is not a valid Conventional Commit or the commit (its hooks) fails.
+ * Commits what is already staged, with a message assembled from the Conventional Commit parts and a Refs trailer for the branch's issue. Staging is done elsewhere; this commits the index as it stands. It is refused with 409 when nothing is staged or the server is not running in a git repository, and 422 when the message is not a valid Conventional Commit or the commit (its hooks) fails.
  */
 export const commit = <ThrowOnError extends boolean = false>(options: Options<CommitData, ThrowOnError>): RequestResult<CommitResponses, CommitErrors, ThrowOnError> => (options.client ?? client).post<CommitResponses, CommitErrors, ThrowOnError>({
     responseValidator: async (data) => await zCommitResponse.parseAsync(data),

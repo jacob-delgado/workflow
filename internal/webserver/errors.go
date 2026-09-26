@@ -12,6 +12,7 @@ import (
 
 	"github.com/jacob-delgado/workflow/internal/api"
 	"github.com/jacob-delgado/workflow/internal/forge"
+	"github.com/jacob-delgado/workflow/internal/gitrepo"
 	"github.com/jacob-delgado/workflow/internal/httpx"
 	"github.com/jacob-delgado/workflow/internal/jira"
 	"github.com/jacob-delgado/workflow/internal/messaging"
@@ -89,11 +90,11 @@ func writeResponseError(w http.ResponseWriter, _ *http.Request, _ error) {
 const tryAgain = "try again, and run workflow doctor if it keeps failing"
 
 // fault maps a seam's error onto an RFC 9457 problem and its status. The class
-// comes from the error — one of faultClasses (a missing resource, an upstream
-// that could not be reached, asked to wait or answered oddly, a setting it
-// cannot use, a service's refusal) or else an unexpected failure — but the
-// detail is curated and safe: the raw cause carries a host, a webhook or a
-// credential and never reaches the wire.
+// comes from the error — one of faultClasses (no repository to work in, a
+// missing resource, an upstream that could not be reached, asked to wait or
+// answered oddly, a setting it cannot use, a service's refusal) or else an
+// unexpected failure — but the detail is curated and safe: the raw cause
+// carries a host, a path, a webhook or a credential and never reaches the wire.
 func fault(err error) (api.Problem, int) {
 	prob := faultProblem(err)
 
@@ -124,7 +125,20 @@ type faultClass struct {
 // faultClasses are the failures fault tells apart, most specific first: a Jira
 // 404 that carries a reason is a missing resource before it is a refusal.
 func faultClasses() []faultClass {
-	return slices.Concat(transportFaults(), jiraFaults(), forgeFaults(), messagingFaults())
+	return slices.Concat(gitFaults(), transportFaults(), jiraFaults(), forgeFaults(), messagingFaults())
+}
+
+// gitFaults are the repository's failures fault can name. Any other read git
+// could not answer is left to the internal problem: its words can name where
+// the repository is on disk, and the caller cannot act on them.
+func gitFaults() []faultClass {
+	return []faultClass{
+		{
+			causes: []error{gitrepo.ErrNotARepository},
+			code:   api.Conflict,
+			detail: "the server is not running in a git repository; start workflow --web from a repository's work tree",
+		},
+	}
 }
 
 // transportFaults are the failures any upstream can answer with.
