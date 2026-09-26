@@ -2100,55 +2100,6 @@ repository so one spec can commit, push and open a pull request.
 
 **Done when.** One Playwright spec performs a write against a running server.
 
-### DEBT-143 Twelve `nolint:paralleltest` reasons name a profile `forceANSI` does not own
-
-Severity: low · Confidence: read
-
-Twelve tests in `internal/tui` carry the same directive,
-`//nolint:paralleltest // forceANSI owns the global color profile; must run
-serially`, but `forceANSI` (`internal/tui/color_test.go:24`) is documented
-as a no-op that returns a no-op: Lip Gloss v2 renders a style's colors into
-the string whether or not the output is a terminal, so there is no global
-profile to own. `redOpen` (`internal/tui/color_test.go:17`) still says it
-"needs forceANSI to be in effect". `paralleltest` runs on `internal/tui`, so
-the directive counts as used and no gate sees the stale reason. Counted by
-grep of the exact string: 12 lines in 6 files.
-
-- `internal/tui/styles_test.go:13` —
-  `TestTheFooterUsesTheThemeNotFixedGrays` carries the reason and a `defer
-  forceANSI(t)()` that restores nothing.
-- `internal/tui/styles_test.go:36` —
-  `TestEmptyStateSentencesAreNotDrawnFaint`; its subtests (`:59`) omit
-  `t.Parallel()` too.
-- `internal/tui/styles_test.go:77` —
-  `TestNoColorKeepsTheCursorButDropsTheHue`, though `WithoutColor`
-  (`internal/tui/tui.go:124`) is per model, not global.
-- `internal/tui/styles_test.go:103` — `TestTheFocusedPaneWearsABoldTitle`.
-- `internal/tui/wrap_color_test.go:17` —
-  `TestAPaneFailureClosesItsColorEachRow` builds its own world and shares
-  nothing.
-- `internal/tui/failure_color_test.go:20` —
-  `TestEveryFailureGlyphRendersRed`.
-- `internal/tui/failure_notice_test.go:33`, `:98`, `:143` and `:161` —
-  `TestARefusalNoticeWearsTheFailureStyle`, `TestAGuidanceNoticeStaysPlain`,
-  `TestADroppedPostIsNoticedAsAFailure` and
-  `TestAShortTerminalsFooterDrawsAFailureInRed`.
-- `internal/tui/failure_channels_test.go:222` —
-  `TestEveryChannelSpeaksTheFailureSentence`.
-- `internal/tui/failure_test.go:391` —
-  `TestTheConfigurationScreenShowsItsErrorAsAFailure`.
-
-The cost is twelve tests and their subtests running serially for a mechanism
-that no longer exists, each behind a comment that covers for it.
-
-**One way to fix it.** Drop the directive and the `defer` at each site, add
-`t.Parallel()` to each test and its subtests, trim `redOpen`'s comment, and
-delete `forceANSI` if nothing calls it.
-
-**Done when.** `grep -rn 'forceANSI owns the global color profile'
-internal/tui` prints nothing, each of the twelve tests calls `t.Parallel()`,
-and `task lint` passes.
-
 ### DEBT-146 `internal/webserver/coverage_test.go` is named for the gate, not for what it tests
 
 Severity: low · Confidence: read

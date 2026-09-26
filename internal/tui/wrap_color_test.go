@@ -14,20 +14,18 @@ import (
 var errLongStatus = errors.New("reading the status of /very/long/path: git: exit status 128: " +
 	"fatal: not a git repository (or any of the parent directories): .git and yet more words to spill")
 
-//nolint:paralleltest // forceANSI owns the global color profile; must run serially.
 func TestAPaneFailureClosesItsColorEachRow(t *testing.T) {
-	// Arrange
-	defer forceANSI(t)()
+	t.Parallel()
 
+	// Arrange
 	faked := withoutPull()
 	faked.pullErr = errLongStatus
-	view := typing(t, faked.live(t, 120, 24), "4").View().Content
 
 	// Act
-	lines := strings.Split(view, "\n")
+	view := typing(t, faked.live(t, 120, 24), "4").View().Content
 
 	// Assert
-	for index, line := range lines {
+	for index, line := range strings.Split(view, "\n") {
 		if opens, closes := sgrBalance(line); opens != closes {
 			t.Errorf("row %d opens %d colors but closes %d, so a color leaks past it:\n%q", index, opens, closes, line)
 		}

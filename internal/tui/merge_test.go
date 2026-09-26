@@ -127,9 +127,8 @@ func TestRefusedMergeStaysInItsPreview(t *testing.T) {
 	}
 }
 
-//nolint:paralleltest // forceANSI owns the global color profile; must run serially.
 func TestAMethodsReadThatFailsIsPinnedInTheMergePicker(t *testing.T) {
-	defer forceANSI(t)()
+	t.Parallel()
 
 	cases := map[string]struct {
 		prepare func(*world)
@@ -151,6 +150,8 @@ func TestAMethodsReadThatFailsIsPinnedInTheMergePicker(t *testing.T) {
 
 	for name, tt := range cases {
 		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
 			// Arrange
 			reviewing := mergeable()
 			tt.prepare(reviewing)

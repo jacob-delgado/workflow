@@ -17,9 +17,8 @@ var (
 	errJiraReject = errors.New("jira rejected the request")
 )
 
-//nolint:paralleltest // forceANSI owns the global color profile; must run serially.
 func TestEveryFailureGlyphRendersRed(t *testing.T) {
-	defer forceANSI(t)()
+	t.Parallel()
 
 	open := redOpen()
 
@@ -46,6 +45,8 @@ func TestEveryFailureGlyphRendersRed(t *testing.T) {
 
 	for name, tt := range cases {
 		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
 			// Arrange
 			faked := newWorld()
 			tt.prepare(faked)
