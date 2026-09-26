@@ -24,7 +24,7 @@ implementation. The web frontend lives in `web/`.
 Layout:
 
 ```text
-cmd/workflow/         thin main; wires cli.Execute and the exit status
+cmd/workflow/         thin main: cli.Execute, its exit status, the terminal prompt
 internal/cli/         the Cobra command tree
 internal/config/      .workflow.json loading, redaction, validation
 internal/keychain/    storing a token in the OS keychain and reading it back
