@@ -2040,11 +2040,11 @@ form, the not-a-repository state or "No issues match this view."; a
 ReviewPanel test with `ci` null and `ci_error` set finds the alert naming
 the reason.
 
-### UX-129 Four failures tell less than the seam knows
+### UX-129 Three failures tell less than the seam knows
 
 Impact: low · Effort: small
 
-**Today.** Four places hold a reason or a result they do not show.
+**Today.** Three places hold a reason or a result they do not show.
 
 - `issueList.settle`, `internal/tui/issues.go:132`: `l.found, l.err =
   answer.found, answer.err` replaces a populated list with a failed first
@@ -2068,33 +2068,18 @@ Impact: low · Effort: small
   (`reportLoadError`, `internal/cli/doctor.go:275`);
   `TestUpdateConfigRejectsAnInvalidConfig`,
   `internal/webserver/config_test.go:110`, asserts status and code only.
-- `nothingToOpen`, `internal/webserver/pullrequest.go:88`, words
-  `PullAlreadyOpenError` — which carries the open pull request "so a
-  surface can point at it" (`internal/loop/pull.go:30`) — and
-  `ErrNothingToOpen` alike as "there is nothing to open a … for", where
-  the command line names the open one's URL (`internal/cli/pr.go:210`); a
-  stale tab that opens a pull request twice is told there is nothing to
-  open, not that #42 is already open.
-  `TestOpenPullRequestIsAConflictWhenOneIsAlreadyOpen`,
-  `internal/webserver/pullrequest_test.go:422`, asserts status only. (A
-  Branch read failure answered with the same 409, through
-  `server.composePullRequest`'s `err == nil` at
-  `internal/webserver/pullrequest.go:116`, is DEBT-129.)
 
 **Instead.** On a failed first page keep `l.found`, record `l.err` and let the
 rail say "failed · see detail" beside the stale list, as a failed further page
 already does; draw `failureLine` on `fetchProblem` above the offer line; carry
-`Parse`'s wrapped reason after the `ErrInvalid` prefix in the 422 detail; word
-the 409 by cause — `PullAlreadyOpenError` names the open pull request, and
-`ErrNothingToOpen` says no branch or commits.
+`Parse`'s wrapped reason after the `ErrInvalid` prefix in the 422 detail.
 
 **Done when.** An issues refresh test whose second search fails still shows
 PROJ-412 in the rail beside the failure;
 `TestAFailedFetchOffersToBranchFromWhatIsThere` also requires git's words
 ("could not read from remote repository") on screen;
 `TestUpdateConfigRejectsAnInvalidConfig` asserts the detail names the refused
-field or value; `TestOpenPullRequestIsAConflictWhenOneIsAlreadyOpen` asserts
-the detail names the open pull request.
+field or value.
 
 ### UX-130 Six sentences that disagree with a neighbor or a sibling surface
 
