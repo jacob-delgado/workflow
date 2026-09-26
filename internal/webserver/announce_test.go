@@ -240,7 +240,7 @@ func TestAnnounceNeverForwardsTheWebhook(t *testing.T) {
 		"no answer":              {messaging.ErrUnreachable, unreachable, "check the network, then try again"},
 		"asked to wait":          {httpx.ErrRateLimited, unreachable, waitAndTryAgain},
 		"a redirect refused":     {httpx.ErrRedirected, unreachable, "check its configured address"},
-		"a failure of no kind":   {errSeam, http.StatusInternalServerError, "try again"},
+		"a failure of no kind":   {errSeam, http.StatusInternalServerError, tryAgain},
 	}
 
 	for name, tt := range cases {

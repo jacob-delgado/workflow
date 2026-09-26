@@ -17,13 +17,14 @@ import (
 
 // GetPullRequestDraft composes the pull request that would be opened for the
 // checked-out branch, without opening it, so the browser can edit it before
-// confirming. It is a 409 when there is nothing to open.
+// confirming. It is a 409 when there is nothing to open; a branch that cannot
+// be read is classified by fault.
 func (s *server) GetPullRequestDraft(
 	_ context.Context, _ api.GetPullRequestDraftRequestObject,
 ) (api.GetPullRequestDraftResponseObject, error) {
-	draft, branch, ok := s.composePullRequest()
-	if !ok {
-		return api.GetPullRequestDraft409ApplicationProblemPlusJSONResponse(s.nothingToOpen()), nil
+	draft, branch, err := s.composePullRequest()
+	if err != nil {
+		return s.draftRefusal(err), nil
 	}
 
 	return api.GetPullRequestDraft200JSONResponse(draftDTO(draft, branch)), nil
@@ -31,8 +32,9 @@ func (s *server) GetPullRequestDraft(
 
 // OpenPullRequest opens a pull request from the checked-out branch with the
 // given title, body, base, and draft flag, pushing the branch first when it is
-// not yet published. It is a 409 when there is nothing to open, and a 422 when
-// the request is incomplete or the push or the open fails.
+// not yet published. It is a 409 when there is nothing to open, a branch that
+// cannot be read is classified by fault, and it is a 422 when the request is
+// incomplete or the push or the open fails.
 func (s *server) OpenPullRequest(
 	_ context.Context, request api.OpenPullRequestRequestObject,
 ) (api.OpenPullRequestResponseObject, error) {
@@ -44,9 +46,9 @@ func (s *server) OpenPullRequest(
 		return openUnprocessable("opening a " + s.noun() + " is not available"), nil
 	}
 
-	_, branch, ok := s.composePullRequest()
-	if !ok {
-		return api.OpenPullRequest409ApplicationProblemPlusJSONResponse(s.nothingToOpen()), nil
+	_, branch, err := s.composePullRequest()
+	if err != nil {
+		return s.openRefusal(err), nil
 	}
 
 	newPull, ok := pullFromRequest(*request.Body, branch)
@@ -54,7 +56,7 @@ func (s *server) OpenPullRequest(
 		return openUnprocessable("a title and a base branch are required"), nil
 	}
 
-	err := loop.EnsurePushed(s.deps.Push, branch)
+	err = loop.EnsurePushed(s.deps.Push, branch)
 	if err != nil {
 		return openUnprocessable(pushFailure(err)), nil
 	}
@@ -82,10 +84,37 @@ func (s *server) noun() string {
 	return s.info.ForgeKind.Noun()
 }
 
-// nothingToOpen refuses opening a pull request when there is nothing to open one
-// from — no branch, no commits, or one is already open.
-func (s *server) nothingToOpen() api.Problem {
-	return problem(api.Conflict, "there is nothing to open a "+s.noun()+" for")
+// nothingToOpen is the 409 for a composition the loop refused because there is
+// nothing to open — no branch, no commits, or one is already open — and false
+// for any other failure, which is a read that fault classifies.
+func (s *server) nothingToOpen(err error) (api.Problem, bool) {
+	if !errors.Is(err, loop.ErrNothingToOpen) && !errors.Is(err, loop.ErrPullAlreadyOpen) {
+		return api.Problem{}, false
+	}
+
+	return problem(api.Conflict, "there is nothing to open a "+s.noun()+" for"), true
+}
+
+// draftRefusal answers a draft that could not be composed.
+func (s *server) draftRefusal(err error) api.GetPullRequestDraftResponseObject {
+	if conflict, ok := s.nothingToOpen(err); ok {
+		return api.GetPullRequestDraft409ApplicationProblemPlusJSONResponse(conflict)
+	}
+
+	body, code := fault(err)
+
+	return api.GetPullRequestDraftdefaultApplicationProblemPlusJSONResponse{Body: body, StatusCode: code}
+}
+
+// openRefusal answers an open whose pull request could not be composed.
+func (s *server) openRefusal(err error) api.OpenPullRequestResponseObject {
+	if conflict, ok := s.nothingToOpen(err); ok {
+		return api.OpenPullRequest409ApplicationProblemPlusJSONResponse(conflict)
+	}
+
+	body, code := fault(err)
+
+	return api.OpenPullRequestdefaultApplicationProblemPlusJSONResponse{Body: body, StatusCode: code}
 }
 
 // canOpenPull reports whether the seams the open needs are wired: creating the
@@ -96,10 +125,10 @@ func (s *server) canOpenPull() bool {
 
 // composePullRequest builds the pull request to propose for the checked-out
 // branch from its commits, the branch's issue, and the repository's template.
-// It reports false when there is nothing to open — the tree is not on a branch,
-// the branch has no commits or cannot be read, or a pull request is already open
-// for it — which every caller answers with the same 409.
-func (s *server) composePullRequest() (forge.NewPullRequest, gitrepo.Branch, bool) {
+// It fails with the loop's refusal when there is nothing to open — the tree is
+// not on a branch, the branch has no commits, or a pull request is already open
+// for it — and with the read's own error when the branch cannot be read.
+func (s *server) composePullRequest() (forge.NewPullRequest, gitrepo.Branch, error) {
 	cfg := s.config()
 
 	draft, branch, err := loop.ComposePull(loop.PullSeams{
@@ -113,7 +142,7 @@ func (s *server) composePullRequest() (forge.NewPullRequest, gitrepo.Branch, boo
 		TitleSource: convention.TitleSource(cfg.PullRequest.TitleSource),
 	})
 
-	return draft, branch, err == nil
+	return draft, branch, err
 }
 
 // pullFromRequest builds the pull request to open from the request body and the

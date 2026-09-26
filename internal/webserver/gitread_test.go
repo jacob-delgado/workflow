@@ -127,7 +127,7 @@ func TestAFailedGitReadAnswersEveryWriteAlike(t *testing.T) {
 			recorder := send(t, serve(t, deps, config.Default()), http.MethodPost, write.path, write.body)
 
 			// Assert
-			assertGitReadAnswer(t, recorder, ran, gitReadAnswer{http.StatusInternalServerError, api.Internal, "try again"})
+			assertGitReadAnswer(t, recorder, ran, gitReadAnswer{http.StatusInternalServerError, api.Internal, tryAgain})
 		})
 	}
 }

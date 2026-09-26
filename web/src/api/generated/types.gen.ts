@@ -1327,7 +1327,7 @@ export type GetPullRequestDraftData = {
 
 export type GetPullRequestDraftErrors = {
     /**
-     * There is nothing to open a pull request for.
+     * There is nothing to open a pull request for, or the server is not running in a git repository.
      */
     409: Problem;
     /**
@@ -1356,7 +1356,7 @@ export type OpenPullRequestData = {
 
 export type OpenPullRequestErrors = {
     /**
-     * There is nothing to open a pull request for.
+     * There is nothing to open a pull request for, or the server is not running in a git repository.
      */
     409: Problem;
     /**

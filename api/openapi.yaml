@@ -694,7 +694,8 @@ paths:
         it would merge into — without opening it, so the browser can edit it
         before confirming. Answered 409 when there is nothing to open: the tree
         is not on a branch, the branch has no commits, or a pull request is
-        already open for it.
+        already open for it; and when the server is not running in a git
+        repository.
       tags: [review]
       responses:
         "200":
@@ -704,7 +705,9 @@ paths:
               schema:
                 $ref: "#/components/schemas/PullRequestDraft"
         "409":
-          description: There is nothing to open a pull request for.
+          description: >-
+            There is nothing to open a pull request for, or the server is not
+            running in a git repository.
           content:
             application/problem+json:
               schema: {$ref: "#/components/schemas/Problem"}
@@ -720,7 +723,8 @@ paths:
         the caller's to choose; when it is not yet published, it is pushed first,
         as opening a pull request from an unpushed branch cannot work. Refused
         with 409 when there is nothing to open (see GET /api/pull-request/draft)
-        and 422 when the push or the open fails, or the title or base is missing.
+        or the server is not running in a git repository, and 422 when the push
+        or the open fails, or the title or base is missing.
       tags: [review]
       requestBody:
         required: true
@@ -736,7 +740,9 @@ paths:
               schema:
                 $ref: "#/components/schemas/OpenedPullRequest"
         "409":
-          description: There is nothing to open a pull request for.
+          description: >-
+            There is nothing to open a pull request for, or the server is not
+            running in a git repository.
           content:
             application/problem+json:
               schema: {$ref: "#/components/schemas/Problem"}
