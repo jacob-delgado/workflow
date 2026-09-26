@@ -13,6 +13,7 @@ import (
 	"testing"
 
 	"github.com/jacob-delgado/workflow/internal/cli"
+	"github.com/jacob-delgado/workflow/internal/gitrepo"
 )
 
 // errPromptClosed stands in for a confirmation prompt that cannot be read.
@@ -303,9 +304,11 @@ func TestBranchReportsAnUnreadableRepository(t *testing.T) {
 	_, err := run(t, dir, "branch", "PROJ-7", "--yes")
 
 	// Assert
-	if err == nil {
-		t.Error("branch reported no error outside a repository")
+	if !errors.Is(err, gitrepo.ErrNotARepository) {
+		t.Errorf("branch outside a repository returned %v, want ErrNotARepository", err)
 	}
+
+	wantExit(t, err, 4)
 }
 
 func TestBranchReportsAnUnreachableTracker(t *testing.T) {

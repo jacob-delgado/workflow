@@ -37,7 +37,7 @@ func (r Repository) LocalBranches(ctx context.Context) ([]string, error) {
 	out, err := r.run(ctx, gitProgram, "-C", r.dir,
 		"for-each-ref", "--format=%(refname:short)", "--sort=-committerdate", "refs/heads")
 	if err != nil {
-		return nil, fmt.Errorf("listing branches: %w", err)
+		return nil, readFailure(ctx, r.run, r.dir, "listing branches", err)
 	}
 
 	var branches []string
@@ -61,7 +61,7 @@ func (r Repository) RemoteBranches(ctx context.Context) ([]string, error) {
 	out, err := r.run(ctx, gitProgram, "-C", r.dir,
 		"for-each-ref", "--format=%(refname:short)", "--sort=-committerdate", "refs/remotes")
 	if err != nil {
-		return nil, fmt.Errorf("listing remote branches: %w", err)
+		return nil, readFailure(ctx, r.run, r.dir, "listing remote branches", err)
 	}
 
 	var branches []string
