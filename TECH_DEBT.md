@@ -993,47 +993,6 @@ with the mock snapshot's values.
 seven documented placeholders, and the mock preview text equals that
 template rendered with the mock snapshot's values.
 
-### DEBT-131 The announcement posted may not be the one previewed
-
-Severity: medium · Confidence: read
-
-POST /api/announce composes the announcement again at post time from the
-request's channel alone, so when the moment changes between the preview
-and the press — CI turns red, the pull request merges — the text sent
-differs from the text shown. The terminal and the command line post the
-text they previewed.
-
-- `internal/webserver/announce.go:42` — `server.Announce` calls
-  `s.announcement()` again at post time.
-- `internal/webserver/announce.go:52` — `server.Announce` posts
-  `announcement.Text()` of that recomposed announcement, not the previewed
-  text.
-- `api/openapi.yaml:842` — `AnnounceRequest` requires `channel` only; the
-  body carries no text or moment.
-- `web/src/features/messaging/announceApi.ts:31` — `announce` sends
-  `{ channel }` and nothing else.
-- `internal/tui/messagingpreview.go:140` — `messagingPreview.post` sends
-  `p.text`, the previewed text.
-- `internal/cli/announce.go:142` — `runAnnounce` delivers the same `text`
-  it printed.
-- `docs/content/docs/web.md:114` — "### The messaging service" promises
-  nothing is sent before the second press, which reads as a promise that
-  what was shown is what is sent.
-
-The last look the web offers is of a text the server does not hold to; the
-outward post can say CI is red when the person approved "opened a pull
-request". The window is the time between the two presses, so it is rare
-and goes unnoticed, and no announce test flips `CheckCI` between the GET
-and the POST.
-
-**One way to fix it.** Carry the previewed text, or its moment, in
-`AnnounceRequest` and answer 409 when the composed announcement no longer
-matches, so the page previews again.
-
-**Done when.** A test whose `CheckCI` flips to failed between GET
-/api/announcement and POST /api/announce sees the post refused and nothing
-sent.
-
 ### DEBT-132 Every stream frame re-asks what it could read once
 
 Severity: medium · Confidence: read

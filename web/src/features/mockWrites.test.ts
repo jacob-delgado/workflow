@@ -16,7 +16,7 @@ const writes: [string, () => Promise<unknown>, Record<string, unknown>][] = [
   ['a push', pushBranch, { ahead: 0 }],
   ['a check-out', () => checkoutBranch('feat/PROJ-418'), { name: 'feat/PROJ-418' }],
   ['starting work', () => startWork('PROJ-401'), { name: 'feat/PROJ-401', upstream: '' }],
-  ['an announcement', () => announce('#releases'), { channel: '#releases' }],
+  ['an announcement', () => announce('#releases', 'octocat opened #7'), { channel: '#releases' }],
 ]
 
 test.each(writes)('the mockup answers %s without a server', async (_, write, expected) => {
