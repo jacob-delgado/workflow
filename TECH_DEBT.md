@@ -658,11 +658,6 @@ Facts the code needs in more than one place are written in each, with
 nothing keeping the copies equal. CLAUDE.md names the smell and the rule of
 three; no linter or knip rule sees any of it.
 
-- `internal/tui/composer.go:378` — `Model.recordScope` tests `scope != ""`
-  on the raw `c.scope.Value()` (`:143`), so `' '` is recorded;
-  `server.rememberScope` (`internal/webserver/commit.go:192`) trims first,
-  and `ValidateScope` (`internal/convention/convention.go:65`) accepts a
-  whitespace-only scope.
 - `internal/tui/run.go:222` — `commandRun.failureHeadline` is a map keyed by
   run-title literals, "the fixup was refused" (`:225`) untested, while six
   sites type the titles: `commitComposer.commit`
@@ -736,33 +731,30 @@ three; no linter or knip rule sees any of it.
   while `scopeInSubject` (`internal/convention/scopes.go:15`) is
   `^[a-z]+\(([^)]+)\)!?:`; the two disagree on a digit.
 
-A whitespace-only scope is recorded by the terminal and not the web, and the
-next composer opens on it; a configured `hotfix2` type validates but its
-scopes are never suggested; a sixth progress stage compiles and panics in
-the spine; a `.ghe.com` tenant is told by `doctor` to set what the code
-could infer; a renamed theme key in `web/index.html` passes every gate and
-shows only as a flash before first paint; a drifted release prefix pushes a
-tag the gate never saw, or silently tags nothing; a required snapshot field
-added to the contract dies in the e2e specs as a locator timeout; and a
-change to the focus ring is eight edits.
+A configured `hotfix2` type validates but its scopes are never suggested; a
+sixth progress stage compiles and panics in the spine; a `.ghe.com` tenant
+is told by `doctor` to set what the code could infer; a renamed theme key in
+`web/index.html` passes every gate and shows only as a flash before first
+paint; a drifted release prefix pushes a tag the gate never saw, or silently
+tags nothing; a required snapshot field added to the contract dies in the
+e2e specs as a locator timeout; and a change to the focus ring is eight
+edits.
 
-**One way to fix it.** One owner per fact: a `loop.RememberScope` both
-surfaces call, with one trim; a run-kind value
-carrying title and headline; a system field on `progress.Stage` the spine
-looks up in a map `exhaustive` checks; `kindOf` consulting `githubsOwn`; a
-terminal test that reads the action names out of the configuration page and
-holds `CheckKeys` to them; one base-URL rule in `config` that `jira` wraps;
-the tag script owning the release-commit decision and the workflow reading
-its answer; `satisfies Snapshot` on the e2e literals; the server sending the
-effective commit types so the form holds no list; an exported `storageKey` a
-test checks `web/index.html` against; one `Button` component or two class
+**One way to fix it.** One owner per fact: a run-kind value carrying title
+and headline; a system field on `progress.Stage` the spine looks up in a map
+`exhaustive` checks; `kindOf` consulting `githubsOwn`; a terminal test that
+reads the action names out of the configuration page and holds `CheckKeys`
+to them; one base-URL rule in `config` that `jira` wraps; the tag script
+owning the release-commit decision and the workflow reading its answer;
+`satisfies Snapshot` on the e2e literals; the server sending the effective
+commit types so the form holds no list; an exported `storageKey` a test
+checks `web/index.html` against; one `Button` component or two class
 constants; one `configHome()` the four callers share; and `scopeInSubject`
 built from `commitType`'s class.
 
-**Done when.** A test shows `' '` is recorded by neither surface; no run-title
-literal appears in more than one file and each kind's headline has a test;
-the spine's hue comes from a field on `progress.Stage` and `exhaustive`
-fails the build when a system has no hue;
+**Done when.** No run-title literal appears in more than one file and each
+kind's headline has a test; the spine's hue comes from a field on
+`progress.Stage` and `exhaustive` fails the build when a system has no hue;
 `ParseRemote("git@acme.ghe.com:owner/repo.git").Kind == KindGitHub`; a test
 fails when the configuration page's action list and the bind sites differ;
 one function decides a base URL's shape and both packages' tests import it;

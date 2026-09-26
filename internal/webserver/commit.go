@@ -202,19 +202,15 @@ func (s *server) learnedScope() (string, bool) {
 	return s.scope.value, s.scope.found
 }
 
-// rememberScope records the scope a commit just used, as its message wrote it,
-// and has the next frame read the store once for what it kept — nothing, with
-// the store off, which leaves commit.default_scope to open the form, as it
-// does in the terminal. A blank scope is not recorded: it would erase the one
-// learned and hide the configured default, as the terminal's composer knows.
-// The record comes first, so a frame reading in between caches no older scope.
+// rememberScope records the scope a commit just used through the loop's rule,
+// the terminal's too, and when it recorded one has the next frame read the
+// store once for what it kept — nothing, with the store off, which leaves
+// commit.default_scope to open the form, as it does in the terminal. The record
+// comes first, so a frame reading in between caches no older scope.
 func (s *server) rememberScope(scope string) {
-	written := strings.TrimSpace(scope)
-	if written == "" || s.deps.RecordScope == nil {
+	if !loop.RememberScope(s.deps.RecordScope, scope) {
 		return
 	}
-
-	s.deps.RecordScope(written)
 
 	s.scope.mu.Lock()
 	s.scope.read = false

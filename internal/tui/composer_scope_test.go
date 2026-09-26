@@ -52,3 +52,23 @@ func TestCtrlEIsLeftToTheSubjectField(t *testing.T) {
 		t.Errorf("ctrl+e opened the editor: %q", calls)
 	}
 }
+
+func TestABlankScopeIsNotRemembered(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	// Only spaces in the scope field: the commit lands without a scope, so it has
+	// none to remember, and the next composer does not open on the blank.
+	composing := newWorld()
+
+	keys := append([]string{"3", "c", keyShiftTab}, letters("  ")...)
+	keys = append(append(keys, keyTab), letters("redact tokens")...)
+
+	// Act
+	typing(t, composing.live(t, 120, 40), append(keys, keyEnter)...)
+
+	// Assert
+	if calls := composing.asked("scope"); len(calls) != 0 {
+		t.Errorf("recorded scope = %q, want a blank scope to record nothing", calls)
+	}
+}
