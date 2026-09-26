@@ -82,23 +82,39 @@ func writeSnapshot(w http.ResponseWriter, flusher http.Flusher, eventID int, sna
 // configured, or that fails, yields an empty panel rather than failing the whole
 // snapshot, so one unreachable upstream does not blank the cockpit.
 func (s *server) snapshot(view string) api.Snapshot {
+	branch, known := s.frameBranch()
+
 	return api.Snapshot{
 		Issues:    s.snapshotIssues(view),
-		Branch:    s.snapshotBranch(),
+		Branch:    branchDTO(branch),
 		Changes:   s.snapshotChanges(),
-		Review:    s.snapshotReview(),
+		Review:    s.snapshotReview(branch, known),
 		Messaging: s.readMessaging(),
-		Branches:  s.snapshotBranches(),
+		Branches:  s.snapshotBranches(branch.Name),
 
 		SuggestedScope: s.suggestedScope(),
 	}
 }
 
+// frameBranch is the checked-out branch, read once for the whole frame through
+// readBranch so its branch, review and in-flight panels describe one branch
+// even when a checkout lands mid-frame. It reports false, with an empty branch,
+// when no repository is configured or the read fails.
+func (s *server) frameBranch() (gitrepo.Branch, bool) {
+	branch, err := s.readBranch()
+	if err != nil || s.deps.Branch == nil {
+		return gitrepo.Branch{}, false
+	}
+
+	return branch, true
+}
+
 // snapshotBranches lists the local branches named for an issue, marking the one
-// on HEAD. These are the issues in flight; the branch, changes and review panels
-// describe only the checked-out branch. It is empty outside a repository or when
-// the read fails.
-func (s *server) snapshotBranches() []api.TaskBranch {
+// checked out. These are the issues in flight; the branch, changes and review
+// panels describe only the checked-out branch. It is empty outside a repository
+// or when the read fails, and marks none when checkedOut is empty, as it is when
+// the branch is unknown.
+func (s *server) snapshotBranches(checkedOut string) []api.TaskBranch {
 	if s.deps.Branches == nil {
 		return taskBranchesDTO(nil, "", "")
 	}
@@ -108,18 +124,7 @@ func (s *server) snapshotBranches() []api.TaskBranch {
 		return taskBranchesDTO(nil, "", "")
 	}
 
-	return taskBranchesDTO(names, s.currentBranchName(), s.config().Jira.Project)
-}
-
-// currentBranchName is the checked-out branch's name, or "" outside a repository
-// or when the read fails — used only to mark which task branch is on HEAD.
-func (s *server) currentBranchName() string {
-	branch, err := s.readBranch()
-	if err != nil {
-		return ""
-	}
-
-	return branch.Name
+	return taskBranchesDTO(names, checkedOut, s.config().Jira.Project)
 }
 
 // snapshotIssues is the first page of the view's issues, or an empty page when
@@ -139,17 +144,6 @@ func (s *server) snapshotIssues(view string) api.IssuesPage {
 	return issuesPageDTO(result, 0)
 }
 
-// snapshotBranch is the current branch, or an empty one outside a repository or
-// when the read fails.
-func (s *server) snapshotBranch() api.Branch {
-	branch, err := s.readBranch()
-	if err != nil {
-		return branchDTO(gitrepo.Branch{})
-	}
-
-	return branchDTO(branch)
-}
-
 // snapshotChanges is the working tree's changes, or none outside a repository or
 // when the read fails.
 func (s *server) snapshotChanges() api.ChangeList {
@@ -161,10 +155,14 @@ func (s *server) snapshotChanges() api.ChangeList {
 	return changesDTO(changes)
 }
 
-// snapshotReview is the branch's pull request and CI, or an empty review when no
-// pull can be found or a read fails.
-func (s *server) snapshotReview() api.Review {
-	review, err := s.readReview()
+// snapshotReview is the frame's branch's pull request and CI, or an empty review
+// when the branch is not known, no pull can be found, or a read fails.
+func (s *server) snapshotReview(branch gitrepo.Branch, known bool) api.Review {
+	if !known {
+		return api.Review{Found: false}
+	}
+
+	review, err := s.reviewFor(branch)
 	if err != nil {
 		return api.Review{Found: false}
 	}

@@ -66,6 +66,22 @@ func TestGetReviewHasNothingWithoutAForge(t *testing.T) {
 	}
 }
 
+func TestGetReviewHasNothingWhenNoRepositoryIsConfigured(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	deps := filledDeps()
+	deps.Branch = nil
+
+	// Act
+	review := decode[api.Review](t, get(t, serve(t, deps, config.Default()), "/api/review"))
+
+	// Assert
+	if review.Found {
+		t.Errorf("review = %+v, want none found when no repository is configured", review)
+	}
+}
+
 func TestGetReviewReportsABranchFailure(t *testing.T) {
 	t.Parallel()
 
@@ -300,5 +316,27 @@ func TestSnapshotReviewIsNotFoundWhenThePullReadFails(t *testing.T) {
 	// Assert
 	if snap.Review.Found || snap.Review.Pull != nil {
 		t.Errorf("review = %+v, want none found when the pull request read fails", snap.Review)
+	}
+}
+
+func TestSnapshotReviewIsNotFoundWithoutAForge(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	// The branch is read and known, so only the missing forge can leave the
+	// review empty.
+	deps := filledDeps()
+	deps.FindPull = nil
+
+	// Act
+	snap := firstSnapshot(t, streamOnce(t, serve(t, deps, config.Default()), "/api/events").Body.String())
+
+	// Assert
+	if snap.Branch.Name != testBranchName {
+		t.Fatalf("branch = %q, want %q read for the frame", snap.Branch.Name, testBranchName)
+	}
+
+	if snap.Review.Found || snap.Review.Pull != nil {
+		t.Errorf("review = %+v, want none found without a forge", snap.Review)
 	}
 }

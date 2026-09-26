@@ -11,6 +11,8 @@ import (
 	"time"
 
 	"github.com/jacob-delgado/workflow/internal/config"
+	"github.com/jacob-delgado/workflow/internal/forge"
+	"github.com/jacob-delgado/workflow/internal/gitrepo"
 	"github.com/jacob-delgado/workflow/internal/webserver"
 )
 
@@ -126,5 +128,83 @@ func TestStreamAsksForTheAuthorAgainAfterAFailedRead(t *testing.T) {
 	if asked != 2 {
 		t.Errorf("asked the forge for the author %d times across %d frames, want twice: the failure, then the answer",
 			asked, len(pushed))
+	}
+}
+
+func TestStreamReadsTheBranchOncePerFrame(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	// The branches panel is listed too, so its marker for the checked-out
+	// branch is one of the frame's reads.
+	reads := 0
+	deps := filledDeps()
+	readBranch := deps.Branch
+	deps.Branch = func() (gitrepo.Branch, error) {
+		reads++
+
+		return readBranch()
+	}
+	deps.Branches = func() ([]string, error) { return []string{testBranchName}, nil }
+
+	// Act
+	pushed := snapshots(t, streamFrames(t, deps))
+
+	// Assert
+	if len(pushed) < streamedFrames {
+		t.Fatalf("the stream pushed %d snapshots, want at least %d", len(pushed), streamedFrames)
+	}
+
+	if reads != len(pushed) {
+		t.Errorf("read the branch %d times across %d frames, want once a frame", reads, len(pushed))
+	}
+}
+
+func TestStreamFrameDescribesOneBranch(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	// Every read finds another branch checked out, as a checkout landing
+	// between two reads would: the branch panel, the review and the in-flight
+	// marker must all describe the one the frame read.
+	checkedOut := []string{"fix/PROJ-1", "fix/PROJ-2", "fix/PROJ-3"}
+	reads := 0
+	deps := filledDeps()
+	deps.Branch = func() (gitrepo.Branch, error) {
+		name := checkedOut[reads%len(checkedOut)]
+		reads++
+
+		return gitrepo.Branch{Name: name, Head: testCommitHash}, nil
+	}
+	deps.Branches = func() ([]string, error) { return checkedOut, nil }
+
+	askedAbout := ""
+	findPull := deps.FindPull
+	deps.FindPull = func(branch string) (forge.PullRequest, bool, error) {
+		askedAbout = branch
+
+		return findPull(branch)
+	}
+
+	cfg := config.Default()
+	cfg.Jira.Project = testProject
+
+	// Act
+	snap := firstSnapshot(t, streamOnce(t, serve(t, deps, cfg), "/api/events").Body.String())
+
+	// Assert
+	if len(snap.Branches) != len(checkedOut) {
+		t.Fatalf("task branches = %+v, want the %d listed", snap.Branches, len(checkedOut))
+	}
+
+	if askedAbout != snap.Branch.Name {
+		t.Errorf("the review asked about %q, want %q, the branch the frame shows", askedAbout, snap.Branch.Name)
+	}
+
+	for _, branch := range snap.Branches {
+		if branch.Current != (branch.Name == snap.Branch.Name) {
+			t.Errorf("task branch %q current = %t, want only %q, the branch the frame shows, marked",
+				branch.Name, branch.Current, snap.Branch.Name)
+		}
 	}
 }

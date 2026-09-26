@@ -22,7 +22,7 @@ func TestSnapshotListsTaskBranchesMarkingTheCheckedOutOne(t *testing.T) {
 		return []string{testBranchName, "feat/PROJ-500-metrics", "main"}, nil
 	}
 	cfg := config.Default()
-	cfg.Jira.Project = "PROJ"
+	cfg.Jira.Project = testProject
 
 	// Act
 	snap := firstSnapshot(t, streamOnce(t, serve(t, deps, cfg), "/api/events").Body.String())
@@ -81,7 +81,7 @@ func TestNoTaskBranchIsCurrentWhenTheCheckedOutBranchIsUnknown(t *testing.T) {
 			deps.Branch = branch
 			deps.Branches = func() ([]string, error) { return []string{testBranchName}, nil }
 			cfg := config.Default()
-			cfg.Jira.Project = "PROJ"
+			cfg.Jira.Project = testProject
 
 			// Act
 			snap := firstSnapshot(t, streamOnce(t, serve(t, deps, cfg), "/api/events").Body.String())
