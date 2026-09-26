@@ -1041,17 +1041,10 @@ unchanged, with no panic, and `TestTheWheelMovesAnOverlaysList`
 (`internal/tui/mouse_test.go:66`) passes with `cfg.UI.Keys` rebinding
 `down` and `up`.
 
-### DEBT-120 The help overlay's scroll is unclamped and its column split unbalanced
+### DEBT-120 The help overlay's column split is unbalanced
 
 Severity: low · Confidence: read
 
-`helpOverlay.handleKey` adds a half page to `h.scroll` on every `pgdn` or
-`j` with no upper bound, and only the draw clamps, so after paging past
-the end several `pgup` presses move nothing: at 120x20 nine `pgdn` presses
-leave the offset at 72 while the draw shows the same last page, and the
-first `pgup` lands on 64, still past the end, so nothing moves until the
-sixth press. `TestTheHelpScrollsBackUp` (`internal/tui/edges_test.go:379`)
-presses `j`, `j` then `k`, `k` and never overshoots. Beside it,
 `helpColumnSplit`'s comment says the split is chosen so the two columns
 come out close to the same height, but that stopped holding as keys were
 added: counted from the bindings `internal/tui/keys.go` declares, less the
@@ -1060,26 +1053,15 @@ lines, so a split after group 4 gives 42 lines against 26 and a split
 after group 3 gives 34 against 34. At 120x40 the help says "more below"
 and needs a scroll a balanced layout would not.
 
-- `internal/tui/help.go:78` — `helpOverlay.handleKey` does
-  `h.scroll += m.halfPage()` with no clamp; `:80` only floors at 0.
-- `internal/tui/help.go:49` — `helpOverlay.view` clamps only at draw,
-  through `scrolled`.
-- `internal/tui/tui.go:258` — `Model.scrollDetail`, the pane path that
-  clamps before and after through `firstShown`, the pattern the help
-  lacks.
 - `internal/tui/render.go:202` — `helpColumnSplit` is 4 under a comment
   (`:200`) whose balance no longer holds; `helpColumn` (`:219`) is what
   renders the groups it divides.
 
-**One way to fix it.** Clamp `h.scroll` through `firstShown` against the
-fitting content's line count before and after each move, as
-`scrollDetail` does; set the split to 3, or compute it from the group
+**One way to fix it.** Set the split to 3, or compute it from the group
 lengths so it stays balanced as bindings are added.
 
-**Done when.** A test opens the help at 120x20, presses `pgdown` nine
-times then `pgup` once, and the first help line shown differs from before
-the `pgup`; a test opens the help at 120x40 and sees "Everywhere" and no
-"more below", or asserts the two columns differ by at most a few lines.
+**Done when.** A test opens the help at 120x40 and sees "Everywhere" and
+no "more below", or asserts the two columns differ by at most a few lines.
 
 ### DEBT-123 Resolving hook failures walks the whole work tree per place, in `Update`
 
