@@ -197,9 +197,11 @@ func (m Model) loading(p pane) bool {
 	return false
 }
 
-// helpColumnSplit is the group after which the help wraps into a second column,
-// so the two columns come out close to the same height.
-const helpColumnSplit = 4
+// helpColumnSplit is the group after which the help wraps into a second column.
+// Three groups on the left balance the four on the right at the keys bound
+// today, 34 lines each. It is counted rather than computed, so a key added to
+// one side is the time to count again.
+const helpColumnSplit = 3
 
 // helpColumnGap is the space between the help's two columns.
 const helpColumnGap = 4
