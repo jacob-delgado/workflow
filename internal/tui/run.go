@@ -33,8 +33,8 @@ type commandRun struct {
 	// succeeded is what happens once the program exits cleanly; nil keeps the
 	// output on screen until it is closed.
 	succeeded func(m Model) (Model, tea.Cmd)
-	// stop kills this run's own process group, set once its program has started.
-	// Nil before then, and for a run started by a fake that supplies none.
+	// stop kills this run's own process group, set once its program has started;
+	// it is nil until runStarted arrives.
 	stop func()
 
 	lines []string

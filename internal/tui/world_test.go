@@ -273,7 +273,8 @@ func (w *world) asked(prefix string) []string {
 	return matching
 }
 
-// output is a program's output that is already complete.
+// output is a program's output that is already complete. Its Stop has nothing
+// left to end, but is there because proc.Start always supplies one.
 func output(lines []string, err error) proc.Output {
 	stream := make(chan string, len(lines))
 	for _, line := range lines {
@@ -282,7 +283,7 @@ func output(lines []string, err error) proc.Output {
 
 	close(stream)
 
-	return proc.Output{Lines: stream, Wait: func() error { return err }}
+	return proc.Output{Lines: stream, Wait: func() error { return err }, Stop: func() {}}
 }
 
 // deps wires the world to the interface.
