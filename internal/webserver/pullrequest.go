@@ -6,6 +6,7 @@ package webserver
 import (
 	"context"
 	"errors"
+	"strconv"
 	"strings"
 
 	"github.com/jacob-delgado/workflow/internal/api"
@@ -84,20 +85,28 @@ func (s *server) noun() string {
 	return s.info.ForgeKind.Noun()
 }
 
-// nothingToOpen is the 409 for a composition the loop refused because there is
-// nothing to open — no branch, no commits, or one is already open — and false
-// for any other failure, which is a read that fault classifies.
-func (s *server) nothingToOpen(err error) (api.Problem, bool) {
-	if !errors.Is(err, loop.ErrNothingToOpen) && !errors.Is(err, loop.ErrPullAlreadyOpen) {
-		return api.Problem{}, false
+// openConflict is the 409 for a composition the loop refused, worded by its
+// cause — the pull request already open, named by its number the way the forge
+// marks it, or no branch with commits to propose — and false for any other
+// failure, which is a read that fault classifies. The open one is not named by
+// its address, which carries the forge's host.
+func (s *server) openConflict(err error) (api.Problem, bool) {
+	if open, ok := errors.AsType[loop.PullAlreadyOpenError](err); ok {
+		number := s.info.ForgeKind.Sigil() + strconv.Itoa(open.Pull.Number)
+
+		return problem(api.Conflict, number+" is already open for this branch"), true
 	}
 
-	return problem(api.Conflict, "there is nothing to open a "+s.noun()+" for"), true
+	if errors.Is(err, loop.ErrNothingToOpen) {
+		return problem(api.Conflict, "there is no branch with commits to open a "+s.noun()+" for"), true
+	}
+
+	return api.Problem{}, false
 }
 
 // draftRefusal answers a draft that could not be composed.
 func (s *server) draftRefusal(err error) api.GetPullRequestDraftResponseObject {
-	if conflict, ok := s.nothingToOpen(err); ok {
+	if conflict, ok := s.openConflict(err); ok {
 		return api.GetPullRequestDraft409ApplicationProblemPlusJSONResponse(conflict)
 	}
 
@@ -108,7 +117,7 @@ func (s *server) draftRefusal(err error) api.GetPullRequestDraftResponseObject {
 
 // openRefusal answers an open whose pull request could not be composed.
 func (s *server) openRefusal(err error) api.OpenPullRequestResponseObject {
-	if conflict, ok := s.nothingToOpen(err); ok {
+	if conflict, ok := s.openConflict(err); ok {
 		return api.OpenPullRequest409ApplicationProblemPlusJSONResponse(conflict)
 	}
 

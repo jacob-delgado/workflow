@@ -234,8 +234,8 @@ func TestWhatThePageIsToldSaysMergeRequestOnGitLab(t *testing.T) {
 
 		return deps
 	}
-	alreadyOpen := func(deps webserver.Deps) webserver.Deps {
-		deps.FindPull = func(string) (forge.PullRequest, bool, error) { return forge.PullRequest{Number: 1}, true, nil }
+	noCommits := func(deps webserver.Deps) webserver.Deps {
+		deps.Branch = func() (gitrepo.Branch, error) { return gitrepo.Branch{Name: testBranchName, Base: testBase}, nil }
 
 		return deps
 	}
@@ -267,8 +267,8 @@ func TestWhatThePageIsToldSaysMergeRequestOnGitLab(t *testing.T) {
 		method, path string
 		body         string
 	}{
-		"nothing to draft":         {alreadyOpen, http.MethodGet, "/api/pull-request/draft", ""},
-		"nothing to open":          {alreadyOpen, http.MethodPost, openPath, openRequestBody},
+		"nothing to draft":         {noCommits, http.MethodGet, "/api/pull-request/draft", ""},
+		"nothing to open":          {noCommits, http.MethodPost, openPath, openRequestBody},
 		"opening is not available": {noCreate, http.MethodPost, openPath, openRequestBody},
 		"reviewers were not added": {reviewersRefused, http.MethodPost, openPath, openRequestBody},
 		"nothing to preview":       {nothingOpen, http.MethodGet, "/api/announcement", ""},

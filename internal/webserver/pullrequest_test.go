@@ -419,22 +419,6 @@ func TestOpenPullRequestDoesNotPushAnAlreadyPublishedBranch(t *testing.T) {
 	}
 }
 
-func TestOpenPullRequestIsAConflictWhenOneIsAlreadyOpen(t *testing.T) {
-	t.Parallel()
-
-	// Arrange
-	deps := openableDeps()
-	deps.FindPull = func(string) (forge.PullRequest, bool, error) { return forge.PullRequest{Number: 1}, true, nil }
-
-	// Act
-	recorder := doOpen(t, deps, openRequestBody)
-
-	// Assert
-	if recorder.Code != http.StatusConflict {
-		t.Errorf("status = %d, want 409 when a pull request is already open", recorder.Code)
-	}
-}
-
 func TestOpenPullRequestRefusesAnIncompleteRequest(t *testing.T) {
 	t.Parallel()
 

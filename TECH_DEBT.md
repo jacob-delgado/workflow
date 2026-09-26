@@ -993,59 +993,6 @@ with the mock snapshot's values.
 seven documented placeholders, and the mock preview text equals that
 template rendered with the mock snapshot's values.
 
-### DEBT-129 Announce and draft tell a forge outage as "no pull request"
-
-Severity: medium · Confidence: read
-
-`server.announcement` and `server.composePullRequest` reduce the loop's
-error to a bool, so a `Branch` or `FindPull` read that fails is answered
-409 "there is no pull request to announce" or "there is nothing to open a
-pull request for" instead of being classified through `fault`, as
-`GetReview` and `LinkPullRequest` already classify the same seam failures
-(502 for an unreachable forge).
-
-- `internal/webserver/announce.go:78` — `server.announcement` returns
-  `announcement, err == nil`, collapsing every `ComposeAnnouncement` error,
-  wrapped read failures included, into ok false.
-- `internal/webserver/announce.go:22` — `GetAnnouncement` answers
-  `nothingToAnnounce` 409 for any `!ok`, so a read failure is told as an
-  absent pull request.
-- `internal/webserver/announce.go:44` — `Announce` answers the same 409
-  for the same collapsed error.
-- `internal/loop/announce.go:120` and `internal/loop/announce.go:125` —
-  `pullToAnnounce` wraps a `Branch` and a `FindPull` failure as "reading
-  the branch: %w" and "reading the pull request: %w", without
-  `ErrNoPullRequest`, so the server could tell them apart and does not.
-- `internal/webserver/pullrequest.go:116` — `server.composePullRequest`
-  returns `draft, branch, err == nil`, folding `branchToOpen`'s "reading
-  the branch: %w" (`internal/loop/pull.go:95`) into `nothingToOpen` at
-  `GetPullRequestDraft` (`internal/webserver/pullrequest.go:26`) and
-  `OpenPullRequest` (`internal/webserver/pullrequest.go:49`).
-- `internal/webserver/announce_test.go:316` —
-  `TestAnnouncingIsAConflictWithoutAPullRequest`'s case "the forge cannot
-  be reached" pins the 409 for a `FindPull` error, the wrong answer.
-- `docs/content/docs/errors.md:90` — "## Unreachable" reserves 502 for an
-  upstream that could not be reached, which these four handlers never
-  give.
-
-With the forge down or the branch unreadable, GET /api/announcement, POST
-/api/announce, GET /api/pull-request/draft and POST /api/pull-request all
-say there is nothing to act on; the person may conclude the pull request
-was never opened.
-
-**One way to fix it.** Return the error from `announcement` and
-`composePullRequest`, answer 409 only for `loop.ErrNoPullRequest`,
-`loop.ErrNothingToOpen` and `loop.PullAlreadyOpenError`, and route any
-other error through `fault`. The 409's wording per cause
-(`PullAlreadyOpenError` naming the pull request) is UX-129; make the two in
-one change.
-
-**Done when.** A test where `FindPull` returns `forge.ErrUnreachable`
-wrapped with a host makes GET /api/announcement and POST /api/announce
-answer 502 `unreachable` with no host in the body; a test whose `Branch`
-read fails makes GET /api/pull-request/draft answer through `fault` rather
-than 409.
-
 ### DEBT-131 The announcement posted may not be the one previewed
 
 Severity: medium · Confidence: read
@@ -1650,7 +1597,7 @@ know about.
   `internal/messaging/post_test.go` (766, the post to each service and the
   announcement's text) and `internal/tui/messaging_test.go` (614, the
   terminal's Messaging pane). Opening a pull request:
-  `internal/webserver/pullrequest_test.go` (601, the web's draft and open).
+  `internal/webserver/pullrequest_test.go` (585, the web's draft and open).
   Staging, committing and pushing: `internal/tui/composer_test.go` (568,
   the terminal's commit composer), `internal/webserver/staging_test.go`
   (533, the web's stage and unstage) and
