@@ -51,8 +51,8 @@ that needs one of them reopened goes in the
   parts that need them.
 - **Six panes down the left, one progress row across the top.** Focus is
   shown by the weight of a border, not by color.
-- **Pure Go.** `CGO_ENABLED=0`, because the release cross-compiles to five
-  platforms.
+- **Pure Go.** `CGO_ENABLED=0`, because the release cross-compiles to every
+  platform `RELEASE_PLATFORMS` names in `Taskfile.yml`.
 - **A new dependency needs approval first**, and a release younger than seven
   days is not adopted.
 - **No credential is ever printed.** A change that touches a token brings the
