@@ -7,7 +7,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"os"
 	"path/filepath"
 	"strings"
 
@@ -159,9 +158,7 @@ type directoryStatus struct {
 // statusesOf gathers the status of the repository at each directory, which
 // reads its own configuration, recording every request in one log.
 func statusesOf(cmd *cobra.Command, dirs []string, requestLog *wiring.RequestLog) []directoryStatus {
-	// An unknown home directory just means no home-directory fallback for a
-	// repository's configuration, not a failure.
-	home, _ := os.UserHomeDir()
+	home := configHome()
 	statuses := make([]directoryStatus, 0, len(dirs))
 
 	for _, dir := range dirs {

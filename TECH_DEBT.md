@@ -693,13 +693,6 @@ three; no linter or knip rule sees any of it.
   inline in `CommitForm` (`web/src/features/branch/CommitForm.tsx:108`).
   The primary button's three sizes are UX-113; one `Button` component (or
   one primary and one secondary class) closes both.
-- `internal/cli/cli.go:392` — `connectLeniently` discards `os.UserHomeDir`'s
-  error under a "not a failure" comment (`:391`); `loadFromEnvironment`
-  (`:478`), `statusesOf` (`internal/cli/status.go:161`) and
-  `completeAssignedIssues` (`internal/cli/scriptable.go:133`) repeat the
-  discard and the comment, and `targetDir`
-  (`internal/cli/config_cmd.go:128`) is the one caller that must keep the
-  error.
 - `internal/convention/commit.go:24` — `commitType` is `^[a-z][a-z0-9]*$`
   while `scopeInSubject` (`internal/convention/scopes.go:15`) is
   `^[a-z]+\(([^)]+)\)!?:`; the two disagree on a digit.
@@ -715,9 +708,8 @@ focus ring is eight edits.
 release-commit decision and the workflow reading its answer; `satisfies
 Snapshot` on the e2e literals; the server sending the effective commit types
 so the form holds no list; an exported `storageKey` a test checks
-`web/index.html` against; one `Button` component or two class constants; one
-`configHome()` the four callers share; and `scopeInSubject` built from
-`commitType`'s class.
+`web/index.html` against; one `Button` component or two class constants; and
+`scopeInSubject` built from `commitType`'s class.
 
 **Done when.** `chore(main): release` appears in exactly one file under
 `.github/` and `scripts/`; removing a required snapshot field from the e2e
@@ -726,8 +718,7 @@ literals fails `tsc -b`;
 options come from a server field; a test fails when
 `web/index.html`'s key differs from `themeStore`'s;
 `grep -rn "border border-input px-3 py-1.5" web/src --include='*.tsx'`
-matches one definition site; `grep -n UserHomeDir internal/cli/*.go` returns
-the helper and `targetDir`; and `Scopes([]string{"hotfix2(api): x"})`
+matches one definition site; and `Scopes([]string{"hotfix2(api): x"})`
 returns `["api"]`.
 
 ### DEBT-94 Arms and guards no input can reach, on every surface
