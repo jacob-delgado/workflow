@@ -666,18 +666,6 @@ them.
   verbatim, each uncovered, while `SectionPanel`
   (`web/src/shell/SectionPanel.tsx:20`) returns the connecting state before
   any of the four renders.
-- `internal/webserver/announce.go:34` — `server.Announce` guards
-  `request.Body == nil`; so do `server.Commit`
-  (`internal/webserver/commit.go:34`), `server.UpdateConfig`
-  (`internal/webserver/config.go:98`) and `server.OpenPullRequest`
-  (`internal/webserver/pullrequest.go:39`), never true in the gobco report,
-  and `server.Checkout` (`internal/webserver/checkout.go:35`) and
-  `server.CreateBranch` (`internal/webserver/branchcreate.go:40`) carry it
-  as a dead first operand, never true there either. Every one of those
-  bodies is `required: true` in `api/openapi.yaml:572` (and `:637`,
-  `:426`, `:700`, `:474`, `:510`), and the strict handler sets
-  `request.Body = &body` unconditionally after a decode
-  (`internal/api/server.gen.go:2083`).
 - `internal/webserver/errors.go:57` — `codeMeaning`'s `default` arm
   duplicates the `api.Internal` arm, `code == api.Internal` 14 times true
   and never false, where `ciState` (`internal/webserver/dto.go:182`) states

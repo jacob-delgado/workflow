@@ -95,11 +95,6 @@ func (s *server) UpdateConfig(
 		}, nil
 	}
 
-	if request.Body == nil {
-		return api.UpdateConfig422ApplicationProblemPlusJSONResponse(
-			problem(api.Unprocessable, "a configuration body is required")), nil
-	}
-
 	return s.writeOver(*request.Body, over), nil
 }
 

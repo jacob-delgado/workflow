@@ -41,10 +41,6 @@ func (s *server) GetAnnouncement(
 // and a post that fails, are classified by fault, whose details never carry the
 // error's own text, which can name the forge or the webhook.
 func (s *server) Announce(_ context.Context, request api.AnnounceRequestObject) (api.AnnounceResponseObject, error) {
-	if request.Body == nil {
-		return announceUnprocessable("a request body is required"), nil
-	}
-
 	if s.deps.Post == nil {
 		return announceUnprocessable("announcing is not available"), nil
 	}

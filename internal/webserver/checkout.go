@@ -33,7 +33,7 @@ var errSwitchRefused = errors.New("git refused the switch")
 func (s *server) Checkout(
 	_ context.Context, request api.CheckoutRequestObject,
 ) (api.CheckoutResponseObject, error) {
-	if request.Body == nil || request.Body.Branch == "" {
+	if request.Body.Branch == "" {
 		return unprocessable("a branch is required"), nil
 	}
 
