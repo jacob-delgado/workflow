@@ -35,7 +35,11 @@ export function BranchPanel() {
     <div className="flex max-w-2xl flex-col gap-section">
       <BranchSummary branch={branch} />
       <Commits commits={branch.commits} />
-      <WorkingTree changes={changes.changes} suggestedScope={snapshot.suggested_scope} />
+      <WorkingTree
+        changes={changes.changes}
+        suggestedScope={snapshot.suggested_scope}
+        commitTypes={snapshot.commit_types}
+      />
     </div>
   )
 }

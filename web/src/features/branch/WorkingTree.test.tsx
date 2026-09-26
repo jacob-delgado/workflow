@@ -1,4 +1,4 @@
-import { act, render, screen } from '@testing-library/react'
+import { act, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { vi } from 'vitest'
 import type { Change } from '@/api/generated/types.gen.ts'
@@ -18,7 +18,6 @@ const mockStageEverything = vi.mocked(stageEverything)
 
 vi.mock('./commitApi.ts', () => ({ commitChanges: vi.fn(() => Promise.resolve(makeBranch())) }))
 vi.mock('./pushApi.ts', () => ({ pushBranch: vi.fn(() => Promise.resolve(makeBranch())) }))
-vi.mock('@/features/settings/configApi.ts', () => ({ useConfig: () => ({ data: undefined }) }))
 
 // change is a changed file as the stream lists it: an edit the index does not
 // hold, unless a case says otherwise.
@@ -301,6 +300,21 @@ function streamSuggestion(scope: string) {
 function scopeField() {
   return screen.getByLabelText<HTMLInputElement>('Scope (optional)')
 }
+
+test('the commit form offers the commit types the stream carries, in its order', () => {
+  // Arrange
+  useSnapshotStore.setState({
+    status: 'live',
+    snapshot: makeSnapshot({ commit_types: ['wip', 'deps'] }),
+  })
+
+  // Act
+  render(<BranchPanel />)
+
+  // Assert
+  const types = within(screen.getByRole('combobox', { name: 'Type' })).getAllByRole('option')
+  expect(types.map((option) => option.textContent)).toEqual(['wip', 'deps'])
+})
 
 test('the commit form opens on the suggested scope', () => {
   // Arrange
