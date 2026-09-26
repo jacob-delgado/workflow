@@ -209,6 +209,14 @@ func TestVerbatimKeepsEveryHookAsItsScript(t *testing.T) {
 	if len(generated.Scripts) != 1 || generated.Scripts[0].Contents != simplePreCommit {
 		t.Errorf("Scripts = %+v, want the hook copied whole", generated.Scripts)
 	}
+
+	if strings.Contains(generated.Config, "jobs") {
+		t.Errorf("the header claims hooks became jobs, though none did:\n%s", generated.Config)
+	}
+
+	if !strings.Contains(generated.Config, "# Every hook runs from .lefthook as the script it was.\n") {
+		t.Errorf("the header does not say every hook stays its script:\n%s", generated.Config)
+	}
 }
 
 func TestAHookIsOnlyStructuredWhenEveryLineIsAPlainCommand(t *testing.T) {
