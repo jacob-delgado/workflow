@@ -8,7 +8,9 @@ bookCollapseSection: true
 
 Every command and flag, generated from the command tree itself by `task
 docs:gen`, so what you read here is what the binary does. A check in the build
-fails when the two disagree.
+fails when the two disagree. The one command without a page is cobra's own
+`help`: `workflow help COMMAND` prints the same text as `workflow COMMAND
+--help`, and `workflow help` alone prints the root's.
 
 The same text is available offline:
 

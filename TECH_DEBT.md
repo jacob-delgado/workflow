@@ -111,16 +111,6 @@ The README and the docs index:
   exists `@latest` resolves to `main`, and the pinned example (`:34`, and
   the README's line 65) is `@v0.0.5`, five releases behind.
 
-The reference index:
-
-- `docs/content/docs/reference/_index.md:9` — "Every command and flag,
-  generated from the command tree itself", and "The same text is available
-  offline" (`:13`); `run` in `cmd/docsgen/main.go:88` says cobra's `help`
-  command gets no page, `docs/content/docs/scripting.md:38` documents `help`
-  as a command with its own exit behavior, and
-  `scripts/check-docs-drift.sh:30` copies the hand-written index around the
-  comparison, so the gate cannot see the claim.
-
 A reader expects a webhook typo caught at init and it is saved unchecked,
 then trusts a `doctor` check that never ran; sets `$GIT_EDITOR` and is told
 another editor opens; in a subdirectory gets the repository's file after
