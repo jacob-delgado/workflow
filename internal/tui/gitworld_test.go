@@ -8,12 +8,12 @@ import (
 
 	"github.com/jacob-delgado/workflow/internal/gitrepo"
 	"github.com/jacob-delgado/workflow/internal/proc"
-	"github.com/jacob-delgado/workflow/internal/tui"
+	"github.com/jacob-delgado/workflow/internal/seams"
 )
 
 // gitDeps fakes the repository.
-func (w *world) gitDeps() tui.GitDeps {
-	deps := tui.GitDeps{
+func (w *world) gitDeps() seams.Git {
+	deps := seams.Git{
 		Branch: func() (gitrepo.Branch, error) {
 			w.record("branch")
 

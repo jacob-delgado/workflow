@@ -12,7 +12,7 @@ import (
 	"github.com/jacob-delgado/workflow/internal/httpx"
 	"github.com/jacob-delgado/workflow/internal/jira"
 	"github.com/jacob-delgado/workflow/internal/loop"
-	"github.com/jacob-delgado/workflow/internal/tui"
+	"github.com/jacob-delgado/workflow/internal/seams"
 )
 
 // errNotAJiraKey is a tracker key with no project part, such as the forge issue
@@ -20,16 +20,16 @@ import (
 // unrelated issue, so it is never asked.
 var errNotAJiraKey = errors.New("not a Jira issue key")
 
-// jiraDeps is what the interface asks of Jira, each seam reaching it through
+// jiraDeps is what a surface asks of Jira, each seam reaching it through
 // jiraClient, which finds the token the first time Jira is asked. It needs no
 // guard for a missing or malformed configuration: the client refuses before
 // sending anything, and the pane shows why.
-func jiraDeps(ctx context.Context, settings config.Jira, jiraClient func() (jira.Client, error)) tui.JiraDeps {
+func jiraDeps(ctx context.Context, settings config.Jira, jiraClient func() (jira.Client, error)) seams.Jira {
 	// A link reads only the address, so it comes from a client that never sends
 	// and so never needs the token.
 	addresses := jira.New(nil, settings)
 
-	return tui.JiraDeps{
+	return seams.Jira{
 		Search: func(jql string, startAt int) (jira.SearchResult, error) {
 			return askJira(jiraClient, func(client jira.Client) (jira.SearchResult, error) {
 				return client.Search(ctx, jql, startAt)

@@ -11,6 +11,7 @@ import (
 	"github.com/jacob-delgado/workflow/internal/hooks"
 	"github.com/jacob-delgado/workflow/internal/jira"
 	"github.com/jacob-delgado/workflow/internal/proc"
+	"github.com/jacob-delgado/workflow/internal/seams"
 )
 
 // errDryRun is what a write seam returns once dry run has held it back, so a
@@ -28,13 +29,13 @@ func heldBack(deps Deps) Deps {
 	// A dry-run interface opens no store, as the web opens none. A read-only
 	// store's seams look like a live one's, whose reads make its directory, so
 	// the store is dropped whoever the caller is.
-	deps.Store = StoreDeps{}
+	deps.Store = seams.Store{}
 
 	return heldBackServices(deps)
 }
 
 // heldBackJira holds back the writes to Jira.
-func heldBackJira(deps JiraDeps) JiraDeps {
+func heldBackJira(deps seams.Jira) seams.Jira {
 	if deps.Transition != nil {
 		deps.Transition = func(jira.Key, jira.Transition, []jira.FieldValue) error { return errDryRun }
 	}
@@ -59,7 +60,7 @@ func heldBackJira(deps JiraDeps) JiraDeps {
 }
 
 // heldBackGit holds back the writes to the repository.
-func heldBackGit(deps GitDeps) GitDeps {
+func heldBackGit(deps seams.Git) seams.Git {
 	if deps.Stage != nil {
 		deps.Stage = func(gitrepo.Change) error { return errDryRun }
 	}
@@ -88,7 +89,7 @@ func heldBackGit(deps GitDeps) GitDeps {
 }
 
 // heldBackStreams holds back the repository writes that stream their output.
-func heldBackStreams(deps GitDeps) GitDeps {
+func heldBackStreams(deps seams.Git) seams.Git {
 	if deps.Commit != nil {
 		deps.Commit = func(string) (proc.Output, error) { return proc.Output{}, errDryRun }
 	}

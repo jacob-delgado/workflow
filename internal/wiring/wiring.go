@@ -31,6 +31,7 @@ import (
 	"github.com/jacob-delgado/workflow/internal/messaging"
 	"github.com/jacob-delgado/workflow/internal/proc"
 	"github.com/jacob-delgado/workflow/internal/sanitize"
+	"github.com/jacob-delgado/workflow/internal/seams"
 	"github.com/jacob-delgado/workflow/internal/store"
 	"github.com/jacob-delgado/workflow/internal/tui"
 )
@@ -181,11 +182,11 @@ func requestTimeout(cfg config.Config) time.Duration {
 	return RequestTimeout
 }
 
-// gitDeps is what the interface asks of the repository.
-func gitDeps(ctx context.Context, root string) tui.GitDeps {
+// gitDeps is what a surface asks of the repository.
+func gitDeps(ctx context.Context, root string) seams.Git {
 	repo := gitrepo.At(gitRunner, root)
 
-	return tui.GitDeps{
+	return seams.Git{
 		Branch:         func() (gitrepo.Branch, error) { return repo.ReadBranch(ctx) },
 		Changes:        func() ([]gitrepo.Change, error) { return repo.Status(ctx) },
 		Diff:           func(change gitrepo.Change) ([]string, error) { return repo.Diff(ctx, change) },
@@ -275,7 +276,7 @@ func commitWith(ctx context.Context, root, message string) (proc.Output, error) 
 
 // ReadOnlyStore is the store's seams for a dry run: they read what an earlier
 // session kept, when the store is already on disk, and never create or write it.
-func ReadOnlyStore(ctx context.Context, cfg config.Config, where Workspace) tui.StoreDeps {
+func ReadOnlyStore(ctx context.Context, cfg config.Config, where Workspace) seams.Store {
 	return storeDeps(ctx, onDisk(cfg).ReadOnly(), cfg, where)
 }
 
@@ -291,11 +292,11 @@ func onDisk(cfg config.Config) store.Store {
 // on what was done here before. A store with nowhere to keep its file, or one the
 // configuration disabled, no-ops through the same seams, so the interface simply
 // learns nothing.
-func storeDeps(ctx context.Context, kept store.Store, cfg config.Config, where Workspace) tui.StoreDeps {
+func storeDeps(ctx context.Context, kept store.Store, cfg config.Config, where Workspace) seams.Store {
 	repo := repoKey(where)
 	instance := instanceKey(cfg.Jira.BaseURL)
 
-	return tui.StoreDeps{
+	return seams.Store{
 		LastScope: func() (string, bool) {
 			scope, found, _ := kept.LastScope(ctx, repo)
 
@@ -394,14 +395,14 @@ func repoKey(where Workspace) string {
 	return repo.Host + "/" + repo.Path
 }
 
-// hookDeps is what the interface asks of lefthook — nothing at all when lefthook
+// hookDeps is what a surface asks of lefthook — nothing at all when lefthook
 // is not installed, so its actions are not offered.
-func hookDeps(ctx context.Context, root string) tui.HookDeps {
+func hookDeps(ctx context.Context, root string) seams.Hooks {
 	if !proc.Available("lefthook") {
-		return tui.HookDeps{Run: nil, Existing: nil, Write: nil}
+		return seams.Hooks{Run: nil, Existing: nil, Write: nil}
 	}
 
-	return tui.HookDeps{
+	return seams.Hooks{
 		Run: func(hook string) (proc.Output, error) { return proc.Start(ctx, hooks.RunCommand(root, hook)) },
 		Existing: func() ([]hooks.GitHook, bool) {
 			dir, err := gitrepo.At(gitRunner, root).HooksDir(ctx)

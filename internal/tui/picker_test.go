@@ -14,6 +14,7 @@ import (
 	tea "charm.land/bubbletea/v2"
 
 	"github.com/jacob-delgado/workflow/internal/jira"
+	"github.com/jacob-delgado/workflow/internal/seams"
 	"github.com/jacob-delgado/workflow/internal/tui"
 )
 
@@ -49,7 +50,7 @@ type fakeJira struct {
 
 // deps wires the fake behind a search.
 func (f *fakeJira) deps(search func(startAt int) (jira.SearchResult, error)) tui.Deps {
-	return tui.Deps{Jira: tui.JiraDeps{
+	return tui.Deps{Jira: seams.Jira{
 		Search: ignoreJQL(search),
 		Transitions: func(issueKey jira.Key) ([]jira.Transition, error) {
 			f.listed.Store(string(issueKey))

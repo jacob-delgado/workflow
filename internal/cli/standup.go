@@ -99,7 +99,7 @@ func runStandupCommand(cmd *cobra.Command, prompt Prompt, opts standupOptions) e
 	defer conn.closeLog()
 
 	cfg, deps := conn.cfg, conn.deps
-	// No tui.GitDeps seam reads recent commits, so standup asks the repository.
+	// No seam in seams.Git reads recent commits, so standup asks the repository.
 	repo := gitrepo.At(proc.Run, conn.where.Root)
 	seams := standupSeams{
 		Commits:    func(since string) ([]gitrepo.Commit, error) { return repo.RecentCommits(ctx, since) },

@@ -20,7 +20,7 @@ import (
 
 	"github.com/jacob-delgado/workflow/internal/config"
 	"github.com/jacob-delgado/workflow/internal/jira"
-	"github.com/jacob-delgado/workflow/internal/tui"
+	"github.com/jacob-delgado/workflow/internal/seams"
 	"github.com/jacob-delgado/workflow/internal/wiring"
 )
 
@@ -181,10 +181,10 @@ func TestAJiraTokenSourceThatGivesNoTokenIsReportedAsNoCredential(t *testing.T) 
 			cfg := config.Default()
 			cfg.Jira = tt.settings
 			cfg.Jira.BaseURL = jiraStandIn.url
-			seams := wired(t, cfg, wiring.Workspace{Root: t.TempDir(), Remote: ""}, nil).Jira
+			tracker := wired(t, cfg, wiring.Workspace{Root: t.TempDir(), Remote: ""}, nil).Jira
 
 			// Act
-			_, err := seams.Search("assignee = currentUser()", 0)
+			_, err := tracker.Search("assignee = currentUser()", 0)
 
 			// Assert
 			if !errors.Is(err, jira.ErrNoCredential) || !strings.Contains(err.Error(), tt.want) {
@@ -203,40 +203,40 @@ func TestAJiraTokenSourceThatGivesNoTokenIsReportedAsNoCredential(t *testing.T) 
 func TestEveryJiraSeamReportsATokenCommandThatFails(t *testing.T) {
 	t.Parallel()
 
-	cases := map[string]func(seams tui.JiraDeps) error{
-		"Search": func(seams tui.JiraDeps) error {
-			_, err := seams.Search("assignee = currentUser()", 0)
+	cases := map[string]func(tracker seams.Jira) error{
+		"Search": func(tracker seams.Jira) error {
+			_, err := tracker.Search("assignee = currentUser()", 0)
 
 			return err
 		},
-		"Issue": func(seams tui.JiraDeps) error {
-			_, err := seams.Issue("OPS-1")
+		"Issue": func(tracker seams.Jira) error {
+			_, err := tracker.Issue("OPS-1")
 
 			return err
 		},
-		"Transitions": func(seams tui.JiraDeps) error {
-			_, err := seams.Transitions("OPS-1")
+		"Transitions": func(tracker seams.Jira) error {
+			_, err := tracker.Transitions("OPS-1")
 
 			return err
 		},
-		"Transition": func(seams tui.JiraDeps) error {
-			return seams.Transition("OPS-1", jira.Transition{ID: "1"}, nil)
+		"Transition": func(tracker seams.Jira) error {
+			return tracker.Transition("OPS-1", jira.Transition{ID: "1"}, nil)
 		},
-		"Comment": func(seams tui.JiraDeps) error {
-			_, err := seams.Comment("OPS-1", "hello")
+		"Comment": func(tracker seams.Jira) error {
+			_, err := tracker.Comment("OPS-1", "hello")
 
 			return err
 		},
-		"Assign": func(seams tui.JiraDeps) error {
-			return seams.Assign("OPS-1", "someone")
+		"Assign": func(tracker seams.Jira) error {
+			return tracker.Assign("OPS-1", "someone")
 		},
-		"AddWorklog": func(seams tui.JiraDeps) error {
-			_, err := seams.AddWorklog("OPS-1", "1h", "")
+		"AddWorklog": func(tracker seams.Jira) error {
+			_, err := tracker.AddWorklog("OPS-1", "1h", "")
 
 			return err
 		},
-		"LinkPullRequest": func(seams tui.JiraDeps) error {
-			return seams.LinkPullRequest("OPS-1", "https://github.com/owner/repo/pull/7", "fix: token")
+		"LinkPullRequest": func(tracker seams.Jira) error {
+			return tracker.LinkPullRequest("OPS-1", "https://github.com/owner/repo/pull/7", "fix: token")
 		},
 	}
 
@@ -248,10 +248,10 @@ func TestEveryJiraSeamReportsATokenCommandThatFails(t *testing.T) {
 			jiraStandIn := newStandInJira(t)
 			cfg := config.Default()
 			cfg.Jira = config.Jira{BaseURL: jiraStandIn.url, TokenCommand: failingCommand}
-			seams := wired(t, cfg, wiring.Workspace{Root: t.TempDir(), Remote: ""}, nil).Jira
+			tracker := wired(t, cfg, wiring.Workspace{Root: t.TempDir(), Remote: ""}, nil).Jira
 
 			// Act
-			err := act(seams)
+			err := act(tracker)
 
 			// Assert
 			if !errors.Is(err, jira.ErrNoCredential) {
@@ -272,10 +272,10 @@ func TestAForgeIssueNumberNeverRunsTheJiraTokenCommand(t *testing.T) {
 	tokens := newTokenCommand(t)
 	cfg := config.Default()
 	cfg.Jira = config.Jira{BaseURL: newStandInJira(t).url, TokenCommand: tokens.command}
-	seams := wired(t, cfg, wiring.Workspace{Root: t.TempDir(), Remote: ""}, nil).Jira
+	tracker := wired(t, cfg, wiring.Workspace{Root: t.TempDir(), Remote: ""}, nil).Jira
 
 	// Act
-	_, err := seams.Issue("42")
+	_, err := tracker.Issue("42")
 
 	// Assert
 	if !errors.Is(err, jira.ErrNotFound) {
@@ -294,10 +294,10 @@ func TestLinkingAJiraIssueNeverRunsItsTokenCommand(t *testing.T) {
 	tokens := newTokenCommand(t)
 	cfg := config.Default()
 	cfg.Jira = config.Jira{BaseURL: jiraAddress, TokenCommand: tokens.command}
-	seams := wired(t, cfg, wiring.Workspace{Root: t.TempDir(), Remote: ""}, nil).Jira
+	tracker := wired(t, cfg, wiring.Workspace{Root: t.TempDir(), Remote: ""}, nil).Jira
 
 	// Act
-	link := seams.BrowseURL("OPS-1")
+	link := tracker.BrowseURL("OPS-1")
 
 	// Assert
 	if link != jiraAddress+"/browse/OPS-1" {

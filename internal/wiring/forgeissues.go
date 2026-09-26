@@ -12,7 +12,7 @@ import (
 	"github.com/jacob-delgado/workflow/internal/config"
 	"github.com/jacob-delgado/workflow/internal/forge"
 	"github.com/jacob-delgado/workflow/internal/jira"
-	"github.com/jacob-delgado/workflow/internal/tui"
+	"github.com/jacob-delgado/workflow/internal/seams"
 )
 
 // The status a forge issue has, mapped onto the two Jira strings the pane reads:
@@ -39,7 +39,7 @@ var errNotAnIssueNumber = errors.New("not a forge issue number")
 func trackerDeps(
 	ctx context.Context, settings config.Jira,
 	jiraClient func() (jira.Client, error), connect func() (forgeConnection, error),
-) tui.JiraDeps {
+) seams.Jira {
 	if settings.Configured() {
 		return jiraDeps(ctx, settings, jiraClient)
 	}
@@ -51,8 +51,8 @@ func trackerDeps(
 // reads. The pane, the detail and the status change run unchanged; a comment and
 // a remote link, which a forge issue has no equivalent for, are left nil so
 // those features simply do not appear.
-func forgeIssuesDeps(ctx context.Context, connect func() (forgeConnection, error)) tui.JiraDeps {
-	return tui.JiraDeps{
+func forgeIssuesDeps(ctx context.Context, connect func() (forgeConnection, error)) seams.Jira {
+	return seams.Jira{
 		Search:      func(string, int) (jira.SearchResult, error) { return listForgeIssues(ctx, connect) },
 		Issue:       func(issueKey jira.Key) (jira.IssueDetail, error) { return readForgeIssue(ctx, connect, issueKey) },
 		Transitions: func(jira.Key) ([]jira.Transition, error) { return forgeIssueTransitions(), nil },

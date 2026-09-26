@@ -18,6 +18,7 @@ import (
 
 	"github.com/jacob-delgado/workflow/internal/buildinfo"
 	"github.com/jacob-delgado/workflow/internal/config"
+	"github.com/jacob-delgado/workflow/internal/seams"
 	"github.com/jacob-delgado/workflow/internal/tui"
 	"github.com/jacob-delgado/workflow/internal/web"
 	"github.com/jacob-delgado/workflow/internal/webserver"
@@ -247,7 +248,7 @@ func openInterface(ctx context.Context, run RunInterface, input interfaceInput) 
 	if input.dryRun {
 		// A dry-run interface opens no store, and New would seed the issue list
 		// from it before WithDryRun could drop it.
-		deps.Store = tui.StoreDeps{}
+		deps.Store = seams.Store{}
 	}
 
 	model := tui.New(input.cfg, input.loadErr, deps)
