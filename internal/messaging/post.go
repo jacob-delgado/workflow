@@ -343,8 +343,10 @@ func isWebURL(raw string) bool {
 }
 
 // Text is the announcement rendered for its kind. Every substituted value is
-// escaped for Slack: a title is anyone's to write, and unescaped, "<!channel>"
-// in one pings the whole channel, and a ">" ends a link early.
+// escaped for the kind's markup — Slack mrkdwn, or Markdown for Teams and
+// Discord — and a plain webhook, which reads no markup, takes it as written: a
+// title is anyone's to write, and unescaped, "<!channel>" in one pings a whole
+// Slack channel, and a ">" ends a link early.
 func (a Announcement) Text() string {
 	renderer := markupFor(a.Kind)
 

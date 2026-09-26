@@ -81,18 +81,8 @@ shares (the interface and the web reach them too).
 
 Severity: low · Confidence: read
 
-Across the plumbing, the web server and the two layout maps, doc comments
-and layout rows describe an earlier shape of the code. No linter reads a
-comment, so every one passes the gate.
-
-The plumbing:
-
-- `internal/messaging/post.go:328` — `Announcement.Text`'s comment says
-  "Every substituted value is escaped for Slack"; `markupFor` (`:267`)
-  escapes per kind, and `keepText` (`:316`) not at all.
-- `internal/messaging/messaging.go:44` — `ErrRejected` "reports a token
-  Slack would not accept" and is returned for any kind's webhook 4xx by
-  `deliver` (`internal/messaging/post.go:208`).
+In the web server, doc comments describe an earlier shape of the code. No
+linter reads a comment, so every one passes the gate.
 
 The web server:
 

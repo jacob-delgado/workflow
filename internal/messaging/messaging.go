@@ -41,7 +41,8 @@ var (
 	ErrNoCredential = errors.New("messaging has no credential")
 	// ErrWebhookUncheckable reports that a webhook cannot be verified.
 	ErrWebhookUncheckable = errors.New("an incoming webhook cannot be checked without posting with it")
-	// ErrRejected reports a token Slack would not accept.
+	// ErrRejected reports a credential the service would not accept: Slack's no
+	// to a token, or any service's 4xx answer to a post.
 	ErrRejected = errors.New("the credential was not accepted")
 	// ErrPostRefused reports a message Slack would not deliver, for a reason
 	// that is not about the credential. Its words name no verb, because an
