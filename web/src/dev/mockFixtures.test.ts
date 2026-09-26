@@ -1,5 +1,8 @@
+import { vi } from 'vitest'
+import { previewAnnouncement } from '@/features/messaging/announceApi.ts'
 import { mockConfig } from './mockConfig.ts'
 import { mockIssueDetail } from './mockIssues.ts'
+import { mockSnapshot } from './mockSnapshot.ts'
 
 // The mockup is only worth reading if its fixtures take the shapes the server
 // sends: a value no real answer could hold shows a reader an inconsistency, or
@@ -42,3 +45,29 @@ test.each(templates)(
     expect(used.filter((placeholder) => !documented.includes(placeholder))).toEqual([])
   },
 )
+
+test('the mock preview is the mock announcement filled from the mock snapshot', async () => {
+  // Arrange
+  vi.stubEnv('VITE_MOCK', 'true')
+  const template = mockConfig.messaging.announcement ?? ''
+  const current = mockSnapshot.branches.find((branch) => branch.current)
+  const issue = mockSnapshot.issues.issues.find((listed) => listed.key === current?.issue_key)
+  const values: [string, string | undefined][] = [
+    ['{author}', mockSnapshot.messaging.author],
+    ['{title}', mockSnapshot.review.pull?.title],
+    ['{url}', mockSnapshot.review.pull?.url],
+    ['{key}', current?.issue_key],
+    ['{summary}', issue?.summary],
+  ]
+  const filled = values.reduce(
+    (text, [placeholder, value]) => text.replaceAll(placeholder, value ?? placeholder),
+    template,
+  )
+
+  // Act
+  const preview = await previewAnnouncement()
+
+  // Assert
+  expect(preview.text).toBe(filled)
+  expect(placeholdersIn(preview.text)).toEqual([])
+})
