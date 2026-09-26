@@ -87,7 +87,7 @@ type PullRequest struct {
 // IsOpen reports whether this pull request is in the open state. FindPullRequest
 // also returns a merged pull request, so a caller that means "is there an open
 // one" — the standup list, the status line, the offer to open a new one — asks
-// this rather than trusting found alone. (Opened, above, is the different
+// this rather than trusting found alone. (Opened, below, is the different
 // question of whether the forge created it at all.)
 func (p PullRequest) IsOpen() bool {
 	return p.State == StateOpen
@@ -232,7 +232,7 @@ func pickPull[T stated](pulls []T) (T, bool) {
 // FindPullRequest finds the branch's pull request: an open one, or the merged
 // one that means the branch is finished. A pull closed without merging is passed
 // over. The returned PullRequest carries its State, so a caller that wants only
-// an open one checks Opened rather than trusting found alone.
+// an open one checks IsOpen rather than trusting found alone.
 func (c Client) FindPullRequest(ctx context.Context, repo Repo, branch string) (PullRequest, bool, error) {
 	speaks, err := dialectFor(repo.Kind)
 	if err != nil {

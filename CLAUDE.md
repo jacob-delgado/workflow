@@ -40,7 +40,7 @@ internal/web/         the built web app, embedded under the embedui build tag
 internal/api/         the Go types and server interface generated from api/
 internal/store/       the on-disk SQLite store; never a secret
 internal/jira/        Jira Data Center REST v2
-internal/forge/       GitHub and GitLab: remotes, tokens, pull requests, CI
+internal/forge/       GitHub and GitLab: remotes, tokens, pull requests, templates, CI, issues
 internal/messaging/   posting to Slack, Teams, Discord or a plain webhook
 internal/httpx/       the redirect-refusing HTTP transport the clients share
 internal/gitrepo/     reading and changing the repository through git

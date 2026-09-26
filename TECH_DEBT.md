@@ -89,15 +89,6 @@ which `internal/seams` now declares for all three surfaces.
 
 The clients:
 
-- `internal/forge/pulls.go:237` — `FindPullRequest`'s comment sends a caller
-  to `Opened` "rather than trusting found alone"; `Opened` (`:118`) is
-  `Number != 0`, true for a merged pull, and `IsOpen` is meant.
-- `internal/forge/pulls.go:92` — `IsOpen`'s comment says "(Opened, above,
-  …)"; `Opened` is declared at `:118`, below.
-- `CLAUDE.md:43` — the layout row for `internal/forge/` lists "remotes,
-  tokens, pull requests, CI", not the issues (`AssignedIssues`,
-  `internal/forge/issues.go:30`) or the templates
-  (`internal/forge/templates.go`).
 - `internal/jira/jira.go:6` — the package comment names search, read, move,
   comment, link and whoami, not `Assign` (`internal/jira/assignee.go:13`),
   `AddWorklog` (`internal/jira/worklog.go:33`) or `WikiFromMarkdown`
