@@ -47,6 +47,11 @@ pointer also names the symbol it means.
    independent reader to disprove, and to a second one when rated medium or
    high; a claim that could not be pointed at a line was dropped. Every
    cited line was read again as its entry was written.
+5. **Every finding matched against the register.** The register below came
+   after this edition's reading, so from the next audit on, each finding is
+   compared with [the trade-off register](#the-trade-off-register) before
+   it is written, and dropped when it restates an entry whose reopen
+   trigger has not fired.
 
 ## How to read an entry
 
