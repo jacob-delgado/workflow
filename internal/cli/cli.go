@@ -279,11 +279,18 @@ func subcommands(prompt Prompt) []*cobra.Command {
 // NewRootCmd; a test hands it a port of its own. The handler reads the
 // configuration file cfg came from once more, so it starts from an edit made
 // since, with that edit's revision. Building it fails when the embedded spec
-// cannot load, a build defect, or when that file cannot be read again.
+// cannot load, a build defect, or when that file cannot be read again. Each
+// failure the server answers as internal goes to notes, a line each, its
+// cause's own lines joined by "; " and every credential cfg holds masked.
 func WebServerAt(addr string) RunWeb {
 	return func(
 		ctx context.Context, cfg config.Config, deps webserver.Deps, info webserver.Info, notes io.Writer,
 	) error {
+		deps.Unexpected = func(err error) {
+			lines := strings.FieldsFunc(cfg.RedactText(err.Error()), func(r rune) bool { return r == '\n' || r == '\r' })
+			fmt.Fprintf(notes, "workflow web: %s\n", strings.Join(lines, "; "))
+		}
+
 		assets, _ := web.Assets()
 
 		handler, err := webserver.Handler(deps, cfg, info, assets)

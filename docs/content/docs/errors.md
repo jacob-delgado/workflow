@@ -125,5 +125,7 @@ read of the repository that git could not answer, when the request cannot go
 ahead without it (a write that has already landed answers all the same, naming
 the branch as far as it can, and the event stream shows that panel empty). The
 detail stays generic on purpose, and says to try again and to run `workflow
-doctor` if it keeps failing; the cause is in the server's own output, not the
-response.
+doctor` if it keeps failing; the cause is not in the response but on the
+standard error of the `workflow --web` that answered, one `workflow web:` line
+per failure, a cause of several lines joined by semicolons, with every
+credential the configuration holds masked.

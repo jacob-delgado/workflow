@@ -115,3 +115,68 @@ func TestRedact(t *testing.T) {
 		})
 	}
 }
+
+func TestRedactTextMasksEveryCredentialTheConfigurationHolds(t *testing.T) {
+	t.Parallel()
+
+	const (
+		jiraToken    = "jira-token-1111"
+		headerSecret = "cf-secret-2222"
+		slackToken   = "xoxb-slack-3333"
+	)
+
+	cases := map[string]struct {
+		cfg  config.Config
+		text string
+		want string
+	}{
+		"a Jira token": {
+			cfg:  config.Config{Jira: config.Jira{Token: jiraToken}},
+			text: "asked with " + jiraToken, want: "asked with ****1111",
+		},
+		"a Jira header value": {
+			cfg:  config.Config{Jira: config.Jira{Headers: map[string]config.Secret{"CF-Access-Client-Secret": headerSecret}}},
+			text: "sent " + headerSecret, want: "sent ****2222",
+		},
+		"a messaging token": {
+			cfg:  config.Config{Messaging: config.Messaging{Token: slackToken}},
+			text: "posted with " + slackToken, want: "posted with ****3333",
+		},
+		"a webhook URL": {
+			cfg:  config.Config{Messaging: config.Messaging{WebhookURL: webhookURL}},
+			text: "posting to " + webhookURL, want: "posting to ****2468",
+		},
+		"a forge token": {
+			cfg:  config.Config{Forge: config.Forge{Token: forgeFixture}},
+			text: "sent " + forgeFixture, want: "sent ****tial",
+		},
+		// The host stays: masking the userinfo must not lose where it goes.
+		"a password in jira.base_url": {
+			cfg:  config.Config{Jira: config.Jira{BaseURL: "https://alice:hunter2@jira.example.com"}},
+			text: "reading https://alice:hunter2@jira.example.com/rest", want: "reading https://xxxxx@jira.example.com/rest",
+		},
+		// A header that carries the token is masked whole, not around it.
+		"a credential that holds another": {
+			cfg: config.Config{Jira: config.Jira{
+				Token:   jiraToken,
+				Headers: map[string]config.Secret{"Authorization": "Bearer " + jiraToken + "-and-more"},
+			}},
+			text: "sent Bearer " + jiraToken + "-and-more", want: "sent ****more",
+		},
+		"no credential at all": {cfg: config.Config{}, text: "the seam failed", want: "the seam failed"},
+	}
+
+	for name, tt := range cases {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			// Act
+			got := tt.cfg.RedactText(tt.text)
+
+			// Assert
+			if got != tt.want {
+				t.Errorf("RedactText(%q) = %q, want %q", tt.text, got, tt.want)
+			}
+		})
+	}
+}
