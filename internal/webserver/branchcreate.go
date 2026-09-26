@@ -33,7 +33,7 @@ var errCreateRefused = errors.New("git refused the new branch")
 // is picked up. A branch that already exists is a 409, and an issue the tracker
 // could not read is answered by fault; anything else that stops the creation is
 // a 422, which says how to see why. On success it returns the branch now in
-// effect.
+// effect, or the created branch by its name alone when it cannot be read back.
 func (s *server) CreateBranch(
 	_ context.Context, request api.CreateBranchRequestObject,
 ) (api.CreateBranchResponseObject, error) {
@@ -75,7 +75,9 @@ func createBranchFailure(err error, key string) api.CreateBranchResponseObject {
 }
 
 // startWork names, creates and switches to a branch for the issue, refusing when
-// one already exists, and returns the branch now in effect.
+// one already exists, and returns the branch now in effect — or, when that
+// cannot be read back, one of the created name, since the branch read before
+// the create is the one it left.
 func (s *server) startWork(issueKey string) (gitrepo.Branch, error) {
 	name, err := s.branchNameFor(issueKey)
 	if err != nil {
@@ -96,7 +98,7 @@ func (s *server) startWork(issueKey string) (gitrepo.Branch, error) {
 		return gitrepo.Branch{}, fmt.Errorf("%w: creating %s: %w", errCreateRefused, name, err)
 	}
 
-	return s.deps.Branch()
+	return s.branchAfter(gitrepo.Branch{Name: name}), nil
 }
 
 // branchNameFor is the branch the convention names for the issue, from its type

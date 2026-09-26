@@ -513,7 +513,7 @@ export const zCheckoutResponse = zBranch;
 export const zCreateBranchBody = zCreateBranchRequest;
 
 /**
- * The branch that was created and is now checked out.
+ * The branch that was created and is now checked out. If it cannot be read back after it was created, only its name is set.
  */
 export const zCreateBranchResponse = zBranch;
 

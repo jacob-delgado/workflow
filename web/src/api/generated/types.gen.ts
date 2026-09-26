@@ -1183,7 +1183,7 @@ export type CreateBranchError = CreateBranchErrors[keyof CreateBranchErrors];
 
 export type CreateBranchResponses = {
     /**
-     * The branch that was created and is now checked out.
+     * The branch that was created and is now checked out. If it cannot be read back after it was created, only its name is set.
      */
     200: Branch;
 };
