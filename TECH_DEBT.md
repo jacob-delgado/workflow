@@ -87,10 +87,6 @@ comment, so every one passes the gate.
 
 The plumbing:
 
-- `internal/convention/convention.go:4` — the package comment names three
-  concerns; `internal/convention/pullrequest.go` and
-  `internal/convention/scopes.go` are two more, and the `CLAUDE.md:48` row
-  already lists "pull request text".
 - `internal/messaging/post.go:328` — `Announcement.Text`'s comment says
   "Every substituted value is escaped for Slack"; `markupFor` (`:267`)
   escapes per kind, and `keepText` (`:316`) not at all.

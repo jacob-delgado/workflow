@@ -1,9 +1,8 @@
 // Copyright 2026 Jacob Delgado
 // SPDX-License-Identifier: Apache-2.0
 
-// Package convention holds the naming rules the workflow follows: what a branch
-// for an issue is called, how an issue is found again from a branch, and what a
-// Conventional Commit subject looks like.
+// Package convention holds the naming and text rules for the workflow's
+// branches, commits and pull requests.
 //
 // It is pure — no git, no network — because these are the decisions most worth
 // testing exhaustively and cheapest to test that way.
