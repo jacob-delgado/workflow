@@ -27,6 +27,7 @@ import (
 	"github.com/jacob-delgado/workflow/internal/hooks"
 	"github.com/jacob-delgado/workflow/internal/httpx"
 	"github.com/jacob-delgado/workflow/internal/jira"
+	"github.com/jacob-delgado/workflow/internal/loop"
 	"github.com/jacob-delgado/workflow/internal/messaging"
 	"github.com/jacob-delgado/workflow/internal/proc"
 	"github.com/jacob-delgado/workflow/internal/sanitize"
@@ -305,18 +306,18 @@ func storeDeps(ctx context.Context, kept store.Store, cfg config.Config, where W
 		RecordScope: func(scope string) {
 			_ = kept.RecordScope(ctx, repo, sanitize.Line(scope), time.Now())
 		},
-		Announced: func() []tui.AnnouncedPost {
+		Announced: func() []loop.Announced {
 			recorded, _ := kept.Announces(ctx, repo)
 
-			posts := make([]tui.AnnouncedPost, 0, len(recorded))
+			made := make([]loop.Announced, 0, len(recorded))
 			for _, announce := range recorded {
-				posts = append(posts, tui.AnnouncedPost{Pull: announce.Pull, Moment: announce.Moment})
+				made = append(made, loop.Announced{Pull: announce.Pull, Moment: messaging.Moment(announce.Moment)})
 			}
 
-			return posts
+			return made
 		},
-		RecordAnnounce: func(post tui.AnnouncedPost) {
-			_ = kept.RecordAnnounce(ctx, repo, store.Announce{Pull: post.Pull, Moment: post.Moment}, time.Now())
+		RecordAnnounce: func(made loop.Announced) {
+			_ = kept.RecordAnnounce(ctx, repo, store.Announce{Pull: made.Pull, Moment: int(made.Moment)}, time.Now())
 		},
 		CachedIssues: func(view string) ([]jira.Issue, bool) {
 			cached, found, _ := kept.CachedIssues(ctx, instance, view)

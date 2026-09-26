@@ -19,6 +19,7 @@ import (
 	"github.com/jacob-delgado/workflow/internal/gitrepo"
 	"github.com/jacob-delgado/workflow/internal/hooks"
 	"github.com/jacob-delgado/workflow/internal/jira"
+	"github.com/jacob-delgado/workflow/internal/loop"
 	"github.com/jacob-delgado/workflow/internal/proc"
 	"github.com/jacob-delgado/workflow/internal/tui"
 )
@@ -152,7 +153,7 @@ type world struct {
 	// means nothing was recorded.
 	learnedScope string
 	// storedAnnounces is what the store reports being posted in earlier sessions.
-	storedAnnounces []tui.AnnouncedPost
+	storedAnnounces []loop.Announced
 	// cachedIssues is the issue list the store reports for the active view.
 	cachedIssues []jira.Issue
 
@@ -339,11 +340,11 @@ func (w *world) storeDeps() tui.StoreDeps {
 		RecordScope: func(scope string) {
 			w.record("scope " + scope)
 		},
-		Announced: func() []tui.AnnouncedPost {
+		Announced: func() []loop.Announced {
 			return w.storedAnnounces
 		},
-		RecordAnnounce: func(post tui.AnnouncedPost) {
-			w.record("announce " + strconv.Itoa(post.Pull) + " " + strconv.Itoa(post.Moment))
+		RecordAnnounce: func(made loop.Announced) {
+			w.record("announce " + strconv.Itoa(made.Pull) + " " + strconv.Itoa(int(made.Moment)))
 		},
 		CachedIssues: func(_ string) ([]jira.Issue, bool) {
 			return w.cachedIssues, len(w.cachedIssues) > 0

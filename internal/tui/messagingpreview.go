@@ -12,6 +12,7 @@ import (
 	tea "charm.land/bubbletea/v2"
 
 	"github.com/jacob-delgado/workflow/internal/forge"
+	"github.com/jacob-delgado/workflow/internal/loop"
 	"github.com/jacob-delgado/workflow/internal/messaging"
 )
 
@@ -169,14 +170,17 @@ func (p messagingPreview) postWhenGreen(m Model) (Model, tea.Cmd) {
 	return m.keepPolling(m.checkCI())
 }
 
-// sendToMessaging posts text marking moment. It replaces any post waiting for CI:
-// that one would otherwise follow it once CI passed, and the channel would read
-// it twice.
+// sendToMessaging posts text marking moment, and once it has gone out records
+// it in the store, the way every surface delivers an announcement. It replaces
+// any post waiting for CI: that one would otherwise follow it once CI passed,
+// and the channel would read it twice.
 func (m Model) sendToMessaging(channel, text string, moment messaging.Moment) (Model, tea.Cmd) {
-	post, pull := m.deps.Messaging.Post, m.review.pull.Number
+	post, memory := m.deps.Messaging.Post, loop.AnnounceMemory{Record: m.deps.Store.RecordAnnounce}
+	made := loop.Announced{Pull: m.review.pull.Number, Moment: moment}
+	delivery := loop.Delivery{Channel: channel, Text: text, Made: made}
 	m.messaging.send, m.messaging.pending, m.messaging.dropped = starting(), queuedPost{}, ""
 
-	return m, func() tea.Msg { return messagingPosted{pull: pull, moment: moment, err: post(channel, text)} }
+	return m, func() tea.Msg { return messagingPosted{made: made, err: loop.Deliver(post, memory, delivery)} }
 }
 
 // applyEdit puts the edited message back in the preview, or records why the
@@ -193,12 +197,11 @@ func (p messagingPreview) applyEdit(m Model, text string, err error) (Model, tea
 	return m, nil
 }
 
-// messagingPosted reports how posting went: for which pull request, and the moment
-// it marked.
+// messagingPosted reports how posting went, and the announcement it made: a pull
+// request and the moment it marked.
 type messagingPosted struct {
-	pull   int
-	moment messaging.Moment
-	err    error
+	made loop.Announced
+	err  error
 }
 
 // apply records the post, or why it failed — in the preview if it is open, and
@@ -210,9 +213,7 @@ func (msg messagingPosted) apply(m Model) (Model, tea.Cmd) {
 		return keepOpenWith[messagingPreview](m, msg.err).noticedFailure(msg.err), nil
 	}
 
-	m.messaging.posted, m.messaging.send = append(slices.Clone(m.messaging.posted),
-		postedMoment{pull: msg.pull, moment: msg.moment}), sendState{}
-	m.recordAnnounce(msg.pull, msg.moment)
+	m.messaging.posted, m.messaging.send = append(slices.Clone(m.messaging.posted), msg.made), sendState{}
 
 	if _, open := m.overlay.(messagingPreview); open {
 		m = m.closeOverlay()

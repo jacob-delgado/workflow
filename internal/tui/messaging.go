@@ -32,7 +32,7 @@ type messagingState struct {
 	// posted is the announcements made this session, each a pull request and the
 	// moment it marked, so one pull request can be announced at each of its
 	// moments — opened, then merged — without a moment being offered twice.
-	posted []postedMoment
+	posted []loop.Announced
 	// send is a post the service has not answered yet, which is not offered
 	// again until it does, or why the last one failed.
 	send    sendState
@@ -42,13 +42,6 @@ type messagingState struct {
 	dropped string
 	author  string
 	scroll  int
-}
-
-// postedMoment is one announcement already made: a pull request, and the moment
-// it marked.
-type postedMoment struct {
-	pull   int
-	moment messaging.Moment
 }
 
 // droppedTimeFormat stamps a dropped post with the time it was given up on.
@@ -195,17 +188,9 @@ func (m Model) messagingDetail(width int) string {
 // current moment — a merge announced counts, an opening does not — this session
 // or, from the store, an earlier one.
 func (m Model) announced() bool {
-	current := postedMoment{pull: m.review.pull.Number, moment: loop.AnnounceMoment(m.review.pull, m.review.ci)}
+	current := loop.Announced{Pull: m.review.pull.Number, Moment: loop.AnnounceMoment(m.review.pull, m.review.ci)}
 
 	return m.review.found && slices.Contains(m.messaging.posted, current)
-}
-
-// recordAnnounce remembers a post just made, so a later session opens knowing the
-// pull request was announced at this moment rather than offering it again.
-func (m Model) recordAnnounce(pull int, moment messaging.Moment) {
-	if m.deps.Store.RecordAnnounce != nil {
-		m.deps.Store.RecordAnnounce(AnnouncedPost{Pull: pull, Moment: int(moment)})
-	}
 }
 
 // loadAnnounces reads what was announced in an earlier session from the store, so
@@ -218,13 +203,13 @@ func (m Model) loadAnnounces() tea.Cmd {
 	read := m.deps.Store.Announced
 
 	return func() tea.Msg {
-		return announcesLoaded{posts: read()}
+		return announcesLoaded{made: read()}
 	}
 }
 
 // announcesLoaded carries what the store remembers being posted.
 type announcesLoaded struct {
-	posts []AnnouncedPost
+	made []loop.Announced
 }
 
 var _ applier = announcesLoaded{}
@@ -232,8 +217,7 @@ var _ applier = announcesLoaded{}
 // apply seeds the session's posted list from the store, so a restart does not
 // forget what was announced and offer it again.
 func (msg announcesLoaded) apply(m Model) (Model, tea.Cmd) {
-	for _, post := range msg.posts {
-		remembered := postedMoment{pull: post.Pull, moment: messaging.Moment(post.Moment)}
+	for _, remembered := range msg.made {
 		if !slices.Contains(m.messaging.posted, remembered) {
 			m.messaging.posted = append(m.messaging.posted, remembered)
 		}

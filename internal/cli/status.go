@@ -195,7 +195,7 @@ func seamsFor(conn connection) statusSeams {
 		FindPull:    conn.deps.Forge.FindPullRequest,
 		CheckStatus: conn.deps.Forge.CheckStatus,
 		Issue:       conn.deps.Jira.Issue,
-		Memory:      announceMemory(conn.deps.Store),
+		Memory:      loop.AnnounceMemory{Recorded: conn.deps.Store.Announced},
 		Project:     conn.cfg.Jira.Project,
 		Service:     conn.cfg.Messaging.Service(),
 	}

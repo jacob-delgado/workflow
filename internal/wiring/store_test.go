@@ -14,8 +14,9 @@ import (
 	"time"
 
 	"github.com/jacob-delgado/workflow/internal/config"
+	"github.com/jacob-delgado/workflow/internal/loop"
+	"github.com/jacob-delgado/workflow/internal/messaging"
 	"github.com/jacob-delgado/workflow/internal/store"
-	"github.com/jacob-delgado/workflow/internal/tui"
 	"github.com/jacob-delgado/workflow/internal/wiring"
 )
 
@@ -119,13 +120,14 @@ func TestADryRunReadsWhatALiveSessionAnnounced(t *testing.T) {
 	t.Setenv("XDG_STATE_HOME", "")
 
 	where := wiring.Workspace{Root: t.TempDir(), Remote: "https://github.com/org/repo.git"}
-	wired(t, config.Default(), where, nil).Store.RecordAnnounce(tui.AnnouncedPost{Pull: 7, Moment: 1})
+	merged := loop.Announced{Pull: 7, Moment: messaging.MomentMerged}
+	wired(t, config.Default(), where, nil).Store.RecordAnnounce(merged)
 
 	// Act
 	posts := wiring.ReadOnlyStore(t.Context(), config.Default(), where).Announced()
 
 	// Assert
-	if len(posts) != 1 || posts[0] != (tui.AnnouncedPost{Pull: 7, Moment: 1}) {
+	if len(posts) != 1 || posts[0] != merged {
 		t.Errorf("the dry run read %+v, want the one announcement the live session recorded", posts)
 	}
 }

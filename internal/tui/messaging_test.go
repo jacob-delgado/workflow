@@ -10,6 +10,8 @@ import (
 
 	"github.com/jacob-delgado/workflow/internal/config"
 	"github.com/jacob-delgado/workflow/internal/forge"
+	"github.com/jacob-delgado/workflow/internal/loop"
+	"github.com/jacob-delgado/workflow/internal/messaging"
 	"github.com/jacob-delgado/workflow/internal/tui"
 )
 
@@ -583,10 +585,10 @@ func TestAPreviouslyAnnouncedPullOpensAsPosted(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
-	// The store remembers pull request 42 was announced at its ready moment (0) in
-	// an earlier session, so the pane opens showing it posted, not offering it.
+	// The store remembers pull request 42 was announced at its ready moment in an
+	// earlier session, so the pane opens showing it posted, not offering it.
 	announcing := newWorld()
-	announcing.storedAnnounces = []tui.AnnouncedPost{{Pull: 42, Moment: 0}}
+	announcing.storedAnnounces = []loop.Announced{{Pull: 42, Moment: messaging.MomentReady}}
 
 	// Act
 	view := typing(t, announcing.live(t, 120, 40), "5").View().Content
