@@ -2149,29 +2149,6 @@ delete `forceANSI` if nothing calls it.
 internal/tui` prints nothing, each of the twelve tests calls `t.Parallel()`,
 and `task lint` passes.
 
-### DEBT-145 The test world's runs carry no Stop, and production says so
-
-Severity: low · Confidence: read
-
-The `stop` field of `commandRun` (`internal/tui/run.go:37`) is commented as
-nil "before then, and for a run started by a fake that supplies none", which
-names a test fixture in production code. `Start`
-(`internal/proc/start.go:131`), the only production constructor of a live
-`proc.Output`, always sets `Stop: cancel`; the test world's `output` helper
-(`internal/tui/world_test.go:277`) builds a `proc.Output` without one, a
-fake that cuts a corner the real seam never does. `stopRun`
-(`internal/tui/run.go:327`) returns at once when `stop` is nil, so pressing
-`s` on any fake run does nothing and no test would notice; only
-`blockingOutput` (`internal/tui/world_test.go:206`) supplies a `Stop`.
-
-**One way to fix it.** Have `output` return a no-op `Stop`, as `proc.Start`
-always does, and trim the comment to the real case: nil before `runStarted`
-arrives.
-
-**Done when.** The comment on `commandRun.stop` names only the pre-start
-case, and every fake `proc.Output` built in `internal/tui`'s tests carries a
-`Stop`.
-
 ### DEBT-146 `internal/webserver/coverage_test.go` is named for the gate, not for what it tests
 
 Severity: low · Confidence: read
