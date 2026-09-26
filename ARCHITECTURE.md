@@ -255,8 +255,10 @@ Two invariants make the store safe to keep unencrypted:
 1. **It never holds a secret.** It is keyed only by credential-free identifiers.
    The repository key is the remote's parsed **host and path** (so clones of the
    same repo share state) — parsed, never taken raw, precisely so a credential
-   embedded in an HTTPS remote's userinfo cannot reach the file. The Jira
-   instance key is a **SHA-256 of the base URL**, never the URL itself.
+   embedded in an HTTPS remote's userinfo cannot reach the file — or the
+   repository's **root path** when there is no remote or it does not parse. The
+   Jira instance key is a **SHA-256 of the base URL**, never the URL itself, and
+   the issue cache is keyed by it and by the **view's JQL** query.
 2. **What it holds is disposable.** The issue cache is a convenience; losing it
    costs one live fetch. No feature depends on the store being present or
    truthful — which is what makes trusting-nothing-on-read (below) a safe stance

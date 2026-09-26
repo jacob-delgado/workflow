@@ -543,17 +543,22 @@ SQLite database under your platform's data directory:
 - Linux — `$XDG_STATE_HOME/workflow`, or `~/.local/state/workflow`
 - Windows — `%AppData%\workflow`
 
-The store **never holds a secret**. It is keyed only by a repository's host and
-path and by a hash of your Jira URL — never by a credential, and never by the raw
-URL — so a token embedded in a remote cannot reach it. Where the filesystem
-keeps Unix modes, the database file is `0600` in a `0700` directory, readable
-only by you. What it holds is disposable: delete it and the next session simply
-rebuilds it. A `--dry-run` never creates it or changes what it holds: neither
-the interface nor `--web` opens it at all, and a command such as `announce` or
-`status` opens it read-only, and only when it is already there. That read may
-leave SQLite's two owner-only companion files, `workflow.db-wal` and
-`workflow.db-shm`, beside the database until the next session's open removes
-them.
+The store **never holds a secret**, and nothing it is keyed by is one. The
+commit scope and what was announced are kept per repository: the origin remote's
+host and path, or the repository's root path when there is no remote or it
+cannot be parsed. The issue list is kept per Jira instance, by a hash of your
+Jira URL, and per view, by the view's JQL query. The store is never keyed by a
+credential, nor by the raw remote or Jira URL, so a token embedded in a remote
+cannot reach it.
+
+Where the filesystem keeps Unix modes, the database file is `0600` in a `0700`
+directory, readable only by you. What it holds is disposable: delete it and the
+next session simply rebuilds it. A `--dry-run` never creates it or changes what
+it holds: neither the interface nor `--web` opens it at all, and a command such
+as `announce` or `status` opens it read-only, and only when it is already
+there. That read may leave SQLite's two owner-only companion files,
+`workflow.db-wal` and `workflow.db-shm`, beside the database until the next
+session's open removes them.
 
 The store is on by default. Set `store.disabled` to keep nothing on disk; with it
 set, workflow behaves exactly as it did before the store existed, working

@@ -220,9 +220,10 @@ without agreement on direction.
     on the way in (defense in depth) *and* again on the way out through
     `internal/sanitize` at the seam that renders it, and validate shape on read
     rather than assuming the writer was us. The store itself **never holds a
-    secret** and is keyed only by credential-free identifiers (a forge host/path, a
-    hash of a base URL) — the test that proves a credential can't reach it ships
-    with any change to its keys.
+    secret** and is keyed only by credential-free identifiers (a forge host/path,
+    or the repository's root path when the remote is missing or unparsable; a
+    hash of a base URL; a view's JQL) — the test that proves a credential can't
+    reach it ships with any change to its keys.
   - **Migrations are forward-only and idempotent** (every live `open` runs
     `migrate`; a `--dry-run` store's read-only open reads a file already on disk
     as it is and migrates nothing); pre-1.0 there are **no migration shims** for

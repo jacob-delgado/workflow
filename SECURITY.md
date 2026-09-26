@@ -72,8 +72,10 @@ In scope:
   seen (the non-secret fields a first pane needs — issue keys, summaries,
   statuses, status categories, types and priorities — so a session can open on
   it before the tracker answers). It **never** holds a secret: no token, no
-  credential, and the repository and instance it keys by are reduced to a
-  credential-free host and path and a hash before they are stored.
+  credential. The repository it keys by is reduced to the remote's
+  credential-free host and path, or is the repository's root path when there
+  is no remote it can parse; the Jira instance is reduced to a hash of its URL;
+  and the cached issue list is keyed by that hash and the list's JQL query.
   Where the filesystem keeps Unix modes, the database is written `0600` inside
   a `0700` directory, so it is readable only by its owner. `store.disabled`
   turns it off entirely, keeping nothing on disk — anything the store persists
