@@ -203,8 +203,14 @@ function MessageFields({ register, commitTypes, onScopeTyping }: MessageFieldsPr
 
 // headline names a commit the branch now carries: its short hash and the
 // subject git recorded — the newest commit, when it is the one on HEAD — or,
-// when the branch's list stops short of HEAD, the header the fields make.
+// when the branch's list stops short of HEAD, the header the fields make. A
+// branch with no head is one the server could not read back after the commit,
+// so there is no hash to name and the header stands alone.
 function headline(branch: Branch, fields: CommitFields): string {
+  if (branch.head === '') {
+    return header(fields)
+  }
+
   const newest = branch.commits.at(-1)
   const subject =
     newest !== undefined && branch.head.startsWith(newest.hash) ? newest.subject : header(fields)
