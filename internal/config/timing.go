@@ -19,7 +19,8 @@ type Timing struct {
 	// RequestTimeout bounds each request to a service. The default is ten
 	// seconds.
 	RequestTimeout string `json:"request_timeout"`
-	// CIInterval is how often CI is asked about while it runs. The default is
+	// CIInterval is how often CI is asked about while it runs, and how often
+	// the web page's stream asks the forge about the branch. The default is
 	// twenty seconds.
 	CIInterval string `json:"ci_interval"`
 }

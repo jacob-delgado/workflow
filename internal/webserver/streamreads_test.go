@@ -30,12 +30,21 @@ type cancelingFlusher struct {
 	cancel  context.CancelFunc
 	frames  int
 	flushed int
+
+	// between, when set, runs after each flush but the last wanted, as time
+	// passing between two frames would; a frame that slips out after the
+	// cancel lands at the last frame's time.
+	between func()
 }
 
 func (c *cancelingFlusher) Flush() {
 	c.ResponseRecorder.Flush()
 
 	c.flushed++
+	if c.flushed < c.frames && c.between != nil {
+		c.between()
+	}
+
 	if c.flushed == c.frames {
 		c.cancel()
 	}
@@ -49,18 +58,37 @@ func (c *cancelingFlusher) Flush() {
 func streamFrames(t *testing.T, deps webserver.Deps) string {
 	t.Helper()
 
+	return streamPaced(t, deps, config.Default(), 0)
+}
+
+// streamPaced is streamFrames over cfg, on a clock that starts at paceStart and
+// that step moves on between two frames, as that much time passing would.
+func streamPaced(t *testing.T, deps webserver.Deps, cfg config.Config, step time.Duration) string {
+	t.Helper()
+
+	now := paceStart()
+	deps.Clock = func() time.Time { return now }
+
 	info := webserver.Info{Version: testVersion, StreamInterval: time.Millisecond}
-	handler := serveWith(t, deps, config.Default(), info)
+	handler := serveWith(t, deps, cfg, info)
 
 	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
 
 	request := httptest.NewRequestWithContext(ctx, http.MethodGet, "/api/events", nil)
 	request.Host = loopbackHost
-	writer := &cancelingFlusher{ResponseRecorder: httptest.NewRecorder(), cancel: cancel, frames: streamedFrames}
+	writer := &cancelingFlusher{
+		ResponseRecorder: httptest.NewRecorder(), cancel: cancel, frames: streamedFrames,
+		between: func() { now = now.Add(step) },
+	}
 	handler.ServeHTTP(writer, request)
 
 	return writer.Body.String()
+}
+
+// paceStart is the moment a paced stream's clock starts at.
+func paceStart() time.Time {
+	return time.Date(2026, time.September, 26, 9, 0, 0, 0, time.UTC)
 }
 
 func TestStreamAsksTheForgeWhoTheAuthorIsOnce(t *testing.T) {

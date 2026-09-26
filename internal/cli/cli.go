@@ -342,6 +342,7 @@ func WebDeps(deps tui.Deps) webserver.Deps {
 		RecordScope: deps.Store.RecordScope,
 
 		CheckKeys: tui.CheckKeys,
+		Clock:     deps.Clock,
 	}
 }
 

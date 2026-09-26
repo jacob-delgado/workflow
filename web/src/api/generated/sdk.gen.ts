@@ -291,7 +291,7 @@ export const openPullRequest = <ThrowOnError extends boolean = false>(options: O
 /**
  * A stream of state snapshots, pushed on connect and as they change.
  *
- * A Server-Sent Events stream (text/event-stream). Each message is a "snapshot" event whose data is a Snapshot: the current issues, branch, changes, review, messaging destination, the issues in flight, and the scope a new commit opens on. The browser subscribes once and updates from the pushes rather than polling.
+ * A Server-Sent Events stream (text/event-stream). Each message is a "snapshot" event whose data is a Snapshot: the current issues, branch, changes, review, messaging destination, the issues in flight, and the scope a new commit opens on. The browser subscribes once and updates from the pushes rather than polling. The review is the forge's answer, read at most once every timing.ci_interval (twenty seconds unless set) for every stream together, and again at once for another branch or head commit, or after a pull request is opened here. A read that fails keeps the last answer for the same branch and head commit, and with no answer to keep reports none found until a read succeeds.
  */
 export const streamEvents = <ThrowOnError extends boolean = false>(options?: Options<StreamEventsData, ThrowOnError, StreamEventsResponse>): Promise<ServerSentEventsResult<StreamEventsResponses>> => (options?.client ?? client).sse.get<StreamEventsResponses, StreamEventsErrors, ThrowOnError>({
     responseValidator: async (data) => await zStreamEventsResponse.parseAsync(data),

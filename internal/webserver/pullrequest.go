@@ -68,6 +68,10 @@ func (s *server) OpenPullRequest(
 		return s.openFailure(err), nil
 	}
 
+	// The stream's held forge answer predates this pull request: the page
+	// shows it from the next frame, not an interval later.
+	s.forgeAnswer.drop()
+
 	// A pull that opened but whose reviewers, assignees or labels could not all
 	// be added is reported open, with a warning, rather than lost to a failure.
 	opened := api.OpenedPullRequest{Pull: pullDTO(pull), FollowUps: s.followUps(branch)}
