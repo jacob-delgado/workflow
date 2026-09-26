@@ -1,6 +1,6 @@
 import { AxeBuilder } from '@axe-core/playwright'
 import { expect, test, type Locator, type Page } from '@playwright/test'
-import type { Snapshot } from '../src/api/generated/types.gen.ts'
+import type { PullRequestDraft, Snapshot } from '../src/api/generated/types.gen.ts'
 import { openSection, pinTheme, sectionNames as populatedSectionNames, themes } from './cockpit.ts'
 import { streams } from './tabwalk.ts'
 
@@ -210,6 +210,38 @@ const openedPull = {
   mergeable: 'unknown',
 }
 
+// The pull request the branch's work composes, as the draft read answers it.
+const pullDraft = {
+  title: openedPull.title,
+  body: 'Redacts the Authorization header.',
+  base: 'main',
+  head: 'fix/PROJ-1',
+  draft: false,
+  needs_push: false,
+} satisfies PullRequestDraft
+
+for (const theme of themes) {
+  test(`no accessibility violations in the pull request form in the ${theme} theme`, async ({
+    page,
+  }) => {
+    // Arrange: a stream with no pull request yet, and the draft answered here.
+    await pinTheme(page, theme)
+    await streams(page, issuesSnapshot)
+    await page.route('**/api/pull-request/draft', (route) => route.fulfill({ json: pullDraft }))
+    await page.goto('/')
+    await openSection(page, 'Review')
+
+    // Act: compose the pull request, which opens as a form to edit.
+    await page.getByRole('button', { name: 'Open a pull request' }).click()
+    await expect(page.getByRole('form', { name: 'Open a pull request' })).toBeVisible()
+
+    // Assert: axe finds nothing on the form and its seven fields.
+    const violations = await scan(page)
+    const summary = violations.map((v) => `${v.id} (${String(v.nodes.length)})`).join(', ')
+    expect(violations, `${theme} / pull request form: ${summary}`).toEqual([])
+  })
+}
+
 for (const theme of themes) {
   test(`no accessibility violations in the offers after opening in the ${theme} theme`, async ({
     page,
@@ -219,18 +251,7 @@ for (const theme of themes) {
     // offer's status line are all on screen for the scan.
     await pinTheme(page, theme)
     await streams(page, issuesSnapshot)
-    await page.route('**/api/pull-request/draft', (route) =>
-      route.fulfill({
-        json: {
-          title: openedPull.title,
-          body: 'Redacts the Authorization header.',
-          base: 'main',
-          head: 'fix/PROJ-1',
-          draft: false,
-          needs_push: false,
-        },
-      }),
-    )
+    await page.route('**/api/pull-request/draft', (route) => route.fulfill({ json: pullDraft }))
     await page.route('**/api/pull-request', (route) =>
       route.fulfill({
         json: {
@@ -331,5 +352,41 @@ for (const theme of themes) {
     const violations = await scan(page)
     const summary = violations.map((v) => `${v.id} (${String(v.nodes.length)})`).join(', ')
     expect(violations, `${theme} / working tree: ${summary}`).toEqual([])
+  })
+}
+
+// refused is what a write gets when the server cannot complete it.
+const refused = {
+  status: 500,
+  contentType: 'application/problem+json',
+  body: JSON.stringify({
+    type: 'https://jacob-delgado.github.io/workflow/docs/errors/#internal',
+    title: 'Internal error',
+    status: 500,
+    detail:
+      'the request could not be completed; try again, and run workflow doctor if it keeps failing',
+    code: 'internal',
+  }),
+}
+
+for (const theme of themes) {
+  test(`no accessibility violations beside a refused write in the ${theme} theme`, async ({
+    page,
+  }) => {
+    // Arrange: the stream's working tree, and a stage the server refuses.
+    await pinTheme(page, theme)
+    await streams(page, workingTreeSnapshot)
+    await page.route('**/api/stage', (route) => route.fulfill(refused))
+    await page.goto('/')
+    await openSection(page, 'Branch')
+
+    // Act: stage the untracked file, and let the refusal land.
+    await page.getByRole('button', { name: 'Stage notes.txt' }).click()
+    await expect(page.getByRole('alert')).toHaveText(/could not be completed/)
+
+    // Assert: axe finds nothing on the refusal and the working tree around it.
+    const violations = await scan(page)
+    const summary = violations.map((v) => `${v.id} (${String(v.nodes.length)})`).join(', ')
+    expect(violations, `${theme} / refused write: ${summary}`).toEqual([])
   })
 }
