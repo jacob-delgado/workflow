@@ -44,10 +44,11 @@ export const zAnnouncement = z.object({
 });
 
 /**
- * Where to post the announcement.
+ * Where to post the announcement, and the text its preview showed.
  */
 export const zAnnounceRequest = z.object({
-    channel: z.string()
+    channel: z.string(),
+    text: z.string().optional()
 });
 
 /**

@@ -65,13 +65,17 @@ export type Announcement = {
 };
 
 /**
- * Where to post the announcement.
+ * Where to post the announcement, and the text its preview showed.
  */
 export type AnnounceRequest = {
     /**
      * The channel to post to; empty uses the configured channel or the webhook.
      */
     channel: string;
+    /**
+     * The announcement as GET /api/announcement showed it. When given, the post is refused with 409 unless the announcement composed now reads the same; when left out, the announcement composed now is posted.
+     */
+    text?: string;
 };
 
 /**
@@ -1228,7 +1232,7 @@ export type AnnounceData = {
 
 export type AnnounceErrors = {
     /**
-     * There is no pull request to announce, or the server is not running in a git repository.
+     * There is no pull request to announce, the server is not running in a git repository, or the announcement changed since the given text was previewed.
      */
     409: Problem;
     /**

@@ -576,11 +576,15 @@ paths:
       description: >-
         Posts the composed announcement (see GET /api/announcement) to the
         configured service — to the given channel, or the configured one when
-        none is given, or the webhook's own channel. Refused with 409 when there
-        is no pull request to announce or the server is not running in a git
-        repository, and 422 when the service refuses the post or is not set up;
-        a service that cannot be reached, or asks to wait, is a 502. No answer
-        carries the service's own error, which can name the webhook.
+        none is given, or the webhook's own channel. Given the text a preview
+        showed, it posts only that text: when the announcement composed now
+        reads differently (CI turned red, the pull request merged), nothing is
+        posted and the answer is 409, so the caller previews it again. Refused
+        with 409 too when there is no pull request to announce or the server is
+        not running in a git repository, and 422 when the service refuses the
+        post or is not set up; a service that cannot be reached, or asks to
+        wait, is a 502. No answer carries the service's own error, which can
+        name the webhook.
       tags: [messaging]
       requestBody:
         required: true
@@ -597,8 +601,9 @@ paths:
                 $ref: "#/components/schemas/Announcement"
         "409":
           description: >-
-            There is no pull request to announce, or the server is not running
-            in a git repository.
+            There is no pull request to announce, the server is not running in
+            a git repository, or the announcement changed since the given text
+            was previewed.
           content:
             application/problem+json:
               schema: {$ref: "#/components/schemas/Problem"}
@@ -870,12 +875,20 @@ components:
 
     AnnounceRequest:
       type: object
-      description: Where to post the announcement.
+      description: >-
+        Where to post the announcement, and the text its preview showed.
       required: [channel]
       properties:
         channel:
           type: string
           description: The channel to post to; empty uses the configured channel or the webhook.
+        text:
+          type: string
+          description: >-
+            The announcement as GET /api/announcement showed it. When given,
+            the post is refused with 409 unless the announcement composed now
+            reads the same; when left out, the announcement composed now is
+            posted.
       additionalProperties: false
 
     StagingRequest:
