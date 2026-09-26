@@ -658,11 +658,6 @@ CLAUDE.md's catalog; most sit permanently in DEBT-64's worklist where no
 test can close them, the two compound guards' dead first operands among
 them.
 
-- `internal/cli/status.go:413` — `statusGlyph`'s `default` arm repeats the
-  `NotStarted` case; `stateWord` (`:438`) and `ciWord` (`:454`) do the same,
-  and the gobco report shows each last case true many times and never false.
-  `exhaustive` (`.golangci.yml:110`) checks switch and map, so a missing enum
-  case already fails lint and the default arms guard nothing.
 - `internal/messaging/messaging.go:112` — `Client.checkable` returns
   `ErrNoCredential` for `config.MessagingNone` and again in `default:`
   (`:114`); `markupFor` (`internal/messaging/post.go:267`) returns
