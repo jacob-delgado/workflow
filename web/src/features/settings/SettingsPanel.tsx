@@ -66,8 +66,9 @@ function ConfigForm({ read, takesFocus }: { read: ConfigRead; takesFocus: boolea
     defaultValues: read.config,
   })
   // The revision of the file the form's values stand for: the read that seeded
-  // it, then each save and each reload. A save names it, so it never writes
-  // over a change the form has not seen, even once the cached read has moved on.
+  // it, then each save and each reload. A save names it, so the server refuses
+  // it over a change the form has not seen, even once the cached read has moved
+  // on — unless that change lands between the server's check and its write.
   const [revision, setRevision] = useState(read.revision)
   // Whether the last save was refused because the file changed since the form
   // read it: the refusal that Reload, not another save, answers.

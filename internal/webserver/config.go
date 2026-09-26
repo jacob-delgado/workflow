@@ -73,9 +73,11 @@ func (s *server) reread() (config.Config, basis, error) {
 
 // UpdateConfig writes the configuration file, but only over the revision
 // If-Match names, so a change made since that read, on disk or by another
-// tab's save, is refused rather than overwritten. A stored secret is kept when
-// its field comes back masked or empty. It returns the result with secrets
-// masked, and the revision it wrote as its ETag.
+// tab's save, is refused with 409. Saves from this server are serialized, but
+// the check and the write to disk are not one step (config.SaveOver), so an
+// edit landing on disk between the two is written over. A stored secret is
+// kept when its field comes back masked or empty. It returns the result with
+// secrets masked, and the revision it wrote as its ETag.
 func (s *server) UpdateConfig(
 	_ context.Context, request api.UpdateConfigRequestObject,
 ) (api.UpdateConfigResponseObject, error) {

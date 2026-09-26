@@ -146,13 +146,14 @@ back. A credential is shown masked and kept as it is unless you type a new one.
 What the form has no field for yet is kept unchanged when you save: `version`,
 all of `ui` and `timing`, `jira.token_command`, `jira.token_env`,
 `jira.headers`, `jira.views`, `messaging.token_command`, `messaging.token_env`,
-`messaging.channels` and `branch.prefixes`. Settings reads the file
-each time it opens, and a save never overwrites a change it has not seen: when
-the file changed after Settings read it (edited on disk, rewritten by `workflow
-config init --force`, or saved from another tab), nothing is written, and
-**Reload** reads it again in place of your edits so you can make the change
-again. When the file on disk is not valid, Settings says so in place of the
-form, and `workflow doctor` says what is wrong with it.
+`messaging.channels` and `branch.prefixes`. Settings reads the file each time
+it opens, and a save checks that the file has not changed since: when it has
+(edited on disk, rewritten by `workflow config init --force`, or saved from
+another tab), nothing is written, and **Reload** reads it again in place of your
+edits so you can make the change again. The check and the write are not one
+step, so a change that lands in the moment between them is still written over.
+When the file on disk is not valid, Settings says so in place of the form, and
+`workflow doctor` says what is wrong with it.
 
 ## What stays in the terminal
 
