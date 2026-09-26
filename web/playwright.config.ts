@@ -5,16 +5,18 @@ const isCI = Boolean(process.env.CI)
 const hermeticURL = 'http://localhost:4173'
 const mockURL = 'http://localhost:4174'
 
-// The e2e run has no backend. It serves two builds of the SPA with Vite preview:
-// the production build, whose specs answer the API themselves (page.route) and
-// otherwise see the shell and its empty states; and a VITE_MOCK build, which
-// fills every section from the mockup's fixtures, so the axe scan and the
-// screenshots see what a populated cockpit draws. A spec meant for the
-// populated build carries the @populated tag, and runs only there. A later
-// change adds `workflow --web` to the server list so the data-driven panels can
-// be exercised against a real API too.
+// This e2e run has no backend. It serves two builds of the SPA with Vite
+// preview: the production build, whose specs answer the API themselves
+// (page.route) and otherwise see the shell and its empty states; and a
+// VITE_MOCK build, which fills every section from the mockup's fixtures, so the
+// axe scan and the screenshots see what a populated cockpit draws. A spec meant
+// for the populated build carries the @populated tag, and runs only there. The
+// specs under e2e/server drive writes against a running `workflow --web`
+// instead, in a run of their own (playwright.server.config.ts), so this one
+// leaves them out.
 export default defineConfig({
   testDir: 'e2e',
+  testIgnore: 'server/**',
   fullyParallel: true,
   forbidOnly: isCI,
   retries: 0,

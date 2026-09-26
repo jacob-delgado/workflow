@@ -31,11 +31,16 @@ yarn". `corepack yarn` runs the pinned yarn straight from Node.
 - `task web:build` — type-check and build the production bundle.
 
 The repo's `task check` runs the first three beside the Go gates, installing
-dependencies first when they are missing. The Playwright suite
-(`corepack yarn test:e2e`) stays outside it and runs in CI. It serves two builds:
-the production one, and a VITE_MOCK one whose populated sections the specs
-tagged `@populated` scan with axe and screenshot at 640, 1024 and 1440 px into
+dependencies first when they are missing. The Playwright suites stay outside it
+and run in CI. `corepack yarn test:e2e` serves two builds with no backend: the
+production one, and a VITE_MOCK one whose populated sections the specs tagged
+`@populated` scan with axe and screenshot at 640, 1024 and 1440 px into
 `test-results/` (CI uploads them as the `screens` artifact).
+`corepack yarn test:e2e:server` runs the specs under `e2e/server` against the
+binary `task build` makes: `scripts/e2e-server.sh` serves `workflow --web` on
+port 7000 from a throwaway repository with a bare origin, and a spec stages,
+commits and pushes through the page. Nothing may already be listening on port
+7000 — on macOS, AirPlay Receiver does unless it is turned off.
 
 ## Conventions
 
@@ -72,6 +77,8 @@ tagged `@populated` scan with axe and screenshot at 640, 1024 and 1440 px into
   regeneration goes onto its own pull request.
 - **`@types/node` 26 over mise's Node 24** is left as is on purpose. It types
   only what `tsconfig.node.json` includes — the Vite, Vitest, Playwright and
-  openapi-ts configs and `e2e/` — which call nothing past `node:url` and
-  `process.env`. A Node 26-only call there would type-check and then fail on
-  24; pinning `^24`, a downgrade, would close that.
+  openapi-ts configs and `e2e/` — which call only Node APIs long present on
+  24: `node:url`'s `fileURLToPath`, `node:os`'s `tmpdir`, `node:path`'s
+  `join`, `node:child_process`'s `execFileSync` and `process.env`. A Node
+  26-only call there would type-check and then fail on 24; pinning `^24`, a
+  downgrade, would close that.
