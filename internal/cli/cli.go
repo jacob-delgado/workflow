@@ -300,7 +300,8 @@ func WebServerAt(addr string) RunWeb {
 // one. They are the same seams, which is why the web server is another consumer
 // of the wiring rather than a second implementation. A seam the interface wires
 // is never dropped on the way: the server would answer that write as not
-// available.
+// available. The server also takes the interface's keymap check, so Settings
+// never saves a ui.keys map the interface would refuse to start on.
 func WebDeps(deps tui.Deps) webserver.Deps {
 	return webserver.Deps{
 		Search:       deps.Jira.Search,
@@ -331,6 +332,8 @@ func WebDeps(deps tui.Deps) webserver.Deps {
 
 		LastScope:   deps.Store.LastScope,
 		RecordScope: deps.Store.RecordScope,
+
+		CheckKeys: tui.CheckKeys,
 	}
 }
 

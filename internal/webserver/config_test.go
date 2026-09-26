@@ -5,8 +5,11 @@ package webserver_test
 
 import (
 	"encoding/json"
+	"errors"
+	"io/fs"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -215,5 +218,81 @@ func TestUpdateConfigRefusesAUIValueOutsideTheContract(t *testing.T) {
 				t.Errorf("code = %q, want bad_request", failure.Code)
 			}
 		})
+	}
+}
+
+// errCommitOnTaken is a keymap check's refusal, in the words the terminal
+// interface's own check uses.
+var errCommitOnTaken = errors.New(`ui.keys binds two actions to one key in the same context: ` +
+	`stage and commit both bind "space" in the Branch and Commits panes`)
+
+// refuseAMovedCommit is a keymap check that refuses a map moving commit and
+// accepts any other.
+func refuseAMovedCommit(keys map[string]string) error {
+	if _, moved := keys["commit"]; moved {
+		return errCommitOnTaken
+	}
+
+	return nil
+}
+
+func TestUpdateConfigRefusesAKeymapTheInterfaceWouldRefuse(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	cfg := config.Default()
+	cfg.Path = filepath.Join(t.TempDir(), ".workflow.json")
+
+	next := config.Default()
+	next.UI.Keys = map[string]string{"commit": "space"}
+
+	handler := serve(t, webserver.Deps{CheckKeys: refuseAMovedCommit}, cfg)
+
+	// Act
+	recorder := putConfig(t, handler, marshal(t, next))
+
+	// Assert
+	if recorder.Code != http.StatusUnprocessableEntity {
+		t.Fatalf("status = %d, want 422: %s", recorder.Code, recorder.Body.String())
+	}
+
+	failure := decode[api.Problem](t, recorder)
+	if failure.Code != api.Unprocessable || !strings.Contains(failure.Detail, errCommitOnTaken.Error()) {
+		t.Errorf("problem = %q saying %q, want unprocessable saying %q", failure.Code, failure.Detail, errCommitOnTaken)
+	}
+
+	_, err := os.Stat(cfg.Path)
+	if !errors.Is(err, fs.ErrNotExist) {
+		t.Errorf("stat of the configuration file = %v, want it never written", err)
+	}
+}
+
+func TestUpdateConfigSavesAKeymapTheInterfaceAccepts(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	cfg := config.Default()
+	cfg.Path = filepath.Join(t.TempDir(), ".workflow.json")
+
+	next := config.Default()
+	next.UI.Keys = map[string]string{"comment": "ctrl+e"}
+
+	handler := serve(t, webserver.Deps{CheckKeys: refuseAMovedCommit}, cfg)
+
+	// Act
+	recorder := putConfig(t, handler, marshal(t, next))
+
+	// Assert
+	if recorder.Code != http.StatusOK {
+		t.Fatalf("status = %d, want 200: %s", recorder.Code, recorder.Body.String())
+	}
+
+	saved, err := config.LoadFile(cfg.Path)
+	if err != nil {
+		t.Fatalf("reading the saved file: %v", err)
+	}
+
+	if saved.UI.Keys["comment"] != "ctrl+e" {
+		t.Errorf("saved ui.keys = %v, want comment on ctrl+e", saved.UI.Keys)
 	}
 }

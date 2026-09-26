@@ -404,10 +404,11 @@ action you leave out keeps its default.
 
 A key can mean different things in different places — `c` comments on the Issues
 pane and commits on the Commits pane — so each meaning is a separate action you
-rebind on its own. workflow refuses to start, and `workflow doctor` reports the
-problem, when a map names an action that does not exist, moves `jump-to-pane` —
-its keys are the pane numbers, `1`–`6`, which no one key can stand in for —
-or binds two actions that are live at the same time to one key.
+rebind on its own. workflow refuses to start, `workflow doctor` reports the
+problem, and Settings in `workflow --web` refuses to save it, when a map names
+an action that does not exist, moves `jump-to-pane` — its keys are the pane
+numbers, `1`–`6`, which no one key can stand in for — or binds two actions
+that are live at the same time to one key.
 
 The actions you can rebind, grouped by where they work, are:
 

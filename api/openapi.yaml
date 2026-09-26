@@ -409,7 +409,8 @@ paths:
         (jira.token, messaging.token, messaging.webhook_url, forge.token) left
         empty or sent back with its masked value keeps the stored secret; a new
         value replaces it. The body is validated the same way a file read is,
-        and rejected with 422 when it is invalid.
+        and its ui.keys map is checked as the terminal interface checks one
+        before it starts; a body that fails either is rejected with 422.
       tags: [config]
       parameters:
         - name: If-Match
@@ -446,7 +447,9 @@ paths:
             application/problem+json:
               schema: {$ref: "#/components/schemas/Problem"}
         "422":
-          description: The configuration is invalid; nothing was written.
+          description: >-
+            The configuration is invalid, or holds a ui.keys map the terminal
+            interface would refuse to start on; nothing was written.
           content:
             application/problem+json:
               schema: {$ref: "#/components/schemas/Problem"}

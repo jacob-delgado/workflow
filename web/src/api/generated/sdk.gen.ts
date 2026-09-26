@@ -168,7 +168,7 @@ export const getConfig = <ThrowOnError extends boolean = false>(options?: Option
 /**
  * Write the configuration file.
  *
- * Replaces the configuration file, but only while it is still at the revision If-Match names, so a change made since that read, on disk or by another tab's save, is never overwritten. A secret field (jira.token, messaging.token, messaging.webhook_url, forge.token) left empty or sent back with its masked value keeps the stored secret; a new value replaces it. The body is validated the same way a file read is, and rejected with 422 when it is invalid.
+ * Replaces the configuration file, but only while it is still at the revision If-Match names, so a change made since that read, on disk or by another tab's save, is never overwritten. A secret field (jira.token, messaging.token, messaging.webhook_url, forge.token) left empty or sent back with its masked value keeps the stored secret; a new value replaces it. The body is validated the same way a file read is, and its ui.keys map is checked as the terminal interface checks one before it starts; a body that fails either is rejected with 422.
  */
 export const updateConfig = <ThrowOnError extends boolean = false>(options: Options<UpdateConfigData, ThrowOnError>): RequestResult<UpdateConfigResponses, UpdateConfigErrors, ThrowOnError> => (options.client ?? client).put<UpdateConfigResponses, UpdateConfigErrors, ThrowOnError>({
     responseValidator: async (data) => await zUpdateConfigResponse.parseAsync(data),
