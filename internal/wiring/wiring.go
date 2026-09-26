@@ -1,9 +1,8 @@
 // Copyright 2026 Jacob Delgado
 // SPDX-License-Identifier: Apache-2.0
 
-// Package wiring connects the terminal interface to the real Jira, repository,
-// forge, messaging service, lefthook and editor. It is the one place each seam
-// the interface declares meets the client that answers it.
+// Package wiring connects the seams every surface shares — the command line's,
+// the terminal's and the web's — to the real clients that answer them.
 package wiring
 
 import (
