@@ -15,7 +15,7 @@ export function mockIssueDetail(key: string): IssueDetail {
     type: issue?.type ?? 'Task',
     priority: issue?.priority,
     reporter: 'Ana Lopez',
-    assignee: 'ana.lopez',
+    assignee: 'Ana Lopez',
     description:
       'The request log records every header, so a bearer token lands in the log file.\n\n' +
       'Redact the Authorization header before the line is written.',
