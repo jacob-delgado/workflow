@@ -1377,39 +1377,6 @@ repository so one spec can commit, push and open a pull request.
 
 **Done when.** One Playwright spec performs a write against a running server.
 
-### DEBT-146 `internal/webserver/coverage_test.go` is named for the gate, not for what it tests
-
-Severity: low · Confidence: read
-
-`internal/webserver/coverage_test.go` holds eleven tests over seven
-handlers: `TestListIssuesUsesTheNamedView` (`:19`),
-`TestGetIssueReportsAFailure` (`:44`), `TestGetBranchReportsAFailure`
-(`:60`), `TestListChangesIsEmptyWithoutARepository` (`:76`),
-`TestListChangesReportsAFailure` (`:92`),
-`TestGetMessagingHasNoAuthorWithoutAForge` (`:108`), two `GetReview` tests
-(`:124`, `:158`) and three `UpdateConfig` tests (`:191`, `:220`, `:255`).
-The issue, review and config tests have home files beside it
-(`internal/webserver/issues_test.go`, `internal/webserver/review_test.go`,
-`internal/webserver/config_test.go`,
-`internal/webserver/configrevision_test.go`); the `GetBranch`,
-`ListChanges` and `GetMessaging` tests have none, their siblings sitting in
-`internal/webserver/webserver_test.go` (`:347`, `:359`, `:375`, `:387`,
-`:405`, `:424`), a file named for the package; and the file's name says only
-why it was written. A contributor looking for the config save tests reads
-`internal/webserver/config_test.go` and
-`internal/webserver/configrevision_test.go` and misses three.
-
-**One way to fix it.** Move each test beside its handler's tests; move the
-`GetBranch`, `ListChanges` and `GetMessaging` tests from both files into
-three new test files in `internal/webserver`, one named for each handler;
-and delete `internal/webserver/coverage_test.go`.
-
-**Done when.** No `internal/webserver/coverage_test.go` exists,
-`internal/webserver/webserver_test.go` holds no `GetBranch`, `ListChanges`
-or `GetMessaging` test, and each of the package's other test files is named
-for a handler or a concern (`internal/webserver/webserver_test.go` keeps the
-package-wide tests).
-
 ### DEBT-148 Four clicked steps in the web are never scanned or walked
 
 Severity: medium · Confidence: read

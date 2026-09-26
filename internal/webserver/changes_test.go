@@ -12,19 +12,15 @@ import (
 	"github.com/jacob-delgado/workflow/internal/gitrepo"
 )
 
-func TestGetBranchReportsAFailure(t *testing.T) {
+func TestListChangesReturnsTheWorkingTree(t *testing.T) {
 	t.Parallel()
 
-	// Arrange
-	deps := filledDeps()
-	deps.Branch = func() (gitrepo.Branch, error) { return gitrepo.Branch{}, errSeam }
-
 	// Act
-	recorder := get(t, serve(t, deps, config.Default()), "/api/branch")
+	changes := decode[api.ChangeList](t, get(t, serve(t, filledDeps(), config.Default()), "/api/changes"))
 
 	// Assert
-	if recorder.Code != http.StatusInternalServerError {
-		t.Errorf("status = %d, want 500", recorder.Code)
+	if len(changes.Changes) != 1 || changes.Changes[0].Path != "internal/config/config.go" {
+		t.Errorf("changes = %+v, want the one staged file", changes.Changes)
 	}
 }
 
@@ -57,21 +53,5 @@ func TestListChangesReportsAFailure(t *testing.T) {
 	// Assert
 	if recorder.Code != http.StatusInternalServerError {
 		t.Errorf("status = %d, want 500", recorder.Code)
-	}
-}
-
-func TestGetMessagingHasNoAuthorWithoutAForge(t *testing.T) {
-	t.Parallel()
-
-	// Arrange
-	deps := filledDeps()
-	deps.Author = nil
-
-	// Act
-	destination := decode[api.MessagingDestination](t, get(t, serve(t, deps, config.Default()), "/api/messaging"))
-
-	// Assert
-	if destination.Author != "" {
-		t.Errorf("author = %q, want empty without a forge", destination.Author)
 	}
 }
