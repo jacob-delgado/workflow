@@ -75,9 +75,8 @@ terminal, a file on disk, the loopback server or a release.
 
 What is open here is the clients and plumbing every command shares (the
 interface and the web reach them too), the drift between the docs, the
-comments and the code they describe, and three sweeps that cross every
-surface — tests that prove nothing, facts written twice and arms no input
-reaches.
+comments and the code they describe, and two sweeps that cross every
+surface — tests that prove nothing and arms no input reaches.
 
 ### DEBT-89 Comments and layout rows that no longer say what the code does
 
@@ -649,35 +648,6 @@ select while `useViews` is in error; replacing the check anchor in
 `web/src/features/review/ReviewPanel.tsx` with a span; deleting `breaking:
 fields.breaking` from `web/src/features/branch/CommitForm.tsx`; and deleting
 the "opening will push it first" paragraph.
-
-### DEBT-93 Facts written in two places with nothing holding the copies together
-
-Severity: low · Confidence: read
-
-Facts the code needs in more than one place are written in each, with
-nothing keeping the copies equal. CLAUDE.md names the smell and the rule of
-three; no linter or knip rule sees any of it.
-
-- `web/src/features/settings/SettingsPanel.tsx:59` — `secondaryButton`
-  carries `text-foreground` where every other copy has `text-sm`; `control`
-  (`web/src/features/reviewqueue/ReviewQueuePanel.tsx:27`) lacks the
-  `disabled:` classes; and the same string is inline in `AnnouncePreview`
-  (`web/src/features/messaging/MessagingPanel.tsx:261`), `PushButton`
-  (`web/src/features/branch/BranchPanel.tsx:144`), `PullRequestForm`
-  (`web/src/features/review/ReviewPanel.tsx:284`), `CheckoutButton`
-  (`web/src/features/issues/WorkStory.tsx:287`), `FollowUpOffer`
-  (`web/src/features/review/OpenedOutcome.tsx:88`) and `IssueUnread`
-  (`web/src/features/issues/IssueDetailPanel.tsx:83`), with the primary's
-  inline in `CommitForm` (`web/src/features/branch/CommitForm.tsx:94`) and
-  at each of the other seven primary buttons.
-
-A change to the focus ring is eight edits.
-
-**One way to fix it.** One `Button` component or two class constants.
-
-**Done when.**
-`grep -rn "border border-input px-3 py-1.5" web/src --include='*.tsx'`
-matches one definition site.
 
 ### DEBT-94 Arms and guards no input can reach, on every surface
 

@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef } from 'react'
 import { useForm, type UseFormRegister } from 'react-hook-form'
 import type { Branch } from '@/api/generated/types.gen.ts'
+import { Button } from '@/lib/Button.tsx'
 import { OutcomeLine, useOutcome } from '@/lib/Outcome.tsx'
 import { useAsyncAction } from '@/lib/useAsyncAction.ts'
 import { cn } from '@/lib/utils.ts'
@@ -88,13 +89,14 @@ export function CommitForm({
         onScopeTyping={scopeSuggestion.typing}
       />
       <div className="flex items-center gap-item">
-        <button
+        <Button
+          variant="primary"
           type="submit"
           disabled={blocked !== null || commit.state === 'running'}
-          className="self-start rounded-md bg-primary px-3 py-1.5 text-sm font-medium text-primary-foreground hover:bg-primary/90 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none disabled:cursor-not-allowed disabled:bg-disabled disabled:text-disabled-foreground"
+          className="self-start"
         >
           {commit.state === 'running' ? 'Committing…' : 'Commit staged changes'}
-        </button>
+        </Button>
         {blocked === null ? null : <p className="text-sm text-muted-foreground">{blocked}</p>}
         <OutcomeLine said={outcome.said} />
         {commit.state === 'error' ? (

@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { apiErrorMessage } from '@/api/apiError.ts'
 import type { Config } from '@/api/generated/types.gen.ts'
+import { Button } from '@/lib/Button.tsx'
 import { type AsyncState, useAsyncAction } from '@/lib/useAsyncAction.ts'
 import { EmptyState } from '@/shell/EmptyState.tsx'
 import {
@@ -35,17 +36,16 @@ export function SettingsPanel() {
       <EmptyState>
         <span className="flex flex-col items-center gap-group">
           {apiErrorMessage(query.error, 'The configuration could not be loaded.')}
-          <button
-            type="button"
+          <Button
+            variant="secondary"
             disabled={query.isFetching}
             onClick={() => {
               setRetried(true)
               void query.refetch()
             }}
-            className={secondaryButton}
           >
             {query.isFetching ? 'Retrying…' : 'Retry'}
-          </button>
+          </Button>
         </span>
       </EmptyState>
     )
@@ -53,10 +53,6 @@ export function SettingsPanel() {
 
   return <ConfigForm read={query.data} takesFocus={retried} />
 }
-
-// secondaryButton is how a control beside the form's own Save is drawn.
-const secondaryButton =
-  'rounded-md border border-input px-3 py-1.5 text-foreground hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none disabled:cursor-not-allowed disabled:bg-disabled disabled:text-disabled-foreground'
 
 // ConfigForm edits the configuration, one fieldset per section it can edit. It
 // takes focus, on its first field, only when it replaces a control that had
@@ -145,13 +141,9 @@ function ConfigForm({ read, takesFocus }: { read: ConfigRead; takesFocus: boolea
 function SaveControls({ state, error }: { state: AsyncState; error: string }) {
   return (
     <div className="flex items-center gap-item">
-      <button
-        type="submit"
-        disabled={state === 'running'}
-        className="rounded-md bg-primary px-3 py-1.5 text-sm font-medium text-primary-foreground hover:bg-primary/90 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none disabled:cursor-not-allowed disabled:bg-disabled disabled:text-disabled-foreground"
-      >
+      <Button variant="primary" type="submit" disabled={state === 'running'}>
         {state === 'running' ? 'Saving…' : 'Save changes'}
-      </button>
+      </Button>
       <span role="status" className="text-sm">
         {state === 'done' ? <span className="text-success">Saved.</span> : null}
         {state === 'error' ? <span className="text-destructive">{error}</span> : null}
@@ -177,16 +169,15 @@ function ChangedSinceRead({ reload }: { reload: ReloadAction }) {
         another tab — so nothing was saved. Reload reads it again in place of your edits here; then
         make your change again.
       </p>
-      <button
-        type="button"
+      <Button
+        variant="secondary"
         disabled={reload.state === 'running'}
         onClick={() => {
           void reload.run()
         }}
-        className={secondaryButton}
       >
         {reload.state === 'running' ? 'Reloading…' : 'Reload'}
-      </button>
+      </Button>
       {reload.state === 'error' ? (
         <p role="alert" className="text-sm text-destructive">
           {reload.error}

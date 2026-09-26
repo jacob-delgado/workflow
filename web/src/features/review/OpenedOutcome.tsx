@@ -1,5 +1,6 @@
 import type { FollowUp, OpenedPullRequest } from '@/api/generated/types.gen.ts'
 import { useForgeWords } from '@/api/health.ts'
+import { Button } from '@/lib/Button.tsx'
 import { OutcomeLine, useOutcome } from '@/lib/Outcome.tsx'
 import { useAsyncAction } from '@/lib/useAsyncAction.ts'
 import { linkOnIssue, moveToReview } from './followUpApi.ts'
@@ -79,16 +80,16 @@ function FollowUpOffer({ offer, pull, noun }: { offer: FollowUp; pull: string; n
   return (
     <div className="flex flex-col gap-tight">
       {state === 'done' ? null : (
-        <button
-          type="button"
+        <Button
+          variant="secondary"
           disabled={state === 'running'}
           onClick={() => {
             void run()
           }}
-          className="self-start rounded-md border border-input px-3 py-1.5 text-sm hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none disabled:cursor-not-allowed disabled:bg-disabled disabled:text-disabled-foreground"
+          className="self-start"
         >
           {state === 'running' ? words.busy : words.label}
-        </button>
+        </Button>
       )}
       <OutcomeLine said={outcome.said} />
       {state === 'error' ? (
