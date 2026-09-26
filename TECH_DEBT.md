@@ -478,13 +478,6 @@ The web:
   (`:338`) passes because jsdom does not move focus off a disabled control,
   while `IssueUnread`'s `disabled={retrying}`
   (`web/src/features/issues/IssueDetailPanel.tsx:81`) drops it in Chromium.
-- `web/src/features/writes.test.tsx:326` — the writes table discards the
-  `Request[]` that `fakeApi` (`web/src/test/fakeApi.ts:14`) returns for
-  exactly this, so `breaking: fields.breaking` in `CommitForm`
-  (`web/src/features/branch/CommitForm.tsx:61`) can be dropped —
-  `CommitRequest.breaking` is optional
-  (`web/src/api/generated/types.gen.ts:114`), so it compiles — and no test
-  fails.
 
 The store:
 
@@ -503,18 +496,16 @@ The store:
   `RecordScope` or `CacheIssues` that writes nothing passes.
 
 The regressions these tests exist to catch pass the suite green: a
-`timestamp()` that writes `now.String()`, and a commit sent without its `!`
-or body.
+`timestamp()` that writes `now.String()`.
 
 **One way to fix it.** Sharpen each Assert to what its name claims:
-`aria-disabled` on Retry or a Playwright focus case; the recorded requests
-read for their bodies; raw-file reads that parse each `_at`, a cascade a
-test makes fire, and each Arrange's error fatal.
+`aria-disabled` on Retry or a Playwright focus case; raw-file reads that
+parse each `_at`, a cascade a test makes fire, and each Arrange's error
+fatal.
 
 **Done when.** Each named mutation fails a test: changing `timestamp()` to
 `now.String()`, removing `foreign_keys(1)` from `dsnPragmas`, or making
-`RecordScope` or `CacheIssues` return nil without writing; and deleting
-`breaking: fields.breaking` from `web/src/features/branch/CommitForm.tsx`.
+`RecordScope` or `CacheIssues` return nil without writing.
 
 ### DEBT-105 The contributor documents restate counts and names the tree has moved past
 
