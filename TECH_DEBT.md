@@ -109,14 +109,6 @@ The configuration page:
   `timing.ci_interval` is set, CI is polled every three minutes" gives two
   of `pollInterval`'s three conditions (`internal/tui/review.go:195`): no
   announcement may be waiting either.
-- `docs/content/docs/configuration.md:485` — the store is "keyed only by a
-  repository's host and path and by a hash of your Jira URL", and
-  `ARCHITECTURE.md:256` says the repository key is the remote's parsed host
-  and path; `migrate` (`internal/store/store.go:258`) keys the cache by
-  `(instance, view)`, where `Model.cacheIssues`
-  (`internal/tui/issues.go:53`) passes the view's JQL text, and `repoKey`
-  (`internal/wiring/wiring.go:385`) falls back to `where.Root` when there is
-  no remote or it does not parse.
 
 The README and the docs index:
 
