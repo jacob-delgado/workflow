@@ -48,6 +48,9 @@ const (
 	// waitAndTryAgain is what an answer to a service limiting requests says to
 	// do, whichever service it is.
 	waitAndTryAgain = "wait and try again"
+	// repoPath is where the repository sits on disk, which a git error can
+	// carry and no answer may repeat.
+	repoPath = "/home/dev/src/acme"
 	// loopbackHost is the Host the shared request helpers send, so requests pass
 	// the loopback guard the same way a browser on 127.0.0.1 does. A test that
 	// exercises the guard sets its own Host instead.

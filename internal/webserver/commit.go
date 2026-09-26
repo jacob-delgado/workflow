@@ -22,14 +22,18 @@ var (
 	// errCommitFailed carries the commit's own output — a failing hook, most
 	// often — so the caller learns why it did not land.
 	errCommitFailed = errors.New("the commit failed")
+	// errCommitNotStarted is a commit that never ran. Its cause stays off the
+	// wire: what git says about its repository can name where that is on disk.
+	errCommitNotStarted = errors.New("the commit could not be started")
 )
 
 // Commit commits the staged changes with a Conventional Commit message built
 // from the request and a Refs trailer for the branch's issue. An empty index is
-// a 409; a message that is not a valid Conventional Commit, or a commit its
-// hooks reject, is a 422. On success it returns the branch with the new commit,
-// or, when the branch cannot be read back, the branch as it stood with no head
-// or commits named: the commit landed all the same.
+// a 409; a message that is not a valid Conventional Commit, a commit its hooks
+// reject — whose output the answer carries — or one that cannot be started is a
+// 422. On success it returns the branch with the new commit, or, when the
+// branch cannot be read back, the branch as it stood with no head or commits
+// named: the commit landed all the same.
 func (s *server) Commit(_ context.Context, request api.CommitRequestObject) (api.CommitResponseObject, error) {
 	if request.Body == nil {
 		return commitUnprocessable("a commit message is required"), nil
@@ -62,6 +66,8 @@ func (s *server) Commit(_ context.Context, request api.CommitRequestObject) (api
 		return api.Commit200JSONResponse(branchDTO(branch)), nil
 	case errors.Is(err, loop.ErrNothingStaged):
 		return api.Commit409ApplicationProblemPlusJSONResponse(problem(api.Conflict, errNothingStaged.Error())), nil
+	case errors.Is(err, errCommitNotStarted):
+		return commitUnprocessable(errCommitNotStarted.Error() + "; commit from a terminal to see why"), nil
 	default:
 		return commitUnprocessable(err.Error()), nil
 	}
@@ -130,7 +136,7 @@ func withoutCommits(before gitrepo.Branch) gitrepo.Branch {
 func (s *server) runCommit(message string) error {
 	output, err := s.deps.Commit(message)
 	if err != nil {
-		return fmt.Errorf("starting the commit: %w", err)
+		return fmt.Errorf("%w: %w", errCommitNotStarted, err)
 	}
 
 	var lines []string
