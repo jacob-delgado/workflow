@@ -58,9 +58,9 @@ pointer also names the symbol it means.
   code agree). This edition is read and measured.
 - **Done when** is observable, so a test or a command can assert it.
 
-An entry is accidental debt unless it appears under
-[Deliberate trade-offs](#deliberate-trade-offs-that-carry-a-cost), which lists
-the choices that were made on purpose and written down, and what they cost.
+An entry is accidental debt unless it is in
+[the trade-off register](#the-trade-off-register), which lists the choices
+made on purpose, what each costs, and what would reopen it.
 
 ## Security-relevant findings
 
@@ -80,15 +80,18 @@ Nothing is open here.
 Nothing is open here: the interface announces and drafts a pull request
 through `loop`, as the command line and the web do, and remembers what it
 announced through `loop.Deliver`, as the command line does (the web does not
-yet: FEAT-84). What it carries on purpose — the two composers' field
-handling written twice, and the spine's color-only hue — is under
-[Deliberate trade-offs](#deliberate-trade-offs-that-carry-a-cost).
+yet: FEAT-84). What it carries on purpose — the spine's color-only hue,
+the two composers' field handling written twice, and the editor seam kept
+in `internal/tui` — is in [the register](#the-trade-off-register) as
+TRADE-5, TRADE-6 and TRADE-11.
 
 ## The web
 
 Nothing is open here. What the web carries on purpose — read-only under
-`--dry-run`, and queries the stream keeps fresh — is under
-[Deliberate trade-offs](#deliberate-trade-offs-that-carry-a-cost).
+`--dry-run`, queries the stream keeps fresh, the host names git prints kept
+in a refused push's detail, and the stage rules written again in
+TypeScript — is in [the register](#the-trade-off-register) as TRADE-3,
+TRADE-4, TRADE-9 and TRADE-10.
 
 ## The gates, the build and the tests
 
@@ -97,7 +100,10 @@ clicked steps the web's axe scans and Tab walks once missed — the pull
 request form, the push confirmation, the announcement preview and a refused
 write — are scanned in both themes and walked at every width, and a
 server-backed run stages, commits and pushes through a running
-`workflow --web`.
+`workflow --web`. What the gates carry on purpose — every declared budget
+at its count, seven long test files, gobco's skip list of two and the web's
+range-based branch floor — is in [the register](#the-trade-off-register)
+as TRADE-1, TRADE-2, TRADE-7 and TRADE-8.
 
 ### DEBT-64 The condition-coverage worklist: 432 one-sided conditions, and 7 never evaluated
 
@@ -169,90 +175,235 @@ report is the worklist, most of it in `internal/tui`, `internal/cli` and
 the one above, and reads 92.0 % or more, so `BRANCH_COVERAGE_MIN` ratchets
 to 90.
 
-## Deliberate trade-offs that carry a cost
+## The trade-off register
 
-These were chosen on purpose and are written down at their sites. They are
-not debt; they are listed because each one costs something a reader should
-know about.
+These were chosen on purpose. They are not debt; they are listed because
+each one costs something a reader should know about. Each entry carries an
+ID that is never reused, when it was decided, what it costs, and the event
+that would reopen it, and the code it keeps carries a `Trade-off TRADE-n:`
+comment naming it. An audit or a review drops a finding that restates an
+entry here unless that entry's reopen trigger has fired.
+`scripts/check-tradeoffs.sh`, in `task lint`, fails an entry missing its ID
+or one of its three fields, and a site comment naming an ID the register
+does not hold.
 
-- **Every package with a declared file budget sits exactly at it** — the
-  numbers are in `scripts/package-size-budgets.txt`, and
-  `scripts/check-package-size.sh --list` shows the standings. That is the
-  gate working as designed, since a budget left above its count fails too:
-  the next file in any of them is a decision (a split, or a bump with the
-  WHY rewritten and a history row), not an accident. A directory the file
-  does not list answers to the default, which `internal/forge` and
-  `web/src/shell` fill exactly, so the next file in either is a first
-  entry with its WHY. The cost is that any change adding a file there
-  must carry its budget row in the same commit or fail `task check`.
-- **Seven test files stay past the 500-line soft target**, all under the
-  800 ceiling (`scripts/check-file-length.sh --list`). They were left whole
-  on purpose when the source files past the target were split by concern;
-  each holds the cases of one behavior. Announcing:
-  `internal/messaging/post_test.go` (766, the post to each service and the
-  announcement's text) and `internal/tui/messaging_test.go` (614, the
-  terminal's Messaging pane). Opening a pull request:
-  `internal/webserver/pullrequest_test.go` (585, the web's draft and open).
-  Staging, committing and pushing: `internal/tui/composer_test.go` (568,
-  the terminal's commit composer), `internal/webserver/staging_test.go`
-  (533, the web's stage and unstage) and
-  `web/src/features/branch/BranchPanel.test.tsx` (513, the web's commit and
-  push). Reading and writing an issue: `internal/jira/detail_test.go` (501,
-  Jira's issue read, comment and pull request link). The cost is that
-  `scripts/check-file-length.sh` still warns on every run, so a source file
-  newly past the target is one more line among seven a reader has learned
-  to skim.
-- **The web is read-only under `--dry-run`** (`internal/webserver/guard.go:40`
-  documents it): every unsafe method answers 403 at one gate, where the
-  terminal simulates each write and narrates it. The browser reads
-  `dry_run` from `getHealth`, says so in a banner, and holds every write
-  before sending it (`web/src/api/client.ts:25`), so the server's 403 is
-  only the backstop. The cost is that a web write under dry run is refused
-  outright rather than simulated: the browser cannot show what the write
-  would have done, as the terminal's narration does. The blanket refusal
-  itself is the intended design.
-- **`staleTime: Infinity`** (`web/src/queryClient.ts:14`) with the event
-  stream as the sole freshness source. Correct for a pushed snapshot; the
-  cost is that a stalled stream leaves stale data with no refetch to fall
-  back on. Three queries set their own `staleTime`. The issue detail's and
-  the review queue's are a minute (`web/src/features/issues/issueApi.ts:23`,
-  `web/src/features/reviewqueue/reviewQueueApi.ts:23`): the stream carries
-  only the list's slim issues and never the queue, so each is read again
-  when reopened after a minute, and the queue's Refresh reads it at once.
-  The configuration's is 0 (`web/src/features/settings/configApi.ts:65`):
-  the file can change on disk, which no event reports, so Settings reads it
-  again each time it opens. The commit form's types come from the snapshot
-  and, like commit validation, follow the configuration the server last
-  read or saved, so an edit made on disk reaches them once Settings is
-  opened or a save lands. A save that finds the file changed since Settings
-  read it is refused (409) and nothing is written; Settings offers
-  **Reload**. A change landing between that check and the write is not
-  caught (`SaveOver`, `internal/config/save.go:114`).
-- **The progress spine's per-system hue is color-only**
-  (`internal/tui/spine.go:69`), mitigated by the stage name, or its initial
-  when compact (`internal/tui/spine.go:51`). Part of the visual system UX.md
-  says should not change; the cost is one channel the monochrome reader does
-  not get.
-- **The two composers' field handling is written twice.** The commit and
-  pull request composers each pair an `onFieldNav` with a `*CanComplete`
-  check (`commitComposer.onFieldNav`, `internal/tui/scopesuggest.go:17`;
-  `prComposer.onFieldNav`, `internal/tui/prcomposer.go:367`), and each blurs
-  every field before focusing one (`commitComposer.focusOn`,
-  `internal/tui/composer.go:297`; `prComposer.focusOn`,
-  `internal/tui/prcomposer.go:388`). Two is not yet the rule of three, so
-  they stay apart until a third composer needs them. The cost is that a
-  change to field navigation is made twice, and a third composer must copy
-  the pairs or extract them then.
-- **A condition-coverage skip list of two** (`UNANALYZABLE`,
-  `scripts/gobco-report.sh:85`): gobco ignores build tags, so it cannot read
-  a package whose files come in tagged twins, and `internal/proc/pgroup` and
-  `internal/web` are named there with that reason beside them. Every other
-  package is read, and one that becomes unreadable without being named fails
-  the gate rather than shrinking the number. The cost is that the two named
-  packages' conditions go unmeasured — platform glue and an embed stub, with
-  no branch worth the count — and that the next tagged twin must join them.
-- **The web's branch floor is v8's range-based count**
-  (`web/vitest.config.ts:45` `thresholds`), not a gobco-style per-condition
-  one: v8 marks a branch covered once its range of code has run, and never
-  asks which way each operand of a condition went. The cost is that an
-  `a && b` only ever seen with `b` true still passes the web's floor.
+### TRADE-1 Every package with a declared file budget sits exactly at it
+
+The numbers are in `scripts/package-size-budgets.txt`, and
+`scripts/check-package-size.sh --list` shows the standings. That is the
+gate working as designed, since a budget left above its count fails too:
+the next file in any of them is a decision (a split, or a bump with the WHY
+rewritten and a history row), not an accident. A directory the file does
+not list answers to the default, which `internal/forge` and `web/src/shell`
+fill exactly, so the next file in either is a first entry with its WHY.
+
+**Decided.** Recorded on 2026-09-24 in the audit (#140), and kept on
+2026-09-25 when the debt paydown reopened none of the recorded trade-offs.
+
+**Cost.** Any change adding a file there must carry its budget row in the
+same commit or fail `task check`.
+
+**Reopen when.** One directory's budget rises three times in rows of
+`scripts/package-size-budget-history.md` dated after 2026-09-25, with no
+row lowering it between them.
+
+### TRADE-2 Seven test files stay past the 500-line soft target
+
+All seven are under the 800 ceiling (`scripts/check-file-length.sh
+--list`). They were left whole on purpose when the source files past the
+target were split by concern; each holds the cases of one behavior.
+Announcing: `internal/messaging/post_test.go` (766, the post to each
+service and the announcement's text) and `internal/tui/messaging_test.go`
+(614, the terminal's Messaging pane). Opening a pull request:
+`internal/webserver/pullrequest_test.go` (585, the web's draft and open).
+Staging, committing and pushing: `internal/tui/composer_test.go` (568, the
+terminal's commit composer), `internal/webserver/staging_test.go` (533, the
+web's stage and unstage) and `web/src/features/branch/BranchPanel.test.tsx`
+(513, the web's commit and push). Reading and writing an issue:
+`internal/jira/detail_test.go` (501, Jira's issue read, comment and pull
+request link). The counts are pinned: a commit that changes the length of
+one of these files updates its count here.
+
+**Decided.** Recorded on 2026-09-24 in the audit (#140), and kept on
+2026-09-25 when the debt paydown reopened none of the recorded trade-offs.
+
+**Cost.** `scripts/check-file-length.sh` still warns on every run, so a
+source file newly past the target is one more line among seven a reader has
+learned to skim.
+
+**Reopen when.** One of the seven passes 700 lines, or grows at all once
+past it (`post_test.go` is at 766), or starts holding the cases of a second
+behavior.
+
+### TRADE-3 The web is read-only under `--dry-run`
+
+`refuseWritesInDryRun` (`internal/webserver/guard.go:40`) documents it:
+every unsafe method answers 403 at one gate, where the terminal simulates
+each write and narrates it. The browser reads `dry_run` from `getHealth`,
+says so in a banner, and holds every write before sending it
+(`web/src/api/client.ts:25`), so the server's 403 is only the backstop. The
+blanket refusal itself is the intended design.
+
+**Decided.** Recorded on 2026-09-24 in the audit (#140), and kept on
+2026-09-25 when the debt paydown reopened none of the recorded trade-offs.
+
+**Cost.** A web write under dry run is refused outright rather than
+simulated: the browser cannot show what the write would have done, as the
+terminal's narration does.
+
+**Reopen when.** A dry-run preview of a web write is asked for, in a
+FEATURES.md entry or a user's report.
+
+### TRADE-4 `staleTime: Infinity`, with the event stream as the sole freshness source
+
+`web/src/queryClient.ts:17`. Correct for a pushed snapshot. Three queries
+set their own `staleTime`. The issue detail's and the review queue's are a
+minute (`web/src/features/issues/issueApi.ts:23`,
+`web/src/features/reviewqueue/reviewQueueApi.ts:23`): the stream carries
+only the list's slim issues and never the queue, so each is read again when
+reopened after a minute, and the queue's Refresh reads it at once. The
+configuration's is 0 (`web/src/features/settings/configApi.ts:65`): the
+file can change on disk, which no event reports, so Settings reads it again
+each time it opens. The commit form's types come from the snapshot and,
+like commit validation, follow the configuration the server last read or
+saved, so an edit made on disk reaches them once Settings is opened or a
+save lands. A save that finds the file changed since Settings read it is
+refused (409) and nothing is written; Settings offers **Reload**. A change
+landing between that check and the write is not caught (`SaveOver`,
+`internal/config/save.go:120`).
+
+**Decided.** Recorded on 2026-09-24 in the audit (#140), and kept on
+2026-09-25 when the debt paydown reopened none of the recorded trade-offs.
+That an edit made on disk reaches the commit form only once Settings opens
+or a save lands was accepted on 2026-09-26 in #145.
+
+**Cost.** A stalled stream leaves stale data with no refetch to fall back
+on.
+
+**Reopen when.** A stalled stream is reported, or a panel is reported
+showing stale data that neither the stream, its own `staleTime` nor a save
+reads again.
+
+### TRADE-5 The progress spine's per-system hue is color-only
+
+The hue map in `Model.stages` (`internal/tui/spine.go:71`) is mitigated by
+the stage name, or its initial when compact (`initial`,
+`internal/tui/spine.go:51`). It is part of the visual system UX.md says
+should not change.
+
+**Decided.** Recorded on 2026-09-24 in the audit (#140), and kept on
+2026-09-25 when the debt paydown reopened none of the recorded trade-offs.
+
+**Cost.** One channel the monochrome reader does not get.
+
+**Reopen when.** UX.md's visual system changes, or an accessibility report
+names the spine's hue.
+
+### TRADE-6 The two composers' field handling is written twice
+
+The commit and pull request composers each pair an `onFieldNav` with a
+`*CanComplete` check (`commitComposer.onFieldNav`,
+`internal/tui/scopesuggest.go:20`; `prComposer.onFieldNav`,
+`internal/tui/prcomposer.go:370`), and each blurs every field before
+focusing one (`commitComposer.focusOn`, `internal/tui/composer.go:297`;
+`prComposer.focusOn`, `internal/tui/prcomposer.go:391`). Two is not yet the
+rule of three, so they stay apart until a third composer needs them.
+
+**Decided.** Recorded on 2026-09-24 in the audit (#140), and kept on
+2026-09-25 when the debt paydown reopened none of the recorded trade-offs.
+
+**Cost.** A change to field navigation is made twice, and a third composer
+must copy the pairs or extract them then.
+
+**Reopen when.** A third overlay binds the next-field and previous-field
+keys (`keys.nextField`, `keys.prevField`), which makes it a third composer.
+
+### TRADE-7 A condition-coverage skip list of two
+
+`UNANALYZABLE` (`scripts/gobco-report.sh:87`): gobco ignores build tags, so
+it cannot read a package whose files come in tagged twins, and
+`internal/proc/pgroup` and `internal/web` are named there with that reason
+beside them. Every other package is read, and one that becomes unreadable
+without being named fails the gate rather than shrinking the number.
+
+**Decided.** Recorded on 2026-09-24 in the audit (#140), and kept on
+2026-09-25 when the debt paydown reopened none of the recorded trade-offs.
+
+**Cost.** The two named packages' conditions go unmeasured — platform glue
+and an embed stub, with no branch worth the count — and the next tagged
+twin must join them.
+
+**Reopen when.** gobco reads build tags, or a third package whose files
+come in tagged twins appears.
+
+### TRADE-8 The web's branch floor is v8's range-based count
+
+`thresholds` in `web/vitest.config.ts:45` is not a gobco-style
+per-condition floor: v8 marks a branch covered once its range of code has
+run, and never asks which way each operand of a condition went.
+
+**Decided.** Recorded on 2026-09-24 in the audit (#140), and kept on
+2026-09-25 when the debt paydown reopened none of the recorded trade-offs.
+
+**Cost.** An `a && b` only ever seen with `b` true still passes the web's
+floor.
+
+**Reopen when.** The web's coverage tool can report per-condition counts
+the gate could read, or a web defect ships through a condition only ever
+seen one way.
+
+### TRADE-9 A refused push's detail keeps the host names git prints
+
+When a push from the web fails, its problem detail keeps git's own lines,
+so the reason between them survives (`withoutAddresses`,
+`internal/webserver/push.go:93`). URLs (`scheme://…`) and scp-style
+`user@host:path` addresses in them are replaced with `<address>`; a bare
+host name git prints — in `Could not resolve host`, `connect to host` or
+`To host:path` — is kept. The detail is shown on the page of the user who
+pushed, which the server serves on the loopback only.
+
+**Decided.** 2026-09-26, in #145.
+
+**Cost.** A host name from git's output can appear in a push's problem
+detail.
+
+**Reopen when.** A report asks for host names to be taken out of a push's
+detail, or a push's detail comes to be shown to anyone other than the user
+who pushed.
+
+### TRADE-10 The loop's stage rules are written twice
+
+Go's `internal/progress` (`progress.Stages`, read by the terminal's spine
+and `workflow status`) and the web's work story
+(`web/src/features/issues/WorkStory.tsx`, the TypeScript port) each derive
+the stages. `web/src/features/issues/WorkStory.stages.test.tsx` pins the
+same rules: a case there that has a twin in
+`internal/progress/progress_test.go` carries its name. A CI not read counts
+as none in Go, and a draft has no Go twin, since `progress.Work` carries no
+draft.
+
+**Decided.** 2026-09-26, in #145 (DEBT-139).
+
+**Cost.** A change to a stage rule is made twice, and the two agree only as
+far as the paired cases reach.
+
+**Reopen when.** The snapshot is asked to carry the stages, or the two
+drift: a rule in `progress.Stages` changes with no matching change to
+`WorkStory.tsx`, a pair of same-named cases disagrees about a stage's
+state, or one surface shows a stage the other does not.
+
+### TRADE-11 The editor seam stays in the terminal package
+
+Every seam bundle the surfaces share lives in `internal/seams`, but
+`tui.EditorDeps` (`internal/tui/deps.go:62`) stays in `internal/tui`
+because its functions take and return Bubble Tea's messages and commands,
+so `wiring.Deps` still returns a `tui.Deps`.
+
+**Decided.** 2026-09-25, in #144 (DEBT-71).
+
+**Cost.** A second surface that wants the editor seam must import the
+terminal package or declare its own, and the wiring's bundle is the
+terminal's type rather than a surface-neutral one.
+
+**Reopen when.** A second surface needs the editor seam, or its functions
+stop taking Bubble Tea types.

@@ -7,6 +7,9 @@ import { QueryClient } from '@tanstack/react-query'
 // stale on its own; a query that must be read again sets its own staleTime. A
 // test pins these defaults, because they are the cockpit's freshness policy,
 // not an incidental choice.
+//
+// Trade-off TRADE-4: no read here refetches on its own; the stream alone keeps
+// the cockpit fresh.
 export const queryClient = new QueryClient({
   defaultOptions: {
     queries: {

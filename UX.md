@@ -753,7 +753,7 @@ Impact: low · Effort: small
 reviewers field's "hint and completions" (`internal/tui/prcomposer.go:229`)
 and turns on `ShowSuggestions` (`internal/tui/prcomposer.go:243`), so
 bubbles v2.2.1's text input draws the match as ghost text and would accept
-it on tab; but `prComposer.onFieldNav` (`internal/tui/prcomposer.go:367`)
+it on tab; but `prComposer.onFieldNav` (`internal/tui/prcomposer.go:370`)
 completes only the base field, through `baseCanComplete`, and moves tab on
 from every other field. Type `a` in reviewers with CODEOWNERS ana, ben:
 "na" appears as a completion, tab jumps to assignees and leaves `a`; and
@@ -1783,7 +1783,7 @@ script is told to press a key it does not have.
   (`internal/tui/review.go:272`).
 - `prBodyHelp`, `internal/tui/prcomposer.go:31`: a fixed "Write the pull
   request description above this line", handed to `$EDITOR` by the
-  composer (`:439`) and the editor (`internal/tui/preditor.go:109`).
+  composer (`:442`) and the editor (`internal/tui/preditor.go:109`).
 - `forgeErrors`, `internal/tui/failure.go:190`: the full form of
   `forge.ErrNoToken` says "Run `gh auth login`, or set `$GITHUB_TOKEN`" for
   every host, though `Sources`, `internal/forge/token.go:252`, already

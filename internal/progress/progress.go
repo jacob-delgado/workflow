@@ -10,6 +10,8 @@
 // written, in TypeScript; its tests (WorkStory.stages.test.tsx) pin the same
 // rules, a case with a twin in progress_test.go named for it. The two are
 // kept equal by hand, so a rule changed here must be changed there too.
+//
+// Trade-off TRADE-10: the stage rules are written twice, here and in the web.
 package progress
 
 import "github.com/jacob-delgado/workflow/internal/forge"

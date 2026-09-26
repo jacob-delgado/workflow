@@ -39,9 +39,9 @@ export default defineConfig({
       // for the Go floors: raise one only once the coverage is already there.
       // Branches sits beside lines because a line threshold alone goes green
       // while error arms stay unexercised; functions and statements make a new
-      // untested component or handler show. v8 counts a branch covered once its
-      // range has run: unlike gobco's Go floor, it never asks for each
-      // condition both ways.
+      // untested component or handler show. Trade-off TRADE-8: v8 counts a
+      // branch covered once its range has run: unlike gobco's Go floor, it
+      // never asks for each condition both ways.
       thresholds: {
         lines: 96,
         statements: 96,

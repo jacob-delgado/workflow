@@ -56,6 +56,9 @@ type Deps struct {
 
 // EditorDeps hands text and files to the user's editor, which takes the
 // terminal while it is open.
+//
+// Trade-off TRADE-11: it stays in this package, not in package seams, because
+// its functions take and return Bubble Tea's messages and commands.
 type EditorDeps struct {
 	Edit func(text, help string, done func(string, error) tea.Msg) tea.Cmd
 	Open func(file string, line int, done func(error) tea.Msg) tea.Cmd
