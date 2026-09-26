@@ -103,14 +103,6 @@ The usage page:
   while `diffSection` (`internal/tui/diff.go:67`) draws the selected file's
   diff beneath the list.
 
-The README and the docs index:
-
-- The README's line 262 — "There are no releases yet." while nine tags
-  exist, v0.3.0 the latest; the README's line 66 and
-  `docs/content/docs/install.md:37` still say that until the first tag
-  exists `@latest` resolves to `main`, and the pinned example (`:34`, and
-  the README's line 65) is `@v0.0.5`, five releases behind.
-
 A reader expects a webhook typo caught at init and it is saved unchecked,
 then trusts a `doctor` check that never ran; sets `$GIT_EDITOR` and is told
 another editor opens; in a subdirectory gets the repository's file after

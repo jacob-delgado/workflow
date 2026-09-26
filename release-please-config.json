@@ -20,7 +20,11 @@
   ],
   "packages": {
     ".": {
-      "skip-github-release": true
+      "skip-github-release": true,
+      "extra-files": [
+        { "type": "generic", "path": "README.md" },
+        { "type": "generic", "path": "docs/content/docs/install.md" }
+      ]
     }
   }
 }

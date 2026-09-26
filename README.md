@@ -63,9 +63,16 @@ go install github.com/jacob-delgado/workflow/cmd/workflow@latest
 ```
 
 The binary lands in `$(go env GOPATH)/bin`, which needs to be on your `PATH`.
-For a reproducible install, name the version instead: `@v0.0.5`. Note that
-`@latest` resolves to the newest release tag, and until the first tag exists, to
-the most recent commit on `main`.
+`@latest` resolves to the newest release tag; for a reproducible install, name
+the version instead:
+
+<!-- x-release-please-start-version -->
+
+```sh
+go install github.com/jacob-delgado/workflow/cmd/workflow@v0.3.1
+```
+
+<!-- x-release-please-end -->
 
 From a [release](https://github.com/jacob-delgado/workflow/releases) — binaries
 are published for macOS (arm64), Linux (amd64) and Windows (amd64), each with a
@@ -261,7 +268,8 @@ previews it locally.
 Versioning is automated from the commit history with release-please: merging its
 release pull request tags the version and publishes binaries for macOS (arm64),
 Linux (amd64) and Windows (amd64), each with a SHA256 checksum and a build
-provenance attestation. There are no releases yet.
+provenance attestation. The same pull request moves the pinned version under
+[Install](#install) to the new tag.
 
 ## Security
 

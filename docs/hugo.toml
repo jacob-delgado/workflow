@@ -22,7 +22,9 @@ path = "github.com/alex-shpak/hugo-book"
 [markup]
 [markup.goldmark.renderer]
 # The generated command reference contains no HTML, and neither does the
-# prose. Leaving raw HTML off keeps a stray tag from silently breaking a page.
+# prose, bar the version markers release-please reads on the install page:
+# HTML comments, which render as nothing either way. Leaving raw HTML off
+# keeps a stray tag from silently breaking a page.
 unsafe = false
 [markup.highlight]
 noClasses = false
