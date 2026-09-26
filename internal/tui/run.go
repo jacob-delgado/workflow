@@ -43,6 +43,9 @@ type commandRun struct {
 	// lines. See hooks.NextJob.
 	jobList   []hooks.Job
 	inSummary bool
+	// placeScan is where the tools pointed, folded in the same way, so a place
+	// printed before the tail the run keeps is still offered.
+	placeScan hooks.FailureScan
 	done      bool
 	// stopped records that the user ended the run, so its killed exit is shown as
 	// stopped rather than as a failure, and what would come next is not run.
@@ -62,6 +65,7 @@ func (m Model) startRun(title string, start starter, succeeded func(Model) (Mode
 	m.runs++
 	m.overlay = commandRun{
 		marks: m.marks, styles: m.styles, title: title, id: m.runs, start: start, succeeded: succeeded,
+		placeScan: hooks.NewFailureScan(runtime.GOOS),
 	}
 
 	return m, launch(m.runs, start)
@@ -124,6 +128,7 @@ func (msg runLine) apply(m Model) (Model, tea.Cmd) {
 	if open && run.id == msg.id {
 		line := sanitize.Text(msg.line)
 		run.jobList, run.inSummary = hooks.NextJob(run.jobList, run.inSummary, line)
+		run.placeScan = run.placeScan.Next(line)
 		run.lines = capLines(append(run.lines, line))
 		m.overlay = run
 	}
@@ -140,9 +145,9 @@ type runFinished struct {
 }
 
 // apply records how the run ended, and hands a clean exit to whatever comes
-// next. A failed run's places are found by a command rather than here: one a
-// tool printed relative to its package can take a walk of the whole checkout,
-// which would freeze the interface on the update loop.
+// next. A failed run's places are resolved by a command rather than here: one
+// a tool printed relative to its package can take a walk of the whole
+// checkout, which would freeze the interface on the update loop.
 func (msg runFinished) apply(m Model) (Model, tea.Cmd) {
 	run, open := m.overlay.(commandRun)
 	if !open || run.id != msg.id {
@@ -160,11 +165,9 @@ func (msg runFinished) apply(m Model) (Model, tea.Cmd) {
 
 	switch {
 	case msg.err != nil:
-		deps, lines := m.deps, run.lines
+		deps, found := m.deps, run.placeScan.Places()
 
-		return m, func() tea.Msg {
-			return placesFound{id: msg.id, places: deps.resolvedFailures(hooks.Failures(lines, runtime.GOOS))}
-		}
+		return m, func() tea.Msg { return placesFound{id: msg.id, places: deps.resolvedFailures(found)} }
 	case run.succeeded != nil:
 		return run.succeeded(m)
 	default:
@@ -286,8 +289,9 @@ func tail(lines []string, rows int) []string {
 
 // maxRunLines bounds the output kept for the tail. A hook that prints tens of
 // thousands of lines would otherwise grow the model without limit; the jobs and
-// the places to jump to are folded in as the lines arrive, so what the kept
-// lines are still for is the tail on screen.
+// the places to jump to are folded in as the lines arrive, the places bounded
+// in turn by hooks.MaxPlaces, so what the kept lines are still for is the tail
+// on screen.
 const maxRunLines = 5000
 
 // capLines keeps at most the last maxRunLines, cloning when it trims so the

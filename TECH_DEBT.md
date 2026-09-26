@@ -123,10 +123,6 @@ The terminal:
   (`internal/tui/switchtask.go:63`) call `convention.IssueKey` too, and
   `Model.jiraIssue` (`internal/tui/issuelink.go:35`) reads the branch's Jira
   issue through `loop.JiraIssue`.
-- `internal/tui/run.go:267` — `maxRunLines`' comment says the places to jump
-  to are folded in as the lines arrive; `runLine.apply` (`:126`) folds in
-  only `hooks.NextJob`, and `runFinished.apply` (`:158`) computes
-  `hooks.Failures` from the capped lines after exit.
 - `internal/tui/tui.go:182` — `Model.handleKey`'s comment orders overlay,
   help, global keys, pane; the switch (`:190`) has overlay,
   `filteringIssues`, global, and no help step.
