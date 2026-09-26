@@ -583,6 +583,14 @@ than observable, public behavior.
   `task docs:gen` and must never be hand-edited. `task docs:check` fails when the
   two disagree, which is what stops a new flag from shipping undocumented.
 
+- **Kept trade-offs live in `TECH_DEBT.md`'s register.** A cost chosen on
+  purpose is an entry there, `### TRADE-n <title>`, with **Decided.**,
+  **Cost.** and **Reopen when.** paragraphs, and the code it keeps carries a
+  `Trade-off TRADE-n:` comment in its file's comment syntax. A review or an
+  audit drops a finding that restates an entry unless that entry's reopen
+  trigger has fired. `scripts/check-tradeoffs.sh` (in `task lint`) gates the
+  register's shape and fails a site naming an ID the register does not hold.
+
 - **Releases are the maintainer's to publish — Claude prepares, never ships.**
   release-please opens a release PR from the Conventional Commits on main;
   merging it is what tags the version and triggers the build. Claude may write
