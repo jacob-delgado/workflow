@@ -4,6 +4,7 @@
 package webserver_test
 
 import (
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
@@ -23,11 +24,109 @@ import (
 // so a test can prove the response never carries it back to the client.
 const webhookSecret = "T00000000/B00000000/SECRETSECRETSECRETSECRET"
 
+// postAnnounce posts an announce request of fields against handler, encoded
+// as JSON so a channel or a text that needs escaping reaches the server intact.
+func postAnnounce(t *testing.T, handler http.Handler, fields map[string]string) *httptest.ResponseRecorder {
+	t.Helper()
+
+	body, err := json.Marshal(fields)
+	if err != nil {
+		t.Fatalf("encoding the announce request: %v", err)
+	}
+
+	return send(t, handler, http.MethodPost, "/api/announce", string(body))
+}
+
 // doAnnounce posts an announcement to channel against a server over deps and cfg.
 func doAnnounce(t *testing.T, deps webserver.Deps, cfg config.Config, channel string) *httptest.ResponseRecorder {
 	t.Helper()
 
-	return send(t, serve(t, deps, cfg), http.MethodPost, "/api/announce", `{"channel":"`+channel+`"}`)
+	return postAnnounce(t, serve(t, deps, cfg), map[string]string{"channel": channel})
+}
+
+// announcePreviewed posts the announcement to channel against handler, carrying
+// the text its preview showed.
+func announcePreviewed(t *testing.T, handler http.Handler, channel, previewed string) *httptest.ResponseRecorder {
+	t.Helper()
+
+	return postAnnounce(t, handler, map[string]string{"channel": channel, "text": previewed})
+}
+
+// previewAnnouncement is the announcement's text as GET /api/announcement shows
+// it from handler.
+func previewAnnouncement(t *testing.T, handler http.Handler) string {
+	t.Helper()
+
+	recorder := get(t, handler, "/api/announcement")
+	if recorder.Code != http.StatusOK {
+		t.Fatalf("preview status = %d, want 200", recorder.Code)
+	}
+
+	return decode[api.Announcement](t, recorder).Text
+}
+
+func TestAnnounceRefusesAnAnnouncementThatChangedSinceItsPreview(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	// CI passes when the page previews the announcement and has failed by the
+	// time it posts, so the announcement composed now is not the one shown.
+	ciState := forge.CIPassed
+	posts := 0
+
+	deps := filledDeps()
+	deps.CheckCI = func(forge.PullRequest, string) (forge.CI, error) { return forge.CI{State: ciState}, nil }
+	deps.Post = func(string, string) error {
+		posts++
+
+		return nil
+	}
+
+	handler := serve(t, deps, config.Default())
+	previewed := previewAnnouncement(t, handler)
+	ciState = forge.CIFailed
+
+	// Act
+	recorder := announcePreviewed(t, handler, "#dev", previewed)
+
+	// Assert
+	failure := decode[api.Problem](t, recorder)
+	if recorder.Code != http.StatusConflict || !strings.Contains(failure.Detail, "changed since it was previewed") {
+		t.Errorf("status/detail = %d/%q, want 409 saying it changed since it was previewed", recorder.Code, failure.Detail)
+	}
+
+	if posts != 0 {
+		t.Errorf("posted %d times, want nothing sent", posts)
+	}
+}
+
+func TestAnnouncePostsTheTextItsPreviewShowed(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	var posted string
+
+	deps := filledDeps()
+	deps.Post = func(_, text string) error {
+		posted = text
+
+		return nil
+	}
+
+	handler := serve(t, deps, config.Default())
+	previewed := previewAnnouncement(t, handler)
+
+	// Act
+	recorder := announcePreviewed(t, handler, "#dev", previewed)
+
+	// Assert
+	if recorder.Code != http.StatusOK {
+		t.Fatalf("status = %d, want 200 for an announcement unchanged since its preview", recorder.Code)
+	}
+
+	if posted != previewed {
+		t.Errorf("posted %q, want the previewed %q", posted, previewed)
+	}
 }
 
 func TestGetAnnouncementComposesThePreview(t *testing.T) {

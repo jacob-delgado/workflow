@@ -244,10 +244,13 @@ func (e UIConfigColor) Valid() bool {
 	}
 }
 
-// AnnounceRequest Where to post the announcement.
+// AnnounceRequest Where to post the announcement, and the text its preview showed.
 type AnnounceRequest struct {
 	// Channel The channel to post to; empty uses the configured channel or the webhook.
 	Channel string `json:"channel"`
+
+	// Text The announcement as GET /api/announcement showed it. When given, the post is refused with 409 unless the announcement composed now reads the same; when left out, the announcement composed now is posted.
+	Text *string `json:"text,omitempty"`
 }
 
 // Announcement A composed announcement and where it would post.

@@ -35,7 +35,9 @@ func (s *server) GetAnnouncement(
 
 // Announce posts the composed announcement to the configured service — to the
 // requested channel, or the configured one when none is given. It is a 409 when
-// there is no pull request to announce; a read that fails while composing it,
+// there is no pull request to announce, and when the request carries the text a
+// preview showed and the announcement composed now reads differently, so what
+// is posted is only ever what was shown. A read that fails while composing it,
 // and a post that fails, are classified by fault, whose details never carry the
 // error's own text, which can name the forge or the webhook.
 func (s *server) Announce(_ context.Context, request api.AnnounceRequestObject) (api.AnnounceResponseObject, error) {
@@ -54,6 +56,11 @@ func (s *server) Announce(_ context.Context, request api.AnnounceRequestObject) 
 
 	if err != nil {
 		return announceFault(err), nil
+	}
+
+	if changedSincePreview(request.Body.Text, announcement) {
+		return api.Announce409ApplicationProblemPlusJSONResponse(problem(api.Conflict,
+			"the announcement changed since it was previewed; preview it again")), nil
 	}
 
 	channel := request.Body.Channel
@@ -87,6 +94,12 @@ func (s *server) announcement() (messaging.Announcement, error) {
 	}, cfg.Messaging, cfg.Jira.Project, s.info.ForgeKind)
 
 	return announcement, err
+}
+
+// changedSincePreview reports whether a preview's text was given and the
+// announcement composed now reads differently from it.
+func changedSincePreview(previewed *string, announcement messaging.Announcement) bool {
+	return previewed != nil && *previewed != announcement.Text()
 }
 
 // announcementDTO maps the composed announcement and its channel onto the wire.
