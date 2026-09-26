@@ -2,6 +2,7 @@ import { GitBranch } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import type { Branch } from '@/api/generated/types.gen.ts'
 import { useSnapshotStore } from '@/api/snapshot.ts'
+import { Button } from '@/lib/Button.tsx'
 import { useFocusHandback, useFocusOnMount } from '@/lib/focus.ts'
 import { OutcomeLine, useOutcome, type Teller } from '@/lib/Outcome.tsx'
 import { useAsyncAction } from '@/lib/useAsyncAction.ts'
@@ -141,17 +142,17 @@ function PushButton({ branch, outcome }: { branch: Branch; outcome: Teller }) {
           }}
         />
       ) : (
-        <button
+        <Button
+          variant="secondary"
           ref={opener}
-          type="button"
           disabled={push.state === 'running'}
           onClick={() => {
             setConfirming(true)
           }}
-          className="self-start rounded-md border border-input px-3 py-1.5 text-sm hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none disabled:cursor-not-allowed disabled:bg-disabled disabled:text-disabled-foreground"
+          className="self-start"
         >
           {push.state === 'running' ? 'Pushing…' : 'Push branch'}
-        </button>
+        </Button>
       )}
       {push.state === 'error' && !confirming ? (
         <p role="alert" className="text-sm whitespace-pre-line text-destructive">
@@ -182,20 +183,12 @@ function PushConfirm({ commits, onCancel, onPush }: PushConfirmProps) {
       className="flex items-center gap-item text-sm"
     >
       <span id="push-question">Push {commits} commit(s) to the remote?</span>
-      <button
-        type="button"
-        onClick={onCancel}
-        className="rounded-md border border-input px-3 py-1.5 text-sm hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none disabled:cursor-not-allowed disabled:bg-disabled disabled:text-disabled-foreground"
-      >
+      <Button variant="secondary" onClick={onCancel}>
         Cancel
-      </button>
-      <button
-        type="button"
-        onClick={onPush}
-        className="rounded-md bg-primary px-3 py-1.5 text-sm font-medium text-primary-foreground hover:bg-primary/90 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none disabled:cursor-not-allowed disabled:bg-disabled disabled:text-disabled-foreground"
-      >
+      </Button>
+      <Button variant="primary" onClick={onPush}>
         Push
-      </button>
+      </Button>
     </div>
   )
 }

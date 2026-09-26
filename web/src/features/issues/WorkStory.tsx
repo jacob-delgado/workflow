@@ -1,6 +1,7 @@
 import type { Snapshot, TaskBranch } from '@/api/generated/types.gen.ts'
 import { useForgeWords, type ForgeWords } from '@/api/health.ts'
 import { useSnapshotStore } from '@/api/snapshot.ts'
+import { Button } from '@/lib/Button.tsx'
 import { OutcomeLine, useOutcome, type Teller } from '@/lib/Outcome.tsx'
 import { useAsyncAction } from '@/lib/useAsyncAction.ts'
 import { capitalized, cn } from '@/lib/utils.ts'
@@ -278,16 +279,16 @@ function CheckoutButton({ branch, outcome }: { branch: string; outcome: Teller }
 
   return (
     <div className="flex flex-col gap-tight">
-      <button
-        type="button"
+      <Button
+        variant="secondary"
         disabled={state === 'running'}
         onClick={() => {
           void run()
         }}
-        className="self-start rounded-md border border-input px-3 py-1.5 text-sm hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none disabled:cursor-not-allowed disabled:bg-disabled disabled:text-disabled-foreground"
+        className="self-start"
       >
         {state === 'running' ? 'Checking out…' : 'Check out this branch'}
-      </button>
+      </Button>
       {state === 'error' ? (
         <p role="alert" className="text-sm text-destructive">
           {error}
@@ -310,16 +311,16 @@ function StartWorkButton({ issueKey, outcome }: { issueKey: string; outcome: Tel
 
   return (
     <div className="flex flex-col gap-tight">
-      <button
-        type="button"
+      <Button
+        variant="primary"
         disabled={state === 'running'}
         onClick={() => {
           void run()
         }}
-        className="self-start rounded-md bg-primary px-3 py-1.5 text-sm font-medium text-primary-foreground hover:bg-primary/90 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none disabled:cursor-not-allowed disabled:bg-disabled disabled:text-disabled-foreground"
+        className="self-start"
       >
         {state === 'running' ? 'Starting…' : 'Start work'}
-      </button>
+      </Button>
       {state === 'error' ? (
         <p role="alert" className="text-sm text-destructive">
           {error}

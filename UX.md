@@ -846,7 +846,7 @@ terminal shows are absent on the web too, none of them among what
   (`internal/tui/commits.go:159`).
 - The commit subject has no length against `commit.subject_limit`:
   `MessageFields` is a bare `<input required placeholder>`
-  (`web/src/features/branch/CommitForm.tsx:158`) though `subject_limit` is
+  (`web/src/features/branch/CommitForm.tsx:160`) though `subject_limit` is
   on the wire (`CommitConfig`,
   `web/src/api/generated/types.gen.ts:659`); the terminal's
   `commitComposer.view` shows "n/limit" as typed
@@ -1270,28 +1270,24 @@ that a focused control is in view, not that its focus can be seen.
 - `--ring` is `#8b93f8` (`web/src/index.css:43`), the value of `--primary`
   (`:26`); in the light theme `--ring` is `#4f56c9` (`:101`), the value of
   `--primary` (`:84`).
-- `SaveControls`' submit is `bg-primary` with `focus-visible:ring-ring` and
-  `outline-none`, no offset
-  (`web/src/features/settings/SettingsPanel.tsx:151`).
-- `CommitForm`'s submit, the same
-  (`web/src/features/branch/CommitForm.tsx:108`).
-- `PushConfirm`'s Push, the same
-  (`web/src/features/branch/BranchPanel.tsx:188`), beside a Cancel (`:181`)
+- The `primary` variant of `Button` (`web/src/lib/Button.tsx:10`) is
+  `bg-primary` with `focus-visible:ring-ring` and `outline-none`, no
+  offset, and every primary button draws through it: `SaveControls`'
+  submit (`web/src/features/settings/SettingsPanel.tsx:144`),
+  `CommitForm`'s submit (`web/src/features/branch/CommitForm.tsx:93`),
+  `PushConfirm`'s Push (`web/src/features/branch/BranchPanel.tsx:189`),
+  beside a Cancel (`:186`) whose ring is visible, `OpenPullRequest`'s
+  button (`web/src/features/review/ReviewPanel.tsx:223`) and
+  `PullRequestForm`'s submit (`:311`), `StartWorkButton`
+  (`web/src/features/issues/WorkStory.tsx:315`), and `AnnounceControls`'
+  button (`web/src/features/messaging/MessagingPanel.tsx:190`) and
+  `AnnouncePreview`'s Announce now (`:265`), beside a Cancel (`:262`)
   whose ring is visible.
-- `OpenPullRequest`'s button
-  (`web/src/features/review/ReviewPanel.tsx:201`) and `PullRequestForm`'s
-  submit (`:291`), the same.
-- `StartWorkButton`, the same
-  (`web/src/features/issues/WorkStory.tsx:319`).
-- `AnnounceControls`' button
-  (`web/src/features/messaging/MessagingPanel.tsx:192`) and
-  `AnnouncePreview`'s Announce now (`:269`), the same, the latter beside a
-  Cancel (`:261`) whose ring is visible.
 
-**Instead.** Give the eight `bg-primary` sites `focus-visible:ring-offset-2
-focus-visible:ring-offset-background` (a page-colored gap between fill and
-ring), or extract one primary-button class that carries it, so the ring
-reads on a periwinkle fill as it does on an outline one.
+**Instead.** Add `focus-visible:ring-offset-2
+focus-visible:ring-offset-background` to the primary variant in
+`web/src/lib/Button.tsx` (a page-colored gap between fill and ring), so the
+ring reads on a periwinkle fill as it does on an outline one.
 
 **Done when.** A Playwright test focuses Save changes in both themes and
 asserts its computed `box-shadow` carries a `--background`-colored offset

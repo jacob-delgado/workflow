@@ -2,6 +2,7 @@ import { useState } from 'react'
 import type { Snapshot } from '@/api/generated/types.gen.ts'
 import { useForgeWords } from '@/api/health.ts'
 import { useSnapshotStore } from '@/api/snapshot.ts'
+import { Button } from '@/lib/Button.tsx'
 import { useFocusHandback, useFocusOnMount } from '@/lib/focus.ts'
 import { OutcomeLine, useOutcome } from '@/lib/Outcome.tsx'
 import { useAsyncAction } from '@/lib/useAsyncAction.ts'
@@ -185,18 +186,18 @@ function AnnounceControls({
 
   return (
     <div className="flex flex-col gap-tight">
-      <button
+      <Button
+        variant="primary"
         ref={opener}
-        type="button"
         disabled={preview.state === 'running'}
         onClick={() => {
           post.reset()
           void preview.run()
         }}
-        className="self-start rounded-md bg-primary px-3 py-1.5 text-sm font-medium text-primary-foreground hover:bg-primary/90 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none disabled:cursor-not-allowed disabled:bg-disabled disabled:text-disabled-foreground"
+        className="self-start"
       >
         {preview.state === 'running' ? 'Preparing…' : `Announce to ${service}`}
-      </button>
+      </Button>
       {failure === '' ? null : (
         <p role="alert" className="text-sm text-destructive">
           {failure}
@@ -258,22 +259,12 @@ function AnnouncePreview({
         </label>
       ) : null}
       <div className="flex items-center gap-item">
-        <button
-          type="button"
-          disabled={posting}
-          onClick={onCancel}
-          className="rounded-md border border-input px-3 py-1.5 text-sm hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none disabled:cursor-not-allowed disabled:bg-disabled disabled:text-disabled-foreground"
-        >
+        <Button variant="secondary" disabled={posting} onClick={onCancel}>
           Cancel
-        </button>
-        <button
-          type="button"
-          disabled={posting}
-          onClick={onPost}
-          className="rounded-md bg-primary px-3 py-1.5 text-sm font-medium text-primary-foreground hover:bg-primary/90 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none disabled:cursor-not-allowed disabled:bg-disabled disabled:text-disabled-foreground"
-        >
+        </Button>
+        <Button variant="primary" disabled={posting} onClick={onPost}>
           {posting ? 'Announcing…' : 'Announce now'}
-        </button>
+        </Button>
       </div>
     </div>
   )

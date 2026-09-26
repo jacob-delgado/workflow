@@ -3,6 +3,7 @@ import type { ReactNode } from 'react'
 import { apiErrorMessage } from '@/api/apiError.ts'
 import type { CiState, ReviewRequest } from '@/api/generated/types.gen.ts'
 import { useForgeWords } from '@/api/health.ts'
+import { Button } from '@/lib/Button.tsx'
 import { OutcomeLine, useOutcome, type Teller } from '@/lib/Outcome.tsx'
 import { useAsyncAction } from '@/lib/useAsyncAction.ts'
 import { EmptyState } from '@/shell/EmptyState.tsx'
@@ -22,9 +23,6 @@ const minute = 60_000
 const hour = 60 * minute
 const day = 24 * hour
 const month = 30 * day
-
-const control =
-  'rounded-md border border-input px-3 py-1.5 text-sm hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none'
 
 // ReviewQueuePanel lists the pull requests on the forge that wait on your
 // review, the longest-waiting first — the queue `workflow reviews` prints and
@@ -105,18 +103,18 @@ function Queue({ requests, readAt, failure, failed, reading, onReadAgain }: Queu
             </p>
           )}
         </div>
-        <button
-          type="button"
+        <Button
+          variant="secondary"
           aria-disabled={reading}
           onClick={() => {
             if (!reading) {
               onReadAgain()
             }
           }}
-          className={`${control} shrink-0 aria-disabled:cursor-not-allowed aria-disabled:bg-disabled aria-disabled:text-disabled-foreground`}
+          className="shrink-0"
         >
           {readAgainLabel(failed, reading)}
-        </button>
+        </Button>
       </div>
       <OutcomeLine said={outcome.said} />
       {requests === undefined ? null : (
@@ -276,15 +274,14 @@ function CopyURL({ url, mark, teller }: CopyURLProps) {
 
   return (
     <>
-      <button
-        type="button"
+      <Button
+        variant="secondary"
         onClick={() => {
           void copy.run(url)
         }}
-        className={control}
       >
         Copy URL <span className="sr-only">to {mark}</span>
-      </button>
+      </Button>
       {copy.state === 'error' ? (
         <p role="alert" className="basis-full text-destructive">
           {copy.error}

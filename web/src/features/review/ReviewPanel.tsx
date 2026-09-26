@@ -10,6 +10,7 @@ import type {
   Review,
 } from '@/api/generated/types.gen.ts'
 import { useSnapshotStore } from '@/api/snapshot.ts'
+import { Button } from '@/lib/Button.tsx'
 import { useFocusHandback } from '@/lib/focus.ts'
 import { OutcomeLine, useOutcome } from '@/lib/Outcome.tsx'
 import { useAsyncAction } from '@/lib/useAsyncAction.ts'
@@ -218,17 +219,17 @@ function OpenPullRequest({
   return (
     <div className="flex flex-col gap-item">
       <p className="text-sm text-muted-foreground">No open {noun} for this branch yet.</p>
-      <button
+      <Button
+        variant="primary"
         ref={opener}
-        type="button"
         disabled={compose.state === 'running'}
         onClick={() => {
           void compose.run()
         }}
-        className="self-start rounded-md bg-primary px-3 py-1.5 text-sm font-medium text-primary-foreground hover:bg-primary/90 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none disabled:cursor-not-allowed disabled:bg-disabled disabled:text-disabled-foreground"
+        className="self-start"
       >
         {compose.state === 'running' ? 'Preparing…' : `Open a ${noun}`}
-      </button>
+      </Button>
       {compose.state === 'error' ? (
         <p role="alert" className="text-sm whitespace-pre-line text-destructive">
           {compose.error}
@@ -304,21 +305,12 @@ function PullRequestForm({
       ) : null}
 
       <div className="flex items-center gap-item">
-        <button
-          type="button"
-          disabled={opening}
-          onClick={onCancel}
-          className="rounded-md border border-input px-3 py-1.5 text-sm hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none disabled:cursor-not-allowed disabled:bg-disabled disabled:text-disabled-foreground"
-        >
+        <Button variant="secondary" disabled={opening} onClick={onCancel}>
           Cancel
-        </button>
-        <button
-          type="submit"
-          disabled={opening}
-          className="rounded-md bg-primary px-3 py-1.5 text-sm font-medium text-primary-foreground hover:bg-primary/90 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none disabled:cursor-not-allowed disabled:bg-disabled disabled:text-disabled-foreground"
-        >
+        </Button>
+        <Button variant="primary" type="submit" disabled={opening}>
           {opening ? 'Opening…' : `Open ${noun}`}
-        </button>
+        </Button>
       </div>
 
       {error === '' ? null : (

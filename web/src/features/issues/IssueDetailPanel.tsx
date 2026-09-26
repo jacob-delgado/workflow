@@ -2,6 +2,7 @@ import { ExternalLink } from 'lucide-react'
 import { useEffect, useRef, type RefObject } from 'react'
 import { apiErrorMessage } from '@/api/apiError.ts'
 import type { Comment, Issue, IssueDetail } from '@/api/generated/types.gen.ts'
+import { Button } from '@/lib/Button.tsx'
 import { definitionList } from '@/lib/utils.ts'
 import { useIssue } from './issueApi.ts'
 import { IssueStatus } from './IssueStatus.tsx'
@@ -76,14 +77,9 @@ function IssueUnread({
       <p role="alert" className="text-sm text-destructive">
         {reason}
       </p>
-      <button
-        type="button"
-        disabled={retrying}
-        onClick={onRetry}
-        className="rounded-md border border-input px-3 py-1.5 text-sm hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none disabled:cursor-not-allowed disabled:bg-disabled disabled:text-disabled-foreground"
-      >
+      <Button variant="secondary" disabled={retrying} onClick={onRetry}>
         {retrying ? 'Retrying…' : 'Retry'}
-      </button>
+      </Button>
     </div>
   )
 }
