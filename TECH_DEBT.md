@@ -1064,8 +1064,6 @@ for itself.
   `err.Error()` in the 422 detail for every error but `ErrNothingStaged`.
 - `internal/webserver/commit.go:87` — `server.commitStaged` returns the
   raw `Changes` read error.
-- `internal/webserver/commit.go:102` — `server.commitStaged` returns the
-  raw `Branch` read error.
 - `internal/webserver/push.go:34` — `server.Push` answers a generic 422
   "the branch could not be read" for the same failure.
 - `internal/webserver/checkout.go:83` — `server.refuseADirtyTree` returns
@@ -1086,12 +1084,10 @@ for itself.
   same failure through `fault`.
 - `internal/webserver/errors.go:126` — `faultClasses` has no git-read
   class, so `fault` falls to the internal problem for every read failure.
-- `internal/webserver/commit_test.go:274`,
-  `internal/webserver/commit_test.go:291` and
-  `internal/webserver/commit_test.go:308` —
-  `TestCommitReportsAChangesReadFailure`, `TestCommitReportsAFailedStart`
-  and `TestCommitReportsWhenTheBranchCannotBeReadAfter` assert the status
-  alone, so any detail passes.
+- `internal/webserver/commit_test.go:274` and
+  `internal/webserver/commit_test.go:291` —
+  `TestCommitReportsAChangesReadFailure` and `TestCommitReportsAFailedStart`
+  assert the status alone, so any detail passes.
 
 A script switching on `code` sees `internal` on one write and
 `unprocessable` on the next for the same broken repository; on Commit the

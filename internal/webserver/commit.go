@@ -27,7 +27,9 @@ var (
 // Commit commits the staged changes with a Conventional Commit message built
 // from the request and a Refs trailer for the branch's issue. An empty index is
 // a 409; a message that is not a valid Conventional Commit, or a commit its
-// hooks reject, is a 422. On success it returns the branch with the new commit.
+// hooks reject, is a 422. On success it returns the branch with the new commit,
+// or, when the branch cannot be read back, the branch as it stood with no head
+// or commits named: the commit landed all the same.
 func (s *server) Commit(_ context.Context, request api.CommitRequestObject) (api.CommitResponseObject, error) {
 	if request.Body == nil {
 		return commitUnprocessable("a commit message is required"), nil
@@ -92,14 +94,35 @@ func (s *server) commitStaged(
 		return gitrepo.Branch{}, err
 	}
 
-	message := conv.Message(subject, body, s.currentIssueKey())
+	before := s.branchBeforeCommit()
 
-	err = s.runCommit(message)
+	err = s.runCommit(conv.Message(subject, body, s.issueKeyOf(before)))
 	if err != nil {
 		return gitrepo.Branch{}, err
 	}
 
-	return s.deps.Branch()
+	return s.branchAfter(withoutCommits(before)), nil
+}
+
+// branchBeforeCommit is the checked-out branch as a commit finds it, or an empty
+// one when it cannot be read: the commit goes ahead with no issue to refer to.
+func (s *server) branchBeforeCommit() gitrepo.Branch {
+	branch, err := s.deps.Branch()
+	if err != nil {
+		return gitrepo.Branch{}
+	}
+
+	return branch
+}
+
+// withoutCommits is the branch as read before a commit, less its head and
+// commits: they no longer describe it, and the newest would be named as the
+// commit just made.
+func withoutCommits(before gitrepo.Branch) gitrepo.Branch {
+	after := before
+	after.Head, after.Commits = "", nil
+
+	return after
 }
 
 // runCommit runs the commit, draining its output so the hooks run to completion,
@@ -123,14 +146,9 @@ func (s *server) runCommit(message string) error {
 	return nil
 }
 
-// currentIssueKey is the issue the checked-out branch is named for, for the Refs
-// trailer, or empty when the branch names none or cannot be read.
-func (s *server) currentIssueKey() string {
-	branch, err := s.deps.Branch()
-	if err != nil {
-		return ""
-	}
-
+// issueKeyOf is the issue a branch is named for, for the Refs trailer, or empty
+// when it names none.
+func (s *server) issueKeyOf(branch gitrepo.Branch) string {
 	key, _ := convention.IssueKey(branch.Name, s.config().Jira.Project)
 
 	return key
