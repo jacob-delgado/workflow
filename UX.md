@@ -1045,14 +1045,6 @@ not the control that had focus.
   (`web/src/features/messaging/MessagingPanel.tsx:187`, alert at `:197`).
 - `FollowUpOffer`'s button (`web/src/features/review/OpenedOutcome.tsx:85`,
   alert at `:96`).
-- The issue detail's Retry beside an issue never read unmounts while it
-  reads again. TanStack Query clears `error` when a query with no data is
-  read again, so `IssueUnread` goes and "Reading KEY…" shows
-  (`web/src/features/issues/IssueDetailPanel.tsx:37`), and focus falls to
-  the page. `IssueDetailPanel` re-takes focus only when `data && !error`
-  (`:28`), so a second refusal draws a new Retry that nothing focuses.
-  This is an unmount, not native `disabled`, so it is outside the
-  thirteen.
 
 The project already knows the rule: Load more holds with `aria-disabled`
 (`MoreIssues`, `web/src/features/issues/IssuesPanel.tsx:297`), so does the
@@ -1322,7 +1314,7 @@ places set type against that.
   `web/src/features/issues/WorkStory.tsx:255`), so base, over a `text-sm`
   detail: "Branch", "Changes", "Pull request" and "Announce" read at the
   size of the h3 "Work story" above them (`IssueDetailPanel`,
-  `web/src/features/issues/IssueDetailPanel.tsx:52`, `text-base
+  `web/src/features/issues/IssueDetailPanel.tsx:57`, `text-base
   font-semibold`), differing only in weight.
 - A queue row's title is `font-medium` inside a `<p>` with no size class
   (`RequestRow`, `web/src/features/reviewqueue/ReviewQueuePanel.tsx:192`),
@@ -1370,7 +1362,7 @@ it is open.
   wrap to two lines.
 - The detail column is `min-w-0 flex-1` with no `max-w` (`:129`), and
   `Description`'s `<p>` has no measure of its own
-  (`web/src/features/issues/IssueDetailPanel.tsx:153`); a real Jira
+  (`web/src/features/issues/IssueDetailPanel.tsx:182`); a real Jira
   description at 1440 px would be set at roughly 150 characters a line
   where the other sections stop at 672 px.
 
@@ -1485,7 +1477,7 @@ reason inside `<EmptyState>`
 `text-muted-foreground` box a panel shows when it has nothing yet
 (`web/src/shell/EmptyState.tsx:8`). The review queue (`Queue`,
 `web/src/features/reviewqueue/ReviewQueuePanel.tsx:103`) and the issue
-detail (`IssueUnread`, `web/src/features/issues/IssueDetailPanel.tsx:76`)
+detail (`IssueUnread`, `web/src/features/issues/IssueDetailPanel.tsx:102`)
 show the same kind of failure as a `role="alert"` line in
 `text-destructive`. Red is the failure color and nothing else, and here a
 failure is not red:
@@ -1641,7 +1633,7 @@ say.
   is moved to a new tab unwarned. The page's other two outbound links
   carry all of it: the queue's Open (`RequestRow`,
   `web/src/features/reviewqueue/ReviewQueuePanel.tsx:212`) and Open in
-  Jira (`IssuePeople`, `web/src/features/issues/IssueDetailPanel.tsx:137`),
+  Jira (`IssuePeople`, `web/src/features/issues/IssueDetailPanel.tsx:159`),
   each with the sr-only "(opens in a new tab)".
 - Each work-story stage is a button that calls `setSection` (`WorkStory`,
   `web/src/features/issues/WorkStory.tsx:251`), yet it is styled only with

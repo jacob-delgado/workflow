@@ -1,3 +1,4 @@
+import { onlineManager } from '@tanstack/react-query'
 import { act, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { vi } from 'vitest'
@@ -242,6 +243,84 @@ test('Retry reads a refused issue again', async () => {
   expect(document.activeElement).toBe(
     screen.getByRole('heading', { level: 2, name: detailOf().summary }),
   )
+})
+
+test('a Retry beside an issue never read keeps its focus through a read refused again', async () => {
+  // Arrange
+  // The issue was never read: its first read was refused, so the Retry stands
+  // beside the reason alone. The read the Retry starts is held until the test
+  // answers it, so the Retry is caught mid-read.
+  let answer: (response: Response) => void = () => undefined
+  const held = new Promise<Response>((resolve) => {
+    answer = resolve
+  })
+  const answers = [Promise.resolve(Response.json({}, { status: 500 })), held]
+  vi.stubGlobal(
+    'fetch',
+    vi.fn(() => answers.shift() ?? new Promise<Response>(() => undefined)),
+  )
+  const user = userEvent.setup()
+  renderWithClient(<IssueDetailPanel issueKey="PROJ-1" />)
+  const retry = await screen.findByRole('button', { name: 'Retry' })
+
+  // Act: press Retry, and the read it starts is held
+  await user.click(retry)
+
+  // Assert: the same Retry stays beside the reason, busy, with its focus
+  expect(await screen.findByRole('button', { name: 'Retrying…' })).toBe(retry)
+  expect(retry.getAttribute('aria-disabled')).toBe('true')
+  expect(document.activeElement).toBe(retry)
+  const keptAlert = screen.getByRole('alert')
+  expect(keptAlert.textContent).toBe('PROJ-1 could not be read. Press Retry to try again.')
+  expect(screen.queryByText(/reading PROJ-1/i)).toBeNull()
+
+  // Act: the held read is refused too
+  answer(Response.json({}, { status: 500 }))
+
+  // Assert: the same Retry, ready again, still has focus, and the refusal is
+  // told again in an alert of its own, since an alert that keeps its words is
+  // not spoken again
+  expect(await screen.findByRole('button', { name: 'Retry' })).toBe(retry)
+  expect(retry.getAttribute('aria-disabled')).not.toBe('true')
+  expect(document.activeElement).toBe(retry)
+  const refusedAgain = screen.getByRole('alert')
+  expect(refusedAgain).not.toBe(keptAlert)
+  expect(refusedAgain.textContent).toBe('PROJ-1 could not be read. Press Retry to try again.')
+})
+
+test('a read nobody pressed Retry for keeps the latest refusal beside an issue never read', async () => {
+  // Arrange
+  // The issue was never read: its first read was refused, and so was the read
+  // its Retry started. A reconnect then reads it again on its own, and that
+  // read is held, so the panel is caught mid-read.
+  const refusal = (detail: string) =>
+    Promise.resolve(
+      Response.json(
+        { title: 'Bad gateway', status: 502, detail, code: 'unreachable' },
+        { status: 502, headers: { 'Content-Type': 'application/problem+json' } },
+      ),
+    )
+  const answers = [refusal('first refusal'), refusal('second refusal')]
+  vi.stubGlobal(
+    'fetch',
+    vi.fn(() => answers.shift() ?? new Promise<Response>(() => undefined)),
+  )
+  const user = userEvent.setup()
+  renderWithClient(<IssueDetailPanel issueKey="PROJ-1" />)
+  await user.click(await screen.findByRole('button', { name: 'Retry' }))
+  await waitFor(() => {
+    expect(screen.getByRole('alert').textContent).toBe('second refusal')
+  })
+
+  // Act
+  act(() => {
+    onlineManager.setOnline(false)
+    onlineManager.setOnline(true)
+  })
+
+  // Assert
+  expect(await screen.findByRole('button', { name: 'Retrying…' })).toBeTruthy()
+  expect(screen.getByRole('alert').textContent).toBe('second refusal')
 })
 
 test('a retried issue read again later leaves focus where the user put it', async () => {
