@@ -48,7 +48,8 @@ not in the tracker, or a `view` the configuration does not name — the issue li
 and the event stream both refuse a view they do not know rather than answering
 with the default one. Staging and unstaging answer it too for a path the working
 tree does not list as changed: they move a change the server read, never a path
-of the caller's own.
+of the caller's own. Opening a pull request answers it for a repository the
+forge will not show the token.
 
 ## Conflict
 
@@ -81,10 +82,14 @@ and one with no Jira API behind it are answered here too, pointing at
 `workflow doctor` rather than naming the address. So are a forge token that was not found or that the forge did not
 accept, a `forge.kind` set without its `forge.host`, a forge address with no
 forge API behind it, and a request the forge refused, whose detail points at
-the token's scopes. So is an announcement the messaging service refused, or
-could not be sent because messaging has no credential (none set, or a token
-its command or variable did not give) or its webhook is not https — never with
-the service's own error, which can name the webhook.
+the token's scopes. A pull request the forge turned down is answered here with
+the forge's own reason, and so is one naming a reviewer or assignee GitLab does
+not know; any other open that fails is answered as a read's failure is, under
+the code its cause belongs to. An announcement the messaging service refused,
+or one that could not be sent because messaging has no credential (none set, or
+a token its command or variable did not give) or its webhook is not https, is
+answered here too — never with the service's own error, which can name the
+webhook.
 
 ## Precondition required
 

@@ -33,9 +33,10 @@ func (s *server) GetPullRequestDraft(
 
 // OpenPullRequest opens a pull request from the checked-out branch with the
 // given title, body, base, and draft flag, pushing the branch first when it is
-// not yet published. It is a 409 when there is nothing to open, a branch that
-// cannot be read is classified by fault, and it is a 422 when the request is
-// incomplete or the push or the open fails.
+// not yet published. It is a 409 when there is nothing to open, and a 422 when
+// the request is incomplete, the push fails, or the forge turns the pull
+// request down; a branch that cannot be read, and any other failed open, is
+// classified by fault.
 func (s *server) OpenPullRequest(
 	_ context.Context, request api.OpenPullRequestRequestObject,
 ) (api.OpenPullRequestResponseObject, error) {
@@ -210,20 +211,23 @@ func openUnprocessable(message string) api.OpenPullRequest422ApplicationProblemP
 	return api.OpenPullRequest422ApplicationProblemPlusJSONResponse(problem(api.Unprocessable, message))
 }
 
-// openFailure answers an open the forge did not make. Two failures carry a host
-// in their error and never reach the detail: an unreachable forge, which goes
-// through the curated fault mapping (a 502), and a remote whose forge cannot be
-// told apart, which the wiring words with its host so a terminal can say which
-// one. A forge rejection carries its own reason, which is safe and useful to show.
+// openFailure answers an open the forge did not make. Two failures keep their
+// own words, which the caller can act on: a pull request the forge turned down,
+// with the forge's reason, and a reviewer or assignee GitLab does not know, by
+// the name the caller gave. A remote whose forge cannot be told apart says what
+// to set, since the wiring words it with its host. Every other failure is
+// classified by fault, whose detail names no host: an unreachable forge, a
+// redirect the client refused and a missing repository all carry one in their
+// text.
 func openFailure(err error) api.OpenPullRequestResponseObject {
 	switch {
-	case errors.Is(err, forge.ErrUnreachable):
-		body, code := fault(err)
-
-		return api.OpenPullRequestdefaultApplicationProblemPlusJSONResponse{Body: body, StatusCode: code}
+	case errors.Is(err, forge.ErrRejected), errors.Is(err, forge.ErrNoUser):
+		return openUnprocessable(err.Error())
 	case errors.Is(err, forge.ErrUnknownForge):
 		return openUnprocessable("cannot tell which forge this repository is on; set forge.kind and forge.host")
 	default:
-		return openUnprocessable(err.Error())
+		body, code := fault(err)
+
+		return api.OpenPullRequestdefaultApplicationProblemPlusJSONResponse{Body: body, StatusCode: code}
 	}
 }
