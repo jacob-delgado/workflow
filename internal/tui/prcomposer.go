@@ -61,14 +61,14 @@ type prComposer struct {
 	head      string
 	templates []forge.Template
 	template  int
-	subjects  []string
-	issueKey  jira.Key
-	issueURL  string
-	body      string
-	draft     bool
-	edited    bool
-	vocab     reviewVocab
-	send      sendState
+	// proposedFrom is what the title and body were proposed from, which a
+	// template chosen later, or the issue read later, proposes from again.
+	proposedFrom loop.DraftInput
+	body         string
+	draft        bool
+	edited       bool
+	vocab        reviewVocab
+	send         sendState
 }
 
 var (
@@ -131,16 +131,18 @@ func (m Model) openPullRequestComposer() (Model, tea.Cmd) {
 // proposePullRequest is the composer filled from the branch's commits, the
 // issue it names and the repository's first template.
 func (m Model) proposePullRequest(branch gitrepo.Branch, issueKey jira.Key, summary string) prComposer {
-	subjects := loop.Subjects(branch.Commits)
-	titleSource := convention.TitleSource(m.cfg.PullRequest.TitleSource)
+	proposedFrom := loop.DraftInput{
+		Subjects: loop.Subjects(branch.Commits), IssueKey: issueKey, IssueSummary: summary,
+		IssueURL: m.browseURL(issueKey), TitleSource: convention.TitleSource(m.cfg.PullRequest.TitleSource),
+	}
+	title, _ := loop.Draft(proposedFrom)
 
 	composer := prComposer{
 		marks: m.marks, styles: m.styles,
-		title:     newInput(convention.PullRequestTitleFrom(titleSource, subjects, string(issueKey), summary)),
+		title:     newInput(title),
 		base:      newInput(branch.BaseName()),
 		reviewers: newInput(""), assignees: newInput(""), labels: newInput(""),
-		focus: prFieldTitle, head: branch.Name,
-		subjects: subjects, issueKey: issueKey, issueURL: m.browseURL(issueKey), vocab: m.vocab,
+		focus: prFieldTitle, head: branch.Name, proposedFrom: proposedFrom, vocab: m.vocab,
 	}
 	composer.base.Blur()
 	composer.reviewers.Blur()
@@ -160,26 +162,24 @@ func (m Model) proposePullRequest(branch gitrepo.Branch, issueKey jira.Key, summ
 // come from the issue. A failed read leaves the summary empty, so the title
 // stays the one proposed, as the command line's does.
 func (m Model) readTitleIssue(composer prComposer) tea.Cmd {
-	read := m.deps.Jira.Issue
-	if convention.TitleSource(m.cfg.PullRequest.TitleSource) != convention.TitleFromIssue ||
-		composer.issueKey == "" || read == nil {
+	read, from := m.deps.Jira.Issue, composer.proposedFrom
+	if from.TitleSource != convention.TitleFromIssue || from.IssueKey == "" || read == nil {
 		return nil
 	}
 
-	head, issueKey, subjects, proposed := composer.head, composer.issueKey, composer.subjects, composer.title.Value()
+	head, proposed := composer.head, composer.title.Value()
 
 	return func() tea.Msg {
-		summary := ""
+		from.IssueSummary = ""
 
-		detail, err := read(issueKey)
+		detail, err := read(from.IssueKey)
 		if err == nil {
-			summary = detail.Issue.Summary
+			from.IssueSummary = detail.Issue.Summary
 		}
 
-		return titleIssueRead{
-			head: head, proposed: proposed,
-			fromIssue: convention.PullRequestTitleFrom(convention.TitleFromIssue, subjects, string(issueKey), summary),
-		}
+		fromIssue, _ := loop.Draft(from)
+
+		return titleIssueRead{head: head, proposed: proposed, fromIssue: fromIssue}
 	}
 }
 
@@ -258,12 +258,12 @@ func (m Model) browseURL(issueKey jira.Key) string {
 func (c prComposer) withTemplate(index int) prComposer {
 	c.template = index
 
-	text := ""
+	from := c.proposedFrom
 	if index < len(c.templates) {
-		text = c.templates[index].Body
+		from.Template = c.templates[index].Body
 	}
 
-	c.body = convention.PullRequestBody(text, c.subjects, string(c.issueKey), c.issueURL)
+	_, c.body = loop.Draft(from)
 
 	return c
 }
