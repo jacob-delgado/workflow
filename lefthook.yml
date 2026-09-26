@@ -4,10 +4,10 @@
 # Skip all hooks for one commit: LEFTHOOK=0 git commit ...
 #
 # Pre-commit hooks run against ONLY the staged diff ({staged_files}). Pre-push
-# runs five commands over the working tree: unit-go (the Go tests) and
+# runs six commands over the working tree: unit-go (the Go tests) and
 # lint-go-all (golangci-lint) when the push carries a Go change, web (the web's
 # lint, client-drift check and unit tests) when it carries a web/ or API-spec
-# change, and file-length and package-size on every push. The rest of
+# change, and file-length, package-size and tradeoffs on every push. The rest of
 # `task check` — the Go coverage floors, the whole-tree linters and secret
 # scan, govulncheck — and CI's end-to-end suites run only there.
 #
@@ -109,10 +109,10 @@ pre-commit:
       run: gitleaks git --staged --redact --no-banner
 
 # Pre-push: the Go tests (unit-go), golangci-lint over every Go file
-# (lint-go-all), the web's gates (web), and the two whole-tree counts a
-# staged-diff hook cannot see (file-length, package-size). A red result here is
-# a guaranteed red CI, and learning that locally costs far less than a CI round
-# trip.
+# (lint-go-all), the web's gates (web), and the three whole-tree checks a
+# staged-diff hook cannot see (file-length, package-size, tradeoffs). A red
+# result here is a guaranteed red CI, and learning that locally costs far less
+# than a CI round trip.
 pre-push:
   parallel: false
   commands:
@@ -167,6 +167,11 @@ pre-push:
     # change a directory's count, and a rename touches two directories at once.
     package-size:
       run: scripts/check-package-size.sh
+
+    # No glob either: a site comment can land in any file, and an entry
+    # dropped from TECH_DEBT.md fails at a site the push did not touch.
+    tradeoffs:
+      run: scripts/check-tradeoffs.sh
 
 # Commit-message format check: Conventional Commits, e.g.
 #   feat(jira): add issue transition command

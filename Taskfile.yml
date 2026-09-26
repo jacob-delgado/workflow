@@ -243,6 +243,7 @@ tasks:
       - scripts/check-license-headers_test.sh
       - scripts/check-mise-version_test.sh
       - scripts/check-package-size_test.sh
+      - scripts/check-tradeoffs_test.sh
       - scripts/coverage-gate_test.sh
       - scripts/coverage-summary_test.sh
       - scripts/e2e-server_test.sh
@@ -321,6 +322,7 @@ tasks:
       - task: lint:goversion
       - task: lint:miseversion
       - task: lint:goroutines
+      - task: lint:tradeoffs
       - task: docs:check
       - task: gen:verify
 
@@ -416,6 +418,11 @@ tasks:
     desc: Check that no `go` statement sits outside internal/proc and the tests
     cmds:
       - scripts/check-goroutines.sh
+
+  lint:tradeoffs:
+    desc: Check the trade-off register's shape, and that every site comment names an entry
+    cmds:
+      - scripts/check-tradeoffs.sh
 
   lint:headers:
     desc: Check the SPDX license headers on Go files
