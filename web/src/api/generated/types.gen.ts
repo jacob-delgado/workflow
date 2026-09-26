@@ -1364,7 +1364,7 @@ export type OpenPullRequestErrors = {
      */
     409: Problem;
     /**
-     * The push or the open failed, or the request is incomplete.
+     * The push failed; the forge turned the pull request down or does not know a reviewer or assignee it names; the repository's forge cannot be told apart, or its token or settings do not let the server ask it; opening is not available; or the request is incomplete.
      */
     422: Problem;
     /**

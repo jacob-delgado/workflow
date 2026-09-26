@@ -729,7 +729,14 @@ paths:
         as opening a pull request from an unpushed branch cannot work. Refused
         with 409 when there is nothing to open (see GET /api/pull-request/draft)
         or the server is not running in a git repository, and 422 when the push
-        or the open fails, or the title or base is missing.
+        fails, the title or base is missing, the forge turns the pull request
+        down, with the forge's reason (or GitLab does not know a reviewer or
+        assignee it names), or the repository's forge cannot be told apart,
+        which says to set forge.kind and forge.host. Any other failed open is
+        answered as a read's failure is: 502 when the forge cannot be reached,
+        asks to wait or redirects, 404 when it will not show the repository,
+        and 422 when the forge token is missing or refused, or the forge
+        settings are incomplete or reach no forge API.
       tags: [review]
       requestBody:
         required: true
@@ -752,7 +759,11 @@ paths:
             application/problem+json:
               schema: {$ref: "#/components/schemas/Problem"}
         "422":
-          description: The push or the open failed, or the request is incomplete.
+          description: >-
+            The push failed; the forge turned the pull request down or does not
+            know a reviewer or assignee it names; the repository's forge cannot
+            be told apart, or its token or settings do not let the server ask
+            it; opening is not available; or the request is incomplete.
           content:
             application/problem+json:
               schema: {$ref: "#/components/schemas/Problem"}
