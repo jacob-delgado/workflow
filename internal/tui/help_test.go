@@ -15,6 +15,10 @@ import (
 // freeKey is a key nothing is bound to.
 const freeKey = "f12"
 
+// fixedAction is the one placed action ui.keys cannot move: its keys are the
+// pane numbers, one per pane, and CheckKeys refuses an override of it.
+const fixedAction = "jump-to-pane"
+
 // listedBinding is one binding as the help lists it: the action it answers to,
 // the key shown for it and what it says it does. A binding with no help of its
 // own rides another's line, and is listed here with none.
@@ -382,7 +386,7 @@ func TestCheckKeysKnowsEveryPlacedAction(t *testing.T) {
 	t.Parallel()
 
 	for _, group := range placedBindings() {
-		for _, binding := range group.bindings {
+		for _, binding := range movable(group.bindings) {
 			t.Run(binding.action, func(t *testing.T) {
 				t.Parallel()
 
@@ -406,7 +410,7 @@ func TestTheHelpListsEachPlacedActionWhereItWorks(t *testing.T) {
 	t.Parallel()
 
 	for _, group := range placedBindings() {
-		for _, binding := range group.listedActions() {
+		for _, binding := range movable(group.listedActions()) {
 			t.Run(binding.action, func(t *testing.T) {
 				t.Parallel()
 
@@ -432,6 +436,13 @@ func TestTheHelpListsEachPlacedActionWhereItWorks(t *testing.T) {
 // actions.
 func (g helpGroup) listedActions() []listedBinding {
 	return slices.DeleteFunc(slices.Clone(g.bindings), func(binding listedBinding) bool { return binding.help == "" })
+}
+
+// movable is bindings without the one ui.keys cannot move.
+func movable(bindings []listedBinding) []listedBinding {
+	return slices.DeleteFunc(slices.Clone(bindings), func(binding listedBinding) bool {
+		return binding.action == fixedAction
+	})
 }
 
 // groupNamed is the listing's group called name, or an empty one.

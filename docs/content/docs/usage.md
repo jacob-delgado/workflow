@@ -156,8 +156,8 @@ every key `?` lists, by where it works.
 | | `?` | Every key |
 | | `q` | Quit (`ctrl+c` works even with a preview open) |
 
-Every key here can be rebound with `ui.keys`; see
-[Configuration]({{< relref "/docs/configuration" >}}).
+Every key here but the pane numbers, `1`–`6`, can be rebound with `ui.keys`;
+see [Configuration]({{< relref "/docs/configuration" >}}).
 
 ## The loop
 

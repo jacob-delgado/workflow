@@ -28,6 +28,9 @@ var (
 	// ErrKeyConflict reports two actions bound to the same key where both are
 	// live at once, so a press would be ambiguous.
 	ErrKeyConflict = errors.New("ui.keys binds two actions to one key in the same context")
+	// ErrKeyNotRebindable reports a ui.keys entry moving an action whose keys
+	// cannot be one key: jump-to-pane answers the pane numbers, one per pane.
+	ErrKeyNotRebindable = errors.New("ui.keys moves an action whose keys cannot be rebound")
 )
 
 // keyMap is every key the interface answers to. It is built by a function and
@@ -99,6 +102,11 @@ const (
 	actionOpenLink = "open-link"
 	actionCopyLink = "copy-link"
 )
+
+// actionJumpToPane is the one action CheckKeys refuses to move: its keys are the
+// pane numbers, one per pane, and Model.handleGlobalKey reads the pane from the
+// digit pressed.
+const actionJumpToPane = "jump-to-pane"
 
 // placement is one binding as it was defined: the action it answers to, the help
 // group it belongs to, and the binding itself. The set of placements is what
@@ -199,7 +207,7 @@ func newKeyMap(marks glyphs, reviewNoun, messagingService string, overrides map[
 func movingKeys(builder *helpBuilder, into *keyMap, marks glyphs) {
 	into.next = builder.bind(groupMoving, "next-pane", "next pane", "tab")
 	into.previous = builder.bind(groupMoving, "previous-pane", "previous pane", "shift+tab")
-	into.jump = builder.bindShown(groupMoving, "jump-to-pane",
+	into.jump = builder.bindShown(groupMoving, actionJumpToPane,
 		"1-"+strconv.Itoa(paneCount), "jump to pane", paneNumbers()...)
 	into.up = builder.bindShown(groupMoving, "up", marks.upKey+"/k", "up", "up", "k")
 	into.down = builder.bindShown(groupMoving, "down", marks.downKey+"/j", "down", "down", "j")
@@ -285,17 +293,22 @@ func everywhereKeys(builder *helpBuilder, into *keyMap) {
 }
 
 // CheckKeys reports whether a ui.keys override map is usable: every entry names a
-// real action, and no two actions that are live at the same time are bound to one
-// key. It builds the keymap the overrides produce and inspects it, so it checks
-// exactly what the interface would run — the default set, with no overrides,
-// passes. The glyphs only name the arrow keys in the help, which key collisions
-// do not depend on, so a default set stands in for them.
+// real action that one key can trigger, and no two actions that are live at the
+// same time are bound to one key. It builds the keymap the overrides produce and
+// inspects it, so it checks exactly what the interface would run — the default
+// set, with no overrides, passes. The glyphs only name the arrow keys in the
+// help, which key collisions do not depend on, so a default set stands in for
+// them.
 func CheckKeys(overrides map[string]string) error {
 	_, builder := compileKeys(unicodeGlyphs(), "pull request", "Slack", overrides)
 
 	err := builder.unknownActions(overrides)
 	if err != nil {
 		return err
+	}
+
+	if _, moved := overrides[actionJumpToPane]; moved {
+		return fmt.Errorf("%w: %q", ErrKeyNotRebindable, actionJumpToPane)
 	}
 
 	return builder.conflicts()

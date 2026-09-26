@@ -132,14 +132,14 @@ The terminal:
 - `internal/tui/render.go:427` — "status describes the configuration…" sits
   atop `messagingLabel`'s comment block; `Model.status` (`:435`) has no
   comment.
-- `internal/tui/keys.go:337` — `keyContexts`' comment says refresh,
+- `internal/tui/keys.go:350` — `keyContexts`' comment says refresh,
   open-link and copy-link act on the Branch, Commits, Review and
-  review-requests panes; the contexts (`:347`) give Branch and Commits only
+  review-requests panes; the contexts (`:360`) give Branch and Commits only
   `actionRefresh`, and open and copy are answered on Issues
   (`handleIssuesKey`, `internal/tui/issuekeys.go:18`), Review
   (`handleReviewLink`, `internal/tui/review.go:467`) and Reviews
   (`handleReviewQueueKey`, `internal/tui/reviewqueue.go:188`).
-- `internal/tui/keys.go:59` — `keyMap`'s comment on `openLink` and
+- `internal/tui/keys.go:62` — `keyMap`'s comment on `openLink` and
   `copyLink`, "on the Issues and Review panes", omits the Reviews pane that
   `handleReviewQueueKey` (`internal/tui/reviewqueue.go:188`) handles.
 
@@ -298,7 +298,7 @@ The configuration page (the Fields table's missing rows are DEBT-91):
   `timing.ci_interval` is set, CI is polled every three minutes" gives two
   of `pollInterval`'s three conditions (`internal/tui/review.go:195`): no
   announcement may be waiting either.
-- `docs/content/docs/configuration.md:480` — the store is "keyed only by a
+- `docs/content/docs/configuration.md:481` — the store is "keyed only by a
   repository's host and path and by a hash of your Jira URL", and
   `ARCHITECTURE.md:235` says the repository key is the remote's parsed host
   and path; `migrate` (`internal/store/store.go:202`) keys the cache by
@@ -705,10 +705,11 @@ three; no linter or knip rule sees any of it.
   `checkForge` (`internal/cli/doctor_credentials.go:121`) tells such a
   tenant to "set forge.kind and forge.host" for a host the code could
   classify.
-- `internal/config/ui.go:45` — the rebindable action names are listed
+- `internal/config/ui.go:46` — the rebindable action names are listed
   in `UI.Keys`' comment, again under "Rebinding keys"
-  (`docs/content/docs/configuration.md:413`), and bound in `CheckKeys`
-  (`internal/tui/keys.go:293`); no test holds the three to each other.
+  (`docs/content/docs/configuration.md:414`), and bound in `CheckKeys`
+  (`internal/tui/keys.go:302`), which binds `jump-to-pane` too but refuses
+  to move it; no test holds the three to each other.
 - `internal/config/config.go:349` — `Config.Problems`' sentence
   "jira.base_url is not an absolute http or https URL" is
   `ErrInvalidBaseURL`'s text verbatim (`internal/jira/jira.go:44`), and the
@@ -991,32 +992,15 @@ through `loop.ComposePull`'s draft and fill the composer from it.
 branch naming an issue absent from the world's list sees the issue's
 summary as the title.
 
-### DEBT-115 A `ui.keys` override crashes `jump-to-pane` and leaves the wheel dead in every picker
+### DEBT-115 A `ui.keys` override of `down` or `up` leaves the wheel dead in every picker
 
 Severity: medium · Confidence: read
 
-Two places assume the default key where `ui.keys`, which `CheckKeys`
-accepts and `docs/content/docs/configuration.md:413` ("Rebinding keys")
-lists, can rebind it. `Model.handleGlobalKey` derives the pane from the
-pressed key's first byte, so an override of `jump-to-pane` to a non-digit
-indexes past the pane table and the next `View` panics: with
-`{"jump-to-pane": "f12"}` — the very `freeKey` that
-`internal/tui/help_test.go:16` uses to prove every action is accepted —
-pressing `f12` sets focus to `pane('f' - '1')`, 53, and `pane.title`
-indexes a six-element array with it. The wheel synthesizes `tea.KeyDown`
-and `tea.KeyUp` for overlays, which the pickers match against
-`m.keys.down` and `m.keys.up`, so a rebound `down` leaves the wheel dead
-in every picker. The nothing-staged guidance that names `space` is UX-96's.
+The wheel synthesizes `tea.KeyDown` and `tea.KeyUp` for overlays, which the
+pickers match against `m.keys.down` and `m.keys.up`, so a `down` or `up`
+that `ui.keys` rebinds leaves the wheel dead in every picker. The
+nothing-staged guidance that names `space` is UX-96's.
 
-- `internal/tui/tui.go:235` — `Model.handleGlobalKey` computes
-  `pane(msg.String()[0] - '1')` under a comment (`:233`) that assumes only
-  digits match.
-- `internal/tui/keys.go:150` — `helpBuilder.bindingFor` replaces the whole
-  key list with the override, so `paneNumbers()` is gone.
-- `internal/tui/panes.go:35` — `pane.title` indexes `titles[p]` on a
-  `[paneCount]string`; index 53 panics.
-- `internal/tui/keys.go:293` — `CheckKeys` checks only unknown actions and
-  conflicts; a non-digit for `jump-to-pane` passes.
 - `internal/tui/mouse.go:100` — `Model.wheel` builds
   `tea.KeyPressMsg{Code: tea.KeyDown}` rather than the bound key.
 - `internal/tui/picker.go:319` — `statusPicker.handleKey` matches the
@@ -1025,15 +1009,10 @@ in every picker. The nothing-staged guidance that names `space` is UX-96's.
   `statusPicker.handleFormKey` (`internal/tui/fields.go:240`) and
   `fixupPicker.handleKey` (`internal/tui/picker.go:466`).
 
-**One way to fix it.** Refuse an override of `jump-to-pane` in `CheckKeys`
-(its keys are derived from `paneCount` and cannot be one key) or map the
-pressed key back to its index in the binding's key list, and give
-`pickList` a `moved(step)` path the wheel calls through a small overlay
-method.
+**One way to fix it.** Give `pickList` a `moved(step)` path the wheel calls
+through a small overlay method.
 
-**Done when.** A test with `{"jump-to-pane": "f12"}` either gets an error
-from `CheckKeys` or presses `f12` on the live model and sees the screen
-unchanged, with no panic, and `TestTheWheelMovesAnOverlaysList`
+**Done when.** `TestTheWheelMovesAnOverlaysList`
 (`internal/tui/mouse_test.go:66`) passes with `cfg.UI.Keys` rebinding
 `down` and `up`.
 
