@@ -25,10 +25,11 @@ var errSwitchRefused = errors.New("git refused the switch")
 
 // Checkout switches the working tree to the requested branch. It refuses a dirty
 // tree with 409 so a switch never carries work in progress onto another branch,
-// and answers a branch it cannot check out with 422 — saying, when git refused,
-// how to see git's reason. On success it returns the branch now in effect, or
-// the requested branch by its name alone when it cannot be read back; the event
-// stream re-pushes the rest of the state.
+// answers a branch git would not switch to with 422, saying how to see git's
+// reason, and a working tree it cannot read as fault classifies it. On success
+// it returns the branch now in effect, or the requested branch by its name
+// alone when it cannot be read back; the event stream re-pushes the rest of the
+// state.
 func (s *server) Checkout(
 	_ context.Context, request api.CheckoutRequestObject,
 ) (api.CheckoutResponseObject, error) {
@@ -51,7 +52,9 @@ func (s *server) Checkout(
 		return unprocessable("git would not switch to " + request.Body.Branch +
 			"; switch from a terminal to see git's reason"), nil
 	default:
-		return unprocessable("the branch could not be checked out; try again, or switch from a terminal to see why"), nil
+		body, code := fault(err)
+
+		return api.CheckoutdefaultApplicationProblemPlusJSONResponse{Body: body, StatusCode: code}, nil
 	}
 }
 

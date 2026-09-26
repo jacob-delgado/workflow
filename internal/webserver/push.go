@@ -22,7 +22,8 @@ var errPushFailed = errors.New("the push failed")
 // has none — the first outward step toward a pull request. There is nothing to
 // push, so a 409, when the tree is not on a branch or the branch is not ahead of
 // its upstream on the push remote; a push that fails is a 422 carrying the
-// output. On success it returns the branch as published.
+// output, and a branch that cannot be read is answered by fault. On success it
+// returns the branch as published.
 func (s *server) Push(_ context.Context, _ api.PushRequestObject) (api.PushResponseObject, error) {
 	if s.deps.Push == nil || s.deps.Branch == nil {
 		return pushUnprocessable("pushing is not available"), nil
@@ -30,8 +31,9 @@ func (s *server) Push(_ context.Context, _ api.PushRequestObject) (api.PushRespo
 
 	branch, err := s.deps.Branch()
 	if err != nil {
-		//nolint:nilerr // the read failure is answered with a 422 response, not a returned error
-		return pushUnprocessable("the branch could not be read"), nil
+		body, code := fault(err)
+
+		return api.PushdefaultApplicationProblemPlusJSONResponse{Body: body, StatusCode: code}, nil
 	}
 
 	if nothingToPush(branch) {

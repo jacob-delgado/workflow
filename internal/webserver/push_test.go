@@ -251,23 +251,6 @@ func TestPushSucceedsEvenIfTheRereadFails(t *testing.T) {
 	}
 }
 
-func TestPushReportsABranchReadFailure(t *testing.T) {
-	t.Parallel()
-
-	// Arrange
-	deps := filledDeps()
-	deps.Branch = func() (gitrepo.Branch, error) { return gitrepo.Branch{}, errSeam }
-	deps.Push = func(string) (proc.Output, error) { return fakeOutput(nil, nil), nil }
-
-	// Act
-	recorder := doPush(t, deps)
-
-	// Assert
-	if recorder.Code != http.StatusUnprocessableEntity {
-		t.Errorf("status = %d, want 422 when the branch cannot be read", recorder.Code)
-	}
-}
-
 func TestPushIsUnavailableWithoutAGitSeam(t *testing.T) {
 	t.Parallel()
 

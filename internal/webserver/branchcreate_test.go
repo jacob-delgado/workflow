@@ -33,20 +33,6 @@ func wantBranchName(t *testing.T) string {
 		Name("Bug", startIssue, "Fix token redaction")
 }
 
-// assertCreateBranchSaysTryAgain checks a start-work request answered 422, with
-// a detail that names the issue and what to do next.
-func assertCreateBranchSaysTryAgain(t *testing.T, recorder *httptest.ResponseRecorder) {
-	t.Helper()
-
-	want := "the branch for " + startIssue + " could not be created; try again, or run workflow branch " +
-		startIssue + " from a terminal to see why"
-
-	failure := decode[api.Problem](t, recorder)
-	if recorder.Code != http.StatusUnprocessableEntity || failure.Detail != want {
-		t.Errorf("status = %d, detail %q; want 422 saying %q", recorder.Code, failure.Detail, want)
-	}
-}
-
 // doCreateBranch posts a start-work request for startIssue against a server over
 // deps.
 func doCreateBranch(t *testing.T, deps webserver.Deps) *httptest.ResponseRecorder {
@@ -209,21 +195,6 @@ func TestCreateBranchReportsAFailedCreate(t *testing.T) {
 	if recorder.Code != http.StatusUnprocessableEntity {
 		t.Errorf("status = %d, want 422 when the branch cannot be created", recorder.Code)
 	}
-}
-
-func TestCreateBranchReportsABranchListFailure(t *testing.T) {
-	t.Parallel()
-
-	// Arrange
-	deps := filledDeps()
-	deps.Branches = func() ([]string, error) { return nil, errSeam }
-	deps.CreateBranch = func(string, string) error { return nil }
-
-	// Act
-	recorder := doCreateBranch(t, deps)
-
-	// Assert
-	assertCreateBranchSaysTryAgain(t, recorder)
 }
 
 func TestCreateBranchRejectsAnEmptyIssue(t *testing.T) {

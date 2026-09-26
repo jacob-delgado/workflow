@@ -276,16 +276,25 @@ func TestCommitReportsAChangesReadFailure(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
+	// The read's own words name where the repository is; the answer is the one
+	// any failure nothing more is known of gets.
 	deps := filledDeps()
-	deps.Changes = func() ([]gitrepo.Change, error) { return nil, errSeam }
+	deps.Changes = func() ([]gitrepo.Change, error) {
+		return nil, fmt.Errorf("reading the status of %s: %w", repoPath, errSeam)
+	}
 	deps.Commit = func(string) (proc.Output, error) { return fakeOutput(nil, nil), nil }
 
 	// Act
 	recorder := doCommit(t, deps, `{"type":"fix","subject":"redact tokens"}`)
 
 	// Assert
-	if recorder.Code != http.StatusUnprocessableEntity {
-		t.Errorf("status = %d, want 422 when the staged state cannot be read", recorder.Code)
+	failure := decode[api.Problem](t, recorder)
+	if recorder.Code != http.StatusInternalServerError || failure.Code != api.Internal {
+		t.Errorf("status = %d, code %q; want 500 and %q", recorder.Code, failure.Code, api.Internal)
+	}
+
+	if strings.Contains(failure.Detail, errSeam.Error()) || strings.Contains(failure.Detail, repoPath) {
+		t.Errorf("detail = %q, names the read's own words or the repository's path", failure.Detail)
 	}
 }
 
