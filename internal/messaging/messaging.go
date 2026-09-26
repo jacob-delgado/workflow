@@ -101,19 +101,16 @@ func (c Client) AuthTest(ctx context.Context) (Identity, error) {
 }
 
 // checkable reports whether this configuration has something worth asking about.
+// A map, not a switch, so there is no last-case arm gobco can never see;
+// exhaustive keeps it complete.
 func (c Client) checkable() error {
-	switch c.creds.Mode() {
-	case config.MessagingBot:
-		return nil
-	case config.MessagingWebhook:
+	return map[config.MessagingMode]error{
+		config.MessagingBot: nil,
 		// The only way to learn whether a webhook works is to post with it, and
 		// that would put a test message in somebody's channel.
-		return ErrWebhookUncheckable
-	case config.MessagingNone:
-		return ErrNoCredential
-	default:
-		return ErrNoCredential
-	}
+		config.MessagingWebhook: ErrWebhookUncheckable,
+		config.MessagingNone:    ErrNoCredential,
+	}[c.creds.Mode()]
 }
 
 // send performs the request and reads Slack's verdict out of the body.
