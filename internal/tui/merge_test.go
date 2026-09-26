@@ -454,22 +454,6 @@ func TestTheMergePreviewMovesBetweenMethods(t *testing.T) {
 	}
 }
 
-func TestTheMergePreviewShowsItIsMerging(t *testing.T) {
-	t.Parallel()
-
-	// Arrange
-	// The merge is never answered, so the in-flight preview can be seen, and a
-	// key pressed then is ignored rather than starting a second merge.
-	previewing := typing(t, mergeable().live(t, 120, 40), "4", "M")
-
-	// Act
-	merging, _ := pressed(t, previewing, keyEnter)
-	merging, _ = pressed(t, merging, "j")
-
-	// Assert
-	requireScreen(t, merging.View().Content, "merging")
-}
-
 func TestADryRunMergeSaysWhatItWouldDo(t *testing.T) {
 	t.Parallel()
 

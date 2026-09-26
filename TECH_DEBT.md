@@ -465,30 +465,11 @@ docs/content/docs/install.md` prints a line.
 
 Severity: low · Confidence: read
 
-Across `internal/tui`, `internal/cli`, `internal/forge`, `internal/config`,
+Across `internal/cli`, `internal/forge`, `internal/config`,
 `internal/store`, the release and coverage scripts and the web's vitest
 suite, tests named for a rule would pass with the rule gone. `testshape`
 checks only that a failure call is reachable and v8's range count cannot see
 a weak assertion, so every one clears the gate.
-
-The terminal:
-
-- `internal/tui/merge_test.go:468` — `TestTheMergePreviewShowsItIsMerging`
-  presses `j` in flight and asserts only "merging"; without the
-  `p.send.sending` guard in `mergePicker.handleKey`
-  (`internal/tui/merge.go:178`), `j` would move the selection and the word
-  would still show.
-- `internal/tui/finish_test.go:226` —
-  `TestTheFinishPreviewShowsItIsFinishing` presses `x`, a key
-  `finishPreview.handleKey` (`internal/tui/finish.go:103`) ignores anyway,
-  and asserts only "finishing".
-- `internal/tui/preditor_test.go:179` — `TestTheEditorShowsItIsSaving`
-  presses `x` and asserts only "saving"; without the guard in
-  `prEditor.handleKey` (`internal/tui/preditor.go:83`), `x` lands in the
-  title (`:94`) unseen.
-- `internal/tui/edges_test.go:27` — `TestNothingInterruptsAWriteBeingSent`,
-  the table the three guards should join, covers a branch, a pull request,
-  an announcement, a configuration and a re-run.
 
 The command line:
 
@@ -596,28 +577,23 @@ The store:
   asserts only that another view and instance read nothing (`:92`), so a
   `RecordScope` or `CacheIssues` that writes nothing passes.
 
-The regressions these tests exist to catch pass the suite green: a dropped
-in-flight guard on the merge picker, the finish preview or the pull request
-editor; `branch` exiting 1 where the contract says 4; a lost
-`ErrUnknownForge` or `ErrUnknownVersion` wrap; a release-label filter typo
-found at the next release; a `timestamp()` that writes `now.String()`; a
-commit sent without its `!` or body; the "opening will push it first" note
-deleted.
+The regressions these tests exist to catch pass the suite green: `branch`
+exiting 1 where the contract says 4; a lost `ErrUnknownForge` or
+`ErrUnknownVersion` wrap; a release-label filter typo found at the next
+release; a `timestamp()` that writes `now.String()`; a commit sent without
+its `!` or body; the "opening will push it first" note deleted.
 
 **One way to fix it.** Sharpen each Assert to what its name claims:
 `wantExit` or `errors.Is` with the family or sentinel meant, and rename the
-500 case "rejected"; the three missing guards as cases of
-`TestNothingInterruptsAWriteBeingSent`; `aria-disabled` on Retry or a
-Playwright focus case; the refused read awaited before asserting the select
-is absent; the check asserted by role and href; the recorded requests read
-for their bodies; the `gh` stub running the script's own `--jq` over a
-fixture of pulls; exact JSON from `scripts/coverage-summary.sh`; a stub
-gobco for the gate's refusals; raw-file reads that parse each `_at`, a
-cascade a test makes fire, and each Arrange's error fatal.
+500 case "rejected"; `aria-disabled` on Retry or a Playwright focus case;
+the refused read awaited before asserting the select is absent; the check
+asserted by role and href; the recorded requests read for their bodies; the
+`gh` stub running the script's own `--jq` over a fixture of pulls; exact
+JSON from `scripts/coverage-summary.sh`; a stub gobco for the gate's
+refusals; raw-file reads that parse each `_at`, a cascade a test makes fire,
+and each Arrange's error fatal.
 
-**Done when.** Each named mutation fails a test: removing
-`case p.send.sending` from `mergePicker.handleKey`,
-`finishPreview.handleKey` and `prEditor.handleKey`; changing `branch`'s
+**Done when.** Each named mutation fails a test: changing `branch`'s
 non-repository exit from 4; returning a different sentinel for `KindUnknown`
 from `ReviewRequests` or the issue methods; removing
 `select(any(.labels[]; …))` from `scripts/release/push-release-tag.sh`;

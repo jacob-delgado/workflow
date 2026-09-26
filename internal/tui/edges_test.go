@@ -27,20 +27,32 @@ var (
 func TestNothingInterruptsAWriteBeingSent(t *testing.T) {
 	t.Parallel()
 
-	failedCI := []forge.CI{{State: forge.CIFailed, Total: 1, Done: 1, Failed: 1}}
+	withHooks := func() *world {
+		w := newWorld()
+		w.gitHooks = legacyHooks()
+
+		return w
+	}
+	failedChecks := func() *world {
+		w := newWorld()
+		w.ci = []forge.CI{{State: forge.CIFailed, Total: 1, Done: 1, Failed: 1}}
+
+		return w
+	}
 
 	cases := map[string]struct {
-		pullMissing bool
-		gitHooks    []hooks.GitHook
-		ci          []forge.CI
-		keys        []string
-		sending     string
+		repo    func() *world
+		keys    []string
+		sending string
 	}{
-		"a branch":           {keys: []string{"b"}, sending: "creating…"},
-		"a pull request":     {pullMissing: true, keys: []string{"4", "n"}, sending: "opening…"},
-		"an announcement":    {keys: []string{"5", "p"}, sending: "announcing…"},
-		"a configuration":    {gitHooks: legacyHooks(), keys: []string{"3", "g"}, sending: "writing…"},
-		"a re-run of checks": {ci: failedCI, keys: []string{"4", "R"}, sending: "re-running…"},
+		"a branch":           {repo: newWorld, keys: []string{"b"}, sending: "creating…"},
+		"a pull request":     {repo: withoutPull, keys: []string{"4", "n"}, sending: "opening…"},
+		"an announcement":    {repo: newWorld, keys: []string{"5", "p"}, sending: "announcing…"},
+		"a configuration":    {repo: withHooks, keys: []string{"3", "g"}, sending: "writing…"},
+		"a re-run of checks": {repo: failedChecks, keys: []string{"4", "R"}, sending: "re-running…"},
+		"a merge":            {repo: mergeable, keys: []string{"4", "M"}, sending: "merging…"},
+		"a finish":           {repo: mergedBranch, keys: []string{"4", "F"}, sending: "finishing…"},
+		"an edit":            {repo: newWorld, keys: []string{"4", "e"}, sending: "saving…"},
 	}
 
 	for name, tt := range cases {
@@ -48,14 +60,7 @@ func TestNothingInterruptsAWriteBeingSent(t *testing.T) {
 			t.Parallel()
 
 			// Arrange
-			sending := newWorld()
-			sending.pullFound, sending.gitHooks = !tt.pullMissing, tt.gitHooks
-
-			if tt.ci != nil {
-				sending.ci = tt.ci
-			}
-
-			overlay := typing(t, sending.live(t, 120, 50), tt.keys...)
+			overlay := typing(t, tt.repo().live(t, 120, 50), tt.keys...)
 
 			// Act: send it
 			inFlight, _ := pressed(t, overlay, keyEnter)

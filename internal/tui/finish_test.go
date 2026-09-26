@@ -226,22 +226,6 @@ func TestEscCancelsTheFinishPreview(t *testing.T) {
 	}
 }
 
-func TestTheFinishPreviewShowsItIsFinishing(t *testing.T) {
-	t.Parallel()
-
-	// Arrange
-	// The finish is never answered, so its in-flight preview can be seen, and a
-	// key pressed then is ignored.
-	previewing := typing(t, mergedBranch().live(t, 120, 40), "4", "F")
-
-	// Act
-	finishing, _ := pressed(t, previewing, keyEnter)
-	finishing, _ = pressed(t, finishing, "x")
-
-	// Assert
-	requireScreen(t, finishing.View().Content, "finishing")
-}
-
 func TestADryRunFinishSaysWhatItWouldDo(t *testing.T) {
 	t.Parallel()
 
