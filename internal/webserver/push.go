@@ -43,7 +43,7 @@ func (s *server) Push(_ context.Context, _ api.PushRequestObject) (api.PushRespo
 		return pushUnprocessable(pushFailure(err)), nil
 	}
 
-	return api.Push200JSONResponse(branchDTO(s.publishedBranch(branch))), nil
+	return api.Push200JSONResponse(branchDTO(s.branchAfter(branch))), nil
 }
 
 // nothingToPush reports whether the branch has nothing to send: the tree is not
@@ -67,19 +67,6 @@ func pushFailure(err error) string {
 	}
 
 	return fmt.Errorf("starting the push: %w", err).Error()
-}
-
-// publishedBranch re-reads the branch after a successful push, for the upstream
-// the push set. A re-read that fails does not undo the push, so the pre-push
-// branch is returned rather than reporting a completed, outward push as failed;
-// the event stream refreshes the rest.
-func (s *server) publishedBranch(before gitrepo.Branch) gitrepo.Branch {
-	after, err := s.deps.Branch()
-	if err != nil {
-		return before
-	}
-
-	return after
 }
 
 // pushUnprocessable is the 422 response for a push the server will not make.

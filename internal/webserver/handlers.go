@@ -124,6 +124,19 @@ func (s *server) GetBranch(_ context.Context, _ api.GetBranchRequestObject) (api
 	return api.GetBranch200JSONResponse(branchDTO(branch)), nil
 }
 
+// branchAfter re-reads the branch once a write to it has landed. A re-read
+// that fails does not undo the write, so fallback — the branch as the caller
+// knows it — is answered rather than a completed write reported as failed; the
+// event stream brings the rest.
+func (s *server) branchAfter(fallback gitrepo.Branch) gitrepo.Branch {
+	after, err := s.deps.Branch()
+	if err != nil {
+		return fallback
+	}
+
+	return after
+}
+
 // ListChanges returns the working tree's changes, or none outside a repository.
 func (s *server) ListChanges(_ context.Context, _ api.ListChangesRequestObject) (api.ListChangesResponseObject, error) {
 	if s.deps.Changes == nil {
