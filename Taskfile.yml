@@ -529,8 +529,10 @@ tasks:
     desc: The full local gate — run this before calling any task done
     # The web frontend's lint, client-drift check and unit tests sit beside
     # their Go twins, so a broken frontend fails here and not first in CI. The
-    # Playwright suite stays out: it needs a browser installed, and CI's e2e
-    # job runs it (`yarn test:e2e` by hand).
+    # Playwright suites stay out: each needs a browser installed, and the
+    # server-backed one needs `task build`'s binary and port 7000 free as
+    # well. CI's e2e and e2e-server jobs run them (`yarn test:e2e` and
+    # `yarn test:e2e:server` by hand).
     cmds:
       - task: lint
       - task: web:lint

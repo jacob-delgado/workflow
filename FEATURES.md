@@ -241,9 +241,9 @@ Impact: medium · Effort: large
 - Touches: `api/openapi.yaml` (four operations), `internal/webserver` (a
   handler per action, each a budget row; merge gated exactly as `canMerge`
   gates it, `internal/tui/merge.go:23`, over the shared composition in
-  `internal/loop`), `web/src/features/review`, `web/e2e` (a write driven
-  against a running server, which the suite does not yet do —
-  TECH_DEBT.md DEBT-65).
+  `internal/loop`), `web/src/features/review`, `web/e2e/server` (the run
+  that drives writes against a running server, where a merge needs a forge
+  the fixture does not yet stand in for).
 - Done when: a green, approved pull request can be merged from the browser
   after a preview of the permitted methods; a refused merge names the
   missing scope; every action is held back under `--dry-run`.
