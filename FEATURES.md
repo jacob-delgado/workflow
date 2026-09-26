@@ -57,8 +57,9 @@ that needs one of them reopened goes in the
   days is not adopted.
 - **No credential is ever printed.** A change that touches a token brings the
   test that proves it does not leak.
-- **One configuration file.** A file in the current directory replaces the one
-  in the home directory, and an unknown key is an error.
+- **One configuration file.** A file found in or above the current directory,
+  up to the repository root, replaces the one in the home directory, and an
+  unknown key is an error.
 - **A chat service is posted to, never read.** `workflow` does not read a
   channel's history, so it asks for no scope that would let it.
 - **One process, which ends when the interface closes.** Nothing runs once

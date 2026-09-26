@@ -15,11 +15,12 @@ import (
 	"strings"
 )
 
-// Discover returns the path of the configuration file that applies, searching
-// workDir first and then homeDir. A file in the working directory replaces the
-// one in the home directory rather than merging with it: a repository-local
-// configuration is a complete answer, so the two can never combine into a state
-// neither file describes.
+// Discover returns the path of the configuration file that applies: the nearest
+// one walking up from workDir, no higher than the repository root, and otherwise
+// the one in homeDir. A file found on that walk replaces the one in the home
+// directory rather than merging with it: a repository-local configuration is a
+// complete answer, so the two can never combine into a state neither file
+// describes.
 //
 // It returns ErrNotFound when neither location has one.
 func Discover(workDir, homeDir string) (string, error) {
@@ -101,7 +102,7 @@ func atRepoRoot(dir string) bool {
 	return err == nil
 }
 
-// Load reads the configuration that applies, searching workDir then homeDir.
+// Load reads the configuration that applies: the file Discover finds.
 func Load(workDir, homeDir string) (Config, error) {
 	path, err := Discover(workDir, homeDir)
 	if err != nil {

@@ -307,6 +307,7 @@ func TestHelpExplainsBothTokens(t *testing.T) {
 		"chat:write",
 		config.FileName,
 		"REPLACES",
+		"no higher than the repository root",
 	}
 
 	for _, want := range wants {
