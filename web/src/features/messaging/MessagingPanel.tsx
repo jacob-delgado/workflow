@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import type { Snapshot } from '@/api/generated/types.gen.ts'
 import { useForgeWords } from '@/api/health.ts'
-import { useSnapshotStore } from '@/api/snapshot.ts'
+import { useLiveSnapshot } from '@/api/snapshot.ts'
 import { Button } from '@/lib/Button.tsx'
 import { useFocusHandback, useFocusOnMount } from '@/lib/focus.ts'
 import { OutcomeLine, useOutcome } from '@/lib/Outcome.tsx'
@@ -11,12 +11,7 @@ import { EmptyState } from '@/shell/EmptyState.tsx'
 import { announce, previewAnnouncement } from './announceApi.ts'
 
 export function MessagingPanel() {
-  const snapshot = useSnapshotStore((state) => state.snapshot)
-
-  // The shell says it is connecting until the first snapshot lands.
-  if (!snapshot) {
-    return null
-  }
+  const snapshot = useLiveSnapshot()
 
   const { messaging, review } = snapshot
 

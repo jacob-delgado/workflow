@@ -1275,13 +1275,13 @@ that a focused control is in view, not that its focus can be seen.
   offset, and every primary button draws through it: `SaveControls`'
   submit (`web/src/features/settings/SettingsPanel.tsx:144`),
   `CommitForm`'s submit (`web/src/features/branch/CommitForm.tsx:93`),
-  `PushConfirm`'s Push (`web/src/features/branch/BranchPanel.tsx:189`),
-  beside a Cancel (`:186`) whose ring is visible, `OpenPullRequest`'s
-  button (`web/src/features/review/ReviewPanel.tsx:223`) and
-  `PullRequestForm`'s submit (`:311`), `StartWorkButton`
+  `PushConfirm`'s Push (`web/src/features/branch/BranchPanel.tsx:184`),
+  beside a Cancel (`:181`) whose ring is visible, `OpenPullRequest`'s
+  button (`web/src/features/review/ReviewPanel.tsx:218`) and
+  `PullRequestForm`'s submit (`:306`), `StartWorkButton`
   (`web/src/features/issues/WorkStory.tsx:315`), and `AnnounceControls`'
-  button (`web/src/features/messaging/MessagingPanel.tsx:190`) and
-  `AnnouncePreview`'s Announce now (`:265`), beside a Cancel (`:262`)
+  button (`web/src/features/messaging/MessagingPanel.tsx:185`) and
+  `AnnouncePreview`'s Announce now (`:260`), beside a Cancel (`:257`)
   whose ring is visible.
 
 **Instead.** Add `focus-visible:ring-offset-2
