@@ -160,21 +160,34 @@ func TestLoadRejectsMalformedAndUnknownKeys(t *testing.T) {
 func TestDiscoverIgnoresAnEmptyDirectory(t *testing.T) {
 	t.Parallel()
 
-	// Arrange
-	homeDir := t.TempDir()
-	wantPath := write(t, homeDir, completeConfig)
+	// A caller with no working directory, or a machine with no home directory,
+	// hands Discover an empty string rather than a path. It must skip that
+	// entry, not join it into a relative .workflow.json looked up wherever the
+	// process happens to run.
+	homeWithFile := t.TempDir()
+	homeFile := write(t, homeWithFile, completeConfig)
 
-	// Act
-	// A machine with no home directory hands Load an empty string rather than a
-	// path. That must skip the entry, not turn into a lookup of "/.workflow.json".
-	got, err := config.Discover("", homeDir)
-	if err != nil {
-		t.Fatalf("Discover: %v", err)
+	cases := map[string]struct {
+		workDir, homeDir string
+		want             string
+		wantErr          error
+	}{
+		"no working directory": {workDir: "", homeDir: homeWithFile, want: homeFile},
+		"no home directory":    {workDir: t.TempDir(), homeDir: "", wantErr: config.ErrNotFound},
 	}
 
-	// Assert
-	if got != wantPath {
-		t.Errorf("Discover = %s, want %s", got, wantPath)
+	for name, tt := range cases {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			// Act
+			got, err := config.Discover(tt.workDir, tt.homeDir)
+
+			// Assert
+			if got != tt.want || !errors.Is(err, tt.wantErr) {
+				t.Errorf("Discover(%q, %q) = %q, %v, want %q, %v", tt.workDir, tt.homeDir, got, err, tt.want, tt.wantErr)
+			}
+		})
 	}
 }
 
