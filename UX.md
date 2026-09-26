@@ -1298,42 +1298,6 @@ asserts its computed `box-shadow` carries a `--background`-colored offset
 (or a ring color that contrasts 3:1 with `--primary`), and a screenshot
 with focus on Announce now shows a ring distinct from the fill.
 
-### UX-113 The one control accent comes in three button sizes
-
-Impact: low · Effort: small
-
-**Today.** A grep for `bg-primary` under `web/src` finds exactly eight
-sites and three padding pairs: five at `rounded-md px-3 py-1.5 text-sm`,
-two at `px-4 py-2`, and one at `rounded-sm px-2 py-1`, so the most
-consequential button in the Branch section is the smallest one on it.
-Three outward acts each wait on a last look: the announcement preview
-(`AnnouncePreview`, `web/src/features/messaging/MessagingPanel.tsx:269`)
-and the pull request form (`PullRequestForm`,
-`web/src/features/review/ReviewPanel.tsx:291`) draw the confirm as a
-control; the push draws it as a chip.
-
-- `PushConfirm`'s Push is `rounded-sm bg-primary px-2 py-1`, the third
-  size (`web/src/features/branch/BranchPanel.tsx:188`); its Cancel (`:181`)
-  is `rounded-sm px-2 py-1` too.
-- `CommitForm`'s submit is `bg-primary px-4 py-2`, the second size
-  (`web/src/features/branch/CommitForm.tsx:108`); comparing
-  `tmp/audit/screens/1024-dark-branch.png` with `1024-dark-slack.png`,
-  Commit staged changes is visibly taller than Announce to Slack though
-  both are the section's one primary act.
-- `SaveControls`' submit is `bg-primary px-4 py-2` too
-  (`web/src/features/settings/SettingsPanel.tsx:151`); in
-  `1024-dark-settings.png` Save changes matches the commit button and not
-  the five.
-
-**Instead.** Name a single primary-button class (`px-3 py-1.5 text-sm`,
-with the focus offset UX-112 asks for) and use it at all eight sites;
-`PushConfirm`'s Cancel takes the same size as `AnnouncePreview`'s. DEBT-93
-records the same classes written out at each site; one `Button` component
-(or one primary and one secondary class) closes both.
-
-**Done when.** A grep for `bg-primary` in `web/src` finds one padding pair,
-and a grep for `rounded-sm bg-primary` returns nothing.
-
 ### UX-114 Three places set type outside the scale and face the system names
 
 Impact: low · Effort: small

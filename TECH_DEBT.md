@@ -668,9 +668,8 @@ three; no linter or knip rule sees any of it.
   (`web/src/features/issues/WorkStory.tsx:287`), `FollowUpOffer`
   (`web/src/features/review/OpenedOutcome.tsx:88`) and `IssueUnread`
   (`web/src/features/issues/IssueDetailPanel.tsx:83`), with the primary's
-  inline in `CommitForm` (`web/src/features/branch/CommitForm.tsx:108`).
-  The primary button's three sizes are UX-113; one `Button` component (or
-  one primary and one secondary class) closes both.
+  inline in `CommitForm` (`web/src/features/branch/CommitForm.tsx:94`) and
+  at each of the other seven primary buttons.
 
 A change to the focus ring is eight edits.
 
