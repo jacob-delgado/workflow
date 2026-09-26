@@ -662,7 +662,7 @@ three; no linter or knip rule sees any of it.
   the first.
 - `internal/tui/composer.go:378` — `Model.recordScope` tests `scope != ""`
   on the raw `c.scope.Value()` (`:143`), so `' '` is recorded;
-  `server.rememberScope` (`internal/webserver/commit.go:174`) trims first,
+  `server.rememberScope` (`internal/webserver/commit.go:192`) trims first,
   and `ValidateScope` (`internal/convention/convention.go:65`) accepts a
   whitespace-only scope.
 - `internal/tui/run.go:222` — `commandRun.failureHeadline` is a map keyed by
@@ -706,7 +706,7 @@ three; no linter or knip rule sees any of it.
   the eleven Go types (`internal/convention/commit.go:41`) in order, and
   `useCommitTypes` (`web/src/features/branch/CommitForm.tsx:131`) falls back
   to it when `config.commit.types` is empty; `server.commitConvention`
-  (`internal/webserver/commit.go:73`) resolves the same empty list through
+  (`internal/webserver/commit.go:75`) resolves the same empty list through
   `convention.NewCommitConvention`, so the server's default is never sent,
   and no test compares the two.
 - `web/src/shell/themeStore.ts:11` — `storageKey` is `'workflow-theme'` with
@@ -816,10 +816,10 @@ them.
   any of the four renders.
 - `internal/webserver/announce.go:34` — `server.Announce` guards
   `request.Body == nil`; so do `server.Commit`
-  (`internal/webserver/commit.go:32`), `server.UpdateConfig`
+  (`internal/webserver/commit.go:34`), `server.UpdateConfig`
   (`internal/webserver/config.go:98`) and `server.OpenPullRequest`
   (`internal/webserver/pullrequest.go:39`), never true in the gobco report,
-  and `server.Checkout` (`internal/webserver/checkout.go:34`) and
+  and `server.Checkout` (`internal/webserver/checkout.go:35`) and
   `server.CreateBranch` (`internal/webserver/branchcreate.go:40`) carry it
   as a dead first operand, never true there either. Every one of those
   bodies is `required: true` in `api/openapi.yaml:572` (and `:637`,
@@ -1066,9 +1066,9 @@ for itself.
   raw `Changes` read error.
 - `internal/webserver/push.go:34` — `server.Push` answers a generic 422
   "the branch could not be read" for the same failure.
-- `internal/webserver/checkout.go:83` — `server.refuseADirtyTree` returns
+- `internal/webserver/checkout.go:84` — `server.refuseADirtyTree` returns
   the raw `Changes` error, which `server.Checkout`'s default arm at
-  `internal/webserver/checkout.go:53` words generically.
+  `internal/webserver/checkout.go:54` words generically.
 - `internal/webserver/branchcreate.go:122` — `server.branchExists` reads
   the `Branches` listing, and `server.startWork` (`:89`) returns its raw
   error, which `createBranchFailure`'s default arm at
@@ -1160,7 +1160,7 @@ commands.
 
 - `internal/webserver/stream.go:90` — `server.snapshot` builds
   `messagingDTO(s.config(), s.author())` on every frame.
-- `internal/webserver/handlers.go:241` — `server.author` calls
+- `internal/webserver/handlers.go:250` — `server.author` calls
   `s.deps.Author()` with no cache.
 - `internal/wiring/forge.go:109` — the `Author` seam runs
   `connection.client.Whoami(ctx)` on every call; only the connection is
@@ -1249,14 +1249,14 @@ failure answer.
   with no caller, is the same nil-seam, read, DTO sequence as
   `server.snapshotBranch` (`internal/webserver/stream.go:148`), which
   differs only in answering an empty branch on failure.
-- `internal/webserver/handlers.go:128` — `server.ListChanges`, no caller;
+- `internal/webserver/handlers.go:141` — `server.ListChanges`, no caller;
   `server.snapshotChanges` (`internal/webserver/stream.go:163`) is the
   same read with `changesDTO(nil)` on failure instead of `fault`.
-- `internal/webserver/handlers.go:144` — `server.GetReview`, no caller:
+- `internal/webserver/handlers.go:157` — `server.GetReview`, no caller:
   `Branch`, `FindPull`, `review` through `fault`, where
   `server.snapshotReview` (`internal/webserver/stream.go:178`) runs the
   identical sequence with failures as `Found: false`.
-- `internal/webserver/handlers.go:228` — `server.GetMessaging`, no caller:
+- `internal/webserver/handlers.go:242` — `server.GetMessaging`, no caller:
   the one-line `messagingDTO` that `server.snapshot` also builds at
   `internal/webserver/stream.go:90`.
 - `docs/content/docs/scripting.md:55` — "### The same families on the web"
@@ -1316,7 +1316,7 @@ from the description is what it hurts.
 - `api/openapi.yaml:328` — `getReview`'s 200 says "pull and ci are null
   when none is found"; `Review` in `internal/api/models.gen.go:692` marks
   both `omitempty` and `server.review`
-  (`internal/webserver/handlers.go:170`) leaves them nil, so they are
+  (`internal/webserver/handlers.go:183`) leaves them nil, so they are
   absent, as the not-found frame in `web/src/test/snapshot-frames.sse:7`
   shows.
 - `api/openapi.yaml:1070` — `Issue.priority` "May be empty"; `issueDTO`
@@ -1429,69 +1429,6 @@ case exists in `internal/progress/progress_test.go`; and either the
 snapshot schema has a stages array the web renders, or, until then,
 `pullRequestDone` reads `changes_requested` and a CI state of none as the Go
 table does.
-
-### DEBT-141 A commit, create or checkout that landed is reported failed
-
-Severity: medium · Confidence: read
-
-`commitStaged`, `startWork` and `switchTo` each return the confirming
-`Branch()` read's error after `runCommit`, `CreateBranch` or `Checkout` has
-already moved the tree, and the handlers' default arms answer 422 — git's
-read error verbatim for the commit, "could not be created; try again" and
-"could not be checked out; try again" for the branches — so a write that
-landed is told as a failure, where `publishedBranch` in the same package
-deliberately answers the pre-write state when the re-read after a push
-fails.
-
-- `internal/webserver/commit.go:102` — `server.commitStaged` returns
-  `s.deps.Branch()` after `runCommit` succeeded; the read's error becomes
-  the commit's failure.
-- `internal/webserver/commit.go:64` — `server.Commit`'s default arm
-  answers that error as 422 with `err.Error()` as the detail.
-- `internal/webserver/commit_test.go:308` —
-  `TestCommitReportsWhenTheBranchCannotBeReadAfter` pins the 422 for a
-  commit that ran.
-- `internal/webserver/branchcreate.go:99` — `server.startWork` returns
-  `s.deps.Branch()` after `createAndSwitch` ran.
-- `internal/webserver/branchcreate.go:72` — `createBranchFailure`'s
-  default arm says the branch "could not be created; try again" though it
-  exists.
-- `internal/webserver/branchcreate.go:87` — a retry then reaches
-  `branchExists` in `server.startWork` and answers 409 `errBranchExists`,
-  contradicting the 422.
-- `internal/webserver/branchcreate_test.go:259` —
-  `TestCreateBranchReportsWhenTheNewBranchCannotBeRead` pins the 422 for
-  a branch that was created.
-- `internal/webserver/checkout.go:70` — `server.switchTo` returns
-  `s.deps.Branch()` after `Checkout` succeeded.
-- `internal/webserver/checkout.go:53` — `server.Checkout`'s default arm
-  answers 422 "could not be checked out; try again" for that read's error;
-  no test covers this read.
-- `internal/webserver/push.go:72` — `server.publishedBranch`'s comment: a
-  re-read that fails does not undo the push, so the pre-push branch is
-  returned.
-
-The commit form shows a red alert with git's read error, and a retry
-answers 409 "nothing is staged to commit" while the commit is in the
-repository; the create says try again, and the retry answers 409 "a branch
-for this issue already exists"; the checkout says the switch failed while
-the tree is on the requested branch, until the stream corrects it a frame
-later. Two tests pin the 422 with no rationale, and no trade-off records
-why the commit and the branches differ from the push.
-
-**One way to fix it.** Mirror `publishedBranch`: after the write succeeds,
-answer 200 with the pre-commit branch, or with a branch built from the name
-just created or requested, when the confirming read fails (the pinned
-create scenario's pre-create read fails too, so the fallback must come from
-the created name).
-
-**Done when.** A test whose `Branch` seam fails only on its second read
-answers 200 to POST /api/commit; a test whose `Branch` seam fails only
-after `CreateBranch` ran answers 200 to POST /api/branches naming the
-created branch; and a test whose `Branch` seam fails after `Checkout` ran
-answers 200 to POST /api/checkout — each as
-`TestPushSucceedsEvenIfTheRereadFails`
-(`internal/webserver/push_test.go:188`) does for the push.
 
 ### DEBT-142 Two 422 details carry a host the docs keep off the wire
 

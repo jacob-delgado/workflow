@@ -506,7 +506,7 @@ export const zUpdateConfigResponse = zConfig;
 export const zCheckoutBody = zCheckoutRequest;
 
 /**
- * The branch that is now checked out.
+ * The branch that is now checked out. If it cannot be read back after the switch, only its name is set.
  */
 export const zCheckoutResponse = zBranch;
 

@@ -26,8 +26,9 @@ var errSwitchRefused = errors.New("git refused the switch")
 // Checkout switches the working tree to the requested branch. It refuses a dirty
 // tree with 409 so a switch never carries work in progress onto another branch,
 // and answers a branch it cannot check out with 422 — saying, when git refused,
-// how to see git's reason. On success it returns the branch now in effect; the
-// event stream re-pushes the rest of the state.
+// how to see git's reason. On success it returns the branch now in effect, or
+// the requested branch by its name alone when it cannot be read back; the event
+// stream re-pushes the rest of the state.
 func (s *server) Checkout(
 	_ context.Context, request api.CheckoutRequestObject,
 ) (api.CheckoutResponseObject, error) {
@@ -67,7 +68,7 @@ func (s *server) switchTo(name string) (gitrepo.Branch, error) {
 		return gitrepo.Branch{}, fmt.Errorf("%w: checking out %s: %w", errSwitchRefused, name, err)
 	}
 
-	return s.deps.Branch()
+	return s.branchAfter(gitrepo.Branch{Name: name}), nil
 }
 
 // refuseADirtyTree refuses a tree that carries any change, so a switch never

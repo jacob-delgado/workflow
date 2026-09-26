@@ -1150,7 +1150,7 @@ export type CheckoutError = CheckoutErrors[keyof CheckoutErrors];
 
 export type CheckoutResponses = {
     /**
-     * The branch that is now checked out.
+     * The branch that is now checked out. If it cannot be read back after the switch, only its name is set.
      */
     200: Branch;
 };

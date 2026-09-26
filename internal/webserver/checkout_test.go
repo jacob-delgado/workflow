@@ -69,6 +69,36 @@ func TestCheckoutSwitchesToTheBranch(t *testing.T) {
 	}
 }
 
+func TestCheckoutSucceedsEvenIfTheRereadFails(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	// The switch lands, but the read that would confirm it fails; the branch
+	// asked for is answered by its name rather than the switch told as failed.
+	var switched string
+
+	deps := cleanDeps(t, &switched)
+	deps.Branch = func() (gitrepo.Branch, error) {
+		if switched != "" {
+			return gitrepo.Branch{}, errSeam
+		}
+
+		return gitrepo.Branch{Name: testBranchName}, nil
+	}
+
+	// Act
+	recorder := doCheckout(t, deps, targetBranch)
+
+	// Assert
+	if recorder.Code != http.StatusOK {
+		t.Fatalf("status = %d, want 200 — the switch landed despite the re-read failing", recorder.Code)
+	}
+
+	if branch := decode[api.Branch](t, recorder); branch.Name != targetBranch {
+		t.Errorf("branch = %+v, want the switched-to branch %q", branch, targetBranch)
+	}
+}
+
 func TestCheckoutRefusesADirtyTree(t *testing.T) {
 	t.Parallel()
 
