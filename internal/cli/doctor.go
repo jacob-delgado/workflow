@@ -64,9 +64,9 @@ func newDoctorCmd() *cobra.Command {
 			"programs are installed, which " + config.FileName + " is in effect,\n" +
 			"and which required fields are still empty.\n\n" +
 			"Makes no network calls by default, so it is safe to run anywhere and\n" +
-			"tells you only that a credential is present. Add --online to ask each\n" +
-			"service whether the credential actually works. Add --json for the same\n" +
-			"facts as data, with the same masking.",
+			"tells you only that a credential is present. Add --online to ask Jira,\n" +
+			"your forge and Slack whether each credential works; a webhook is left\n" +
+			"unchecked. Add --json for the same facts as data, with the same masking.",
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			requestLog, closeLog, err := requestLogFor(cmd)
@@ -86,15 +86,15 @@ func newDoctorCmd() *cobra.Command {
 		},
 	}
 
-	cmd.Flags().BoolVar(&online, "online", false, "ask each service whether its credential works")
+	cmd.Flags().BoolVar(&online, "online", false, "ask Jira, the forge and Slack if each credential works (not a webhook)")
 	cmd.Flags().BoolVar(&asJSON, "json", false, "print the report as JSON")
 
 	return cmd
 }
 
 // doctorRun is what one doctor run reports on: the configuration and why it did
-// not load, if it did not; whether to ask each service about its credential;
-// and the request log those questions are outlined in, nil for none.
+// not load, if it did not; whether to check the credentials online; and the
+// request log those checks are outlined in, nil for none.
 type doctorRun struct {
 	cfg     config.Config
 	loadErr error

@@ -130,14 +130,6 @@ The configuration page:
 
 The README and the docs index:
 
-- The README (line 45) and `docs/content/_index.md:29` — "`workflow doctor
-  --online` asks Jira, your messaging service and your forge whether each
-  credential actually works"; `checkMessaging`'s comment
-  (`internal/cli/doctor_credentials.go:197`) says a webhook is uncheckable,
-  `ErrWebhookUncheckable` is reported unchecked (`:220`), `credentialStatus`
-  names that `unchecked` (`internal/cli/doctor_json.go:202`), and
-  `TestDoctorOnlineSaysAWebhookCannotBeChecked`
-  (`internal/cli/online_test.go:153`) pins "cannot be checked".
 - The README's line 262 — "There are no releases yet." while nine tags
   exist, v0.3.0 the latest; the README's line 66 and
   `docs/content/docs/install.md:37` still say that until the first tag
