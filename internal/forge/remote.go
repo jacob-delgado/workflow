@@ -146,13 +146,14 @@ func normalize(remote string) string {
 	return "ssh://" + remote[:colon] + "/" + remote[colon+1:]
 }
 
-// kindOf reports which forge a hostname belongs to. An on-premises host names
-// neither, and nothing about the URL can say which it is.
-func kindOf(hostname string) Kind {
-	switch strings.ToLower(hostname) {
-	case "github.com":
+// kindOf reports which forge a host belongs to: GitHub for a host GitHub runs,
+// GitLab for gitlab.com. An on-premises host names neither, and nothing about
+// the URL can say which it is.
+func kindOf(host string) Kind {
+	switch {
+	case githubsOwn(host):
 		return KindGitHub
-	case gitlabCom:
+	case hostname(host) == gitlabCom:
 		return KindGitLab
 	default:
 		return KindUnknown
@@ -178,7 +179,7 @@ func (r Repo) APIBase() (string, error) {
 // itself applies.
 func githubAPIBase(host string) string {
 	switch {
-	case strings.EqualFold(host, "github.com"):
+	case strings.EqualFold(host, githubCom):
 		return "https://api.github.com"
 	// Enterprise Cloud with data residency keeps github.com's shape rather than
 	// Enterprise Server's. Do not fold this into the case below: it would send

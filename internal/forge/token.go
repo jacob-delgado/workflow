@@ -108,14 +108,16 @@ type Configured struct {
 }
 
 // tokenFor is forge.token where host is the one it was written for: forge.host,
-// or with none named, a host that names its own forge.
+// or with none named, github.com or gitlab.com.
 func (c Configured) tokenFor(host string) (Token, bool) {
 	if c.Token == "" {
 		return "", false
 	}
 
 	if c.Host == "" {
-		return c.Token, kindOf(hostname(host)) != KindUnknown
+		name := hostname(host)
+
+		return c.Token, name == githubCom || name == gitlabCom
 	}
 
 	return c.Token, sameHost(c.Host, host)
@@ -219,6 +221,9 @@ func (r Resolver) githubNames(host string) []string {
 
 // gitlabCom is the host GitLab's variables are for when nothing names another.
 const gitlabCom = "gitlab.com"
+
+// githubCom is GitHub's public host.
+const githubCom = "github.com"
 
 // gitlabNames reads GitLab's variables as glab does: they are for the host
 // GITLAB_HOST names, or GL_HOST after it, which is gitlab.com when neither

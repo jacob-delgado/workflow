@@ -131,6 +131,12 @@ func TestResolveOffersATokenOnlyToTheHostItIsFor(t *testing.T) {
 			resolver: onlyFile(""),
 			kind:     forge.KindGitHub, host: githubHost, wantSource: forge.SourceConfiguration,
 		},
+		// A ghe.com tenant names GitHub, but forge.token with no forge.host is
+		// for github.com and gitlab.com alone.
+		"forge.token with no forge.host, on a ghe.com tenant": {
+			resolver: onlyFile(""),
+			kind:     forge.KindGitHub, host: gheTenant, wantErr: forge.ErrNoToken,
+		},
 		"forge.token with no forge.host, on a host that names no forge": {
 			resolver: onlyFile(""),
 			kind:     forge.KindGitHub, host: onPremHost, wantErr: forge.ErrNoToken,
