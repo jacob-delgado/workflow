@@ -126,3 +126,17 @@ func TestAFailedRunOffersAPlacePrintedBeforeTheTailItKeeps(t *testing.T) {
 	// Assert
 	requireScreen(t, failed.View().Content, "the pre-commit hook failed", "a.go:1 first")
 }
+
+func TestAFailedPreCommitRunLeadsWithTheHook(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	hooked := newWorld()
+	hooked.commitErr = gitExited(1)
+
+	// Act
+	view := typing(t, hooked.live(t, 120, 40), "3", "h").View().Content
+
+	// Assert
+	requireScreen(t, view, "┏━ pre-commit", "✗ the pre-commit hook failed")
+}

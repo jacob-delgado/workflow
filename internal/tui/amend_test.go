@@ -99,6 +99,20 @@ func TestARefusedAmendLeadsWithThatStep(t *testing.T) {
 	requireScreen(t, view, "the amend was refused")
 }
 
+func TestARefusedFixupLeadsWithThatStep(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	world := unpushedWorld()
+	world.fixupErr = gitExited(1)
+
+	// Act
+	view := typing(t, world.live(t, 120, 40), "3", "f", keyEnter).View().Content
+
+	// Assert
+	requireScreen(t, view, "┏━ git commit --fixup", "✗ the fixup was refused")
+}
+
 func TestFixupRecordsAFixupOfTheChosenCommit(t *testing.T) {
 	t.Parallel()
 
