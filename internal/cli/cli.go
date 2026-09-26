@@ -395,11 +395,7 @@ func connectLeniently(cmd *cobra.Command) (connection, error) {
 		return connection{}, err
 	}
 
-	// An unknown home directory only means no home-directory fallback for the
-	// configuration, not a failure.
-	home, _ := os.UserHomeDir()
-
-	conn := connectAt(cmd, dir, home, requestLog)
+	conn := connectAt(cmd, dir, configHome(), requestLog)
 	conn.closeLog = closeLog
 
 	return conn, nil
@@ -489,12 +485,15 @@ func loadFromEnvironment() (config.Config, error) {
 		return config.Config{}, fmt.Errorf("determining the working directory: %w", err)
 	}
 
-	// A machine without a home directory is unusual but not fatal: the working
-	// directory alone is still a valid place to find a configuration.
-	homeDir, err := os.UserHomeDir()
-	if err != nil {
-		homeDir = ""
-	}
+	return config.Load(workDir, configHome())
+}
 
-	return config.Load(workDir, homeDir)
+// configHome is the home directory a configuration falls back to, or "" for
+// none. A machine without a home directory is unusual but not a failure: the
+// working directory alone is still a valid place to find a configuration, and
+// the lookup answers "" beside its error.
+func configHome() string {
+	home, _ := os.UserHomeDir()
+
+	return home
 }
