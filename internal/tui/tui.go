@@ -178,8 +178,9 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 }
 
 // handleKey answers a key press. ctrl+c always quits. Otherwise an open overlay
-// has the keyboard — including q, which a text field needs to type — then the
-// help, then the keys that work everywhere, then the focused pane's own.
+// — the help among them — has the keyboard, including q, which a text field
+// needs to type; then the Issues filter while it is open; then the keys that
+// work everywhere, which fall through to the focused pane's own.
 func (m Model) handleKey(msg tea.KeyPressMsg) (Model, tea.Cmd) {
 	// A notice is cleared when the next action starts, not by moving around, so
 	// looking about after a result does not erase the record of it.

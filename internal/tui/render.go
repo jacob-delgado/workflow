@@ -426,7 +426,6 @@ func relabel(binding key.Binding, help string) key.Binding {
 	return key.NewBinding(key.WithKeys(binding.Keys()...), key.WithHelp(binding.Help().Key, help))
 }
 
-// status describes the configuration this session is running with.
 // messagingLabel is the status line's label for the messaging destination: the
 // service name, lowercased and padded to the same column width as the labels
 // above it.
@@ -434,6 +433,8 @@ func messagingLabel(service string) string {
 	return fmt.Sprintf("%-7s", strings.ToLower(service))
 }
 
+// status is the status line's text: the configuration this session is running
+// with and what it still lacks, or, when none loaded, why.
 func (m Model) status(width int) string {
 	if m.loadErr != nil {
 		return m.configErrorStatus(width)
