@@ -442,7 +442,10 @@ func (m Model) handleReviewKey(msg tea.KeyPressMsg) (Model, tea.Cmd) {
 	case key.Matches(msg, m.keys.finish):
 		return m.startFinish()
 	case key.Matches(msg, m.keys.refresh):
-		return m, tea.Batch(m.findPullRequest(), m.checkCI())
+		// The branch, once read, looks for its pull request, and the find reads
+		// CI for the one it finds: so r picks up a branch switched in a shell,
+		// and never reads CI for a pull request the find has since replaced.
+		return m, m.loadBranch()
 	default:
 		return m.handleReviewCompose(msg)
 	}

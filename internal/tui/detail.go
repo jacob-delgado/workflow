@@ -204,7 +204,7 @@ func (m Model) issueVerbKeys(selected jira.Issue) []key.Binding {
 	}{
 		{m.deps.Jira.Transitions != nil, m.keys.changeStatus},
 		{m.deps.Jira.Comment != nil && m.deps.Editor.Edit != nil, m.keys.comment},
-		{m.deps.Git.CreateBranch != nil, relabel(m.keys.branchForIssue, "branch for "+string(selected.Key))},
+		{m.canCreateBranch(), relabel(m.keys.branchForIssue, "branch for "+string(selected.Key))},
 		{m.deps.Jira.Assign != nil, m.keys.assign},
 		{m.deps.Jira.AddWorklog != nil, m.keys.logWork},
 	}
@@ -223,7 +223,7 @@ func (m Model) issueVerbKeys(selected jira.Issue) []key.Binding {
 // newBranchKeys offers starting a branch named for no issue, which the branch
 // key does on the Issues pane when none is selected.
 func (m Model) newBranchKeys() []key.Binding {
-	if m.deps.Git.CreateBranch == nil {
+	if !m.canCreateBranch() {
 		return nil
 	}
 

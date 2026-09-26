@@ -113,6 +113,12 @@ func (m Model) outsideRepository() bool {
 	return m.branch.loaded && errors.Is(m.branch.err, gitrepo.ErrNotARepository)
 }
 
+// canCreateBranch reports whether a branch can be started: git can create one,
+// and the directory is a repository to create it in.
+func (m Model) canCreateBranch() bool {
+	return m.deps.Git.CreateBranch != nil && !m.outsideRepository()
+}
+
 // branchDetail describes the branch and what to do with it.
 func (m Model) branchDetail(width int) string {
 	switch {
@@ -280,7 +286,7 @@ var _ failable[branchCreator] = branchCreator{}
 // openBranchCreator proposes a branch for the selected issue, started from the
 // branch work merges into.
 func (m Model) openBranchCreator() (Model, tea.Cmd) {
-	if m.deps.Git.CreateBranch == nil {
+	if !m.canCreateBranch() {
 		return m, nil
 	}
 

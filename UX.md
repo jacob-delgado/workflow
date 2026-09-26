@@ -69,7 +69,7 @@ them, re-counted at this commit.
 | "the one way the interface says something broke" | `wording`, `internal/tui/failure.go:63` | **Yes: every site that renders an error's text.** Each tells it through `errorSentence` (`internal/tui/failure.go:100`), which words every sentinel the seams return briefly and in full: 6 panes, the configuration screen, 11 `pinnedOutcome` overlays and the 2 details that repeat a summary row's failure beneath it through `failureBlock` (`internal/tui/failure.go:402`), 13 one-failure rows through `failureLine`, 4 rail and summary rows through `failureSummary`, and 10 failure notices through `noticedFailure`, drawn in the failure style, the re-run's led by what failed so a clipped row still names it; a run's headline names the step a failure status stopped, and a pull request opened without every reviewer says why in brief. The 3 guidance notices stay plain, since red means something broke. The width-one glyph-only marks — a failed check, job, stage or review CI — and the three rails that point at their detail carry no error text to word. One site drops the text it has: the branch creator's fixed "could not fetch" line (UX-129). |
 | "Nothing outward facing is sent without" a last look | `internal/tui/comment.go:64` | **Yes: 20 of 20.** Every act that writes through a seam — five on Jira, nine through git, four on the forge, the post and the lefthook file — waits on a preview or a confirmation; the push, `R`'s re-run of CI and `u`'s rebase share one last look, `lastLook` (`internal/tui/overlay.go:158`). Of the twenty, eleven leave the machine: the Jira five, the forge four, the post and the push; the rest are local writes that still get a look. The acts are listed under the table. |
 | "a refused change must never go unseen" | `internal/tui/picker.go:312` | **Yes: 13 of 13.** Every overlay that sends a request guards it while in flight (an earlier edition counted 1 of 7; the last counted 14 by including the commit composer, which holds a `sendState` for a validation refusal only and hands its commit to a run overlay, `internal/tui/composer.go:364`), and every one keeps a refusal in the overlay, where it happened, until `esc` — the merge and finish previews last, through `pinnedOutcome` (`internal/tui/failure.go:420`). |
-| "Each pane fails on its own" | `docs/content/docs/usage.md:80` | Yes. `internal/tui/tui.go:154` batches six loads; five panes hold and render their own load's error through `failureBlock` (`internal/tui/detail.go:339`, `internal/tui/branch.go:127`, `internal/tui/commits.go:125`, `internal/tui/review.go:292`, `internal/tui/reviewqueue.go:115`). The Messaging pane's load, `loadAnnounces`, reads the store, whose errors the wiring drops before they reach the model, so it has no load error to hold; its `failureBlock` site (`internal/tui/messaging.go:187`) renders a failed post. |
+| "Each pane fails on its own" | `docs/content/docs/usage.md:80` | Yes. `internal/tui/tui.go:154` batches six loads; five panes hold and render their own load's error through `failureBlock` (`internal/tui/detail.go:339`, `internal/tui/branch.go:133`, `internal/tui/commits.go:125`, `internal/tui/review.go:292`, `internal/tui/reviewqueue.go:115`). The Messaging pane's load, `loadAnnounces`, reads the store, whose errors the wiring drops before they reach the model, so it has no load error to hold; its `failureBlock` site (`internal/tui/messaging.go:187`) renders a failed post. |
 | State is "carried by the SHAPE of a glyph rather than its color" | `internal/tui/glyphs.go:16` | Yes. `unicodeGlyphs` and `asciiGlyphs` differ in shape (`internal/tui/glyphs.go:31`, `:43`); `NO_COLOR` keeps bold and faint (`internal/tui/tui.go:129`). One residue: the progress spine's per-system hue is color-only, mitigated by the name or its initial. |
 
 What was counted, so the next re-count is a diff. The 20 acts behind a last
@@ -105,7 +105,7 @@ key while `send.sending`: `statusPicker` (`internal/tui/picker.go:311`),
 `finishPreview` (`internal/tui/finish.go:105`), `messagingPreview`
 (`internal/tui/messagingpreview.go:94`) and `hookgenOffer`
 (`internal/tui/hookgen.go:118`). The failure-voice sites: `failureBlock` 9,
-the six panes (`internal/tui/detail.go:339`, `internal/tui/branch.go:127`,
+the six panes (`internal/tui/detail.go:339`, `internal/tui/branch.go:133`,
 `internal/tui/commits.go:125`, `internal/tui/review.go:292`,
 `internal/tui/reviewqueue.go:115`, and the Messaging pane's failed post at
 `internal/tui/messaging.go:187`), the
@@ -520,7 +520,7 @@ grep finds all eleven. DEBT-115 points here for the nothing-staged sentence.
   again" after the failure block, while refresh is rebindable
   (`internal/tui/keys.go:222`, `issueKeys`): with `{"refresh": "ctrl+l"}`
   `r` does nothing there.
-- `internal/tui/branch.go:129` `Model.branchDetail` says "Check out a
+- `internal/tui/branch.go:135` `Model.branchDetail` says "Check out a
   branch, or press b to start one" on a detached HEAD; new-branch is
   rebindable (`internal/tui/keys.go:227`, `branchAndCommitKeys`).
 - `internal/tui/branch.go:339` `branchCreator.view` says "could not fetch;
@@ -605,9 +605,9 @@ applied to one.
 
 - `internal/tui/render.go:192` `Model.loading` returns `m.issues.loading`
   for `paneIssues` and false for every other pane.
-- `internal/tui/review.go:444` `Model.handleReviewKey` batches
-  `findPullRequest` and `checkCI` on refresh and sets no flag the title
-  can read.
+- `internal/tui/review.go:444` `Model.handleReviewKey` reads the branch
+  on refresh, which goes on to `findPullRequest` and `checkCI`, and sets
+  no flag the title can read.
 - `internal/tui/branch.go:258` `Model.handleBranchKey` batches
   `loadBranch` and `loadChanges` with no loading flag.
 - `internal/tui/commits.go:227` `Model.handleCommitsKey` batches
@@ -644,54 +644,30 @@ move and the refresh's answer; a views test with `CachedIssues` for the
 second view shows "◐" after `v` until the search answers, and a `New` with
 a seeded cache shows it until `Init`'s search answers.
 
-### UX-98 The footer offers two dead keys and omits two that scroll
+### UX-98 The help's footer omits the two keys that scroll it
 
 Impact: low · Effort: small
 
 **Today.** The `overlay` interface (`internal/tui/overlay.go:23`) defines
-the footer as "the keys that do something in it right now", and three
-footers break it. Started outside a work tree, the Branch pane says "Not
-inside a git repository" and offers nothing, but the Issues footer offers
-"b branch for PROJ-412"; pressing it opens the creator, whose enter fails
-with git's reason. On main the Review pane says it is on no feature branch
-and offers "r refresh"; after switching branches in a shell, `r` there
-reloads nothing, where the Branch pane's `r` would. On a short terminal
-the help ends with "… more below" and its footer reads "esc close · q
-quit"; every other scrolling overlay shows its up and down keys
-(`keyMap.listKeys`, `internal/tui/keys.go:424`), and
-`Model.reviewQueueKeys` (`internal/tui/reviewqueue.go:164`) already omits
-every key when it can do nothing.
+the footer as "the keys that do something in it right now", and the
+help's footer breaks it. On a short terminal the help ends with "… more
+below" and its footer reads "esc close · q quit"; every other scrolling
+overlay shows its up and down keys (`keyMap.listKeys`,
+`internal/tui/keys.go:424`), and `Model.reviewQueueKeys`
+(`internal/tui/reviewqueue.go:164`) already omits every key when it can do
+nothing.
 
-- `internal/tui/detail.go:200` `Model.issueVerbKeys` offers "branch for
-  KEY" whenever `Git.CreateBranch` is wired, with no `outsideRepository`
-  check; `gitDeps` (`internal/wiring/wiring.go:184`) wires it whether or
-  not the directory is a repository, and `Model.branchKeys`
-  (`internal/tui/branch.go:168`) returns nil there.
-- `internal/tui/detail.go:225` `Model.newBranchKeys` gates on
-  `CreateBranch` alone, so "new branch" is offered outside a repository
-  too.
-- `internal/tui/review.go:420` `Model.reviewKeys` appends refresh
-  unconditionally; off a feature branch `Model.findPullRequest`
-  (`internal/tui/review.go:59`) and `Model.checkCI`
-  (`internal/tui/review.go:113`) both return nil, so
-  `Model.handleReviewKey` (`internal/tui/review.go:444`) batches two nils.
 - `internal/tui/help.go:65` `helpOverlay.footer` returns `closeOverlay`
   and `quit` only, while `helpOverlay.handleKey`
   (`internal/tui/help.go:77`) also answers `scrollDown`/`down` and
   `scrollUp`/`up`.
 
-**Instead.** Gate the branch offer in `issueVerbKeys` and `newBranchKeys`
-on `!m.outsideRepository()` as `branchKeys` does; have the Review pane's
-`r` also reload the branch, or omit refresh when not on a feature branch;
-add `scrollDown` and `scrollUp` to the help's footer when its content is
-taller than the pane.
+**Instead.** Add `scrollDown` and `scrollUp` to the help's footer when its
+content is taller than the pane.
 
-**Done when.** `TestOutsideARepositoryEachRepoPaneSaysSoAndOffersNoRepoKeys`
-(`internal/tui/branch_test.go:42`) gains an Issues case that refuses "b
-branch for" in the footer; a test on the base branch presses `r` on pane
-`4` and either sees the branch re-read or no "r refresh";
-`TestTheHelpListsEveryGroupAndScrolls` (`internal/tui/screen_test.go:252`)
-at 120×20 sees "pgdn/J", or the bound key, beside "esc close".
+**Done when.** `TestTheHelpListsEveryGroupAndScrolls`
+(`internal/tui/screen_test.go:252`) at 120×20 sees "pgdn/J", or the bound
+key, beside "esc close".
 
 ### UX-99 The worktree and review-status paths give less than their twins
 
@@ -991,10 +967,10 @@ the two rows above it share the defect.
   (`web/src/features/branch/BranchPanel.tsx:53`), and `nothingToPush`
   accepts main ahead of origin/main (`internal/webserver/push.go:59`),
   where the terminal's `canPush` also requires `onFeatureBranch()`
-  (`internal/tui/branch.go:202`).
+  (`internal/tui/branch.go:208`).
 
 The terminal's last look names the branch and the remote and no count
-(`previewPush`, `internal/tui/branch.go:210`), and its `upstreamState`
+(`previewPush`, `internal/tui/branch.go:216`), and its `upstreamState`
 says "not pushed yet" for a branch with no upstream (`:103`).
 
 **Instead.** Word the confirm as the terminal does — "Push fix/PROJ-1 to
@@ -1137,7 +1113,7 @@ for the selected issue."
 - `BranchPanel`, `web/src/features/branch/BranchPanel.tsx:34`: renders
   `BranchSummary`, `Commits` and `WorkingTree` alike for a branch and a
   detached HEAD.
-- `Model.branchDetail`, `internal/tui/branch.go:129`: the terminal's
+- `Model.branchDetail`, `internal/tui/branch.go:135`: the terminal's
   sentence (whose literal `b` is UX-96's).
 
 **Instead.** Under the detached heading, one sentence pointing at Issues,

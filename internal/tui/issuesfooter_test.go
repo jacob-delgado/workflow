@@ -42,12 +42,13 @@ func TestTheIssuesFooterOffersAVerbOnlyWhereItsSeamIsWired(t *testing.T) {
 		unwire func(*tui.Deps)
 		absent string
 	}{
-		"no transitions":    {unwire: func(deps *tui.Deps) { deps.Jira.Transitions = nil }, absent: changeStatusHint},
-		"no comment write":  {unwire: func(deps *tui.Deps) { deps.Jira.Comment = nil }, absent: "c comment"},
-		"no editor":         {unwire: func(deps *tui.Deps) { deps.Editor.Edit = nil }, absent: "c comment"},
-		"no assign write":   {unwire: func(deps *tui.Deps) { deps.Jira.Assign = nil }, absent: "a assign"},
-		"no worklog write":  {unwire: func(deps *tui.Deps) { deps.Jira.AddWorklog = nil }, absent: "w log work"},
-		"no branch creator": {unwire: func(deps *tui.Deps) { deps.Git.CreateBranch = nil }, absent: "b branch for"},
+		"no transitions":       {unwire: func(deps *tui.Deps) { deps.Jira.Transitions = nil }, absent: changeStatusHint},
+		"no comment write":     {unwire: func(deps *tui.Deps) { deps.Jira.Comment = nil }, absent: "c comment"},
+		"no editor":            {unwire: func(deps *tui.Deps) { deps.Editor.Edit = nil }, absent: "c comment"},
+		"no assign write":      {unwire: func(deps *tui.Deps) { deps.Jira.Assign = nil }, absent: "a assign"},
+		"no worklog write":     {unwire: func(deps *tui.Deps) { deps.Jira.AddWorklog = nil }, absent: "w log work"},
+		"no branch creator":    {unwire: func(deps *tui.Deps) { deps.Git.CreateBranch = nil }, absent: "b branch for"},
+		"outside a repository": {unwire: outsideARepository, absent: "b branch for"},
 	}
 
 	for name, tt := range cases {
@@ -119,6 +120,7 @@ func TestWithNoIssueSelectedTheIssuesFooterOffersABranchWhereOneCanStart(t *test
 		"no branch creator": {
 			unwire: func(deps *tui.Deps) { deps.Git.CreateBranch = nil }, shows: false,
 		},
+		"outside a repository": {unwire: outsideARepository, shows: false},
 	}
 
 	for name, tt := range cases {
@@ -156,6 +158,28 @@ func TestWithNoIssueSelectedTheBranchKeyStartsABranchForNoIssue(t *testing.T) {
 	// The footer offered b new branch, and b opens the creator, for no issue.
 	requireScreen(t, view, "New branch")
 	refuseScreen(t, view, "for PROJ")
+}
+
+func TestOutsideARepositoryTheBranchKeyOpensNothing(t *testing.T) {
+	t.Parallel()
+
+	for name, pane := range map[string]string{"the Issues pane": "1", "the Branch pane": "2"} {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			// Arrange
+			deps := newWorld().deps()
+			outsideARepository(&deps)
+			model := sized(t, tui.New(completeConfig(), nil, deps), 120, 40)
+			model = drain(t, model, model.Init())
+
+			// Act
+			view := typing(t, model, pane, "b").View().Content
+
+			// Assert
+			refuseScreen(t, view, "New branch")
+		})
+	}
 }
 
 func TestWhileTheFilterIsTypedTheFooterOffersOnlyKeepingOrClearingIt(t *testing.T) {
