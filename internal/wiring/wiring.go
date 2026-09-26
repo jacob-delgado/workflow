@@ -440,7 +440,9 @@ func editorDeps(root string) tui.EditorDeps {
 			return editor.Open(os.Getenv, root, file, line, done)
 		},
 		Resolve: func(file string) (string, bool) {
-			return editor.Resolve(root, file)
+			resolved, found := editor.Resolve(root, os.DirFS(root), []string{file})[file]
+
+			return resolved, found
 		},
 	}
 }
