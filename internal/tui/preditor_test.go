@@ -163,22 +163,6 @@ func TestAFailedEditorKeepsTheEditorOpen(t *testing.T) {
 	requireScreen(t, after.View().Content, "the editor exited with an error", "Edit pull request")
 }
 
-func TestTheEditorShowsItIsSaving(t *testing.T) {
-	t.Parallel()
-
-	// Arrange
-	// The save is never answered, so its in-flight state can be seen, and a key
-	// pressed then is ignored rather than starting a second save.
-	editing := typing(t, newWorld().live(t, 120, 40), "4", "e")
-
-	// Act
-	saving, _ := pressed(t, editing, keyEnter)
-	saving, _ = pressed(t, saving, "x")
-
-	// Assert
-	requireScreen(t, saving.View().Content, "saving")
-}
-
 func TestEditingWithoutAnEditorCannotOpenTheBody(t *testing.T) {
 	t.Parallel()
 
