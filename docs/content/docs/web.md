@@ -175,3 +175,25 @@ failed request with an RFC 9457 problem details object whose `code` a script
 can rely on; only the loopback, same-origin and `--dry-run` guards, which
 refuse a request before it reaches the API, answer in plain text. [Web API
 errors]({{< relref "/docs/errors" >}}) lists the codes.
+
+## Scripting the API
+
+Four reads answer what a section shows, for a script on the same machine; the
+page itself takes the same state from its stream.
+[`api/openapi.yaml`](https://github.com/jacob-delgado/workflow/blob/main/api/openapi.yaml)
+describes each answer's fields, and every other request the API serves.
+
+| Request | Answers with |
+| --- | --- |
+| `GET /api/branch` | The checked-out branch: its base, its upstream, how far it is ahead or behind, and its commits |
+| `GET /api/changes` | The working tree's changes |
+| `GET /api/review` | The branch's pull request and its CI |
+| `GET /api/messaging` | The messaging service, and where and as whom an announcement would post |
+
+```sh
+curl -s http://127.0.0.1:7000/api/review
+```
+
+They are reads, so they answer under `--dry-run` too. When git or the forge
+fails, the branch, changes and review reads answer a problem where the page
+shows an empty panel, so a script can tell a failure from nothing to show.
