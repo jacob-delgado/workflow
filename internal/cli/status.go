@@ -421,59 +421,40 @@ func stageReports(stages []progress.Stage) []stageReport {
 	return reports
 }
 
-// statusGlyph is the mark for a stage state, plain by default or ASCII.
+// statusGlyph is the mark for a stage state, plain by default or ASCII. The
+// marks are a map, not a switch, so there is no last-case arm gobco can never
+// see; exhaustive keeps it complete, as it does stateWord's and ciWord's.
 func statusGlyph(state progress.State, ascii bool) string {
-	switch state {
-	case progress.Done:
-		return pickGlyph(ascii, "●", "#")
-	case progress.InFlight:
-		return pickGlyph(ascii, "◐", "*")
-	case progress.Failed:
-		return pickGlyph(ascii, "✗", "x")
-	case progress.NotStarted:
-		return pickGlyph(ascii, "○", "o")
-	default:
-		return pickGlyph(ascii, "○", "o")
-	}
-}
+	marks := map[progress.State]struct{ unicode, plain string }{
+		progress.Done:       {unicode: "●", plain: "#"},
+		progress.InFlight:   {unicode: "◐", plain: "*"},
+		progress.Failed:     {unicode: "✗", plain: "x"},
+		progress.NotStarted: {unicode: "○", plain: "o"},
+	}[state]
 
-// pickGlyph chooses the plain-ASCII mark where ascii is set.
-func pickGlyph(ascii bool, unicode, plain string) string {
 	if ascii {
-		return plain
+		return marks.plain
 	}
 
-	return unicode
+	return marks.unicode
 }
 
 // stateWord names a stage state for JSON.
 func stateWord(state progress.State) string {
-	switch state {
-	case progress.Done:
-		return "done"
-	case progress.InFlight:
-		return "in_flight"
-	case progress.Failed:
-		return "failed"
-	case progress.NotStarted:
-		return "not_started"
-	default:
-		return "not_started"
-	}
+	return map[progress.State]string{
+		progress.Done:       "done",
+		progress.InFlight:   "in_flight",
+		progress.Failed:     "failed",
+		progress.NotStarted: "not_started",
+	}[state]
 }
 
 // ciWord names how CI stands for the line and the JSON.
 func ciWord(state forge.CIState) string {
-	switch state {
-	case forge.CIRunning:
-		return "running"
-	case forge.CIPassed:
-		return "passed"
-	case forge.CIFailed:
-		return "failed"
-	case forge.CINone:
-		return "none"
-	default:
-		return "none"
-	}
+	return map[forge.CIState]string{
+		forge.CIRunning: "running",
+		forge.CIPassed:  "passed",
+		forge.CIFailed:  "failed",
+		forge.CINone:    "none",
+	}[state]
 }
