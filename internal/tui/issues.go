@@ -128,8 +128,14 @@ func (l issueList) settle(answer issuesLoaded) issueList {
 		return l
 	}
 
+	// A failed first page keeps what is listed, marked beside the failure, rather
+	// than emptying the pane until the tracker answers again.
 	previous, _ := l.current()
-	l.found, l.err = answer.found, answer.err
+	l.err = answer.err
+
+	if answer.err == nil {
+		l.found = answer.found
+	}
 
 	return l.selectKey(previous.Key)
 }
@@ -245,21 +251,31 @@ func (l issueList) move(step int) issueList {
 	return l
 }
 
-// render draws as many rows as fit, scrolled so the selection stays on screen.
+// render draws as many rows as fit, scrolled so the selection stays on screen,
+// and marks a failed search beneath the issues it kept.
 func (l issueList) render(marks glyphs, sty styles, rows int) string {
-	visible := l.visible()
+	failed := failedGlyph(sty, marks) + " failed" + marks.separator + "see detail"
 
 	switch {
 	case !l.settled:
 		return "loading" + marks.ellipsis
-	case l.err != nil:
-		return failedGlyph(sty, marks) + " failed" + marks.separator + "see detail"
+	case l.err != nil && len(l.found.Issues) == 0:
+		return failed
 	case len(l.found.Issues) == 0:
 		return "no issues in this view"
-	case len(visible) == 0:
+	case len(l.visible()) == 0:
 		return "no issue matches the filter"
+	case l.err != nil:
+		return l.listing(marks, l.listRows(rows)) + "\n" + failed
 	}
 
+	return l.listing(marks, rows)
+}
+
+// listing is the issues the filter admits, as many as fit in rows, scrolled so
+// the selection stays on screen.
+func (l issueList) listing(marks glyphs, rows int) string {
+	visible := l.visible()
 	first, last := window(l.selected, len(visible), rows)
 	lines := make([]string, 0, last-first)
 
@@ -272,9 +288,19 @@ func (l issueList) render(marks glyphs, sty styles, rows int) string {
 	return strings.Join(lines, "\n")
 }
 
+// listRows is how many of rows the issues take: all of them, or all but the
+// one a failed search's mark takes beneath them.
+func (l issueList) listRows(rows int) int {
+	if l.err != nil {
+		return rows - 1
+	}
+
+	return rows
+}
+
 // rowAt is the index of the issue drawn on a line of render's output.
 func (l issueList) rowAt(line, rows int) (int, bool) {
-	first, last := window(l.selected, len(l.visible()), rows)
+	first, last := window(l.selected, len(l.visible()), l.listRows(rows))
 	index := first + line
 
 	return index, line >= 0 && index < last

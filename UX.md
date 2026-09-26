@@ -2040,18 +2040,12 @@ form, the not-a-repository state or "No issues match this view."; a
 ReviewPanel test with `ci` null and `ci_error` set finds the alert naming
 the reason.
 
-### UX-129 Three failures tell less than the seam knows
+### UX-129 Two failures tell less than the seam knows
 
 Impact: low · Effort: small
 
-**Today.** Three places hold a reason or a result they do not show.
+**Today.** Two places hold a reason they do not show.
 
-- `issueList.settle`, `internal/tui/issues.go:132`: `l.found, l.err =
-  answer.found, answer.err` replaces a populated list with a failed first
-  page, while the `startAt > 0` arm (`:122`) keeps what is there when a
-  further page fails — so `r` while Jira is down turns the pane into
-  "✗ failed · see detail" until Jira answers, though the store's cache
-  still holds the issues (`cacheIssues`, `:49`, skips a failed page).
 - `fetched.apply`, `internal/tui/branchresult.go:50`: stores git's error in
   `creator.fetchProblem`, which `branchCreator.view`,
   `internal/tui/branch.go:339`, tests only for non-nil before a fixed
@@ -2069,15 +2063,11 @@ Impact: low · Effort: small
   `TestUpdateConfigRejectsAnInvalidConfig`,
   `internal/webserver/config_test.go:110`, asserts status and code only.
 
-**Instead.** On a failed first page keep `l.found`, record `l.err` and let the
-rail say "failed · see detail" beside the stale list, as a failed further page
-already does; draw `failureLine` on `fetchProblem` above the offer line; carry
+**Instead.** Draw `failureLine` on `fetchProblem` above the offer line; carry
 `Parse`'s wrapped reason after the `ErrInvalid` prefix in the 422 detail.
 
-**Done when.** An issues refresh test whose second search fails still shows
-PROJ-412 in the rail beside the failure;
-`TestAFailedFetchOffersToBranchFromWhatIsThere` also requires git's words
-("could not read from remote repository") on screen;
+**Done when.** `TestAFailedFetchOffersToBranchFromWhatIsThere` also requires
+git's words ("could not read from remote repository") on screen;
 `TestUpdateConfigRejectsAnInvalidConfig` asserts the detail names the refused
 field or value.
 
