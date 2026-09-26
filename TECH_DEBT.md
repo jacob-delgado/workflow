@@ -465,19 +465,13 @@ docs/content/docs/install.md` prints a line.
 
 Severity: low · Confidence: read
 
-Across `internal/store`, the release and coverage scripts and the web's
-vitest suite, tests named for a rule would pass with the rule gone.
-`testshape` checks only that a failure call is reachable and v8's range
-count cannot see a weak assertion, so every one clears the gate.
+Across `internal/store`, the coverage scripts and the web's vitest suite,
+tests named for a rule would pass with the rule gone. `testshape` checks
+only that a failure call is reachable and v8's range count cannot see a weak
+assertion, so every one clears the gate.
 
 The scripts:
 
-- `scripts/release/push-release-tag_test.sh:32` — the `gh` stub answers any
-  `gh api` call with `GH_STUB_PULL` (`:33`) and ignores `--jq`, so the label
-  filter in `pr_number` (`scripts/release/push-release-tag.sh:91`) is
-  evaluated by no test, and the "no pull request labeled" case
-  (`scripts/release/push-release-tag_test.sh:118`) passes because the stub
-  printed nothing, not because the filter selected nothing.
 - `scripts/coverage-summary_test.sh:69` — the summary-shape case asserts the
   substrings `"statements"` and `"branch"` only; the `stats` fixture (`:51`)
   yields 50 %, which nothing compares, so the arms arithmetic in
@@ -536,30 +530,27 @@ The store:
   `RecordScope` or `CacheIssues` that writes nothing passes.
 
 The regressions these tests exist to catch pass the suite green: a
-release-label filter typo found at the next release; a `timestamp()` that
-writes `now.String()`; a commit sent without its `!` or body; the "opening
-will push it first" note deleted.
+`timestamp()` that writes `now.String()`; a commit sent without its `!` or
+body; the "opening will push it first" note deleted.
 
 **One way to fix it.** Sharpen each Assert to what its name claims:
 `aria-disabled` on Retry or a Playwright focus case; the refused read
 awaited before asserting the select is absent; the check asserted by role
-and href; the recorded requests read for their bodies; the `gh` stub running
-the script's own `--jq` over a fixture of pulls; exact JSON from
+and href; the recorded requests read for their bodies; exact JSON from
 `scripts/coverage-summary.sh`; a stub gobco for the gate's refusals;
 raw-file reads that parse each `_at`, a cascade a test makes fire, and each
 Arrange's error fatal.
 
-**Done when.** Each named mutation fails a test: removing
-`select(any(.labels[]; …))` from `scripts/release/push-release-tag.sh`;
-changing `($conditions * 2)` to `$conditions` in
-`scripts/coverage-summary.sh`; deleting a name from `NO_TESTS` in
-`scripts/gobco-report.sh`; changing `timestamp()` to `now.String()`,
-removing `foreign_keys(1)` from `dsnPragmas`, or making `RecordScope` or
-`CacheIssues` return nil without writing; rendering a select while
-`useViews` is in error; replacing the check anchor in
-`web/src/features/review/ReviewPanel.tsx` with a span; deleting
-`breaking: fields.breaking` from `web/src/features/branch/CommitForm.tsx`;
-and deleting the "opening will push it first" paragraph.
+**Done when.** Each named mutation fails a test: changing
+`($conditions * 2)` to `$conditions` in `scripts/coverage-summary.sh`;
+deleting a name from `NO_TESTS` in `scripts/gobco-report.sh`; changing
+`timestamp()` to `now.String()`, removing `foreign_keys(1)` from
+`dsnPragmas`, or making `RecordScope` or `CacheIssues` return nil without
+writing; rendering a select while `useViews` is in error; replacing the
+check anchor in `web/src/features/review/ReviewPanel.tsx` with a span;
+deleting `breaking: fields.breaking` from
+`web/src/features/branch/CommitForm.tsx`; and deleting the "opening will
+push it first" paragraph.
 
 ### DEBT-105 The contributor documents restate counts and names the tree has moved past
 
