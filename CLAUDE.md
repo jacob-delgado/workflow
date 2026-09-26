@@ -99,7 +99,8 @@ without agreement on direction.
   inheritance. Embedding only for behavior delegation, never just to store a
   field. No premature abstraction — three similar lines beat one abstract one.
   Keep the build pure Go (`CGO_ENABLED=0`): the release binaries cross-compile
-  to five platforms, and that only stays true without cgo.
+  to every platform `RELEASE_PLATFORMS` names in `Taskfile.yml`, and that only
+  stays true without cgo.
 
 - **Interface compliance — assert it at compile time.** Every concrete type
   meant to satisfy an interface carries a static assertion next to its

@@ -11,9 +11,10 @@ before the code; `CLAUDE.md` holds the day-to-day rules for changing it.
 (GitHub or GitLab) into one developer loop: pick up an issue, branch for it by
 convention, open the pull or merge request, and tell the team. It ships as a
 **single static binary** a developer runs on their own machine — built pure Go
-(`CGO_ENABLED=0`) so it cross-compiles to five platforms — with **no server and
-no service to run**. The only things it keeps between sessions are a config file
-you author and a small state database it writes for itself.
+(`CGO_ENABLED=0`) so it cross-compiles to every platform `RELEASE_PLATFORMS`
+names in `Taskfile.yml` — with **no server and no service to run**. The only
+things it keeps between sessions are a config file you author and a small state
+database it writes for itself.
 
 ## One core, three surfaces
 

@@ -83,13 +83,6 @@ Severity: low · Confidence: read
 The documents a contributor and a later session read first restate numbers
 and names the tree has moved past. No gate reads any of them.
 
-- `CLAUDE.md:102`, `ARCHITECTURE.md:14` and `FEATURES.md:54` — each pairs
-  `CGO_ENABLED` with the same count: "the release binaries cross-compile to
-  five platforms", "so it cross-compiles to five platforms", "because the
-  release cross-compiles to five platforms". `RELEASE_PLATFORMS`
-  (`Taskfile.yml:73`) names three GOOS/GOARCH pairs, mirrored by the binary
-  table in `.github/workflows/release.yml:108`, and `CONTRIBUTING.md:208`
-  already says so: "macOS (arm64), Linux (amd64) and Windows (amd64)".
 - `CLAUDE.md:75` — the `task lint` row's parenthetical lists twelve checks;
   the `lint` task (`Taskfile.yml:290`) runs sixteen sub-tasks, and the row
   omits `lint:packagesize` (`Taskfile.yml:301`), `lint:goversion`,
