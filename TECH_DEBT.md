@@ -473,11 +473,6 @@ a weak assertion, so every one clears the gate.
 
 The terminal:
 
-- `internal/tui/commits_test.go:84` —
-  `TestTheCommitsDetailWaitsForTheStatus` calls `requireScreen` for
-  "loading" on the whole screen; `commitsRail`
-  (`internal/tui/commits.go:104`) says it in the rail whether or not the
-  detail is open.
 - `internal/tui/notify_test.go:120` —
   `TestNotifyPollsOnALongerBeatWithNoIntervalSet` asserts only "running" and
   no ring; `horizon` (`internal/tui/harness_test.go:27`) is one second, so
@@ -616,13 +611,12 @@ deleted.
 
 **One way to fix it.** Sharpen each Assert to what its name claims:
 `wantExit` or `errors.Is` with the family or sentinel meant, and rename the
-500 case "rejected"; the focused pane's title and first body row rather than
-the whole screen; a recording timer for the notify beat; the three missing
-guards as cases of `TestNothingInterruptsAWriteBeingSent`; `aria-disabled`
-on Retry or a Playwright focus case; the refused read awaited before
-asserting the select is absent; the check asserted by role and href; the
-recorded requests read for their bodies; the `gh` stub running the script's
-own `--jq` over a fixture of pulls; exact JSON from
+500 case "rejected"; a recording timer for the notify beat; the three
+missing guards as cases of `TestNothingInterruptsAWriteBeingSent`;
+`aria-disabled` on Retry or a Playwright focus case; the refused read
+awaited before asserting the select is absent; the check asserted by role
+and href; the recorded requests read for their bodies; the `gh` stub running
+the script's own `--jq` over a fixture of pulls; exact JSON from
 `scripts/coverage-summary.sh`; a stub gobco for the gate's refusals;
 raw-file reads that parse each `_at`, a cascade a test makes fire, and each
 Arrange's error fatal.

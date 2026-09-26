@@ -80,8 +80,9 @@ func TestTheCommitsDetailWaitsForTheStatus(t *testing.T) {
 	view := press(t, model, "3").View().Content
 
 	// Assert
-	// It says it is loading, not that nothing changed.
-	requireScreen(t, view, "loading")
+	// It says it is loading, not that nothing changed. The rail says loading
+	// too; the heavy border is the detail's own.
+	requireScreen(t, view, focused("Commits"), "┃ loading…")
 	refuseScreen(t, view, "nothing changed")
 }
 
