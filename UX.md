@@ -660,9 +660,7 @@ the help ends with "… more below" and its footer reads "esc close · q
 quit"; every other scrolling overlay shows its up and down keys
 (`keyMap.listKeys`, `internal/tui/keys.go:424`), and
 `Model.reviewQueueKeys` (`internal/tui/reviewqueue.go:164`) already omits
-every key when it can do nothing. DEBT-117 holds two more sites of the same
-contract: `stageAll` offered with nothing to stage, and the messaging
-preview's `w` hidden but live.
+every key when it can do nothing.
 
 - `internal/tui/detail.go:200` `Model.issueVerbKeys` offers "branch for
   KEY" whenever `Git.CreateBranch` is wired, with no `outsideRepository`

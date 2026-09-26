@@ -7,6 +7,9 @@ import (
 	"fmt"
 	"strings"
 	"testing"
+	"time"
+
+	"github.com/jacob-delgado/workflow/internal/forge"
 )
 
 func TestANarrowFooterGivesUpThePanesVerbsBeforeTheWayToEveryKey(t *testing.T) {
@@ -90,4 +93,27 @@ func TestTheAnnouncementPreviewKeepsItsWayOutOnANarrowTerminal(t *testing.T) {
 
 	// Assert
 	requireScreen(t, footer, "enter announce now", "w when CI passes", "e edit", "esc discard")
+}
+
+func TestWDoesNothingWhereTheAnnouncementPreviewDoesNotOfferIt(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	// The pull request reports no CI at all, so the preview offers no wait for it.
+	unchecked := newWorld()
+	unchecked.ciInterval = time.Millisecond
+	unchecked.ci = []forge.CI{{State: forge.CINone}}
+	preview := typing(t, unchecked.live(t, 120, 40), "5", "p")
+	checks := len(unchecked.asked("ci"))
+
+	// Act
+	view := typing(t, preview, "w").View().Content
+
+	// Assert
+	requireScreen(t, footerLine(view), "enter announce now")
+	refuseScreen(t, view, "will announce", "when CI passes")
+
+	if after := len(unchecked.asked("ci")); after != checks {
+		t.Errorf("checked CI %d more times after w, want none past the %d before", after-checks, checks)
+	}
 }

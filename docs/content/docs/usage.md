@@ -339,8 +339,9 @@ have them. See [Configuration]({{< relref "/docs/configuration" >}}).
 - **Nothing outlives the session.** An announcement waiting for CI is not sent
   if you quit first.
 - **`w` needs checks to wait for.** Where the pull request has no CI at all,
-  the preview does not offer it, and an announcement already waiting keeps
-  waiting if CI stops reporting any checks; announce with `enter` instead.
+  the preview does not offer it and pressing it does nothing, and an
+  announcement already waiting keeps waiting if CI stops reporting any
+  checks; announce with `enter` instead.
 - **A branch is worked on under the name it shows.** git allows characters in a
   branch's name that cannot be drawn as they are, such as one with no width or
   one that reverses the text after it. A branch, upstream or base named with
