@@ -23,13 +23,17 @@ import (
 // bare host git prints is kept.
 var errPushFailed = errors.New("the push failed")
 
+// pushNotStarted answers a push that never ran. Its cause stays off the wire:
+// what git says about its repository can name where that is on disk.
+const pushNotStarted = "the push could not be started; push from a terminal to see why"
+
 // Push publishes the checked-out branch to its remote, setting upstream if it
 // has none — the first outward step toward a pull request. There is nothing to
 // push, so a 409, when the tree is not on a branch or the branch is not ahead of
 // its upstream on the push remote; a push that fails is a 422 carrying its
-// output with its URLs and user@host:path addresses taken out, and a branch
-// that cannot be read is answered by fault. On success it returns the branch as
-// published.
+// output with its URLs and user@host:path addresses taken out, one that cannot
+// start a 422 saying how to see why, and a branch that cannot be read is
+// answered by fault. On success it returns the branch as published.
 func (s *server) Push(_ context.Context, _ api.PushRequestObject) (api.PushResponseObject, error) {
 	if s.deps.Push == nil || s.deps.Branch == nil {
 		return pushUnprocessable("pushing is not available"), nil
@@ -68,13 +72,13 @@ func nothingToPush(branch gitrepo.Branch) bool {
 }
 
 // pushFailure words a push that did not publish the branch: the push's own
-// output when it ran and failed, and why it could not start otherwise.
+// output when it ran and failed, and how to see why when it could not start.
 func pushFailure(err error) string {
 	if failed, ok := errors.AsType[loop.PushFailedError](err); ok {
 		return fmt.Errorf("%w:\n%s", errPushFailed, strings.Join(withoutAddresses(failed.Output), "\n")).Error()
 	}
 
-	return fmt.Errorf("starting the push: %w", err).Error()
+	return pushNotStarted
 }
 
 // addressPlaceholder stands where an address was taken out of a push's output.
