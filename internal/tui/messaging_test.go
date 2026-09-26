@@ -175,7 +175,7 @@ func TestTheHelpNamesTheMessagingService(t *testing.T) {
 	teams.cfg.Messaging = teamsMessaging()
 
 	// Act
-	helpView := typing(t, teams.live(t, 120, 20), "?", "pgdown", "pgdown", "pgdown").View().Content
+	helpView := typing(t, teams.live(t, 120, 20), "?").View().Content
 
 	// Assert
 	requireScreen(t, helpView, "Review and Teams")

@@ -1041,28 +1041,6 @@ unchanged, with no panic, and `TestTheWheelMovesAnOverlaysList`
 (`internal/tui/mouse_test.go:66`) passes with `cfg.UI.Keys` rebinding
 `down` and `up`.
 
-### DEBT-120 The help overlay's column split is unbalanced
-
-Severity: low · Confidence: read
-
-`helpColumnSplit`'s comment says the split is chosen so the two columns
-come out close to the same height, but that stopped holding as keys were
-added: counted from the bindings `internal/tui/keys.go` declares, less the
-one with no help text, the seven groups hold 7, 11, 11, 6, 12, 3 and 6
-lines, so a split after group 4 gives 42 lines against 26 and a split
-after group 3 gives 34 against 34. At 120x40 the help says "more below"
-and needs a scroll a balanced layout would not.
-
-- `internal/tui/render.go:202` — `helpColumnSplit` is 4 under a comment
-  (`:200`) whose balance no longer holds; `helpColumn` (`:219`) is what
-  renders the groups it divides.
-
-**One way to fix it.** Set the split to 3, or compute it from the group
-lengths so it stays balanced as bindings are added.
-
-**Done when.** A test opens the help at 120x40 and sees "Everywhere" and
-no "more below", or asserts the two columns differ by at most a few lines.
-
 ### DEBT-123 Resolving hook failures walks the whole work tree per place, in `Update`
 
 Severity: medium · Confidence: read

@@ -342,6 +342,17 @@ func TestTheHelpPagesBackAtOnceAfterPagingPastTheEnd(t *testing.T) {
 	}
 }
 
+func TestTheWholeHelpFitsATallTerminal(t *testing.T) {
+	t.Parallel()
+
+	// Act
+	view := typing(t, newWorld().live(t, 120, 40), "?").View().Content
+
+	// Assert
+	requireScreen(t, view, "Everywhere")
+	refuseScreen(t, view, "more below")
+}
+
 func TestAHelpThatFitsThePaneOffersNoScrollKeys(t *testing.T) {
 	t.Parallel()
 
