@@ -87,10 +87,6 @@ comment, so every one passes the gate.
 
 The plumbing:
 
-- `internal/gitrepo/gitrepo.go:4` — the package comment says `gitrepo`
-  "reads the git repository"; `Repository`'s own doc (`:28`) says reads and
-  changes, and `Repository.Stage` (`internal/gitrepo/status.go:191`) is one
-  of the writes.
 - `internal/convention/convention.go:4` — the package comment names three
   concerns; `internal/convention/pullrequest.go` and
   `internal/convention/scopes.go` are two more, and the `CLAUDE.md:48` row
