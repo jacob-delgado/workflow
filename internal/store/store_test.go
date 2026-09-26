@@ -75,15 +75,28 @@ func TestScopesAreKeptPerRepository(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
+	const recorded = "config"
+
 	kept := store.New(t.TempDir(), false)
-	_ = kept.RecordScope(t.Context(), repo, "config", theTime())
+
+	err := kept.RecordScope(t.Context(), repo, recorded, theTime())
+	if err != nil {
+		t.Fatalf("RecordScope returned %v, want nil", err)
+	}
 
 	// Act
-	scope, found, _ := kept.LastScope(t.Context(), "git@github.com:other/repo.git")
+	scope, found, err := kept.LastScope(t.Context(), "git@github.com:other/repo.git")
 
 	// Assert
-	if found || scope != "" {
-		t.Errorf("LastScope for another repo = %q, %v; want no scope shared across repositories", scope, found)
+	if err != nil || found || scope != "" {
+		t.Errorf("LastScope for another repo = %q, %v, %v; want no scope shared across repositories",
+			scope, found, err)
+	}
+
+	own, ownFound, err := kept.LastScope(t.Context(), repo)
+	if err != nil || !ownFound || own != recorded {
+		t.Errorf("LastScope for the repo that recorded it = %q, %v, %v; want its own scope kept",
+			own, ownFound, err)
 	}
 }
 
