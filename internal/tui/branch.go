@@ -332,8 +332,8 @@ func (c branchCreator) view(width, _ int) (string, string) {
 	}
 
 	if c.fetchProblem != nil {
-		lines = append(lines, "", failedGlyph(c.styles, c.marks)+
-			" could not fetch; enter branches from what you already have")
+		lines = append(lines, "", failureLine(c.styles, c.marks, c.fetchProblem),
+			"could not fetch; enter branches from what you already have")
 	}
 
 	return c.title(), strings.Join(lines, "\n")
