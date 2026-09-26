@@ -50,16 +50,15 @@ type forgeCapture func(ctx context.Context, program proc.Command, input []byte) 
 // forgeProgram is the command-line tool that speaks a forge's API: gh for
 // GitHub, glab for GitLab. An unknown forge has none.
 func forgeProgram(kind forge.Kind) (string, bool) {
-	switch kind {
-	case forge.KindGitHub:
-		return "gh", true
-	case forge.KindGitLab:
-		return "glab", true
-	case forge.KindUnknown:
-		return "", false
-	default:
-		return "", false
+	//nolint:exhaustive // KindUnknown has no program on purpose; its lookup miss is the false below.
+	programs := map[forge.Kind]string{
+		forge.KindGitHub: "gh",
+		forge.KindGitLab: "glab",
 	}
+
+	program, ok := programs[kind]
+
+	return program, ok
 }
 
 // forgeCLIDoer routes a forge request through gh or glab's `api` command instead

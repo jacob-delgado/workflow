@@ -658,10 +658,6 @@ CLAUDE.md's catalog; most sit permanently in DEBT-64's worklist where no
 test can close them, the two compound guards' dead first operands among
 them.
 
-- `internal/wiring/forgecli.go:58` — `forgeProgram`'s `case
-  forge.KindUnknown:` and `default:` (`:60`) both return `"", false`; the
-  gobco report lists the `KindUnknown` condition as never evaluated, and
-  DEBT-64 counts `forgeProgram` among the two no black-box test reaches.
 - `web/src/features/review/ReviewPanel.tsx:32` — `ReviewPanel` returns null
   under `if (!snapshot)`, the file's only uncovered line; `BranchPanel`
   (`web/src/features/branch/BranchPanel.tsx:18`), `IssuesPanel`
@@ -807,7 +803,7 @@ whose printed sentence claims more than their check measures, CI jobs and
 triggers that do not do what their comments say, and tests named or shaped
 for something other than what they prove.
 
-### DEBT-64 The condition-coverage worklist: 432 one-sided conditions, and 8 never evaluated
+### DEBT-64 The condition-coverage worklist: 432 one-sided conditions, and 7 never evaluated
 
 Severity: low · Confidence: measured
 
@@ -836,7 +832,7 @@ the do-nothing guards' second operands, never seen true: `repo == ""` in
 `Store.CachedIssues` and `Store.CacheIssues` (`internal/store/cache.go:32`,
 `:99`), and `s.dir == ""` in `Store.off` (`internal/store/store.go:149`).
 
-Eight conditions were never evaluated. Four are a test away:
+Seven conditions were never evaluated. Four are a test away:
 
 - `internal/tui/messaging.go:83` and `:85` — `quitGuard.handleKey`'s confirm
   and stay: `TestQuittingWithAQueuedPostAsksFirst` opens the guard but
@@ -857,13 +853,10 @@ away too:
   tea.KeySpace`: no filter test types a key without text, so `text == ""`
   never lets the `&&` read it.
 
-Two no black-box test reaches without changing the code:
+One no black-box test reaches without changing the code:
 
 - `internal/tui/tui.go:143` — `tui.Run`'s error return, which needs a real
   terminal.
-- `internal/wiring/forgecli.go:58` — `forgeProgram`'s `forge.KindUnknown`
-  case, which `exhaustive` requires but `connectForge` never passes, since
-  `Repo.APIBase` refuses an unknown forge first.
 
 **What it costs.** Condition coverage reads 91.3 %, 2.3 points above the
 89 % floor, which is the ratchet's own slack, so an untested error path in
@@ -877,7 +870,7 @@ report is the worklist, most of it in `internal/tui`, `internal/cli` and
 `internal/forge`.
 
 **Done when.** `task cover:branch` names no never-evaluated condition but
-the two above, and reads 92.0 % or more, so `BRANCH_COVERAGE_MIN` ratchets
+the one above, and reads 92.0 % or more, so `BRANCH_COVERAGE_MIN` ratchets
 to 90.
 
 ### DEBT-65 The web's e2e drives no write
