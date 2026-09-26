@@ -658,12 +658,6 @@ Facts the code needs in more than one place are written in each, with
 nothing keeping the copies equal. CLAUDE.md names the smell and the rule of
 three; no linter or knip rule sees any of it.
 
-- `internal/tui/run.go:222` — `commandRun.failureHeadline` is a map keyed by
-  run-title literals, "the fixup was refused" (`:225`) untested, while six
-  sites type the titles: `commitComposer.commit`
-  (`internal/tui/composer.go:364`, "git commit"), the amend
-  (`internal/tui/commits.go:384`), the fixup (`:399`), `preCommit` (`:22`),
-  the push (`internal/tui/run.go:398`) and the rebase (`:418`).
 - `internal/tui/spine.go:68` — `Model.stages` hard-codes five hues in stage
   order and indexes them (`:74`) by the position of `Stages`' result
   (`internal/progress/progress.go:96`), where Go derives the stages.
@@ -740,21 +734,20 @@ tags nothing; a required snapshot field added to the contract dies in the
 e2e specs as a locator timeout; and a change to the focus ring is eight
 edits.
 
-**One way to fix it.** One owner per fact: a run-kind value carrying title
-and headline; a system field on `progress.Stage` the spine looks up in a map
-`exhaustive` checks; `kindOf` consulting `githubsOwn`; a terminal test that
-reads the action names out of the configuration page and holds `CheckKeys`
-to them; one base-URL rule in `config` that `jira` wraps; the tag script
-owning the release-commit decision and the workflow reading its answer;
-`satisfies Snapshot` on the e2e literals; the server sending the effective
-commit types so the form holds no list; an exported `storageKey` a test
-checks `web/index.html` against; one `Button` component or two class
-constants; one `configHome()` the four callers share; and `scopeInSubject`
-built from `commitType`'s class.
+**One way to fix it.** One owner per fact: a system field on
+`progress.Stage` the spine looks up in a map `exhaustive` checks; `kindOf`
+consulting `githubsOwn`; a terminal test that reads the action names out of
+the configuration page and holds `CheckKeys` to them; one base-URL rule in
+`config` that `jira` wraps; the tag script owning the release-commit
+decision and the workflow reading its answer; `satisfies Snapshot` on the
+e2e literals; the server sending the effective commit types so the form
+holds no list; an exported `storageKey` a test checks `web/index.html`
+against; one `Button` component or two class constants; one `configHome()`
+the four callers share; and `scopeInSubject` built from `commitType`'s
+class.
 
-**Done when.** No run-title literal appears in more than one file and each
-kind's headline has a test; the spine's hue comes from a field on
-`progress.Stage` and `exhaustive` fails the build when a system has no hue;
+**Done when.** The spine's hue comes from a field on `progress.Stage` and
+`exhaustive` fails the build when a system has no hue;
 `ParseRemote("git@acme.ghe.com:owner/repo.git").Kind == KindGitHub`; a test
 fails when the configuration page's action list and the bind sites differ;
 one function decides a base URL's shape and both packages' tests import it;
