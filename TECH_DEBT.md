@@ -472,12 +472,6 @@ range count cannot see a weak assertion, so every one clears the gate.
 
 The clients:
 
-- `internal/config/version_test.go:24` —
-  `TestLoadAcceptsTheCurrentVersionAndRejectsAnUnknownOne` runs two `Load`s
-  under one Act (`:24`, `:25`) and checks
-  `strings.Contains(unknownErr.Error(), "99")` (`:36`) rather than
-  `errors.Is`, so `ErrUnknownVersion` (`internal/config/config.go:45`) is
-  exported, wrapped and asserted by nothing.
 - `internal/config/load_test.go:169` —
   `TestDiscoverIgnoresAnEmptyDirectory`'s comment describes a machine with
   no home directory, but the Act (`:170`) passes `""` as workDir, so
@@ -550,19 +544,19 @@ The store:
   asserts only that another view and instance read nothing (`:92`), so a
   `RecordScope` or `CacheIssues` that writes nothing passes.
 
-The regressions these tests exist to catch pass the suite green: a lost
-`ErrUnknownVersion` wrap; a release-label filter typo found at the next
-release; a `timestamp()` that writes `now.String()`; a commit sent without
-its `!` or body; the "opening will push it first" note deleted.
+The regressions these tests exist to catch pass the suite green: a
+release-label filter typo found at the next release; a `timestamp()` that
+writes `now.String()`; a commit sent without its `!` or body; the "opening
+will push it first" note deleted.
 
 **One way to fix it.** Sharpen each Assert to what its name claims:
-`errors.Is` with the sentinel meant; `aria-disabled` on Retry or a
-Playwright focus case; the refused read awaited before asserting the select
-is absent; the check asserted by role and href; the recorded requests read
-for their bodies; the `gh` stub running the script's own `--jq` over a
-fixture of pulls; exact JSON from `scripts/coverage-summary.sh`; a stub
-gobco for the gate's refusals; raw-file reads that parse each `_at`, a
-cascade a test makes fire, and each Arrange's error fatal.
+`aria-disabled` on Retry or a Playwright focus case; the refused read
+awaited before asserting the select is absent; the check asserted by role
+and href; the recorded requests read for their bodies; the `gh` stub running
+the script's own `--jq` over a fixture of pulls; exact JSON from
+`scripts/coverage-summary.sh`; a stub gobco for the gate's refusals;
+raw-file reads that parse each `_at`, a cascade a test makes fire, and each
+Arrange's error fatal.
 
 **Done when.** Each named mutation fails a test: removing
 `select(any(.labels[]; …))` from `scripts/release/push-release-tag.sh`;
