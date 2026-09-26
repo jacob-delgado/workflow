@@ -143,8 +143,7 @@ jobs:
   # throwaway repository with a bare origin, and the specs under web/e2e/server
   # stage, commit and push through the page, so a write reaches git. A job of
   # its own, not a step of E2E: the page must come from the binary rather than
-  # from Vite preview, and the server listens on the port that preview proxies
-  # /api to.
+  # from Vite preview.
   e2e-server:
     name: E2E (server)
     runs-on: ubuntu-latest

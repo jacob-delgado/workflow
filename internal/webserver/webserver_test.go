@@ -58,7 +58,7 @@ const (
 	// loopbackHost is the Host the shared request helpers send, so requests pass
 	// the loopback guard the same way a browser on 127.0.0.1 does. A test that
 	// exercises the guard sets its own Host instead.
-	loopbackHost = "127.0.0.1:7000"
+	loopbackHost = "127.0.0.1:13579"
 )
 
 // filledDeps is a Deps with every seam populated with canned answers. A test

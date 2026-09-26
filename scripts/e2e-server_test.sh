@@ -1,10 +1,11 @@
 #!/usr/bin/env bash
 #
 # Tests for e2e-server.sh: it builds the fixture at a path that is missing,
-# an empty directory or one it made before, and refuses, leaving it exactly
-# as it was, a path that is a file, a symbolic link or a directory holding
-# files it did not make. A stub stands in for bin/workflow and exits at once,
-# so the script returns once the fixture is built.
+# an empty directory or one it made before, and serves it on the port it is
+# given; and it refuses, leaving it exactly as it was, a path that is a file,
+# a symbolic link or a directory holding files it did not make. A stub stands
+# in for bin/workflow, writes down the arguments it was run with and exits at
+# once, so the script returns once the fixture is built.
 #
 # Usage:
 #   scripts/e2e-server_test.sh
@@ -24,21 +25,27 @@ unset $(git rev-parse --local-env-vars)
 # The script serves the bin/workflow beside its own directory, so a copy of it
 # serves the stub.
 readonly root="${workdir}/root"
+readonly ran_with="${root}/bin/ran-with"
 mkdir -p "${root}/scripts" "${root}/bin"
 cp "${here}/e2e-server.sh" "${root}/scripts/"
-printf '#!/bin/sh\nexit 0\n' >"${root}/bin/workflow"
+printf '#!/bin/sh\necho "$*" >"%s"\nexit 0\n' "${ran_with}" >"${root}/bin/workflow"
 chmod +x "${root}/bin/workflow"
+
+# port is the port each case asks the script to serve on: not the one the
+# Playwright run passes, so a script that ignored it would be caught.
+readonly port=24680
 
 readonly -a git=(env -i "PATH=${PATH}" "HOME=${workdir}" GIT_CONFIG_NOSYSTEM=1 git)
 
 failures=0
 cases=0
 
-# serve runs the script on a fixture path, keeping its output in <path>.out,
-# and prints pass or fail.
+# serve runs the script on a fixture path and the port, keeping its output in
+# <path>.out, and prints pass or fail.
 serve() {
   local path="$1"
-  if "${root}/scripts/e2e-server.sh" "${path}" >"${path}.out" 2>&1; then
+  rm -f -- "${ran_with}"
+  if "${root}/scripts/e2e-server.sh" "${path}" "${port}" >"${path}.out" 2>&1; then
     echo "pass"
   else
     echo "fail"
@@ -110,10 +117,11 @@ fixture_problem() {
   fi
 }
 
-# expect_fixture wants the script to build the whole fixture at a path.
+# expect_fixture wants the script to build the whole fixture at a path and
+# serve it on the port.
 #   expect_fixture <name> <path>
 expect_fixture() {
-  local name="$1" path="$2" got problem
+  local name="$1" path="$2" got problem served
   cases=$((cases + 1))
   got="$(serve "${path}")"
 
@@ -123,8 +131,11 @@ expect_fixture() {
   fi
 
   problem="$(fixture_problem "${path}")"
+  served="$(cat -- "${ran_with}" 2>/dev/null || true)"
   if [[ -n "${problem}" ]]; then
     failed "${name}" "${path}" "${problem}"
+  elif [[ "${served}" != "--web --port ${port}" ]]; then
+    failed "${name}" "${path}" "the server ran with '${served}', want '--web --port ${port}'"
   fi
 }
 

@@ -2,7 +2,7 @@
 # Serve `workflow --web` from a throwaway repository, for the server-backed
 # Playwright run (web/playwright.server.config.ts), which starts it.
 #
-# Usage: e2e-server.sh <fixture-dir>
+# Usage: e2e-server.sh <fixture-dir> <port>
 #
 # The fixture is rebuilt under <fixture-dir> on every run:
 #
@@ -14,13 +14,18 @@
 #                base; and one untracked file, notes.txt, for a spec to stage
 #
 # The server runs from repo/ with no configuration file and without --dry-run,
-# so a write the page sends lands in git: nothing else is there to reach.
+# so a write the page sends lands in git: nothing else is there to reach. It
+# serves on 127.0.0.1:<port>; the Playwright run passes a port beside the
+# default, not the default itself, so the run exercises --port and never meets
+# a developer's own `workflow --web` or the Vite preview's /api proxy, which
+# both use the default.
 #
 # It serves the binary `task build` makes, bin/workflow with the web app
 # embedded, and does not build it: the spec is about that binary.
 set -euo pipefail
 
-readonly fixture_dir="${1:?usage: e2e-server.sh <fixture-dir>}"
+readonly fixture_dir="${1:?usage: e2e-server.sh <fixture-dir> <port>}"
+readonly port="${2:?usage: e2e-server.sh <fixture-dir> <port>}"
 
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 readonly repo_root
@@ -70,4 +75,4 @@ printf '# Fixture\n' >"${repo}/README.md"
 printf 'Staged, committed and pushed through the page.\n' >"${repo}/notes.txt"
 
 cd "${repo}"
-exec "${hermetic[@]}" "${binary}" --web
+exec "${hermetic[@]}" "${binary}" --web --port "${port}"

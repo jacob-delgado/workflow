@@ -38,7 +38,7 @@ test('makes API requests relative to the page origin, not the spec server URL', 
   const baseUrl = client.getConfig().baseUrl
 
   // Assert
-  // Empty, not the contract's absolute http://127.0.0.1:7000 — an absolute URL
+  // Empty, not the contract's absolute http://127.0.0.1:13579 — an absolute URL
   // would bypass the dev proxy and hit a CORS wall.
   expect(baseUrl).toBe('')
 })
