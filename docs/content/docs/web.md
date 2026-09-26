@@ -97,8 +97,9 @@ Under **Working tree**, each changed file has its own **Stage** or
 **Unstage**, and **Stage all** stages the rest. The commit form builds a
 Conventional Commit from its type, scope, subject, body and a breaking-change
 box, with the scope the terminal would suggest already filled in; **Commit
-staged changes** commits, adds the `Refs:` trailer for the branch's issue, and
-runs the repository's own hooks. A hook that refuses the commit says why.
+staged changes** commits, adds the trailer naming the branch's issue (`Refs:`
+unless `commit.refs_trailer` relabels it), and runs the repository's own
+hooks. A hook that refuses the commit says why.
 
 ### Review
 
