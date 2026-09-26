@@ -264,3 +264,33 @@ func TestATamperedSchemaIsReportedNotTrusted(t *testing.T) {
 		})
 	}
 }
+
+func TestTheStoreEnforcesForeignKeys(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	// The cached issues' table as found on disk names a parent table that holds
+	// no row, so every issue the store writes to it is an orphan, and only a
+	// connection that enforces foreign keys refuses one.
+	dir := t.TempDir()
+	seedDatabase(t, dir,
+		table(`CREATE TABLE no_views (
+			instance TEXT NOT NULL, view TEXT NOT NULL, PRIMARY KEY (instance, view)
+		) STRICT`),
+		table(`CREATE TABLE cached_issue (
+			instance TEXT NOT NULL, view TEXT NOT NULL, position INTEGER NOT NULL,
+			issue_key TEXT NOT NULL, summary TEXT NOT NULL, status TEXT NOT NULL,
+			status_category TEXT NOT NULL, type TEXT NOT NULL, priority TEXT NOT NULL,
+			PRIMARY KEY (instance, view, position),
+			FOREIGN KEY (instance, view) REFERENCES no_views(instance, view) ON DELETE CASCADE
+		) STRICT`),
+	)
+
+	// Act
+	_, err := cacheIssues(t.Context(), store.New(dir, false))
+
+	// Assert
+	if err == nil || !strings.Contains(err.Error(), "caching an issue") {
+		t.Errorf("CacheIssues = %v, want the issue with no parent row refused as it is written", err)
+	}
+}

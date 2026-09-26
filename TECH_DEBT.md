@@ -471,10 +471,6 @@ clears the gate.
 
 The store:
 
-- `internal/store/store.go:57` — `dsnPragmas`' `foreign_keys(1)` and the `ON
-  DELETE CASCADE` on `cached_issue` (`:271`) are exercised by nothing:
-  `writeCachedIssues` (`internal/store/cache.go:142`) deletes the children
-  itself, so the cascade guards nothing.
 - `internal/store/store_test.go:79` — `TestScopesAreKeptPerRepository`
   discards `RecordScope`'s error and asserts only that another repository
   reads nothing (`:85`); `TestTheCacheIsKeptPerInstanceAndView`
@@ -482,12 +478,11 @@ The store:
   asserts only that another view and instance read nothing (`:92`), so a
   `RecordScope` or `CacheIssues` that writes nothing passes.
 
-**One way to fix it.** Sharpen each Assert to what its name claims: a
-cascade a test makes fire, and each Arrange's error fatal.
+**One way to fix it.** Sharpen each Assert to what its name claims: each
+Arrange's error fatal.
 
-**Done when.** Each named mutation fails a test: removing `foreign_keys(1)`
-from `dsnPragmas`, or making `RecordScope` or `CacheIssues` return nil
-without writing.
+**Done when.** Each named mutation fails a test: making `RecordScope` or
+`CacheIssues` return nil without writing.
 
 ### DEBT-105 The contributor documents restate counts and names the tree has moved past
 
