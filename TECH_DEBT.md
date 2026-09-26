@@ -754,7 +754,7 @@ three; no linter or knip rule sees any of it.
 - `internal/cli/cli.go:376` — `connectLeniently` discards `os.UserHomeDir`'s
   error under a "not a failure" comment (`:374`); `loadFromEnvironment`
   (`:464`), `statusesOf` (`internal/cli/status.go:162`) and
-  `completeAssignedIssues` (`internal/cli/scriptable.go:132`) repeat the
+  `completeAssignedIssues` (`internal/cli/scriptable.go:133`) repeat the
   discard and the comment, and `targetDir`
   (`internal/cli/config_cmd.go:128`) is the one caller that must keep the
   error.

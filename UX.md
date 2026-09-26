@@ -233,7 +233,7 @@ Impact: low · Effort: small
 
 **Today.** The scriptable writes say what to do when stdin is closed:
 "pass --yes", exit 2 (`writeOptions.proceed`,
-`internal/cli/scriptable.go:93`, and `docs/content/docs/scripting.md:201`
+`internal/cli/scriptable.go:94`, and `docs/content/docs/scripting.md:201`
 under "Writing without a person"). Three other moments end without a
 pointer.
 
@@ -241,7 +241,7 @@ pointer.
   which asks four questions, returns `prompt.Line`'s error raw (`:246`).
   Only `confirm` maps `io.EOF` to `errNoTerminal`
   (`internal/cli/prompt.go:46`), and `io.EOF` belongs to no family in
-  `exitFamilies` (`internal/cli/scriptable.go:307`), so
+  `exitFamilies` (`internal/cli/scriptable.go:308`), so
   `workflow config init < /dev/null` prints "workflow: EOF" and exits 1
   with no mention of `--template`. A final line typed without a newline
   comes back from `terminalPrompt`'s `ReadString` together with `io.EOF`
@@ -1968,7 +1968,7 @@ disagree about the same act.
   link it on KEY" whenever a Jira issue is named, while the live path
   (`pullCreated.apply`, `:130-137`) offers the link and then the review
   status instead of making either.
-- `writeOptions.proceed`, `internal/cli/scriptable.go:82`: a dry run prints
+- `writeOptions.proceed`, `internal/cli/scriptable.go:83`: a dry run prints
   one line and returns false, so `runPR`, `internal/cli/pr.go:131`, returns
   before `followUp` at `:149`; the "dry run: would push … open TITLE" line
   (`:128`) is all `pr --dry-run` says, and the dry-run lines of `offerLink`
