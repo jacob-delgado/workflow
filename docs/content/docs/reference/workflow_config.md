@@ -29,6 +29,6 @@ workflow config [flags]
 ### SEE ALSO
 
 * [workflow](../workflow/)	 - Run your Jira, Git forge and messaging workflow from the terminal
-* [workflow config init](../workflow_config_init/)	 - Set up the configuration file, asking for and checking each credential
+* [workflow config init](../workflow_config_init/)	 - Set up the configuration file, asking for each credential and checking the Jira token
 * [workflow config show](../workflow_config_show/)	 - Print the configuration in effect, with tokens masked
 

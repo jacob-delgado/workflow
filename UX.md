@@ -178,7 +178,7 @@ already carries the value. `--json` on `standup` and `pr` is UX-92's.
 
 **Done when.** Each flag has a test that it reaches the seam.
 
-### UX-90 Three claims about `config init` that the command does not keep
+### UX-90 Two claims about `config init` that the command does not keep
 
 Impact: low · Effort: small
 
@@ -189,7 +189,7 @@ while it runs.
 - `internal/cli/cli.go:38` (`longHelp`): "Write a starting file with:
   workflow config init", then "fill in the two credentials" (`:42`). That
   is `--template`'s flow; bare `init` runs the guided one
-  (`newConfigInitCmd`, `internal/cli/config_cmd.go:77`, branches on
+  (`newConfigInitCmd`, `internal/cli/config_cmd.go:78`, branches on
   `opts.template` and otherwise calls `runGuidedInit`), so a reader who
   follows the root help is prompted instead. `TestHelpExplainsBothTokens`
   (`internal/cli/cli_test.go:295`) holds the help to the token steps and
@@ -201,31 +201,22 @@ while it runs.
   "Configuration" intro) says it asks and checks.
 - `internal/cli/cli.go:92` (the `SECURITY` paragraph of `longHelp`): the
   file "is listed in .gitignore". `warnIfNotIgnored`
-  (`internal/cli/config_cmd.go:327`) only warns when it is not, and nothing
+  (`internal/cli/config_cmd.go:328`) only warns when it is not, and nothing
   writes a `.gitignore`; the sentence is true of this repository's own
   `.gitignore:34`, not the user's. `README.md:198` and
   `docs/content/docs/configuration.md:514` (both under "Keeping the tokens
   safe") say the same.
-- `internal/cli/config_cmd.go:58` and `:59` (`newConfigInitCmd`'s `Short`
-  and `Long`): "asking for and checking each credential", "check each
-  one". `collectMessaging` prints "saved (a webhook cannot be checked
-  without posting)" (`:308`), so the webhook is saved unchecked; the
-  generated `docs/content/docs/reference/workflow_config_init.md:10`
-  repeats the `Short`, and `docs/content/docs/configuration.md:36` says it
-  "does the same for Slack".
 
 **Instead.** Say what the command does: in `longHelp`, the README and
 install.md, "Set it up, answering the prompts, with `workflow config init`
 (`--template` writes a blank file to edit)"; in the security paragraphs,
 "`config init` warns when the file is not ignored by git; add it to
-`.gitignore`"; in `Short`, `Long` and configuration.md, "asking for each
-credential and checking the Jira token", then `task docs:gen`.
+`.gitignore`"; then `task docs:gen`.
 
 **Done when.** `TestHelpExplainsBothTokens` also wants `--template` in the
 root help; `grep -rn 'starting configuration file\|fill in the two\|listed
 in .gitignore\|listed in the repository' README.md docs/content/docs
-internal/cli/cli.go` finds nothing; `workflow config init --help` no
-longer says every credential is checked, and `task docs:check` passes.
+internal/cli/cli.go` finds nothing, and `task docs:check` passes.
 
 ### UX-91 Three moments the command line names no next step
 
@@ -238,7 +229,7 @@ under "Writing without a person"). Three other moments end without a
 pointer.
 
 - `internal/cli/config_cmd.go:244` (`collectJira`): the guided `init`,
-  which asks four questions, returns `prompt.Line`'s error raw (`:246`).
+  which asks four questions, returns `prompt.Line`'s error raw (`:247`).
   Only `confirm` maps `io.EOF` to `errNoTerminal`
   (`internal/cli/prompt.go:46`), and `io.EOF` belongs to no family in
   `exitFamilies` (`internal/cli/scriptable.go:307`), so
@@ -1099,7 +1090,7 @@ carried and misdescribed.
 - `JiraFieldset`'s Token hint is "Leave as-is to keep the stored token."
   (`web/src/features/settings/fieldsets/JiraFieldset.tsx:17`), over a field
   that is empty after the recommended macOS setup: `keepTokenSafe` clears
-  `jira.Token` and sets `TokenCommand` (`internal/cli/config_cmd.go:287`).
+  `jira.Token` and sets `TokenCommand` (`internal/cli/config_cmd.go:288`).
   A user who types a token to "fix" it writes a secret into the file, and
   "The file's own `token` wins when set"
   (`docs/content/docs/configuration.md:195`, under "Keeping tokens out of
@@ -1677,7 +1668,7 @@ which is why this is low.
 - `Default` sets no `PullRequest`, so `title_source` is `""`
   (`internal/config/config.go:190`), and its `Messaging` leaves `Kind` `""`
   (`:194`); `collectMessaging` returns `config.Messaging{}` when Slack is
-  skipped (`internal/cli/config_cmd.go:305`), so the guided init writes
+  skipped (`internal/cli/config_cmd.go:306`), so the guided init writes
   kind `""` and the Service select draws empty while the messaging
   section's rail label and heading say "Slack" — two surfaces disagreeing
   about one file.
