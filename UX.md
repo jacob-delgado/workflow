@@ -1968,7 +1968,7 @@ Impact: low · Effort: small
   channel" for a webhook and for a bot with no channel, used by
   `runAnnounce` for the `to` line (`:131`), the dry-run line (`:135`) and
   the done notice (`:147`) — where `Messaging.Target`,
-  `internal/config/config.go:283`, says "(no channel set)" and, at `:288`,
+  `internal/config/config.go:282`, says "(no channel set)" and, at `:287`,
   "the channel its webhook is bound to", which the interface's notice uses
   (`internal/tui/messagingpreview.go:222`), and the web's `AnnounceControls`
   says "Announced to SERVICE." for a webhook

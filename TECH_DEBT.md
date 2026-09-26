@@ -75,8 +75,8 @@ terminal, a file on disk, the loopback server or a release.
 
 What is open here is the clients and plumbing every command shares (the
 interface and the web reach them too), the drift between the docs, the
-comments and the code they describe, and two sweeps that cross every
-surface — tests that prove nothing and arms no input reaches.
+comments and the code they describe, and a sweep that crosses every
+surface — tests that prove nothing.
 
 ### DEBT-89 Comments and layout rows that no longer say what the code does
 
@@ -648,49 +648,6 @@ select while `useViews` is in error; replacing the check anchor in
 `web/src/features/review/ReviewPanel.tsx` with a span; deleting `breaking:
 fields.breaking` from `web/src/features/branch/CommitForm.tsx`; and deleting
 the "opening will push it first" paragraph.
-
-### DEBT-94 Arms and guards no input can reach, on every surface
-
-Severity: low · Confidence: read
-
-Arms and guards kept just in case that no input can reach. Each is YAGNI by
-CLAUDE.md's catalog; most sit permanently in DEBT-64's worklist where no
-test can close them, the two compound guards' dead first operands among
-them.
-
-- `web/src/features/review/ReviewPanel.tsx:32` — `ReviewPanel` returns null
-  under `if (!snapshot)`, the file's only uncovered line; `BranchPanel`
-  (`web/src/features/branch/BranchPanel.tsx:18`), `IssuesPanel`
-  (`web/src/features/issues/IssuesPanel.tsx:22`) and `MessagingPanel`
-  (`web/src/features/messaging/MessagingPanel.tsx:17`) carry the guard
-  verbatim, each uncovered, while `SectionPanel`
-  (`web/src/shell/SectionPanel.tsx:20`) returns the connecting state before
-  any of the four renders.
-
-The condition figure is held down where no test can raise it; the web's
-review panel carries an uncovered line nothing reaches; the next panel and
-the next handler copy the guard; and `codeMeaning` keeps the last-case arm
-`ciState` says the package avoids with a map.
-
-**One way to fix it.** Let each `default` be the one terminal return, or
-drop it and let `exhaustive` guard the switch; delete the six nil guards and
-dereference the body as `Stage` and `Unstage` already do, keeping the
-empty-field checks on checkout and createBranch; build `codeMeaning`'s table
-as a map keyed by `api.ProblemCode` as `ciState` is; and have
-`SectionPanel` pass the snapshot's parts as props so no panel guards null.
-
-**Done when.** `task cover:branch` no longer lists the three glyph and word
-switches in `internal/cli/status.go`, `checkable` in
-`internal/messaging/messaging.go`, `forgeProgram` in
-`internal/wiring/forgecli.go`, or the body guards in
-`internal/webserver/announce.go`, `internal/webserver/commit.go`,
-`internal/webserver/config.go`, `internal/webserver/pullrequest.go` and
-`internal/webserver/errors.go`; `internal/webserver/checkout.go` reads
-`request.Body.Branch == ""` and `internal/webserver/branchcreate.go`
-`request.Body.IssueKey == ""` with `TestCheckoutRejectsAnEmptyBranch` and
-`TestCreateBranchRejectsAnEmptyIssue` still passing; the Internal arm exists
-once; and the v8 summary lists no uncovered null return for the four panels
-and none has a null check.
 
 ### DEBT-105 The contributor documents restate counts and names the tree has moved past
 

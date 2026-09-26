@@ -143,20 +143,17 @@ type userRef struct {
 
 // payload is the value in the shape Jira reads for its kind of field. It is
 // any because the shapes — an object, a list of them, a user, a string — share
-// nothing but being encodable.
+// nothing but being encodable. A map, not a switch, so there is no last-case
+// arm gobco can never see; exhaustive keeps it complete.
 func (v FieldValue) payload() any {
-	switch v.Field.Kind {
-	case FieldOptionList:
-		return v.optionRefs()
-	case FieldOption:
-		return reference{ID: v.OptionID}
-	case FieldUser:
-		return userRef{Name: v.Text}
-	case FieldUnsupported, FieldText, FieldDate:
-		return v.Text
-	default:
-		return v.Text
-	}
+	return map[FieldKind]any{
+		FieldOptionList:  v.optionRefs(),
+		FieldOption:      reference{ID: v.OptionID},
+		FieldUser:        userRef{Name: v.Text},
+		FieldUnsupported: v.Text,
+		FieldText:        v.Text,
+		FieldDate:        v.Text,
+	}[v.Field.Kind]
 }
 
 // optionRefs references each chosen option by id.

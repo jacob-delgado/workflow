@@ -277,20 +277,16 @@ func (m Messaging) Mode() MessagingMode {
 // a masked form has no business in output people are invited to paste into bug
 // reports.
 func (m Messaging) Target() string {
-	switch m.Mode() {
-	case MessagingBot:
-		if m.Channel == "" {
-			return "(no channel set)"
-		}
-
-		return m.Channel
-	case MessagingWebhook:
-		return "the channel its webhook is bound to"
-	case MessagingNone:
-		return notSet
-	default:
-		return notSet
+	channel := m.Channel
+	if channel == "" {
+		channel = "(no channel set)"
 	}
+
+	return map[MessagingMode]string{
+		MessagingBot:     channel,
+		MessagingWebhook: "the channel its webhook is bound to",
+		MessagingNone:    notSet,
+	}[m.Mode()]
 }
 
 // ChannelChoices are the channels a bot-token post can be sent to: the default

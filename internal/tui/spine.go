@@ -110,18 +110,14 @@ func (m Model) pullState() progress.PullState {
 	return progress.PullStateOf(m.review.pull.State)
 }
 
-// glyphFor is the mark for a stage's state, in this session's glyph set.
+// glyphFor is the mark for a stage's state, in this session's glyph set. A
+// map, not a switch, so there is no last-case arm gobco can never see;
+// exhaustive keeps it complete.
 func (m Model) glyphFor(state progress.State) string {
-	switch state {
-	case progress.Done:
-		return m.marks.done
-	case progress.InFlight:
-		return m.marks.inFlight
-	case progress.Failed:
-		return m.marks.failed
-	case progress.NotStarted:
-		return m.marks.notStarted
-	default:
-		return m.marks.notStarted
-	}
+	return map[progress.State]string{
+		progress.Done:       m.marks.done,
+		progress.InFlight:   m.marks.inFlight,
+		progress.Failed:     m.marks.failed,
+		progress.NotStarted: m.marks.notStarted,
+	}[state]
 }
