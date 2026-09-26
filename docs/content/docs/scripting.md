@@ -168,18 +168,18 @@ leaves the forge's issues as the tracker — `jira_url`, `jira_auth_mode`,
 `results`: `service`, `status` — `ok`, `missing`, `rejected`, `unreachable` or
 `unchecked` — and `detail`). It exits as the prose report does: a field missing,
 a value filled in wrong or a file other users can reach exits 3. A `rejected`
-credential is one the service refused, or one `workflow` would not send, such as
-a password in `jira.base_url`. A credential that is `missing` — none configured,
-or a `token_command` or `token_env` that gave none — exits 3 as a `rejected` one
-does, though it was never put to the service. A service that answers with a
-redirect, or asks you to wait, is `unreachable` and exits 5: it never judged the
-credential. A check `doctor` could not make is `unchecked` and counts toward no
-exit status: a webhook, which only posting would test; Jira when the forge's
-issues are the tracker, since there is no Jira to ask, or at a `jira.base_url`
-that is not an http or https address; and a forge it cannot name — no repository
-remote, a host other than `github.com`, a `ghe.com` tenant or `gitlab.com` with
-no `forge.kind` and `forge.host` for it, or a `forge.kind` that cannot be used.
-An unusable address or `forge.kind` fails the configuration instead.
+credential is one the service refused. A credential that is `missing` — none
+configured, or a `token_command` or `token_env` that gave none — exits 3 as a
+`rejected` one does, though it was never put to the service. A service that
+answers with a redirect, or asks you to wait, is `unreachable` and exits 5: it
+never judged the credential. A check `doctor` could not make is `unchecked` and
+counts toward no exit status: a webhook, which only posting would test; Jira
+when the forge's issues are the tracker, since there is no Jira to ask, or at a
+`jira.base_url` that is not an http or https address or that carries a login;
+and a forge it cannot name — no repository remote, a host other than
+`github.com`, a `ghe.com` tenant or `gitlab.com` with no `forge.kind` and
+`forge.host` for it, or a `forge.kind` that cannot be used. An unusable address
+or `forge.kind` fails the configuration instead.
 
 `workflow config show` prints the configuration file's own shape, as
 [Configuration]({{< relref "/docs/configuration" >}}) describes it.

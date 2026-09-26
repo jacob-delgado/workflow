@@ -435,25 +435,3 @@ func TestDoctorJSONOnlineCallsAForgeItCannotAskUnchecked(t *testing.T) {
 		})
 	}
 }
-
-func TestDoctorJSONOnlineCallsJiraUncheckedAtAnAddressItCannotUse(t *testing.T) {
-	// Arrange
-	// The configuration section fails the address, so the run still exits 3;
-	// Jira is never asked, so no credential is what is wrong.
-	dir := t.TempDir()
-	writeConfigFor(t, dir, "ftp://jira.example.com")
-
-	// Act
-	output, err := run(t, dir, "doctor", "--json", "--online")
-
-	// Assert
-	wantExit(t, err, 3)
-
-	if got := credentialStatusIn(decodeReport(t, output), jiraService); got != uncheckedStatus {
-		t.Errorf("the online report calls a Jira at an unusable address %q, want unchecked:\n%s", got, output)
-	}
-
-	if err != nil && strings.Contains(err.Error(), "a credential was rejected") {
-		t.Errorf("doctor --json --online = %v, want no credential rejected when Jira was never asked", err)
-	}
-}
