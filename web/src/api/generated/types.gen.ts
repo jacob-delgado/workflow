@@ -1096,7 +1096,7 @@ export type UpdateConfigErrors = {
      */
     409: Problem;
     /**
-     * The configuration is invalid; nothing was written.
+     * The configuration is invalid, or holds a ui.keys map the terminal interface would refuse to start on; nothing was written.
      */
     422: Problem;
     /**

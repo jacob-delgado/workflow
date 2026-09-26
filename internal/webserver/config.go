@@ -112,6 +112,12 @@ func (s *server) writeOver(posted api.Config, over basis) api.UpdateConfigRespon
 			problem(api.Unprocessable, "the configuration is not valid"))
 	}
 
+	err = s.keymapRefusal(incoming.UI.Keys)
+	if err != nil {
+		return api.UpdateConfig422ApplicationProblemPlusJSONResponse(problem(api.Unprocessable,
+			"the terminal interface would not start on this keymap: "+err.Error()))
+	}
+
 	saved, written, err := s.save(incoming, over)
 	if errors.Is(err, config.ErrChangedOnDisk) {
 		return api.UpdateConfig409ApplicationProblemPlusJSONResponse(problem(api.Conflict,
@@ -134,6 +140,17 @@ func (s *server) writeOver(posted api.Config, over basis) api.UpdateConfigRespon
 	return api.UpdateConfig200JSONResponse{
 		Body: out, Headers: api.UpdateConfig200ResponseHeaders{ETag: basis{seen: written}.etag()},
 	}
+}
+
+// keymapRefusal is why the terminal interface would refuse keys, so a save
+// never writes a file the interface will not start on; nil where it would
+// start, or where no check is wired.
+func (s *server) keymapRefusal(keys map[string]string) error {
+	if s.deps.CheckKeys == nil {
+		return nil
+	}
+
+	return s.deps.CheckKeys(keys)
 }
 
 // save preserves the stored secrets into incoming, writes it to the file the

@@ -66,6 +66,9 @@ type Deps struct {
 	// terminal's composer learns from. Nil where there is no store.
 	LastScope   func() (string, bool)
 	RecordScope func(scope string)
+	// CheckKeys says why the terminal interface would refuse a ui.keys map,
+	// or nil where it would start on it. Nil here means no map is checked.
+	CheckKeys func(keys map[string]string) error
 }
 
 // Info is the build and run facts the API reports and the server needs.

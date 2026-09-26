@@ -4,6 +4,7 @@
 package cli_test
 
 import (
+	"errors"
 	"reflect"
 	"testing"
 
@@ -30,6 +31,27 @@ func TestWebDepsHandsTheServerEverySeam(t *testing.T) {
 		if field.Kind() == reflect.Func && field.IsNil() {
 			t.Errorf("webserver.Deps.%s is nil though the interface wires every seam", seam.Name)
 		}
+	}
+}
+
+func TestWebDepsChecksAKeymapAsTheInterfaceDoes(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	// Moving jump-to-pane is a refusal only the interface's own check makes.
+	moved := map[string]string{"jump-to-pane": "f12"}
+
+	// Act
+	check := cli.WebDeps(tui.Deps{}).CheckKeys
+
+	// Assert
+	if check == nil {
+		t.Fatal("webserver.Deps.CheckKeys is nil, so the server saves a keymap the interface refuses")
+	}
+
+	err := check(moved)
+	if !errors.Is(err, tui.ErrKeyNotRebindable) {
+		t.Errorf("CheckKeys(%v) = %v, want the interface's %v", moved, err, tui.ErrKeyNotRebindable)
 	}
 }
 

@@ -187,8 +187,8 @@ The plumbing:
 - `internal/wiring/wiring.go:4` — the package comment "connects the terminal
   interface" to the clients, and the `CLAUDE.md:31` row "connects the
   interface's seams", name one of three consumers: `connectAt`
-  (`internal/cli/cli.go:387`) builds every command over `wiring.Deps`,
-  `WebDeps` (`internal/cli/cli.go:292`) hands the same bundle to the web,
+  (`internal/cli/cli.go:403`) builds every command over `wiring.Deps`,
+  `WebDeps` (`internal/cli/cli.go:305`) hands the same bundle to the web,
   and the row below (`CLAUDE.md:32`) already says `loop` is "for every
   surface".
 - `internal/gitrepo/gitrepo.go:4` — the package comment says `gitrepo`
@@ -298,7 +298,7 @@ The configuration page (the Fields table's missing rows are DEBT-91):
   `timing.ci_interval` is set, CI is polled every three minutes" gives two
   of `pollInterval`'s three conditions (`internal/tui/review.go:195`): no
   announcement may be waiting either.
-- `docs/content/docs/configuration.md:481` — the store is "keyed only by a
+- `docs/content/docs/configuration.md:482` — the store is "keyed only by a
   repository's host and path and by a hash of your Jira URL", and
   `ARCHITECTURE.md:240` says the repository key is the remote's parsed host
   and path; `migrate` (`internal/store/store.go:258`) keys the cache by
@@ -334,8 +334,8 @@ The web page:
   ten carried keys, as UX-87 in `UX.md` ("carry five it cannot show") and
   `ConfigForm`'s comment (`web/src/features/settings/SettingsPanel.tsx:67`)
   do; the whole `Config` seeds the form and rides back, and `token_command`
-  and `token_env` (`api/openapi.yaml:1396`; messaging's at `:1431`) and
-  `channels` (`:1437`; `Messaging.Channels`,
+  and `token_env` (`api/openapi.yaml:1399`; messaging's at `:1434`) and
+  `channels` (`:1440`; `Messaging.Channels`,
   `internal/config/config.go:121`) are in the schema and registered by no
   fieldset.
 - `docs/content/docs/web.md:131` — "a save never overwrites a change it has
@@ -707,7 +707,7 @@ three; no linter or knip rule sees any of it.
   classify.
 - `internal/config/ui.go:46` — the rebindable action names are listed
   in `UI.Keys`' comment, again under "Rebinding keys"
-  (`docs/content/docs/configuration.md:414`), and bound in `CheckKeys`
+  (`docs/content/docs/configuration.md:415`), and bound in `CheckKeys`
   (`internal/tui/keys.go:302`), which binds `jump-to-pane` too but refuses
   to move it; no test holds the three to each other.
 - `internal/config/config.go:349` — `Config.Problems`' sentence
@@ -751,9 +751,9 @@ three; no linter or knip rule sees any of it.
   inline in `CommitForm` (`web/src/features/branch/CommitForm.tsx:108`).
   The primary button's three sizes are UX-113; one `Button` component (or
   one primary and one secondary class) closes both.
-- `internal/cli/cli.go:388` — `connectLeniently` discards `os.UserHomeDir`'s
-  error under a "not a failure" comment (`:387`); `loadFromEnvironment`
-  (`:474`), `statusesOf` (`internal/cli/status.go:161`) and
+- `internal/cli/cli.go:391` — `connectLeniently` discards `os.UserHomeDir`'s
+  error under a "not a failure" comment (`:390`); `loadFromEnvironment`
+  (`:477`), `statusesOf` (`internal/cli/status.go:161`) and
   `completeAssignedIssues` (`internal/cli/scriptable.go:133`) repeat the
   discard and the comment, and `targetDir`
   (`internal/cli/config_cmd.go:128`) is the one caller that must keep the
@@ -845,8 +845,8 @@ them.
   and `server.Checkout` (`internal/webserver/checkout.go:34`) and
   `server.CreateBranch` (`internal/webserver/branchcreate.go:40`) carry it
   as a dead first operand, never true there either. Every one of those
-  bodies is `required: true` in `api/openapi.yaml:569` (and `:634`,
-  `:425`, `:697`, `:471`, `:507`), and the strict handler sets
+  bodies is `required: true` in `api/openapi.yaml:572` (and `:637`,
+  `:426`, `:700`, `:474`, `:510`), and the strict handler sets
   `request.Body = &body` unconditionally after a decode
   (`internal/api/server.gen.go:2083`).
 - `internal/webserver/errors.go:57` — `codeMeaning`'s `default` arm
@@ -1066,7 +1066,7 @@ pull request from an open one, though the forge hands it both and every
 other consumer branches on `State`. Finishing the branch from the web, which
 would close the window, is FEAT-79.
 
-- `api/openapi.yaml:1301` — `PullRequest`'s `required` list is number,
+- `api/openapi.yaml:1304` — `PullRequest`'s `required` list is number,
   url, title, draft, approvals, changes_requested and mergeable; no state
   field.
 - `internal/webserver/dto.go:134` — `pullDTO` maps `forge.PullRequest`
@@ -1074,7 +1074,7 @@ would close the window, is FEAT-79.
 - `internal/forge/pulls.go:213` — `pickPull` returns the merged pull
   request with found true when no open one exists, as `IsOpen`'s comment
   at `internal/forge/pulls.go:89` warns callers.
-- `internal/cli/cli.go:304` — `WebDeps` wires `FindPull` to the raw
+- `internal/cli/cli.go:305` — `WebDeps` wires `FindPull` to the raw
   `FindPullRequest`, so the web sees a merged pull as found.
 - `internal/webserver/stream.go:188` — `snapshotReview` passes that found
   through to `review` unchanged.
@@ -1196,7 +1196,7 @@ pull request for" instead of being classified through `fault`, as
 - `internal/webserver/announce_test.go:316` —
   `TestAnnouncingIsAConflictWithoutAPullRequest`'s case "the forge cannot
   be reached" pins the 409 for a `FindPull` error, the wrong answer.
-- `docs/content/docs/errors.md:89` — "## Unreachable" reserves 502 for an
+- `docs/content/docs/errors.md:90` — "## Unreachable" reserves 502 for an
   upstream that could not be reached, which these four handlers never
   give.
 
@@ -1298,7 +1298,7 @@ text they previewed.
 - `internal/webserver/announce.go:52` — `server.Announce` posts
   `announcement.Text()` of that recomposed announcement, not the previewed
   text.
-- `api/openapi.yaml:839` — `AnnounceRequest` requires `channel` only; the
+- `api/openapi.yaml:842` — `AnnounceRequest` requires `channel` only; the
   body carries no text or moment.
 - `web/src/features/messaging/announceApi.ts:31` — `announce` sends
   `{ channel }` and nothing else.
@@ -1374,7 +1374,7 @@ and a branch, review and in-flight marker read at three instants, so the panels
 can describe different branches when a checkout lands between the reads.
 
 **One way to fix it.** Read the author once per server, as `scopeCache`
-(`internal/webserver/webserver.go:136`) reads the scope, re-reading only
+(`internal/webserver/webserver.go:139`) reads the scope, re-reading only
 after a failure; and read the branch once in `snapshot` and pass it to the
 review and branches builders.
 
@@ -1386,7 +1386,7 @@ pushed snapshot (the merged-pull `CheckCI` skip is DEBT-127).
 
 Severity: medium · Confidence: read
 
-"## Internal" in `docs/content/docs/errors.md:102` says the cause of a 500
+"## Internal" in `docs/content/docs/errors.md:103` says the cause of a 500
 "is in the server's own output, not the response". Both places that answer
 `internal` discard the error: `writeResponseError`
 (`internal/webserver/errors.go:84`) ignores its error argument, and
@@ -1467,14 +1467,14 @@ kin-openapi's `Validate` passes on all of it (`loadSpec`,
 `internal/webserver/validator.go:29`), so no gate sees it; a client written
 from the description is what it hurts.
 
-- `api/openapi.yaml:600` — `push`'s description promises 409 "when there
+- `api/openapi.yaml:603` — `push`'s description promises 409 "when there
   is nothing to push (no commits, or already up to date)"; `nothingToPush`
   (`internal/webserver/push.go:59`) consults only the name and the
   upstream on the push remote, deliberately (its comment at
   `internal/webserver/push.go:49`), so a branch with no upstream and no
   commits is pushed.
 - `api/openapi.yaml:45` — the `events` tag says snapshots are "pushed as
-  they change", and `streamEvents`'s summary at `api/openapi.yaml:724`
+  they change", and `streamEvents`'s summary at `api/openapi.yaml:727`
   says the same; `defaultStreamInterval`'s comment
   (`internal/webserver/stream.go:19`) says the server re-reads on a
   cadence and pushes the result, with no comparison to the previous frame,
@@ -1483,13 +1483,13 @@ from the description is what it hurts.
   failing CI "if either drifts"; `gen:verify` (`Taskfile.yml:433`) diffs
   only `internal/api`, and the web client is checked by `web:gen:check`
   (`Taskfile.yml:179`).
-- `api/openapi.yaml:469` — `checkout` carries `tags: [branches]`, as do
-  `createBranch` (`api/openapi.yaml:505`), `push` (`api/openapi.yaml:602`)
-  and `commit` (`api/openapi.yaml:632`); the `tags` list at
+- `api/openapi.yaml:472` — `checkout` carries `tags: [branches]`, as do
+  `createBranch` (`api/openapi.yaml:508`), `push` (`api/openapi.yaml:605`)
+  and `commit` (`api/openapi.yaml:635`); the `tags` list at
   `api/openapi.yaml:29` never declares `branches`.
 - `api/openapi.yaml:22` — the `info` description says the server "keeps
   nothing between requests but the commit scope it learns"; `server` holds
-  `cfg` and `seen` (`internal/webserver/webserver.go:118`) across
+  `cfg` and `seen` (`internal/webserver/webserver.go:121`) across
   requests, and `getConfig`'s own description at `api/openapi.yaml:380`
   relies on it ("A file that has been deleted leaves the configuration in
   effect as it was").
@@ -1499,10 +1499,10 @@ from the description is what it hurts.
   (`internal/webserver/handlers.go:170`) leaves them nil, so they are
   absent, as the not-found frame in `web/src/test/snapshot-frames.sse:7`
   shows.
-- `api/openapi.yaml:1067` — `Issue.priority` "May be empty"; `issueDTO`
+- `api/openapi.yaml:1070` — `Issue.priority` "May be empty"; `issueDTO`
   (`internal/webserver/dto.go:33`) passes it through `optional`, which
   sends an empty string as an absent field.
-- `api/openapi.yaml:1165` — `Change.original_path` is "empty otherwise";
+- `api/openapi.yaml:1168` — `Change.original_path` is "empty otherwise";
   `changesDTO` (`internal/webserver/dto.go:122`) passes it through
   `optional`, which omits it.
 

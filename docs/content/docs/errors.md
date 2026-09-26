@@ -63,7 +63,8 @@ saved from another tab — which a save refuses rather than overwrite.
 ## Unprocessable
 
 Status 422. The request was understood but cannot be carried out as asked — an
-invalid configuration body, a configuration file on disk that no longer reads
+invalid configuration body (a `ui.keys` map the terminal interface would
+refuse to start on among them), a configuration file on disk that no longer reads
 as valid (the configuration in effect stands), a request for an issue when no
 tracker is configured, no `jira.review_status` to move an issue to, a change
 Jira refused, a file git would not stage or unstage, or a branch git would not

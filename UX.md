@@ -204,7 +204,7 @@ while it runs.
   (`internal/cli/config_cmd.go:327`) only warns when it is not, and nothing
   writes a `.gitignore`; the sentence is true of this repository's own
   `.gitignore:34`, not the user's. `README.md:198` and
-  `docs/content/docs/configuration.md:510` (both under "Keeping the tokens
+  `docs/content/docs/configuration.md:511` (both under "Keeping the tokens
   safe") say the same.
 - `internal/cli/config_cmd.go:58` and `:59` (`newConfigInitCmd`'s `Short`
   and `Long`): "asking for and checking each credential", "check each
@@ -311,7 +311,7 @@ label, and carry the given path in a second `path` field; add `opened_at`
 (RFC3339 UTC, from `OpenedAt`) beside `age` and document it; give `pr` a
 `--json` printing `{pull: {number, url, title, draft, …}, warning,
 follow_ups}`, the web's `OpenedPullRequest` shape
-(`api/openapi.yaml:1242`), with the dry run printing the draft in the
+(`api/openapi.yaml:1245`), with the dry run printing the draft in the
 same shape; and give `standup` a `--json` printing the gathered sections
 in place of the draft.
 
@@ -466,7 +466,7 @@ terminal that does support color; and the 150 ms detail delay
 
 **Instead.** `ui.alt_screen: false` for inline rendering; `ui.color:
 always`, which `validateUI` (`internal/config/ui.go:78`) and the
-`UIConfig.color` enum (`api/openapi.yaml:1466`) refuse until they list it;
+`UIConfig.color` enum (`api/openapi.yaml:1469`) refuse until they list it;
 `ui.detail_delay` in milliseconds.
 
 **Done when.** Each setting is read and honored by a screen test.
@@ -859,7 +859,7 @@ terminal shows are absent on the web too, none of them among what
   `openPullRequestComposer` calls `withReviewerSuggestions` with
   `CodeOwners` (`internal/tui/prcomposer.go:130`) and the owners become
   the placeholder (`:178`); `PullRequestDraft` carries no reviewer field
-  (`api/openapi.yaml:892`).
+  (`api/openapi.yaml:895`).
 - The Review section has no Copy URL: the title link is the only handle on
   the pull request (`PullRequestSummary`,
   `web/src/features/review/ReviewPanel.tsx:86`), where the queue's
@@ -1491,8 +1491,8 @@ the row's listitem.
 Impact: low · Effort: small
 
 **Today.** `keepSecret` treats an emptied secret field as "keep the stored
-value" (`internal/webserver/config.go:286`) and `preserveSecrets` applies
-it to all four secrets (`:258`), so Settings has no way to clear
+value" (`internal/webserver/config.go:303`) and `preserveSecrets` applies
+it to all four secrets (`:275`), so Settings has no way to clear
 `jira.token`, `messaging.token`, `messaging.webhook_url` or `forge.token`:
 clearing a token in the form and saving keeps it, and moving from a bot
 token to a webhook leaves the old token in the file, to be removed by
@@ -1545,7 +1545,7 @@ finds the reason by role alert; a screenshot shows it in the failure color.
 Impact: low · Effort: small
 
 **Today.** `LoopbackAddr` is the constant `"127.0.0.1:7000"`
-(`internal/webserver/webserver.go:229`), the only address the server ever
+(`internal/webserver/webserver.go:232`), the only address the server ever
 binds; `NewRootCmd` serves it (`internal/cli/cli.go:161`) though
 `WebServerAt` already takes an address (`:270`), and `NewRootCmdOver`'s
 `--web` help hard-codes it (`:216`). The root declares `--dry-run`, `--log`
@@ -1755,7 +1755,7 @@ which is why this is low.
   of the whole struct writes the empty value
   (`internal/config/save.go:140`).
 - `MessagingConfig`'s `kind` `enum` is `["", slack, teams, discord,
-  webhook]` (`api/openapi.yaml:1425`), so the spec allows what the select
+  webhook]` (`api/openapi.yaml:1428`), so the spec allows what the select
   cannot show; the mock the screenshots show has `title_source: ''`
   (`web/src/dev/mockConfig.ts:55`).
 
@@ -2041,8 +2041,8 @@ header that says Live, with no reason and no Retry.
   `snapshotChanges`, `:169`, `changesDTO(nil)`, and `snapshotReview`,
   `:184` and `:189`, `api.Review{Found: false}` — indistinguishable from no
   pull request.
-- `Review`, `api/openapi.yaml:1180`: carries `found`, `pull` and `ci` only,
-  and `Snapshot` (`:989`) has no per-panel problem.
+- `Review`, `api/openapi.yaml:1183`: carries `found`, `pull` and `ci` only,
+  and `Snapshot` (`:992`) has no per-panel problem.
 - `server.review`, `internal/webserver/handlers.go:182`: a `CheckCI` error
   drops `ci` from the answer; `PullRequestSummary`,
   `web/src/features/review/ReviewPanel.tsx:137`, renders nothing for a null
@@ -2112,14 +2112,14 @@ Impact: low · Effort: small
   for "the one way the interface says something broke" does not hold for
   it: there is error text to word, and the line drops it.
 - `server.writeOver`, `internal/webserver/config.go:110`: any `fromDTO`
-  failure — `config.Parse` behind it (`:252`) — answers 422 with the fixed
+  failure — `config.Parse` behind it (`:269`) — answers 422 with the fixed
   detail "the configuration is not valid", dropping the field and value the
   validators name (`refs_trailer` with a colon,
   `internal/config/commit.go:58`; a bad `title_source`,
   `internal/config/pullrequest.go:30`), which `doctor` prints
   (`reportLoadError`, `internal/cli/doctor.go:275`);
   `TestUpdateConfigRejectsAnInvalidConfig`,
-  `internal/webserver/config_test.go:107`, asserts status and code only.
+  `internal/webserver/config_test.go:110`, asserts status and code only.
 - `nothingToOpen`, `internal/webserver/pullrequest.go:88`, words
   `PullAlreadyOpenError` — which carries the open pull request "so a
   surface can point at it" (`internal/loop/pull.go:30`) — and
