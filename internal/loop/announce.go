@@ -67,18 +67,45 @@ func ComposeAnnouncement(
 	key, _ := convention.IssueKey(branch.Name, project)
 	issueKey := jira.Key(key)
 
+	return Announcement(AnnouncementFacts{
+		Author:       authorName(seams.Author),
+		Pull:         pull,
+		IssueKey:     issueKey,
+		IssueSummary: issueSummary(seams.Issue, issueKey),
+		IssueURL:     issueURL(seams.BrowseURL, issueKey),
+		Moment:       momentOf(seams.CheckCI, pull, branch.Head),
+	}, cfg, kind), pull, nil
+}
+
+// AnnouncementFacts are what an announcement tells: who opened the pull
+// request, the pull request, the issue its branch names — empty fields where
+// there is none, or the tracker could not say — and the moment it marks.
+type AnnouncementFacts struct {
+	Author       string
+	Pull         forge.PullRequest
+	IssueKey     jira.Key
+	IssueSummary string
+	IssueURL     string
+	Moment       messaging.Moment
+}
+
+// Announcement is the announcement of facts a surface already holds, rendered
+// for the configured service and template, and calling the change what the
+// forge of kind calls it. ComposeAnnouncement reads the facts through seams; a
+// surface that holds them already, as the terminal does, passes them here.
+func Announcement(facts AnnouncementFacts, cfg config.Messaging, kind forge.Kind) messaging.Announcement {
 	return messaging.Announcement{
-		Author:           authorName(seams.Author),
-		PullRequestURL:   pull.URL,
-		PullRequestTitle: pull.Title,
-		IssueKey:         key,
-		IssueSummary:     issueSummary(seams.Issue, issueKey),
-		IssueURL:         issueURL(seams.BrowseURL, issueKey),
+		Author:           facts.Author,
+		PullRequestURL:   facts.Pull.URL,
+		PullRequestTitle: facts.Pull.Title,
+		IssueKey:         string(facts.IssueKey),
+		IssueSummary:     facts.IssueSummary,
+		IssueURL:         facts.IssueURL,
 		Noun:             kind.Noun(),
-		Moment:           momentOf(seams.CheckCI, pull, branch.Head),
+		Moment:           facts.Moment,
 		Kind:             cfg.Kind,
 		Template:         cfg.Announcement,
-	}, pull, nil
+	}
 }
 
 // pullToAnnounce reads the checked-out branch and the pull request found for it,
