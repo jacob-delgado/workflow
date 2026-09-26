@@ -111,14 +111,6 @@ The README and the docs index:
   exists `@latest` resolves to `main`, and the pinned example (`:34`, and
   the README's line 65) is `@v0.0.5`, five releases behind.
 
-The web page:
-
-- `web/src/queryClient.ts:4` — the `queryClient` comment says "the stream's
-  snapshots update it through setQueryData"; the stream handler in
-  `useEventStream` (`web/src/api/snapshot.ts:85`) writes `useSnapshotStore`,
-  and the only `setQueryData` callers are `useReloadConfig`
-  (`web/src/features/settings/configApi.ts:124`) and the save (`:106`).
-
 The reference index:
 
 - `docs/content/docs/reference/_index.md:9` — "Every command and flag,
@@ -373,7 +365,7 @@ know about.
   outright rather than simulated: the browser cannot show what the write
   would have done, as the terminal's narration does. The blanket refusal
   itself is the intended design.
-- **`staleTime: Infinity`** (`web/src/queryClient.ts:12`) with the event
+- **`staleTime: Infinity`** (`web/src/queryClient.ts:14`) with the event
   stream as the sole freshness source. Correct for a pushed snapshot; the
   cost is that a stalled stream leaves stale data with no refetch to fall
   back on. Three queries set their own `staleTime`. The issue detail's and
