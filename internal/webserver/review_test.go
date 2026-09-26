@@ -264,3 +264,41 @@ func TestGetReviewMapsMergeability(t *testing.T) {
 		})
 	}
 }
+
+func TestSnapshotReviewIsNotFoundWhenTheBranchReadFails(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	// The forge would find a pull request for any branch, so only the failed
+	// branch read can leave the review empty.
+	deps := filledDeps()
+	deps.Branch = func() (gitrepo.Branch, error) { return gitrepo.Branch{Name: testBranchName}, errSeam }
+
+	// Act
+	snap := firstSnapshot(t, streamOnce(t, serve(t, deps, config.Default()), "/api/events").Body.String())
+
+	// Assert
+	if snap.Review.Found || snap.Review.Pull != nil {
+		t.Errorf("review = %+v, want none found when the branch read fails", snap.Review)
+	}
+}
+
+func TestSnapshotReviewIsNotFoundWhenThePullReadFails(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	// The failing find still hands back a pull request, so only the error can
+	// empty the review.
+	deps := filledDeps()
+	deps.FindPull = func(string) (forge.PullRequest, bool, error) {
+		return forge.PullRequest{Number: 42}, true, errSeam
+	}
+
+	// Act
+	snap := firstSnapshot(t, streamOnce(t, serve(t, deps, config.Default()), "/api/events").Body.String())
+
+	// Assert
+	if snap.Review.Found || snap.Review.Pull != nil {
+		t.Errorf("review = %+v, want none found when the pull request read fails", snap.Review)
+	}
+}

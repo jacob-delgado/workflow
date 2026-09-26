@@ -78,3 +78,21 @@ func TestGetMessagingHasNoAuthorWhenTheForgeCannotSay(t *testing.T) {
 		t.Errorf("author = %q, want empty when the forge cannot say", destination.Author)
 	}
 }
+
+func TestSnapshotHasNoAuthorWhenTheForgeCannotSay(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	// The failing read still names someone, so only the error can empty the
+	// author.
+	deps := filledDeps()
+	deps.Author = func() (string, error) { return testAuthor, errSeam }
+
+	// Act
+	snap := firstSnapshot(t, streamOnce(t, serve(t, deps, config.Default()), "/api/events").Body.String())
+
+	// Assert
+	if snap.Messaging.Author != "" {
+		t.Errorf("author = %q, want empty when the forge cannot say", snap.Messaging.Author)
+	}
+}

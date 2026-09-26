@@ -108,13 +108,10 @@ func (s *server) browseURL(key jira.Key) string {
 	return s.deps.BrowseURL(key)
 }
 
-// GetBranch returns the current branch, or an empty one outside a repository.
+// GetBranch returns the current branch, or an empty one when no repository is
+// configured.
 func (s *server) GetBranch(_ context.Context, _ api.GetBranchRequestObject) (api.GetBranchResponseObject, error) {
-	if s.deps.Branch == nil {
-		return api.GetBranch200JSONResponse(branchDTO(gitrepo.Branch{})), nil
-	}
-
-	branch, err := s.deps.Branch()
+	branch, err := s.readBranch()
 	if err != nil {
 		body, code := fault(err)
 
@@ -122,6 +119,17 @@ func (s *server) GetBranch(_ context.Context, _ api.GetBranchRequestObject) (api
 	}
 
 	return api.GetBranch200JSONResponse(branchDTO(branch)), nil
+}
+
+// readBranch is the checked-out branch, or an empty one when no repository is
+// configured: the one read behind GET /api/branch and the event stream's branch
+// panel.
+func (s *server) readBranch() (gitrepo.Branch, error) {
+	if s.deps.Branch == nil {
+		return gitrepo.Branch{}, nil
+	}
+
+	return s.deps.Branch()
 }
 
 // branchAfter re-reads the branch once a write to it has landed. A re-read
@@ -137,13 +145,10 @@ func (s *server) branchAfter(fallback gitrepo.Branch) gitrepo.Branch {
 	return after
 }
 
-// ListChanges returns the working tree's changes, or none outside a repository.
+// ListChanges returns the working tree's changes, or none when no repository is
+// configured.
 func (s *server) ListChanges(_ context.Context, _ api.ListChangesRequestObject) (api.ListChangesResponseObject, error) {
-	if s.deps.Changes == nil {
-		return api.ListChanges200JSONResponse(changesDTO(nil)), nil
-	}
-
-	changes, err := s.deps.Changes()
+	changes, err := s.readChanges()
 	if err != nil {
 		body, code := fault(err)
 
@@ -153,27 +158,48 @@ func (s *server) ListChanges(_ context.Context, _ api.ListChangesRequestObject) 
 	return api.ListChanges200JSONResponse(changesDTO(changes)), nil
 }
 
-// GetReview returns the branch's pull request and its CI, if one is open.
+// readChanges is the working tree's changes, or none when no repository is
+// configured: the one read behind GET /api/changes and the event stream's
+// changes panel.
+func (s *server) readChanges() ([]gitrepo.Change, error) {
+	if s.deps.Changes == nil {
+		return nil, nil
+	}
+
+	return s.deps.Changes()
+}
+
+// GetReview returns the branch's pull request and its CI, if one is found.
 func (s *server) GetReview(_ context.Context, _ api.GetReviewRequestObject) (api.GetReviewResponseObject, error) {
+	review, err := s.readReview()
+	if err != nil {
+		body, code := fault(err)
+
+		return api.GetReviewdefaultApplicationProblemPlusJSONResponse{Body: body, StatusCode: code}, nil
+	}
+
+	return api.GetReview200JSONResponse(review), nil
+}
+
+// readReview is the checked-out branch's pull request and its CI, or none found
+// when no repository or forge is configured: the one read behind GET
+// /api/review and the event stream's review panel.
+func (s *server) readReview() (api.Review, error) {
 	if s.deps.Branch == nil || s.deps.FindPull == nil {
-		return api.GetReview200JSONResponse{Found: false}, nil
+		return api.Review{Found: false}, nil
 	}
 
 	branch, err := s.deps.Branch()
 	if err != nil {
-		body, code := fault(err)
-
-		return api.GetReviewdefaultApplicationProblemPlusJSONResponse{Body: body, StatusCode: code}, nil
+		return api.Review{}, err
 	}
 
 	pull, found, err := s.deps.FindPull(branch.Name)
 	if err != nil {
-		body, code := fault(err)
-
-		return api.GetReviewdefaultApplicationProblemPlusJSONResponse{Body: body, StatusCode: code}, nil
+		return api.Review{}, err
 	}
 
-	return api.GetReview200JSONResponse(s.review(pull, found, branch.Head)), nil
+	return s.review(pull, found, branch.Head), nil
 }
 
 // review assembles the review state, folding in CI when an open pull request is
@@ -242,7 +268,13 @@ func noForgeToAsk(err error) bool {
 func (s *server) GetMessaging(
 	_ context.Context, _ api.GetMessagingRequestObject,
 ) (api.GetMessagingResponseObject, error) {
-	return api.GetMessaging200JSONResponse(messagingDTO(s.config(), s.author())), nil
+	return api.GetMessaging200JSONResponse(s.readMessaging()), nil
+}
+
+// readMessaging is the messaging destination: the one read behind GET
+// /api/messaging and the event stream's messaging panel.
+func (s *server) readMessaging() api.MessagingDestination {
+	return messagingDTO(s.config(), s.author())
 }
 
 // author resolves who a post would come from, or an empty string when the forge

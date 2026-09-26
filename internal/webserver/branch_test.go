@@ -75,3 +75,21 @@ func TestGetBranchReportsAFailure(t *testing.T) {
 		t.Errorf("status = %d, want 500", recorder.Code)
 	}
 }
+
+func TestSnapshotBranchIsEmptyWhenTheReadFails(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	// The failing read still hands back a branch, so only the error can empty
+	// the panel.
+	deps := filledDeps()
+	deps.Branch = func() (gitrepo.Branch, error) { return gitrepo.Branch{Name: testBranchName}, errSeam }
+
+	// Act
+	snap := firstSnapshot(t, streamOnce(t, serve(t, deps, config.Default()), "/api/events").Body.String())
+
+	// Assert
+	if snap.Branch.Name != "" || snap.Branch.Commits == nil {
+		t.Errorf("branch = %+v, want an empty branch with an empty commit list", snap.Branch)
+	}
+}

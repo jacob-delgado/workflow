@@ -87,7 +87,7 @@ func (s *server) snapshot(view string) api.Snapshot {
 		Branch:    s.snapshotBranch(),
 		Changes:   s.snapshotChanges(),
 		Review:    s.snapshotReview(),
-		Messaging: messagingDTO(s.config(), s.author()),
+		Messaging: s.readMessaging(),
 		Branches:  s.snapshotBranches(),
 
 		SuggestedScope: s.suggestedScope(),
@@ -114,11 +114,7 @@ func (s *server) snapshotBranches() []api.TaskBranch {
 // currentBranchName is the checked-out branch's name, or "" outside a repository
 // or when the read fails — used only to mark which task branch is on HEAD.
 func (s *server) currentBranchName() string {
-	if s.deps.Branch == nil {
-		return ""
-	}
-
-	branch, err := s.deps.Branch()
+	branch, err := s.readBranch()
 	if err != nil {
 		return ""
 	}
@@ -146,11 +142,7 @@ func (s *server) snapshotIssues(view string) api.IssuesPage {
 // snapshotBranch is the current branch, or an empty one outside a repository or
 // when the read fails.
 func (s *server) snapshotBranch() api.Branch {
-	if s.deps.Branch == nil {
-		return branchDTO(gitrepo.Branch{})
-	}
-
-	branch, err := s.deps.Branch()
+	branch, err := s.readBranch()
 	if err != nil {
 		return branchDTO(gitrepo.Branch{})
 	}
@@ -161,11 +153,7 @@ func (s *server) snapshotBranch() api.Branch {
 // snapshotChanges is the working tree's changes, or none outside a repository or
 // when the read fails.
 func (s *server) snapshotChanges() api.ChangeList {
-	if s.deps.Changes == nil {
-		return changesDTO(nil)
-	}
-
-	changes, err := s.deps.Changes()
+	changes, err := s.readChanges()
 	if err != nil {
 		return changesDTO(nil)
 	}
@@ -176,19 +164,10 @@ func (s *server) snapshotChanges() api.ChangeList {
 // snapshotReview is the branch's pull request and CI, or an empty review when no
 // pull can be found or a read fails.
 func (s *server) snapshotReview() api.Review {
-	if s.deps.Branch == nil || s.deps.FindPull == nil {
-		return api.Review{Found: false}
-	}
-
-	branch, err := s.deps.Branch()
+	review, err := s.readReview()
 	if err != nil {
 		return api.Review{Found: false}
 	}
 
-	pull, found, err := s.deps.FindPull(branch.Name)
-	if err != nil {
-		return api.Review{Found: false}
-	}
-
-	return s.review(pull, found, branch.Head)
+	return review
 }
