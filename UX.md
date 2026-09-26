@@ -100,7 +100,7 @@ key while `send.sending`: `statusPicker` (`internal/tui/picker.go:311`),
 (`internal/tui/branch.go:404`), `branchPicker`
 (`internal/tui/switchtask.go:155`), `lastLook`
 (`internal/tui/overlay.go:201`), `prComposer`
-(`internal/tui/prcomposer.go:275`), `prEditor`
+(`internal/tui/prcomposer.go:338`), `prEditor`
 (`internal/tui/preditor.go:83`), `mergePicker` (`internal/tui/merge.go:178`),
 `finishPreview` (`internal/tui/finish.go:105`), `messagingPreview`
 (`internal/tui/messagingpreview.go:94`) and `hookgenOffer`
@@ -115,7 +115,7 @@ configuration screen (`internal/tui/render.go:473`) and the two details
 `internal/tui/comment.go:112`, `internal/tui/composer.go:157`,
 `internal/tui/finish.go:83`, `internal/tui/hookgen.go:82`,
 `internal/tui/issuelink.go:53`, `internal/tui/merge.go:141`,
-`internal/tui/messagingpreview.go:64`, `internal/tui/prcomposer.go:222`,
+`internal/tui/messagingpreview.go:64`, `internal/tui/prcomposer.go:285`,
 `internal/tui/overlay.go:176`, `internal/tui/preditor.go:58`); `failureLine`
 13 (`internal/tui/checks.go:91`, `internal/tui/composer.go:166`, `:178`,
 `internal/tui/diff.go:79`, `internal/tui/fields.go:171`,
@@ -333,7 +333,7 @@ Impact: medium · Effort: small
 link, without ever showing it; `newPRCmd`'s `Long` says "A preview is
 confirmed first." (`:64`). The interface shows the body's first
 `prBodyPreviewLines` in `prComposer.view`
-(`internal/tui/prcomposer.go:235`), the web's `draftDTO` carries `Body`
+(`internal/tui/prcomposer.go:298`), the web's `draftDTO` carries `Body`
 for the form to show (`internal/webserver/pullrequest.go:161`), and the
 command line's sibling writes print their whole payload (`runAnnounce`,
 `internal/cli/announce.go:132`; `standup` at
@@ -476,7 +476,7 @@ always`, which `validateUI` (`internal/config/ui.go:78`) and the
 Impact: low · Effort: large
 
 **Today.** Drafts survive `esc` (commit `internal/tui/composer.go:254`, pull request
-`internal/tui/prcomposer.go:278`), a dirty tree blocks a switch instead of stashing, and
+`internal/tui/prcomposer.go:341`), a dirty tree blocks a switch instead of stashing, and
 quit is guarded while an announcement waits. But a posted comment, an applied
 transition, a merge and the `branch -D` in finish have no undo, and the
 interface never says which acts are reversible.
@@ -758,11 +758,11 @@ open"; a test with a draft review request sees "draft" on its row in pane
 Impact: low · Effort: small
 
 **Today.** `prComposer.withReviewerSuggestions`
-(`internal/tui/prcomposer.go:168`) promises the CODEOWNERS handles as the
-reviewers field's "hint and completions" (`internal/tui/prcomposer.go:166`)
-and turns on `ShowSuggestions` (`internal/tui/prcomposer.go:180`), so
+(`internal/tui/prcomposer.go:231`) promises the CODEOWNERS handles as the
+reviewers field's "hint and completions" (`internal/tui/prcomposer.go:229`)
+and turns on `ShowSuggestions` (`internal/tui/prcomposer.go:243`), so
 bubbles v2.2.1's text input draws the match as ghost text and would accept
-it on tab; but `prComposer.onFieldNav` (`internal/tui/prcomposer.go:304`)
+it on tab; but `prComposer.onFieldNav` (`internal/tui/prcomposer.go:367`)
 completes only the base field, through `baseCanComplete`, and moves tab on
 from every other field. Type `a` in reviewers with CODEOWNERS ana, ben:
 "na" appears as a completion, tab jumps to assignees and leaves `a`; and
@@ -856,9 +856,9 @@ terminal shows are absent on the web too, none of them among what
   `PullRequestForm` seeds `reviewers: ''`
   (`web/src/features/review/ReviewPanel.tsx:247`) and `ProposalFields`
   shows a generic placeholder (`:340`), where the terminal's
-  `openPullRequestComposer` calls `withReviewerSuggestions` with
-  `CodeOwners` (`internal/tui/prcomposer.go:130`) and the owners become
-  the placeholder (`:178`); `PullRequestDraft` carries no reviewer field
+  `proposePullRequest` calls `withReviewerSuggestions` with
+  `CodeOwners` (`internal/tui/prcomposer.go:150`) and the owners become
+  the placeholder (`:241`); `PullRequestDraft` carries no reviewer field
   (`api/openapi.yaml:895`).
 - The Review section has no Copy URL: the title link is the only handle on
   the pull request (`PullRequestSummary`,
@@ -1908,9 +1908,9 @@ script is told to press a key it does not have.
   "pull requests" whatever the forge; `Model.reviewRows`, `:132`, writes
   `" #"` where the Review pane's rail uses `m.vocab.sigil`
   (`internal/tui/review.go:272`).
-- `prBodyHelp`, `internal/tui/prcomposer.go:30`: a fixed "Write the pull
+- `prBodyHelp`, `internal/tui/prcomposer.go:31`: a fixed "Write the pull
   request description above this line", handed to `$EDITOR` by the
-  composer (`:376`) and the editor (`internal/tui/preditor.go:109`).
+  composer (`:439`) and the editor (`internal/tui/preditor.go:109`).
 - `forgeErrors`, `internal/tui/failure.go:189`: the full form of
   `forge.ErrNoToken` says "Run `gh auth login`, or set `$GITHUB_TOKEN`" for
   every host, though `Sources`, `internal/forge/token.go:245`, already
@@ -2190,8 +2190,8 @@ Impact: low · Effort: small
   `token_command` and `token_env` as well, and names no file; `FileName`'s
   comment, `internal/config/config.go:15`, says the name serves both search
   locations.
-- `prComposer.footer`, `internal/tui/prcomposer.go:263`: relabels
-  `closeOverlay` "discard" while `handleKey` (`:278`) snapshots the draft to
+- `prComposer.footer`, `internal/tui/prcomposer.go:326`: relabels
+  `closeOverlay` "discard" while `handleKey` (`:341`) snapshots the draft to
   `m.prDraft`; `prEditor.footer`, `internal/tui/preditor.go:77`, says
   "discard" for an `esc` that does discard (`:86`); `commitComposer.footer`,
   `internal/tui/composer.go:246`, keeps the "close" label for a draft it

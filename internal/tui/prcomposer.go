@@ -15,6 +15,7 @@ import (
 
 	"github.com/jacob-delgado/workflow/internal/convention"
 	"github.com/jacob-delgado/workflow/internal/forge"
+	"github.com/jacob-delgado/workflow/internal/gitrepo"
 	"github.com/jacob-delgado/workflow/internal/jira"
 	"github.com/jacob-delgado/workflow/internal/loop"
 )
@@ -105,18 +106,37 @@ func (c prComposer) restore(draft prDraft) prComposer {
 	return c
 }
 
-// openPullRequestComposer proposes a pull request for the branch.
+// openPullRequestComposer proposes a pull request for the branch, or reopens the
+// draft kept for it. An issue the list does not hold is read for the title
+// without holding the composer back: it opens on the title proposed without the
+// issue, which the issue's answer replaces while it is still untouched.
 func (m Model) openPullRequestComposer() (Model, tea.Cmd) {
 	branch := m.branch.branch
-	subjects := loop.Subjects(branch.Commits)
-
 	issueKey, _ := m.branchIssue()
-	issue, _ := m.issues.find(issueKey)
+	issue, listed := m.issues.find(issueKey)
+	proposed := m.proposePullRequest(branch, issueKey, issue.Summary)
+
+	m.overlay = proposed
+	if m.prDraft.branch == branch.Name {
+		m.overlay = proposed.restore(m.prDraft)
+	}
+
+	if listed {
+		return m, nil
+	}
+
+	return m, m.readTitleIssue(proposed)
+}
+
+// proposePullRequest is the composer filled from the branch's commits, the
+// issue it names and the repository's first template.
+func (m Model) proposePullRequest(branch gitrepo.Branch, issueKey jira.Key, summary string) prComposer {
+	subjects := loop.Subjects(branch.Commits)
 	titleSource := convention.TitleSource(m.cfg.PullRequest.TitleSource)
 
 	composer := prComposer{
 		marks: m.marks, styles: m.styles,
-		title:     newInput(convention.PullRequestTitleFrom(titleSource, subjects, string(issueKey), issue.Summary)),
+		title:     newInput(convention.PullRequestTitleFrom(titleSource, subjects, string(issueKey), summary)),
 		base:      newInput(branch.BaseName()),
 		reviewers: newInput(""), assignees: newInput(""), labels: newInput(""),
 		focus: prFieldTitle, head: branch.Name,
@@ -133,11 +153,54 @@ func (m Model) openPullRequestComposer() (Model, tea.Cmd) {
 		composer.templates = m.deps.Forge.Templates()
 	}
 
-	composer = composer.withTemplate(0)
-	if m.prDraft.branch == branch.Name {
-		composer = composer.restore(m.prDraft)
+	return composer.withTemplate(0)
+}
+
+// readTitleIssue reads the composer's issue for its title, when the title is to
+// come from the issue. A failed read leaves the summary empty, so the title
+// stays the one proposed, as the command line's does.
+func (m Model) readTitleIssue(composer prComposer) tea.Cmd {
+	read := m.deps.Jira.Issue
+	if convention.TitleSource(m.cfg.PullRequest.TitleSource) != convention.TitleFromIssue ||
+		composer.issueKey == "" || read == nil {
+		return nil
 	}
 
+	head, issueKey, subjects, proposed := composer.head, composer.issueKey, composer.subjects, composer.title.Value()
+
+	return func() tea.Msg {
+		summary := ""
+
+		detail, err := read(issueKey)
+		if err == nil {
+			summary = detail.Issue.Summary
+		}
+
+		return titleIssueRead{
+			head: head, proposed: proposed,
+			fromIssue: convention.PullRequestTitleFrom(convention.TitleFromIssue, subjects, string(issueKey), summary),
+		}
+	}
+}
+
+// titleIssueRead is the title the branch's issue gives the pull request, read
+// after its composer opened on the title proposed without it.
+type titleIssueRead struct {
+	head, proposed, fromIssue string
+}
+
+var _ applier = titleIssueRead{}
+
+// apply puts the issue's title in the composer, unless the composer has closed,
+// or is for another branch, or its title is no longer the one proposed: typed
+// over, or already being sent.
+func (read titleIssueRead) apply(m Model) (Model, tea.Cmd) {
+	composer, open := m.overlay.(prComposer)
+	if !open || composer.head != read.head || composer.send.sending || composer.title.Value() != read.proposed {
+		return m, nil
+	}
+
+	composer.title.SetValue(read.fromIssue)
 	m.overlay = composer
 
 	return m, nil

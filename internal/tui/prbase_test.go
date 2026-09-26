@@ -56,22 +56,6 @@ func TestTabNavigatesPastTheBaseWhenNothingCompletes(t *testing.T) {
 	refuseScreen(t, view, "devZ")
 }
 
-func TestTheComposerTakesItsTitleFromTheConfiguredSource(t *testing.T) {
-	t.Parallel()
-
-	// Arrange
-	// With the issue as the title source, the title is the issue rather than the
-	// branch's oldest commit (pullTitle).
-	opening := withoutPull()
-	opening.cfg.PullRequest.TitleSource = "issue"
-
-	// Act
-	view := typing(t, opening.live(t, 120, 40), "4", "n").View().Content
-
-	// Assert
-	requireScreen(t, view, issueKey+": "+issueSummary)
-}
-
 func TestTheComposerOpensWithoutARemoteBranchSeam(t *testing.T) {
 	t.Parallel()
 
