@@ -473,11 +473,6 @@ a weak assertion, so every one clears the gate.
 
 The terminal:
 
-- `internal/tui/notify_test.go:120` —
-  `TestNotifyPollsOnALongerBeatWithNoIntervalSet` asserts only "running" and
-  no ring; `horizon` (`internal/tui/harness_test.go:27`) is one second, so
-  any beat over a second is indistinguishable from `notifyPollInterval`
-  (`internal/tui/review.go:189`).
 - `internal/tui/merge_test.go:468` — `TestTheMergePreviewShowsItIsMerging`
   presses `j` in flight and asserts only "merging"; without the
   `p.send.sending` guard in `mergePicker.handleKey`
@@ -611,31 +606,30 @@ deleted.
 
 **One way to fix it.** Sharpen each Assert to what its name claims:
 `wantExit` or `errors.Is` with the family or sentinel meant, and rename the
-500 case "rejected"; a recording timer for the notify beat; the three
-missing guards as cases of `TestNothingInterruptsAWriteBeingSent`;
-`aria-disabled` on Retry or a Playwright focus case; the refused read
-awaited before asserting the select is absent; the check asserted by role
-and href; the recorded requests read for their bodies; the `gh` stub running
-the script's own `--jq` over a fixture of pulls; exact JSON from
-`scripts/coverage-summary.sh`; a stub gobco for the gate's refusals;
-raw-file reads that parse each `_at`, a cascade a test makes fire, and each
-Arrange's error fatal.
+500 case "rejected"; the three missing guards as cases of
+`TestNothingInterruptsAWriteBeingSent`; `aria-disabled` on Retry or a
+Playwright focus case; the refused read awaited before asserting the select
+is absent; the check asserted by role and href; the recorded requests read
+for their bodies; the `gh` stub running the script's own `--jq` over a
+fixture of pulls; exact JSON from `scripts/coverage-summary.sh`; a stub
+gobco for the gate's refusals; raw-file reads that parse each `_at`, a
+cascade a test makes fire, and each Arrange's error fatal.
 
-**Done when.** Each named mutation fails a test: setting
-`notifyPollInterval` to 20 seconds; removing `case p.send.sending` from
-`mergePicker.handleKey`, `finishPreview.handleKey` and `prEditor.handleKey`;
-changing `branch`'s non-repository exit from 4; returning a different
-sentinel for `KindUnknown` from `ReviewRequests` or the issue methods;
-removing `select(any(.labels[]; …))` from
-`scripts/release/push-release-tag.sh`; changing `($conditions * 2)` to
-`$conditions` in `scripts/coverage-summary.sh`; deleting a name from
-`NO_TESTS` in `scripts/gobco-report.sh`; changing `timestamp()` to
-`now.String()`, removing `foreign_keys(1)` from `dsnPragmas`, or making
-`RecordScope` or `CacheIssues` return nil without writing; rendering a
-select while `useViews` is in error; replacing the check anchor in
-`web/src/features/review/ReviewPanel.tsx` with a span; deleting `breaking:
-fields.breaking` from `web/src/features/branch/CommitForm.tsx`; and deleting
-the "opening will push it first" paragraph.
+**Done when.** Each named mutation fails a test: removing
+`case p.send.sending` from `mergePicker.handleKey`,
+`finishPreview.handleKey` and `prEditor.handleKey`; changing `branch`'s
+non-repository exit from 4; returning a different sentinel for `KindUnknown`
+from `ReviewRequests` or the issue methods; removing
+`select(any(.labels[]; …))` from `scripts/release/push-release-tag.sh`;
+changing `($conditions * 2)` to `$conditions` in
+`scripts/coverage-summary.sh`; deleting a name from `NO_TESTS` in
+`scripts/gobco-report.sh`; changing `timestamp()` to `now.String()`,
+removing `foreign_keys(1)` from `dsnPragmas`, or making `RecordScope` or
+`CacheIssues` return nil without writing; rendering a select while
+`useViews` is in error; replacing the check anchor in
+`web/src/features/review/ReviewPanel.tsx` with a span; deleting
+`breaking: fields.breaking` from `web/src/features/branch/CommitForm.tsx`;
+and deleting the "opening will push it first" paragraph.
 
 ### DEBT-105 The contributor documents restate counts and names the tree has moved past
 

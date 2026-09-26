@@ -4,6 +4,7 @@
 package tui_test
 
 import (
+	"slices"
 	"testing"
 	"time"
 
@@ -105,21 +106,19 @@ func TestNotifyPollsOnALongerBeatWithNoIntervalSet(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
-	// CI stays running and no interval is configured, so the notification poll
-	// falls back to its slower beat rather than ringing anything.
+	// CI runs at the first check and has passed by the next. No interval is
+	// configured and nothing waits to be posted, so the poll that only rings
+	// the notification falls back to its slower beat.
 	repo := newWorld()
-	repo.ci = []forge.CI{{State: forge.CIRunning, Total: 1, Done: 0}}
-	cfg := completeConfig()
-	cfg.UI.Notify = true
-	model := sized(t, tui.New(cfg, nil, repo.deps()), 120, 40)
+	repo.cfg.UI.Notify = true
+	repo.ci = []forge.CI{{State: forge.CIRunning, Total: 1, Done: 0}, {State: forge.CIPassed, Total: 1, Done: 1}}
+	timer := &recordingTimer{}
 
 	// Act
-	settled := drain(t, model, model.Init())
+	timed(t, repo, timer.after)
 
 	// Assert
-	requireScreen(t, settled.View().Content, "running")
-
-	if rung := repo.asked("notify"); len(rung) != 0 {
-		t.Errorf("notify calls = %v, want none while CI is still running", rung)
+	if want := []time.Duration{3 * time.Minute}; !slices.Equal(timer.waits, want) {
+		t.Errorf("the notification poll waited %v on the timer, want %v", timer.waits, want)
 	}
 }
