@@ -1041,56 +1041,6 @@ unchanged, with no panic, and `TestTheWheelMovesAnOverlaysList`
 (`internal/tui/mouse_test.go:66`) passes with `cfg.UI.Keys` rebinding
 `down` and `up`.
 
-### DEBT-116 Dry run's backstop skips `Forge.EditPullRequest` and the store
-
-Severity: low · Confidence: read
-
-`errDryRun` promises that a call which forgot its own dry-run guard fails
-safe, reaching no service. `heldBackServices` keeps that promise for
-`CreatePullRequest`, `Rerun`, `Merge`, `Post`, `Run` and `Write`, but not
-for `EditPullRequest`, so the pull request editor relies on its call-site
-guard alone: a future edit path that drops the `if m.dryRun` in
-`prEditor.save` would edit a pull request for real under `--dry-run`, and
-no test enumerates the write seams against `heldBack`. And `heldBack`
-holds back Jira, git, the forge, the messaging service and the hook writes
-but never `deps.Store`, so under `--dry-run` each first issue page is still
-written through `Store.CacheIssues`, where `docs/content/docs/usage.md:285`
-says a dry run "writes nothing" and the web server refuses even to open the
-store. The world records "cache N" and `TestASearchCachesTheIssueList`
-(`internal/tui/issuecache_test.go:45`) asks for it on the live path, but no
-dry-run test asserts the call is absent. The trade-off bullet on the web's
-dry run covers the web, not the terminal's store writes.
-
-- `internal/tui/dryrun.go:17` — `errDryRun`'s comment: a call that forgot
-  its own guard "reaches no service".
-- `internal/tui/dryrun.go:113` — `heldBackServices` replaces
-  `CreatePullRequest`, `Rerun`, `Merge`, `Post`, `Run` and `Write`; not
-  `EditPullRequest`.
-- `internal/tui/deps.go:125` — `ForgeDeps` declares `EditPullRequest`
-  among the forge write seams.
-- `internal/tui/preditor.go:138` — the `if m.dryRun` in `prEditor.save`
-  that is the editor's only guard.
-- `internal/tui/dryrun.go:25` — `heldBack` touches `Jira`, `Git` and the
-  services, never `deps.Store`.
-- `internal/tui/issues.go:53` — `Model.cacheIssues`, called from
-  `issuesLoaded.apply` with no dry-run guard, writes the first page under
-  `--dry-run`.
-- `docs/content/docs/usage.md:285` — "Dry run": `workflow --dry-run`
-  "writes nothing".
-- `internal/webserver/commit.go:152` — the web's contrary rule on
-  `server.learnedScope`: "A dry run never reads it: the store makes its
-  directory and opens its database even to read."
-
-**One way to fix it.** Replace `deps.Forge.EditPullRequest` in
-`heldBackServices` like its siblings, and hold back `StoreDeps.CacheIssues`,
-`RecordScope` and `RecordAnnounce` in `heldBack` (or state the cache
-exception in usage.md's Dry run section).
-
-**Done when.** A test builds a dry-run model whose write seams
-(`EditPullRequest` included) record calls, drives the editor to save and
-the list to search, and sees no forge call and no "cache" call in the
-world; or usage.md names the cache as the one thing dry run keeps writing.
-
 ### DEBT-117 The footer offers a dead key and hides a live one
 
 Severity: low · Confidence: read
