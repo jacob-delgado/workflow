@@ -251,21 +251,69 @@ func TestCreateBranchRejectsAnEmptyIssue(t *testing.T) {
 	}
 }
 
-func TestCreateBranchReportsWhenTheNewBranchCannotBeRead(t *testing.T) {
+func TestCreateBranchSucceedsEvenIfTheRereadFails(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
-	// The branch read fails, so the base is unknown and the post-create read that
-	// would confirm the switch fails too; the request reports the failure.
+	// The branch is created and checked out, but the read that would confirm it
+	// fails; the created branch is answered by its name rather than told as a
+	// failure a retry would then find already done.
+	created := false
 	deps := filledDeps()
-	deps.Branch = func() (gitrepo.Branch, error) { return gitrepo.Branch{}, errSeam }
-	deps.CreateBranch = func(string, string) error { return nil }
+	branch := deps.Branch
+	deps.Branch = func() (gitrepo.Branch, error) {
+		if created {
+			return gitrepo.Branch{}, errSeam
+		}
+
+		return branch()
+	}
+	deps.CreateBranch = func(string, string) error {
+		created = true
+
+		return nil
+	}
 
 	// Act
 	recorder := doCreateBranch(t, deps)
 
 	// Assert
-	assertCreateBranchSaysTryAgain(t, recorder)
+	if recorder.Code != http.StatusOK {
+		t.Fatalf("status = %d, want 200 — the branch was created despite the re-read failing", recorder.Code)
+	}
+
+	if answered := decode[api.Branch](t, recorder); answered.Name != wantBranchName(t) {
+		t.Errorf("branch = %+v, want the created branch %q", answered, wantBranchName(t))
+	}
+}
+
+func TestCreateBranchAnswersTheCreatedNameWhenNoBranchCanBeRead(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	// Every branch read fails, so the base is unknown and the new branch comes off
+	// HEAD; the branch as read before cannot stand in, and the created name does.
+	var created string
+
+	deps := filledDeps()
+	deps.Branch = func() (gitrepo.Branch, error) { return gitrepo.Branch{}, errSeam }
+	deps.CreateBranch = func(name, _ string) error {
+		created = name
+
+		return nil
+	}
+
+	// Act
+	recorder := doCreateBranch(t, deps)
+
+	// Assert
+	if recorder.Code != http.StatusOK {
+		t.Fatalf("status = %d, want 200 for a branch that was created", recorder.Code)
+	}
+
+	if answered := decode[api.Branch](t, recorder); created == "" || answered.Name != created {
+		t.Errorf("branch = %+v, created %q; want the created branch answered", answered, created)
+	}
 }
 
 func TestCreateBranchIsUnavailableWithoutAGitSeam(t *testing.T) {

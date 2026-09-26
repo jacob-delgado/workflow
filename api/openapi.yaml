@@ -514,7 +514,9 @@ paths:
               $ref: "#/components/schemas/CreateBranchRequest"
       responses:
         "200":
-          description: The branch that was created and is now checked out.
+          description: >-
+            The branch that was created and is now checked out. If it cannot be
+            read back after it was created, only its name is set.
           content:
             application/json:
               schema:
