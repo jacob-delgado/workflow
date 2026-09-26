@@ -5,7 +5,11 @@
 // is — pick an issue, branch, commit, open a review, announce it — from what
 // the repository and the services report. It keeps no state of its own: every
 // stage is derived fresh, not read from the store. Both the terminal interface's
-// spine and `workflow status` read it, so the rule lives in one place.
+// spine and `workflow status` read it. The web's work story
+// (web/src/features/issues/WorkStory.tsx) is the second place the rules are
+// written, in TypeScript; its tests (WorkStory.stages.test.tsx) pin the same
+// rules, a case with a twin in progress_test.go named for it. The two are
+// kept equal by hand, so a rule changed here must be changed there too.
 package progress
 
 import "github.com/jacob-delgado/workflow/internal/forge"
