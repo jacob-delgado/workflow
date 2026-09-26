@@ -46,6 +46,10 @@ CONFIGURATION
 
       workflow doctor
 
+  Jira is optional. Leave jira.base_url empty and no Jira token is needed:
+  your forge's issues are the tracker instead, and the Issues pane lists the
+  open issues assigned to you there.
+
 JIRA TOKEN (on-premises / Data Center)
 
   1. Sign in to your Jira instance in a browser.

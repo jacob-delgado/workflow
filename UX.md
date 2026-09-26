@@ -186,8 +186,8 @@ Impact: low · Effort: small
 `config init` that does not exist, and the command corrects them itself
 while it runs.
 
-- `internal/cli/cli.go:38` (`longHelp`): "Write a starting file with:
-  workflow config init", then "fill in the two credentials" (`:42`). That
+- `internal/cli/cli.go:41` (`longHelp`): "Write a starting file with:
+  workflow config init", then "fill in the two credentials" (`:45`). That
   is `--template`'s flow; bare `init` runs the guided one
   (`newConfigInitCmd`, `internal/cli/config_cmd.go:78`, branches on
   `opts.template` and otherwise calls `runGuidedInit`), so a reader who
@@ -199,7 +199,7 @@ while it runs.
   "# writes .workflow.json here", "Then fill in the two tokens", the same
   stale flow, while `docs/content/docs/configuration.md:36` (the
   "Configuration" intro) says it asks and checks.
-- `internal/cli/cli.go:92` (the `SECURITY` paragraph of `longHelp`): the
+- `internal/cli/cli.go:99` (the `SECURITY` paragraph of `longHelp`): the
   file "is listed in .gitignore". `warnIfNotIgnored`
   (`internal/cli/config_cmd.go:328`) only warns when it is not, and nothing
   writes a `.gitignore`; the sentence is true of this repository's own
