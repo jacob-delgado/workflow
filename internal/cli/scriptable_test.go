@@ -4,6 +4,7 @@
 package cli_test
 
 import (
+	"errors"
 	"io"
 	"net/http"
 	"strconv"
@@ -12,6 +13,8 @@ import (
 	"testing"
 
 	"github.com/jacob-delgado/workflow/internal/cli"
+	"github.com/jacob-delgado/workflow/internal/forge"
+	"github.com/jacob-delgado/workflow/internal/gitrepo"
 )
 
 // The scriptable write commands are wired end to end here; without a tracker,
@@ -19,12 +22,17 @@ import (
 
 func TestBranchCommandNeedsATracker(t *testing.T) {
 	// Act
-	_, err := run(t, t.TempDir(), "branch", "PROJ-1")
+	// With no Jira configured the forge's issues are the tracker, and with no
+	// repository there is no remote to name the forge, so there is no tracker to
+	// read issue 1 from.
+	_, err := run(t, t.TempDir(), "branch", "1")
 
 	// Assert
-	if err == nil {
-		t.Error("branch for an issue with no tracker configured returned no error")
+	if !errors.Is(err, forge.ErrNotARemote) {
+		t.Errorf("branch with no tracker to read from returned %v, want ErrNotARemote", err)
 	}
+
+	wantExit(t, err, 3)
 }
 
 func TestPRCommandReadsTheBranch(t *testing.T) {
@@ -33,9 +41,11 @@ func TestPRCommandReadsTheBranch(t *testing.T) {
 	_, err := run(t, t.TempDir(), "pr")
 
 	// Assert
-	if err == nil {
-		t.Error("pr outside a repository returned no error")
+	if !errors.Is(err, gitrepo.ErrNotARepository) {
+		t.Errorf("pr outside a repository returned %v, want ErrNotARepository", err)
 	}
+
+	wantExit(t, err, 4)
 }
 
 func TestAnnounceCommandNeedsMessaging(t *testing.T) {

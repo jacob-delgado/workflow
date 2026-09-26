@@ -4,6 +4,7 @@
 package cli_test
 
 import (
+	"errors"
 	"net/http"
 	"os"
 	"os/exec"
@@ -12,6 +13,7 @@ import (
 	"testing"
 
 	"github.com/jacob-delgado/workflow/internal/cli"
+	"github.com/jacob-delgado/workflow/internal/gitrepo"
 )
 
 // standupSearch is the Jira search body for one issue you touched in the window.
@@ -77,9 +79,11 @@ func TestStandupOutsideARepositoryReportsSo(t *testing.T) {
 	_, err := run(t, t.TempDir(), "standup", "--no-edit")
 
 	// Assert
-	if err == nil {
-		t.Error("standup outside a repository returned no error")
+	if !errors.Is(err, gitrepo.ErrNotARepository) {
+		t.Errorf("standup outside a repository returned %v, want ErrNotARepository", err)
 	}
+
+	wantExit(t, err, 4)
 }
 
 func TestStandupDraftsCommitsIssuesAndPulls(t *testing.T) {

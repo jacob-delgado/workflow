@@ -465,31 +465,11 @@ docs/content/docs/install.md` prints a line.
 
 Severity: low · Confidence: read
 
-Across `internal/cli`, `internal/forge`, `internal/config`,
-`internal/store`, the release and coverage scripts and the web's vitest
-suite, tests named for a rule would pass with the rule gone. `testshape`
-checks only that a failure call is reachable and v8's range count cannot see
-a weak assertion, so every one clears the gate.
-
-The command line:
-
-- `internal/cli/branch_test.go:289` — `TestBranchReportsAFailedCreate`
-  asserts `err == nil` only; so does
-  `TestBranchReportsAnUnreachableTracker` (`:322`), whose fixture answers
-  500 (`:315`) — a rejection, exit 1, since `statusError`
-  (`internal/jira/jira.go:253`) makes a 500 `ErrUnexpectedStatus`, never
-  `ErrUnreachable` — so "Unreachable" in its name is wrong.
-- `internal/cli/scriptable_test.go:25` — `TestBranchCommandNeedsATracker`
-  asserts `err == nil` only and cannot tell the exit-3 refusal from any
-  other failure; `TestPRCommandReadsTheBranch` (`:36`) and
-  `TestStandupOutsideARepositoryReportsSo`
-  (`internal/cli/standup_test.go:80`) do the same, while
-  `TestAnnounceCommandNeedsMessaging` (`internal/cli/scriptable_test.go:46`)
-  shows the file's own stronger shape, `wantExit`
-  (`internal/cli/exitstatus_test.go:30`) is the helper the six could call,
-  and `TestRequestLogReportsAFileItCannotOpen`
-  (`internal/cli/reqlog_test.go:40`) explains why a bare error check proves
-  nothing.
+Across `internal/forge`, `internal/config`, `internal/store`, the release
+and coverage scripts and the web's vitest suite, tests named for a rule
+would pass with the rule gone. `testshape` checks only that a failure call
+is reachable and v8's range count cannot see a weak assertion, so every one
+clears the gate.
 
 The clients:
 
@@ -583,14 +563,13 @@ commit sent without its `!` or body; the "opening will push it first" note
 deleted.
 
 **One way to fix it.** Sharpen each Assert to what its name claims:
-`wantExit` or `errors.Is` with the family or sentinel meant, and rename the
-500 case "rejected"; `aria-disabled` on Retry or a Playwright focus case;
-the refused read awaited before asserting the select is absent; the check
-asserted by role and href; the recorded requests read for their bodies; the
-`gh` stub running the script's own `--jq` over a fixture of pulls; exact
-JSON from `scripts/coverage-summary.sh`; a stub gobco for the gate's
-refusals; raw-file reads that parse each `_at`, a cascade a test makes fire,
-and each Arrange's error fatal.
+`errors.Is` with the sentinel meant; `aria-disabled` on Retry or a
+Playwright focus case; the refused read awaited before asserting the select
+is absent; the check asserted by role and href; the recorded requests read
+for their bodies; the `gh` stub running the script's own `--jq` over a
+fixture of pulls; exact JSON from `scripts/coverage-summary.sh`; a stub
+gobco for the gate's refusals; raw-file reads that parse each `_at`, a
+cascade a test makes fire, and each Arrange's error fatal.
 
 **Done when.** Each named mutation fails a test: returning a different
 sentinel for `KindUnknown` from `ReviewRequests` or the issue methods;

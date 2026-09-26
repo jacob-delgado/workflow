@@ -14,6 +14,7 @@ import (
 
 	"github.com/jacob-delgado/workflow/internal/cli"
 	"github.com/jacob-delgado/workflow/internal/gitrepo"
+	"github.com/jacob-delgado/workflow/internal/jira"
 )
 
 // errPromptClosed stands in for a confirmation prompt that cannot be read.
@@ -287,9 +288,11 @@ func TestBranchReportsAFailedCreate(t *testing.T) {
 	_, err := run(t, repo, "branch", "PROJ-7", "--yes")
 
 	// Assert
-	if err == nil {
-		t.Error("branch reported no error though the create could not succeed")
+	if err == nil || !strings.Contains(err.Error(), "creating fix/PROJ-7-login") {
+		t.Errorf("branch whose create could not succeed returned %v, want the create named", err)
 	}
+
+	wantExit(t, err, 1)
 }
 
 func TestBranchReportsAnUnreadableRepository(t *testing.T) {
@@ -311,10 +314,11 @@ func TestBranchReportsAnUnreadableRepository(t *testing.T) {
 	wantExit(t, err, 4)
 }
 
-func TestBranchReportsAnUnreachableTracker(t *testing.T) {
+func TestBranchReportsATrackerServerError(t *testing.T) {
 	// Arrange
 	// The tracker answers every request with a server error, so the issue cannot
-	// be read and no branch is named.
+	// be read and no branch is named. The tracker did answer, so this is not the
+	// unreachable family.
 	server := jiraServer(t, http.StatusInternalServerError, "boom", new(atomic.Bool))
 	repo := repoForBranch(t, server.URL)
 
@@ -322,7 +326,9 @@ func TestBranchReportsAnUnreachableTracker(t *testing.T) {
 	_, err := run(t, repo, "branch", "PROJ-7", "--yes")
 
 	// Assert
-	if err == nil {
-		t.Error("branch accepted an issue it could not read")
+	if !errors.Is(err, jira.ErrUnexpectedStatus) {
+		t.Errorf("branch on a tracker answering 500 returned %v, want ErrUnexpectedStatus", err)
 	}
+
+	wantExit(t, err, 1)
 }
