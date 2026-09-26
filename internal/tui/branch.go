@@ -427,7 +427,7 @@ func (c branchCreator) create(m Model) (Model, tea.Cmd) {
 	}
 
 	if m.dryRun {
-		return m.closeOverlay().noticed("dry run: would " + c.dryRunAction() + name + " " + c.start()), nil
+		return m.closeOverlay().noticed(c.dryRunNotice(name)), nil
 	}
 
 	c.send, c.fetchProblem = starting(), nil
@@ -442,19 +442,20 @@ func (c branchCreator) create(m Model) (Model, tea.Cmd) {
 	return m, c.createCommand(m, name)
 }
 
-// dryRunAction names what a dry run would do: a fetch when there is a base to
-// refresh, then a branch in place or a worktree beside the repository.
-func (c branchCreator) dryRunAction() string {
-	verb := "create "
+// dryRunNotice says what creating name would do: a fetch when there is a base
+// to refresh, then a branch it switches to, as the live path does, or a
+// worktree beside the repository, which leaves the checkout as it is.
+func (c branchCreator) dryRunNotice(name string) string {
+	made := "create " + name + " " + c.start() + " and switch to it"
 	if c.worktree {
-		verb = "create a worktree for "
+		made = "create a worktree for " + name + " " + c.start()
 	}
 
 	if c.willFetchBase() {
-		return "fetch origin, then " + verb
+		made = "fetch origin, then " + made
 	}
 
-	return verb
+	return "dry run: would " + made
 }
 
 // willFetch reports that create should fetch first: there is a base to refresh,

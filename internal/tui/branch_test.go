@@ -335,7 +335,8 @@ func TestADryRunBranchIsOnlyDescribed(t *testing.T) {
 	view := typing(t, model, "b", keyEnter).View().Content
 
 	// Assert
-	requireScreen(t, view, "dry run: would fetch origin, then create fix/PROJ-412-fix-token-redaction from origin/main")
+	requireScreen(t, view,
+		"dry run: would fetch origin, then create fix/PROJ-412-fix-token-redaction from origin/main and switch to it")
 
 	if calls := dry.asked("create"); len(calls) != 0 {
 		t.Errorf("a dry run created a branch: %q", calls)

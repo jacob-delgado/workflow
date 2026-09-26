@@ -69,14 +69,15 @@ func TestAWorktreeUnderDryRunCreatesNothing(t *testing.T) {
 
 	// Arrange
 	repo := newWorld()
-	model := sized(t, dryInterface(repo), 120, 40)
+	model := sized(t, dryInterface(repo), 160, 40)
 	model = drain(t, model, model.Init())
 
 	// Act
 	view := typing(t, model, "2", "b", keyCtrlW, keyEnter).View().Content
 
 	// Assert
-	requireScreen(t, view, "dry run", "worktree")
+	requireScreen(t, view, "dry run: would fetch origin, then create a worktree for "+featureName+" from origin/main")
+	refuseScreen(t, view, "switch to it")
 
 	if made := repo.asked("worktree"); len(made) != 0 {
 		t.Errorf("worktree calls = %v, want none under a dry run", made)
