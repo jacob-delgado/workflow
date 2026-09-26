@@ -87,13 +87,25 @@ func (s *server) announcement() (messaging.Announcement, error) {
 	announcement, _, err := loop.ComposeAnnouncement(loop.AnnounceSeams{
 		Branch:    s.deps.Branch,
 		FindPull:  s.deps.FindPull,
-		Author:    s.deps.Author,
+		Author:    s.authorSeam(),
 		Issue:     s.deps.Issue,
 		BrowseURL: s.deps.BrowseURL,
 		CheckCI:   s.deps.CheckCI,
 	}, cfg.Messaging, cfg.Jira.Project, s.info.ForgeKind)
 
 	return announcement, err
+}
+
+// authorSeam is the author read the announcement composes with: the one the
+// messaging panel shows, so a preview and its post name the same author even
+// when the forge cannot say by the time of the post. It is nil, as the loop
+// takes for no author, when no forge is configured.
+func (s *server) authorSeam() func() (string, error) {
+	if s.deps.Author == nil {
+		return nil
+	}
+
+	return s.cachedAuthor
 }
 
 // changedSincePreview reports whether a preview's text was given and the

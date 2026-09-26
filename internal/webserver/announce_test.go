@@ -129,6 +129,46 @@ func TestAnnouncePostsTheTextItsPreviewShowed(t *testing.T) {
 	}
 }
 
+func TestAnnouncePostsThePreviewWhenTheAuthorReadFailsAfterIt(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	// The forge says who the author is for the preview and cannot say by the
+	// time of the post, so only the author kept from the preview can match it.
+	var posted string
+
+	asked := 0
+	deps := filledDeps()
+	deps.Author = func() (string, error) {
+		asked++
+		if asked > 1 {
+			return "", errSeam
+		}
+
+		return testAuthor, nil
+	}
+	deps.Post = func(_, text string) error {
+		posted = text
+
+		return nil
+	}
+
+	handler := serve(t, deps, config.Default())
+	previewed := previewAnnouncement(t, handler)
+
+	// Act
+	recorder := announcePreviewed(t, handler, "#dev", previewed)
+
+	// Assert
+	if recorder.Code != http.StatusOK {
+		t.Fatalf("status = %d, want 200 for the announcement its preview showed", recorder.Code)
+	}
+
+	if posted != previewed || !strings.Contains(posted, testAuthor) {
+		t.Errorf("posted %q, want the previewed %q, naming %s", posted, previewed, testAuthor)
+	}
+}
+
 func TestGetAnnouncementComposesThePreview(t *testing.T) {
 	t.Parallel()
 
