@@ -81,20 +81,11 @@ shares (the interface and the web reach them too).
 
 Severity: low · Confidence: read
 
-Across the clients, the plumbing, the web server and the two layout maps,
-doc comments and layout rows describe an earlier shape of the code. No
-linter reads a comment, so every one passes the gate. The `wiring` package
-comment below still names the terminal as the owner of the seams it fills,
-which `internal/seams` now declares for all three surfaces.
-
-The clients:
-
-- `internal/config/config.go:4` — the package comment says `config` "loads
-  the workflow configuration file"; `Save`, `SaveOver`, `RevisionOf`,
-  `ParseRevision` and `SharedMode` are exported from
-  `internal/config/save.go:108` onward, the `CLAUDE.md:29` row says
-  "loading, redaction, validation", and the budget file's WHY
-  (`scripts/package-size-budgets.txt:36`) says "load and save".
+Across the plumbing, the web server and the two layout maps, doc comments
+and layout rows describe an earlier shape of the code. No linter reads a
+comment, so every one passes the gate. The `wiring` package comment below
+still names the terminal as the owner of the seams it fills, which
+`internal/seams` now declares for all three surfaces.
 
 The plumbing:
 
