@@ -306,7 +306,7 @@ Impact: low · Effort: small
   neither records nor reads, so an announcement made in the browser is
   invisible to the terminal, which offers it again, and the web's work story
   never marks its Announce step done (`onHeadStages`,
-  `web/src/features/issues/WorkStory.tsx:79`).
+  `web/src/features/issues/WorkStory.tsx:91`).
 - Touches: `internal/webserver` (post through `loop.Deliver`, with the
   store's memory on `Deps` as `RecordScope` is), `api/openapi.yaml` (the
   snapshot carries what was announced), `web/src/features/issues`,

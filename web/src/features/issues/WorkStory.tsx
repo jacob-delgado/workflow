@@ -10,23 +10,30 @@ import { useUiStore, type Section } from '@/shell/uiStore.ts'
 import { checkoutBranch } from './checkoutApi.ts'
 import { startWork } from './startWorkApi.ts'
 
-type StageState = 'done' | 'active' | 'upcoming'
+type StageState = 'done' | 'failed' | 'active' | 'upcoming'
 
-// A stage's mark: done, the stage the work is at, and the stages still to
-// come. It takes the hue of the system the stage belongs to, as the
+// A stage's mark: done, failed, the stage the work is at, and the stages still
+// to come. It takes the hue of the system the stage belongs to, as the
 // interface's spine does (internal/tui/spine.go), so a stage and the section
-// it opens share a color.
+// it opens share a color — except a failed stage, red as the spine paints it.
 const stageMark: Record<StageState, MarkState> = {
   done: 'done',
+  failed: 'failed',
   active: 'in-flight',
   upcoming: 'not-started',
 }
+
+// How far a stage has got, read from the stream by the rules internal/progress
+// writes for the spine and `workflow status`; WorkStory.stages.test.tsx holds
+// the two equal. Which pending stage the work is at is the story's own reading
+// (stageState).
+type Reached = 'done' | 'failed' | 'pending'
 
 interface Stage {
   title: string
   detail: string
   section: Section
-  done: boolean
+  reached: Reached
 }
 
 // The loop, top to bottom: branch for the issue, commit the work, open the pull
@@ -53,10 +60,15 @@ function buildStages(
 // notStartedStages is the story for an issue with no local branch yet.
 function notStartedStages(noun: string): Stage[] {
   return [
-    { title: 'Branch', section: 'branch', done: false, detail: 'No branch for this issue yet' },
-    { title: 'Changes', section: 'branch', done: false, detail: 'Nothing committed yet' },
-    { title: capitalized(noun), section: 'review', done: false, detail: `No ${noun} yet` },
-    { title: 'Announce', section: 'messaging', done: false, detail: 'Not announced' },
+    {
+      title: 'Branch',
+      section: 'branch',
+      reached: 'pending',
+      detail: 'No branch for this issue yet',
+    },
+    { title: 'Changes', section: 'branch', reached: 'pending', detail: 'Nothing committed yet' },
+    { title: capitalized(noun), section: 'review', reached: 'pending', detail: `No ${noun} yet` },
+    { title: 'Announce', section: 'messaging', reached: 'pending', detail: 'Not announced' },
   ]
 }
 
@@ -67,10 +79,10 @@ function offHeadStages(branchName: string, noun: string): Stage[] {
   const elsewhere = 'Shown for the checked-out branch'
 
   return [
-    { title: 'Branch', section: 'branch', done: true, detail: branchName },
-    { title: 'Changes', section: 'branch', done: false, detail: elsewhere },
-    { title: capitalized(noun), section: 'review', done: false, detail: elsewhere },
-    { title: 'Announce', section: 'messaging', done: false, detail: 'Not announced' },
+    { title: 'Branch', section: 'branch', reached: 'done', detail: branchName },
+    { title: 'Changes', section: 'branch', reached: 'pending', detail: elsewhere },
+    { title: capitalized(noun), section: 'review', reached: 'pending', detail: elsewhere },
+    { title: 'Announce', section: 'messaging', reached: 'pending', detail: 'Not announced' },
   ]
 }
 
@@ -83,7 +95,7 @@ function onHeadStages(snapshot: Snapshot, words: ForgeWords): Stage[] {
     {
       title: 'Branch',
       section: 'branch',
-      done: branch.name !== '',
+      reached: branch.name === '' ? 'pending' : 'done',
       detail:
         branch.name === ''
           ? 'Not on a branch yet'
@@ -95,35 +107,42 @@ function onHeadStages(snapshot: Snapshot, words: ForgeWords): Stage[] {
       // Done on a commit, as progress.commitState reads it: files still to
       // commit do not undo one already made, and a fresh branch with nothing
       // committed is still at this stage however clean its tree.
-      done: branch.commits.length > 0,
+      reached: branch.commits.length > 0 ? 'done' : 'pending',
       detail: changesDetail(snapshot),
     },
     {
       title: capitalized(words.noun),
       section: 'review',
-      done: pullRequestDone(snapshot),
+      reached: reviewReached(snapshot),
       detail: reviewDetail(snapshot, words),
     },
     {
       title: 'Announce',
       section: 'messaging',
-      done: false,
+      reached: 'pending',
       detail: announceDetail(messaging),
     },
   ]
 }
 
-// Done once the pull request is open, ready, and not held up by CI. A forge
-// with no CI (state none, or absent) does not keep it from done — only a running
-// or failed check does.
-function pullRequestDone({ review }: Snapshot): boolean {
-  return (
-    review.found &&
-    review.pull != null &&
-    !review.pull.draft &&
-    review.ci?.state !== 'running' &&
-    review.ci?.state !== 'failed'
-  )
+// reviewReached follows the pull request as progress.reviewState does. A merged
+// one's review is over, and one closed without merging counts as none. Changes
+// asked for fail the stage as a CI failure does, both something to go back to;
+// only a passed CI reads done, so a forge with no CI leaves it in flight. A
+// draft reads as any pull request.
+function reviewReached({ review }: Snapshot): Reached {
+  const { pull, ci } = review
+  if (!review.found || !pull || pull.state === 'closed') {
+    return 'pending'
+  }
+  if (pull.state === 'merged') {
+    return 'done'
+  }
+  if (ci?.state === 'failed' || pull.changes_requested) {
+    return 'failed'
+  }
+
+  return ci?.state === 'passed' ? 'done' : 'pending'
 }
 
 // announceDetail describes the Announce stage. A webhook service has no channel
@@ -164,8 +183,8 @@ function reviewDetail(snapshot: Snapshot, { noun, sigil }: ForgeWords): string {
 }
 
 function stageState(stage: Stage, index: number, activeIndex: number): StageState {
-  if (stage.done) {
-    return 'done'
+  if (stage.reached !== 'pending') {
+    return stage.reached
   }
   if (index === activeIndex) {
     return 'active'
@@ -203,7 +222,7 @@ export function WorkStory({ issueKey }: { issueKey: string }) {
 
   const branch = snapshot.branches.find((entry) => entry.issue_key === issueKey)
   const stages = buildStages(snapshot, branch, words)
-  const activeIndex = stages.findIndex((stage) => !stage.done)
+  const activeIndex = stages.findIndex((stage) => stage.reached !== 'done')
   const note = storyNote(branch, words.noun)
 
   return (
@@ -222,7 +241,7 @@ export function WorkStory({ issueKey }: { issueKey: string }) {
               <div className="flex flex-col items-center gap-tight pt-1.5">
                 <StateMark
                   state={stageMark[state]}
-                  className={cn('size-4', sectionMeta[stage.section].hue)}
+                  className={cn('size-4', state !== 'failed' && sectionMeta[stage.section].hue)}
                 />
                 {last ? null : <span className="w-px flex-1 bg-border" />}
               </div>

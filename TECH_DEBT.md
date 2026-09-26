@@ -724,7 +724,7 @@ three; no linter or knip rule sees any of it.
   (`web/src/features/messaging/MessagingPanel.tsx:261`), `PushButton`
   (`web/src/features/branch/BranchPanel.tsx:144`), `PullRequestForm`
   (`web/src/features/review/ReviewPanel.tsx:284`), `CheckoutButton`
-  (`web/src/features/issues/WorkStory.tsx:267`), `FollowUpOffer`
+  (`web/src/features/issues/WorkStory.tsx:287`), `FollowUpOffer`
   (`web/src/features/review/OpenedOutcome.tsx:88`) and `IssueUnread`
   (`web/src/features/issues/IssueDetailPanel.tsx:83`), with the primary's
   inline in `CommitForm` (`web/src/features/branch/CommitForm.tsx:108`).

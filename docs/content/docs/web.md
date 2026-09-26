@@ -75,12 +75,15 @@ view holds more. An issue with a local branch is marked *in flight*, with
 
 The selected issue's detail shows its type, priority, reporter and assignee, a
 link to open it in Jira, its description and its comments, and its **work
-story**: the branch, the changes and the pull request, each done or not yet,
-then the announcement, which the story never marks done because the web keeps
-no record of one — each step opening the section it belongs to. From the story,
-**Start work** creates and checks out a branch named for the issue, and **Check
-out this branch** switches to one it already has. Below a large width the list
-sits over the detail rather than beside it.
+story**: the branch, the changes, the pull request and the announcement, each
+step opening the section it belongs to. A step reads done, not yet, or failed
+by the rules of the terminal's top row and `workflow status`: the changes are
+done once there is a commit, and the pull request is done once its CI passes
+or it merges, and failed on a CI failure or changes asked for. The story never
+marks the announcement done, because the web keeps no record of one. From the
+story, **Start work** creates and checks out a branch named for the issue, and
+**Check out this branch** switches to one it already has. Below a large width
+the list sits over the detail rather than beside it.
 
 ### Branch
 
