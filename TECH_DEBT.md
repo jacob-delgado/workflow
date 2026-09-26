@@ -472,11 +472,6 @@ clears the gate.
 
 The web:
 
-- `web/src/features/review/ReviewPanel.tsx:275` — `PullRequestForm`'s "The
-  branch is not pushed yet; opening will push it first." is asserted
-  nowhere; the mocked draft in
-  `web/src/features/review/ReviewPanel.test.tsx:20` sets `needs_push: true`
-  for every case.
 - `web/src/features/issues/IssueDetailPanel.test.tsx:311` — "a Retry refused
   again beside an issue already read keeps its focus" names a browser
   outcome jsdom cannot observe: `expect(document.activeElement).toBe(retry)`
@@ -519,8 +514,8 @@ The store:
   `RecordScope` or `CacheIssues` that writes nothing passes.
 
 The regressions these tests exist to catch pass the suite green: a
-`timestamp()` that writes `now.String()`; a commit sent without its `!` or
-body; the "opening will push it first" note deleted.
+`timestamp()` that writes `now.String()`, and a commit sent without its `!`
+or body.
 
 **One way to fix it.** Sharpen each Assert to what its name claims:
 `aria-disabled` on Retry or a Playwright focus case; the refused read
@@ -533,9 +528,8 @@ fatal.
 `now.String()`, removing `foreign_keys(1)` from `dsnPragmas`, or making
 `RecordScope` or `CacheIssues` return nil without writing; rendering a
 select while `useViews` is in error; replacing the check anchor in
-`web/src/features/review/ReviewPanel.tsx` with a span; deleting
-`breaking: fields.breaking` from `web/src/features/branch/CommitForm.tsx`;
-and deleting the "opening will push it first" paragraph.
+`web/src/features/review/ReviewPanel.tsx` with a span; and deleting
+`breaking: fields.breaking` from `web/src/features/branch/CommitForm.tsx`.
 
 ### DEBT-105 The contributor documents restate counts and names the tree has moved past
 
