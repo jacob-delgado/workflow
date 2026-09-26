@@ -149,7 +149,7 @@ makes three round trips in silence (`reportCredentials`,
 `internal/cli/doctor_credentials.go:29`);
 `standup` fires up to fifteen forge requests plus a Jira search
 (`gatherPulls`, `internal/cli/standup.go:190`); `status DIR…` visits each directory in
-series (`statusesOf`, `internal/cli/status.go:165`). The only trace is `--log`,
+series (`statusesOf`, `internal/cli/status.go:164`). The only trace is `--log`,
 which outlines each request in a file for a bug report and shows the person
 waiting nothing.
 
@@ -165,7 +165,7 @@ Impact: low · Effort: medium
 
 **Today.** No command declares a single shorthand — there is no `VarP(`
 call in `internal/cli` — so `-n`, `-y`, `-j` do not exist; `status` emits
-`●◐✗○` (`statusGlyph`, `internal/cli/status.go:404`) with ASCII selectable only through
+`●◐✗○` (`statusGlyph`, `internal/cli/status.go:403`) with ASCII selectable only through
 `ui.ascii` in the file, no `--plain`; `pr` has no
 draft, base, reviewer, title or body flag; `announce` has no `--channel`
 (the channel comes from `messaging.channel` alone); both `pr` and the web
@@ -204,7 +204,7 @@ while it runs.
   (`internal/cli/config_cmd.go:327`) only warns when it is not, and nothing
   writes a `.gitignore`; the sentence is true of this repository's own
   `.gitignore:34`, not the user's. `README.md:198` and
-  `docs/content/docs/configuration.md:506` (both under "Keeping the tokens
+  `docs/content/docs/configuration.md:510` (both under "Keeping the tokens
   safe") say the same.
 - `internal/cli/config_cmd.go:58` and `:59` (`newConfigInitCmd`'s `Short`
   and `Long`): "asking for and checking each credential", "check each
@@ -233,7 +233,7 @@ Impact: low · Effort: small
 
 **Today.** The scriptable writes say what to do when stdin is closed:
 "pass --yes", exit 2 (`writeOptions.proceed`,
-`internal/cli/scriptable.go:94`, and `docs/content/docs/scripting.md:201`
+`internal/cli/scriptable.go:94`, and `docs/content/docs/scripting.md:205`
 under "Writing without a person"). Three other moments end without a
 pointer.
 
@@ -285,8 +285,8 @@ Impact: low · Effort: small
 time to compare, and no JSON at all from `pr` or `standup`. This entry owns
 `--json` for both; UX-62 keeps the other missing flags.
 
-- `internal/cli/status.go:203` (`repoLabel`): the label is the base name,
-  and "." is returned as itself (`:206`), so `status .` labels the row "."
+- `internal/cli/status.go:202` (`repoLabel`): the label is the base name,
+  and "." is returned as itself (`:205`), so `status .` labels the row "."
   (`TestStatusAcrossLabelsTheCurrentDirectory`,
   `internal/cli/status_test.go:79`, pins that prefix) and `status ~/a/api
   ~/b/api` gives two rows the same `repository`, the only key
@@ -364,12 +364,12 @@ that explains the machine, has no row for either.
 - `internal/store/dir.go:15` (`DefaultDir`): `home, _ :=
   os.UserHomeDir()` drops the error, so an empty home reaches `Dir`
   (`:24`), which returns `ErrNoDir` for it.
-- `internal/wiring/wiring.go:280` (`storeDeps`): `dir, _ :=
+- `internal/wiring/wiring.go:284` (`onDisk`): `dir, _ :=
   store.DefaultDir()` drops `ErrNoDir`, and the store is built on an empty
-  directory; the doc comment above (`:275`) calls the no-op intended, "the
+  directory; `storeDeps`' doc comment (`:289`) calls the no-op intended, "the
   interface simply learns nothing", which is what makes this a
   discoverability gap rather than a defect.
-- `internal/store/store.go:135` (`Store.off`): `s.disabled || s.dir ==
+- `internal/store/store.go:149` (`Store.off`): `s.disabled || s.dir ==
   ""`, so every seam no-ops on the empty directory with no signal outward.
   On a home-less machine the interface opens with no seeded issue list and
   forgets the last scope and every announcement, while `store.disabled` is
@@ -416,7 +416,7 @@ the directory matches nothing).
   --no-edit --yes` and `--log … doctor --online`, live here and nowhere
   else; a reader of `workflow pr --help` must infer them from the flag
   descriptions.
-- `internal/cli/status.go:52` (`newStatusCmd`'s `Long`): "the command
+- `internal/cli/status.go:51` (`newStatusCmd`'s `Long`): "the command
   then fails, as it does outside a repository", the text
   `docs/content/docs/reference/workflow_status.md:21` (its "Synopsis") is
   generated from, where `docs/content/docs/scripting.md:34` (the "Exit
@@ -1839,7 +1839,7 @@ pull request as found. The browser's side is DEBT-127; the Review pane
 already offers `n` on the same state.
 
 - `status`: `○ Review` and the JSON state `not_started` (`gatherReview`,
-  `internal/cli/status.go:286`; the comment at `:287` says a merged branch
+  `internal/cli/status.go:285`; the comment at `:286` says a merged branch
   is treated as having no open review). The scripting guide's last-stage
   sentence (`docs/content/docs/scripting.md:125`) says `done` only for an
   open pull request, and widens to a merged one with this fix.
@@ -2011,12 +2011,12 @@ made in silence and the team receives a standup saying nothing happened; in
 the browser three sections carry misleading copy during an outage under a
 header that says Live, with no reason and no Retry.
 
-- `issueSummary`, `internal/cli/status.go:283`: `if err != nil` returns
+- `issueSummary`, `internal/cli/status.go:282`: `if err != nil` returns
   `""` — the issue read's error is dropped and the summary left blank.
-- `gatherReview`, `internal/cli/status.go:286`: `err != nil` is folded into
-  the not-found return, so an unreachable forge reads `○ Review`; at `:294`
+- `gatherReview`, `internal/cli/status.go:285`: `err != nil` is folded into
+  the not-found return, so an unreachable forge reads `○ Review`; at `:293`
   a `CheckStatus` error becomes `forge.CINone`, the same as no CI.
-- `countChanges`, `internal/cli/status.go:304`: a `Changes` error becomes 0
+- `countChanges`, `internal/cli/status.go:303`: a `Changes` error becomes 0
   uncommitted files.
 - `TestStatusWhenCICannotBeRead`, `internal/cli/status_test.go:318`: asserts
   "CI none" and nothing about stderr, so the silence is neither pinned nor

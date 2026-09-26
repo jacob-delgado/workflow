@@ -245,8 +245,8 @@ func openInterface(ctx context.Context, run RunInterface, input interfaceInput) 
 
 	deps := input.deps
 	if input.dryRun {
-		// New seeds the issue list from the store before WithDryRun can drop it,
-		// and the store makes its directory even to read.
+		// A dry-run interface opens no store, and New would seed the issue list
+		// from it before WithDryRun could drop it.
 		deps.Store = tui.StoreDeps{}
 	}
 
@@ -387,19 +387,25 @@ func connectLeniently(cmd *cobra.Command) (connection, error) {
 	// configuration, not a failure.
 	home, _ := os.UserHomeDir()
 
-	conn := connectAt(cmd.Context(), dir, home, requestLog)
+	conn := connectAt(cmd, dir, home, requestLog)
 	conn.closeLog = closeLog
 
 	return conn, nil
 }
 
 // connectAt wires the directory at dir, which reads its own configuration,
-// recording each request in requestLog unless it is nil. It opens nothing, so
+// recording each request in requestLog unless it is nil. Under --dry-run its
+// store is only read, and only when it is already on disk. It opens nothing, so
 // its close is a no-op.
-func connectAt(ctx context.Context, dir, home string, requestLog *wiring.RequestLog) connection {
+func connectAt(cmd *cobra.Command, dir, home string, requestLog *wiring.RequestLog) connection {
+	ctx := cmd.Context()
 	cfg, loadErr := config.Load(dir, home)
 	where := wiring.Locate(ctx, dir)
 	deps, resolveAhead := wiring.Deps(ctx, cfg, where, requestLog)
+
+	if dryRunRequested(cmd) {
+		deps.Store = wiring.ReadOnlyStore(ctx, cfg, where)
+	}
 
 	return connection{
 		cfg: cfg, loadErr: loadErr, where: where, deps: deps, resolveAhead: resolveAhead,

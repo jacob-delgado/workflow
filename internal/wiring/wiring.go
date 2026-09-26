@@ -103,7 +103,7 @@ func Deps(ctx context.Context, cfg config.Config, where Workspace, log *RequestL
 		Messaging:  messagingDeps(ctx, messagingClient),
 		Hooks:      hookDeps(ctx, where.Root),
 		Editor:     editorDeps(where.Root),
-		Store:      storeDeps(ctx, cfg, where),
+		Store:      storeDeps(ctx, onDisk(cfg), cfg, where),
 		Clock:      nil,
 		CIInterval: cfg.CIInterval(),
 		Notify:     ringTerminal,
@@ -272,13 +272,25 @@ func commitWith(ctx context.Context, root, message string) (proc.Output, error) 
 	return output, nil
 }
 
+// ReadOnlyStore is the store's seams for a dry run: they read what an earlier
+// session kept, when the store is already on disk, and never create or write it.
+func ReadOnlyStore(ctx context.Context, cfg config.Config, where Workspace) tui.StoreDeps {
+	return storeDeps(ctx, onDisk(cfg).ReadOnly(), cfg, where)
+}
+
+// onDisk is the store under the OS-native data directory, as the configuration
+// keeps it or disables it.
+func onDisk(cfg config.Config) store.Store {
+	dir, _ := store.DefaultDir()
+
+	return store.New(dir, cfg.Store.Disabled)
+}
+
 // storeDeps binds the on-disk store to this repository, so the interface can open
 // on what was done here before. A store with nowhere to keep its file, or one the
 // configuration disabled, no-ops through the same seams, so the interface simply
 // learns nothing.
-func storeDeps(ctx context.Context, cfg config.Config, where Workspace) tui.StoreDeps {
-	dir, _ := store.DefaultDir()
-	kept := store.New(dir, cfg.Store.Disabled)
+func storeDeps(ctx context.Context, kept store.Store, cfg config.Config, where Workspace) tui.StoreDeps {
 	repo := repoKey(where)
 	instance := instanceKey(cfg.Jira.BaseURL)
 

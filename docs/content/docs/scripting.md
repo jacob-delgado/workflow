@@ -192,11 +192,15 @@ write. Two flags change that:
   says so on stderr, announces nothing, and exits 0 — run without `--yes` to be
   asked. It does not skip `standup`'s editor: add `--no-edit` for that.
 - **`--dry-run`** prints the preview and what the command would do, and
-  writes nothing. It is one flag for every command, given before the command's
-  name or after it: `workflow --dry-run pr` and `workflow pr --dry-run` are
-  the same. `config init --dry-run` runs its checks and prints the file it
-  would write, masked, without writing it or storing anything in the keychain.
-  Bare `workflow --dry-run` is the interface with every write held back.
+  writes nothing, the store included: `announce` still reads what an earlier
+  session announced, when there is a store on disk, but never creates it or
+  changes what it holds (SQLite may leave its two companion files, `-wal` and
+  `-shm`, beside it until the next session). It is one flag for every command,
+  given before the command's name or after it: `workflow --dry-run pr` and
+  `workflow pr --dry-run` are the same. `config init --dry-run` runs its
+  checks and prints the file it would write, masked, without writing it or
+  storing anything in the keychain. Bare `workflow --dry-run` is the interface
+  with every write held back.
 
 A write run without `--yes` and without a terminal — stdin piped or closed —
 has no way to be answered, so it stops, says to pass `--yes`, and exits 2. The

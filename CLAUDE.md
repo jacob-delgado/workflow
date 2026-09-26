@@ -206,7 +206,7 @@ without agreement on direction.
     `store.go`), **never** `DATETIME`, `CURRENT_TIMESTAMP`, or a bare epoch int —
     STRICT has no date type, and a caller-passed `now time.Time` keeps the clock a
     seam. Columns are `snake_case`.
-  - **Referential integrity is on and enforced.** The DSN sets
+  - **Referential integrity is on and enforced.** The writing DSN sets
     `_pragma=foreign_keys(1)` (SQLite enforces `ON DELETE CASCADE`/`RESTRICT` only
     per-connection, only when on), every child names its `FOREIGN KEY … ON DELETE
     CASCADE`, and a repeating group is **replaced in one transaction** (upsert
@@ -222,9 +222,10 @@ without agreement on direction.
     secret** and is keyed only by credential-free identifiers (a forge host/path, a
     hash of a base URL) — the test that proves a credential can't reach it ships
     with any change to its keys.
-  - **Migrations are forward-only and idempotent** (every `open` runs `migrate`);
-    pre-1.0 there are **no migration shims** for an unreleased schema — change the
-    `CREATE TABLE` and move on (see *YAGNI*).
+  - **Migrations are forward-only and idempotent** (every live `open` runs
+    `migrate`; a `--dry-run` store's read-only open reads a file already on disk
+    as it is and migrates nothing); pre-1.0 there are **no migration shims** for
+    an unreleased schema — change the `CREATE TABLE` and move on (see *YAGNI*).
 
 - **License headers**: every `.go` file begins with the two SPDX lines from
   CONTRIBUTING.md. `scripts/check-license-headers.sh` gates this in lefthook,

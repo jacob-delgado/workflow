@@ -18,10 +18,10 @@ type Announce struct {
 }
 
 // RecordAnnounce remembers that a pull request was announced at a moment, so a
-// later session knows not to offer announcing it again. A disabled store records
-// nothing.
+// later session knows not to offer announcing it again. A disabled or read-only
+// store records nothing.
 func (s Store) RecordAnnounce(ctx context.Context, repo string, announce Announce, now time.Time) error {
-	if s.off() || repo == "" {
+	if s.writesNothing() || repo == "" {
 		return nil
 	}
 
@@ -47,7 +47,7 @@ func (s Store) RecordAnnounce(ctx context.Context, repo string, announce Announc
 // Announces are every announcement recorded for a repository, so the interface
 // can open knowing what has already been posted. A disabled store reports none.
 func (s Store) Announces(ctx context.Context, repo string) ([]Announce, error) {
-	if s.off() || repo == "" {
+	if s.nothingToRead() || repo == "" {
 		return nil, nil
 	}
 

@@ -288,8 +288,8 @@ commit, a push, a pull request, an announcement, a generated `lefthook.yml` — 
 what it would have done instead. The top row starts with `DRY RUN` while it is
 on. It opens no
 [store]({{< relref "/docs/configuration#what-is-kept-between-sessions" >}})
-either, since even reading one creates it, so it starts without the cached issue
-list, your last commit scope and what was announced before.
+either, so it starts without the cached issue list, your last commit scope and
+what was announced before.
 
 ## Existing git hooks
 

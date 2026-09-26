@@ -25,9 +25,9 @@ var errDryRun = errors.New("held back by dry run")
 func heldBack(deps Deps) Deps {
 	deps.Jira = heldBackJira(deps.Jira)
 	deps.Git = heldBackGit(deps.Git)
-	// No store at all, as the web opens none under dry run: the store makes its
-	// directory and opens its database even to read, so only its absence writes
-	// nothing.
+	// A dry-run interface opens no store, as the web opens none. A read-only
+	// store's seams look like a live one's, whose reads make its directory, so
+	// the store is dropped whoever the caller is.
 	deps.Store = StoreDeps{}
 
 	return heldBackServices(deps)

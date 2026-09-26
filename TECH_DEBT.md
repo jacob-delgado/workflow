@@ -300,11 +300,11 @@ The configuration page (the Fields table's missing rows are DEBT-91):
   announcement may be waiting either.
 - `docs/content/docs/configuration.md:481` — the store is "keyed only by a
   repository's host and path and by a hash of your Jira URL", and
-  `ARCHITECTURE.md:235` says the repository key is the remote's parsed host
-  and path; `migrate` (`internal/store/store.go:202`) keys the cache by
+  `ARCHITECTURE.md:240` says the repository key is the remote's parsed host
+  and path; `migrate` (`internal/store/store.go:258`) keys the cache by
   `(instance, view)`, where `Model.cacheIssues`
   (`internal/tui/issues.go:53`) passes the view's JQL text, and `repoKey`
-  (`internal/wiring/wiring.go:371`) falls back to `where.Root` when there is
+  (`internal/wiring/wiring.go:383`) falls back to `where.Root` when there is
   no remote or it does not parse.
 
 The README and the docs index:
@@ -619,11 +619,11 @@ The web:
 
 The store:
 
-- `internal/store/store.go:64` — `timestamp`, the RFC3339 rule, has no test
+- `internal/store/store.go:70` — `timestamp`, the RFC3339 rule, has no test
   behind it; `Store.CachedIssues` (`internal/store/cache.go:43`) scans
   `cached_at` (`:46`) into a variable nothing reads.
-- `internal/store/store.go:56` — `dsnPragmas`' `foreign_keys(1)` and the `ON
-  DELETE CASCADE` on `cached_issue` (`:215`) are exercised by nothing:
+- `internal/store/store.go:57` — `dsnPragmas`' `foreign_keys(1)` and the `ON
+  DELETE CASCADE` on `cached_issue` (`:271`) are exercised by nothing:
   `writeCachedIssues` (`internal/store/cache.go:142`) deletes the children
   itself, so the cascade guards nothing.
 - `internal/store/store_test.go:79` — `TestScopesAreKeptPerRepository`
@@ -751,9 +751,9 @@ three; no linter or knip rule sees any of it.
   inline in `CommitForm` (`web/src/features/branch/CommitForm.tsx:108`).
   The primary button's three sizes are UX-113; one `Button` component (or
   one primary and one secondary class) closes both.
-- `internal/cli/cli.go:376` — `connectLeniently` discards `os.UserHomeDir`'s
-  error under a "not a failure" comment (`:374`); `loadFromEnvironment`
-  (`:464`), `statusesOf` (`internal/cli/status.go:162`) and
+- `internal/cli/cli.go:388` — `connectLeniently` discards `os.UserHomeDir`'s
+  error under a "not a failure" comment (`:387`); `loadFromEnvironment`
+  (`:474`), `statusesOf` (`internal/cli/status.go:161`) and
   `completeAssignedIssues` (`internal/cli/scriptable.go:133`) repeat the
   discard and the comment, and `targetDir`
   (`internal/cli/config_cmd.go:128`) is the one caller that must keep the
@@ -813,8 +813,8 @@ CLAUDE.md's catalog; most sit permanently in DEBT-64's worklist where no
 test can close them, the two compound guards' dead first operands among
 them.
 
-- `internal/cli/status.go:414` — `statusGlyph`'s `default` arm repeats the
-  `NotStarted` case; `stateWord` (`:439`) and `ciWord` (`:455`) do the same,
+- `internal/cli/status.go:413` — `statusGlyph`'s `default` arm repeats the
+  `NotStarted` case; `stateWord` (`:438`) and `ciWord` (`:454`) do the same,
   and the gobco report shows each last case true many times and never false.
   `exhaustive` (`.golangci.yml:89`) checks switch and map, so a missing enum
   case already fails lint and the default arms guard nothing.
@@ -902,7 +902,7 @@ and names the tree has moved past. No gate reads any of them.
 - `docs/content/docs/contributing.md:50` — the `task lint` row names nine
   checks and omits `lint:markdown`, `lint:toml`, `lint:filelength`,
   `lint:packagesize`, `lint:goversion`, `lint:goroutines` and `gen:verify`.
-- `CLAUDE.md:498` — the never-print-a-secret rule names `slack.token`, a key
+- `CLAUDE.md:503` — the never-print-a-secret rule names `slack.token`, a key
   the decoder refuses: `ErrSlackRenamed` (`internal/config/config.go:50`)
   says the "slack" block was renamed to "messaging", and the field is
   `Messaging.Token` (`internal/config/config.go:106`, `json:"token"`).
@@ -1096,7 +1096,7 @@ unknown" on GitHub, whose `githubFind` reads mergeability only while open,
 `internal/forge/gitlab.go:42`) and lists CI checks read against the merged
 head. A user could wait on a review that already happened. The terminal's
 `reviewRail` says "merged" instead (`internal/tui/review.go:273`),
-`gatherReview` (`internal/cli/status.go:286`) treats a merged pull as no
+`gatherReview` (`internal/cli/status.go:285`) treats a merged pull as no
 open review, and `momentOf` (`internal/loop/announce.go:115`) never asks CI
 about one. The server also spends one forge request per stream tick asking
 CI about a pull that has no live CI. No test in
@@ -1738,33 +1738,34 @@ whose printed sentence claims more than their check measures, CI jobs and
 triggers that do not do what their comments say, and tests named or shaped
 for something other than what they prove.
 
-### DEBT-64 The condition-coverage worklist: 431 one-sided conditions, and 13 never evaluated
+### DEBT-64 The condition-coverage worklist: 432 one-sided conditions, and 13 never evaluated
 
 Severity: low · Confidence: measured
 
 Re-measured at this commit (`task cover:branch` on macOS, floor 89 %, 23
 packages measured), with gobco counting every operand of an `&&` or `||` as
 a condition of its own: 4,873 of 5,338 arms, 91.3 %. Of 2,669 conditions,
-431 were observed only one way — 80 of them an `err != nil` never seen
+432 were observed only one way — 81 of them an `err != nil` never seen
 true. By package: `internal/tui` 172, `internal/cli` 48, `internal/forge`
 41, `internal/webserver` 25, `internal/config` 17, `internal/jira` 16,
 `internal/testshape` 15, `internal/messaging` 14, `internal/wiring` 14,
-`internal/gitrepo` 13, `internal/hooks` 12, `internal/store` 10,
+`internal/gitrepo` 13, `internal/hooks` 12, `internal/store` 11,
 `internal/tui/frame` 10, `internal/convention` 8, `internal/editor` 6,
 `internal/buildinfo` 5, and five across `sanitize` (two) and `httpx`,
 `proc` and `tui/layout` (one each).
 
-The store has ten. Five are `sql.Open` in `Store.open`
-(`internal/store/store.go:154`), which fails only for an unregistered
-driver, and four that need SQLite to fail partway through a statement:
-`BeginTx` and `Commit` in `Store.CacheIssues` (`internal/store/cache.go:110`,
-`:121`), and `rows.Err` in `readCachedIssues` (`internal/store/cache.go:88`)
-and `Store.Announces` (`internal/store/announce.go:80`). The other five are
+The store has eleven. Six are failures no test causes: `sql.Open` in
+`Store.open` (`internal/store/store.go:192`) and in `Store.openAsItIs`
+(`:221`), which fails only for an unregistered driver, and four that need
+SQLite to fail partway through a statement: `BeginTx` and `Commit` in
+`Store.CacheIssues` (`internal/store/cache.go:110`, `:121`), and `rows.Err`
+in `readCachedIssues` (`internal/store/cache.go:88`) and `Store.Announces`
+(`internal/store/announce.go:80`). The other five are
 the do-nothing guards' second operands, never seen true: `repo == ""` in
 `Store.RecordAnnounce` and `Store.Announces`
 (`internal/store/announce.go:24`, `:50`), `instance == ""` in
 `Store.CachedIssues` and `Store.CacheIssues` (`internal/store/cache.go:32`,
-`:99`), and `s.dir == ""` in `Store.off` (`internal/store/store.go:135`).
+`:99`), and `s.dir == ""` in `Store.off` (`internal/store/store.go:149`).
 
 Thirteen conditions were never evaluated. Four are a test away:
 
@@ -1874,7 +1875,7 @@ after a click, and the Tab walk runs once, on each section as it opens. Four
 steps a user reaches by clicking — the pull request form, the push confirmation,
 the announcement preview and a write's refusal — are scanned and walked in
 neither theme, and the hermetic Settings scan settles on the heading rather than
-on the read's outcome. `CLAUDE.md:238` promises axe across every section in both
+on the read's outcome. `CLAUDE.md:239` promises axe across every section in both
 themes and every control Tab reaches in view at three widths; for the clicked
 steps only jsx-a11y's static rules apply. DEBT-65 (a write against a real
 server) does not cover this: it is the runtime floor's reach, not the backend's.

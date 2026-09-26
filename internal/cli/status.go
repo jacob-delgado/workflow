@@ -4,7 +4,6 @@
 package cli
 
 import (
-	"context"
 	"errors"
 	"fmt"
 	"io"
@@ -99,7 +98,7 @@ func statusAcross(cmd *cobra.Command, dirs []string, asJSON bool) error {
 	defer closeLog()
 
 	out := cmd.OutOrStdout()
-	statuses := statusesOf(cmd.Context(), dirs, requestLog)
+	statuses := statusesOf(cmd, dirs, requestLog)
 
 	if asJSON {
 		err = statusesJSON(out, statuses)
@@ -159,14 +158,14 @@ type directoryStatus struct {
 
 // statusesOf gathers the status of the repository at each directory, which
 // reads its own configuration, recording every request in one log.
-func statusesOf(ctx context.Context, dirs []string, requestLog *wiring.RequestLog) []directoryStatus {
+func statusesOf(cmd *cobra.Command, dirs []string, requestLog *wiring.RequestLog) []directoryStatus {
 	// An unknown home directory just means no home-directory fallback for a
 	// repository's configuration, not a failure.
 	home, _ := os.UserHomeDir()
 	statuses := make([]directoryStatus, 0, len(dirs))
 
 	for _, dir := range dirs {
-		conn := connectAt(ctx, dir, home, requestLog)
+		conn := connectAt(cmd, dir, home, requestLog)
 		facts, err := statusOf(conn)
 
 		statuses = append(statuses, directoryStatus{

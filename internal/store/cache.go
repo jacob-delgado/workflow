@@ -29,7 +29,7 @@ type CachedIssue struct {
 // with no issues reports found with an empty slice, distinct from one never
 // cached. A disabled store, or one with no instance, reports nothing.
 func (s Store) CachedIssues(ctx context.Context, instance, view string) ([]CachedIssue, bool, error) {
-	if s.off() || instance == "" {
+	if s.nothingToRead() || instance == "" {
 		return nil, false, nil
 	}
 
@@ -94,9 +94,9 @@ func readCachedIssues(ctx context.Context, database *sql.DB, instance, view stri
 
 // CacheIssues stores issues as the list last seen for a view of an instance,
 // replacing any earlier one in a single transaction so a re-cache never leaves a
-// half-updated view. A disabled store caches nothing.
+// half-updated view. A disabled or read-only store caches nothing.
 func (s Store) CacheIssues(ctx context.Context, instance, view string, issues []CachedIssue, now time.Time) error {
-	if s.off() || instance == "" {
+	if s.writesNothing() || instance == "" {
 		return nil
 	}
 
