@@ -287,6 +287,31 @@ func TestAConflictingKeymapStopsTheInterfaceBeforeItOpens(t *testing.T) {
 	}
 }
 
+func TestARefusedKeymapExitsAsAConfigurationProblem(t *testing.T) {
+	// Each map is one the file's owner fixes in the file, as doctor counts it.
+	keymaps := map[string]string{
+		"an action that does not exist": `{"no-such-action": "C"}`,
+		"two actions on one key":        `{"commit": "a"}`,
+		"an action no one key can move": `{"jump-to-pane": "f12"}`,
+	}
+
+	for name, keymap := range keymaps {
+		t.Run(name, func(t *testing.T) {
+			// Arrange
+			dir := t.TempDir()
+			writeFile(t, dir, `{"ui": {"keys": `+keymap+`}}`)
+
+			// Act
+			ran := runRoot(t, dir)
+
+			// Assert
+			if got := cli.ExitStatus(ran.err); got != 3 {
+				t.Errorf("workflow over ui.keys %s exits %d (%v), want 3", keymap, got, ran.err)
+			}
+		})
+	}
+}
+
 func TestTheWebFlagServesTheLoadedConfigurationInsteadOfTheInterface(t *testing.T) {
 	// Arrange
 	dir := t.TempDir()

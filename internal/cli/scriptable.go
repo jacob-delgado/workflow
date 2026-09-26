@@ -21,6 +21,7 @@ import (
 	"github.com/jacob-delgado/workflow/internal/jira"
 	"github.com/jacob-delgado/workflow/internal/loop"
 	"github.com/jacob-delgado/workflow/internal/messaging"
+	"github.com/jacob-delgado/workflow/internal/tui"
 )
 
 // output is where a command writes: the artifact — the preview, the JSON, what
@@ -313,11 +314,11 @@ func exitFamilies() []exitFamily {
 
 // configurationErrors are a configuration that is missing, unreadable,
 // incomplete — a credential or an address not set, or set unusably — shared,
-// or holding a credential a service would not accept, and a repository with no
-// remote to name the forge, or one on a host neither it nor forge.kind names:
-// what the user fixes in the file, the environment, a login or the
-// repository's origin. A command meeting a credential that is not there exits
-// as doctor does, reading the same file.
+// holding a credential a service would not accept, or a ui.keys map the
+// interface refuses, and a repository with no remote to name the forge, or one
+// on a host neither it nor forge.kind names: what the user fixes in the file,
+// the environment, a login or the repository's origin. A command meeting a
+// credential that is not there exits as doctor does, reading the same file.
 func configurationErrors() []error {
 	return []error{
 		config.ErrNotFound, config.ErrInvalid,
@@ -325,6 +326,7 @@ func configurationErrors() []error {
 		forge.ErrNoToken, forge.ErrKindNeedsHost, forge.ErrNotARemote, forge.ErrUnknownForge,
 		messaging.ErrNoCredential, messaging.ErrInsecureWebhook,
 		jira.ErrUnauthorized, jira.ErrForbidden, forge.ErrUnauthorized, messaging.ErrRejected,
+		tui.ErrUnknownKeyAction, tui.ErrKeyConflict, tui.ErrKeyNotRebindable,
 		errCredentialRejected, errCredentialMissing, errIncomplete, errInvalid, errShared,
 		errMessagingNotConfigured,
 	}

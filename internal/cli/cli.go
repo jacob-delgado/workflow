@@ -233,10 +233,10 @@ type interfaceInput struct {
 }
 
 // openInterface refuses a broken ui.keys map before building anything — a keymap
-// with a conflict or an unknown action should say so and stop, not open an
-// interface that answers the wrong keys — then builds the model, applies dry
-// run and color off, finds the services' tokens while a token command can still
-// ask on the terminal, and runs it.
+// CheckKeys refuses should say so and stop, as a configuration problem, and not
+// open an interface that answers the wrong keys — then builds the model, applies
+// dry run and color off, finds the services' tokens while a token command can
+// still ask on the terminal, and runs it.
 func openInterface(ctx context.Context, run RunInterface, input interfaceInput) error {
 	err := tui.CheckKeys(input.cfg.UI.Keys)
 	if err != nil {
