@@ -74,6 +74,22 @@ func (r *rootRun) spine() string {
 	return strings.SplitN(ansi.Strip(r.model.View().Content), "\n", 2)[0]
 }
 
+// huesDrawn are the system hues — the red, green, yellow, blue and magenta
+// foregrounds — in the interface the root command opened.
+func (r *rootRun) huesDrawn() []string {
+	view := r.model.View().Content
+
+	var drawn []string
+
+	for _, hue := range []string{"\x1b[31m", "\x1b[32m", "\x1b[33m", "\x1b[34m", "\x1b[35m"} {
+		if strings.Contains(view, hue) {
+			drawn = append(drawn, hue)
+		}
+	}
+
+	return drawn
+}
+
 // runRoot runs the root command in dir over a stand-in interface and web
 // server. Like run, it sets the working directory and the environment, so its
 // tests are not parallel.
@@ -142,6 +158,56 @@ func TestDryRunOpensTheInterfaceHoldingItsWritesBack(t *testing.T) {
 
 	if spine := ran.spine(); !strings.Contains(spine, "DRY RUN") {
 		t.Errorf("the interface's spine = %q, want it to say DRY RUN", spine)
+	}
+}
+
+func TestColorTurnedOffOpensTheInterfaceWithoutHues(t *testing.T) {
+	cases := map[string]struct {
+		noColor       string
+		configuration string
+	}{
+		"NO_COLOR set":   {noColor: "1", configuration: `{}`},
+		"ui.color never": {noColor: "", configuration: `{"ui": {"color": "never"}}`},
+	}
+
+	for name, tt := range cases {
+		t.Run(name, func(t *testing.T) {
+			// Arrange
+			dir := t.TempDir()
+			writeFile(t, dir, tt.configuration)
+			t.Setenv("NO_COLOR", tt.noColor)
+
+			// Act
+			ran := runRoot(t, dir)
+
+			// Assert
+			if ran.err != nil || ran.interfaces != 1 {
+				t.Fatalf("workflow = %v, opened %d interfaces; want the interface", ran.err, ran.interfaces)
+			}
+
+			if hues := ran.huesDrawn(); len(hues) != 0 {
+				t.Errorf("the interface opened with color off draws the hues %q, want none", hues)
+			}
+		})
+	}
+}
+
+// The twin of the test above, so its Assert is seen to fail when the hues are
+// drawn: the same interface, with color left on, draws them.
+func TestColorLeftOnOpensTheInterfaceWithItsHues(t *testing.T) {
+	// Arrange
+	t.Setenv("NO_COLOR", "")
+
+	// Act
+	ran := runRoot(t, t.TempDir())
+
+	// Assert
+	if ran.err != nil || ran.interfaces != 1 {
+		t.Fatalf("workflow = %v, opened %d interfaces; want the interface", ran.err, ran.interfaces)
+	}
+
+	if hues := ran.huesDrawn(); len(hues) == 0 {
+		t.Errorf("the interface opened with color on draws no hue:\n%q", ran.model.View().Content)
 	}
 }
 

@@ -141,8 +141,8 @@ func execute(ctx context.Context, args []string, stdout, stderr io.Writer, promp
 
 // RunInterface starts the interface and blocks until the user quits. It is
 // tui.Run in production and a fake in tests, so the root command's own wiring —
-// loading the configuration, building the model, applying dry run — can be
-// exercised without a real terminal.
+// loading the configuration, building the model, applying dry run and color
+// off — can be exercised without a real terminal.
 type RunInterface func(ctx context.Context, model tui.Model, out io.Writer) error
 
 // RunWeb starts the local web server and blocks until the context is canceled.
@@ -201,7 +201,7 @@ func NewRootCmdOver(prompt Prompt, run RunInterface, serve RunWeb) *cobra.Comman
 
 			return openInterface(ctx, run, interfaceInput{
 				cfg: conn.cfg, loadErr: conn.loadErr, deps: conn.deps, resolveAhead: conn.resolveAhead,
-				dryRun: dryRun, out: cmd.OutOrStdout(),
+				dryRun: dryRun, noColorEnv: os.Getenv("NO_COLOR"), out: cmd.OutOrStdout(),
 			})
 		},
 	}
@@ -228,14 +228,15 @@ type interfaceInput struct {
 	deps         tui.Deps
 	resolveAhead func()
 	dryRun       bool
+	noColorEnv   string
 	out          io.Writer
 }
 
 // openInterface refuses a broken ui.keys map before building anything — a keymap
 // with a conflict or an unknown action should say so and stop, not open an
 // interface that answers the wrong keys — then builds the model, applies dry
-// run, finds the services' tokens while a token command can still ask on the
-// terminal, and runs it.
+// run and color off, finds the services' tokens while a token command can still
+// ask on the terminal, and runs it.
 func openInterface(ctx context.Context, run RunInterface, input interfaceInput) error {
 	err := tui.CheckKeys(input.cfg.UI.Keys)
 	if err != nil {
@@ -245,6 +246,10 @@ func openInterface(ctx context.Context, run RunInterface, input interfaceInput) 
 	model := tui.New(input.cfg, input.loadErr, input.deps)
 	if input.dryRun {
 		model = model.WithDryRun()
+	}
+
+	if !input.cfg.UI.DrawColor(input.noColorEnv) {
+		model = model.WithoutColor()
 	}
 
 	input.resolveAhead()
