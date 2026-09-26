@@ -139,8 +139,10 @@ type runFinished struct {
 	err error
 }
 
-// apply records how the run ended, finds where the tools pointed if it failed,
-// and hands a clean exit to whatever comes next.
+// apply records how the run ended, and hands a clean exit to whatever comes
+// next. A failed run's places are found by a command rather than here: one a
+// tool printed relative to its package can take a walk of the whole checkout,
+// which would freeze the interface on the update loop.
 func (msg runFinished) apply(m Model) (Model, tea.Cmd) {
 	run, open := m.overlay.(commandRun)
 	if !open || run.id != msg.id {
@@ -154,14 +156,34 @@ func (msg runFinished) apply(m Model) (Model, tea.Cmd) {
 	}
 
 	run.done, run.err = true, msg.err
-	if msg.err != nil {
-		run.failures = pickList[hooks.Location]{items: m.deps.resolvedFailures(hooks.Failures(run.lines, runtime.GOOS))}
-	}
-
 	m.overlay = run
 
-	if msg.err == nil && run.succeeded != nil {
+	switch {
+	case msg.err != nil:
+		deps, lines := m.deps, run.lines
+
+		return m, func() tea.Msg {
+			return placesFound{id: msg.id, places: deps.resolvedFailures(hooks.Failures(lines, runtime.GOOS))}
+		}
+	case run.succeeded != nil:
 		return run.succeeded(m)
+	default:
+		return m, nil
+	}
+}
+
+// placesFound is where a failed run's tools pointed, each place resolved to the
+// file that opens it.
+type placesFound struct {
+	id     int
+	places []hooks.Location
+}
+
+// apply offers the places to jump to, while their run is still the one shown.
+func (msg placesFound) apply(m Model) (Model, tea.Cmd) {
+	if run, open := m.overlay.(commandRun); open && run.id == msg.id {
+		run.failures = pickList[hooks.Location]{items: msg.places}
+		m.overlay = run
 	}
 
 	return m, nil

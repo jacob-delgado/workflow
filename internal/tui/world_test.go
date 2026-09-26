@@ -458,12 +458,18 @@ func (w *world) editorDeps() tui.EditorDeps {
 
 			return func() tea.Msg { return done(w.editorErr) }
 		},
-		Resolve: func(file string) (string, bool) {
-			if slices.Contains(w.unresolved, file) {
-				return "", false
+		Resolve: func(places []string) map[string]string {
+			w.record("resolve " + strings.Join(places, " "))
+
+			resolved := make(map[string]string, len(places))
+
+			for _, place := range places {
+				if !slices.Contains(w.unresolved, place) {
+					resolved[place] = place
+				}
 			}
 
-			return file, true
+			return resolved
 		},
 	}
 }

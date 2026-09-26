@@ -199,25 +199,34 @@ type HookDeps struct {
 type EditorDeps struct {
 	Edit func(text, help string, done func(string, error) tea.Msg) tea.Cmd
 	Open func(file string, line int, done func(error) tea.Msg) tea.Cmd
-	// Resolve turns a place a tool printed into the file that opens it, or
-	// reports that none does. A place relative to a package, not the root, is the
-	// common miss.
-	Resolve func(file string) (string, bool)
+	// Resolve turns the places a tool printed into the files that open them,
+	// keyed by the place as printed and leaving out any that names none. A place
+	// relative to a package, not the root, is the common miss. It can walk the
+	// whole checkout, so it runs in a command, never in Update.
+	Resolve func(places []string) map[string]string
 }
 
 // resolvedFailures keeps only the places that resolve to a file, rewriting each
 // to the path that opens it, so a place a tool printed relative to its package
 // is either found below the root or dropped rather than offered as a jump that
-// opens nothing. With no Resolve seam the places are left as they came.
+// opens nothing. Every place is resolved in one call, so a run's places cost
+// one walk of the checkout between them. With no Resolve seam the places are
+// left as they came.
 func (d Deps) resolvedFailures(found []hooks.Location) []hooks.Location {
 	if d.Editor.Resolve == nil {
 		return found
 	}
 
+	printed := make([]string, 0, len(found))
+	for _, place := range found {
+		printed = append(printed, place.File)
+	}
+
+	files := d.Editor.Resolve(printed)
 	kept := make([]hooks.Location, 0, len(found))
 
 	for _, place := range found {
-		file, ok := d.Editor.Resolve(place.File)
+		file, ok := files[place.File]
 		if ok {
 			place.File = file
 			kept = append(kept, place)

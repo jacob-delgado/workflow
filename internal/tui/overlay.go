@@ -108,6 +108,7 @@ var (
 	_ applier = runStarted{}
 	_ applier = runLine{}
 	_ applier = runFinished{}
+	_ applier = placesFound{}
 	_ applier = editorClosed{}
 	_ applier = textEdited{}
 	_ applier = pullFound{}

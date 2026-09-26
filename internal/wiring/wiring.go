@@ -439,10 +439,8 @@ func editorDeps(root string) tui.EditorDeps {
 		Open: func(file string, line int, done func(error) tea.Msg) tea.Cmd {
 			return editor.Open(os.Getenv, root, file, line, done)
 		},
-		Resolve: func(file string) (string, bool) {
-			resolved, found := editor.Resolve(root, os.DirFS(root), []string{file})[file]
-
-			return resolved, found
+		Resolve: func(places []string) map[string]string {
+			return editor.Resolve(root, os.DirFS(root), places)
 		},
 	}
 }
