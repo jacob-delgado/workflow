@@ -28,12 +28,13 @@ import (
 // what the bug report template invites people to paste.
 func reportCredentials(ctx context.Context, out io.Writer, run doctorRun, remote string) error {
 	if !run.online {
-		fmt.Fprintf(out, "\nCredentials were not checked. Add --online to ask each service.\n")
+		fmt.Fprint(out, "\nCredentials were not checked. Add --online to ask Jira, your forge and Slack; "+
+			"a webhook is left unchecked.\n")
 
 		return nil
 	}
 
-	fmt.Fprintf(out, "\nCredentials:\n")
+	fmt.Fprint(out, "\nCredentials:\n")
 
 	doers := onlineDoers(run.cfg, run.log)
 

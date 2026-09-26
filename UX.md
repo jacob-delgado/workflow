@@ -1788,7 +1788,7 @@ script is told to press a key it does not have.
   `forge.ErrNoToken` says "Run `gh auth login`, or set `$GITHUB_TOKEN`" for
   every host, though `Sources`, `internal/forge/token.go:252`, already
   names the variable and tool per host and `noForgeTokenMessage`,
-  `internal/cli/doctor_credentials.go:163`, prints it — so `doctor` and
+  `internal/cli/doctor_credentials.go:164`, prints it — so `doctor` and
   the interface disagree on a GitLab host.
 - `rejectionReason`, `internal/messaging/post.go:175`, `:177` and `:178`:
   three sentences end "then press enter to try again" inside a domain
