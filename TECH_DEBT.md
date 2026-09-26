@@ -83,10 +83,6 @@ Severity: low · Confidence: read
 The documents a contributor and a later session read first restate numbers
 and names the tree has moved past. No gate reads any of them.
 
-- `SECURITY.md:61` — the in-scope list is "`cmd/`, `internal/`, `scripts/`,
-  `build/`, and every file under `.github/workflows/`": no `web/`, no
-  `api/`, no loopback server and no browser, though `web/README.md:4`
-  describes the app "served locally by `workflow --web`".
 - `web/README.md:13` — "Running the cockpit takes two shells", with `task
   dev` and `task web:mockup` mentioned nowhere; the comment above `dev`
   (`Taskfile.yml:104`) names `web` and `web:ui` as the two shells, directly
