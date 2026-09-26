@@ -2,6 +2,7 @@ import { AxeBuilder } from '@axe-core/playwright'
 import { expect, test, type Locator, type Page } from '@playwright/test'
 import type { Snapshot } from '../src/api/generated/types.gen.ts'
 import { openSection, pinTheme, sectionNames as populatedSectionNames, themes } from './cockpit.ts'
+import { streams } from './tabwalk.ts'
 
 // Every section, in both themes: a light theme is only real once its contrast
 // holds up, so the scan runs the whole cockpit in each. The section labels are
@@ -168,12 +169,7 @@ for (const theme of themes) {
     // Arrange: the hermetic server has no API, so the stream, the views and the
     // issue are answered here — enough for the list's controls and the detail.
     await pinTheme(page, theme)
-    await page.route('**/api/events**', (route) =>
-      route.fulfill({
-        contentType: 'text/event-stream',
-        body: `event: snapshot\ndata: ${JSON.stringify(issuesSnapshot)}\n\n`,
-      }),
-    )
+    await streams(page, issuesSnapshot)
     await page.route('**/api/views', (route) =>
       route.fulfill({
         json: {
@@ -219,12 +215,7 @@ for (const theme of themes) {
     // the link answered here, so the open's outcome, its offers and a done
     // offer's status line are all on screen for the scan.
     await pinTheme(page, theme)
-    await page.route('**/api/events**', (route) =>
-      route.fulfill({
-        contentType: 'text/event-stream',
-        body: `event: snapshot\ndata: ${JSON.stringify(issuesSnapshot)}\n\n`,
-      }),
-    )
+    await streams(page, issuesSnapshot)
     await page.route('**/api/pull-request/draft', (route) =>
       route.fulfill({
         json: {
@@ -319,12 +310,7 @@ for (const theme of themes) {
     // Arrange: the stream's working tree, and the stage answered here, so a
     // file's outcome line is on screen beside the buttons and the form.
     await pinTheme(page, theme)
-    await page.route('**/api/events**', (route) =>
-      route.fulfill({
-        contentType: 'text/event-stream',
-        body: `event: snapshot\ndata: ${JSON.stringify(workingTreeSnapshot)}\n\n`,
-      }),
-    )
+    await streams(page, workingTreeSnapshot)
     await page.route('**/api/stage', (route) =>
       route.fulfill({ json: workingTreeSnapshot.changes }),
     )
