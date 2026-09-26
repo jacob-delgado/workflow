@@ -161,7 +161,7 @@ HTTP transport and one subprocess seam.
 | Package | Responsibility |
 | --- | --- |
 | `internal/jira` | Jira Data Center REST v2 — search, read, transition, comment, link a PR, whoami |
-| `internal/forge` | GitHub / GitLab — remotes, tokens, pull/merge requests, CI status, review requests, forge-native issues |
+| `internal/forge` | GitHub / GitLab — remotes, tokens, pull/merge requests and their templates, CI status, review requests, forge-native issues |
 | `internal/messaging` | Team announcements — Slack (bot token or webhook), Teams, Discord, plain webhook |
 | `internal/httpx` | The shared one-method `Doer` seam and a **redirect-refusing** HTTP client |
 | `internal/gitrepo` | Reads and changes the repository through git, via a caller-supplied `Runner` |
