@@ -1180,7 +1180,7 @@ the gates promise, and 4.58:1 in the dark theme.
 (137,139,144) on (246,247,249). Two input styles disagree on one page, and
 the gate cannot see it.
 
-- `commitInputClass` (`web/src/features/branch/CommitForm.tsx:252`) has no
+- `commitInputClass` (`web/src/features/branch/CommitForm.tsx:258`) has no
   placeholder color, so `MessageFields`' Subject hint "what the change
   does, in the imperative" (`:186`), the only hint of what the field wants,
   is drawn at 3.18:1.
@@ -1233,7 +1233,7 @@ which is why this is medium and not high.
 - The settings `inputClass` is `bg-transparent border-input`
   (`web/src/features/settings/fieldsets/Field.tsx:23`): the border is the
   field's only boundary. `commitInputClass`
-  (`web/src/features/branch/CommitForm.tsx:252`), `prInputClass`
+  (`web/src/features/branch/CommitForm.tsx:258`), `prInputClass`
   (`web/src/features/review/ReviewPanel.tsx:379`) and `AnnouncePreview`'s
   channel select (`web/src/features/messaging/MessagingPanel.tsx:246`) are
   the same.
@@ -1991,7 +1991,7 @@ header that says Live, with no reason and no Retry.
   pull request.
 - `Review`, `api/openapi.yaml:1183`: carries `found`, `pull` and `ci` only,
   and `Snapshot` (`:992`) has no per-panel problem.
-- `server.review`, `internal/webserver/handlers.go:182`: a `CheckCI` error
+- `server.review`, `internal/webserver/handlers.go:196`: a `CheckCI` error
   drops `ci` from the answer; `PullRequestSummary`,
   `web/src/features/review/ReviewPanel.tsx:137`, renders nothing for a null
   `ci`, where the terminal's `Model.reviewDetail`,

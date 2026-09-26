@@ -478,7 +478,9 @@ paths:
               $ref: "#/components/schemas/CheckoutRequest"
       responses:
         "200":
-          description: The branch that is now checked out.
+          description: >-
+            The branch that is now checked out. If it cannot be read back after
+            the switch, only its name is set.
           content:
             application/json:
               schema:
