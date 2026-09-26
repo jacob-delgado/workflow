@@ -658,13 +658,6 @@ Facts the code needs in more than one place are written in each, with
 nothing keeping the copies equal. CLAUDE.md names the smell and the rule of
 three; no linter or knip rule sees any of it.
 
-- `internal/forge/remote.go:153` — `kindOf` knows `github.com` only, so a
-  `.ghe.com` host is `KindUnknown`; `githubsOwn`
-  (`internal/forge/host.go:40`) and `githubAPIBase`
-  (`internal/forge/remote.go:186`) both know the `.ghe.com` rule, and
-  `checkForge` (`internal/cli/doctor_credentials.go:121`) tells such a
-  tenant to "set forge.kind and forge.host" for a host the code could
-  classify.
 - `internal/config/ui.go:46` — the rebindable action names are listed
   in `UI.Keys`' comment, again under "Rebinding keys"
   (`docs/content/docs/configuration.md:415`), and bound in `CheckKeys`
@@ -723,26 +716,24 @@ three; no linter or knip rule sees any of it.
   `^[a-z]+\(([^)]+)\)!?:`; the two disagree on a digit.
 
 A configured `hotfix2` type validates but its scopes are never suggested; a
-`.ghe.com` tenant is told by `doctor` to set what the code could infer; a
 renamed theme key in `web/index.html` passes every gate and shows only as a
 flash before first paint; a drifted release prefix pushes a tag the gate
 never saw, or silently tags nothing; a required snapshot field added to the
 contract dies in the e2e specs as a locator timeout; and a change to the
 focus ring is eight edits.
 
-**One way to fix it.** One owner per fact: `kindOf` consulting `githubsOwn`;
-a terminal test that reads the action names out of the configuration page
-and holds `CheckKeys` to them; one base-URL rule in `config` that `jira`
-wraps; the tag script owning the release-commit decision and the workflow
-reading its answer; `satisfies Snapshot` on the e2e literals; the server
-sending the effective commit types so the form holds no list; an exported
-`storageKey` a test checks `web/index.html` against; one `Button` component
-or two class constants; one `configHome()` the four callers share; and
-`scopeInSubject` built from `commitType`'s class.
+**One way to fix it.** One owner per fact: a terminal test that reads the
+action names out of the configuration page and holds `CheckKeys` to them;
+one base-URL rule in `config` that `jira` wraps; the tag script owning the
+release-commit decision and the workflow reading its answer; `satisfies
+Snapshot` on the e2e literals; the server sending the effective commit types
+so the form holds no list; an exported `storageKey` a test checks
+`web/index.html` against; one `Button` component or two class constants; one
+`configHome()` the four callers share; and `scopeInSubject` built from
+`commitType`'s class.
 
-**Done when.**
-`ParseRemote("git@acme.ghe.com:owner/repo.git").Kind == KindGitHub`; a test
-fails when the configuration page's action list and the bind sites differ;
+**Done when.** A test fails when the configuration page's action list and
+the bind sites differ;
 one function decides a base URL's shape and both packages' tests import it;
 `chore(main): release` appears in exactly one file under `.github/` and
 `scripts/`; removing a required snapshot field from the e2e literals fails

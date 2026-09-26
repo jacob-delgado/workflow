@@ -91,6 +91,12 @@ func TestParseRemote(t *testing.T) {
 			remote: "github.com:owner/repo.git",
 			want:   forge.Repo{Kind: forge.KindGitHub, Host: githubHost, Path: ownerRepo},
 		},
+		// GitHub runs an Enterprise Cloud tenant under ghe.com, so its remote
+		// names GitHub as github.com's does.
+		"an Enterprise Cloud tenant under ghe.com": {
+			remote: "git@acme.ghe.com:owner/repo.git",
+			want:   forge.Repo{Kind: forge.KindGitHub, Host: "acme.ghe.com", Path: ownerRepo},
+		},
 		"a subdomain of github is not github.com": {
 			remote: "https://pages.github.com/owner/repo.git",
 			want:   forge.Repo{Kind: forge.KindUnknown, Host: "pages.github.com", Path: ownerRepo},

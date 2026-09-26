@@ -335,17 +335,20 @@ variables, and a token is offered to the host it is for and to no other:
 
 So a GitHub Enterprise Server at `git.example.com` takes
 `GH_HOST=git.example.com` beside `$GH_ENTERPRISE_TOKEN`, or `gh auth login
---hostname git.example.com`, or `forge.host` beside `forge.token`. When no source
-has a token for the host, `workflow doctor --online` says which of these it would
-have read.
+--hostname git.example.com`, or `forge.host` beside `forge.token`. An Enterprise
+Cloud tenant such as `acme.ghe.com` reads `$GITHUB_TOKEN` as `github.com` does,
+but its `forge.token` too needs `forge.host` beside it. When no source has a
+token for the host, `workflow doctor --online` says which of these it would have
+read.
 
 ### On-premises forges need `forge.kind` and `forge.host`
 
-workflow reads the forge from your git remote. `github.com` and `gitlab.com` name
-themselves; `git.example.com` does not, and a GitHub Enterprise Server looks
-exactly like a self-managed GitLab from a remote URL alone — while their APIs live
-at different paths. Rather than guess and send a token to the wrong service, say
-which forge it is, and which host you mean:
+workflow reads the forge from your git remote. `github.com`, an Enterprise Cloud
+tenant under `ghe.com`, and `gitlab.com` name themselves; `git.example.com` does
+not, and a GitHub Enterprise Server looks exactly like a self-managed GitLab from
+a remote URL alone — while their APIs live at different paths. Rather than guess
+and send a token to the wrong service, say which forge it is, and which host you
+mean:
 
 ```json
 "forge": { "kind": "github", "host": "git.example.com" }
@@ -355,8 +358,8 @@ which forge it is, and which host you mean:
 repository whose remote is somewhere else is still a host workflow cannot name.
 A `forge.kind` with no `forge.host` is reported as incomplete.
 
-`forge.kind` only fills that gap. On `github.com` or `gitlab.com` it is ignored,
-because the remote is the better evidence.
+`forge.kind` only fills that gap. On `github.com`, a `ghe.com` tenant or
+`gitlab.com` it is ignored, because the remote is the better evidence.
 
 ## The interface: mouse, ASCII and color
 

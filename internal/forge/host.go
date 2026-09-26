@@ -37,5 +37,5 @@ func hostname(host string) string {
 func githubsOwn(host string) bool {
 	name := hostname(host)
 
-	return name == "github.com" || strings.HasSuffix(name, ".ghe.com")
+	return name == githubCom || strings.HasSuffix(name, ".ghe.com")
 }

@@ -134,7 +134,7 @@ func checkForge(ctx context.Context, out io.Writer, run doctorRun, remote string
 	base, known := apiBase(repo)
 	if !known {
 		return credentialUnchecked(out, "forge",
-			repo.Host+" is neither github.com nor gitlab.com — set forge.kind and forge.host")
+			repo.Host+" is not github.com, a ghe.com tenant or gitlab.com — set forge.kind and forge.host")
 	}
 
 	// One limit for the whole check: a request through gh or glab runs under this
