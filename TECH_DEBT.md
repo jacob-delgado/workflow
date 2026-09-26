@@ -81,18 +81,11 @@ shares (the interface and the web reach them too).
 
 Severity: low · Confidence: read
 
-Across the command line, the clients, the plumbing, the web server and the
-two layout maps, doc comments and layout rows describe an earlier shape of
-the code. No linter reads a comment, so every one passes the gate. The
-`wiring` package comment below still names the terminal as the owner of the
-seams it fills, which `internal/seams` now declares for all three surfaces.
-
-The command line:
-
-- `CLAUDE.md:27` — the layout row "thin main; wires cli.Execute and the exit
-  status" leaves out the two terminal reads `terminalPrompt`
-  (`cmd/workflow/main.go:37`) keeps there, beside the keychain and editor it
-  takes from their own packages.
+Across the clients, the plumbing, the web server and the two layout maps,
+doc comments and layout rows describe an earlier shape of the code. No
+linter reads a comment, so every one passes the gate. The `wiring` package
+comment below still names the terminal as the owner of the seams it fills,
+which `internal/seams` now declares for all three surfaces.
 
 The clients:
 
