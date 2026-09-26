@@ -59,7 +59,9 @@ task check         # the full gate — run this before opening a pull request
 `gitleaks`, plus the web frontend's lint, its generated-client drift check and
 its unit tests — so the local gate needs Node, which `mise install` provisions,
 and installs the frontend's dependencies when they are missing. CI runs the same
-gates, and adds the Playwright end-to-end suite (`yarn test:e2e` in `web/`).
+gates, and adds the Playwright end-to-end suites: `yarn test:e2e` in `web/`, and
+`yarn test:e2e:server`, which stages, commits and pushes through the binary
+`task build` makes.
 
 ## Tests
 

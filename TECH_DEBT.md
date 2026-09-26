@@ -541,19 +541,18 @@ handling written twice, and the spine's color-only hue — is under
 
 ## The web
 
-Nothing is open here. What the web's gates still lack — an end-to-end run
-that drives a write — is DEBT-65, with the other gates below; what the web
-carries on purpose — read-only under `--dry-run`, and queries the stream
-keeps fresh — is under
+Nothing is open here. What the web carries on purpose — read-only under
+`--dry-run`, and queries the stream keeps fresh — is under
 [Deliberate trade-offs](#deliberate-trade-offs-that-carry-a-cost).
 
 ## The gates, the build and the tests
 
-What is open here is the coverage worklist and the metric behind it, and
-an end-to-end run that drives a write against a running server. The clicked
-steps the web's axe scans and Tab walks once missed — the pull request
-form, the push confirmation, the announcement preview and a refused write —
-are scanned in both themes and walked at every width.
+What is open here is the coverage worklist and the metric behind it. The
+clicked steps the web's axe scans and Tab walks once missed — the pull
+request form, the push confirmation, the announcement preview and a refused
+write — are scanned in both themes and walked at every width, and a
+server-backed run stages, commits and pushes through a running
+`workflow --web`.
 
 ### DEBT-64 The condition-coverage worklist: 432 one-sided conditions, and 7 never evaluated
 
@@ -624,25 +623,6 @@ report is the worklist, most of it in `internal/tui`, `internal/cli` and
 **Done when.** `task cover:branch` names no never-evaluated condition but
 the one above, and reads 92.0 % or more, so `BRANCH_COVERAGE_MIN` ratchets
 to 90.
-
-### DEBT-65 The web's e2e drives no write
-
-Severity: medium · Confidence: read
-
-`task check` (`Taskfile.yml:502`) runs the web's lint, client-drift check and
-unit tests beside the Go gates, but not its end-to-end suite. That suite is
-six specs (`web/e2e/a11y.spec.ts`, `web/e2e/layout.spec.ts`,
-`web/e2e/panes.spec.ts`, `web/e2e/screens.spec.ts`,
-`web/e2e/smoke.spec.ts`, `web/e2e/theme.spec.ts`), outside `task check`
-(CI's `e2e` job and `yarn test:e2e` run it), with no `workflow --web`
-backend — acknowledged at `.github/workflows/ci.yml:101` ("No backend": the
-specs answer the API themselves, or read a VITE_MOCK build's fixtures) — so
-no test drives any of the twelve write actions end to end.
-
-**One way to fix it.** The e2e job starts `workflow --web` against a fixture
-repository so one spec can commit, push and open a pull request.
-
-**Done when.** One Playwright spec performs a write against a running server.
 
 ## Deliberate trade-offs that carry a cost
 

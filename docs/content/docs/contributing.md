@@ -42,8 +42,9 @@ task check
 
 That is lint and tests for the Go and for the web frontend, both Go coverage
 floors, vulnerability scanning, and secret scanning — the same gates CI runs,
-less the browser-driven end-to-end suite, which CI adds. Run it before calling
-any change done.
+less the browser-driven end-to-end suites, which CI adds: one against the web
+frontend alone, and one that commits and pushes through a running
+`workflow --web`. Run it before calling any change done.
 
 | Gate | What it enforces |
 | --- | --- |
