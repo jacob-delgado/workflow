@@ -159,7 +159,7 @@ func (m Model) messagingDetail(width int) string {
 	if m.cfg.Messaging.Mode() == config.MessagingNone {
 		return wrap(m.cfg.Messaging.Service()+" is not set up.\n\nAdd messaging.webhook_url (or, for Slack, "+
 			"messaging.token and\nmessaging.channel) to ~/"+config.FileName+
-			". `workflow doctor --online` checks it.", width)
+			". `workflow doctor` checks the file; `--online` also asks Slack about a bot token.", width)
 	}
 
 	if !m.review.found {
