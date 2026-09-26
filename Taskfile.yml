@@ -111,12 +111,11 @@ tasks:
       # reach the binary: `task run -- config show`, `task run -- --help`.
       - go run {{.PKG}} {{.CLI_ARGS}}
 
-  # Running the cockpit takes two shells: `task web` serves the Go API and event
-  # stream, `task web:ui` serves the frontend that proxies to it. Corepack ships
-  # with the pinned Node and runs the yarn the packageManager field names;
-  # invoking it as `corepack yarn` sidesteps a mise `yarn` shim that would
-  # otherwise shadow it, and DOWNLOAD_PROMPT=0 lets the first run fetch yarn
-  # without stopping to ask.
+  # Corepack ships with the pinned Node and runs the yarn the packageManager
+  # field names. The web tasks below invoke it as `corepack yarn`, which
+  # sidesteps a mise `yarn` shim that would otherwise shadow it, and
+  # COREPACK_ENABLE_DOWNLOAD_PROMPT=0 lets the first run fetch yarn without
+  # stopping to ask.
   dev:
     desc: Run the whole cockpit in one shell, live-reloading the Go API and the UI
     deps: [dev:api, dev:ui]
@@ -146,13 +145,16 @@ tasks:
       - corepack yarn install
       - corepack yarn dev
 
+  # The cockpit in two shells rather than `task dev`'s one: `task web` serves
+  # the Go API and event stream, built once rather than rebuilt on a change, and
+  # `task web:ui` serves the frontend that proxies to it.
   web:
-    desc: "Serve only the cockpit's API and event stream on 127.0.0.1:13579"
+    desc: "Serve only the cockpit's API and event stream on 127.0.0.1:13579 (pair with web:ui)"
     cmds:
       - go run {{.PKG}} --web
 
   web:ui:
-    desc: "Shell 2 — install and serve the web UI on :5173 (proxies /api to :13579)"
+    desc: "Serve only the cockpit's web UI on :5173, proxying /api to :13579 (pair with web)"
     dir: web
     env:
       COREPACK_ENABLE_DOWNLOAD_PROMPT: "0"
