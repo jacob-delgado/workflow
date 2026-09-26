@@ -73,55 +73,9 @@ terminal, a file on disk, the loopback server or a release.
 
 ## The command line
 
-What is open here is the drift between the docs, the comments and the code
-they describe, in the commands and in the clients and plumbing every command
-shares (the interface and the web reach them too).
-
-### DEBT-89 Comments and layout rows that no longer say what the code does
-
-Severity: low · Confidence: read
-
-In the web server, doc comments describe an earlier shape of the code. No
-linter reads a comment, so every one passes the gate.
-
-The web server:
-
-- `internal/webserver/webserver.go:33` — `Deps`' comment says a nil read
-  seam answers "with an empty result rather than an error";
-  `server.GetIssue` (`internal/webserver/handlers.go:81`) answers 422 "no
-  issue tracker is configured" for a nil `Issue`, and
-  `server.GetAnnouncement` (`internal/webserver/announce.go:22`) and
-  `server.GetPullRequestDraft` (`internal/webserver/pullrequest.go:26`)
-  answer 409 for a nil `Branch` or `FindPull`, which `pullToAnnounce`
-  (`internal/loop/announce.go:114`) reports as `ErrNoPullRequest`.
-- `internal/webserver/webserver_test.go:25` — `errSeam`'s comment, "generic
-  500 so the wire message carries no detail", predates `fault`
-  (`internal/webserver/errors.go:93`), which classes by sentinel before the
-  internal fallback.
-
-A reader of `go doc`, of CLAUDE.md's layout table or of ARCHITECTURE.md is told
-something the code beside it does not do, and acts on it: changes one call site
-of three, treats a merged pull as open, or tries a layering the v2 upgrade
-already allows. The cost is paid at the next change, when the comment is
-trusted over the code.
-
-**One way to fix it.** One pass, file by file, rewording each sentence to
-what the code does now — or deleting the enumerations that go stale a verb
-at a time.
-
-**Done when.** `go doc` for `config`, `wiring`, `gitrepo`, `jira`,
-`convention` and `forge.Client.FindPullRequest` reads as the code does; both
-pane lists in `internal/tui/keys.go` match the
-handlers; the `Deps` comment names the answers the handlers give; and each
-of these prints nothing — `grep -n "the one place the interface reads"
-internal/tui/branch.go`, `grep -n "cannot layer one view over another"
-internal/tui/overlay.go`, `grep -n "checks Opened rather than trusting"
-internal/forge/pulls.go`, `grep -n "caret-feed" internal/jira/wiki.go`,
-`grep -n "status describes the configuration" internal/tui/render.go` and
-`grep -n "so the wire message carries no detail"
-internal/webserver/webserver_test.go`. The greps are a sample; every other
-cited sentence is checked the same way, by grepping the phrase its bullet
-quotes in the file it cites.
+What is open here is the drift between the docs and the code they describe,
+in the commands and in the clients and plumbing every command shares (the
+interface and the web reach them too).
 
 ### DEBT-90 The docs site trails the code across usage, configuration, web and install
 

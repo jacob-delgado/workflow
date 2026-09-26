@@ -31,8 +31,12 @@ import (
 
 // Deps is what the server asks of the world, as plain functions over the domain
 // clients — the same seams internal/seams declares, narrowed to what the API
-// needs. A nil function means the service is not configured: a read answers
-// with an empty result rather than an error, and a write as not available.
+// needs. A nil function means the service is not configured. A list or
+// snapshot read then answers empty; the issue read answers 422, as no issue
+// tracker is configured; a write whose own seam is nil answers 422, as not
+// available; and the announcement and pull request drafts, and the announce
+// and open writes past that check, answer 409, as there is nothing to announce
+// or open, when the branch read or the pull request find is missing.
 type Deps struct {
 	Search       func(jql string, startAt int) (jira.SearchResult, error)
 	Issue        func(key jira.Key) (jira.IssueDetail, error)
