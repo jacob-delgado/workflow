@@ -71,6 +71,9 @@ doctor`, as the command line exits 3 — except a Jira 403 that says what the
 token may not do, which says Jira refused the request: doctor checks who a
 token is, not what it may do.
 
+The reads a script can make of the web's API are listed under [Scripting the
+API]({{< relref "/docs/web#scripting-the-api" >}}).
+
 ## Standard output and standard error
 
 Standard output carries the artifact — what a script would capture: the

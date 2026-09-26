@@ -1078,51 +1078,6 @@ a func-var seam on `Handler`; or drop the sentence from
 the error's text in the notes writer, or `docs/content/docs/errors.md` no
 longer says the cause is in the output.
 
-### DEBT-134 Four GET reads no caller uses, three of them written twice
-
-Severity: low · Confidence: read
-
-GET /api/branch, /api/changes, /api/review and /api/messaging are called by
-nothing in `web/src` or `web/e2e` outside the generated client: the page
-reads the snapshot, and the one match by grep,
-`web/src/api/client.test.tsx:84`, uses `/api/branch` as a sample URL for
-the client wrapper's dry-run test. No doc names them for scripts, and three
-snapshot builders repeat the handlers line for line with a different
-failure answer.
-
-- `internal/webserver/handlers.go:112` — `server.GetBranch`, a handler
-  with no caller, is the same nil-seam, read, DTO sequence as
-  `server.snapshotBranch` (`internal/webserver/stream.go:148`), which
-  differs only in answering an empty branch on failure.
-- `internal/webserver/handlers.go:141` — `server.ListChanges`, no caller;
-  `server.snapshotChanges` (`internal/webserver/stream.go:163`) is the
-  same read with `changesDTO(nil)` on failure instead of `fault`.
-- `internal/webserver/handlers.go:157` — `server.GetReview`, no caller:
-  `Branch`, `FindPull`, `review` through `fault`, where
-  `server.snapshotReview` (`internal/webserver/stream.go:178`) runs the
-  identical sequence with failures as `Found: false`.
-- `internal/webserver/handlers.go:242` — `server.GetMessaging`, no caller:
-  the one-line `messagingDTO` that `server.snapshot` also builds at
-  `internal/webserver/stream.go:90`.
-- `docs/content/docs/scripting.md:55` — "### The same families on the web"
-  names the problem codes for scripts but no read endpoint.
-
-Four handlers and their tests exist for a caller that does not exist; the
-snapshot's copy is the one the page uses, so a change to how a branch, the
-changes or the review is read must be made in both files, and a failure
-answer proven on the handler is not proven on the copy the page reaches.
-
-**One way to fix it.** Decide whether the four reads are the script surface
-(then `docs/content/docs/web.md` names them) or not (then drop them from
-the spec); either way have each snapshot builder call the one read function
-so the logic lives once.
-
-**Done when.** Either `docs/content/docs/web.md` lists GET /api/branch,
-/api/changes, /api/review and /api/messaging as scriptable reads, or they
-are gone from `api/openapi.yaml` and `task gen` leaves no `GetBranch`,
-`ListChanges`, `GetReview` or `GetMessaging`; and each snapshot builder
-calls the shared read function.
-
 ### DEBT-135 The contract's prose disagrees with the code at eight places
 
 Severity: low · Confidence: read
