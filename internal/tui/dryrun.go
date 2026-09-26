@@ -121,6 +121,12 @@ func heldBackServices(deps Deps) Deps {
 		}
 	}
 
+	if deps.Forge.EditPullRequest != nil {
+		deps.Forge.EditPullRequest = func(forge.PullRequest, forge.PullRequestEdit) (forge.PullRequest, error) {
+			return forge.PullRequest{}, errDryRun
+		}
+	}
+
 	if deps.Forge.Rerun != nil {
 		deps.Forge.Rerun = func(forge.PullRequest, string) (bool, error) { return false, errDryRun }
 	}
