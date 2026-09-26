@@ -20,9 +20,12 @@ info:
     loop's writes (a checkout, a branch, staging, a commit, a push, a pull
     request and its follow-ups on the issue, an announcement), and lets the
     whole configuration file be read and written. It reuses the same domain
-    seams the TUI and the CLI use, and keeps nothing between requests but the
-    commit scope it learns, which it records in the store the terminal
-    interface reads.
+    seams the TUI and the CLI use. Between requests it keeps the configuration
+    in effect and the revision of the file it was read at; the commit scope it
+    learns, which it records in the store the terminal interface reads; who the
+    forge says a post would come from; and the forge's last answer about the
+    branch's pull request and its CI, which every event stream shares until
+    the forge is read again (streamEvents says when).
   version: 1.0.0
 servers:
   - url: http://127.0.0.1:7000
