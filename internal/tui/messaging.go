@@ -125,16 +125,17 @@ func (msg authorFound) apply(m Model) (Model, tea.Cmd) {
 	return m, nil
 }
 
-// announcement is the message marking the pull request's current moment.
+// announcement is the message marking the pull request's current moment, told
+// from what the interface already holds: the author it read, the pull request
+// on screen, and the listed issue.
 func (m Model) announcement(moment messaging.Moment) string {
 	issueKey, _ := m.branchIssue()
 	issue, _ := m.issues.find(issueKey)
 
-	return messaging.Announcement{
-		Author: m.messaging.author, PullRequestURL: m.review.pull.URL, PullRequestTitle: m.review.pull.Title,
-		IssueKey: string(issueKey), IssueSummary: issue.Summary, IssueURL: m.browseURL(issueKey), Noun: m.vocab.noun,
-		Moment: moment, Kind: m.cfg.Messaging.Kind, Template: m.cfg.Messaging.Announcement,
-	}.Text()
+	return loop.Announcement(loop.AnnouncementFacts{
+		Author: m.messaging.author, Pull: m.review.pull, IssueKey: issueKey,
+		IssueSummary: issue.Summary, IssueURL: m.browseURL(issueKey), Moment: moment,
+	}, m.cfg.Messaging, m.deps.Forge.Kind).Text()
 }
 
 // messagingRail is where messages go and what has been posted.
