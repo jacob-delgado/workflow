@@ -240,6 +240,89 @@ func TestUpdateConfigKeepsAMaskedSecret(t *testing.T) {
 	}
 }
 
+func TestUpdateConfigSetsANewSecret(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	cfg := config.Default()
+	cfg.Path = filepath.Join(t.TempDir(), ".workflow.json")
+	cfg.Jira.Token = "old-secret-0000"
+
+	next := cfg
+	next.Jira.Token = "brand-new-secret-1111" // a real new value, neither empty nor the mask
+
+	// Act
+	recorder := putConfig(t, serve(t, webserver.Deps{}, cfg), marshal(t, next))
+
+	// Assert
+	if recorder.Code != http.StatusOK {
+		t.Fatalf("status = %d, want 200: %s", recorder.Code, recorder.Body.String())
+	}
+
+	saved, err := config.LoadFile(cfg.Path)
+	if err != nil {
+		t.Fatalf("reading the saved file: %v", err)
+	}
+
+	if saved.Jira.Token.Reveal() != "brand-new-secret-1111" {
+		t.Errorf("saved token = %q, want the new value written", saved.Jira.Token.Reveal())
+	}
+}
+
+func TestUpdateConfigResolvesHeaders(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	// One header comes back masked (keep the stored value); one comes back with a
+	// new value (replace it).
+	cfg := config.Default()
+	cfg.Path = filepath.Join(t.TempDir(), ".workflow.json")
+	cfg.Jira.Headers = map[string]config.Secret{"CF-Id": "stored-id-secret", "CF-Team": "stored-team"}
+
+	next := cfg
+	next.Jira.Headers = map[string]config.Secret{
+		"CF-Id": config.Secret(config.Redact("stored-id-secret")), "CF-Team": "new-team",
+	}
+
+	// Act
+	recorder := putConfig(t, serve(t, webserver.Deps{}, cfg), marshal(t, next))
+
+	// Assert
+	if recorder.Code != http.StatusOK {
+		t.Fatalf("status = %d, want 200: %s", recorder.Code, recorder.Body.String())
+	}
+
+	saved, err := config.LoadFile(cfg.Path)
+	if err != nil {
+		t.Fatalf("reading the saved file: %v", err)
+	}
+
+	if got := saved.Jira.Headers["CF-Id"].Reveal(); got != "stored-id-secret" {
+		t.Errorf("CF-Id = %q, want the stored value kept behind the mask", got)
+	}
+
+	if got := saved.Jira.Headers["CF-Team"].Reveal(); got != "new-team" {
+		t.Errorf("CF-Team = %q, want the new value written", got)
+	}
+}
+
+func TestUpdateConfigReportsASaveFailure(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	// A path whose parent directory does not exist cannot be written.
+	cfg := config.Default()
+	cfg.Path = filepath.Join(t.TempDir(), "missing", ".workflow.json")
+
+	// Act
+	recorder := putConfig(t, serve(t, webserver.Deps{}, cfg), marshal(t, config.Default()))
+
+	// Assert
+	if recorder.Code != http.StatusInternalServerError {
+		t.Errorf("status = %d, want 500 when the file cannot be written", recorder.Code)
+	}
+}
+
 func TestUpdateConfigRefusesAUIValueOutsideTheContract(t *testing.T) {
 	t.Parallel()
 

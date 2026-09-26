@@ -197,3 +197,70 @@ func TestGetReviewCarriesThePullRequestsState(t *testing.T) {
 		})
 	}
 }
+
+func TestGetReviewMapsEveryCIState(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	// One CI carrying every state — the overall state and one check per state —
+	// so the mapping is exercised for all of them at once.
+	deps := filledDeps()
+	deps.CheckCI = func(forge.PullRequest, string) (forge.CI, error) {
+		return forge.CI{
+			State: forge.CIRunning,
+			Checks: []forge.Check{
+				{Name: "none", State: forge.CINone},
+				{Name: "passed", State: forge.CIPassed},
+				{Name: "failed", State: forge.CIFailed},
+			},
+		}, nil
+	}
+
+	// Act
+	review := decode[api.Review](t, get(t, serve(t, deps, config.Default()), "/api/review"))
+
+	// Assert
+	if review.Ci == nil || review.Ci.State != api.Running || len(review.Ci.Checks) != 3 {
+		t.Fatalf("ci = %+v, want state running and three checks", review.Ci)
+	}
+
+	want := []api.CIState{api.None, api.Passed, api.Failed}
+	for i, check := range review.Ci.Checks {
+		if check.State != want[i] {
+			t.Errorf("check %d state = %q, want %q", i, check.State, want[i])
+		}
+	}
+}
+
+func TestGetReviewMapsMergeability(t *testing.T) {
+	t.Parallel()
+
+	cases := map[string]struct {
+		from forge.Mergeability
+		want api.PullRequestMergeable
+	}{
+		"unknown":   {forge.MergeUnknown, api.Unknown},
+		"clean":     {forge.MergeClean, api.Clean},
+		"conflicts": {forge.MergeConflicts, api.Conflicts},
+	}
+
+	for name, tt := range cases {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			// Arrange
+			deps := filledDeps()
+			deps.FindPull = func(string) (forge.PullRequest, bool, error) {
+				return forge.PullRequest{Number: 1, Mergeable: tt.from}, true, nil
+			}
+
+			// Act
+			review := decode[api.Review](t, get(t, serve(t, deps, config.Default()), "/api/review"))
+
+			// Assert
+			if review.Pull == nil || review.Pull.Mergeable != tt.want {
+				t.Errorf("mergeable = %v, want %q", review.Pull, tt.want)
+			}
+		})
+	}
+}

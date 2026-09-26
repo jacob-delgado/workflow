@@ -94,6 +94,31 @@ func TestListIssuesRefusesAnUnknownView(t *testing.T) {
 	}
 }
 
+func TestListIssuesUsesTheNamedView(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	var gotJQL string
+
+	deps := filledDeps()
+	deps.Search = func(jql string, _ int) (jira.SearchResult, error) {
+		gotJQL = jql
+
+		return jira.SearchResult{}, nil
+	}
+
+	cfg := config.Default()
+	cfg.Jira.Views = []config.JiraView{{Name: testBugView, JQL: testBugJQL}}
+
+	// Act
+	_ = get(t, serve(t, deps, cfg), "/api/issues?view="+testBugView)
+
+	// Assert
+	if gotJQL != testBugJQL {
+		t.Errorf("searched %q, want the named view's JQL", gotJQL)
+	}
+}
+
 func TestGetIssueReturnsTheDetail(t *testing.T) {
 	t.Parallel()
 
@@ -215,5 +240,21 @@ func TestGetIssueIsUnreachableWhenTheTrackerIsDown(t *testing.T) {
 	if failure := decode[api.Problem](t, recorder); recorder.Code != http.StatusBadGateway ||
 		failure.Code != api.Unreachable {
 		t.Errorf("status/code = %d/%s, want 502/unreachable", recorder.Code, failure.Code)
+	}
+}
+
+func TestGetIssueReportsAFailure(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	deps := filledDeps()
+	deps.Issue = func(jira.Key) (jira.IssueDetail, error) { return jira.IssueDetail{}, errSeam }
+
+	// Act
+	recorder := get(t, serve(t, deps, config.Default()), "/api/issues/PROJ-1")
+
+	// Assert
+	if recorder.Code != http.StatusInternalServerError {
+		t.Errorf("status = %d, want 500", recorder.Code)
 	}
 }
