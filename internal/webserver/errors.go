@@ -83,8 +83,9 @@ func writeRequestError(w http.ResponseWriter, _ *http.Request, _ error) {
 // writeResponseError is the safety net for a handler that returns an error
 // rather than a typed response, or an answer that could not be written: an
 // opaque 500, so an unexpected failure never leaks its detail, that still says
-// what to do.
-func writeResponseError(w http.ResponseWriter, _ *http.Request, _ error) {
+// what to do. The error goes to Unexpected, since the answer carries none of it.
+func (s *server) writeResponseError(w http.ResponseWriter, _ *http.Request, err error) {
+	s.unexpected(err)
 	writeProblem(w, api.Internal, "the server could not answer; "+tryAgain)
 }
 
@@ -97,22 +98,36 @@ const tryAgain = "try again, and run workflow doctor if it keeps failing"
 // answered oddly, a setting it cannot use, a service's refusal) or else an
 // unexpected failure — but the detail is curated and safe: the raw cause
 // carries a host, a path, a webhook or a credential and never reaches the wire.
+// An unexpected failure's cause goes to Unexpected instead, since no class
+// says what it was.
 func (s *server) fault(err error) (api.Problem, int) {
-	prob := faultProblem(err)
+	prob, classified := faultProblem(err)
+	if !classified {
+		s.unexpected(err)
+	}
 
 	return prob, prob.Status
 }
 
+// unexpected hands a failure the answer leaves out to Unexpected, when it is
+// wired.
+func (s *server) unexpected(err error) {
+	if s.deps.Unexpected != nil {
+		s.deps.Unexpected(err)
+	}
+}
+
 // faultProblem classifies a seam's error into the problem shown for it: the
-// first class it belongs to, or an opaque internal error.
-func faultProblem(err error) api.Problem {
+// first class it belongs to, reported true, or an opaque internal error,
+// reported false.
+func faultProblem(err error) (api.Problem, bool) {
 	for _, class := range faultClasses() {
 		if slices.ContainsFunc(class.causes, func(cause error) bool { return errors.Is(err, cause) }) {
-			return problem(class.code, class.detail)
+			return problem(class.code, class.detail), true
 		}
 	}
 
-	return problem(api.Internal, "the request could not be completed; "+tryAgain)
+	return problem(api.Internal, "the request could not be completed; "+tryAgain), false
 }
 
 // faultClass is one kind of seam failure: the sentinels that belong to it, and
