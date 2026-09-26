@@ -73,73 +73,8 @@ terminal, a file on disk, the loopback server or a release.
 
 ## The command line
 
-What is open here is the drift between the docs and the code they describe,
-in the commands and in the clients and plumbing every command shares (the
-interface and the web reach them too).
-
-### DEBT-90 The docs site trails the code across usage, configuration, web and install
-
-Severity: low · Confidence: read
-
-The site's pages, the README and the docs index promise things the code does
-not do or stay silent on things it does. `scripts/check-docs-drift.sh`
-compares only the generated command reference, so no gate sees any of these
-pages. UX-87 counts the same Settings undercount from the user's side.
-
-The usage page:
-
-- `docs/content/docs/usage.md:173` — "Pick up an issue" names three field
-  cases (a fixed set, text, any other kind sent to Jira) where
-  `fieldForm.textual` (`internal/tui/fields.go:80`) fills `FieldUser` and
-  `FieldDate` as typed inputs and `fieldForm.multi` (`:90`) takes any number
-  of a `FieldOptionList`'s options.
-- `docs/content/docs/usage.md:185` — "Branch" says the branch "starts from
-  origin's default branch, which the overlay names" with no word of the
-  fetch (`branchCreator.create`, `internal/tui/branch.go:439`), the "fetched
-  AGE" line (`branchCreator.start`, `:361`) or the offer after a failed
-  fetch (`fetched.apply`, `internal/tui/branchresult.go:49`).
-- `docs/content/docs/usage.md:192` — "Stage and commit" describes the list
-  and the composer; the page never mentions a diff (`grep -ic diff` is 0)
-  while `diffSection` (`internal/tui/diff.go:67`) draws the selected file's
-  diff beneath the list.
-
-A reader expects a webhook typo caught at init and it is saved unchecked,
-then trusts a `doctor` check that never ran; sets `$GIT_EDITOR` and is told
-another editor opens; in a subdirectory gets the repository's file after
-reading that the current directory wins; reads "never overwrites" as a
-guarantee the code does not make; looks for `workflow help` in the reference
-and finds nothing; is warned off unreleased code they will not get and shown
-a pin five releases old; follows the web page to the second Settings part
-and finds a third; and meets a date input, a "could not fetch" offer and a
-diff the usage page never mentions.
-
-**One way to fix it.** One editing pass over the cited pages with the code's
-own comment as the source of each sentence: say the webhook is saved
-unchecked on the configuration page and in `config init`'s Short and Long,
-then `task docs:gen`, and drop the `doctor` promise from the README and the
-docs index; state the editor order as git's (`$GIT_EDITOR`, `$VISUAL`,
-`$EDITOR`, else `vi`, `notepad` on Windows) on the usage page and in
-`defaultEditor`'s comment; describe the walk to `.git` on the page and in
-`Discover`'s comment; name the three store identifiers and the root-path
-fallback on both pages; qualify "never overwrites" with the revision check's
-window; state the third notify condition; name `help` as the one command
-without a page; drop the "no releases yet" and "until the first tag"
-sentences and refresh the pinned example; reorder the web page's Settings
-list to the form's and name every carried key; add the field kinds, the
-fetch and the diff to the usage page; and reword the `queryClient` comment
-to `useSnapshotStore`.
-
-**Done when.** `grep -c 'does the same for Slack'
-docs/content/docs/configuration.md`, `grep -c 'no releases yet' README.md`,
-`grep -ci 'until the first tag' README.md docs/content/docs/install.md` and
-`grep -c setQueryData web/src/queryClient.ts` all print 0; `grep -n
-GIT_EDITOR docs/content/docs/usage.md internal/editor/editor.go`, `grep -n
-help docs/content/docs/reference/_index.md` and `grep -n '\.git'
-docs/content/docs/configuration.md` each match a sentence that says what the
-code does; the README and `docs/content/_index.md` no longer say `doctor`
-checks a webhook; the web page's Settings list reads in `ConfigForm`'s
-fieldset order; the usage page names user, date and multi-select fields, the
-fetch and the diff; and `task docs:check` is green after `task docs:gen`.
+What is open here is the drift between the contributor documents and the
+tree they describe.
 
 ### DEBT-105 The contributor documents restate counts and names the tree has moved past
 
