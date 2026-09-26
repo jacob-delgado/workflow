@@ -92,8 +92,11 @@ test('shows the pull request and its CI checks', () => {
 
   // Assert
   expect(screen.getByRole('link', { name: /redact tokens/i })).toBeTruthy()
-  expect(screen.getByText('build')).toBeTruthy()
+  expect(screen.getByRole('link', { name: 'build' }).getAttribute('href')).toBe(
+    'https://forge.example.com/build',
+  )
   expect(screen.getByText('e2e')).toBeTruthy()
+  expect(screen.queryByRole('link', { name: 'e2e' })).toBeNull()
 })
 
 // The heading counts the checks that are done, and the failed ones only when
