@@ -207,10 +207,11 @@ func ParseKind(name string) (Kind, error) {
 
 // WithConfiguredKind fills in a forge the remote could not name.
 //
-// It only ever fills a gap. A host that names itself — github.com, gitlab.com —
-// keeps its own answer, because the remote is the better evidence and silently
-// disagreeing with it would be the worse failure. And it fills the gap for one
-// host: forge.kind describes forge.host, and says nothing about any other.
+// It only ever fills a gap. A host that names itself — github.com, a ghe.com
+// tenant, gitlab.com — keeps its own answer, because the remote is the better
+// evidence and silently disagreeing with it would be the worse failure. And it
+// fills the gap for one host: forge.kind describes forge.host, and says nothing
+// about any other.
 func (r Repo) WithConfiguredKind(configured Configured) (Repo, error) {
 	if r.Kind != KindUnknown || configured.Kind == "" {
 		return r, nil
