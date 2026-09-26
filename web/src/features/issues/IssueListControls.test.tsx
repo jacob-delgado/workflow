@@ -1,13 +1,15 @@
-import { act, screen, waitFor, within } from '@testing-library/react'
+import { QueryClientProvider } from '@tanstack/react-query'
+import { act, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { vi } from 'vitest'
 import App from '@/App.tsx'
+import { listViewsOptions } from '@/api/generated/@tanstack/react-query.gen.ts'
 import { useSnapshotStore } from '@/api/snapshot.ts'
 import { useUiStore } from '@/shell/uiStore.ts'
 import { fakeApi } from '@/test/fakeApi.ts'
 import { FakeEventSource } from '@/test/fakeEventSource.ts'
 import { makeSnapshot } from '@/test/fixtures.ts'
-import { renderWithClient } from '@/test/renderWithClient.tsx'
+import { appQueryClient, renderWithClient } from '@/test/renderWithClient.tsx'
 import { IssuesPanel } from './IssuesPanel.tsx'
 
 const views = {
@@ -113,15 +115,22 @@ test('goes back to the default view when the chosen one is no longer listed', as
 
 test('offers no view select when the views cannot be read', async () => {
   // Arrange
-  const requests = fakeApi({})
+  fakeApi({})
+  const client = appQueryClient()
   useSnapshotStore.setState({ status: 'live', snapshot: oneIssue })
 
   // Act
-  renderWithClient(<IssuesPanel />)
+  render(
+    <QueryClientProvider client={client}>
+      <IssuesPanel />
+    </QueryClientProvider>,
+  )
 
   // Assert
+  // There is no select while the views are still being read either, so the
+  // read is awaited until it has been refused.
   await waitFor(() => {
-    expect(requests.length).toBeGreaterThan(0)
+    expect(client.getQueryState(listViewsOptions().queryKey)?.status).toBe('error')
   })
   expect(screen.queryByRole('combobox', { name: /view/i })).toBeNull()
   expect(screen.getByText('Fix the token leak')).toBeTruthy()
