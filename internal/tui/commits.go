@@ -114,7 +114,7 @@ func (m Model) commitsRail(_ int) string {
 // commitsDetail lists the changed files, then the branch's commits.
 func (m Model) commitsDetail(width int) string {
 	if m.outsideRepository() {
-		return wrap(notInRepository, width)
+		return m.failureBlock(m.branch.err, width)
 	}
 
 	if !m.changes.loaded {

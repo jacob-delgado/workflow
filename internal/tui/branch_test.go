@@ -76,7 +76,7 @@ func TestOutsideARepositoryEachRepoPaneSaysSoAndOffersNoRepoKeys(t *testing.T) {
 			view := typing(t, model, tt.pane).View().Content
 
 			// Assert
-			requireScreen(t, view, "Not inside a git repository")
+			requireScreen(t, view, "This is not inside a git repository")
 			refuseScreen(t, footerLine(view), tt.unwanted)
 		})
 	}

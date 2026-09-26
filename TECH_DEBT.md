@@ -658,10 +658,6 @@ Facts the code needs in more than one place are written in each, with
 nothing keeping the copies equal. CLAUDE.md names the smell and the rule of
 three; no linter or knip rule sees any of it.
 
-- `internal/tui/branch.go:22` — `notInRepository` is a second wording of
-  `gitrepo.ErrNotARepository`, under a comment (`:21`) saying the fact is
-  "stated one way"; `programErrors` (`internal/tui/failure.go:283`) holds
-  the first.
 - `internal/tui/composer.go:378` — `Model.recordScope` tests `scope != ""`
   on the raw `c.scope.Value()` (`:143`), so `' '` is recorded;
   `server.rememberScope` (`internal/webserver/commit.go:192`) trims first,
@@ -747,13 +743,11 @@ the spine; a `.ghe.com` tenant is told by `doctor` to set what the code
 could infer; a renamed theme key in `web/index.html` passes every gate and
 shows only as a flash before first paint; a drifted release prefix pushes a
 tag the gate never saw, or silently tags nothing; a required snapshot field
-added to the contract dies in the e2e specs as a locator timeout; a change
-to the focus ring is eight edits; and a wording change to the repository
-sentence is made twice beside a comment that says there is one.
+added to the contract dies in the e2e specs as a locator timeout; and a
+change to the focus ring is eight edits.
 
-**One way to fix it.** One owner per fact: `gitrepo.ErrNotARepository`
-rendered through the failure block with `notInRepository` deleted; a
-`loop.RememberScope` both surfaces call, with one trim; a run-kind value
+**One way to fix it.** One owner per fact: a `loop.RememberScope` both
+surfaces call, with one trim; a run-kind value
 carrying title and headline; a system field on `progress.Stage` the spine
 looks up in a map `exhaustive` checks; `kindOf` consulting `githubsOwn`; a
 terminal test that reads the action names out of the configuration page and
@@ -765,8 +759,7 @@ test checks `web/index.html` against; one `Button` component or two class
 constants; one `configHome()` the four callers share; and `scopeInSubject`
 built from `commitType`'s class.
 
-**Done when.** `grep 'inside a git repository' internal/tui` finds one
-string; a test shows `' '` is recorded by neither surface; no run-title
+**Done when.** A test shows `' '` is recorded by neither surface; no run-title
 literal appears in more than one file and each kind's headline has a test;
 the spine's hue comes from a field on `progress.Stage` and `exhaustive`
 fails the build when a system has no hue;

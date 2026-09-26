@@ -282,7 +282,7 @@ func (m Model) reviewRail(_ int) string {
 // reviewDetail describes the pull request, or what opening one needs.
 func (m Model) reviewDetail(width int) string {
 	if m.outsideRepository() {
-		return wrap(notInRepository, width)
+		return m.failureBlock(m.branch.err, width)
 	}
 
 	if !m.review.found {
