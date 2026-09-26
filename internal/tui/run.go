@@ -21,13 +21,16 @@ import (
 // starter starts a program whose output a run streams.
 type starter func() (proc.Output, error)
 
+// runKind is a run's title, and what it says failed on a bare failure status.
+type runKind struct{ title, refusal string }
+
 // commandRun is a program running with its output streamed: a commit, a push,
 // a hook. When it fails, every place a tool pointed at can be opened in the
 // editor at its line.
 type commandRun struct {
 	marks  glyphs
 	styles styles
-	title  string
+	kind   runKind
 	id     int
 	start  starter
 	// succeeded is what happens once the program exits cleanly; nil keeps the
@@ -62,10 +65,10 @@ var (
 )
 
 // startRun opens a run and starts its program.
-func (m Model) startRun(title string, start starter, succeeded func(Model) (Model, tea.Cmd)) (Model, tea.Cmd) {
+func (m Model) startRun(kind runKind, start starter, succeeded func(Model) (Model, tea.Cmd)) (Model, tea.Cmd) {
 	m.runs++
 	m.overlay = commandRun{
-		marks: m.marks, styles: m.styles, title: title, id: m.runs, start: start, succeeded: succeeded,
+		marks: m.marks, styles: m.styles, kind: kind, id: m.runs, start: start, succeeded: succeeded,
 		placeScan: hooks.NewFailureScan(runtime.GOOS),
 	}
 
@@ -209,7 +212,7 @@ func (r commandRun) view(width, rows int) (string, string) {
 		lines = append(lines, tail(r.lines, rows-len(lines))...)
 	}
 
-	return r.title, strings.Join(lines, "\n")
+	return r.kind.title, strings.Join(lines, "\n")
 }
 
 // header is the rows above the list: the state, a wrapped jobs line when there
@@ -240,23 +243,12 @@ func (r commandRun) state() string {
 	}
 }
 
-// failureHeadline names the step that failed in words. It stands in only for a
-// failure status — git's "exit status 1", which says nothing on its own; an
-// error that already carries its cause — a message that could not be written,
-// say — is told the way every failure is.
+// failureHeadline is the run kind's refusal for a bare failure status — git's
+// "exit status 1", which says nothing on its own. An error that carries its
+// cause, a message that could not be written say, is told as every failure is.
 func (r commandRun) failureHeadline() string {
-	sentences := map[string]string{
-		"git commit":         "the commit was refused",
-		"git commit --amend": "the amend was refused",
-		"git commit --fixup": "the fixup was refused",
-		"pre-commit":         "the pre-commit hook failed",
-		"git push":           "the push was refused",
-		"git rebase":         "the rebase stopped — resolve the conflict in your shell, then continue",
-	}
-
-	sentence, known := sentences[r.title]
-	if known && errors.Is(r.err, proc.ErrExitStatus) {
-		return failedGlyph(r.styles, r.marks) + " " + sentence
+	if errors.Is(r.err, proc.ErrExitStatus) {
+		return failedGlyph(r.styles, r.marks) + " " + r.kind.refusal
 	}
 
 	return failureLine(r.styles, r.marks, r.err)
@@ -331,7 +323,7 @@ func (r commandRun) handleKey(m Model, msg tea.KeyPressMsg) (Model, tea.Cmd) {
 	case key.Matches(msg, m.keys.closeOverlay):
 		return m.closeOverlay(), tea.Batch(m.loadChanges(), m.loadBranch())
 	case key.Matches(msg, m.keys.retry):
-		return m.startRun(r.title, r.start, r.succeeded)
+		return m.startRun(r.kind, r.start, r.succeeded)
 	case key.Matches(msg, m.keys.confirm):
 		return r.openFailure(m)
 	case key.Matches(msg, m.keys.fullOutput):
@@ -431,8 +423,11 @@ func (m Model) startPush(succeeded func(Model) (Model, tea.Cmd)) (Model, tea.Cmd
 
 	push := m.deps.Git.Push
 
-	return m.startRun("git push", func() (proc.Output, error) { return push(name) }, succeeded)
+	return m.startRun(pushRun(), func() (proc.Output, error) { return push(name) }, succeeded)
 }
+
+// pushRun is a push, which the remote can refuse.
+func pushRun() runKind { return runKind{title: "git push", refusal: "the push was refused"} }
 
 // startRebase replays the branch onto its base and streams the result. A clean
 // rebase says so and reads the branch again; a conflict leaves git's output on
@@ -451,5 +446,10 @@ func (m Model) startRebase() (Model, tea.Cmd) {
 		return done, done.loadBranch()
 	}
 
-	return m.startRun("git rebase", func() (proc.Output, error) { return rebase(base) }, succeeded)
+	return m.startRun(rebaseRun(), func() (proc.Output, error) { return rebase(base) }, succeeded)
+}
+
+// rebaseRun is a rebase, which a conflict stops midway for the shell to finish.
+func rebaseRun() runKind {
+	return runKind{title: "git rebase", refusal: "the rebase stopped — resolve the conflict in your shell, then continue"}
 }

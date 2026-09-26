@@ -361,7 +361,7 @@ func (c commitComposer) commit(m Model) (Model, tea.Cmd) {
 	m.draft = c.draft()
 	message, commit := c.conv.Message(subject, c.body, string(c.issueKey)), m.deps.Git.Commit
 
-	return m.startRun("git commit", func() (proc.Output, error) { return commit(message) },
+	return m.startRun(commitRun(), func() (proc.Output, error) { return commit(message) },
 		func(done Model) (Model, tea.Cmd) {
 			done.draft = commitDraft{}
 			done = done.closeOverlay().noticed(done.marks.done + " committed " + subject.String())
@@ -370,3 +370,6 @@ func (c commitComposer) commit(m Model) (Model, tea.Cmd) {
 			return done, tea.Batch(done.loadChanges(), done.loadBranch())
 		})
 }
+
+// commitRun is a commit, which the repository's hooks can refuse.
+func commitRun() runKind { return runKind{title: "git commit", refusal: "the commit was refused"} }

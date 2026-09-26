@@ -322,7 +322,12 @@ func (m Model) runPreCommit() (Model, tea.Cmd) {
 
 	run := m.deps.Hooks.Run
 
-	return m.startRun(preCommit, func() (proc.Output, error) { return run(preCommit) }, nil)
+	return m.startRun(preCommitRun(), func() (proc.Output, error) { return run(preCommit) }, nil)
+}
+
+// preCommitRun is a run of the pre-commit hook alone, which a check can fail.
+func preCommitRun() runKind {
+	return runKind{title: preCommit, refusal: "the " + preCommit + " hook failed"}
 }
 
 // canFoldStaged reports whether the staged changes can go into an unpushed
@@ -385,11 +390,16 @@ func (m Model) applyAmend(subject string) (Model, tea.Cmd) {
 
 	amend := m.deps.Git.Amend
 
-	return m.startRun("git commit --amend", amend, func(done Model) (Model, tea.Cmd) {
+	return m.startRun(amendRun(), amend, func(done Model) (Model, tea.Cmd) {
 		done = done.closeOverlay().noticed(done.marks.done + " amended " + subject)
 
 		return done, tea.Batch(done.loadChanges(), done.loadBranch())
 	})
+}
+
+// amendRun is an amend of the last commit, which the hooks can refuse.
+func amendRun() runKind {
+	return runKind{title: "git commit --amend", refusal: "the amend was refused"}
 }
 
 // applyFixup records a fixup! of the chosen commit, hooks and all.
@@ -400,12 +410,17 @@ func (m Model) applyFixup(hash, subject string) (Model, tea.Cmd) {
 
 	fixup := m.deps.Git.Fixup
 
-	return m.startRun("git commit --fixup", func() (proc.Output, error) { return fixup(hash) },
+	return m.startRun(fixupRun(), func() (proc.Output, error) { return fixup(hash) },
 		func(done Model) (Model, tea.Cmd) {
 			done = done.closeOverlay().noticed(done.marks.done + " recorded a fixup! of " + subject)
 
 			return done, tea.Batch(done.loadChanges(), done.loadBranch())
 		})
+}
+
+// fixupRun is a fixup! of a chosen commit, which the hooks can refuse.
+func fixupRun() runKind {
+	return runKind{title: "git commit --fixup", refusal: "the fixup was refused"}
 }
 
 // amendPreview confirms folding the staged changes into the last commit.
