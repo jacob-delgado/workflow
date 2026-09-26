@@ -108,8 +108,7 @@ func (s *server) UpdateConfig(
 func (s *server) writeOver(posted api.Config, over basis) api.UpdateConfigResponseObject {
 	incoming, err := fromDTO(posted)
 	if err != nil {
-		return api.UpdateConfig422ApplicationProblemPlusJSONResponse(
-			problem(api.Unprocessable, "the configuration is not valid"))
+		return api.UpdateConfig422ApplicationProblemPlusJSONResponse(problem(api.Unprocessable, invalidReason(err)))
 	}
 
 	err = s.keymapRefusal(incoming.UI.Keys)
@@ -140,6 +139,17 @@ func (s *server) writeOver(posted api.Config, over basis) api.UpdateConfigRespon
 	return api.UpdateConfig200JSONResponse{
 		Body: out, Headers: api.UpdateConfig200ResponseHeaders{ETag: basis{seen: written}.etag()},
 	}
+}
+
+// invalidReason says why a posted configuration was refused, in Parse's own
+// words after the prefix naming the file, which a posted configuration is not
+// yet: the setting and the value a validator refused, none of which is a
+// credential, or the field the decoder could not take. Several reasons share
+// the one line.
+func invalidReason(err error) string {
+	reason := strings.TrimPrefix(err.Error(), config.ErrInvalid.Error()+": ")
+
+	return "the configuration is not valid: " + strings.ReplaceAll(reason, "\n", "; ")
 }
 
 // keymapRefusal is why the terminal interface would refuse keys, so a save
