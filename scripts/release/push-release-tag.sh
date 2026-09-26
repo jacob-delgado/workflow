@@ -1,8 +1,15 @@
 #!/usr/bin/env bash
 # Push the vX.Y.Z tag for a merged release-please PR, then fire release.yml.
 #
-# Runs from .github/workflows/release-please.yml on every push to main; it exits
-# quietly unless the head commit is release-please's own release commit.
+# Usage:
+#   push-release-tag.sh decide   write version=vX.Y.Z to GITHUB_OUTPUT for a
+#                                release commit, and version= for any other
+#   push-release-tag.sh          tag the head commit, if it is a release
+#
+# Runs from .github/workflows/release-please.yml on every push to main: first as
+# decide, whose answer the workflow reads to choose whether to provision, gate
+# and tag, then, for a release commit, as the tag step. The subject rule below is
+# the one statement of what a release commit looks like.
 #
 # Why this exists at all: release-please is configured with
 # `skip-github-release: true`, because GitHub treats a PUBLISHED release as
@@ -30,8 +37,9 @@
 #   HEAD_COMMIT_MSG  the pushed commit's message, passed as an env var rather
 #                    than interpolated into the workflow's run: line, because its
 #                    content is attacker-influenceable.
+#   GITHUB_OUTPUT    the file the decide step appends its answer to.
 #   GH_TOKEN         needs actions:write (workflow run) and pull-requests:write
-#                    (label flip).
+#                    (label flip); only the tag step reads it.
 set -euo pipefail
 
 readonly manifest=".release-please-manifest.json"
@@ -44,6 +52,18 @@ subject="$(printf '%s\n' "${head_commit_msg}" | head -n1)"
 # version and nothing after it, so nothing but a version can become a tag name.
 version="$(printf '%s\n' "${subject}" \
   | sed -n -E 's/^chore\(main\): release ([0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.]+)?)$/\1/p')"
+
+case "${1:-}" in
+  decide)
+    printf 'version=%s\n' "${version:+v${version}}" >>"${GITHUB_OUTPUT:?GITHUB_OUTPUT is required}"
+    exit 0
+    ;;
+  "") ;;
+  *)
+    echo "Unknown step '$1'; the only one is decide." >&2
+    exit 2
+    ;;
+esac
 
 if [[ -z "${version}" ]]; then
   echo "Not a release-please release commit; nothing to tag."

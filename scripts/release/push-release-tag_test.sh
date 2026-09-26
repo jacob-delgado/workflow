@@ -85,6 +85,28 @@ expect() {
   fi
 }
 
+# decides runs the script's decide step on a message and compares the line it
+# wrote to GITHUB_OUTPUT, which the workflow's later steps read.
+#   decides <name> <message> <want output>
+decides() {
+  local name="$1" message="$2" want="$3" output="${workdir}/decide${cases}.out" got
+
+  cases=$((cases + 1))
+  : >"${output}"
+  if ! (cd "${workdir}" \
+    && GITHUB_OUTPUT="${output}" HEAD_COMMIT_MSG="${message}" bash "${script}" decide >/dev/null 2>&1); then
+    echo "FAIL ${name}: the decide step failed" >&2
+    failures=$((failures + 1))
+    return
+  fi
+
+  got="$(<"${output}")"
+  if [[ "${got}" != "${want}" ]]; then
+    echo "FAIL ${name}: want '${want}' in GITHUB_OUTPUT, got '${got}'" >&2
+    failures=$((failures + 1))
+  fi
+}
+
 expect untagged ok "an ordinary commit" "1.4.0" "feat(jira): add issue transitions" ""
 expect tagged ok "release-please's own release commit" "1.4.0" "chore(main): release 1.4.0" "42"
 expect tagged ok "a prerelease" "1.4.0-rc.1" "chore(main): release 1.4.0-rc.1" "42"
@@ -121,6 +143,29 @@ if ! grep -q 'workflow run release.yml --ref v1.4.0' "${workdir}/case1.log" \
   || ! grep -q 'pr edit 42' "${workdir}/case1.log"; then
   echo "FAIL a release: want release.yml dispatched and pull request 42 relabeled, got:" >&2
   sed 's/^/    /' "${workdir}/case1.log" >&2
+  failures=$((failures + 1))
+fi
+
+decides "decide: a release commit" "chore(main): release 1.4.0" "version=v1.4.0"
+decides "decide: a prerelease" "chore(main): release 1.4.0-rc.1" "version=v1.4.0-rc.1"
+decides "decide: a release subject above a body" $'chore(main): release 1.4.0\n\nnotes' "version=v1.4.0"
+decides "decide: an ordinary commit" "fix: x" "version="
+decides "decide: words after the version" "chore(main): release 1.4.0 and more" "version="
+
+# A step name the script does not know is refused rather than read as a request
+# to tag, even on a commit that would be tagged.
+cases=$((cases + 1))
+repository unknown "1.4.0"
+quiet_git -C "${workdir}/unknown" commit -m "chore(main): release 1.4.0"
+quiet_git -C "${workdir}/unknown" push origin main
+
+if (cd "${workdir}/unknown" \
+  && PATH="${workdir}/bin:${PATH}" GH_STUB_LOG="${workdir}/unknown.log" GH_STUB_PULL="42" \
+    GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_NOSYSTEM=1 HEAD_COMMIT_MSG="chore(main): release 1.4.0" \
+    bash "${script}" tag >"${workdir}/unknown.out" 2>&1) \
+  || git -C "${workdir}/unknown.git" rev-parse --verify --quiet refs/tags/v1.4.0 >/dev/null 2>&1; then
+  echo "FAIL an unknown step: want it refused with nothing tagged" >&2
+  sed 's/^/    /' "${workdir}/unknown.out" >&2
   failures=$((failures + 1))
 fi
 

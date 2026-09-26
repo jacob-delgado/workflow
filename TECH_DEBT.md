@@ -551,9 +551,9 @@ The scripts:
 
 - `scripts/release/push-release-tag_test.sh:32` — the `gh` stub answers any
   `gh api` call with `GH_STUB_PULL` (`:33`) and ignores `--jq`, so the label
-  filter in `pr_number` (`scripts/release/push-release-tag.sh:71`) is
+  filter in `pr_number` (`scripts/release/push-release-tag.sh:91`) is
   evaluated by no test, and the "no pull request labeled" case
-  (`scripts/release/push-release-tag_test.sh:96`) passes because the stub
+  (`scripts/release/push-release-tag_test.sh:118`) passes because the stub
   printed nothing, not because the filter selected nothing.
 - `scripts/coverage-summary_test.sh:69` — the summary-shape case asserts the
   substrings `"statements"` and `"branch"` only; the `stats` fixture (`:51`)
@@ -658,12 +658,6 @@ Facts the code needs in more than one place are written in each, with
 nothing keeping the copies equal. CLAUDE.md names the smell and the rule of
 three; no linter or knip rule sees any of it.
 
-- `.github/workflows/release-please.yml:67` — "Provision the toolchain for
-  the gate" and "Verify the gate before tagging" (`:79`) each restate the
-  release subject with `startsWith(…, 'chore(main): release ')`, "Push tag
-  for a merged release PR" (`:89`) runs the script with no `if:`, and
-  `version` in `scripts/release/push-release-tag.sh:46` decides the same
-  question with its own `sed` regex.
 - `web/e2e/a11y.spec.ts:141` — `issuesSnapshot` and `pagedSnapshot`
   (`web/e2e/layout.spec.ts:351`) are untyped literals of the empty snapshot
   shape that `makeSnapshot` (`web/src/test/fixtures.ts:23`) builds typed.
@@ -695,21 +689,17 @@ three; no linter or knip rule sees any of it.
   one primary and one secondary class) closes both.
 
 A renamed theme key in `web/index.html` passes every gate and shows only as
-a flash before first paint; a drifted release prefix pushes a tag the gate
-never saw, or silently tags nothing; a required snapshot field added to the
-contract dies in the e2e specs as a locator timeout; and a change to the
-focus ring is eight edits.
+a flash before first paint; a required snapshot field added to the contract
+dies in the e2e specs as a locator timeout; and a change to the focus ring
+is eight edits.
 
-**One way to fix it.** One owner per fact: the tag script owning the
-release-commit decision and the workflow reading its answer; `satisfies
-Snapshot` on the e2e literals; the server sending the effective commit types
-so the form holds no list; an exported `storageKey` a test checks
-`web/index.html` against; and one `Button` component or two class
-constants.
+**One way to fix it.** One owner per fact: `satisfies Snapshot` on the e2e
+literals; the server sending the effective commit types so the form holds
+no list; an exported `storageKey` a test checks `web/index.html` against;
+and one `Button` component or two class constants.
 
-**Done when.** `chore(main): release` appears in exactly one file under
-`.github/` and `scripts/`; removing a required snapshot field from the e2e
-literals fails `tsc -b`;
+**Done when.** Removing a required snapshot field from the e2e literals
+fails `tsc -b`;
 `grep -n "'revert'" web/src/features/branch/CommitForm.tsx` is empty and the
 options come from a server field; a test fails when
 `web/index.html`'s key differs from `themeStore`'s;
