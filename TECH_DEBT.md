@@ -673,7 +673,7 @@ three; no linter or knip rule sees any of it.
   the push (`internal/tui/run.go:398`) and the rebase (`:418`).
 - `internal/tui/spine.go:68` — `Model.stages` hard-codes five hues in stage
   order and indexes them (`:74`) by the position of `Stages`' result
-  (`internal/progress/progress.go:66`), the one place the stages are
+  (`internal/progress/progress.go:92`), the one place the stages are
   derived.
 - `internal/forge/remote.go:153` — `kindOf` knows `github.com` only, so a
   `.ghe.com` host is `KindUnknown`; `githubsOwn`
@@ -1396,14 +1396,14 @@ stages in the snapshot; the first fix below is that change.
 - `web/src/features/issues/WorkStory.tsx:97` — `onHeadStages` marks
   Changes done only when
   `changes.changes.length === 0 && branch.commits.length > 0`;
-  `commitState` (`internal/progress/progress.go:101`) returns Done on
+  `commitState` (`internal/progress/progress.go:126`) returns Done on
   `OnFeatureBranch && Commits > 0` before it reads `UncommittedChanges`.
 - `web/src/features/issues/WorkStory.tsx:124` — `pullRequestDone` is done
   unless CI is `running` or `failed`, so a CI state of none reads done and
   `changes_requested` is never read; `reviewState`
-  (`internal/progress/progress.go:117`) is Failed on
-  `CIFailed || ChangesRequested`, Done only on `CIPassed`, and in flight
-  otherwise.
+  (`internal/progress/progress.go:141`) is Done on a merged pull request
+  (the wire `state`), Failed on `CIFailed || ChangesRequested`, Done on
+  `CIPassed`, and in flight otherwise.
 - `internal/progress/progress.go:8` — the package comment: both the spine
   and `workflow status` read it, "so the rule lives in one place".
 - `internal/progress/progress_test.go:47` —
