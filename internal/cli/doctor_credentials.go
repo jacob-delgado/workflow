@@ -234,9 +234,9 @@ func checkMessaging(
 
 // credentialOutcome names what a failed check found, so the outcome is the one
 // the reader can act on: no credential to ask with, a service that never judged
-// the one it was given, or a credential refused, by the service or by the
-// client before sending it. It reads unreachable as every command's exit status
-// does: a service not reached, one asking to wait, or a refused redirect.
+// the one it was given, or a credential the service refused. It reads
+// unreachable as every command's exit status does: a service not reached, one
+// asking to wait, or a refused redirect.
 func credentialOutcome(err error, service string) error {
 	noCredential := exitFamily{members: []error{jira.ErrNoCredential, messaging.ErrNoCredential, forge.ErrNoToken}}
 
@@ -287,9 +287,10 @@ func checkJira(ctx context.Context, out io.Writer, doer jira.Doer, settings conf
 	client := jira.New(doer, settings)
 
 	user, err := client.Myself(ctx)
-	// The configuration section fails an address the client cannot use; here it
-	// only means there is no Jira to ask.
-	if errors.Is(err, config.ErrInvalidBaseURL) {
+	// The configuration section fails an address the client cannot use, whether
+	// it is not an http or https URL or it carries a login; here it only means
+	// there is no Jira to ask.
+	if errors.Is(err, config.ErrInvalidBaseURL) || errors.Is(err, config.ErrCredentialInBaseURL) {
 		return credentialUnchecked(out, "jira", err.Error()+" — the configuration section fails it; Jira was not asked")
 	}
 
