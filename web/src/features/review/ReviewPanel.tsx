@@ -71,7 +71,8 @@ function BranchReview({ review }: { review: Review }) {
 }
 
 // PullRequestSummary is the branch's pull request — its number in the forge's
-// own mark, its title, state and reviews — and its CI checks.
+// own mark, its title, state and, while it is open, its reviews — and its CI
+// checks, which the server sends only for an open one.
 function PullRequestSummary({ pull, ci }: { pull: PullRequest; ci: Ci | null }) {
   const { sigil } = useForgeWords()
 
@@ -94,13 +95,8 @@ function PullRequestSummary({ pull, ci }: { pull: PullRequest; ci: Ci | null }) 
         </h2>
         <dl className={definitionList}>
           <dt className="text-muted-foreground">State</dt>
-          <dd>{pull.draft ? 'Draft' : 'Ready for review'}</dd>
-          <dt className="text-muted-foreground">Mergeable</dt>
-          <dd>{mergeableLabel[pull.mergeable]}</dd>
-          <dt className="text-muted-foreground">Approvals</dt>
-          <dd>{pull.approvals}</dd>
-          <dt className="text-muted-foreground">Changes requested</dt>
-          <dd>{pull.changes_requested ? 'Yes' : 'No'}</dd>
+          <dd>{stateLabel(pull)}</dd>
+          {pull.state === 'open' ? <ReviewRows pull={pull} /> : null}
         </dl>
       </section>
 
@@ -135,6 +131,37 @@ function PullRequestSummary({ pull, ci }: { pull: PullRequest; ci: Ci | null }) 
           </ul>
         </section>
       ) : null}
+    </>
+  )
+}
+
+// stateLabel is what the State row says: an open pull request is a draft or
+// ready for review, and one that is no longer open says how it ended.
+function stateLabel(pull: PullRequest): string {
+  if (pull.state === 'open') {
+    return pull.draft ? 'Draft' : 'Ready for review'
+  }
+
+  return endedLabel[pull.state]
+}
+
+const endedLabel: Record<Exclude<PullRequest['state'], 'open'>, string> = {
+  merged: 'Merged',
+  closed: 'Closed',
+}
+
+// ReviewRows are how an open pull request's review stands. One that is no
+// longer open waits on no review, and the forge stops reporting it, so these
+// rows would only show stale or unknown values.
+function ReviewRows({ pull }: { pull: PullRequest }) {
+  return (
+    <>
+      <dt className="text-muted-foreground">Mergeable</dt>
+      <dd>{mergeableLabel[pull.mergeable]}</dd>
+      <dt className="text-muted-foreground">Approvals</dt>
+      <dd>{pull.approvals}</dd>
+      <dt className="text-muted-foreground">Changes requested</dt>
+      <dd>{pull.changes_requested ? 'Yes' : 'No'}</dd>
     </>
   )
 }

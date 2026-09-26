@@ -91,13 +91,15 @@ runs the repository's own hooks. A hook that refuses the commit says why.
 
 ### Review
 
-The branch's pull request — its number, title, state, mergeability, approvals
-and requested changes — and its CI checks. With none open, **Open a pull
-request** composes one as `workflow pr` would and shows it as a form: the
-title, the base, the reviewers, assignees and labels, the description, and
-whether it is a draft. **Open pull request** pushes the branch first when it is
-not published, then opens it. If the forge would not add every reviewer,
-assignee or label, a warning says so.
+The branch's pull request — its number, title and state: Draft or Ready for
+review while it is open, Merged once it has merged. While it is open, the
+section also shows its mergeability, approvals and requested changes, and its
+CI checks. With no pull request for the branch, **Open a pull request**
+composes one as `workflow pr` would and shows it as a form: the title, the
+base, the reviewers, assignees and labels, the description, and whether it is
+a draft. **Open pull request** pushes the branch first when it is not
+published, then opens it. If the forge would not add every reviewer, assignee
+or label, a warning says so.
 
 Right after the page opens one, the section offers what the terminal and
 `workflow pr` offer next: **Link it on** the branch's issue, and **Move** the

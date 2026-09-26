@@ -943,64 +943,6 @@ fails, the reads it repeats on every frame, the contract's prose, and the
 rules the browser derives for itself; what the web's gates still lack — an
 end-to-end run that drives a write — is DEBT-65, with the other gates below.
 
-### DEBT-127 A merged pull request reads "Ready for review" on the web
-
-Severity: medium · Confidence: read
-
-The wire `PullRequest` carries no state, so the web cannot tell a merged
-pull request from an open one, though the forge hands it both and every
-other consumer branches on `State`. Finishing the branch from the web, which
-would close the window, is FEAT-79.
-
-- `api/openapi.yaml:1304` — `PullRequest`'s `required` list is number,
-  url, title, draft, approvals, changes_requested and mergeable; no state
-  field.
-- `internal/webserver/dto.go:134` — `pullDTO` maps `forge.PullRequest`
-  onto the wire and drops `State`.
-- `internal/forge/pulls.go:213` — `pickPull` returns the merged pull
-  request with found true when no open one exists, as `IsOpen`'s comment
-  at `internal/forge/pulls.go:89` warns callers.
-- `internal/cli/cli.go:306` — `WebDeps` wires `FindPull` to the raw
-  `FindPullRequest`, so the web sees a merged pull as found.
-- `internal/webserver/stream.go:188` — `snapshotReview` passes that found
-  through to `review` unchanged.
-- `internal/webserver/handlers.go:182` — `server.review` calls `CheckCI`
-  for any found pull, merged included, on every snapshot; the terminal's
-  `checkCI` (`internal/tui/review.go:115`) returns early unless
-  `State == StateOpen`.
-- `web/src/features/review/ReviewPanel.tsx:97` — `PullRequestSummary`'s
-  State row is `pull.draft ? 'Draft' : 'Ready for review'`, the only two
-  values it can show.
-- `docs/content/docs/web.md:94` — "### Review" promises the section shows
-  the pull request's state.
-
-From the moment a pull request merges until the branch is finished, the
-browser says State: Ready for review, shows a Mergeable row ("Mergeability
-unknown" on GitHub, whose `githubFind` reads mergeability only while open,
-`internal/forge/github.go:99`; "No conflicts" is possible on GitLab, whose
-`gitlabMerge.pullRequest` maps `merge_status` for any state,
-`internal/forge/gitlab.go:42`) and lists CI checks read against the merged
-head. A user could wait on a review that already happened. The terminal's
-`reviewRail` says "merged" instead (`internal/tui/review.go:273`),
-`gatherReview` (`internal/cli/status.go:285`) treats a merged pull as no
-open review, and `momentOf` (`internal/loop/announce.go:142`) never asks CI
-about one. The server also spends one forge request per stream tick asking
-CI about a pull that has no live CI. No test in
-`internal/webserver/review_test.go` or
-`web/src/features/review/ReviewPanel.test.tsx` builds a merged pull
-(neither mentions `StateMerged` or "merged", by grep).
-
-**One way to fix it.** Add a `state` enum (`open`, `merged`) to the wire
-`PullRequest`, map `forge.PullRequest.State` in `pullDTO` and regenerate
-both clients (`task gen`, `yarn gen`); have `server.review` skip `CheckCI`
-for a pull that is not open, as the terminal does, and have the State row
-say "Merged" and omit the CI section.
-
-**Done when.** `web/src/features/review/ReviewPanel.test.tsx` renders a
-snapshot whose pull is merged and finds the text "Merged" and no "Ready for
-review"; an `internal/webserver/review_test.go` case with a merged pull
-records no `CheckCI` call; `task gen` and `yarn gen` leave no diff.
-
 ### DEBT-128 Three mock fixtures show a shape the server never sends
 
 Severity: low · Confidence: read
@@ -1218,8 +1160,7 @@ Severity: medium · Confidence: read
 uncached `Whoami` GET, so each open tab spends one forge request per
 interval on a value fixed for the session; the same frame calls
 `deps.Branch()` three times, each running `ReadBranch`'s seven git
-commands; and `review` asks `CheckCI` about a merged pull, where the
-terminal skips a pull that is not open (DEBT-127).
+commands.
 
 - `internal/webserver/stream.go:90` — `server.snapshot` builds
   `messagingDTO(s.config(), s.author())` on every frame.
@@ -1242,9 +1183,6 @@ terminal skips a pull that is not open (DEBT-127).
   `branch --show-current`, `rev-parse HEAD`, `rev-parse @{upstream}`,
   `config --get remote.pushDefault`, the base lookup, `rev-list`, `log` and
   `log -1` per read.
-- `internal/webserver/handlers.go:182` — `server.review` calls `CheckCI`
-  whenever a pull is found; `Model.checkCI` (`internal/tui/review.go:115`)
-  does not unless `State == StateOpen`.
 - `internal/forge/githubci.go:41` — `githubStatus` pages both the combined
   status and the check runs, at least two requests per frame.
 
@@ -1266,7 +1204,7 @@ review and branches builders.
 
 **Done when.** A stream test with counting `Author` and `Branch` seams sees
 one `Author` call across three pushed snapshots and one `Branch` call per
-pushed snapshot (the merged-pull `CheckCI` skip is DEBT-127).
+pushed snapshot.
 
 ### DEBT-133 The errors page points a 500's cause at output nothing writes
 
