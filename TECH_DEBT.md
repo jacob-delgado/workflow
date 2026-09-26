@@ -952,45 +952,10 @@ and `grep -n 'two shells\|Shell 2' Taskfile.yml` prints nothing above the
 
 ## The terminal interface
 
-What is open here is a set of appliers and guards that read stale state or skip
-a check the other surfaces make, two configuration sections nothing validates,
-and the composition the interface keeps beside `loop`'s; what it carries on
-purpose — the two composers' field handling written twice, and the spine's
-color-only hue — is under [Deliberate
+What is open here is the composition the interface keeps beside `loop`'s;
+what it carries on purpose — the two composers' field handling written twice,
+and the spine's color-only hue — is under [Deliberate
 trade-offs](#deliberate-trade-offs-that-carry-a-cost).
-
-### DEBT-113 The pull request composer titles from the listed issue, not Jira
-
-Severity: medium · Confidence: read
-
-`Model.openPullRequestComposer` reads the issue summary from the loaded
-issue list — `m.issues.find(issueKey)` (`internal/tui/prcomposer.go:114`)
-returns a zero `jira.Issue` when the key is not listed — and passes
-`issue.Summary` to `convention.PullRequestTitleFrom`
-(`internal/tui/prcomposer.go:119`). With `pull_request.title_source =
-issue` and a branch whose issue is not in the list (assigned to someone
-else, in another view, still loading), `titleFromIssue`
-(`internal/convention/pullrequest.go:54`) sees an empty summary and
-silently selects the oldest commit subject. The command line and the web
-read the issue from the tracker: `issueSummary`
-(`internal/loop/loop.go:40`) calls the `Issue` seam. Same branch, same
-configuration, `workflow pr` proposes "PROJ-500: Summary" and the terminal
-proposes a commit subject, with nothing on screen saying the issue was not
-consulted — though the Branch pane already knows the case ("not among your
-open issues"). `Deps.Jira.Issue` is bound but unused in
-`internal/tui/prcomposer.go`, and the one test of the source,
-`TestTheComposerTakesItsTitleFromTheConfiguredSource`
-(`internal/tui/prbase_test.go:59`), uses an issue that is in the world's
-list. The wrong title is shown in an editable composer before anything
-goes outward.
-
-**One way to fix it.** Read the summary through `Deps.Jira.Issue` (the
-seam `ComposePull` uses) when the list does not hold the key, or compose
-through `loop.ComposePull`'s draft and fill the composer from it.
-
-**Done when.** A test with `cfg.PullRequest.TitleSource = "issue"` and a
-branch naming an issue absent from the world's list sees the issue's
-summary as the title.
 
 ### DEBT-125 The interface composes what `loop` composes once: announcement, draft, memory
 
@@ -1018,9 +983,10 @@ hand. FEAT-84 would need a third adapter from `webserver.Deps`.
   literal from seams.
 - `internal/loop/loop.go:4` — the package comment of `loop`: "composes the
   developer loop once, for every surface".
-- `internal/tui/prcomposer.go:119` — `openPullRequestComposer` calls
-  `convention.PullRequestTitleFrom` with `loop.draft`'s arguments.
-- `internal/tui/prcomposer.go:203` — `prComposer.withTemplate` calls
+- `internal/tui/prcomposer.go:139` — `proposePullRequest` calls
+  `convention.PullRequestTitleFrom` with `loop.draft`'s arguments, and
+  `readTitleIssue` (`:181`) calls it again with the summary it reads.
+- `internal/tui/prcomposer.go:266` — `prComposer.withTemplate` calls
   `convention.PullRequestBody` with `loop.draft`'s arguments.
 - `internal/loop/pull.go:128` — `draft`, the loop's own title and body
   proposal.
@@ -1994,10 +1960,10 @@ know about.
 - **The two composers' field handling is written twice.** The commit and
   pull request composers each pair an `onFieldNav` with a `*CanComplete`
   check (`commitComposer.onFieldNav`, `internal/tui/scopesuggest.go:17`;
-  `prComposer.onFieldNav`, `internal/tui/prcomposer.go:304`), and each blurs
+  `prComposer.onFieldNav`, `internal/tui/prcomposer.go:367`), and each blurs
   every field before focusing one (`commitComposer.focusOn`,
   `internal/tui/composer.go:297`; `prComposer.focusOn`,
-  `internal/tui/prcomposer.go:325`). Two is not yet the rule of three, so
+  `internal/tui/prcomposer.go:388`). Two is not yet the rule of three, so
   they stay apart until a third composer needs them. The cost is that a
   change to field navigation is made twice, and a third composer must copy
   the pairs or extract them then.
