@@ -4,6 +4,7 @@
 package webserver_test
 
 import (
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -292,16 +293,22 @@ func TestCommitReportsAFailedStart(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
-	// The commit cannot even be started.
+	// The commit cannot even be started, and the seam's words name where the
+	// repository is; the answer says how to see why instead.
 	deps := filledDeps()
-	deps.Commit = func(string) (proc.Output, error) { return proc.Output{}, errSeam }
+	deps.Commit = func(string) (proc.Output, error) {
+		return proc.Output{}, fmt.Errorf("running git in %s: %w", repoPath, errSeam)
+	}
 
 	// Act
 	recorder := doCommit(t, deps, `{"type":"fix","subject":"redact tokens"}`)
 
 	// Assert
-	if recorder.Code != http.StatusUnprocessableEntity {
-		t.Errorf("status = %d, want 422 when the commit cannot be started", recorder.Code)
+	want := "the commit could not be started; commit from a terminal to see why"
+
+	failure := decode[api.Problem](t, recorder)
+	if recorder.Code != http.StatusUnprocessableEntity || failure.Detail != want {
+		t.Errorf("status = %d, detail %q; want 422 saying %q", recorder.Code, failure.Detail, want)
 	}
 }
 
