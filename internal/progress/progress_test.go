@@ -145,6 +145,24 @@ func TestStagesAreTheLoopInOrderNamedForTheMessagingService(t *testing.T) {
 	}
 }
 
+func TestEachStageNamesTheSystemItsWorkHappensIn(t *testing.T) {
+	t.Parallel()
+
+	// Act
+	stages := progress.Stages(progress.Work{}, "Slack")
+
+	// Assert
+	systems := make([]progress.System, len(stages))
+	for index, stage := range stages {
+		systems[index] = stage.System
+	}
+
+	want := []progress.System{progress.Tracker, progress.Git, progress.Git, progress.Forge, progress.Messaging}
+	if !slices.Equal(systems, want) {
+		t.Errorf("stage systems = %v, want %v", systems, want)
+	}
+}
+
 func TestPullStateOfFollowsTheReviewAFoundPullRequestHas(t *testing.T) {
 	t.Parallel()
 
