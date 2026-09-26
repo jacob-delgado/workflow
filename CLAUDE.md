@@ -6,9 +6,9 @@ code in this repository. It holds **only what's relevant in every session**.
 ## What this project is
 
 `workflow` is a Go command-line and terminal UI tool that ties Jira (on-premises
-/ Data Center), Slack, and a Git forge (GitHub or GitLab) into one developer
-workflow: pick up an issue, branch for it, open the pull or merge request, tell
-the team.
+/ Data Center), a messaging service (Slack, Teams, Discord or a plain webhook),
+and a Git forge (GitHub or GitLab) into one developer workflow: pick up an
+issue, branch for it, open the pull or merge request, tell the team.
 
 Go at its core, shipped as a single static binary a developer runs on their own
 machine. It keeps a little state between sessions in an on-disk SQLite store

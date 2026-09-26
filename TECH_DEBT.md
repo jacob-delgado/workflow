@@ -83,9 +83,6 @@ Severity: low · Confidence: read
 The documents a contributor and a later session read first restate numbers
 and names the tree has moved past. No gate reads any of them.
 
-- `CLAUDE.md:9` — the opening line names Slack alone where the same file's
-  layout row (`CLAUDE.md:44`) names "Slack, Teams, Discord or a plain
-  webhook".
 - `SECURITY.md:61` — the in-scope list is "`cmd/`, `internal/`, `scripts/`,
   `build/`, and every file under `.github/workflows/`": no `web/`, no
   `api/`, no loopback server and no browser, though `web/README.md:4`
