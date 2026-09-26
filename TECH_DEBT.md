@@ -83,10 +83,6 @@ Severity: low · Confidence: read
 The documents a contributor and a later session read first restate numbers
 and names the tree has moved past. No gate reads any of them.
 
-- `CLAUDE.md:504` — the never-print-a-secret rule names `slack.token`, a key
-  the decoder refuses: `ErrSlackRenamed` (`internal/config/config.go:50`)
-  says the "slack" block was renamed to "messaging", and the field is
-  `Messaging.Token` (`internal/config/config.go:110`, `json:"token"`).
 - `CLAUDE.md:9` — the opening line names Slack alone where the same file's
   layout row (`CLAUDE.md:44`) names "Slack, Teams, Discord or a plain
   webhook".
