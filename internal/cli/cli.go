@@ -243,7 +243,14 @@ func openInterface(ctx context.Context, run RunInterface, input interfaceInput) 
 		return err
 	}
 
-	model := tui.New(input.cfg, input.loadErr, input.deps)
+	deps := input.deps
+	if input.dryRun {
+		// New seeds the issue list from the store before WithDryRun can drop it,
+		// and the store makes its directory even to read.
+		deps.Store = tui.StoreDeps{}
+	}
+
+	model := tui.New(input.cfg, input.loadErr, deps)
 	if input.dryRun {
 		model = model.WithDryRun()
 	}

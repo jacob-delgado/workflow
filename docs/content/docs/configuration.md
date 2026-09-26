@@ -467,7 +467,7 @@ changes where it starts.
 
 workflow keeps a little state on disk so it can pick up where you left off — the
 commit scope you last used in a repository, in the interface or with `--web`
-(which reads it once and never under `--dry-run`), which pull requests you have
+(which reads it once), which pull requests you have
 announced — in the interface or with `workflow announce`, and at which moment,
 so neither announces the same one twice unasked — and the last issue list it
 saw, so the interface opens on it while the live one loads. It lives in a small
@@ -482,7 +482,8 @@ path and by a hash of your Jira URL — never by a credential, and never by the 
 URL — so a token embedded in a remote cannot reach it. Where the filesystem
 keeps Unix modes, the database file is `0600` in a `0700` directory, readable
 only by you. What it holds is disposable: delete it and the next session simply
-rebuilds it.
+rebuilds it. Under `--dry-run`, neither the interface nor `--web` opens it at
+all, since even a read creates the directory and the database.
 
 The store is on by default. Set `store.disabled` to keep nothing on disk; with it
 set, workflow behaves exactly as it did before the store existed, working

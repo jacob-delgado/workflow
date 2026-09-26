@@ -18,6 +18,7 @@ import (
 	"github.com/jacob-delgado/workflow/internal/buildinfo"
 	"github.com/jacob-delgado/workflow/internal/cli"
 	"github.com/jacob-delgado/workflow/internal/config"
+	"github.com/jacob-delgado/workflow/internal/store"
 	"github.com/jacob-delgado/workflow/internal/tui"
 	"github.com/jacob-delgado/workflow/internal/webserver"
 )
@@ -158,6 +159,61 @@ func TestDryRunOpensTheInterfaceHoldingItsWritesBack(t *testing.T) {
 
 	if spine := ran.spine(); !strings.Contains(spine, "DRY RUN") {
 		t.Errorf("the interface's spine = %q, want it to say DRY RUN", spine)
+	}
+}
+
+// storeKept is where the run's own environment keeps the store, and whether
+// its directory exists there.
+func storeKept(t *testing.T) (string, bool) {
+	t.Helper()
+
+	dir, err := store.DefaultDir()
+	if err != nil {
+		t.Fatalf("finding the store directory: %v", err)
+	}
+
+	_, err = os.Stat(dir)
+
+	return dir, err == nil
+}
+
+func TestADryRunOpensTheInterfaceWithNoStore(t *testing.T) {
+	// Arrange
+	// With a Jira to key it by, the interface seeds its issue list from the
+	// store, and the store makes its directory even to read.
+	dir := t.TempDir()
+	writeFile(t, dir, `{"jira": {"base_url": "https://jira.example.net"}}`)
+
+	// Act
+	ran := runRoot(t, dir, "--dry-run")
+
+	// Assert
+	if ran.err != nil || ran.interfaces != 1 {
+		t.Fatalf("workflow --dry-run = %v, opened %d interfaces; want the interface", ran.err, ran.interfaces)
+	}
+
+	if kept, found := storeKept(t); found {
+		t.Errorf("workflow --dry-run made the store at %s, want nothing on disk", kept)
+	}
+}
+
+// The twin of the test above, so its Assert is seen to fail when the store is
+// opened: the same interface, its writes live, opens the store to seed its list.
+func TestTheInterfaceOpensTheStoreToSeedItsIssueList(t *testing.T) {
+	// Arrange
+	dir := t.TempDir()
+	writeFile(t, dir, `{"jira": {"base_url": "https://jira.example.net"}}`)
+
+	// Act
+	ran := runRoot(t, dir)
+
+	// Assert
+	if ran.err != nil || ran.interfaces != 1 {
+		t.Fatalf("workflow = %v, opened %d interfaces; want the interface", ran.err, ran.interfaces)
+	}
+
+	if kept, found := storeKept(t); !found {
+		t.Errorf("workflow opened no store at %s, want its issue list seeded from it", kept)
 	}
 }
 
