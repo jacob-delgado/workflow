@@ -21,8 +21,9 @@ import (
 	"github.com/jacob-delgado/workflow/internal/webserver"
 )
 
-// errSeam is what a failing seam returns; the server maps every seam error to a
-// generic 500 so the wire message carries no detail.
+// errSeam is what a failing seam returns: an error in none of fault's classes,
+// so the server answers it with the opaque internal 500, whose detail carries
+// none of the error's own text.
 var errSeam = errors.New("the seam failed")
 
 // Fixtures the tests share.
