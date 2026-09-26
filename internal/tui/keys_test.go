@@ -234,3 +234,24 @@ func TestCheckKeysRefusesAnUnknownAction(t *testing.T) {
 		t.Errorf("CheckKeys error %q does not name the unknown action", got)
 	}
 }
+
+func TestCheckKeysRefusesMovingJumpToPane(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	// jump-to-pane answers one digit per pane, which no single key can stand
+	// in for, so moving it to a free key is refused rather than accepted.
+	moved := map[string]string{"jump-to-pane": "f12"}
+
+	// Act
+	err := tui.CheckKeys(moved)
+
+	// Assert
+	if !errors.Is(err, tui.ErrKeyNotRebindable) {
+		t.Fatalf("CheckKeys = %v, want ErrKeyNotRebindable", err)
+	}
+
+	if got := err.Error(); !strings.Contains(got, "jump-to-pane") {
+		t.Errorf("CheckKeys error %q does not name the action", got)
+	}
+}

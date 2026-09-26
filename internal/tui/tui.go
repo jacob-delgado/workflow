@@ -230,8 +230,8 @@ func (m Model) handleGlobalKey(msg tea.KeyPressMsg) (Model, tea.Cmd) {
 	case key.Matches(msg, m.keys.previous):
 		return m.focusOn((m.focus + paneCount - 1) % paneCount), nil
 	case key.Matches(msg, m.keys.jump):
-		// The binding only matches the pane digits, 1 through paneCount, so the
-		// digit is always a valid pane.
+		// CheckKeys refuses to move jump-to-pane, so the binding only matches the
+		// pane digits, 1 through paneCount, and the digit is always a valid pane.
 		return m.focusOn(pane(msg.String()[0] - '1')), nil
 	case key.Matches(msg, m.keys.toggleMouse):
 		return m.toggleMouse()

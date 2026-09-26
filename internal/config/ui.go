@@ -39,11 +39,11 @@ type UI struct {
 	// key that should trigger it, e.g. {"commit": "C", "comment": "ctrl+e"}; the
 	// help then shows the new key. An action left out keeps its default. The
 	// interface refuses to start on a map that names an action it does not know,
-	// or that binds two actions in the same context to one key. The known
-	// actions, by where they work, are:
+	// moves jump-to-pane (its keys are the pane numbers, which no one key can
+	// stand in for), or binds two actions in the same context to one key. The
+	// actions it can rebind, by where they work, are:
 	//
-	//   Moving:  next-pane, previous-pane, jump-to-pane, up, down, scroll-up,
-	//            scroll-down
+	//   Moving:  next-pane, previous-pane, up, down, scroll-up, scroll-down
 	//   Issues:  change-status, comment, assign, log-work, branch-for-issue,
 	//            filter, switch-view, load-more, open-link, copy-link, refresh
 	//   Branch:  new-branch, switch-task, rebase, push, stage, stage-all,

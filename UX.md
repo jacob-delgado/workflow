@@ -65,7 +65,7 @@ them, re-counted at this commit.
 | The promise | Where it is made | Kept? |
 | --- | --- | --- |
 | "a key it does not show does nothing" | No longer stated anywhere; the sentence an earlier edition cited in `docs/content/docs/usage.md` is gone. Folds into the next row. | — |
-| "`?` lists every key" | `docs/content/docs/usage.md:75` | **Yes, by construction, and a test enumerates every placement.** Help is generated from the bindings (`internal/tui/keys.go:138` `helpBuilder.place`, rendered at `internal/tui/render.go:219`): 57 of 57, on 56 lines, since `cycle-type-right` rides `cycle-type-left`'s line (`internal/tui/render.go:233` skips a binding with no help of its own). `TestHelpListsEveryPlacedBinding` (`internal/tui/help_test.go:211`) reads `?` back and holds it to a table of every placement, group by group, and each action moved to a free key must be listed on its own line in its group. |
+| "`?` lists every key" | `docs/content/docs/usage.md:75` | **Yes, by construction, and a test enumerates every placement.** Help is generated from the bindings (`internal/tui/keys.go:146` `helpBuilder.place`, rendered at `internal/tui/render.go:219`): 57 of 57, on 56 lines, since `cycle-type-right` rides `cycle-type-left`'s line (`internal/tui/render.go:233` skips a binding with no help of its own). `TestHelpListsEveryPlacedBinding` (`internal/tui/help_test.go:215`) reads `?` back and holds it to a table of every placement, group by group, and each action `ui.keys` can move (all but `jump-to-pane`), moved to a free key, must be listed on its own line in its group. |
 | "the one way the interface says something broke" | `wording`, `internal/tui/failure.go:63` | **Yes: every site that renders an error's text.** Each tells it through `errorSentence` (`internal/tui/failure.go:100`), which words every sentinel the seams return briefly and in full: 6 panes, the configuration screen, 11 `pinnedOutcome` overlays and the 2 details that repeat a summary row's failure beneath it through `failureBlock` (`internal/tui/failure.go:402`), 13 one-failure rows through `failureLine`, 4 rail and summary rows through `failureSummary`, and 10 failure notices through `noticedFailure`, drawn in the failure style, the re-run's led by what failed so a clipped row still names it; a run's headline names the step a failure status stopped, and a pull request opened without every reviewer says why in brief. The 3 guidance notices stay plain, since red means something broke. The width-one glyph-only marks — a failed check, job, stage or review CI — and the three rails that point at their detail carry no error text to word. One site drops the text it has: the branch creator's fixed "could not fetch" line (UX-129). |
 | "Nothing outward facing is sent without" a last look | `internal/tui/comment.go:64` | **Yes: 20 of 20.** Every act that writes through a seam — five on Jira, nine through git, four on the forge, the post and the lefthook file — waits on a preview or a confirmation; the push, `R`'s re-run of CI and `u`'s rebase share one last look, `lastLook` (`internal/tui/overlay.go:158`). Of the twenty, eleven leave the machine: the Jira five, the forge four, the post and the push; the rest are local writes that still get a look. The acts are listed under the table. |
 | "a refused change must never go unseen" | `internal/tui/picker.go:312` | **Yes: 13 of 13.** Every overlay that sends a request guards it while in flight (an earlier edition counted 1 of 7; the last counted 14 by including the commit composer, which holds a `sendState` for a validation refusal only and hands its commit to a run overlay, `internal/tui/composer.go:364`), and every one keeps a refusal in the overlay, where it happened, until `esc` — the merge and finish previews last, through `pinnedOutcome` (`internal/tui/failure.go:420`). |
@@ -204,7 +204,7 @@ while it runs.
   (`internal/cli/config_cmd.go:327`) only warns when it is not, and nothing
   writes a `.gitignore`; the sentence is true of this repository's own
   `.gitignore:34`, not the user's. `README.md:198` and
-  `docs/content/docs/configuration.md:505` (both under "Keeping the tokens
+  `docs/content/docs/configuration.md:506` (both under "Keeping the tokens
   safe") say the same.
 - `internal/cli/config_cmd.go:58` and `:59` (`newConfigInitCmd`'s `Short`
   and `Long`): "asking for and checking each credential", "check each
@@ -491,7 +491,7 @@ URL so it can be edited where it lives.
 
 Impact: low · Effort: small
 
-**Today.** `up/k`, `down/j`, `pgup/K`, `pgdn/J` (`internal/tui/keys.go:204`). No `h`/`l`
+**Today.** `up/k`, `down/j`, `pgup/K`, `pgdn/J` (`internal/tui/keys.go:212`). No `h`/`l`
 (`←`/`→` are cycle-type and cycle-channel only), no `g`/`G` to jump to the
 ends of a list or the detail.
 
@@ -517,14 +517,14 @@ grep finds all eleven. DEBT-115 points here for the nothing-staged sentence.
 
 - `internal/tui/detail.go:377` `Model.fullDetail` appends "press r to try
   again" after the failure block, while refresh is rebindable
-  (`internal/tui/keys.go:222`, `issueKeys`): with `{"refresh": "ctrl+l"}`
+  (`internal/tui/keys.go:230`, `issueKeys`): with `{"refresh": "ctrl+l"}`
   `r` does nothing there.
 - `internal/tui/branch.go:135` `Model.branchDetail` says "Check out a
   branch, or press b to start one" on a detached HEAD; new-branch is
-  rebindable (`internal/tui/keys.go:227`, `branchAndCommitKeys`).
+  rebindable (`internal/tui/keys.go:235`, `branchAndCommitKeys`).
 - `internal/tui/branch.go:339` `branchCreator.view` says "could not fetch;
   enter branches from what you already have"; apply is rebindable
-  (`internal/tui/keys.go:279`, `everywhereKeys`), and the creator's own
+  (`internal/tui/keys.go:287`, `everywhereKeys`), and the creator's own
   footer already reads it from the binding —
   `internal/tui/branch.go:383` `branchCreator.footer` relabels
   `keys.confirm` to "branch from what you have", so a rebound session
@@ -532,33 +532,33 @@ grep finds all eleven. DEBT-115 points here for the nothing-staged sentence.
   enter.
 - `internal/tui/commits.go:143` `Model.commitsDetail` says "Press g to set
   up lefthook" under a footer that reads its key from `keys.hookConfig`;
-  set-up-lefthook is rebindable (`internal/tui/keys.go:237`,
+  set-up-lefthook is rebindable (`internal/tui/keys.go:245`,
   `branchAndCommitKeys`).
 - `internal/tui/review.go:296` `Model.reviewDetail` says "n opens one from
   this branch's commits and the repository's template."; open-pull-request
-  is rebindable (`internal/tui/keys.go:242`, `reviewAndMessagingKeys`), and
+  is rebindable (`internal/tui/keys.go:250`, `reviewAndMessagingKeys`), and
   the pane answers `m.keys.newPullRequest`.
 - `internal/tui/review.go:325` `Model.reviewDetail` says "e edits its title
-  and description."; edit is rebindable (`internal/tui/keys.go:255`,
+  and description."; edit is rebindable (`internal/tui/keys.go:263`,
   `composerKeys`), and the pane answers `m.keys.edit`.
 - `internal/tui/finish.go:27` `Model.mergedDetail` says "F finishes the
-  branch: …"; finish-branch is rebindable (`internal/tui/keys.go:246`,
+  branch: …"; finish-branch is rebindable (`internal/tui/keys.go:254`,
   `reviewAndMessagingKeys`).
 - `internal/tui/finish.go:31` `Model.mergedDetail` says "n opens a new
   pull request from this branch's commits." once one has merged;
-  open-pull-request is rebindable (`internal/tui/keys.go:242`,
+  open-pull-request is rebindable (`internal/tui/keys.go:250`,
   `reviewAndMessagingKeys`), and the pane answers `m.keys.newPullRequest`.
 - `internal/tui/failure.go:127` `localErrors` words `loop.ErrNothingStaged`
   in full as "nothing is staged: space stages the selected file" — the
   very full form `wording` says names no key; stage is rebindable
-  (`internal/tui/keys.go:231`, `branchAndCommitKeys`).
+  (`internal/tui/keys.go:239`, `branchAndCommitKeys`).
 - `internal/tui/checks.go:55` `checkList.view` says "Open a check's page
   with enter."; `checkList.handleKey` (`internal/tui/checks.go:113`) opens
   on `m.keys.confirm`, the rebindable apply.
 - `internal/tui/composer.go:227` `commitComposer.footnotes` says "no body
   yet: ctrl+o writes one in your editor"; `commitComposer.handleKey`
   (`internal/tui/composer.go:259`) answers `m.keys.editBody`, and edit-body
-  is rebindable (`internal/tui/keys.go:256`, `composerKeys`).
+  is rebindable (`internal/tui/keys.go:264`, `composerKeys`).
 
 **Instead.** Build each sentence from the binding — `m.keys.refresh`,
 `m.keys.newBranch`, `m.keys.confirm`, `m.keys.hookConfig`,
@@ -599,7 +599,7 @@ where `r` would show "1 Issues ◐" for the same wait; `v` onto a view the
 store remembers shows yesterday's list with no sign today's is on its way,
 and a session that opens on the cache does the same while `Init`'s search
 runs. Refresh is live in four of the contexts `keyContexts`
-(`internal/tui/keys.go:344`) lists, five panes in all, and the glyph is
+(`internal/tui/keys.go:357`) lists, five panes in all, and the glyph is
 applied to one.
 
 - `internal/tui/render.go:192` `Model.loading` returns `m.issues.loading`
