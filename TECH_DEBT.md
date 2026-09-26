@@ -939,59 +939,9 @@ handling written twice, and the spine's color-only hue — is under
 
 ## The web
 
-What is open here is the mock fixtures the page is shown with and the
-contract's prose; what the web's gates still lack — an end-to-end run that
-drives a write — is DEBT-65, with the other gates below.
-
-### DEBT-128 Three mock fixtures show a shape the server never sends
-
-Severity: low · Confidence: read
-
-The `VITE_MOCK` build that `task web:mockup`, the layout and a11y specs and
-the audit's screenshots use carries three values the real server would
-never send, so a reader of the mockup judges an inconsistency that exists
-only in the fixture, or learns a placeholder the product would render
-literally. It is the fake that cuts a corner.
-
-- `web/src/dev/mockIssues.ts:18` — `mockIssueDetail` sets
-  `assignee: 'ana.lopez'`, a username, beside `reporter: 'Ana Lopez'` at
-  `web/src/dev/mockIssues.ts:17`; `toIssueDetail`
-  (`internal/jira/detail.go:179`) fills both from `DisplayName`.
-- `web/src/dev/mockConfig.ts:47` — `mockConfig.branch` sets
-  `template: '{type}/{key}-{slug}'`; `BranchNaming.Name`
-  (`internal/convention/branch_naming.go:65`) replaces only `{prefix}`,
-  `{key}` and `{slug}`, so `{type}` would stay in the branch name. Settings
-  draws that value directly under `BranchFieldset`'s hint "Uses {prefix},
-  {key} and {slug}; must contain {key}."
-  (`web/src/features/settings/fieldsets/BranchFieldset.tsx:12`).
-- `web/src/dev/mockConfig.ts:27` — `mockConfig.messaging` sets
-  `announcement: 'Opened {pr} for {issue}'`; `Messaging.Announcement`'s doc
-  comment (`internal/config/config.go:123`) names the seven placeholders —
-  {author}, {noun}, {title}, {url}, {key}, {summary}, {issue_url} — and
-  `Announcement.rendered` (`internal/messaging/post.go:346`) substitutes
-  only those, so `{pr}` and `{issue}` would post literally. Beside it,
-  `previewAnnouncement` (`web/src/features/messaging/announceApi.ts:9`)
-  answers the built-in wording rather than that template's rendering.
-
-A designer reading the mock Issues detail sees "Reporter Ana Lopez" over
-"Assignee ana.lopez" and reads a product inconsistency that is not there; a
-reviewer of Settings learns `{type}` from a value drawn under a hint that
-contradicts it; anyone copying the mock announcement's syntax into a real
-file gets a literal post, and the mock Messaging section previews a text
-the mock template could not produce.
-
-**One way to fix it.** `assignee: 'Ana Lopez'` in `mockIssueDetail`; the
-documented default `'{prefix}/{key}-{slug}'` in `mockConfig.branch`; an
-announcement written in the documented placeholder set in
-`mockConfig.messaging`, with the mock preview in
-`web/src/features/messaging/announceApi.ts` being that template rendered
-with the mock snapshot's values.
-
-**Done when.** The mock Issues detail shows a display name under Assignee;
-`mockConfig.branch.template` contains no placeholder outside `{prefix}`,
-`{key}` and `{slug}`; `mockConfig.messaging.announcement` contains only the
-seven documented placeholders, and the mock preview text equals that
-template rendered with the mock snapshot's values.
+What is open here is the contract's prose; what the web's gates still
+lack — an end-to-end run that drives a write — is DEBT-65, with the other
+gates below.
 
 ### DEBT-135 The contract's prose disagrees with the code at eight places
 
