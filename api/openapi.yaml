@@ -1306,13 +1306,20 @@ components:
 
     PullRequest:
       type: object
-      required: [number, url, title, draft, approvals, changes_requested, mergeable]
+      required: [number, url, title, state, draft, approvals, changes_requested, mergeable]
       properties:
         number:
           type: integer
           description: The GitHub number or GitLab IID.
         url: {type: string}
         title: {type: string}
+        state:
+          type: string
+          enum: [open, merged, closed]
+          description: >-
+            Whether it is still open, has merged, or was closed without merging.
+            The branch's pull request is found open or merged; a merged one has
+            no CI to report.
         draft: {type: boolean}
         approvals: {type: integer}
         changes_requested: {type: boolean}

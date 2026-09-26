@@ -12,6 +12,7 @@ const pull = {
   number: 7,
   url: 'https://forge.example.com/pull/7',
   title: 'Redact tokens in the request log',
+  state: 'open' as const,
   draft: false,
   approvals: 0,
   changes_requested: false,

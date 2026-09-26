@@ -164,3 +164,36 @@ func TestGetReviewAsksNoCIAboutAMergedPull(t *testing.T) {
 		t.Errorf("CI asked %d times, ci = %+v; want no CI asked about a merged pull request", calls, review.Ci)
 	}
 }
+
+func TestGetReviewCarriesThePullRequestsState(t *testing.T) {
+	t.Parallel()
+
+	cases := map[string]struct {
+		state forge.PullState
+		want  api.PullRequestState
+	}{
+		"open":   {state: forge.StateOpen, want: api.Open},
+		"merged": {state: forge.StateMerged, want: api.Merged},
+		"closed": {state: forge.StateClosed, want: api.Closed},
+	}
+
+	for name, tt := range cases {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			// Arrange
+			deps := filledDeps()
+			deps.FindPull = func(string) (forge.PullRequest, bool, error) {
+				return forge.PullRequest{Number: 42, State: tt.state}, true, nil
+			}
+
+			// Act
+			review := decode[api.Review](t, get(t, serve(t, deps, config.Default()), "/api/review"))
+
+			// Assert
+			if review.Pull == nil || review.Pull.State != tt.want {
+				t.Errorf("pull = %+v, want its state %s", review.Pull, tt.want)
+			}
+		})
+	}
+}

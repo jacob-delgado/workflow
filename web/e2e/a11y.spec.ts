@@ -211,6 +211,7 @@ const openedPull = {
   number: 7,
   url: 'https://forge.example.com/pull/7',
   title: 'fix: redact tokens before they reach the request log',
+  state: 'open',
   draft: false,
   approvals: 0,
   changes_requested: false,

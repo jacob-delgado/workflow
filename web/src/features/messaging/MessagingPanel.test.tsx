@@ -40,6 +40,7 @@ function withPullRequest(
           number: 42,
           url: 'https://x/42',
           title: 'redact',
+          state: 'open',
           draft: false,
           approvals: 0,
           changes_requested: false,
