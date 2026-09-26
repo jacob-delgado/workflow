@@ -454,6 +454,10 @@ export type PullRequest = {
     number: number;
     url: string;
     title: string;
+    /**
+     * Whether it is still open, has merged, or was closed without merging. The branch's pull request is found open or merged; a merged one has no CI to report.
+     */
+    state: 'open' | 'merged' | 'closed';
     draft: boolean;
     approvals: number;
     changes_requested: boolean;

@@ -211,6 +211,11 @@ export const zPullRequest = z.object({
     number: z.int(),
     url: z.string(),
     title: z.string(),
+    state: z.enum([
+        'open',
+        'merged',
+        'closed'
+    ]),
     draft: z.boolean(),
     approvals: z.int(),
     changes_requested: z.boolean(),

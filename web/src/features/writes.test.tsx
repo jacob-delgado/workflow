@@ -48,7 +48,7 @@ const pull = {
   draft: false,
   approvals: 0,
   changes_requested: false,
-  mergeable: 'unknown' as const,
+  ...({ state: 'open', mergeable: 'unknown' } as const),
 }
 
 const draft = {

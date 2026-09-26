@@ -137,11 +137,22 @@ func pullDTO(pull forge.PullRequest) api.PullRequest {
 		Number:           pull.Number,
 		URL:              pull.URL,
 		Title:            pull.Title,
+		State:            pullState(pull.State),
 		Draft:            pull.Draft,
 		Approvals:        pull.Approvals,
 		ChangesRequested: pull.ChangesRequested,
 		Mergeable:        mergeable(pull.Mergeable),
 	}
+}
+
+// pullState maps where a pull request stands onto its wire word. A map, as
+// ciState is, so exhaustive keeps it complete.
+func pullState(state forge.PullState) api.PullRequestState {
+	return map[forge.PullState]api.PullRequestState{
+		forge.StateOpen:   api.Open,
+		forge.StateMerged: api.Merged,
+		forge.StateClosed: api.Closed,
+	}[state]
 }
 
 // reviewQueueDTO maps the review queue onto the wire, its requests an empty list

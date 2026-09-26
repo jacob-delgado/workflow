@@ -184,6 +184,27 @@ func (e PullRequestMergeable) Valid() bool {
 	}
 }
 
+// Defines values for PullRequestState.
+const (
+	Closed PullRequestState = "closed"
+	Merged PullRequestState = "merged"
+	Open   PullRequestState = "open"
+)
+
+// Valid indicates whether the value is a known member of the PullRequestState enum.
+func (e PullRequestState) Valid() bool {
+	switch e {
+	case Closed:
+		return true
+	case Merged:
+		return true
+	case Open:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for StatusCategory.
 const (
 	StatusCategoryDone          StatusCategory = "done"
@@ -651,13 +672,19 @@ type PullRequest struct {
 	Mergeable        PullRequestMergeable `json:"mergeable"`
 
 	// Number The GitHub number or GitLab IID.
-	Number int    `json:"number"`
-	Title  string `json:"title"`
-	URL    string `json:"url"`
+	Number int `json:"number"`
+
+	// State Whether it is still open, has merged, or was closed without merging. The branch's pull request is found open or merged; a merged one has no CI to report.
+	State PullRequestState `json:"state"`
+	Title string           `json:"title"`
+	URL   string           `json:"url"`
 }
 
 // PullRequestMergeable defines model for PullRequest.Mergeable.
 type PullRequestMergeable string
+
+// PullRequestState Whether it is still open, has merged, or was closed without merging. The branch's pull request is found open or merged; a merged one has no CI to report.
+type PullRequestState string
 
 // PullRequestConfig defines model for PullRequestConfig.
 type PullRequestConfig struct {

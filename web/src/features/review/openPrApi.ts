@@ -41,6 +41,7 @@ export async function openPr(request: OpenPullRequestRequest): Promise<OpenedPul
         number: 42,
         url: 'https://example.com/pull/42',
         title: request.title,
+        state: 'open',
         draft: request.draft ?? false,
         approvals: 0,
         changes_requested: false,
