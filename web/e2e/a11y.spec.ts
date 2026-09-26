@@ -1,5 +1,6 @@
 import { AxeBuilder } from '@axe-core/playwright'
 import { expect, test, type Locator, type Page } from '@playwright/test'
+import type { Snapshot } from '../src/api/generated/types.gen.ts'
 import { sectionNames as populatedSectionNames, themes } from './cockpit.ts'
 
 // Every section, in both themes: a light theme is only real once its contrast
@@ -154,7 +155,7 @@ const issuesSnapshot = {
   messaging: { service: 'Slack', configured: false, channel: '', channels: [], author: '' },
   branches: [],
   suggested_scope: '',
-}
+} satisfies Snapshot
 
 const issueDetail = {
   ...issuesSnapshot.issues.issues[0],
@@ -319,7 +320,7 @@ const workingTreeSnapshot = {
       },
     ],
   },
-}
+} satisfies Snapshot
 
 for (const theme of themes) {
   test(`no accessibility violations in the working tree in the ${theme} theme`, async ({

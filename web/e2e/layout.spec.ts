@@ -1,5 +1,6 @@
 import { AxeBuilder } from '@axe-core/playwright'
 import { expect, test, type Page } from '@playwright/test'
+import type { Issue, Snapshot } from '../src/api/generated/types.gen.ts'
 import { height, openCockpit, openSection, sectionNames, themes, widths } from './cockpit.ts'
 
 // The populated cockpit at a narrow, a middling and a wide window, in both
@@ -334,7 +335,7 @@ for (const width of widths) {
 const issuesTotal = 12
 
 // streamedIssue is one of the issues the stream carries, or a later page adds.
-function streamedIssue(number: number) {
+function streamedIssue(number: number): Issue {
   return {
     key: `PROJ-${String(number)}`,
     summary: `Issue number ${String(number)} of the view`,
@@ -364,10 +365,10 @@ const pagedSnapshot = {
   messaging: { service: 'Slack', configured: false, channel: '', channels: [], author: '' },
   branches: [],
   suggested_scope: '',
-}
+} satisfies Snapshot
 
 // streams answers the event stream with one snapshot.
-async function streams(page: Page, snapshot: object): Promise<void> {
+async function streams(page: Page, snapshot: Snapshot): Promise<void> {
   await page.route('**/api/events**', (route) =>
     route.fulfill({
       contentType: 'text/event-stream',
@@ -420,7 +421,7 @@ const unbrokenSnapshot = {
       },
     ],
   },
-}
+} satisfies Snapshot
 
 // A source build's health: its version is a commit marked dirty, the widest
 // the header draws.
