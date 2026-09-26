@@ -1275,64 +1275,6 @@ snapshot schema has a stages array the web renders, or, until then,
 `pullRequestDone` reads `changes_requested` and a CI state of none as the Go
 table does.
 
-### DEBT-142 Two 422 details carry a host the docs keep off the wire
-
-Severity: medium · Confidence: read
-
-`openFailure` curates only `forge.ErrUnreachable` and `ErrUnknownForge`,
-and `httpx.Unreachable` wraps a refused redirect as `ErrRedirected` with
-`the server at <base>` in its text, so a forge answering a login redirect
-makes POST /api/pull-request answer 422 naming the forge's API base — and
-a rate limit answers 422 with sentinel text where the read path's
-`faultClasses` gives a curated 502. `pushFailure` joins git's push
-output verbatim into the detail, which git ends with `To <remote-url>` or
-`failed to push some refs to <url>`, and the open reuses it, while staging
-keeps git's words off the wire for exactly that reason.
-
-- `internal/webserver/pullrequest.go:182` — `openFailure`'s
-  `errors.Is(err, forge.ErrUnreachable)` is false for a redirect, which
-  wraps only `ErrRedirected`.
-- `internal/webserver/pullrequest.go:189` — `openFailure`'s default arm
-  puts `err.Error()`, API base included, in the 422 detail.
-- `internal/webserver/pullrequest.go:175` — `openFailure`'s doc comment
-  counts two host-carrying failures where there are three.
-- `internal/httpx/httpx.go:50` — `Unreachable` wraps a redirect as
-  `ErrRedirected` with " at "+base in its text and never the caller's
-  sentinel.
-- `internal/forge/client.go:218` — `Client.exchange` passes `c.base` into
-  that text; nothing re-wraps it before the handler.
-- `internal/webserver/errors.go:148` — the `httpx.ErrRedirected` class in
-  `faultClasses`, the curated 502 the read path gives for the same
-  failure.
-- `docs/content/docs/errors.md:31` — "`detail`" promises an unreachable
-  upstream stays generic.
-- `internal/webserver/push.go:65` — `pushFailure` joins the push's output
-  verbatim into the detail.
-- `internal/webserver/pullrequest.go:59` — `server.OpenPullRequest` reuses
-  `pushFailure`, so the same output reaches its 422.
-- `internal/webserver/staging.go:27` — `errGitRefused`'s comment: git's
-  own words stay off the wire because a fetch that fails names the remote.
-- `internal/webserver/push_test.go:101` — `TestPushReportsAFailingPush`'s
-  only push output, "! [rejected] fix/PROJ-412", carries no URL.
-
-A user behind an SSO forge sees the forge address in the browser's alert,
-against the errors page's promise; a rejected push can print the remote
-URL; and the package holds two policies on git's words.
-
-**One way to fix it.** Have `openFailure` keep `err.Error()` only for
-`forge.ErrRejected`, whose reason is the forge's own words, and send every
-other error through `faultProblem`; and decide once for the push — strip
-lines carrying a URL from the output before it reaches the detail, or write
-the exception beside `errGitRefused` so the next reader knows the push is
-meant to differ.
-
-**Done when.** A test where `CreatePull` returns `httpx.Unreachable` of
-`forge.ErrUnreachable`, an internal API base and `httpx.ErrRedirected`
-answers 502 `unreachable` with no host in the body, and a rate-limited
-create answers 502; and a test whose push output carries
-`To https://git.internal.example/acme/repo.git` answers a detail that keeps
-`[rejected]` and omits the host.
-
 ## The gates, the build and the tests
 
 What is open here is the coverage worklist and the metric behind it, gates

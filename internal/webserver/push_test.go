@@ -280,3 +280,73 @@ func TestPushIsUnavailableWithoutAGitSeam(t *testing.T) {
 		})
 	}
 }
+
+func TestAFailedPushKeepsGitsReasonButNotTheRemotesAddress(t *testing.T) {
+	t.Parallel()
+
+	// The push's output names the remote the way git prints it, around the
+	// reason; the detail keeps every line with the address taken out,
+	// whichever request pushed.
+	pushRoutes := map[string]route{
+		"the push": {method: http.MethodPost, path: "/api/push"},
+		"the open": {method: http.MethodPost, path: "/api/pull-request", body: openRequestBody},
+	}
+	remotes := map[string]string{
+		"an https remote":         "https://" + forgeHost + "/acme/repo.git",
+		"an scp-style ssh remote": "git@" + forgeHost + ":acme/repo.git",
+		"an ssh remote":           "ssh://git@" + forgeHost + ":2222/acme/repo.git",
+	}
+
+	for routeName, request := range pushRoutes {
+		for remoteName, remote := range remotes {
+			t.Run(routeName+", "+remoteName, func(t *testing.T) {
+				t.Parallel()
+
+				// Arrange
+				output := []string{
+					"To " + remote,
+					" ! [rejected]        " + testBranchName + " -> " + testBranchName + " (fetch first)",
+					"error: failed to push some refs to '" + remote + "'",
+					"hint: Updates were rejected because the remote contains work that you do not",
+				}
+				deps := openableDeps()
+				deps.Push = func(string) (proc.Output, error) { return fakeOutput(output, errSeam), nil }
+
+				// Act
+				recorder := send(t, serve(t, deps, config.Default()), request.method, request.path, request.body)
+
+				// Assert
+				want := "the push failed:\n" +
+					"To <address>\n" +
+					" ! [rejected]        " + testBranchName + " -> " + testBranchName + " (fetch first)\n" +
+					"error: failed to push some refs to '<address>'\n" +
+					"hint: Updates were rejected because the remote contains work that you do not"
+
+				failure := decode[api.Problem](t, recorder)
+				if recorder.Code != http.StatusUnprocessableEntity || failure.Detail != want {
+					t.Errorf("status = %d, detail %q; want 422 saying %q", recorder.Code, failure.Detail, want)
+				}
+			})
+		}
+	}
+}
+
+func TestAFailedPushKeepsARefNamedWithAnAtSign(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	// A ref name may hold an at sign but never a colon, so it is not an ssh
+	// remote's user@host:path and stays as git printed it.
+	const refLine = " ! [rejected]        spike@home -> spike@home (fetch first)"
+
+	deps := filledDeps()
+	deps.Push = func(string) (proc.Output, error) { return fakeOutput([]string{refLine}, errSeam), nil }
+
+	// Act
+	recorder := doPush(t, deps)
+
+	// Assert
+	if detail := decode[api.Problem](t, recorder).Detail; detail != "the push failed:\n"+refLine {
+		t.Errorf("detail = %q, want the ref line kept as git printed it", detail)
+	}
+}
