@@ -79,8 +79,9 @@ makes on the way can name the remote; the detail says how to see them). A push
 that ran and failed is answered here with git's own output, since the reason —
 a ref the remote rejected, a hook's refusal — is in it, with the remote's URL
 or `user@host:path` address taken out (a bare host git prints — a remote
-written `host:path`, or the host a connection error names — can remain). A
-Jira token that is not configured, that its command or variable did not give,
+written `host:path`, or the host a connection error names — can remain); one
+that could not start says to push from a terminal to see why.
+A Jira token that is not configured, that its command or variable did not give,
 or that Jira did not accept, a `jira.base_url` that is not a usable address,
 and one with no Jira API behind it are answered here too, pointing at
 `workflow doctor` rather than naming the address. So are a forge token that was not found or that the forge did not

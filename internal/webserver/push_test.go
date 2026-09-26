@@ -4,6 +4,7 @@
 package webserver_test
 
 import (
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -21,6 +22,15 @@ func doPush(t *testing.T, deps webserver.Deps) *httptest.ResponseRecorder {
 	t.Helper()
 
 	return send(t, serve(t, deps, config.Default()), http.MethodPost, "/api/push", "")
+}
+
+// pushRoutes are the two requests that push the branch: the push itself, and
+// the open, which pushes a branch its remote does not have yet first.
+func pushRoutes() map[string]route {
+	return map[string]route{
+		"the push": {method: http.MethodPost, path: "/api/push"},
+		"the open": {method: http.MethodPost, path: "/api/pull-request", body: openRequestBody},
+	}
 }
 
 func TestPushPublishesTheBranch(t *testing.T) {
@@ -171,16 +181,30 @@ func TestPushReportsAFailedPushAsAFailureNotAStart(t *testing.T) {
 func TestPushReportsAFailedStart(t *testing.T) {
 	t.Parallel()
 
-	// Arrange
-	deps := filledDeps()
-	deps.Push = func(string) (proc.Output, error) { return proc.Output{}, errSeam }
+	// The push cannot even be started, and the seam's words name where the
+	// repository is; the answer says how to see why instead, whichever request
+	// pushed.
+	const want = "the push could not be started; push from a terminal to see why"
 
-	// Act
-	recorder := doPush(t, deps)
+	for name, request := range pushRoutes() {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
 
-	// Assert
-	if recorder.Code != http.StatusUnprocessableEntity {
-		t.Errorf("status = %d, want 422 when the push cannot be started", recorder.Code)
+			// Arrange
+			deps := openableDeps()
+			deps.Push = func(string) (proc.Output, error) {
+				return proc.Output{}, fmt.Errorf("running git in %s: %w", repoPath, errSeam)
+			}
+
+			// Act
+			recorder := send(t, serve(t, deps, config.Default()), request.method, request.path, request.body)
+
+			// Assert
+			failure := decode[api.Problem](t, recorder)
+			if recorder.Code != http.StatusUnprocessableEntity || failure.Detail != want {
+				t.Errorf("status = %d, detail %q; want 422 saying %q", recorder.Code, failure.Detail, want)
+			}
+		})
 	}
 }
 
@@ -287,17 +311,13 @@ func TestAFailedPushKeepsGitsReasonButNotTheRemotesAddress(t *testing.T) {
 	// The push's output names the remote the way git prints it, around the
 	// reason; the detail keeps every line with the address taken out,
 	// whichever request pushed.
-	pushRoutes := map[string]route{
-		"the push": {method: http.MethodPost, path: "/api/push"},
-		"the open": {method: http.MethodPost, path: "/api/pull-request", body: openRequestBody},
-	}
 	remotes := map[string]string{
 		"an https remote":         "https://" + forgeHost + "/acme/repo.git",
 		"an scp-style ssh remote": "git@" + forgeHost + ":acme/repo.git",
 		"an ssh remote":           "ssh://git@" + forgeHost + ":2222/acme/repo.git",
 	}
 
-	for routeName, request := range pushRoutes {
+	for routeName, request := range pushRoutes() {
 		for remoteName, remote := range remotes {
 			t.Run(routeName+", "+remoteName, func(t *testing.T) {
 				t.Parallel()
