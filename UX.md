@@ -965,7 +965,7 @@ Impact: medium · Effort: small
 **Today.** The CI heading always prints done of total, and the Review
 section's `PullRequestSummary` renders the overall `ci.state` nowhere,
 though the work story does ("#128 · CI running", `reviewDetail`,
-`web/src/features/issues/WorkStory.tsx:162`) — and for state none it prints
+`web/src/features/issues/WorkStory.tsx:182`) — and for state none it prints
 "CI none" where the terminal says "no checks reported". A GitLab user
 sees a heading that contradicts the row beneath it; a GitHub user whose
 checks have not started sees "0 of 0 done" over nothing and cannot tell
@@ -1021,8 +1021,8 @@ not the control that had focus.
 - The list row's `RowCheckout` is `disabled={state === 'running'}`
   (`web/src/features/issues/IssuesPanel.tsx:410`) and re-enables beside a
   `role="alert"` nothing re-focuses (`:419`).
-- The story's `CheckoutButton` (`web/src/features/issues/WorkStory.tsx:263`,
-  alert at `:272`) and `StartWorkButton` (`:295`, alert at `:304`) do the
+- The story's `CheckoutButton` (`web/src/features/issues/WorkStory.tsx:283`,
+  alert at `:292`) and `StartWorkButton` (`:315`, alert at `:324`) do the
   same; the latter is the path every dry-run press takes.
 - The issue detail's Retry is `disabled={retrying}` (`IssueUnread`,
   `web/src/features/issues/IssueDetailPanel.tsx:81`), and
@@ -1282,7 +1282,7 @@ that a focused control is in view, not that its focus can be seen.
   (`web/src/features/review/ReviewPanel.tsx:201`) and `PullRequestForm`'s
   submit (`:291`), the same.
 - `StartWorkButton`, the same
-  (`web/src/features/issues/WorkStory.tsx:299`).
+  (`web/src/features/issues/WorkStory.tsx:319`).
 - `AnnounceControls`' button
   (`web/src/features/messaging/MessagingPanel.tsx:192`) and
   `AnnouncePreview`'s Announce now (`:269`), the same, the latter beside a
@@ -1345,17 +1345,17 @@ what heads a part of a panel (the comment over `--text-*`, `:179`). Three
 places set type against that.
 
 - `WorkStory` renders each stage's detail in a plain `text-sm` sans span
-  (`web/src/features/issues/WorkStory.tsx:237`), and the detail carries
-  `branch.name` from `offHeadStages` (`:70`) and `onHeadStages` (`:90`), so
+  (`web/src/features/issues/WorkStory.tsx:257`), and the detail carries
+  `branch.name` from `offHeadStages` (`:82`) and `onHeadStages` (`:102`), so
   the story's Branch stage shows "fix/PROJ-412-redact-tokens · 3 ahead" in
   the sans muted foreground; `storyNote`'s "In progress on {branch}"
-  (`:184`) is sans too. The Branch section's heading sets the same name in
+  (`:204`) is sans too. The Branch section's heading sets the same name in
   `font-mono` (`BranchSummary`,
   `web/src/features/branch/BranchPanel.tsx:58`);
   `tmp/audit/screens/1024-dark-issues.png` and `1024-dark-branch.png` show
   the two faces one click apart.
 - Each stage title is `font-medium` with no size (`WorkStory`,
-  `web/src/features/issues/WorkStory.tsx:235`), so base, over a `text-sm`
+  `web/src/features/issues/WorkStory.tsx:255`), so base, over a `text-sm`
   detail: "Branch", "Changes", "Pull request" and "Announce" read at the
   size of the h3 "Work story" above them (`IssueDetailPanel`,
   `web/src/features/issues/IssueDetailPanel.tsx:52`, `text-base
@@ -1573,7 +1573,7 @@ header versus content, browser versus terminal.
 
 - The web has no plural helper, where the terminal's `plural` counts in
   words (`internal/tui/render.go:478`): `changesDetail` says "{n} file(s)
-  to commit" (`web/src/features/issues/WorkStory.tsx:145`), `PushConfirm`
+  to commit" (`web/src/features/issues/WorkStory.tsx:165`), `PushConfirm`
   "Push {commits} commit(s) to the remote?"
   (`web/src/features/branch/BranchPanel.tsx:177`; the count itself is
   UX-104), and `filterOutcome` "{shown} of {loaded} loaded issues match."
@@ -1592,11 +1592,11 @@ header versus content, browser versus terminal.
   `web/src/features/issues/IssuesPanel.tsx:416`), outside its `aria-label`
   "Check out KEY" (`:409`), so a keyboard user's visible word is not in
   the button's accessible name, and "Checking out…" in the story
-  (`CheckoutButton`, `web/src/features/issues/WorkStory.tsx:269`).
+  (`CheckoutButton`, `web/src/features/issues/WorkStory.tsx:289`).
 - The never-done Announce stage is "Not announced" off HEAD
-  (`notStartedStages`, `web/src/features/issues/WorkStory.tsx:59`;
-  `offHeadStages`, `:73`) and an imperative on it: `announceDetail` reads
-  "Announce to {channel}" (`:139`), on a button that opens the messaging
+  (`notStartedStages`, `web/src/features/issues/WorkStory.tsx:71`;
+  `offHeadStages`, `:85`) and an imperative on it: `announceDetail` reads
+  "Announce to {channel}" (`:159`), on a button that opens the messaging
   section.
 - A missing base is "—" (`BranchSummary`,
   `web/src/features/branch/BranchPanel.tsx:64`) beside a missing upstream
@@ -1680,10 +1680,10 @@ say.
   Jira (`IssuePeople`, `web/src/features/issues/IssueDetailPanel.tsx:137`),
   each with the sr-only "(opens in a new tab)".
 - Each work-story stage is a button that calls `setSection` (`WorkStory`,
-  `web/src/features/issues/WorkStory.tsx:231`), yet it is styled only with
-  `hover:bg-accent` and a focus ring (`:233`) and its sr-only span carries
-  the state alone (`:236`): nothing at rest or in its name says it
-  navigates, though `docs/content/docs/web.md:80` promises under "Issues"
+  `web/src/features/issues/WorkStory.tsx:251`), yet it is styled only with
+  `hover:bg-accent` and a focus ring (`:253`) and its sr-only span carries
+  the state alone (`:256`): nothing at rest or in its name says it
+  navigates, though `docs/content/docs/web.md:78` promises under "Issues"
   "each step opening the section it belongs to", so the story reads as a
   plain timeline.
 - The Settings `<form>` has `onSubmit` and a `className` only
