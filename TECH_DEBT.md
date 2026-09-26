@@ -658,12 +658,6 @@ Facts the code needs in more than one place are written in each, with
 nothing keeping the copies equal. CLAUDE.md names the smell and the rule of
 three; no linter or knip rule sees any of it.
 
-- `web/src/shell/themeStore.ts:11` — `storageKey` is `'workflow-theme'` with
-  a "Keep the two in step" comment and is not exported; `web/index.html:25`
-  spells it again in the pre-paint script, `web/src/shell/theme.test.tsx:21`
-  pins the store's copy only, and the e2e theme case
-  (`web/e2e/theme.spec.ts:12`) stores `'system'`, which resolves as an
-  unread key does.
 - `web/src/features/settings/SettingsPanel.tsx:59` — `secondaryButton`
   carries `text-foreground` where every other copy has `text-sm`; `control`
   (`web/src/features/reviewqueue/ReviewQueuePanel.tsx:27`) lacks the
@@ -678,15 +672,11 @@ three; no linter or knip rule sees any of it.
   The primary button's three sizes are UX-113; one `Button` component (or
   one primary and one secondary class) closes both.
 
-A renamed theme key in `web/index.html` passes every gate and shows only as
-a flash before first paint; and a change to the focus ring is eight edits.
+A change to the focus ring is eight edits.
 
-**One way to fix it.** One owner per fact: an exported `storageKey` a test
-checks `web/index.html` against; and one `Button` component or two class
-constants.
+**One way to fix it.** One `Button` component or two class constants.
 
-**Done when.** A test fails when
-`web/index.html`'s key differs from `themeStore`'s;
+**Done when.**
 `grep -rn "border border-input px-3 py-1.5" web/src --include='*.tsx'`
 matches one definition site.
 

@@ -6,16 +6,17 @@ const themeChoices = ['system', 'light', 'dark'] as const
 
 export type ThemeChoice = (typeof themeChoices)[number]
 
-// The key the pre-paint script in index.html reads too, so the saved choice
-// takes effect before React mounts. Keep the two in step.
-const storageKey = 'workflow-theme'
+// The key the choice is saved under. The pre-paint script in index.html reads
+// it too, so the saved choice takes effect before React mounts; theme.test.tsx
+// holds that script to this key.
+export const themeStorageKey = 'workflow-theme'
 
 // readStoredChoice recovers the saved choice, defaulting to "system" when there
 // is none or storage is blocked (a private window, cleared site data). Exported
 // so its restore path can be tested — the store reads it once, at load.
 export function readStoredChoice(): ThemeChoice {
   try {
-    const stored = localStorage.getItem(storageKey)
+    const stored = localStorage.getItem(themeStorageKey)
     if (stored === 'light' || stored === 'dark' || stored === 'system') {
       return stored
     }
@@ -30,7 +31,7 @@ export function readStoredChoice(): ThemeChoice {
 // refuses the write rather than failing the toggle.
 function persistChoice(choice: ThemeChoice): void {
   try {
-    localStorage.setItem(storageKey, choice)
+    localStorage.setItem(themeStorageKey, choice)
   } catch {
     // Storage unavailable — the choice still applies for this session.
   }

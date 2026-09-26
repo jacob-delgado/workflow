@@ -3,7 +3,8 @@ import userEvent from '@testing-library/user-event'
 import App from '@/App.tsx'
 import { listenerCount } from '@/test/matchMedia.ts'
 import { renderWithClient } from '@/test/renderWithClient.tsx'
-import { readStoredChoice } from './themeStore.ts'
+import indexHtml from '../../index.html?raw'
+import { readStoredChoice, themeStorageKey } from './themeStore.ts'
 
 test('the theme toggle cycles system, light, dark and remembers the choice', async () => {
   // Arrange
@@ -18,15 +19,15 @@ test('the theme toggle cycles system, light, dark and remembers the choice', asy
   // Assert: each step advances the choice and persists it
   await user.click(screen.getByRole('button', { name: /theme: system/i }))
   expect(screen.getByRole('button', { name: /theme: light/i })).toBeTruthy()
-  expect(localStorage.getItem('workflow-theme')).toBe('light')
+  expect(localStorage.getItem(themeStorageKey)).toBe('light')
 
   await user.click(screen.getByRole('button', { name: /theme: light/i }))
   expect(screen.getByRole('button', { name: /theme: dark/i })).toBeTruthy()
-  expect(localStorage.getItem('workflow-theme')).toBe('dark')
+  expect(localStorage.getItem(themeStorageKey)).toBe('dark')
 
   await user.click(screen.getByRole('button', { name: /theme: dark/i }))
   expect(screen.getByRole('button', { name: /theme: system/i })).toBeTruthy()
-  expect(localStorage.getItem('workflow-theme')).toBe('system')
+  expect(localStorage.getItem(themeStorageKey)).toBe('system')
 })
 
 test('following the system registers one OS listener and drops it when set to light', async () => {
@@ -47,12 +48,20 @@ test('following the system registers one OS listener and drops it when set to li
 
 test('a saved choice is restored, and anything unexpected falls back to system', () => {
   // Arrange
-  localStorage.setItem('workflow-theme', 'dark')
+  localStorage.setItem(themeStorageKey, 'dark')
 
   // Act & Assert: a valid saved choice comes back
   expect(readStoredChoice()).toBe('dark')
 
   // Act & Assert: an unrecognized value defaults rather than sticking
-  localStorage.setItem('workflow-theme', 'chartreuse')
+  localStorage.setItem(themeStorageKey, 'chartreuse')
   expect(readStoredChoice()).toBe('system')
+})
+
+test('the page reads the saved choice before paint under the key the store saves it at', () => {
+  // Act: the key index.html's pre-paint script reads
+  const read = /localStorage\.getItem\('([^']*)'\)/.exec(indexHtml)?.[1]
+
+  // Assert
+  expect(read).toBe(themeStorageKey)
 })
