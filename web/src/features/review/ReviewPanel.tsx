@@ -9,7 +9,7 @@ import type {
   PullRequestDraft,
   Review,
 } from '@/api/generated/types.gen.ts'
-import { useSnapshotStore } from '@/api/snapshot.ts'
+import { useLiveSnapshot } from '@/api/snapshot.ts'
 import { Button } from '@/lib/Button.tsx'
 import { useFocusHandback } from '@/lib/focus.ts'
 import { OutcomeLine, useOutcome } from '@/lib/Outcome.tsx'
@@ -26,12 +26,7 @@ const mergeableLabel: Record<'unknown' | 'clean' | 'conflicts', string> = {
 }
 
 export function ReviewPanel() {
-  const snapshot = useSnapshotStore((state) => state.snapshot)
-
-  // The shell says it is connecting until the first snapshot lands.
-  if (!snapshot) {
-    return null
-  }
+  const snapshot = useLiveSnapshot()
 
   // Keyed by the branch, so checking out another starts its review afresh: an
   // open's outcome offers to write to its own branch's issue, and it goes

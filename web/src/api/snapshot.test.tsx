@@ -2,7 +2,7 @@ import { renderHook, waitFor } from '@testing-library/react'
 import { vi } from 'vitest'
 import { FakeEventSource } from '@/test/fakeEventSource.ts'
 import { makeSnapshot } from '@/test/fixtures.ts'
-import { useEventStream, useSnapshotStore } from './snapshot.ts'
+import { useEventStream, useLiveSnapshot, useSnapshotStore } from './snapshot.ts'
 
 const validSnapshot = makeSnapshot({ issues: { issues: [], total: 3, start_at: 0 } })
 
@@ -265,4 +265,24 @@ test('marks a refused default stream reconnecting, with no view to hand back', (
   // Assert
   expect(onViewRefused).not.toHaveBeenCalled()
   expect(useSnapshotStore.getState().status).toBe('reconnecting')
+})
+
+test('a section read before the first snapshot throws rather than render nothing', () => {
+  // Arrange
+  // React reports a render that throws on the console as well as to its caller.
+  vi.spyOn(console, 'error').mockImplementation(() => undefined)
+
+  // Act & Assert
+  expect(() => renderHook(() => useLiveSnapshot())).toThrow(/before the first snapshot/)
+})
+
+test('a section read once a snapshot has landed gets that snapshot', () => {
+  // Arrange
+  useSnapshotStore.setState({ snapshot: validSnapshot })
+
+  // Act
+  const { result } = renderHook(() => useLiveSnapshot())
+
+  // Assert
+  expect(result.current).toBe(validSnapshot)
 })

@@ -1,7 +1,7 @@
 import { GitBranch } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import type { Branch } from '@/api/generated/types.gen.ts'
-import { useSnapshotStore } from '@/api/snapshot.ts'
+import { useLiveSnapshot } from '@/api/snapshot.ts'
 import { Button } from '@/lib/Button.tsx'
 import { useFocusHandback, useFocusOnMount } from '@/lib/focus.ts'
 import { OutcomeLine, useOutcome, type Teller } from '@/lib/Outcome.tsx'
@@ -12,12 +12,7 @@ import { pushBranch } from './pushApi.ts'
 import { WorkingTree } from './WorkingTree.tsx'
 
 export function BranchPanel() {
-  const snapshot = useSnapshotStore((state) => state.snapshot)
-
-  // The shell says it is connecting until the first snapshot lands.
-  if (!snapshot) {
-    return null
-  }
+  const snapshot = useLiveSnapshot()
 
   const { branch, changes } = snapshot
 

@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, type RefObject } from 'react'
 import { apiErrorMessage } from '@/api/apiError.ts'
 import type { Issue, IssuesPage, TaskBranch } from '@/api/generated/types.gen.ts'
-import { useSnapshotStore } from '@/api/snapshot.ts'
+import { useLiveSnapshot, useSnapshotStore } from '@/api/snapshot.ts'
 import { OutcomeLine, useOutcome, type Teller } from '@/lib/Outcome.tsx'
 import { useAsyncAction } from '@/lib/useAsyncAction.ts'
 import { cn } from '@/lib/utils.ts'
@@ -15,12 +15,7 @@ import { IssueListControls } from './IssueListControls.tsx'
 import { IssueStatus } from './IssueStatus.tsx'
 
 export function IssuesPanel() {
-  const snapshot = useSnapshotStore((state) => state.snapshot)
-
-  // The shell says it is connecting until the first snapshot lands.
-  if (!snapshot) {
-    return null
-  }
+  const snapshot = useLiveSnapshot()
 
   return <IssueBrowser streamed={snapshot.issues} branches={snapshot.branches} />
 }

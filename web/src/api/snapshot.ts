@@ -34,6 +34,20 @@ export const useSnapshotStore = create<SnapshotState>(() => ({
   reason: '',
 }))
 
+// useLiveSnapshot is the snapshot for a section that renders only once there is
+// one: SectionPanel says it is connecting until the first frame lands, and no
+// frame ever takes the snapshot back to null, so the section never checks for
+// null itself. Rendering one before the first frame is a mistake in the shell,
+// and throws rather than draw an empty section.
+export function useLiveSnapshot(): Snapshot {
+  const snapshot = useSnapshotStore((state) => state.snapshot)
+  if (snapshot === null) {
+    throw new Error('a section rendered before the first snapshot landed')
+  }
+
+  return snapshot
+}
+
 // useEventStream opens the Server-Sent Events connection and keeps the snapshot
 // store current from its pushes — the cockpit's freshness comes from the stream,
 // never from polling. Mount it once, near the root. The stream carries the named
