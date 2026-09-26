@@ -998,8 +998,7 @@ Severity: medium · Confidence: read
 
 The wheel synthesizes `tea.KeyDown` and `tea.KeyUp` for overlays, which the
 pickers match against `m.keys.down` and `m.keys.up`, so a `down` or `up`
-that `ui.keys` rebinds leaves the wheel dead in every picker. The
-nothing-staged guidance that names `space` is UX-96's.
+that `ui.keys` rebinds leaves the wheel dead in every picker.
 
 - `internal/tui/mouse.go:100` — `Model.wheel` builds
   `tea.KeyPressMsg{Code: tea.KeyDown}` rather than the bound key.

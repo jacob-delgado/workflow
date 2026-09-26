@@ -126,7 +126,7 @@ func localErrors() []knownError {
 		}},
 		{loop.ErrNothingStaged, wording{
 			brief: "nothing is staged",
-			full:  "nothing is staged: space stages the selected file",
+			full:  "nothing is staged: stage a file, then commit",
 		}},
 	}
 }

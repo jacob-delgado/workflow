@@ -500,20 +500,20 @@ horizontal axis.
 
 **Done when.** `G` on the Issues list selects the last loaded issue.
 
-### UX-96 Eleven sentences name a key that `ui.keys` can move
+### UX-96 Ten sentences name a key that `ui.keys` can move
 
 Impact: low · Effort: small
 
 **Today.** `ui.keys` moves an action to another key and the help follows
 it — "The help then shows the new key", the `ui.keys` row of
-`docs/content/docs/configuration.md:82` — but eleven sentences carry the
+`docs/content/docs/configuration.md:82` — but ten sentences carry the
 default key as a literal, so a rebound user is told to press a key that
 does something else or nothing. `wording` (`internal/tui/failure.go:73`)
 states the design the first of them breaks: the full form names no key,
 and each surface's footer offers its own. Counted by reading every string
 literal in `internal/tui/*.go` (tests excluded) that names a key and
 checking that key's action is bound through `helpBuilder.bind`; no single
-grep finds all eleven. DEBT-115 points here for the nothing-staged sentence.
+grep finds all ten.
 
 - `internal/tui/detail.go:377` `Model.fullDetail` appends "press r to try
   again" after the failure block, while refresh is rebindable
@@ -548,10 +548,6 @@ grep finds all eleven. DEBT-115 points here for the nothing-staged sentence.
   pull request from this branch's commits." once one has merged;
   open-pull-request is rebindable (`internal/tui/keys.go:250`,
   `reviewAndMessagingKeys`), and the pane answers `m.keys.newPullRequest`.
-- `internal/tui/failure.go:127` `localErrors` words `loop.ErrNothingStaged`
-  in full as "nothing is staged: space stages the selected file" — the
-  very full form `wording` says names no key; stage is rebindable
-  (`internal/tui/keys.go:239`, `branchAndCommitKeys`).
 - `internal/tui/checks.go:55` `checkList.view` says "Open a check's page
   with enter."; `checkList.handleKey` (`internal/tui/checks.go:113`) opens
   on `m.keys.confirm`, the rebindable apply.
@@ -562,17 +558,17 @@ grep finds all eleven. DEBT-115 points here for the nothing-staged sentence.
 
 **Instead.** Build each sentence from the binding — `m.keys.refresh`,
 `m.keys.newBranch`, `m.keys.confirm`, `m.keys.hookConfig`,
-`m.keys.newPullRequest`, `m.keys.edit`, `m.keys.finish`, `m.keys.stage`,
+`m.keys.newPullRequest`, `m.keys.edit`, `m.keys.finish`,
 `m.keys.editBody`, through `Help().Key` — or drop the key from the
 sentence and let the footer beside it carry the offer, as `wording`
 intends.
 
 **Done when.** A screen test that rebinds refresh, new-branch, apply,
-set-up-lefthook, open-pull-request, edit, finish-branch, stage and
-edit-body through `cfg.UI.Keys`, as `internal/tui/issuesfooter_test.go:180`
-does for apply and close, sees the bound key, or no key, in each of the
-eleven sentences and never the literal `r`, `b`, `enter`, `g`, `n`, `e`,
-`F`, `space` or `ctrl+o` there; the detached case of
+set-up-lefthook, open-pull-request, edit, finish-branch and edit-body
+through `cfg.UI.Keys`, as `internal/tui/issuesfooter_test.go:180` does for
+apply and close, sees the bound key, or no key, in each of the ten
+sentences and never the literal `r`, `b`, `enter`, `g`, `n`, `e`, `F` or
+`ctrl+o` there; the detached case of
 `TestTheBranchPaneSaysWhereTheBranchStands`
 (`internal/tui/branch_test.go:79`),
 `TestAFailedFetchOffersToBranchFromWhatIsThere`
