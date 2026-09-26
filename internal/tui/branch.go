@@ -17,10 +17,6 @@ import (
 	"github.com/jacob-delgado/workflow/internal/jira"
 )
 
-// notInRepository is what every repository-backed pane says when the interface
-// was started outside a git work tree, so the fact is stated one way.
-const notInRepository = "Not inside a git repository. Start `workflow` from one to use this pane."
-
 // branchState is the checked-out branch, as far as it has loaded, and how far
 // the Branch pane's detail is scrolled, which another branch starts at the top.
 type branchState struct {
@@ -108,7 +104,8 @@ func (m Model) upstreamState() string {
 }
 
 // outsideRepository reports the interface started outside a git work tree, the
-// one branch fault a pane speaks to directly rather than by relaying git.
+// one branch fault every repository-backed pane shows alone, in the failure
+// table's words, and offers no repository key for.
 func (m Model) outsideRepository() bool {
 	return m.branch.loaded && errors.Is(m.branch.err, gitrepo.ErrNotARepository)
 }
@@ -125,7 +122,7 @@ func (m Model) branchDetail(width int) string {
 	case !m.branch.loaded:
 		return m.branchRail(0)
 	case m.outsideRepository():
-		return wrap(notInRepository, width)
+		return m.failureBlock(m.branch.err, width)
 	case m.branch.err != nil:
 		// Why, in the words of whatever refused: a directory that is no
 		// repository is one reason among several, and only the reason says
