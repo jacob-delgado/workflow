@@ -196,7 +196,9 @@ write. Two flags change that:
   non-zero. On `announce` it never repeats an announcement: when the store
   says this pull request was already announced at the moment it is at, it
   says so on stderr, announces nothing, and exits 0 — run without `--yes` to be
-  asked. It does not skip `standup`'s editor: add `--no-edit` for that.
+  asked. With `--dry-run` as well, it still prints the announcement, and its
+  dry-run line says it would not announce it again. It does not skip
+  `standup`'s editor: add `--no-edit` for that.
 - **`--dry-run`** prints the preview and what the command would do, and
   writes nothing, the store included: `announce` still reads what an earlier
   session announced, when there is a store on disk, but never creates it or

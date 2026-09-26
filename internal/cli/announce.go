@@ -130,11 +130,7 @@ func runAnnounce(out output, seams announceSeams, opts writeOptions) error {
 	fmt.Fprintln(out.artifact, text)
 	fmt.Fprintln(out.artifact, "to "+target)
 
-	proceed, err := opts.proceed(out.notes, seams.Confirm, writePrompt{
-		question: announceQuestion(service, again),
-		dryRun:   "dry run: would announce to " + target,
-		declined: "Not announced.",
-	})
+	proceed, err := opts.proceed(out.notes, seams.Confirm, announcePrompt(service, target, again, opts))
 	if err != nil || !proceed {
 		return unattendedAgain(err, again)
 	}
@@ -161,11 +157,12 @@ func announceTarget(channel, service string) string {
 
 // offerAgain says that an earlier session already made this announcement, and
 // reports whether to offer it again: asked, yes, but never repeated under --yes,
-// which answers only the question it can see coming.
+// which answers only the question it can see coming. A dry run goes on all the
+// same, to preview the announcement and say what --yes would do with it.
 func offerAgain(notes io.Writer, pull string, opts writeOptions) bool {
 	fmt.Fprintln(notes, pull+" was already announced at this moment in an earlier session.")
 
-	if opts.yes {
+	if opts.yes && !opts.dryRun {
 		fmt.Fprintln(notes, "Not announced again; run without --yes to be asked.")
 
 		return false
@@ -174,14 +171,25 @@ func offerAgain(notes io.Writer, pull string, opts writeOptions) bool {
 	return true
 }
 
-// announceQuestion asks to announce to the service, and whether to announce
-// again when an earlier session already did.
-func announceQuestion(service string, again bool) string {
-	if again {
-		return "Announce to " + service + " again?"
+// announcePrompt is what announce says around its confirmation: it asks
+// whether to announce again when an earlier session already did, and its dry
+// run under --yes says that such a moment would be left as it is.
+func announcePrompt(service, target string, again bool, opts writeOptions) writePrompt {
+	prompt := writePrompt{
+		question: "Announce to " + service + "?",
+		dryRun:   "dry run: would announce to " + target,
+		declined: "Not announced.",
 	}
 
-	return "Announce to " + service + "?"
+	if again {
+		prompt.question = "Announce to " + service + " again?"
+	}
+
+	if again && opts.yes {
+		prompt.dryRun = "dry run: would not announce it again; --yes leaves an announced moment as it is"
+	}
+
+	return prompt
 }
 
 // unattendedAgain words a repeat that nothing could confirm: --yes leaves a
