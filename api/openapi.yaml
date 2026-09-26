@@ -846,7 +846,7 @@ components:
         code:
           type: string
           description: A stable, machine-readable reason.
-          enum: [bad_request, not_found, conflict, unprocessable, precondition_required, unreachable, internal]
+          enum: [bad_request, not_found, method_not_allowed, conflict, unprocessable, precondition_required, unreachable, internal]
       additionalProperties: false
 
     CheckoutRequest:

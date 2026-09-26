@@ -45,6 +45,8 @@ func codeMeaning(code api.ProblemCode) (int, string) {
 		return http.StatusBadRequest, "Bad request"
 	case api.NotFound:
 		return http.StatusNotFound, "Not found"
+	case api.MethodNotAllowed:
+		return http.StatusMethodNotAllowed, "Method not allowed"
 	case api.Conflict:
 		return http.StatusConflict, "Conflict"
 	case api.Unprocessable:

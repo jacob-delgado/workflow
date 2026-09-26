@@ -1097,32 +1097,6 @@ description names the configuration in effect and the author; the review
 optional strings use one word for one wire shape; and `task gen` leaves the
 generated code unchanged.
 
-### DEBT-136 A wrong method on a known path is answered 404, not 405
-
-Severity: low · Confidence: read
-
-The validator's router returns a nil route with
-`routers.ErrMethodNotAllowed` for a method mismatch; nethttp-middleware
-v1.2.0 (`go.mod:12`) then reports status 404 whenever the route is nil, and
-`writeValidationError` (`internal/webserver/validator.go:56`) turns any 404
-into `not_found` "no such endpoint" (`internal/webserver/validator.go:57`),
-so POST /api/branch or DELETE /api/config is told the endpoint does not
-exist rather than 405 with `Allow`. `TestAnUnknownEndpointIsNotFound`
-(`internal/webserver/serve_test.go:82`) covers an unknown path only; no
-test sends a wrong method to an /api path, and
-`TestTheAppRefusesANonReadMethod` (`internal/webserver/static_test.go:131`)
-pins 405 for the app only.
-
-A script that mistypes the verb is sent looking for a typo in the path; the
-`net/http` mux behind the validator would have answered 405 on its own.
-
-**One way to fix it.** In `writeValidationError`, test
-`errors.Is(err, routers.ErrMethodNotAllowed)` before the 404 branch and
-answer 405 with a problem (a new enum code, added to
-`docs/content/docs/errors.md`), or let the request through to the mux.
-
-**Done when.** A test sending POST /api/branch sees 405, not 404.
-
 ### DEBT-139 The web derives its own stage rules, and they contradict `progress`
 
 Severity: medium · Confidence: read

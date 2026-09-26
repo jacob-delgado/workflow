@@ -49,7 +49,14 @@ and the event stream both refuse a view they do not know rather than answering
 with the default one. Staging and unstaging answer it too for a path the working
 tree does not list as changed: they move a change the server read, never a path
 of the caller's own. Opening a pull request answers it for a repository the
-forge will not show the token.
+forge will not show the token. A path the API does not serve answers it too.
+
+## Method not allowed
+
+Status 405. The path is one the API serves, but not with the request's method
+— a `POST` to a read, say. The `Allow` header lists the methods the path
+answers, and so does the detail. The API answers only the methods its contract
+declares, so a `HEAD` is refused here as well.
 
 ## Conflict
 
