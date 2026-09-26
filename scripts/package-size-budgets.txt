@@ -24,6 +24,9 @@
 # file trips the gate. A budget left ABOVE its count fails too; that is what a
 # forgotten post-split ratchet looks like.
 #
+# Trade-off TRADE-1: every declared budget sits at its count, so the next file
+# in any of these directories is a bump or a split, decided in its own commit.
+#
 # Counts here are SOURCE files: unit tests (`*_test.go`, `*.test.ts(x)`),
 # stylesheets (`*.css`) and generated code (`*.gen.go`, a whole generated tree
 # marked `exempt`) do not count. But integration tests (`*_integration_test.go`)

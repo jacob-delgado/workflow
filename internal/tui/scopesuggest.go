@@ -14,6 +14,9 @@ import (
 
 // onFieldNav accepts a pending scope completion when tab could take one, and
 // otherwise moves to the next field.
+//
+// Trade-off TRADE-6: prComposer.onFieldNav is its twin; the two stay apart until
+// a third composer needs them.
 func (c commitComposer) onFieldNav(m Model, msg tea.KeyPressMsg) commitComposer {
 	if c.focus == fieldScope && c.scopeCanComplete() {
 		return c.typed(m, msg)

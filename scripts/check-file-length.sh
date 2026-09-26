@@ -43,6 +43,8 @@
 set -euo pipefail
 
 readonly default_max=800
+# Trade-off TRADE-2: seven test files stay past the soft target, each holding
+# the cases of one behavior; TECH_DEBT.md's register names them.
 readonly default_soft=500
 
 usage() {

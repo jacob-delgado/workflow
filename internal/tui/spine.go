@@ -66,6 +66,8 @@ func (m Model) paintGlyph(s stage) string {
 // stage's system, from the shared derivation both this spine and `workflow
 // status` read.
 func (m Model) stages() []stage {
+	// Trade-off TRADE-5: the hue tells the systems apart by color alone; the
+	// stage's name, or its initial when compact, is what names the stage.
 	hues := map[progress.System]lipgloss.Style{
 		progress.Tracker: m.styles.jira, progress.Git: m.styles.git,
 		progress.Forge: m.styles.forge, progress.Messaging: m.styles.messaging,

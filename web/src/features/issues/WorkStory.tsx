@@ -25,9 +25,9 @@ const stageMark: Record<StageState, MarkState> = {
 }
 
 // How far a stage has got, read from the stream by the rules internal/progress
-// writes for the spine and `workflow status`; WorkStory.stages.test.tsx holds
-// the two equal. Which pending stage the work is at is the story's own reading
-// (stageState).
+// writes for the spine and `workflow status`. Trade-off TRADE-10: the rules are
+// written twice, and WorkStory.stages.test.tsx holds the two equal. Which
+// pending stage the work is at is the story's own reading (stageState).
 type Reached = 'done' | 'failed' | 'pending'
 
 interface Stage {

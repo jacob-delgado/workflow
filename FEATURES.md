@@ -125,7 +125,7 @@ Impact: medium · Effort: large
   comment posted from the browser appears among the issue's comments; the
   handler tests answer each new write path 403 under `--dry-run` (every write
   is a non-GET, so `refuseWritesInDryRun`,
-  `internal/webserver/guard.go:46`, covers it, as
+  `internal/webserver/guard.go:48`, covers it, as
   `TestDryRunRefusesTheIssueWrites` asserts for the two writes today); and a
   write's problem `detail` omits the tracker's host.
 

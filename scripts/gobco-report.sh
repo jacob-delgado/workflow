@@ -82,6 +82,8 @@ readonly out_dir="${OUT_DIR:-${repo_root}/tmp/gobco}"
 # the embed half's one error path is not in the untagged run gobco measures, so
 # there is nothing here to lose. web_test.go still measures the stub's statement
 # coverage under `go test`, which does honor the tags.
+#
+# Trade-off TRADE-7: these two packages' conditions go unmeasured.
 readonly UNANALYZABLE="internal/proc/pgroup internal/web"
 
 # Packages with no tests, each with the reason it has none. gobco measures

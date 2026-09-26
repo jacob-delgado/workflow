@@ -364,6 +364,9 @@ func (c prComposer) handleKey(m Model, msg tea.KeyPressMsg) (Model, tea.Cmd) {
 
 // onFieldNav accepts a pending base completion when tab could take one, and
 // otherwise moves to the next field.
+//
+// Trade-off TRADE-6: commitComposer.onFieldNav is its twin; the two stay apart
+// until a third composer needs them.
 func (c prComposer) onFieldNav(msg tea.KeyPressMsg, keys keyMap) prComposer {
 	if c.focus == prFieldBase && key.Matches(msg, keys.nextField) && c.baseCanComplete() {
 		return c.typed(msg)

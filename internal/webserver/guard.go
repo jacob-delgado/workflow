@@ -43,6 +43,8 @@ func guardLoopback(next http.Handler) http.Handler {
 // off it adds nothing. This is the web's dry-run: the terminal interface instead
 // simulates each write, but a read-only surface keeps the guarantee that matters
 // — nothing is written — with one gate over every write.
+//
+// Trade-off TRADE-3: a web write under --dry-run is refused, not simulated.
 func refuseWritesInDryRun(dryRun bool, next http.Handler) http.Handler {
 	if !dryRun {
 		return next
