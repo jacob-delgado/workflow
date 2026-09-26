@@ -2149,33 +2149,6 @@ delete `forceANSI` if nothing calls it.
 internal/tui` prints nothing, each of the twelve tests calls `t.Parallel()`,
 and `task lint` passes.
 
-### DEBT-144 `internal/tui/layout/layout_test.go` describes a five-pane rail the interface no longer draws
-
-Severity: low · Confidence: read
-
-`internal/tui/layout/layout_test.go:14` declares `railPanes = 5`, and the
-comment above it (`:13`) names "Issues, Branch, Commits, Review and Slack",
-while `paneCount` (`internal/tui/panes.go:27`) is 6 and the rail draws a
-Reviews pane. The height tables are built on the five:
-`TestTheFocusedPaneTakesTheRoomTheOthersDoNotNeed`
-(`internal/tui/layout/layout_test.go:123`) expects `{25, 3, 3, 3, 3}` for a
-rail the interface never draws, and `TestRailAt`'s "last row of the rail"
-case (`internal/tui/layout/layout_test.go:248`) expects index 4. The
-six-pane geometry `Compute` (`internal/tui/layout/layout.go:71`) is asked
-for is exercised only through `internal/tui`'s screen tests, which render
-through the same call. The gobco report reads `internal/tui/layout` at 21
-of 22 arms; the one it misses, `column >= b.X` in `Box.Contains`
-(`internal/tui/layout/layout.go:58`) never seen false, has nothing to do
-with the rail's pane count, so the drift is in what the tests describe,
-not in what they reach.
-
-**One way to fix it.** Set `railPanes` to 6, name Reviews in the comment,
-and recompute the expected heights and the `RailAt` rows.
-
-**Done when.** `railPanes` reads 6, every height table in
-`internal/tui/layout/layout_test.go` sums with six boxes, and `TestRailAt`'s
-last-row case expects index 5.
-
 ### DEBT-145 The test world's runs carry no Stop, and production says so
 
 Severity: low · Confidence: read

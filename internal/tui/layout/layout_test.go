@@ -9,9 +9,9 @@ import (
 	"github.com/jacob-delgado/workflow/internal/tui/layout"
 )
 
-// railPanes is the number of stacked panels the design calls for: Issues,
-// Branch, Commits, Review and Slack.
-const railPanes = 5
+// railPanes is the number of stacked panels the interface draws: Issues,
+// Branch, Commits, Review, the messaging pane and Reviews.
+const railPanes = 6
 
 func TestComputeReservesASpineAndAFooter(t *testing.T) {
 	t.Parallel()
@@ -133,14 +133,14 @@ func TestTheFocusedPaneTakesTheRoomTheOthersDoNotNeed(t *testing.T) {
 		focused int
 		want    []int
 	}{
-		"the first":  {height: 40, focused: 0, want: []int{25, 3, 3, 3, 3}},
-		"the middle": {height: 40, focused: 2, want: []int{3, 3, 25, 3, 3}},
-		"the last":   {height: 40, focused: 4, want: []int{3, 3, 3, 3, 25}},
-		// 16 rows leave 14, and 8 content rows after the rules: too few to give
-		// the focused pane a useful height after four compact ones, so every pane
-		// shares — and the leftover rows go to the top panes rather than being
+		"the first":  {height: 40, focused: 0, want: []int{22, 3, 3, 3, 3, 3}},
+		"the middle": {height: 40, focused: 2, want: []int{3, 3, 22, 3, 3, 3}},
+		"the last":   {height: 40, focused: 5, want: []int{3, 3, 3, 3, 3, 22}},
+		// 16 rows leave 14, and 7 content rows after the rules: too few to give
+		// the focused pane a useful height after five compact ones, so every pane
+		// shares — and the leftover row goes to the top pane rather than being
 		// dropped, since a row lost at the bottom of the screen is a visible gap.
-		"a short terminal shares evenly": {height: 16, focused: 3, want: []int{3, 3, 3, 2, 2}},
+		"a short terminal shares evenly": {height: 16, focused: 3, want: []int{3, 2, 2, 2, 2, 2}},
 	}
 
 	for name, tt := range cases {
@@ -244,8 +244,8 @@ func TestRailAt(t *testing.T) {
 		wantOK        bool
 	}{
 		"top of the first pane":  {width: 120, height: 40, column: 0, row: 1, want: 0, wantOK: true},
-		"inside the third pane":  {width: 120, height: 40, column: 10, row: 30, want: 2, wantOK: true},
-		"last row of the rail":   {width: 120, height: 40, column: 35, row: 37, want: 4, wantOK: true},
+		"inside the third pane":  {width: 120, height: 40, column: 10, row: 27, want: 2, wantOK: true},
+		"last row of the rail":   {width: 120, height: 40, column: 35, row: 37, want: 5, wantOK: true},
 		"the spine is not rail":  {width: 120, height: 40, column: 5, row: 0, wantOK: false},
 		"the detail is not rail": {width: 120, height: 40, column: 60, row: 10, wantOK: false},
 		"the footer is not rail": {width: 120, height: 40, column: 5, row: 39, wantOK: false},
