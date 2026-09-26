@@ -213,7 +213,7 @@ export const createBranch = <ThrowOnError extends boolean = false>(options: Opti
 /**
  * The announcement message that would be posted, for a preview.
  *
- * Composes the announcement for the checked-out branch's pull request — author, title, link, and the issue — from the configured template, without posting it. Answered 409 when there is no pull request to announce.
+ * Composes the announcement for the checked-out branch's pull request — author, title, link, and the issue — from the configured template, without posting it. Answered 409 when there is no pull request to announce, or the server is not running in a git repository.
  */
 export const getAnnouncement = <ThrowOnError extends boolean = false>(options?: Options<GetAnnouncementData, ThrowOnError>): RequestResult<GetAnnouncementResponses, GetAnnouncementErrors, ThrowOnError> => (options?.client ?? client).get<GetAnnouncementResponses, GetAnnouncementErrors, ThrowOnError>({
     responseValidator: async (data) => await zGetAnnouncementResponse.parseAsync(data),
@@ -224,7 +224,7 @@ export const getAnnouncement = <ThrowOnError extends boolean = false>(options?: 
 /**
  * Post the pull request announcement to the configured service.
  *
- * Posts the composed announcement (see GET /api/announcement) to the configured service — to the given channel, or the configured one when none is given, or the webhook's own channel. Refused with 409 when there is no pull request to announce, and 422 when the service refuses the post or is not set up; a service that cannot be reached, or asks to wait, is a 502. No answer carries the service's own error, which can name the webhook.
+ * Posts the composed announcement (see GET /api/announcement) to the configured service — to the given channel, or the configured one when none is given, or the webhook's own channel. Refused with 409 when there is no pull request to announce or the server is not running in a git repository, and 422 when the service refuses the post or is not set up; a service that cannot be reached, or asks to wait, is a 502. No answer carries the service's own error, which can name the webhook.
  */
 export const announce = <ThrowOnError extends boolean = false>(options: Options<AnnounceData, ThrowOnError>): RequestResult<AnnounceResponses, AnnounceErrors, ThrowOnError> => (options.client ?? client).post<AnnounceResponses, AnnounceErrors, ThrowOnError>({
     responseValidator: async (data) => await zAnnounceResponse.parseAsync(data),

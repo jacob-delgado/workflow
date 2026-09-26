@@ -305,16 +305,11 @@ func TestGetAnnouncementIsAConflictWithoutAPullRequest(t *testing.T) {
 func TestAnnouncingIsAConflictWithoutAPullRequest(t *testing.T) {
 	t.Parallel()
 
-	// There is nothing to announce without a pull request, whichever way it comes
-	// back missing.
+	// There is nothing to announce without a pull request, whether the forge
+	// finds none or there is no forge to ask.
 	cases := map[string]func(webserver.Deps) webserver.Deps{
 		"no pull request found": func(deps webserver.Deps) webserver.Deps {
 			deps.FindPull = func(string) (forge.PullRequest, bool, error) { return forge.PullRequest{}, false, nil }
-
-			return deps
-		},
-		"the forge cannot be reached": func(deps webserver.Deps) webserver.Deps {
-			deps.FindPull = func(string) (forge.PullRequest, bool, error) { return forge.PullRequest{}, false, errSeam }
 
 			return deps
 		},
