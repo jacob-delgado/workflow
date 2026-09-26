@@ -219,6 +219,10 @@ export type Snapshot = {
      */
     branches: Array<TaskBranch>;
     /**
+     * The commit types a new commit may take, in the order to offer them — the terminal composer's list: commit.types, trimmed, when the configuration names any, else the built-in Conventional Commit types. A commit whose type is not among them is refused.
+     */
+    commit_types: Array<string>;
+    /**
      * The scope a new commit opens on — the terminal composer's rule: the scope last committed with in this repository, else commit.default_scope, else empty. The server reads the learned one from its store once, and once more after a commit here records one, not on every message, and never under --dry-run, when the default alone applies.
      */
     suggested_scope: string;

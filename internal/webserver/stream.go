@@ -140,6 +140,7 @@ func (s *server) snapshot(view string) api.Snapshot {
 		Messaging: s.readMessaging(),
 		Branches:  s.snapshotBranches(branch.Name),
 
+		CommitTypes:    s.commitConvention().Types(),
 		SuggestedScope: s.suggestedScope(),
 	}
 }

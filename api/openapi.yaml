@@ -1061,7 +1061,7 @@ components:
       description: >-
         The full read state carried by one event-stream message: everything the
         cockpit shows, together.
-      required: [issues, branch, changes, review, messaging, branches, suggested_scope]
+      required: [issues, branch, changes, review, messaging, branches, commit_types, suggested_scope]
       properties:
         issues: {$ref: "#/components/schemas/IssuesPage"}
         branch: {$ref: "#/components/schemas/Branch"}
@@ -1076,6 +1076,15 @@ components:
             checked-out branch alone; this lists every issue that has a branch,
             so the issues list can mark them all in flight, not the one on HEAD.
           items: {$ref: "#/components/schemas/TaskBranch"}
+        commit_types:
+          type: array
+          description: >-
+            The commit types a new commit may take, in the order to offer
+            them — the terminal composer's list: commit.types, trimmed, when
+            the configuration names any, else the built-in Conventional
+            Commit types. A commit whose type is not among them is refused.
+          items: {type: string}
+          example: [feat, fix, docs]
         suggested_scope:
           type: string
           description: >-

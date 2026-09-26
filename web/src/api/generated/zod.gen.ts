@@ -298,6 +298,7 @@ export const zSnapshot = z.object({
     review: zReview,
     messaging: zMessagingDestination,
     branches: z.array(zTaskBranch),
+    commit_types: z.array(z.string()),
     suggested_scope: z.string()
 });
 
