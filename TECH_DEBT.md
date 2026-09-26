@@ -471,8 +471,6 @@ clears the gate.
 
 The store:
 
-- `internal/store/store.go:70` — `timestamp`, the RFC3339 rule, has no test
-  behind it.
 - `internal/store/store.go:57` — `dsnPragmas`' `foreign_keys(1)` and the `ON
   DELETE CASCADE` on `cached_issue` (`:271`) are exercised by nothing:
   `writeCachedIssues` (`internal/store/cache.go:142`) deletes the children
@@ -484,16 +482,12 @@ The store:
   asserts only that another view and instance read nothing (`:92`), so a
   `RecordScope` or `CacheIssues` that writes nothing passes.
 
-The regressions these tests exist to catch pass the suite green: a
-`timestamp()` that writes `now.String()`.
+**One way to fix it.** Sharpen each Assert to what its name claims: a
+cascade a test makes fire, and each Arrange's error fatal.
 
-**One way to fix it.** Sharpen each Assert to what its name claims: raw-file
-reads that parse each `_at`, a cascade a test makes fire, and each Arrange's
-error fatal.
-
-**Done when.** Each named mutation fails a test: changing `timestamp()` to
-`now.String()`, removing `foreign_keys(1)` from `dsnPragmas`, or making
-`RecordScope` or `CacheIssues` return nil without writing.
+**Done when.** Each named mutation fails a test: removing `foreign_keys(1)`
+from `dsnPragmas`, or making `RecordScope` or `CacheIssues` return nil
+without writing.
 
 ### DEBT-105 The contributor documents restate counts and names the tree has moved past
 
