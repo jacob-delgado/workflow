@@ -73,10 +73,9 @@ terminal, a file on disk, the loopback server or a release.
 
 ## The command line
 
-What is open here is the clients and plumbing every command shares (the
-interface and the web reach them too), the drift between the docs, the
-comments and the code they describe, and a sweep that crosses every
-surface — tests that prove nothing.
+What is open here is the drift between the docs, the comments and the code
+they describe, in the commands and in the clients and plumbing every command
+shares (the interface and the web reach them too).
 
 ### DEBT-89 Comments and layout rows that no longer say what the code does
 
@@ -460,29 +459,6 @@ default"; and `glab` beside `gh` in install.md's needs list.
 `grep -c '"version"' docs/content/docs/configuration.md` returns at least
 1, `task docs:check` stays green, and `grep -n glab
 docs/content/docs/install.md` prints a line.
-
-### DEBT-92 Tests in Go, the scripts and the web that prove nothing
-
-Severity: low · Confidence: read
-
-Across `internal/store`, tests named for a rule would pass with the rule
-gone. `testshape` checks only that a failure call is reachable, so every one
-clears the gate.
-
-The store:
-
-- `internal/store/store_test.go:79` — `TestScopesAreKeptPerRepository`
-  discards `RecordScope`'s error and asserts only that another repository
-  reads nothing (`:85`); `TestTheCacheIsKeptPerInstanceAndView`
-  (`internal/store/cache_test.go:85`) discards `CacheIssues`' error and
-  asserts only that another view and instance read nothing (`:92`), so a
-  `RecordScope` or `CacheIssues` that writes nothing passes.
-
-**One way to fix it.** Sharpen each Assert to what its name claims: each
-Arrange's error fatal.
-
-**Done when.** Each named mutation fails a test: making `RecordScope` or
-`CacheIssues` return nil without writing.
 
 ### DEBT-105 The contributor documents restate counts and names the tree has moved past
 

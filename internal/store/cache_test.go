@@ -80,17 +80,38 @@ func TestAViewCachedEmptyIsFoundButEmpty(t *testing.T) {
 func TestTheCacheIsKeptPerInstanceAndView(t *testing.T) {
 	t.Parallel()
 
-	// Arrange
-	kept := store.New(t.TempDir(), false)
-	_ = kept.CacheIssues(t.Context(), instance, "assigned", []store.CachedIssue{issue("PROJ-1")}, theTime())
+	cases := map[string]struct{ instance, view string }{
+		"another view on the instance": {instance: instance, view: "reported"},
+		"the view on another instance": {instance: "different", view: "assigned"},
+	}
 
-	// Act
-	_, otherView, _ := kept.CachedIssues(t.Context(), instance, "reported")
-	_, otherInstance, _ := kept.CachedIssues(t.Context(), "different", "assigned")
+	for name, other := range cases {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
 
-	// Assert
-	if otherView || otherInstance {
-		t.Error("the cache leaked across a view or an instance")
+			// Arrange
+			kept := store.New(t.TempDir(), false)
+			cached := []store.CachedIssue{issue("PROJ-1")}
+
+			err := kept.CacheIssues(t.Context(), instance, "assigned", cached, theTime())
+			if err != nil {
+				t.Fatalf("CacheIssues returned %v, want nil", err)
+			}
+
+			// Act
+			got, found, err := kept.CachedIssues(t.Context(), other.instance, other.view)
+
+			// Assert
+			if err != nil || found || len(got) != 0 {
+				t.Errorf("CachedIssues for %s = %v, %v, %v; want nothing cached there", name, got, found, err)
+			}
+
+			own, ownFound, err := kept.CachedIssues(t.Context(), instance, "assigned")
+			if err != nil || !ownFound || !slices.Equal(own, cached) {
+				t.Errorf("CachedIssues for the view that cached them = %v, %v, %v; want its own list kept",
+					own, ownFound, err)
+			}
+		})
 	}
 }
 
