@@ -1111,19 +1111,19 @@ carried and misdescribed.
 - `MessagingFieldset`'s Bot token hint is "Slack only; leave as-is to keep
   the stored token."
   (`web/src/features/settings/fieldsets/MessagingFieldset.tsx:25`), with
-  `Messaging.TokenCommand` and `TokenEnv` (`internal/config/config.go:109`)
+  `Messaging.TokenCommand` and `TokenEnv` (`internal/config/config.go:113`)
   carried by the form and unmentioned.
 - Announcement is registered with no hint
   (`web/src/features/settings/fieldsets/MessagingFieldset.tsx:35`), though
   `Messaging.Announcement` is a Slack-only template with seven
-  placeholders (`internal/config/config.go:123`), which the fields table
+  placeholders (`internal/config/config.go:127`), which the fields table
   describes in one line (`docs/content/docs/configuration.md:74`). A Teams
   user edits it and sees no change; a Slack user has no placeholder list
   on screen.
 - Channel is registered with no hint
   (`web/src/features/settings/fieldsets/MessagingFieldset.tsx:34`), though
   `Messaging.Channel` "applies to a Slack bot token only; a webhook carries
-  its own channel" (`internal/config/config.go:116`). A webhook user sees
+  its own channel" (`internal/config/config.go:120`). A webhook user sees
   an editable channel that does nothing.
 
 **Instead.** When `token_command` or `token_env` is set, replace the token
@@ -1742,8 +1742,8 @@ which is why this is low.
   explicit `['', 'Auto-detect']`
   (`web/src/features/settings/fieldsets/ForgeFieldset.tsx:13`).
 - `Default` sets no `PullRequest`, so `title_source` is `""`
-  (`internal/config/config.go:186`), and its `Messaging` leaves `Kind` `""`
-  (`:190`); `collectMessaging` returns `config.Messaging{}` when Slack is
+  (`internal/config/config.go:190`), and its `Messaging` leaves `Kind` `""`
+  (`:194`); `collectMessaging` returns `config.Messaging{}` when Slack is
   skipped (`internal/cli/config_cmd.go:305`), so the guided init writes
   kind `""` and the Service select draws empty while the messaging
   section's rail label and heading say "Slack" — two surfaces disagreeing
@@ -2062,7 +2062,7 @@ Impact: low · Effort: small
   channel" for a webhook and for a bot with no channel, used by
   `runAnnounce` for the `to` line (`:131`), the dry-run line (`:135`) and
   the done notice (`:147`) — where `Messaging.Target`,
-  `internal/config/config.go:279`, says "(no channel set)" and, at `:284`,
+  `internal/config/config.go:283`, says "(no channel set)" and, at `:288`,
   "the channel its webhook is bound to", which the interface's notice uses
   (`internal/tui/messagingpreview.go:222`), and the web's `AnnounceControls`
   says "Announced to SERVICE." for a webhook

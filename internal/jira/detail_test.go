@@ -458,7 +458,7 @@ func TestAddCommentRefusesAnInvalidBaseURL(t *testing.T) {
 	_, err := client.AddComment(t.Context(), "OPS-1", "x")
 
 	// Assert
-	if !errors.Is(err, jira.ErrInvalidBaseURL) {
+	if !errors.Is(err, config.ErrInvalidBaseURL) {
 		t.Errorf("AddComment returned %v, want ErrInvalidBaseURL", err)
 	}
 }

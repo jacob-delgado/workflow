@@ -289,7 +289,7 @@ func checkJira(ctx context.Context, out io.Writer, doer jira.Doer, settings conf
 	user, err := client.Myself(ctx)
 	// The configuration section fails an address the client cannot use; here it
 	// only means there is no Jira to ask.
-	if errors.Is(err, jira.ErrInvalidBaseURL) {
+	if errors.Is(err, config.ErrInvalidBaseURL) {
 		return credentialUnchecked(out, "jira", err.Error()+" — the configuration section fails it; Jira was not asked")
 	}
 

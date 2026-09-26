@@ -49,6 +49,10 @@ var (
 	ErrSlackRenamed = errors.New(
 		`the "slack" block was renamed to "messaging"; rename the key and add "kind": "slack"`,
 	)
+	// ErrInvalidBaseURL reports a jira.base_url that is not an absolute URL.
+	ErrInvalidBaseURL = errors.New("jira.base_url is not an absolute http or https URL")
+	// ErrCredentialInBaseURL reports userinfo embedded in jira.base_url.
+	ErrCredentialInBaseURL = errors.New("jira.base_url carries a username and password")
 )
 
 // Jira describes how to reach an on-premises Jira instance.
@@ -345,8 +349,11 @@ func (m Messaging) missing() []string {
 func (c Config) Problems() []string {
 	var problems []string
 
-	if base := c.Jira.BaseURL; base != "" && !absoluteWebURL(base) {
-		problems = append(problems, "jira.base_url is not an absolute http or https URL")
+	if base := c.Jira.BaseURL; base != "" {
+		err := CheckBaseURL(base)
+		if err != nil {
+			problems = append(problems, err.Error())
+		}
 	}
 
 	if hook := c.Messaging.WebhookURL; hook != "" && !secureURL(hook.Reveal()) {
@@ -356,12 +363,26 @@ func (c Config) Problems() []string {
 	return problems
 }
 
-// absoluteWebURL reports whether raw is an absolute http or https URL with a
-// host.
-func absoluteWebURL(raw string) bool {
+// CheckBaseURL reports whether raw can be jira.base_url: an absolute http or
+// https URL with a host, and with no username or password, which net/http
+// would turn into an Authorization header competing with the configured
+// token. The error never quotes raw, which may carry that password.
+func CheckBaseURL(raw string) error {
 	parsed, err := url.Parse(raw)
+	if err != nil {
+		// Deliberately unwrapped: the parse error quotes the whole URL.
+		return ErrInvalidBaseURL
+	}
 
-	return err == nil && (parsed.Scheme == "http" || parsed.Scheme == "https") && parsed.Host != ""
+	if parsed.User != nil {
+		return ErrCredentialInBaseURL
+	}
+
+	if parsed.Host == "" || (parsed.Scheme != "https" && parsed.Scheme != "http") {
+		return ErrInvalidBaseURL
+	}
+
+	return nil
 }
 
 // secureURL reports whether raw is an https URL with a host.

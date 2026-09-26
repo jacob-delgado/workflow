@@ -313,7 +313,7 @@ The web page:
   do; the whole `Config` seeds the form and rides back, and `token_command`
   and `token_env` (`api/openapi.yaml:1399`; messaging's at `:1434`) and
   `channels` (`:1440`; `Messaging.Channels`,
-  `internal/config/config.go:121`) are in the schema and registered by no
+  `internal/config/config.go:125`) are in the schema and registered by no
   fieldset.
 - `docs/content/docs/web.md:131` — "a save never overwrites a change it has
   not seen" is stronger than `SaveOver` makes it: its comment
@@ -403,16 +403,16 @@ UX-87.
 - `docs/content/docs/configuration.md:10` — the sample file under
   "Configuration" lists `jira`, `messaging`, `forge` and `ui`; no
   `version`.
-- `internal/config/config.go:164` — `Config.Version`, written first by
+- `internal/config/config.go:168` — `Config.Version`, written first by
   `config init` and validated; 0 hits on the page.
-- `internal/config/config.go:80` — `Jira.Project`, the branch-name key
+- `internal/config/config.go:84` — `Jira.Project`, the branch-name key
   guard; 0 hits.
-- `internal/config/config.go:90` — `Jira.ReviewStatus`, which drives the
+- `internal/config/config.go:94` — `Jira.ReviewStatus`, which drives the
   post-open transition offer; named in errors.md and the `pr` reference
   only.
-- `internal/config/config.go:121` — `Messaging.Channels`, the channel
+- `internal/config/config.go:125` — `Messaging.Channels`, the channel
   cycle's source; 0 hits.
-- `internal/config/config.go:151` — `Forge.CLI`, which routes forge calls
+- `internal/config/config.go:155` — `Forge.CLI`, which routes forge calls
   through `gh` or `glab`; on the site only at
   `docs/content/docs/scripting.md:51`.
 - `internal/config/ui.go:37` — `UI.CommentsShown`; 0 hits.
@@ -658,12 +658,6 @@ Facts the code needs in more than one place are written in each, with
 nothing keeping the copies equal. CLAUDE.md names the smell and the rule of
 three; no linter or knip rule sees any of it.
 
-- `internal/config/config.go:349` — `Config.Problems`' sentence
-  "jira.base_url is not an absolute http or https URL" is
-  `ErrInvalidBaseURL`'s text verbatim (`internal/jira/jira.go:44`), and the
-  rule behind it is written twice: `absoluteWebURL`
-  (`internal/config/config.go:364`) accepts userinfo that `usable`
-  (`internal/jira/jira.go:164`) refuses first (`:160`).
 - `.github/workflows/release-please.yml:67` — "Provision the toolchain for
   the gate" and "Verify the gate before tagging" (`:79`) each restate the
   release subject with `startsWith(…, 'chore(main): release ')`, "Push tag
@@ -717,19 +711,19 @@ never saw, or silently tags nothing; a required snapshot field added to the
 contract dies in the e2e specs as a locator timeout; and a change to the
 focus ring is eight edits.
 
-**One way to fix it.** One owner per fact: one base-URL rule in `config`
-that `jira` wraps; the tag script owning the release-commit decision and the
-workflow reading its answer; `satisfies Snapshot` on the e2e literals; the
-server sending the effective commit types so the form holds no list; an
-exported `storageKey` a test checks `web/index.html` against; one `Button`
-component or two class constants; one `configHome()` the four callers share;
-and `scopeInSubject` built from `commitType`'s class.
+**One way to fix it.** One owner per fact: the tag script owning the
+release-commit decision and the workflow reading its answer; `satisfies
+Snapshot` on the e2e literals; the server sending the effective commit types
+so the form holds no list; an exported `storageKey` a test checks
+`web/index.html` against; one `Button` component or two class constants; one
+`configHome()` the four callers share; and `scopeInSubject` built from
+`commitType`'s class.
 
-**Done when.** One function decides a base URL's shape and both packages'
-tests import it; `chore(main): release` appears in exactly one file under
+**Done when.** `chore(main): release` appears in exactly one file under
 `.github/` and `scripts/`; removing a required snapshot field from the e2e
-literals fails `tsc -b`; `grep -n "'revert'" web/src/features/branch/CommitForm.tsx` is
-empty and the options come from a server field; a test fails when
+literals fails `tsc -b`;
+`grep -n "'revert'" web/src/features/branch/CommitForm.tsx` is empty and the
+options come from a server field; a test fails when
 `web/index.html`'s key differs from `themeStore`'s;
 `grep -rn "border border-input px-3 py-1.5" web/src --include='*.tsx'`
 matches one definition site; `grep -n UserHomeDir internal/cli/*.go` returns
@@ -837,7 +831,7 @@ and names the tree has moved past. No gate reads any of them.
 - `CLAUDE.md:504` — the never-print-a-secret rule names `slack.token`, a key
   the decoder refuses: `ErrSlackRenamed` (`internal/config/config.go:50`)
   says the "slack" block was renamed to "messaging", and the field is
-  `Messaging.Token` (`internal/config/config.go:106`, `json:"token"`).
+  `Messaging.Token` (`internal/config/config.go:110`, `json:"token"`).
 - `CLAUDE.md:9` — the opening line names Slack alone where the same file's
   layout row (`CLAUDE.md:44`) names "Slack, Teams, Discord or a plain
   webhook".
@@ -906,7 +900,7 @@ whose printed sentence claims more than their check measures, CI jobs and
 triggers that do not do what their comments say, and tests named or shaped
 for something other than what they prove.
 
-### DEBT-64 The condition-coverage worklist: 432 one-sided conditions, and 13 never evaluated
+### DEBT-64 The condition-coverage worklist: 432 one-sided conditions, and 8 never evaluated
 
 Severity: low · Confidence: measured
 
@@ -935,7 +929,7 @@ the do-nothing guards' second operands, never seen true: `repo == ""` in
 `Store.CachedIssues` and `Store.CacheIssues` (`internal/store/cache.go:32`,
 `:99`), and `s.dir == ""` in `Store.off` (`internal/store/store.go:149`).
 
-Thirteen conditions were never evaluated. Four are a test away:
+Eight conditions were never evaluated. Four are a test away:
 
 - `internal/tui/messaging.go:83` and `:85` — `quitGuard.handleKey`'s confirm
   and stay: `TestQuittingWithAQueuedPostAsksFirst` opens the guard but
@@ -946,12 +940,9 @@ Thirteen conditions were never evaluated. Four are a test away:
 - `internal/wiring/wiring.go:225` — `streamToEnd`, git failing to start: no
   wiring test fetches or pulls without git on `PATH`.
 
-Seven more came into view once each operand counted, and each is a test
+Two more came into view once each operand counted, and each is a test
 away too:
 
-- `internal/config/config.go:348` and `:364` — `Problems`'
-  `absoluteWebURL(base)` and the four operands inside `absoluteWebURL`: no
-  `internal/config` test calls `Problems` with a `jira.base_url` set.
 - `internal/messaging/post.go:335` — `Announcement.Text`'s `a.Kind ==
   config.KindSlack`: each test that renders a template leaves `Kind` empty,
   so the `||` never reads it.

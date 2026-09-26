@@ -394,7 +394,7 @@ Impact: low · Effort: medium
 - Touches: `internal/tui/issues.go` (status headings in the list), and
   `internal/jira`'s Agile API only for what JQL cannot give — the sprint's
   name and dates in the heading.
-- Done when: the Sprint view (`jira.views`, `internal/config/config.go:75`)
+- Done when: the Sprint view (`jira.views`, `internal/config/config.go:79`)
   renders its issues under status headings.
 
 ## Build and platform
