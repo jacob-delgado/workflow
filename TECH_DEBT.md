@@ -957,9 +957,9 @@ and `grep -n 'two shells\|Shell 2' Taskfile.yml` prints nothing above the
 
 What is open here is a set of appliers and guards that read stale state or skip
 a check the other surfaces make, two configuration sections nothing validates,
-the composition the interface keeps beside `loop`'s, and the hook-failure
-resolver; what it carries on purpose — the two composers' field handling
-written twice, and the spine's color-only hue — is under [Deliberate
+and the composition the interface keeps beside `loop`'s; what it carries on
+purpose — the two composers' field handling written twice, and the spine's
+color-only hue — is under [Deliberate
 trade-offs](#deliberate-trade-offs-that-carry-a-cost).
 
 ### DEBT-113 The pull request composer titles from the listed issue, not Jira
@@ -1040,40 +1040,6 @@ from `CheckKeys` or presses `f12` on the live model and sees the screen
 unchanged, with no panic, and `TestTheWheelMovesAnOverlaysList`
 (`internal/tui/mouse_test.go:66`) passes with `cfg.UI.Keys` rebinding
 `down` and `up`.
-
-### DEBT-123 Resolving hook failures walks the whole work tree per place, in `Update`
-
-Severity: medium · Confidence: read
-
-`editor.Resolve` falls back to a full `filepath.WalkDir` of the checkout,
-skipping only `.git`, for every place a tool printed that is not a file as
-printed, and the interface calls it once per location synchronously inside
-`runFinished.apply`, on the update loop. A failing `go test` hook prints
-package-relative places ("run_test.go:12"), each of which costs one walk
-of the entire checkout — `node_modules`, `tmp` and all — on the Bubble Tea
-goroutine, so ten such lines freeze the interface for ten walks before the
-run overlay shows its failures. `hooks.Failures` dedupes by file, line and
-column only, and nothing caches between places.
-
-- `internal/editor/editor.go:240` — `Resolve` calls `matchesBelow` for
-  every place `Locate` rejects.
-- `internal/editor/editor.go:256` — `matchesBelow` runs
-  `filepath.WalkDir` over the whole root.
-- `internal/editor/editor.go:261` — the walk in `matchesBelow` skips only
-  `.git`.
-- `internal/tui/deps.go:220` — `Deps.resolvedFailures` calls `Resolve`
-  once per `Location`, with no cache.
-- `internal/tui/run.go:158` — `runFinished.apply` runs the resolution
-  synchronously in `Update`.
-
-**One way to fix it.** Walk once per run, index files by their trailing
-path, skip directories git ignores (or at least `node_modules` and `tmp`),
-and do it in the `tea.Cmd` that delivers `runFinished` rather than in
-`Update`.
-
-**Done when.** A test resolving N package-relative places against a tree
-with a counting fs sees one walk, and a screen test shows the run
-overlay's failures without the walk running in `Update`.
 
 ### DEBT-125 The interface composes what `loop` composes once: announcement, draft, memory
 
