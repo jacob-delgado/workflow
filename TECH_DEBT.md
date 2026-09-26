@@ -465,17 +465,10 @@ docs/content/docs/install.md` prints a line.
 
 Severity: low · Confidence: read
 
-Across `internal/store`, the gobco report's test and the web's vitest suite,
-tests named for a rule would pass with the rule gone. `testshape` checks
-only that a failure call is reachable and v8's range count cannot see a weak
-assertion, so every one clears the gate.
-
-The scripts:
-
-- `scripts/gobco-report_test.sh:23` — the suite's only case is the no-floor
-  argument; the untested-package refusal (`unaccounted`,
-  `scripts/gobco-report.sh:181`) and the no-statistics refusal (`summary`,
-  `:246`) are exercised only in their passing direction.
+Across `internal/store` and the web's vitest suite, tests named for a rule
+would pass with the rule gone. `testshape` checks only that a failure call
+is reachable and v8's range count cannot see a weak assertion, so every one
+clears the gate.
 
 The web:
 
@@ -532,12 +525,11 @@ body; the "opening will push it first" note deleted.
 **One way to fix it.** Sharpen each Assert to what its name claims:
 `aria-disabled` on Retry or a Playwright focus case; the refused read
 awaited before asserting the select is absent; the check asserted by role
-and href; the recorded requests read for their bodies; a stub gobco for the
-gate's refusals; raw-file reads that parse each `_at`, a cascade a test
-makes fire, and each Arrange's error fatal.
+and href; the recorded requests read for their bodies; raw-file reads that
+parse each `_at`, a cascade a test makes fire, and each Arrange's error
+fatal.
 
-**Done when.** Each named mutation fails a test: deleting a name from
-`NO_TESTS` in `scripts/gobco-report.sh`; changing `timestamp()` to
+**Done when.** Each named mutation fails a test: changing `timestamp()` to
 `now.String()`, removing `foreign_keys(1)` from `dsnPragmas`, or making
 `RecordScope` or `CacheIssues` return nil without writing; rendering a
 select while `useViews` is in error; replacing the check anchor in
