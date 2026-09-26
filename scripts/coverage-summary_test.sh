@@ -63,11 +63,14 @@ expect_fail() {
   fi
 }
 
-# A valid profile and stats directory produce a JSON summary naming both metrics.
+# A valid profile and stats directory produce both metrics and nothing else:
+# half the statements ran, and one of the one condition's two arms was seen.
+# They are compared as numbers, since jq keeps the gate's "50.0" as written.
 cases=$((cases + 1))
 if out="$(cd "${module}" && "${summary}" "${profile}" "${stats}")"; then
-  if [[ "${out}" != *'"statements"'* ]] || [[ "${out}" != *'"branch"'* ]]; then
-    echo "FAIL summary shape: got ${out}" >&2
+  if ! jq -e 'keys == ["branch", "statements"] and .statements == 50 and .branch == 50' \
+    <<<"${out}" >/dev/null 2>&1; then
+    echo "FAIL summary: want statements 50 and branch 50, got ${out}" >&2
     failures=$((failures + 1))
   fi
 else
