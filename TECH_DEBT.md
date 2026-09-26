@@ -113,19 +113,6 @@ The README and the docs index:
 
 The web page:
 
-- `docs/content/docs/web.md:138` — Settings lists its seven parts as Jira,
-  the forge, messaging, branches, commits, pull requests and the store;
-  `ConfigForm` (`web/src/features/settings/SettingsPanel.tsx:123`) renders
-  Jira, Messaging, Forge, Commit, Branch, Pull request, Store.
-- `docs/content/docs/web.md:141` — "The parts the form does not show yet
-  (`ui`, `timing`, `headers`, `views` and `branch.prefixes`)" names five of
-  ten carried keys, as UX-87 in `UX.md` ("carry five it cannot show") and
-  `ConfigForm`'s comment (`web/src/features/settings/SettingsPanel.tsx:63`)
-  do; the whole `Config` seeds the form and rides back, and `token_command`
-  and `token_env` (`api/openapi.yaml:1499`; messaging's at `:1534`) and
-  `channels` (`:1540`; `Messaging.Channels`,
-  `internal/config/config.go:125`) are in the schema and registered by no
-  fieldset.
 - `docs/content/docs/web.md:143` — "a save never overwrites a change it has
   not seen" is stronger than `SaveOver` makes it: its comment
   (`internal/config/save.go:117`) says the check (`:121`) and the write

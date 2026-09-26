@@ -140,11 +140,13 @@ asks the forge when you open it, unless it asked within the last minute, and
 
 ### Settings
 
-The configuration file in effect, in seven parts — Jira, the forge, messaging,
-branches, commits, pull requests and the store — and **Save changes** writes it
+The configuration file in effect, in seven parts — Jira, messaging, the forge,
+commits, branches, pull requests and the store — and **Save changes** writes it
 back. A credential is shown masked and kept as it is unless you type a new one.
-The parts the form does not show yet (`ui`, `timing`, `headers`, `views` and
-`branch.prefixes`) are kept unchanged when you save. Settings reads the file
+What the form has no field for yet is kept unchanged when you save: `version`,
+all of `ui` and `timing`, `jira.token_command`, `jira.token_env`,
+`jira.headers`, `jira.views`, `messaging.token_command`, `messaging.token_env`,
+`messaging.channels` and `branch.prefixes`. Settings reads the file
 each time it opens, and a save never overwrites a change it has not seen: when
 the file changed after Settings read it (edited on disk, rewritten by `workflow
 config init --force`, or saved from another tab), nothing is written, and
