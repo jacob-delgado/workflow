@@ -91,7 +91,7 @@ asks, and the error itself, prefixed `workflow:`.
 | `config init` | with `--dry-run`, the file it would write, as JSON, masked | progress, the checks, "Wrote …", what to do next, a warning when the file is not ignored by git |
 | `standup` | the draft | "Nothing to share.", the dry-run line, "Not posted.", "Posted to …" |
 | `branch` | `Branch NAME from BASE and switch to it`, then `Created NAME` | the dry-run line, "Not created." |
-| `pr` | `Open TITLE` and `BRANCH → BASE`, then `Opened #N URL` (`!N` on GitLab) | the dry-run line, "Not opened.", the offers to link it on the issue and to move the issue to the review status, and their outcomes |
+| `pr` | `Open TITLE` and `BRANCH → BASE`, then `Opened #N URL` (`!N` on GitLab) | the dry-run lines, "Not opened.", the offers to link it on the issue and to move the issue to the review status, and their outcomes |
 | `announce` | the message and where it goes | that an earlier session already announced this moment, the dry-run line, "Not announced.", "Announced to …" |
 | `workflow --web` | | the address it serves on, why the configuration did not load cleanly, and the cause of each failure it answers as `internal`, credentials masked |
 
@@ -201,12 +201,14 @@ write. Two flags change that:
   writes nothing, the store included: `announce` still reads what an earlier
   session announced, when there is a store on disk, but never creates it or
   changes what it holds (SQLite may leave its two companion files, `-wal` and
-  `-shm`, beside it until the next session). It is one flag for every command,
-  given before the command's name or after it: `workflow --dry-run pr` and
-  `workflow pr --dry-run` are the same. `config init --dry-run` runs its
-  checks and prints the file it would write, masked, without writing it or
-  storing anything in the keychain. Bare `workflow --dry-run` is the interface
-  with every write held back.
+  `-shm`, beside it until the next session). What `pr` would do is a line for
+  the push and the open, then one for each offer the open would lead to —
+  `dry run: would link it on KEY` and `dry run: would move KEY to STATUS`.
+  It is one flag for every command, given before the command's name or after
+  it: `workflow --dry-run pr` and `workflow pr --dry-run` are the same.
+  `config init --dry-run` runs its checks and prints the file it would write,
+  masked, without writing it or storing anything in the keychain. Bare
+  `workflow --dry-run` is the interface with every write held back.
 
 A write run without `--yes` and without a terminal — stdin piped or closed —
 has no way to be answered, so it stops, says to pass `--yes`, and exits 2. The
