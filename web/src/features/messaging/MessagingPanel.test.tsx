@@ -12,9 +12,7 @@ vi.mock('./announceApi.ts', () => ({
   previewAnnouncement: vi.fn(() =>
     Promise.resolve({ text: 'octocat announced the pull request', channel: '#dev' }),
   ),
-  announce: vi.fn((channel: string) =>
-    Promise.resolve({ text: 'octocat announced the pull request', channel }),
-  ),
+  announce: vi.fn((channel: string, text: string) => Promise.resolve({ text, channel })),
 }))
 const mockAnnounce = vi.mocked(announce)
 const mockPreview = vi.mocked(previewAnnouncement)
@@ -203,7 +201,7 @@ test('previews the message, then posts it on confirm', async () => {
   await user.click(screen.getByRole('button', { name: 'Announce now' }))
 
   // Assert
-  expect(mockAnnounce).toHaveBeenCalledWith('#dev')
+  expect(mockAnnounce).toHaveBeenCalledWith('#dev', 'octocat announced the pull request')
   expect(await screen.findByText(/announced/i)).toBeTruthy()
 })
 
@@ -220,7 +218,7 @@ test('posts to the channel chosen in the preview', async () => {
   await user.click(screen.getByRole('button', { name: 'Announce now' }))
 
   // Assert
-  expect(mockAnnounce).toHaveBeenCalledWith('#releases')
+  expect(mockAnnounce).toHaveBeenCalledWith('#releases', 'octocat announced the pull request')
 })
 
 test('posts to the first known channel when none is configured', async () => {
@@ -245,7 +243,7 @@ test('posts to the first known channel when none is configured', async () => {
   await user.click(screen.getByRole('button', { name: 'Announce now' }))
 
   // Assert
-  expect(mockAnnounce).toHaveBeenCalledWith('#dev')
+  expect(mockAnnounce).toHaveBeenCalledWith('#dev', 'octocat announced the pull request')
 })
 
 test('locks the confirm while a post is in flight', async () => {
@@ -254,10 +252,10 @@ test('locks the confirm while a post is in flight', async () => {
   // transient; a live confirm here would let a double click post twice.
   let releasePost = () => {}
   mockAnnounce.mockImplementationOnce(
-    (channel) =>
+    (channel, text) =>
       new Promise((resolve) => {
         releasePost = () => {
-          resolve({ text: 'octocat announced the pull request', channel })
+          resolve({ text, channel })
         }
       }),
   )

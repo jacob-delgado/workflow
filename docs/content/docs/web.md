@@ -113,7 +113,10 @@ Named for the service your configuration uses — Slack, Teams, Discord or
 Webhook. It shows where announcements go and who they are from. **Announce to**
 the service composes the announcement of the branch's pull request and shows
 it, with the channel to send it to where there is a choice; **Announce now**
-sends it. Nothing is sent before that second press.
+sends it. Nothing is sent before that second press, and what is sent is the
+text shown: when the announcement changed in between — CI turned red, the pull
+request merged — nothing is sent, the page says so, and **Announce to** shows
+the new one.
 
 ### Reviews
 

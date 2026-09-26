@@ -119,7 +119,8 @@ interface AnnounceControlsProps {
 
 // AnnounceControls posts the pull request's announcement to the configured
 // service behind a preview step: it fetches the composed message, shows it for
-// confirmation, and posts only on confirm — announcing is outward and not undone.
+// confirmation, and posts only on confirm, and only the text it showed —
+// announcing is outward and not undone.
 // The preview and the post are two steps, each its own action; a refused post
 // goes back to the button, with its reason. Once posted, the controls step
 // aside, and where it went is said through onAnnounced. Focus goes to the
@@ -144,7 +145,7 @@ function AnnounceControls({
         'The announcement could not be composed. Try again, or run workflow announce from a terminal.',
     },
   )
-  const post = useAsyncAction(() => announce(channel), {
+  const post = useAsyncAction((previewed: string) => announce(channel, previewed), {
     fallback: 'Nothing was announced. Try again, or run workflow announce from a terminal.',
     // A webhook has no channel of its own to name, so the service stands in.
     done: (posted) => `Announced to ${posted.channel === '' ? service : posted.channel}.`,
@@ -156,9 +157,12 @@ function AnnounceControls({
   }
 
   if (preview.state === 'done' && post.state !== 'error') {
+    // What is posted is what is shown: the server refuses any other text.
+    const shown = preview.result ?? ''
+
     return (
       <AnnouncePreview
-        text={preview.result ?? ''}
+        text={shown}
         channel={channel}
         channels={channels}
         posting={post.state === 'running'}
@@ -171,7 +175,7 @@ function AnnounceControls({
           // Back to the button if the post is refused; a posted announcement
           // hands focus to the line that says where it went instead.
           handBack()
-          void post.run()
+          void post.run(shown)
         }}
       />
     )
