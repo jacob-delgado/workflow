@@ -29,7 +29,7 @@ internal/cli/         the Cobra command tree
 internal/config/      .workflow.json loading, saving, redaction, validation
 internal/keychain/    storing a token in the OS keychain and reading it back
 internal/seams/       the seams every surface shares, over domain and loop types
-internal/wiring/      connects the interface's seams to the real clients
+internal/wiring/      connects every surface's seams to the real clients
 internal/loop/        the loop composed once for every surface, over their seams
 internal/progress/    how far along the loop the work is, derived each time
 internal/tui/         the Bubble Tea interface; every outside call is a Deps seam

@@ -83,21 +83,10 @@ Severity: low · Confidence: read
 
 Across the plumbing, the web server and the two layout maps, doc comments
 and layout rows describe an earlier shape of the code. No linter reads a
-comment, so every one passes the gate. The `wiring` package comment below
-still names the terminal as the owner of the seams it fills, which
-`internal/seams` now declares for all three surfaces.
+comment, so every one passes the gate.
 
 The plumbing:
 
-- `internal/wiring/wiring.go:4` — the package comment "connects the terminal
-  interface" to the clients, where each seam "the interface declares" meets
-  its client, and the `CLAUDE.md:32` row "connects the interface's seams";
-  both name one of three consumers, and the row above (`CLAUDE.md:31`) says
-  `internal/seams` declares the seams for every surface: `connectAt`
-  (`internal/cli/cli.go:408`) builds every command over `wiring.Deps`,
-  `WebDeps` (`internal/cli/cli.go:313`) hands the same bundle to the web,
-  and the row below (`CLAUDE.md:33`) already says `loop` is "for every
-  surface".
 - `internal/gitrepo/gitrepo.go:4` — the package comment says `gitrepo`
   "reads the git repository"; `Repository`'s own doc (`:28`) says reads and
   changes, and `Repository.Stage` (`internal/gitrepo/status.go:191`) is one
