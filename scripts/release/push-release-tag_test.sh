@@ -24,16 +24,27 @@ failures=0
 cases=0
 
 # A gh that records what it was asked and answers the one question the script
-# puts to it, which pull request a commit came from, with GH_STUB_PULL.
+# puts to it, which pull requests a commit came from, as gh api does: the pulls
+# in GH_STUB_PULLS go through the script's own --jq filter, so the filter is
+# what decides which of them released the commit.
 mkdir -p "${workdir}/bin"
 cat >"${workdir}/bin/gh" <<'STUB'
 #!/usr/bin/env bash
 printf '%s\n' "$*" >>"${GH_STUB_LOG}"
 if [[ "$1" == "api" ]]; then
-  printf '%s\n' "${GH_STUB_PULL:-}"
+  while (($# > 0)) && [[ "$1" != "--jq" ]]; do
+    shift
+  done
+  jq -r "${2:-.}" <<<"${GH_STUB_PULLS:-[]}"
 fi
 STUB
 chmod +x "${workdir}/bin/gh"
+
+# The pulls a commit can come from, as gh api lists them.
+readonly released='[{"number":42,"merged_at":"2026-09-20T12:00:00Z","labels":[{"name":"autorelease: pending"}]}]'
+readonly unlabeled='[{"number":42,"merged_at":"2026-09-20T12:00:00Z","labels":[{"name":"autorelease: tagged"}]}]'
+readonly unmerged='[{"number":42,"merged_at":null,"labels":[{"name":"autorelease: pending"}]}]'
+readonly no_pulls='[]'
 
 # quiet_git runs git with the developer's own configuration kept out.
 quiet_git() {
@@ -56,9 +67,9 @@ repository() {
 }
 
 # expect commits a subject, runs the script, and compares what happened.
-#   expect <tagged|untagged> <ok|fails> <name> <manifest> <subject> <pull> [tag]
+#   expect <tagged|untagged> <ok|fails> <name> <manifest> <subject> <pulls> [tag]
 expect() {
-  local want_tag="$1" want_exit="$2" name="$3" manifest="$4" subject="$5" pull="$6"
+  local want_tag="$1" want_exit="$2" name="$3" manifest="$4" subject="$5" pulls="$6"
   local tag="${7:-v${manifest}}" slug="case${cases}" got_tag="untagged" got_exit="ok"
 
   cases=$((cases + 1))
@@ -67,7 +78,7 @@ expect() {
   quiet_git -C "${workdir}/${slug}" push origin main
 
   if ! (cd "${workdir}/${slug}" \
-    && PATH="${workdir}/bin:${PATH}" GH_STUB_LOG="${workdir}/${slug}.log" GH_STUB_PULL="${pull}" \
+    && PATH="${workdir}/bin:${PATH}" GH_STUB_LOG="${workdir}/${slug}.log" GH_STUB_PULLS="${pulls}" \
       GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_NOSYSTEM=1 HEAD_COMMIT_MSG="${subject}" \
       bash "${script}" >"${workdir}/${slug}.out" 2>&1); then
     got_exit="fails"
@@ -107,17 +118,19 @@ decides() {
   fi
 }
 
-expect untagged ok "an ordinary commit" "1.4.0" "feat(jira): add issue transitions" ""
-expect tagged ok "release-please's own release commit" "1.4.0" "chore(main): release 1.4.0" "42"
-expect tagged ok "a prerelease" "1.4.0-rc.1" "chore(main): release 1.4.0-rc.1" "42"
+expect untagged ok "an ordinary commit" "1.4.0" "feat(jira): add issue transitions" "${no_pulls}"
+expect tagged ok "release-please's own release commit" "1.4.0" "chore(main): release 1.4.0" "${released}"
+expect tagged ok "a prerelease" "1.4.0-rc.1" "chore(main): release 1.4.0-rc.1" "${released}"
 
 # The subject is one line anybody can write. What it claims has to be what the
-# manifest at that commit says, and the commit has to come from the pull
-# request release-please labeled.
-expect untagged fails "a version the manifest does not hold" "1.4.0" "chore(main): release 9.9.9" "42" "v9.9.9"
-expect untagged fails "no pull request labeled as a release" "1.4.0" "chore(main): release 1.4.0" ""
-expect untagged ok "words after the version" "1.4.0" "chore(main): release 1.4.0 and more" "42"
-expect untagged ok "a version that is a path" "1.4.0" "chore(main): release 1.4.0/nested" "42" "v1.4.0/nested"
+# manifest at that commit says, and the commit has to come from a merged pull
+# request release-please labeled as a pending release.
+expect untagged fails "a version the manifest does not hold" "1.4.0" "chore(main): release 9.9.9" "${released}" "v9.9.9"
+expect untagged fails "no pull request holds the commit" "1.4.0" "chore(main): release 1.4.0" "${no_pulls}"
+expect untagged fails "a merged pull request not labeled pending" "1.4.0" "chore(main): release 1.4.0" "${unlabeled}"
+expect untagged fails "a labeled pull request not merged" "1.4.0" "chore(main): release 1.4.0" "${unmerged}"
+expect untagged ok "words after the version" "1.4.0" "chore(main): release 1.4.0 and more" "${released}"
+expect untagged ok "a version that is a path" "1.4.0" "chore(main): release 1.4.0/nested" "${released}" "v1.4.0/nested"
 
 # A tag already on the origin is left alone, and nothing is dispatched twice.
 cases=$((cases + 1))
@@ -129,7 +142,7 @@ quiet_git -C "${workdir}/again" push origin v1.4.0
 quiet_git -C "${workdir}/again" tag -d v1.4.0
 
 (cd "${workdir}/again" \
-  && PATH="${workdir}/bin:${PATH}" GH_STUB_LOG="${workdir}/again.log" GH_STUB_PULL="42" \
+  && PATH="${workdir}/bin:${PATH}" GH_STUB_LOG="${workdir}/again.log" GH_STUB_PULLS="${released}" \
     GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_NOSYSTEM=1 HEAD_COMMIT_MSG="chore(main): release 1.4.0" \
     bash "${script}" >"${workdir}/again.out" 2>&1) || true
 
@@ -160,7 +173,7 @@ quiet_git -C "${workdir}/unknown" commit -m "chore(main): release 1.4.0"
 quiet_git -C "${workdir}/unknown" push origin main
 
 if (cd "${workdir}/unknown" \
-  && PATH="${workdir}/bin:${PATH}" GH_STUB_LOG="${workdir}/unknown.log" GH_STUB_PULL="42" \
+  && PATH="${workdir}/bin:${PATH}" GH_STUB_LOG="${workdir}/unknown.log" GH_STUB_PULLS="${released}" \
     GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_NOSYSTEM=1 HEAD_COMMIT_MSG="chore(main): release 1.4.0" \
     bash "${script}" tag >"${workdir}/unknown.out" 2>&1) \
   || git -C "${workdir}/unknown.git" rev-parse --verify --quiet refs/tags/v1.4.0 >/dev/null 2>&1; then
