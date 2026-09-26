@@ -151,6 +151,25 @@ test('says a commit by what was typed when the newest listed commit is not HEAD'
   expect(await screen.findByText('Committed a1b2c3d fix: redact tokens.')).toBeTruthy()
 })
 
+test('says a commit by its header alone when the server could not read its hash back', async () => {
+  // Arrange
+  // The commit landed but the branch read after it failed, so the server
+  // answers the branch as it stood, with no head: there is no hash to name.
+  mockConfig.mockReturnValue(configResult(undefined))
+  mockCommit.mockResolvedValueOnce(makeBranch({ head: '', commits: [] }))
+  const user = userEvent.setup()
+  render(<CommitForm blocked={null} suggestedScope="" />)
+  await user.type(screen.getByLabelText('Subject'), 'redact tokens')
+
+  // Act
+  await user.click(screen.getByRole('button', { name: 'Commit staged changes' }))
+
+  // Assert
+  await waitFor(() => {
+    expect(screen.getByRole('status').textContent).toBe('Committed fix: redact tokens.')
+  })
+})
+
 test('focus dropped to the page after a commit from the keyboard stays on the page', async () => {
   // Arrange
   // A commit made with Enter in the subject: the field stays to hold focus, so
