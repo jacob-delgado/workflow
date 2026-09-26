@@ -318,9 +318,10 @@ appears when `lefthook` is installed.
 ## Editor
 
 Comments, commit bodies, pull request descriptions and announcements are
-written in `$VISUAL`, else `$EDITOR`, else `vi`. Everything below the scissors
-line (a `>8` cut mark) is help and is not kept. An editor that has to be told
-to wait needs saying so: `EDITOR="code --wait"`.
+written in `$GIT_EDITOR`, else `$VISUAL`, else `$EDITOR`, else `vi` (`notepad`
+on Windows) — git's own order, though git's `core.editor` setting is not read.
+Everything below the scissors line (a `>8` cut mark) is help and is not kept.
+An editor that has to be told to wait needs saying so: `EDITOR="code --wait"`.
 
 Opening a hook failure at its line works for vi, Vim, Neovim, nano, Emacs,
 micro, Kakoune, mg, VS Code, VSCodium, Cursor, Helix, Sublime Text and Zed.

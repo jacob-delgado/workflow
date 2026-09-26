@@ -102,11 +102,6 @@ The usage page:
   and the composer; the page never mentions a diff (`grep -ic diff` is 0)
   while `diffSection` (`internal/tui/diff.go:67`) draws the selected file's
   diff beneath the list.
-- `docs/content/docs/usage.md:313` — "Editor" says "`$VISUAL`, else
-  `$EDITOR`, else `vi`"; `chosen` (`internal/editor/editor.go:85`) consults
-  `GIT_EDITOR` first and `defaultEditor` (`:97`) returns `notepad` on
-  Windows, while `defaultEditor`'s own comment (`:94`) omits `$GIT_EDITOR`
-  too.
 
 The configuration page:
 

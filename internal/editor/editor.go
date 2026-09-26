@@ -94,8 +94,8 @@ func chosen(getenv Getenv) string {
 	return defaultEditor(runtime.GOOS)
 }
 
-// defaultEditor is what opens when neither $VISUAL nor $EDITOR is set: vi on
-// Unix, and notepad on Windows, where vi is not usually present.
+// defaultEditor is what opens when none of $GIT_EDITOR, $VISUAL and $EDITOR is
+// set: vi on Unix, and notepad on Windows, where vi is not usually present.
 func defaultEditor(goos string) string {
 	if goos == "windows" {
 		return "notepad"
