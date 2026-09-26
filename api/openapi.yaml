@@ -641,7 +641,11 @@ paths:
               $ref: "#/components/schemas/CommitRequest"
       responses:
         "200":
-          description: The branch, now carrying the new commit.
+          description: >-
+            The branch, now carrying the new commit. If the branch cannot be
+            read back after the commit landed, this is the branch as it stood
+            before, with head and commits empty; the event stream brings the
+            rest.
           content:
             application/json:
               schema:
@@ -1126,7 +1130,10 @@ components:
           description: Whether HEAD is detached rather than on a branch.
         head:
           type: string
-          description: The commit SHA; empty before the first commit.
+          description: >-
+            The commit SHA; empty before the first commit, and in a write's
+            answer when the branch could not be read back after the write
+            landed.
         upstream:
           type: string
           description: The tracking branch; empty if never pushed.

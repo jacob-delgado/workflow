@@ -313,7 +313,7 @@ export type Branch = {
      */
     detached: boolean;
     /**
-     * The commit SHA; empty before the first commit.
+     * The commit SHA; empty before the first commit, and in a write's answer when the branch could not be read back after the write landed.
      */
     head: string;
     /**
@@ -1311,7 +1311,7 @@ export type CommitError = CommitErrors[keyof CommitErrors];
 
 export type CommitResponses = {
     /**
-     * The branch, now carrying the new commit.
+     * The branch, now carrying the new commit. If the branch cannot be read back after the commit landed, this is the branch as it stood before, with head and commits empty; the event stream brings the rest.
      */
     200: Branch;
 };

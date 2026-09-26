@@ -305,21 +305,76 @@ func TestCommitReportsAFailedStart(t *testing.T) {
 	}
 }
 
-func TestCommitReportsWhenTheBranchCannotBeReadAfter(t *testing.T) {
+func TestCommitSucceedsEvenIfTheRereadFails(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
-	// The commit runs, but the branch read that would confirm it fails.
+	// The commit lands, but the read that would confirm it fails; the branch as
+	// read before stands in, with no head or commits to name the wrong commit.
+	reads := 0
 	deps := filledDeps()
-	deps.Branch = func() (gitrepo.Branch, error) { return gitrepo.Branch{}, errSeam }
-	deps.Commit = func(string) (proc.Output, error) { return fakeOutput(nil, nil), nil }
+	branch := deps.Branch
+	deps.Branch = func() (gitrepo.Branch, error) {
+		reads++
+		if reads == 1 {
+			return branch()
+		}
+
+		return gitrepo.Branch{}, errSeam
+	}
+
+	var message string
+
+	deps.Commit = func(msg string) (proc.Output, error) {
+		message = msg
+
+		return fakeOutput(nil, nil), nil
+	}
 
 	// Act
 	recorder := doCommit(t, deps, `{"type":"fix","subject":"redact tokens"}`)
 
 	// Assert
-	if recorder.Code != http.StatusUnprocessableEntity {
-		t.Errorf("status = %d, want 422 when the branch cannot be read", recorder.Code)
+	if recorder.Code != http.StatusOK {
+		t.Fatalf("status = %d, want 200 — the commit landed despite the re-read failing", recorder.Code)
+	}
+
+	answered := decode[api.Branch](t, recorder)
+	if answered.Name != testBranchName || answered.Head != "" || len(answered.Commits) != 0 {
+		t.Errorf("branch = %+v, want %s with no head or commits", answered, testBranchName)
+	}
+
+	if !strings.Contains(message, "Refs: PROJ-412") {
+		t.Errorf("committed message = %q, want the Refs trailer the first read named", message)
+	}
+}
+
+func TestCommitLandsWithNoTrailerWhenTheBranchCannotBeRead(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	// Every branch read fails: the commit still runs, with no issue to refer to,
+	// and a commit that landed is not reported as failed.
+	var message string
+
+	deps := filledDeps()
+	deps.Branch = func() (gitrepo.Branch, error) { return gitrepo.Branch{}, errSeam }
+	deps.Commit = func(msg string) (proc.Output, error) {
+		message = msg
+
+		return fakeOutput(nil, nil), nil
+	}
+
+	// Act
+	recorder := doCommit(t, deps, `{"type":"fix","subject":"redact tokens"}`)
+
+	// Assert
+	if recorder.Code != http.StatusOK {
+		t.Fatalf("status = %d, want 200 for a commit that landed", recorder.Code)
+	}
+
+	if !strings.HasPrefix(message, "fix: redact tokens") || strings.Contains(message, "Refs:") {
+		t.Errorf("committed message = %q, want the subject with no Refs trailer", message)
 	}
 }
 

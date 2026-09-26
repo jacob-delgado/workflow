@@ -273,7 +273,7 @@ type Branch struct {
 	// Detached Whether HEAD is detached rather than on a branch.
 	Detached bool `json:"detached"`
 
-	// Head The commit SHA; empty before the first commit.
+	// Head The commit SHA; empty before the first commit, and in a write's answer when the branch could not be read back after the write landed.
 	Head string `json:"head"`
 	Name string `json:"name"`
 

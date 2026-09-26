@@ -537,7 +537,7 @@ export const zPushResponse = zBranch;
 export const zCommitBody = zCommitRequest;
 
 /**
- * The branch, now carrying the new commit.
+ * The branch, now carrying the new commit. If the branch cannot be read back after the commit landed, this is the branch as it stood before, with head and commits empty; the event stream brings the rest.
  */
 export const zCommitResponse = zBranch;
 
