@@ -473,11 +473,6 @@ a weak assertion, so every one clears the gate.
 
 The terminal:
 
-- `internal/tui/hookgen_test.go:222` — `TestTheOfferIsMadeOnlyWhenItHelps`
-  calls `refuseScreen` on the start screen, where
-  `TestTheLefthookOfferOpensFromTheCommitsPaneNotAtStart` (`:78`) shows the
-  offer never opens at start; it cannot see the `msg.configured` check in
-  `hooksFound.apply` (`internal/tui/hookgen.go:47`).
 - `internal/tui/commits_test.go:84` —
   `TestTheCommitsDetailWaitsForTheStatus` calls `requireScreen` for
   "loading" on the whole screen; `commitsRail`
@@ -632,15 +627,14 @@ own `--jq` over a fixture of pulls; exact JSON from
 raw-file reads that parse each `_at`, a cascade a test makes fire, and each
 Arrange's error fatal.
 
-**Done when.** Each named mutation fails a test: deleting the
-`if msg.configured` branch from `hooksFound.apply`; setting
+**Done when.** Each named mutation fails a test: setting
 `notifyPollInterval` to 20 seconds; removing `case p.send.sending` from
-`mergePicker.handleKey`,
-`finishPreview.handleKey` and `prEditor.handleKey`; changing `branch`'s
-non-repository exit from 4; returning a different sentinel for `KindUnknown`
-from `ReviewRequests` or the issue methods; removing `select(any(.labels[];
-…))` from `scripts/release/push-release-tag.sh`; changing `($conditions *
-2)` to `$conditions` in `scripts/coverage-summary.sh`; deleting a name from
+`mergePicker.handleKey`, `finishPreview.handleKey` and `prEditor.handleKey`;
+changing `branch`'s non-repository exit from 4; returning a different
+sentinel for `KindUnknown` from `ReviewRequests` or the issue methods;
+removing `select(any(.labels[]; …))` from
+`scripts/release/push-release-tag.sh`; changing `($conditions * 2)` to
+`$conditions` in `scripts/coverage-summary.sh`; deleting a name from
 `NO_TESTS` in `scripts/gobco-report.sh`; changing `timestamp()` to
 `now.String()`, removing `foreign_keys(1)` from `dsnPragmas`, or making
 `RecordScope` or `CacheIssues` return nil without writing; rendering a

@@ -216,10 +216,12 @@ func TestTheOfferIsMadeOnlyWhenItHelps(t *testing.T) {
 			quiet.gitHooks, quiet.configured = tt.hooks, tt.configured
 
 			// Act
-			view := quiet.live(t, 120, 50).View().Content
+			// g on the Commits pane is where the offer opens when it is made.
+			withheld := typing(t, quiet.live(t, 120, 50), "3", "g")
 
 			// Assert
-			refuseScreen(t, view, "No lefthook configuration")
+			refuseScreen(t, withheld.View().Content, "No lefthook configuration")
+			refuseLefthookOffered(t, withheld)
 		})
 	}
 }
