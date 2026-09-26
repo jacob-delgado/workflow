@@ -133,7 +133,10 @@ type mergePicker struct {
 	send     sendState
 }
 
-var _ failable[mergePicker] = mergePicker{}
+var (
+	_ failable[mergePicker] = mergePicker{}
+	_ steppable             = mergePicker{}
+)
 
 // view draws the pull request and the methods it may be merged by, the merge's
 // outcome pinned under the title.
@@ -184,14 +187,27 @@ func (p mergePicker) handleKey(m Model, msg tea.KeyPressMsg) (Model, tea.Cmd) {
 	case key.Matches(msg, m.keys.confirm):
 		return p.confirm(m)
 	case key.Matches(msg, m.keys.down):
-		p.selected = min(p.selected+1, len(p.methods)-1)
+		return p.step(m, 1), nil
 	case key.Matches(msg, m.keys.up):
-		p.selected = max(0, p.selected-1)
+		return p.step(m, -1), nil
 	}
 
 	m.overlay = p
 
 	return m, nil
+}
+
+// step moves the choice of method by delta, held within the methods, so it
+// stays on the first while they are read; nothing moves while a merge is sent.
+func (p mergePicker) step(m Model, delta int) Model {
+	if p.send.sending {
+		return m
+	}
+
+	p.selected = max(0, min(p.selected+delta, len(p.methods)-1))
+	m.overlay = p
+
+	return m
 }
 
 // confirm merges by the chosen method, or, in a dry run, says what it would do.

@@ -200,6 +200,7 @@ type statusPicker struct {
 var (
 	_ failable[statusPicker] = statusPicker{}
 	_ clickable              = statusPicker{}
+	_ steppable              = statusPicker{}
 )
 
 // openStatusPicker opens the picker on the selected issue and starts listing its
@@ -317,9 +318,9 @@ func (p statusPicker) handleKey(m Model, msg tea.KeyPressMsg) (Model, tea.Cmd) {
 	case key.Matches(msg, m.keys.closeOverlay):
 		return m.closeOverlay(), nil
 	case key.Matches(msg, m.keys.down):
-		p.transitions = p.transitions.moved(1)
+		return p.step(m, 1), nil
 	case key.Matches(msg, m.keys.up):
-		p.transitions = p.transitions.moved(-1)
+		return p.step(m, -1), nil
 	case key.Matches(msg, m.keys.confirm):
 		return p.choose(m)
 	}
@@ -419,7 +420,10 @@ type fixupPicker struct {
 	commits pickList[gitrepo.Commit]
 }
 
-var _ overlay = fixupPicker{}
+var (
+	_ overlay   = fixupPicker{}
+	_ steppable = fixupPicker{}
+)
 
 // openFixupPicker offers the branch's unpushed commits, the most recent first so
 // the likeliest target is the default selection.
@@ -464,9 +468,9 @@ func (p fixupPicker) handleKey(m Model, msg tea.KeyPressMsg) (Model, tea.Cmd) {
 	case key.Matches(msg, m.keys.closeOverlay):
 		return m.closeOverlay(), nil
 	case key.Matches(msg, m.keys.down):
-		p.commits = p.commits.moved(1)
+		return p.step(m, 1), nil
 	case key.Matches(msg, m.keys.up):
-		p.commits = p.commits.moved(-1)
+		return p.step(m, -1), nil
 	case key.Matches(msg, m.keys.confirm):
 		// The picker opens only over unpushed commits, so one is always chosen.
 		chosen, _ := p.commits.chosen()
@@ -477,4 +481,12 @@ func (p fixupPicker) handleKey(m Model, msg tea.KeyPressMsg) (Model, tea.Cmd) {
 	m.overlay = p
 
 	return m, nil
+}
+
+// step moves the choice of commit by delta.
+func (p fixupPicker) step(m Model, delta int) Model {
+	p.commits = p.commits.moved(delta)
+	m.overlay = p
+
+	return m
 }

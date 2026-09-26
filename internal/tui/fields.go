@@ -238,14 +238,34 @@ func (p statusPicker) handleFormKey(m Model, msg tea.KeyPressMsg) (Model, tea.Cm
 		p.form.chosen = toggleID(p.form.chosen, field.Options[p.form.option].ID)
 		p.form.problem = nil
 	case key.Matches(msg, m.keys.down):
-		p.form.option = min(p.form.option+1, len(field.Options)-1)
+		return p.step(m, 1), nil
 	case key.Matches(msg, m.keys.up):
-		p.form.option = max(0, p.form.option-1)
+		return p.step(m, -1), nil
 	}
 
 	m.overlay = p
 
 	return m, nil
+}
+
+// step moves the choice by delta: through the field's options while a
+// transition's fields are filled in, and through the transitions otherwise.
+// Nothing moves while a change is being sent.
+func (p statusPicker) step(m Model, delta int) Model {
+	switch {
+	case p.send.sending:
+		return m
+	case p.form.open():
+		// A field typed in reads its input and draws no options, so the choice
+		// moving there changes nothing.
+		p.form.option = max(0, min(p.form.option+delta, len(p.form.field().Options)-1))
+	default:
+		p.transitions = p.transitions.moved(delta)
+	}
+
+	m.overlay = p
+
+	return m
 }
 
 // fill records the field's value and moves to the next field, or applies the

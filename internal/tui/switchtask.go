@@ -82,7 +82,10 @@ type branchPicker struct {
 	send     sendState
 }
 
-var _ failable[branchPicker] = branchPicker{}
+var (
+	_ failable[branchPicker] = branchPicker{}
+	_ steppable              = branchPicker{}
+)
 
 // openBranchPicker opens the task switcher and starts listing the local
 // branches.
@@ -157,9 +160,9 @@ func (p branchPicker) handleKey(m Model, msg tea.KeyPressMsg) (Model, tea.Cmd) {
 	case key.Matches(msg, m.keys.closeOverlay):
 		return m.closeOverlay(), nil
 	case key.Matches(msg, m.keys.down):
-		p.branches = p.branches.moved(1)
+		return p.step(m, 1), nil
 	case key.Matches(msg, m.keys.up):
-		p.branches = p.branches.moved(-1)
+		return p.step(m, -1), nil
 	case key.Matches(msg, m.keys.confirm):
 		return p.choose(m)
 	}
@@ -167,6 +170,18 @@ func (p branchPicker) handleKey(m Model, msg tea.KeyPressMsg) (Model, tea.Cmd) {
 	m.overlay = p
 
 	return m, nil
+}
+
+// step moves the choice of branch by delta, unless a switch is being sent.
+func (p branchPicker) step(m Model, delta int) Model {
+	if p.send.sending {
+		return m
+	}
+
+	p.branches = p.branches.moved(delta)
+	m.overlay = p
+
+	return m
 }
 
 // choose reads the working tree before switching to the selected branch, as

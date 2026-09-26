@@ -33,7 +33,10 @@ type checkList struct {
 	err     error
 }
 
-var _ overlay = checkList{}
+var (
+	_ overlay   = checkList{}
+	_ steppable = checkList{}
+)
 
 // openChecks lists the checks reported on the pull request. Its caller offers it
 // only when canOpenChecks reports there are checks and an opener for their pages.
@@ -107,9 +110,9 @@ func (c checkList) handleKey(m Model, msg tea.KeyPressMsg) (Model, tea.Cmd) {
 	case key.Matches(msg, m.keys.closeOverlay):
 		return m.closeOverlay(), nil
 	case key.Matches(msg, m.keys.down):
-		c.checks = c.checks.moved(1)
+		return c.step(m, 1), nil
 	case key.Matches(msg, m.keys.up):
-		c.checks = c.checks.moved(-1)
+		return c.step(m, -1), nil
 	case key.Matches(msg, m.keys.confirm):
 		return c.open(m)
 	}
@@ -117,6 +120,14 @@ func (c checkList) handleKey(m Model, msg tea.KeyPressMsg) (Model, tea.Cmd) {
 	m.overlay = c
 
 	return m, nil
+}
+
+// step moves the choice of check by delta.
+func (c checkList) step(m Model, delta int) Model {
+	c.checks = c.checks.moved(delta)
+	m.overlay = c
+
+	return m
 }
 
 // open opens the selected check's page, leaving the list up so another can be

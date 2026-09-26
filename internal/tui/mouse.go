@@ -92,18 +92,29 @@ func (m Model) detailLineAt(row int) (int, bool) {
 
 // wheel scrolls: an open overlay's list, or the detail pane.
 func (m Model) wheel(shape layout.Layout, column, row, step int) (Model, tea.Cmd) {
-	if !shape.Detail.Contains(column, row) {
+	switch {
+	case !shape.Detail.Contains(column, row):
 		return m, nil
+	case m.overlay != nil:
+		return m.wheelOverlay(step)
+	default:
+		return m.scrollDetail(step * wheelLines), nil
+	}
+}
+
+// wheelOverlay moves the open overlay a step, as its up and down keys would on
+// whatever keys they are bound to. An overlay with no step of its own — a
+// composer's text, whose suggestions the arrow keys cycle — is handed the arrow
+// key instead.
+func (m Model) wheelOverlay(step int) (Model, tea.Cmd) {
+	if stepper, steps := m.overlay.(steppable); steps {
+		return stepper.step(m, step), nil
 	}
 
-	if m.overlay != nil {
-		direction := tea.KeyPressMsg{Code: tea.KeyDown}
-		if step < 0 {
-			direction = tea.KeyPressMsg{Code: tea.KeyUp}
-		}
-
-		return m.overlay.handleKey(m, direction)
+	direction := tea.KeyPressMsg{Code: tea.KeyDown}
+	if step < 0 {
+		direction = tea.KeyPressMsg{Code: tea.KeyUp}
 	}
 
-	return m.scrollDetail(step * wheelLines), nil
+	return m.overlay.handleKey(m, direction)
 }
