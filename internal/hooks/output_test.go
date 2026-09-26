@@ -4,6 +4,7 @@
 package hooks_test
 
 import (
+	"fmt"
 	"slices"
 	"strings"
 	"testing"
@@ -109,7 +110,18 @@ func TestNextJobReadsHowEachJobEnded(t *testing.T) {
 	}
 }
 
-func TestFailuresFindWhereEachToolPoints(t *testing.T) {
+// scanned folds lines into a failure scan one at a time, as a run streams them,
+// and returns the places it found.
+func scanned(lines []string, goos string) []hooks.Location {
+	scan := hooks.NewFailureScan(goos)
+	for _, line := range lines {
+		scan = scan.Next(line)
+	}
+
+	return scan.Places()
+}
+
+func TestFailureScanFindsWhereEachToolPoints(t *testing.T) {
 	t.Parallel()
 
 	// eslintFile is the file ESLint's stylish reporter names once, above its rows.
@@ -239,6 +251,16 @@ func TestFailuresFindWhereEachToolPoints(t *testing.T) {
 				{File: "src/app.js", Line: 3, Column: 1, Message: "Unexpected console no-console"},
 			},
 		},
+		"a path on its own line with no rows under it opens no block": {
+			lines: []string{
+				// Each path is followed by something other than an ESLint row — a
+				// place of another tool's, or the end of the output.
+				"web/src/view.js",
+				"main.go:3:1: missing return",
+				"docs/notes.md",
+			},
+			want: []hooks.Location{{File: "main.go", Line: 3, Column: 1, Message: "missing return"}},
+		},
 		"a version banner or a non-Python quoted frame is not a place": {
 			lines: []string{
 				// A decimal and a version tag are not files, even followed by a row.
@@ -269,12 +291,55 @@ func TestFailuresFindWhereEachToolPoints(t *testing.T) {
 			t.Parallel()
 
 			// Act
-			got := hooks.Failures(tt.lines, tt.goos)
+			got := scanned(tt.lines, tt.goos)
 
 			// Assert
 			if !slices.Equal(got, tt.want) {
-				t.Errorf("Failures =\n%+v\nwant\n%+v", got, tt.want)
+				t.Errorf("places =\n%+v\nwant\n%+v", got, tt.want)
 			}
 		})
+	}
+}
+
+func TestFailureScanLeavesTheScanItWasGivenAlone(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	// Three places leave the found list room to grow in place, and one line
+	// has already been folded into the scan.
+	scan := hooks.NewFailureScan("linux").Next("a.go:1:1: first").Next("a.go:2:1: second").Next("a.go:3:1: third")
+	earlier := scan.Next("b.go:4:1: fourth")
+
+	// Act
+	_ = scan.Next("c.go:5:1: another fourth")
+
+	// Assert
+	if got := earlier.Places(); len(got) != 4 || got[3].File != "b.go" {
+		t.Errorf("the earlier fold's places became %+v, want its own fourth place, b.go", got)
+	}
+}
+
+func TestFailureScanKeepsOnlyTheFirstPlaces(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	// Every line names a place of its own, past the most a scan keeps.
+	lines := make([]string, 0, hooks.MaxPlaces+5)
+	for line := 1; line <= hooks.MaxPlaces+5; line++ {
+		lines = append(lines, fmt.Sprintf("a.go:%d:1: failure", line))
+	}
+
+	// Act
+	got := scanned(lines, "linux")
+
+	// Assert
+	if len(got) != hooks.MaxPlaces {
+		t.Fatalf("the scan kept %d places, want %d", len(got), hooks.MaxPlaces)
+	}
+
+	for index, place := range got {
+		if place.Line != index+1 {
+			t.Fatalf("place %d is line %d, want line %d: the first places, in order", index, place.Line, index+1)
+		}
 	}
 }

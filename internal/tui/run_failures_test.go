@@ -4,6 +4,7 @@
 package tui_test
 
 import (
+	"slices"
 	"testing"
 
 	"github.com/jacob-delgado/workflow/internal/tui"
@@ -103,4 +104,22 @@ func TestAFailedRunDropsThePlacesOfARunNoLongerShown(t *testing.T) {
 
 	// Assert
 	refuseScreen(t, concrete(t, offered).View().Content, "a.go:1 first")
+}
+
+func TestAFailedRunOffersAPlacePrintedBeforeTheTailItKeeps(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	// A chatty hook names its one place first, then prints far more lines than
+	// a run keeps for its tail before it fails.
+	failing := failingLint()
+	failing.commitLines = slices.Concat(
+		[]string{lintJobStarts, firstFailureLine}, slices.Repeat([]string{"compiling"}, 10000),
+	)
+
+	// Act
+	failed := typing(t, failing.live(t, 120, 40), "3", "h")
+
+	// Assert
+	requireScreen(t, failed.View().Content, "the pre-commit hook failed", "a.go:1 first")
 }

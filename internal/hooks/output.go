@@ -125,17 +125,6 @@ func upsert(jobs []Job, job Job) []Job {
 const knownBasenames = `Dockerfile|Containerfile|Makefile|Justfile|Rakefile|` +
 	`Gemfile|Vagrantfile|Jenkinsfile|Procfile|Brewfile`
 
-// locationPatterns match the ways tools point at a place in a file, each with
-// the file, line, column and message in groups 1 to 4 where the tool gives them.
-// A file part must either carry an extension or be a known extensionless name,
-// which is what keeps a time of day or a URL with a port from reading as one.
-//
-// The Go/linter format splits the file from the line at a colon, so its file
-// part stops at the first one. On Windows a path opens with a drive letter —
-// "C:\src\main.go" — whose colon would be read as that separator, so a single
-// drive prefix is allowed there, and only there: on Unix an "a:b.go" would look
-// the same and is far likelier to be a false positive than a real drive. The
-// other two formats span the drive already, their file part being \S+.
 // filePatterns returns the drive prefix and the file sub-pattern shared by the
 // location and ESLint patterns: a leading drive letter is allowed only on
 // Windows, and a file part must carry an extension or be a known extensionless
@@ -151,6 +140,18 @@ func filePatterns(goos string) (string, string) {
 	return drive, file
 }
 
+// locationPatterns match the ways tools point at a place in a file, each with
+// the file, line, column and message in groups 1 to 4 where the tool gives them.
+// A file part must either carry an extension or be a known extensionless name,
+// which is what keeps a time of day or a URL with a port from reading as one.
+//
+// The Go/linter and parenthesized formats split the file from the line at a
+// colon or a parenthesis, so their file part stops at the first colon. On
+// Windows a path opens with a drive letter — "C:\src\main.go" — whose colon
+// would be read as that separator, so a single drive prefix is allowed there,
+// and only there: on Unix an "a:b.go" would look the same and is far likelier
+// to be a false positive than a real drive. The other formats span the drive
+// already, their file part being \S+ or a quoted path.
 func locationPatterns(goos string) []*regexp.Regexp {
 	drive, file := filePatterns(goos)
 
@@ -188,64 +189,113 @@ func eslintPatterns(goos string) (*regexp.Regexp, *regexp.Regexp) {
 		regexp.MustCompile(`^(\d+):(\d+)\s+(?:error|warning)\s+(.*)$`)
 }
 
-// Failures finds every place in a hook's output that a tool pointed at, once
-// each, in the order they appeared. goos is the running platform, which decides
-// whether a Windows drive letter is read as part of a path.
-func Failures(lines []string, goos string) []Location {
-	var found []Location
+// MaxPlaces is the most places a FailureScan keeps. A run folds every line of
+// its output into the scan as the line arrives, so an output naming ever more
+// places would otherwise grow the scan, and the work of keeping each place
+// once, without limit. Past it the scan keeps the first places, which are
+// usually the causes of the rest.
+const MaxPlaces = 1000
 
-	add := func(location Location) {
-		if !slices.ContainsFunc(found, location.samePlace) {
-			found = append(found, location)
-		}
-	}
-
-	patterns := locationPatterns(goos)
-	eslintHeader, eslintRow := eslintPatterns(goos)
-	eslintFile := ""
-
-	for index, raw := range lines {
-		line := strings.TrimSpace(raw)
-
-		// The ESLint file is carried only while its rows follow it: a header opens
-		// a block when the next line is one of its rows, and any line that is
-		// neither a row nor a new header ends the block — so a blank line, or a
-		// later tool's output, is never read against a stale filename.
-		if match := eslintRow.FindStringSubmatch(line); eslintFile != "" && match != nil {
-			lineNumber, _ := strconv.Atoi(match[1])
-			column, _ := strconv.Atoi(match[2])
-			add(Location{
-				File: eslintFile, Line: lineNumber, Column: column,
-				Message: strings.Join(strings.Fields(match[3]), " "),
-			})
-
-			continue
-		}
-
-		if match := eslintHeader.FindStringSubmatch(line); match != nil && nextIsESLintRow(lines, index, eslintRow) {
-			eslintFile = match[1]
-
-			continue
-		}
-
-		eslintFile = ""
-
-		if location, ok := locate(patterns, line); ok {
-			add(location)
-		}
-	}
-
-	return found
+// FailureScan reads where a hook's tools pointed one output line at a time, as
+// NextJob reads its jobs, so a run can keep the places as its output streams
+// in: by the time a long run ends, its first lines are gone. Start one with
+// NewFailureScan.
+type FailureScan struct {
+	patterns     []*regexp.Regexp
+	eslintHeader *regexp.Regexp
+	eslintRow    *regexp.Regexp
+	found        []Location
+	// eslintFile is the file ESLint named above the rows now arriving.
+	eslintFile string
+	// held is a line naming a file on its own, which opens an ESLint block only
+	// if the next line is one of its rows, so it waits for that line.
+	held string
 }
 
-// nextIsESLintRow reports whether the line after index is an ESLint row, so a
-// path on its own line opens a block only when its rows actually follow it.
-func nextIsESLintRow(lines []string, index int, row *regexp.Regexp) bool {
-	if index+1 >= len(lines) {
-		return false
+// NewFailureScan starts reading a hook's output. goos is the running platform,
+// which decides whether a Windows drive letter is read as part of a path.
+func NewFailureScan(goos string) FailureScan {
+	header, row := eslintPatterns(goos)
+
+	return FailureScan{
+		patterns: locationPatterns(goos), eslintHeader: header, eslintRow: row,
+		found: nil, eslintFile: "", held: "",
+	}
+}
+
+// Next folds one more output line in. It does not modify the scan it is given.
+//
+// The ESLint file is carried only while its rows follow it: a header opens a
+// block when the next line is one of its rows, and any line that is neither a
+// row nor a new header ends the block — so a blank line, or a later tool's
+// output, is never read against a stale filename.
+func (s FailureScan) Next(raw string) FailureScan {
+	line := strings.TrimSpace(raw)
+	row := s.eslintRow.FindStringSubmatch(line)
+
+	if held := s.held; held != "" {
+		s.held = ""
+
+		if row != nil {
+			s.eslintFile = held
+		} else {
+			s = s.located(held)
+		}
 	}
 
-	return row.MatchString(strings.TrimSpace(lines[index+1]))
+	switch {
+	case row != nil && s.eslintFile != "":
+		lineNumber, _ := strconv.Atoi(row[1])
+		column, _ := strconv.Atoi(row[2])
+
+		return s.with(Location{
+			File: s.eslintFile, Line: lineNumber, Column: column,
+			Message: strings.Join(strings.Fields(row[3]), " "),
+		})
+	case s.eslintHeader.MatchString(line):
+		s.held = line
+
+		return s
+	default:
+		return s.located(line)
+	}
+}
+
+// Places is every place found so far, once each, in the order they appeared. A
+// held line that nothing followed is read as any other line is.
+func (s FailureScan) Places() []Location {
+	if s.held != "" {
+		return s.located(s.held).found
+	}
+
+	return s.found
+}
+
+// located ends any ESLint block, and keeps the place a line names if it names
+// one.
+func (s FailureScan) located(line string) FailureScan {
+	s.eslintFile = ""
+
+	location, ok := locate(s.patterns, line)
+	if !ok {
+		return s
+	}
+
+	return s.with(location)
+}
+
+// with keeps a place once, while fewer than MaxPlaces are kept. It appends to a
+// clipped copy of the places, so the scan it came from keeps its own.
+func (s FailureScan) with(location Location) FailureScan {
+	if len(s.found) >= MaxPlaces {
+		return s
+	}
+
+	if !slices.ContainsFunc(s.found, location.samePlace) {
+		s.found = append(slices.Clip(s.found), location)
+	}
+
+	return s
 }
 
 // locate reads a place from one line, if the line names one.
