@@ -185,14 +185,14 @@ function PushConfirm({ commits, onCancel, onPush }: PushConfirmProps) {
       <button
         type="button"
         onClick={onCancel}
-        className="rounded-sm border border-input px-2 py-1 hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+        className="rounded-md border border-input px-3 py-1.5 text-sm hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none disabled:cursor-not-allowed disabled:bg-disabled disabled:text-disabled-foreground"
       >
         Cancel
       </button>
       <button
         type="button"
         onClick={onPush}
-        className="rounded-sm bg-primary px-2 py-1 text-primary-foreground hover:bg-primary/90 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+        className="rounded-md bg-primary px-3 py-1.5 text-sm font-medium text-primary-foreground hover:bg-primary/90 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none disabled:cursor-not-allowed disabled:bg-disabled disabled:text-disabled-foreground"
       >
         Push
       </button>
