@@ -5,8 +5,11 @@ package editor_test
 
 import (
 	"errors"
+	"fmt"
+	"io/fs"
 	"os"
 	"path/filepath"
+	"strconv"
 	"testing"
 
 	tea "charm.land/bubbletea/v2"
@@ -118,6 +121,38 @@ func writeUnder(t *testing.T, dir, rel string) {
 	}
 }
 
+// resolveOne resolves a single place below dir, the way a run with one failure
+// would.
+func resolveOne(dir, place string) (string, bool) {
+	file, found := editor.Resolve(dir, os.DirFS(dir), []string{place})[place]
+
+	return file, found
+}
+
+// countingFS is a directory's files that counts how often the root is listed,
+// which is once for every walk of the tree.
+type countingFS struct {
+	fs.FS
+
+	rootListings int
+}
+
+var _ fs.ReadDirFS = (*countingFS)(nil)
+
+// ReadDir lists a directory, counting the root.
+func (c *countingFS) ReadDir(name string) ([]fs.DirEntry, error) {
+	if name == "." {
+		c.rootListings++
+	}
+
+	entries, err := fs.ReadDir(c.FS, name)
+	if err != nil {
+		return nil, fmt.Errorf("listing %s: %w", name, err)
+	}
+
+	return entries, nil
+}
+
 func TestResolveKeepsAPlaceThatIsThereAsPrinted(t *testing.T) {
 	t.Parallel()
 
@@ -125,7 +160,7 @@ func TestResolveKeepsAPlaceThatIsThereAsPrinted(t *testing.T) {
 	dir := repositoryWith(t, sourceFile)
 
 	// Act
-	got, ok := editor.Resolve(dir, sourceFile)
+	got, ok := resolveOne(dir, sourceFile)
 
 	// Assert
 	if !ok || got != sourceFile {
@@ -142,11 +177,41 @@ func TestResolveFindsAPlacePrintedRelativeToItsPackage(t *testing.T) {
 	writeUnder(t, dir, "internal/tui/run_test.go")
 
 	// Act
-	got, ok := editor.Resolve(dir, "run_test.go")
+	got, ok := resolveOne(dir, "run_test.go")
 
 	// Assert
 	if want := filepath.Join("internal", "tui", "run_test.go"); !ok || got != want {
 		t.Errorf("Resolve(%q) = %q, %v; want %q", "run_test.go", got, ok, want)
+	}
+}
+
+func TestResolveWalksTheTreeOnceForEveryPlace(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	// A failing go test run prints each place relative to its own package, so
+	// none is there as printed and every one is looked for below the root.
+	dir := repositoryWith(t)
+	places := []string{"a_test.go", "b_test.go", "c_test.go", "d_test.go"}
+
+	for index, place := range places {
+		writeUnder(t, dir, "pkg"+strconv.Itoa(index)+"/"+place)
+	}
+
+	tree := &countingFS{FS: os.DirFS(dir), rootListings: 0}
+
+	// Act
+	got := editor.Resolve(dir, tree, places)
+
+	// Assert
+	if tree.rootListings != 1 {
+		t.Errorf("resolving %d places walked the tree %d times, want once", len(places), tree.rootListings)
+	}
+
+	for index, place := range places {
+		if want := filepath.Join("pkg"+strconv.Itoa(index), place); got[place] != want {
+			t.Errorf("Resolve found %q at %q, want %q", place, got[place], want)
+		}
 	}
 }
 
@@ -157,7 +222,7 @@ func TestResolveDropsAPlaceThatMatchesNothing(t *testing.T) {
 	dir := repositoryWith(t, sourceFile)
 
 	// Act
-	got, ok := editor.Resolve(dir, "absent_test.go")
+	got, ok := resolveOne(dir, "absent_test.go")
 
 	// Assert
 	if ok || got != "" {
@@ -175,7 +240,7 @@ func TestResolveDropsAnAmbiguousPlace(t *testing.T) {
 	writeUnder(t, dir, "b/shared_test.go")
 
 	// Act
-	got, ok := editor.Resolve(dir, "shared_test.go")
+	got, ok := resolveOne(dir, "shared_test.go")
 
 	// Assert
 	if ok || got != "" {
@@ -183,22 +248,33 @@ func TestResolveDropsAnAmbiguousPlace(t *testing.T) {
 	}
 }
 
-func TestResolveIgnoresTheGitDirectory(t *testing.T) {
+func TestResolveSkipsDirectoriesOfCopies(t *testing.T) {
 	t.Parallel()
 
-	// Arrange
-	// git keeps copies of tracked files under .git; a place must resolve to a
-	// working file, so the one below .git must not be the match that wins.
-	dir := repositoryWith(t)
-	writeUnder(t, dir, ".git/hooks/pre-commit.go")
-	writeUnder(t, dir, "internal/pre-commit.go")
+	// A place must resolve to a working file, so a copy kept below one of these
+	// must not be the match that wins — nor make the place ambiguous.
+	cases := map[string]string{
+		"git's copies of tracked files": ".git/hooks/pre-commit.go",
+		"a package manager's copies":    "web/node_modules/lib/pre-commit.go",
+	}
 
-	// Act
-	got, ok := editor.Resolve(dir, "pre-commit.go")
+	for name, copied := range cases {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
 
-	// Assert
-	if want := filepath.Join("internal", "pre-commit.go"); !ok || got != want {
-		t.Errorf("Resolve(%q) = %q, %v; want %q, skipping .git", "pre-commit.go", got, ok, want)
+			// Arrange
+			dir := repositoryWith(t)
+			writeUnder(t, dir, copied)
+			writeUnder(t, dir, "internal/pre-commit.go")
+
+			// Act
+			got, ok := resolveOne(dir, "pre-commit.go")
+
+			// Assert
+			if want := filepath.Join("internal", "pre-commit.go"); !ok || got != want {
+				t.Errorf("Resolve(%q) = %q, %v; want %q, skipping %s", "pre-commit.go", got, ok, want, copied)
+			}
+		})
 	}
 }
 
@@ -224,7 +300,7 @@ func TestResolveSkipsADirectoryItCannotRead(t *testing.T) {
 	t.Cleanup(func() { _ = os.Chmod(sealed, 0o700) })
 
 	// Act
-	got, ok := editor.Resolve(dir, "run_test.go")
+	got, ok := resolveOne(dir, "run_test.go")
 
 	// Assert
 	// The sealed copy cannot be read, so the reachable one is the only match.

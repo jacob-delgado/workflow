@@ -13,9 +13,12 @@ import (
 	"errors"
 	"fmt"
 	"io/fs"
+	"maps"
 	"os"
+	"path"
 	"path/filepath"
 	"runtime"
+	"slices"
 	"strconv"
 	"strings"
 
@@ -226,53 +229,75 @@ func Locate(dir, file string) (string, error) {
 	return full, nil
 }
 
-// Resolve turns a place a tool printed into a file Open can find, or reports
-// that none does. A file that is there as printed is kept unchanged; one that is
-// not — go test prints a place relative to its package, not the root — is looked
-// for below dir and kept only when exactly one file matches, so an ambiguous
-// name resolves to nothing rather than to the wrong file.
-func Resolve(dir, file string) (string, bool) {
-	_, err := Locate(dir, file)
-	if err == nil {
-		return file, true
+// Resolve turns the places a tool printed into files Open can find, each keyed
+// by the place as printed; a place missing from the result names no file. A
+// place that is there as printed is kept unchanged. The rest — go test prints a
+// place relative to its package, not the root — are looked for in tree, the
+// files below dir, in one walk however many there are, and each is kept only
+// when exactly one file matches, so an ambiguous name resolves to nothing
+// rather than to the wrong file.
+func Resolve(dir string, tree fs.FS, places []string) map[string]string {
+	resolved := make(map[string]string, len(places))
+	// unplaced holds each place not there as printed, by its slash-separated form.
+	unplaced := make(map[string]string)
+
+	for _, place := range places {
+		_, err := Locate(dir, place)
+		if err == nil {
+			resolved[place] = place
+		} else {
+			unplaced[place] = filepath.ToSlash(filepath.Clean(place))
+		}
 	}
 
-	matches := matchesBelow(dir, file)
-	if len(matches) == 1 {
-		return matches[0], true
+	if len(unplaced) == 0 {
+		return resolved
 	}
 
-	return "", false
+	named := filesNamed(tree, slices.Collect(maps.Values(unplaced)))
+
+	for place, suffix := range unplaced {
+		matches := slices.DeleteFunc(slices.Clone(named[path.Base(suffix)]), func(file string) bool {
+			return !placeMatches(file, suffix)
+		})
+
+		if len(matches) == 1 {
+			resolved[place] = filepath.FromSlash(matches[0])
+		}
+	}
+
+	return resolved
 }
 
-// matchesBelow lists, relative to dir, every file whose path is or ends in the
-// place a tool printed. The place may be a bare name or a partial path; the .git
-// directory is skipped so its packed copies of tracked files are not matches.
-func matchesBelow(dir, place string) []string {
-	suffix := filepath.ToSlash(filepath.Clean(place))
+// filesNamed walks tree once and indexes, by name, the path of every file named
+// as one of the slash-separated places ends. .git holds git's copies of tracked
+// files and node_modules a package manager's, so neither is walked: a copy
+// there is not a file to open, and would make a place ambiguous.
+func filesNamed(tree fs.FS, places []string) map[string][]string {
+	named := make(map[string][]string, len(places))
+	for _, place := range places {
+		named[path.Base(place)] = nil
+	}
 
-	var matches []string
-
-	_ = filepath.WalkDir(dir, func(name string, entry fs.DirEntry, err error) error {
+	_ = fs.WalkDir(tree, ".", func(name string, entry fs.DirEntry, err error) error {
 		switch {
 		case err != nil:
-			//nolint:nilerr // an unreadable entry is one place the file is not, not a reason to abandon the search.
+			//nolint:nilerr // an unreadable entry is one place a file is not, not a reason to abandon the search.
 			return nil
-		case entry.IsDir() && entry.Name() == ".git" && name != dir:
+		case entry.IsDir() && slices.Contains([]string{".git", "node_modules"}, entry.Name()):
 			return fs.SkipDir
 		case entry.IsDir():
 			return nil
 		}
 
-		rel, err := filepath.Rel(dir, name)
-		if err == nil && placeMatches(filepath.ToSlash(rel), suffix) {
-			matches = append(matches, rel)
+		if files, wanted := named[entry.Name()]; wanted {
+			named[entry.Name()] = append(files, name)
 		}
 
 		return nil
 	})
 
-	return matches
+	return named
 }
 
 // placeMatches reports whether a file's slash-separated path is, or ends in, the
