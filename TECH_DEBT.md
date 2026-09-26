@@ -957,11 +957,10 @@ and `grep -n 'two shells\|Shell 2' Taskfile.yml` prints nothing above the
 
 What is open here is a set of appliers and guards that read stale state or skip
 a check the other surfaces make, two configuration sections nothing validates,
-the composition the interface keeps beside `loop`'s, the hook-failure resolver
-and the `lefthook.yml` the interface writes, and a color read no black-box test
-reaches; what it carries on purpose — the two composers' field handling
-written twice, and the spine's color-only hue — is under [Deliberate
-trade-offs](#deliberate-trade-offs-that-carry-a-cost).
+the composition the interface keeps beside `loop`'s, the hook-failure resolver,
+and a color read no black-box test reaches; what it carries on purpose — the
+two composers' field handling written twice, and the spine's color-only hue —
+is under [Deliberate trade-offs](#deliberate-trade-offs-that-carry-a-cost).
 
 ### DEBT-113 The pull request composer titles from the listed issue, not Jira
 
@@ -1297,26 +1296,6 @@ function (grep); `tui.AnnouncedPost` is gone and
 `internal/cli/announce.go`'s `announceMemory` adapter is deleted; the
 interface's announcement text in a screen test equals `loop`'s for the
 same inputs.
-
-### DEBT-126 Generated `lefthook.yml` header claims jobs were converted under Verbatim
-
-Severity: low · Confidence: read
-
-`generate` (`internal/hooks/generate.go:125`) writes one `HeadComment` for
-both modes — "Hooks it could run as jobs are jobs; the rest run from
-.lefthook as scripts" (`:126`) — but `Verbatim`
-(`internal/hooks/generate.go:119`) calls `generate(hooks, false)` and
-converts nothing. A user who chose to keep every hook as its script
-commits a `lefthook.yml` whose first lines say the opposite about how it
-was made. It hurts the interface's hook offer (`g`), the only path that
-writes the file; `TestVerbatimKeepsEveryHookAsItsScript`
-(`internal/hooks/generate_test.go:198`) does not assert the header.
-
-**One way to fix it.** Word the header per mode, with Verbatim's saying
-every hook runs as the script it was.
-
-**Done when.** `TestVerbatimKeepsEveryHookAsItsScript` asserts the header
-does not claim jobs.
 
 ## The web
 
