@@ -55,3 +55,23 @@ func TestListChangesReportsAFailure(t *testing.T) {
 		t.Errorf("status = %d, want 500", recorder.Code)
 	}
 }
+
+func TestSnapshotChangesAreEmptyWhenTheReadFails(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	// The failing read still hands back a change, so only the error can empty
+	// the panel.
+	deps := filledDeps()
+	deps.Changes = func() ([]gitrepo.Change, error) {
+		return []gitrepo.Change{{Path: "README.md", Staged: 'M'}}, errSeam
+	}
+
+	// Act
+	snap := firstSnapshot(t, streamOnce(t, serve(t, deps, config.Default()), "/api/events").Body.String())
+
+	// Assert
+	if snap.Changes.Changes == nil || len(snap.Changes.Changes) != 0 {
+		t.Errorf("changes = %#v, want an empty list when the read fails", snap.Changes.Changes)
+	}
+}
