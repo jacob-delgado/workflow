@@ -189,7 +189,11 @@ func (m Model) commitsKeys() []key.Binding {
 	var keys []key.Binding
 
 	if _, hasChange := m.changes.current(); hasChange && m.deps.Git.Stage != nil {
-		keys = append(keys, m.keys.stage, m.keys.stageAll)
+		keys = append(keys, m.keys.stage)
+	}
+
+	if len(loop.Stageable(m.changes.changes)) > 0 && m.deps.Git.Stage != nil {
+		keys = append(keys, m.keys.stageAll)
 	}
 
 	if m.changes.staged() > 0 && m.deps.Git.Commit != nil {

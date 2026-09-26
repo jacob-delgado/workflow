@@ -241,7 +241,7 @@ func newWorld() *world {
 			Upstream: "origin/" + featureName, PushRemote: gitrepo.DefaultRemote,
 			Commits: []gitrepo.Commit{{Hash: "1a2b3c4", Subject: pullTitle}},
 		},
-		changes:   []gitrepo.Change{{Path: "internal/config/redact.go", Staged: 'M', Unstaged: ' '}},
+		changes:   []gitrepo.Change{{Path: redactPath, Staged: 'M', Unstaged: ' '}},
 		pull:      forge.PullRequest{Number: 42, URL: pullURL, Title: pullTitle, Draft: false},
 		pullFound: true,
 		ci:        []forge.CI{{State: forge.CIPassed, Total: 1, Done: 1, Failed: 0}},
