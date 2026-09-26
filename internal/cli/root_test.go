@@ -31,12 +31,13 @@ const (
 )
 
 // rootRun is one run of the root command over a stand-in interface and web
-// server: how often it started each and what it handed them, what it said on
-// stdout and stderr, and how it ended.
+// server: how often it started each and what it handed them, where it asked
+// the server to serve, what it said on stdout and stderr, and how it ended.
 type rootRun struct {
 	interfaces int
 	model      tui.Model
 	servers    int
+	addr       string
 	cfg        config.Config
 	info       webserver.Info
 	stdout     string
@@ -53,6 +54,13 @@ func (r *rootRun) runInterface(_ context.Context, model tui.Model, out io.Writer
 	fmt.Fprint(out, interfaceWrote)
 
 	return nil
+}
+
+// serveWebAt stands in for WebServerAt, keeping the address it was handed.
+func (r *rootRun) serveWebAt(addr string) cli.RunWeb {
+	r.addr = addr
+
+	return r.serveWeb
 }
 
 // serveWeb stands in for the web server, keeping the configuration and the
@@ -106,7 +114,7 @@ func runRootAt(t *testing.T, where place, args ...string) *rootRun {
 
 	var ran rootRun
 
-	ran.stdout, ran.stderr, ran.err = executeRoot(t, where, ran.runInterface, ran.serveWeb, args...)
+	ran.stdout, ran.stderr, ran.err = executeRoot(t, where, ran.runInterface, ran.serveWebAt, args...)
 
 	return &ran
 }
@@ -115,7 +123,7 @@ func runRootAt(t *testing.T, where place, args ...string) *rootRun {
 // and web server given, and returns what it said on stdout and on stderr, and
 // how it ended.
 func executeRoot(
-	t *testing.T, where place, run cli.RunInterface, serve cli.RunWeb, args ...string,
+	t *testing.T, where place, run cli.RunInterface, serveAt cli.RunWebAt, args ...string,
 ) (string, string, error) {
 	t.Helper()
 
@@ -127,7 +135,7 @@ func executeRoot(
 
 	var stdout, stderr bytes.Buffer
 
-	root := cli.NewRootCmdOver(unusedPrompt(t), run, serve)
+	root := cli.NewRootCmdOver(unusedPrompt(t), run, serveAt)
 	root.SetArgs(args)
 	root.SetOut(&stdout)
 	root.SetErr(&stderr)
@@ -457,10 +465,12 @@ func TestTheInterfaceAndTheWebServerStartWithTheTokenCommandsRun(t *testing.T) {
 
 					return nil
 				},
-				func(context.Context, config.Config, webserver.Deps, webserver.Info, io.Writer) error {
-					countRuns()
+				func(string) cli.RunWeb {
+					return func(context.Context, config.Config, webserver.Deps, webserver.Info, io.Writer) error {
+						countRuns()
 
-					return nil
+						return nil
+					}
 				},
 				args...)
 

@@ -9,8 +9,10 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"math"
 	"os"
 	"os/signal"
+	"strconv"
 	"strings"
 	"syscall"
 
@@ -147,28 +149,32 @@ func execute(ctx context.Context, args []string, stdout, stderr io.Writer, promp
 type RunInterface func(ctx context.Context, model tui.Model, out io.Writer) error
 
 // RunWeb starts the local web server and blocks until the context is canceled.
-// It is WebServerAt the loopback address in production and a fake in tests, so
-// the --web flag's wiring can be exercised without binding a port. What it says
-// about the server goes to notes, stderr: the server has no artifact for stdout
-// to carry.
+// What it says about the server goes to notes, stderr: the server has no
+// artifact for stdout to carry.
 type RunWeb func(
 	ctx context.Context, cfg config.Config, deps webserver.Deps, info webserver.Info, notes io.Writer,
 ) error
+
+// RunWebAt is the web server that serves on addr. It is WebServerAt in
+// production and a fake in tests, so the --web and --port flags' wiring can be
+// exercised without binding a port.
+type RunWebAt func(addr string) RunWeb
 
 // NewRootCmd builds the command tree. Bare `workflow` opens the TUI. The prompt
 // is how `config init` asks for credentials; a zero one is fine for a caller
 // that only walks the tree, such as the reference generator.
 func NewRootCmd(prompt Prompt) *cobra.Command {
-	return NewRootCmdOver(prompt, tui.Run, WebServerAt(webserver.LoopbackAddr))
+	return NewRootCmdOver(prompt, tui.Run, WebServerAt)
 }
 
 // NewRootCmdOver builds the command tree over the interface and web server a
 // caller hands it, so a test can see what bare `workflow` and `workflow --web`
 // open without a terminal or a port.
-func NewRootCmdOver(prompt Prompt, run RunInterface, serve RunWeb) *cobra.Command {
+func NewRootCmdOver(prompt Prompt, run RunInterface, serveAt RunWebAt) *cobra.Command {
 	var (
 		dryRun bool
 		web    bool
+		port   int
 	)
 
 	root := &cobra.Command{
@@ -179,6 +185,7 @@ func NewRootCmdOver(prompt Prompt, run RunInterface, serve RunWeb) *cobra.Comman
 		SilenceUsage:  true,
 		SilenceErrors: true,
 		Args:          cobra.NoArgs,
+		PreRunE:       func(cmd *cobra.Command, _ []string) error { return checkPort(cmd, web, port) },
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			conn, err := connectLeniently(cmd)
 			if err != nil {
@@ -197,6 +204,8 @@ func NewRootCmdOver(prompt Prompt, run RunInterface, serve RunWeb) *cobra.Comman
 
 				conn.resolveAhead()
 
+				serve := serveAt(webserver.LoopbackAddr(port))
+
 				return serve(ctx, conn.cfg, WebDeps(conn.deps), info, cmd.ErrOrStderr())
 			}
 
@@ -214,7 +223,8 @@ func NewRootCmdOver(prompt Prompt, run RunInterface, serve RunWeb) *cobra.Comman
 	root.PersistentFlags().String(logFlag, "",
 		"append a one-line outline of each request (method, path, status, duration) to FILE, for a bug report")
 	root.Flags().BoolVar(&web, "web", false,
-		"serve the web interface on http://"+webserver.LoopbackAddr+" instead of opening the terminal interface")
+		"serve the web interface on http://127.0.0.1 instead of opening the terminal interface")
+	root.Flags().IntVar(&port, portFlag, webserver.DefaultPort, "the port --web serves on, from 1 to 65535")
 
 	root.AddCommand(subcommands(prompt)...)
 
@@ -275,8 +285,8 @@ func subcommands(prompt Prompt) []*cobra.Command {
 }
 
 // WebServerAt is the web server, built over the seams and served on addr until
-// the context is canceled. Production serves only webserver.LoopbackAddr, through
-// NewRootCmd; a test hands it a port of its own. The handler reads the
+// the context is canceled. Production serves only a webserver.LoopbackAddr,
+// through NewRootCmd; a test hands it a port of its own. The handler reads the
 // configuration file cfg came from once more, so it starts from an edit made
 // since, with that edit's revision. Building it fails when the embedded spec
 // cannot load, a build defect, or when that file cannot be read again. Each
@@ -346,8 +356,25 @@ func WebDeps(deps tui.Deps) webserver.Deps {
 	}
 }
 
-// logFlag names the flag that turns on the request log.
-const logFlag = "log"
+// portFlag names the root's flag that picks the port --web serves on.
+const portFlag = "port"
+
+// checkPort refuses, as a mistake in the call, --port without --web, where
+// nothing listens on it, and a port no listener can take.
+func checkPort(cmd *cobra.Command, web bool, port int) error {
+	var why string
+
+	switch {
+	case !web && cmd.Flags().Changed(portFlag):
+		why = "it takes effect only with --web"
+	case port < 1 || port > math.MaxUint16:
+		why = "it must be from 1 to 65535"
+	default:
+		return nil
+	}
+
+	return fmt.Errorf(`%w %q for "--port" flag: %s`, errUsage, strconv.Itoa(port), why)
+}
 
 // connection is a command wired to where it runs: the configuration in effect
 // and, when it did not load, why; the repository; the seams over both, and
@@ -429,50 +456,6 @@ func (c connection) unreadConfiguration() error {
 	}
 
 	return c.loadErr
-}
-
-// requestLogFor opens the request log --log names, or none when it names no
-// file, warning on the command's stderr at close when it was not fully
-// written. The root declares --log for every command, so it is always there
-// to read.
-func requestLogFor(cmd *cobra.Command) (*wiring.RequestLog, func(), error) {
-	path, _ := cmd.Flags().GetString(logFlag)
-
-	return openRequestLog(path, cmd.ErrOrStderr())
-}
-
-// logFileMode is the permission a request log is created with. Like the
-// configuration, it is the user's own file and nobody else's to read.
-const logFileMode os.FileMode = 0o600
-
-// openRequestLog opens the request-outline log named by path. An empty path
-// means no logging: the log is nil and the returned close is a no-op, so the
-// caller wires and closes it the same way either way.
-func openRequestLog(path string, warn io.Writer) (*wiring.RequestLog, func(), error) {
-	if path == "" {
-		return nil, func() {}, nil
-	}
-
-	//nolint:gosec // the path is the user's own --log argument, by design.
-	file, err := os.OpenFile(path, os.O_CREATE|os.O_APPEND|os.O_WRONLY, logFileMode)
-	if err != nil {
-		return nil, func() {}, fmt.Errorf("opening the request log: %w", err)
-	}
-
-	requestLog := wiring.NewRequestLog(file, nil)
-
-	return requestLog, func() { closeRequestLog(requestLog, file, warn) }, nil
-}
-
-// closeRequestLog closes the log's file and, when an outline was lost or the
-// file did not close cleanly, says so on warn in one line. The command's own
-// result stands: its work was done, and only the record of it is incomplete.
-func closeRequestLog(requestLog *wiring.RequestLog, file *os.File, warn io.Writer) {
-	err := errors.Join(requestLog.Err(), file.Close())
-	if err != nil {
-		reason := strings.ReplaceAll(err.Error(), "\n", "; ")
-		fmt.Fprintf(warn, "workflow: the request log could not be fully written: %s\n", reason)
-	}
 }
 
 // loadFromEnvironment loads the configuration that applies to this process,
