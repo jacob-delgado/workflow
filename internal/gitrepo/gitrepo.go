@@ -1,7 +1,7 @@
 // Copyright 2026 Jacob Delgado
 // SPDX-License-Identifier: Apache-2.0
 
-// Package gitrepo reads the git repository a session is running in.
+// Package gitrepo reads and changes the git repository a session is running in.
 //
 // Every git invocation goes through a Runner the caller supplies, which is what
 // lets the parsing here be tested against fixture bytes rather than against a
