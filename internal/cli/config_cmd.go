@@ -134,6 +134,8 @@ func targetDir(global bool) (string, error) {
 		return home, nil
 	}
 
+	// Trade-off TRADE-18: only Linux's tests reach this, since macOS still names
+	// a working directory once it is removed.
 	workDir, err := os.Getwd()
 	if err != nil {
 		return "", fmt.Errorf("determining the working directory: %w", err)

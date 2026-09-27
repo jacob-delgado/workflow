@@ -85,7 +85,7 @@ Impact: medium · Effort: medium
   branch issue's summary (`gather`, `internal/cli/status.go:246`), `standup`
   lists recently updated assigned issues inside its draft (`gatherStandup`,
   `internal/cli/standup.go:177`) and `workflow branch <tab>` completes
-  assigned keys (`completeAssignedIssues`, `internal/cli/scriptable.go:126`)
+  assigned keys (`completeAssignedIssues`, `internal/cli/scriptable.go:175`)
   — and writes to it only as `workflow pr`'s side effects, a link and a
   transition (`followUp`, `internal/cli/pr.go:174`). No command lists a
   view, prints an issue in full or writes one on its own. A script that
@@ -137,7 +137,7 @@ Impact: low · Effort: small
   Jira is asked again (`seededIssues`, `internal/tui/issues.go:59`, over
   `Store.CachedIssues`, `internal/store/cache.go:30`). The web's stream reads
   Jira before it sends its first frame (`snapshotIssues`,
-  `internal/webserver/stream.go:182`), so every section says *Connecting to
+  `internal/webserver/stream.go:183`), so every section says *Connecting to
   workflow…* until Jira answers.
 - Touches: `internal/webserver` (the stream's first frame, from a
   cached-issues seam on `Deps`), `internal/store`.

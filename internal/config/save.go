@@ -137,6 +137,7 @@ func SaveOver(path string, cfg Config, over Revision) (Revision, error) {
 
 // write encodes the configuration into path and returns the bytes it wrote.
 func write(path string, cfg Config) ([]byte, error) {
+	// Trade-off TRADE-13: a Config always encodes.
 	encoded, err := json.MarshalIndent(cfg, "", "  ")
 	if err != nil {
 		return nil, fmt.Errorf("encoding configuration: %w", err)
@@ -211,6 +212,8 @@ func followDanglingLink(path string) (string, error) {
 		return "", fmt.Errorf("following its links: %w", err)
 	}
 
+	// Trade-off TRADE-16: Lstat has just found a link here, so reading it fails
+	// only when the file system changes between the calls.
 	next, err := linkDestination(path)
 	if err != nil {
 		return "", err
@@ -223,6 +226,9 @@ func followDanglingLink(path string) (string, error) {
 // from the link's own directory with that directory's links resolved, and is
 // appended rather than joined: joining cleans each ".." against the text before
 // it, where the system first follows any link in that text.
+//
+// Trade-off TRADE-16: the system has just resolved this link and its directory,
+// so neither read fails unless the file system changes between the calls.
 func linkDestination(path string) (string, error) {
 	destination, err := os.Readlink(path)
 	if err != nil {

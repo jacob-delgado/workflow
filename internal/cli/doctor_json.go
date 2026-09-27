@@ -104,6 +104,8 @@ func runDoctorJSON(ctx context.Context, out io.Writer, run doctorRun) error {
 // repositoryFactsFor gathers the git facts, returning the raw remote alongside
 // so the credential check can parse it — the facts carry only the masked form.
 func repositoryFactsFor(ctx context.Context) (repositoryFacts, string) {
+	// Trade-off TRADE-18: only Linux's tests reach this, since macOS still names
+	// a working directory once it is removed.
 	dir, err := os.Getwd()
 	if err != nil {
 		return repositoryFacts{InsideWorkTree: false}, ""

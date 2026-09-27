@@ -412,3 +412,145 @@ terminal's type rather than a surface-neutral one.
 
 **Reopen when.** A second surface needs the editor seam, or its functions
 stop taking Bubble Tea types.
+
+### TRADE-12 The terminal program's own start-up error goes untested
+
+`tui.Run` (`internal/tui/tui.go:146`) starts the Bubble Tea program and
+returns its error, the one condition `task cover:branch` reports as never
+evaluated. No test calls `Run`: in a developer's terminal the program would
+take over the terminal the tests run in, and with none it fails to open
+one, so a test could only ever see it fail. What the interface draws and
+does is tested through the `Model` that `Run` is given.
+
+**Decided.** 2026-09-26, in #TBD (DEBT-64).
+
+**Cost.** The wording of a start-up failure ("running the interface: …")
+is never checked, and the report keeps one never-evaluated condition.
+
+**Reopen when.** `Run` comes to take its program or its input from the
+caller for another reason, so a test could drive it, or a start-up failure
+is reported with a message that does not say what went wrong.
+
+### TRADE-13 Encoding the program's own types is taken not to fail
+
+Ten `err != nil` checks follow an `encoding/json` call on a type the
+program defines, and none is ever true: `json.Marshal` fails only on a
+channel, a function, a complex number, a NaN or infinite float, a map it
+cannot key, a cycle or a marshaler of its own that fails, and these types
+hold none of them; and the JSON a `config.Config` encodes to always fits
+`api.Config`, so decoding it into the web's shape cannot fail either. The
+sites: `Client.newRequest` (`internal/forge/client.go:189`),
+`Client.newJSONRequest` (`internal/jira/jira.go:135`), `Client.postJSON`
+(`internal/messaging/post.go:169`), `write`
+(`internal/config/save.go:142`), `configDTO`'s encode and decode
+(`internal/webserver/config.go:259`, `:266`) and its two callers,
+`server.GetConfig` (`:38`) and `server.writeOver` (`:132`), `fromDTO`
+(`:278`), and `writeSnapshot` (`internal/webserver/stream.go:115`). Each
+check stays, since the project returns an error rather than dropping it.
+
+**Decided.** 2026-09-26, in #TBD (DEBT-64).
+
+**Cost.** Ten error arms no test runs. A field added later that can fail
+to encode would put one of them in play with no test behind it.
+
+**Reopen when.** One of these types gains a float, an interface-typed
+field or a marshaler of its own, `config.Config` and `api.Config` stop
+agreeing on a field's type, or an encoding failure is reported.
+
+### TRADE-14 The embedded OpenAPI contract is taken to load
+
+The web server checks each request against `api/openapi.yaml`, compiled
+into the binary, and five conditions ask whether that contract loads,
+validates and routes: `loadSpec` (`internal/webserver/validator.go:33`,
+`:38`), `validate` (`:55`, `:62`) and `Handler`
+(`internal/webserver/webserver.go:192`). Only a contract broken at build
+time fails them, and then every web server test fails with it, so no test
+can run against a broken one.
+
+**Decided.** 2026-09-26, in #TBD (DEBT-64).
+
+**Cost.** Five error arms no test runs: the start-up message for a broken
+contract is read by whoever broke the build, never checked by a test.
+
+**Reopen when.** The contract is read from anywhere but the binary, such
+as a file or a flag, or a broken contract reaches a release.
+
+### TRADE-15 A driver the store imports is taken to be registered
+
+Two conditions fail only for a database driver that is not registered:
+`sql.Open` in `Store.open` and `Store.openAsItIs`
+(`internal/store/store.go:194`, `:225`). The package imports its own, so
+no exported call lets a test cause either, and a seam added only for the
+test would be code kept for the test's sake.
+
+**Decided.** 2026-09-26, in #TBD (DEBT-64).
+
+**Cost.** Two error arms no test runs, so what a store says when it cannot
+open its driver is read rather than checked.
+
+**Reopen when.** One of these failures is reported with a message that
+does not say what failed, the store comes to choose its driver at run
+time, or a seam over the driver arrives for another reason.
+
+### TRADE-16 Failures only a change between two calls can cause
+
+Four conditions follow a call that has just read the same thing, so they
+fail only when the file system or the context changes between the two, a
+race no test can hold open without a seam. Saving the configuration
+through a link: `followDanglingLink` reads a link `os.Lstat` has just
+found (`internal/config/save.go:218`), and `linkDestination`'s two reads
+follow what the system has just resolved (`:234`, `:245`). Caching the
+issue list: `BeginTx` in `Store.CacheIssues`
+(`internal/store/cache.go:111`) takes no lock, so it fails only when the
+context ends between the schema step, which used it, and the transaction.
+
+**Decided.** 2026-09-26, in #TBD (DEBT-64).
+
+**Cost.** Four error arms no test runs, so what each says when the race is
+lost is read rather than checked.
+
+**Reopen when.** One of these failures is reported, or a change to the
+calls lets a test fail the second without the first.
+
+### TRADE-17 A bot token only Slack itself accepts
+
+One condition is only ever seen failing, because success needs a service
+no test can stand in for: `workflow doctor --online` accepting a bot token
+(`checkMessaging`, `internal/cli/doctor_credentials.go:226`) asks Slack
+itself, at `messaging.APIBase`, which nothing configures. The token check
+is tested in `internal/messaging` against a local server; the command's
+own handling of an accepted token is not.
+
+**Decided.** 2026-09-26, in #TBD (DEBT-64).
+
+**Cost.** The user and team doctor prints for an accepted bot token are
+never checked through the command.
+
+**Reopen when.** The messaging address becomes configurable for another
+reason, such as a self-hosted service, or doctor's line for an accepted
+token is reported wrong.
+
+### TRADE-18 Conditions only Linux's tests reach
+
+Seven conditions are reached by tests that skip on macOS, so a report
+measured there lists them as seen one way, and CI's, measured on Linux,
+does not. Six ask whether `os.Getwd` failed, which it does on Linux once
+the working directory is removed but not on macOS, whose `getcwd` still
+names it: `connectLeniently` and `loadFromEnvironment`
+(`internal/cli/cli.go:423`, `:477`), `targetDir`
+(`internal/cli/config_cmd.go:140`), `reportRepository`
+(`internal/cli/doctor.go:136`), `repositoryFactsFor`
+(`internal/cli/doctor_json.go:110`) and `completeAssignedIssues`
+(`internal/cli/scriptable.go:179`), each reached by
+`internal/cli/removed_workdir_test.go`. The seventh, `closeRequestLog`
+(`internal/cli/scriptable.go:113`), is reached through `/dev/full`, which
+macOS lacks, by `TestRequestLogWarnsOnceWhenItCouldNotBeWritten`
+(`internal/cli/reqlog_test.go`).
+
+**Decided.** 2026-09-26, in #TBD (DEBT-64).
+
+**Cost.** `task cover:branch` on macOS reads seven arms fewer than CI does,
+and lists seven conditions a reader there could take for untested.
+
+**Reopen when.** CI measures condition coverage on another system, or
+either test stops reaching its conditions on Linux.

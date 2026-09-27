@@ -187,6 +187,7 @@ var _ api.StrictServerInterface = (*server)(nil)
 // moment before. It fails when the embedded spec cannot be loaded or routed,
 // which is a build defect, or when that file cannot be read.
 func Handler(deps Deps, cfg config.Config, info Info, assets fs.FS) (http.Handler, error) {
+	// Trade-off TRADE-14: the embedded spec loads in every build a test runs.
 	validator, err := validate()
 	if err != nil {
 		return nil, err

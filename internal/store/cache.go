@@ -105,6 +105,8 @@ func (s Store) CacheIssues(ctx context.Context, instance, view string, issues []
 	}
 	defer func() { _ = database.Close() }()
 
+	// Trade-off TRADE-16: a deferred BEGIN takes no lock, so it fails only when
+	// ctx ends between the schema step, which used it, and this call.
 	transaction, err := database.BeginTx(ctx, nil)
 	if err != nil {
 		return fmt.Errorf("caching the issues: %w", err)

@@ -108,6 +108,7 @@ func openRequestLog(path string, warn io.Writer) (*wiring.RequestLog, func(), er
 // file did not close cleanly, says so on warn in one line. The command's own
 // result stands: its work was done, and only the record of it is incomplete.
 func closeRequestLog(requestLog *wiring.RequestLog, file *os.File, warn io.Writer) {
+	// Trade-off TRADE-18: only Linux's tests reach this, through /dev/full.
 	err := errors.Join(requestLog.Err(), file.Close())
 	if err != nil {
 		reason := strings.ReplaceAll(err.Error(), "\n", "; ")
@@ -172,6 +173,8 @@ func encodeJSON(out io.Writer, value any) error {
 // assigned to you, for `workflow branch <tab>`. A tracker that cannot be reached
 // offers nothing rather than an error.
 func completeAssignedIssues(cmd *cobra.Command, _ []string, toComplete string) ([]string, cobra.ShellCompDirective) {
+	// Trade-off TRADE-18: only Linux's tests reach this, since macOS still names
+	// a working directory once it is removed.
 	dir, err := os.Getwd()
 	if err != nil {
 		return nil, cobra.ShellCompDirectiveNoFileComp

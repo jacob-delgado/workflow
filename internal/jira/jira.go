@@ -129,6 +129,8 @@ func (c Client) newRequest(ctx context.Context, method, pathAndQuery string, bod
 // newJSONRequest builds an authenticated request that sends body as JSON, the
 // shape every write to Jira takes.
 func (c Client) newJSONRequest(ctx context.Context, method, path string, body any) (*http.Request, error) {
+	// Trade-off TRADE-13: every body is one of this package's request types,
+	// which always encode.
 	payload, err := json.Marshal(body)
 	if err != nil {
 		return nil, fmt.Errorf("encoding the request: %w", err)

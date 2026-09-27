@@ -417,6 +417,8 @@ func connect(cmd *cobra.Command) (connection, error) {
 // connectLeniently is connect keeping a configuration that did not load, for
 // the interface and the web server, which each show the user why.
 func connectLeniently(cmd *cobra.Command) (connection, error) {
+	// Trade-off TRADE-18: only Linux's tests reach this, since macOS still names
+	// a working directory once it is removed.
 	dir, err := os.Getwd()
 	if err != nil {
 		return connection{}, fmt.Errorf("determining the working directory: %w", err)
@@ -469,6 +471,8 @@ func (c connection) unreadConfiguration() error {
 // the zero Config is still usable, which is what lets doctor explain what is
 // wrong.
 func loadFromEnvironment() (config.Config, error) {
+	// Trade-off TRADE-18: only Linux's tests reach this, since macOS still names
+	// a working directory once it is removed.
 	workDir, err := os.Getwd()
 	if err != nil {
 		return config.Config{}, fmt.Errorf("determining the working directory: %w", err)
