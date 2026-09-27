@@ -5,7 +5,8 @@ package wiring_test
 
 // The OpenURL seam hands a check's address to the platform's own browser
 // opener, but only a web address: a value a program could read as a flag, or one
-// naming a local file, is refused before any opener runs. BrowserCommand names
+// naming a local file, is refused before any opener runs, and an opener that
+// fails is reported. BrowserCommand names
 // that opener for each platform, with the URL as one argument of its own.
 
 import (
@@ -30,15 +31,21 @@ func recordingOpeners(t *testing.T) string {
 
 	dir := t.TempDir()
 	record := filepath.Join(dir, "opened")
-	script := "#!/bin/sh\nprintf '%s\\n' \"$@\" >> \"" + record + "\"\n"
+
+	installOpeners(t, dir, "#!/bin/sh\nprintf '%s\\n' \"$@\" >> \""+record+"\"\n")
+
+	return record
+}
+
+// installOpeners puts script on PATH as every platform browser opener, in dir.
+func installOpeners(t *testing.T, dir, script string) {
+	t.Helper()
 
 	for _, name := range []string{"open", "xdg-open", "rundll32"} {
 		write(t, filepath.Join(dir, name), script, 0o755)
 	}
 
 	t.Setenv("PATH", dir+string(os.PathListSeparator)+os.Getenv("PATH"))
-
-	return record
 }
 
 func TestOpenURLOpensOnlyWebAddresses(t *testing.T) {
@@ -52,6 +59,7 @@ func TestOpenURLOpensOnlyWebAddresses(t *testing.T) {
 		"file":       {raw: "file:///etc/passwd", ok: false},
 		"javascript": {raw: "javascript:alert(1)", ok: false},
 		"empty":      {raw: "", ok: false},
+		"malformed":  {raw: "https://ci.example.com/checks/%zz", ok: false},
 	}
 
 	for name, tt := range cases {
@@ -74,6 +82,25 @@ func TestOpenURLOpensOnlyWebAddresses(t *testing.T) {
 				t.Errorf("OpenURL(%q) = %v, opener saw %q; want it refused and nothing run", tt.raw, err, opened)
 			}
 		})
+	}
+}
+
+func TestOpenURLReportsAnOpenerThatFails(t *testing.T) {
+	// Arrange
+	// The platform's opener runs, and fails, as one with no browser to hand
+	// the address to does.
+	const checkURL = "https://ci.example.com/checks/42"
+
+	installOpeners(t, t.TempDir(), "#!/bin/sh\necho 'no browser here' >&2\nexit 1\n")
+
+	open := wired(t, config.Default(), wiring.Workspace{Root: t.TempDir(), Remote: ""}, nil).OpenURL
+
+	// Act
+	err := open(checkURL)
+
+	// Assert
+	if err == nil || !strings.Contains(err.Error(), "opening "+checkURL) {
+		t.Errorf("OpenURL(%q) = %v, want the opener's failure, naming the address", checkURL, err)
 	}
 }
 
