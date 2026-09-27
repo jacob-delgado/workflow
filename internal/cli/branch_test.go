@@ -332,3 +332,24 @@ func TestBranchReportsATrackerServerError(t *testing.T) {
 
 	wantExit(t, err, 1)
 }
+
+func TestBranchFromABranchWhoseNameCannotBeShownCutsFromHead(t *testing.T) {
+	// Arrange
+	// main is there to be the base, but the checked-out branch's name holds a
+	// character with no width, so where it stands is not read and the new
+	// branch starts from HEAD.
+	server := jiraServer(t, http.StatusOK, issueFixture("PROJ-7", "Bug", "login"), new(atomic.Bool))
+	repo := repoForBranch(t, server.URL)
+	git(t, repo, "checkout", "-b", "fix/PROJ\u200b-3")
+
+	// Act
+	output, err := run(t, repo, "branch", "PROJ-7", "--dry-run")
+	// Assert
+	if err != nil {
+		t.Fatalf("branch --dry-run: %v (%s)", err, output)
+	}
+
+	if !strings.Contains(output, "fix/PROJ-7-login from HEAD") {
+		t.Errorf("expected the branch to be cut from HEAD:\n%s", output)
+	}
+}
