@@ -185,3 +185,56 @@ func TestRerunChecksReRunsNothingWhenNoRunFailed(t *testing.T) {
 		t.Errorf("RerunChecks = %v, %v, want nothing re-run", reran, err)
 	}
 }
+
+func TestRerunChecksReRunsNothingWhenWhatFailedCannotBeRead(t *testing.T) {
+	t.Parallel()
+
+	cases := map[string]struct {
+		repo    forge.Repo
+		pull    int
+		refused string
+	}{
+		"GitHub's run list": {repo: githubRepo(), pull: 42, refused: "/repos/example/repo/actions/runs"},
+		"GitLab's merge request": {
+			repo: gitlabRepo(), pull: 8, refused: "/projects/group%2Fsub%2Frepo/merge_requests/8",
+		},
+	}
+
+	for name, tt := range cases {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			// Arrange
+			client, seen := forgeConversation(t, nil, map[string]bool{tt.refused: true})
+
+			// Act
+			reran, err := client.RerunChecks(t.Context(), tt.repo, forge.PullRequest{Number: tt.pull}, "abc123")
+
+			// Assert
+			if !errors.Is(err, forge.ErrRefused) || reran {
+				t.Errorf("RerunChecks = %v, %v; want ErrRefused and nothing re-run", reran, err)
+			}
+
+			for _, request := range *seen {
+				if request.method == http.MethodPost {
+					t.Errorf("re-ran %s without knowing what failed", request.path)
+				}
+			}
+		})
+	}
+}
+
+func TestRerunChecksNeedsAForgeThatIsKnown(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	client, seen := forgeAnswering(t, http.StatusOK, `{}`)
+
+	// Act
+	reran, err := client.RerunChecks(t.Context(), unknownForge(), forge.PullRequest{Number: 1}, "abc")
+
+	// Assert
+	if !errors.Is(err, forge.ErrUnknownForge) || reran || seen.Load() != nil {
+		t.Errorf("RerunChecks = %v, %v and asked %v; want ErrUnknownForge before asking", reran, err, seen.Load())
+	}
+}
