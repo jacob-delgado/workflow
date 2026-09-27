@@ -214,7 +214,8 @@ for package in ${packages}; do
   slug="${rel//\//_}"
 
   # gobco's per-condition output is the worklist — print it, since a percentage
-  # alone tells nobody which test to write next.
+  # alone tells nobody which test to write next. Trade-off TRADE-19: what it
+  # lists stays the worklist here, not an entry in TECH_DEBT.md.
   if ! gobco -stats "${out_dir}/${slug}.json" -test=-vet=off "./${rel}" 2>&1; then
     unexpected="${unexpected} ${rel}"
   fi
