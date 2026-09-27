@@ -63,7 +63,12 @@ vars:
   # CLAUDE.md describe. It reads more arms and a lower share of them, so the floor
   # was measured afresh and set to floor(measured) - 2. The name stays, and so
   # does coverage-summary.sh's "branch" key the CI comment compares against main.
-  BRANCH_COVERAGE_MIN: 89
+  #
+  # It rose 89→92 once every condition had run and a test had seen each
+  # `err != nil` both ways, but for those TECH_DEBT.md's register keeps
+  # (TRADE-12 to TRADE-18); the report then read 94.5%, and the floor is
+  # floor(measured) - 2.
+  BRANCH_COVERAGE_MIN: 92
   # Container tasks work with docker or podman: CONTAINER_RUNTIME=podman task ...
   # container:check needs a VM of about 8 GiB: knip's parser reserves 6 GiB in
   # one allocation, and golangci-lint alone is killed for memory in the 2 GiB a
