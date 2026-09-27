@@ -132,6 +132,38 @@ func TestADryRunReadsWhatALiveSessionAnnounced(t *testing.T) {
 	}
 }
 
+func TestAnOriginNamingNoRepositoryKeysTheStoreByTheWorkingTree(t *testing.T) {
+	// Arrange
+	// The origin carries a credential but names no owner and repository, so it
+	// cannot key the store: the working tree does, as with no origin at all.
+	t.Setenv("HOME", t.TempDir())
+	t.Setenv("XDG_STATE_HOME", "")
+
+	const token = "ghp_SECRETTOKEN123"
+
+	root := t.TempDir()
+	noRepository := wiring.Workspace{Root: root, Remote: "https://alice:" + token + "@github.com/repo.git"}
+	merged := loop.Announced{Pull: 7, Moment: messaging.MomentMerged}
+	wired(t, config.Default(), noRepository, nil).Store.RecordAnnounce(merged)
+
+	// Act
+	posts := wiring.ReadOnlyStore(t.Context(), config.Default(), wiring.Workspace{Root: root, Remote: ""}).Announced()
+
+	// Assert
+	if len(posts) != 1 || posts[0] != merged {
+		t.Errorf("the working tree read %+v, want the one announcement recorded under it", posts)
+	}
+
+	dir, err := store.DefaultDir()
+	if err != nil {
+		t.Fatalf("resolving the store directory: %v", err)
+	}
+
+	if storeHoldsToken(t, dir, token) {
+		t.Errorf("the store holds the origin's credential %q", token)
+	}
+}
+
 // storeHoldsToken reports whether any file in the store directory — the database
 // or its write-ahead log — contains token.
 func storeHoldsToken(t *testing.T, dir, token string) bool {

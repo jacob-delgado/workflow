@@ -18,8 +18,12 @@ import (
 	"github.com/jacob-delgado/workflow/internal/wiring"
 )
 
-// preCommit is the hook the lefthook tests generate and run.
-const preCommit = "pre-commit"
+// preCommit is the hook the lefthook tests generate and run, and idleScript a
+// hook script that does nothing.
+const (
+	preCommit  = "pre-commit"
+	idleScript = "#!/bin/sh\n"
+)
 
 // requireLefthook skips a test with nothing to exercise where lefthook is not
 // installed: the hook seams are then deliberately empty.
@@ -110,7 +114,7 @@ func TestTheHookSeamsNeverOverwriteAConfiguration(t *testing.T) {
 	seams := wired(t, config.Default(), wiring.Workspace{Root: root, Remote: ""}, nil).Hooks
 
 	// Act
-	err := seams.Write(hooks.Verbatim([]hooks.GitHook{{Name: preCommit, Script: "#!/bin/sh\n"}}))
+	err := seams.Write(hooks.Verbatim([]hooks.GitHook{{Name: preCommit, Script: idleScript}}))
 
 	// Assert
 	if !errors.Is(err, fs.ErrExist) {
@@ -147,11 +151,38 @@ func TestAFailedLefthookInstallSaysWhatLefthookSaid(t *testing.T) {
 	seams := wired(t, config.Default(), wiring.Workspace{Root: root, Remote: ""}, nil).Hooks
 
 	// Act
-	err := seams.Write(hooks.Verbatim([]hooks.GitHook{{Name: preCommit, Script: "#!/bin/sh\n"}}))
+	err := seams.Write(hooks.Verbatim([]hooks.GitHook{{Name: preCommit, Script: idleScript}}))
 
 	// Assert
 	if err == nil || !strings.Contains(err.Error(), "no hooks path for you") {
 		t.Errorf("Write = %v, want lefthook's own reason", err)
+	}
+}
+
+func TestALefthookGoneBeforeTheWriteSaysItCouldNotBeInstalled(t *testing.T) {
+	// Arrange
+	// lefthook was there when the seams were built, and is gone by the time
+	// the configuration is written.
+	isolateGit(t)
+
+	root := repository(t)
+	bin := pathWithGitAnd(t, "lefthook", "#!/bin/sh\nexit 0\n")
+
+	t.Setenv("PATH", bin)
+
+	seams := wired(t, config.Default(), wiring.Workspace{Root: root, Remote: ""}, nil).Hooks
+
+	err := os.Remove(filepath.Join(bin, "lefthook"))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Act
+	err = seams.Write(hooks.Verbatim([]hooks.GitHook{{Name: preCommit, Script: idleScript}}))
+
+	// Assert
+	if !errors.Is(err, proc.ErrNotFound) || !strings.Contains(err.Error(), "installing lefthook") {
+		t.Errorf("Write = %v, want lefthook reported missing as it was to be installed", err)
 	}
 }
 
