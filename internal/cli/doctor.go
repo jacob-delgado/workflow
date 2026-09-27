@@ -130,6 +130,8 @@ func runDoctor(ctx context.Context, out io.Writer, run doctorRun) error {
 // directory outside any work tree is reported rather than returned as an error:
 // `workflow doctor` is exactly what someone runs to find that out.
 func reportRepository(ctx context.Context, out io.Writer) gitrepo.Repo {
+	// Trade-off TRADE-18: only Linux's tests reach this, since macOS still names
+	// a working directory once it is removed.
 	dir, err := os.Getwd()
 	if err != nil {
 		field(out, "Repository", fmt.Sprintf("(cannot read the working directory: %v)", err))

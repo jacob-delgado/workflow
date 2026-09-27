@@ -33,6 +33,7 @@ func (s *server) GetConfig(_ context.Context, _ api.GetConfigRequestObject) (api
 		return api.GetConfigdefaultApplicationProblemPlusJSONResponse{Body: body, StatusCode: code}, nil
 	}
 
+	// Trade-off TRADE-13: configDTO does not fail; see there.
 	out, err := configDTO(cfg)
 	if err != nil {
 		body, code := s.fault(err)
@@ -126,6 +127,7 @@ func (s *server) writeOver(posted api.Config, over basis) api.UpdateConfigRespon
 		return api.UpdateConfigdefaultApplicationProblemPlusJSONResponse{Body: body, StatusCode: code}
 	}
 
+	// Trade-off TRADE-13: configDTO does not fail; see there.
 	out, err := configDTO(saved)
 	if err != nil {
 		body, code := s.fault(err)
@@ -249,6 +251,9 @@ func basisIn(ifMatch string) (basis, error) {
 
 // configDTO maps a configuration onto its wire shape, masked, through the shared
 // JSON form the two representations were designed to agree on.
+//
+// Trade-off TRADE-13: neither step fails, since both types hold only what
+// encoding/json always encodes, and the one's JSON always fits the other.
 func configDTO(cfg config.Config) (api.Config, error) {
 	data, err := json.Marshal(cfg.Redacted())
 	if err != nil {
@@ -268,6 +273,7 @@ func configDTO(cfg config.Config) (api.Config, error) {
 // fromDTO decodes a configuration written over the API through Parse, so it is
 // held to exactly the standard a file on disk is.
 func fromDTO(in api.Config) (config.Config, error) {
+	// Trade-off TRADE-13: an api.Config always encodes.
 	data, err := json.Marshal(in)
 	if err != nil {
 		return config.Config{}, fmt.Errorf("encoding the posted configuration: %w", err)

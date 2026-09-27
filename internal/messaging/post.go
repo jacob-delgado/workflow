@@ -163,6 +163,8 @@ func (c Client) postToWebhook(ctx context.Context, _, text string) error {
 // postJSON posts payload as JSON with the given headers, and returns the body of
 // an accepted answer.
 func (c Client) postJSON(ctx context.Context, address string, payload any, header http.Header) ([]byte, error) {
+	// Trade-off TRADE-13: every payload is one of this package's message
+	// types, which always encode.
 	encoded, err := json.Marshal(payload)
 	if err != nil {
 		return nil, fmt.Errorf("encoding the message: %w", err)

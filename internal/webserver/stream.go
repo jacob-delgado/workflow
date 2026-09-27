@@ -110,6 +110,7 @@ func (s *server) streamEvents(w http.ResponseWriter, request *http.Request) {
 // it. It reports whether the write reached the client; a failed write means the
 // connection is gone and the stream should stop.
 func writeSnapshot(w http.ResponseWriter, flusher http.Flusher, eventID int, snap api.Snapshot) bool {
+	// Trade-off TRADE-13: a snapshot always encodes.
 	data, err := json.Marshal(snap)
 	if err != nil {
 		return false

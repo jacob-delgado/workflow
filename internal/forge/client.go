@@ -183,6 +183,8 @@ func (c Client) newRequest(ctx context.Context, method, path string, payload any
 	var body io.Reader
 
 	if payload != nil {
+		// Trade-off TRADE-13: every payload is one of this package's request
+		// types, which always encode.
 		encoded, err := json.Marshal(payload)
 		if err != nil {
 			return nil, fmt.Errorf("encoding the request: %w", err)

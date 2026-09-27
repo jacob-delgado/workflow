@@ -24,6 +24,8 @@ import (
 // loadSpec parses the embedded OpenAPI document and validates it. A spec that
 // does not parse or validate is a build defect rather than a runtime condition,
 // so the error is returned to Handler to surface at startup, not swallowed.
+//
+// Trade-off TRADE-14: no test runs on a broken spec, so neither error arm runs.
 func loadSpec() (*openapi3.T, error) {
 	loader := openapi3.NewLoader()
 
@@ -46,6 +48,8 @@ func loadSpec() (*openapi3.T, error) {
 // loopback URL, and which host a client uses to reach the loopback is not the
 // spec's concern. Like a spec that does not load, one whose paths cannot be
 // routed is a build defect, returned for Handler to surface at startup.
+//
+// Trade-off TRADE-14: no test runs on a broken spec, so neither error arm runs.
 func validate() (func(http.Handler) http.Handler, error) {
 	doc, err := loadSpec()
 	if err != nil {

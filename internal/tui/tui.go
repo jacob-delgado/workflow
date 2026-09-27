@@ -136,6 +136,9 @@ func (m Model) WithoutColor() Model {
 // Run starts the interface and blocks until the user quits. The context cancels
 // the program, so a caller can shut the interface down. The alternate screen
 // and mouse mode are set declaratively in View, as v2 asks.
+//
+// Trade-off TRADE-12: no test calls Run, since the program it starts takes over
+// the terminal the tests run in.
 func Run(ctx context.Context, model Model, out io.Writer) error {
 	options := append([]tea.ProgramOption{tea.WithOutput(out), tea.WithContext(ctx)}, model.programOptions...)
 

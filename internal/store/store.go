@@ -188,6 +188,8 @@ func (s Store) open(ctx context.Context) (*sql.DB, error) {
 
 	path := filepath.Join(s.dir, dbName)
 
+	// Trade-off TRADE-15: sql.Open fails only for a driver not registered, and
+	// this package imports its driver.
 	database, err := sql.Open("sqlite", path+fmt.Sprintf(dsnPragmas, busyTimeoutMillis))
 	if err != nil {
 		return nil, fmt.Errorf("opening the store: %w", err)
@@ -217,6 +219,8 @@ func (s Store) openAsItIs() (*sql.DB, error) {
 	name := strings.NewReplacer("%", "%25", "?", "%3F", "#", "%23").
 		Replace(filepath.ToSlash(filepath.Join(s.dir, dbName)))
 
+	// Trade-off TRADE-15: sql.Open fails only for a driver not registered, and
+	// this package imports its driver.
 	database, err := sql.Open("sqlite", fmt.Sprintf(readOnlyDSN, name, busyTimeoutMillis))
 	if err != nil {
 		return nil, fmt.Errorf("opening the store: %w", err)
