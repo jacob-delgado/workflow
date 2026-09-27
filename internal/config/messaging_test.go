@@ -129,20 +129,36 @@ func TestMissingNamesOnlyTheWebhookForAWebhookOnlyKind(t *testing.T) {
 	}
 }
 
-func TestProblemsFlagsAnInsecureWebhook(t *testing.T) {
+func TestProblemsNamesAWebhookThatIsNotAnHTTPSAddress(t *testing.T) {
 	t.Parallel()
 
-	// Arrange
-	cfg := config.Config{
-		Messaging: config.Messaging{Kind: config.KindTeams, WebhookURL: "http://hooks.example.com/x"},
+	const insecureWebhook = "messaging.webhook_url is not an https URL"
+
+	cases := map[string]struct {
+		address config.Secret
+		flagged bool
+	}{
+		"https with a host":  {address: "https://hooks.example.com/x", flagged: false},
+		"plain http":         {address: "http://hooks.example.com/x", flagged: true},
+		"https with no host": {address: "https:///x", flagged: true},
+		"not a URL at all":   {address: "https://[hooks.example.com/x", flagged: true},
 	}
 
-	// Act
-	got := cfg.Problems()
+	for name, tt := range cases {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
 
-	// Assert
-	if !slices.Contains(got, "messaging.webhook_url is not an https URL") {
-		t.Errorf("Problems() = %v, want the plain-http webhook named", got)
+			// Arrange
+			cfg := config.Config{Messaging: config.Messaging{Kind: config.KindTeams, WebhookURL: tt.address}}
+
+			// Act
+			got := cfg.Problems()
+
+			// Assert
+			if slices.Contains(got, insecureWebhook) != tt.flagged {
+				t.Errorf("Problems() = %v, want the webhook flagged: %t", got, tt.flagged)
+			}
+		})
 	}
 }
 
