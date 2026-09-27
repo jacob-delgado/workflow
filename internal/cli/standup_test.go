@@ -303,3 +303,49 @@ func TestStandupRejectsNegativeDays(t *testing.T) {
 		})
 	}
 }
+
+// errEditorFailed is an editor that exited without leaving a draft.
+var errEditorFailed = errors.New("the editor exited with status 1")
+
+func TestStandupReportsAnEditorThatFails(t *testing.T) {
+	// Arrange
+	repo := repoWithCommit(t)
+	writeFile(t, repo, `{"messaging":{"webhook_url":"https://hooks.slack.example/services/x"}}`)
+
+	prompt := cli.Prompt{Compose: func(string, string) (string, error) { return "", errEditorFailed }}
+
+	// Act
+	printed, err := runStreams(t, repo, prompt, "standup")
+
+	// Assert
+	if !errors.Is(err, errEditorFailed) || !strings.Contains(err.Error(), "editing the standup") {
+		t.Errorf("standup = %v, want the editor's failure named", err)
+	}
+
+	// Nothing is shown or offered for posting: the edit never came back.
+	if printed.stdout != "" {
+		t.Errorf("a standup whose edit failed was still printed:\n%s", printed.stdout)
+	}
+}
+
+func TestStandupStopsAtThePostWhenNothingCanAnswer(t *testing.T) {
+	// Arrange
+	// The webhook cannot be reached, so a post that was attempted would fail on
+	// the network rather than on the question.
+	repo := repoWithCommit(t)
+	writeFile(t, repo, `{"messaging":{"webhook_url":"https://hooks.slack.example/services/x"}}`)
+
+	// Act
+	printed, err := runStreams(t, repo, cli.Prompt{Line: answersThenEnds()}, "standup", "--no-edit")
+
+	// Assert
+	if err == nil || !strings.Contains(err.Error(), "pass --yes") || strings.Contains(err.Error(), "posting to") {
+		t.Errorf("standup = %v, want it to stop at the question, saying how to go ahead without one", err)
+	}
+
+	if !strings.Contains(printed.stdout, "# Standup") {
+		t.Errorf("the draft was not shown before the question:\n%s", printed.stdout)
+	}
+
+	wantExit(t, err, 2)
+}
