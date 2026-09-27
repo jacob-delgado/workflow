@@ -9,6 +9,8 @@ import (
 	"os"
 	"path/filepath"
 	"slices"
+	"strconv"
+	"syscall"
 	"testing"
 
 	"github.com/jacob-delgado/workflow/internal/config"
@@ -213,6 +215,42 @@ func TestSaveThatFailsLeavesNoFileBesideThePath(t *testing.T) {
 				t.Errorf("the directory holds %q after the failed save, want only %q", names, config.FileName)
 			}
 		})
+	}
+}
+
+// linkChain is more links than any system follows in one path: Linux follows
+// 40, macOS 32, and Go's own walk of a path's links stops only past 255.
+const linkChain = 64
+
+func TestSaveThroughMoreLinksThanTheSystemFollowsWritesNothing(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	// The file is not yet written, in a directory reached through a chain of
+	// links: Go walks the chain to the missing file, but the system gives up on
+	// the path before it gets there.
+	dir := t.TempDir()
+	actual := filepath.Join(dir, "actual")
+	mkdir(t, actual)
+
+	reached := actual
+
+	for link := range linkChain {
+		next := filepath.Join(dir, "link"+strconv.Itoa(link))
+		symlink(t, reached, next)
+		reached = next
+	}
+
+	// Act
+	err := config.Save(filepath.Join(reached, config.FileName), savedConfig())
+
+	// Assert
+	if !errors.Is(err, syscall.ELOOP) {
+		t.Errorf("Save through %d links = %v, want the system's refusal to follow them", linkChain, err)
+	}
+
+	if names := entryNames(t, actual); len(names) != 0 {
+		t.Errorf("the directory the links reach holds %q, want nothing written", names)
 	}
 }
 
