@@ -403,6 +403,11 @@ func TestDoctorNamesTheForgeAndItsAPI(t *testing.T) {
 			remote: onPremisesRemote,
 			want:   "acme/thing on git.example.com (cannot tell GitHub Enterprise from self-managed GitLab)",
 		},
+		// A remote on the local disk has no host, so there is no forge to name.
+		"a remote that is a local path": {
+			remote: "/srv/git/thing.git",
+			want:   "(the remote does not name a repository)",
+		},
 		// The remote can carry userinfo; the forge is still named, without it.
 		"a remote with a password in it": {
 			remote: "https://alice:sekret@github.com/owner/repo.git",
