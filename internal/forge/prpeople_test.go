@@ -30,6 +30,10 @@ const (
 	labelReview = "review"
 )
 
+// githubPull43 is GitHub's answer to opening pull request 43, with nothing
+// but its number and address.
+const githubPull43 = `{"number":43,"html_url":"https://github.com/example/repo/pull/43"}`
+
 // forgeConversation serves each path its mapped answer and records every
 // request with its decoded JSON body. A path in fails answers 403 instead, to
 // try a step an under-scoped token cannot make.
@@ -117,7 +121,7 @@ func TestCreatePullRequestOnGitHubAsksForNoOneWhenNoneAreNamed(t *testing.T) {
 
 	// Arrange
 	client, seen := forgeConversation(t, map[string]string{
-		githubPullsPath: `{"number":43,"html_url":"https://github.com/example/repo/pull/43"}`,
+		githubPullsPath: githubPull43,
 	}, nil)
 
 	// Act
@@ -142,7 +146,7 @@ func TestCreatePullRequestOnGitHubKeepsThePullWhenReviewersAreRefused(t *testing
 	// The token can open the pull but not request reviewers, the way an
 	// under-scoped credential answers.
 	client, _ := forgeConversation(t,
-		map[string]string{githubPullsPath: `{"number":43,"html_url":"https://github.com/example/repo/pull/43"}`},
+		map[string]string{githubPullsPath: githubPull43},
 		map[string]bool{githubReviewersPath: true})
 
 	// Act
@@ -225,5 +229,55 @@ func TestCreateMergeRequestOnGitLabRefusesAnUnknownReviewer(t *testing.T) {
 
 	if got := requestTo(*seen, gitlabMergesPath); got.method != "" {
 		t.Errorf("posted a merge request anyway: %+v", got)
+	}
+}
+
+func TestCreatePullRequestOnGitHubStopsAtAssigneesTheForgeRefuses(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	// Reviewers are requested, then the token may not assign anyone.
+	client, seen := forgeConversation(t,
+		map[string]string{githubPullsPath: githubPull43},
+		map[string]bool{githubPRIssuePath + "/assignees": true})
+
+	// Act
+	created, err := client.CreatePullRequest(t.Context(), githubRepo(), forge.NewPullRequest{
+		Title: prTitle, Head: featureBranch, Base: baseBranch,
+		Reviewers: []string{userAna}, Assignees: []string{userCass}, Labels: []string{labelBug},
+	})
+
+	// Assert
+	// The pull is kept and the refusal reported; the labels after it are not
+	// sent.
+	if created.Number != 43 || !errors.Is(err, forge.ErrRefused) {
+		t.Fatalf("CreatePullRequest = %+v, %v; want the pull kept and ErrRefused for the assignees", created, err)
+	}
+
+	if got := requestTo(*seen, githubPRIssuePath+"/labels"); got.method != "" {
+		t.Errorf("labeled the pull after its assignees were refused: %+v", got)
+	}
+}
+
+func TestCreateMergeRequestOnGitLabOpensNothingWhenAnAssigneeCannotBeLookedUp(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	// No reviewer is named, so the first lookup is the assignee's, and GitLab
+	// will not let this token look anyone up.
+	client, seen := forgeConversation(t, nil, map[string]bool{gitlabUsersPath: true})
+
+	// Act
+	created, err := client.CreatePullRequest(t.Context(), gitlabRepo(), forge.NewPullRequest{
+		Title: prTitle, Head: featureBranch, Base: baseBranch, Assignees: []string{userCass},
+	})
+
+	// Assert
+	if !errors.Is(err, forge.ErrRefused) || created.Opened() {
+		t.Errorf("CreatePullRequest = %+v, %v; want nothing opened and ErrRefused", created, err)
+	}
+
+	if got := requestTo(*seen, gitlabMergesPath); got.method != "" {
+		t.Errorf("posted a merge request without its assignee: %+v", got)
 	}
 }
