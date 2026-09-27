@@ -4,6 +4,7 @@
 package tui_test
 
 import (
+	"errors"
 	"fmt"
 	"slices"
 	"strings"
@@ -53,6 +54,29 @@ func TestTheComposerSuggestsReviewersFromCodeOwners(t *testing.T) {
 	if calls := opening.asked("code-owners"); len(calls) != 1 {
 		t.Errorf("CODEOWNERS reads = %q, want one", calls)
 	}
+}
+
+// errCodeOwnersUnreadable is a CODEOWNERS file the repository names but the
+// user cannot read.
+var errCodeOwnersUnreadable = errors.New("reading CODEOWNERS: permission denied")
+
+func TestAComposerWhoseCodeOwnersCannotBeReadSuggestsNoReviewers(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	// Owners come back with the failure, so a composer that read past it would
+	// show them.
+	opening := withoutPull()
+	opening.codeOwners = []string{"ana", "ben"}
+	opening.codeOwnersErr = errCodeOwnersUnreadable
+	model := opening.live(t, 120, 40)
+
+	// Act
+	composer := typing(t, model, "4", "n")
+
+	// Assert
+	requireScreen(t, composer.View().Content, "reviewers >")
+	refuseScreen(t, composer.View().Content, "ana, ben")
 }
 
 func TestAPullThatOpensButCannotAddReviewersIsNotLost(t *testing.T) {
