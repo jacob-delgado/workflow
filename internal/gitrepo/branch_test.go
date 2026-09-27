@@ -378,6 +378,10 @@ func TestReadBranchKeepsOnlyWhatGitAnsweredClearly(t *testing.T) {
 			replies: with(featureBranch(), map[string]reply{countAhead: {out: []byte("one\ttwo\n")}}),
 			commits: featureCommits(),
 		},
+		"a behind count beside an ahead count that is not a number reads as zero": {
+			replies: with(featureBranch(), map[string]reply{countAhead: {out: []byte("1\ttwo\n")}}),
+			commits: featureCommits(),
+		},
 		// Anyone who can get a commit onto the base branch writes its subject.
 		"a commit subject cannot drive the terminal": {
 			replies: with(featureBranch(), map[string]reply{
