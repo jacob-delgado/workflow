@@ -4,6 +4,7 @@
 package forge_test
 
 import (
+	"io/fs"
 	"slices"
 	"testing"
 	"testing/fstest"
@@ -102,5 +103,25 @@ func TestTemplatesAreFoundWhereEachForgeLooks(t *testing.T) {
 				t.Errorf("FindTemplates = %q, want %q", got, tt.want)
 			}
 		})
+	}
+}
+
+func TestATemplateThatCannotBeReadIsLeftOut(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	// A link to a file the repository does not hold is listed like a template
+	// but cannot be read; the one beside it can.
+	repo := fstest.MapFS{
+		".github/PULL_REQUEST_TEMPLATE/feature.md": file("## Feature\n"),
+		".github/PULL_REQUEST_TEMPLATE/gone.md":    {Data: []byte("nowhere.md"), Mode: fs.ModeSymlink},
+	}
+
+	// Act
+	found := forge.FindTemplates(repo, forge.KindGitHub)
+
+	// Assert
+	if got, want := templateNames(found), []string{"feature"}; !slices.Equal(got, want) {
+		t.Errorf("FindTemplates = %q, want %q: the unreadable one left out, the other kept", got, want)
 	}
 }
