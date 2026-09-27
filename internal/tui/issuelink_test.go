@@ -59,6 +59,28 @@ func TestSkippingTheLinkStillOffersTheReviewStatus(t *testing.T) {
 	requireScreen(t, skipped.View().Content, "Change status", "▸ ◐ Start Review")
 }
 
+func TestWithoutAJiraLinkOpeningAPullRequestOffersTheReviewStatus(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	// Jira cannot take a remote link here, so there is nothing to confirm: the
+	// status offer comes straight after the pull request opens.
+	linking := withoutPull()
+	linking.cfg.Jira.ReviewStatus = statusInReview
+	linking.moves = reviewTransitions()
+	deps := linking.deps()
+	deps.Jira.LinkPullRequest = nil
+	model := sized(t, tui.New(linking.cfg, nil, deps), 120, 40)
+	composing := typing(t, drain(t, model, model.Init()), "4", "n")
+
+	// Act
+	opened := typing(t, composing, keyEnter)
+
+	// Assert
+	requireScreen(t, opened.View().Content, "opened #42", "Change status", "▸ ◐ Start Review")
+	refuseScreen(t, opened.View().Content, "Link on")
+}
+
 func TestNoReviewOfferWhenJiraDoesNotHaveTheStatus(t *testing.T) {
 	t.Parallel()
 
