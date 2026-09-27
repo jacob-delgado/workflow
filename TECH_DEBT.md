@@ -6,14 +6,14 @@ spots, and docs that have drifted from the code. It is a record, not a plan.
 Nothing here is scheduled.
 
 Two readers are in mind: a contributor looking for something worth fixing,
-and a later Claude Code session asked to "pick up DEBT-64". Each entry says
-what is wrong, where, what it costs, one way to fix it, and how to tell when
-it is fixed. [FEATURES.md](FEATURES.md) and [UX.md](UX.md) hold the ideas;
-this file holds the debts. An earlier edition of this file was retired once
-every entry in it was done; this one carries the three entries that outlived
-the debt paydown and the findings of a full read of every surface, and its
-numbering continues where the earlier edition stopped, so an ID is never
-reused.
+and a later Claude Code session asked to pick up an entry by its ID. Each
+entry says what is wrong, where, what it costs, one way to fix it, and how
+to tell when it is fixed. [FEATURES.md](FEATURES.md) and [UX.md](UX.md) hold
+the ideas; this file holds the debts. An earlier edition of this file was
+retired once every entry in it was done; this one carries the three entries
+that outlived the debt paydown and the findings of a full read of every
+surface, and its numbering continues where the earlier edition stopped, so
+an ID is never reused.
 
 Checked against commit `f05ae9f` on 2026-09-24 (main after the debt
 paydown, PRs #134 and #136, and a Dependabot bump); an entry a later change
@@ -100,85 +100,18 @@ TRADE-4, TRADE-9 and TRADE-10.
 
 ## The gates, the build and the tests
 
-What is open here is the coverage worklist and the metric behind it. The
-clicked steps the web's axe scans and Tab walks once missed — the pull
-request form, the push confirmation, the announcement preview and a refused
-write — are scanned in both themes and walked at every width, and a
-server-backed run stages, commits and pushes through a running
-`workflow --web`. What the gates carry on purpose — every declared budget
-at its count, seven long test files, gobco's skip list of two and the web's
-range-based branch floor — is in [the register](#the-trade-off-register)
-as TRADE-1, TRADE-2, TRADE-7 and TRADE-8.
-
-### DEBT-64 The condition-coverage worklist: 432 one-sided conditions, and 7 never evaluated
-
-Severity: low · Confidence: measured
-
-Re-measured at this commit (`task cover:branch` on macOS, floor 89 %, 23
-packages measured), with gobco counting every operand of an `&&` or `||` as
-a condition of its own: 4,873 of 5,338 arms, 91.3 %. Of 2,669 conditions,
-432 were observed only one way — 81 of them an `err != nil` never seen
-true. By package: `internal/tui` 172, `internal/cli` 48, `internal/forge`
-41, `internal/webserver` 25, `internal/config` 17, `internal/jira` 16,
-`internal/testshape` 15, `internal/messaging` 14, `internal/wiring` 14,
-`internal/gitrepo` 13, `internal/hooks` 12, `internal/store` 11,
-`internal/tui/frame` 10, `internal/convention` 8, `internal/editor` 6,
-`internal/buildinfo` 5, and five across `sanitize` (two) and `httpx`,
-`proc` and `tui/layout` (one each).
-
-The store has eleven. Six are failures no test causes: `sql.Open` in
-`Store.open` (`internal/store/store.go:192`) and in `Store.openAsItIs`
-(`:221`), which fails only for an unregistered driver, and four that need
-SQLite to fail partway through a statement: `BeginTx` and `Commit` in
-`Store.CacheIssues` (`internal/store/cache.go:109`, `:120`), and `rows.Err`
-in `readCachedIssues` (`internal/store/cache.go:87`) and `Store.Announces`
-(`internal/store/announce.go:80`). The other five are
-the do-nothing guards' second operands, never seen true: `repo == ""` in
-`Store.RecordAnnounce` and `Store.Announces`
-(`internal/store/announce.go:24`, `:50`), `instance == ""` in
-`Store.CachedIssues` and `Store.CacheIssues` (`internal/store/cache.go:31`,
-`:98`), and `s.dir == ""` in `Store.off` (`internal/store/store.go:149`).
-
-Seven conditions were never evaluated. Four are a test away:
-
-- `internal/tui/messaging.go:83` and `:85` — `quitGuard.handleKey`'s confirm
-  and stay: `TestQuittingWithAQueuedPostAsksFirst` opens the guard but
-  presses neither enter (quit) nor esc (stay) in it.
-- `internal/tui/prcreate.go:134` — `pullCreated.apply`'s `named` case, a
-  Jira issue with no link seam: every test that opens a pull request on a
-  Jira issue's branch wires `Jira.LinkPullRequest`.
-- `internal/wiring/wiring.go:225` — `streamToEnd`, git failing to start: no
-  wiring test fetches or pulls without git on `PATH`.
-
-Two more came into view once each operand counted, and each is a test
-away too:
-
-- `internal/messaging/post.go:335` — `Announcement.Text`'s `a.Kind ==
-  config.KindSlack`: each test that renders a template leaves `Kind` empty,
-  so the `||` never reads it.
-- `internal/tui/issuekeys.go:136` — `extendFilterWith`'s `msg.Code ==
-  tea.KeySpace`: no filter test types a key without text, so `text == ""`
-  never lets the `&&` read it.
-
-One no black-box test reaches without changing the code:
-
-- `internal/tui/tui.go:143` — `tui.Run`'s error return, which needs a real
-  terminal.
-
-**What it costs.** Condition coverage reads 91.3 %, 2.3 points above the
-89 % floor, which is the ratchet's own slack, so an untested error path in
-the next feature no longer fails the gate on someone else's pull request.
-The cost now is the ratchet: floor(91.3) − 2 is today's 89, so
-`BRANCH_COVERAGE_MIN` cannot rise until the report reads 92.0 % — 4,909
-arms, 36 more than today, since the gate rounds to one decimal first.
-
-**One way to fix it.** The reachable sites above, one test each; then the
-report is the worklist, most of it in `internal/tui`, `internal/cli` and
-`internal/forge`.
-
-**Done when.** `task cover:branch` names no never-evaluated condition but
-the one above, and reads 92.0 % or more, so `BRANCH_COVERAGE_MIN` ratchets
-to 90.
+Nothing is open here. The clicked steps the web's axe scans and Tab walks
+once missed — the pull request form, the push confirmation, the
+announcement preview and a refused write — are scanned in both themes and
+walked at every width, a server-backed run stages, commits and pushes
+through a running `workflow --web`, and every Go condition runs and every
+Go `err != nil` is seen both ways in a test, but for those the register
+keeps. What the gates carry on purpose — every declared budget at its
+count, seven long test files, gobco's skip list of two, the web's
+range-based branch floor, the conditions no black-box test reaches and the
+rest of gobco's report left as its worklist — is in
+[the register](#the-trade-off-register) as TRADE-1, TRADE-2, TRADE-7,
+TRADE-8 and TRADE-12 to TRADE-19.
 
 ## The trade-off register
 
@@ -422,7 +355,7 @@ take over the terminal the tests run in, and with none it fails to open
 one, so a test could only ever see it fail. What the interface draws and
 does is tested through the `Model` that `Run` is given.
 
-**Decided.** 2026-09-26, in #TBD (DEBT-64).
+**Decided.** 2026-09-26, in #TBD.
 
 **Cost.** The wording of a start-up failure ("running the interface: …")
 is never checked, and the report keeps one never-evaluated condition.
@@ -448,7 +381,7 @@ sites: `Client.newRequest` (`internal/forge/client.go:189`),
 (`:278`), and `writeSnapshot` (`internal/webserver/stream.go:115`). Each
 check stays, since the project returns an error rather than dropping it.
 
-**Decided.** 2026-09-26, in #TBD (DEBT-64).
+**Decided.** 2026-09-26, in #TBD.
 
 **Cost.** Ten error arms no test runs. A field added later that can fail
 to encode would put one of them in play with no test behind it.
@@ -467,7 +400,7 @@ validates and routes: `loadSpec` (`internal/webserver/validator.go:33`,
 time fails them, and then every web server test fails with it, so no test
 can run against a broken one.
 
-**Decided.** 2026-09-26, in #TBD (DEBT-64).
+**Decided.** 2026-09-26, in #TBD.
 
 **Cost.** Five error arms no test runs: the start-up message for a broken
 contract is read by whoever broke the build, never checked by a test.
@@ -483,7 +416,7 @@ Two conditions fail only for a database driver that is not registered:
 no exported call lets a test cause either, and a seam added only for the
 test would be code kept for the test's sake.
 
-**Decided.** 2026-09-26, in #TBD (DEBT-64).
+**Decided.** 2026-09-26, in #TBD.
 
 **Cost.** Two error arms no test runs, so what a store says when it cannot
 open its driver is read rather than checked.
@@ -504,7 +437,7 @@ issue list: `BeginTx` in `Store.CacheIssues`
 (`internal/store/cache.go:111`) takes no lock, so it fails only when the
 context ends between the schema step, which used it, and the transaction.
 
-**Decided.** 2026-09-26, in #TBD (DEBT-64).
+**Decided.** 2026-09-26, in #TBD.
 
 **Cost.** Four error arms no test runs, so what each says when the race is
 lost is read rather than checked.
@@ -521,7 +454,7 @@ itself, at `messaging.APIBase`, which nothing configures. The token check
 is tested in `internal/messaging` against a local server; the command's
 own handling of an accepted token is not.
 
-**Decided.** 2026-09-26, in #TBD (DEBT-64).
+**Decided.** 2026-09-26, in #TBD.
 
 **Cost.** The user and team doctor prints for an accepted bot token are
 never checked through the command.
@@ -547,10 +480,46 @@ names it: `connectLeniently` and `loadFromEnvironment`
 macOS lacks, by `TestRequestLogWarnsOnceWhenItCouldNotBeWritten`
 (`internal/cli/reqlog_test.go`).
 
-**Decided.** 2026-09-26, in #TBD (DEBT-64).
+**Decided.** 2026-09-26, in #TBD.
 
 **Cost.** `task cover:branch` on macOS reads seven arms fewer than CI does,
 and lists seven conditions a reader there could take for untested.
 
 **Reopen when.** CI measures condition coverage on another system, or
 either test stops reaching its conditions on Linux.
+
+### TRADE-19 The rest of the condition report stays gobco's worklist
+
+Besides the conditions the entries above keep, `task cover:branch` lists
+280 seen only one way, none of them an `err != nil` or a condition that
+never ran. Six of them still check an error, spelled another way: the
+`err == nil` after a pull request's reviews read
+(`internal/forge/github.go:262`), GitLab's approvals read and re-run
+(`internal/forge/gitlab.go:106`, `:411`), a link's parse
+(`internal/messaging/post.go:344`) and a further page of issues
+(`internal/tui/issues.go:123`), none of them ever seen false, and the
+`errors.Is` asking whether the web's issue read failed for want of a
+repository (`internal/webserver/handlers.go:88`), never seen true. They
+stay out of this file: the report is their list, printed on every run,
+and CLAUDE.md already reads it as "a worklist of missing test cases, not
+a percentage to chase", so a test for one is written when the code around
+it next changes, and `BRANCH_COVERAGE_MIN` keeps the share from falling.
+By package, measured on macOS on 2026-09-27: `internal/tui` 152,
+`internal/forge` 19, `internal/testshape` 13, `internal/gitrepo` 11,
+`internal/config` and `internal/tui/frame` 10 each, `internal/cli` and
+`internal/messaging` 9 each, `internal/convention` and `internal/hooks` 8
+each, `internal/webserver` 6, `internal/buildinfo`, `internal/editor` and
+`internal/store` 5 each, `internal/wiring` 4, `internal/jira` 3,
+`internal/sanitize` 2 and `internal/tui/layout` 1.
+
+**Decided.** 2026-09-26, in #TBD, which gave every condition that never
+ran and every `err != nil` seen one way a test or an entry above, and left
+the rest to the report.
+
+**Cost.** A change that breaks one of those conditions' unseen arms fails
+no test, and the floor notices only when enough of them add up to move
+the share.
+
+**Reopen when.** The measured figure comes within one point of
+`BRANCH_COVERAGE_MIN`, or a defect ships through a condition the report
+listed as seen only one way.
