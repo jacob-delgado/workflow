@@ -430,7 +430,8 @@ func Write(dir string, generated Generated) error {
 	return nil
 }
 
-// create writes a new file, refusing one that already exists.
+// create writes a new file, refusing one that already exists, and removes the
+// file again when it cannot be written whole.
 func create(target, contents string, mode os.FileMode) error {
 	//nolint:gosec // the path is the repository root joined with a name built here
 	file, err := os.OpenFile(target, os.O_WRONLY|os.O_CREATE|os.O_EXCL, mode)
@@ -442,7 +443,7 @@ func create(target, contents string, mode os.FileMode) error {
 
 	err = errors.Join(writeErr, file.Close())
 	if err != nil {
-		return fmt.Errorf("writing %s: %w", target, err)
+		return fmt.Errorf("writing %s: %w", target, errors.Join(err, os.Remove(target)))
 	}
 
 	return nil
