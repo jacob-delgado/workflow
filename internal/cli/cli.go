@@ -356,6 +356,8 @@ func WebDeps(deps tui.Deps) webserver.Deps {
 		LastScope:   deps.Store.LastScope,
 		RecordScope: deps.Store.RecordScope,
 
+		Tasks: deps.Tasks,
+
 		CheckKeys: tui.CheckKeys,
 		Clock:     deps.Clock,
 	}

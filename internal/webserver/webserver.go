@@ -27,11 +27,13 @@ import (
 	"github.com/jacob-delgado/workflow/internal/gitrepo"
 	"github.com/jacob-delgado/workflow/internal/jira"
 	"github.com/jacob-delgado/workflow/internal/proc"
+	"github.com/jacob-delgado/workflow/internal/seams"
 )
 
 // Deps is what the server asks of the world, as plain functions over the domain
 // clients — the same seams internal/seams declares, narrowed to what the API
-// needs. A nil function means the service is not configured. A list or
+// needs, and Taskwarrior's bundle whole, since the API uses every function in
+// it. A nil function means the service is not configured. A list or
 // snapshot read then answers empty; the issue read answers 422, as no issue
 // tracker is configured; a write whose own seam is nil answers 422, as not
 // available; and the announcement and pull request drafts, and the announce
@@ -72,6 +74,10 @@ type Deps struct {
 	// terminal's composer learns from. Nil where there is no store.
 	LastScope   func() (string, bool)
 	RecordScope func(scope string)
+	// Tasks is what the server asks of Taskwarrior. A nil Install, or one that
+	// fails, answers the task list and the snapshot's summary as not available —
+	// never a 404 — and a write with a nil function is refused as unprocessable.
+	Tasks seams.Tasks
 	// CheckKeys says why the terminal interface would refuse a ui.keys map,
 	// or nil where it would start on it. Nil here means no map is checked.
 	CheckKeys func(keys map[string]string) error

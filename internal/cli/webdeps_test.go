@@ -27,16 +27,14 @@ func TestWebDepsHandsTheServerEverySeam(t *testing.T) {
 	web := reflect.ValueOf(cli.WebDeps(deps))
 
 	// Assert
-	for seam, field := range web.Fields() {
+	for _, name := range nilSeams(web, "webserver.Deps") {
 		// Unexpected is where the server reports its own failures, not one of
 		// the interface's seams, so the interface has none to hand it.
-		if seam.Name == "Unexpected" {
+		if name == "webserver.Deps.Unexpected" {
 			continue
 		}
 
-		if field.Kind() == reflect.Func && field.IsNil() {
-			t.Errorf("webserver.Deps.%s is nil though the interface wires every seam", seam.Name)
-		}
+		t.Errorf("%s is nil though the interface wires every seam", name)
 	}
 }
 
@@ -59,6 +57,26 @@ func TestWebDepsChecksAKeymapAsTheInterfaceDoes(t *testing.T) {
 	if !errors.Is(err, tui.ErrKeyNotRebindable) {
 		t.Errorf("CheckKeys(%v) = %v, want the interface's %v", moved, err, tui.ErrKeyNotRebindable)
 	}
+}
+
+// nilSeams names every nil function in value, and in the structs it holds,
+// under prefix.
+func nilSeams(value reflect.Value, prefix string) []string {
+	var names []string
+
+	for seam, field := range value.Fields() {
+		name := prefix + "." + seam.Name
+
+		if field.Kind() == reflect.Struct {
+			names = append(names, nilSeams(field, name)...)
+		}
+
+		if field.Kind() == reflect.Func && field.IsNil() {
+			names = append(names, name)
+		}
+	}
+
+	return names
 }
 
 // wireEverySeam sets every function in value, and in the structs it holds, to
