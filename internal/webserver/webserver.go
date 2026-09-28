@@ -40,22 +40,25 @@ import (
 // and open writes past that check, answer 409, as there is nothing to announce
 // or open, when the branch read or the pull request find is missing.
 type Deps struct {
-	Search       func(jql string, startAt int) (jira.SearchResult, error)
-	Issue        func(key jira.Key) (jira.IssueDetail, error)
-	BrowseURL    func(key jira.Key) string
-	Branch       func() (gitrepo.Branch, error)
-	Branches     func() ([]string, error)
-	Checkout     func(name string) error
-	CreateBranch func(name, start string) error
-	Commit       func(message string) (proc.Output, error)
-	Push         func(branch string) (proc.Output, error)
-	Changes      func() ([]gitrepo.Change, error)
-	FindPull     func(branch string) (forge.PullRequest, bool, error)
-	CreatePull   func(request forge.NewPullRequest) (forge.PullRequest, error)
-	Templates    func() []forge.Template
-	CheckCI      func(pull forge.PullRequest, head string) (forge.CI, error)
-	Author       func() (string, error)
-	Post         func(channel, text string) error
+	Search func(jql string, startAt int) (jira.SearchResult, error)
+	// SearchLenient is Search for which of a branch list's issue keys are the
+	// user's: a key the tracker does not know is skipped, not refused.
+	SearchLenient func(jql string, startAt int) (jira.SearchResult, error)
+	Issue         func(key jira.Key) (jira.IssueDetail, error)
+	BrowseURL     func(key jira.Key) string
+	Branch        func() (gitrepo.Branch, error)
+	Branches      func() ([]string, error)
+	Checkout      func(name string) error
+	CreateBranch  func(name, start string) error
+	Commit        func(message string) (proc.Output, error)
+	Push          func(branch string) (proc.Output, error)
+	Changes       func() ([]gitrepo.Change, error)
+	FindPull      func(branch string) (forge.PullRequest, bool, error)
+	CreatePull    func(request forge.NewPullRequest) (forge.PullRequest, error)
+	Templates     func() []forge.Template
+	CheckCI       func(pull forge.PullRequest, head string) (forge.CI, error)
+	Author        func() (string, error)
+	Post          func(channel, text string) error
 	// ReviewRequests lists the pull requests on the forge that ask for your
 	// review, across repositories — the queue `workflow reviews` prints.
 	ReviewRequests func() ([]forge.ReviewRequest, error)

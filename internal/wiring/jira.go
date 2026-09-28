@@ -35,6 +35,11 @@ func jiraDeps(ctx context.Context, settings config.Jira, jiraClient func() (jira
 				return client.Search(ctx, jql, startAt)
 			})
 		},
+		SearchLenient: func(jql string, startAt int) (jira.SearchResult, error) {
+			return askJira(jiraClient, func(client jira.Client) (jira.SearchResult, error) {
+				return client.SearchLenient(ctx, jql, startAt)
+			})
+		},
 		Issue: func(issueKey jira.Key) (jira.IssueDetail, error) { return readJiraIssue(ctx, jiraClient, issueKey) },
 		Transitions: func(issueKey jira.Key) ([]jira.Transition, error) {
 			return askJira(jiraClient, func(client jira.Client) ([]jira.Transition, error) {

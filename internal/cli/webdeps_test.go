@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	"github.com/jacob-delgado/workflow/internal/cli"
+	"github.com/jacob-delgado/workflow/internal/jira"
 	"github.com/jacob-delgado/workflow/internal/tui"
 )
 
@@ -56,6 +57,29 @@ func TestWebDepsChecksAKeymapAsTheInterfaceDoes(t *testing.T) {
 	err := check(moved)
 	if !errors.Is(err, tui.ErrKeyNotRebindable) {
 		t.Errorf("CheckKeys(%v) = %v, want the interface's %v", moved, err, tui.ErrKeyNotRebindable)
+	}
+}
+
+func TestWebDepsHandsTheServerTheLenientSearch(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	// The two searches share a type, so only what each answers tells them apart.
+	var deps tui.Deps
+
+	deps.Jira.Search = func(string, int) (jira.SearchResult, error) { return jira.SearchResult{Total: 1}, nil }
+	deps.Jira.SearchLenient = func(string, int) (jira.SearchResult, error) { return jira.SearchResult{Total: 2}, nil }
+
+	// Act
+	search := cli.WebDeps(deps).SearchLenient
+
+	// Assert
+	if search == nil {
+		t.Fatal("webserver.Deps.SearchLenient is nil")
+	}
+
+	if result, _ := search("key in (A-1)", 0); result.Total != 2 {
+		t.Error("webserver.Deps.SearchLenient is the strict search, which refuses a key Jira does not know")
 	}
 }
 

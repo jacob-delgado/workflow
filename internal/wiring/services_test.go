@@ -7,6 +7,7 @@ import (
 	"errors"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"os"
 	"path/filepath"
 	"slices"
@@ -159,6 +160,37 @@ const jiraToken = "a-token-for-tests"
 
 // jiraAddress is a Jira base URL that no test ever reaches.
 const jiraAddress = "https://jira.example.com"
+
+func TestTheLenientSearchAsksJiraNotToValidateTheKeys(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	var query atomic.Value
+
+	server := httptest.NewServer(http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
+		query.Store(request.URL.Query())
+		writer.Header().Set("Content-Type", "application/json")
+		_, _ = writer.Write([]byte(`{"total":0,"issues":[]}`))
+	}))
+	t.Cleanup(server.Close)
+
+	cfg := config.Default()
+	cfg.Jira = config.Jira{BaseURL: server.URL, Token: jiraToken, User: ""}
+
+	tracker := wired(t, cfg, wiring.Workspace{Root: t.TempDir(), Remote: ""}, nil).Jira
+
+	// Act
+	_, err := tracker.SearchLenient("key in (OPS-1, GONE-2)", 50)
+	if err != nil {
+		t.Fatalf("SearchLenient returned %v, want nil", err)
+	}
+
+	// Assert
+	got, _ := query.Load().(url.Values)
+	if got.Get("validateQuery") != "false" || got.Get("jql") != "key in (OPS-1, GONE-2)" || got.Get("startAt") != "50" {
+		t.Errorf("Jira was asked %v, want the jql from startAt 50 with validateQuery=false", got)
+	}
+}
 
 func TestTheJiraSeamsReachTheConfiguredJira(t *testing.T) {
 	t.Parallel()
