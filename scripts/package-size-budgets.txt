@@ -57,7 +57,7 @@ internal/config 15
 # CLAUDE.md names as one that must not be split to chase a number; the entry
 # freezes the count so a new concern is a decision, not drift, not a target to
 # shrink toward. layout/ and frame/ are already the pure leaves that could leave.
-# 43 = the panes, overlays and composers, including issuewrite.go (the assign
+# 44 = the panes, overlays and composers, including issuewrite.go (the assign
 # and log-work forms), issuekeys.go (the Issues pane's key routing, split out of
 # detail.go when it crossed the 500-line file ceiling), scopesuggest.go (the
 # commit scope's completion from the staged directory and the log) and diff.go
@@ -74,11 +74,13 @@ internal/config 15
 # send, split out of messaging.go when it passed the 500-line target);
 # prcreate.go (opening the pull request the composer describes — the push
 # first, the create, then the link and status offers — split out of
-# prcomposer.go for the same reason); and the seventh pane's two files,
+# prcomposer.go for the same reason); and the seventh pane's three files,
 # tasks.go (the Tasks pane's state, load, rail and detail, and the issue-side
-# task mark and Tasks block) and taskactions.go (its keys and, from the next
-# change, its actions on a task).
-internal/tui 43
+# task mark and Tasks block), taskactions.go (its keys and its actions on a
+# task) and taskoffers.go (the task change offered at each moment of the loop
+# — a branch, a switch, a pull request, a merge, a move to done — and the
+# follow-up that opens an offer once the overlay asking something else closes).
+internal/tui 44
 
 # internal/webserver — the loopback REST surface: a file per write (announce,
 # branchcreate, checkout, commit, config, pullrequest, push), or per pair of

@@ -506,7 +506,7 @@ func TestDryRunHoldsBackTaskActionsAndSaysSo(t *testing.T) {
 
 			// Arrange
 			repo := withAnUntrackedIssue()
-			repo.issues[2].Priority = "High"
+			repo.issues[2].Priority = untrackedPriority
 			repo.tasks.install.SyncConfigured = true
 			model := sized(t, dryInterface(repo), 240, 40)
 

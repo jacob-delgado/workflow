@@ -23,6 +23,10 @@ const untrackedPage = "https://jira.example.com/browse/" + untrackedIssue
 const untrackedLine = "jiraid:" + untrackedIssue + " jiraurl:" + untrackedPage + " +jira priority:H -- " +
 	untrackedIssue + ": Rotate the keys"
 
+// untrackedPriority is the untracked issue's priority where a test gives it one,
+// which untrackedLine carries as Taskwarrior's H.
+const untrackedPriority = "High"
+
 // trackHelp is what the track key's help says it does on an untracked issue.
 const trackHelp = "track in taskwarrior"
 
@@ -50,7 +54,7 @@ func TestTrackOnAnUntrackedIssueOpensThePrefilledLine(t *testing.T) {
 
 	// Arrange
 	repo := withAnUntrackedIssue()
-	repo.issues[2].Priority = "High"
+	repo.issues[2].Priority = untrackedPriority
 	model := typing(t, repo.live(t, 200, 40), selectTheUntrackedIssue()...)
 
 	// Act: press T on the untracked issue

@@ -297,7 +297,7 @@ func taskwarriorErrors() []knownError {
 		}},
 		{taskwarrior.ErrNotConfigured, wording{
 			brief: "Taskwarrior has never run",
-			full:  "Run `task` once in a terminal so it creates its configuration, then refresh.",
+			full:  "Run the Taskwarrior named below once in a terminal so it creates its configuration, then refresh.",
 		}},
 		{taskwarrior.ErrNothingChanged, wording{
 			brief: "nothing changed",

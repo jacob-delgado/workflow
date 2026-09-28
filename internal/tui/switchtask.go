@@ -357,13 +357,17 @@ type taskSwitched struct {
 }
 
 // apply reloads the panes for the branch switched to, or keeps the switcher open
-// with git's reason.
+// with git's reason. A branch that names an issue offers to start its task too,
+// as creating the branch would have.
 func (msg taskSwitched) apply(m Model) (Model, tea.Cmd) {
 	if msg.err != nil {
 		return keepOpenWith[branchPicker](m, msg.err), nil
 	}
 
 	m = m.closeOverlay().noticed(m.marks.done + " switched to " + msg.name)
+	if issueKey, named := convention.IssueKey(msg.name, m.cfg.Jira.Project); named {
+		m.followUp = m.offerStart(m.listedIssue(jira.Key(issueKey)))
+	}
 
 	return m, tea.Batch(m.loadBranch(), m.loadChanges())
 }
