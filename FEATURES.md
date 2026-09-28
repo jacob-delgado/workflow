@@ -9,8 +9,11 @@ and a later Claude Code session asked to "pick up FEAT-83". Each entry
 therefore says why it matters, which files it would touch, and how to tell
 when it is done.
 
-Checked against commit `f05ae9f` on 2026-09-24. Line numbers drift, so every
-pointer also names the symbol it means.
+Checked against commit `f05ae9f` on 2026-09-24. Its entries were read at
+that commit; every pointer was checked again against the symbol it names
+at `29fad1b7`, main once #145 merged, with #TBD's commits on top, and an
+entry a later change touched was checked again in that change. Line
+numbers drift, so every pointer also names the symbol it means.
 
 ## How to read an entry
 

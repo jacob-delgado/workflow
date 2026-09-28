@@ -9,16 +9,20 @@ Two readers are in mind: a contributor looking for something worth fixing,
 and a later Claude Code session asked to pick up an entry by its ID. Each
 entry says what is wrong, where, what it costs, one way to fix it, and how
 to tell when it is fixed. [FEATURES.md](FEATURES.md) and [UX.md](UX.md) hold
-the ideas; this file holds the debts. An earlier edition of this file was
-retired once every entry in it was done; this one carries the three entries
-that outlived the debt paydown and the findings of a full read of every
-surface, and its numbering continues where the earlier edition stopped, so
-an ID is never reused.
+the ideas; this file holds the debts.
 
-Checked against commit `f05ae9f` on 2026-09-24 (main after the debt
-paydown, PRs #134 and #136, and a Dependabot bump); an entry a later change
-touched was checked again in that change. Line numbers drift, so every
-pointer also names the symbol it means.
+Every entry of the 2026-09-24 audit edition, a full read of every surface
+at `f05ae9f` — DEBT-64, DEBT-65, DEBT-71 and DEBT-75 to DEBT-161 — was paid
+down in PRs #141, #144, #145 and #TBD. What the file holds now is the
+method that edition followed, how to read an entry, one short section per
+surface saying nothing is open there, and the trade-off register: the costs
+chosen on purpose, which a later audit checks each finding against first
+(step 5 below). Numbering continues at DEBT-162, so an ID is never reused.
+
+Checked against commit `29fad1b7` on 2026-09-27 — main once #145 merged —
+with #TBD's commits on top; an entry a later change touches is checked
+again in that change. Line numbers drift, so every pointer also names the
+symbol it means.
 
 ## How this was produced
 
@@ -36,8 +40,8 @@ pointer also names the symbol it means.
    and 1440 px, with the production build's empty and no-API states beside
    them, so the web's look was judged from what it draws rather than from
    the source alone.
-3. **Measurement, once, at this commit.** The condition-coverage figures
-   come from `task cover:branch`; the file lengths from
+3. **Measurement, once, at the audited commit.** The condition-coverage
+   figures come from `task cover:branch`; the file lengths from
    `scripts/check-file-length.sh --list`; the budget standings from
    `scripts/check-package-size.sh --list`; the line counts from `task
    cloc`; the web's numbers from the v8 summary and `knip`; the Go side's
