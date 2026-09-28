@@ -113,9 +113,9 @@ func New(cfg config.Config, loadErr error, deps Deps) Model {
 }
 
 // WithDryRun is the interface holding back every write — to Jira, the forge,
-// the messaging service, git and files — and saying instead what it would have
-// done. Reads stay live, so what it says is about the real state of things,
-// and it opens no store.
+// the messaging service, Taskwarrior, git and files — and saying instead what
+// it would have done. Reads stay live, so what it says is about the real state
+// of things, and it opens no store.
 func (m Model) WithDryRun() Model {
 	m.deps = heldBack(m.deps)
 	m.dryRun = true
