@@ -209,7 +209,7 @@ func (m Model) issueVerbKeys(selected jira.Issue) []key.Binding {
 		{m.canCreateBranch(), relabel(m.keys.branchForIssue, "branch for "+string(selected.Key))},
 		{m.deps.Jira.Assign != nil, m.keys.assign},
 		{m.deps.Jira.AddWorklog != nil, m.keys.logWork},
-		{m.canTrack(), m.trackKey(selected.Key)},
+		{m.canTrack(selected.Key), m.trackKey(selected.Key)},
 	}
 
 	var keys []key.Binding

@@ -90,13 +90,17 @@ type mergeRequested struct {
 }
 
 // apply reports a merge and refreshes the pane, or keeps the preview open with
-// why the merge was refused, pinned under its title until esc.
+// why the merge was refused, pinned under its title until esc. A merge for the
+// branch's issue offers to complete its task.
 func (msg mergeRequested) apply(m Model) (Model, tea.Cmd) {
 	if msg.err != nil {
 		return keepOpenWith[mergePicker](m, writeRefusal(msg.err)), nil
 	}
 
 	merged := m.closeOverlay().noticed(m.marks.done + " merged " + m.vocab.sigil + strconv.Itoa(msg.pull.Number))
+	if issueKey, named := merged.jiraIssue(); named {
+		merged.followUp = merged.offerComplete(issueKey)
+	}
 
 	return merged, merged.findPullRequest()
 }

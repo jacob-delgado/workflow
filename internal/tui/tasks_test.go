@@ -624,13 +624,16 @@ func TestAFailedTaskReadShowsTheReason(t *testing.T) {
 
 	// Arrange
 	repo := withTasks()
-	repo.tasks.err = taskwarrior.ErrNotConfigured
+	repo.tasks.err = taskwarrior.NeverRunError{Program: "/opt/homebrew/bin/task"}
 
 	// Act
-	view := typing(t, repo.live(t, 120, 40), tasksPane).View().Content
+	view := typing(t, repo.live(t, 200, 40), tasksPane).View().Content
 
 	// Assert
-	requireScreen(t, view, "Taskwarrior has never run", "Run `task` once in a terminal")
+	requireScreen(t, view, "Taskwarrior has never run",
+		"Run the Taskwarrior named below once in a terminal so it creates its configuration, then refresh.",
+		"/opt/homebrew/bin/task")
+	refuseScreen(t, view, "Run `task`")
 }
 
 func TestAFailedLinkedReadShowsTheReason(t *testing.T) {

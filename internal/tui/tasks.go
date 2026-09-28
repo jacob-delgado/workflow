@@ -34,6 +34,56 @@ type tasksState struct {
 	// the task.
 	selected string
 	scroll   int
+	// writing is a write sent to Taskwarrior and not answered yet. One goes at a
+	// time: Taskwarrior commits writes in the order they finish, so an undo sent
+	// while a done waits on a hook would revert the change before the done.
+	writing bool
+	// tracked counts the tracks whose add has answered. stubs are the tasks
+	// those adds made that no read begun since has replaced, each linked from
+	// its add's answer.
+	tracked int
+	stubs   []trackStub
+}
+
+// trackStub is a task a track added, known from its add's answer and its
+// line, and which track it was, counting from the first.
+type trackStub struct {
+	task  taskwarrior.Task
+	track int
+}
+
+// justAdded is s with a task a track has just added, linked as the next track.
+func (s tasksState) justAdded(task taskwarrior.Task) tasksState {
+	s.tracked++
+	s.stubs = append(slices.Clip(s.stubs), trackStub{task: task, track: s.tracked})
+	s.linked = append(slices.Clip(s.linked), task)
+
+	return s
+}
+
+// stubbed reports whether the task with a uuid is known only from its add's
+// answer: no read begun since has held it.
+func (s tasksState) stubbed(uuid string) bool {
+	return slices.ContainsFunc(s.stubs, func(stub trackStub) bool { return stub.task.UUID == uuid })
+}
+
+// relinked is what a read begun once tracked tracks had answered links, with
+// the stubs it cannot have held — a later track's, not among its linked tasks
+// — and those stubs, which stay until a later read replaces them.
+func (s tasksState) relinked(tracked int, linked []taskwarrior.Task) ([]taskwarrior.Task, []trackStub) {
+	all := slices.Clip(linked)
+
+	var kept []trackStub
+
+	for _, stub := range s.stubs {
+		held := slices.ContainsFunc(linked, func(task taskwarrior.Task) bool { return task.UUID == stub.task.UUID })
+		if stub.track > tracked && !held {
+			kept = append(kept, stub)
+			all = append(all, stub.task)
+		}
+	}
+
+	return all, kept
 }
 
 // answered reports whether Taskwarrior has told what it holds: it has been
@@ -49,23 +99,28 @@ const noteGap = "  "
 const taskIndent = "  "
 
 // tasksLoaded carries Taskwarrior's answer: the install, the pending list and
-// the linked tasks, or why one of them could not be read.
+// the linked tasks, or why one of them could not be read; and how many tracks
+// had answered when the read was begun.
 type tasksLoaded struct {
 	install taskwarrior.Install
 	pending taskwarrior.List
 	linked  []taskwarrior.Task
 	err     error
+	tracked int
 }
 
 var _ applier = tasksLoaded{}
 
 // apply records Taskwarrior's answer, keeping the selection on the same task
 // across a refresh, as the Reviews pane keeps its pull request — or on the first
-// task, where that one is no longer listed.
+// task, where that one is no longer listed — and each task a track added since
+// the read was begun.
 func (msg tasksLoaded) apply(m Model) (Model, tea.Cmd) {
+	linked, stubs := m.tasks.relinked(msg.tracked, msg.linked)
 	m.tasks = tasksState{
-		install: msg.install, pending: msg.pending.Tasks, linked: msg.linked, context: msg.pending.Context,
-		loaded: true, err: msg.err, selected: m.tasks.selected,
+		install: msg.install, pending: msg.pending.Tasks, linked: linked, context: msg.pending.Context,
+		loaded: true, err: msg.err, selected: m.tasks.selected, writing: m.tasks.writing,
+		tracked: m.tasks.tracked, stubs: stubs,
 	}
 
 	groups := m.taskGroups()
@@ -84,20 +139,22 @@ func (m Model) loadTasks() tea.Cmd {
 		return nil
 	}
 
+	tracked := m.tasks.tracked
+
 	return func() tea.Msg {
 		found, err := install()
 		if err != nil {
-			return tasksLoaded{err: err}
+			return tasksLoaded{err: err, tracked: tracked}
 		}
 
 		list, err := pending()
 		if err != nil {
-			return tasksLoaded{install: found, err: err}
+			return tasksLoaded{install: found, err: err, tracked: tracked}
 		}
 
 		tasks, err := linked()
 
-		return tasksLoaded{install: found, pending: list, linked: tasks, err: err}
+		return tasksLoaded{install: found, pending: list, linked: tasks, err: err, tracked: tracked}
 	}
 }
 
@@ -208,7 +265,8 @@ func (m Model) selectedTask() taskwarrior.Task {
 }
 
 // tasksRail summarizes the pane: how many tasks are pending and active, and the
-// context that narrows them, or why there are none to count.
+// context that narrows them, or why there are none to count, or that a write is
+// on its way.
 func (m Model) tasksRail(_ int) string {
 	switch {
 	case m.deps.Tasks.Install == nil:
@@ -217,6 +275,8 @@ func (m Model) tasksRail(_ int) string {
 		return "looking" + m.marks.ellipsis
 	case m.tasks.err != nil:
 		return m.failureSummary(m.tasks.err)
+	case m.tasks.writing:
+		return m.marks.inFlight + " sending" + m.marks.ellipsis
 	}
 
 	listed := m.taskGroups().listed()

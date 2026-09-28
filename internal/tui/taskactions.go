@@ -25,12 +25,19 @@ import (
 // Taskwarrior's own short uuids do.
 const shortUUID = 8
 
+// addCommand is what a line that adds a task is typed after.
+const addCommand = "task add"
+
+// errTaskWriteInFlight is why a change of a task waits: Taskwarrior takes one
+// write at a time.
+var errTaskWriteInFlight = errors.New("another Taskwarrior change is still being sent; try again once it answers")
+
 // tasksKeys offers what the Tasks pane answers right now: the verbs on the
 // selected task, adding and undoing, going to its issue and opening its page,
 // reading again, and syncing where the taskrc names a backend. Until Taskwarrior
-// has answered, only reading again. Moving through the list is a global
-// affordance, shown in the help rather than the footer, as the other list panes
-// have it.
+// has answered, only reading again; while a write is on its way, no verb.
+// Moving through the list is a global affordance, shown in the help rather than
+// the footer, as the other list panes have it.
 func (m Model) tasksKeys() []key.Binding {
 	switch {
 	case m.deps.Tasks.Install == nil:
@@ -40,14 +47,7 @@ func (m Model) tasksKeys() []key.Binding {
 	}
 
 	task, selected := m.currentTask()
-	if !selected {
-		return append([]key.Binding{m.keys.addTask, m.keys.undoTask, m.keys.refresh}, m.syncKeys()...)
-	}
-
-	keys := []key.Binding{
-		relabel(m.keys.startStop, startOrStop(task)), m.keys.completeTask, m.keys.addTask, m.keys.annotateTask,
-		m.keys.modifyTask, m.keys.undoTask,
-	}
+	keys := m.taskVerbKeys(task, selected)
 
 	if m.issueListed(task) {
 		keys = append(keys, relabel(m.keys.confirm, "go to issue"))
@@ -56,6 +56,22 @@ func (m Model) tasksKeys() []key.Binding {
 	keys = append(keys, m.linkKeys(m.taskIssueURL())...)
 
 	return append(append(keys, m.keys.refresh), m.syncKeys()...)
+}
+
+// taskVerbKeys are the keys that change tasks: those on the selected task where
+// one is, and adding and undoing; none while a write is on its way.
+func (m Model) taskVerbKeys(task taskwarrior.Task, selected bool) []key.Binding {
+	switch {
+	case m.tasks.writing:
+		return nil
+	case !selected:
+		return []key.Binding{m.keys.addTask, m.keys.undoTask}
+	}
+
+	return []key.Binding{
+		relabel(m.keys.startStop, startOrStop(task)), m.keys.completeTask, m.keys.addTask, m.keys.annotateTask,
+		m.keys.modifyTask, m.keys.undoTask,
+	}
 }
 
 // startOrStop is what the start/stop key does to a task: stops it when it is
@@ -68,9 +84,10 @@ func startOrStop(task taskwarrior.Task) string {
 	return "start"
 }
 
-// syncKeys offers syncing, where the taskrc names a backend to sync with.
+// syncKeys offers syncing, where the taskrc names a backend to sync with and no
+// write is on its way.
 func (m Model) syncKeys() []key.Binding {
-	if !m.tasks.install.SyncConfigured {
+	if !m.tasks.install.SyncConfigured || m.tasks.writing {
 		return nil
 	}
 
@@ -78,10 +95,11 @@ func (m Model) syncKeys() []key.Binding {
 }
 
 // handleTasksKey answers the Tasks pane's own keys: its verbs, once Taskwarrior
-// has answered, then moving, going to the selected task's issue, opening and
-// copying the issue's page, and reading again.
+// has answered and while no write is on its way, then moving, going to the
+// selected task's issue, opening and copying the issue's page, and reading
+// again.
 func (m Model) handleTasksKey(msg tea.KeyPressMsg) (Model, tea.Cmd) {
-	if m.tasks.answered() {
+	if m.tasks.answered() && !m.tasks.writing {
 		if next, cmd, handled := m.handleTaskVerbKey(msg); handled {
 			return next, cmd
 		}
@@ -211,6 +229,7 @@ func (m Model) actOnTask(verb, did string, write func(uuid string) error) (Model
 	}
 
 	uuid, number := task.UUID, task.ID
+	m.tasks.writing = true
 
 	return m, func() tea.Msg { return taskActed{verb: did, uuid: uuid, id: number, said: "", err: write(uuid)} }
 }
@@ -222,6 +241,7 @@ func (m Model) undoTasks() (Model, tea.Cmd) {
 	}
 
 	undo := m.deps.Tasks.Undo
+	m.tasks.writing = true
 
 	return m, func() tea.Msg {
 		said, err := undo()
@@ -239,6 +259,8 @@ type nothingToUndo struct{}
 
 // apply says there was nothing to undo.
 func (nothingToUndo) apply(m Model) (Model, tea.Cmd) {
+	m.tasks.writing = false
+
 	return m.noticed("Taskwarrior has nothing to undo."), nil
 }
 
@@ -249,6 +271,7 @@ func (m Model) syncTasks() (Model, tea.Cmd) {
 	}
 
 	sync := m.deps.Tasks.Sync
+	m.tasks.writing = true
 
 	return m, func() tea.Msg {
 		said, err := sync()
@@ -258,7 +281,8 @@ func (m Model) syncTasks() (Model, tea.Cmd) {
 }
 
 // taskActed reports how a change of a task went: what was done, to which task —
-// none for an undo or a sync — what Taskwarrior said of it, and why it failed.
+// none for an undo, a sync, or stops the verb names — what Taskwarrior said of
+// it, and why it failed.
 type taskActed struct {
 	verb string
 	uuid string
@@ -268,8 +292,10 @@ type taskActed struct {
 }
 
 // apply says what was done, or why it failed, then reads the tasks again, which
-// the change may have moved.
+// the change may have moved. The write has answered, so the next may go.
 func (msg taskActed) apply(m Model) (Model, tea.Cmd) {
+	m.tasks.writing = false
+
 	if msg.err != nil {
 		return m.noticedFailure(msg.err), m.loadTasks()
 	}
@@ -283,8 +309,8 @@ func (msg taskActed) apply(m Model) (Model, tea.Cmd) {
 }
 
 // taskNote says what was done to a task: by its id, or by the start of its uuid
-// where it has no id yet, or — for an undo or a sync, which change no one task —
-// the verb alone.
+// where it has no id yet, or — for an undo, a sync, or stops the verb names,
+// which change no one task — the verb alone.
 func taskNote(verb string, taskID int, uuid string) string {
 	switch {
 	case taskID != 0:
@@ -324,8 +350,11 @@ type taskLine struct {
 	// does. heldBack is how a dry run tells it: " then annotate it with <url>".
 	after    taskFollow
 	heldBack string
-	problem  error
-	sending  sendState
+	// tracks is the issue the line tracks, which counts as tracked from the
+	// add's answer until a read begun after it lands; empty for any other line.
+	tracks  jira.Key
+	problem error
+	sending sendState
 }
 
 var _ failable[taskLine] = taskLine{}
@@ -356,7 +385,7 @@ func sizedInput(input textinput.Model, width int) textinput.Model {
 
 // openAddLine opens a line whose words become a new task.
 func (m Model) openAddLine() (Model, tea.Cmd) {
-	return m.openTaskLine(taskLine{title: "Add a task", command: "task add", write: addLine(m.deps.Tasks.Add)}, "")
+	return m.openTaskLine(taskLine{title: "Add a task", command: addCommand, write: addLine(m.deps.Tasks.Add)}, "")
 }
 
 // openAnnotateLine opens a line whose words are added to the selected task as an
@@ -466,16 +495,37 @@ func (l taskLine) confirm(m Model) (Model, tea.Cmd) {
 		return m.closeOverlay().noticed("dry run: " + l.command + " " + line + l.heldBack), nil
 	}
 
+	if m.tasks.writing {
+		l.sending, l.problem = sendState{}, errTaskWriteInFlight
+		m.overlay = l
+
+		return m, nil
+	}
+
 	l.sending = starting()
 	m.overlay = l
-	write, after := l.write, l.after
+	m.tasks.writing = true
+	write, after, stub := l.write, l.after, l.stub(line)
 
 	return m, func() tea.Msg {
 		sent := write(line)
-		sent.after = after
+		sent.after, sent.stub = after, stub
 
 		return sent
 	}
+}
+
+// stub is the task a track line adds, as known before Taskwarrior is read
+// again: pending, linked to the issue, and described by the line's words
+// after its --. The zero task for a line that tracks no issue.
+func (l taskLine) stub(line string) taskwarrior.Task {
+	if l.tracks == "" {
+		return taskwarrior.Task{}
+	}
+
+	_, words, _ := strings.Cut(line, " -- ")
+
+	return taskwarrior.Task{IssueKey: string(l.tracks), Description: strings.TrimSpace(words), Status: taskwarrior.Pending}
 }
 
 // failed is the line kept open with the reason Taskwarrior refused it.
@@ -486,27 +536,40 @@ func (l taskLine) failed(err error) taskLine {
 }
 
 // taskLineSent reports how a task line went: what was done, to which task, why
-// it failed, and what follows.
+// it failed, what follows, and the stub of the task it adds for an issue, if it
+// tracks one.
 type taskLineSent struct {
 	verb  string
 	uuid  string
 	id    int
 	err   error
 	after taskFollow
+	stub  taskwarrior.Task
 }
 
 // apply keeps the line open with Taskwarrior's words when it refused it, or
-// closes it, says what was done, and goes on to what follows — or, where nothing
-// does, reads the tasks again.
+// closes it, says what was done, counts the issue it tracks as tracked, and goes
+// on to what follows, a write whose answer lets the next go — or, where nothing
+// follows, reads the tasks again.
 func (msg taskLineSent) apply(m Model) (Model, tea.Cmd) {
 	if msg.err != nil {
+		m.tasks.writing = false
+
 		return keepOpenWith[taskLine](m, msg.err), nil
 	}
 
 	m = m.closeOverlay().noticed(m.marks.done + " " + taskNote(msg.verb, msg.id, msg.uuid))
+	if msg.stub.Linked() {
+		added := msg.stub
+		added.UUID = msg.uuid
+		m.tasks = m.tasks.justAdded(added)
+	}
+
 	if msg.after != nil {
 		return m, msg.after(msg.uuid)
 	}
+
+	m.tasks.writing = false
 
 	return m, m.loadTasks()
 }
@@ -528,6 +591,11 @@ type trackIssue struct {
 // annotation keeps the task, and says how to add the page by hand.
 func (t trackIssue) follow(tasks seams.Tasks) taskFollow {
 	annotate, start := tasks.Annotate, tasks.Start
+	verb := "added task"
+
+	if t.thenStart {
+		verb = "added and started task"
+	}
 
 	return func(uuid string) tea.Cmd {
 		return func() tea.Msg {
@@ -536,19 +604,30 @@ func (t trackIssue) follow(tasks seams.Tasks) taskFollow {
 				err = errors.Join(err, start(uuid))
 			}
 
-			return taskActed{verb: "added task", uuid: uuid, id: 0, said: "", err: err}
+			return taskActed{verb: verb, uuid: uuid, id: 0, said: "", err: err}
 		}
 	}
 }
 
 // heldBack is how a dry run tells what would follow adding the task: annotating
-// it with the issue's page, where the tracker gives one.
+// it with the issue's page, where the tracker gives one, and starting it, when
+// asked to.
 func (t trackIssue) heldBack() string {
-	if t.url == "" {
+	var steps []string
+
+	if t.url != "" {
+		steps = append(steps, "annotate it with "+t.url)
+	}
+
+	if t.thenStart {
+		steps = append(steps, "start it")
+	}
+
+	if len(steps) == 0 {
 		return ""
 	}
 
-	return " then annotate it with " + t.url
+	return " then " + strings.Join(steps, " and ")
 }
 
 // annotation adds the issue's page to the task, when there is one: an issue with
@@ -571,7 +650,7 @@ func (t trackIssue) annotation(annotate func(uuid, text string) error, uuid stri
 // the issue in Taskwarrior, prefilled in its grammar.
 func (m Model) trackSelectedIssue() (Model, tea.Cmd) {
 	selected, ok := m.issues.current()
-	if !ok || !m.canTrack() {
+	if !ok || !m.canTrack(selected.Key) {
 		return m, nil
 	}
 
@@ -585,16 +664,23 @@ func (m Model) trackSelectedIssue() (Model, tea.Cmd) {
 	})
 
 	return m.openTaskLine(taskLine{
-		title: "Track " + string(selected.Key), command: "task add", write: addLine(m.deps.Tasks.Add),
-		after: track.follow(m.deps.Tasks), heldBack: track.heldBack(),
+		title: "Track " + string(selected.Key), command: addCommand, write: addLine(m.deps.Tasks.Add),
+		after: track.follow(m.deps.Tasks), heldBack: track.heldBack(), tracks: selected.Key,
 	}, line)
 }
 
-// canTrack reports whether the Issues pane can track an issue: a task can be
-// added, and Taskwarrior has answered, so which issues are tracked already is
-// known.
-func (m Model) canTrack() bool {
-	return m.deps.Tasks.Add != nil && m.tasks.answered()
+// canTrack reports whether the Issues pane can track an issue, or go to the task
+// that does: a task can be added, and Taskwarrior has answered, so which issues
+// are tracked already is known — and, for an issue no task tracks, no write is
+// on its way, since one goes at a time.
+func (m Model) canTrack(issueKey jira.Key) bool {
+	if m.deps.Tasks.Add == nil || !m.tasks.answered() {
+		return false
+	}
+
+	_, tracked := m.trackingTask(issueKey)
+
+	return tracked || !m.tasks.writing
 }
 
 // trackKey is the track key as the Issues footer offers it: going to the task
@@ -639,9 +725,10 @@ func (m Model) goToTrackingTask(issueKey jira.Key, task taskwarrior.Task) Model 
 
 // unlistedBecause is why the Tasks pane does not list a task still to do: it
 // waits, until a day in the clock's zone; it is the template a recurring task's
-// instances are made from; the active context hides it; or, with no context to
-// hide it, it changed between the pending read and the linked one, which
-// reading them again settles.
+// instances are made from; a track has just added it, and no read since has
+// held it; the active context hides it; or, with no context to hide it, it
+// changed between the pending read and the linked one, which reading them
+// again settles.
 func (m Model) unlistedBecause(task taskwarrior.Task) string {
 	now := m.deps.now()
 
@@ -650,6 +737,8 @@ func (m Model) unlistedBecause(task taskwarrior.Task) string {
 		return "which waits until " + task.Wait.In(now.Location()).Format(time.DateOnly)
 	case task.Status == taskwarrior.Recurring:
 		return "a recurring template"
+	case m.tasks.stubbed(task.UUID):
+		return "just added; " + m.keys.refresh.Help().Key + " in the Tasks pane reads it"
 	case m.tasks.context == "":
 		return "not among the tasks just read; " + m.keys.refresh.Help().Key + " in the Tasks pane reads them again"
 	default:

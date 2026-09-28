@@ -67,7 +67,8 @@ type branchCreated struct {
 
 // apply switches the panes to the new branch, or keeps the creator open with
 // git's reason. A branch for an issue not yet started then offers to move it
-// along.
+// along; a branch for any issue offers to start its task once nothing else is
+// being asked.
 func (msg branchCreated) apply(m Model) (Model, tea.Cmd) {
 	if msg.err != nil {
 		return keepOpenWith[branchCreator](m, msg.err), nil
@@ -75,6 +76,11 @@ func (msg branchCreated) apply(m Model) (Model, tea.Cmd) {
 
 	m = m.closeOverlay().noticed(m.marks.done + " created and switched to " + msg.name)
 	reload := tea.Batch(m.loadBranch(), m.loadChanges())
+
+	// Set before the status picker opens, so the offer waits behind it.
+	if msg.forIssue {
+		m.followUp = m.offerStart(msg.issue)
+	}
 
 	if !msg.forIssue || msg.issue.StatusCategory != jira.CategoryNew {
 		return m, reload

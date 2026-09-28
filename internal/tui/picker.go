@@ -158,13 +158,14 @@ type transitionApplied struct {
 // apply reports a transition's outcome. A refusal keeps the picker open with
 // Jira's reason, to choose again; a move that worked closes it and refreshes the
 // list, since the issue's status — and perhaps its place in the list — just
-// changed.
+// changed. A move to done offers to complete the issue's task.
 func (msg transitionApplied) apply(m Model) (Model, tea.Cmd) {
 	if msg.err != nil {
 		return keepOpenWith[statusPicker](m, writeRefusal(msg.err)), nil
 	}
 
 	m = m.closeOverlay().noticed(m.marks.done + " " + string(msg.issueKey) + " is now " + msg.to.ToStatus)
+	m.followUp = m.offerForMove(msg.issueKey, msg.to)
 	m, detail := m.reloadDetail(msg.issueKey)
 
 	return m, tea.Batch(m.searchIssues(), detail)

@@ -35,6 +35,9 @@ type taskWorld struct {
 	linkedErr error
 	addUUID   string
 	writeErr  error
+	// answers are what the next starts, stops, completions, annotations and
+	// modifications answer, one each in order, before writeErr answers the rest.
+	answers []error
 	// annotateErr fails only an annotation, so a task can be added and then not
 	// annotated.
 	annotateErr error
@@ -129,10 +132,19 @@ func (w *world) taskDeps() seams.Tasks {
 	}
 }
 
-// taskWrite records a write to Taskwarrior and answers it with the world's write
-// failure, if it has one.
+// taskWrite records a write to Taskwarrior and answers it with the next of the
+// world's answers, or, once they are spent, its write failure, if it has one.
 func (w *world) taskWrite(call string) error {
-	w.record(call)
+	w.mu.Lock()
+	defer w.mu.Unlock()
 
-	return w.tasks.writeErr
+	w.calls = append(w.calls, call)
+	if len(w.tasks.answers) == 0 {
+		return w.tasks.writeErr
+	}
+
+	answer := w.tasks.answers[0]
+	w.tasks.answers = w.tasks.answers[1:]
+
+	return answer
 }

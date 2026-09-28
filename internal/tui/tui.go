@@ -65,6 +65,11 @@ type Model struct {
 
 	// overlay takes the keyboard while it is open; nil when none is.
 	overlay overlay
+	// followUp is an overlay to open once the one that is open closes: an offer
+	// made at a moment the interface is already asking something else — the
+	// status picker after a branch, the issue linker after a pull request. Nil
+	// when nothing waits.
+	followUp func(Model) (Model, tea.Cmd)
 	// notice is the footer's one-line report of something that just happened.
 	// The next key press clears it.
 	notice notice
@@ -161,7 +166,8 @@ func (m Model) Init() tea.Cmd {
 }
 
 // Update implements tea.Model. Every load and result is an applier, which knows
-// what it changes, so this only routes.
+// what it changes, so this only routes. A key or a result may close an overlay,
+// so both settle, opening whatever follow-up waited on it.
 //
 //nolint:ireturn // tea.Model is the return type bubbletea's interface requires
 func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
@@ -171,11 +177,15 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 		return m, nil
 	case tea.KeyPressMsg:
-		return m.handleKey(msg)
+		handled, cmd := m.handleKey(msg)
+
+		return handled.settled(cmd)
 	case tea.MouseMsg:
 		return m.handleMouse(msg)
 	case applier:
-		return msg.apply(m)
+		applied, cmd := msg.apply(m)
+
+		return applied.settled(cmd)
 	default:
 		return m, nil
 	}
