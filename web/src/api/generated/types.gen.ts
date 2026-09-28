@@ -534,6 +534,7 @@ export type Config = {
     commit: CommitConfig;
     pull_request: PullRequestConfig;
     store: StoreConfig;
+    taskwarrior: TaskwarriorConfig;
 };
 
 export type JiraConfig = {
@@ -652,6 +653,17 @@ export type PullRequestConfig = {
 export type StoreConfig = {
     /**
      * Turn off the on-disk store, keeping nothing between sessions. Off by default: the store is on and never holds a secret.
+     */
+    disabled?: boolean;
+};
+
+export type TaskwarriorConfig = {
+    /**
+     * The task program to run: a name looked up on PATH, or a path. Empty tries every task on PATH and keeps the first that is Taskwarrior 3.5.0 or newer.
+     */
+    program?: string;
+    /**
+     * Turn off the Taskwarrior integration even where Taskwarrior is installed.
      */
     disabled?: boolean;
 };

@@ -1479,7 +1479,7 @@ components:
         The whole configuration file. On a read, the four secret fields and the
         Jira header values are masked; on a write, a masked or empty secret keeps
         the stored value.
-      required: [version, jira, messaging, forge, ui, timing, branch, commit, pull_request, store]
+      required: [version, jira, messaging, forge, ui, timing, branch, commit, pull_request, store, taskwarrior]
       properties:
         version: {type: string}
         jira: {$ref: "#/components/schemas/JiraConfig"}
@@ -1491,6 +1491,7 @@ components:
         commit: {$ref: "#/components/schemas/CommitConfig"}
         pull_request: {$ref: "#/components/schemas/PullRequestConfig"}
         store: {$ref: "#/components/schemas/StoreConfig"}
+        taskwarrior: {$ref: "#/components/schemas/TaskwarriorConfig"}
       additionalProperties: false
 
     JiraConfig:
@@ -1628,6 +1629,22 @@ components:
           description: >-
             Turn off the on-disk store, keeping nothing between sessions. Off by
             default: the store is on and never holds a secret.
+      additionalProperties: false
+
+    TaskwarriorConfig:
+      type: object
+      properties:
+        program:
+          type: string
+          description: >-
+            The task program to run: a name looked up on PATH, or a path. Empty
+            tries every task on PATH and keeps the first that is Taskwarrior
+            3.5.0 or newer.
+        disabled:
+          type: boolean
+          description: >-
+            Turn off the Taskwarrior integration even where Taskwarrior is
+            installed.
       additionalProperties: false
 
     CommitConfig:

@@ -57,4 +57,8 @@ export const mockConfig: Config = {
   store: {
     disabled: false,
   },
+  taskwarrior: {
+    program: '',
+    disabled: false,
+  },
 }
