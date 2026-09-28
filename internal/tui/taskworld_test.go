@@ -4,6 +4,7 @@
 package tui_test
 
 import (
+	"cmp"
 	"time"
 
 	"github.com/jacob-delgado/workflow/internal/seams"
@@ -34,6 +35,9 @@ type taskWorld struct {
 	linkedErr error
 	addUUID   string
 	writeErr  error
+	// annotateErr fails only an annotation, so a task can be added and then not
+	// annotated.
+	annotateErr error
 	// none leaves every seam nil, as wiring does when no task program is found
 	// or the integration is turned off.
 	none     bool
@@ -105,11 +109,13 @@ func (w *world) taskDeps() seams.Tasks {
 
 			return fake.addUUID, fake.writeErr
 		},
-		Start:    func(uuid string) error { return w.taskWrite("task start " + uuid) },
-		Stop:     func(uuid string) error { return w.taskWrite("task stop " + uuid) },
-		Done:     func(uuid string) error { return w.taskWrite("task done " + uuid) },
-		Annotate: func(uuid, text string) error { return w.taskWrite("task annotate " + uuid + " " + text) },
-		Modify:   func(uuid, line string) error { return w.taskWrite("task modify " + uuid + " " + line) },
+		Start: func(uuid string) error { return w.taskWrite("task start " + uuid) },
+		Stop:  func(uuid string) error { return w.taskWrite("task stop " + uuid) },
+		Done:  func(uuid string) error { return w.taskWrite("task done " + uuid) },
+		Annotate: func(uuid, text string) error {
+			return cmp.Or(fake.annotateErr, w.taskWrite("task annotate "+uuid+" "+text))
+		},
+		Modify: func(uuid, line string) error { return w.taskWrite("task modify " + uuid + " " + line) },
 		Undo: func() (string, error) {
 			w.record("task undo")
 

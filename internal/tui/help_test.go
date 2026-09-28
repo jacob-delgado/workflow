@@ -58,7 +58,8 @@ func placedBindings() []helpGroup {
 			"load-more         ctrl+n     load more",
 			"open-link         o          open",
 			"copy-link         y          copy url",
-			"refresh           r          refresh"),
+			"refresh           r          refresh",
+			"track-issue       T          track in taskwarrior"),
 		placed("Branch and Commits",
 			"new-branch        b          new branch",
 			"switch-task       s          switch task",
@@ -78,6 +79,14 @@ func placedBindings() []helpGroup {
 			"merge             M          merge",
 			"finish-branch     F          finish branch",
 			"post              p          announce to slack"),
+		placed("Tasks",
+			"start-stop        s          start/stop",
+			"complete-task     d          done",
+			"add-task          a          add",
+			"annotate-task     A          annotate",
+			"modify-task       e          modify",
+			"undo-task         u          undo",
+			"sync-tasks        S          sync"),
 		placed("In a composer or preview",
 			"edit              e          edit",
 			"edit-body         ctrl+o     edit body",
@@ -209,6 +218,35 @@ func readHelpCell(groups []helpGroup, cell string) []helpGroup {
 		last.bindings = append(last.bindings, listedBinding{key: key, help: strings.TrimSpace(help)})
 
 		return groups
+	}
+}
+
+func TestTaskKeysAreListedInTheHelpAndConflictFree(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	want := groupNamed(placedBindings(), tasksTitle).listed()
+
+	// Act
+	listing := helpListing(t, openHelp(t, nil))
+
+	// Assert
+	if got := groupNamed(listing, tasksTitle); got.String() != want.String() {
+		t.Errorf("? lists\n%s\nwant\n%s", got, want)
+	}
+
+	// On the Tasks pane its own keys are live beside the ones that work
+	// everywhere, so no key may be shown for two of them.
+	var shown []string
+
+	for _, name := range []string{"Moving around", tasksTitle, "Everywhere"} {
+		for _, binding := range groupNamed(listing, name).bindings {
+			if slices.Contains(shown, binding.key) {
+				t.Errorf("? shows %q twice among the keys live on the Tasks pane", binding.key)
+			}
+
+			shown = append(shown, binding.key)
+		}
 	}
 }
 
@@ -350,7 +388,8 @@ func TestTheWholeHelpFitsATallTerminal(t *testing.T) {
 	t.Parallel()
 
 	// Act
-	view := typing(t, newWorld().live(t, 120, 40), "?").View().Content
+	// At 120 columns the whole help, the Tasks keys among it, needs 47 rows.
+	view := typing(t, newWorld().live(t, 120, 48), "?").View().Content
 
 	// Assert
 	requireScreen(t, view, "Everywhere")

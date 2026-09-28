@@ -141,13 +141,13 @@ func TestHelpClosesOnEscapeOrASecondQuestionMark(t *testing.T) {
 
 			// Arrange
 			open := press(t, fresh(t), "?")
-			requireScreen(t, open.View().Content, "toggle mouse")
+			requireScreen(t, open.View().Content, "previous pane")
 
 			// Act
 			closed := press(t, open, key).View().Content
 
 			// Assert
-			refuseScreen(t, closed, "toggle mouse")
+			refuseScreen(t, closed, "previous pane")
 		})
 	}
 }

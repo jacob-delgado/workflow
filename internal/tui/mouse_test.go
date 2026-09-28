@@ -141,7 +141,7 @@ func overlaysTheWheelMoves() map[string]wheeledOverlay {
 			world: failingLint, height: 40, open: commitKeys("x"), down: "▸ b.go:2 second", up: "▸ a.go:1 first",
 		},
 		"the help": {
-			world: newWorld, height: 20, open: []string{"?"}, down: "Branch and Commits", up: "Moving around",
+			world: newWorld, height: 20, open: []string{"?"}, down: "load more", up: "Moving around",
 		},
 	}
 }

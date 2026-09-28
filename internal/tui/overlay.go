@@ -133,6 +133,9 @@ var (
 	_ applier = messagingPosted{}
 	_ applier = hooksFound{}
 	_ applier = hooksWritten{}
+	_ applier = taskActed{}
+	_ applier = taskLineSent{}
+	_ applier = nothingToUndo{}
 )
 
 // notice is the footer's one-line report of something that just happened, and

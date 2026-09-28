@@ -179,6 +179,11 @@ func (g taskGroups) indexOf(uuid string) int {
 	return max(0, min(index, len(listed)-1))
 }
 
+// lists reports whether the pane lists the task with a uuid.
+func (g taskGroups) lists(uuid string) bool {
+	return slices.ContainsFunc(g.listed(), func(task taskwarrior.Task) bool { return task.UUID == uuid })
+}
+
 // at is the listed task with a uuid, or the first where none has it, or no task
 // where none is listed.
 func (g taskGroups) at(uuid string) taskwarrior.Task {
@@ -470,21 +475,27 @@ func (m Model) taskMarks() func(jira.Key) string {
 }
 
 // taskMark is an issue's task state by shape: nothing (·), tracked (○) while a
-// linked task is still to do — pending, waiting or recurring — active (◐), or
-// every linked task completed (●).
+// linked task is still to do, active (◐), or every linked task completed (●).
 func (m Model) taskMark(issueKey jira.Key) string {
 	linked := m.linkedTo(issueKey)
 
 	switch {
 	case slices.ContainsFunc(linked, taskwarrior.Task.Active):
 		return m.marks.inFlight
-	case slices.ContainsFunc(linked, func(task taskwarrior.Task) bool { return task.Status != taskwarrior.Completed }):
+	case slices.ContainsFunc(linked, stillToDo):
 		return m.marks.notStarted
 	case len(linked) > 0:
 		return m.marks.done
 	default:
 		return m.marks.unknown
 	}
+}
+
+// stillToDo reports a task not completed — pending, waiting or recurring — which
+// is what tracks the issue it is linked to, for the issue's mark and its track
+// key alike.
+func stillToDo(task taskwarrior.Task) bool {
+	return task.Status != taskwarrior.Completed
 }
 
 // linkedTo is every task linked to an issue.
@@ -502,18 +513,21 @@ func (m Model) linkedTo(issueKey jira.Key) []taskwarrior.Task {
 
 // issueTasksBlock is the Tasks block of an issue's detail, wrapped to width:
 // each linked task with its glyph, id, description and started/due note, or the
-// one line that says T tracks it. Nothing until Taskwarrior has answered, or
-// where it could not: the Tasks pane says why.
+// one line that names the key that tracks it. Nothing until Taskwarrior has
+// answered, or where it could not: the Tasks pane says why; nor for an issue
+// with no task where no task can be added.
 func (m Model) issueTasksBlock(issueKey jira.Key, width int) []string {
-	if !m.tasks.answered() {
+	linked := m.linkedTo(issueKey)
+	if !m.tasks.answered() || (len(linked) == 0 && m.deps.Tasks.Add == nil) {
 		return nil
 	}
 
 	lines := []string{"", m.styles.strong.Render("Tasks")}
 
-	linked := m.linkedTo(issueKey)
 	if len(linked) == 0 {
-		return append(lines, m.styles.label.Render(wrap("T tracks it in Taskwarrior.", width)))
+		hint := m.keys.trackIssue.Help().Key + " tracks it in Taskwarrior."
+
+		return append(lines, m.styles.label.Render(wrap(hint, width)))
 	}
 
 	now := m.deps.now()

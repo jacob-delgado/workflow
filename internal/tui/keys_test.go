@@ -14,8 +14,10 @@ import (
 // Action ids that several conflict cases name, kept as constants so the table
 // does not repeat the same literal.
 const (
-	refreshAction = "refresh"
-	mergeAction   = "merge"
+	refreshAction  = "refresh"
+	mergeAction    = "merge"
+	openLinkAction = "open-link"
+	addTaskAction  = "add-task"
 )
 
 func TestAKeyOverrideRebindsAnActionAndShowsItInTheHelp(t *testing.T) {
@@ -119,7 +121,7 @@ func TestCheckKeysCatchesConflictsOnCrossPaneKeys(t *testing.T) {
 		{"rebase onto refresh, Branch pane", map[string]string{"rebase": "r"}, refreshAction},
 		{"commit onto refresh, Commits pane", map[string]string{"commit": "r"}, refreshAction},
 		{"refresh onto push, Branch pane", map[string]string{refreshAction: "P"}, "push"},
-		{"checks onto open-link, Review pane", map[string]string{"checks": "o"}, "open-link"},
+		{"checks onto open-link, Review pane", map[string]string{"checks": "o"}, openLinkAction},
 		{"merge onto refresh, Review pane", map[string]string{mergeAction: "r"}, refreshAction},
 		{"rerun onto copy-link, Review pane", map[string]string{"rerun-checks": "y"}, "copy-link"},
 		{"merge onto edit, Review pane", map[string]string{mergeAction: "e"}, "edit"},
@@ -211,6 +213,66 @@ func TestCheckKeysAcceptsAnOverlayKeyOnAKeyOfThePaneBehindIt(t *testing.T) {
 			// Assert
 			if err != nil {
 				t.Errorf("CheckKeys(%v) = %v, want no conflict", rebound, err)
+			}
+		})
+	}
+}
+
+func TestRebindingAStartStopKeyOntoAnotherTasksKeyIsRefused(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	// s starts and stops a task; add-task moved onto it would make a press on
+	// the Tasks pane ambiguous.
+	colliding := map[string]string{addTaskAction: "s"}
+
+	// Act
+	err := tui.CheckKeys(colliding)
+
+	// Assert
+	if !errors.Is(err, tui.ErrKeyConflict) {
+		t.Fatalf("CheckKeys = %v, want ErrKeyConflict", err)
+	}
+
+	for _, named := range []string{"start-stop", addTaskAction, "the Tasks pane"} {
+		if !strings.Contains(err.Error(), named) {
+			t.Errorf("CheckKeys error %q does not name %q", err, named)
+		}
+	}
+}
+
+func TestRebindingATasksKeyOntoALinkOrRefreshKeyIsRefused(t *testing.T) {
+	t.Parallel()
+
+	// Opening and copying a link and refreshing are filed under Issues, yet the
+	// Tasks pane answers them too.
+	cases := map[string]struct {
+		key, collides string
+	}{
+		"onto open":     {key: "o", collides: openLinkAction},
+		"onto copy url": {key: "y", collides: "copy-link"},
+		"onto refresh":  {key: "r", collides: refreshAction},
+	}
+
+	for name, tt := range cases {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			// Arrange
+			rebound := map[string]string{addTaskAction: tt.key}
+
+			// Act
+			err := tui.CheckKeys(rebound)
+
+			// Assert
+			if !errors.Is(err, tui.ErrKeyConflict) {
+				t.Fatalf("CheckKeys(%v) = %v, want ErrKeyConflict", rebound, err)
+			}
+
+			for _, named := range []string{tt.collides, addTaskAction, "the Tasks pane"} {
+				if !strings.Contains(err.Error(), named) {
+					t.Errorf("CheckKeys error %q does not name %q", err, named)
+				}
 			}
 		})
 	}
