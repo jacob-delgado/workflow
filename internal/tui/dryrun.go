@@ -26,6 +26,7 @@ var errDryRun = errors.New("held back by dry run")
 func heldBack(deps Deps) Deps {
 	deps.Jira = heldBackJira(deps.Jira)
 	deps.Git = heldBackGit(deps.Git)
+	deps.Tasks = heldBackTasks(deps.Tasks)
 	// A dry-run interface opens no store, as the web opens none. A read-only
 	// store's seams look like a live one's, whose reads make its directory, so
 	// the store is dropped whoever the caller is.
@@ -108,6 +109,43 @@ func heldBackStreams(deps seams.Git) seams.Git {
 
 	if deps.Rebase != nil {
 		deps.Rebase = func(string) (proc.Output, error) { return proc.Output{}, errDryRun }
+	}
+
+	return deps
+}
+
+// heldBackTasks holds back the writes to Taskwarrior.
+func heldBackTasks(deps seams.Tasks) seams.Tasks {
+	if deps.Add != nil {
+		deps.Add = func(string) (string, error) { return "", errDryRun }
+	}
+
+	if deps.Start != nil {
+		deps.Start = func(string) error { return errDryRun }
+	}
+
+	if deps.Stop != nil {
+		deps.Stop = func(string) error { return errDryRun }
+	}
+
+	if deps.Done != nil {
+		deps.Done = func(string) error { return errDryRun }
+	}
+
+	if deps.Annotate != nil {
+		deps.Annotate = func(string, string) error { return errDryRun }
+	}
+
+	if deps.Modify != nil {
+		deps.Modify = func(string, string) error { return errDryRun }
+	}
+
+	if deps.Undo != nil {
+		deps.Undo = func() (string, error) { return "", errDryRun }
+	}
+
+	if deps.Sync != nil {
+		deps.Sync = func() (string, error) { return "", errDryRun }
 	}
 
 	return deps
