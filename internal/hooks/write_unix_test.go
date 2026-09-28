@@ -25,41 +25,12 @@ import (
 	"testing"
 
 	"github.com/jacob-delgado/workflow/internal/hooks"
+	"github.com/jacob-delgado/workflow/internal/rlimit"
 )
 
 // fileSizeLimit is the size no file the process writes may pass while a test
 // holds the limit.
 const fileSizeLimit = 1 << 20
-
-// limitFileSize caps the size of every file the process writes at
-// fileSizeLimit, and returns what lifts the cap again, which the test also runs
-// at its end.
-func limitFileSize(t *testing.T) func() {
-	t.Helper()
-
-	var was syscall.Rlimit
-
-	err := syscall.Getrlimit(syscall.RLIMIT_FSIZE, &was)
-	if err != nil {
-		t.Fatalf("reading the file size limit: %v", err)
-	}
-
-	lift := func() {
-		err := syscall.Setrlimit(syscall.RLIMIT_FSIZE, &was)
-		if err != nil {
-			t.Fatalf("lifting the file size limit: %v", err)
-		}
-	}
-
-	t.Cleanup(lift)
-
-	err = syscall.Setrlimit(syscall.RLIMIT_FSIZE, &syscall.Rlimit{Cur: fileSizeLimit, Max: was.Max})
-	if err != nil {
-		t.Fatalf("limiting the file size: %v", err)
-	}
-
-	return lift
-}
 
 // pastTheLimit is text one byte longer than a file may be under the limit.
 func pastTheLimit() string {
@@ -104,7 +75,7 @@ func TestAWriteCutShortLeavesNoFileBehind(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			// Arrange
 			dir := t.TempDir()
-			lift := limitFileSize(t)
+			lift := rlimit.Lower(t, syscall.RLIMIT_FSIZE, fileSizeLimit)
 
 			// Act
 			err := hooks.Write(dir, generated)
@@ -128,7 +99,7 @@ func TestAWriteCutShortCanBeTriedAgain(t *testing.T) {
 	// Arrange
 	dir := t.TempDir()
 	generated := hooks.Generated{Config: pastTheLimit()}
-	lift := limitFileSize(t)
+	lift := rlimit.Lower(t, syscall.RLIMIT_FSIZE, fileSizeLimit)
 
 	err := hooks.Write(dir, generated)
 

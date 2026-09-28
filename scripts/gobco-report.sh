@@ -100,7 +100,9 @@ readonly UNANALYZABLE="internal/proc/pgroup internal/web"
 # single //go:embed of the OpenAPI document, data with no branches to measure.
 # internal/seams declares only structs of function fields, with no function body
 # and so no condition; the wiring and terminal tests fill and call every field.
-readonly NO_TESTS="cmd/workflow cmd/docsgen cmd/testshape internal/proc/pgroup internal/api api internal/seams"
+# internal/rlimit is a test helper, imported only by tests: the config, editor,
+# hooks, proc and wiring tests that lower a resource limit through it run it.
+readonly NO_TESTS="cmd/workflow cmd/docsgen cmd/testshape internal/proc/pgroup internal/api api internal/seams internal/rlimit"
 
 # gobco carries the go/types of the Go that built it (see above), so a gobco
 # built by an older Go silently shrinks what this gate covers. Refuse to run.
