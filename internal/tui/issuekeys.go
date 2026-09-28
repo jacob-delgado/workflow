@@ -33,8 +33,9 @@ func (m Model) handleIssuesKey(msg tea.KeyPressMsg) (Model, tea.Cmd) {
 }
 
 // handleIssueVerbKey answers the keys that act on the selected issue — change
-// its status, comment, assign, log work, or branch for it — reporting whether
-// it claimed the key, so the caller can fall through to the list keys.
+// its status, comment, assign, log work, branch for it, or track it in
+// Taskwarrior — reporting whether it claimed the key, so the caller can fall
+// through to the list keys.
 func (m Model) handleIssueVerbKey(msg tea.KeyPressMsg) (Model, tea.Cmd, bool) {
 	var act func() (Model, tea.Cmd)
 
@@ -49,6 +50,8 @@ func (m Model) handleIssueVerbKey(msg tea.KeyPressMsg) (Model, tea.Cmd, bool) {
 		act = m.openLogWork
 	case key.Matches(msg, m.keys.branchForIssue):
 		act = m.openBranchCreator
+	case key.Matches(msg, m.keys.trackIssue):
+		act = m.trackSelectedIssue
 	default:
 		return m, nil, false
 	}

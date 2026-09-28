@@ -51,7 +51,7 @@ type keyMap struct {
 	refresh, retry        key.Binding
 
 	// Issues.
-	changeStatus, comment, assign, logWork, branchForIssue, filter, nextView, loadMore key.Binding
+	changeStatus, comment, assign, logWork, branchForIssue, filter, nextView, loadMore, trackIssue key.Binding
 
 	// Branch and Commits.
 	newBranch, switchTask, rebase, push, stage, stageAll, commit, amend, fixup, runHooks, hookConfig key.Binding
@@ -59,7 +59,10 @@ type keyMap struct {
 	// Review and messaging.
 	newPullRequest, checks, rerun, merge, finish, compose key.Binding
 
-	// Opening and copying a link, on the Issues, Review and Reviews panes.
+	// Tasks.
+	startStop, completeTask, addTask, annotateTask, modifyTask, undoTask, syncTasks key.Binding
+
+	// Opening and copying a link, on the Issues, Review, Reviews and Tasks panes.
 	openLink, copyLink key.Binding
 
 	// In composers and previews.
@@ -89,6 +92,7 @@ const (
 	groupIssues
 	groupBranchCommits
 	groupReviewMessaging
+	groupTasks
 	groupComposer
 	groupRunning
 	groupEverywhere
@@ -186,6 +190,7 @@ func compileKeys(marks glyphs, reviewNoun, messagingService string, overrides ma
 	issueKeys(&builder, &keys)
 	branchAndCommitKeys(&builder, &keys)
 	reviewAndMessagingKeys(&builder, &keys, reviewNoun, messagingService)
+	taskKeys(&builder, &keys)
 	composerKeys(&builder, &keys, marks)
 	runningKeys(&builder, &keys)
 	everywhereKeys(&builder, &keys)
@@ -215,7 +220,8 @@ func movingKeys(builder *helpBuilder, into *keyMap, marks glyphs) {
 	into.scrollDown = builder.bindShown(groupMoving, "scroll-down", "pgdn/J", "scroll down", "pgdown", "J")
 }
 
-// issueKeys are the Issues pane's bindings, including opening and copying a link.
+// issueKeys are the Issues pane's bindings, including opening and copying a
+// link, and tracking the issue in Taskwarrior.
 func issueKeys(builder *helpBuilder, into *keyMap) {
 	into.changeStatus = builder.bind(groupIssues, "change-status", "change status", "t")
 	into.comment = builder.bind(groupIssues, "comment", "comment", "c")
@@ -228,6 +234,7 @@ func issueKeys(builder *helpBuilder, into *keyMap) {
 	into.openLink = builder.bind(groupIssues, actionOpenLink, "open", "o")
 	into.copyLink = builder.bind(groupIssues, actionCopyLink, "copy url", "y")
 	into.refresh = builder.bind(groupIssues, actionRefresh, "refresh", "r")
+	into.trackIssue = builder.bind(groupIssues, "track-issue", "track in taskwarrior", "T")
 }
 
 // branchAndCommitKeys are the Branch and Commits panes' bindings.
@@ -253,6 +260,18 @@ func reviewAndMessagingKeys(builder *helpBuilder, into *keyMap, reviewNoun, mess
 	into.merge = builder.bind(groupReviewMessaging, "merge", "merge", "M")
 	into.finish = builder.bind(groupReviewMessaging, "finish-branch", "finish branch", "F")
 	into.compose = builder.bind(groupReviewMessaging, "post", "announce to "+strings.ToLower(messagingService), "p")
+}
+
+// taskKeys are the Tasks pane's bindings. m toggles the mouse everywhere, so
+// modify is e.
+func taskKeys(builder *helpBuilder, into *keyMap) {
+	into.startStop = builder.bind(groupTasks, "start-stop", "start/stop", "s")
+	into.completeTask = builder.bind(groupTasks, "complete-task", "done", "d")
+	into.addTask = builder.bind(groupTasks, "add-task", "add", "a")
+	into.annotateTask = builder.bind(groupTasks, "annotate-task", "annotate", "A")
+	into.modifyTask = builder.bind(groupTasks, "modify-task", "modify", "e")
+	into.undoTask = builder.bind(groupTasks, "undo-task", "undo", "u")
+	into.syncTasks = builder.bind(groupTasks, "sync-tasks", "sync", "S")
 }
 
 // composerKeys are the composer, preview and field-form bindings, the branch
@@ -348,13 +367,14 @@ func (c keyContext) covers(placed placement) bool {
 // Most of a surface's keys come from its help groups, but some bindings are
 // handled outside the group they are filed under, so a context also names those:
 // the list actions refresh, open-link and copy-link are filed under Issues, yet
-// refresh acts on the Branch, Commits, Review and review-requests panes, and
-// open-link and copy-link on the Review and review-requests panes; edit acts on
-// the Review pane as well as in a preview; and a field form reads up and
-// down, which a composer otherwise excludes so that its tab can mean next-field
-// rather than next-pane. An overlay's own keys, the branch creator's worktree
-// and the messaging preview's wait for CI and channel among them, are filed
-// with the composer's, so they are live there and not on the pane behind it.
+// refresh acts on the Branch, Commits, Review, review-requests and Tasks panes,
+// and open-link and copy-link on the Review, review-requests and Tasks panes;
+// edit acts on the Review pane as well as in a preview; and a field form reads
+// up and down, which a composer otherwise excludes so that its tab can mean
+// next-field rather than next-pane. An overlay's own keys, the branch creator's
+// worktree and the messaging preview's wait for CI and channel among them, are
+// filed with the composer's, so they are live there and not on the pane behind
+// it.
 func keyContexts() []keyContext {
 	return []keyContext{
 		{"the Issues pane", []int{groupMoving, groupEverywhere, groupIssues}, nil},
@@ -367,6 +387,11 @@ func keyContexts() []keyContext {
 		{
 			"the review-requests pane",
 			[]int{groupMoving, groupEverywhere},
+			[]string{actionOpenLink, actionCopyLink, actionRefresh},
+		},
+		{
+			"the Tasks pane",
+			[]int{groupMoving, groupEverywhere, groupTasks},
 			[]string{actionOpenLink, actionCopyLink, actionRefresh},
 		},
 		{"a running command", []int{groupMoving, groupEverywhere, groupRunning}, nil},
@@ -428,7 +453,7 @@ func (k keyMap) FullHelp() [][]key.Binding {
 // group is named for the service in use rather than a fixed "Slack".
 func helpGroups(messagingService string) []string {
 	return []string{
-		"Moving around", "Issues", "Branch and Commits", "Review and " + messagingService,
+		"Moving around", "Issues", "Branch and Commits", "Review and " + messagingService, "Tasks",
 		"In a composer or preview", "While a command runs", "Everywhere",
 	}
 }

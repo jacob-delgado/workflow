@@ -196,8 +196,9 @@ func (m Model) issuesKeys() []key.Binding {
 }
 
 // issueVerbKeys are the verbs for the selected issue whose seams are wired:
-// status, comment, then the branch, which moves the loop on, ahead of assign
-// and log work, since a narrow footer drops the last verbs first.
+// status, comment, then the branch, which moves the loop on, ahead of assign,
+// log work and tracking it in Taskwarrior — or going to its task — since a
+// narrow footer drops the last verbs first.
 func (m Model) issueVerbKeys(selected jira.Issue) []key.Binding {
 	offers := []struct {
 		wired   bool
@@ -208,6 +209,7 @@ func (m Model) issueVerbKeys(selected jira.Issue) []key.Binding {
 		{m.canCreateBranch(), relabel(m.keys.branchForIssue, "branch for "+string(selected.Key))},
 		{m.deps.Jira.Assign != nil, m.keys.assign},
 		{m.deps.Jira.AddWorklog != nil, m.keys.logWork},
+		{m.canTrack(), m.trackKey(selected.Key)},
 	}
 
 	var keys []key.Binding

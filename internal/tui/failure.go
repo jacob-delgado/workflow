@@ -274,6 +274,13 @@ func messagingErrors() []knownError {
 // taskwarriorErrors are Taskwarrior's: finding it, and what it answers.
 func taskwarriorErrors() []knownError {
 	return []knownError{
+		// First, as it wraps Taskwarrior's own answer to the annotation, which
+		// would otherwise be told instead.
+		{taskwarrior.ErrAnnotateFailed, wording{
+			brief: "created, not annotated",
+			full: "The task was created but the issue's link could not be added as an annotation: " +
+				"`task <id> annotate <url>` adds it.",
+		}},
 		{taskwarrior.ErrNotInstalled, wording{
 			brief: "Taskwarrior is not installed",
 			full: "Taskwarrior is not installed, or no task program is on PATH. Install Taskwarrior 3.5.0 or newer, " +
@@ -305,11 +312,6 @@ func taskwarriorErrors() []knownError {
 			brief: "no sync backend",
 			full: "No sync backend is set in your taskrc, so there is nowhere to sync. Set one of the sync.* " +
 				"settings (task-sync(5)).",
-		}},
-		{taskwarrior.ErrAnnotateFailed, wording{
-			brief: "created, not annotated",
-			full: "The task was created but the issue's link could not be added as an annotation: " +
-				"`task <id> annotate <url>` adds it.",
 		}},
 	}
 }
