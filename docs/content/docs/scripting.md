@@ -158,7 +158,9 @@ whole array.
 
 `workflow doctor --json` prints the report as an object: `version`; `repository`
 (`inside_work_tree`, `root`, `branch`, `detached`, `remote`, `forge`);
-`tooling`, one entry per program (`name`, `found`, `required`, `effect`);
+`tooling`, one entry per program (`name`, `found`, `required`, `effect`, and
+`detail` where finding it took more than a look at `PATH`: the Taskwarrior
+version and path found, or why none is usable);
 `configuration` (`path`, `tracker` — `jira`, or `forge` when no `jira.base_url`
 leaves the forge's issues as the tracker — `jira_url`, `jira_auth_mode`,
 `messaging_target`, `messaging_mode`, `world_readable`, then `missing` and
