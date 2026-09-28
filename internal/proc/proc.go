@@ -103,6 +103,26 @@ func runWithin(ctx context.Context, timeout time.Duration, program Command) ([]b
 // error only through its exit status — gh api, glab api — is read either way,
 // with its standard error folded into the returned error.
 func Capture(ctx context.Context, program Command, input []byte) ([]byte, error) {
+	return captureWithin(ctx, 0, program, input)
+}
+
+// CaptureWithin is Capture bounded by timeout, as RunWithin bounds Run; a
+// timeout that is not positive leaves it unbounded, as Capture is, and only
+// timeout's own expiry answers to ErrTimedOut.
+func CaptureWithin(ctx context.Context, timeout time.Duration, program Command, input []byte) ([]byte, error) {
+	return captureWithin(ctx, timeout, program, input)
+}
+
+// captureWithin is Capture bounded by timeout, or unbounded when timeout is
+// not positive. The bound travels as the context's cause, as in runWithin.
+func captureWithin(ctx context.Context, timeout time.Duration, program Command, input []byte) ([]byte, error) {
+	if timeout > 0 {
+		var cancel context.CancelFunc
+
+		ctx, cancel = context.WithTimeoutCause(ctx, timeout, fmt.Errorf("%w after %s", ErrTimedOut, timeout))
+		defer cancel()
+	}
+
 	command, err := build(ctx, program)
 	if err != nil {
 		return nil, err
@@ -118,11 +138,31 @@ func Capture(ctx context.Context, program Command, input []byte) ([]byte, error)
 
 	err = command.Run()
 	if err != nil {
+		if ctx.Err() != nil {
+			return stdout.Bytes(), fmt.Errorf("%s: %w", program.Name, context.Cause(ctx))
+		}
+
 		return stdout.Bytes(), fmt.Errorf("%s: %w: %s",
 			program.Name, err, strings.TrimSpace(sanitize.Text(stderr.String())))
 	}
 
 	return stdout.Bytes(), nil
+}
+
+// Failure reads a program's non-zero exit out of an error Run, RunCommand or
+// Capture returned: its exit code and what it wrote to standard error, and
+// whether the error was an exit at all — a program not found, one stopped at
+// its bound, or one killed by a signal is not. It knows the shape those
+// functions wrap the exit in, so no caller has to.
+func Failure(err error) (int, string, bool) {
+	var exit *exec.ExitError
+	if !errors.As(err, &exit) || !exit.Exited() {
+		return 0, "", false
+	}
+
+	_, stderr, _ := strings.Cut(err.Error(), exit.Error()+": ")
+
+	return exit.ExitCode(), strings.TrimSpace(stderr), true
 }
 
 // LookPath reports where a program is, or an error if it is not on PATH. It is
