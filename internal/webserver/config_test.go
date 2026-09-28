@@ -432,3 +432,51 @@ func TestUpdateConfigSavesAKeymapTheInterfaceAccepts(t *testing.T) {
 		t.Errorf("saved ui.keys = %v, want comment on ctrl+e", saved.UI.Keys)
 	}
 }
+
+// taskwarriorProgram is a taskwarrior.program a user might set.
+const taskwarriorProgram = "/opt/homebrew/bin/task"
+
+func TestTheWebConfigRoundTripKeepsTaskwarrior(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	cfg := config.Default()
+	cfg.Path = filepath.Join(t.TempDir(), ".workflow.json")
+	cfg.Taskwarrior.Program = taskwarriorProgram
+
+	handler := serve(t, webserver.Deps{}, cfg)
+
+	// Act: read the configuration
+	response := get(t, handler, "/api/config")
+	read := decode[api.Config](t, response)
+
+	// Assert: it carries the taskwarrior section
+	if read.Taskwarrior.Program == nil || *read.Taskwarrior.Program != taskwarriorProgram {
+		t.Fatalf("the read served %s, want taskwarrior.program set", response.Body.String())
+	}
+
+	// Act: save what the read served, with taskwarrior turned off
+	disabled := true
+	read.Taskwarrior.Disabled = &disabled
+
+	body, err := json.Marshal(read)
+	if err != nil {
+		t.Fatalf("marshaling the read back: %v", err)
+	}
+
+	recorder := putConfigOver(t, handler, string(body), etagOf(response))
+
+	// Assert: the file holds the change, and the program the read carried
+	if recorder.Code != http.StatusOK {
+		t.Fatalf("status = %d, want 200: %s", recorder.Code, recorder.Body.String())
+	}
+
+	saved, err := config.LoadFile(cfg.Path)
+	if err != nil {
+		t.Fatalf("reading the saved file: %v", err)
+	}
+
+	if saved.Taskwarrior.Program != taskwarriorProgram || !saved.Taskwarrior.Disabled {
+		t.Errorf("saved taskwarrior = %+v, want the program kept and disabled written", saved.Taskwarrior)
+	}
+}

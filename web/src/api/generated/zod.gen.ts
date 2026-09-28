@@ -359,6 +359,11 @@ export const zStoreConfig = z.object({
     disabled: z.boolean().optional()
 });
 
+export const zTaskwarriorConfig = z.object({
+    program: z.string().optional(),
+    disabled: z.boolean().optional()
+});
+
 export const zCommitConfig = z.object({
     default_scope: z.string().optional(),
     types: z.array(z.string()).nullish(),
@@ -401,7 +406,8 @@ export const zConfig = z.object({
     branch: zBranchConfig,
     commit: zCommitConfig,
     pull_request: zPullRequestConfig,
-    store: zStoreConfig
+    store: zStoreConfig,
+    taskwarrior: zTaskwarriorConfig
 });
 
 /**

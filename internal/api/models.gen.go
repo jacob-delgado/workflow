@@ -417,6 +417,7 @@ type Config struct {
 	Messaging   MessagingConfig   `json:"messaging"`
 	PullRequest PullRequestConfig `json:"pull_request"`
 	Store       StoreConfig       `json:"store"`
+	Taskwarrior TaskwarriorConfig `json:"taskwarrior"`
 	Timing      TimingConfig      `json:"timing"`
 	UI          UIConfig          `json:"ui"`
 	Version     string            `json:"version"`
@@ -817,6 +818,15 @@ type TaskBranch struct {
 	//
 	// Example: fix/PROJ-412-redact-tokens
 	Name string `json:"name"`
+}
+
+// TaskwarriorConfig defines model for TaskwarriorConfig.
+type TaskwarriorConfig struct {
+	// Disabled Turn off the Taskwarrior integration even where Taskwarrior is installed.
+	Disabled *bool `json:"disabled,omitempty"`
+
+	// Program The task program to run: a name looked up on PATH, or a path. Empty tries every task on PATH and keeps the first that is Taskwarrior 3.5.0 or newer.
+	Program *string `json:"program,omitempty"`
 }
 
 // TimingConfig defines model for TimingConfig.
