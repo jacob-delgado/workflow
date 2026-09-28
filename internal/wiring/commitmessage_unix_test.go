@@ -24,41 +24,13 @@ import (
 	"testing"
 
 	"github.com/jacob-delgado/workflow/internal/config"
+	"github.com/jacob-delgado/workflow/internal/rlimit"
 	"github.com/jacob-delgado/workflow/internal/wiring"
 )
 
 // fileSizeLimit is the size no file the process writes may pass while the test
 // holds the limit.
 const fileSizeLimit = 1 << 20
-
-// limitFileSize caps the size of every file the process writes at limit bytes,
-// and returns what lifts the cap again, which the test also runs at its end.
-func limitFileSize(t *testing.T, limit uint64) func() {
-	t.Helper()
-
-	var was syscall.Rlimit
-
-	err := syscall.Getrlimit(syscall.RLIMIT_FSIZE, &was)
-	if err != nil {
-		t.Fatalf("reading the file size limit: %v", err)
-	}
-
-	lift := func() {
-		err := syscall.Setrlimit(syscall.RLIMIT_FSIZE, &was)
-		if err != nil {
-			t.Fatalf("lifting the file size limit: %v", err)
-		}
-	}
-
-	t.Cleanup(lift)
-
-	err = syscall.Setrlimit(syscall.RLIMIT_FSIZE, &syscall.Rlimit{Cur: limit, Max: was.Max})
-	if err != nil {
-		t.Fatalf("limiting the file size: %v", err)
-	}
-
-	return lift
-}
 
 func TestACommitWhoseMessageCannotBeWrittenWholeLeavesNothingBehind(t *testing.T) {
 	// Arrange
@@ -71,7 +43,7 @@ func TestACommitWhoseMessageCannotBeWrittenWholeLeavesNothingBehind(t *testing.T
 	repo := wired(t, config.Default(), wiring.Workspace{Root: t.TempDir(), Remote: ""}, nil).Git
 
 	message := "feat: x\n\n" + strings.Repeat("#", fileSizeLimit+1) + "\n"
-	lift := limitFileSize(t, fileSizeLimit)
+	lift := rlimit.Lower(t, syscall.RLIMIT_FSIZE, fileSizeLimit)
 
 	// Act
 	_, err := repo.Commit(message)

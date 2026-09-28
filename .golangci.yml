@@ -38,6 +38,17 @@ linters:
           deny:
             - pkg: os/exec
               desc: run programs through internal/proc, the one place exec lives
+        # internal/rlimit lowers a resource limit that holds for the whole
+        # process, which is only safe around one call in a test that runs alone.
+        # It also imports testing. So only tests may import it; a production path
+        # that did would put a process-wide limit where every goroutine feels it.
+        rlimit-only-in-tests:
+          files:
+            - "$all"
+            - "!$test"
+          deny:
+            - pkg: github.com/jacob-delgado/workflow/internal/rlimit
+              desc: a test helper; lower a resource limit only from a _test.go file
         # internal/loop composes the loop once for the command line, the terminal
         # and the web, so it sits below all three and above the domain packages.
         # Importing a surface back, or wiring (which imports the terminal for
