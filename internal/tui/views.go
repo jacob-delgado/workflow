@@ -20,8 +20,10 @@ type issueView struct {
 	jql  string
 }
 
-// issueViews are the views a configuration offers, or the one built-in list —
-// open issues assigned to you — when it names none.
+// issueViews are the views a configuration offers, each scoped to your issues
+// unless its query names the assignee, or the one built-in list — open issues
+// assigned to you — when it names none. The scoped query is the view's own, so
+// the issue cache is keyed by what was searched.
 func issueViews(configured []config.JiraView) []issueView {
 	if len(configured) == 0 {
 		return []issueView{{name: defaultViewName, jql: jira.AssignedToMe}}
@@ -29,7 +31,7 @@ func issueViews(configured []config.JiraView) []issueView {
 
 	views := make([]issueView, 0, len(configured))
 	for _, view := range configured {
-		views = append(views, issueView{name: view.Name, jql: view.JQL})
+		views = append(views, issueView{name: view.Name, jql: jira.ScopedToMe(view.JQL)})
 	}
 
 	return views

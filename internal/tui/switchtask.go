@@ -5,6 +5,7 @@ package tui
 
 import (
 	"errors"
+	"slices"
 	"strings"
 
 	"charm.land/bubbles/v2/key"
@@ -24,17 +25,47 @@ const switchTitle = "Switch task"
 // to the person, so the reason says what to do rather than doing it.
 var errDirtyTree = errors.New("uncommitted changes — commit or stash them before switching tasks")
 
-// taskBranch is a local branch that names an issue, offered to switch to.
+// taskBranch is a branch that names an issue, offered to switch to: a local
+// one, or one only the remote has, which switching to creates here.
 type taskBranch struct {
 	name     string
 	issueKey jira.Key
 	summary  string
+	remote   bool
 }
 
-// branchesListed carries the local branches back into the update loop.
+// branchesListed carries the local and remote branches back into the update
+// loop, with which of the issues they name are yours: nil, with no tracker to
+// ask or when asking it failed, counts every one. notAsked is why the tracker
+// could not be asked, kept apart from err, a listing git could not make.
 type branchesListed struct {
-	found []string
-	err   error
+	local, remote []string
+	mine          map[jira.Key]bool
+	notAsked      error
+	err           error
+}
+
+// yours reports whether key names one of your issues.
+func (msg branchesListed) yours(key jira.Key) bool {
+	return msg.mine == nil || msg.mine[key]
+}
+
+// candidates is every branch listed, the local ones first and then those only
+// the remote has, marked so. A name on both is the local branch.
+func (msg branchesListed) candidates() []taskBranch {
+	branches := make([]taskBranch, 0, len(msg.local)+len(msg.remote))
+
+	for _, name := range msg.local {
+		branches = append(branches, taskBranch{name: name})
+	}
+
+	for _, name := range msg.remote {
+		if !slices.Contains(msg.local, name) {
+			branches = append(branches, taskBranch{name: name, remote: true})
+		}
+	}
+
+	return branches
 }
 
 // apply records the branches on the open switcher, or does nothing when it has
@@ -45,28 +76,29 @@ func (msg branchesListed) apply(m Model) (Model, tea.Cmd) {
 		return m, nil
 	}
 
-	picker.branches = pickList[taskBranch]{items: m.taskBranches(msg.found)}
-	picker.listErr, picker.settled = msg.err, true
+	picker.branches = pickList[taskBranch]{items: m.taskBranches(msg)}
+	picker.listErr, picker.notAsked, picker.settled = msg.err, msg.notAsked, true
 	m.overlay = picker
 
 	return m, nil
 }
 
-// taskBranches keeps the branches that name an issue, other than the one
-// checked out, and names each by its issue.
-func (m Model) taskBranches(names []string) []taskBranch {
+// taskBranches keeps the branches that name one of your issues, other than the
+// one checked out, and names each by its issue.
+func (m Model) taskBranches(listed branchesListed) []taskBranch {
 	current := m.branch.branch.Name
 
 	var branches []taskBranch
 
-	for _, name := range names {
-		key, named := convention.IssueKey(name, m.cfg.Jira.Project)
-		if !named || name == current {
+	for _, branch := range listed.candidates() {
+		key, named := convention.IssueKey(branch.name, m.cfg.Jira.Project)
+		if !named || branch.name == current || !listed.yours(jira.Key(key)) {
 			continue
 		}
 
 		issue, _ := m.issues.find(jira.Key(key))
-		branches = append(branches, taskBranch{name: name, issueKey: jira.Key(key), summary: issue.Summary})
+		branch.issueKey, branch.summary = jira.Key(key), issue.Summary
+		branches = append(branches, branch)
 	}
 
 	return branches
@@ -78,6 +110,7 @@ type branchPicker struct {
 	styles   styles
 	branches pickList[taskBranch]
 	listErr  error
+	notAsked error
 	settled  bool
 	send     sendState
 }
@@ -87,22 +120,78 @@ var (
 	_ steppable              = branchPicker{}
 )
 
-// openBranchPicker opens the task switcher and starts listing the local
-// branches.
+// openBranchPicker opens the task switcher and starts listing the branches.
 func (m Model) openBranchPicker() (Model, tea.Cmd) {
 	m.overlay = branchPicker{marks: m.marks, styles: m.styles}
-	list := m.deps.Git.Branches
-
-	return m, func() tea.Msg {
-		found, err := list()
-
-		return branchesListed{found: found, err: err}
+	lister := branchLister{
+		local: m.deps.Git.Branches, remote: m.deps.Git.RemoteBranches,
+		search: m.deps.Jira.SearchLenient, project: m.cfg.Jira.Project,
 	}
+
+	return m, func() tea.Msg { return lister.list() }
+}
+
+// branchLister lists the branches the switcher offers and asks the tracker which
+// of the issues they name are yours. A nil remote lists none there; a nil search
+// asks nothing, and a failed one answers nothing, so every issue counts.
+type branchLister struct {
+	local   func() ([]string, error)
+	remote  func() ([]string, error)
+	search  func(jql string, startAt int) (jira.SearchResult, error)
+	project string
+}
+
+// list is the local branches, then the remote ones, then which issues are yours.
+// A listing git could not make is the listing's error; a tracker that could not
+// be asked leaves every issue counted, with the reason it was not.
+func (l branchLister) list() branchesListed {
+	local, err := l.local()
+	if err != nil {
+		return branchesListed{err: err}
+	}
+
+	remote, err := l.remoteNames()
+	if err != nil {
+		return branchesListed{err: err}
+	}
+
+	if l.search == nil {
+		return branchesListed{local: local, remote: remote}
+	}
+
+	mine, err := loop.AssignedKeys(l.search, l.issueKeys(slices.Concat(local, remote)))
+	if err != nil {
+		return branchesListed{local: local, remote: remote, notAsked: err}
+	}
+
+	return branchesListed{local: local, remote: remote, mine: mine}
+}
+
+// remoteNames lists the remote's branches, or none with no repository to ask.
+func (l branchLister) remoteNames() ([]string, error) {
+	if l.remote == nil {
+		return nil, nil
+	}
+
+	return l.remote()
+}
+
+// issueKeys is the issue key each of names carries, for those that carry one.
+func (l branchLister) issueKeys(names []string) []jira.Key {
+	var keys []jira.Key
+
+	for _, name := range names {
+		if key, named := convention.IssueKey(name, l.project); named {
+			keys = append(keys, jira.Key(key))
+		}
+	}
+
+	return keys
 }
 
 // view draws the switcher in as many rows as fit.
 func (p branchPicker) view(_, rows int) (string, string) {
-	lines := []string{"Switch to another task's branch.", ""}
+	lines := slices.Concat([]string{"Switch to another task's branch.", ""}, p.notAskedNote())
 
 	switch {
 	case !p.settled:
@@ -119,15 +208,39 @@ func (p branchPicker) view(_, rows int) (string, string) {
 	return switchTitle, strings.Join(lines, "\n")
 }
 
-// label names a branch by its issue, with the summary when the issue is one of
-// yours, and the branch name so there is no doubt which will be checked out.
+// notAskedNote is the one line saying the tracker could not be asked which
+// issues are yours, and why, so the list under it holds every issue's branch,
+// set apart from the list by a blank line; nothing when it was asked, or had no
+// need to be.
+func (p branchPicker) notAskedNote() []string {
+	if p.notAsked == nil {
+		return nil
+	}
+
+	// A failure with no sentence of its own already says what was being asked,
+	// and a second lead would push its reason off the row.
+	if _, known := errorSentence(p.notAsked); !known {
+		return []string{failureLine(p.styles, p.marks, p.notAsked), ""}
+	}
+
+	return []string{failedGlyph(p.styles, p.marks) + " could not ask which issues are yours: " + inFull(p.notAsked), ""}
+}
+
+// label names a branch by its issue, with the summary when the Issues pane has
+// loaded the issue, and the branch name so there is no doubt which will be
+// checked out — marked when only the remote has it.
 func (p branchPicker) label(branch taskBranch) string {
 	named := string(branch.issueKey)
 	if branch.summary != "" {
 		named += " " + branch.summary
 	}
 
-	return named + p.marks.separator + branch.name
+	named += p.marks.separator + branch.name
+	if branch.remote {
+		named += " (remote)"
+	}
+
+	return named
 }
 
 // outcome says how switching is going, if it was tried.

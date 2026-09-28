@@ -4,6 +4,7 @@
 package tui_test
 
 import (
+	"slices"
 	"testing"
 
 	tea "charm.land/bubbletea/v2"
@@ -13,11 +14,14 @@ import (
 	"github.com/jacob-delgado/workflow/internal/tui"
 )
 
-// The two views' queries in these tests: the first lists the world's own
-// issues, the second its sprint.
+// The views' queries in these tests: the first lists the world's own issues,
+// the second its sprint, which is searched scoped to your issues, and the third
+// the unassigned ones.
 const (
-	myWorkJQL = "assignee = currentUser()"
-	sprintJQL = "sprint in openSprints()"
+	myWorkJQL       = "assignee = currentUser()"
+	sprintJQL       = "sprint in openSprints()"
+	scopedSprintJQL = "(sprint in openSprints()) AND assignee = currentUser()"
+	triageJQL       = "assignee is EMPTY"
 )
 
 // twoViewConfig is a configuration that names two views, "My work" and then
@@ -36,7 +40,7 @@ func twoViewConfig() config.Config {
 func twoViewRepo() *world {
 	repo := newWorld()
 	repo.viewIssues = map[string][]jira.Issue{
-		sprintJQL: {issue("OPS-9", "Sprint task", "new")},
+		scopedSprintJQL: {issue("OPS-9", "Sprint task", "new")},
 	}
 
 	return repo
@@ -141,7 +145,7 @@ func TestSwitchingViewsRunsTheOtherViewsQuery(t *testing.T) {
 	typing(t, model, "v")
 
 	// Assert
-	if len(repo.asked("search "+sprintJQL)) == 0 {
+	if len(repo.asked("search "+scopedSprintJQL)) == 0 {
 		t.Errorf("switching did not run the second view's query; searches were %v", repo.asked("search"))
 	}
 }
@@ -208,4 +212,44 @@ func TestASingleViewOffersNoSwitch(t *testing.T) {
 	// Assert
 	refuseScreen(t, footerLine(view), "v switch view")
 	refuseScreen(t, view, "Assigned to me")
+}
+
+func TestViewsAreScopedToYourIssuesUnlessTheyNameTheAssignee(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	repo := newWorld()
+	repo.cfg.Jira.Views = []config.JiraView{{Name: "Sprint", JQL: sprintJQL}, {Name: "Triage", JQL: triageJQL}}
+	model := repo.live(t, 120, 40)
+
+	// Act
+	typing(t, model, "v")
+
+	// Assert
+	want := []string{"search " + scopedSprintJQL, "search " + triageJQL}
+	if got := repo.asked("search "); !slices.Equal(got, want) {
+		t.Errorf("searches = %q, want %q", got, want)
+	}
+}
+
+func TestAViewsIssuesAreCachedUnderTheScopedQuery(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	repo := newWorld()
+	repo.cfg.Jira.Views = []config.JiraView{{Name: "Sprint", JQL: sprintJQL}}
+	deps := repo.deps()
+
+	var cachedUnder []string
+
+	deps.Store.CacheIssues = func(view string, _ []jira.Issue) { cachedUnder = append(cachedUnder, view) }
+	model := sized(t, tui.New(repo.cfg, nil, deps), 120, 40)
+
+	// Act
+	drain(t, model, model.Init())
+
+	// Assert
+	if want := []string{scopedSprintJQL}; !slices.Equal(cachedUnder, want) {
+		t.Errorf("the issues were cached under %q, want %q", cachedUnder, want)
+	}
 }
