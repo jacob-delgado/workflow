@@ -20,17 +20,18 @@ const (
 	paneReview
 	paneMessaging
 	paneReviews
+	paneTasks
 )
 
 // paneCount is untyped on purpose: typed as pane, the exhaustive linter would
 // count it as a member and demand a case for it in every switch.
-const paneCount = 6
+const paneCount = 7
 
 // title names a pane. A lookup rather than a switch, because a switch over every
 // pane leaves a final arm that can never be false. The messaging pane is named
 // for the service in use — Slack, Teams, Discord or Webhook.
 func (p pane) title(messaging string) string {
-	titles := [paneCount]string{"Issues", "Branch", "Commits", "Review", messaging, "Reviews"}
+	titles := [paneCount]string{"Issues", "Branch", "Commits", "Review", messaging, "Reviews", "Tasks"}
 
 	return titles[p]
 }
@@ -110,6 +111,11 @@ func behaviorOf(target pane) behavior {
 			rail: Model.reviewQueueRail, detail: Model.reviewQueueDetail, narrow: nil,
 			keys: Model.reviewQueueKeys, handle: Model.handleReviewQueueKey, pick: Model.pickReview,
 			scroll: func(m *Model) *int { return &m.reviewQueue.scroll }, listInDetail: true,
+		},
+		paneTasks: {
+			rail: Model.tasksRail, detail: Model.tasksDetail, narrow: nil,
+			keys: Model.tasksKeys, handle: Model.handleTasksKey, pick: Model.pickTask,
+			scroll: func(m *Model) *int { return &m.tasks.scroll }, listInDetail: true,
 		},
 	}[target]
 }

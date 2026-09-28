@@ -19,6 +19,7 @@ import (
 	"github.com/jacob-delgado/workflow/internal/messaging"
 	"github.com/jacob-delgado/workflow/internal/proc"
 	"github.com/jacob-delgado/workflow/internal/sanitize"
+	"github.com/jacob-delgado/workflow/internal/taskwarrior"
 )
 
 // sendState is an outbound request: whether it is in flight, and the error it
@@ -109,8 +110,11 @@ func errorSentence(err error) (wording, bool) {
 }
 
 // knownErrors is every sentinel a seam can return, each with how it is told.
+// Taskwarrior's come before the programs', so a sentinel of theirs wins over any
+// program error it might wrap.
 func knownErrors() []knownError {
-	return slices.Concat(localErrors(), jiraErrors(), forgeErrors(), messagingErrors(), programErrors())
+	return slices.Concat(localErrors(), jiraErrors(), forgeErrors(), messagingErrors(), taskwarriorErrors(),
+		programErrors())
 }
 
 // localErrors are this package's own wraps of a seam's error, and the refusals
@@ -263,6 +267,49 @@ func messagingErrors() []knownError {
 		{messaging.ErrUnreachable, wording{
 			brief: "could not reach messaging",
 			full:  "The messaging service did not answer. Check the network, then try the announcement again.",
+		}},
+	}
+}
+
+// taskwarriorErrors are Taskwarrior's: finding it, and what it answers.
+func taskwarriorErrors() []knownError {
+	return []knownError{
+		{taskwarrior.ErrNotInstalled, wording{
+			brief: "Taskwarrior is not installed",
+			full: "Taskwarrior is not installed, or no task program is on PATH. Install Taskwarrior 3.5.0 or newer, " +
+				"or set `taskwarrior.program`.",
+		}},
+		{taskwarrior.ErrNotTaskwarrior, wording{
+			brief: "`task` is not Taskwarrior",
+			full: "The `task` on PATH is another program (go-task, most likely). Set `taskwarrior.program` to " +
+				"Taskwarrior's path; `workflow doctor` names what it found.",
+		}},
+		{taskwarrior.ErrTooOld, wording{
+			brief: "Taskwarrior is too old",
+			full:  "Taskwarrior is too old: 3.5.0 or newer is needed; `workflow doctor` shows the version found.",
+		}},
+		{taskwarrior.ErrNotConfigured, wording{
+			brief: "Taskwarrior has never run",
+			full:  "Run `task` once in a terminal so it creates its configuration, then refresh.",
+		}},
+		{taskwarrior.ErrNothingChanged, wording{
+			brief: "nothing changed",
+			full:  "Taskwarrior changed nothing: the task is already in that state, or is no longer pending. Refresh.",
+		}},
+		{taskwarrior.ErrRefused, ownWords()},
+		{taskwarrior.ErrBadOutput, wording{
+			brief: "unreadable answer",
+			full:  "Taskwarrior answered with something other than its JSON; `task export` in a terminal shows what.",
+		}},
+		{taskwarrior.ErrNoSync, wording{
+			brief: "no sync backend",
+			full: "No sync backend is set in your taskrc, so there is nowhere to sync. Set one of the sync.* " +
+				"settings (task-sync(5)).",
+		}},
+		{taskwarrior.ErrAnnotateFailed, wording{
+			brief: "created, not annotated",
+			full: "The task was created but the issue's link could not be added as an annotation: " +
+				"`task <id> annotate <url>` adds it.",
 		}},
 	}
 }

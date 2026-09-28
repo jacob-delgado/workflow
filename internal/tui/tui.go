@@ -82,6 +82,7 @@ type Model struct {
 	review      reviewState
 	messaging   messagingState
 	reviewQueue reviewQueueState
+	tasks       tasksState
 	hookgen     hookgenState
 
 	// programOptions are what Run adds to the program it starts, so a choice
@@ -156,7 +157,7 @@ func Run(ctx context.Context, model Model, out io.Writer) error {
 // own.
 func (m Model) Init() tea.Cmd {
 	return tea.Batch(m.searchIssues(), m.loadBranch(), m.loadChanges(), m.findHooks(),
-		m.loadReviewQueue(), m.loadAnnounces())
+		m.loadReviewQueue(), m.loadAnnounces(), m.loadTasks())
 }
 
 // Update implements tea.Model. Every load and result is an applier, which knows

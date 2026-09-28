@@ -91,6 +91,8 @@ type styles struct {
 	// Each system on the spine has its own hue, from the terminal's own
 	// palette, so the user's theme chooses the shade.
 	jira, git, forge, messaging lipgloss.Style
+	// tasks is Taskwarrior's hue, for the active task at the spine's end.
+	tasks lipgloss.Style
 }
 
 // ANSI palette indices for the spine and for failure. Indices, not colors: the
@@ -101,6 +103,7 @@ const (
 	ansiYellow  = "3"
 	ansiBlue    = "4"
 	ansiMagenta = "5"
+	ansiCyan    = "6"
 )
 
 // newStyles builds the styles. With color off, the hues drop to plain while
@@ -112,7 +115,10 @@ func newStyles(color bool) styles {
 	if !color {
 		plain := lipgloss.NewStyle()
 
-		return styles{label: label, strong: strong, failure: plain, jira: plain, git: plain, forge: plain, messaging: plain}
+		return styles{
+			label: label, strong: strong, failure: plain,
+			jira: plain, git: plain, forge: plain, messaging: plain, tasks: plain,
+		}
 	}
 
 	return styles{
@@ -123,5 +129,6 @@ func newStyles(color bool) styles {
 		git:       lipgloss.NewStyle().Foreground(lipgloss.Color(ansiYellow)),
 		forge:     lipgloss.NewStyle().Foreground(lipgloss.Color(ansiGreen)),
 		messaging: lipgloss.NewStyle().Foreground(lipgloss.Color(ansiMagenta)),
+		tasks:     lipgloss.NewStyle().Foreground(lipgloss.Color(ansiCyan)),
 	}
 }
