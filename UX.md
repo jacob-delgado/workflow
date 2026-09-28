@@ -1929,8 +1929,8 @@ header that says Live, with no reason and no Retry.
   reads as an empty view.
 
 `TestStreamSnapshotDegradesWhenSeamsFail`
-(`internal/webserver/stream_test.go:232`) pins the web's silence (its
-assert at `:249` wants `snap.Issues.Total` zero for a failing `Search`), the
+(`internal/webserver/stream_test.go:233`) pins the web's silence (its
+assert at `:250` wants `snap.Issues.Total` zero for a failing `Search`), the
 terminal's "each pane fails on its own" has no web twin, and only the
 opt-in `--log` records the failed request.
 
