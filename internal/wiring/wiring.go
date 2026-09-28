@@ -105,6 +105,7 @@ func Deps(ctx context.Context, cfg config.Config, where Workspace, log *RequestL
 		Hooks:      hookDeps(ctx, where.Root),
 		Editor:     editorDeps(where.Root),
 		Store:      storeDeps(ctx, onDisk(cfg), cfg, where),
+		Tasks:      taskDeps(ctx, cfg.Taskwarrior),
 		Clock:      nil,
 		CIInterval: cfg.CIInterval(),
 		Notify:     ringTerminal,
