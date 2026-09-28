@@ -369,6 +369,21 @@ func TestACommitGitCannotRunLeavesNoMessageBehind(t *testing.T) {
 	}
 }
 
+func TestAFetchGitCannotRunSaysGitWasNotFound(t *testing.T) {
+	// Arrange
+	t.Setenv("PATH", t.TempDir())
+
+	repo := wired(t, config.Default(), wiring.Workspace{Root: t.TempDir(), Remote: ""}, nil).Git
+
+	// Act
+	err := repo.Fetch()
+
+	// Assert
+	if !errors.Is(err, proc.ErrNotFound) {
+		t.Errorf("Fetch = %v, want git's failure to start", err)
+	}
+}
+
 func TestTheForgeSeamRetriesAfterAFailedConnection(t *testing.T) {
 	// Arrange
 	isolateGit(t)
