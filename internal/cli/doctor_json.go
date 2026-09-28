@@ -39,12 +39,14 @@ type repositoryFacts struct {
 	Forge          string `json:"forge,omitempty"`
 }
 
-// toolFacts is one external program and whether it was found.
+// toolFacts is one external program and whether it was found, and what its
+// probe found or why it cannot be used, where it said more.
 type toolFacts struct {
 	Name     string `json:"name"`
 	Found    bool   `json:"found"`
 	Required bool   `json:"required"`
 	Effect   string `json:"effect"`
+	Detail   string `json:"detail,omitempty"`
 }
 
 // configFacts is the configuration in effect.
@@ -78,7 +80,7 @@ type credentialLine struct {
 // the prose report would, so a script can read the exit code as well as the data.
 func runDoctorJSON(ctx context.Context, out io.Writer, run doctorRun) error {
 	repository, remote := repositoryFactsFor(ctx)
-	tooling, toolingErr := toolingFacts()
+	tooling, toolingErr := toolingFacts(ctx, run.cfg)
 
 	report := doctorReport{Version: buildinfo.Current(), Repository: repository, Tooling: tooling}
 

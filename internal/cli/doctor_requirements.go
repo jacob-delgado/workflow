@@ -4,15 +4,19 @@
 package cli
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"io"
 	"os"
+	"runtime"
 	"strings"
 
 	"github.com/jacob-delgado/workflow/internal/config"
 	"github.com/jacob-delgado/workflow/internal/forge"
 	"github.com/jacob-delgado/workflow/internal/proc"
+	"github.com/jacob-delgado/workflow/internal/sanitize"
+	"github.com/jacob-delgado/workflow/internal/taskwarrior"
 	"github.com/jacob-delgado/workflow/internal/tui"
 )
 
@@ -115,11 +119,14 @@ type tool struct {
 	name     string
 	required bool
 	effect   string
+	// probe says whether the program is there to use, and a detail when that
+	// takes more than finding its name on PATH; nil looks the name up.
+	probe func() (bool, string)
 }
 
 // externalTools names the programs doctor looks for. Built by a function rather
 // than held in a package-level variable, which gochecknoglobals forbids.
-func externalTools() []tool {
+func externalTools(ctx context.Context, cfg config.Config) []tool {
 	return []tool{
 		{
 			name:     "git",
@@ -136,22 +143,37 @@ func externalTools() []tool {
 			required: false,
 			effect:   "supplies a GitHub token when none is configured",
 		},
+		{
+			name:     "taskwarrior",
+			required: false,
+			effect:   "the Tasks pane and section are not offered without it",
+			probe:    func() (bool, string) { return taskwarriorProbe(ctx, cfg.Taskwarrior) },
+		},
 	}
+}
+
+// lookFor says whether program is there to use, and any detail its probe gives.
+func (program tool) lookFor() (bool, string) {
+	if program.probe == nil {
+		return proc.Available(program.name), ""
+	}
+
+	return program.probe()
 }
 
 // toolingFacts looks for each external program, and names any required one that
 // is absent. It is the one place the programs are looked for, so the prose and
 // JSON reports cannot disagree about what is installed.
-func toolingFacts() ([]toolFacts, error) {
-	programs := externalTools()
+func toolingFacts(ctx context.Context, cfg config.Config) ([]toolFacts, error) {
+	programs := externalTools(ctx, cfg)
 	facts := make([]toolFacts, 0, len(programs))
 
 	var missing []string
 
 	for _, program := range programs {
-		installed := proc.Available(program.name)
+		installed, detail := program.lookFor()
 		facts = append(facts, toolFacts{
-			Name: program.name, Found: installed, Required: program.required, Effect: program.effect,
+			Name: program.name, Found: installed, Required: program.required, Effect: program.effect, Detail: detail,
 		})
 
 		if !installed && program.required {
@@ -168,10 +190,10 @@ func toolingFacts() ([]toolFacts, error) {
 
 // reportTooling lists the external programs and returns an error naming any
 // required one that is absent.
-func reportTooling(out io.Writer) error {
+func reportTooling(ctx context.Context, out io.Writer, cfg config.Config) error {
 	fmt.Fprintln(out, "Tooling:")
 
-	facts, err := toolingFacts()
+	facts, err := toolingFacts(ctx, cfg)
 	for _, program := range facts {
 		fmt.Fprintf(out, "  %-10s %s\n", program.Name, toolStatus(program))
 	}
@@ -179,15 +201,73 @@ func reportTooling(out io.Writer) error {
 	return err
 }
 
-// toolStatus says whether a program was found, and what its absence costs.
+// toolStatus says whether a program was found, and what its absence costs — or,
+// where its probe said more, what it found or why it cannot be used.
 func toolStatus(program toolFacts) string {
-	if program.Found {
+	switch {
+	case program.Found && program.Detail != "":
+		return "found — " + program.Detail
+	case program.Found:
 		return "found"
-	}
-
-	if program.Required {
+	case program.Detail != "":
+		return "not usable — " + program.Detail
+	case program.Required:
 		return "MISSING — " + program.Effect
+	default:
+		return "not found — " + program.Effect
+	}
+}
+
+// taskwarriorProbe finds Taskwarrior as the interface would, and says which it
+// found or why none is usable. Taskwarrior is found by asking each task on PATH,
+// not by its name alone: go-task, the Taskfile runner, is also called task.
+func taskwarriorProbe(ctx context.Context, settings config.Taskwarrior) (bool, string) {
+	if settings.Disabled {
+		return false, "disabled by taskwarrior.disabled"
 	}
 
-	return "not found — " + program.Effect
+	candidates := taskwarrior.Candidates(os.Getenv("PATH"), runtime.GOOS)
+
+	install, err := taskwarrior.Detect(ctx, settings.Program, candidates, proc.CaptureWithin)
+	if err != nil {
+		return false, taskwarriorTrouble(err)
+	}
+
+	found := install.Version + " at " + install.Program
+	if !install.LinkUDADefined {
+		found += "; add uda.jiraid.type=string, uda.jiraid.label=Jira, uda.jiraurl.type=string and " +
+			"uda.jiraurl.label=Jira URL to your taskrc so task jiraid:KEY works in your shell"
+	}
+
+	return true, found
+}
+
+// taskwarriorTrouble words why no Taskwarrior is usable, or says nothing when
+// none is installed, which the row's effect already covers.
+func taskwarriorTrouble(err error) string {
+	switch {
+	case errors.Is(err, taskwarrior.ErrNotInstalled):
+		return ""
+	case errors.Is(err, taskwarrior.ErrNotTaskwarrior):
+		return "task on PATH is not Taskwarrior (go-task?); set taskwarrior.program, e.g. /opt/homebrew/bin/task"
+	case errors.Is(err, taskwarrior.ErrNotConfigured):
+		return "installed but never run; run " + neverRunProgram(err) + " once"
+	case errors.Is(err, taskwarrior.ErrRefused):
+		return sanitize.Line(strings.TrimPrefix(err.Error(), taskwarrior.ErrRefused.Error()+": "))
+	default:
+		// ErrTooOld names the version found, where, and the one needed.
+		return sanitize.Line(err.Error())
+	}
+}
+
+// neverRunProgram is the Taskwarrior found never run, by the path it was found
+// at, since go-task can come first on PATH and answer to task; task when the
+// error names none.
+func neverRunProgram(err error) string {
+	var neverRun taskwarrior.NeverRunError
+	if errors.As(err, &neverRun) && neverRun.Program != "" {
+		return sanitize.Line(neverRun.Program)
+	}
+
+	return "task"
 }
