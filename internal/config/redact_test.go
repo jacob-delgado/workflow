@@ -155,6 +155,12 @@ func TestRedactTextMasksEveryCredentialTheConfigurationHolds(t *testing.T) {
 			cfg:  config.Config{Jira: config.Jira{BaseURL: "https://alice:hunter2@jira.example.com"}},
 			text: "reading https://alice:hunter2@jira.example.com/rest", want: "reading https://xxxxx@jira.example.com/rest",
 		},
+		// An address that does not parse holds no userinfo to mask, and the
+		// token beside it is masked all the same.
+		"a Jira token beside a jira.base_url that does not parse": {
+			cfg:  config.Config{Jira: config.Jira{Token: jiraToken, BaseURL: "http://[::1"}},
+			text: "asked with " + jiraToken, want: "asked with ****1111",
+		},
 		// A header that carries the token is masked whole, not around it.
 		"a credential that holds another": {
 			cfg: config.Config{Jira: config.Jira{
