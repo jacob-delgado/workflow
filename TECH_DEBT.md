@@ -13,14 +13,14 @@ the ideas; this file holds the debts.
 
 Every entry of the 2026-09-24 audit edition, a full read of every surface
 at `f05ae9f` — DEBT-64, DEBT-65, DEBT-71 and DEBT-75 to DEBT-161 — was paid
-down in PRs #141, #144, #145 and #TBD. What the file holds now is the
+down in PRs #141, #144, #145 and #146. What the file holds now is the
 method that edition followed, how to read an entry, one short section per
 surface saying nothing is open there, and the trade-off register: the costs
 chosen on purpose, which a later audit checks each finding against first
 (step 5 below). Numbering continues at DEBT-162, so an ID is never reused.
 
 Checked against commit `29fad1b7` on 2026-09-27 — main once #145 merged —
-with #TBD's commits on top; an entry a later change touches is checked
+with #146's commits on top; an entry a later change touches is checked
 again in that change. Line numbers drift, so every pointer also names the
 symbol it means.
 
@@ -359,7 +359,7 @@ take over the terminal the tests run in, and with none it fails to open
 one, so a test could only ever see it fail. What the interface draws and
 does is tested through the `Model` that `Run` is given.
 
-**Decided.** 2026-09-26, in #TBD.
+**Decided.** 2026-09-26, in #146.
 
 **Cost.** The wording of a start-up failure ("running the interface: …")
 is never checked, and the report keeps one never-evaluated condition.
@@ -385,7 +385,7 @@ sites: `Client.newRequest` (`internal/forge/client.go:189`),
 (`:278`), and `writeSnapshot` (`internal/webserver/stream.go:115`). Each
 check stays, since the project returns an error rather than dropping it.
 
-**Decided.** 2026-09-26, in #TBD.
+**Decided.** 2026-09-26, in #146.
 
 **Cost.** Ten error arms no test runs. A field added later that can fail
 to encode would put one of them in play with no test behind it.
@@ -404,7 +404,7 @@ validates and routes: `loadSpec` (`internal/webserver/validator.go:33`,
 time fails them, and then every web server test fails with it, so no test
 can run against a broken one.
 
-**Decided.** 2026-09-26, in #TBD.
+**Decided.** 2026-09-26, in #146.
 
 **Cost.** Five error arms no test runs: the start-up message for a broken
 contract is read by whoever broke the build, never checked by a test.
@@ -420,7 +420,7 @@ Two conditions fail only for a database driver that is not registered:
 no exported call lets a test cause either, and a seam added only for the
 test would be code kept for the test's sake.
 
-**Decided.** 2026-09-26, in #TBD.
+**Decided.** 2026-09-26, in #146.
 
 **Cost.** Two error arms no test runs, so what a store says when it cannot
 open its driver is read rather than checked.
@@ -441,7 +441,7 @@ issue list: `BeginTx` in `Store.CacheIssues`
 (`internal/store/cache.go:111`) takes no lock, so it fails only when the
 context ends between the schema step, which used it, and the transaction.
 
-**Decided.** 2026-09-26, in #TBD.
+**Decided.** 2026-09-26, in #146.
 
 **Cost.** Four error arms no test runs, so what each says when the race is
 lost is read rather than checked.
@@ -458,7 +458,7 @@ itself, at `messaging.APIBase`, which nothing configures. The token check
 is tested in `internal/messaging` against a local server; the command's
 own handling of an accepted token is not.
 
-**Decided.** 2026-09-26, in #TBD.
+**Decided.** 2026-09-26, in #146.
 
 **Cost.** The user and team doctor prints for an accepted bot token are
 never checked through the command.
@@ -484,7 +484,7 @@ names it: `connectLeniently` and `loadFromEnvironment`
 macOS lacks, by `TestRequestLogWarnsOnceWhenItCouldNotBeWritten`
 (`internal/cli/reqlog_test.go`).
 
-**Decided.** 2026-09-26, in #TBD.
+**Decided.** 2026-09-26, in #146.
 
 **Cost.** `task cover:branch` on macOS reads seven arms fewer than CI does,
 and lists seven conditions a reader there could take for untested.
@@ -516,7 +516,7 @@ each, `internal/webserver` 6, `internal/buildinfo`, `internal/editor` and
 `internal/store` 5 each, `internal/wiring` 4, `internal/jira` 3,
 `internal/sanitize` 2 and `internal/tui/layout` 1.
 
-**Decided.** 2026-09-26, in #TBD, which gave every condition that never
+**Decided.** 2026-09-26, in #146, which gave every condition that never
 ran and every `err != nil` seen one way a test or an entry above, and left
 the rest to the report.
 

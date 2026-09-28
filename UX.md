@@ -13,7 +13,7 @@ have since shipped, so an ID is never reused.
 Checked against commit `f05ae9f` on 2026-09-24 (main after the debt
 paydown, PRs #134 and #136, and a Dependabot bump). Its entries were read
 at that commit; every pointer was checked again against the symbol it
-names at `29fad1b7`, main once #145 merged, with #TBD's commits on top,
+names at `29fad1b7`, main once #145 merged, with #146's commits on top,
 and an entry a later change touched was checked again in that change.
 Line numbers drift, so every pointer also names the symbol it means.
 
