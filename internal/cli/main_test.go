@@ -4,8 +4,10 @@
 package cli_test
 
 import (
+	"encoding/pem"
 	"fmt"
 	"io/fs"
+	"net/http/httptest"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -20,7 +22,8 @@ import (
 // start, theirs or the command's under test, would inherit it and work on that
 // repository instead of its temporary one. A pre-push once set core.bare, moved
 // main and wrote a stranger's identity into it that way. The names are git's
-// own list for the purpose, `git rev-parse --local-env-vars`.
+// own list for the purpose, `git rev-parse --local-env-vars`. It also trusts
+// the local servers the tests deliver to, for as long as they run.
 func TestMain(m *testing.M) {
 	for _, name := range []string{
 		"GIT_ALTERNATE_OBJECT_DIRECTORIES", "GIT_CONFIG", "GIT_CONFIG_PARAMETERS", "GIT_CONFIG_COUNT",
@@ -35,7 +38,49 @@ func TestMain(m *testing.M) {
 		}
 	}
 
-	os.Exit(m.Run())
+	roots := trustTestServers()
+	code := m.Run()
+
+	err := os.Remove(roots)
+	if err != nil {
+		panic(err)
+	}
+
+	os.Exit(code)
+}
+
+// trustTestServers makes the certificate every httptest TLS server presents
+// the only one the process trusts, so a command can deliver to a local webhook
+// over https, the one scheme the messaging client accepts. SSL_CERT_FILE names
+// it, which macOS honors as Linux does since Go 1.27; the system reads its
+// roots once, at the first connection, so this runs before any test. It
+// returns the file it wrote, for removing once the tests are done.
+func trustTestServers() string {
+	server := httptest.NewTLSServer(nil)
+	certificate := server.Certificate()
+	server.Close()
+
+	file, err := os.CreateTemp("", "workflow-test-roots-*.pem")
+	if err != nil {
+		panic(err)
+	}
+
+	err = pem.Encode(file, &pem.Block{Type: "CERTIFICATE", Bytes: certificate.Raw})
+	if err != nil {
+		panic(err)
+	}
+
+	err = file.Close()
+	if err != nil {
+		panic(err)
+	}
+
+	err = os.Setenv("SSL_CERT_FILE", file.Name())
+	if err != nil {
+		panic(err)
+	}
+
+	return file.Name()
 }
 
 func TestTheTestsLeaveTheRepositoryAHookNamesAlone(t *testing.T) {
