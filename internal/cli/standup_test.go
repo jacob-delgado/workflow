@@ -6,8 +6,10 @@ package cli_test
 import (
 	"errors"
 	"net/http"
+	"net/http/httptest"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"strings"
 	"sync/atomic"
 	"testing"
@@ -107,6 +109,43 @@ func TestStandupDraftsCommitsIssuesAndPulls(t *testing.T) {
 		if !strings.Contains(out, want) {
 			t.Errorf("standup draft missing %q:\n%s", want, out)
 		}
+	}
+}
+
+func TestStandupListsNoPullRequestWhenTheBranchesCannotBeRead(t *testing.T) {
+	// Arrange
+	// The branch has an open pull request, but the repository is moved aside
+	// while Jira answers, after its commits were read and before its branches
+	// are, so the branch list fails and the draft goes on without it.
+	fakeGh(t, ghResponses{pulls: openPull("Add login")})
+	repo := githubRepo(t, "fix/PROJ-7-login")
+	commit(t, repo, "Fix the login")
+
+	server := httptest.NewServer(http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
+		if strings.HasSuffix(request.URL.Path, "/search") {
+			err := os.Rename(filepath.Join(repo, ".git"), filepath.Join(repo, ".git-moved"))
+			if err != nil {
+				t.Errorf("moving the repository aside: %v", err)
+			}
+		}
+
+		_, _ = writer.Write([]byte(standupSearch("PROJ-7", "Fix the login", "In Progress")))
+	}))
+	t.Cleanup(server.Close)
+
+	writeFile(t, repo, `{"jira":{"base_url":"`+server.URL+`","token":"t"},`+
+		`"forge":{"cli":true,"kind":"github","host":"github.com"}}`)
+
+	// Act
+	out, err := run(t, repo, "standup", "--no-edit")
+	// Assert
+	if err != nil {
+		t.Fatalf("standup = %v, want the draft without its pull requests (%s)", err, out)
+	}
+
+	if !strings.Contains(out, "PROJ-7") || !strings.Contains(out, "## Pull requests\n- none") ||
+		strings.Contains(out, "Add login") {
+		t.Errorf("standup did not draft the issue and list no pull request:\n%s", out)
 	}
 }
 
