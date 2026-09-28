@@ -10,7 +10,8 @@
 //
 // The command line and the terminal interface take these bundles, and the web
 // server takes the same functions narrowed into a webserver.Deps by
-// cli.WebDeps, so any surface can import them without importing the terminal.
+// cli.WebDeps — Taskwarrior's bundle whole, since the API uses every function
+// in it — so any surface can import them without importing the terminal.
 // The package therefore imports only the domain packages and internal/loop,
 // and nothing that imports a surface. A depguard rule in .golangci.yml holds
 // that direction.
@@ -23,6 +24,7 @@ import (
 	"github.com/jacob-delgado/workflow/internal/jira"
 	"github.com/jacob-delgado/workflow/internal/loop"
 	"github.com/jacob-delgado/workflow/internal/proc"
+	"github.com/jacob-delgado/workflow/internal/taskwarrior"
 )
 
 // Jira is what a surface asks of the issue tracker.
@@ -159,4 +161,37 @@ type Hooks struct {
 	Existing func() ([]hooks.GitHook, bool)
 	// Write creates a generated configuration and installs lefthook's hooks.
 	Write func(generated hooks.Generated) error
+}
+
+// Tasks is what a surface asks of Taskwarrior. Every function is nil when no
+// task program is on PATH and none is configured, or taskwarrior.disabled is
+// set, so the Tasks pane and section say so and offer nothing. Anything else is
+// settled on first use: a configured program that is not there, one that
+// answers as go-task, an older Taskwarrior, one never run, or one whose taskrc
+// has a malformed line makes Install and every other function return
+// taskwarrior.ErrNotInstalled, ErrNotTaskwarrior, ErrTooOld, ErrNotConfigured
+// or ErrRefused, which the surfaces word.
+type Tasks struct {
+	// Install is the Taskwarrior that answered.
+	Install func() (taskwarrior.Install, error)
+	// Pending is the pending tasks of the active context, most urgent first.
+	Pending func() (taskwarrior.List, error)
+	// Linked is every task linked to an issue and not deleted, whatever the
+	// active context hides.
+	Linked func() ([]taskwarrior.Task, error)
+	// Add creates a task from a line in Taskwarrior's grammar and returns its
+	// uuid.
+	Add func(line string) (string, error)
+	// Start, Stop and Done change the task a uuid names.
+	Start func(uuid string) error
+	Stop  func(uuid string) error
+	Done  func(uuid string) error
+	// Annotate adds text to a task as an annotation.
+	Annotate func(uuid, text string) error
+	// Modify changes a task by a line in Taskwarrior's grammar.
+	Modify func(uuid, line string) error
+	// Undo reverts Taskwarrior's last change and says how much it reverted.
+	Undo func() (string, error)
+	// Sync syncs with the backend the taskrc names, and says what it printed.
+	Sync func() (string, error)
 }

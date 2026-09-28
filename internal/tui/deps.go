@@ -31,6 +31,9 @@ type Deps struct {
 	Hooks     seams.Hooks
 	Editor    EditorDeps
 	Store     seams.Store
+	// Tasks is nil-fielded when no task program is found or the integration is
+	// disabled; see seams.Tasks.
+	Tasks seams.Tasks
 	// Clock tells the time, for how long ago a comment was written. Nil means
 	// time.Now.
 	Clock func() time.Time
