@@ -64,7 +64,7 @@ that needs one of them reopened goes in the
   channel's history, so it asks for no scope that would let it.
 - **One process, which ends when the interface closes.** Nothing runs once
   it is gone, which the usage guide lists as a limit: *Nothing outlives the
-  session* (`docs/content/docs/usage.md:336`).
+  session* (`docs/content/docs/usage.md:355`).
 
 ## Issues
 
@@ -82,7 +82,7 @@ Impact: medium · Effort: medium
   with its fields, comment, assign and log work. The command line reads Jira
   only in passing — `workflow branch <key>` reads the issue to name the
   branch (`runBranch`, `internal/cli/branch.go:79`), `status` prints the
-  branch issue's summary (`gather`, `internal/cli/status.go:246`), `standup`
+  branch issue's summary (`gather`, `internal/cli/status.go:251`), `standup`
   lists recently updated assigned issues inside its draft (`gatherStandup`,
   `internal/cli/standup.go:177`) and `workflow branch <tab>` completes
   assigned keys (`completeAssignedIssues`, `internal/cli/scriptable.go:175`)
@@ -113,7 +113,7 @@ Impact: medium · Effort: large
   (`TransitionIssue`, `internal/webserver/issuewrite.go:104`). Beyond those
   it has no transition with its field form, no comment, no assign, no log
   work — all of which the interface offers from the Issues pane
-  (`openStatusPicker`, `internal/tui/picker.go:207`; `startComment`,
+  (`openStatusPicker`, `internal/tui/picker.go:208`; `startComment`,
   `internal/tui/comment.go:41`; `openAssign`,
   `internal/tui/issuewrite.go:74`). This is the rest.
 - Touches: `api/openapi.yaml` (operations for a transition with fields,
@@ -234,7 +234,7 @@ Impact: medium · Effort: large
 - Why: The web's Review section shows a pull request and its CI and can
   open one, but cannot re-run failed checks, merge, finish the merged
   branch or edit the pull request's title and body — all of which the
-  interface does with `R`, `M`, `F` and `e` (`internal/tui/checks.go:174`,
+  interface does with `R`, `M`, `F` and `e` (`internal/tui/checks.go:185`,
   `internal/tui/merge.go:124`, `internal/tui/finish.go:48`,
   `internal/tui/preditor.go:40`). The terminal's merge and finish shipped
   with the web's left for later; this is that later, with the re-run and
@@ -275,7 +275,7 @@ Impact: medium · Effort: medium
   `announceSeams.Post` in `internal/cli/announce.go` both post through; the
   web server's `Deps.Post`, which records nothing yet — FEAT-84), and the
   *Each announcement is its own message* limit in
-  `docs/content/docs/usage.md:345`.
+  `docs/content/docs/usage.md:365`.
 - Done when: the second announcement of a pull request is posted as a reply
   to the first when a bot token is configured; with a webhook it posts
   top-level and the preview says why; the store still holds no token.
@@ -303,7 +303,7 @@ Impact: low · Effort: small
   store and do not offer again a moment an earlier session announced
   (`loop.Deliver`, `internal/loop/announce.go:206`; `offerAgain`,
   `internal/cli/announce.go:162`). The web's `Announce`
-  (`internal/webserver/announce.go:33`) posts through `Deps.Post` and
+  (`internal/webserver/announce.go:43`) posts through `Deps.Post` and
   neither records nor reads, so an announcement made in the browser is
   invisible to the terminal, which offers it again, and the web's work story
   never marks its Announce step done (`onHeadStages`,
@@ -388,9 +388,9 @@ Impact: low · Effort: medium
 
 - Why: a view on `sprint in openSprints()` already lists what is left this
   sprint — the configuration guide's *Sprint board* example
-  (`docs/content/docs/configuration.md:170`) — but flat, one row per issue
+  (`docs/content/docs/configuration.md:189`) — but flat, one row per issue
   with a status glyph, in update order (`issueList.render`,
-  `internal/tui/issues.go:249`). What is missing is grouping by status: how
+  `internal/tui/issues.go:256`). What is missing is grouping by status: how
   much is to do, in progress or in review is read by scanning glyphs.
 - Touches: `internal/tui/issues.go` (status headings in the list), and
   `internal/jira`'s Agile API only for what JQL cannot give — the sprint's
