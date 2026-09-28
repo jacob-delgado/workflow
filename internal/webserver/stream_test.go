@@ -4,6 +4,7 @@
 package webserver_test
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"flag"
@@ -255,27 +256,15 @@ func TestStreamRepushesOnTheInterval(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
-	ctx, cancel := context.WithCancel(context.Background())
 	info := webserver.Info{Version: testVersion, StreamInterval: 2 * time.Millisecond}
 	handler := serveWith(t, filledDeps(), config.Default(), info)
-	request := httptest.NewRequestWithContext(ctx, http.MethodGet, "/api/events", nil)
-	request.Host = loopbackHost
-	recorder := httptest.NewRecorder()
-	done := make(chan struct{})
 
 	// Act
-	go func() {
-		handler.ServeHTTP(recorder, request)
-		close(done)
-	}()
-
-	time.Sleep(40 * time.Millisecond)
-	cancel()
-	<-done
+	pushes := streamUntilRepushed(t, handler)
 
 	// Assert
-	if pushes := strings.Count(recorder.Body.String(), "event: snapshot"); pushes < 2 {
-		t.Errorf("got %d snapshots, want at least 2 (connect, then a re-push)", pushes)
+	if pushes < 2 {
+		t.Errorf("got %d snapshots in %s, want at least 2 (connect, then a re-push)", pushes, repushWait)
 	}
 }
 
@@ -357,6 +346,66 @@ func (f *failingFlushWriter) Header() http.Header {
 func (f *failingFlushWriter) Write([]byte) (int, error) { return 0, errSeam }
 func (f *failingFlushWriter) WriteHeader(int)           {}
 func (f *failingFlushWriter) Flush()                    {}
+
+// repushWait is how long a test waits for the stream's first re-push: far past
+// any interval a test sets, so a loaded machine still sees it, yet well under
+// defaultStreamInterval, so a stream that ignores Info.StreamInterval fails the
+// test rather than passing on the default cadence. A wait at the default would
+// tie with its timer, and the tie can pass.
+const repushWait = time.Second
+
+// repushWatcher is a flushable http.ResponseWriter that counts the snapshots
+// the stream writes and closes repushed at the second, the first re-push after
+// the one on connect. The handler's goroutine is its only writer, so pushes is
+// read once the handler has returned.
+type repushWatcher struct {
+	header   http.Header
+	pushes   int
+	repushed chan struct{}
+}
+
+func (r *repushWatcher) Header() http.Header { return r.header }
+func (r *repushWatcher) WriteHeader(int)     {}
+func (r *repushWatcher) Flush()              {}
+
+func (r *repushWatcher) Write(frame []byte) (int, error) {
+	before := r.pushes
+	r.pushes += bytes.Count(frame, []byte("event: snapshot"))
+
+	if before < 2 && r.pushes >= 2 {
+		close(r.repushed)
+	}
+
+	return len(frame), nil
+}
+
+// streamUntilRepushed runs the events handler until it has re-pushed once, or
+// repushWait has passed, then disconnects. It returns how many snapshots the
+// stream wrote.
+func streamUntilRepushed(t *testing.T, handler http.Handler) int {
+	t.Helper()
+
+	ctx, cancel := context.WithCancel(context.Background())
+	request := httptest.NewRequestWithContext(ctx, http.MethodGet, "/api/events", nil)
+	request.Host = loopbackHost
+	watcher := &repushWatcher{header: http.Header{}, repushed: make(chan struct{})}
+	done := make(chan struct{})
+
+	go func() {
+		handler.ServeHTTP(watcher, request)
+		close(done)
+	}()
+
+	select {
+	case <-watcher.repushed:
+	case <-time.After(repushWait):
+	}
+
+	cancel()
+	<-done
+
+	return watcher.pushes
+}
 
 func TestStreamFrameMatchesTheClientGolden(t *testing.T) {
 	t.Parallel()
