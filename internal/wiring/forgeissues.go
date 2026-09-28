@@ -53,9 +53,10 @@ func trackerDeps(
 // those features simply do not appear.
 func forgeIssuesDeps(ctx context.Context, connect func() (forgeConnection, error)) seams.Jira {
 	return seams.Jira{
-		Search:      func(string, int) (jira.SearchResult, error) { return listForgeIssues(ctx, connect) },
-		Issue:       func(issueKey jira.Key) (jira.IssueDetail, error) { return readForgeIssue(ctx, connect, issueKey) },
-		Transitions: func(jira.Key) ([]jira.Transition, error) { return forgeIssueTransitions(), nil },
+		Search:        func(string, int) (jira.SearchResult, error) { return listForgeIssues(ctx, connect) },
+		SearchLenient: func(string, int) (jira.SearchResult, error) { return listForgeIssues(ctx, connect) },
+		Issue:         func(issueKey jira.Key) (jira.IssueDetail, error) { return readForgeIssue(ctx, connect, issueKey) },
+		Transitions:   func(jira.Key) ([]jira.Transition, error) { return forgeIssueTransitions(), nil },
 		Transition: func(issueKey jira.Key, _ jira.Transition, _ []jira.FieldValue) error {
 			return closeForgeIssue(ctx, connect, issueKey)
 		},

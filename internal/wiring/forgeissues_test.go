@@ -56,6 +56,20 @@ func TestTheForgeTrackerListsAssignedIssuesAsSearchRows(t *testing.T) {
 	}
 }
 
+func TestTheForgeTrackerAnswersALenientSearchAsItsSearch(t *testing.T) {
+	// Arrange
+	installForgeCLI(t, "gh", forgeReplies{search: theBugList})
+	tracker := forgeTracker(t)
+
+	// Act
+	result, err := tracker.SearchLenient("key in (42, 7)", 0)
+
+	// Assert
+	if err != nil || len(result.Issues) != 1 || result.Issues[0].Key != "42" {
+		t.Errorf("SearchLenient = %+v, %v; want the assigned issue 42", result, err)
+	}
+}
+
 func TestTheForgeTrackerReadsAnIssueAsDetail(t *testing.T) {
 	// Arrange
 	installForgeCLI(t, "gh", forgeReplies{issue: theBugDetail})

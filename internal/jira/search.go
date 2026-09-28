@@ -173,21 +173,37 @@ func (w wireIssue) issue() Issue {
 // Search runs a JQL query, returning one page of results from startAt. The
 // result's Total says how many matched, so a caller can page to the end.
 func (c Client) Search(ctx context.Context, jql string, startAt int) (SearchResult, error) {
-	request, err := c.newRequest(ctx, http.MethodGet, searchPath+"?"+searchQuery(jql, startAt), nil)
+	return c.search(ctx, searchQuery(jql, startAt))
+}
+
+// SearchLenient is Search for a query naming values Jira need not know: an
+// issue key whose issue is gone or hidden is skipped, where Search answers 400
+// for the whole query. Only a key check asks this way; a view's own mistake
+// should still be refused.
+func (c Client) SearchLenient(ctx context.Context, jql string, startAt int) (SearchResult, error) {
+	query := searchQuery(jql, startAt)
+	query.Set("validateQuery", "false")
+
+	return c.search(ctx, query)
+}
+
+// search asks for the page query names.
+func (c Client) search(ctx context.Context, query url.Values) (SearchResult, error) {
+	request, err := c.newRequest(ctx, http.MethodGet, searchPath+"?"+query.Encode(), nil)
 
 	answer, err := decode[searchAnswer](c, request, err)
 
 	return answer.result(), err
 }
 
-// searchQuery encodes a search's query string for the page starting at startAt.
-func searchQuery(jql string, startAt int) string {
+// searchQuery is a search's query for the page starting at startAt.
+func searchQuery(jql string, startAt int) url.Values {
 	return url.Values{
 		"jql":        {jql},
 		"fields":     {searchFields},
 		"maxResults": {strconv.Itoa(searchLimit)},
 		"startAt":    {strconv.Itoa(startAt)},
-	}.Encode()
+	}
 }
 
 // result flattens the wire shape.

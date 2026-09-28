@@ -29,11 +29,15 @@ import (
 
 // Jira is what a surface asks of the issue tracker.
 type Jira struct {
-	Search      func(jql string, startAt int) (jira.SearchResult, error)
-	Issue       func(issueKey jira.Key) (jira.IssueDetail, error)
-	Transitions func(issueKey jira.Key) ([]jira.Transition, error)
-	Transition  func(issueKey jira.Key, to jira.Transition, values []jira.FieldValue) error
-	Comment     func(issueKey jira.Key, text string) (jira.Comment, error)
+	Search func(jql string, startAt int) (jira.SearchResult, error)
+	// SearchLenient is Search for a query naming issue keys the tracker may not
+	// know — a branch's issue since deleted or hidden — which it skips rather
+	// than refusing the whole query.
+	SearchLenient func(jql string, startAt int) (jira.SearchResult, error)
+	Issue         func(issueKey jira.Key) (jira.IssueDetail, error)
+	Transitions   func(issueKey jira.Key) ([]jira.Transition, error)
+	Transition    func(issueKey jira.Key, to jira.Transition, values []jira.FieldValue) error
+	Comment       func(issueKey jira.Key, text string) (jira.Comment, error)
 	// Assign sets an issue's assignee by username. Nil when Jira is not
 	// configured.
 	Assign func(issueKey jira.Key, assignee string) error
