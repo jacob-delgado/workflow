@@ -84,7 +84,9 @@ func issueListKept(t *testing.T, dir string) place {
 	}
 
 	deps, _ := wiring.Deps(t.Context(), cfg, wiring.Locate(t.Context(), where.dir), nil)
-	deps.Store.CacheIssues(keptView, []jira.Issue{{Key: "PROJ-9", Summary: keptSummary}})
+	// The interface keeps a view's list under the query it searches: the view's
+	// own, narrowed to the user's issues.
+	deps.Store.CacheIssues(jira.ScopedToMe(keptView), []jira.Issue{{Key: "PROJ-9", Summary: keptSummary}})
 
 	return where
 }

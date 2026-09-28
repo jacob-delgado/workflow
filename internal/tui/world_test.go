@@ -80,6 +80,8 @@ type world struct {
 	worklogErr    error
 	linkErr       error
 	postedChannel string
+	// assignedKeys are the keys the lenient search answers as yours; nil answers every key it is asked.
+	assignedKeys []jira.Key
 
 	branch            gitrepo.Branch
 	branches          []string
@@ -372,6 +374,11 @@ func (w *world) jiraDeps() seams.Jira {
 
 			return jira.SearchResult{Issues: slices.Clone(issues[start:end]), Total: len(issues)}, nil
 		},
+		SearchLenient: func(jql string, _ int) (jira.SearchResult, error) {
+			w.record("lenient " + jql)
+
+			return w.assignedAmong(jql), nil
+		},
 		Issue: func(key jira.Key) (jira.IssueDetail, error) {
 			w.record("issue " + string(key))
 
@@ -417,6 +424,22 @@ func (w *world) jiraDeps() seams.Jira {
 		},
 		BrowseURL: func(key jira.Key) string { return "https://jira.example.com/browse/" + string(key) },
 	}
+}
+
+// assignedAmong answers a `key in (…)` query, in one page, with the keys it names
+// that assignedKeys holds, or every one when assignedKeys is nil.
+func (w *world) assignedAmong(jql string) jira.SearchResult {
+	named, _, _ := strings.Cut(strings.TrimPrefix(jql, "key in ("), ")")
+
+	var found []jira.Issue
+
+	for key := range strings.SplitSeq(named, ", ") {
+		if w.assignedKeys == nil || slices.Contains(w.assignedKeys, jira.Key(key)) {
+			found = append(found, jira.Issue{Key: jira.Key(key)})
+		}
+	}
+
+	return jira.SearchResult{Issues: found, Total: len(found)}
 }
 
 // hookDeps fakes lefthook.
