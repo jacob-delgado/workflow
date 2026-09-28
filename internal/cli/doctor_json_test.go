@@ -258,6 +258,24 @@ func TestDoctorJSONOnlineReportsARateLimitAsUnreachable(t *testing.T) {
 	wantExit(t, err, 5)
 }
 
+func TestDoctorJSONOnlineCallsARefusedCredentialRejected(t *testing.T) {
+	// Arrange
+	server := jiraServer(t, http.StatusUnauthorized, "<html>login</html>", new(atomic.Bool))
+
+	dir := t.TempDir()
+	writeConfigFor(t, dir, server.URL)
+
+	// Act
+	output, err := run(t, dir, "doctor", "--json", "--online")
+
+	// Assert
+	if got := credentialStatusIn(decodeReport(t, output), jiraService); got != "rejected" {
+		t.Errorf("the online report calls Jira's refusal %q, want rejected:\n%s", got, output)
+	}
+
+	wantExit(t, err, 3)
+}
+
 // emptyTokenVariable is a token_env the tests set to nothing, standing in for a
 // variable the shell never exported.
 const emptyTokenVariable = "WORKFLOW_TEST_EMPTY_TOKEN"
