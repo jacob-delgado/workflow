@@ -10,8 +10,8 @@ import (
 )
 
 // railPanes is the number of stacked panels the interface draws: Issues,
-// Branch, Commits, Review, the messaging pane and Reviews.
-const railPanes = 6
+// Branch, Commits, Review, the messaging pane, Reviews and Tasks.
+const railPanes = 7
 
 func TestComputeReservesASpineAndAFooter(t *testing.T) {
 	t.Parallel()
@@ -133,14 +133,14 @@ func TestTheFocusedPaneTakesTheRoomTheOthersDoNotNeed(t *testing.T) {
 		focused int
 		want    []int
 	}{
-		"the first":  {height: 40, focused: 0, want: []int{22, 3, 3, 3, 3, 3}},
-		"the middle": {height: 40, focused: 2, want: []int{3, 3, 22, 3, 3, 3}},
-		"the last":   {height: 40, focused: 5, want: []int{3, 3, 3, 3, 3, 22}},
-		// 16 rows leave 14, and 7 content rows after the rules: too few to give
-		// the focused pane a useful height after five compact ones, so every pane
-		// shares — and the leftover row goes to the top pane rather than being
-		// dropped, since a row lost at the bottom of the screen is a visible gap.
-		"a short terminal shares evenly": {height: 16, focused: 3, want: []int{3, 2, 2, 2, 2, 2}},
+		"the first":  {height: 40, focused: 0, want: []int{19, 3, 3, 3, 3, 3, 3}},
+		"the middle": {height: 40, focused: 2, want: []int{3, 3, 19, 3, 3, 3, 3}},
+		"the last":   {height: 40, focused: 6, want: []int{3, 3, 3, 3, 3, 3, 19}},
+		// 16 rows leave 14, and 6 content rows after the rules: too few to give
+		// the focused pane a useful height after six compact ones, so the panes
+		// share them, the top six a row each and the last none, rather than
+		// drop a row at the bottom of the screen, where it is a visible gap.
+		"a short terminal shares evenly": {height: 16, focused: 3, want: []int{2, 2, 2, 2, 2, 2, 1}},
 	}
 
 	for name, tt := range cases {
@@ -149,6 +149,30 @@ func TestTheFocusedPaneTakesTheRoomTheOthersDoNotNeed(t *testing.T) {
 
 			// Act & Assert
 			requireStacked(t, layout.Compute(120, tt.height, railPanes, tt.focused), tt.want, tt.height-3)
+		})
+	}
+}
+
+func TestSevenPanesNeedTwentySixRowsBeforeTheFocusedOneGrows(t *testing.T) {
+	t.Parallel()
+
+	// Seven panes spend eight rule rows, so 80x24 leaves 14 content rows: short
+	// of the 16 that six compact panes and a useful focused one need, so every
+	// pane gets two. Two more rows, and the focused pane takes them.
+	cases := map[string]struct {
+		height int
+		want   []int
+	}{
+		"80x24 gives every pane two rows": {height: 24, want: []int{3, 3, 3, 3, 3, 3, 3}},
+		"80x26 grows the focused one":     {height: 26, want: []int{5, 3, 3, 3, 3, 3, 3}},
+	}
+
+	for name, tt := range cases {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			// Act & Assert
+			requireStacked(t, layout.Compute(80, tt.height, railPanes, 0), tt.want, tt.height-3)
 		})
 	}
 }
@@ -244,8 +268,8 @@ func TestRailAt(t *testing.T) {
 		wantOK        bool
 	}{
 		"top of the first pane":  {width: 120, height: 40, column: 0, row: 1, want: 0, wantOK: true},
-		"inside the third pane":  {width: 120, height: 40, column: 10, row: 27, want: 2, wantOK: true},
-		"last row of the rail":   {width: 120, height: 40, column: 35, row: 37, want: 5, wantOK: true},
+		"inside the third pane":  {width: 120, height: 40, column: 10, row: 24, want: 2, wantOK: true},
+		"last row of the rail":   {width: 120, height: 40, column: 35, row: 37, want: 6, wantOK: true},
 		"the spine is not rail":  {width: 120, height: 40, column: 5, row: 0, wantOK: false},
 		"the detail is not rail": {width: 120, height: 40, column: 60, row: 10, wantOK: false},
 		"the footer is not rail": {width: 120, height: 40, column: 5, row: 39, wantOK: false},

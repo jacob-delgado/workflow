@@ -252,8 +252,9 @@ func (l issueList) move(step int) issueList {
 }
 
 // render draws as many rows as fit, scrolled so the selection stays on screen,
-// and marks a failed search beneath the issues it kept.
-func (l issueList) render(marks glyphs, sty styles, rows int) string {
+// and marks a failed search beneath the issues it kept. mark, when there is
+// one, is a column after each issue's status glyph.
+func (l issueList) render(marks glyphs, sty styles, rows int, mark func(jira.Key) string) string {
 	failed := failedGlyph(sty, marks) + " failed" + marks.separator + "see detail"
 
 	switch {
@@ -266,23 +267,28 @@ func (l issueList) render(marks glyphs, sty styles, rows int) string {
 	case len(l.visible()) == 0:
 		return "no issue matches the filter"
 	case l.err != nil:
-		return l.listing(marks, l.listRows(rows)) + "\n" + failed
+		return l.listing(marks, l.listRows(rows), mark) + "\n" + failed
 	}
 
-	return l.listing(marks, rows)
+	return l.listing(marks, rows, mark)
 }
 
 // listing is the issues the filter admits, as many as fit in rows, scrolled so
-// the selection stays on screen.
-func (l issueList) listing(marks glyphs, rows int) string {
+// the selection stays on screen. A nil mark draws no column.
+func (l issueList) listing(marks glyphs, rows int, mark func(jira.Key) string) string {
 	visible := l.visible()
 	first, last := window(l.selected, len(visible), rows)
 	lines := make([]string, 0, last-first)
 
+	column := func(jira.Key) string { return "" }
+	if mark != nil {
+		column = mark
+	}
+
 	for index := first; index < last; index++ {
 		issue := visible[index]
-		lines = append(lines, marks.marker(index == l.selected)+marks.status(issue.StatusCategory)+" "+
-			string(issue.Key)+" "+issue.Summary)
+		lines = append(lines, marks.marker(index == l.selected)+marks.status(issue.StatusCategory)+column(issue.Key)+
+			" "+string(issue.Key)+" "+issue.Summary)
 	}
 
 	return strings.Join(lines, "\n")

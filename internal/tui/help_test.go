@@ -42,7 +42,7 @@ func placedBindings() []helpGroup {
 		placed("Moving around",
 			"next-pane         tab        next pane",
 			"previous-pane     shift+tab  previous pane",
-			"jump-to-pane      1-6        jump to pane",
+			"jump-to-pane      1-7        jump to pane",
 			"up                ↑/k        up",
 			"down              ↓/j        down",
 			"scroll-up         pgup/K     scroll up",

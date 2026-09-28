@@ -164,9 +164,10 @@ func (m Model) resumeIssue() Model {
 	return m
 }
 
-// issuesRail is the Issues pane's list.
+// issuesRail is the Issues pane's list, each issue marked with its task state
+// when there is a Taskwarrior to ask.
 func (m Model) issuesRail(rows int) string {
-	return m.issues.render(m.marks, m.styles, rows)
+	return m.issues.render(m.marks, m.styles, rows, m.taskMarks())
 }
 
 // issuesNarrow is the collapsed Issues view: the full issue — or the reason
@@ -350,7 +351,14 @@ func (m Model) issueDetailView(width int) string {
 		lines = append(lines, m.styles.label.Render(capped))
 	}
 
-	return wrap(strings.Join(append(lines, m.fullDetail(selected.Key, width)...), "\n"), width)
+	// A blank row sets the Tasks block apart from who reported the issue, unless
+	// the full read, still loading or failed, opens with one of its own.
+	tasks, full := m.issueTasksBlock(selected.Key, width), m.fullDetail(selected.Key, width)
+	if len(tasks) > 0 && full[0] != "" {
+		tasks = append(tasks, "")
+	}
+
+	return wrap(strings.Join(slices.Concat(lines, tasks, full), "\n"), width)
 }
 
 // facts is an issue's type, priority and status on one line, leaving out any

@@ -176,6 +176,7 @@ type world struct {
 	// records whether that run's own Stop was called.
 	runBlocks bool
 	runStop   *bool
+	tasks     *taskWorld
 }
 
 // errRunStopped is how a stopped streamed run reports that it was killed.
@@ -311,6 +312,7 @@ func (w *world) deps() tui.Deps {
 		Hooks:      w.hookDeps(),
 		Editor:     w.editorDeps(),
 		Store:      w.storeDeps(),
+		Tasks:      w.taskDeps(),
 		Clock:      testNow,
 		CIInterval: w.ciInterval,
 		After:      fakeAfter,

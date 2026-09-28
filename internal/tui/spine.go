@@ -4,12 +4,15 @@
 package tui
 
 import (
+	"strconv"
 	"strings"
+	"time"
 
 	"charm.land/lipgloss/v2"
 	"github.com/charmbracelet/x/ansi"
 
 	"github.com/jacob-delgado/workflow/internal/progress"
+	"github.com/jacob-delgado/workflow/internal/taskwarrior"
 	"github.com/jacob-delgado/workflow/internal/tui/layout"
 )
 
@@ -21,7 +24,8 @@ type stage struct {
 }
 
 // spine draws the loop's stages across the top, each in its system's color and
-// with a glyph saying how far it has got. Short of rows it drops the names.
+// with a glyph saying how far it has got, and the active task at its end. Short
+// of rows it drops the names.
 func (m Model) spine(shape layout.Layout) string {
 	stages := m.stages()
 	parts := make([]string, 0, len(stages))
@@ -43,7 +47,66 @@ func (m Model) spine(shape layout.Layout) string {
 		joined = " " + m.styles.strong.Render("DRY RUN") + m.marks.separator + strings.TrimLeft(joined, " ")
 	}
 
-	return ansi.Truncate(joined, shape.Spine.Width, "")
+	return ansi.Truncate(joined+m.activeTaskTail(shape, joined), shape.Spine.Width, "")
+}
+
+// describedAtLeast is the fewest columns of the active task's description the
+// spine shows: with less room, it shows only how long the task has run.
+const describedAtLeast = 8
+
+// activeTaskTail is the active task at the spine's right edge, in Taskwarrior's
+// hue, in the room the stages leave it. Nothing when no task is active.
+func (m Model) activeTaskTail(shape layout.Layout, stages string) string {
+	task, active := m.activeTask()
+	if !active {
+		return ""
+	}
+
+	room := shape.Spine.Width - ansi.StringWidth(stages) - 1
+
+	tail := m.fittedTaskTail(task, room, shape.CompactSpine())
+	if tail == "" {
+		return ""
+	}
+
+	return strings.Repeat(" ", room+1-ansi.StringWidth(tail)) + m.styles.tasks.Render(tail)
+}
+
+// fittedTaskTail is the active task in room columns: what it is, its
+// description cut with the ellipsis where it must be, and how long it has run.
+// Only how long on a compact spine, or where fewer than describedAtLeast
+// columns of the description would show; and nothing where not even that fits,
+// since a time cut short reads as another.
+func (m Model) fittedTaskTail(task taskwarrior.Task, room int, compact bool) string {
+	since := elapsed(task.Start, m.deps.now())
+	brief := m.marks.inFlight + " " + since
+	described := room - ansi.StringWidth(brief+m.marks.separator)
+
+	switch {
+	case ansi.StringWidth(brief) > room:
+		return ""
+	case compact || described < min(describedAtLeast, ansi.StringWidth(task.Description)):
+		return brief
+	default:
+		return m.marks.inFlight + " " + ansi.Truncate(task.Description, described, m.marks.ellipsis) +
+			m.marks.separator + since
+	}
+}
+
+// elapsed is how long it is from one moment to a later one, as briefly as is
+// still clear: minutes, then hours and minutes, then days and hours. A from
+// after to is no time at all.
+func elapsed(from, to time.Time) string {
+	length := max(0, to.Sub(from))
+
+	switch {
+	case length < time.Hour:
+		return strconv.Itoa(int(length.Minutes())) + "m"
+	case length < day:
+		return strconv.Itoa(int(length.Hours())) + "h" + strconv.Itoa(int((length % time.Hour).Minutes())) + "m"
+	default:
+		return strconv.Itoa(int(length/day)) + "d " + strconv.Itoa(int((length % day).Hours())) + "h"
+	}
 }
 
 // initial is a stage name's first letter, the label the compact spine has room
