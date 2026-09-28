@@ -4,9 +4,7 @@
 package webserver_test
 
 import (
-	"context"
 	"net/http"
-	"net/http/httptest"
 	"path/filepath"
 	"slices"
 	"strings"
@@ -143,7 +141,7 @@ func TestTheStoreIsReadOnceAcrossFrames(t *testing.T) {
 
 	// Opening the store's database on every five-second frame is the cost the
 	// cache exists to avoid, and a new repository — nothing learned yet — is
-	// the usual case; a fast stream pushes several frames.
+	// the usual case; a fast stream pushes a second frame.
 	cases := map[string]*scopeStore{
 		"a learned scope": {scope: learnedScope, holds: true},
 		"nothing learned": {},
@@ -157,26 +155,13 @@ func TestTheStoreIsReadOnceAcrossFrames(t *testing.T) {
 			deps := filledDeps()
 			store.wire(&deps)
 
-			ctx, cancel := context.WithCancel(context.Background())
 			info := webserver.Info{Version: testVersion, StreamInterval: 2 * time.Millisecond}
 			handler := serveWith(t, deps, config.Default(), info)
-			request := httptest.NewRequestWithContext(ctx, http.MethodGet, "/api/events", nil)
-			request.Host = loopbackHost
-			recorder := httptest.NewRecorder()
-			done := make(chan struct{})
 
 			// Act
-			go func() {
-				handler.ServeHTTP(recorder, request)
-				close(done)
-			}()
-
-			time.Sleep(40 * time.Millisecond)
-			cancel()
-			<-done
+			pushes := streamUntilRepushed(t, handler)
 
 			// Assert
-			pushes := strings.Count(recorder.Body.String(), "event: snapshot")
 			if reads := store.readCount(); pushes < 2 || reads != 1 {
 				t.Errorf("read the store %d times over %d frames, want once over at least 2", reads, pushes)
 			}
