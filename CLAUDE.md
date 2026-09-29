@@ -216,7 +216,9 @@ without agreement on direction.
     parent, delete children, insert) so a re-cache never leaves a half-updated view.
   - **Parameterized queries only** — every value is a `?` placeholder bound through
     `database/sql`; SQL is never built by string concatenation, no matter how
-    "internal" the value looks.
+    "internal" the value looks. The one exception is a `PRAGMA`, which binds no
+    placeholder: it may be built from this package's own constant, never from a
+    value read from anywhere.
   - **Trust nothing read back from disk.** A file on disk is tamperable and outside
     our process, so **do not trust stored data**: sanitize user/forge/tracker text
     on the way in (defense in depth) *and* again on the way out through
@@ -226,10 +228,15 @@ without agreement on direction.
     or the repository's root path when the remote is missing or unparsable; a
     hash of a base URL; a view's JQL) — the test that proves a credential can't
     reach it ships with any change to its keys.
-  - **Migrations are forward-only and idempotent** (every live `open` runs
-    `migrate`; a `--dry-run` store's read-only open reads a file already on disk
-    as it is and migrates nothing); pre-1.0 there are **no migration shims** for
-    an unreleased schema — change the `CREATE TABLE` and move on (see *YAGNI*).
+  - **The schema has one version, and a file at another is discarded.**
+    `schemaVersion` in `internal/store/store.go` is stamped as `PRAGMA
+    user_version` by the live `open` that makes the file, before its first
+    table; a file whose version differs and holds tables is deleted with its
+    `-wal` and `-shm` companions and made again (the store holds only
+    conveniences, never anything to keep). A `--dry-run` store's read-only open
+    reads a file as it is and neither checks nor stamps it. There are **no
+    migrations**: change the `CREATE TABLE`, bump `schemaVersion`, and move on
+    (see *YAGNI*).
 
 - **License headers**: every `.go` file begins with the two SPDX lines from
   CONTRIBUTING.md. `scripts/check-license-headers.sh` gates this in lefthook,

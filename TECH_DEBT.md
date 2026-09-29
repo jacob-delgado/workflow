@@ -414,15 +414,15 @@ as a file or a flag, or a broken contract reaches a release.
 
 ### TRADE-15 A driver the store imports is taken to be registered
 
-Two conditions fail only for a database driver that is not registered:
-`sql.Open` in `Store.open` and `Store.openAsItIs`
-(`internal/store/store.go:194`, `:225`). The package imports its own, so
+Three conditions fail only for a database driver that is not registered:
+`sql.Open` in `openDatabase`, its check in `openCurrent`, and `sql.Open`
+in `Store.openAsItIs` (`internal/store/store.go:277`, `:230`, `:368`). The package imports its own, so
 no exported call lets a test cause either, and a seam added only for the
 test would be code kept for the test's sake.
 
 **Decided.** 2026-09-26, in #146.
 
-**Cost.** Two error arms no test runs, so what a store says when it cannot
+**Cost.** Three error arms no test runs, so what a store says when it cannot
 open its driver is read rather than checked.
 
 **Reopen when.** One of these failures is reported with a message that
@@ -431,20 +431,27 @@ time, or a seam over the driver arrives for another reason.
 
 ### TRADE-16 Failures only a change between two calls can cause
 
-Four conditions follow a call that has just read the same thing, so they
-fail only when the file system or the context changes between the two, a
-race no test can hold open without a seam. Saving the configuration
-through a link: `followDanglingLink` reads a link `os.Lstat` has just
-found (`internal/config/save.go:218`), and `linkDestination`'s two reads
-follow what the system has just resolved (`:234`, `:245`). Caching the
-issue list: `BeginTx` in `Store.CacheIssues`
+Eleven conditions follow a call that has just read or made the same
+thing, so they fail only when the file system or the context changes
+between the two, a race no test can hold open without a seam. Saving the
+configuration through a link: `followDanglingLink` reads a link `os.Lstat`
+has just found (`internal/config/save.go:218`), and `linkDestination`'s
+two reads follow what the system has just resolved (`:234`, `:245`).
+Caching the issue list: `BeginTx` in `Store.CacheIssues`
 (`internal/store/cache.go:111`) takes no lock, so it fails only when the
 context ends between the schema step, which used it, and the transaction.
+Opening the store at this build's schema version: `holdsTables` lists the
+schema the connection just loaded (`internal/store/store.go:308`, checked
+in `openCurrent`, `:246`); `removeDatabase` removes files the open that
+just read the version held (`:347`, checked in `remakeDatabase`, `:318`,
+and again in `openCurrent`, `:256`, where a driver not registered would
+fail the reopen too); and `stamp` writes to a file the open just made or
+read (`:332`, checked in `openCurrent`, `:262`).
 
 **Decided.** 2026-09-26, in #146.
 
-**Cost.** Four error arms no test runs, so what each says when the race is
-lost is read rather than checked.
+**Cost.** Eleven error arms no test runs, so what each says when the race
+is lost is read rather than checked.
 
 **Reopen when.** One of these failures is reported, or a change to the
 calls lets a test fail the second without the first.

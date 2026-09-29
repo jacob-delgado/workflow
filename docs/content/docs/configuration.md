@@ -698,9 +698,10 @@ cannot reach it.
 
 Where the filesystem keeps Unix modes, the database file is `0600` in a `0700`
 directory, readable only by you. What it holds is disposable: delete it and the
-next session simply rebuilds it. A `--dry-run` never creates it or changes what
-it holds: neither the interface nor `--web` opens it at all, and a command such
-as `announce` or `status` opens it read-only, and only when it is already
+next session simply rebuilds it, and a store a build with another schema made is
+discarded and rebuilt the same way. A `--dry-run` never creates it or changes
+what it holds: neither the interface nor `--web` opens it at all, and a command
+such as `announce` or `status` opens it read-only, and only when it is already
 there. That read may leave SQLite's two owner-only companion files,
 `workflow.db-wal` and `workflow.db-shm`, beside the database until the next
 session's open removes them.
