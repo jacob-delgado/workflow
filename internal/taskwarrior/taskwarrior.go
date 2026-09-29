@@ -93,22 +93,23 @@ type Install struct {
 	LinkUDADefined bool   // taskrc already defines uda.jiraid.type
 }
 
-// Candidates is every task on pathList, in PATH order: on Windows task.exe
-// beside task, elsewhere a regular file with an execute bit. It walks pathList
-// as exec.LookPath does but keeps every hit rather than the first, since
-// go-task, also called task, can come before Taskwarrior on PATH. It passes
-// over an empty or relative entry, which names the working directory or one
-// under it: LookPath refuses a program found through one with ErrDot, where
-// Candidates goes on to the absolute entries.
+// Candidates is every task on pathList, a PATH list in goos's syntax, in PATH
+// order: on Windows task.exe beside task, elsewhere a regular file with an
+// execute bit. It walks the entries in order, as exec.LookPath does, but keeps
+// every hit rather than the first, since go-task, also called task, can come
+// before Taskwarrior on PATH. It passes over an empty or relative entry, which
+// is resolved against the working directory: LookPath refuses a program found
+// through one with ErrDot, or on Windows skips an empty one, where Candidates
+// goes on to the absolute entries.
 func Candidates(pathList, goos string) []string {
 	names := []string{"task"}
-	if goos == "windows" {
+	if goos == windows {
 		names = []string{"task.exe", "task"}
 	}
 
 	var found []string
 
-	for dir := range strings.SplitSeq(pathList, string(os.PathListSeparator)) {
+	for _, dir := range pathEntries(pathList, goos) {
 		if !filepath.IsAbs(dir) {
 			continue
 		}
@@ -126,6 +127,38 @@ func Candidates(pathList, goos string) []string {
 	return found
 }
 
+// windows is the GOOS whose PATH list, task program's name and execute rule
+// differ.
+const windows = "windows"
+
+// pathEntries splits pathList as filepath.SplitList does on goos: on Windows at
+// each ; outside double quotes, which are then dropped, so an entry naming a
+// directory with a ; in it can be quoted; elsewhere at each :. It follows goos,
+// not the host, so Windows's syntax is tested wherever the tests run.
+func pathEntries(pathList, goos string) []string {
+	if goos != windows {
+		return strings.Split(pathList, ":")
+	}
+
+	var entries []string
+
+	start, quoted := 0, false
+
+	for index := range len(pathList) {
+		switch pathList[index] {
+		case '"':
+			quoted = !quoted
+		case ';':
+			if !quoted {
+				entries = append(entries, strings.ReplaceAll(pathList[start:index], `"`, ""))
+				start = index + 1
+			}
+		}
+	}
+
+	return append(entries, strings.ReplaceAll(pathList[start:], `"`, ""))
+}
+
 // runnable reports a regular file at path that goos would run: on Windows any,
 // elsewhere one with an execute bit.
 func runnable(path, goos string) bool {
@@ -134,7 +167,7 @@ func runnable(path, goos string) bool {
 		return false
 	}
 
-	return info.Mode().IsRegular() && (goos == "windows" || info.Mode()&0o111 != 0)
+	return info.Mode().IsRegular() && (goos == windows || info.Mode()&0o111 != 0)
 }
 
 // Detect finds Taskwarrior. With program set only it is tried; otherwise each
