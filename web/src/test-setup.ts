@@ -3,6 +3,7 @@ import { afterEach, beforeEach, vi } from 'vitest'
 import './api/client.ts'
 import { useHealthStore } from './api/health.ts'
 import { useSnapshotStore } from './api/snapshot.ts'
+import { useTaskMemo } from './features/tasks/taskMemo.ts'
 import { FakeEventSource } from './test/fakeEventSource.ts'
 import { installMatchMedia, resetMatchMedia } from './test/matchMedia.ts'
 import { themeStorageKey } from './shell/themeKey.ts'
@@ -12,6 +13,7 @@ import { useUiStore } from './shell/uiStore.ts'
 const initialUi = useUiStore.getInitialState()
 const initialSnapshot = useSnapshotStore.getInitialState()
 const initialHealth = useHealthStore.getInitialState()
+const initialTaskMemo = useTaskMemo.getInitialState()
 
 // jsdom has no EventSource, and the stream hook opens one on mount. Install the
 // controllable fake as the global so components that open the stream render,
@@ -50,6 +52,7 @@ afterEach(() => {
   useUiStore.setState(initialUi)
   useSnapshotStore.setState(initialSnapshot)
   useHealthStore.setState(initialHealth)
+  useTaskMemo.setState(initialTaskMemo)
   useThemeStore.setState({ choice: 'system' })
   localStorage.removeItem(themeStorageKey)
   FakeEventSource.reset()

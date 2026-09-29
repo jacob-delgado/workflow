@@ -7,7 +7,7 @@ export const themes = ['dark', 'light'] as const
 export const widths = [640, 1024, 1440] as const
 export const height = 900
 // The mockup's messaging service is Slack, so its section is named for it.
-export const sectionNames = ['Issues', 'Branch', 'Review', 'Slack', 'Reviews', 'Settings']
+export const sectionNames = ['Issues', 'Branch', 'Review', 'Slack', 'Reviews', 'Tasks', 'Settings']
 
 // pinTheme saves a theme choice before the app paints, so the whole run is in
 // it from the first frame.
@@ -38,12 +38,16 @@ export async function openCockpit(
 }
 
 // settled is what shows once a section has drawn what it will: Reviews reads
-// its own queue after its heading appears, and Settings the configuration, so
-// each settles with what its read fills in; every other section settles with
-// its heading.
+// its own queue after its heading appears, Tasks Taskwarrior's list, and
+// Settings the configuration, so each settles with what its read fills in;
+// every other section settles with its heading.
 function settled(page: Page, name: string): Locator {
   if (name === 'Reviews') {
     return page.getByRole('list', { name: 'Review requests' })
+  }
+
+  if (name === 'Tasks') {
+    return page.getByRole('list', { name: /tasks/i })
   }
 
   return name === 'Settings'

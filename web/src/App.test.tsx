@@ -4,7 +4,13 @@ import { vi } from 'vitest'
 import App from './App.tsx'
 import { fakeApi } from './test/fakeApi.ts'
 import { FakeEventSource } from './test/fakeEventSource.ts'
-import { makeHealth, makeReviewRequest, makeSnapshot } from './test/fixtures.ts'
+import {
+  makeHealth,
+  makeReviewRequest,
+  makeSnapshot,
+  makeTask,
+  makeTaskList,
+} from './test/fixtures.ts'
 import { renderWithClient } from './test/renderWithClient.tsx'
 
 test('shows the sections and opens on the Issues view', () => {
@@ -137,6 +143,51 @@ test('opens the Reviews section on the queue waiting on you', async () => {
   const list = await screen.findByRole('list', { name: 'Review requests' })
   expect(within(list).getByRole('link', { name: 'Open #42 (opens in a new tab)' })).toBeTruthy()
   expect(document.activeElement).toBe(screen.getByRole('main'))
+})
+
+test('opens the Tasks section on your tasks', async () => {
+  // Arrange
+  const user = userEvent.setup()
+  fakeApi({ '/api/health': makeHealth(), '/api/tasks': makeTaskList([makeTask()]) })
+  renderWithClient(<App />)
+
+  // Act
+  await user.click(screen.getByRole('button', { name: 'Tasks' }))
+
+  // Assert
+  expect(screen.getByRole('heading', { level: 1, name: 'Tasks' })).toBeTruthy()
+  const list = await screen.findByRole('list', { name: 'Tasks' })
+  expect(within(list).getByRole('button', { name: /redact the token/i })).toBeTruthy()
+  expect(document.activeElement).toBe(screen.getByRole('main'))
+})
+
+test('the header shows the task you have started, and its chip opens Tasks', async () => {
+  // Arrange
+  const user = userEvent.setup()
+  const started = makeTask({ start: new Date().toISOString() })
+  fakeApi({ '/api/health': makeHealth(), '/api/tasks': makeTaskList([started]) })
+  renderWithClient(<App />)
+  act(() => {
+    FakeEventSource.latest().emit(
+      'snapshot',
+      JSON.stringify(
+        makeSnapshot({
+          tasks: { available: true, reason: '', active: started, linked: [started] },
+        }),
+      ),
+    )
+  })
+  const chip = within(screen.getByRole('banner')).getByRole('button', { name: /active task/i })
+
+  // Act
+  await user.click(chip)
+
+  // Assert
+  expect(chip.textContent).toContain(started.description)
+  const rail = screen.getByRole('navigation', { name: 'Sections' })
+  expect(within(rail).getByRole('button', { name: 'Tasks' }).getAttribute('aria-current')).toBe(
+    'page',
+  )
 })
 
 test('choosing a section from the rail moves focus to its content', async () => {

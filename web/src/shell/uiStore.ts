@@ -4,7 +4,15 @@ import { create } from 'zustand'
 // its Commits pane is part of Branch here — then Settings. The work story
 // (Branch → Changes → PR/CI → Announce) is reachable from an issue in the
 // Issues section; the rest are direct views.
-export const sections = ['issues', 'branch', 'review', 'messaging', 'reviews', 'settings'] as const
+export const sections = [
+  'issues',
+  'branch',
+  'review',
+  'messaging',
+  'reviews',
+  'tasks',
+  'settings',
+] as const
 
 export type Section = (typeof sections)[number]
 

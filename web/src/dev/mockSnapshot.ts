@@ -1,4 +1,5 @@
 import type { Snapshot } from '@/api/generated/types.gen.ts'
+import { mockTasksSummary } from './mockTasks.ts'
 
 // A rich, believable snapshot for `task web:mockup`: enough in every section to
 // navigate the whole cockpit without a real Jira, forge, or Slack. Dev-only —
@@ -161,5 +162,7 @@ export const mockSnapshot: Snapshot = {
   ],
   // The scope the last commit here used, so the mockup's commit form opens on it.
   suggested_scope: 'wiring',
-  tasks: { available: true, reason: '', linked: [] },
+  // The tasks linked to the checked-out issue and another, one of them started,
+  // so the header, the Issues rows and the issue's Tasks card each show one.
+  tasks: mockTasksSummary,
 }

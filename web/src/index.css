@@ -55,14 +55,16 @@
   --warning-foreground: #0b0d12;
 
   /* Identity: one hue for each system the loop crosses — the terminal spine's
-     blue, yellow, green and magenta (internal/tui/spine.go) — saying whose a
-     thing is, never how it stands. Each sits at least 30° of OKLCH hue from
-     the status lights, periwinkle and each other, so none reads as a state or
-     a control, and holds 4.5:1 as text; web/src/tokens.test.ts keeps both. */
+     blue, yellow, green and magenta (internal/tui/spine.go) — and one for your
+     own tasks, saying whose a thing is, never how it stands. Each sits at
+     least 30° of OKLCH hue from the status lights, periwinkle and each other,
+     so none reads as a state or a control, and holds 4.5:1 as text;
+     web/src/tokens.test.ts keeps both. */
   --jira: #62bbf5;
   --git: #b0b55b;
   --forge: #49c7c0;
   --messaging: #e88fcb;
+  --taskwarrior: #cb97f4;
 }
 
 /* The same desk by daylight: a cool off-white console, dark ink, and the same
@@ -110,11 +112,13 @@
   --warning: #7a4a00;
   --warning-foreground: #ffffff;
 
-  /* The same four systems by daylight: darker, for 4.5:1 on the pale page. */
+  /* The same four systems, and your own tasks, by daylight: darker, for 4.5:1
+     on the pale page. */
   --jira: #0e6a9b;
   --git: #656818;
   --forge: #0c6c68;
   --messaging: #953d7c;
+  --taskwarrior: #7536a2;
 }
 
 /* Map the tokens to Tailwind's color scale, so `bg-background`,
@@ -151,6 +155,7 @@
   --color-git: var(--git);
   --color-forge: var(--forge);
   --color-messaging: var(--messaging);
+  --color-taskwarrior: var(--taskwarrior);
 }
 
 /* The page's type, space and corners: one scale each, the same in both themes.

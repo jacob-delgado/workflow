@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState, type RefObject } from 'react'
 import { apiErrorMessage } from '@/api/apiError.ts'
-import type { Issue, IssuesPage, TaskBranch } from '@/api/generated/types.gen.ts'
+import type { Issue, IssuesPage, TaskBranch, TasksSummary } from '@/api/generated/types.gen.ts'
 import { useLiveSnapshot, useSnapshotStore } from '@/api/snapshot.ts'
+import { issueTaskMark, linkedTo } from '@/features/tasks/taskWords.ts'
 import { OutcomeLine, useOutcome, type Teller } from '@/lib/Outcome.tsx'
 import { useAsyncAction } from '@/lib/useAsyncAction.ts'
 import { cn } from '@/lib/utils.ts'
@@ -17,7 +18,15 @@ import { IssueStatus } from './IssueStatus.tsx'
 export function IssuesPanel() {
   const snapshot = useLiveSnapshot()
 
-  return <IssueBrowser streamed={snapshot.issues} branches={snapshot.branches} />
+  return (
+    <IssueBrowser streamed={snapshot.issues} branches={snapshot.branches} tasks={snapshot.tasks} />
+  )
+}
+
+interface IssueBrowserProps {
+  streamed: IssuesPage
+  branches: TaskBranch[]
+  tasks: TasksSummary
 }
 
 // IssueBrowser is the issue list beside the selected issue's detail. The list is
@@ -27,7 +36,7 @@ export function IssuesPanel() {
 // view's first frame lands, the stream's page is the last view's, so none of
 // it is listed under the new name. A check-out from the list says where it
 // went above the list, which outlives the row's button.
-function IssueBrowser({ streamed, branches }: { streamed: IssuesPage; branches: TaskBranch[] }) {
+function IssueBrowser({ streamed, branches, tasks }: IssueBrowserProps) {
   const view = useUiStore((state) => state.view)
   const streamedView = useSnapshotStore((state) => state.view)
   const [filter, setFilter] = useState('')
@@ -68,6 +77,7 @@ function IssueBrowser({ streamed, branches }: { streamed: IssuesPage; branches: 
           loaded={loaded}
           shown={shown}
           branches={branches}
+          tasks={tasks}
           more={more}
           streamed={streamed}
           focus={focus}
@@ -83,6 +93,7 @@ interface ListAndDetailProps {
   loaded: Issue[]
   shown: Issue[]
   branches: TaskBranch[]
+  tasks: TasksSummary
   more: ReturnType<typeof useMoreIssues>
   streamed: IssuesPage
   focus: ReturnType<typeof useArrivalFocus>
@@ -100,7 +111,7 @@ interface ListAndDetailProps {
 // positioned, as the content around it is, so the text it keeps for a screen
 // reader scrolls and clips with it rather than growing the content.
 function ListAndDetail(props: ListAndDetailProps) {
-  const { loaded, shown, branches, more, streamed, focus, onLoadMore, outcome } = props
+  const { loaded, shown, branches, tasks, more, streamed, focus, onLoadMore, outcome } = props
   const selected = useUiStore((state) => state.selectedIssue)
 
   if (loaded.length === 0) {
@@ -111,7 +122,13 @@ function ListAndDetail(props: ListAndDetailProps) {
     <div className="flex flex-col gap-block lg:min-h-0 lg:flex-1 lg:flex-row">
       <div className="flex flex-col gap-group lg:min-h-0 lg:w-80 lg:shrink-0">
         {shown.length === 0 ? null : (
-          <IssueRows issues={shown} branches={branches} rowRefs={focus.rows} outcome={outcome} />
+          <IssueRows
+            issues={shown}
+            branches={branches}
+            tasks={tasks}
+            rowRefs={focus.rows}
+            outcome={outcome}
+          />
         )}
         <MoreIssues
           more={more}
@@ -167,12 +184,15 @@ function useArrivalFocus() {
 interface IssueRowsProps {
   issues: Issue[]
   branches: TaskBranch[]
+  // tasks is what the stream carries of your tasks, whose marks the rows draw
+  // once it says Taskwarrior can be asked.
+  tasks: TasksSummary
   // Each listed row's button by issue key, so focus can be handed to a row.
   rowRefs: RefObject<Map<string, HTMLButtonElement>>
   outcome: Teller
 }
 
-function IssueRows({ issues, branches, rowRefs, outcome }: IssueRowsProps) {
+function IssueRows({ issues, branches, tasks, rowRefs, outcome }: IssueRowsProps) {
   const selected = useUiStore((state) => state.selectedIssue)
   const selectIssue = useUiStore((state) => state.selectIssue)
   const branchesByKey = groupBranchesByKey(branches)
@@ -191,6 +211,9 @@ function IssueRows({ issues, branches, rowRefs, outcome }: IssueRowsProps) {
         const issueBranches = branchesByKey.get(issue.key) ?? []
         const newest = issueBranches[0]
         const onHead = issueBranches.some((branch) => branch.current)
+        const taskMark = tasks.available
+          ? issueTaskMark(linkedTo(tasks.linked, issue.key))
+          : undefined
 
         return (
           <li key={issue.key} className="flex flex-wrap items-center gap-tight">
@@ -215,15 +238,10 @@ function IssueRows({ issues, branches, rowRefs, outcome }: IssueRowsProps) {
                 issue.key === selected && 'border-border bg-accent',
               )}
             >
-              <span className="flex items-center gap-item">
+              <span className="flex flex-wrap items-center gap-item">
                 <span className="text-xs text-muted-foreground tabular-nums">{issue.key}</span>
                 <IssueStatus category={issue.status_category} label={issue.status} />
-                {newest ? (
-                  <span className="ml-auto flex items-center gap-1 text-xs whitespace-nowrap text-muted-foreground">
-                    <StateMark state="in-flight" className="size-3 text-git" />
-                    <span>in flight</span>
-                  </span>
-                ) : null}
+                <RowMarks inFlight={newest !== undefined} taskMark={taskMark} />
               </span>
               <span className="text-sm">{issue.summary}</span>
             </button>
@@ -234,6 +252,40 @@ function IssueRows({ issues, branches, rowRefs, outcome }: IssueRowsProps) {
         )
       })}
     </ul>
+  )
+}
+
+// RowMarks are what a row marks at its end: the issue in flight, when a branch
+// names it, and how its tasks stand, when Taskwarrior can be asked and a task
+// is linked to it — each by its mark, beside the words for it. They sit
+// together, so where the row is too narrow for them they move to a line of
+// their own as one.
+function RowMarks({
+  inFlight,
+  taskMark,
+}: {
+  inFlight: boolean
+  taskMark: ReturnType<typeof issueTaskMark>
+}) {
+  if (!inFlight && taskMark === undefined) {
+    return null
+  }
+
+  return (
+    <span className="ml-auto flex items-center gap-item text-xs whitespace-nowrap text-muted-foreground">
+      {inFlight ? (
+        <span className="flex items-center gap-1">
+          <StateMark state="in-flight" className="size-3 text-git" />
+          <span>in flight</span>
+        </span>
+      ) : null}
+      {taskMark === undefined ? null : (
+        <span className="flex items-center gap-1">
+          <StateMark state={taskMark.state} className="size-3 text-taskwarrior" />
+          <span>{taskMark.words}</span>
+        </span>
+      )}
+    </span>
   )
 }
 

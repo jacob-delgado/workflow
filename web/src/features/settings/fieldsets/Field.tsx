@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react'
+import { useId, type ReactNode } from 'react'
 import type { Path, UseFormRegister } from 'react-hook-form'
 import type { Config } from '@/api/generated/types.gen.ts'
 
@@ -28,11 +28,29 @@ function hintId(name: Name): string {
   return `${name}-hint`
 }
 
-// Fieldset is one section of the configuration, headed by what it configures.
-export function Fieldset({ legend, children }: { legend: string; children: ReactNode }) {
+interface FieldsetProps {
+  legend: string
+  // hint is what holds for every field in the section, below its legend.
+  hint?: string
+  children: ReactNode
+}
+
+// Fieldset is one section of the configuration, headed by what it configures,
+// with the hint that describes the whole of it below.
+export function Fieldset({ legend, hint, children }: FieldsetProps) {
+  const sectionHintId = useId()
+
   return (
-    <fieldset className="flex flex-col gap-group">
+    <fieldset
+      aria-describedby={hint ? sectionHintId : undefined}
+      className="flex flex-col gap-group"
+    >
       <legend className="mb-group text-base font-semibold">{legend}</legend>
+      {hint ? (
+        <p id={sectionHintId} className="text-xs text-muted-foreground">
+          {hint}
+        </p>
+      ) : null}
       {children}
     </fieldset>
   )

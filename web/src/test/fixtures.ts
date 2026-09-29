@@ -1,4 +1,11 @@
-import type { Branch, Health, ReviewRequest, Snapshot } from '@/api/generated/types.gen.ts'
+import type {
+  Branch,
+  Health,
+  ReviewRequest,
+  Snapshot,
+  Task,
+  TaskList,
+} from '@/api/generated/types.gen.ts'
 
 // A contract-valid branch for tests — the one makeSnapshot checks out, and
 // what a write that switches or publishes answers with — with the fields a
@@ -57,6 +64,41 @@ export function makeHealth(overrides: Partial<Health> = {}): Health {
 // What a server on a GitLab remote says in its health: GitLab's own words for a
 // proposed change and the mark before its number.
 export const gitLabWords: Partial<Health> = { forge_noun: 'merge request', forge_sigil: '!' }
+
+// A contract-valid Taskwarrior task for tests — task 12, pending and not
+// started, tracking PROJ-42 — with the fields a case cares about overridden.
+export function makeTask(overrides: Partial<Task> = {}): Task {
+  return {
+    uuid: '5f1d7a3c-9b2e-4c8d-a6f0-3e1b2c4d5a6f',
+    id: 12,
+    description: 'PROJ-42: Redact the token before it reaches the log',
+    status: 'pending',
+    project: '',
+    priority: '',
+    tags: [],
+    entry: '2026-09-20T10:00:00Z',
+    modified: '2026-09-20T10:00:00Z',
+    urgency: 4.2,
+    annotations: [],
+    issue_key: 'PROJ-42',
+    issue_url: 'https://jira.example.com/browse/PROJ-42',
+    ...overrides,
+  }
+}
+
+// A contract-valid task list for tests: an available Taskwarrior with no
+// context and no sync backend, listing the tasks given.
+export function makeTaskList(tasks: Task[], overrides: Partial<TaskList> = {}): TaskList {
+  return {
+    available: true,
+    reason: '',
+    context: '',
+    sync_available: false,
+    said: '',
+    tasks,
+    ...overrides,
+  }
+}
 
 // A contract-valid review request for tests — a pull request waiting three
 // days, CI failed — with the fields a case cares about overridden.

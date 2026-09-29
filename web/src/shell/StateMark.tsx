@@ -6,8 +6,11 @@ import { cn } from '@/lib/utils.ts'
 // reports none.
 export type MarkState = 'not-started' | 'in-flight' | 'done' | 'failed' | 'unknown'
 
-// The status light each state reports in, unless its mark sits on the loop and
-// takes its system's hue instead (className). Red is failure, and nothing else.
+// The status light each state reports in, unless its mark stands for one
+// system's work and takes that system's hue instead (className): a branch in
+// flight on the loop, and a Taskwarrior task wherever it is drawn — the Tasks
+// list, the header, the Issues rows and an issue's card alike. Red is failure,
+// and nothing else.
 const statusLight: Record<MarkState, string> = {
   'not-started': 'text-muted-foreground',
   'in-flight': 'text-warning',

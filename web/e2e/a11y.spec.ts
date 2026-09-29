@@ -7,7 +7,7 @@ import { streams } from './tabwalk.ts'
 // Every section, in both themes: a light theme is only real once its contrast
 // holds up, so the scan runs the whole cockpit in each. The section labels are
 // the nav buttons' accessible names and the content heading's text.
-const sectionNames = ['Issues', 'Branch', 'Review', 'Messaging', 'Reviews', 'Settings']
+const sectionNames = ['Issues', 'Branch', 'Review', 'Messaging', 'Reviews', 'Tasks', 'Settings']
 
 // Scan the resting state, not mid-animation frames: reduced motion collapses
 // transitions to instant, so axe never samples a half-faded element (whose
@@ -17,11 +17,11 @@ test.beforeEach(async ({ page }) => {
 })
 
 // settled is what shows once a section has drawn what it will with no API to
-// answer it: Reviews and Settings each read their own endpoint after their
-// heading appears, and the read fails here, so the scan waits on its Retry;
-// every other section settles with its heading.
+// answer it: Reviews, Tasks and Settings each read their own endpoint after
+// their heading appears, and the read fails here, so the scan waits on its
+// Retry; every other section settles with its heading.
 function settled(page: Page, name: string): Locator {
-  return name === 'Reviews' || name === 'Settings'
+  return name === 'Reviews' || name === 'Tasks' || name === 'Settings'
     ? page.getByRole('button', { name: 'Retry' })
     : page.getByRole('heading', { level: 1, name })
 }
@@ -61,10 +61,11 @@ for (const theme of themes) {
         json: { version: '1.2.3', dry_run: true, forge_noun: 'pull request', forge_sigil: '#' },
       }),
     )
-    // The review queue's read and the configuration's fail, so each reason and
-    // its Retry are scanned, whenever the answer comes; the populated build
-    // scans the queue and the form themselves.
+    // The review queue's read, the task list's and the configuration's fail,
+    // so each reason and its Retry are scanned, whenever the answer comes; the
+    // populated build scans the queue, the tasks and the form themselves.
     await page.route('**/api/reviews', (route) => route.fulfill(unreachable))
+    await page.route('**/api/tasks', (route) => route.fulfill(unreachable))
     await page.route('**/api/config', (route) => route.fulfill(unreachable))
     await page.goto('/')
     await expect(page.getByText(/every write is held back/i)).toBeVisible()

@@ -20,6 +20,20 @@ test('stores a snapshot the stream pushes and marks the stream live', () => {
   expect(useSnapshotStore.getState().status).toBe('live')
 })
 
+test('records when each frame landed, by the page clock', () => {
+  // Arrange
+  vi.useFakeTimers({ now: Date.parse('2026-09-28T10:00:00Z'), toFake: ['Date'] })
+  renderHook(() => {
+    useEventStream(null, vi.fn())
+  })
+
+  // Act
+  FakeEventSource.latest().emit('snapshot', JSON.stringify(validSnapshot))
+
+  // Assert
+  expect(useSnapshotStore.getState().receivedAt).toBe(Date.parse('2026-09-28T10:00:00Z'))
+})
+
 test('keeps the scope a frame suggests for the next commit', () => {
   // Arrange
   renderHook(() => {
@@ -148,6 +162,7 @@ test('seeds mock data instead of connecting when VITE_MOCK is set', async () => 
     expect(useSnapshotStore.getState().snapshot?.review.found).toBe(true)
   })
   expect(FakeEventSource.instances).toHaveLength(0)
+  expect(useSnapshotStore.getState().receivedAt).toBeGreaterThan(0)
 })
 
 test('records the chosen view under VITE_MOCK', async () => {

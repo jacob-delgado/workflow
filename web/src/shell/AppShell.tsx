@@ -3,6 +3,7 @@ import { useEffect, useRef } from 'react'
 import { useHealth, useHealthStore } from '@/api/health.ts'
 import { useEventStream, useSnapshotStore } from '@/api/snapshot.ts'
 import { useRefreshViews } from '@/features/issues/issueApi.ts'
+import { ActiveTask } from '@/features/tasks/ActiveTask.tsx'
 import { cn } from '@/lib/utils.ts'
 import { NavRail } from './NavRail.tsx'
 import { SectionPanel } from './SectionPanel.tsx'
@@ -57,6 +58,7 @@ export function AppShell() {
             </span>
           ) : null}
         </span>
+        <ActiveTask />
         <div className="flex items-center gap-item">
           <ThemeToggle />
           <StreamStatus />
