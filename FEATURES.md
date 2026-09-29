@@ -268,7 +268,7 @@ Impact: medium · Effort: medium
   variant that *reads* a channel's history stays fenced as FEAT-64; this
   one only writes, and fits the settled decisions.
 - Touches: `internal/store` (a reply-timestamp column on `announces`,
-  STRICT, migrated forward), `internal/messaging` (a `thread_ts` on a
+  STRICT, at the next `schemaVersion`), `internal/messaging` (a `thread_ts` on a
   bot-token post — a webhook cannot thread, so this is bot-only and the
   preview says so; `Post` in `internal/messaging/post.go` decodes no `ts`
   from chat.postMessage's `verdict` and returns only an error, so it must

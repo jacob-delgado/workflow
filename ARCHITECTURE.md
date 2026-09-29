@@ -327,9 +327,13 @@ Three rules from `CLAUDE.md` are visible in the schema:
   the whole group in one transaction** — upsert the parent, delete the children,
   insert the new ones — so a view is never left half-updated.
 
-Migrations are forward-only and idempotent (every open that may write runs them;
-a `--dry-run` command's read-only open migrates nothing); pre-1.0 there are no
-migration shims for the unreleased schema.
+The schema has one version, stamped into the file as `PRAGMA user_version` by
+the open that makes the file, before its first table; a file at another version
+that holds tables is discarded with its `-wal` and `-shm` companions and made
+again, since nothing the store keeps is worth carrying across a schema change. A
+`--dry-run` command's read-only open reads a file as it is and neither checks
+nor stamps it. There are no migrations: a schema change is a `CREATE TABLE` edit
+and a `schemaVersion` bump.
 
 ## Trust boundaries and data flow
 
