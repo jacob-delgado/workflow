@@ -1,5 +1,44 @@
 # Changelog
 
+## [0.4.1](https://github.com/jacob-delgado/workflow/compare/v0.4.0...v0.4.1) (2026-09-29)
+
+
+### Features
+
+* **api:** read and change tasks over the loopback API ([6beb8b4](https://github.com/jacob-delgado/workflow/commit/6beb8b40c591daa85b5a5080a92b69dd1a69793e))
+* **cli:** report Taskwarrior in doctor's tooling ([0509e76](https://github.com/jacob-delgado/workflow/commit/0509e7674aa2012a885f4fb38e9421223f53fad9))
+* **config:** add the taskwarrior section ([e536dac](https://github.com/jacob-delgado/workflow/commit/e536dac8c26f118ee82410c95c8a950051140de0))
+* **jira:** scope a view and a key set to the credential's user ([10fa26a](https://github.com/jacob-delgado/workflow/commit/10fa26a059c60a35aa412231b002ec9164ca9589))
+* **proc:** bound Capture and read a program's exit ([da4cb3b](https://github.com/jacob-delgado/workflow/commit/da4cb3bc1ec259b6bd6512508a0a069fc28b6e61))
+* **seams:** declare the Taskwarrior bundle ([53ab3b3](https://github.com/jacob-delgado/workflow/commit/53ab3b3750967e6569bd2b588d622d0919103c1c))
+* **store:** discard a store whose schema version is not this build's ([255da9f](https://github.com/jacob-delgado/workflow/commit/255da9fc7bbf6eb35fda5ce1653050cd802eb407))
+* **taskwarrior:** drive the task program ([7a71dc9](https://github.com/jacob-delgado/workflow/commit/7a71dc94935c62f087dc31699bdbbda07f50a4c9))
+* **tui:** act on a task in Taskwarrior's own words ([1caa1b5](https://github.com/jacob-delgado/workflow/commit/1caa1b507d4eeeb87056a811334ff9c4439ddc2b))
+* **tui:** hold every Taskwarrior write back under dry run ([183a951](https://github.com/jacob-delgado/workflow/commit/183a95142a9c2f1d5ef797494176cd063c8fd611))
+* **tui:** list your Taskwarrior tasks in a seventh pane ([f39a18e](https://github.com/jacob-delgado/workflow/commit/f39a18e304a9fd78bcec26f1658efd4a750ca4b0))
+* **tui:** offer the task change at each moment of the loop ([75288c4](https://github.com/jacob-delgado/workflow/commit/75288c4a36131bab4be34b7d27ad91fe00789ae8))
+* **tui:** scope views and the task switcher to your issues ([052cc76](https://github.com/jacob-delgado/workflow/commit/052cc76977a4c29efc4778119e69818ec7494433))
+* **web:** a Tasks section, the issue's tasks and the active task ([7c8aa23](https://github.com/jacob-delgado/workflow/commit/7c8aa2323957c16bfd1dcd948f12e17c4dfcbc1d))
+* **wiring:** find Taskwarrior and offer its seams ([aabf248](https://github.com/jacob-delgado/workflow/commit/aabf248ca8c52a5ed2a3c6301b17273d46d65533))
+
+
+### Bug Fixes
+
+* **config:** say which PATH entries the taskwarrior default tries ([162413f](https://github.com/jacob-delgado/workflow/commit/162413fc2b9d11e66ab8c618b88f98f0ab417a8e))
+* **taskwarrior:** pass over relative PATH entries when finding task ([9d664aa](https://github.com/jacob-delgado/workflow/commit/9d664aa36f1d7ae0f051db9c0cca0ecc5e19d392))
+* **taskwarrior:** read a quoted Windows PATH entry when finding task ([cf60178](https://github.com/jacob-delgado/workflow/commit/cf60178eb1860dd51945f2457b10f9ad784cd34c))
+
+
+### Documentation
+
+* describe the Tasks pane, section and configuration ([22c8ac6](https://github.com/jacob-delgado/workflow/commit/22c8ac6ae82fb62a9784a7a9e4f0473a6e71f999))
+* replace the store migration rule with the schema-version rule ([9719ac9](https://github.com/jacob-delgado/workflow/commit/9719ac9f55a41a1c36c8ebbe3b2a8711867ce6a1))
+
+
+### Tests
+
+* **taskwarrior:** give the PATH walk's tests a file of their own ([ef511cc](https://github.com/jacob-delgado/workflow/commit/ef511cc75e49a11984126a9dd30ef9bb0dca08f0))
+
 ## [0.4.0](https://github.com/jacob-delgado/workflow/compare/v0.3.1...v0.4.0) (2026-09-28)
 
 
