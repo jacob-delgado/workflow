@@ -46,7 +46,7 @@ func TestCandidatesListsEveryTaskOnPathInOrder(t *testing.T) {
 		},
 		{
 			name: "on windows task.exe counts and the bit does not",
-			goos: "windows",
+			goos: windows,
 			files: []file{
 				{dir: 0, name: "task.exe", mode: 0o644},
 				{dir: 0, name: taskProgram, mode: 0o644},
@@ -81,7 +81,12 @@ func TestCandidatesListsEveryTaskOnPathInOrder(t *testing.T) {
 				place(t, filepath.Join(dirs[program.dir], program.name), program.kind, program.mode)
 			}
 
-			pathList := strings.Join(append([]string{""}, dirs...), string(os.PathListSeparator))
+			separator := ":"
+			if test.goos == windows {
+				separator = ";"
+			}
+
+			pathList := strings.Join(append([]string{""}, dirs...), separator)
 
 			var want []string
 			for _, program := range test.want {
@@ -116,7 +121,7 @@ func TestCandidatesLeavesOutARelativePathEntry(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	pathList := relative + string(os.PathListSeparator) + dir
+	pathList := relative + ":" + dir
 
 	// Act
 	got := taskwarrior.Candidates(pathList, linux)
@@ -124,6 +129,80 @@ func TestCandidatesLeavesOutARelativePathEntry(t *testing.T) {
 	// Assert
 	if want := []string{filepath.Join(dir, taskProgram)}; !slices.Equal(got, want) {
 		t.Errorf("Candidates(%q) = %q, want only the absolute entry's %q", pathList, got, want)
+	}
+}
+
+func TestCandidatesReadsAQuotedWindowsPathEntry(t *testing.T) {
+	t.Parallel()
+
+	// Each case writes a directory into a Windows PATH list in double quotes,
+	// as Windows allows so a ; in its name does not end the entry, beside a
+	// plain one; quotedLast puts the quoted entry after the plain one.
+	tests := map[string]struct {
+		list       func(quoted, plain string) string
+		quotedLast bool
+	}{
+		"a quoted entry": {
+			list: func(quoted, plain string) string { return `"` + quoted + `";` + plain },
+		},
+		"a partly quoted entry": {
+			list: func(quoted, plain string) string {
+				parent, name := filepath.Split(quoted)
+
+				return parent + `"` + name + `";` + plain
+			},
+		},
+		"a quoted entry last": {
+			list:       func(quoted, plain string) string { return plain + `;"` + quoted + `"` },
+			quotedLast: true,
+		},
+	}
+
+	for name, test := range tests {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			// Arrange
+			quoted := filepath.Join(t.TempDir(), "Task;warrior")
+			place(t, quoted, directory, 0o755)
+
+			plain := t.TempDir()
+			for _, dir := range []string{quoted, plain} {
+				place(t, filepath.Join(dir, "task.exe"), plainFile, 0o644)
+			}
+
+			pathList := test.list(quoted, plain)
+
+			want := []string{filepath.Join(quoted, "task.exe"), filepath.Join(plain, "task.exe")}
+			if test.quotedLast {
+				slices.Reverse(want)
+			}
+
+			// Act
+			got := taskwarrior.Candidates(pathList, windows)
+
+			// Assert
+			if !slices.Equal(got, want) {
+				t.Errorf("Candidates(%q) = %q, want %q", pathList, got, want)
+			}
+		})
+	}
+}
+
+func TestCandidatesTakesAQuoteAsPartOfANameOutsideWindows(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	dir := filepath.Join(t.TempDir(), `say"hi`)
+	place(t, dir, directory, 0o755)
+	place(t, filepath.Join(dir, taskProgram), plainFile, 0o755)
+
+	// Act
+	got := taskwarrior.Candidates(dir, linux)
+
+	// Assert
+	if want := []string{filepath.Join(dir, taskProgram)}; !slices.Equal(got, want) {
+		t.Errorf("Candidates(%q) = %q, want %q", dir, got, want)
 	}
 }
 
