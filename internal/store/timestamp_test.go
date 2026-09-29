@@ -47,7 +47,7 @@ func TestEveryTimestampIsWrittenAsRFC3339InUTC(t *testing.T) {
 	}{
 		"a scope's updated_at": {
 			record: func(ctx context.Context, kept store.Store) error {
-				return kept.RecordScope(ctx, repo, "config", stamped)
+				return kept.RecordScope(ctx, repo, recorded, stamped)
 			},
 			query: `SELECT updated_at FROM scopes`,
 		},

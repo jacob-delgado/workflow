@@ -14,6 +14,7 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -37,7 +38,7 @@ func lastScope(ctx context.Context, kept store.Store) (bool, error) {
 }
 
 func recordScope(ctx context.Context, kept store.Store) (bool, error) {
-	return false, kept.RecordScope(ctx, repo, "config", theTime())
+	return false, kept.RecordScope(ctx, repo, recorded, theTime())
 }
 
 func recordAnnounce(ctx context.Context, kept store.Store) (bool, error) {
@@ -67,9 +68,19 @@ type statement struct {
 	args  []any
 }
 
-// seedDatabase leaves a database in dir for the store to find, as if an older
-// version or another program had written it: each statement runs in order.
+// seedDatabase leaves a database in dir for the store to find, as if another
+// program had written it: each statement runs in order. The file is stamped
+// with the store's own schema version, so the store keeps it and meets what
+// was seeded rather than discarding it as another build's.
 func seedDatabase(t *testing.T, dir string, statements ...statement) {
+	t.Helper()
+
+	seedDatabaseAt(t, dir, currentVersion, statements...)
+}
+
+// seedDatabaseAt is seedDatabase for a file stamped with any version. A PRAGMA
+// binds no placeholder, so the version is formatted in.
+func seedDatabaseAt(t *testing.T, dir string, version int, statements ...statement) {
 	t.Helper()
 
 	database, err := sql.Open("sqlite", filepath.Join(dir, "workflow.db"))
@@ -77,6 +88,11 @@ func seedDatabase(t *testing.T, dir string, statements ...statement) {
 		t.Fatalf("opening the database to seed: %v", err)
 	}
 	defer func() { _ = database.Close() }()
+
+	_, err = database.ExecContext(t.Context(), fmt.Sprintf("PRAGMA user_version = %d", version))
+	if err != nil {
+		t.Fatalf("stamping the seeded database with version %d: %v", version, err)
+	}
 
 	for _, each := range statements {
 		_, err = database.ExecContext(t.Context(), each.query, each.args...)
@@ -156,17 +172,75 @@ func TestAFileThatIsNotADatabaseIsReportedAndLeftAlone(t *testing.T) {
 	}
 
 	// Act
-	err = store.New(dir, false).RecordScope(t.Context(), repo, "config", theTime())
+	err = store.New(dir, false).RecordScope(t.Context(), repo, recorded, theTime())
 
 	// Assert
-	if err == nil || !strings.Contains(err.Error(), "preparing the store schema") {
-		t.Errorf("RecordScope over a file that is not a database = %v, want the schema step to report it", err)
+	if err == nil || !strings.Contains(err.Error(), "reading the store schema version") {
+		t.Errorf("RecordScope over a file that is not a database = %v, want the version step to report it", err)
 	}
 
 	left, readErr := os.ReadFile(path)
 	if readErr != nil || !bytes.Equal(left, notADatabase) {
 		t.Errorf("the file now holds %d bytes (err %v), want its %d bytes left as they were",
 			len(left), readErr, len(notADatabase))
+	}
+}
+
+func TestAnIndexInATablesNameIsReportedAndLeftAlone(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	// CREATE TABLE IF NOT EXISTS passes over a table of that name, but not an
+	// index of it: the schema step is the one to meet it and say so.
+	dir := t.TempDir()
+	seedDatabase(t, dir,
+		table(`CREATE TABLE other (x TEXT)`),
+		table(`CREATE INDEX scopes ON other (x)`),
+	)
+
+	// Act
+	err := store.New(dir, false).RecordScope(t.Context(), repo, recorded, theTime())
+
+	// Assert
+	if err == nil || !strings.Contains(err.Error(), "preparing the store schema") {
+		t.Errorf("RecordScope over an index named scopes = %v, want the schema step to report it", err)
+	}
+}
+
+func TestAFileWhoseSchemaCannotBeReadIsReportedAndLeftAlone(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	// A row no parser accepts sits in sqlite_master, so the schema cannot be
+	// loaded, which the connection's own pragmas do before the version is read.
+	// Such a file is not one of another version to discard, whatever its stamp
+	// says, so it stays as it was.
+	dir := t.TempDir()
+	path := filepath.Join(dir, "workflow.db")
+	seedDatabaseAt(t, dir, currentVersion+1,
+		statement{query: `PRAGMA writable_schema = ON`},
+		statement{
+			query: `INSERT INTO sqlite_master (type, name, tbl_name, rootpage, sql) VALUES (?, ?, ?, ?, ?)`,
+			args:  []any{"table", "broken", "broken", 0, "CREATE TABLE broken ("},
+		},
+	)
+
+	before, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Act
+	err = store.New(dir, false).RecordScope(t.Context(), repo, recorded, theTime())
+
+	// Assert
+	if err == nil || !strings.Contains(err.Error(), "reading the store schema version") {
+		t.Errorf("RecordScope over a file whose schema cannot be read = %v, want the version step to report it", err)
+	}
+
+	after, readErr := os.ReadFile(path)
+	if readErr != nil || !bytes.Equal(before, after) {
+		t.Errorf("the file changed (err %v), want it left as it was", readErr)
 	}
 }
 
