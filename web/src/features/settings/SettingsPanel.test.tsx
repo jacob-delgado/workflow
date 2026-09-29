@@ -214,7 +214,7 @@ test("the Taskwarrior fieldset's program and switch ride back through a save", a
   const program = await screen.findByRole('textbox', {
     name: 'Task program',
     description:
-      'Empty tries every task on PATH and keeps the first that is Taskwarrior 3.5.0 or newer.',
+      'Empty tries every task in an absolute PATH directory and keeps the first that is Taskwarrior 3.5.0 or newer.',
   })
   await user.type(program, '/opt/homebrew/bin/task')
   await user.click(screen.getByRole('checkbox', { name: /turn off the taskwarrior integration/i }))

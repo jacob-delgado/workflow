@@ -10,7 +10,7 @@ export function TaskwarriorFieldset({ register }: { register: Register }) {
         register={register}
         name="taskwarrior.program"
         label="Task program"
-        hint="Empty tries every task on PATH and keeps the first that is Taskwarrior 3.5.0 or newer."
+        hint="Empty tries every task in an absolute PATH directory and keeps the first that is Taskwarrior 3.5.0 or newer."
       />
       <CheckboxField
         register={register}
