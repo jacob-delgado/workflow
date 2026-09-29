@@ -19,6 +19,9 @@ func theTime() time.Time {
 
 const repo = "git@github.com:example/repo.git"
 
+// recorded is the scope the tests record and read back.
+const recorded = "config"
+
 func TestALastScopeRoundTrips(t *testing.T) {
 	t.Parallel()
 
@@ -26,7 +29,7 @@ func TestALastScopeRoundTrips(t *testing.T) {
 	kept := store.New(t.TempDir(), false)
 
 	// Act
-	err := kept.RecordScope(t.Context(), repo, "config", theTime())
+	err := kept.RecordScope(t.Context(), repo, recorded, theTime())
 	if err != nil {
 		t.Fatalf("RecordScope returned %v, want nil", err)
 	}
@@ -34,7 +37,7 @@ func TestALastScopeRoundTrips(t *testing.T) {
 	scope, found, err := kept.LastScope(t.Context(), repo)
 
 	// Assert
-	if err != nil || !found || scope != "config" {
+	if err != nil || !found || scope != recorded {
 		t.Errorf("LastScope = %q, %v, %v; want the recorded scope", scope, found, err)
 	}
 }
@@ -59,7 +62,7 @@ func TestRecordingReplacesTheEarlierScope(t *testing.T) {
 
 	// Arrange
 	kept := store.New(t.TempDir(), false)
-	_ = kept.RecordScope(t.Context(), repo, "config", theTime())
+	_ = kept.RecordScope(t.Context(), repo, recorded, theTime())
 
 	// Act
 	_ = kept.RecordScope(t.Context(), repo, "web", theTime())
@@ -75,8 +78,6 @@ func TestScopesAreKeptPerRepository(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
-	const recorded = "config"
-
 	kept := store.New(t.TempDir(), false)
 
 	err := kept.RecordScope(t.Context(), repo, recorded, theTime())
@@ -110,7 +111,7 @@ func TestAnEmptyRepositoryKeyIsNoRepository(t *testing.T) {
 	kept := store.New(dir, false)
 
 	// Act
-	err := kept.RecordScope(t.Context(), "", "config", theTime())
+	err := kept.RecordScope(t.Context(), "", recorded, theTime())
 	scope, found, _ := kept.LastScope(t.Context(), "")
 
 	// Assert
@@ -127,7 +128,7 @@ func TestADisabledStoreRecordsNothing(t *testing.T) {
 	off := store.New(dir, true)
 
 	// Act
-	err := off.RecordScope(t.Context(), repo, "config", theTime())
+	err := off.RecordScope(t.Context(), repo, recorded, theTime())
 	scope, found, _ := off.LastScope(t.Context(), repo)
 
 	// Assert
@@ -149,7 +150,7 @@ func TestTheStoreIsReadableOnlyByItsOwner(t *testing.T) {
 	kept := store.New(dir, false)
 
 	// Act
-	_ = kept.RecordScope(t.Context(), repo, "config", theTime())
+	_ = kept.RecordScope(t.Context(), repo, recorded, theTime())
 
 	// Assert
 	dirInfo, err := os.Stat(dir)
@@ -184,7 +185,7 @@ func TestTheStoreNarrowsADirectoryItDidNotCreate(t *testing.T) {
 	kept := store.New(dir, false)
 
 	// Act
-	err = kept.RecordScope(t.Context(), repo, "config", theTime())
+	err = kept.RecordScope(t.Context(), repo, recorded, theTime())
 	// Assert
 	if err != nil {
 		t.Fatalf("RecordScope returned %v, want nil", err)
@@ -211,11 +212,11 @@ func TestTwoStoresShareTheOneFile(t *testing.T) {
 	reader := store.New(dir, false)
 
 	// Act
-	_ = writer.RecordScope(t.Context(), repo, "config", theTime())
+	_ = writer.RecordScope(t.Context(), repo, recorded, theTime())
 	scope, found, err := reader.LastScope(t.Context(), repo)
 
 	// Assert
-	if err != nil || !found || scope != "config" {
+	if err != nil || !found || scope != recorded {
 		t.Errorf("a second store read = %q, %v, %v; want the shared scope", scope, found, err)
 	}
 }

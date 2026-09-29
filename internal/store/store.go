@@ -17,7 +17,9 @@
 // not special-case the privacy opt-out. Each operation opens its own short-lived
 // connection, so there is no handle to close and the terminal interface and the
 // web server can share the file; WAL and a busy timeout keep their writes from
-// colliding.
+// colliding. The schema has one version, stamped into the file: a file written
+// at another is discarded and started fresh, since nothing kept is worth
+// carrying across a schema change.
 package store
 
 import (
@@ -25,8 +27,10 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"io/fs"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"time"
 
@@ -44,6 +48,12 @@ const (
 
 // dbName is the database file's name inside the store directory.
 const dbName = "workflow.db"
+
+// schemaVersion is the version of the schema createSchema makes, stamped into
+// the file as SQLite's user_version. Bump it whenever a CREATE TABLE changes: a
+// file at another version is discarded whole and made again, so there are no
+// migrations to write.
+const schemaVersion = 1
 
 // busyTimeoutMillis is how long a write waits for another connection's lock
 // before giving up, so the interface and the web server sharing the file do not
@@ -169,9 +179,10 @@ func (s Store) nothingToRead() bool {
 	}
 }
 
-// open makes the store directory, opens the database with the shared-access
-// pragmas, prepares the schema, and restricts the directory and file to their
-// owner. A read-only store opens the database as it is instead.
+// open makes the store directory, opens the database at this build's schema
+// version — discarding one another build left — creates the tables it is
+// missing, and restricts the directory and file to their owner. A read-only
+// store opens the database as it is instead.
 func (s Store) open(ctx context.Context) (*sql.DB, error) {
 	if s.readOnly {
 		return s.openAsItIs()
@@ -188,6 +199,78 @@ func (s Store) open(ctx context.Context) (*sql.DB, error) {
 
 	path := filepath.Join(s.dir, dbName)
 
+	database, err := openCurrent(ctx, path)
+	if err != nil {
+		return nil, err
+	}
+
+	err = createSchema(ctx, database)
+	if err != nil {
+		_ = database.Close()
+
+		return nil, err
+	}
+
+	// The open created the file honoring the umask; narrow it now that it
+	// exists, so the database is readable only by its owner.
+	restrictToOwner(path, filePerm)
+
+	return database, nil
+}
+
+// openCurrent opens the database at path for writing, at this build's schema
+// version: a file another build's schema left there is discarded first, and a
+// fresh or remade file is stamped before it holds a table, so a second process
+// opening it meanwhile meets this version, never an older build's file to
+// discard. Two processes that both open an old file before either discards it
+// each discard the other's remade file; the file on disk ends consistent, and
+// only what the loser wrote that session is lost.
+func openCurrent(ctx context.Context, path string) (*sql.DB, error) {
+	database, err := openDatabase(path)
+	if err != nil {
+		return nil, err
+	}
+
+	version, err := readVersion(ctx, database)
+	if err != nil {
+		_ = database.Close()
+
+		return nil, err
+	}
+
+	if version == schemaVersion {
+		return database, nil
+	}
+
+	stale, err := holdsTables(ctx, database)
+	if err != nil {
+		_ = database.Close()
+
+		return nil, err
+	}
+
+	if stale {
+		_ = database.Close()
+
+		database, err = remakeDatabase(path)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	err = stamp(ctx, database)
+	if err != nil {
+		_ = database.Close()
+
+		return nil, err
+	}
+
+	return database, nil
+}
+
+// openDatabase opens the database file at path with the shared-access pragmas,
+// making it where there is none.
+func openDatabase(path string) (*sql.DB, error) {
 	// Trade-off TRADE-15: sql.Open fails only for a driver not registered, and
 	// this package imports its driver.
 	database, err := sql.Open("sqlite", path+fmt.Sprintf(dsnPragmas, busyTimeoutMillis))
@@ -195,18 +278,78 @@ func (s Store) open(ctx context.Context) (*sql.DB, error) {
 		return nil, fmt.Errorf("opening the store: %w", err)
 	}
 
-	err = migrate(ctx, database)
-	if err != nil {
-		_ = database.Close()
+	return database, nil
+}
 
+// readVersion reads the version stamped in the file. A file that is not a
+// database, or whose schema cannot be read, fails here, since the connection's
+// own pragmas load the schema; either is reported and left alone.
+func readVersion(ctx context.Context, database *sql.DB) (int, error) {
+	var version int
+
+	err := database.QueryRowContext(ctx, "PRAGMA user_version").Scan(&version)
+	if err != nil {
+		return 0, fmt.Errorf("reading the store schema version: %w", err)
+	}
+
+	return version, nil
+}
+
+// holdsTables reports a file with a table in it: a fresh file holds none, so it
+// is new rather than another version's.
+func holdsTables(ctx context.Context, database *sql.DB) (bool, error) {
+	var held bool
+
+	// Trade-off TRADE-16: the connection that just read the version loaded the
+	// schema this listing reads, so the listing fails only when the file
+	// changes between the two calls.
+	err := database.QueryRowContext(ctx, `SELECT EXISTS (SELECT 1 FROM sqlite_master WHERE type = 'table')`).
+		Scan(&held)
+	if err != nil {
+		return false, fmt.Errorf("listing the store tables: %w", err)
+	}
+
+	return held, nil
+}
+
+// remakeDatabase discards the database at path and opens a fresh one there.
+func remakeDatabase(path string) (*sql.DB, error) {
+	err := removeDatabase(path)
+	if err != nil {
 		return nil, err
 	}
 
-	// The schema step created the file honoring the umask; narrow it now that it
-	// exists, so the database is readable only by its owner.
-	restrictToOwner(path, filePerm)
+	return openDatabase(path)
+}
 
-	return database, nil
+// stamp writes this build's schema version into the file. A PRAGMA binds no
+// placeholder, so the one statement built from a string holds only this
+// package's own constant.
+func stamp(ctx context.Context, database *sql.DB) error {
+	// Trade-off TRADE-16: the open that just made or read this file holds it,
+	// so the stamp fails only when the file changes between the two calls.
+	_, err := database.ExecContext(ctx, "PRAGMA user_version = "+strconv.Itoa(schemaVersion))
+	if err != nil {
+		return fmt.Errorf("stamping the store schema version: %w", err)
+	}
+
+	return nil
+}
+
+// removeDatabase deletes the database at path along with the -wal and -shm
+// files SQLite may have left beside it; one already gone is no error.
+func removeDatabase(path string) error {
+	for _, each := range []string{path, path + "-wal", path + "-shm"} {
+		// Trade-off TRADE-16: the open that just read the version held these
+		// files, so a removal fails only when one changes underneath between
+		// the two calls.
+		err := os.Remove(each)
+		if err != nil && !errors.Is(err, fs.ErrNotExist) {
+			return fmt.Errorf("discarding the store at another schema version: %w", err)
+		}
+	}
+
+	return nil
 }
 
 // openAsItIs opens the database already on disk for reading alone: it makes no
@@ -236,9 +379,10 @@ func restrictToOwner(path string, perm os.FileMode) {
 	_ = os.Chmod(path, perm)
 }
 
-// migrate brings the schema up to date. It is forward-only and idempotent, so
-// every open can run it.
-func migrate(ctx context.Context, database *sql.DB) error {
+// createSchema makes every table the store needs where it is missing. It never
+// alters a table: a file at another version was discarded before this ran, so
+// what it meets is this version's schema or nothing.
+func createSchema(ctx context.Context, database *sql.DB) error {
 	statements := []string{
 		`CREATE TABLE IF NOT EXISTS scopes (
 			repo       TEXT NOT NULL PRIMARY KEY,
