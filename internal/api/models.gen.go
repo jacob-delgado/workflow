@@ -1014,7 +1014,7 @@ type TaskwarriorConfig struct {
 	// Disabled Turn off the Taskwarrior integration even where Taskwarrior is installed.
 	Disabled *bool `json:"disabled,omitempty"`
 
-	// Program The task program to run: a name looked up on PATH, or a path. Empty tries every task on PATH and keeps the first that is Taskwarrior 3.5.0 or newer.
+	// Program The task program to run: a name looked up on PATH, or a path. Empty tries every task in an absolute PATH directory and keeps the first that is Taskwarrior 3.5.0 or newer.
 	Program *string `json:"program,omitempty"`
 }
 

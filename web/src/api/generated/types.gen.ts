@@ -823,7 +823,7 @@ export type StoreConfig = {
 
 export type TaskwarriorConfig = {
     /**
-     * The task program to run: a name looked up on PATH, or a path. Empty tries every task on PATH and keeps the first that is Taskwarrior 3.5.0 or newer.
+     * The task program to run: a name looked up on PATH, or a path. Empty tries every task in an absolute PATH directory and keeps the first that is Taskwarrior 3.5.0 or newer.
      */
     program?: string;
     /**

@@ -17,8 +17,9 @@ var ErrInvalidTaskwarriorProgram = errors.New("taskwarrior.program must be a pro
 // Taskwarrior 3.5.0 or newer is found.
 type Taskwarrior struct {
 	// Program is the task program to run: a name looked up on PATH, or a path.
-	// Empty tries every task on PATH in order and keeps the first that answers
-	// as Taskwarrior — go-task, the Taskfile runner, is also called task.
+	// Empty tries every task in an absolute PATH directory, in order, and keeps
+	// the first that answers as Taskwarrior — go-task, the Taskfile runner, is
+	// also called task.
 	Program string `json:"program"`
 	// Disabled turns the integration off even where Taskwarrior is installed.
 	Disabled bool `json:"disabled"`
