@@ -49,11 +49,12 @@ that needs one of them reopened goes in the
   always was.
 - **Every service is reached over `net/http`, except the forge when
   `forge.cli` routes it through `gh` or `glab`.**
-- **`git` is the only program that must be installed.** `lefthook` and an
-  editor make more of the interface work, and their absence only hides the
-  parts that need them.
-- **Six panes down the left, one progress row across the top.** Focus is
-  shown by the weight of a border, not by color.
+- **`git` is the only program that must be installed.** `lefthook`, an editor
+  and Taskwarrior make more of the interface work, and their absence only hides
+  the parts that need them.
+- **Seven panes down the left, one progress row across the top.** The
+  seventh, Tasks, is your own Taskwarrior list. Focus is shown by the weight
+  of a border, not by color.
 - **Pure Go.** `CGO_ENABLED=0`, because the release cross-compiles to every
   platform `RELEASE_PLATFORMS` names in `Taskfile.yml`.
 - **A new dependency needs approval first**, and a release younger than seven

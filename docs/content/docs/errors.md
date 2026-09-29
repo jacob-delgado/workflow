@@ -37,9 +37,9 @@ The codes below are the whole set.
 ## Bad request
 
 Status 400. The request could not be understood — a malformed body, a query
-parameter that did not fit the contract, or a configuration save whose
-`If-Match` is not in the form of the `ETag` a read of the configuration
-returns.
+or path parameter that did not fit the contract (a task write whose uuid is not
+one, say), or a configuration save whose `If-Match` is not in the form of the
+`ETag` a read of the configuration returns.
 
 ## Not found
 

@@ -210,15 +210,15 @@ an address. Nothing in this repo will print a credential in full.
 
 ## Use
 
-Run `workflow` in a repository. Six panes run down the left — Issues, Branch,
+Run `workflow` in a repository. Seven panes run down the left — Issues, Branch,
 Commits, Review and your messaging service, named for it, in the order the work
-goes, then Reviews, the pull requests waiting on your review — and the one in
-focus fills the right. The bottom row shows only the keys that do something
-right now.
+goes, then Reviews, the pull requests waiting on your review, and Tasks, your
+Taskwarrior list — and the one in focus fills the right. The bottom row shows
+only the keys that do something right now.
 
 | Key | Where | Does |
 | --- | --- | --- |
-| `tab` / `1`–`6` | anywhere | Move between panes |
+| `tab` / `1`–`7` | anywhere | Move between panes |
 | `t` / `c` / `b` | Issues | Change status, comment, branch for the issue |
 | `space` / `a` / `c` | Commits | Stage a file, stage all, commit |
 | `h` | Commits | Run the pre-commit hook |
@@ -234,10 +234,10 @@ write back. The
 whole loop.
 
 `workflow --web` serves the loop in a browser instead, at
-`http://127.0.0.1:13579`: six sections — Issues, Branch, Review, your messaging
-service, Reviews and Settings — kept live by the server, in a light or a dark
-theme. `--web --dry-run` makes it read-only. Re-running CI, merging, finishing
-a branch and most issue writes stay in the terminal for now;
+`http://127.0.0.1:13579`: seven sections — Issues, Branch, Review, your
+messaging service, Reviews, Tasks and Settings — kept live by the server, in a
+light or a dark theme. `--web --dry-run` makes it read-only. Re-running CI,
+merging, finishing a branch and most issue writes stay in the terminal for now;
 [the web page](https://jacob-delgado.github.io/workflow/docs/web/) says which.
 
 ## Development

@@ -30,7 +30,8 @@ workflow reads a single JSON file, `.workflow.json`.
     "mouse": true,
     "ascii": false,
     "color": ""
-  }
+  },
+  "taskwarrior": { "program": "", "disabled": false }
 }
 ```
 
@@ -104,6 +105,8 @@ which one was read.
 | `commit.refs_trailer` | no | The label of the trailer that names the issue in a commit body, e.g. `Closes`. Defaults to `Refs`. It is a single word with no colon; anything else is refused when the file loads. |
 | `pull_request.title_source` | no | Where a proposed pull request's title comes from: `commit` (the default) takes the branch's oldest commit subject, `issue` the issue's key and summary. Any other value is refused when the file loads. See [Pull requests](#pull-requests). |
 | `store.disabled` | no | Keep nothing on disk between sessions. Defaults to `false` — the store remembers a few conveniences, never a secret. See [What is kept between sessions](#what-is-kept-between-sessions). |
+| `taskwarrior.program` | no | The Taskwarrior program to run, and the only one tried: a path, such as `/opt/homebrew/bin/task`, or a name looked up on `PATH`. Empty (the default) tries every `task` on `PATH` in order and keeps the first that is Taskwarrior 3.5.0 or newer; a Taskwarrior that has never been run, whose taskrc has a malformed line, or that cannot start ends the search there. A value with a line break or a NUL in it is refused when the file loads. A change applies when workflow next starts. See [Taskwarrior](#taskwarrior). |
+| `taskwarrior.disabled` | no | Turn the Taskwarrior integration off even where Taskwarrior is installed. Defaults to `false`. A change applies when workflow next starts. |
 
 Unknown keys are an error rather than being ignored. A misspelled key that
 loaded silently would look exactly like a credential you never set.
@@ -178,15 +181,16 @@ of it, rather than replacing your Jira credential.
 ## Issue views
 
 By default the Issues pane shows one list: the open issues assigned to you. If
-you pick work from a sprint, a team filter or the unassigned pile, name those
-lists under `jira.views` and press `v` to move between them:
+you pick work from elsewhere too — your issues in a sprint, a team filter, or
+the unassigned pile — name those lists under `jira.views` and press `v` to move
+between them:
 
 ```json
 {
   "jira": {
     "views": [
       { "name": "My work", "jql": "assignee = currentUser() AND statusCategory != done" },
-      { "name": "Sprint board", "jql": "sprint in openSprints() AND statusCategory != done" },
+      { "name": "Sprint board", "jql": "sprint in openSprints() AND (assignee = currentUser() OR assignee is EMPTY) AND statusCategory != done" },
       { "name": "Needs triage", "jql": "project = OPS AND assignee is EMPTY ORDER BY created" }
     ]
   }
@@ -198,6 +202,21 @@ names the one in use. Each view is any JQL your instance accepts. A view missing
 its `name` or its `jql` is refused when the file loads, rather than showing an
 empty pane with no way to tell why. With no `jira.views` at all, the built-in
 "assigned to me" list is the only one, and `v` does nothing.
+
+Every view is scoped to your issues unless its JQL names the assignee. A view
+of `sprint in openSprints() AND statusCategory != done` alone is searched as
+
+```text
+(sprint in openSprints() AND statusCategory != done) AND assignee = currentUser()
+```
+
+— an `ORDER BY` stays at the end — while the three views above, which each
+name `assignee`, are searched as written. So a view of someone else's work, or
+of nobody's, says whose: `assignee is EMPTY`,
+`assignee in membersOf("my-team")`, or, as the sprint board does, yours and
+nobody's at once. The word is looked for anywhere in the query, in any case.
+The interface and `workflow --web` scope a view alike, and the web's
+`GET /api/views` lists each view with the query it searches.
 
 ## Keeping tokens out of the file
 
@@ -393,8 +412,9 @@ reliable way to detect that from inside a program, so it is a setting rather
 than a guess.
 
 `ui.color` set to `never` turns off the system hues — the blue, yellow, green
-and magenta of the spine, and the red of a failure — while keeping bold, faint
-and the reverse-video cursor, which carry the same meaning without color.
+and magenta of the spine, the cyan of the started task at its end, and the red
+of a failure — while keeping bold, faint and the reverse-video cursor, which
+carry the same meaning without color.
 Setting the `NO_COLOR` environment variable to any value does the same. The
 glyphs already say by shape what the colors say by hue, so nothing is lost.
 
@@ -431,8 +451,11 @@ pane and commits on the Commits pane — so each meaning is a separate action yo
 rebind on its own. workflow refuses to start, `workflow doctor` reports the
 problem, and Settings in `workflow --web` refuses to save it, when a map names
 an action that does not exist, moves `jump-to-pane` — its keys are the pane
-numbers, `1`–`6`, which no one key can stand in for — or binds two actions
-that are live at the same time to one key.
+numbers, `1`–`7`, which no one key can stand in for — or binds two actions
+that are live at the same time to one key. The pane numbers work on every pane
+and while a command runs, so an action live there cannot take one; `7` joined
+them with the Tasks pane, so a map that moved such an action to `7` before then
+is refused now.
 
 The actions you can rebind, grouped by where they work, are:
 
@@ -532,6 +555,123 @@ as one. A team that titles its pull requests after the issue can say so:
 `PROJ-412: Fix token redaction`, and falls back to the oldest commit when the
 branch names no issue or its summary is not known. `commit` is the default, and
 any other value is refused when the file loads.
+
+## Taskwarrior
+
+The Tasks pane, and the Tasks section of `workflow --web`, drive
+[Taskwarrior](https://taskwarrior.org) 3.5.0 or newer wherever it is
+installed; there is nothing to turn on. An older Taskwarrior is reported as
+too old rather than driven.
+
+```json
+{
+  "taskwarrior": { "program": "/opt/homebrew/bin/task", "disabled": false }
+}
+```
+
+### Finding it
+
+Taskwarrior's program is called `task`, and so is go-task, the Taskfile runner.
+So workflow does not take the first `task` on `PATH` at its word: it asks each
+`task` on `PATH`, in order, for its `_version`, and keeps the first that answers
+as Taskwarrior 3.5.0 or newer. Each is asked from the filesystem root, not the
+directory workflow runs in, so go-task finds no Taskfile to run: a `_version`
+task, or a catch-all one, in your repository's Taskfile never runs. The one
+that answers is kept for the session. A Taskwarrior that has never been run,
+whose taskrc has a malformed line, or that cannot start at all ends the search
+there: it is reported, as below, rather than passed over for a `task` further
+down.
+
+`taskwarrior.program` names the one to run instead, and then only it is tried.
+Give it a path: a bare name is looked up on `PATH` like any command, so
+`"task"` is whichever `task` comes first — go-task, where that is first — not
+the Taskwarrior further down. `taskwarrior.disabled` turns the integration off
+even where Taskwarrior is installed: the Tasks pane says so, and no mark, block
+or offer appears.
+
+workflow finds Taskwarrior once, as it starts, so a change to
+`taskwarrior.program` or `taskwarrior.disabled` applies when workflow next
+starts. One saved from the web's Settings waits too: until the restart, the
+Tasks section says to restart workflow to apply it — never a reason that holds
+only for the settings workflow started with — and the rest of the page shows
+no task.
+
+`workflow doctor` names the Taskwarrior it found, or why none is usable:
+
+```text
+  taskwarrior found — 3.5.0 at /opt/homebrew/bin/task
+  taskwarrior not usable — task on PATH is not Taskwarrior (go-task?); set taskwarrior.program, e.g. /opt/homebrew/bin/task
+  taskwarrior not usable — installed but never run; run /opt/homebrew/bin/task once
+```
+
+A Taskwarrior that has never been run has no taskrc, and will not make one
+unless asked at a terminal, so it reads as never run; so does one whose
+`TASKRC` names a file that is not there. Run it once in a terminal, by the
+path `workflow doctor` names — where go-task comes first on `PATH`, a bare
+`task` runs go-task — and answer its question. A taskrc with a line
+Taskwarrior cannot read is reported as having a malformed line, without the
+line, which may hold a secret. A Taskwarrior that cannot start for another
+reason — an `include` it cannot read, a database it cannot open — is reported
+in its own words: `workflow doctor` and the Tasks pane show them, and the web's
+Tasks section says Taskwarrior could not start and that `workflow doctor` says
+why.
+
+### Tasks and issues
+
+A task tracks an issue by `jiraid`, the issue's key, and carries `jiraurl`,
+its page — two attributes of Taskwarrior's user-defined kind. bugwarrior's
+Jira service writes the same two, so a task it made tracks its issue here too.
+workflow defines both on every read and write of your tasks, as command-line
+overrides, and never writes your taskrc; only `_version` and `_show`, which
+read no task, run without them. For `task jiraid:PROJ-412` to work in your own
+shell, add them to it — `workflow doctor` names these four lines while your
+taskrc has no `uda.jiraid.type`:
+
+```text
+uda.jiraid.type=string
+uda.jiraid.label=Jira
+uda.jiraurl.type=string
+uda.jiraurl.label=Jira URL
+```
+
+A task created from an issue — `T` in the Issues pane, or
+**Track in Taskwarrior** on the web — carries:
+
+- the issue's key in `jiraid` and its page in `jiraurl`;
+- the tag `+jira`;
+- the issue's priority as Taskwarrior's: `H` for Highest, High, Critical or
+  Blocker, `M` for Medium or Major, `L` for Low, Lowest, Minor or Trivial, and
+  none for any other;
+- `PROJ-412: <summary>` as its description, after `--`, so nothing in the
+  summary is read as an attribute;
+- one annotation, the issue's page.
+
+With the forge's issues as the tracker, `jiraid` holds the issue's number and
+there is no page to note.
+
+### Reads, writes and contexts
+
+- **Reads never write.** Every read runs with Taskwarrior's hooks off, so
+  listing your tasks never fires an on-launch or on-exit hook — one that syncs,
+  say — and never changes a task.
+- **Writes run hooks.** Adding, starting, stopping, completing, annotating,
+  modifying, undoing and syncing run as `task` does in a shell, with hooks as
+  your taskrc sets them: a Timewarrior hook starts and stops its timer with the
+  task. Taskwarrior's confirmation prompts are off for them, since there is no
+  terminal to answer.
+- **Waiting tasks are counted.** The Tasks list reads your pending tasks and
+  those that wait until a later date, and counts the waiting ones below the
+  list rather than listing them.
+- **The active context** narrows the Tasks list, as it narrows `task list`,
+  and its name is shown beside the pane's title. The tasks that track issues —
+  the Issues rows' marks, an issue's Tasks block, and the top row's started
+  task when it tracks one — are read whatever the context. A change to a task
+  workflow names — start, stop, done, annotate, modify — reaches it even where
+  the context hides it; a task added with `a` takes the context's attributes,
+  as `task add` does.
+- **Sync** is offered only when the taskrc names a sync backend.
+- **`--dry-run`** reads Taskwarrior as usual and holds every write back; the
+  terminal interface says what it would have sent.
 
 ## What is kept between sessions
 

@@ -31,42 +31,46 @@ can rely on from them: exit codes, which stream carries what, `--json`,
 ## The screen
 
 ```text
- ● Issue ─ ● Branch ─ ● Commits ─ ● Review ─ ○ Slack
-┏━ 1 Issues ━━━━━━━━━━━━━━┓┌─ Issues ────────────────────────────────────────────────────┐
-┃ ▸ ◐ PROJ-412 Fix token… ┃│ PROJ-412 Fix token redaction                                │
-┃   ○ PROJ-388 Add retri… ┃│ Bug · In Progress                                           │
-┃                         ┃│ reported by Ana Lopez                                       │
-┃                         ┃│                                                             │
-┃                         ┃│ Tokens reach the log.                                       │
-┡━ 2 Branch ━━━━━━━━━━━━━━┩│                                                             │
-│ fix/PROJ-412-fix-token… ││ Comments 1 of 1                                             │
-│ pushed                  ││                                                             │
-├─ 3 Commits ─────────────┤│ Ana Lopez · 2h ago                                          │
-│ 1 of 1 staged           ││ Repro'd on 8.2.1                                            │
-│ 1 commit on this branch ││                                                             │
-├─ 4 Review ──────────────┤│                                                             │
-│ #42 fix(config): redac… ││                                                             │
-│ ● passed (1 of 1 finis… ││                                                             │
-├─ 5 Slack ───────────────┤│                                                             │
-│ #dev                    ││                                                             │
-│ ○ nothing announced     ││                                                             │
-├─ 6 Reviews ─────────────┤│                                                             │
-│ 2 review requests wait… ││                                                             │
-│                         ││                                                             │
-└─────────────────────────┘└─────────────────────────────────────────────────────────────┘
+ ● Issue ─ ● Branch ─ ● Commits ─ ● Review ─ ○ Slack ◐ PROJ-412: Fix token redaction · 1h12m
+┏━ 1 Issues ━━━━━━━━━━━━━━┓┌─ Issues ──────────────────────────────────────────────────────┐
+┃ ▸ ◐◐ PROJ-412 Fix toke… ┃│ PROJ-412 Fix token redaction                                  │
+┃   ○○ PROJ-388 Add retr… ┃│ Bug · In Progress                                             │
+┃                         ┃│                                                               │
+┃                         ┃│ Tasks                                                         │
+┡━ 2 Branch ━━━━━━━━━━━━━━┩│   ◐ #12 PROJ-412: Fix token redaction  started 1h12m ago      │
+│ fix/PROJ-412-fix-token… ││                                                               │
+│ pushed                  ││ reported by Ana Lopez                                         │
+├─ 3 Commits ─────────────┤│                                                               │
+│ 1 of 1 staged           ││ Tokens reach the log.                                         │
+│ 1 commit on this branch ││                                                               │
+├─ 4 Review ──────────────┤│ Comments 1 of 1                                               │
+│ #42 fix(config): redac… ││                                                               │
+│ ● passed (1 of 1 finis… ││ Ana Lopez · 2h ago                                            │
+├─ 5 Slack ───────────────┤│ Repro'd on 8.2.1                                              │
+│ #dev                    ││                                                               │
+│ ○ nothing announced     ││                                                               │
+├─ 6 Reviews ─────────────┤│                                                               │
+│ 2 review requests wait… ││                                                               │
+│                         ││                                                               │
+├─ 7 Tasks ───────────────┤│                                                               │
+│ 3 pending · 1 active    ││                                                               │
+│                         ││                                                               │
+└─────────────────────────┘└───────────────────────────────────────────────────────────────┘
  t change status • c comment • b branch for PROJ-412 • a assign • w log work • ? keys …
 ```
 
 - **The top row** is how far along the loop the work is. `○` not started, `◐`
   in flight, `●` done, `✗` failed. It is derived, not recorded: the Issue stage
   is done once the branch names an issue, Review follows the pull request's CI.
-  The last stage is named for your messaging service, as its pane is.
-- **The rail** on the left is the six panes in one box, a light rule between
+  The last stage is named for your messaging service, as its pane is. At its
+  right end is the Taskwarrior task you have started and how long it has run.
+- **The rail** on the left is the seven panes in one box, a light rule between
   them. The focused one is drawn with heavy rules and a bold title, and takes
   the most room; the rest keep a few rows each. The first five follow the
   work — the fifth is named for your messaging service, Slack above — and the
   sixth, Reviews, is the other side of it: the pull requests on your forge
-  that wait on your review, the longest-waiting first.
+  that wait on your review, the longest-waiting first. The seventh, Tasks, is
+  your own [Taskwarrior](#track-it-in-taskwarrior) list.
 - **The detail pane** on the right shows the focused pane in full. Pickers,
   composers and previews open here too, and take the keyboard until they close.
 - **The bottom row** shows what the focused pane can do right now; it changes
@@ -83,11 +87,13 @@ the Issues pane, and the repository panes carry on.
 The layout follows the terminal. Below 80 columns the rail and the detail pane
 take turns rather than sharing the width; the detail pane drops its border once
 it has fewer than 60 columns; below 24 rows the top row shrinks to a short form,
-each stage its initial and glyph.
+each stage its initial and glyph. Seven panes share the rail's rows, so the
+focused one takes the spare rows only from 26 rows up; on a shorter terminal
+every pane gets an even share.
 
 ## Keys
 
-`tab` and `shift+tab` move between panes, and `1`–`6` jump straight to one.
+`tab` and `shift+tab` move between panes, and `1`–`7` jump straight to one.
 `j`/`k` or the arrow keys move within a list, and `J`/`K` or `pgdn`/`pgup`
 scroll the detail pane. Each pane keeps its own place: come back to one and
 its detail is scrolled where you left it, unless it shows another branch,
@@ -98,7 +104,7 @@ every key `?` lists, by where it works.
 | Where | Key | Does |
 | --- | --- | --- |
 | Moving around | `tab` / `shift+tab` | Next pane, previous pane |
-| | `1`–`6` | Jump to a pane |
+| | `1`–`7` | Jump to a pane |
 | | `j`/`k` or `↓`/`↑` | Move within a list |
 | | `J`/`K` or `pgdn`/`pgup` | Scroll the detail pane |
 | 1 Issues | `t` | Change the selected issue's status |
@@ -111,9 +117,10 @@ every key `?` lists, by where it works.
 | | `v` | Switch which issue list is shown |
 | | `ctrl+n` | Load the next page of the list |
 | | `r` | Search again |
+| | `T` | Track the issue in Taskwarrior, or go to the task that tracks it; offered once Taskwarrior has answered |
 | | `enter` / `esc` | Below 80 columns, read the selected issue in full, then go back to the list |
 | 2 Branch | `b` | Start a branch |
-| | `s` | Switch to another issue's branch |
+| | `s` | Switch to the branch of another of your issues |
 | | `u` | Rebase the branch onto its base, after a last look |
 | | `P` | Push a branch that has unpushed commits, after a last look |
 | | `r` | Read the repository again |
@@ -136,6 +143,16 @@ every key `?` lists, by where it works.
 | 5, your service | `p` | Preview the announcement of the pull request |
 | 6 Reviews | `o` / `y` | Open the selected request in the browser, or copy its URL |
 | | `r` | Ask the forge again |
+| 7 Tasks | `s` | Start the selected task, or stop it once started |
+| | `d` | Mark it done |
+| | `a` | Add a task, typed in Taskwarrior's own grammar |
+| | `A` | Annotate it |
+| | `e` | Modify it, typed in Taskwarrior's grammar |
+| | `u` | Undo Taskwarrior's last change |
+| | `S` | Sync Taskwarrior, when its taskrc names a sync backend |
+| | `enter` | Go to its issue, when the Issues pane lists that issue |
+| | `o` / `y` | Open its issue in the browser, or copy its URL |
+| | `r` | Read the tasks again |
 | A composer or preview | `tab` / `shift+tab` | Next field, previous field |
 | | `←` / `→` | Change the commit's type; in the announcement preview, change the channel |
 | | `ctrl+o` | Write the commit's body, or the pull request's description, in your editor |
@@ -156,8 +173,14 @@ every key `?` lists, by where it works.
 | | `?` | Every key |
 | | `q` | Quit (`ctrl+c` works even with a preview open) |
 
-Every key here but the pane numbers, `1`–`6`, can be rebound with `ui.keys`;
-see [Configuration]({{< relref "/docs/configuration" >}}).
+Every key here but the pane numbers, `1`–`7`, can be rebound with `ui.keys`;
+see [Configuration]({{< relref "/docs/configuration" >}}). `7` is new with the
+Tasks pane: a `ui.keys` map that moved an action live on a pane, or while a
+command runs, to `7` worked before and now stops workflow from starting
+(`workflow doctor` names it), as a map using `1`–`6` always did. Likewise, a
+map that gave the Tasks pane's keys (`s`, `d`, `a`, `A`, `e`, `u`, `S`) or the
+Issues pane's `T` to another action live there is now refused; rebinding the
+new action settles it.
 
 ## The loop
 
@@ -166,7 +189,10 @@ see [Configuration]({{< relref "/docs/configuration" >}}).
 The Issues pane lists what is assigned to you and not done, most recently
 updated first. The detail pane shows the selected issue's description and
 comments. If the current branch names an issue, that issue is selected when
-workflow opens, so you land back where you left off.
+workflow opens, so you land back where you left off. `v` moves to the next of
+the lists `jira.views` names; each is narrowed to the issues assigned to you
+unless its query names the assignee itself, as
+[Issue views]({{< relref "/docs/configuration#issue-views" >}}) explains.
 
 **Change status** (`t`) lists the transitions Jira's workflow offers from the
 issue's status. A transition that needs fields filled in says which. Choosing
@@ -201,6 +227,15 @@ branch starts from what origin holds now; if the fetch fails, the overlay says
 why, and `enter` again branches from what you already have. The branch is not
 set to track its base, so it reads as unpushed until it is. `ctrl+w` creates it
 in a new git worktree beside the repository instead of switching to it.
+
+`s` on the Branch pane switches to the branch of another issue. It lists the
+branches that name an issue assigned to you and not done: the local ones, then
+those only the remote has, marked `(remote)`, which switching to creates here.
+A branch whose issue is finished, or reassigned — to QA, say — leaves the list,
+even one you have locally. When the tracker cannot be asked which issues are
+yours, the list holds every branch that names an issue, under a line saying
+why. A switch is refused while the working tree holds uncommitted changes,
+rather than carrying them onto the other branch.
 
 ### Stage and commit
 
@@ -295,13 +330,114 @@ and the messaging pane and the top row say whether the one on screen has been.
 The store remembers what was announced, so a later session does not offer the
 same announcement again.
 
+### Track it in Taskwarrior
+
+With [Taskwarrior](https://taskwarrior.org) 3.5.0 or newer installed, the
+Tasks pane is your own task list beside the loop, and a task can track each
+issue. workflow runs Taskwarrior's `task` for every read and write, keeps
+nothing of its own, and changes a task only when you press a key or accept an
+offer. Without a usable Taskwarrior the pane says why — not installed, turned
+off, or a `task` on `PATH` that is another program — and the rest of the
+interface carries on as before;
+[Configuration]({{< relref "/docs/configuration#taskwarrior" >}}) says how it
+is found.
+
+**Tracking an issue.** `T` on the Issues pane opens a line that adds a task
+for the selected issue, filled in with Taskwarrior's grammar:
+
+```text
+jiraid:PROJ-412 jiraurl:https://jira.example.com/browse/PROJ-412 +jira priority:H -- PROJ-412: Fix token redaction
+```
+
+`jiraid` and `jiraurl` link the task to the issue, `+jira` tags it, and
+`priority:H` is the issue's priority as Taskwarrior's `H`, `M` or `L`. That
+word is added only when the issue has a priority that maps to one of the three
+([Configuration]({{< relref "/docs/configuration#taskwarrior" >}}) has the
+map); for an issue with no priority, or one that maps to none, the line has no
+`priority:` at all. Edit the line as you like; `enter` adds the task and then
+annotates it with the issue's page. On an issue a task already tracks, `T` goes
+to that task in the Tasks pane instead, and the bottom row names it "go to
+task"; when the pane does not list that task — it waits, or the active context
+hides it — a notice names the task and why.
+
+**In Taskwarrior's words.** `a` (add), `A` (annotate), `e` (modify) and `T`
+each take a line typed as it would be after `task add`, `task 12 annotate` or
+`task 12 modify` in a shell, attributes such as `project:web`, `due:friday` or
+`+review` among the words. It is not read as a shell reads it, though: the line
+is split at its spaces, and each word goes to Taskwarrior as an argument of its
+own, so runs of spaces collapse and quotes are passed on as they are typed. A
+value therefore cannot hold a space — `project:"my web"` is two words, quotes
+and all — and an apostrophe, as in `don't`, needs no quoting. Words after `--`
+stay words, which is how the track line keeps a summary such as
+"Fix due:tomorrow" in the description rather than setting a due date; an
+annotation is taken as words throughout. A line Taskwarrior refuses stays open
+under its reason, to fix and send again.
+
+**The Tasks pane** lists your pending tasks in Taskwarrior's active context,
+most urgent first: those for an issue the Issues pane lists, then the rest
+under a faint **Other**. A waiting task is counted at the foot rather than
+listed. Each row says whether the task is started (`◐`) or not (`○`), its id
+and what it is, then faintly its issue, when it is due, and its urgency. Below
+the list is the selected task: its facts, the issue it tracks — with the
+branch and its pull request when the checked-out branch names that issue — and
+its annotations. The rail counts what is pending and started, and names the
+active context, as the pane's title does.
+
+The pane sends one change at a time, so an undo never races the change before
+it. While one is on its way the rail reads `◐ sending…`, and the keys that
+change a task — `s`, `d`, `a`, `A`, `e`, `u` and `S` — leave the bottom row and
+do nothing until Taskwarrior answers; moving, `enter`, `o`, `y` and `r` still
+work. `T` on an issue no task tracks waits the same way, and an offer accepted,
+or a line sent, meanwhile stays open and says to try again once it answers.
+
+**Marks on the issues.** Once Taskwarrior has answered, each Issues row carries
+a second glyph after its status: `◐` a task for the issue is started, `○` one
+is still to do, `●` every task for it is done, and `·` none tracks it. The
+issue's detail gains a **Tasks** block that lists each of its tasks — started
+how long ago, or when it is due — or says that `T` tracks it. Until
+Taskwarrior answers, and wherever it cannot — go-task on `PATH`, a read that
+failed — there is no column and no block, rather than a claim that no task
+tracks the issue.
+
+**The started task** ends the top row, in cyan:
+`◐ PROJ-412: Fix token redaction · 1h12m`. Short of room the description is
+cut with an ellipsis, and then left out for `◐ 1h12m` alone, which is all the
+short top row below 24 rows shows.
+
+**Offers at the loop's moments.** As the loop reaches a moment a task follows,
+workflow offers the matching change: a last look at it, or, for an issue no
+task tracks yet, the track line with the new task to be started once added.
+`enter` makes it, and `esc` leaves Taskwarrior as it was. It never makes one
+unasked.
+
+| Moment | Offer |
+| --- | --- |
+| A branch created for an issue with `b` — not one made in a worktree with `ctrl+w` — or switched to with `s` | Start the issue's task, or, with none, track the issue and start the new task |
+| A pull request opened for the branch's Jira issue | Annotate its task with the pull request's number and URL |
+| That pull request merged with `M` | Complete the task |
+| The issue moved to a done status with `t` | Complete the task |
+
+The offers keep one task started at a time: when another is — another
+issue's, or one that tracks no issue — the offer is to **Switch the task**: it
+names each task it stops first and the one it then starts, or, for an issue no
+task tracks, stops them and then opens the track line. `s` in the Tasks pane,
+and **Start** on the web, start a task without stopping any other; with more
+than one started, the top row shows the first. No start is offered for an issue
+whose own task is already started, and nothing is offered before Taskwarrior
+has answered, or without it. An offer that comes while something else is being
+asked — the status picker after a new branch, the link and review-status offers
+after a pull request — opens once that closes. Starting a task runs
+Taskwarrior's hooks, as `task start` in a shell does, so a Timewarrior hook
+starts timing too.
+
 ## Dry run
 
 `workflow --dry-run` reads everything as usual and writes nothing. Every action
 that would change something — a status change, a comment, a branch, staging, a
-commit, a push, a pull request, an announcement, a generated `lefthook.yml` — says
-what it would have done instead. The top row starts with `DRY RUN` while it is
-on. It opens no
+commit, a push, a pull request, an announcement, a change to a Taskwarrior task,
+a generated `lefthook.yml` — says what it would have done instead, as in
+`dry run: would start task 12`; the Tasks pane still reads and lists your tasks.
+The top row starts with `DRY RUN` while it is on. It opens no
 [store]({{< relref "/docs/configuration#what-is-kept-between-sessions" >}})
 either, so it starts without the cached issue list, your last commit scope and
 what was announced before.
