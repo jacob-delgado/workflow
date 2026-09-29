@@ -140,7 +140,7 @@ func (b *helpBuilder) bind(group int, action, help string, keys ...string) key.B
 }
 
 // bindShown defines a binding whose shown help key differs from its first bound
-// key — an arrow drawn in the terminal's glyph, a "1-6" range, a "pgup/K" pair.
+// key — an arrow drawn in the terminal's glyph, a "1-7" range, a "pgup/K" pair.
 func (b *helpBuilder) bindShown(group int, action, shown, help string, keys ...string) key.Binding {
 	return b.place(group, action, shown, help, keys...)
 }

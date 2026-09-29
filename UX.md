@@ -2033,5 +2033,6 @@ is not "discard".
 
 ## Ideas that would reopen a settled decision
 
-None this edition. The six-pane rail (`internal/tui/panes.go:27`), once
-written up as five in FEATURES.md, *is* the decision as built.
+None this edition. The seven-pane rail (`internal/tui/panes.go:28`), once
+written up as five in FEATURES.md and six before the Tasks pane joined it,
+*is* the decision as built.

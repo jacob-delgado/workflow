@@ -36,9 +36,10 @@ web does not narrate what a held-back write would have done.
 
 ## The page
 
-The header holds the version, the theme and the stream's state. The rail down
-the left holds the six sections; the one you are in, and its heading, take the
-hue of the system it belongs to. Below a medium width the rail keeps its icons
+The header holds the version, the theme and the stream's state, and the
+Taskwarrior task you have started, when there is one. The rail down the left
+holds the seven sections; the one you are in, and its heading, take the hue of
+the system it belongs to. Below a medium width the rail keeps its icons
 alone; each still has its name, shown on hover and read by a screen reader.
 
 **The theme** button cycles System, Light and Dark. System follows your
@@ -70,10 +71,17 @@ one `!12`; on GitHub, *pull request* and `#12` — as the terminal does.
 ### Issues
 
 The issues in a view — the default is those assigned to you and not done —
-with a **View** select for the views your configuration defines, a **Filter**
-over the issues loaded so far, by key or summary, and **Load more** while the
-view holds more. An issue with a local branch is marked *in flight*, with
-**Check out** beside it when that branch is not the one checked out.
+with a **View** select for the views your configuration defines, each scoped
+to your issues unless its query names the assignee, a **Filter** over the
+issues loaded so far, by key or summary, and **Load more** while the view
+holds more. An issue with a branch is marked *in flight*, with **Check out**
+beside it when that branch is not the one checked out — a local branch, or one
+only the remote has, which checking out creates here. The branches counted are
+those naming an issue assigned to you and not done, so a branch whose issue
+was finished or reassigned no longer marks it; while the tracker cannot be
+asked, its last answer stands, and a branch it has not answered for yet counts
+until it does. Once Taskwarrior has answered, a row also marks how its issue's
+tasks stand: *tracked*, *task active* or *task done*.
 
 The selected issue's detail shows its type, priority, reporter and assignee, a
 link to open it in Jira, its description and its comments, and its **work
@@ -84,8 +92,10 @@ done once there is a commit, and the pull request is done once its CI passes
 or it merges, and failed on a CI failure or changes asked for. The story never
 marks the announcement done, because the web keeps no record of one. From the
 story, **Start work** creates and checks out a branch named for the issue, and
-**Check out this branch** switches to one it already has. Below a large width
-the list sits over the detail rather than beside it.
+**Check out this branch** switches to one it already has. Once Taskwarrior has
+answered, a **Tasks** card sits between the story and the description;
+[Tasks](#tasks) says what it holds. Below a large width the list sits over the
+detail rather than beside it.
 
 ### Branch
 
@@ -138,22 +148,75 @@ and how its CI stands, each with a link to open it and **Copy URL**. The section
 asks the forge when you open it, unless it asked within the last minute, and
 **Refresh** asks again.
 
+### Tasks
+
+Your pending Taskwarrior tasks, most urgent first — what the terminal's Tasks
+pane lists, in Taskwarrior's violet: those for an issue the Issues list holds
+first, then the rest, under **For my issues** and **Other tasks** when there
+are both. A waiting task is counted below rather than listed, and an active
+context says it narrows the list. Each row marks whether the task is started,
+then its id, what it is, and quietly its issue, when it is due and its
+urgency. The section reads Taskwarrior when you open it and when **Refresh**
+asks, rather than from the stream. It needs Taskwarrior 3.5.0 or newer, found
+as [Configuration]({{< relref "/docs/configuration#taskwarrior" >}})
+describes; without one it says why — and, where the `task` on `PATH` is
+another program, go-task most likely, that Settings can name Taskwarrior's
+with `taskwarrior.program`, which applies once workflow restarts.
+
+The line at the top adds a task from what you would type after `task add`, in
+Taskwarrior's own grammar — `project:web`, `due:friday` or `+review` among the
+words — and says which task it added. The line is not read as a shell reads
+it: each space-separated word goes to Taskwarrior as an argument of its own,
+and quotes are passed on as typed, as
+[Using workflow]({{< relref "/docs/usage#track-it-in-taskwarrior" >}})
+explains. The selected task shows its state, project, priority, tags, due
+date, urgency, id and issue, a link to the issue's page and, when the Issues
+list holds the issue, **Open in Issues**. For a task that names an issue the
+page is the tracker's, as the terminal's `o` opens it; with the forge's
+issues as the tracker, or for a task that names none, it is the task's
+`jiraurl`, and only an http or https address.
+Then come **Start** or **Stop**,
+**Done**, its annotations, and a line each to **Annotate** it and **Modify**
+it in the same grammar. **Undo** reverts Taskwarrior's last change, whatever
+made it, and **Sync**, shown when the taskrc names a sync backend, syncs. Each
+write says what it did, and the list redraws from Taskwarrior's answer at
+once. A write Taskwarrior refuses says why below its button, in Taskwarrior's
+own words, with your home and data directories put in fixed words and any
+line naming a server left out; a failed sync answers in fixed words only, and
+`task sync` in a terminal shows why. A write that changed nothing — **Start**
+on a task already started, say, or **Undo** with nothing to undo — shows the
+sentence its `409` carries.
+
+Once Taskwarrior has answered, the rest of the page shows your tasks too: the
+header carries the task you have started and how long it has run, and opens
+this section; each Issues row marks how its issue's tasks stand; and an
+issue's detail has a **Tasks** card listing each of its tasks, with **Start**
+or **Stop** and **Done** on each still to do. While none is, the card offers
+**Track in Taskwarrior**, which adds the task the terminal's `T` would,
+annotated with the issue's page, and says which task now tracks it. Until
+Taskwarrior has answered, and where it could not, none of them is drawn,
+rather than a claim that no task tracks the issue.
+
 ### Settings
 
-The configuration file in effect, in seven parts — Jira, messaging, the forge,
-commits, branches, pull requests and the store — and **Save changes** writes it
-back. A credential is shown masked and kept as it is unless you type a new one.
-What the form has no field for yet is kept unchanged when you save: `version`,
-all of `ui` and `timing`, `jira.token_command`, `jira.token_env`,
-`jira.headers`, `jira.views`, `messaging.token_command`, `messaging.token_env`,
-`messaging.channels` and `branch.prefixes`. Settings reads the file each time
-it opens, and a save checks that the file has not changed since: when it has
-(edited on disk, rewritten by `workflow config init --force`, or saved from
-another tab), nothing is written, and **Reload** reads it again in place of your
-edits so you can make the change again. The check and the write are not one
-step, so a change that lands in the moment between them is still written over.
-When the file on disk is not valid, Settings says so in place of the form, and
-`workflow doctor` says what is wrong with it.
+The configuration file in effect, in eight parts — Jira, messaging, the forge,
+commits, branches, pull requests, the store and Taskwarrior — and
+**Save changes** writes it back. A credential is shown masked and kept as it is
+unless you type a new one. A change to the Taskwarrior part applies when
+workflow restarts, as the part says: workflow finds Taskwarrior as it starts,
+and until the restart the Tasks section says to restart rather than read
+Taskwarrior. What the form has no field for yet is kept unchanged
+when you save: `version`, all of `ui` and `timing`, `jira.token_command`,
+`jira.token_env`, `jira.headers`, `jira.views`, `messaging.token_command`,
+`messaging.token_env`, `messaging.channels` and `branch.prefixes`. Settings
+reads the file each time it opens, and a save checks that the file has not
+changed since: when it has (edited on disk, rewritten by
+`workflow config init --force`, or saved from another tab), nothing is written,
+and **Reload** reads it again in place of your edits so you can make the change
+again. The check and the write are not one step, so a change that lands in the
+moment between them is still written over. When the file on disk is not valid,
+Settings says so in place of the form, and `workflow doctor` says what is wrong
+with it.
 
 ## What stays in the terminal
 
@@ -179,6 +242,10 @@ or [UX.md](https://github.com/jacob-delgado/workflow/blob/main/UX.md):
   choosing among pull request templates, creating a branch in a worktree,
   running the pre-commit hook on its own and generating a `lefthook.yml`** —
   the terminal alone.
+- **Offering a task change at the loop's moments** — starting the issue's
+  task when its branch is made or checked out, noting the pull request on it,
+  completing it on a merge or a move to done; on the web those are the
+  **Tasks** card's and the Tasks section's buttons, pressed when you choose.
 - **Writing a first configuration file** — `workflow config init`; Settings
   edits a file that already exists.
 
@@ -193,8 +260,9 @@ errors]({{< relref "/docs/errors" >}}) lists the codes.
 
 ## Scripting the API
 
-Four reads answer what a section shows, for a script on the same machine; the
-page itself takes the same state from its stream.
+Five reads answer what a section shows, for a script on the same machine; the
+page itself takes the first four from its stream, and reads the fifth as its
+Tasks section opens.
 [`api/openapi.yaml`](https://github.com/jacob-delgado/workflow/blob/main/api/openapi.yaml)
 describes each answer's fields, and every other request the API serves.
 
@@ -204,6 +272,7 @@ describes each answer's fields, and every other request the API serves.
 | `GET /api/changes` | The working tree's changes |
 | `GET /api/review` | The branch's pull request and its CI |
 | `GET /api/messaging` | The messaging service, and where and as whom an announcement would post |
+| `GET /api/tasks` | Your pending Taskwarrior tasks, most urgent first, waiting ones included, with the active context and whether a sync backend is set |
 
 ```sh
 curl -s http://127.0.0.1:13579/api/review
@@ -211,4 +280,13 @@ curl -s http://127.0.0.1:13579/api/review
 
 They are reads, so they answer under `--dry-run` too. When git or the forge
 fails, the branch, changes and review reads answer a problem where the page
-shows an empty panel, so a script can tell a failure from nothing to show.
+shows an empty panel, so a script can tell a failure from nothing to show. The
+tasks read answers `available: false` and why, never a problem, when there is
+no Taskwarrior to ask; a Taskwarrior that is there but fails the read answers
+a problem.
+
+The Tasks section's writes are `POST`s beside that read: `/api/tasks` to add a
+task, `/api/tasks/track` to track an issue, `/api/tasks/undo`,
+`/api/tasks/sync`, and `start`, `stop`, `done`, `annotations` and `modify`
+under `/api/tasks/{uuid}/`. Each answers the task list as it stands after the
+write, and a task Taskwarrior changed nothing on answers `409`.

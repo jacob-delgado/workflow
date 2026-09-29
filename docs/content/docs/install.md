@@ -16,6 +16,17 @@ weight: 10
   [Configuration]({{< relref "/docs/configuration" >}}).
 - **`glab`**, only with `forge.cli` on GitLab, as the tool it routes GitLab
   calls through. Without it those calls go over HTTP.
+- **[Taskwarrior](https://taskwarrior.org) 3.5.0 or newer**, optionally, for
+  the Tasks pane and the `--web` Tasks section; without it they say so and
+  nothing else changes. On macOS, `brew install task`. On Linux, your
+  distribution's package where it carries 3.5.0 or newer — many still ship
+  2.x, which is too old — or a build from
+  [Taskwarrior's source](https://github.com/GothenburgBitFactory/taskwarrior),
+  which needs Rust and CMake. Run Taskwarrior once, by its path where go-task
+  comes first on `PATH`, so it writes its configuration. go-task, the Taskfile
+  runner the source build below uses, is also called `task`; workflow tells
+  the two apart, and `workflow doctor` names the Taskwarrior it found, or why
+  none is usable.
 
 ## With Go
 
