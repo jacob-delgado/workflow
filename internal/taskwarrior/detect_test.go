@@ -99,6 +99,34 @@ func TestCandidatesListsEveryTaskOnPathInOrder(t *testing.T) {
 	}
 }
 
+func TestCandidatesLeavesOutARelativePathEntry(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	dir := t.TempDir()
+	place(t, filepath.Join(dir, taskProgram), plainFile, 0o755)
+
+	workDir, err := os.Getwd()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	relative, err := filepath.Rel(workDir, dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	pathList := relative + string(os.PathListSeparator) + dir
+
+	// Act
+	got := taskwarrior.Candidates(pathList, linux)
+
+	// Assert
+	if want := []string{filepath.Join(dir, taskProgram)}; !slices.Equal(got, want) {
+		t.Errorf("Candidates(%q) = %q, want only the absolute entry's %q", pathList, got, want)
+	}
+}
+
 func TestDetectKeepsTheFirstCandidateThatIsTaskwarrior(t *testing.T) {
 	t.Parallel()
 
@@ -324,6 +352,10 @@ func TestDetectReportsATaskwarriorNeverRun(t *testing.T) {
 			var never taskwarrior.NeverRunError
 			if !errors.Is(err, taskwarrior.ErrNotConfigured) || !errors.As(err, &never) || never.Program != test.named {
 				t.Errorf("Detect returned %v, want ErrNotConfigured naming the program %q", err, test.named)
+			}
+
+			if err != nil && !strings.HasSuffix(err.Error(), ": "+test.named) {
+				t.Errorf("Detect's error reads %q, want it to end naming %q", err, test.named)
 			}
 
 			ran := make([]string, 0, len(fake.calls))

@@ -157,9 +157,10 @@ func exited(t *testing.T, code int, stderr string) error {
 // counts.
 const linux = "linux"
 
-// What a file on the PATH list is when it is not a plain file.
+// What a file on the PATH list is.
 const (
-	directory = iota + 1
+	plainFile = iota
+	directory
 	symlink
 )
 

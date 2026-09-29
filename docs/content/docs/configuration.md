@@ -574,13 +574,14 @@ too old rather than driven.
 Taskwarrior's program is called `task`, and so is go-task, the Taskfile runner.
 So workflow does not take the first `task` on `PATH` at its word: it asks each
 `task` on `PATH`, in order, for its `_version`, and keeps the first that answers
-as Taskwarrior 3.5.0 or newer. Each is asked from the filesystem root, not the
-directory workflow runs in, so go-task finds no Taskfile to run: a `_version`
-task, or a catch-all one, in your repository's Taskfile never runs. The one
-that answers is kept for the session. A Taskwarrior that has never been run,
-whose taskrc has a malformed line, or that cannot start at all ends the search
-there: it is reported, as below, rather than passed over for a `task` further
-down.
+as Taskwarrior 3.5.0 or newer. A `PATH` entry that is not an absolute directory,
+such as `bin` or `.`, is passed over. Each is asked from the filesystem root,
+not the directory workflow runs in, so go-task finds no Taskfile to run: a
+`_version` task, or a catch-all one, in your repository's Taskfile never runs.
+The one that answers is kept for the session. A Taskwarrior that has never been
+run, whose taskrc has a malformed line, or that cannot start at all ends the
+search there: it is reported, as below, rather than passed over for a `task`
+further down.
 
 `taskwarrior.program` names the one to run instead, and then only it is tried.
 Give it a path: a bare name is looked up on `PATH` like any command, so
