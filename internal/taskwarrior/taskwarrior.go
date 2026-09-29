@@ -95,9 +95,11 @@ type Install struct {
 
 // Candidates is every task on pathList, in PATH order: on Windows task.exe
 // beside task, elsewhere a regular file with an execute bit. It walks pathList
-// the way exec.LookPath does, but keeps every hit rather than the first: on
-// this maintainer's machine the first task on PATH is go-task and the third is
-// Taskwarrior.
+// as exec.LookPath does but keeps every hit rather than the first, since
+// go-task, also called task, can come before Taskwarrior on PATH. It passes
+// over an empty or relative entry, which names the working directory or one
+// under it: LookPath refuses a program found through one with ErrDot, where
+// Candidates goes on to the absolute entries.
 func Candidates(pathList, goos string) []string {
 	names := []string{"task"}
 	if goos == "windows" {
@@ -107,7 +109,7 @@ func Candidates(pathList, goos string) []string {
 	var found []string
 
 	for dir := range strings.SplitSeq(pathList, string(os.PathListSeparator)) {
-		if dir == "" {
+		if !filepath.IsAbs(dir) {
 			continue
 		}
 
