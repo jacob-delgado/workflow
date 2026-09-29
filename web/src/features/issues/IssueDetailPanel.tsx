@@ -2,6 +2,7 @@ import { ExternalLink } from 'lucide-react'
 import { useEffect, useRef, useState, type RefObject } from 'react'
 import { apiErrorMessage } from '@/api/apiError.ts'
 import type { Comment, Issue, IssueDetail } from '@/api/generated/types.gen.ts'
+import { IssueTasks } from '@/features/tasks/IssueTasks.tsx'
 import { Button } from '@/lib/Button.tsx'
 import { definitionList } from '@/lib/utils.ts'
 import { useIssue } from './issueApi.ts'
@@ -15,7 +16,8 @@ const sectionHeading = 'text-base font-semibold'
 // stream keeps that row current, where the full read is taken once — and falls
 // back to the full read otherwise; the people, the link, the description and
 // the comments wait for that read, and a read that fails offers to be tried
-// again. The work story reads the stream, so it never waits.
+// again. The work story and the issue's tasks read the stream, so neither
+// waits.
 export function IssueDetailPanel({ issueKey, listed }: { issueKey: string; listed?: Issue }) {
   const { data, error, errorUpdateCount, isPending, isFetching, refetch } = useIssue(issueKey)
   // A Retry goes once the issue it reads again arrives, so its focus follows to
@@ -59,6 +61,7 @@ export function IssueDetailPanel({ issueKey, listed }: { issueKey: string; liste
         </h3>
         <WorkStory issueKey={issueKey} />
       </section>
+      <IssueTasks issueKey={issueKey} />
       {data ? <Description text={data.description} /> : null}
       {data ? <Comments comments={data.comments} total={data.comment_total} /> : null}
     </article>

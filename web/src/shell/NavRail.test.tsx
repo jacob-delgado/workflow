@@ -38,7 +38,7 @@ test('calls the messaging section Messaging until the stream names the service',
   expect(screen.getByRole('button', { name: 'Messaging' })).toBeTruthy()
 })
 
-test("offers the interface's six sections, in its order, Settings last", () => {
+test("offers the interface's seven sections, in its order, Settings last", () => {
   // Act
   render(<NavRail />)
 
@@ -47,5 +47,5 @@ test("offers the interface's six sections, in its order, Settings last", () => {
   const names = within(rail)
     .getAllByRole('button')
     .map((button) => button.textContent)
-  expect(names).toEqual(['Issues', 'Branch', 'Review', 'Messaging', 'Reviews', 'Settings'])
+  expect(names).toEqual(['Issues', 'Branch', 'Review', 'Messaging', 'Reviews', 'Tasks', 'Settings'])
 })

@@ -59,3 +59,26 @@ test('routes the reviews section to its queue, which reads without waiting on th
   expect(await screen.findAllByText('Nothing is waiting on your review.')).not.toHaveLength(0)
   expect(screen.queryByText(/connecting/i)).toBeNull()
 })
+
+test('routes the tasks section to its list, which reads without waiting on the stream', async () => {
+  // Arrange
+  fakeApi({
+    '/api/tasks': {
+      available: true,
+      reason: '',
+      context: '',
+      sync_available: false,
+      said: '',
+      tasks: [],
+    },
+  })
+
+  // Act
+  renderWithClient(<SectionPanel section="tasks" />)
+
+  // Assert
+  expect(
+    await screen.findByText('No pending tasks. Add one above, or track an issue from Issues.'),
+  ).toBeTruthy()
+  expect(screen.queryByText(/connecting/i)).toBeNull()
+})

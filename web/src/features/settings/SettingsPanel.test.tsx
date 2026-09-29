@@ -185,6 +185,57 @@ test('offers turning the store off and rides it back through a save', async () =
   expect((reopened as HTMLInputElement).checked).toBe(true)
 })
 
+test('the Taskwarrior fieldset says its changes apply when workflow restarts', async () => {
+  // Arrange
+  vi.stubEnv('VITE_MOCK', 'true')
+
+  // Act
+  renderWithClient(<SettingsPanel />)
+
+  // Assert
+  expect(
+    await screen.findByRole('group', {
+      name: 'Taskwarrior',
+      description: 'A change here applies when workflow restarts.',
+    }),
+  ).toBeTruthy()
+})
+
+test("the Taskwarrior fieldset's program and switch ride back through a save", async () => {
+  // Arrange
+  vi.stubEnv('VITE_MOCK', 'true')
+  const user = userEvent.setup()
+  const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+  const view = render(
+    <QueryClientProvider client={client}>
+      <SettingsPanel />
+    </QueryClientProvider>,
+  )
+  const program = await screen.findByRole('textbox', {
+    name: 'Task program',
+    description:
+      'Empty tries every task on PATH and keeps the first that is Taskwarrior 3.5.0 or newer.',
+  })
+  await user.type(program, '/opt/homebrew/bin/task')
+  await user.click(screen.getByRole('checkbox', { name: /turn off the taskwarrior integration/i }))
+
+  // Act: save, then reopen against the same client
+  await user.click(screen.getByRole('button', { name: /save changes/i }))
+  await screen.findByText(/saved/i)
+  view.unmount()
+  render(
+    <QueryClientProvider client={client}>
+      <SettingsPanel />
+    </QueryClientProvider>,
+  )
+
+  // Assert
+  const reopened = await screen.findByRole('textbox', { name: 'Task program' })
+  expect((reopened as HTMLInputElement).value).toBe('/opt/homebrew/bin/task')
+  const off = screen.getByRole('checkbox', { name: /turn off the taskwarrior integration/i })
+  expect((off as HTMLInputElement).checked).toBe(true)
+})
+
 test('confirms when the configuration is saved', async () => {
   // Arrange
   vi.stubEnv('VITE_MOCK', 'true')

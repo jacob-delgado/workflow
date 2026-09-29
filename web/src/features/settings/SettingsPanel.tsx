@@ -18,6 +18,7 @@ import { ForgeFieldset } from './fieldsets/ForgeFieldset.tsx'
 import { JiraFieldset } from './fieldsets/JiraFieldset.tsx'
 import { MessagingFieldset } from './fieldsets/MessagingFieldset.tsx'
 import { PullRequestFieldset, StoreFieldset } from './fieldsets/PullRequestAndStoreFieldsets.tsx'
+import { TaskwarriorFieldset } from './fieldsets/TaskwarriorFieldset.tsx'
 
 export function SettingsPanel() {
   const query = useConfigRead()
@@ -128,6 +129,7 @@ function ConfigForm({ read, takesFocus }: { read: ConfigRead; takesFocus: boolea
       <BranchFieldset register={register} />
       <PullRequestFieldset register={register} />
       <StoreFieldset register={register} />
+      <TaskwarriorFieldset register={register} />
 
       {/* A refusal ChangedSinceRead explains is not said a second time. */}
       <SaveControls state={save.state} error={changed ? '' : save.error} />

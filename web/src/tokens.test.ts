@@ -11,8 +11,9 @@ const themes = [
 ] as const
 
 // The systems the product ties together, each with its own hue — the terminal
-// spine's (internal/tui/spine.go) — carrying identity: whose a thing is.
-const identities = ['--jira', '--git', '--forge', '--messaging'] as const
+// spine's (internal/tui/spine.go) — and your own tasks', carrying identity:
+// whose a thing is.
+const identities = ['--jira', '--git', '--forge', '--messaging', '--taskwarrior'] as const
 
 // What already speaks for state and for controls, which an identity hue must
 // never be mistaken for: the three status lights and the control accent.

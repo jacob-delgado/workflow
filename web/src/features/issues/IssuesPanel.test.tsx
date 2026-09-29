@@ -3,7 +3,7 @@ import userEvent from '@testing-library/user-event'
 import { vi } from 'vitest'
 import type { Issue } from '@/api/generated/types.gen.ts'
 import { useSnapshotStore } from '@/api/snapshot.ts'
-import { makeBranch, makeSnapshot } from '@/test/fixtures.ts'
+import { makeBranch, makeSnapshot, makeTask } from '@/test/fixtures.ts'
 import { drawnMark, markShape } from '@/test/marks.tsx'
 import { renderWithClient } from '@/test/renderWithClient.tsx'
 import { checkoutBranch } from './checkoutApi.ts'
@@ -217,6 +217,23 @@ test('shows the work story for the selected issue', async () => {
   expect(screen.getByText('Announce')).toBeTruthy()
 })
 
+test("the issue's detail shows its tasks between its work story and its description", async () => {
+  // Arrange
+  const user = userEvent.setup()
+  withIssues()
+  serveTokenLeak()
+  renderWithClient(<IssuesPanel />)
+
+  // Act
+  await user.click(screen.getByRole('button', { name: /fix the token leak/i }))
+
+  // Assert
+  await screen.findByText('Tokens reach the request log.')
+  expect(
+    screen.getAllByRole('heading', { level: 3 }).map((heading) => heading.textContent),
+  ).toEqual(['Work story', 'Tasks', 'Description', 'Comments'])
+})
+
 test('marks only the issues a local branch names as in flight', () => {
   // Arrange
   // Two issues, but only PROJ-1 has a local branch, so only it is in flight.
@@ -265,6 +282,93 @@ test('marks an issue in flight with the in-flight mark, beside the words', () =>
   // Assert
   const words = screen.getByText('in flight')
   expect(markShape(words.parentElement ?? words)).toBe(drawnMark('in-flight'))
+})
+
+// taskMarkRows lists four issues — one whose task is started, one whose task is
+// still to do, one whose every task is completed, and one no task tracks —
+// under a stream frame whose task summary is available as given.
+function taskMarkRows(available: boolean) {
+  const shipped: Issue = { ...setupDocs, key: 'PROJ-3', summary: 'Ship the release' }
+  const untracked: Issue = { ...setupDocs, key: 'PROJ-4', summary: 'Plan the next one' }
+  const linked = [
+    makeTask({
+      uuid: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaa1',
+      id: 1,
+      issue_key: 'PROJ-1',
+      start: '2026-09-28T09:00:00Z',
+    }),
+    makeTask({ uuid: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaa2', id: 2, issue_key: 'PROJ-2' }),
+    makeTask({
+      uuid: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaa3',
+      id: 0,
+      issue_key: 'PROJ-3',
+      status: 'completed',
+    }),
+  ]
+  useSnapshotStore.setState({
+    status: 'live',
+    snapshot: makeSnapshot({
+      issues: { total: 4, start_at: 0, issues: [tokenLeak, setupDocs, shipped, untracked] },
+      tasks: { available, reason: available ? '' : 'Turned off by taskwarrior.disabled.', linked },
+    }),
+  })
+}
+
+test("marks each issue's task by shape, beside the words for it", () => {
+  // Arrange
+  taskMarkRows(true)
+
+  // Act
+  renderWithClient(<IssuesPanel />)
+
+  // Assert
+  const rows = within(screen.getByRole('list', { name: 'Issues' })).getAllByRole('listitem')
+  const marked = ['task active', 'tracked', 'task done'].map((words) => {
+    const said = screen.getByText(words)
+
+    return [rows.findIndex((row) => row.contains(said)), markShape(said.parentElement ?? said)]
+  })
+  expect(marked).toEqual([
+    [0, drawnMark('in-flight')],
+    [1, drawnMark('not-started')],
+    [2, drawnMark('done')],
+  ])
+  expect(rows[3]?.textContent).not.toMatch(/tracked|task active|task done/)
+})
+
+test.each([
+  ['waits until a later date', { status: 'waiting', wait: '2099-01-01T00:00:00Z' }],
+  ['recurs', { status: 'recurring' }],
+] as const)('an issue whose only task %s is tracked, never done', (_, shape) => {
+  // Arrange
+  useSnapshotStore.setState({
+    status: 'live',
+    snapshot: makeSnapshot({
+      issues: { total: 1, start_at: 0, issues: [tokenLeak] },
+      tasks: { available: true, reason: '', linked: [makeTask({ issue_key: 'PROJ-1', ...shape })] },
+    }),
+  })
+
+  // Act
+  renderWithClient(<IssuesPanel />)
+
+  // Assert
+  const said = screen.getByText('tracked')
+  expect(markShape(said.parentElement ?? said)).toBe(drawnMark('not-started'))
+  expect(screen.queryByText('task done')).toBeNull()
+})
+
+test('draws no task marks when Taskwarrior is unavailable', () => {
+  // Arrange
+  taskMarkRows(false)
+
+  // Act
+  renderWithClient(<IssuesPanel />)
+
+  // Assert
+  expect(screen.getByRole('list', { name: 'Issues' }).textContent).not.toMatch(
+    /tracked|task active|task done/,
+  )
 })
 
 test('checks out an in-flight branch from the list without opening the detail', async () => {

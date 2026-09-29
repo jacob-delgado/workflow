@@ -22,6 +22,10 @@ interface SnapshotState {
   status: StreamStatus
   // Why the stream is stale, to show beside it; empty otherwise.
   reason: string
+  // When the snapshot landed, by the page's clock in milliseconds — 0 before
+  // the first — so a panel can tell what a write answered since from what the
+  // stream pushed since.
+  receivedAt: number
 }
 
 // The latest full read state the event stream has pushed, which view it was
@@ -32,6 +36,7 @@ export const useSnapshotStore = create<SnapshotState>(() => ({
   view: null,
   status: 'connecting',
   reason: '',
+  receivedAt: 0,
 }))
 
 // useLiveSnapshot is the snapshot for a section that renders only once there is
@@ -66,7 +71,12 @@ export function useEventStream(view: string | null, onViewRefused: () => void): 
     // is never pulled into a production build.
     if (import.meta.env.VITE_MOCK === 'true') {
       void import('@/dev/mockSnapshot.ts').then((module) => {
-        useSnapshotStore.setState({ snapshot: module.mockSnapshot, view, status: 'live' })
+        useSnapshotStore.setState({
+          snapshot: module.mockSnapshot,
+          view,
+          status: 'live',
+          receivedAt: Date.now(),
+        })
       })
 
       return
@@ -82,7 +92,13 @@ export function useEventStream(view: string | null, onViewRefused: () => void): 
     source.addEventListener('snapshot', (event) => {
       const parsed = zSnapshot.safeParse(parseJSON((event as MessageEvent<string>).data))
       if (parsed.success) {
-        useSnapshotStore.setState({ snapshot: parsed.data, view, status: 'live', reason: '' })
+        useSnapshotStore.setState({
+          snapshot: parsed.data,
+          view,
+          status: 'live',
+          reason: '',
+          receivedAt: Date.now(),
+        })
       } else {
         useSnapshotStore.setState({ status: 'stale', reason: unreadable })
       }
