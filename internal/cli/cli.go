@@ -205,7 +205,10 @@ func NewRootCmdOver(prompt Prompt, run RunInterface, serveAt RunWebAt) *cobra.Co
 					fmt.Fprintf(cmd.ErrOrStderr(), "workflow web: configuration did not load cleanly: %v\n", conn.loadErr)
 				}
 
-				info := webserver.Info{Version: buildinfo.Current(), DryRun: dryRun, ForgeKind: conn.deps.Forge.Kind}
+				info := webserver.Info{
+					Version: buildinfo.Current(), DryRun: dryRun, ForgeKind: conn.deps.Forge.Kind,
+					Taskwarrior: conn.cfg.Taskwarrior,
+				}
 
 				conn.resolveAhead()
 
@@ -355,10 +358,13 @@ func WebDeps(deps tui.Deps) webserver.Deps {
 		Stage:   deps.Git.Stage,
 		Unstage: deps.Git.Unstage,
 
+		RemoteBranches: deps.Git.RemoteBranches,
+
 		LastScope:   deps.Store.LastScope,
 		RecordScope: deps.Store.RecordScope,
 
-		Tasks: deps.Tasks,
+		Tasks:   deps.Tasks,
+		HomeDir: os.UserHomeDir,
 
 		CheckKeys: tui.CheckKeys,
 		Clock:     deps.Clock,

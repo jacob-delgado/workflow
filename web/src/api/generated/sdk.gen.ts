@@ -2,8 +2,8 @@
 
 import type { Client, ClientMeta, Options as Options2, RequestResult, ServerSentEventsResult, TDataShape } from './client';
 import { client } from './client.gen';
-import type { AnnounceData, AnnounceErrors, AnnounceResponses, CheckoutData, CheckoutErrors, CheckoutResponses, CommitData, CommitErrors, CommitResponses, CreateBranchData, CreateBranchErrors, CreateBranchResponses, GetAnnouncementData, GetAnnouncementErrors, GetAnnouncementResponses, GetBranchData, GetBranchErrors, GetBranchResponses, GetConfigData, GetConfigErrors, GetConfigResponses, GetHealthData, GetHealthErrors, GetHealthResponses, GetIssueData, GetIssueErrors, GetIssueResponses, GetMessagingData, GetMessagingErrors, GetMessagingResponses, GetPullRequestDraftData, GetPullRequestDraftErrors, GetPullRequestDraftResponses, GetReviewData, GetReviewErrors, GetReviewResponses, LinkPullRequestData, LinkPullRequestErrors, LinkPullRequestResponses, ListChangesData, ListChangesErrors, ListChangesResponses, ListIssuesData, ListIssuesErrors, ListIssuesResponses, ListReviewsData, ListReviewsErrors, ListReviewsResponses, ListViewsData, ListViewsErrors, ListViewsResponses, OpenPullRequestData, OpenPullRequestErrors, OpenPullRequestResponses, PushData, PushErrors, PushResponses, StageData, StageErrors, StageResponses, StreamEventsData, StreamEventsErrors, StreamEventsResponse, StreamEventsResponses, TransitionIssueData, TransitionIssueErrors, TransitionIssueResponses, UnstageData, UnstageErrors, UnstageResponses, UpdateConfigData, UpdateConfigErrors, UpdateConfigResponses } from './types.gen';
-import { zAnnounceResponse, zCheckoutResponse, zCommitResponse, zCreateBranchResponse, zGetAnnouncementResponse, zGetBranchResponse, zGetConfigResponse, zGetHealthResponse, zGetIssueResponse, zGetMessagingResponse, zGetPullRequestDraftResponse, zGetReviewResponse, zLinkPullRequestResponse, zListChangesResponse, zListIssuesResponse, zListReviewsResponse, zListViewsResponse, zOpenPullRequestResponse, zPushResponse, zStageResponse, zStreamEventsResponse, zTransitionIssueResponse, zUnstageResponse, zUpdateConfigResponse } from './zod.gen';
+import type { AddTaskData, AddTaskErrors, AddTaskResponses, AnnotateTaskData, AnnotateTaskErrors, AnnotateTaskResponses, AnnounceData, AnnounceErrors, AnnounceResponses, CheckoutData, CheckoutErrors, CheckoutResponses, CommitData, CommitErrors, CommitResponses, CompleteTaskData, CompleteTaskErrors, CompleteTaskResponses, CreateBranchData, CreateBranchErrors, CreateBranchResponses, GetAnnouncementData, GetAnnouncementErrors, GetAnnouncementResponses, GetBranchData, GetBranchErrors, GetBranchResponses, GetConfigData, GetConfigErrors, GetConfigResponses, GetHealthData, GetHealthErrors, GetHealthResponses, GetIssueData, GetIssueErrors, GetIssueResponses, GetMessagingData, GetMessagingErrors, GetMessagingResponses, GetPullRequestDraftData, GetPullRequestDraftErrors, GetPullRequestDraftResponses, GetReviewData, GetReviewErrors, GetReviewResponses, LinkPullRequestData, LinkPullRequestErrors, LinkPullRequestResponses, ListChangesData, ListChangesErrors, ListChangesResponses, ListIssuesData, ListIssuesErrors, ListIssuesResponses, ListReviewsData, ListReviewsErrors, ListReviewsResponses, ListTasksData, ListTasksErrors, ListTasksResponses, ListViewsData, ListViewsErrors, ListViewsResponses, ModifyTaskData, ModifyTaskErrors, ModifyTaskResponses, OpenPullRequestData, OpenPullRequestErrors, OpenPullRequestResponses, PushData, PushErrors, PushResponses, StageData, StageErrors, StageResponses, StartTaskData, StartTaskErrors, StartTaskResponses, StopTaskData, StopTaskErrors, StopTaskResponses, StreamEventsData, StreamEventsErrors, StreamEventsResponse, StreamEventsResponses, SyncTasksData, SyncTasksErrors, SyncTasksResponses, TrackIssueData, TrackIssueErrors, TrackIssueResponses, TransitionIssueData, TransitionIssueErrors, TransitionIssueResponses, UndoTasksData, UndoTasksErrors, UndoTasksResponses, UnstageData, UnstageErrors, UnstageResponses, UpdateConfigData, UpdateConfigErrors, UpdateConfigResponses } from './types.gen';
+import { zAddTaskResponse, zAnnotateTaskResponse, zAnnounceResponse, zCheckoutResponse, zCommitResponse, zCompleteTaskResponse, zCreateBranchResponse, zGetAnnouncementResponse, zGetBranchResponse, zGetConfigResponse, zGetHealthResponse, zGetIssueResponse, zGetMessagingResponse, zGetPullRequestDraftResponse, zGetReviewResponse, zLinkPullRequestResponse, zListChangesResponse, zListIssuesResponse, zListReviewsResponse, zListTasksResponse, zListViewsResponse, zModifyTaskResponse, zOpenPullRequestResponse, zPushResponse, zStageResponse, zStartTaskResponse, zStopTaskResponse, zStreamEventsResponse, zSyncTasksResponse, zTrackIssueResponse, zTransitionIssueResponse, zUndoTasksResponse, zUnstageResponse, zUpdateConfigResponse } from './zod.gen';
 
 export type Options<TData extends TDataShape = TDataShape, ThrowOnError extends boolean = boolean, TResponse = unknown> = Options2<TData, ThrowOnError, TResponse> & {
     /**
@@ -289,9 +289,135 @@ export const openPullRequest = <ThrowOnError extends boolean = false>(options: O
 });
 
 /**
+ * Your pending Taskwarrior tasks, most urgent first.
+ *
+ * The pending tasks of Taskwarrior's active context, most urgent first, waiting ones included — what the terminal's Tasks pane lists — with the context's name and whether a sync backend is set. It is a read of Taskwarrior, not a snapshot field; the stream carries only a summary.
+ */
+export const listTasks = <ThrowOnError extends boolean = false>(options?: Options<ListTasksData, ThrowOnError>): RequestResult<ListTasksResponses, ListTasksErrors, ThrowOnError> => (options?.client ?? client).get<ListTasksResponses, ListTasksErrors, ThrowOnError>({
+    responseValidator: async (data) => await zListTasksResponse.parseAsync(data),
+    url: '/api/tasks',
+    ...options
+});
+
+/**
+ * Add a task from a line in Taskwarrior's own grammar.
+ *
+ * Adds a task the way `task add` does: a description with attributes such as project:web or due:friday among its words. Answers the pending list after the write. Refused with 422 when the line is empty, Taskwarrior is not available, or Taskwarrior refuses the line, with its own words.
+ */
+export const addTask = <ThrowOnError extends boolean = false>(options: Options<AddTaskData, ThrowOnError>): RequestResult<AddTaskResponses, AddTaskErrors, ThrowOnError> => (options.client ?? client).post<AddTaskResponses, AddTaskErrors, ThrowOnError>({
+    responseValidator: async (data) => await zAddTaskResponse.parseAsync(data),
+    url: '/api/tasks',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * Track an issue in Taskwarrior.
+ *
+ * Adds a task for the issue, read from the tracker: its key and page in the jiraid and jiraurl attributes, the jira tag, the issue's priority as Taskwarrior's, and "KEY: summary" as the description — the line the terminal's T prefills — then annotates the task with the issue's page, when the tracker gives one. Answers the pending list after the write; an annotation that failed leaves the task created, and said says so. Refused with 404 when the tracker has no such issue, and 422 when no tracker or Taskwarrior is available, the tracker's key is not one word, or Taskwarrior refuses the line.
+ */
+export const trackIssue = <ThrowOnError extends boolean = false>(options: Options<TrackIssueData, ThrowOnError>): RequestResult<TrackIssueResponses, TrackIssueErrors, ThrowOnError> => (options.client ?? client).post<TrackIssueResponses, TrackIssueErrors, ThrowOnError>({
+    responseValidator: async (data) => await zTrackIssueResponse.parseAsync(data),
+    url: '/api/tasks/track',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * Revert Taskwarrior's last change.
+ *
+ * Reverts Taskwarrior's last change, whatever made it, as `task undo` does. Answers the pending list after it, with said saying how many operations were reverted. Refused with 409 when Taskwarrior has nothing to undo, and 422 when it is not available or refuses.
+ */
+export const undoTasks = <ThrowOnError extends boolean = false>(options?: Options<UndoTasksData, ThrowOnError>): RequestResult<UndoTasksResponses, UndoTasksErrors, ThrowOnError> => (options?.client ?? client).post<UndoTasksResponses, UndoTasksErrors, ThrowOnError>({
+    responseValidator: async (data) => await zUndoTasksResponse.parseAsync(data),
+    url: '/api/tasks/undo',
+    ...options
+});
+
+/**
+ * Sync Taskwarrior with the backend its taskrc names.
+ *
+ * Syncs as `task sync` does. Answers the pending list after it, with said carrying what Taskwarrior printed. Refused with 422 when the taskrc names no sync backend, Taskwarrior is not available, or the sync fails; a failed sync's detail is fixed words, never Taskwarrior's, which name the sync server.
+ */
+export const syncTasks = <ThrowOnError extends boolean = false>(options?: Options<SyncTasksData, ThrowOnError>): RequestResult<SyncTasksResponses, SyncTasksErrors, ThrowOnError> => (options?.client ?? client).post<SyncTasksResponses, SyncTasksErrors, ThrowOnError>({
+    responseValidator: async (data) => await zSyncTasksResponse.parseAsync(data),
+    url: '/api/tasks/sync',
+    ...options
+});
+
+/**
+ * Start a task.
+ *
+ * Starts the task, whatever context Taskwarrior has active; starting a completed or deleted task reopens it, as Taskwarrior does. Answers the pending list after the write. Refused with 409 when Taskwarrior changes nothing — the task is already started, or no such task exists — and 422 when it is not available or refuses.
+ */
+export const startTask = <ThrowOnError extends boolean = false>(options: Options<StartTaskData, ThrowOnError>): RequestResult<StartTaskResponses, StartTaskErrors, ThrowOnError> => (options.client ?? client).post<StartTaskResponses, StartTaskErrors, ThrowOnError>({
+    responseValidator: async (data) => await zStartTaskResponse.parseAsync(data),
+    url: '/api/tasks/{uuid}/start',
+    ...options
+});
+
+/**
+ * Stop a started task.
+ *
+ * Stops the task, whatever context Taskwarrior has active. Answers the pending list after the write. Refused with 409 when Taskwarrior changes nothing — the task is not started, or is no longer pending — and 422 when it is not available or refuses.
+ */
+export const stopTask = <ThrowOnError extends boolean = false>(options: Options<StopTaskData, ThrowOnError>): RequestResult<StopTaskResponses, StopTaskErrors, ThrowOnError> => (options.client ?? client).post<StopTaskResponses, StopTaskErrors, ThrowOnError>({
+    responseValidator: async (data) => await zStopTaskResponse.parseAsync(data),
+    url: '/api/tasks/{uuid}/stop',
+    ...options
+});
+
+/**
+ * Complete a task.
+ *
+ * Marks the task done, whatever context Taskwarrior has active. Answers the pending list after the write. Refused with 409 when Taskwarrior changes nothing — the task is no longer pending — and 422 when it is not available or refuses.
+ */
+export const completeTask = <ThrowOnError extends boolean = false>(options: Options<CompleteTaskData, ThrowOnError>): RequestResult<CompleteTaskResponses, CompleteTaskErrors, ThrowOnError> => (options.client ?? client).post<CompleteTaskResponses, CompleteTaskErrors, ThrowOnError>({
+    responseValidator: async (data) => await zCompleteTaskResponse.parseAsync(data),
+    url: '/api/tasks/{uuid}/done',
+    ...options
+});
+
+/**
+ * Add a note to a task.
+ *
+ * Annotates the task with the text, whatever context Taskwarrior has active; every word stays a word, so nothing in it is read as an attribute. Answers the pending list after the write. Refused with 409 when Taskwarrior changes nothing, and 422 when the text is empty or Taskwarrior is not available or refuses.
+ */
+export const annotateTask = <ThrowOnError extends boolean = false>(options: Options<AnnotateTaskData, ThrowOnError>): RequestResult<AnnotateTaskResponses, AnnotateTaskErrors, ThrowOnError> => (options.client ?? client).post<AnnotateTaskResponses, AnnotateTaskErrors, ThrowOnError>({
+    responseValidator: async (data) => await zAnnotateTaskResponse.parseAsync(data),
+    url: '/api/tasks/{uuid}/annotations',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * Change a task by a line in Taskwarrior's own grammar.
+ *
+ * Changes the task the way `task modify` does — project:web, due:friday, +tag, or new words for its description — whatever context Taskwarrior has active. Answers the pending list after the write. Refused with 409 when Taskwarrior changes nothing, and 422 when the line is empty or Taskwarrior is not available or refuses the line, with its own words.
+ */
+export const modifyTask = <ThrowOnError extends boolean = false>(options: Options<ModifyTaskData, ThrowOnError>): RequestResult<ModifyTaskResponses, ModifyTaskErrors, ThrowOnError> => (options.client ?? client).post<ModifyTaskResponses, ModifyTaskErrors, ThrowOnError>({
+    responseValidator: async (data) => await zModifyTaskResponse.parseAsync(data),
+    url: '/api/tasks/{uuid}/modify',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
  * A stream of state snapshots, pushed on connect and then every few seconds.
  *
- * A Server-Sent Events stream (text/event-stream). Each message is a "snapshot" event whose data is a Snapshot: the current issues, branch, changes, review, messaging destination, the issues in flight, and the scope a new commit opens on. The first is pushed on connect and another every few seconds after, whether or not anything changed: the upstreams send no notice of a change, so the server reads them again on that cadence. The browser subscribes once and updates from the pushes rather than polling. The review is the forge's answer, read at most once every timing.ci_interval (twenty seconds unless set) for every stream together, and again at once for another branch or head commit, or after a pull request is opened here. A read that fails keeps the last answer for the same branch and head commit, and with no answer to keep reports none found until a read succeeds.
+ * A Server-Sent Events stream (text/event-stream). Each message is a "snapshot" event whose data is a Snapshot: the current issues, branch, changes, review, messaging destination, the issues in flight, the scope a new commit opens on, and a summary of your Taskwarrior tasks. The first is pushed on connect and another every few seconds after, whether or not anything changed: the upstreams send no notice of a change, so the server reads them again on that cadence. The browser subscribes once and updates from the pushes rather than polling. The review is the forge's answer, read at most once every timing.ci_interval (twenty seconds unless set) for every stream together, and again at once for another branch or head commit, or after a pull request is opened here. A read that fails keeps the last answer for the same branch and head commit, and with no answer to keep reports none found until a read succeeds. Which branches are for your issues is the tracker's answer too, asked again once a minute or when the branches name other issues; an ask that fails keeps the last answer, and with none lists every branch that names an issue. A search for Taskwarrior that finds none is not made again for a minute.
  */
 export const streamEvents = <ThrowOnError extends boolean = false>(options?: Options<StreamEventsData, ThrowOnError, StreamEventsResponse>): Promise<ServerSentEventsResult<StreamEventsResponses>> => (options?.client ?? client).sse.get<StreamEventsResponses, StreamEventsErrors, ThrowOnError>({
     responseValidator: async (data) => await zStreamEventsResponse.parseAsync(data),

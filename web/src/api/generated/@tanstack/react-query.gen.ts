@@ -3,8 +3,8 @@
 import { queryOptions } from '@tanstack/react-query';
 
 import { client } from '../client.gen';
-import { getAnnouncement, getBranch, getConfig, getHealth, getIssue, getMessaging, getPullRequestDraft, getReview, listChanges, listIssues, listReviews, listViews, type Options } from '../sdk.gen';
-import type { GetAnnouncementData, GetAnnouncementError, GetAnnouncementResponse, GetBranchData, GetBranchError, GetBranchResponse, GetConfigData, GetConfigError, GetConfigResponse, GetHealthData, GetHealthError, GetHealthResponse, GetIssueData, GetIssueError, GetIssueResponse, GetMessagingData, GetMessagingError, GetMessagingResponse, GetPullRequestDraftData, GetPullRequestDraftError, GetPullRequestDraftResponse, GetReviewData, GetReviewError, GetReviewResponse, ListChangesData, ListChangesError, ListChangesResponse, ListIssuesData, ListIssuesError, ListIssuesResponse, ListReviewsData, ListReviewsError, ListReviewsResponse, ListViewsData, ListViewsError, ListViewsResponse } from '../types.gen';
+import { getAnnouncement, getBranch, getConfig, getHealth, getIssue, getMessaging, getPullRequestDraft, getReview, listChanges, listIssues, listReviews, listTasks, listViews, type Options } from '../sdk.gen';
+import type { GetAnnouncementData, GetAnnouncementError, GetAnnouncementResponse, GetBranchData, GetBranchError, GetBranchResponse, GetConfigData, GetConfigError, GetConfigResponse, GetHealthData, GetHealthError, GetHealthResponse, GetIssueData, GetIssueError, GetIssueResponse, GetMessagingData, GetMessagingError, GetMessagingResponse, GetPullRequestDraftData, GetPullRequestDraftError, GetPullRequestDraftResponse, GetReviewData, GetReviewError, GetReviewResponse, ListChangesData, ListChangesError, ListChangesResponse, ListIssuesData, ListIssuesError, ListIssuesResponse, ListReviewsData, ListReviewsError, ListReviewsResponse, ListTasksData, ListTasksError, ListTasksResponse, ListViewsData, ListViewsError, ListViewsResponse } from '../types.gen';
 
 export type QueryKey<TOptions extends Options> = [
     Pick<TOptions, 'baseUrl' | 'body' | 'headers' | 'path' | 'query'> & {
@@ -261,4 +261,24 @@ export const getPullRequestDraftOptions = (options?: Options<GetPullRequestDraft
         return data;
     },
     queryKey: getPullRequestDraftQueryKey(options)
+});
+
+export const listTasksQueryKey = (options?: Options<ListTasksData>) => createQueryKey('listTasks', options);
+
+/**
+ * Your pending Taskwarrior tasks, most urgent first.
+ *
+ * The pending tasks of Taskwarrior's active context, most urgent first, waiting ones included — what the terminal's Tasks pane lists — with the context's name and whether a sync backend is set. It is a read of Taskwarrior, not a snapshot field; the stream carries only a summary.
+ */
+export const listTasksOptions = (options?: Options<ListTasksData>) => queryOptions<ListTasksResponse, ListTasksError, ListTasksResponse, ReturnType<typeof listTasksQueryKey>>({
+    queryFn: async ({ queryKey, signal }) => {
+        const { data } = await listTasks({
+            ...options,
+            ...queryKey[0],
+            signal,
+            throwOnError: true
+        });
+        return data;
+    },
+    queryKey: listTasksQueryKey(options)
 });

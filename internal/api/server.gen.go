@@ -81,6 +81,36 @@ type ServerInterface interface {
 	// Stage Stage a changed file, or every change the index does not hold yet.
 	// (POST /api/stage)
 	Stage(w http.ResponseWriter, r *http.Request)
+	// ListTasks Your pending Taskwarrior tasks, most urgent first.
+	// (GET /api/tasks)
+	ListTasks(w http.ResponseWriter, r *http.Request)
+	// AddTask Add a task from a line in Taskwarrior's own grammar.
+	// (POST /api/tasks)
+	AddTask(w http.ResponseWriter, r *http.Request)
+	// SyncTasks Sync Taskwarrior with the backend its taskrc names.
+	// (POST /api/tasks/sync)
+	SyncTasks(w http.ResponseWriter, r *http.Request)
+	// TrackIssue Track an issue in Taskwarrior.
+	// (POST /api/tasks/track)
+	TrackIssue(w http.ResponseWriter, r *http.Request)
+	// UndoTasks Revert Taskwarrior's last change.
+	// (POST /api/tasks/undo)
+	UndoTasks(w http.ResponseWriter, r *http.Request)
+	// AnnotateTask Add a note to a task.
+	// (POST /api/tasks/{uuid}/annotations)
+	AnnotateTask(w http.ResponseWriter, r *http.Request, uuid TaskUUID)
+	// CompleteTask Complete a task.
+	// (POST /api/tasks/{uuid}/done)
+	CompleteTask(w http.ResponseWriter, r *http.Request, uuid TaskUUID)
+	// ModifyTask Change a task by a line in Taskwarrior's own grammar.
+	// (POST /api/tasks/{uuid}/modify)
+	ModifyTask(w http.ResponseWriter, r *http.Request, uuid TaskUUID)
+	// StartTask Start a task.
+	// (POST /api/tasks/{uuid}/start)
+	StartTask(w http.ResponseWriter, r *http.Request, uuid TaskUUID)
+	// StopTask Stop a started task.
+	// (POST /api/tasks/{uuid}/stop)
+	StopTask(w http.ResponseWriter, r *http.Request, uuid TaskUUID)
 	// Unstage Take a changed file out of the index, or every staged change.
 	// (POST /api/unstage)
 	Unstage(w http.ResponseWriter, r *http.Request)
@@ -487,6 +517,206 @@ func (siw *ServerInterfaceWrapper) Stage(w http.ResponseWriter, r *http.Request)
 	handler.ServeHTTP(w, r)
 }
 
+// ListTasks operation middleware
+func (siw *ServerInterfaceWrapper) ListTasks(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListTasks(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// AddTask operation middleware
+func (siw *ServerInterfaceWrapper) AddTask(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.AddTask(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// SyncTasks operation middleware
+func (siw *ServerInterfaceWrapper) SyncTasks(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.SyncTasks(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// TrackIssue operation middleware
+func (siw *ServerInterfaceWrapper) TrackIssue(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.TrackIssue(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// UndoTasks operation middleware
+func (siw *ServerInterfaceWrapper) UndoTasks(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.UndoTasks(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// AnnotateTask operation middleware
+func (siw *ServerInterfaceWrapper) AnnotateTask(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "uuid" -------------
+	var uuid TaskUUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "uuid", r.PathValue("uuid"), &uuid, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "uuid", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.AnnotateTask(w, r, uuid)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// CompleteTask operation middleware
+func (siw *ServerInterfaceWrapper) CompleteTask(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "uuid" -------------
+	var uuid TaskUUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "uuid", r.PathValue("uuid"), &uuid, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "uuid", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.CompleteTask(w, r, uuid)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ModifyTask operation middleware
+func (siw *ServerInterfaceWrapper) ModifyTask(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "uuid" -------------
+	var uuid TaskUUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "uuid", r.PathValue("uuid"), &uuid, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "uuid", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ModifyTask(w, r, uuid)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// StartTask operation middleware
+func (siw *ServerInterfaceWrapper) StartTask(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "uuid" -------------
+	var uuid TaskUUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "uuid", r.PathValue("uuid"), &uuid, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "uuid", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.StartTask(w, r, uuid)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// StopTask operation middleware
+func (siw *ServerInterfaceWrapper) StopTask(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "uuid" -------------
+	var uuid TaskUUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "uuid", r.PathValue("uuid"), &uuid, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "uuid", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.StopTask(w, r, uuid)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // Unstage operation middleware
 func (siw *ServerInterfaceWrapper) Unstage(w http.ResponseWriter, r *http.Request) {
 
@@ -658,6 +888,16 @@ func HandlerWithOptions(si ServerInterface, options StdHTTPServerOptions) http.H
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/api/commit", wrapper.Commit)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/pull-request/draft", wrapper.GetPullRequestDraft)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/api/pull-request", wrapper.OpenPullRequest)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/tasks", wrapper.ListTasks)
+	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/api/tasks", wrapper.AddTask)
+	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/api/tasks/track", wrapper.TrackIssue)
+	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/api/tasks/undo", wrapper.UndoTasks)
+	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/api/tasks/sync", wrapper.SyncTasks)
+	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/api/tasks/{uuid}/start", wrapper.StartTask)
+	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/api/tasks/{uuid}/stop", wrapper.StopTask)
+	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/api/tasks/{uuid}/done", wrapper.CompleteTask)
+	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/api/tasks/{uuid}/annotations", wrapper.AnnotateTask)
+	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/api/tasks/{uuid}/modify", wrapper.ModifyTask)
 
 	return m
 }
@@ -1854,6 +2094,619 @@ func (response StagedefaultApplicationProblemPlusJSONResponse) VisitStageRespons
 	return err
 }
 
+type ListTasksRequestObject struct {
+}
+
+type ListTasksResponseObject interface {
+	VisitListTasksResponse(w http.ResponseWriter) error
+}
+
+type ListTasks200JSONResponse TaskList
+
+func (response ListTasks200JSONResponse) VisitListTasksResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListTasksdefaultApplicationProblemPlusJSONResponse struct {
+	Body       Problem
+	StatusCode int
+}
+
+func (response ListTasksdefaultApplicationProblemPlusJSONResponse) VisitListTasksResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type AddTaskRequestObject struct {
+	Body *AddTaskJSONRequestBody
+}
+
+type AddTaskResponseObject interface {
+	VisitAddTaskResponse(w http.ResponseWriter) error
+}
+
+type AddTask200JSONResponse TaskList
+
+func (response AddTask200JSONResponse) VisitAddTaskResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type AddTask422ApplicationProblemPlusJSONResponse Problem
+
+func (response AddTask422ApplicationProblemPlusJSONResponse) VisitAddTaskResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(422)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type AddTaskdefaultApplicationProblemPlusJSONResponse struct {
+	Body       Problem
+	StatusCode int
+}
+
+func (response AddTaskdefaultApplicationProblemPlusJSONResponse) VisitAddTaskResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type SyncTasksRequestObject struct {
+}
+
+type SyncTasksResponseObject interface {
+	VisitSyncTasksResponse(w http.ResponseWriter) error
+}
+
+type SyncTasks200JSONResponse TaskList
+
+func (response SyncTasks200JSONResponse) VisitSyncTasksResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type SyncTasks422ApplicationProblemPlusJSONResponse Problem
+
+func (response SyncTasks422ApplicationProblemPlusJSONResponse) VisitSyncTasksResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(422)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type SyncTasksdefaultApplicationProblemPlusJSONResponse struct {
+	Body       Problem
+	StatusCode int
+}
+
+func (response SyncTasksdefaultApplicationProblemPlusJSONResponse) VisitSyncTasksResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type TrackIssueRequestObject struct {
+	Body *TrackIssueJSONRequestBody
+}
+
+type TrackIssueResponseObject interface {
+	VisitTrackIssueResponse(w http.ResponseWriter) error
+}
+
+type TrackIssue200JSONResponse TaskList
+
+func (response TrackIssue200JSONResponse) VisitTrackIssueResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type TrackIssue404ApplicationProblemPlusJSONResponse Problem
+
+func (response TrackIssue404ApplicationProblemPlusJSONResponse) VisitTrackIssueResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type TrackIssue422ApplicationProblemPlusJSONResponse Problem
+
+func (response TrackIssue422ApplicationProblemPlusJSONResponse) VisitTrackIssueResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(422)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type TrackIssuedefaultApplicationProblemPlusJSONResponse struct {
+	Body       Problem
+	StatusCode int
+}
+
+func (response TrackIssuedefaultApplicationProblemPlusJSONResponse) VisitTrackIssueResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type UndoTasksRequestObject struct {
+}
+
+type UndoTasksResponseObject interface {
+	VisitUndoTasksResponse(w http.ResponseWriter) error
+}
+
+type UndoTasks200JSONResponse TaskList
+
+func (response UndoTasks200JSONResponse) VisitUndoTasksResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type UndoTasks409ApplicationProblemPlusJSONResponse Problem
+
+func (response UndoTasks409ApplicationProblemPlusJSONResponse) VisitUndoTasksResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(409)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type UndoTasks422ApplicationProblemPlusJSONResponse Problem
+
+func (response UndoTasks422ApplicationProblemPlusJSONResponse) VisitUndoTasksResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(422)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type UndoTasksdefaultApplicationProblemPlusJSONResponse struct {
+	Body       Problem
+	StatusCode int
+}
+
+func (response UndoTasksdefaultApplicationProblemPlusJSONResponse) VisitUndoTasksResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type AnnotateTaskRequestObject struct {
+	UUID TaskUUID `json:"uuid"`
+	Body *AnnotateTaskJSONRequestBody
+}
+
+type AnnotateTaskResponseObject interface {
+	VisitAnnotateTaskResponse(w http.ResponseWriter) error
+}
+
+type AnnotateTask200JSONResponse TaskList
+
+func (response AnnotateTask200JSONResponse) VisitAnnotateTaskResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type AnnotateTask409ApplicationProblemPlusJSONResponse Problem
+
+func (response AnnotateTask409ApplicationProblemPlusJSONResponse) VisitAnnotateTaskResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(409)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type AnnotateTask422ApplicationProblemPlusJSONResponse Problem
+
+func (response AnnotateTask422ApplicationProblemPlusJSONResponse) VisitAnnotateTaskResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(422)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type AnnotateTaskdefaultApplicationProblemPlusJSONResponse struct {
+	Body       Problem
+	StatusCode int
+}
+
+func (response AnnotateTaskdefaultApplicationProblemPlusJSONResponse) VisitAnnotateTaskResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CompleteTaskRequestObject struct {
+	UUID TaskUUID `json:"uuid"`
+}
+
+type CompleteTaskResponseObject interface {
+	VisitCompleteTaskResponse(w http.ResponseWriter) error
+}
+
+type CompleteTask200JSONResponse TaskList
+
+func (response CompleteTask200JSONResponse) VisitCompleteTaskResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CompleteTask409ApplicationProblemPlusJSONResponse Problem
+
+func (response CompleteTask409ApplicationProblemPlusJSONResponse) VisitCompleteTaskResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(409)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CompleteTask422ApplicationProblemPlusJSONResponse Problem
+
+func (response CompleteTask422ApplicationProblemPlusJSONResponse) VisitCompleteTaskResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(422)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CompleteTaskdefaultApplicationProblemPlusJSONResponse struct {
+	Body       Problem
+	StatusCode int
+}
+
+func (response CompleteTaskdefaultApplicationProblemPlusJSONResponse) VisitCompleteTaskResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ModifyTaskRequestObject struct {
+	UUID TaskUUID `json:"uuid"`
+	Body *ModifyTaskJSONRequestBody
+}
+
+type ModifyTaskResponseObject interface {
+	VisitModifyTaskResponse(w http.ResponseWriter) error
+}
+
+type ModifyTask200JSONResponse TaskList
+
+func (response ModifyTask200JSONResponse) VisitModifyTaskResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ModifyTask409ApplicationProblemPlusJSONResponse Problem
+
+func (response ModifyTask409ApplicationProblemPlusJSONResponse) VisitModifyTaskResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(409)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ModifyTask422ApplicationProblemPlusJSONResponse Problem
+
+func (response ModifyTask422ApplicationProblemPlusJSONResponse) VisitModifyTaskResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(422)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ModifyTaskdefaultApplicationProblemPlusJSONResponse struct {
+	Body       Problem
+	StatusCode int
+}
+
+func (response ModifyTaskdefaultApplicationProblemPlusJSONResponse) VisitModifyTaskResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type StartTaskRequestObject struct {
+	UUID TaskUUID `json:"uuid"`
+}
+
+type StartTaskResponseObject interface {
+	VisitStartTaskResponse(w http.ResponseWriter) error
+}
+
+type StartTask200JSONResponse TaskList
+
+func (response StartTask200JSONResponse) VisitStartTaskResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type StartTask409ApplicationProblemPlusJSONResponse Problem
+
+func (response StartTask409ApplicationProblemPlusJSONResponse) VisitStartTaskResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(409)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type StartTask422ApplicationProblemPlusJSONResponse Problem
+
+func (response StartTask422ApplicationProblemPlusJSONResponse) VisitStartTaskResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(422)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type StartTaskdefaultApplicationProblemPlusJSONResponse struct {
+	Body       Problem
+	StatusCode int
+}
+
+func (response StartTaskdefaultApplicationProblemPlusJSONResponse) VisitStartTaskResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type StopTaskRequestObject struct {
+	UUID TaskUUID `json:"uuid"`
+}
+
+type StopTaskResponseObject interface {
+	VisitStopTaskResponse(w http.ResponseWriter) error
+}
+
+type StopTask200JSONResponse TaskList
+
+func (response StopTask200JSONResponse) VisitStopTaskResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type StopTask409ApplicationProblemPlusJSONResponse Problem
+
+func (response StopTask409ApplicationProblemPlusJSONResponse) VisitStopTaskResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(409)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type StopTask422ApplicationProblemPlusJSONResponse Problem
+
+func (response StopTask422ApplicationProblemPlusJSONResponse) VisitStopTaskResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(422)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type StopTaskdefaultApplicationProblemPlusJSONResponse struct {
+	Body       Problem
+	StatusCode int
+}
+
+func (response StopTaskdefaultApplicationProblemPlusJSONResponse) VisitStopTaskResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
 type UnstageRequestObject struct {
 	Body *UnstageJSONRequestBody
 }
@@ -2024,6 +2877,36 @@ type StrictServerInterface interface {
 	// Stage Stage a changed file, or every change the index does not hold yet.
 	// (POST /api/stage)
 	Stage(ctx context.Context, request StageRequestObject) (StageResponseObject, error)
+	// ListTasks Your pending Taskwarrior tasks, most urgent first.
+	// (GET /api/tasks)
+	ListTasks(ctx context.Context, request ListTasksRequestObject) (ListTasksResponseObject, error)
+	// AddTask Add a task from a line in Taskwarrior's own grammar.
+	// (POST /api/tasks)
+	AddTask(ctx context.Context, request AddTaskRequestObject) (AddTaskResponseObject, error)
+	// SyncTasks Sync Taskwarrior with the backend its taskrc names.
+	// (POST /api/tasks/sync)
+	SyncTasks(ctx context.Context, request SyncTasksRequestObject) (SyncTasksResponseObject, error)
+	// TrackIssue Track an issue in Taskwarrior.
+	// (POST /api/tasks/track)
+	TrackIssue(ctx context.Context, request TrackIssueRequestObject) (TrackIssueResponseObject, error)
+	// UndoTasks Revert Taskwarrior's last change.
+	// (POST /api/tasks/undo)
+	UndoTasks(ctx context.Context, request UndoTasksRequestObject) (UndoTasksResponseObject, error)
+	// AnnotateTask Add a note to a task.
+	// (POST /api/tasks/{uuid}/annotations)
+	AnnotateTask(ctx context.Context, request AnnotateTaskRequestObject) (AnnotateTaskResponseObject, error)
+	// CompleteTask Complete a task.
+	// (POST /api/tasks/{uuid}/done)
+	CompleteTask(ctx context.Context, request CompleteTaskRequestObject) (CompleteTaskResponseObject, error)
+	// ModifyTask Change a task by a line in Taskwarrior's own grammar.
+	// (POST /api/tasks/{uuid}/modify)
+	ModifyTask(ctx context.Context, request ModifyTaskRequestObject) (ModifyTaskResponseObject, error)
+	// StartTask Start a task.
+	// (POST /api/tasks/{uuid}/start)
+	StartTask(ctx context.Context, request StartTaskRequestObject) (StartTaskResponseObject, error)
+	// StopTask Stop a started task.
+	// (POST /api/tasks/{uuid}/stop)
+	StopTask(ctx context.Context, request StopTaskRequestObject) (StopTaskResponseObject, error)
 	// Unstage Take a changed file out of the index, or every staged change.
 	// (POST /api/unstage)
 	Unstage(ctx context.Context, request UnstageRequestObject) (UnstageResponseObject, error)
@@ -2627,6 +3510,284 @@ func (sh *strictHandler) Stage(w http.ResponseWriter, r *http.Request) {
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
 	} else if validResponse, ok := response.(StageResponseObject); ok {
 		if err := validResponse.VisitStageResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// ListTasks operation middleware
+func (sh *strictHandler) ListTasks(w http.ResponseWriter, r *http.Request) {
+	var request ListTasksRequestObject
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.ListTasks(ctx, request.(ListTasksRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ListTasks")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(ListTasksResponseObject); ok {
+		if err := validResponse.VisitListTasksResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// AddTask operation middleware
+func (sh *strictHandler) AddTask(w http.ResponseWriter, r *http.Request) {
+	var request AddTaskRequestObject
+
+	var body AddTaskJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.AddTask(ctx, request.(AddTaskRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "AddTask")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(AddTaskResponseObject); ok {
+		if err := validResponse.VisitAddTaskResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// SyncTasks operation middleware
+func (sh *strictHandler) SyncTasks(w http.ResponseWriter, r *http.Request) {
+	var request SyncTasksRequestObject
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.SyncTasks(ctx, request.(SyncTasksRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "SyncTasks")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(SyncTasksResponseObject); ok {
+		if err := validResponse.VisitSyncTasksResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// TrackIssue operation middleware
+func (sh *strictHandler) TrackIssue(w http.ResponseWriter, r *http.Request) {
+	var request TrackIssueRequestObject
+
+	var body TrackIssueJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.TrackIssue(ctx, request.(TrackIssueRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "TrackIssue")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(TrackIssueResponseObject); ok {
+		if err := validResponse.VisitTrackIssueResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// UndoTasks operation middleware
+func (sh *strictHandler) UndoTasks(w http.ResponseWriter, r *http.Request) {
+	var request UndoTasksRequestObject
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.UndoTasks(ctx, request.(UndoTasksRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "UndoTasks")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(UndoTasksResponseObject); ok {
+		if err := validResponse.VisitUndoTasksResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// AnnotateTask operation middleware
+func (sh *strictHandler) AnnotateTask(w http.ResponseWriter, r *http.Request, uuid TaskUUID) {
+	var request AnnotateTaskRequestObject
+
+	request.UUID = uuid
+
+	var body AnnotateTaskJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.AnnotateTask(ctx, request.(AnnotateTaskRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "AnnotateTask")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(AnnotateTaskResponseObject); ok {
+		if err := validResponse.VisitAnnotateTaskResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// CompleteTask operation middleware
+func (sh *strictHandler) CompleteTask(w http.ResponseWriter, r *http.Request, uuid TaskUUID) {
+	var request CompleteTaskRequestObject
+
+	request.UUID = uuid
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.CompleteTask(ctx, request.(CompleteTaskRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "CompleteTask")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(CompleteTaskResponseObject); ok {
+		if err := validResponse.VisitCompleteTaskResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// ModifyTask operation middleware
+func (sh *strictHandler) ModifyTask(w http.ResponseWriter, r *http.Request, uuid TaskUUID) {
+	var request ModifyTaskRequestObject
+
+	request.UUID = uuid
+
+	var body ModifyTaskJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.ModifyTask(ctx, request.(ModifyTaskRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ModifyTask")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(ModifyTaskResponseObject); ok {
+		if err := validResponse.VisitModifyTaskResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// StartTask operation middleware
+func (sh *strictHandler) StartTask(w http.ResponseWriter, r *http.Request, uuid TaskUUID) {
+	var request StartTaskRequestObject
+
+	request.UUID = uuid
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.StartTask(ctx, request.(StartTaskRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "StartTask")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(StartTaskResponseObject); ok {
+		if err := validResponse.VisitStartTaskResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// StopTask operation middleware
+func (sh *strictHandler) StopTask(w http.ResponseWriter, r *http.Request, uuid TaskUUID) {
+	var request StopTaskRequestObject
+
+	request.UUID = uuid
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.StopTask(ctx, request.(StopTaskRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "StopTask")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(StopTaskResponseObject); ok {
+		if err := validResponse.VisitStopTaskResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {

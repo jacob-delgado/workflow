@@ -59,6 +59,9 @@ type Deps struct {
 	CheckCI       func(pull forge.PullRequest, head string) (forge.CI, error)
 	Author        func() (string, error)
 	Post          func(channel, text string) error
+	// RemoteBranches lists the branches on the remotes by name, without the
+	// remote's prefix, so a branch only the remote has is in flight too.
+	RemoteBranches func() ([]string, error)
 	// ReviewRequests lists the pull requests on the forge that ask for your
 	// review, across repositories — the queue `workflow reviews` prints.
 	ReviewRequests func() ([]forge.ReviewRequest, error)
@@ -81,6 +84,9 @@ type Deps struct {
 	// fails, answers the task list and the snapshot's summary as not available —
 	// never a 404 — and a write with a nil function is refused as unprocessable.
 	Tasks seams.Tasks
+	// HomeDir is your home directory, which Taskwarrior's words can name and an
+	// answer shows as ~. Nil, or one that fails, leaves them naming it.
+	HomeDir func() (string, error)
 	// CheckKeys says why the terminal interface would refuse a ui.keys map,
 	// or nil where it would start on it. Nil here means no map is checked.
 	CheckKeys func(keys map[string]string) error
@@ -108,6 +114,12 @@ type Info struct {
 	// StreamInterval is how often the event stream re-pushes a snapshot. A zero
 	// or negative value takes defaultStreamInterval.
 	StreamInterval time.Duration
+
+	// Taskwarrior is the taskwarrior settings Deps.Tasks was bound with at
+	// start. A change saved since applies at the next start, so while the
+	// settings in effect differ the task list says so rather than a reason
+	// the new settings would not give.
+	Taskwarrior config.Taskwarrior
 }
 
 // streamInterval is the configured stream cadence, or the default when unset.
@@ -158,6 +170,12 @@ type server struct {
 	// forgeAnswer is the forge's part of the stream's frames, held for an
 	// interval.
 	forgeAnswer forgeCache
+
+	// assigned is which of the branches' issues the tracker last said are yours.
+	assigned assignedCache
+
+	// detection is the stream's last search for Taskwarrior, when it found none.
+	detection detectionCache
 }
 
 // authorCache is who the forge says a post would come from, kept from its first

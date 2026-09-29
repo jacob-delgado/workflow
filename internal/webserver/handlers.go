@@ -333,8 +333,9 @@ func (s *server) cachedAuthor() (string, error) {
 	return name, nil
 }
 
-// viewsDTO is the views a configuration offers, or the one built-in list — open
-// issues assigned to you — when it names none.
+// viewsDTO is the views a configuration offers, each narrowed to your issues
+// unless its JQL already names the assignee, as the terminal narrows them, or
+// the one built-in list — open issues assigned to you — when it names none.
 func viewsDTO(cfg config.Config) []api.JiraView {
 	if len(cfg.Jira.Views) == 0 {
 		return []api.JiraView{{Name: "Assigned to me", Jql: jira.AssignedToMe}}
@@ -342,7 +343,7 @@ func viewsDTO(cfg config.Config) []api.JiraView {
 
 	out := make([]api.JiraView, 0, len(cfg.Jira.Views))
 	for _, view := range cfg.Jira.Views {
-		out = append(out, api.JiraView{Name: view.Name, Jql: view.JQL})
+		out = append(out, api.JiraView{Name: view.Name, Jql: jira.ScopedToMe(view.JQL)})
 	}
 
 	return out
