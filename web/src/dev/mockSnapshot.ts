@@ -161,4 +161,5 @@ export const mockSnapshot: Snapshot = {
   ],
   // The scope the last commit here used, so the mockup's commit form opens on it.
   suggested_scope: 'wiring',
+  tasks: { available: true, reason: '', linked: [] },
 }

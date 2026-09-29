@@ -368,6 +368,22 @@ func TestTheWebFlagCarriesDryRunToTheServer(t *testing.T) {
 	}
 }
 
+func TestTheWebFlagTellsTheServerTheTaskwarriorSettingsItStartedWith(t *testing.T) {
+	// Arrange
+	dir := t.TempDir()
+	writeFile(t, dir, `{"taskwarrior": {"program": "/opt/homebrew/bin/task", "disabled": true}}`)
+
+	// Act
+	ran := runRoot(t, dir, "--web")
+
+	// Assert
+	want := config.Taskwarrior{Program: "/opt/homebrew/bin/task", Disabled: true}
+	if ran.err != nil || ran.info.Taskwarrior != want {
+		t.Errorf("workflow --web = %v, told the server %+v; want the Taskwarrior settings %+v it started with",
+			ran.err, ran.info, want)
+	}
+}
+
 func TestTheWebFlagSaysWhyTheConfigurationDidNotLoadAndServesAnyway(t *testing.T) {
 	// Arrange
 	dir := t.TempDir()

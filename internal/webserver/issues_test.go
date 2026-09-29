@@ -114,8 +114,8 @@ func TestListIssuesUsesTheNamedView(t *testing.T) {
 	_ = get(t, serve(t, deps, cfg), "/api/issues?view="+testBugView)
 
 	// Assert
-	if gotJQL != testBugJQL {
-		t.Errorf("searched %q, want the named view's JQL", gotJQL)
+	if want := jira.ScopedToMe(testBugJQL); gotJQL != want {
+		t.Errorf("searched %q, want the named view's JQL scoped to you, %q", gotJQL, want)
 	}
 }
 

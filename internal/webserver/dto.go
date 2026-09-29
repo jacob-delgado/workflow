@@ -92,22 +92,36 @@ func branchDTO(branch gitrepo.Branch) api.Branch {
 	}
 }
 
-// taskBranchesDTO maps local branch names to the issues they are named for,
-// keeping only the branches that name one and marking the checked-out branch.
-// The slice is non-nil so the wire value is an empty array rather than null,
-// matching the snapshot's other collections.
-func taskBranchesDTO(names []string, current, project string) []api.TaskBranch {
-	branches := make([]api.TaskBranch, 0, len(names))
-	for _, name := range names {
+// branchListing is the branches a frame lists: each name, the local ones
+// first; which of them only the remote has; and which issues are yours — nil
+// counting every issue, as when there is no tracker to ask.
+type branchListing struct {
+	names  []string
+	remote map[string]bool
+	mine   map[jira.Key]bool
+}
+
+// taskBranchesDTO maps branch names to the issues they are named for, keeping
+// only the branches that name one of yours and the checked-out branch, whoever
+// its issue is assigned to — the work story reads the issue being worked on
+// from it — marking the checked-out branch, and saying of each whether only
+// the remote has it — false too, as the client's schema defaults it, so a frame
+// reads back as it was sent. The slice is non-nil so the wire value is an empty
+// array rather than null, matching the snapshot's other collections.
+func taskBranchesDTO(listing branchListing, current, project string) []api.TaskBranch {
+	branches := make([]api.TaskBranch, 0, len(listing.names))
+	for _, name := range listing.names {
 		key, named := convention.IssueKey(name, project)
-		if !named {
+		if !named || (name != current && listing.mine != nil && !listing.mine[jira.Key(key)]) {
 			continue
 		}
 
+		remote := listing.remote[name]
 		branches = append(branches, api.TaskBranch{
 			Name:     name,
 			IssueKey: key,
 			Current:  name == current,
+			Remote:   &remote,
 		})
 	}
 

@@ -29,6 +29,7 @@ var errSeam = errors.New("the seam failed")
 // Fixtures the tests share.
 const (
 	testKey        = "PROJ-412"
+	testSummary    = "Fix token redaction"
 	testProject    = "PROJ"
 	testReporter   = "Ana Lopez"
 	testBranchName = "fix/PROJ-412"
@@ -69,7 +70,7 @@ func filledDeps() webserver.Deps {
 		Search: func(string, int) (jira.SearchResult, error) {
 			return jira.SearchResult{
 				Issues: []jira.Issue{{
-					Key: testKey, Summary: "Fix token redaction", Status: "In Progress",
+					Key: testKey, Summary: testSummary, Status: "In Progress",
 					StatusCategory: "indeterminate", Type: "Bug", Priority: "High",
 				}},
 				Total: 1,
@@ -78,7 +79,7 @@ func filledDeps() webserver.Deps {
 		Issue: func(key jira.Key) (jira.IssueDetail, error) {
 			return jira.IssueDetail{
 				Issue: jira.Issue{
-					Key: key, Summary: "Fix token redaction", Status: "In Progress",
+					Key: key, Summary: testSummary, Status: "In Progress",
 					StatusCategory: "indeterminate", Type: "Bug",
 				},
 				Reporter:     testReporter,
@@ -112,13 +113,14 @@ func filledDeps() webserver.Deps {
 }
 
 // serve builds the API handler over deps and cfg, not in dry-run, so the write
-// endpoints are reachable — the common case. A test that exercises dry-run's
-// read-only guard passes its own Info. Handler fails only when the embedded spec
-// cannot load, which is a build defect, so the test fails there.
+// endpoints are reachable — the common case — with deps' Taskwarrior bound
+// with cfg's settings, as at start. A test that exercises dry-run's read-only
+// guard passes its own Info. Handler fails only when the embedded spec cannot
+// load, which is a build defect, so the test fails there.
 func serve(t *testing.T, deps webserver.Deps, cfg config.Config) http.Handler {
 	t.Helper()
 
-	return serveWith(t, deps, cfg, webserver.Info{Version: testVersion})
+	return serveWith(t, deps, cfg, webserver.Info{Version: testVersion, Taskwarrior: cfg.Taskwarrior})
 }
 
 // serveWith is serve with the caller's Info, for the tests that need a specific
@@ -324,8 +326,9 @@ func TestListViewsListsTheConfiguredViews(t *testing.T) {
 	views := decode[api.ViewList](t, get(t, serve(t, filledDeps(), cfg), "/api/views"))
 
 	// Assert
-	if len(views.Views) != 1 || views.Views[0].Name != "Sprint" || views.Views[0].Jql != "sprint in openSprints()" {
-		t.Errorf("views = %+v, want the configured Sprint view", views.Views)
+	want := "(sprint in openSprints()) AND assignee = currentUser()"
+	if len(views.Views) != 1 || views.Views[0].Name != "Sprint" || views.Views[0].Jql != want {
+		t.Errorf("views = %+v, want the configured Sprint view, scoped to you", views.Views)
 	}
 }
 

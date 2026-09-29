@@ -72,7 +72,9 @@ does not offer or wants fields filled for (the terminal interface's status
 picker asks for them), or a configuration file that changed since Settings read
 it — edited on disk, or saved from another tab — which a save refuses rather
 than overwrite, short of an edit landing between the save's check and its write
-([Web]({{< relref "/docs/web" >}}) names that window).
+([Web]({{< relref "/docs/web" >}}) names that window). Taskwarrior answers it
+too, for a task it changed nothing on — already started, not started, or no
+longer pending — and for an undo with nothing to undo.
 
 ## Unprocessable
 
@@ -102,7 +104,16 @@ the code its cause belongs to. An announcement the messaging service refused,
 or one that could not be sent because messaging has no credential (none set, or
 a token its command or variable did not give) or its webhook is not https, is
 answered here too — never with the service's own error, which can name the
-webhook.
+webhook. So is a change to your Taskwarrior tasks when there is no Taskwarrior
+to make it — turned off by `taskwarrior.disabled`, not installed, a task
+program that is not Taskwarrior (go-task, most likely), one older than 3.5.0,
+one never run, or one whose taskrc has a malformed line — as is an empty task
+line or note, or an issue whose tracker key is not one word. A line Taskwarrior
+refused is answered here too, in Taskwarrior's own words less where its data is
+and any line naming a server; they say what in the line it could not take. A
+sync with no backend named in the taskrc is answered here, and so is a sync
+that failed, in fixed words: Taskwarrior's name the sync server, so the detail
+says to run `task sync` in a terminal to see them.
 
 ## Precondition required
 
@@ -117,7 +128,8 @@ service — could not be reached, asked to wait because it is limiting
 requests (a forge's refusal whose headers ask for a wait among them),
 answered with a redirect (refused, so a credential goes nowhere else), or,
 for the forge or the messaging service, answered with a status it does not
-document. The request was well formed; try again once the service is back.
+document; or Taskwarrior did not answer in the time it is given. The request
+was well formed; try again once the service is back.
 
 ## Internal
 

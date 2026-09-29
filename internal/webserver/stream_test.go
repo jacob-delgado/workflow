@@ -139,8 +139,47 @@ func TestStreamUsesTheNamedView(t *testing.T) {
 	_ = streamOnce(t, serve(t, deps, cfg), "/api/events?view="+testBugView)
 
 	// Assert
-	if gotJQL != testBugJQL {
-		t.Errorf("searched %q, want the named view's JQL", gotJQL)
+	if want := jira.ScopedToMe(testBugJQL); gotJQL != want {
+		t.Errorf("searched %q, want the named view's JQL scoped to you, %q", gotJQL, want)
+	}
+}
+
+func TestViewsDTOScopesEachViewToYou(t *testing.T) {
+	t.Parallel()
+
+	cases := map[string]struct {
+		jql, want string
+	}{
+		"a view of everyone's issues": {jql: testBugJQL, want: "(" + testBugJQL + ") AND assignee = currentUser()"},
+		"a view that names the assignee": {
+			jql: "assignee is EMPTY ORDER BY created", want: "assignee is EMPTY ORDER BY created",
+		},
+	}
+
+	for name, tt := range cases {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			// Arrange
+			var searched string
+
+			deps := filledDeps()
+			deps.Search = func(jql string, _ int) (jira.SearchResult, error) {
+				searched = jql
+
+				return jira.SearchResult{}, nil
+			}
+			cfg := config.Default()
+			cfg.Jira.Views = []config.JiraView{{Name: testBugView, JQL: tt.jql}}
+
+			// Act
+			streamOnce(t, serve(t, deps, cfg), "/api/events?view="+testBugView)
+
+			// Assert
+			if searched != tt.want {
+				t.Errorf("searched %q, want %q", searched, tt.want)
+			}
+		})
 	}
 }
 
@@ -413,10 +452,13 @@ func TestStreamFrameMatchesTheClientGolden(t *testing.T) {
 	// Arrange
 	// A workspace with every part of the snapshot filled — issues, the branch
 	// and its commit, a change, the pull request and its CI, the issues in
-	// flight, a learned scope — and one with nothing wired at all.
+	// flight, one only the remote has, a learned scope, the started task and
+	// the linked ones — and one with nothing wired at all.
 	filled := filledDeps()
 	filled.Branches = func() ([]string, error) { return []string{testBranchName, targetBranch}, nil }
+	filled.RemoteBranches = func() ([]string, error) { return []string{testBranchName, "feat/PROJ-7-flag"}, nil }
 	filled.LastScope = func() (string, bool) { return "api", true }
+	filled.Tasks = fakeTaskwarrior().seams()
 
 	cfg := config.Default()
 	cfg.Messaging.Channel = testChannel

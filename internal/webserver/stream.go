@@ -6,13 +6,17 @@ package webserver
 import (
 	"encoding/json"
 	"fmt"
+	"maps"
 	"net/http"
+	"slices"
 	"sync"
 	"time"
 
 	"github.com/jacob-delgado/workflow/internal/api"
+	"github.com/jacob-delgado/workflow/internal/convention"
 	"github.com/jacob-delgado/workflow/internal/gitrepo"
 	"github.com/jacob-delgado/workflow/internal/jira"
+	"github.com/jacob-delgado/workflow/internal/loop"
 )
 
 // defaultStreamInterval is how often the event stream re-pushes a snapshot when
@@ -47,6 +51,48 @@ type forgeCache struct {
 type forgeKey struct {
 	branch string
 	head   string
+}
+
+// assignedInterval is how long the tracker's answer to which of the branches'
+// issues are yours serves every stream: an issue is reassigned or finished
+// rarely, and each answer is a search of the tracker.
+const assignedInterval = time.Minute
+
+// assignedCache is which of the branches' issues the tracker last said are
+// yours, held for every stream alike and asked again when the branches name
+// other issues or assignedInterval has passed. An ask that fails keeps the last
+// answer until the next is due, and an issue that answer never covered counts
+// as yours, as every issue does with no answer yet, or no tracker to ask, so
+// the list never waits on the tracker. Its lock is held across the ask, so
+// streams that find one due together make one.
+type assignedCache struct {
+	mu     sync.Mutex
+	held   bool
+	keys   []jira.Key
+	readAt time.Time
+	// mine is the tracker's last answer, and answered the keys it was asked
+	// about, sorted; mine is nil until the tracker has answered.
+	mine     map[jira.Key]bool
+	answered []jira.Key
+}
+
+// yours is which of keys are yours by the last answer: those it said are, and
+// those it never covered; nil, counting every issue, before any answer. The
+// caller holds the lock.
+func (c *assignedCache) yours(keys []jira.Key) map[jira.Key]bool {
+	if c.mine == nil {
+		return nil
+	}
+
+	yours := maps.Clone(c.mine)
+
+	for _, key := range keys {
+		if _, covered := slices.BinarySearch(c.answered, key); !covered {
+			yours[key] = true
+		}
+	}
+
+	return yours
 }
 
 // drop forgets the held answer, so the next frame asks the forge: a write here
@@ -143,6 +189,8 @@ func (s *server) snapshot(view string) api.Snapshot {
 
 		CommitTypes:    s.commitConvention().Types(),
 		SuggestedScope: s.suggestedScope(),
+
+		Tasks: s.snapshotTasks(),
 	}
 }
 
@@ -159,22 +207,90 @@ func (s *server) frameBranch() (gitrepo.Branch, bool) {
 	return branch, true
 }
 
-// snapshotBranches lists the local branches named for an issue, marking the one
-// checked out. These are the issues in flight; the branch, changes and review
-// panels describe only the checked-out branch. It is empty outside a repository
-// or when the read fails, and marks none when checkedOut is empty, as it is when
-// the branch is unknown.
+// snapshotBranches lists the branches named for one of your issues, the local
+// ones and those only the remote has, marking the one checked out. These are
+// the issues in flight; the branch, changes and review panels describe only
+// the checked-out branch. It is empty outside a repository or when the local
+// read fails, holds no branch only the remote has when the remote read fails,
+// and marks none when checkedOut is empty, as it is when the branch is unknown.
 func (s *server) snapshotBranches(checkedOut string) []api.TaskBranch {
 	if s.deps.Branches == nil {
-		return taskBranchesDTO(nil, "", "")
+		return []api.TaskBranch{}
 	}
 
-	names, err := s.deps.Branches()
+	local, err := s.deps.Branches()
 	if err != nil {
-		return taskBranchesDTO(nil, "", "")
+		return []api.TaskBranch{}
 	}
 
-	return taskBranchesDTO(names, checkedOut, s.config().Jira.Project)
+	project := s.config().Jira.Project
+	listing := branchListing{names: slices.Clone(local), remote: map[string]bool{}}
+
+	for _, name := range s.remoteBranches() {
+		if !slices.Contains(local, name) {
+			listing.names = append(listing.names, name)
+			listing.remote[name] = true
+		}
+	}
+
+	listing.mine = s.yourIssues(issueKeys(listing.names, project))
+
+	return taskBranchesDTO(listing, checkedOut, project)
+}
+
+// remoteBranches lists the remote's branches, or none outside a repository or
+// when the read fails: the local ones are listed all the same.
+func (s *server) remoteBranches() []string {
+	if s.deps.RemoteBranches == nil {
+		return nil
+	}
+
+	names, err := s.deps.RemoteBranches()
+	if err != nil {
+		return nil
+	}
+
+	return names
+}
+
+// issueKeys is the issue key each of names carries, for those that carry one.
+func issueKeys(names []string, project string) []jira.Key {
+	var keys []jira.Key
+
+	for _, name := range names {
+		if key, named := convention.IssueKey(name, project); named {
+			keys = append(keys, jira.Key(key))
+		}
+	}
+
+	return keys
+}
+
+// yourIssues is which of keys name your issues, from the assigned cache: nil,
+// counting every issue, with no tracker to ask or none that has answered.
+func (s *server) yourIssues(keys []jira.Key) map[jira.Key]bool {
+	if s.deps.SearchLenient == nil {
+		return nil
+	}
+
+	asked := slices.Compact(slices.Sorted(slices.Values(keys)))
+
+	s.assigned.mu.Lock()
+	defer s.assigned.mu.Unlock()
+
+	now := s.now()
+	if s.assigned.held && slices.Equal(s.assigned.keys, asked) && now.Sub(s.assigned.readAt) < assignedInterval {
+		return s.assigned.yours(asked)
+	}
+
+	mine, err := loop.AssignedKeys(s.deps.SearchLenient, asked)
+	s.assigned.held, s.assigned.keys, s.assigned.readAt = true, asked, now
+
+	if err == nil {
+		s.assigned.mine, s.assigned.answered = mine, asked
+	}
+
+	return s.assigned.yours(asked)
 }
 
 // snapshotIssues is the first page of the view's issues, or an empty page when

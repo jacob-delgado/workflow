@@ -16,16 +16,18 @@ info:
     The API behind `workflow --web`. It exposes the same information the
     terminal UI shows — the assigned issues, the current branch, the working
     tree, the pull request and its CI, the pull requests waiting on your
-    review, and where it announces — makes the
+    review, your Taskwarrior tasks, and where it announces — makes the
     loop's writes (a checkout, a branch, staging, a commit, a push, a pull
-    request and its follow-ups on the issue, an announcement), and lets the
-    whole configuration file be read and written. It reuses the same domain
-    seams the TUI and the CLI use. Between requests it keeps the configuration
-    in effect and the revision of the file it was read at; the commit scope it
-    learns, which it records in the store the terminal interface reads; who the
-    forge says a post would come from; and the forge's last answer about the
-    branch's pull request and its CI, which every event stream shares until
-    the forge is read again (streamEvents says when).
+    request and its follow-ups on the issue, an announcement, a change to a
+    task), and lets the whole configuration file be read and written. It
+    reuses the same domain seams the TUI and the CLI use. Between requests it
+    keeps the configuration in effect and the revision of the file it was
+    read at; the commit scope it learns, which it records in the store the
+    terminal interface reads; who the forge says a post would come from; the
+    forge's last answer about the branch's pull request and its CI, which
+    every event stream shares until the forge is read again (streamEvents
+    says when); which of the branches' issues the tracker last said are
+    yours; and a search for Taskwarrior that failed, for a minute.
   version: 1.0.0
 servers:
   - url: http://127.0.0.1:13579
@@ -43,6 +45,8 @@ tags:
     description: The branch's pull request and its CI.
   - name: reviews
     description: The pull requests on the forge that wait on your review.
+  - name: tasks
+    description: Your Taskwarrior tasks, and the writes that change them.
   - name: messaging
     description: Where and as whom an announcement would post.
   - name: config
@@ -781,6 +785,340 @@ paths:
               schema: {$ref: "#/components/schemas/Problem"}
         default: {$ref: "#/components/responses/Problem"}
 
+  /api/tasks:
+    get:
+      operationId: listTasks
+      summary: Your pending Taskwarrior tasks, most urgent first.
+      description: >-
+        The pending tasks of Taskwarrior's active context, most urgent first,
+        waiting ones included — what the terminal's Tasks pane lists — with the
+        context's name and whether a sync backend is set. It is a read of
+        Taskwarrior, not a snapshot field; the stream carries only a summary.
+      tags: [tasks]
+      responses:
+        "200":
+          description: >-
+            The list. With no Taskwarrior to ask — turned off by
+            taskwarrior.disabled, not installed, a task program that is not
+            Taskwarrior (go-task), one too old, one never run, or one whose
+            taskrc has a malformed line — available is false with the reason
+            and tasks is empty: an answer about where the server runs, not a
+            missing resource, so never a 404.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TaskList"
+        default: {$ref: "#/components/responses/Problem"}
+    post:
+      operationId: addTask
+      summary: Add a task from a line in Taskwarrior's own grammar.
+      description: >-
+        Adds a task the way `task add` does: a description with attributes such
+        as project:web or due:friday among its words. Answers the pending list
+        after the write. Refused with 422 when the line is empty, Taskwarrior
+        is not available, or Taskwarrior refuses the line, with its own words.
+      tags: [tasks]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TaskLine"
+      responses:
+        "200":
+          description: The pending list, now with the task, and added naming it.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TaskList"
+        "422":
+          description: >-
+            The line is empty, Taskwarrior is not available, or it refused the
+            line; nothing was added.
+          content:
+            application/problem+json:
+              schema: {$ref: "#/components/schemas/Problem"}
+        default: {$ref: "#/components/responses/Problem"}
+
+  /api/tasks/track:
+    post:
+      operationId: trackIssue
+      summary: Track an issue in Taskwarrior.
+      description: >-
+        Adds a task for the issue, read from the tracker: its key and page in
+        the jiraid and jiraurl attributes, the jira tag, the issue's priority
+        as Taskwarrior's, and "KEY: summary" as the description — the line the
+        terminal's T prefills — then annotates the task with the issue's page,
+        when the tracker gives one. Answers the pending list after the write;
+        an annotation that failed leaves the task created, and said says so.
+        Refused with 404 when the tracker has no such issue, and 422 when no
+        tracker or Taskwarrior is available, the tracker's key is not one
+        word, or Taskwarrior refuses the line.
+      tags: [tasks]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TrackIssueRequest"
+      responses:
+        "200":
+          description: The pending list, now with the issue's task, and added naming it.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TaskList"
+        "404":
+          description: The tracker has no such issue; nothing was added.
+          content:
+            application/problem+json:
+              schema: {$ref: "#/components/schemas/Problem"}
+        "422":
+          description: >-
+            No issue key was given, the tracker's key for the issue is not one
+            word, no tracker or Taskwarrior is available, or Taskwarrior
+            refused the line; nothing was added.
+          content:
+            application/problem+json:
+              schema: {$ref: "#/components/schemas/Problem"}
+        default: {$ref: "#/components/responses/Problem"}
+
+  /api/tasks/undo:
+    post:
+      operationId: undoTasks
+      summary: Revert Taskwarrior's last change.
+      description: >-
+        Reverts Taskwarrior's last change, whatever made it, as `task undo`
+        does. Answers the pending list after it, with said saying how many
+        operations were reverted. Refused with 409 when Taskwarrior has nothing
+        to undo, and 422 when it is not available or refuses.
+      tags: [tasks]
+      responses:
+        "200":
+          description: The pending list, as it stands after the undo.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TaskList"
+        "409":
+          description: Taskwarrior has nothing to undo.
+          content:
+            application/problem+json:
+              schema: {$ref: "#/components/schemas/Problem"}
+        "422":
+          description: Taskwarrior is not available, or refused the undo.
+          content:
+            application/problem+json:
+              schema: {$ref: "#/components/schemas/Problem"}
+        default: {$ref: "#/components/responses/Problem"}
+
+  /api/tasks/sync:
+    post:
+      operationId: syncTasks
+      summary: Sync Taskwarrior with the backend its taskrc names.
+      description: >-
+        Syncs as `task sync` does. Answers the pending list after it, with said
+        carrying what Taskwarrior printed. Refused with 422 when the taskrc
+        names no sync backend, Taskwarrior is not available, or the sync
+        fails; a failed sync's detail is fixed words, never Taskwarrior's,
+        which name the sync server.
+      tags: [tasks]
+      responses:
+        "200":
+          description: The pending list, as it stands after the sync.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TaskList"
+        "422":
+          description: >-
+            No sync backend is set, Taskwarrior is not available, or the sync
+            failed.
+          content:
+            application/problem+json:
+              schema: {$ref: "#/components/schemas/Problem"}
+        default: {$ref: "#/components/responses/Problem"}
+
+  /api/tasks/{uuid}/start:
+    post:
+      operationId: startTask
+      summary: Start a task.
+      description: >-
+        Starts the task, whatever context Taskwarrior has active; starting a
+        completed or deleted task reopens it, as Taskwarrior does. Answers the
+        pending list after the write. Refused with 409 when Taskwarrior changes
+        nothing — the task is already started, or no such task exists — and
+        422 when it is not available or refuses.
+      tags: [tasks]
+      parameters:
+        - $ref: "#/components/parameters/TaskUUID"
+      responses:
+        "200":
+          description: The pending list, with the task started.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TaskList"
+        "409":
+          description: >-
+            Taskwarrior changed nothing: the task is already started, or no
+            such task exists.
+          content:
+            application/problem+json:
+              schema: {$ref: "#/components/schemas/Problem"}
+        "422":
+          description: Taskwarrior is not available, or refused the change.
+          content:
+            application/problem+json:
+              schema: {$ref: "#/components/schemas/Problem"}
+        default: {$ref: "#/components/responses/Problem"}
+
+  /api/tasks/{uuid}/stop:
+    post:
+      operationId: stopTask
+      summary: Stop a started task.
+      description: >-
+        Stops the task, whatever context Taskwarrior has active. Answers the
+        pending list after the write. Refused with 409 when Taskwarrior changes
+        nothing — the task is not started, or is no longer pending — and 422
+        when it is not available or refuses.
+      tags: [tasks]
+      parameters:
+        - $ref: "#/components/parameters/TaskUUID"
+      responses:
+        "200":
+          description: The pending list, with the task stopped.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TaskList"
+        "409":
+          description: >-
+            Taskwarrior changed nothing: the task is already in that state, or
+            is no longer pending.
+          content:
+            application/problem+json:
+              schema: {$ref: "#/components/schemas/Problem"}
+        "422":
+          description: Taskwarrior is not available, or refused the change.
+          content:
+            application/problem+json:
+              schema: {$ref: "#/components/schemas/Problem"}
+        default: {$ref: "#/components/responses/Problem"}
+
+  /api/tasks/{uuid}/done:
+    post:
+      operationId: completeTask
+      summary: Complete a task.
+      description: >-
+        Marks the task done, whatever context Taskwarrior has active. Answers
+        the pending list after the write. Refused with 409 when Taskwarrior
+        changes nothing — the task is no longer pending — and 422 when it is
+        not available or refuses.
+      tags: [tasks]
+      parameters:
+        - $ref: "#/components/parameters/TaskUUID"
+      responses:
+        "200":
+          description: The pending list, without the task.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TaskList"
+        "409":
+          description: >-
+            Taskwarrior changed nothing: the task is already in that state, or
+            is no longer pending.
+          content:
+            application/problem+json:
+              schema: {$ref: "#/components/schemas/Problem"}
+        "422":
+          description: Taskwarrior is not available, or refused the change.
+          content:
+            application/problem+json:
+              schema: {$ref: "#/components/schemas/Problem"}
+        default: {$ref: "#/components/responses/Problem"}
+
+  /api/tasks/{uuid}/annotations:
+    post:
+      operationId: annotateTask
+      summary: Add a note to a task.
+      description: >-
+        Annotates the task with the text, whatever context Taskwarrior has
+        active; every word stays a word, so nothing in it is read as an
+        attribute. Answers the pending list after the write. Refused with 409
+        when Taskwarrior changes nothing, and 422 when the text is empty or
+        Taskwarrior is not available or refuses.
+      tags: [tasks]
+      parameters:
+        - $ref: "#/components/parameters/TaskUUID"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TaskText"
+      responses:
+        "200":
+          description: The pending list, with the task annotated.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TaskList"
+        "409":
+          description: >-
+            Taskwarrior changed nothing: the task is already in that state, or
+            is no longer pending.
+          content:
+            application/problem+json:
+              schema: {$ref: "#/components/schemas/Problem"}
+        "422":
+          description: The text is empty, or Taskwarrior is not available or refused the change.
+          content:
+            application/problem+json:
+              schema: {$ref: "#/components/schemas/Problem"}
+        default: {$ref: "#/components/responses/Problem"}
+
+  /api/tasks/{uuid}/modify:
+    post:
+      operationId: modifyTask
+      summary: Change a task by a line in Taskwarrior's own grammar.
+      description: >-
+        Changes the task the way `task modify` does — project:web, due:friday,
+        +tag, or new words for its description — whatever context Taskwarrior
+        has active. Answers the pending list after the write. Refused with 409
+        when Taskwarrior changes nothing, and 422 when the line is empty or
+        Taskwarrior is not available or refuses the line, with its own words.
+      tags: [tasks]
+      parameters:
+        - $ref: "#/components/parameters/TaskUUID"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TaskLine"
+      responses:
+        "200":
+          description: The pending list, with the task changed.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TaskList"
+        "409":
+          description: >-
+            Taskwarrior changed nothing: the task is already in that state, or
+            is no longer pending.
+          content:
+            application/problem+json:
+              schema: {$ref: "#/components/schemas/Problem"}
+        "422":
+          description: The line is empty, or Taskwarrior is not available or refused the change.
+          content:
+            application/problem+json:
+              schema: {$ref: "#/components/schemas/Problem"}
+        default: {$ref: "#/components/responses/Problem"}
+
   /api/events:
     get:
       operationId: streamEvents
@@ -788,17 +1126,22 @@ paths:
       description: >-
         A Server-Sent Events stream (text/event-stream). Each message is a
         "snapshot" event whose data is a Snapshot: the current issues, branch,
-        changes, review, messaging destination, the issues in flight, and the
-        scope a new commit opens on. The first is pushed on connect and another
-        every few seconds after, whether or not anything changed: the upstreams
-        send no notice of a change, so the server reads them again on that
-        cadence. The browser subscribes once and updates from the pushes rather
-        than polling. The review is the forge's answer, read at most once every
+        changes, review, messaging destination, the issues in flight, the
+        scope a new commit opens on, and a summary of your Taskwarrior tasks.
+        The first is pushed on connect and another every few seconds after,
+        whether or not anything changed: the upstreams send no notice of a
+        change, so the server reads them again on that cadence. The browser
+        subscribes once and updates from the pushes rather than polling. The
+        review is the forge's answer, read at most once every
         timing.ci_interval (twenty seconds unless set) for every stream
         together, and again at once for another branch or head commit, or after
         a pull request is opened here. A read that fails keeps the last answer
         for the same branch and head commit, and with no answer to keep reports
-        none found until a read succeeds.
+        none found until a read succeeds. Which branches are for your issues is
+        the tracker's answer too, asked again once a minute or when the
+        branches name other issues; an ask that fails keeps the last answer,
+        and with none lists every branch that names an issue. A search for
+        Taskwarrior that finds none is not made again for a minute.
       tags: [events]
       parameters:
         - name: view
@@ -823,6 +1166,17 @@ paths:
         default: {$ref: "#/components/responses/Problem"}
 
 components:
+  parameters:
+    TaskUUID:
+      name: uuid
+      in: path
+      required: true
+      description: The task's uuid, as the task list gives it.
+      schema:
+        type: string
+        pattern: "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+        example: 5f3c9a1e-8b2d-4c6f-9e7a-1d2b3c4d5e6f
+
   responses:
     Problem:
       description: An RFC 9457 problem details object describing the failure.
@@ -888,6 +1242,41 @@ components:
         issue_key:
           type: string
           description: The issue to name and create a branch for.
+          example: PROJ-412
+      additionalProperties: false
+
+    TaskLine:
+      type: object
+      description: >-
+        A line in Taskwarrior's own grammar: words, with attributes such as
+        project:web, due:friday or +tag among them.
+      required: [line]
+      properties:
+        line:
+          type: string
+          description: The line, as it would follow `task add` or `task <id> modify`.
+          example: Write the release notes project:workflow due:friday
+      additionalProperties: false
+
+    TaskText:
+      type: object
+      description: The text of a note on a task.
+      required: [text]
+      properties:
+        text:
+          type: string
+          description: The note; every word stays a word, never an attribute.
+          example: Waiting on the forge's rate limit to reset
+      additionalProperties: false
+
+    TrackIssueRequest:
+      type: object
+      description: The issue to track in Taskwarrior.
+      required: [issue_key]
+      properties:
+        issue_key:
+          type: string
+          description: The issue the task is for.
           example: PROJ-412
       additionalProperties: false
 
@@ -1065,7 +1454,7 @@ components:
       description: >-
         The full read state carried by one event-stream message: everything the
         cockpit shows, together.
-      required: [issues, branch, changes, review, messaging, branches, commit_types, suggested_scope]
+      required: [issues, branch, changes, review, messaging, branches, commit_types, suggested_scope, tasks]
       properties:
         issues: {$ref: "#/components/schemas/IssuesPage"}
         branch: {$ref: "#/components/schemas/Branch"}
@@ -1075,10 +1464,14 @@ components:
         branches:
           type: array
           description: >-
-            The local branches named for an issue — the record of what is in
-            flight. The detail panels (branch, changes, review) describe the
-            checked-out branch alone; this lists every issue that has a branch,
-            so the issues list can mark them all in flight, not the one on HEAD.
+            The branches named for one of your issues, local ones and those
+            only the remote has — the record of what is in flight. The detail
+            panels (branch, changes, review) describe the checked-out branch
+            alone; this lists every issue of yours that has a branch, so the
+            issues list can mark them all in flight, not the one on HEAD. An
+            issue is yours when the tracker says it is assigned to you and not
+            done; with no tracker to ask, every branch that names an issue is
+            listed.
           items: {$ref: "#/components/schemas/TaskBranch"}
         commit_types:
           type: array
@@ -1099,11 +1492,14 @@ components:
             one, not on every message, and never under --dry-run, when the
             default alone applies.
           example: api
+        tasks: {$ref: "#/components/schemas/TasksSummary"}
       additionalProperties: false
 
     TaskBranch:
       type: object
-      description: A local branch named for an issue, by the branch-name convention.
+      description: >-
+        A branch named for an issue, by the branch-name convention: a local
+        one, or one only the remote has, which checking out creates here.
       required: [name, issue_key, current]
       properties:
         name:
@@ -1119,6 +1515,10 @@ components:
         current:
           type: boolean
           description: Whether this is the checked-out branch.
+        remote:
+          type: boolean
+          default: false
+          description: Whether only the remote has the branch.
       additionalProperties: false
 
     IssuesPage:
@@ -1337,6 +1737,169 @@ components:
           type: string
           format: date-time
           description: RFC 3339; when it was opened, which is how long it has waited — the zero time if the forge did not give one.
+      additionalProperties: false
+
+    TaskList:
+      type: object
+      description: >-
+        Your pending Taskwarrior tasks, and what the server knows of the
+        Taskwarrior that answered.
+      required: [available, reason, context, sync_available, said, tasks]
+      properties:
+        available:
+          type: boolean
+          description: >-
+            Whether there is a Taskwarrior to ask: false when it is turned off
+            by taskwarrior.disabled, not installed, not Taskwarrior (go-task is
+            also called task), too old, never run, or its taskrc has a
+            malformed line.
+        reason:
+          type: string
+          description: Why Taskwarrior is not available, safe to show; empty when it is.
+        reason_code:
+          type: string
+          enum: [not_installed, not_taskwarrior, too_old, never_run, turned_off, malformed_taskrc, unavailable]
+          description: >-
+            Why Taskwarrior is not available, as a code the page can act on
+            without reading reason: not installed, a task program that is not
+            Taskwarrior (go-task, most likely), too old, never run, turned off
+            by taskwarrior.disabled, a taskrc with a malformed line, or
+            unavailable for a reason workflow doctor explains, or taskwarrior
+            settings saved since workflow started, which apply once it
+            restarts. Absent when Taskwarrior is available.
+        context:
+          type: string
+          description: The name of Taskwarrior's active context, whose filter the list applies; empty for none.
+        sync_available:
+          type: boolean
+          description: Whether the taskrc names a sync backend, so a sync has somewhere to go.
+        said:
+          type: string
+          description: >-
+            What the write this list answers has to add: how many operations
+            an undo reverted, what a sync printed, or that a tracked issue's
+            task was created but not annotated. Empty otherwise.
+        added:
+          type: string
+          description: >-
+            The uuid of the task the write this list answers added — an add or
+            a track — so the page can name it even when the active context
+            leaves it out of tasks. Absent after any other write, and on a
+            read.
+        tasks:
+          type: array
+          description: >-
+            The pending tasks of the active context, most urgent first, waiting
+            ones included. Empty when Taskwarrior is not available.
+          items: {$ref: "#/components/schemas/Task"}
+      additionalProperties: false
+
+    TasksSummary:
+      type: object
+      description: >-
+        What the event stream carries of your Taskwarrior tasks: the started
+        one, as active — absent when none is started — and every task linked
+        to an issue. Until Taskwarrior has answered both reads the summary
+        makes, it is not available, with no active task and no linked one.
+      required: [available, reason, linked]
+      properties:
+        available:
+          type: boolean
+          description: >-
+            Whether Taskwarrior answered: false when there is none to ask, as
+            in TaskList, and when it was found but could not be read.
+        reason:
+          type: string
+          description: Why Taskwarrior is not available, safe to show; empty when it is.
+        active: {$ref: "#/components/schemas/Task"}
+        linked:
+          type: array
+          description: >-
+            Every task linked to an issue, whatever its status but deleted,
+            and whatever context hides it. Empty unless available.
+          items: {$ref: "#/components/schemas/Task"}
+      additionalProperties: false
+
+    Task:
+      type: object
+      description: >-
+        One task as Taskwarrior holds it. A date the task does not have is
+        absent, never the zero time.
+      required: [uuid, id, description, status, project, priority, tags, entry, modified, urgency, annotations, issue_key, issue_url]
+      properties:
+        uuid:
+          type: string
+          example: 5f3c9a1e-8b2d-4c6f-9e7a-1d2b3c4d5e6f
+        id:
+          type: integer
+          description: The working-set number; 0 for a task not in the working set.
+        description: {type: string}
+        status:
+          type: string
+          enum: [pending, completed, deleted, waiting, recurring]
+        project:
+          type: string
+          description: Empty when the task has none.
+        priority:
+          type: string
+          description: H, M, L or empty.
+        tags:
+          type: array
+          items: {type: string}
+        due: {type: string, format: date-time}
+        wait:
+          type: string
+          format: date-time
+          description: Until when the task is hidden from the list's usual reports.
+        scheduled: {type: string, format: date-time}
+        until:
+          type: string
+          format: date-time
+          description: When Taskwarrior deletes the task.
+        start:
+          type: string
+          format: date-time
+          description: When the task was started; present only while it is.
+        end:
+          type: string
+          format: date-time
+          description: When the task was completed or deleted.
+        entry:
+          type: string
+          format: date-time
+          description: When the task was created.
+        modified:
+          type: string
+          format: date-time
+          description: When the task last changed.
+        urgency:
+          type: number
+          format: double
+          description: Taskwarrior's own urgency; the list is ordered by it.
+        annotations:
+          type: array
+          description: The notes on the task, oldest first.
+          items: {$ref: "#/components/schemas/TaskAnnotation"}
+        issue_key:
+          type: string
+          description: The issue the task is linked to, from its jiraid attribute; empty when it tracks none.
+          example: PROJ-412
+        issue_url:
+          type: string
+          description: >-
+            The issue's page: the tracker's, for a task naming an issue where
+            the tracker builds issue pages (Jira); otherwise (the forge's issues
+            as the tracker, or a task naming no issue) the task's jiraurl
+            attribute when it is an http or https address; empty otherwise.
+      additionalProperties: false
+
+    TaskAnnotation:
+      type: object
+      description: A note on a task, and when it was written.
+      required: [entry, description]
+      properties:
+        entry: {type: string, format: date-time}
+        description: {type: string}
       additionalProperties: false
 
     OpenedPullRequest:
@@ -1672,5 +2235,9 @@ components:
       required: [name, jql]
       properties:
         name: {type: string}
-        jql: {type: string}
+        jql:
+          type: string
+          description: >-
+            The query the view searches: a configured view's JQL narrowed to
+            the issues assigned to you, unless it already names the assignee.
       additionalProperties: false

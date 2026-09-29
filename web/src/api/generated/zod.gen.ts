@@ -37,6 +37,27 @@ export const zCreateBranchRequest = z.object({
 });
 
 /**
+ * A line in Taskwarrior's own grammar: words, with attributes such as project:web, due:friday or +tag among them.
+ */
+export const zTaskLine = z.object({
+    line: z.string()
+});
+
+/**
+ * The text of a note on a task.
+ */
+export const zTaskText = z.object({
+    text: z.string()
+});
+
+/**
+ * The issue to track in Taskwarrior.
+ */
+export const zTrackIssueRequest = z.object({
+    issue_key: z.string()
+});
+
+/**
  * A composed announcement and where it would post.
  */
 export const zAnnouncement = z.object({
@@ -104,12 +125,13 @@ export const zHealth = z.object({
 });
 
 /**
- * A local branch named for an issue, by the branch-name convention.
+ * A branch named for an issue, by the branch-name convention: a local one, or one only the remote has, which checking out creates here.
  */
 export const zTaskBranch = z.object({
     name: z.string(),
     issue_key: z.string(),
-    current: z.boolean()
+    current: z.boolean(),
+    remote: z.boolean().optional().default(false)
 });
 
 export const zStatusCategory = z.enum([
@@ -190,6 +212,77 @@ export const zChange = z.object({
 
 export const zChangeList = z.object({
     changes: z.array(zChange)
+});
+
+/**
+ * A note on a task, and when it was written.
+ */
+export const zTaskAnnotation = z.object({
+    entry: z.iso.datetime({ offset: true }),
+    description: z.string()
+});
+
+/**
+ * One task as Taskwarrior holds it. A date the task does not have is absent, never the zero time.
+ */
+export const zTask = z.object({
+    uuid: z.string(),
+    id: z.int(),
+    description: z.string(),
+    status: z.enum([
+        'pending',
+        'completed',
+        'deleted',
+        'waiting',
+        'recurring'
+    ]),
+    project: z.string(),
+    priority: z.string(),
+    tags: z.array(z.string()),
+    due: z.iso.datetime({ offset: true }).optional(),
+    wait: z.iso.datetime({ offset: true }).optional(),
+    scheduled: z.iso.datetime({ offset: true }).optional(),
+    until: z.iso.datetime({ offset: true }).optional(),
+    start: z.iso.datetime({ offset: true }).optional(),
+    end: z.iso.datetime({ offset: true }).optional(),
+    entry: z.iso.datetime({ offset: true }),
+    modified: z.iso.datetime({ offset: true }),
+    urgency: z.number(),
+    annotations: z.array(zTaskAnnotation),
+    issue_key: z.string(),
+    issue_url: z.string()
+});
+
+/**
+ * Your pending Taskwarrior tasks, and what the server knows of the Taskwarrior that answered.
+ */
+export const zTaskList = z.object({
+    available: z.boolean(),
+    reason: z.string(),
+    reason_code: z.enum([
+        'not_installed',
+        'not_taskwarrior',
+        'too_old',
+        'never_run',
+        'turned_off',
+        'malformed_taskrc',
+        'unavailable'
+    ]).optional(),
+    context: z.string(),
+    sync_available: z.boolean(),
+    said: z.string(),
+    added: z.string().optional(),
+    tasks: z.array(zTask)
+});
+
+/**
+ * What the event stream carries of your Taskwarrior tasks: the started one, as active — absent when none is started — and every task linked to an issue. Until Taskwarrior has answered both reads the summary makes, it is not available, with no active task and no linked one.
+ */
+export const zTasksSummary = z.object({
+    available: z.boolean(),
+    reason: z.string(),
+    active: zTask.optional(),
+    linked: z.array(zTask)
 });
 
 /**
@@ -299,7 +392,8 @@ export const zSnapshot = z.object({
     messaging: zMessagingDestination,
     branches: z.array(zTaskBranch),
     commit_types: z.array(z.string()),
-    suggested_scope: z.string()
+    suggested_scope: z.string(),
+    tasks: zTasksSummary
 });
 
 export const zMessagingConfig = z.object({
@@ -409,6 +503,11 @@ export const zConfig = z.object({
     store: zStoreConfig,
     taskwarrior: zTaskwarriorConfig
 });
+
+/**
+ * The task's uuid, as the task list gives it.
+ */
+export const zTaskUuid = z.string().regex(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/);
 
 /**
  * The server is up.
@@ -561,6 +660,84 @@ export const zOpenPullRequestBody = zOpenPullRequestRequest;
  * The pull request, now open.
  */
 export const zOpenPullRequestResponse = zOpenedPullRequest;
+
+/**
+ * The list. With no Taskwarrior to ask — turned off by taskwarrior.disabled, not installed, a task program that is not Taskwarrior (go-task), one too old, one never run, or one whose taskrc has a malformed line — available is false with the reason and tasks is empty: an answer about where the server runs, not a missing resource, so never a 404.
+ */
+export const zListTasksResponse = zTaskList;
+
+export const zAddTaskBody = zTaskLine;
+
+/**
+ * The pending list, now with the task, and added naming it.
+ */
+export const zAddTaskResponse = zTaskList;
+
+export const zTrackIssueBody = zTrackIssueRequest;
+
+/**
+ * The pending list, now with the issue's task, and added naming it.
+ */
+export const zTrackIssueResponse = zTaskList;
+
+/**
+ * The pending list, as it stands after the undo.
+ */
+export const zUndoTasksResponse = zTaskList;
+
+/**
+ * The pending list, as it stands after the sync.
+ */
+export const zSyncTasksResponse = zTaskList;
+
+export const zStartTaskPath = z.object({
+    uuid: z.string().regex(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/)
+});
+
+/**
+ * The pending list, with the task started.
+ */
+export const zStartTaskResponse = zTaskList;
+
+export const zStopTaskPath = z.object({
+    uuid: z.string().regex(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/)
+});
+
+/**
+ * The pending list, with the task stopped.
+ */
+export const zStopTaskResponse = zTaskList;
+
+export const zCompleteTaskPath = z.object({
+    uuid: z.string().regex(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/)
+});
+
+/**
+ * The pending list, without the task.
+ */
+export const zCompleteTaskResponse = zTaskList;
+
+export const zAnnotateTaskBody = zTaskText;
+
+export const zAnnotateTaskPath = z.object({
+    uuid: z.string().regex(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/)
+});
+
+/**
+ * The pending list, with the task annotated.
+ */
+export const zAnnotateTaskResponse = zTaskList;
+
+export const zModifyTaskBody = zTaskLine;
+
+export const zModifyTaskPath = z.object({
+    uuid: z.string().regex(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/)
+});
+
+/**
+ * The pending list, with the task changed.
+ */
+export const zModifyTaskResponse = zTaskList;
 
 export const zStreamEventsQuery = z.object({
     view: z.string().optional()

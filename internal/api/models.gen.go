@@ -229,6 +229,66 @@ func (e StatusCategory) Valid() bool {
 	}
 }
 
+// Defines values for TaskStatus.
+const (
+	TaskStatusCompleted TaskStatus = "completed"
+	TaskStatusDeleted   TaskStatus = "deleted"
+	TaskStatusPending   TaskStatus = "pending"
+	TaskStatusRecurring TaskStatus = "recurring"
+	TaskStatusWaiting   TaskStatus = "waiting"
+)
+
+// Valid indicates whether the value is a known member of the TaskStatus enum.
+func (e TaskStatus) Valid() bool {
+	switch e {
+	case TaskStatusCompleted:
+		return true
+	case TaskStatusDeleted:
+		return true
+	case TaskStatusPending:
+		return true
+	case TaskStatusRecurring:
+		return true
+	case TaskStatusWaiting:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for TaskListReasonCode.
+const (
+	MalformedTaskrc TaskListReasonCode = "malformed_taskrc"
+	NeverRun        TaskListReasonCode = "never_run"
+	NotInstalled    TaskListReasonCode = "not_installed"
+	NotTaskwarrior  TaskListReasonCode = "not_taskwarrior"
+	TooOld          TaskListReasonCode = "too_old"
+	TurnedOff       TaskListReasonCode = "turned_off"
+	Unavailable     TaskListReasonCode = "unavailable"
+)
+
+// Valid indicates whether the value is a known member of the TaskListReasonCode enum.
+func (e TaskListReasonCode) Valid() bool {
+	switch e {
+	case MalformedTaskrc:
+		return true
+	case NeverRun:
+		return true
+	case NotInstalled:
+		return true
+	case NotTaskwarrior:
+		return true
+	case TooOld:
+		return true
+	case TurnedOff:
+		return true
+	case Unavailable:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for UIConfigColor.
 const (
 	UIConfigColorEmpty UIConfigColor = ""
@@ -558,6 +618,7 @@ type JiraConfig struct {
 
 // JiraView defines model for JiraView.
 type JiraView struct {
+	// Jql The query the view searches: a configured view's JQL narrowed to the issues assigned to you, unless it already names the assignee.
 	Jql  string `json:"jql"`
 	Name string `json:"name"`
 }
@@ -766,7 +827,7 @@ type ReviewRequest struct {
 type Snapshot struct {
 	Branch Branch `json:"branch"`
 
-	// Branches The local branches named for an issue — the record of what is in flight. The detail panels (branch, changes, review) describe the checked-out branch alone; this lists every issue that has a branch, so the issues list can mark them all in flight, not the one on HEAD.
+	// Branches The branches named for one of your issues, local ones and those only the remote has — the record of what is in flight. The detail panels (branch, changes, review) describe the checked-out branch alone; this lists every issue of yours that has a branch, so the issues list can mark them all in flight, not the one on HEAD. An issue is yours when the tracker says it is assigned to you and not done; with no tracker to ask, every branch that names an issue is listed.
 	Branches []TaskBranch `json:"branches"`
 	Changes  ChangeList   `json:"changes"`
 
@@ -782,6 +843,9 @@ type Snapshot struct {
 	//
 	// Example: api
 	SuggestedScope string `json:"suggested_scope"`
+
+	// Tasks What the event stream carries of your Taskwarrior tasks: the started one, as active — absent when none is started — and every task linked to an issue. Until Taskwarrior has answered both reads the summary makes, it is not available, with no active task and no linked one.
+	Tasks TasksSummary `json:"tasks"`
 }
 
 // StagingRequest What to stage or unstage: one changed file, or all of them — one or the other, never both.
@@ -804,7 +868,68 @@ type StoreConfig struct {
 	Disabled *bool `json:"disabled,omitempty"`
 }
 
-// TaskBranch A local branch named for an issue, by the branch-name convention.
+// Task One task as Taskwarrior holds it. A date the task does not have is absent, never the zero time.
+type Task struct {
+	// Annotations The notes on the task, oldest first.
+	Annotations []TaskAnnotation `json:"annotations"`
+	Description string           `json:"description"`
+	Due         *time.Time       `json:"due,omitempty"`
+
+	// End When the task was completed or deleted.
+	End *time.Time `json:"end,omitempty"`
+
+	// Entry When the task was created.
+	Entry time.Time `json:"entry"`
+
+	// ID The working-set number; 0 for a task not in the working set.
+	ID int `json:"id"`
+
+	// IssueKey The issue the task is linked to, from its jiraid attribute; empty when it tracks none.
+	//
+	// Example: PROJ-412
+	IssueKey string `json:"issue_key"`
+
+	// IssueURL The issue's page: the tracker's, for a task naming an issue where the tracker builds issue pages (Jira); otherwise (the forge's issues as the tracker, or a task naming no issue) the task's jiraurl attribute when it is an http or https address; empty otherwise.
+	IssueURL string `json:"issue_url"`
+
+	// Modified When the task last changed.
+	Modified time.Time `json:"modified"`
+
+	// Priority H, M, L or empty.
+	Priority string `json:"priority"`
+
+	// Project Empty when the task has none.
+	Project   string     `json:"project"`
+	Scheduled *time.Time `json:"scheduled,omitempty"`
+
+	// Start When the task was started; present only while it is.
+	Start  *time.Time `json:"start,omitempty"`
+	Status TaskStatus `json:"status"`
+	Tags   []string   `json:"tags"`
+
+	// Until When Taskwarrior deletes the task.
+	Until *time.Time `json:"until,omitempty"`
+
+	// Urgency Taskwarrior's own urgency; the list is ordered by it.
+	Urgency float64 `json:"urgency"`
+
+	// UUID Example: 5f3c9a1e-8b2d-4c6f-9e7a-1d2b3c4d5e6f
+	UUID string `json:"uuid"`
+
+	// Wait Until when the task is hidden from the list's usual reports.
+	Wait *time.Time `json:"wait,omitempty"`
+}
+
+// TaskStatus defines model for Task.Status.
+type TaskStatus string
+
+// TaskAnnotation A note on a task, and when it was written.
+type TaskAnnotation struct {
+	Description string    `json:"description"`
+	Entry       time.Time `json:"entry"`
+}
+
+// TaskBranch A branch named for an issue, by the branch-name convention: a local one, or one only the remote has, which checking out creates here.
 type TaskBranch struct {
 	// Current Whether this is the checked-out branch.
 	Current bool `json:"current"`
@@ -818,6 +943,70 @@ type TaskBranch struct {
 	//
 	// Example: fix/PROJ-412-redact-tokens
 	Name string `json:"name"`
+
+	// Remote Whether only the remote has the branch.
+	Remote *bool `json:"remote,omitempty"`
+}
+
+// TaskLine A line in Taskwarrior's own grammar: words, with attributes such as project:web, due:friday or +tag among them.
+type TaskLine struct {
+	// Line The line, as it would follow `task add` or `task <id> modify`.
+	//
+	// Example: Write the release notes project:workflow due:friday
+	Line string `json:"line"`
+}
+
+// TaskList Your pending Taskwarrior tasks, and what the server knows of the Taskwarrior that answered.
+type TaskList struct {
+	// Added The uuid of the task the write this list answers added — an add or a track — so the page can name it even when the active context leaves it out of tasks. Absent after any other write, and on a read.
+	Added *string `json:"added,omitempty"`
+
+	// Available Whether there is a Taskwarrior to ask: false when it is turned off by taskwarrior.disabled, not installed, not Taskwarrior (go-task is also called task), too old, never run, or its taskrc has a malformed line.
+	Available bool `json:"available"`
+
+	// Context The name of Taskwarrior's active context, whose filter the list applies; empty for none.
+	Context string `json:"context"`
+
+	// Reason Why Taskwarrior is not available, safe to show; empty when it is.
+	Reason string `json:"reason"`
+
+	// ReasonCode Why Taskwarrior is not available, as a code the page can act on without reading reason: not installed, a task program that is not Taskwarrior (go-task, most likely), too old, never run, turned off by taskwarrior.disabled, a taskrc with a malformed line, or unavailable for a reason workflow doctor explains, or taskwarrior settings saved since workflow started, which apply once it restarts. Absent when Taskwarrior is available.
+	ReasonCode *TaskListReasonCode `json:"reason_code,omitempty"`
+
+	// Said What the write this list answers has to add: how many operations an undo reverted, what a sync printed, or that a tracked issue's task was created but not annotated. Empty otherwise.
+	Said string `json:"said"`
+
+	// SyncAvailable Whether the taskrc names a sync backend, so a sync has somewhere to go.
+	SyncAvailable bool `json:"sync_available"`
+
+	// Tasks The pending tasks of the active context, most urgent first, waiting ones included. Empty when Taskwarrior is not available.
+	Tasks []Task `json:"tasks"`
+}
+
+// TaskListReasonCode Why Taskwarrior is not available, as a code the page can act on without reading reason: not installed, a task program that is not Taskwarrior (go-task, most likely), too old, never run, turned off by taskwarrior.disabled, a taskrc with a malformed line, or unavailable for a reason workflow doctor explains, or taskwarrior settings saved since workflow started, which apply once it restarts. Absent when Taskwarrior is available.
+type TaskListReasonCode string
+
+// TaskText The text of a note on a task.
+type TaskText struct {
+	// Text The note; every word stays a word, never an attribute.
+	//
+	// Example: Waiting on the forge's rate limit to reset
+	Text string `json:"text"`
+}
+
+// TasksSummary What the event stream carries of your Taskwarrior tasks: the started one, as active — absent when none is started — and every task linked to an issue. Until Taskwarrior has answered both reads the summary makes, it is not available, with no active task and no linked one.
+type TasksSummary struct {
+	// Active One task as Taskwarrior holds it. A date the task does not have is absent, never the zero time.
+	Active *Task `json:"active,omitempty"`
+
+	// Available Whether Taskwarrior answered: false when there is none to ask, as in TaskList, and when it was found but could not be read.
+	Available bool `json:"available"`
+
+	// Linked Every task linked to an issue, whatever its status but deleted, and whatever context hides it. Empty unless available.
+	Linked []Task `json:"linked"`
+
+	// Reason Why Taskwarrior is not available, safe to show; empty when it is.
+	Reason string `json:"reason"`
 }
 
 // TaskwarriorConfig defines model for TaskwarriorConfig.
@@ -836,6 +1025,14 @@ type TimingConfig struct {
 
 	// RequestTimeout A Go duration such as 20s; empty for the default.
 	RequestTimeout *string `json:"request_timeout,omitempty"`
+}
+
+// TrackIssueRequest The issue to track in Taskwarrior.
+type TrackIssueRequest struct {
+	// IssueKey The issue the task is for.
+	//
+	// Example: PROJ-412
+	IssueKey string `json:"issue_key"`
 }
 
 // UIConfig defines model for UIConfig.
@@ -861,6 +1058,9 @@ type UIConfigColor string
 type ViewList struct {
 	Views []JiraView `json:"views"`
 }
+
+// TaskUUID Example: 5f3c9a1e-8b2d-4c6f-9e7a-1d2b3c4d5e6f
+type TaskUUID = string
 
 // UpdateConfigParams defines parameters for UpdateConfig.
 type UpdateConfigParams struct {
@@ -903,6 +1103,18 @@ type OpenPullRequestJSONRequestBody = OpenPullRequestRequest
 
 // StageJSONRequestBody defines body for Stage for application/json ContentType.
 type StageJSONRequestBody = StagingRequest
+
+// AddTaskJSONRequestBody defines body for AddTask for application/json ContentType.
+type AddTaskJSONRequestBody = TaskLine
+
+// TrackIssueJSONRequestBody defines body for TrackIssue for application/json ContentType.
+type TrackIssueJSONRequestBody = TrackIssueRequest
+
+// AnnotateTaskJSONRequestBody defines body for AnnotateTask for application/json ContentType.
+type AnnotateTaskJSONRequestBody = TaskText
+
+// ModifyTaskJSONRequestBody defines body for ModifyTask for application/json ContentType.
+type ModifyTaskJSONRequestBody = TaskLine
 
 // UnstageJSONRequestBody defines body for Unstage for application/json ContentType.
 type UnstageJSONRequestBody = StagingRequest

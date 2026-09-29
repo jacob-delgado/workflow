@@ -189,6 +189,7 @@ const issuesSnapshot = {
   branches: [],
   commit_types: ['feat', 'fix'],
   suggested_scope: '',
+  tasks: { available: true, reason: '', linked: [] },
 } satisfies Snapshot
 
 const issueDetail = {

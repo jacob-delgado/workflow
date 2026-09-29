@@ -37,6 +37,7 @@ export function makeSnapshot(overrides: Partial<Snapshot> = {}): Snapshot {
     branches: [],
     commit_types: ['feat', 'fix', 'docs'],
     suggested_scope: '',
+    tasks: { available: true, reason: '', linked: [] },
     ...overrides,
   }
 }

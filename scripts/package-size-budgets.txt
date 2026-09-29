@@ -95,8 +95,13 @@ internal/tui 44
 # internal/tui it is cohesive and grows only when the API gains an operation,
 # which is a decision the OpenAPI spec records first. 17 = staging.go, the web's
 # stage and unstage — one changed file, or all of them — which the terminal
-# makes with space and a. Frozen here so that growth stays deliberate.
-internal/webserver 17
+# makes with space and a. 20 = the Taskwarrior operations' three files:
+# tasks.go (the read — the task list and the stream's summary of it — and the
+# task wire shapes), taskwrite.go (the five writes on one task — start, stop,
+# done, annotate, modify — that share the uuid check and the list read after)
+# and taskcommands.go (add, track, undo and sync, which name no task). Frozen
+# here so that growth stays deliberate.
+internal/webserver 20
 
 # internal/cli — the Cobra command tree, one file per command: the read commands
 # (doctor, split by section across doctor.go for the command, the repository and

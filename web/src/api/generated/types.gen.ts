@@ -51,6 +51,36 @@ export type CreateBranchRequest = {
 };
 
 /**
+ * A line in Taskwarrior's own grammar: words, with attributes such as project:web, due:friday or +tag among them.
+ */
+export type TaskLine = {
+    /**
+     * The line, as it would follow `task add` or `task <id> modify`.
+     */
+    line: string;
+};
+
+/**
+ * The text of a note on a task.
+ */
+export type TaskText = {
+    /**
+     * The note; every word stays a word, never an attribute.
+     */
+    text: string;
+};
+
+/**
+ * The issue to track in Taskwarrior.
+ */
+export type TrackIssueRequest = {
+    /**
+     * The issue the task is for.
+     */
+    issue_key: string;
+};
+
+/**
  * A composed announcement and where it would post.
  */
 export type Announcement = {
@@ -215,7 +245,7 @@ export type Snapshot = {
     review: Review;
     messaging: MessagingDestination;
     /**
-     * The local branches named for an issue — the record of what is in flight. The detail panels (branch, changes, review) describe the checked-out branch alone; this lists every issue that has a branch, so the issues list can mark them all in flight, not the one on HEAD.
+     * The branches named for one of your issues, local ones and those only the remote has — the record of what is in flight. The detail panels (branch, changes, review) describe the checked-out branch alone; this lists every issue of yours that has a branch, so the issues list can mark them all in flight, not the one on HEAD. An issue is yours when the tracker says it is assigned to you and not done; with no tracker to ask, every branch that names an issue is listed.
      */
     branches: Array<TaskBranch>;
     /**
@@ -226,10 +256,11 @@ export type Snapshot = {
      * The scope a new commit opens on — the terminal composer's rule: the scope last committed with in this repository, else commit.default_scope, else empty. The server reads the learned one from its store once, and once more after a commit here records one, not on every message, and never under --dry-run, when the default alone applies.
      */
     suggested_scope: string;
+    tasks: TasksSummary;
 };
 
 /**
- * A local branch named for an issue, by the branch-name convention.
+ * A branch named for an issue, by the branch-name convention: a local one, or one only the remote has, which checking out creates here.
  */
 export type TaskBranch = {
     /**
@@ -244,6 +275,10 @@ export type TaskBranch = {
      * Whether this is the checked-out branch.
      */
     current: boolean;
+    /**
+     * Whether only the remote has the branch.
+     */
+    remote?: boolean;
 };
 
 export type IssuesPage = {
@@ -421,6 +456,135 @@ export type ReviewRequest = {
      * RFC 3339; when it was opened, which is how long it has waited — the zero time if the forge did not give one.
      */
     opened_at: string;
+};
+
+/**
+ * Your pending Taskwarrior tasks, and what the server knows of the Taskwarrior that answered.
+ */
+export type TaskList = {
+    /**
+     * Whether there is a Taskwarrior to ask: false when it is turned off by taskwarrior.disabled, not installed, not Taskwarrior (go-task is also called task), too old, never run, or its taskrc has a malformed line.
+     */
+    available: boolean;
+    /**
+     * Why Taskwarrior is not available, safe to show; empty when it is.
+     */
+    reason: string;
+    /**
+     * Why Taskwarrior is not available, as a code the page can act on without reading reason: not installed, a task program that is not Taskwarrior (go-task, most likely), too old, never run, turned off by taskwarrior.disabled, a taskrc with a malformed line, or unavailable for a reason workflow doctor explains, or taskwarrior settings saved since workflow started, which apply once it restarts. Absent when Taskwarrior is available.
+     */
+    reason_code?: 'not_installed' | 'not_taskwarrior' | 'too_old' | 'never_run' | 'turned_off' | 'malformed_taskrc' | 'unavailable';
+    /**
+     * The name of Taskwarrior's active context, whose filter the list applies; empty for none.
+     */
+    context: string;
+    /**
+     * Whether the taskrc names a sync backend, so a sync has somewhere to go.
+     */
+    sync_available: boolean;
+    /**
+     * What the write this list answers has to add: how many operations an undo reverted, what a sync printed, or that a tracked issue's task was created but not annotated. Empty otherwise.
+     */
+    said: string;
+    /**
+     * The uuid of the task the write this list answers added — an add or a track — so the page can name it even when the active context leaves it out of tasks. Absent after any other write, and on a read.
+     */
+    added?: string;
+    /**
+     * The pending tasks of the active context, most urgent first, waiting ones included. Empty when Taskwarrior is not available.
+     */
+    tasks: Array<Task>;
+};
+
+/**
+ * What the event stream carries of your Taskwarrior tasks: the started one, as active — absent when none is started — and every task linked to an issue. Until Taskwarrior has answered both reads the summary makes, it is not available, with no active task and no linked one.
+ */
+export type TasksSummary = {
+    /**
+     * Whether Taskwarrior answered: false when there is none to ask, as in TaskList, and when it was found but could not be read.
+     */
+    available: boolean;
+    /**
+     * Why Taskwarrior is not available, safe to show; empty when it is.
+     */
+    reason: string;
+    active?: Task;
+    /**
+     * Every task linked to an issue, whatever its status but deleted, and whatever context hides it. Empty unless available.
+     */
+    linked: Array<Task>;
+};
+
+/**
+ * One task as Taskwarrior holds it. A date the task does not have is absent, never the zero time.
+ */
+export type Task = {
+    uuid: string;
+    /**
+     * The working-set number; 0 for a task not in the working set.
+     */
+    id: number;
+    description: string;
+    status: 'pending' | 'completed' | 'deleted' | 'waiting' | 'recurring';
+    /**
+     * Empty when the task has none.
+     */
+    project: string;
+    /**
+     * H, M, L or empty.
+     */
+    priority: string;
+    tags: Array<string>;
+    due?: string;
+    /**
+     * Until when the task is hidden from the list's usual reports.
+     */
+    wait?: string;
+    scheduled?: string;
+    /**
+     * When Taskwarrior deletes the task.
+     */
+    until?: string;
+    /**
+     * When the task was started; present only while it is.
+     */
+    start?: string;
+    /**
+     * When the task was completed or deleted.
+     */
+    end?: string;
+    /**
+     * When the task was created.
+     */
+    entry: string;
+    /**
+     * When the task last changed.
+     */
+    modified: string;
+    /**
+     * Taskwarrior's own urgency; the list is ordered by it.
+     */
+    urgency: number;
+    /**
+     * The notes on the task, oldest first.
+     */
+    annotations: Array<TaskAnnotation>;
+    /**
+     * The issue the task is linked to, from its jiraid attribute; empty when it tracks none.
+     */
+    issue_key: string;
+    /**
+     * The issue's page: the tracker's, for a task naming an issue where the tracker builds issue pages (Jira); otherwise (the forge's issues as the tracker, or a task naming no issue) the task's jiraurl attribute when it is an http or https address; empty otherwise.
+     */
+    issue_url: string;
+};
+
+/**
+ * A note on a task, and when it was written.
+ */
+export type TaskAnnotation = {
+    entry: string;
+    description: string;
 };
 
 /**
@@ -686,8 +850,16 @@ export type CommitConfig = {
 
 export type JiraView = {
     name: string;
+    /**
+     * The query the view searches: a configured view's JQL narrowed to the issues assigned to you, unless it already names the assignee.
+     */
     jql: string;
 };
+
+/**
+ * The task's uuid, as the task list gives it.
+ */
+export type TaskUuid = string;
 
 export type GetHealthData = {
     body?: never;
@@ -1405,6 +1577,345 @@ export type OpenPullRequestResponses = {
 };
 
 export type OpenPullRequestResponse = OpenPullRequestResponses[keyof OpenPullRequestResponses];
+
+export type ListTasksData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/tasks';
+};
+
+export type ListTasksErrors = {
+    /**
+     * An RFC 9457 problem details object describing the failure.
+     */
+    default: Problem;
+};
+
+export type ListTasksError = ListTasksErrors[keyof ListTasksErrors];
+
+export type ListTasksResponses = {
+    /**
+     * The list. With no Taskwarrior to ask — turned off by taskwarrior.disabled, not installed, a task program that is not Taskwarrior (go-task), one too old, one never run, or one whose taskrc has a malformed line — available is false with the reason and tasks is empty: an answer about where the server runs, not a missing resource, so never a 404.
+     */
+    200: TaskList;
+};
+
+export type ListTasksResponse = ListTasksResponses[keyof ListTasksResponses];
+
+export type AddTaskData = {
+    body: TaskLine;
+    path?: never;
+    query?: never;
+    url: '/api/tasks';
+};
+
+export type AddTaskErrors = {
+    /**
+     * The line is empty, Taskwarrior is not available, or it refused the line; nothing was added.
+     */
+    422: Problem;
+    /**
+     * An RFC 9457 problem details object describing the failure.
+     */
+    default: Problem;
+};
+
+export type AddTaskError = AddTaskErrors[keyof AddTaskErrors];
+
+export type AddTaskResponses = {
+    /**
+     * The pending list, now with the task, and added naming it.
+     */
+    200: TaskList;
+};
+
+export type AddTaskResponse = AddTaskResponses[keyof AddTaskResponses];
+
+export type TrackIssueData = {
+    body: TrackIssueRequest;
+    path?: never;
+    query?: never;
+    url: '/api/tasks/track';
+};
+
+export type TrackIssueErrors = {
+    /**
+     * The tracker has no such issue; nothing was added.
+     */
+    404: Problem;
+    /**
+     * No issue key was given, the tracker's key for the issue is not one word, no tracker or Taskwarrior is available, or Taskwarrior refused the line; nothing was added.
+     */
+    422: Problem;
+    /**
+     * An RFC 9457 problem details object describing the failure.
+     */
+    default: Problem;
+};
+
+export type TrackIssueError = TrackIssueErrors[keyof TrackIssueErrors];
+
+export type TrackIssueResponses = {
+    /**
+     * The pending list, now with the issue's task, and added naming it.
+     */
+    200: TaskList;
+};
+
+export type TrackIssueResponse = TrackIssueResponses[keyof TrackIssueResponses];
+
+export type UndoTasksData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/tasks/undo';
+};
+
+export type UndoTasksErrors = {
+    /**
+     * Taskwarrior has nothing to undo.
+     */
+    409: Problem;
+    /**
+     * Taskwarrior is not available, or refused the undo.
+     */
+    422: Problem;
+    /**
+     * An RFC 9457 problem details object describing the failure.
+     */
+    default: Problem;
+};
+
+export type UndoTasksError = UndoTasksErrors[keyof UndoTasksErrors];
+
+export type UndoTasksResponses = {
+    /**
+     * The pending list, as it stands after the undo.
+     */
+    200: TaskList;
+};
+
+export type UndoTasksResponse = UndoTasksResponses[keyof UndoTasksResponses];
+
+export type SyncTasksData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/tasks/sync';
+};
+
+export type SyncTasksErrors = {
+    /**
+     * No sync backend is set, Taskwarrior is not available, or the sync failed.
+     */
+    422: Problem;
+    /**
+     * An RFC 9457 problem details object describing the failure.
+     */
+    default: Problem;
+};
+
+export type SyncTasksError = SyncTasksErrors[keyof SyncTasksErrors];
+
+export type SyncTasksResponses = {
+    /**
+     * The pending list, as it stands after the sync.
+     */
+    200: TaskList;
+};
+
+export type SyncTasksResponse = SyncTasksResponses[keyof SyncTasksResponses];
+
+export type StartTaskData = {
+    body?: never;
+    path: {
+        /**
+         * The task's uuid, as the task list gives it.
+         */
+        uuid: string;
+    };
+    query?: never;
+    url: '/api/tasks/{uuid}/start';
+};
+
+export type StartTaskErrors = {
+    /**
+     * Taskwarrior changed nothing: the task is already started, or no such task exists.
+     */
+    409: Problem;
+    /**
+     * Taskwarrior is not available, or refused the change.
+     */
+    422: Problem;
+    /**
+     * An RFC 9457 problem details object describing the failure.
+     */
+    default: Problem;
+};
+
+export type StartTaskError = StartTaskErrors[keyof StartTaskErrors];
+
+export type StartTaskResponses = {
+    /**
+     * The pending list, with the task started.
+     */
+    200: TaskList;
+};
+
+export type StartTaskResponse = StartTaskResponses[keyof StartTaskResponses];
+
+export type StopTaskData = {
+    body?: never;
+    path: {
+        /**
+         * The task's uuid, as the task list gives it.
+         */
+        uuid: string;
+    };
+    query?: never;
+    url: '/api/tasks/{uuid}/stop';
+};
+
+export type StopTaskErrors = {
+    /**
+     * Taskwarrior changed nothing: the task is already in that state, or is no longer pending.
+     */
+    409: Problem;
+    /**
+     * Taskwarrior is not available, or refused the change.
+     */
+    422: Problem;
+    /**
+     * An RFC 9457 problem details object describing the failure.
+     */
+    default: Problem;
+};
+
+export type StopTaskError = StopTaskErrors[keyof StopTaskErrors];
+
+export type StopTaskResponses = {
+    /**
+     * The pending list, with the task stopped.
+     */
+    200: TaskList;
+};
+
+export type StopTaskResponse = StopTaskResponses[keyof StopTaskResponses];
+
+export type CompleteTaskData = {
+    body?: never;
+    path: {
+        /**
+         * The task's uuid, as the task list gives it.
+         */
+        uuid: string;
+    };
+    query?: never;
+    url: '/api/tasks/{uuid}/done';
+};
+
+export type CompleteTaskErrors = {
+    /**
+     * Taskwarrior changed nothing: the task is already in that state, or is no longer pending.
+     */
+    409: Problem;
+    /**
+     * Taskwarrior is not available, or refused the change.
+     */
+    422: Problem;
+    /**
+     * An RFC 9457 problem details object describing the failure.
+     */
+    default: Problem;
+};
+
+export type CompleteTaskError = CompleteTaskErrors[keyof CompleteTaskErrors];
+
+export type CompleteTaskResponses = {
+    /**
+     * The pending list, without the task.
+     */
+    200: TaskList;
+};
+
+export type CompleteTaskResponse = CompleteTaskResponses[keyof CompleteTaskResponses];
+
+export type AnnotateTaskData = {
+    body: TaskText;
+    path: {
+        /**
+         * The task's uuid, as the task list gives it.
+         */
+        uuid: string;
+    };
+    query?: never;
+    url: '/api/tasks/{uuid}/annotations';
+};
+
+export type AnnotateTaskErrors = {
+    /**
+     * Taskwarrior changed nothing: the task is already in that state, or is no longer pending.
+     */
+    409: Problem;
+    /**
+     * The text is empty, or Taskwarrior is not available or refused the change.
+     */
+    422: Problem;
+    /**
+     * An RFC 9457 problem details object describing the failure.
+     */
+    default: Problem;
+};
+
+export type AnnotateTaskError = AnnotateTaskErrors[keyof AnnotateTaskErrors];
+
+export type AnnotateTaskResponses = {
+    /**
+     * The pending list, with the task annotated.
+     */
+    200: TaskList;
+};
+
+export type AnnotateTaskResponse = AnnotateTaskResponses[keyof AnnotateTaskResponses];
+
+export type ModifyTaskData = {
+    body: TaskLine;
+    path: {
+        /**
+         * The task's uuid, as the task list gives it.
+         */
+        uuid: string;
+    };
+    query?: never;
+    url: '/api/tasks/{uuid}/modify';
+};
+
+export type ModifyTaskErrors = {
+    /**
+     * Taskwarrior changed nothing: the task is already in that state, or is no longer pending.
+     */
+    409: Problem;
+    /**
+     * The line is empty, or Taskwarrior is not available or refused the change.
+     */
+    422: Problem;
+    /**
+     * An RFC 9457 problem details object describing the failure.
+     */
+    default: Problem;
+};
+
+export type ModifyTaskError = ModifyTaskErrors[keyof ModifyTaskErrors];
+
+export type ModifyTaskResponses = {
+    /**
+     * The pending list, with the task changed.
+     */
+    200: TaskList;
+};
+
+export type ModifyTaskResponse = ModifyTaskResponses[keyof ModifyTaskResponses];
 
 export type StreamEventsData = {
     body?: never;

@@ -294,6 +294,7 @@ const pagedSnapshot = {
   branches: [],
   commit_types: ['feat', 'fix'],
   suggested_scope: '',
+  tasks: { available: true, reason: '', linked: [] },
 } satisfies Snapshot
 
 test('a loaded page hands focus to its first issue, in view in the list, at 640 px', async ({
