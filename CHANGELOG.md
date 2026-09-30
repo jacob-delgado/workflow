@@ -1,5 +1,27 @@
 # Changelog
 
+## [0.4.2](https://github.com/jacob-delgado/workflow/compare/v0.4.1...v0.4.2) (2026-09-30)
+
+
+### Bug Fixes
+
+* **tui:** say where to set a token for the repository's own forge ([2707dc2](https://github.com/jacob-delgado/workflow/commit/2707dc20efa053d3067eb8968e7f7592af98d3f3))
+* **web:** embed the built web app in every build ([79d34a2](https://github.com/jacob-delgado/workflow/commit/79d34a2d06edddc926f2f47c97867796918805b6))
+* **web:** tell GitHub and GitLab users how to supply a forge token ([35f9308](https://github.com/jacob-delgado/workflow/commit/35f93085ff531c9c1fd45f7de3e19e0b5163501b))
+
+
+### Documentation
+
+* say go install carries the web interface ([e74d9e1](https://github.com/jacob-delgado/workflow/commit/e74d9e1644f587a69ddbef59bf8e0bf4725bf732))
+* say what the forge token must be allowed on GitHub and GitLab ([480cf84](https://github.com/jacob-delgado/workflow/commit/480cf84dc90bb201fdcafa23d557598440bfaf68))
+
+
+### Build & Packaging
+
+* Bump brace-expansion from 1.1.18 to 1.1.21 in /web ([e57c716](https://github.com/jacob-delgado/workflow/commit/e57c716c23863d0eda94f632fa1eeff20a6be328))
+* Bump the web group in /web with 7 updates ([df4d130](https://github.com/jacob-delgado/workflow/commit/df4d130b19411242333dd189a9b65b6a7354b8ca))
+* **web:** fail when the committed web bundle is stale ([aa15a4d](https://github.com/jacob-delgado/workflow/commit/aa15a4d068da9e76129e6ae5db01e965890d5efb))
+
 ## [0.4.1](https://github.com/jacob-delgado/workflow/compare/v0.4.0...v0.4.1) (2026-09-29)
 
 
