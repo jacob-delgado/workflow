@@ -12,6 +12,8 @@ extend-exclude = [
   "web/node_modules/**",
   "web/yarn.lock",
   "web/src/api/generated/**",
+  # The committed production build of the frontend: minified output of web/src.
+  "internal/web/dist/**",
 ]
 
 [default]

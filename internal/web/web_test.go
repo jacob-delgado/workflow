@@ -4,19 +4,28 @@
 package web_test
 
 import (
+	"io/fs"
 	"testing"
 
 	"github.com/jacob-delgado/workflow/internal/web"
 )
 
-func TestAssetsReportsNoEmbeddedUIInTheDefaultBuild(t *testing.T) {
+func TestAssetsCarriesTheBuiltApp(t *testing.T) {
 	t.Parallel()
 
 	// Act
-	assets, ok := web.Assets()
-
+	assets, err := web.Assets()
 	// Assert
-	if ok || assets != nil {
-		t.Errorf("Assets() = (%v, %t), want (nil, false) without the embedui build tag", assets, ok)
+	if err != nil {
+		t.Fatalf("Assets() = %v, want the embedded app", err)
+	}
+
+	info, err := fs.Stat(assets, "index.html")
+	if err != nil {
+		t.Fatalf("fs.Stat(Assets(), index.html) = %v, want the built app's entry page", err)
+	}
+
+	if !info.Mode().IsRegular() {
+		t.Errorf("index.html mode = %v, want a regular file", info.Mode())
 	}
 }

@@ -260,22 +260,23 @@ must copy the pairs or extract them then.
 **Reopen when.** A third overlay binds the next-field and previous-field
 keys (`keys.nextField`, `keys.prevField`), which makes it a third composer.
 
-### TRADE-7 A condition-coverage skip list of two
+### TRADE-7 A condition-coverage skip list of one
 
-`UNANALYZABLE` (`scripts/gobco-report.sh:87`): gobco ignores build tags, so
+`UNANALYZABLE` (`scripts/gobco-report.sh:78`): gobco ignores build tags, so
 it cannot read a package whose files come in tagged twins, and
-`internal/proc/pgroup` and `internal/web` are named there with that reason
-beside them. Every other package is read, and one that becomes unreadable
-without being named fails the gate rather than shrinking the number.
+`internal/proc/pgroup` is named there with that reason beside it. Every
+other package is read, and one that becomes unreadable without being named
+fails the gate rather than shrinking the number.
 
 **Decided.** Recorded on 2026-09-24 in the audit (#140), and kept on
 2026-09-25 when the debt paydown reopened none of the recorded trade-offs.
 
-**Cost.** The two named packages' conditions go unmeasured — platform glue
-and an embed stub, with no branch worth the count — and the next tagged
-twin must join them.
+**Cost.** The named package's conditions go unmeasured — platform glue,
+with no branch worth the count — and the next tagged twin must join it.
+`internal/web` left the list on 2026-09-30, when its embed stopped being
+build-tagged.
 
-**Reopen when.** gobco reads build tags, or a third package whose files
+**Reopen when.** gobco reads build tags, or a second package whose files
 come in tagged twins appears.
 
 ### TRADE-8 The web's branch floor is v8's range-based count
@@ -534,3 +535,20 @@ the share.
 **Reopen when.** The measured figure comes within one point of
 `BRANCH_COVERAGE_MIN`, or a defect ships through a condition the report
 listed as seen only one way.
+
+### TRADE-20 The embedded web app is taken to be rooted at dist
+
+Two conditions fail only when the embedded bundle cannot be opened at its
+directory: `fs.Sub` in `Assets` (`internal/web/embed.go:21`) and its check
+in `WebServerAt` (`internal/cli/cli.go:315`). `fs.Sub` fails only for an
+invalid path, the path is the constant `"dist"`, and the embed fails the
+build when that directory is missing, so no test can reach either arm.
+
+**Decided.** 2026-09-30, when every build came to embed the committed web
+app so `go install` carries it.
+
+**Cost.** Two error arms no test runs: what the server says for an app it
+cannot open is read rather than checked.
+
+**Reopen when.** The app is read from anywhere but the binary, or its root
+becomes something other than a constant.

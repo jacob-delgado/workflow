@@ -11,6 +11,7 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"testing/fstest"
 	"time"
 
 	"github.com/jacob-delgado/workflow/internal/api"
@@ -128,7 +129,7 @@ func serve(t *testing.T, deps webserver.Deps, cfg config.Config) http.Handler {
 func serveWith(t *testing.T, deps webserver.Deps, cfg config.Config, info webserver.Info) http.Handler {
 	t.Helper()
 
-	handler, err := webserver.Handler(deps, cfg, info, nil)
+	handler, err := webserver.Handler(deps, cfg, info, fstest.MapFS{})
 	if err != nil {
 		t.Fatalf("building the handler: %v", err)
 	}

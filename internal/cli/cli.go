@@ -310,7 +310,11 @@ func WebServerAt(addr string) RunWeb {
 			fmt.Fprintf(notes, "workflow web: %s\n", strings.Join(lines, "; "))
 		}
 
-		assets, _ := web.Assets()
+		// Trade-off TRADE-20: the embedded app always opens at its constant root.
+		assets, err := web.Assets()
+		if err != nil {
+			return fmt.Errorf("building the web server: %w", err)
+		}
 
 		handler, err := webserver.Handler(deps, cfg, info, assets)
 		if err != nil {
