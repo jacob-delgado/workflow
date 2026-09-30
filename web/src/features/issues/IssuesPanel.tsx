@@ -14,6 +14,8 @@ import { useMoreIssues } from './issueApi.ts'
 import { IssueDetailPanel } from './IssueDetailPanel.tsx'
 import { IssueListControls } from './IssueListControls.tsx'
 import { IssueStatus } from './IssueStatus.tsx'
+import { admits, marksOf, placeChoices, togglePlace, type Place } from './issuePlaces.ts'
+import { PlaceChips } from './PlaceChips.tsx'
 
 export function IssuesPanel() {
   const snapshot = useLiveSnapshot()
@@ -40,12 +42,23 @@ function IssueBrowser({ streamed, branches, tasks }: IssueBrowserProps) {
   const view = useUiStore((state) => state.view)
   const streamedView = useSnapshotStore((state) => state.view)
   const [filter, setFilter] = useState('')
+  // The places picked belong to the view they were picked in; another view
+  // starts with none, as the terminal's does.
+  const [picked, setPicked] = useState<{ view: string | null; places: Place[] }>({
+    view,
+    places: [],
+  })
+  const places = picked.view === view ? picked.places : []
   const more = useMoreIssues(view, streamed)
   const focus = useArrivalFocus()
   const outcome = useOutcome()
   const switching = streamedView !== view
   const loaded = switching ? [] : mergeIssues(streamed.issues, more.data?.pages ?? [])
-  const shown = loaded.filter((issue) => matchesFilter(issue, filter))
+  const branchKeys = new Set(branches.map((branch) => branch.issue_key))
+  const marksFor = (issue: Issue) => marksOf(issue, branchKeys, tasks)
+  const shown = loaded.filter(
+    (issue) => matchesFilter(issue, filter) && admits(places, issue, marksFor(issue)),
+  )
 
   // loadMore reads the next page and then hands focus to what it added: the
   // button that had focus is gone once the view is fully loaded. The state it
@@ -65,8 +78,15 @@ function IssueBrowser({ streamed, branches, tasks }: IssueBrowserProps) {
     <div className="flex flex-col gap-group lg:min-h-0 lg:flex-1">
       <div className="flex flex-col gap-item">
         <IssueListControls filter={filter} onFilter={setFilter} />
+        <PlaceChips
+          choices={placeChoices(loaded, marksFor, places)}
+          picked={places}
+          onToggle={(place) => {
+            setPicked({ view, places: togglePlace(places, place) })
+          }}
+        />
         <p role="status" className="text-sm text-muted-foreground">
-          {filterOutcome(filter, shown.length, loaded.length)}
+          {filterOutcome(filter !== '' || places.length > 0, shown.length, loaded.length)}
         </p>
         <OutcomeLine said={outcome.said} />
       </div>
@@ -379,10 +399,11 @@ function loadOutcome(loaded: number, total: number, remain: boolean): string {
   return `All ${String(loaded)} loaded.`
 }
 
-// filterOutcome says what the filter left of the loaded issues: nothing while
-// there is no filter (or nothing to filter), and otherwise how many match.
-function filterOutcome(filter: string, shown: number, loaded: number): string {
-  if (filter === '' || loaded === 0) {
+// filterOutcome says what the filter and the places left of the loaded issues:
+// nothing while neither narrows them (or there is nothing to narrow), and
+// otherwise how many match.
+function filterOutcome(narrowed: boolean, shown: number, loaded: number): string {
+  if (!narrowed || loaded === 0) {
     return ''
   }
 
