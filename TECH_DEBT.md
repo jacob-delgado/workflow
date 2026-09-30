@@ -552,3 +552,25 @@ cannot open is read rather than checked.
 
 **Reopen when.** The app is read from anywhere but the binary, or its root
 becomes something other than a constant.
+
+### TRADE-21 The place rules are written twice
+
+The Issues list narrows to places — a Jira status, or one of the marks in
+flight, task active, tracked and task done — in the terminal
+(`internal/tui/issueplaces.go`) and in the web
+(`web/src/features/issues/issuePlaces.ts`), each working out an issue's
+marks and which places admit it from what that surface already holds. The
+two copies are pinned by twin-named test cases in
+`internal/tui/issueplaces_test.go` and
+`web/src/features/issues/issuePlaces.test.ts`.
+
+**Decided.** 2026-09-30, when both surfaces gained the place filter: the
+marks are read from data each surface already has, the branches and the
+linked tasks, and moving the rule to the server would mean sending each
+issue's marks in the snapshot for a filter that runs in the browser.
+
+**Cost.** A change to what a place means is made twice, and a change made
+to one copy alone passes that copy's tests.
+
+**Reopen when.** The snapshot comes to carry each issue's marks for another
+reason, or the two copies are found to disagree.

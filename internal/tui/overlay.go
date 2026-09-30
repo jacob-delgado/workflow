@@ -106,6 +106,7 @@ var (
 	_ applier = branchCreated{}
 	_ applier = worktreeCreated{}
 	_ applier = branchesListed{}
+	_ applier = issueBranchesListed{}
 	_ applier = treeChecked{}
 	_ applier = taskSwitched{}
 	_ applier = fetched{}

@@ -88,13 +88,21 @@ type issueList struct {
 	// what is already loaded; filtering records that keystrokes are building it.
 	filter    string
 	filtering bool
+	// places narrows the list to the issues in them; branchKeys and taskWords
+	// are what an issue's marks are read from, and branchesKnown whether the
+	// branches could be listed at all.
+	places        []place
+	branchKeys    map[jira.Key]bool
+	branchesKnown bool
+	taskWords     map[jira.Key]string
 }
 
-// visible is the issues the filter admits, or all of them when it is empty. The
+// visible is the issues the filter and the places admit, or all of them when
+// neither narrows the list. The
 // selection and every row operation work over this, so filtering narrows what
 // can be scanned without touching what was loaded.
 func (l issueList) visible() []jira.Issue {
-	if l.filter == "" {
+	if l.filter == "" && len(l.places) == 0 {
 		return l.found.Issues
 	}
 
@@ -103,7 +111,8 @@ func (l issueList) visible() []jira.Issue {
 	var matching []jira.Issue
 
 	for _, issue := range l.found.Issues {
-		if strings.Contains(strings.ToLower(string(issue.Key)+" "+issue.Summary), needle) {
+		if strings.Contains(strings.ToLower(string(issue.Key)+" "+issue.Summary), needle) &&
+			admits(l.places, issue.Status, l.marksOf(issue.Key)) {
 			matching = append(matching, issue)
 		}
 	}
@@ -265,17 +274,18 @@ func (l issueList) render(marks glyphs, sty styles, rows int, mark func(jira.Key
 	case len(l.found.Issues) == 0:
 		return "no issues in this view"
 	case len(l.visible()) == 0:
-		return "no issue matches the filter"
+		return l.nothingAdmitted()
 	case l.err != nil:
-		return l.listing(marks, l.listRows(rows), mark) + "\n" + failed
+		return l.listing(marks, sty, l.listRows(rows), mark) + "\n" + failed
 	}
 
-	return l.listing(marks, rows, mark)
+	return l.listing(marks, sty, rows, mark)
 }
 
 // listing is the issues the filter admits, as many as fit in rows, scrolled so
-// the selection stays on screen. A nil mark draws no column.
-func (l issueList) listing(marks glyphs, rows int, mark func(jira.Key) string) string {
+// the selection stays on screen, each with its status by name. A nil mark draws
+// no column, and neither does in flight until the branches are listed.
+func (l issueList) listing(marks glyphs, sty styles, rows int, mark func(jira.Key) string) string {
 	visible := l.visible()
 	first, last := window(l.selected, len(visible), rows)
 	lines := make([]string, 0, last-first)
@@ -288,7 +298,8 @@ func (l issueList) listing(marks glyphs, rows int, mark func(jira.Key) string) s
 	for index := first; index < last; index++ {
 		issue := visible[index]
 		lines = append(lines, marks.marker(index == l.selected)+marks.status(issue.StatusCategory)+column(issue.Key)+
-			" "+string(issue.Key)+" "+issue.Summary)
+			l.inFlightColumn(marks, sty, issue.Key)+" "+string(issue.Key)+" "+sty.label.Render(issue.Status)+" "+
+			issue.Summary)
 	}
 
 	return strings.Join(lines, "\n")

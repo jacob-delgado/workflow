@@ -85,6 +85,13 @@ func (m Model) searchIssues() tea.Cmd {
 	return m.searchPage(0)
 }
 
+// relistIssues is the command that reads the Issues pane's first page again,
+// with the branches that mark its issues in flight, which may have changed
+// since.
+func (m Model) relistIssues() tea.Cmd {
+	return tea.Batch(m.searchIssues(), m.listIssueBranches())
+}
+
 // searchPage is the command that reads one page of issues, from startAt.
 func (m Model) searchPage(startAt int) tea.Cmd {
 	search := m.deps.Jira.Search
@@ -246,13 +253,13 @@ func (m Model) readingKeys() []key.Binding {
 	}
 }
 
-// issueListKeys are the keys that manage the list itself: filter it, switch
-// view, read the next page, search again.
+// issueListKeys are the keys that manage the list itself: filter it, narrow it
+// to places, switch view, read the next page, search again.
 func (m Model) issueListKeys() []key.Binding {
 	var keys []key.Binding
 
 	if m.issues.filterable() {
-		keys = append(keys, m.keys.filter)
+		keys = append(keys, m.keys.filter, m.keys.filterPlace)
 	}
 
 	keys = append(keys, m.viewKeys()...)

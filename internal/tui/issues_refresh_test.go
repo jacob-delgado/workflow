@@ -85,7 +85,7 @@ func TestAFailedRefreshKeepsTheListedIssues(t *testing.T) {
 	refreshed := typing(t, model, "r")
 
 	// Assert
-	requireScreen(t, refreshed.View().Content, issueKey+" "+issueSummary, failedMark)
+	requireScreen(t, refreshed.View().Content, issueKey+" In Progress Fix", failedMark)
 }
 
 func TestAFailedRefreshMarksTheFailureBeneathAFullRail(t *testing.T) {
@@ -99,7 +99,7 @@ func TestAFailedRefreshMarksTheFailureBeneathAFullRail(t *testing.T) {
 	refreshed := typing(t, model, "r")
 
 	// Assert
-	requireScreen(t, refreshed.View().Content, "▸ ○ OPS-1 work", failedMark)
+	requireScreen(t, refreshed.View().Content, "▸ ○ OPS-1 In Progress work", failedMark)
 }
 
 func TestAClickAboveTheFailureMarkPicksTheIssueDrawnThere(t *testing.T) {
@@ -118,7 +118,7 @@ func TestAClickAboveTheFailureMarkPicksTheIssueDrawnThere(t *testing.T) {
 	view := click(t, screen, 5, row).View().Content
 
 	// Assert
-	requireScreen(t, view, "▸ ○ "+drawn+" work")
+	requireScreen(t, view, "▸ ○ "+drawn+" In Progress work")
 }
 
 func TestAClickOnTheFailureMarkPicksNothing(t *testing.T) {
@@ -132,5 +132,5 @@ func TestAClickOnTheFailureMarkPicksNothing(t *testing.T) {
 	view := click(t, screen, 5, row).View().Content
 
 	// Assert
-	requireScreen(t, view, "▸ ○ OPS-1 work")
+	requireScreen(t, view, "▸ ○ OPS-1 In Progress work")
 }

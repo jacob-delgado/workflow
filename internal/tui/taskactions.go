@@ -563,6 +563,7 @@ func (msg taskLineSent) apply(m Model) (Model, tea.Cmd) {
 		added := msg.stub
 		added.UUID = msg.uuid
 		m.tasks = m.tasks.justAdded(added)
+		m = m.withTaskWords()
 	}
 
 	if msg.after != nil {

@@ -114,6 +114,7 @@ every key `?` lists, by where it works.
 | | `b` | Start a branch for it, or a branch for no issue when none is selected |
 | | `o` / `y` | Open the issue in the browser, or copy its URL |
 | | `/` | Filter the list as you type; `enter` keeps the filter, `esc` clears it |
+| | `p` | Narrow the list to where issues are: a status, in flight, or how their tasks stand |
 | | `v` | Switch which issue list is shown |
 | | `ctrl+n` | Load the next page of the list |
 | | `r` | Search again |
@@ -193,6 +194,18 @@ workflow opens, so you land back where you left off. `v` moves to the next of
 the lists `jira.views` names; each is narrowed to the issues assigned to you
 unless its query names the assignee itself, as
 [Issue views]({{< relref "/docs/configuration#issue-views" >}}) explains.
+
+Each row shows the issue's status by name, and a second mark once a branch
+names any listed issue: in flight where a local or remote branch names it.
+**Where** (`p`) narrows the list to places: the statuses the loaded issues are
+in, whatever your Jira workflow calls them, and the marks *in flight*,
+*task active*, *tracked* and *task done*, each with how many issues it holds.
+`space` checks a place and `enter` applies them; `esc` leaves the list as it
+was. Statuses widen each other, as marks do, and the two narrow together, so
+*In development* with *in flight* lists the issues in development that have a
+branch. The places and the `/` filter apply together, both over what is loaded,
+and the row above the keys names them while they narrow the list. Switching
+view drops them, as it drops the filter.
 
 **Change status** (`t`) lists the transitions Jira's workflow offers from the
 issue's status. A transition that needs fields filled in says which. Choosing

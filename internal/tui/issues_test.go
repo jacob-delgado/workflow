@@ -153,7 +153,7 @@ func TestIssuesPaneListsTheAssignedIssues(t *testing.T) {
 
 	// Assert
 	// The first row is selected, and its glyph carries the status by shape.
-	requireScreen(t, view, "▸ ◐ OPS-1 Fix login", "○ OPS-2 Rotate keys")
+	requireScreen(t, view, "▸ ◐ OPS-1 In Progress Fix login", "○ OPS-2 In Progress Rotate")
 }
 
 func TestSlashFiltersTheIssueListAsYouType(t *testing.T) {
@@ -167,14 +167,14 @@ func TestSlashFiltersTheIssueListAsYouType(t *testing.T) {
 	filtered := typing(t, listed, "/", "R", "o", "t")
 
 	// Assert: only the match shows, and the filter is on the bottom row
-	requireScreen(t, filtered.View().Content, "OPS-2 Rotate keys", "filter: Rot")
+	requireScreen(t, filtered.View().Content, "OPS-2 In Progress Rotate", "filter: Rot")
 	refuseScreen(t, filtered.View().Content, "OPS-1")
 
 	// Act: esc restores the full list
 	restored := typing(t, filtered, keyEsc)
 
 	// Assert: the whole list is back and the filter row is gone
-	requireScreen(t, restored.View().Content, "OPS-1 Fix login", "OPS-2 Rotate keys")
+	requireScreen(t, restored.View().Content, "OPS-1 In Progress Fix login", "OPS-2 In Progress Rotate")
 	refuseScreen(t, restored.View().Content, "filter:")
 }
 
@@ -195,7 +195,7 @@ func TestFilteringToNothingSaysSoAndBackspaceWidensIt(t *testing.T) {
 	widened := typing(t, empty, keyBackspace)
 
 	// Assert: both issues return under the shorter filter
-	requireScreen(t, widened.View().Content, "OPS-1 Fix issue", "OPS-2 Fix bug", "filter: Fix")
+	requireScreen(t, widened.View().Content, "OPS-1 In Progress Fix issue", "OPS-2 In Progress Fix bug", "filter: Fix")
 }
 
 func TestArrowsMoveAndEnterKeepsTheFilter(t *testing.T) {
@@ -209,7 +209,7 @@ func TestArrowsMoveAndEnterKeepsTheFilter(t *testing.T) {
 	result := typing(t, listed, "/", "F", "i", "x", "down", "enter")
 
 	// Assert
-	requireScreen(t, result.View().Content, "▸ ○ OPS-2 Fix bug", "filter: Fix")
+	requireScreen(t, result.View().Content, "▸ ○ OPS-2 In Progress Fix bug", "filter: Fix")
 }
 
 // manyIssues builds count numbered issue rows.
@@ -368,7 +368,7 @@ func TestTheListScrollsToKeepTheSelectionVisible(t *testing.T) {
 
 	// Assert
 	requireScreen(t, view, "▸ ○ OPS-60")
-	refuseScreen(t, view, "○ OPS-1 work")
+	refuseScreen(t, view, "○ OPS-1 In Progress work")
 }
 
 func TestAnUnrecognizedStatusCategoryStillRenders(t *testing.T) {
@@ -423,7 +423,7 @@ func TestANarrowTerminalShowsTheListFullWidth(t *testing.T) {
 	// Assert
 	// With no rail, the focused pane's own content takes the whole body — here
 	// the list, not the selected issue's detail.
-	requireScreen(t, view, "▸ ○ OPS-1 Fix login", "○ OPS-2 Rotate keys")
+	requireScreen(t, view, "▸ ○ OPS-1 In Progress Fix login", "○ OPS-2 In Progress Rotate")
 }
 
 func TestTheAnswerRendersTheSameWhicheverArrivesFirst(t *testing.T) {
@@ -438,7 +438,7 @@ func TestTheAnswerRendersTheSameWhicheverArrivesFirst(t *testing.T) {
 	answerFirst := sized(t, started(t, tui.New(completeConfig(), nil, searching(search))), 120, 40).View().Content
 
 	// Assert
-	requireScreen(t, sizedFirst, "▸ ○ OPS-1 Fix login")
+	requireScreen(t, sizedFirst, "▸ ○ OPS-1 In Progress Fix login")
 
 	if sizedFirst != answerFirst {
 		t.Errorf("the order of size and answer changed the screen:\n%s\n---\n%s", sizedFirst, answerFirst)
