@@ -379,6 +379,51 @@ but its `forge.token` too needs `forge.host` beside it. When no source has a
 token for the host, `workflow doctor --online` says which of these it would have
 read.
 
+### What the token needs to be allowed
+
+Every call workflow makes to the forge carries this token, or the login `gh`
+or `glab` holds when `forge.cli` routes the call through them, so it needs the
+permissions below. Pushing is not one of those calls: `git` pushes with its own
+credentials. A token that may only read still shows issues, pull requests or
+merge requests, reviews and CI; a write it may not make is refused, and workflow
+says the token may lack the write scope it needs.
+
+#### GitHub
+
+A **fine-grained** token needs these repository permissions, on every
+repository you work in:
+
+| Permission | Access | For |
+| --- | --- | --- |
+| Metadata | Read-only | Reading the repository's merge settings; GitHub adds it to every token |
+| Pull requests | Read and write | Finding, opening and editing a pull request, requesting reviewers, reading reviews |
+| Issues | Read and write | Assignees and labels on a pull request, and reading and closing a GitHub issue |
+| Contents | Read and write | Merging a pull request |
+| Commit statuses | Read-only | CI reported as commit statuses |
+| Checks | Read-only | CI reported as check runs |
+| Actions | Read and write | Listing workflow runs, and re-running failed jobs |
+
+The review queue searches only the repositories the token was granted, so a
+fine-grained token limited to one repository shows the reviews waiting in that
+one alone.
+
+A **classic** token needs the `repo` scope, or only `public_repo` when every
+repository is public. `gh auth login` grants `repo` by default, so its token
+already has what workflow needs.
+
+#### GitLab
+
+A token needs the **`api`** scope. With `read_api` alone, workflow reads
+everything but every write is refused.
+
+The scope is only half of it: GitLab also checks your role in the project.
+
+| Role | For |
+| --- | --- |
+| Developer | Opening and editing a merge request, and retrying a pipeline |
+| Whichever role the target branch's protection allows to merge (Maintainer by default) | Merging a merge request |
+| Reporter, or the issue's author or assignee | Closing a GitLab issue |
+
 ### On-premises forges need `forge.kind` and `forge.host`
 
 workflow reads the forge from your git remote. `github.com`, an Enterprise Cloud
