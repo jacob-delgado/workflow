@@ -161,7 +161,7 @@ func (r Resolver) Resolve(ctx context.Context, kind Kind, host string) (Token, S
 		return configured, SourceConfiguration, nil
 	}
 
-	return "", SourceNone, ErrNoToken
+	return "", SourceNone, fmt.Errorf("%w: %s", ErrNoToken, Sources(kind, host))
 }
 
 // fromCLI asks the forge's own tool. Any failure is a miss rather than an

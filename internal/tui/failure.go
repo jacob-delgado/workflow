@@ -69,8 +69,8 @@ func writeRefusal(err error) error {
 // one way the interface says something broke.
 //
 // An empty brief keeps the error's own words on a summary row, where they name
-// the thing that failed; an empty wording keeps them everywhere, for an error
-// that explains itself better than any paraphrase could.
+// the thing that failed; an empty full keeps them wherever the failure has
+// room, for an error that explains itself better than any paraphrase could.
 //
 // The full form names no key to press: the same sentence is told in a pane,
 // where refresh retries, and in an overlay, which owns the keyboard and
@@ -189,10 +189,9 @@ func forgeErrors() []knownError {
 	notOnAForge := "origin is not GitHub or GitLab"
 
 	return []knownError{
-		{forge.ErrNoToken, wording{
-			brief: "no forge token",
-			full:  "No forge token found. Run `gh auth login`, or set `$GITHUB_TOKEN`.",
-		}},
+		// Only the resolver knows the forge and host, so its words say where to
+		// set a token: gh for GitHub, $GITLAB_TOKEN for GitLab.
+		{forge.ErrNoToken, wording{brief: "no forge token", full: ""}},
 		{forge.ErrNotARemote, wording{
 			brief: notOnAForge,
 			full:  "origin is not a remote workflow can read. Check it with `git remote -v`.",
@@ -367,8 +366,8 @@ func ownLine(err error) string {
 // briefly is an error in the fewest words, for a summary row: its brief
 // wording, or its own words on one row.
 func briefly(err error) string {
-	words, known := errorSentence(err)
-	if known && words.brief != "" {
+	words, _ := errorSentence(err)
+	if words.brief != "" {
 		return words.brief
 	}
 

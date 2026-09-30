@@ -34,6 +34,12 @@ func ownWordsOf(err error) spoken {
 	return spoken{err: err, brief: err.Error(), full: err.Error()}
 }
 
+// briefOnly is a failure summarized in the interface's words and told in full
+// in the error's own, which name what only the seam knows.
+func briefOnly(err error, brief string) spoken {
+	return spoken{err: err, brief: brief, full: err.Error()}
+}
+
 // everySeamFailure is every sentinel a seam can return, each wrapped the way a
 // client wraps it, with its wording.
 func everySeamFailure() map[string]spoken {
@@ -76,10 +82,10 @@ func everySeamFailure() map[string]spoken {
 			fmt.Errorf("%w at https://jira.example.com: i/o timeout", jira.ErrUnreachable), "Jira did not answer",
 			"Jira did not answer in time. Check the VPN, then try again.",
 		},
-		"forge no token": {
-			fmt.Errorf("connecting: %w", forge.ErrNoToken), "no forge token",
-			"No forge token found. Run `gh auth login`, or set `$GITHUB_TOKEN`.",
-		},
+		"forge no token": briefOnly(
+			fmt.Errorf("connecting: %w", fmt.Errorf("%w: %s", forge.ErrNoToken, forge.Sources(forge.KindGitLab, "gitlab.com"))),
+			"no forge token",
+		),
 		"forge not a remote": {
 			fmt.Errorf("reading origin: %w", forge.ErrNotARemote), "origin is not GitHub or GitLab",
 			"origin is not a remote workflow can read. Check it with `git remote -v`.",
