@@ -241,7 +241,7 @@ func connectForge(ctx context.Context, setup forgeSetup) (forgeConnection, error
 	}
 
 	//nolint:bodyclose // Wrap only relays the response; the forge client reads and closes its body.
-	client := forge.New(setup.log.Wrap("forge", access.Doer), base, access.Token)
+	client := forge.New(setup.log.Wrap("forge", access.Doer), base, access.Token).On(repo.Kind)
 
 	return forgeConnection{client: client, repo: repo}, nil
 }

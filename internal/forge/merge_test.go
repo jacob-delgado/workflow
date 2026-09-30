@@ -201,7 +201,7 @@ func TestARefusedMergeSaysWhy(t *testing.T) {
 	}{
 		"an under-scoped github token": {
 			repo:   githubRepo(),
-			body:   `{"message":"Resource not accessible by personal access token"}`,
+			body:   githubTokenRefusal,
 			reason: "Resource not accessible by personal access token",
 		},
 		"a github refusal in its own words": {

@@ -162,7 +162,7 @@ type pullEdited struct {
 // forge turned the change down.
 func (msg pullEdited) apply(m Model) (Model, tea.Cmd) {
 	if msg.err != nil {
-		return keepOpenWith[prEditor](m, writeRefusal(msg.err)), nil
+		return keepOpenWith[prEditor](m, msg.err), nil
 	}
 
 	m.review.pull.Title, m.review.pull.Body = msg.pull.Title, msg.pull.Body

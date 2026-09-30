@@ -206,7 +206,7 @@ func TestARefusedAnnouncementShowsTheServicesReason(t *testing.T) {
 }
 
 // lacksWriteScope is how a refused forge write names its likeliest fix.
-const lacksWriteScope = "the token may lack the write scope"
+const lacksWriteScope = "the token may lack a scope this needs"
 
 func TestARefusedForgeWriteLeadsWithTheWriteScope(t *testing.T) {
 	t.Parallel()
@@ -241,7 +241,7 @@ func TestARefusedForgeWriteLeadsWithTheWriteScope(t *testing.T) {
 			start:   withoutPull,
 			prepare: func(w *world) { w.reviewerErr = refused },
 			keys:    append(append([]string{"4", "n", keyTab, keyTab}, letters("ana")...), keyEnter),
-			want:    "could not add every reviewer, assignee or label: the token may lack write scope",
+			want:    "could not add every reviewer, assignee or label: the forge refused the request",
 		},
 	}
 
@@ -383,7 +383,7 @@ func TestADetailTellsTheFailureItsSummaryRowShortens(t *testing.T) {
 			keys: []string{"4"},
 			want: []string{
 				"CI     ✗ the forge refused the request",
-				"✗ The forge refused the request: the token may lack a permission this needs.",
+				"✗ The forge refused this: the token may lack a scope this needs, or your role may not allow it.",
 				"Resource not accessible by integration",
 			},
 		},

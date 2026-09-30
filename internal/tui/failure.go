@@ -5,7 +5,6 @@ package tui
 
 import (
 	"errors"
-	"fmt"
 	"slices"
 	"strings"
 
@@ -43,25 +42,6 @@ func (s sendState) failed(err error) sendState {
 	return sendState{sending: false, err: err}
 }
 
-// errNeedsWriteScope leads a write the forge refused — opening, editing or
-// merging a pull request, a re-run of CI, closing an issue it tracks — with its
-// likeliest fix, a wider token scope, claiming no more than the forge's own
-// refusal does. It is wrapped where the write is made rather than read into
-// forge.ErrRefused everywhere, because a refused read wants a permission to
-// read, not the write scope.
-var errNeedsWriteScope = errors.New("the token may lack the write scope this needs")
-
-// writeRefusal is a failed forge write as the interface tells it: the refusal a
-// read-only token hits leads with the write scope it may lack, and any other
-// failure keeps the forge's own words rather than a paraphrase of them.
-func writeRefusal(err error) error {
-	if errors.Is(err, forge.ErrRefused) || errors.Is(err, forge.ErrUnauthorized) {
-		return fmt.Errorf("%w: %w", errNeedsWriteScope, err)
-	}
-
-	return err
-}
-
 // wording is how the interface tells an error it recognizes: briefly, for a
 // summary row as narrow as a rail, and in full — with the way out — wherever
 // the failure has room of its own. Every failure on screen is told through it,
@@ -78,6 +58,10 @@ func writeRefusal(err error) error {
 type wording struct {
 	brief string
 	full  string
+	// whole records that full already carries the error's own reason — the
+	// forge's words for a token it turned down — so they are not told again
+	// beneath it.
+	whole bool
 }
 
 // knownError is one sentinel the seams can return, and how it is told.
@@ -91,7 +75,7 @@ type knownError struct {
 // messaging service's explained refusal, a program's failure status — so the
 // interface shows it as it is.
 func ownWords() wording {
-	return wording{brief: "", full: ""}
+	return wording{brief: "", full: "", whole: false}
 }
 
 // errorSentence rewrites a recognized error in the interface's voice, reporting
@@ -102,11 +86,30 @@ func ownWords() wording {
 func errorSentence(err error) (wording, bool) {
 	for _, known := range knownErrors() {
 		if errors.Is(err, known.sentinel) {
-			return known.wording, known.wording.full != ""
+			words := advised(known.wording, err)
+
+			return words, words.full != ""
 		}
 	}
 
 	return ownWords(), false
+}
+
+// advised is a forge's refusal of its token told in the words forge.Advice
+// gives it, the same the web shows, naming the forge, the scope it asks for and
+// what it said; any other error keeps words.
+func advised(words wording, err error) wording {
+	advice, ok := forge.Advice(err)
+	if !ok {
+		return words
+	}
+
+	// Only a refusal the seam returned as it is carries nothing the advice does
+	// not: one wrapped in the step it failed at keeps its own words beneath, so
+	// that step is still named.
+	_, bare := err.(*forge.RefusalError) //nolint:errorlint // the unwrapped refusal alone says nothing more
+
+	return wording{brief: words.brief, full: advice, whole: bare}
 }
 
 // knownErrors is every sentinel a seam can return, each with how it is told.
@@ -121,10 +124,6 @@ func knownErrors() []knownError {
 // a seam's guard returns.
 func localErrors() []knownError {
 	return []knownError{
-		{errNeedsWriteScope, wording{
-			brief: "the token may lack write scope",
-			full:  "The forge refused the write: the token may lack the write scope it needs. Widen it, then try again.",
-		}},
 		{errDryRun, wording{
 			brief: "held back by dry run",
 			full:  "Held back: this is a dry run, so nothing was sent.",
@@ -204,14 +203,10 @@ func forgeErrors() []knownError {
 			brief: "forge.kind needs forge.host",
 			full:  "`forge.kind` is set without `forge.host`. Add the host it describes.",
 		}},
-		{forge.ErrUnauthorized, wording{
-			brief: "the forge token is not valid",
-			full:  "The forge did not accept the token; it may have expired. `workflow doctor --online` tests it.",
-		}},
-		{forge.ErrRefused, wording{
-			brief: "the forge refused the request",
-			full:  "The forge refused the request: the token may lack a permission this needs. Check its scopes.",
-		}},
+		// The full sentence for a token the forge turned down is forge.Advice's,
+		// the one the web shows too, naming the forge and the scope it asks for.
+		{forge.ErrUnauthorized, wording{brief: "the forge token is not valid", full: "", whole: false}},
+		{forge.ErrRefused, wording{brief: "the forge refused the request", full: "", whole: false}},
 		{forge.ErrNoAPI, wording{
 			brief: "no forge API at that address",
 			full:  "No forge API answered at that address. Check `forge.host`; `workflow doctor --online` tests it.",
@@ -396,7 +391,7 @@ func (m Model) noticedFailure(err error) Model {
 // long sentence, and the lead must survive it.
 func (m Model) noticedFailureLedBy(lead string, err error) Model {
 	words := []string{m.marks.failed + " " + lead + inFull(err)}
-	if _, known := errorSentence(err); known {
+	if sentence, known := errorSentence(err); known && !sentence.whole {
 		words = append(words, ownText(err))
 	}
 
@@ -452,6 +447,10 @@ func failureBlock(sty styles, marks glyphs, err error, width int) string {
 	words, known := errorSentence(err)
 	if !known {
 		return sty.failure.Render(wrap(marks.failed+" "+ownText(err), width))
+	}
+
+	if words.whole {
+		return sty.failure.Render(wrap(marks.failed+" "+words.full, width))
 	}
 
 	return sty.failure.Render(wrap(marks.failed+" "+words.full, width)) + "\n" +

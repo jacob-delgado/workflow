@@ -94,7 +94,7 @@ type mergeRequested struct {
 // branch's issue offers to complete its task.
 func (msg mergeRequested) apply(m Model) (Model, tea.Cmd) {
 	if msg.err != nil {
-		return keepOpenWith[mergePicker](m, writeRefusal(msg.err)), nil
+		return keepOpenWith[mergePicker](m, msg.err), nil
 	}
 
 	merged := m.closeOverlay().noticed(m.marks.done + " merged " + m.vocab.sigil + strconv.Itoa(msg.pull.Number))

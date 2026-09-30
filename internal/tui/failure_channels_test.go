@@ -100,11 +100,11 @@ func everySeamFailure() map[string]spoken {
 		},
 		"forge unauthorized": {
 			fmt.Errorf("finding: %w", forge.ErrUnauthorized), "the forge token is not valid",
-			"The forge did not accept the token; it may have expired. `workflow doctor --online` tests it.",
+			"The forge did not accept the token; it may have expired or been revoked. `workflow doctor --online` tests it.",
 		},
 		"forge refused": {
 			fmt.Errorf("finding: %w", forge.ErrRefused), "the forge refused the request",
-			"The forge refused the request: the token may lack a permission this needs. Check its scopes.",
+			"The forge refused this: the token may lack a scope this needs, or your role may not allow it.",
 		},
 		"forge no API": {
 			fmt.Errorf("finding: %w", forge.ErrNoAPI), "no forge API at that address",

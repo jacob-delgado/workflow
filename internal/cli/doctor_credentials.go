@@ -152,7 +152,7 @@ func checkForge(ctx context.Context, out io.Writer, run doctorRun, remote string
 		return credentialMissing(out, "forge", noForgeTokenMessage(proc.Available, repo.Kind, repo.Host))
 	}
 
-	client := forge.New(run.log.Wrap("forge", access.Doer), base, access.Token)
+	client := forge.New(run.log.Wrap("forge", access.Doer), base, access.Token).On(repo.Kind)
 
 	return askForge(ctx, out, client, repo.Kind, access.Via)
 }

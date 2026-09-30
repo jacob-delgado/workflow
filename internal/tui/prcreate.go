@@ -106,7 +106,7 @@ type pullCreated struct {
 // open with the forge's reason. A pull that opened but whose reviewers could
 // not be added is shown all the same, with a note, rather than lost.
 func (msg pullCreated) apply(m Model) (Model, tea.Cmd) {
-	refusal := writeRefusal(msg.err)
+	refusal := msg.err
 	if refusal != nil && !msg.pull.Opened() {
 		return keepOpenWith[prComposer](m, refusal), nil
 	}
