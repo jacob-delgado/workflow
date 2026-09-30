@@ -271,6 +271,7 @@ tasks:
       - scripts/gobco-report_test.sh
       - scripts/hook-environment_test.sh
       - scripts/test-summary_test.sh
+      - scripts/markdown-changed_test.sh
       - scripts/test-counts_test.sh
       - scripts/go-test-json_test.sh
       - scripts/pr-comment_test.sh
@@ -410,7 +411,11 @@ tasks:
   lint:markdown:
     desc: Lint the Markdown
     cmds:
-      - markdownlint-cli2
+      # CI's Lint job passes LINT_MARKDOWN=false for a pull request that changes
+      # no Markdown, nothing under docs/ and not the markdownlint config
+      # (scripts/markdown-changed.sh); everywhere else every file is linted.
+      - >-
+        {{if eq .LINT_MARKDOWN "false"}}echo "Markdown lint skipped: this change touches no Markdown, docs/ or its config"{{else}}markdownlint-cli2{{end}}
 
   lint:toml:
     desc: Lint and format-check the TOML

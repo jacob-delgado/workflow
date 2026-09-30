@@ -23,10 +23,29 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+          # The base branch, to see which files a pull request changes.
+          fetch-depth: 0
       - uses: jdx/mise-action@c2a87611a18de5b3828c5652fe268e992400cb5c # v4.3.0
         with:
           version: 2026.9.3 # the mise binary itself; see min_version in mise.toml
-      - run: task lint
+      # A pull request lints its Markdown only when it changes Markdown, docs/
+      # or the markdownlint config; a push to main lints all of it, and a
+      # change that cannot be compared with its base is linted too.
+      - name: Decide whether the Markdown needs linting
+        id: markdown
+        run: |
+          lint=true
+          if [ "${GITHUB_EVENT_NAME}" = pull_request ]; then
+            status=0
+            scripts/markdown-changed.sh "origin/${GITHUB_BASE_REF}" || status=$?
+            if [ "${status}" -eq 1 ]; then
+              lint=false
+            fi
+          fi
+          echo "lint=${lint}" >>"${GITHUB_OUTPUT}"
+      - run: task lint LINT_MARKDOWN="${LINT_MARKDOWN}"
+        env:
+          LINT_MARKDOWN: ${{ steps.markdown.outputs.lint }}
 
   test:
     name: Test
