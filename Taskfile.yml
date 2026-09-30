@@ -204,6 +204,23 @@ tasks:
     cmds:
       - unset $(git rev-parse --local-env-vars); corepack yarn gen:check
 
+  # The bundle's twin of gen:verify: rebuild the frontend and fail when the
+  # committed internal/web/dist differs, so a web change that skipped
+  # `task web:build` cannot ship a stale app to `go install`. Vite names each
+  # asset by its content hash, so a stale bundle shows up as a deleted file
+  # beside an untracked one, and the check asks for both.
+  web:dist:check:
+    desc: Fail if the committed web bundle in internal/web/dist is stale
+    deps: [web:build]
+    cmds:
+      - |
+        if ! git diff --quiet -- internal/web/dist \
+          || [ -n "$(git ls-files --others --exclude-standard -- internal/web/dist)" ]; then
+          echo "The embedded web bundle is out of date. Run 'task web:build' and commit internal/web/dist." >&2
+          git status --short -- internal/web/dist >&2
+          exit 1
+        fi
+
   web:test:
     desc: Run the web frontend's unit tests with the coverage floor
     deps: [web:install]
@@ -550,6 +567,7 @@ tasks:
       - task: lint
       - task: web:lint
       - task: web:gen:check
+      - task: web:dist:check
       - task: test:cover
       - task: web:test
       - task: cover:branch

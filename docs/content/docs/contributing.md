@@ -51,6 +51,7 @@ frontend alone, and one that commits and pushes through a running
 | `task lint` | Every `lint:*` task — golangci-lint and each other linter and repository check — plus `docs:check` (the command reference still matches the code) and `gen:verify` (the generated Go API code still matches `api/openapi.yaml`); `task --list` names each |
 | `task web:lint` | The web frontend's eslint (accessibility at strict), `tsc`, prettier, knip, and its import boundaries |
 | `task web:gen:check` | The generated TypeScript client still matches `api/openapi.yaml` |
+| `task web:dist:check` | The committed web bundle in `internal/web/dist` is what `task web:build` makes of `web/src` |
 | `task test:cover` | Tests with the race detector, above the statement coverage floor |
 | `task web:test` | The web frontend's unit tests, above their own coverage floor |
 | `task cover:branch` | Condition coverage via gobco: was each condition seen both ways |
