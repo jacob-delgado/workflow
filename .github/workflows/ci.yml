@@ -96,6 +96,16 @@ jobs:
       - run: yarn lint
       - run: yarn test
       - run: yarn build
+      # The build writes internal/web/dist, which is committed so `go install`
+      # embeds the app; fail when the committed bundle is not this build's.
+      - name: Check the committed bundle is up to date
+        run: |
+          if ! git diff --quiet -- ../internal/web/dist \
+            || [ -n "$(git ls-files --others --exclude-standard -- ../internal/web/dist)" ]; then
+            echo "::error::The embedded web bundle is out of date. Run 'task web:build' and commit internal/web/dist."
+            git status --short -- ../internal/web/dist
+            exit 1
+          fi
 
   # The frontend end-to-end run: build the SPA, serve it with Vite preview, and
   # drive it in a real browser, including an axe accessibility sweep. No backend:
