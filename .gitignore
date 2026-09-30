@@ -17,6 +17,7 @@ web/dist/
 web/coverage/
 web/test-results/
 web/playwright-report/
+web/reports/
 web/blob-report/
 web/.vite/
 # Yarn Berry keeps its pinned release and lockfile tracked; ignore the rest.
