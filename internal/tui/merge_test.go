@@ -113,7 +113,7 @@ func TestRefusedMergeStaysInItsPreview(t *testing.T) {
 	// Assert: the preview is still open, the write scope the token may lack
 	// pinned in it with no rate-limit guess, ready to try again
 	requireScreen(t, refused.View().Content, "Merge by:",
-		"✗ The forge refused the write: the token may lack the write scope", "enter merge")
+		"✗ The forge refused this: the token may lack a scope this needs", "enter merge")
 	refuseScreen(t, refused.View().Content, "rate limit")
 
 	// Act: close it
@@ -136,7 +136,7 @@ func TestAMethodsReadThatFailsIsPinnedInTheMergePicker(t *testing.T) {
 	}{
 		"methods the token may not read": {
 			prepare: func(w *world) { w.mergeMethodsErr = forge.ErrRefused },
-			want:    "The forge refused the request",
+			want:    "The forge refused this",
 		},
 		"methods the forge would not show": {
 			prepare: func(w *world) { w.mergeMethodsErr = forge.ErrUnreachable },
@@ -180,7 +180,7 @@ func TestTheMergePickerNamesTheMergeOnANarrowTerminal(t *testing.T) {
 	// Assert
 	// The row clips a long sentence, so the picker's title is what names the
 	// merge the failure stopped.
-	requireScreen(t, view, "Merge pull request", "✗ The forge refused the request")
+	requireScreen(t, view, "Merge pull request", "✗ The forge refused this")
 }
 
 func TestTheMergePickerSaysItIsReadingTheMethods(t *testing.T) {
@@ -346,9 +346,11 @@ func TestAMergeThatFailsSurfacesTheForgesReason(t *testing.T) {
 			want:   "✗ the forge rejected the request: the base branch moved on",
 			refuse: []string{lacksWriteScope},
 		},
+		// A 401 is told as a token not accepted, never as a scope it may lack.
 		"a credential the forge did not accept": {
-			err:  forge.ErrUnauthorized,
-			want: "✗ The forge refused the write: the token may lack the write scope",
+			err:    forge.ErrUnauthorized,
+			want:   "✗ The forge did not accept the token; it may have expired or been revoked.",
+			refuse: []string{lacksWriteScope},
 		},
 		// The forge's own words, not a paraphrase that drops the cause.
 		"a forge that never answered": {

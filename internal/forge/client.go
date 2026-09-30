@@ -110,11 +110,22 @@ type Client struct {
 	do    Doer
 	base  string
 	token Token
+	// kind is which forge answers, so a refusal can name it; unknown until On
+	// says.
+	kind Kind
 }
 
 // New builds a client. Pass the base URL from Repo.APIBase.
 func New(do Doer, base string, token Token) Client {
 	return Client{do: do, base: strings.TrimRight(base, "/"), token: token}
+}
+
+// On is the client told which forge it talks to, so a token the forge turns
+// down is told in that forge's terms: its name, and the scope it asks for.
+func (c Client) On(kind Kind) Client {
+	c.kind = kind
+
+	return c
 }
 
 // Whoami reports which account the credential belongs to.
@@ -193,7 +204,7 @@ func (c Client) accepted(request *http.Request) error {
 	}
 	defer func() { _ = response.Body.Close() }()
 
-	return answerError(response)
+	return c.answerError(response)
 }
 
 // newRequest builds an authenticated request, with payload encoded as its JSON
@@ -243,7 +254,7 @@ func (c Client) exchange(request *http.Request) ([]byte, error) {
 	}
 	defer func() { _ = response.Body.Close() }()
 
-	err = answerError(response)
+	err = c.answerError(response)
 	if err != nil {
 		return nil, err
 	}
@@ -280,18 +291,25 @@ func mustBeJSON(contentType string) error {
 
 // answerError is the error an answer stands for, or nil once the forge
 // accepted the request: a wait asked for is told apart from a refusal before
-// the status is read with whatever reason the forge gave for it.
-func answerError(response *http.Response) error {
+// the status is read with whatever reason the forge gave for it. A token the
+// forge turned down — 401 or 403 — is a RefusalError naming the forge.
+func (c Client) answerError(response *http.Response) error {
 	if asksToWait(response) {
 		return httpx.RateLimited(response.Header)
 	}
 
 	status := statusError(response.StatusCode)
-	if status != nil {
+
+	switch {
+	case status == nil:
+		return nil
+	case errors.Is(status, ErrUnauthorized) || errors.Is(status, ErrRefused):
+		reason, _ := reasonIn(response.Body)
+
+		return &RefusalError{Kind: c.kind, Status: status, Reason: reason}
+	default:
 		return explained(status, response.Body)
 	}
-
-	return nil
 }
 
 // asksToWait reports an answer that is a rate limit: a 429 on either forge, or

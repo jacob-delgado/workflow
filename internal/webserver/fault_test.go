@@ -131,7 +131,7 @@ func TestAForgeFailureSaysWhatToDo(t *testing.T) {
 		"a token not accepted":          {forge.ErrUnauthorized, unprocessable, "did not accept the token"},
 		"no API at the address":         {forge.ErrNoAPI, unprocessable, "no forge API answered"},
 		"an answer that is not JSON":    {forge.ErrNotJSON, unprocessable, "no forge API answered"},
-		"a refusal of the token":        {forge.ErrRefused, unprocessable, "may lack a permission"},
+		"a refusal of the token":        {forge.ErrRefused, unprocessable, lacksAScope},
 		"a status it does not document": {forge.ErrUnexpectedStatus, unreachable, undocumentedStatus},
 		"a status the forge explained": {
 			fmt.Errorf("%w: 500 Internal Server Error", forge.ErrRejected), unreachable, undocumentedStatus,

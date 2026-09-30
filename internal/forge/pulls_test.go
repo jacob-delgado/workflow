@@ -378,7 +378,7 @@ func TestOnlyARefusalTheForgeExplainsCarriesItsReason(t *testing.T) {
 		wantText string
 	}{
 		"forbidden with a message": {
-			status: http.StatusForbidden, body: `{"message":"Resource not accessible by personal access token"}`,
+			status: http.StatusForbidden, body: githubTokenRefusal,
 			want:     forge.ErrRefused,
 			wantText: forge.ErrRefused.Error() + ": Resource not accessible by personal access token",
 		},

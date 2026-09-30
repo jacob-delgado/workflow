@@ -124,6 +124,13 @@ func (s *server) unexpected(err error) {
 // first class it belongs to, reported true, or an opaque internal error,
 // reported false.
 func faultProblem(err error) (api.Problem, bool) {
+	// A token the forge turned down is told in forge.Advice's words, the ones
+	// the terminal shows: the forge, the scope it asks for, and its own reason
+	// for the refusal, which is the forge's and never carries its address.
+	if advice, ok := forge.Advice(err); ok {
+		return problem(api.Unprocessable, advice), true
+	}
+
 	for _, class := range faultClasses() {
 		if slices.ContainsFunc(class.causes, func(cause error) bool { return errors.Is(err, cause) }) {
 			return problem(class.code, class.detail), true
@@ -243,19 +250,9 @@ func forgeFaults() []faultClass {
 			code:   api.Unprocessable, detail: "forge.kind is set without forge.host; set the host it describes",
 		},
 		{
-			causes: []error{forge.ErrUnauthorized},
-			code:   api.Unprocessable,
-			detail: "the forge did not accept the token, which may have expired; workflow doctor --online checks it",
-		},
-		{
 			causes: []error{forge.ErrNoAPI, forge.ErrNotJSON},
 			code:   api.Unprocessable,
 			detail: "no forge API answered; check forge.host, which workflow doctor --online tests",
-		},
-		{
-			causes: []error{forge.ErrRefused},
-			code:   api.Unprocessable,
-			detail: "the forge refused the request; the token may lack a permission this needs, so check its scopes",
 		},
 		{
 			// An explained status is the same undocumented status with the

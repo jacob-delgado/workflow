@@ -96,8 +96,9 @@ or that Jira did not accept, a `jira.base_url` that is not a usable address,
 and one with no Jira API behind it are answered here too, pointing at
 `workflow doctor` rather than naming the address. So are a forge token that was not found or that the forge did not
 accept, a `forge.kind` set without its `forge.host`, a forge address with no
-forge API behind it, and a request the forge refused, whose detail points at
-the token's scopes. A pull request the forge turned down is answered here with
+forge API behind it, and a request the forge refused. A token the forge turned
+down is told in the words the terminal uses: which forge, the scope it asks
+for, and the forge's own reason. A pull request the forge turned down is answered here with
 the forge's own reason, and so is one naming a reviewer or assignee GitLab does
 not know; any other open that fails is answered as a read's failure is, under
 the code its cause belongs to. An announcement the messaging service refused,

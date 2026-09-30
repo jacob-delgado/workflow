@@ -161,7 +161,7 @@ type transitionApplied struct {
 // changed. A move to done offers to complete the issue's task.
 func (msg transitionApplied) apply(m Model) (Model, tea.Cmd) {
 	if msg.err != nil {
-		return keepOpenWith[statusPicker](m, writeRefusal(msg.err)), nil
+		return keepOpenWith[statusPicker](m, msg.err), nil
 	}
 
 	m = m.closeOverlay().noticed(m.marks.done + " " + string(msg.issueKey) + " is now " + msg.to.ToStatus)

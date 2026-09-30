@@ -151,7 +151,7 @@ func TestListReviewsDetailOmitsTheForgeHost(t *testing.T) {
 		},
 		"a refusal of the token": {
 			cause:      fmt.Errorf("searching https://%s: %w", forgeHost, forge.ErrRefused),
-			wantStatus: http.StatusUnprocessableEntity, want: "may lack a permission",
+			wantStatus: http.StatusUnprocessableEntity, want: lacksAScope,
 		},
 		"a status the forge explained": {
 			cause: fmt.Errorf("searching https://%s: %w", forgeHost,

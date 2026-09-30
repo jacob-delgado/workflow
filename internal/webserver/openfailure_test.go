@@ -21,6 +21,10 @@ import (
 	"github.com/jacob-delgado/workflow/internal/webserver"
 )
 
+// lacksAScope is how the answer to a token the forge refused names the likely
+// cause, in forge.Advice's words.
+const lacksAScope = "may lack a scope this needs"
+
 // failingOpenDeps is openableDeps with the branch already pushed, so the
 // failure is the open itself, and a create seam that fails with err.
 func failingOpenDeps(err error) webserver.Deps {
@@ -57,7 +61,7 @@ func TestOpenPullRequestClassifiesAFailedOpenThroughFault(t *testing.T) {
 		},
 		"a refusal of what the token may do": {
 			err:        fmt.Errorf("%w: Resource not accessible by integration", forge.ErrRefused),
-			wantStatus: http.StatusUnprocessableEntity, wantCode: api.Unprocessable, wantDetail: "check its scopes",
+			wantStatus: http.StatusUnprocessableEntity, wantCode: api.Unprocessable, wantDetail: lacksAScope,
 		},
 		"a failure nothing more is known of": {
 			err:        fmt.Errorf("opening at %s: %w", apiBase, errSeam),
@@ -116,5 +120,44 @@ func TestOpenPullRequestKeepsTheWordsTheCallerCanActOn(t *testing.T) {
 				t.Errorf("status = %d, detail %q; want 422 saying %q", recorder.Code, failure.Detail, err.Error())
 			}
 		})
+	}
+}
+
+func TestARefusedTokenIsToldInTheWordsTheTerminalUses(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	refusal := &forge.RefusalError{
+		Kind: forge.KindGitLab, Status: forge.ErrRefused,
+		Reason: "insufficient_scope: The request requires higher privileges than provided by the access token. " +
+			"(needs the api scope)",
+	}
+	advice, _ := forge.Advice(refusal)
+
+	// Act
+	recorder := doOpen(t, failingOpenDeps(refusal), openRequestBody)
+
+	// Assert
+	failure := decode[api.Problem](t, recorder)
+	if recorder.Code != http.StatusUnprocessableEntity || failure.Detail != advice {
+		t.Errorf("status/detail = %d/%q, want 422 with the terminal's words %q", recorder.Code, failure.Detail, advice)
+	}
+}
+
+func TestARefusedTokensDetailNamesNoInternalHost(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	refusal := &forge.RefusalError{
+		Kind: forge.KindGitLab, Status: forge.ErrUnauthorized,
+		Reason: "access_denied: Sign in at https://sso.corp.internal/login first.",
+	}
+
+	// Act
+	recorder := doOpen(t, failingOpenDeps(refusal), openRequestBody)
+
+	// Assert
+	if strings.Contains(recorder.Body.String(), "sso.corp.internal") {
+		t.Errorf("body = %q, names the internal host", recorder.Body.String())
 	}
 }
