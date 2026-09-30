@@ -18,6 +18,7 @@ import (
 	"github.com/jacob-delgado/workflow/internal/sanitize"
 	"github.com/jacob-delgado/workflow/internal/taskwarrior"
 	"github.com/jacob-delgado/workflow/internal/tui"
+	"github.com/jacob-delgado/workflow/internal/wiring"
 )
 
 // configReview is everything doctor finds wrong with a configuration that
@@ -124,9 +125,11 @@ type tool struct {
 	probe func() (bool, string)
 }
 
-// externalTools names the programs doctor looks for. Built by a function rather
-// than held in a package-level variable, which gochecknoglobals forbids.
-func externalTools(ctx context.Context, cfg config.Config) []tool {
+// externalTools names the programs doctor looks for, gh and glab each whatever
+// the repository's forge, since a developer may work with both. Built by a
+// function rather than held in a package-level variable, which
+// gochecknoglobals forbids.
+func externalTools(ctx context.Context, cfg config.Config, kind forge.Kind) []tool {
 	return []tool{
 		{
 			name:     "git",
@@ -141,7 +144,13 @@ func externalTools(ctx context.Context, cfg config.Config) []tool {
 		{
 			name:     "gh",
 			required: false,
-			effect:   "supplies a GitHub token when none is configured",
+			effect: forgeCLIEffect(cfg.Forge, kind, forge.KindGitHub,
+				"supplies a GitHub token, and carries GitHub calls when forge.cli is on"),
+		},
+		{
+			name:     "glab",
+			required: false,
+			effect:   forgeCLIEffect(cfg.Forge, kind, forge.KindGitLab, "carries GitLab calls when forge.cli is on"),
 		},
 		{
 			name:     "taskwarrior",
@@ -150,6 +159,17 @@ func externalTools(ctx context.Context, cfg config.Config) []tool {
 			probe:    func() (bool, string) { return taskwarriorProbe(ctx, cfg.Taskwarrior) },
 		},
 	}
+}
+
+// forgeCLIEffect is what a missing gh or glab costs: what it is for, or — when
+// forge.cli is on and the repository is on the CLI's own forge — that its calls
+// go over HTTP with a token instead of through the CLI forge.cli asked for.
+func forgeCLIEffect(settings config.Forge, repoKind, cliKind forge.Kind, usual string) string {
+	if settings.CLI && repoKind == cliKind {
+		return "forge.cli is on, so " + cliKind.String() + " calls go over HTTP with a token instead"
+	}
+
+	return usual
 }
 
 // lookFor says whether program is there to use, and any detail its probe gives.
@@ -164,8 +184,8 @@ func (program tool) lookFor() (bool, string) {
 // toolingFacts looks for each external program, and names any required one that
 // is absent. It is the one place the programs are looked for, so the prose and
 // JSON reports cannot disagree about what is installed.
-func toolingFacts(ctx context.Context, cfg config.Config) ([]toolFacts, error) {
-	programs := externalTools(ctx, cfg)
+func toolingFacts(ctx context.Context, cfg config.Config, remote string) ([]toolFacts, error) {
+	programs := externalTools(ctx, cfg, wiring.ForgeKind(cfg.Forge, remote))
 	facts := make([]toolFacts, 0, len(programs))
 
 	var missing []string
@@ -189,11 +209,11 @@ func toolingFacts(ctx context.Context, cfg config.Config) ([]toolFacts, error) {
 }
 
 // reportTooling lists the external programs and returns an error naming any
-// required one that is absent.
-func reportTooling(ctx context.Context, out io.Writer, cfg config.Config) error {
+// required one that is absent. remote says which forge the repository is on.
+func reportTooling(ctx context.Context, out io.Writer, cfg config.Config, remote string) error {
 	fmt.Fprintln(out, "Tooling:")
 
-	facts, err := toolingFacts(ctx, cfg)
+	facts, err := toolingFacts(ctx, cfg, remote)
 	for _, program := range facts {
 		fmt.Fprintf(out, "  %-10s %s\n", program.Name, toolStatus(program))
 	}

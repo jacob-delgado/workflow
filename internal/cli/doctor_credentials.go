@@ -9,6 +9,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"slices"
 	"strings"
 	"time"
 
@@ -153,25 +154,33 @@ func checkForge(ctx context.Context, out io.Writer, run doctorRun, remote string
 
 	client := forge.New(run.log.Wrap("forge", access.Doer), base, access.Token)
 
-	return askForge(ctx, out, client, access.Via)
+	return askForge(ctx, out, client, repo.Kind, access.Via)
 }
 
 // noForgeTokenMessage explains why no forge token resolved. When gh is the
 // forge's own tool and is installed, the resolver already ran it and it yielded
 // nothing, so the token is missing because gh is not signed in to this host —
 // which the generic list of sources cannot say, because to the resolver a
-// signed-out gh looks exactly like one that is not installed at all.
+// signed-out gh looks exactly like one that is not installed at all. An
+// installed glab is never asked for its token, so someone signed in with it
+// is told where the token is read from instead, and that forge.cli goes
+// through glab's own login.
 func noForgeTokenMessage(available func(string) bool, kind forge.Kind, host string) string {
-	if kind == forge.KindGitHub && available("gh") {
+	switch {
+	case kind == forge.KindGitHub && available("gh"):
 		return fmt.Sprintf("gh is installed but not signed in to %s — run `gh auth login`", host)
+	case kind == forge.KindGitLab && available("glab"):
+		return "none — glab is installed, but its login is not read: " + forge.Sources(kind, host) +
+			", or turn on forge.cli to go through glab"
+	default:
+		return "none — " + forge.Sources(kind, host)
 	}
-
-	return "none — " + forge.Sources(kind, host)
 }
 
 // askForge asks the forge who the credential belongs to, and says beside the
-// answer where that credential came from, or which CLI signed the request.
-func askForge(ctx context.Context, out io.Writer, client forge.Client, via string) error {
+// answer where that credential came from, or which CLI signed the request —
+// and, on GitLab, when the token can read but not write.
+func askForge(ctx context.Context, out io.Writer, client forge.Client, kind forge.Kind, via string) error {
 	identity, err := client.Whoami(ctx)
 	if err != nil {
 		fmt.Fprintf(out, "  %-10s %v (%s)\n", "forge", unansweredBecause(ctx, err), via)
@@ -179,9 +188,31 @@ func askForge(ctx context.Context, out io.Writer, client forge.Client, via strin
 		return credentialOutcome(err, "forge")
 	}
 
-	fmt.Fprintf(out, "  %-10s authenticates as %s (%s)\n", "forge", identity.Name(), via)
+	fmt.Fprintf(out, "  %-10s authenticates as %s (%s)%s\n",
+		"forge", identity.Name(), via, writeScopeNote(ctx, client, kind))
 
 	return nil
+}
+
+// writeScopeNote warns of a GitLab token without the api scope, which reads
+// every issue and merge request but has every write refused. It says nothing
+// where the scopes cannot be read — GitHub, an OAuth token, an older GitLab —
+// and does not fail the check: the credential works, only not for writing.
+func writeScopeNote(ctx context.Context, client forge.Client, kind forge.Kind) string {
+	if kind != forge.KindGitLab {
+		return ""
+	}
+
+	scopes, err := client.TokenScopes(ctx)
+	if err != nil || len(scopes) == 0 || slices.Contains(scopes, "api") {
+		return ""
+	}
+
+	if slices.Contains(scopes, "read_api") {
+		return "; can read but not write: it has read_api, not api"
+	}
+
+	return "; cannot use the API: it has " + strings.Join(scopes, ", ") + ", not api"
 }
 
 // unansweredBecause says why a forge request failed: its own error, or why the

@@ -344,3 +344,30 @@ func TestWhoamiRefusesARedirect(t *testing.T) {
 		t.Error("the credential was forwarded to the redirect target")
 	}
 }
+
+func TestTokenScopesReadsWhatGitLabGrantedTheToken(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	var gotPath atomic.Value
+
+	server := httptest.NewServer(http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
+		gotPath.Store(request.URL.Path)
+		answerJSON(`{"id":1,"name":"workflow","scopes":["read_api","read_user"],"active":true}`)(writer, request)
+	}))
+	t.Cleanup(server.Close)
+
+	client := forge.New(server.Client().Do, server.URL, "t")
+
+	// Act
+	scopes, err := client.TokenScopes(t.Context())
+
+	// Assert
+	if err != nil || strings.Join(scopes, " ") != "read_api read_user" {
+		t.Errorf("TokenScopes = %q, %v; want read_api read_user", scopes, err)
+	}
+
+	if got, _ := gotPath.Load().(string); got != "/personal_access_tokens/self" {
+		t.Errorf("asked %q, want GitLab's personal_access_tokens/self", got)
+	}
+}

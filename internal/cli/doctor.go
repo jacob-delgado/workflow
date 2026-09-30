@@ -115,7 +115,7 @@ func runDoctor(ctx context.Context, out io.Writer, run doctorRun) error {
 	repo := reportRepository(ctx, out)
 	fmt.Fprintln(out)
 
-	toolingErr := reportTooling(ctx, out, run.cfg)
+	toolingErr := reportTooling(ctx, out, run.cfg, repo.Remote)
 	fmt.Fprintln(out)
 
 	configErr := reportConfiguration(out, run, repo.Remote)
