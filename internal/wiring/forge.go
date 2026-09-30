@@ -30,7 +30,9 @@ type forgeConnection struct {
 // workspace whose origin names the repository, the HTTP transport every service
 // shares, and the log that records each request.
 type forgeSetup struct {
-	settings      config.Forge
+	// settings are the forge settings in effect now, which the web's Settings
+	// may have replaced since workflow started.
+	settings      func() config.Forge
 	where         Workspace
 	httpTransport httpx.Doer
 	log           *RequestLog
@@ -105,7 +107,7 @@ func forgeDeps(ctx context.Context, setup forgeSetup, connect func() (forgeConne
 
 			return connection.client.ReviewRequests(ctx, connection.repo.Kind)
 		},
-		Templates: func() []forge.Template { return templatesFor(setup.settings, setup.where) },
+		Templates: func() []forge.Template { return templatesFor(setup.settings(), setup.where) },
 		Author: func() (string, error) {
 			connection, err := connect()
 			if err != nil {
@@ -116,7 +118,7 @@ func forgeDeps(ctx context.Context, setup forgeSetup, connect func() (forgeConne
 
 			return identity.Name(), err
 		},
-		Kind: ForgeKind(setup.settings, setup.where.Remote),
+		Kind: ForgeKind(setup.settings(), setup.where.Remote),
 	}
 }
 
@@ -222,10 +224,78 @@ func onceConnected[T any](connect func() (T, error)) func() (T, error) {
 	}
 }
 
+// liveForge is the forge settings every forge call reads: those workflow
+// started with, until the web's Settings saves others.
+type liveForge struct {
+	lock     sync.Mutex
+	settings config.Forge
+}
+
+// current is the settings in effect now.
+func (l *liveForge) current() config.Forge {
+	l.lock.Lock()
+	defer l.lock.Unlock()
+
+	return l.settings
+}
+
+// replace puts settings in effect for every call after it.
+func (l *liveForge) replace(settings config.Forge) {
+	l.lock.Lock()
+	defer l.lock.Unlock()
+
+	l.settings = settings
+}
+
+// useForgeSettings is Controls.UseForgeSettings over live and the workspace.
+func useForgeSettings(live *liveForge, where Workspace) func(config.Forge) forge.Kind {
+	return func(settings config.Forge) forge.Kind {
+		live.replace(settings)
+
+		return ForgeKind(settings, where.Remote)
+	}
+}
+
+// connectedWith caches a connection made with the settings in effect, and makes
+// a new one once they change — a token, host or kind saved in the web's
+// Settings reaches the next call rather than the next start. Like
+// onceConnected, it retries after a failure rather than remembering it.
+func connectedWith[T any](current func() config.Forge, connect func(config.Forge) (T, error)) func() (T, error) {
+	var (
+		lock      sync.Mutex
+		cached    T
+		ok        bool
+		cachedFor config.Forge
+	)
+
+	return func() (T, error) {
+		lock.Lock()
+		defer lock.Unlock()
+
+		settings := current()
+		if ok && settings == cachedFor {
+			return cached, nil
+		}
+
+		connection, err := connect(settings)
+		if err != nil {
+			var none T
+
+			ok = false
+
+			return none, err
+		}
+
+		cached, cachedFor, ok = connection, settings, true
+
+		return cached, nil
+	}
+}
+
 // connectForge finds the forge the workspace's origin points at and the token
 // for it, the same way doctor --online does.
-func connectForge(ctx context.Context, setup forgeSetup) (forgeConnection, error) {
-	repo, err := resolveRepo(setup.settings, setup.where.Remote)
+func connectForge(ctx context.Context, setup forgeSetup, settings config.Forge) (forgeConnection, error) {
+	repo, err := resolveRepo(settings, setup.where.Remote)
 	if err != nil {
 		return forgeConnection{}, fmt.Errorf("reading origin: %w", err)
 	}
@@ -235,7 +305,7 @@ func connectForge(ctx context.Context, setup forgeSetup) (forgeConnection, error
 		return forgeConnection{}, fmt.Errorf("%s — set forge.kind and forge.host: %w", repo.Host, err)
 	}
 
-	access, err := ReachForge(ctx, setup.settings, repo, base, setup.httpTransport)
+	access, err := ReachForge(ctx, settings, repo, base, setup.httpTransport)
 	if err != nil {
 		return forgeConnection{}, err
 	}

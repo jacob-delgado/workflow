@@ -205,8 +205,10 @@ rather than a claim that no task tracks the issue.
 The configuration file in effect, in eight parts — Jira, messaging, the forge,
 commits, branches, pull requests, the store and Taskwarrior — and
 **Save changes** writes it back. A credential is shown masked and kept as it is
-unless you type a new one. A change to the Taskwarrior part applies when
-workflow restarts, as the part says: workflow finds Taskwarrior as it starts,
+unless you type a new one. A change to the forge part — its token, host,
+kind or CLI — applies at once: the next call to the forge uses it, and the
+page names the forge it points at, with no restart. A change to the
+Taskwarrior part applies when workflow restarts, as the part says: workflow finds Taskwarrior as it starts,
 and until the restart the Tasks section says to restart rather than read
 Taskwarrior. What the form has no field for yet is kept unchanged
 when you save: `version`, all of `ui` and `timing`, `jira.token_command`,

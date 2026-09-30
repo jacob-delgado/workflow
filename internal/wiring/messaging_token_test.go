@@ -110,11 +110,11 @@ func TestResolvingAheadRunsTheMessagingTokenCommandOnce(t *testing.T) {
 	tokens := newTokenCommand(t)
 	cfg := config.Default()
 	cfg.Messaging = config.Messaging{TokenCommand: tokens.command, Channel: slackChannel}
-	_, resolveAhead := wiring.Deps(t.Context(), cfg, wiring.Workspace{Root: t.TempDir(), Remote: ""}, nil)
+	_, controls := wiring.Deps(t.Context(), cfg, wiring.Workspace{Root: t.TempDir(), Remote: ""}, nil)
 
 	// Act
-	resolveAhead()
-	resolveAhead()
+	controls.ResolveAhead()
+	controls.ResolveAhead()
 
 	// Assert
 	if runs := tokens.runs(); runs != 1 {

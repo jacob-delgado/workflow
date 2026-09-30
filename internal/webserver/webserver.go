@@ -94,6 +94,12 @@ type Deps struct {
 	// one no class of failure explains, or an answer that could not be
 	// written — whose cause the answer leaves out. Nil says nothing.
 	Unexpected func(err error)
+	// UseForgeSettings applies forge settings just saved to every forge call
+	// after the save, and reports which forge the remote is on under them, so a
+	// token, host or kind saved in Settings needs no restart. Nil leaves the
+	// forge as it was started.
+	UseForgeSettings func(settings config.Forge) forge.Kind
+
 	// Clock tells the time, for when the event stream last asked the forge.
 	// Nil means the system clock.
 	Clock func() time.Time
@@ -146,6 +152,10 @@ type server struct {
 
 	mu  sync.RWMutex
 	cfg config.Config
+
+	// forgeKind is the forge the remote is on under the settings in effect,
+	// under mu with cfg: info's until a save of the forge settings changes it.
+	forgeKind forge.Kind
 
 	// seen is the revision of the file cfg was last read from or written as,
 	// under mu with it: a read of the configuration that finds the file at
@@ -224,7 +234,7 @@ func Handler(deps Deps, cfg config.Config, info Info, assets fs.FS) (http.Handle
 		return nil, fmt.Errorf("reading the configuration file: %w", err)
 	}
 
-	srv := &server{deps: deps, info: info, path: cfg.Path, cfg: inEffect, seen: seen}
+	srv := &server{deps: deps, info: info, path: cfg.Path, cfg: inEffect, seen: seen, forgeKind: info.ForgeKind}
 
 	strict := api.NewStrictHandlerWithOptions(srv, nil, api.StrictHTTPServerOptions{
 		RequestErrorHandlerFunc:  writeRequestError,

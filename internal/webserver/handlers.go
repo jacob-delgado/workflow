@@ -25,14 +25,23 @@ func (s *server) config() config.Config {
 	return s.cfg
 }
 
+// forgeKindNow is the forge the remote is on under the settings in effect,
+// which a save in Settings may have changed since the server started.
+func (s *server) forgeKindNow() forge.Kind {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
+	return s.forgeKind
+}
+
 // GetHealth reports the build, whether writes are held back, and the forge's own
 // words for a proposed change, so the browser names it as the terminal does.
 func (s *server) GetHealth(_ context.Context, _ api.GetHealthRequestObject) (api.GetHealthResponseObject, error) {
 	return api.GetHealth200JSONResponse{
 		Version:    s.info.Version,
 		DryRun:     s.info.DryRun,
-		ForgeNoun:  s.info.ForgeKind.Noun(),
-		ForgeSigil: s.info.ForgeKind.Sigil(),
+		ForgeNoun:  s.forgeKindNow().Noun(),
+		ForgeSigil: s.forgeKindNow().Sigil(),
 	}, nil
 }
 

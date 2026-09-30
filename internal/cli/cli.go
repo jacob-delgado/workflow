@@ -20,6 +20,7 @@ import (
 
 	"github.com/jacob-delgado/workflow/internal/buildinfo"
 	"github.com/jacob-delgado/workflow/internal/config"
+	"github.com/jacob-delgado/workflow/internal/forge"
 	"github.com/jacob-delgado/workflow/internal/seams"
 	"github.com/jacob-delgado/workflow/internal/tui"
 	"github.com/jacob-delgado/workflow/internal/web"
@@ -198,26 +199,11 @@ func NewRootCmdOver(prompt Prompt, run RunInterface, serveAt RunWebAt) *cobra.Co
 			}
 			defer conn.closeLog()
 
-			ctx := cmd.Context()
-
 			if web {
-				if conn.loadErr != nil {
-					fmt.Fprintf(cmd.ErrOrStderr(), "workflow web: configuration did not load cleanly: %v\n", conn.loadErr)
-				}
-
-				info := webserver.Info{
-					Version: buildinfo.Current(), DryRun: dryRun, ForgeKind: conn.deps.Forge.Kind,
-					Taskwarrior: conn.cfg.Taskwarrior,
-				}
-
-				conn.resolveAhead()
-
-				serve := serveAt(webserver.LoopbackAddr(port))
-
-				return serve(ctx, conn.cfg, WebDeps(conn.deps), info, cmd.ErrOrStderr())
+				return serveWeb(cmd, conn, serveAt(webserver.LoopbackAddr(port)), dryRun)
 			}
 
-			return openInterface(ctx, run, interfaceInput{
+			return openInterface(cmd.Context(), run, interfaceInput{
 				cfg: conn.cfg, loadErr: conn.loadErr, deps: conn.deps, resolveAhead: conn.resolveAhead,
 				dryRun: dryRun, noColorEnv: os.Getenv("NO_COLOR"), out: cmd.OutOrStdout(),
 			})
@@ -375,6 +361,27 @@ func WebDeps(deps tui.Deps) webserver.Deps {
 	}
 }
 
+// serveWeb serves the web interface over conn through serve, first saying when
+// the configuration did not load cleanly, and hands the server the wiring's
+// control over the forge settings a save in Settings changes.
+func serveWeb(cmd *cobra.Command, conn connection, serve RunWeb, dryRun bool) error {
+	if conn.loadErr != nil {
+		fmt.Fprintf(cmd.ErrOrStderr(), "workflow web: configuration did not load cleanly: %v\n", conn.loadErr)
+	}
+
+	info := webserver.Info{
+		Version: buildinfo.Current(), DryRun: dryRun, ForgeKind: conn.deps.Forge.Kind,
+		Taskwarrior: conn.cfg.Taskwarrior,
+	}
+
+	conn.resolveAhead()
+
+	deps := WebDeps(conn.deps)
+	deps.UseForgeSettings = conn.useForgeSettings
+
+	return serve(cmd.Context(), conn.cfg, deps, info, cmd.ErrOrStderr())
+}
+
 // portFlag names the root's flag that picks the port --web serves on.
 const portFlag = "port"
 
@@ -405,7 +412,9 @@ type connection struct {
 	where        wiring.Workspace
 	deps         tui.Deps
 	resolveAhead func()
-	closeLog     func()
+	// useForgeSettings applies forge settings the web's Settings saves.
+	useForgeSettings func(config.Forge) forge.Kind
+	closeLog         func()
 }
 
 // connect wires a command to its working directory, recording each request in
@@ -457,15 +466,15 @@ func connectAt(cmd *cobra.Command, dir, home string, requestLog *wiring.RequestL
 	ctx := cmd.Context()
 	cfg, loadErr := config.Load(dir, home)
 	where := wiring.Locate(ctx, dir)
-	deps, resolveAhead := wiring.Deps(ctx, cfg, where, requestLog)
+	deps, controls := wiring.Deps(ctx, cfg, where, requestLog)
 
 	if dryRunRequested(cmd) {
 		deps.Store = wiring.ReadOnlyStore(ctx, cfg, where)
 	}
 
 	return connection{
-		cfg: cfg, loadErr: loadErr, where: where, deps: deps, resolveAhead: resolveAhead,
-		closeLog: func() {},
+		cfg: cfg, loadErr: loadErr, where: where, deps: deps, resolveAhead: controls.ResolveAhead,
+		useForgeSettings: controls.UseForgeSettings, closeLog: func() {},
 	}
 }
 

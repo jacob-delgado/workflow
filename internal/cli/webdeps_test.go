@@ -29,9 +29,11 @@ func TestWebDepsHandsTheServerEverySeam(t *testing.T) {
 
 	// Assert
 	for _, name := range nilSeams(web, "webserver.Deps") {
-		// Unexpected is where the server reports its own failures, not one of
-		// the interface's seams, so the interface has none to hand it.
-		if name == "webserver.Deps.Unexpected" {
+		// Unexpected is where the server reports its own failures, and
+		// UseForgeSettings is the wiring's own control over the settings the
+		// server saves; neither is one of the interface's seams, so the
+		// interface has none to hand it.
+		if name == "webserver.Deps.Unexpected" || name == "webserver.Deps.UseForgeSettings" {
 			continue
 		}
 
