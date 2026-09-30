@@ -67,9 +67,19 @@ func (s *server) reread() (config.Config, basis, error) {
 		s.gone = true
 	default:
 		s.cfg, s.seen, s.gone = cfg, current, false
+		s.adoptForge(cfg.Forge)
 	}
 
 	return s.cfg, basis{seen: s.seen, gone: s.gone}, nil
+}
+
+// adoptForge hands forge settings newly in effect — saved, or edited on disk
+// and read — to every forge call after them, and names the forge they point
+// at. It runs under mu, with the configuration it belongs to.
+func (s *server) adoptForge(settings config.Forge) {
+	if s.deps.UseForgeSettings != nil {
+		s.forgeKind = s.deps.UseForgeSettings(settings)
+	}
 }
 
 // UpdateConfig writes the configuration file, but only over the revision
@@ -189,6 +199,7 @@ func (s *server) save(incoming config.Config, over basis) (config.Config, config
 	}
 
 	s.cfg, s.seen, s.gone = incoming, written, false
+	s.adoptForge(incoming.Forge)
 
 	return incoming, written, nil
 }

@@ -83,7 +83,7 @@ func (s *server) OpenPullRequest(
 // noun is what the forge calls a proposed change — a merge request on GitLab —
 // so what the page is told names it as the page itself does.
 func (s *server) noun() string {
-	return s.info.ForgeKind.Noun()
+	return s.forgeKindNow().Noun()
 }
 
 // openConflict is the 409 for a composition the loop refused, worded by its
@@ -93,7 +93,7 @@ func (s *server) noun() string {
 // its address, which carries the forge's host.
 func (s *server) openConflict(err error) (api.Problem, bool) {
 	if open, ok := errors.AsType[loop.PullAlreadyOpenError](err); ok {
-		number := s.info.ForgeKind.Sigil() + strconv.Itoa(open.Pull.Number)
+		number := s.forgeKindNow().Sigil() + strconv.Itoa(open.Pull.Number)
 
 		return problem(api.Conflict, number+" is already open for this branch"), true
 	}

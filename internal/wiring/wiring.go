@@ -75,14 +75,18 @@ func Locate(ctx context.Context, dir string) Workspace {
 //
 // Each service finds its token the first time it is asked, so a command that
 // never reaches Jira or the messaging service never runs that service's token
-// command. The returned resolveAhead finds both now instead, for the interface
-// and the web server to call before they start: once either holds the
-// terminal, a token command that asks on it could not be answered. A token not
-// found then is looked for again on first use, where its failure is reported.
-func Deps(ctx context.Context, cfg config.Config, where Workspace, log *RequestLog) (tui.Deps, func()) {
+// command. The returned Controls' ResolveAhead finds both now instead, for the
+// interface and the web server to call before they start: once either holds
+// the terminal, a token command that asks on it could not be answered. A token
+// not found then is looked for again on first use, where its failure is
+// reported.
+func Deps(ctx context.Context, cfg config.Config, where Workspace, log *RequestLog) (tui.Deps, Controls) {
 	httpTransport := httpx.Client(requestTimeout(cfg)).Do
-	setup := forgeSetup{settings: cfg.Forge, where: where, httpTransport: httpTransport, log: log}
-	connect := onceConnected(func() (forgeConnection, error) { return connectForge(ctx, setup) })
+	settings := &liveForge{settings: cfg.Forge}
+	setup := forgeSetup{settings: settings.current, where: where, httpTransport: httpTransport, log: log}
+	connect := connectedWith(settings.current, func(current config.Forge) (forgeConnection, error) {
+		return connectForge(ctx, setup, current)
+	})
 	jiraClient := onceConnected(func() (jira.Client, error) { return connectJira(ctx, cfg.Jira, httpTransport, log) })
 	messagingClient := onceConnected(func() (messaging.Client, error) {
 		return connectMessaging(ctx, cfg.Messaging, httpTransport, log)
@@ -111,7 +115,18 @@ func Deps(ctx context.Context, cfg config.Config, where Workspace, log *RequestL
 		Notify:     ringTerminal,
 		OpenURL:    func(url string) error { return openInBrowser(ctx, url) },
 		Copy:       tea.SetClipboard,
-	}, resolveAhead
+	}, Controls{ResolveAhead: resolveAhead, UseForgeSettings: useForgeSettings(settings, where)}
+}
+
+// Controls are what a surface asks of the wiring itself, beside the seams.
+type Controls struct {
+	// ResolveAhead finds the Jira and messaging tokens now, rather than on first
+	// use.
+	ResolveAhead func()
+	// UseForgeSettings applies forge settings saved while workflow runs — the
+	// web's Settings — to every forge call after it, and reports which forge the
+	// remote is on under them. The terminal saves no settings and never calls it.
+	UseForgeSettings func(settings config.Forge) forge.Kind
 }
 
 // ciFinished is a terminal bell followed by an OSC 9 desktop notification. A

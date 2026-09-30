@@ -87,7 +87,7 @@ func (s *server) announcement() (messaging.Announcement, error) {
 		Issue:     s.deps.Issue,
 		BrowseURL: s.deps.BrowseURL,
 		CheckCI:   s.deps.CheckCI,
-	}, cfg.Messaging, cfg.Jira.Project, s.info.ForgeKind)
+	}, cfg.Messaging, cfg.Jira.Project, s.forgeKindNow())
 
 	return announcement, err
 }
