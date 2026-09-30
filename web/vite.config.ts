@@ -6,9 +6,10 @@ import tailwindcss from '@tailwindcss/vite'
 // https://vite.dev/config/
 export default defineConfig({
   plugins: [react(), tailwindcss()],
-  // The Go binary embeds the built app from internal/web/dist (via the `embedui`
-  // build tag), so build straight into it rather than web/dist. emptyOutDir is
-  // explicit because the directory sits outside this project root.
+  // The Go binary embeds the built app from internal/web/dist, which is
+  // committed so `go install` carries it; build straight into it rather than
+  // web/dist. emptyOutDir is explicit because the directory sits outside this
+  // project root.
   build: {
     outDir: '../internal/web/dist',
     emptyOutDir: true,

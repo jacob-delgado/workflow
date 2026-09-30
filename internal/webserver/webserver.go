@@ -208,8 +208,7 @@ var _ api.StrictServerInterface = (*server)(nil)
 // /api, checked against the contract by the request validator, and the embedded
 // single-page app under every other path. The whole surface is behind the
 // loopback guard, so a browser aimed at the server from a foreign origin is
-// refused. A nil ui serves a notice instead of the app, for a build with no
-// frontend embedded. The server starts from the configuration file at cfg.Path
+// refused. The server starts from the configuration file at cfg.Path
 // as startingPoint reads it, not from cfg alone, which the process read a
 // moment before. It fails when the embedded spec cannot be loaded or routed,
 // which is a build defect, or when that file cannot be read.
@@ -247,7 +246,7 @@ func Handler(deps Deps, cfg config.Config, info Info, assets fs.FS) (http.Handle
 	// are not in the spec, so only the /api subtree passes through the validator.
 	root := http.NewServeMux()
 	root.Handle("/api/", validator(apiHandler))
-	root.Handle("/", uiHandler(assets))
+	root.Handle("/", spaHandler(assets))
 
 	return guardLoopback(refuseWritesInDryRun(info.DryRun, root)), nil
 }
@@ -276,15 +275,6 @@ func startingPoint(cfg config.Config) (config.Config, config.Revision, error) {
 	}
 
 	return loaded, seen, nil
-}
-
-// uiHandler serves the embedded app, or a notice when no assets are embedded.
-func uiHandler(assets fs.FS) http.Handler {
-	if assets == nil {
-		return notEmbedded()
-	}
-
-	return spaHandler(assets)
 }
 
 // DefaultPort is the port the server listens on when `workflow --web` is given

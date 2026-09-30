@@ -10,6 +10,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"testing/fstest"
 
 	"github.com/jacob-delgado/workflow/internal/api"
 	"github.com/jacob-delgado/workflow/internal/config"
@@ -128,7 +129,7 @@ func TestHandlerRefusesAConfigurationPathItCannotRead(t *testing.T) {
 	cfg.Path = t.TempDir()
 
 	// Act
-	_, err := webserver.Handler(webserver.Deps{}, cfg, webserver.Info{}, nil)
+	_, err := webserver.Handler(webserver.Deps{}, cfg, webserver.Info{}, fstest.MapFS{})
 
 	// Assert
 	if err == nil {
@@ -185,7 +186,7 @@ func TestHandlerStartsFromWhatTheProcessReadWhenTheFileHasTurnedInvalid(t *testi
 	cfg.Jira.Views = []config.JiraView{{Name: sprintView, JQL: "sprint = 1"}}
 
 	// Act
-	handler, err := webserver.Handler(webserver.Deps{}, cfg, webserver.Info{}, nil)
+	handler, err := webserver.Handler(webserver.Deps{}, cfg, webserver.Info{}, fstest.MapFS{})
 	// Assert
 	if err != nil {
 		t.Fatalf("Handler over a file that is not valid = %v, want it served anyway", err)

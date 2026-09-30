@@ -74,17 +74,8 @@ readonly out_dir="${OUT_DIR:-${repo_root}/tmp/gobco}"
 # exercises the Unix path end to end. It lives in its own package so this one
 # entry does not cost internal/proc its coverage.
 #
-# internal/web is the same twin problem. Assets() has an embedui half (embed.go,
-# which embeds the built frontend from a dist/ that only a release build
-# produces) and a stub half (noembed.go, the default build); gobco reads both,
-# so it hits the redeclaration and, in a run that has not built the frontend,
-# the missing embed pattern too. The default half is a stub with no branch, and
-# the embed half's one error path is not in the untagged run gobco measures, so
-# there is nothing here to lose. web_test.go still measures the stub's statement
-# coverage under `go test`, which does honor the tags.
-#
-# Trade-off TRADE-7: these two packages' conditions go unmeasured.
-readonly UNANALYZABLE="internal/proc/pgroup internal/web"
+# Trade-off TRADE-7: this package's conditions go unmeasured.
+readonly UNANALYZABLE="internal/proc/pgroup"
 
 # Packages with no tests, each with the reason it has none. gobco measures
 # conditions by running a package's tests, so a package without any cannot be

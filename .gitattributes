@@ -13,6 +13,9 @@ go.sum linguist-generated=true
 web/src/api/generated/** linguist-generated=true
 internal/**/*.gen.go linguist-generated=true
 web/yarn.lock linguist-generated=true
+# The frontend's production build, committed so `go install` embeds it:
+# minified, so a diff of it says nothing a diff of web/src does not.
+internal/web/dist/** -diff linguist-generated=true
 # Yarn Berry's pinned release binary is vendored, not our source.
 web/.yarn/releases/** -diff linguist-vendored=true
 

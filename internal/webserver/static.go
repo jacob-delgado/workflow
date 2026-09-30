@@ -48,26 +48,3 @@ func hasFile(assets fs.FS, urlPath string) bool {
 
 	return err == nil && !info.IsDir()
 }
-
-// notEmbeddedNotice is what a build with no embedded UI shows in the browser, so
-// the server explains itself rather than answering with a blank not-found.
-const notEmbeddedNotice = `<!doctype html>
-<html lang="en">
-<head><meta charset="utf-8"><title>workflow — web</title></head>
-<body style="font-family: system-ui, sans-serif; max-width: 40rem; margin: 4rem auto; padding: 0 1rem;">
-<h1>The web interface is not built into this binary.</h1>
-<p>This build serves the API but has no embedded frontend. Run <code>task dev</code>
-for live development, or <code>task build</code> to produce a binary with the
-interface embedded.</p>
-</body>
-</html>
-`
-
-// notEmbedded serves notEmbeddedNotice for a build that carries no UI.
-func notEmbedded() http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-		w.Header().Set("Content-Type", "text/html; charset=utf-8")
-		w.WriteHeader(http.StatusOK)
-		_, _ = w.Write([]byte(notEmbeddedNotice))
-	})
-}

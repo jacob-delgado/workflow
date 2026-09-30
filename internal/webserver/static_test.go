@@ -139,19 +139,3 @@ func TestTheAppRefusesANonReadMethod(t *testing.T) {
 		t.Errorf("status = %d, want 405 — the app is read-only", recorder.Code)
 	}
 }
-
-func TestABuildWithNoEmbeddedUIServesANotice(t *testing.T) {
-	t.Parallel()
-
-	// Act
-	recorder := get(t, serveUI(t, nil), "/")
-
-	// Assert
-	if recorder.Code != http.StatusOK {
-		t.Fatalf("status = %d, want 200", recorder.Code)
-	}
-
-	if !strings.Contains(recorder.Body.String(), "not built into this binary") {
-		t.Errorf("body = %q, want the not-embedded notice", recorder.Body.String())
-	}
-}
