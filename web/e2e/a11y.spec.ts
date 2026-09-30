@@ -150,7 +150,7 @@ for (const theme of themes) {
 }
 
 // A snapshot with more issues than its page carries, so the list, its view
-// select, filter and "Load more" are all on screen for the scan.
+// select, filter, Where buttons and "Load more" are all on screen for the scan.
 const issuesSnapshot = {
   issues: {
     total: 3,
@@ -226,7 +226,13 @@ for (const theme of themes) {
     await expect(page.getByRole('button', { name: /load more/i })).toBeVisible()
     await expect(page.getByRole('combobox', { name: 'View' })).toBeVisible()
 
-    // Act: open the first issue and let its detail land.
+    // Act: narrow the list to a place, so a pressed Where button is scanned,
+    // then open the first issue and let its detail land.
+    const inProgress = page
+      .getByRole('group', { name: 'Where' })
+      .getByRole('button', { name: /^In Progress/ })
+    await inProgress.click()
+    await expect(inProgress).toHaveAttribute('aria-pressed', 'true')
     await page.getByRole('button', { name: /redact tokens/i }).click()
     await expect(page.getByRole('link', { name: /open in jira/i })).toBeVisible()
 
