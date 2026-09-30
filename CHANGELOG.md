@@ -1,5 +1,31 @@
 # Changelog
 
+## [0.4.3](https://github.com/jacob-delgado/workflow/compare/v0.4.2...v0.4.3) (2026-09-30)
+
+
+### Features
+
+* **doctor:** report glab beside gh ([f78fb5b](https://github.com/jacob-delgado/workflow/commit/f78fb5bcb6f34001725c219e1e67a95c3bcd961c))
+* **tui:** filter the issue list by status and mark ([8112f53](https://github.com/jacob-delgado/workflow/commit/8112f538819d77c5f8238de1cb6a58cbf1c61e98))
+* **web:** filter the issue list by status and mark ([b6393d6](https://github.com/jacob-delgado/workflow/commit/b6393d6762e7817acac119a9b4df8de62fe55b58))
+
+
+### Bug Fixes
+
+* **forge:** tell a refused token the same way in terminal and web ([a353637](https://github.com/jacob-delgado/workflow/commit/a35363761dd3605d152f205b0d0c5ed41985a481))
+* **web:** apply forge settings saved in Settings at once ([6ad9e85](https://github.com/jacob-delgado/workflow/commit/6ad9e854bb21a67ad67d54161c41f1a0e9ddabd4))
+
+
+### Documentation
+
+* say what a refused GitHub token lacks and when doctor can tell ([89d687c](https://github.com/jacob-delgado/workflow/commit/89d687cfb9ac239647f98ad8f3652911d51b3111))
+
+
+### CI
+
+* lint the Markdown only when a pull request changes it ([a1c3faa](https://github.com/jacob-delgado/workflow/commit/a1c3faa2b32d4f63289294479a07306cd45dd36e))
+* show each suite's test counts in the PR comment ([9d3a0a5](https://github.com/jacob-delgado/workflow/commit/9d3a0a5ba49372f74cdd778e7657eb93654f86ea))
+
 ## [0.4.2](https://github.com/jacob-delgado/workflow/compare/v0.4.1...v0.4.2) (2026-09-30)
 
 
