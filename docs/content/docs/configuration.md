@@ -386,11 +386,13 @@ or `glab` holds when `forge.cli` routes the call through them, so it needs the
 permissions below. Pushing is not one of those calls: `git` pushes with its own
 credentials. A token that may only read still shows issues, pull requests or
 merge requests, reviews and CI; a write it may not make is refused, and workflow
-says which forge refused it, the scope that forge asks for — GitLab's `api`,
-GitHub's `repo` — and the forge's own reason, in the same words in the terminal
-and the browser. A token the forge did not accept at all is told apart: it may
-have expired or been revoked. `workflow doctor --online` warns of a GitLab
-token that can read but not write.
+says which forge refused it, what that forge asks for — GitLab's `api` scope,
+or GitHub's `repo` scope or, for a fine-grained token, the permission the table
+below names — and the forge's own reason, in the same words in the terminal and
+the browser. A token the forge did not accept at all is told apart: it may have
+expired or been revoked. `workflow doctor --online` warns of a GitLab token
+that can read but not write, when GitLab will say what the token may do; for
+some tokens, such as an OAuth token, it will not, and doctor then says nothing.
 
 #### GitHub
 
