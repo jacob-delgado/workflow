@@ -86,6 +86,21 @@ func TestWithoutAForgeTokenNothingIsOfferedOrPushed(t *testing.T) {
 	}
 }
 
+func TestWithoutAGitLabTokenTheReviewPaneSaysWhereToSetOne(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	noToken := withoutPull()
+	noToken.pullErr = fmt.Errorf("%w: %s", forge.ErrNoToken, forge.Sources(forge.KindGitLab, "gitlab.com"))
+
+	// Act
+	view := typing(t, noToken.live(t, 120, 40), "4").View().Content
+
+	// Assert
+	requireScreen(t, view, "$GITLAB_TOKEN")
+	refuseScreen(t, view, "gh auth login", "$GITHUB_TOKEN")
+}
+
 func TestTheReviewPaneShowsThePullRequestAndItsCI(t *testing.T) {
 	t.Parallel()
 

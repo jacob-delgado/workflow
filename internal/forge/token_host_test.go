@@ -28,6 +28,7 @@ const (
 	hostForGitLab = "GITLAB_HOST"
 	tokenKey      = "forge.token"
 	hostKey       = "forge.host"
+	ghAuth        = "gh auth"
 )
 
 // envOf answers the named variables and no others.
@@ -193,12 +194,12 @@ func TestSourcesNamesWhatWouldBeReadForTheHost(t *testing.T) {
 		"GitLab's own host": {
 			kind: forge.KindGitLab, host: gitlabHost,
 			want:     []string{"$" + gitlabToken, tokenKey},
-			unwanted: []string{hostForGitLab, "gh auth", hostKey},
+			unwanted: []string{hostForGitLab, ghAuth, hostKey},
 		},
 		"another GitLab host": {
 			kind: forge.KindGitLab, host: onPremHost,
 			want:     []string{"$" + gitlabToken, "$" + hostForGitLab, onPremHost, tokenKey, hostKey},
-			unwanted: []string{"gh auth"},
+			unwanted: []string{ghAuth},
 		},
 	}
 
@@ -220,6 +221,38 @@ func TestSourcesNamesWhatWouldBeReadForTheHost(t *testing.T) {
 				if strings.Contains(got, unwanted) {
 					t.Errorf("Sources = %q, want nothing about %q", got, unwanted)
 				}
+			}
+		})
+	}
+}
+
+func TestResolveWithNoTokenSaysWhereToSetOneForItsForge(t *testing.T) {
+	t.Parallel()
+
+	cases := map[string]struct {
+		kind     forge.Kind
+		host     string
+		want     string
+		unwanted string
+	}{
+		"on github.com": {kind: forge.KindGitHub, host: githubHost, want: ghAuth + " login", unwanted: "$" + gitlabToken},
+		"on gitlab.com": {kind: forge.KindGitLab, host: gitlabHost, want: "$" + gitlabToken, unwanted: ghAuth},
+	}
+
+	for name, tt := range cases {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			// Act
+			_, _, err := onlyEnv(nil).Resolve(t.Context(), tt.kind, tt.host)
+
+			// Assert
+			if !errors.Is(err, forge.ErrNoToken) {
+				t.Fatalf("Resolve = %v, want %v", err, forge.ErrNoToken)
+			}
+
+			if !strings.Contains(err.Error(), tt.want) || strings.Contains(err.Error(), tt.unwanted) {
+				t.Errorf("Resolve = %q, want it to name %q and not %q", err, tt.want, tt.unwanted)
 			}
 		})
 	}
