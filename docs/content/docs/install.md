@@ -42,6 +42,9 @@ The binary lands in `$(go env GOPATH)/bin`, which needs to be on your `PATH`:
 export PATH="$(go env GOPATH)/bin:$PATH"
 ```
 
+The binary carries the web interface (`workflow --web`) like a release binary
+does; Go alone builds it, with no Node needed.
+
 `@latest` resolves to the newest release tag. For a reproducible install, name
 the version instead:
 
