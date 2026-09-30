@@ -24,9 +24,8 @@ another (1 to 65535; `--port` goes only with `--web`), and refuses a write
 from a page served anywhere else, so a site open in another tab cannot drive
 it. `ctrl+c` in the terminal stops it.
 
-The release binaries and `task build` carry the web app inside them. A binary
-built without it — `go install`, say — still serves the API, and its page says
-the web interface is not built in.
+Every build carries the web app inside it: the release binaries, `task build`
+and `go install` alike.
 
 **Read-only with `--dry-run`.** A banner under the header says so, and every
 write is held back in the browser before it is sent, saying *Held back by

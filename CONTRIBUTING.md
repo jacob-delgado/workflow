@@ -56,12 +56,18 @@ task check         # the full gate — run this before opening a pull request
 ```
 
 `task check` is lint, tests with the coverage floors, `govulncheck`, and
-`gitleaks`, plus the web frontend's lint, its generated-client drift check and
-its unit tests — so the local gate needs Node, which `mise install` provisions,
+`gitleaks`, plus the web frontend's lint, its generated-client drift check,
+its bundle drift check and its unit tests — so the local gate needs Node, which `mise install` provisions,
 and installs the frontend's dependencies when they are missing. CI runs the same
 gates, and adds the Playwright end-to-end suites: `yarn test:e2e` in `web/`, and
 `yarn test:e2e:server`, which stages, commits and pushes through the binary
 `task build` makes.
+
+The frontend's production build lives in `internal/web/dist` and is committed,
+because `go install` fetches committed files alone and cannot run the Node
+build. A change under `web/` that changes that build commits the rebuilt bundle
+with it: run `task web:build` and stage `internal/web/dist`. `task check` and CI
+fail when the two disagree.
 
 ## Tests
 
