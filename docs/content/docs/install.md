@@ -15,7 +15,9 @@ weight: 10
   `forge.cli` routes GitHub calls through. See
   [Configuration]({{< relref "/docs/configuration" >}}).
 - **`glab`**, only with `forge.cli` on GitLab, as the tool it routes GitLab
-  calls through. Without it those calls go over HTTP.
+  calls through. Without it those calls go over HTTP. workflow does not read
+  glab's own login: over HTTP it takes `$GITLAB_TOKEN`, `$GLAB_TOKEN` or
+  `forge.token`, which needs the `api` scope to write.
 - **[Taskwarrior](https://taskwarrior.org) 3.5.0 or newer**, optionally, for
   the Tasks pane and the `--web` Tasks section; without it they say so and
   nothing else changes. On macOS, `brew install task`. On Linux, your
@@ -27,6 +29,10 @@ weight: 10
   runner the source build below uses, is also called `task`; workflow tells
   the two apart, and `workflow doctor` names the Taskwarrior it found, or why
   none is usable.
+
+`workflow doctor` reports which of these it finds, `gh` and `glab` both
+whichever forge the repository is on, and `workflow doctor --online` warns
+when a GitLab token can read but not write.
 
 ## With Go
 

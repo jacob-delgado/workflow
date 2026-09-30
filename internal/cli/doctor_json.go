@@ -80,7 +80,7 @@ type credentialLine struct {
 // the prose report would, so a script can read the exit code as well as the data.
 func runDoctorJSON(ctx context.Context, out io.Writer, run doctorRun) error {
 	repository, remote := repositoryFactsFor(ctx)
-	tooling, toolingErr := toolingFacts(ctx, run.cfg)
+	tooling, toolingErr := toolingFacts(ctx, run.cfg, remote)
 
 	report := doctorReport{Version: buildinfo.Current(), Repository: repository, Tooling: tooling}
 

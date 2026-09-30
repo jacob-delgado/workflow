@@ -122,6 +122,25 @@ func (c Client) Whoami(ctx context.Context) (Identity, error) {
 	return call[Identity](ctx, c, http.MethodGet, userPath, nil)
 }
 
+// tokenScopesPath answers "what may this token do?" on GitLab, for a personal,
+// group or project access token; GitHub has no counterpart.
+const tokenScopesPath = "/personal_access_tokens/self"
+
+// tokenScopes is the part of GitLab's answer about a token that says what it
+// may do.
+type tokenScopes struct {
+	Scopes []string `json:"scopes"`
+}
+
+// TokenScopes reports the scopes GitLab granted the credential, such as api or
+// read_api. It asks GitLab only: an OAuth token, or an instance too old to
+// answer, fails or answers no scopes, which a caller reads as not known.
+func (c Client) TokenScopes(ctx context.Context) ([]string, error) {
+	answer, err := call[tokenScopes](ctx, c, http.MethodGet, tokenScopesPath, nil)
+
+	return answer.Scopes, err
+}
+
 // call sends one request to the forge and decodes the answer into T.
 func call[T any](ctx context.Context, client Client, method, path string, payload any) (T, error) {
 	var answer T
