@@ -228,7 +228,8 @@ test('with no forge to ask, says what would give it one', async () => {
 
 test('a queue that could not be read says why', async () => {
   // Arrange
-  const detail = 'no forge token was found; sign in with gh or glab, or set forge.token'
+  const detail =
+    'no forge token was found; for GitHub set $GITHUB_TOKEN or sign in with gh, for GitLab set $GITLAB_TOKEN, or set forge.token'
   fakeApi({ [reviewsPath]: () => refused({ detail }, 422) })
 
   // Act

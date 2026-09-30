@@ -123,7 +123,10 @@ func TestAForgeFailureSaysWhatToDo(t *testing.T) {
 		wantStatus int
 		want       string
 	}{
-		"no token found":                {forge.ErrNoToken, unprocessable, "no forge token was found"},
+		"no token found": {forge.ErrNoToken, unprocessable, "no forge token was found"},
+		"no token found for GitLab": {
+			fmt.Errorf("%w: %s", forge.ErrNoToken, forge.Sources(forge.KindGitLab, forgeHost)), unprocessable, "$GITLAB_TOKEN",
+		},
 		"a kind without its host":       {forge.ErrKindNeedsHost, unprocessable, "forge.kind is set without forge.host"},
 		"a token not accepted":          {forge.ErrUnauthorized, unprocessable, "did not accept the token"},
 		"no API at the address":         {forge.ErrNoAPI, unprocessable, "no forge API answered"},

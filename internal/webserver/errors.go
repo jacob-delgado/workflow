@@ -233,7 +233,10 @@ func forgeFaults() []faultClass {
 		{
 			causes: []error{forge.ErrNoToken},
 			code:   api.Unprocessable,
-			detail: "no forge token was found; sign in with gh or glab, or set forge.token, which workflow doctor checks",
+			// Not the resolver's own words: for a host other than github.com or
+			// gitlab.com they name the host, which a detail never does.
+			detail: "no forge token was found; for GitHub set $GITHUB_TOKEN or sign in with gh, for GitLab set " +
+				"$GITLAB_TOKEN, or set forge.token; workflow doctor names where it looks for this repository",
 		},
 		{
 			causes: []error{forge.ErrKindNeedsHost},
