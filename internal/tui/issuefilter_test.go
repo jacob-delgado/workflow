@@ -18,7 +18,7 @@ func TestTheSpaceKeyTypesASpaceIntoTheIssueFilter(t *testing.T) {
 	filtered := typing(t, listed, "/", "F", "i", "x", keySpace, "b")
 
 	// Assert
-	requireScreen(t, filtered.View().Content, "OPS-2 Fix bug", "filter: Fix b")
+	requireScreen(t, filtered.View().Content, "OPS-2 In Progress Fix bug", "filter: Fix b")
 	refuseScreen(t, filtered.View().Content, "OPS-1")
 }
 
@@ -36,6 +36,6 @@ func TestAKeyThatTypesNothingLeavesTheIssueFilterAsItWas(t *testing.T) {
 	// Assert
 	// Still open with the same text: tab neither closed the filter nor typed
 	// a character that would match neither issue.
-	requireScreen(t, after.View().Content, "OPS-1 Fix issue", "OPS-2 Fix bug", "filter: Fix")
+	requireScreen(t, after.View().Content, "OPS-1 In Progress Fix issue", "OPS-2 In Progress Fix bug", "filter: Fix")
 	refuseScreen(t, after.View().Content, "no issue matches the filter")
 }

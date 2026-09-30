@@ -127,7 +127,9 @@ func (msg tasksLoaded) apply(m Model) (Model, tea.Cmd) {
 	m.tasks.selected = groups.at(m.tasks.selected).UUID
 	m.tasks = m.tasks.following(groups, m.detailRows())
 
-	return m, nil
+	// Marks that changed can move the selection off an issue the list no longer
+	// admits, onto one whose detail is not read yet.
+	return m.withTaskWords().loadDetail()
 }
 
 // loadTasks is the command that asks Taskwarrior which it is, then its pending
@@ -537,17 +539,32 @@ func (m Model) taskMarks() func(jira.Key) string {
 // taskMark is an issue's task state by shape: nothing (·), tracked (○) while a
 // linked task is still to do, active (◐), or every linked task completed (●).
 func (m Model) taskMark(issueKey jira.Key) string {
+	glyph, _ := m.taskStanding(issueKey)
+
+	return glyph
+}
+
+// taskWord is an issue's task state in the words its place goes by, or empty
+// with no task linked to it.
+func (m Model) taskWord(issueKey jira.Key) string {
+	_, word := m.taskStanding(issueKey)
+
+	return word
+}
+
+// taskStanding is how an issue's linked tasks stand, by shape and in words.
+func (m Model) taskStanding(issueKey jira.Key) (string, string) {
 	linked := m.linkedTo(issueKey)
 
 	switch {
 	case slices.ContainsFunc(linked, taskwarrior.Task.Active):
-		return m.marks.inFlight
+		return m.marks.inFlight, markTaskActive
 	case slices.ContainsFunc(linked, stillToDo):
-		return m.marks.notStarted
+		return m.marks.notStarted, markTracked
 	case len(linked) > 0:
-		return m.marks.done
+		return m.marks.done, markTaskDone
 	default:
-		return m.marks.unknown
+		return m.marks.unknown, ""
 	}
 }
 

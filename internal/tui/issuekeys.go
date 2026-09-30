@@ -61,11 +61,13 @@ func (m Model) handleIssueVerbKey(msg tea.KeyPressMsg) (Model, tea.Cmd, bool) {
 	return next, cmd, true
 }
 
-// handleIssueListKey answers the keys that manage the list itself — switching
-// view, loading the next page, refreshing — before falling through to the keys
-// that read an issue in full.
+// handleIssueListKey answers the keys that manage the list itself — narrowing
+// it to places, switching view, loading the next page, refreshing — before
+// falling through to the keys that read an issue in full.
 func (m Model) handleIssueListKey(msg tea.KeyPressMsg) (Model, tea.Cmd) {
 	switch {
+	case key.Matches(msg, m.keys.filterPlace) && m.issues.filterable():
+		return m.openPlacePicker()
 	case key.Matches(msg, m.keys.nextView):
 		return m.nextIssueView()
 	case key.Matches(msg, m.keys.loadMore):
@@ -157,10 +159,10 @@ func (m Model) refreshIssues() (Model, tea.Cmd) {
 
 	selected, ok := m.issues.current()
 	if !ok {
-		return m, m.searchIssues()
+		return m, m.relistIssues()
 	}
 
 	m, detail := m.reloadDetail(selected.Key)
 
-	return m, tea.Batch(m.searchIssues(), detail)
+	return m, tea.Batch(m.relistIssues(), detail)
 }

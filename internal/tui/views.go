@@ -43,7 +43,8 @@ func (m Model) activeView() issueView {
 }
 
 // nextIssueView moves to the next configured view and loads it from scratch,
-// dropping the old view's filter and selection. With one view there is nowhere
+// dropping the old view's filter, places and selection but keeping what the
+// issues' marks are read from. With one view there is nowhere
 // to go.
 func (m Model) nextIssueView() (Model, tea.Cmd) {
 	if len(m.views) <= 1 {
@@ -52,12 +53,16 @@ func (m Model) nextIssueView() (Model, tea.Cmd) {
 
 	m.viewIndex = (m.viewIndex + 1) % len(m.views)
 
+	previous := m.issues
 	m.issues = m.seededIssues()
+	m.issues.branchKeys, m.issues.branchesKnown = previous.branchKeys, previous.branchesKnown
+	m.issues.taskWords = previous.taskWords
+
 	if !m.issues.settled {
 		m.issues.loading = true
 	}
 
-	return m, m.searchIssues()
+	return m, m.relistIssues()
 }
 
 // viewSuffix names the active view beside the Issues pane's title, but only when

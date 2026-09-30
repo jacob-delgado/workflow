@@ -75,7 +75,7 @@ func (msg branchCreated) apply(m Model) (Model, tea.Cmd) {
 	}
 
 	m = m.closeOverlay().noticed(m.marks.done + " created and switched to " + msg.name)
-	reload := tea.Batch(m.loadBranch(), m.loadChanges())
+	reload := tea.Batch(m.loadBranch(), m.loadChanges(), m.listIssueBranches())
 
 	// Set before the status picker opens, so the offer waits behind it.
 	if msg.forIssue {
@@ -101,13 +101,15 @@ type worktreeCreated struct {
 
 // apply says where the worktree is, or keeps the creator open with git's reason.
 // The panes do not reload: the current checkout is untouched, and the worktree
-// is a separate directory to move to.
+// is a separate directory to move to. Its branch is new, though, so the issues
+// are marked in flight again.
 func (msg worktreeCreated) apply(m Model) (Model, tea.Cmd) {
 	if msg.err != nil {
 		return keepOpenWith[branchCreator](m, msg.err), nil
 	}
 
-	return m.closeOverlay().noticed(m.marks.done + " worktree for " + msg.name + " at " + msg.path), nil
+	return m.closeOverlay().noticed(m.marks.done + " worktree for " + msg.name + " at " + msg.path),
+		m.listIssueBranches()
 }
 
 // failed is the creator kept open with the reason it could not create what was

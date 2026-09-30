@@ -161,7 +161,7 @@ func Run(ctx context.Context, model Model, out io.Writer) error {
 // service never freezes the screen — and each pane fills in, or fails, on its
 // own.
 func (m Model) Init() tea.Cmd {
-	return tea.Batch(m.searchIssues(), m.loadBranch(), m.loadChanges(), m.findHooks(),
+	return tea.Batch(m.searchIssues(), m.listIssueBranches(), m.loadBranch(), m.loadChanges(), m.findHooks(),
 		m.loadReviewQueue(), m.loadAnnounces(), m.loadTasks())
 }
 
@@ -321,9 +321,10 @@ func (m Model) showsNotice() bool {
 }
 
 // showsFilter reports that the Issues pane's filter should be shown on its own
-// row, which is whenever it is being typed or is still narrowing the list.
+// row, which is whenever it is being typed or it or the places still narrow
+// the list.
 func (m Model) showsFilter() bool {
-	return m.focus == paneIssues && (m.issues.filtering || m.issues.filter != "")
+	return m.focus == paneIssues && (m.issues.filtering || m.issues.filter != "" || len(m.issues.places) > 0)
 }
 
 // shape is the layout for the terminal as it is now, a row shorter when a notice

@@ -62,12 +62,12 @@ func (m Model) screen() string {
 	return lipgloss.JoinVertical(lipgloss.Left, append(rows, m.footer(shape.Footer.Width))...)
 }
 
-// noticeLine is the one-row report above the hints — the issue filter while it
-// is active, otherwise what just happened — cut with a mark rather than silently
+// noticeLine is the one-row report above the hints — the issue filter and
+// places while they narrow the list, otherwise what just happened — cut with a mark rather than silently
 // where it does not fit.
 func (m Model) noticeLine(width int) string {
 	if m.showsFilter() {
-		return ansi.Truncate(" "+sanitize.Text("filter: "+m.issues.filter), width, m.marks.ellipsis)
+		return ansi.Truncate(" "+sanitize.Text(m.issues.narrowingLine(m.marks)), width, m.marks.ellipsis)
 	}
 
 	return m.noticeRow(width)

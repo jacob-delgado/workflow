@@ -253,7 +253,7 @@ func TestWorkInProgressIsWhereTheInterfaceOpens(t *testing.T) {
 		branch string
 		want   string
 	}{
-		"a branch naming an issue in the list": {branch: "feat/PROJ-388-add-retries", want: "▸ ○ PROJ-388 Add retries"},
+		"a branch naming an issue in the list": {branch: "feat/PROJ-388-add-retries", want: "▸ ○ PROJ-388 To Do Add retries"},
 		// A branch naming an issue not in the list leaves the selection alone.
 		"a branch naming an issue not in the list": {branch: "fix/OTHER-1-thing", want: "▸ ◐ PROJ-412"},
 	}

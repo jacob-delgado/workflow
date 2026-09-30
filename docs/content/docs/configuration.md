@@ -507,8 +507,8 @@ The actions you can rebind, grouped by where they work, are:
 - **Moving around:** `next-pane`, `previous-pane`, `up`, `down`, `scroll-up`,
   `scroll-down`.
 - **Issues:** `change-status`, `comment`, `assign`, `log-work`,
-  `branch-for-issue`, `filter`, `switch-view`, `load-more`, `open-link`,
-  `copy-link`, `refresh`, `track-issue`.
+  `branch-for-issue`, `filter`, `filter-place`, `switch-view`, `load-more`,
+  `open-link`, `copy-link`, `refresh`, `track-issue`.
 - **Branch and Commits:** `new-branch`, `switch-task`, `rebase`, `push`,
   `stage`, `stage-all`, `commit`, `amend`, `fixup`, `run-pre-commit`,
   `set-up-lefthook`.

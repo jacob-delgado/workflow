@@ -54,6 +54,7 @@ func placedBindings() []helpGroup {
 			"log-work          w          log work",
 			"branch-for-issue  b          branch for issue",
 			"filter            /          filter",
+			"filter-place      p          where",
 			"switch-view       v          switch view",
 			"load-more         ctrl+n     load more",
 			"open-link         o          open",

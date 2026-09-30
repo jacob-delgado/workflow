@@ -6,6 +6,7 @@ package tui_test
 import (
 	"errors"
 	"fmt"
+	"slices"
 	"testing"
 	"time"
 
@@ -240,7 +241,9 @@ func TestBOpensABranchNamedForTheSelectedIssue(t *testing.T) {
 		t.Errorf("create calls = %q", calls)
 	}
 
-	if reads := branching.asked("branch"); len(reads) != 2 {
+	if reads := slices.DeleteFunc(branching.asked("branch"), func(call string) bool {
+		return call != "branch"
+	}); len(reads) != 2 {
 		t.Errorf("the branch was read %d times, want once at start and once after it was created", len(reads))
 	}
 }

@@ -51,7 +51,7 @@ type keyMap struct {
 	refresh, retry        key.Binding
 
 	// Issues.
-	changeStatus, comment, assign, logWork, branchForIssue, filter, nextView, loadMore, trackIssue key.Binding
+	changeStatus, comment, assign, logWork, branchForIssue, filter, filterPlace, nextView, loadMore, trackIssue key.Binding
 
 	// Branch and Commits.
 	newBranch, switchTask, rebase, push, stage, stageAll, commit, amend, fixup, runHooks, hookConfig key.Binding
@@ -229,6 +229,7 @@ func issueKeys(builder *helpBuilder, into *keyMap) {
 	into.logWork = builder.bind(groupIssues, "log-work", "log work", "w")
 	into.branchForIssue = builder.bind(groupIssues, "branch-for-issue", "branch for issue", "b")
 	into.filter = builder.bind(groupIssues, "filter", "filter", "/")
+	into.filterPlace = builder.bind(groupIssues, "filter-place", "where", "p")
 	into.nextView = builder.bind(groupIssues, "switch-view", "switch view", "v")
 	into.loadMore = builder.bind(groupIssues, "load-more", "load more", "ctrl+n")
 	into.openLink = builder.bind(groupIssues, actionOpenLink, "open", "o")
