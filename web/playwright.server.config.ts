@@ -28,7 +28,11 @@ export default defineConfig({
   workers: 1,
   forbidOnly: isCI,
   retries: 0,
-  reporter: isCI ? [['list'], ['html', { open: 'never' }]] : 'list',
+  // As playwright.config.ts: the console, the HTML report CI uploads on
+  // failure, and the JSON report CI counts for the pull request comment.
+  reporter: isCI
+    ? [['list'], ['html', { open: 'never' }], ['json', { outputFile: 'reports/e2e-server.json' }]]
+    : 'list',
   use: {
     trace: 'retain-on-failure',
   },

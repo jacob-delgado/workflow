@@ -28,30 +28,22 @@ work="$(mktemp -d)"
 readonly work
 trap 'rm -rf "${work}"' EXIT
 
-# count_json reads a stream of `go test -json` events and prints "pass skip fail"
-# as the count of tests that ended in each action (subtests included). With no
-# test-level events at all — the tests could not build, or `go` did not run — it
-# prints dashes rather than a misleading "0 0 0".
-count_json() {
-  jq -rs '
-    [.[] | select(.Test != null and (.Action | IN("pass", "skip", "fail")))]
-    | if length == 0 then "- - -"
-      else
-        (map(select(.Action == "pass")) | length) as $pass
-        | (map(select(.Action == "skip")) | length) as $skip
-        | (map(select(.Action == "fail")) | length) as $fail
-        | "\($pass) \($skip) \($fail)"
-      end
-  ' "${1}" 2>/dev/null || echo "- - -"
+# counts reads a suite's report through test-counts.sh, the reader the pull
+# request comment uses, and prints "passed skipped failed", a dash for each
+# count the report could not give.
+#   counts <go|vitest|playwright> <report-file>
+counts() {
+  "${root}/scripts/test-counts.sh" "${1}" "${2}" suite \
+    | jq -r '[.passed, .skipped, .failed] | map(. // "-") | join(" ")' 2>/dev/null || echo "- - -"
 }
 
 # go_row runs the Go unit tests as the test task does — over the roots given,
 # with the race detector — with a coverage profile, and records the counts and
 # the statement coverage the gate reports.
 go_row() {
-  local counts pct
+  local go_counts pct
   go -C "${root}" test -race -json -coverprofile="${work}/go.cov" "${go_roots[@]}" >"${work}/go.json" 2>/dev/null || true
-  counts="$(count_json "${work}/go.json")"
+  go_counts="$(counts go "${work}/go.json")"
 
   # Taken from the gate, with a floor of 0 so it never fails, as
   # coverage-summary.sh does: the gate leaves generated code out of the
@@ -67,7 +59,7 @@ go_row() {
     )"
   fi
 
-  read -r go_pass go_skip go_fail <<<"${counts}"
+  read -r go_pass go_skip go_fail <<<"${go_counts}"
   go_cov="${pct:--}"
 }
 
@@ -84,10 +76,7 @@ vitest_row() {
     --coverage.reportsDirectory="${work}/coverage" \
     --reporter=json --outputFile="${work}/vitest.json") >/dev/null 2>&1 || true
 
-  if [[ -s "${work}/vitest.json" ]]; then
-    read -r vitest_pass vitest_skip vitest_fail <<<"$(jq -r \
-      '"\(.numPassedTests) \(.numPendingTests) \(.numFailedTests)"' "${work}/vitest.json" 2>/dev/null)"
-  fi
+  read -r vitest_pass vitest_skip vitest_fail <<<"$(counts vitest "${work}/vitest.json")"
 
   local summary="${work}/coverage/coverage-summary.json"
   if [[ -s "${summary}" ]]; then
@@ -104,10 +93,7 @@ playwright_row() {
 
   (cd "${root}/web" && corepack yarn playwright test --reporter=json) >"${work}/pw.json" 2>/dev/null || true
 
-  if [[ -s "${work}/pw.json" ]] && jq -e '.stats' "${work}/pw.json" >/dev/null 2>&1; then
-    read -r e2e_pass e2e_skip e2e_fail <<<"$(jq -r \
-      '"\(.stats.expected) \(.stats.skipped) \(.stats.unexpected + .stats.flaky)"' "${work}/pw.json" 2>/dev/null)"
-  fi
+  read -r e2e_pass e2e_skip e2e_fail <<<"$(counts playwright "${work}/pw.json")"
 }
 
 # pct renders a coverage number as a percentage, or a dash when it is missing —

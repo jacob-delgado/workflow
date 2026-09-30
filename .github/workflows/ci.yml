@@ -39,8 +39,9 @@ jobs:
         with:
           version: 2026.9.3 # the mise binary itself; see min_version in mise.toml
       # Both floors come from the same Taskfile variables the local gate reads,
-      # so CI and a developer's machine cannot disagree about them.
-      - run: task test:cover
+      # so CI and a developer's machine cannot disagree about them. The run's
+      # events are kept for the pull request comment's test counts.
+      - run: task test:cover GO_TEST_JSON=tmp/go-events.json
       # Condition coverage. gobco reads every package but the build-tagged twins
       # scripts/gobco-report.sh lists as unreadable (it fails on any other that
       # drops out of the report unannounced).
@@ -52,6 +53,19 @@ jobs:
           path: |
             coverage.out
             tmp/gobco/
+          retention-days: 7
+      # Counted whether the tests passed or not, so the comment shows a failure
+      # as a count rather than leaving the row blank.
+      - name: Count the Go tests
+        if: always()
+        run: |
+          mkdir -p tmp/test-counts
+          scripts/test-counts.sh go tmp/go-events.json "Go unit" > tmp/test-counts/go-unit.json
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        if: always()
+        with:
+          name: test-counts-go-unit
+          path: tmp/test-counts/go-unit.json
           retention-days: 7
 
   build:
@@ -94,7 +108,19 @@ jobs:
       - name: Check the generated client is up to date
         run: yarn gen:check
       - run: yarn lint
-      - run: yarn test
+      - run: yarn test --reporter=default --reporter=json --outputFile.json=reports/web-unit.json
+      - name: Count the web unit tests
+        if: always()
+        working-directory: .
+        run: |
+          mkdir -p tmp/test-counts
+          scripts/test-counts.sh vitest web/reports/web-unit.json "Web unit" > tmp/test-counts/web-unit.json
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        if: always()
+        with:
+          name: test-counts-web-unit
+          path: tmp/test-counts/web-unit.json
+          retention-days: 7
       - run: yarn build
       # The build writes internal/web/dist, which is committed so `go install`
       # embeds the app; fail when the committed bundle is not this build's.
@@ -133,6 +159,18 @@ jobs:
       - name: Install the Playwright browser
         run: yarn playwright install --with-deps chromium
       - run: yarn test:e2e
+      - name: Count the end-to-end tests
+        if: always()
+        working-directory: .
+        run: |
+          mkdir -p tmp/test-counts
+          scripts/test-counts.sh playwright web/reports/e2e.json "E2E" > tmp/test-counts/e2e.json
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        if: always()
+        with:
+          name: test-counts-e2e
+          path: tmp/test-counts/e2e.json
+          retention-days: 7
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         if: failure()
         with:
@@ -177,6 +215,18 @@ jobs:
         run: task build
         working-directory: .
       - run: yarn test:e2e:server
+      - name: Count the server-backed end-to-end tests
+        if: always()
+        working-directory: .
+        run: |
+          mkdir -p tmp/test-counts
+          scripts/test-counts.sh playwright web/reports/e2e-server.json "E2E (server)" > tmp/test-counts/e2e-server.json
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        if: always()
+        with:
+          name: test-counts-e2e-server
+          path: tmp/test-counts/e2e-server.json
+          retention-days: 7
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         if: failure()
         with:
@@ -271,12 +321,17 @@ jobs:
   # are what fail a build, and this job is deliberately not something to gate on.
   coverage-comment:
     name: Coverage comment
-    needs: [test]
+    # Every suite that counts its tests, whether they passed or not — a failing
+    # suite is the one whose counts matter most — with the coverage from Test
+    # when it got that far. Not for a run a newer push cancelled: that run's
+    # partial counts would overwrite the comment until the newer one lands.
+    needs: [test, web, e2e, e2e-server]
     # Same-repository pull requests only. A fork's PR runs with a read-only token,
     # so the pull-requests: write this job asks for is not granted and it would
     # fail rather than comment — and it is reporting, never a gate, so skipping it
     # on forks costs nothing.
     if: >-
+      !cancelled() &&
       github.event_name == 'pull_request' &&
       github.event.pull_request.head.repo.full_name == github.repository
     runs-on: ubuntu-latest
@@ -290,9 +345,17 @@ jobs:
       - uses: jdx/mise-action@c2a87611a18de5b3828c5652fe268e992400cb5c # v4.3.0
         with:
           version: 2026.9.3 # the mise binary itself; see min_version in mise.toml
+      # Absent when the Test job failed before uploading it; the comment then
+      # reads n/a for coverage.
       - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        continue-on-error: true
         with:
           name: coverage
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          pattern: test-counts-*
+          merge-multiple: true
+          path: tmp/test-counts
       # The exact-SHA key never hits on a PR, so the prefix restore-key resolves
       # to the most recent baseline cached from main.
       - name: Restore main's baseline
@@ -303,52 +366,28 @@ jobs:
             coverage-baseline-
           path: coverage-baseline.json
       - name: Compute this PR's summary
-        run: scripts/coverage-summary.sh coverage.out tmp/gobco > pr-coverage.json
-      - name: Upsert the coverage comment
+        run: |
+          if [ -f coverage.out ]; then
+            scripts/coverage-summary.sh coverage.out tmp/gobco > pr-coverage.json
+          fi
+      - name: Render the comment
+        run: node scripts/pr-comment.mjs pr-coverage.json coverage-baseline.json tmp/test-counts > pr-comment.md
+      - name: Upsert the comment
         uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
         env:
-          PR_COVERAGE: pr-coverage.json
-          BASELINE: coverage-baseline.json
+          COMMENT: pr-comment.md
         with:
           script: |
             const fs = require('fs')
             const marker = '<!-- coverage-report -->'
-            const pr = JSON.parse(fs.readFileSync(process.env.PR_COVERAGE, 'utf8'))
-            const base = fs.existsSync(process.env.BASELINE)
-              ? JSON.parse(fs.readFileSync(process.env.BASELINE, 'utf8'))
-              : null
-            const pct = (n) => (n === null ? 'n/a' : `${Number(n).toFixed(1)}%`)
-            const delta = (cur, prev) => {
-              if (cur === null || prev === undefined || prev === null) return '—'
-              const d = Math.round((cur - prev) * 10) / 10
-              return d === 0 ? '±0' : (d > 0 ? '+' : '') + d.toFixed(1)
-            }
-            const rows = [
-              ['Statements', 'statements'],
-              ['Conditions (gobco)', 'branch'],
-            ]
-            const body = [
-              marker,
-              '## Coverage',
-              '',
-              '| Metric | Coverage | Δ vs main |',
-              '| --- | --- | --- |',
-              ...rows.map(([label, key]) =>
-                `| ${label} | ${pct(pr[key])} | ${delta(pr[key], base ? base[key] : null)} |`),
-              '',
-              '_The floors live in the gates, not here — `COVERAGE_MIN` and ' +
-                '`BRANCH_COVERAGE_MIN` in `Taskfile.yml`. A number restated in prose drifts ' +
-                'from the one enforced._',
-              '',
-              '_Conditions counts each operand separately: an `if a && b` is only covered ' +
-                'once `a` and `b` have each been seen true and false. gobco reads every ' +
-                'package in this module but the build-tagged twins ' +
-                '`scripts/gobco-report.sh` lists; `task cover:branch` fails if another ' +
-                'drops out unlisted._',
-            ].join('\n')
+            const body = fs.readFileSync(process.env.COMMENT, 'utf8')
             const { owner, repo } = context.repo
             const issue_number = context.issue.number
-            const { data: comments } = await github.rest.issues.listComments({ owner, repo, issue_number })
+            // Every page, so a pull request with a long discussion updates its
+            // comment rather than posting a second one.
+            const comments = await github.paginate(github.rest.issues.listComments, {
+              owner, repo, issue_number, per_page: 100,
+            })
             const existing = comments.find((c) => c.body && c.body.includes(marker))
             if (existing) {
               await github.rest.issues.updateComment({ owner, repo, comment_id: existing.id, body })

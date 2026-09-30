@@ -111,7 +111,10 @@ The web frontend's unit tests (`task web:test`) hold their own floor, the
 `thresholds` in `web/vitest.config.ts`.
 
 On a pull request, both numbers are posted as a comment with their delta against
-`main`. The comment is informational — the floors are what fail the build.
+`main`, beneath how many tests each suite — Go unit, web unit, E2E and E2E
+(server) — passed, skipped and failed, counted by the job that ran it
+(`scripts/test-counts.sh`, rendered by `scripts/pr-comment.mjs`). The comment is
+informational — the floors and the suites' own jobs are what fail the build.
 
 ## Code style
 

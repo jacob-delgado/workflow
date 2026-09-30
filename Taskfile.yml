@@ -271,14 +271,22 @@ tasks:
       - scripts/gobco-report_test.sh
       - scripts/hook-environment_test.sh
       - scripts/test-summary_test.sh
+      - scripts/test-counts_test.sh
+      - scripts/go-test-json_test.sh
+      - scripts/pr-comment_test.sh
       - scripts/tool-versions_test.sh
       - scripts/release/push-release-tag_test.sh
 
   test:cover:
     desc: Run the tests and enforce the coverage floor
     cmds:
-      # The same scrub as `test`, for the same reason.
-      - unset $(git rev-parse --local-env-vars); go test -race -coverprofile=coverage.out -covermode=atomic {{.GO_PKGS}}
+      # The same scrub as `test`, for the same reason. CI passes GO_TEST_JSON to
+      # keep the run's events for the pull request comment's test counts;
+      # go-test-json.sh keeps the log as plain as go test's own.
+      - >-
+        unset $(git rev-parse --local-env-vars);
+        {{if .GO_TEST_JSON}}scripts/go-test-json.sh {{.GO_TEST_JSON}}{{else}}go test{{end}}
+        -race -coverprofile=coverage.out -covermode=atomic {{.GO_PKGS}}
       - scripts/coverage-gate.sh coverage.out {{.COVERAGE_MIN}}
       - task: test:scripts
 

@@ -21,8 +21,11 @@ export default defineConfig({
   forbidOnly: isCI,
   retries: 0,
   // list for the console; the HTML report (with retained traces) is uploaded as
-  // a CI artifact on failure, so a red run is debuggable without a re-run.
-  reporter: isCI ? [['list'], ['html', { open: 'never' }]] : 'list',
+  // a CI artifact on failure, so a red run is debuggable without a re-run; and
+  // the JSON report is what CI counts for the pull request comment.
+  reporter: isCI
+    ? [['list'], ['html', { open: 'never' }], ['json', { outputFile: 'reports/e2e.json' }]]
+    : 'list',
   use: {
     trace: 'retain-on-failure',
   },
