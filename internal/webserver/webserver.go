@@ -236,6 +236,12 @@ type server struct {
 	// queue: it refuses the dirty tree any stage leaves.
 	indexWrites sync.Mutex
 
+	// keptWrites queues every write to the kept associations and every clean
+	// of the local data: a clean sets the kept file aside, and a write that
+	// lands between would either be lost with it or remake the file the clean
+	// was removing.
+	keptWrites sync.Mutex
+
 	// scope is the commit scope learned in this repository, held once read.
 	scope scopeCache
 

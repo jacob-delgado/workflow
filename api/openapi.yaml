@@ -571,7 +571,10 @@ paths:
         "409":
           description: >-
             A file could not be removed, as one another program holds open can
-            be on Windows; nothing was removed.
+            be on Windows. A file that could not be set aside leaves every
+            file in place; one that could not be deleted after the rest were
+            may leave some removed, so read the listing again to see what is
+            left.
           content:
             application/problem+json:
               schema: {$ref: "#/components/schemas/Problem"}
@@ -750,9 +753,12 @@ paths:
       operationId: setRepoGroups
       summary: Replace the Slack user groups this repository may tag.
       description: >-
-        Replaces the list with the groups named, by ID. Each label is read
-        from Slack's directory, never taken from the caller. Refused with 403
-        under --dry-run, by the guard every write passes.
+        Replaces the list with the groups named, by ID. A group already
+        saved keeps the label it was saved with, so one Slack no longer lists,
+        or a token without the scope to read them, can still be kept or
+        cleared; a new group's label is read from Slack's directory, never
+        taken from the caller. Clearing the list needs no directory at all.
+        Refused with 403 under --dry-run, by the guard every write passes.
       tags: [people]
       requestBody:
         required: true
@@ -769,9 +775,9 @@ paths:
                 $ref: "#/components/schemas/RepoGroups"
         "422":
           description: >-
-            An ID names no user group of the workspace, the token lacks the
-            scope to read them, or there is no Slack user token or no store.
-            Nothing was written.
+            A new ID names no user group of the workspace, the token lacks the
+            scope to read them, or there is no Slack user token to read a new
+            one with, or no store. Nothing was written.
           content:
             application/problem+json:
               schema: {$ref: "#/components/schemas/Problem"}

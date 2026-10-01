@@ -100,7 +100,7 @@ func (s *server) ForgetPerson(
 ) (api.ForgetPersonResponseObject, error) {
 	err := errNoPeopleStore
 	if s.deps.ForgetOwner != nil {
-		err = s.deps.ForgetOwner(request.Params.Owner)
+		err = s.keptWrite(func() error { return s.deps.ForgetOwner(request.Params.Owner) })
 	}
 
 	if err == nil {
@@ -214,7 +214,7 @@ func (s *server) linkPerson(link api.PersonLink) error {
 	}
 
 	if link.NotOnSlack {
-		return s.deps.LinkOwner(link.Owner, nil)
+		return s.keptWrite(func() error { return s.deps.LinkOwner(link.Owner, nil) })
 	}
 
 	target, err := s.slackTarget(*link.SlackID, strings.Contains(link.Owner, "/"), orZero(link.Channel))
@@ -222,7 +222,16 @@ func (s *server) linkPerson(link api.PersonLink) error {
 		return err
 	}
 
-	return s.deps.LinkOwner(link.Owner, &target)
+	return s.keptWrite(func() error { return s.deps.LinkOwner(link.Owner, &target) })
+}
+
+// keptWrite runs write, a write to the kept associations or a clean of the
+// local data, after any other under way.
+func (s *server) keptWrite(write func() error) error {
+	s.keptWrites.Lock()
+	defer s.keptWrites.Unlock()
+
+	return write()
 }
 
 // slackTarget is slackID as Slack's directory labels it: a user group for a team,
@@ -298,7 +307,7 @@ func lookUp(read func() ([]loop.SlackTarget, error), slackID string) (loop.Slack
 		return loop.SlackTarget{}, err
 	}
 
-	index := slices.IndexFunc(entries, func(entry loop.SlackTarget) bool { return entry.ID == slackID })
+	index := slices.IndexFunc(entries, hasID(slackID))
 	if index < 0 {
 		return loop.SlackTarget{}, errNotInDirectory
 	}
@@ -320,29 +329,59 @@ func (s *server) repoGroups() (api.RepoGroups, error) {
 	return api.RepoGroups{Repository: s.info.Repository, Groups: slackTargetsDTO(groups)}, nil
 }
 
-// setRepoGroups labels ids from the workspace's user groups and keeps them,
-// each once, as this repository's.
+// setRepoGroups keeps ids, each once, as this repository's user groups.
 func (s *server) setRepoGroups(ids []string) error {
-	if s.deps.SetRepoGroups == nil {
+	if s.deps.SetRepoGroups == nil || s.deps.RepoGroups == nil {
 		return errNoPeopleStore
 	}
 
+	return s.keptWrite(func() error {
+		saved, err := s.deps.RepoGroups()
+		if err != nil {
+			return err
+		}
+
+		groups, err := s.labelGroups(ids, saved)
+		if err != nil {
+			return err
+		}
+
+		return s.deps.SetRepoGroups(groups)
+	})
+}
+
+// labelGroups is ids each once, labeled as saved when one already is — so a
+// group Slack no longer lists, or a token that cannot read them, keeps it —
+// and from the workspace's directory when it is new. Only a new group needs
+// the directory.
+func (s *server) labelGroups(ids []string, saved []loop.SlackTarget) ([]loop.SlackTarget, error) {
 	groups := make([]loop.SlackTarget, 0, len(ids))
 
-	for _, id := range ids {
-		if slices.ContainsFunc(groups, func(group loop.SlackTarget) bool { return group.ID == id }) {
+	for _, groupID := range ids {
+		if slices.ContainsFunc(groups, hasID(groupID)) {
 			continue
 		}
 
-		group, err := lookUp(s.userGroups, id)
+		if index := slices.IndexFunc(saved, hasID(groupID)); index >= 0 {
+			groups = append(groups, saved[index])
+
+			continue
+		}
+
+		group, err := s.slackGroup(groupID)
 		if err != nil {
-			return err
+			return nil, err
 		}
 
 		groups = append(groups, group)
 	}
 
-	return s.deps.SetRepoGroups(groups)
+	return groups, nil
+}
+
+// hasID reports whether a Slack user or group is the one id names.
+func hasID(id string) func(loop.SlackTarget) bool {
+	return func(target loop.SlackTarget) bool { return target.ID == id }
 }
 
 // channelOr is channel, or the configured one when channel is empty.

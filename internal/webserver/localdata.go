@@ -19,8 +19,9 @@ const (
 	noStoreDirDetail   = "there is no directory to keep local data in: no home directory is set"
 	notStoreFileDetail = "something other than the store's own file, a symlink or a directory, " +
 		"sits where a database belongs; nothing was removed"
-	heldOpenDetail = "a database file could not be removed, as one another program holds open can be; " +
-		"nothing was removed — close other workflow sessions and try again"
+	heldOpenDetail = "a database file could not be removed, as one another program holds open can be, " +
+		"and others may already be gone; read the listing again to see what is left, " +
+		"then close other workflow sessions and try again"
 )
 
 // GetLocalData lists the store's directory and the database files in it.
@@ -52,7 +53,7 @@ func (s *server) CleanLocalData(
 		api.CleanLocalDataParamsScopeAll:   store.CleanAll,
 	}[request.Params.Scope]
 
-	err := s.deps.CleanLocalData(scope)
+	err := s.keptWrite(func() error { return s.deps.CleanLocalData(scope) })
 	if err == nil {
 		var data api.LocalData
 
