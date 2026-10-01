@@ -35,6 +35,10 @@ func slackLoggedInConfig() string {
 		`"expires_at":"` + time.Now().Add(time.Hour).UTC().Format(time.RFC3339) + `","channel":"#dev"}}`
 }
 
+// taggingScopes are the scopes workflow slack login asks for, which the fake
+// Slack's auth.test lists the token as granted.
+const taggingScopes = "chat:write,users:read,channels:read,groups:read,usergroups:read"
+
 // slackAnswer is what the fake Slack answers on one path.
 type slackAnswer struct {
 	status int
@@ -46,13 +50,15 @@ type slackAnswer struct {
 type slackFake struct {
 	lock    sync.Mutex
 	answers map[string]slackAnswer
+	granted string
+	asked   map[string]int
 	posted  []string
 }
 
 // fakeSlack serves Slack's answers for the token slackLoggedInConfig keeps —
-// ana and a bot in #dev, the api-reviewers group, workspace slackWorkspace —
-// with changed replacing any of them by path, and points the commands at it
-// until the test ends.
+// ana and a bot in #dev, the api-reviewers group, workspace slackWorkspace,
+// granted taggingScopes — with changed replacing any of them by path, and
+// points the commands at it until the test ends.
 func fakeSlack(t *testing.T, changed map[string]slackAnswer) *slackFake {
 	t.Helper()
 
@@ -69,7 +75,7 @@ func fakeSlack(t *testing.T, changed map[string]slackAnswer) *slackFake {
 	}
 	maps.Copy(answers, changed)
 
-	slack := &slackFake{answers: answers}
+	slack := &slackFake{answers: answers, granted: taggingScopes, asked: map[string]int{}}
 	server := httptest.NewServer(http.HandlerFunc(slack.answer))
 	t.Cleanup(server.Close)
 	t.Setenv(wiring.SlackAPIVariable, server.URL)
@@ -80,6 +86,15 @@ func fakeSlack(t *testing.T, changed map[string]slackAnswer) *slackFake {
 // answer keeps a post's text and answers from the path's answer, or with
 // Slack's unknown_method.
 func (s *slackFake) answer(writer http.ResponseWriter, request *http.Request) {
+	s.lock.Lock()
+	s.asked[request.URL.Path]++
+	granted := s.granted
+	s.lock.Unlock()
+
+	if request.URL.Path == slackAuthTest {
+		writer.Header().Set("X-OAuth-Scopes", granted)
+	}
+
 	if request.URL.Path == "/chat.postMessage" {
 		var message struct {
 			Text string `json:"text"`
@@ -101,6 +116,22 @@ func (s *slackFake) answer(writer http.ResponseWriter, request *http.Request) {
 	writer.Header().Set("Content-Type", "application/json")
 	writer.WriteHeader(answer.status)
 	_, _ = writer.Write([]byte(answer.body))
+}
+
+// grant makes auth.test list the token as granted scopes instead.
+func (s *slackFake) grant(scopes string) {
+	s.lock.Lock()
+	defer s.lock.Unlock()
+
+	s.granted = scopes
+}
+
+// count is how many requests the fake answered at path.
+func (s *slackFake) count(path string) int {
+	s.lock.Lock()
+	defer s.lock.Unlock()
+
+	return s.asked[path]
 }
 
 // post is the one post the fake was sent, failing the test unless there was

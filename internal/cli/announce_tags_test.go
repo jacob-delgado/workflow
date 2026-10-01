@@ -153,16 +153,13 @@ func TestAnnounceTagsNoOneLinkedOnlyInAnotherWorkspace(t *testing.T) {
 }
 
 func TestAnnounceWithATokenMissingAScopePostsUntaggedAndNamesIt(t *testing.T) {
-	for scope, path := range map[string]string{
-		"channels:read":   "/conversations.members",
-		"usergroups:read": "/usergroups.list",
-	} {
+	for _, scope := range []string{"users:read", "channels:read", "groups:read", "usergroups:read"} {
 		t.Run(scope, func(t *testing.T) {
 			// Arrange
 			fakeGh(t, ghResponses{pulls: openPull("Add login")})
-			slack := fakeSlack(t, map[string]slackAnswer{
-				path: {http.StatusOK, `{"ok":false,"error":"missing_scope","needed":"` + scope + `"}`},
-			})
+			slack := fakeSlack(t, nil)
+			slack.grant(strings.ReplaceAll(taggingScopes, ","+scope, ""))
+
 			repo := ownedRepo(t)
 			writeFile(t, repo, slackLoggedInConfig())
 			home := keptLinks(t)
@@ -182,6 +179,35 @@ func TestAnnounceWithATokenMissingAScopePostsUntaggedAndNamesIt(t *testing.T) {
 				t.Errorf("announce posted %q, want it untagged", post)
 			}
 		})
+	}
+}
+
+func TestAnnounceReadsNoDirectoryToTellItsScopes(t *testing.T) {
+	// Arrange
+	// In a large workspace the directory is pages of users.list and a
+	// users.info per member; the announcement tags only whom is linked
+	// already, so it needs none of it.
+	fakeGh(t, ghResponses{pulls: openPull("Add login")})
+	slack := fakeSlack(t, nil)
+	repo := ownedRepo(t)
+	writeFile(t, repo, slackLoggedInConfig())
+	home := keptLinks(t)
+
+	// Act
+	printed, err := runStreamsAt(t, place{dir: repo, home: home}, unusedPrompt(t), "announce", "--yes")
+	// Assert
+	if err != nil {
+		t.Fatalf("announce --yes: %v (%+v)", err, printed)
+	}
+
+	for _, path := range []string{"/users.conversations", "/conversations.members", "/users.list", "/usergroups.list"} {
+		if asked := slack.count(path); asked != 0 {
+			t.Errorf("announce asked %s %d times, want none", path, asked)
+		}
+	}
+
+	if post := slack.post(t); untagged(post) {
+		t.Errorf("announce posted %q, want ana and api-reviewers tagged", post)
 	}
 }
 

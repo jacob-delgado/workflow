@@ -24,6 +24,7 @@ import (
 	"github.com/jacob-delgado/workflow/internal/hooks"
 	"github.com/jacob-delgado/workflow/internal/jira"
 	"github.com/jacob-delgado/workflow/internal/loop"
+	"github.com/jacob-delgado/workflow/internal/messaging"
 	"github.com/jacob-delgado/workflow/internal/proc"
 	"github.com/jacob-delgado/workflow/internal/taskwarrior"
 )
@@ -170,6 +171,10 @@ type Messaging struct {
 	// as the directory does, and an error when Slack cannot say, when a
 	// surface tags no one and says why.
 	Workspace func() (string, error)
+	// Grant is the scopes Slack lists the user token as granted, held with
+	// Workspace, so a missing scope tagging needs is told without reading the
+	// directory. A grant Slack did not list lacks none.
+	Grant func() (messaging.Grant, error)
 }
 
 // Store is what a surface asks of the on-disk store, bound to this repository.

@@ -52,7 +52,7 @@ type heldReads struct {
 	users    map[string]*flight[roster]
 	profiles map[string]*flight[profile]
 	groups   map[string]*flight[[]messaging.SlackTarget]
-	team     map[string]*flight[string]
+	identity map[string]*flight[messaging.Identity]
 }
 
 // roster is users.list read whole: each taggable user's label by their ID, or
@@ -145,12 +145,32 @@ func (d *SlackDirectory) UserGroups(ctx context.Context) ([]loop.SlackTarget, er
 // keys every link the store keeps. It is held as the directory's reads are,
 // so a switch of settings, which drops them, reads it again.
 func (d *SlackDirectory) Workspace(ctx context.Context) (string, error) {
-	slack, held, err := d.begin()
+	identity, err := d.identity(ctx)
 	if err != nil {
 		return "", err
 	}
 
-	return shared(ctx, d, held.team, wholeDirectory, slack.Workspace)
+	return identity.Workspace()
+}
+
+// Grant is the scopes Slack lists the user token as granted, read with the
+// workspace in one auth.test, so a surface can tell a scope tagging needs is
+// missing without reading the directory.
+func (d *SlackDirectory) Grant(ctx context.Context) (messaging.Grant, error) {
+	identity, err := d.identity(ctx)
+
+	return identity.Granted, err
+}
+
+// identity is auth.test's answer for the user token, held as the directory's
+// reads are.
+func (d *SlackDirectory) identity(ctx context.Context) (messaging.Identity, error) {
+	slack, held, err := d.begin()
+	if err != nil {
+		return messaging.Identity{}, err
+	}
+
+	return shared(ctx, d, held.identity, wholeDirectory, slack.AuthTest)
 }
 
 // label is members under their Slack names, ordered by them: from users.list
@@ -271,7 +291,7 @@ func (d *SlackDirectory) forget() {
 		users:    map[string]*flight[roster]{},
 		profiles: map[string]*flight[profile]{},
 		groups:   map[string]*flight[[]messaging.SlackTarget]{},
-		team:     map[string]*flight[string]{},
+		identity: map[string]*flight[messaging.Identity]{},
 	}
 }
 
@@ -358,6 +378,7 @@ func withDirectory(ctx context.Context, bound seams.Messaging, directory *SlackD
 	bound.UserGroups = func() ([]loop.SlackTarget, error) { return directory.UserGroups(ctx) }
 	bound.RefreshDirectory = directory.Refresh
 	bound.Workspace = func() (string, error) { return directory.Workspace(ctx) }
+	bound.Grant = func() (messaging.Grant, error) { return directory.Grant(ctx) }
 
 	return bound
 }

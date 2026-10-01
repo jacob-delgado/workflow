@@ -55,14 +55,13 @@ type announceSeams struct {
 // scopes tagging needs. A nil ChannelMembers — no Slack user token — or
 // OwnerLinks — no store — tags no one.
 type announceTagging struct {
-	Owners         loop.OwnerSeams
-	OwnerLinks     func(workspace string) ([]loop.OwnerLink, error)
-	RepoGroups     func(workspace string) ([]loop.SlackTarget, error)
-	LastGroups     func(workspace string) ([]string, bool)
-	RecordGroups   func(workspace string, ids []string) error
-	ChannelMembers func(channel string) ([]loop.SlackTarget, error)
-	UserGroups     func() ([]loop.SlackTarget, error)
-	Workspace      func() (string, error)
+	Owners       loop.OwnerSeams
+	OwnerLinks   func(workspace string) ([]loop.OwnerLink, error)
+	RepoGroups   func(workspace string) ([]loop.SlackTarget, error)
+	LastGroups   func(workspace string) ([]string, bool)
+	RecordGroups func(workspace string, ids []string) error
+	Workspace    func() (string, error)
+	Grant        func() (messaging.Grant, error)
 }
 
 // newAnnounceCmd builds `workflow announce`.
@@ -134,9 +133,8 @@ func runAnnounceCommand(cmd *cobra.Command, prompt Prompt, opts writeOptions) er
 	// The directory seams are bound whatever the settings; only a Slack user
 	// token can read the directory, so only it tags anyone.
 	if cfg.Messaging.Mode() == config.MessagingUser {
-		seams.Tagging.ChannelMembers = deps.Messaging.ChannelMembers
-		seams.Tagging.UserGroups = deps.Messaging.UserGroups
 		seams.Tagging.Workspace = deps.Messaging.Workspace
+		seams.Tagging.Grant = deps.Messaging.Grant
 	}
 
 	if cfg.Messaging.Mode() != config.MessagingNone {
@@ -274,7 +272,7 @@ func tagAnnouncement(out output, seams announceSeams, moment messaging.Moment, b
 		return messaging.Mentions{}, memory
 	}
 
-	if scope, missing := seams.Tagging.missingScope(seams.Messaging.Channel, tags); missing {
+	if scope, missing := seams.Tagging.missingScope(tags); missing {
 		fmt.Fprintf(out.notes, "Not tagging anyone: the Slack token lacks the %s scope; "+
 			"add it to the Slack app, then run workflow slack login.\n", scope)
 
@@ -304,7 +302,7 @@ func tagAnnouncement(out output, seams announceSeams, moment messaging.Moment, b
 // user token and the store, and only in a workspace Slack names. When Slack
 // cannot say which, the post goes out untagged, and the notes say why.
 func (t announceTagging) workspace(out output, moment messaging.Moment) (string, bool) {
-	if moment != messaging.MomentReady || t.ChannelMembers == nil || t.OwnerLinks == nil {
+	if moment != messaging.MomentReady || t.Workspace == nil || t.OwnerLinks == nil {
 		return "", false
 	}
 
@@ -355,21 +353,33 @@ func localBase(branch func() (gitrepo.Branch, error)) string {
 	return current.Base
 }
 
-// missingScope is a scope the Slack token lacks to tag: the channel's
-// members need users:read and the channel scopes, and groups usergroups:read.
-// Any other failure of these reads is left to the post to meet.
-func (t announceTagging) missingScope(channel string, tags loop.Tags) (string, bool) {
-	_, err := t.ChannelMembers(channel)
-	if len(tags.Groups) > 0 && t.UserGroups != nil && err == nil {
-		_, err = t.UserGroups()
-	}
-
-	missing, lacks := errors.AsType[*messaging.MissingScopeError](err)
-	if !lacks {
+// missingScope is a scope the Slack token lacks to tag, as auth.test lists
+// what it was granted: the channel's members need users:read and the channel
+// scopes, and groups usergroups:read. It reads no directory, which in a large
+// workspace is many pages, only to learn a scope; a token whose scopes Slack
+// did not list is taken to lack none.
+func (t announceTagging) missingScope(tags loop.Tags) (string, bool) {
+	if t.Grant == nil {
 		return "", false
 	}
 
-	return missing.Needed, true
+	grant, err := t.Grant()
+	if err != nil {
+		return "", false
+	}
+
+	needed := []string{"users:read", "channels:read", "groups:read"}
+	if len(tags.Groups) > 0 {
+		needed = append(needed, "usergroups:read")
+	}
+
+	for _, scope := range needed {
+		if grant.Lacks(scope) {
+			return scope, true
+		}
+	}
+
+	return "", false
 }
 
 // checkedGroups is the ID of every group that starts checked.
