@@ -1,7 +1,7 @@
 import { ExternalLink } from 'lucide-react'
 import { useEffect, useRef, useState, type RefObject } from 'react'
 import { apiErrorMessage } from '@/api/apiError.ts'
-import { useForgeWords } from '@/api/health.ts'
+import { useHealthStore } from '@/api/health.ts'
 import type { Comment, Issue, IssueDetail } from '@/api/generated/types.gen.ts'
 import { IssueTasks } from '@/features/tasks/IssueTasks.tsx'
 import { Button } from '@/lib/Button.tsx'
@@ -247,12 +247,17 @@ function commentDate(created: string): string | null {
 }
 
 // useTrackerName names where an issue lives, for its link: Jira, or the forge
-// the repository is on. A merge request is GitLab's word for what GitHub calls
-// a pull request.
+// the repository is on — just "the forge" until the server's health says
+// which. A merge request is GitLab's word for what GitHub calls a pull
+// request.
 function useTrackerName(tracker: IssueDetail['tracker']): string {
-  const { noun } = useForgeWords()
+  const noun = useHealthStore((state) => state.health?.forge_noun)
   if (tracker === 'jira') {
     return 'Jira'
+  }
+
+  if (noun === undefined) {
+    return 'the forge'
   }
 
   return noun === 'merge request' ? 'GitLab' : 'GitHub'

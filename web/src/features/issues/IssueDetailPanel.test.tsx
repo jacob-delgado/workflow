@@ -3,7 +3,9 @@ import { act, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { vi } from 'vitest'
 import type { IssueDetail } from '@/api/generated/types.gen.ts'
+import { useHealthStore } from '@/api/health.ts'
 import { fakeApi } from '@/test/fakeApi.ts'
+import { makeHealth } from '@/test/fixtures.ts'
 import { renderWithClient } from '@/test/renderWithClient.tsx'
 import { IssueDetailPanel } from './IssueDetailPanel.tsx'
 
@@ -456,6 +458,7 @@ test('a Retry in flight beside an issue already read keeps its focus and is not 
 
 test('a forge issue opens on its forge, not in Jira', async () => {
   // Arrange
+  useHealthStore.setState({ health: makeHealth() })
   serveIssue(
     detailOf({ key: '57', tracker: 'forge', url: 'https://github.com/acme/oss/issues/57' }),
   )
@@ -467,4 +470,19 @@ test('a forge issue opens on its forge, not in Jira', async () => {
   const link = await screen.findByRole('link', { name: /open in github/i })
   expect(link.getAttribute('href')).toBe('https://github.com/acme/oss/issues/57')
   expect(screen.queryByRole('link', { name: /open in jira/i })).toBeNull()
+})
+
+test('before the forge is known, a forge issue opens in the forge, named by no guess', async () => {
+  // Arrange
+  serveIssue(
+    detailOf({ key: '57', tracker: 'forge', url: 'https://gitlab.com/acme/oss/-/issues/57' }),
+  )
+
+  // Act
+  renderWithClient(<IssueDetailPanel issueKey="57" />)
+
+  // Assert
+  const link = await screen.findByRole('link', { name: /open in the forge/i })
+  expect(link.getAttribute('href')).toBe('https://gitlab.com/acme/oss/-/issues/57')
+  expect(screen.queryByRole('link', { name: /open in github/i })).toBeNull()
 })
