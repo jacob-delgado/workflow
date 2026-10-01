@@ -664,36 +664,28 @@ skip or repeat a Jira row on a later page.
 **Reopen when.** Jira's settings are made live on save, or someone is seen
 to toggle `issues.forge` from Settings and expect it at once.
 
-### TRADE-25 Kept data migrates forward and is never discarded
+### TRADE-25 Kept data has one schema and is never migrated
 
 Whom a forge owner is on Slack, and which Slack groups a repository tags,
 are decisions the user made once and no session can see again. They live
-in `kept.db` beside the cache (`internal/store/kept.go`), whose
-`keptMigrations()` only ever grows, rather than in `workflow.db`, which is
-discarded and remade whenever its schema changes.
+in `kept.db` beside the cache (`internal/store/kept.go`). Like the cache,
+its schema has one version, `keptSchemaVersion`, stamped into the file
+when it is made; unlike the cache, a file at another version is never
+discarded.
 
-**Decided.** 2026-10-01, in #165: asking every owner again after each
-schema bump would make the "asked once" promise false, and the cache's
-discard rule is what keeps `workflow.db` free of migrations. Two files keep
-both: the cache stays migration-free, and the kept file pays for its
-migrations alone. A file from a newer build is never deleted; it reads as
-empty and refuses writes, so a downgrade loses nothing.
+**Decided.** 2026-10-01, in #165, as forward-only migrations; replaced on
+2026-10-01 by one schema with no migrations, since workflow is only ever
+installed fresh. Discarding the file would make the "asked once" promise
+false behind the user's back, so a file at another version is left as it
+is: it reads as empty and refuses writes with `ErrKeptSchemaDiffers`,
+which names `workflow db-clean --all`.
 
-**Cost.** Every change to a kept table is a new migration that must apply
-to any file in the field, written forever and never edited; a downgraded
-build tags no one and cannot record a decision until it is upgraded again;
-and `workflow db-clean --all` is the only way to start the kept file fresh.
-A migration adds what the rows lack rather than guessing it: the third keys
-Slack links by workspace, and the links kept before it belong to none, so
-each of those owners is asked once more rather than tagged in a workspace
-that may not be theirs. The fifth moves the workspace from the Slack ID to each
-link, listed group and chosen group, since one ID can be seen from several
-workspaces, and copies each row with the workspace it was read under until
-then; a row an earlier build had already moved to another workspace stays
-where it was moved.
+**Cost.** A change to a kept table leaves every file made before it
+unread: tagging stops, and nothing can be decided, until the user runs
+`workflow db-clean --all` and every owner and group is asked about again.
 
-**Reopen when.** The kept tables need a change no forward migration can
-express, or a migration is found to have been edited after it shipped.
+**Reopen when.** workflow is installed where kept data must outlive a
+schema change, or a kept table needs to change at all.
 
 ### TRADE-26 The Slack directory is read whole, once a session
 

@@ -11,17 +11,19 @@ import (
 	"time"
 )
 
-// groupsMigration makes the repository group tables. A repository's groups are
-// the Slack user groups it may tag, by ID, their labels living in slack_entity;
-// its choice records that groups were last chosen, even none, and one child row
-// per group chosen. A group dropped from the list drops out of the choice.
-func groupsMigration() []string {
+// groupsSchema makes the repository group tables. A repository's groups are
+// the Slack user groups it may tag in a workspace, by ID, their labels living
+// in slack_entity; its choice records that groups were last chosen, even none,
+// and one child row per group chosen. A group dropped from the list drops out
+// of the choice.
+func groupsSchema() []string {
 	return []string{
 		`CREATE TABLE repo_group (
-			repo     TEXT NOT NULL,
-			slack_id TEXT NOT NULL,
-			added_at TEXT NOT NULL,
-			PRIMARY KEY (repo, slack_id),
+			repo       TEXT NOT NULL,
+			slack_team TEXT NOT NULL,
+			slack_id   TEXT NOT NULL,
+			added_at   TEXT NOT NULL,
+			PRIMARY KEY (repo, slack_team, slack_id),
 			FOREIGN KEY (slack_id) REFERENCES slack_entity(slack_id) ON DELETE RESTRICT
 		) STRICT`,
 		`CREATE INDEX repo_group_by_entity ON repo_group (slack_id)`,
@@ -30,11 +32,13 @@ func groupsMigration() []string {
 			chosen_at TEXT NOT NULL
 		) STRICT`,
 		`CREATE TABLE repo_choice_group (
-			repo     TEXT NOT NULL,
-			slack_id TEXT NOT NULL,
-			PRIMARY KEY (repo, slack_id),
+			repo       TEXT NOT NULL,
+			slack_team TEXT NOT NULL,
+			slack_id   TEXT NOT NULL,
+			PRIMARY KEY (repo, slack_team, slack_id),
 			FOREIGN KEY (repo) REFERENCES repo_choice(repo) ON DELETE CASCADE,
-			FOREIGN KEY (repo, slack_id) REFERENCES repo_group(repo, slack_id) ON DELETE CASCADE
+			FOREIGN KEY (repo, slack_team, slack_id)
+				REFERENCES repo_group(repo, slack_team, slack_id) ON DELETE CASCADE
 		) STRICT`,
 	}
 }
@@ -57,7 +61,7 @@ func (s Store) RepoGroups(ctx context.Context, repo, workspace string) ([]SlackT
 		return nil, ErrNoWorkspace
 	}
 
-	database, found, err := s.readKept(ctx, linkWorkspacesKeptIn)
+	database, found, err := s.readKept(ctx)
 	if err != nil || !found {
 		return nil, err
 	}
@@ -205,7 +209,7 @@ func (s Store) LastGroups(ctx context.Context, repo, workspace string) ([]string
 		return nil, false, ErrNoWorkspace
 	}
 
-	database, found, err := s.readKept(ctx, linkWorkspacesKeptIn)
+	database, found, err := s.readKept(ctx)
 	if err != nil || !found {
 		return nil, false, err
 	}

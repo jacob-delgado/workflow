@@ -935,9 +935,9 @@ cannot reach it.
 Where the filesystem keeps Unix modes, each database file is `0600` in a `0700`
 directory, readable only by you. What the cache holds is disposable: remove it
 and the next session simply rebuilds it, and a cache a build with another schema
-made is discarded and rebuilt the same way. `kept.db` is never discarded: a
-newer build carries what it holds forward, and one from a newer build than
-yours is read as empty and left as it is. A `--dry-run` never creates it or changes
+made is discarded and rebuilt the same way. `kept.db` is never discarded: one
+a build with another schema made is read as empty and left as it is, and
+workflow says to run `workflow db-clean --all` to start it fresh. A `--dry-run` never creates it or changes
 what it holds: neither the interface nor `--web` opens it at all, and a command
 such as `announce` or `status` opens it read-only, and only when it is already
 there. That read may leave SQLite's two owner-only companion files,

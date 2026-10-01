@@ -538,7 +538,7 @@ func (s *server) peopleFault(err error) (api.Problem, int) {
 func peopleRefusals() []error {
 	return []error{
 		errNoSlackDirectory, errNoPeopleStore, errOneOrTheOther, errWrongKind, errNotInDirectory,
-		store.ErrKeptFromNewerBuild, store.ErrInvalidOwner, store.ErrInvalidSlackID,
+		store.ErrKeptSchemaDiffers, store.ErrInvalidOwner, store.ErrInvalidSlackID,
 		messaging.ErrChannelNotFound, messaging.ErrLookupRefused, messaging.ErrDirectoryTooLarge,
 	}
 }
