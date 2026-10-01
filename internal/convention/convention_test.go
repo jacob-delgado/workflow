@@ -523,3 +523,40 @@ func TestRefOfDropsTheHashFromAForgeNumber(t *testing.T) {
 		t.Errorf("RefOf(#42).Key = %q, want 42", ref.Key)
 	}
 }
+
+// mentionedKey is the Jira key the pull request texts below mention.
+const mentionedKey = "OPS-31"
+
+func TestIssueInTextReadsAPullRequestsIssue(t *testing.T) {
+	t.Parallel()
+
+	cases := map[string]struct {
+		text    string
+		want    string
+		tracker convention.Tracker
+	}{
+		"a Jira key in the title": {text: "OPS-31: speed up search", want: mentionedKey, tracker: convention.TrackerJira},
+		"the Jira line workflow writes": {
+			text: "Fix it\n\nJira: [OPS-31](https://jira/browse/OPS-31)", want: mentionedKey, tracker: convention.TrackerJira,
+		},
+		"a closing keyword":     {text: "Speeds it up.\n\nCloses #42", want: "42", tracker: convention.TrackerForge},
+		"a bare mention":        {text: "Follows up on #9.", want: "9", tracker: convention.TrackerForge},
+		"a Jira key wins":       {text: "OPS-31, see #42", want: mentionedKey, tracker: convention.TrackerJira},
+		"an anchor is no issue": {text: "see docs#42 and a&#42;", want: ""},
+		"no issue at all":       {text: "Speed up search", want: ""},
+	}
+
+	for name, tt := range cases {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			// Act
+			got, ok := convention.IssueInText(tt.text, "")
+
+			// Assert
+			if got.Key != tt.want || ok != (tt.want != "") || (ok && got.Tracker != tt.tracker) {
+				t.Errorf("IssueInText(%q) = %+v, %v; want %q of tracker %v", tt.text, got, ok, tt.want, tt.tracker)
+			}
+		})
+	}
+}

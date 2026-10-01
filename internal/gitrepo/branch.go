@@ -79,6 +79,9 @@ type Branch struct {
 	// Truncated is set when the branch has more commits than are kept, so a
 	// reader knows Commits is the oldest of a longer history, not the whole of it.
 	Truncated bool
+	// IssueLink is the issue the branch was linked to by hand, for work begun
+	// on a branch whose name names none; empty when it was never linked.
+	IssueLink string
 }
 
 // PushTarget is the remote branch a push of this one lands on, "fork/feat" for
@@ -163,6 +166,10 @@ func (r Repository) ReadBranch(ctx context.Context) (Branch, error) {
 	err = shownAsTheyAre(branch.Name, branch.Upstream, branch.Base)
 	if err != nil {
 		return Branch{}, err
+	}
+
+	if !branch.Detached {
+		branch.IssueLink = r.IssueLink(ctx, branch.Name)
 	}
 
 	if branch.Upstream != "" {

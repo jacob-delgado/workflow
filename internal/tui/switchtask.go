@@ -11,7 +11,6 @@ import (
 	"charm.land/bubbles/v2/key"
 	tea "charm.land/bubbletea/v2"
 
-	"github.com/jacob-delgado/workflow/internal/convention"
 	"github.com/jacob-delgado/workflow/internal/gitrepo"
 	"github.com/jacob-delgado/workflow/internal/jira"
 	"github.com/jacob-delgado/workflow/internal/loop"
@@ -41,8 +40,10 @@ type taskBranch struct {
 type branchesListed struct {
 	local, remote []string
 	mine          map[jira.Key]bool
-	notAsked      error
-	err           error
+	// links are the branches linked to an issue by hand, by name.
+	links    map[string]string
+	notAsked error
+	err      error
 }
 
 // yours reports whether key names one of your issues.
@@ -91,7 +92,7 @@ func (m Model) taskBranches(listed branchesListed) []taskBranch {
 	var branches []taskBranch
 
 	for _, branch := range listed.candidates() {
-		key, named := convention.IssueKey(branch.name, m.cfg.Jira.Project)
+		key, named := loop.NamedIssue(branch.name, listed.links, m.cfg.Jira.Project)
 		if !named || branch.name == current || !listed.yours(jira.Key(key.Key)) {
 			continue
 		}
@@ -124,7 +125,7 @@ var (
 func (m Model) openBranchPicker() (Model, tea.Cmd) {
 	m.overlay = branchPicker{marks: m.marks, styles: m.styles}
 	lister := branchLister{
-		local: m.deps.Git.Branches, remote: m.deps.Git.RemoteBranches,
+		local: m.deps.Git.Branches, remote: m.deps.Git.RemoteBranches, links: m.deps.Git.IssueLinks,
 		search: m.deps.Jira.SearchLenient, project: m.cfg.Jira.Project,
 	}
 
@@ -137,6 +138,7 @@ func (m Model) openBranchPicker() (Model, tea.Cmd) {
 type branchLister struct {
 	local   func() ([]string, error)
 	remote  func() ([]string, error)
+	links   func() map[string]string
 	search  func(jql string, startAt int) (jira.SearchResult, error)
 	project string
 }
@@ -155,16 +157,27 @@ func (l branchLister) list() branchesListed {
 		return branchesListed{err: err}
 	}
 
+	links := l.linked()
 	if l.search == nil {
-		return branchesListed{local: local, remote: remote}
+		return branchesListed{local: local, remote: remote, links: links}
 	}
 
-	mine, err := loop.AssignedKeys(l.search, l.issueKeys(slices.Concat(local, remote)))
+	mine, err := loop.AssignedKeys(l.search, l.issueKeys(slices.Concat(local, remote), links))
 	if err != nil {
-		return branchesListed{local: local, remote: remote, notAsked: err}
+		return branchesListed{local: local, remote: remote, links: links, notAsked: err}
 	}
 
-	return branchesListed{local: local, remote: remote, mine: mine}
+	return branchesListed{local: local, remote: remote, links: links, mine: mine}
+}
+
+// linked is every branch linked to an issue by hand, or none with no
+// repository to ask.
+func (l branchLister) linked() map[string]string {
+	if l.links == nil {
+		return nil
+	}
+
+	return l.links()
 }
 
 // remoteNames lists the remote's branches, or none with no repository to ask.
@@ -176,12 +189,13 @@ func (l branchLister) remoteNames() ([]string, error) {
 	return l.remote()
 }
 
-// issueKeys is the issue key each of names carries, for those that carry one.
-func (l branchLister) issueKeys(names []string) []jira.Key {
+// issueKeys is the issue each of names is for, by its link in links or its
+// name, for those that are for one.
+func (l branchLister) issueKeys(names []string, links map[string]string) []jira.Key {
 	var keys []jira.Key
 
 	for _, name := range names {
-		if key, named := convention.IssueKey(name, l.project); named {
+		if key, named := loop.NamedIssue(name, links, l.project); named {
 			keys = append(keys, jira.Key(key.Key))
 		}
 	}
@@ -345,14 +359,20 @@ func (msg treeChecked) apply(m Model) (Model, tea.Cmd) {
 		return m.closeOverlay().noticed("dry run: would switch to " + msg.name), nil
 	}
 
-	checkout, name := m.deps.Git.Checkout, msg.name
+	checkout, name, lister := m.deps.Git.Checkout, msg.name, branchLister{links: m.deps.Git.IssueLinks}
 
-	return m, func() tea.Msg { return taskSwitched{name: name, err: checkout(name)} }
+	return m, func() tea.Msg {
+		err := checkout(name)
+
+		return taskSwitched{name: name, link: lister.linked()[name], err: err}
+	}
 }
 
-// taskSwitched reports how switching to a branch went.
+// taskSwitched reports how switching to a branch went, with the issue it was
+// linked to by hand, if it was.
 type taskSwitched struct {
 	name string
+	link string
 	err  error
 }
 
@@ -365,7 +385,7 @@ func (msg taskSwitched) apply(m Model) (Model, tea.Cmd) {
 	}
 
 	m = m.closeOverlay().noticed(m.marks.done + " switched to " + msg.name)
-	if issueKey, named := convention.IssueKey(msg.name, m.cfg.Jira.Project); named {
+	if issueKey, named := loop.NamedIssue(msg.name, map[string]string{msg.name: msg.link}, m.cfg.Jira.Project); named {
 		m.followUp = m.offerStart(m.listedIssue(jira.Key(issueKey.Key)))
 	}
 

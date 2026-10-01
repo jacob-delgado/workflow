@@ -9,7 +9,6 @@ import (
 	"slices"
 
 	"github.com/jacob-delgado/workflow/internal/config"
-	"github.com/jacob-delgado/workflow/internal/convention"
 	"github.com/jacob-delgado/workflow/internal/forge"
 	"github.com/jacob-delgado/workflow/internal/gitrepo"
 	"github.com/jacob-delgado/workflow/internal/jira"
@@ -64,7 +63,7 @@ func ComposeAnnouncement(
 		return messaging.Announcement{}, forge.PullRequest{}, err
 	}
 
-	key, _ := convention.IssueKey(branch.Name, project)
+	key, _, _ := BranchIssue(IssueSource{Branch: branch.Name, Link: branch.IssueLink, Pull: &pull, Project: project})
 	issueKey := jira.Key(key.Key)
 
 	return Announcement(AnnouncementFacts{

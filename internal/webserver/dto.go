@@ -10,6 +10,7 @@ import (
 	"github.com/jacob-delgado/workflow/internal/forge"
 	"github.com/jacob-delgado/workflow/internal/gitrepo"
 	"github.com/jacob-delgado/workflow/internal/jira"
+	"github.com/jacob-delgado/workflow/internal/loop"
 )
 
 // optional carries an empty string to the wire as an absent field rather than an
@@ -117,6 +118,8 @@ type branchListing struct {
 	names  []string
 	remote map[string]bool
 	mine   map[jira.Key]bool
+	// links are the branches linked to an issue by hand, by name.
+	links map[string]string
 }
 
 // taskBranchesDTO maps branch names to the issues they are named for, keeping
@@ -129,7 +132,7 @@ type branchListing struct {
 func taskBranchesDTO(listing branchListing, current, project string) []api.TaskBranch {
 	branches := make([]api.TaskBranch, 0, len(listing.names))
 	for _, name := range listing.names {
-		key, named := convention.IssueKey(name, project)
+		key, named := loop.NamedIssue(name, listing.links, project)
 		if !named || (name != current && listing.mine != nil && !listing.mine[jira.Key(key.Key)]) {
 			continue
 		}

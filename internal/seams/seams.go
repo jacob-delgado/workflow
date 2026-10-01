@@ -96,6 +96,12 @@ type Git struct {
 	// Finish finishes a merged branch: switch to base, fast-forward it, delete
 	// the branch. Nil when there is no repository.
 	Finish func(branch, base string) error
+	// IssueLinks is every branch linked to an issue by hand, by branch name;
+	// LinkIssue links a branch to an issue, and UnlinkIssue forgets its link.
+	// Nil when there is no repository.
+	IssueLinks  func() map[string]string
+	LinkIssue   func(branch, issueKey string) error
+	UnlinkIssue func(branch string) error
 }
 
 // Forge is what a surface asks of GitHub or GitLab.
