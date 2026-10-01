@@ -222,7 +222,7 @@ func runConfigInit(cmd *cobra.Command, path string, opts initOptions) error {
 // writeEmptyLayer writes the repository's file over the home one with nothing
 // in it yet, and says what belongs there.
 func writeEmptyLayer(cmd *cobra.Command, path string, opts initOptions) error {
-	beneath, over, err := config.LoadLayersAt(config.Files{Home: opts.layers.Home})
+	beneath, over, err := homeBeneath(opts.layers)
 	if err != nil {
 		return err
 	}
@@ -241,6 +241,24 @@ func writeEmptyLayer(cmd *cobra.Command, path string, opts initOptions) error {
 		path, config.FileMode, opts.layers.Home, opts.layers.Home)
 
 	return nil
+}
+
+// homeBeneath is the home file's configuration, which config init starts the
+// repository's file from, at the revision of both files: --force replaces the
+// repository's file rather than building on it, yet the save still has to find
+// the pair as it was read.
+func homeBeneath(layers config.Files) (config.Config, config.Revision, error) {
+	over, err := config.RevisionOfLayers(layers)
+	if err != nil {
+		return config.Default(), config.Revision{}, err
+	}
+
+	beneath, _, err := config.LoadLayersAt(config.Files{Home: layers.Home})
+	if err != nil {
+		return config.Default(), config.Revision{}, err
+	}
+
+	return beneath, over, nil
 }
 
 // runGuidedInit asks for each credential, checks the Jira token, saves a
@@ -266,7 +284,7 @@ func runGuidedInit(cmd *cobra.Command, path string, opts initOptions, prompt Pro
 	out := cmd.ErrOrStderr()
 	fmt.Fprintf(out, "Setting up %s. Leave a prompt blank to skip it.\n\n", path)
 
-	cfg, over, err := config.LoadLayersAt(config.Files{Home: opts.layers.Home})
+	cfg, over, err := homeBeneath(opts.layers)
 	if err != nil {
 		return err
 	}

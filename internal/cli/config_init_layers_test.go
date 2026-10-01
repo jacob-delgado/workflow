@@ -11,6 +11,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/jacob-delgado/workflow/internal/cli"
 	"github.com/jacob-delgado/workflow/internal/config"
 )
 
@@ -110,5 +111,41 @@ func TestDoctorNamesEveryFileInEffect(t *testing.T) {
 
 	if err != nil || got.Path != repo || !slices.Equal(got.Files, []string{home, repo}) {
 		t.Errorf("configuration = %+v, %v; want saving to %s, read from %s then %s", got, err, repo, home, repo)
+	}
+}
+
+func TestConfigInitForceOverAHomeFileReplacesTheRepositoryLayer(t *testing.T) {
+	cases := []struct {
+		name, command string
+		prompt        func(t *testing.T) cli.Prompt
+	}{
+		{
+			name:    "template",
+			command: "config init --template --force",
+			prompt:  unusedPrompt,
+		},
+		{
+			name:    "guided",
+			command: "config init --force",
+			prompt:  func(*testing.T) cli.Prompt { return scripted([]string{""}, []string{""}) },
+		},
+	}
+
+	for _, testCase := range cases {
+		t.Run(testCase.name, func(t *testing.T) {
+			// Arrange
+			where := homeAndRepository(t)
+			writeFile(t, where.dir, `{"jira": {"project": "OSS"}}`)
+
+			// Act
+			_, err := runStreamsAt(t, where, testCase.prompt(t), strings.Fields(testCase.command)...)
+
+			// Assert
+			cfg, loadErr := config.Load(where.dir, where.home)
+			if err != nil || loadErr != nil || cfg.Jira.Project != "" || cfg.Jira.Token != "jira-token-home-1234" {
+				t.Errorf("config init = %v; loaded project %q, %v; want the layer replaced over the home file",
+					err, cfg.Jira.Project, loadErr)
+			}
+		})
 	}
 }
