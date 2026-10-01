@@ -284,7 +284,7 @@ func (l issueList) render(marks glyphs, sty styles, rows int, mark func(jira.Key
 	case len(l.found.Unavailable) > 0:
 		missing := failedGlyph(sty, marks) + " not read: " + strings.Join(l.found.Unavailable, ", ")
 
-		return l.listing(marks, sty, rows-1, mark) + "\n" + missing
+		return l.listing(marks, sty, l.listRows(rows), mark) + "\n" + missing
 	}
 
 	return l.listing(marks, sty, rows, mark)
@@ -332,9 +332,10 @@ func (l issueList) listing(marks glyphs, sty styles, rows int, mark func(jira.Ke
 }
 
 // listRows is how many of rows the issues take: all of them, or all but the
-// one a failed search's mark takes beneath them.
+// one a failed search's mark, or a tracker it could not read, takes beneath
+// them.
 func (l issueList) listRows(rows int) int {
-	if l.err != nil {
+	if l.err != nil || len(l.found.Unavailable) > 0 {
 		return rows - 1
 	}
 

@@ -4,6 +4,7 @@
 package tui_test
 
 import (
+	"slices"
 	"testing"
 
 	"github.com/jacob-delgado/workflow/internal/jira"
@@ -69,6 +70,24 @@ func TestTheIssuesListSaysWhenTheForgeCouldNotBeRead(t *testing.T) {
 
 	// Assert
 	requireScreen(t, view, "not read: the forge's issues")
+}
+
+// The "not read" line beneath a scrolled list takes a row from it, so a click
+// has to count the rows the same way the drawing did.
+func TestClickingAScrolledListAboveTheNotReadLineSelectsTheIssueClicked(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	missing := newWorld()
+	missing.issues = manyIssues(40)
+	missing.unavailable = []string{"the forge's issues"}
+	scrolled := typing(t, missing.live(t, 120, 40), slices.Repeat([]string{downAction}, 39)...)
+
+	// Act
+	picked := click(t, scrolled, 5, screenRow(t, scrolled.View().Content, "OPS-30 "))
+
+	// Assert
+	requireScreen(t, picked.View().Content, "▸ ○ OPS-30 ")
 }
 
 func TestTheWherePickerOffersTheForgesIssues(t *testing.T) {
