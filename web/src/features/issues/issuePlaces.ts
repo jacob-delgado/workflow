@@ -125,6 +125,13 @@ function unique(names: string[]): string[] {
 
 // shownKey is an issue's key as the list shows it: a forge issue's number
 // after a #, as the forge writes it, so it reads apart from a Jira key.
-export function shownKey(issue: Issue): string {
+export function shownKey(issue: Pick<Issue, 'key' | 'tracker'>): string {
   return issue.tracker === 'forge' ? `#${issue.key}` : issue.key
+}
+
+// shownLinkKey is the key a branch was linked to by hand, shown as shownKey
+// shows its issue: the link keeps no tracker, but only a forge issue's key is
+// a bare number, as convention.RefOf has it.
+export function shownLinkKey(key: string): string {
+  return shownKey({ key, tracker: /^[1-9][0-9]*$/.test(key) ? 'forge' : 'jira' })
 }

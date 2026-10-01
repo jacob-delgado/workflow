@@ -12,6 +12,7 @@ import type {
   Review,
 } from '@/api/generated/types.gen.ts'
 import { useLiveSnapshot } from '@/api/snapshot.ts'
+import { shownKey } from '@/features/issues/issuePlaces.ts'
 import { Button } from '@/lib/Button.tsx'
 import { useFocusHandback } from '@/lib/focus.ts'
 import { OutcomeLine, useOutcome } from '@/lib/Outcome.tsx'
@@ -396,7 +397,7 @@ const prInputClass =
 // IssueRow names the issue the pull request is for, by its key as its tracker
 // writes it, linked to its page when the tracker gives one.
 function IssueRow({ issue }: { issue: LinkedIssue }) {
-  const shown = issue.tracker === 'forge' ? `#${issue.key}` : issue.key
+  const shown = shownKey(issue)
 
   return (
     <>
