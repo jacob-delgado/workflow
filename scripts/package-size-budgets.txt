@@ -53,12 +53,15 @@ internal/config 16
 # internal/forge — GitHub and GitLab: the client and its transport (client.go,
 # host.go, token.go, reason.go), the remote a repository names (remote.go),
 # pull requests and their templates (pulls.go, templates.go), issues
-# (issues.go), each forge's dialect (github.go, gitlab.go), and CI (ci.go,
+# (issues.go), each forge's dialect (github.go, gitlab.go), CI (ci.go,
 # githubci.go, cijobs.go — a failed pipeline's failed jobs, with their stage and
-# why). One responsibility (speak to the forge) spelled concern-per-file; 13 is
-# cijobs.go, kept out of gitlab.go (near the 500-line target) when CI began to
-# say why a pipeline failed.
-internal/forge 13
+# why), and GitLab's people (members.go — users looked up by name, and a
+# group's active direct members). One responsibility (speak to the forge)
+# spelled concern-per-file; 13 is cijobs.go, kept out of gitlab.go (near the
+# 500-line target) when CI began to say why a pipeline failed; 14 is
+# members.go, which lets a CODEOWNERS group review as its people and took the
+# user lookups out of gitlab.go with it, for the same reason.
+internal/forge 14
 
 # internal/tui — the Bubble Tea interface, one file per pane, overlay and
 # composer. It is a single responsibility (drive the terminal UI) spelled

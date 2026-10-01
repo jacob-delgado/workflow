@@ -108,7 +108,7 @@ type NewPullRequest struct {
 	// cannot add leaves the rest added and ErrSomeReviewersNotAdded returned.
 	Reviewers []string
 	// TeamReviewers are teams named "org/team", asked to review as a team on
-	// GitHub.
+	// GitHub; on GitLab a group stands for its active direct members.
 	TeamReviewers []string
 	Assignees     []string
 	Labels        []string

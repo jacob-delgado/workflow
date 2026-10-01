@@ -133,6 +133,10 @@ type Forge struct {
 	// Author is who the forge credential belongs to, to say who opened a pull
 	// request.
 	Author func() (string, error)
+	// GroupMembers lists a GitLab group's active direct members by username,
+	// the group named by its full path, so a CODEOWNERS group can stand for its
+	// people. Nil on GitHub, whose teams review as teams, and with no forge.
+	GroupMembers func(group string) ([]string, error)
 	// Kind is the forge the remote points at, so a surface can call a change a
 	// "pull request" or a "merge request".
 	Kind forge.Kind

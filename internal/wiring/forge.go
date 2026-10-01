@@ -69,6 +69,7 @@ func mergeSeams(ctx context.Context, connect func() (forgeConnection, error)) (
 // the forge through connect.
 func forgeDeps(ctx context.Context, setup forgeSetup, connect func() (forgeConnection, error)) seams.Forge {
 	merge, mergeMethods := mergeSeams(ctx, connect)
+	kind := ForgeKind(setup.settings(), setup.where.Remote)
 
 	return seams.Forge{
 		FindPullRequest: func(branch string) (forge.PullRequest, bool, error) {
@@ -115,18 +116,44 @@ func forgeDeps(ctx context.Context, setup forgeSetup, connect func() (forgeConne
 
 			return connection.client.ReviewRequests(ctx, connection.repo.Kind)
 		},
-		Templates: func() []forge.Template { return templatesFor(setup.settings(), setup.where) },
-		Author: func() (string, error) {
-			connection, err := connect()
-			if err != nil {
-				return "", err
-			}
+		Templates:    func() []forge.Template { return templatesFor(setup.settings(), setup.where) },
+		Author:       authorSeam(ctx, connect),
+		GroupMembers: groupMembersSeam(ctx, kind, connect),
+		Kind:         kind,
+	}
+}
 
-			identity, err := connection.client.Whoami(ctx)
+// authorSeam is the who-opened-it seam, split out to keep forgeDeps within its
+// length: it connects, then asks the forge who the credential belongs to.
+func authorSeam(ctx context.Context, connect func() (forgeConnection, error)) func() (string, error) {
+	return func() (string, error) {
+		connection, err := connect()
+		if err != nil {
+			return "", err
+		}
 
-			return identity.Name(), err
-		},
-		Kind: ForgeKind(setup.settings(), setup.where.Remote),
+		identity, err := connection.client.Whoami(ctx)
+
+		return identity.Name(), err
+	}
+}
+
+// groupMembersSeam is the list-a-group's-members seam, bound only on GitLab:
+// GitHub has no groups to list, and its teams review as teams.
+func groupMembersSeam(
+	ctx context.Context, kind forge.Kind, connect func() (forgeConnection, error),
+) func(string) ([]string, error) {
+	if kind != forge.KindGitLab {
+		return nil
+	}
+
+	return func(group string) ([]string, error) {
+		connection, err := connect()
+		if err != nil {
+			return nil, err
+		}
+
+		return connection.client.GroupMembers(ctx, group)
 	}
 }
 
