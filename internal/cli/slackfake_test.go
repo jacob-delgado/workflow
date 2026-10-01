@@ -9,6 +9,7 @@ import (
 	"maps"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -111,4 +112,9 @@ func (s *slackFake) post(t *testing.T) string {
 	}
 
 	return s.posted[0]
+}
+
+// untagged reports a post that tags no one on Slack.
+func untagged(post string) bool {
+	return !strings.Contains(post, "<@") && !strings.Contains(post, "<!subteam^")
 }
