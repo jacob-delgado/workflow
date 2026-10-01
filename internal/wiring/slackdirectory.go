@@ -25,9 +25,10 @@ const DirectoryTTL = 10 * time.Minute
 
 // SlackDirectory is the Slack directory as this session has read it: the
 // channels named so far, their members, the workspace's users and its user
-// groups, and which workspace it is. Each is read once however many ask for it at a time, and no lock is
-// held while Slack answers, so Refresh never waits on a read. A read that
-// fails is not held, so it is asked again. While the settings in effect post
+// groups, and which workspace it is. Each is read once however many ask for
+// it at a time, and held for DirectoryTTL from when Slack answered it; no
+// lock is held while Slack answers, so Refresh never waits on a read. A read
+// that fails is not held, so it is asked again. While the settings in effect post
 // with no Slack user token, every read answers messaging.ErrNoCredential and
 // nothing is held, so a surface reads tagging as unavailable until a token is
 // set up, and then reads the directory afresh.
@@ -39,9 +40,8 @@ type SlackDirectory struct {
 	client func() (messaging.Client, error)
 	now    func() time.Time
 
-	lock     sync.Mutex
-	readFrom time.Time
-	held     *heldReads
+	lock sync.Mutex
+	held *heldReads
 }
 
 // heldReads is one generation of the directory: every read begun since it was
@@ -74,11 +74,24 @@ type profile struct {
 const wholeDirectory = ""
 
 // flight is one read from Slack, shared by everyone who asks while it runs
-// and after: value and err are set before done closes.
+// and after, until DirectoryTTL has passed since it was answered: value, err
+// and answeredAt are set before done closes.
 type flight[V any] struct {
-	done  chan struct{}
-	value V
-	err   error
+	done       chan struct{}
+	value      V
+	err        error
+	answeredAt time.Time
+}
+
+// expired reports a read answered DirectoryTTL or more before now. One still
+// in flight has not expired.
+func (f *flight[V]) expired(now time.Time) bool {
+	select {
+	case <-f.done:
+		return now.Sub(f.answeredAt) >= DirectoryTTL
+	default:
+		return false
+	}
 }
 
 // NewSlackDirectory is an empty directory reading through client, which is
@@ -288,10 +301,6 @@ func (d *SlackDirectory) begin() (messaging.Client, *heldReads, error) {
 		return messaging.Client{}, nil, err
 	}
 
-	if d.now().Sub(d.readFrom) >= DirectoryTTL {
-		d.forget()
-	}
-
 	return client, d.held, nil
 }
 
@@ -305,6 +314,10 @@ func shared[V any](
 	directory.lock.Lock()
 	current, inFlight := held[key]
 
+	if inFlight && current.expired(directory.now()) {
+		inFlight = false
+	}
+
 	if !inFlight {
 		current = &flight[V]{done: make(chan struct{})}
 		held[key] = current
@@ -313,6 +326,7 @@ func shared[V any](
 
 	if !inFlight {
 		current.value, current.err = read(ctx)
+		current.answeredAt = directory.now()
 		close(current.done)
 
 		if current.err != nil {
@@ -340,10 +354,8 @@ func drop[V any](directory *SlackDirectory, held map[string]*flight[V], key stri
 	}
 }
 
-// forget starts a new generation, empty, and its time over. The caller holds
-// the lock.
+// forget starts a new generation, empty. The caller holds the lock.
 func (d *SlackDirectory) forget() {
-	d.readFrom = d.now()
 	d.held = &heldReads{
 		channels: map[string]*flight[string]{},
 		members:  map[string]*flight[[]messaging.SlackUserID]{},
