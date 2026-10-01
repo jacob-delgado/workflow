@@ -203,7 +203,7 @@ export const unlinkBranchIssue = <ThrowOnError extends boolean = false>(options?
 /**
  * Link the checked-out branch to an issue, for work begun outside workflow.
  *
- * Keeps the issue in the repository's git configuration, so a branch whose name names no issue is for it from then on. With update_pull, the line naming the issue is added to the description of the pull request open from the branch, as workflow writes it on a pull request it opens, unless the description already names the issue.
+ * Keeps the issue in the repository's git configuration, so a branch whose name names no issue is for it from then on. With update_pull, the line naming the issue is added to the description of the pull request open from the branch, as workflow writes it on a pull request it opens, unless the description already names the issue. The description is changed first, so a forge that refuses the change leaves the branch unlinked; a link that then could not be kept is answered as such, and asking again is safe.
  */
 export const linkBranchIssue = <ThrowOnError extends boolean = false>(options: Options<LinkBranchIssueData, ThrowOnError>): RequestResult<LinkBranchIssueResponses, LinkBranchIssueErrors, ThrowOnError> => (options.client ?? client).put<LinkBranchIssueResponses, LinkBranchIssueErrors, ThrowOnError>({
     responseValidator: async (data) => await zLinkBranchIssueResponse.parseAsync(data),
