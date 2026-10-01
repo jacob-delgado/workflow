@@ -59,8 +59,11 @@ back: in the macOS keychain, or in ` + config.FileName + ` on Linux and Windows 
 when the file already holds them. The client ID is written to ` + config.FileName + `.
 
 The app needs token rotation turned on and the chat:write user token scope.
-workflow refreshes the token before its twelve hours run out, and keeps each new
-one where this put the first.`,
+Tagging people and user groups in an announcement is optional and also needs
+users:read, channels:read, groups:read and usergroups:read; without them the
+announcement posts untagged and says which scope to add. workflow refreshes the
+token before its twelve hours run out, and keeps each new one where this put
+the first.`,
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			conn, err := connect(cmd)

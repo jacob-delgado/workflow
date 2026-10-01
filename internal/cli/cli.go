@@ -84,7 +84,9 @@ MESSAGING — SLACK, TEAMS, DISCORD OR A PLAIN WEBHOOK
 
   1. Go to https://api.slack.com/apps and create an app in your workspace.
   2. Under OAuth & Permissions, add the chat:write user token scope, and turn
-     on token rotation.
+     on token rotation. Tagging reviewers and user groups is optional and also
+     needs users:read, channels:read, groups:read and usergroups:read; without
+     them an announcement posts untagged.
   3. Install the app to the workspace. Its access token starts "xoxe.xoxp-"
      and lasts twelve hours; its refresh token starts "xoxe-1-".
   4. Set messaging.channel, then run "workflow slack login" with the app's

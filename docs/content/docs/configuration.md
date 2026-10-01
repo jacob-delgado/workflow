@@ -328,7 +328,12 @@ for you before it runs out, and keeps each new pair.
    workspace.
 2. Under **OAuth & Permissions**, add the `chat:write` **user** token scope,
    and turn on **token rotation**. Slack does not let rotation be turned off
-   again.
+   again. Tagging reviewers and user groups in an announcement is optional and
+   needs four more user token scopes: `users:read` and `channels:read` (and
+   `groups:read` for a private channel) to match people to the channel, and
+   `usergroups:read` to offer user groups. Without them the announcement posts
+   untagged and names the scope to add; a token issued before you add them must
+   be issued again, by reinstalling the app and running `workflow slack login`.
 3. Install the app to the workspace. Copy the **refresh token** it gives, and
    the app's **Client ID** and **Client Secret** from **Basic Information**.
 4. Set `messaging.channel` to a channel you are in, then run:
