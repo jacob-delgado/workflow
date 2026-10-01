@@ -248,7 +248,8 @@ interface PullRequestFields {
 }
 
 // PullRequestForm is the composed pull request, editable, opening on its title,
-// with a confirm that opens it and a cancel. It is disabled while the open is in
+// its reviewers pre-filled with the code owners the draft proposes, with a
+// confirm that opens it and a cancel. It is disabled while the open is in
 // flight, so a second click cannot open a second pull request.
 function PullRequestForm({
   draft,
@@ -270,7 +271,7 @@ function PullRequestForm({
       base: draft.base,
       body: draft.body,
       draft: draft.draft,
-      reviewers: '',
+      reviewers: draft.reviewers.join(', '),
       assignees: '',
       labels: '',
     },
@@ -354,7 +355,7 @@ function ProposalFields({ register }: { register: UseFormRegister<PullRequestFie
         Reviewers
         <input
           {...register('reviewers')}
-          placeholder="comma-separated usernames"
+          placeholder="comma-separated usernames or org/team"
           className={prInputClass}
         />
       </label>
