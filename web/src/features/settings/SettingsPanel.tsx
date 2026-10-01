@@ -20,13 +20,15 @@ import { MessagingFieldset } from './fieldsets/MessagingFieldset.tsx'
 import { PullRequestFieldset, StoreFieldset } from './fieldsets/PullRequestAndStoreFieldsets.tsx'
 import { TaskwarriorFieldset } from './fieldsets/TaskwarriorFieldset.tsx'
 import { LocalData } from './people/LocalData.tsx'
+import { PeopleAndGroups } from './people/PeopleAndGroups.tsx'
 
 // SettingsPanel is the configuration form, and below it the areas that save on
-// their own rather than with the file: the local data.
+// their own rather than with the file: people and groups, and the local data.
 export function SettingsPanel() {
   return (
     <div className="flex flex-col gap-section">
       <ConfigArea />
+      <PeopleAndGroups />
       <LocalData />
     </div>
   )

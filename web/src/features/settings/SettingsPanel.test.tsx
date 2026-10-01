@@ -457,3 +457,19 @@ test('shows the local data under its own heading below the configuration', async
   expect(save.compareDocumentPosition(heading) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
   expect(await screen.findByRole('table', { name: 'Local databases' })).toBeTruthy()
 })
+
+test('shows people and groups between the configuration and the local data', async () => {
+  // Arrange
+  vi.stubEnv('VITE_MOCK', 'true')
+
+  // Act
+  renderWithClient(<SettingsPanel />)
+
+  // Assert
+  const people = await screen.findByRole('heading', { level: 2, name: 'People and groups' })
+  const local = await screen.findByRole('heading', { level: 2, name: 'Local data' })
+  const save = await screen.findByRole('button', { name: 'Save changes' })
+  expect(save.compareDocumentPosition(people) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+  expect(people.compareDocumentPosition(local) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+  expect(await screen.findByRole('table', { name: 'Code owners on Slack' })).toBeTruthy()
+})

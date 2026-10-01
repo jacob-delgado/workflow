@@ -61,6 +61,20 @@ const confirmSteps = [
       'Announce now',
     ],
   },
+  {
+    step: 'forget confirmation in People and groups',
+    section: 'Settings',
+    opener: 'Forget carla…',
+    group: 'Forget carla?',
+    adds: ['Cancel', 'Forget'],
+  },
+  {
+    step: 'clean confirmation in Local data',
+    section: 'Settings',
+    opener: 'Clean cache…',
+    group: 'Remove workflow.db?',
+    adds: ['Cancel', 'Clean'],
+  },
 ]
 
 for (const theme of themes) {
