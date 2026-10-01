@@ -110,6 +110,23 @@ func TestAPullRequestThatCannotBeEditedLeavesTheBranchUnlinked(t *testing.T) {
 	}
 }
 
+// A merged pull request is done with: linking the branch offers nothing on it,
+// as with no pull request at all.
+func TestLinkingABranchWhosePullRequestMergedOffersNoPullRequestLink(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	repo := onOffConventionBranch(true)
+	repo.pull.State = forge.StateMerged
+
+	// Act
+	view := typing(t, repo.live(t, 120, 40), "2", "i", keyEnter).View().Content
+
+	// Assert
+	requireScreen(t, view, "linked my-thing to "+issueKey)
+	refuseScreen(t, view, "Link on "+issueKey)
+}
+
 func TestTheReviewPaneNamesTheIssueTheBranchWasLinkedTo(t *testing.T) {
 	t.Parallel()
 

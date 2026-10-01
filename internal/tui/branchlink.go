@@ -56,9 +56,18 @@ func (m Model) openBranchLink() (Model, tea.Cmd) {
 		start = shownKey(selected.Key)
 	}
 
+	// A merged or closed pull request stays out of the form, so linking the
+	// branch neither edits its description nor offers it on the issue.
+	var pull forge.PullRequest
+
+	hasPull := m.review.found && m.review.pull.IsOpen()
+	if hasPull {
+		pull = m.review.pull
+	}
+
 	m.overlay = branchLinker{
 		marks: m.marks, styles: m.styles, vocab: m.vocab, branch: m.branch.branch.Name,
-		pull: m.review.pull, hasPull: m.review.found && m.review.pull.IsOpen(), input: newInput(start),
+		pull: pull, hasPull: hasPull, input: newInput(start),
 	}
 
 	return m, nil
