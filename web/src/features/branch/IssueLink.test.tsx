@@ -188,3 +188,72 @@ test('says a forge issue was linked by its number as the forge writes it', async
   // Assert
   expect(await screen.findByText('Linked my-thing to #42.')).toBeTruthy()
 })
+
+test('canceling the link hands focus back to Link an issue', async () => {
+  // Arrange
+  onBranch()
+  fakeApi({})
+  const user = userEvent.setup()
+  render(<BranchPanel />)
+  await user.click(screen.getByRole('button', { name: 'Link an issue' }))
+
+  // Act
+  await user.click(screen.getByRole('button', { name: 'Cancel' }))
+
+  // Assert
+  expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Link an issue' }))
+})
+
+test('once linked, shows the link with focus on Unlink before the stream reports it', async () => {
+  // Arrange
+  onBranch()
+  fakeApi({
+    [previewPath]: { key: 'PROJ-7', pull: 0, body: '', changes: false },
+    [linkPath]: makeBranch({ name: 'my-thing', issue_link: 'PROJ-7' }),
+  })
+  const user = userEvent.setup()
+  render(<BranchPanel />)
+  await user.click(screen.getByRole('button', { name: 'Link an issue' }))
+  await user.type(screen.getByRole('textbox', { name: 'Issue' }), 'PROJ-7')
+
+  // Act
+  await user.click(screen.getByRole('button', { name: 'Link' }))
+
+  // Assert
+  const unlink = await screen.findByRole('button', { name: 'Unlink PROJ-7' })
+  expect(document.activeElement).toBe(unlink)
+  expect(screen.queryByRole('button', { name: 'Link an issue' })).toBeNull()
+})
+
+test('once unlinked, offers Link an issue with focus before the stream reports it', async () => {
+  // Arrange
+  onBranch('PROJ-7')
+  fakeApi({ [linkPath]: makeBranch({ name: 'my-thing' }) })
+  const user = userEvent.setup()
+  render(<BranchPanel />)
+
+  // Act
+  await user.click(screen.getByRole('button', { name: 'Unlink PROJ-7' }))
+
+  // Assert
+  const offer = await screen.findByRole('button', { name: 'Link an issue' })
+  expect(document.activeElement).toBe(offer)
+  expect(screen.queryByRole('button', { name: 'Unlink PROJ-7' })).toBeNull()
+})
+
+test('a refused unlink says so, with focus still on Unlink', async () => {
+  // Arrange
+  onBranch('PROJ-7')
+  fakeApi({ [linkPath]: () => new Response('', { status: 500 }) })
+  const user = userEvent.setup()
+  render(<BranchPanel />)
+
+  // Act
+  await user.click(screen.getByRole('button', { name: 'Unlink PROJ-7' }))
+
+  // Assert
+  expect((await screen.findByRole('alert')).textContent).toBe(
+    'The link was not forgotten. Try again.',
+  )
+  expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Unlink PROJ-7' }))
+})
