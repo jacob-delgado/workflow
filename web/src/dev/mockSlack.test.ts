@@ -1,14 +1,15 @@
 import { beforeEach, vi } from 'vitest'
 
-// The mockup's Slack refuses a link the server would, and lists each
-// channel's own members.
+// The mockup's Slack refuses a link the server would, and forgets what a
+// clean of everything removes.
 
 // fresh is the mock modules as a page load finds them.
 async function fresh() {
   const slack = await import('./mockSlack.ts')
+  const localData = await import('./mockLocalData.ts')
   const { apiErrorMessage } = await import('@/api/apiError.ts')
 
-  return { ...slack, apiErrorMessage }
+  return { ...slack, ...localData, apiErrorMessage }
 }
 
 beforeEach(() => {
@@ -87,4 +88,16 @@ test('each channel has its own members', async () => {
 
   // Assert
   expect(releases).toEqual(['Ana Souza', 'Erin Park'])
+})
+
+test('cleaning everything forgets the people and the groups', async () => {
+  // Arrange
+  const { mockCleanLocalData, mockPeople, mockRepoGroups } = await fresh()
+
+  // Act
+  mockCleanLocalData('all')
+
+  // Assert
+  expect(mockPeople().owners.every((owner) => owner.state === 'unlinked')).toBe(true)
+  expect(mockRepoGroups().groups).toEqual([])
 })

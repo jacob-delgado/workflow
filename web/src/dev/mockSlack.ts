@@ -119,6 +119,13 @@ function listed(link: PersonLink, kind: OwnerTag['kind']): SlackTarget {
   return found
 }
 
+// mockForgetAll forgets every decision and the repository's groups, as a
+// clean of everything removes the kept file.
+export function mockForgetAll(): void {
+  held.decided = []
+  held.repoGroups = []
+}
+
 // mockForgetPerson forgets what was decided for owner.
 export function mockForgetPerson(owner: string): People {
   held.decided = held.decided.filter((decided) => decided.owner !== owner)
