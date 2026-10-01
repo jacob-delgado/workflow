@@ -437,8 +437,12 @@ func (s *server) currentCheck(checkID string) (forge.Check, error) {
 	}
 
 	pull, found, err := s.deps.FindPull(branch.Name)
-	if err != nil || !found {
-		return forge.Check{}, errors.Join(err, errNoSuchCheck)
+	if err != nil {
+		return forge.Check{}, err
+	}
+
+	if !found {
+		return forge.Check{}, errNoSuchCheck
 	}
 
 	status, err := s.deps.CheckCI(pull, branch.Head)
