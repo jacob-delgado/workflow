@@ -106,8 +106,11 @@ type NewPullRequest struct {
 	// GitLab at creation — but a failure to add them never discards a pull
 	// request already opened.
 	Reviewers []string
-	Assignees []string
-	Labels    []string
+	// TeamReviewers are teams named "org/team", asked to review as a team on
+	// GitHub.
+	TeamReviewers []string
+	Assignees     []string
+	Labels        []string
 }
 
 // Opened reports whether this is a pull request the forge created, told from
