@@ -133,7 +133,9 @@ stage it ran in and why it failed, and **Show log** reads the end of its log
 when the forge keeps one. With no pull request for the branch, **Open a pull request**
 composes one as `workflow pr` would and shows it as a form: the title, the
 base, the reviewers, assignees and labels, the description, and whether it is
-a draft. **Open pull request** pushes the branch first when it is not
+a draft. The reviewers start as the code owners of the paths the branch
+changes, as the base's CODEOWNERS names them, leaving you out; a team is
+written `org/team` and is requested as a team. **Open pull request** pushes the branch first when it is not
 published, then opens it. If the forge would not add every reviewer, assignee
 or label, a warning says so.
 
