@@ -88,9 +88,9 @@ function IssueBrowser({ streamed, branches, tasks }: IssueBrowserProps) {
         <p role="status" className="text-sm text-muted-foreground">
           {filterOutcome(filter !== '' || places.length > 0, shown.length, loaded.length)}
         </p>
-        {streamed.unavailable.length > 0 && (
-          <p className="text-sm text-destructive">Not read: {streamed.unavailable.join(', ')}.</p>
-        )}
+        <p role="status" className="text-sm text-destructive empty:sr-only">
+          {streamed.unavailable.length > 0 ? `Not read: ${streamed.unavailable.join(', ')}.` : ''}
+        </p>
         <OutcomeLine said={outcome.said} />
       </div>
       {switching ? (

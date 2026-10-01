@@ -525,5 +525,9 @@ test("the list says which tracker's issues could not be read", () => {
   renderWithClient(<IssuesPanel />)
 
   // Assert
-  expect(screen.getByText("Not read: the forge's issues.")).toBeTruthy()
+  expect(
+    screen
+      .getAllByRole('status')
+      .some((line) => line.textContent === "Not read: the forge's issues."),
+  ).toBe(true)
 })
