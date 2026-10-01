@@ -140,6 +140,7 @@ var (
 	_ applier = repoGroupsListed{}
 	_ applier = directoryRefreshed{}
 	_ applier = peopleSaved{}
+	_ applier = repoGroupsSaved{}
 	_ applier = hooksFound{}
 	_ applier = hooksWritten{}
 	_ applier = taskActed{}

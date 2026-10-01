@@ -145,7 +145,7 @@ func TestARefusalStaysPinnedInPeople(t *testing.T) {
 	}{
 		"forgetting":     {arrange: func(s *slackWorld) { s.forgetErr = errDirectoryDown }, keys: []string{"d"}},
 		"not on Slack":   {arrange: func(s *slackWorld) { s.linkErr = errDirectoryDown }, keys: []string{"x"}},
-		"saving groups":  {arrange: func(s *slackWorld) { s.setErr = errDirectoryDown }, keys: []string{keyTab, keyEnter}},
+		"saving groups":  {arrange: func(s *slackWorld) { s.setErr = errDirectoryDown }, keys: []string{keyTab, keySpace}},
 		"reading people": {arrange: func(s *slackWorld) { s.linksErr = errDirectoryDown }, keys: nil},
 	}
 
@@ -176,13 +176,13 @@ func TestGroupsChoosesWhichUserGroupsTheRepositoryTags(t *testing.T) {
 	groups := typing(t, openPeople(t, tagging), keyTab)
 
 	// Assert: the API reviewers are this repository's already
-	requireScreen(t, groups.View().Content, "○ @control-plane-pod", "● @api-reviewers", "enter save",
+	requireScreen(t, groups.View().Content, "○ @control-plane-pod", "● @api-reviewers", "space tag",
 		"r refresh directory")
 
-	// Act: check the pod, and save
-	saved := typing(t, groups, keySpace, keyEnter)
+	// Act: check the pod
+	saved := typing(t, groups, keySpace)
 
-	// Assert: both are saved, in the order Slack lists them
+	// Assert: both are saved at once, in the order Slack lists them
 	if calls := tagging.asked("set-repo-groups "); len(calls) != 1 || calls[0] != "set-repo-groups "+podID+","+apiID {
 		t.Fatalf("saves = %q, want the pod and the API reviewers", calls)
 	}
@@ -198,7 +198,7 @@ func TestGroupsKeepsARepositoryGroupSlackNoLongerLists(t *testing.T) {
 	tagging.slack.repoGroups = []loop.SlackTarget{{ID: "S0GONE", Label: "gone"}}
 
 	// Act
-	saved := typing(t, openPeople(t, tagging), keyTab, "down", "down", keySpace, "up", "down", keyEnter)
+	saved := typing(t, openPeople(t, tagging), keyTab, "down", "down", keySpace, "up", "down")
 
 	// Assert
 	if calls := tagging.asked("set-repo-groups "); len(calls) != 1 || calls[0] != "set-repo-groups " {

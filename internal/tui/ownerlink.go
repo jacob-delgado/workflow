@@ -184,7 +184,7 @@ func (msg ownerLinked) apply(m Model) (Model, tea.Cmd) {
 		return m.withBeneath(preview), nil
 	}
 
-	return peopleSaved{opened: msg.opened, saved: "", err: msg.err}.apply(m)
+	return peopleSaved{opened: msg.opened, err: msg.err}.apply(m)
 }
 
 // slackName is how a Slack user or group is shown: a group with its @.
