@@ -230,6 +230,53 @@ paths:
               schema: {$ref: "#/components/schemas/Problem"}
         default: {$ref: "#/components/responses/Problem"}
 
+  /api/issues/{key}/comment:
+    post:
+      operationId: addComment
+      summary: Comment on a Jira issue.
+      description: >-
+        Posts a comment on the issue, as the terminal interface's c does, and
+        answers the comment as Jira stored it. With jira.markdown_comments on,
+        the text is written as Markdown and posted as Jira's wiki markup;
+        otherwise it is posted as it is, and Jira reads it as wiki markup. It
+        is refused with 404 when Jira has no such issue, and 422 when no Jira
+        is configured, the key names one of the forge's issues, the text is
+        blank, or Jira refuses the comment. Under --dry-run it is refused with
+        a plain-text 403 and nothing is sent.
+      tags: [issues]
+      parameters:
+        - name: key
+          in: path
+          required: true
+          description: The Jira issue to comment on, such as PROJ-412.
+          schema: {type: string}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CommentRequest"
+      responses:
+        "200":
+          description: The comment, as Jira stored it.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Comment"
+        "404":
+          description: Jira has no such issue; nothing was posted.
+          content:
+            application/problem+json:
+              schema: {$ref: "#/components/schemas/Problem"}
+        "422":
+          description: >-
+            Commenting is not available, the issue is the forge's, the text is
+            blank, or Jira refused the comment; nothing was posted.
+          content:
+            application/problem+json:
+              schema: {$ref: "#/components/schemas/Problem"}
+        default: {$ref: "#/components/responses/Problem"}
+
   /api/branch:
     get:
       operationId: getBranch
@@ -2329,6 +2376,19 @@ components:
           type: string
           format: date-time
           description: RFC 3339; the zero time if the tracker's date was unreadable.
+      additionalProperties: false
+
+    CommentRequest:
+      type: object
+      description: A comment to post on an issue.
+      required: [text]
+      properties:
+        text:
+          type: string
+          minLength: 1
+          description: >-
+            The comment, written as Markdown when jira.markdown_comments is on
+            and as Jira wiki markup otherwise.
       additionalProperties: false
 
     Branch:

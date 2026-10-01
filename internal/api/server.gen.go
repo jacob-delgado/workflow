@@ -63,6 +63,9 @@ type ServerInterface interface {
 	// GetIssue One issue in full, with its comments.
 	// (GET /api/issues/{key})
 	GetIssue(w http.ResponseWriter, r *http.Request, key string)
+	// AddComment Comment on a Jira issue.
+	// (POST /api/issues/{key}/comment)
+	AddComment(w http.ResponseWriter, r *http.Request, key string)
 	// LinkPullRequest Link the checked-out branch's pull request on its issue.
 	// (POST /api/issues/{key}/link)
 	LinkPullRequest(w http.ResponseWriter, r *http.Request, key string)
@@ -477,6 +480,32 @@ func (siw *ServerInterfaceWrapper) GetIssue(w http.ResponseWriter, r *http.Reque
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.GetIssue(w, r, key)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// AddComment operation middleware
+func (siw *ServerInterfaceWrapper) AddComment(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "key" -------------
+	var key string
+
+	err = runtime.BindStyledParameterWithOptions("simple", "key", r.PathValue("key"), &key, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "key", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.AddComment(w, r, key)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -1199,6 +1228,7 @@ func HandlerWithOptions(si ServerInterface, options StdHTTPServerOptions) http.H
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/issues/{key}", wrapper.GetIssue)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/api/issues/{key}/link", wrapper.LinkPullRequest)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/api/issues/{key}/transition", wrapper.TransitionIssue)
+	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/api/issues/{key}/comment", wrapper.AddComment)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/branch", wrapper.GetBranch)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/changes", wrapper.ListChanges)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/api/stage", wrapper.Stage)
@@ -2111,6 +2141,74 @@ type GetIssuedefaultApplicationProblemPlusJSONResponse struct {
 }
 
 func (response GetIssuedefaultApplicationProblemPlusJSONResponse) VisitGetIssueResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type AddCommentRequestObject struct {
+	Key  string `json:"key"`
+	Body *AddCommentJSONRequestBody
+}
+
+type AddCommentResponseObject interface {
+	VisitAddCommentResponse(w http.ResponseWriter) error
+}
+
+type AddComment200JSONResponse Comment
+
+func (response AddComment200JSONResponse) VisitAddCommentResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type AddComment404ApplicationProblemPlusJSONResponse Problem
+
+func (response AddComment404ApplicationProblemPlusJSONResponse) VisitAddCommentResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type AddComment422ApplicationProblemPlusJSONResponse Problem
+
+func (response AddComment422ApplicationProblemPlusJSONResponse) VisitAddCommentResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(422)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type AddCommentdefaultApplicationProblemPlusJSONResponse struct {
+	Body       Problem
+	StatusCode int
+}
+
+func (response AddCommentdefaultApplicationProblemPlusJSONResponse) VisitAddCommentResponse(w http.ResponseWriter) error {
 
 	var buf bytes.Buffer
 	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
@@ -3941,6 +4039,9 @@ type StrictServerInterface interface {
 	// GetIssue One issue in full, with its comments.
 	// (GET /api/issues/{key})
 	GetIssue(ctx context.Context, request GetIssueRequestObject) (GetIssueResponseObject, error)
+	// AddComment Comment on a Jira issue.
+	// (POST /api/issues/{key}/comment)
+	AddComment(ctx context.Context, request AddCommentRequestObject) (AddCommentResponseObject, error)
 	// LinkPullRequest Link the checked-out branch's pull request on its issue.
 	// (POST /api/issues/{key}/link)
 	LinkPullRequest(ctx context.Context, request LinkPullRequestRequestObject) (LinkPullRequestResponseObject, error)
@@ -4480,6 +4581,39 @@ func (sh *strictHandler) GetIssue(w http.ResponseWriter, r *http.Request, key st
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
 	} else if validResponse, ok := response.(GetIssueResponseObject); ok {
 		if err := validResponse.VisitGetIssueResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// AddComment operation middleware
+func (sh *strictHandler) AddComment(w http.ResponseWriter, r *http.Request, key string) {
+	var request AddCommentRequestObject
+
+	request.Key = key
+
+	var body AddCommentJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.AddComment(ctx, request.(AddCommentRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "AddComment")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(AddCommentResponseObject); ok {
+		if err := validResponse.VisitAddCommentResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {

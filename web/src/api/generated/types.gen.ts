@@ -571,6 +571,16 @@ export type Comment = {
     created: string;
 };
 
+/**
+ * A comment to post on an issue.
+ */
+export type CommentRequest = {
+    /**
+     * The comment, written as Markdown when jira.markdown_comments is on and as Jira wiki markup otherwise.
+     */
+    text: string;
+};
+
 export type Branch = {
     name: string;
     /**
@@ -1353,6 +1363,44 @@ export type TransitionIssueResponses = {
 };
 
 export type TransitionIssueResponse = TransitionIssueResponses[keyof TransitionIssueResponses];
+
+export type AddCommentData = {
+    body: CommentRequest;
+    path: {
+        /**
+         * The Jira issue to comment on, such as PROJ-412.
+         */
+        key: string;
+    };
+    query?: never;
+    url: '/api/issues/{key}/comment';
+};
+
+export type AddCommentErrors = {
+    /**
+     * Jira has no such issue; nothing was posted.
+     */
+    404: Problem;
+    /**
+     * Commenting is not available, the issue is the forge's, the text is blank, or Jira refused the comment; nothing was posted.
+     */
+    422: Problem;
+    /**
+     * An RFC 9457 problem details object describing the failure.
+     */
+    default: Problem;
+};
+
+export type AddCommentError = AddCommentErrors[keyof AddCommentErrors];
+
+export type AddCommentResponses = {
+    /**
+     * The comment, as Jira stored it.
+     */
+    200: Comment;
+};
+
+export type AddCommentResponse = AddCommentResponses[keyof AddCommentResponses];
 
 export type GetBranchData = {
     body?: never;

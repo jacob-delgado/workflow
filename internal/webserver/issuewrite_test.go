@@ -416,3 +416,159 @@ func TestUnreachableJiraDetailOmitsItsHost(t *testing.T) {
 		})
 	}
 }
+
+// commentPath is where a comment on testKey is posted.
+const commentPath = "/api/issues/" + testKey + "/comment"
+
+// commentCall is what a comment seam was asked to post.
+type commentCall struct {
+	issueKey jira.Key
+	text     string
+}
+
+// commentingDeps is filledDeps with a comment seam that records what it was
+// asked and answers it as Jira would store it.
+func commentingDeps(comments *[]commentCall) webserver.Deps {
+	deps := filledDeps()
+	deps.Comment = func(issueKey jira.Key, text string) (jira.Comment, error) {
+		*comments = append(*comments, commentCall{issueKey: issueKey, text: text})
+
+		return jira.Comment{Author: "Ana Lima", Body: text}, nil
+	}
+
+	return deps
+}
+
+// postComment posts a comment request body to path on a server over deps.
+func postComment(t *testing.T, deps webserver.Deps, path, body string) *httptest.ResponseRecorder {
+	t.Helper()
+
+	return send(t, serve(t, deps, config.Default()), http.MethodPost, path, body)
+}
+
+func TestACommentIsPostedAndAnsweredAsJiraStoredIt(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	var comments []commentCall
+
+	deps := commentingDeps(&comments)
+
+	// Act
+	recorder := postComment(t, deps, commentPath, `{"text":"Looks good *to me*"}`)
+
+	// Assert
+	if recorder.Code != http.StatusOK {
+		t.Fatalf("status = %d (%s), want 200", recorder.Code, recorder.Body.String())
+	}
+
+	want := commentCall{issueKey: testKey, text: "Looks good *to me*"}
+	if len(comments) != 1 || comments[0] != want {
+		t.Errorf("comments = %+v, want %+v posted once", comments, want)
+	}
+
+	if posted := decode[api.Comment](t, recorder); posted.Author != "Ana Lima" || posted.Body != want.text {
+		t.Errorf("answer = %+v, want the comment as Jira stored it", posted)
+	}
+}
+
+func TestACommentIsRefusedWhereItCannotBePosted(t *testing.T) {
+	t.Parallel()
+
+	cases := map[string]struct {
+		unwire func(*webserver.Deps)
+		path   string
+		body   string
+	}{
+		"blank text":    {path: commentPath, body: `{"text":"  \n\t "}`},
+		"a forge issue": {path: "/api/issues/42/comment", body: `{"text":"hi"}`},
+		"no Jira to reach": {
+			unwire: func(deps *webserver.Deps) { deps.Comment = nil },
+			path:   commentPath,
+			body:   `{"text":"hi"}`,
+		},
+	}
+
+	for name, tt := range cases {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			// Arrange
+			var comments []commentCall
+
+			deps := commentingDeps(&comments)
+			if tt.unwire != nil {
+				tt.unwire(&deps)
+			}
+
+			// Act
+			recorder := postComment(t, deps, tt.path, tt.body)
+
+			// Assert
+			failure := decode[api.Problem](t, recorder)
+			if recorder.Code != http.StatusUnprocessableEntity || failure.Code != api.Unprocessable || len(comments) != 0 {
+				t.Errorf("status/code = %d/%s, comments = %+v; want 422/unprocessable and nothing posted",
+					recorder.Code, failure.Code, comments)
+			}
+		})
+	}
+}
+
+func TestACommentJiraCannotTakeSaysWhyWithoutItsHost(t *testing.T) {
+	t.Parallel()
+
+	// failing is a Jira error that names the tracker's address, as Jira's do.
+	failing := func(cause error) error { return fmt.Errorf("%w: https://%s/rest/api/2/issue", cause, jiraHost) }
+	cases := map[string]struct {
+		err    error
+		status int
+		code   api.ProblemCode
+	}{
+		"no such issue": {err: failing(jira.ErrNotFound), status: http.StatusNotFound, code: api.NotFound},
+		"refused": {
+			err: failing(jira.ErrRejected), status: http.StatusUnprocessableEntity, code: api.Unprocessable,
+		},
+		"unreachable": {err: failing(jira.ErrUnreachable), status: http.StatusBadGateway, code: api.Unreachable},
+	}
+
+	for name, tt := range cases {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			// Arrange
+			deps := filledDeps()
+			deps.Comment = func(jira.Key, string) (jira.Comment, error) { return jira.Comment{}, tt.err }
+
+			// Act
+			recorder := postComment(t, deps, commentPath, `{"text":"hi"}`)
+
+			// Assert
+			failure := decode[api.Problem](t, recorder)
+			if recorder.Code != tt.status || failure.Code != tt.code {
+				t.Errorf("status/code = %d/%s, want %d/%s", recorder.Code, failure.Code, tt.status, tt.code)
+			}
+
+			if strings.Contains(recorder.Body.String(), jiraHost) {
+				t.Errorf("body = %q, leaks the Jira host", recorder.Body.String())
+			}
+		})
+	}
+}
+
+func TestDryRunRefusesAComment(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	var comments []commentCall
+
+	dryRun := webserver.Info{Version: testVersion, DryRun: true}
+	handler := serveWith(t, commentingDeps(&comments), config.Default(), dryRun)
+
+	// Act
+	recorder := send(t, handler, http.MethodPost, commentPath, `{"text":"hi"}`)
+
+	// Assert
+	if recorder.Code != http.StatusForbidden || len(comments) != 0 {
+		t.Errorf("status = %d, comments = %+v; want 403 and nothing posted", recorder.Code, comments)
+	}
+}

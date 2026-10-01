@@ -97,7 +97,8 @@ invalid configuration body (a `ui.keys` map the terminal interface would
 refuse to start on among them), a configuration file on disk that no longer reads
 as valid (the configuration in effect stands), a request for an issue when no
 tracker is configured, no `jira.review_status` to move an issue to, a change
-Jira refused, a file git would not stage or unstage, or a branch git would not
+Jira refused, a comment with no text, on one of the forge's issues, or with no
+Jira to post it to, a file git would not stage or unstage, or a branch git would not
 switch to or create (git's own words stay off the wire, since a fetch it
 makes on the way can name the remote; the detail says how to see them), or a
 branch's link to an issue that git could not write to, or remove from, the
