@@ -214,7 +214,7 @@ func namesRemovedBotToken(contents []byte) bool {
 		return false
 	}
 
-	return slices.ContainsFunc([]string{"token", "token_command", "token_env"}, func(field string) bool {
+	return slices.ContainsFunc([]string{tokenKey, "token_command", "token_env"}, func(field string) bool {
 		_, named := blocks.Messaging[field]
 
 		return named

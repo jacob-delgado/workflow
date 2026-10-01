@@ -211,36 +211,150 @@ func parseLayers(files Files, home, repo layer) (Config, error) {
 // mergeLayers is the repository's file over the home directory's, as one
 // JSON object: an object in both is merged key by key, and anything else the
 // repository sets — a list, a string, an explicit false — replaces the home
-// file's.
+// file's. A section the repository points somewhere else inherits none of the
+// home file's credentials for it.
 func mergeLayers(home, repo layer) ([]byte, error) {
-	var merged any
-
-	for _, each := range []layer{home, repo} {
-		if !each.exists {
-			continue
-		}
-
-		_, err := decode(each.contents)
-		if err != nil {
-			return nil, fmt.Errorf("%s: %w", each.path, err)
-		}
-
-		// Trade-off TRADE-13: decode has just read these bytes as JSON.
-		value, err := jsonValue(each.contents)
-		if err != nil {
-			return nil, err
-		}
-
-		merged = mergeValues(merged, value)
+	beneath, err := layerValue(home)
+	if err != nil {
+		return nil, err
 	}
 
+	over, err := layerValue(repo)
+	if err != nil {
+		return nil, err
+	}
+
+	moved, err := movedSections(beneath, over)
+	if err != nil {
+		return nil, err
+	}
+
+	return encodeValue(mergeValues(withoutCredentials(beneath, moved), over))
+}
+
+// layerValue is what file holds as a JSON value, its keys checked against the
+// configuration's, or an empty object when there is no file.
+func layerValue(file layer) (any, error) {
+	if !file.exists {
+		return map[string]any{}, nil
+	}
+
+	_, err := decode(file.contents)
+	if err != nil {
+		return nil, fmt.Errorf("%s: %w", file.path, err)
+	}
+
+	// Trade-off TRADE-13: decode has just read these bytes as JSON.
+	return jsonValue(file.contents)
+}
+
+// encodeValue is value as JSON.
+func encodeValue(value any) ([]byte, error) {
 	// Trade-off TRADE-13: values decoded from JSON always encode.
-	encoded, err := json.Marshal(merged)
+	encoded, err := json.Marshal(value)
 	if err != nil {
 		return nil, fmt.Errorf("merging configuration: %w", err)
 	}
 
 	return encoded, nil
+}
+
+// tokenKey is the key a section's token is written under.
+const tokenKey = "token"
+
+// credentialSection is a section of the configuration that sends a credential
+// to an address it also names.
+type credentialSection struct {
+	name        string
+	address     func(Config) string
+	credentials []string
+}
+
+// credentialSections are the sections holding a credential, each with the
+// address the credential is sent to and the keys that make up the credential.
+// A Slack user token goes only to Slack, so for messaging the address is the
+// service; a webhook URL is its own address.
+func credentialSections() []credentialSection {
+	return []credentialSection{
+		{
+			name:        "jira",
+			address:     func(cfg Config) string { return cfg.Jira.BaseURL },
+			credentials: []string{tokenKey, "token_command", "token_env", "headers"},
+		},
+		{
+			name:        "forge",
+			address:     func(cfg Config) string { return cfg.Forge.Host },
+			credentials: []string{tokenKey},
+		},
+		{
+			name:    "messaging",
+			address: func(cfg Config) string { return cfg.Messaging.Kind.Service() },
+			credentials: []string{
+				"client_id", "client_secret", "refresh_token", "access_token", "expires_at", "webhook_url",
+			},
+		},
+	}
+}
+
+// movedSections are the credential sections whose address over gives a value
+// other than beneath's: the sections whose credentials beneath must not lend.
+func movedSections(beneath, over any) ([]credentialSection, error) {
+	home, err := configOf(beneath)
+	if err != nil {
+		return nil, err
+	}
+
+	merged, err := configOf(mergeValues(beneath, over))
+	if err != nil {
+		return nil, err
+	}
+
+	var moved []credentialSection
+
+	for _, section := range credentialSections() {
+		if section.address(home) != section.address(merged) {
+			moved = append(moved, section)
+		}
+	}
+
+	return moved, nil
+}
+
+// configOf is value read as a configuration, unvalidated.
+func configOf(value any) (Config, error) {
+	encoded, err := encodeValue(value)
+	if err != nil {
+		return Default(), err
+	}
+
+	return decode(encoded)
+}
+
+// withoutCredentials is beneath with the credentials of each section in moved
+// taken out.
+func withoutCredentials(beneath any, moved []credentialSection) any {
+	root, isObject := beneath.(map[string]any)
+	if !isObject {
+		return beneath
+	}
+
+	kept := maps.Clone(root)
+
+	for _, section := range moved {
+		held, isObject := root[section.name].(map[string]any)
+		if !isObject {
+			continue
+		}
+
+		lent := maps.Clone(held)
+		for _, key := range section.credentials {
+			delete(lent, key)
+		}
+
+		kept[section.name] = lent
+	}
+
+	return kept
 }
 
 // mergeValues lays over on base.

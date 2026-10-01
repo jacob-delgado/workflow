@@ -136,7 +136,9 @@ directory above it, no higher than the repository root, and falls back to your
 home directory. **A file found there is layered over the one in your home
 directory**, setting by setting, so a repository's file holds only what that
 repository changes — `{"jira": {"project": "OSS"}}`, say — and inherits the
-rest, tokens included, without a copy of them.
+rest, tokens included, without a copy of them. A token goes only where it was
+written for: a repository's file that points Jira, the forge or the messaging
+service somewhere else inherits none of your home file's credentials for it.
 
 workflow keeps a little state between sessions in an on-disk store — the commit
 scope you last used, which pull requests you have announced, and the last issue
