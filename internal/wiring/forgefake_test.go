@@ -82,7 +82,8 @@ func installForgeCLI(t *testing.T, program string, replies forgeReplies) *forgeC
 		"search":  orDefault(replies.search, `{"items":[]}`),
 		"issue":   orDefault(replies.issue, `{"number":42}`),
 		"merges":  "[]",
-		"members": `[{"username":"dan","state":"active"},{"username":"eve","state":"blocked"}]`,
+		"members": `[{"username":"dan","state":"active","access_level":30},` +
+			`{"username":"eve","state":"blocked","access_level":30}]`,
 		"default": "{}",
 	}
 	for name, body := range bodies {

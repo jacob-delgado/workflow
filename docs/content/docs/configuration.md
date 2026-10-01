@@ -542,9 +542,10 @@ nobody.
   `@@role` owners. You are left out: nobody is asked to review their own pull
   request.
 - **Teams.** GitHub is asked for a team as a team reviewer. On GitLab a
-  `@group/subgroup` owner stands for the group's active direct members, who
-  are each asked when the merge request opens; members inherited from a
-  parent group are not.
+  `@group/subgroup` owner stands for the group's active direct members with
+  the Developer role or above, who are each asked when the merge request
+  opens; members inherited from a parent group are not, and neither are
+  Guests, Planners or Reporters, who cannot approve.
 
 A proposal that cannot be read — the diff fails, or the file cannot be read —
 proposes nobody rather than holding the pull request back. Either way the
