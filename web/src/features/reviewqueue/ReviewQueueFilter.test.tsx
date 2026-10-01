@@ -1,9 +1,10 @@
-import { screen, within } from '@testing-library/react'
+import { QueryClientProvider } from '@tanstack/react-query'
+import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import type { ReviewQueue } from '@/api/generated/types.gen.ts'
 import { fakeApi } from '@/test/fakeApi.ts'
 import { makeReviewRequest } from '@/test/fixtures.ts'
-import { renderWithClient } from '@/test/renderWithClient.tsx'
+import { appQueryClient, renderWithClient } from '@/test/renderWithClient.tsx'
 import { ReviewQueuePanel } from './ReviewQueuePanel.tsx'
 
 const reviewsPath = '/api/reviews'
@@ -194,4 +195,31 @@ test('unpicking the only value left takes focus to Sort as the filter goes', asy
   // Assert
   expect(screen.queryByRole('group', { name: 'Filter' })).toBeNull()
   expect(document.activeElement).toBe(screen.getByRole('combobox', { name: 'Sort' }))
+})
+
+test('the order and the filter hold across leaving the section and coming back', async () => {
+  // Arrange
+  fakeApi({ [reviewsPath]: queue })
+  const client = appQueryClient()
+  const view = render(
+    <QueryClientProvider client={client}>
+      <ReviewQueuePanel />
+    </QueryClientProvider>,
+  )
+  await screen.findByRole('group', { name: 'Filter' })
+  await press('by kwan 2')
+  await userEvent.selectOptions(screen.getByRole('combobox', { name: 'Sort' }), 'Newest first')
+  view.unmount()
+
+  // Act
+  render(
+    <QueryClientProvider client={client}>
+      <ReviewQueuePanel />
+    </QueryClientProvider>,
+  )
+
+  // Assert
+  await screen.findByRole('group', { name: 'Filter' })
+  expect(screen.getByRole('button', { name: 'by kwan 2', pressed: true })).toBeTruthy()
+  expect(listedNumbers()).toEqual(['12', '5'])
 })

@@ -1,5 +1,5 @@
 import { ExternalLink } from 'lucide-react'
-import { useRef, useState, type ReactNode, type RefObject } from 'react'
+import { useRef, type ReactNode, type RefObject } from 'react'
 import { apiErrorMessage } from '@/api/apiError.ts'
 import type { CiState, ReviewRequest } from '@/api/generated/types.gen.ts'
 import { useForgeWords } from '@/api/health.ts'
@@ -8,8 +8,9 @@ import { OutcomeLine, useOutcome, type Teller } from '@/lib/Outcome.tsx'
 import { useAsyncAction } from '@/lib/useAsyncAction.ts'
 import { EmptyState } from '@/shell/EmptyState.tsx'
 import { ciMark, StateMark } from '@/shell/StateMark.tsx'
+import { useUiStore } from '@/shell/uiStore.ts'
 import { FacetChips } from './FacetChips.tsx'
-import { admits, facetChoices, toggleFacet, type Facet } from './reviewFacets.ts'
+import { admits, facetChoices, toggleFacet } from './reviewFacets.ts'
 import {
   byRepository,
   ordered,
@@ -95,12 +96,14 @@ interface QueueProps {
 // read it starts never takes its focus away; a failed refresh leaves the queue
 // last read in view. The summary is a status line that stays mounted, so a
 // screen reader hears what each read found as it lands. The order and the
-// filter chosen hold across reads.
+// filter chosen hold across reads, and across visits to other sections.
 function Queue({ requests, readAt, failure, failed, reading, onReadAgain }: QueueProps) {
   const { noun } = useForgeWords()
   const outcome = useOutcome()
-  const [order, setOrder] = useState<ReviewOrder>('oldest')
-  const [picked, setPicked] = useState<Facet[]>([])
+  const order = useUiStore((state) => state.reviewOrder)
+  const setOrder = useUiStore((state) => state.setReviewOrder)
+  const picked = useUiStore((state) => state.reviewFilter)
+  const pick = useUiStore((state) => state.pickReviewFilter)
   const sort = useRef<HTMLSelectElement>(null)
   const shown = requests?.filter((request) => admits(picked, request))
 
@@ -139,7 +142,7 @@ function Queue({ requests, readAt, failure, failed, reading, onReadAgain }: Queu
           picked={picked}
           afterFilter={sort}
           onToggle={(facet) => {
-            setPicked((now) => toggleFacet(now, facet))
+            pick((now) => toggleFacet(now, facet))
           }}
         />
       )}

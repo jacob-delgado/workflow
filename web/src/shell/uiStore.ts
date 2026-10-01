@@ -1,4 +1,6 @@
 import { create } from 'zustand'
+import type { Facet } from '@/features/reviewqueue/reviewFacets.ts'
+import type { ReviewOrder } from '@/features/reviewqueue/reviewOrder.ts'
 
 // The cockpit's sections, in nav order: the interface's panes, in its order —
 // its Commits pane is part of Branch here — then Settings. The work story
@@ -25,10 +27,16 @@ interface UiState {
   // The issue view the stream carries, by name, or null for the server's default.
   view: string | null
   setView: (view: string | null) => void
+  // How the review queue is listed and narrowed, kept while you visit other
+  // sections, as the terminal keeps them across its panes.
+  reviewOrder: ReviewOrder
+  setReviewOrder: (order: ReviewOrder) => void
+  reviewFilter: Facet[]
+  pickReviewFilter: (pick: (picked: Facet[]) => Facet[]) => void
 }
 
 // Client UI state (which section is showing, which issue is selected, which
-// view the list is of), shared by the nav rail and the content panes without
+// view the list is of, how the review queue is sorted and filtered), shared by the nav rail and the content panes without
 // threading props between them.
 export const useUiStore = create<UiState>((set) => ({
   section: 'issues',
@@ -42,5 +50,13 @@ export const useUiStore = create<UiState>((set) => ({
   view: null,
   setView: (view) => {
     set({ view })
+  },
+  reviewOrder: 'oldest',
+  setReviewOrder: (reviewOrder) => {
+    set({ reviewOrder })
+  },
+  reviewFilter: [],
+  pickReviewFilter: (pick) => {
+    set((state) => ({ reviewFilter: pick(state.reviewFilter) }))
   },
 }))
