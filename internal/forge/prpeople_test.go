@@ -281,3 +281,44 @@ func TestCreateMergeRequestOnGitLabOpensNothingWhenAnAssigneeCannotBeLookedUp(t 
 		t.Errorf("posted a merge request without its assignee: %+v", got)
 	}
 }
+
+func TestCreatePullRequestOnGitHubRequestsTeamsBySlugAlongsideUsers(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	client, seen := forgeConversation(t, map[string]string{githubPullsPath: githubPull43}, nil)
+
+	// Act
+	_, err := client.CreatePullRequest(t.Context(), githubRepo(), forge.NewPullRequest{
+		Title: prTitle, Head: featureBranch, Base: baseBranch,
+		Reviewers: []string{userAna}, TeamReviewers: []string{"example/control-plane"},
+	})
+	// Assert
+	if err != nil {
+		t.Fatalf("CreatePullRequest returned %v", err)
+	}
+
+	asked := requestTo(*seen, githubReviewersPath)
+	if !reflect.DeepEqual(asked.body["reviewers"], []any{userAna}) ||
+		!reflect.DeepEqual(asked.body["team_reviewers"], []any{"control-plane"}) {
+		t.Errorf("reviewers body = %+v, want ana and the control-plane team's slug", asked.body)
+	}
+}
+
+func TestCreatePullRequestOnGitHubRequestsOnlyTeamsWhenNoUserIsNamed(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	client, seen := forgeConversation(t, map[string]string{githubPullsPath: githubPull43}, nil)
+
+	// Act
+	_, err := client.CreatePullRequest(t.Context(), githubRepo(), forge.NewPullRequest{
+		Title: prTitle, Head: featureBranch, Base: baseBranch, TeamReviewers: []string{"example/api"},
+	})
+
+	// Assert
+	asked := requestTo(*seen, githubReviewersPath)
+	if _, named := asked.body["reviewers"]; err != nil || named || asked.body["team_reviewers"] == nil {
+		t.Errorf("reviewers body = %+v, err %v; want only team_reviewers", asked.body, err)
+	}
+}

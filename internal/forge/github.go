@@ -343,7 +343,7 @@ func githubAddPeople(ctx context.Context, client Client, repo Repo, number int, 
 	pull := githubPullPath(repo, number)
 	issue := githubRepoPath(repo) + issuesSegment + "/" + strconv.Itoa(number)
 
-	err := githubPostList(ctx, client, repo, pull+"/requested_reviewers", "reviewers", request.Reviewers)
+	err := githubRequestReviewers(ctx, client, repo, pull, request)
 	if err != nil {
 		return err
 	}
@@ -354,6 +354,43 @@ func githubAddPeople(ctx context.Context, client Client, repo Repo, number int, 
 	}
 
 	return githubPostList(ctx, client, repo, issue+"/labels", "labels", request.Labels)
+}
+
+// githubReviewersBody is the body that requests reviewers: users by login and
+// teams by slug, each left out when empty.
+type githubReviewersBody struct {
+	Reviewers     []string `json:"reviewers,omitempty"`
+	TeamReviewers []string `json:"team_reviewers,omitempty"`
+}
+
+// githubRequestReviewers requests a pull request's reviewers, users and teams in
+// one call, doing nothing when nobody is named.
+func githubRequestReviewers(ctx context.Context, client Client, repo Repo, pull string, request NewPullRequest) error {
+	body := githubReviewersBody{Reviewers: request.Reviewers, TeamReviewers: teamSlugs(request.TeamReviewers)}
+	if len(body.Reviewers)+len(body.TeamReviewers) == 0 {
+		return nil
+	}
+
+	_, err := repoCall[json.RawMessage](ctx, client, repo, http.MethodPost, pull+"/requested_reviewers", body)
+
+	return err
+}
+
+// teamSlugs is each "org/team" name's slug, the part GitHub asks for: the
+// organization is the repository's own.
+func teamSlugs(teams []string) []string {
+	slugs := make([]string, 0, len(teams))
+
+	for _, team := range teams {
+		_, slug, found := strings.Cut(team, "/")
+		if !found {
+			slug = team
+		}
+
+		slugs = append(slugs, slug)
+	}
+
+	return slugs
 }
 
 // githubPostList posts a named list to an endpoint, doing nothing when the list
