@@ -158,9 +158,11 @@ the new one.
 
 The pull requests on your forge that wait on your review, the longest-waiting
 first: where each is, who asks, how long it has waited, whether it is a draft,
-and how its CI stands, each with a link to open it and **Copy URL**. The section
-asks the forge when you open it, unless it asked within the last 30 seconds, and
-**Refresh** asks again.
+and how its CI stands, each with a link to open it and **Copy URL**. **Sort**
+lists them **Oldest first**, **Newest first** or **By repository**, which heads
+each repository's requests with its name, the longest-waiting first within it —
+the orders the terminal's `s` cycles through. The section asks the forge when you
+open it, unless it asked within the last 30 seconds, and **Refresh** asks again.
 
 ### Tasks
 
