@@ -213,6 +213,37 @@ func TestCreateMergeRequestOnGitLabOpensWithTheReviewersItKnows(t *testing.T) {
 	}
 }
 
+func TestCreateMergeRequestOnGitLabOpensWhenAReviewerLookupFails(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	// Looking ghost up fails outright; ana is found.
+	knowing := gitlabKnowing(map[string]string{userAna: "7"}, nil)
+	client, seen := scriptedForge(t, func(asked recorded) (int, string) {
+		if asked.path == gitlabUsersPath && strings.Contains(asked.query, userGhost) {
+			return http.StatusBadGateway, `{"message":"502 Bad Gateway"}`
+		}
+
+		return knowing(asked)
+	})
+
+	// Act
+	created, err := client.CreatePullRequest(t.Context(), gitlabRepo(), forge.NewPullRequest{
+		Title: prTitle, Head: featureBranch, Base: baseBranch, Reviewers: []string{userGhost, userAna},
+	})
+
+	// Assert
+	if created.Number != 8 || !errors.Is(err, forge.ErrSomeReviewersNotAdded) ||
+		!strings.Contains(err.Error(), userGhost) {
+		t.Fatalf("CreatePullRequest = %+v, %v; want it opened, naming ghost as left off", created, err)
+	}
+
+	opened := requestTo(*seen, gitlabMergesPath)
+	if !reflect.DeepEqual(opened.body["reviewer_ids"], []any{float64(7)}) {
+		t.Errorf("reviewer_ids = %v, want ana's alone", opened.body["reviewer_ids"])
+	}
+}
+
 func TestCreateMergeRequestOnGitLabStillRefusesAnUnknownAssignee(t *testing.T) {
 	t.Parallel()
 

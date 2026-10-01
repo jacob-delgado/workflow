@@ -302,15 +302,10 @@ func gitlabReviews(ctx context.Context, client Client) ([]ReviewRequest, error) 
 // set at creation as GitLab takes them. Reviewers and assignees are resolved
 // from usernames to ids first, each team reviewer standing for its group's
 // active members. An unknown assignee fails before any merge request is
-// opened; an unknown reviewer, or a team whose members cannot be read, is left
-// off the one opened and returned beside it as ErrSomeReviewersNotAdded.
+// opened; a reviewer that cannot be resolved, for whatever reason, is left off
+// the one opened and returned beside it as ErrSomeReviewersNotAdded.
 func gitlabCreate(ctx context.Context, client Client, repo Repo, request NewPullRequest) (PullRequest, error) {
-	reviewers, unread, teamCause := gitlabTeamsExpanded(ctx, client, request)
-
-	reviewerIDs, unknown, err := gitlabKnownIDs(ctx, client, reviewers)
-	if err != nil {
-		return PullRequest{}, err
-	}
+	reviewers := gitlabResolveReviewers(ctx, client, request)
 
 	assigneeIDs, err := gitlabUserIDs(ctx, client, request.Assignees)
 	if err != nil {
@@ -319,7 +314,7 @@ func gitlabCreate(ctx context.Context, client Client, repo Repo, request NewPull
 
 	payload := gitlabNewMerge{
 		Title: gitlabTitle(request), Description: request.Body, SourceBranch: request.Head, TargetBranch: request.Base,
-		ReviewerIDs: reviewerIDs, AssigneeIDs: assigneeIDs, Labels: strings.Join(request.Labels, ","),
+		ReviewerIDs: reviewers.ids, AssigneeIDs: assigneeIDs, Labels: strings.Join(request.Labels, ","),
 	}
 
 	created, err := repoCall[gitlabMerge](ctx, client, repo, http.MethodPost,
@@ -328,7 +323,7 @@ func gitlabCreate(ctx context.Context, client Client, repo Repo, request NewPull
 		return PullRequest{}, err
 	}
 
-	return created.pullRequest(), gitlabMissedReviewers(unread, teamCause, unknown)
+	return created.pullRequest(), reviewers.err()
 }
 
 // gitlabTitle is the merge request's title, marked a draft by its prefix when

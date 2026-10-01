@@ -81,11 +81,12 @@ func TestCreateMergeRequestOnGitLabAsksATeamsActiveMembersToReview(t *testing.T)
 	t.Parallel()
 
 	// Arrange
-	// ana is named and is in the team too, so she is asked once.
+	// ana is named and is in the team too, so she is asked once. Ben is known
+	// by the id the members listing gives, so he is never looked up.
 	client, seen := scriptedForge(t, gitlabKnowing(
-		map[string]string{userAna: "7", userBen: "9"},
-		map[string]string{membersPath: `[{"username":"ben","state":"active"},{"username":"ana","state":"active"},` +
-			`{"username":"gone","state":"blocked"}]`},
+		map[string]string{userAna: "7"},
+		map[string]string{membersPath: `[{"id":9,"username":"ben","state":"active"},` +
+			`{"id":7,"username":"ana","state":"active"},{"id":11,"username":"gone","state":"blocked"}]`},
 	))
 
 	// Act
@@ -102,6 +103,10 @@ func TestCreateMergeRequestOnGitLabAsksATeamsActiveMembersToReview(t *testing.T)
 	opened := requestTo(*seen, gitlabMergesPath)
 	if !reflect.DeepEqual(opened.body["reviewer_ids"], []any{float64(7), float64(9)}) {
 		t.Errorf("reviewer_ids = %v, want ana's then ben's", opened.body["reviewer_ids"])
+	}
+
+	if lookups := requestsTo(*seen, gitlabUsersPath); lookups != 1 {
+		t.Errorf("looked up %d users, want ana alone: a member's id comes with the listing", lookups)
 	}
 }
 
@@ -128,4 +133,17 @@ func TestCreateMergeRequestOnGitLabOpensWithoutATeamItCannotRead(t *testing.T) {
 	if !reflect.DeepEqual(opened.body["reviewer_ids"], []any{float64(7)}) {
 		t.Errorf("reviewer_ids = %v, want ana's alone", opened.body["reviewer_ids"])
 	}
+}
+
+// requestsTo counts the requests made to path.
+func requestsTo(seen []recorded, path string) int {
+	count := 0
+
+	for _, asked := range seen {
+		if asked.path == path {
+			count++
+		}
+	}
+
+	return count
 }
