@@ -94,3 +94,31 @@ func TestScrollingUpPastTheTopOfALogStopsThere(t *testing.T) {
 	requireScreen(t, view, "line 001", "line 020")
 	refuseScreen(t, view, "line 000")
 }
+
+func TestASCIIModeSeparatesAFailedChecksPartsInASCII(t *testing.T) {
+	t.Parallel()
+
+	cases := map[string]struct {
+		keys []string
+		want string
+	}{
+		"its stage and name": {keys: []string{"4"}, want: "test - unit-race"},
+		"its log's title":    {keys: []string{"4", "c", downAction, "l"}, want: "unit-race - log"},
+	}
+
+	for name, tt := range cases {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			// Arrange
+			failing := withAFailedJob(true)
+			failing.ci[0].Checks[1].Stage = "test"
+
+			// Act
+			view := typing(t, asciiInterface(t, failing, 120, 40), tt.keys...).View().Content
+
+			// Assert
+			requireScreen(t, view, tt.want)
+		})
+	}
+}
