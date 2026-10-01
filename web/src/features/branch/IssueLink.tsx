@@ -1,5 +1,6 @@
 import { useRef, useState } from 'react'
 import type { Branch, BranchIssuePreview } from '@/api/generated/types.gen.ts'
+import { useForgeWords } from '@/api/health.ts'
 import { Button } from '@/lib/Button.tsx'
 import { useFocusOnMount } from '@/lib/focus.ts'
 import type { Teller } from '@/lib/Outcome.tsx'
@@ -140,9 +141,12 @@ function DescriptionChange({
   preview: BranchIssuePreview
   onLink: (update: boolean) => void
 }) {
+  const { sigil } = useForgeWords()
+  const mark = `${sigil}${String(preview.pull)}`
+
   return (
     <div className="flex flex-col gap-item text-sm">
-      <p>#{preview.pull}&apos;s description becomes:</p>
+      <p>{mark}&apos;s description becomes:</p>
       <pre className="rounded-md border border-border p-3 whitespace-pre-wrap">{preview.body}</pre>
       <div className="flex gap-item">
         <Button
@@ -151,7 +155,7 @@ function DescriptionChange({
             onLink(true)
           }}
         >
-          Link and update #{preview.pull}
+          Link and update {mark}
         </Button>
         <Button
           variant="secondary"
