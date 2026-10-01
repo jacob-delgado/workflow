@@ -21,6 +21,10 @@ import (
 // keptLinks keeps its links in.
 const slackWorkspace = "T0ACME"
 
+// slackAuthTest is the path of Slack's auth.test, which names the token's
+// workspace and user.
+const slackAuthTest = "/auth.test"
+
 // slackLoggedInConfig is ownedRepo's forge, announcing to Slack with a user
 // token good for an hour, whose credentials the file keeps, so no keychain is
 // read and no refresh is due.
@@ -54,7 +58,7 @@ func fakeSlack(t *testing.T, changed map[string]slackAnswer) *slackFake {
 
 	identity := `{"ok":true,"team":"Acme","user":"ana","team_id":"` + slackWorkspace + `"}`
 	answers := map[string]slackAnswer{
-		"/auth.test":             {http.StatusOK, identity},
+		slackAuthTest:            {http.StatusOK, identity},
 		"/users.conversations":   {http.StatusOK, `{"ok":true,"channels":[{"id":"C0DEV","name":"dev"}]}`},
 		"/conversations.members": {http.StatusOK, `{"ok":true,"members":["U0ANA","U0BOT"]}`},
 		"/users.list": {http.StatusOK, `{"ok":true,"members":[` +

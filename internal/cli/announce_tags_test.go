@@ -132,7 +132,7 @@ func TestAnnounceTagsNoOneLinkedOnlyInAnotherWorkspace(t *testing.T) {
 	// Arrange
 	fakeGh(t, ghResponses{pulls: openPull("Add login")})
 	fakeSlack(t, map[string]slackAnswer{
-		"/auth.test": {http.StatusOK, `{"ok":true,"team":"Other","user":"ana","team_id":"T0OTHER"}`},
+		slackAuthTest: {http.StatusOK, `{"ok":true,"team":"Other","user":"ana","team_id":"T0OTHER"}`},
 	})
 	repo := ownedRepo(t)
 	writeFile(t, repo, slackLoggedInConfig())
@@ -182,5 +182,31 @@ func TestAnnounceWithATokenMissingAScopePostsUntaggedAndNamesIt(t *testing.T) {
 				t.Errorf("announce posted %q, want it untagged", post)
 			}
 		})
+	}
+}
+
+func TestAnnounceWhenSlackCannotNameTheWorkspacePostsUntaggedAndSaysWhy(t *testing.T) {
+	// Arrange
+	fakeGh(t, ghResponses{pulls: openPull("Add login")})
+	slack := fakeSlack(t, map[string]slackAnswer{slackAuthTest: {http.StatusServiceUnavailable, ""}})
+	repo := ownedRepo(t)
+	writeFile(t, repo, slackLoggedInConfig())
+	home := keptLinks(t)
+
+	// Act
+	printed, err := runStreamsAt(t, place{dir: repo, home: home}, unusedPrompt(t), "announce", "--yes")
+	// Assert
+	if err != nil {
+		t.Fatalf("announce --yes: %v (%+v)", err, printed)
+	}
+
+	if !strings.Contains(printed.stderr, "can't tell which Slack workspace this token is for") ||
+		!strings.Contains(printed.stderr, "posting untagged") {
+		t.Errorf("announce said %q, want the unknown workspace named and the post said to go untagged",
+			printed.stderr)
+	}
+
+	if post := slack.post(t); !untagged(post) {
+		t.Errorf("announce posted %q, want it untagged", post)
 	}
 }
