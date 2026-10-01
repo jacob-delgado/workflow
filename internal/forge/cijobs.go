@@ -27,13 +27,12 @@ var (
 	ErrInsecureLog = errors.New("the forge sent the log to an address that is not https, so it was not read")
 )
 
-// How much of a job's log is read, and how much of what was read is kept: a
-// failure is at the end of a log, and a log can run to gigabytes.
+// How much of the end of a job's log is kept: a failure is at the end of a
+// log, and a log can run to gigabytes.
 const (
-	logReadLimit  = 32 << 20
-	logKeepBytes  = 64 << 10
-	logKeepLines  = 400
-	logChunkBytes = 32 << 10
+	logKeepBytes   = 64 << 10
+	logBufferBytes = 2 * logKeepBytes
+	logKeepLines   = 400
 )
 
 // JobLog is the end of a failed job's log, with every terminal control taken
@@ -175,10 +174,12 @@ func (c Client) followLog(ctx context.Context, location string) (*http.Response,
 	return response, nil
 }
 
-// tailOf reads at most logReadLimit of log and keeps its last logKeepLines
-// lines, no more than logKeepBytes, with every terminal control taken out.
+// tailOf reads log to its end and keeps its last logKeepLines lines, no more
+// than logKeepBytes, with every terminal control taken out. The whole log is
+// read rather than a capped prefix of it, since a failure is at the real end
+// and a cap would show a middle; only the tail is ever held.
 func tailOf(log io.Reader) (JobLog, error) {
-	kept, truncated, err := lastBytes(io.LimitReader(log, logReadLimit))
+	kept, truncated, err := lastBytes(log)
 	if err != nil {
 		return JobLog{}, err
 	}
@@ -192,23 +193,24 @@ func tailOf(log io.Reader) (JobLog, error) {
 }
 
 // lastBytes reads log to its end, keeping its last logKeepBytes, and whether
-// any were dropped.
+// any were dropped. It slides the kept tail back to the front of a buffer
+// larger than it whenever the buffer fills, so memory stays fixed however
+// long the log.
 func lastBytes(log io.Reader) ([]byte, bool, error) {
-	var kept []byte
-
-	truncated := false
-	chunk := make([]byte, logChunkBytes)
+	buffer := make([]byte, logBufferBytes)
+	filled, truncated := 0, false
 
 	for {
-		read, err := log.Read(chunk)
-		kept = append(kept, chunk[:read]...)
-
-		if len(kept) > logKeepBytes {
-			kept, truncated = kept[len(kept)-logKeepBytes:], true
+		if filled == len(buffer) {
+			filled = copy(buffer, buffer[filled-logKeepBytes:])
+			truncated = true
 		}
 
+		read, err := log.Read(buffer[filled:])
+		filled += read
+
 		if errors.Is(err, io.EOF) {
-			return kept, truncated, nil
+			return buffer[max(0, filled-logKeepBytes):filled], truncated || filled > logKeepBytes, nil
 		}
 
 		if err != nil {
