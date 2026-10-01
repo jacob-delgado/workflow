@@ -101,13 +101,14 @@ internal/forge 14
 # reviewfacets.go (narrowing the review queue by repository, CI state, draft
 # or ready, and author, with its checklist and the rule that admits a request);
 # and tagging.go (whom the ready-for-review announcement tags — the code
-# owners of the changes and the repository's Slack user groups — with the
-# directory reads behind it, kept out of messagingpreview.go so the preview
-# stays under the 500-line target); and people.go (the Messaging pane's People
-# and groups overlay — whom each forge owner is on Slack, and which user groups
-# the repository tags — with the picker that links an owner, which the preview
-# shares).
-internal/tui 49
+# owners of the changes and the repository's Slack user groups — kept out of
+# messagingpreview.go so the preview stays under the 500-line target);
+# people.go (the Messaging pane's People and groups overlay — whom each forge
+# owner is on Slack, and which user groups the repository tags); and
+# ownerlink.go (linking an owner to Slack, which both of those share: the
+# directory reads, the picker over them and the save, out of people.go so
+# neither overlay passes the 500-line target).
+internal/tui 50
 
 # internal/webserver — the loopback REST surface: a file per write (announce,
 # branchcreate, checkout, commit, config, pullrequest, push), or per pair of

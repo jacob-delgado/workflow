@@ -22,24 +22,6 @@ import (
 // ownerColumn is how wide an owner's name is padded, so their states line up.
 const ownerColumn = 20
 
-// directory is a read of Slack's directory — a channel's members, or the
-// workspace's user groups — still on its way, or what it found, or why not.
-type directory struct {
-	entries []loop.SlackTarget
-	err     error
-	reading bool
-}
-
-// missingScope is the scope the read said the token lacks, or "" when it
-// lacked none.
-func (d directory) missingScope() string {
-	if missing, found := errors.AsType[*messaging.MissingScopeError](d.err); found {
-		return missing.Needed
-	}
-
-	return ""
-}
-
 // tagProposal is what the tags are proposed from: the changes' owners, what
 // was decided for them, the repository's groups, and the last choice.
 type tagProposal struct {
@@ -133,32 +115,6 @@ func readKept[T any](read func() ([]T, error)) ([]T, error) {
 	return read()
 }
 
-// readMembers starts reading a channel's members, for linking a user owner.
-func (m Model) readMembers(channel string) (directory, tea.Cmd) {
-	read := m.deps.Messaging.ChannelMembers
-
-	return directory{reading: true}, func() tea.Msg {
-		found, err := read(channel)
-
-		return membersRead{channel: channel, found: directory{entries: found, err: err}}
-	}
-}
-
-// readUserGroups starts reading the workspace's user groups, for linking a
-// team owner, where Slack can list them.
-func (m Model) readUserGroups() (directory, tea.Cmd) {
-	read := m.deps.Messaging.UserGroups
-	if read == nil {
-		return directory{}, nil
-	}
-
-	return directory{reading: true}, func() tea.Msg {
-		found, err := read()
-
-		return userGroupsRead{found: directory{entries: found, err: err}}
-	}
-}
-
 // tagsRead is whom the announcement proposes to tag, and why some of it could
 // not be read.
 type tagsRead struct {
@@ -192,48 +148,6 @@ func (s tagSection) proposed(proposal tagProposal, err error) tagSection {
 	}
 
 	return s
-}
-
-// membersRead is a channel's members, read for linking.
-type membersRead struct {
-	channel string
-	found   directory
-}
-
-// apply hands the members to the preview, unless its channel has changed
-// since they were asked for, or to People and groups.
-func (msg membersRead) apply(m Model) (Model, tea.Cmd) {
-	switch open := m.overlay.(type) {
-	case messagingPreview:
-		if open.channel == msg.channel {
-			open.tagging.members = msg.found
-			m.overlay = open
-		}
-	case peopleOverlay:
-		open.members = msg.found
-		m.overlay = open
-	}
-
-	return m, nil
-}
-
-// userGroupsRead is the workspace's user groups, read for linking a team.
-type userGroupsRead struct {
-	found directory
-}
-
-// apply hands the groups to the preview, or to People and groups.
-func (msg userGroupsRead) apply(m Model) (Model, tea.Cmd) {
-	switch open := m.overlay.(type) {
-	case messagingPreview:
-		open.tagging.groups = msg.found
-		m.overlay = open
-	case peopleOverlay:
-		open.groups = msg.found
-		m.overlay = open.withChoices()
-	}
-
-	return m, nil
 }
 
 // missingScope is the scope a directory read said the token lacks: tagging
