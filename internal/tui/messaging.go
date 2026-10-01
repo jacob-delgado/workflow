@@ -89,7 +89,8 @@ func (quitGuard) handleKey(m Model, msg tea.KeyPressMsg) (Model, tea.Cmd) {
 	}
 }
 
-// loadAuthor is the command that asks the forge who opened the pull request.
+// loadAuthor is the command that asks the forge whose credential it holds:
+// you, as the announcement and a forge issue's assignee name you.
 func (m Model) loadAuthor() tea.Cmd {
 	author := m.deps.Forge.Author
 	if author == nil || m.messaging.author != "" {
