@@ -21,25 +21,33 @@ var ErrNotSupported = errors.New("the forge does not offer this")
 // blocked, deactivated, or invited and not yet accepted.
 const gitlabActive = "active"
 
+// gitlabDeveloper is GitLab's Developer access level, the least that may
+// approve a merge request: a Guest, Planner or Reporter cannot, so asking one
+// to review only adds a name that can never approve.
+const gitlabDeveloper = 30
+
 // gitlabMember is a group member as GitLab lists one: the user's id and name
-// and state, and where the membership itself stands.
+// and state, where the membership itself stands, and the member's role.
 type gitlabMember struct {
 	ID              int64  `json:"id"`
+	AccessLevel     int    `json:"access_level"`
 	Username        string `json:"username"`
 	State           string `json:"state"`
 	MembershipState string `json:"membership_state"`
 }
 
-// active reports whether the member can review: an active user whose
-// membership, when GitLab says, is active too.
-func (m gitlabMember) active() bool {
-	return m.State == gitlabActive && (m.MembershipState == "" || m.MembershipState == gitlabActive)
+// canReview reports whether the member can review: an active user whose
+// membership, when GitLab says, is active too, in a role that may approve.
+func (m gitlabMember) canReview() bool {
+	return m.State == gitlabActive && (m.MembershipState == "" || m.MembershipState == gitlabActive) &&
+		m.AccessLevel >= gitlabDeveloper
 }
 
-// GroupMembers lists the usernames of a GitLab group's active direct members,
-// the group named by its full path, such as "acme/control-plane". Inherited
-// members are left out: a CODEOWNERS group means the people put in it. GitHub
-// has no such list, so there it is ErrNotSupported.
+// GroupMembers lists the usernames of a GitLab group's direct members who can
+// review — active, and a Developer or above — the group named by its full
+// path, such as "acme/control-plane". Inherited members are left out: a
+// CODEOWNERS group means the people put in it. GitHub has no such list, so
+// there it is ErrNotSupported.
 func (c Client) GroupMembers(ctx context.Context, group string) ([]string, error) {
 	if c.kind != KindGitLab {
 		return nil, ErrNotSupported
@@ -59,7 +67,7 @@ func (c Client) GroupMembers(ctx context.Context, group string) ([]string, error
 }
 
 // gitlabGroupMembers reads every page of a group's direct members, as far as
-// the page cap, and keeps the active ones.
+// the page cap, and keeps those who can review.
 func gitlabGroupMembers(ctx context.Context, client Client, group string) ([]gitlabMember, error) {
 	path := "/groups/" + url.PathEscape(group) + "/members?"
 
@@ -72,7 +80,7 @@ func gitlabGroupMembers(ctx context.Context, client Client, group string) ([]git
 		return nil, err
 	}
 
-	return slices.DeleteFunc(members, func(member gitlabMember) bool { return !member.active() }), nil
+	return slices.DeleteFunc(members, func(member gitlabMember) bool { return !member.canReview() }), nil
 }
 
 // gitlabReviewers is a new merge request's reviewers as GitLab sets them, by

@@ -26,7 +26,8 @@ const (
 func memberPage(prefix string, count int) string {
 	members := make([]string, 0, count+1)
 	for index := range count {
-		members = append(members, fmt.Sprintf(`{"username":"%s%d","state":"active"}`, prefix, index))
+		members = append(members,
+			fmt.Sprintf(`{"username":"%s%d","state":"active","access_level":30}`, prefix, index))
 	}
 
 	members = append(members, `{"username":"gone","state":"blocked"}`)
@@ -62,6 +63,29 @@ func TestGroupMembersReadsEveryPageOfAGitLabGroupsActiveMembers(t *testing.T) {
 	}
 }
 
+func TestGroupMembersLeavesOutMembersWhoCannotApprove(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	// A Guest (10), a Planner (15) and a Reporter (20) cannot approve a merge
+	// request; a Developer (30) and above can.
+	client, _ := scriptedForge(t, func(recorded) (int, string) {
+		return http.StatusOK, `[{"username":"guest","state":"active","access_level":10},` +
+			`{"username":"planner","state":"active","access_level":15},` +
+			`{"username":"reporter","state":"active","access_level":20},` +
+			`{"username":"dev","state":"active","access_level":30},` +
+			`{"username":"owner","state":"active","access_level":50}]`
+	})
+
+	// Act
+	members, err := client.On(forge.KindGitLab).GroupMembers(t.Context(), groupControlPlane)
+
+	// Assert
+	if err != nil || !reflect.DeepEqual(members, []string{"dev", "owner"}) {
+		t.Errorf("GroupMembers = %v, %v; want dev and owner, who can approve", members, err)
+	}
+}
+
 func TestGroupMembersIsNotOfferedOnGitHub(t *testing.T) {
 	t.Parallel()
 
@@ -85,8 +109,9 @@ func TestCreateMergeRequestOnGitLabAsksATeamsActiveMembersToReview(t *testing.T)
 	// by the id the members listing gives, so he is never looked up.
 	client, seen := scriptedForge(t, gitlabKnowing(
 		map[string]string{userAna: "7"},
-		map[string]string{membersPath: `[{"id":9,"username":"ben","state":"active"},` +
-			`{"id":7,"username":"ana","state":"active"},{"id":11,"username":"gone","state":"blocked"}]`},
+		map[string]string{membersPath: `[{"id":9,"username":"ben","state":"active","access_level":30},` +
+			`{"id":7,"username":"ana","state":"active","access_level":40},` +
+			`{"id":11,"username":"gone","state":"blocked","access_level":30}]`},
 	))
 
 	// Act
