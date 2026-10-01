@@ -71,6 +71,9 @@ that already exists, nothing staged to commit, no pull request to announce or
 to link, no branch checked out (a detached `HEAD`) to link to an issue or to
 unlink from one, an announcement that changed since the page previewed it (CI
 turned red, the pull request merged — nothing is posted; preview it again), an
+announcement whose linked code owners are not the people its preview showed
+tagged (a link changed in Settings or a terminal since — nothing is posted;
+preview it again), an
 issue the checked-out branch does not name, a move to the review status that Jira
 does not offer or wants fields filled for (the terminal interface's status
 picker asks for them), or a configuration file that changed since Settings read
@@ -80,9 +83,12 @@ than overwrite, short of an edit landing between the save's check and its write
 too, for a task it changed nothing on — already started, not started, or no
 longer pending — and for an undo with nothing to undo. Cleaning the local data
 in Settings answers it for a database file that could not be removed, as one
-another program holds open can be on Windows: every file is set aside before
-any is removed, so nothing was; close other workflow sessions and clean again
-(the command line's `workflow db-clean` exits 4 there).
+another program holds open can be on Windows. Every file is set aside before
+any is removed, so a file that cannot be set aside leaves them all in place;
+one that cannot be deleted after that may leave others already gone, so the
+area reads the listing again to show what is left. Close other workflow
+sessions and clean again (the command line's `workflow db-clean` exits 4
+there).
 
 ## Unprocessable
 
@@ -134,18 +140,23 @@ the store in (no home directory is set), for a server wired with no store, and
 for a clean that finds something other than the store's own plain file — a
 symlink or a directory — where a database file belongs, which it refuses
 without removing anything (`workflow db-clean` exits 1 there).
-People and groups answers it when there is no Slack user token to read the
-directory with, or no store to keep people in; for a link that names both a
+People and groups answers it when the configuration in effect has no Slack
+user token to read the directory with (a webhook, say, or a token Slack holds
+no credential for), or no store to keep people in; for a link that names both a
 Slack ID and "not on Slack", or neither; for a Slack ID of the wrong kind for
 the owner (a team links to a user group, a person to a user) or one the
-channel's members or the workspace's user groups do not hold; for a token
+channel's members or the workspace's user groups do not hold (a person is
+checked against the channel the link names, the configured one when it names
+none); for a new repository group, never one already saved, that the
+workspace's user groups do not hold; for a token
 that lacks a scope the read needs, which the detail names; and for kept data
 from a newer build of workflow, which is left as it is. Nothing is written
 then. (A Slack directory read on its own answers a missing scope with a 200
 naming it, so the preview can still post.) An announcement answers it for
 mentions that name a user group the announcement did not offer, or that it
 was given where it tags no one — only a ready-for-review announcement with a
-Slack user token tags — and posts nothing.
+Slack user token in the configuration in effect at the post tags, so a switch
+to a webhook in Settings after the preview lands here — and posts nothing.
 
 ## Precondition required
 
