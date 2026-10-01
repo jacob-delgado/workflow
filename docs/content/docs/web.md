@@ -159,18 +159,25 @@ the new one.
 With a Slack user token, a ready-for-review announcement's preview also says
 whom it tags. **Tag code owners** lists the code owners of the branch's
 changes: one linked to Slack shows their Slack name, one decided not on Slack
-says so, and one not asked yet has a choice of the channel's members (a
-team's, of the workspace's user groups) and a **Not on Slack** button. The
-choice is saved as you make it, for this and every later announcement on the
-same forge host, and the page says it was saved for next time. **Tag groups**
+says so, and one not asked yet has a choice of the members of the channel the
+preview posts to, following the channel as you change it (a team's, of the
+workspace's user groups), and a **Not on Slack** button.
+The choice is saved as you make it, for this and every later announcement on
+the same forge host, and the page says it was saved for next time;
+**Announce now** waits while a link is being saved, and a group checked
+meanwhile stays checked. **Tag groups**
 checks the user groups the repository offers; a group a team owning the
 changed paths is linked to starts checked and says it "owns changed paths",
 and the rest start as you left them last time. **Tags:** above **Announce
 now** names everyone the post will tag; the tags go on a line after the
-text. A Slack token without a scope linking needs (`users:read`,
-`channels:read`, `groups:read` or `usergroups:read`) is named in a note, and
-the announcement still posts, tagging whom it can. Under `--dry-run` no owner
-is offered to link. Teams, Discord and a webhook tag no one.
+text. The post tags only the people the preview showed: when a link changed
+in Settings or a terminal since, nothing is posted and the page asks you to
+preview again. A Slack token without a scope linking needs (`users:read`,
+`channels:read`, `groups:read` or `usergroups:read`) for the channel picked
+is named in a note, and the announcement still posts, tagging whom it can.
+Under `--dry-run` no owner is offered to link. Teams, Discord and a webhook
+tag no one, and so does a Slack webhook saved in Settings while the server
+runs: tagging follows the configuration in effect.
 
 ### Reviews
 
@@ -275,7 +282,10 @@ ready-for-review announcement. **Groups for** the repository is a checkbox per
 user group in the workspace, kept with **Save groups**; a ready-for-review
 announcement offers those groups to tag. Each saves on its own, apart from the
 configuration, into `kept.db`, and the label kept is the one Slack's directory
-gives. A token without a scope the choices need is named in a note. Under
+gives. A group already saved keeps its label, so one Slack no longer lists,
+or a token that cannot read the groups, can still be kept or unchecked, and
+clearing every group needs no Slack at all. A token without a scope the
+choices need is named in a note. Under
 `--dry-run` the area says its changes are held back and its controls are off.
 
 Below that, **Local data** shows where workflow keeps what it learns
@@ -284,9 +294,12 @@ and the kept associations (`kept.db`), each with its size and what it holds.
 It is read each time Settings opens and saved apart from the configuration.
 **Clean cache…** and **Clean everything…** each ask first, in place, with
 **Cancel** and **Clean**; cleaning everything says that people and group
-associations will be asked again. What the clean did is said below the
-buttons, and the listing is read again. A file another program holds open
-fails the clean without removing anything, and the area says why. Under
+associations will be asked again, and People and groups above is read again
+to show them gone. What the clean did is said below the buttons, and the
+listing is read again. A file another program holds open fails the clean, and
+the area says why and reads the listing again, since a file that could not be
+deleted after the rest were set aside may leave others gone. A clean waits
+for a change to People and groups under way, and the other way round. Under
 `--dry-run` the buttons are replaced by a sentence saying cleaning is held
 back. It is the web's `workflow db-clean`
 (see [Using workflow]({{< relref "/docs/usage#cleaning-the-local-data" >}})).
@@ -367,6 +380,9 @@ write, and a task Taskwarrior changed nothing on answers `409`.
 People and groups read `GET /api/people` and `GET /api/repo-groups`, and
 write with `PUT` to each and `DELETE /api/people?owner=`; the choices come
 from `GET /api/slack/members` and `GET /api/slack/groups`, which answer a
-missing scope as a `200` naming it. `POST /api/announce` takes `mentions`,
-the user groups checked; the linked owners it tags are read from what is
-kept, never from the request.
+missing scope as a `200` naming it. `GET /api/announcement?channel=` checks
+an owner not yet linked against that channel's members. `POST /api/announce`
+takes `mentions`: `users`, the people the preview showed tagged, and
+`groups`, the user groups checked. The linked owners it tags are read from
+what is kept, never from the request, and a post whose linked owners are not
+`users` is a `409`.
