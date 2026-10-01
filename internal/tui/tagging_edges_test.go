@@ -165,9 +165,41 @@ func TestNobodyToTagLeavesNothingToMove(t *testing.T) {
 	nobody.slack = newSlackWorld()
 
 	// Act
-	view := typing(t, nobody.live(t, 140, 40), "5", "p", "down", "up", keySpace, "a").View().Content
+	view := typing(t, nobody.live(t, 140, 40), "5", "p", "down", "up", keySpace, "a", "z").View().Content
 
 	// Assert
 	requireScreen(t, view, "Announce to Slack", "tags  nobody")
 	refuseScreen(t, view, "Code owners", "Groups")
+}
+
+func TestRelinkingAnOwnerReplacesWhatWasDecided(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	tagging := taggingWorld()
+	preview := typing(t, tagging.live(t, 140, 40), "5", "p")
+
+	// Act
+	// carla, linked, is now not on Slack
+	typing(t, preview, "down", "x", keyEnter)
+
+	// Assert
+	if got := postedText(t, tagging); !strings.HasSuffix(got, "\ncc "+tagPod) {
+		t.Errorf("posted %q, want only the pod tagged", got)
+	}
+}
+
+func TestAWorkspaceWithoutUserGroupsSaysNothingOfIt(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	freeTier := taggingWorld()
+	freeTier.slack.groupsErr = messaging.ErrNoUserGroups
+
+	// Act
+	view := typing(t, freeTier.live(t, 140, 40), "5", "p").View().Content
+
+	// Assert
+	requireScreen(t, view, "tags  @Carla Diaz @control-plane-pod")
+	refuseScreen(t, view, "no user groups")
 }

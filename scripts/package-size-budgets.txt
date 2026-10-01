@@ -71,7 +71,7 @@ internal/forge 14
 # CLAUDE.md names as one that must not be split to chase a number; the entry
 # freezes the count so a new concern is a decision, not drift, not a target to
 # shrink toward. layout/ and frame/ are already the pure leaves that could leave.
-# 48 = the panes, overlays and composers, including issuewrite.go (the assign
+# 49 = the panes, overlays and composers, including issuewrite.go (the assign
 # and log-work forms), issuekeys.go (the Issues pane's key routing, split out of
 # detail.go when it crossed the 500-line file ceiling), scopesuggest.go (the
 # commit scope's completion from the staged directory and the log) and diff.go
@@ -102,9 +102,12 @@ internal/forge 14
 # or ready, and author, with its checklist and the rule that admits a request);
 # and tagging.go (whom the ready-for-review announcement tags — the code
 # owners of the changes and the repository's Slack user groups — with the
-# directory reads behind it and the picker that links an owner to Slack, kept
-# out of messagingpreview.go so the preview stays under the 500-line target).
-internal/tui 48
+# directory reads behind it, kept out of messagingpreview.go so the preview
+# stays under the 500-line target); and people.go (the Messaging pane's People
+# and groups overlay — whom each forge owner is on Slack, and which user groups
+# the repository tags — with the picker that links an owner, which the preview
+# shares).
+internal/tui 49
 
 # internal/webserver — the loopback REST surface: a file per write (announce,
 # branchcreate, checkout, commit, config, pullrequest, push), or per pair of

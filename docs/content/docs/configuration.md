@@ -640,16 +640,17 @@ The actions you can rebind, grouped by where they work, are:
   `set-up-lefthook`.
 - **Review and your messaging service** (named for it, Slack by default):
   `open-pull-request`, `checks`, `rerun-checks`, `merge`, `finish-branch`,
-  `post`.
+  `post`, `people-and-groups`.
 - **Reviews:** `sort-reviews`, `filter-reviews`.
 - **Tasks:** `start-stop`, `complete-task`, `add-task`, `annotate-task`,
   `modify-task`, `undo-task`, `sync-tasks`.
 - **In a composer or preview:** `edit`, `edit-body`, `next-template`,
   `toggle-draft`, `toggle-breaking`, `verbatim`, `next-field`,
   `previous-field`, `cycle-type-left`, `cycle-type-right`, `toggle-option`,
-  `worktree` (in the branch creator), `post-when-green`, `link-to-slack` and
-  `not-on-slack` (in the announcement preview), `show-log` (in the checks
-  list).
+  `worktree` (in the branch creator), `post-when-green` (in the announcement
+  preview), `link-to-slack` and `not-on-slack` (in the announcement preview
+  and in People and groups), `forget-owner` (in People and groups),
+  `show-log` (in the checks list).
 - **While a command runs:** `stop`, `run-again`, `full-output`.
 - **Everywhere:** `apply`, `close`, `toggle-mouse`, `toggle-help`, `quit`,
   `interrupt`.
