@@ -1,8 +1,9 @@
 import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
+import { useHealthStore } from '@/api/health.ts'
 import { useSnapshotStore } from '@/api/snapshot.ts'
 import { fakeApi } from '@/test/fakeApi.ts'
-import { makeBranch, makeSnapshot } from '@/test/fixtures.ts'
+import { gitLabWords, makeBranch, makeHealth, makeSnapshot } from '@/test/fixtures.ts'
 import { BranchPanel } from './BranchPanel.tsx'
 
 const linkPath = '/api/branch/issue'
@@ -135,4 +136,24 @@ test('links the issue that was previewed, not one typed while the preview was re
   await waitFor(async () => {
     expect(await writesTo(requests)).toEqual(['PUT {"key":"PROJ-7","update_pull":true}'])
   })
+})
+
+test("on GitLab, names the merge request by GitLab's own mark", async () => {
+  // Arrange
+  onBranch()
+  useHealthStore.setState({ health: makeHealth(gitLabWords) })
+  fakeApi({
+    [previewPath]: { key: '42', pull: 9, body: 'Speeds it up.\n\nCloses #42\n', changes: true },
+  })
+  const user = userEvent.setup()
+  render(<BranchPanel />)
+  await user.click(screen.getByRole('button', { name: 'Link an issue' }))
+  await user.type(screen.getByRole('textbox', { name: 'Issue' }), '#42')
+
+  // Act
+  await user.click(screen.getByRole('button', { name: 'Link' }))
+
+  // Assert
+  expect(await screen.findByText("!9's description becomes:")).toBeTruthy()
+  expect(screen.getByRole('button', { name: 'Link and update !9' })).toBeTruthy()
 })
