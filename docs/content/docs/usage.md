@@ -10,9 +10,10 @@ reads everything else — the branch, its changes, its pull request, its CI — 
 the repository and the services it talks to. Where you are in the work is worked
 out from the branch name each time, never stored. A small on-disk store does
 remember a few conveniences between sessions — the commit scope you last used,
-what you have announced, the last issue list — under your platform's data
-directory and never a secret; set `store.disabled` to `true` to keep nothing on
-disk.
+what you have announced, the last issue list — and the people and group
+associations you decided, under your platform's data directory and never a
+secret; set `store.disabled` to `true` to keep nothing on disk, and
+`workflow db-clean` removes what is there.
 
 ```sh
 workflow            # open the interface
@@ -23,8 +24,8 @@ workflow --web      # serve the loop in a browser instead
 The browser's side of it has [a page of its own]({{< relref "/docs/web" >}}).
 
 The steps a script or a shell prompt wants also run as commands, without the
-interface — `workflow status`, `reviews`, `standup`, `branch`, `pr` and
-`announce`. [Scripting]({{< relref "/docs/scripting" >}}) says what a script
+interface — `workflow status`, `reviews`, `standup`, `branch`, `pr`,
+`announce` and `db-clean`. [Scripting]({{< relref "/docs/scripting" >}}) says what a script
 can rely on from them: exit codes, which stream carries what, `--json`,
 `--yes`, `--dry-run` and `--log`.
 
@@ -507,6 +508,30 @@ The top row starts with `DRY RUN` while it is on. It opens no
 [store]({{< relref "/docs/configuration#what-is-kept-between-sessions" >}})
 either, so it starts without the cached issue list, your last commit scope and
 what was announced before.
+
+## Cleaning the local data
+
+`workflow db-clean` prints where the store lives and each database file there,
+with its size and what it holds, then asks before it removes anything:
+
+```text
+$ workflow db-clean
+Local data in /home/ana/.local/state/workflow
+  workflow.db  cache    92.0 KiB  scopes: 3, announcements: 5, cached views: 2, cached issues: 41
+  kept.db      kept     24.0 KiB  owner decisions: 4, owners on Slack: 3, Slack users and groups: 5, repository groups: 2, chosen groups: 1
+Remove workflow.db from /home/ana/.local/state/workflow? [y/N]:
+```
+
+By default it removes only the cache, `workflow.db`, which the next session
+makes again. `--all` removes `kept.db` too, after a warning: whom each code
+owner is on Slack and each repository's groups go with it, and people and group
+associations will be asked again. `--yes` removes without asking; `--dry-run`
+only says what it would remove. A store with nothing in it says there is nothing
+to remove. A database file another program holds open — on Windows, another
+workflow session — fails the clean without removing anything (exit status 4);
+something other than the store's own file where a database belongs, such as a
+symlink, is refused (exit status 1). The web interface's Settings has the same
+two cleans under **Local data**.
 
 ## Existing git hooks
 
