@@ -100,8 +100,10 @@ every pane gets an even share.
 `tab` and `shift+tab` move between panes, and `1`–`7` jump straight to one.
 Moving to a pane, by key or by click, reads it again when it last did so more
 than 30 seconds ago, so flicking between panes asks Jira and the forge
-nothing; the Issues list is left as it is while it holds further pages, which
-a reload would drop. `r` reads the pane again whenever you press it.
+nothing. Branch, Commits, Review and the messaging pane all read the branch,
+its pull request and CI, so reading one of them again counts for all four;
+the Issues list is left as it is while it holds further pages, which a reload
+would drop. `r` reads the pane again whenever you press it.
 `j`/`k` or the arrow keys move within a list, and `J`/`K` or `pgdn`/`pgup`
 scroll the detail pane. Each pane keeps its own place: come back to one and
 its detail is scrolled where you left it, unless it shows another branch,

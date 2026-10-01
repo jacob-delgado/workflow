@@ -85,6 +85,10 @@ type behavior struct {
 	// than the rail, so the heavy focus border belongs on the detail, where the
 	// cursor is, not on the rail's summary.
 	listInDetail bool
+	// readsBranch marks a pane whose refresh reads the branch again, which
+	// goes on to find its pull request and read CI: one such refresh leaves
+	// every pane it feeds fresh.
+	readsBranch bool
 }
 
 // behaviorOf is a pane's behavior.
@@ -99,7 +103,7 @@ func behaviorOf(target pane) behavior {
 			rail: Model.branchRail, detail: Model.branchDetail, narrow: nil,
 			keys: Model.branchKeys, handle: Model.handleBranchKey, pick: nil,
 			refresh: func(m Model) (Model, tea.Cmd) { return m, tea.Batch(m.loadBranch(), m.loadChanges()) },
-			scroll:  func(m *Model) *int { return &m.branch.scroll },
+			scroll:  func(m *Model) *int { return &m.branch.scroll }, readsBranch: true,
 		},
 		paneCommits: {
 			rail: Model.commitsRail, detail: Model.commitsDetail, narrow: nil,
@@ -107,7 +111,7 @@ func behaviorOf(target pane) behavior {
 			refresh: func(m Model) (Model, tea.Cmd) {
 				return m, tea.Batch(m.loadChanges(), m.loadBranch(), m.findHooks())
 			},
-			scroll: func(m *Model) *int { return &m.changes.scroll }, listInDetail: true,
+			scroll: func(m *Model) *int { return &m.changes.scroll }, listInDetail: true, readsBranch: true,
 		},
 		paneReview: {
 			rail: Model.reviewRail, detail: Model.reviewDetail, narrow: nil,
@@ -116,7 +120,7 @@ func behaviorOf(target pane) behavior {
 			// CI for the one it finds: so a refresh picks up a branch switched in a
 			// shell, and never reads CI for a pull request since replaced.
 			refresh: func(m Model) (Model, tea.Cmd) { return m, m.loadBranch() },
-			scroll:  func(m *Model) *int { return &m.review.scroll },
+			scroll:  func(m *Model) *int { return &m.review.scroll }, readsBranch: true,
 		},
 		paneMessaging: {
 			rail: Model.messagingRail, detail: Model.messagingDetail, narrow: nil,
@@ -124,7 +128,7 @@ func behaviorOf(target pane) behavior {
 			// The announcement is written from the pull request and its CI, so
 			// they are read again with what was announced.
 			refresh: func(m Model) (Model, tea.Cmd) { return m, tea.Batch(m.loadAnnounces(), m.loadBranch()) },
-			scroll:  func(m *Model) *int { return &m.messaging.scroll },
+			scroll:  func(m *Model) *int { return &m.messaging.scroll }, readsBranch: true,
 		},
 		paneReviews: {
 			rail: Model.reviewQueueRail, detail: Model.reviewQueueDetail, narrow: nil,
@@ -141,11 +145,32 @@ func behaviorOf(target pane) behavior {
 	}[target]
 }
 
-// refreshPane loads target again, noting when, whatever its age.
+// refreshPane loads target again, noting when, whatever its age, for it and
+// for every pane its load also refreshed.
 func (m Model) refreshPane(target pane) (Model, tea.Cmd) {
-	m.refreshed[target] = m.deps.now()
+	for _, loaded := range alsoRefreshed(target) {
+		m.refreshed[loaded] = m.deps.now()
+	}
 
 	return behaviorOf(target).refresh(m)
+}
+
+// alsoRefreshed is target and the panes a refresh of it loads with it: every
+// pane fed by the branch read, when target reads the branch.
+func alsoRefreshed(target pane) []pane {
+	if !behaviorOf(target).readsBranch {
+		return []pane{target}
+	}
+
+	var fed []pane
+
+	for candidate := range pane(paneCount) {
+		if behaviorOf(candidate).readsBranch {
+			fed = append(fed, candidate)
+		}
+	}
+
+	return fed
 }
 
 // switchTo moves focus to target, as a key or a click asks, loading it again

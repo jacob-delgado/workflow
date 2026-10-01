@@ -122,3 +122,23 @@ func TestRInTheMessagingPaneReadsWhatWasAnnounced(t *testing.T) {
 		t.Errorf("read the announcements %d times, want once more than the %d before r", reads, before)
 	}
 }
+
+// Branch, Commits, Review and Messaging each reload the branch, which goes on
+// to find its pull request and read CI: one reload serves all four.
+func TestTabbingThroughThePanesTheBranchFeedsLooksForThePullRequestOnce(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	reading := newWorld()
+	model := reading.live(t, 120, 40)
+	reading.advance(stale)
+	before := len(reading.asked("find "))
+
+	// Act
+	typing(t, model, keyTab, keyTab, keyTab, keyTab)
+
+	// Assert
+	if finds := len(reading.asked("find ")); finds != before+1 {
+		t.Errorf("looked for the pull request %d times, want once more than the %d before", finds, before)
+	}
+}
