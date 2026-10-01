@@ -11,6 +11,7 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"slices"
 )
 
 // DataKind says what a database file holds: conveniences a session sees again,
@@ -96,47 +97,75 @@ func databases() []database {
 }
 
 // Files lists the database files in dir, each with its size and what it holds,
-// read without writing; a file not there is left out.
+// read without writing; a file not there is left out. What a clean set aside
+// and could not remove is listed too, by the database's name and asideSuffix,
+// so it is seen and the next clean takes it.
 func Files(ctx context.Context, dir string) ([]DataFile, error) {
 	var files []DataFile
 
 	for _, each := range databases() {
-		size, found, err := sizeOf(filepath.Join(dir, each.name))
+		listed, err := filesOf(ctx, dir, each)
 		if err != nil {
 			return nil, err
 		}
 
-		if found {
-			files = append(files, DataFile{
-				Name: each.name, Kind: each.kind, Bytes: size, Holds: summarize(ctx, dir, each),
-			})
-		}
+		files = append(files, listed...)
 	}
 
 	return files, nil
 }
 
-// sizeOf is the size of the database at path with its companions, and whether
-// the database is there.
-func sizeOf(path string) (int64, bool, error) {
-	var size int64
+// filesOf lists one database, when its file is there, and what a clean left
+// set aside of it, when anything was.
+func filesOf(ctx context.Context, dir string, each database) ([]DataFile, error) {
+	path := filepath.Join(dir, each.name)
 
-	for index, each := range companionsOf(path) {
+	var files []DataFile
+
+	size, present, err := sizeOf(companionsOf(path))
+	if err != nil {
+		return nil, err
+	}
+
+	if slices.Contains(present, path) {
+		files = append(files, DataFile{Name: each.name, Kind: each.kind, Bytes: size, Holds: summarize(ctx, dir, each)})
+	}
+
+	size, present, err = sizeOf(asideOf(companionsOf(path)))
+	if err != nil {
+		return nil, err
+	}
+
+	if len(present) > 0 {
+		files = append(files, DataFile{Name: each.name + asideSuffix, Kind: each.kind, Bytes: size, Holds: nil})
+	}
+
+	return files, nil
+}
+
+// sizeOf is the size of those of paths that are there, and which those are.
+func sizeOf(paths []string) (int64, []string, error) {
+	var (
+		size    int64
+		present []string
+	)
+
+	for _, each := range paths {
 		info, err := os.Lstat(each)
 
 		switch {
-		case errors.Is(err, fs.ErrNotExist) && index == 0:
-			return 0, false, nil
 		case errors.Is(err, fs.ErrNotExist):
 			continue
 		case err != nil:
-			return 0, false, fmt.Errorf("reading the size of the store: %w", err)
+			return 0, nil, fmt.Errorf("reading the size of the store: %w", err)
 		}
 
 		size += info.Size()
+
+		present = append(present, each)
 	}
 
-	return size, true, nil
+	return size, present, nil
 }
 
 // summarize counts what a database holds, best effort: a file that is not a
@@ -186,13 +215,19 @@ func countRows(ctx context.Context, reader *sql.DB, table heldTable) (int, bool)
 // anything but a plain file where a database file belongs. Every file is set
 // aside before any is removed, and one that cannot be set aside puts the rest
 // back, so a file another program holds open fails the clean without leaving
-// half a database behind.
+// half a database behind. What an earlier clean set aside and could not
+// remove goes first.
 func Clean(dir string, scope CleanScope) error {
 	if !filepath.IsAbs(dir) {
 		return ErrCleanRefused
 	}
 
-	present, err := filesToClean(dir, scope)
+	present, leftover, err := filesToClean(dir, scope)
+	if err != nil {
+		return err
+	}
+
+	err = removeEach(leftover)
 	if err != nil {
 		return err
 	}
@@ -202,38 +237,53 @@ func Clean(dir string, scope CleanScope) error {
 		return err
 	}
 
-	for _, path := range present {
-		err = os.Remove(path + asideSuffix)
-		if err != nil {
-			return fmt.Errorf("%w: %w", ErrNotCleaned, err)
-		}
-	}
-
-	return nil
+	return removeEach(asideOf(present))
 }
 
-// filesToClean is every file a clean of scope removes that is there, refusing
-// one that is not a plain file.
-func filesToClean(dir string, scope CleanScope) ([]string, error) {
+// filesToClean is every file a clean of scope removes that is there, and every
+// one an earlier clean set aside, refusing one that is not a plain file.
+func filesToClean(dir string, scope CleanScope) ([]string, []string, error) {
 	names := map[CleanScope][]string{CleanCache: {dbName}, CleanAll: {dbName, keptName}}[scope]
 
-	var present []string
+	var present, leftover []string
 
 	for _, name := range names {
-		for _, path := range companionsOf(filepath.Join(dir, name)) {
-			info, err := os.Lstat(path)
+		companions := companionsOf(filepath.Join(dir, name))
 
-			switch {
-			case errors.Is(err, fs.ErrNotExist):
-				continue
-			case err != nil:
-				return nil, fmt.Errorf("%w: %w", ErrNotCleaned, err)
-			case !info.Mode().IsRegular():
-				return nil, ErrCleanRefused
-			}
-
-			present = append(present, path)
+		found, err := plainFilesAmong(companions)
+		if err != nil {
+			return nil, nil, err
 		}
+
+		left, err := plainFilesAmong(asideOf(companions))
+		if err != nil {
+			return nil, nil, err
+		}
+
+		present, leftover = append(present, found...), append(leftover, left...)
+	}
+
+	return present, leftover, nil
+}
+
+// plainFilesAmong is those of paths that are there, refusing one that is not a
+// plain file.
+func plainFilesAmong(paths []string) ([]string, error) {
+	var present []string
+
+	for _, path := range paths {
+		info, err := os.Lstat(path)
+
+		switch {
+		case errors.Is(err, fs.ErrNotExist):
+			continue
+		case err != nil:
+			return nil, fmt.Errorf("%w: %w", ErrNotCleaned, err)
+		case !info.Mode().IsRegular():
+			return nil, ErrCleanRefused
+		}
+
+		present = append(present, path)
 	}
 
 	return present, nil
@@ -254,6 +304,31 @@ func setAside(paths []string) error {
 	}
 
 	return nil
+}
+
+// removeEach removes every one of paths it can, reporting the first it could
+// not, so one file held open leaves no more behind than it must.
+func removeEach(paths []string) error {
+	var first error
+
+	for _, path := range paths {
+		err := os.Remove(path)
+		if err != nil && first == nil {
+			first = fmt.Errorf("%w: %w", ErrNotCleaned, err)
+		}
+	}
+
+	return first
+}
+
+// asideOf is each path as a clean sets it aside.
+func asideOf(paths []string) []string {
+	aside := make([]string, 0, len(paths))
+	for _, path := range paths {
+		aside = append(aside, path+asideSuffix)
+	}
+
+	return aside
 }
 
 // companionsOf is a database's path with the write-ahead log and shared-memory

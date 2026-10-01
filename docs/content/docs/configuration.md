@@ -910,7 +910,9 @@ removes the cache once you confirm; `--all` removes `kept.db` too, and with it
 every people and group association, which workflow then asks for again. Each
 file goes with its `-wal` and `-shm` companions, and a file another program holds
 open — another workflow session, on Windows — fails the clean without removing
-anything. A running session simply makes a fresh cache on its next write.
+anything. A file set aside that still could not be removed is listed as
+`workflow.db.cleaning` or `kept.db.cleaning`, and the next clean removes it. A
+running session simply makes a fresh cache on its next write.
 
 The store is on by default. Set `store.disabled` to keep nothing on disk; with it
 set, workflow behaves exactly as it did before the store existed, working
