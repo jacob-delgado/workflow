@@ -3,11 +3,12 @@
 
 package cli_test
 
-// `workflow slack login` up to the point it would ask Slack: what it asks, and
-// what it refuses before asking anything. A login Slack accepts takes Slack
-// itself (TRADE-17); the refresh it makes is tested in internal/slackauth.
+// `workflow slack login`: what it asks, what it refuses before asking
+// anything, and what it keeps once Slack, here a fake on this machine
+// (fakeSlack), accepts the refresh it makes.
 
 import (
+	"net/http"
 	"os"
 	"path/filepath"
 	"strings"
@@ -16,6 +17,9 @@ import (
 	"github.com/jacob-delgado/workflow/internal/cli"
 	"github.com/jacob-delgado/workflow/internal/config"
 )
+
+// slackClientID is the Slack app's client ID the login is given.
+const slackClientID = "1234.5678"
 
 // slackUserTokenFile is a configuration set up to post to Slack with a user
 // token not yet logged in, keeping its credentials in the file.
@@ -49,7 +53,7 @@ func TestSlackLoginAsksForTheAppOnScreenAndItsSecretOffIt(t *testing.T) {
 
 	var askedLine, askedSecret []string
 
-	prompt := asking([]string{"1234.5678"}, nil, &askedLine, &askedSecret)
+	prompt := asking([]string{slackClientID}, nil, &askedLine, &askedSecret)
 
 	// Act
 	_, err := runGuided(t, dir, prompt, "slack", "login")
@@ -134,6 +138,38 @@ func TestSlackLoginNeedsAConfigurationFile(t *testing.T) {
 	_, statErr := os.Stat(filepath.Join(dir, config.FileName))
 	if statErr == nil {
 		t.Error("slack login wrote a configuration file")
+	}
+}
+
+func TestSlackLoginKeepsWhatSlackGivesBackAndSaysWhoseItIs(t *testing.T) {
+	// Arrange
+	fakeSlack(t, map[string]slackAnswer{"/oauth.v2.access": {http.StatusOK, `{"ok":true,"token_type":"user",` +
+		`"access_token":"xoxe.xoxp-1-new","refresh_token":"xoxe-1-next","expires_in":43200}`}})
+
+	dir := t.TempDir()
+	// The file already keeps the app's secret, so the token is kept there on
+	// every system, never in the keychain of the machine the test runs on.
+	path := writeFile(t, dir, `{"messaging": {"kind": "slack", "client_id": "`+slackClientID+`",`+
+		` "client_secret": "client-secret-old", "channel": "#dev"}}`)
+
+	var askedLine, askedSecret []string
+
+	prompt := asking([]string{slackClientID}, []string{"client-secret-9999", "xoxe-1-first"}, &askedLine, &askedSecret)
+
+	// Act
+	output, err := runGuided(t, dir, prompt, "slack", "login")
+
+	// Assert
+	if err != nil || !strings.Contains(output, "Logged in to Slack as ana in Acme.") {
+		t.Fatalf("slack login = %v, want it to say whose the token is:\n%s", err, output)
+	}
+
+	held, err := os.ReadFile(path)
+	kept := string(held)
+
+	if err != nil || !strings.Contains(kept, "xoxe.xoxp-1-new") || !strings.Contains(kept, "xoxe-1-next") ||
+		strings.Contains(kept, "xoxe-1-first") {
+		t.Errorf("%s holds %s (%v), want the pair Slack gave back in place of the spent refresh token", path, kept, err)
 	}
 }
 
