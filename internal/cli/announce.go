@@ -50,17 +50,19 @@ type announceSeams struct {
 
 // announceTagging is what an announcement's tags are read through: the code
 // owners of the branch's changes, whom each is on Slack and the repository's
-// user groups, kept between sessions, and the Slack directory, read only to
-// learn whether the token has the scopes tagging needs. A nil ChannelMembers
-// — no Slack user token — or OwnerLinks — no store — tags no one.
+// user groups, kept between sessions in the Slack workspace Workspace names,
+// and the Slack directory, read only to learn whether the token has the
+// scopes tagging needs. A nil ChannelMembers — no Slack user token — or
+// OwnerLinks — no store — tags no one.
 type announceTagging struct {
 	Owners         loop.OwnerSeams
-	OwnerLinks     func() ([]loop.OwnerLink, error)
-	RepoGroups     func() ([]loop.SlackTarget, error)
-	LastGroups     func() ([]string, bool)
-	RecordGroups   func(ids []string) error
+	OwnerLinks     func(workspace string) ([]loop.OwnerLink, error)
+	RepoGroups     func(workspace string) ([]loop.SlackTarget, error)
+	LastGroups     func(workspace string) ([]string, bool)
+	RecordGroups   func(workspace string, ids []string) error
 	ChannelMembers func(channel string) ([]loop.SlackTarget, error)
 	UserGroups     func() ([]loop.SlackTarget, error)
+	Workspace      func() (string, error)
 }
 
 // newAnnounceCmd builds `workflow announce`.
@@ -133,6 +135,7 @@ func runAnnounceCommand(cmd *cobra.Command, prompt Prompt, opts writeOptions) er
 	if cfg.Messaging.Mode() == config.MessagingUser {
 		seams.Tagging.ChannelMembers = deps.Messaging.ChannelMembers
 		seams.Tagging.UserGroups = deps.Messaging.UserGroups
+		seams.Tagging.Workspace = deps.Messaging.Workspace
 	}
 
 	if cfg.Messaging.Mode() != config.MessagingNone {
@@ -260,8 +263,13 @@ func tagAnnouncement(out output, seams announceSeams, moment messaging.Moment, b
 ) {
 	memory := seams.Memory
 
-	tags, tagging := seams.Tagging.propose(seams.Compose.Branch, base, moment)
-	if !tagging || len(tags.Owners)+len(tags.Groups) == 0 {
+	workspace, tagging := seams.Tagging.workspace(out, moment)
+	if !tagging {
+		return messaging.Mentions{}, memory
+	}
+
+	tags := seams.Tagging.propose(seams.Compose.Branch, base, moment, workspace)
+	if len(tags.Owners)+len(tags.Groups) == 0 {
 		return messaging.Mentions{}, memory
 	}
 
@@ -283,28 +291,40 @@ func tagAnnouncement(out output, seams announceSeams, moment messaging.Moment, b
 		fmt.Fprintln(out.artifact, "not tagged: "+untagged)
 	}
 
-	if len(tags.Groups) > 0 {
-		memory.RecordGroups = seams.Tagging.RecordGroups
+	if record := seams.Tagging.RecordGroups; len(tags.Groups) > 0 && record != nil {
+		memory.RecordGroups = func(ids []string) error { return record(workspace, ids) }
 	}
 
 	return mentions, memory
 }
 
-// propose is whom an announcement at moment proposes to tag, and whether it
-// tags anyone at all: only one ready for review does, with a Slack user token
-// and the store. The owners are those of the changes since pullBase, the
+// workspace is the Slack workspace an announcement at moment tags in, and
+// whether it tags anyone at all: only one ready for review does, with a Slack
+// user token and the store, and only in a workspace Slack names. When Slack
+// cannot say which, the post goes out untagged, and the notes say why.
+func (t announceTagging) workspace(out output, moment messaging.Moment) (string, bool) {
+	if moment != messaging.MomentReady || t.ChannelMembers == nil || t.OwnerLinks == nil {
+		return "", false
+	}
+
+	workspace, err := loop.TagWorkspace(t.Workspace)
+	if errors.Is(err, loop.ErrUnknownWorkspace) {
+		fmt.Fprintf(out.notes, "Not tagging anyone: %v; posting untagged.\n", err)
+	}
+
+	return workspace, err == nil
+}
+
+// propose is whom an announcement at moment proposes to tag from what is kept
+// in workspace. The owners are those of the changes since pullBase, the
 // branch the pull request merges into, or since the base the branch is read
 // to have left when the forge did not say. The tags are a proposal, so a read
 // that fails proposes fewer rather than holding the announcement back.
 func (t announceTagging) propose(
-	branch func() (gitrepo.Branch, error), pullBase string, moment messaging.Moment,
-) (loop.Tags, bool) {
-	if moment != messaging.MomentReady || t.ChannelMembers == nil || t.OwnerLinks == nil {
-		return loop.Tags{}, false
-	}
-
+	branch func() (gitrepo.Branch, error), pullBase string, moment messaging.Moment, workspace string,
+) loop.Tags {
 	owners, _ := loop.OwnersOf(t.Owners, cmp.Or(pullBase, localBase(branch)))
-	links, _ := t.OwnerLinks()
+	links, _ := t.OwnerLinks(workspace)
 
 	var (
 		repoGroups []loop.SlackTarget
@@ -313,14 +333,14 @@ func (t announceTagging) propose(
 	)
 
 	if t.RepoGroups != nil {
-		repoGroups, _ = t.RepoGroups()
+		repoGroups, _ = t.RepoGroups(workspace)
 	}
 
 	if t.LastGroups != nil {
-		last, chosen = t.LastGroups()
+		last, chosen = t.LastGroups(workspace)
 	}
 
-	return loop.ProposeTags(owners, links, repoGroups, last, chosen, moment), true
+	return loop.ProposeTags(owners, links, repoGroups, last, chosen, moment)
 }
 
 // localBase is the base the branch is read to have left, or empty when the

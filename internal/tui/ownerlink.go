@@ -164,9 +164,24 @@ func (m Model) saveLink(owner string, target *loop.SlackTarget, opened int) tea.
 		link.OnSlack, link.Slack = true, *target
 	}
 
+	readWorkspace := m.deps.Messaging.Workspace
+
 	return func() tea.Msg {
-		return ownerLinked{opened: opened, link: link, err: save(owner, target)}
+		err := inWorkspace(readWorkspace, func(workspace string) error { return save(workspace, owner, target) })
+
+		return ownerLinked{opened: opened, link: link, err: err}
 	}
+}
+
+// inWorkspace makes write in the Slack workspace the token is for, which every
+// kept link is made under, or says why that cannot be read.
+func inWorkspace(readWorkspace func() (string, error), write func(workspace string) error) error {
+	workspace, err := loop.TagWorkspace(readWorkspace)
+	if err != nil {
+		return err
+	}
+
+	return write(workspace)
 }
 
 // ownerLinked is a link saved, or why it was not.

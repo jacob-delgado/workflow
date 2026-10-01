@@ -369,9 +369,8 @@ func WebDeps(deps tui.Deps) webserver.Deps {
 
 		LastScope:   deps.Store.LastScope,
 		RecordScope: deps.Store.RecordScope,
-
-		Tasks:   deps.Tasks,
-		HomeDir: os.UserHomeDir,
+		Tasks:       deps.Tasks,
+		HomeDir:     os.UserHomeDir,
 
 		OwnerLinks:    deps.Store.OwnerLinks,
 		LinkOwner:     deps.Store.LinkOwner,
@@ -380,6 +379,7 @@ func WebDeps(deps tui.Deps) webserver.Deps {
 		SetRepoGroups: deps.Store.SetRepoGroups,
 		LastGroups:    deps.Store.LastGroups,
 		RecordGroups:  deps.Store.RecordGroups,
+		Workspace:     deps.Messaging.Workspace,
 
 		ChannelMembers: deps.Messaging.ChannelMembers,
 		UserGroups:     deps.Messaging.UserGroups,

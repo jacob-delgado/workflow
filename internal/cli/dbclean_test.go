@@ -52,7 +52,7 @@ func storedHome(t *testing.T) (place, string) {
 		t.Fatalf("seeding the cache: %v", err)
 	}
 
-	err = kept.SetRepoGroups(t.Context(), "github.com/owner/repo",
+	err = kept.SetRepoGroups(t.Context(), "github.com/owner/repo", "T0OWNER",
 		[]store.SlackTarget{{ID: "S0PLATFORM", Label: "platform"}}, time.Now())
 	if err != nil {
 		t.Fatalf("seeding the kept file: %v", err)

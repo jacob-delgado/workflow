@@ -24,7 +24,7 @@ const DirectoryTTL = 10 * time.Minute
 
 // SlackDirectory is the Slack directory as this session has read it: the
 // channels named so far, their members, the workspace's users and its user
-// groups. Each is read once however many ask for it at a time, and no lock is
+// groups, and which workspace it is. Each is read once however many ask for it at a time, and no lock is
 // held while Slack answers, so Refresh never waits on a read. A read that
 // fails is not held, so it is asked again. While the settings in effect post
 // with no Slack user token, every read answers messaging.ErrNoCredential and
@@ -52,6 +52,7 @@ type heldReads struct {
 	users    map[string]*flight[roster]
 	profiles map[string]*flight[profile]
 	groups   map[string]*flight[[]messaging.SlackTarget]
+	team     map[string]*flight[string]
 }
 
 // roster is users.list read whole: each taggable user's label by their ID, or
@@ -138,6 +139,18 @@ func (d *SlackDirectory) UserGroups(ctx context.Context) ([]loop.SlackTarget, er
 	}
 
 	return asLoopTargets(groups), nil
+}
+
+// Workspace is the ID of the Slack workspace the user token is for, which
+// keys every link the store keeps. It is held as the directory's reads are,
+// so a switch of settings, which drops them, reads it again.
+func (d *SlackDirectory) Workspace(ctx context.Context) (string, error) {
+	slack, held, err := d.begin()
+	if err != nil {
+		return "", err
+	}
+
+	return shared(ctx, d, held.team, wholeDirectory, slack.Workspace)
 }
 
 // label is members under their Slack names, ordered by them: from users.list
@@ -258,6 +271,7 @@ func (d *SlackDirectory) forget() {
 		users:    map[string]*flight[roster]{},
 		profiles: map[string]*flight[profile]{},
 		groups:   map[string]*flight[[]messaging.SlackTarget]{},
+		team:     map[string]*flight[string]{},
 	}
 }
 
@@ -343,6 +357,7 @@ func withDirectory(ctx context.Context, bound seams.Messaging, directory *SlackD
 	}
 	bound.UserGroups = func() ([]loop.SlackTarget, error) { return directory.UserGroups(ctx) }
 	bound.RefreshDirectory = directory.Refresh
+	bound.Workspace = func() (string, error) { return directory.Workspace(ctx) }
 
 	return bound
 }

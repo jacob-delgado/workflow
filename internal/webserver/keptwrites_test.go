@@ -27,10 +27,12 @@ import (
 // not.
 const overlapWait = 50 * time.Millisecond
 
-func TestSetRepoGroupsClearsWithoutASlackDirectory(t *testing.T) {
+func TestSetRepoGroupsIsRefusedWithoutASlackWorkspace(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
+	// A repository's groups are kept per Slack workspace, and a webhook names
+	// none, so there is no workspace whose groups to change.
 	var posted string
 
 	fake := newFakeKept()
@@ -41,8 +43,9 @@ func TestSetRepoGroupsClearsWithoutASlackDirectory(t *testing.T) {
 	recorder := send(t, handler, http.MethodPut, repoGroupsPath, `{"ids":[]}`)
 
 	// Assert
-	if recorder.Code != http.StatusOK || len(fake.repoGroups) != 0 {
-		t.Errorf("status %d (%s), groups %+v; want 200 and none kept", recorder.Code, recorder.Body.String(), fake.repoGroups)
+	if recorder.Code != http.StatusUnprocessableEntity || len(fake.repoGroups) != 1 {
+		t.Errorf("status %d (%s), groups %+v; want 422 and the group kept",
+			recorder.Code, recorder.Body.String(), fake.repoGroups)
 	}
 }
 
@@ -89,7 +92,7 @@ func TestCleanLocalDataWaitsForAKeptWriteUnderWay(t *testing.T) {
 	linking, release, cleaned := make(chan struct{}), make(chan struct{}), make(chan struct{})
 	deps := filledDeps()
 	newFakeKept().wire(&deps)
-	deps.LinkOwner = func(string, *loop.SlackTarget) error {
+	deps.LinkOwner = func(string, string, *loop.SlackTarget) error {
 		close(linking)
 		<-release
 

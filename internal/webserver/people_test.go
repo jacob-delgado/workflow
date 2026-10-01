@@ -7,6 +7,7 @@ package webserver_test
 // whom each code owner is on Slack, and the user groups a repository tags.
 
 import (
+	"errors"
 	"fmt"
 	"net/http"
 	"reflect"
@@ -64,6 +65,26 @@ type fakeKept struct {
 	groups     []loop.SlackTarget
 	membersErr error
 	groupsErr  error
+	// workspace is the Slack workspace the token is for, the only one the
+	// fake keeps anything in, and workspaceErr why Slack would not say.
+	workspace    string
+	workspaceErr error
+}
+
+// errOtherWorkspace is what the fake answers when asked in a Slack workspace
+// other than the token's, which nothing should ask in.
+var errOtherWorkspace = errors.New("asked in another Slack workspace")
+
+// webWorkspace is the Slack workspace the fake's token is for.
+const webWorkspace = "T0WEB"
+
+// in refuses a read or write in a workspace other than the token's.
+func (f *fakeKept) in(workspace string) error {
+	if workspace != f.workspace {
+		return errOtherWorkspace
+	}
+
+	return nil
 }
 
 // newFakeKept holds carla linked, dan not on Slack, and the repository's two
@@ -77,6 +98,7 @@ func newFakeKept() *fakeKept {
 		repoGroups: []loop.SlackTarget{apiReviews()},
 		members:    []loop.SlackTarget{ben(), carla()},
 		groups:     []loop.SlackTarget{podGroup(), apiReviews()},
+		workspace:  webWorkspace,
 	}
 }
 
@@ -87,31 +109,32 @@ func (f *fakeKept) wire(deps *webserver.Deps) {
 	deps.CodeOwnersAt = func(string) (codeowners.File, bool, error) {
 		return codeowners.Parse("internal/ @ben @carla @acme/control-plane\n", codeowners.GitHub), true, nil
 	}
-	deps.OwnerLinks = func() ([]loop.OwnerLink, error) { return f.links, nil }
+	deps.OwnerLinks = func(workspace string) ([]loop.OwnerLink, error) { return f.links, f.in(workspace) }
 	deps.LinkOwner = f.link
-	deps.ForgetOwner = func(owner string) error {
+	deps.ForgetOwner = func(workspace, owner string) error {
 		f.links = f.without(owner)
 
-		return nil
+		return f.in(workspace)
 	}
-	deps.RepoGroups = func() ([]loop.SlackTarget, error) { return f.repoGroups, nil }
-	deps.SetRepoGroups = func(groups []loop.SlackTarget) error {
+	deps.RepoGroups = func(workspace string) ([]loop.SlackTarget, error) { return f.repoGroups, f.in(workspace) }
+	deps.SetRepoGroups = func(workspace string, groups []loop.SlackTarget) error {
 		f.repoGroups = groups
 
-		return nil
+		return f.in(workspace)
 	}
-	deps.LastGroups = func() ([]string, bool) { return f.last, f.chosen }
-	deps.RecordGroups = func(ids []string) error {
+	deps.LastGroups = func(string) ([]string, bool) { return f.last, f.chosen }
+	deps.RecordGroups = func(workspace string, ids []string) error {
 		f.recorded = append(f.recorded, ids)
 
-		return nil
+		return f.in(workspace)
 	}
+	deps.Workspace = func() (string, error) { return f.workspace, f.workspaceErr }
 	deps.ChannelMembers = func(string) ([]loop.SlackTarget, error) { return f.members, f.membersErr }
 	deps.UserGroups = func() ([]loop.SlackTarget, error) { return f.groups, f.groupsErr }
 }
 
 // link records whom owner is, replacing what was decided.
-func (f *fakeKept) link(owner string, target *loop.SlackTarget) error {
+func (f *fakeKept) link(workspace, owner string, target *loop.SlackTarget) error {
 	link := loop.OwnerLink{Owner: owner, OnSlack: target != nil, Slack: loop.SlackTarget{}}
 	if target != nil {
 		link.Slack = *target
@@ -119,7 +142,7 @@ func (f *fakeKept) link(owner string, target *loop.SlackTarget) error {
 
 	f.links = append(f.without(owner), link)
 
-	return nil
+	return f.in(workspace)
 }
 
 // without is the links but owner's.

@@ -5,6 +5,7 @@ package loop
 
 import (
 	"errors"
+	"fmt"
 	"slices"
 	"strings"
 
@@ -30,6 +31,32 @@ type OwnerLink struct {
 // ErrGroupNotOffered refuses to tag a user group the announcement did not
 // offer.
 var ErrGroupNotOffered = errors.New("that user group is not offered for this announcement")
+
+// ErrUnknownWorkspace reports a Slack user token whose workspace could not be
+// read. Links are kept per workspace, so nobody is tagged: the announcement
+// posts untagged, and a surface says so with why.
+var ErrUnknownWorkspace = errors.New("can't tell which Slack workspace this token is for")
+
+// TagWorkspace is the Slack workspace tags are read and kept under, as read
+// says: messaging.ErrNoCredential when there is no Slack user token to tag
+// with, as with no read at all, and ErrUnknownWorkspace, wrapping why, when
+// Slack cannot say which it is.
+func TagWorkspace(read func() (string, error)) (string, error) {
+	if read == nil {
+		return "", messaging.ErrNoCredential
+	}
+
+	workspace, err := read()
+
+	switch {
+	case err == nil:
+		return workspace, nil
+	case errors.Is(err, messaging.ErrNoCredential):
+		return "", err
+	default:
+		return "", fmt.Errorf("%w: %w", ErrUnknownWorkspace, err)
+	}
+}
 
 // OwnerState is what is known of a code owner on Slack.
 type OwnerState int

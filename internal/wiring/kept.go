@@ -16,10 +16,11 @@ import (
 // bindKept binds the kept associations into the store's seams: a forge owner's
 // Slack identity by this repository's forge host, since an owner is the same
 // person in every repository on it, and the Slack groups to tag by the
-// repository. Management writes return their errors, so a surface can say why
-// one was refused. A store that keeps nothing binds none of them, and a
-// workspace with no forge host binds no owner links, so a surface offers no
-// management that would save nothing.
+// repository, each under the Slack workspace it was made in. Management
+// writes return their errors, so a surface can say why one was refused. A
+// store that keeps nothing binds none of them, and a workspace with no forge
+// host binds no owner links, so a surface offers no management that would
+// save nothing.
 func bindKept(ctx context.Context, kept store.Store, where Workspace, bound seams.Store) seams.Store {
 	if !kept.Keeps() {
 		return bound
@@ -27,20 +28,22 @@ func bindKept(ctx context.Context, kept store.Store, where Workspace, bound seam
 
 	repo := repoKey(where)
 
-	bound.RepoGroups = func() ([]loop.SlackTarget, error) {
-		groups, err := kept.RepoGroups(ctx, repo)
+	bound.RepoGroups = func(workspace string) ([]loop.SlackTarget, error) {
+		groups, err := kept.RepoGroups(ctx, repo, workspace)
 
 		return fromStoreTargets(groups), err
 	}
-	bound.SetRepoGroups = func(groups []loop.SlackTarget) error {
-		return kept.SetRepoGroups(ctx, repo, toStoreTargets(groups), time.Now())
+	bound.SetRepoGroups = func(workspace string, groups []loop.SlackTarget) error {
+		return kept.SetRepoGroups(ctx, repo, workspace, toStoreTargets(groups), time.Now())
 	}
-	bound.LastGroups = func() ([]string, bool) {
-		ids, chosen, _ := kept.LastGroups(ctx, repo)
+	bound.LastGroups = func(workspace string) ([]string, bool) {
+		ids, chosen, _ := kept.LastGroups(ctx, repo, workspace)
 
 		return ids, chosen
 	}
-	bound.RecordGroups = func(ids []string) error { return kept.RecordGroups(ctx, repo, ids, time.Now()) }
+	bound.RecordGroups = func(workspace string, ids []string) error {
+		return kept.RecordGroups(ctx, repo, workspace, ids, time.Now())
+	}
 
 	return bindOwnerLinks(ctx, kept, forgeHostKey(where), bound)
 }
@@ -52,15 +55,15 @@ func bindOwnerLinks(ctx context.Context, kept store.Store, host string, bound se
 		return bound
 	}
 
-	bound.OwnerLinks = func() ([]loop.OwnerLink, error) {
-		links, err := kept.OwnerLinks(ctx, host)
+	bound.OwnerLinks = func(workspace string) ([]loop.OwnerLink, error) {
+		links, err := kept.OwnerLinks(ctx, host, workspace)
 
 		return fromStoreLinks(links), err
 	}
-	bound.LinkOwner = func(owner string, target *loop.SlackTarget) error {
-		return kept.LinkOwner(ctx, host, owner, toStoreTarget(target), time.Now())
+	bound.LinkOwner = func(workspace, owner string, target *loop.SlackTarget) error {
+		return kept.LinkOwner(ctx, host, workspace, owner, toStoreTarget(target), time.Now())
 	}
-	bound.ForgetOwner = func(owner string) error { return kept.ForgetOwner(ctx, host, owner) }
+	bound.ForgetOwner = func(workspace, owner string) error { return kept.ForgetOwner(ctx, host, workspace, owner) }
 
 	return bound
 }

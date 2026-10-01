@@ -167,7 +167,16 @@ func (s *server) tagging(moment messaging.Moment, channel string) *api.Announcem
 		return nil
 	}
 
-	tags, available := s.proposedTags(moment)
+	workspace, err := loop.TagWorkspace(s.deps.Workspace)
+	if errors.Is(err, messaging.ErrNoCredential) {
+		return nil
+	}
+
+	if err != nil {
+		return untagged(err)
+	}
+
+	tags, available := s.proposedTags(moment, workspace)
 
 	scope, err := s.scopeToLink(tags.Owners, channel)
 	if err != nil {
@@ -199,17 +208,41 @@ func (s *server) canReadDirectory(channel string) bool {
 	return !errors.Is(err, messaging.ErrNoCredential)
 }
 
-// proposedTags is whom an announcement at moment proposes to tag, and
-// whether it tags anyone at all: only one ready for review does, and only
-// with the store that keeps who is whom. The tags are a proposal, so a kept
-// read that fails proposes fewer rather than holding the announcement back.
-func (s *server) proposedTags(moment messaging.Moment) (loop.Tags, bool) {
+// untagged is the tagging of an announcement that tags no one because the
+// Slack workspace could not be read, and why.
+func untagged(err error) *api.AnnouncementTagging {
+	reason := workspaceRefusal(err)
+
+	return &api.AnnouncementTagging{
+		Available: false, MissingScope: nil, UnavailableReason: &reason,
+		Owners: []api.OwnerTag{}, Groups: []api.GroupTag{},
+	}
+}
+
+// workspaceRefusal says why the Slack workspace could not be read: in fault's
+// words where it classifies the cause, since an unreachable Slack's own words
+// can carry an address, and as no more than that otherwise.
+func workspaceRefusal(err error) string {
+	prob, classified := faultProblem(err)
+	if !classified {
+		return loop.ErrUnknownWorkspace.Error()
+	}
+
+	return loop.ErrUnknownWorkspace.Error() + ": " + prob.Detail
+}
+
+// proposedTags is whom an announcement at moment proposes to tag from what
+// is kept in workspace, and whether it tags anyone at all: only one ready for
+// review does, and only with the store that keeps who is whom. The tags are a
+// proposal, so a kept read that fails proposes fewer rather than holding the
+// announcement back.
+func (s *server) proposedTags(moment messaging.Moment, workspace string) (loop.Tags, bool) {
 	if moment != messaging.MomentReady || s.deps.OwnerLinks == nil || s.deps.RepoGroups == nil {
 		return loop.Tags{}, false
 	}
 
-	links, _ := s.deps.OwnerLinks()
-	repoGroups, _ := s.deps.RepoGroups()
+	links, _ := s.deps.OwnerLinks(workspace)
+	repoGroups, _ := s.deps.RepoGroups(workspace)
 
 	var (
 		last   []string
@@ -217,7 +250,7 @@ func (s *server) proposedTags(moment messaging.Moment) (loop.Tags, bool) {
 	)
 
 	if s.deps.LastGroups != nil {
-		last, chosen = s.deps.LastGroups()
+		last, chosen = s.deps.LastGroups(workspace)
 	}
 
 	return loop.ProposeTags(s.branchOwners(), links, repoGroups, last, chosen, moment), true
@@ -263,7 +296,7 @@ func (s *server) mentions(asked *api.AnnounceMentions, moment messaging.Moment) 
 		return messaging.Mentions{}, loop.AnnounceMemory{}, nil
 	}
 
-	tags, err := s.tagsAsPreviewed(asked.Users, moment)
+	tags, workspace, err := s.tagsAsPreviewed(asked.Users, moment)
 	if err != nil {
 		return messaging.Mentions{}, loop.AnnounceMemory{}, err
 	}
@@ -276,32 +309,38 @@ func (s *server) mentions(asked *api.AnnounceMentions, moment messaging.Moment) 
 	memory := loop.AnnounceMemory{Recorded: nil, Record: nil, RecordGroups: nil}
 	if len(tags.Groups) > 0 && s.deps.RecordGroups != nil {
 		memory.RecordGroups = func(ids []string) error {
-			return s.keptWrite(func() error { return s.deps.RecordGroups(ids) })
+			return s.keptWrite(func() error { return s.deps.RecordGroups(workspace, ids) })
 		}
 	}
 
 	return mentions, memory, nil
 }
 
-// tagsAsPreviewed is whom an announcement at moment proposes to tag, refused
-// when it tags no one now — not ready for review, or no Slack user token in
-// the configuration in effect — and when the user owners it links are not
+// tagsAsPreviewed is whom an announcement at moment proposes to tag, and the
+// Slack workspace they are kept in, refused when it tags no one now — not
+// ready for review, no Slack user token in the configuration in effect, or no
+// workspace to read its links in — and when the user owners it links are not
 // previewed, the ones its preview showed.
-func (s *server) tagsAsPreviewed(previewed []string, moment messaging.Moment) (loop.Tags, error) {
+func (s *server) tagsAsPreviewed(previewed []string, moment messaging.Moment) (loop.Tags, string, error) {
 	if !s.canReadDirectory("") {
-		return loop.Tags{}, errNoTags
+		return loop.Tags{}, "", errNoTags
 	}
 
-	tags, available := s.proposedTags(moment)
+	workspace, err := loop.TagWorkspace(s.deps.Workspace)
+	if err != nil {
+		return loop.Tags{}, "", errNoTags
+	}
+
+	tags, available := s.proposedTags(moment, workspace)
 	if !available {
-		return loop.Tags{}, errNoTags
+		return loop.Tags{}, "", errNoTags
 	}
 
 	if !slices.Equal(idSet(previewed), idSet(linkedUsers(tags))) {
-		return loop.Tags{}, errTagsChanged
+		return loop.Tags{}, "", errTagsChanged
 	}
 
-	return tags, nil
+	return tags, workspace, nil
 }
 
 // linkedUsers are the Slack users the user owners among tags are linked to.

@@ -160,6 +160,12 @@ type Messaging struct {
 	// RefreshDirectory drops the directory read so far this session, so the
 	// next read asks Slack again.
 	RefreshDirectory func()
+	// Workspace is the ID of the Slack workspace the user token is for, held
+	// with the directory's reads. The store's links are kept per workspace,
+	// so a surface reads it before them. It answers messaging.ErrNoCredential
+	// as the directory does, and an error when Slack cannot say, when a
+	// surface tags no one and says why.
+	Workspace func() (string, error)
 }
 
 // Store is what a surface asks of the on-disk store, bound to this repository.
@@ -184,29 +190,35 @@ type Store struct {
 	CachedIssues func(view string) ([]jira.Issue, bool)
 	// CacheIssues remembers the issue list just seen for a view.
 	CacheIssues func(view string, issues []jira.Issue)
-	// OwnerLinks is every forge owner decided on this repository's forge host:
-	// whom each is on Slack, or that they are not. Kept data survives the
-	// cache's schema changes; a file from a newer build reads as none. The kept
-	// seams, OwnerLinks through RecordGroups, are nil when the store keeps
-	// nothing, and the owner ones when there is no forge host to key them by.
-	OwnerLinks func() ([]loop.OwnerLink, error)
-	// LinkOwner records whom a forge owner is on this forge host's Slack — a
-	// user for a user owner, a user group for a team — and nil that they are
-	// not on Slack, so they are not asked again.
-	LinkOwner func(owner string, target *loop.SlackTarget) error
-	// ForgetOwner drops what was decided for a forge owner, so they are asked
-	// again.
-	ForgetOwner func(owner string) error
-	// RepoGroups is the Slack user groups this repository may tag.
-	RepoGroups func() ([]loop.SlackTarget, error)
-	// SetRepoGroups replaces the Slack user groups this repository may tag.
-	SetRepoGroups func(groups []loop.SlackTarget) error
-	// LastGroups is the group IDs last chosen for this repository's
-	// announcement, and whether a choice was recorded at all.
-	LastGroups func() ([]string, bool)
-	// RecordGroups remembers the groups just chosen; one not among RepoGroups,
-	// such as a group linked to an owning team, is left out of the choice.
-	RecordGroups func(ids []string) error
+	// OwnerLinks is every forge owner decided on this repository's forge host
+	// as a Slack workspace, Messaging.Workspace, sees them: whom each is on
+	// Slack there, or that they are not on Slack anywhere. An owner linked
+	// only in other workspaces is left out, so they are asked again. Kept data
+	// survives the cache's schema changes; a file from a newer build reads as
+	// none. The kept seams, OwnerLinks through RecordGroups, are nil when the
+	// store keeps nothing, and the owner ones when there is no forge host to
+	// key them by. Each refuses an empty workspace with store.ErrNoWorkspace,
+	// but LinkOwner's "not on Slack", which is about the person.
+	OwnerLinks func(workspace string) ([]loop.OwnerLink, error)
+	// LinkOwner records whom a forge owner is on this forge host's Slack in a
+	// workspace — a user for a user owner, a user group for a team — and nil
+	// that they are not on Slack in any, so they are not asked again.
+	LinkOwner func(workspace, owner string, target *loop.SlackTarget) error
+	// ForgetOwner drops what was decided for a forge owner in a workspace, so
+	// they are asked again there.
+	ForgetOwner func(workspace, owner string) error
+	// RepoGroups is the user groups of a workspace this repository may tag.
+	RepoGroups func(workspace string) ([]loop.SlackTarget, error)
+	// SetRepoGroups replaces the user groups of a workspace this repository
+	// may tag.
+	SetRepoGroups func(workspace string, groups []loop.SlackTarget) error
+	// LastGroups is the group IDs of a workspace last chosen for this
+	// repository's announcement, and whether a choice was recorded at all.
+	LastGroups func(workspace string) ([]string, bool)
+	// RecordGroups remembers the groups of a workspace just chosen; one not
+	// among RepoGroups, such as a group linked to an owning team, is left out
+	// of the choice.
+	RecordGroups func(workspace string, ids []string) error
 }
 
 // Hooks is what a surface asks of lefthook.

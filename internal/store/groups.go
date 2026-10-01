@@ -11,10 +11,6 @@ import (
 	"time"
 )
 
-// groupsKeptIn is the migration that makes the repository group tables: a read
-// needs the file migrated at least this far.
-const groupsKeptIn = 2
-
 // groupsMigration makes the repository group tables. A repository's groups are
 // the Slack user groups it may tag, by ID, their labels living in slack_entity;
 // its choice records that groups were last chosen, even none, and one child row
@@ -43,15 +39,25 @@ func groupsMigration() []string {
 	}
 }
 
-// RepoGroups is the Slack user groups a repository may tag, by label. A row of
-// the wrong shape is left out, and each label is sanitized and capped. A
-// disabled store, or a repository with none, reports none.
-func (s Store) RepoGroups(ctx context.Context, repo string) ([]SlackTarget, error) {
+// repoIn is a repository as a Slack workspace sees it.
+type repoIn struct {
+	repo      string
+	workspace string
+}
+
+// RepoGroups is the Slack user groups of a workspace a repository may tag, by
+// label. A row of the wrong shape is left out, and each label is sanitized and
+// capped. A disabled store, or a repository with none, reports none.
+func (s Store) RepoGroups(ctx context.Context, repo, workspace string) ([]SlackTarget, error) {
 	if repo == "" {
 		return nil, nil
 	}
 
-	database, found, err := s.readKept(ctx, groupsKeptIn)
+	if workspace == "" {
+		return nil, ErrNoWorkspace
+	}
+
+	database, found, err := s.readKept(ctx, workspacesKeptIn)
 	if err != nil || !found {
 		return nil, err
 	}
@@ -60,7 +66,8 @@ func (s Store) RepoGroups(ctx context.Context, repo string) ([]SlackTarget, erro
 	rows, err := database.QueryContext(ctx,
 		`SELECT entity.slack_id, entity.label FROM repo_group AS listed
 			JOIN slack_entity AS entity ON entity.slack_id = listed.slack_id
-			WHERE listed.repo = ? ORDER BY entity.label, entity.slack_id`, repo)
+			WHERE listed.repo = ? AND entity.slack_team = ?
+			ORDER BY entity.label, entity.slack_id`, repo, workspace)
 	if err != nil {
 		return nil, fmt.Errorf("reading the repository's groups: %w", err)
 	}
@@ -89,13 +96,18 @@ func (s Store) RepoGroups(ctx context.Context, repo string) ([]SlackTarget, erro
 	return groups, nil
 }
 
-// SetRepoGroups replaces the Slack user groups a repository may tag, in one
-// transaction, refusing any ID not a group's with ErrInvalidSlackID. A group
-// dropped from the list drops out of the last choice too. A disabled or
-// read-only store records nothing.
-func (s Store) SetRepoGroups(ctx context.Context, repo string, groups []SlackTarget, now time.Time) error {
+// SetRepoGroups replaces the Slack user groups of a workspace a repository
+// may tag, in one transaction, leaving other workspaces' groups as they are.
+// It refuses any ID not a group's with ErrInvalidSlackID, and groups under no
+// workspace with ErrNoWorkspace. A group dropped from the list drops out of
+// the last choice too. A disabled or read-only store records nothing.
+func (s Store) SetRepoGroups(ctx context.Context, repo, workspace string, groups []SlackTarget, now time.Time) error {
 	if repo == "" {
 		return nil
+	}
+
+	if workspace == "" {
+		return ErrNoWorkspace
 	}
 
 	for _, group := range groups {
@@ -104,13 +116,15 @@ func (s Store) SetRepoGroups(ctx context.Context, repo string, groups []SlackTar
 		}
 	}
 
+	where := repoIn{repo: repo, workspace: workspace}
+
 	return s.keptWithin(ctx, func(transaction *sql.Tx) error {
-		err := dropUnlistedGroups(ctx, transaction, repo, groups)
+		err := dropUnlistedGroups(ctx, transaction, where, groups)
 		if err != nil {
 			return err
 		}
 
-		err = listGroups(ctx, transaction, repo, groups, now)
+		err = listGroups(ctx, transaction, where, groups, now)
 		if err != nil {
 			return err
 		}
@@ -119,10 +133,11 @@ func (s Store) SetRepoGroups(ctx context.Context, repo string, groups []SlackTar
 	})
 }
 
-// dropUnlistedGroups deletes the repository's groups that groups no longer
-// holds, one by one, so a group kept keeps its place in the last choice.
-func dropUnlistedGroups(ctx context.Context, transaction *sql.Tx, repo string, groups []SlackTarget) error {
-	listed, err := listedGroupIDs(ctx, transaction, repo)
+// dropUnlistedGroups deletes the repository's groups in the workspace that
+// groups no longer holds, one by one, so a group kept keeps its place in the
+// last choice.
+func dropUnlistedGroups(ctx context.Context, transaction *sql.Tx, where repoIn, groups []SlackTarget) error {
+	listed, err := listedGroupIDs(ctx, transaction, where)
 	if err != nil {
 		return err
 	}
@@ -133,7 +148,7 @@ func dropUnlistedGroups(ctx context.Context, transaction *sql.Tx, repo string, g
 		}
 
 		_, err = transaction.ExecContext(ctx,
-			`DELETE FROM repo_group WHERE repo = ? AND slack_id = ?`, repo, slackID)
+			`DELETE FROM repo_group WHERE repo = ? AND slack_id = ?`, where.repo, slackID)
 		if err != nil {
 			return fmt.Errorf("dropping a repository group: %w", err)
 		}
@@ -142,9 +157,13 @@ func dropUnlistedGroups(ctx context.Context, transaction *sql.Tx, repo string, g
 	return nil
 }
 
-// listedGroupIDs is every group ID listed for the repository, as stored.
-func listedGroupIDs(ctx context.Context, transaction *sql.Tx, repo string) ([]string, error) {
-	rows, err := transaction.QueryContext(ctx, `SELECT slack_id FROM repo_group WHERE repo = ?`, repo)
+// listedGroupIDs is every group ID listed for the repository in the
+// workspace, as stored.
+func listedGroupIDs(ctx context.Context, transaction *sql.Tx, where repoIn) ([]string, error) {
+	rows, err := transaction.QueryContext(ctx,
+		`SELECT listed.slack_id FROM repo_group AS listed
+			JOIN slack_entity AS entity ON entity.slack_id = listed.slack_id
+			WHERE listed.repo = ? AND entity.slack_team = ?`, where.repo, where.workspace)
 	if err != nil {
 		return nil, fmt.Errorf("reading the repository's groups: %w", err)
 	}
@@ -155,9 +174,9 @@ func listedGroupIDs(ctx context.Context, transaction *sql.Tx, repo string) ([]st
 
 // listGroups keeps each group's label and lists it for the repository, leaving
 // one already listed as it was.
-func listGroups(ctx context.Context, transaction *sql.Tx, repo string, groups []SlackTarget, now time.Time) error {
+func listGroups(ctx context.Context, transaction *sql.Tx, where repoIn, groups []SlackTarget, now time.Time) error {
 	for _, group := range groups {
-		err := keepSlackEntity(ctx, transaction, group, now)
+		err := keepSlackEntity(ctx, transaction, group, where.workspace, now)
 		if err != nil {
 			return err
 		}
@@ -165,7 +184,7 @@ func listGroups(ctx context.Context, transaction *sql.Tx, repo string, groups []
 		_, err = transaction.ExecContext(ctx,
 			`INSERT INTO repo_group (repo, slack_id, added_at) VALUES (?, ?, ?)
 				ON CONFLICT(repo, slack_id) DO NOTHING`,
-			repo, group.ID, timestamp(now))
+			where.repo, group.ID, timestamp(now))
 		if err != nil {
 			return fmt.Errorf("listing a repository group: %w", err)
 		}
@@ -174,16 +193,20 @@ func listGroups(ctx context.Context, transaction *sql.Tx, repo string, groups []
 	return nil
 }
 
-// LastGroups is the group IDs last chosen for a repository's announcement, by
-// ID, and whether a choice was recorded at all — a choice of no group is still
-// one. An ID of the wrong shape is left out. A disabled store reports no
-// choice.
-func (s Store) LastGroups(ctx context.Context, repo string) ([]string, bool, error) {
+// LastGroups is the group IDs of a workspace last chosen for a repository's
+// announcement, by ID, and whether a choice was recorded at all, in any
+// workspace — a choice of no group is still one. An ID of the wrong shape is
+// left out. A disabled store reports no choice.
+func (s Store) LastGroups(ctx context.Context, repo, workspace string) ([]string, bool, error) {
 	if repo == "" {
 		return nil, false, nil
 	}
 
-	database, found, err := s.readKept(ctx, groupsKeptIn)
+	if workspace == "" {
+		return nil, false, ErrNoWorkspace
+	}
+
+	database, found, err := s.readKept(ctx, workspacesKeptIn)
 	if err != nil || !found {
 		return nil, false, err
 	}
@@ -197,7 +220,7 @@ func (s Store) LastGroups(ctx context.Context, repo string) ([]string, bool, err
 		return nil, false, wrapIfFailed("reading the last choice of groups", err)
 	}
 
-	ids, err := chosenGroupIDs(ctx, database, repo)
+	ids, err := chosenGroupIDs(ctx, database, repoIn{repo: repo, workspace: workspace})
 	if err != nil {
 		return nil, false, err
 	}
@@ -205,11 +228,13 @@ func (s Store) LastGroups(ctx context.Context, repo string) ([]string, bool, err
 	return ids, true, nil
 }
 
-// chosenGroupIDs reads the group IDs of a repository's last choice, by ID,
-// leaving out any of the wrong shape.
-func chosenGroupIDs(ctx context.Context, database *sql.DB, repo string) ([]string, error) {
+// chosenGroupIDs reads the group IDs of a repository's last choice in the
+// workspace, by ID, leaving out any of the wrong shape.
+func chosenGroupIDs(ctx context.Context, database *sql.DB, where repoIn) ([]string, error) {
 	rows, err := database.QueryContext(ctx,
-		`SELECT slack_id FROM repo_choice_group WHERE repo = ? ORDER BY slack_id`, repo)
+		`SELECT chosen.slack_id FROM repo_choice_group AS chosen
+			JOIN slack_entity AS entity ON entity.slack_id = chosen.slack_id
+			WHERE chosen.repo = ? AND entity.slack_team = ? ORDER BY chosen.slack_id`, where.repo, where.workspace)
 	if err != nil {
 		return nil, fmt.Errorf("reading the last choice of groups: %w", err)
 	}
@@ -231,16 +256,22 @@ func chosenGroupIDs(ctx context.Context, database *sql.DB, repo string) ([]strin
 	return ids, nil
 }
 
-// RecordGroups remembers the groups just chosen for a repository's
-// announcement, replacing the last choice in one transaction. Only the
-// repository's own groups are remembered: an announcement also tags groups
-// linked to owning teams, which need not be listed, and refusing the whole
-// choice over one of those would lose the rest of it. A disabled or read-only
-// store records nothing.
-func (s Store) RecordGroups(ctx context.Context, repo string, ids []string, now time.Time) error {
+// RecordGroups remembers the groups of a workspace just chosen for a
+// repository's announcement, replacing that workspace's last choice in one
+// transaction. Only the repository's own groups are remembered: an
+// announcement also tags groups linked to owning teams, which need not be
+// listed, and refusing the whole choice over one of those would lose the rest
+// of it. A disabled or read-only store records nothing.
+func (s Store) RecordGroups(ctx context.Context, repo, workspace string, ids []string, now time.Time) error {
 	if repo == "" {
 		return nil
 	}
+
+	if workspace == "" {
+		return ErrNoWorkspace
+	}
+
+	where := repoIn{repo: repo, workspace: workspace}
 
 	return s.keptWithin(ctx, func(transaction *sql.Tx) error {
 		_, err := transaction.ExecContext(ctx,
@@ -251,19 +282,21 @@ func (s Store) RecordGroups(ctx context.Context, repo string, ids []string, now 
 			return fmt.Errorf("recording the choice of groups: %w", err)
 		}
 
-		_, err = transaction.ExecContext(ctx, `DELETE FROM repo_choice_group WHERE repo = ?`, repo)
+		_, err = transaction.ExecContext(ctx,
+			`DELETE FROM repo_choice_group WHERE repo = ?
+				AND slack_id IN (SELECT slack_id FROM slack_entity WHERE slack_team = ?)`, repo, workspace)
 		if err != nil {
 			return fmt.Errorf("clearing the last choice of groups: %w", err)
 		}
 
-		return chooseGroups(ctx, transaction, repo, ids)
+		return chooseGroups(ctx, transaction, where, ids)
 	})
 }
 
 // chooseGroups records each chosen group the repository lists, leaving out any
 // other.
-func chooseGroups(ctx context.Context, transaction *sql.Tx, repo string, ids []string) error {
-	listed, err := listedGroupIDs(ctx, transaction, repo)
+func chooseGroups(ctx context.Context, transaction *sql.Tx, where repoIn, ids []string) error {
+	listed, err := listedGroupIDs(ctx, transaction, where)
 	if err != nil {
 		return err
 	}
@@ -274,7 +307,8 @@ func chooseGroups(ctx context.Context, transaction *sql.Tx, repo string, ids []s
 		}
 
 		_, err = transaction.ExecContext(ctx,
-			`INSERT INTO repo_choice_group (repo, slack_id) VALUES (?, ?) ON CONFLICT DO NOTHING`, repo, slackID)
+			`INSERT INTO repo_choice_group (repo, slack_id) VALUES (?, ?) ON CONFLICT DO NOTHING`,
+			where.repo, slackID)
 		if err != nil {
 			return fmt.Errorf("recording a chosen group: %w", err)
 		}

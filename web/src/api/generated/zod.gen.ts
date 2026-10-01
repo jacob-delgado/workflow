@@ -100,6 +100,7 @@ export const zGroupTag = z.object({
 export const zAnnouncementTagging = z.object({
     available: z.boolean(),
     missing_scope: z.string().optional(),
+    unavailable_reason: z.string().optional(),
     owners: z.array(zOwnerTag),
     groups: z.array(zGroupTag)
 });

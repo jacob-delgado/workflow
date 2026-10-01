@@ -194,6 +194,24 @@ test('an announcement that tags no one posts without mentions', async () => {
   expect(await bodyOf(requests, '/api/announce')).toEqual({ channel: '#dev', text })
 })
 
+test('an announcement whose Slack workspace is unknown says why and posts untagged', async () => {
+  // Arrange
+  const reason = "can't tell which Slack workspace this token is for"
+  const { requests, user } = await opensPreview({
+    text,
+    channel: '#dev',
+    tagging: { available: false, unavailable_reason: reason, owners: [], groups: [] },
+  })
+  expect(screen.getByRole('note').textContent).toContain(reason)
+
+  // Act
+  await user.click(screen.getByRole('button', { name: 'Announce now' }))
+
+  // Assert
+  await screen.findByText('Announced to #dev.')
+  expect(await bodyOf(requests, '/api/announce')).toEqual({ channel: '#dev', text })
+})
+
 test('under --dry-run an owner is not offered to link', async () => {
   // Arrange
   useHealthStore.setState({

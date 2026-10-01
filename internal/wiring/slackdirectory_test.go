@@ -44,7 +44,8 @@ type gate struct {
 }
 
 // directoryBodies are the answers a small workspace gives: one channel, three
-// members of it (one a bot users.list leaves out), and two user groups.
+// members of it (one a bot users.list leaves out), a user group, and the
+// workspace's ID.
 func directoryBodies() map[string]string {
 	return map[string]string{
 		"/users.conversations":   `{"ok":true,"channels":[{"id":"C0DEV","name":"dev"}]}`,
@@ -55,6 +56,7 @@ func directoryBodies() map[string]string {
 			{"id":"U0CY","name":"cy","profile":{}},
 			{"id":"U0BOT","name":"robot","is_bot":true,"profile":{}}]}`,
 		"/usergroups.list": `{"ok":true,"usergroups":[{"id":"S0CP","handle":"control-plane-pod"}]}`,
+		"/auth.test":       `{"ok":true,"team":"Example","user":"workflow","team_id":"T0EXAMPLE"}`,
 	}
 }
 
