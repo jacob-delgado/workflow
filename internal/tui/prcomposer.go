@@ -6,7 +6,6 @@ package tui
 import (
 	"errors"
 	"fmt"
-	"slices"
 	"strconv"
 	"strings"
 
@@ -19,7 +18,6 @@ import (
 	"github.com/jacob-delgado/workflow/internal/gitrepo"
 	"github.com/jacob-delgado/workflow/internal/jira"
 	"github.com/jacob-delgado/workflow/internal/loop"
-	"github.com/jacob-delgado/workflow/internal/seams"
 )
 
 // prLabelWidth is the columns a pull request field's marker, label, prompt and
@@ -111,23 +109,29 @@ func (c prComposer) restore(draft prDraft) prComposer {
 // openPullRequestComposer proposes a pull request for the branch, or reopens the
 // draft kept for it. An issue the list does not hold is read for the title
 // without holding the composer back: it opens on the title proposed without the
-// issue, which the issue's answer replaces while it is still untouched.
+// issue, which the issue's answer replaces while it is still untouched. The
+// code owners are read for the reviewers the same way, unless a kept draft
+// already says who reviews.
 func (m Model) openPullRequestComposer() (Model, tea.Cmd) {
 	branch := m.branch.branch
 	issueKey, _ := m.branchIssue()
 	issue, listed := m.issues.find(issueKey)
 	proposed := m.proposePullRequest(branch, issueKey, issue.Summary)
 
+	var reviewers tea.Cmd
+
 	m.overlay = proposed
 	if m.prDraft.branch == branch.Name {
 		m.overlay = proposed.restore(m.prDraft)
+	} else {
+		reviewers = m.readReviewers(proposed)
 	}
 
 	if listed {
-		return m, nil
+		return m, reviewers
 	}
 
-	return m, m.readTitleIssue(proposed)
+	return m, tea.Batch(m.readTitleIssue(proposed), reviewers)
 }
 
 // proposePullRequest is the composer filled from the branch's commits, the
@@ -151,7 +155,6 @@ func (m Model) proposePullRequest(branch gitrepo.Branch, issueKey jira.Key, summ
 	composer.assignees.Blur()
 	composer.labels.Blur()
 	composer = composer.withBaseSuggestions(m.deps.Git.RemoteBranches)
-	composer = composer.withReviewerSuggestions(m.deps.Git)
 
 	if m.deps.Forge.Templates != nil {
 		composer.templates = m.deps.Forge.Templates()
@@ -208,6 +211,49 @@ func (read titleIssueRead) apply(m Model) (Model, tea.Cmd) {
 	return m, nil
 }
 
+// readReviewers reads the code owners of the branch's changes against the
+// composer's base, to propose them as its reviewers. The read diffs and reads
+// git, and asks the forge who the author is, so it does not hold the composer
+// back.
+func (m Model) readReviewers(composer prComposer) tea.Cmd {
+	owners := loop.OwnerSeams{
+		ChangedPaths: m.deps.Git.ChangedPaths, CodeOwnersAt: m.deps.Git.CodeOwnersAt, Author: m.deps.Forge.Author,
+	}
+	if owners.ChangedPaths == nil || owners.CodeOwnersAt == nil {
+		return nil
+	}
+
+	head, base := composer.head, composer.base.Value()
+
+	return func() tea.Msg {
+		return reviewersRead{head: head, proposed: loop.ProposedReviewers(owners, base)}
+	}
+}
+
+// reviewersRead is who the code owners propose as the pull request's reviewers,
+// read after its composer opened.
+type reviewersRead struct {
+	head     string
+	proposed []string
+}
+
+var _ applier = reviewersRead{}
+
+// apply fills the composer's reviewers with the owners, unless the composer has
+// closed, or is for another branch, or is being sent, or reviewers were typed
+// in the meantime.
+func (read reviewersRead) apply(m Model) (Model, tea.Cmd) {
+	composer, open := m.overlay.(prComposer)
+	if !open || composer.head != read.head || composer.send.sending || composer.reviewers.Value() != "" {
+		return m, nil
+	}
+
+	composer.reviewers.SetValue(strings.Join(read.proposed, ", "))
+	m.overlay = composer
+
+	return m, nil
+}
+
 // withBaseSuggestions offers the remote branches as completions for the base
 // field, when the repository can list them. A failure to list is no reason to
 // refuse the composer, so the field is simply left without completions.
@@ -223,41 +269,6 @@ func (c prComposer) withBaseSuggestions(remoteBranches func() ([]string, error))
 
 	c.base.SetSuggestions(branches)
 	c.base.ShowSuggestions = true
-
-	return c
-}
-
-// withReviewerSuggestions shows the owners of the changed paths, people then
-// teams, as the reviewers field's hint and completions, when CODEOWNERS on the
-// base names any. A failure to read them is no reason to refuse the composer,
-// so the field is simply left plain.
-func (c prComposer) withReviewerSuggestions(git seams.Git) prComposer {
-	if git.ChangedPaths == nil || git.CodeOwnersAt == nil {
-		return c
-	}
-
-	base := c.base.Value()
-
-	paths, err := git.ChangedPaths(base)
-	if err != nil {
-		return c
-	}
-
-	file, _, err := git.CodeOwnersAt(base)
-	if err != nil {
-		return c
-	}
-
-	owners := file.OwnersOf(paths)
-
-	names := slices.Concat(owners.Users, owners.Teams)
-	if len(names) == 0 {
-		return c
-	}
-
-	c.reviewers.Placeholder = strings.Join(names, ", ")
-	c.reviewers.SetSuggestions(names)
-	c.reviewers.ShowSuggestions = true
 
 	return c
 }

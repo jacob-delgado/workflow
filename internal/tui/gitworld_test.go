@@ -64,7 +64,7 @@ func (w *world) gitDeps() seams.Git {
 		ChangedPaths: func(base string) ([]string, error) {
 			w.record("changed-paths " + base)
 
-			return []string{"README.md"}, nil
+			return []string{"README.md"}, w.changedPathsErr
 		},
 		CodeOwnersAt: func(base string) (codeowners.File, bool, error) {
 			w.record("code-owners " + base)

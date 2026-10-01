@@ -10,14 +10,18 @@ import (
 	tea "charm.land/bubbletea/v2"
 
 	"github.com/jacob-delgado/workflow/internal/forge"
+	"github.com/jacob-delgado/workflow/internal/loop"
 )
 
-// request is the pull request the composer describes.
+// request is the pull request the composer describes. A reviewer named
+// org/team is a team, which the forge is asked for apart from the people.
 func (c prComposer) request() forge.NewPullRequest {
+	users, teams := loop.SplitReviewers(splitList(c.reviewers.Value()))
+
 	return forge.NewPullRequest{
 		Title: strings.TrimSpace(c.title.Value()), Body: c.body, Head: c.head,
 		Base: strings.TrimSpace(c.base.Value()), Draft: c.draft,
-		Reviewers: splitList(c.reviewers.Value()),
+		Reviewers: users, TeamReviewers: teams,
 		Assignees: splitList(c.assignees.Value()),
 		Labels:    splitList(c.labels.Value()),
 	}

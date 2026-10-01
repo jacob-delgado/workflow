@@ -98,6 +98,7 @@ type world struct {
 	noRemoteBranches  bool
 	codeOwners        []string
 	codeOwnersErr     error
+	changedPathsErr   error
 	noCodeOwners      bool
 	recentSubjects    []string
 	recentSubjectsErr error

@@ -16,6 +16,9 @@ import (
 // titleField is how the composer's title field starts on screen.
 const titleField = "title     > "
 
+// issuelessBranch is a branch whose name names no issue.
+const issuelessBranch = "fix-token-redaction"
+
 // unlistedIssue is the world before a pull request is opened, titled from the
 // issue, with the branch's issue left out of the list — assigned to someone
 // else, say — so only reading it can give the title.
@@ -104,7 +107,7 @@ func TestABranchNamingNoIssueReadsNoneForTheTitle(t *testing.T) {
 
 	// Arrange
 	opening := unlistedIssue()
-	opening.branch.Name = "fix-token-redaction"
+	opening.branch.Name = issuelessBranch
 
 	// Act
 	typing(t, opening.live(t, 120, 40), "4", "n")
@@ -186,7 +189,7 @@ func TestAnIssueAnsweringForAnotherBranchLeavesItsTitle(t *testing.T) {
 	opening := unlistedIssue()
 	opened, read := openedBeforeTheIssueAnswers(t, opening)
 	closed := typing(t, opened, keyEsc)
-	opening.branch.Name = "fix-token-redaction"
+	opening.branch.Name = issuelessBranch
 	reopened := typing(t, closed, "r", "n")
 
 	// Act
