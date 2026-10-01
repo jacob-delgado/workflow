@@ -267,13 +267,7 @@ func (m Model) handleMessagingKey(msg tea.KeyPressMsg) (Model, tea.Cmd) {
 // previewAnnouncement opens the preview of the post marking the pull
 // request's current moment, and starts reading whom it tags.
 func (m Model) previewAnnouncement() (Model, tea.Cmd) {
-	channels := m.cfg.Messaging.ChannelChoices()
-
-	channel := ""
-	if len(channels) > 0 {
-		channel = channels[0]
-	}
-
+	channels, channel := m.cfg.Messaging.ChannelChoices(), m.defaultChannel()
 	moment := loop.AnnounceMoment(m.review.pull, m.review.ci)
 	m, opened := m.opening()
 
@@ -285,6 +279,18 @@ func (m Model) previewAnnouncement() (Model, tea.Cmd) {
 	m.overlay = preview
 
 	return m, readTags
+}
+
+// defaultChannel is the channel a post goes to unless another is chosen: the
+// first a Slack user token can post to, or none for a webhook, which carries
+// its own.
+func (m Model) defaultChannel() string {
+	channels := m.cfg.Messaging.ChannelChoices()
+	if len(channels) == 0 {
+		return ""
+	}
+
+	return channels[0]
 }
 
 // withoutQueuedPost gives up on a post waiting for CI, saying so, because the
