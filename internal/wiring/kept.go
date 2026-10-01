@@ -17,20 +17,16 @@ import (
 // Slack identity by this repository's forge host, since an owner is the same
 // person in every repository on it, and the Slack groups to tag by the
 // repository. Management writes return their errors, so a surface can say why
-// one was refused.
+// one was refused. A store that keeps nothing binds none of them, and a
+// workspace with no forge host binds no owner links, so a surface offers no
+// management that would save nothing.
 func bindKept(ctx context.Context, kept store.Store, where Workspace, bound seams.Store) seams.Store {
-	host := forgeHostKey(where)
+	if !kept.Keeps() {
+		return bound
+	}
+
 	repo := repoKey(where)
 
-	bound.OwnerLinks = func() ([]loop.OwnerLink, error) {
-		links, err := kept.OwnerLinks(ctx, host)
-
-		return fromStoreLinks(links), err
-	}
-	bound.LinkOwner = func(owner string, target *loop.SlackTarget) error {
-		return kept.LinkOwner(ctx, host, owner, toStoreTarget(target), time.Now())
-	}
-	bound.ForgetOwner = func(owner string) error { return kept.ForgetOwner(ctx, host, owner) }
 	bound.RepoGroups = func() ([]loop.SlackTarget, error) {
 		groups, err := kept.RepoGroups(ctx, repo)
 
@@ -45,6 +41,26 @@ func bindKept(ctx context.Context, kept store.Store, where Workspace, bound seam
 		return ids, chosen
 	}
 	bound.RecordGroups = func(ids []string) error { return kept.RecordGroups(ctx, repo, ids, time.Now()) }
+
+	return bindOwnerLinks(ctx, kept, forgeHostKey(where), bound)
+}
+
+// bindOwnerLinks binds whom each forge owner on host is on Slack, unless there
+// is no host to key them by.
+func bindOwnerLinks(ctx context.Context, kept store.Store, host string, bound seams.Store) seams.Store {
+	if host == "" {
+		return bound
+	}
+
+	bound.OwnerLinks = func() ([]loop.OwnerLink, error) {
+		links, err := kept.OwnerLinks(ctx, host)
+
+		return fromStoreLinks(links), err
+	}
+	bound.LinkOwner = func(owner string, target *loop.SlackTarget) error {
+		return kept.LinkOwner(ctx, host, owner, toStoreTarget(target), time.Now())
+	}
+	bound.ForgetOwner = func(owner string) error { return kept.ForgetOwner(ctx, host, owner) }
 
 	return bound
 }
