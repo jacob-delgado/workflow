@@ -104,13 +104,25 @@ type NewPullRequest struct {
 	// Reviewers and Assignees are usernames; Labels are label names. Each forge
 	// asks for them its own way — GitHub in a request after the pull is opened,
 	// GitLab at creation — but a failure to add them never discards a pull
-	// request already opened.
+	// request already opened. Reviewers are added best effort: one the forge
+	// cannot add leaves the rest added and ErrSomeReviewersNotAdded returned.
 	Reviewers []string
 	// TeamReviewers are teams named "org/team", asked to review as a team on
 	// GitHub.
 	TeamReviewers []string
 	Assignees     []string
 	Labels        []string
+}
+
+// ErrSomeReviewersNotAdded reports a pull request opened without some of the
+// reviewers named for it, which the message names; it wraps why the first of
+// them could not be added, such as ErrNoUser. Reviewers are added best effort,
+// so a mistyped name never costs the pull request.
+var ErrSomeReviewersNotAdded = errors.New("some reviewers could not be added")
+
+// reviewersNotAdded is ErrSomeReviewersNotAdded naming missed, for cause.
+func reviewersNotAdded(cause error, missed []string) error {
+	return fmt.Errorf("%w (%s): %w", ErrSomeReviewersNotAdded, strings.Join(missed, ", "), cause)
 }
 
 // Opened reports whether this is a pull request the forge created, told from

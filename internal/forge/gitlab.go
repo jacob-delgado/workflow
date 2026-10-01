@@ -131,31 +131,56 @@ type gitlabUser struct {
 // named for a pull request cannot be set rather than being dropped in silence.
 var ErrNoUser = errors.New("no such user")
 
-// gitlabUserIDs resolves usernames to the ids GitLab wants for reviewers and
-// assignees. It looks each up by name; an unknown name is an error, not a
-// silently missing reviewer.
+// gitlabUserIDs resolves usernames to the ids GitLab wants for assignees. An
+// unknown name is an error, not a silently missing assignee.
 func gitlabUserIDs(ctx context.Context, client Client, usernames []string) ([]int64, error) {
-	if len(usernames) == 0 {
-		return nil, nil
+	ids, unknown, err := gitlabKnownIDs(ctx, client, usernames)
+	if err != nil {
+		return nil, err
 	}
 
-	ids := make([]int64, 0, len(usernames))
+	if len(unknown) > 0 {
+		return nil, fmt.Errorf("%w: %s", ErrNoUser, strings.Join(unknown, ", "))
+	}
+
+	return ids, nil
+}
+
+// gitlabKnownIDs looks each username up by name, returning the ids of those
+// GitLab knows and the names it does not. A lookup that fails is an error.
+func gitlabKnownIDs(ctx context.Context, client Client, usernames []string) ([]int64, []string, error) {
+	var (
+		ids     []int64
+		unknown []string
+	)
 
 	for _, username := range usernames {
 		found, err := call[[]gitlabUser](ctx, client, http.MethodGet,
 			"/users?"+url.Values{"username": {username}}.Encode(), nil)
 		if err != nil {
-			return nil, err
+			return nil, nil, err
 		}
 
 		if len(found) == 0 {
-			return nil, fmt.Errorf("%w: %s", ErrNoUser, username)
+			unknown = append(unknown, username)
+
+			continue
 		}
 
 		ids = append(ids, found[0].ID)
 	}
 
-	return ids, nil
+	return ids, unknown, nil
+}
+
+// gitlabMissedReviewers is ErrSomeReviewersNotAdded for the reviewers GitLab
+// does not know, or nil when it knew them all.
+func gitlabMissedReviewers(unknown []string) error {
+	if len(unknown) == 0 {
+		return nil
+	}
+
+	return reviewersNotAdded(ErrNoUser, unknown)
 }
 
 // gitlabProjectPath is where a project lives in GitLab's API: its whole path as
@@ -338,15 +363,11 @@ func gitlabReviews(ctx context.Context, client Client) ([]ReviewRequest, error) 
 
 // gitlabCreate opens a merge request, with its reviewers, assignees and labels
 // set at creation as GitLab takes them. Reviewers and assignees are resolved
-// from usernames to ids first, so an unknown name fails before any merge
-// request is opened rather than after.
+// from usernames to ids first. An unknown assignee fails before any merge
+// request is opened; an unknown reviewer is left off the one opened, and
+// returned beside it as ErrSomeReviewersNotAdded.
 func gitlabCreate(ctx context.Context, client Client, repo Repo, request NewPullRequest) (PullRequest, error) {
-	title := request.Title
-	if request.Draft {
-		title = draftPrefix + title
-	}
-
-	reviewerIDs, err := gitlabUserIDs(ctx, client, request.Reviewers)
+	reviewerIDs, unknown, err := gitlabKnownIDs(ctx, client, request.Reviewers)
 	if err != nil {
 		return PullRequest{}, err
 	}
@@ -354,6 +375,11 @@ func gitlabCreate(ctx context.Context, client Client, repo Repo, request NewPull
 	assigneeIDs, err := gitlabUserIDs(ctx, client, request.Assignees)
 	if err != nil {
 		return PullRequest{}, err
+	}
+
+	title := request.Title
+	if request.Draft {
+		title = draftPrefix + title
 	}
 
 	payload := gitlabNewMerge{
@@ -367,7 +393,7 @@ func gitlabCreate(ctx context.Context, client Client, repo Repo, request NewPull
 		return PullRequest{}, err
 	}
 
-	return created.pullRequest(), nil
+	return created.pullRequest(), gitlabMissedReviewers(unknown)
 }
 
 // gitlabStatus reads the merge request's own head pipeline. Pipelines found by
