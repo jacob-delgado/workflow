@@ -135,13 +135,9 @@ func (Model) filterKeys() []key.Binding {
 }
 
 // extendFilterWith adds a key's text to the filter when it types something,
-// treating the space key as a space, and does nothing for a key that does not.
+// and does nothing for a key that does not.
 func (m Model) extendFilterWith(msg tea.KeyPressMsg) (Model, tea.Cmd) {
-	text := msg.Text
-	if text == "" && msg.Code == tea.KeySpace {
-		text = " "
-	}
-
+	text := typedText(msg)
 	if text == "" {
 		return m, nil
 	}
@@ -149,6 +145,16 @@ func (m Model) extendFilterWith(msg tea.KeyPressMsg) (Model, tea.Cmd) {
 	m.issues = m.issues.extendFilter(text)
 
 	return m.loadDetail()
+}
+
+// typedText is the text a key types, treating the space key as a space: ""
+// for a key that types nothing.
+func typedText(msg tea.KeyPressMsg) string {
+	if msg.Text == "" && msg.Code == tea.KeySpace {
+		return " "
+	}
+
+	return msg.Text
 }
 
 // refreshIssues reads the list again, and the issue shown in full whether or not

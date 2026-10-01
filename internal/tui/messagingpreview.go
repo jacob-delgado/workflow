@@ -43,6 +43,9 @@ type messagingPreview struct {
 	service string
 	noCI    bool
 	send    sendState
+	// tagging is whom a ready-for-review announcement tags; the zero value
+	// tags no one.
+	tagging tagSection
 }
 
 // destination is where this post will go, as it is shown and as it is sent.
@@ -64,6 +67,7 @@ var (
 func (p messagingPreview) view(width, _ int) (string, string) {
 	lines := pinnedOutcome(p.styles, p.marks, p.send, "announcing", width)
 	lines = append(lines, wrap(p.text, width), "", "to  "+p.destination())
+	lines = append(lines, p.tagging.lines(p.marks, p.styles, width)...)
 
 	return "Announce to " + p.service, strings.Join(lines, "\n")
 }
@@ -84,7 +88,9 @@ func (p messagingPreview) footer(keys keyMap) []key.Binding {
 		buttons = append(buttons, relabel(keys.cycleLeft, "change channel"))
 	}
 
-	return append(buttons, keys.edit, relabel(keys.closeOverlay, "discard"))
+	buttons = append(buttons, keys.edit, relabel(keys.closeOverlay, "discard"))
+
+	return append(buttons, p.tagging.keys(keys)...)
 }
 
 // handleKey answers a key while the message is previewed.
@@ -107,11 +113,12 @@ func (p messagingPreview) handleKey(m Model, msg tea.KeyPressMsg) (Model, tea.Cm
 	case key.Matches(msg, m.keys.postWhenGreen):
 		return p.postWhenGreen(m)
 	default:
-		return m, nil
+		return p.handleTagKey(m, msg)
 	}
 }
 
-// cycleChannel moves the destination to the next configured channel, wrapping.
+// cycleChannel moves the destination to the next configured channel, wrapping,
+// and reads who is in it when the post tags anyone.
 func (p messagingPreview) cycleChannel(m Model, step int) (Model, tea.Cmd) {
 	if len(p.channels) <= 1 {
 		return m, nil
@@ -119,9 +126,15 @@ func (p messagingPreview) cycleChannel(m Model, step int) (Model, tea.Cmd) {
 
 	current := slices.Index(p.channels, p.channel)
 	p.channel = p.channels[(current+step+len(p.channels))%len(p.channels)]
+
+	var readMembers tea.Cmd
+	if p.tagging.offered {
+		p.tagging.members, readMembers = m.readMembers(p.channel)
+	}
+
 	m.overlay = p
 
-	return m, nil
+	return m, readMembers
 }
 
 // post posts the message now.
@@ -131,13 +144,13 @@ func (p messagingPreview) post(m Model) (Model, tea.Cmd) {
 	}
 
 	if m.dryRun {
-		return m.closeOverlay().noticed("dry run: would announce to " + p.destination()), nil
+		return m.closeOverlay().noticed("dry run: would announce to " + p.destination() + p.tagging.dryRunNote()), nil
 	}
 
 	p.send = starting()
 	m.overlay = p
 
-	return m.sendToMessaging(p.channel, p.text, p.moment)
+	return m.sendToMessaging(p.channel, p.text, p.moment, p.tagging.postTags())
 }
 
 // waitsForCI reports whether this post can wait for CI to pass. Only a "ready
@@ -159,25 +172,31 @@ func (p messagingPreview) postWhenGreen(m Model) (Model, tea.Cmd) {
 	}
 
 	if m.dryRun {
-		return m.closeOverlay().noticed("dry run: would announce to " + p.destination() + " once CI passes"), nil
+		return m.closeOverlay().noticed("dry run: would announce to " + p.destination() + " once CI passes" +
+			p.tagging.dryRunNote()), nil
 	}
 
 	m = m.closeOverlay().noticed(m.marks.inFlight + " will announce to " + p.destination() + " once CI passes")
 	m.messaging.pending, m.messaging.send.err, m.messaging.dropped = queuedPost{
-		pull: m.review.pull.Number, text: p.text, channel: p.channel,
+		pull: m.review.pull.Number, text: p.text, channel: p.channel, tags: p.tagging.postTags(),
 	}, nil, ""
 
 	return m.keepPolling(m.checkCI())
 }
 
-// sendToMessaging posts text marking moment, and once it has gone out records
-// it in the store, the way every surface delivers an announcement. It replaces
-// any post waiting for CI: that one would otherwise follow it once CI passed,
-// and the channel would read it twice.
-func (m Model) sendToMessaging(channel, text string, moment messaging.Moment) (Model, tea.Cmd) {
+// sendToMessaging posts text marking moment with its tags, and once it has
+// gone out records it in the store, with the groups it tagged when it offered
+// any, the way every surface delivers an announcement. It replaces any post
+// waiting for CI: that one would otherwise follow it once CI passed, and the
+// channel would read it twice.
+func (m Model) sendToMessaging(channel, text string, moment messaging.Moment, tags postTags) (Model, tea.Cmd) {
 	post, memory := m.deps.Messaging.Post, loop.AnnounceMemory{Record: m.deps.Store.RecordAnnounce}
+	if tags.offersGroups {
+		memory.RecordGroups = m.deps.Store.RecordGroups
+	}
+
 	made := loop.Announced{Pull: m.review.pull.Number, Moment: moment}
-	delivery := loop.Delivery{Channel: channel, Text: text, Made: made}
+	delivery := loop.Delivery{Channel: channel, Text: text, Made: made, Mentions: tags.mentions}
 	m.messaging.send, m.messaging.pending, m.messaging.dropped = starting(), queuedPost{}, ""
 
 	return m, func() tea.Msg { return messagingPosted{made: made, err: loop.Deliver(post, memory, delivery)} }

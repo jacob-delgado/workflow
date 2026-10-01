@@ -74,6 +74,9 @@ type keyMap struct {
 	// In the branch creator, and in the messaging preview.
 	worktree, postWhenGreen key.Binding
 
+	// Tagging in the messaging preview.
+	linkToSlack, notOnSlack key.Binding
+
 	// In a field form.
 	toggleOption key.Binding
 
@@ -306,6 +309,8 @@ func composerKeys(builder *helpBuilder, into *keyMap, marks glyphs) {
 	into.toggleOption = builder.bind(groupComposer, "toggle-option", "select", "space")
 	into.worktree = builder.bind(groupComposer, "worktree", "worktree", "ctrl+w")
 	into.postWhenGreen = builder.bind(groupComposer, "post-when-green", "announce when CI passes", "w")
+	into.linkToSlack = builder.bind(groupComposer, "link-to-slack", "link to Slack", "a")
+	into.notOnSlack = builder.bind(groupComposer, "not-on-slack", "not on Slack", "x")
 }
 
 // runningKeys are the bindings available while a command runs.

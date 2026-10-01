@@ -184,6 +184,8 @@ type world struct {
 	runBlocks bool
 	runStop   *bool
 	tasks     *taskWorld
+	// slack is the Slack directory and the kept associations; nil has neither.
+	slack *slackWorld
 }
 
 // errRunStopped is how a stopped streamed run reports that it was killed.
@@ -302,21 +304,10 @@ func output(lines []string, err error) proc.Output {
 // deps wires the world to the interface.
 func (w *world) deps() tui.Deps {
 	return tui.Deps{
-		Jira:  w.jiraDeps(),
-		Git:   w.gitDeps(),
-		Forge: w.forgeDeps(),
-		Messaging: seams.Messaging{Post: func(channel, text string) error {
-			w.record("post " + text)
-			w.rememberChannel(channel)
-
-			if w.postParked != nil {
-				w.postParked <- struct{}{}
-
-				<-w.postRelease
-			}
-
-			return w.postErr
-		}},
+		Jira:       w.jiraDeps(),
+		Git:        w.gitDeps(),
+		Forge:      w.forgeDeps(),
+		Messaging:  w.messagingDeps(),
 		Hooks:      w.hookDeps(),
 		Editor:     w.editorDeps(),
 		Store:      w.storeDeps(),
@@ -346,7 +337,7 @@ func (w *world) deps() tui.Deps {
 // storeDeps fakes the on-disk store: it reports learnedScope as the last one used
 // here and records what a commit remembers.
 func (w *world) storeDeps() seams.Store {
-	return seams.Store{
+	return w.withKept(seams.Store{
 		LastScope: func() (string, bool) {
 			return w.learnedScope, w.learnedScope != ""
 		},
@@ -367,7 +358,7 @@ func (w *world) storeDeps() seams.Store {
 		CacheIssues: func(_ string, issues []jira.Issue) {
 			w.record("cache " + strconv.Itoa(len(issues)))
 		},
-	}
+	})
 }
 
 // jiraDeps fakes Jira.
