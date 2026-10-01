@@ -89,6 +89,14 @@ func forgeDeps(ctx context.Context, setup forgeSetup, connect func() (forgeConne
 
 			return connection.client.CheckStatus(ctx, connection.repo, pull, head)
 		},
+		JobLog: func(check forge.Check) (forge.JobLog, error) {
+			connection, err := connect()
+			if err != nil {
+				return forge.JobLog{}, err
+			}
+
+			return connection.client.JobLog(ctx, connection.repo, check)
+		},
 		Rerun: func(pull forge.PullRequest, head string) (bool, error) {
 			connection, err := connect()
 			if err != nil {

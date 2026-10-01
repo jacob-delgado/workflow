@@ -18,6 +18,7 @@ import { OutcomeLine, useOutcome } from '@/lib/Outcome.tsx'
 import { useAsyncAction } from '@/lib/useAsyncAction.ts'
 import { definitionList, splitList } from '@/lib/utils.ts'
 import { ciMark, StateMark } from '@/shell/StateMark.tsx'
+import { readCheckLog } from './checkLogApi.ts'
 import { OpenedOutcome } from './OpenedOutcome.tsx'
 import { openPr, previewPullRequest } from './openPrApi.ts'
 
@@ -444,6 +445,43 @@ function CheckRow({ check }: { check: Check }) {
       {check.state === 'failed' && check.reason ? (
         <span className="pl-6 text-muted-foreground">{check.reason}</span>
       ) : null}
+      {check.state === 'failed' && check.log_available && check.id ? (
+        <CheckLog id={check.id} name={check.name} />
+      ) : null}
     </li>
+  )
+}
+
+// CheckLog reads a failed check's log when asked, never before: a log can be
+// long, and the forge counts every read.
+function CheckLog({ id, name }: { id: string; name: string }) {
+  const read = useAsyncAction(readCheckLog, { fallback: 'The log could not be read. Try again.' })
+
+  if (read.state === 'done' && read.result) {
+    return (
+      <pre className="ml-6 max-h-80 overflow-auto rounded-md border border-border p-3 text-xs whitespace-pre-wrap">
+        {read.result.truncated ? '… earlier lines are not shown\n' : ''}
+        {read.result.text}
+      </pre>
+    )
+  }
+
+  return (
+    <span className="flex flex-col gap-1 pl-6">
+      <Button
+        variant="secondary"
+        className="self-start"
+        aria-label={`Show the log of ${name}`}
+        disabled={read.state === 'running'}
+        onClick={() => void read.run(id)}
+      >
+        {read.state === 'running' ? 'Reading the log…' : 'Show log'}
+      </Button>
+      {read.state === 'error' ? (
+        <span role="alert" className="text-destructive">
+          {read.error}
+        </span>
+      ) : null}
+    </span>
   )
 }

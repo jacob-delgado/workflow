@@ -4,6 +4,7 @@
 package webserver_test
 
 import (
+	"net/http"
 	"reflect"
 	"testing"
 
@@ -111,4 +112,52 @@ func deref[T any](value *T) T {
 	}
 
 	return *value
+}
+
+// failingDeps is filledDeps with one failed check, 501, whose log the forge
+// keeps, recording each log read.
+func failingDeps(read *[]string) webserver.Deps {
+	deps := filledDeps()
+	deps.CheckCI = func(forge.PullRequest, string) (forge.CI, error) {
+		return forge.CI{State: forge.CIFailed, Checks: []forge.Check{
+			{ID: "501", Name: "unit-race", State: forge.CIFailed, LogAvailable: true},
+		}}, nil
+	}
+	deps.JobLog = func(check forge.Check) (forge.JobLog, error) {
+		*read = append(*read, check.ID)
+
+		return forge.JobLog{Text: "--- FAIL: TestRetry", Truncated: true}, nil
+	}
+
+	return deps
+}
+
+func TestACheckLogIsReadForACheckOfThePullRequest(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	var read []string
+
+	// Act
+	log := decode[api.JobLog](t, get(t, serve(t, failingDeps(&read), config.Default()), "/api/review/checks/501/log"))
+
+	// Assert
+	if log.Text != "--- FAIL: TestRetry" || !log.Truncated || len(read) != 1 {
+		t.Errorf("log = %+v after reading %v, want 501's log, read once", log, read)
+	}
+}
+
+func TestACheckLogIsNotReadForAnIDThePullRequestDoesNotList(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	var read []string
+
+	// Act
+	answer := get(t, serve(t, failingDeps(&read), config.Default()), "/api/review/checks/999/log")
+
+	// Assert
+	if answer.Code != http.StatusNotFound || len(read) != 0 {
+		t.Errorf("status %d after reading %v, want 404 and nothing read", answer.Code, read)
+	}
 }

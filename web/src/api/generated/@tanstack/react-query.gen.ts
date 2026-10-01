@@ -3,8 +3,8 @@
 import { queryOptions } from '@tanstack/react-query';
 
 import { client } from '../client.gen';
-import { getAnnouncement, getBranch, getConfig, getHealth, getIssue, getMessaging, getPullRequestDraft, getReview, listChanges, listIssues, listReviews, listTasks, listViews, type Options, previewBranchIssue } from '../sdk.gen';
-import type { GetAnnouncementData, GetAnnouncementError, GetAnnouncementResponse, GetBranchData, GetBranchError, GetBranchResponse, GetConfigData, GetConfigError, GetConfigResponse, GetHealthData, GetHealthError, GetHealthResponse, GetIssueData, GetIssueError, GetIssueResponse, GetMessagingData, GetMessagingError, GetMessagingResponse, GetPullRequestDraftData, GetPullRequestDraftError, GetPullRequestDraftResponse, GetReviewData, GetReviewError, GetReviewResponse, ListChangesData, ListChangesError, ListChangesResponse, ListIssuesData, ListIssuesError, ListIssuesResponse, ListReviewsData, ListReviewsError, ListReviewsResponse, ListTasksData, ListTasksError, ListTasksResponse, ListViewsData, ListViewsError, ListViewsResponse, PreviewBranchIssueData, PreviewBranchIssueError, PreviewBranchIssueResponse } from '../types.gen';
+import { getAnnouncement, getBranch, getCheckLog, getConfig, getHealth, getIssue, getMessaging, getPullRequestDraft, getReview, listChanges, listIssues, listReviews, listTasks, listViews, type Options, previewBranchIssue } from '../sdk.gen';
+import type { GetAnnouncementData, GetAnnouncementError, GetAnnouncementResponse, GetBranchData, GetBranchError, GetBranchResponse, GetCheckLogData, GetCheckLogError, GetCheckLogResponse, GetConfigData, GetConfigError, GetConfigResponse, GetHealthData, GetHealthError, GetHealthResponse, GetIssueData, GetIssueError, GetIssueResponse, GetMessagingData, GetMessagingError, GetMessagingResponse, GetPullRequestDraftData, GetPullRequestDraftError, GetPullRequestDraftResponse, GetReviewData, GetReviewError, GetReviewResponse, ListChangesData, ListChangesError, ListChangesResponse, ListIssuesData, ListIssuesError, ListIssuesResponse, ListReviewsData, ListReviewsError, ListReviewsResponse, ListTasksData, ListTasksError, ListTasksResponse, ListViewsData, ListViewsError, ListViewsResponse, PreviewBranchIssueData, PreviewBranchIssueError, PreviewBranchIssueResponse } from '../types.gen';
 
 export type QueryKey<TOptions extends Options> = [
     Pick<TOptions, 'baseUrl' | 'body' | 'headers' | 'path' | 'query'> & {
@@ -145,6 +145,26 @@ export const listChangesOptions = (options?: Options<ListChangesData>) => queryO
         return data;
     },
     queryKey: listChangesQueryKey(options)
+});
+
+export const getCheckLogQueryKey = (options: Options<GetCheckLogData>) => createQueryKey('getCheckLog', options);
+
+/**
+ * The end of a failed check's log, read on demand.
+ *
+ * Reads the last lines of the log of one of the current pull request's checks, a GitHub Actions run or a GitLab job, with every terminal control taken out. Only a check the pull request's CI lists now is read; it is never read as CI is polled.
+ */
+export const getCheckLogOptions = (options: Options<GetCheckLogData>) => queryOptions<GetCheckLogResponse, GetCheckLogError, GetCheckLogResponse, ReturnType<typeof getCheckLogQueryKey>>({
+    queryFn: async ({ queryKey, signal }) => {
+        const { data } = await getCheckLog({
+            ...options,
+            ...queryKey[0],
+            signal,
+            throwOnError: true
+        });
+        return data;
+    },
+    queryKey: getCheckLogQueryKey(options)
 });
 
 export const getReviewQueryKey = (options?: Options<GetReviewData>) => createQueryKey('getReview', options);

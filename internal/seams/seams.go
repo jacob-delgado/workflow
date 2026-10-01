@@ -114,6 +114,9 @@ type Forge struct {
 	// was re-run. It needs a write scope the read path does not, so it can be
 	// refused where CheckStatus was not. Nil when there is no forge.
 	Rerun func(pull forge.PullRequest, head string) (bool, error)
+	// JobLog reads the end of a failed check's log, for one the forge keeps a
+	// log for. Nil when there is no forge.
+	JobLog func(check forge.Check) (forge.JobLog, error)
 	// Merge merges a pull request by a method the repository permits, and
 	// MergeMethods lists those methods. Merge needs a write scope the read path
 	// does not. Both nil when there is no forge.

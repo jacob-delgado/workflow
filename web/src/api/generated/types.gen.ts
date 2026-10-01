@@ -740,6 +740,17 @@ export type Check = {
     log_available?: boolean;
 };
 
+export type JobLog = {
+    /**
+     * The log's last lines, with every terminal control taken out.
+     */
+    text: string;
+    /**
+     * Whether the log ran on before the lines kept.
+     */
+    truncated: boolean;
+};
+
 export type CiState = 'none' | 'running' | 'passed' | 'failed';
 
 export type MessagingDestination = {
@@ -1277,6 +1288,44 @@ export type UnstageResponses = {
 };
 
 export type UnstageResponse = UnstageResponses[keyof UnstageResponses];
+
+export type GetCheckLogData = {
+    body?: never;
+    path: {
+        /**
+         * The check's id, as the review's CI lists it.
+         */
+        id: string;
+    };
+    query?: never;
+    url: '/api/review/checks/{id}/log';
+};
+
+export type GetCheckLogErrors = {
+    /**
+     * No check of the current pull request has that id.
+     */
+    404: Problem;
+    /**
+     * The forge keeps no log for the check.
+     */
+    422: Problem;
+    /**
+     * An RFC 9457 problem details object describing the failure.
+     */
+    default: Problem;
+};
+
+export type GetCheckLogError = GetCheckLogErrors[keyof GetCheckLogErrors];
+
+export type GetCheckLogResponses = {
+    /**
+     * The end of the log.
+     */
+    200: JobLog;
+};
+
+export type GetCheckLogResponse = GetCheckLogResponses[keyof GetCheckLogResponses];
 
 export type GetReviewData = {
     body?: never;

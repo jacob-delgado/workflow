@@ -99,8 +99,13 @@ func (c checkList) outcomeLines() []string {
 	}
 }
 
-// footer offers moving through the checks and opening one.
+// footer offers moving through the checks and opening one, and reading the
+// selected one's log where the forge keeps one.
 func (c checkList) footer(keys keyMap) []key.Binding {
+	if check, ok := c.checks.chosen(); ok && check.LogAvailable {
+		return append(keys.listKeys(), keys.showLog)
+	}
+
 	return keys.listKeys()
 }
 
@@ -115,6 +120,8 @@ func (c checkList) handleKey(m Model, msg tea.KeyPressMsg) (Model, tea.Cmd) {
 		return c.step(m, -1), nil
 	case key.Matches(msg, m.keys.confirm):
 		return c.open(m)
+	case key.Matches(msg, m.keys.showLog):
+		return c.readLog(m)
 	}
 
 	m.overlay = c
@@ -277,4 +284,105 @@ func (m Model) failedChecks() []string {
 	}
 
 	return lines
+}
+
+// readLog asks the forge for the selected check's log, or says the forge
+// keeps none for it. It is asked for only here, on the key, never as CI is
+// polled.
+func (c checkList) readLog(m Model) (Model, tea.Cmd) {
+	check, _ := c.checks.chosen()
+	if !check.LogAvailable || m.deps.Forge.JobLog == nil {
+		c.err, c.outcome = forge.ErrNoLog, ""
+		m.overlay = c
+
+		return m, nil
+	}
+
+	c.err, c.outcome = nil, "reading the log"+c.marks.ellipsis
+	m.overlay = c
+	read := m.deps.Forge.JobLog
+
+	return m, func() tea.Msg {
+		log, err := read(check)
+
+		return logRead{check: check, log: log, err: err}
+	}
+}
+
+// logRead carries a check's log back into the update loop.
+type logRead struct {
+	check forge.Check
+	log   forge.JobLog
+	err   error
+}
+
+var _ applier = logRead{}
+
+// apply shows the log in place of the checks, or the reason it could not be
+// read beneath them; nothing when the checks have since closed.
+func (msg logRead) apply(m Model) (Model, tea.Cmd) {
+	list, open := m.overlay.(checkList)
+	if !open {
+		return m, nil
+	}
+
+	if msg.err != nil {
+		list.err, list.outcome = msg.err, ""
+		m.overlay = list
+
+		return m, nil
+	}
+
+	list.outcome = ""
+	m.overlay = jobLogView{marks: m.marks, check: msg.check, log: msg.log, back: list}
+
+	return m, nil
+}
+
+// jobLogView is the end of a failed check's log, scrolled to its last lines,
+// where the failure is; esc goes back to the checks.
+type jobLogView struct {
+	marks  glyphs
+	check  forge.Check
+	log    forge.JobLog
+	back   checkList
+	scroll int
+}
+
+var _ overlay = jobLogView{}
+
+// view draws as many of the log's last lines as fit, scrolled up by scroll.
+func (v jobLogView) view(_, rows int) (string, string) {
+	lines := strings.Split(v.log.Text, "\n")
+	if v.log.Truncated {
+		lines = append([]string{v.marks.ellipsis + " earlier lines are not shown"}, lines...)
+	}
+
+	end := max(0, len(lines)-v.scroll)
+	start := max(0, end-max(1, rows))
+
+	return v.check.Name + " · log", strings.Join(lines[start:end], "\n")
+}
+
+// footer offers scrolling the log and going back.
+func (v jobLogView) footer(keys keyMap) []key.Binding {
+	return []key.Binding{keys.up, keys.down, relabel(keys.closeOverlay, "back")}
+}
+
+// handleKey scrolls the log, or goes back to the checks.
+func (v jobLogView) handleKey(m Model, msg tea.KeyPressMsg) (Model, tea.Cmd) {
+	switch {
+	case key.Matches(msg, m.keys.closeOverlay):
+		m.overlay = v.back
+
+		return m, nil
+	case key.Matches(msg, m.keys.up):
+		v.scroll = min(v.scroll+1, strings.Count(v.log.Text, "\n"))
+	case key.Matches(msg, m.keys.down):
+		v.scroll = max(0, v.scroll-1)
+	}
+
+	m.overlay = v
+
+	return m, nil
 }

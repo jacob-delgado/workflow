@@ -338,8 +338,10 @@ as commit hooks do — and opens the pull request only if the push succeeded.
 
 The Review pane then follows CI while checks run, asking every twenty seconds
 by default (`timing.ci_interval`).
-`c` lists the checks and opens the selected one's page. `R` re-runs the failed
-ones, and `u` on the Branch pane rebases the branch onto its base; like a push,
+`c` lists the checks and opens the selected one's page; `l` on a failed one
+shows the end of its log, where a GitHub Actions run or a GitLab job keeps
+one. `R` re-runs the failed ones, and `u` on the Branch pane rebases the branch
+onto its base; like a push,
 each first shows a last look naming what it acts on, and does nothing until
 `enter`. `e` edits the pull request's title and description. Once it is
 green and approved, `M` previews the merge methods the repository permits and

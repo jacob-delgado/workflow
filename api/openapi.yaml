@@ -332,6 +332,41 @@ paths:
               schema: {$ref: "#/components/schemas/Problem"}
         default: {$ref: "#/components/responses/Problem"}
 
+  /api/review/checks/{id}/log:
+    get:
+      operationId: getCheckLog
+      summary: The end of a failed check's log, read on demand.
+      description: >-
+        Reads the last lines of the log of one of the current pull request's
+        checks, a GitHub Actions run or a GitLab job, with every terminal
+        control taken out. Only a check the pull request's CI lists now is
+        read; it is never read as CI is polled.
+      tags: [review]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: {type: string}
+          description: The check's id, as the review's CI lists it.
+      responses:
+        "200":
+          description: The end of the log.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/JobLog"
+        "404":
+          description: No check of the current pull request has that id.
+          content:
+            application/problem+json:
+              schema: {$ref: "#/components/schemas/Problem"}
+        "422":
+          description: The forge keeps no log for the check.
+          content:
+            application/problem+json:
+              schema: {$ref: "#/components/schemas/Problem"}
+        default: {$ref: "#/components/responses/Problem"}
+
   /api/review:
     get:
       operationId: getReview
@@ -2175,6 +2210,18 @@ components:
         log_available:
           type: boolean
           description: Whether the forge serves the check's log.
+      additionalProperties: false
+
+    JobLog:
+      type: object
+      required: [text, truncated]
+      properties:
+        text:
+          type: string
+          description: The log's last lines, with every terminal control taken out.
+        truncated:
+          type: boolean
+          description: Whether the log ran on before the lines kept.
       additionalProperties: false
 
     CIState:

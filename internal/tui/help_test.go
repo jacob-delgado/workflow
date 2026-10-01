@@ -96,6 +96,7 @@ func placedBindings() []helpGroup {
 			"toggle-draft      ctrl+r     draft",
 			"toggle-breaking   ctrl+b     breaking",
 			"verbatim          v          keep scripts whole",
+			"show-log          l          show log",
 			"next-field        tab        next field",
 			"previous-field    shift+tab  previous field",
 			"cycle-type-left   ←/→        change type",

@@ -88,6 +88,11 @@ func (w *world) forgeDeps() seams.Forge {
 
 			return w.nextCI(), w.ciErr
 		},
+		JobLog: func(check forge.Check) (forge.JobLog, error) {
+			w.record("job-log " + check.ID)
+
+			return forge.JobLog{Text: "--- FAIL: TestRetry\n    retry_test.go:41: got 4", Truncated: true}, nil
+		},
 		Rerun: func(_ forge.PullRequest, head string) (bool, error) {
 			w.record("rerun " + head)
 
