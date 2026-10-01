@@ -121,6 +121,27 @@ func (e IssueTracker) Valid() bool {
 	}
 }
 
+// Defines values for LinkedIssueOrigin.
+const (
+	LinkedIssueOriginBranchName  LinkedIssueOrigin = "branch_name"
+	LinkedIssueOriginByHand      LinkedIssueOrigin = "by_hand"
+	LinkedIssueOriginPullRequest LinkedIssueOrigin = "pull_request"
+)
+
+// Valid indicates whether the value is a known member of the LinkedIssueOrigin enum.
+func (e LinkedIssueOrigin) Valid() bool {
+	switch e {
+	case LinkedIssueOriginBranchName:
+		return true
+	case LinkedIssueOriginByHand:
+		return true
+	case LinkedIssueOriginPullRequest:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for MessagingConfigKind.
 const (
 	MessagingConfigKindDiscord MessagingConfigKind = "discord"
@@ -689,6 +710,24 @@ type JiraView struct {
 	Name string `json:"name"`
 }
 
+// LinkedIssue defines model for LinkedIssue.
+type LinkedIssue struct {
+	// Key The issue's key, a forge number without its
+	Key string `json:"key"`
+
+	// Origin Where the issue was found: the link the branch was given by hand, the branch's name, or the pull request's title or description.
+	Origin LinkedIssueOrigin `json:"origin"`
+
+	// Tracker Where the issue lives: Jira, keyed like PROJ-412, or the repository's own forge, GitHub or GitLab, keyed by its number.
+	Tracker IssueTracker `json:"tracker"`
+
+	// URL The issue's page, for a link to open; empty when the tracker gives none.
+	URL string `json:"url"`
+}
+
+// LinkedIssueOrigin Where the issue was found: the link the branch was given by hand, the branch's name, or the pull request's title or description.
+type LinkedIssueOrigin string
+
 // MessagingConfig defines model for MessagingConfig.
 type MessagingConfig struct {
 	// AccessToken The user token's current access token (xoxe.xoxp-…), when this file keeps it. workflow replaces it on every refresh. Masked on read; empty or masked on write keeps the stored value.
@@ -863,6 +902,9 @@ type Review struct {
 
 	// Found Whether a pull request was found for the branch.
 	Found bool `json:"found"`
+
+	// Issue The issue the branch and its pull request are for; absent when none is named.
+	Issue *LinkedIssue `json:"issue,omitempty"`
 
 	// Pull The branch's pull request; absent when none is found.
 	Pull *PullRequest `json:"pull,omitempty"`

@@ -27,7 +27,7 @@ type linking struct {
 func linkingDeps(record *linking, detached bool) webserver.Deps {
 	deps := filledDeps()
 	deps.Branch = func() (gitrepo.Branch, error) {
-		return gitrepo.Branch{Name: "my-thing", Detached: detached}, nil
+		return gitrepo.Branch{Name: unnamedBranch, Detached: detached}, nil
 	}
 	deps.FindPull = func(string) (forge.PullRequest, bool, error) {
 		return forge.PullRequest{Number: 9, Title: "Speed up search", Body: "Speeds it up.\n"}, true, nil

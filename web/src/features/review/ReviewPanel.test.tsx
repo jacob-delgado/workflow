@@ -475,3 +475,30 @@ test('the form opens on its title, and Cancel hands focus back', async () => {
   // Assert: focus is back on the button that opened it
   expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Open a pull request' }))
 })
+
+test('names the issue the pull request is for, with a link to its page', () => {
+  // Arrange
+  useSnapshotStore.setState({
+    status: 'live',
+    snapshot: makeSnapshot({
+      review: {
+        found: true,
+        pull,
+        ci: null,
+        issue: {
+          key: '42',
+          tracker: 'forge',
+          url: 'https://github.com/acme/oss/issues/42',
+          origin: 'pull_request',
+        },
+      },
+    }),
+  })
+
+  // Act
+  render(<ReviewPanel />)
+
+  // Assert
+  const link = screen.getByRole('link', { name: '#42' })
+  expect(link.getAttribute('href')).toBe('https://github.com/acme/oss/issues/42')
+})

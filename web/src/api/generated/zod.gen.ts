@@ -235,6 +235,17 @@ export const zChangeList = z.object({
     changes: z.array(zChange)
 });
 
+export const zLinkedIssue = z.object({
+    key: z.string(),
+    tracker: zIssueTracker,
+    url: z.string(),
+    origin: z.enum([
+        'by_hand',
+        'branch_name',
+        'pull_request'
+    ])
+});
+
 /**
  * A note on a task, and when it was written.
  */
@@ -391,7 +402,8 @@ export const zCi = z.object({
 export const zReview = z.object({
     found: z.boolean(),
     pull: zPullRequest.nullish(),
-    ci: zCi.nullish()
+    ci: zCi.nullish(),
+    issue: zLinkedIssue.nullish()
 });
 
 export const zMessagingDestination = z.object({

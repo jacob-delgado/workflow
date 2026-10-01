@@ -14,6 +14,7 @@ import (
 	"github.com/jacob-delgado/workflow/internal/convention"
 	"github.com/jacob-delgado/workflow/internal/forge"
 	"github.com/jacob-delgado/workflow/internal/jira"
+	"github.com/jacob-delgado/workflow/internal/loop"
 )
 
 // errNotAnIssue is text typed into the link form that names no issue.
@@ -216,4 +217,22 @@ func (msg branchLinked) apply(m Model) (Model, tea.Cmd) {
 	}
 
 	return m, m.loadBranch()
+}
+
+// reviewIssue is the line naming the issue the branch and its pull request are
+// for — by the link the branch was given, its name, or the pull request's own
+// words — with its summary when the Issues list holds it; empty when none is
+// named.
+func (m Model) reviewIssue(pull forge.PullRequest) string {
+	ref, _, found := loop.BranchIssue(loop.IssueSource{
+		Branch: m.branch.branch.Name, Link: m.branch.branch.IssueLink, Pull: &pull, Project: m.cfg.Jira.Project,
+	})
+	if !found {
+		return ""
+	}
+
+	issueKey := jira.Key(ref.Key)
+	issue, _ := m.issues.find(issueKey)
+
+	return strings.TrimSpace(m.styles.label.Render("issue  ") + shownKey(issueKey) + " " + issue.Summary)
 }

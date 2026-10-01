@@ -305,13 +305,13 @@ func (m Model) reviewDetail(width int) string {
 		return wrap(m.mergedDetail(pull), width)
 	}
 
-	lines := []string{
-		m.styles.strong.Render(m.vocab.sigil+strconv.Itoa(pull.Number)) + " " + pull.Title,
-		pull.URL,
-		"",
-		m.styles.label.Render("CI     ") + m.ciSummary(),
-		m.styles.label.Render("review ") + m.reviewSummary(pull),
+	lines := []string{m.styles.strong.Render(m.vocab.sigil+strconv.Itoa(pull.Number)) + " " + pull.Title, pull.URL}
+	if issue := m.reviewIssue(pull); issue != "" {
+		lines = append(lines, issue)
 	}
+
+	lines = append(lines, "",
+		m.styles.label.Render("CI     ")+m.ciSummary(), m.styles.label.Render("review ")+m.reviewSummary(pull))
 
 	if pull.Draft {
 		lines = append(lines, m.styles.label.Render("draft"))
