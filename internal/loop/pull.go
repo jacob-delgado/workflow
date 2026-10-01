@@ -44,13 +44,15 @@ func (PullAlreadyOpenError) Unwrap() error {
 
 // PullSeams are what composing a pull request reads. A nil Branch or FindPull
 // means there is nothing to open; a nil Templates, Issue or BrowseURL only
-// leaves that part out of the proposal.
+// leaves that part out of the proposal, as Owners left zero leaves out the
+// reviewers.
 type PullSeams struct {
 	Branch    func() (gitrepo.Branch, error)
 	FindPull  func(branch string) (forge.PullRequest, bool, error)
 	Templates func() []forge.Template
 	Issue     func(jira.Key) (jira.IssueDetail, error)
 	BrowseURL func(jira.Key) string
+	Owners    OwnerSeams
 }
 
 // PullOptions are the configuration a pull request is composed under: the
@@ -62,8 +64,9 @@ type PullOptions struct {
 }
 
 // ComposePull proposes the pull request for the checked-out branch — a title and
-// body from its commits, its issue and the repository's first template, and the
-// base it would merge into — and returns the branch it read. It refuses with
+// body from its commits, its issue and the repository's first template, the
+// base it would merge into, and the code owners of its changes as reviewers —
+// and returns the branch it read. It refuses with
 // ErrNothingToOpen when there is nothing to propose, and with a
 // PullAlreadyOpenError when an open pull request already stands for the branch.
 // A merged or closed one does not stand in the way, and neither does a forge
@@ -131,7 +134,12 @@ func draft(seams PullSeams, opts PullOptions, branch gitrepo.Branch) forge.NewPu
 		TitleSource:  opts.TitleSource,
 	})
 
-	return forge.NewPullRequest{Title: title, Body: body, Head: branch.Name, Base: branch.BaseName()}
+	base := branch.BaseName()
+	users, teams := SplitReviewers(ProposedReviewers(seams.Owners, base))
+
+	return forge.NewPullRequest{
+		Title: title, Body: body, Head: branch.Name, Base: base, Reviewers: users, TeamReviewers: teams,
+	}
 }
 
 // DraftInput is what a pull request's title and body are proposed from: the
