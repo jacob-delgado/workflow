@@ -54,9 +54,25 @@ func TestOneChannelOffersNoChange(t *testing.T) {
 	t.Parallel()
 
 	// Act
-	preview := typing(t, newWorld().live(t, 120, 40), "5", "p")
+	preview := typing(t, newWorld().live(t, 120, 40), "5", "p", keyRight)
 
 	// Assert
 	requireScreen(t, preview.View().Content, "to  "+devChannel)
 	refuseScreen(t, preview.View().Content, "change channel")
+}
+
+func TestTheChannelCyclesBackwardsToo(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	cfg := completeConfig()
+	cfg.Messaging.Channels = []string{teamChannel, "#team-c"}
+	model := sized(t, tui.New(cfg, nil, newWorld().deps()), 120, 40)
+	model = drain(t, model, model.Init())
+
+	// Act
+	preview := typing(t, model, "5", "p", "left")
+
+	// Assert
+	requireScreen(t, preview.View().Content, "to  #team-c")
 }
