@@ -100,7 +100,9 @@ func (s *server) ForgetPerson(
 ) (api.ForgetPersonResponseObject, error) {
 	err := errNoPeopleStore
 	if s.deps.ForgetOwner != nil {
-		err = s.keptWrite(func() error { return s.deps.ForgetOwner(request.Params.Owner) })
+		err = s.inWorkspace(func(workspace string) error {
+			return s.keptWrite(func() error { return s.deps.ForgetOwner(workspace, request.Params.Owner) })
+		})
 	}
 
 	if err == nil {
@@ -159,7 +161,15 @@ func (s *server) people() (api.People, error) {
 		return api.People{}, errNoPeopleStore
 	}
 
-	links, err := s.deps.OwnerLinks()
+	var links []loop.OwnerLink
+
+	err := s.inWorkspace(func(workspace string) error {
+		var err error
+
+		links, err = s.deps.OwnerLinks(workspace)
+
+		return err
+	})
 	if err != nil {
 		return api.People{}, err
 	}
@@ -213,16 +223,38 @@ func (s *server) linkPerson(link api.PersonLink) error {
 		return errOneOrTheOther
 	}
 
-	if link.NotOnSlack {
-		return s.keptWrite(func() error { return s.deps.LinkOwner(link.Owner, nil) })
+	return s.inWorkspace(func(workspace string) error {
+		if link.NotOnSlack {
+			return s.keptWrite(func() error { return s.deps.LinkOwner(workspace, link.Owner, nil) })
+		}
+
+		target, err := s.slackTarget(*link.SlackID, strings.Contains(link.Owner, "/"), orZero(link.Channel))
+		if err != nil {
+			return err
+		}
+
+		return s.keptWrite(func() error { return s.deps.LinkOwner(workspace, link.Owner, &target) })
+	})
+}
+
+// inWorkspace makes use of the kept associations in the Slack workspace the
+// token is for, which they are kept per, or says why it cannot be read: with
+// no Slack user token, that there is no directory to link from.
+func (s *server) inWorkspace(use func(workspace string) error) error {
+	if !s.taggingLive() {
+		return errNoSlackDirectory
 	}
 
-	target, err := s.slackTarget(*link.SlackID, strings.Contains(link.Owner, "/"), orZero(link.Channel))
+	workspace, err := loop.TagWorkspace(s.deps.Workspace)
+	if errors.Is(err, messaging.ErrNoCredential) {
+		return errNoSlackDirectory
+	}
+
 	if err != nil {
 		return err
 	}
 
-	return s.keptWrite(func() error { return s.deps.LinkOwner(link.Owner, &target) })
+	return use(workspace)
 }
 
 // keptWrite runs write, a write to the kept associations or a clean of the
@@ -321,7 +353,15 @@ func (s *server) repoGroups() (api.RepoGroups, error) {
 		return api.RepoGroups{}, errNoPeopleStore
 	}
 
-	groups, err := s.deps.RepoGroups()
+	var groups []loop.SlackTarget
+
+	err := s.inWorkspace(func(workspace string) error {
+		var err error
+
+		groups, err = s.deps.RepoGroups(workspace)
+
+		return err
+	})
 	if err != nil {
 		return api.RepoGroups{}, err
 	}
@@ -335,18 +375,20 @@ func (s *server) setRepoGroups(ids []string) error {
 		return errNoPeopleStore
 	}
 
-	return s.keptWrite(func() error {
-		saved, err := s.deps.RepoGroups()
-		if err != nil {
-			return err
-		}
+	return s.inWorkspace(func(workspace string) error {
+		return s.keptWrite(func() error {
+			saved, err := s.deps.RepoGroups(workspace)
+			if err != nil {
+				return err
+			}
 
-		groups, err := s.labelGroups(ids, saved)
-		if err != nil {
-			return err
-		}
+			groups, err := s.labelGroups(ids, saved)
+			if err != nil {
+				return err
+			}
 
-		return s.deps.SetRepoGroups(groups)
+			return s.deps.SetRepoGroups(workspace, groups)
+		})
 	})
 }
 
@@ -421,6 +463,12 @@ func missingScope(err error) (string, bool) {
 // what the request or the server's setup cannot carry out is unprocessable,
 // and anything else is classified by fault.
 func (s *server) peopleFault(err error) (api.Problem, int) {
+	if errors.Is(err, loop.ErrUnknownWorkspace) {
+		prob := problem(api.Unprocessable, workspaceRefusal(err))
+
+		return prob, prob.Status
+	}
+
 	if scope, missing := missingScope(err); missing {
 		prob := problem(api.Unprocessable, "the Slack token lacks the "+scope+
 			" scope; add it to the Slack app, then sign in again with workflow slack login")

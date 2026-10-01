@@ -1803,6 +1803,16 @@ components:
             owner not yet linked could be linked to, such as users:read. The
             announcement still posts, tagging whom it can.
           example: usergroups:read
+        unavailable_reason:
+          type: string
+          description: >-
+            Why this announcement tags no one though it would: the Slack
+            workspace the token is for could not be read, and links are kept
+            per workspace. The announcement posts untagged; available is false
+            and owners and groups are empty.
+          example: >-
+            can't tell which Slack workspace this token is for: the credential
+            was not accepted
         owners:
           type: array
           items: {$ref: "#/components/schemas/OwnerTag"}

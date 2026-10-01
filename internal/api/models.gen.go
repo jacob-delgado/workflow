@@ -462,6 +462,11 @@ type AnnouncementTagging struct {
 	// Example: usergroups:read
 	MissingScope *string    `json:"missing_scope,omitempty"`
 	Owners       []OwnerTag `json:"owners"`
+
+	// UnavailableReason Why this announcement tags no one though it would: the Slack workspace the token is for could not be read, and links are kept per workspace. The announcement posts untagged; available is false and owners and groups are empty.
+	//
+	// Example: can't tell which Slack workspace this token is for: the credential was not accepted
+	UnavailableReason *string `json:"unavailable_reason,omitempty"`
 }
 
 // Branch defines model for Branch.

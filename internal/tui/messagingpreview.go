@@ -195,8 +195,8 @@ func (p messagingPreview) postWhenGreen(m Model) (Model, tea.Cmd) {
 // channel would read it twice.
 func (m Model) sendToMessaging(channel, text string, moment messaging.Moment, tags postTags) (Model, tea.Cmd) {
 	post, memory := m.deps.Messaging.Post, loop.AnnounceMemory{Record: m.deps.Store.RecordAnnounce}
-	if tags.offersGroups {
-		memory.RecordGroups = m.deps.Store.RecordGroups
+	if record := m.deps.Store.RecordGroups; tags.offersGroups && record != nil {
+		memory.RecordGroups = func(ids []string) error { return record(tags.workspace, ids) }
 	}
 
 	made := loop.Announced{Pull: m.review.pull.Number, Moment: moment}

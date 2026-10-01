@@ -37,6 +37,13 @@ const (
 // own, neither a scope nor a missing feature.
 var errDirectoryDown = errors.New("slack is down")
 
+// errOtherWorkspace is what the kept fakes answer when asked in a Slack
+// workspace other than the token's, which nothing should ask in.
+var errOtherWorkspace = errors.New("asked in another Slack workspace")
+
+// worldWorkspace is the Slack workspace the world's token is for.
+const worldWorkspace = "T0WORLD"
+
 // slackWorld is the Slack directory and the kept associations, faked. A world
 // without one has no directory seams and no kept store, as a webhook or a
 // dry run has none.
@@ -48,6 +55,10 @@ type slackWorld struct {
 	noGroups   bool
 	// noDirectory keeps the store but reads no directory, as a webhook does.
 	noDirectory bool
+	// workspace is the Slack workspace the token is for, which the kept fakes
+	// answer in alone, and workspaceErr why Slack would not say.
+	workspace    string
+	workspaceErr error
 
 	links      []loop.OwnerLink
 	linksErr   error
@@ -67,7 +78,8 @@ func newSlackWorld() *slackWorld {
 		members: map[string][]loop.SlackTarget{
 			devChannel: {{ID: carlaID, Label: carlaName}, {ID: benID, Label: benName}},
 		},
-		groups: []loop.SlackTarget{{ID: podID, Label: podName}, {ID: apiID, Label: apiName}},
+		groups:    []loop.SlackTarget{{ID: podID, Label: podName}, {ID: apiID, Label: apiName}},
+		workspace: worldWorkspace,
 	}
 }
 
@@ -101,6 +113,7 @@ func (w *world) messagingDeps() seams.Messaging {
 		return slices.Clone(w.slack.members[channel]), nil
 	}
 	deps.RefreshDirectory = func() { w.record("refresh-directory") }
+	deps.Workspace = func() (string, error) { return w.slack.workspace, w.slack.workspaceErr }
 
 	if !w.slack.noGroups {
 		deps.UserGroups = func() ([]loop.SlackTarget, error) {
@@ -127,34 +140,52 @@ func (w *world) withKept(store seams.Store) seams.Store {
 	store.OwnerLinks = w.ownerLinks
 	store.LinkOwner = w.linkOwner
 	store.ForgetOwner = w.forgetOwner
-	store.RepoGroups = func() ([]loop.SlackTarget, error) {
+	store.RepoGroups = func(workspace string) ([]loop.SlackTarget, error) {
 		w.mu.Lock()
 		defer w.mu.Unlock()
 
-		if w.slack.repoErr != nil {
-			return nil, w.slack.repoErr
+		err := errors.Join(w.otherWorkspace(workspace), w.slack.repoErr)
+		if err != nil {
+			return nil, err
 		}
 
 		return slices.Clone(w.slack.repoGroups), nil
 	}
 	store.SetRepoGroups = w.setRepoGroups
-	store.LastGroups = func() ([]string, bool) { return w.slack.last, w.slack.lastChosen }
-	store.RecordGroups = func(ids []string) error {
+	store.LastGroups = func(workspace string) ([]string, bool) {
+		if w.otherWorkspace(workspace) != nil {
+			return nil, false
+		}
+
+		return w.slack.last, w.slack.lastChosen
+	}
+	store.RecordGroups = func(workspace string, ids []string) error {
 		w.record("record-groups " + strings.Join(ids, ","))
 
-		return nil
+		return w.otherWorkspace(workspace)
 	}
 
 	return store
 }
 
+// otherWorkspace refuses a kept read or write in a workspace other than the
+// token's.
+func (w *world) otherWorkspace(workspace string) error {
+	if workspace != w.slack.workspace {
+		return errOtherWorkspace
+	}
+
+	return nil
+}
+
 // ownerLinks is what was decided so far.
-func (w *world) ownerLinks() ([]loop.OwnerLink, error) {
+func (w *world) ownerLinks(workspace string) ([]loop.OwnerLink, error) {
 	w.mu.Lock()
 	defer w.mu.Unlock()
 
-	if w.slack.linksErr != nil {
-		return nil, w.slack.linksErr
+	err := errors.Join(w.otherWorkspace(workspace), w.slack.linksErr)
+	if err != nil {
+		return nil, err
 	}
 
 	return slices.Clone(w.slack.links), nil
@@ -162,7 +193,7 @@ func (w *world) ownerLinks() ([]loop.OwnerLink, error) {
 
 // linkOwner records a decision, replacing any earlier one, unless it is
 // refused.
-func (w *world) linkOwner(owner string, target *loop.SlackTarget) error {
+func (w *world) linkOwner(workspace, owner string, target *loop.SlackTarget) error {
 	call, link := "link-owner "+owner+" nobody", loop.OwnerLink{Owner: owner}
 	if target != nil {
 		call, link = "link-owner "+owner+" "+target.ID, loop.OwnerLink{Owner: owner, OnSlack: true, Slack: *target}
@@ -173,8 +204,9 @@ func (w *world) linkOwner(owner string, target *loop.SlackTarget) error {
 	w.mu.Lock()
 	defer w.mu.Unlock()
 
-	if w.slack.linkErr != nil {
-		return w.slack.linkErr
+	err := errors.Join(w.otherWorkspace(workspace), w.slack.linkErr)
+	if err != nil {
+		return err
 	}
 
 	w.slack.links = append(slices.DeleteFunc(w.slack.links, func(old loop.OwnerLink) bool { return old.Owner == owner }),
@@ -184,14 +216,15 @@ func (w *world) linkOwner(owner string, target *loop.SlackTarget) error {
 }
 
 // forgetOwner drops a decision, unless it is refused.
-func (w *world) forgetOwner(owner string) error {
+func (w *world) forgetOwner(workspace, owner string) error {
 	w.record("forget-owner " + owner)
 
 	w.mu.Lock()
 	defer w.mu.Unlock()
 
-	if w.slack.forgetErr != nil {
-		return w.slack.forgetErr
+	err := errors.Join(w.otherWorkspace(workspace), w.slack.forgetErr)
+	if err != nil {
+		return err
 	}
 
 	w.slack.links = slices.DeleteFunc(w.slack.links, func(old loop.OwnerLink) bool { return old.Owner == owner })
@@ -200,7 +233,7 @@ func (w *world) forgetOwner(owner string) error {
 }
 
 // setRepoGroups replaces the repository's groups, unless it is refused.
-func (w *world) setRepoGroups(groups []loop.SlackTarget) error {
+func (w *world) setRepoGroups(workspace string, groups []loop.SlackTarget) error {
 	ids := make([]string, 0, len(groups))
 	for _, group := range groups {
 		ids = append(ids, group.ID)
@@ -211,8 +244,9 @@ func (w *world) setRepoGroups(groups []loop.SlackTarget) error {
 	w.mu.Lock()
 	defer w.mu.Unlock()
 
-	if w.slack.setErr != nil {
-		return w.slack.setErr
+	err := errors.Join(w.otherWorkspace(workspace), w.slack.setErr)
+	if err != nil {
+		return err
 	}
 
 	w.slack.repoGroups = slices.Clone(groups)

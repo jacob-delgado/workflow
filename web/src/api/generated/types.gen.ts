@@ -164,6 +164,10 @@ export type AnnouncementTagging = {
      * A scope the Slack token lacks to offer the people or groups an owner not yet linked could be linked to, such as users:read. The announcement still posts, tagging whom it can.
      */
     missing_scope?: string;
+    /**
+     * Why this announcement tags no one though it would: the Slack workspace the token is for could not be read, and links are kept per workspace. The announcement posts untagged; available is false and owners and groups are empty.
+     */
+    unavailable_reason?: string;
     owners: Array<OwnerTag>;
     groups: Array<GroupTag>;
 };

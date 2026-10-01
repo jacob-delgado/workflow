@@ -141,16 +141,23 @@ type Deps struct {
 	// OwnerLinks, LinkOwner and ForgetOwner are whom each code owner on this
 	// repository's forge host is on Slack, kept between sessions; RepoGroups
 	// and SetRepoGroups the Slack user groups this repository may tag; and
-	// LastGroups and RecordGroups the groups its last announcement chose — as
-	// seams.Store binds them. A nil OwnerLinks or RepoGroups answers People and
-	// groups as not available, and an announcement as tagging no one.
-	OwnerLinks    func() ([]loop.OwnerLink, error)
-	LinkOwner     func(owner string, target *loop.SlackTarget) error
-	ForgetOwner   func(owner string) error
-	RepoGroups    func() ([]loop.SlackTarget, error)
-	SetRepoGroups func(groups []loop.SlackTarget) error
-	LastGroups    func() ([]string, bool)
-	RecordGroups  func(ids []string) error
+	// LastGroups and RecordGroups the groups its last announcement chose —
+	// each in the Slack workspace Workspace names, as seams.Store binds them.
+	// A nil OwnerLinks or RepoGroups answers People and groups as not
+	// available, and an announcement as tagging no one.
+	OwnerLinks    func(workspace string) ([]loop.OwnerLink, error)
+	LinkOwner     func(workspace, owner string, target *loop.SlackTarget) error
+	ForgetOwner   func(workspace, owner string) error
+	RepoGroups    func(workspace string) ([]loop.SlackTarget, error)
+	SetRepoGroups func(workspace string, groups []loop.SlackTarget) error
+	LastGroups    func(workspace string) ([]string, bool)
+	RecordGroups  func(workspace string, ids []string) error
+
+	// Workspace is the ID of the Slack workspace the user token is for, as
+	// seams.Messaging binds it. When it cannot be read, an announcement tags
+	// no one and says why, and People and groups is refused with why. Nil
+	// is no Slack user token.
+	Workspace func() (string, error)
 
 	// ChannelMembers and UserGroups read the Slack directory an owner is
 	// linked from. Whether they are read at all follows the configuration in

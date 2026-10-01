@@ -886,7 +886,15 @@ is on Slack is kept per forge host (`github.com`, say), since an owner is the
 same person in every repository there: a person links to a Slack user, a
 team to a user group, or either is marked not on Slack and never asked again.
 The user groups an announcement may tag, and the ones chosen last time, are
-kept per repository. The terminal's announcement preview and the web's ask
+kept per repository. Both are kept per Slack workspace too, the one the user
+token is for, which workflow asks Slack once a session: a Slack ID means
+nothing in another workspace, so a link made in one is neither used nor
+replaced in another, and switching back finds it again. That an owner is not
+on Slack holds in every workspace. When Slack cannot say which workspace the
+token is for, nobody is tagged: the announcement posts untagged and says why.
+Links kept before workspaces were — by an earlier build — belong to no
+workspace, so each such owner is asked about once more. The terminal's
+announcement preview and the web's ask
 whom an owner not yet decided is, and the web's Settings and the terminal's
 `P` overlay change or forget a decision; `workflow announce` tags only whom
 is already decided, and names the rest in its preview.

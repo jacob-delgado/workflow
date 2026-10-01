@@ -228,6 +228,20 @@ function useAnnouncePost(channel: string, service: string, onAnnounced: (said: s
   )
 }
 
+// UntaggedNote says why an announcement that would tag tags no one — the
+// Slack workspace the token is for could not be read — when that is why.
+function UntaggedNote({ reason }: { reason: string | undefined }) {
+  if (reason === undefined) {
+    return null
+  }
+
+  return (
+    <p role="note" className="text-sm text-muted-foreground">
+      {reason}. The announcement posts untagged.
+    </p>
+  )
+}
+
 // AnnouncePreview shows the composed message, the channel it will go to and,
 // for an announcement that tags, whom it tags, with a confirm — named apart
 // from the button that opened the preview, since only this one sends — and a
@@ -291,6 +305,7 @@ function AnnouncePreview({
           </select>
         </label>
       ) : null}
+      <UntaggedNote reason={tagging?.unavailable_reason} />
       {tagging?.available === true ? (
         <TagPicker
           tagging={tagging}

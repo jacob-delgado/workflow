@@ -175,7 +175,10 @@ in Settings or a terminal since, nothing is posted and the page asks you to
 preview again. A Slack token without a scope linking needs (`users:read`,
 `channels:read`, `groups:read` or `usergroups:read`) for the channel picked
 is named in a note, and the announcement still posts, tagging whom it can.
-Under `--dry-run` no owner is offered to link. Teams, Discord and a webhook
+Links are kept per Slack workspace: when Slack will not say which workspace
+the token is for, a note says so, nobody is offered, and the announcement
+posts untagged; Settings' people and groups say the same. Under `--dry-run`
+no owner is offered to link. Teams, Discord and a webhook
 tag no one, and so does a Slack webhook saved in Settings while the server
 runs: tagging follows the configuration in effect.
 

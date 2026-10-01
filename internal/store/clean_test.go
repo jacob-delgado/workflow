@@ -209,7 +209,7 @@ func TestCleaningTheCacheKeepsTheKeptData(t *testing.T) {
 		}
 	}
 
-	if links, _ := kept.OwnerLinks(t.Context(), forgeHost); len(links) != 1 {
+	if links, _ := kept.OwnerLinks(t.Context(), forgeHost, workspaceA); len(links) != 1 {
 		t.Errorf("OwnerLinks after cleaning the cache = %+v, want ana still linked", links)
 	}
 }
@@ -248,7 +248,7 @@ func TestAWriteAfterACleanMakesTheFileAgain(t *testing.T) {
 
 	// Act
 	scopeErr := kept.RecordScope(t.Context(), repo, "web", theTime())
-	linkErr := kept.LinkOwner(t.Context(), forgeHost, "ben", nil, theTime())
+	linkErr := kept.LinkOwner(t.Context(), forgeHost, workspaceA, "ben", nil, theTime())
 
 	// Assert
 	if scopeErr != nil || linkErr != nil {
@@ -256,7 +256,7 @@ func TestAWriteAfterACleanMakesTheFileAgain(t *testing.T) {
 	}
 
 	scope, found, _ := kept.LastScope(t.Context(), repo)
-	links, _ := kept.OwnerLinks(t.Context(), forgeHost)
+	links, _ := kept.OwnerLinks(t.Context(), forgeHost, workspaceA)
 
 	if !found || scope != "web" || len(links) != 1 {
 		t.Errorf("after a clean and a write: scope %q, %v, links %+v; want the new ones alone", scope, found, links)

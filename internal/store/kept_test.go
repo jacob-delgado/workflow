@@ -81,7 +81,7 @@ func execKept(t *testing.T, dir, query string) {
 func linkAna(t *testing.T, kept store.Store) {
 	t.Helper()
 
-	err := kept.LinkOwner(t.Context(), forgeHost, anaOwner, ana(), theTime())
+	err := kept.LinkOwner(t.Context(), forgeHost, workspaceA, anaOwner, ana(), theTime())
 	if err != nil {
 		t.Fatalf("linking ana: %v", err)
 	}
@@ -94,12 +94,12 @@ func TestAnOwnersSlackLinkRoundTrips(t *testing.T) {
 	kept := store.New(t.TempDir(), false)
 
 	// Act
-	err := kept.LinkOwner(t.Context(), forgeHost, anaOwner, ana(), theTime())
+	err := kept.LinkOwner(t.Context(), forgeHost, workspaceA, anaOwner, ana(), theTime())
 	if err != nil {
 		t.Fatalf("LinkOwner returned %v, want nil", err)
 	}
 
-	links, err := kept.OwnerLinks(t.Context(), forgeHost)
+	links, err := kept.OwnerLinks(t.Context(), forgeHost, workspaceA)
 
 	// Assert
 	want := []store.OwnerLink{{Owner: anaOwner, OnSlack: true, Slack: *ana()}}
@@ -149,7 +149,7 @@ func TestKeptDataSurvivesTheCachesSchemaBump(t *testing.T) {
 	}
 
 	// Act
-	links, err := kept.OwnerLinks(t.Context(), forgeHost)
+	links, err := kept.OwnerLinks(t.Context(), forgeHost, workspaceA)
 
 	// Assert
 	if err != nil || len(links) != 1 {
@@ -167,7 +167,7 @@ func TestAKeptFileFromANewerBuildReadsAsEmpty(t *testing.T) {
 	execKept(t, dir, "PRAGMA user_version = 99")
 
 	// Act
-	links, err := kept.OwnerLinks(t.Context(), forgeHost)
+	links, err := kept.OwnerLinks(t.Context(), forgeHost, workspaceA)
 
 	// Assert
 	if err != nil || len(links) != 0 {
@@ -186,7 +186,7 @@ func TestAKeptFileFromANewerBuildRefusesWritesAndIsLeftAlone(t *testing.T) {
 	execKept(t, dir, "PRAGMA application_id = 42")
 
 	// Act
-	err := kept.LinkOwner(t.Context(), forgeHost, "ben", nil, theTime())
+	err := kept.LinkOwner(t.Context(), forgeHost, workspaceA, "ben", nil, theTime())
 
 	// Assert
 	if !errors.Is(err, store.ErrKeptFromNewerBuild) {
@@ -225,7 +225,7 @@ func TestAKeptFileThatIsNotADatabaseRefusesWritesAndIsLeftAlone(t *testing.T) {
 	notADatabase := writeNotADatabase(t, dir)
 
 	// Act
-	err := store.New(dir, false).LinkOwner(t.Context(), forgeHost, anaOwner, ana(), theTime())
+	err := store.New(dir, false).LinkOwner(t.Context(), forgeHost, workspaceA, anaOwner, ana(), theTime())
 
 	// Assert
 	if err == nil {
@@ -247,7 +247,7 @@ func TestAKeptFileThatIsNotADatabaseReadsAsNothingAndSaysWhy(t *testing.T) {
 	writeNotADatabase(t, dir)
 
 	// Act
-	links, err := store.New(dir, false).OwnerLinks(t.Context(), forgeHost)
+	links, err := store.New(dir, false).OwnerLinks(t.Context(), forgeHost, workspaceA)
 
 	// Assert
 	if len(links) != 0 || err == nil {
@@ -263,8 +263,8 @@ func TestAReadOnlyStoreNeverMakesTheKeptFile(t *testing.T) {
 	readOnly := store.New(dir, false).ReadOnly()
 
 	// Act
-	linkErr := readOnly.LinkOwner(t.Context(), forgeHost, anaOwner, ana(), theTime())
-	links, readErr := readOnly.OwnerLinks(t.Context(), forgeHost)
+	linkErr := readOnly.LinkOwner(t.Context(), forgeHost, workspaceA, anaOwner, ana(), theTime())
+	links, readErr := readOnly.OwnerLinks(t.Context(), forgeHost, workspaceA)
 
 	// Assert
 	if linkErr != nil || readErr != nil || len(links) != 0 {
@@ -285,7 +285,7 @@ func TestAReadOnlyStoreReadsTheKeptLinks(t *testing.T) {
 	linkAna(t, store.New(dir, false))
 
 	// Act
-	links, err := store.New(dir, false).ReadOnly().OwnerLinks(t.Context(), forgeHost)
+	links, err := store.New(dir, false).ReadOnly().OwnerLinks(t.Context(), forgeHost, workspaceA)
 
 	// Assert
 	if err != nil || len(links) != 1 {
@@ -301,8 +301,8 @@ func TestADisabledStoreKeepsNoLink(t *testing.T) {
 	disabled := store.New(dir, true)
 
 	// Act
-	linkErr := disabled.LinkOwner(t.Context(), forgeHost, anaOwner, ana(), theTime())
-	links, readErr := disabled.OwnerLinks(t.Context(), forgeHost)
+	linkErr := disabled.LinkOwner(t.Context(), forgeHost, workspaceA, anaOwner, ana(), theTime())
+	links, readErr := disabled.OwnerLinks(t.Context(), forgeHost, workspaceA)
 
 	// Assert
 	if linkErr != nil || readErr != nil || len(links) != 0 {
@@ -330,7 +330,7 @@ func TestStoresOpeningAFreshKeptFileTogetherAllMigrateIt(t *testing.T) {
 	// Act
 	for index, owner := range owners {
 		group.Go(func() {
-			failures[index] = store.New(dir, false).LinkOwner(t.Context(), forgeHost, owner, nil, theTime())
+			failures[index] = store.New(dir, false).LinkOwner(t.Context(), forgeHost, workspaceA, owner, nil, theTime())
 		})
 	}
 
@@ -343,7 +343,7 @@ func TestStoresOpeningAFreshKeptFileTogetherAllMigrateIt(t *testing.T) {
 		}
 	}
 
-	links, err := store.New(dir, false).OwnerLinks(t.Context(), forgeHost)
+	links, err := store.New(dir, false).OwnerLinks(t.Context(), forgeHost, workspaceA)
 	if err != nil || len(links) != len(owners) {
 		t.Errorf("OwnerLinks = %+v, %v; want every owner decided", links, err)
 	}

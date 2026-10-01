@@ -49,12 +49,12 @@ func TestAnOwnerNotOnSlackIsRememberedAsDecided(t *testing.T) {
 	kept := store.New(t.TempDir(), false)
 
 	// Act
-	err := kept.LinkOwner(t.Context(), forgeHost, "dan", nil, theTime())
+	err := kept.LinkOwner(t.Context(), forgeHost, workspaceA, "dan", nil, theTime())
 	if err != nil {
 		t.Fatalf("LinkOwner returned %v, want nil", err)
 	}
 
-	links, err := kept.OwnerLinks(t.Context(), forgeHost)
+	links, err := kept.OwnerLinks(t.Context(), forgeHost, workspaceA)
 
 	// Assert
 	want := []store.OwnerLink{{Owner: "dan", OnSlack: false, Slack: store.SlackTarget{}}}
@@ -70,12 +70,12 @@ func TestATeamOwnerLinksToAUserGroup(t *testing.T) {
 	kept := store.New(t.TempDir(), false)
 
 	// Act
-	err := kept.LinkOwner(t.Context(), forgeHost, "acme/control-plane", podGroup(), theTime())
+	err := kept.LinkOwner(t.Context(), forgeHost, workspaceA, "acme/control-plane", podGroup(), theTime())
 	if err != nil {
 		t.Fatalf("LinkOwner returned %v, want nil", err)
 	}
 
-	links, err := kept.OwnerLinks(t.Context(), forgeHost)
+	links, err := kept.OwnerLinks(t.Context(), forgeHost, workspaceA)
 
 	// Assert
 	want := []store.OwnerLink{{Owner: "acme/control-plane", OnSlack: true, Slack: *podGroup()}}
@@ -92,12 +92,12 @@ func TestRelinkingAnOwnerReplacesTheDecision(t *testing.T) {
 	linkAna(t, kept)
 
 	// Act
-	err := kept.LinkOwner(t.Context(), forgeHost, anaOwner, nil, theTime())
+	err := kept.LinkOwner(t.Context(), forgeHost, workspaceA, anaOwner, nil, theTime())
 	if err != nil {
 		t.Fatalf("LinkOwner returned %v, want nil", err)
 	}
 
-	links, err := kept.OwnerLinks(t.Context(), forgeHost)
+	links, err := kept.OwnerLinks(t.Context(), forgeHost, workspaceA)
 
 	// Assert
 	if err != nil || len(links) != 1 || links[0].OnSlack {
@@ -111,18 +111,18 @@ func TestAnOwnersCaseMakesNoSecondDecision(t *testing.T) {
 	// Arrange
 	kept := store.New(t.TempDir(), false)
 
-	err := kept.LinkOwner(t.Context(), forgeHost, "Ana", ana(), theTime())
+	err := kept.LinkOwner(t.Context(), forgeHost, workspaceA, "Ana", ana(), theTime())
 	if err != nil {
 		t.Fatalf("linking Ana: %v", err)
 	}
 
 	// Act
-	err = kept.LinkOwner(t.Context(), forgeHost, "ANA", nil, theTime())
+	err = kept.LinkOwner(t.Context(), forgeHost, workspaceA, "ANA", nil, theTime())
 	if err != nil {
 		t.Fatalf("LinkOwner returned %v, want nil", err)
 	}
 
-	links, err := kept.OwnerLinks(t.Context(), forgeHost)
+	links, err := kept.OwnerLinks(t.Context(), forgeHost, workspaceA)
 
 	// Assert
 	want := []store.OwnerLink{{Owner: anaOwner, OnSlack: false, Slack: store.SlackTarget{}}}
@@ -139,12 +139,12 @@ func TestAnOwnerIsForgottenWhateverTheCase(t *testing.T) {
 	linkAna(t, kept)
 
 	// Act
-	err := kept.ForgetOwner(t.Context(), forgeHost, "Ana")
+	err := kept.ForgetOwner(t.Context(), forgeHost, workspaceA, "Ana")
 	if err != nil {
 		t.Fatalf("ForgetOwner returned %v, want nil", err)
 	}
 
-	links, err := kept.OwnerLinks(t.Context(), forgeHost)
+	links, err := kept.OwnerLinks(t.Context(), forgeHost, workspaceA)
 
 	// Assert
 	if err != nil || len(links) != 0 {
@@ -160,7 +160,7 @@ func TestOwnerLinksAreKeptPerForgeHost(t *testing.T) {
 	linkAna(t, kept)
 
 	// Act
-	links, err := kept.OwnerLinks(t.Context(), "gitlab.example.com")
+	links, err := kept.OwnerLinks(t.Context(), "gitlab.example.com", workspaceA)
 
 	// Assert
 	if err != nil || len(links) != 0 {
@@ -176,12 +176,12 @@ func TestAForgottenOwnerIsUndecided(t *testing.T) {
 	linkAna(t, kept)
 
 	// Act
-	err := kept.ForgetOwner(t.Context(), forgeHost, anaOwner)
+	err := kept.ForgetOwner(t.Context(), forgeHost, workspaceA, anaOwner)
 	if err != nil {
 		t.Fatalf("ForgetOwner returned %v, want nil", err)
 	}
 
-	links, err := kept.OwnerLinks(t.Context(), forgeHost)
+	links, err := kept.OwnerLinks(t.Context(), forgeHost, workspaceA)
 
 	// Assert
 	if err != nil || len(links) != 0 {
@@ -198,19 +198,19 @@ func TestASlackEntityNoOneLinksToIsPruned(t *testing.T) {
 	}{
 		"relinked to someone else": {
 			change: func(kept store.Store) error {
-				return kept.LinkOwner(t.Context(), forgeHost, anaOwner,
+				return kept.LinkOwner(t.Context(), forgeHost, workspaceA, anaOwner,
 					&store.SlackTarget{ID: "U099XYZ", Label: "Ana L."}, theTime())
 			},
 			left: 1,
 		},
 		"marked not on Slack": {
 			change: func(kept store.Store) error {
-				return kept.LinkOwner(t.Context(), forgeHost, anaOwner, nil, theTime())
+				return kept.LinkOwner(t.Context(), forgeHost, workspaceA, anaOwner, nil, theTime())
 			},
 			left: 0,
 		},
 		"forgotten": {
-			change: func(kept store.Store) error { return kept.ForgetOwner(t.Context(), forgeHost, anaOwner) },
+			change: func(kept store.Store) error { return kept.ForgetOwner(t.Context(), forgeHost, workspaceA, anaOwner) },
 			left:   0,
 		},
 	}
@@ -263,7 +263,7 @@ func TestALinkOfTheWrongShapeIsRefused(t *testing.T) {
 			kept := store.New(t.TempDir(), false)
 
 			// Act
-			err := kept.LinkOwner(t.Context(), forgeHost, each.owner, each.target, theTime())
+			err := kept.LinkOwner(t.Context(), forgeHost, workspaceA, each.owner, each.target, theTime())
 
 			// Assert
 			if !errors.Is(err, each.want) {
@@ -292,7 +292,7 @@ func TestAStoredRowOfTheWrongShapeReadsAsUndecided(t *testing.T) {
 			kept := store.New(dir, false)
 			linkAna(t, kept)
 
-			err := kept.LinkOwner(t.Context(), forgeHost, "acme/pod", podGroup(), theTime())
+			err := kept.LinkOwner(t.Context(), forgeHost, workspaceA, "acme/pod", podGroup(), theTime())
 			if err != nil {
 				t.Fatalf("linking the team: %v", err)
 			}
@@ -301,7 +301,7 @@ func TestAStoredRowOfTheWrongShapeReadsAsUndecided(t *testing.T) {
 			execKept(t, dir, tamper)
 
 			// Act
-			links, err := kept.OwnerLinks(t.Context(), forgeHost)
+			links, err := kept.OwnerLinks(t.Context(), forgeHost, workspaceA)
 
 			// Assert
 			want := []store.OwnerLink{{Owner: "acme/pod", OnSlack: true, Slack: *podGroup()}}
@@ -322,7 +322,7 @@ func TestAStoredLabelIsSanitizedAndCapped(t *testing.T) {
 	execKept(t, dir, `UPDATE slack_entity SET label = 'Ana'||char(27)||'[2J'||'`+strings.Repeat("x", 300)+`'`)
 
 	// Act
-	links, err := kept.OwnerLinks(t.Context(), forgeHost)
+	links, err := kept.OwnerLinks(t.Context(), forgeHost, workspaceA)
 
 	// Assert
 	if err != nil || len(links) != 1 {

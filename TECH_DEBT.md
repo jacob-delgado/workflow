@@ -679,6 +679,10 @@ empty and refuses writes, so a downgrade loses nothing.
 to any file in the field, written forever and never edited; a downgraded
 build tags no one and cannot record a decision until it is upgraded again;
 and `workflow db-clean --all` is the only way to start the kept file fresh.
+A migration adds what the rows lack rather than guessing it: the third keys
+Slack links by workspace, and the links kept before it belong to none, so
+each of those owners is asked once more rather than tagged in a workspace
+that may not be theirs.
 
 **Reopen when.** The kept tables need a change no forward migration can
 express, or a migration is found to have been edited after it shipped.

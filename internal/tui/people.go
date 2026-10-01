@@ -111,10 +111,18 @@ func (m Model) readPeople(opened int) tea.Cmd {
 	owners := loop.OwnerSeams{
 		ChangedPaths: m.deps.Git.ChangedPaths, CodeOwnersAt: m.deps.Git.CodeOwnersAt, Author: m.deps.Forge.Author,
 	}
-	links, base := m.deps.Store.OwnerLinks, m.branch.branch.BaseName()
+	links, base, readWorkspace := m.deps.Store.OwnerLinks, m.branch.branch.BaseName(), m.deps.Messaging.Workspace
 
 	return func() tea.Msg {
-		decided, linksErr := links()
+		var decided []loop.OwnerLink
+
+		linksErr := inWorkspace(readWorkspace, func(workspace string) error {
+			var err error
+
+			decided, err = links(workspace)
+
+			return err
+		})
 		found, ownersErr := loop.OwnersOf(owners, base)
 
 		return peopleListed{opened: opened, people: peopleFrom(decided, found), err: errors.Join(linksErr, ownersErr)}
@@ -140,10 +148,18 @@ func peopleFrom(decided []loop.OwnerLink, owners codeowners.Owners) []person {
 // readRepoGroups reads the user groups this repository tags, for the overlay
 // opened as opened.
 func (m Model) readRepoGroups(opened int) tea.Cmd {
-	read := m.deps.Store.RepoGroups
+	read, readWorkspace := m.deps.Store.RepoGroups, m.deps.Messaging.Workspace
 
 	return func() tea.Msg {
-		groups, err := read()
+		var groups []loop.SlackTarget
+
+		err := inWorkspace(readWorkspace, func(workspace string) error {
+			var err error
+
+			groups, err = read(workspace)
+
+			return err
+		})
 
 		return repoGroupsListed{opened: opened, groups: groups, err: err}
 	}
@@ -369,9 +385,14 @@ func (p peopleOverlay) handlePersonKey(m Model, msg tea.KeyPressMsg) (Model, tea
 	case key.Matches(msg, m.keys.notOnSlack):
 		return p.saving(m, m.saveLink(selected.owner, nil, p.opened))
 	case key.Matches(msg, m.keys.forgetOwner):
-		forget, owner, opened := m.deps.Store.ForgetOwner, selected.owner, p.opened
+		forget, owner, opened, readWorkspace := m.deps.Store.ForgetOwner, selected.owner, p.opened,
+			m.deps.Messaging.Workspace
 
-		return p.saving(m, func() tea.Msg { return peopleSaved{opened: opened, err: forget(owner)} })
+		return p.saving(m, func() tea.Msg {
+			err := inWorkspace(readWorkspace, func(workspace string) error { return forget(workspace, owner) })
+
+			return peopleSaved{opened: opened, err: err}
+		})
 	default:
 		return m, nil
 	}
@@ -403,12 +424,16 @@ func (p peopleOverlay) toggled(m Model) (Model, tea.Cmd) {
 		p.chosen = append(slices.Clone(p.chosen), group)
 	}
 
-	save, opened := m.deps.Store.SetRepoGroups, p.opened
+	save, opened, readWorkspace := m.deps.Store.SetRepoGroups, p.opened, m.deps.Messaging.Workspace
 	groups := slices.DeleteFunc(slices.Clone(p.choices.items), func(choice loop.SlackTarget) bool {
 		return !p.isChosen(choice.ID)
 	})
 
-	return p.saving(m, func() tea.Msg { return repoGroupsSaved{opened: opened, err: save(groups)} })
+	return p.saving(m, func() tea.Msg {
+		err := inWorkspace(readWorkspace, func(workspace string) error { return save(workspace, groups) })
+
+		return repoGroupsSaved{opened: opened, err: err}
+	})
 }
 
 // repoGroupsSaved is the repository's groups saved, or why they were not.
