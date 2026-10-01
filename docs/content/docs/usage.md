@@ -154,6 +154,7 @@ every key `?` lists, by where it works.
 | | `o` / `y` | Open the pull request in the browser, or copy its URL |
 | | `r` | Look for the pull request and its CI again |
 | 5, your service | `p` | Preview the announcement of the pull request |
+| | `P` | People and groups: whom each code owner is on Slack, and the user groups the repository tags; with a Slack user token and a store |
 | | `r` | Read what was announced, and the pull request and its CI, again |
 | 6 Reviews | `o` / `y` | Open the selected request in the browser, or copy its URL |
 | | `s` | Sort them oldest first, newest first, or by repository |
@@ -184,6 +185,7 @@ every key `?` lists, by where it works.
 | | `space` | In the announcement preview, tag the selected group, or untag it |
 | | `a` | In the announcement preview, link the selected code owner to someone on Slack, or a team to a user group |
 | | `x` | In the announcement preview, remember that the selected code owner is not on Slack |
+| | `d` | In People and groups, forget what was decided for the selected owner, so they are asked again |
 | While a command runs | `s` | Stop it |
 | | `r` | Run it again, once it has ended |
 | | `o` | Show its full output, or every place a failed hook reported |
@@ -417,10 +419,11 @@ A forge username is not a Slack user, so each owner is asked about once.
 members — for a team, the workspace's user groups — narrowed as you type, with
 a "Not on Slack" row; `x` says the owner is not on Slack. Either is saved at
 once, for every repository on the same forge host, and the row changes to
-show it.
+show it. People and groups, below, changes it later.
 
 `space` tags a group or untags it. The groups offered are the repository's
-own and any a team owning the changes is linked to, which start checked; the
+own, chosen in People and groups, and any a team owning the changes is linked
+to, which start checked; the
 rest start as you left them last time. The `tags` line names everyone the
 post will tag, and the post ends with a line tagging them. A post `w` holds for CI keeps the tags it was given.
 
@@ -430,6 +433,31 @@ a token without one says which, and posts untagged. A directory Slack will not
 read, or a link that will not save, is shown and never holds the post back.
 `--dry-run` keeps nothing, so it offers no linking, and says whom the post
 would have tagged.
+
+#### People and groups
+
+`P` in the messaging pane opens People and groups, offered with a Slack user
+token and the store on. `tab` switches between its two tabs:
+
+```text
+‹People›  Groups
+
+▸ carla                → Carla Diaz
+  dan                  · not on Slack
+  acme/control-plane   → @control-plane-pod
+  ben                  ? not asked yet
+```
+
+People lists every owner decided on this forge host, then the owners of this
+branch's changes not asked about yet. `enter` changes whom the selected owner
+is, from the same list the preview offers; `x` says they are not on Slack;
+`d` forgets them, so the next announcement asks again.
+
+Groups is a checklist of the workspace's user groups, the ones this
+repository tags checked. `space` checks or unchecks one, `enter` saves the
+list, and `r` reads Slack's directory again, for a group or a person added
+since it was last read. Every change is saved at once; one Slack or the store
+refuses stays under the title until the next.
 
 An announcement waits for the pull request it was written for, and no other.
 Switch to another branch while it waits, or replace the pull request, and it is

@@ -14,15 +14,21 @@ import (
 
 // Slack fixtures the tagging and people tests share.
 const (
-	carlaID   = "U0CARLA"
-	carlaName = "Carla Diaz"
-	benID     = "U0BEN"
-	benName   = "Ben Ortiz"
-	podID     = "S0POD"
-	podName   = "control-plane-pod"
-	apiID     = "S0API"
-	apiName   = "api-reviewers"
-	podTeam   = "acme/control-plane"
+	carlaID    = "U0CARLA"
+	carlaName  = "Carla Diaz"
+	benID      = "U0BEN"
+	benName    = "Ben Ortiz"
+	podID      = "S0POD"
+	podName    = "control-plane-pod"
+	apiID      = "S0API"
+	apiName    = "api-reviewers"
+	podTeam    = "acme/control-plane"
+	ownerBen   = "ben"
+	ownerCarla = "carla"
+	// benLinked and benNotOnSlack are the store's record of each decision
+	// about ben.
+	benLinked     = "link-owner " + ownerBen + " " + benID
+	benNotOnSlack = "link-owner " + ownerBen + " nobody"
 	// teamChannel is a second channel a post can go to.
 	teamChannel = "#team-b"
 )
@@ -40,6 +46,8 @@ type slackWorld struct {
 	groups     []loop.SlackTarget
 	groupsErr  error
 	noGroups   bool
+	// noDirectory keeps the store but reads no directory, as a webhook does.
+	noDirectory bool
 
 	links      []loop.OwnerLink
 	linksErr   error
@@ -79,7 +87,7 @@ func (w *world) messagingDeps() seams.Messaging {
 		return w.postErr
 	}}
 
-	if w.slack == nil {
+	if w.slack == nil || w.slack.noDirectory {
 		return deps
 	}
 

@@ -28,10 +28,10 @@ const (
 // tag the API reviewers.
 func taggingWorld() *world {
 	tagging := newWorld()
-	tagging.codeOwners = []string{"ben", "carla", "dan", podTeam}
+	tagging.codeOwners = []string{ownerBen, ownerCarla, "dan", podTeam}
 	tagging.slack = newSlackWorld()
 	tagging.slack.links = []loop.OwnerLink{
-		{Owner: "carla", OnSlack: true, Slack: loop.SlackTarget{ID: carlaID, Label: carlaName}},
+		{Owner: ownerCarla, OnSlack: true, Slack: loop.SlackTarget{ID: carlaID, Label: carlaName}},
 		{Owner: "dan", OnSlack: false, Slack: loop.SlackTarget{}},
 		{Owner: podTeam, OnSlack: true, Slack: loop.SlackTarget{ID: podID, Label: podName}},
 	}
@@ -43,7 +43,7 @@ func taggingWorld() *world {
 // onlyBen is a pull request only ben owns, and ben was never asked about.
 func onlyBen() *world {
 	ben := newWorld()
-	ben.codeOwners = []string{"ben"}
+	ben.codeOwners = []string{ownerBen}
 	ben.slack = newSlackWorld()
 
 	return ben
@@ -128,12 +128,17 @@ func TestSpaceUntagsAGroupAndDoesNothingOnAnOwner(t *testing.T) {
 	preview := typing(t, tagging.live(t, 140, 40), "5", "p")
 
 	// Act
-	// space on ben does nothing; then the pod is untagged
-	untagged := typing(t, preview, keySpace, "down", "down", "down", "down", "down", keySpace)
+	// space on ben does nothing, nor x on a group; the API reviewers are
+	// tagged, then they and the pod untagged
+	untagged := typing(t, preview, keySpace, "down", "down", "down", "down", keySpace, "x", keySpace, "down", keySpace)
 
 	// Assert
 	requireScreen(t, untagged.View().Content, "tags  @Carla Diaz")
 	refuseScreen(t, untagged.View().Content, "tags  @Carla Diaz @")
+
+	if calls := tagging.asked("link-owner "); len(calls) != 0 {
+		t.Errorf("links = %q, want none from x on a group", calls)
+	}
 }
 
 func TestLinkingAnOwnerSavesItAndTagsThem(t *testing.T) {
@@ -153,7 +158,7 @@ func TestLinkingAnOwnerSavesItAndTagsThem(t *testing.T) {
 	linked := typing(t, typing(t, picking, letters("ortiz")...), keyEnter)
 
 	// Assert: the link is saved at once, and the preview tags him
-	if calls := ben.asked("link-owner "); len(calls) != 1 || calls[0] != "link-owner ben "+benID {
+	if calls := ben.asked("link-owner "); len(calls) != 1 || calls[0] != benLinked {
 		t.Fatalf("links = %q, want ben linked to Ben Ortiz", calls)
 	}
 
@@ -205,7 +210,7 @@ func TestChoosingNotOnSlackInThePickerRemembersIt(t *testing.T) {
 	chosen := typing(t, picking, "down", "down", keyEnter)
 
 	// Assert
-	if calls := ben.asked("link-owner "); len(calls) != 1 || calls[0] != "link-owner ben nobody" {
+	if calls := ben.asked("link-owner "); len(calls) != 1 || calls[0] != benNotOnSlack {
 		t.Errorf("links = %q, want ben not on Slack", calls)
 	}
 
@@ -222,7 +227,7 @@ func TestXMarksAnOwnerNotOnSlack(t *testing.T) {
 	view := typing(t, ben.live(t, 140, 40), "5", "p", "x").View().Content
 
 	// Assert
-	if calls := ben.asked("link-owner "); len(calls) != 1 || calls[0] != "link-owner ben nobody" {
+	if calls := ben.asked("link-owner "); len(calls) != 1 || calls[0] != benNotOnSlack {
 		t.Errorf("links = %q, want ben not on Slack", calls)
 	}
 
@@ -415,9 +420,13 @@ func TestADryRunOffersNoLinkingAndSaysWhomItWouldTag(t *testing.T) {
 	requireScreen(t, preview.View().Content, "? not linked")
 	refuseScreen(t, footerLine(preview.View().Content), "link to Slack")
 
-	// Act: announce
-	view := typing(t, preview, "a", keyEnter).View().Content
+	// Act: try to link, and announce
+	view := typing(t, preview, "a", "x", keyEnter).View().Content
 
 	// Assert: a dry run keeps nothing, so it knows no one to tag
 	requireScreen(t, view, "dry run: would announce to "+slackChannel+", tagging nobody")
+
+	if calls := dry.asked("link-owner "); len(calls) != 0 {
+		t.Errorf("a dry run linked %q", calls)
+	}
 }

@@ -136,6 +136,10 @@ var (
 	_ applier = membersRead{}
 	_ applier = userGroupsRead{}
 	_ applier = ownerLinked{}
+	_ applier = peopleListed{}
+	_ applier = repoGroupsListed{}
+	_ applier = directoryRefreshed{}
+	_ applier = peopleSaved{}
 	_ applier = hooksFound{}
 	_ applier = hooksWritten{}
 	_ applier = taskActed{}

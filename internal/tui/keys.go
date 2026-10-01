@@ -57,7 +57,7 @@ type keyMap struct {
 	newBranch, switchTask, linkIssue, rebase, push, stage, stageAll, commit, amend, fixup, runHooks, hookConfig key.Binding
 
 	// Review and messaging.
-	newPullRequest, checks, rerun, merge, finish, compose key.Binding
+	newPullRequest, checks, rerun, merge, finish, compose, peopleAndGroups key.Binding
 
 	// Tasks.
 	startStop, completeTask, addTask, annotateTask, modifyTask, undoTask, syncTasks key.Binding
@@ -74,8 +74,8 @@ type keyMap struct {
 	// In the branch creator, and in the messaging preview.
 	worktree, postWhenGreen key.Binding
 
-	// Tagging in the messaging preview.
-	linkToSlack, notOnSlack key.Binding
+	// Tagging in the messaging preview, and in People and groups.
+	linkToSlack, notOnSlack, forgetOwner key.Binding
 
 	// In a field form.
 	toggleOption key.Binding
@@ -270,6 +270,7 @@ func reviewAndMessagingKeys(builder *helpBuilder, into *keyMap, reviewNoun, mess
 	into.merge = builder.bind(groupReviewMessaging, "merge", "merge", "M")
 	into.finish = builder.bind(groupReviewMessaging, "finish-branch", "finish branch", "F")
 	into.compose = builder.bind(groupReviewMessaging, "post", "announce to "+strings.ToLower(messagingService), "p")
+	into.peopleAndGroups = builder.bind(groupReviewMessaging, "people-and-groups", "people and groups", "P")
 }
 
 // reviewKeys are the Reviews pane's bindings.
@@ -311,6 +312,7 @@ func composerKeys(builder *helpBuilder, into *keyMap, marks glyphs) {
 	into.postWhenGreen = builder.bind(groupComposer, "post-when-green", "announce when CI passes", "w")
 	into.linkToSlack = builder.bind(groupComposer, "link-to-slack", "link to Slack", "a")
 	into.notOnSlack = builder.bind(groupComposer, "not-on-slack", "not on Slack", "x")
+	into.forgetOwner = builder.bind(groupComposer, "forget-owner", "forget", "d")
 }
 
 // runningKeys are the bindings available while a command runs.
@@ -391,7 +393,8 @@ func (c keyContext) covers(placed placement) bool {
 // Tasks panes;
 // edit acts on the Review pane as well as in a preview; and a field form reads
 // up and down, which a composer otherwise excludes so that its tab can mean
-// next-field rather than next-pane. An overlay's own keys, the branch creator's
+// next-field rather than next-pane, and People and groups reads refresh to
+// read the Slack directory again. An overlay's own keys, the branch creator's
 // worktree and the messaging preview's wait for CI and channel among them, are
 // filed with the composer's, so they are live there and not on the pane behind
 // it.
@@ -415,7 +418,7 @@ func keyContexts() []keyContext {
 			[]string{actionOpenLink, actionCopyLink, actionRefresh},
 		},
 		{"a running command", []int{groupMoving, groupEverywhere, groupRunning}, nil},
-		{"a composer or preview", []int{groupEverywhere, groupComposer}, []string{"up", "down"}},
+		{"a composer or preview", []int{groupEverywhere, groupComposer}, []string{"up", "down", actionRefresh}},
 	}
 }
 

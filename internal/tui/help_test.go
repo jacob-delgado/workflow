@@ -80,7 +80,8 @@ func placedBindings() []helpGroup {
 			"rerun-checks      R          re-run checks",
 			"merge             M          merge",
 			"finish-branch     F          finish branch",
-			"post              p          announce to slack"),
+			"post              p          announce to slack",
+			"people-and-groups P          people and groups"),
 		placed("Reviews",
 			"sort-reviews      s          sort",
 			"filter-reviews    f          filter",
@@ -109,7 +110,8 @@ func placedBindings() []helpGroup {
 			"worktree          ctrl+w     worktree",
 			"post-when-green   w          announce when CI passes",
 			"link-to-slack     a          link to Slack",
-			"not-on-slack      x          not on Slack"),
+			"not-on-slack      x          not on Slack",
+			"forget-owner      d          forget"),
 		placed("While a command runs",
 			"stop              s          stop",
 			"run-again         r          run again",
@@ -398,8 +400,8 @@ func TestTheWholeHelpFitsATallTerminal(t *testing.T) {
 
 	// Act
 	// At 120 columns the whole help, the Tasks and Reviews keys and the
-	// announcement preview's tagging keys among it, needs 53 rows.
-	view := typing(t, newWorld().live(t, 120, 54), "?").View().Content
+	// tagging keys among it, needs 55 rows.
+	view := typing(t, newWorld().live(t, 120, 56), "?").View().Content
 
 	// Assert
 	requireScreen(t, view, "Everywhere")

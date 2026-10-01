@@ -235,25 +235,38 @@ func (m Model) canPost() bool {
 		!m.announced() && !m.messaging.send.sending
 }
 
-// messagingKeys offers composing the post.
+// messagingKeys offers composing the post, and managing whom posts tag.
 func (m Model) messagingKeys() []key.Binding {
-	if !m.canPost() {
-		return []key.Binding{m.keys.refresh}
+	var keys []key.Binding
+
+	if m.canPost() {
+		keys = append(keys, m.keys.compose)
 	}
 
-	return []key.Binding{m.keys.compose, m.keys.refresh}
+	if m.managesPeople() {
+		keys = append(keys, m.keys.peopleAndGroups)
+	}
+
+	return append(keys, m.keys.refresh)
 }
 
 // handleMessagingKey answers the messaging pane's own keys.
 func (m Model) handleMessagingKey(msg tea.KeyPressMsg) (Model, tea.Cmd) {
-	if key.Matches(msg, m.keys.refresh) {
+	switch {
+	case key.Matches(msg, m.keys.refresh):
 		return m.refreshPane(paneMessaging)
-	}
-
-	if !key.Matches(msg, m.keys.compose) || !m.canPost() {
+	case key.Matches(msg, m.keys.peopleAndGroups) && m.managesPeople():
+		return m.openPeople()
+	case key.Matches(msg, m.keys.compose) && m.canPost():
+		return m.previewAnnouncement()
+	default:
 		return m, nil
 	}
+}
 
+// previewAnnouncement opens the preview of the post marking the pull
+// request's current moment, and starts reading whom it tags.
+func (m Model) previewAnnouncement() (Model, tea.Cmd) {
 	channels := m.cfg.Messaging.ChannelChoices()
 
 	channel := ""
