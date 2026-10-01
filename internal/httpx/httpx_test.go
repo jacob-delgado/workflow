@@ -167,3 +167,31 @@ func TestRateLimitedNamesTheWaitWhenTheServerGivesOne(t *testing.T) {
 		})
 	}
 }
+
+func TestARequestThatAsksIsShownItsRedirectRatherThanFollowingIt(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	server := httptest.NewServer(http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
+		http.Redirect(writer, request, "https://blob.example.com/log?signed", http.StatusFound)
+	}))
+	t.Cleanup(server.Close)
+
+	request, err := http.NewRequestWithContext(httpx.ShowingRedirect(t.Context()), http.MethodGet, server.URL, nil)
+	if err != nil {
+		t.Fatalf("building the request: %v", err)
+	}
+
+	// Act
+	response, err := httpx.Client(time.Second).Do(request)
+
+	// Assert
+	if err != nil || response.StatusCode != http.StatusFound ||
+		response.Header.Get("Location") != "https://blob.example.com/log?signed" {
+		t.Errorf("Do = %v, %v; want the 302 and where it points, not followed", response, err)
+	}
+
+	if response != nil {
+		_ = response.Body.Close()
+	}
+}

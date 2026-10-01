@@ -5,12 +5,43 @@ package forge
 
 import (
 	"context"
+	"errors"
+	"fmt"
+	"io"
 	"net/http"
+	"net/url"
 	"strconv"
 	"strings"
 
+	"github.com/jacob-delgado/workflow/internal/httpx"
 	"github.com/jacob-delgado/workflow/internal/sanitize"
 )
+
+// Why a job's log was not read.
+var (
+	// ErrNoLog is a check the forge keeps no log for: a status, or a check run
+	// from an app other than GitHub Actions.
+	ErrNoLog = errors.New("the forge keeps no log for this check")
+	// ErrInsecureLog is a log the forge redirected to an address that is not
+	// https, which is not followed.
+	ErrInsecureLog = errors.New("the forge sent the log to an address that is not https, so it was not read")
+)
+
+// How much of a job's log is read, and how much of what was read is kept: a
+// failure is at the end of a log, and a log can run to gigabytes.
+const (
+	logReadLimit  = 32 << 20
+	logKeepBytes  = 64 << 10
+	logKeepLines  = 400
+	logChunkBytes = 32 << 10
+)
+
+// JobLog is the end of a failed job's log, with every terminal control taken
+// out, and whether more was there than is kept.
+type JobLog struct {
+	Text      string
+	Truncated bool
+}
 
 // gitlabJob is one job of a pipeline: what it is called, the stage it ran in,
 // why it failed, and its page.
@@ -49,4 +80,139 @@ func gitlabFailedJobs(ctx context.Context, client Client, repo Repo, pipeline in
 	}
 
 	return checks
+}
+
+// JobLog reads the end of the log of check, a GitHub Actions run or a GitLab
+// job. GitHub answers with a redirect to signed storage elsewhere: it is
+// followed once, over https only, in a request that carries no token, since
+// the storage needs none and is no host the token belongs to.
+func (c Client) JobLog(ctx context.Context, repo Repo, check Check) (JobLog, error) {
+	if !check.LogAvailable || check.ID == "" {
+		return JobLog{}, ErrNoLog
+	}
+
+	if c.token == "" {
+		return JobLog{}, ErrNoToken
+	}
+
+	path, err := jobLogPath(repo, check.ID)
+	if err != nil {
+		return JobLog{}, err
+	}
+
+	response, err := c.logResponse(ctx, path)
+	if err != nil {
+		return JobLog{}, err
+	}
+	defer func() { _ = response.Body.Close() }()
+
+	err = c.answerError(response)
+	if err != nil {
+		return JobLog{}, err
+	}
+
+	return tailOf(response.Body)
+}
+
+// jobLogPath is where the forge serves a job's log.
+func jobLogPath(repo Repo, id string) (string, error) {
+	switch repo.Kind {
+	case KindGitHub:
+		return githubRepoPath(repo) + "/actions/jobs/" + url.PathEscape(id) + "/logs", nil
+	case KindGitLab:
+		return gitlabProjectPath(repo) + "/jobs/" + url.PathEscape(id) + "/trace", nil
+	case KindUnknown:
+		return "", ErrUnknownForge
+	}
+
+	return "", ErrUnknownForge
+}
+
+// logResponse asks for the log at path, following the forge's one redirect to
+// where it keeps it.
+func (c Client) logResponse(ctx context.Context, path string) (*http.Response, error) {
+	request, err := c.newRequest(httpx.ShowingRedirect(ctx), http.MethodGet, path, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	response, err := c.do(request)
+	if err != nil {
+		return nil, httpx.Unreachable(ErrUnreachable, c.base, err)
+	}
+
+	if response.StatusCode < http.StatusMultipleChoices || response.StatusCode >= http.StatusBadRequest {
+		return response, nil
+	}
+
+	location := response.Header.Get("Location")
+	_ = response.Body.Close()
+
+	return c.followLog(ctx, location)
+}
+
+// followLog asks the storage a log was redirected to for it, refusing an
+// address that is not https, and sending no token.
+func (c Client) followLog(ctx context.Context, location string) (*http.Response, error) {
+	target, err := url.Parse(location)
+	if err != nil || target.Scheme != "https" {
+		return nil, ErrInsecureLog
+	}
+
+	request, err := http.NewRequestWithContext(ctx, http.MethodGet, target.String(), nil)
+	if err != nil {
+		return nil, ErrInsecureLog
+	}
+
+	request.Header.Set("User-Agent", userAgent)
+
+	response, err := c.do(request)
+	if err != nil {
+		// The storage's address is a signed URL, so it stays out of the error.
+		return nil, httpx.Unreachable(ErrUnreachable, "", err)
+	}
+
+	return response, nil
+}
+
+// tailOf reads at most logReadLimit of log and keeps its last logKeepLines
+// lines, no more than logKeepBytes, with every terminal control taken out.
+func tailOf(log io.Reader) (JobLog, error) {
+	kept, truncated, err := lastBytes(io.LimitReader(log, logReadLimit))
+	if err != nil {
+		return JobLog{}, err
+	}
+
+	lines := strings.Split(strings.TrimRight(sanitize.Text(string(kept)), "\n"), "\n")
+	if len(lines) > logKeepLines {
+		lines, truncated = lines[len(lines)-logKeepLines:], true
+	}
+
+	return JobLog{Text: strings.Join(lines, "\n"), Truncated: truncated}, nil
+}
+
+// lastBytes reads log to its end, keeping its last logKeepBytes, and whether
+// any were dropped.
+func lastBytes(log io.Reader) ([]byte, bool, error) {
+	var kept []byte
+
+	truncated := false
+	chunk := make([]byte, logChunkBytes)
+
+	for {
+		read, err := log.Read(chunk)
+		kept = append(kept, chunk[:read]...)
+
+		if len(kept) > logKeepBytes {
+			kept, truncated = kept[len(kept)-logKeepBytes:], true
+		}
+
+		if errors.Is(err, io.EOF) {
+			return kept, truncated, nil
+		}
+
+		if err != nil {
+			return nil, false, fmt.Errorf("reading the log: %w", err)
+		}
+	}
 }

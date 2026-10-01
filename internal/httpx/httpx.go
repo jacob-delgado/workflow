@@ -7,6 +7,7 @@
 package httpx
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"net/http"
@@ -100,8 +101,29 @@ type Doer func(*http.Request) (*http.Response, error)
 func Client(timeout time.Duration) *http.Client {
 	return &http.Client{
 		Timeout: timeout,
-		CheckRedirect: func(_ *http.Request, _ []*http.Request) error {
+		CheckRedirect: func(next *http.Request, _ []*http.Request) error {
+			if showsRedirect(next.Context()) {
+				return http.ErrUseLastResponse
+			}
+
 			return ErrRedirected
 		},
 	}
+}
+
+// redirectShown is the context key a request carries to be shown its redirect.
+type redirectShown struct{}
+
+// ShowingRedirect is ctx for a request that is shown a redirect, its status and
+// Location, rather than having it refused — for a caller that follows it
+// itself, deciding what the next request carries. Nothing is followed for it.
+func ShowingRedirect(ctx context.Context) context.Context {
+	return context.WithValue(ctx, redirectShown{}, true)
+}
+
+// showsRedirect reports a request that asked to be shown its redirect.
+func showsRedirect(ctx context.Context) bool {
+	shown, _ := ctx.Value(redirectShown{}).(bool)
+
+	return shown
 }
