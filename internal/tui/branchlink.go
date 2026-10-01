@@ -149,7 +149,8 @@ func (l branchLinker) choose(m Model) (Model, tea.Cmd) {
 
 	l.chosen = jira.Key(ref.Key)
 
-	if l.hasPull {
+	// Only a description the forge can edit is shown as about to change.
+	if l.hasPull && m.deps.Forge.EditPullRequest != nil {
 		if body, changed := convention.WithIssueLine(l.pull.Body, ref.Key, m.issueBrowseURL(l.chosen)); changed {
 			l.body = body
 			m.overlay = l
@@ -176,7 +177,7 @@ func (l branchLinker) link(m Model) (Model, tea.Cmd) {
 
 	return m, func() tea.Msg {
 		var err error
-		if body != "" && edit != nil {
+		if body != "" {
 			_, err = edit(pull, forge.PullRequestEdit{Title: pull.Title, Body: body})
 		}
 

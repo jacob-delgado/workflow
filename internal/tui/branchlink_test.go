@@ -9,6 +9,7 @@ import (
 
 	"github.com/jacob-delgado/workflow/internal/forge"
 	"github.com/jacob-delgado/workflow/internal/gitrepo"
+	"github.com/jacob-delgado/workflow/internal/tui"
 )
 
 // offConvention is a branch begun outside workflow, named for no issue.
@@ -107,6 +108,29 @@ func TestAPullRequestThatCannotBeEditedLeavesTheBranchUnlinked(t *testing.T) {
 	// Assert
 	if edits, linked := repo.asked("edit 42"), repo.asked("link-issue"); len(edits) != 1 || len(linked) != 0 {
 		t.Errorf("edited %q and linked %q; want the edit tried and the branch left unlinked", edits, linked)
+	}
+}
+
+// A forge that cannot edit a pull request leaves its description as it is, so
+// the description is not shown as about to change: the branch is linked at
+// once.
+func TestLinkingWhereThePullRequestCannotBeEditedLinksWithoutShowingADescription(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	repo := onOffConventionBranch(true)
+	uneditable := repo.deps()
+	uneditable.Forge.EditPullRequest = nil
+	model := sized(t, tui.New(repo.cfg, nil, uneditable), 120, 40)
+
+	// Act
+	view := typing(t, drain(t, model, model.Init()), "2", "i", keyEnter).View().Content
+
+	// Assert
+	refuseScreen(t, view, "description becomes")
+
+	if linked := repo.asked("link-issue"); len(linked) != 1 {
+		t.Errorf("linked %q, want the branch linked at once", linked)
 	}
 }
 
