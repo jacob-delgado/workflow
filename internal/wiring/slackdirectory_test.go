@@ -21,6 +21,7 @@ import (
 	"github.com/jacob-delgado/workflow/internal/config"
 	"github.com/jacob-delgado/workflow/internal/loop"
 	"github.com/jacob-delgado/workflow/internal/messaging"
+	"github.com/jacob-delgado/workflow/internal/slackauth"
 	"github.com/jacob-delgado/workflow/internal/wiring"
 )
 
@@ -113,7 +114,34 @@ func (c *clock) advance(by time.Duration) {
 func directoryOver(client messaging.Client) (*wiring.SlackDirectory, *clock) {
 	moment := &clock{at: time.Date(2026, 10, 1, 9, 0, 0, 0, time.UTC)}
 
-	return wiring.NewSlackDirectory(func() messaging.Client { return client }, moment.now), moment
+	return wiring.NewSlackDirectory(func() (messaging.Client, error) { return client, nil }, moment.now), moment
+}
+
+// switchable is a Slack client that settings can take away and give back.
+type switchable struct {
+	lock      sync.Mutex
+	client    messaging.Client
+	available bool
+}
+
+// current is the client while it is available, and ErrNoCredential while not.
+func (s *switchable) current() (messaging.Client, error) {
+	s.lock.Lock()
+	defer s.lock.Unlock()
+
+	if !s.available {
+		return messaging.Client{}, messaging.ErrNoCredential
+	}
+
+	return s.client, nil
+}
+
+// set makes the client available or not.
+func (s *switchable) set(available bool) {
+	s.lock.Lock()
+	defer s.lock.Unlock()
+
+	s.available = available
 }
 
 func TestChannelMembersAreTheChannelsPeopleByTheirSlackNames(t *testing.T) {
@@ -193,6 +221,50 @@ func TestRefreshReadsTheDirectoryAgain(t *testing.T) {
 	}
 }
 
+func TestNoUserTokenReadsAsNoCredentialWhateverIsHeld(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	_, client := startSlack(t, directoryBodies())
+	settings := &switchable{client: client, available: true}
+	directory := wiring.NewSlackDirectory(settings.current, time.Now)
+	_, _ = directory.UserGroups(t.Context())
+
+	settings.set(false)
+
+	// Act
+	_, err := directory.UserGroups(t.Context())
+
+	// Assert
+	if !errors.Is(err, messaging.ErrNoCredential) {
+		t.Errorf("UserGroups after the user token went = %v, want ErrNoCredential", err)
+	}
+}
+
+func TestTheDirectoryIsReadAfreshWhenAUserTokenComesBack(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	slack, client := startSlack(t, directoryBodies())
+	settings := &switchable{client: client, available: true}
+	directory := wiring.NewSlackDirectory(settings.current, time.Now)
+	_, _ = directory.UserGroups(t.Context())
+
+	settings.set(false)
+
+	_, _ = directory.UserGroups(t.Context())
+
+	settings.set(true)
+
+	// Act
+	_, _ = directory.UserGroups(t.Context())
+
+	// Assert
+	if asked := slack.count("/usergroups.list"); asked != 2 {
+		t.Errorf("usergroups.list was asked %d times, want it read again under the new settings", asked)
+	}
+}
+
 func TestUserGroupsAreTheWorkspacesGroups(t *testing.T) {
 	t.Parallel()
 
@@ -249,17 +321,63 @@ func TestTheDirectorySeamsAreBoundForASlackUserToken(t *testing.T) {
 	}
 }
 
-func TestThereAreNoDirectorySeamsForAWebhook(t *testing.T) {
+func TestAWebhookBindsADirectoryThatHasNoCredential(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
+	// Settings may switch to a Slack user token while workflow runs, so the
+	// seams are there; until then they answer ErrNoCredential.
 	cfg := config.Config{Messaging: config.Messaging{Kind: config.KindSlack, WebhookURL: "https://hooks.example.com/x"}}
-
-	// Act
 	seams := wired(t, cfg, wiring.Workspace{Root: t.TempDir(), Remote: ""}, nil).Messaging
 
+	// Act
+	if seams.UserGroups == nil {
+		t.Fatal("no directory seam is bound for a webhook, so a switch to a user token could not tag")
+	}
+
+	_, err := seams.UserGroups()
+
 	// Assert
-	if seams.ChannelMembers != nil || seams.UserGroups != nil || seams.RefreshDirectory != nil {
-		t.Error("a directory seam is bound for a webhook, which cannot read the directory")
+	if !errors.Is(err, messaging.ErrNoCredential) || errors.Is(err, slackauth.ErrNotLoggedIn) {
+		t.Errorf("UserGroups under a webhook = %v, want ErrNoCredential without asking for a token", err)
+	}
+}
+
+func TestSettingsSwitchedToASlackUserTokenReadTheDirectory(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	// The configuration file is the one Settings saves the user token's
+	// settings to; workflow started with a webhook.
+	cfg := halfLoggedIn(t)
+	userToken := cfg.Messaging
+	cfg.Messaging = config.Messaging{Kind: config.KindSlack, WebhookURL: "https://hooks.example.com/x"}
+	deps, controls := wiring.Deps(t.Context(), cfg, wiring.Workspace{Root: t.TempDir(), Remote: ""}, nil)
+
+	controls.UseMessagingSettings(userToken)
+
+	// Act
+	_, err := deps.Messaging.UserGroups()
+
+	// Assert
+	if !errors.Is(err, slackauth.ErrNotLoggedIn) {
+		t.Errorf("UserGroups after switching to a user token = %v, want the token asked for", err)
+	}
+}
+
+func TestSettingsSwitchedAwayFromSlackStopReadingTheDirectory(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	deps, controls := wiring.Deps(t.Context(), halfLoggedIn(t), wiring.Workspace{Root: t.TempDir(), Remote: ""}, nil)
+
+	controls.UseMessagingSettings(config.Messaging{Kind: config.KindTeams, WebhookURL: "https://teams.example.com/x"})
+
+	// Act
+	_, err := deps.Messaging.UserGroups()
+
+	// Assert
+	if !errors.Is(err, messaging.ErrNoCredential) || errors.Is(err, slackauth.ErrNotLoggedIn) {
+		t.Errorf("UserGroups after switching to Teams = %v, want ErrNoCredential without asking for a token", err)
 	}
 }

@@ -153,7 +153,7 @@ var errNoTags = errors.New("this announcement tags no one: only a ready-for-revi
 // and a scope the Slack token lacks to link an owner not yet linked. It is nil
 // without a Slack user token, which tagging needs.
 func (s *server) tagging(moment messaging.Moment) *api.AnnouncementTagging {
-	if s.deps.ChannelMembers == nil {
+	if !s.canReadDirectory() {
 		return nil
 	}
 
@@ -167,6 +167,20 @@ func (s *server) tagging(moment messaging.Moment) *api.AnnouncementTagging {
 	}
 
 	return &tagging
+}
+
+// canReadDirectory reports a Slack directory to tag from: bound, and not
+// answering ErrNoCredential, as it does while the settings in effect — which
+// Settings may change while the server runs — have no Slack user token. Any
+// other failure is the preview's to show.
+func (s *server) canReadDirectory() bool {
+	if s.deps.ChannelMembers == nil {
+		return false
+	}
+
+	_, err := s.deps.ChannelMembers(s.channelOr(""))
+
+	return !errors.Is(err, messaging.ErrNoCredential)
 }
 
 // proposedTags is whom an announcement at moment proposes to tag, and
@@ -229,7 +243,7 @@ func (s *server) mentions(asked *api.AnnounceMentions, moment messaging.Moment) 
 	}
 
 	tags, available := s.proposedTags(moment)
-	if !available || s.deps.ChannelMembers == nil {
+	if !available || !s.canReadDirectory() {
 		return messaging.Mentions{}, loop.AnnounceMemory{}, errNoTags
 	}
 

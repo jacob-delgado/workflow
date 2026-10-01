@@ -150,7 +150,10 @@ type Messaging struct {
 	Post func(channel, text string) error
 	// ChannelMembers is everyone in a channel, named as configured — by name or
 	// ID — labeled by the name Slack shows for them. The directory reads are
-	// bound only for a Slack user token; a nil read means none can be made.
+	// bound whatever the settings, since Settings can switch to or from a Slack
+	// user token while workflow runs: a read answering
+	// messaging.ErrNoCredential means tagging is unavailable under the settings
+	// in effect, not that it failed. A nil read means none can be made.
 	ChannelMembers func(channel string) ([]loop.SlackTarget, error)
 	// UserGroups is every user group in the Slack workspace.
 	UserGroups func() ([]loop.SlackTarget, error)

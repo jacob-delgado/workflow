@@ -94,6 +94,44 @@ func TestGetAnnouncementTagsNoOneWithoutASlackUserToken(t *testing.T) {
 	}
 }
 
+func TestGetAnnouncementTagsNoOneWhileTheDirectoryHasNoCredential(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	// The directory is bound whatever the settings, and answers no credential
+	// while they post with no Slack user token.
+	fake := newFakeKept()
+	fake.membersErr = messaging.ErrNoCredential
+	handler := keptServer(t, fake, webserver.Info{Version: testVersion})
+
+	// Act
+	recorder := get(t, handler, "/api/announcement")
+
+	// Assert
+	if got := decode[api.Announcement](t, recorder).Tagging; got != nil {
+		t.Errorf("tagging = %+v, want none while there is no Slack user token", got)
+	}
+}
+
+func TestAnnounceTagsNoOneWhileTheDirectoryHasNoCredential(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	var posted string
+
+	fake := newFakeKept()
+	fake.membersErr = messaging.ErrNoCredential
+	handler := postTagged(t, fake, &posted)
+
+	// Act
+	recorder := announceWith(t, handler, []string{apiGroupID})
+
+	// Assert
+	if recorder.Code != http.StatusUnprocessableEntity || posted != "" {
+		t.Errorf("status %d, posted %q; want 422 and nothing posted", recorder.Code, posted)
+	}
+}
+
 func TestGetAnnouncementTagsNoOneUnlessReadyForReview(t *testing.T) {
 	t.Parallel()
 
