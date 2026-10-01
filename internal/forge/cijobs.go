@@ -25,6 +25,13 @@ var (
 	// ErrInsecureLog is a log the forge redirected to an address that is not
 	// https, which is not followed.
 	ErrInsecureLog = errors.New("the forge sent the log to an address that is not https, so it was not read")
+	// ErrLogNotRedirected is a redirect for a log that names no address to
+	// follow it to.
+	ErrLogNotRedirected = errors.New("the forge redirected the log without saying where it is")
+	// ErrLogStorage is the storage a log was redirected to failing to hand it
+	// over: its signed address expired, or the log is gone. It is not the
+	// forge's answer, so it says nothing of the token.
+	ErrLogStorage = errors.New("the storage the forge keeps the log in did not hand it over")
 )
 
 // How much of the end of a job's log is kept: a failure is at the end of a
@@ -105,11 +112,6 @@ func (c Client) JobLog(ctx context.Context, repo Repo, check Check) (JobLog, err
 	}
 	defer func() { _ = response.Body.Close() }()
 
-	err = c.answerError(response)
-	if err != nil {
-		return JobLog{}, err
-	}
-
 	return tailOf(response.Body)
 }
 
@@ -141,13 +143,29 @@ func (c Client) logResponse(ctx context.Context, path string) (*http.Response, e
 	}
 
 	if response.StatusCode < http.StatusMultipleChoices || response.StatusCode >= http.StatusBadRequest {
-		return response, nil
+		return answered(response, c.answerError(response))
 	}
 
 	location := response.Header.Get("Location")
 	_ = response.Body.Close()
 
+	if location == "" {
+		return nil, ErrLogNotRedirected
+	}
+
 	return c.followLog(ctx, location)
+}
+
+// answered is response when err is nil, and otherwise err, with the
+// response's body closed.
+func answered(response *http.Response, err error) (*http.Response, error) {
+	if err != nil {
+		_ = response.Body.Close()
+
+		return nil, err
+	}
+
+	return response, nil
 }
 
 // followLog asks the storage a log was redirected to for it, refusing an
@@ -171,7 +189,18 @@ func (c Client) followLog(ctx context.Context, location string) (*http.Response,
 		return nil, httpx.Unreachable(ErrUnreachable, "", err)
 	}
 
-	return response, nil
+	return answered(response, storageError(response.StatusCode))
+}
+
+// storageError is the storage's answer as an error, or nil for a log handed
+// over. The forge's own classes do not fit it: a 403 there is a signed
+// address gone stale, not a token short of a scope.
+func storageError(status int) error {
+	if status >= http.StatusOK && status < http.StatusMultipleChoices {
+		return nil
+	}
+
+	return fmt.Errorf("%w: status %d", ErrLogStorage, status)
 }
 
 // tailOf reads log to its end and keeps its last logKeepLines lines, no more

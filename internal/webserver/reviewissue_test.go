@@ -182,3 +182,33 @@ func TestACheckLogWhoseForgeCannotBeReachedIsNotANotFound(t *testing.T) {
 		t.Errorf("status %d after reading %v, want 502 and nothing read", answer.Code, read)
 	}
 }
+
+func TestACheckLogTheForgeCouldNotHandOverIsAnUpstreamFault(t *testing.T) {
+	t.Parallel()
+
+	cases := map[string]error{
+		"sent to plain http":     forge.ErrInsecureLog,
+		"redirected nowhere":     forge.ErrLogNotRedirected,
+		"its storage refused it": fmt.Errorf("%w: status 403", forge.ErrLogStorage),
+	}
+
+	for name, cause := range cases {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			// Arrange
+			var read []string
+
+			deps := failingDeps(&read)
+			deps.JobLog = func(forge.Check) (forge.JobLog, error) { return forge.JobLog{}, cause }
+
+			// Act
+			answer := get(t, serve(t, deps, config.Default()), "/api/review/checks/501/log")
+
+			// Assert
+			if answer.Code != http.StatusBadGateway {
+				t.Errorf("status %d, want 502 for %v", answer.Code, cause)
+			}
+		})
+	}
+}
