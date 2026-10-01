@@ -824,7 +824,7 @@ type OpenPullRequestRequest struct {
 	// Labels Label names to add to the pull request.
 	Labels *[]string `json:"labels,omitempty"`
 
-	// Reviewers Usernames to request a review from.
+	// Reviewers Usernames to request a review from. A name holding a slash is a team, org/team, requested as a team on GitHub; on GitLab a group/subgroup stands for its direct members.
 	Reviewers *[]string `json:"reviewers,omitempty"`
 
 	// Title The pull request title.
@@ -910,6 +910,11 @@ type PullRequestDraft struct {
 
 	// NeedsPush Whether the branch must be pushed first; the open pushes it.
 	NeedsPush bool `json:"needs_push"`
+
+	// Reviewers The proposed reviewers: the code owners of the paths the branch changes, as CODEOWNERS on the base names them, without the author. People come first, then teams as org/team (a GitLab group as group/subgroup). Empty when no CODEOWNERS covers the changes or it cannot be read.
+	//
+	// Example: ["ana","acme/control-plane"]
+	Reviewers []string `json:"reviewers"`
 
 	// Title The proposed title, from the first commit or the issue.
 	Title string `json:"title"`

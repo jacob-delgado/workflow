@@ -35,6 +35,7 @@ function serveTheOpen(followUps: FollowUp[], routes: Record<string, unknown> = {
       head: 'fix/PROJ-412',
       draft: false,
       needs_push: false,
+      reviewers: [],
     },
     '/api/pull-request': opened,
     '/api/issues/PROJ-412/link': pull,

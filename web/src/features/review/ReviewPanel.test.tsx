@@ -19,6 +19,7 @@ vi.mock('./openPrApi.ts', () => ({
       head: 'fix/PROJ-412',
       draft: false,
       needs_push: true,
+      reviewers: [],
     }),
   ),
   openPr: vi.fn(() =>

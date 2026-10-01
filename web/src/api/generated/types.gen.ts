@@ -206,6 +206,10 @@ export type PullRequestDraft = {
      * Whether the branch must be pushed first; the open pushes it.
      */
     needs_push: boolean;
+    /**
+     * The proposed reviewers: the code owners of the paths the branch changes, as CODEOWNERS on the base names them, without the author. People come first, then teams as org/team (a GitLab group as group/subgroup). Empty when no CODEOWNERS covers the changes or it cannot be read.
+     */
+    reviewers: Array<string>;
 };
 
 /**
@@ -229,7 +233,7 @@ export type OpenPullRequestRequest = {
      */
     draft?: boolean;
     /**
-     * Usernames to request a review from.
+     * Usernames to request a review from. A name holding a slash is a team, org/team, requested as a team on GitHub; on GitLab a group/subgroup stands for its direct members.
      */
     reviewers?: Array<string>;
     /**

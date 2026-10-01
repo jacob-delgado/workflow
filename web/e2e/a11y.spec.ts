@@ -266,6 +266,7 @@ const pullDraft = {
   head: 'fix/PROJ-1',
   draft: false,
   needs_push: false,
+  reviewers: [],
 } satisfies PullRequestDraft
 
 for (const theme of themes) {
