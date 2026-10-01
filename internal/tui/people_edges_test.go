@@ -282,3 +282,15 @@ func TestPeopleIsNotOfferedWithoutASlackUserToken(t *testing.T) {
 	// Assert
 	refuseScreen(t, view, peopleTitle)
 }
+
+func TestPeopleLinksATeamFromTheUserGroups(t *testing.T) {
+	t.Parallel()
+
+	// Act
+	// the team is the third decided
+	view := typing(t, openPeople(t, taggingWorld()), downAction, downAction, keyEnter).View().Content
+
+	// Assert
+	requireScreen(t, view, "Link "+podTeam+" to Slack", "@"+podName, "@"+apiName)
+	refuseScreen(t, view, carlaName)
+}

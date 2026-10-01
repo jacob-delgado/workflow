@@ -300,3 +300,17 @@ func TestADraftClosedBeforeTheOwnersAnsweredIsFilledOnReopening(t *testing.T) {
 	// Assert
 	requireScreen(t, view, reviewersField+"ana")
 }
+
+func TestMovingThroughTheReviewersLeavesThemToTheOwners(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	opened, read := openedBeforeTheOwnersAnswer(t, ownedBy("ana"))
+	moved := typing(t, opened, keyTab, keyTab, "end")
+
+	// Act
+	view := drain(t, moved, read).View().Content
+
+	// Assert
+	requireScreen(t, view, reviewersField+"ana")
+}
