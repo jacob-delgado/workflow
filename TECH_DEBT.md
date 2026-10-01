@@ -682,3 +682,27 @@ and `workflow db-clean --all` is the only way to start the kept file fresh.
 
 **Reopen when.** The kept tables need a change no forward migration can
 express, or a migration is found to have been edited after it shipped.
+
+### TRADE-26 The Slack directory is read whole, once a session
+
+Tagging a code owner means picking them from the announcement channel's
+members, by the name Slack shows for them. `conversations.members` gives
+only IDs, so `internal/wiring/slackdirectory.go` reads `users.list` whole
+and labels the members from it, and holds every directory read for ten
+minutes or until the user refreshes.
+
+**Decided.** 2026-10-01, in #165: one paged `users.list` is a handful of
+requests for most workspaces, where a `users.info` per member would be one
+request per person every time a channel is shown. Holding the reads for the
+session lets the preview open again at once, and ten minutes bounds how
+stale a newly joined member or a renamed group can be.
+
+**Cost.** A very large workspace pages through `users.list` — up to
+`messaging.MaxPages` pages, then refuses with `ErrDirectoryTooLarge` — and
+can meet Slack's rate limits on the first read; the session holds every
+user's name in memory; and someone who joins the channel within the ten
+minutes is not offered until a refresh.
+
+**Reopen when.** A workspace's directory is too large to read whole, or
+Slack's rate limits are met in practice: look up each channel member with
+`users.info` instead, and hold only those.
