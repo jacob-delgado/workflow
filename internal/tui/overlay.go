@@ -132,6 +132,10 @@ var (
 	_ applier = issueLinked{}
 	_ applier = authorFound{}
 	_ applier = messagingPosted{}
+	_ applier = tagsRead{}
+	_ applier = membersRead{}
+	_ applier = userGroupsRead{}
+	_ applier = ownerLinked{}
 	_ applier = hooksFound{}
 	_ applier = hooksWritten{}
 	_ applier = taskActed{}

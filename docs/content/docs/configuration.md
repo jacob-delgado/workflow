@@ -647,8 +647,9 @@ The actions you can rebind, grouped by where they work, are:
 - **In a composer or preview:** `edit`, `edit-body`, `next-template`,
   `toggle-draft`, `toggle-breaking`, `verbatim`, `next-field`,
   `previous-field`, `cycle-type-left`, `cycle-type-right`, `toggle-option`,
-  `worktree` (in the branch creator), `post-when-green` (in the announcement
-  preview), `show-log` (in the checks list).
+  `worktree` (in the branch creator), `post-when-green`, `link-to-slack` and
+  `not-on-slack` (in the announcement preview), `show-log` (in the checks
+  list).
 - **While a command runs:** `stop`, `run-again`, `full-output`.
 - **Everywhere:** `apply`, `close`, `toggle-mouse`, `toggle-help`, `quit`,
   `interrupt`.

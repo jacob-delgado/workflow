@@ -180,6 +180,10 @@ every key `?` lists, by where it works.
 | | `v` | Keep every existing hook whole as a script, in the lefthook offer |
 | | `ctrl+w` | In the branch creator, create the branch in a new git worktree rather than switching to it |
 | | `w` | In the announcement preview, announce once CI passes |
+| | `j`/`k` or `↓`/`↑` | In the announcement preview, move between the code owners and groups it can tag |
+| | `space` | In the announcement preview, tag the selected group, or untag it |
+| | `a` | In the announcement preview, link the selected code owner to someone on Slack, or a team to a user group |
+| | `x` | In the announcement preview, remember that the selected code owner is not on Slack |
 | While a command runs | `s` | Stop it |
 | | `r` | Run it again, once it has ended |
 | | `o` | Show its full output, or every place a failed hook reported |
@@ -388,6 +392,44 @@ once CI passes; with a Slack user token and more than one channel to choose from
 (`messaging.channels` names the others), `←`/`→` change the channel. An
 announcement waiting for CI is dropped, saying so, if CI fails. Announcing now
 replaces one that is waiting, so the channel never reads it twice.
+
+#### Tag the code owners
+
+With a Slack user token, the ready-for-review announcement also tags people:
+the code owners of the paths the branch changes, as CODEOWNERS on the base
+names them, and the Slack user groups the repository tags. The preview lists
+them under the text:
+
+```text
+to  #dev-workflow
+Code owners
+▸ ben                  ? not linked
+  carla                → Carla Diaz
+  dan                  · not on Slack
+Groups
+  ○ @api-reviewers
+  ● @control-plane-pod   owns changed paths
+tags  @Carla Diaz @control-plane-pod
+```
+
+A forge username is not a Slack user, so each owner is asked about once.
+`j`/`k` move between the rows; `a` on an owner opens a list of the channel's
+members — for a team, the workspace's user groups — narrowed as you type, with
+a "Not on Slack" row; `x` says the owner is not on Slack. Either is saved at
+once, for every repository on the same forge host, and the row changes to
+show it.
+
+`space` tags a group or untags it. The groups offered are the repository's
+own and any a team owning the changes is linked to, which start checked; the
+rest start as you left them last time. The `tags` line names everyone the
+post will tag, and the post ends with a line tagging them. A post `w` holds for CI keeps the tags it was given.
+
+Only the ready-for-review announcement tags anyone. Tagging needs the Slack
+scopes `users:read`, `channels:read`, `groups:read` and `usergroups:read`;
+a token without one says which, and posts untagged. A directory Slack will not
+read, or a link that will not save, is shown and never holds the post back.
+`--dry-run` keeps nothing, so it offers no linking, and says whom the post
+would have tagged.
 
 An announcement waits for the pull request it was written for, and no other.
 Switch to another branch while it waits, or replace the pull request, and it is

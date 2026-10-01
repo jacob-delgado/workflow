@@ -30,7 +30,7 @@ func TestTheChannelCanBeChangedBeforePosting(t *testing.T) {
 
 	// Arrange
 	cfg := completeConfig()
-	cfg.Messaging.Channels = []string{"#team-b"}
+	cfg.Messaging.Channels = []string{teamChannel}
 	world := newWorld()
 	model := sized(t, tui.New(cfg, nil, world.deps()), 120, 40)
 	model = drain(t, model, model.Init())
@@ -45,7 +45,7 @@ func TestTheChannelCanBeChangedBeforePosting(t *testing.T) {
 	typing(t, preview, "right", keyEnter)
 
 	// Assert: the post went to the chosen channel
-	if got := world.channelPostedTo(); got != "#team-b" {
+	if got := world.channelPostedTo(); got != teamChannel {
 		t.Errorf("posted to %q, want the chosen channel #team-b", got)
 	}
 }

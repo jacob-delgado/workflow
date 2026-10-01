@@ -54,6 +54,7 @@ type queuedPost struct {
 	pull    int
 	text    string
 	channel string
+	tags    postTags
 }
 
 // waiting reports a post that has not been sent or given up on.
@@ -262,13 +263,14 @@ func (m Model) handleMessagingKey(msg tea.KeyPressMsg) (Model, tea.Cmd) {
 
 	moment := loop.AnnounceMoment(m.review.pull, m.review.ci)
 
-	m.overlay = messagingPreview{
+	preview, readTags := m.withTagging(messagingPreview{
 		marks: m.marks, styles: m.styles, text: m.announcement(moment), fallback: m.cfg.Messaging.Target(),
 		channel: channel, channels: channels, moment: moment, service: m.cfg.Messaging.Service(),
 		noCI: m.review.checked && m.review.ci.State == forge.CINone,
-	}
+	})
+	m.overlay = preview
 
-	return m, nil
+	return m, readTags
 }
 
 // withoutQueuedPost gives up on a post waiting for CI, saying so, because the
@@ -311,7 +313,9 @@ func (m Model) postIfGreen() (Model, tea.Cmd) {
 // postQueued sends the post that waited for CI. It is always a "ready for
 // review" one: that is what waits for CI.
 func (m Model) postQueued() (Model, tea.Cmd) {
-	return m.sendToMessaging(m.messaging.pending.channel, m.messaging.pending.text, messaging.MomentReady)
+	pending := m.messaging.pending
+
+	return m.sendToMessaging(pending.channel, pending.text, messaging.MomentReady, pending.tags)
 }
 
 // dropQueued gives up on the post that waited for CI, which failed, and says
