@@ -51,7 +51,9 @@ func (msg branchLoaded) apply(m Model) (Model, tea.Cmd) {
 
 	m, detail := m.resumeIssue().loadDetail()
 
-	return m, tea.Batch(detail, m.findPullRequest())
+	// Your forge name is asked for here, not only once a pull request is
+	// found, because assigning a forge issue starts from it on any branch.
+	return m, tea.Batch(detail, m.findPullRequest(), m.loadAuthor())
 }
 
 // loadBranch is the command that reads the branch.

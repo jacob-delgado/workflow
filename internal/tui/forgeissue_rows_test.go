@@ -58,6 +58,20 @@ func TestAssigningAForgeIssueStartsWithYourForgeName(t *testing.T) {
 	requireScreen(t, view, "Assign", "jacob")
 }
 
+func TestAssigningAForgeIssueStartsWithYourForgeNameOnABranchWithNoPullRequest(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	unopened := withForgeIssue()
+	unopened.pullFound = false
+
+	// Act
+	view := typing(t, unopened.live(t, placesViewWidth, placesViewHeight), upAction, "a").View().Content
+
+	// Assert
+	requireScreen(t, view, "Assign", "jacob")
+}
+
 func TestTheIssuesListSaysWhenTheForgeCouldNotBeRead(t *testing.T) {
 	t.Parallel()
 
