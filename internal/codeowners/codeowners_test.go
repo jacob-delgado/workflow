@@ -353,6 +353,62 @@ func TestOwnersOfGitLabPaths(t *testing.T) {
 	}
 }
 
+// TestOwnersOfGitLabSectionHeaders pins which lines GitLab reads as a section
+// header (ee/lib/gitlab/code_owners/section_parser.rb HEADER_REGEX): any line
+// starting [ or ^[ with a ] after it, its default owners the run of @, word
+// characters, '.', '-', '/' and whitespace that follows.
+func TestOwnersOfGitLabSectionHeaders(t *testing.T) {
+	t.Parallel()
+
+	cases := []ownersCase{
+		{
+			// A pattern starting with a class is a header to GitLab: section Dd,
+			// its default owners "ocs/ @team".
+			name: "a pattern starting with a class is a header", content: "[Dd]ocs/ @team\n*.md\n",
+			paths: []string{markdownFile}, want: users("team"),
+		},
+		{
+			name: "an escaped bracket starts a pattern", content: "\\[Dd]ocs/ @x\n",
+			paths: []string{"[Dd]ocs/a"}, want: users("x"),
+		},
+		{name: "a blank name is a section", content: "[ ] @x\n*.md\n", paths: []string{markdownFile}, want: users("x")},
+		{name: "an empty name is a section", content: "[] @x\n*.md\n", paths: []string{markdownFile}, want: users("x")},
+		{
+			name: "approvals then defaults", content: "[Docs][2] @a\n*.md\n",
+			paths: []string{markdownFile}, want: users("a"),
+		},
+		{name: "approvals not a number end the header", content: "[Docs][x] @a\n*.md\n", paths: []string{markdownFile}},
+		{name: "approvals after a space end the header", content: "[Docs] [2] @a\n*.md\n", paths: []string{markdownFile}},
+		{
+			name: "a comma ends the defaults", content: "[Docs] @a, @b\n*.md\n",
+			paths: []string{markdownFile}, want: users("a"),
+		},
+		{
+			name: "a pound ends the defaults", content: "[Docs] @a #@b\n*.md\n",
+			paths: []string{markdownFile}, want: users("a"),
+		},
+	}
+
+	for _, test := range cases {
+		test.dialect = codeowners.GitLab
+
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+
+			// Arrange
+			file := codeowners.Parse(test.content, test.dialect)
+
+			// Act
+			owners := file.OwnersOf(test.paths)
+
+			// Assert
+			if !equalOwners(owners, test.want) {
+				t.Errorf("OwnersOf(%q) = %+v, want %+v", test.paths, owners, test.want)
+			}
+		})
+	}
+}
+
 func TestOwnersOfGitLabsExclusions(t *testing.T) {
 	t.Parallel()
 
@@ -434,10 +490,6 @@ func TestOwnersOfEachDialectsRules(t *testing.T) {
 		{
 			name: "owners repeat once, first seen first", dialect: codeowners.GitHub,
 			content: "*.js @js\n*.go @go @JS\n", paths: []string{"a.js", "b.go", "c.js"}, want: users("js", "go"),
-		},
-		{
-			name: "a section header with no name is skipped", dialect: codeowners.GitLab,
-			content: "[ ] @x\n*.md\n", paths: []string{markdownFile},
 		},
 		{
 			name: "a pattern of only a slash is skipped", dialect: codeowners.GitHub,
