@@ -567,9 +567,71 @@ test("shows a failed check's log on demand", async () => {
   expect(requests).toHaveLength(0)
 
   // Act
-  await user.click(screen.getByRole('button', { name: 'Show the log of unit-race' }))
+  await user.click(screen.getByRole('button', { name: 'Show log of unit-race' }))
 
   // Assert
   expect(await screen.findByText(/--- FAIL: TestRetry/)).toBeTruthy()
   expect(screen.getByText(/earlier lines are not shown/)).toBeTruthy()
+})
+
+// onFailedJob streams a pull request whose one check is a failed GitLab job,
+// in the test stage, with a log to read.
+function onFailedJob() {
+  useSnapshotStore.setState({
+    status: 'live',
+    snapshot: makeSnapshot({
+      review: {
+        found: true,
+        pull,
+        ci: {
+          state: 'failed',
+          total: 1,
+          done: 1,
+          failed: 1,
+          checks: [
+            {
+              name: 'unit-race',
+              stage: 'test',
+              state: 'failed',
+              url: '',
+              id: '501',
+              log_available: true,
+            },
+          ],
+        },
+      },
+    }),
+  })
+}
+
+test('a log, once read, takes focus from the control that asked for it', async () => {
+  // Arrange
+  fakeApi({ '/api/review/checks/501/log': { text: '--- FAIL: TestRetry', truncated: false } })
+  onFailedJob()
+  const user = userEvent.setup()
+  render(<ReviewPanel />)
+
+  // Act
+  await user.click(screen.getByRole('button', { name: 'Show log of test · unit-race' }))
+
+  // Assert
+  const log = await screen.findByRole('region', { name: 'Log of test · unit-race' })
+  expect(document.activeElement).toBe(log)
+  expect(log.textContent).toContain('--- FAIL: TestRetry')
+})
+
+test('while the log is read, the control is named by what it says', async () => {
+  // Arrange
+  fakeApi({ '/api/review/checks/501/log': () => new Promise(() => undefined) })
+  onFailedJob()
+  const user = userEvent.setup()
+  render(<ReviewPanel />)
+
+  // Act
+  await user.click(screen.getByRole('button', { name: 'Show log of test · unit-race' }))
+
+  // Assert
+  expect(
+    await screen.findByRole('button', { name: 'Reading the log of test · unit-race…' }),
+  ).toBeTruthy()
 })
