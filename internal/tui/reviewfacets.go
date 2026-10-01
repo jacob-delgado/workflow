@@ -209,10 +209,6 @@ func (m Model) openFacetPicker() (Model, tea.Cmd) {
 
 // view draws the checklist in as many rows as fit.
 func (p facetPicker) view(_, rows int) (string, string) {
-	if len(p.choices.items) == 0 {
-		return filterTitle, "no review request to narrow"
-	}
-
 	return filterTitle, strings.Join(p.choices.rows(p.marks, rows, p.choiceRow), "\n")
 }
 

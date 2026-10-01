@@ -248,14 +248,15 @@ func TestCheckingAValueTwiceUnchecksIt(t *testing.T) {
 	}
 }
 
-func TestTheFilterOverAnEmptyQueueSaysThereIsNothingToNarrow(t *testing.T) {
+func TestFOverAnEmptyQueueOpensNoFilter(t *testing.T) {
 	t.Parallel()
 
 	// Act
-	view := typing(t, newWorld().live(t, 120, 40), "6", filterKey, keySpace).View().Content
+	view := typing(t, newWorld().live(t, 120, 40), "6", filterKey).View().Content
 
 	// Assert
-	requireScreen(t, view, "no review request to narrow")
+	requireScreen(t, view, "No pull requests are waiting on your review.")
+	refuseScreen(t, view, filterTitleBar)
 }
 
 func TestByRepositoryHeadsARepositoryOnceForAllItsRequests(t *testing.T) {
@@ -379,4 +380,61 @@ func pressing(t *testing.T, model tui.Model, keys ...string) tui.Model {
 	}
 
 	return model
+}
+
+// waitingReviewsFooter is the Reviews pane's footer before the forge's answer
+// about the queue is read back.
+func waitingReviewsFooter(t *testing.T, world *world) string {
+	t.Helper()
+
+	return footerLine(pressing(t, sized(t, tui.New(world.cfg, nil, world.deps()), 120, 40), "6").View().Content)
+}
+
+// readReviewsFooter is the Reviews pane's footer once the queue is read back.
+func readReviewsFooter(t *testing.T, world *world) string {
+	t.Helper()
+
+	return footerLine(typing(t, world.live(t, 120, 40), "6").View().Content)
+}
+
+// sortOffer and filterOffer are the Reviews footer's sort and filter keys.
+const (
+	sortOffer   = "s sort"
+	filterOffer = "f filter"
+)
+
+func TestTheReviewsFooterOffersSortAndFilterOnlyWhereTheyAct(t *testing.T) {
+	t.Parallel()
+
+	failing := newWorld()
+	failing.reviewsErr = forge.ErrUnreachable
+
+	cases := map[string]struct {
+		world    *world
+		footer   func(*testing.T, *world) string
+		offered  []string
+		withheld []string
+	}{
+		"while loading": {
+			world: facetsWorld(), footer: waitingReviewsFooter, withheld: []string{sortOffer, filterOffer},
+		},
+		"once it failed": {world: failing, footer: readReviewsFooter, withheld: []string{sortOffer, filterOffer}},
+		"with none waiting": {
+			world: newWorld(), footer: readReviewsFooter, offered: []string{sortOffer}, withheld: []string{filterOffer},
+		},
+		"with some waiting": {world: facetsWorld(), footer: readReviewsFooter, offered: []string{sortOffer, filterOffer}},
+	}
+
+	for name, tt := range cases {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			// Act
+			footer := tt.footer(t, tt.world)
+
+			// Assert
+			requireScreen(t, footer, tt.offered...)
+			refuseScreen(t, footer, tt.withheld...)
+		})
+	}
 }
