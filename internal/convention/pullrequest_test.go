@@ -143,6 +143,15 @@ func TestWithIssueLineAddsTheIssueToAPullRequestThatDoesNotNameIt(t *testing.T) 
 		"an empty body":   {body: "", key: "42", want: "Closes #42\n", changed: true},
 		"one it names":    {body: "Fixes OPS-5 at last.\n", key: linkedKey, want: "Fixes OPS-5 at last.\n", changed: false},
 		"a longer number": {body: "Closes #420\n", key: "42", want: "Closes #420\n\nCloses #42\n", changed: true},
+		"a count":         {body: "ran 42 tests", key: "42", want: "ran 42 tests\n\nCloses #42\n", changed: true},
+		"a version":       {body: "v1.42", key: "42", want: "v1.42\n\nCloses #42\n", changed: true},
+		"a Jira-like key": {body: "PR-42", key: "42", want: "PR-42\n\nCloses #42\n", changed: true},
+		"an anchor":       {body: "docs#42", key: "42", want: "docs#42\n\nCloses #42\n", changed: true},
+		"a mention":       {body: "Follows (#42).", key: "42", want: "Follows (#42).", changed: false},
+		"the issue's URL": {
+			body: "See https://github.com/o/r/issues/42", key: "42", want: "See https://github.com/o/r/issues/42",
+			changed: false,
+		},
 	}
 
 	for name, tt := range cases {

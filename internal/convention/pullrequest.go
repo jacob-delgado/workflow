@@ -88,9 +88,16 @@ func WithIssueLine(body, issueKey, issueURL string) (string, bool) {
 }
 
 // references reports whether text names the issue key as a whole token, so a
-// longer key that only contains its text does not count as naming it.
+// longer key that only contains its text does not count as naming it. A forge
+// number names its issue only as #42 or in the issue's URL: a bare 42 is as
+// likely a count, a version or another key's number.
 func references(text, issueKey string) bool {
-	return regexp.MustCompile(`\b` + regexp.QuoteMeta(issueKey) + `\b`).MatchString(text)
+	quoted := regexp.QuoteMeta(issueKey)
+	if forgeIssueNumber(issueKey) {
+		return regexp.MustCompile(`(?:(?:^|[^\w&])#|/issues/)` + quoted + `\b`).MatchString(text)
+	}
+
+	return regexp.MustCompile(`\b` + quoted + `\b`).MatchString(text)
 }
 
 // issueLine names the issue in the pull request body. A forge issue is named
