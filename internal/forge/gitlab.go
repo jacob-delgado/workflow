@@ -26,6 +26,7 @@ type gitlabMerge struct {
 	Description  string `json:"description"`
 	Draft        bool   `json:"draft"`
 	State        string `json:"state"`
+	TargetBranch string `json:"target_branch"`
 	MergeStatus  string `json:"merge_status"`
 	HeadPipeline *struct {
 		ID     int64  `json:"id"`
@@ -38,8 +39,8 @@ type gitlabMerge struct {
 // separately; GitLab has no "changes requested" state, so it stays false.
 func (g gitlabMerge) pullRequest() PullRequest {
 	return PullRequest{
-		Number: g.IID, URL: g.URL, Title: g.Title, Body: g.Description,
-		Draft: g.Draft, Mergeable: gitlabMergeable(g.MergeStatus), State: g.state(),
+		Number: g.IID, URL: g.URL, Title: g.Title, Body: g.Description, Draft: g.Draft, Base: g.TargetBranch,
+		Mergeable: gitlabMergeable(g.MergeStatus), State: g.state(),
 	}
 }
 

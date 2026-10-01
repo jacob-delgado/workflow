@@ -24,12 +24,17 @@ type githubPull struct {
 	Draft    bool       `json:"draft"`
 	State    string     `json:"state"`
 	MergedAt *time.Time `json:"merged_at"`
+	Base     struct {
+		Ref string `json:"ref"`
+	} `json:"base"`
 }
 
 // pullRequest flattens a GitHub pull request. Review state is filled in
 // separately, so it stays zero here.
 func (g githubPull) pullRequest() PullRequest {
-	return PullRequest{Number: g.Number, URL: g.URL, Title: g.Title, Body: g.Body, Draft: g.Draft, State: g.state()}
+	return PullRequest{
+		Number: g.Number, URL: g.URL, Title: g.Title, Body: g.Body, Draft: g.Draft, Base: g.Base.Ref, State: g.state(),
+	}
 }
 
 // state reads whether the pull is open, merged or closed.
