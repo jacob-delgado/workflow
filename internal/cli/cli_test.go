@@ -309,7 +309,7 @@ func TestHelpExplainsBothTokens(t *testing.T) {
 		"chat:write",
 		"workflow slack login",
 		config.FileName,
-		"REPLACES",
+		"LAYERED",
 		"no higher than the repository root",
 		"Jira is optional",
 	}

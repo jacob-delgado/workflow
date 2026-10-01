@@ -41,7 +41,7 @@ func TestTheFileStoreKeepsThePairAndEverythingElse(t *testing.T) {
 	// Arrange
 	path := configFile(t, `{"jira": {"base_url": "https://jira.example.com"},`+
 		` "messaging": {"kind": "slack", "client_id": "`+clientID+`", "channel": "#dev"}}`)
-	store := slackauth.FileStore(path)
+	store := slackauth.FileStore(config.Files{Repo: path})
 	pair := pairExpiringIn(0)
 
 	// Act
@@ -70,7 +70,7 @@ func TestAFileStoreWithNothingSavedSaysToLogIn(t *testing.T) {
 	path := configFile(t, `{"messaging": {"kind": "slack", "client_id": "`+clientID+`"}}`)
 
 	// Act
-	_, err := slackauth.FileStore(path).Load(t.Context())
+	_, err := slackauth.FileStore(config.Files{Repo: path}).Load(t.Context())
 
 	// Assert
 	if !errors.Is(err, slackauth.ErrNotLoggedIn) {
@@ -193,5 +193,73 @@ func TestAKeychainEntryMissingItsSecretsSaysToLogIn(t *testing.T) {
 				t.Errorf("Load = %v, want ErrNotLoggedIn", err)
 			}
 		})
+	}
+}
+
+// homeHolding is a home file whose Slack app is named, holding the user
+// token's secrets when held says so, beneath a repository file setting only a
+// Jira project.
+func homeHolding(t *testing.T, held bool) config.Files {
+	t.Helper()
+
+	secrets := ""
+	if held {
+		secrets = `, "client_secret": "` + clientSecret + `", "refresh_token": "` + oldRefresh + `"`
+	}
+
+	return config.Files{
+		Home: configFile(t, `{"messaging": {"kind": "slack", "client_id": "`+clientID+`", "channel": "#dev"`+secrets+`}}`),
+		Repo: configFile(t, `{"jira": {"project": "OSS"}}`),
+	}
+}
+
+func TestTheUserTokenStaysInTheHomeFileBeneathARepositoryFile(t *testing.T) {
+	t.Parallel()
+
+	for name, held := range map[string]bool{"a refreshed pair": true, "a first login": false} {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			// Arrange
+			files := homeHolding(t, held)
+
+			// Act
+			err := slackauth.FileStore(files).Save(t.Context(), pairExpiringIn(0))
+
+			// Assert
+			home, homeErr := os.ReadFile(files.Home)
+			repo, repoErr := os.ReadFile(files.Repo)
+
+			if err != nil || homeErr != nil || repoErr != nil {
+				t.Fatalf("Save = %v; reading the files: %v, %v", err, homeErr, repoErr)
+			}
+
+			if !strings.Contains(string(home), oldRefresh) || strings.Contains(string(repo), oldRefresh) {
+				t.Errorf("home holds %s\nrepository holds %s\nwant the token at home alone", home, repo)
+			}
+		})
+	}
+}
+
+func TestSecretsTheRepositoryFileHoldsStayThereAndItStaysAnOverlay(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	files := config.Files{
+		Home: configFile(t, `{"messaging": {"kind": "slack", "client_id": "`+clientID+`", "channel": "#dev"}}`),
+		Repo: configFile(t, `{"messaging": {"client_secret": "`+clientSecret+`", "refresh_token": "old-refresh"}}`),
+	}
+
+	// Act
+	err := slackauth.FileStore(files).Save(t.Context(), pairExpiringIn(0))
+
+	// Assert
+	repo, readErr := os.ReadFile(files.Repo)
+	if err != nil || readErr != nil {
+		t.Fatalf("Save = %v; reading the repository file: %v", err, readErr)
+	}
+
+	if !strings.Contains(string(repo), oldRefresh) || strings.Contains(string(repo), "timing") {
+		t.Errorf("the repository file holds %s; want the new pair in it and nothing it inherits", repo)
 	}
 }

@@ -157,21 +157,19 @@ func askFor(ask func(string) (string, error), question, what string) (string, er
 }
 
 // nameSlackApp writes the app's client ID, and the Slack kind, into the
-// configuration file, over the revision it reads.
+// configuration file a save writes, over the revision it reads.
 func nameSlackApp(cfg config.Config, clientID string) (config.Config, error) {
-	held, revision, err := config.LoadFileAt(cfg.Path)
+	held, revision, err := config.LoadLayersAt(cfg.Layers())
 	if err != nil {
 		return config.Config{}, err
 	}
 
 	held.Messaging.Kind, held.Messaging.ClientID = config.KindSlack, clientID
 
-	_, err = config.SaveOver(cfg.Path, held, revision)
+	_, err = config.SaveLayers(cfg.Layers(), held, revision)
 	if err != nil {
 		return config.Config{}, err
 	}
-
-	held.Path = cfg.Path
 
 	return held, nil
 }

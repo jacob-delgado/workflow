@@ -161,7 +161,8 @@ whole array.
 `tooling`, one entry per program (`name`, `found`, `required`, `effect`, and
 `detail` where finding it took more than a look at `PATH`: the Taskwarrior
 version and path found, or why none is usable);
-`configuration` (`path`, `tracker` — `jira`, or `forge` when no `jira.base_url`
+`configuration` (`path`, the file a save writes; `files`, every file read,
+the home directory's before the repository's; `tracker` — `jira`, or `forge` when no `jira.base_url`
 leaves the forge's issues as the tracker — `jira_url`, `jira_auth_mode`,
 `messaging_target`, `messaging_mode`, `world_readable`, then `missing` and
 `problems`: the required fields still empty and the values filled in wrong, each

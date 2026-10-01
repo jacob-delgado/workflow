@@ -56,7 +56,7 @@ func (s *server) reread() (config.Config, basis, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	cfg, current, err := config.LoadFileAt(s.path)
+	cfg, current, err := config.LoadLayersAt(s.files)
 	if err != nil {
 		return config.Config{}, basis{}, err
 	}
@@ -95,7 +95,7 @@ func (s *server) placeSlackCredentials(incoming config.Config, over basis) (conf
 
 	// Placing spends the typed refresh token, so it is done only over the file
 	// the write that follows will find.
-	current, err := config.RevisionOf(s.path)
+	current, err := config.RevisionOfLayers(s.files)
 	if err != nil || current != over.file() {
 		return config.Config{}, fmt.Errorf("placing the Slack secrets: %w", config.ErrChangedOnDisk)
 	}
@@ -243,14 +243,14 @@ func (s *server) save(incoming config.Config, over basis) (config.Config, config
 	}
 
 	incoming = preserveSecrets(incoming, s.cfg)
-	incoming.Path = s.path
+	incoming.Path, incoming.Files = s.files.Target(), s.files
 
 	incoming, err := s.placeSlackCredentials(incoming, over)
 	if err != nil {
 		return config.Config{}, config.Revision{}, err
 	}
 
-	written, err := config.SaveOver(s.path, incoming, over.file())
+	written, err := config.SaveLayers(s.files, incoming, over.file())
 	if err != nil {
 		return config.Config{}, config.Revision{}, err
 	}

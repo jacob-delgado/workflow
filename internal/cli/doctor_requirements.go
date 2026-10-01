@@ -30,6 +30,8 @@ type configReview struct {
 	problems []string
 	mode     os.FileMode
 	shared   bool
+	// sharedPath is the file others can reach, when one is.
+	sharedPath string
 }
 
 // reviewConfiguration gathers everything doctor checks in a loaded
@@ -42,9 +44,17 @@ func reviewConfiguration(cfg config.Config) configReview {
 		problems = append(problems, keyErr.Error())
 	}
 
-	mode, shared := config.SharedMode(cfg.Path)
+	review := configReview{missing: cfg.Missing(), problems: problems}
 
-	return configReview{missing: cfg.Missing(), problems: problems, mode: mode, shared: shared}
+	for _, path := range cfg.Layers().Each() {
+		if mode, shared := config.SharedMode(path); shared {
+			review.mode, review.shared, review.sharedPath = mode, true, path
+
+			break
+		}
+	}
+
+	return review
 }
 
 // err is the review's verdict: nil for a configuration with nothing wrong,

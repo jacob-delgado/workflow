@@ -155,11 +155,12 @@ type server struct {
 	deps Deps
 	info Info
 
-	// path is where the configuration file lives, fixed at construction from the
-	// trusted location the process resolved. The write endpoint always saves here
-	// and never to a path from the request body, so a client cannot redirect the
-	// write — the file location is the server's to decide, not the caller's.
-	path string
+	// files are where the configuration files live, fixed at construction from
+	// the trusted locations the process resolved. The write endpoint always
+	// saves here and never to a path from the request body, so a client cannot
+	// redirect the write — the file location is the server's to decide, not the
+	// caller's.
+	files config.Files
 
 	mu  sync.RWMutex
 	cfg config.Config
@@ -245,7 +246,9 @@ func Handler(deps Deps, cfg config.Config, info Info, assets fs.FS) (http.Handle
 		return nil, fmt.Errorf("reading the configuration file: %w", err)
 	}
 
-	srv := &server{deps: deps, info: info, path: cfg.Path, cfg: inEffect, seen: seen, forgeKind: info.ForgeKind}
+	srv := &server{
+		deps: deps, info: info, files: cfg.Layers(), cfg: inEffect, seen: seen, forgeKind: info.ForgeKind,
+	}
 
 	strict := api.NewStrictHandlerWithOptions(srv, nil, api.StrictHTTPServerOptions{
 		RequestErrorHandlerFunc:  writeRequestError,
@@ -282,7 +285,7 @@ func Handler(deps Deps, cfg config.Config, info Info, assets fs.FS) (http.Handle
 // learned by reading the file again: reads answer 422 until the file is fixed,
 // and the first read that finds it valid takes it up.
 func startingPoint(cfg config.Config) (config.Config, config.Revision, error) {
-	loaded, seen, err := config.LoadFileAt(cfg.Path)
+	loaded, seen, err := config.LoadLayersAt(cfg.Layers())
 	if errors.Is(err, config.ErrInvalid) {
 		return cfg, config.Revision{}, nil
 	}

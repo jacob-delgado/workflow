@@ -216,7 +216,7 @@ func reportConfiguration(out io.Writer, run doctorRun, remote string) error {
 
 	cfg := run.cfg
 
-	field(out, "Configuration", cfg.Path)
+	field(out, "Configuration", cfg.Layers().String())
 	field(out, "Tracker", trackerLabel(cfg, remote))
 	field(out, "Jira", fmt.Sprintf("%s (%s)",
 		config.DisplayURL(cfg.Jira.BaseURL), cfg.Jira.AuthMode()))
@@ -225,7 +225,7 @@ func reportConfiguration(out io.Writer, run doctorRun, remote string) error {
 	field(out, cfg.Messaging.Service(), fmt.Sprintf("%s (%s)", cfg.Messaging.Target(), cfg.Messaging.Mode()))
 
 	review := reviewConfiguration(cfg)
-	reportSharedMode(out, cfg.Path, review)
+	reportSharedMode(out, review.sharedPath, review)
 	reportRequirements(out, cfg.Path, review)
 
 	return review.err()

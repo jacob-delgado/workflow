@@ -137,13 +137,10 @@ func SaveOver(path string, cfg Config, over Revision) (Revision, error) {
 
 // write encodes the configuration into path and returns the bytes it wrote.
 func write(path string, cfg Config) ([]byte, error) {
-	// Trade-off TRADE-13: a Config always encodes.
-	encoded, err := json.MarshalIndent(cfg, "", "  ")
+	encoded, err := encode(cfg)
 	if err != nil {
-		return nil, fmt.Errorf("encoding configuration: %w", err)
+		return nil, err
 	}
-
-	encoded = append(encoded, '\n')
 
 	err = writePrivate(path, encoded)
 	if err != nil {
@@ -151,6 +148,22 @@ func write(path string, cfg Config) ([]byte, error) {
 	}
 
 	return encoded, nil
+}
+
+// encode is the configuration as a file holds it.
+func encode(cfg Config) ([]byte, error) {
+	return indented(cfg)
+}
+
+// indented is value as JSON a person can edit, one setting to a line.
+func indented(value any) ([]byte, error) {
+	// Trade-off TRADE-13: a Config, and values decoded from JSON, always encode.
+	encoded, err := json.MarshalIndent(value, "", "  ")
+	if err != nil {
+		return nil, fmt.Errorf("encoding configuration: %w", err)
+	}
+
+	return append(encoded, '\n'), nil
 }
 
 // writePrivate replaces the file at path with one only its owner can reach,
