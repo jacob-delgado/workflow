@@ -273,7 +273,7 @@ func (m Model) failedChecks() []string {
 
 		name := check.Name
 		if check.Stage != "" {
-			name = check.Stage + " · " + check.Name
+			name = check.Stage + m.marks.separator + check.Name
 		}
 
 		lines = append(lines, "  "+failedGlyph(m.styles, m.marks)+" "+name)
@@ -373,7 +373,7 @@ func (v jobLogView) view(_, rows int) (string, string) {
 	end := len(lines) - min(v.scroll, v.topScroll(rows))
 	start := max(0, end-max(1, rows))
 
-	return v.check.Name + " · log", strings.Join(lines[start:end], "\n")
+	return v.check.Name + v.marks.separator + "log", strings.Join(lines[start:end], "\n")
 }
 
 // footer offers scrolling the log and going back.
