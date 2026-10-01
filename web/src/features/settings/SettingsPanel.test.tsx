@@ -443,3 +443,17 @@ test("the switch that lists this repository's forge issues rides back through a 
   const reopened = await screen.findByRole('checkbox', { name: /this repository's .* issues/i })
   expect((reopened as HTMLInputElement).checked).toBe(true)
 })
+
+test('shows the local data under its own heading below the configuration', async () => {
+  // Arrange
+  vi.stubEnv('VITE_MOCK', 'true')
+
+  // Act
+  renderWithClient(<SettingsPanel />)
+
+  // Assert
+  const heading = await screen.findByRole('heading', { level: 2, name: 'Local data' })
+  const save = await screen.findByRole('button', { name: 'Save changes' })
+  expect(save.compareDocumentPosition(heading) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+  expect(await screen.findByRole('table', { name: 'Local databases' })).toBeTruthy()
+})

@@ -14,9 +14,15 @@ module.exports = {
       name: 'sdk-only-through-api',
       severity: 'error',
       comment:
-        'Value imports of the generated SDK go through src/api or a feature *Api.ts wrapper, ' +
-        'so a component never calls the server directly; types may be imported anywhere.',
-      from: { pathNot: '^src/(api/|features/[^/]+/[^/]+Api\\.ts$)' },
+        'Value imports of the generated SDK go through src/api or a feature *Api.ts wrapper ' +
+        '(an area within a feature, such as settings/people, keeps its own), so a component ' +
+        'never calls the server directly; types may be imported anywhere.',
+      from: {
+        pathNot: [
+          '^src/(api/|features/[^/]+/[^/]+Api\\.ts$)',
+          '^src/features/[^/]+/[^/]+/[^/]+Api\\.ts$',
+        ],
+      },
       to: { path: '^src/api/generated/', dependencyTypesNot: ['type-only'] },
     },
     {

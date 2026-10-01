@@ -19,8 +19,22 @@ import { JiraFieldset } from './fieldsets/JiraFieldset.tsx'
 import { MessagingFieldset } from './fieldsets/MessagingFieldset.tsx'
 import { PullRequestFieldset, StoreFieldset } from './fieldsets/PullRequestAndStoreFieldsets.tsx'
 import { TaskwarriorFieldset } from './fieldsets/TaskwarriorFieldset.tsx'
+import { LocalData } from './people/LocalData.tsx'
 
+// SettingsPanel is the configuration form, and below it the areas that save on
+// their own rather than with the file: the local data.
 export function SettingsPanel() {
+  return (
+    <div className="flex flex-col gap-section">
+      <ConfigArea />
+      <LocalData />
+    </div>
+  )
+}
+
+// ConfigArea is the configuration form, once the file is read, or why it is
+// not.
+function ConfigArea() {
   const query = useConfigRead()
   // A Retry is swapped for the form it loads, so the form takes the focus the
   // Retry had rather than letting it fall to the page.
