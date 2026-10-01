@@ -1,5 +1,5 @@
 import { ExternalLink } from 'lucide-react'
-import type { ReactNode } from 'react'
+import { useState, type ReactNode } from 'react'
 import { apiErrorMessage } from '@/api/apiError.ts'
 import type { CiState, ReviewRequest } from '@/api/generated/types.gen.ts'
 import { useForgeWords } from '@/api/health.ts'
@@ -8,6 +8,7 @@ import { OutcomeLine, useOutcome, type Teller } from '@/lib/Outcome.tsx'
 import { useAsyncAction } from '@/lib/useAsyncAction.ts'
 import { EmptyState } from '@/shell/EmptyState.tsx'
 import { ciMark, StateMark } from '@/shell/StateMark.tsx'
+import { byRepository, ordered, orderWords, type ReviewOrder } from './reviewOrder.ts'
 import { useReviewQueue } from './reviewQueueApi.ts'
 
 // ciLabel says how CI stands on a request, in words: the queue is read without
@@ -25,8 +26,8 @@ const day = 24 * hour
 const month = 30 * day
 
 // ReviewQueuePanel lists the pull requests on the forge that wait on your
-// review, the longest-waiting first — the queue `workflow reviews` prints and
-// the terminal's Reviews pane shows. It reads its own endpoint rather than the
+// review, the longest-waiting first unless another order is chosen — the queue
+// `workflow reviews` prints and the terminal's Reviews pane shows. It reads its own endpoint rather than the
 // stream: a search of the forge is worth a request only when someone looks, so
 // the section reads it as it opens, unless it was read within the minute, and
 // again when Refresh asks.
@@ -85,17 +86,19 @@ interface QueueProps {
 // That control stays the same button whether it says Retry or Refresh, so the
 // read it starts never takes its focus away; a failed refresh leaves the queue
 // last read in view. The summary is a status line that stays mounted, so a
-// screen reader hears what each read found as it lands.
+// screen reader hears what each read found as it lands. The order chosen holds
+// across reads.
 function Queue({ requests, readAt, failure, failed, reading, onReadAgain }: QueueProps) {
   const { noun } = useForgeWords()
   const outcome = useOutcome()
+  const [order, setOrder] = useState<ReviewOrder>('oldest')
 
   return (
     <div className="flex max-w-3xl flex-col gap-group">
       <div className="flex items-center justify-between gap-group">
         <div className="flex flex-col">
           <p role="status" className="text-sm text-muted-foreground">
-            {requests === undefined ? '' : queueSummary(requests.length, noun)}
+            {requests === undefined ? '' : queueSummary(requests.length, noun, order)}
           </p>
           {failure === null ? null : (
             <p role="alert" className="text-sm text-destructive">
@@ -116,25 +119,61 @@ function Queue({ requests, readAt, failure, failed, reading, onReadAgain }: Queu
           {readAgainLabel(failed, reading)}
         </Button>
       </div>
+      <OrderSelect order={order} onOrder={setOrder} />
       <OutcomeLine said={outcome.said} />
       {requests === undefined ? null : (
-        <Requests requests={requests} readAt={readAt} teller={outcome} />
+        <Requests
+          requests={ordered(requests, order)}
+          grouped={order === 'repository'}
+          readAt={readAt}
+          teller={outcome}
+        />
       )}
     </div>
   )
 }
 
-// queueSummary says how many requests wait, in the forge's own noun. An empty
-// queue says so on screen below, in the list's place, so here it is said only
-// to a screen reader.
-function queueSummary(count: number, noun: string): ReactNode {
+// queueSummary says how many requests wait, in the forge's own noun, and the
+// order they are listed in. An empty queue says so on screen below, in the
+// list's place, so here it is said only to a screen reader.
+function queueSummary(count: number, noun: string, order: ReviewOrder): ReactNode {
   if (count === 0) {
     return <span className="sr-only">Nothing is waiting on your review.</span>
   }
 
+  const listed = orderWords[order].toLowerCase()
+
   return count === 1
-    ? `1 ${noun} waits on your review, oldest first.`
-    : `${String(count)} ${noun}s wait on your review, oldest first.`
+    ? `1 ${noun} waits on your review, ${listed}.`
+    : `${String(count)} ${noun}s wait on your review, ${listed}.`
+}
+
+interface OrderSelectProps {
+  order: ReviewOrder
+  onOrder: (order: ReviewOrder) => void
+}
+
+// OrderSelect chooses the order the queue is listed in, as the terminal's s
+// cycles it.
+function OrderSelect({ order, onOrder }: OrderSelectProps) {
+  return (
+    <label className="flex items-center gap-item text-sm">
+      <span className="text-muted-foreground">Sort</span>
+      <select
+        value={order}
+        onChange={(event) => {
+          onOrder(event.target.value as ReviewOrder)
+        }}
+        className="rounded-md border border-input bg-background px-2 py-1 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+      >
+        {(Object.keys(orderWords) as ReviewOrder[]).map((choice) => (
+          <option key={choice} value={choice}>
+            {orderWords[choice]}
+          </option>
+        ))}
+      </select>
+    </label>
+  )
 }
 
 // readAgainLabel names the control that reads the queue again: Retry after a
@@ -149,18 +188,48 @@ function readAgainLabel(failed: boolean, reading: boolean): string {
 
 interface RequestsProps {
   requests: ReviewRequest[]
+  // grouped heads each repository's requests with its name, as the terminal
+  // does by repository.
+  grouped: boolean
   readAt: number
   teller: Teller
 }
 
-function Requests({ requests, readAt, teller }: RequestsProps) {
+function Requests({ requests, grouped, readAt, teller }: RequestsProps) {
   if (requests.length === 0) {
     return <EmptyState>Nothing is waiting on your review.</EmptyState>
   }
 
+  if (!grouped) {
+    return (
+      <RequestList label="Review requests" requests={requests} readAt={readAt} teller={teller} />
+    )
+  }
+
+  return byRepository(requests).map(({ repository, requests: inRepository }) => (
+    <section key={repository} className="flex flex-col gap-item">
+      <h3 className="font-medium">{repository}</h3>
+      <RequestList
+        label={`Review requests in ${repository}`}
+        requests={inRepository}
+        readAt={readAt}
+        teller={teller}
+      />
+    </section>
+  ))
+}
+
+interface RequestListProps {
+  label: string
+  requests: ReviewRequest[]
+  readAt: number
+  teller: Teller
+}
+
+function RequestList({ label, requests, readAt, teller }: RequestListProps) {
   return (
     <ul
-      aria-label="Review requests"
+      aria-label={label}
       className="flex flex-col divide-y divide-border rounded-lg border border-border"
     >
       {requests.map((request) => (
