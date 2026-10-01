@@ -19,6 +19,9 @@ import (
 	"github.com/jacob-delgado/workflow/internal/store"
 )
 
+// cacheName is the cache database's file name.
+const cacheName = "workflow.db"
+
 // keepBoth leaves a scope in the cache and ana's link in the kept file.
 func keepBoth(t *testing.T, dir string) store.Store {
 	t.Helper()
@@ -102,7 +105,7 @@ func TestEachDatabaseIsListedWithItsKindSizeAndContents(t *testing.T) {
 		{files[0].Name, files[0].Kind, files[0].Bytes > 0, heldCount(files[0], "scopes")},
 		{files[1].Name, files[1].Kind, files[1].Bytes > 0, heldCount(files[1], "owner decisions")},
 	}
-	want := []listed{{"workflow.db", store.DataCache, true, 1}, {"kept.db", store.DataKept, true, 1}}
+	want := []listed{{cacheName, store.DataCache, true, 1}, {"kept.db", store.DataKept, true, 1}}
 
 	if !slices.Equal(got, want) {
 		t.Errorf("Files listed %+v, want %+v", got, want)
@@ -116,7 +119,7 @@ func TestAFileThatIsNotADatabaseIsListedBySizeAlone(t *testing.T) {
 	// Cleaning is the remedy for a broken file, so listing it must not fail.
 	dir := t.TempDir()
 
-	err := os.WriteFile(filepath.Join(dir, "workflow.db"), []byte("not a database"), 0o600)
+	err := os.WriteFile(filepath.Join(dir, cacheName), []byte("not a database"), 0o600)
 	if err != nil {
 		t.Fatalf("writing the file: %v", err)
 	}
@@ -127,6 +130,62 @@ func TestAFileThatIsNotADatabaseIsListedBySizeAlone(t *testing.T) {
 	// Assert
 	if err != nil || len(files) != 1 || files[0].Bytes != int64(len("not a database")) || len(files[0].Holds) != 0 {
 		t.Errorf("Files = %+v, %v; want workflow.db by its size, holding nothing said", files, err)
+	}
+}
+
+// leaveAside writes the files an interrupted clean would leave set aside.
+func leaveAside(t *testing.T, dir string, names ...string) {
+	t.Helper()
+
+	for _, name := range names {
+		err := os.WriteFile(filepath.Join(dir, name), []byte("left"), 0o600)
+		if err != nil {
+			t.Fatalf("writing %s: %v", name, err)
+		}
+	}
+}
+
+func TestFilesSetAsideByAnInterruptedCleanAreListed(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	dir := t.TempDir()
+	leaveAside(t, dir, "workflow.db.cleaning", "workflow.db-wal.cleaning")
+
+	// Act
+	files, err := store.Files(t.Context(), dir)
+
+	// Assert
+	want := []store.DataFile{{Name: "workflow.db.cleaning", Kind: store.DataCache, Bytes: 8, Holds: nil}}
+	if err != nil || len(files) != 1 || files[0].Name != want[0].Name || files[0].Kind != want[0].Kind ||
+		files[0].Bytes != want[0].Bytes {
+		t.Errorf("Files = %+v, %v; want %+v", files, err, want)
+	}
+}
+
+func TestTheNextCleanRemovesWhatAnInterruptedOneSetAside(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	dir := t.TempDir()
+	keepBoth(t, dir)
+	leaveAside(t, dir, "workflow.db.cleaning", "workflow.db-shm.cleaning", "kept.db.cleaning")
+
+	// Act
+	err := store.Clean(dir, store.CleanCache)
+	// Assert
+	if err != nil {
+		t.Fatalf("Clean returned %v, want nil", err)
+	}
+
+	for _, name := range []string{cacheName, "workflow.db.cleaning", "workflow.db-shm.cleaning"} {
+		if exists(filepath.Join(dir, name)) {
+			t.Errorf("%s is still there after cleaning the cache", name)
+		}
+	}
+
+	if !exists(filepath.Join(dir, "kept.db.cleaning")) {
+		t.Error("cleaning the cache removed what a clean of the kept data set aside")
 	}
 }
 
@@ -144,7 +203,7 @@ func TestCleaningTheCacheKeepsTheKeptData(t *testing.T) {
 		t.Fatalf("Clean returned %v, want nil", err)
 	}
 
-	for _, name := range []string{"workflow.db", "workflow.db-wal", "workflow.db-shm"} {
+	for _, name := range []string{cacheName, "workflow.db-wal", "workflow.db-shm"} {
 		if exists(filepath.Join(dir, name)) {
 			t.Errorf("%s is still there after cleaning the cache", name)
 		}
@@ -259,7 +318,7 @@ func TestACleanRefusesWhatIsNotAPlainFileAndRemovesNothing(t *testing.T) {
 				t.Errorf("Clean = %v, want ErrCleanRefused", err)
 			}
 
-			for _, path := range []string{filepath.Join(dir, "workflow.db"), keptPath(dir), planted} {
+			for _, path := range []string{filepath.Join(dir, cacheName), keptPath(dir), planted} {
 				if !exists(path) {
 					t.Errorf("%s was removed by a refused clean", path)
 				}
