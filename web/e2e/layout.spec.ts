@@ -379,7 +379,7 @@ const pullDraft = {
   head: 'fix/PROJ-1',
   draft: false,
   needs_push: false,
-  reviewers: [],
+  reviewers: ['ana', 'acme/control-plane'],
 } satisfies PullRequestDraft
 
 // The pull request form's fields and buttons, named as a walk names them.

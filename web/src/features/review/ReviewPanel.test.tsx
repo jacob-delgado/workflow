@@ -255,6 +255,54 @@ test('opens a pull request with reviewers, assignees and labels', async () => {
   )
 })
 
+test('pre-fills the reviewers with the code owners the draft proposes', async () => {
+  // Arrange
+  const user = userEvent.setup()
+  mockPreview.mockResolvedValueOnce({
+    title: 'fix: redact tokens',
+    body: 'why',
+    base: 'main',
+    head: 'fix/PROJ-412',
+    draft: false,
+    needs_push: true,
+    reviewers: ['ana', 'acme/control-plane'],
+  })
+  useSnapshotStore.setState({
+    status: 'live',
+    snapshot: makeSnapshot({ review: { found: false } }),
+  })
+  render(<ReviewPanel />)
+
+  // Act: open the form, then confirm the proposal as it stands
+  await user.click(screen.getByRole('button', { name: /open a pull request/i }))
+  const reviewers = await screen.findByRole('textbox', { name: /reviewers/i })
+  const shown = (reviewers as HTMLInputElement).value
+  await user.click(screen.getByRole('button', { name: 'Open pull request' }))
+
+  // Assert: the owners are shown, then sent, teams among them
+  expect(shown).toBe('ana, acme/control-plane')
+  expect(mockOpenPr).toHaveBeenCalledWith(
+    expect.objectContaining({ reviewers: ['ana', 'acme/control-plane'] }),
+  )
+})
+
+test('hints that a reviewer can be a team', async () => {
+  // Arrange
+  const user = userEvent.setup()
+  useSnapshotStore.setState({
+    status: 'live',
+    snapshot: makeSnapshot({ review: { found: false } }),
+  })
+  render(<ReviewPanel />)
+
+  // Act
+  await user.click(screen.getByRole('button', { name: /open a pull request/i }))
+
+  // Assert
+  const reviewers = await screen.findByRole('textbox', { name: /reviewers/i })
+  expect(reviewers.getAttribute('placeholder')).toMatch(/org\/team/)
+})
+
 test('shows the warning when a pull opens but its reviewers could not be added', async () => {
   // Arrange
   const user = userEvent.setup()
