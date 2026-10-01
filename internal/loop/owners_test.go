@@ -258,18 +258,27 @@ func TestOwnersOfCountsANameTheForgeKnowsAsAGroupAmongTheTeams(t *testing.T) {
 	}
 }
 
-func TestOwnersOfSaysWhenTheForgeCannotTellAGroupFromAPerson(t *testing.T) {
+func TestOwnersOfKeepsANameTheForgeCannotClassifyAsAPerson(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
+	// The forge knows bo as a group but cannot be asked about ana: one
+	// failed lookup must not cost the announcement every other owner.
 	seams := ownerSeams()
-	seams.IsGroup = func(string) (bool, error) { return false, errForgeDown }
+	seams.IsGroup = func(name string) (bool, error) {
+		if name == ownerUser {
+			return false, errForgeDown
+		}
+
+		return name == "bo", nil
+	}
 
 	// Act
-	_, err := loop.OwnersOf(seams, targetBase)
+	owners, err := loop.OwnersOf(seams, targetBase)
 
 	// Assert
-	if !errors.Is(err, errForgeDown) {
-		t.Errorf("OwnersOf = %v, want the forge's failure", err)
+	if err != nil || !slices.Equal(owners.Users, []string{ownerUser}) ||
+		!slices.Equal(owners.Teams, []string{ownerTeam, "bo"}) {
+		t.Errorf("OwnersOf = %+v, %v; want ana kept a person, and bo a team beside acme/control-plane", owners, err)
 	}
 }

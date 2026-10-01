@@ -52,26 +52,24 @@ func OwnersOf(seams OwnerSeams, base string) (codeowners.Owners, error) {
 		return codeowners.Owners{}, err
 	}
 
-	return groupsAmongTeams(owners, seams.IsGroup)
+	return groupsAmongTeams(owners, seams.IsGroup), nil
 }
 
 // groupsAmongTeams moves each bare name the forge knows as a group from the
 // people to the teams: CODEOWNERS spells a top-level GitLab group @acme, as it
-// spells a user, and a group links to a Slack user group, not to a person.
-func groupsAmongTeams(owners codeowners.Owners, isGroup func(name string) (bool, error)) (codeowners.Owners, error) {
+// spells a user, and a group links to a Slack user group, not to a person. It
+// is best effort: a name the forge cannot be asked about stays a person, as
+// it is spelled, so one failed lookup costs no other owner.
+func groupsAmongTeams(owners codeowners.Owners, isGroup func(name string) (bool, error)) codeowners.Owners {
 	if isGroup == nil {
-		return owners, nil
+		return owners
 	}
 
 	people := make([]string, 0, len(owners.Users))
 
 	for _, name := range owners.Users {
 		group, err := isGroup(name)
-		if err != nil {
-			return codeowners.Owners{}, fmt.Errorf("telling whether %s is a group: %w", name, err)
-		}
-
-		if group {
+		if err == nil && group {
 			owners.Teams = append(owners.Teams, name)
 		} else {
 			people = append(people, name)
@@ -80,7 +78,7 @@ func groupsAmongTeams(owners codeowners.Owners, isGroup func(name string) (bool,
 
 	owners.Users = people
 
-	return owners, nil
+	return owners
 }
 
 // withoutAuthor leaves the author out of owners' people, compared without
