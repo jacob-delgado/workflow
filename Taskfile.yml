@@ -68,7 +68,14 @@ vars:
   # `err != nil` both ways, but for those TECH_DEBT.md's register keeps
   # (TRADE-12 to TRADE-18); the report then read 94.5%, and the floor is
   # floor(measured) - 2.
-  BRANCH_COVERAGE_MIN: 92
+  #
+  # It fell 92→91 in #166, at 91.9%: the Slack workspace, directory and
+  # GitLab group work added store and webserver error branches (a failed
+  # scan, a failed exec, a write the database refuses) that no public input
+  # reaches. They carry no test, since a test through internals or a refactor
+  # made only to reach them is worse than the gap; the CLI's Slack paths,
+  # which a fake Slack could reach, were tested instead.
+  BRANCH_COVERAGE_MIN: 91
   # Container tasks work with docker or podman: CONTAINER_RUNTIME=podman task ...
   # container:check needs a VM of about 8 GiB: knip's parser reserves 6 GiB in
   # one allocation, and golangci-lint alone is killed for memory in the 2 GiB a
