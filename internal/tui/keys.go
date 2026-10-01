@@ -368,8 +368,9 @@ func (c keyContext) covers(placed placement) bool {
 // Most of a surface's keys come from its help groups, but some bindings are
 // handled outside the group they are filed under, so a context also names those:
 // the list actions refresh, open-link and copy-link are filed under Issues, yet
-// refresh acts on the Branch, Commits, Review, review-requests and Tasks panes,
-// and open-link and copy-link on the Review, review-requests and Tasks panes;
+// refresh acts on the Branch, Commits, Review, messaging, review-requests and
+// Tasks panes, and open-link and copy-link on the Review, review-requests and
+// Tasks panes;
 // edit acts on the Review pane as well as in a preview; and a field form reads
 // up and down, which a composer otherwise excludes so that its tab can mean
 // next-field rather than next-pane. An overlay's own keys, the branch creator's

@@ -66,6 +66,8 @@ const (
 type world struct {
 	mu    sync.Mutex
 	calls []string
+	// elapsed is how far the clock has moved on from testNow.
+	elapsed time.Duration
 
 	cfg           config.Config
 	issues        []jira.Issue
@@ -313,7 +315,7 @@ func (w *world) deps() tui.Deps {
 		Editor:     w.editorDeps(),
 		Store:      w.storeDeps(),
 		Tasks:      w.taskDeps(),
-		Clock:      testNow,
+		Clock:      w.now,
 		CIInterval: w.ciInterval,
 		After:      fakeAfter,
 		Notify:     func() { w.record("notify") },
@@ -346,6 +348,8 @@ func (w *world) storeDeps() seams.Store {
 			w.record("scope " + scope)
 		},
 		Announced: func() []loop.Announced {
+			w.record("history")
+
 			return w.storedAnnounces
 		},
 		RecordAnnounce: func(made loop.Announced) {
@@ -499,4 +503,20 @@ func (w *world) editorDeps() tui.EditorDeps {
 			return resolved
 		},
 	}
+}
+
+// now is the world's clock: testNow, moved on by whatever advance added.
+func (w *world) now() time.Time {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+
+	return testNow().Add(w.elapsed)
+}
+
+// advance moves the world's clock on by wait.
+func (w *world) advance(wait time.Duration) {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+
+	w.elapsed += wait
 }

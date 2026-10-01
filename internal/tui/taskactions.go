@@ -115,7 +115,7 @@ func (m Model) handleTasksKey(msg tea.KeyPressMsg) (Model, tea.Cmd) {
 	case key.Matches(msg, m.keys.copyLink):
 		return m.copyLink(m.taskIssueURL())
 	case key.Matches(msg, m.keys.refresh):
-		return m, m.loadTasks()
+		return m.refreshPane(paneTasks)
 	}
 
 	return m, nil

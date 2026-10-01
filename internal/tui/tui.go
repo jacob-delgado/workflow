@@ -10,6 +10,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"time"
 
 	"charm.land/bubbles/v2/key"
 	tea "charm.land/bubbletea/v2"
@@ -51,6 +52,10 @@ type Model struct {
 	// replaced ends its chain rather than polling beside the new one's. It lives
 	// here, not in reviewState, where each new review's literal would reset it.
 	reviewsBegun int
+	// refreshed is when each pane last began loading, so switching to one
+	// loaded moments ago does not spend the tracker's or the forge's requests
+	// loading it again.
+	refreshed [paneCount]time.Time
 	// detailReads counts the issue reads started, so the answer to one a later
 	// read superseded is dropped rather than shown over the later one's.
 	detailReads int
@@ -114,6 +119,11 @@ func New(cfg config.Config, loadErr error, deps Deps) Model {
 		views: issueViews(cfg.Jira.Views), viewIndex: 0,
 	}
 	model.issues = model.seededIssues()
+
+	// Init loads every pane, so each starts fresh.
+	for index := range model.refreshed {
+		model.refreshed[index] = deps.now()
+	}
 
 	return model
 }
@@ -241,13 +251,13 @@ func (m Model) handleGlobalKey(msg tea.KeyPressMsg) (Model, tea.Cmd) {
 	case key.Matches(msg, m.keys.toggleHelp):
 		return m.openHelp()
 	case key.Matches(msg, m.keys.next):
-		return m.focusOn((m.focus + 1) % paneCount), nil
+		return m.switchTo((m.focus + 1) % paneCount)
 	case key.Matches(msg, m.keys.previous):
-		return m.focusOn((m.focus + paneCount - 1) % paneCount), nil
+		return m.switchTo((m.focus + paneCount - 1) % paneCount)
 	case key.Matches(msg, m.keys.jump):
 		// CheckKeys refuses to move jump-to-pane, so the binding only matches the
 		// pane digits, 1 through paneCount, and the digit is always a valid pane.
-		return m.focusOn(pane(msg.String()[0] - '1')), nil
+		return m.switchTo(pane(msg.String()[0] - '1'))
 	case key.Matches(msg, m.keys.toggleMouse):
 		return m.toggleMouse()
 	case key.Matches(msg, m.keys.scrollDown):

@@ -236,14 +236,18 @@ func (m Model) canPost() bool {
 // messagingKeys offers composing the post.
 func (m Model) messagingKeys() []key.Binding {
 	if !m.canPost() {
-		return nil
+		return []key.Binding{m.keys.refresh}
 	}
 
-	return []key.Binding{m.keys.compose}
+	return []key.Binding{m.keys.compose, m.keys.refresh}
 }
 
 // handleMessagingKey answers the messaging pane's own keys.
 func (m Model) handleMessagingKey(msg tea.KeyPressMsg) (Model, tea.Cmd) {
+	if key.Matches(msg, m.keys.refresh) {
+		return m.refreshPane(paneMessaging)
+	}
+
 	if !key.Matches(msg, m.keys.compose) || !m.canPost() {
 		return m, nil
 	}

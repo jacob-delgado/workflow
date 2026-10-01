@@ -190,7 +190,7 @@ func (m Model) handleReviewQueueKey(msg tea.KeyPressMsg) (Model, tea.Cmd) {
 	case key.Matches(msg, m.keys.copyLink):
 		return m.copyLink(m.selectedReviewURL())
 	case key.Matches(msg, m.keys.refresh):
-		return m, m.loadReviewQueue()
+		return m.refreshPane(paneReviews)
 	}
 
 	return m, nil
