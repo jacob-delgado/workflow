@@ -284,6 +284,10 @@ export type TaskBranch = {
 export type IssuesPage = {
     issues: Array<Issue>;
     /**
+     * Each tracker a list drawing on Jira and the forge together could not read, so what is listed is not taken for all there is. Empty when every tracker answered.
+     */
+    unavailable: Array<string>;
+    /**
      * How many issues the view matches in all.
      */
     total: number;
@@ -295,6 +299,7 @@ export type IssuesPage = {
 
 export type Issue = {
     key: string;
+    tracker: IssueTracker;
     summary: string;
     /**
      * The human status name, such as "In Progress".
@@ -313,8 +318,14 @@ export type Issue = {
 
 export type StatusCategory = 'new' | 'indeterminate' | 'done';
 
+/**
+ * Where the issue lives: Jira, keyed like PROJ-412, or the repository's own forge, GitHub or GitLab, keyed by its number.
+ */
+export type IssueTracker = 'jira' | 'forge';
+
 export type IssueDetail = {
     key: string;
+    tracker: IssueTracker;
     summary: string;
     status: string;
     status_category: StatusCategory;

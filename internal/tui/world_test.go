@@ -84,6 +84,8 @@ type world struct {
 	postedChannel string
 	// assignedKeys are the keys the lenient search answers as yours; nil answers every key it is asked.
 	assignedKeys []jira.Key
+	// unavailable names the trackers a search says it could not read.
+	unavailable []string
 
 	branch            gitrepo.Branch
 	branches          []string
@@ -378,7 +380,9 @@ func (w *world) jiraDeps() seams.Jira {
 			start := min(startAt, len(issues))
 			end := min(start+w.pageSize, len(issues))
 
-			return jira.SearchResult{Issues: slices.Clone(issues[start:end]), Total: len(issues)}, nil
+			return jira.SearchResult{
+				Issues: slices.Clone(issues[start:end]), Total: len(issues), Unavailable: w.unavailable,
+			}, nil
 		},
 		SearchLenient: func(jql string, _ int) (jira.SearchResult, error) {
 			w.record("lenient " + jql)

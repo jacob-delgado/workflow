@@ -17,6 +17,7 @@ const mockCheckout = vi.mocked(checkoutBranch)
 
 const tokenLeak: Issue = {
   key: 'PROJ-1',
+  tracker: 'jira',
   summary: 'Fix the token leak',
   status: 'In Progress',
   status_category: 'indeterminate',
@@ -26,17 +27,19 @@ const tokenLeak: Issue = {
 
 const setupDocs: Issue = {
   key: 'PROJ-2',
+  tracker: 'jira',
   summary: 'Write the setup docs',
   status: 'To Do',
   status_category: 'new',
   type: 'Task',
 }
 
-// streamIssues puts a stream frame listing the issues on screen.
-function streamIssues(issues: Issue[]) {
+// streamIssues puts a stream frame listing the issues on screen, with the
+// trackers it says could not be read.
+function streamIssues(issues: Issue[], unavailable: string[] = []) {
   useSnapshotStore.setState({
     status: 'live',
-    snapshot: makeSnapshot({ issues: { total: issues.length, start_at: 0, issues } }),
+    snapshot: makeSnapshot({ issues: { total: issues.length, start_at: 0, unavailable, issues } }),
   })
 }
 
@@ -308,7 +311,12 @@ function taskMarkRows(available: boolean) {
   useSnapshotStore.setState({
     status: 'live',
     snapshot: makeSnapshot({
-      issues: { total: 4, start_at: 0, issues: [tokenLeak, setupDocs, shipped, untracked] },
+      issues: {
+        total: 4,
+        start_at: 0,
+        unavailable: [],
+        issues: [tokenLeak, setupDocs, shipped, untracked],
+      },
       tasks: { available, reason: available ? '' : 'Turned off by taskwarrior.disabled.', linked },
     }),
   })
@@ -344,7 +352,7 @@ test.each([
   useSnapshotStore.setState({
     status: 'live',
     snapshot: makeSnapshot({
-      issues: { total: 1, start_at: 0, issues: [tokenLeak] },
+      issues: { total: 1, start_at: 0, unavailable: [], issues: [tokenLeak] },
       tasks: { available: true, reason: '', linked: [makeTask({ issue_key: 'PROJ-1', ...shape })] },
     }),
   })
@@ -483,7 +491,7 @@ test('says when no issues match the view', () => {
   // Arrange
   useSnapshotStore.setState({
     status: 'live',
-    snapshot: makeSnapshot({ issues: { total: 0, start_at: 0, issues: [] } }),
+    snapshot: makeSnapshot({ issues: { total: 0, start_at: 0, unavailable: [], issues: [] } }),
   })
 
   // Act
@@ -491,4 +499,31 @@ test('says when no issues match the view', () => {
 
   // Assert
   expect(screen.getByText(/no issues match/i)).toBeTruthy()
+})
+
+// Twin of TestAForgeIssueIsListedByItsNumber.
+test('a forge issue is listed by its number, as the forge writes it', () => {
+  // Arrange
+  streamIssues([
+    { ...setupDocs, key: '57', tracker: 'forge', summary: 'Typo in the README' },
+    tokenLeak,
+  ])
+
+  // Act
+  renderWithClient(<IssuesPanel />)
+
+  // Assert
+  expect(screen.getByRole('button', { name: /typo in the readme/i }).textContent).toContain('#57')
+})
+
+// Twin of TestTheIssuesListSaysWhenTheForgeCouldNotBeRead.
+test("the list says which tracker's issues could not be read", () => {
+  // Arrange
+  streamIssues([tokenLeak], ["the forge's issues"])
+
+  // Act
+  renderWithClient(<IssuesPanel />)
+
+  // Assert
+  expect(screen.getByText("Not read: the forge's issues.")).toBeTruthy()
 })

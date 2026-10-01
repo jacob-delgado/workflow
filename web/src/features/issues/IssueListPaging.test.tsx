@@ -13,6 +13,7 @@ import { IssuesPanel } from './IssuesPanel.tsx'
 function issue(key: string): Issue {
   return {
     key,
+    tracker: 'jira',
     summary: `Summary of ${key}`,
     status: 'To Do',
     status_category: 'new',
@@ -26,7 +27,9 @@ function streamFirstPage(keys: string[], total: number) {
   useSnapshotStore.setState({
     status: 'live',
     view: useUiStore.getState().view,
-    snapshot: makeSnapshot({ issues: { issues: keys.map(issue), total, start_at: 0 } }),
+    snapshot: makeSnapshot({
+      issues: { issues: keys.map(issue), total, start_at: 0, unavailable: [] },
+    }),
   })
 }
 
@@ -47,6 +50,7 @@ function servePages(keys: string[], pageSize: number) {
         issues: keys.slice(startAt, startAt + pageSize).map(issue),
         total: keys.length,
         start_at: startAt,
+        unavailable: [],
       }
     },
   })
@@ -236,7 +240,9 @@ test('holds load more while a page is being read', async () => {
         return new Promise<Response>(() => undefined)
       }
 
-      return Promise.resolve(Response.json({ issues: [issue('PROJ-3')], total: 5, start_at: 2 }))
+      return Promise.resolve(
+        Response.json({ issues: [issue('PROJ-3')], total: 5, start_at: 2, unavailable: [] }),
+      )
     }),
   )
   streamFirstPage(['PROJ-1', 'PROJ-2'], 5)
@@ -331,7 +337,9 @@ test('stops offering more when a page comes back empty', async () => {
   // The view shrank after the stream's page was read: its total still promises
   // more, but the next page holds none.
   const user = userEvent.setup()
-  const requests = fakeApi({ '/api/issues': { issues: [], total: 3, start_at: 2 } })
+  const requests = fakeApi({
+    '/api/issues': { issues: [], total: 3, start_at: 2, unavailable: [] },
+  })
   streamFirstPage(['PROJ-1', 'PROJ-2'], 3)
   renderWithClient(<IssuesPanel />)
 

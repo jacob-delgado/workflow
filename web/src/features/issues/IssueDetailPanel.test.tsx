@@ -12,6 +12,7 @@ import { IssueDetailPanel } from './IssueDetailPanel.tsx'
 function detailOf(overrides: Partial<IssueDetail> = {}): IssueDetail {
   return {
     key: 'PROJ-1',
+    tracker: 'jira',
     summary: 'Fix the token leak',
     status: 'In Progress',
     status_category: 'indeterminate',
@@ -451,4 +452,19 @@ test('a Retry in flight beside an issue already read keeps its focus and is not 
   expect(retry.hasAttribute('disabled')).toBe(false)
   expect(document.activeElement).toBe(retry)
   expect(fetch).toHaveBeenCalledTimes(3)
+})
+
+test('a forge issue opens on its forge, not in Jira', async () => {
+  // Arrange
+  serveIssue(
+    detailOf({ key: '57', tracker: 'forge', url: 'https://github.com/acme/oss/issues/57' }),
+  )
+
+  // Act
+  renderWithClient(<IssueDetailPanel issueKey="57" />)
+
+  // Assert
+  const link = await screen.findByRole('link', { name: /open in github/i })
+  expect(link.getAttribute('href')).toBe('https://github.com/acme/oss/issues/57')
+  expect(screen.queryByRole('link', { name: /open in jira/i })).toBeNull()
 })

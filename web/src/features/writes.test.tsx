@@ -98,9 +98,11 @@ const inFlight = makeSnapshot({
   issues: {
     total: 1,
     start_at: 0,
+    unavailable: [],
     issues: [
       {
         key: 'PROJ-2',
+        tracker: 'jira',
         summary: 'Document the token flow',
         status: 'In Progress',
         status_category: 'indeterminate',

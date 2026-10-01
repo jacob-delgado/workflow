@@ -266,6 +266,7 @@ const issuesTotal = 12
 function streamedIssue(number: number): Issue {
   return {
     key: `PROJ-${String(number)}`,
+    tracker: 'jira',
     summary: `Issue number ${String(number)} of the view`,
     status: 'To Do',
     status_category: 'new',
@@ -276,7 +277,12 @@ function streamedIssue(number: number): Issue {
 // A stream carrying the first eight of the view's twelve issues, so the list
 // offers to load more.
 const pagedSnapshot = {
-  issues: { total: issuesTotal, start_at: 0, issues: [1, 2, 3, 4, 5, 6, 7, 8].map(streamedIssue) },
+  issues: {
+    total: issuesTotal,
+    start_at: 0,
+    unavailable: [],
+    issues: [1, 2, 3, 4, 5, 6, 7, 8].map(streamedIssue),
+  },
   branch: {
     name: '',
     detached: false,
@@ -305,7 +311,12 @@ test('a loaded page hands focus to its first issue, in view in the list, at 640 
   await streams(page, pagedSnapshot)
   await page.route(/\/api\/issues\?/, (route) =>
     route.fulfill({
-      json: { total: issuesTotal, start_at: 8, issues: [9, 10, 11, 12].map(streamedIssue) },
+      json: {
+        total: issuesTotal,
+        start_at: 8,
+        unavailable: [],
+        issues: [9, 10, 11, 12].map(streamedIssue),
+      },
     }),
   )
   await page.setViewportSize({ width: 640, height: 700 })

@@ -258,3 +258,29 @@ func TestGetIssueReportsAFailure(t *testing.T) {
 		t.Errorf("status = %d, want 500", recorder.Code)
 	}
 }
+
+func TestListIssuesSaysEachIssuesTrackerAndWhichCouldNotBeRead(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	deps := filledDeps()
+	deps.Search = func(string, int) (jira.SearchResult, error) {
+		return jira.SearchResult{
+			Issues:      []jira.Issue{{Key: "57", Summary: "Typo"}, {Key: testKey, Summary: "Leak"}},
+			Total:       2,
+			Unavailable: []string{"the forge's issues"},
+		}, nil
+	}
+
+	// Act
+	page := decode[api.IssuesPage](t, get(t, serve(t, deps, config.Default()), "/api/issues?start_at=0"))
+
+	// Assert
+	if len(page.Issues) != 2 || page.Issues[0].Tracker != api.Forge || page.Issues[1].Tracker != api.Jira {
+		t.Errorf("issues = %+v, want 57 from the forge and %s from Jira", page.Issues, testKey)
+	}
+
+	if len(page.Unavailable) != 1 || page.Unavailable[0] != "the forge's issues" {
+		t.Errorf("unavailable = %v, want the forge's issues named", page.Unavailable)
+	}
+}

@@ -14,7 +14,7 @@ import { useMoreIssues } from './issueApi.ts'
 import { IssueDetailPanel } from './IssueDetailPanel.tsx'
 import { IssueListControls } from './IssueListControls.tsx'
 import { IssueStatus } from './IssueStatus.tsx'
-import { admits, marksOf, placeChoices, togglePlace, type Place } from './issuePlaces.ts'
+import { admits, marksOf, placeChoices, shownKey, togglePlace, type Place } from './issuePlaces.ts'
 import { PlaceChips } from './PlaceChips.tsx'
 
 export function IssuesPanel() {
@@ -88,6 +88,9 @@ function IssueBrowser({ streamed, branches, tasks }: IssueBrowserProps) {
         <p role="status" className="text-sm text-muted-foreground">
           {filterOutcome(filter !== '' || places.length > 0, shown.length, loaded.length)}
         </p>
+        {streamed.unavailable.length > 0 && (
+          <p className="text-sm text-destructive">Not read: {streamed.unavailable.join(', ')}.</p>
+        )}
         <OutcomeLine said={outcome.said} />
       </div>
       {switching ? (
@@ -259,7 +262,9 @@ function IssueRows({ issues, branches, tasks, rowRefs, outcome }: IssueRowsProps
               )}
             >
               <span className="flex flex-wrap items-center gap-item">
-                <span className="text-xs text-muted-foreground tabular-nums">{issue.key}</span>
+                <span className="text-xs text-muted-foreground tabular-nums">
+                  {shownKey(issue)}
+                </span>
                 <IssueStatus category={issue.status_category} label={issue.status} />
                 <RowMarks inFlight={newest !== undefined} taskMark={taskMark} />
               </span>
@@ -433,7 +438,7 @@ function mergeIssues(streamed: Issue[], pages: IssuesPage[]): Issue[] {
 // matchesFilter reports whether an issue's key or summary contains the filter,
 // ignoring case — the interface's `/` filter, over the same text.
 function matchesFilter(issue: Issue, filter: string): boolean {
-  return `${issue.key} ${issue.summary}`.toLowerCase().includes(filter.toLowerCase())
+  return `${shownKey(issue)} ${issue.summary}`.toLowerCase().includes(filter.toLowerCase())
 }
 
 // groupBranchesByKey groups the local branches by the issue they name, keeping

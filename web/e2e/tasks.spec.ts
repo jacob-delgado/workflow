@@ -34,9 +34,11 @@ function withTasks(tasks: TasksSummary): Snapshot {
     issues: {
       total: 1,
       start_at: 0,
+      unavailable: [],
       issues: [
         {
           key: 'PROJ-1',
+          tracker: 'jira',
           summary: 'Refuse an unknown forge',
           status: 'To Do',
           status_category: 'new',

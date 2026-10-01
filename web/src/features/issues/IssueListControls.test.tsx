@@ -23,9 +23,11 @@ const oneIssue = makeSnapshot({
   issues: {
     total: 1,
     start_at: 0,
+    unavailable: [],
     issues: [
       {
         key: 'PROJ-1',
+        tracker: 'jira',
         summary: 'Fix the token leak',
         status: 'In Progress',
         status_category: 'indeterminate',
@@ -39,9 +41,11 @@ const aBug = makeSnapshot({
   issues: {
     total: 1,
     start_at: 0,
+    unavailable: [],
     issues: [
       {
         key: 'PROJ-9',
+        tracker: 'jira',
         summary: 'Crash on an empty config',
         status: 'To Do',
         status_category: 'new',
@@ -241,9 +245,11 @@ const twoIssues = makeSnapshot({
   issues: {
     total: 2,
     start_at: 0,
+    unavailable: [],
     issues: [
       {
         key: 'PROJ-1',
+        tracker: 'jira',
         summary: 'Fix the token leak',
         status: 'In Progress',
         status_category: 'indeterminate',
@@ -251,6 +257,7 @@ const twoIssues = makeSnapshot({
       },
       {
         key: 'PROJ-12',
+        tracker: 'jira',
         summary: 'Write the setup docs',
         status: 'To Do',
         status_category: 'new',

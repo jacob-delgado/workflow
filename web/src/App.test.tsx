@@ -208,6 +208,7 @@ test('a work-story stage moves focus to the section it opens', async () => {
   renderWithClient(<App />)
   const issue = {
     key: 'PROJ-1',
+    tracker: 'jira' as const,
     summary: 'Redact tokens',
     status: 'To Do',
     status_category: 'new' as const,
@@ -216,7 +217,9 @@ test('a work-story stage moves focus to the section it opens', async () => {
   act(() => {
     FakeEventSource.latest().emit(
       'snapshot',
-      JSON.stringify(makeSnapshot({ issues: { issues: [issue], total: 1, start_at: 0 } })),
+      JSON.stringify(
+        makeSnapshot({ issues: { issues: [issue], total: 1, start_at: 0, unavailable: [] } }),
+      ),
     )
   })
   await user.click(screen.getByRole('button', { name: /redact tokens/i }))

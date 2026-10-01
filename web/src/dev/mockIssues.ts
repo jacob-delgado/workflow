@@ -9,6 +9,7 @@ export function mockIssueDetail(key: string): IssueDetail {
 
   return {
     key,
+    tracker: 'jira',
     summary: issue?.summary ?? key,
     status: issue?.status ?? 'To Do',
     status_category: issue?.status_category ?? 'new',

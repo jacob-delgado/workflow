@@ -11,6 +11,7 @@ import (
 
 	tea "charm.land/bubbletea/v2"
 
+	"github.com/jacob-delgado/workflow/internal/convention"
 	"github.com/jacob-delgado/workflow/internal/jira"
 )
 
@@ -114,7 +115,7 @@ func (l issueList) visible() []jira.Issue {
 	var matching []jira.Issue
 
 	for _, issue := range l.found.Issues {
-		if strings.Contains(strings.ToLower(string(issue.Key)+" "+issue.Summary), needle) &&
+		if strings.Contains(strings.ToLower(shownKey(issue.Key)+" "+issue.Summary), needle) &&
 			admits(l.places, issue.Status, l.marksOf(issue.Key)) {
 			matching = append(matching, issue)
 		}
@@ -280,9 +281,31 @@ func (l issueList) render(marks glyphs, sty styles, rows int, mark func(jira.Key
 		return l.nothingAdmitted()
 	case l.err != nil:
 		return l.listing(marks, sty, l.listRows(rows), mark) + "\n" + failed
+	case len(l.found.Unavailable) > 0:
+		missing := failedGlyph(sty, marks) + " not read: " + strings.Join(l.found.Unavailable, ", ")
+
+		return l.listing(marks, sty, rows-1, mark) + "\n" + missing
 	}
 
 	return l.listing(marks, sty, rows, mark)
+}
+
+// shownKey is an issue's key as the list shows it: a forge issue's number
+// after a #, as the forge writes it, so it reads apart from a Jira key.
+func shownKey(issueKey jira.Key) string {
+	if isForgeKey(issueKey) {
+		return "#" + string(issueKey)
+	}
+
+	return string(issueKey)
+}
+
+// isForgeKey reports a key shaped like a forge issue's number, which takes
+// what a forge issue does and nothing only Jira's take.
+func isForgeKey(issueKey jira.Key) bool {
+	ref, known := convention.RefOf(string(issueKey))
+
+	return known && ref.Tracker == convention.TrackerForge
 }
 
 // listing is the issues the filter admits, as many as fit in rows, scrolled so
@@ -301,7 +324,7 @@ func (l issueList) listing(marks glyphs, sty styles, rows int, mark func(jira.Ke
 	for index := first; index < last; index++ {
 		issue := visible[index]
 		lines = append(lines, marks.marker(index == l.selected)+marks.status(issue.StatusCategory)+column(issue.Key)+
-			l.inFlightColumn(marks, sty, issue.Key)+" "+string(issue.Key)+" "+sty.label.Render(issue.Status)+" "+
+			l.inFlightColumn(marks, sty, issue.Key)+" "+shownKey(issue.Key)+" "+sty.label.Render(issue.Status)+" "+
 			issue.Summary)
 	}
 

@@ -22,8 +22,10 @@ export interface PlaceChoice {
 
 const inFlight = 'in flight'
 
+const forgeIssue = 'forge issue'
+
 // The marks in the order they are offered, as the rows word them.
-const markOrder = [inFlight, 'task active', 'tracked', 'task done']
+const markOrder = [inFlight, 'task active', 'tracked', 'task done', forgeIssue]
 
 const categoryOrder: StatusCategory[] = ['new', 'indeterminate', 'done']
 
@@ -31,8 +33,9 @@ export function samePlace(a: Place, b: Place): boolean {
   return a.kind === b.kind && a.name === b.name
 }
 
-// marksOf is the marks an issue is in: in flight when a branch names it, and
-// how its tasks stand when Taskwarrior can be asked and one is linked.
+// marksOf is the marks an issue is in: in flight when a branch names it, how
+// its tasks stand when Taskwarrior can be asked and one is linked, and on the
+// forge when it is the repository's own forge issue rather than Jira's.
 export function marksOf(issue: Issue, branchKeys: Set<string>, tasks: TasksSummary): string[] {
   const marks: string[] = []
   if (branchKeys.has(issue.key)) {
@@ -42,6 +45,10 @@ export function marksOf(issue: Issue, branchKeys: Set<string>, tasks: TasksSumma
   const taskMark = tasks.available ? issueTaskMark(linkedTo(tasks.linked, issue.key)) : undefined
   if (taskMark !== undefined) {
     marks.push(taskMark.words)
+  }
+
+  if (issue.tracker === 'forge') {
+    marks.push(forgeIssue)
   }
 
   return marks
@@ -114,4 +121,10 @@ function placeId(place: Place): string {
 
 function unique(names: string[]): string[] {
   return [...new Set(names)]
+}
+
+// shownKey is an issue's key as the list shows it: a forge issue's number
+// after a #, as the forge writes it, so it reads apart from a Jira key.
+export function shownKey(issue: Issue): string {
+  return issue.tracker === 'forge' ? `#${issue.key}` : issue.key
 }
