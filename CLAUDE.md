@@ -229,15 +229,24 @@ without agreement on direction.
     or the repository's root path when the remote is missing or unparsable; a
     hash of a base URL; a view's JQL) — the test that proves a credential can't
     reach it ships with any change to its keys.
-  - **The schema has one version, and a file at another is discarded.**
+  - **Two files: conveniences are discarded, decisions migrate forward.**
+    `workflow.db` holds only conveniences a session can see again (the last
+    scope, announcements, the issue cache). Its schema has one version:
     `schemaVersion` in `internal/store/store.go` is stamped as `PRAGMA
     user_version` by the live `open` that makes the file, before its first
     table; a file whose version differs and holds tables is deleted with its
-    `-wal` and `-shm` companions and made again (the store holds only
-    conveniences, never anything to keep). A `--dry-run` store's read-only open
-    reads a file as it is and neither checks nor stamps it. There are **no
-    migrations**: change the `CREATE TABLE`, bump `schemaVersion`, and move on
-    (see *YAGNI*).
+    `-wal` and `-shm` companions and made again. It has **no migrations**:
+    change the `CREATE TABLE`, bump `schemaVersion`, and move on (see
+    *YAGNI*). `kept.db`, beside it, holds what the user decided and cannot be
+    seen again (whom a forge owner is on Slack, a repository's groups), so it
+    is **never discarded**: `keptMigrations()` in `internal/store/kept.go` is
+    its forward-only list and `user_version` counts those applied, in one
+    `BEGIN IMMEDIATE` transaction that re-reads it. **Add a migration, never
+    edit or remove one.** A file from a newer build is left as it is: it reads
+    as empty and refuses writes (`ErrKeptFromNewerBuild`). A bump of
+    `schemaVersion` never touches `kept.db`. A `--dry-run` store's read-only
+    open reads either file as it is, neither checks, stamps nor migrates it,
+    and never makes one that is missing.
 
 - **License headers**: every `.go` file begins with the two SPDX lines from
   CONTRIBUTING.md. `scripts/check-license-headers.sh` gates this in lefthook,

@@ -659,3 +659,26 @@ skip or repeat a Jira row on a later page.
 
 **Reopen when.** Jira's settings are made live on save, or someone is seen
 to toggle `issues.forge` from Settings and expect it at once.
+
+### TRADE-25 Kept data migrates forward and is never discarded
+
+Whom a forge owner is on Slack, and which Slack groups a repository tags,
+are decisions the user made once and no session can see again. They live
+in `kept.db` beside the cache (`internal/store/kept.go`), whose
+`keptMigrations()` only ever grows, rather than in `workflow.db`, which is
+discarded and remade whenever its schema changes.
+
+**Decided.** 2026-10-01, in #165: asking every owner again after each
+schema bump would make the "asked once" promise false, and the cache's
+discard rule is what keeps `workflow.db` free of migrations. Two files keep
+both: the cache stays migration-free, and the kept file pays for its
+migrations alone. A file from a newer build is never deleted; it reads as
+empty and refuses writes, so a downgrade loses nothing.
+
+**Cost.** Every change to a kept table is a new migration that must apply
+to any file in the field, written forever and never edited; a downgraded
+build tags no one and cannot record a decision until it is upgraded again;
+and `workflow db-clean --all` is the only way to start the kept file fresh.
+
+**Reopen when.** The kept tables need a change no forward migration can
+express, or a migration is found to have been edited after it shipped.
