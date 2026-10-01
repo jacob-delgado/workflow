@@ -14,6 +14,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"slices"
 	"strings"
 
 	"github.com/jacob-delgado/workflow/internal/config"
@@ -73,6 +74,48 @@ type Identity struct {
 	Team  string `json:"team"`
 	// TeamID is the workspace's ID, which, unlike its name, never changes.
 	TeamID string `json:"team_id"`
+	// Granted is the scopes Slack lists the token as granted.
+	Granted Grant `json:"-"`
+}
+
+// Workspace is the ID of the Slack workspace the identity is in: T and
+// capitals and digits, or E for an Enterprise Grid organization's token.
+func (i Identity) Workspace() (string, error) {
+	if !slackID(i.TeamID, "TE") {
+		return "", ErrNoWorkspace
+	}
+
+	return i.TeamID, nil
+}
+
+// scopesHeader is where auth.test lists the scopes a token was granted.
+const scopesHeader = "X-Oauth-Scopes"
+
+// Grant is the scopes Slack granted a token, as auth.test lists them.
+type Grant struct {
+	scopes []string
+	listed bool
+}
+
+// Lacks reports a scope Slack listed the token without. A grant Slack did not
+// list lacks none: only a read's own refusal can tell then.
+func (g Grant) Lacks(scope string) bool {
+	return g.listed && !slices.Contains(g.scopes, scope)
+}
+
+// grantOf is the grant a response's header lists.
+func grantOf(header http.Header) Grant {
+	listed := header.Get(scopesHeader)
+	if listed == "" {
+		return Grant{scopes: nil, listed: false}
+	}
+
+	scopes := strings.Split(listed, ",")
+	for index, scope := range scopes {
+		scopes[index] = strings.TrimSpace(scope)
+	}
+
+	return Grant{scopes: scopes, listed: true}
 }
 
 // TokenSource hands out the Slack user token to send: one other than expired,
@@ -119,19 +162,15 @@ func (c Client) AuthTest(ctx context.Context) (Identity, error) {
 	return identity, err
 }
 
-// Workspace is the ID of the Slack workspace the user token is for: T and
-// capitals and digits, or E for an Enterprise Grid organization's token.
+// Workspace is the ID of the Slack workspace the user token is for, as
+// Identity.Workspace reads it.
 func (c Client) Workspace(ctx context.Context) (string, error) {
 	identity, err := c.AuthTest(ctx)
 	if err != nil {
 		return "", err
 	}
 
-	if !slackID(identity.TeamID, "TE") {
-		return "", ErrNoWorkspace
-	}
-
-	return identity.TeamID, nil
+	return identity.Workspace()
 }
 
 // authTest asks auth.test about token.
@@ -222,6 +261,8 @@ func (c Client) send(request *http.Request) (Identity, error) {
 	if !identity.OK {
 		return Identity{}, credentialRefusal(identity.Error)
 	}
+
+	identity.Granted = grantOf(response.Header)
 
 	return identity, nil
 }
