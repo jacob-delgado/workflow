@@ -22,7 +22,11 @@ const (
 	// slash is anchored to the repository root.
 	GitHub Dialect = iota
 	// GitLab adds sections, each with its own last match and default owners,
-	// and !pattern exclusions; an unanchored pattern matches at any depth.
+	// and !pattern exclusions; a pattern repeated in a section keeps only its
+	// later line. A pattern matches the whole path, as GitLab's fnmatch does:
+	// an unanchored one at any depth, and only one ending in a slash covers a
+	// directory's contents, so docs and /docs name a file and docs/* a
+	// directory's direct children.
 	GitLab
 )
 
@@ -202,8 +206,8 @@ func sectionHeader(header string) (string, string, bool) {
 }
 
 // addRule adds a pattern line to the current section. A GitLab line naming no
-// owners takes the section's defaults; GitHub has no exclusions, so a !pattern
-// line there is skipped.
+// owners takes the section's defaults and replaces an earlier line of the same
+// pattern; GitHub has no exclusions, so a !pattern line there is skipped.
 func (p *parser) addRule(tokens []string) {
 	if len(tokens) == 0 {
 		return
@@ -226,8 +230,14 @@ func (p *parser) addRule(tokens []string) {
 		line.owners = p.defaults
 	}
 
-	at := &p.file.sections[p.current]
-	at.rules = append(at.rules, line)
+	current := &p.file.sections[p.current]
+	if p.dialect == GitLab {
+		current.rules = slices.DeleteFunc(current.rules, func(earlier rule) bool {
+			return earlier.pattern.source == compiled.source
+		})
+	}
+
+	current.rules = append(current.rules, line)
 }
 
 // fields splits a line at whitespace a backslash does not escape, keeping the

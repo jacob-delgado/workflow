@@ -100,8 +100,15 @@ const gitLabExclusionsExample = `* @username
 !/config/**/*.rb
 `
 
-// markdownFile is a Markdown file at the repository root.
-const markdownFile = "a.md"
+// Paths and patterns several cases share.
+const (
+	markdownFile   = "a.md"
+	readme         = "README.md"
+	docsIndex      = "docs/index.md"
+	docsChild      = "docs/a.md"
+	docsGrandchild = "docs/a/b.md"
+	docsChildren   = "docs/* @x\n"
+)
 
 type ownersCase struct {
 	name    string
@@ -119,7 +126,7 @@ func TestOwnersOfGitHubsDocumentedExample(t *testing.T) {
 	t.Parallel()
 
 	cases := []ownersCase{
-		{name: "everything else", paths: []string{"README.md"}, want: users("global-owner1", "global-owner2")},
+		{name: "everything else", paths: []string{readme}, want: users("global-owner1", "global-owner2")},
 		{name: "an inline comment ends the owners", paths: []string{"src/app.js"}, want: users("js-owner")},
 		{name: "an email owner is dropped", paths: []string{"main.go"}, want: codeowners.Owners{}},
 		{name: "a team", paths: []string{"notes.txt"}, want: codeowners.Owners{Teams: []string{"octo-org/octocats"}}},
@@ -163,18 +170,21 @@ func TestOwnersOfGitLabsDocumentedExample(t *testing.T) {
 			name: "a nested group is a team, a bare name a user or group", paths: []string{"README"},
 			want: codeowners.Owners{Users: []string{"group", "dev-team"}, Teams: []string{"group/with-nested/subgroup"}},
 		},
-		{name: "direct children", paths: []string{"docs/index.md"}, want: users("root-docs", "docs", "dev-team")},
+		// The [Documentation] section's "docs" names a file called docs, not a
+		// directory: GitLab expands only a pattern ending in a slash, so these
+		// paths take no owner from that section.
+		{name: "direct children", paths: []string{docsIndex}, want: users("root-docs", "dev-team")},
 		{
 			name: "a globstar under a directory", paths: []string{"docs/projects/index.md"},
-			want: users("root-docs", "docs", "dev-team"),
+			want: users("root-docs", "dev-team"),
 		},
 		{
 			name: "a nested file in an anchored directory", paths: []string{"docs/projects/a.png"},
-			want: users("all-docs", "docs", "dev-team"),
+			want: users("all-docs", "dev-team"),
 		},
 		{name: "a directory anywhere", paths: []string{"src/lib/a.c"}, want: users("lib-owner", "dev-team")},
 		{
-			name: "a combined section", paths: []string{"README.md"},
+			name: "a combined section", paths: []string{readme},
 			want: users("multiple", "code", "owners", "docs", "docs-team"),
 		},
 		{
@@ -185,6 +195,129 @@ func TestOwnersOfGitLabsDocumentedExample(t *testing.T) {
 
 	for _, test := range cases {
 		test.dialect, test.content = codeowners.GitLab, gitLabDocsExample
+
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+
+			// Arrange
+			file := codeowners.Parse(test.content, test.dialect)
+
+			// Act
+			owners := file.OwnersOf(test.paths)
+
+			// Assert
+			if !equalOwners(owners, test.want) {
+				t.Errorf("OwnersOf(%q) = %+v, want %+v", test.paths, owners, test.want)
+			}
+		})
+	}
+}
+
+// gitLabRegularEntriesExample is the example in GitLab's "Regular entries and
+// sections".
+const gitLabRegularEntriesExample = `# Required for all files
+* @general-approvers
+
+[Documentation] @docs-team
+docs/
+README.md
+*.txt
+
+[Database] @database-team
+model/db/
+config/db/database-setup.md @docs-team
+`
+
+func TestOwnersOfGitLabsAdvancedExamples(t *testing.T) {
+	t.Parallel()
+
+	cases := []ownersCase{
+		{
+			name: "every section's owners", content: gitLabRegularEntriesExample, paths: []string{"model/db/CHANGELOG.txt"},
+			want: users("general-approvers", "docs-team", "database-team"),
+		},
+		{
+			name: "an override in a section", content: gitLabRegularEntriesExample,
+			paths: []string{"config/db/database-setup.md"}, want: users("general-approvers", "docs-team"),
+		},
+		{
+			name: "the last matching pattern", content: "*.md @doc-team\nterms.md @legal-team\n",
+			paths: []string{"terms.md"}, want: users("legal-team"),
+		},
+		{
+			name: "an unparsable header joins the section before", content: "* @group\n\n[Section name\ndocs/ @docs_group\n",
+			paths: []string{docsChild}, want: users("docs_group"),
+		},
+		{
+			name: "a malformed owner is ignored", content: "/path/* @group user_without_at_symbol @user_with_at_symbol\n",
+			paths: []string{"path/a"}, want: users("group", "user_with_at_symbol"),
+		},
+		{
+			name: "escaped spaces", content: `path\ with\ spaces/*.md @owner`,
+			paths: []string{"path with spaces/a.md"}, want: users("owner"),
+		},
+	}
+
+	for _, test := range cases {
+		test.dialect = codeowners.GitLab
+
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+
+			// Arrange
+			file := codeowners.Parse(test.content, test.dialect)
+
+			// Act
+			owners := file.OwnersOf(test.paths)
+
+			// Assert
+			if !equalOwners(owners, test.want) {
+				t.Errorf("OwnersOf(%q) = %+v, want %+v", test.paths, owners, test.want)
+			}
+		})
+	}
+}
+
+// TestOwnersOfGitLabPaths pins GitLab's own reading of a pattern
+// (ee/lib/gitlab/code_owners/file.rb normalize_pattern, matched by
+// pattern_index.rb with File.fnmatch? and FNM_DOTMATCH | FNM_PATHNAME): only a
+// trailing slash covers a directory's contents.
+func TestOwnersOfGitLabPaths(t *testing.T) {
+	t.Parallel()
+
+	cases := []ownersCase{
+		{name: "an anchored name is not its directory", content: "/docs @x\n", paths: []string{docsIndex}},
+		{name: "an anchored name is a file", content: "/docs @x\n", paths: []string{"docs"}, want: users("x")},
+		{name: "an unanchored name is not its directory", content: "docs @x\n", paths: []string{docsIndex}},
+		{name: "an unanchored name is a file anywhere", content: "docs @x\n", paths: []string{"a/docs"}, want: users("x")},
+		{name: "a trailing slash covers contents", content: "/docs/ @x\n", paths: []string{docsIndex}, want: users("x")},
+		{name: "a trailing slash covers depth", content: "/docs/ @x\n", paths: []string{docsGrandchild}, want: users("x")},
+		{name: "a trailing slash is not a file", content: "docs/ @x\n", paths: []string{"docs"}},
+		{name: "an unanchored directory anywhere", content: "docs/ @x\n", paths: []string{"x/docs/a"}, want: users("x")},
+		{name: "a direct child", content: docsChildren, paths: []string{docsChild}, want: users("x")},
+		{name: "not a grandchild", content: docsChildren, paths: []string{docsGrandchild}},
+		{name: "a direct child anywhere", content: docsChildren, paths: []string{"x/docs/a.md"}, want: users("x")},
+		{name: "a trailing globstar is one segment", content: "/docs/** @x\n", paths: []string{docsGrandchild}},
+		{name: "a globstar matches none", content: "/docs/**/*.md @x\n", paths: []string{docsChild}, want: users("x")},
+		{name: "a file name at the root", content: "README.md @x\n", paths: []string{readme}, want: users("x")},
+		{name: "a file name at any depth", content: "README.md @x\n", paths: []string{"a/b/README.md"}, want: users("x")},
+		{name: "a star is everything", content: "* @x\n", paths: []string{"a/b/c.go"}, want: users("x")},
+		{name: "a star is a dot file", content: "* @x\n", paths: []string{"a/b/.env"}, want: users("x")},
+		{name: "a glob under a dot directory", content: "*.md @x\n", paths: []string{"a/.hidden/b.md"}, want: users("x")},
+		{name: "a question mark is not a slash", content: "a? @x\n", paths: []string{"a/b"}},
+		{name: "a bang negates a class", content: "x[!a].md @x\n", paths: []string{"xb.md"}, want: users("x")},
+		{
+			name: "a repeated pattern keeps the later line", content: "!*.md\n*.md @x\n",
+			paths: []string{markdownFile}, want: users("x"),
+		},
+		{
+			name: "an exclusion matches in any order", content: "*.md @x\n!/a.md\n*.md @y\n",
+			paths: []string{markdownFile},
+		},
+	}
+
+	for _, test := range cases {
+		test.dialect = codeowners.GitLab
 
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
@@ -246,7 +379,7 @@ func TestOwnersOfEachDialectsRules(t *testing.T) {
 		},
 		{
 			name: "dir/* covers only direct children", dialect: codeowners.GitHub,
-			content: "docs/* @x\n", paths: []string{"docs/a/b.md"},
+			content: docsChildren, paths: []string{docsGrandchild},
 		},
 		{
 			name: "a trailing slash needs a directory", dialect: codeowners.GitHub,

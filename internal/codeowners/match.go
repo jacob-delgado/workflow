@@ -22,16 +22,27 @@ type pattern struct {
 	// coversContents is a pattern that, matching a directory, matches
 	// everything under it. dir/* does not: it covers direct children only.
 	coversContents bool
+	// source is the pattern as GitLab normalizes it, which GitLab keys a
+	// section's rules by; empty on GitHub.
+	source string
 }
 
-// compile reads a raw pattern. A leading slash anchors it to the repository
-// root; otherwise GitHub anchors it when it holds a slash anywhere but the end,
-// and GitLab never does, reading an unanchored p as **/p.
+// compile reads a raw pattern as dialect reads it.
 func compile(raw string, dialect Dialect) (pattern, bool) {
+	if dialect == GitLab {
+		return compileGitLab(raw), true
+	}
+
+	return compileGitHub(raw)
+}
+
+// compileGitHub reads a raw pattern as GitHub does. A leading slash anchors it
+// to the repository root, as does a slash anywhere but the end.
+func compileGitHub(raw string) (pattern, bool) {
 	trimmed, directoryOnly := strings.CutSuffix(raw, "/")
 	trimmed, anchored := strings.CutPrefix(trimmed, "/")
 
-	if dialect == GitHub && strings.Contains(trimmed, "/") {
+	if strings.Contains(trimmed, "/") {
 		anchored = true
 	}
 
@@ -49,6 +60,82 @@ func compile(raw string, dialect Dialect) (pattern, bool) {
 		directoryOnly:  directoryOnly,
 		coversContents: directoryOnly || segments[len(segments)-1] != "*",
 	}, true
+}
+
+// compileGitLab reads a raw pattern as GitLab's normalize_pattern and
+// File.fnmatch? with FNM_DOTMATCH | FNM_PATHNAME do: the whole path must
+// match, so only a pattern ending in a slash, which GitLab extends with **/*,
+// covers a directory's contents.
+func compileGitLab(raw string) pattern {
+	source := normalizeGitLab(raw)
+	segments := splitPath(source)
+
+	for index, glob := range segments {
+		segments[index] = negatedClasses(glob)
+	}
+
+	// fnmatch reads ** as a globstar only before a slash; elsewhere it is *.
+	if last := len(segments) - 1; segments[last] == globstar {
+		segments[last] = "*"
+	}
+
+	return pattern{segments: segments, source: source}
+}
+
+// normalizeGitLab is GitLab's normalize_pattern: * is everything, an escaped
+// leading # and escaped whitespace lose their backslash, an unanchored pattern
+// matches at any depth, and a trailing slash covers what is under it.
+func normalizeGitLab(raw string) string {
+	if raw == "*" {
+		return "/**/*"
+	}
+
+	if rest, found := strings.CutPrefix(raw, `\#`); found {
+		raw = "#" + rest
+	}
+
+	raw = strings.NewReplacer(`\ `, " ", "\\\t", " ", "\\\r", " ", "\\\v", " ", "\\\f", " ").Replace(raw)
+
+	if !strings.HasPrefix(raw, "/") {
+		raw = "/**/" + raw
+	}
+
+	if strings.HasSuffix(raw, "/") {
+		raw += "**/*"
+	}
+
+	return raw
+}
+
+// negatedClasses spells fnmatch's [!...] as path.Match's [^...].
+func negatedClasses(glob string) string {
+	var out strings.Builder
+
+	escaped, inClass := false, false
+
+	for index := 0; index < len(glob); index++ {
+		character := glob[index]
+		out.WriteByte(character)
+
+		switch {
+		case escaped:
+			escaped = false
+		case character == '\\':
+			escaped = true
+		case inClass:
+			inClass = character != ']'
+		case character == '[':
+			inClass = true
+
+			if strings.HasPrefix(glob[index+1:], "!") {
+				out.WriteByte('^')
+
+				index++
+			}
+		}
+	}
+
+	return out.String()
 }
 
 // splitPath is a slash-separated path's segments, without empty ones, so a
