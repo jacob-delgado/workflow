@@ -21,11 +21,12 @@ import (
 )
 
 // Shared fixtures for the forge and tracker tests: the host and remote a github
-// CLI setup points at, the tracker seams named as strings, and the one forge
-// issue transition.
+// CLI setup points at, the remote a GitLab one does, the tracker seams named
+// as strings, and the one forge issue transition.
 const (
 	hostGitHub      = "github.com"
 	remoteGitHub    = "https://github.com/owner/repo.git"
+	remoteGitLab    = "https://gitlab.com/owner/repo.git"
 	seamSearch      = "Search"
 	seamIssue       = "Issue"
 	seamTransition  = "Transition"

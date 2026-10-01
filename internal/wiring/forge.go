@@ -8,6 +8,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"strings"
 	"sync"
 
 	"github.com/jacob-delgado/workflow/internal/config"
@@ -159,7 +160,10 @@ func groupMembersSeam(
 }
 
 // isGroupSeam is the is-this-name-a-group seam, bound only on GitLab, where
-// CODEOWNERS spells a top-level group as it spells a user.
+// CODEOWNERS spells a top-level group as it spells a user. What GitLab
+// answered is kept for the session: the web reads the owners at its preview
+// and again at its post, and a lookup failing only the second time must not
+// turn a group into a person between them.
 func isGroupSeam(
 	ctx context.Context, kind forge.Kind, connect func() (forgeConnection, error),
 ) func(string) (bool, error) {
@@ -167,14 +171,51 @@ func isGroupSeam(
 		return nil
 	}
 
+	known := groupsKnown{mutex: &sync.Mutex{}, answers: map[string]bool{}}
+
 	return func(name string) (bool, error) {
+		group, found := known.answer(name)
+		if found {
+			return group, nil
+		}
+
 		connection, err := connect()
 		if err != nil {
 			return false, err
 		}
 
-		return connection.client.IsGroup(ctx, name)
+		group, err = connection.client.IsGroup(ctx, name)
+		if err == nil {
+			known.keep(name, group)
+		}
+
+		return group, err
 	}
+}
+
+// groupsKnown is what the forge answered of each bare name, by its lower
+// case, since GitLab reads names without regard to case.
+type groupsKnown struct {
+	mutex   *sync.Mutex
+	answers map[string]bool
+}
+
+// answer is what the forge answered of name, and whether it was asked.
+func (k groupsKnown) answer(name string) (bool, bool) {
+	k.mutex.Lock()
+	defer k.mutex.Unlock()
+
+	group, found := k.answers[strings.ToLower(name)]
+
+	return group, found
+}
+
+// keep records what the forge answered of name.
+func (k groupsKnown) keep(name string, group bool) {
+	k.mutex.Lock()
+	defer k.mutex.Unlock()
+
+	k.answers[strings.ToLower(name)] = group
 }
 
 // createPullSeam is the open-a-pull-request seam, split out to keep forgeDeps

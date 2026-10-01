@@ -71,7 +71,7 @@ func TestTheForgeCLITrimsTheBaseForGitLab(t *testing.T) {
 	// Arrange
 	glab := installForgeCLI(t, "glab", forgeReplies{})
 	cfg := config.Config{Forge: config.Forge{CLI: true}}
-	where := wiring.Workspace{Root: t.TempDir(), Remote: "https://gitlab.com/owner/repo.git"}
+	where := wiring.Workspace{Root: t.TempDir(), Remote: remoteGitLab}
 
 	seams := wired(t, cfg, where, nil).Forge
 
