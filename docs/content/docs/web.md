@@ -249,6 +249,19 @@ moment between them is still written over. When the file on disk is not valid,
 Settings says so in place of the form, and `workflow doctor` says what is wrong
 with it.
 
+Below the form, **Local data** shows where workflow keeps what it learns
+between sessions and a row for each database file: the cache (`workflow.db`)
+and the kept associations (`kept.db`), each with its size and what it holds.
+It is read each time Settings opens and saved apart from the configuration.
+**Clean cache…** and **Clean everything…** each ask first, in place, with
+**Cancel** and **Clean**; cleaning everything says that people and group
+associations will be asked again. What the clean did is said below the
+buttons, and the listing is read again. A file another program holds open
+fails the clean without removing anything, and the area says why. Under
+`--dry-run` the buttons are replaced by a sentence saying cleaning is held
+back. It is the web's `workflow db-clean`
+(see [Using workflow]({{< relref "/docs/usage#cleaning-the-local-data" >}})).
+
 ## What stays in the terminal
 
 The web covers the loop's main line. These stay with the terminal interface, or

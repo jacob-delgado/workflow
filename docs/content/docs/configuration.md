@@ -853,12 +853,18 @@ commit scope you last used in a repository, in the interface or with `--web`
 (which reads it once), which pull requests you have
 announced — in the interface or with `workflow announce`, and at which moment,
 so neither announces the same one twice unasked — and the last issue list it
-saw, so the interface opens on it while the live one loads. It lives in a small
-SQLite database under your platform's data directory:
+saw, so the interface opens on it while the live one loads. It also keeps what
+you decided and could not be seen again: whom each code owner is on Slack, or
+that they are not, and the Slack user groups each repository offers. It lives
+in two small SQLite databases under your platform's data directory:
 
 - macOS — `~/Library/Application Support/workflow`
 - Linux — `$XDG_STATE_HOME/workflow`, or `~/.local/state/workflow`
 - Windows — `%AppData%\workflow`
+
+`workflow.db` is the cache: the conveniences above, which a session makes
+again. `kept.db`, beside it, is what you decided — the people and group
+associations — and is never thrown away on its own.
 
 The store **never holds a secret**, and nothing it is keyed by is one. The
 commit scope and what was announced are kept per repository: the origin remote's
@@ -868,15 +874,25 @@ Jira URL, and per view, by the view's JQL query. The store is never keyed by a
 credential, nor by the raw remote or Jira URL, so a token embedded in a remote
 cannot reach it.
 
-Where the filesystem keeps Unix modes, the database file is `0600` in a `0700`
-directory, readable only by you. What it holds is disposable: delete it and the
-next session simply rebuilds it, and a store a build with another schema made is
-discarded and rebuilt the same way. A `--dry-run` never creates it or changes
+Where the filesystem keeps Unix modes, each database file is `0600` in a `0700`
+directory, readable only by you. What the cache holds is disposable: remove it
+and the next session simply rebuilds it, and a cache a build with another schema
+made is discarded and rebuilt the same way. `kept.db` is never discarded: a
+newer build carries what it holds forward, and one from a newer build than
+yours is read as empty and left as it is. A `--dry-run` never creates it or changes
 what it holds: neither the interface nor `--web` opens it at all, and a command
 such as `announce` or `status` opens it read-only, and only when it is already
 there. That read may leave SQLite's two owner-only companion files,
 `workflow.db-wal` and `workflow.db-shm`, beside the database until the next
 session's open removes them.
+
+To see the two files, their sizes and what each holds, and to remove them, run
+`workflow db-clean` (or open **Local data** in the web interface's Settings). It
+removes the cache once you confirm; `--all` removes `kept.db` too, and with it
+every people and group association, which workflow then asks for again. Each
+file goes with its `-wal` and `-shm` companions, and a file another program holds
+open — another workflow session, on Windows — fails the clean without removing
+anything. A running session simply makes a fresh cache on its next write.
 
 The store is on by default. Set `store.disabled` to keep nothing on disk; with it
 set, workflow behaves exactly as it did before the store existed, working
