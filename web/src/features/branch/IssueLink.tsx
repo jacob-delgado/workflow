@@ -1,9 +1,9 @@
-import { useRef, useState } from 'react'
+import { useRef, useState, type RefObject } from 'react'
 import type { Branch, BranchIssuePreview } from '@/api/generated/types.gen.ts'
 import { useForgeWords } from '@/api/health.ts'
 import { shownLinkKey } from '@/features/issues/issuePlaces.ts'
 import { Button } from '@/lib/Button.tsx'
-import { useFocusOnMount } from '@/lib/focus.ts'
+import { useFocusHandback, useFocusOnMount } from '@/lib/focus.ts'
 import type { Teller } from '@/lib/Outcome.tsx'
 import { useAsyncAction } from '@/lib/useAsyncAction.ts'
 import { linkIssue, previewLink, unlinkIssue } from './branchIssueApi.ts'
@@ -13,46 +13,48 @@ const inputClass =
 
 // IssueLink ties the branch to an issue by hand, for work begun outside
 // workflow on a branch whose name names none: it names the issue a linked
-// branch is for, with Unlink, and otherwise offers Link an issue.
+// branch is for, with Unlink, and otherwise offers Link an issue. Focus
+// follows each step to what replaces the control that took it.
 export function IssueLink({ branch, outcome }: { branch: Branch; outcome: Teller }) {
   const [open, setOpen] = useState(false)
-  const unlink = useAsyncAction(unlinkIssue, {
-    fallback: 'The link was not forgotten. Try again.',
-    done: (answered) => `Unlinked ${answered.name}.`,
-    onStart: outcome.clear,
-    onDone: outcome.say,
-  })
+  const [held, setHeld] = useState<HeldLink>()
+  const [offer, focusOffer] = useFocusHandback<HTMLButtonElement>()
+  const [unlinker, focusUnlink] = useFocusHandback<HTMLButtonElement>()
+  const settle = (answered: Branch, focusNext: () => void) => {
+    setHeld({ link: answered.issue_link, over: branch.issue_link, branch: branch.name })
+    focusNext()
+  }
+  const link = linkShown(held, branch)
 
-  if (branch.issue_link !== '') {
-    const shown = shownLinkKey(branch.issue_link)
-
+  if (link !== '') {
     return (
-      <div className="flex items-center gap-item text-sm">
-        <span>
-          Linked to <span className="font-mono">{shown}</span>
-        </span>
-        <Button
-          variant="secondary"
-          aria-label={`Unlink ${shown}`}
-          disabled={unlink.state === 'running'}
-          onClick={() => void unlink.run()}
-        >
-          Unlink
-        </Button>
-      </div>
+      <Linked
+        link={link}
+        unlinker={unlinker}
+        outcome={outcome}
+        onUnlinked={(answered) => {
+          settle(answered, focusOffer)
+        }}
+      />
     )
   }
 
   return open ? (
     <LinkForm
       outcome={outcome}
+      onLinked={(answered) => {
+        settle(answered, focusUnlink)
+        setOpen(false)
+      }}
       onClose={() => {
+        focusOffer()
         setOpen(false)
       }}
     />
   ) : (
     <Button
       variant="secondary"
+      ref={offer}
       className="self-start"
       onClick={() => {
         setOpen(true)
@@ -63,9 +65,78 @@ export function IssueLink({ branch, outcome }: { branch: Branch; outcome: Teller
   )
 }
 
+// HeldLink is the link a write answered with, over the link the stream
+// showed when it answered, on the branch it answered for.
+interface HeldLink {
+  link: string
+  over: string
+  branch: string
+}
+
+// linkShown is the branch's link as the last write left it until the stream
+// moves on from what it showed then: the stream can take seconds to report a
+// write, and meanwhile the page would offer to make it again.
+function linkShown(held: HeldLink | undefined, branch: Branch): string {
+  return held?.branch === branch.name && held.over === branch.issue_link
+    ? held.link
+    : branch.issue_link
+}
+
+interface LinkedProps {
+  link: string
+  unlinker: RefObject<HTMLButtonElement | null>
+  outcome: Teller
+  onUnlinked: (answered: Branch) => void
+}
+
+// Linked names the issue the branch is linked to, with Unlink, which stays
+// focusable while it runs so a refusal finds focus where it was.
+function Linked({ link, unlinker, outcome, onUnlinked }: LinkedProps) {
+  const shown = shownLinkKey(link)
+  const unlink = useAsyncAction(unlinkIssue, {
+    fallback: 'The link was not forgotten. Try again.',
+    done: (answered) => `Unlinked ${answered.name}.`,
+    onStart: outcome.clear,
+    onDone: (said, answered) => {
+      outcome.say(said)
+      onUnlinked(answered)
+    },
+  })
+
+  return (
+    <div className="flex flex-col gap-item">
+      <div className="flex items-center gap-item text-sm">
+        <span>
+          Linked to <span className="font-mono">{shown}</span>
+        </span>
+        <Button
+          variant="secondary"
+          ref={unlinker}
+          aria-label={`Unlink ${shown}`}
+          aria-disabled={unlink.state === 'running'}
+          onClick={() => {
+            if (unlink.state !== 'running') {
+              void unlink.run()
+            }
+          }}
+        >
+          Unlink
+        </Button>
+      </div>
+      <Refusal message={refusalOf(unlink)} />
+    </div>
+  )
+}
+
+interface LinkFormProps {
+  outcome: Teller
+  onLinked: (answered: Branch) => void
+  onClose: () => void
+}
+
 // LinkForm asks which issue, then — when the branch's pull request would
 // change — shows its description with the issue's line before linking.
-function LinkForm({ outcome, onClose }: { outcome: Teller; onClose: () => void }) {
+function LinkForm({ outcome, onLinked, onClose }: LinkFormProps) {
   const [key, setKey] = useState('')
   const [preview, setPreview] = useState<BranchIssuePreview>()
   // The key as it was asked about: the preview's own key is normalized, and
@@ -76,9 +147,9 @@ function LinkForm({ outcome, onClose }: { outcome: Teller; onClose: () => void }
     fallback: 'The branch was not linked. Try again.',
     done: (answered) => `Linked ${answered.name} to ${shownLinkKey(answered.issue_link)}.`,
     onStart: outcome.clear,
-    onDone: (said) => {
+    onDone: (said, answered) => {
       outcome.say(said)
-      onClose()
+      onLinked(answered)
     },
   })
   const ask = useAsyncAction(previewLink, {
