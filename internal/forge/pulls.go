@@ -172,6 +172,7 @@ type dialect struct {
 	issues     func(ctx context.Context, c Client, repo Repo) ([]Issue, error)
 	readIssue  func(ctx context.Context, c Client, repo Repo, number int) (IssueDetail, error)
 	closeIssue func(ctx context.Context, c Client, repo Repo, number int) error
+	assign     func(ctx context.Context, c Client, repo Repo, number int, username string) error
 }
 
 // dialectFor is the dialect of a forge, or ErrUnknownForge for a host whose
@@ -183,11 +184,13 @@ func dialectFor(kind Kind) (dialect, error) {
 			find: githubFind, create: githubCreate, update: githubUpdate, status: githubStatus, rerun: githubRerun,
 			merge: githubMergePull, methods: githubMergeMethods,
 			reviews: githubReviews, issues: githubIssues, readIssue: githubReadIssue, closeIssue: githubCloseIssue,
+			assign: githubAssignIssue,
 		},
 		KindGitLab: {
 			find: gitlabFind, create: gitlabCreate, update: gitlabUpdate, status: gitlabStatus, rerun: gitlabRerun,
 			merge: gitlabMergePull, methods: gitlabMergeMethods,
 			reviews: gitlabReviews, issues: gitlabIssues, readIssue: gitlabReadIssue, closeIssue: gitlabCloseIssue,
+			assign: gitlabAssignIssue,
 		},
 	}
 

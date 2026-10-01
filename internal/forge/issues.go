@@ -3,7 +3,11 @@
 
 package forge
 
-import "context"
+import (
+	"context"
+	"net/http"
+	"strconv"
+)
 
 // issuesSegment is where issues live under a repository's API path, shared so
 // the listing, the read and the close spell it once.
@@ -57,4 +61,65 @@ func (c Client) CloseIssue(ctx context.Context, repo Repo, number int) error {
 	}
 
 	return speaks.closeIssue(ctx, c, repo, number)
+}
+
+// AssignIssue gives an issue to the user named, as Jira's assign does: added to
+// its assignees on GitHub, and made its assignee on GitLab, which keys users by
+// id and so looks the name up first.
+func (c Client) AssignIssue(ctx context.Context, repo Repo, number int, username string) error {
+	speaks, err := dialectFor(repo.Kind)
+	if err != nil {
+		return err
+	}
+
+	return speaks.assign(ctx, c, repo, number, username)
+}
+
+// IssueURL is the issue's page on the forge, for a link to open or copy, or
+// empty on a forge that could not be told.
+func (r Repo) IssueURL(number int) string {
+	var page string
+
+	switch r.Kind {
+	case KindGitHub:
+		page = "/issues/"
+	case KindGitLab:
+		page = "/-/issues/"
+	case KindUnknown:
+		return ""
+	}
+
+	return "https://" + r.Host + "/" + r.Path + page + strconv.Itoa(number)
+}
+
+// githubAssignees is the body that adds assignees to a GitHub issue.
+type githubAssignees struct {
+	Assignees []string `json:"assignees"`
+}
+
+// githubAssignIssue adds username to the issue's assignees.
+func githubAssignIssue(ctx context.Context, client Client, repo Repo, number int, username string) error {
+	_, err := repoCall[githubIssue](ctx, client, repo, http.MethodPost,
+		githubRepoPath(repo)+issuesSegment+"/"+strconv.Itoa(number)+"/assignees",
+		githubAssignees{Assignees: []string{username}})
+
+	return err
+}
+
+// gitlabAssignees is the body that sets a GitLab issue's assignees.
+type gitlabAssignees struct {
+	AssigneeIDs []int64 `json:"assignee_ids"`
+}
+
+// gitlabAssignIssue makes username the issue's assignee.
+func gitlabAssignIssue(ctx context.Context, client Client, repo Repo, number int, username string) error {
+	ids, err := gitlabUserIDs(ctx, client, []string{username})
+	if err != nil {
+		return err
+	}
+
+	_, err = repoCall[gitlabIssue](ctx, client, repo, http.MethodPut,
+		gitlabProjectPath(repo)+issuesSegment+"/"+strconv.Itoa(number), gitlabAssignees{AssigneeIDs: ids})
+
+	return err
 }
