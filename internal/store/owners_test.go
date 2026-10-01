@@ -28,6 +28,18 @@ func podGroup() *store.SlackTarget {
 	return &store.SlackTarget{ID: podID, Label: "control-plane-pod"}
 }
 
+// decided is the decision that owner is target on Slack, or with no target
+// that they are not on Slack, an owner with a slash a team, as CODEOWNERS
+// spells one.
+func decided(owner string, target *store.SlackTarget) store.OwnerLink {
+	link := store.OwnerLink{Owner: owner, Team: strings.Contains(owner, "/"), OnSlack: false, Slack: store.SlackTarget{}}
+	if target != nil {
+		link.OnSlack, link.Slack = true, *target
+	}
+
+	return link
+}
+
 // keptEntities counts the Slack users and groups the kept file holds.
 func keptEntities(t *testing.T, dir string) int {
 	t.Helper()
@@ -49,7 +61,7 @@ func TestAnOwnerNotOnSlackIsRememberedAsDecided(t *testing.T) {
 	kept := store.New(t.TempDir(), false)
 
 	// Act
-	err := kept.LinkOwner(t.Context(), forgeHost, workspaceA, "dan", nil, theTime())
+	err := kept.LinkOwner(t.Context(), forgeHost, workspaceA, decided("dan", nil), theTime())
 	if err != nil {
 		t.Fatalf("LinkOwner returned %v, want nil", err)
 	}
@@ -70,7 +82,7 @@ func TestATeamOwnerLinksToAUserGroup(t *testing.T) {
 	kept := store.New(t.TempDir(), false)
 
 	// Act
-	err := kept.LinkOwner(t.Context(), forgeHost, workspaceA, "acme/control-plane", podGroup(), theTime())
+	err := kept.LinkOwner(t.Context(), forgeHost, workspaceA, decided("acme/control-plane", podGroup()), theTime())
 	if err != nil {
 		t.Fatalf("LinkOwner returned %v, want nil", err)
 	}
@@ -78,7 +90,7 @@ func TestATeamOwnerLinksToAUserGroup(t *testing.T) {
 	links, err := kept.OwnerLinks(t.Context(), forgeHost, workspaceA)
 
 	// Assert
-	want := []store.OwnerLink{{Owner: "acme/control-plane", OnSlack: true, Slack: *podGroup()}}
+	want := []store.OwnerLink{{Owner: "acme/control-plane", Team: true, OnSlack: true, Slack: *podGroup()}}
 	if err != nil || !slices.Equal(links, want) {
 		t.Errorf("OwnerLinks = %+v, %v; want %+v", links, err, want)
 	}
@@ -92,7 +104,7 @@ func TestRelinkingAnOwnerReplacesTheDecision(t *testing.T) {
 	linkAna(t, kept)
 
 	// Act
-	err := kept.LinkOwner(t.Context(), forgeHost, workspaceA, anaOwner, nil, theTime())
+	err := kept.LinkOwner(t.Context(), forgeHost, workspaceA, decided(anaOwner, nil), theTime())
 	if err != nil {
 		t.Fatalf("LinkOwner returned %v, want nil", err)
 	}
@@ -111,13 +123,13 @@ func TestAnOwnersCaseMakesNoSecondDecision(t *testing.T) {
 	// Arrange
 	kept := store.New(t.TempDir(), false)
 
-	err := kept.LinkOwner(t.Context(), forgeHost, workspaceA, "Ana", ana(), theTime())
+	err := kept.LinkOwner(t.Context(), forgeHost, workspaceA, decided("Ana", ana()), theTime())
 	if err != nil {
 		t.Fatalf("linking Ana: %v", err)
 	}
 
 	// Act
-	err = kept.LinkOwner(t.Context(), forgeHost, workspaceA, "ANA", nil, theTime())
+	err = kept.LinkOwner(t.Context(), forgeHost, workspaceA, decided("ANA", nil), theTime())
 	if err != nil {
 		t.Fatalf("LinkOwner returned %v, want nil", err)
 	}
@@ -198,14 +210,15 @@ func TestASlackEntityNoOneLinksToIsPruned(t *testing.T) {
 	}{
 		"relinked to someone else": {
 			change: func(kept store.Store) error {
-				return kept.LinkOwner(t.Context(), forgeHost, workspaceA, anaOwner,
-					&store.SlackTarget{ID: "U099XYZ", Label: "Ana L."}, theTime())
+				relinked := decided(anaOwner, &store.SlackTarget{ID: "U099XYZ", Label: "Ana L."})
+
+				return kept.LinkOwner(t.Context(), forgeHost, workspaceA, relinked, theTime())
 			},
 			left: 1,
 		},
 		"marked not on Slack": {
 			change: func(kept store.Store) error {
-				return kept.LinkOwner(t.Context(), forgeHost, workspaceA, anaOwner, nil, theTime())
+				return kept.LinkOwner(t.Context(), forgeHost, workspaceA, decided(anaOwner, nil), theTime())
 			},
 			left: 0,
 		},
@@ -247,7 +260,7 @@ func TestALinkOfTheWrongShapeIsRefused(t *testing.T) {
 		want   error
 	}{
 		"a user owner linked to a group": {anaOwner, podGroup(), store.ErrInvalidSlackID},
-		"a team owner linked to a user":  {"acme/pod", ana(), store.ErrInvalidSlackID},
+		"a team owner linked to a user":  {acmePod, ana(), store.ErrInvalidSlackID},
 		"a lowercase ID":                 {anaOwner, &store.SlackTarget{ID: "u012abc", Label: ""}, store.ErrInvalidSlackID},
 		"an ID too short":                {anaOwner, &store.SlackTarget{ID: "U1", Label: ""}, store.ErrInvalidSlackID},
 		"an owner of the wrong shape":    {"-ana", nil, store.ErrInvalidOwner},
@@ -263,7 +276,7 @@ func TestALinkOfTheWrongShapeIsRefused(t *testing.T) {
 			kept := store.New(t.TempDir(), false)
 
 			// Act
-			err := kept.LinkOwner(t.Context(), forgeHost, workspaceA, each.owner, each.target, theTime())
+			err := kept.LinkOwner(t.Context(), forgeHost, workspaceA, decided(each.owner, each.target), theTime())
 
 			// Assert
 			if !errors.Is(err, each.want) {
@@ -292,7 +305,7 @@ func TestAStoredRowOfTheWrongShapeReadsAsUndecided(t *testing.T) {
 			kept := store.New(dir, false)
 			linkAna(t, kept)
 
-			err := kept.LinkOwner(t.Context(), forgeHost, workspaceA, "acme/pod", podGroup(), theTime())
+			err := kept.LinkOwner(t.Context(), forgeHost, workspaceA, decided(acmePod, podGroup()), theTime())
 			if err != nil {
 				t.Fatalf("linking the team: %v", err)
 			}
@@ -304,7 +317,7 @@ func TestAStoredRowOfTheWrongShapeReadsAsUndecided(t *testing.T) {
 			links, err := kept.OwnerLinks(t.Context(), forgeHost, workspaceA)
 
 			// Assert
-			want := []store.OwnerLink{{Owner: "acme/pod", OnSlack: true, Slack: *podGroup()}}
+			want := []store.OwnerLink{{Owner: acmePod, Team: true, OnSlack: true, Slack: *podGroup()}}
 			if err != nil || !slices.Equal(links, want) {
 				t.Errorf("OwnerLinks = %+v, %v; want only the untampered team %+v", links, err, want)
 			}

@@ -248,7 +248,7 @@ func TestAWriteAfterACleanMakesTheFileAgain(t *testing.T) {
 
 	// Act
 	scopeErr := kept.RecordScope(t.Context(), repo, "web", theTime())
-	linkErr := kept.LinkOwner(t.Context(), forgeHost, workspaceA, "ben", nil, theTime())
+	linkErr := kept.LinkOwner(t.Context(), forgeHost, workspaceA, decided("ben", nil), theTime())
 
 	// Assert
 	if scopeErr != nil || linkErr != nil {

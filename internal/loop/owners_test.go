@@ -19,6 +19,9 @@ const (
 	ownerUser  = "ana"
 )
 
+// errForgeDown is a forge that could not be asked.
+var errForgeDown = errors.New("forge down")
+
 // ownersFile is the CODEOWNERS the base holds in these tests: the API is
 // owned by ana and a team, the docs by the author and bo.
 const ownersFile = "/api/ @ana @acme/control-plane\n/docs/ @Me @bo\n"
@@ -233,5 +236,40 @@ func TestComposePullProposesTheCodeOwnersAsReviewers(t *testing.T) {
 		read != targetBase {
 		t.Errorf("ComposePull proposed %q and teams %q against %q, want ana and %s against %s",
 			draft.Reviewers, proposedTeams, read, ownerTeam, targetBase)
+	}
+}
+
+func TestOwnersOfCountsANameTheForgeKnowsAsAGroupAmongTheTeams(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	// GitLab spells a top-level group @bo, as it spells a user; the forge
+	// knows bo as a group and ana as a person.
+	seams := ownerSeams()
+	seams.IsGroup = func(name string) (bool, error) { return name == "bo", nil }
+
+	// Act
+	owners, err := loop.OwnersOf(seams, targetBase)
+
+	// Assert
+	if err != nil || !slices.Equal(owners.Users, []string{ownerUser}) ||
+		!slices.Equal(owners.Teams, []string{ownerTeam, "bo"}) {
+		t.Errorf("OwnersOf = %+v, %v; want ana a person, and bo a team beside acme/control-plane", owners, err)
+	}
+}
+
+func TestOwnersOfSaysWhenTheForgeCannotTellAGroupFromAPerson(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	seams := ownerSeams()
+	seams.IsGroup = func(string) (bool, error) { return false, errForgeDown }
+
+	// Act
+	_, err := loop.OwnersOf(seams, targetBase)
+
+	// Assert
+	if !errors.Is(err, errForgeDown) {
+		t.Errorf("OwnersOf = %v, want the forge's failure", err)
 	}
 }

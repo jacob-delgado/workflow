@@ -156,21 +156,27 @@ func (m Model) withBeneath(changed linksOwners) Model {
 	return m
 }
 
-// saveLink saves whom owner is on Slack, or with no target that they are not
-// on it, for the overlay opened as opened.
-func (m Model) saveLink(owner string, target *loop.SlackTarget, opened int) tea.Cmd {
-	save, link := m.deps.Store.LinkOwner, loop.OwnerLink{Owner: owner, OnSlack: false, Slack: loop.SlackTarget{}}
+// saveLink saves link, whom an owner is on Slack or that they are not on it,
+// for the overlay opened as opened.
+func (m Model) saveLink(link loop.OwnerLink, opened int) tea.Cmd {
+	save, readWorkspace := m.deps.Store.LinkOwner, m.deps.Messaging.Workspace
+
+	return func() tea.Msg {
+		err := inWorkspace(readWorkspace, func(workspace string) error { return save(workspace, link) })
+
+		return ownerLinked{opened: opened, link: link, err: err}
+	}
+}
+
+// decided is what was decided for owner, a team or a person: whom they are
+// on Slack, or with no target that they are not on it.
+func decided(owner string, team bool, target *loop.SlackTarget) loop.OwnerLink {
+	link := loop.OwnerLink{Owner: owner, Team: team, OnSlack: false, Slack: loop.SlackTarget{}}
 	if target != nil {
 		link.OnSlack, link.Slack = true, *target
 	}
 
-	readWorkspace := m.deps.Messaging.Workspace
-
-	return func() tea.Msg {
-		err := inWorkspace(readWorkspace, func(workspace string) error { return save(workspace, owner, target) })
-
-		return ownerLinked{opened: opened, link: link, err: err}
-	}
+	return link
 }
 
 // inWorkspace makes write in the Slack workspace the token is for, which every
@@ -338,8 +344,8 @@ func (p ownerPicker) choose(m Model) (Model, tea.Cmd) {
 	m.overlay = p.back
 
 	if chosen.notOnSlack {
-		return m, m.saveLink(p.owner, nil, p.back.openedAs())
+		return m, m.saveLink(decided(p.owner, p.team, nil), p.back.openedAs())
 	}
 
-	return m, m.saveLink(p.owner, &chosen.target, p.back.openedAs())
+	return m, m.saveLink(decided(p.owner, p.team, &chosen.target), p.back.openedAs())
 }

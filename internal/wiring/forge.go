@@ -119,6 +119,7 @@ func forgeDeps(ctx context.Context, setup forgeSetup, connect func() (forgeConne
 		Templates:    func() []forge.Template { return templatesFor(setup.settings(), setup.where) },
 		Author:       authorSeam(ctx, connect),
 		GroupMembers: groupMembersSeam(ctx, kind, connect),
+		IsGroup:      isGroupSeam(ctx, kind, connect),
 		Kind:         kind,
 	}
 }
@@ -154,6 +155,25 @@ func groupMembersSeam(
 		}
 
 		return connection.client.GroupMembers(ctx, group)
+	}
+}
+
+// isGroupSeam is the is-this-name-a-group seam, bound only on GitLab, where
+// CODEOWNERS spells a top-level group as it spells a user.
+func isGroupSeam(
+	ctx context.Context, kind forge.Kind, connect func() (forgeConnection, error),
+) func(string) (bool, error) {
+	if kind != forge.KindGitLab {
+		return nil
+	}
+
+	return func(name string) (bool, error) {
+		connection, err := connect()
+		if err != nil {
+			return false, err
+		}
+
+		return connection.client.IsGroup(ctx, name)
 	}
 }
 

@@ -90,9 +90,7 @@ func (m Model) withTagging(preview messagingPreview) (messagingPreview, tea.Cmd)
 // branch's changes against its base, and what the store kept about them in
 // the Slack workspace the token is for, for the preview opened as opened.
 func (m Model) readTags(opened int) tea.Cmd {
-	owners := loop.OwnerSeams{
-		ChangedPaths: m.deps.Git.ChangedPaths, CodeOwnersAt: m.deps.Git.CodeOwnersAt, Author: m.deps.Forge.Author,
-	}
+	owners := m.taggedOwnerSeams()
 	store, base, readWorkspace := m.deps.Store, m.branch.branch.BaseName(), m.deps.Messaging.Workspace
 
 	return func() tea.Msg {
@@ -107,6 +105,16 @@ func (m Model) readTags(opened int) tea.Cmd {
 		proposal.owners = found
 
 		return tagsRead{opened: opened, proposal: proposal, err: errors.Join(ownersErr, keptErr), workspace: workspace}
+	}
+}
+
+// taggedOwnerSeams are what the owners a post tags are read through: the
+// forge tells a bare name that is a group from a person, since a group is
+// tagged through its user group.
+func (m Model) taggedOwnerSeams() loop.OwnerSeams {
+	return loop.OwnerSeams{
+		ChangedPaths: m.deps.Git.ChangedPaths, CodeOwnersAt: m.deps.Git.CodeOwnersAt, Author: m.deps.Forge.Author,
+		IsGroup: m.deps.Forge.IsGroup,
 	}
 }
 
@@ -496,5 +504,5 @@ func (p messagingPreview) markNotOnSlack(m Model) (Model, tea.Cmd) {
 		return m, nil
 	}
 
-	return m, m.saveLink(owner.Owner, nil, p.opened)
+	return m, m.saveLink(decided(owner.Owner, owner.Team, nil), p.opened)
 }

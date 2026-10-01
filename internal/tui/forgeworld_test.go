@@ -4,6 +4,7 @@
 package tui_test
 
 import (
+	"slices"
 	"strconv"
 	"strings"
 
@@ -52,6 +53,16 @@ func (w *world) nextCI() forge.CI {
 
 // forgeDeps fakes the forge.
 func (w *world) forgeDeps() seams.Forge {
+	deps := w.forgeCalls()
+	if w.forgeGroups != nil {
+		deps.IsGroup = func(name string) (bool, error) { return slices.Contains(w.forgeGroups, name), nil }
+	}
+
+	return deps
+}
+
+// forgeCalls is the forge's every call but its group lookup.
+func (w *world) forgeCalls() seams.Forge {
 	return seams.Forge{
 		FindPullRequest: func(branch string) (forge.PullRequest, bool, error) {
 			w.record("find " + branch)

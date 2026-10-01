@@ -160,7 +160,9 @@ func (s *server) composePullRequest() (forge.NewPullRequest, gitrepo.Branch, err
 // ownerSeams read the code owners of the branch's changes, leaving out the
 // author the server already knows once it has asked.
 func (s *server) ownerSeams() loop.OwnerSeams {
-	owners := loop.OwnerSeams{ChangedPaths: s.deps.ChangedPaths, CodeOwnersAt: s.deps.CodeOwnersAt, Author: nil}
+	owners := loop.OwnerSeams{
+		ChangedPaths: s.deps.ChangedPaths, CodeOwnersAt: s.deps.CodeOwnersAt, Author: nil, IsGroup: nil,
+	}
 	if s.deps.Author != nil {
 		owners.Author = s.cachedAuthor
 	}

@@ -41,10 +41,12 @@ func keptLinks(t *testing.T) string {
 	}
 
 	kept, repo, workspace, now := store.New(dir, false), "github.com/acme/repo", "T0ACME", time.Now()
-	ana := store.SlackTarget{ID: "U0ANA", Label: "Ana Souza"}
+	linked := store.OwnerLink{
+		Owner: "ana", Team: false, OnSlack: true, Slack: store.SlackTarget{ID: "U0ANA", Label: "Ana Souza"},
+	}
 
 	for _, seed := range []error{
-		kept.LinkOwner(t.Context(), "github.com", workspace, "ana", &ana, now),
+		kept.LinkOwner(t.Context(), "github.com", workspace, linked, now),
 		kept.SetRepoGroups(t.Context(), repo, workspace, []store.SlackTarget{{ID: "S0API", Label: "api-reviewers"}}, now),
 		kept.RecordGroups(t.Context(), repo, workspace, []string{"S0API"}, now),
 	} {

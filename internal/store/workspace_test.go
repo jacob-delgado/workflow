@@ -23,6 +23,9 @@ const (
 	workspaceB = "T0BBBBBBB"
 )
 
+// doraOwner is an owner decided not to be on Slack before workspaces were.
+const doraOwner = "dora"
+
 // bea is the Slack user ana is in workspace B.
 func bea() *store.SlackTarget {
 	return &store.SlackTarget{ID: "U0BEA999", Label: "Ana in B"}
@@ -52,7 +55,7 @@ func TestALinkMadeInAnotherWorkspaceLeavesTheFirstOnesLink(t *testing.T) {
 	linkAna(t, kept)
 
 	// Act
-	err := kept.LinkOwner(t.Context(), forgeHost, workspaceB, anaOwner, bea(), theTime())
+	err := kept.LinkOwner(t.Context(), forgeHost, workspaceB, decided(anaOwner, bea()), theTime())
 	if err != nil {
 		t.Fatalf("linking ana in B: %v", err)
 	}
@@ -79,7 +82,7 @@ func TestForgettingAnOwnerInOneWorkspaceKeepsTheirLinkInAnother(t *testing.T) {
 	kept := store.New(t.TempDir(), false)
 	linkAna(t, kept)
 
-	err := kept.LinkOwner(t.Context(), forgeHost, workspaceB, anaOwner, bea(), theTime())
+	err := kept.LinkOwner(t.Context(), forgeHost, workspaceB, decided(anaOwner, bea()), theTime())
 	if err != nil {
 		t.Fatalf("linking ana in B: %v", err)
 	}
@@ -112,7 +115,7 @@ func TestAnOwnerNotOnSlackIsNotOnSlackInEveryWorkspace(t *testing.T) {
 	linkAna(t, kept)
 
 	// Act
-	err := kept.LinkOwner(t.Context(), forgeHost, workspaceB, anaOwner, nil, theTime())
+	err := kept.LinkOwner(t.Context(), forgeHost, workspaceB, decided(anaOwner, nil), theTime())
 	if err != nil {
 		t.Fatalf("LinkOwner returned %v, want nil", err)
 	}
@@ -175,7 +178,7 @@ func TestNothingIsKeptOrReadUnderNoWorkspace(t *testing.T) {
 			return err
 		},
 		"LinkOwner": func(kept store.Store) error {
-			return kept.LinkOwner(t.Context(), forgeHost, "", anaOwner, ana(), theTime())
+			return kept.LinkOwner(t.Context(), forgeHost, "", decided(anaOwner, ana()), theTime())
 		},
 		"RepoGroups": func(kept store.Store) error {
 			_, err := kept.RepoGroups(t.Context(), repo, "")
@@ -255,7 +258,7 @@ func TestAKeptFileFromBeforeWorkspacesAsksAgainWhomEachOwnerIs(t *testing.T) {
 	links, err := kept.OwnerLinks(t.Context(), forgeHost, workspaceA)
 
 	// Assert
-	want := []store.OwnerLink{{Owner: "dora", OnSlack: false, Slack: store.SlackTarget{}}}
+	want := []store.OwnerLink{{Owner: doraOwner, OnSlack: false, Slack: store.SlackTarget{}}}
 	if err != nil || !slices.Equal(links, want) {
 		t.Errorf("OwnerLinks after migrating = %+v, %v; want ana asked again and dora still not on Slack %+v",
 			links, err, want)
@@ -297,7 +300,7 @@ func TestAKeptFileFromBeforeWorkspacesLinksAgainUnderOne(t *testing.T) {
 	kept := store.New(dir, false)
 
 	// Act
-	err := kept.LinkOwner(t.Context(), forgeHost, workspaceB, anaOwner, bea(), theTime())
+	err := kept.LinkOwner(t.Context(), forgeHost, workspaceB, decided(anaOwner, bea()), theTime())
 	if err != nil {
 		t.Fatalf("LinkOwner returned %v, want nil", err)
 	}
@@ -307,7 +310,7 @@ func TestAKeptFileFromBeforeWorkspacesLinksAgainUnderOne(t *testing.T) {
 	// Assert
 	want := []store.OwnerLink{
 		{Owner: anaOwner, OnSlack: true, Slack: *bea()},
-		{Owner: "dora", OnSlack: false, Slack: store.SlackTarget{}},
+		{Owner: doraOwner, OnSlack: false, Slack: store.SlackTarget{}},
 	}
 	if err != nil || !slices.Equal(links, want) {
 		t.Errorf("OwnerLinks = %+v, %v; want %+v", links, err, want)

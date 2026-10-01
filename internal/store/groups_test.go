@@ -16,7 +16,7 @@ import (
 
 // keptVersion is how many migrations this build's kept file holds; it moves
 // with keptMigrations.
-const keptVersion = 3
+const keptVersion = 4
 
 // apiGroup is a second Slack user group a repository may tag.
 func apiGroup() store.SlackTarget {
@@ -240,7 +240,7 @@ func TestAGroupAnOwnerStillLinksToIsKept(t *testing.T) {
 	dir := t.TempDir()
 	kept := store.New(dir, false)
 
-	err := kept.LinkOwner(t.Context(), forgeHost, workspaceA, "acme/pod", podGroup(), theTime())
+	err := kept.LinkOwner(t.Context(), forgeHost, workspaceA, decided(acmePod, podGroup()), theTime())
 	if err != nil {
 		t.Fatalf("linking the team: %v", err)
 	}

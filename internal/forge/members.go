@@ -66,6 +66,29 @@ func (c Client) GroupMembers(ctx context.Context, group string) ([]string, error
 	return usernames, nil
 }
 
+// IsGroup reports whether a bare CODEOWNERS name — @acme, which CODEOWNERS
+// spells for a top-level GitLab group just as it does for a user — is a
+// group: GitLab knows no user by it, and knows a group by it. A name it knows
+// neither by is no group. GitHub spells every team org/team, so there it is
+// ErrNotSupported.
+func (c Client) IsGroup(ctx context.Context, name string) (bool, error) {
+	if c.kind != KindGitLab {
+		return false, ErrNotSupported
+	}
+
+	users, err := gitlabUsersNamed(ctx, c, name)
+	if err != nil || len(users) > 0 {
+		return false, err
+	}
+
+	_, err = gitlabGroupMembers(ctx, c, name)
+	if errors.Is(err, ErrNoAPI) {
+		return false, nil
+	}
+
+	return err == nil, err
+}
+
 // gitlabGroupMembers reads every page of a group's direct members, as far as
 // the page cap, and keeps those who can review.
 func gitlabGroupMembers(ctx context.Context, client Client, group string) ([]gitlabMember, error) {

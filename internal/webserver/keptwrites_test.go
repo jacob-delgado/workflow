@@ -92,7 +92,7 @@ func TestCleanLocalDataWaitsForAKeptWriteUnderWay(t *testing.T) {
 	linking, release, cleaned := make(chan struct{}), make(chan struct{}), make(chan struct{})
 	deps := filledDeps()
 	newFakeKept().wire(&deps)
-	deps.LinkOwner = func(string, string, *loop.SlackTarget) error {
+	deps.LinkOwner = func(string, loop.OwnerLink) error {
 		close(linking)
 		<-release
 

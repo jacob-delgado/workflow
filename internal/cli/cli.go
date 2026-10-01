@@ -351,9 +351,9 @@ func WebDeps(deps tui.Deps) webserver.Deps {
 		JobLog:        deps.Forge.JobLog,
 		Author:        deps.Forge.Author,
 		Post:          deps.Messaging.Post,
+		IsGroup:       deps.Forge.IsGroup,
 
-		ReviewRequests: deps.Forge.ReviewRequests,
-
+		ReviewRequests:  deps.Forge.ReviewRequests,
 		LinkPullRequest: deps.Jira.LinkPullRequest,
 		Transitions:     deps.Jira.Transitions,
 		Transition:      deps.Jira.Transition,

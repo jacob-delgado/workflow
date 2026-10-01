@@ -35,6 +35,11 @@ func ana() *loop.SlackTarget {
 	return &loop.SlackTarget{ID: "U012ABC", Label: "Ana Lima"}
 }
 
+// anaLinked is the decision that the forge owner ana is the Slack user Ana.
+func anaLinked() loop.OwnerLink {
+	return loop.OwnerLink{Owner: anaOwner, Team: false, OnSlack: true, Slack: *ana()}
+}
+
 // podGroup is a Slack user group a repository may tag.
 func podGroup() loop.SlackTarget {
 	return loop.SlackTarget{ID: "S0POD123", Label: "control-plane-pod"}
@@ -60,7 +65,7 @@ func TestAnOwnerLinkIsKeyedByTheForgeHostAlone(t *testing.T) {
 	deps := wired(t, config.Default(), wiring.Workspace{Root: t.TempDir(), Remote: credentialedRemote}, nil)
 
 	// Act
-	err := deps.Store.LinkOwner(workspace, anaOwner, ana())
+	err := deps.Store.LinkOwner(workspace, anaLinked())
 	// Assert
 	if err != nil {
 		t.Fatalf("LinkOwner returned %v, want nil", err)
@@ -83,7 +88,7 @@ func TestAnOwnerLinkIsSharedByEveryRepositoryOnTheHost(t *testing.T) {
 	second := wired(t, config.Default(),
 		wiring.Workspace{Root: t.TempDir(), Remote: "git@GitHub.com:other/repo.git"}, nil)
 
-	err := first.Store.LinkOwner(workspace, anaOwner, ana())
+	err := first.Store.LinkOwner(workspace, anaLinked())
 	if err != nil {
 		t.Fatalf("linking ana: %v", err)
 	}
@@ -103,7 +108,9 @@ func TestAForgottenOwnerIsUndecidedThroughTheSeams(t *testing.T) {
 	isolatedStoreDir(t)
 	deps := wired(t, config.Default(), wiring.Workspace{Root: t.TempDir(), Remote: credentialedRemote}, nil)
 
-	err := deps.Store.LinkOwner(workspace, "dan", nil)
+	notOnSlack := loop.OwnerLink{Owner: "dan", Team: false, OnSlack: false, Slack: loop.SlackTarget{}}
+
+	err := deps.Store.LinkOwner(workspace, notOnSlack)
 	if err != nil {
 		t.Fatalf("deciding dan: %v", err)
 	}
@@ -127,7 +134,7 @@ func TestALinkOfTheWrongShapeIsRefusedThroughTheSeams(t *testing.T) {
 	group := podGroup()
 
 	// Act
-	err := deps.Store.LinkOwner(workspace, anaOwner, &group)
+	err := deps.Store.LinkOwner(workspace, loop.OwnerLink{Owner: anaOwner, Team: false, OnSlack: true, Slack: group})
 
 	// Assert
 	if !errors.Is(err, store.ErrInvalidSlackID) {
@@ -224,7 +231,7 @@ func TestADryRunNeverMakesTheKeptFile(t *testing.T) {
 		wiring.Workspace{Root: t.TempDir(), Remote: credentialedRemote})
 
 	// Act
-	linkErr := readOnly.LinkOwner(workspace, anaOwner, ana())
+	linkErr := readOnly.LinkOwner(workspace, anaLinked())
 	groupsErr := readOnly.SetRepoGroups(workspace, []loop.SlackTarget{podGroup()})
 
 	// Assert

@@ -98,6 +98,9 @@ type world struct {
 	noRemoteBranches  bool
 	codeOwners        []string
 	codeOwnersErr     error
+	// forgeGroups are the bare names the forge knows as groups, as GitLab
+	// does; nil binds no group lookup, as on GitHub.
+	forgeGroups       []string
 	changedPathsErr   error
 	noCodeOwners      bool
 	recentSubjects    []string

@@ -146,12 +146,17 @@ type Deps struct {
 	// A nil OwnerLinks or RepoGroups answers People and groups as not
 	// available, and an announcement as tagging no one.
 	OwnerLinks    func(workspace string) ([]loop.OwnerLink, error)
-	LinkOwner     func(workspace, owner string, target *loop.SlackTarget) error
+	LinkOwner     func(workspace string, decision loop.OwnerLink) error
 	ForgetOwner   func(workspace, owner string) error
 	RepoGroups    func(workspace string) ([]loop.SlackTarget, error)
 	SetRepoGroups func(workspace string, groups []loop.SlackTarget) error
 	LastGroups    func(workspace string) ([]string, bool)
 	RecordGroups  func(workspace string, ids []string) error
+
+	// IsGroup reports whether a bare CODEOWNERS name is a top-level GitLab
+	// group, which is tagged as a team, as seams.Forge binds it. Nil, as on
+	// GitHub, takes every bare name for a person.
+	IsGroup func(name string) (bool, error)
 
 	// Workspace is the ID of the Slack workspace the user token is for, as
 	// seams.Messaging binds it. When it cannot be read, an announcement tags

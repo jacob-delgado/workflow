@@ -122,6 +122,7 @@ func runAnnounceCommand(cmd *cobra.Command, prompt Prompt, opts writeOptions) er
 		Tagging: announceTagging{
 			Owners: loop.OwnerSeams{
 				ChangedPaths: deps.Git.ChangedPaths, CodeOwnersAt: deps.Git.CodeOwnersAt, Author: deps.Forge.Author,
+				IsGroup: deps.Forge.IsGroup,
 			},
 			OwnerLinks:   deps.Store.OwnerLinks,
 			RepoGroups:   deps.Store.RepoGroups,
