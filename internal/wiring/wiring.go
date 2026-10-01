@@ -346,7 +346,7 @@ func storeDeps(ctx context.Context, kept store.Store, cfg config.Config, where W
 	repo := repoKey(where)
 	instance := instanceKey(cfg.Jira.BaseURL)
 
-	return seams.Store{
+	return bindKept(ctx, kept, where, seams.Store{
 		LastScope: func() (string, bool) {
 			scope, found, _ := kept.LastScope(ctx, repo)
 
@@ -381,7 +381,7 @@ func storeDeps(ctx context.Context, kept store.Store, cfg config.Config, where W
 		CacheIssues: func(view string, issues []jira.Issue) {
 			_ = kept.CacheIssues(ctx, instance, view, toCachedIssues(issues), time.Now())
 		},
-	}
+	})
 }
 
 // toCachedIssues reduces the tracker's issues to the store's shape, neutralizing
@@ -433,16 +433,27 @@ func instanceKey(baseURL string) string {
 // host and path, never used raw, because an HTTPS remote can carry a credential
 // in its userinfo and the store must never hold a secret.
 func repoKey(where Workspace) string {
-	if where.Remote == "" {
-		return where.Root
-	}
-
-	repo, err := forge.ParseRemote(where.Remote)
-	if err != nil {
+	repo, parsed := parsedRemote(where)
+	if !parsed {
 		return where.Root
 	}
 
 	return repo.Host + "/" + repo.Path
+}
+
+// parsedRemote is the origin remote parsed to its host and path, and whether
+// there is one that parses.
+func parsedRemote(where Workspace) (forge.Repo, bool) {
+	if where.Remote == "" {
+		return forge.Repo{}, false
+	}
+
+	repo, err := forge.ParseRemote(where.Remote)
+	if err != nil {
+		return forge.Repo{}, false
+	}
+
+	return repo, true
 }
 
 // hookDeps is what a surface asks of lefthook — nothing at all when lefthook
