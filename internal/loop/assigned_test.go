@@ -209,3 +209,47 @@ func TestAssignedKeysAsksInBatchesOfAHundredKeys(t *testing.T) {
 		t.Errorf("AssignedKeys kept %d keys after asking %v, want 150 after %v", len(mine), tracker.asked, want)
 	}
 }
+
+// jiraIssue is a Jira key asked about beside a forge issue's number.
+const jiraIssue jira.Key = "OPS-1"
+
+func TestAssignedKeysNamesNoForgeNumberInTheQuery(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	// Jira and the forge as one tracker: the forge's assigned issues lead
+	// whatever page Jira answers the query with.
+	tracker := &fakeTracker{pages: []jira.SearchResult{issuesFor([]jira.Key{"42", jiraIssue}, 2)}}
+
+	// Act
+	mine, err := loop.AssignedKeys(tracker.search, []jira.Key{jiraIssue, "42"})
+
+	// Assert
+	want := jira.KeysAssignedToMe([]jira.Key{jiraIssue})
+	if err != nil || len(tracker.asked) != 1 || tracker.asked[0].jql != want {
+		t.Fatalf("asked %v, %v; want one search for %q", tracker.asked, err, want)
+	}
+
+	if want := map[jira.Key]bool{"42": true, jiraIssue: true}; !maps.Equal(mine, want) {
+		t.Errorf("AssignedKeys = %v, want %v", mine, want)
+	}
+}
+
+func TestAssignedKeysOfForgeNumbersAloneAsksWithNoQuery(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	tracker := &fakeTracker{pages: []jira.SearchResult{issuesFor([]jira.Key{"42"}, 1)}}
+
+	// Act
+	mine, err := loop.AssignedKeys(tracker.search, []jira.Key{"7", "42"})
+
+	// Assert
+	if err != nil || len(tracker.asked) != 1 || tracker.asked[0].jql != jira.NoKeys {
+		t.Fatalf("asked %v, %v; want one search with no query", tracker.asked, err)
+	}
+
+	if want := map[jira.Key]bool{"42": true}; !maps.Equal(mine, want) {
+		t.Errorf("AssignedKeys = %v, want %v", mine, want)
+	}
+}

@@ -147,6 +147,39 @@ func TestAnotherViewListsJiraAlone(t *testing.T) {
 	}
 }
 
+func TestAKeyCheckOfForgeNumbersAloneAsksOnlyTheForge(t *testing.T) {
+	// Arrange
+	installForgeCLI(t, "gh", forgeReplies{search: theBugList})
+
+	stand := &fakeJira{}
+	tracker := bothTrackers(t, stand)
+
+	// Act
+	result, err := tracker.SearchLenient(jira.NoKeys, 0)
+
+	// Assert
+	if err != nil || !slices.Equal(keysOf(result), []jira.Key{"42"}) || len(stand.requests()) != 0 {
+		t.Errorf("SearchLenient = %v, %v, Jira asked %v; want the forge's 42 alone", keysOf(result), err, stand.requests())
+	}
+}
+
+func TestJiraAloneIsNotAskedAKeyCheckNamingNoKey(t *testing.T) {
+	// Arrange
+	stand := &fakeJira{}
+
+	cfg := config.Default()
+	cfg.Jira = config.Jira{BaseURL: stand.serve(t), Token: jiraToken}
+	tracker := wired(t, cfg, wiring.Workspace{Root: t.TempDir()}, nil).Jira
+
+	// Act
+	result, err := tracker.SearchLenient(jira.NoKeys, 0)
+
+	// Assert
+	if err != nil || len(result.Issues) != 0 || len(stand.requests()) != 0 {
+		t.Errorf("SearchLenient = %v, %v, Jira asked %v; want nothing asked", keysOf(result), err, stand.requests())
+	}
+}
+
 func TestEachKeyIsReadFromItsOwnTracker(t *testing.T) {
 	// Arrange
 	installForgeCLI(t, "gh", forgeReplies{issue: theBugDetail})
