@@ -201,18 +201,18 @@ type Store struct {
 	CacheIssues func(view string, issues []jira.Issue)
 	// OwnerLinks is every forge owner decided on this repository's forge host
 	// as a Slack workspace, Messaging.Workspace, sees them: whom each is on
-	// Slack there, or that they are not on Slack anywhere. An owner linked
-	// only in other workspaces is left out, so they are asked again. Kept data
-	// survives the cache's schema changes; a file from a newer build reads as
-	// none. The kept seams, OwnerLinks through RecordGroups, are nil when the
-	// store keeps nothing, and the owner ones when there is no forge host to
-	// key them by. Each refuses an empty workspace with store.ErrNoWorkspace,
-	// but LinkOwner's "not on Slack", which is about the person.
+	// Slack there, or that they are not on Slack there. An owner decided only
+	// in other workspaces is left out, so they are asked again. Kept data
+	// survives the cache's schema changes; a file at another kept schema
+	// version reads as none. The kept seams, OwnerLinks through RecordGroups,
+	// are nil when the store keeps nothing, and the owner ones when there is
+	// no forge host to key them by. Each refuses an empty workspace with
+	// store.ErrNoWorkspace.
 	OwnerLinks func(workspace string) ([]loop.OwnerLink, error)
 	// LinkOwner records what was decided for a forge owner on this forge
 	// host, and whether they are a person or a team: whom they are on Slack
 	// in a workspace — a user for a person, a user group for a team — or that
-	// they are not on Slack in any, so they are not asked again.
+	// they are not on Slack there, so they are not asked again there.
 	LinkOwner func(workspace string, decision loop.OwnerLink) error
 	// ForgetOwner drops what was decided for a forge owner in a workspace, so
 	// they are asked again there.

@@ -9,6 +9,7 @@ import (
 	"errors"
 	"fmt"
 	"path/filepath"
+	"slices"
 	"strconv"
 )
 
@@ -19,29 +20,33 @@ import (
 const keptName = "kept.db"
 
 // keptPragmas are the cache's shared-access pragmas, with every transaction
-// taking the write lock as it begins: a migration re-reads the version under
-// that lock, so two processes opening an older file never both apply one.
+// taking the write lock as it begins: making the schema re-reads the version
+// under that lock, so two processes opening a fresh file never both make it.
 const keptPragmas = dsnPragmas + "&_txlock=immediate"
 
-// ErrKeptFromNewerBuild reports a kept database a newer build of workflow
-// migrated past what this build knows. It is left as it is: it reads as empty,
-// and a write is refused rather than risk what the newer build kept.
-var ErrKeptFromNewerBuild = errors.New("the kept data is from a newer build of workflow; it is left as it is")
-
-// keptMigrations are the kept database's migrations in order; the file's
-// user_version is how many of them it has applied. Add a migration at the end,
-// never edit or remove one: a file in the field may already hold it.
+// keptSchemaVersion is the version of the schema keptSchema makes, stamped
+// into the file as SQLite's user_version. There are no migrations: a change to
+// a kept table changes keptSchema and bumps this, and a file at another
+// version is left for the user to remove.
 //
-// Trade-off TRADE-25: kept data migrates forward and is never discarded, so
-// this list only grows, where the cache's schema is simply remade.
-func keptMigrations() [][]string {
-	return [][]string{
-		ownersMigration(), groupsMigration(), workspacesMigration(), ownerKindsMigration(), linkWorkspacesMigration(),
-	}
+// Trade-off TRADE-25: kept data has one schema and is never migrated.
+const keptSchemaVersion = 1
+
+// ErrKeptSchemaDiffers reports a kept database written at another schema
+// version than this build's. It is left as it is: it reads as empty, and a
+// write is refused rather than risk what it holds.
+var ErrKeptSchemaDiffers = errors.New(
+	"the kept data was written by a build of workflow with another schema; " +
+		"run `workflow db-clean --all` to start it fresh")
+
+// keptSchema is every table the kept database holds, made once in a fresh
+// file.
+func keptSchema() []string {
+	return slices.Concat(ownersSchema(), groupsSchema())
 }
 
-// keptWithin runs write in one transaction on the kept database, migrated to
-// this build, committing only when write succeeds. A disabled or read-only
+// keptWithin runs write in one transaction on the kept database, at this
+// build's schema, committing only when write succeeds. A disabled or read-only
 // store writes nothing.
 func (s Store) keptWithin(ctx context.Context, write func(*sql.Tx) error) error {
 	if s.writesNothing() {
@@ -73,23 +78,22 @@ func (s Store) keptWithin(ctx context.Context, write func(*sql.Tx) error) error 
 	return nil
 }
 
-// readKept opens the kept database for a read that needs the tables the first
-// need migrations make, and reports false when there is nothing to read: a
-// store that is off, a read-only one with no file or a file not yet migrated
-// that far, or a file from a newer build.
-func (s Store) readKept(ctx context.Context, need int) (*sql.DB, bool, error) {
+// readKept opens the kept database for a read, and reports false when there
+// is nothing to read: a store that is off, a read-only one with no file or one
+// not yet made, or a file at another schema version.
+func (s Store) readKept(ctx context.Context) (*sql.DB, bool, error) {
 	if s.nothingToReadIn(keptName) {
 		return nil, false, nil
 	}
 
 	if s.readOnly {
-		return s.readKeptAsItIs(ctx, need)
+		return s.readKeptAsItIs(ctx)
 	}
 
 	database, err := s.openKept(ctx)
 
 	switch {
-	case errors.Is(err, ErrKeptFromNewerBuild):
+	case errors.Is(err, ErrKeptSchemaDiffers):
 		return nil, false, nil
 	case err != nil:
 		return nil, false, err
@@ -99,9 +103,9 @@ func (s Store) readKept(ctx context.Context, need int) (*sql.DB, bool, error) {
 }
 
 // readKeptAsItIs opens the kept database already on disk for a dry run's
-// read, which migrates nothing, so a file short of need migrations, or past
-// this build's, reads as empty.
-func (s Store) readKeptAsItIs(ctx context.Context, need int) (*sql.DB, bool, error) {
+// read, which makes nothing, so a file not at this build's schema reads as
+// empty.
+func (s Store) readKeptAsItIs(ctx context.Context) (*sql.DB, bool, error) {
 	database, err := s.openAsItIs(keptName)
 	if err != nil {
 		return nil, false, err
@@ -114,7 +118,7 @@ func (s Store) readKeptAsItIs(ctx context.Context, need int) (*sql.DB, bool, err
 		return nil, false, err
 	}
 
-	if version < need || version > len(keptMigrations()) {
+	if version != keptSchemaVersion {
 		_ = database.Close()
 
 		return nil, false, nil
@@ -123,8 +127,8 @@ func (s Store) readKeptAsItIs(ctx context.Context, need int) (*sql.DB, bool, err
 	return database, true, nil
 }
 
-// openKept opens the kept database for writing, making it where there is none,
-// and migrates it to this build.
+// openKept opens the kept database for writing, making it and its schema
+// where there is none, and refuses a file at another schema version.
 func (s Store) openKept(ctx context.Context) (*sql.DB, error) {
 	err := s.makeDir()
 	if err != nil {
@@ -140,7 +144,7 @@ func (s Store) openKept(ctx context.Context) (*sql.DB, error) {
 		return nil, fmt.Errorf("opening the kept data: %w", err)
 	}
 
-	err = migrate(ctx, database, keptMigrations())
+	err = prepareKept(ctx, database)
 	if err != nil {
 		_ = database.Close()
 
@@ -152,31 +156,31 @@ func (s Store) openKept(ctx context.Context) (*sql.DB, error) {
 	return database, nil
 }
 
-// migrate brings the kept database up to every migration, refusing a file
-// past them. A file already current costs one read and no lock.
-func migrate(ctx context.Context, database *sql.DB, migrations [][]string) error {
+// prepareKept makes the schema in a fresh kept database and refuses one at
+// another version. A file already at this build's costs one read and no lock.
+func prepareKept(ctx context.Context, database *sql.DB) error {
 	version, err := readVersion(ctx, database)
 	if err != nil {
 		return err
 	}
 
-	switch {
-	case version == len(migrations):
+	switch version {
+	case keptSchemaVersion:
 		return nil
-	case version > len(migrations):
-		return ErrKeptFromNewerBuild
+	case 0:
+		return makeKeptSchema(ctx, database)
 	default:
-		return applyMigrations(ctx, database, migrations)
+		return ErrKeptSchemaDiffers
 	}
 }
 
-// applyMigrations applies the migrations the file lacks in one transaction,
-// which takes the write lock as it begins and re-reads the version under it,
-// since another process may have migrated the file meanwhile.
-func applyMigrations(ctx context.Context, database *sql.DB, migrations [][]string) error {
+// makeKeptSchema makes the schema in one transaction, which takes the write
+// lock as it begins and re-reads the version under it, since another process
+// may have made it meanwhile.
+func makeKeptSchema(ctx context.Context, database *sql.DB) error {
 	transaction, err := database.BeginTx(ctx, nil)
 	if err != nil {
-		return fmt.Errorf("migrating the kept data: %w", err)
+		return fmt.Errorf("preparing the kept data: %w", err)
 	}
 	defer func() { _ = transaction.Rollback() }()
 
@@ -185,31 +189,39 @@ func applyMigrations(ctx context.Context, database *sql.DB, migrations [][]strin
 		return err
 	}
 
-	if version > len(migrations) {
-		return ErrKeptFromNewerBuild
+	if version != 0 {
+		return keptVersionCheck(version)
 	}
 
-	for _, migration := range migrations[version:] {
-		for _, statement := range migration {
-			_, err = transaction.ExecContext(ctx, statement)
-			if err != nil {
-				return fmt.Errorf("migrating the kept data: %w", err)
-			}
+	for _, statement := range keptSchema() {
+		_, err = transaction.ExecContext(ctx, statement)
+		if err != nil {
+			return fmt.Errorf("preparing the kept data: %w", err)
 		}
 	}
 
-	// A PRAGMA binds no placeholder; the version is this package's own count.
-	_, err = transaction.ExecContext(ctx, "PRAGMA user_version = "+strconv.Itoa(len(migrations)))
+	// A PRAGMA binds no placeholder; the version is this package's own constant.
+	_, err = transaction.ExecContext(ctx, "PRAGMA user_version = "+strconv.Itoa(keptSchemaVersion))
 	if err != nil {
 		return fmt.Errorf("stamping the kept data's version: %w", err)
 	}
 
 	err = transaction.Commit()
 	if err != nil {
-		return fmt.Errorf("migrating the kept data: %w", err)
+		return fmt.Errorf("preparing the kept data: %w", err)
 	}
 
 	return nil
+}
+
+// keptVersionCheck is what a file another process stamped first comes to: at
+// this build's version it is ready, at another it is refused.
+func keptVersionCheck(version int) error {
+	if version == keptSchemaVersion {
+		return nil
+	}
+
+	return ErrKeptSchemaDiffers
 }
 
 // pruneSlackEntities drops every Slack user or group nothing links to any

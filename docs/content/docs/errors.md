@@ -150,7 +150,7 @@ checked against the channel the link names, the configured one when it names
 none); for a new repository group, never one already saved, that the
 workspace's user groups do not hold; for a token
 that lacks a scope the read needs, which the detail names; and for kept data
-from a newer build of workflow, which is left as it is. Nothing is written
+a build of workflow with another schema wrote, which is left as it is. Nothing is written
 then. (A Slack directory read on its own answers a missing scope with a 200
 naming it, so the preview can still post.) An announcement answers it for
 mentions that name a user group the announcement did not offer, or that it

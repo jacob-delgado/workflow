@@ -4,19 +4,22 @@
 package store_test
 
 // The kept database, kept.db, sits beside workflow.db and holds what the user
-// decided rather than what a session saw. It migrates forward and is never
-// discarded: a schema bump of the cache leaves it alone, a file from a newer
-// build reads as empty and refuses writes, one that is not a database is
-// reported and left for the user to clean, and a dry run never makes it.
+// decided rather than what a session saw. Its schema has one version and it
+// is never discarded: a schema bump of the cache leaves it alone, a file at
+// another version reads as empty and refuses writes, one that is not a
+// database is reported and left for the user to clean, and a dry run never
+// makes it.
 
 import (
 	"bytes"
 	"database/sql"
 	"errors"
+	"fmt"
 	"io/fs"
 	"os"
 	"path/filepath"
 	"slices"
+	"strings"
 	"sync"
 	"testing"
 
@@ -157,7 +160,7 @@ func TestKeptDataSurvivesTheCachesSchemaBump(t *testing.T) {
 	}
 }
 
-func TestAKeptFileFromANewerBuildReadsAsEmpty(t *testing.T) {
+func TestAKeptFileAtAnotherSchemaVersionReadsAsEmpty(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
@@ -171,11 +174,11 @@ func TestAKeptFileFromANewerBuildReadsAsEmpty(t *testing.T) {
 
 	// Assert
 	if err != nil || len(links) != 0 {
-		t.Errorf("OwnerLinks from a newer build's file = %+v, %v; want nothing and no error", links, err)
+		t.Errorf("OwnerLinks from a file at another version = %+v, %v; want nothing and no error", links, err)
 	}
 }
 
-func TestAKeptFileFromANewerBuildRefusesWritesAndIsLeftAlone(t *testing.T) {
+func TestAKeptFileAtAnotherSchemaVersionRefusesWritesAndIsLeftAlone(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
@@ -189,16 +192,20 @@ func TestAKeptFileFromANewerBuildRefusesWritesAndIsLeftAlone(t *testing.T) {
 	err := kept.LinkOwner(t.Context(), forgeHost, workspaceA, decided("ben", nil), theTime())
 
 	// Assert
-	if !errors.Is(err, store.ErrKeptFromNewerBuild) {
-		t.Errorf("LinkOwner on a newer build's file = %v, want ErrKeptFromNewerBuild", err)
+	if !errors.Is(err, store.ErrKeptSchemaDiffers) {
+		t.Errorf("LinkOwner on a file at another version = %v, want ErrKeptSchemaDiffers", err)
+	}
+
+	if !strings.Contains(fmt.Sprint(err), "workflow db-clean --all") {
+		t.Errorf("LinkOwner's refusal = %q, want it to name workflow db-clean --all", err)
 	}
 
 	if got := keptPragma(t, dir, "user_version"); got != 99 {
-		t.Errorf("the newer file is now at version %d, want it left at 99", got)
+		t.Errorf("the file is now at version %d, want it left at 99", got)
 	}
 
 	if got := keptPragma(t, dir, "application_id"); got != 42 {
-		t.Errorf("the newer file's application_id is %d, want the file that was there", got)
+		t.Errorf("the file's application_id is %d, want the file that was there", got)
 	}
 }
 
@@ -315,12 +322,12 @@ func TestADisabledStoreKeepsNoLink(t *testing.T) {
 	}
 }
 
-func TestStoresOpeningAFreshKeptFileTogetherAllMigrateIt(t *testing.T) {
+func TestStoresOpeningAFreshKeptFileTogetherAllPrepareIt(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
-	// Each process migrates in one immediate transaction that re-reads the
-	// version, so none applies a migration another already has.
+	// Each process makes the schema in one immediate transaction that re-reads
+	// the version, so none makes a table another already has.
 	dir := t.TempDir()
 	owners := []string{anaOwner, "ben", "carla", "dan", "eve", "fay"}
 	failures := make([]error, len(owners))

@@ -14,10 +14,6 @@ import (
 	"github.com/jacob-delgado/workflow/internal/store"
 )
 
-// keptVersion is how many migrations this build's kept file holds; it moves
-// with keptMigrations.
-const keptVersion = 5
-
 // apiGroup is a second Slack user group a repository may tag.
 func apiGroup() store.SlackTarget {
 	return store.SlackTarget{ID: apiID, Label: "api-reviewers"}

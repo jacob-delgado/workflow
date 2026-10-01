@@ -22,8 +22,8 @@
 // The store is two files. workflow.db holds conveniences a session can see
 // again, so its schema has one version, stamped into the file: a file written
 // at another is discarded and started fresh. kept.db holds what the user
-// decided, so it is never discarded: it migrates forward, and a file from a
-// newer build is left as it is.
+// decided, so it is never discarded: its schema also has one version, and a
+// file at another is left as it is, for the user to remove.
 package store
 
 import (
