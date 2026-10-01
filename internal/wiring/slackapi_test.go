@@ -17,6 +17,7 @@ import (
 	"path/filepath"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -116,8 +117,11 @@ func TestASlackAddressInClearTextOffThisMachineSendsNothing(t *testing.T) {
 		// 0.0.0.0 reaches this machine's listeners on Linux and macOS, so
 		// anything sent would arrive at the fake; it is no loopback address.
 		"http to an address that is not loopback": func(port string) string { return "http://0.0.0.0:" + port },
-		"no scheme at all":                        func(port string) string { return "127.0.0.1:" + port },
-		"another scheme":                          func(port string) string { return "ftp://127.0.0.1:" + port },
+		"http to a name that is not this machine's": func(port string) string {
+			return "http://slack.example.invalid:" + port
+		},
+		"no scheme at all": func(port string) string { return "127.0.0.1:" + port },
+		"another scheme":   func(port string) string { return "ftp://127.0.0.1:" + port },
 	} {
 		t.Run(name, func(t *testing.T) {
 			// Arrange
@@ -138,5 +142,32 @@ func TestASlackAddressInClearTextOffThisMachineSendsNothing(t *testing.T) {
 				t.Errorf("the fake was sent %q, want nothing sent and the token kept", seen)
 			}
 		})
+	}
+}
+
+func TestAnHTTPSSlackAddressAnywhereIsAsked(t *testing.T) {
+	// Arrange
+	// The fake's certificate is one no system trusts, so the handshake fails
+	// and nothing is sent; that a connection arrives is what shows the
+	// address was taken.
+	var connections atomic.Int32
+
+	server := httptest.NewUnstartedServer(http.NotFoundHandler())
+	server.Config.ConnState = func(_ net.Conn, state http.ConnState) {
+		if state == http.StateNew {
+			connections.Add(1)
+		}
+	}
+	server.StartTLS()
+	t.Cleanup(server.Close)
+	t.Setenv(wiring.SlackAPIVariable, server.URL)
+	seams := wired(t, loggedIn(t), wiring.Workspace{Root: t.TempDir(), Remote: ""}, nil).Messaging
+
+	// Act
+	err := seams.Post("", "hi")
+
+	// Assert
+	if errors.Is(err, wiring.ErrSlackAPIRefused) || connections.Load() == 0 {
+		t.Errorf("Post = %v after %d connections, want the https address asked", err, connections.Load())
 	}
 }
