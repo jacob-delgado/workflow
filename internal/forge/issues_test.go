@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"reflect"
 	"strconv"
 	"strings"
 	"testing"
@@ -23,6 +24,9 @@ const (
 	githubIssuePath    = "/repos/example/repo/issues/42"
 	gitlabIssuePath    = "/projects/group%2Fsub%2Frepo/issues/7"
 )
+
+// githubIssueURL is issue 42's page on GitHub.
+const githubIssueURL = "https://github.com/example/repo/issues/42"
 
 // sampleTitle is the title the issue fixtures share.
 const sampleTitle = "the bug"
@@ -45,7 +49,7 @@ func TestAssignedIssuesListsAForgesRepoIssues(t *testing.T) {
 			},
 			listPath:  githubIssuesSearch,
 			wantQuery: []string{"is:issue", "assignee:@me", "repo:example/repo"},
-			want:      forge.Issue{Number: 42, URL: "https://github.com/example/repo/issues/42", Title: sampleTitle},
+			want:      forge.Issue{Number: 42, URL: githubIssueURL, Title: sampleTitle},
 		},
 		"asks GitLab for the project's assigned issues": {
 			repo: gitlabRepo(),
@@ -226,7 +230,7 @@ func TestReadIssueReadsBodyAndAuthor(t *testing.T) {
 					`"title":"the bug","body":"it broke","user":{"login":"ana"}}`,
 			},
 			want: forge.IssueDetail{
-				Issue: forge.Issue{Number: 42, URL: "https://github.com/example/repo/issues/42", Title: sampleTitle},
+				Issue: forge.Issue{Number: 42, URL: githubIssueURL, Title: sampleTitle},
 				Body:  "it broke", Author: "ana",
 			},
 		},
@@ -403,5 +407,65 @@ func TestForgeIssueMethodsRejectAnUnknownForge(t *testing.T) {
 				t.Errorf("%s for an unknown forge returned %v, want ErrUnknownForge", name, err)
 			}
 		})
+	}
+}
+
+func TestIssueURLIsTheIssuesPageOnEachForge(t *testing.T) {
+	t.Parallel()
+
+	cases := map[string]struct {
+		repo forge.Repo
+		want string
+	}{
+		"a GitHub repository": {repo: githubRepo(), want: githubIssueURL},
+		"a GitLab repository": {repo: gitlabRepo(), want: "https://gitlab.com/group/sub/repo/-/issues/42"},
+		"an unknown forge":    {repo: forge.Repo{Host: "git.example.com", Path: "a/b"}, want: ""},
+	}
+
+	for name, tt := range cases {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			// Act & Assert
+			if got := tt.repo.IssueURL(42); got != tt.want {
+				t.Errorf("IssueURL(42) = %q, want %q", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestAssignIssueOnGitHubAddsTheAssignee(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	client, seen := forgeAnswering(t, http.StatusCreated, `{"number":42}`)
+
+	// Act
+	err := client.AssignIssue(t.Context(), githubRepo(), 42, userAna)
+
+	// Assert
+	sent := lastRequest(t, seen)
+	if err != nil || sent.method != http.MethodPost || sent.path != githubIssuePath+"/assignees" ||
+		!reflect.DeepEqual(sent.body["assignees"], []any{userAna}) {
+		t.Errorf("AssignIssue = %v, sent %s %s %+v; want ana added", err, sent.method, sent.path, sent.body)
+	}
+}
+
+func TestAssignIssueOnGitLabSetsTheAssigneeByID(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	client, seen := forgeConversation(t, map[string]string{
+		gitlabUsersPath: `[{"id":7}]`,
+		gitlabIssuePath: `{"iid":7}`,
+	}, nil)
+
+	// Act
+	err := client.AssignIssue(t.Context(), gitlabRepo(), 7, userAna)
+
+	// Assert
+	sent := requestTo(*seen, gitlabIssuePath)
+	if err != nil || sent.method != http.MethodPut || !reflect.DeepEqual(sent.body["assignee_ids"], []any{float64(7)}) {
+		t.Errorf("AssignIssue = %v, sent %s %+v; want the resolved id set", err, sent.method, sent.body)
 	}
 }
