@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import type { Branch, BranchIssuePreview } from '@/api/generated/types.gen.ts'
 import { Button } from '@/lib/Button.tsx'
 import { useFocusOnMount } from '@/lib/focus.ts'
@@ -64,6 +64,9 @@ export function IssueLink({ branch, outcome }: { branch: Branch; outcome: Teller
 function LinkForm({ outcome, onClose }: { outcome: Teller; onClose: () => void }) {
   const [key, setKey] = useState('')
   const [preview, setPreview] = useState<BranchIssuePreview>()
+  // The key as it was asked about: the preview's own key is normalized, and
+  // the link must name the issue whose description was shown.
+  const asked = useRef('')
   const field = useFocusOnMount<HTMLInputElement>()
   const link = useAsyncAction(linkIssue, {
     fallback: 'The branch was not linked. Try again.',
@@ -80,14 +83,15 @@ function LinkForm({ outcome, onClose }: { outcome: Teller; onClose: () => void }
       if (shown.changes && shown.pull > 0) {
         setPreview(shown)
       } else {
-        void link.run(key, false)
+        void link.run(asked.current, false)
       }
     },
   })
 
   const submit = (event: { preventDefault: () => void }) => {
     event.preventDefault()
-    void ask.run(key.trim())
+    asked.current = key.trim()
+    void ask.run(asked.current)
   }
 
   return (
@@ -98,6 +102,7 @@ function LinkForm({ outcome, onClose }: { outcome: Teller; onClose: () => void }
           ref={field}
           value={key}
           placeholder="PROJ-7 or #42"
+          readOnly={ask.state === 'running'}
           onChange={(event) => {
             setKey(event.target.value)
             setPreview(undefined)
@@ -106,7 +111,10 @@ function LinkForm({ outcome, onClose }: { outcome: Teller; onClose: () => void }
         />
       </label>
       {preview ? (
-        <DescriptionChange preview={preview} onLink={(update) => void link.run(key, update)} />
+        <DescriptionChange
+          preview={preview}
+          onLink={(update) => void link.run(asked.current, update)}
+        />
       ) : null}
       <div className="flex gap-item">
         {preview ? null : (
