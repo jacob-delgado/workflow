@@ -129,3 +129,39 @@ func TestFindPullRequestReadsTheBody(t *testing.T) {
 		t.Errorf("FindPullRequest body = %q (found %v, err %v), want it read", pull.Body, found, err)
 	}
 }
+
+func TestFindPullRequestReadsTheBaseItMergesInto(t *testing.T) {
+	t.Parallel()
+
+	cases := map[string]struct {
+		repo   forge.Repo
+		path   string
+		answer string
+	}{
+		"a GitHub pull request": {
+			repo: githubRepo(), path: githubPullsPath,
+			answer: `[{"number":9,"html_url":"https://x/9","base":{"ref":"release/1.0"}}]`,
+		},
+		"a GitLab merge request": {
+			repo: gitlabRepo(), path: gitlabMergesPath,
+			answer: `[{"iid":9,"web_url":"https://x/9","target_branch":"release/1.0"}]`,
+		},
+	}
+
+	for name, test := range cases {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			// Arrange
+			client, _ := forgeRouting(t, map[string]string{test.path: test.answer})
+
+			// Act
+			pull, found, err := client.FindPullRequest(t.Context(), test.repo, featureBranch)
+
+			// Assert
+			if err != nil || !found || pull.Base != "release/1.0" {
+				t.Errorf("FindPullRequest base = %q (found %v, err %v), want release/1.0", pull.Base, found, err)
+			}
+		})
+	}
+}

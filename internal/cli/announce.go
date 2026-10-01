@@ -4,6 +4,7 @@
 package cli
 
 import (
+	"cmp"
 	"errors"
 	"fmt"
 	"io"
@@ -172,7 +173,7 @@ func runAnnounce(out output, seams announceSeams, opts writeOptions) error {
 	fmt.Fprintln(out.artifact, text)
 	fmt.Fprintln(out.artifact, "to "+target)
 
-	mentions, memory := tagAnnouncement(out, seams, announcement.Moment)
+	mentions, memory := tagAnnouncement(out, seams, announcement.Moment, pull.Base)
 
 	proceed, err := opts.proceed(out.notes, seams.Confirm, announcePrompt(service, target, again, opts))
 	if err != nil || !proceed {
@@ -252,13 +253,14 @@ func unattendedAgain(err error, again bool) error {
 // linked owners and the groups that start checked, never asked — and who it
 // leaves untagged, and answers the tags with what the post remembers: the
 // groups chosen, when groups were offered. A token that lacks a scope tagging
-// needs is told the scope, and the post goes out untagged.
-func tagAnnouncement(out output, seams announceSeams, moment messaging.Moment) (
+// needs is told the scope, and the post goes out untagged. base is the branch
+// the pull request merges into, as the forge says, or empty where it did not.
+func tagAnnouncement(out output, seams announceSeams, moment messaging.Moment, base string) (
 	messaging.Mentions, loop.AnnounceMemory,
 ) {
 	memory := seams.Memory
 
-	tags, tagging := seams.Tagging.propose(seams.Compose.Branch, moment)
+	tags, tagging := seams.Tagging.propose(seams.Compose.Branch, base, moment)
 	if !tagging || len(tags.Owners)+len(tags.Groups) == 0 {
 		return messaging.Mentions{}, memory
 	}
@@ -290,21 +292,18 @@ func tagAnnouncement(out output, seams announceSeams, moment messaging.Moment) (
 
 // propose is whom an announcement at moment proposes to tag, and whether it
 // tags anyone at all: only one ready for review does, with a Slack user token
-// and the store. The tags are a proposal, so a read that fails proposes
-// fewer rather than holding the announcement back.
-func (t announceTagging) propose(branch func() (gitrepo.Branch, error), moment messaging.Moment) (loop.Tags, bool) {
+// and the store. The owners are those of the changes since pullBase, the
+// branch the pull request merges into, or since the base the branch is read
+// to have left when the forge did not say. The tags are a proposal, so a read
+// that fails proposes fewer rather than holding the announcement back.
+func (t announceTagging) propose(
+	branch func() (gitrepo.Branch, error), pullBase string, moment messaging.Moment,
+) (loop.Tags, bool) {
 	if moment != messaging.MomentReady || t.ChannelMembers == nil || t.OwnerLinks == nil {
 		return loop.Tags{}, false
 	}
 
-	current, err := branch()
-	if err != nil {
-		current = gitrepo.Branch{}
-	}
-
-	base := current.Base
-
-	owners, _ := loop.OwnersOf(t.Owners, base)
+	owners, _ := loop.OwnersOf(t.Owners, cmp.Or(pullBase, localBase(branch)))
 	links, _ := t.OwnerLinks()
 
 	var (
@@ -322,6 +321,17 @@ func (t announceTagging) propose(branch func() (gitrepo.Branch, error), moment m
 	}
 
 	return loop.ProposeTags(owners, links, repoGroups, last, chosen, moment), true
+}
+
+// localBase is the base the branch is read to have left, or empty when the
+// branch cannot be read.
+func localBase(branch func() (gitrepo.Branch, error)) string {
+	current, err := branch()
+	if err != nil {
+		return ""
+	}
+
+	return current.Base
 }
 
 // missingScope is a scope the Slack token lacks to tag: the channel's

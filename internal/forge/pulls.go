@@ -72,6 +72,9 @@ type PullRequest struct {
 	// Body is the pull request's description, read so an edit can open on it.
 	Body  string
 	Draft bool
+	// Base is the branch it merges into, as the forge says; a find reads it,
+	// and it is empty where the forge did not.
+	Base string
 	// State is whether it is open, merged or closed, so a merged branch can be
 	// finished. A find reads it; the zero value is open.
 	State PullState

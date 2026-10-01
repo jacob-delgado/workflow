@@ -96,3 +96,50 @@ func TestAnnounceTagsNoOneThroughAWebhook(t *testing.T) {
 		t.Errorf("announce through a webhook previewed %q, want no tags", printed.stdout)
 	}
 }
+
+// releaseBranchRepo is a repository whose branch left release, not main:
+// release changed the ops paths ben owns, and the branch only the API ana
+// owns. The open pull request merges into release.
+func releaseBranchRepo(t *testing.T) string {
+	t.Helper()
+
+	repo := t.TempDir()
+	gitInit(t, repo)
+	writeRepoFile(t, repo, ".github/CODEOWNERS", "/api/ @ana\n/ops/ @ben\n")
+	git(t, repo, "add", ".")
+	commit(t, repo, "init")
+	git(t, repo, "branch", "-M", "main")
+	git(t, repo, "checkout", "-b", "release")
+	writeRepoFile(t, repo, "ops/deploy.sh", "echo deploy\n")
+	git(t, repo, "add", ".")
+	commit(t, repo, "chore: deploy")
+	git(t, repo, "checkout", "-b", "fix/PROJ-2-thing")
+	writeRepoFile(t, repo, "api/pull.go", "package api\n")
+	git(t, repo, "add", ".")
+	commit(t, repo, "fix: guard the api")
+	git(t, repo, "remote", "add", "origin", "https://github.com/acme/repo.git")
+	pretendPushed(t, repo)
+	writeFile(t, repo, slackUserConfig)
+
+	return repo
+}
+
+func TestAnnounceReadsTheOwnersAgainstThePullRequestsBase(t *testing.T) {
+	// Arrange
+	fakeGh(t, ghResponses{pulls: `[{"number":7,"html_url":"https://github.com/acme/repo/pull/7",` +
+		`"title":"Add login","state":"open","draft":false,"base":{"ref":"release"}}]`})
+	repo := releaseBranchRepo(t)
+	home := keptLinks(t)
+
+	// Act
+	printed, err := runStreamsAt(t, place{dir: repo, home: home}, unusedPrompt(t), "announce", "--dry-run")
+	// Assert
+	if err != nil {
+		t.Fatalf("announce --dry-run: %v (%+v)", err, printed)
+	}
+
+	if !strings.Contains(printed.stdout, "tags @Ana Souza") || strings.Contains(printed.stdout, "ben") {
+		t.Errorf("announce previewed %q, want ana tagged and ben, who owns only release's change, not named",
+			printed.stdout)
+	}
+}
