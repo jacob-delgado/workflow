@@ -4,6 +4,9 @@
 package tui_test
 
 import (
+	"fmt"
+	"slices"
+	"strings"
 	"testing"
 
 	"github.com/jacob-delgado/workflow/internal/forge"
@@ -53,4 +56,41 @@ func TestLOnACheckWithNoLogAsksNothing(t *testing.T) {
 	if asked := failing.asked("job-log"); len(asked) != 0 {
 		t.Errorf("asked %q, want nothing asked of a check with no log", asked)
 	}
+}
+
+func TestScrollingUpALogThatFitsKeepsItsLastLine(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	failing := withAFailedJob(true)
+
+	// Act
+	view := typing(t, failing.live(t, 120, 40), "4", "c", downAction, "l", upAction).View().Content
+
+	// Assert
+	requireScreen(t, view, "--- FAIL: TestRetry", "retry_test.go:41: got 4")
+}
+
+// Scrolling stops with the log's first line at the top, the window still
+// full, so the first step back down moves it at once.
+func TestScrollingUpPastTheTopOfALogStopsThere(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	failing := withAFailedJob(true)
+
+	lines := make([]string, 0, 100)
+	for index := range 100 {
+		lines = append(lines, fmt.Sprintf("line %03d", index))
+	}
+
+	failing.jobLog = forge.JobLog{Text: strings.Join(lines, "\n")}
+	opened := typing(t, failing.live(t, 120, 40), "4", "c", downAction, "l")
+
+	// Act
+	view := typing(t, opened, append(slices.Repeat([]string{upAction}, 200), downAction)...).View().Content
+
+	// Assert
+	requireScreen(t, view, "line 001", "line 020")
+	refuseScreen(t, view, "line 000")
 }

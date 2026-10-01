@@ -142,10 +142,12 @@ type world struct {
 	reviews     []forge.ReviewRequest
 	reviewsErr  error
 	ci          []forge.CI
-	templates   []forge.Template
-	forgeKind   forge.Kind
-	author      string
-	postErr     error
+	// jobLog is what the forge keeps of a failed job's log.
+	jobLog    forge.JobLog
+	templates []forge.Template
+	forgeKind forge.Kind
+	author    string
+	postErr   error
 	// postParked, when set, is told of each post once it is recorded, and the post
 	// then waits for postRelease to close: a Slack slow to answer, caught with
 	// the post sent and not yet answered.
@@ -255,6 +257,7 @@ func newWorld() *world {
 		pullFound: true,
 		ci:        []forge.CI{{State: forge.CIPassed, Total: 1, Done: 1, Failed: 0}},
 		author:    "jacob",
+		jobLog:    forge.JobLog{Text: "--- FAIL: TestRetry\n    retry_test.go:41: got 4", Truncated: true},
 	}
 }
 
