@@ -82,6 +82,7 @@ func installForgeCLI(t *testing.T, program string, replies forgeReplies) *forgeC
 		"search":  orDefault(replies.search, `{"items":[]}`),
 		"issue":   orDefault(replies.issue, `{"number":42}`),
 		"merges":  "[]",
+		"members": `[{"username":"dan","state":"active"},{"username":"eve","state":"blocked"}]`,
 		"default": "{}",
 	}
 	for name, body := range bodies {
@@ -129,6 +130,7 @@ func forgeScript(dir string, replies forgeReplies) string {
 			"  *\"/commits/\"*\"/check-runs\"*) f=checks ;;\n" +
 			"  *\"/user\"*) f=user ;;\n" +
 			"  *\"/merge_requests\"*) f=merges ;;\n" +
+			"  *\"/members\"*) f=members ;;\n" +
 			"  *) f=default ;;\n" +
 			"esac\n" +
 			"printf 'HTTP/1.1 200 OK\\r\\nContent-Type: application/json\\r\\n\\r\\n'\n" +
