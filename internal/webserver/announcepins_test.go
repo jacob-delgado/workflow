@@ -106,6 +106,7 @@ func TestGetAnnouncementChecksTheScopeAgainstTheChannelPreviewed(t *testing.T) {
 	elsewhere := func(channel string) bool { return channel != otherChannel }
 
 	everyRead := len(asked) > 0 && !slices.ContainsFunc(asked, elsewhere)
+
 	if got.Channel != otherChannel || !everyRead {
 		t.Errorf("channel %q, members read in %v; want #ops for the preview and every read", got.Channel, asked)
 	}
