@@ -135,6 +135,12 @@ func (s *jqlScan) balanced() bool {
 	return s.quote == 0 && s.depth == 0 && !s.overshot
 }
 
+// NoKeys is the query a search for assigned keys is asked with when every key
+// is a forge issue's number: no Jira key to name, and nothing for Jira to
+// answer. A tracker that reads the query asks nothing for it; the forge's own
+// issues, which ignore the query, answer it as any other.
+const NoKeys = ""
+
 // KeysAssignedToMe is the JQL for which of keys name open issues assigned to
 // whoever the credential belongs to: `key in (A, B) AND assignee =
 // currentUser() AND statusCategory != done`, each key named once, in sorted

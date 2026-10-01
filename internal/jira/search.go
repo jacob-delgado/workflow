@@ -182,8 +182,13 @@ func (c Client) Search(ctx context.Context, jql string, startAt int) (SearchResu
 // SearchLenient is Search for a query naming values Jira need not know: an
 // issue key whose issue is gone or hidden is skipped, where Search answers 400
 // for the whole query. Only a key check asks this way; a view's own mistake
-// should still be refused.
+// should still be refused. NoKeys names no key, so it asks nothing: Jira
+// would read the empty query as every issue.
 func (c Client) SearchLenient(ctx context.Context, jql string, startAt int) (SearchResult, error) {
+	if jql == NoKeys {
+		return SearchResult{}, nil
+	}
+
 	query := searchQuery(jql, startAt)
 	query.Set("validateQuery", "false")
 
