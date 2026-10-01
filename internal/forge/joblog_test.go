@@ -45,25 +45,39 @@ func (h *heard) note(request *http.Request) {
 func logServers(t *testing.T, log string, redirect func(blob string) string) (forge.Client, *heard, *heard) {
 	t.Helper()
 
-	api, storage := &heard{}, &heard{}
-
-	blob := httptest.NewTLSServer(http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
-		storage.note(request)
+	return logServersAnswering(t, func(writer http.ResponseWriter, request *http.Request, blob string) {
+		http.Redirect(writer, request, redirect(blob), http.StatusFound)
+	}, func(writer http.ResponseWriter, _ *http.Request) {
 		writer.Header().Set("Content-Type", "text/plain")
 		_, _ = writer.Write([]byte(log))
+	})
+}
+
+// logServersAnswering is logServers with GitHub's answer and the storage's
+// given whole: GitHub's is told the storage's address.
+func logServersAnswering(
+	t *testing.T, github func(http.ResponseWriter, *http.Request, string), storage http.HandlerFunc,
+) (forge.Client, *heard, *heard) {
+	t.Helper()
+
+	api, stored := &heard{}, &heard{}
+
+	blob := httptest.NewTLSServer(http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
+		stored.note(request)
+		storage(writer, request)
 	}))
 	t.Cleanup(blob.Close)
 
-	github := httptest.NewTLSServer(http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
+	server := httptest.NewTLSServer(http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
 		api.note(request)
-		http.Redirect(writer, request, redirect(blob.URL), http.StatusFound)
+		github(writer, request, blob.URL)
 	}))
-	t.Cleanup(github.Close)
+	t.Cleanup(server.Close)
 
 	client := httpx.Client(10 * time.Second)
-	client.Transport = github.Client().Transport
+	client.Transport = server.Client().Transport
 
-	return forge.New(client.Do, github.URL, secret), api, storage
+	return forge.New(client.Do, server.URL, secret), api, stored
 }
 
 func TestJobLogFollowsGitHubsRedirectWithoutTheToken(t *testing.T) {
@@ -103,6 +117,49 @@ func TestJobLogRefusesARedirectToPlainHTTP(t *testing.T) {
 	// Assert
 	if !errors.Is(err, forge.ErrInsecureLog) || len(storage.paths) != 0 {
 		t.Errorf("JobLog = %v, storage asked %v; want it refused before anything is sent", err, storage.paths)
+	}
+}
+
+func TestJobLogSaysWhenGitHubRedirectsNowhere(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	client, _, storage := logServersAnswering(t, func(writer http.ResponseWriter, _ *http.Request, _ string) {
+		writer.WriteHeader(http.StatusFound)
+	}, func(http.ResponseWriter, *http.Request) {})
+
+	// Act
+	_, err := client.JobLog(t.Context(), githubRepo(), failedRun())
+
+	// Assert
+	if !errors.Is(err, forge.ErrLogNotRedirected) || errors.Is(err, forge.ErrInsecureLog) || len(storage.paths) != 0 {
+		t.Errorf("JobLog = %v, storage asked %v; want ErrLogNotRedirected and nothing sent", err, storage.paths)
+	}
+}
+
+func TestJobLogTellsTheStoragesRefusalFromTheForges(t *testing.T) {
+	t.Parallel()
+
+	cases := map[string]int{"an expired address": http.StatusForbidden, "a log gone": http.StatusNotFound}
+
+	for name, status := range cases {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			// Arrange
+			client, _, _ := logServersAnswering(t, func(writer http.ResponseWriter, request *http.Request, blob string) {
+				http.Redirect(writer, request, blob+"/log", http.StatusFound)
+			}, func(writer http.ResponseWriter, _ *http.Request) { writer.WriteHeader(status) })
+
+			// Act
+			_, err := client.JobLog(t.Context(), githubRepo(), failedRun())
+
+			// Assert
+			_, advised := forge.Advice(err)
+			if !errors.Is(err, forge.ErrLogStorage) || errors.Is(err, forge.ErrNoAPI) || advised {
+				t.Errorf("JobLog = %v (advice %v); want ErrLogStorage, not the forge's refusal", err, advised)
+			}
+		})
 	}
 }
 

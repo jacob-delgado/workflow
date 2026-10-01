@@ -129,8 +129,12 @@ service — could not be reached, asked to wait because it is limiting
 requests (a forge's refusal whose headers ask for a wait among them),
 answered with a redirect (refused, so a credential goes nowhere else), or,
 for the forge or the messaging service, answered with a status it does not
-document; or Taskwarrior did not answer in the time it is given. The request
-was well formed; try again once the service is back.
+document; or Taskwarrior did not answer in the time it is given. A failed
+check's log answers it too when the forge sent the log to an address that is
+not https or redirected it nowhere, or when the storage it sent the log to did
+not hand it over — a signed address that expired, or a log since deleted —
+which is the storage's failure, not the token's. The request was well formed;
+try again once the service is back.
 
 ## Internal
 

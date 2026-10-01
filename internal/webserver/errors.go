@@ -254,6 +254,18 @@ func forgeFaults() []faultClass {
 			code:   api.Unprocessable,
 			detail: "no forge API answered; check forge.host, which workflow doctor --online tests",
 		},
+		// A job log GitHub hands to storage elsewhere: neither class is the
+		// token's doing, and the storage's address is signed, so it stays out.
+		{
+			causes: []error{forge.ErrInsecureLog, forge.ErrLogNotRedirected},
+			code:   api.Unreachable,
+			detail: "the forge sent the log somewhere it could not be read from safely; open the check's page instead",
+		},
+		{
+			causes: []error{forge.ErrLogStorage},
+			code:   api.Unreachable,
+			detail: "the storage the forge keeps the log in did not hand it over; try again, or open the check's page",
+		},
 		{
 			// An explained status is the same undocumented status with the
 			// forge's reason, which stays off the wire.
