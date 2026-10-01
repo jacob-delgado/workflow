@@ -15,6 +15,9 @@ Compose a pull request for the checked-out branch from its commits, the
 issue and the repository's template — the same as the interface — pushing the
 branch first when it is not yet on its remote. A preview is confirmed first.
 
+The code owners of the paths the branch changes, as CODEOWNERS on the base names
+them, are asked to review it; the preview lists them.
+
 Once it is open, it offers — as the interface does — to link it on the branch's
 issue, then to move the issue to the review status (jira.review_status).
 

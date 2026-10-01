@@ -22,6 +22,7 @@ type ghResponses struct {
 	createError bool   // when set, POST .../pulls answers unreadably, so the open fails
 	signedOut   bool   // when set, `gh auth token` exits 1, so no token resolves through gh
 	apiHangs    bool   // when set, `gh api` answers nothing for ghHang, as behind a stalled gateway
+	sentLog     string // when set, each request carrying a body appends its endpoint and body here
 }
 
 // ghHang is how long a fake gh whose api hangs takes to give up on its own:
@@ -98,8 +99,14 @@ func fakeGh(t *testing.T, responses ghResponses) {
 		hang = "if [ \"$1\" = api ]; then exec sleep " + strconv.Itoa(int(ghHang/time.Second)) + "; fi\n"
 	}
 
+	// A request with a body reads it from standard input (--input -).
+	record := ""
+	if responses.sentLog != "" {
+		record = "case \" $* \" in *\" --input \"*) { echo \"$url\"; cat; echo; } >> \"" + responses.sentLog + "\" ;; esac\n"
+	}
+
 	script := "#!/bin/sh\n" + signIn + hang +
-		"for a in \"$@\"; do url=\"$a\"; done\n" +
+		"for a in \"$@\"; do url=\"$a\"; done\n" + record +
 		"case \"$url\" in\n" +
 		"  *\"/pulls?\"*) f=pulls ;;\n" +
 		"  *\"/pulls/\"*\"/reviews\"*) f=reviews ;;\n" +

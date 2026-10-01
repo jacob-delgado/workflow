@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"slices"
 	"strconv"
 	"strings"
 
@@ -62,6 +63,8 @@ func newPRCmd(prompt Prompt) *cobra.Command {
 		Long: "Compose a pull request for the checked-out branch from its commits, the\n" +
 			"issue and the repository's template — the same as the interface — pushing the\n" +
 			"branch first when it is not yet on its remote. A preview is confirmed first.\n\n" +
+			"The code owners of the paths the branch changes, as CODEOWNERS on the base names\n" +
+			"them, are asked to review it; the preview lists them.\n\n" +
 			"Once it is open, it offers — as the interface does — to link it on the branch's\n" +
 			"issue, then to move the issue to the review status (jira.review_status).",
 		Args: cobra.NoArgs,
@@ -92,6 +95,9 @@ func runPRCommand(cmd *cobra.Command, prompt Prompt, opts writeOptions) error {
 			Templates: deps.Forge.Templates,
 			Issue:     deps.Jira.Issue,
 			BrowseURL: deps.Jira.BrowseURL,
+			Owners: loop.OwnerSeams{
+				ChangedPaths: deps.Git.ChangedPaths, CodeOwnersAt: deps.Git.CodeOwnersAt, Author: deps.Forge.Author,
+			},
 		},
 		Options: loop.PullOptions{
 			Project:     cfg.Jira.Project,
@@ -110,7 +116,8 @@ func runPRCommand(cmd *cobra.Command, prompt Prompt, opts writeOptions) error {
 	return runPR(outputOf(cmd), seams, opts)
 }
 
-// runPR composes the pull request, previews it, pushes the branch when needed,
+// runPR composes the pull request, previews it — the code owners it asks to
+// review among what it shows — pushes the branch when needed,
 // and opens it once confirmed, then follows up on the branch's issue. A dry run
 // says what it would do at each of those steps, the offers included.
 func runPR(out output, seams prSeams, opts writeOptions) error {
@@ -121,6 +128,10 @@ func runPR(out output, seams prSeams, opts writeOptions) error {
 
 	fmt.Fprintln(out.artifact, "Open "+request.Title)
 	fmt.Fprintln(out.artifact, "  "+branch.Name+" → "+request.Base)
+
+	if reviewers := slices.Concat(request.Reviewers, request.TeamReviewers); len(reviewers) > 0 {
+		fmt.Fprintln(out.artifact, "  reviewers "+strings.Join(reviewers, ", ")+" (code owners)")
+	}
 
 	noun := seams.Kind.Noun()
 	issueKey, _ := loop.JiraIssue(branch, seams.Options.Project)
