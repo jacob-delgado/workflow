@@ -370,60 +370,64 @@ type githubReviewersBody struct {
 	TeamReviewers []string `json:"team_reviewers,omitempty"`
 }
 
+// githubTeam is a team reviewer as CODEOWNERS names it, "org/team", and the
+// slug GitHub asks for it by.
+type githubTeam struct {
+	name, slug string
+}
+
 // githubRequestReviewers requests a pull request's reviewers, users and teams in
-// one call, doing nothing when nobody is named. GitHub turns the whole call down
-// for one name it cannot request, so a call turned down is asked again a name at
-// a time, and only the names still turned down are reported.
+// one call. GitHub turns the whole call down for one name it cannot request, so
+// a call turned down is asked again a name at a time, and only the names still
+// turned down are reported. A team of another organization is never asked for:
+// GitHub would read its slug as the repository's own organization's team.
 func githubRequestReviewers(ctx context.Context, client Client, repo Repo, pull string, request NewPullRequest) error {
-	body := githubReviewersBody{Reviewers: request.Reviewers, TeamReviewers: teamSlugs(request.TeamReviewers)}
+	teams, foreign := githubTeamsOf(repo, request.TeamReviewers)
+
+	missed := missedReviewers{}
+	for _, team := range foreign {
+		missed.miss(team, ErrTeamOfAnotherOrg)
+	}
+
+	body := githubReviewersBody{Reviewers: request.Reviewers, TeamReviewers: slugsOf(teams)}
 	if len(body.Reviewers)+len(body.TeamReviewers) == 0 {
-		return nil
+		return missed.err()
 	}
 
 	err := githubAskReviewers(ctx, client, repo, pull, body)
+	if err == nil {
+		return missed.err()
+	}
+
 	if !errors.Is(err, ErrRejected) && !errors.Is(err, ErrUnexpectedStatus) {
 		return err
 	}
 
-	return githubReviewersOneByOne(ctx, client, repo, pull, request)
+	return githubReviewersOneByOne(ctx, client, repo, pull, request.Reviewers, teams, missed)
 }
 
 // githubReviewersOneByOne requests each user, then each team, alone, and
-// reports the ones turned down.
+// reports the ones turned down with those already missed.
 func githubReviewersOneByOne(
-	ctx context.Context, client Client, repo Repo, pull string, request NewPullRequest,
+	ctx context.Context, client Client, repo Repo, pull string, users []string, teams []githubTeam,
+	missed missedReviewers,
 ) error {
-	var (
-		missed []string
-		cause  error
-	)
-
 	ask := func(name string, body githubReviewersBody) {
 		err := githubAskReviewers(ctx, client, repo, pull, body)
-		if err == nil {
-			return
-		}
-
-		missed = append(missed, name)
-
-		if cause == nil {
-			cause = err
+		if err != nil {
+			missed.miss(name, err)
 		}
 	}
 
-	for _, user := range request.Reviewers {
+	for _, user := range users {
 		ask(user, githubReviewersBody{Reviewers: []string{user}})
 	}
 
-	for index, slug := range teamSlugs(request.TeamReviewers) {
-		ask(request.TeamReviewers[index], githubReviewersBody{TeamReviewers: []string{slug}})
+	for _, team := range teams {
+		ask(team.name, githubReviewersBody{TeamReviewers: []string{team.slug}})
 	}
 
-	if cause == nil {
-		return nil
-	}
-
-	return reviewersNotAdded(cause, missed)
+	return missed.err()
 }
 
 // githubAskReviewers sends one request for reviewers.
@@ -433,18 +437,34 @@ func githubAskReviewers(ctx context.Context, client Client, repo Repo, pull stri
 	return err
 }
 
-// teamSlugs is each "org/team" name's slug, the part GitHub asks for: the
-// organization is the repository's own.
-func teamSlugs(teams []string) []string {
-	slugs := make([]string, 0, len(teams))
+// githubTeamsOf splits "org/team" names into the teams of the repository's
+// own organization, with their slugs, and the names of any other's. GitHub
+// reads an organization's name without regard to case.
+func githubTeamsOf(repo Repo, names []string) ([]githubTeam, []string) {
+	org, _, _ := strings.Cut(repo.Path, "/")
 
-	for _, team := range teams {
-		_, slug, found := strings.Cut(team, "/")
-		if !found {
-			slug = team
+	var (
+		own     []githubTeam
+		foreign []string
+	)
+
+	for _, name := range names {
+		teamOrg, slug, found := strings.Cut(name, "/")
+		if found && strings.EqualFold(teamOrg, org) {
+			own = append(own, githubTeam{name: name, slug: slug})
+		} else {
+			foreign = append(foreign, name)
 		}
+	}
 
-		slugs = append(slugs, slug)
+	return own, foreign
+}
+
+// slugsOf is each team's slug.
+func slugsOf(teams []githubTeam) []string {
+	slugs := make([]string, 0, len(teams))
+	for _, team := range teams {
+		slugs = append(slugs, team.slug)
 	}
 
 	return slugs

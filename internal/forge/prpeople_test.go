@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"reflect"
+	"strings"
 	"sync"
 	"testing"
 
@@ -275,6 +276,32 @@ func TestCreatePullRequestOnGitHubRequestsTeamsBySlugAlongsideUsers(t *testing.T
 	if !reflect.DeepEqual(asked.body["reviewers"], []any{userAna}) ||
 		!reflect.DeepEqual(asked.body["team_reviewers"], []any{"control-plane"}) {
 		t.Errorf("reviewers body = %+v, want ana and the control-plane team's slug", asked.body)
+	}
+}
+
+func TestCreatePullRequestOnGitHubNeverRequestsATeamOfAnotherOrganization(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	// The repository is example's; other-org's reviewers team shares a slug
+	// with no team of example's that was meant.
+	client, seen := forgeConversation(t, map[string]string{githubPullsPath: githubPull43}, nil)
+
+	// Act
+	created, err := client.CreatePullRequest(t.Context(), githubRepo(), forge.NewPullRequest{
+		Title: prTitle, Head: featureBranch, Base: baseBranch,
+		TeamReviewers: []string{"other-org/reviewers", "Example/api"},
+	})
+
+	// Assert
+	if created.Number != 43 || !errors.Is(err, forge.ErrSomeReviewersNotAdded) ||
+		!strings.Contains(err.Error(), "other-org/reviewers") {
+		t.Fatalf("CreatePullRequest = %+v, %v; want it opened, naming other-org's team as left off", created, err)
+	}
+
+	asked := requestTo(*seen, githubReviewersPath)
+	if !reflect.DeepEqual(asked.body["team_reviewers"], []any{apiSlug}) {
+		t.Errorf("team_reviewers = %v, want example's api team alone", asked.body["team_reviewers"])
 	}
 }
 

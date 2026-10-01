@@ -37,7 +37,7 @@ func keptLinks(t *testing.T) string {
 		t.Fatalf("finding the store under %s: %v", home, err)
 	}
 
-	kept, repo, now := store.New(dir, false), "github.com/owner/repo", time.Now()
+	kept, repo, now := store.New(dir, false), "github.com/acme/repo", time.Now()
 	ana := store.SlackTarget{ID: "U0ANA", Label: "Ana Souza"}
 
 	for _, seed := range []error{

@@ -26,7 +26,7 @@ func ownedRepo(t *testing.T) string {
 	writeRepoFile(t, repo, "api/pull.go", "package api\n")
 	git(t, repo, "add", ".")
 	commit(t, repo, "fix: guard the api")
-	git(t, repo, "remote", "add", "origin", "https://github.com/owner/repo.git")
+	git(t, repo, "remote", "add", "origin", "https://github.com/acme/repo.git")
 	pretendPushed(t, repo)
 	writeFile(t, repo, `{"forge":{"cli":true,"kind":"github","host":"github.com"}}`)
 
