@@ -38,7 +38,8 @@ import (
 	"strings"
 	"time"
 
-	_ "modernc.org/sqlite" // registers the pure-Go "sqlite" driver, so CGO stays off
+	"modernc.org/sqlite" // registers the pure-Go "sqlite" driver, so CGO stays off
+	sqlite3 "modernc.org/sqlite/lib"
 )
 
 // The store is readable only by its owner, where the filesystem keeps Unix
@@ -257,7 +258,7 @@ func openCurrent(ctx context.Context, path string) (*sql.DB, error) {
 		return nil, err
 	}
 
-	version, err := readVersion(ctx, database)
+	version, err := readVersionOnOpen(ctx, database)
 	if err != nil {
 		_ = database.Close()
 
@@ -324,6 +325,42 @@ func readVersion(ctx context.Context, database rowReader) (int, error) {
 	}
 
 	return version, nil
+}
+
+// openingRetries and openingPause bound how long a connection's first read
+// waits out another connection switching a fresh file into WAL. Both switches
+// hold the file's shared lock and want its exclusive one, so SQLite fails one
+// with SQLITE_BUSY at once rather than through the busy timeout, which would
+// deadlock them.
+const (
+	openingRetries = 50
+	openingPause   = 20 * time.Millisecond
+)
+
+// primaryCode masks an extended SQLite result code to its primary one.
+const primaryCode = 0xff
+
+// readVersionOnOpen is readVersion on a connection's first use, which runs the
+// connection's pragmas, journal_mode(WAL) among them: it reads again while
+// that switch loses to another connection's, since by then the file is in WAL
+// and the switch costs nothing.
+func readVersionOnOpen(ctx context.Context, database *sql.DB) (int, error) {
+	version, err := readVersion(ctx, database)
+
+	for attempt := 0; attempt < openingRetries && isBusy(err); attempt++ {
+		time.Sleep(openingPause)
+
+		version, err = readVersion(ctx, database)
+	}
+
+	return version, err
+}
+
+// isBusy reports SQLite failing for a lock another connection holds.
+func isBusy(err error) bool {
+	var failure *sqlite.Error
+
+	return errors.As(err, &failure) && failure.Code()&primaryCode == sqlite3.SQLITE_BUSY
 }
 
 // holdsTables reports a file with a table in it: a fresh file holds none, so it
