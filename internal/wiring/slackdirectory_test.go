@@ -624,3 +624,26 @@ func TestAWaitForSlackEndsWithTheRead(t *testing.T) {
 		t.Errorf("ChannelMembers = %v, want the read's own deadline rather than the whole wait", err)
 	}
 }
+
+func TestAReadLateInTheTenMinutesIsHeldForTenMinutesOfItsOwn(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	slack, client := startSlack(t, directoryBodies())
+	directory, moment := directoryOver(client)
+	_, _ = directory.UserGroups(t.Context())
+
+	moment.advance(9 * time.Minute)
+
+	_, _ = directory.ChannelMembers(t.Context(), "dev")
+
+	moment.advance(2 * time.Minute)
+
+	// Act
+	_, _ = directory.ChannelMembers(t.Context(), "dev")
+
+	// Assert
+	if asked := slack.count("/users.list"); asked != 1 {
+		t.Errorf("users.list was asked %d times, want once: it was read two minutes ago", asked)
+	}
+}
