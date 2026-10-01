@@ -4,6 +4,7 @@
 package tui_test
 
 import (
+	"slices"
 	"testing"
 
 	tea "charm.land/bubbletea/v2"
@@ -130,7 +131,7 @@ func TestKeysPeopleDoesNotUseChangeNothing(t *testing.T) {
 	}
 }
 
-func TestGroupsWithNoGroupToCheckSavesNone(t *testing.T) {
+func TestGroupsWithNoGroupToCheckSavesNothing(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
@@ -142,8 +143,8 @@ func TestGroupsWithNoGroupToCheckSavesNone(t *testing.T) {
 	typing(t, openPeople(t, empty), keyTab, keySpace, keyEnter)
 
 	// Assert
-	if calls := empty.asked("set-repo-groups "); len(calls) != 1 || calls[0] != "set-repo-groups " {
-		t.Errorf("saves = %q, want none chosen", calls)
+	if calls := empty.asked("set-repo-groups "); len(calls) != 0 {
+		t.Errorf("saves = %q, want none", calls)
 	}
 }
 
@@ -154,11 +155,78 @@ func TestGroupsUnchecksOneOfSeveral(t *testing.T) {
 	tagging := taggingWorld()
 
 	// Act
-	// check the pod beside the API reviewers, uncheck it again, and save
-	typing(t, openPeople(t, tagging), keyTab, keySpace, keySpace, keyEnter)
+	// check the pod beside the API reviewers, then uncheck it again
+	typing(t, openPeople(t, tagging), keyTab, keySpace, keySpace)
 
 	// Assert
-	if calls := tagging.asked("set-repo-groups "); len(calls) != 1 || calls[0] != "set-repo-groups "+apiID {
-		t.Errorf("saves = %q, want only the API reviewers", calls)
+	want := []string{"set-repo-groups " + podID + "," + apiID, "set-repo-groups " + apiID}
+	if calls := tagging.asked("set-repo-groups "); !slices.Equal(calls, want) {
+		t.Errorf("saves = %q, want %q", calls, want)
 	}
+}
+
+func TestGroupsTakeNoChangeUntilTheRepositoryGroupsAreRead(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	// everything is read but the groups this repository already tags
+	tagging := taggingWorld()
+	opened, reads := openedPeople(t, tagging)
+	read := drain(t, drain(t, drain(t, opened, reads[0]), reads[2]), reads[3])
+
+	// Act
+	view := typing(t, read, keyTab, keySpace, keyEnter).View().Content
+
+	// Assert
+	requireScreen(t, view, "reading the groups this repository tags")
+	refuseScreen(t, footerLine(view), "tag")
+
+	if calls := tagging.asked("set-repo-groups "); len(calls) != 0 {
+		t.Errorf("saved %q before the repository's groups were read", calls)
+	}
+}
+
+func TestGroupsTakeNoChangeWhenTheRepositoryGroupsCouldNotBeRead(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	unread := taggingWorld()
+	unread.slack.repoErr = errDirectoryDown
+
+	// Act
+	view := typing(t, openPeople(t, unread), keyTab, keySpace).View().Content
+
+	// Assert
+	requireScreen(t, view, "slack is down")
+
+	if calls := unread.asked("set-repo-groups "); len(calls) != 0 {
+		t.Errorf("saved %q over a list that could not be read", calls)
+	}
+}
+
+func TestAGroupCheckedIsKeptOnceGroupsCloses(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	tagging := taggingWorld()
+
+	// Act
+	view := typing(t, openPeople(t, tagging), keyTab, keySpace, keyEsc, "P", keyTab).View().Content
+
+	// Assert
+	requireScreen(t, view, "● @control-plane-pod", "● @api-reviewers")
+}
+
+func TestARefusedGroupSaveShowsWhatIsKept(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	refusing := taggingWorld()
+	refusing.slack.setErr = errDirectoryDown
+
+	// Act
+	view := typing(t, openPeople(t, refusing), keyTab, keySpace).View().Content
+
+	// Assert
+	requireScreen(t, view, "slack is down", "○ @control-plane-pod", "● @api-reviewers")
 }

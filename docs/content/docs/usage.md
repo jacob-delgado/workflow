@@ -454,10 +454,12 @@ is, from the same list the preview offers; `x` says they are not on Slack;
 `d` forgets them, so the next announcement asks again.
 
 Groups is a checklist of the workspace's user groups, the ones this
-repository tags checked. `space` checks or unchecks one, `enter` saves the
-list, and `r` reads Slack's directory again, for a group or a person added
-since it was last read. Every change is saved at once; one Slack or the store
-refuses stays under the title until the next.
+repository tags checked. `space` checks or unchecks one, and `r` reads
+Slack's directory again, for a group or a person added since it was last
+read. Nothing can be checked until the repository's own groups are read, nor
+when they cannot be, since each change saves the whole list. Every change is
+saved at once, so `esc` loses nothing; one Slack or the store refuses stays
+under the title until the next, and the checklist goes back to what is kept.
 
 An announcement waits for the pull request it was written for, and no other.
 Switch to another branch while it waits, or replace the pull request, and it is

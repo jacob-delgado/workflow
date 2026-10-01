@@ -59,13 +59,16 @@ type peopleOverlay struct {
 	channel string
 	members directory
 	groups  directory
-	// chosen is the repository's groups as they are being edited, and
+	// chosen is the repository's groups, each change saved at once, and
 	// choices every group that can be chosen: Slack's, then any of the
-	// repository's Slack no longer lists.
-	chosen  []loop.SlackTarget
-	repoErr error
-	choices pickList[loop.SlackTarget]
-	send    sendState
+	// repository's Slack no longer lists. Until the repository's are read,
+	// and while they cannot be, nothing is changed, since a save replaces
+	// the whole list.
+	chosen      []loop.SlackTarget
+	repoReading bool
+	repoErr     error
+	choices     pickList[loop.SlackTarget]
+	send        sendState
 	// opened is the count of overlays opened when this one opened, so a read
 	// or save started for it lands in it alone.
 	opened int
@@ -90,7 +93,8 @@ func (m Model) openPeople() (Model, tea.Cmd) {
 
 	m, opened := m.opening()
 	people := peopleOverlay{
-		marks: m.marks, styles: m.styles, reading: true, channel: m.defaultChannel(), opened: opened,
+		marks: m.marks, styles: m.styles, reading: true, repoReading: true, channel: m.defaultChannel(),
+		opened: opened,
 	}
 	people.members, readMembers = m.readMembers(people.channel, opened)
 	people.groups, readGroups = m.readUserGroups(opened)
@@ -178,7 +182,7 @@ func (msg repoGroupsListed) apply(m Model) (Model, tea.Cmd) {
 		return m, nil
 	}
 
-	open.chosen, open.repoErr = msg.groups, msg.err
+	open.chosen, open.repoErr, open.repoReading = msg.groups, msg.err, false
 
 	return m.withBeneath(open.withChoices()), nil
 }
@@ -260,6 +264,10 @@ func (p peopleOverlay) groupLines(width, rows int) []string {
 		lines = append(lines, p.marks.inFlight+" reading the user groups"+p.marks.ellipsis)
 	}
 
+	if p.repoReading {
+		lines = append(lines, p.marks.inFlight+" reading the groups this repository tags"+p.marks.ellipsis)
+	}
+
 	return append(lines, p.choices.rows(p.marks, rows-len(lines), p.choiceRow)...)
 }
 
@@ -268,7 +276,13 @@ func (p peopleOverlay) choiceRow(group loop.SlackTarget) string {
 	return p.marks.checkbox(p.isChosen(group.ID)) + slackName(group, true)
 }
 
-// isChosen reports a group the repository tags, as edited so far.
+// groupsEditable reports a checklist whose change can be saved: the
+// repository's groups are read, so a save keeps the ones not shown changing.
+func (p peopleOverlay) groupsEditable() bool {
+	return !p.repoReading && p.repoErr == nil
+}
+
+// isChosen reports a group the repository tags.
 func (p peopleOverlay) isChosen(id string) bool {
 	return slices.ContainsFunc(p.chosen, func(group loop.SlackTarget) bool { return group.ID == id })
 }
@@ -280,10 +294,13 @@ func (p peopleOverlay) footer(keys keyMap) []key.Binding {
 	}
 
 	if p.tab == tabGroups {
-		return []key.Binding{
-			relabel(keys.toggleOption, "select"), relabel(keys.confirm, "save"),
-			relabel(keys.refresh, "refresh directory"), relabel(keys.nextField, "people"), keys.closeOverlay,
+		var bindings []key.Binding
+		if p.groupsEditable() {
+			bindings = append(bindings, relabel(keys.toggleOption, "tag"))
 		}
+
+		return append(bindings,
+			relabel(keys.refresh, "refresh directory"), relabel(keys.nextField, "people"), keys.closeOverlay)
 	}
 
 	return []key.Binding{
@@ -345,29 +362,17 @@ func (p peopleOverlay) handlePersonKey(m Model, msg tea.KeyPressMsg) (Model, tea
 	case key.Matches(msg, m.keys.forgetOwner):
 		forget, owner, opened := m.deps.Store.ForgetOwner, selected.owner, p.opened
 
-		return p.saving(m, func() tea.Msg { return peopleSaved{opened: opened, saved: "", err: forget(owner)} })
+		return p.saving(m, func() tea.Msg { return peopleSaved{opened: opened, err: forget(owner)} })
 	default:
 		return m, nil
 	}
 }
 
-// handleGroupKey checks a group, saves the checklist, or reads the directory
-// again.
+// handleGroupKey checks or unchecks a group, or reads the directory again.
 func (p peopleOverlay) handleGroupKey(m Model, msg tea.KeyPressMsg) (Model, tea.Cmd) {
 	switch {
-	case key.Matches(msg, m.keys.toggleOption):
-		m.overlay = p.toggled()
-
-		return m, nil
-	case key.Matches(msg, m.keys.confirm):
-		save, opened := m.deps.Store.SetRepoGroups, p.opened
-		groups := slices.DeleteFunc(slices.Clone(p.choices.items), func(group loop.SlackTarget) bool {
-			return !p.isChosen(group.ID)
-		})
-
-		return p.saving(m, func() tea.Msg {
-			return peopleSaved{opened: opened, saved: "saved the groups this repository tags", err: save(groups)}
-		})
+	case key.Matches(msg, m.keys.toggleOption) && p.groupsEditable():
+		return p.toggled(m)
 	case key.Matches(msg, m.keys.refresh):
 		return p.refreshed(m)
 	default:
@@ -375,12 +380,12 @@ func (p peopleOverlay) handleGroupKey(m Model, msg tea.KeyPressMsg) (Model, tea.
 	}
 }
 
-// toggled is the checklist with the group under the cursor checked, or
-// unchecked when it was.
-func (p peopleOverlay) toggled() peopleOverlay {
+// toggled checks the group under the cursor, or unchecks it when it was,
+// and saves the repository's groups at once, in the order Slack lists them.
+func (p peopleOverlay) toggled(m Model) (Model, tea.Cmd) {
 	group, ok := p.choices.chosen()
 	if !ok {
-		return p
+		return m, nil
 	}
 
 	if p.isChosen(group.ID) {
@@ -389,7 +394,38 @@ func (p peopleOverlay) toggled() peopleOverlay {
 		p.chosen = append(slices.Clone(p.chosen), group)
 	}
 
-	return p
+	save, opened := m.deps.Store.SetRepoGroups, p.opened
+	groups := slices.DeleteFunc(slices.Clone(p.choices.items), func(choice loop.SlackTarget) bool {
+		return !p.isChosen(choice.ID)
+	})
+
+	return p.saving(m, func() tea.Msg { return repoGroupsSaved{opened: opened, err: save(groups)} })
+}
+
+// repoGroupsSaved is the repository's groups saved, or why they were not.
+type repoGroupsSaved struct {
+	opened int
+	err    error
+}
+
+// apply says the groups were saved, or pins the refusal and reads them
+// again, so the checklist shows what is kept rather than the change refused.
+func (msg repoGroupsSaved) apply(m Model) (Model, tea.Cmd) {
+	open, isOpen := beneath[peopleOverlay](m, msg.opened)
+	if !isOpen {
+		return m, nil
+	}
+
+	if msg.err != nil {
+		open = open.failed(msg.err)
+		open.repoReading = true
+
+		return m.withBeneath(open), m.readRepoGroups(open.opened)
+	}
+
+	open.send = sendState{}
+
+	return m.withBeneath(open).noticed(m.marks.done + " saved the groups this repository tags"), nil
 }
 
 // saving marks a write in flight and sends it.
@@ -444,7 +480,6 @@ func (msg directoryRefreshed) apply(m Model) (Model, tea.Cmd) {
 // peopleSaved is a write from People and groups done, or why it was refused.
 type peopleSaved struct {
 	opened int
-	saved  string
 	err    error
 }
 
@@ -460,13 +495,8 @@ func (msg peopleSaved) apply(m Model) (Model, tea.Cmd) {
 	}
 
 	open.send = sendState{}
-	m = m.withBeneath(open)
 
-	if msg.saved != "" {
-		m = m.noticed(m.marks.done + " " + msg.saved)
-	}
-
-	return m, m.readPeople(open.opened)
+	return m.withBeneath(open), m.readPeople(open.opened)
 }
 
 // openedAs is the count of overlays opened when People and groups opened.
