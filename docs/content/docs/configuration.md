@@ -369,6 +369,16 @@ refusing them is said at once, and nothing is written. Where the file keeps
 the token, what you type is written to it, and the next post refreshes with
 it, which is when a refusal shows.
 
+**Asking somewhere other than Slack — a hook for tests and proxies.** Every
+request that carries the user token goes to `https://slack.com/api`, unless the
+`WORKFLOW_SLACK_API` environment variable names another address: a fake Slack
+a test runs, or a proxy in front of Slack. It is an environment variable and
+never a `.workflow.json` key, so a repository's file cannot send your token
+anywhere. It takes an `https://` address, or `http://` only to this machine
+(`127.0.0.1`, `::1` or `localhost`); anything else is refused with an error
+naming the variable, and nothing is sent. A webhook carries its own address and
+is not affected.
+
 #### Incoming webhook — the two-minute option
 
 1. Create an app at [api.slack.com/apps](https://api.slack.com/apps) in your

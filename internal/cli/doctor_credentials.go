@@ -234,7 +234,9 @@ func checkMessaging(ctx context.Context, out io.Writer, doer messaging.Doer, run
 	cfg := run.cfg
 	label := strings.ToLower(cfg.Messaging.Service())
 
-	client := messaging.New(doer, messaging.APIBase, cfg.Messaging)
+	base, toSlack := wiring.SlackAPI(doer)
+
+	client := messaging.New(toSlack, base, cfg.Messaging)
 	if cfg.Messaging.Mode() == config.MessagingUser {
 		client = client.WithToken(userTokenSource(cfg, doer, run.dryRun))
 	}

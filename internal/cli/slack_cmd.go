@@ -194,7 +194,9 @@ func keepFirstToken(ctx context.Context, out io.Writer, cfg config.Config, start
 		return err
 	}
 
-	identity, err := messaging.New(transport, messaging.APIBase, cfg.Messaging).
+	base, toSlack := wiring.SlackAPI(transport)
+
+	identity, err := messaging.New(toSlack, base, cfg.Messaging).
 		WithToken(wiring.SlackToken(cfg, transport)).AuthTest(ctx)
 	if err != nil {
 		return err
