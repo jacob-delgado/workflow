@@ -51,8 +51,8 @@ func TestTheComposerSuggestsReviewersFromCodeOwners(t *testing.T) {
 	// Assert
 	requireScreen(t, composer.View().Content, "reviewers > ana, ben")
 
-	if calls := opening.asked("code-owners"); len(calls) != 1 {
-		t.Errorf("CODEOWNERS reads = %q, want one", calls)
+	if calls := opening.asked("code-owners main"); len(calls) != 1 {
+		t.Errorf("CODEOWNERS reads = %q, want one, at the base", calls)
 	}
 }
 

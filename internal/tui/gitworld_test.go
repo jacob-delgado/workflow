@@ -5,7 +5,9 @@ package tui_test
 
 import (
 	"slices"
+	"strings"
 
+	"github.com/jacob-delgado/workflow/internal/codeowners"
 	"github.com/jacob-delgado/workflow/internal/gitrepo"
 	"github.com/jacob-delgado/workflow/internal/proc"
 	"github.com/jacob-delgado/workflow/internal/seams"
@@ -59,10 +61,18 @@ func (w *world) gitDeps() seams.Git {
 
 			return slices.Clone(w.remoteBranches), w.remoteBranchesErr
 		},
-		CodeOwners: func() ([]string, error) {
-			w.record("code-owners")
+		ChangedPaths: func(base string) ([]string, error) {
+			w.record("changed-paths " + base)
 
-			return slices.Clone(w.codeOwners), w.codeOwnersErr
+			return []string{"README.md"}, nil
+		},
+		CodeOwnersAt: func(base string) (codeowners.File, bool, error) {
+			w.record("code-owners " + base)
+
+			// Every path is owned by every owner the world names.
+			content := "* @" + strings.Join(w.codeOwners, " @")
+
+			return codeowners.Parse(content, codeowners.GitHub), len(w.codeOwners) > 0, w.codeOwnersErr
 		},
 		RecentSubjects: func() ([]string, error) {
 			w.record("recent-subjects")
@@ -128,7 +138,7 @@ func (w *world) gitDeps() seams.Git {
 	}
 
 	if w.noCodeOwners {
-		deps.CodeOwners = nil
+		deps.ChangedPaths, deps.CodeOwnersAt = nil, nil
 	}
 
 	if w.noRecentSubjects {

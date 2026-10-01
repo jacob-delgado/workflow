@@ -18,6 +18,7 @@
 package seams
 
 import (
+	"github.com/jacob-delgado/workflow/internal/codeowners"
 	"github.com/jacob-delgado/workflow/internal/forge"
 	"github.com/jacob-delgado/workflow/internal/gitrepo"
 	"github.com/jacob-delgado/workflow/internal/hooks"
@@ -67,9 +68,12 @@ type Git struct {
 	// RemoteBranches lists the branches on the remotes by name, so the pull
 	// request's base field can complete to one. Nil when there is no repository.
 	RemoteBranches func() ([]string, error)
-	// CodeOwners reads the user handles the CODEOWNERS file names, so the pull
-	// request's reviewers field can suggest them. Nil when there is no repository.
-	CodeOwners func() ([]string, error)
+	// ChangedPaths lists the paths the branch changes since it left base, and
+	// CodeOwnersAt reads the CODEOWNERS file as base holds it, in the forge's
+	// dialect, reporting false when there is none: together they name the
+	// owners of a pull request's changes. Nil when there is no repository.
+	ChangedPaths func(base string) ([]string, error)
+	CodeOwnersAt func(base string) (codeowners.File, bool, error)
 	// RecentSubjects reads the subjects of recent commits, so the commit scope
 	// field can complete from the scopes already in use. Nil when there is no
 	// repository.

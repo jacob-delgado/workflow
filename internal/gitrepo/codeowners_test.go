@@ -4,73 +4,70 @@
 package gitrepo_test
 
 import (
+	"errors"
 	"slices"
 	"testing"
 
+	"github.com/jacob-delgado/workflow/internal/codeowners"
 	"github.com/jacob-delgado/workflow/internal/gitrepo"
 )
 
-// showCodeOwners is the git command CodeOwners runs for the root CODEOWNERS.
-const showCodeOwners = "git -C /work show HEAD:CODEOWNERS"
-
-func TestCodeOwnersListsTheDistinctUserHandles(t *testing.T) {
+func TestCodeOwnersAtReadsTheDialectsFileAtOriginsBase(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
-	// The file names a team and an email owner alongside people; only the people
-	// can be requested as reviewers, and each only once, in first-seen order.
-	content := "* @ana @org/platform\n" +
-		"internal/forge/ @ben @ana\n" +
-		"docs/ docs@example.com\n" +
-		"# a comment line\n"
+	// GitLab looks at the root first, then docs/, then .gitlab/.
 	repo := gitrepo.At(fakeRunner(t, map[string]reply{
-		showCodeOwners: {out: []byte(content)},
+		verifyOriginMain: {out: []byte("0123abcd\n")},
+		verifyOriginRef:  {out: []byte("0123abcd\n")},
+		"git -C /work show origin/main:CODEOWNERS":         {err: errNotIgnored},
+		"git -C /work show origin/main:docs/CODEOWNERS":    {err: errNotIgnored},
+		"git -C /work show origin/main:.gitlab/CODEOWNERS": {out: []byte("[Go] @ana\n*.go @org/team\n")},
 	}), workDir)
 
 	// Act
-	owners, err := repo.CodeOwners(t.Context())
+	file, found, err := repo.CodeOwnersAt(t.Context(), "main", codeowners.GitLab)
 
 	// Assert
-	if err != nil || !slices.Equal(owners, []string{"ana", "ben"}) {
-		t.Errorf("CodeOwners = %v, %v, want [ana ben]", owners, err)
+	owners := file.OwnersOf([]string{goFile})
+	if err != nil || !found || !slices.Equal(owners.Teams, []string{"org/team"}) {
+		t.Errorf("CodeOwnersAt = %+v, %v, %v, want org/team owning a.go", owners, found, err)
 	}
 }
 
-func TestCodeOwnersFallsBackToTheGitHubPath(t *testing.T) {
-	t.Parallel()
-
-	// Arrange
-	// The root has no CODEOWNERS, so the .github location is read instead.
-	repo := gitrepo.At(fakeRunner(t, map[string]reply{
-		showCodeOwners: {err: errNotIgnored},
-		"git -C /work show HEAD:.github/CODEOWNERS": {out: []byte("* @ana\n")},
-	}), workDir)
-
-	// Act
-	owners, err := repo.CodeOwners(t.Context())
-
-	// Assert
-	if err != nil || !slices.Equal(owners, []string{"ana"}) {
-		t.Errorf("CodeOwners = %v, %v, want [ana]", owners, err)
-	}
-}
-
-func TestCodeOwnersIsEmptyWithNoFile(t *testing.T) {
+func TestCodeOwnersAtFindsNoFile(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
 	missing := reply{err: errNotIgnored}
 	repo := gitrepo.At(fakeRunner(t, map[string]reply{
-		showCodeOwners: missing,
-		"git -C /work show HEAD:.github/CODEOWNERS": missing,
-		"git -C /work show HEAD:docs/CODEOWNERS":    missing,
+		verifyOriginMain: missing,
+		"git -C /work rev-parse --verify --quiet main^{commit}": {out: []byte("0123abcd\n")},
+		"git -C /work show main:.github/CODEOWNERS":             missing,
+		"git -C /work show main:CODEOWNERS":                     missing,
+		"git -C /work show main:docs/CODEOWNERS":                missing,
 	}), workDir)
 
 	// Act
-	owners, err := repo.CodeOwners(t.Context())
+	file, found, err := repo.CodeOwnersAt(t.Context(), "main", codeowners.GitHub)
 
 	// Assert
-	if err != nil || len(owners) != 0 {
-		t.Errorf("CodeOwners = %v, %v, want no owners", owners, err)
+	if err != nil || found || len(file.OwnersOf([]string{goFile}).Users) != 0 {
+		t.Errorf("CodeOwnersAt = %v, %v, want no file", found, err)
+	}
+}
+
+func TestCodeOwnersAtRefusesABaseThatReadsAsAnOption(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	repo := gitrepo.At(fakeRunner(t, map[string]reply{}), workDir)
+
+	// Act
+	_, _, err := repo.CodeOwnersAt(t.Context(), "-p", codeowners.GitHub)
+
+	// Assert
+	if !errors.Is(err, gitrepo.ErrOptionLikeRef) {
+		t.Errorf("CodeOwnersAt = %v, want ErrOptionLikeRef", err)
 	}
 }

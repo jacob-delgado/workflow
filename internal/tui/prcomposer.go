@@ -6,6 +6,7 @@ package tui
 import (
 	"errors"
 	"fmt"
+	"slices"
 	"strconv"
 	"strings"
 
@@ -18,6 +19,7 @@ import (
 	"github.com/jacob-delgado/workflow/internal/gitrepo"
 	"github.com/jacob-delgado/workflow/internal/jira"
 	"github.com/jacob-delgado/workflow/internal/loop"
+	"github.com/jacob-delgado/workflow/internal/seams"
 )
 
 // prLabelWidth is the columns a pull request field's marker, label, prompt and
@@ -149,7 +151,7 @@ func (m Model) proposePullRequest(branch gitrepo.Branch, issueKey jira.Key, summ
 	composer.assignees.Blur()
 	composer.labels.Blur()
 	composer = composer.withBaseSuggestions(m.deps.Git.RemoteBranches)
-	composer = composer.withReviewerSuggestions(m.deps.Git.CodeOwners)
+	composer = composer.withReviewerSuggestions(m.deps.Git)
 
 	if m.deps.Forge.Templates != nil {
 		composer.templates = m.deps.Forge.Templates()
@@ -225,21 +227,36 @@ func (c prComposer) withBaseSuggestions(remoteBranches func() ([]string, error))
 	return c
 }
 
-// withReviewerSuggestions shows the CODEOWNERS handles as the reviewers field's
-// hint and completions, when the repository names any. A failure to read them
-// is no reason to refuse the composer, so the field is simply left plain.
-func (c prComposer) withReviewerSuggestions(codeOwners func() ([]string, error)) prComposer {
-	if codeOwners == nil {
+// withReviewerSuggestions shows the owners of the changed paths, people then
+// teams, as the reviewers field's hint and completions, when CODEOWNERS on the
+// base names any. A failure to read them is no reason to refuse the composer,
+// so the field is simply left plain.
+func (c prComposer) withReviewerSuggestions(git seams.Git) prComposer {
+	if git.ChangedPaths == nil || git.CodeOwnersAt == nil {
 		return c
 	}
 
-	owners, err := codeOwners()
-	if err != nil || len(owners) == 0 {
+	base := c.base.Value()
+
+	paths, err := git.ChangedPaths(base)
+	if err != nil {
 		return c
 	}
 
-	c.reviewers.Placeholder = strings.Join(owners, ", ")
-	c.reviewers.SetSuggestions(owners)
+	file, _, err := git.CodeOwnersAt(base)
+	if err != nil {
+		return c
+	}
+
+	owners := file.OwnersOf(paths)
+
+	names := slices.Concat(owners.Users, owners.Teams)
+	if len(names) == 0 {
+		return c
+	}
+
+	c.reviewers.Placeholder = strings.Join(names, ", ")
+	c.reviewers.SetSuggestions(names)
 	c.reviewers.ShowSuggestions = true
 
 	return c
