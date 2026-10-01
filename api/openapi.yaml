@@ -545,7 +545,9 @@ paths:
             application/problem+json:
               schema: {$ref: "#/components/schemas/Problem"}
         "422":
-          description: The key names no issue, or the link could not be kept.
+          description: >-
+            The key names no issue, the link could not be kept, or linking is
+            not available here.
           content:
             application/problem+json:
               schema: {$ref: "#/components/schemas/Problem"}
@@ -562,12 +564,12 @@ paths:
               schema:
                 $ref: "#/components/schemas/Branch"
         "409":
-          description: No branch is checked out; nothing was changed.
+          description: No branch is checked out to unlink; nothing was changed.
           content:
             application/problem+json:
               schema: {$ref: "#/components/schemas/Problem"}
         "422":
-          description: The link could not be forgotten.
+          description: The link could not be forgotten, or unlinking is not available here.
           content:
             application/problem+json:
               schema: {$ref: "#/components/schemas/Problem"}

@@ -56,10 +56,14 @@ func (s *server) LinkBranchIssue(
 func (s *server) UnlinkBranchIssue(
 	_ context.Context, _ api.UnlinkBranchIssueRequestObject,
 ) (api.UnlinkBranchIssueResponseObject, error) {
+	if s.deps.UnlinkIssue == nil {
+		return api.UnlinkBranchIssue422ApplicationProblemPlusJSONResponse(problem(api.Unprocessable,
+			errCannotLink.Error())), nil
+	}
+
 	branch, err := s.linkableBranch()
-	if errors.Is(err, errNoBranchToLink) || s.deps.UnlinkIssue == nil {
-		return api.UnlinkBranchIssue409ApplicationProblemPlusJSONResponse(problem(api.Conflict,
-			refusal(s.deps.UnlinkIssue != nil, errNoBranchToLink, errCannotLink))), nil
+	if errors.Is(err, errNoBranchToLink) {
+		return api.UnlinkBranchIssue409ApplicationProblemPlusJSONResponse(problem(api.Conflict, err.Error())), nil
 	}
 
 	if err == nil {

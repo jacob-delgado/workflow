@@ -1483,11 +1483,11 @@ export type UnlinkBranchIssueData = {
 
 export type UnlinkBranchIssueErrors = {
     /**
-     * No branch is checked out; nothing was changed.
+     * No branch is checked out to unlink; nothing was changed.
      */
     409: Problem;
     /**
-     * The link could not be forgotten.
+     * The link could not be forgotten, or unlinking is not available here.
      */
     422: Problem;
     /**
@@ -1520,7 +1520,7 @@ export type LinkBranchIssueErrors = {
      */
     409: Problem;
     /**
-     * The key names no issue, or the link could not be kept.
+     * The key names no issue, the link could not be kept, or linking is not available here.
      */
     422: Problem;
     /**
