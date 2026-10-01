@@ -25,6 +25,9 @@ const forgeIssuesLabel = "the forge's issues"
 // the forge's issues lead the first view's list, and every key goes to the
 // tracker its shape names, so a forge number never reaches Jira, which would
 // read it as the id of an unrelated issue.
+//
+// Trade-off TRADE-24: the first view and whether the forge joins in are read
+// here, once; a Settings save that changes either applies after a restart.
 func combinedTracker(settings config.Jira, jiraSide, forgeSide seams.Jira) seams.Jira {
 	first := firstView(settings)
 	listed := &forgeRows{}
