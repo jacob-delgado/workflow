@@ -634,3 +634,28 @@ copy's tests.
 
 **Reopen when.** The API comes to filter the queue for another reason, or
 the two copies are found to disagree.
+
+### TRADE-24 The combined tracker reads its settings once
+
+With Jira configured and `issues.forge` on, the Issues list draws on both
+trackers through `combinedTracker` (`internal/wiring/tracker.go`). Whether
+the forge's issues join in, and which view they lead (the first in
+`jira.views`), are read when the wiring is built, and the count of forge
+rows that led a first page is one per tracker, shared by every surface and
+tab that pages that view.
+
+**Decided.** 2026-10-01, in #164: Jira's own settings — its address, token
+and views as the tracker sees them — are already read once, at wiring, and
+a live tracker would need a control the web's Settings save calls, as
+`UseForgeSettings` is for the forge, threaded through every tracker seam.
+The web's lists resolve a view's JQL from the configuration in effect, so a
+renamed or reordered first view still lists Jira's issues; only the forge's
+rows are left off it until workflow restarts.
+
+**Cost.** A Settings save that turns `issues.forge` on or off, or changes
+the first view, takes effect only after a restart of `workflow --web`; and
+two tabs paging the first view while the forge's open issues change can
+skip or repeat a Jira row on a later page.
+
+**Reopen when.** Jira's settings are made live on save, or someone is seen
+to toggle `issues.forge` from Settings and expect it at once.
