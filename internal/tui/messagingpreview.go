@@ -46,6 +46,9 @@ type messagingPreview struct {
 	// tagging is whom a ready-for-review announcement tags; the zero value
 	// tags no one.
 	tagging tagSection
+	// opened is the count of overlays opened when this one opened, so a read
+	// started for it lands in it alone.
+	opened int
 }
 
 // destination is where this post will go, as it is shown and as it is sent.
@@ -129,7 +132,7 @@ func (p messagingPreview) cycleChannel(m Model, step int) (Model, tea.Cmd) {
 
 	var readMembers tea.Cmd
 	if p.tagging.offered {
-		p.tagging.members, readMembers = m.readMembers(p.channel)
+		p.tagging.members, readMembers = m.readMembers(p.channel, p.opened)
 	}
 
 	m.overlay = p

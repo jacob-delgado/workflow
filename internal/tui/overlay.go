@@ -172,6 +172,14 @@ func (m Model) closeOverlay() Model {
 	return m
 }
 
+// opening counts one more overlay opened whose reads answer later, and is
+// the count it is opened as.
+func (m Model) opening() (Model, int) {
+	m.overlaysOpened++
+
+	return m, m.overlaysOpened
+}
+
 // failable is an overlay that stays open when the request it sent fails, and
 // says why. T is the overlay's own type, so a failure lands only in the kind of
 // overlay that sent the request.

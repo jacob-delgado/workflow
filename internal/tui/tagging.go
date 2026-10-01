@@ -75,15 +75,16 @@ func (m Model) withTagging(preview messagingPreview) (messagingPreview, tea.Cmd)
 	var readMembers, readGroups tea.Cmd
 
 	preview.tagging = tagSection{offered: true, canLink: m.deps.Store.LinkOwner != nil, reading: true}
-	preview.tagging.members, readMembers = m.readMembers(preview.channel)
-	preview.tagging.groups, readGroups = m.readUserGroups()
+	preview.tagging.members, readMembers = m.readMembers(preview.channel, preview.opened)
+	preview.tagging.groups, readGroups = m.readUserGroups(preview.opened)
 
-	return preview, tea.Batch(m.readTags(), readMembers, readGroups)
+	return preview, tea.Batch(m.readTags(preview.opened), readMembers, readGroups)
 }
 
 // readTags reads whom the announcement proposes to tag: the owners of the
-// branch's changes against its base, and what the store kept about them.
-func (m Model) readTags() tea.Cmd {
+// branch's changes against its base, and what the store kept about them, for
+// the preview opened as opened.
+func (m Model) readTags(opened int) tea.Cmd {
 	owners := loop.OwnerSeams{
 		ChangedPaths: m.deps.Git.ChangedPaths, CodeOwnersAt: m.deps.Git.CodeOwnersAt, Author: m.deps.Forge.Author,
 	}
@@ -101,7 +102,7 @@ func (m Model) readTags() tea.Cmd {
 
 		proposal.owners, proposal.links, proposal.repoGroups = found, links, groups
 
-		return tagsRead{proposal: proposal, err: errors.Join(ownersErr, linksErr, groupsErr)}
+		return tagsRead{opened: opened, proposal: proposal, err: errors.Join(ownersErr, linksErr, groupsErr)}
 	}
 }
 
@@ -118,13 +119,14 @@ func readKept[T any](read func() ([]T, error)) ([]T, error) {
 // tagsRead is whom the announcement proposes to tag, and why some of it could
 // not be read.
 type tagsRead struct {
+	opened   int
 	proposal tagProposal
 	err      error
 }
 
 // apply fills the preview's tag section, when the preview is still open.
 func (msg tagsRead) apply(m Model) (Model, tea.Cmd) {
-	preview, open := beneath[messagingPreview](m)
+	preview, open := beneath[messagingPreview](m, msg.opened)
 	if !open {
 		return m, nil
 	}
@@ -262,10 +264,11 @@ type postTags struct {
 	offersGroups bool
 }
 
-// postTags is whom the post tags. A token lacking a scope tags no one, and
-// so does a tag Slack could not read: tagging never holds a post back.
+// postTags is whom the post tags: no one but for a ready-for-review
+// announcement, which alone offers tags. A token lacking a scope tags no one,
+// and so does a tag Slack could not read: tagging never holds a post back.
 func (s tagSection) postTags() postTags {
-	if s.missingScope() != "" {
+	if !s.offered || s.missingScope() != "" {
 		return postTags{}
 	}
 
@@ -395,6 +398,11 @@ func (p messagingPreview) pickLink(m Model) (Model, tea.Cmd) {
 	return m, nil
 }
 
+// openedAs is the count of overlays opened when the preview opened.
+func (p messagingPreview) openedAs() int {
+	return p.opened
+}
+
 // directoryFor is the directory the owner picker chooses from: the channel's
 // members for a person, the user groups for a team.
 func (p messagingPreview) directoryFor(team bool) directory {
@@ -412,5 +420,5 @@ func (p messagingPreview) markNotOnSlack(m Model) (Model, tea.Cmd) {
 		return m, nil
 	}
 
-	return m, m.saveLink(owner.Owner, nil)
+	return m, m.saveLink(owner.Owner, nil, p.opened)
 }
