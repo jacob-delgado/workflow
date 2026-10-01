@@ -104,3 +104,35 @@ test('a linked branch names its issue and can be unlinked', async () => {
     expect(await writesTo(requests)).toEqual(['DELETE '])
   })
 })
+
+test('links the issue that was previewed, not one typed while the preview was read', async () => {
+  // Arrange
+  onBranch()
+  let answerPreview = () => {}
+  const previewHeld = new Promise<void>((resolve) => {
+    answerPreview = resolve
+  })
+  const requests = fakeApi({
+    [previewPath]: async () => {
+      await previewHeld
+
+      return { key: 'PROJ-7', pull: 12, body: 'Speeds it up.\n\nJira: PROJ-7\n', changes: true }
+    },
+    [linkPath]: makeBranch({ name: 'my-thing', issue_link: 'PROJ-7' }),
+  })
+  const user = userEvent.setup()
+  render(<BranchPanel />)
+  await user.click(screen.getByRole('button', { name: 'Link an issue' }))
+  const field = screen.getByRole('textbox', { name: 'Issue' })
+  await user.type(field, 'PROJ-7{Enter}')
+  await user.type(field, '{Backspace}9')
+  answerPreview()
+
+  // Act
+  await user.click(await screen.findByRole('button', { name: 'Link and update #12' }))
+
+  // Assert
+  await waitFor(async () => {
+    expect(await writesTo(requests)).toEqual(['PUT {"key":"PROJ-7","update_pull":true}'])
+  })
+})
