@@ -121,8 +121,10 @@ internal/tui 47
 # done, annotate, modify — that share the uuid check and the list read after)
 # and taskcommands.go (add, track, undo and sync, which name no task); 21 is
 # branchlink.go, linking the branch to an issue and previewing what that writes
-# in its pull request. Frozen here so that growth stays deliberate.
-internal/webserver 21
+# in its pull request; 22 is localdata.go, Settings' Local data area, which
+# lists the store's database files and cleans the cache or everything, as
+# `workflow db-clean` does. Frozen here so that growth stays deliberate.
+internal/webserver 22
 
 # internal/cli — the Cobra command tree, one file per command: the read commands
 # (doctor, split by section across doctor.go for the command, the repository and

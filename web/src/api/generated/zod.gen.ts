@@ -34,6 +34,30 @@ export const zBranchIssuePreview = z.object({
     changes: z.boolean()
 });
 
+export const zLocalDataHeld = z.object({
+    what: z.string(),
+    count: z.int().gte(0)
+});
+
+/**
+ * One database file, with its companions counted in its size.
+ */
+export const zLocalDataFile = z.object({
+    name: z.string(),
+    kind: z.enum(['cache', 'kept']),
+    bytes: z.coerce.bigint().gte(BigInt(0)).max(BigInt('9223372036854775807'), { error: 'Invalid value: Expected int64 to be <= 9223372036854775807' }),
+    holds: z.array(zLocalDataHeld)
+});
+
+/**
+ * The store's directory and the database files in it.
+ */
+export const zLocalData = z.object({
+    dir: z.string(),
+    files: z.array(zLocalDataFile),
+    dry_run: z.boolean().optional()
+});
+
 /**
  * The branch to check out.
  */
@@ -669,6 +693,20 @@ export const zUpdateConfigHeaders = z.object({
  * The configuration as written, redacted.
  */
 export const zUpdateConfigResponse = zConfig;
+
+export const zCleanLocalDataQuery = z.object({
+    scope: z.enum(['cache', 'all'])
+});
+
+/**
+ * The directory and the database files left after the clean.
+ */
+export const zCleanLocalDataResponse = zLocalData;
+
+/**
+ * The directory and its database files.
+ */
+export const zGetLocalDataResponse = zLocalData;
 
 /**
  * The branch, no longer linked.

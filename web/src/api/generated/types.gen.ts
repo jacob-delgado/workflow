@@ -61,6 +61,54 @@ export type BranchIssuePreview = {
 };
 
 /**
+ * The store's directory and the database files in it.
+ */
+export type LocalData = {
+    /**
+     * The directory the store keeps its files in.
+     */
+    dir: string;
+    /**
+     * Each database file there, the cache first; a file not there is left out.
+     */
+    files: Array<LocalDataFile>;
+    /**
+     * Whether the server runs with --dry-run, which refuses a clean.
+     */
+    dry_run?: boolean;
+};
+
+/**
+ * One database file, with its companions counted in its size.
+ */
+export type LocalDataFile = {
+    /**
+     * The file's name in the directory, as workflow.db or kept.db.
+     */
+    name: string;
+    /**
+     * cache holds conveniences a session makes again; kept holds what the user decided, which a clean of all makes workflow ask again.
+     */
+    kind: 'cache' | 'kept';
+    /**
+     * Its size with its -wal and -shm companions.
+     */
+    bytes: number;
+    /**
+     * How many of each thing it holds; empty when the file could not be read as a database.
+     */
+    holds: Array<LocalDataHeld>;
+};
+
+export type LocalDataHeld = {
+    /**
+     * What is counted, as scopes or repository groups.
+     */
+    what: string;
+    count: number;
+};
+
+/**
  * The branch to check out.
  */
 export type CheckoutRequest = {
@@ -1477,6 +1525,73 @@ export type UpdateConfigResponses = {
 };
 
 export type UpdateConfigResponse = UpdateConfigResponses[keyof UpdateConfigResponses];
+
+export type CleanLocalDataData = {
+    body?: never;
+    path?: never;
+    query: {
+        /**
+         * cache removes workflow.db; all also removes kept.db.
+         */
+        scope: 'cache' | 'all';
+    };
+    url: '/api/local-data';
+};
+
+export type CleanLocalDataErrors = {
+    /**
+     * A file could not be removed, as one another program holds open can be on Windows; nothing was removed.
+     */
+    409: Problem;
+    /**
+     * Something other than the store's own plain file sits where a database file belongs, a symlink or a directory; nothing was removed. Or cleaning is not available here.
+     */
+    422: Problem;
+    /**
+     * An RFC 9457 problem details object describing the failure.
+     */
+    default: Problem;
+};
+
+export type CleanLocalDataError = CleanLocalDataErrors[keyof CleanLocalDataErrors];
+
+export type CleanLocalDataResponses = {
+    /**
+     * The directory and the database files left after the clean.
+     */
+    200: LocalData;
+};
+
+export type CleanLocalDataResponse = CleanLocalDataResponses[keyof CleanLocalDataResponses];
+
+export type GetLocalDataData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/local-data';
+};
+
+export type GetLocalDataErrors = {
+    /**
+     * There is no store directory to list, or listing it is not available here.
+     */
+    422: Problem;
+    /**
+     * An RFC 9457 problem details object describing the failure.
+     */
+    default: Problem;
+};
+
+export type GetLocalDataError = GetLocalDataErrors[keyof GetLocalDataErrors];
+
+export type GetLocalDataResponses = {
+    /**
+     * The directory and its database files.
+     */
+    200: LocalData;
+};
+
+export type GetLocalDataResponse = GetLocalDataResponses[keyof GetLocalDataResponses];
 
 export type UnlinkBranchIssueData = {
     body?: never;

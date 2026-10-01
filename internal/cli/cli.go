@@ -367,6 +367,9 @@ func WebDeps(deps tui.Deps) webserver.Deps {
 		Tasks:   deps.Tasks,
 		HomeDir: os.UserHomeDir,
 
+		LocalData:      localData,
+		CleanLocalData: cleanLocalData,
+
 		CheckKeys: tui.CheckKeys,
 		Clock:     deps.Clock,
 	}

@@ -51,6 +51,8 @@ tags:
     description: Where and as whom an announcement would post.
   - name: config
     description: The configuration file, read and written.
+  - name: local-data
+    description: The local databases workflow keeps between sessions, listed and cleaned.
   - name: events
     description: >-
       A live stream of state snapshots, pushed on connect and then every few
@@ -507,6 +509,72 @@ paths:
               schema: {$ref: "#/components/schemas/Problem"}
         "428":
           description: The request named no revision in If-Match; nothing was written.
+          content:
+            application/problem+json:
+              schema: {$ref: "#/components/schemas/Problem"}
+        default: {$ref: "#/components/responses/Problem"}
+
+  /api/local-data:
+    get:
+      operationId: getLocalData
+      summary: The local databases workflow keeps, each with its size and what it holds.
+      description: >-
+        Lists the directory the store keeps its files in and each database
+        file there: the cache (workflow.db), which a session makes again, and
+        the kept file (kept.db), whom each code owner is on Slack and each
+        repository's groups. A file is read without being written, and one
+        that is not there is left out. Reading works under --dry-run.
+      tags: [local-data]
+      responses:
+        "200":
+          description: The directory and its database files.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LocalData"
+        "422":
+          description: There is no store directory to list, or listing it is not available here.
+          content:
+            application/problem+json:
+              schema: {$ref: "#/components/schemas/Problem"}
+        default: {$ref: "#/components/responses/Problem"}
+    delete:
+      operationId: cleanLocalData
+      summary: Remove the cache, or with scope all the kept associations too.
+      description: >-
+        Removes the cache's database with its -wal and -shm companions, and
+        with scope all the kept file's too, so people and group associations
+        are asked again. Every file is set aside before any is removed, so a
+        file that cannot be removed leaves the rest in place. Refused with 403
+        under --dry-run, by the guard every write passes.
+      tags: [local-data]
+      parameters:
+        - name: scope
+          in: query
+          required: true
+          description: cache removes workflow.db; all also removes kept.db.
+          schema:
+            type: string
+            enum: [cache, all]
+      responses:
+        "200":
+          description: The directory and the database files left after the clean.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LocalData"
+        "409":
+          description: >-
+            A file could not be removed, as one another program holds open can
+            be on Windows; nothing was removed.
+          content:
+            application/problem+json:
+              schema: {$ref: "#/components/schemas/Problem"}
+        "422":
+          description: >-
+            Something other than the store's own plain file sits where a
+            database file belongs, a symlink or a directory; nothing was
+            removed. Or cleaning is not available here.
           content:
             application/problem+json:
               schema: {$ref: "#/components/schemas/Problem"}
@@ -1380,6 +1448,62 @@ components:
         changes:
           type: boolean
           description: Whether linking would change the description at all.
+      additionalProperties: false
+
+    LocalData:
+      type: object
+      description: The store's directory and the database files in it.
+      required: [dir, files]
+      properties:
+        dir:
+          type: string
+          description: The directory the store keeps its files in.
+        files:
+          type: array
+          description: Each database file there, the cache first; a file not there is left out.
+          items: {$ref: "#/components/schemas/LocalDataFile"}
+        dry_run:
+          type: boolean
+          description: Whether the server runs with --dry-run, which refuses a clean.
+      additionalProperties: false
+
+    LocalDataFile:
+      type: object
+      description: One database file, with its companions counted in its size.
+      required: [name, kind, bytes, holds]
+      properties:
+        name:
+          type: string
+          description: The file's name in the directory, as workflow.db or kept.db.
+        kind:
+          type: string
+          enum: [cache, kept]
+          description: >-
+            cache holds conveniences a session makes again; kept holds what the
+            user decided, which a clean of all makes workflow ask again.
+        bytes:
+          type: integer
+          format: int64
+          minimum: 0
+          description: Its size with its -wal and -shm companions.
+        holds:
+          type: array
+          description: >-
+            How many of each thing it holds; empty when the file could not be
+            read as a database.
+          items: {$ref: "#/components/schemas/LocalDataHeld"}
+      additionalProperties: false
+
+    LocalDataHeld:
+      type: object
+      required: [what, count]
+      properties:
+        what:
+          type: string
+          description: What is counted, as scopes or repository groups.
+        count:
+          type: integer
+          minimum: 0
       additionalProperties: false
 
     CheckoutRequest:

@@ -1,0 +1,123 @@
+// Copyright 2026 Jacob Delgado
+// SPDX-License-Identifier: Apache-2.0
+
+package webserver
+
+import (
+	"context"
+	"errors"
+
+	"github.com/jacob-delgado/workflow/internal/api"
+	"github.com/jacob-delgado/workflow/internal/store"
+)
+
+// errNoLocalData refuses the Local data area on a server wired with no store.
+var errNoLocalData = errors.New("the local data is not available here")
+
+// What a failed list or clean says, in words that name no path.
+const (
+	noStoreDirDetail   = "there is no directory to keep local data in: no home directory is set"
+	notStoreFileDetail = "something other than the store's own file, a symlink or a directory, " +
+		"sits where a database belongs; nothing was removed"
+	heldOpenDetail = "a database file could not be removed, as one another program holds open can be; " +
+		"nothing was removed — close other workflow sessions and try again"
+)
+
+// GetLocalData lists the store's directory and the database files in it.
+func (s *server) GetLocalData(
+	ctx context.Context, _ api.GetLocalDataRequestObject,
+) (api.GetLocalDataResponseObject, error) {
+	data, err := s.localData(ctx)
+	if err != nil {
+		prob, code := s.localDataFault(err)
+
+		return api.GetLocalDatadefaultApplicationProblemPlusJSONResponse{Body: prob, StatusCode: code}, nil
+	}
+
+	return api.GetLocalData200JSONResponse(data), nil
+}
+
+// CleanLocalData removes the cache, or with scope all the kept file too, and
+// answers what is left.
+func (s *server) CleanLocalData(
+	ctx context.Context, request api.CleanLocalDataRequestObject,
+) (api.CleanLocalDataResponseObject, error) {
+	if s.deps.CleanLocalData == nil {
+		return api.CleanLocalData422ApplicationProblemPlusJSONResponse(problem(api.Unprocessable,
+			errNoLocalData.Error())), nil
+	}
+
+	scope := map[api.CleanLocalDataParamsScope]store.CleanScope{
+		api.CleanLocalDataParamsScopeCache: store.CleanCache,
+		api.CleanLocalDataParamsScopeAll:   store.CleanAll,
+	}[request.Params.Scope]
+
+	err := s.deps.CleanLocalData(scope)
+	if err == nil {
+		var data api.LocalData
+
+		data, err = s.localData(ctx)
+		if err == nil {
+			return api.CleanLocalData200JSONResponse(data), nil
+		}
+	}
+
+	prob, code := s.localDataFault(err)
+
+	return api.CleanLocalDatadefaultApplicationProblemPlusJSONResponse{Body: prob, StatusCode: code}, nil
+}
+
+// localData reads the store's directory and files into the answer's shape.
+func (s *server) localData(ctx context.Context) (api.LocalData, error) {
+	if s.deps.LocalData == nil {
+		return api.LocalData{}, errNoLocalData
+	}
+
+	dir, files, err := s.deps.LocalData(ctx)
+	if err != nil {
+		return api.LocalData{}, err
+	}
+
+	data := api.LocalData{Dir: dir, Files: make([]api.LocalDataFile, 0, len(files))}
+
+	if s.info.DryRun {
+		dryRun := true
+		data.DryRun = &dryRun
+	}
+
+	for _, file := range files {
+		data.Files = append(data.Files, localDataFileDTO(file))
+	}
+
+	return data, nil
+}
+
+// localDataFileDTO is one database file as the answer carries it.
+func localDataFileDTO(file store.DataFile) api.LocalDataFile {
+	holds := make([]api.LocalDataHeld, 0, len(file.Holds))
+	for _, held := range file.Holds {
+		holds = append(holds, api.LocalDataHeld{What: held.What, Count: held.Count})
+	}
+
+	return api.LocalDataFile{
+		Name: file.Name, Kind: api.LocalDataFileKind(file.Kind), Bytes: file.Bytes, Holds: holds,
+	}
+}
+
+// localDataFault is the problem a failed list or clean is answered with: a
+// file held open is a conflict with the state on disk; no store, no directory
+// or something not the store's own in a file's place cannot be carried out.
+func (s *server) localDataFault(err error) (api.Problem, int) {
+	for cause, prob := range map[error]api.Problem{
+		errNoLocalData:        problem(api.Unprocessable, errNoLocalData.Error()),
+		store.ErrNoDir:        problem(api.Unprocessable, noStoreDirDetail),
+		store.ErrCleanRefused: problem(api.Unprocessable, notStoreFileDetail),
+		store.ErrNotCleaned:   problem(api.Conflict, heldOpenDetail),
+	} {
+		if errors.Is(err, cause) {
+			return prob, prob.Status
+		}
+	}
+
+	return s.fault(err)
+}

@@ -69,6 +69,12 @@ type ServerInterface interface {
 	// TransitionIssue Move an issue to the configured review status.
 	// (POST /api/issues/{key}/transition)
 	TransitionIssue(w http.ResponseWriter, r *http.Request, key string)
+	// CleanLocalData Remove the cache, or with scope all the kept associations too.
+	// (DELETE /api/local-data)
+	CleanLocalData(w http.ResponseWriter, r *http.Request, params CleanLocalDataParams)
+	// GetLocalData The local databases workflow keeps, each with its size and what it holds.
+	// (GET /api/local-data)
+	GetLocalData(w http.ResponseWriter, r *http.Request)
 	// GetMessaging The service, channel, its alternates, and who a post would come from.
 	// (GET /api/messaging)
 	GetMessaging(w http.ResponseWriter, r *http.Request)
@@ -483,6 +489,53 @@ func (siw *ServerInterfaceWrapper) TransitionIssue(w http.ResponseWriter, r *htt
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.TransitionIssue(w, r, key)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// CleanLocalData operation middleware
+func (siw *ServerInterfaceWrapper) CleanLocalData(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params CleanLocalDataParams
+
+	// ------------- Required query parameter "scope" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, true, "scope", r.URL.Query(), &params.Scope, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "scope"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "scope", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.CleanLocalData(w, r, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetLocalData operation middleware
+func (siw *ServerInterfaceWrapper) GetLocalData(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetLocalData(w, r)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -980,6 +1033,8 @@ func HandlerWithOptions(si ServerInterface, options StdHTTPServerOptions) http.H
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/messaging", wrapper.GetMessaging)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/config", wrapper.GetConfig)
 	m.HandleFunc(http.MethodPut+" "+options.BaseURL+"/api/config", wrapper.UpdateConfig)
+	m.HandleFunc(http.MethodDelete+" "+options.BaseURL+"/api/local-data", wrapper.CleanLocalData)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/local-data", wrapper.GetLocalData)
 	m.HandleFunc(http.MethodDelete+" "+options.BaseURL+"/api/branch/issue", wrapper.UnlinkBranchIssue)
 	m.HandleFunc(http.MethodPut+" "+options.BaseURL+"/api/branch/issue", wrapper.LinkBranchIssue)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/branch/issue/preview", wrapper.PreviewBranchIssue)
@@ -2006,6 +2061,125 @@ type TransitionIssuedefaultApplicationProblemPlusJSONResponse struct {
 }
 
 func (response TransitionIssuedefaultApplicationProblemPlusJSONResponse) VisitTransitionIssueResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CleanLocalDataRequestObject struct {
+	Params CleanLocalDataParams
+}
+
+type CleanLocalDataResponseObject interface {
+	VisitCleanLocalDataResponse(w http.ResponseWriter) error
+}
+
+type CleanLocalData200JSONResponse LocalData
+
+func (response CleanLocalData200JSONResponse) VisitCleanLocalDataResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CleanLocalData409ApplicationProblemPlusJSONResponse Problem
+
+func (response CleanLocalData409ApplicationProblemPlusJSONResponse) VisitCleanLocalDataResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(409)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CleanLocalData422ApplicationProblemPlusJSONResponse Problem
+
+func (response CleanLocalData422ApplicationProblemPlusJSONResponse) VisitCleanLocalDataResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(422)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CleanLocalDatadefaultApplicationProblemPlusJSONResponse struct {
+	Body       Problem
+	StatusCode int
+}
+
+func (response CleanLocalDatadefaultApplicationProblemPlusJSONResponse) VisitCleanLocalDataResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetLocalDataRequestObject struct {
+}
+
+type GetLocalDataResponseObject interface {
+	VisitGetLocalDataResponse(w http.ResponseWriter) error
+}
+
+type GetLocalData200JSONResponse LocalData
+
+func (response GetLocalData200JSONResponse) VisitGetLocalDataResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetLocalData422ApplicationProblemPlusJSONResponse Problem
+
+func (response GetLocalData422ApplicationProblemPlusJSONResponse) VisitGetLocalDataResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(422)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetLocalDatadefaultApplicationProblemPlusJSONResponse struct {
+	Body       Problem
+	StatusCode int
+}
+
+func (response GetLocalDatadefaultApplicationProblemPlusJSONResponse) VisitGetLocalDataResponse(w http.ResponseWriter) error {
 
 	var buf bytes.Buffer
 	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
@@ -3221,6 +3395,12 @@ type StrictServerInterface interface {
 	// TransitionIssue Move an issue to the configured review status.
 	// (POST /api/issues/{key}/transition)
 	TransitionIssue(ctx context.Context, request TransitionIssueRequestObject) (TransitionIssueResponseObject, error)
+	// CleanLocalData Remove the cache, or with scope all the kept associations too.
+	// (DELETE /api/local-data)
+	CleanLocalData(ctx context.Context, request CleanLocalDataRequestObject) (CleanLocalDataResponseObject, error)
+	// GetLocalData The local databases workflow keeps, each with its size and what it holds.
+	// (GET /api/local-data)
+	GetLocalData(ctx context.Context, request GetLocalDataRequestObject) (GetLocalDataResponseObject, error)
 	// GetMessaging The service, channel, its alternates, and who a post would come from.
 	// (GET /api/messaging)
 	GetMessaging(ctx context.Context, request GetMessagingRequestObject) (GetMessagingResponseObject, error)
@@ -3777,6 +3957,56 @@ func (sh *strictHandler) TransitionIssue(w http.ResponseWriter, r *http.Request,
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
 	} else if validResponse, ok := response.(TransitionIssueResponseObject); ok {
 		if err := validResponse.VisitTransitionIssueResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// CleanLocalData operation middleware
+func (sh *strictHandler) CleanLocalData(w http.ResponseWriter, r *http.Request, params CleanLocalDataParams) {
+	var request CleanLocalDataRequestObject
+
+	request.Params = params
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.CleanLocalData(ctx, request.(CleanLocalDataRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "CleanLocalData")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(CleanLocalDataResponseObject); ok {
+		if err := validResponse.VisitCleanLocalDataResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// GetLocalData operation middleware
+func (sh *strictHandler) GetLocalData(w http.ResponseWriter, r *http.Request) {
+	var request GetLocalDataRequestObject
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.GetLocalData(ctx, request.(GetLocalDataRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetLocalData")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(GetLocalDataResponseObject); ok {
+		if err := validResponse.VisitGetLocalDataResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {
