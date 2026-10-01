@@ -123,8 +123,9 @@ func TestPeopleForgetsAnOwner(t *testing.T) {
 	tagging.codeOwners = []string{ownerCarla}
 
 	// Act
-	// forget carla, who owns this branch's changes, then dan, who does not
-	forgotten := typing(t, openPeople(t, tagging), "d", "d")
+	// forget carla, who owns this branch's changes and moves to the end of
+	// the list, then dan, who does not
+	forgotten := typing(t, openPeople(t, tagging), "d", "up", "up", "d")
 
 	// Assert
 	// carla is asked again, and dan is gone
