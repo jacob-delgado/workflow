@@ -699,6 +699,7 @@ export type Config = {
     pull_request: PullRequestConfig;
     store: StoreConfig;
     taskwarrior: TaskwarriorConfig;
+    issues: IssuesConfig;
 };
 
 export type JiraConfig = {
@@ -833,6 +834,13 @@ export type StoreConfig = {
      * Turn off the on-disk store, keeping nothing between sessions. Off by default: the store is on and never holds a secret.
      */
     disabled?: boolean;
+};
+
+export type IssuesConfig = {
+    /**
+     * List the issues assigned to you on this repository's own forge, GitHub or GitLab, beside Jira's. Set per repository, over the home file's default.
+     */
+    forge?: boolean;
 };
 
 export type TaskwarriorConfig = {

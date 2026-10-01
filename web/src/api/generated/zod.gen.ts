@@ -455,6 +455,10 @@ export const zStoreConfig = z.object({
     disabled: z.boolean().optional()
 });
 
+export const zIssuesConfig = z.object({
+    forge: z.boolean().optional()
+});
+
 export const zTaskwarriorConfig = z.object({
     program: z.string().optional(),
     disabled: z.boolean().optional()
@@ -503,7 +507,8 @@ export const zConfig = z.object({
     commit: zCommitConfig,
     pull_request: zPullRequestConfig,
     store: zStoreConfig,
-    taskwarrior: zTaskwarriorConfig
+    taskwarrior: zTaskwarriorConfig,
+    issues: zIssuesConfig
 });
 
 /**

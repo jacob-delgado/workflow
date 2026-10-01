@@ -63,4 +63,7 @@ export const mockConfig: Config = {
     program: '',
     disabled: false,
   },
+  issues: {
+    forge: false,
+  },
 }

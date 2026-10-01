@@ -2043,7 +2043,7 @@ components:
         The whole configuration file. On a read, the six secret fields and the
         Jira header values are masked; on a write, a masked or empty secret keeps
         the stored value.
-      required: [version, jira, messaging, forge, ui, timing, branch, commit, pull_request, store, taskwarrior]
+      required: [version, jira, messaging, forge, ui, timing, branch, commit, pull_request, store, taskwarrior, issues]
       properties:
         version: {type: string}
         jira: {$ref: "#/components/schemas/JiraConfig"}
@@ -2056,6 +2056,7 @@ components:
         pull_request: {$ref: "#/components/schemas/PullRequestConfig"}
         store: {$ref: "#/components/schemas/StoreConfig"}
         taskwarrior: {$ref: "#/components/schemas/TaskwarriorConfig"}
+        issues: {$ref: "#/components/schemas/IssuesConfig"}
       additionalProperties: false
 
     JiraConfig:
@@ -2213,6 +2214,17 @@ components:
           description: >-
             Turn off the on-disk store, keeping nothing between sessions. Off by
             default: the store is on and never holds a secret.
+      additionalProperties: false
+
+    IssuesConfig:
+      type: object
+      properties:
+        forge:
+          type: boolean
+          description: >-
+            List the issues assigned to you on this repository's own forge,
+            GitHub or GitLab, beside Jira's. Set per repository, over the home
+            file's default.
       additionalProperties: false
 
     TaskwarriorConfig:
