@@ -21,7 +21,7 @@ func TestTheWorkingDirectoryFileLayersOverTheHomeFile(t *testing.T) {
 	workDir := t.TempDir()
 	homeDir := t.TempDir()
 
-	wantPath := write(t, workDir, `{"jira": {"base_url": "https://work.example.com"}}`)
+	wantPath := write(t, workDir, `{"jira": {"project": "WORK"}}`)
 	write(t, homeDir, completeConfig)
 
 	// Act
@@ -35,9 +35,9 @@ func TestTheWorkingDirectoryFileLayersOverTheHomeFile(t *testing.T) {
 		t.Errorf("saves to %s, want the working directory's %s", cfg.Path, wantPath)
 	}
 
-	if cfg.Jira.BaseURL != "https://work.example.com" || cfg.Jira.Token != "jira-token-1234" {
-		t.Errorf("jira = %q, %q; want the working directory's address over the home file's token",
-			cfg.Jira.BaseURL, cfg.Jira.Token.Reveal())
+	if cfg.Jira.Project != "WORK" || cfg.Jira.Token != "jira-token-1234" {
+		t.Errorf("jira = %q, %q; want the working directory's project over the home file's token",
+			cfg.Jira.Project, cfg.Jira.Token.Reveal())
 	}
 
 	if cfg.Messaging.ClientID != "1234.5678" {

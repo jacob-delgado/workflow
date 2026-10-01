@@ -69,6 +69,22 @@ its file, and the two are then checked together, since two valid files can
 still disagree (a webhook at home and a Slack user token in the repository,
 say).
 
+**A credential is inherited only by the address it was written for.** A
+repository's file is part of a working tree you may have cloned from anyone, so
+one that points a section somewhere else does not take your home file's
+credentials with it:
+
+| Section | Address | Credentials not inherited once the address changes |
+| --- | --- | --- |
+| `jira` | `base_url` | `token`, `token_command`, `token_env`, `headers` |
+| `forge` | `host` | `token` |
+| `messaging` | `kind` | `webhook_url` and the Slack user token (`client_id`, `client_secret`, `refresh_token`, `access_token`, `expires_at`) |
+
+A repository's file that leaves the address alone, or repeats the home file's,
+still inherits them, and one that moves it may set credentials of its own. A
+Slack user token is only ever sent to Slack, so a repository naming another
+`channel` keeps it; a webhook URL is its own address.
+
 A save writes the repository's file when there is one: the web's Settings
 writes only what differs from your home file, so a token inherited from home is
 never copied into a file in a working tree, and a later change at home still
