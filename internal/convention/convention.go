@@ -149,19 +149,26 @@ func IssueKey(text, project string) (IssueRef, bool) {
 }
 
 // RefOf is the tracker a key already in hand belongs to, by its shape: a
-// number, bare or after a #, is a forge issue's, and a key with a hyphen is
-// Jira's. Anything else is neither.
+// number, bare or after a #, is a forge issue's, and a whole key shaped as
+// Jira writes one — the shape a branch name is read by — is Jira's. Anything
+// else is neither, so a slug, a URL or a terminal control is never kept as a
+// link it cannot be shown or removed as.
 func RefOf(key string) (IssueRef, bool) {
 	number := strings.TrimPrefix(key, "#")
 	if forgeNumber().MatchString(number) {
 		return IssueRef{Key: number, Tracker: TrackerForge}, true
 	}
 
-	if key != "" && strings.Contains(key, "-") {
+	if wholeJiraKey().MatchString(key) {
 		return IssueRef{Key: key, Tracker: TrackerJira}, true
 	}
 
 	return IssueRef{}, false
+}
+
+// wholeJiraKey matches a Jira key alone, in issueKey's shape.
+func wholeJiraKey() *regexp.Regexp {
+	return regexp.MustCompile(`^[A-Z][A-Z0-9_]+-[1-9][0-9]*$`)
 }
 
 // IssueInText finds the issue a pull request's title or description names: a
