@@ -364,7 +364,7 @@ func stamp(ctx context.Context, database *sql.DB) error {
 // removeDatabase deletes the database at path along with the -wal and -shm
 // files SQLite may have left beside it; one already gone is no error.
 func removeDatabase(path string) error {
-	for _, each := range []string{path, path + "-wal", path + "-shm"} {
+	for _, each := range companionsOf(path) {
 		// Trade-off TRADE-16: the open that just read the version held these
 		// files, so a removal fails only when one changes underneath between
 		// the two calls.
