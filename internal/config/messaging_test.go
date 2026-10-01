@@ -220,25 +220,6 @@ func TestAnUnknownMessagingKindIsRefused(t *testing.T) {
 	}
 }
 
-func TestLoadHintsAtTheSlackToMessagingRename(t *testing.T) {
-	t.Parallel()
-
-	// Arrange
-	// A file written before the block was renamed still names it "slack", which
-	// the strict decoder would otherwise reject with a cryptic unknown-field
-	// error rather than a migration the reader can act on.
-	workDir := t.TempDir()
-	write(t, workDir, `{"slack": {"webhook_url": "`+webhookURL+`"}}`)
-
-	// Act
-	_, err := config.Load(workDir, t.TempDir())
-
-	// Assert
-	if !errors.Is(err, config.ErrSlackRenamed) || !errors.Is(err, config.ErrInvalid) {
-		t.Errorf("Load returned %v, want the slack-renamed migration hint", err)
-	}
-}
-
 func TestRedactedMasksAMessagingWebhookAndToken(t *testing.T) {
 	t.Parallel()
 

@@ -43,18 +43,6 @@ var (
 	// ErrUnknownVersion reports a file naming a format version this build does
 	// not know how to read.
 	ErrUnknownVersion = errors.New("unknown configuration version")
-	// ErrSlackRenamed reports a file still using the old top-level "slack" block,
-	// which is now "messaging" with a "kind". It turns the decoder's cryptic
-	// unknown-field error into a message that names the migration.
-	ErrSlackRenamed = errors.New(
-		`the "slack" block was renamed to "messaging"; rename the key and add "kind": "slack"`,
-	)
-	// ErrSlackBotTokenRemoved reports a messaging block still naming a Slack bot
-	// token — token, token_command or token_env — which workflow no longer
-	// posts with: Slack posts with a rotating user token, set up by
-	// `workflow slack login`, or an incoming webhook.
-	ErrSlackBotTokenRemoved = errors.New("messaging.token, token_command and token_env are gone: " +
-		"Slack posts with a rotating user token now; run `workflow slack login`, or set messaging.webhook_url")
 	// ErrInvalidBaseURL reports a jira.base_url that is not an absolute URL.
 	ErrInvalidBaseURL = errors.New("jira.base_url is not an absolute http or https URL")
 	// ErrCredentialInBaseURL reports userinfo embedded in jira.base_url.

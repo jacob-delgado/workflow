@@ -51,8 +51,7 @@ MESSAGING — SLACK, TEAMS, DISCORD OR A PLAIN WEBHOOK
   messaging.kind picks the service: slack (the default when empty), teams,
   discord or webhook. Slack posts with a rotating user token or over an
   incoming webhook — one or the other, never both; the others post over an
-  incoming webhook. (A file that still names the block "slack" needs it renamed
-  to "messaging" with "kind": "slack" added.)
+  incoming webhook.
 
   Slack incoming webhook (simplest):
 

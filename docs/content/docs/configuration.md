@@ -313,9 +313,7 @@ incoming webhook.
 
 Set up one or the other. A file that sets up both — `messaging.client_id`, or
 any of the user token's secrets, beside `messaging.webhook_url` — is refused when
-it loads, so it is always clear which one posts. The Slack bot token is gone:
-a file still naming `messaging.token`, `token_command` or `token_env` is refused
-with the way to set up a user token instead.
+it loads, so it is always clear which one posts.
 
 #### User token — posts as you, to the channel you choose
 

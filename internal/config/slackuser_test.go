@@ -59,29 +59,6 @@ func TestASlackUserTokenAndAWebhookTogetherAreRefused(t *testing.T) {
 	}
 }
 
-func TestTheSlackBotTokenSettingsAreRefusedWithTheLogin(t *testing.T) {
-	t.Parallel()
-
-	for _, removed := range []string{`"token": "xoxb-1"`, `"token_command": "pass slack"`, `"token_env": "SLACK"`} {
-		t.Run(removed, func(t *testing.T) {
-			t.Parallel()
-
-			// Arrange
-			workDir := t.TempDir()
-			write(t, workDir, `{"messaging": {"kind": "slack", `+removed+`}}`)
-
-			// Act
-			_, err := config.Load(workDir, t.TempDir())
-
-			// Assert
-			named := strings.Contains(err.Error(), "workflow slack login")
-			if !errors.Is(err, config.ErrSlackBotTokenRemoved) || !named {
-				t.Errorf("Load = %v, want the bot token's removal and the login named", err)
-			}
-		})
-	}
-}
-
 func TestTheUserTokenSettingsBelongToSlackAlone(t *testing.T) {
 	t.Parallel()
 
@@ -193,27 +170,5 @@ func TestRedactTextMasksTheSlackUserTokensSecrets(t *testing.T) {
 		if strings.Contains(masked, secret) {
 			t.Errorf("RedactText left %q in %q", secret, masked)
 		}
-	}
-}
-
-func TestAnUnknownTokenFieldOutsideMessagingIsNotBlamedOnSlack(t *testing.T) {
-	t.Parallel()
-
-	for name, file := range map[string]string{
-		"forge":  `{"forge":{"token_command":"pass forge"}}`,
-		"ui":     `{"ui":{"token":"x"}}`,
-		"timing": `{"timing":{"token_env":"X"}}`,
-	} {
-		t.Run(name, func(t *testing.T) {
-			t.Parallel()
-
-			// Act
-			_, err := config.Parse(strings.NewReader(file))
-
-			// Assert
-			if err == nil || errors.Is(err, config.ErrSlackBotTokenRemoved) {
-				t.Errorf("Parse = %v, want the unknown field refused in its own words", err)
-			}
-		})
 	}
 }
