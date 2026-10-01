@@ -157,3 +157,34 @@ test("on GitLab, names the merge request by GitLab's own mark", async () => {
   expect(await screen.findByText("!9's description becomes:")).toBeTruthy()
   expect(screen.getByRole('button', { name: 'Link and update !9' })).toBeTruthy()
 })
+
+test('a branch linked to a forge issue names it as the forge writes it', () => {
+  // Arrange
+  onBranch('42')
+
+  // Act
+  render(<BranchPanel />)
+
+  // Assert
+  expect(screen.getByText('#42')).toBeTruthy()
+  expect(screen.getByRole('button', { name: 'Unlink #42' })).toBeTruthy()
+})
+
+test('says a forge issue was linked by its number as the forge writes it', async () => {
+  // Arrange
+  onBranch()
+  fakeApi({
+    [previewPath]: { key: '42', pull: 0, body: '', changes: false },
+    [linkPath]: makeBranch({ name: 'my-thing', issue_link: '42' }),
+  })
+  const user = userEvent.setup()
+  render(<BranchPanel />)
+  await user.click(screen.getByRole('button', { name: 'Link an issue' }))
+  await user.type(screen.getByRole('textbox', { name: 'Issue' }), '#42')
+
+  // Act
+  await user.click(screen.getByRole('button', { name: 'Link' }))
+
+  // Assert
+  expect(await screen.findByText('Linked my-thing to #42.')).toBeTruthy()
+})

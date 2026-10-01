@@ -1,6 +1,7 @@
 import { useRef, useState } from 'react'
 import type { Branch, BranchIssuePreview } from '@/api/generated/types.gen.ts'
 import { useForgeWords } from '@/api/health.ts'
+import { shownLinkKey } from '@/features/issues/issuePlaces.ts'
 import { Button } from '@/lib/Button.tsx'
 import { useFocusOnMount } from '@/lib/focus.ts'
 import type { Teller } from '@/lib/Outcome.tsx'
@@ -23,14 +24,16 @@ export function IssueLink({ branch, outcome }: { branch: Branch; outcome: Teller
   })
 
   if (branch.issue_link !== '') {
+    const shown = shownLinkKey(branch.issue_link)
+
     return (
       <div className="flex items-center gap-item text-sm">
         <span>
-          Linked to <span className="font-mono">{branch.issue_link}</span>
+          Linked to <span className="font-mono">{shown}</span>
         </span>
         <Button
           variant="secondary"
-          aria-label={`Unlink ${branch.issue_link}`}
+          aria-label={`Unlink ${shown}`}
           disabled={unlink.state === 'running'}
           onClick={() => void unlink.run()}
         >
@@ -71,7 +74,7 @@ function LinkForm({ outcome, onClose }: { outcome: Teller; onClose: () => void }
   const field = useFocusOnMount<HTMLInputElement>()
   const link = useAsyncAction(linkIssue, {
     fallback: 'The branch was not linked. Try again.',
-    done: (answered) => `Linked ${answered.name} to ${answered.issue_link}.`,
+    done: (answered) => `Linked ${answered.name} to ${shownLinkKey(answered.issue_link)}.`,
     onStart: outcome.clear,
     onDone: (said) => {
       outcome.say(said)
