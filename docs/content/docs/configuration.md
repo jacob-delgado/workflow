@@ -549,8 +549,10 @@ nobody.
   everything under a `docs` directory, while `docs` and `/docs` name only a
   file called `docs`, and `docs/*` only a directory's direct children. A
   pattern without a leading slash, such as `README.md`, matches at any depth,
-  and `*` matches dot files too. A pattern written twice in a section keeps
-  only its later line.
+  and `*` matches dot files too. GitLab matches with Ruby's `File.fnmatch`, so
+  a pattern with a doubled slash matches nothing, and a class reads as Ruby
+  reads it: `[a-]` holds a `-`, and `[!]` or `[^]` is any character. A
+  pattern written twice in a section keeps only its later line.
 - **Which paths.** Those the branch changes since it left the base
   (`git diff <base>...HEAD`, a rename counting as both of its paths).
 - **Which owners.** `@username` owners are proposed as people and
