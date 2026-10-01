@@ -7,6 +7,9 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"net"
+	"net/http"
+	"net/url"
 	"os"
 	"os/user"
 	"path/filepath"
@@ -28,6 +31,17 @@ import (
 // slackLockName is the file a Slack token refresh is made under, beside the
 // store, so every workflow running on the machine takes turns.
 const slackLockName = "slack-refresh.lock"
+
+// SlackAPIVariable names the environment variable that points every Slack Web
+// API request at another address than messaging.APIBase: a fake under test, or
+// a proxy. It is never a configuration key, since a repository's
+// .workflow.json must not be able to send a Slack token anywhere.
+const SlackAPIVariable = "WORKFLOW_SLACK_API"
+
+// ErrSlackAPIRefused reports a SlackAPIVariable that would send the Slack
+// token in clear text off this machine, or that is no address at all.
+var ErrSlackAPIRefused = errors.New(SlackAPIVariable +
+	" must be an https:// address, or http:// to this machine (127.0.0.1, ::1 or localhost)")
 
 // liveMessaging is the messaging settings every post reads: those workflow
 // started with, until the web's Settings saves others.
@@ -90,9 +104,54 @@ func messagingClient(setup messagingSetup) messaging.Client {
 
 	//nolint:bodyclose // Wrap only relays the response; the client reads and closes its body.
 	do := setup.log.Wrap(service, setup.httpTransport)
+	base, toSlack := SlackAPI(do)
 
-	return messaging.New(do, messaging.APIBase, settings).
+	return messaging.New(toSlack, base, settings).
 		WithToken(SlackToken(config.Config{Messaging: settings, Path: setup.path}, do))
+}
+
+// SlackAPI is where the Slack Web API is asked and the transport to ask it
+// through: messaging.APIBase over transport, or the address SlackAPIVariable
+// names. An address it refuses comes back with a transport that refuses every
+// request, so nothing is sent — and no token leaves — anywhere.
+func SlackAPI(transport httpx.Doer) (string, httpx.Doer) {
+	base, err := slackAPIBase()
+	if err != nil {
+		return messaging.APIBase, func(*http.Request) (*http.Response, error) { return nil, err }
+	}
+
+	return base, transport
+}
+
+// slackAPIBase is the address SlackAPIVariable names, or messaging.APIBase
+// when it is unset or empty.
+func slackAPIBase() (string, error) {
+	value, set := os.LookupEnv(SlackAPIVariable)
+	if !set || value == "" {
+		return messaging.APIBase, nil
+	}
+
+	address, err := url.Parse(value)
+	if err != nil || address.Host == "" {
+		return "", ErrSlackAPIRefused
+	}
+
+	if address.Scheme == "https" || address.Scheme == "http" && onThisMachine(address.Hostname()) {
+		return value, nil
+	}
+
+	return "", ErrSlackAPIRefused
+}
+
+// onThisMachine reports a host name only this machine answers to.
+func onThisMachine(host string) bool {
+	if strings.EqualFold(host, "localhost") {
+		return true
+	}
+
+	ip := net.ParseIP(host)
+
+	return ip != nil && ip.IsLoopback()
 }
 
 // SlackStore is where cfg keeps its Slack user token's credentials: the macOS
@@ -105,9 +164,11 @@ func SlackStore(cfg config.Config) slackauth.Store {
 }
 
 // SlackRefresher refreshes the Slack user token of the app clientID names,
-// through do.
+// through do, at the address SlackAPI says.
 func SlackRefresher(clientID string, do httpx.Doer) slackauth.Refresher {
-	return slackauth.Refresher{Do: do, Base: messaging.APIBase, ClientID: clientID, Now: time.Now}
+	base, toSlack := SlackAPI(do)
+
+	return slackauth.Refresher{Do: toSlack, Base: base, ClientID: clientID, Now: time.Now}
 }
 
 // SlackToken hands out cfg's Slack user token, refreshing it through do when it
