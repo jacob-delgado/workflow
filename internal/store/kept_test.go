@@ -24,6 +24,9 @@ import (
 // forgeHost is the forge host the kept tests associate owners on.
 const forgeHost = "github.com"
 
+// anaOwner is the forge owner the tests link to the Slack user Ana.
+const anaOwner = "ana"
+
 // ana is a Slack user the tests link a forge owner to.
 func ana() *store.SlackTarget {
 	return &store.SlackTarget{ID: "U012ABC", Label: "Ana Lima"}
@@ -76,7 +79,7 @@ func execKept(t *testing.T, dir, query string) {
 func linkAna(t *testing.T, kept store.Store) {
 	t.Helper()
 
-	err := kept.LinkOwner(t.Context(), forgeHost, "ana", ana(), theTime())
+	err := kept.LinkOwner(t.Context(), forgeHost, anaOwner, ana(), theTime())
 	if err != nil {
 		t.Fatalf("linking ana: %v", err)
 	}
@@ -89,7 +92,7 @@ func TestAnOwnersSlackLinkRoundTrips(t *testing.T) {
 	kept := store.New(t.TempDir(), false)
 
 	// Act
-	err := kept.LinkOwner(t.Context(), forgeHost, "ana", ana(), theTime())
+	err := kept.LinkOwner(t.Context(), forgeHost, anaOwner, ana(), theTime())
 	if err != nil {
 		t.Fatalf("LinkOwner returned %v, want nil", err)
 	}
@@ -97,7 +100,7 @@ func TestAnOwnersSlackLinkRoundTrips(t *testing.T) {
 	links, err := kept.OwnerLinks(t.Context(), forgeHost)
 
 	// Assert
-	want := []store.OwnerLink{{Owner: "ana", OnSlack: true, Slack: *ana()}}
+	want := []store.OwnerLink{{Owner: anaOwner, OnSlack: true, Slack: *ana()}}
 	if err != nil || !slices.Equal(links, want) {
 		t.Errorf("OwnerLinks = %+v, %v; want %+v", links, err, want)
 	}
@@ -205,7 +208,7 @@ func TestAReadOnlyStoreNeverMakesTheKeptFile(t *testing.T) {
 	readOnly := store.New(dir, false).ReadOnly()
 
 	// Act
-	linkErr := readOnly.LinkOwner(t.Context(), forgeHost, "ana", ana(), theTime())
+	linkErr := readOnly.LinkOwner(t.Context(), forgeHost, anaOwner, ana(), theTime())
 	links, readErr := readOnly.OwnerLinks(t.Context(), forgeHost)
 
 	// Assert
@@ -243,7 +246,7 @@ func TestADisabledStoreKeepsNoLink(t *testing.T) {
 	disabled := store.New(dir, true)
 
 	// Act
-	linkErr := disabled.LinkOwner(t.Context(), forgeHost, "ana", ana(), theTime())
+	linkErr := disabled.LinkOwner(t.Context(), forgeHost, anaOwner, ana(), theTime())
 	links, readErr := disabled.OwnerLinks(t.Context(), forgeHost)
 
 	// Assert
@@ -264,7 +267,7 @@ func TestStoresOpeningAFreshKeptFileTogetherAllMigrateIt(t *testing.T) {
 	// Each process migrates in one immediate transaction that re-reads the
 	// version, so none applies a migration another already has.
 	dir := t.TempDir()
-	owners := []string{"ana", "ben", "carla", "dan", "eve", "fay"}
+	owners := []string{anaOwner, "ben", "carla", "dan", "eve", "fay"}
 	failures := make([]error, len(owners))
 
 	var group sync.WaitGroup

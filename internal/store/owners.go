@@ -6,13 +6,37 @@ package store
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"fmt"
+	"strings"
 	"time"
+	"unicode/utf8"
+
+	"github.com/jacob-delgado/workflow/internal/sanitize"
 )
 
 // ownersKeptIn is the migration that makes the owner tables: a read needs the
 // file migrated at least this far.
 const ownersKeptIn = 1
+
+// The Slack ID prefixes a forge owner may link to: a user (U, or W in an
+// Enterprise Grid) for a user owner, and a user group (S) for a team owner.
+const (
+	userIDPrefixes  = "UW"
+	groupIDPrefixes = "S"
+)
+
+// labelRunes caps a label read back, so a tampered file cannot widen a row past
+// any surface's layout.
+const labelRunes = 80
+
+// ErrInvalidOwner reports a forge owner not shaped like a CODEOWNERS user or
+// team.
+var ErrInvalidOwner = errors.New("not a forge owner")
+
+// ErrInvalidSlackID reports a Slack ID of the wrong shape, or of the wrong kind
+// for what it is linked to.
+var ErrInvalidSlackID = errors.New("not a Slack ID of the right kind")
 
 // SlackTarget is a Slack user or user group, by its ID and the label it was
 // last seen with — the store's own shape, in plain strings.
@@ -58,8 +82,10 @@ func ownersMigration() []string {
 	}
 }
 
-// OwnerLinks is every owner decided on a forge host, by owner. A disabled
-// store, or a host with nothing decided, reports none.
+// OwnerLinks is every owner decided on a forge host, by owner. A row of the
+// wrong shape — a tampered or corrupt file's — is left out, so that owner reads
+// as never decided, and each label is sanitized and capped. A disabled store,
+// or a host with nothing decided, reports none.
 func (s Store) OwnerLinks(ctx context.Context, forgeHost string) ([]OwnerLink, error) {
 	if forgeHost == "" {
 		return nil, nil
@@ -72,7 +98,7 @@ func (s Store) OwnerLinks(ctx context.Context, forgeHost string) ([]OwnerLink, e
 	defer func() { _ = database.Close() }()
 
 	rows, err := database.QueryContext(ctx,
-		`SELECT decision.owner, entity.slack_id, entity.label
+		`SELECT decision.owner, link.slack_id, entity.label
 			FROM owner_decision AS decision
 			LEFT JOIN owner_slack AS link USING (forge_host, owner)
 			LEFT JOIN slack_entity AS entity ON entity.slack_id = link.slack_id
@@ -95,9 +121,10 @@ func (s Store) OwnerLinks(ctx context.Context, forgeHost string) ([]OwnerLink, e
 			return nil, fmt.Errorf("reading an owner link: %w", err)
 		}
 
-		links = append(links, OwnerLink{
-			Owner: owner, OnSlack: slackID.Valid, Slack: SlackTarget{ID: slackID.String, Label: label.String},
-		})
+		link, valid := ownerLinkFrom(owner, slackID, label)
+		if valid {
+			links = append(links, link)
+		}
 	}
 
 	err = rows.Err()
@@ -108,16 +135,60 @@ func (s Store) OwnerLinks(ctx context.Context, forgeHost string) ([]OwnerLink, e
 	return links, nil
 }
 
+// ownerLinkFrom validates one row read back: an owner of the wrong shape, or a
+// link to a Slack ID of the wrong shape or kind for it, or to no Slack entity,
+// is no link at all.
+func ownerLinkFrom(owner string, slackID, label sql.NullString) (OwnerLink, bool) {
+	linkedWell := isSlackIDFor(owner, slackID.String) && label.Valid
+	if !isOwner(owner) || slackID.Valid && !linkedWell {
+		return OwnerLink{}, false
+	}
+
+	return OwnerLink{
+		Owner: owner, OnSlack: slackID.Valid, Slack: SlackTarget{ID: slackID.String, Label: cleanLabel(label.String)},
+	}, true
+}
+
 // LinkOwner records what was decided for a forge owner on a host: target is
 // whom they are on Slack, and nil that they are not on Slack. It replaces any
-// earlier decision. A disabled or read-only store records nothing.
+// earlier decision, and refuses an owner or Slack ID of the wrong shape with
+// ErrInvalidOwner or ErrInvalidSlackID. A disabled or read-only store records
+// nothing.
 func (s Store) LinkOwner(ctx context.Context, forgeHost, owner string, target *SlackTarget, now time.Time) error {
+	switch {
+	case forgeHost == "":
+		return nil
+	case !isOwner(owner):
+		return ErrInvalidOwner
+	case target != nil && !isSlackIDFor(owner, target.ID):
+		return ErrInvalidSlackID
+	}
+
+	return s.keptWithin(ctx, func(transaction *sql.Tx) error {
+		err := writeOwnerLink(ctx, transaction, forgeHost, owner, target, now)
+		if err != nil {
+			return err
+		}
+
+		return pruneSlackEntities(ctx, transaction)
+	})
+}
+
+// ForgetOwner drops what was decided for a forge owner on a host, so they are
+// asked again. A disabled or read-only store forgets nothing.
+func (s Store) ForgetOwner(ctx context.Context, forgeHost, owner string) error {
 	if forgeHost == "" {
 		return nil
 	}
 
 	return s.keptWithin(ctx, func(transaction *sql.Tx) error {
-		return writeOwnerLink(ctx, transaction, forgeHost, owner, target, now)
+		_, err := transaction.ExecContext(ctx,
+			`DELETE FROM owner_decision WHERE forge_host = ? AND owner = ?`, forgeHost, owner)
+		if err != nil {
+			return fmt.Errorf("forgetting the owner: %w", err)
+		}
+
+		return pruneSlackEntities(ctx, transaction)
 	})
 }
 
@@ -157,16 +228,91 @@ func writeOwnerLink(
 	return nil
 }
 
+// pruneSlackEntities drops every Slack user or group nothing links to any
+// more, so the file keeps no one it has no use for.
+func pruneSlackEntities(ctx context.Context, transaction *sql.Tx) error {
+	_, err := transaction.ExecContext(ctx,
+		`DELETE FROM slack_entity WHERE slack_id NOT IN (SELECT slack_id FROM owner_slack)`)
+	if err != nil {
+		return fmt.Errorf("pruning the Slack entities: %w", err)
+	}
+
+	return nil
+}
+
 // keepSlackEntity upserts a Slack user or group with the label it was just seen
-// with.
+// with, sanitized on the way in as well as on the way out.
 func keepSlackEntity(ctx context.Context, transaction *sql.Tx, target SlackTarget, now time.Time) error {
 	_, err := transaction.ExecContext(ctx,
 		`INSERT INTO slack_entity (slack_id, label, seen_at) VALUES (?, ?, ?)
 			ON CONFLICT(slack_id) DO UPDATE SET label = excluded.label, seen_at = excluded.seen_at`,
-		target.ID, target.Label, timestamp(now))
+		target.ID, cleanLabel(target.Label), timestamp(now))
 	if err != nil {
 		return fmt.Errorf("keeping the Slack entity: %w", err)
 	}
 
 	return nil
+}
+
+// isOwner reports a CODEOWNERS user or team: /-separated segments of ASCII
+// letters, digits, dots, underscores and hyphens, the first starting with a
+// letter or digit.
+func isOwner(owner string) bool {
+	if owner == "" || !isAlphanumeric(rune(owner[0])) {
+		return false
+	}
+
+	for segment := range strings.SplitSeq(owner, "/") {
+		if segment == "" || strings.ContainsFunc(segment, isNotOwnerCharacter) {
+			return false
+		}
+	}
+
+	return true
+}
+
+// isNotOwnerCharacter reports a character no owner's name holds.
+func isNotOwnerCharacter(character rune) bool {
+	return !isAlphanumeric(character) && !strings.ContainsRune("._-", character)
+}
+
+// isAlphanumeric reports an ASCII letter or digit.
+func isAlphanumeric(character rune) bool {
+	return 'a' <= character && character <= 'z' || isUpperOrDigit(character)
+}
+
+// isUpperOrDigit reports an ASCII capital or digit, all a Slack ID holds.
+func isUpperOrDigit(character rune) bool {
+	return 'A' <= character && character <= 'Z' || '0' <= character && character <= '9'
+}
+
+// isSlackIDFor reports a Slack ID of the kind owner links to: a user's for a
+// user owner, and a user group's for a team owner, whose name holds a slash.
+func isSlackIDFor(owner, slackID string) bool {
+	prefixes := userIDPrefixes
+	if strings.Contains(owner, "/") {
+		prefixes = groupIDPrefixes
+	}
+
+	return isSlackID(slackID, prefixes)
+}
+
+// isSlackID reports an ID that starts with one of prefixes and goes on with at
+// least two capitals or digits, as Slack's IDs do.
+func isSlackID(slackID, prefixes string) bool {
+	const shortest = 3
+
+	return len(slackID) >= shortest &&
+		strings.ContainsRune(prefixes, rune(slackID[0])) &&
+		!strings.ContainsFunc(slackID[1:], func(character rune) bool { return !isUpperOrDigit(character) })
+}
+
+// cleanLabel neutralizes any terminal control in a label and caps its length.
+func cleanLabel(label string) string {
+	clean := sanitize.Line(label)
+	if utf8.RuneCountInString(clean) <= labelRunes {
+		return clean
+	}
+
+	return string([]rune(clean)[:labelRunes])
 }
