@@ -19,6 +19,10 @@ import (
 // the queue the Reviews pane shows, as far as it has loaded, and how far that
 // pane's detail is scrolled.
 type reviewQueueState struct {
+	// all is the queue as the forge answered it; requests is what the pane
+	// lists of it, in order.
+	all      []forge.ReviewRequest
+	order    reviewOrder
 	requests []forge.ReviewRequest
 	loaded   bool
 	err      error
@@ -39,11 +43,19 @@ var _ applier = reviewsLoaded{}
 func (msg reviewsLoaded) apply(m Model) (Model, tea.Cmd) {
 	previous, _ := m.reviewQueue.current()
 
-	m.reviewQueue = reviewQueueState{requests: forge.OldestFirst(msg.requests), loaded: true, err: msg.err}
-	m.reviewQueue.selected = m.reviewQueue.indexOf(previous)
-	m.reviewQueue = m.reviewQueue.following(m.detailRows())
+	m.reviewQueue = reviewQueueState{all: msg.requests, order: m.reviewQueue.order, loaded: true, err: msg.err}
+	m.reviewQueue = m.reviewQueue.listed(previous, m.detailRows())
 
 	return m, nil
+}
+
+// listed is the queue listed again, in its order, with the selection held on
+// previous where it is still listed.
+func (s reviewQueueState) listed(previous forge.ReviewRequest, rows int) reviewQueueState {
+	s.requests = s.order.sorted(s.all)
+	s.selected = s.indexOf(previous)
+
+	return s.following(rows)
 }
 
 // loadReviewQueue is the command that reads the review queue from the forge.
@@ -62,9 +74,29 @@ func (m Model) loadReviewQueue() tea.Cmd {
 
 // following is the queue scrolled so its selection shows in rows lines.
 func (s reviewQueueState) following(rows int) reviewQueueState {
-	s.scroll, _ = window(s.selected, len(s.requests), rows)
+	lines := s.lineRequests()
+	s.scroll, _ = window(slices.Index(lines, s.selected), len(lines), rows)
 
 	return s
+}
+
+// lineRequests is which request each line of the queue's listing draws: -1
+// for the order it is in, the blank under it, and a repository's heading.
+func (s reviewQueueState) lineRequests() []int {
+	var lines []int
+	if s.order != orderOldest {
+		lines = append(lines, -1, -1)
+	}
+
+	for index, request := range s.requests {
+		if s.order == orderRepository && (index == 0 || s.requests[index-1].Repository != request.Repository) {
+			lines = append(lines, -1)
+		}
+
+		lines = append(lines, index)
+	}
+
+	return lines
 }
 
 // current is the selected review request, if there is one.
@@ -117,7 +149,38 @@ func (m Model) reviewQueueDetail(width int) string {
 		return "No pull requests are waiting on your review."
 	}
 
-	return strings.Join(m.reviewRows(), "\n")
+	return strings.Join(m.reviewLines(), "\n")
+}
+
+// reviewLines draws the queue line by line, as lineRequests maps them: the
+// order it is in, when it is not the usual, and each repository's heading when
+// grouped by repository.
+func (m Model) reviewLines() []string {
+	rows, lines := m.reviewRows(), m.reviewQueue.lineRequests()
+	drawn := make([]string, 0, len(lines))
+
+	for line, index := range lines {
+		drawn = append(drawn, m.reviewLine(rows, lines, line, index))
+	}
+
+	return drawn
+}
+
+// reviewLine is the line numbered line: a request's row, the order, the blank
+// under it, or the heading of the repository the next row is in.
+func (m Model) reviewLine(rows []string, lines []int, line, index int) string {
+	ordered := m.reviewQueue.order != orderOldest
+
+	switch {
+	case index >= 0:
+		return rows[index]
+	case line == 0 && ordered:
+		return m.styles.label.Render(m.reviewQueue.order.title())
+	case line == 1 && ordered:
+		return ""
+	default:
+		return m.styles.strong.Render(m.reviewQueue.repositoryAfter(lines[line+1:]))
+	}
 }
 
 // reviewRows draws each queued request: how its CI stands, its number and
@@ -168,7 +231,7 @@ func (m Model) reviewQueueKeys() []key.Binding {
 
 	keys := m.linkKeys(m.selectedReviewURL())
 
-	return append(keys, m.keys.refresh)
+	return append(keys, m.keys.sortReviews, m.keys.refresh)
 }
 
 // selectedReviewURL is the selected request's URL, or empty when none is.
@@ -183,6 +246,12 @@ func (m Model) selectedReviewURL() string {
 // handleReviewQueueKey answers the Reviews pane's own keys.
 func (m Model) handleReviewQueueKey(msg tea.KeyPressMsg) (Model, tea.Cmd) {
 	switch {
+	case key.Matches(msg, m.keys.sortReviews) && m.reviewQueue.loaded:
+		previous, _ := m.reviewQueue.current()
+		m.reviewQueue.order = m.reviewQueue.order.next()
+		m.reviewQueue = m.reviewQueue.listed(previous, m.detailRows())
+
+		return m, nil
 	case key.Matches(msg, m.keys.up, m.keys.down):
 		return m.moveReviewSelection(msg), nil
 	case key.Matches(msg, m.keys.openLink):
@@ -214,12 +283,60 @@ func (m Model) moveReviewSelection(msg tea.KeyPressMsg) Model {
 
 // pickReview selects the request on a clicked line of the detail.
 func (m Model) pickReview(line, _ int, inRail bool) (Model, tea.Cmd) {
-	index, drawn := m.detailLineAt(line)
-	if inRail || !drawn || index >= len(m.reviewQueue.requests) {
+	clicked, drawn := m.detailLineAt(line)
+	lines := m.reviewQueue.lineRequests()
+
+	if inRail || !drawn || clicked >= len(lines) || lines[clicked] < 0 {
 		return m, nil
 	}
 
-	m.reviewQueue.selected = index
+	m.reviewQueue.selected = lines[clicked]
 
 	return m, nil
+}
+
+// reviewOrder is the order the Reviews pane lists the queue in.
+type reviewOrder int
+
+const (
+	orderOldest reviewOrder = iota
+	orderNewest
+	orderRepository
+	// orderCount is how many orders there are to cycle through.
+	orderCount
+)
+
+// next is the order after this one, round to the first.
+func (o reviewOrder) next() reviewOrder {
+	return (o + 1) % orderCount
+}
+
+// title says the order, above a queue listed in it.
+func (o reviewOrder) title() string {
+	return [orderCount]string{"oldest first", "newest first", "by repository"}[o]
+}
+
+// sorted is the queue in this order.
+func (o reviewOrder) sorted(requests []forge.ReviewRequest) []forge.ReviewRequest {
+	return [orderCount]func([]forge.ReviewRequest) []forge.ReviewRequest{
+		forge.OldestFirst, forge.NewestFirst, forge.ByRepository,
+	}[o](requests)
+}
+
+// repositoryAfter is the repository of the first request lines draws, which a
+// heading above them heads.
+func (s reviewQueueState) repositoryAfter(lines []int) string {
+	for _, index := range lines {
+		if index < 0 {
+			continue
+		}
+
+		if name := s.requests[index].Repository; name != "" {
+			return name
+		}
+
+		return "no repository"
+	}
+
+	return ""
 }

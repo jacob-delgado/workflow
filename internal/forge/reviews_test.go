@@ -271,3 +271,42 @@ func TestOldestFirstPutsTheLongestWaitingFirst(t *testing.T) {
 		t.Errorf("the forge's answer was reordered in place: %v", answered)
 	}
 }
+
+// sortable are three requests across two repositories, opened on three days.
+func sortable() []forge.ReviewRequest {
+	day := time.Date(2026, 9, 14, 9, 0, 0, 0, time.UTC)
+
+	return []forge.ReviewRequest{
+		{Number: 1, Repository: "acme/web", OpenedAt: day.Add(48 * time.Hour)},
+		{Number: 2, Repository: "acme/api", OpenedAt: day.Add(24 * time.Hour)},
+		{Number: 3, Repository: "acme/web", OpenedAt: day},
+	}
+}
+
+// numbersOf are the requests' numbers, in order.
+func numbersOf(requests []forge.ReviewRequest) []int {
+	numbers := make([]int, 0, len(requests))
+	for _, request := range requests {
+		numbers = append(numbers, request.Number)
+	}
+
+	return numbers
+}
+
+func TestNewestFirstPutsTheLatestFirst(t *testing.T) {
+	t.Parallel()
+
+	// Act & Assert
+	if got := numbersOf(forge.NewestFirst(sortable())); !slices.Equal(got, []int{1, 2, 3}) {
+		t.Errorf("NewestFirst = %v, want 1, 2, 3", got)
+	}
+}
+
+func TestByRepositoryGroupsEachRepositoryOldestFirst(t *testing.T) {
+	t.Parallel()
+
+	// Act & Assert
+	if got := numbersOf(forge.ByRepository(sortable())); !slices.Equal(got, []int{2, 3, 1}) {
+		t.Errorf("ByRepository = %v, want acme/api's 2, then acme/web's 3 and 1", got)
+	}
+}

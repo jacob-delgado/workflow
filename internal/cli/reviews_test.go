@@ -207,3 +207,68 @@ func TestReviewsAsJSONReportsEachOldestFirstWithItsAge(t *testing.T) {
 		}
 	}
 }
+
+// The pull requests the sort cases list, as their lines name them.
+const (
+	firstPull  = "pull/1"
+	secondPull = "pull/2"
+	thirdPull  = "pull/3"
+)
+
+func TestReviewsSortsAsAsked(t *testing.T) {
+	cases := map[string]struct {
+		sort string
+		want []string
+	}{
+		"oldest first, the default": {sort: "", want: []string{secondPull, thirdPull, firstPull}},
+		"newest first":              {sort: "newest", want: []string{firstPull, thirdPull, secondPull}},
+		"by repository":             {sort: "repo", want: []string{thirdPull, secondPull, firstPull}},
+	}
+
+	for name, tt := range cases {
+		t.Run(name, func(t *testing.T) {
+			// Arrange
+			now := time.Now()
+			fakeGh(t, ghResponses{search: reviewSearch(
+				reviewItem(1, "ana", "acme/web", now.Add(-1*time.Hour)),
+				reviewItem(2, "ben", "acme/web", now.Add(-50*time.Hour)),
+				reviewItem(3, "cy", "acme/api", now.Add(-10*time.Hour)),
+			)})
+			repo := reviewsRepo(t)
+
+			args := []string{"reviews"}
+			if tt.sort != "" {
+				args = append(args, "--sort", tt.sort)
+			}
+
+			// Act
+			printed, err := runStreams(t, repo, unusedPrompt(t), args...)
+
+			// Assert
+			lines := strings.Split(strings.TrimSpace(printed.stdout), "\n")
+			if err != nil || len(lines) != len(tt.want) {
+				t.Fatalf("reviews = %v, printed:\n%s", err, printed.stdout)
+			}
+
+			for index, want := range tt.want {
+				if !strings.Contains(lines[index], want) {
+					t.Errorf("line %d = %q, want %s there", index, lines[index], want)
+				}
+			}
+		})
+	}
+}
+
+func TestReviewsRefusesASortItDoesNotKnow(t *testing.T) {
+	// Arrange
+	fakeGh(t, ghResponses{search: reviewSearch()})
+	repo := reviewsRepo(t)
+
+	// Act
+	_, err := run(t, repo, "reviews", "--sort", "loudest")
+
+	// Assert
+	if err == nil || !strings.Contains(err.Error(), "oldest, newest or repo") {
+		t.Errorf("reviews --sort loudest = %v, want it refused naming the sorts", err)
+	}
+}

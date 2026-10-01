@@ -14,6 +14,8 @@ List the pull requests that are waiting on your review
 List the open pull or merge requests on your forge that request your
 review, oldest first, with the author, how CI stands and how long each has
 been waiting. The forge is the one your repository's remote points at.
+--sort newest lists the latest first, and --sort repo groups them by
+repository, oldest first within each.
 
 ```
 workflow reviews [flags]
@@ -22,8 +24,9 @@ workflow reviews [flags]
 ### Options
 
 ```
-  -h, --help   help for reviews
-      --json   print the reviews as JSON
+  -h, --help          help for reviews
+      --json          print the reviews as JSON
+      --sort string   the order to list them in: oldest, newest or repo (default "oldest")
 ```
 
 ### Options inherited from parent commands
