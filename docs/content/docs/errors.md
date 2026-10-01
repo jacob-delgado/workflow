@@ -85,7 +85,9 @@ as valid (the configuration in effect stands), a request for an issue when no
 tracker is configured, no `jira.review_status` to move an issue to, a change
 Jira refused, a file git would not stage or unstage, or a branch git would not
 switch to or create (git's own words stay off the wire, since a fetch it
-makes on the way can name the remote; the detail says how to see them). A push
+makes on the way can name the remote; the detail says how to see them), or a
+branch's link to an issue that git could not write to, or remove from, the
+repository's configuration. A push
 that ran and failed is answered here with git's own output, since the reason —
 a ref the remote rejected, a hook's refusal — is in it, with the remote's URL
 or `user@host:path` address taken out (a bare host git prints — a remote

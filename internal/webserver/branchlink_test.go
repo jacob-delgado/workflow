@@ -4,6 +4,7 @@
 package webserver_test
 
 import (
+	"fmt"
 	"net/http"
 	"strings"
 	"testing"
@@ -147,5 +148,36 @@ func TestUnlinkingForgetsTheLink(t *testing.T) {
 	// Assert
 	if answer.Code != http.StatusOK || len(record.unlinked) != 1 || record.unlinked[0] != "my-thing" {
 		t.Errorf("status %d, unlinked %v; want my-thing's link forgotten", answer.Code, record.unlinked)
+	}
+}
+
+func TestALinkGitCannotKeepIsUnprocessable(t *testing.T) {
+	t.Parallel()
+
+	cases := map[string]struct {
+		method, body string
+	}{
+		"linking":   {method: http.MethodPut, body: `{"key":"PROJ-7","update_pull":false}`},
+		"unlinking": {method: http.MethodDelete},
+	}
+
+	for name, tt := range cases {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			// Arrange
+			deps := linkingDeps(&linking{}, false)
+			refused := fmt.Errorf("%w: exit status 4", gitrepo.ErrIssueLinkNotSaved)
+			deps.LinkIssue = func(string, string) error { return refused }
+			deps.UnlinkIssue = func(string) error { return refused }
+
+			// Act
+			answer := send(t, serve(t, deps, config.Default()), tt.method, "/api/branch/issue", tt.body)
+
+			// Assert
+			if answer.Code != http.StatusUnprocessableEntity {
+				t.Errorf("status %d: %s; want 422", answer.Code, answer.Body.String())
+			}
+		})
 	}
 }

@@ -5,9 +5,14 @@ package gitrepo
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strings"
 )
+
+// ErrIssueLinkNotSaved reports git failing to write or remove a branch's
+// issue link in the repository's configuration.
+var ErrIssueLinkNotSaved = errors.New("git could not change the branch's issue link")
 
 // issueLinkKey is the variable, under a branch's own section of git's
 // configuration, that names the issue a branch was linked to by hand: work
@@ -30,7 +35,7 @@ func (r Repository) IssueLink(ctx context.Context, branch string) string {
 func (r Repository) SetIssueLink(ctx context.Context, branch, issueKey string) error {
 	_, err := r.run(ctx, gitProgram, "-C", r.dir, "config", linkVariable(branch), issueKey)
 	if err != nil {
-		return fmt.Errorf("linking %s to %s: %w", branch, issueKey, err)
+		return fmt.Errorf("%w: linking %s to %s: %w", ErrIssueLinkNotSaved, branch, issueKey, err)
 	}
 
 	return nil
@@ -45,7 +50,7 @@ func (r Repository) ClearIssueLink(ctx context.Context, branch string) error {
 
 	_, err := r.run(ctx, gitProgram, "-C", r.dir, "config", "--unset", linkVariable(branch))
 	if err != nil {
-		return fmt.Errorf("unlinking %s: %w", branch, err)
+		return fmt.Errorf("%w: unlinking %s: %w", ErrIssueLinkNotSaved, branch, err)
 	}
 
 	return nil

@@ -1199,6 +1199,20 @@ func (response UnlinkBranchIssue409ApplicationProblemPlusJSONResponse) VisitUnli
 	return err
 }
 
+type UnlinkBranchIssue422ApplicationProblemPlusJSONResponse Problem
+
+func (response UnlinkBranchIssue422ApplicationProblemPlusJSONResponse) VisitUnlinkBranchIssueResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(422)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
 type UnlinkBranchIssuedefaultApplicationProblemPlusJSONResponse struct {
 	Body       Problem
 	StatusCode int

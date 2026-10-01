@@ -1487,6 +1487,10 @@ export type UnlinkBranchIssueErrors = {
      */
     409: Problem;
     /**
+     * The link could not be forgotten.
+     */
+    422: Problem;
+    /**
      * An RFC 9457 problem details object describing the failure.
      */
     default: Problem;
