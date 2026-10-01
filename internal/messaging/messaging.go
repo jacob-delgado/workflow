@@ -55,6 +55,9 @@ var (
 	ErrUnexpectedStatus = errors.New("unexpected response status")
 	// ErrUnreachable reports a request that never got an answer.
 	ErrUnreachable = errors.New("could not reach the messaging service")
+	// ErrNoWorkspace reports an auth.test answer naming no Slack workspace, or
+	// one not shaped like a workspace's ID.
+	ErrNoWorkspace = errors.New("auth.test named no Slack workspace for the token")
 )
 
 // Doer is the HTTP seam this client accepts; see httpx.Doer.
@@ -68,6 +71,8 @@ type Identity struct {
 	Error string `json:"error"`
 	User  string `json:"user"`
 	Team  string `json:"team"`
+	// TeamID is the workspace's ID, which, unlike its name, never changes.
+	TeamID string `json:"team_id"`
 }
 
 // TokenSource hands out the Slack user token to send: one other than expired,
@@ -112,6 +117,21 @@ func (c Client) AuthTest(ctx context.Context) (Identity, error) {
 	})
 
 	return identity, err
+}
+
+// Workspace is the ID of the Slack workspace the user token is for: T and
+// capitals and digits, or E for an Enterprise Grid organization's token.
+func (c Client) Workspace(ctx context.Context) (string, error) {
+	identity, err := c.AuthTest(ctx)
+	if err != nil {
+		return "", err
+	}
+
+	if !slackID(identity.TeamID, "TE") {
+		return "", ErrNoWorkspace
+	}
+
+	return identity.TeamID, nil
 }
 
 // authTest asks auth.test about token.
