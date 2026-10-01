@@ -158,6 +158,12 @@ func (s Store) RecordScope(ctx context.Context, repo, scope string, now time.Tim
 	return nil
 }
 
+// Keeps reports a store that keeps anything: neither disabled nor without a
+// directory. A read-only store keeps what is already on disk, so it keeps.
+func (s Store) Keeps() bool {
+	return !s.off()
+}
+
 // off reports a store that should do nothing: disabled, or with nowhere to write.
 func (s Store) off() bool {
 	return s.disabled || s.dir == ""

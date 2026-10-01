@@ -183,7 +183,9 @@ type Store struct {
 	CacheIssues func(view string, issues []jira.Issue)
 	// OwnerLinks is every forge owner decided on this repository's forge host:
 	// whom each is on Slack, or that they are not. Kept data survives the
-	// cache's schema changes; a file from a newer build reads as none.
+	// cache's schema changes; a file from a newer build reads as none. The kept
+	// seams, OwnerLinks through RecordGroups, are nil when the store keeps
+	// nothing, and the owner ones when there is no forge host to key them by.
 	OwnerLinks func() ([]loop.OwnerLink, error)
 	// LinkOwner records whom a forge owner is on this forge host's Slack — a
 	// user for a user owner, a user group for a team — and nil that they are

@@ -178,6 +178,42 @@ func TestTheLastChoiceOfGroupsRoundTripsThroughTheSeams(t *testing.T) {
 	}
 }
 
+func TestADisabledStoreOffersNoKeptAssociations(t *testing.T) {
+	// Arrange
+	isolatedStoreDir(t)
+
+	cfg := config.Default()
+	cfg.Store.Disabled = true
+
+	// Act
+	deps := wired(t, cfg, wiring.Workspace{Root: t.TempDir(), Remote: credentialedRemote}, nil)
+
+	// Assert
+	kept := deps.Store
+	if kept.OwnerLinks != nil || kept.LinkOwner != nil || kept.ForgetOwner != nil || kept.RepoGroups != nil ||
+		kept.SetRepoGroups != nil || kept.LastGroups != nil || kept.RecordGroups != nil {
+		t.Error("a disabled store bound kept associations, so a surface would offer what saves nothing")
+	}
+}
+
+func TestNoForgeHostOffersNoOwnerLinks(t *testing.T) {
+	// Arrange
+	isolatedStoreDir(t)
+
+	// Act
+	deps := wired(t, config.Default(), wiring.Workspace{Root: t.TempDir(), Remote: ""}, nil)
+
+	// Assert
+	kept := deps.Store
+	if kept.OwnerLinks != nil || kept.LinkOwner != nil || kept.ForgetOwner != nil {
+		t.Error("owner links were bound with no forge host to key them by, so a link would save nothing")
+	}
+
+	if kept.RepoGroups == nil || kept.SetRepoGroups == nil {
+		t.Error("a repository's groups were not bound, though the repository's root keys them")
+	}
+}
+
 func TestADryRunNeverMakesTheKeptFile(t *testing.T) {
 	// Arrange
 	dir := isolatedStoreDir(t)
