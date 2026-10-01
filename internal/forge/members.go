@@ -84,26 +84,25 @@ func gitlabGroupMembers(ctx context.Context, client Client, group string) ([]git
 }
 
 // gitlabReviewers is a new merge request's reviewers as GitLab sets them, by
-// id, each once, and those that could not be resolved, with why; author is the
-// id a team's members are added without, or zero for none.
+// id, each once, and those that could not be resolved, with why. author is the
+// id a group's members are added without, zero for none, once authorAsked.
 type gitlabReviewers struct {
-	ids    []int64
-	missed []string
-	cause  error
-	author int64
+	ids         []int64
+	missed      []string
+	cause       error
+	author      int64
+	authorAsked bool
 }
 
 // gitlabResolveReviewers resolves each named reviewer by looking the user up,
 // and each team reviewer to its active members by the ids the listing gives.
-// It is best effort: a name GitLab does not know, a lookup that fails, or a
-// team whose members cannot be read is missed, and the rest still review. The
-// author is left out of every team they are in, as nobody reviews their own
-// merge request.
+// A name no user has is tried as a group, since CODEOWNERS spells a top-level
+// group @group just as it spells a user. It is best effort: a name that is
+// neither, a lookup that fails, or a team whose members cannot be read is
+// missed, and the rest still review. The author is left out of every group
+// they are in, as nobody reviews their own merge request.
 func gitlabResolveReviewers(ctx context.Context, client Client, request NewPullRequest) gitlabReviewers {
 	var resolved gitlabReviewers
-	if len(request.TeamReviewers) > 0 {
-		resolved.author = gitlabAuthorID(ctx, client)
-	}
 
 	for _, username := range request.Reviewers {
 		resolved.addUser(ctx, client, username)
@@ -125,19 +124,41 @@ func (r *gitlabReviewers) addUser(ctx context.Context, client Client, username s
 	case err != nil:
 		r.miss(username, err)
 	case len(found) == 0:
-		r.miss(username, ErrNoUser)
+		r.addGroupNamedAsUser(ctx, client, username)
 	default:
 		r.add(found[0].ID)
 	}
 }
 
-// addTeam adds the ids of a team's active members.
+// addGroupNamedAsUser adds the members of the group a name no user has may
+// be, or misses it as no such user when it is no group either.
+func (r *gitlabReviewers) addGroupNamedAsUser(ctx context.Context, client Client, name string) {
+	members, err := gitlabGroupMembers(ctx, client, name)
+	if err != nil {
+		r.miss(name, ErrNoUser)
+
+		return
+	}
+
+	r.addMembers(ctx, client, members)
+}
+
+// addTeam adds the ids of a team's members who can review.
 func (r *gitlabReviewers) addTeam(ctx context.Context, client Client, team string) {
 	members, err := gitlabGroupMembers(ctx, client, team)
 	if err != nil {
 		r.miss(team, err)
 
 		return
+	}
+
+	r.addMembers(ctx, client, members)
+}
+
+// addMembers adds each member's id but the author's.
+func (r *gitlabReviewers) addMembers(ctx context.Context, client Client, members []gitlabMember) {
+	if !r.authorAsked {
+		r.author, r.authorAsked = gitlabAuthorID(ctx, client), true
 	}
 
 	for _, member := range members {

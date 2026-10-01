@@ -36,7 +36,9 @@ func Locations(dialect Dialect) []string {
 }
 
 // Owners are the people and the teams that own some paths, each listed once in
-// the order first seen. A team is org/team (GitLab: group/subgroup).
+// the order first seen. A team is org/team (GitLab: group/subgroup). On GitLab
+// a top-level group is written @group, just as a user is, so a bare name is in
+// Users and the forge resolves it to a user or, failing that, a group.
 type Owners struct {
 	Users []string
 	Teams []string
