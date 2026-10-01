@@ -130,7 +130,7 @@ const gitlabMergeRequest = "https://gitlab.com/owner/repo/-/merge_requests/7"
 
 // fakeGlab installs a stand-in `glab` on PATH that answers `glab api --include
 // <path>` as a GitLab project with no merge request yet, opens one when asked,
-// and names its user, so a black-box test drives a GitLab forge through its CLI
+// and names its user and no other, so a black-box test drives a GitLab forge through its CLI
 // transport. Its token's scopes are not told.
 func fakeGlab(t *testing.T) {
 	t.Helper()
@@ -148,6 +148,7 @@ func fakeGlabWithScopes(t *testing.T, scopes string) {
 		"list":    "[]",
 		"create":  `{"iid":7,"web_url":"` + gitlabMergeRequest + `","title":"work","state":"opened"}`,
 		"user":    `{"username":"tanuki"}`,
+		"users":   "[]",
 		"scopes":  scopes,
 		"default": `{}`,
 	}
@@ -162,6 +163,7 @@ func fakeGlabWithScopes(t *testing.T, scopes string) {
 		"  *\"/merge_requests?\"*) f=list ;;\n" +
 		"  *\"/merge_requests\") f=create ;;\n" +
 		"  user) f=user ;;\n" +
+		"  *\"users?\"*) f=users ;;\n" +
 		"  personal_access_tokens/self) f=scopes ;;\n" +
 		"  *) f=default ;;\n" +
 		"esac\n" +

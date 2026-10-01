@@ -161,11 +161,17 @@ func runPR(out output, seams prSeams, opts writeOptions) error {
 	}
 
 	pull, err := seams.CreatePull(request)
-	if err != nil {
+	if err != nil && !errors.Is(err, forge.ErrSomePeopleNotAdded) {
 		return fmt.Errorf("opening the %s: %w", noun, err)
 	}
 
 	fmt.Fprintln(out.artifact, "Opened "+seams.Kind.Sigil()+strconv.Itoa(pull.Number)+" "+pull.URL)
+
+	if err != nil {
+		// The pull request is open; who could not be added is a warning, as
+		// the interface and the web give it, not a failure to open.
+		fmt.Fprintf(out.notes, "Opened without everyone asked: %v\n", err)
+	}
 
 	return followUp(out.notes, seams, openedPull{issueKey: issueKey, pull: pull}, opts)
 }
