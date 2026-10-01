@@ -187,7 +187,9 @@ password.
 
 1. Create an app at <https://api.slack.com/apps> in your workspace.
 2. Under **OAuth & Permissions**, add the `chat:write` user token scope and turn
-   on token rotation.
+   on token rotation. Tagging reviewers and user groups in an announcement is
+   optional and also needs `users:read`, `channels:read`, `groups:read` and
+   `usergroups:read`; without them the announcement posts untagged.
 3. Install the app, and note the refresh token (`xoxe-1-…`) and the app's
    client ID and secret.
 4. Set `messaging.channel` to a channel you are in, then run
