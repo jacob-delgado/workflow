@@ -427,7 +427,8 @@ show it. People and groups, below, changes it later.
 own, chosen in People and groups, and any a team owning the changes is linked
 to, which start checked; the
 rest start as you left them last time. The `tags` line names everyone the
-post will tag, and the post ends with a line tagging them. A post `w` holds for CI keeps the tags it was given.
+post will tag, and the post ends with a line tagging them. A post `w` holds for CI keeps the tags it was given, so `w` waits until
+whom to tag has been read.
 
 Only the ready-for-review announcement tags anyone. Tagging needs the Slack
 scopes `users:read`, `channels:read`, `groups:read` and `usergroups:read`;

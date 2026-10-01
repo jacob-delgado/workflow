@@ -6,6 +6,7 @@ package tui_test
 import (
 	"strings"
 	"testing"
+	"time"
 
 	tea "charm.land/bubbletea/v2"
 
@@ -252,4 +253,29 @@ func TestTagsReadForAnEarlierPreviewLeaveALaterOnesAlone(t *testing.T) {
 	// Assert
 	requireScreen(t, view, "tags  @control-plane-pod")
 	refuseScreen(t, view, carlaName)
+}
+
+func TestWhenCIPassesWaitsForWhomToTag(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	tagging := taggingWorld()
+	tagging.ciInterval = time.Millisecond
+	tagging.ci = []forge.CI{{State: forge.CIRunning}, {State: forge.CIRunning}, {State: forge.CIPassed}}
+	opened, reads := openedPreview(t, tagging)
+
+	// Act: w before the tags are read
+	early := typing(t, opened, "w")
+
+	// Assert: it is not offered, and holds nothing
+	requireScreen(t, early.View().Content, "Announce to Slack", "reading whom to tag")
+	refuseScreen(t, footerLine(early.View().Content), "when CI passes")
+
+	// Act: w once they are
+	typing(t, drain(t, early, reads[0]), "w")
+
+	// Assert: the post waits for CI with its tags
+	if got := postedText(t, tagging); !strings.HasSuffix(got, "\ncc "+tagCarla+" "+tagPod) {
+		t.Errorf("posted %q, want the queued post to carry its tags", got)
+	}
 }

@@ -158,9 +158,10 @@ func (p messagingPreview) post(m Model) (Model, tea.Cmd) {
 
 // waitsForCI reports whether this post can wait for CI to pass. Only a "ready
 // for review" announcement can: a merge or a red CI has already happened, and a
-// pull request that reports no CI has none to wait for.
+// pull request that reports no CI has none to wait for. Nor can it while whom
+// it tags is still being read, since it would wait tagging no one.
 func (p messagingPreview) waitsForCI() bool {
-	return p.moment == messaging.MomentReady && !p.noCI
+	return p.moment == messaging.MomentReady && !p.noCI && !p.tagging.reading
 }
 
 // postWhenGreen posts once CI passes: now, if it already has. Where the post
