@@ -75,6 +75,18 @@ func PullRequestBody(template string, subjects []string, issueKey, issueURL stri
 	return body + "\n"
 }
 
+// WithIssueLine is body with the line naming the issue added, as a pull
+// request workflow opens carries it, and whether it needed adding: a pull
+// request opened outside workflow, then linked to its issue, gains the same
+// line, and the forge closes a forge issue named so when it merges.
+func WithIssueLine(body, issueKey, issueURL string) (string, bool) {
+	if references(body, issueKey) {
+		return body, false
+	}
+
+	return strings.TrimLeft(strings.TrimRight(body, "\n")+"\n\n"+issueLine(issueKey, issueURL), "\n") + "\n", true
+}
+
 // references reports whether text names the issue key as a whole token, so a
 // longer key that only contains its text does not count as naming it.
 func references(text, issueKey string) bool {

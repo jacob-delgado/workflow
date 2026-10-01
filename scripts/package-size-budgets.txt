@@ -81,9 +81,11 @@ internal/config 16
 # task) and taskoffers.go (the task change offered at each moment of the loop
 # — a branch, a switch, a pull request, a merge, a move to done — and the
 # follow-up that opens an offer once the overlay asking something else closes);
-# and issueplaces.go (narrowing the Issues list to places — a status or a
-# mark — with its picker, and the branch listing that marks issues in flight).
-internal/tui 45
+# issueplaces.go (narrowing the Issues list to places — a status or a
+# mark — with its picker, and the branch listing that marks issues in flight);
+# and branchlink.go (linking the branch to an issue by hand, for work begun
+# outside workflow, with its pull request's description shown first).
+internal/tui 46
 
 # internal/webserver — the loopback REST surface: a file per write (announce,
 # branchcreate, checkout, commit, config, pullrequest, push), or per pair of
@@ -102,9 +104,10 @@ internal/tui 45
 # tasks.go (the read — the task list and the stream's summary of it — and the
 # task wire shapes), taskwrite.go (the five writes on one task — start, stop,
 # done, annotate, modify — that share the uuid check and the list read after)
-# and taskcommands.go (add, track, undo and sync, which name no task). Frozen
-# here so that growth stays deliberate.
-internal/webserver 20
+# and taskcommands.go (add, track, undo and sync, which name no task); 21 is
+# branchlink.go, linking the branch to an issue and previewing what that writes
+# in its pull request. Frozen here so that growth stays deliberate.
+internal/webserver 21
 
 # internal/cli — the Cobra command tree, one file per command: the read commands
 # (doctor, split by section across doctor.go for the command, the repository and

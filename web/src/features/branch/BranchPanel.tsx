@@ -8,6 +8,7 @@ import { OutcomeLine, useOutcome, type Teller } from '@/lib/Outcome.tsx'
 import { useAsyncAction } from '@/lib/useAsyncAction.ts'
 import { definitionList } from '@/lib/utils.ts'
 import { EmptyState } from '@/shell/EmptyState.tsx'
+import { IssueLink } from './IssueLink.tsx'
 import { pushBranch } from './pushApi.ts'
 import { WorkingTree } from './WorkingTree.tsx'
 
@@ -73,6 +74,7 @@ function BranchSummary({ branch }: { branch: Branch }) {
         </dd>
       </dl>
       {canPush ? <PushButton branch={branch} outcome={outcome} /> : null}
+      {branch.name === '' ? null : <IssueLink branch={branch} outcome={outcome} />}
       <OutcomeLine said={outcome.said} />
     </section>
   )

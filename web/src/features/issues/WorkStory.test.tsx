@@ -100,6 +100,7 @@ test('reads a committed clean tree and a green pull request', () => {
       branches: onHead,
       branch: {
         name: 'fix/PROJ-1',
+        issue_link: '',
         detached: false,
         head: 'h1h2h3h',
         upstream: 'origin/fix/PROJ-1',

@@ -74,6 +74,12 @@ func (w *world) gitDeps() seams.Git {
 
 			return w.checkoutErr
 		},
+		LinkIssue: func(branch, issueKey string) error {
+			w.record("link-issue " + branch + " " + issueKey)
+			w.branch.IssueLink = issueKey
+
+			return nil
+		},
 		Finish: func(branch, base string) error {
 			w.record("finish " + branch + " onto " + base)
 

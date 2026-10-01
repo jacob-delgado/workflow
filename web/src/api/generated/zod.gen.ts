@@ -22,6 +22,18 @@ export const zProblem = z.object({
     ])
 });
 
+export const zBranchIssueRequest = z.object({
+    key: z.string(),
+    update_pull: z.boolean()
+});
+
+export const zBranchIssuePreview = z.object({
+    key: z.string(),
+    pull: z.int(),
+    body: z.string(),
+    changes: z.boolean()
+});
+
 /**
  * The branch to check out.
  */
@@ -191,6 +203,7 @@ export const zCommit = z.object({
 
 export const zBranch = z.object({
     name: z.string(),
+    issue_link: z.string(),
     detached: z.boolean(),
     head: z.string(),
     upstream: z.string(),
@@ -625,6 +638,27 @@ export const zUpdateConfigHeaders = z.object({
  * The configuration as written, redacted.
  */
 export const zUpdateConfigResponse = zConfig;
+
+/**
+ * The branch, no longer linked.
+ */
+export const zUnlinkBranchIssueResponse = zBranch;
+
+export const zLinkBranchIssueBody = zBranchIssueRequest;
+
+/**
+ * The branch, linked.
+ */
+export const zLinkBranchIssueResponse = zBranch;
+
+export const zPreviewBranchIssueQuery = z.object({
+    key: z.string()
+});
+
+/**
+ * The pull request's description with the issue's line added, and whether it needed adding; no pull request is pull 0.
+ */
+export const zPreviewBranchIssueResponse = zBranchIssuePreview;
 
 export const zCheckoutBody = zCheckoutRequest;
 

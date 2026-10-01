@@ -2,8 +2,8 @@
 
 import type { Client, ClientMeta, Options as Options2, RequestResult, ServerSentEventsResult, TDataShape } from './client';
 import { client } from './client.gen';
-import type { AddTaskData, AddTaskErrors, AddTaskResponses, AnnotateTaskData, AnnotateTaskErrors, AnnotateTaskResponses, AnnounceData, AnnounceErrors, AnnounceResponses, CheckoutData, CheckoutErrors, CheckoutResponses, CommitData, CommitErrors, CommitResponses, CompleteTaskData, CompleteTaskErrors, CompleteTaskResponses, CreateBranchData, CreateBranchErrors, CreateBranchResponses, GetAnnouncementData, GetAnnouncementErrors, GetAnnouncementResponses, GetBranchData, GetBranchErrors, GetBranchResponses, GetConfigData, GetConfigErrors, GetConfigResponses, GetHealthData, GetHealthErrors, GetHealthResponses, GetIssueData, GetIssueErrors, GetIssueResponses, GetMessagingData, GetMessagingErrors, GetMessagingResponses, GetPullRequestDraftData, GetPullRequestDraftErrors, GetPullRequestDraftResponses, GetReviewData, GetReviewErrors, GetReviewResponses, LinkPullRequestData, LinkPullRequestErrors, LinkPullRequestResponses, ListChangesData, ListChangesErrors, ListChangesResponses, ListIssuesData, ListIssuesErrors, ListIssuesResponses, ListReviewsData, ListReviewsErrors, ListReviewsResponses, ListTasksData, ListTasksErrors, ListTasksResponses, ListViewsData, ListViewsErrors, ListViewsResponses, ModifyTaskData, ModifyTaskErrors, ModifyTaskResponses, OpenPullRequestData, OpenPullRequestErrors, OpenPullRequestResponses, PushData, PushErrors, PushResponses, StageData, StageErrors, StageResponses, StartTaskData, StartTaskErrors, StartTaskResponses, StopTaskData, StopTaskErrors, StopTaskResponses, StreamEventsData, StreamEventsErrors, StreamEventsResponse, StreamEventsResponses, SyncTasksData, SyncTasksErrors, SyncTasksResponses, TrackIssueData, TrackIssueErrors, TrackIssueResponses, TransitionIssueData, TransitionIssueErrors, TransitionIssueResponses, UndoTasksData, UndoTasksErrors, UndoTasksResponses, UnstageData, UnstageErrors, UnstageResponses, UpdateConfigData, UpdateConfigErrors, UpdateConfigResponses } from './types.gen';
-import { zAddTaskResponse, zAnnotateTaskResponse, zAnnounceResponse, zCheckoutResponse, zCommitResponse, zCompleteTaskResponse, zCreateBranchResponse, zGetAnnouncementResponse, zGetBranchResponse, zGetConfigResponse, zGetHealthResponse, zGetIssueResponse, zGetMessagingResponse, zGetPullRequestDraftResponse, zGetReviewResponse, zLinkPullRequestResponse, zListChangesResponse, zListIssuesResponse, zListReviewsResponse, zListTasksResponse, zListViewsResponse, zModifyTaskResponse, zOpenPullRequestResponse, zPushResponse, zStageResponse, zStartTaskResponse, zStopTaskResponse, zStreamEventsResponse, zSyncTasksResponse, zTrackIssueResponse, zTransitionIssueResponse, zUndoTasksResponse, zUnstageResponse, zUpdateConfigResponse } from './zod.gen';
+import type { AddTaskData, AddTaskErrors, AddTaskResponses, AnnotateTaskData, AnnotateTaskErrors, AnnotateTaskResponses, AnnounceData, AnnounceErrors, AnnounceResponses, CheckoutData, CheckoutErrors, CheckoutResponses, CommitData, CommitErrors, CommitResponses, CompleteTaskData, CompleteTaskErrors, CompleteTaskResponses, CreateBranchData, CreateBranchErrors, CreateBranchResponses, GetAnnouncementData, GetAnnouncementErrors, GetAnnouncementResponses, GetBranchData, GetBranchErrors, GetBranchResponses, GetConfigData, GetConfigErrors, GetConfigResponses, GetHealthData, GetHealthErrors, GetHealthResponses, GetIssueData, GetIssueErrors, GetIssueResponses, GetMessagingData, GetMessagingErrors, GetMessagingResponses, GetPullRequestDraftData, GetPullRequestDraftErrors, GetPullRequestDraftResponses, GetReviewData, GetReviewErrors, GetReviewResponses, LinkBranchIssueData, LinkBranchIssueErrors, LinkBranchIssueResponses, LinkPullRequestData, LinkPullRequestErrors, LinkPullRequestResponses, ListChangesData, ListChangesErrors, ListChangesResponses, ListIssuesData, ListIssuesErrors, ListIssuesResponses, ListReviewsData, ListReviewsErrors, ListReviewsResponses, ListTasksData, ListTasksErrors, ListTasksResponses, ListViewsData, ListViewsErrors, ListViewsResponses, ModifyTaskData, ModifyTaskErrors, ModifyTaskResponses, OpenPullRequestData, OpenPullRequestErrors, OpenPullRequestResponses, PreviewBranchIssueData, PreviewBranchIssueErrors, PreviewBranchIssueResponses, PushData, PushErrors, PushResponses, StageData, StageErrors, StageResponses, StartTaskData, StartTaskErrors, StartTaskResponses, StopTaskData, StopTaskErrors, StopTaskResponses, StreamEventsData, StreamEventsErrors, StreamEventsResponse, StreamEventsResponses, SyncTasksData, SyncTasksErrors, SyncTasksResponses, TrackIssueData, TrackIssueErrors, TrackIssueResponses, TransitionIssueData, TransitionIssueErrors, TransitionIssueResponses, UndoTasksData, UndoTasksErrors, UndoTasksResponses, UnlinkBranchIssueData, UnlinkBranchIssueErrors, UnlinkBranchIssueResponses, UnstageData, UnstageErrors, UnstageResponses, UpdateConfigData, UpdateConfigErrors, UpdateConfigResponses } from './types.gen';
+import { zAddTaskResponse, zAnnotateTaskResponse, zAnnounceResponse, zCheckoutResponse, zCommitResponse, zCompleteTaskResponse, zCreateBranchResponse, zGetAnnouncementResponse, zGetBranchResponse, zGetConfigResponse, zGetHealthResponse, zGetIssueResponse, zGetMessagingResponse, zGetPullRequestDraftResponse, zGetReviewResponse, zLinkBranchIssueResponse, zLinkPullRequestResponse, zListChangesResponse, zListIssuesResponse, zListReviewsResponse, zListTasksResponse, zListViewsResponse, zModifyTaskResponse, zOpenPullRequestResponse, zPreviewBranchIssueResponse, zPushResponse, zStageResponse, zStartTaskResponse, zStopTaskResponse, zStreamEventsResponse, zSyncTasksResponse, zTrackIssueResponse, zTransitionIssueResponse, zUndoTasksResponse, zUnlinkBranchIssueResponse, zUnstageResponse, zUpdateConfigResponse } from './zod.gen';
 
 export type Options<TData extends TDataShape = TDataShape, ThrowOnError extends boolean = boolean, TResponse = unknown> = Options2<TData, ThrowOnError, TResponse> & {
     /**
@@ -178,6 +178,39 @@ export const updateConfig = <ThrowOnError extends boolean = false>(options: Opti
         'Content-Type': 'application/json',
         ...options.headers
     }
+});
+
+/**
+ * Forget the issue the checked-out branch was linked to.
+ */
+export const unlinkBranchIssue = <ThrowOnError extends boolean = false>(options?: Options<UnlinkBranchIssueData, ThrowOnError>): RequestResult<UnlinkBranchIssueResponses, UnlinkBranchIssueErrors, ThrowOnError> => (options?.client ?? client).delete<UnlinkBranchIssueResponses, UnlinkBranchIssueErrors, ThrowOnError>({
+    responseValidator: async (data) => await zUnlinkBranchIssueResponse.parseAsync(data),
+    url: '/api/branch/issue',
+    ...options
+});
+
+/**
+ * Link the checked-out branch to an issue, for work begun outside workflow.
+ *
+ * Keeps the issue in the repository's git configuration, so a branch whose name names no issue is for it from then on. With update_pull, the line naming the issue is added to the description of the pull request open from the branch, as workflow writes it on a pull request it opens, unless the description already names the issue.
+ */
+export const linkBranchIssue = <ThrowOnError extends boolean = false>(options: Options<LinkBranchIssueData, ThrowOnError>): RequestResult<LinkBranchIssueResponses, LinkBranchIssueErrors, ThrowOnError> => (options.client ?? client).put<LinkBranchIssueResponses, LinkBranchIssueErrors, ThrowOnError>({
+    responseValidator: async (data) => await zLinkBranchIssueResponse.parseAsync(data),
+    url: '/api/branch/issue',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * What linking the checked-out branch to an issue would write in its pull request.
+ */
+export const previewBranchIssue = <ThrowOnError extends boolean = false>(options: Options<PreviewBranchIssueData, ThrowOnError>): RequestResult<PreviewBranchIssueResponses, PreviewBranchIssueErrors, ThrowOnError> => (options.client ?? client).get<PreviewBranchIssueResponses, PreviewBranchIssueErrors, ThrowOnError>({
+    responseValidator: async (data) => await zPreviewBranchIssueResponse.parseAsync(data),
+    url: '/api/branch/issue/preview',
+    ...options
 });
 
 /**

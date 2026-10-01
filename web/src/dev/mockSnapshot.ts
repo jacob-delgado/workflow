@@ -76,6 +76,7 @@ export const mockSnapshot: Snapshot = {
   },
   branch: {
     name: 'fix/PROJ-412-redact-tokens',
+    issue_link: '',
     detached: false,
     head: 'a1b2c3d',
     upstream: 'origin/fix/PROJ-412-redact-tokens',

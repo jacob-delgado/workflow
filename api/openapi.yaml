@@ -477,6 +477,86 @@ paths:
               schema: {$ref: "#/components/schemas/Problem"}
         default: {$ref: "#/components/responses/Problem"}
 
+  /api/branch/issue:
+    put:
+      operationId: linkBranchIssue
+      summary: Link the checked-out branch to an issue, for work begun outside workflow.
+      description: >-
+        Keeps the issue in the repository's git configuration, so a branch whose
+        name names no issue is for it from then on. With update_pull, the line
+        naming the issue is added to the description of the pull request open
+        from the branch, as workflow writes it on a pull request it opens,
+        unless the description already names the issue.
+      tags: [repository]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/BranchIssueRequest"
+      responses:
+        "200":
+          description: The branch, linked.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Branch"
+        "409":
+          description: No branch is checked out to link; nothing was changed.
+          content:
+            application/problem+json:
+              schema: {$ref: "#/components/schemas/Problem"}
+        "422":
+          description: The key names no issue, or the link could not be kept.
+          content:
+            application/problem+json:
+              schema: {$ref: "#/components/schemas/Problem"}
+        default: {$ref: "#/components/responses/Problem"}
+    delete:
+      operationId: unlinkBranchIssue
+      summary: Forget the issue the checked-out branch was linked to.
+      tags: [repository]
+      responses:
+        "200":
+          description: The branch, no longer linked.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Branch"
+        "409":
+          description: No branch is checked out; nothing was changed.
+          content:
+            application/problem+json:
+              schema: {$ref: "#/components/schemas/Problem"}
+        default: {$ref: "#/components/responses/Problem"}
+
+  /api/branch/issue/preview:
+    get:
+      operationId: previewBranchIssue
+      summary: What linking the checked-out branch to an issue would write in its pull request.
+      tags: [repository]
+      parameters:
+        - name: key
+          in: query
+          required: true
+          schema: {type: string}
+          description: A Jira key, or a forge issue number with or without its #.
+      responses:
+        "200":
+          description: >-
+            The pull request's description with the issue's line added, and
+            whether it needed adding; no pull request is pull 0.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BranchIssuePreview"
+        "422":
+          description: The key names no issue.
+          content:
+            application/problem+json:
+              schema: {$ref: "#/components/schemas/Problem"}
+        default: {$ref: "#/components/responses/Problem"}
+
   /api/checkout:
     post:
       operationId: checkout
@@ -1224,6 +1304,37 @@ components:
           enum: [bad_request, not_found, method_not_allowed, conflict, unprocessable, precondition_required, unreachable, internal]
       additionalProperties: false
 
+    BranchIssueRequest:
+      type: object
+      required: [key, update_pull]
+      properties:
+        key:
+          type: string
+          description: A Jira key, or a forge issue number with or without its #.
+          example: PROJ-412
+        update_pull:
+          type: boolean
+          description: Add the line naming the issue to the open pull request's description.
+      additionalProperties: false
+
+    BranchIssuePreview:
+      type: object
+      required: [key, pull, body, changes]
+      properties:
+        key:
+          type: string
+          description: The issue's key, a forge number without its #.
+        pull:
+          type: integer
+          description: The open pull request's number, or 0 when the branch has none.
+        body:
+          type: string
+          description: Its description as linking would leave it.
+        changes:
+          type: boolean
+          description: Whether linking would change the description at all.
+      additionalProperties: false
+
     CheckoutRequest:
       type: object
       description: The branch to check out.
@@ -1620,9 +1731,14 @@ components:
 
     Branch:
       type: object
-      required: [name, detached, head, upstream, push_remote, ahead, behind, base, commits]
+      required: [name, detached, head, upstream, push_remote, ahead, behind, base, commits, issue_link]
       properties:
         name: {type: string}
+        issue_link:
+          type: string
+          description: >-
+            The issue the branch was linked to by hand, for work begun outside
+            workflow; empty when it was never linked.
         detached:
           type: boolean
           description: Whether HEAD is detached rather than on a branch.

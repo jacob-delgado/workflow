@@ -178,6 +178,7 @@ const issuesSnapshot = {
   },
   branch: {
     name: '',
+    issue_link: '',
     detached: false,
     head: '',
     upstream: '',
@@ -338,6 +339,7 @@ const workingTreeSnapshot = {
   ...issuesSnapshot,
   branch: {
     name: 'fix/PROJ-1',
+    issue_link: '',
     detached: false,
     head: 'abc1234',
     upstream: 'origin/fix/PROJ-1',
