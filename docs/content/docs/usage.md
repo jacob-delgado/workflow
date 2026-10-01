@@ -350,8 +350,10 @@ would, so stage something first.
 - **The reviewers** start as the code owners of the paths the branch changes,
   as the base branch's CODEOWNERS names them — people first, then teams as
   `org/team` — leaving you out. They are read after the composer opens, so it
-  never waits on them; they fill the field only while it is still empty, and
-  a draft you closed and reopen keeps the reviewers it had. Edit them as any
+  never waits on them; they fill the field only while you have not typed in
+  it. A draft you closed and reopen keeps the reviewers it had, or, closed
+  before the owners answered and its reviewers never typed, reads them
+  again. Edit them as any
   field; see [CODEOWNERS]({{< relref "/docs/configuration#codeowners-proposes-the-reviewers" >}})
   for which file is read and how.
 

@@ -269,3 +269,34 @@ func TestShiftTabStepsBackwardThroughTheComposer(t *testing.T) {
 	// Assert
 	requireScreen(t, composer.View().Content, "▸ labels")
 }
+
+func TestOwnersAnsweringAnEarlierComposerLeaveARestoredDraftAlone(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	// a reviewer is typed and taken back before the owners answer, and the
+	// composer is closed and opened again on its draft
+	opened, read := openedBeforeTheOwnersAnswer(t, ownedBy("ana"))
+	reopened := typing(t, opened, keyTab, keyTab, "z", keyBackspace, keyEsc, "n")
+
+	// Act
+	view := drain(t, reopened, read).View().Content
+
+	// Assert
+	requireScreen(t, view, reviewersField)
+	refuseScreen(t, view, "ana")
+}
+
+func TestADraftClosedBeforeTheOwnersAnsweredIsFilledOnReopening(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	opened, read := openedBeforeTheOwnersAnswer(t, ownedBy("ana"))
+	closed := drain(t, typing(t, opened, "x", keyEsc), read)
+
+	// Act
+	view := typing(t, closed, "n").View().Content
+
+	// Assert
+	requireScreen(t, view, reviewersField+"ana")
+}
