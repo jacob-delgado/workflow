@@ -28,6 +28,7 @@ const (
 	markTaskActive = "task active"
 	markTracked    = "tracked"
 	markTaskDone   = "task done"
+	markForge      = "forge issue"
 )
 
 // placeKind is which of the two groups a place is in. Places in one group
@@ -149,7 +150,7 @@ func pickedStatusesGone(issues []jira.Issue, picked []place) []place {
 
 // markPlaces is every mark, in the order the picker lists them.
 func markPlaces() []place {
-	marks := []string{markInFlight, markTaskActive, markTracked, markTaskDone}
+	marks := []string{markInFlight, markTaskActive, markTracked, markTaskDone, markForge}
 	places := make([]place, 0, len(marks))
 
 	for _, mark := range marks {
@@ -245,6 +246,10 @@ func (l issueList) marksOf(issueKey jira.Key) []string {
 
 	if word := l.taskWords[issueKey]; word != "" {
 		marks = append(marks, word)
+	}
+
+	if isForgeKey(issueKey) {
+		marks = append(marks, markForge)
 	}
 
 	return marks

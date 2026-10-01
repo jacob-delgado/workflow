@@ -4,7 +4,9 @@ import { FakeEventSource } from '@/test/fakeEventSource.ts'
 import { makeSnapshot } from '@/test/fixtures.ts'
 import { useEventStream, useLiveSnapshot, useSnapshotStore } from './snapshot.ts'
 
-const validSnapshot = makeSnapshot({ issues: { issues: [], total: 3, start_at: 0 } })
+const validSnapshot = makeSnapshot({
+  issues: { issues: [], total: 3, start_at: 0, unavailable: [] },
+})
 
 test('stores a snapshot the stream pushes and marks the stream live', () => {
   // Arrange

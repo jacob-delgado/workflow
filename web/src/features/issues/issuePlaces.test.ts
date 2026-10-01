@@ -5,7 +5,14 @@ import { admits, marksOf, placeChoices, togglePlace, type Place } from './issueP
 // The issues the terminal's placesWorld lists: one Intake, two Fixing and two
 // In development; a branch names PROJ-504 and a started task PROJ-503.
 function issueIn(key: string, status: string, category: Issue['status_category']): Issue {
-  return { key, summary: `Summary of ${key}`, status, status_category: category, type: 'Task' }
+  return {
+    key,
+    tracker: 'jira',
+    summary: `Summary of ${key}`,
+    status,
+    status_category: category,
+    type: 'Task',
+  }
 }
 
 const issues = [
@@ -123,5 +130,19 @@ test('a status outside the three categories is still offered', () => {
   // Assert
   expect(choices.map((choice) => `${choice.place.name} ${String(choice.count)}`)).toContain(
     'Parked 1',
+  )
+})
+
+// Twin of TestTheWherePickerOffersTheForgesIssues.
+test("the Where picker offers the forge's issues", () => {
+  // Arrange
+  const forgeIssue = { ...issueIn('57', 'Open', 'new'), tracker: 'forge' as const }
+
+  // Act
+  const choices = placeChoices([forgeIssue], (issue) => marksOf(issue, new Set(), tasks), [])
+
+  // Assert
+  expect(choices.map((choice) => `${choice.place.name} ${String(choice.count)}`)).toContain(
+    'forge issue 1',
   )
 })

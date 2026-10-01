@@ -155,9 +155,11 @@ const issuesSnapshot = {
   issues: {
     total: 3,
     start_at: 0,
+    unavailable: [],
     issues: [
       {
         key: 'PROJ-1',
+        tracker: 'jira',
         summary: 'Redact tokens before they reach the request log',
         status: 'In Progress',
         status_category: 'indeterminate',
@@ -166,6 +168,7 @@ const issuesSnapshot = {
       },
       {
         key: 'PROJ-2',
+        tracker: 'jira',
         summary: 'Document the token flow',
         status: 'To Do',
         status_category: 'new',

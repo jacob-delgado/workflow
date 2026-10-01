@@ -17,9 +17,11 @@ const snapshot = makeSnapshot({
   issues: {
     total: 3,
     start_at: 0,
+    unavailable: [],
     issues: [
       {
         key: 'PROJ-501',
+        tracker: 'jira',
         summary: 'Triage the crash',
         status: 'Intake',
         status_category: 'new',
@@ -27,6 +29,7 @@ const snapshot = makeSnapshot({
       },
       {
         key: 'PROJ-502',
+        tracker: 'jira',
         summary: 'Patch the leak',
         status: 'Fixing',
         status_category: 'indeterminate',
@@ -34,6 +37,7 @@ const snapshot = makeSnapshot({
       },
       {
         key: 'PROJ-504',
+        tracker: 'jira',
         summary: 'Speed up search',
         status: 'In development',
         status_category: 'indeterminate',

@@ -103,6 +103,24 @@ func (e ForgeConfigKind) Valid() bool {
 	}
 }
 
+// Defines values for IssueTracker.
+const (
+	Forge IssueTracker = "forge"
+	Jira  IssueTracker = "jira"
+)
+
+// Valid indicates whether the value is a known member of the IssueTracker enum.
+func (e IssueTracker) Valid() bool {
+	switch e {
+	case Forge:
+		return true
+	case Jira:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for MessagingConfigKind.
 const (
 	MessagingConfigKindDiscord MessagingConfigKind = "discord"
@@ -557,6 +575,9 @@ type Issue struct {
 	StatusCategory StatusCategory `json:"status_category"`
 	Summary        string         `json:"summary"`
 
+	// Tracker Where the issue lives: Jira, keyed like PROJ-412, or the repository's own forge, GitHub or GitLab, keyed by its number.
+	Tracker IssueTracker `json:"tracker"`
+
 	// Type The issue type name, such as Bug or Story.
 	Type string `json:"type"`
 }
@@ -578,11 +599,17 @@ type IssueDetail struct {
 	Status         string         `json:"status"`
 	StatusCategory StatusCategory `json:"status_category"`
 	Summary        string         `json:"summary"`
-	Type           string         `json:"type"`
+
+	// Tracker Where the issue lives: Jira, keyed like PROJ-412, or the repository's own forge, GitHub or GitLab, keyed by its number.
+	Tracker IssueTracker `json:"tracker"`
+	Type    string       `json:"type"`
 
 	// URL The issue in the tracker's own web interface, for a link to open. Empty when the tracker's base URL cannot be read; never carries the base URL's username or password.
 	URL string `json:"url"`
 }
+
+// IssueTracker Where the issue lives: Jira, keyed like PROJ-412, or the repository's own forge, GitHub or GitLab, keyed by its number.
+type IssueTracker string
 
 // IssuesConfig defines model for IssuesConfig.
 type IssuesConfig struct {
@@ -599,6 +626,9 @@ type IssuesPage struct {
 
 	// Total How many issues the view matches in all.
 	Total int `json:"total"`
+
+	// Unavailable Each tracker a list drawing on Jira and the forge together could not read, so what is listed is not taken for all there is. Empty when every tracker answered.
+	Unavailable []string `json:"unavailable"`
 }
 
 // JiraConfig defines model for JiraConfig.

@@ -40,7 +40,7 @@ func (m Model) commentHelp() string {
 // startComment hands the user's editor an empty comment on the selected issue.
 func (m Model) startComment() (Model, tea.Cmd) {
 	selected, ok := m.issues.current()
-	if !ok || m.deps.Editor.Edit == nil || m.deps.Jira.Comment == nil {
+	if !ok || m.deps.Editor.Edit == nil || m.deps.Jira.Comment == nil || isForgeKey(selected.Key) {
 		return m, nil
 	}
 

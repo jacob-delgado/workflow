@@ -26,12 +26,24 @@ func optional(s string) *string {
 func issueDTO(issue jira.Issue) api.Issue {
 	return api.Issue{
 		Key:            string(issue.Key),
+		Tracker:        trackerOf(issue.Key),
 		Summary:        issue.Summary,
 		Status:         issue.Status,
 		StatusCategory: api.StatusCategory(issue.StatusCategory),
 		Type:           issue.Type,
 		Priority:       optional(issue.Priority),
 	}
+}
+
+// trackerOf is where the issue a key names lives, by the key's shape: a
+// number is the forge's, anything else Jira's.
+func trackerOf(issueKey jira.Key) api.IssueTracker {
+	ref, known := convention.RefOf(string(issueKey))
+	if known && ref.Tracker == convention.TrackerForge {
+		return api.Forge
+	}
+
+	return api.Jira
 }
 
 // issuesPageDTO maps a page of search results, keeping the caller's start index.
@@ -41,7 +53,12 @@ func issuesPageDTO(result jira.SearchResult, startAt int) api.IssuesPage {
 		issues = append(issues, issueDTO(issue))
 	}
 
-	return api.IssuesPage{Issues: issues, Total: result.Total, StartAt: startAt}
+	unavailable := result.Unavailable
+	if unavailable == nil {
+		unavailable = []string{}
+	}
+
+	return api.IssuesPage{Issues: issues, Total: result.Total, StartAt: startAt, Unavailable: unavailable}
 }
 
 // issueDetailDTO maps an issue read in full, with its comments oldest first and
@@ -58,6 +75,7 @@ func issueDetailDTO(detail jira.IssueDetail, link string) api.IssueDetail {
 
 	return api.IssueDetail{
 		Key:            string(detail.Issue.Key),
+		Tracker:        trackerOf(detail.Issue.Key),
 		Summary:        detail.Issue.Summary,
 		Status:         detail.Issue.Status,
 		StatusCategory: api.StatusCategory(detail.Issue.StatusCategory),

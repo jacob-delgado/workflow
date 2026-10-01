@@ -30,7 +30,7 @@ export function makeBranch(overrides: Partial<Branch> = {}): Branch {
 // the stream actually pushes.
 export function makeSnapshot(overrides: Partial<Snapshot> = {}): Snapshot {
   return {
-    issues: { issues: [], total: 0, start_at: 0 },
+    issues: { issues: [], total: 0, start_at: 0, unavailable: [] },
     branch: makeBranch(),
     changes: { changes: [] },
     review: { found: false },

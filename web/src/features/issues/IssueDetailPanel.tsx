@@ -1,6 +1,7 @@
 import { ExternalLink } from 'lucide-react'
 import { useEffect, useRef, useState, type RefObject } from 'react'
 import { apiErrorMessage } from '@/api/apiError.ts'
+import { useForgeWords } from '@/api/health.ts'
 import type { Comment, Issue, IssueDetail } from '@/api/generated/types.gen.ts'
 import { IssueTasks } from '@/features/tasks/IssueTasks.tsx'
 import { Button } from '@/lib/Button.tsx'
@@ -149,6 +150,8 @@ function IssueHeading({ issueKey, issue, heading }: IssueHeadingProps) {
 }
 
 function IssuePeople({ detail }: { detail: IssueDetail }) {
+  const tracker = useTrackerName(detail.tracker)
+
   return (
     <div className="flex flex-col gap-group">
       <dl className={definitionList}>
@@ -164,7 +167,7 @@ function IssuePeople({ detail }: { detail: IssueDetail }) {
           rel="noreferrer"
           className="flex items-center gap-1.5 self-start text-sm text-primary underline-offset-4 hover:underline focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
         >
-          Open in Jira
+          Open in {tracker}
           <ExternalLink aria-hidden className="size-3.5" />
           <span className="sr-only"> (opens in a new tab)</span>
         </a>
@@ -241,4 +244,16 @@ function commentDate(created: string): string | null {
   }
 
   return written.toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' })
+}
+
+// useTrackerName names where an issue lives, for its link: Jira, or the forge
+// the repository is on. A merge request is GitLab's word for what GitHub calls
+// a pull request.
+function useTrackerName(tracker: IssueDetail['tracker']): string {
+  const { noun } = useForgeWords()
+  if (tracker === 'jira') {
+    return 'Jira'
+  }
+
+  return noun === 'merge request' ? 'GitLab' : 'GitHub'
 }

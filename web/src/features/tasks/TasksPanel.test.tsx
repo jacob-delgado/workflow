@@ -23,6 +23,7 @@ function hoursFromNow(hours: number): string {
 
 const tokenLeakIssue: Issue = {
   key: 'PROJ-1',
+  tracker: 'jira',
   summary: 'Fix the token leak',
   status: 'In Progress',
   status_category: 'indeterminate',
@@ -69,7 +70,9 @@ const waiting = makeTask({
 function streamIssues(...issues: Issue[]) {
   useSnapshotStore.setState({
     status: 'live',
-    snapshot: makeSnapshot({ issues: { total: issues.length, start_at: 0, issues } }),
+    snapshot: makeSnapshot({
+      issues: { total: issues.length, start_at: 0, unavailable: [], issues },
+    }),
   })
 }
 
@@ -256,7 +259,11 @@ test("Open in Issues opens the Issues section on the task's issue", async () => 
   act(() => {
     FakeEventSource.latest().emit(
       'snapshot',
-      JSON.stringify(makeSnapshot({ issues: { total: 1, start_at: 0, issues: [tokenLeakIssue] } })),
+      JSON.stringify(
+        makeSnapshot({
+          issues: { total: 1, start_at: 0, unavailable: [], issues: [tokenLeakIssue] },
+        }),
+      ),
     )
   })
   await user.click(screen.getByRole('button', { name: 'Tasks' }))

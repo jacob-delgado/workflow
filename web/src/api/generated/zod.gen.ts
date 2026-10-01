@@ -140,8 +140,14 @@ export const zStatusCategory = z.enum([
     'done'
 ]);
 
+/**
+ * Where the issue lives: Jira, keyed like PROJ-412, or the repository's own forge, GitHub or GitLab, keyed by its number.
+ */
+export const zIssueTracker = z.enum(['jira', 'forge']);
+
 export const zIssue = z.object({
     key: z.string(),
+    tracker: zIssueTracker,
     summary: z.string(),
     status: z.string(),
     status_category: zStatusCategory,
@@ -151,6 +157,7 @@ export const zIssue = z.object({
 
 export const zIssuesPage = z.object({
     issues: z.array(zIssue),
+    unavailable: z.array(z.string()),
     total: z.int(),
     start_at: z.int()
 });
@@ -163,6 +170,7 @@ export const zComment = z.object({
 
 export const zIssueDetail = z.object({
     key: z.string(),
+    tracker: zIssueTracker,
     summary: z.string(),
     status: z.string(),
     status_category: zStatusCategory,

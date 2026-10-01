@@ -212,10 +212,10 @@ func (m Model) issueVerbKeys(selected jira.Issue) []key.Binding {
 		binding key.Binding
 	}{
 		{m.deps.Jira.Transitions != nil, m.keys.changeStatus},
-		{m.deps.Jira.Comment != nil && m.deps.Editor.Edit != nil, m.keys.comment},
+		{m.deps.Jira.Comment != nil && m.deps.Editor.Edit != nil && !isForgeKey(selected.Key), m.keys.comment},
 		{m.canCreateBranch(), relabel(m.keys.branchForIssue, "branch for "+string(selected.Key))},
 		{m.deps.Jira.Assign != nil, m.keys.assign},
-		{m.deps.Jira.AddWorklog != nil, m.keys.logWork},
+		{m.deps.Jira.AddWorklog != nil && !isForgeKey(selected.Key), m.keys.logWork},
 		{m.canTrack(selected.Key), m.trackKey(selected.Key)},
 	}
 
@@ -354,7 +354,7 @@ func (m Model) issueDetailView(width int) string {
 		return m.status(width)
 	}
 
-	lines := []string{m.styles.strong.Render(string(selected.Key)) + " " + selected.Summary, m.facts(selected)}
+	lines := []string{m.styles.strong.Render(shownKey(selected.Key)) + " " + selected.Summary, m.facts(selected)}
 
 	if capped := m.issues.capped(); capped != "" {
 		lines = append(lines, m.styles.label.Render(capped))

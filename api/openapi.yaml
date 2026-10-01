@@ -1524,11 +1524,18 @@ components:
 
     IssuesPage:
       type: object
-      required: [issues, total, start_at]
+      required: [issues, total, start_at, unavailable]
       properties:
         issues:
           type: array
           items: {$ref: "#/components/schemas/Issue"}
+        unavailable:
+          type: array
+          items: {type: string}
+          description: >-
+            Each tracker a list drawing on Jira and the forge together could not
+            read, so what is listed is not taken for all there is. Empty when
+            every tracker answered.
         total:
           type: integer
           description: How many issues the view matches in all.
@@ -1539,9 +1546,10 @@ components:
 
     Issue:
       type: object
-      required: [key, summary, status, status_category, type]
+      required: [key, summary, status, status_category, type, tracker]
       properties:
         key: {type: string, example: PROJ-412}
+        tracker: {$ref: "#/components/schemas/IssueTracker"}
         summary: {type: string}
         status:
           type: string
@@ -1560,11 +1568,19 @@ components:
       type: string
       enum: [new, indeterminate, done]
 
+    IssueTracker:
+      type: string
+      enum: [jira, forge]
+      description: >-
+        Where the issue lives: Jira, keyed like PROJ-412, or the repository's
+        own forge, GitHub or GitLab, keyed by its number.
+
     IssueDetail:
       type: object
-      required: [key, summary, status, status_category, type, reporter, description, comments, comment_total, url]
+      required: [key, summary, status, status_category, type, tracker, reporter, description, comments, comment_total, url]
       properties:
         key: {type: string}
+        tracker: {$ref: "#/components/schemas/IssueTracker"}
         summary: {type: string}
         status: {type: string}
         status_category: {$ref: "#/components/schemas/StatusCategory"}

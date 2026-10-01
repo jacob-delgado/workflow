@@ -8,9 +8,11 @@ export const mockSnapshot: Snapshot = {
   issues: {
     total: 7,
     start_at: 0,
+    unavailable: [],
     issues: [
       {
         key: 'PROJ-412',
+        tracker: 'jira',
         summary: 'Redact tokens before they reach the request log',
         status: 'In Progress',
         status_category: 'indeterminate',
@@ -19,6 +21,7 @@ export const mockSnapshot: Snapshot = {
       },
       {
         key: 'PROJ-418',
+        tracker: 'jira',
         summary: 'Refuse to start when the config names an unknown forge',
         status: 'In Review',
         status_category: 'indeterminate',
@@ -27,6 +30,7 @@ export const mockSnapshot: Snapshot = {
       },
       {
         key: 'PROJ-408',
+        tracker: 'jira',
         summary: 'Cache the forge CI status between polls',
         status: 'To Do',
         status_category: 'new',
@@ -35,6 +39,7 @@ export const mockSnapshot: Snapshot = {
       },
       {
         key: 'PROJ-401',
+        tracker: 'jira',
         summary: 'Slugify the issue summary into the branch name',
         status: 'To Do',
         status_category: 'new',
@@ -42,6 +47,7 @@ export const mockSnapshot: Snapshot = {
       },
       {
         key: 'PROJ-396',
+        tracker: 'jira',
         summary: 'Support GitLab merge requests alongside GitHub pulls',
         status: 'Backlog',
         status_category: 'new',
@@ -50,6 +56,7 @@ export const mockSnapshot: Snapshot = {
       },
       {
         key: 'PROJ-390',
+        tracker: 'jira',
         summary: 'Flake in the CI-polling test under the race detector',
         status: 'In Progress',
         status_category: 'indeterminate',
@@ -58,6 +65,7 @@ export const mockSnapshot: Snapshot = {
       },
       {
         key: 'PROJ-377',
+        tracker: 'jira',
         summary: 'Document the on-prem Jira token flow',
         status: 'Done',
         status_category: 'done',

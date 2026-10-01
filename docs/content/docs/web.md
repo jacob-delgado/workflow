@@ -74,10 +74,14 @@ with a **View** select for the views your configuration defines, each scoped
 to your issues unless its query names the assignee, a **Filter** over the
 issues loaded so far, by key or summary, **Where** buttons that narrow them to
 places, and **Load more** while the view holds more. Where offers the statuses
-the loaded issues are in and the marks *in flight*, *task active*, *tracked*
-and *task done*, each with how many issues it holds; pressing one narrows the
+the loaded issues are in and the marks *in flight*, *task active*, *tracked*,
+*task done* and *forge issue*, each with how many issues it holds; pressing one narrows the
 list, and pressing it again undoes that. Statuses widen each other, as marks
-do, and the two narrow together, as the terminal's `p` does. An issue with a branch is marked *in flight*, with **Check out**
+do, and the two narrow together, as the terminal's `p` does. A repository
+that lists its forge's issues beside Jira's (`issues.forge`) numbers them as
+the forge does, `#57`, links each to its page with **Open in GitHub** or
+**Open in GitLab**, and says so beneath the list when the forge's issues could
+not be read. An issue with a branch is marked *in flight*, with **Check out**
 beside it when that branch is not the one checked out — a local branch, or one
 only the remote has, which checking out creates here. The branches counted are
 those naming an issue assigned to you and not done, so a branch whose issue
