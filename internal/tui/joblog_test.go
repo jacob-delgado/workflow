@@ -122,3 +122,21 @@ func TestASCIIModeSeparatesAFailedChecksPartsInASCII(t *testing.T) {
 		})
 	}
 }
+
+// A CI read that fails says so, and lists no failed check from the read
+// before it, which may since have passed.
+func TestAFailedCIReadListsNoChecksFromTheReadBefore(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	failing := withAFailedJob(true)
+	shown := typing(t, failing.live(t, 120, 40), "4")
+	failing.ciErr = forge.ErrUnreachable
+
+	// Act
+	view := typing(t, shown, "r").View().Content
+
+	// Assert
+	requireScreen(t, view, "could not reach the forge")
+	refuseScreen(t, view, "unit-race")
+}

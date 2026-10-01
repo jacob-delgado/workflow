@@ -86,7 +86,13 @@ func (w *world) forgeDeps() seams.Forge {
 		CheckStatus: func(_ forge.PullRequest, head string) (forge.CI, error) {
 			w.record("ci " + head)
 
-			return w.nextCI(), w.ciErr
+			// The real seam answers no CI with its error, as the fake must.
+			answer := w.nextCI()
+			if w.ciErr != nil {
+				return forge.CI{}, w.ciErr
+			}
+
+			return answer, nil
 		},
 		JobLog: func(check forge.Check) (forge.JobLog, error) {
 			w.record("job-log " + check.ID)
