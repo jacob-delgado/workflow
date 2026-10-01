@@ -108,7 +108,12 @@ detail rather than beside it.
 
 The checked-out branch, its base, its upstream and how far it is ahead or
 behind, and the commits on it. **Push branch** publishes it, after a
-confirmation.
+confirmation. **Link an issue** ties a branch begun outside workflow, whose
+name names no issue, to one: a Jira key or a forge number such as `#42`. When
+its pull request's description does not name the issue yet, it is shown with
+the issue's line added first, with **Link and update** or **Link only**. A
+linked branch says so, with **Unlink**; the link is kept in the repository's
+git configuration, as the terminal's `i` keeps it.
 
 Under **Working tree**, each changed file has its own **Stage** or
 **Unstage**, and **Stage all** stages the rest. The commit form builds a

@@ -1,0 +1,94 @@
+// Copyright 2026 Jacob Delgado
+// SPDX-License-Identifier: Apache-2.0
+
+package tui_test
+
+import (
+	"strings"
+	"testing"
+
+	"github.com/jacob-delgado/workflow/internal/gitrepo"
+)
+
+// offConvention is a branch begun outside workflow, named for no issue.
+const offConvention = "my-thing"
+
+// onOffConventionBranch is the world on offConvention, with or without a pull
+// request opened from it.
+func onOffConventionBranch(withPull bool) *world {
+	repo := newWorld()
+	repo.pullFound = withPull
+	repo.branch = gitrepo.Branch{
+		Name: offConvention, Head: "abc123", Base: baseRef,
+		Upstream: "origin/" + offConvention, PushRemote: gitrepo.DefaultRemote,
+	}
+
+	return repo
+}
+
+func TestILinksABranchWithNoPullRequestToTheSelectedIssue(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	repo := onOffConventionBranch(false)
+
+	// Act
+	view := typing(t, repo.live(t, 120, 40), "2", "i", keyEnter).View().Content
+
+	// Assert
+	if linked := repo.asked("link-issue"); len(linked) != 1 || linked[0] != "link-issue my-thing "+issueKey {
+		t.Errorf("linked %q, want my-thing linked to %s", linked, issueKey)
+	}
+
+	requireScreen(t, view, "linked my-thing to "+issueKey)
+}
+
+func TestLinkingTakesAKeyTypedInPlaceOfTheSelection(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	repo := onOffConventionBranch(false)
+
+	// Act
+	typing(t, repo.live(t, 120, 40), "2", "i", "ctrl+u", "#", "5", "7", keyEnter)
+
+	// Assert
+	if linked := repo.asked("link-issue"); len(linked) != 1 || linked[0] != "link-issue my-thing 57" {
+		t.Errorf("linked %q, want my-thing linked to the forge's 57", linked)
+	}
+}
+
+func TestLinkingABranchWithAPullRequestShowsItsDescriptionFirst(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	repo := onOffConventionBranch(true)
+
+	// Act
+	view := typing(t, repo.live(t, 120, 40), "2", "i", keyEnter).View().Content
+
+	// Assert
+	requireScreen(t, view, "Jira: ["+issueKey+"]")
+
+	if linked := repo.asked("link-issue"); len(linked) != 0 {
+		t.Errorf("linked %q before the description was confirmed", linked)
+	}
+}
+
+func TestConfirmingTheDescriptionLinksAndUpdatesThePullRequest(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	repo := onOffConventionBranch(true)
+
+	// Act
+	view := typing(t, repo.live(t, 120, 40), "2", "i", keyEnter, keyEnter).View().Content
+
+	// Assert
+	edits := repo.asked("edit 42")
+	if len(edits) != 1 || !strings.Contains(edits[0], "Jira: ["+issueKey+"]") || len(repo.asked("link-issue")) != 1 {
+		t.Errorf("edited %q and linked %q; want the issue line added and the branch linked", edits, repo.asked("link-issue"))
+	}
+
+	requireScreen(t, view, "Link on "+issueKey)
+}

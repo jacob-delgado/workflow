@@ -64,6 +64,7 @@ func placedBindings() []helpGroup {
 		placed("Branch and Commits",
 			"new-branch        b          new branch",
 			"switch-task       s          switch task",
+			"link-issue        i          link issue",
 			"rebase            u          rebase onto base",
 			"push              P          push",
 			"stage             space      stage/unstage",

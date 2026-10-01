@@ -124,3 +124,38 @@ func TestPullRequestBodyStartsFromTheTemplate(t *testing.T) {
 		})
 	}
 }
+
+// linkedKey is the Jira issue a pull request is linked to below.
+const linkedKey = "OPS-5"
+
+func TestWithIssueLineAddsTheIssueToAPullRequestThatDoesNotNameIt(t *testing.T) {
+	t.Parallel()
+
+	cases := map[string]struct {
+		body, key, url, want string
+		changed              bool
+	}{
+		"a Jira issue": {
+			body: "Speeds up search.\n", key: linkedKey, url: "https://jira/browse/OPS-5",
+			want: "Speeds up search.\n\nJira: [OPS-5](https://jira/browse/OPS-5)\n", changed: true,
+		},
+		"a forge issue":   {body: "Speeds up search.", key: "42", want: "Speeds up search.\n\nCloses #42\n", changed: true},
+		"an empty body":   {body: "", key: "42", want: "Closes #42\n", changed: true},
+		"one it names":    {body: "Fixes OPS-5 at last.\n", key: linkedKey, want: "Fixes OPS-5 at last.\n", changed: false},
+		"a longer number": {body: "Closes #420\n", key: "42", want: "Closes #420\n\nCloses #42\n", changed: true},
+	}
+
+	for name, tt := range cases {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			// Act
+			got, changed := convention.WithIssueLine(tt.body, tt.key, tt.url)
+
+			// Assert
+			if got != tt.want || changed != tt.changed {
+				t.Errorf("WithIssueLine = %q, %v; want %q, %v", got, changed, tt.want, tt.changed)
+			}
+		})
+	}
+}

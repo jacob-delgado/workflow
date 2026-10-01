@@ -54,7 +54,7 @@ type keyMap struct {
 	changeStatus, comment, assign, logWork, branchForIssue, filter, filterPlace, nextView, loadMore, trackIssue key.Binding
 
 	// Branch and Commits.
-	newBranch, switchTask, rebase, push, stage, stageAll, commit, amend, fixup, runHooks, hookConfig key.Binding
+	newBranch, switchTask, linkIssue, rebase, push, stage, stageAll, commit, amend, fixup, runHooks, hookConfig key.Binding
 
 	// Review and messaging.
 	newPullRequest, checks, rerun, merge, finish, compose key.Binding
@@ -242,6 +242,7 @@ func issueKeys(builder *helpBuilder, into *keyMap) {
 func branchAndCommitKeys(builder *helpBuilder, into *keyMap) {
 	into.newBranch = builder.bind(groupBranchCommits, "new-branch", "new branch", "b")
 	into.switchTask = builder.bind(groupBranchCommits, "switch-task", "switch task", "s")
+	into.linkIssue = builder.bind(groupBranchCommits, "link-issue", "link issue", "i")
 	into.rebase = builder.bind(groupBranchCommits, "rebase", "rebase onto base", "u")
 	into.push = builder.bind(groupBranchCommits, "push", "push", "P")
 	into.stage = builder.bind(groupBranchCommits, "stage", "stage/unstage", "space")

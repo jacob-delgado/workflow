@@ -126,6 +126,7 @@ every key `?` lists, by where it works.
 | | `enter` / `esc` | Below 80 columns, read the selected issue in full, then go back to the list |
 | 2 Branch | `b` | Start a branch |
 | | `s` | Switch to the branch of another of your issues |
+| | `i` | Link the branch to an issue, for work begun outside workflow |
 | | `u` | Rebase the branch onto its base, after a last look |
 | | `P` | Push a branch that has unpushed commits, after a last look |
 | | `r` | Read the repository again |
@@ -264,6 +265,20 @@ even one you have locally. When the tracker cannot be asked which issues are
 yours, the list holds every branch that names an issue, under a line saying
 why. A switch is refused while the working tree holds uncommitted changes,
 rather than carrying them onto the other branch.
+
+`i` on the Branch pane links the branch to an issue, for work begun outside
+workflow on a branch whose name names none. It offers the issue selected in the
+Issues list; type over it to name another, a Jira key or a forge number such as
+`#42`. With a pull request open from the branch, it first shows the
+description with the issue's line added — `Jira: [PROJ-7](…)`, or `Closes #42`
+for a forge issue — and `enter` links the branch and updates the description
+together; a Jira issue is then offered the pull request's link, as opening one
+would. The link is kept in the repository's git configuration, as
+`branch.<name>.workflow-issue`, so it goes when git deletes the branch.
+
+Which issue a branch is for is read, in order, from that link, from the
+branch's name, and from its pull request's title or description, so a pull
+request opened elsewhere that names its issue is followed too.
 
 ### Stage and commit
 

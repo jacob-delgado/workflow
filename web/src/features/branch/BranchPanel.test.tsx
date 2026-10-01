@@ -21,6 +21,7 @@ function pushable() {
     snapshot: makeSnapshot({
       branch: {
         name: 'fix/PROJ-1',
+        issue_link: '',
         detached: false,
         head: 'abc1234',
         upstream: '',
@@ -56,6 +57,7 @@ test('shows the current branch, its commits, and its changes', () => {
     snapshot: makeSnapshot({
       branch: {
         name: 'feat/web',
+        issue_link: '',
         detached: false,
         head: 'deadbee',
         upstream: 'origin/feat/web',
@@ -206,6 +208,7 @@ test('offers no push for a fully published branch', () => {
     snapshot: makeSnapshot({
       branch: {
         name: 'fix/PROJ-1',
+        issue_link: '',
         detached: false,
         head: 'abc1234',
         upstream: 'origin/fix/PROJ-1',
@@ -233,6 +236,7 @@ test('offers no push in a detached HEAD', () => {
     snapshot: makeSnapshot({
       branch: {
         name: '',
+        issue_link: '',
         detached: true,
         head: 'abcdef1234',
         upstream: '',
@@ -370,6 +374,7 @@ test('shows placeholders for an unpublished branch with a clean tree', () => {
     snapshot: makeSnapshot({
       branch: {
         name: 'wip',
+        issue_link: '',
         detached: false,
         head: 'aaa',
         upstream: '',
@@ -399,6 +404,7 @@ test('shows a detached HEAD rather than calling it not a repository', () => {
     snapshot: makeSnapshot({
       branch: {
         name: '',
+        issue_link: '',
         detached: true,
         head: 'abcdef1234',
         upstream: '',
@@ -425,6 +431,7 @@ test('says so when the workspace is not a Git repository, and what one would sho
     snapshot: makeSnapshot({
       branch: {
         name: '',
+        issue_link: '',
         detached: false,
         head: '',
         upstream: '',

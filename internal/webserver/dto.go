@@ -99,6 +99,7 @@ func branchDTO(branch gitrepo.Branch) api.Branch {
 	}
 
 	return api.Branch{
+		IssueLink:  branch.IssueLink,
 		Name:       branch.Name,
 		Detached:   branch.Detached,
 		Head:       branch.Head,

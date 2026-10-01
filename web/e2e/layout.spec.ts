@@ -285,6 +285,7 @@ const pagedSnapshot = {
   },
   branch: {
     name: '',
+    issue_link: '',
     detached: false,
     head: '',
     upstream: '',
@@ -337,6 +338,7 @@ const unbrokenSnapshot = {
   branch: {
     ...pagedSnapshot.branch,
     name: 'fix/PROJ-1',
+    issue_link: '',
     head: 'abc1234',
     upstream: 'origin/redact_every_authorization_header_before_the_request_log_writes_it',
     base: 'origin/main',

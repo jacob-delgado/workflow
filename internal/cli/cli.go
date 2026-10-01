@@ -352,6 +352,9 @@ func WebDeps(deps tui.Deps) webserver.Deps {
 
 		RemoteBranches: deps.Git.RemoteBranches,
 		IssueLinks:     deps.Git.IssueLinks,
+		LinkIssue:      deps.Git.LinkIssue,
+		UnlinkIssue:    deps.Git.UnlinkIssue,
+		EditPull:       deps.Forge.EditPullRequest,
 
 		LastScope:   deps.Store.LastScope,
 		RecordScope: deps.Store.RecordScope,

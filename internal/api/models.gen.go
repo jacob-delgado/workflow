@@ -359,7 +359,10 @@ type Branch struct {
 
 	// Head The commit SHA; empty before the first commit, and in a write's answer when the branch could not be read back after the write landed.
 	Head string `json:"head"`
-	Name string `json:"name"`
+
+	// IssueLink The issue the branch was linked to by hand, for work begun outside workflow; empty when it was never linked.
+	IssueLink string `json:"issue_link"`
+	Name      string `json:"name"`
 
 	// PushRemote The remote a push of the branch goes to: remote.pushDefault when the repository sets one, origin otherwise.
 	PushRemote string `json:"push_remote"`
@@ -378,6 +381,32 @@ type BranchConfig struct {
 
 	// Template The branch-name template; must contain {key}.
 	Template *string `json:"template,omitempty"`
+}
+
+// BranchIssuePreview defines model for BranchIssuePreview.
+type BranchIssuePreview struct {
+	// Body Its description as linking would leave it.
+	Body string `json:"body"`
+
+	// Changes Whether linking would change the description at all.
+	Changes bool `json:"changes"`
+
+	// Key The issue's key, a forge number without its
+	Key string `json:"key"`
+
+	// Pull The open pull request's number, or 0 when the branch has none.
+	Pull int `json:"pull"`
+}
+
+// BranchIssueRequest defines model for BranchIssueRequest.
+type BranchIssueRequest struct {
+	// Key A Jira key, or a forge issue number with or without its
+	//
+	// Example: PROJ-412
+	Key string `json:"key"`
+
+	// UpdatePull Add the line naming the issue to the open pull request's description.
+	UpdatePull bool `json:"update_pull"`
 }
 
 // CI defines model for CI.
@@ -1108,6 +1137,12 @@ type ViewList struct {
 // TaskUUID Example: 5f3c9a1e-8b2d-4c6f-9e7a-1d2b3c4d5e6f
 type TaskUUID = string
 
+// PreviewBranchIssueParams defines parameters for PreviewBranchIssue.
+type PreviewBranchIssueParams struct {
+	// Key A Jira key, or a forge issue number with or without its
+	Key string `form:"key" json:"key"`
+}
+
 // UpdateConfigParams defines parameters for UpdateConfig.
 type UpdateConfigParams struct {
 	// IfMatch The ETag of the read the change was made over. A write without it is refused with 428, one whose value is not in the form of an ETag a read returns with 400, and one naming a revision the file is no longer at with 409.
@@ -1131,6 +1166,9 @@ type ListIssuesParams struct {
 
 // AnnounceJSONRequestBody defines body for Announce for application/json ContentType.
 type AnnounceJSONRequestBody = AnnounceRequest
+
+// LinkBranchIssueJSONRequestBody defines body for LinkBranchIssue for application/json ContentType.
+type LinkBranchIssueJSONRequestBody = BranchIssueRequest
 
 // CreateBranchJSONRequestBody defines body for CreateBranch for application/json ContentType.
 type CreateBranchJSONRequestBody = CreateBranchRequest

@@ -30,6 +30,36 @@ export type Problem = {
     code: 'bad_request' | 'not_found' | 'method_not_allowed' | 'conflict' | 'unprocessable' | 'precondition_required' | 'unreachable' | 'internal';
 };
 
+export type BranchIssueRequest = {
+    /**
+     * A Jira key, or a forge issue number with or without its
+     */
+    key: string;
+    /**
+     * Add the line naming the issue to the open pull request's description.
+     */
+    update_pull: boolean;
+};
+
+export type BranchIssuePreview = {
+    /**
+     * The issue's key, a forge number without its
+     */
+    key: string;
+    /**
+     * The open pull request's number, or 0 when the branch has none.
+     */
+    pull: number;
+    /**
+     * Its description as linking would leave it.
+     */
+    body: string;
+    /**
+     * Whether linking would change the description at all.
+     */
+    changes: boolean;
+};
+
 /**
  * The branch to check out.
  */
@@ -362,6 +392,10 @@ export type Comment = {
 
 export type Branch = {
     name: string;
+    /**
+     * The issue the branch was linked to by hand, for work begun outside workflow; empty when it was never linked.
+     */
+    issue_link: string;
     /**
      * Whether HEAD is detached rather than on a branch.
      */
@@ -1354,6 +1388,102 @@ export type UpdateConfigResponses = {
 };
 
 export type UpdateConfigResponse = UpdateConfigResponses[keyof UpdateConfigResponses];
+
+export type UnlinkBranchIssueData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/branch/issue';
+};
+
+export type UnlinkBranchIssueErrors = {
+    /**
+     * No branch is checked out; nothing was changed.
+     */
+    409: Problem;
+    /**
+     * An RFC 9457 problem details object describing the failure.
+     */
+    default: Problem;
+};
+
+export type UnlinkBranchIssueError = UnlinkBranchIssueErrors[keyof UnlinkBranchIssueErrors];
+
+export type UnlinkBranchIssueResponses = {
+    /**
+     * The branch, no longer linked.
+     */
+    200: Branch;
+};
+
+export type UnlinkBranchIssueResponse = UnlinkBranchIssueResponses[keyof UnlinkBranchIssueResponses];
+
+export type LinkBranchIssueData = {
+    body: BranchIssueRequest;
+    path?: never;
+    query?: never;
+    url: '/api/branch/issue';
+};
+
+export type LinkBranchIssueErrors = {
+    /**
+     * No branch is checked out to link; nothing was changed.
+     */
+    409: Problem;
+    /**
+     * The key names no issue, or the link could not be kept.
+     */
+    422: Problem;
+    /**
+     * An RFC 9457 problem details object describing the failure.
+     */
+    default: Problem;
+};
+
+export type LinkBranchIssueError = LinkBranchIssueErrors[keyof LinkBranchIssueErrors];
+
+export type LinkBranchIssueResponses = {
+    /**
+     * The branch, linked.
+     */
+    200: Branch;
+};
+
+export type LinkBranchIssueResponse = LinkBranchIssueResponses[keyof LinkBranchIssueResponses];
+
+export type PreviewBranchIssueData = {
+    body?: never;
+    path?: never;
+    query: {
+        /**
+         * A Jira key, or a forge issue number with or without its
+         */
+        key: string;
+    };
+    url: '/api/branch/issue/preview';
+};
+
+export type PreviewBranchIssueErrors = {
+    /**
+     * The key names no issue.
+     */
+    422: Problem;
+    /**
+     * An RFC 9457 problem details object describing the failure.
+     */
+    default: Problem;
+};
+
+export type PreviewBranchIssueError = PreviewBranchIssueErrors[keyof PreviewBranchIssueErrors];
+
+export type PreviewBranchIssueResponses = {
+    /**
+     * The pull request's description with the issue's line added, and whether it needed adding; no pull request is pull 0.
+     */
+    200: BranchIssuePreview;
+};
+
+export type PreviewBranchIssueResponse = PreviewBranchIssueResponses[keyof PreviewBranchIssueResponses];
 
 export type CheckoutData = {
     body: CheckoutRequest;

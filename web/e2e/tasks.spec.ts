@@ -48,6 +48,7 @@ function withTasks(tasks: TasksSummary): Snapshot {
     },
     branch: {
       name: '',
+      issue_link: '',
       detached: false,
       head: '',
       upstream: '',

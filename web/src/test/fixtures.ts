@@ -13,6 +13,7 @@ import type {
 export function makeBranch(overrides: Partial<Branch> = {}): Branch {
   return {
     name: 'fix/PROJ-1',
+    issue_link: '',
     detached: false,
     head: 'abc1234',
     upstream: 'origin/fix/PROJ-1',

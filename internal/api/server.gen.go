@@ -27,6 +27,15 @@ type ServerInterface interface {
 	// GetBranch The current branch and how it stands against its base.
 	// (GET /api/branch)
 	GetBranch(w http.ResponseWriter, r *http.Request)
+	// UnlinkBranchIssue Forget the issue the checked-out branch was linked to.
+	// (DELETE /api/branch/issue)
+	UnlinkBranchIssue(w http.ResponseWriter, r *http.Request)
+	// LinkBranchIssue Link the checked-out branch to an issue, for work begun outside workflow.
+	// (PUT /api/branch/issue)
+	LinkBranchIssue(w http.ResponseWriter, r *http.Request)
+	// PreviewBranchIssue What linking the checked-out branch to an issue would write in its pull request.
+	// (GET /api/branch/issue/preview)
+	PreviewBranchIssue(w http.ResponseWriter, r *http.Request, params PreviewBranchIssueParams)
 	// CreateBranch Create and switch to a branch for an issue — start work on it.
 	// (POST /api/branches)
 	CreateBranch(w http.ResponseWriter, r *http.Request)
@@ -161,6 +170,67 @@ func (siw *ServerInterfaceWrapper) GetBranch(w http.ResponseWriter, r *http.Requ
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.GetBranch(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// UnlinkBranchIssue operation middleware
+func (siw *ServerInterfaceWrapper) UnlinkBranchIssue(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.UnlinkBranchIssue(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// LinkBranchIssue operation middleware
+func (siw *ServerInterfaceWrapper) LinkBranchIssue(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.LinkBranchIssue(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// PreviewBranchIssue operation middleware
+func (siw *ServerInterfaceWrapper) PreviewBranchIssue(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params PreviewBranchIssueParams
+
+	// ------------- Required query parameter "key" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, true, "key", r.URL.Query(), &params.Key, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "key"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "key", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.PreviewBranchIssue(w, r, params)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -880,6 +950,9 @@ func HandlerWithOptions(si ServerInterface, options StdHTTPServerOptions) http.H
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/messaging", wrapper.GetMessaging)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/config", wrapper.GetConfig)
 	m.HandleFunc(http.MethodPut+" "+options.BaseURL+"/api/config", wrapper.UpdateConfig)
+	m.HandleFunc(http.MethodDelete+" "+options.BaseURL+"/api/branch/issue", wrapper.UnlinkBranchIssue)
+	m.HandleFunc(http.MethodPut+" "+options.BaseURL+"/api/branch/issue", wrapper.LinkBranchIssue)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/branch/issue/preview", wrapper.PreviewBranchIssue)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/api/checkout", wrapper.Checkout)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/api/branches", wrapper.CreateBranch)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/announcement", wrapper.GetAnnouncement)
@@ -1050,6 +1123,178 @@ type GetBranchdefaultApplicationProblemPlusJSONResponse struct {
 }
 
 func (response GetBranchdefaultApplicationProblemPlusJSONResponse) VisitGetBranchResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type UnlinkBranchIssueRequestObject struct {
+}
+
+type UnlinkBranchIssueResponseObject interface {
+	VisitUnlinkBranchIssueResponse(w http.ResponseWriter) error
+}
+
+type UnlinkBranchIssue200JSONResponse Branch
+
+func (response UnlinkBranchIssue200JSONResponse) VisitUnlinkBranchIssueResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type UnlinkBranchIssue409ApplicationProblemPlusJSONResponse Problem
+
+func (response UnlinkBranchIssue409ApplicationProblemPlusJSONResponse) VisitUnlinkBranchIssueResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(409)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type UnlinkBranchIssuedefaultApplicationProblemPlusJSONResponse struct {
+	Body       Problem
+	StatusCode int
+}
+
+func (response UnlinkBranchIssuedefaultApplicationProblemPlusJSONResponse) VisitUnlinkBranchIssueResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type LinkBranchIssueRequestObject struct {
+	Body *LinkBranchIssueJSONRequestBody
+}
+
+type LinkBranchIssueResponseObject interface {
+	VisitLinkBranchIssueResponse(w http.ResponseWriter) error
+}
+
+type LinkBranchIssue200JSONResponse Branch
+
+func (response LinkBranchIssue200JSONResponse) VisitLinkBranchIssueResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type LinkBranchIssue409ApplicationProblemPlusJSONResponse Problem
+
+func (response LinkBranchIssue409ApplicationProblemPlusJSONResponse) VisitLinkBranchIssueResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(409)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type LinkBranchIssue422ApplicationProblemPlusJSONResponse Problem
+
+func (response LinkBranchIssue422ApplicationProblemPlusJSONResponse) VisitLinkBranchIssueResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(422)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type LinkBranchIssuedefaultApplicationProblemPlusJSONResponse struct {
+	Body       Problem
+	StatusCode int
+}
+
+func (response LinkBranchIssuedefaultApplicationProblemPlusJSONResponse) VisitLinkBranchIssueResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PreviewBranchIssueRequestObject struct {
+	Params PreviewBranchIssueParams
+}
+
+type PreviewBranchIssueResponseObject interface {
+	VisitPreviewBranchIssueResponse(w http.ResponseWriter) error
+}
+
+type PreviewBranchIssue200JSONResponse BranchIssuePreview
+
+func (response PreviewBranchIssue200JSONResponse) VisitPreviewBranchIssueResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PreviewBranchIssue422ApplicationProblemPlusJSONResponse Problem
+
+func (response PreviewBranchIssue422ApplicationProblemPlusJSONResponse) VisitPreviewBranchIssueResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(422)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PreviewBranchIssuedefaultApplicationProblemPlusJSONResponse struct {
+	Body       Problem
+	StatusCode int
+}
+
+func (response PreviewBranchIssuedefaultApplicationProblemPlusJSONResponse) VisitPreviewBranchIssueResponse(w http.ResponseWriter) error {
 
 	var buf bytes.Buffer
 	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
@@ -2823,6 +3068,15 @@ type StrictServerInterface interface {
 	// GetBranch The current branch and how it stands against its base.
 	// (GET /api/branch)
 	GetBranch(ctx context.Context, request GetBranchRequestObject) (GetBranchResponseObject, error)
+	// UnlinkBranchIssue Forget the issue the checked-out branch was linked to.
+	// (DELETE /api/branch/issue)
+	UnlinkBranchIssue(ctx context.Context, request UnlinkBranchIssueRequestObject) (UnlinkBranchIssueResponseObject, error)
+	// LinkBranchIssue Link the checked-out branch to an issue, for work begun outside workflow.
+	// (PUT /api/branch/issue)
+	LinkBranchIssue(ctx context.Context, request LinkBranchIssueRequestObject) (LinkBranchIssueResponseObject, error)
+	// PreviewBranchIssue What linking the checked-out branch to an issue would write in its pull request.
+	// (GET /api/branch/issue/preview)
+	PreviewBranchIssue(ctx context.Context, request PreviewBranchIssueRequestObject) (PreviewBranchIssueResponseObject, error)
 	// CreateBranch Create and switch to a branch for an issue — start work on it.
 	// (POST /api/branches)
 	CreateBranch(ctx context.Context, request CreateBranchRequestObject) (CreateBranchResponseObject, error)
@@ -3026,6 +3280,87 @@ func (sh *strictHandler) GetBranch(w http.ResponseWriter, r *http.Request) {
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
 	} else if validResponse, ok := response.(GetBranchResponseObject); ok {
 		if err := validResponse.VisitGetBranchResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// UnlinkBranchIssue operation middleware
+func (sh *strictHandler) UnlinkBranchIssue(w http.ResponseWriter, r *http.Request) {
+	var request UnlinkBranchIssueRequestObject
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.UnlinkBranchIssue(ctx, request.(UnlinkBranchIssueRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "UnlinkBranchIssue")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(UnlinkBranchIssueResponseObject); ok {
+		if err := validResponse.VisitUnlinkBranchIssueResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// LinkBranchIssue operation middleware
+func (sh *strictHandler) LinkBranchIssue(w http.ResponseWriter, r *http.Request) {
+	var request LinkBranchIssueRequestObject
+
+	var body LinkBranchIssueJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.LinkBranchIssue(ctx, request.(LinkBranchIssueRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "LinkBranchIssue")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(LinkBranchIssueResponseObject); ok {
+		if err := validResponse.VisitLinkBranchIssueResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// PreviewBranchIssue operation middleware
+func (sh *strictHandler) PreviewBranchIssue(w http.ResponseWriter, r *http.Request, params PreviewBranchIssueParams) {
+	var request PreviewBranchIssueRequestObject
+
+	request.Params = params
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.PreviewBranchIssue(ctx, request.(PreviewBranchIssueRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "PreviewBranchIssue")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(PreviewBranchIssueResponseObject); ok {
+		if err := validResponse.VisitPreviewBranchIssueResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {

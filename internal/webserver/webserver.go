@@ -55,16 +55,23 @@ type Deps struct {
 	Changes       func() ([]gitrepo.Change, error)
 	FindPull      func(branch string) (forge.PullRequest, bool, error)
 	CreatePull    func(request forge.NewPullRequest) (forge.PullRequest, error)
-	Templates     func() []forge.Template
-	CheckCI       func(pull forge.PullRequest, head string) (forge.CI, error)
-	Author        func() (string, error)
-	Post          func(channel, text string) error
+	// EditPull changes a pull request's title and description, as linking a
+	// branch to its issue adds the line naming it.
+	EditPull  func(pull forge.PullRequest, edit forge.PullRequestEdit) (forge.PullRequest, error)
+	Templates func() []forge.Template
+	CheckCI   func(pull forge.PullRequest, head string) (forge.CI, error)
+	Author    func() (string, error)
+	Post      func(channel, text string) error
 	// RemoteBranches lists the branches on the remotes by name, without the
 	// remote's prefix, so a branch only the remote has is in flight too.
 	RemoteBranches func() ([]string, error)
 	// IssueLinks is every branch linked to an issue by hand, by branch name,
 	// so a branch whose name names none is still in flight for its issue.
 	IssueLinks func() map[string]string
+	// LinkIssue links a branch to an issue by hand, and UnlinkIssue forgets its
+	// link: for work begun outside workflow on a branch whose name names none.
+	LinkIssue   func(branch, issueKey string) error
+	UnlinkIssue func(branch string) error
 	// ReviewRequests lists the pull requests on the forge that ask for your
 	// review, across repositories — the queue `workflow reviews` prints.
 	ReviewRequests func() ([]forge.ReviewRequest, error)

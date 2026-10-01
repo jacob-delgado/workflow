@@ -3,8 +3,8 @@
 import { queryOptions } from '@tanstack/react-query';
 
 import { client } from '../client.gen';
-import { getAnnouncement, getBranch, getConfig, getHealth, getIssue, getMessaging, getPullRequestDraft, getReview, listChanges, listIssues, listReviews, listTasks, listViews, type Options } from '../sdk.gen';
-import type { GetAnnouncementData, GetAnnouncementError, GetAnnouncementResponse, GetBranchData, GetBranchError, GetBranchResponse, GetConfigData, GetConfigError, GetConfigResponse, GetHealthData, GetHealthError, GetHealthResponse, GetIssueData, GetIssueError, GetIssueResponse, GetMessagingData, GetMessagingError, GetMessagingResponse, GetPullRequestDraftData, GetPullRequestDraftError, GetPullRequestDraftResponse, GetReviewData, GetReviewError, GetReviewResponse, ListChangesData, ListChangesError, ListChangesResponse, ListIssuesData, ListIssuesError, ListIssuesResponse, ListReviewsData, ListReviewsError, ListReviewsResponse, ListTasksData, ListTasksError, ListTasksResponse, ListViewsData, ListViewsError, ListViewsResponse } from '../types.gen';
+import { getAnnouncement, getBranch, getConfig, getHealth, getIssue, getMessaging, getPullRequestDraft, getReview, listChanges, listIssues, listReviews, listTasks, listViews, type Options, previewBranchIssue } from '../sdk.gen';
+import type { GetAnnouncementData, GetAnnouncementError, GetAnnouncementResponse, GetBranchData, GetBranchError, GetBranchResponse, GetConfigData, GetConfigError, GetConfigResponse, GetHealthData, GetHealthError, GetHealthResponse, GetIssueData, GetIssueError, GetIssueResponse, GetMessagingData, GetMessagingError, GetMessagingResponse, GetPullRequestDraftData, GetPullRequestDraftError, GetPullRequestDraftResponse, GetReviewData, GetReviewError, GetReviewResponse, ListChangesData, ListChangesError, ListChangesResponse, ListIssuesData, ListIssuesError, ListIssuesResponse, ListReviewsData, ListReviewsError, ListReviewsResponse, ListTasksData, ListTasksError, ListTasksResponse, ListViewsData, ListViewsError, ListViewsResponse, PreviewBranchIssueData, PreviewBranchIssueError, PreviewBranchIssueResponse } from '../types.gen';
 
 export type QueryKey<TOptions extends Options> = [
     Pick<TOptions, 'baseUrl' | 'body' | 'headers' | 'path' | 'query'> & {
@@ -221,6 +221,24 @@ export const getConfigOptions = (options?: Options<GetConfigData>) => queryOptio
         return data;
     },
     queryKey: getConfigQueryKey(options)
+});
+
+export const previewBranchIssueQueryKey = (options: Options<PreviewBranchIssueData>) => createQueryKey('previewBranchIssue', options);
+
+/**
+ * What linking the checked-out branch to an issue would write in its pull request.
+ */
+export const previewBranchIssueOptions = (options: Options<PreviewBranchIssueData>) => queryOptions<PreviewBranchIssueResponse, PreviewBranchIssueError, PreviewBranchIssueResponse, ReturnType<typeof previewBranchIssueQueryKey>>({
+    queryFn: async ({ queryKey, signal }) => {
+        const { data } = await previewBranchIssue({
+            ...options,
+            ...queryKey[0],
+            signal,
+            throwOnError: true
+        });
+        return data;
+    },
+    queryKey: previewBranchIssueQueryKey(options)
 });
 
 export const getAnnouncementQueryKey = (options?: Options<GetAnnouncementData>) => createQueryKey('getAnnouncement', options);
