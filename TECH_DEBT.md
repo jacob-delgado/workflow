@@ -689,23 +689,34 @@ Tagging a code owner means picking them from the announcement channel's
 members, by the name Slack shows for them. `conversations.members` gives
 only IDs, so `internal/wiring/slackdirectory.go` reads `users.list` whole
 and labels the members from it, and holds every directory read for ten
-minutes or until the user refreshes.
+minutes or until the user refreshes. A workspace past
+`messaging.UserListPages` pages of `users.list` is not listed whole: its
+channel's members are labeled one by one through `users.info`, each held
+the same way.
 
 **Decided.** 2026-10-01, in #165: one paged `users.list` is a handful of
 requests for most workspaces, where a `users.info` per member would be one
 request per person every time a channel is shown. Holding the reads for the
 session lets the preview open again at once, and ten minutes bounds how
-stale a newly joined member or a renamed group can be.
+stale a newly joined member or a renamed group can be. Revisited
+2026-10-01, in #166: the reopen trigger — a directory too large to read
+whole — is met by the `users.info` fallback, so it is no longer a reason
+to reopen. `users.list` is Slack's Tier 2 (about 20 requests a minute), so
+the fallback starts after 20 pages (4,000 people), before the list would
+meet the rate limit; `users.info` is Tier 4 and bounded by the channel's
+size. Reads share one request however many ask at once, and none holds a
+lock while Slack answers.
 
-**Cost.** A very large workspace pages through `users.list` — up to
-`messaging.MaxPages` pages, then refuses with `ErrDirectoryTooLarge` — and
-can meet Slack's rate limits on the first read; the session holds every
-user's name in memory; and someone who joins the channel within the ten
-minutes is not offered until a refresh.
+**Cost.** A workspace under the cap holds every user's name in memory for
+the session, and pays up to 20 `users.list` pages on its first read. A
+workspace over it pays those 20 pages once per ten minutes to learn it is
+too large, then one `users.info` per channel member, so a large channel's
+first read is slow. Someone who joins the channel within the ten minutes
+is not offered until a refresh.
 
-**Reopen when.** A workspace's directory is too large to read whole, or
-Slack's rate limits are met in practice: look up each channel member with
-`users.info` instead, and hold only those.
+**Reopen when.** Slack's rate limits are met in practice below the cap, or
+a large channel's first read through `users.info` is too slow to wait for:
+lower `UserListPages`, or label members concurrently within Tier 4.
 
 ### TRADE-27 A top-level GitLab group links to Slack like a person
 

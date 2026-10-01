@@ -6,6 +6,7 @@ package wiring
 import (
 	"cmp"
 	"context"
+	"errors"
 	"fmt"
 	"slices"
 	"strings"
@@ -31,7 +32,8 @@ const DirectoryTTL = 10 * time.Minute
 // set up, and then reads the directory afresh.
 //
 // Trade-off TRADE-26: users.list is read whole, once a session, to label a
-// channel's members, rather than each member looked up on its own.
+// channel's members, rather than each member looked up on its own — unless
+// the workspace is too large to list, when each member is.
 type SlackDirectory struct {
 	client func() (messaging.Client, error)
 	now    func() time.Time
@@ -47,8 +49,23 @@ type SlackDirectory struct {
 type heldReads struct {
 	channels map[string]*flight[string]
 	members  map[string]*flight[[]messaging.SlackUserID]
-	users    map[string]*flight[map[string]string]
+	users    map[string]*flight[roster]
+	profiles map[string]*flight[profile]
 	groups   map[string]*flight[[]messaging.SlackTarget]
+}
+
+// roster is users.list read whole: each taggable user's label by their ID, or
+// tooLarge when the workspace is past messaging.UserListPages, which is held
+// too so it is not paged again until the directory expires.
+type roster struct {
+	labels   map[string]string
+	tooLarge bool
+}
+
+// profile is one user as users.info answers: their label, or not taggable.
+type profile struct {
+	label    string
+	taggable bool
 }
 
 // wholeDirectory is the key of a read that has only one answer.
@@ -105,14 +122,7 @@ func (d *SlackDirectory) ChannelMembers(ctx context.Context, channel string) ([]
 		return nil, err
 	}
 
-	users, err := shared(ctx, d, held.users, wholeDirectory, func(ctx context.Context) (map[string]string, error) {
-		return byID(slack.Users(ctx))
-	})
-	if err != nil {
-		return nil, err
-	}
-
-	return labeled(members, users), nil
+	return d.label(ctx, slack, held, members)
 }
 
 // UserGroups is every enabled user group in the workspace.
@@ -128,6 +138,48 @@ func (d *SlackDirectory) UserGroups(ctx context.Context) ([]loop.SlackTarget, er
 	}
 
 	return asLoopTargets(groups), nil
+}
+
+// label is members under their Slack names, ordered by them: from users.list
+// read whole, or one by one through users.info in a workspace too large to
+// list.
+func (d *SlackDirectory) label(
+	ctx context.Context, slack messaging.Client, held *heldReads, members []messaging.SlackUserID,
+) ([]loop.SlackTarget, error) {
+	users, err := shared(ctx, d, held.users, wholeDirectory, func(ctx context.Context) (roster, error) {
+		return byID(slack.Users(ctx))
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	if users.tooLarge {
+		return d.oneByOne(ctx, slack, held, members)
+	}
+
+	return labeled(members, users.labels), nil
+}
+
+// oneByOne labels each member through users.info, reading each once.
+func (d *SlackDirectory) oneByOne(
+	ctx context.Context, slack messaging.Client, held *heldReads, members []messaging.SlackUserID,
+) ([]loop.SlackTarget, error) {
+	labels := make(map[string]string, len(members))
+
+	for _, member := range members {
+		found, err := shared(ctx, d, held.profiles, member.String(), func(ctx context.Context) (profile, error) {
+			return profileOf(slack.User(ctx, member))
+		})
+		if err != nil {
+			return nil, err
+		}
+
+		if found.taggable {
+			labels[member.String()] = found.label
+		}
+	}
+
+	return labeled(members, labels), nil
 }
 
 // begin is the client to read with and the generation to read into, or why
@@ -203,15 +255,20 @@ func (d *SlackDirectory) forget() {
 	d.held = &heldReads{
 		channels: map[string]*flight[string]{},
 		members:  map[string]*flight[[]messaging.SlackUserID]{},
-		users:    map[string]*flight[map[string]string]{},
+		users:    map[string]*flight[roster]{},
+		profiles: map[string]*flight[profile]{},
 		groups:   map[string]*flight[[]messaging.SlackTarget]{},
 	}
 }
 
-// byID is each user's label by their ID.
-func byID(users []messaging.SlackTarget, err error) (map[string]string, error) {
+// byID is each user's label by their ID, or a workspace too large to list.
+func byID(users []messaging.SlackTarget, err error) (roster, error) {
+	if errors.Is(err, messaging.ErrDirectoryTooLarge) {
+		return roster{labels: nil, tooLarge: true}, nil
+	}
+
 	if err != nil {
-		return nil, err
+		return roster{}, err
 	}
 
 	labels := make(map[string]string, len(users))
@@ -219,7 +276,21 @@ func byID(users []messaging.SlackTarget, err error) (map[string]string, error) {
 		labels[user.ID] = user.Label
 	}
 
-	return labels, nil
+	return roster{labels: labels, tooLarge: false}, nil
+}
+
+// profileOf is users.info's answer as a profile: someone not to tag is held as
+// such, not as a failure to read again.
+func profileOf(user messaging.SlackTarget, err error) (profile, error) {
+	if errors.Is(err, messaging.ErrNotTaggable) {
+		return profile{label: "", taggable: false}, nil
+	}
+
+	if err != nil {
+		return profile{}, err
+	}
+
+	return profile{label: user.Label, taggable: true}, nil
 }
 
 // labeled is each member users names, under that name, ordered by it. A member

@@ -487,3 +487,29 @@ func TestRefreshDoesNotWaitForASlowReadNorKeepItsResult(t *testing.T) {
 		t.Errorf("users.list was asked %d times, want the read begun before Refresh not kept", asked)
 	}
 }
+
+func TestAChannelInAWorkspaceTooLargeToListIsLabeledOneByOne(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	bodies := directoryBodies()
+	bodies["/users.list"] = `{"ok":true,"members":[],"response_metadata":{"next_cursor":"more"}}`
+	bodies["/users.info?user=U0ADA"] = `{"ok":true,"user":{"id":"U0ADA","name":"ada","profile":{"display_name":"Ada"}}}`
+	bodies["/users.info?user=U0BOB"] = `{"ok":true,"user":{"id":"U0BOB","name":"bob","real_name":"Bob B","profile":{}}}`
+	bodies["/users.info?user=U0BOT"] = `{"ok":true,"user":{"id":"U0BOT","name":"robot","is_bot":true,"profile":{}}}`
+	slack, client := startSlack(t, bodies)
+	directory, _ := directoryOver(client)
+
+	// Act
+	members, err := directory.ChannelMembers(t.Context(), "#dev")
+
+	// Assert
+	want := []loop.SlackTarget{{ID: "U0ADA", Label: "Ada"}, {ID: "U0BOB", Label: "Bob B"}}
+	if err != nil || !slices.Equal(members, want) {
+		t.Errorf("ChannelMembers = %v, %v; want %v", members, err, want)
+	}
+
+	if asked := slack.count("/users.info"); asked != 3 {
+		t.Errorf("users.info was asked %d times, want once per member", asked)
+	}
+}

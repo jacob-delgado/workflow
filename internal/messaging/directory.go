@@ -24,11 +24,20 @@ import (
 // rather than the session's patience.
 const MaxPages = 100
 
+// UserListPages is the most pages Users reads before calling the workspace
+// too large to list whole. users.list is Slack's Tier 2, about 20 requests a
+// minute, so a workspace past 20 pages — 4,000 people at 200 a page — would
+// meet the rate limit rather than the page cap; its channels are better
+// labeled member by member through users.info, Tier 4 at 100 or more a
+// minute and bounded by the channel's size.
+const UserListPages = 20
+
 // The directory reads, as the Web API names them.
 const (
 	conversationsPath = "/users.conversations"
 	membersPath       = "/conversations.members"
 	usersPath         = "/users.list"
+	userPath          = "/users.info"
 	userGroupsPath    = "/usergroups.list"
 )
 
@@ -51,8 +60,12 @@ var (
 	ErrLookupRefused = errors.New("the lookup was refused")
 	// ErrChannelNotFound reports a channel name none of the user's channels has.
 	ErrChannelNotFound = errors.New("no channel of yours has that name")
-	// ErrDirectoryTooLarge reports a read still paging after MaxPages.
+	// ErrDirectoryTooLarge reports a read still paging after its page cap:
+	// MaxPages, or UserListPages for Users.
 	ErrDirectoryTooLarge = errors.New("the Slack directory is too large to read")
+	// ErrNotTaggable reports a user who is not a person to tag: deactivated,
+	// a bot, or Slackbot.
+	ErrNotTaggable = errors.New("not a Slack user who can be tagged")
 	// ErrInvalidSlackID reports a value that is not a Slack user or group ID.
 	ErrInvalidSlackID = errors.New("not a Slack ID")
 )
@@ -141,12 +154,13 @@ type listing struct {
 	} `json:"response_metadata"`
 }
 
-// lookup is one directory read: the endpoint, its fixed query, and the error
-// codes it gives a meaning of its own.
+// lookup is one directory read: the endpoint, its fixed query, the error
+// codes it gives a meaning of its own, and the most pages it follows.
 type lookup struct {
 	path     string
 	query    url.Values
 	refusals map[string]error
+	pages    int
 }
 
 // channelPage is a page of users.conversations.
@@ -168,7 +182,7 @@ func (c Client) ChannelID(ctx context.Context, name string) (string, error) {
 
 	read := lookup{path: conversationsPath, query: url.Values{
 		"types": {"public_channel,private_channel"}, "exclude_archived": {"true"}, limitParam: {"200"},
-	}, refusals: nil}
+	}, refusals: nil, pages: MaxPages}
 
 	ids, err := readAll(ctx, c, read, func(page channelPage) []string {
 		named := make([]string, 0, 1)
@@ -200,7 +214,9 @@ type memberPage struct {
 // ChannelMembers is the user ID of everyone in the channel, leaving out any
 // value Slack sent that is not shaped like one.
 func (c Client) ChannelMembers(ctx context.Context, channelID string) ([]SlackUserID, error) {
-	read := lookup{path: membersPath, query: url.Values{"channel": {channelID}, limitParam: {"1000"}}, refusals: nil}
+	read := lookup{
+		path: membersPath, query: url.Values{"channel": {channelID}, limitParam: {"1000"}}, refusals: nil, pages: MaxPages,
+	}
 
 	return readAll(ctx, c, read, func(page memberPage) []SlackUserID {
 		users := make([]SlackUserID, 0, len(page.Members))
@@ -237,8 +253,9 @@ type userPage struct {
 
 // Users is every person in the workspace who can be tagged, labeled by the
 // name Slack shows for them. Deactivated users, bots and Slackbot are left out.
+// A workspace past UserListPages pages is ErrDirectoryTooLarge.
 func (c Client) Users(ctx context.Context) ([]SlackTarget, error) {
-	read := lookup{path: usersPath, query: url.Values{limitParam: {"200"}}, refusals: nil}
+	read := lookup{path: usersPath, query: url.Values{limitParam: {"200"}}, refusals: nil, pages: UserListPages}
 
 	return readAll(ctx, c, read, func(page userPage) []SlackTarget {
 		targets := make([]SlackTarget, 0, len(page.Members))
@@ -251,6 +268,28 @@ func (c Client) Users(ctx context.Context) ([]SlackTarget, error) {
 
 		return targets
 	})
+}
+
+// userAnswer is users.info's answer.
+type userAnswer struct {
+	User slackUser `json:"user"`
+}
+
+// User is one person by their ID, labeled as Users labels them. Someone Users
+// would leave out — deactivated, a bot, Slackbot — is ErrNotTaggable.
+func (c Client) User(ctx context.Context, user SlackUserID) (SlackTarget, error) {
+	read := lookup{path: userPath, query: url.Values{"user": {user.String()}}, refusals: nil, pages: 1}
+
+	found, err := readAll(ctx, c, read, func(answer userAnswer) []slackUser { return []slackUser{answer.User} })
+	if err != nil {
+		return SlackTarget{}, err
+	}
+
+	if !found[0].taggable() || found[0].ID != user.String() {
+		return SlackTarget{}, fmt.Errorf("%w: %s", ErrNotTaggable, user)
+	}
+
+	return SlackTarget{ID: found[0].ID, Label: found[0].label()}, nil
 }
 
 // taggable reports whether the member is a person with a valid ID.
@@ -280,7 +319,7 @@ func (c Client) UserGroups(ctx context.Context) ([]SlackTarget, error) {
 	read := lookup{path: userGroupsPath, query: url.Values{"include_disabled": {"false"}}, refusals: map[string]error{
 		"paid_teams_only":        ErrNoUserGroups,
 		"not_allowed_token_type": ErrNoUserGroups,
-	}}
+	}, pages: MaxPages}
 
 	return readAll(ctx, c, read, func(page groupPage) []SlackTarget {
 		groups := make([]SlackTarget, 0, len(page.Groups))
@@ -306,7 +345,7 @@ func readAll[Page, Item any](ctx context.Context, client Client, read lookup, pi
 		cursor string
 	)
 
-	for range MaxPages {
+	for range read.pages {
 		body, next, err := client.readPage(ctx, read, cursor)
 		if err != nil {
 			return nil, err
