@@ -69,15 +69,16 @@ type membersRead struct {
 // apply hands the members to the preview, unless its channel has changed
 // since they were asked for, or to People and groups.
 func (msg membersRead) apply(m Model) (Model, tea.Cmd) {
-	switch open := m.overlay.(type) {
-	case messagingPreview:
-		if open.channel == msg.channel {
-			open.tagging.members = msg.found
-			m.overlay = open
-		}
-	case peopleOverlay:
-		open.members = msg.found
-		m.overlay = open
+	if preview, open := beneath[messagingPreview](m); open && preview.channel == msg.channel {
+		preview.tagging.members = msg.found
+
+		return m.withBeneath(preview), nil
+	}
+
+	if people, open := beneath[peopleOverlay](m); open {
+		people.members = msg.found
+
+		return m.withBeneath(people), nil
 	}
 
 	return m, nil
@@ -90,16 +91,54 @@ type userGroupsRead struct {
 
 // apply hands the groups to the preview, or to People and groups.
 func (msg userGroupsRead) apply(m Model) (Model, tea.Cmd) {
-	switch open := m.overlay.(type) {
-	case messagingPreview:
-		open.tagging.groups = msg.found
-		m.overlay = open
-	case peopleOverlay:
-		open.groups = msg.found
-		m.overlay = open.withChoices()
+	if preview, open := beneath[messagingPreview](m); open {
+		preview.tagging.groups = msg.found
+
+		return m.withBeneath(preview), nil
+	}
+
+	if people, open := beneath[peopleOverlay](m); open {
+		people.groups = msg.found
+
+		return m.withBeneath(people.withChoices()), nil
 	}
 
 	return m, nil
+}
+
+// linksOwners is an overlay the owner picker opens over, holding the
+// directory the picker chooses from.
+type linksOwners interface {
+	overlay
+	directoryFor(team bool) directory
+}
+
+// beneath is the open overlay a read or a save is for, when it is a T: the
+// one on top, or the one the owner picker was opened over, which a read must
+// still reach, or esc would return to it as it was before the read.
+func beneath[T linksOwners](m Model) (T, bool) {
+	target := m.overlay
+	if picker, picking := m.overlay.(ownerPicker); picking {
+		target = picker.back
+	}
+
+	open, isOpen := target.(T)
+
+	return open, isOpen
+}
+
+// withBeneath puts back the overlay beneath found, changed: under the owner
+// picker when it is open, whose choices it brings up to date.
+func (m Model) withBeneath(changed linksOwners) Model {
+	if picker, picking := m.overlay.(ownerPicker); picking {
+		m.overlay = picker.over(changed)
+
+		return m
+	}
+
+	m.overlay = changed
+
+	return m
 }
 
 // saveLink saves whom owner is on Slack, or with no target that they are not
@@ -124,15 +163,13 @@ type ownerLinked struct {
 // apply shows the link where it was made: in the preview's tags, or in
 // People and groups.
 func (msg ownerLinked) apply(m Model) (Model, tea.Cmd) {
-	switch open := m.overlay.(type) {
-	case messagingPreview:
-		open.tagging = open.tagging.relinked(msg.link, msg.err)
-		m.overlay = open
-	case peopleOverlay:
-		return peopleSaved{saved: "", err: msg.err}.apply(m)
+	if preview, open := beneath[messagingPreview](m); open {
+		preview.tagging = preview.tagging.relinked(msg.link, msg.err)
+
+		return m.withBeneath(preview), nil
 	}
 
-	return m, nil
+	return peopleSaved{saved: "", err: msg.err}.apply(m)
 }
 
 // slackName is how a Slack user or group is shown: a group with its @.
@@ -161,16 +198,27 @@ type ownerPicker struct {
 	from   directory
 	filter string
 	list   pickList[linkChoice]
-	back   overlay
+	back   linksOwners
 }
 
 var _ overlay = ownerPicker{}
 
-// newOwnerPicker opens the picker on owner, choosing from from.
-func newOwnerPicker(m Model, owner string, team bool, from directory, back overlay) ownerPicker {
-	picker := ownerPicker{marks: m.marks, styles: m.styles, owner: owner, team: team, from: from, back: back}
+// newOwnerPicker opens the picker on owner, over the overlay it goes back to.
+func newOwnerPicker(m Model, owner string, team bool, back linksOwners) ownerPicker {
+	picker := ownerPicker{marks: m.marks, styles: m.styles, owner: owner, team: team, from: directory{}, back: back}
 
-	return picker.filtered("")
+	return picker.over(back)
+}
+
+// over is the picker opened over back, choosing from back's directory as it
+// now stands, the filter and the choice kept.
+func (p ownerPicker) over(back linksOwners) ownerPicker {
+	selected := p.list.selected
+	p.back, p.from = back, back.directoryFor(p.team)
+	p = p.filtered(p.filter)
+	p.list = pickList[linkChoice]{items: p.list.items, selected: selected}.moved(0)
+
+	return p
 }
 
 // filtered is the picker narrowed to the entries whose name holds filter,
