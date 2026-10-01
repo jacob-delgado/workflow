@@ -74,22 +74,22 @@ func (f File) OwnersOf(paths []string) Owners {
 	var found collector
 
 	for _, path := range paths {
-		segments := splitPath(path)
+		matching := newTarget(path)
 
 		for _, part := range f.sections {
-			found.add(part.ownersOf(segments))
+			found.add(part.ownersOf(matching))
 		}
 	}
 
 	return found.owners
 }
 
-// ownersOf is the owners the section gives a path, split into segments.
-func (s section) ownersOf(segments []string) Owners {
+// ownersOf is the owners the section gives a path.
+func (s section) ownersOf(path target) Owners {
 	var owners Owners
 
 	for _, line := range s.rules {
-		if !line.pattern.matches(segments) {
+		if !line.pattern.matches(path) {
 			continue
 		}
 

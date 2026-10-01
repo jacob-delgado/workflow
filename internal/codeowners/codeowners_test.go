@@ -108,6 +108,7 @@ const (
 	docsChild      = "docs/a.md"
 	docsGrandchild = "docs/a/b.md"
 	docsChildren   = "docs/* @x\n"
+	nestedFile     = "a/b"
 )
 
 type ownersCase struct {
@@ -304,8 +305,24 @@ func TestOwnersOfGitLabPaths(t *testing.T) {
 		{name: "a star is everything", content: "* @x\n", paths: []string{"a/b/c.go"}, want: users("x")},
 		{name: "a star is a dot file", content: "* @x\n", paths: []string{"a/b/.env"}, want: users("x")},
 		{name: "a glob under a dot directory", content: "*.md @x\n", paths: []string{"a/.hidden/b.md"}, want: users("x")},
-		{name: "a question mark is not a slash", content: "a? @x\n", paths: []string{"a/b"}},
+		{name: "a question mark is not a slash", content: "a? @x\n", paths: []string{nestedFile}},
 		{name: "a bang negates a class", content: "x[!a].md @x\n", paths: []string{"xb.md"}, want: users("x")},
+		// fnmatch compares a doubled slash's empty segment with a path's, and a
+		// path has none.
+		{name: "a doubled slash matches nothing", content: "a//b @x\n", paths: []string{nestedFile}},
+		{name: "a doubled slash after a globstar", content: "**//x @x\n", paths: []string{"a/x"}},
+		{name: "a doubled trailing slash", content: "docs// @x\n", paths: []string{docsChild}},
+		{name: "a trailing dash is literal", content: "x[a-] @x\n", paths: []string{"x-"}, want: users("x")},
+		{name: "an empty negated class is any", content: "x[!] @x\n", paths: []string{"xq"}, want: users("x")},
+		{name: "a caret negates a class", content: "x[^] @x\n", paths: []string{"xq"}, want: users("x")},
+		{name: "a range from a dash", content: "a[--z] @x\n", paths: []string{"aq"}, want: users("x")},
+		{name: "a reversed range holds its ends", content: "x[z-a] @x\n", paths: []string{"xz"}, want: users("x")},
+		{name: "a reversed range holds nothing between", content: "x[z-a] @x\n", paths: []string{"xm"}},
+		{name: "a trailing backslash ends the pattern", content: "[S] @x\na\\\n", paths: []string{"a"}, want: users("x")},
+		{name: "a class spans a slash", content: "a[b/c]d @x\n", paths: []string{"acd"}, want: users("x")},
+		{name: "a class spanning a slash is one character", content: "a[b/c]d @x\n", paths: []string{"a/cd"}},
+		{name: "an unterminated class matches nothing", content: "a[ @x\n", paths: []string{"a["}},
+		{name: "an escaped slash separates", content: "a\\/b @x\n", paths: []string{nestedFile}, want: users("x")},
 		{
 			name: "a repeated pattern keeps the later line", content: "!*.md\n*.md @x\n",
 			paths: []string{markdownFile}, want: users("x"),
