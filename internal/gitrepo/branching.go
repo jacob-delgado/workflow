@@ -70,7 +70,7 @@ func (r Repository) RemoteBranches(ctx context.Context) ([]string, error) {
 
 	for ref := range strings.SplitSeq(text(out), "\n") {
 		_, name, found := strings.Cut(ref, "/")
-		if !found || name == "" || name == "HEAD" {
+		if !found || name == "" || name == headRef {
 			continue
 		}
 

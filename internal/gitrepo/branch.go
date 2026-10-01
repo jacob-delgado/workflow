@@ -21,10 +21,11 @@ import (
 const commitLimit = 200
 
 // gitProgram is the program every command here runs, commitVerb the subcommand
-// its commit builders share.
+// its commit builders share, and headRef the checked-out commit.
 const (
 	gitProgram = "git"
 	commitVerb = "commit"
+	headRef    = "HEAD"
 )
 
 // DefaultRemote is the remote this package fetches from and reads base branches
