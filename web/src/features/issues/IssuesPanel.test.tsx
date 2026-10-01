@@ -155,7 +155,7 @@ test('keeps the selected issue open when the stream drops it', async () => {
   expect(screen.getByRole('heading', { level: 2, name: 'PROJ-1' })).toBeTruthy()
 })
 
-test('reads an issue again when it is reopened after a minute', async () => {
+test('reads an issue again when it is reopened after 30 seconds', async () => {
   // Arrange
   // Only the clock is faked: staleness is judged from Date.now().
   vi.useFakeTimers({ toFake: ['Date'] })
@@ -167,7 +167,7 @@ test('reads an issue again when it is reopened after a minute', async () => {
   await user.click(screen.getByRole('button', { name: /fix the token leak/i }))
   await screen.findByText('Tokens reach the request log.')
   await user.click(screen.getByRole('button', { name: /write the setup docs/i }))
-  vi.setSystemTime(new Date('2026-09-23T12:01:01Z'))
+  vi.setSystemTime(new Date('2026-09-23T12:00:31Z'))
 
   // Act
   await user.click(screen.getByRole('button', { name: /fix the token leak/i }))
@@ -178,7 +178,7 @@ test('reads an issue again when it is reopened after a minute', async () => {
   })
 })
 
-test('does not read an issue again when it is reopened within a minute', async () => {
+test('does not read an issue again when it is reopened within 30 seconds', async () => {
   // Arrange
   const user = userEvent.setup()
   withIssues()
