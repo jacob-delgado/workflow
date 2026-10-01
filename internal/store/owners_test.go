@@ -17,9 +17,15 @@ import (
 	"github.com/jacob-delgado/workflow/internal/store"
 )
 
+// podID and apiID are the Slack user groups the tests list and choose.
+const (
+	podID = "S0POD123"
+	apiID = "S0API456"
+)
+
 // podGroup is a Slack user group a team owner is linked to.
 func podGroup() *store.SlackTarget {
-	return &store.SlackTarget{ID: "S0POD123", Label: "control-plane-pod"}
+	return &store.SlackTarget{ID: podID, Label: "control-plane-pod"}
 }
 
 // keptEntities counts the Slack users and groups the kept file holds.

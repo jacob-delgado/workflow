@@ -35,7 +35,7 @@ var ErrKeptFromNewerBuild = errors.New("the kept data is from a newer build of w
 // Trade-off TRADE-25: kept data migrates forward and is never discarded, so
 // this list only grows, where the cache's schema is simply remade.
 func keptMigrations() [][]string {
-	return [][]string{ownersMigration()}
+	return [][]string{ownersMigration(), groupsMigration()}
 }
 
 // keptWithin runs write in one transaction on the kept database, migrated to
@@ -205,6 +205,20 @@ func applyMigrations(ctx context.Context, database *sql.DB, migrations [][]strin
 	err = transaction.Commit()
 	if err != nil {
 		return fmt.Errorf("migrating the kept data: %w", err)
+	}
+
+	return nil
+}
+
+// pruneSlackEntities drops every Slack user or group nothing links to any
+// more, so the file keeps no one it has no use for.
+func pruneSlackEntities(ctx context.Context, transaction *sql.Tx) error {
+	_, err := transaction.ExecContext(ctx,
+		`DELETE FROM slack_entity
+			WHERE slack_id NOT IN (SELECT slack_id FROM owner_slack)
+			AND slack_id NOT IN (SELECT slack_id FROM repo_group)`)
+	if err != nil {
+		return fmt.Errorf("pruning the Slack entities: %w", err)
 	}
 
 	return nil
