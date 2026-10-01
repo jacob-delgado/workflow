@@ -8,6 +8,8 @@ import (
 	"testing"
 
 	tea "charm.land/bubbletea/v2"
+
+	"github.com/jacob-delgado/workflow/internal/config"
 )
 
 func TestPeopleSaysWhileItReads(t *testing.T) {
@@ -264,4 +266,19 @@ func TestTheSelectionFollowsAnOwnerAfterAChange(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestPeopleIsNotOfferedWithoutASlackUserToken(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	// the directory's seams are bound, but messaging posts to a webhook
+	hooked := taggingWorld()
+	hooked.cfg.Messaging = config.Messaging{Kind: "slack", WebhookURL: "https://example.com/hook"}
+
+	// Act
+	view := typing(t, hooked.live(t, 140, 40), "5", "P").View().Content
+
+	// Assert
+	refuseScreen(t, view, peopleTitle)
 }
