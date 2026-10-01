@@ -100,3 +100,23 @@ func TestARefreshAnsweredWhilePeoplesPickerIsOpenReachesIt(t *testing.T) {
 	requireScreen(t, read.View().Content, "Link carla to Slack", benName)
 	refuseScreen(t, read.View().Content, "still reading")
 }
+
+func TestPeopleLinksFromTheFirstChannelPostsCanGoTo(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	// no default channel, only a list of them
+	ben := onlyBen()
+	ben.cfg.Messaging.Channels = []string{ben.cfg.Messaging.Channel}
+	ben.cfg.Messaging.Channel = ""
+
+	// Act
+	picking := typing(t, openPeople(t, ben), keyEnter)
+
+	// Assert
+	if calls := ben.asked("members "); len(calls) != 1 || calls[0] != "members "+devChannel {
+		t.Errorf("member reads = %q, want %s's", calls, devChannel)
+	}
+
+	requireScreen(t, picking.View().Content, benName)
+}

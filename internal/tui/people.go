@@ -54,7 +54,8 @@ type peopleOverlay struct {
 	people  pickList[person]
 	reading bool
 	readErr error
-	// channel is the default channel, whose members a person is linked to.
+	// channel is the channel a post goes to by default, whose members a
+	// person is linked to.
 	channel string
 	members directory
 	groups  directory
@@ -89,7 +90,7 @@ func (m Model) openPeople() (Model, tea.Cmd) {
 
 	m, opened := m.opening()
 	people := peopleOverlay{
-		marks: m.marks, styles: m.styles, reading: true, channel: m.cfg.Messaging.Channel, opened: opened,
+		marks: m.marks, styles: m.styles, reading: true, channel: m.defaultChannel(), opened: opened,
 	}
 	people.members, readMembers = m.readMembers(people.channel, opened)
 	people.groups, readGroups = m.readUserGroups(opened)
