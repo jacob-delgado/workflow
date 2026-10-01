@@ -158,7 +158,9 @@ func TestOwnersOfGitLabsDocumentedExample(t *testing.T) {
 		{name: "an escaped pound", paths: []string{"#file_with_pound.rb"}, want: users("owner-file-with-pound", "dev-team")},
 		{name: "only handles own", paths: []string{"LICENSE"}, want: users("legal", "dev-team")},
 		{
-			name: "a nested group is a team", paths: []string{"README"},
+			// @group is a top-level group, but CODEOWNERS spells it as it spells a
+			// user, so it is read as a name the forge resolves to either.
+			name: "a nested group is a team, a bare name a user or group", paths: []string{"README"},
 			want: codeowners.Owners{Users: []string{"group", "dev-team"}, Teams: []string{"group/with-nested/subgroup"}},
 		},
 		{name: "direct children", paths: []string{"docs/index.md"}, want: users("root-docs", "docs", "dev-team")},

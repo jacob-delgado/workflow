@@ -545,7 +545,10 @@ nobody.
   `@group/subgroup` owner stands for the group's active direct members with
   the Developer role or above, who are each asked when the merge request
   opens; members inherited from a parent group are not, and neither are
-  Guests, Planners or Reporters, who cannot approve.
+  Guests, Planners or Reporters, who cannot approve. A top-level group is
+  written `@group`, just as a user is: a name GitLab knows no user by is
+  tried as a group and expanded the same way. On Slack such a group can only
+  be linked as a person.
 
 A proposal that cannot be read — the diff fails, or the file cannot be read —
 proposes nobody rather than holding the pull request back. Either way the

@@ -280,6 +280,9 @@ func isUpperOrDigit(character rune) bool {
 
 // isSlackIDFor reports a Slack ID of the kind owner links to: a user's for a
 // user owner, and a user group's for a team owner, whose name holds a slash.
+//
+// Trade-off TRADE-27: a top-level GitLab group has no slash, so it links like
+// a person.
 func isSlackIDFor(owner, slackID string) bool {
 	prefixes := userIDPrefixes
 	if strings.Contains(owner, "/") {

@@ -706,3 +706,24 @@ minutes is not offered until a refresh.
 **Reopen when.** A workspace's directory is too large to read whole, or
 Slack's rate limits are met in practice: look up each channel member with
 `users.info` instead, and hold only those.
+
+### TRADE-27 A top-level GitLab group links to Slack like a person
+
+CODEOWNERS spells a top-level GitLab group `@group`, exactly as it spells a
+user, so `internal/codeowners` reads every bare name as a user. When the merge
+request opens, the forge tells them apart: a name GitLab knows no user by is
+tried as a group and expanded to its members. The Slack side has no such
+answer — `internal/store/owners.go` links a name without a slash to a Slack
+user, and a name with one to a user group.
+
+**Decided.** 2026-10-01, in #165: telling a top-level group from a user
+before the merge request opens would cost a forge lookup per owner every time
+an announcement is composed, for a spelling most CODEOWNERS files never use
+(nested `@group/subgroup` owners are teams already).
+
+**Cost.** A top-level group can be linked only to a Slack user, not to a
+user group, so it is tagged as one person or marked not on Slack.
+
+**Reopen when.** A team relies on top-level GitLab groups as code owners and
+wants them tagged as Slack user groups: resolve bare names through the forge
+when composing the tags, and let a resolved group link to a user group.

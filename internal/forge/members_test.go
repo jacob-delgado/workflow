@@ -164,6 +164,28 @@ func TestCreateMergeRequestOnGitLabLeavesTheAuthorOutOfATeam(t *testing.T) {
 	}
 }
 
+func TestCreateMergeRequestOnGitLabExpandsATopLevelGroupNamedAsAUser(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	// CODEOWNERS spells a top-level group @platform, just as it spells a user;
+	// GitLab knows no user by that name, but has the group.
+	client, seen := scriptedForge(t, gitlabKnowing(nil, map[string]string{
+		"/groups/platform/members": `[{"id":7,"username":"ana","state":"active","access_level":30}]`,
+	}))
+
+	// Act
+	_, err := client.CreatePullRequest(t.Context(), gitlabRepo(), forge.NewPullRequest{
+		Title: prTitle, Head: featureBranch, Base: baseBranch, Reviewers: []string{"platform"},
+	})
+
+	// Assert
+	opened := requestTo(*seen, gitlabMergesPath)
+	if err != nil || !reflect.DeepEqual(opened.body["reviewer_ids"], []any{float64(7)}) {
+		t.Errorf("reviewer_ids = %v, %v; want the platform group's ana", opened.body["reviewer_ids"], err)
+	}
+}
+
 func TestCreateMergeRequestOnGitLabOpensWithoutATeamItCannotRead(t *testing.T) {
 	t.Parallel()
 
