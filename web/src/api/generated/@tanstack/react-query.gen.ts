@@ -3,8 +3,8 @@
 import { queryOptions } from '@tanstack/react-query';
 
 import { client } from '../client.gen';
-import { getAnnouncement, getBranch, getCheckLog, getConfig, getHealth, getIssue, getLocalData, getMessaging, getPullRequestDraft, getReview, listChanges, listIssues, listReviews, listTasks, listViews, type Options, previewBranchIssue } from '../sdk.gen';
-import type { GetAnnouncementData, GetAnnouncementError, GetAnnouncementResponse, GetBranchData, GetBranchError, GetBranchResponse, GetCheckLogData, GetCheckLogError, GetCheckLogResponse, GetConfigData, GetConfigError, GetConfigResponse, GetHealthData, GetHealthError, GetHealthResponse, GetIssueData, GetIssueError, GetIssueResponse, GetLocalDataData, GetLocalDataError, GetLocalDataResponse, GetMessagingData, GetMessagingError, GetMessagingResponse, GetPullRequestDraftData, GetPullRequestDraftError, GetPullRequestDraftResponse, GetReviewData, GetReviewError, GetReviewResponse, ListChangesData, ListChangesError, ListChangesResponse, ListIssuesData, ListIssuesError, ListIssuesResponse, ListReviewsData, ListReviewsError, ListReviewsResponse, ListTasksData, ListTasksError, ListTasksResponse, ListViewsData, ListViewsError, ListViewsResponse, PreviewBranchIssueData, PreviewBranchIssueError, PreviewBranchIssueResponse } from '../types.gen';
+import { getAnnouncement, getBranch, getCheckLog, getConfig, getHealth, getIssue, getLocalData, getMessaging, getPeople, getPullRequestDraft, getRepoGroups, getReview, getSlackGroups, getSlackMembers, listChanges, listIssues, listReviews, listTasks, listViews, type Options, previewBranchIssue } from '../sdk.gen';
+import type { GetAnnouncementData, GetAnnouncementError, GetAnnouncementResponse, GetBranchData, GetBranchError, GetBranchResponse, GetCheckLogData, GetCheckLogError, GetCheckLogResponse, GetConfigData, GetConfigError, GetConfigResponse, GetHealthData, GetHealthError, GetHealthResponse, GetIssueData, GetIssueError, GetIssueResponse, GetLocalDataData, GetLocalDataError, GetLocalDataResponse, GetMessagingData, GetMessagingError, GetMessagingResponse, GetPeopleData, GetPeopleError, GetPeopleResponse, GetPullRequestDraftData, GetPullRequestDraftError, GetPullRequestDraftResponse, GetRepoGroupsData, GetRepoGroupsError, GetRepoGroupsResponse, GetReviewData, GetReviewError, GetReviewResponse, GetSlackGroupsData, GetSlackGroupsError, GetSlackGroupsResponse, GetSlackMembersData, GetSlackMembersError, GetSlackMembersResponse, ListChangesData, ListChangesError, ListChangesResponse, ListIssuesData, ListIssuesError, ListIssuesResponse, ListReviewsData, ListReviewsError, ListReviewsResponse, ListTasksData, ListTasksError, ListTasksResponse, ListViewsData, ListViewsError, ListViewsResponse, PreviewBranchIssueData, PreviewBranchIssueError, PreviewBranchIssueResponse } from '../types.gen';
 
 export type QueryKey<TOptions extends Options> = [
     Pick<TOptions, 'baseUrl' | 'body' | 'headers' | 'path' | 'query'> & {
@@ -263,6 +263,86 @@ export const getLocalDataOptions = (options?: Options<GetLocalDataData>) => quer
     queryKey: getLocalDataQueryKey(options)
 });
 
+export const getSlackMembersQueryKey = (options?: Options<GetSlackMembersData>) => createQueryKey('getSlackMembers', options);
+
+/**
+ * The people in a Slack channel, to link a code owner to.
+ *
+ * Everyone in the channel, labeled by the name Slack shows for them — the people a code owner who is a user can be linked to. Read only with a Slack user token, and kept for the session for ten minutes. A token without a scope the read needs is not a failure: the answer is empty and names the scope to add.
+ */
+export const getSlackMembersOptions = (options?: Options<GetSlackMembersData>) => queryOptions<GetSlackMembersResponse, GetSlackMembersError, GetSlackMembersResponse, ReturnType<typeof getSlackMembersQueryKey>>({
+    queryFn: async ({ queryKey, signal }) => {
+        const { data } = await getSlackMembers({
+            ...options,
+            ...queryKey[0],
+            signal,
+            throwOnError: true
+        });
+        return data;
+    },
+    queryKey: getSlackMembersQueryKey(options)
+});
+
+export const getSlackGroupsQueryKey = (options?: Options<GetSlackGroupsData>) => createQueryKey('getSlackGroups', options);
+
+/**
+ * The Slack workspace's user groups, to tag or to link a team to.
+ *
+ * Every enabled user group in the workspace. Read only with a Slack user token, and kept for the session for ten minutes. A token without the scope the read needs is not a failure: the answer is empty and names the scope to add. A workspace with no user groups answers none.
+ */
+export const getSlackGroupsOptions = (options?: Options<GetSlackGroupsData>) => queryOptions<GetSlackGroupsResponse, GetSlackGroupsError, GetSlackGroupsResponse, ReturnType<typeof getSlackGroupsQueryKey>>({
+    queryFn: async ({ queryKey, signal }) => {
+        const { data } = await getSlackGroups({
+            ...options,
+            ...queryKey[0],
+            signal,
+            throwOnError: true
+        });
+        return data;
+    },
+    queryKey: getSlackGroupsQueryKey(options)
+});
+
+export const getPeopleQueryKey = (options?: Options<GetPeopleData>) => createQueryKey('getPeople', options);
+
+/**
+ * Whom each code owner is on Slack, on this repository's forge host.
+ *
+ * Every code owner decided on this forge host — linked to a Slack user (a team, to a user group) or marked not on Slack — then the owners of the branch's changes not decided yet. Kept in kept.db, which survives the cache's schema changes. Reading works under --dry-run.
+ */
+export const getPeopleOptions = (options?: Options<GetPeopleData>) => queryOptions<GetPeopleResponse, GetPeopleError, GetPeopleResponse, ReturnType<typeof getPeopleQueryKey>>({
+    queryFn: async ({ queryKey, signal }) => {
+        const { data } = await getPeople({
+            ...options,
+            ...queryKey[0],
+            signal,
+            throwOnError: true
+        });
+        return data;
+    },
+    queryKey: getPeopleQueryKey(options)
+});
+
+export const getRepoGroupsQueryKey = (options?: Options<GetRepoGroupsData>) => createQueryKey('getRepoGroups', options);
+
+/**
+ * The Slack user groups this repository's announcements may tag.
+ *
+ * The user groups chosen for this repository, which a ready-for-review announcement offers to tag. Reading works under --dry-run.
+ */
+export const getRepoGroupsOptions = (options?: Options<GetRepoGroupsData>) => queryOptions<GetRepoGroupsResponse, GetRepoGroupsError, GetRepoGroupsResponse, ReturnType<typeof getRepoGroupsQueryKey>>({
+    queryFn: async ({ queryKey, signal }) => {
+        const { data } = await getRepoGroups({
+            ...options,
+            ...queryKey[0],
+            signal,
+            throwOnError: true
+        });
+        return data;
+    },
+    queryKey: getRepoGroupsQueryKey(options)
+});
+
 export const previewBranchIssueQueryKey = (options: Options<PreviewBranchIssueData>) => createQueryKey('previewBranchIssue', options);
 
 /**
@@ -286,7 +366,7 @@ export const getAnnouncementQueryKey = (options?: Options<GetAnnouncementData>) 
 /**
  * The announcement message that would be posted, for a preview.
  *
- * Composes the announcement for the checked-out branch's pull request — author, title, link, and the issue — from the configured template, without posting it. Answered 409 when there is no pull request to announce, or the server is not running in a git repository.
+ * Composes the announcement for the checked-out branch's pull request — author, title, link, and the issue — from the configured template, without posting it. With a Slack user token, tagging says whom it proposes to tag: the code owners of the branch's changes and the user groups it offers. Answered 409 when there is no pull request to announce, or the server is not running in a git repository.
  */
 export const getAnnouncementOptions = (options?: Options<GetAnnouncementData>) => queryOptions<GetAnnouncementResponse, GetAnnouncementError, GetAnnouncementResponse, ReturnType<typeof getAnnouncementQueryKey>>({
     queryFn: async ({ queryKey, signal }) => {

@@ -134,6 +134,18 @@ the store in (no home directory is set), for a server wired with no store, and
 for a clean that finds something other than the store's own plain file — a
 symlink or a directory — where a database file belongs, which it refuses
 without removing anything (`workflow db-clean` exits 1 there).
+People and groups answers it when there is no Slack user token to read the
+directory with, or no store to keep people in; for a link that names both a
+Slack ID and "not on Slack", or neither; for a Slack ID of the wrong kind for
+the owner (a team links to a user group, a person to a user) or one the
+channel's members or the workspace's user groups do not hold; for a token
+that lacks a scope the read needs, which the detail names; and for kept data
+from a newer build of workflow, which is left as it is. Nothing is written
+then. (A Slack directory read on its own answers a missing scope with a 200
+naming it, so the preview can still post.) An announcement answers it for
+mentions that name a user group the announcement did not offer, or that it
+was given where it tags no one — only a ready-for-review announcement with a
+Slack user token tags — and posts nothing.
 
 ## Precondition required
 

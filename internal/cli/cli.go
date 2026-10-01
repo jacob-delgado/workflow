@@ -12,6 +12,7 @@ import (
 	"math"
 	"os"
 	"os/signal"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"syscall"
@@ -20,6 +21,7 @@ import (
 
 	"github.com/jacob-delgado/workflow/internal/buildinfo"
 	"github.com/jacob-delgado/workflow/internal/config"
+	"github.com/jacob-delgado/workflow/internal/forge"
 	"github.com/jacob-delgado/workflow/internal/seams"
 	"github.com/jacob-delgado/workflow/internal/tui"
 	"github.com/jacob-delgado/workflow/internal/web"
@@ -367,6 +369,17 @@ func WebDeps(deps tui.Deps) webserver.Deps {
 		Tasks:   deps.Tasks,
 		HomeDir: os.UserHomeDir,
 
+		OwnerLinks:    deps.Store.OwnerLinks,
+		LinkOwner:     deps.Store.LinkOwner,
+		ForgetOwner:   deps.Store.ForgetOwner,
+		RepoGroups:    deps.Store.RepoGroups,
+		SetRepoGroups: deps.Store.SetRepoGroups,
+		LastGroups:    deps.Store.LastGroups,
+		RecordGroups:  deps.Store.RecordGroups,
+
+		ChannelMembers: deps.Messaging.ChannelMembers,
+		UserGroups:     deps.Messaging.UserGroups,
+
 		LocalData:      localData,
 		CleanLocalData: cleanLocalData,
 
@@ -385,7 +398,7 @@ func serveWeb(cmd *cobra.Command, conn connection, serve RunWeb, dryRun bool) er
 
 	info := webserver.Info{
 		Version: buildinfo.Current(), DryRun: dryRun, ForgeKind: conn.deps.Forge.Kind,
-		Taskwarrior: conn.cfg.Taskwarrior,
+		Taskwarrior: conn.cfg.Taskwarrior, Repository: repositoryName(conn.where),
 	}
 
 	conn.controls.ResolveAhead()
@@ -396,6 +409,17 @@ func serveWeb(cmd *cobra.Command, conn connection, serve RunWeb, dryRun bool) er
 	deps.PlaceSlackCredentials = conn.controls.PlaceSlackCredentials
 
 	return serve(cmd.Context(), conn.cfg, deps, info, cmd.ErrOrStderr())
+}
+
+// repositoryName names the repository for Settings' groups: its forge path,
+// which carries no credential, or else its directory's name.
+func repositoryName(where wiring.Workspace) string {
+	repo, err := forge.ParseRemote(where.Remote)
+	if where.Remote == "" || err != nil {
+		return filepath.Base(where.Root)
+	}
+
+	return repo.Path
 }
 
 // portFlag names the root's flag that picks the port --web serves on.

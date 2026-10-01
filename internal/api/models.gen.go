@@ -187,6 +187,45 @@ func (e MessagingConfigKind) Valid() bool {
 	}
 }
 
+// Defines values for OwnerTagKind.
+const (
+	Team OwnerTagKind = "team"
+	User OwnerTagKind = "user"
+)
+
+// Valid indicates whether the value is a known member of the OwnerTagKind enum.
+func (e OwnerTagKind) Valid() bool {
+	switch e {
+	case Team:
+		return true
+	case User:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for OwnerTagState.
+const (
+	Linked     OwnerTagState = "linked"
+	NotOnSlack OwnerTagState = "not_on_slack"
+	Unlinked   OwnerTagState = "unlinked"
+)
+
+// Valid indicates whether the value is a known member of the OwnerTagState enum.
+func (e OwnerTagState) Valid() bool {
+	switch e {
+	case Linked:
+		return true
+	case NotOnSlack:
+		return true
+	case Unlinked:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for ProblemCode.
 const (
 	BadRequest           ProblemCode = "bad_request"
@@ -382,10 +421,18 @@ func (e CleanLocalDataParamsScope) Valid() bool {
 	}
 }
 
+// AnnounceMentions Whom to tag with the post. The linked user owners are tagged from what is kept, not from the request; groups name the user groups checked, each one the announcement offered.
+type AnnounceMentions struct {
+	Groups []string `json:"groups"`
+}
+
 // AnnounceRequest Where to post the announcement, and the text its preview showed.
 type AnnounceRequest struct {
 	// Channel The channel to post to; empty uses the configured channel or the webhook.
 	Channel string `json:"channel"`
+
+	// Mentions Whom to tag with the post. The linked user owners are tagged from what is kept, not from the request; groups name the user groups checked, each one the announcement offered.
+	Mentions *AnnounceMentions `json:"mentions,omitempty"`
 
 	// Text The announcement as GET /api/announcement showed it. When given, the post is refused with 409 unless the announcement composed now reads the same; when left out, the announcement composed now is posted.
 	Text *string `json:"text,omitempty"`
@@ -396,8 +443,24 @@ type Announcement struct {
 	// Channel The channel it posts to, or empty for a webhook's own channel.
 	Channel string `json:"channel"`
 
+	// Tagging Whom a ready-for-review announcement proposes to tag on Slack: the code owners of the branch's changes, and the user groups it offers.
+	Tagging *AnnouncementTagging `json:"tagging,omitempty"`
+
 	// Text The message that would be posted.
 	Text string `json:"text"`
+}
+
+// AnnouncementTagging Whom a ready-for-review announcement proposes to tag on Slack: the code owners of the branch's changes, and the user groups it offers.
+type AnnouncementTagging struct {
+	// Available Whether this announcement can tag anyone: only a ready-for-review announcement does, and only with the store on. When false, owners and groups are empty.
+	Available bool       `json:"available"`
+	Groups    []GroupTag `json:"groups"`
+
+	// MissingScope A scope the Slack token lacks to offer the people or groups an owner not yet linked could be linked to, such as users:read. The announcement still posts, tagging whom it can.
+	//
+	// Example: usergroups:read
+	MissingScope *string    `json:"missing_scope,omitempty"`
+	Owners       []OwnerTag `json:"owners"`
 }
 
 // Branch defines model for Branch.
@@ -639,6 +702,18 @@ type ForgeConfig struct {
 
 // ForgeConfigKind Empty for auto-detect, else github or gitlab.
 type ForgeConfigKind string
+
+// GroupTag A user group an announcement offers to tag.
+type GroupTag struct {
+	// Checked Whether it starts checked — a team owning the changed paths links it, or it was chosen last time.
+	Checked bool `json:"checked"`
+
+	// FromOwners Whether it is offered because a team owning the changed paths is linked to it.
+	FromOwners bool `json:"from_owners"`
+
+	// Slack A Slack user or user group, by its ID and the name Slack shows for it.
+	Slack SlackTarget `json:"slack"`
+}
 
 // Health defines model for Health.
 type Health struct {
@@ -917,6 +992,53 @@ type OpenedPullRequest struct {
 	Warning *string `json:"warning,omitempty"`
 }
 
+// OwnerName A forge owner as CODEOWNERS names it, without its @ — a user, or org/team.
+//
+// Example: acme/control-plane
+type OwnerName = string
+
+// OwnerTag A code owner and what is known of them on Slack: linked (to a user, or a team to a user group), decided not on Slack, or not asked yet.
+type OwnerTag struct {
+	Kind OwnerTagKind `json:"kind"`
+
+	// Owner A forge owner as CODEOWNERS names it, without its @ — a user, or org/team.
+	//
+	// Example: acme/control-plane
+	Owner OwnerName `json:"owner"`
+
+	// Slack A Slack user or user group, by its ID and the name Slack shows for it.
+	Slack *SlackTarget  `json:"slack,omitempty"`
+	State OwnerTagState `json:"state"`
+}
+
+// OwnerTagKind defines model for OwnerTag.Kind.
+type OwnerTagKind string
+
+// OwnerTagState defines model for OwnerTag.State.
+type OwnerTagState string
+
+// People Every code owner decided on this forge host, then the branch's undecided owners.
+type People struct {
+	Owners []OwnerTag `json:"owners"`
+}
+
+// PersonLink Whom a code owner is on Slack: slack_id, or not_on_slack true — one or the other.
+type PersonLink struct {
+	// Channel The channel whose members a user was picked from, so the label is read from there; the configured channel when left out.
+	Channel *string `json:"channel,omitempty"`
+
+	// NotOnSlack Mark the owner not on Slack, so they are not asked again.
+	NotOnSlack bool `json:"not_on_slack"`
+
+	// Owner A forge owner as CODEOWNERS names it, without its @ — a user, or org/team.
+	//
+	// Example: acme/control-plane
+	Owner OwnerName `json:"owner"`
+
+	// SlackID A user ID for a user owner, a user group ID for a team.
+	SlackID *string `json:"slack_id,omitempty"`
+}
+
 // Problem An RFC 9457 problem details object. The detail is safe to show and never carries a secret; code is a stable, machine-readable reason.
 type Problem struct {
 	// Code A stable, machine-readable reason.
@@ -994,6 +1116,21 @@ type PullRequestDraft struct {
 	Title string `json:"title"`
 }
 
+// RepoGroups The Slack user groups a repository's announcements may tag.
+type RepoGroups struct {
+	Groups []SlackTarget `json:"groups"`
+
+	// Repository The repository's name, as its forge path or its directory.
+	//
+	// Example: acme/widgets
+	Repository string `json:"repository"`
+}
+
+// RepoGroupsRequest The user groups, by ID, this repository may tag from now on.
+type RepoGroupsRequest struct {
+	Ids []string `json:"ids"`
+}
+
 // Review defines model for Review.
 type Review struct {
 	// Ci The pull request's CI; absent when none is found, the pull request is not open, or its CI cannot be read.
@@ -1037,6 +1174,27 @@ type ReviewRequest struct {
 	Repository string `json:"repository"`
 	Title      string `json:"title"`
 	URL        string `json:"url"`
+}
+
+// SlackDirectory People or user groups read from Slack, or the scope the token lacks to read them.
+type SlackDirectory struct {
+	Entries []SlackTarget `json:"entries"`
+
+	// MissingScope The scope to add to the Slack token for this read; entries are empty then.
+	//
+	// Example: users:read
+	MissingScope *string `json:"missing_scope,omitempty"`
+}
+
+// SlackTarget A Slack user or user group, by its ID and the name Slack shows for it.
+type SlackTarget struct {
+	// ID A user ID (U or W…) or a user group ID (S…).
+	//
+	// Example: U024BE7LH
+	ID string `json:"id"`
+
+	// Label The name to show for it.
+	Label string `json:"label"`
 }
 
 // Snapshot The full read state carried by one event-stream message: everything the cockpit shows, together.
@@ -1314,6 +1472,18 @@ type CleanLocalDataParams struct {
 // CleanLocalDataParamsScope defines parameters for CleanLocalData.
 type CleanLocalDataParamsScope string
 
+// ForgetPersonParams defines parameters for ForgetPerson.
+type ForgetPersonParams struct {
+	// Owner The forge owner, a user or org/team.
+	Owner OwnerName `form:"owner" json:"owner"`
+}
+
+// GetSlackMembersParams defines parameters for GetSlackMembers.
+type GetSlackMembersParams struct {
+	// Channel The channel, by name or ID; the configured channel when left out.
+	Channel *string `form:"channel,omitempty" json:"channel,omitempty"`
+}
+
 // AnnounceJSONRequestBody defines body for Announce for application/json ContentType.
 type AnnounceJSONRequestBody = AnnounceRequest
 
@@ -1332,8 +1502,14 @@ type CommitJSONRequestBody = CommitRequest
 // UpdateConfigJSONRequestBody defines body for UpdateConfig for application/json ContentType.
 type UpdateConfigJSONRequestBody = Config
 
+// LinkPersonJSONRequestBody defines body for LinkPerson for application/json ContentType.
+type LinkPersonJSONRequestBody = PersonLink
+
 // OpenPullRequestJSONRequestBody defines body for OpenPullRequest for application/json ContentType.
 type OpenPullRequestJSONRequestBody = OpenPullRequestRequest
+
+// SetRepoGroupsJSONRequestBody defines body for SetRepoGroups for application/json ContentType.
+type SetRepoGroupsJSONRequestBody = RepoGroupsRequest
 
 // StageJSONRequestBody defines body for Stage for application/json ContentType.
 type StageJSONRequestBody = StagingRequest

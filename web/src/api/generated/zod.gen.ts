@@ -59,6 +59,99 @@ export const zLocalData = z.object({
 });
 
 /**
+ * A Slack user or user group, by its ID and the name Slack shows for it.
+ */
+export const zSlackTarget = z.object({
+    id: z.string().regex(/^[UWS][A-Z0-9]{2,}$/),
+    label: z.string()
+});
+
+/**
+ * A forge owner as CODEOWNERS names it, without its @ — a user, or org/team.
+ */
+export const zOwnerName = z.string().max(200).regex(/^[A-Za-z0-9][A-Za-z0-9._-]*(\/[A-Za-z0-9._-]+)*$/);
+
+/**
+ * A code owner and what is known of them on Slack: linked (to a user, or a team to a user group), decided not on Slack, or not asked yet.
+ */
+export const zOwnerTag = z.object({
+    owner: zOwnerName,
+    kind: z.enum(['user', 'team']),
+    state: z.enum([
+        'linked',
+        'not_on_slack',
+        'unlinked'
+    ]),
+    slack: zSlackTarget.optional()
+});
+
+/**
+ * A user group an announcement offers to tag.
+ */
+export const zGroupTag = z.object({
+    slack: zSlackTarget,
+    checked: z.boolean(),
+    from_owners: z.boolean()
+});
+
+/**
+ * Whom a ready-for-review announcement proposes to tag on Slack: the code owners of the branch's changes, and the user groups it offers.
+ */
+export const zAnnouncementTagging = z.object({
+    available: z.boolean(),
+    missing_scope: z.string().optional(),
+    owners: z.array(zOwnerTag),
+    groups: z.array(zGroupTag)
+});
+
+/**
+ * Whom to tag with the post. The linked user owners are tagged from what is kept, not from the request; groups name the user groups checked, each one the announcement offered.
+ */
+export const zAnnounceMentions = z.object({
+    groups: z.array(z.string().regex(/^S[A-Z0-9]+$/)).max(50)
+});
+
+/**
+ * People or user groups read from Slack, or the scope the token lacks to read them.
+ */
+export const zSlackDirectory = z.object({
+    entries: z.array(zSlackTarget),
+    missing_scope: z.string().optional()
+});
+
+/**
+ * Every code owner decided on this forge host, then the branch's undecided owners.
+ */
+export const zPeople = z.object({
+    owners: z.array(zOwnerTag)
+});
+
+/**
+ * Whom a code owner is on Slack: slack_id, or not_on_slack true — one or the other.
+ */
+export const zPersonLink = z.object({
+    owner: zOwnerName,
+    slack_id: z.string().regex(/^[UWS][A-Z0-9]{2,}$/).optional(),
+    not_on_slack: z.boolean(),
+    channel: z.string().max(200).optional()
+});
+
+/**
+ * The Slack user groups a repository's announcements may tag.
+ */
+export const zRepoGroups = z.object({
+    repository: z.string(),
+    groups: z.array(zSlackTarget)
+});
+
+/**
+ * The user groups, by ID, this repository may tag from now on.
+ */
+export const zRepoGroupsRequest = z.object({
+    ids: z.array(z.string().regex(/^S[A-Z0-9]{2,}$/)).max(50)
+});
+
+/**
  * The branch to check out.
  */
 export const zCheckoutRequest = z.object({
@@ -98,7 +191,8 @@ export const zTrackIssueRequest = z.object({
  */
 export const zAnnouncement = z.object({
     text: z.string(),
-    channel: z.string()
+    channel: z.string(),
+    tagging: zAnnouncementTagging.optional()
 });
 
 /**
@@ -106,7 +200,8 @@ export const zAnnouncement = z.object({
  */
 export const zAnnounceRequest = z.object({
     channel: z.string(),
-    text: z.string().optional()
+    text: z.string().optional(),
+    mentions: zAnnounceMentions.optional()
 });
 
 /**
@@ -707,6 +802,53 @@ export const zCleanLocalDataResponse = zLocalData;
  * The directory and its database files.
  */
 export const zGetLocalDataResponse = zLocalData;
+
+export const zGetSlackMembersQuery = z.object({
+    channel: z.string().max(200).optional()
+});
+
+/**
+ * The channel's members, or the scope the token lacks.
+ */
+export const zGetSlackMembersResponse = zSlackDirectory;
+
+/**
+ * The user groups, or the scope the token lacks.
+ */
+export const zGetSlackGroupsResponse = zSlackDirectory;
+
+export const zForgetPersonQuery = z.object({
+    owner: zOwnerName
+});
+
+/**
+ * The owners as they stand after the change.
+ */
+export const zForgetPersonResponse = zPeople;
+
+/**
+ * The owners and what is known of each on Slack.
+ */
+export const zGetPeopleResponse = zPeople;
+
+export const zLinkPersonBody = zPersonLink;
+
+/**
+ * The owners as they stand after the change.
+ */
+export const zLinkPersonResponse = zPeople;
+
+/**
+ * The repository and its groups.
+ */
+export const zGetRepoGroupsResponse = zRepoGroups;
+
+export const zSetRepoGroupsBody = zRepoGroupsRequest;
+
+/**
+ * The repository and its groups after the change.
+ */
+export const zSetRepoGroupsResponse = zRepoGroups;
 
 /**
  * The branch, no longer linked.
