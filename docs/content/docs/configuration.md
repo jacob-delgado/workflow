@@ -564,7 +564,10 @@ nobody.
   `@org/team` owners as teams. Owners written as an email address are
   ignored, since no forge can be asked to review as one, as are GitLab's
   `@@role` owners. You are left out: nobody is asked to review their own pull
-  request.
+  request. On GitLab the owners are every `@name` GitLab finds in the text
+  after the pattern, wherever it stands: a `#` there starts no comment, so
+  `docs/ @a # @b` is owned by both, and a line whose text names nobody, such
+  as `docs/ # todo`, has no owners rather than its section's defaults.
 - **Teams.** GitHub is asked for a team as a team reviewer when the team is
   the repository's own organization's; a team of another organization cannot
   be asked there, and is reported as not added. On GitLab a

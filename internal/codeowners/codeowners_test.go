@@ -452,6 +452,50 @@ func TestOwnersOfGitLabsDefaultSection(t *testing.T) {
 	}
 }
 
+// TestOwnersOfGitLabOwners pins which owners GitLab reads off a line: every
+// @name its ReferenceExtractor finds in the text after the pattern, wherever
+// it stands, and the section's defaults only when there is no such text.
+func TestOwnersOfGitLabOwners(t *testing.T) {
+	t.Parallel()
+
+	cases := []ownersCase{
+		{name: "a pound starts no comment", content: "*.md @a # @b\n", paths: []string{markdownFile}, want: users("a", "b")},
+		{
+			name: "text that names nobody is no defaults", content: "[S] @d\ndocs/ # nobody\n",
+			paths: []string{docsChild},
+		},
+		{name: "a comma separates", content: "*.md @a,@b\n", paths: []string{markdownFile}, want: users("a", "b")},
+		{
+			name: "a name may start with an underscore or a dot", content: "*.md @_e @.f @g/_h\n", paths: []string{markdownFile},
+			want: codeowners.Owners{Users: []string{"_e", ".f"}, Teams: []string{"g/_h"}},
+		},
+		{
+			name: "a name ends where GitLab's path does", content: "*.md @a/b/ @c- @d.\n", paths: []string{markdownFile},
+			want: codeowners.Owners{Users: []string{"c-", "d"}, Teams: []string{"a/b"}},
+		},
+		{name: "an @ after a word is no owner", content: "*.md a@b @c@d\n", paths: []string{markdownFile}, want: users("c")},
+	}
+
+	for _, test := range cases {
+		test.dialect = codeowners.GitLab
+
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+
+			// Arrange
+			file := codeowners.Parse(test.content, test.dialect)
+
+			// Act
+			owners := file.OwnersOf(test.paths)
+
+			// Assert
+			if !equalOwners(owners, test.want) {
+				t.Errorf("OwnersOf(%q) = %+v, want %+v", test.paths, owners, test.want)
+			}
+		})
+	}
+}
+
 func TestOwnersOfGitLabsExclusions(t *testing.T) {
 	t.Parallel()
 
@@ -625,26 +669,34 @@ func FuzzParse(f *testing.F) {
 	f.Add(gitLabExclusionsExample, "config/a/b.rb")
 	f.Add("[a\\\n**/**/**/**/x @a\n\\ @b", "a/b/c/d/x")
 
-	ownerShape := regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9._-]*(/[A-Za-z0-9._-]+)*$`)
+	// GitLab's names may also start with '_' or '.', as its namespace paths do.
+	shapes := map[codeowners.Dialect]*regexp.Regexp{
+		codeowners.GitHub: regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9._-]*(/[A-Za-z0-9._-]+)*$`),
+		codeowners.GitLab: regexp.MustCompile(`^[A-Za-z0-9_.][A-Za-z0-9._-]*(/[A-Za-z0-9_.][A-Za-z0-9._-]*)*$`),
+	}
 
 	f.Fuzz(func(t *testing.T, content, path string) {
 		// Arrange
 		paths := []string{path, "a/" + path}
 
 		// Act
-		fromGitHub := codeowners.Parse(content, codeowners.GitHub).OwnersOf(paths)
-		fromGitLab := codeowners.Parse(content, codeowners.GitLab).OwnersOf(paths)
-
-		// Assert
-		for _, user := range slices.Concat(fromGitHub.Users, fromGitLab.Users) {
-			if !ownerShape.MatchString(user) || strings.Contains(user, "/") {
-				t.Errorf("user %q is not a username", user)
-			}
+		found := map[codeowners.Dialect]codeowners.Owners{}
+		for dialect := range shapes {
+			found[dialect] = codeowners.Parse(content, dialect).OwnersOf(paths)
 		}
 
-		for _, team := range slices.Concat(fromGitHub.Teams, fromGitLab.Teams) {
-			if !ownerShape.MatchString(team) || !strings.Contains(team, "/") {
-				t.Errorf("team %q is not a team", team)
+		// Assert
+		for dialect, owners := range found {
+			for _, user := range owners.Users {
+				if !shapes[dialect].MatchString(user) || strings.Contains(user, "/") {
+					t.Errorf("user %q is not a username", user)
+				}
+			}
+
+			for _, team := range owners.Teams {
+				if !shapes[dialect].MatchString(team) || !strings.Contains(team, "/") {
+					t.Errorf("team %q is not a team", team)
+				}
 			}
 		}
 	})
