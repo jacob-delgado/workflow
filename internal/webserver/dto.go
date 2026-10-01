@@ -112,14 +112,14 @@ func taskBranchesDTO(listing branchListing, current, project string) []api.TaskB
 	branches := make([]api.TaskBranch, 0, len(listing.names))
 	for _, name := range listing.names {
 		key, named := convention.IssueKey(name, project)
-		if !named || (name != current && listing.mine != nil && !listing.mine[jira.Key(key)]) {
+		if !named || (name != current && listing.mine != nil && !listing.mine[jira.Key(key.Key)]) {
 			continue
 		}
 
 		remote := listing.remote[name]
 		branches = append(branches, api.TaskBranch{
 			Name:     name,
-			IssueKey: key,
+			IssueKey: key.Key,
 			Current:  name == current,
 			Remote:   &remote,
 		})

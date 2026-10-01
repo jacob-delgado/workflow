@@ -109,22 +109,64 @@ func folded(text string) string {
 	return plain.String()
 }
 
+// Tracker is where an issue lives: Jira, or the forge's own issues.
+type Tracker int
+
+const (
+	// TrackerJira is a Jira issue, keyed like PROJ-42.
+	TrackerJira Tracker = iota + 1
+	// TrackerForge is a GitHub or GitLab issue, keyed by its number.
+	TrackerForge
+)
+
+// IssueRef is an issue's key with the tracker it belongs to, so a key is
+// handed only to the tracker that knows it: Jira would refuse a bare forge
+// number, or read it as the id of an unrelated issue.
+//
+// Key is a string rather than a jira.Key on purpose: it is also a forge issue
+// number, and typing it jira.Key would make this stateless package depend on
+// jira. A caller types it where it hands the key to a tracker.
+type IssueRef struct {
+	Key     string
+	Tracker Tracker
+}
+
 // IssueKey finds the issue key in text, such as a branch name: a Jira key like
 // PROJ-42 where there is one, and otherwise a forge issue number like the 42 in
 // a 42-fix-typo branch, which is how a project without Jira names its branches.
 // A Jira key wins where both are present, so a Jira branch is read as it always
 // was.
-//
-// It returns a string rather than a jira.Key on purpose: the result is also a
-// forge issue number, and typing it jira.Key would make this stateless package
-// depend on jira. A caller types it where it hands the key to a tracker, not
-// here.
-func IssueKey(text, project string) (string, bool) {
+func IssueKey(text, project string) (IssueRef, bool) {
 	if key, found := jiraKey(text, project); found {
-		return key, true
+		return IssueRef{Key: key, Tracker: TrackerJira}, true
 	}
 
-	return forgeKey(text)
+	if key, found := forgeKey(text); found {
+		return IssueRef{Key: key, Tracker: TrackerForge}, true
+	}
+
+	return IssueRef{}, false
+}
+
+// RefOf is the tracker a key already in hand belongs to, by its shape: a
+// number, bare or after a #, is a forge issue's, and a key with a hyphen is
+// Jira's. Anything else is neither.
+func RefOf(key string) (IssueRef, bool) {
+	number := strings.TrimPrefix(key, "#")
+	if forgeNumber().MatchString(number) {
+		return IssueRef{Key: number, Tracker: TrackerForge}, true
+	}
+
+	if key != "" && strings.Contains(key, "-") {
+		return IssueRef{Key: key, Tracker: TrackerJira}, true
+	}
+
+	return IssueRef{}, false
+}
+
+// forgeNumber matches a forge issue number alone: digits with no leading zero.
+func forgeNumber() *regexp.Regexp {
+	return regexp.MustCompile(`^[1-9][0-9]*$`)
 }
 
 // jiraKey finds the first Jira issue key in text, where a key's project counts.

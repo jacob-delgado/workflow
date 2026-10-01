@@ -167,7 +167,7 @@ func (s *server) runCommit(message string) error {
 func (s *server) issueKeyOf(branch gitrepo.Branch) string {
 	key, _ := convention.IssueKey(branch.Name, s.config().Jira.Project)
 
-	return key
+	return key.Key
 }
 
 // suggestedScope is the scope a new commit opens on — the terminal composer's

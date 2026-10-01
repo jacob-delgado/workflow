@@ -101,7 +101,7 @@ func TestBranchNamingKeepsTheKeyFindable(t *testing.T) {
 	got, found := convention.IssueKey(name, "")
 
 	// Assert
-	if !found || got != "PROJ-99" {
-		t.Errorf("IssueKey(%q) = %q, %v, want PROJ-99 found", name, got, found)
+	if !found || got.Key != "PROJ-99" {
+		t.Errorf("IssueKey(%q) = %q, %v, want PROJ-99 found", name, got.Key, found)
 	}
 }
