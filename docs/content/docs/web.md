@@ -80,9 +80,9 @@ list, and pressing it again undoes that. Statuses widen each other, as marks
 do, and the two narrow together, as the terminal's `p` does. A repository
 that lists its forge's issues beside Jira's (`issues.forge`) numbers them as
 the forge does, `#57`, links each to its page with **Open in GitHub** or
-**Open in GitLab**, and says so beneath the list when the forge's issues could
-not be read. An issue with a branch is marked *in flight*, with **Check out**
-beside it when that branch is not the one checked out — a local branch, or one
+**Open in GitLab**, and says so above the list, among its controls, when the
+forge's issues could not be read. An issue with a branch is marked *in
+flight*, with **Check out** beside it when that branch is not the one checked out — a local branch, or one
 only the remote has, which checking out creates here. The branches counted are
 those naming an issue assigned to you and not done, so a branch whose issue
 was finished or reassigned no longer marks it; while the tracker cannot be

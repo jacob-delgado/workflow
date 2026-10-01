@@ -36,10 +36,10 @@ const month = 30 * day
 
 // ReviewQueuePanel lists the pull requests on the forge that wait on your
 // review, the longest-waiting first unless another order is chosen — the queue
-// `workflow reviews` prints and the terminal's Reviews pane shows. It reads its own endpoint rather than the
-// stream: a search of the forge is worth a request only when someone looks, so
-// the section reads it as it opens, unless it was read within the minute, and
-// again when Refresh asks.
+// `workflow reviews` prints and the terminal's Reviews pane shows. It reads its
+// own endpoint rather than the stream: a search of the forge is worth a request
+// only when someone looks, so the section reads it as it opens, unless it was
+// read within the last 30 seconds (freshFor), and again when Refresh asks.
 export function ReviewQueuePanel() {
   const query = useReviewQueue()
   // A read after a failed first read is pending again, with no queue yet; it
