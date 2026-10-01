@@ -71,7 +71,23 @@ func RateLimited(header http.Header) error {
 		return ErrRateLimited
 	}
 
-	return fmt.Errorf("%w (in %s)", ErrRateLimited, wait)
+	return &RateLimitError{Wait: wait}
+}
+
+// RateLimitError is a rate limit that named how long to wait, so a caller
+// that can wait knows how long. It is ErrRateLimited to errors.Is.
+type RateLimitError struct {
+	Wait time.Duration
+}
+
+// Error says to wait, and how long.
+func (e *RateLimitError) Error() string {
+	return fmt.Sprintf("%s (in %s)", ErrRateLimited, e.Wait)
+}
+
+// Unwrap is ErrRateLimited.
+func (e *RateLimitError) Unwrap() error {
+	return ErrRateLimited
 }
 
 // retryAfter reads the delta-seconds form of a Retry-After header.
