@@ -520,10 +520,10 @@ func (w *world) now() time.Time {
 	return testNow().Add(w.elapsed)
 }
 
-// advance moves the world's clock on by wait.
-func (w *world) advance(wait time.Duration) {
+// goStale moves the world's clock on past how long a pane's load stays fresh.
+func (w *world) goStale() {
 	w.mu.Lock()
 	defer w.mu.Unlock()
 
-	w.elapsed += wait
+	w.elapsed += stale
 }
