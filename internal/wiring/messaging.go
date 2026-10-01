@@ -44,7 +44,7 @@ func (l *liveMessaging) current() config.Messaging {
 	return l.settings
 }
 
-// replace puts settings in effect for every post after it.
+// replace puts settings in effect for every post and directory read after it.
 func (l *liveMessaging) replace(settings config.Messaging) {
 	l.lock.Lock()
 	defer l.lock.Unlock()
@@ -65,15 +65,15 @@ type messagingSetup struct {
 // messagingDeps is what a surface asks of the messaging service. Each post is
 // made by a client built from the settings in effect, whose user token is
 // asked for anew, since a rotating token can run out between two posts. The
-// Slack directory is read through the session's cache, under a Slack user
-// token only.
-func messagingDeps(ctx context.Context, setup messagingSetup) seams.Messaging {
-	client := func() messaging.Client { return messagingClient(setup) }
+// Slack directory is read through the session's directory, which answers
+// messaging.ErrNoCredential while the settings in effect have no Slack user
+// token.
+func messagingDeps(ctx context.Context, setup messagingSetup, directory *SlackDirectory) seams.Messaging {
 	bound := seams.Messaging{Post: func(channel, text string) error {
-		return client().Post(ctx, channel, text)
+		return messagingClient(setup).Post(ctx, channel, text)
 	}}
 
-	return withDirectory(ctx, bound, slackDirectoryFor(setup.settings(), client))
+	return withDirectory(ctx, bound, directory)
 }
 
 // messagingClient builds the client a post is made with: over the webhook the

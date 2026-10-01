@@ -93,6 +93,7 @@ func Deps(ctx context.Context, cfg config.Config, where Workspace, log *RequestL
 	messagingSet := messagingSetup{
 		settings: messagingSettings.current, path: cfg.Path, httpTransport: httpTransport, log: log,
 	}
+	directory := NewSlackDirectory(slackUserClient(messagingSet), time.Now)
 
 	// A failure here is left for first use, which looks again and reports it.
 	// The Slack user token needs no finding ahead: no command of the user's is
@@ -105,7 +106,11 @@ func Deps(ctx context.Context, cfg config.Config, where Workspace, log *RequestL
 
 	controls := Controls{
 		ResolveAhead: resolveAhead, UseForgeSettings: useForgeSettings(settings, where),
-		UseMessagingSettings: messagingSettings.replace,
+		UseMessagingSettings: func(settings config.Messaging) {
+			messagingSettings.replace(settings)
+			// What was read belongs to the old settings' workspace and token.
+			directory.Refresh()
+		},
 		//nolint:bodyclose // Wrap only relays the response; the refresh reads and closes its body.
 		PlaceSlackCredentials: placeSlackCredentials(ctx, log.Wrap("slack", httpTransport)),
 	}
@@ -114,7 +119,7 @@ func Deps(ctx context.Context, cfg config.Config, where Workspace, log *RequestL
 		Jira:       trackerDeps(ctx, cfg, jiraClient, connect),
 		Git:        gitDeps(ctx, where.Root, func() forge.Kind { return ForgeKind(settings.current(), where.Remote) }),
 		Forge:      forgeDeps(ctx, setup, connect),
-		Messaging:  messagingDeps(ctx, messagingSet),
+		Messaging:  messagingDeps(ctx, messagingSet, directory),
 		Hooks:      hookDeps(ctx, where.Root),
 		Editor:     editorDeps(where.Root),
 		Store:      storeDeps(ctx, onDisk(cfg), cfg, where),
@@ -136,7 +141,8 @@ type Controls struct {
 	// remote is on under them. The terminal saves no settings and never calls it.
 	UseForgeSettings func(settings config.Forge) forge.Kind
 	// UseMessagingSettings applies messaging settings saved while workflow runs
-	// — the web's Settings — to every post after it.
+	// — the web's Settings — to every post and Slack directory read after it,
+	// dropping what the directory read under the old ones.
 	UseMessagingSettings func(settings config.Messaging)
 	// PlaceSlackCredentials keeps a Slack user token's secrets, typed into the
 	// web's Settings, where the configuration keeps them: on macOS it refreshes

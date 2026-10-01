@@ -26,11 +26,15 @@ func TestTheMessagingPaneOffersPeopleAndGroupsWithSlackAndAStore(t *testing.T) {
 	t.Parallel()
 
 	cases := map[string]struct {
-		slack bool
-		want  bool
+		slack   bool
+		webhook bool
+		want    bool
 	}{
-		"with a Slack user token and a store": {slack: true, want: true},
-		"without either":                      {slack: false, want: false},
+		"with a Slack user token and a store": {slack: true, webhook: false, want: true},
+		"without either":                      {slack: false, webhook: false, want: false},
+		// The directory is bound whatever the settings, so Settings can switch
+		// to a user token while workflow runs; a webhook still cannot read it.
+		"with a webhook": {slack: true, webhook: true, want: false},
 	}
 
 	for name, tt := range cases {
@@ -41,6 +45,11 @@ func TestTheMessagingPaneOffersPeopleAndGroupsWithSlackAndAStore(t *testing.T) {
 			repo := newWorld()
 			if tt.slack {
 				repo.slack = newSlackWorld()
+			}
+
+			if tt.webhook {
+				repo.cfg.Messaging.ClientID = ""
+				repo.cfg.Messaging.WebhookURL = "https://hooks.example.com/x"
 			}
 
 			// Act

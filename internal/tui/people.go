@@ -14,6 +14,7 @@ import (
 	tea "charm.land/bubbletea/v2"
 
 	"github.com/jacob-delgado/workflow/internal/codeowners"
+	"github.com/jacob-delgado/workflow/internal/config"
 	"github.com/jacob-delgado/workflow/internal/loop"
 	"github.com/jacob-delgado/workflow/internal/sanitize"
 )
@@ -74,9 +75,11 @@ var (
 )
 
 // managesPeople reports a store that keeps the associations and a Slack user
-// token that can read the directory they are made from.
+// token that can read the directory they are made from. The directory seams
+// are bound whatever the settings, so the mode says whether there is a token.
 func (m Model) managesPeople() bool {
-	return m.deps.Store.OwnerLinks != nil && m.deps.Messaging.ChannelMembers != nil
+	return m.deps.Store.OwnerLinks != nil && m.deps.Messaging.ChannelMembers != nil &&
+		m.cfg.Messaging.Mode() == config.MessagingUser
 }
 
 // openPeople opens People and groups and starts reading everything it shows.

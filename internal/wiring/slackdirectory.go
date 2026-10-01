@@ -22,12 +22,15 @@ const DirectoryTTL = 10 * time.Minute
 
 // SlackDirectory is the Slack directory as this session has read it: the
 // channels named so far, their members, the workspace's users and its user
-// groups. A read that fails is not held, so it is asked again.
+// groups. A read that fails is not held, so it is asked again. While the
+// settings in effect post with no Slack user token, every read answers
+// messaging.ErrNoCredential and nothing is held, so a surface reads tagging as
+// unavailable until a token is set up, and then reads the directory afresh.
 //
 // Trade-off TRADE-26: users.list is read whole, once a session, to label a
 // channel's members, rather than each member looked up on its own.
 type SlackDirectory struct {
-	client func() messaging.Client
+	client func() (messaging.Client, error)
 	now    func() time.Time
 
 	lock     sync.Mutex
@@ -40,8 +43,9 @@ type SlackDirectory struct {
 
 // NewSlackDirectory is an empty directory reading through client, which is
 // asked for anew on every read so settings saved meanwhile are used, and
-// timing its reads by now.
-func NewSlackDirectory(client func() messaging.Client, now func() time.Time) *SlackDirectory {
+// timing its reads by now. client answers messaging.ErrNoCredential while the
+// settings have no Slack user token to read with.
+func NewSlackDirectory(client func() (messaging.Client, error), now func() time.Time) *SlackDirectory {
 	directory := &SlackDirectory{client: client, now: now}
 	directory.Refresh()
 
@@ -65,12 +69,17 @@ func (d *SlackDirectory) ChannelMembers(ctx context.Context, channel string) ([]
 	d.lock.Lock()
 	defer d.lock.Unlock()
 
-	members, err := d.membersOf(ctx, channel)
+	slack, err := d.slack()
 	if err != nil {
 		return nil, err
 	}
 
-	users, err := d.everyone(ctx)
+	members, err := d.membersOf(ctx, slack, channel)
+	if err != nil {
+		return nil, err
+	}
+
+	users, err := d.everyone(ctx, slack)
 	if err != nil {
 		return nil, err
 	}
@@ -83,10 +92,15 @@ func (d *SlackDirectory) UserGroups(ctx context.Context) ([]loop.SlackTarget, er
 	d.lock.Lock()
 	defer d.lock.Unlock()
 
+	slack, err := d.slack()
+	if err != nil {
+		return nil, err
+	}
+
 	d.expire()
 
 	if d.groups == nil {
-		groups, err := d.client().UserGroups(ctx)
+		groups, err := slack.UserGroups(ctx)
 		if err != nil {
 			return nil, err
 		}
@@ -97,11 +111,27 @@ func (d *SlackDirectory) UserGroups(ctx context.Context) ([]loop.SlackTarget, er
 	return asLoopTargets(d.groups), nil
 }
 
+// slack is the client to read with, or why there is none — when everything
+// held is forgotten, since it was read under other settings. The caller holds
+// the lock.
+func (d *SlackDirectory) slack() (messaging.Client, error) {
+	client, err := d.client()
+	if err != nil {
+		d.forget()
+
+		return messaging.Client{}, err
+	}
+
+	return client, nil
+}
+
 // membersOf is the user ID of everyone in channel, read once.
-func (d *SlackDirectory) membersOf(ctx context.Context, channel string) ([]messaging.SlackUserID, error) {
+func (d *SlackDirectory) membersOf(
+	ctx context.Context, slack messaging.Client, channel string,
+) ([]messaging.SlackUserID, error) {
 	d.expire()
 
-	channelID, err := d.channelID(ctx, channel)
+	channelID, err := d.channelID(ctx, slack, channel)
 	if err != nil {
 		return nil, err
 	}
@@ -110,7 +140,7 @@ func (d *SlackDirectory) membersOf(ctx context.Context, channel string) ([]messa
 		return members, nil
 	}
 
-	members, err := d.client().ChannelMembers(ctx, channelID)
+	members, err := slack.ChannelMembers(ctx, channelID)
 	if err != nil {
 		return nil, err
 	}
@@ -121,12 +151,12 @@ func (d *SlackDirectory) membersOf(ctx context.Context, channel string) ([]messa
 }
 
 // channelID is the ID of the channel named, read once.
-func (d *SlackDirectory) channelID(ctx context.Context, channel string) (string, error) {
+func (d *SlackDirectory) channelID(ctx context.Context, slack messaging.Client, channel string) (string, error) {
 	if known, held := d.channels[channel]; held {
 		return known, nil
 	}
 
-	found, err := d.client().ChannelID(ctx, channel)
+	found, err := slack.ChannelID(ctx, channel)
 	if err != nil {
 		return "", err
 	}
@@ -137,9 +167,9 @@ func (d *SlackDirectory) channelID(ctx context.Context, channel string) (string,
 }
 
 // everyone is every taggable user in the workspace, read once.
-func (d *SlackDirectory) everyone(ctx context.Context) ([]messaging.SlackTarget, error) {
+func (d *SlackDirectory) everyone(ctx context.Context, slack messaging.Client) ([]messaging.SlackTarget, error) {
 	if d.users == nil {
-		users, err := d.client().Users(ctx)
+		users, err := slack.Users(ctx)
 		if err != nil {
 			return nil, err
 		}
@@ -196,24 +226,23 @@ func asLoopTargets(targets []messaging.SlackTarget) []loop.SlackTarget {
 	return converted
 }
 
-// slackDirectoryFor is the session's directory when settings post with a Slack
-// user token, and nil otherwise: a webhook cannot read the directory. Only
-// Slack has a user-token mode, so the mode alone says the service is Slack.
-func slackDirectoryFor(settings config.Messaging, client func() messaging.Client) *SlackDirectory {
-	if settings.Mode() != config.MessagingUser {
-		return nil
-	}
+// slackUserClient is the client a directory reads with: built from the
+// settings in effect, and messaging.ErrNoCredential while they post with no
+// Slack user token — a webhook, Teams or Discord cannot read the directory.
+// Only Slack has a user-token mode, so the mode alone says the service is
+// Slack.
+func slackUserClient(setup messagingSetup) func() (messaging.Client, error) {
+	return func() (messaging.Client, error) {
+		if setup.settings().Mode() != config.MessagingUser {
+			return messaging.Client{}, messaging.ErrNoCredential
+		}
 
-	return NewSlackDirectory(client, time.Now)
+		return messagingClient(setup), nil
+	}
 }
 
-// withDirectory is bound with directory's reads, or left without them when
-// there is none.
+// withDirectory is bound with directory's reads.
 func withDirectory(ctx context.Context, bound seams.Messaging, directory *SlackDirectory) seams.Messaging {
-	if directory == nil {
-		return bound
-	}
-
 	bound.ChannelMembers = func(channel string) ([]loop.SlackTarget, error) {
 		return directory.ChannelMembers(ctx, channel)
 	}

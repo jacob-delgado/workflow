@@ -120,13 +120,18 @@ func runAnnounceCommand(cmd *cobra.Command, prompt Prompt, opts writeOptions) er
 			Owners: loop.OwnerSeams{
 				ChangedPaths: deps.Git.ChangedPaths, CodeOwnersAt: deps.Git.CodeOwnersAt, Author: deps.Forge.Author,
 			},
-			OwnerLinks:     deps.Store.OwnerLinks,
-			RepoGroups:     deps.Store.RepoGroups,
-			LastGroups:     deps.Store.LastGroups,
-			RecordGroups:   deps.Store.RecordGroups,
-			ChannelMembers: deps.Messaging.ChannelMembers,
-			UserGroups:     deps.Messaging.UserGroups,
+			OwnerLinks:   deps.Store.OwnerLinks,
+			RepoGroups:   deps.Store.RepoGroups,
+			LastGroups:   deps.Store.LastGroups,
+			RecordGroups: deps.Store.RecordGroups,
 		},
+	}
+
+	// The directory seams are bound whatever the settings; only a Slack user
+	// token can read the directory, so only it tags anyone.
+	if cfg.Messaging.Mode() == config.MessagingUser {
+		seams.Tagging.ChannelMembers = deps.Messaging.ChannelMembers
+		seams.Tagging.UserGroups = deps.Messaging.UserGroups
 	}
 
 	if cfg.Messaging.Mode() != config.MessagingNone {
