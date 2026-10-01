@@ -495,6 +495,17 @@ func TestRefOfTellsAKeysTracker(t *testing.T) {
 		"a leading zero":       {key: "042", known: false},
 		"a word":               {key: "develop", known: false},
 		"nothing":              {key: "", known: false},
+		"a slug with a hyphen": {key: "fix-typo", known: false},
+		"a lone hyphen":        {key: "-", known: false},
+		"a lowercase key":      {key: "proj-7", known: false},
+		"a zero number":        {key: "PROJ-0", known: false},
+		"no number":            {key: "PROJ-", known: false},
+		"a one-letter project": {key: "P-7", known: false},
+		"a URL":                {key: "https://jira.example.com/browse/PROJ-7", known: false},
+		"a terminal control":   {key: "\x1b]8;;http://x\aPROJ-7", known: false},
+		"a key with a tail":    {key: "PROJ-7 and more", known: false},
+		"an underscore key":    {key: "MY_PROJ2-7", tracker: convention.TrackerJira, known: true},
+		"a doubled hash":       {key: "##42", known: false},
 	}
 
 	for name, tt := range cases {
