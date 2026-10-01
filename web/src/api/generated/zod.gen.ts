@@ -388,7 +388,11 @@ export const zReviewQueue = z.object({
 export const zCheck = z.object({
     name: z.string(),
     state: zCiState,
-    url: z.string()
+    url: z.string(),
+    id: z.string().optional(),
+    stage: z.string().optional(),
+    reason: z.string().optional(),
+    log_available: z.boolean().optional()
 });
 
 export const zCi = z.object({

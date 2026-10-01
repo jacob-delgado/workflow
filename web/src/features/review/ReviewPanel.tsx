@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { useForm, type UseFormRegister } from 'react-hook-form'
 import { useForgeWords } from '@/api/health.ts'
 import type {
+  Check,
   Ci,
   LinkedIssue,
   OpenedPullRequest,
@@ -121,22 +122,7 @@ function PullRequestSummary({
           </h3>
           <ul className="flex flex-col gap-item">
             {ci.checks.map((check) => (
-              <li key={check.name} className="flex items-center gap-item text-sm">
-                <StateMark state={ciMark[check.state]} />
-                {check.url === '' ? (
-                  <span>{check.name}</span>
-                ) : (
-                  <a
-                    href={check.url}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="underline-offset-4 hover:underline"
-                  >
-                    {check.name}
-                  </a>
-                )}
-                <span className="text-muted-foreground">{check.state}</span>
-              </li>
+              <CheckRow key={check.id ?? check.name} check={check} />
             ))}
           </ul>
         </section>
@@ -429,5 +415,35 @@ function IssueRow({ issue }: { issue: LinkedIssue }) {
         )}
       </dd>
     </>
+  )
+}
+
+// CheckRow is one check: how it stands, its name — after the stage it ran in,
+// for a GitLab job — linked to its page, and for a failed one, why it failed.
+function CheckRow({ check }: { check: Check }) {
+  const name = check.stage ? `${check.stage} · ${check.name}` : check.name
+
+  return (
+    <li className="flex flex-col gap-1 text-sm">
+      <span className="flex items-center gap-item">
+        <StateMark state={ciMark[check.state]} />
+        {check.url === '' ? (
+          <span>{name}</span>
+        ) : (
+          <a
+            href={check.url}
+            target="_blank"
+            rel="noreferrer"
+            className="underline-offset-4 hover:underline"
+          >
+            {name}
+          </a>
+        )}
+        <span className="text-muted-foreground">{check.state}</span>
+      </span>
+      {check.state === 'failed' && check.reason ? (
+        <span className="pl-6 text-muted-foreground">{check.reason}</span>
+      ) : null}
+    </li>
   )
 }

@@ -8,6 +8,9 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
+	"strconv"
+
+	"github.com/jacob-delgado/workflow/internal/sanitize"
 )
 
 // githubCommitStatus is one status reported through the older statuses API.
@@ -26,10 +29,40 @@ type githubCombined struct {
 
 // githubCheckRun is one check run: what GitHub Actions and most apps report.
 type githubCheckRun struct {
+	ID         int64  `json:"id"`
 	Status     string `json:"status"`
 	Conclusion string `json:"conclusion"`
 	Name       string `json:"name"`
 	HTMLURL    string `json:"html_url"`
+	Output     struct {
+		Title string `json:"title"`
+	} `json:"output"`
+	App struct {
+		Slug string `json:"slug"`
+	} `json:"app"`
+}
+
+// githubActions is the app GitHub's own Actions reports its runs as, whose
+// jobs' logs the API serves.
+const githubActions = "github-actions"
+
+// check is the run as a check: a failed one with its title as why, and every
+// one with its id, and whether Actions keeps its log.
+func (run githubCheckRun) check() Check {
+	check := Check{
+		Name: run.Name, State: runState(run.Status, run.Conclusion), URL: run.HTMLURL,
+		LogAvailable: run.App.Slug == githubActions && run.ID != 0,
+	}
+
+	if run.ID != 0 {
+		check.ID = strconv.FormatInt(run.ID, 10)
+	}
+
+	if check.State == CIFailed {
+		check.Reason = sanitize.Line(run.Output.Title)
+	}
+
+	return check
 }
 
 // githubRuns is a page of a commit's check runs, and how many there are in all.
@@ -68,7 +101,7 @@ func githubStatus(ctx context.Context, client Client, repo Repo, _ PullRequest, 
 	}
 
 	for _, run := range runs {
-		tally.add(Check{Name: run.Name, State: runState(run.Status, run.Conclusion), URL: run.HTMLURL})
+		tally.add(run.check())
 	}
 
 	if !statusesComplete || !runsComplete {

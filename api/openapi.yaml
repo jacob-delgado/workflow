@@ -2163,6 +2163,18 @@ components:
         name: {type: string}
         state: {$ref: "#/components/schemas/CIState"}
         url: {type: string}
+        id:
+          type: string
+          description: The forge's own id for the check, so its log can be asked for; absent for a status.
+        stage:
+          type: string
+          description: The pipeline stage a GitLab job ran in; absent on GitHub.
+        reason:
+          type: string
+          description: Why a failed check failed, in the forge's few words; absent when it gives none.
+        log_available:
+          type: boolean
+          description: Whether the forge serves the check's log.
       additionalProperties: false
 
     CIState:

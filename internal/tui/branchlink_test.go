@@ -7,6 +7,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/jacob-delgado/workflow/internal/forge"
 	"github.com/jacob-delgado/workflow/internal/gitrepo"
 )
 
@@ -119,4 +120,22 @@ func TestTheReviewPaneFindsTheIssueThePullRequestNames(t *testing.T) {
 
 	// Assert
 	requireScreen(t, view, "issue  "+issueKey)
+}
+
+func TestTheReviewPaneSaysWhyEachCheckFailed(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	failing := newWorld()
+	failing.ci = []forge.CI{{State: forge.CIFailed, Total: 2, Done: 2, Failed: 1, Checks: []forge.Check{
+		{Name: "build-docs", State: forge.CIPassed},
+		{ID: "501", Name: "unit-race", Stage: "test", Reason: "script failure", State: forge.CIFailed},
+	}}}
+
+	// Act
+	view := typing(t, failing.live(t, 120, 40), "4").View().Content
+
+	// Assert
+	requireScreen(t, view, "test · unit-race", "script failure")
+	refuseScreen(t, view, "· build-docs")
 }

@@ -310,8 +310,9 @@ func (m Model) reviewDetail(width int) string {
 		lines = append(lines, issue)
 	}
 
-	lines = append(lines, "",
-		m.styles.label.Render("CI     ")+m.ciSummary(), m.styles.label.Render("review ")+m.reviewSummary(pull))
+	lines = append(lines, "", m.styles.label.Render("CI     ")+m.ciSummary())
+	lines = append(lines, m.failedChecks()...)
+	lines = append(lines, m.styles.label.Render("review ")+m.reviewSummary(pull))
 
 	if pull.Draft {
 		lines = append(lines, m.styles.label.Render("draft"))

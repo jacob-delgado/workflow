@@ -472,7 +472,18 @@ type ChangeList struct {
 
 // Check defines model for Check.
 type Check struct {
-	Name  string  `json:"name"`
+	// ID The forge's own id for the check, so its log can be asked for; absent for a status.
+	ID *string `json:"id,omitempty"`
+
+	// LogAvailable Whether the forge serves the check's log.
+	LogAvailable *bool  `json:"log_available,omitempty"`
+	Name         string `json:"name"`
+
+	// Reason Why a failed check failed, in the forge's few words; absent when it gives none.
+	Reason *string `json:"reason,omitempty"`
+
+	// Stage The pipeline stage a GitLab job ran in; absent on GitHub.
+	Stage *string `json:"stage,omitempty"`
 	State CIState `json:"state"`
 	URL   string  `json:"url"`
 }
