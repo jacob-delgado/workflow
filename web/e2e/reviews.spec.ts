@@ -90,6 +90,10 @@ test('switching back to Reviews within 30 seconds reads nothing again', async ({
   await openSection(page, 'Reviews')
 
   // Assert
+  // A read the reopening starts goes out as the queue is drawn; let the
+  // network settle first, so one would have been counted.
+  await expect(page.getByRole('list', { name: 'Review requests', exact: true })).toBeVisible()
+  await page.waitForLoadState('networkidle')
   expect(counted.reads).toBe(1)
 })
 
