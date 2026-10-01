@@ -166,6 +166,12 @@ func gitFaults() []faultClass {
 			code:   api.Conflict,
 			detail: "the server is not running in a git repository; start workflow --web from a repository's work tree",
 		},
+		{
+			causes: []error{gitrepo.ErrIssueLinkNotSaved},
+			code:   api.Unprocessable,
+			detail: "the link could not be kept: git could not change the repository's configuration; " +
+				"check that .git/config is writable",
+		},
 	}
 }
 

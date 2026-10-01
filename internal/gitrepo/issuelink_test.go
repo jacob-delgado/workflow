@@ -62,6 +62,38 @@ func TestSetIssueLinkKeepsItInGitsConfiguration(t *testing.T) {
 	}
 }
 
+func TestSetIssueLinkThatGitCannotWriteSaysSo(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	repo := gitrepo.At(fakeRunner(t, map[string]reply{writeLink: {err: errUnset}}), workDir)
+
+	// Act
+	err := repo.SetIssueLink(t.Context(), "my-thing", "PROJ-7")
+
+	// Assert
+	if !errors.Is(err, gitrepo.ErrIssueLinkNotSaved) {
+		t.Errorf("SetIssueLink = %v, want ErrIssueLinkNotSaved", err)
+	}
+}
+
+func TestClearIssueLinkThatGitCannotWriteSaysSo(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	repo := gitrepo.At(fakeRunner(t, map[string]reply{
+		readLink: {out: []byte("PROJ-7\n")}, clearLink: {err: errUnset},
+	}), workDir)
+
+	// Act
+	err := repo.ClearIssueLink(t.Context(), "my-thing")
+
+	// Assert
+	if !errors.Is(err, gitrepo.ErrIssueLinkNotSaved) {
+		t.Errorf("ClearIssueLink = %v, want ErrIssueLinkNotSaved", err)
+	}
+}
+
 func TestClearIssueLinkForgetsALinkThatIsThere(t *testing.T) {
 	t.Parallel()
 
