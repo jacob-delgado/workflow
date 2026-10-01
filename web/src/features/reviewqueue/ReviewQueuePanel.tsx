@@ -1,5 +1,5 @@
 import { ExternalLink } from 'lucide-react'
-import { useState, type ReactNode } from 'react'
+import { useRef, useState, type ReactNode, type RefObject } from 'react'
 import { apiErrorMessage } from '@/api/apiError.ts'
 import type { CiState, ReviewRequest } from '@/api/generated/types.gen.ts'
 import { useForgeWords } from '@/api/health.ts'
@@ -101,6 +101,7 @@ function Queue({ requests, readAt, failure, failed, reading, onReadAgain }: Queu
   const outcome = useOutcome()
   const [order, setOrder] = useState<ReviewOrder>('oldest')
   const [picked, setPicked] = useState<Facet[]>([])
+  const sort = useRef<HTMLSelectElement>(null)
   const shown = requests?.filter((request) => admits(picked, request))
 
   return (
@@ -131,11 +132,12 @@ function Queue({ requests, readAt, failure, failed, reading, onReadAgain }: Queu
           {readAgainLabel(failed, reading)}
         </Button>
       </div>
-      <OrderSelect order={order} onOrder={setOrder} />
+      <OrderSelect ref={sort} order={order} onOrder={setOrder} />
       {requests === undefined ? null : (
         <FacetChips
           choices={facetChoices(requests, picked)}
           picked={picked}
+          afterFilter={sort}
           onToggle={(facet) => {
             setPicked((now) => toggleFacet(now, facet))
           }}
@@ -176,17 +178,19 @@ function queueSummary(count: number, shown: number, noun: string, order: ReviewO
 }
 
 interface OrderSelectProps {
+  ref: RefObject<HTMLSelectElement | null>
   order: ReviewOrder
   onOrder: (order: ReviewOrder) => void
 }
 
 // OrderSelect chooses the order the queue is listed in, as the terminal's s
 // cycles it.
-function OrderSelect({ order, onOrder }: OrderSelectProps) {
+function OrderSelect({ ref, order, onOrder }: OrderSelectProps) {
   return (
     <label className="flex items-center gap-item text-sm">
       <span className="text-muted-foreground">Sort</span>
       <select
+        ref={ref}
         value={order}
         onChange={(event) => {
           onOrder(event.target.value as ReviewOrder)
