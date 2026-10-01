@@ -161,8 +161,12 @@ first: where each is, who asks, how long it has waited, whether it is a draft,
 and how its CI stands, each with a link to open it and **Copy URL**. **Sort**
 lists them **Oldest first**, **Newest first** or **By repository**, which heads
 each repository's requests with its name, the longest-waiting first within it —
-the orders the terminal's `s` cycles through. The section asks the forge when you
-open it, unless it asked within the last 30 seconds, and **Refresh** asks again.
+the orders the terminal's `s` cycles through. **Filter** narrows them, as the
+terminal's `f` does: a button for each repository, CI state, draft or ready, and
+author the queue holds, each with how many requests hold it. Values in one of
+those widen the list, and the four narrow it together. The section asks the
+forge when you open it, unless it asked within the last 30 seconds, and
+**Refresh** asks again.
 
 ### Tasks
 

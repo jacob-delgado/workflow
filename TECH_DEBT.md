@@ -610,3 +610,27 @@ and a lock left behind blocks every refresh for up to a minute.
 
 **Reopen when.** A refused refresh is traced to two refreshes at once, or
 the lock wait is seen to block a post.
+
+### TRADE-23 The review facets are written twice
+
+The review queue narrows by facet — its repository, how its CI stands,
+draft or ready, and who asks — in the terminal
+(`internal/tui/reviewfacets.go`) and in the web
+(`web/src/features/reviewqueue/reviewFacets.ts`), each working out a
+request's facets, the values on offer with their counts, and which picked
+values admit a request. The two copies are pinned by twin-named test cases
+in `internal/tui/reviewfacets_test.go` and
+`web/src/features/reviewqueue/reviewFacets.test.ts`.
+
+**Decided.** 2026-10-01, when both surfaces gained the reviews filter, on
+TRADE-21's reasoning: every facet is read from the request each surface
+already holds, and a filter the server ran would cost a read of the forge's
+queue, under its rate limits, for each change of a filter that runs in the
+browser and the terminal over what is loaded.
+
+**Cost.** A change to what a facet means, or to the order its values are
+offered in, is made twice, and a change made to one copy alone passes that
+copy's tests.
+
+**Reopen when.** The API comes to filter the queue for another reason, or
+the two copies are found to disagree.

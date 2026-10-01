@@ -8,6 +8,8 @@ import { OutcomeLine, useOutcome, type Teller } from '@/lib/Outcome.tsx'
 import { useAsyncAction } from '@/lib/useAsyncAction.ts'
 import { EmptyState } from '@/shell/EmptyState.tsx'
 import { ciMark, StateMark } from '@/shell/StateMark.tsx'
+import { FacetChips } from './FacetChips.tsx'
+import { admits, facetChoices, toggleFacet, type Facet } from './reviewFacets.ts'
 import { byRepository, ordered, orderWords, type ReviewOrder } from './reviewOrder.ts'
 import { useReviewQueue } from './reviewQueueApi.ts'
 
@@ -86,19 +88,23 @@ interface QueueProps {
 // That control stays the same button whether it says Retry or Refresh, so the
 // read it starts never takes its focus away; a failed refresh leaves the queue
 // last read in view. The summary is a status line that stays mounted, so a
-// screen reader hears what each read found as it lands. The order chosen holds
-// across reads.
+// screen reader hears what each read found as it lands. The order and the
+// filter chosen hold across reads.
 function Queue({ requests, readAt, failure, failed, reading, onReadAgain }: QueueProps) {
   const { noun } = useForgeWords()
   const outcome = useOutcome()
   const [order, setOrder] = useState<ReviewOrder>('oldest')
+  const [picked, setPicked] = useState<Facet[]>([])
+  const shown = requests?.filter((request) => admits(picked, request))
 
   return (
     <div className="flex max-w-3xl flex-col gap-group">
       <div className="flex items-center justify-between gap-group">
         <div className="flex flex-col">
           <p role="status" className="text-sm text-muted-foreground">
-            {requests === undefined ? '' : queueSummary(requests.length, noun, order)}
+            {requests === undefined || shown === undefined
+              ? ''
+              : queueSummary(requests.length, shown.length, noun, order)}
           </p>
           {failure === null ? null : (
             <p role="alert" className="text-sm text-destructive">
@@ -120,10 +126,20 @@ function Queue({ requests, readAt, failure, failed, reading, onReadAgain }: Queu
         </Button>
       </div>
       <OrderSelect order={order} onOrder={setOrder} />
-      <OutcomeLine said={outcome.said} />
       {requests === undefined ? null : (
+        <FacetChips
+          choices={facetChoices(requests, picked)}
+          picked={picked}
+          onToggle={(facet) => {
+            setPicked((now) => toggleFacet(now, facet))
+          }}
+        />
+      )}
+      <OutcomeLine said={outcome.said} />
+      {requests === undefined || shown === undefined ? null : (
         <Requests
-          requests={ordered(requests, order)}
+          requests={ordered(shown, order)}
+          filtered={shown.length < requests.length}
           grouped={order === 'repository'}
           readAt={readAt}
           teller={outcome}
@@ -133,19 +149,21 @@ function Queue({ requests, readAt, failure, failed, reading, onReadAgain }: Queu
   )
 }
 
-// queueSummary says how many requests wait, in the forge's own noun, and the
-// order they are listed in. An empty queue says so on screen below, in the
-// list's place, so here it is said only to a screen reader.
-function queueSummary(count: number, noun: string, order: ReviewOrder): ReactNode {
+// queueSummary says how many requests wait, in the forge's own noun, the
+// order they are listed in, and how many the filter shows when it hides any.
+// An empty queue says so on screen below, in the list's place, so here it is
+// said only to a screen reader.
+function queueSummary(count: number, shown: number, noun: string, order: ReviewOrder): ReactNode {
   if (count === 0) {
     return <span className="sr-only">Nothing is waiting on your review.</span>
   }
 
   const listed = orderWords[order].toLowerCase()
+  const filtered = shown < count ? `; ${String(shown)} shown` : ''
 
   return count === 1
-    ? `1 ${noun} waits on your review, ${listed}.`
-    : `${String(count)} ${noun}s wait on your review, ${listed}.`
+    ? `1 ${noun} waits on your review, ${listed}${filtered}.`
+    : `${String(count)} ${noun}s wait on your review, ${listed}${filtered}.`
 }
 
 interface OrderSelectProps {
@@ -188,6 +206,8 @@ function readAgainLabel(failed: boolean, reading: boolean): string {
 
 interface RequestsProps {
   requests: ReviewRequest[]
+  // filtered is whether the filter hides any of the queue.
+  filtered: boolean
   // grouped heads each repository's requests with its name, as the terminal
   // does by repository.
   grouped: boolean
@@ -195,9 +215,13 @@ interface RequestsProps {
   teller: Teller
 }
 
-function Requests({ requests, grouped, readAt, teller }: RequestsProps) {
+function Requests({ requests, filtered, grouped, readAt, teller }: RequestsProps) {
   if (requests.length === 0) {
-    return <EmptyState>Nothing is waiting on your review.</EmptyState>
+    return (
+      <EmptyState>
+        {filtered ? 'No request matches the filters.' : 'Nothing is waiting on your review.'}
+      </EmptyState>
+    )
   }
 
   if (!grouped) {
