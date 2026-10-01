@@ -135,6 +135,35 @@ func TestCreateMergeRequestOnGitLabAsksATeamsActiveMembersToReview(t *testing.T)
 	}
 }
 
+func TestCreateMergeRequestOnGitLabLeavesTheAuthorOutOfATeam(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	// The token is ben's, and ben is in the team he asks to review.
+	knowing := gitlabKnowing(nil, map[string]string{
+		membersPath: `[{"id":9,"username":"ben","state":"active","access_level":30},` +
+			`{"id":7,"username":"ana","state":"active","access_level":30}]`,
+	})
+	client, seen := scriptedForge(t, func(asked recorded) (int, string) {
+		if asked.path == gitlabUserPath {
+			return http.StatusOK, `{"id":9,"username":"ben"}`
+		}
+
+		return knowing(asked)
+	})
+
+	// Act
+	_, err := client.CreatePullRequest(t.Context(), gitlabRepo(), forge.NewPullRequest{
+		Title: prTitle, Head: featureBranch, Base: baseBranch, TeamReviewers: []string{groupControlPlane},
+	})
+
+	// Assert
+	opened := requestTo(*seen, gitlabMergesPath)
+	if err != nil || !reflect.DeepEqual(opened.body["reviewer_ids"], []any{float64(7)}) {
+		t.Errorf("reviewer_ids = %v, %v; want ana's alone, not the author's own", opened.body["reviewer_ids"], err)
+	}
+}
+
 func TestCreateMergeRequestOnGitLabOpensWithoutATeamItCannotRead(t *testing.T) {
 	t.Parallel()
 
