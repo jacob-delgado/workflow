@@ -82,7 +82,7 @@ export function AppShell() {
           ref={main}
           id="main"
           tabIndex={-1}
-          className="relative flex flex-1 flex-col gap-block overflow-auto p-block wrap-anywhere focus-visible:outline-none"
+          className="relative flex flex-1 flex-col gap-block overflow-auto scroll-py-block p-block wrap-anywhere focus-visible:outline-none"
         >
           <SectionHeading section={section} service={service} />
           <SectionPanel section={section} />
