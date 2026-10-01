@@ -1,4 +1,5 @@
 import type { LocalData, LocalDataFile } from '@/api/generated/types.gen.ts'
+import { mockForgetAll } from './mockSlack.ts'
 
 // The mockup's store: a cache a few sessions have filled, and the kept
 // associations of a repository whose owners were asked about.
@@ -39,10 +40,13 @@ export function mockLocalData(): LocalData {
   return { dir, files: [...held.files] }
 }
 
-// mockCleanLocalData forgets what a clean of scope reaches, and answers what
-// is left.
+// mockCleanLocalData forgets what a clean of scope reaches — with the kept
+// file, the mockup's people and groups — and answers what is left.
 export function mockCleanLocalData(scope: 'cache' | 'all'): LocalData {
   held.files = scope === 'all' ? [] : held.files.filter((file) => file.kind === 'kept')
+  if (scope === 'all') {
+    mockForgetAll()
+  }
 
   return mockLocalData()
 }

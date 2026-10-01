@@ -41,7 +41,7 @@ export function RepoGroups({ dryRun }: { dryRun: boolean }) {
 // GroupChoice is the checkboxes, which start as saved, and the Save that
 // keeps them.
 function GroupChoice({ saved, dryRun }: { saved: Groups; dryRun: boolean }) {
-  const [checked, setChecked] = useState(() => saved.groups.map((group) => group.id))
+  const [checked, setChecked] = useCheckedFrom(saved.groups)
   const directory = useSlackGroups(!dryRun)
   const outcome = useOutcome()
   const save = useAsyncAction(useSaveRepoGroups(), {
@@ -104,6 +104,21 @@ function GroupChoice({ saved, dryRun }: { saved: Groups; dryRun: boolean }) {
       <OutcomeLine said={outcome.said} />
     </div>
   )
+}
+
+// useCheckedFrom is the groups checked, which start as saved and start again
+// whenever what is saved changes under them — a clean of everything, a save
+// — so Save never writes back groups no longer kept.
+function useCheckedFrom(saved: SlackTarget[]) {
+  const savedIds = saved.map((group) => group.id)
+  const [checked, setChecked] = useState(savedIds)
+  const [startedFrom, setStartedFrom] = useState(savedIds.join(' '))
+  if (startedFrom !== savedIds.join(' ')) {
+    setStartedFrom(savedIds.join(' '))
+    setChecked(savedIds)
+  }
+
+  return [checked, setChecked] as const
 }
 
 // withSaved is the directory's groups, then any saved one it no longer lists,

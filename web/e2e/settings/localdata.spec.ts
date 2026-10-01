@@ -135,13 +135,16 @@ test(
     // Arrange
     await openCockpit(page, { width: 1440, height }, 'dark')
     await openSection(page, 'Settings')
+    await expect(page.getByRole('button', { name: 'Forget dan…' })).toBeVisible()
     await page.getByRole('button', { name: 'Clean everything…' }).click()
 
     // Act
     await page.getByRole('button', { name: 'Clean', exact: true }).click()
 
-    // Assert
+    // Assert: the people and groups went with the kept file.
     await expect(page.getByText('Removed workflow.db and kept.db.')).toBeVisible()
     await expect(page.getByText(/no local data/i)).toBeVisible()
+    await expect(page.getByRole('button', { name: 'Forget dan…' })).toBeHidden()
+    await expect(page.getByRole('checkbox', { name: '@api-reviewers' })).not.toBeChecked()
   },
 )

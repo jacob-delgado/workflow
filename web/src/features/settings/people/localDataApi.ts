@@ -1,6 +1,10 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { cleanLocalData, getLocalData } from '@/api/generated'
-import { getLocalDataQueryKey } from '@/api/generated/@tanstack/react-query.gen.ts'
+import {
+  getLocalDataQueryKey,
+  getPeopleQueryKey,
+  getRepoGroupsQueryKey,
+} from '@/api/generated/@tanstack/react-query.gen.ts'
 import type { LocalData } from '@/api/generated/types.gen.ts'
 
 // The VITE_MOCK check is read inline (not via a helper) so Vite statically
@@ -54,15 +58,29 @@ async function clean(scope: CleanScope): Promise<LocalData> {
 }
 
 // useCleanLocalData is the clean, which shows its answer at once and then
-// reads the listing again, so what is shown is the directory as it is now.
+// reads the listing again, so what is shown is the directory as it is now —
+// after a refused clean too, which may have removed some files before one
+// would not go. A clean of everything takes the people and groups with the
+// kept file, so they are read again, and Settings never saves the old ones
+// back.
 export function useCleanLocalData(): (scope: CleanScope) => Promise<LocalData> {
   const client = useQueryClient()
 
   return async (scope) => {
-    const left = await clean(scope)
-    client.setQueryData(getLocalDataQueryKey(), left)
-    await client.invalidateQueries({ queryKey: getLocalDataQueryKey() })
+    try {
+      const left = await clean(scope)
+      client.setQueryData(getLocalDataQueryKey(), left)
 
-    return left
+      return left
+    } finally {
+      await Promise.all([
+        client.invalidateQueries({ queryKey: getLocalDataQueryKey() }),
+        ...(scope === 'all'
+          ? [getPeopleQueryKey(), getRepoGroupsQueryKey()].map((queryKey) =>
+              client.invalidateQueries({ queryKey }),
+            )
+          : []),
+      ])
+    }
   }
 }
