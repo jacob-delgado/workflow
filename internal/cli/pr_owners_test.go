@@ -89,3 +89,34 @@ func TestPRPreviewsNoReviewersWithoutCodeOwners(t *testing.T) {
 		t.Errorf("pr printed %q, want no reviewers line", output)
 	}
 }
+
+func TestPRSaysTheMergeRequestOpenedWhenAReviewerCouldNotBeAdded(t *testing.T) {
+	// Arrange
+	// GitLab knows no user named ghost, so the merge request opens without
+	// that reviewer; it is open all the same.
+	fakeGlab(t)
+	repo := t.TempDir()
+	gitInit(t, repo)
+	writeRepoFile(t, repo, "CODEOWNERS", "* @ghost\n")
+	git(t, repo, "add", ".")
+	commit(t, repo, "init")
+	git(t, repo, "branch", "-M", "main")
+	git(t, repo, "checkout", "-b", "fix/PROJ-2-thing")
+	writeRepoFile(t, repo, "api/pull.go", "package api\n")
+	git(t, repo, "add", ".")
+	commit(t, repo, "fix: guard the api")
+	git(t, repo, "remote", "add", "origin", "https://gitlab.com/owner/repo.git")
+	pretendPushed(t, repo)
+	writeFile(t, repo, `{"forge":{"cli":true,"kind":"gitlab","host":"gitlab.com"}}`)
+
+	// Act
+	printed, err := runStreams(t, repo, unusedPrompt(t), "pr", "--yes")
+	// Assert
+	if err != nil {
+		t.Fatalf("pr --yes = %v (%+v), want it to succeed: the merge request is open", err, printed)
+	}
+
+	if !strings.Contains(printed.stdout, "Opened !7 "+gitlabMergeRequest) || !strings.Contains(printed.stderr, "ghost") {
+		t.Errorf("pr printed %+v, want the merge request opened and ghost named as not added", printed)
+	}
+}
