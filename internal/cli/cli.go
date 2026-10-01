@@ -257,9 +257,13 @@ func openInterface(ctx context.Context, run RunInterface, input interfaceInput) 
 
 	deps := input.deps
 	if input.dryRun {
-		// A dry-run interface opens no store, and New would seed the issue list
-		// from it before WithDryRun could drop it.
-		deps.Store = seams.Store{}
+		// A dry-run interface opens no cache, and New would seed the issue
+		// list from it before WithDryRun could drop it. It keeps the kept
+		// reads, bound to the read-only store, so the announcement preview
+		// says whom a post would tag.
+		deps.Store = seams.Store{
+			OwnerLinks: deps.Store.OwnerLinks, RepoGroups: deps.Store.RepoGroups, LastGroups: deps.Store.LastGroups,
+		}
 	}
 
 	model := tui.New(input.cfg, input.loadErr, deps)

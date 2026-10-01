@@ -416,17 +416,32 @@ func TestADryRunOffersNoLinkingAndSaysWhomItWouldTag(t *testing.T) {
 	// Act: open the preview
 	preview := typing(t, model, "5", "p")
 
-	// Assert: the owners are shown, but cannot be linked
-	requireScreen(t, preview.View().Content, "? not linked")
+	// Assert: the owners are shown as they were kept, but cannot be linked
+	requireScreen(t, preview.View().Content, "? not linked", "→ Carla Diaz")
 	refuseScreen(t, footerLine(preview.View().Content), "link to Slack")
 
 	// Act: try to link, and announce
 	view := typing(t, preview, "a", "x", keyEnter).View().Content
 
-	// Assert: a dry run keeps nothing, so it knows no one to tag
-	requireScreen(t, view, "dry run: would announce to "+slackChannel+", tagging nobody")
+	// Assert: it says whom it would tag, and keeps nothing
+	requireScreen(t, view, "dry run: would announce to "+slackChannel+", tagging @Carla Diaz @control-plane-pod")
 
-	if calls := dry.asked("link-owner "); len(calls) != 0 {
-		t.Errorf("a dry run linked %q", calls)
+	if calls := append(dry.asked("link-owner "), dry.asked("record-groups ")...); len(calls) != 0 {
+		t.Errorf("a dry run kept %q", calls)
 	}
+}
+
+func TestADryRunOffersNoPeopleAndGroups(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	dry := taggingWorld()
+	model := sized(t, dryInterface(dry), 140, 40)
+	model = drain(t, model, model.Init())
+
+	// Act
+	view := typing(t, model, "5", "P").View().Content
+
+	// Assert
+	refuseScreen(t, view, "People and groups")
 }

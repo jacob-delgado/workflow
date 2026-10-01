@@ -79,12 +79,13 @@ var (
 	_ steppable               = peopleOverlay{}
 )
 
-// managesPeople reports a store that keeps the associations and a Slack user
-// token that can read the directory they are made from. The directory seams
-// are bound whatever the settings, so the mode says whether there is a token.
+// managesPeople reports a store that keeps the associations, and can change
+// them, as a dry run's cannot, and a Slack user token that can read the
+// directory they are made from. The directory seams are bound whatever the
+// settings, so the mode says whether there is a token.
 func (m Model) managesPeople() bool {
-	return m.deps.Store.OwnerLinks != nil && m.deps.Messaging.ChannelMembers != nil &&
-		m.cfg.Messaging.Mode() == config.MessagingUser
+	return m.deps.Store.OwnerLinks != nil && m.deps.Store.LinkOwner != nil &&
+		m.deps.Messaging.ChannelMembers != nil && m.cfg.Messaging.Mode() == config.MessagingUser
 }
 
 // openPeople opens People and groups and starts reading everything it shows.
