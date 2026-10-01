@@ -5,11 +5,11 @@ package cli_test
 
 // `workflow announce` tags the code owners already linked to Slack and the
 // groups that start checked, never asking, and names who it leaves untagged —
-// in the Slack workspace the token is for, which only Slack can say (TRADE-17:
-// these tests cannot reach Slack), so what they pin is that nobody is tagged
-// without one.
+// in the Slack workspace the token is for, which only Slack can say, so
+// nobody is tagged without one. Slack is a fake on this machine (fakeSlack).
 
 import (
+	"net/http"
 	"runtime"
 	"strings"
 	"testing"
@@ -40,7 +40,7 @@ func keptLinks(t *testing.T) string {
 		t.Fatalf("finding the store under %s: %v", home, err)
 	}
 
-	kept, repo, workspace, now := store.New(dir, false), "github.com/acme/repo", "T0ACME", time.Now()
+	kept, repo, workspace, now := store.New(dir, false), "github.com/acme/repo", slackWorkspace, time.Now()
 	linked := store.OwnerLink{
 		Owner: "ana", Team: false, OnSlack: true, Slack: store.SlackTarget{ID: "U0ANA", Label: "Ana Souza"},
 	}
@@ -96,5 +96,58 @@ func TestAnnounceTagsNoOneThroughAWebhook(t *testing.T) {
 
 	if strings.Contains(printed.stdout, "tags ") || strings.Contains(printed.stdout, "not tagged") {
 		t.Errorf("announce through a webhook previewed %q, want no tags", printed.stdout)
+	}
+}
+
+func TestAnnounceTagsTheOwnersAndGroupsLinkedInTheWorkspaceInUse(t *testing.T) {
+	// Arrange
+	fakeGh(t, ghResponses{pulls: openPull("Add login")})
+	slack := fakeSlack(t, nil)
+	repo := ownedRepo(t)
+	writeFile(t, repo, slackLoggedInConfig())
+	home := keptLinks(t)
+
+	// Act
+	printed, err := runStreamsAt(t, place{dir: repo, home: home}, unusedPrompt(t), "announce", "--yes")
+	// Assert
+	if err != nil {
+		t.Fatalf("announce --yes: %v (%+v)", err, printed)
+	}
+
+	for _, line := range []string{
+		"tags @Ana Souza @api-reviewers\n",
+		"not tagged: acme/control-plane (not linked — associate in People and groups)\n",
+	} {
+		if !strings.Contains(printed.stdout, line) {
+			t.Errorf("announce previewed %q, want the line %q", printed.stdout, line)
+		}
+	}
+
+	if post := slack.post(t); !strings.Contains(post, "<@U0ANA>") || !strings.Contains(post, "<!subteam^S0API>") {
+		t.Errorf("announce posted %q, want ana and api-reviewers tagged", post)
+	}
+}
+
+func TestAnnounceTagsNoOneLinkedOnlyInAnotherWorkspace(t *testing.T) {
+	// Arrange
+	fakeGh(t, ghResponses{pulls: openPull("Add login")})
+	fakeSlack(t, map[string]slackAnswer{
+		"/auth.test": {http.StatusOK, `{"ok":true,"team":"Other","user":"ana","team_id":"T0OTHER"}`},
+	})
+	repo := ownedRepo(t)
+	writeFile(t, repo, slackLoggedInConfig())
+	home := keptLinks(t)
+
+	// Act
+	printed, err := runStreamsAt(t, place{dir: repo, home: home}, unusedPrompt(t), "announce", "--dry-run")
+	// Assert
+	if err != nil {
+		t.Fatalf("announce --dry-run: %v (%+v)", err, printed)
+	}
+
+	if !strings.Contains(printed.stdout, "tags no one\n") ||
+		!strings.Contains(printed.stdout, "not tagged: ana (not linked") {
+		t.Errorf("announce previewed %q, want ana, linked in another workspace, named as not linked here",
+			printed.stdout)
 	}
 }
