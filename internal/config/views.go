@@ -20,6 +20,16 @@ type JiraView struct {
 	JQL  string `json:"jql"`
 }
 
+// Issues is where the Issues list draws from beyond Jira.
+type Issues struct {
+	// Forge adds the issues assigned to you on the repository's own forge,
+	// GitHub or GitLab, to the list beside Jira's: for a repository whose
+	// project tracks its work there. It is set per repository, in that
+	// repository's file, over the home file's default. With no Jira, the
+	// forge's issues are the whole list whatever it says.
+	Forge bool `json:"forge"`
+}
+
 // validateViews refuses a view missing its name or its query, so a half-written
 // view fails at load rather than showing an empty pane with no way to tell why.
 func (c Config) validateViews() error {

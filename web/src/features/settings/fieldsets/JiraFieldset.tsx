@@ -2,7 +2,8 @@ import { useForgeWords } from '@/api/health.ts'
 import { CheckboxField, Fieldset, TextField, type Register } from './Field.tsx'
 
 // JiraFieldset is where the tracker is and who reads it: its address, the
-// credential, the project and the status an issue moves to once in review.
+// credential, the project and the status an issue moves to once in review —
+// and whether the repository's own forge issues join Jira's in the list.
 export function JiraFieldset({ register }: { register: Register }) {
   const { noun } = useForgeWords()
 
@@ -33,6 +34,11 @@ export function JiraFieldset({ register }: { register: Register }) {
         register={register}
         name="jira.markdown_comments"
         label="Write comments in Markdown, posted as Jira wiki markup"
+      />
+      <CheckboxField
+        register={register}
+        name="issues.forge"
+        label="List this repository's GitHub or GitLab issues beside Jira's"
       />
     </Fieldset>
   )

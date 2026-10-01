@@ -415,3 +415,31 @@ test('sets up Slack with a user token, not a bot token', async () => {
   expect(screen.getByLabelText('Refresh token').getAttribute('type')).toBe('password')
   expect(screen.queryByLabelText('Bot token')).toBeNull()
 })
+
+test("the switch that lists this repository's forge issues rides back through a save", async () => {
+  // Arrange
+  vi.stubEnv('VITE_MOCK', 'true')
+  const user = userEvent.setup()
+  const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+  const view = render(
+    <QueryClientProvider client={client}>
+      <SettingsPanel />
+    </QueryClientProvider>,
+  )
+  const forge = await screen.findByRole('checkbox', { name: /this repository's .* issues/i })
+  await user.click(forge)
+
+  // Act: save, then reopen against the same client
+  await user.click(screen.getByRole('button', { name: /save changes/i }))
+  await screen.findByText(/saved/i)
+  view.unmount()
+  render(
+    <QueryClientProvider client={client}>
+      <SettingsPanel />
+    </QueryClientProvider>,
+  )
+
+  // Assert
+  const reopened = await screen.findByRole('checkbox', { name: /this repository's .* issues/i })
+  expect((reopened as HTMLInputElement).checked).toBe(true)
+})

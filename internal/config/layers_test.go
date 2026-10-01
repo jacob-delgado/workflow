@@ -219,3 +219,19 @@ func readJSON(t *testing.T, path string) map[string]any {
 
 	return decoded
 }
+
+func TestARepositoryOptsIntoItsForgeIssuesOverTheHomeDefault(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	files := layered(t, `{"issues": {"forge": true}}`)
+
+	// Act
+	cfg, err := loadedFrom(t, files)
+
+	// Assert
+	if err != nil || !cfg.Issues.Forge || cfg.Jira.BaseURL != jiraURL {
+		t.Errorf("issues.forge = %v with Jira at %q, %v; want the repository's opt-in beside the home file's Jira",
+			cfg.Issues.Forge, cfg.Jira.BaseURL, err)
+	}
+}

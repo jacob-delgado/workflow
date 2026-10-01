@@ -473,6 +473,7 @@ type Config struct {
 	Branch      BranchConfig      `json:"branch"`
 	Commit      CommitConfig      `json:"commit"`
 	Forge       ForgeConfig       `json:"forge"`
+	Issues      IssuesConfig      `json:"issues"`
 	Jira        JiraConfig        `json:"jira"`
 	Messaging   MessagingConfig   `json:"messaging"`
 	PullRequest PullRequestConfig `json:"pull_request"`
@@ -581,6 +582,12 @@ type IssueDetail struct {
 
 	// URL The issue in the tracker's own web interface, for a link to open. Empty when the tracker's base URL cannot be read; never carries the base URL's username or password.
 	URL string `json:"url"`
+}
+
+// IssuesConfig defines model for IssuesConfig.
+type IssuesConfig struct {
+	// Forge List the issues assigned to you on this repository's own forge, GitHub or GitLab, beside Jira's. Set per repository, over the home file's default.
+	Forge *bool `json:"forge,omitempty"`
 }
 
 // IssuesPage defines model for IssuesPage.

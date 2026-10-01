@@ -187,6 +187,7 @@ type Config struct {
 	PullRequest PullRequest `json:"pull_request"`
 	Store       Store       `json:"store"`
 	Taskwarrior Taskwarrior `json:"taskwarrior"`
+	Issues      Issues      `json:"issues"`
 	// Path is the file a save of this configuration writes: the repository's
 	// file when there is one, otherwise the home directory's. It is not part of
 	// the file format.
