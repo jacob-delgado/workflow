@@ -177,9 +177,15 @@ type Announced struct {
 // repository, in this session or an earlier one: every one recorded, and the
 // record of a new one. A nil Recorded knows of none, and a nil Record
 // remembers nothing.
+//
+// RecordGroups remembers the user groups an announcement tagged, as this
+// repository's last choice. A nil RecordGroups remembers none; a surface sets
+// it only for an announcement that offered groups to choose, since a choice
+// of none is a choice too.
 type AnnounceMemory struct {
-	Recorded func() []Announced
-	Record   func(Announced)
+	Recorded     func() []Announced
+	Record       func(Announced)
+	RecordGroups func(ids []string) error
 }
 
 // Holds reports whether made was already announced.
@@ -192,22 +198,25 @@ func (m AnnounceMemory) Holds(made Announced) bool {
 }
 
 // Delivery is an announcement on its way out: the channel it goes to — empty
-// for the service's own — its text, and the announcement it makes.
+// for the service's own — its text, the announcement it makes, and whom it
+// tags. The zero Mentions tags no one.
 type Delivery struct {
-	Channel string
-	Text    string
-	Made    Announced
+	Channel  string
+	Text     string
+	Made     Announced
+	Mentions messaging.Mentions
 }
 
-// Deliver posts the delivery and, once it has gone out, records what it made,
-// so a later session knows not to make it again. A post that fails records
-// nothing; the error is the post's own, for the caller to word.
+// Deliver posts the delivery, its tags on a line after the text, and, once it
+// has gone out, records what it made, so a later session knows not to make it
+// again, and the groups it tagged. A post that fails records nothing; the
+// error is the post's own, for the caller to word.
 func Deliver(post func(channel, text string) error, memory AnnounceMemory, delivery Delivery) error {
 	if post == nil {
 		return ErrAnnounceUnavailable
 	}
 
-	err := post(delivery.Channel, delivery.Text)
+	err := post(delivery.Channel, delivery.textWithTags())
 	if err != nil {
 		return err
 	}
@@ -216,5 +225,32 @@ func Deliver(post func(channel, text string) error, memory AnnounceMemory, deliv
 		memory.Record(delivery.Made)
 	}
 
+	if memory.RecordGroups != nil {
+		// The post has gone out, which is what the caller asked for: a choice
+		// not remembered is only offered unchecked next time.
+		_ = memory.RecordGroups(delivery.groupIDs())
+	}
+
 	return nil
+}
+
+// textWithTags is the text, then the tags on a line of their own when there
+// are any.
+func (d Delivery) textWithTags() string {
+	line := d.Mentions.Line()
+	if line == "" {
+		return d.Text
+	}
+
+	return d.Text + "\n" + line
+}
+
+// groupIDs is the ID of every group the delivery tags.
+func (d Delivery) groupIDs() []string {
+	ids := make([]string, 0, len(d.Mentions.Groups))
+	for _, group := range d.Mentions.Groups {
+		ids = append(ids, group.String())
+	}
+
+	return ids
 }
