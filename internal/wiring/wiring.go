@@ -110,7 +110,7 @@ func Deps(ctx context.Context, cfg config.Config, where Workspace, log *RequestL
 	}
 
 	return tui.Deps{
-		Jira:       trackerDeps(ctx, cfg.Jira, jiraClient, connect),
+		Jira:       trackerDeps(ctx, cfg, jiraClient, connect),
 		Git:        gitDeps(ctx, where.Root),
 		Forge:      forgeDeps(ctx, setup, connect),
 		Messaging:  messagingDeps(ctx, messagingSet),
