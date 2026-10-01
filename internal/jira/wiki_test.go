@@ -14,6 +14,8 @@ import (
 // emphasis.
 const starBullet = "* item"
 
+// Each case has a twin of the same name in
+// web/src/features/issues/wiki/wikiFromMarkdown.test.ts.
 func TestWikiFromMarkdown(t *testing.T) {
 	t.Parallel()
 
