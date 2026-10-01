@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/jacob-delgado/workflow/internal/config"
+	"github.com/jacob-delgado/workflow/internal/httpx"
 	"github.com/jacob-delgado/workflow/internal/loop"
 	"github.com/jacob-delgado/workflow/internal/messaging"
 	"github.com/jacob-delgado/workflow/internal/seams"
@@ -193,16 +194,22 @@ func (d *SlackDirectory) label(
 	return labeled(members, users.labels), nil
 }
 
-// oneByOne labels each member through users.info, reading each once.
+// slackPatience is how long labeling a channel one by one waits, in all, on
+// Slack asking it to slow down: users.info is Tier 4, so a large channel can
+// meet the limit, and Slack names a short wait. A longer one fails the read,
+// keeping every member already labeled, so the next read goes on from there.
+const slackPatience = time.Minute
+
+// oneByOne labels each member through users.info, reading each once, and
+// waits when Slack asks, while its patience lasts.
 func (d *SlackDirectory) oneByOne(
 	ctx context.Context, slack messaging.Client, held *heldReads, members []messaging.SlackUserID,
 ) ([]loop.SlackTarget, error) {
 	labels := make(map[string]string, len(members))
+	patience := &waiting{left: slackPatience}
 
 	for _, member := range members {
-		found, err := shared(ctx, d, held.profiles, member.String(), func(ctx context.Context) (profile, error) {
-			return profileOf(slack.User(ctx, member))
-		})
+		found, err := d.profile(ctx, slack, held, member, patience)
 		if err != nil {
 			return nil, err
 		}
@@ -213,6 +220,58 @@ func (d *SlackDirectory) oneByOne(
 	}
 
 	return labeled(members, labels), nil
+}
+
+// profile is member as users.info answers, read once, waiting as long as
+// Slack asks to while patience lasts.
+func (d *SlackDirectory) profile(
+	ctx context.Context, slack messaging.Client, held *heldReads, member messaging.SlackUserID, patience *waiting,
+) (profile, error) {
+	for {
+		found, err := shared(ctx, d, held.profiles, member.String(), func(ctx context.Context) (profile, error) {
+			return profileOf(slack.User(ctx, member))
+		})
+
+		limit, limited := errors.AsType[*httpx.RateLimitError](err)
+		if !limited || !patience.spend(limit.Wait) {
+			return found, err
+		}
+
+		err = pause(ctx, limit.Wait)
+		if err != nil {
+			return profile{}, err
+		}
+	}
+}
+
+// waiting is how much longer a read will wait on Slack.
+type waiting struct {
+	left time.Duration
+}
+
+// spend takes wait from what is left, and reports false, taking nothing, when
+// too little is.
+func (w *waiting) spend(wait time.Duration) bool {
+	if wait > w.left {
+		return false
+	}
+
+	w.left -= wait
+
+	return true
+}
+
+// pause waits for wait, or until ctx ends.
+func pause(ctx context.Context, wait time.Duration) error {
+	timer := time.NewTimer(wait)
+	defer timer.Stop()
+
+	select {
+	case <-timer.C:
+		return nil
+	case <-ctx.Done():
+		return fmt.Errorf("waiting on Slack: %w", ctx.Err())
+	}
 }
 
 // begin is the client to read with and the generation to read into, or why

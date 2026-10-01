@@ -723,8 +723,11 @@ lock while Slack answers.
 the session, and pays up to 20 `users.list` pages on its first read. A
 workspace over it pays those 20 pages once per ten minutes to learn it is
 too large, then one `users.info` per channel member, so a large channel's
-first read is slow. Someone who joins the channel within the ten minutes
-is not offered until a refresh.
+first read is slow. A channel large enough to meet Tier 4 waits as long as
+Slack's Retry-After asks, up to a minute in all, and past that fails the
+read, keeping who was labeled, so the next read goes on from there; there
+is no pacing ahead of the limit. Someone who joins the channel within the
+ten minutes is not offered until a refresh.
 
 **Reopen when.** Slack's rate limits are met in practice below the cap, or
 a large channel's first read through `users.info` is too slow to wait for:

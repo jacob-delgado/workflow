@@ -19,6 +19,7 @@ import (
 	"time"
 
 	"github.com/jacob-delgado/workflow/internal/config"
+	"github.com/jacob-delgado/workflow/internal/httpx"
 	"github.com/jacob-delgado/workflow/internal/loop"
 	"github.com/jacob-delgado/workflow/internal/messaging"
 	"github.com/jacob-delgado/workflow/internal/slackauth"
@@ -29,10 +30,18 @@ import (
 // body keyed by its path, and counting the requests made to each. A path it
 // holds answers only once released.
 type fakeSlack struct {
-	lock   sync.Mutex
-	bodies map[string]string
-	asked  map[string]int
-	held   map[string]*gate
+	lock    sync.Mutex
+	bodies  map[string]string
+	asked   map[string]int
+	held    map[string]*gate
+	limited map[string]limit
+}
+
+// limit is a path and user Slack asks to wait on: the next times answers
+// are 429s naming retryAfter.
+type limit struct {
+	times      int
+	retryAfter string
 }
 
 // gate holds a path's answers: arrived closes on the first request to it, and
@@ -64,7 +73,7 @@ func directoryBodies() map[string]string {
 func startSlack(t *testing.T, bodies map[string]string) (*fakeSlack, messaging.Client) {
 	t.Helper()
 
-	slack := &fakeSlack{bodies: bodies, asked: map[string]int{}, held: map[string]*gate{}}
+	slack := &fakeSlack{bodies: bodies, asked: map[string]int{}, held: map[string]*gate{}, limited: map[string]limit{}}
 	server := httptest.NewServer(http.HandlerFunc(slack.answer))
 	t.Cleanup(server.Close)
 
@@ -85,8 +94,19 @@ func (s *fakeSlack) answer(writer http.ResponseWriter, request *http.Request) {
 
 	s.lock.Lock()
 	s.asked[request.URL.Path]++
-	held, body := s.held[request.URL.Path], s.bodies[key]
+	held, body, limited := s.held[request.URL.Path], s.bodies[key], s.limited[key]
+
+	if limited.times > 0 {
+		s.limited[key] = limit{times: limited.times - 1, retryAfter: limited.retryAfter}
+	}
 	s.lock.Unlock()
+
+	if limited.times > 0 {
+		writer.Header().Set("Retry-After", limited.retryAfter)
+		writer.WriteHeader(http.StatusTooManyRequests)
+
+		return
+	}
 
 	if held != nil {
 		held.once.Do(func() { close(held.arrived) })
@@ -111,6 +131,15 @@ func (s *fakeSlack) hold(t *testing.T, path string) (<-chan struct{}, func()) {
 	s.held[path] = held
 
 	return held.arrived, release
+}
+
+// limit makes the next times answers to key — a path, and ?user= and an ID
+// when it names one — 429s asking to wait retryAfter seconds.
+func (s *fakeSlack) limit(key string, times int, retryAfter string) {
+	s.lock.Lock()
+	defer s.lock.Unlock()
+
+	s.limited[key] = limit{times: times, retryAfter: retryAfter}
 }
 
 // requests is how many requests the fake has answered, over every path.
@@ -199,7 +228,7 @@ func TestChannelMembersAreTheChannelsPeopleByTheirSlackNames(t *testing.T) {
 	members, err := directory.ChannelMembers(t.Context(), "#dev")
 
 	// Assert
-	want := []loop.SlackTarget{{ID: "U0ADA", Label: "Ada"}, {ID: "U0BOB", Label: "Bob B"}}
+	want := channelMembers()
 	if err != nil || !slices.Equal(members, want) {
 		t.Errorf("ChannelMembers = %v, %v; want %v", members, err, want)
 	}
@@ -494,24 +523,104 @@ func TestAChannelInAWorkspaceTooLargeToListIsLabeledOneByOne(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
-	bodies := directoryBodies()
-	bodies["/users.list"] = `{"ok":true,"members":[],"response_metadata":{"next_cursor":"more"}}`
-	bodies["/users.info?user=U0ADA"] = `{"ok":true,"user":{"id":"U0ADA","name":"ada","profile":{"display_name":"Ada"}}}`
-	bodies["/users.info?user=U0BOB"] = `{"ok":true,"user":{"id":"U0BOB","name":"bob","real_name":"Bob B","profile":{}}}`
-	bodies["/users.info?user=U0BOT"] = `{"ok":true,"user":{"id":"U0BOT","name":"robot","is_bot":true,"profile":{}}}`
-	slack, client := startSlack(t, bodies)
+	slack, client := startSlack(t, tooLargeToList())
 	directory, _ := directoryOver(client)
 
 	// Act
 	members, err := directory.ChannelMembers(t.Context(), "#dev")
 
 	// Assert
-	want := []loop.SlackTarget{{ID: "U0ADA", Label: "Ada"}, {ID: "U0BOB", Label: "Bob B"}}
+	want := channelMembers()
 	if err != nil || !slices.Equal(members, want) {
 		t.Errorf("ChannelMembers = %v, %v; want %v", members, err, want)
 	}
 
 	if asked := slack.count("/users.info"); asked != 3 {
 		t.Errorf("users.info was asked %d times, want once per member", asked)
+	}
+}
+
+// channelMembers are #dev's members as the directory labels them.
+func channelMembers() []loop.SlackTarget {
+	return []loop.SlackTarget{{ID: "U0ADA", Label: "Ada"}, {ID: "U0BOB", Label: "Bob B"}}
+}
+
+// tooLargeToList are the answers of a workspace past users.list's page cap,
+// whose channel's members users.info labels one by one.
+func tooLargeToList() map[string]string {
+	bodies := directoryBodies()
+	bodies["/users.list"] = `{"ok":true,"members":[],"response_metadata":{"next_cursor":"more"}}`
+	bodies["/users.info?user=U0ADA"] = `{"ok":true,"user":{"id":"U0ADA","name":"ada","profile":{"display_name":"Ada"}}}`
+	bodies["/users.info?user=U0BOB"] = `{"ok":true,"user":{"id":"U0BOB","name":"bob","real_name":"Bob B","profile":{}}}`
+	bodies["/users.info?user=U0BOT"] = `{"ok":true,"user":{"id":"U0BOT","name":"robot","is_bot":true,"profile":{}}}`
+
+	return bodies
+}
+
+func TestAMemberSlackAsksToWaitForIsLabeledOnceTheWaitIsOver(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	slack, client := startSlack(t, tooLargeToList())
+	slack.limit("/users.info?user=U0BOB", 1, "1")
+
+	directory, _ := directoryOver(client)
+
+	// Act
+	members, err := directory.ChannelMembers(t.Context(), "#dev")
+
+	// Assert
+	want := channelMembers()
+	if err != nil || !slices.Equal(members, want) {
+		t.Errorf("ChannelMembers = %v, %v; want %v after waiting as Slack asked", members, err, want)
+	}
+}
+
+func TestAWaitTooLongFailsTheReadAndKeepsWhoWasLabeled(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	slack, client := startSlack(t, tooLargeToList())
+	slack.limit("/users.info?user=U0BOB", 1, "3600")
+
+	directory, _ := directoryOver(client)
+	started := time.Now()
+
+	// Act
+	_, failed := directory.ChannelMembers(t.Context(), "#dev")
+	members, err := directory.ChannelMembers(t.Context(), "#dev")
+
+	// Assert
+	if !errors.Is(failed, httpx.ErrRateLimited) || time.Since(started) > time.Minute {
+		t.Errorf("the first read = %v after %s, want Slack's rate limit at once", failed, time.Since(started))
+	}
+
+	want := channelMembers()
+	if err != nil || !slices.Equal(members, want) {
+		t.Errorf("ChannelMembers = %v, %v; want %v", members, err, want)
+	}
+
+	if asked := slack.count("/users.info"); asked != 4 {
+		t.Errorf("users.info was asked %d times, want Ada's label kept and Bob's asked again", asked)
+	}
+}
+
+func TestAWaitForSlackEndsWithTheRead(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	slack, client := startSlack(t, tooLargeToList())
+	slack.limit("/users.info?user=U0BOB", 1, "30")
+
+	directory, _ := directoryOver(client)
+	ctx, cancel := context.WithTimeout(t.Context(), 100*time.Millisecond)
+	t.Cleanup(cancel)
+
+	// Act
+	_, err := directory.ChannelMembers(ctx, "#dev")
+
+	// Assert
+	if !errors.Is(err, context.DeadlineExceeded) {
+		t.Errorf("ChannelMembers = %v, want the read's own deadline rather than the whole wait", err)
 	}
 }
