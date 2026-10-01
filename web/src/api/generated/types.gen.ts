@@ -722,6 +722,22 @@ export type Check = {
     name: string;
     state: CiState;
     url: string;
+    /**
+     * The forge's own id for the check, so its log can be asked for; absent for a status.
+     */
+    id?: string;
+    /**
+     * The pipeline stage a GitLab job ran in; absent on GitHub.
+     */
+    stage?: string;
+    /**
+     * Why a failed check failed, in the forge's few words; absent when it gives none.
+     */
+    reason?: string;
+    /**
+     * Whether the forge serves the check's log.
+     */
+    log_available?: boolean;
 };
 
 export type CiState = 'none' | 'running' | 'passed' | 'failed';

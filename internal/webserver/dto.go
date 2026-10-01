@@ -215,7 +215,11 @@ func noReviewQueue() api.ReviewQueue {
 func ciDTO(status forge.CI) api.CI {
 	checks := make([]api.Check, 0, len(status.Checks))
 	for _, check := range status.Checks {
-		checks = append(checks, api.Check{Name: check.Name, State: ciState(check.State), URL: check.URL})
+		checks = append(checks, api.Check{
+			Name: check.Name, State: ciState(check.State), URL: check.URL,
+			ID: optional(check.ID), Stage: optional(check.Stage), Reason: optional(check.Reason),
+			LogAvailable: optionalTrue(check.LogAvailable),
+		})
 	}
 
 	return api.CI{
@@ -284,4 +288,13 @@ func (s *server) linkedIssue(branch gitrepo.Branch, pull forge.PullRequest) *api
 	return &api.LinkedIssue{
 		Key: ref.Key, Tracker: trackerOf(jira.Key(ref.Key)), URL: s.browseURL(jira.Key(ref.Key)), Origin: origins[origin],
 	}
+}
+
+// optionalTrue is a flag the wire leaves out when it is false.
+func optionalTrue(flag bool) *bool {
+	if !flag {
+		return nil
+	}
+
+	return &flag
 }

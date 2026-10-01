@@ -386,9 +386,13 @@ func gitlabStatus(ctx context.Context, client Client, repo Repo, pull PullReques
 	// GitLab reports the review's head pipeline as a whole, so it is the one
 	// check there is to list — its own page opens the jobs within it.
 	state := pipelineState(merge.HeadPipeline.Status)
-	pipeline := Check{Name: "pipeline", State: state, URL: merge.HeadPipeline.URL}
+	checks := []Check{{Name: "pipeline", State: state, URL: merge.HeadPipeline.URL}}
 
-	return CI{State: state, Total: 0, Done: 0, Failed: 0, Checks: []Check{pipeline}}, nil
+	if merge.HeadPipeline.Status == "failed" && merge.HeadPipeline.ID != 0 {
+		checks = gitlabFailedJobs(ctx, client, repo, merge.HeadPipeline.ID, checks)
+	}
+
+	return CI{State: state, Total: 0, Done: 0, Failed: 0, Checks: checks}, nil
 }
 
 // gitlabRerun retries the failed and canceled jobs of the merge request's head

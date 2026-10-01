@@ -18,11 +18,23 @@ const (
 )
 
 // Check is one reported check on a change: what it is called, where it stands,
-// and the page that shows it in full.
+// and the page that shows it in full — and, for one that failed, why, in the
+// stage it ran in, and whether its log can be read.
 type Check struct {
+	// ID is the forge's own id for the check, a check run's or a job's, so its
+	// log can be asked for; empty for a status, which has none.
+	ID    string
 	Name  string
 	State CIState
 	URL   string
+	// Stage is the pipeline stage a GitLab job ran in; empty on GitHub.
+	Stage string
+	// Reason is why a failed check failed, in the forge's few words — a check
+	// run's title, a job's failure reason — or empty when it gives none.
+	Reason string
+	// LogAvailable is a check whose log the forge serves: a GitHub Actions run
+	// or a GitLab job.
+	LogAvailable bool
 }
 
 // CI is how CI stands, and how far through it is where the forge says.

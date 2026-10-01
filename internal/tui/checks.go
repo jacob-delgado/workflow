@@ -252,3 +252,29 @@ func (msg rerunRequested) apply(m Model) (Model, tea.Cmd) {
 	// failure; let the poll the set-to-running schedules read it once it moves.
 	return m.keepPolling(nil)
 }
+
+// failedChecks are the review's failed checks under its CI line: the stage
+// each ran in and its name, then why it failed when the forge says, so the
+// pane names what broke rather than only that something did.
+func (m Model) failedChecks() []string {
+	var lines []string
+
+	for _, check := range m.review.ci.Checks {
+		if check.State != forge.CIFailed {
+			continue
+		}
+
+		name := check.Name
+		if check.Stage != "" {
+			name = check.Stage + " · " + check.Name
+		}
+
+		lines = append(lines, "  "+failedGlyph(m.styles, m.marks)+" "+name)
+
+		if check.Reason != "" {
+			lines = append(lines, "    "+check.Reason)
+		}
+	}
+
+	return lines
+}

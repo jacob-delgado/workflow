@@ -502,3 +502,40 @@ test('names the issue the pull request is for, with a link to its page', () => {
   const link = screen.getByRole('link', { name: '#42' })
   expect(link.getAttribute('href')).toBe('https://github.com/acme/oss/issues/42')
 })
+
+test('says why each failed check failed, and the stage it ran in', () => {
+  // Arrange
+  useSnapshotStore.setState({
+    status: 'live',
+    snapshot: makeSnapshot({
+      review: {
+        found: true,
+        pull,
+        ci: {
+          state: 'failed',
+          total: 0,
+          done: 0,
+          failed: 0,
+          checks: [
+            {
+              name: 'unit-race',
+              state: 'failed',
+              url: 'https://gl/jobs/501',
+              id: '501',
+              stage: 'test',
+              reason: 'script failure',
+            },
+          ],
+        },
+      },
+    }),
+  })
+
+  // Act
+  render(<ReviewPanel />)
+
+  // Assert
+  const row = screen.getByRole('listitem')
+  expect(row.textContent).toContain('test · unit-race')
+  expect(row.textContent).toContain('script failure')
+})

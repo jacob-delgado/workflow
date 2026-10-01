@@ -4,6 +4,7 @@
 package webserver_test
 
 import (
+	"reflect"
 	"testing"
 
 	"github.com/jacob-delgado/workflow/internal/api"
@@ -71,4 +72,43 @@ func TestAReviewWithNoIssueNamesNone(t *testing.T) {
 	if review.Issue != nil {
 		t.Errorf("issue = %+v, want none", review.Issue)
 	}
+}
+
+func TestTheReviewSaysWhyAFailedCheckFailed(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	deps := filledDeps()
+	deps.CheckCI = func(forge.PullRequest, string) (forge.CI, error) {
+		return forge.CI{State: forge.CIFailed, Checks: []forge.Check{{
+			ID: "501", Name: "unit-race", Stage: "test", Reason: "script failure", State: forge.CIFailed,
+			LogAvailable: true,
+		}}}, nil
+	}
+
+	// Act
+	review := decode[api.Review](t, get(t, serve(t, deps, config.Default()), "/api/review"))
+
+	// Assert
+	if review.Ci == nil || len(review.Ci.Checks) != 1 {
+		t.Fatalf("ci = %+v, want the one failed check", review.Ci)
+	}
+
+	check := review.Ci.Checks[0]
+	got := []any{deref(check.ID), deref(check.Stage), deref(check.Reason), deref(check.LogAvailable)}
+
+	if want := []any{"501", "test", "script failure", true}; !reflect.DeepEqual(got, want) {
+		t.Errorf("check's id, stage, reason and log = %v, want %v", got, want)
+	}
+}
+
+// deref is what a pointer the wire may leave out points at, or the zero value.
+func deref[T any](value *T) T {
+	if value == nil {
+		var zero T
+
+		return zero
+	}
+
+	return *value
 }
