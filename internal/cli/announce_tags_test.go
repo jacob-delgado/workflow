@@ -151,3 +151,36 @@ func TestAnnounceTagsNoOneLinkedOnlyInAnotherWorkspace(t *testing.T) {
 			printed.stdout)
 	}
 }
+
+func TestAnnounceWithATokenMissingAScopePostsUntaggedAndNamesIt(t *testing.T) {
+	for scope, path := range map[string]string{
+		"channels:read":   "/conversations.members",
+		"usergroups:read": "/usergroups.list",
+	} {
+		t.Run(scope, func(t *testing.T) {
+			// Arrange
+			fakeGh(t, ghResponses{pulls: openPull("Add login")})
+			slack := fakeSlack(t, map[string]slackAnswer{
+				path: {http.StatusOK, `{"ok":false,"error":"missing_scope","needed":"` + scope + `"}`},
+			})
+			repo := ownedRepo(t)
+			writeFile(t, repo, slackLoggedInConfig())
+			home := keptLinks(t)
+
+			// Act
+			printed, err := runStreamsAt(t, place{dir: repo, home: home}, unusedPrompt(t), "announce", "--yes")
+			// Assert
+			if err != nil {
+				t.Fatalf("announce --yes: %v (%+v)", err, printed)
+			}
+
+			if !strings.Contains(printed.stderr, "lacks the "+scope+" scope") {
+				t.Errorf("announce said %q, want the missing %s scope named", printed.stderr, scope)
+			}
+
+			if post := slack.post(t); !untagged(post) {
+				t.Errorf("announce posted %q, want it untagged", post)
+			}
+		})
+	}
+}
