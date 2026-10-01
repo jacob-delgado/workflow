@@ -49,7 +49,10 @@ and the event stream both refuse a view they do not know rather than answering
 with the default one. Staging and unstaging answer it too for a path the working
 tree does not list as changed: they move a change the server read, never a path
 of the caller's own. Opening a pull request answers it for a repository the
-forge will not show the token. A path the API does not serve answers it too.
+forge will not show the token. A failed check's log answers it for an id no
+check of the current pull request's CI lists now, or when the branch has no
+pull request — the log is read only for a check the forge lists. A path the
+API does not serve answers it too.
 
 ## Method not allowed
 
@@ -65,9 +68,10 @@ running in a git repository, for a request that cannot go ahead without reading
 it (the command line exits 4 there; the event stream shows the branch, changes
 and review empty instead), a working tree with uncommitted changes, a branch
 that already exists, nothing staged to commit, no pull request to announce or
-to link, an announcement that changed since the page previewed it (CI turned
-red, the pull request merged — nothing is posted; preview it again), an issue
-the checked-out branch does not name, a move to the review status that Jira
+to link, no branch checked out (a detached `HEAD`) to link to an issue or to
+unlink from one, an announcement that changed since the page previewed it (CI
+turned red, the pull request merged — nothing is posted; preview it again), an
+issue the checked-out branch does not name, a move to the review status that Jira
 does not offer or wants fields filled for (the terminal interface's status
 picker asks for them), or a configuration file that changed since Settings read
 it — edited on disk, or saved from another tab — which a save refuses rather
@@ -87,7 +91,11 @@ Jira refused, a file git would not stage or unstage, or a branch git would not
 switch to or create (git's own words stay off the wire, since a fetch it
 makes on the way can name the remote; the detail says how to see them), or a
 branch's link to an issue that git could not write to, or remove from, the
-repository's configuration. A push
+repository's configuration. Linking a branch answers it too for a key that
+names no issue — neither a Jira key like `PROJ-7` nor a forge number like `#42`
+— and linking or unlinking does for a server that cannot link a branch at
+all. A failed check's log answers it for a check the forge keeps no log for: a
+commit status, or a check run from an app other than GitHub Actions. A push
 that ran and failed is answered here with git's own output, since the reason —
 a ref the remote rejected, a hook's refusal — is in it, with the remote's URL
 or `user@host:path` address taken out (a bare host git prints — a remote

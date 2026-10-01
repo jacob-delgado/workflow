@@ -219,3 +219,32 @@ func TestALinkNotKeptAfterThePullRequestIsEditedIsReported(t *testing.T) {
 		t.Errorf("status %d, edited %v; want 422 after the one edit", answer.Code, record.edited)
 	}
 }
+
+func TestLinkingAndUnlinkingWithoutTheSeamAnswerAlike(t *testing.T) {
+	t.Parallel()
+
+	cases := map[string]struct {
+		method, body string
+	}{
+		"linking":   {method: http.MethodPut, body: `{"key":"PROJ-7","update_pull":false}`},
+		"unlinking": {method: http.MethodDelete},
+	}
+
+	for name, tt := range cases {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			// Arrange
+			deps := linkingDeps(&linking{}, false)
+			deps.LinkIssue, deps.UnlinkIssue = nil, nil
+
+			// Act
+			answer := send(t, serve(t, deps, config.Default()), tt.method, "/api/branch/issue", tt.body)
+
+			// Assert
+			if answer.Code != http.StatusUnprocessableEntity {
+				t.Errorf("status %d: %s; want 422, linking not available", answer.Code, answer.Body.String())
+			}
+		})
+	}
+}
