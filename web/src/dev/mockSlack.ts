@@ -1,3 +1,4 @@
+import { Refusal } from '@/api/apiError.ts'
 import type {
   AnnouncementTagging,
   OwnerTag,
@@ -13,12 +14,25 @@ import type {
 // repository tags. A link or a group saved here shows on the read after, as it
 // would against a server, until the page loads again.
 
+const ana: SlackTarget = { id: 'U0ANA', label: 'Ana Souza' }
 const carla: SlackTarget = { id: 'U0CARLA', label: 'Carla Diaz' }
-const members: SlackTarget[] = [
-  { id: 'U0ANA', label: 'Ana Souza' },
-  { id: 'U0BEN', label: 'Ben Ito' },
-  carla,
-]
+
+// configuredChannel is the channel the mockup posts to unless one is picked.
+const configuredChannel = '#dev-workflow'
+
+// membersIn are each channel's members, by name; a channel not named has
+// none of the mockup's people.
+const membersIn: Record<string, SlackTarget[]> = {
+  [configuredChannel]: [ana, { id: 'U0BEN', label: 'Ben Ito' }, carla],
+  '#releases': [ana, { id: 'U0ERIN', label: 'Erin Park' }],
+}
+
+// What the server refuses a link with, in its words.
+const refusals = {
+  oneOrTheOther: 'say whom the owner is on Slack, or that they are not on it — one or the other',
+  wrongKind: 'a team links to a Slack user group, and a person to a Slack user',
+  notListed: "that Slack ID is not among the channel's members or the workspace's user groups",
+}
 
 const pod: SlackTarget = { id: 'S0POD', label: 'control-plane-pod' }
 const apiReviewers: SlackTarget = { id: 'S0API', label: 'api-reviewers' }
@@ -42,9 +56,14 @@ const held: { decided: OwnerTag[]; repoGroups: SlackTarget[] } = {
   repoGroups: [apiReviewers],
 }
 
-// mockSlackMembers is the channel's members.
-export function mockSlackMembers(): SlackDirectory {
-  return { entries: [...members] }
+// membersOf is channel's members, the configured channel's when empty.
+function membersOf(channel: string): SlackTarget[] {
+  return membersIn[channel === '' ? configuredChannel : channel] ?? []
+}
+
+// mockSlackMembers is channel's members, the configured channel's when empty.
+export function mockSlackMembers(channel = ''): SlackDirectory {
+  return { entries: [...membersOf(channel)] }
 }
 
 // mockSlackGroups is the workspace's user groups.
@@ -67,16 +86,37 @@ export function mockPeople(): People {
 }
 
 // mockLinkPerson keeps link, labeled from the directory, and answers the
-// owners after it.
+// owners after it. It refuses, as the server does, a link that names both a
+// Slack ID and not on Slack or neither, an ID of the wrong kind for the
+// owner — a team links to a group, a person to a user — and an ID the
+// directory does not list: a person among the members of the channel named.
 export function mockLinkPerson(link: PersonLink): People {
   const kind = link.owner.includes('/') ? 'team' : 'user'
-  const slack = [...members, ...groups].find((target) => target.id === link.slack_id)
   const decided: OwnerTag = link.not_on_slack
     ? { owner: link.owner, kind, state: 'not_on_slack' }
-    : { owner: link.owner, kind, state: 'linked', slack }
+    : { owner: link.owner, kind, state: 'linked', slack: listed(link, kind) }
+  if (link.not_on_slack === (link.slack_id !== undefined)) {
+    throw new Refusal(refusals.oneOrTheOther)
+  }
   held.decided = [...held.decided.filter((owner) => owner.owner !== link.owner), decided]
 
   return mockPeople()
+}
+
+// listed is the Slack user or group link names, as the directory lists it
+// for an owner of kind, or the refusal the server gives.
+function listed(link: PersonLink, kind: OwnerTag['kind']): SlackTarget {
+  const id = link.slack_id ?? ''
+  if ((kind === 'team') !== id.startsWith('S')) {
+    throw new Refusal(refusals.wrongKind)
+  }
+  const directory = kind === 'team' ? groups : membersOf(link.channel ?? '')
+  const found = directory.find((target) => target.id === id)
+  if (found === undefined) {
+    throw new Refusal(refusals.notListed)
+  }
+
+  return found
 }
 
 // mockForgetPerson forgets what was decided for owner.

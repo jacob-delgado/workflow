@@ -31,6 +31,8 @@ const (
 	peoplePath     = "/api/people"
 	repoGroupsPath = "/api/repo-groups"
 	noStore        = "store is off"
+	groupsPath     = "/api/slack/groups"
+	groupsRead     = "usergroups:read"
 )
 
 // carla is a Slack member a user owner is linked to.
@@ -141,7 +143,17 @@ func keptServer(t *testing.T, fake *fakeKept, info webserver.Info) http.Handler 
 	deps.Post = func(string, string) error { return nil }
 	fake.wire(&deps)
 
-	return serveWith(t, deps, config.Default(), info)
+	return serveWith(t, deps, slackUserConfig(), info)
+}
+
+// slackUserConfig is a configuration that posts with a Slack user token,
+// which tagging and its directory need.
+func slackUserConfig() config.Config {
+	cfg := config.Default()
+	cfg.Messaging.ClientID = slackApp
+	cfg.Messaging.Channel = slackChannel
+
+	return cfg
 }
 
 // slackTarget is a wire Slack target.
@@ -294,7 +306,7 @@ func TestPeopleNeedASlackUserTokenAndAStore(t *testing.T) {
 		name, method, target, body, detail string
 	}{
 		{"members", http.MethodGet, "/api/slack/members", "", "Slack user token"},
-		{"groups", http.MethodGet, "/api/slack/groups", "", "Slack user token"},
+		{"groups", http.MethodGet, groupsPath, "", "Slack user token"},
 		{"people", http.MethodGet, peoplePath, "", noStore},
 		{"link", http.MethodPut, peoplePath, `{"owner":"ben","not_on_slack":true}`, noStore},
 		{"forget", http.MethodDelete, "/api/people?owner=ben", "", noStore},
@@ -346,7 +358,7 @@ func TestSlackDirectoryReadsListTheirEntries(t *testing.T) {
 		want   []api.SlackTarget
 	}{
 		{"/api/slack/members?channel=dev", []api.SlackTarget{api.SlackTarget(ben()), api.SlackTarget(carla())}},
-		{"/api/slack/groups", []api.SlackTarget{api.SlackTarget(podGroup()), api.SlackTarget(apiReviews())}},
+		{groupsPath, []api.SlackTarget{api.SlackTarget(podGroup()), api.SlackTarget(apiReviews())}},
 	}
 
 	for _, testCase := range cases {
@@ -373,15 +385,15 @@ func TestSlackDirectoryReadsNameAMissingScopeWithoutFailing(t *testing.T) {
 
 	// Arrange
 	fake := newFakeKept()
-	fake.groupsErr = fmt.Errorf("reading user groups: %w", &messaging.MissingScopeError{Needed: "usergroups:read"})
+	fake.groupsErr = fmt.Errorf("reading user groups: %w", &messaging.MissingScopeError{Needed: groupsRead})
 	handler := keptServer(t, fake, webserver.Info{Version: testVersion})
 
 	// Act
-	recorder := get(t, handler, "/api/slack/groups")
+	recorder := get(t, handler, groupsPath)
 
 	// Assert
 	got := decode[api.SlackDirectory](t, recorder)
-	if recorder.Code != http.StatusOK || got.MissingScope == nil || *got.MissingScope != "usergroups:read" ||
+	if recorder.Code != http.StatusOK || got.MissingScope == nil || *got.MissingScope != groupsRead ||
 		len(got.Entries) != 0 {
 		t.Errorf("GET /api/slack/groups = %d %+v, want 200 with no entries naming usergroups:read", recorder.Code, got)
 	}
@@ -396,7 +408,7 @@ func TestSlackGroupsAnswerNoneForAWorkspaceWithout(t *testing.T) {
 	handler := keptServer(t, fake, webserver.Info{Version: testVersion})
 
 	// Act
-	recorder := get(t, handler, "/api/slack/groups")
+	recorder := get(t, handler, groupsPath)
 
 	// Assert
 	if got := decode[api.SlackDirectory](t, recorder); recorder.Code != http.StatusOK || len(got.Entries) != 0 {

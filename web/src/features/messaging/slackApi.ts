@@ -20,7 +20,7 @@ async function readMembers(channel: string, signal?: AbortSignal): Promise<Slack
   if (import.meta.env.VITE_MOCK === 'true') {
     const { mockSlackMembers } = await import('@/dev/mockSlack.ts')
 
-    return mockSlackMembers()
+    return mockSlackMembers(channel)
   }
 
   const query = channel === '' ? {} : { channel }

@@ -153,9 +153,10 @@ type Deps struct {
 	RecordGroups  func(ids []string) error
 
 	// ChannelMembers and UserGroups read the Slack directory an owner is
-	// linked from. Nil, or a read answering messaging.ErrNoCredential — the
-	// settings in effect have no Slack user token — means an announcement
-	// offers no tags.
+	// linked from. Whether they are read at all follows the configuration in
+	// effect, which a save in Settings changes: only a Slack user token tags,
+	// and a read answered messaging.ErrNoCredential is no directory. Nil
+	// means an announcement offers no tags.
 	ChannelMembers func(channel string) ([]loop.SlackTarget, error)
 	UserGroups     func() ([]loop.SlackTarget, error)
 

@@ -1,5 +1,5 @@
-import { useState } from 'react'
-import type { AnnouncementTagging, Snapshot } from '@/api/generated/types.gen.ts'
+import { type Dispatch, type SetStateAction, useState } from 'react'
+import type { AnnounceMentions, AnnouncementTagging, Snapshot } from '@/api/generated/types.gen.ts'
 import { useForgeWords } from '@/api/health.ts'
 import { useLiveSnapshot } from '@/api/snapshot.ts'
 import { Button } from '@/lib/Button.tsx'
@@ -10,6 +10,7 @@ import { definitionList } from '@/lib/utils.ts'
 import { EmptyState } from '@/shell/EmptyState.tsx'
 import { announce, previewAnnouncement } from './announceApi.ts'
 import { TagPicker } from './TagPicker.tsx'
+import { mentionsOf, pickFrom, type TagPick } from './tagPick.ts'
 
 export function MessagingPanel() {
   const snapshot = useLiveSnapshot()
@@ -114,11 +115,6 @@ interface AnnounceControlsProps {
   onAnnounced: (said: string) => void
 }
 
-// checkedAtFirst is the user groups an announcement's tags start checked.
-function checkedAtFirst(tagging: AnnouncementTagging | undefined): string[] {
-  return (tagging?.groups ?? []).filter((group) => group.checked).map((group) => group.slack.id)
-}
-
 // AnnounceControls posts the pull request's announcement to the configured
 // service behind a preview step: it fetches the composed message, shows it for
 // confirmation, and posts only on confirm, and only the text it showed —
@@ -134,13 +130,16 @@ function AnnounceControls({
   onAnnounced,
 }: AnnounceControlsProps) {
   const [channel, setChannel] = useState(() => firstNonEmpty(defaultChannel, channels[0] ?? ''))
-  const [checked, setChecked] = useState<string[]>([])
+  const [pick, setPick] = useState<TagPick>(() => pickFrom(undefined))
+  const [linking, setLinking] = useState(false)
   const [opener, handBack] = useFocusHandback<HTMLButtonElement>()
   const preview = useAsyncAction(
     async () => {
-      const composed = await previewAnnouncement()
+      // The preview reads for the channel it opens on, so a scope that
+      // channel needs is the one it names.
+      const composed = await previewAnnouncement(channel)
       setChannel(firstNonEmpty(composed.channel, defaultChannel, channels[0] ?? ''))
-      setChecked(checkedAtFirst(composed.tagging))
+      setPick(pickFrom(composed.tagging))
 
       return composed
     },
@@ -149,18 +148,7 @@ function AnnounceControls({
         'The announcement could not be composed. Try again, or run workflow announce from a terminal.',
     },
   )
-  const post = useAsyncAction(
-    // Only an announcement that tags asks for groups, so one that does not
-    // posts as it always has.
-    (previewed: string, groups?: string[]) =>
-      groups === undefined ? announce(channel, previewed) : announce(channel, previewed, groups),
-    {
-      fallback: 'Nothing was announced. Try again, or run workflow announce from a terminal.',
-      // A webhook has no channel of its own to name, so the service stands in.
-      done: (posted) => `Announced to ${posted.channel === '' ? service : posted.channel}.`,
-      onDone: onAnnounced,
-    },
-  )
+  const post = useAnnouncePost(channel, service, onAnnounced)
 
   if (post.state === 'done') {
     return null
@@ -177,10 +165,12 @@ function AnnounceControls({
         channel={channel}
         channels={channels}
         tagging={tagging}
-        checked={checked}
+        pick={pick}
         posting={post.state === 'running'}
+        linking={linking}
         onChannel={setChannel}
-        onChecked={setChecked}
+        onPick={setPick}
+        onLinking={setLinking}
         onCancel={() => {
           handBack()
           preview.reset()
@@ -189,7 +179,7 @@ function AnnounceControls({
           // Back to the button if the post is refused; a posted announcement
           // hands focus to the line that says where it went instead.
           handBack()
-          void post.run(shown, tagging?.available === true ? checked : undefined)
+          void post.run(shown, tagging?.available === true ? mentionsOf(pick) : undefined)
         }}
       />
     )
@@ -220,19 +210,41 @@ function AnnounceControls({
   )
 }
 
+// useAnnouncePost is the post of a previewed announcement to channel, which
+// says where it went through onAnnounced. Only an announcement that tags asks
+// for mentions, so one that does not posts as it always has.
+function useAnnouncePost(channel: string, service: string, onAnnounced: (said: string) => void) {
+  return useAsyncAction(
+    (previewed: string, mentions?: AnnounceMentions) =>
+      mentions === undefined
+        ? announce(channel, previewed)
+        : announce(channel, previewed, mentions),
+    {
+      fallback: 'Nothing was announced. Try again, or run workflow announce from a terminal.',
+      // A webhook has no channel of its own to name, so the service stands in.
+      done: (posted) => `Announced to ${posted.channel === '' ? service : posted.channel}.`,
+      onDone: onAnnounced,
+    },
+  )
+}
+
 // AnnouncePreview shows the composed message, the channel it will go to and,
-// for an announcement that tags, whom it tags, with a confirm — named apart from the button that opened the preview, since
-// only this one sends — and a cancel. It takes focus as it opens, so what is about to
-// be sent is what a screen reader reads next.
+// for an announcement that tags, whom it tags, with a confirm — named apart
+// from the button that opened the preview, since only this one sends — and a
+// cancel. The confirm waits while an owner's link is being saved, so the post
+// tags whom the preview ends up showing. It takes focus as it opens, so what
+// is about to be sent is what a screen reader reads next.
 function AnnouncePreview({
   text,
   channel,
   channels,
   tagging,
-  checked,
+  pick,
   posting,
+  linking,
   onChannel,
-  onChecked,
+  onPick,
+  onLinking,
   onCancel,
   onPost,
 }: {
@@ -240,10 +252,12 @@ function AnnouncePreview({
   channel: string
   channels: string[]
   tagging: AnnouncementTagging | undefined
-  checked: string[]
+  pick: TagPick
   posting: boolean
+  linking: boolean
   onChannel: (channel: string) => void
-  onChecked: (ids: string[]) => void
+  onPick: Dispatch<SetStateAction<TagPick>>
+  onLinking: (linking: boolean) => void
   onCancel: () => void
   onPost: () => void
 }) {
@@ -280,17 +294,18 @@ function AnnouncePreview({
       {tagging?.available === true ? (
         <TagPicker
           tagging={tagging}
+          pick={pick}
           channel={channel}
           posting={posting}
-          checked={checked}
-          onChecked={onChecked}
+          onPick={onPick}
+          onLinking={onLinking}
         />
       ) : null}
       <div className="flex items-center gap-item">
         <Button variant="secondary" disabled={posting} onClick={onCancel}>
           Cancel
         </Button>
-        <Button variant="primary" disabled={posting} onClick={onPost}>
+        <Button variant="primary" disabled={posting || linking} onClick={onPost}>
           {posting ? 'Announcing…' : 'Announce now'}
         </Button>
       </div>

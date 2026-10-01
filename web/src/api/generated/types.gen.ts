@@ -169,9 +169,10 @@ export type AnnouncementTagging = {
 };
 
 /**
- * Whom to tag with the post. The linked user owners are tagged from what is kept, not from the request; groups name the user groups checked, each one the announcement offered.
+ * Whom to tag with the post. The linked user owners are tagged from what is kept, not from the request; users are the ones the preview showed tagged, so a post whose kept links changed since is refused rather than tagging someone else. groups name the user groups checked, each one the announcement offered.
  */
 export type AnnounceMentions = {
+    users: Array<string>;
     groups: Array<string>;
 };
 
@@ -2099,7 +2100,12 @@ export type CreateBranchResponse = CreateBranchResponses[keyof CreateBranchRespo
 export type GetAnnouncementData = {
     body?: never;
     path?: never;
-    query?: never;
+    query?: {
+        /**
+         * The channel the preview would post to, whose members an owner not yet linked is checked against; the configured channel when left out.
+         */
+        channel?: string;
+    };
     url: '/api/announcement';
 };
 
@@ -2134,7 +2140,7 @@ export type AnnounceData = {
 
 export type AnnounceErrors = {
     /**
-     * There is no pull request to announce, the server is not running in a git repository, or the announcement changed since the given text was previewed.
+     * There is no pull request to announce, the server is not running in a git repository, or the announcement changed since the given text was previewed, or whom it tags did since the mentions' users were.
      */
     409: Problem;
     /**

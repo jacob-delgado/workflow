@@ -7,10 +7,10 @@ import type {
 } from '../../src/api/generated/types.gen.ts'
 import { streams } from '../tabwalk.ts'
 
-// The announcement preview's tags: an owner linked to a channel member and
-// saved for next time, a user group checked, and the post that carries the
-// groups for the server to tag. The flows run on the hermetic build, whose
-// answers this spec gives and records.
+// The announcement preview's tags: an owner linked to a member of the channel
+// picked and saved for next time, a user group checked, and the post that
+// carries the people shown and the groups for the server to tag. The flows
+// run on the hermetic build, whose answers this spec gives and records.
 
 const pull = {
   number: 7,
@@ -43,7 +43,7 @@ const snapshot = {
     service: 'Slack',
     configured: true,
     channel: '#dev',
-    channels: ['#dev'],
+    channels: ['#dev', '#ops'],
     author: 'ana',
   },
   branches: [],
@@ -54,6 +54,7 @@ const snapshot = {
 
 const ben = { id: 'U0BEN', label: 'Ben Ito' }
 const carla = { id: 'U0CARLA', label: 'Carla Diaz' }
+const olive = { id: 'U0OLIVE', label: 'Olive Ops' }
 const pod = { id: 'S0POD', label: 'control-plane-pod' }
 const reviewers = { id: 'S0API', label: 'api-reviewers' }
 const text = 'ana opened a pull request: Redact tokens in the request log'
@@ -81,21 +82,30 @@ interface Sent {
   posts: unknown[]
 }
 
-// answersTags answers the preview, the channel's members, a link and the
-// post, and records what the page sent.
+// membersIn are each channel's members: one each alone has.
+const membersIn: Partial<Record<string, (typeof ben)[]>> = {
+  '#dev': [ben, carla],
+  '#ops': [olive, carla],
+}
+
+// answersTags answers the preview, each channel's members, a link to one of
+// them and the post, and records what the page sent.
 async function answersTags(page: Page): Promise<Sent> {
   const sent: Sent = { links: [], posts: [] }
   await streams(page, snapshot)
-  await page.route('**/api/announcement', (route) => route.fulfill({ json: announcement }))
-  await page.route('**/api/slack/members**', (route) =>
-    route.fulfill({ json: { entries: [ben, carla] } }),
-  )
+  await page.route('**/api/announcement**', (route) => route.fulfill({ json: announcement }))
+  await page.route('**/api/slack/members**', (route) => {
+    const channel = new URL(route.request().url()).searchParams.get('channel') ?? '#dev'
+
+    return route.fulfill({ json: { entries: membersIn[channel] ?? [] } })
+  })
   await page.route('**/api/people', (route) => {
     const link = route.request().postDataJSON() as PersonLink
     sent.links.push(link)
+    const slack = membersIn[link.channel ?? '#dev']?.find((member) => member.id === link.slack_id)
     const people: People = {
       owners: [
-        { owner: 'ben', kind: 'user', state: 'linked', slack: ben },
+        { owner: 'ben', kind: 'user', state: 'linked', slack },
         ...announcement.tagging.owners.slice(1),
       ],
     }
@@ -103,9 +113,10 @@ async function answersTags(page: Page): Promise<Sent> {
     return route.fulfill({ json: people })
   })
   await page.route('**/api/announce', (route) => {
-    sent.posts.push(route.request().postDataJSON())
+    const post = route.request().postDataJSON() as { channel: string }
+    sent.posts.push(post)
 
-    return route.fulfill({ json: { text, channel: '#dev' } })
+    return route.fulfill({ json: { text, channel: post.channel } })
   })
 
   return sent
@@ -140,8 +151,40 @@ test('links an owner, checks a group, and the post carries the groups', async ({
 
   // Assert: the link was kept, and the post asked for both groups.
   await expect(page.getByText('Announced to #dev.')).toBeVisible()
-  expect(sent.links).toEqual([{ owner: 'ben', slack_id: 'U0BEN', not_on_slack: false }])
-  expect(sent.posts).toEqual([{ channel: '#dev', text, mentions: { groups: ['S0POD', 'S0API'] } }])
+  expect(sent.links).toEqual([
+    { owner: 'ben', slack_id: 'U0BEN', not_on_slack: false, channel: '#dev' },
+  ])
+  expect(sent.posts).toEqual([
+    {
+      channel: '#dev',
+      text,
+      mentions: { users: ['U0BEN', 'U0CARLA'], groups: ['S0POD', 'S0API'] },
+    },
+  ])
+})
+
+test('links an owner to a member of the other channel picked', async ({ page }) => {
+  // Arrange: the preview moved to #ops, whose members ben is picked from.
+  const sent = await answersTags(page)
+  await opensPreview(page)
+  await page.getByRole('combobox', { name: 'Channel' }).selectOption('#ops')
+  const ownerChoice = page.getByRole('combobox', { name: 'Slack user for ben' })
+  await expect(ownerChoice.getByRole('option', { name: 'Olive Ops' })).toBeAttached()
+  await expect(ownerChoice.getByRole('option', { name: 'Ben Ito' })).not.toBeAttached()
+  await ownerChoice.selectOption({ label: 'Olive Ops' })
+  await expect(page.getByText('Saved for next time: ben is Olive Ops.')).toBeVisible()
+
+  // Act
+  await page.getByRole('button', { name: 'Announce now' }).click()
+
+  // Assert: the link named #ops, and the post went there tagging olive.
+  await expect(page.getByText('Announced to #ops.')).toBeVisible()
+  expect(sent.links).toEqual([
+    { owner: 'ben', slack_id: 'U0OLIVE', not_on_slack: false, channel: '#ops' },
+  ])
+  expect(sent.posts).toEqual([
+    { channel: '#ops', text, mentions: { users: ['U0OLIVE', 'U0CARLA'], groups: ['S0POD'] } },
+  ])
 })
 
 test('an unchecked group is left out of the post', async ({ page }) => {
@@ -155,7 +198,9 @@ test('an unchecked group is left out of the post', async ({ page }) => {
 
   // Assert
   await expect(page.getByText('Announced to #dev.')).toBeVisible()
-  expect(sent.posts).toEqual([{ channel: '#dev', text, mentions: { groups: [] } }])
+  expect(sent.posts).toEqual([
+    { channel: '#dev', text, mentions: { users: ['U0CARLA'], groups: [] } },
+  ])
 })
 
 test(
@@ -173,5 +218,23 @@ test(
     // Assert
     await expect(page.getByText('Saved for next time: ben is Ben Ito.')).toBeVisible()
     await expect(page.getByText('@Ben Ito, @Carla Diaz, @control-plane-pod')).toBeVisible()
+  },
+)
+
+test(
+  'the mockup links an owner to a member of the channel picked',
+  { tag: '@populated' },
+  async ({ page }) => {
+    // Arrange: #releases has a member #dev-workflow has not.
+    await opensPreview(page)
+    await page.getByRole('combobox', { name: 'Channel' }).selectOption('#releases')
+    const ownerChoice = page.getByRole('combobox', { name: 'Slack user for ben' })
+    await expect(ownerChoice.getByRole('option', { name: 'Erin Park' })).toBeAttached()
+
+    // Act
+    await ownerChoice.selectOption({ label: 'Erin Park' })
+
+    // Assert
+    await expect(page.getByText('Saved for next time: ben is Erin Park.')).toBeVisible()
   },
 )

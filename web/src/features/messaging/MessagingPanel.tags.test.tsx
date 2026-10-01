@@ -5,6 +5,7 @@ import type {
   AnnouncementTagging,
   People,
   PullRequest,
+  SlackDirectory,
 } from '@/api/generated/types.gen.ts'
 import { useHealthStore } from '@/api/health.ts'
 import { useSnapshotStore } from '@/api/snapshot.ts'
@@ -53,19 +54,28 @@ const benLinked: People = {
   owners: [{ owner: 'ben', kind: 'user', state: 'linked', slack: ben }, ...tagging.owners.slice(1)],
 }
 
-// opensPreview answers the preview with announcement, the channel's members
+// Answers are what the server answers besides the preview: a link, and the
+// members of each channel, by name.
+interface Answers {
+  people?: People | (() => Promise<People>)
+  members?: Record<string, SlackDirectory>
+  channels?: string[]
+}
+
+// opensPreview answers the preview with announcement, the channels' members
 // and a link, and opens the preview; it returns every request made.
-async function opensPreview(announcement: Announcement, people: People = benLinked) {
+async function opensPreview(announcement: Announcement, answers: Answers = {}) {
+  const members = answers.members ?? { '#dev': { entries: [ben, carla] } }
   const requests = fakeApi({
     '/api/announcement': announcement,
-    '/api/slack/members': { entries: [ben, carla] },
-    '/api/people': people,
+    '/api/slack/members': (at: URL) => members[at.searchParams.get('channel') ?? ''],
+    '/api/slack/groups': { entries: [pod, api] },
+    '/api/people': answers.people ?? benLinked,
     '/api/announce': { text, channel: '#dev' },
   })
-  useSnapshotStore.setState({
-    status: 'live',
-    snapshot: makeSnapshot({ review: { found: true, pull } }),
-  })
+  const snapshot = makeSnapshot({ review: { found: true, pull } })
+  snapshot.messaging.channels = answers.channels ?? []
+  useSnapshotStore.setState({ status: 'live', snapshot })
   const user = userEvent.setup()
   renderWithClient(<MessagingPanel />)
   await user.click(screen.getByRole('button', { name: 'Announce to Slack' }))
@@ -112,6 +122,7 @@ test('linking an owner saves it for next time and tags them', async () => {
     owner: 'ben',
     slack_id: 'U0BEN',
     not_on_slack: false,
+    channel: '#dev',
   })
   expect(screen.getByText('@Ben Ito, @Carla Diaz, @control-plane-pod')).toBeTruthy()
 })
@@ -121,7 +132,10 @@ test('an owner marked not on Slack is saved as such', async () => {
   const notOnSlack: People = {
     owners: [{ owner: 'ben', kind: 'user', state: 'not_on_slack' }, ...tagging.owners.slice(1)],
   }
-  const { requests, user } = await opensPreview({ text, channel: '#dev', tagging }, notOnSlack)
+  const { requests, user } = await opensPreview(
+    { text, channel: '#dev', tagging },
+    { people: notOnSlack },
+  )
 
   // Act
   await user.click(screen.getByRole('button', { name: 'ben is not on Slack' }))
@@ -144,17 +158,16 @@ test('the post carries the groups checked', async () => {
   expect(await bodyOf(requests, '/api/announce')).toEqual({
     channel: '#dev',
     text,
-    mentions: { groups: ['S0POD', 'S0API'] },
+    mentions: { users: ['U0CARLA'], groups: ['S0POD', 'S0API'] },
   })
 })
 
 test('a missing scope is named, and the announcement still posts', async () => {
   // Arrange
-  const { user } = await opensPreview({
-    text,
-    channel: '#dev',
-    tagging: { ...tagging, missing_scope: 'users:read' },
-  })
+  const { user } = await opensPreview(
+    { text, channel: '#dev', tagging: { ...tagging, missing_scope: 'users:read' } },
+    { members: { '#dev': { entries: [], missing_scope: 'users:read' } } },
+  )
   expect(screen.getByRole('note').textContent).toContain('users:read')
 
   // Act
@@ -193,4 +206,140 @@ test('under --dry-run an owner is not offered to link', async () => {
   // Assert
   expect(screen.queryByRole('combobox', { name: 'Slack user for ben' })).toBeNull()
   expect(screen.getByText(/linking is held back under --dry-run/)).toBeTruthy()
+})
+
+// twoChannels are the channels a preview can post to, with a member each
+// alone has.
+const olive = { id: 'U0OLIVE', label: 'Olive Ops' }
+const twoChannels: Answers = {
+  channels: ['#dev', '#ops'],
+  members: { '#dev': { entries: [ben, carla] }, '#ops': { entries: [olive, carla] } },
+}
+
+test('the preview is composed for the channel it opens on', async () => {
+  // Act
+  const { requests } = await opensPreview({ text, channel: '#dev', tagging }, twoChannels)
+
+  // Assert
+  const composed = requests.find((request) => new URL(request.url).pathname === '/api/announcement')
+  expect(new URL(composed?.url ?? 'http://x').searchParams.get('channel')).toBe('#dev')
+})
+
+test('an owner is linked to a member of the channel picked, named with it', async () => {
+  // Arrange
+  const oliveLinked: People = {
+    owners: [
+      { owner: 'ben', kind: 'user', state: 'linked', slack: olive },
+      ...tagging.owners.slice(1),
+    ],
+  }
+  const { requests, user } = await opensPreview(
+    { text, channel: '#dev', tagging },
+    { ...twoChannels, people: oliveLinked },
+  )
+  await user.selectOptions(screen.getByRole('combobox', { name: /^Channel/ }), '#ops')
+  await screen.findByRole('option', { name: 'Olive Ops' })
+
+  // Act
+  await user.selectOptions(screen.getByRole('combobox', { name: 'Slack user for ben' }), 'U0OLIVE')
+
+  // Assert
+  await screen.findByText('Saved for next time: ben is Olive Ops.')
+  expect(await bodyOf(requests, '/api/people')).toEqual({
+    owner: 'ben',
+    slack_id: 'U0OLIVE',
+    not_on_slack: false,
+    channel: '#ops',
+  })
+})
+
+test('a scope the opening channel lacks gives way to the channel picked', async () => {
+  // Arrange
+  const { user } = await opensPreview(
+    { text, channel: '#dev', tagging: { ...tagging, missing_scope: 'groups:read' } },
+    {
+      ...twoChannels,
+      members: {
+        '#dev': { entries: [], missing_scope: 'groups:read' },
+        '#ops': { entries: [olive] },
+      },
+    },
+  )
+
+  // Act
+  await user.selectOptions(screen.getByRole('combobox', { name: /^Channel/ }), '#ops')
+
+  // Assert
+  await screen.findByRole('option', { name: 'Olive Ops' })
+  expect(screen.queryByRole('note')).toBeNull()
+})
+
+// teamTagging is an announcement whose team owner waits to be linked, with
+// one group offered.
+const teamTagging: AnnouncementTagging = {
+  available: true,
+  owners: [{ owner: 'acme/control-plane', kind: 'team', state: 'unlinked' }],
+  groups: [{ slack: api, checked: false, from_owners: false }],
+}
+
+// teamLinkHeld answers a link only once release is called.
+function teamLinkHeld() {
+  const held = { release: () => {} }
+  const people = () =>
+    new Promise<People>((resolve) => {
+      held.release = () => {
+        resolve({
+          owners: [{ owner: 'acme/control-plane', kind: 'team', state: 'linked', slack: pod }],
+        })
+      }
+    })
+
+  return { held, people }
+}
+
+test('a group checked while a team link is saved stays checked, and is posted', async () => {
+  // Arrange
+  const { held, people } = teamLinkHeld()
+  const { requests, user } = await opensPreview(
+    { text, channel: '#dev', tagging: teamTagging },
+    { people },
+  )
+  await screen.findByRole('option', { name: 'control-plane-pod' })
+  await user.selectOptions(
+    screen.getByRole('combobox', { name: 'Slack group for acme/control-plane' }),
+    'S0POD',
+  )
+  await user.click(screen.getByRole('checkbox', { name: /@api-reviewers/ }))
+  held.release()
+  await screen.findByText('Saved for next time: acme/control-plane is control-plane-pod.')
+
+  // Act
+  await user.click(screen.getByRole('button', { name: 'Announce now' }))
+
+  // Assert
+  await screen.findByText('Announced to #dev.')
+  expect(await bodyOf(requests, '/api/announce')).toEqual({
+    channel: '#dev',
+    text,
+    mentions: { users: [], groups: ['S0API', 'S0POD'] },
+  })
+})
+
+test('the post waits while a link is being saved', async () => {
+  // Arrange
+  const { held, people } = teamLinkHeld()
+  const { user } = await opensPreview({ text, channel: '#dev', tagging: teamTagging }, { people })
+  await screen.findByRole('option', { name: 'control-plane-pod' })
+
+  // Act
+  await user.selectOptions(
+    screen.getByRole('combobox', { name: 'Slack group for acme/control-plane' }),
+    'S0POD',
+  )
+
+  // Assert
+  expect(screen.getByRole('button', { name: 'Announce now' })).toHaveProperty('disabled', true)
+  held.release()
+  await screen.findByText(/Saved for next time/)
+  expect(screen.getByRole('button', { name: 'Announce now' })).toHaveProperty('disabled', false)
 })

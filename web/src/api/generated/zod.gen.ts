@@ -105,9 +105,10 @@ export const zAnnouncementTagging = z.object({
 });
 
 /**
- * Whom to tag with the post. The linked user owners are tagged from what is kept, not from the request; groups name the user groups checked, each one the announcement offered.
+ * Whom to tag with the post. The linked user owners are tagged from what is kept, not from the request; users are the ones the preview showed tagged, so a post whose kept links changed since is refused rather than tagging someone else. groups name the user groups checked, each one the announcement offered.
  */
 export const zAnnounceMentions = z.object({
+    users: z.array(z.string().regex(/^[UW][A-Z0-9]+$/)).max(50),
     groups: z.array(z.string().regex(/^S[A-Z0-9]+$/)).max(50)
 });
 
@@ -884,6 +885,10 @@ export const zCreateBranchBody = zCreateBranchRequest;
  * The branch that was created and is now checked out. If it cannot be read back after it was created, only its name is set.
  */
 export const zCreateBranchResponse = zBranch;
+
+export const zGetAnnouncementQuery = z.object({
+    channel: z.string().max(200).optional()
+});
 
 /**
  * The composed announcement and the channel it would post to.
