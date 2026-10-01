@@ -18,9 +18,9 @@ CONFIGURATION
 
   workflow reads .workflow.json from the current directory or the
   nearest directory above it, no higher than the repository root, and falls
-  back to your home directory. A file found there REPLACES the one in your home
-  directory — the two are never merged, so a repository-local configuration is
-  always the whole story.
+  back to your home directory. A file found there is LAYERED over the one in
+  your home directory, setting by setting: the repository's file holds only
+  what that repository changes, and inherits the rest, tokens included.
 
   Write a starting file with:
 

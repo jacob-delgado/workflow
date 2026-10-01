@@ -16,26 +16,6 @@ import (
 	"strings"
 )
 
-// Discover returns the path of the configuration file that applies: the nearest
-// one walking up from workDir, no higher than the repository root, and otherwise
-// the one in homeDir. A file found on that walk replaces the one in the home
-// directory rather than merging with it: a repository-local configuration is a
-// complete answer, so the two can never combine into a state neither file
-// describes.
-//
-// It returns ErrNotFound when neither location has one.
-func Discover(workDir, homeDir string) (string, error) {
-	if found, ok := nearest(workDir); ok {
-		return found, nil
-	}
-
-	if candidate, ok := fileIn(homeDir); ok {
-		return candidate, nil
-	}
-
-	return "", fmt.Errorf("%w in %s or %s", ErrNotFound, workDir, homeDir)
-}
-
 // nearest walks up from dir looking for the configuration file, so a session in
 // a subdirectory of a repository finds the repository's own file rather than
 // skipping it for the one at home. The search stops at the repository root — the
@@ -103,14 +83,17 @@ func atRepoRoot(dir string) bool {
 	return err == nil
 }
 
-// Load reads the configuration that applies: the file Discover finds.
+// Load reads the configuration that applies: the files Locate finds, the
+// repository's layered over the home directory's.
 func Load(workDir, homeDir string) (Config, error) {
-	path, err := Discover(workDir, homeDir)
+	files, err := Locate(workDir, homeDir)
 	if err != nil {
 		return Default(), err
 	}
 
-	return LoadFile(path)
+	cfg, _, err := LoadLayersAt(files)
+
+	return cfg, err
 }
 
 // LoadFile reads the configuration from an exact path. Unknown keys are an
@@ -172,22 +155,9 @@ func Parse(r io.Reader) (Config, error) {
 		return Default(), fmt.Errorf("%w: %w", ErrInvalid, err)
 	}
 
-	decoder := json.NewDecoder(bytes.NewReader(contents))
-	decoder.DisallowUnknownFields()
-
-	cfg := Default()
-
-	err = decoder.Decode(&cfg)
+	cfg, err := decode(contents)
 	if err != nil {
-		if isRenamedSlackBlock(err) {
-			return Default(), fmt.Errorf("%w: %w", ErrInvalid, ErrSlackRenamed)
-		}
-
-		if namesRemovedBotToken(contents) {
-			return Default(), fmt.Errorf("%w: %w", ErrInvalid, ErrSlackBotTokenRemoved)
-		}
-
-		return Default(), fmt.Errorf("%w: %w", ErrInvalid, err)
+		return Default(), err
 	}
 
 	err = errors.Join(cfg.validateVersion(), cfg.validateTiming(),
@@ -198,6 +168,30 @@ func Parse(r io.Reader) (Config, error) {
 	}
 
 	return cfg, nil
+}
+
+// decode reads contents over the defaults, refusing a key the configuration
+// does not have, and naming the removed settings that are the likeliest cause.
+func decode(contents []byte) (Config, error) {
+	decoder := json.NewDecoder(bytes.NewReader(contents))
+	decoder.DisallowUnknownFields()
+
+	cfg := Default()
+
+	err := decoder.Decode(&cfg)
+	if err == nil {
+		return cfg, nil
+	}
+
+	if isRenamedSlackBlock(err) {
+		return Default(), fmt.Errorf("%w: %w", ErrInvalid, ErrSlackRenamed)
+	}
+
+	if namesRemovedBotToken(contents) {
+		return Default(), fmt.Errorf("%w: %w", ErrInvalid, ErrSlackBotTokenRemoved)
+	}
+
+	return Default(), fmt.Errorf("%w: %w", ErrInvalid, err)
 }
 
 // isRenamedSlackBlock reports the decoder's complaint about a top-level "slack"

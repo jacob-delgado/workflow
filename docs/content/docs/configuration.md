@@ -49,17 +49,36 @@ fill in by hand instead of being asked.
 workflow looks for `.workflow.json` in the current directory first, then in each
 directory above it up to the repository root — the directory holding `.git` —
 and then in your home directory. Outside a repository the walk goes on up to
-the top of the filesystem. The first file found is the one read, so a
-subdirectory of a repository reads the repository's own file.
+the top of the filesystem, so a subdirectory of a repository reads the
+repository's own file.
 
-**A file found in or above the current directory replaces the one in your home
-directory.** The two are never merged. A repository-local configuration is
-therefore the whole story for that repository, and the two files can never
-combine into a state that neither of them describes — which is the failure mode
-that makes "why is it using that project?" so hard to debug.
+**A file found in or above the current directory is layered over the one in
+your home directory.** Your home file holds what every repository shares — the
+Jira address and token, the messaging service — and a repository's file holds
+only what that repository changes. A repository's file of just
 
-`workflow doctor` names the file in effect, so there is never a question about
-which one was read.
+```json
+{ "jira": { "project": "OSS" } }
+```
+
+keeps everything else from home. Setting by setting, the repository's file
+wins: an object in both is merged key by key, and anything else it sets — a
+list such as `jira.views`, a string, an explicit `false` — replaces the home
+file's. Each file's keys are checked on their own, so a misspelled one names
+its file, and the two are then checked together, since two valid files can
+still disagree (a webhook at home and a Slack user token in the repository,
+say).
+
+A save writes the repository's file when there is one: the web's Settings
+writes only what differs from your home file, so a token inherited from home is
+never copied into a file in a working tree, and a later change at home still
+reaches the repository. `workflow config init` in a repository, over a home
+file, starts from the home file's settings — a question left blank keeps the
+home file's answer — and `--template` writes an empty layer rather than blanks
+that would hide them. `--global` writes the home file.
+
+`workflow doctor` names every file in effect, and `workflow config show` names
+them on stderr, so there is never a question about which were read.
 
 ## Fields
 

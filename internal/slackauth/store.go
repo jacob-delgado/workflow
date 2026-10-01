@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"os"
 	"time"
 
 	"github.com/jacob-delgado/workflow/internal/config"
@@ -81,28 +82,69 @@ func (s Store) Where() string {
 // which has no keychain workflow drives; otherwise in item, the macOS keychain.
 func Choose(goos string, cfg config.Config, item keychain.Item) Store {
 	if goos != "darwin" || cfg.Messaging.HoldsUserTokenSecrets() {
-		return FileStore(cfg.Path)
+		return FileStore(cfg.Layers())
 	}
 
 	return KeychainStore(item)
 }
 
-// FileStore keeps the credentials in the configuration file at path, rewriting
-// only their fields and keeping every other setting as it is.
-func FileStore(path string) Store {
+// FileStore keeps the credentials in one of the configuration files: the one
+// that already holds them, or else the home directory's, so a first login
+// puts no secret in a file in a working tree that can do without one. It
+// rewrites only their fields and keeps every other setting as it is.
+func FileStore(files config.Files) Store {
+	path := secretsFile(files)
+
 	return NewStore("the configuration file "+path,
 		func(context.Context) (Credentials, error) { return loadFile(path) },
-		func(_ context.Context, credentials Credentials) error { return saveFile(path, credentials) })
+		func(_ context.Context, credentials Credentials) error { return saveFile(files, path, credentials) })
+}
+
+// secretsFile is the file of files the credentials are kept in.
+func secretsFile(files config.Files) string {
+	for _, path := range []string{files.Repo, files.Home} {
+		held, err := readSecrets(path)
+		if err == nil && held.ClientSecret+held.RefreshToken != "" {
+			return path
+		}
+	}
+
+	if files.Home != "" {
+		return files.Home
+	}
+
+	return files.Repo
+}
+
+// readSecrets reads the user token's fields from the one file at path, on
+// their own: a repository's file can be a few settings over the home
+// directory's, and need not be a configuration by itself.
+func readSecrets(path string) (config.Messaging, error) {
+	//nolint:gosec // the path is the user's own config file, by design
+	contents, err := os.ReadFile(path)
+	if err != nil {
+		return config.Messaging{}, fmt.Errorf("reading %s: %w", path, err)
+	}
+
+	var held struct {
+		Messaging config.Messaging `json:"messaging"`
+	}
+
+	err = json.Unmarshal(contents, &held)
+	if err != nil {
+		return config.Messaging{}, fmt.Errorf("reading %s: %w", path, err)
+	}
+
+	return held.Messaging, nil
 }
 
 // loadFile reads the credentials the configuration file at path holds.
 func loadFile(path string) (Credentials, error) {
-	cfg, err := config.LoadFile(path)
+	messaging, err := readSecrets(path)
 	if err != nil {
 		return Credentials{}, err
 	}
 
-	messaging := cfg.Messaging
 	if messaging.RefreshToken == "" || messaging.ClientSecret == "" {
 		return Credentials{}, ErrNotLoggedIn
 	}
@@ -118,11 +160,17 @@ func loadFile(path string) (Credentials, error) {
 	}, nil
 }
 
-// saveFile writes credentials into the configuration file at path, over the
-// revision it read, so an edit landing between the read and the write is
-// refused rather than lost.
-func saveFile(path string, credentials Credentials) error {
-	cfg, revision, err := config.LoadFileAt(path)
+// saveFile writes credentials into path, one of files, over the revision it
+// read, so an edit landing between the read and the write is refused rather
+// than lost. The repository's file over a home file is written as the layer it
+// is; any other is written whole, as itself.
+func saveFile(files config.Files, path string, credentials Credentials) error {
+	layers := config.Files{Repo: path}
+	if path == files.Repo {
+		layers = files
+	}
+
+	cfg, revision, err := config.LoadLayersAt(layers)
 	if err != nil {
 		return err
 	}
@@ -132,7 +180,7 @@ func saveFile(path string, credentials Credentials) error {
 	cfg.Messaging.AccessToken = credentials.AccessToken
 	cfg.Messaging.ExpiresAt = stamp(credentials.ExpiresAt)
 
-	_, err = config.SaveOver(path, cfg, revision)
+	_, err = config.SaveLayers(layers, cfg, revision)
 
 	return err
 }

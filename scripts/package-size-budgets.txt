@@ -46,8 +46,9 @@
 # (FEAT-14) and store.go (FEAT-67) as they crossed the default budget; 14 is
 # ui.go, the terminal's section moved out of config.go to carry the validation
 # it had gone without; 15 is taskwarrior.go, the optional Taskwarrior
-# integration's program and switch.
-internal/config 15
+# integration's program and switch; 16 is layers.go, which finds the home and
+# repository files and reads and saves the repository's as a layer over home.
+internal/config 16
 
 # internal/tui — the Bubble Tea interface, one file per pane, overlay and
 # composer. It is a single responsibility (drive the terminal UI) spelled

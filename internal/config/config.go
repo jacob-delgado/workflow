@@ -187,9 +187,13 @@ type Config struct {
 	PullRequest PullRequest `json:"pull_request"`
 	Store       Store       `json:"store"`
 	Taskwarrior Taskwarrior `json:"taskwarrior"`
-	// Path is the file this configuration was read from. It is not part of the
-	// file format.
+	// Path is the file a save of this configuration writes: the repository's
+	// file when there is one, otherwise the home directory's. It is not part of
+	// the file format.
 	Path string `json:"-"`
+	// Files are the files this configuration was read from, the repository's
+	// layered over the home directory's. Not part of the file format either.
+	Files Files `json:"-"`
 }
 
 // Default is the configuration before any file is read: every setting that has

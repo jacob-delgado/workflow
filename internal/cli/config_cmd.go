@@ -45,6 +45,9 @@ type initOptions struct {
 	global   bool
 	template bool
 	dryRun   bool
+	// layers are the home file the new one lies over, and the new one; empty
+	// when it stands alone.
+	layers config.Files
 }
 
 // newConfigInitCmd builds `workflow config init`. It asks for each credential
@@ -75,6 +78,8 @@ func newConfigInitCmd(prompt Prompt) *cobra.Command {
 			}
 
 			path := filepath.Join(dir, config.FileName)
+			opts.layers = layersFor(path, opts.global)
+
 			if opts.template {
 				return runConfigInit(cmd, path, opts)
 			}
@@ -166,11 +171,34 @@ func previewConfig(cmd *cobra.Command, path string, cfg config.Config) error {
 	return encodeJSON(cmd.OutOrStdout(), cfg.Redacted())
 }
 
-// runConfigInit writes the template, unless the file is already there.
+// layersFor is the home file a repository's file at path would lie over, when
+// there is one and path is not it; a file written with --global, or with no
+// home file to lie over, stands alone.
+func layersFor(path string, global bool) config.Files {
+	home := filepath.Join(configHome(), config.FileName)
+	if global || home == path {
+		return config.Files{}
+	}
+
+	_, err := os.Stat(home)
+	if err != nil {
+		return config.Files{}
+	}
+
+	return config.Files{Home: home, Repo: path}
+}
+
+// runConfigInit writes the template, unless the file is already there. Over a
+// home file it writes an empty layer instead: the template's blanks would hide
+// every setting the home file makes.
 func runConfigInit(cmd *cobra.Command, path string, opts initOptions) error {
 	err := refuseOverwrite(path, opts.force)
 	if err != nil {
 		return err
+	}
+
+	if opts.layers.Home != "" {
+		return writeEmptyLayer(cmd, path, opts)
 	}
 
 	if opts.dryRun {
@@ -187,6 +215,30 @@ func runConfigInit(cmd *cobra.Command, path string, opts initOptions) error {
 	fmt.Fprintf(out, "Wrote %s (mode %#o).\n", path, config.FileMode)
 	fmt.Fprintf(out, "\nNext: add your Jira and Slack tokens, then run `workflow doctor`.\n")
 	fmt.Fprintf(out, "`workflow --help` explains how to create each token.\n")
+
+	return nil
+}
+
+// writeEmptyLayer writes the repository's file over the home one with nothing
+// in it yet, and says what belongs there.
+func writeEmptyLayer(cmd *cobra.Command, path string, opts initOptions) error {
+	beneath, over, err := config.LoadLayersAt(config.Files{Home: opts.layers.Home})
+	if err != nil {
+		return err
+	}
+
+	if opts.dryRun {
+		return previewConfig(cmd, path, beneath)
+	}
+
+	_, err = config.SaveLayers(opts.layers, beneath, over)
+	if err != nil {
+		return err
+	}
+
+	fmt.Fprintf(cmd.ErrOrStderr(), "Wrote %s (mode %#o), over %s.\n"+
+		"\nNext: add only the settings this repository changes; the rest come from %s.\n",
+		path, config.FileMode, opts.layers.Home, opts.layers.Home)
 
 	return nil
 }
@@ -214,23 +266,30 @@ func runGuidedInit(cmd *cobra.Command, path string, opts initOptions, prompt Pro
 	out := cmd.ErrOrStderr()
 	fmt.Fprintf(out, "Setting up %s. Leave a prompt blank to skip it.\n\n", path)
 
-	cfg := config.Default()
-
-	cfg.Jira, err = collectJira(cmd.Context(), out, prompt, requestLog.Wrap("jira", onlineDoer(config.Config{})))
+	cfg, over, err := config.LoadLayersAt(config.Files{Home: opts.layers.Home})
 	if err != nil {
 		return err
 	}
 
-	cfg.Messaging, err = collectMessaging(out, prompt)
+	asked, err := collectJira(cmd.Context(), out, prompt, requestLog.Wrap("jira", onlineDoer(config.Config{})))
 	if err != nil {
 		return err
 	}
+
+	cfg.Jira = withJira(cfg.Jira, asked)
+
+	webhook, err := collectMessaging(out, prompt)
+	if err != nil {
+		return err
+	}
+
+	cfg.Messaging = withWebhook(cfg.Messaging, webhook)
 
 	if opts.dryRun {
 		return previewConfig(cmd, path, cfg)
 	}
 
-	err = config.Save(path, cfg)
+	err = saveInit(path, opts.layers, cfg, over)
 	if err != nil {
 		return err
 	}
@@ -239,6 +298,45 @@ func runGuidedInit(cmd *cobra.Command, path string, opts initOptions, prompt Pro
 	warnIfNotIgnored(cmd.Context(), out, path)
 
 	return nil
+}
+
+// withJira is jira with the address and token asked for in place of its own,
+// or jira as it was when the question was left blank, so a blank answer over a
+// home file keeps the home file's.
+func withJira(jira, asked config.Jira) config.Jira {
+	if asked.BaseURL == "" {
+		return jira
+	}
+
+	jira.BaseURL, jira.Token, jira.TokenCommand, jira.TokenEnv = asked.BaseURL, asked.Token, asked.TokenCommand, ""
+
+	return jira
+}
+
+// withWebhook is messaging posting through the webhook asked for, or messaging
+// as it was when the question was left blank. A webhook stands alone, so a
+// user token it replaces goes with it.
+func withWebhook(messaging, asked config.Messaging) config.Messaging {
+	if asked.WebhookURL == "" {
+		return messaging
+	}
+
+	messaging.Kind, messaging.WebhookURL, messaging.ClientID = asked.Kind, asked.WebhookURL, ""
+	messaging.ClientSecret, messaging.RefreshToken, messaging.AccessToken, messaging.ExpiresAt = "", "", "", ""
+
+	return messaging
+}
+
+// saveInit writes what config init kept: a file of its own, or, over a home
+// file, the layer that differs from it.
+func saveInit(path string, layers config.Files, cfg config.Config, over config.Revision) error {
+	if layers.Home == "" {
+		return config.Save(path, cfg)
+	}
+
+	_, err := config.SaveLayers(layers, cfg, over)
+
+	return err
 }
 
 // collectJira asks for the Jira address and token, checks them over doer, and
@@ -345,7 +443,7 @@ func warnIfNotIgnored(ctx context.Context, out io.Writer, path string) {
 // the JSON alone on stdout, so it pipes into jq, and which file it came from on
 // stderr.
 func runConfigShow(cmd *cobra.Command, cfg config.Config) error {
-	fmt.Fprintf(cmd.ErrOrStderr(), "# %s\n", cfg.Path)
+	fmt.Fprintf(cmd.ErrOrStderr(), "# %s\n", cfg.Layers())
 
 	return encodeJSON(cmd.OutOrStdout(), cfg.Redacted())
 }

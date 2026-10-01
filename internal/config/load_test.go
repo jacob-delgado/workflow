@@ -14,9 +14,7 @@ import (
 	"github.com/jacob-delgado/workflow/internal/config"
 )
 
-// The working directory's file REPLACES the home one. If the two ever merged,
-// the home file's Slack token would leak into this result.
-func TestLoadUsesTheWorkingDirectoryFileInsteadOfHomes(t *testing.T) {
+func TestTheWorkingDirectoryFileLayersOverTheHomeFile(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
@@ -34,15 +32,16 @@ func TestLoadUsesTheWorkingDirectoryFileInsteadOfHomes(t *testing.T) {
 
 	// Assert
 	if cfg.Path != wantPath {
-		t.Errorf("loaded %s, want %s", cfg.Path, wantPath)
+		t.Errorf("saves to %s, want the working directory's %s", cfg.Path, wantPath)
 	}
 
-	if cfg.Jira.BaseURL != "https://work.example.com" {
-		t.Errorf("jira.base_url = %q, want the working directory's value", cfg.Jira.BaseURL)
+	if cfg.Jira.BaseURL != "https://work.example.com" || cfg.Jira.Token != "jira-token-1234" {
+		t.Errorf("jira = %q, %q; want the working directory's address over the home file's token",
+			cfg.Jira.BaseURL, cfg.Jira.Token.Reveal())
 	}
 
-	if cfg.Messaging.ClientID != "" {
-		t.Errorf("messaging.client_id = %q, want empty: the home file must not merge in", cfg.Messaging.ClientID)
+	if cfg.Messaging.ClientID != "1234.5678" {
+		t.Errorf("messaging.client_id = %q, want the home file's", cfg.Messaging.ClientID)
 	}
 }
 
@@ -157,22 +156,22 @@ func TestLoadRejectsMalformedAndUnknownKeys(t *testing.T) {
 	}
 }
 
-func TestDiscoverIgnoresAnEmptyDirectory(t *testing.T) {
+func TestLocateIgnoresAnEmptyDirectory(t *testing.T) {
 	t.Parallel()
 
 	// A caller with no working directory, or a machine with no home directory,
-	// hands Discover an empty string rather than a path. It must skip that
-	// entry, not join it into a relative .workflow.json looked up wherever the
-	// process happens to run.
+	// hands Locate an empty string rather than a path. It must skip that entry,
+	// not join it into a relative .workflow.json looked up wherever the process
+	// happens to run.
 	homeWithFile := t.TempDir()
 	homeFile := write(t, homeWithFile, completeConfig)
 
 	cases := map[string]struct {
 		workDir, homeDir string
-		want             string
+		want             config.Files
 		wantErr          error
 	}{
-		"no working directory": {workDir: "", homeDir: homeWithFile, want: homeFile},
+		"no working directory": {workDir: "", homeDir: homeWithFile, want: config.Files{Home: homeFile}},
 		"no home directory":    {workDir: t.TempDir(), homeDir: "", wantErr: config.ErrNotFound},
 	}
 
@@ -181,11 +180,11 @@ func TestDiscoverIgnoresAnEmptyDirectory(t *testing.T) {
 			t.Parallel()
 
 			// Act
-			got, err := config.Discover(tt.workDir, tt.homeDir)
+			got, err := config.Locate(tt.workDir, tt.homeDir)
 
 			// Assert
 			if got != tt.want || !errors.Is(err, tt.wantErr) {
-				t.Errorf("Discover(%q, %q) = %q, %v, want %q, %v", tt.workDir, tt.homeDir, got, err, tt.want, tt.wantErr)
+				t.Errorf("Locate(%q, %q) = %+v, %v, want %+v, %v", tt.workDir, tt.homeDir, got, err, tt.want, tt.wantErr)
 			}
 		})
 	}
