@@ -159,7 +159,7 @@ func (s Store) openKept(ctx context.Context) (*sql.DB, error) {
 // prepareKept makes the schema in a fresh kept database and refuses one at
 // another version. A file already at this build's costs one read and no lock.
 func prepareKept(ctx context.Context, database *sql.DB) error {
-	version, err := readVersion(ctx, database)
+	version, err := readVersionOnOpen(ctx, database)
 	if err != nil {
 		return err
 	}
