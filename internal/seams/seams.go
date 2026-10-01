@@ -147,6 +147,15 @@ type Messaging struct {
 	// Post sends text to a channel, or to the configured default when channel is
 	// empty. A webhook ignores the channel and posts where it is bound.
 	Post func(channel, text string) error
+	// ChannelMembers is everyone in a channel, named as configured — by name or
+	// ID — labeled by the name Slack shows for them. The directory reads are
+	// bound only for a Slack user token; a nil read means none can be made.
+	ChannelMembers func(channel string) ([]loop.SlackTarget, error)
+	// UserGroups is every user group in the Slack workspace.
+	UserGroups func() ([]loop.SlackTarget, error)
+	// RefreshDirectory drops the directory read so far this session, so the
+	// next read asks Slack again.
+	RefreshDirectory func()
 }
 
 // Store is what a surface asks of the on-disk store, bound to this repository.
