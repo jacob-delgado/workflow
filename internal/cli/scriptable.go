@@ -21,6 +21,7 @@ import (
 	"github.com/jacob-delgado/workflow/internal/jira"
 	"github.com/jacob-delgado/workflow/internal/loop"
 	"github.com/jacob-delgado/workflow/internal/messaging"
+	"github.com/jacob-delgado/workflow/internal/store"
 	"github.com/jacob-delgado/workflow/internal/tui"
 	"github.com/jacob-delgado/workflow/internal/wiring"
 )
@@ -384,13 +385,14 @@ func configurationErrors() []error {
 
 // refusalErrors are a command that would not go ahead because of the state it
 // found: an open pull request, nothing to open, a dirty tree, a branch or file
-// already there, a directory that is no repository.
+// already there, a directory that is no repository, a store file another
+// program holds open.
 func refusalErrors() []error {
 	return []error{
 		loop.ErrPullAlreadyOpen, loop.ErrNothingToOpen, loop.ErrNoPullRequest,
 		loop.ErrDirtyTree, loop.ErrNothingStaged,
 		errPullAlreadyOpen, errNoCommitsToOpen, errNoPullRequest,
-		errBranchExists, errConfigExists, gitrepo.ErrNotARepository,
+		errBranchExists, errConfigExists, gitrepo.ErrNotARepository, store.ErrNotCleaned,
 	}
 }
 
