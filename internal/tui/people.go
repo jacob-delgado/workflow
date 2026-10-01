@@ -143,13 +143,15 @@ type peopleListed struct {
 
 // apply lists them, the selection held where it was.
 func (msg peopleListed) apply(m Model) (Model, tea.Cmd) {
-	if open, isOpen := m.overlay.(peopleOverlay); isOpen {
-		open.people = pickList[person]{items: msg.people, selected: open.people.selected}.moved(0)
-		open.reading, open.readErr = false, msg.err
-		m.overlay = open
+	open, isOpen := beneath[peopleOverlay](m)
+	if !isOpen {
+		return m, nil
 	}
 
-	return m, nil
+	open.people = pickList[person]{items: msg.people, selected: open.people.selected}.moved(0)
+	open.reading, open.readErr = false, msg.err
+
+	return m.withBeneath(open), nil
 }
 
 // repoGroupsListed is the user groups the repository tags.
@@ -160,12 +162,14 @@ type repoGroupsListed struct {
 
 // apply checks them in the groups checklist.
 func (msg repoGroupsListed) apply(m Model) (Model, tea.Cmd) {
-	if open, isOpen := m.overlay.(peopleOverlay); isOpen {
-		open.chosen, open.repoErr = msg.groups, msg.err
-		m.overlay = open.withChoices()
+	open, isOpen := beneath[peopleOverlay](m)
+	if !isOpen {
+		return m, nil
 	}
 
-	return m, nil
+	open.chosen, open.repoErr = msg.groups, msg.err
+
+	return m.withBeneath(open.withChoices()), nil
 }
 
 // withChoices is the checklist rebuilt from Slack's groups and the
@@ -322,8 +326,7 @@ func (p peopleOverlay) handlePersonKey(m Model, msg tea.KeyPressMsg) (Model, tea
 	case !ok:
 		return m, nil
 	case key.Matches(msg, m.keys.confirm):
-		from := map[bool]directory{false: p.members, true: p.groups}[selected.team()]
-		m.overlay = newOwnerPicker(m, selected.owner, selected.team(), from, p)
+		m.overlay = newOwnerPicker(m, selected.owner, selected.team(), p)
 
 		return m, nil
 	case key.Matches(msg, m.keys.notOnSlack):
@@ -416,12 +419,14 @@ type directoryRefreshed struct {
 
 // apply shows what was read.
 func (msg directoryRefreshed) apply(m Model) (Model, tea.Cmd) {
-	if open, isOpen := m.overlay.(peopleOverlay); isOpen {
-		open.groups, open.members = msg.groups, msg.members
-		m.overlay = open.withChoices()
+	open, isOpen := beneath[peopleOverlay](m)
+	if !isOpen {
+		return m, nil
 	}
 
-	return m, nil
+	open.groups, open.members = msg.groups, msg.members
+
+	return m.withBeneath(open.withChoices()), nil
 }
 
 // peopleSaved is a write from People and groups done, or why it was refused.
@@ -432,23 +437,33 @@ type peopleSaved struct {
 
 // apply pins a refusal, or reads the people again to show what changed.
 func (msg peopleSaved) apply(m Model) (Model, tea.Cmd) {
-	open, isOpen := m.overlay.(peopleOverlay)
+	open, isOpen := beneath[peopleOverlay](m)
 	if !isOpen {
 		return m, nil
 	}
 
 	if msg.err != nil {
-		return keepOpenWith[peopleOverlay](m, msg.err), nil
+		return m.withBeneath(open.failed(msg.err)), nil
 	}
 
 	open.send = sendState{}
-	m.overlay = open
+	m = m.withBeneath(open)
 
 	if msg.saved != "" {
 		m = m.noticed(m.marks.done + " " + msg.saved)
 	}
 
 	return m, m.readPeople()
+}
+
+// directoryFor is the directory the owner picker chooses from: the default
+// channel's members for a person, the user groups for a team.
+func (p peopleOverlay) directoryFor(team bool) directory {
+	if team {
+		return p.groups
+	}
+
+	return p.members
 }
 
 // failed is the overlay kept open with the reason a write was refused.

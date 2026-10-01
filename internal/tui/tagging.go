@@ -124,15 +124,14 @@ type tagsRead struct {
 
 // apply fills the preview's tag section, when the preview is still open.
 func (msg tagsRead) apply(m Model) (Model, tea.Cmd) {
-	preview, open := m.overlay.(messagingPreview)
+	preview, open := beneath[messagingPreview](m)
 	if !open {
 		return m, nil
 	}
 
 	preview.tagging = preview.tagging.proposed(msg.proposal, msg.err)
-	m.overlay = preview
 
-	return m, nil
+	return m.withBeneath(preview), nil
 }
 
 // proposed is the section once its proposal is read, with the groups the
@@ -391,14 +390,19 @@ func (p messagingPreview) pickLink(m Model) (Model, tea.Cmd) {
 		return m, nil
 	}
 
-	from := p.tagging.members
-	if owner.Team {
-		from = p.tagging.groups
-	}
-
-	m.overlay = newOwnerPicker(m, owner.Owner, owner.Team, from, p)
+	m.overlay = newOwnerPicker(m, owner.Owner, owner.Team, p)
 
 	return m, nil
+}
+
+// directoryFor is the directory the owner picker chooses from: the channel's
+// members for a person, the user groups for a team.
+func (p messagingPreview) directoryFor(team bool) directory {
+	if team {
+		return p.tagging.groups
+	}
+
+	return p.tagging.members
 }
 
 // markNotOnSlack saves that the owner under the cursor is not on Slack.
