@@ -19,6 +19,7 @@ const (
 	ownerAna         = "ana"
 	ownerDan         = "dan"
 	controlPlaneTeam = "acme/control-plane"
+	bareGroup        = "acme"
 	devChannel       = "#dev"
 )
 
@@ -299,5 +300,42 @@ func TestAFailedPostRecordsNoGroups(t *testing.T) {
 	// Assert
 	if !errors.Is(err, errSeam) || recorded {
 		t.Errorf("Deliver = %v, recorded groups %t; want the post's error and nothing recorded", err, recorded)
+	}
+}
+
+func TestABareNameDecidedAsAPersonIsAskedAgainOnceTheForgeKnowsItAsAGroup(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	// Before the forge told them apart, every bare name was decided as a
+	// person, here as one not on Slack; GitLab now knows acme as a group.
+	owners := codeowners.Owners{Users: nil, Teams: []string{bareGroup}}
+	links := []loop.OwnerLink{{Owner: bareGroup, Team: false, OnSlack: false, Slack: loop.SlackTarget{}}}
+
+	// Act
+	tags := loop.ProposeTags(owners, links, nil, nil, false, messaging.MomentReady)
+
+	// Assert
+	want := []loop.OwnerTag{{Owner: bareGroup, Team: true, State: loop.OwnerUnlinked, Slack: loop.SlackTarget{}}}
+	if !reflect.DeepEqual(tags.Owners, want) {
+		t.Errorf("Owners = %+v, want acme a team to be asked about again", tags.Owners)
+	}
+}
+
+func TestABareNameDecidedAsATeamStaysOneWhenTheForgeCannotSay(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	// GitLab could not be asked, so acme reads as a person, as it is spelled.
+	owners := codeowners.Owners{Users: []string{bareGroup}, Teams: nil}
+	links := []loop.OwnerLink{{Owner: bareGroup, Team: true, OnSlack: true, Slack: controlPlanePod()}}
+
+	// Act
+	tags := loop.ProposeTags(owners, links, nil, nil, false, messaging.MomentReady)
+
+	// Assert
+	want := []loop.OwnerTag{{Owner: bareGroup, Team: true, State: loop.OwnerLinked, Slack: controlPlanePod()}}
+	if !reflect.DeepEqual(tags.Owners, want) || len(tags.Groups) != 1 || !tags.Groups[0].Checked {
+		t.Errorf("Tags = %+v, want acme the team linked to its group, offered checked", tags)
 	}
 }

@@ -125,15 +125,28 @@ func (m Model) readPeople(opened int) tea.Cmd {
 }
 
 // peopleFrom is everyone decided, then each owner of the changes not decided.
+// A bare name decided as a person that the forge now knows as a group is
+// listed as a team not asked about yet, so it can be linked to a user group.
 func peopleFrom(decided []loop.OwnerLink, owners codeowners.Owners) []person {
+	ownerTeam := func(owner string) bool {
+		return slices.ContainsFunc(owners.Teams, func(team string) bool { return loop.SameOwner(team, owner) })
+	}
+
 	people := make([]person, 0, len(decided))
 	for _, link := range decided {
-		people = append(people, person{owner: link.Owner, team: link.Team, decided: true, link: link})
+		if link.Team || !ownerTeam(link.Owner) {
+			people = append(people, person{owner: link.Owner, team: link.Team, decided: true, link: link})
+
+			continue
+		}
+
+		asTeam := loop.OwnerLink{Owner: link.Owner, Team: true, OnSlack: false, Slack: loop.SlackTarget{}}
+		people = append(people, person{owner: link.Owner, team: true, decided: false, link: asTeam})
 	}
 
 	for _, owner := range slices.Concat(owners.Users, owners.Teams) {
 		if !slices.ContainsFunc(decided, func(link loop.OwnerLink) bool { return loop.SameOwner(link.Owner, owner) }) {
-			team := slices.Contains(owners.Teams, owner)
+			team := ownerTeam(owner)
 			link := loop.OwnerLink{Owner: owner, Team: team, OnSlack: false, Slack: loop.SlackTarget{}}
 			people = append(people, person{owner: owner, team: team, decided: false, link: link})
 		}

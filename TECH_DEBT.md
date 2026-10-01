@@ -130,9 +130,11 @@ or one of its three fields, and a site comment naming an ID the register
 does not hold.
 
 TRADE-27, a top-level GitLab group linking to Slack like a person, was
-closed in #166: a bare CODEOWNERS name is
-now asked of GitLab when tags are composed, and a group links to a Slack
-user group. Its ID is not reused.
+closed in #166: a bare CODEOWNERS name is now asked of GitLab when tags
+are composed, and a group links to a Slack user group. A bare name decided
+as a person before GitLab was asked, as every one was, is asked about
+again as a team once GitLab knows it as a group; one GitLab cannot be asked
+about stays what it was decided as. Its ID is not reused.
 
 ### TRADE-1 Every package with a declared file budget sits exactly at it
 

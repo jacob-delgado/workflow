@@ -109,6 +109,11 @@ type Tags struct {
 // the user groups this repository may tag; and last is the groups chosen
 // the last time, when lastChosen says there was a last time.
 //
+// A bare name is a team when the forge now knows it as a group or it was
+// decided as one, since a forge that could not be asked leaves it a person
+// by its spelling; one decided as a person that the forge now knows as a
+// group is asked about again, as a team.
+//
 // The groups offered are the repository's, then any a linked owning team
 // adds. The groups linked to owning teams start checked, and so does the last
 // choice; with no last choice, only the teams' groups do.
@@ -120,12 +125,14 @@ func ProposeTags(
 		return Tags{}
 	}
 
-	ownerTags := make([]OwnerTag, 0, len(owners.Users)+len(owners.Teams))
-	for _, user := range owners.Users {
+	classified := withDecidedTeams(owners, links)
+
+	ownerTags := make([]OwnerTag, 0, len(classified.Users)+len(classified.Teams))
+	for _, user := range classified.Users {
 		ownerTags = append(ownerTags, ownerTag(user, false, links))
 	}
 
-	for _, team := range owners.Teams {
+	for _, team := range classified.Teams {
 		ownerTags = append(ownerTags, ownerTag(team, true, links))
 	}
 
@@ -164,9 +171,26 @@ func SameOwner(one, other string) bool {
 	return strings.EqualFold(one, other)
 }
 
+// withDecidedTeams is owners with each person decided as a team among the
+// teams instead, leaving owners' own lists as they were.
+func withDecidedTeams(owners codeowners.Owners, links []OwnerLink) codeowners.Owners {
+	people, teams := []string{}, slices.Clone(owners.Teams)
+
+	for _, user := range owners.Users {
+		if slices.ContainsFunc(links, func(link OwnerLink) bool { return link.Team && SameOwner(link.Owner, user) }) {
+			teams = append(teams, user)
+		} else {
+			people = append(people, user)
+		}
+	}
+
+	return codeowners.Owners{Users: people, Teams: teams}
+}
+
 // ownerTag is owner as links decided them. A link to the wrong kind of Slack
 // target — a user owner to a group, a team to a user — reads as unlinked, so
-// it is asked again rather than tagged.
+// it is asked again rather than tagged, and so does a bare name decided as a
+// person that is now a team.
 func ownerTag(owner string, team bool, links []OwnerLink) OwnerTag {
 	tag := OwnerTag{Owner: owner, Team: team, State: OwnerUnlinked, Slack: SlackTarget{}}
 
@@ -178,6 +202,8 @@ func ownerTag(owner string, team bool, links []OwnerLink) OwnerTag {
 	link := links[index]
 
 	switch {
+	case link.Team != team && !strings.Contains(owner, "/"):
+		return tag
 	case !link.OnSlack:
 		tag.State = OwnerNotOnSlack
 	case fitsOwner(link.Slack.ID, team):

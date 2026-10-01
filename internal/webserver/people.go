@@ -179,8 +179,9 @@ func (s *server) people() (api.People, error) {
 	return api.People{Owners: ownerTagsDTO(tags.Owners)}, nil
 }
 
-// peopleOwners is every owner decided, as the kind each was decided as, then
-// each of the branch's owners not decided, as the forge tells them apart.
+// peopleOwners is every owner decided, as the kind each was decided as or a
+// team when the forge now knows it as a group, then each of the branch's
+// owners not decided, as the forge tells them apart.
 func peopleOwners(links []loop.OwnerLink, branchOwners codeowners.Owners) codeowners.Owners {
 	var owners codeowners.Owners
 
@@ -192,13 +193,17 @@ func peopleOwners(links []loop.OwnerLink, branchOwners codeowners.Owners) codeow
 		}
 	}
 
+	branchTeam := func(owner string) bool {
+		return slices.ContainsFunc(branchOwners.Teams, func(team string) bool { return loop.SameOwner(team, owner) })
+	}
+
 	for _, link := range links {
-		add(link.Owner, link.Team)
+		add(link.Owner, link.Team || branchTeam(link.Owner))
 	}
 
 	for _, owner := range slices.Concat(branchOwners.Users, branchOwners.Teams) {
 		if !slices.ContainsFunc(links, func(link loop.OwnerLink) bool { return loop.SameOwner(link.Owner, owner) }) {
-			add(owner, slices.Contains(branchOwners.Teams, owner))
+			add(owner, branchTeam(owner))
 		}
 	}
 

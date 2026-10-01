@@ -12,19 +12,23 @@ import (
 	"testing"
 
 	"github.com/jacob-delgado/workflow/internal/forge"
+	"github.com/jacob-delgado/workflow/internal/loop"
 )
+
+// bareGroup is the bare name CODEOWNERS gives the changes' owner.
+const bareGroup = "acme"
 
 // acmeOwned is a pull request only the bare name acme owns, on GitLab, which
 // knows acme as a group when group is set.
 func acmeOwned(group bool) *world {
 	acme := newWorld()
 	acme.forgeKind = forge.KindGitLab
-	acme.codeOwners = []string{"acme"}
+	acme.codeOwners = []string{bareGroup}
 	acme.slack = newSlackWorld()
 	acme.forgeGroups = []string{}
 
 	if group {
-		acme.forgeGroups = []string{"acme"}
+		acme.forgeGroups = []string{bareGroup}
 	}
 
 	return acme
@@ -70,4 +74,21 @@ func TestABareNameGitLabKnowsAsAPersonIsLinkedToAUser(t *testing.T) {
 	// Assert
 	requireScreen(t, picking, "Link acme to Slack", carlaName, benName)
 	refuseScreen(t, picking, "@"+podName)
+}
+
+func TestPeopleAsksAgainAboutAGroupDecidedAsAPerson(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	// Before the forge told bare names apart, acme was decided as a person
+	// not on Slack; GitLab now knows it as a group.
+	acme := acmeOwned(true)
+	acme.slack.links = []loop.OwnerLink{{Owner: bareGroup, Team: false, OnSlack: false, Slack: loop.SlackTarget{}}}
+
+	// Act
+	picking := typing(t, openPeople(t, acme), keyEnter).View().Content
+
+	// Assert
+	requireScreen(t, picking, "Link acme to Slack", "@"+podName)
+	refuseScreen(t, picking, carlaName)
 }

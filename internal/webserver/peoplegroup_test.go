@@ -13,6 +13,7 @@ import (
 
 	"github.com/jacob-delgado/workflow/internal/api"
 	"github.com/jacob-delgado/workflow/internal/codeowners"
+	"github.com/jacob-delgado/workflow/internal/loop"
 	"github.com/jacob-delgado/workflow/internal/webserver"
 )
 
@@ -38,6 +39,27 @@ func TestLinkPersonLinksABareNamedGitLabGroupToAUserGroup(t *testing.T) {
 	// Arrange
 	fake := newFakeKept()
 	fake.links = nil
+	handler := acmeOwnedServer(t, fake)
+
+	// Act
+	recorder := send(t, handler, http.MethodPut, peoplePath, `{"owner":"acme","slack_id":"S0POD","not_on_slack":false}`)
+
+	// Assert
+	people := decode[api.People](t, recorder)
+	if recorder.Code != http.StatusOK || len(people.Owners) != 1 || people.Owners[0].Kind != api.Team ||
+		people.Owners[0].State != api.Linked {
+		t.Errorf("status %d, people %+v; want acme a team linked to the pod's group", recorder.Code, people)
+	}
+}
+
+func TestLinkPersonLinksAGroupDecidedAsAPersonBeforeTheForgeCouldTell(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	// Before the forge told bare names apart, acme was decided as a person
+	// not on Slack.
+	fake := newFakeKept()
+	fake.links = []loop.OwnerLink{{Owner: "acme", Team: false, OnSlack: false, Slack: loop.SlackTarget{}}}
 	handler := acmeOwnedServer(t, fake)
 
 	// Act
