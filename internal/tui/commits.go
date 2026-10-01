@@ -229,7 +229,7 @@ func (m Model) handleCommitsKey(msg tea.KeyPressMsg) (Model, tea.Cmd) {
 	case key.Matches(msg, m.keys.hookConfig) && len(m.hookgen.hooks) > 0:
 		return m.openHookgen()
 	case key.Matches(msg, m.keys.refresh):
-		return m, tea.Batch(m.loadChanges(), m.loadBranch(), m.findHooks())
+		return m.refreshPane(paneCommits)
 	}
 
 	return m, nil

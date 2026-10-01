@@ -54,7 +54,7 @@ func (m Model) click(shape layout.Layout, column, row int) (Model, tea.Cmd) {
 
 	switch {
 	case inRail && pane(index) != m.focus:
-		return m.focusOn(pane(index)), nil
+		return m.switchTo(pane(index))
 	case inRail:
 		box := shape.Rail[index]
 

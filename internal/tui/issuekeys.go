@@ -73,7 +73,7 @@ func (m Model) handleIssueListKey(msg tea.KeyPressMsg) (Model, tea.Cmd) {
 	case key.Matches(msg, m.keys.loadMore):
 		return m.loadMoreIssues()
 	case key.Matches(msg, m.keys.refresh):
-		return m.refreshIssues()
+		return m.refreshPane(paneIssues)
 	default:
 		return m.handleIssueViewingKey(msg)
 	}

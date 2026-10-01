@@ -73,10 +73,13 @@ func (m Model) seededIssues() issueList {
 // derived from these fields by guard clauses rather than held as an enum, so
 // there is no switch with a final arm that can never be taken.
 type issueList struct {
-	found    jira.SearchResult
-	err      error
-	settled  bool
-	loading  bool
+	found   jira.SearchResult
+	err     error
+	settled bool
+	loading bool
+	// paged records more than the first page loaded, which a reload of the
+	// first page would drop.
+	paged    bool
 	selected int
 	// moved records that someone chose an issue, after which nothing selects
 	// one for them.
@@ -131,7 +134,7 @@ func (l issueList) settle(answer issuesLoaded) issueList {
 	if answer.startAt > 0 {
 		if answer.err == nil {
 			l.found.Issues = append(l.found.Issues, answer.found.Issues...)
-			l.found.Total = answer.found.Total
+			l.found.Total, l.paged = answer.found.Total, true
 		}
 
 		return l
@@ -143,7 +146,7 @@ func (l issueList) settle(answer issuesLoaded) issueList {
 	l.err = answer.err
 
 	if answer.err == nil {
-		l.found = answer.found
+		l.found, l.paged = answer.found, false
 	}
 
 	return l.selectKey(previous.Key)

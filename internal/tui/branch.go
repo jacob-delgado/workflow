@@ -249,7 +249,7 @@ func (m Model) handleBranchKey(msg tea.KeyPressMsg) (Model, tea.Cmd) {
 	case key.Matches(msg, m.keys.push) && m.canPush():
 		return m.previewPush()
 	case key.Matches(msg, m.keys.refresh):
-		return m, tea.Batch(m.loadBranch(), m.loadChanges())
+		return m.refreshPane(paneBranch)
 	default:
 		return m, nil
 	}

@@ -94,6 +94,10 @@ every pane gets an even share.
 ## Keys
 
 `tab` and `shift+tab` move between panes, and `1`–`7` jump straight to one.
+Moving to a pane, by key or by click, reads it again when it last did so more
+than 30 seconds ago, so flicking between panes asks Jira and the forge
+nothing; the Issues list is left as it is while it holds further pages, which
+a reload would drop. `r` reads the pane again whenever you press it.
 `j`/`k` or the arrow keys move within a list, and `J`/`K` or `pgdn`/`pgup`
 scroll the detail pane. Each pane keeps its own place: come back to one and
 its detail is scrolled where you left it, unless it shows another branch,
@@ -142,6 +146,7 @@ every key `?` lists, by where it works.
 | | `o` / `y` | Open the pull request in the browser, or copy its URL |
 | | `r` | Look for the pull request and its CI again |
 | 5, your service | `p` | Preview the announcement of the pull request |
+| | `r` | Read what was announced, and the pull request and its CI, again |
 | 6 Reviews | `o` / `y` | Open the selected request in the browser, or copy its URL |
 | | `r` | Ask the forge again |
 | 7 Tasks | `s` | Start the selected task, or stop it once started |
