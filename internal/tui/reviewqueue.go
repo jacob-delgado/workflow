@@ -124,7 +124,7 @@ func (s reviewQueueState) heading(marks glyphs) string {
 
 // current is the selected review request, if there is one.
 func (s reviewQueueState) current() (forge.ReviewRequest, bool) {
-	if s.selected < 0 || s.selected >= len(s.requests) {
+	if s.selected >= len(s.requests) {
 		return forge.ReviewRequest{}, false
 	}
 
@@ -189,23 +189,22 @@ func (m Model) reviewLines() []string {
 	return drawn
 }
 
-// reviewLine is the line numbered line: a request's row, the order and
-// filters, the blank under them, what says nothing matches the filters, or
+// reviewLine is the line numbered line: a request's row; the order and
+// filters, and the blank under them, which are the only lines lineRequests
+// opens with that draw no request; what says nothing matches the filters; or
 // the heading of the repository the next row is in.
 func (m Model) reviewLine(rows []string, lines []int, line, index int) string {
-	headed := m.reviewQueue.headed()
-
 	switch {
 	case index >= 0:
 		return rows[index]
-	case line == 0 && headed:
+	case line == 0:
 		return m.styles.label.Render(m.reviewQueue.heading(m.marks))
-	case line == 1 && headed:
+	case line == 1:
 		return ""
 	case len(rows) == 0:
 		return "No review request matches the filters."
 	default:
-		return m.styles.strong.Render(m.reviewQueue.repositoryAfter(lines[line+1:]))
+		return m.styles.strong.Render(m.reviewQueue.repositoryAfter(lines[line+1]))
 	}
 }
 
@@ -351,20 +350,13 @@ func (o reviewOrder) sorted(requests []forge.ReviewRequest) []forge.ReviewReques
 	}[o](requests)
 }
 
-// repositoryAfter is the repository of the first request lines draws, which a
-// heading above them heads.
-func (s reviewQueueState) repositoryAfter(lines []int) string {
-	for _, index := range lines {
-		if index < 0 {
-			continue
-		}
-
-		if name := s.requests[index].Repository; name != "" {
-			return name
-		}
-
-		return "no repository"
+// repositoryAfter is the repository of the request a heading heads: the one
+// on the line below it, since lineRequests heads a repository only above its
+// first request.
+func (s reviewQueueState) repositoryAfter(index int) string {
+	if name := s.requests[index].Repository; name != "" {
+		return name
 	}
 
-	return ""
+	return "no repository"
 }

@@ -6,10 +6,12 @@ package tui_test
 import (
 	"regexp"
 	"slices"
+	"strings"
 	"testing"
 	"time"
 
 	"github.com/jacob-delgado/workflow/internal/forge"
+	"github.com/jacob-delgado/workflow/internal/tui"
 )
 
 const (
@@ -219,4 +221,162 @@ func TestTheFilterHoldsAcrossASort(t *testing.T) {
 // steps is the down key, count times.
 func steps(count int) []string {
 	return slices.Repeat([]string{downAction}, count)
+}
+
+func TestUpMovesBackThroughTheFilter(t *testing.T) {
+	t.Parallel()
+
+	// Act
+	// Down to example/other, up to no repository, and check it.
+	view := filtering(t, facetsWorld(), downAction, "up", keySpace)
+
+	// Assert
+	if got := listedRequests(view); !slices.Equal(got, []string{"3"}) {
+		t.Errorf("listed %v, want only #3, which names no repository:\n%s", got, plain(view))
+	}
+}
+
+func TestCheckingAValueTwiceUnchecksIt(t *testing.T) {
+	t.Parallel()
+
+	// Act
+	view := filtering(t, facetsWorld(), downAction, keySpace, keySpace)
+
+	// Assert
+	if got := listedRequests(view); len(got) != 4 {
+		t.Errorf("listed %v, want all four requests:\n%s", got, plain(view))
+	}
+}
+
+func TestTheFilterOverAnEmptyQueueSaysThereIsNothingToNarrow(t *testing.T) {
+	t.Parallel()
+
+	// Act
+	view := typing(t, newWorld().live(t, 120, 40), "6", filterKey, keySpace).View().Content
+
+	// Assert
+	requireScreen(t, view, "no review request to narrow")
+}
+
+func TestByRepositoryHeadsARepositoryOnceForAllItsRequests(t *testing.T) {
+	t.Parallel()
+
+	// Act
+	view := plain(typing(t, facetsWorld().live(t, 120, 40), "6", "s", "s").View().Content)
+
+	// Assert
+	headings := 0
+
+	for line := range strings.SplitSeq(view, "\n") {
+		if strings.Contains(line, exampleRepo) && !strings.Contains(line, "#") {
+			headings++
+		}
+	}
+
+	if headings != 1 {
+		t.Errorf("example/repo is headed %d times, want once above #5 and #7:\n%s", headings, view)
+	}
+
+	if got := listedRequests(view); !slices.Equal(got, []string{"3", "12", "5", "7"}) {
+		t.Errorf("listed %v, want no repository, example/other, then example/repo's two:\n%s", got, view)
+	}
+}
+
+func TestAKeyTheFilterDoesNotUseChangesNothing(t *testing.T) {
+	t.Parallel()
+
+	// Act
+	view := filtering(t, facetsWorld(), "x", keySpace)
+
+	// Assert
+	if got := listedRequests(view); !slices.Equal(got, []string{"3"}) {
+		t.Errorf("listed %v, want only #3, the first value still under the cursor:\n%s", got, plain(view))
+	}
+}
+
+func TestClickingARepositoryHeadingKeepsTheSelection(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	// By repository, with #12, under example/other, selected: the selection
+	// stays on #5, the oldest, across the sorts, and up moves it.
+	repo := facetsWorld()
+	grouped := typing(t, repo.live(t, 120, 40), "6", "s", "s", "up")
+	row := screenRow(t, grouped.View().Content, exampleRepo)
+
+	// Act
+	typing(t, click(t, grouped, 60, row), "o")
+
+	// Assert
+	if opened := repo.asked("browse"); len(opened) != 1 || !strings.Contains(opened[0], reviewOlderURL) {
+		t.Errorf("opened %q, want #12, still selected after the click on a heading", opened)
+	}
+}
+
+func TestClickingTheReviewsRailKeepsTheSelection(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	// #12, the second oldest, selected.
+	repo := facetsWorld()
+	moved := typing(t, repo.live(t, 120, 40), "6", downAction)
+	row := screenRow(t, moved.View().Content, "4 review requests waiting")
+
+	// Act
+	typing(t, click(t, moved, 5, row), "o")
+
+	// Assert
+	if opened := repo.asked("browse"); len(opened) != 1 || !strings.Contains(opened[0], reviewOlderURL) {
+		t.Errorf("opened %q, want #12, still selected after the click on the rail", opened)
+	}
+}
+
+func TestSortAndFilterWaitForTheQueue(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	// The Reviews pane before the forge's answer is read back.
+	repo := facetsWorld()
+	model := pressing(t, sized(t, tui.New(repo.cfg, nil, repo.deps()), 120, 40), "6")
+
+	// Act
+	view := plain(pressing(t, model, "s", filterKey).View().Content)
+
+	// Assert
+	requireScreen(t, view, "looking")
+
+	if strings.Contains(view, "newest first") || strings.Contains(view, filterTitleBar) {
+		t.Errorf("sorted or filtered a queue not yet read:\n%s", view)
+	}
+}
+
+func TestAKeyTheReviewsPaneDoesNotUseChangesNothing(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	repo := facetsWorld()
+
+	// Act
+	typing(t, repo.live(t, 120, 40), "6", "x", "o")
+
+	// Assert
+	if opened := repo.asked("browse"); len(opened) != 1 || !strings.Contains(opened[0], "/pull/5") {
+		t.Errorf("opened %q, want #5, the oldest, still selected", opened)
+	}
+}
+
+// filterTitleBar is the filter's title in the detail pane's top border.
+const filterTitleBar = "━ Filter ━"
+
+// pressing presses keys in order without running what each starts, so a test
+// can look at the interface before an answer it asked for comes back.
+func pressing(t *testing.T, model tui.Model, keys ...string) tui.Model {
+	t.Helper()
+
+	for _, key := range keys {
+		updated, _ := model.Update(keyMsg(key))
+		model = concrete(t, updated)
+	}
+
+	return model
 }
