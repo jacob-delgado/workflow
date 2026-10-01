@@ -349,9 +349,9 @@ func TestAReadThatNeverEndsStopsAtThePageCap(t *testing.T) {
 	_, err := client.Users(t.Context())
 
 	// Assert
-	if !errors.Is(err, messaging.ErrDirectoryTooLarge) || requests.Load() != messaging.MaxPages {
+	if !errors.Is(err, messaging.ErrDirectoryTooLarge) || requests.Load() != messaging.UserListPages {
 		t.Errorf("Users = %v after %d requests, want ErrDirectoryTooLarge after %d",
-			err, requests.Load(), messaging.MaxPages)
+			err, requests.Load(), messaging.UserListPages)
 	}
 }
 
