@@ -22,7 +22,7 @@ func manyReviews(n int) []forge.ReviewRequest {
 		out = append(out, forge.ReviewRequest{
 			Number: i, URL: "https://example.com/pr/" + strconv.Itoa(i),
 			Title: "queued change (" + strconv.Itoa(i) + ")", Author: "dev",
-			Repository: "example/repo", CI: forge.CINone,
+			Repository: exampleRepo, CI: forge.CINone,
 			OpenedAt: testNow().Add(-time.Duration(i) * time.Hour),
 		})
 	}
@@ -81,11 +81,11 @@ func withReviews() *world {
 	repo := newWorld()
 	repo.reviews = []forge.ReviewRequest{
 		{
-			Number: 7, URL: reviewNewerURL, Title: "fix flaky redaction test", Author: "mira",
-			Repository: "example/repo", CI: forge.CIFailed, OpenedAt: testNow().Add(-3 * time.Hour),
+			Number: 7, URL: reviewNewerURL, Title: "fix flaky redaction test", Author: authorMira,
+			Repository: exampleRepo, CI: forge.CIFailed, OpenedAt: testNow().Add(-3 * time.Hour),
 		},
 		{
-			Number: 12, URL: reviewOlderURL, Title: "add request retries", Author: "kwan",
+			Number: 12, URL: reviewOlderURL, Title: "add request retries", Author: authorKwan,
 			Repository: "example/other", CI: forge.CIPassed, OpenedAt: testNow().Add(-26 * time.Hour),
 		},
 	}

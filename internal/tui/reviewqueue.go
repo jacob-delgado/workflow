@@ -20,9 +20,10 @@ import (
 // pane's detail is scrolled.
 type reviewQueueState struct {
 	// all is the queue as the forge answered it; requests is what the pane
-	// lists of it, in order.
+	// lists of it, narrowed to the picked facets and in order.
 	all      []forge.ReviewRequest
 	order    reviewOrder
+	facets   []facet
 	requests []forge.ReviewRequest
 	loaded   bool
 	err      error
@@ -38,21 +39,23 @@ type reviewsLoaded struct {
 
 var _ applier = reviewsLoaded{}
 
-// apply records the queue oldest-first — the order it is worked through —
-// keeping the selection on the same request across a refresh.
+// apply records the queue in the order and under the filter chosen, keeping
+// the selection on the same request across a refresh.
 func (msg reviewsLoaded) apply(m Model) (Model, tea.Cmd) {
 	previous, _ := m.reviewQueue.current()
 
-	m.reviewQueue = reviewQueueState{all: msg.requests, order: m.reviewQueue.order, loaded: true, err: msg.err}
+	m.reviewQueue = reviewQueueState{
+		all: msg.requests, order: m.reviewQueue.order, facets: m.reviewQueue.facets, loaded: true, err: msg.err,
+	}
 	m.reviewQueue = m.reviewQueue.listed(previous, m.detailRows())
 
 	return m, nil
 }
 
-// listed is the queue listed again, in its order, with the selection held on
-// previous where it is still listed.
+// listed is the queue listed again, narrowed and in its order, with the
+// selection held on previous where it is still listed.
 func (s reviewQueueState) listed(previous forge.ReviewRequest, rows int) reviewQueueState {
-	s.requests = s.order.sorted(s.all)
+	s.requests = s.order.sorted(filteredReviews(s.facets, s.all))
 	s.selected = s.indexOf(previous)
 
 	return s.following(rows)
@@ -81,11 +84,16 @@ func (s reviewQueueState) following(rows int) reviewQueueState {
 }
 
 // lineRequests is which request each line of the queue's listing draws: -1
-// for the order it is in, the blank under it, and a repository's heading.
+// for the line naming its order and filters, the blank under it, a
+// repository's heading, and what says no request matches the filters.
 func (s reviewQueueState) lineRequests() []int {
 	var lines []int
-	if s.order != orderOldest {
+	if s.headed() {
 		lines = append(lines, -1, -1)
+	}
+
+	if len(s.requests) == 0 {
+		return append(lines, -1)
 	}
 
 	for index, request := range s.requests {
@@ -97,6 +105,21 @@ func (s reviewQueueState) lineRequests() []int {
 	}
 
 	return lines
+}
+
+// headed reports whether the listing opens with a line naming its order and
+// filters: whenever either is not the usual.
+func (s reviewQueueState) headed() bool {
+	return s.order != orderOldest || len(s.facets) > 0
+}
+
+// heading names the order the queue is in and the filters narrowing it.
+func (s reviewQueueState) heading(marks glyphs) string {
+	if len(s.facets) == 0 {
+		return s.order.title()
+	}
+
+	return s.order.title() + marks.separator + facetsLine(s.facets)
 }
 
 // current is the selected review request, if there is one.
@@ -129,11 +152,11 @@ func (m Model) reviewQueueRail(_ int) string {
 		return "looking" + m.marks.ellipsis
 	case m.reviewQueue.err != nil:
 		return m.failureSummary(m.reviewQueue.err)
-	case len(m.reviewQueue.requests) == 0:
+	case len(m.reviewQueue.all) == 0:
 		return "none waiting on you"
 	}
 
-	return plural(len(m.reviewQueue.requests), "review request") + " waiting"
+	return plural(len(m.reviewQueue.all), "review request") + " waiting"
 }
 
 // reviewQueueDetail lists the queue, oldest-first, one request to a line.
@@ -145,7 +168,7 @@ func (m Model) reviewQueueDetail(width int) string {
 		return "looking" + m.marks.ellipsis
 	case m.reviewQueue.err != nil:
 		return m.failureBlock(m.reviewQueue.err, width)
-	case len(m.reviewQueue.requests) == 0:
+	case len(m.reviewQueue.all) == 0:
 		return "No pull requests are waiting on your review."
 	}
 
@@ -166,18 +189,21 @@ func (m Model) reviewLines() []string {
 	return drawn
 }
 
-// reviewLine is the line numbered line: a request's row, the order, the blank
-// under it, or the heading of the repository the next row is in.
+// reviewLine is the line numbered line: a request's row, the order and
+// filters, the blank under them, what says nothing matches the filters, or
+// the heading of the repository the next row is in.
 func (m Model) reviewLine(rows []string, lines []int, line, index int) string {
-	ordered := m.reviewQueue.order != orderOldest
+	headed := m.reviewQueue.headed()
 
 	switch {
 	case index >= 0:
 		return rows[index]
-	case line == 0 && ordered:
-		return m.styles.label.Render(m.reviewQueue.order.title())
-	case line == 1 && ordered:
+	case line == 0 && headed:
+		return m.styles.label.Render(m.reviewQueue.heading(m.marks))
+	case line == 1 && headed:
 		return ""
+	case len(rows) == 0:
+		return "No review request matches the filters."
 	default:
 		return m.styles.strong.Render(m.reviewQueue.repositoryAfter(lines[line+1:]))
 	}
@@ -231,7 +257,7 @@ func (m Model) reviewQueueKeys() []key.Binding {
 
 	keys := m.linkKeys(m.selectedReviewURL())
 
-	return append(keys, m.keys.sortReviews, m.keys.refresh)
+	return append(keys, m.keys.sortReviews, m.keys.filterReviews, m.keys.refresh)
 }
 
 // selectedReviewURL is the selected request's URL, or empty when none is.
@@ -252,6 +278,8 @@ func (m Model) handleReviewQueueKey(msg tea.KeyPressMsg) (Model, tea.Cmd) {
 		m.reviewQueue = m.reviewQueue.listed(previous, m.detailRows())
 
 		return m, nil
+	case key.Matches(msg, m.keys.filterReviews) && m.reviewQueue.loaded:
+		return m.openFacetPicker()
 	case key.Matches(msg, m.keys.up, m.keys.down):
 		return m.moveReviewSelection(msg), nil
 	case key.Matches(msg, m.keys.openLink):

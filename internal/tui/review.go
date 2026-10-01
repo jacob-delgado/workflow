@@ -235,9 +235,7 @@ func (m Model) ciSummary() string {
 		return m.ciGlyph() + " no checks reported" + m.checkedAtSuffix()
 	}
 
-	state := map[forge.CIState]string{
-		forge.CINone: "", forge.CIRunning: "running", forge.CIPassed: "passed", forge.CIFailed: "failed",
-	}[reported.State]
+	state := ciWord(reported.State)
 
 	if reported.Total > 0 {
 		state += " (" + strconv.Itoa(reported.Done) + " of " + strconv.Itoa(reported.Total) + " finished)"

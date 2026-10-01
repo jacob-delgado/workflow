@@ -83,6 +83,7 @@ func placedBindings() []helpGroup {
 			"post              p          announce to slack"),
 		placed("Reviews",
 			"sort-reviews      s          sort",
+			"filter-reviews    f          filter",
 		),
 		placed("Tasks",
 			"start-stop        s          start/stop",

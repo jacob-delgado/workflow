@@ -68,7 +68,7 @@ internal/forge 13
 # CLAUDE.md names as one that must not be split to chase a number; the entry
 # freezes the count so a new concern is a decision, not drift, not a target to
 # shrink toward. layout/ and frame/ are already the pure leaves that could leave.
-# 45 = the panes, overlays and composers, including issuewrite.go (the assign
+# 47 = the panes, overlays and composers, including issuewrite.go (the assign
 # and log-work forms), issuekeys.go (the Issues pane's key routing, split out of
 # detail.go when it crossed the 500-line file ceiling), scopesuggest.go (the
 # commit scope's completion from the staged directory and the log) and diff.go
@@ -93,9 +93,11 @@ internal/forge 13
 # follow-up that opens an offer once the overlay asking something else closes);
 # issueplaces.go (narrowing the Issues list to places — a status or a
 # mark — with its picker, and the branch listing that marks issues in flight);
-# and branchlink.go (linking the branch to an issue by hand, for work begun
-# outside workflow, with its pull request's description shown first).
-internal/tui 46
+# branchlink.go (linking the branch to an issue by hand, for work begun
+# outside workflow, with its pull request's description shown first); and
+# reviewfacets.go (narrowing the review queue by repository, CI state, draft
+# or ready, and author, with its checklist and the rule that admits a request).
+internal/tui 47
 
 # internal/webserver — the loopback REST surface: a file per write (announce,
 # branchcreate, checkout, commit, config, pullrequest, push), or per pair of

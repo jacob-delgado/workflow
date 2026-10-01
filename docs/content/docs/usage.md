@@ -69,7 +69,11 @@ can rely on from them: exit codes, which stream carries what, `--json`,
   the most room; the rest keep a few rows each. The first five follow the
   work — the fifth is named for your messaging service, Slack above — and the
   sixth, Reviews, is the other side of it: the pull requests on your forge
-  that wait on your review, the longest-waiting first. The seventh, Tasks, is
+  that wait on your review, the longest-waiting first until `s` sorts them
+  another way. `f` narrows them by repository, CI state, draft or ready, and
+  author — values in one of those widen the list, and the four narrow it
+  together — and a line above the queue names the sort and the filters while
+  either is not the usual. The seventh, Tasks, is
   your own [Taskwarrior](#track-it-in-taskwarrior) list.
 - **The detail pane** on the right shows the focused pane in full. Pickers,
   composers and previews open here too, and take the keyboard until they close.
@@ -150,6 +154,7 @@ every key `?` lists, by where it works.
 | | `r` | Read what was announced, and the pull request and its CI, again |
 | 6 Reviews | `o` / `y` | Open the selected request in the browser, or copy its URL |
 | | `s` | Sort them oldest first, newest first, or by repository |
+| | `f` | Filter them by repository, CI state, draft or ready, and author |
 | | `r` | Ask the forge again |
 | 7 Tasks | `s` | Start the selected task, or stop it once started |
 | | `d` | Mark it done |

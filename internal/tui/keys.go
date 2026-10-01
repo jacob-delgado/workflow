@@ -63,7 +63,7 @@ type keyMap struct {
 	startStop, completeTask, addTask, annotateTask, modifyTask, undoTask, syncTasks key.Binding
 
 	// Reviews.
-	sortReviews key.Binding
+	sortReviews, filterReviews key.Binding
 
 	// Opening and copying a link, on the Issues, Review, Reviews and Tasks panes.
 	openLink, copyLink key.Binding
@@ -194,6 +194,7 @@ func compileKeys(marks glyphs, reviewNoun, messagingService string, overrides ma
 	issueKeys(&builder, &keys)
 	branchAndCommitKeys(&builder, &keys)
 	reviewAndMessagingKeys(&builder, &keys, reviewNoun, messagingService)
+	reviewKeys(&builder, &keys)
 	taskKeys(&builder, &keys)
 	composerKeys(&builder, &keys, marks)
 	runningKeys(&builder, &keys)
@@ -268,10 +269,15 @@ func reviewAndMessagingKeys(builder *helpBuilder, into *keyMap, reviewNoun, mess
 	into.compose = builder.bind(groupReviewMessaging, "post", "announce to "+strings.ToLower(messagingService), "p")
 }
 
+// reviewKeys are the Reviews pane's bindings.
+func reviewKeys(builder *helpBuilder, into *keyMap) {
+	into.sortReviews = builder.bind(groupReviews, "sort-reviews", "sort", "s")
+	into.filterReviews = builder.bind(groupReviews, "filter-reviews", "filter", "f")
+}
+
 // taskKeys are the Tasks pane's bindings. m toggles the mouse everywhere, so
 // modify is e.
 func taskKeys(builder *helpBuilder, into *keyMap) {
-	into.sortReviews = builder.bind(groupReviews, "sort-reviews", "sort", "s")
 	into.startStop = builder.bind(groupTasks, "start-stop", "start/stop", "s")
 	into.completeTask = builder.bind(groupTasks, "complete-task", "done", "d")
 	into.addTask = builder.bind(groupTasks, "add-task", "add", "a")
