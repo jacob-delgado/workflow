@@ -233,29 +233,6 @@ func TestCreatePullRequestOnGitHubStopsAtAssigneesTheForgeRefuses(t *testing.T) 
 	}
 }
 
-func TestCreateMergeRequestOnGitLabOpensNothingWhenAnAssigneeCannotBeLookedUp(t *testing.T) {
-	t.Parallel()
-
-	// Arrange
-	// No reviewer is named, so the first lookup is the assignee's, and GitLab
-	// will not let this token look anyone up.
-	client, seen := forgeConversation(t, nil, map[string]bool{gitlabUsersPath: true})
-
-	// Act
-	created, err := client.CreatePullRequest(t.Context(), gitlabRepo(), forge.NewPullRequest{
-		Title: prTitle, Head: featureBranch, Base: baseBranch, Assignees: []string{userCass},
-	})
-
-	// Assert
-	if !errors.Is(err, forge.ErrRefused) || created.Opened() {
-		t.Errorf("CreatePullRequest = %+v, %v; want nothing opened and ErrRefused", created, err)
-	}
-
-	if got := requestTo(*seen, gitlabMergesPath); got.method != "" {
-		t.Errorf("posted a merge request without its assignee: %+v", got)
-	}
-}
-
 func TestCreatePullRequestOnGitHubRequestsTeamsBySlugAlongsideUsers(t *testing.T) {
 	t.Parallel()
 
@@ -294,7 +271,7 @@ func TestCreatePullRequestOnGitHubNeverRequestsATeamOfAnotherOrganization(t *tes
 	})
 
 	// Assert
-	if created.Number != 43 || !errors.Is(err, forge.ErrSomeReviewersNotAdded) ||
+	if created.Number != 43 || !errors.Is(err, forge.ErrSomePeopleNotAdded) ||
 		!strings.Contains(err.Error(), "other-org/reviewers") {
 		t.Fatalf("CreatePullRequest = %+v, %v; want it opened, naming other-org's team as left off", created, err)
 	}

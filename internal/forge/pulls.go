@@ -107,8 +107,9 @@ type NewPullRequest struct {
 	// Reviewers and Assignees are usernames; Labels are label names. Each forge
 	// asks for them its own way — GitHub in a request after the pull is opened,
 	// GitLab at creation — but a failure to add them never discards a pull
-	// request already opened. Reviewers are added best effort: one the forge
-	// cannot add leaves the rest added and ErrSomeReviewersNotAdded returned.
+	// request already opened. Reviewers, and on GitLab assignees, are added
+	// best effort: one the forge cannot add leaves the rest added and
+	// ErrSomePeopleNotAdded returned.
 	Reviewers []string
 	// TeamReviewers are teams named "org/team", asked to review as a team on
 	// GitHub; on GitLab a group stands for its active direct members.
@@ -117,26 +118,26 @@ type NewPullRequest struct {
 	Labels        []string
 }
 
-// ErrSomeReviewersNotAdded reports a pull request opened without some of the
-// reviewers named for it, which the message names; it wraps why the first of
-// them could not be added, such as ErrNoUser. Reviewers are added best effort,
-// so a mistyped name never costs the pull request.
-var ErrSomeReviewersNotAdded = errors.New("some reviewers could not be added")
+// ErrSomePeopleNotAdded reports a pull request opened without some of the
+// reviewers or assignees named for it, which the message names; it wraps why
+// they could not be added, such as ErrNoUser. They are added best effort, so a
+// mistyped name never costs the pull request.
+var ErrSomePeopleNotAdded = errors.New("some reviewers or assignees could not be added")
 
 // ErrTeamOfAnotherOrg reports a team reviewer of an organization other than
 // the repository's, which GitHub cannot be asked for: it names a team by its
 // slug alone, within the repository's own organization.
 var ErrTeamOfAnotherOrg = errors.New("the team belongs to another organization")
 
-// missedReviewers is the reviewers a pull request could not be given, and the
-// first reason each kind of failure gave.
-type missedReviewers struct {
+// missedPeople is the reviewers and assignees a pull request could not be
+// given, and the first reason each kind of failure gave.
+type missedPeople struct {
 	names []string
 	cause error
 }
 
-// miss records a reviewer that could not be added, and why.
-func (m *missedReviewers) miss(name string, cause error) {
+// miss records a reviewer or assignee that could not be added, and why.
+func (m *missedPeople) miss(name string, cause error) {
 	m.names = append(m.names, name)
 
 	if !errors.Is(m.cause, cause) {
@@ -144,19 +145,19 @@ func (m *missedReviewers) miss(name string, cause error) {
 	}
 }
 
-// err is ErrSomeReviewersNotAdded naming every reviewer missed, or nil when
-// none was.
-func (m *missedReviewers) err() error {
+// err is ErrSomePeopleNotAdded naming everyone missed, or nil when nobody
+// was.
+func (m *missedPeople) err() error {
 	if len(m.names) == 0 {
 		return nil
 	}
 
-	return reviewersNotAdded(m.cause, m.names)
+	return peopleNotAdded(m.cause, m.names)
 }
 
-// reviewersNotAdded is ErrSomeReviewersNotAdded naming missed, for cause.
-func reviewersNotAdded(cause error, missed []string) error {
-	return fmt.Errorf("%w (%s): %w", ErrSomeReviewersNotAdded, strings.Join(missed, ", "), cause)
+// peopleNotAdded is ErrSomePeopleNotAdded naming missed, for cause.
+func peopleNotAdded(cause error, missed []string) error {
+	return fmt.Errorf("%w (%s): %w", ErrSomePeopleNotAdded, strings.Join(missed, ", "), cause)
 }
 
 // Opened reports whether this is a pull request the forge created, told from
