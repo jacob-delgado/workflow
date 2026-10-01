@@ -16,6 +16,12 @@ issue, and where it stands (ready for review, merged, or CI red) — to the
 configured Slack, Teams, Discord or webhook. A preview is printed and
 confirmed before anything is announced.
 
+With a Slack user token, a ready-for-review announcement tags the code owners
+of the branch's changes already linked to Slack, and the user groups chosen for
+the repository, on a line after the text. It never asks: an owner not linked yet
+is named in the preview, to link in the interface's People and groups. A token
+without the scopes tagging needs posts untagged, naming the scope to add.
+
 What it announces is remembered, with what the interface announces: a pull
 request already announced at the moment it is at is said to be, and asked about
 again rather than repeated — with --yes, it is left as it is.

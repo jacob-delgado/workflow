@@ -8,12 +8,16 @@ import (
 	"fmt"
 	"io"
 	"strconv"
+	"strings"
 
 	"github.com/spf13/cobra"
 
 	"github.com/jacob-delgado/workflow/internal/config"
 	"github.com/jacob-delgado/workflow/internal/forge"
+	"github.com/jacob-delgado/workflow/internal/gitrepo"
 	"github.com/jacob-delgado/workflow/internal/loop"
+	"github.com/jacob-delgado/workflow/internal/messaging"
+	"github.com/jacob-delgado/workflow/internal/sanitize"
 )
 
 // errNoPullRequest refuses announcing a branch that has no pull request.
@@ -39,6 +43,23 @@ type announceSeams struct {
 	// the interface's record as well as this command's.
 	Memory  loop.AnnounceMemory
 	Confirm func(question string) (bool, error)
+	// Tagging is whom a ready-for-review announcement tags on Slack.
+	Tagging announceTagging
+}
+
+// announceTagging is what an announcement's tags are read through: the code
+// owners of the branch's changes, whom each is on Slack and the repository's
+// user groups, kept between sessions, and the Slack directory, read only to
+// learn whether the token has the scopes tagging needs. A nil ChannelMembers
+// — no Slack user token — or OwnerLinks — no store — tags no one.
+type announceTagging struct {
+	Owners         loop.OwnerSeams
+	OwnerLinks     func() ([]loop.OwnerLink, error)
+	RepoGroups     func() ([]loop.SlackTarget, error)
+	LastGroups     func() ([]string, bool)
+	RecordGroups   func(ids []string) error
+	ChannelMembers func(channel string) ([]loop.SlackTarget, error)
+	UserGroups     func() ([]loop.SlackTarget, error)
 }
 
 // newAnnounceCmd builds `workflow announce`.
@@ -52,6 +73,11 @@ func newAnnounceCmd(prompt Prompt) *cobra.Command {
 			"issue, and where it stands (ready for review, merged, or CI red) — to the\n" +
 			"configured Slack, Teams, Discord or webhook. A preview is printed and\n" +
 			"confirmed before anything is announced.\n\n" +
+			"With a Slack user token, a ready-for-review announcement tags the code owners\n" +
+			"of the branch's changes already linked to Slack, and the user groups chosen for\n" +
+			"the repository, on a line after the text. It never asks: an owner not linked yet\n" +
+			"is named in the preview, to link in the interface's People and groups. A token\n" +
+			"without the scopes tagging needs posts untagged, naming the scope to add.\n\n" +
 			"What it announces is remembered, with what the interface announces: a pull\n" +
 			"request already announced at the moment it is at is said to be, and asked about\n" +
 			"again rather than repeated — with --yes, it is left as it is.",
@@ -90,6 +116,17 @@ func runAnnounceCommand(cmd *cobra.Command, prompt Prompt, opts writeOptions) er
 		Messaging: cfg.Messaging,
 		Memory:    loop.AnnounceMemory{Recorded: deps.Store.Announced, Record: deps.Store.RecordAnnounce},
 		Confirm:   func(question string) (bool, error) { return confirm(prompt, question) },
+		Tagging: announceTagging{
+			Owners: loop.OwnerSeams{
+				ChangedPaths: deps.Git.ChangedPaths, CodeOwnersAt: deps.Git.CodeOwnersAt, Author: deps.Forge.Author,
+			},
+			OwnerLinks:     deps.Store.OwnerLinks,
+			RepoGroups:     deps.Store.RepoGroups,
+			LastGroups:     deps.Store.LastGroups,
+			RecordGroups:   deps.Store.RecordGroups,
+			ChannelMembers: deps.Messaging.ChannelMembers,
+			UserGroups:     deps.Messaging.UserGroups,
+		},
 	}
 
 	if cfg.Messaging.Mode() != config.MessagingNone {
@@ -130,12 +167,16 @@ func runAnnounce(out output, seams announceSeams, opts writeOptions) error {
 	fmt.Fprintln(out.artifact, text)
 	fmt.Fprintln(out.artifact, "to "+target)
 
+	mentions, memory := tagAnnouncement(out, seams, announcement.Moment)
+
 	proceed, err := opts.proceed(out.notes, seams.Confirm, announcePrompt(service, target, again, opts))
 	if err != nil || !proceed {
 		return unattendedAgain(err, again)
 	}
 
-	err = loop.Deliver(seams.Post, seams.Memory, loop.Delivery{Channel: seams.Messaging.Channel, Text: text, Made: made})
+	err = loop.Deliver(seams.Post, memory, loop.Delivery{
+		Channel: seams.Messaging.Channel, Text: text, Made: made, Mentions: mentions,
+	})
 	if err != nil {
 		return fmt.Errorf("announcing to %s: %w", service, err)
 	}
@@ -200,4 +241,153 @@ func unattendedAgain(err error, again bool) error {
 	}
 
 	return err
+}
+
+// tagAnnouncement previews whom the announcement at moment tags — the
+// linked owners and the groups that start checked, never asked — and who it
+// leaves untagged, and answers the tags with what the post remembers: the
+// groups chosen, when groups were offered. A token that lacks a scope tagging
+// needs is told the scope, and the post goes out untagged.
+func tagAnnouncement(out output, seams announceSeams, moment messaging.Moment) (
+	messaging.Mentions, loop.AnnounceMemory,
+) {
+	memory := seams.Memory
+
+	tags, tagging := seams.Tagging.propose(seams.Compose.Branch, moment)
+	if !tagging || len(tags.Owners)+len(tags.Groups) == 0 {
+		return messaging.Mentions{}, memory
+	}
+
+	if scope, missing := seams.Tagging.missingScope(seams.Messaging.Channel, tags); missing {
+		fmt.Fprintf(out.notes, "Not tagging anyone: the Slack token lacks the %s scope; "+
+			"add it to the Slack app, then run workflow slack login.\n", scope)
+
+		return messaging.Mentions{}, memory
+	}
+
+	mentions, err := tags.Mentions(checkedGroups(tags.Groups))
+	if err != nil {
+		return messaging.Mentions{}, memory
+	}
+
+	fmt.Fprintln(out.artifact, "tags "+taggedNames(tags))
+
+	if untagged := untaggedOwners(tags.Owners); untagged != "" {
+		fmt.Fprintln(out.artifact, "not tagged: "+untagged)
+	}
+
+	if len(tags.Groups) > 0 {
+		memory.RecordGroups = seams.Tagging.RecordGroups
+	}
+
+	return mentions, memory
+}
+
+// propose is whom an announcement at moment proposes to tag, and whether it
+// tags anyone at all: only one ready for review does, with a Slack user token
+// and the store. The tags are a proposal, so a read that fails proposes
+// fewer rather than holding the announcement back.
+func (t announceTagging) propose(branch func() (gitrepo.Branch, error), moment messaging.Moment) (loop.Tags, bool) {
+	if moment != messaging.MomentReady || t.ChannelMembers == nil || t.OwnerLinks == nil {
+		return loop.Tags{}, false
+	}
+
+	current, err := branch()
+	if err != nil {
+		current = gitrepo.Branch{}
+	}
+
+	base := current.Base
+
+	owners, _ := loop.OwnersOf(t.Owners, base)
+	links, _ := t.OwnerLinks()
+
+	var (
+		repoGroups []loop.SlackTarget
+		last       []string
+		chosen     bool
+	)
+
+	if t.RepoGroups != nil {
+		repoGroups, _ = t.RepoGroups()
+	}
+
+	if t.LastGroups != nil {
+		last, chosen = t.LastGroups()
+	}
+
+	return loop.ProposeTags(owners, links, repoGroups, last, chosen, moment), true
+}
+
+// missingScope is a scope the Slack token lacks to tag: the channel's
+// members need users:read and the channel scopes, and groups usergroups:read.
+// Any other failure of these reads is left to the post to meet.
+func (t announceTagging) missingScope(channel string, tags loop.Tags) (string, bool) {
+	_, err := t.ChannelMembers(channel)
+	if len(tags.Groups) > 0 && t.UserGroups != nil && err == nil {
+		_, err = t.UserGroups()
+	}
+
+	missing, lacks := errors.AsType[*messaging.MissingScopeError](err)
+	if !lacks {
+		return "", false
+	}
+
+	return missing.Needed, true
+}
+
+// checkedGroups is the ID of every group that starts checked.
+func checkedGroups(groups []loop.GroupTag) []string {
+	var ids []string
+
+	for _, group := range groups {
+		if group.Checked {
+			ids = append(ids, group.Slack.ID)
+		}
+	}
+
+	return ids
+}
+
+// taggedNames names everyone the post tags, as Slack shows them: the linked
+// people, then the checked groups; or no one.
+func taggedNames(tags loop.Tags) string {
+	var names []string
+
+	for _, owner := range tags.Owners {
+		if !owner.Team && owner.State == loop.OwnerLinked {
+			names = append(names, "@"+sanitize.Line(owner.Slack.Label))
+		}
+	}
+
+	for _, group := range tags.Groups {
+		if group.Checked {
+			names = append(names, "@"+sanitize.Line(group.Slack.Label))
+		}
+	}
+
+	if len(names) == 0 {
+		return "no one"
+	}
+
+	return strings.Join(names, " ")
+}
+
+// untaggedOwners names each owner the post leaves untagged, and why.
+func untaggedOwners(owners []loop.OwnerTag) string {
+	reasons := map[loop.OwnerState]string{
+		loop.OwnerUnlinked:   " (not linked — associate in People and groups)",
+		loop.OwnerNotOnSlack: " (not on Slack)",
+		loop.OwnerLinked:     "",
+	}
+
+	var untagged []string
+
+	for _, owner := range owners {
+		if owner.State != loop.OwnerLinked {
+			untagged = append(untagged, owner.Owner+reasons[owner.State])
+		}
+	}
+
+	return strings.Join(untagged, ", ")
 }
