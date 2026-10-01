@@ -220,7 +220,7 @@ func slackLockPath(configPath string) string {
 // placeSlackCredentials is Controls.PlaceSlackCredentials, refreshing through
 // transport.
 //
-// Trade-off TRADE-17: no test sees a placement Slack accepts; that takes Slack itself.
+// Trade-off TRADE-17: no test sees a placement kept; that takes the real keychain.
 func placeSlackCredentials(ctx context.Context, transport httpx.Doer) func(config.Config) (config.Config, error) {
 	return func(cfg config.Config) (config.Config, error) {
 		if runtime.GOOS != "darwin" {

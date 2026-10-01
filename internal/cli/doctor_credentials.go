@@ -250,7 +250,6 @@ func checkMessaging(ctx context.Context, out io.Writer, doer messaging.Doer, run
 		return credentialUnchecked(out, label, err.Error())
 	}
 
-	// Trade-off TRADE-17: no test sees a token accepted; that takes Slack itself.
 	if err != nil {
 		fmt.Fprintf(out, "  %-10s %v\n", label, err)
 
