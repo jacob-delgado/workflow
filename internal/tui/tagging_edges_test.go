@@ -9,6 +9,7 @@ import (
 
 	tea "charm.land/bubbletea/v2"
 
+	"github.com/jacob-delgado/workflow/internal/forge"
 	"github.com/jacob-delgado/workflow/internal/loop"
 	"github.com/jacob-delgado/workflow/internal/messaging"
 	"github.com/jacob-delgado/workflow/internal/tui"
@@ -202,4 +203,53 @@ func TestAWorkspaceWithoutUserGroupsSaysNothingOfIt(t *testing.T) {
 	// Assert
 	requireScreen(t, view, "tags  @Carla Diaz @control-plane-pod")
 	refuseScreen(t, view, "no user groups")
+}
+
+func TestTagsReadForAnEarlierPreviewTagNothingInARedOne(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	// the ready-for-review preview closes before its tags are read, and CI
+	// fails before the next one opens
+	tagging := taggingWorld()
+	opened, reads := openedPreview(t, tagging)
+	closed := typing(t, opened, keyEsc)
+
+	tagging.mu.Lock()
+	tagging.ci = []forge.CI{{State: forge.CIFailed, Total: 1, Done: 1, Failed: 1}}
+	tagging.mu.Unlock()
+
+	red := typing(t, closed, "4", "r", "5", "p")
+
+	// Act
+	typing(t, drain(t, red, reads[0]), keyEnter)
+
+	// Assert
+	if got := postedText(t, tagging); strings.Contains(got, "cc ") {
+		t.Errorf("posted %q, want a red CI's announcement untagged", got)
+	}
+}
+
+func TestTagsReadForAnEarlierPreviewLeaveALaterOnesAlone(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	// carla is found not on Slack after all before the preview reopens
+	tagging := taggingWorld()
+	opened, reads := openedPreview(t, tagging)
+	stale := reads[0]()
+	closed := typing(t, opened, keyEsc)
+
+	tagging.mu.Lock()
+	tagging.slack.links[0] = loop.OwnerLink{Owner: ownerCarla, OnSlack: false, Slack: loop.SlackTarget{}}
+	tagging.mu.Unlock()
+
+	reopened := typing(t, closed, "p")
+
+	// Act
+	view := drain(t, reopened, func() tea.Msg { return stale }).View().Content
+
+	// Assert
+	requireScreen(t, view, "tags  @control-plane-pod")
+	refuseScreen(t, view, carlaName)
 }

@@ -275,11 +275,12 @@ func (m Model) previewAnnouncement() (Model, tea.Cmd) {
 	}
 
 	moment := loop.AnnounceMoment(m.review.pull, m.review.ci)
+	m, opened := m.opening()
 
 	preview, readTags := m.withTagging(messagingPreview{
 		marks: m.marks, styles: m.styles, text: m.announcement(moment), fallback: m.cfg.Messaging.Target(),
 		channel: channel, channels: channels, moment: moment, service: m.cfg.Messaging.Service(),
-		noCI: m.review.checked && m.review.ci.State == forge.CINone,
+		noCI: m.review.checked && m.review.ci.State == forge.CINone, opened: opened,
 	})
 	m.overlay = preview
 

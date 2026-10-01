@@ -34,20 +34,21 @@ func (d directory) missingScope() string {
 	return ""
 }
 
-// readMembers starts reading a channel's members, for linking a user owner.
-func (m Model) readMembers(channel string) (directory, tea.Cmd) {
+// readMembers starts reading a channel's members, for linking a user owner
+// in the overlay opened as opened.
+func (m Model) readMembers(channel string, opened int) (directory, tea.Cmd) {
 	read := m.deps.Messaging.ChannelMembers
 
 	return directory{reading: true}, func() tea.Msg {
 		found, err := read(channel)
 
-		return membersRead{channel: channel, found: directory{entries: found, err: err}}
+		return membersRead{opened: opened, channel: channel, found: directory{entries: found, err: err}}
 	}
 }
 
 // readUserGroups starts reading the workspace's user groups, for linking a
 // team owner, where Slack can list them.
-func (m Model) readUserGroups() (directory, tea.Cmd) {
+func (m Model) readUserGroups(opened int) (directory, tea.Cmd) {
 	read := m.deps.Messaging.UserGroups
 	if read == nil {
 		return directory{}, nil
@@ -56,26 +57,28 @@ func (m Model) readUserGroups() (directory, tea.Cmd) {
 	return directory{reading: true}, func() tea.Msg {
 		found, err := read()
 
-		return userGroupsRead{found: directory{entries: found, err: err}}
+		return userGroupsRead{opened: opened, found: directory{entries: found, err: err}}
 	}
 }
 
 // membersRead is a channel's members, read for linking.
 type membersRead struct {
+	opened  int
 	channel string
 	found   directory
 }
 
-// apply hands the members to the preview, unless its channel has changed
-// since they were asked for, or to People and groups.
+// apply hands the members to the overlay that asked for them: the preview,
+// unless its channel has changed since, or People and groups, whose channel
+// never does.
 func (msg membersRead) apply(m Model) (Model, tea.Cmd) {
-	if preview, open := beneath[messagingPreview](m); open && preview.channel == msg.channel {
+	if preview, open := beneath[messagingPreview](m, msg.opened); open && preview.channel == msg.channel {
 		preview.tagging.members = msg.found
 
 		return m.withBeneath(preview), nil
 	}
 
-	if people, open := beneath[peopleOverlay](m); open {
+	if people, open := beneath[peopleOverlay](m, msg.opened); open {
 		people.members = msg.found
 
 		return m.withBeneath(people), nil
@@ -86,18 +89,19 @@ func (msg membersRead) apply(m Model) (Model, tea.Cmd) {
 
 // userGroupsRead is the workspace's user groups, read for linking a team.
 type userGroupsRead struct {
-	found directory
+	opened int
+	found  directory
 }
 
 // apply hands the groups to the preview, or to People and groups.
 func (msg userGroupsRead) apply(m Model) (Model, tea.Cmd) {
-	if preview, open := beneath[messagingPreview](m); open {
+	if preview, open := beneath[messagingPreview](m, msg.opened); open {
 		preview.tagging.groups = msg.found
 
 		return m.withBeneath(preview), nil
 	}
 
-	if people, open := beneath[peopleOverlay](m); open {
+	if people, open := beneath[peopleOverlay](m, msg.opened); open {
 		people.groups = msg.found
 
 		return m.withBeneath(people.withChoices()), nil
@@ -110,21 +114,31 @@ func (msg userGroupsRead) apply(m Model) (Model, tea.Cmd) {
 // directory the picker chooses from.
 type linksOwners interface {
 	overlay
+	// openedAs is the count of overlays opened when it opened, which every
+	// read and save it starts carries back.
+	openedAs() int
 	directoryFor(team bool) directory
 }
 
-// beneath is the open overlay a read or a save is for, when it is a T: the
-// one on top, or the one the owner picker was opened over, which a read must
-// still reach, or esc would return to it as it was before the read.
-func beneath[T linksOwners](m Model) (T, bool) {
+// beneath is the open overlay a read or a save is for, when it is the T
+// opened as opened: the one on top, or the one the owner picker was opened
+// over, which a read must still reach, or esc would return to it as it was
+// before the read. An answer meant for an overlay since closed finds none,
+// even when another of its kind has opened since.
+func beneath[T linksOwners](m Model, opened int) (T, bool) {
 	target := m.overlay
 	if picker, picking := m.overlay.(ownerPicker); picking {
 		target = picker.back
 	}
 
 	open, isOpen := target.(T)
+	if !isOpen || open.openedAs() != opened {
+		var none T
 
-	return open, isOpen
+		return none, false
+	}
+
+	return open, true
 }
 
 // withBeneath puts back the overlay beneath found, changed: under the owner
@@ -142,34 +156,35 @@ func (m Model) withBeneath(changed linksOwners) Model {
 }
 
 // saveLink saves whom owner is on Slack, or with no target that they are not
-// on it.
-func (m Model) saveLink(owner string, target *loop.SlackTarget) tea.Cmd {
+// on it, for the overlay opened as opened.
+func (m Model) saveLink(owner string, target *loop.SlackTarget, opened int) tea.Cmd {
 	save, link := m.deps.Store.LinkOwner, loop.OwnerLink{Owner: owner, OnSlack: false, Slack: loop.SlackTarget{}}
 	if target != nil {
 		link.OnSlack, link.Slack = true, *target
 	}
 
 	return func() tea.Msg {
-		return ownerLinked{link: link, err: save(owner, target)}
+		return ownerLinked{opened: opened, link: link, err: save(owner, target)}
 	}
 }
 
 // ownerLinked is a link saved, or why it was not.
 type ownerLinked struct {
-	link loop.OwnerLink
-	err  error
+	opened int
+	link   loop.OwnerLink
+	err    error
 }
 
 // apply shows the link where it was made: in the preview's tags, or in
 // People and groups.
 func (msg ownerLinked) apply(m Model) (Model, tea.Cmd) {
-	if preview, open := beneath[messagingPreview](m); open {
+	if preview, open := beneath[messagingPreview](m, msg.opened); open {
 		preview.tagging = preview.tagging.relinked(msg.link, msg.err)
 
 		return m.withBeneath(preview), nil
 	}
 
-	return peopleSaved{saved: "", err: msg.err}.apply(m)
+	return peopleSaved{opened: msg.opened, saved: "", err: msg.err}.apply(m)
 }
 
 // slackName is how a Slack user or group is shown: a group with its @.
@@ -307,8 +322,8 @@ func (p ownerPicker) choose(m Model) (Model, tea.Cmd) {
 	m.overlay = p.back
 
 	if chosen.notOnSlack {
-		return m, m.saveLink(p.owner, nil)
+		return m, m.saveLink(p.owner, nil, p.back.openedAs())
 	}
 
-	return m, m.saveLink(p.owner, &chosen.target)
+	return m, m.saveLink(p.owner, &chosen.target, p.back.openedAs())
 }
