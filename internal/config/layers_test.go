@@ -235,3 +235,30 @@ func TestARepositoryOptsIntoItsForgeIssuesOverTheHomeDefault(t *testing.T) {
 			cfg.Issues.Forge, cfg.Jira.BaseURL, err)
 	}
 }
+
+func TestASaveOverAHomeFileValidOnlyWithItsLayerSucceeds(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	files := config.Files{
+		Home: write(t, t.TempDir(),
+			`{"messaging": {"client_id": "1.2", "webhook_url": "https://hooks.slack.example/home"}}`),
+		Repo: write(t, t.TempDir(), `{"messaging": {"client_id": ""}}`),
+	}
+
+	cfg, over, err := config.LoadLayersAt(files)
+	if err != nil {
+		t.Fatalf("loading: %v", err)
+	}
+
+	cfg.Jira.Project = ossProject
+
+	// Act
+	_, err = config.SaveLayers(files, cfg, over)
+
+	// Assert
+	saved, loadErr := config.LoadFile(files.Repo)
+	if err != nil || loadErr != nil || saved.Jira.Project != ossProject {
+		t.Errorf("saving = %v; the repository file reads %+v, %v; want the project saved", err, saved.Jira, loadErr)
+	}
+}

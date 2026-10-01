@@ -375,13 +375,14 @@ func mergeValues(base, over any) any {
 }
 
 // layerContents is what the file files saves to holds for cfg: every setting,
-// unless it lies over a home file, when it is only what differs from that.
+// unless it lies over a home file, when it is only what differs from that. The
+// home file is read unvalidated, since it need only be valid with its layer.
 func layerContents(files Files, home layer, cfg Config) ([]byte, error) {
 	if files.Repo == "" || !home.exists {
 		return encode(cfg)
 	}
 
-	beneath, err := Parse(bytes.NewReader(home.contents))
+	beneath, err := decode(home.contents)
 	if err != nil {
 		return nil, fmt.Errorf("%s: %w", home.path, err)
 	}
