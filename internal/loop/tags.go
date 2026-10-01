@@ -6,6 +6,7 @@ package loop
 import (
 	"errors"
 	"slices"
+	"strings"
 
 	"github.com/jacob-delgado/workflow/internal/codeowners"
 	"github.com/jacob-delgado/workflow/internal/messaging"
@@ -126,13 +127,20 @@ func (t Tags) Mentions(checkedGroupIDs []string) (messaging.Mentions, error) {
 	return messaging.NewMentions(users, checkedGroupIDs)
 }
 
+// SameOwner reports whether two forge owner names name the same user or team:
+// both forges read them without regard to case, so a CODEOWNERS file may spell
+// an owner differently from the name a link was saved under.
+func SameOwner(one, other string) bool {
+	return strings.EqualFold(one, other)
+}
+
 // ownerTag is owner as links decided them. A link to the wrong kind of Slack
 // target — a user owner to a group, a team to a user — reads as unlinked, so
 // it is asked again rather than tagged.
 func ownerTag(owner string, team bool, links []OwnerLink) OwnerTag {
 	tag := OwnerTag{Owner: owner, Team: team, State: OwnerUnlinked, Slack: SlackTarget{}}
 
-	index := slices.IndexFunc(links, func(link OwnerLink) bool { return link.Owner == owner })
+	index := slices.IndexFunc(links, func(link OwnerLink) bool { return SameOwner(link.Owner, owner) })
 	if index < 0 {
 		return tag
 	}

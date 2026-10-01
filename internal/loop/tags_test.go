@@ -89,6 +89,23 @@ func TestALinkOfTheWrongKindReadsAsUnlinked(t *testing.T) {
 	}
 }
 
+func TestAnOwnerIsMatchedToTheirLinkWhateverTheCase(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	owners := codeowners.Owners{Users: []string{"Ana"}, Teams: []string{"Acme/Control-Plane"}}
+
+	// Act
+	tags := loop.ProposeTags(owners, decided(), nil, nil, false, messaging.MomentReady)
+
+	// Assert
+	for _, owner := range tags.Owners {
+		if owner.State != loop.OwnerLinked {
+			t.Errorf("%s is %v, want linked: forge names are not case-sensitive", owner.Owner, owner.State)
+		}
+	}
+}
+
 func TestProposeTagsPreChecksTheLastChoiceAndTheOwningTeamsGroups(t *testing.T) {
 	t.Parallel()
 

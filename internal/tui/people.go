@@ -115,7 +115,7 @@ func peopleFrom(decided []loop.OwnerLink, owners codeowners.Owners) []person {
 	}
 
 	for _, owner := range slices.Concat(owners.Users, owners.Teams) {
-		if !slices.ContainsFunc(decided, func(link loop.OwnerLink) bool { return link.Owner == owner }) {
+		if !slices.ContainsFunc(decided, func(link loop.OwnerLink) bool { return loop.SameOwner(link.Owner, owner) }) {
 			people = append(people, person{owner: owner, decided: false, link: loop.OwnerLink{Owner: owner}})
 		}
 	}

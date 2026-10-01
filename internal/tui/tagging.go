@@ -58,7 +58,7 @@ func (p tagProposal) tags() loop.Tags {
 // relinked is the proposal with link in place of what was decided for its
 // owner before.
 func (p tagProposal) relinked(link loop.OwnerLink) tagProposal {
-	sameOwner := func(old loop.OwnerLink) bool { return old.Owner == link.Owner }
+	sameOwner := func(old loop.OwnerLink) bool { return loop.SameOwner(old.Owner, link.Owner) }
 	p.links = append(slices.DeleteFunc(slices.Clone(p.links), sameOwner), link)
 
 	return p

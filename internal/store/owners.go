@@ -82,10 +82,10 @@ func ownersMigration() []string {
 	}
 }
 
-// OwnerLinks is every owner decided on a forge host, by owner. A row of the
-// wrong shape — a tampered or corrupt file's — is left out, so that owner reads
-// as never decided, and each label is sanitized and capped. A disabled store,
-// or a host with nothing decided, reports none.
+// OwnerLinks is every owner decided on a forge host, by owner in lower case. A
+// row of the wrong shape — a tampered or corrupt file's — is left out, so that
+// owner reads as never decided, and each label is sanitized and capped. A
+// disabled store, or a host with nothing decided, reports none.
 func (s Store) OwnerLinks(ctx context.Context, forgeHost string) ([]OwnerLink, error) {
 	if forgeHost == "" {
 		return nil, nil
@@ -145,15 +145,18 @@ func ownerLinkFrom(owner string, slackID, label sql.NullString) (OwnerLink, bool
 	}
 
 	return OwnerLink{
-		Owner: owner, OnSlack: slackID.Valid, Slack: SlackTarget{ID: slackID.String, Label: cleanLabel(label.String)},
+		Owner:   strings.ToLower(owner),
+		OnSlack: slackID.Valid,
+		Slack:   SlackTarget{ID: slackID.String, Label: cleanLabel(label.String)},
 	}, true
 }
 
 // LinkOwner records what was decided for a forge owner on a host: target is
 // whom they are on Slack, and nil that they are not on Slack. It replaces any
 // earlier decision, and refuses an owner or Slack ID of the wrong shape with
-// ErrInvalidOwner or ErrInvalidSlackID. A disabled or read-only store records
-// nothing.
+// ErrInvalidOwner or ErrInvalidSlackID. The owner is kept in lower case, since
+// both forges read user and team names without regard to case. A disabled or
+// read-only store records nothing.
 func (s Store) LinkOwner(ctx context.Context, forgeHost, owner string, target *SlackTarget, now time.Time) error {
 	switch {
 	case forgeHost == "":
@@ -165,7 +168,7 @@ func (s Store) LinkOwner(ctx context.Context, forgeHost, owner string, target *S
 	}
 
 	return s.keptWithin(ctx, func(transaction *sql.Tx) error {
-		err := writeOwnerLink(ctx, transaction, forgeHost, owner, target, now)
+		err := writeOwnerLink(ctx, transaction, forgeHost, strings.ToLower(owner), target, now)
 		if err != nil {
 			return err
 		}
@@ -175,7 +178,8 @@ func (s Store) LinkOwner(ctx context.Context, forgeHost, owner string, target *S
 }
 
 // ForgetOwner drops what was decided for a forge owner on a host, so they are
-// asked again. A disabled or read-only store forgets nothing.
+// asked again, whatever the case of owner. A disabled or read-only store
+// forgets nothing.
 func (s Store) ForgetOwner(ctx context.Context, forgeHost, owner string) error {
 	if forgeHost == "" {
 		return nil
@@ -183,7 +187,7 @@ func (s Store) ForgetOwner(ctx context.Context, forgeHost, owner string) error {
 
 	return s.keptWithin(ctx, func(transaction *sql.Tx) error {
 		_, err := transaction.ExecContext(ctx,
-			`DELETE FROM owner_decision WHERE forge_host = ? AND owner = ?`, forgeHost, owner)
+			`DELETE FROM owner_decision WHERE forge_host = ? AND owner = ?`, forgeHost, strings.ToLower(owner))
 		if err != nil {
 			return fmt.Errorf("forgetting the owner: %w", err)
 		}

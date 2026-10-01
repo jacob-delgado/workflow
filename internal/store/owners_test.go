@@ -105,6 +105,53 @@ func TestRelinkingAnOwnerReplacesTheDecision(t *testing.T) {
 	}
 }
 
+func TestAnOwnersCaseMakesNoSecondDecision(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	kept := store.New(t.TempDir(), false)
+
+	err := kept.LinkOwner(t.Context(), forgeHost, "Ana", ana(), theTime())
+	if err != nil {
+		t.Fatalf("linking Ana: %v", err)
+	}
+
+	// Act
+	err = kept.LinkOwner(t.Context(), forgeHost, "ANA", nil, theTime())
+	if err != nil {
+		t.Fatalf("LinkOwner returned %v, want nil", err)
+	}
+
+	links, err := kept.OwnerLinks(t.Context(), forgeHost)
+
+	// Assert
+	want := []store.OwnerLink{{Owner: anaOwner, OnSlack: false, Slack: store.SlackTarget{}}}
+	if err != nil || !slices.Equal(links, want) {
+		t.Errorf("OwnerLinks = %+v, %v; want %+v", links, err, want)
+	}
+}
+
+func TestAnOwnerIsForgottenWhateverTheCase(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	kept := store.New(t.TempDir(), false)
+	linkAna(t, kept)
+
+	// Act
+	err := kept.ForgetOwner(t.Context(), forgeHost, "Ana")
+	if err != nil {
+		t.Fatalf("ForgetOwner returned %v, want nil", err)
+	}
+
+	links, err := kept.OwnerLinks(t.Context(), forgeHost)
+
+	// Assert
+	if err != nil || len(links) != 0 {
+		t.Errorf("OwnerLinks after forgetting Ana = %+v, %v; want none", links, err)
+	}
+}
+
 func TestOwnerLinksAreKeptPerForgeHost(t *testing.T) {
 	t.Parallel()
 

@@ -183,7 +183,7 @@ func (s *server) people() (api.People, error) {
 
 	branchOwners := s.branchOwners()
 	for _, owner := range slices.Concat(branchOwners.Users, branchOwners.Teams) {
-		if !slices.Contains(names, owner) {
+		if !slices.ContainsFunc(names, func(name string) bool { return loop.SameOwner(name, owner) }) {
 			names = append(names, owner)
 		}
 	}
