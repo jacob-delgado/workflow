@@ -908,13 +908,17 @@ same person in every repository there: a person links to a Slack user, a
 team to a user group, or either is marked not on Slack and never asked again.
 The user groups an announcement may tag, and the ones chosen last time, are
 kept per repository. Both are kept per Slack workspace too, the one the user
-token is for, which workflow asks Slack once a session: a Slack ID means
-nothing in another workspace, so a link made in one is neither used nor
-replaced in another, and switching back finds it again. That an owner is not
-on Slack holds in every workspace. When Slack cannot say which workspace the
+token is for, which workflow asks Slack once a session: each link, listed
+group and chosen group belongs to the workspace it was made in, so one made
+in a workspace is neither used nor replaced in another, and switching back
+finds it again. That holds even for an ID more than one workspace sees — an
+Enterprise Grid user, a Slack Connect member, an org-wide user group. That an
+owner is not on Slack is kept per workspace as well, since a person may be in
+one workspace and not another. When Slack cannot say which workspace the
 token is for, nobody is tagged: the announcement posts untagged and says why.
 Links kept before workspaces were — by an earlier build — belong to no
-workspace, so each such owner is asked about once more. The terminal's
+workspace, so each such owner is asked about once more; an owner an earlier
+build marked not on Slack stays so in every workspace until decided again. The terminal's
 announcement preview and the web's ask
 whom an owner not yet decided is, and the web's Settings and the terminal's
 `P` overlay change or forget a decision; `workflow announce` tags only whom

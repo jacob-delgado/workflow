@@ -15,13 +15,14 @@ import (
 	"github.com/jacob-delgado/workflow/internal/sanitize"
 )
 
-// workspacesKeptIn is the migration that keys Slack links by workspace: every
-// read of them filters by one, so it needs the file migrated at least this far.
-const workspacesKeptIn = 3
+// linkWorkspacesKeptIn is the migration that keeps each Slack link, listed
+// group and chosen group with its workspace: every read of them filters by
+// one, so it needs the file migrated at least this far.
+const linkWorkspacesKeptIn = 5
 
-// ownerKindsKeptIn is the migration that keeps whether an owner is a person or
-// a team: a read of the owner links needs the file migrated this far.
-const ownerKindsKeptIn = 4
+// indexOwnerSlackByEntity indexes the owner links by the Slack ID they link
+// to, made again by each migration that remakes owner_slack.
+const indexOwnerSlackByEntity = `CREATE INDEX owner_slack_by_entity ON owner_slack (slack_id)`
 
 // The kinds of forge owner a decision keeps.
 const (
@@ -95,7 +96,7 @@ func ownersMigration() []string {
 			FOREIGN KEY (forge_host, owner) REFERENCES owner_decision(forge_host, owner) ON DELETE CASCADE,
 			FOREIGN KEY (slack_id) REFERENCES slack_entity(slack_id) ON DELETE RESTRICT
 		) STRICT`,
-		`CREATE INDEX owner_slack_by_entity ON owner_slack (slack_id)`,
+		indexOwnerSlackByEntity,
 	}
 }
 
@@ -106,6 +107,8 @@ func ownersMigration() []string {
 // linked to it is read until it is linked again. An owner may now have one
 // link per workspace, so owner_slack is remade keyed by the ID too, its rows
 // copied as they are.
+// linkWorkspacesMigration later moves the workspace to the rows that link,
+// since one ID can be seen from more than one workspace.
 func workspacesMigration() []string {
 	return []string{
 		`ALTER TABLE slack_entity ADD COLUMN slack_team TEXT NOT NULL DEFAULT ''`,
@@ -121,7 +124,7 @@ func workspacesMigration() []string {
 			SELECT forge_host, owner, slack_id FROM owner_slack`,
 		`DROP TABLE owner_slack`,
 		`ALTER TABLE owner_slack_per_workspace RENAME TO owner_slack`,
-		`CREATE INDEX owner_slack_by_entity ON owner_slack (slack_id)`,
+		indexOwnerSlackByEntity,
 	}
 }
 
@@ -138,11 +141,78 @@ func ownerKindsMigration() []string {
 	}
 }
 
+// linkWorkspacesMigration moves the workspace from the Slack entity to each
+// row that links to one. An ID can be seen from more than one workspace — an
+// Enterprise Grid's W user, a Slack Connect member, an org-wide S group — so
+// the workspace a link, a listed group or a chosen group was made in is the
+// row's, not the ID's, whose label alone depends on it. Each row is copied
+// with its entity's workspace, which is where it was read until now. That an
+// owner is not on Slack is kept per workspace too, in owner_not_on_slack: a
+// decision with neither a link nor such a row, as one kept before is, is not
+// on Slack in any workspace.
+func linkWorkspacesMigration() []string {
+	return []string{
+		`CREATE TABLE owner_slack_in_workspace (
+			forge_host TEXT NOT NULL,
+			owner      TEXT NOT NULL,
+			slack_team TEXT NOT NULL,
+			slack_id   TEXT NOT NULL,
+			PRIMARY KEY (forge_host, owner, slack_team),
+			FOREIGN KEY (forge_host, owner) REFERENCES owner_decision(forge_host, owner) ON DELETE CASCADE,
+			FOREIGN KEY (slack_id) REFERENCES slack_entity(slack_id) ON DELETE RESTRICT
+		) STRICT`,
+		`INSERT INTO owner_slack_in_workspace (forge_host, owner, slack_team, slack_id)
+			SELECT link.forge_host, link.owner, entity.slack_team, link.slack_id
+			FROM owner_slack AS link JOIN slack_entity AS entity USING (slack_id) WHERE true
+			ON CONFLICT DO NOTHING`,
+		`CREATE TABLE owner_not_on_slack (
+			forge_host TEXT NOT NULL,
+			owner      TEXT NOT NULL,
+			slack_team TEXT NOT NULL,
+			PRIMARY KEY (forge_host, owner, slack_team),
+			FOREIGN KEY (forge_host, owner) REFERENCES owner_decision(forge_host, owner) ON DELETE CASCADE
+		) STRICT`,
+		`CREATE TABLE repo_group_in_workspace (
+			repo       TEXT NOT NULL,
+			slack_team TEXT NOT NULL,
+			slack_id   TEXT NOT NULL,
+			added_at   TEXT NOT NULL,
+			PRIMARY KEY (repo, slack_team, slack_id),
+			FOREIGN KEY (slack_id) REFERENCES slack_entity(slack_id) ON DELETE RESTRICT
+		) STRICT`,
+		`INSERT INTO repo_group_in_workspace (repo, slack_team, slack_id, added_at)
+			SELECT listed.repo, entity.slack_team, listed.slack_id, listed.added_at
+			FROM repo_group AS listed JOIN slack_entity AS entity USING (slack_id)`,
+		`CREATE TABLE repo_choice_group_in_workspace (
+			repo       TEXT NOT NULL,
+			slack_team TEXT NOT NULL,
+			slack_id   TEXT NOT NULL,
+			PRIMARY KEY (repo, slack_team, slack_id),
+			FOREIGN KEY (repo) REFERENCES repo_choice(repo) ON DELETE CASCADE,
+			FOREIGN KEY (repo, slack_team, slack_id)
+				REFERENCES repo_group_in_workspace(repo, slack_team, slack_id) ON DELETE CASCADE
+		) STRICT`,
+		`INSERT INTO repo_choice_group_in_workspace (repo, slack_team, slack_id)
+			SELECT chosen.repo, entity.slack_team, chosen.slack_id
+			FROM repo_choice_group AS chosen JOIN slack_entity AS entity USING (slack_id)`,
+		`DROP TABLE repo_choice_group`,
+		`DROP TABLE repo_group`,
+		`DROP TABLE owner_slack`,
+		`ALTER TABLE owner_slack_in_workspace RENAME TO owner_slack`,
+		`ALTER TABLE repo_group_in_workspace RENAME TO repo_group`,
+		`ALTER TABLE repo_choice_group_in_workspace RENAME TO repo_choice_group`,
+		indexOwnerSlackByEntity,
+		`CREATE INDEX repo_group_by_entity ON repo_group (slack_id)`,
+		`ALTER TABLE slack_entity DROP COLUMN slack_team`,
+	}
+}
+
 // OwnerLinks is every owner decided on a forge host as a Slack workspace sees
-// them, by owner in lower case: linked there, or not on Slack anywhere. An
-// owner linked only in other workspaces is left out, so they read as never
-// decided here and are asked again. A row of the wrong shape — a tampered or
-// corrupt file's — is left out too, and each label is sanitized and capped. A
+// them, by owner in lower case: linked there, decided not on Slack there, or
+// decided not on Slack before workspaces were and in none since. An owner
+// decided only in other workspaces is left out, so they read as never decided
+// here and are asked again. A row of the wrong shape — a tampered or corrupt
+// file's — is left out too, and each label is sanitized and capped. A
 // disabled store, or a host with nothing decided, reports none.
 func (s Store) OwnerLinks(ctx context.Context, forgeHost, workspace string) ([]OwnerLink, error) {
 	if forgeHost == "" {
@@ -153,22 +223,27 @@ func (s Store) OwnerLinks(ctx context.Context, forgeHost, workspace string) ([]O
 		return nil, ErrNoWorkspace
 	}
 
-	database, found, err := s.readKept(ctx, ownerKindsKeptIn)
+	database, found, err := s.readKept(ctx, linkWorkspacesKeptIn)
 	if err != nil || !found {
 		return nil, err
 	}
 	defer func() { _ = database.Close() }()
 
 	rows, err := database.QueryContext(ctx,
-		`SELECT decision.owner, decision.owner_kind, here.slack_id, here.label
+		`SELECT decision.owner, decision.owner_kind, here.slack_id, entity.label
 			FROM owner_decision AS decision
-			LEFT JOIN (SELECT link.forge_host, link.owner, link.slack_id, entity.label
-				FROM owner_slack AS link JOIN slack_entity AS entity USING (slack_id)
-				WHERE entity.slack_team = ?) AS here USING (forge_host, owner)
-			WHERE decision.forge_host = ? AND (here.slack_id IS NOT NULL OR NOT EXISTS (
-				SELECT 1 FROM owner_slack AS anywhere
-				WHERE anywhere.forge_host = decision.forge_host AND anywhere.owner = decision.owner))
-			ORDER BY decision.owner, here.slack_id`, workspace, forgeHost)
+			LEFT JOIN owner_slack AS here ON here.forge_host = decision.forge_host
+				AND here.owner = decision.owner AND here.slack_team = ?
+			LEFT JOIN slack_entity AS entity ON entity.slack_id = here.slack_id
+			WHERE decision.forge_host = ? AND (here.slack_id IS NOT NULL
+				OR EXISTS (SELECT 1 FROM owner_not_on_slack AS absent
+					WHERE absent.forge_host = decision.forge_host AND absent.owner = decision.owner
+					AND absent.slack_team = ?)
+				OR NOT EXISTS (SELECT 1 FROM owner_slack AS anywhere
+					WHERE anywhere.forge_host = decision.forge_host AND anywhere.owner = decision.owner)
+				AND NOT EXISTS (SELECT 1 FROM owner_not_on_slack AS anywhere
+					WHERE anywhere.forge_host = decision.forge_host AND anywhere.owner = decision.owner))
+			ORDER BY decision.owner`, workspace, forgeHost, workspace)
 	if err != nil {
 		return nil, fmt.Errorf("reading the owner links: %w", err)
 	}
@@ -240,13 +315,13 @@ type ownerIn struct {
 	owner     string
 }
 
-// LinkOwner records what was decided for a forge owner on a host, and
-// whether they are a person or a team, as the caller tells: whom they are on
-// Slack in workspace, replacing only that workspace's link, or that they are
-// not on Slack in any. It refuses an owner of the wrong shape for its kind
-// with ErrInvalidOwner, a Slack ID of the wrong shape or kind — a user group
-// for a team, a user for a person — with ErrInvalidSlackID, and a link under
-// no workspace with ErrNoWorkspace. The owner is kept in lower case, since
+// LinkOwner records what was decided for a forge owner on a host in a Slack
+// workspace, and whether they are a person or a team, as the caller tells:
+// whom they are on Slack there, or that they are not on Slack there, replacing
+// only that workspace's decision. It refuses an owner of the wrong shape for
+// its kind with ErrInvalidOwner, a Slack ID of the wrong shape or kind — a
+// user group for a team, a user for a person — with ErrInvalidSlackID, and a
+// decision under no workspace with ErrNoWorkspace. The owner is kept in lower case, since
 // both forges read user and team names without regard to case. A disabled or
 // read-only store records nothing.
 func (s Store) LinkOwner(ctx context.Context, forgeHost, workspace string, decision OwnerLink, now time.Time) error {
@@ -257,7 +332,7 @@ func (s Store) LinkOwner(ctx context.Context, forgeHost, workspace string, decis
 		return ErrInvalidOwner
 	case decision.OnSlack && !isSlackIDFor(decision.Team, decision.Slack.ID):
 		return ErrInvalidSlackID
-	case decision.OnSlack && workspace == "":
+	case workspace == "":
 		return ErrNoWorkspace
 	}
 
@@ -274,9 +349,9 @@ func (s Store) LinkOwner(ctx context.Context, forgeHost, workspace string, decis
 }
 
 // ForgetOwner drops what was decided for a forge owner on a host in a Slack
-// workspace, whatever the case of owner, so they are asked again there. Their
-// links in other workspaces are kept, and so then is the decision. A disabled
-// or read-only store forgets nothing.
+// workspace, whatever the case of owner, so they are asked again there. What
+// was decided in other workspaces is kept, and so then is the decision. A
+// disabled or read-only store forgets nothing.
 func (s Store) ForgetOwner(ctx context.Context, forgeHost, workspace, owner string) error {
 	if forgeHost == "" {
 		return nil
@@ -295,9 +370,10 @@ func (s Store) ForgetOwner(ctx context.Context, forgeHost, workspace, owner stri
 		}
 
 		_, err = transaction.ExecContext(ctx,
-			`DELETE FROM owner_decision WHERE forge_host = ? AND owner = ? AND NOT EXISTS (
-				SELECT 1 FROM owner_slack WHERE forge_host = ? AND owner = ?)`,
-			where.forgeHost, where.owner, where.forgeHost, where.owner)
+			`DELETE FROM owner_decision WHERE forge_host = ? AND owner = ?
+				AND NOT EXISTS (SELECT 1 FROM owner_slack WHERE forge_host = ? AND owner = ?)
+				AND NOT EXISTS (SELECT 1 FROM owner_not_on_slack WHERE forge_host = ? AND owner = ?)`,
+			where.forgeHost, where.owner, where.forgeHost, where.owner, where.forgeHost, where.owner)
 		if err != nil {
 			return fmt.Errorf("forgetting the owner: %w", err)
 		}
@@ -311,8 +387,8 @@ func kindOf(team bool) string {
 	return map[bool]string{false: kindUser, true: kindTeam}[team]
 }
 
-// writeOwnerLink upserts the decision and replaces its Slack link in the
-// workspace, or every link when the owner is not on Slack.
+// writeOwnerLink upserts the decision and replaces what was decided in the
+// workspace: a Slack link, or that the owner is not on Slack there.
 func writeOwnerLink(ctx context.Context, transaction *sql.Tx, where ownerIn, decision OwnerLink, now time.Time) error {
 	_, err := transaction.ExecContext(ctx,
 		`INSERT INTO owner_decision (forge_host, owner, decided_at, owner_kind) VALUES (?, ?, ?, ?)
@@ -323,69 +399,56 @@ func writeOwnerLink(ctx context.Context, transaction *sql.Tx, where ownerIn, dec
 		return fmt.Errorf("recording the owner decision: %w", err)
 	}
 
-	if !decision.OnSlack {
-		return unlinkEverywhere(ctx, transaction, where)
-	}
-
 	err = unlinkIn(ctx, transaction, where)
 	if err != nil {
 		return err
 	}
 
-	err = keepSlackEntity(ctx, transaction, decision.Slack, where.workspace, now)
+	if !decision.OnSlack {
+		_, err = transaction.ExecContext(ctx,
+			`INSERT INTO owner_not_on_slack (forge_host, owner, slack_team) VALUES (?, ?, ?)`,
+			where.forgeHost, where.owner, where.workspace)
+
+		return wrapIfFailed("recording the owner not on Slack", err)
+	}
+
+	err = keepSlackEntity(ctx, transaction, decision.Slack, now)
 	if err != nil {
 		return err
 	}
 
 	_, err = transaction.ExecContext(ctx,
-		`INSERT INTO owner_slack (forge_host, owner, slack_id) VALUES (?, ?, ?) ON CONFLICT DO NOTHING`,
-		where.forgeHost, where.owner, decision.Slack.ID)
-	if err != nil {
-		return fmt.Errorf("linking the owner to Slack: %w", err)
-	}
+		`INSERT INTO owner_slack (forge_host, owner, slack_team, slack_id) VALUES (?, ?, ?, ?)`,
+		where.forgeHost, where.owner, where.workspace, decision.Slack.ID)
 
-	return nil
+	return wrapIfFailed("linking the owner to Slack", err)
 }
 
-// unlinkIn drops the owner's Slack link in the workspace.
+// unlinkIn drops what was decided for the owner in the workspace: their Slack
+// link, or that they are not on Slack there.
 func unlinkIn(ctx context.Context, transaction *sql.Tx, where ownerIn) error {
-	_, err := transaction.ExecContext(ctx,
-		`DELETE FROM owner_slack WHERE forge_host = ? AND owner = ?
-			AND slack_id IN (SELECT slack_id FROM slack_entity WHERE slack_team = ?)`,
-		where.forgeHost, where.owner, where.workspace)
-	if err != nil {
-		return fmt.Errorf("clearing the owner's Slack link: %w", err)
+	for _, statement := range []string{
+		`DELETE FROM owner_slack WHERE forge_host = ? AND owner = ? AND slack_team = ?`,
+		`DELETE FROM owner_not_on_slack WHERE forge_host = ? AND owner = ? AND slack_team = ?`,
+	} {
+		_, err := transaction.ExecContext(ctx, statement, where.forgeHost, where.owner, where.workspace)
+		if err != nil {
+			return fmt.Errorf("clearing what was decided for the owner: %w", err)
+		}
 	}
 
 	return nil
 }
 
-// unlinkEverywhere drops the owner's Slack link in every workspace.
-func unlinkEverywhere(ctx context.Context, transaction *sql.Tx, where ownerIn) error {
+// keepSlackEntity upserts a Slack user or group with the label it was just
+// seen with, sanitized on the way in as well as on the way out.
+func keepSlackEntity(ctx context.Context, transaction *sql.Tx, target SlackTarget, now time.Time) error {
 	_, err := transaction.ExecContext(ctx,
-		`DELETE FROM owner_slack WHERE forge_host = ? AND owner = ?`, where.forgeHost, where.owner)
-	if err != nil {
-		return fmt.Errorf("clearing the owner's Slack links: %w", err)
-	}
+		`INSERT INTO slack_entity (slack_id, label, seen_at) VALUES (?, ?, ?)
+			ON CONFLICT(slack_id) DO UPDATE SET label = excluded.label, seen_at = excluded.seen_at`,
+		target.ID, cleanLabel(target.Label), timestamp(now))
 
-	return nil
-}
-
-// keepSlackEntity upserts a Slack user or group of a workspace with the label
-// it was just seen with, sanitized on the way in as well as on the way out.
-func keepSlackEntity(
-	ctx context.Context, transaction *sql.Tx, target SlackTarget, workspace string, now time.Time,
-) error {
-	_, err := transaction.ExecContext(ctx,
-		`INSERT INTO slack_entity (slack_id, label, seen_at, slack_team) VALUES (?, ?, ?, ?)
-			ON CONFLICT(slack_id) DO UPDATE SET label = excluded.label, seen_at = excluded.seen_at,
-				slack_team = excluded.slack_team`,
-		target.ID, cleanLabel(target.Label), timestamp(now), workspace)
-	if err != nil {
-		return fmt.Errorf("keeping the Slack entity: %w", err)
-	}
-
-	return nil
+	return wrapIfFailed("keeping the Slack entity", err)
 }
 
 // isOwner reports a CODEOWNERS user or team: /-separated segments of ASCII

@@ -598,7 +598,7 @@ with its size and what it holds, then asks before it removes anything:
 $ workflow db-clean
 Local data in /home/ana/.local/state/workflow
   workflow.db  cache    92.0 KiB  scopes: 3, announcements: 5, cached views: 2, cached issues: 41
-  kept.db      kept     24.0 KiB  owner decisions: 4, owners on Slack: 3, Slack users and groups: 5, repository groups: 2, chosen groups: 1
+  kept.db      kept     24.0 KiB  owner decisions: 4, owners on Slack: 3, owners not on Slack: 1, Slack users and groups: 5, repository groups: 2, chosen groups: 1
 Remove workflow.db from /home/ana/.local/state/workflow? [y/N]:
 ```
 

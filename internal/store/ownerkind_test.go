@@ -106,3 +106,57 @@ func TestAKeptFileFromBeforeOwnerKindsKeepsEachOwnersKind(t *testing.T) {
 		t.Errorf("OwnerLinks after migrating = %+v, %v; want %+v", links, err, want)
 	}
 }
+
+// keptBeforeLinkWorkspaces leaves in dir the kept file a build before links
+// carried their workspace made — its four migrations' tables — holding what
+// keptBeforeOwnerKinds holds, with the pod's group listed and chosen in A.
+func keptBeforeLinkWorkspaces(t *testing.T, dir string) {
+	t.Helper()
+
+	keptBeforeOwnerKinds(t, dir)
+
+	for _, statement := range []string{
+		`ALTER TABLE owner_decision ADD COLUMN owner_kind TEXT NOT NULL DEFAULT 'user'
+			CHECK (owner_kind IN ('user', 'team'))`,
+		`UPDATE owner_decision SET owner_kind = 'team' WHERE instr(owner, '/') > 0`,
+		`PRAGMA user_version = 4`,
+	} {
+		execKept(t, dir, statement)
+	}
+}
+
+func TestAKeptFileFromBeforeLinkWorkspacesKeepsEveryLinkInItsWorkspace(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	dir := t.TempDir()
+	keptBeforeLinkWorkspaces(t, dir)
+	kept := store.New(dir, false)
+
+	// Act
+	links, linksErr := kept.OwnerLinks(t.Context(), forgeHost, workspaceA)
+	groups, groupsErr := kept.RepoGroups(t.Context(), repo, workspaceA)
+	ids, _, choiceErr := kept.LastGroups(t.Context(), repo, workspaceA)
+
+	// Assert
+	want := []store.OwnerLink{
+		{Owner: acmePod, Team: true, OnSlack: true, Slack: *podGroup()},
+		{Owner: anaOwner, Team: false, OnSlack: true, Slack: *ana()},
+		{Owner: doraOwner, Team: false, OnSlack: false, Slack: store.SlackTarget{}},
+	}
+	if linksErr != nil || !slices.Equal(links, want) {
+		t.Errorf("OwnerLinks after migrating = %+v, %v; want %+v", links, linksErr, want)
+	}
+
+	if groupsErr != nil || !slices.Equal(groups, []store.SlackTarget{*podGroup()}) {
+		t.Errorf("RepoGroups after migrating = %+v, %v; want the pod's group", groups, groupsErr)
+	}
+
+	if choiceErr != nil || !slices.Equal(ids, []string{podID}) {
+		t.Errorf("LastGroups after migrating = %v, %v; want the pod's group", ids, choiceErr)
+	}
+
+	if got := keptPragma(t, dir, "user_version"); got != keptVersion {
+		t.Errorf("the migrated file is at version %d, want %d", got, keptVersion)
+	}
+}

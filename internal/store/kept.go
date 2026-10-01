@@ -35,7 +35,9 @@ var ErrKeptFromNewerBuild = errors.New("the kept data is from a newer build of w
 // Trade-off TRADE-25: kept data migrates forward and is never discarded, so
 // this list only grows, where the cache's schema is simply remade.
 func keptMigrations() [][]string {
-	return [][]string{ownersMigration(), groupsMigration(), workspacesMigration(), ownerKindsMigration()}
+	return [][]string{
+		ownersMigration(), groupsMigration(), workspacesMigration(), ownerKindsMigration(), linkWorkspacesMigration(),
+	}
 }
 
 // keptWithin runs write in one transaction on the kept database, migrated to

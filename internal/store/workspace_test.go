@@ -6,8 +6,10 @@ package store_test
 // Whom an owner is on Slack, and which groups a repository tags, are kept per
 // Slack workspace: a Slack ID means nothing in another workspace, so what was
 // linked under one is neither read nor overwritten under another, and is there
-// again on switching back. That an owner is not on Slack is about the person,
-// so it holds in every workspace.
+// again on switching back. That an owner is not on Slack is kept per
+// workspace too, since the same person may be in one workspace and not
+// another; one decided not on Slack before workspaces were is not on Slack in
+// any until decided again.
 
 import (
 	"errors"
@@ -107,7 +109,7 @@ func TestForgettingAnOwnerInOneWorkspaceKeepsTheirLinkInAnother(t *testing.T) {
 	}
 }
 
-func TestAnOwnerNotOnSlackIsNotOnSlackInEveryWorkspace(t *testing.T) {
+func TestAnOwnerNotOnSlackInOneWorkspaceKeepsTheirLinkInAnother(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
@@ -120,12 +122,38 @@ func TestAnOwnerNotOnSlackIsNotOnSlackInEveryWorkspace(t *testing.T) {
 		t.Fatalf("LinkOwner returned %v, want nil", err)
 	}
 
+	inA, errA := kept.OwnerLinks(t.Context(), forgeHost, workspaceA)
+	inB, errB := kept.OwnerLinks(t.Context(), forgeHost, workspaceB)
+
+	// Assert
+	wantA := []store.OwnerLink{{Owner: anaOwner, OnSlack: true, Slack: *ana()}}
+	if errA != nil || !slices.Equal(inA, wantA) {
+		t.Errorf("OwnerLinks in A = %+v, %v; want %+v", inA, errA, wantA)
+	}
+
+	wantB := []store.OwnerLink{{Owner: anaOwner, OnSlack: false, Slack: store.SlackTarget{}}}
+	if errB != nil || !slices.Equal(inB, wantB) {
+		t.Errorf("OwnerLinks in B = %+v, %v; want %+v", inB, errB, wantB)
+	}
+}
+
+func TestAnOwnerNotOnSlackInOneWorkspaceIsAskedAboutInAnother(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	kept := store.New(t.TempDir(), false)
+
+	// Act
+	err := kept.LinkOwner(t.Context(), forgeHost, workspaceB, decided(anaOwner, nil), theTime())
+	if err != nil {
+		t.Fatalf("LinkOwner returned %v, want nil", err)
+	}
+
 	links, err := kept.OwnerLinks(t.Context(), forgeHost, workspaceA)
 
 	// Assert
-	want := []store.OwnerLink{{Owner: anaOwner, OnSlack: false, Slack: store.SlackTarget{}}}
-	if err != nil || !slices.Equal(links, want) {
-		t.Errorf("OwnerLinks in A = %+v, %v; want %+v", links, err, want)
+	if err != nil || len(links) != 0 {
+		t.Errorf("OwnerLinks in A = %+v, %v; want ana undecided there", links, err)
 	}
 }
 
@@ -179,6 +207,9 @@ func TestNothingIsKeptOrReadUnderNoWorkspace(t *testing.T) {
 		},
 		"LinkOwner": func(kept store.Store) error {
 			return kept.LinkOwner(t.Context(), forgeHost, "", decided(anaOwner, ana()), theTime())
+		},
+		"LinkOwner not on Slack": func(kept store.Store) error {
+			return kept.LinkOwner(t.Context(), forgeHost, "", decided(anaOwner, nil), theTime())
 		},
 		"RepoGroups": func(kept store.Store) error {
 			_, err := kept.RepoGroups(t.Context(), repo, "")

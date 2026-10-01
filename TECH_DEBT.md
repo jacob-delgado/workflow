@@ -686,7 +686,11 @@ and `workflow db-clean --all` is the only way to start the kept file fresh.
 A migration adds what the rows lack rather than guessing it: the third keys
 Slack links by workspace, and the links kept before it belong to none, so
 each of those owners is asked once more rather than tagged in a workspace
-that may not be theirs.
+that may not be theirs. The fifth moves the workspace from the Slack ID to each
+link, listed group and chosen group, since one ID can be seen from several
+workspaces, and copies each row with the workspace it was read under until
+then; a row an earlier build had already moved to another workspace stays
+where it was moved.
 
 **Reopen when.** The kept tables need a change no forward migration can
 express, or a migration is found to have been edited after it shipped.
