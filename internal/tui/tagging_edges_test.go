@@ -304,3 +304,36 @@ func TestATokenThatCannotReadUserGroupsStillTagsLinkedPeople(t *testing.T) {
 		t.Errorf("posted %q, want it to tag Carla alone", got)
 	}
 }
+
+func TestADirectoryWithNoCredentialLeavesTaggingOut(t *testing.T) {
+	t.Parallel()
+
+	cases := map[string]func(*slackWorld){
+		"the members":     func(s *slackWorld) { s.membersErr = messaging.ErrNoCredential },
+		"the user groups": func(s *slackWorld) { s.groupsErr = messaging.ErrNoCredential },
+	}
+
+	for name, arrange := range cases {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			// Arrange
+			tokenless := taggingWorld()
+			arrange(tokenless.slack)
+
+			// Act: open the preview
+			preview := typing(t, tokenless.live(t, 140, 40), "5", "p")
+
+			// Assert: it shows no tagging, and no failure
+			refuseScreen(t, preview.View().Content, "Code owners", "Groups", "tags  ", "credential")
+
+			// Act: post
+			typing(t, preview, keyEnter)
+
+			// Assert: the post goes, untagged
+			if got := postedText(t, tokenless); strings.Contains(got, "cc ") {
+				t.Errorf("posted %q, want it untagged", got)
+			}
+		})
+	}
+}

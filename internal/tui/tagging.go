@@ -170,15 +170,25 @@ func (s tagSection) missingScope() string {
 	return s.members.missingScope()
 }
 
+// shown reports a section offered whose directory could be asked at all: a
+// directory with no credential to read it with means no tagging, said
+// nowhere, as for a webhook.
+func (s tagSection) shown() bool {
+	noCredential := errors.Is(s.members.err, messaging.ErrNoCredential) ||
+		errors.Is(s.groups.err, messaging.ErrNoCredential)
+
+	return s.offered && !noCredential
+}
+
 // interactive reports a section whose rows can be moved through and changed.
 func (s tagSection) interactive() bool {
-	return s.offered && !s.reading && s.missingScope() == ""
+	return s.shown() && !s.reading && s.missingScope() == ""
 }
 
 // lines draws the section below the destination.
 func (s tagSection) lines(marks glyphs, sty styles, width int) []string {
 	switch {
-	case !s.offered:
+	case !s.shown():
 		return nil
 	case s.missingScope() != "":
 		return []string{failedGlyph(sty, marks) + " tagging needs the " + s.missingScope() + " scope; this posts untagged"}
@@ -278,7 +288,7 @@ func (s tagSection) summary() string {
 
 // dryRunNote says whom a dry run's post would have tagged.
 func (s tagSection) dryRunNote() string {
-	if !s.offered {
+	if !s.shown() {
 		return ""
 	}
 
@@ -296,7 +306,7 @@ type postTags struct {
 // announcement, which alone offers tags. A token lacking a scope tags no one,
 // and so does a tag Slack could not read: tagging never holds a post back.
 func (s tagSection) postTags() postTags {
-	if !s.offered || s.missingScope() != "" {
+	if !s.shown() || s.missingScope() != "" {
 		return postTags{}
 	}
 
