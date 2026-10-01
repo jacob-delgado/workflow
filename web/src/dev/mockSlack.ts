@@ -3,6 +3,7 @@ import type {
   OwnerTag,
   People,
   PersonLink,
+  RepoGroups,
   SlackDirectory,
   SlackTarget,
 } from '@/api/generated/types.gen.ts'
@@ -76,6 +77,25 @@ export function mockLinkPerson(link: PersonLink): People {
   held.decided = [...held.decided.filter((owner) => owner.owner !== link.owner), decided]
 
   return mockPeople()
+}
+
+// mockForgetPerson forgets what was decided for owner.
+export function mockForgetPerson(owner: string): People {
+  held.decided = held.decided.filter((decided) => decided.owner !== owner)
+
+  return mockPeople()
+}
+
+// mockRepoGroups is the repository's groups.
+export function mockRepoGroups(): RepoGroups {
+  return { repository: 'acme/workflow', groups: [...held.repoGroups] }
+}
+
+// mockSetRepoGroups keeps the groups ids name, labeled from the directory.
+export function mockSetRepoGroups(ids: string[]): RepoGroups {
+  held.repoGroups = groups.filter((group) => ids.includes(group.id))
+
+  return mockRepoGroups()
 }
 
 // mockTagging is whom the mock announcement proposes to tag: the branch's

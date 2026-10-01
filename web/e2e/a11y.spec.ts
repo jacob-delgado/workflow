@@ -123,6 +123,18 @@ const confirmSteps = [
     opener: 'Announce to Slack',
     group: 'Announcement preview',
   },
+  {
+    step: 'forget confirmation in People and groups',
+    section: 'Settings',
+    opener: 'Forget carla…',
+    group: 'Forget carla?',
+  },
+  {
+    step: 'clean confirmation in Local data',
+    section: 'Settings',
+    opener: 'Clean cache…',
+    group: 'Remove workflow.db?',
+  },
 ]
 
 for (const theme of themes) {
