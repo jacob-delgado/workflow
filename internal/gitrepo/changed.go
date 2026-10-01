@@ -8,9 +8,9 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"unicode"
 
 	"github.com/jacob-delgado/workflow/internal/proc"
-	"github.com/jacob-delgado/workflow/internal/sanitize"
 )
 
 // ErrOptionLikeRef refuses a ref starting with a dash, which git would read as
@@ -20,8 +20,10 @@ var ErrOptionLikeRef = errors.New("a ref cannot start with a dash")
 // ChangedPaths lists the paths the checked-out branch changes since it left
 // base: `git diff base...HEAD`, renames read as a delete and an add so both
 // paths are listed. base is a branch name, read as origin's copy when origin
-// has one, since that is what a pull request merges into. A path that would
-// not draw as it is — one holding a terminal control — is left out.
+// has one, since that is what a pull request merges into. The paths are for
+// matching, not for showing, so one that would draw differently — a joined
+// emoji, a tab — is kept; only one holding a control character other than a
+// tab, which no one names a file with to own it, is left out.
 func (r Repository) ChangedPaths(ctx context.Context, base string) ([]string, error) {
 	ref, err := r.baseRef(ctx, base)
 	if err != nil {
@@ -36,12 +38,17 @@ func (r Repository) ChangedPaths(ctx context.Context, base string) ([]string, er
 	var paths []string
 
 	for path := range strings.SplitSeq(string(out), "\x00") {
-		if path != "" && sanitize.Line(path) == path {
+		if path != "" && !strings.ContainsFunc(path, isControlNotTab) {
 			paths = append(paths, path)
 		}
 	}
 
 	return paths, nil
+}
+
+// isControlNotTab reports a control character other than a tab.
+func isControlNotTab(character rune) bool {
+	return character != '\t' && unicode.IsControl(character)
 }
 
 // baseRef is the ref a base branch is read at: origin's copy of it when one

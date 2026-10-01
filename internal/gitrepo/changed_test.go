@@ -32,8 +32,8 @@ func TestChangedPathsListsWhatTheBranchChangesAgainstOriginsBase(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
-	// A path holding an escape sequence would draw as something it is not, so
-	// it is left out rather than shown.
+	// A path holding an escape sequence is no file anyone means to own, so it
+	// is left out.
 	repo := gitrepo.At(fakeRunner(t, map[string]reply{
 		verifyOriginMain: {out: []byte("0123abcd\n")},
 		diffOriginMain:   {out: []byte("internal/a.go\x00docs/my file.md\x00evil\x1b[2J.go\x00")},
@@ -45,6 +45,29 @@ func TestChangedPathsListsWhatTheBranchChangesAgainstOriginsBase(t *testing.T) {
 	// Assert
 	if err != nil || !slices.Equal(paths, []string{"internal/a.go", "docs/my file.md"}) {
 		t.Errorf("ChangedPaths = %q, %v, want the two showable paths", paths, err)
+	}
+}
+
+func TestChangedPathsKeepsAPathThatDrawsDifferentlyButHoldsNoControl(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	// A zero-width joiner spells an emoji and a tab is a legal filename
+	// character; neither is a terminal control, and the paths are only
+	// matched, never shown.
+	joined := "docs/\U0001F469\u200d\U0001F4BB.md"
+	tabbed := "src/a\tb.go"
+	repo := gitrepo.At(fakeRunner(t, map[string]reply{
+		verifyOriginMain: {out: []byte("0123abcd\n")},
+		diffOriginMain:   {out: []byte(joined + "\x00" + tabbed + "\x00")},
+	}), workDir)
+
+	// Act
+	paths, err := repo.ChangedPaths(t.Context(), "main")
+
+	// Assert
+	if err != nil || !slices.Equal(paths, []string{joined, tabbed}) {
+		t.Errorf("ChangedPaths = %q, %v, want both paths kept", paths, err)
 	}
 }
 
