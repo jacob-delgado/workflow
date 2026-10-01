@@ -431,8 +431,9 @@ Only the ready-for-review announcement tags anyone. Tagging needs the Slack
 scopes `users:read`, `channels:read`, `groups:read` and `usergroups:read`;
 a token without one says which, and posts untagged. A directory Slack will not
 read, or a link that will not save, is shown and never holds the post back.
-`--dry-run` keeps nothing, so it offers no linking, and says whom the post
-would have tagged.
+`--dry-run` reads whom each owner was linked to, if a store is already on
+disk, but keeps nothing new: it offers no linking, nor People and groups, and
+says whom the post would have tagged.
 
 #### People and groups
 

@@ -27,12 +27,20 @@ func heldBack(deps Deps) Deps {
 	deps.Jira = heldBackJira(deps.Jira)
 	deps.Git = heldBackGit(deps.Git)
 	deps.Tasks = heldBackTasks(deps.Tasks)
-	// A dry-run interface opens no store, as the web opens none. A read-only
-	// store's seams look like a live one's, whose reads make its directory, so
-	// the store is dropped whoever the caller is.
-	deps.Store = seams.Store{}
+	deps.Store = keptReads(deps.Store)
 
 	return heldBackServices(deps)
+}
+
+// keptReads is the store as a dry run uses it: the kept associations read,
+// so the announcement preview says whom a post would tag, and nothing else.
+// A dry-run interface opens no cache, as the web opens none: a read-only
+// store's seams look like a live one's, whose cache reads make its file, so
+// the cache is dropped whoever the caller is. The kept reads stay because
+// under --dry-run the command line binds them to the read-only store, which
+// reads a kept file as it is and never makes one.
+func keptReads(store seams.Store) seams.Store {
+	return seams.Store{OwnerLinks: store.OwnerLinks, RepoGroups: store.RepoGroups, LastGroups: store.LastGroups}
 }
 
 // heldBackJira holds back the writes to Jira.
