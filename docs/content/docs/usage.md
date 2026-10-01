@@ -149,6 +149,7 @@ every key `?` lists, by where it works.
 | 5, your service | `p` | Preview the announcement of the pull request |
 | | `r` | Read what was announced, and the pull request and its CI, again |
 | 6 Reviews | `o` / `y` | Open the selected request in the browser, or copy its URL |
+| | `s` | Sort them oldest first, newest first, or by repository |
 | | `r` | Ask the forge again |
 | 7 Tasks | `s` | Start the selected task, or stop it once started |
 | | `d` | Mark it done |

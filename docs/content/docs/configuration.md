@@ -580,6 +580,7 @@ The actions you can rebind, grouped by where they work, are:
 - **Review and your messaging service** (named for it, Slack by default):
   `open-pull-request`, `checks`, `rerun-checks`, `merge`, `finish-branch`,
   `post`.
+- **Reviews:** `sort-reviews`.
 - **Tasks:** `start-stop`, `complete-task`, `add-task`, `annotate-task`,
   `modify-task`, `undo-task`, `sync-tasks`.
 - **In a composer or preview:** `edit`, `edit-body`, `next-template`,

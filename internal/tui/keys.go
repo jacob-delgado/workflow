@@ -62,6 +62,9 @@ type keyMap struct {
 	// Tasks.
 	startStop, completeTask, addTask, annotateTask, modifyTask, undoTask, syncTasks key.Binding
 
+	// Reviews.
+	sortReviews key.Binding
+
 	// Opening and copying a link, on the Issues, Review, Reviews and Tasks panes.
 	openLink, copyLink key.Binding
 
@@ -92,6 +95,7 @@ const (
 	groupIssues
 	groupBranchCommits
 	groupReviewMessaging
+	groupReviews
 	groupTasks
 	groupComposer
 	groupRunning
@@ -267,6 +271,7 @@ func reviewAndMessagingKeys(builder *helpBuilder, into *keyMap, reviewNoun, mess
 // taskKeys are the Tasks pane's bindings. m toggles the mouse everywhere, so
 // modify is e.
 func taskKeys(builder *helpBuilder, into *keyMap) {
+	into.sortReviews = builder.bind(groupReviews, "sort-reviews", "sort", "s")
 	into.startStop = builder.bind(groupTasks, "start-stop", "start/stop", "s")
 	into.completeTask = builder.bind(groupTasks, "complete-task", "done", "d")
 	into.addTask = builder.bind(groupTasks, "add-task", "add", "a")
@@ -390,7 +395,7 @@ func keyContexts() []keyContext {
 		},
 		{
 			"the review-requests pane",
-			[]int{groupMoving, groupEverywhere},
+			[]int{groupMoving, groupEverywhere, groupReviews},
 			[]string{actionOpenLink, actionCopyLink, actionRefresh},
 		},
 		{
@@ -457,7 +462,7 @@ func (k keyMap) FullHelp() [][]key.Binding {
 // group is named for the service in use rather than a fixed "Slack".
 func helpGroups(messagingService string) []string {
 	return []string{
-		"Moving around", "Issues", "Branch and Commits", "Review and " + messagingService, "Tasks",
+		"Moving around", "Issues", "Branch and Commits", "Review and " + messagingService, "Reviews", "Tasks",
 		"In a composer or preview", "While a command runs", "Everywhere",
 	}
 }

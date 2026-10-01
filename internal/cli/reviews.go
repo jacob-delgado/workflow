@@ -4,6 +4,7 @@
 package cli
 
 import (
+	"errors"
 	"fmt"
 	"io"
 	"strconv"
@@ -13,6 +14,9 @@ import (
 
 	"github.com/jacob-delgado/workflow/internal/forge"
 )
+
+// errUnknownSort is a --sort naming no order the queue can be listed in.
+var errUnknownSort = errors.New("sort by oldest, newest or repo")
 
 // day is the window past which an age is counted in days rather than hours.
 const day = 24 * time.Hour
@@ -24,29 +28,39 @@ type reviewsSeams struct {
 	Now  func() time.Time
 }
 
+// reviewsOptions are how `workflow reviews` prints the queue: as JSON or as
+// lines, and in which order.
+type reviewsOptions struct {
+	asJSON bool
+	sort   string
+}
+
 // newReviewsCmd builds `workflow reviews`.
 func newReviewsCmd() *cobra.Command {
-	var asJSON bool
+	var opts reviewsOptions
 
 	cmd := &cobra.Command{
 		Use:   "reviews",
 		Short: "List the pull requests that are waiting on your review",
 		Long: "List the open pull or merge requests on your forge that request your\n" +
 			"review, oldest first, with the author, how CI stands and how long each has\n" +
-			"been waiting. The forge is the one your repository's remote points at.",
+			"been waiting. The forge is the one your repository's remote points at.\n" +
+			"--sort newest lists the latest first, and --sort repo groups them by\n" +
+			"repository, oldest first within each.",
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			return runReviewsCommand(cmd, asJSON)
+			return runReviewsCommand(cmd, opts)
 		},
 	}
 
-	cmd.Flags().BoolVar(&asJSON, "json", false, "print the reviews as JSON")
+	cmd.Flags().BoolVar(&opts.asJSON, "json", false, "print the reviews as JSON")
+	cmd.Flags().StringVar(&opts.sort, "sort", "oldest", "the order to list them in: oldest, newest or repo")
 
 	return cmd
 }
 
 // runReviewsCommand wires the real forge to the reviews listing.
-func runReviewsCommand(cmd *cobra.Command, asJSON bool) error {
+func runReviewsCommand(cmd *cobra.Command, opts reviewsOptions) error {
 	conn, err := connect(cmd)
 	if err != nil {
 		return err
@@ -55,20 +69,27 @@ func runReviewsCommand(cmd *cobra.Command, asJSON bool) error {
 
 	seams := reviewsSeams{List: conn.deps.Forge.ReviewRequests, Now: time.Now}
 
-	return runReviews(outputOf(cmd), seams, asJSON)
+	return runReviews(outputOf(cmd), seams, opts)
 }
 
-// runReviews lists the reviews waiting on you, the longest-waiting first.
-func runReviews(out output, seams reviewsSeams, asJSON bool) error {
+// runReviews lists the reviews waiting on you, in the order opts asks for.
+func runReviews(out output, seams reviewsSeams, opts reviewsOptions) error {
+	order, known := map[string]func([]forge.ReviewRequest) []forge.ReviewRequest{
+		"oldest": forge.OldestFirst, "newest": forge.NewestFirst, "repo": forge.ByRepository,
+	}[opts.sort]
+	if !known {
+		return fmt.Errorf("%w, not %q", errUnknownSort, opts.sort)
+	}
+
 	answered, err := seams.List()
 	if err != nil {
 		return fmt.Errorf("reading review requests: %w", err)
 	}
 
-	reviews := forge.OldestFirst(answered)
+	reviews := order(answered)
 
 	now := seams.Now()
-	if asJSON {
+	if opts.asJSON {
 		return renderReviewsJSON(out.artifact, reviews, now)
 	}
 

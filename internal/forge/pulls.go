@@ -157,6 +157,29 @@ func OldestFirst(requests []ReviewRequest) []ReviewRequest {
 	return queue
 }
 
+// NewestFirst is the requests ordered with the one opened last first, for a
+// look at what just arrived. Requests opened at the same moment keep the
+// forge's order.
+func NewestFirst(requests []ReviewRequest) []ReviewRequest {
+	queue := slices.Clone(requests)
+	slices.SortStableFunc(queue, func(left, right ReviewRequest) int {
+		return right.OpenedAt.Compare(left.OpenedAt)
+	})
+
+	return queue
+}
+
+// ByRepository is the requests grouped by repository, in its name's order,
+// and the longest-waiting first within each.
+func ByRepository(requests []ReviewRequest) []ReviewRequest {
+	queue := OldestFirst(requests)
+	slices.SortStableFunc(queue, func(left, right ReviewRequest) int {
+		return strings.Compare(left.Repository, right.Repository)
+	})
+
+	return queue
+}
+
 // dialect is how one forge answers the questions a review needs. The two
 // forges agree on what a pull request is and on almost nothing about how to ask
 // for one.
