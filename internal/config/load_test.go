@@ -41,8 +41,8 @@ func TestLoadUsesTheWorkingDirectoryFileInsteadOfHomes(t *testing.T) {
 		t.Errorf("jira.base_url = %q, want the working directory's value", cfg.Jira.BaseURL)
 	}
 
-	if cfg.Messaging.Token != "" {
-		t.Errorf("messaging.token = %q, want empty: the home file must not merge in", cfg.Messaging.Token)
+	if cfg.Messaging.ClientID != "" {
+		t.Errorf("messaging.client_id = %q, want empty: the home file must not merge in", cfg.Messaging.ClientID)
 	}
 }
 

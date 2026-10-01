@@ -20,7 +20,6 @@ import (
 
 	"github.com/jacob-delgado/workflow/internal/buildinfo"
 	"github.com/jacob-delgado/workflow/internal/config"
-	"github.com/jacob-delgado/workflow/internal/forge"
 	"github.com/jacob-delgado/workflow/internal/seams"
 	"github.com/jacob-delgado/workflow/internal/tui"
 	"github.com/jacob-delgado/workflow/internal/web"
@@ -66,9 +65,10 @@ JIRA TOKEN (on-premises / Data Center)
 MESSAGING — SLACK, TEAMS, DISCORD OR A PLAIN WEBHOOK
 
   messaging.kind picks the service: slack (the default when empty), teams,
-  discord or webhook. Slack posts over a bot token or an incoming webhook; the
-  others post over an incoming webhook. (A file that still names the block
-  "slack" needs it renamed to "messaging" with "kind": "slack" added.)
+  discord or webhook. Slack posts with a rotating user token or over an
+  incoming webhook — one or the other, never both; the others post over an
+  incoming webhook. (A file that still names the block "slack" needs it renamed
+  to "messaging" with "kind": "slack" added.)
 
   Slack incoming webhook (simplest):
 
@@ -80,16 +80,18 @@ MESSAGING — SLACK, TEAMS, DISCORD OR A PLAIN WEBHOOK
   The webhook is bound to the channel you picked, so messaging.channel does not
   apply. Treat the URL like a password: anyone holding it can post there.
 
-  Slack bot token (choose the channel at runtime, and post richer messages):
+  Slack user token (post as you, to the channel you choose at runtime):
 
   1. Go to https://api.slack.com/apps and create an app in your workspace.
-  2. Under OAuth & Permissions, add the chat:write bot token scope.
-  3. Install the app to the workspace, then copy the Bot User OAuth Token. It
-     starts with "xoxb-".
-  4. Put it in ` + config.FileName + ` as messaging.token, and set
-     messaging.channel to the channel workflow should post to.
+  2. Under OAuth & Permissions, add the chat:write user token scope, and turn
+     on token rotation.
+  3. Install the app to the workspace. Its access token starts "xoxe.xoxp-"
+     and lasts twelve hours; its refresh token starts "xoxe-1-".
+  4. Set messaging.channel, then run "workflow slack login" with the app's
+     client ID and secret (Basic Information) and the refresh token.
 
-  Invite the bot to that channel, or it cannot post there.
+  workflow refreshes the token before it runs out and keeps each new one in
+  the macOS keychain, or in ` + config.FileName + ` on Linux and Windows.
 
   Teams, Discord or a plain webhook: create an incoming webhook in the service,
   set messaging.kind, and put the URL in messaging.webhook_url.
@@ -204,7 +206,7 @@ func NewRootCmdOver(prompt Prompt, run RunInterface, serveAt RunWebAt) *cobra.Co
 			}
 
 			return openInterface(cmd.Context(), run, interfaceInput{
-				cfg: conn.cfg, loadErr: conn.loadErr, deps: conn.deps, resolveAhead: conn.resolveAhead,
+				cfg: conn.cfg, loadErr: conn.loadErr, deps: conn.deps, resolveAhead: conn.controls.ResolveAhead,
 				dryRun: dryRun, noColorEnv: os.Getenv("NO_COLOR"), out: cmd.OutOrStdout(),
 			})
 		},
@@ -275,7 +277,7 @@ func openInterface(ctx context.Context, run RunInterface, input interfaceInput) 
 func subcommands(prompt Prompt) []*cobra.Command {
 	return []*cobra.Command{
 		newConfigCmd(prompt), newDoctorCmd(), newStatusCmd(), newStandupCmd(prompt), newReviewsCmd(),
-		newBranchCmd(prompt), newPRCmd(prompt), newAnnounceCmd(prompt),
+		newBranchCmd(prompt), newPRCmd(prompt), newAnnounceCmd(prompt), newSlackCmd(prompt),
 	}
 }
 
@@ -374,10 +376,12 @@ func serveWeb(cmd *cobra.Command, conn connection, serve RunWeb, dryRun bool) er
 		Taskwarrior: conn.cfg.Taskwarrior,
 	}
 
-	conn.resolveAhead()
+	conn.controls.ResolveAhead()
 
 	deps := WebDeps(conn.deps)
-	deps.UseForgeSettings = conn.useForgeSettings
+	deps.UseForgeSettings = conn.controls.UseForgeSettings
+	deps.UseMessagingSettings = conn.controls.UseMessagingSettings
+	deps.PlaceSlackCredentials = conn.controls.PlaceSlackCredentials
 
 	return serve(cmd.Context(), conn.cfg, deps, info, cmd.ErrOrStderr())
 }
@@ -407,14 +411,14 @@ func checkPort(cmd *cobra.Command, web bool, port int) error {
 // what finds their tokens ahead of first use, which only the interface and the
 // web server call; and the close of the request log, which the caller defers.
 type connection struct {
-	cfg          config.Config
-	loadErr      error
-	where        wiring.Workspace
-	deps         tui.Deps
-	resolveAhead func()
-	// useForgeSettings applies forge settings the web's Settings saves.
-	useForgeSettings func(config.Forge) forge.Kind
-	closeLog         func()
+	cfg     config.Config
+	loadErr error
+	where   wiring.Workspace
+	deps    tui.Deps
+	// controls are the wiring's own: finding tokens ahead, and applying
+	// settings the web's Settings saves.
+	controls wiring.Controls
+	closeLog func()
 }
 
 // connect wires a command to its working directory, recording each request in
@@ -473,8 +477,7 @@ func connectAt(cmd *cobra.Command, dir, home string, requestLog *wiring.RequestL
 	}
 
 	return connection{
-		cfg: cfg, loadErr: loadErr, where: where, deps: deps, resolveAhead: controls.ResolveAhead,
-		useForgeSettings: controls.UseForgeSettings, closeLog: func() {},
+		cfg: cfg, loadErr: loadErr, where: where, deps: deps, controls: controls, closeLog: func() {},
 	}
 }
 

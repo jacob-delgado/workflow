@@ -49,6 +49,12 @@ var (
 	ErrSlackRenamed = errors.New(
 		`the "slack" block was renamed to "messaging"; rename the key and add "kind": "slack"`,
 	)
+	// ErrSlackBotTokenRemoved reports a messaging block still naming a Slack bot
+	// token — token, token_command or token_env — which workflow no longer
+	// posts with: Slack posts with a rotating user token, set up by
+	// `workflow slack login`, or an incoming webhook.
+	ErrSlackBotTokenRemoved = errors.New("messaging.token, token_command and token_env are gone: " +
+		"Slack posts with a rotating user token now; run `workflow slack login`, or set messaging.webhook_url")
 	// ErrInvalidBaseURL reports a jira.base_url that is not an absolute URL.
 	ErrInvalidBaseURL = errors.New("jira.base_url is not an absolute http or https URL")
 	// ErrCredentialInBaseURL reports userinfo embedded in jira.base_url.
@@ -95,31 +101,36 @@ type Jira struct {
 }
 
 // Messaging describes how workflow posts team updates. Kind picks the service;
-// Slack alone offers two transports — a bot token that can post anywhere it is
-// invited and reports back what it posted, or an incoming webhook fixed to one
-// channel — while Teams, Discord and a plain webhook post over an incoming
-// webhook only.
+// Slack alone offers two transports, of which a configuration sets up exactly
+// one — a rotating user token, which posts as you anywhere you can post and
+// reports back what it posted, or an incoming webhook fixed to one channel —
+// while Teams, Discord and a plain webhook post over an incoming webhook only.
 type Messaging struct {
 	// Kind is the service posts go to: "slack" (the default when empty),
 	// "teams", "discord", or a plain "webhook". It decides the body and the link
 	// markup the notifier sends.
 	Kind MessagingKind `json:"kind"`
-	// Token is a Slack bot token, which starts with "xoxb-". Leave it empty to
-	// take the token from TokenCommand or TokenEnv instead. It is ignored by the
-	// webhook-only kinds.
-	Token Secret `json:"token"`
-	// TokenCommand is a program that prints the bot token; TokenEnv is an
-	// environment variable that holds it.
-	TokenCommand string `json:"token_command"`
-	TokenEnv     string `json:"token_env"`
+	// ClientID is the Slack app's client ID, which a rotating user token is
+	// refreshed with. It is no secret; `workflow slack login` writes it.
+	ClientID string `json:"client_id"`
+	// ClientSecret, RefreshToken, AccessToken and ExpiresAt are the Slack user
+	// token's rotating credentials when this file is where they are kept — on
+	// Linux and Windows, or on macOS once they are put here — rather than in
+	// the keychain. workflow rewrites the last three after every refresh. The
+	// access token starts "xoxe.xoxp-", the refresh token "xoxe-1-"; ExpiresAt
+	// is RFC 3339 UTC.
+	ClientSecret Secret `json:"client_secret"`
+	RefreshToken Secret `json:"refresh_token"`
+	AccessToken  Secret `json:"access_token"`
+	ExpiresAt    string `json:"expires_at"`
 	// WebhookURL is an incoming webhook. It is a credential in its own right —
 	// anyone holding it can post to that channel — so it is masked wherever a
 	// token would be.
 	WebhookURL Secret `json:"webhook_url"`
 	// Channel is the channel updates are posted to, e.g. "#dev-workflow". It
-	// applies to a Slack bot token only; a webhook carries its own channel.
+	// applies to a Slack user token only; a webhook carries its own channel.
 	Channel string `json:"channel"`
-	// Channels are further channels a bot-token post may be routed to at post
+	// Channels are further channels a user-token post may be routed to at post
 	// time, for a change that concerns another team. The default Channel is
 	// always available too.
 	Channels []string `json:"channels"`
@@ -192,7 +203,7 @@ func Default() Config {
 	return Config{
 		Version:   CurrentVersion,
 		Jira:      Jira{BaseURL: "", Token: "", User: ""},
-		Messaging: Messaging{Token: "", WebhookURL: "", Channel: ""},
+		Messaging: Messaging{ClientID: "", WebhookURL: "", Channel: ""},
 		Forge:     Forge{Kind: "", Host: "", Token: ""},
 		UI:        UI{Mouse: true, ASCII: false},
 		Path:      "",
@@ -210,7 +221,7 @@ func Template() Config {
 		},
 		Messaging: Messaging{
 			Kind:       KindSlack,
-			Token:      "",
+			ClientID:   "",
 			WebhookURL: "",
 			Channel:    "#dev-workflow",
 		},
@@ -249,10 +260,9 @@ func (m Messaging) Service() string {
 	return m.Kind.Service()
 }
 
-// Mode reports how this configuration posts. A Slack bot token wins when both a
-// token and a webhook are set: it is the more capable transport, and treating
-// the overlap as ambiguous would fail a configuration that works perfectly
-// well. The webhook-only kinds ignore a bot token and post over the webhook.
+// Mode reports how this configuration posts. Parse refuses a Slack block that
+// sets up both a user token and a webhook, and a user token on any other kind,
+// so at most one transport is ever set up.
 func (m Messaging) Mode() MessagingMode {
 	if m.Kind.webhookOnly() {
 		if m.WebhookURL != "" {
@@ -263,8 +273,8 @@ func (m Messaging) Mode() MessagingMode {
 	}
 
 	switch {
-	case m.hasToken():
-		return MessagingBot
+	case m.hasUserToken():
+		return MessagingUser
 	case m.WebhookURL != "":
 		return MessagingWebhook
 	default:
@@ -284,17 +294,17 @@ func (m Messaging) Target() string {
 	}
 
 	return map[MessagingMode]string{
-		MessagingBot:     channel,
+		MessagingUser:    channel,
 		MessagingWebhook: "the channel its webhook is bound to",
 		MessagingNone:    notSet,
 	}[m.Mode()]
 }
 
-// ChannelChoices are the channels a bot-token post can be sent to: the default
+// ChannelChoices are the channels a user-token post can be sent to: the default
 // channel first, then the alternates, without duplicates or blanks. A webhook
 // carries its own channel and offers none.
 func (m Messaging) ChannelChoices() []string {
-	if m.Mode() != MessagingBot {
+	if m.Mode() != MessagingUser {
 		return nil
 	}
 
@@ -309,10 +319,17 @@ func (m Messaging) ChannelChoices() []string {
 	return choices
 }
 
-// hasToken reports that a bot token is configured, in the file or from a
-// command or an environment variable resolved at runtime.
-func (m Messaging) hasToken() bool {
-	return m.Token != "" || m.TokenCommand != "" || m.TokenEnv != ""
+// HoldsUserTokenSecrets reports that this file keeps the user token's rotating
+// credentials — the client secret or a token — which makes the file, not the
+// keychain, where they are read and written.
+func (m Messaging) HoldsUserTokenSecrets() bool {
+	return m.ClientSecret != "" || m.RefreshToken != "" || m.AccessToken != ""
+}
+
+// hasUserToken reports that a Slack user token is set up: its app named, or any
+// of its rotating credentials held in this file.
+func (m Messaging) hasUserToken() bool {
+	return m.ClientID != "" || m.HoldsUserTokenSecrets()
 }
 
 // missing names the messaging fields still needed. Slack's two transports are
@@ -326,8 +343,8 @@ func (m Messaging) missing() []string {
 			return []string{"messaging.webhook_url"}
 		}
 
-		return []string{"messaging.token or messaging.webhook_url"}
-	case MessagingBot:
+		return []string{"messaging.client_id (workflow slack login) or messaging.webhook_url"}
+	case MessagingUser:
 		if m.Channel == "" {
 			return []string{"messaging.channel"}
 		}

@@ -6,6 +6,7 @@ package config
 import (
 	"errors"
 	"fmt"
+	"time"
 )
 
 // ErrInvalidMessaging reports a messaging block naming a service this build does
@@ -46,7 +47,8 @@ func (a AuthMode) String() string {
 type MessagingKind string
 
 const (
-	// KindSlack posts to Slack, over a bot token or an incoming webhook.
+	// KindSlack posts to Slack, with a rotating user token or over an incoming
+	// webhook.
 	KindSlack MessagingKind = "slack"
 	// KindTeams posts to a Microsoft Teams incoming webhook.
 	KindTeams MessagingKind = "teams"
@@ -68,14 +70,33 @@ func (k MessagingKind) Known() bool {
 }
 
 // validateMessaging refuses a kind this build does not post to, rather than let
-// it post as Slack.
+// it post as Slack; a Slack block that sets up both of its transports, which
+// is a choice left unmade; a user token on a kind that has none; and an
+// expiry that is no time.
 func (c Config) validateMessaging() error {
-	if !c.Messaging.Kind.Known() {
-		return fmt.Errorf("%w: kind is slack, teams, discord or webhook: %q",
-			ErrInvalidMessaging, c.Messaging.Kind)
-	}
+	messaging := c.Messaging
 
-	return nil
+	switch {
+	case !messaging.Kind.Known():
+		return fmt.Errorf("%w: kind is slack, teams, discord or webhook: %q", ErrInvalidMessaging, messaging.Kind)
+	case messaging.hasUserToken() && messaging.Kind.webhookOnly():
+		return fmt.Errorf("%w: client_id and the user token belong to Slack alone, not %s",
+			ErrInvalidMessaging, messaging.Kind.Service())
+	case messaging.hasUserToken() && messaging.WebhookURL != "":
+		return fmt.Errorf("%w: Slack posts with a user token or a webhook_url, not both; remove one",
+			ErrInvalidMessaging)
+	case messaging.ExpiresAt != "" && !isTimestamp(messaging.ExpiresAt):
+		return fmt.Errorf("%w: expires_at is not an RFC 3339 time: %q", ErrInvalidMessaging, messaging.ExpiresAt)
+	default:
+		return nil
+	}
+}
+
+// isTimestamp reports a value written as an RFC 3339 time.
+func isTimestamp(value string) bool {
+	_, err := time.Parse(time.RFC3339, value)
+
+	return err == nil
 }
 
 // Service names the messaging service for display: the pane title and doctor.
@@ -95,9 +116,8 @@ func (k MessagingKind) Service() string {
 	}
 }
 
-// webhookOnly reports a kind whose only transport is an incoming webhook: it has
-// no bot token, so a token set beside it is ignored. Slack is the exception —
-// it can post with a bot token too.
+// webhookOnly reports a kind whose only transport is an incoming webhook. Slack
+// is the exception — it can post with a user token instead.
 func (k MessagingKind) webhookOnly() bool {
 	switch k {
 	case KindTeams, KindDiscord, KindWebhook:
@@ -116,9 +136,9 @@ type MessagingMode int
 const (
 	// MessagingNone means no messaging credential is configured.
 	MessagingNone MessagingMode = iota
-	// MessagingBot posts with a bot token, which needs a channel and an
-	// invitation. Only Slack has one; the other services post over a webhook.
-	MessagingBot
+	// MessagingUser posts with a Slack user token, as you, to a channel you can
+	// post in. Only Slack has one; the other services post over a webhook.
+	MessagingUser
 	// MessagingWebhook posts to an incoming webhook, which carries its own
 	// channel.
 	MessagingWebhook
@@ -131,8 +151,8 @@ func (m MessagingMode) String() string {
 	switch m {
 	case MessagingNone:
 		return "none"
-	case MessagingBot:
-		return "bot token"
+	case MessagingUser:
+		return "user token"
 	case MessagingWebhook:
 		return "incoming webhook"
 	default:

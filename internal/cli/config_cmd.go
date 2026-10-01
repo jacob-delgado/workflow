@@ -295,16 +295,20 @@ func keepTokenSafe(out io.Writer, prompt Prompt, jira config.Jira) (config.Jira,
 }
 
 // collectMessaging asks for a Slack incoming webhook, the setup with nothing to
-// check. A bot token, and the other services' webhooks, are more involved and
-// are left to the docs and a later hand edit of the messaging block.
+// check. A blank answer leaves Slack to a user token, which `workflow slack
+// login` sets up, since it needs the app's client ID and a refresh token; the
+// other services' webhooks are left to the docs and a later hand edit of the
+// messaging block.
 func collectMessaging(out io.Writer, prompt Prompt) (config.Messaging, error) {
-	webhook, err := prompt.Secret("Slack incoming webhook URL, blank to skip: ")
+	webhook, err := prompt.Secret("Slack incoming webhook URL, blank to post with your user token instead: ")
 	if err != nil {
 		return config.Messaging{}, err
 	}
 
 	webhook = strings.TrimSpace(webhook)
 	if webhook == "" {
+		fmt.Fprintf(out, "  %-10s run `workflow slack login` to post with your Slack user token\n", "slack")
+
 		return config.Messaging{}, nil
 	}
 

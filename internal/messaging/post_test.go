@@ -97,12 +97,12 @@ func counting(sent *atomic.Bool) messaging.Doer {
 	}
 }
 
-func TestPostWithABotTokenUsesChatPostMessage(t *testing.T) {
+func TestPostWithAUserTokenUsesChatPostMessage(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
 	server, seen := slackReceiving(t, http.StatusOK, `{"ok":true,"channel":"C1","ts":"1.2"}`)
-	client := messaging.New(server.Client().Do, server.URL, botCredentials())
+	client := messaging.New(server.Client().Do, server.URL, userCredentials()).WithToken(heldToken)
 
 	// Act
 	err := client.Post(t.Context(), "", message)
@@ -112,9 +112,9 @@ func TestPostWithABotTokenUsesChatPostMessage(t *testing.T) {
 
 	// Assert
 	got := received(t, seen)
-	if got.path != "/chat.postMessage" || got.auth != "Bearer "+botToken ||
+	if got.path != "/chat.postMessage" || got.auth != "Bearer "+userToken ||
 		!strings.HasPrefix(got.contentType, "application/json") {
-		t.Errorf("posted %+v, want a JSON chat.postMessage with the bot token", got)
+		t.Errorf("posted %+v, want a JSON chat.postMessage with the user token", got)
 	}
 
 	// A link preview of the pull request would bury the message under it.
@@ -123,7 +123,7 @@ func TestPostWithABotTokenUsesChatPostMessage(t *testing.T) {
 	}
 }
 
-func TestPostWithABotTokenReportsSlacksError(t *testing.T) {
+func TestPostWithAUserTokenReportsSlacksError(t *testing.T) {
 	t.Parallel()
 
 	cases := map[string]struct {
@@ -135,7 +135,7 @@ func TestPostWithABotTokenReportsSlacksError(t *testing.T) {
 		// Slack's own convention: 200, and the answer is still no.
 		"a refusal inside a 200": {
 			status: http.StatusOK, answer: `{"ok":false,"error":"not_in_channel"}`,
-			want: messaging.ErrPostRefused, reason: "the bot is not in #dev",
+			want: messaging.ErrPostRefused, reason: "you are not in #dev",
 		},
 		"an unexpected status": {status: http.StatusServiceUnavailable, answer: `busy`, want: messaging.ErrUnexpectedStatus},
 	}
@@ -146,7 +146,7 @@ func TestPostWithABotTokenReportsSlacksError(t *testing.T) {
 
 			// Arrange
 			server, _ := slackReceiving(t, tt.status, tt.answer)
-			client := messaging.New(server.Client().Do, server.URL, botCredentials())
+			client := messaging.New(server.Client().Do, server.URL, userCredentials()).WithToken(heldToken)
 
 			// Act
 			err := client.Post(t.Context(), "", message)
@@ -161,7 +161,7 @@ func TestPostWithABotTokenReportsSlacksError(t *testing.T) {
 
 // webhookCredentials posts through a webhook at address.
 func webhookCredentials(address string) config.Messaging {
-	return config.Messaging{Token: "", WebhookURL: config.Secret(address), Channel: ""}
+	return config.Messaging{WebhookURL: config.Secret(address), Channel: ""}
 }
 
 // brokenAnswer answers every post with a body that breaks off mid-read.
@@ -671,7 +671,7 @@ func TestPostReportsAnAnswerThatIsNotJSON(t *testing.T) {
 
 	// Arrange
 	server, _ := slackReceiving(t, http.StatusOK, `{not json`)
-	client := messaging.New(server.Client().Do, server.URL, botCredentials())
+	client := messaging.New(server.Client().Do, server.URL, userCredentials()).WithToken(heldToken)
 
 	// Act
 	err := client.Post(t.Context(), "", message)
@@ -690,7 +690,7 @@ func TestPostReportsAnAnswerThatBreaksOff(t *testing.T) {
 		return &http.Response{StatusCode: http.StatusOK, Body: io.NopCloser(brokenBody{})}, nil
 	}
 
-	client := messaging.New(dropped, messaging.APIBase, botCredentials())
+	client := messaging.New(dropped, messaging.APIBase, userCredentials()).WithToken(heldToken)
 
 	// Act
 	err := client.Post(t.Context(), "", message)
@@ -706,7 +706,7 @@ func TestPostReportsATransportFailure(t *testing.T) {
 
 	// Arrange
 	failing := func(*http.Request) (*http.Response, error) { return nil, errBrokeOff }
-	client := messaging.New(failing, messaging.APIBase, botCredentials())
+	client := messaging.New(failing, messaging.APIBase, userCredentials()).WithToken(heldToken)
 
 	// Act
 	err := client.Post(t.Context(), "", message)
@@ -723,7 +723,7 @@ func TestPostToAMalformedAPIBaseIsUnreachable(t *testing.T) {
 	// Arrange
 	var sent atomic.Bool
 
-	client := messaging.New(counting(&sent), "https://slack.example.com/\x7f", botCredentials())
+	client := messaging.New(counting(&sent), "https://slack.example.com/\x7f", userCredentials()).WithToken(heldToken)
 
 	// Act
 	err := client.Post(t.Context(), "", message)
@@ -734,14 +734,14 @@ func TestPostToAMalformedAPIBaseIsUnreachable(t *testing.T) {
 	}
 }
 
-func TestABotPostRefusalNamesTheFix(t *testing.T) {
+func TestAUserPostRefusalNamesTheFix(t *testing.T) {
 	t.Parallel()
 
 	cases := map[string]struct {
 		code string
 		want string
 	}{
-		"not in the channel":      {code: "not_in_channel", want: "the message was refused: the bot is not in #dev"},
+		"not in the channel":      {code: "not_in_channel", want: "the message was refused: you are not in #dev"},
 		"no such channel":         {code: "channel_not_found", want: "no channel #dev"},
 		"the channel is archived": {code: "is_archived", want: "#dev is archived. Choose an open channel"},
 	}
@@ -752,7 +752,7 @@ func TestABotPostRefusalNamesTheFix(t *testing.T) {
 
 			// Arrange
 			server, _ := slackReceiving(t, http.StatusOK, `{"ok":false,"error":"`+tt.code+`"}`)
-			client := messaging.New(server.Client().Do, server.URL, botCredentials())
+			client := messaging.New(server.Client().Do, server.URL, userCredentials()).WithToken(heldToken)
 
 			// Act
 			err := client.Post(t.Context(), "", message)

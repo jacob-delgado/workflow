@@ -457,19 +457,24 @@ is lost is read rather than checked.
 **Reopen when.** One of these failures is reported, or a change to the
 calls lets a test fail the second without the first.
 
-### TRADE-17 A bot token only Slack itself accepts
+### TRADE-17 A Slack user token only Slack itself accepts
 
-One condition is only ever seen failing, because success needs a service
-no test can stand in for: `workflow doctor --online` accepting a bot token
-(`checkMessaging`, `internal/cli/doctor_credentials.go:226`) asks Slack
-itself, at `messaging.APIBase`, which nothing configures. The token check
-is tested in `internal/messaging` against a local server; the command's
-own handling of an accepted token is not.
+Two paths are only ever seen failing, because success needs a service no
+test can stand in for: `workflow doctor --online` accepting a user token
+(`checkMessaging`, `internal/cli/doctor_credentials.go`), and `workflow
+slack login` accepting the refresh it makes (`keepFirstToken`,
+`internal/cli/slack_cmd.go`), both of which ask Slack itself, at
+`messaging.APIBase`, which nothing configures. The token check and the
+refresh are tested against local servers in `internal/messaging` and
+`internal/slackauth`; the commands' own handling of an accepted token is
+not.
 
-**Decided.** 2026-09-26, in #146.
+**Decided.** 2026-09-26, in #146; widened on 2026-09-30 when the Slack bot
+token gave way to the rotating user token and `workflow slack login`.
 
-**Cost.** The user and team doctor prints for an accepted bot token are
-never checked through the command.
+**Cost.** The user and team doctor prints for an accepted token, and what
+the login says and keeps once Slack accepts it, are never checked through
+the commands.
 
 **Reopen when.** The messaging address becomes configurable for another
 reason, such as a self-hosted service, or doctor's line for an accepted

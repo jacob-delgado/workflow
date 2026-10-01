@@ -12,6 +12,7 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 )
 
@@ -177,6 +178,10 @@ func Parse(r io.Reader) (Config, error) {
 			return Default(), fmt.Errorf("%w: %w", ErrInvalid, ErrSlackRenamed)
 		}
 
+		if isRemovedBotToken(err) {
+			return Default(), fmt.Errorf("%w: %w", ErrInvalid, ErrSlackBotTokenRemoved)
+		}
+
 		return Default(), fmt.Errorf("%w: %w", ErrInvalid, err)
 	}
 
@@ -195,4 +200,13 @@ func Parse(r io.Reader) (Config, error) {
 // was renamed to "messaging".
 func isRenamedSlackBlock(err error) bool {
 	return strings.Contains(err.Error(), `unknown field "slack"`)
+}
+
+// isRemovedBotToken reports the decoder's complaint about a field the Slack bot
+// token used. Jira and the forge still have a token, so "token" and the two
+// ways to find one can be unknown in the messaging block alone.
+func isRemovedBotToken(err error) bool {
+	removed := []string{`unknown field "token"`, `unknown field "token_command"`, `unknown field "token_env"`}
+
+	return slices.ContainsFunc(removed, func(complaint string) bool { return strings.Contains(err.Error(), complaint) })
 }

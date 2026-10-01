@@ -1,9 +1,9 @@
 // Copyright 2026 Jacob Delgado
 // SPDX-License-Identifier: Apache-2.0
 
-// Package messaging posts team announcements — to Slack through a bot token or an
-// incoming webhook, and to Teams, Discord or a plain webhook through theirs — and
-// asks whether a Slack bot token works. A webhook has no equivalent question —
+// Package messaging posts team announcements — to Slack with a rotating user
+// token or through an incoming webhook, and to Teams, Discord or a plain webhook
+// through theirs — and asks whether a Slack user token works. A webhook has no equivalent question —
 // see ErrWebhookUncheckable.
 package messaging
 
@@ -37,13 +37,16 @@ const authTestPath = "/auth.test"
 // ErrRateLimited, which every client shares.
 var (
 	// ErrNoCredential reports that messaging has no credential to post with:
-	// neither transport is set, or the bot token's source gave none.
+	// neither transport is set, or the user token has no source to give one.
 	ErrNoCredential = errors.New("messaging has no credential")
 	// ErrWebhookUncheckable reports that a webhook cannot be verified.
 	ErrWebhookUncheckable = errors.New("an incoming webhook cannot be checked without posting with it")
 	// ErrRejected reports a credential the service would not accept: Slack's no
 	// to a token, or any service's 4xx answer to a post.
 	ErrRejected = errors.New("the credential was not accepted")
+	// ErrTokenExpired reports a user token Slack called expired after the
+	// source was asked for a newer one, which it answers as ErrRejected too.
+	ErrTokenExpired = errors.New("the Slack user token has expired")
 	// ErrPostRefused reports a message Slack would not deliver, for a reason
 	// that is not about the credential. Its words name no verb, because an
 	// announcement and a standup both post through here.
@@ -57,7 +60,7 @@ var (
 // Doer is the HTTP seam this client accepts; see httpx.Doer.
 type Doer = httpx.Doer
 
-// Identity is the workspace and bot user a token belongs to.
+// Identity is the workspace and user a token belongs to.
 type Identity struct {
 	// OK is Slack's verdict. It is the field that matters: the Web API answers
 	// a dead token with HTTP 200 and ok:false, so the status line lies.
@@ -67,17 +70,30 @@ type Identity struct {
 	Team  string `json:"team"`
 }
 
+// TokenSource hands out the Slack user token to send: one other than expired,
+// the token Slack just called expired, or any when expired is empty.
+type TokenSource func(ctx context.Context, expired config.Secret) (config.Secret, error)
+
 // Client talks to a messaging service — Slack's Web API, or an incoming webhook
 // for Slack, Teams, Discord or a plain endpoint.
 type Client struct {
 	do    Doer
 	base  string
 	creds config.Messaging
+	token TokenSource
 }
 
 // New builds a client. Pass APIBase unless you are a test.
 func New(do Doer, base string, creds config.Messaging) Client {
-	return Client{do: do, base: strings.TrimRight(base, "/"), creds: creds}
+	return Client{do: do, base: strings.TrimRight(base, "/"), creds: creds, token: nil}
+}
+
+// WithToken is the client asking source for the Slack user token on every call,
+// since a rotating token can expire between two of them.
+func (c Client) WithToken(source TokenSource) Client {
+	c.token = source
+
+	return c
 }
 
 // AuthTest reports which workspace and user the configured token belongs to.
@@ -87,6 +103,19 @@ func (c Client) AuthTest(ctx context.Context) (Identity, error) {
 		return Identity{}, err
 	}
 
+	var identity Identity
+
+	err = c.withFreshToken(ctx, func(token config.Secret) error {
+		identity, err = c.authTest(ctx, token)
+
+		return err
+	})
+
+	return identity, err
+}
+
+// authTest asks auth.test about token.
+func (c Client) authTest(ctx context.Context, token config.Secret) (Identity, error) {
 	request, err := http.NewRequestWithContext(ctx, http.MethodPost, c.base+authTestPath, nil)
 	if err != nil {
 		// Unwrapped: the parse error quotes the whole URL.
@@ -95,10 +124,35 @@ func (c Client) AuthTest(ctx context.Context) (Identity, error) {
 
 	// Slack also accepts the token as a query parameter. It travels in the
 	// header instead, so it stays out of proxy logs and browser history.
-	request.Header.Set("Authorization", "Bearer "+c.creds.Token.Reveal())
+	request.Header.Set("Authorization", "Bearer "+token.Reveal())
 	request.Header.Set("Accept", "application/json")
 
 	return c.send(request)
+}
+
+// withFreshToken makes call with the user token the source gives, and once
+// more with a newer one when Slack calls that token expired.
+func (c Client) withFreshToken(ctx context.Context, call func(config.Secret) error) error {
+	if c.token == nil {
+		return ErrNoCredential
+	}
+
+	token, err := c.token(ctx, "")
+	if err != nil {
+		return err
+	}
+
+	err = call(token)
+	if !errors.Is(err, ErrTokenExpired) {
+		return err
+	}
+
+	token, err = c.token(ctx, token)
+	if err != nil {
+		return err
+	}
+
+	return call(token)
 }
 
 // checkable reports whether this configuration has something worth asking about.
@@ -106,7 +160,7 @@ func (c Client) AuthTest(ctx context.Context) (Identity, error) {
 // exhaustive keeps it complete.
 func (c Client) checkable() error {
 	return map[config.MessagingMode]error{
-		config.MessagingBot: nil,
+		config.MessagingUser: nil,
 		// The only way to learn whether a webhook works is to post with it, and
 		// that would put a test message in somebody's channel.
 		config.MessagingWebhook: ErrWebhookUncheckable,
@@ -146,7 +200,7 @@ func (c Client) send(request *http.Request) (Identity, error) {
 	// The status was 200 and the answer is still no. This is Slack's convention,
 	// and reading the status alone would call a dead token healthy.
 	if !identity.OK {
-		return Identity{}, fmt.Errorf("%w: %s", ErrRejected, identity.Error)
+		return Identity{}, credentialRefusal(identity.Error)
 	}
 
 	return identity, nil

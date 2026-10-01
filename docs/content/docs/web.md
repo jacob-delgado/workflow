@@ -212,8 +212,8 @@ Taskwarrior part applies when workflow restarts, as the part says: workflow find
 and until the restart the Tasks section says to restart rather than read
 Taskwarrior. What the form has no field for yet is kept unchanged
 when you save: `version`, all of `ui` and `timing`, `jira.token_command`,
-`jira.token_env`, `jira.headers`, `jira.views`, `messaging.token_command`,
-`messaging.token_env`, `messaging.channels` and `branch.prefixes`. Settings
+`jira.token_env`, `jira.headers`, `jira.views`, `messaging.channels` and
+`branch.prefixes`. Settings
 reads the file each time it opens, and a save checks that the file has not
 changed since: when it has (edited on disk, rewritten by
 `workflow config init --force`, or saved from another tab), nothing is written,

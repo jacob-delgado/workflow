@@ -106,10 +106,10 @@ so it sits below the surfaces and above `internal/loop`.
   bundle**, adapted to the web server's shape. That shared construction is one
   half of why there is one implementation behind three front doors;
   `internal/loop`, below, is the other. Before the interface or `--web` starts,
-  the CLI calls `resolveAhead`, which looks up the Jira and messaging tokens in
-  advance, so a token command that prompts on the terminal can be answered
-  before either takes the terminal over. A token not found then is looked for
-  again on first use, where its failure is reported.
+  the CLI calls `resolveAhead`, which looks up the Jira token in advance, so a
+  token command that prompts on the terminal can be answered before either
+  takes the terminal over. A token not found then is looked for again on first
+  use, where its failure is reported.
 
 A seam speaks the interface's own domain types, and wiring translates at the
 boundary. The store seam is the clearest example: `seams.Store.CachedIssues`
@@ -163,14 +163,15 @@ HTTP transport and one subprocess seam.
 | --- | --- |
 | `internal/jira` | Jira Data Center REST v2 — search, read, transition, comment, assign, log work, link a PR, whoami, Markdown to wiki markup |
 | `internal/forge` | GitHub / GitLab — remotes, tokens, pull/merge requests and their templates, CI status, review requests, forge-native issues |
-| `internal/messaging` | Team announcements — Slack (bot token or webhook), Teams, Discord, plain webhook |
+| `internal/messaging` | Team announcements — Slack (rotating user token or webhook), Teams, Discord, plain webhook |
+| `internal/slackauth` | Keeps a Slack user token posting: refreshes it, keeps each pair in the keychain or the file, under a lock |
 | `internal/httpx` | The shared one-method `Doer` seam and a **redirect-refusing** HTTP client |
 | `internal/gitrepo` | Reads and changes the repository through git, via a caller-supplied `Runner` |
 | `internal/proc` | The one place a subprocess is spawned |
 | `internal/store` | The on-disk state database (this document's second half) |
 
 The `messaging` package was formerly `slack`; the `slack` **kind** and the Slack
-bot token remain first-class within it, but the package and its transport errors
+user token remain first-class within it, but the package and its transport errors
 are now service-neutral.
 
 ## Two kinds of local state, and why they are separate

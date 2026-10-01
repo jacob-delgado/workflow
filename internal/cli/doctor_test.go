@@ -57,7 +57,7 @@ func TestDoctorNamesMissingFields(t *testing.T) {
 
 	wantExit(t, err, 3)
 
-	if !strings.Contains(output, "messaging.token or messaging.webhook_url") {
+	if !strings.Contains(output, "messaging.client_id (workflow slack login) or messaging.webhook_url") {
 		t.Errorf("doctor does not offer both Slack transports:\n%s", output)
 	}
 

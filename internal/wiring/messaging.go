@@ -5,50 +5,175 @@ package wiring
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"os"
+	"os/user"
+	"path/filepath"
+	"runtime"
 	"strings"
+	"sync"
+	"time"
 
 	"github.com/jacob-delgado/workflow/internal/config"
 	"github.com/jacob-delgado/workflow/internal/httpx"
+	"github.com/jacob-delgado/workflow/internal/keychain"
 	"github.com/jacob-delgado/workflow/internal/messaging"
+	"github.com/jacob-delgado/workflow/internal/proc"
 	"github.com/jacob-delgado/workflow/internal/seams"
+	"github.com/jacob-delgado/workflow/internal/slackauth"
+	"github.com/jacob-delgado/workflow/internal/store"
 )
 
-// messagingDeps is what a surface asks of the messaging service, each post
-// reaching it through messagingClient, which finds a bot token the first time a
-// post needs one.
-func messagingDeps(ctx context.Context, messagingClient func() (messaging.Client, error)) seams.Messaging {
-	return seams.Messaging{Post: func(channel, text string) error {
-		client, err := messagingClient()
-		if err != nil {
-			return err
-		}
+// slackLockName is the file a Slack token refresh is made under, beside the
+// store, so every workflow running on the machine takes turns.
+const slackLockName = "slack-refresh.lock"
 
-		return client.Post(ctx, channel, text)
+// liveMessaging is the messaging settings every post reads: those workflow
+// started with, until the web's Settings saves others.
+type liveMessaging struct {
+	lock     sync.Mutex
+	settings config.Messaging
+}
+
+// current is the settings in effect now.
+func (l *liveMessaging) current() config.Messaging {
+	l.lock.Lock()
+	defer l.lock.Unlock()
+
+	return l.settings
+}
+
+// replace puts settings in effect for every post after it.
+func (l *liveMessaging) replace(settings config.Messaging) {
+	l.lock.Lock()
+	defer l.lock.Unlock()
+
+	l.settings = settings
+}
+
+// messagingSetup is what a post is made from: the settings in effect, the
+// configuration file a user token's credentials may be kept in, and the
+// transport and request log.
+type messagingSetup struct {
+	settings      func() config.Messaging
+	path          string
+	httpTransport httpx.Doer
+	log           *RequestLog
+}
+
+// messagingDeps is what a surface asks of the messaging service. Each post is
+// made by a client built from the settings in effect, whose user token is
+// asked for anew, since a rotating token can run out between two posts.
+func messagingDeps(ctx context.Context, setup messagingSetup) seams.Messaging {
+	return seams.Messaging{Post: func(channel, text string) error {
+		return messagingClient(setup).Post(ctx, channel, text)
 	}}
 }
 
-// connectMessaging builds the client that posts to the messaging service. Only
-// a Slack bot token is looked for, running its command when one is set; the
-// webhook kinds carry the credential in the URL. A token source that gives none
-// is no credential at all, and is reported as such before anything is sent.
-func connectMessaging(
-	ctx context.Context, settings config.Messaging, httpTransport httpx.Doer, log *RequestLog,
-) (messaging.Client, error) {
-	// A webhook's path is its credential; only a bot posts to a route.
-	wrap := log.wrapWebhook
-
-	if settings.Mode() == config.MessagingBot {
-		token, err := resolveSetToken(ctx, settings.Token, settings.TokenCommand, settings.TokenEnv)
-		if err != nil {
-			return messaging.Client{}, fmt.Errorf("%w: %w", messaging.ErrNoCredential, err)
-		}
-
-		settings.Token, wrap = token, log.Wrap
-	}
-
+// messagingClient builds the client a post is made with: over the webhook the
+// settings name, whose path is its credential and is never logged, or with
+// the Slack user token the settings set up.
+func messagingClient(setup messagingSetup) messaging.Client {
+	settings := setup.settings()
 	service := strings.ToLower(settings.Service())
 
-	//nolint:bodyclose // wrap only relays the response; the messaging client reads and closes its body.
-	return messaging.New(wrap(service, httpTransport), messaging.APIBase, settings), nil
+	if settings.Mode() != config.MessagingUser {
+		//nolint:bodyclose // wrap only relays the response; the messaging client reads and closes its body.
+		return messaging.New(setup.log.wrapWebhook(service, setup.httpTransport), messaging.APIBase, settings)
+	}
+
+	//nolint:bodyclose // Wrap only relays the response; the client reads and closes its body.
+	do := setup.log.Wrap(service, setup.httpTransport)
+
+	return messaging.New(do, messaging.APIBase, settings).
+		WithToken(SlackToken(config.Config{Messaging: settings, Path: setup.path}, do))
+}
+
+// SlackStore is where cfg keeps its Slack user token's credentials: the macOS
+// keychain, or the configuration file. doctor, the login and every post go
+// through it, so they cannot come to look in different places.
+func SlackStore(cfg config.Config) slackauth.Store {
+	item, _ := keychain.Open(runtime.GOOS, slackauth.KeychainService, proc.Capture, user.Current, os.Getenv)
+
+	return slackauth.Choose(runtime.GOOS, cfg, item)
+}
+
+// SlackRefresher refreshes the Slack user token of the app clientID names,
+// through do.
+func SlackRefresher(clientID string, do httpx.Doer) slackauth.Refresher {
+	return slackauth.Refresher{Do: do, Base: messaging.APIBase, ClientID: clientID, Now: time.Now}
+}
+
+// SlackToken hands out cfg's Slack user token, refreshing it through do when it
+// is about to run out, under a lock every workflow on the machine shares. Its
+// failures read as the messaging client's: none set up is no credential, a
+// Slack not reached is unreachable, and a refresh Slack refused is a
+// credential it would not accept.
+func SlackToken(cfg config.Config, do httpx.Doer) messaging.TokenSource {
+	source := slackauth.Source{
+		Store: SlackStore(cfg), Refresher: SlackRefresher(cfg.Messaging.ClientID, do),
+		Lock: slackauth.FileLock(slackLockPath(cfg.Path)), Now: time.Now,
+	}
+
+	return func(ctx context.Context, expired config.Secret) (config.Secret, error) {
+		token, err := source.Token(ctx, expired)
+
+		return token, asMessagingError(err)
+	}
+}
+
+// asMessagingError is a token source's failure as the messaging client's error.
+func asMessagingError(err error) error {
+	switch {
+	case err == nil:
+		return nil
+	case errors.Is(err, slackauth.ErrNotLoggedIn):
+		return fmt.Errorf("%w: %w", messaging.ErrNoCredential, err)
+	case errors.Is(err, slackauth.ErrUnreachable):
+		return fmt.Errorf("%w: %w", messaging.ErrUnreachable, err)
+	default:
+		return fmt.Errorf("%w: %w", messaging.ErrRejected, err)
+	}
+}
+
+// slackLockPath is where the refresh lock lives: beside the store, or beside
+// the configuration file where the store has no directory.
+func slackLockPath(configPath string) string {
+	dir, err := store.DefaultDir()
+	if err != nil || dir == "" {
+		dir = filepath.Dir(configPath)
+	}
+
+	return filepath.Join(dir, slackLockName)
+}
+
+// placeSlackCredentials is Controls.PlaceSlackCredentials, refreshing through
+// transport.
+func placeSlackCredentials(ctx context.Context, transport httpx.Doer) func(config.Config) (config.Config, error) {
+	return func(cfg config.Config) (config.Config, error) {
+		if runtime.GOOS != "darwin" {
+			return cfg, nil
+		}
+
+		starting := slackauth.Credentials{
+			ClientSecret: cfg.Messaging.ClientSecret, RefreshToken: cfg.Messaging.RefreshToken,
+		}
+
+		without := cfg
+		without.Messaging.ClientSecret, without.Messaging.RefreshToken = "", ""
+		without.Messaging.AccessToken, without.Messaging.ExpiresAt = "", ""
+
+		renewed, err := SlackRefresher(cfg.Messaging.ClientID, transport).Refresh(ctx, starting)
+		if err != nil {
+			return config.Config{}, asMessagingError(err)
+		}
+
+		err = SlackStore(without).Save(ctx, renewed)
+		if err != nil {
+			return config.Config{}, err
+		}
+
+		return without, nil
+	}
 }

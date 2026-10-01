@@ -4,6 +4,7 @@
 package messaging_test
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"net/http"
@@ -18,17 +19,17 @@ import (
 	"github.com/jacob-delgado/workflow/internal/messaging"
 )
 
-// botToken is the credential these tests send. Deliberately not shaped like a
-// real xoxb- token: gitleaks scans this repository.
-const botToken = "slack-bot-token-for-tests"
+// userToken is the credential these tests send. Deliberately not shaped like a
+// real xoxe.xoxp- token: gitleaks scans this repository.
+const userToken = "slack-user-token-for-tests"
 
-// okBody is what auth.test answers for a working bot token.
+// okBody is what auth.test answers for a working user token.
 const okBody = `{"ok":true,"url":"https://example.slack.com/","team":"Example",` +
 	`"user":"workflow","team_id":"T00000000","user_id":"U00000000"}`
 
-// botCredentials authenticates with a bot token.
-func botCredentials() config.Messaging {
-	return config.Messaging{Token: botToken, WebhookURL: "", Channel: "#dev"}
+// heldToken is a token source that always gives userToken.
+func heldToken(context.Context, config.Secret) (config.Secret, error) {
+	return userToken, nil
 }
 
 // serve starts a Slack API and returns a client pointed at it.
@@ -38,7 +39,7 @@ func serve(t *testing.T, handler http.HandlerFunc) messaging.Client {
 	server := httptest.NewServer(handler)
 	t.Cleanup(server.Close)
 
-	return messaging.New(server.Client().Do, server.URL, botCredentials())
+	return messaging.New(server.Client().Do, server.URL, userCredentials()).WithToken(heldToken)
 }
 
 func TestAuthTestReportsTheWorkspaceAndUser(t *testing.T) {
@@ -85,7 +86,7 @@ func TestAuthTestSendsTheTokenOnlyInTheAuthorizationHeader(t *testing.T) {
 	}))
 	t.Cleanup(server.Close)
 
-	client := messaging.New(server.Client().Do, server.URL, botCredentials())
+	client := messaging.New(server.Client().Do, server.URL, userCredentials()).WithToken(heldToken)
 
 	// Act
 	_, err := client.AuthTest(t.Context())
@@ -94,7 +95,7 @@ func TestAuthTestSendsTheTokenOnlyInTheAuthorizationHeader(t *testing.T) {
 	}
 
 	// Assert
-	if got := gotHeader.Load(); got != "Bearer "+botToken {
+	if got := gotHeader.Load(); got != "Bearer "+userToken {
 		t.Errorf("Authorization = %q, want a bearer token", got)
 	}
 
@@ -104,7 +105,7 @@ func TestAuthTestSendsTheTokenOnlyInTheAuthorizationHeader(t *testing.T) {
 
 	// Slack accepts a token in the query string. That would put it in proxy
 	// logs, so it must travel in the header and nowhere else.
-	if uri, _ := gotURI.Load().(string); strings.Contains(uri, botToken) {
+	if uri, _ := gotURI.Load().(string); strings.Contains(uri, userToken) {
 		t.Errorf("the request URI carried the token: %q", uri)
 	}
 }
@@ -132,7 +133,7 @@ func TestAuthTestRejectsAFailureInsideATwoHundred(t *testing.T) {
 		t.Errorf("AuthTest error = %v, want it to carry Slack's reason", err)
 	}
 
-	if strings.Contains(err.Error(), botToken) {
+	if strings.Contains(err.Error(), userToken) {
 		t.Errorf("the error carried the token: %v", err)
 	}
 }
@@ -152,23 +153,23 @@ func TestAuthTestRefusesWhatItCannotCheck(t *testing.T) {
 		"a webhook": {
 			base: "https://slack.example.com",
 			credentials: config.Messaging{
-				Token: "", WebhookURL: "https://hooks.slack.com/services/T0/B0/secretpath", Channel: "",
+				WebhookURL: "https://hooks.slack.com/services/T0/B0/secretpath", Channel: "",
 			},
 			want:   messaging.ErrWebhookUncheckable,
 			hidden: []string{"secretpath", "hooks.slack.com"},
 		},
 		"no credential": {
 			base:        "https://slack.example.com",
-			credentials: config.Messaging{Token: "", WebhookURL: "", Channel: ""},
+			credentials: config.Messaging{WebhookURL: "", Channel: ""},
 			want:        messaging.ErrNoCredential,
 		},
 		// A control character is what url.Parse refuses outright, which is the
 		// only way to reach the request-building failure.
 		"an API base url.Parse refuses": {
 			base:        "https://slack.example.com/\x7f",
-			credentials: botCredentials(),
+			credentials: userCredentials(),
 			want:        messaging.ErrUnreachable,
-			hidden:      []string{botToken},
+			hidden:      []string{userToken},
 		},
 	}
 
@@ -177,7 +178,7 @@ func TestAuthTestRefusesWhatItCannotCheck(t *testing.T) {
 			t.Parallel()
 
 			// Arrange
-			client := messaging.New(http.DefaultClient.Do, tt.base, tt.credentials)
+			client := messaging.New(http.DefaultClient.Do, tt.base, tt.credentials).WithToken(heldToken)
 
 			// Act
 			_, err := client.AuthTest(t.Context())
@@ -238,7 +239,7 @@ func TestAuthTestReportsAnUnreachableAPI(t *testing.T) {
 	base := server.URL
 	server.Close()
 
-	client := messaging.New(httpx.Client(2*time.Second).Do, base, botCredentials())
+	client := messaging.New(httpx.Client(2*time.Second).Do, base, userCredentials()).WithToken(heldToken)
 
 	// Act
 	_, err := client.AuthTest(t.Context())
@@ -284,7 +285,7 @@ func TestAuthTestRefusesARedirect(t *testing.T) {
 	}))
 	t.Cleanup(first.Close)
 
-	client := messaging.New(httpx.Client(5*time.Second).Do, first.URL, botCredentials())
+	client := messaging.New(httpx.Client(5*time.Second).Do, first.URL, userCredentials()).WithToken(heldToken)
 
 	// Act
 	_, err := client.AuthTest(t.Context())

@@ -360,3 +360,17 @@ func TestConfigInitDryRunRefusesAnExistingFile(t *testing.T) {
 		})
 	}
 }
+
+func TestGuidedInitWithNoWebhookPointsToTheSlackLogin(t *testing.T) {
+	// Arrange
+	dir := t.TempDir()
+	prompt := scripted([]string{workingJira(t)}, []string{guidedToken, ""})
+
+	// Act
+	output, err := runGuided(t, dir, prompt, "config", "init")
+
+	// Assert
+	if err != nil || !strings.Contains(output, "workflow slack login") {
+		t.Errorf("config init = %v, want it to name workflow slack login for a user token:\n%s", err, output)
+	}
+}

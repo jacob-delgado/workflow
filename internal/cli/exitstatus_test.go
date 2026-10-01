@@ -109,12 +109,14 @@ func askJira(ctx context.Context, base string) error {
 	return err
 }
 
-// postToSlack posts as a Slack bot through the API at base, over the
+// postToSlack posts with a Slack user token through the API at base, over the
 // redirect-refusing transport the commands use, and returns what failed.
 func postToSlack(ctx context.Context, base string) error {
-	creds := config.Messaging{Token: "slack-token-for-tests", Channel: "#dev"}
+	creds := config.Messaging{ClientID: "1234.5678", Channel: "#dev"}
+	token := func(context.Context, config.Secret) (config.Secret, error) { return "slack-token-for-tests", nil }
 
-	return messaging.New(httpx.Client(time.Second).Do, base, creds).Post(ctx, "", "a pull request is ready")
+	return messaging.New(httpx.Client(time.Second).Do, base, creds).WithToken(token).
+		Post(ctx, "", "a pull request is ready")
 }
 
 // askForge asks the forge API at base who the token belongs to, over the

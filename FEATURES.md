@@ -269,7 +269,7 @@ Impact: medium · Effort: medium
   one only writes, and fits the settled decisions.
 - Touches: `internal/store` (a reply-timestamp column on `announces`,
   STRICT, at the next `schemaVersion`), `internal/messaging` (a `thread_ts` on a
-  bot-token post — a webhook cannot thread, so this is bot-only and the
+  user-token post — a webhook cannot thread, so this is user-token-only and the
   preview says so; `Post` in `internal/messaging/post.go` decodes no `ts`
   from chat.postMessage's `verdict` and returns only an error, so it must
   return the timestamp), the post seam that carries it to the record on
@@ -281,7 +281,7 @@ Impact: medium · Effort: medium
   *Each announcement is its own message* limit in
   `docs/content/docs/usage.md:365`.
 - Done when: the second announcement of a pull request is posted as a reply
-  to the first when a bot token is configured; with a webhook it posts
+  to the first when a user token is configured; with a webhook it posts
   top-level and the preview says why; the store still holds no token.
 
 ### FEAT-82 Announce when CI passes, from the web
@@ -443,11 +443,11 @@ Impact: medium · Effort: medium
 - Why: "CI failed" and "merged" belong under the announcement, not beside it.
   Threading needs the first message's timestamp; FEAT-81 would keep it in
   the store, and this entry is the other way to find it.
-- The version fenced here: with a bot token, find the earlier message by
+- The version fenced here: with a user token, find the earlier message by
   searching the channel's recent history for the pull request's URL. It
   costs a `channels:history` scope and a request, and it cannot work with a
   webhook.
-- Touches: `internal/messaging` (a history read on the bot-token client),
+- Touches: `internal/messaging` (a history read on the user-token client),
   `internal/loop/announce.go`.
 - Done when: a later post about the same pull request arrives as a reply.
 

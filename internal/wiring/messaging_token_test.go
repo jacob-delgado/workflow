@@ -3,121 +3,80 @@
 
 package wiring_test
 
-// The messaging service finds a Slack bot token on first use, as Jira does, so a
-// command that never posts never runs messaging.token_command. A post these
-// tests make never reaches Slack: its token is refused before anything is sent,
-// which the request log, left empty, shows.
+// The messaging service posts to Slack with a rotating user token, which every
+// post asks for anew, so a token that ran out between two posts is refreshed
+// rather than sent stale. A post these tests make never reaches Slack: its
+// token is refused before anything is sent. Each keeps the token's
+// credentials in the configuration file, which every system can hold, so no
+// test reads the keychain of the machine it runs on.
 
 import (
 	"errors"
-	"strings"
+	"os"
+	"path/filepath"
 	"testing"
 
 	"github.com/jacob-delgado/workflow/internal/config"
 	"github.com/jacob-delgado/workflow/internal/messaging"
+	"github.com/jacob-delgado/workflow/internal/slackauth"
 	"github.com/jacob-delgado/workflow/internal/wiring"
 )
 
-// slackChannel is the channel a bot configuration posts to.
+// slackChannel is the channel a user-token configuration posts to.
 const slackChannel = "#dev"
 
-func TestTheMessagingTokenCommandRunsOnEachPostThatNeedsIt(t *testing.T) {
+// halfLoggedIn is a configuration file that keeps the user token's credentials
+// itself, holding the app's client secret and nothing to post with yet.
+func halfLoggedIn(t *testing.T) config.Config {
+	t.Helper()
+
+	path := filepath.Join(t.TempDir(), config.FileName)
+	contents := `{"messaging": {"kind": "slack", "client_id": "1234.5678", "client_secret": "client-secret-9999",` +
+		` "channel": "` + slackChannel + `"}}`
+
+	err := os.WriteFile(path, []byte(contents), config.FileMode)
+	if err != nil {
+		t.Fatalf("writing the configuration: %v", err)
+	}
+
+	cfg, err := config.LoadFile(path)
+	if err != nil {
+		t.Fatalf("loading the configuration: %v", err)
+	}
+
+	return cfg
+}
+
+func TestAUserTokenNotSetUpIsReportedBeforeAnythingIsSent(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
-	tokens := newFailingTokenCommand(t)
-	cfg := config.Default()
-	cfg.Messaging = config.Messaging{TokenCommand: tokens.command, Channel: slackChannel}
-
-	// Act: wire the seams
+	cfg := halfLoggedIn(t)
 	seams := wired(t, cfg, wiring.Workspace{Root: t.TempDir(), Remote: ""}, nil).Messaging
 
-	// Assert: the token command has not run
-	if runs := tokens.runs(); runs != 0 {
-		t.Fatalf("wiring the seams ran the messaging token command %d times, want none", runs)
-	}
+	// Act
+	err := seams.Post("", "hi")
 
-	// Act: post twice
-	firstErr := seams.Post("", "hello")
-	secondErr := seams.Post("", "hello")
-
-	// Assert: each post looked for the token again, and neither was sent
-	if !errors.Is(firstErr, messaging.ErrNoCredential) || !errors.Is(secondErr, messaging.ErrNoCredential) {
-		t.Errorf("Post = %v, then %v; want messaging.ErrNoCredential both times", firstErr, secondErr)
-	}
-
-	if runs := tokens.runs(); runs != 2 {
-		t.Errorf("two posts ran the failing messaging token command %d times, want once each", runs)
+	// Assert
+	if !errors.Is(err, messaging.ErrNoCredential) || !errors.Is(err, slackauth.ErrNotLoggedIn) {
+		t.Errorf("Post = %v, want no credential, and the login named", err)
 	}
 }
 
-func TestAMessagingTokenSourceThatGivesNoTokenIsReportedBeforeAnythingIsSent(t *testing.T) {
-	t.Parallel()
-
-	cases := map[string]struct {
-		settings config.Messaging
-		want     string
-	}{
-		"a command that fails": {
-			settings: config.Messaging{TokenCommand: failingCommand, Channel: slackChannel},
-			want:     "token command",
-		},
-		"a command that prints nothing": {
-			settings: config.Messaging{TokenCommand: silentCommand, Channel: slackChannel},
-			want:     commandSource,
-		},
-		"an environment variable that is not set": {
-			settings: config.Messaging{TokenEnv: unsetVariable, Channel: slackChannel},
-			want:     unsetVariable,
-		},
-	}
-
-	for name, tt := range cases {
-		t.Run(name, func(t *testing.T) {
-			t.Parallel()
-
-			// Arrange
-			cfg := config.Default()
-			cfg.Messaging = tt.settings
-			// Should a post be sent after all, it gives up at once rather than
-			// waiting on Slack.
-			cfg.Timing.RequestTimeout = "1ms"
-
-			var logged strings.Builder
-
-			requestLog := wiring.NewRequestLog(&logged, nil)
-			seams := wired(t, cfg, wiring.Workspace{Root: t.TempDir(), Remote: ""}, requestLog).Messaging
-
-			// Act
-			err := seams.Post("", "hello")
-
-			// Assert
-			if !errors.Is(err, messaging.ErrNoCredential) || !strings.Contains(err.Error(), tt.want) {
-				t.Errorf("Post = %v, want messaging.ErrNoCredential naming %q", err, tt.want)
-			}
-
-			if sent := logged.String(); sent != "" {
-				t.Errorf("the post was sent without a token: %q", sent)
-			}
-		})
-	}
-}
-
-func TestResolvingAheadRunsTheMessagingTokenCommandOnce(t *testing.T) {
+func TestMessagingSettingsSavedWhileRunningReachTheNextPost(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
-	tokens := newTokenCommand(t)
-	cfg := config.Default()
-	cfg.Messaging = config.Messaging{TokenCommand: tokens.command, Channel: slackChannel}
-	_, controls := wiring.Deps(t.Context(), cfg, wiring.Workspace{Root: t.TempDir(), Remote: ""}, nil)
+	cfg := halfLoggedIn(t)
+	deps, controls := wiring.Deps(t.Context(), cfg, wiring.Workspace{Root: t.TempDir(), Remote: ""}, nil)
 
 	// Act
-	controls.ResolveAhead()
-	controls.ResolveAhead()
+	controls.UseMessagingSettings(config.Messaging{Kind: config.KindSlack, WebhookURL: "http://hooks.example.com/x"})
+
+	err := deps.Messaging.Post("", "hi")
 
 	// Assert
-	if runs := tokens.runs(); runs != 1 {
-		t.Errorf("resolving ahead twice ran the messaging token command %d times, want once", runs)
+	if !errors.Is(err, messaging.ErrInsecureWebhook) {
+		t.Errorf("Post = %v, want the webhook saved since used, and refused for its address", err)
 	}
 }

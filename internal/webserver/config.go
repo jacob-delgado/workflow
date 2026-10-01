@@ -68,9 +68,34 @@ func (s *server) reread() (config.Config, basis, error) {
 	default:
 		s.cfg, s.seen, s.gone = cfg, current, false
 		s.adoptForge(cfg.Forge)
+		s.adoptMessaging(cfg.Messaging)
 	}
 
 	return s.cfg, basis{seen: s.seen, gone: s.gone}, nil
+}
+
+// placeSlackCredentials hands Slack user-token secrets that differ from the
+// ones stored — typed into Settings, not sent back as they were read — to be
+// kept where the configuration keeps them, and answers the configuration to
+// write. A file that already keeps them goes on keeping them.
+func (s *server) placeSlackCredentials(incoming config.Config) (config.Config, error) {
+	typed := incoming.Messaging.ClientSecret != s.cfg.Messaging.ClientSecret ||
+		incoming.Messaging.RefreshToken != s.cfg.Messaging.RefreshToken
+	keptInFile := s.cfg.Messaging.HoldsUserTokenSecrets()
+
+	if s.deps.PlaceSlackCredentials == nil || !typed || keptInFile || !incoming.Messaging.HoldsUserTokenSecrets() {
+		return incoming, nil
+	}
+
+	return s.deps.PlaceSlackCredentials(incoming)
+}
+
+// adoptMessaging hands messaging settings newly in effect to every post after
+// them. It runs under mu, with the configuration it belongs to.
+func (s *server) adoptMessaging(settings config.Messaging) {
+	if s.deps.UseMessagingSettings != nil {
+		s.deps.UseMessagingSettings(settings)
+	}
 }
 
 // adoptForge hands forge settings newly in effect — saved, or edited on disk
@@ -193,6 +218,11 @@ func (s *server) save(incoming config.Config, over basis) (config.Config, config
 	incoming = preserveSecrets(incoming, s.cfg)
 	incoming.Path = s.path
 
+	incoming, err := s.placeSlackCredentials(incoming)
+	if err != nil {
+		return config.Config{}, config.Revision{}, err
+	}
+
 	written, err := config.SaveOver(s.path, incoming, over.file())
 	if err != nil {
 		return config.Config{}, config.Revision{}, err
@@ -200,6 +230,7 @@ func (s *server) save(incoming config.Config, over basis) (config.Config, config
 
 	s.cfg, s.seen, s.gone = incoming, written, false
 	s.adoptForge(incoming.Forge)
+	s.adoptMessaging(incoming.Messaging)
 
 	return incoming, written, nil
 }
@@ -299,7 +330,9 @@ func fromDTO(in api.Config) (config.Config, error) {
 func preserveSecrets(incoming, stored config.Config) config.Config {
 	incoming.Jira.BaseURL = keepMaskedURL(incoming.Jira.BaseURL, stored.Jira.BaseURL)
 	incoming.Jira.Token = keepSecret(incoming.Jira.Token, stored.Jira.Token)
-	incoming.Messaging.Token = keepSecret(incoming.Messaging.Token, stored.Messaging.Token)
+	incoming.Messaging.ClientSecret = keepSecret(incoming.Messaging.ClientSecret, stored.Messaging.ClientSecret)
+	incoming.Messaging.RefreshToken = keepSecret(incoming.Messaging.RefreshToken, stored.Messaging.RefreshToken)
+	incoming.Messaging.AccessToken = keepSecret(incoming.Messaging.AccessToken, stored.Messaging.AccessToken)
 	incoming.Messaging.WebhookURL = keepSecret(incoming.Messaging.WebhookURL, stored.Messaging.WebhookURL)
 	incoming.Forge.Token = keepSecret(incoming.Forge.Token, stored.Forge.Token)
 	incoming.Jira.Headers = keepHeaders(incoming.Jira.Headers, stored.Jira.Headers)

@@ -100,6 +100,17 @@ type Deps struct {
 	// forge as it was started.
 	UseForgeSettings func(settings config.Forge) forge.Kind
 
+	// PlaceSlackCredentials keeps a Slack user token's secrets, typed into
+	// Settings, where the configuration keeps them — refreshing the token once
+	// and saving the pair to the macOS keychain, and answering the
+	// configuration without them, or answering it unchanged where the file is
+	// where they are kept. Nil writes them into the file as they came.
+	PlaceSlackCredentials func(cfg config.Config) (config.Config, error)
+
+	// UseMessagingSettings applies messaging settings just saved to every post
+	// after the save. Nil leaves messaging as it was started.
+	UseMessagingSettings func(settings config.Messaging)
+
 	// Clock tells the time, for when the event stream last asked the forge.
 	// Nil means the system clock.
 	Clock func() time.Time

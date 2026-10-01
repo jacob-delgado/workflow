@@ -16,15 +16,15 @@ func TestRedactedHidesEveryCredential(t *testing.T) {
 	// Arrange
 	const (
 		jiraToken  = "jira-token-1234"
-		slackToken = "xoxb-slack-token-5678"
+		slackToken = "xoxe.xoxp-slack-token-5678"
 	)
 
 	cfg := config.Config{
 		Jira: config.Jira{BaseURL: jiraURL, Token: jiraToken, User: ""},
 		Messaging: config.Messaging{
-			Token:      slackToken,
-			WebhookURL: webhookURL,
-			Channel:    devChannel,
+			AccessToken: slackToken,
+			WebhookURL:  webhookURL,
+			Channel:     devChannel,
 		},
 		Forge: config.Forge{Token: forgeFixture},
 		Path:  "/tmp/.workflow.json",
@@ -38,8 +38,8 @@ func TestRedactedHidesEveryCredential(t *testing.T) {
 		t.Errorf("jira token leaked: %q", redacted.Jira.Token)
 	}
 
-	if strings.Contains(redacted.Messaging.Token.Reveal(), "slack-token") {
-		t.Errorf("slack token leaked: %q", redacted.Messaging.Token)
+	if strings.Contains(redacted.Messaging.AccessToken.Reveal(), "slack-token") {
+		t.Errorf("slack token leaked: %q", redacted.Messaging.AccessToken)
 	}
 
 	// Redaction must not mutate the original.
@@ -62,8 +62,8 @@ func TestRedactedHidesEveryCredential(t *testing.T) {
 	}
 
 	// Enough tail survives to tell two tokens apart.
-	if !strings.HasSuffix(redacted.Messaging.Token.Reveal(), "5678") {
-		t.Errorf("slack token = %q, want it to end in 5678", redacted.Messaging.Token)
+	if !strings.HasSuffix(redacted.Messaging.AccessToken.Reveal(), "5678") {
+		t.Errorf("slack token = %q, want it to end in 5678", redacted.Messaging.AccessToken)
 	}
 }
 
@@ -122,7 +122,7 @@ func TestRedactTextMasksEveryCredentialTheConfigurationHolds(t *testing.T) {
 	const (
 		jiraToken    = "jira-token-1111"
 		headerSecret = "cf-secret-2222"
-		slackToken   = "xoxb-slack-3333"
+		slackToken   = "xoxe.xoxp-slack-3333"
 	)
 
 	cases := map[string]struct {
@@ -139,7 +139,7 @@ func TestRedactTextMasksEveryCredentialTheConfigurationHolds(t *testing.T) {
 			text: "sent " + headerSecret, want: "sent ****2222",
 		},
 		"a messaging token": {
-			cfg:  config.Config{Messaging: config.Messaging{Token: slackToken}},
+			cfg:  config.Config{Messaging: config.Messaging{AccessToken: slackToken}},
 			text: "posted with " + slackToken, want: "posted with ****3333",
 		},
 		"a webhook URL": {

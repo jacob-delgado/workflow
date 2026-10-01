@@ -73,13 +73,13 @@ func Locate(ctx context.Context, dir string) Workspace {
 // request each service makes. The services share one redirect-refusing HTTP
 // client, so a change to how it is built is made here once.
 //
-// Each service finds its token the first time it is asked, so a command that
-// never reaches Jira or the messaging service never runs that service's token
-// command. The returned Controls' ResolveAhead finds both now instead, for the
-// interface and the web server to call before they start: once either holds
-// the terminal, a token command that asks on it could not be answered. A token
-// not found then is looked for again on first use, where its failure is
-// reported.
+// Jira finds its token the first time it is asked, so a command that never
+// reaches Jira never runs its token command. The returned Controls'
+// ResolveAhead finds it now instead, for the interface and the web server to
+// call before they start: once either holds the terminal, a token command that
+// asks on it could not be answered. A token not found then is looked for again
+// on first use, where its failure is reported. The Slack user token is asked
+// for on every post, refreshed as it runs out.
 func Deps(ctx context.Context, cfg config.Config, where Workspace, log *RequestLog) (tui.Deps, Controls) {
 	httpTransport := httpx.Client(requestTimeout(cfg)).Do
 	settings := &liveForge{settings: cfg.Forge}
@@ -88,24 +88,32 @@ func Deps(ctx context.Context, cfg config.Config, where Workspace, log *RequestL
 		return connectForge(ctx, setup, current)
 	})
 	jiraClient := onceConnected(func() (jira.Client, error) { return connectJira(ctx, cfg.Jira, httpTransport, log) })
-	messagingClient := onceConnected(func() (messaging.Client, error) {
-		return connectMessaging(ctx, cfg.Messaging, httpTransport, log)
-	})
+	messagingSettings := &liveMessaging{settings: cfg.Messaging}
+	messagingSet := messagingSetup{
+		settings: messagingSettings.current, path: cfg.Path, httpTransport: httpTransport, log: log,
+	}
 
 	// A failure here is left for first use, which looks again and reports it.
+	// The Slack user token needs no finding ahead: no command of the user's is
+	// run for it, so none can ask on the terminal once the interface holds it.
 	resolveAhead := func() {
 		if cfg.Jira.Configured() {
 			_, _ = jiraClient()
 		}
+	}
 
-		_, _ = messagingClient()
+	controls := Controls{
+		ResolveAhead: resolveAhead, UseForgeSettings: useForgeSettings(settings, where),
+		UseMessagingSettings: messagingSettings.replace,
+		//nolint:bodyclose // Wrap only relays the response; the refresh reads and closes its body.
+		PlaceSlackCredentials: placeSlackCredentials(ctx, log.Wrap("slack", httpTransport)),
 	}
 
 	return tui.Deps{
 		Jira:       trackerDeps(ctx, cfg.Jira, jiraClient, connect),
 		Git:        gitDeps(ctx, where.Root),
 		Forge:      forgeDeps(ctx, setup, connect),
-		Messaging:  messagingDeps(ctx, messagingClient),
+		Messaging:  messagingDeps(ctx, messagingSet),
 		Hooks:      hookDeps(ctx, where.Root),
 		Editor:     editorDeps(where.Root),
 		Store:      storeDeps(ctx, onDisk(cfg), cfg, where),
@@ -115,18 +123,26 @@ func Deps(ctx context.Context, cfg config.Config, where Workspace, log *RequestL
 		Notify:     ringTerminal,
 		OpenURL:    func(url string) error { return openInBrowser(ctx, url) },
 		Copy:       tea.SetClipboard,
-	}, Controls{ResolveAhead: resolveAhead, UseForgeSettings: useForgeSettings(settings, where)}
+	}, controls
 }
 
 // Controls are what a surface asks of the wiring itself, beside the seams.
 type Controls struct {
-	// ResolveAhead finds the Jira and messaging tokens now, rather than on first
-	// use.
+	// ResolveAhead finds the Jira token now, rather than on first use.
 	ResolveAhead func()
 	// UseForgeSettings applies forge settings saved while workflow runs — the
 	// web's Settings — to every forge call after it, and reports which forge the
 	// remote is on under them. The terminal saves no settings and never calls it.
 	UseForgeSettings func(settings config.Forge) forge.Kind
+	// UseMessagingSettings applies messaging settings saved while workflow runs
+	// — the web's Settings — to every post after it.
+	UseMessagingSettings func(settings config.Messaging)
+	// PlaceSlackCredentials keeps a Slack user token's secrets, typed into the
+	// web's Settings, where the configuration keeps them: on macOS it refreshes
+	// the token once, saves the pair to the keychain, and answers the
+	// configuration without them; elsewhere the file keeps them, and it answers
+	// the configuration unchanged.
+	PlaceSlackCredentials func(cfg config.Config) (config.Config, error)
 }
 
 // ciFinished is a terminal bell followed by an OSC 9 desktop notification. A

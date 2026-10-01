@@ -26,7 +26,7 @@ var errUnreadable = errors.New("permission denied")
 func completeConfig() config.Config {
 	return config.Config{
 		Jira:      config.Jira{BaseURL: "https://jira.example.com", Token: "t", User: ""},
-		Messaging: config.Messaging{Token: "xoxb-t", WebhookURL: "", Channel: devChannel},
+		Messaging: config.Messaging{ClientID: "1234.5678", WebhookURL: "", Channel: devChannel},
 		Path:      "/home/example/.workflow.json",
 	}
 }
@@ -46,7 +46,7 @@ func TestViewNeverShowsACredential(t *testing.T) {
 
 	tokens := completeConfig()
 	tokens.Jira.Token = "jira-secret-1111"
-	tokens.Messaging.Token = "xoxb-secret-2222"
+	tokens.Messaging.RefreshToken = "slack-secret-2222"
 	tokens.Messaging.WebhookURL = "https://hooks.messaging.com/services/T0/B0/secret3333"
 
 	// jira.base_url can carry userinfo. doctor masks it; this screen printed it
@@ -58,7 +58,7 @@ func TestViewNeverShowsACredential(t *testing.T) {
 		cfg    config.Config
 		hidden []string
 	}{
-		"tokens and a webhook":        {cfg: tokens, hidden: []string{"jira-secret-1111", "xoxb-secret-2222", "secret3333"}},
+		"tokens and a webhook":        {cfg: tokens, hidden: []string{"jira-secret-1111", "slack-secret-2222", "secret3333"}},
 		"a password in jira.base_url": {cfg: password, hidden: []string{"hunter2"}},
 	}
 
@@ -237,7 +237,7 @@ func TestViewAcceptsAWebhookWithoutAChannel(t *testing.T) {
 
 	// Arrange
 	cfg := completeConfig()
-	cfg.Messaging.Token = ""
+	cfg.Messaging.ClientID = ""
 	cfg.Messaging.Channel = ""
 	cfg.Messaging.WebhookURL = "https://hooks.messaging.com/services/T0/B0/secretpayload"
 

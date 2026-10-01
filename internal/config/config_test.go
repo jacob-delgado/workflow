@@ -73,11 +73,8 @@ func write(t *testing.T, dir, contents string) string {
 
 const jiraURL = "https://jira.example.com"
 
-// devChannel and botToken are the Slack fixtures these tests share.
-const (
-	devChannel = "#dev"
-	botToken   = "xoxb-t"
-)
+// devChannel is the Slack channel these tests share.
+const devChannel = "#dev"
 
 // webhookURL is shaped like a real Slack incoming webhook. It is not one.
 const webhookURL = "https://hooks.slack.com/services/T00000000/B00000000/fakefakefake2468"
@@ -89,7 +86,7 @@ const forgeFixture = "not-a-real-forge-credential"
 
 const completeConfig = `{
   "jira": {"base_url": "https://jira.example.com", "token": "jira-token-1234", "user": ""},
-  "messaging": {"token": "xoxb-slack-token-5678", "channel": "#dev"}
+  "messaging": {"client_id": "1234.5678", "channel": "#dev"}
 }`
 
 func TestTimingIsParsedWhenSet(t *testing.T) {
@@ -132,11 +129,11 @@ func TestChannelChoicesListTheDefaultThenTheAlternates(t *testing.T) {
 		want  []string
 	}{
 		"a bot with alternates": {
-			slack: config.Messaging{Token: botToken, Channel: devChannel, Channels: []string{"#team-b", devChannel, ""}},
+			slack: config.Messaging{ClientID: slackClientID, Channel: devChannel, Channels: []string{"#team-b", devChannel, ""}},
 			want:  []string{devChannel, "#team-b"},
 		},
 		"a bot with just its channel": {
-			slack: config.Messaging{Token: botToken, Channel: devChannel},
+			slack: config.Messaging{ClientID: slackClientID, Channel: devChannel},
 			want:  []string{devChannel},
 		},
 		"a webhook carries its own channel": {
@@ -165,7 +162,7 @@ func TestATokenSourceCountsAsConfigured(t *testing.T) {
 
 	// Arrange
 	jira := config.Jira{BaseURL: jiraURL, TokenCommand: "echo x"}
-	slack := config.Messaging{TokenEnv: "SLACK_TOKEN", Channel: devChannel}
+	slack := config.Messaging{ClientID: slackClientID, Channel: devChannel}
 	cfg := config.Config{Jira: jira, Messaging: slack}
 
 	// Act & Assert
@@ -173,8 +170,8 @@ func TestATokenSourceCountsAsConfigured(t *testing.T) {
 		t.Errorf("AuthMode() = %v, want a token command to authenticate", jira.AuthMode())
 	}
 
-	if slack.Mode() != config.MessagingBot {
-		t.Errorf("Slack.Mode() = %v, want a token env to count as a bot token", slack.Mode())
+	if slack.Mode() != config.MessagingUser {
+		t.Errorf("Slack.Mode() = %v, want a client_id to count as a user token", slack.Mode())
 	}
 
 	for _, field := range cfg.Missing() {

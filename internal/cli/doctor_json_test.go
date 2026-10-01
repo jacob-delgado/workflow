@@ -316,18 +316,12 @@ func TestDoctorJSONOnlineCallsAnAbsentCredentialMissing(t *testing.T) {
 
 			return configuredWith(t, `"jira": {"base_url": "`+workingJira(t)+`", "token": "t"}`)
 		}},
-		"a messaging token_command that fails": {service: messagingService, setup: func(t *testing.T) string {
+		// The file keeps the token's credentials, so no keychain is read.
+		"a Slack user token not logged in": {service: messagingService, setup: func(t *testing.T) string {
 			t.Helper()
 
 			return configuredWith(t, `"jira": {"base_url": "`+workingJira(t)+`", "token": "t"}, `+
-				`"messaging": {"token_command": "false", "channel": "#dev"}`)
-		}},
-		"a messaging token_env naming an empty variable": {service: messagingService, setup: func(t *testing.T) string {
-			t.Helper()
-			t.Setenv(emptyTokenVariable, "")
-
-			return configuredWith(t, `"jira": {"base_url": "`+workingJira(t)+`", "token": "t"}, `+
-				`"messaging": {"token_env": "`+emptyTokenVariable+`", "channel": "#dev"}`)
+				`"messaging": {"client_id": "1234.5678", "client_secret": "client-secret-9999", "channel": "#dev"}`)
 		}},
 		"no forge token": {service: "forge", setup: func(t *testing.T) string {
 			t.Helper()

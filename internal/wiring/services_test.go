@@ -307,7 +307,7 @@ func TestTheSlackSeamRefusesAnInsecureWebhookBeforeSending(t *testing.T) {
 
 	// Arrange
 	cfg := config.Default()
-	cfg.Messaging = config.Messaging{Token: "", WebhookURL: "http://hooks.example.com/services/x", Channel: ""}
+	cfg.Messaging = config.Messaging{WebhookURL: "http://hooks.example.com/services/x", Channel: ""}
 
 	seams := wired(t, cfg, wiring.Workspace{Root: t.TempDir(), Remote: ""}, nil).Messaging
 

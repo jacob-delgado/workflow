@@ -271,10 +271,11 @@ func TestConfigShowMasksTokens(t *testing.T) {
 	// Arrange
 	dir := t.TempDir()
 
-	const secret = "xoxb-super-secret-9999"
+	const secret = "slack-refresh-secret-9999"
 
 	writeFile(t, dir, `{"jira": {"base_url": "https://jira.example.com", "token": "jira-secret-1111"},`+
-		` "messaging": {"token": "`+secret+`", "channel": "#dev"}}`)
+		` "messaging": {"client_id": "1234.5678", "client_secret": "slack-client-secret-1234",`+
+		` "refresh_token": "`+secret+`", "channel": "#dev"}}`)
 
 	// Act
 	output, err := run(t, dir, "config", "show")
@@ -283,7 +284,8 @@ func TestConfigShowMasksTokens(t *testing.T) {
 	}
 
 	// Assert
-	if strings.Contains(output, secret) || strings.Contains(output, "jira-secret") {
+	if strings.Contains(output, secret) || strings.Contains(output, "jira-secret") ||
+		strings.Contains(output, "slack-client-secret") {
 		t.Errorf("config show leaked a token:\n%s", output)
 	}
 
@@ -303,8 +305,9 @@ func TestHelpExplainsBothTokens(t *testing.T) {
 	// The help text is the only place a new user is told how to get credentials.
 	wants := []string{
 		"Personal Access Tokens",
-		"xoxb-",
+		"xoxe.xoxp-",
 		"chat:write",
+		"workflow slack login",
 		config.FileName,
 		"REPLACES",
 		"no higher than the repository root",
