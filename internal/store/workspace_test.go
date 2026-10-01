@@ -188,6 +188,15 @@ func TestNothingIsKeptOrReadUnderNoWorkspace(t *testing.T) {
 		"SetRepoGroups": func(kept store.Store) error {
 			return kept.SetRepoGroups(t.Context(), repo, "", []store.SlackTarget{apiGroup()}, theTime())
 		},
+		"ForgetOwner": func(kept store.Store) error { return kept.ForgetOwner(t.Context(), forgeHost, "", anaOwner) },
+		"LastGroups": func(kept store.Store) error {
+			_, _, err := kept.LastGroups(t.Context(), repo, "")
+
+			return err
+		},
+		"RecordGroups": func(kept store.Store) error {
+			return kept.RecordGroups(t.Context(), repo, "", []string{apiID}, theTime())
+		},
 	}
 
 	for name, call := range cases {
