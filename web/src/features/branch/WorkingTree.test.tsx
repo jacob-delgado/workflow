@@ -1,4 +1,4 @@
-import { act, render, screen, within } from '@testing-library/react'
+import { act, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { vi } from 'vitest'
 import type { Change } from '@/api/generated/types.gen.ts'
@@ -172,7 +172,11 @@ test('focus that fell to the page while staging lands on what the stage said', a
   const said = await screen.findByText('Staged b.go.')
 
   // Assert
-  expect(document.activeElement).toBe(said)
+  // Focus moves in an effect after the outcome renders, which a loaded
+  // machine can run a moment after the text appears.
+  await waitFor(() => {
+    expect(document.activeElement).toBe(said)
+  })
 })
 
 test('staging leaves focus in a subject being typed', async () => {
