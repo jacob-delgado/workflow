@@ -57,7 +57,7 @@ func (s Store) RepoGroups(ctx context.Context, repo, workspace string) ([]SlackT
 		return nil, ErrNoWorkspace
 	}
 
-	database, found, err := s.readKept(ctx, workspacesKeptIn)
+	database, found, err := s.readKept(ctx, linkWorkspacesKeptIn)
 	if err != nil || !found {
 		return nil, err
 	}
@@ -66,7 +66,7 @@ func (s Store) RepoGroups(ctx context.Context, repo, workspace string) ([]SlackT
 	rows, err := database.QueryContext(ctx,
 		`SELECT entity.slack_id, entity.label FROM repo_group AS listed
 			JOIN slack_entity AS entity ON entity.slack_id = listed.slack_id
-			WHERE listed.repo = ? AND entity.slack_team = ?
+			WHERE listed.repo = ? AND listed.slack_team = ?
 			ORDER BY entity.label, entity.slack_id`, repo, workspace)
 	if err != nil {
 		return nil, fmt.Errorf("reading the repository's groups: %w", err)
@@ -148,7 +148,8 @@ func dropUnlistedGroups(ctx context.Context, transaction *sql.Tx, where repoIn, 
 		}
 
 		_, err = transaction.ExecContext(ctx,
-			`DELETE FROM repo_group WHERE repo = ? AND slack_id = ?`, where.repo, slackID)
+			`DELETE FROM repo_group WHERE repo = ? AND slack_team = ? AND slack_id = ?`,
+			where.repo, where.workspace, slackID)
 		if err != nil {
 			return fmt.Errorf("dropping a repository group: %w", err)
 		}
@@ -161,9 +162,7 @@ func dropUnlistedGroups(ctx context.Context, transaction *sql.Tx, where repoIn, 
 // workspace, as stored.
 func listedGroupIDs(ctx context.Context, transaction *sql.Tx, where repoIn) ([]string, error) {
 	rows, err := transaction.QueryContext(ctx,
-		`SELECT listed.slack_id FROM repo_group AS listed
-			JOIN slack_entity AS entity ON entity.slack_id = listed.slack_id
-			WHERE listed.repo = ? AND entity.slack_team = ?`, where.repo, where.workspace)
+		`SELECT slack_id FROM repo_group WHERE repo = ? AND slack_team = ?`, where.repo, where.workspace)
 	if err != nil {
 		return nil, fmt.Errorf("reading the repository's groups: %w", err)
 	}
@@ -176,15 +175,15 @@ func listedGroupIDs(ctx context.Context, transaction *sql.Tx, where repoIn) ([]s
 // one already listed as it was.
 func listGroups(ctx context.Context, transaction *sql.Tx, where repoIn, groups []SlackTarget, now time.Time) error {
 	for _, group := range groups {
-		err := keepSlackEntity(ctx, transaction, group, where.workspace, now)
+		err := keepSlackEntity(ctx, transaction, group, now)
 		if err != nil {
 			return err
 		}
 
 		_, err = transaction.ExecContext(ctx,
-			`INSERT INTO repo_group (repo, slack_id, added_at) VALUES (?, ?, ?)
-				ON CONFLICT(repo, slack_id) DO NOTHING`,
-			where.repo, group.ID, timestamp(now))
+			`INSERT INTO repo_group (repo, slack_team, slack_id, added_at) VALUES (?, ?, ?, ?)
+				ON CONFLICT(repo, slack_team, slack_id) DO NOTHING`,
+			where.repo, where.workspace, group.ID, timestamp(now))
 		if err != nil {
 			return fmt.Errorf("listing a repository group: %w", err)
 		}
@@ -206,7 +205,7 @@ func (s Store) LastGroups(ctx context.Context, repo, workspace string) ([]string
 		return nil, false, ErrNoWorkspace
 	}
 
-	database, found, err := s.readKept(ctx, workspacesKeptIn)
+	database, found, err := s.readKept(ctx, linkWorkspacesKeptIn)
 	if err != nil || !found {
 		return nil, false, err
 	}
@@ -232,9 +231,8 @@ func (s Store) LastGroups(ctx context.Context, repo, workspace string) ([]string
 // workspace, by ID, leaving out any of the wrong shape.
 func chosenGroupIDs(ctx context.Context, database *sql.DB, where repoIn) ([]string, error) {
 	rows, err := database.QueryContext(ctx,
-		`SELECT chosen.slack_id FROM repo_choice_group AS chosen
-			JOIN slack_entity AS entity ON entity.slack_id = chosen.slack_id
-			WHERE chosen.repo = ? AND entity.slack_team = ? ORDER BY chosen.slack_id`, where.repo, where.workspace)
+		`SELECT slack_id FROM repo_choice_group WHERE repo = ? AND slack_team = ? ORDER BY slack_id`,
+		where.repo, where.workspace)
 	if err != nil {
 		return nil, fmt.Errorf("reading the last choice of groups: %w", err)
 	}
@@ -283,8 +281,7 @@ func (s Store) RecordGroups(ctx context.Context, repo, workspace string, ids []s
 		}
 
 		_, err = transaction.ExecContext(ctx,
-			`DELETE FROM repo_choice_group WHERE repo = ?
-				AND slack_id IN (SELECT slack_id FROM slack_entity WHERE slack_team = ?)`, repo, workspace)
+			`DELETE FROM repo_choice_group WHERE repo = ? AND slack_team = ?`, repo, workspace)
 		if err != nil {
 			return fmt.Errorf("clearing the last choice of groups: %w", err)
 		}
@@ -307,8 +304,8 @@ func chooseGroups(ctx context.Context, transaction *sql.Tx, where repoIn, ids []
 		}
 
 		_, err = transaction.ExecContext(ctx,
-			`INSERT INTO repo_choice_group (repo, slack_id) VALUES (?, ?) ON CONFLICT DO NOTHING`,
-			where.repo, slackID)
+			`INSERT INTO repo_choice_group (repo, slack_team, slack_id) VALUES (?, ?, ?) ON CONFLICT DO NOTHING`,
+			where.repo, where.workspace, slackID)
 		if err != nil {
 			return fmt.Errorf("recording a chosen group: %w", err)
 		}

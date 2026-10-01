@@ -16,7 +16,7 @@ import (
 
 // keptVersion is how many migrations this build's kept file holds; it moves
 // with keptMigrations.
-const keptVersion = 4
+const keptVersion = 5
 
 // apiGroup is a second Slack user group a repository may tag.
 func apiGroup() store.SlackTarget {
