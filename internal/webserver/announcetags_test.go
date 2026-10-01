@@ -33,15 +33,16 @@ func postTagged(t *testing.T, fake *fakeKept, posted *string) http.Handler {
 		return nil
 	}
 
-	return serve(t, deps, config.Default())
+	return serve(t, deps, slackUserConfig())
 }
 
-// announceWith posts the announcement previewed, asking for groups.
-func announceWith(t *testing.T, handler http.Handler, groups []string) *httptest.ResponseRecorder {
+// announceWith posts the announcement previewed, which showed users tagged,
+// asking for groups.
+func announceWith(t *testing.T, handler http.Handler, users, groups []string) *httptest.ResponseRecorder {
 	t.Helper()
 
 	body, err := json.Marshal(api.AnnounceRequest{
-		Channel: "#dev", Text: nil, Mentions: &api.AnnounceMentions{Groups: groups},
+		Channel: "#dev", Text: nil, Mentions: &api.AnnounceMentions{Users: users, Groups: groups},
 	})
 	if err != nil {
 		t.Fatalf("encoding the announce request: %v", err)
@@ -124,7 +125,7 @@ func TestAnnounceTagsNoOneWhileTheDirectoryHasNoCredential(t *testing.T) {
 	handler := postTagged(t, fake, &posted)
 
 	// Act
-	recorder := announceWith(t, handler, []string{apiGroupID})
+	recorder := announceWith(t, handler, []string{}, []string{apiGroupID})
 
 	// Assert
 	if recorder.Code != http.StatusUnprocessableEntity || posted != "" {
@@ -139,7 +140,7 @@ func TestGetAnnouncementTagsNoOneUnlessReadyForReview(t *testing.T) {
 	deps := filledDeps()
 	newFakeKept().wire(&deps)
 	deps.CheckCI = func(forge.PullRequest, string) (forge.CI, error) { return forge.CI{State: forge.CIFailed}, nil }
-	handler := serve(t, deps, config.Default())
+	handler := serve(t, deps, slackUserConfig())
 
 	// Act
 	recorder := get(t, handler, "/api/announcement")
@@ -179,7 +180,7 @@ func TestAnnounceTagsTheLinkedOwnersAndTheGroupsChecked(t *testing.T) {
 	handler := postTagged(t, fake, &posted)
 
 	// Act
-	recorder := announceWith(t, handler, []string{apiGroupID})
+	recorder := announceWith(t, handler, []string{carla().ID}, []string{apiGroupID})
 
 	// Assert
 	if recorder.Code != http.StatusOK {
@@ -204,7 +205,7 @@ func TestAnnounceRefusesAGroupTheAnnouncementDidNotOffer(t *testing.T) {
 	handler := postTagged(t, newFakeKept(), &posted)
 
 	// Act
-	recorder := announceWith(t, handler, []string{"S0POD"})
+	recorder := announceWith(t, handler, []string{carla().ID}, []string{"S0POD"})
 
 	// Assert
 	if recorder.Code != http.StatusUnprocessableEntity || posted != "" {
@@ -227,7 +228,7 @@ func TestAnnounceRefusesMentionsWhereNoOneIsTagged(t *testing.T) {
 	handler := serve(t, deps, config.Default())
 
 	// Act
-	recorder := announceWith(t, handler, []string{})
+	recorder := announceWith(t, handler, []string{}, []string{})
 
 	// Assert
 	failure := decode[api.Problem](t, recorder)

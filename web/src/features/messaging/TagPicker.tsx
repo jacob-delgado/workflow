@@ -1,4 +1,4 @@
-import { useId, useState } from 'react'
+import { type Dispatch, type SetStateAction, useId } from 'react'
 import type {
   AnnouncementTagging,
   GroupTag,
@@ -9,9 +9,10 @@ import type {
 } from '@/api/generated/types.gen.ts'
 import { useHealthStore } from '@/api/health.ts'
 import { Button } from '@/lib/Button.tsx'
-import { OutcomeLine, type Teller, useOutcome } from '@/lib/Outcome.tsx'
+import { OutcomeLine, useOutcome } from '@/lib/Outcome.tsx'
 import { useAsyncAction } from '@/lib/useAsyncAction.ts'
 import { savePerson, useSlackGroups, useSlackMembers } from './slackApi.ts'
+import { linkedPeople, type TagPick, withGroup, withPeople } from './tagPick.ts'
 
 // selectStyle is how a picker's native select is drawn, as the channel's is.
 const selectStyle =
@@ -19,31 +20,47 @@ const selectStyle =
 
 interface TagPickerProps {
   tagging: AnnouncementTagging
+  pick: TagPick
   channel: string
   posting: boolean
-  checked: string[]
-  onChecked: (ids: string[]) => void
+  onPick: Dispatch<SetStateAction<TagPick>>
+  onLinking: (linking: boolean) => void
 }
 
 // TagPicker is whom a ready-for-review announcement tags: the code owners of
-// the branch's changes — an owner not yet linked is linked here, saved for
-// next time, or marked not on Slack — and the user groups it offers, as
-// checkboxes. The summary under them says who the post will tag.
-export function TagPicker({ tagging, channel, posting, checked, onChecked }: TagPickerProps) {
+// the branch's changes — an owner not yet linked is linked here, to a member
+// of the channel the preview posts to, saved for next time, or marked not on
+// Slack — and the user groups it offers, as checkboxes. The summary under
+// them says who the post will tag. Every change to the pick is made from the
+// pick as it stands then, so a group checked while a link is saved stays
+// checked; onLinking hears a link start and end, for the post to wait.
+export function TagPicker({ tagging, pick, channel, posting, onPick, onLinking }: TagPickerProps) {
   const outcome = useOutcome()
-  const { owners, groups, link } = useOwnerLinks(tagging, outcome, () => checked, onChecked)
-  const choices = useLinkChoices(owners, channel)
-  const scope = tagging.missing_scope ?? choices.missingScope
+  const link = useAsyncAction(saving(onLinking), {
+    fallback: 'That was not saved. Try again, or link them in Settings.',
+    done: (answered, asked) => `Saved for next time: ${savedAs(asked, answered)}.`,
+    onStart: outcome.clear,
+    onDone: (said, answered) => {
+      outcome.say(said)
+      onPick((current) => withPeople(current, answered))
+    },
+  })
+  const linking = link.state === 'running'
+  const choices = useLinkChoices(pick.owners, channel)
+  // What the directory says for the channel picked now wins over what the
+  // preview read for the channel it opened on.
+  const scope = choices.settled ? choices.missingScope : tagging.missing_scope
 
   return (
     <div className="flex flex-col gap-group">
       {scope === undefined ? null : <MissingScope scope={scope} />}
-      {owners.length > 0 ? (
+      {pick.owners.length > 0 ? (
         <OwnerList
-          owners={owners}
+          owners={pick.owners}
           members={choices.members}
           groups={choices.groups}
-          busy={posting || link.state === 'running'}
+          channel={channel}
+          busy={posting || linking}
           onLink={(asked) => void link.run(asked)}
         />
       ) : null}
@@ -53,66 +70,53 @@ export function TagPicker({ tagging, channel, posting, checked, onChecked }: Tag
         </p>
       ) : null}
       <OutcomeLine said={outcome.said} />
-      {groups.length > 0 ? (
-        <GroupChecks groups={groups} checked={checked} disabled={posting} onChecked={onChecked} />
+      {pick.groups.length > 0 ? (
+        <GroupChecks
+          groups={pick.groups}
+          checked={pick.checked}
+          disabled={posting}
+          onCheck={(id, checked) => {
+            onPick((current) => withGroup(current, id, checked))
+          }}
+        />
       ) : null}
       <p className="text-sm break-words">
         <span className="text-muted-foreground">Tags: </span>
-        {tagsSummary(owners, groups, checked)}
+        {tagsSummary(pick)}
       </p>
     </div>
   )
 }
 
-// useOwnerLinks are the owners and the groups offered as the preview links
-// them: a link saved here updates its owner, and a team linked brings its
-// group, checked, as the server would offer it.
-function useOwnerLinks(
-  tagging: AnnouncementTagging,
-  tell: Teller,
-  checked: () => string[],
-  onChecked: (ids: string[]) => void,
-) {
-  const [owners, setOwners] = useState(tagging.owners)
-  const [groups, setGroups] = useState(tagging.groups)
-  const link = useAsyncAction((asked: PersonLink) => savePerson(asked), {
-    fallback: 'That was not saved. Try again, or link them in Settings.',
-    done: (answered, asked) => `Saved for next time: ${savedAs(asked, answered)}.`,
-    onStart: tell.clear,
-    onDone: (said, answered) => {
-      tell.say(said)
-      const linked = owners.map(
-        (owner) => answered.owners.find((decided) => decided.owner === owner.owner) ?? owner,
-      )
-      const added = teamGroups(linked).filter(
-        (slack) => !groups.some((group) => group.slack.id === slack.id),
-      )
-      setOwners(linked)
-      setGroups([...groups, ...added.map((slack) => ({ slack, checked: true, from_owners: true }))])
-      if (added.length > 0) {
-        onChecked([...checked(), ...added.map((slack) => slack.id)])
-      }
-    },
-  })
-
-  return { owners, groups, link }
+// saving is the save of a link, which tells onLinking while it is under way,
+// however it ends.
+function saving(onLinking: (linking: boolean) => void) {
+  return async (asked: PersonLink): Promise<People> => {
+    onLinking(true)
+    try {
+      return await savePerson(asked)
+    } finally {
+      onLinking(false)
+    }
+  }
 }
 
 // useLinkChoices reads whom an owner not yet linked could be: the channel's
 // members for a person, the user groups for a team, each read only while such
-// an owner waits; and a scope the token lacks for either read.
+// an owner waits; a scope the token lacks for either read; and whether every
+// read asked for has answered.
 function useLinkChoices(owners: OwnerTag[], channel: string) {
   const unlinked = owners.filter((owner) => owner.state === 'unlinked')
-  const members = useSlackMembers(
-    channel,
-    unlinked.some((owner) => owner.kind === 'user'),
-  )
-  const groups = useSlackGroups(unlinked.some((owner) => owner.kind === 'team'))
+  const wantsMembers = unlinked.some((owner) => owner.kind === 'user')
+  const wantsGroups = unlinked.some((owner) => owner.kind === 'team')
+  const members = useSlackMembers(channel, wantsMembers)
+  const groups = useSlackGroups(wantsGroups)
 
   return {
     members: members.data?.entries ?? [],
     groups: groups.data?.entries ?? [],
     missingScope: members.data?.missing_scope ?? groups.data?.missing_scope,
+    settled: [members, groups].every((read) => !read.isEnabled || read.isSuccess),
   }
 }
 
@@ -128,21 +132,13 @@ function savedAs(asked: PersonLink, answered: People): string {
   return `${asked.owner} is ${label ?? asked.slack_id ?? ''}`
 }
 
-// teamGroups are the user groups linked teams among owners stand for.
-function teamGroups(owners: OwnerTag[]): SlackTarget[] {
-  return owners.flatMap((owner) =>
-    owner.kind === 'team' && owner.state === 'linked' && owner.slack ? [owner.slack] : [],
-  )
-}
-
 // tagsSummary names everyone the post tags: the linked people, then the
 // groups checked.
-function tagsSummary(owners: OwnerTag[], groups: GroupTag[], checked: string[]): string {
-  const people = owners.flatMap((owner) =>
-    owner.kind === 'user' && owner.state === 'linked' && owner.slack ? [owner.slack.label] : [],
+function tagsSummary(pick: TagPick): string {
+  const chosen = pick.groups.filter((group) => pick.checked.includes(group.slack.id))
+  const names = [...linkedPeople(pick.owners), ...chosen.map((group) => group.slack)].map(
+    (target) => `@${target.label}`,
   )
-  const chosen = groups.filter((group) => checked.includes(group.slack.id))
-  const names = [...people, ...chosen.map((group) => group.slack.label)].map((name) => `@${name}`)
 
   return names.length === 0 ? 'no one' : names.join(', ')
 }
@@ -164,13 +160,14 @@ interface OwnerListProps {
   owners: OwnerTag[]
   members: SlackTarget[]
   groups: SlackTarget[]
+  channel: string
   busy: boolean
   onLink: (link: PersonLink) => void
 }
 
 // OwnerList is the code owners, each with whom they are on Slack, or the
 // controls that decide it.
-function OwnerList({ owners, members, groups, busy, onLink }: OwnerListProps) {
+function OwnerList({ owners, members, groups, channel, busy, onLink }: OwnerListProps) {
   const headingId = useId()
 
   return (
@@ -185,6 +182,7 @@ function OwnerList({ owners, members, groups, busy, onLink }: OwnerListProps) {
             <OwnerOnSlack
               owner={owner}
               choices={owner.kind === 'team' ? groups : members}
+              channel={channel}
               busy={busy}
               onLink={onLink}
             />
@@ -198,15 +196,17 @@ function OwnerList({ owners, members, groups, busy, onLink }: OwnerListProps) {
 interface OwnerOnSlackProps {
   owner: OwnerTag
   choices: SlackTarget[]
+  channel: string
   busy: boolean
   onLink: (link: PersonLink) => void
 }
 
 // OwnerOnSlack is whom an owner is on Slack; for one not linked yet, a choice
 // of the channel's members — a team's, of the user groups — saved as it is
-// made, and a button for one not on Slack. Under --dry-run nothing is saved,
-// so it says so instead.
-function OwnerOnSlack({ owner, choices, busy, onLink }: OwnerOnSlackProps) {
+// made — a member with the channel they were picked from, which the server
+// checks them against — and a button for one not on Slack. Under --dry-run
+// nothing is saved, so it says so instead.
+function OwnerOnSlack({ owner, choices, channel, busy, onLink }: OwnerOnSlackProps) {
   const dryRun = useHealthStore((state) => state.health?.dry_run === true)
 
   if (owner.state === 'linked') {
@@ -235,7 +235,13 @@ function OwnerOnSlack({ owner, choices, busy, onLink }: OwnerOnSlackProps) {
           value=""
           disabled={busy || choices.length === 0}
           onChange={(event) => {
-            onLink({ owner: owner.owner, slack_id: event.target.value, not_on_slack: false })
+            const pickedFrom = owner.kind === 'user' && channel !== '' ? { channel } : {}
+            onLink({
+              owner: owner.owner,
+              slack_id: event.target.value,
+              not_on_slack: false,
+              ...pickedFrom,
+            })
           }}
           className={selectStyle}
         >
@@ -265,12 +271,12 @@ interface GroupChecksProps {
   groups: GroupTag[]
   checked: string[]
   disabled: boolean
-  onChecked: (ids: string[]) => void
+  onCheck: (id: string, checked: boolean) => void
 }
 
 // GroupChecks are the user groups the announcement offers, each a checkbox,
 // noting the ones a team owning the changed paths brings.
-function GroupChecks({ groups, checked, disabled, onChecked }: GroupChecksProps) {
+function GroupChecks({ groups, checked, disabled, onCheck }: GroupChecksProps) {
   return (
     <fieldset className="flex flex-col gap-tight text-sm">
       <legend className="mb-1 text-sm font-semibold">Tag groups</legend>
@@ -281,11 +287,7 @@ function GroupChecks({ groups, checked, disabled, onChecked }: GroupChecksProps)
             checked={checked.includes(group.slack.id)}
             disabled={disabled}
             onChange={(event) => {
-              onChecked(
-                event.target.checked
-                  ? [...checked, group.slack.id]
-                  : checked.filter((id) => id !== group.slack.id),
-              )
+              onCheck(group.slack.id, event.target.checked)
             }}
           />
           <span>@{group.slack.label}</span>

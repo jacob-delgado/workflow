@@ -14,11 +14,11 @@ import (
 )
 
 // GetAnnouncement composes the announcement for the checked-out branch's pull
-// request without posting it, for a preview. It is a 409 when there is no pull
-// request to announce; a branch or a pull request that cannot be read is
-// classified by fault.
+// request without posting it, for a preview — to the channel asked, or the
+// configured one. It is a 409 when there is no pull request to announce; a
+// branch or a pull request that cannot be read is classified by fault.
 func (s *server) GetAnnouncement(
-	_ context.Context, _ api.GetAnnouncementRequestObject,
+	_ context.Context, request api.GetAnnouncementRequestObject,
 ) (api.GetAnnouncementResponseObject, error) {
 	announcement, err := s.announcement()
 	if errors.Is(err, loop.ErrNoPullRequest) {
@@ -31,8 +31,9 @@ func (s *server) GetAnnouncement(
 		return api.GetAnnouncementdefaultApplicationProblemPlusJSONResponse{Body: body, StatusCode: code}, nil
 	}
 
-	preview := announcementDTO(announcement, s.config().Messaging.Channel)
-	preview.Tagging = s.tagging(announcement.Moment)
+	channel := orZero(request.Params.Channel)
+	preview := announcementDTO(announcement, s.channelOr(channel))
+	preview.Tagging = s.tagging(announcement.Moment, channel)
 
 	return api.GetAnnouncement200JSONResponse(preview), nil
 }
@@ -43,7 +44,8 @@ func (s *server) GetAnnouncement(
 // preview showed and the announcement composed now reads differently, so what
 // is posted is only ever what was shown. Given mentions, it tags the linked
 // user owners and the groups named, each one the announcement offers, on a
-// line after the text. A read that fails while composing it,
+// line after the text — and is a 409 too when the linked owners are not the
+// ones the preview showed. A read that fails while composing it,
 // and a post that fails, are classified by fault, whose details never carry the
 // error's own text, which can name the forge or the webhook.
 func (s *server) Announce(_ context.Context, request api.AnnounceRequestObject) (api.AnnounceResponseObject, error) {
@@ -66,6 +68,10 @@ func (s *server) Announce(_ context.Context, request api.AnnounceRequestObject) 
 	}
 
 	mentions, memory, err := s.mentions(request.Body.Mentions, announcement.Moment)
+	if errors.Is(err, errTagsChanged) {
+		return api.Announce409ApplicationProblemPlusJSONResponse(problem(api.Conflict, err.Error())), nil
+	}
+
 	if err != nil {
 		return announceUnprocessable(err.Error()), nil
 	}
@@ -145,40 +151,50 @@ func (s *server) nothingToAnnounce() api.Problem {
 	return problem(api.Conflict, "there is no "+s.noun()+" to announce")
 }
 
-// errNoTags refuses mentions for an announcement that tags no one.
-var errNoTags = errors.New("this announcement tags no one: only a ready-for-review announcement " +
-	"with a Slack user token does; preview it again")
+// What a post's mentions are refused with.
+var (
+	errNoTags = errors.New("this announcement tags no one: only a ready-for-review announcement " +
+		"with a Slack user token does; preview it again")
+	errTagsChanged = errors.New("whom the announcement tags changed since it was previewed; preview it again")
+)
 
-// tagging is whom an announcement at moment proposes to tag, for its preview,
-// and a scope the Slack token lacks to link an owner not yet linked. It is nil
-// without a Slack user token, which tagging needs.
-func (s *server) tagging(moment messaging.Moment) *api.AnnouncementTagging {
-	if !s.canReadDirectory() {
+// tagging is whom an announcement at moment proposes to tag, for its preview
+// to channel, and a scope the Slack token lacks to link an owner not yet
+// linked. It is nil without a Slack user token in the configuration in
+// effect, or one Slack has no credential for, which tagging needs.
+func (s *server) tagging(moment messaging.Moment, channel string) *api.AnnouncementTagging {
+	if !s.canReadDirectory(channel) {
 		return nil
 	}
 
 	tags, available := s.proposedTags(moment)
+
+	scope, err := s.scopeToLink(tags.Owners, channel)
+	if err != nil {
+		return nil
+	}
+
 	tagging := api.AnnouncementTagging{
 		Available: available, MissingScope: nil, Owners: ownerTagsDTO(tags.Owners), Groups: groupTagsDTO(tags.Groups),
 	}
-
-	if scope, missing := s.scopeToLink(tags.Owners); missing {
+	if scope != "" {
 		tagging.MissingScope = &scope
 	}
 
 	return &tagging
 }
 
-// canReadDirectory reports a Slack directory to tag from: bound, and not
-// answering ErrNoCredential, as it does while the settings in effect — which
-// Settings may change while the server runs — have no Slack user token. Any
-// other failure is the preview's to show.
-func (s *server) canReadDirectory() bool {
-	if s.deps.ChannelMembers == nil {
+// canReadDirectory reports a Slack directory to tag from: a Slack user token
+// in the configuration in effect, which Settings may change while the server
+// runs, and a directory that does not answer ErrNoCredential, as it does when
+// Slack holds no credential for that token. Any other failure is the
+// preview's to show.
+func (s *server) canReadDirectory(channel string) bool {
+	if !s.taggingLive() || s.deps.ChannelMembers == nil {
 		return false
 	}
 
-	_, err := s.deps.ChannelMembers(s.channelOr(""))
+	_, err := s.deps.ChannelMembers(s.channelOr(channel))
 
 	return !errors.Is(err, messaging.ErrNoCredential)
 }
@@ -208,27 +224,32 @@ func (s *server) proposedTags(moment messaging.Moment) (loop.Tags, bool) {
 }
 
 // scopeToLink is a scope the Slack token lacks to read whom an unlinked owner
-// could be linked to: the configured channel's members for a person, the user
-// groups for a team. Any other failure is the picker's to show when it reads.
-func (s *server) scopeToLink(owners []loop.OwnerTag) (string, bool) {
+// could be linked to — channel's members for a person, the user groups for a
+// team — or "" when it lacks none; and errNoSlackDirectory when there is no
+// directory to read. Any other failure is the picker's to show when it reads.
+func (s *server) scopeToLink(owners []loop.OwnerTag, channel string) (string, error) {
 	reads := map[bool]func() ([]loop.SlackTarget, error){
-		false: func() ([]loop.SlackTarget, error) { return s.deps.ChannelMembers(s.channelOr("")) },
-		true:  s.deps.UserGroups,
+		false: func() ([]loop.SlackTarget, error) { return s.channelMembers(channel) },
+		true:  s.userGroups,
 	}
 
 	for _, team := range []bool{false, true} {
 		unlinked := func(owner loop.OwnerTag) bool { return owner.Team == team && owner.State == loop.OwnerUnlinked }
-		if reads[team] == nil || !slices.ContainsFunc(owners, unlinked) {
+		if !slices.ContainsFunc(owners, unlinked) {
 			continue
 		}
 
 		_, err := reads[team]()
+		if errors.Is(err, errNoSlackDirectory) {
+			return "", err
+		}
+
 		if scope, missing := missingScope(err); missing {
-			return scope, true
+			return scope, nil
 		}
 	}
 
-	return "", false
+	return "", nil
 }
 
 // mentions is whom a post tags — the linked user owners, and the groups
@@ -242,9 +263,9 @@ func (s *server) mentions(asked *api.AnnounceMentions, moment messaging.Moment) 
 		return messaging.Mentions{}, loop.AnnounceMemory{}, nil
 	}
 
-	tags, available := s.proposedTags(moment)
-	if !available || !s.canReadDirectory() {
-		return messaging.Mentions{}, loop.AnnounceMemory{}, errNoTags
+	tags, err := s.tagsAsPreviewed(asked.Users, moment)
+	if err != nil {
+		return messaging.Mentions{}, loop.AnnounceMemory{}, err
 	}
 
 	mentions, err := tags.Mentions(asked.Groups)
@@ -258,6 +279,48 @@ func (s *server) mentions(asked *api.AnnounceMentions, moment messaging.Moment) 
 	}
 
 	return mentions, memory, nil
+}
+
+// tagsAsPreviewed is whom an announcement at moment proposes to tag, refused
+// when it tags no one now — not ready for review, or no Slack user token in
+// the configuration in effect — and when the user owners it links are not
+// previewed, the ones its preview showed.
+func (s *server) tagsAsPreviewed(previewed []string, moment messaging.Moment) (loop.Tags, error) {
+	if !s.canReadDirectory("") {
+		return loop.Tags{}, errNoTags
+	}
+
+	tags, available := s.proposedTags(moment)
+	if !available {
+		return loop.Tags{}, errNoTags
+	}
+
+	if !slices.Equal(idSet(previewed), idSet(linkedUsers(tags))) {
+		return loop.Tags{}, errTagsChanged
+	}
+
+	return tags, nil
+}
+
+// linkedUsers are the Slack users the user owners among tags are linked to.
+func linkedUsers(tags loop.Tags) []string {
+	var users []string
+
+	for _, owner := range tags.Owners {
+		if !owner.Team && owner.State == loop.OwnerLinked {
+			users = append(users, owner.Slack.ID)
+		}
+	}
+
+	return users
+}
+
+// idSet is ids sorted, each once, to compare as a set.
+func idSet(ids []string) []string {
+	set := slices.Clone(ids)
+	slices.Sort(set)
+
+	return slices.Compact(set)
 }
 
 // groupTagsDTO maps the user groups an announcement offers onto the wire.

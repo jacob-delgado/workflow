@@ -421,9 +421,10 @@ func (e CleanLocalDataParamsScope) Valid() bool {
 	}
 }
 
-// AnnounceMentions Whom to tag with the post. The linked user owners are tagged from what is kept, not from the request; groups name the user groups checked, each one the announcement offered.
+// AnnounceMentions Whom to tag with the post. The linked user owners are tagged from what is kept, not from the request; users are the ones the preview showed tagged, so a post whose kept links changed since is refused rather than tagging someone else. groups name the user groups checked, each one the announcement offered.
 type AnnounceMentions struct {
 	Groups []string `json:"groups"`
+	Users  []string `json:"users"`
 }
 
 // AnnounceRequest Where to post the announcement, and the text its preview showed.
@@ -431,7 +432,7 @@ type AnnounceRequest struct {
 	// Channel The channel to post to; empty uses the configured channel or the webhook.
 	Channel string `json:"channel"`
 
-	// Mentions Whom to tag with the post. The linked user owners are tagged from what is kept, not from the request; groups name the user groups checked, each one the announcement offered.
+	// Mentions Whom to tag with the post. The linked user owners are tagged from what is kept, not from the request; users are the ones the preview showed tagged, so a post whose kept links changed since is refused rather than tagging someone else. groups name the user groups checked, each one the announcement offered.
 	Mentions *AnnounceMentions `json:"mentions,omitempty"`
 
 	// Text The announcement as GET /api/announcement showed it. When given, the post is refused with 409 unless the announcement composed now reads the same; when left out, the announcement composed now is posted.
@@ -1435,6 +1436,12 @@ type ViewList struct {
 
 // TaskUUID Example: 5f3c9a1e-8b2d-4c6f-9e7a-1d2b3c4d5e6f
 type TaskUUID = string
+
+// GetAnnouncementParams defines parameters for GetAnnouncement.
+type GetAnnouncementParams struct {
+	// Channel The channel the preview would post to, whose members an owner not yet linked is checked against; the configured channel when left out.
+	Channel *string `form:"channel,omitempty" json:"channel,omitempty"`
+}
 
 // PreviewBranchIssueParams defines parameters for PreviewBranchIssue.
 type PreviewBranchIssueParams struct {

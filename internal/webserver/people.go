@@ -11,6 +11,7 @@ import (
 
 	"github.com/jacob-delgado/workflow/internal/api"
 	"github.com/jacob-delgado/workflow/internal/codeowners"
+	"github.com/jacob-delgado/workflow/internal/config"
 	"github.com/jacob-delgado/workflow/internal/loop"
 	"github.com/jacob-delgado/workflow/internal/messaging"
 	"github.com/jacob-delgado/workflow/internal/store"
@@ -31,12 +32,7 @@ var (
 func (s *server) GetSlackMembers(
 	_ context.Context, request api.GetSlackMembersRequestObject,
 ) (api.GetSlackMembersResponseObject, error) {
-	if s.deps.ChannelMembers == nil {
-		return api.GetSlackMembers422ApplicationProblemPlusJSONResponse(problem(api.Unprocessable,
-			errNoSlackDirectory.Error())), nil
-	}
-
-	members, err := s.deps.ChannelMembers(s.channelOr(orZero(request.Params.Channel)))
+	members, err := s.channelMembers(orZero(request.Params.Channel))
 
 	directory, err := directoryAnswer(members, err)
 	if err != nil {
@@ -53,15 +49,7 @@ func (s *server) GetSlackMembers(
 func (s *server) GetSlackGroups(
 	_ context.Context, _ api.GetSlackGroupsRequestObject,
 ) (api.GetSlackGroupsResponseObject, error) {
-	if s.deps.UserGroups == nil {
-		return api.GetSlackGroups422ApplicationProblemPlusJSONResponse(problem(api.Unprocessable,
-			errNoSlackDirectory.Error())), nil
-	}
-
-	groups, err := s.deps.UserGroups()
-	if errors.Is(err, messaging.ErrNoUserGroups) {
-		groups, err = nil, nil
-	}
+	groups, err := s.userGroups()
 
 	directory, err := directoryAnswer(groups, err)
 	if err != nil {
@@ -241,7 +229,7 @@ func (s *server) linkPerson(link api.PersonLink) error {
 // a member of channel otherwise.
 func (s *server) slackTarget(slackID string, team bool, channel string) (loop.SlackTarget, error) {
 	if team {
-		return slackGroup(s.deps.UserGroups, slackID)
+		return s.slackGroup(slackID)
 	}
 
 	_, err := messaging.ParseSlackUser(slackID)
@@ -249,25 +237,58 @@ func (s *server) slackTarget(slackID string, team bool, channel string) (loop.Sl
 		return loop.SlackTarget{}, errWrongKind
 	}
 
-	if s.deps.ChannelMembers == nil {
-		return loop.SlackTarget{}, errNoSlackDirectory
-	}
-
-	return lookUp(func() ([]loop.SlackTarget, error) { return s.deps.ChannelMembers(s.channelOr(channel)) }, slackID)
+	return lookUp(func() ([]loop.SlackTarget, error) { return s.channelMembers(channel) }, slackID)
 }
 
-// slackGroup is the user group groups lists under slackID.
-func slackGroup(groups func() ([]loop.SlackTarget, error), slackID string) (loop.SlackTarget, error) {
+// slackGroup is the user group the workspace lists under slackID.
+func (s *server) slackGroup(slackID string) (loop.SlackTarget, error) {
 	_, err := messaging.ParseSlackGroup(slackID)
 	if err != nil {
 		return loop.SlackTarget{}, errWrongKind
 	}
 
-	if groups == nil {
-		return loop.SlackTarget{}, errNoSlackDirectory
+	return lookUp(s.userGroups, slackID)
+}
+
+// taggingLive reports whether the configuration in effect posts with a Slack
+// user token, which tagging and the directory it links from need: a save in
+// Settings can switch to a webhook while the server runs.
+func (s *server) taggingLive() bool {
+	return s.config().Messaging.Mode() == config.MessagingUser
+}
+
+// channelMembers is the people in channel, the configured one when empty.
+func (s *server) channelMembers(channel string) ([]loop.SlackTarget, error) {
+	if !s.taggingLive() || s.deps.ChannelMembers == nil {
+		return nil, errNoSlackDirectory
 	}
 
-	return lookUp(groups, slackID)
+	return directoryRead(s.deps.ChannelMembers(s.channelOr(channel)))
+}
+
+// userGroups is the workspace's user groups; a workspace that has none, or
+// does not let the token read them, lists none.
+func (s *server) userGroups() ([]loop.SlackTarget, error) {
+	if !s.taggingLive() || s.deps.UserGroups == nil {
+		return nil, errNoSlackDirectory
+	}
+
+	groups, err := directoryRead(s.deps.UserGroups())
+	if errors.Is(err, messaging.ErrNoUserGroups) {
+		return nil, nil
+	}
+
+	return groups, err
+}
+
+// directoryRead is a directory read as People and groups takes it: one with
+// no credential to read with is no directory.
+func directoryRead(entries []loop.SlackTarget, err error) ([]loop.SlackTarget, error) {
+	if errors.Is(err, messaging.ErrNoCredential) {
+		return nil, errNoSlackDirectory
+	}
+
+	return entries, err
 }
 
 // lookUp is the entry read lists under slackID.
@@ -306,10 +327,6 @@ func (s *server) setRepoGroups(ids []string) error {
 		return errNoPeopleStore
 	}
 
-	if s.deps.UserGroups == nil {
-		return errNoSlackDirectory
-	}
-
 	groups := make([]loop.SlackTarget, 0, len(ids))
 
 	for _, id := range ids {
@@ -317,7 +334,7 @@ func (s *server) setRepoGroups(ids []string) error {
 			continue
 		}
 
-		group, err := lookUp(s.deps.UserGroups, id)
+		group, err := lookUp(s.userGroups, id)
 		if err != nil {
 			return err
 		}

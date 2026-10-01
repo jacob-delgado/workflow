@@ -23,7 +23,7 @@ type ServerInterface interface {
 	Announce(w http.ResponseWriter, r *http.Request)
 	// GetAnnouncement The announcement message that would be posted, for a preview.
 	// (GET /api/announcement)
-	GetAnnouncement(w http.ResponseWriter, r *http.Request)
+	GetAnnouncement(w http.ResponseWriter, r *http.Request, params GetAnnouncementParams)
 	// GetBranch The current branch and how it stands against its base.
 	// (GET /api/branch)
 	GetBranch(w http.ResponseWriter, r *http.Request)
@@ -184,8 +184,27 @@ func (siw *ServerInterfaceWrapper) Announce(w http.ResponseWriter, r *http.Reque
 // GetAnnouncement operation middleware
 func (siw *ServerInterfaceWrapper) GetAnnouncement(w http.ResponseWriter, r *http.Request) {
 
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params GetAnnouncementParams
+
+	// ------------- Optional query parameter "channel" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "channel", r.URL.Query(), &params.Channel, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "channel"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "channel", Err: err})
+		}
+		return
+	}
+
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.GetAnnouncement(w, r)
+		siw.Handler.GetAnnouncement(w, r, params)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -1294,6 +1313,7 @@ func (response AnnouncedefaultApplicationProblemPlusJSONResponse) VisitAnnounceR
 }
 
 type GetAnnouncementRequestObject struct {
+	Params GetAnnouncementParams
 }
 
 type GetAnnouncementResponseObject interface {
@@ -4087,8 +4107,10 @@ func (sh *strictHandler) Announce(w http.ResponseWriter, r *http.Request) {
 }
 
 // GetAnnouncement operation middleware
-func (sh *strictHandler) GetAnnouncement(w http.ResponseWriter, r *http.Request) {
+func (sh *strictHandler) GetAnnouncement(w http.ResponseWriter, r *http.Request, params GetAnnouncementParams) {
 	var request GetAnnouncementRequestObject
+
+	request.Params = params
 
 	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
 		return sh.ssi.GetAnnouncement(ctx, request.(GetAnnouncementRequestObject))
