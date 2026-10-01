@@ -19,6 +19,7 @@ import (
 
 	tea "charm.land/bubbletea/v2"
 
+	"github.com/jacob-delgado/workflow/internal/codeowners"
 	"github.com/jacob-delgado/workflow/internal/config"
 	"github.com/jacob-delgado/workflow/internal/editor"
 	"github.com/jacob-delgado/workflow/internal/forge"
@@ -111,7 +112,7 @@ func Deps(ctx context.Context, cfg config.Config, where Workspace, log *RequestL
 
 	return tui.Deps{
 		Jira:       trackerDeps(ctx, cfg, jiraClient, connect),
-		Git:        gitDeps(ctx, where.Root),
+		Git:        gitDeps(ctx, where.Root, func() forge.Kind { return ForgeKind(settings.current(), where.Remote) }),
 		Forge:      forgeDeps(ctx, setup, connect),
 		Messaging:  messagingDeps(ctx, messagingSet),
 		Hooks:      hookDeps(ctx, where.Root),
@@ -213,8 +214,10 @@ func requestTimeout(cfg config.Config) time.Duration {
 	return RequestTimeout
 }
 
-// gitDeps is what a surface asks of the repository.
-func gitDeps(ctx context.Context, root string) seams.Git {
+// gitDeps is what a surface asks of the repository. CODEOWNERS is read in the
+// dialect of the forge kind names at the time of the read, since Settings can
+// change the forge while workflow runs.
+func gitDeps(ctx context.Context, root string, kind func() forge.Kind) seams.Git {
 	repo := gitrepo.At(gitRunner, root)
 
 	return seams.Git{
@@ -227,7 +230,10 @@ func gitDeps(ctx context.Context, root string) seams.Git {
 		Branches:       func() ([]string, error) { return repo.LocalBranches(ctx) },
 		Checkout:       func(name string) error { return repo.Checkout(ctx, name) },
 		RemoteBranches: func() ([]string, error) { return repo.RemoteBranches(ctx) },
-		CodeOwners:     func() ([]string, error) { return repo.CodeOwners(ctx) },
+		ChangedPaths:   func(base string) ([]string, error) { return repo.ChangedPaths(ctx, base) },
+		CodeOwnersAt: func(base string) (codeowners.File, bool, error) {
+			return repo.CodeOwnersAt(ctx, base, codeOwnersDialect(kind()))
+		},
 		RecentSubjects: func() ([]string, error) { return repo.RecentSubjects(ctx) },
 		CreateWorktree: func(name, start string) (string, error) {
 			return repo.WorktreeAdd(ctx, name, start)
@@ -249,6 +255,16 @@ func gitDeps(ctx context.Context, root string) seams.Git {
 		LinkIssue:   func(branch, issueKey string) error { return repo.SetIssueLink(ctx, branch, issueKey) },
 		UnlinkIssue: func(branch string) error { return repo.ClearIssueLink(ctx, branch) },
 	}
+}
+
+// codeOwnersDialect is the CODEOWNERS dialect of a forge kind. A forge it
+// cannot name reads as GitHub, whose rules GitLab's extend.
+func codeOwnersDialect(kind forge.Kind) codeowners.Dialect {
+	if kind == forge.KindGitLab {
+		return codeowners.GitLab
+	}
+
+	return codeowners.GitHub
 }
 
 // streamToEnd runs a network git command unbounded and waits for it to exit. A

@@ -860,9 +860,10 @@ terminal shows are absent on the web too, none of them among what
   (`web/src/features/review/ReviewPanel.tsx:270`) and `ProposalFields`
   shows a generic placeholder
   (`web/src/features/review/ReviewPanel.tsx:354`), where the terminal's
-  `proposePullRequest` calls `withReviewerSuggestions` with
-  `CodeOwners` (`internal/tui/prcomposer.go:152`) and the owners become
-  the placeholder (`:241`); `PullRequestDraft` carries no reviewer field
+  `proposePullRequest` calls `withReviewerSuggestions` with the
+  `ChangedPaths` and `CodeOwnersAt` seams
+  (`internal/tui/prcomposer.go:154`) and the changed paths' owners become
+  the placeholder (`:258`); `PullRequestDraft` carries no reviewer field
   (`api/openapi.yaml:968`).
 - The Review section has no Copy URL: the title link is the only handle on
   the pull request (`PullRequestSummary`,
@@ -891,7 +892,7 @@ idea to borrow. A Push branch offered on the base branch is UX-104's.
 form; a diff view; `?`; `original_path` drawn before the path with the
 middle dot or an arrow; a muted "n/limit" hint under the subject counting
 the assembled header; `suggested_reviewers` on `PullRequestDraft` from the
-CodeOwners seam as the field's placeholder and datalist; `CopyURL` beside
+CODEOWNERS seams as the field's placeholder and datalist; `CopyURL` beside
 the title with the same "Copied the URL of #128." outcome; clearing the
 filter when the view changes.
 
