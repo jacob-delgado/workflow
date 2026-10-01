@@ -534,6 +534,13 @@ nobody.
   GitLab's sections, default owners and `!` exclusions. The base is read as
   `origin`'s copy when one has been fetched, so a stale `origin/<base>` gives
   stale owners — `git fetch` brings them up to date.
+- **Which patterns.** Each forge's patterns read as that forge reads them. On
+  GitLab a pattern matches a whole path: `docs/` and `/docs/` cover
+  everything under a `docs` directory, while `docs` and `/docs` name only a
+  file called `docs`, and `docs/*` only a directory's direct children. A
+  pattern without a leading slash, such as `README.md`, matches at any depth,
+  and `*` matches dot files too. A pattern written twice in a section keeps
+  only its later line.
 - **Which paths.** Those the branch changes since it left the base
   (`git diff <base>...HEAD`, a rename counting as both of its paths).
 - **Which owners.** `@username` owners are proposed as people and
