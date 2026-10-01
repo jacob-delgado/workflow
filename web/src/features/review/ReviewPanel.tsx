@@ -4,6 +4,7 @@ import { useForgeWords } from '@/api/health.ts'
 import type {
   Check,
   Ci,
+  JobLog,
   LinkedIssue,
   OpenedPullRequest,
   OpenPullRequestRequest,
@@ -14,7 +15,7 @@ import type {
 import { useLiveSnapshot } from '@/api/snapshot.ts'
 import { shownKey } from '@/features/issues/issuePlaces.ts'
 import { Button } from '@/lib/Button.tsx'
-import { useFocusHandback } from '@/lib/focus.ts'
+import { useFocusHandback, useFocusOnMount } from '@/lib/focus.ts'
 import { OutcomeLine, useOutcome } from '@/lib/Outcome.tsx'
 import { useAsyncAction } from '@/lib/useAsyncAction.ts'
 import { definitionList, splitList } from '@/lib/utils.ts'
@@ -447,24 +448,20 @@ function CheckRow({ check }: { check: Check }) {
         <span className="pl-6 text-muted-foreground">{check.reason}</span>
       ) : null}
       {check.state === 'failed' && check.log_available && check.id ? (
-        <CheckLog id={check.id} name={check.name} />
+        <CheckLog id={check.id} name={name} />
       ) : null}
     </li>
   )
 }
 
 // CheckLog reads a failed check's log when asked, never before: a log can be
-// long, and the forge counts every read.
+// long, and the forge counts every read. The log takes the place, and the
+// focus, of the control that asked for it, and scrolls by the keyboard.
 function CheckLog({ id, name }: { id: string; name: string }) {
   const read = useAsyncAction(readCheckLog, { fallback: 'The log could not be read. Try again.' })
 
   if (read.state === 'done' && read.result) {
-    return (
-      <pre className="ml-6 max-h-80 overflow-auto rounded-md border border-border p-3 text-xs whitespace-pre-wrap">
-        {read.result.truncated ? '… earlier lines are not shown\n' : ''}
-        {read.result.text}
-      </pre>
-    )
+    return <LogText name={name} log={read.result} />
   }
 
   return (
@@ -472,9 +469,15 @@ function CheckLog({ id, name }: { id: string; name: string }) {
       <Button
         variant="secondary"
         className="self-start"
-        aria-label={`Show the log of ${name}`}
-        disabled={read.state === 'running'}
-        onClick={() => void read.run(id)}
+        aria-label={
+          read.state === 'running' ? `Reading the log of ${name}…` : `Show log of ${name}`
+        }
+        aria-disabled={read.state === 'running'}
+        onClick={() => {
+          if (read.state !== 'running') {
+            void read.run(id)
+          }
+        }}
       >
         {read.state === 'running' ? 'Reading the log…' : 'Show log'}
       </Button>
@@ -484,5 +487,23 @@ function CheckLog({ id, name }: { id: string; name: string }) {
         </span>
       ) : null}
     </span>
+  )
+}
+
+function LogText({ name, log }: { name: string; log: JobLog }) {
+  const region = useFocusOnMount<HTMLPreElement>()
+
+  return (
+    <pre
+      ref={region}
+      role="region"
+      aria-label={`Log of ${name}`}
+      // eslint-disable-next-line jsx-a11y/no-noninteractive-tabindex -- a log that scrolls must be reachable by Tab to be scrolled by keys (WCAG 2.1.1)
+      tabIndex={0}
+      className="ml-6 max-h-80 overflow-auto rounded-md border border-border p-3 text-xs whitespace-pre-wrap focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+    >
+      {log.truncated ? '… earlier lines are not shown\n' : ''}
+      {log.text}
+    </pre>
   )
 }
