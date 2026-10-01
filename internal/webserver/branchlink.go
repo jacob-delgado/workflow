@@ -131,12 +131,27 @@ func (s *server) linkableBranch() (gitrepo.Branch, error) {
 	return branch, nil
 }
 
-// linkIssue keeps the link, then adds the issue's line to the open pull
-// request's description when asked and when it does not name the issue.
+// linkIssue adds the issue's line to the open pull request's description when
+// asked and when it does not name the issue, then keeps the link. The edit
+// goes first so a forge that refuses it leaves the branch as it was; a link
+// git then cannot keep is answered as such, and asking again is safe, since
+// the description names the issue by then.
 func (s *server) linkIssue(branch string, ref convention.IssueRef, updatePull bool) error {
-	err := s.deps.LinkIssue(branch, ref.Key)
-	if err != nil || !updatePull || s.deps.EditPull == nil {
-		return err
+	if updatePull {
+		err := s.namePullIssue(ref)
+		if err != nil {
+			return err
+		}
+	}
+
+	return s.deps.LinkIssue(branch, ref.Key)
+}
+
+// namePullIssue adds the issue's line to the open pull request's description,
+// unless there is none, no way to edit it, or it names the issue already.
+func (s *server) namePullIssue(ref convention.IssueRef) error {
+	if s.deps.EditPull == nil {
+		return nil
 	}
 
 	pull, open, err := s.openPull()

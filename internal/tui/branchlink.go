@@ -152,8 +152,9 @@ func (l branchLinker) choose(m Model) (Model, tea.Cmd) {
 	return l.link(m)
 }
 
-// link keeps the link, and adds the issue's line to the pull request's
-// description when it was shown, holding both back in a dry run.
+// link adds the issue's line to the pull request's description when it was
+// shown, then keeps the link, holding both back in a dry run. The edit goes
+// first so a forge that refuses it leaves the branch as it was.
 func (l branchLinker) link(m Model) (Model, tea.Cmd) {
 	if m.dryRun {
 		return m.closeOverlay().noticed("dry run: would link " + l.branch + " to " + string(l.chosen)), nil
@@ -165,9 +166,13 @@ func (l branchLinker) link(m Model) (Model, tea.Cmd) {
 	branch, issueKey, pull, body := l.branch, l.chosen, l.pull, l.body
 
 	return m, func() tea.Msg {
-		err := linkIssue(branch, string(issueKey))
-		if err == nil && body != "" && edit != nil {
+		var err error
+		if body != "" && edit != nil {
 			_, err = edit(pull, forge.PullRequestEdit{Title: pull.Title, Body: body})
+		}
+
+		if err == nil {
+			err = linkIssue(branch, string(issueKey))
 		}
 
 		return branchLinked{branch: branch, issueKey: issueKey, pull: pull, err: err}

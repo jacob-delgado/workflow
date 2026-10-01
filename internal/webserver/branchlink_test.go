@@ -181,3 +181,41 @@ func TestALinkGitCannotKeepIsUnprocessable(t *testing.T) {
 		})
 	}
 }
+
+func TestAPullRequestThatCannotBeEditedLeavesTheBranchUnlinked(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	record := &linking{}
+	deps := linkingDeps(record, false)
+	deps.EditPull = func(forge.PullRequest, forge.PullRequestEdit) (forge.PullRequest, error) {
+		return forge.PullRequest{}, fmt.Errorf("editing #9: %w", forge.ErrUnreachable)
+	}
+
+	// Act
+	answer := send(t, serve(t, deps, config.Default()), http.MethodPut, "/api/branch/issue",
+		`{"key":"PROJ-7","update_pull":true}`)
+
+	// Assert
+	if answer.Code != http.StatusBadGateway || len(record.linked) != 0 {
+		t.Errorf("status %d, linked %v; want 502 and the branch left unlinked", answer.Code, record.linked)
+	}
+}
+
+func TestALinkNotKeptAfterThePullRequestIsEditedIsReported(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	record := &linking{}
+	deps := linkingDeps(record, false)
+	deps.LinkIssue = func(string, string) error { return gitrepo.ErrIssueLinkNotSaved }
+
+	// Act
+	answer := send(t, serve(t, deps, config.Default()), http.MethodPut, "/api/branch/issue",
+		`{"key":"PROJ-7","update_pull":true}`)
+
+	// Assert
+	if answer.Code != http.StatusUnprocessableEntity || len(record.edited) != 1 {
+		t.Errorf("status %d, edited %v; want 422 after the one edit", answer.Code, record.edited)
+	}
+}

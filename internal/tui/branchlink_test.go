@@ -94,6 +94,22 @@ func TestConfirmingTheDescriptionLinksAndUpdatesThePullRequest(t *testing.T) {
 	requireScreen(t, view, "Link on "+issueKey)
 }
 
+func TestAPullRequestThatCannotBeEditedLeavesTheBranchUnlinked(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	repo := onOffConventionBranch(true)
+	repo.editPullErr = forge.ErrUnreachable
+
+	// Act
+	typing(t, repo.live(t, 120, 40), "2", "i", keyEnter, keyEnter)
+
+	// Assert
+	if edits, linked := repo.asked("edit 42"), repo.asked("link-issue"); len(edits) != 1 || len(linked) != 0 {
+		t.Errorf("edited %q and linked %q; want the edit tried and the branch left unlinked", edits, linked)
+	}
+}
+
 func TestTheReviewPaneNamesTheIssueTheBranchWasLinkedTo(t *testing.T) {
 	t.Parallel()
 

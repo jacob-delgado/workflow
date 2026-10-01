@@ -521,7 +521,10 @@ paths:
         name names no issue is for it from then on. With update_pull, the line
         naming the issue is added to the description of the pull request open
         from the branch, as workflow writes it on a pull request it opens,
-        unless the description already names the issue.
+        unless the description already names the issue. The description is
+        changed first, so a forge that refuses the change leaves the branch
+        unlinked; a link that then could not be kept is answered as such, and
+        asking again is safe.
       tags: [repository]
       requestBody:
         required: true
