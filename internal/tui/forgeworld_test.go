@@ -11,7 +11,7 @@ import (
 	"github.com/jacob-delgado/workflow/internal/seams"
 )
 
-// requestPeople names the reviewers, assignees and labels a pull request
+// requestPeople names the reviewers, the team reviewers, assignees and labels a pull request
 // carries, or "" when it carries none, so a test can assert on them without
 // changing the recorded call for the pull requests that name nobody.
 func requestPeople(request forge.NewPullRequest) string {
@@ -19,6 +19,10 @@ func requestPeople(request forge.NewPullRequest) string {
 
 	if len(request.Reviewers) > 0 {
 		parts = append(parts, "reviewers="+strings.Join(request.Reviewers, ","))
+	}
+
+	if len(request.TeamReviewers) > 0 {
+		parts = append(parts, "teams="+strings.Join(request.TeamReviewers, ","))
 	}
 
 	if len(request.Assignees) > 0 {
