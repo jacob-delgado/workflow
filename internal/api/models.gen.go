@@ -721,6 +721,15 @@ type JiraView struct {
 	Name string `json:"name"`
 }
 
+// JobLog defines model for JobLog.
+type JobLog struct {
+	// Text The log's last lines, with every terminal control taken out.
+	Text string `json:"text"`
+
+	// Truncated Whether the log ran on before the lines kept.
+	Truncated bool `json:"truncated"`
+}
+
 // LinkedIssue defines model for LinkedIssue.
 type LinkedIssue struct {
 	// Key The issue's key, a forge number without its

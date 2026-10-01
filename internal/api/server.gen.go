@@ -84,6 +84,9 @@ type ServerInterface interface {
 	// GetReview The branch's pull request and its CI, if one is open.
 	// (GET /api/review)
 	GetReview(w http.ResponseWriter, r *http.Request)
+	// GetCheckLog The end of a failed check's log, read on demand.
+	// (GET /api/review/checks/{id}/log)
+	GetCheckLog(w http.ResponseWriter, r *http.Request, id string)
 	// ListReviews The pull requests on the forge that wait on your review.
 	// (GET /api/reviews)
 	ListReviews(w http.ResponseWriter, r *http.Request)
@@ -559,6 +562,32 @@ func (siw *ServerInterfaceWrapper) GetReview(w http.ResponseWriter, r *http.Requ
 	handler.ServeHTTP(w, r)
 }
 
+// GetCheckLog operation middleware
+func (siw *ServerInterfaceWrapper) GetCheckLog(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id string
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", r.PathValue("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetCheckLog(w, r, id)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // ListReviews operation middleware
 func (siw *ServerInterfaceWrapper) ListReviews(w http.ResponseWriter, r *http.Request) {
 
@@ -945,6 +974,7 @@ func HandlerWithOptions(si ServerInterface, options StdHTTPServerOptions) http.H
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/changes", wrapper.ListChanges)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/api/stage", wrapper.Stage)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/api/unstage", wrapper.Unstage)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/review/checks/{id}/log", wrapper.GetCheckLog)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/review", wrapper.GetReview)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/reviews", wrapper.ListReviews)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/messaging", wrapper.GetMessaging)
@@ -2234,6 +2264,73 @@ func (response GetReviewdefaultApplicationProblemPlusJSONResponse) VisitGetRevie
 	return err
 }
 
+type GetCheckLogRequestObject struct {
+	ID string `json:"id"`
+}
+
+type GetCheckLogResponseObject interface {
+	VisitGetCheckLogResponse(w http.ResponseWriter) error
+}
+
+type GetCheckLog200JSONResponse JobLog
+
+func (response GetCheckLog200JSONResponse) VisitGetCheckLogResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetCheckLog404ApplicationProblemPlusJSONResponse Problem
+
+func (response GetCheckLog404ApplicationProblemPlusJSONResponse) VisitGetCheckLogResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetCheckLog422ApplicationProblemPlusJSONResponse Problem
+
+func (response GetCheckLog422ApplicationProblemPlusJSONResponse) VisitGetCheckLogResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(422)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetCheckLogdefaultApplicationProblemPlusJSONResponse struct {
+	Body       Problem
+	StatusCode int
+}
+
+func (response GetCheckLogdefaultApplicationProblemPlusJSONResponse) VisitGetCheckLogResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
 type ListReviewsRequestObject struct {
 }
 
@@ -3125,6 +3222,9 @@ type StrictServerInterface interface {
 	// GetReview The branch's pull request and its CI, if one is open.
 	// (GET /api/review)
 	GetReview(ctx context.Context, request GetReviewRequestObject) (GetReviewResponseObject, error)
+	// GetCheckLog The end of a failed check's log, read on demand.
+	// (GET /api/review/checks/{id}/log)
+	GetCheckLog(ctx context.Context, request GetCheckLogRequestObject) (GetCheckLogResponseObject, error)
 	// ListReviews The pull requests on the forge that wait on your review.
 	// (GET /api/reviews)
 	ListReviews(ctx context.Context, request ListReviewsRequestObject) (ListReviewsResponseObject, error)
@@ -3790,6 +3890,32 @@ func (sh *strictHandler) GetReview(w http.ResponseWriter, r *http.Request) {
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
 	} else if validResponse, ok := response.(GetReviewResponseObject); ok {
 		if err := validResponse.VisitGetReviewResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// GetCheckLog operation middleware
+func (sh *strictHandler) GetCheckLog(w http.ResponseWriter, r *http.Request, id string) {
+	var request GetCheckLogRequestObject
+
+	request.ID = id
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.GetCheckLog(ctx, request.(GetCheckLogRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetCheckLog")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(GetCheckLogResponseObject); ok {
+		if err := validResponse.VisitGetCheckLogResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {

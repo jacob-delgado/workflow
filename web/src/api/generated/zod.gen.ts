@@ -362,6 +362,11 @@ export const zOpenedPullRequest = z.object({
     follow_ups: z.array(zFollowUp)
 });
 
+export const zJobLog = z.object({
+    text: z.string(),
+    truncated: z.boolean()
+});
+
 export const zCiState = z.enum([
     'none',
     'running',
@@ -623,6 +628,15 @@ export const zUnstageBody = zStagingRequest;
  * The working tree's changes, now unstaged.
  */
 export const zUnstageResponse = zChangeList;
+
+export const zGetCheckLogPath = z.object({
+    id: z.string()
+});
+
+/**
+ * The end of the log.
+ */
+export const zGetCheckLogResponse = zJobLog;
 
 /**
  * The review state; pull and ci are absent when none is found.

@@ -60,8 +60,10 @@ type Deps struct {
 	EditPull  func(pull forge.PullRequest, edit forge.PullRequestEdit) (forge.PullRequest, error)
 	Templates func() []forge.Template
 	CheckCI   func(pull forge.PullRequest, head string) (forge.CI, error)
-	Author    func() (string, error)
-	Post      func(channel, text string) error
+	// JobLog reads the end of a failed check's log.
+	JobLog func(check forge.Check) (forge.JobLog, error)
+	Author func() (string, error)
+	Post   func(channel, text string) error
 	// RemoteBranches lists the branches on the remotes by name, without the
 	// remote's prefix, so a branch only the remote has is in flight too.
 	RemoteBranches func() ([]string, error)

@@ -586,7 +586,7 @@ The actions you can rebind, grouped by where they work, are:
   `toggle-draft`, `toggle-breaking`, `verbatim`, `next-field`,
   `previous-field`, `cycle-type-left`, `cycle-type-right`, `toggle-option`,
   `worktree` (in the branch creator), `post-when-green` (in the announcement
-  preview).
+  preview), `show-log` (in the checks list).
 - **While a command runs:** `stop`, `run-again`, `full-output`.
 - **Everywhere:** `apply`, `close`, `toggle-mouse`, `toggle-help`, `quit`,
   `interrupt`.

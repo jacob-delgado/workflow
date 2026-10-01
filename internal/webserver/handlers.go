@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"slices"
 
 	"github.com/jacob-delgado/workflow/internal/api"
 	"github.com/jacob-delgado/workflow/internal/config"
@@ -384,4 +385,71 @@ func resolveJQL(cfg config.Config, name string) (string, bool) {
 // unknownView is the detail for a view name the configuration does not carry.
 func unknownView(name string) string {
 	return fmt.Sprintf("no view is named %q", name)
+}
+
+// errNoSuchCheck is a log asked for by an id no check of the current pull
+// request has, which is never read: the id is the client's, and only a check
+// the forge lists now is the forge's to answer for.
+var errNoSuchCheck = errors.New("no check of the current pull request has that id")
+
+// GetCheckLog reads the end of a failed check's log, for a check the current
+// pull request's CI lists now, on demand rather than as CI is polled.
+func (s *server) GetCheckLog(
+	_ context.Context, request api.GetCheckLogRequestObject,
+) (api.GetCheckLogResponseObject, error) {
+	check, err := s.currentCheck(request.ID)
+	if errors.Is(err, errNoSuchCheck) {
+		return api.GetCheckLog404ApplicationProblemPlusJSONResponse(problem(api.NotFound, err.Error())), nil
+	}
+
+	if err == nil && (s.deps.JobLog == nil || !check.LogAvailable) {
+		err = forge.ErrNoLog
+	}
+
+	if errors.Is(err, forge.ErrNoLog) {
+		return api.GetCheckLog422ApplicationProblemPlusJSONResponse(problem(api.Unprocessable, err.Error())), nil
+	}
+
+	var log forge.JobLog
+	if err == nil {
+		log, err = s.deps.JobLog(check)
+	}
+
+	if err != nil {
+		body, code := s.fault(err)
+
+		return api.GetCheckLogdefaultApplicationProblemPlusJSONResponse{Body: body, StatusCode: code}, nil
+	}
+
+	return api.GetCheckLog200JSONResponse(api.JobLog{Text: log.Text, Truncated: log.Truncated}), nil
+}
+
+// currentCheck is the check with checkID among the current pull request's CI,
+// read afresh, or errNoSuchCheck.
+func (s *server) currentCheck(checkID string) (forge.Check, error) {
+	if s.deps.Branch == nil || s.deps.FindPull == nil || s.deps.CheckCI == nil {
+		return forge.Check{}, errNoSuchCheck
+	}
+
+	branch, err := s.deps.Branch()
+	if err != nil {
+		return forge.Check{}, err
+	}
+
+	pull, found, err := s.deps.FindPull(branch.Name)
+	if err != nil || !found {
+		return forge.Check{}, errors.Join(err, errNoSuchCheck)
+	}
+
+	status, err := s.deps.CheckCI(pull, branch.Head)
+	if err != nil {
+		return forge.Check{}, err
+	}
+
+	index := slices.IndexFunc(status.Checks, func(check forge.Check) bool { return check.ID != "" && check.ID == checkID })
+	if index < 0 {
+		return forge.Check{}, errNoSuchCheck
+	}
+
+	return status.Checks[index], nil
 }

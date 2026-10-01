@@ -4,6 +4,7 @@ import { vi } from 'vitest'
 import type { OpenedPullRequest } from '@/api/generated/types.gen.ts'
 import { useHealthStore } from '@/api/health.ts'
 import { useSnapshotStore } from '@/api/snapshot.ts'
+import { fakeApi } from '@/test/fakeApi.ts'
 import { gitLabWords, makeHealth, makeSnapshot } from '@/test/fixtures.ts'
 import { drawnMark, markShape } from '@/test/marks.tsx'
 import { openPr, previewPullRequest } from './openPrApi.ts'
@@ -538,4 +539,37 @@ test('says why each failed check failed, and the stage it ran in', () => {
   const row = screen.getByRole('listitem')
   expect(row.textContent).toContain('test · unit-race')
   expect(row.textContent).toContain('script failure')
+})
+
+test("shows a failed check's log on demand", async () => {
+  // Arrange
+  const requests = fakeApi({
+    '/api/review/checks/501/log': { text: '--- FAIL: TestRetry\n    got 4', truncated: true },
+  })
+  useSnapshotStore.setState({
+    status: 'live',
+    snapshot: makeSnapshot({
+      review: {
+        found: true,
+        pull,
+        ci: {
+          state: 'failed',
+          total: 0,
+          done: 0,
+          failed: 0,
+          checks: [{ name: 'unit-race', state: 'failed', url: '', id: '501', log_available: true }],
+        },
+      },
+    }),
+  })
+  const user = userEvent.setup()
+  render(<ReviewPanel />)
+  expect(requests).toHaveLength(0)
+
+  // Act
+  await user.click(screen.getByRole('button', { name: 'Show the log of unit-race' }))
+
+  // Assert
+  expect(await screen.findByText(/--- FAIL: TestRetry/)).toBeTruthy()
+  expect(screen.getByText(/earlier lines are not shown/)).toBeTruthy()
 })

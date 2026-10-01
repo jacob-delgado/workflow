@@ -66,7 +66,7 @@ type keyMap struct {
 	openLink, copyLink key.Binding
 
 	// In composers and previews.
-	edit, editBody, nextTemplate, toggleDraft, toggleBreaking, verbatim, fullOutput key.Binding
+	edit, editBody, nextTemplate, toggleDraft, toggleBreaking, verbatim, fullOutput, showLog key.Binding
 
 	// In the branch creator, and in the messaging preview.
 	worktree, postWhenGreen key.Binding
@@ -287,6 +287,7 @@ func composerKeys(builder *helpBuilder, into *keyMap, marks glyphs) {
 	into.toggleDraft = builder.bind(groupComposer, "toggle-draft", "draft", "ctrl+r")
 	into.toggleBreaking = builder.bind(groupComposer, "toggle-breaking", "breaking", "ctrl+b")
 	into.verbatim = builder.bind(groupComposer, "verbatim", "keep scripts whole", "v")
+	into.showLog = builder.bind(groupComposer, "show-log", "show log", "l")
 	into.nextField = builder.bind(groupComposer, "next-field", "next field", "tab")
 	into.prevField = builder.bind(groupComposer, "previous-field", "previous field", "shift+tab")
 	into.cycleLeft = builder.bindShown(groupComposer, "cycle-type-left", marks.sideways, "change type", "left")

@@ -127,8 +127,10 @@ hooks. A hook that refuses the commit says why.
 
 The branch's pull request — its number, title and state: Draft or Ready for
 review while it is open, Merged once it has merged. While it is open, the
-section also shows its mergeability, approvals and requested changes, and its
-CI checks. With no pull request for the branch, **Open a pull request**
+section also shows its mergeability, approvals and requested changes, the
+issue it is for, linked to its page, and its CI checks: a failed one names the
+stage it ran in and why it failed, and **Show log** reads the end of its log
+when the forge keeps one. With no pull request for the branch, **Open a pull request**
 composes one as `workflow pr` would and shows it as a form: the title, the
 base, the reviewers, assignees and labels, the description, and whether it is
 a draft. **Open pull request** pushes the branch first when it is not
