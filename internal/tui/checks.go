@@ -351,14 +351,26 @@ type jobLogView struct {
 
 var _ overlay = jobLogView{}
 
-// view draws as many of the log's last lines as fit, scrolled up by scroll.
-func (v jobLogView) view(_, rows int) (string, string) {
+// lines is the log as drawn, under a mark saying where the forge cut it short.
+func (v jobLogView) lines() []string {
 	lines := strings.Split(v.log.Text, "\n")
 	if v.log.Truncated {
 		lines = append([]string{v.marks.ellipsis + " earlier lines are not shown"}, lines...)
 	}
 
-	end := max(0, len(lines)-v.scroll)
+	return lines
+}
+
+// topScroll is the scroll that shows the log's first line at the top of a
+// full window of rows: scrolling further would only drop lines from the end.
+func (v jobLogView) topScroll(rows int) int {
+	return max(0, len(v.lines())-max(1, rows))
+}
+
+// view draws as many of the log's last lines as fit, scrolled up by scroll.
+func (v jobLogView) view(_, rows int) (string, string) {
+	lines := v.lines()
+	end := len(lines) - min(v.scroll, v.topScroll(rows))
 	start := max(0, end-max(1, rows))
 
 	return v.check.Name + " · log", strings.Join(lines[start:end], "\n")
@@ -377,7 +389,7 @@ func (v jobLogView) handleKey(m Model, msg tea.KeyPressMsg) (Model, tea.Cmd) {
 
 		return m, nil
 	case key.Matches(msg, m.keys.up):
-		v.scroll = min(v.scroll+1, strings.Count(v.log.Text, "\n"))
+		v.scroll = min(v.scroll+1, v.topScroll(m.detailRows()))
 	case key.Matches(msg, m.keys.down):
 		v.scroll = max(0, v.scroll-1)
 	}
