@@ -4,6 +4,7 @@
 package webserver_test
 
 import (
+	"fmt"
 	"net/http"
 	"reflect"
 	"testing"
@@ -159,5 +160,25 @@ func TestACheckLogIsNotReadForAnIDThePullRequestDoesNotList(t *testing.T) {
 	// Assert
 	if answer.Code != http.StatusNotFound || len(read) != 0 {
 		t.Errorf("status %d after reading %v, want 404 and nothing read", answer.Code, read)
+	}
+}
+
+func TestACheckLogWhoseForgeCannotBeReachedIsNotANotFound(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	var read []string
+
+	deps := failingDeps(&read)
+	deps.FindPull = func(string) (forge.PullRequest, bool, error) {
+		return forge.PullRequest{}, false, fmt.Errorf("finding the pull request: %w", forge.ErrUnreachable)
+	}
+
+	// Act
+	answer := get(t, serve(t, deps, config.Default()), "/api/review/checks/501/log")
+
+	// Assert
+	if answer.Code != http.StatusBadGateway || len(read) != 0 {
+		t.Errorf("status %d after reading %v, want 502 and nothing read", answer.Code, read)
 	}
 }
