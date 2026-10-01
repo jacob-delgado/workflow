@@ -62,6 +62,7 @@ linters:
             - "!$test"
           allow:
             - $gostd
+            - github.com/jacob-delgado/workflow/internal/codeowners
             - github.com/jacob-delgado/workflow/internal/config
             - github.com/jacob-delgado/workflow/internal/convention
             - github.com/jacob-delgado/workflow/internal/forge
@@ -84,6 +85,7 @@ linters:
             - "!$test"
           allow:
             - $gostd
+            - github.com/jacob-delgado/workflow/internal/codeowners
             - github.com/jacob-delgado/workflow/internal/forge
             - github.com/jacob-delgado/workflow/internal/gitrepo
             - github.com/jacob-delgado/workflow/internal/hooks
