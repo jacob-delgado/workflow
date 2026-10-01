@@ -164,7 +164,8 @@ each repository's requests with its name, the longest-waiting first within it â€
 the orders the terminal's `s` cycles through. **Filter** narrows them, as the
 terminal's `f` does: a button for each repository, CI state, draft or ready, and
 author the queue holds, each with how many requests hold it. Values in one of
-those widen the list, and the four narrow it together. The section asks the
+those widen the list, and the four narrow it together. The order and the
+filter chosen stay while you visit other sections. The section asks the
 forge when you open it, unless it asked within the last 30 seconds, and
 **Refresh** asks again.
 
