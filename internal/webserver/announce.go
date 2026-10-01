@@ -274,8 +274,10 @@ func (s *server) mentions(asked *api.AnnounceMentions, moment messaging.Moment) 
 	}
 
 	memory := loop.AnnounceMemory{Recorded: nil, Record: nil, RecordGroups: nil}
-	if len(tags.Groups) > 0 {
-		memory.RecordGroups = s.deps.RecordGroups
+	if len(tags.Groups) > 0 && s.deps.RecordGroups != nil {
+		memory.RecordGroups = func(ids []string) error {
+			return s.keptWrite(func() error { return s.deps.RecordGroups(ids) })
+		}
 	}
 
 	return mentions, memory, nil

@@ -286,7 +286,7 @@ export const getRepoGroups = <ThrowOnError extends boolean = false>(options?: Op
 /**
  * Replace the Slack user groups this repository may tag.
  *
- * Replaces the list with the groups named, by ID. Each label is read from Slack's directory, never taken from the caller. Refused with 403 under --dry-run, by the guard every write passes.
+ * Replaces the list with the groups named, by ID. A group already saved keeps the label it was saved with, so one Slack no longer lists, or a token without the scope to read them, can still be kept or cleared; a new group's label is read from Slack's directory, never taken from the caller. Clearing the list needs no directory at all. Refused with 403 under --dry-run, by the guard every write passes.
  */
 export const setRepoGroups = <ThrowOnError extends boolean = false>(options: Options<SetRepoGroupsData, ThrowOnError>): RequestResult<SetRepoGroupsResponses, SetRepoGroupsErrors, ThrowOnError> => (options.client ?? client).put<SetRepoGroupsResponses, SetRepoGroupsErrors, ThrowOnError>({
     responseValidator: async (data) => await zSetRepoGroupsResponse.parseAsync(data),

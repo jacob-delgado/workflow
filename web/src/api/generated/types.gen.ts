@@ -1665,7 +1665,7 @@ export type CleanLocalDataData = {
 
 export type CleanLocalDataErrors = {
     /**
-     * A file could not be removed, as one another program holds open can be on Windows; nothing was removed.
+     * A file could not be removed, as one another program holds open can be on Windows. A file that could not be set aside leaves every file in place; one that could not be deleted after the rest were may leave some removed, so read the listing again to see what is left.
      */
     409: Problem;
     /**
@@ -1911,7 +1911,7 @@ export type SetRepoGroupsData = {
 
 export type SetRepoGroupsErrors = {
     /**
-     * An ID names no user group of the workspace, the token lacks the scope to read them, or there is no Slack user token or no store. Nothing was written.
+     * A new ID names no user group of the workspace, the token lacks the scope to read them, or there is no Slack user token to read a new one with, or no store. Nothing was written.
      */
     422: Problem;
     /**
