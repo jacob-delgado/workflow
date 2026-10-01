@@ -17,9 +17,13 @@
 // not special-case the privacy opt-out. Each operation opens its own short-lived
 // connection, so there is no handle to close and the terminal interface and the
 // web server can share the file; WAL and a busy timeout keep their writes from
-// colliding. The schema has one version, stamped into the file: a file written
-// at another is discarded and started fresh, since nothing kept is worth
-// carrying across a schema change.
+// colliding.
+//
+// The store is two files. workflow.db holds conveniences a session can see
+// again, so its schema has one version, stamped into the file: a file written
+// at another is discarded and started fresh. kept.db holds what the user
+// decided, so it is never discarded: it migrates forward, and a file from a
+// newer build is left as it is.
 package store
 
 import (
@@ -164,16 +168,22 @@ func (s Store) writesNothing() bool {
 	return s.off() || s.readOnly
 }
 
-// nothingToRead reports a store with nothing it may read: one that is off, or a
-// read-only one with no database on disk, which it must not create by opening.
+// nothingToRead reports a store with nothing it may read from the cache.
 func (s Store) nothingToRead() bool {
+	return s.nothingToReadIn(dbName)
+}
+
+// nothingToReadIn reports a store with nothing it may read from the database
+// named: one that is off, or a read-only one with no such file on disk, which
+// it must not create by opening.
+func (s Store) nothingToReadIn(name string) bool {
 	switch {
 	case s.off():
 		return true
 	case !s.readOnly:
 		return false
 	default:
-		_, err := os.Stat(filepath.Join(s.dir, dbName))
+		_, err := os.Stat(filepath.Join(s.dir, name))
 
 		return err != nil
 	}
@@ -185,17 +195,13 @@ func (s Store) nothingToRead() bool {
 // store opens the database as it is instead.
 func (s Store) open(ctx context.Context) (*sql.DB, error) {
 	if s.readOnly {
-		return s.openAsItIs()
+		return s.openAsItIs(dbName)
 	}
 
-	err := os.MkdirAll(s.dir, dirPerm)
+	err := s.makeDir()
 	if err != nil {
-		return nil, fmt.Errorf("creating the store directory: %w", err)
+		return nil, err
 	}
-
-	// MkdirAll leaves a directory that already exists at its own mode, so narrow
-	// it here rather than only on the path that created it.
-	restrictToOwner(s.dir, dirPerm)
 
 	path := filepath.Join(s.dir, dbName)
 
@@ -216,6 +222,20 @@ func (s Store) open(ctx context.Context) (*sql.DB, error) {
 	restrictToOwner(path, filePerm)
 
 	return database, nil
+}
+
+// makeDir makes the store directory, readable only by its owner.
+func (s Store) makeDir() error {
+	err := os.MkdirAll(s.dir, dirPerm)
+	if err != nil {
+		return fmt.Errorf("creating the store directory: %w", err)
+	}
+
+	// MkdirAll leaves a directory that already exists at its own mode, so narrow
+	// it here rather than only on the path that created it.
+	restrictToOwner(s.dir, dirPerm)
+
+	return nil
 }
 
 // openCurrent opens the database at path for writing, at this build's schema
@@ -281,10 +301,15 @@ func openDatabase(path string) (*sql.DB, error) {
 	return database, nil
 }
 
+// rowReader reads one row: a database, or a transaction in one.
+type rowReader interface {
+	QueryRowContext(ctx context.Context, query string, args ...any) *sql.Row
+}
+
 // readVersion reads the version stamped in the file. A file that is not a
 // database, or whose schema cannot be read, fails here, since the connection's
 // own pragmas load the schema; either is reported and left alone.
-func readVersion(ctx context.Context, database *sql.DB) (int, error) {
+func readVersion(ctx context.Context, database rowReader) (int, error) {
 	var version int
 
 	err := database.QueryRowContext(ctx, "PRAGMA user_version").Scan(&version)
@@ -352,19 +377,20 @@ func removeDatabase(path string) error {
 	return nil
 }
 
-// openAsItIs opens the database already on disk for reading alone: it makes no
-// directory, prepares no schema, narrows no mode and writes no row. Like any
-// reader of a write-ahead-logged database, SQLite may leave the log's two
-// companion files beside it, owner-only, until the next live open clears them.
-func (s Store) openAsItIs() (*sql.DB, error) {
+// openAsItIs opens the database named, already on disk, for reading alone: it
+// makes no directory, prepares no schema, narrows no mode and writes no row.
+// Like any reader of a write-ahead-logged database, SQLite may leave the log's
+// two companion files beside it, owner-only, until the next live open clears
+// them.
+func (s Store) openAsItIs(name string) (*sql.DB, error) {
 	// Read-only takes a URI, where a percent sign escapes, a question mark starts
 	// the parameters and a hash ends the path, so the file's name escapes them.
-	name := strings.NewReplacer("%", "%25", "?", "%3F", "#", "%23").
-		Replace(filepath.ToSlash(filepath.Join(s.dir, dbName)))
+	escaped := strings.NewReplacer("%", "%25", "?", "%3F", "#", "%23").
+		Replace(filepath.ToSlash(filepath.Join(s.dir, name)))
 
 	// Trade-off TRADE-15: sql.Open fails only for a driver not registered, and
 	// this package imports its driver.
-	database, err := sql.Open("sqlite", fmt.Sprintf(readOnlyDSN, name, busyTimeoutMillis))
+	database, err := sql.Open("sqlite", fmt.Sprintf(readOnlyDSN, escaped, busyTimeoutMillis))
 	if err != nil {
 		return nil, fmt.Errorf("opening the store: %w", err)
 	}
