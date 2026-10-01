@@ -11,8 +11,8 @@ import (
 	"charm.land/bubbles/v2/key"
 	tea "charm.land/bubbletea/v2"
 
-	"github.com/jacob-delgado/workflow/internal/convention"
 	"github.com/jacob-delgado/workflow/internal/jira"
+	"github.com/jacob-delgado/workflow/internal/loop"
 )
 
 // placeTitle titles the detail pane while the place picker is open.
@@ -189,7 +189,10 @@ func (msg issueBranchesListed) apply(m Model) (Model, tea.Cmd) {
 // listIssueBranches is the command that lists the local and remote branches and
 // reads the issue each names; nil with no git to ask.
 func (m Model) listIssueBranches() tea.Cmd {
-	lister := branchLister{local: m.deps.Git.Branches, remote: m.deps.Git.RemoteBranches, project: m.cfg.Jira.Project}
+	lister := branchLister{
+		local: m.deps.Git.Branches, remote: m.deps.Git.RemoteBranches, links: m.deps.Git.IssueLinks,
+		project: m.cfg.Jira.Project,
+	}
 	if lister.local == nil {
 		return nil
 	}
@@ -203,7 +206,7 @@ func (m Model) listIssueBranches() tea.Cmd {
 		keys := map[jira.Key]bool{}
 
 		for _, name := range slices.Concat(listed.local, listed.remote) {
-			if issueKey, named := convention.IssueKey(name, lister.project); named {
+			if issueKey, named := loop.NamedIssue(name, listed.links, lister.project); named {
 				keys[jira.Key(issueKey.Key)] = true
 			}
 		}

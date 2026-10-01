@@ -12,7 +12,6 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/jacob-delgado/workflow/internal/convention"
 	"github.com/jacob-delgado/workflow/internal/forge"
 	"github.com/jacob-delgado/workflow/internal/gitrepo"
 	"github.com/jacob-delgado/workflow/internal/jira"
@@ -249,7 +248,7 @@ func statusFromSeams(seams statusSeams) (statusFacts, error) {
 // A service that will not answer leaves its stage not-started rather than
 // failing the whole line.
 func gather(seams statusSeams, branch gitrepo.Branch) statusFacts {
-	issueRef, named := convention.IssueKey(branch.Name, seams.Project)
+	issueRef, named := loop.IssueOf(branch, seams.Project)
 	issueKey := issueRef.Key
 	facts := statusFacts{issue: issueKey}
 

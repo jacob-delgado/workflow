@@ -245,6 +245,9 @@ func gitDeps(ctx context.Context, root string) seams.Git {
 		Finish: func(branch, base string) error {
 			return repo.FinishBranch(ctx, branch, base, func() error { return streamToEnd(ctx, gitrepo.PullCommand(root)) })
 		},
+		IssueLinks:  func() map[string]string { return repo.IssueLinks(ctx) },
+		LinkIssue:   func(branch, issueKey string) error { return repo.SetIssueLink(ctx, branch, issueKey) },
+		UnlinkIssue: func(branch string) error { return repo.ClearIssueLink(ctx, branch) },
 	}
 }
 

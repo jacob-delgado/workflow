@@ -13,7 +13,6 @@ import (
 	"time"
 
 	"github.com/jacob-delgado/workflow/internal/api"
-	"github.com/jacob-delgado/workflow/internal/convention"
 	"github.com/jacob-delgado/workflow/internal/gitrepo"
 	"github.com/jacob-delgado/workflow/internal/jira"
 	"github.com/jacob-delgado/workflow/internal/loop"
@@ -224,7 +223,7 @@ func (s *server) snapshotBranches(checkedOut string) []api.TaskBranch {
 	}
 
 	project := s.config().Jira.Project
-	listing := branchListing{names: slices.Clone(local), remote: map[string]bool{}}
+	listing := branchListing{names: slices.Clone(local), remote: map[string]bool{}, links: s.issueLinks()}
 
 	for _, name := range s.remoteBranches() {
 		if !slices.Contains(local, name) {
@@ -233,7 +232,7 @@ func (s *server) snapshotBranches(checkedOut string) []api.TaskBranch {
 		}
 	}
 
-	listing.mine = s.yourIssues(issueKeys(listing.names, project))
+	listing.mine = s.yourIssues(issueKeys(listing.names, listing.links, project))
 
 	return taskBranchesDTO(listing, checkedOut, project)
 }
@@ -253,12 +252,23 @@ func (s *server) remoteBranches() []string {
 	return names
 }
 
-// issueKeys is the issue key each of names carries, for those that carry one.
-func issueKeys(names []string, project string) []jira.Key {
+// issueLinks is every branch linked to an issue by hand, or none when there is
+// no repository to ask.
+func (s *server) issueLinks() map[string]string {
+	if s.deps.IssueLinks == nil {
+		return nil
+	}
+
+	return s.deps.IssueLinks()
+}
+
+// issueKeys is the issue each of names is for, by its link in links or its
+// name, for those that are for one.
+func issueKeys(names []string, links map[string]string, project string) []jira.Key {
 	var keys []jira.Key
 
 	for _, name := range names {
-		if key, named := convention.IssueKey(name, project); named {
+		if key, named := loop.NamedIssue(name, links, project); named {
 			keys = append(keys, jira.Key(key.Key))
 		}
 	}

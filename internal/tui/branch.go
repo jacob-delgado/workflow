@@ -15,6 +15,7 @@ import (
 	"github.com/jacob-delgado/workflow/internal/convention"
 	"github.com/jacob-delgado/workflow/internal/gitrepo"
 	"github.com/jacob-delgado/workflow/internal/jira"
+	"github.com/jacob-delgado/workflow/internal/loop"
 )
 
 // branchState is the checked-out branch, as far as it has loaded, and how far
@@ -141,7 +142,7 @@ func (m Model) branchDetail(width int) string {
 		m.styles.label.Render("commits   ") + strconv.Itoa(len(branch.Commits)) + " not on the base",
 	}
 
-	if branchKey, named := convention.IssueKey(branch.Name, m.cfg.Jira.Project); named {
+	if branchKey, named := loop.IssueOf(branch, m.cfg.Jira.Project); named {
 		issue, listed := m.issues.find(jira.Key(branchKey.Key))
 		lines = append(lines, m.styles.label.Render("issue     ")+branchKey.Key+" "+issue.Summary+m.unlisted(listed))
 	}
@@ -229,10 +230,10 @@ func (m Model) previewRebase() (Model, tea.Cmd) {
 	return m, nil
 }
 
-// branchIssue is the issue the current branch names, typed as a jira.Key, and
-// whether it names one.
+// branchIssue is the issue the current branch is for, by its link or its name,
+// typed as a jira.Key, and whether it is for one.
 func (m Model) branchIssue() (jira.Key, bool) {
-	key, ok := convention.IssueKey(m.branch.branch.Name, m.cfg.Jira.Project)
+	key, ok := loop.IssueOf(m.branch.branch, m.cfg.Jira.Project)
 
 	return jira.Key(key.Key), ok
 }

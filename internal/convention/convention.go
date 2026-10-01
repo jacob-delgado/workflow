@@ -164,6 +164,30 @@ func RefOf(key string) (IssueRef, bool) {
 	return IssueRef{}, false
 }
 
+// IssueInText finds the issue a pull request's title or description names: a
+// Jira key where there is one, and otherwise the first forge issue it writes
+// as #42 — as "Closes #42" does — so a pull request opened outside workflow
+// still says which issue it is for.
+func IssueInText(text, project string) (IssueRef, bool) {
+	if key, found := jiraKey(text, project); found {
+		return IssueRef{Key: key, Tracker: TrackerJira}, true
+	}
+
+	match := mentionedIssue().FindStringSubmatch(text)
+	if match == nil {
+		return IssueRef{}, false
+	}
+
+	return IssueRef{Key: match[1], Tracker: TrackerForge}, true
+}
+
+// mentionedIssue matches a forge issue mentioned in text, #42, after a space,
+// punctuation or the start — not a URL's fragment, docs#42, or an HTML
+// entity, &#42;.
+func mentionedIssue() *regexp.Regexp {
+	return regexp.MustCompile(`(?:^|[\s(\[,:;])#([1-9][0-9]*)\b`)
+}
+
 // forgeNumber matches a forge issue number alone: digits with no leading zero.
 func forgeNumber() *regexp.Regexp {
 	return regexp.MustCompile(`^[1-9][0-9]*$`)

@@ -119,7 +119,7 @@ func refuseAnOpenPull(find func(branch string) (forge.PullRequest, bool, error),
 
 // draft composes the pull request for branch.
 func draft(seams PullSeams, opts PullOptions, branch gitrepo.Branch) forge.NewPullRequest {
-	key, _ := convention.IssueKey(branch.Name, opts.Project)
+	key, _ := IssueOf(branch, opts.Project)
 	issueKey := jira.Key(key.Key)
 
 	title, body := Draft(DraftInput{
@@ -173,11 +173,11 @@ func firstTemplate(read func() []forge.Template) string {
 	return templates[0].Body
 }
 
-// JiraIssue is the Jira issue the branch names, and whether it names one. The
-// bare forge issue number a branch can carry instead, 42, is no Jira issue
-// even with Jira as the tracker.
+// JiraIssue is the Jira issue the branch is for, by its link or its name, and
+// whether it has one. The bare forge issue number a branch can carry instead,
+// 42, is no Jira issue even with Jira as the tracker.
 func JiraIssue(branch gitrepo.Branch, project string) (jira.Key, bool) {
-	key, named := convention.IssueKey(branch.Name, project)
+	key, named := IssueOf(branch, project)
 	if !named || key.Tracker != convention.TrackerJira {
 		return "", false
 	}

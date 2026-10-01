@@ -37,6 +37,27 @@ func featureBranch() map[string]reply {
 			out: []byte(firstHash + "\x00fix(config): redact tokens\x00" + secondHash + "\x00test: cover the empty token\x00"),
 		},
 		baseAge + originMain: {out: []byte(baseUpdatedISO + "\n")},
+		featureLink:          {err: errNoRef},
+	}
+}
+
+// featureLink reads the issue featureBranch was linked to by hand.
+const featureLink = "git -C /work config --get branch.fix/PROJ-412-token-redaction.workflow-issue"
+
+func TestReadBranchCarriesTheIssueItWasLinkedTo(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	repo := gitrepo.At(fakeRunner(t, with(featureBranch(), map[string]reply{
+		featureLink: {out: []byte("OPS-9\n")},
+	})), workDir)
+
+	// Act
+	branch, err := repo.ReadBranch(t.Context())
+
+	// Assert
+	if err != nil || branch.IssueLink != "OPS-9" {
+		t.Errorf("ReadBranch = %+v, %v; want the link OPS-9 carried", branch, err)
 	}
 }
 
@@ -312,6 +333,7 @@ func emptyRepository() map[string]reply {
 		readUpstream:                  {err: errNoUpstream},
 		readPushDefault:               {err: errNoRef},
 		originsHead:                   {out: []byte("origin/main\n")},
+		"git -C /work config --get branch.main.workflow-issue": {err: errNoRef},
 	}
 }
 

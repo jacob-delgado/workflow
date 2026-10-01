@@ -62,6 +62,9 @@ type Deps struct {
 	// RemoteBranches lists the branches on the remotes by name, without the
 	// remote's prefix, so a branch only the remote has is in flight too.
 	RemoteBranches func() ([]string, error)
+	// IssueLinks is every branch linked to an issue by hand, by branch name,
+	// so a branch whose name names none is still in flight for its issue.
+	IssueLinks func() map[string]string
 	// ReviewRequests lists the pull requests on the forge that ask for your
 	// review, across repositories — the queue `workflow reviews` prints.
 	ReviewRequests func() ([]forge.ReviewRequest, error)

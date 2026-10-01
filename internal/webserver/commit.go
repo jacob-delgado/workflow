@@ -162,10 +162,10 @@ func (s *server) runCommit(message string) error {
 	return nil
 }
 
-// issueKeyOf is the issue a branch is named for, for the Refs trailer, or empty
-// when it names none.
+// issueKeyOf is the issue a branch is for, by its link or its name, for the
+// Refs trailer, or empty when it is for none.
 func (s *server) issueKeyOf(branch gitrepo.Branch) string {
-	key, _ := convention.IssueKey(branch.Name, s.config().Jira.Project)
+	key, _ := loop.IssueOf(branch, s.config().Jira.Project)
 
 	return key.Key
 }
