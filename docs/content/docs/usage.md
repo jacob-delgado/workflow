@@ -340,6 +340,13 @@ would, so stage something first.
 - `ctrl+o` edits the description in your editor, `ctrl+r` marks it a draft,
   and `tab` moves through the base branch, the reviewers, the assignees and the
   labels.
+- **The reviewers** start as the code owners of the paths the branch changes,
+  as the base branch's CODEOWNERS names them — people first, then teams as
+  `org/team` — leaving you out. They are read after the composer opens, so it
+  never waits on them; they fill the field only while it is still empty, and
+  a draft you closed and reopen keeps the reviewers it had. Edit them as any
+  field; see [CODEOWNERS]({{< relref "/docs/configuration#codeowners-proposes-the-reviewers" >}})
+  for which file is read and how.
 
 `enter` pushes the branch first if it is not pushed — pre-push hooks stream just
 as commit hooks do — and opens the pull request only if the push succeeded.

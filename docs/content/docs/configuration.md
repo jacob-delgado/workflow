@@ -520,6 +520,36 @@ reviewers it found. Either way the pull request opens, and a note names the
 reviewers left off; before, an unknown GitLab reviewer stopped the merge request
 from opening. An unknown assignee still does.
 
+### CODEOWNERS proposes the reviewers
+
+When a pull request is composed — in the terminal's composer, the web form and
+`workflow pr` — its reviewers start as the code owners of the paths the branch
+changes. Nothing needs configuring; a repository with no CODEOWNERS proposes
+nobody.
+
+- **Which file.** The first that exists on the base branch, read as the forge
+  reads it: on GitHub `.github/CODEOWNERS`, then `CODEOWNERS`, then
+  `docs/CODEOWNERS`, with GitHub's rules (the last matching line wins); on
+  GitLab `CODEOWNERS`, `docs/CODEOWNERS`, then `.gitlab/CODEOWNERS`, with
+  GitLab's sections, default owners and `!` exclusions. The base is read as
+  `origin`'s copy when one has been fetched, so a stale `origin/<base>` gives
+  stale owners — `git fetch` brings them up to date.
+- **Which paths.** Those the branch changes since it left the base
+  (`git diff <base>...HEAD`, a rename counting as both of its paths).
+- **Which owners.** `@username` owners are proposed as people and
+  `@org/team` owners as teams. Owners written as an email address are
+  ignored, since no forge can be asked to review as one, as are GitLab's
+  `@@role` owners. You are left out: nobody is asked to review their own pull
+  request.
+- **Teams.** GitHub is asked for a team as a team reviewer. On GitLab a
+  `@group/subgroup` owner stands for the group's active direct members, who
+  are each asked when the merge request opens; members inherited from a
+  parent group are not.
+
+A proposal that cannot be read — the diff fails, or the file cannot be read —
+proposes nobody rather than holding the pull request back. Either way the
+reviewers are only proposed: edit or clear them before opening.
+
 ### On-premises forges need `forge.kind` and `forge.host`
 
 workflow reads the forge from your git remote. `github.com`, an Enterprise Cloud
