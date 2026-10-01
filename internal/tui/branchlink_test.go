@@ -92,3 +92,31 @@ func TestConfirmingTheDescriptionLinksAndUpdatesThePullRequest(t *testing.T) {
 
 	requireScreen(t, view, "Link on "+issueKey)
 }
+
+func TestTheReviewPaneNamesTheIssueTheBranchWasLinkedTo(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	repo := onOffConventionBranch(true)
+	repo.branch.IssueLink = issueKey
+
+	// Act
+	view := typing(t, repo.live(t, 120, 40), "4").View().Content
+
+	// Assert
+	requireScreen(t, view, "issue  "+issueKey+" "+issueSummary)
+}
+
+func TestTheReviewPaneFindsTheIssueThePullRequestNames(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	repo := onOffConventionBranch(true)
+	repo.pull.Body = "Speeds it up.\n\nJira: " + issueKey
+
+	// Act
+	view := typing(t, repo.live(t, 120, 40), "4").View().Content
+
+	// Assert
+	requireScreen(t, view, "issue  "+issueKey)
+}

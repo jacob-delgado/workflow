@@ -229,7 +229,12 @@ func (s *server) readForge(branch gitrepo.Branch) (forgeRead, error) {
 		return forgeRead{}, err
 	}
 
-	return s.review(pull, found, branch.Head), nil
+	read := s.review(pull, found, branch.Head)
+	if found {
+		read.review.Issue = s.linkedIssue(branch, pull)
+	}
+
+	return read, nil
 }
 
 // review assembles the review state, folding in CI when an open pull request is

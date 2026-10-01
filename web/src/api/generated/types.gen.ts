@@ -467,6 +467,26 @@ export type Review = {
      * The pull request's CI; absent when none is found, the pull request is not open, or its CI cannot be read.
      */
     ci?: Ci | null;
+    /**
+     * The issue the branch and its pull request are for; absent when none is named.
+     */
+    issue?: LinkedIssue | null;
+};
+
+export type LinkedIssue = {
+    /**
+     * The issue's key, a forge number without its
+     */
+    key: string;
+    tracker: IssueTracker;
+    /**
+     * The issue's page, for a link to open; empty when the tracker gives none.
+     */
+    url: string;
+    /**
+     * Where the issue was found: the link the branch was given by hand, the branch's name, or the pull request's title or description.
+     */
+    origin: 'by_hand' | 'branch_name' | 'pull_request';
 };
 
 export type ReviewQueue = {

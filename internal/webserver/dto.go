@@ -264,3 +264,24 @@ func mergeable(state forge.Mergeability) api.PullRequestMergeable {
 		forge.MergeConflicts: api.Conflicts,
 	}[state]
 }
+
+// linkedIssue is the issue branch and its pull request are for, wherever it
+// was named, with its page; nil when none is. Its key and page are worked out
+// here, never read from the tracker, since the stream reads the review often.
+func (s *server) linkedIssue(branch gitrepo.Branch, pull forge.PullRequest) *api.LinkedIssue {
+	ref, origin, found := loop.BranchIssue(loop.IssueSource{
+		Branch: branch.Name, Link: branch.IssueLink, Pull: &pull, Project: s.config().Jira.Project,
+	})
+	if !found {
+		return nil
+	}
+
+	origins := map[loop.IssueOrigin]api.LinkedIssueOrigin{
+		loop.OriginLink: api.LinkedIssueOriginByHand, loop.OriginBranch: api.LinkedIssueOriginBranchName,
+		loop.OriginPull: api.LinkedIssueOriginPullRequest,
+	}
+
+	return &api.LinkedIssue{
+		Key: ref.Key, Tracker: trackerOf(jira.Key(ref.Key)), URL: s.browseURL(jira.Key(ref.Key)), Origin: origins[origin],
+	}
+}

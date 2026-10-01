@@ -3,6 +3,7 @@ import { useForm, type UseFormRegister } from 'react-hook-form'
 import { useForgeWords } from '@/api/health.ts'
 import type {
   Ci,
+  LinkedIssue,
   OpenedPullRequest,
   OpenPullRequestRequest,
   PullRequest,
@@ -53,7 +54,11 @@ function BranchReview({ review }: { review: Review }) {
       <OutcomeLine said={outcome.said} className={opened === null ? undefined : '-mb-block'} />
       {opened === null ? null : <OpenedOutcome key={opened.pull.url} opened={opened} />}
       {review.found && review.pull ? (
-        <PullRequestSummary pull={review.pull} ci={review.ci ?? null} />
+        <PullRequestSummary
+          pull={review.pull}
+          ci={review.ci ?? null}
+          issue={review.issue ?? null}
+        />
       ) : (
         <OpenPullRequest
           onOpened={(answered, said) => {
@@ -69,7 +74,15 @@ function BranchReview({ review }: { review: Review }) {
 // PullRequestSummary is the branch's pull request — its number in the forge's
 // own mark, its title, state and, while it is open, its reviews — and its CI
 // checks, which the server sends only for an open one.
-function PullRequestSummary({ pull, ci }: { pull: PullRequest; ci: Ci | null }) {
+function PullRequestSummary({
+  pull,
+  ci,
+  issue,
+}: {
+  pull: PullRequest
+  ci: Ci | null
+  issue: LinkedIssue | null
+}) {
   const { sigil } = useForgeWords()
 
   return (
@@ -90,6 +103,7 @@ function PullRequestSummary({ pull, ci }: { pull: PullRequest; ci: Ci | null }) 
           </a>
         </h2>
         <dl className={definitionList}>
+          {issue ? <IssueRow issue={issue} /> : null}
           <dt className="text-muted-foreground">State</dt>
           <dd>{stateLabel(pull)}</dd>
           {pull.state === 'open' ? <ReviewRows pull={pull} /> : null}
@@ -391,3 +405,29 @@ const labelClass = 'flex flex-col gap-tight text-sm text-muted-foreground'
 
 const prInputClass =
   'rounded-md border border-input bg-transparent px-3 py-2 text-sm text-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none'
+
+// IssueRow names the issue the pull request is for, by its key as its tracker
+// writes it, linked to its page when the tracker gives one.
+function IssueRow({ issue }: { issue: LinkedIssue }) {
+  const shown = issue.tracker === 'forge' ? `#${issue.key}` : issue.key
+
+  return (
+    <>
+      <dt className="text-muted-foreground">Issue</dt>
+      <dd className="font-mono">
+        {issue.url === '' ? (
+          shown
+        ) : (
+          <a
+            href={issue.url}
+            target="_blank"
+            rel="noreferrer"
+            className="underline-offset-4 hover:underline"
+          >
+            {shown}
+          </a>
+        )}
+      </dd>
+    </>
+  )
+}

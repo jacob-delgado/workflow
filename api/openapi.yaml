@@ -1823,6 +1823,31 @@ components:
             is not open, or its CI cannot be read.
           nullable: true
           allOf: [{$ref: "#/components/schemas/CI"}]
+        issue:
+          description: >-
+            The issue the branch and its pull request are for; absent when none
+            is named.
+          nullable: true
+          allOf: [{$ref: "#/components/schemas/LinkedIssue"}]
+      additionalProperties: false
+
+    LinkedIssue:
+      type: object
+      required: [key, tracker, url, origin]
+      properties:
+        key:
+          type: string
+          description: The issue's key, a forge number without its #.
+        tracker: {$ref: "#/components/schemas/IssueTracker"}
+        url:
+          type: string
+          description: The issue's page, for a link to open; empty when the tracker gives none.
+        origin:
+          type: string
+          enum: [by_hand, branch_name, pull_request]
+          description: >-
+            Where the issue was found: the link the branch was given by hand,
+            the branch's name, or the pull request's title or description.
       additionalProperties: false
 
     ReviewQueue:
