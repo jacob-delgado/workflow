@@ -60,7 +60,7 @@ func logServers(t *testing.T, log string, redirect func(blob string) string) (fo
 	}))
 	t.Cleanup(github.Close)
 
-	client := httpx.Client(time.Second)
+	client := httpx.Client(10 * time.Second)
 	client.Transport = github.Client().Transport
 
 	return forge.New(client.Do, github.URL, secret), api, storage
@@ -125,6 +125,23 @@ func TestJobLogKeepsTheLastLinesOfALongLog(t *testing.T) {
 	if err != nil || !log.Truncated || len(lines) != 400 || lines[len(lines)-1] != "line 999" {
 		t.Errorf("JobLog kept %d lines ending %q, truncated %v, %v; want the last 400", len(lines),
 			lines[len(lines)-1], log.Truncated, err)
+	}
+}
+
+func TestJobLogKeepsTheRealEndOfALogPastAnyReadLimit(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	huge := strings.Repeat("filler line\n", (33<<20)/len("filler line\n")) + "the real end\n"
+	client, _, _ := logServers(t, huge, func(blob string) string { return blob + "/log" })
+
+	// Act
+	log, err := client.JobLog(t.Context(), githubRepo(), failedRun())
+
+	// Assert
+	if err != nil || !log.Truncated || !strings.HasSuffix(log.Text, "\nthe real end") {
+		t.Errorf("JobLog ends %q, truncated %v, %v; want the log's last line", log.Text[max(0, len(log.Text)-40):],
+			log.Truncated, err)
 	}
 }
 
