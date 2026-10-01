@@ -78,22 +78,12 @@ func ciWord(state forge.CIState) string {
 
 // label is how the filter, and the line above the queue, name a facet value.
 func (f facet) label() string {
-	switch f.kind {
-	case facetRepository:
-		if f.value == "" {
-			return "no repository"
-		}
-
-		return f.value
-	case facetCI:
-		return "CI " + f.value
-	case facetAuthor:
-		return "by " + f.value
-	case facetDraft:
-		return f.value
+	if f.kind == facetRepository && f.value == "" {
+		return "no repository"
 	}
 
-	return f.value
+	return map[facetKind]string{facetRepository: "", facetCI: "CI ", facetDraft: "", facetAuthor: "by "}[f.kind] +
+		f.value
 }
 
 // admitsReview reports whether a request holds a picked value in every facet
