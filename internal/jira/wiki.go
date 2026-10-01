@@ -19,6 +19,10 @@ const boldSentinel = "\x00"
 // images, and lists. Text with no Markdown comes back unchanged, so it is safe
 // on plain prose — a bare asterisk between spaces or an underscore inside a word
 // is left alone rather than read as emphasis.
+//
+// Trade-off TRADE-28: these rules are written again in
+// web/src/features/issues/wiki/wikiFromMarkdown.ts, and twin-named tests pin
+// the two.
 func WikiFromMarkdown(md string) string {
 	lines := strings.Split(md, "\n")
 	out := make([]string, 0, len(lines))

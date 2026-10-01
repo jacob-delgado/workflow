@@ -639,6 +639,27 @@ copy's tests.
 **Reopen when.** The API comes to filter the queue for another reason, or
 the two copies are found to disagree.
 
+### TRADE-28 Markdown is turned into wiki markup twice
+
+With `jira.markdown_comments` on, a comment written as Markdown is posted
+as Jira's wiki markup by `jira.WikiFromMarkdown` (`internal/jira/wiki.go`),
+and the web's comment Preview draws the same conversion from its own copy
+(`web/src/features/issues/wiki/wikiFromMarkdown.ts`). The two are pinned
+by twin-named cases in `internal/jira/wiki_test.go` and
+`web/src/features/issues/wiki/wikiFromMarkdown.test.ts`.
+
+**Decided.** 2026-10-01, when the web gained commenting: Preview redraws
+on every keystroke, and asking the server for each one would be a write
+under the dry-run guard's rule (it refuses every non-GET) or a GET carrying
+the whole comment in its URL. Converting in the browser shows exactly what
+will be sent with no request at all.
+
+**Cost.** A change to how a Markdown construct converts is made twice, and
+a change made to one copy alone passes that copy's tests.
+
+**Reopen when.** The server comes to render comments itself, or the two
+copies are found to disagree.
+
 ### TRADE-24 The combined tracker reads its settings once
 
 With Jira configured and `issues.forge` on, the Issues list draws on both
