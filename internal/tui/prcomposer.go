@@ -67,8 +67,14 @@ type prComposer struct {
 	body         string
 	draft        bool
 	edited       bool
-	vocab        reviewVocab
-	send         sendState
+	// reviewersSettled reports reviewers typed, or filled from the owners,
+	// which a read of the owners then leaves alone.
+	reviewersSettled bool
+	// opened is the count of overlays opened when this one opened, so the
+	// owners read for it land in it alone.
+	opened int
+	vocab  reviewVocab
+	send   sendState
 }
 
 var (
@@ -76,54 +82,28 @@ var (
 	_ failable[prComposer] = prComposer{}
 )
 
-// prDraft is a pull request the composer was filled with, kept for the session
-// so a push that fails, or an esc, does not throw the work away.
-type prDraft struct {
-	branch, title, base, body    string
-	reviewers, assignees, labels string
-	template                     int
-	draft, edited                bool
-}
-
-// snapshot is the composer's editable state, to reopen on.
-func (c prComposer) snapshot() prDraft {
-	return prDraft{
-		branch: c.head, title: c.title.Value(), base: c.base.Value(), body: c.body,
-		reviewers: c.reviewers.Value(), assignees: c.assignees.Value(), labels: c.labels.Value(),
-		template: c.template, draft: c.draft, edited: c.edited,
-	}
-}
-
-// restore fills the composer from a kept draft.
-func (c prComposer) restore(draft prDraft) prComposer {
-	c.title.SetValue(draft.title)
-	c.base.SetValue(draft.base)
-	c.reviewers.SetValue(draft.reviewers)
-	c.assignees.SetValue(draft.assignees)
-	c.labels.SetValue(draft.labels)
-	c.body, c.template, c.draft, c.edited = draft.body, draft.template, draft.draft, draft.edited
-
-	return c
-}
-
 // openPullRequestComposer proposes a pull request for the branch, or reopens the
 // draft kept for it. An issue the list does not hold is read for the title
 // without holding the composer back: it opens on the title proposed without the
 // issue, which the issue's answer replaces while it is still untouched. The
 // code owners are read for the reviewers the same way, unless a kept draft
-// already says who reviews.
+// already says who reviews: one closed before the owners answered, its
+// reviewers never typed, is read for again.
 func (m Model) openPullRequestComposer() (Model, tea.Cmd) {
 	branch := m.branch.branch
 	issueKey, _ := m.branchIssue()
 	issue, listed := m.issues.find(issueKey)
 	proposed := m.proposePullRequest(branch, issueKey, issue.Summary)
 
-	var reviewers tea.Cmd
+	m, proposed.opened = m.opening()
+	if m.prDraft.branch == branch.Name {
+		proposed = proposed.restore(m.prDraft)
+	}
 
 	m.overlay = proposed
-	if m.prDraft.branch == branch.Name {
-		m.overlay = proposed.restore(m.prDraft)
-	} else {
+
+	var reviewers tea.Cmd
+	if !proposed.reviewersSettled {
 		reviewers = m.readReviewers(proposed)
 	}
 
@@ -223,32 +203,33 @@ func (m Model) readReviewers(composer prComposer) tea.Cmd {
 		return nil
 	}
 
-	head, base := composer.head, composer.base.Value()
+	opened, base := composer.opened, composer.base.Value()
 
 	return func() tea.Msg {
-		return reviewersRead{head: head, proposed: loop.ProposedReviewers(owners, base)}
+		return reviewersRead{opened: opened, proposed: loop.ProposedReviewers(owners, base)}
 	}
 }
 
 // reviewersRead is who the code owners propose as the pull request's reviewers,
 // read after its composer opened.
 type reviewersRead struct {
-	head     string
+	opened   int
 	proposed []string
 }
 
 var _ applier = reviewersRead{}
 
-// apply fills the composer's reviewers with the owners, unless the composer has
-// closed, or is for another branch, or is being sent, or reviewers were typed
-// in the meantime.
+// apply fills the composer's reviewers with the owners, unless the composer
+// they were read for has closed — even if another has opened since — or is
+// being sent, or reviewers were typed in the meantime.
 func (read reviewersRead) apply(m Model) (Model, tea.Cmd) {
 	composer, open := m.overlay.(prComposer)
-	if !open || composer.head != read.head || composer.send.sending || composer.reviewers.Value() != "" {
+	if !open || composer.opened != read.opened || composer.send.sending || composer.reviewersSettled {
 		return m, nil
 	}
 
 	composer.reviewers.SetValue(strings.Join(read.proposed, ", "))
+	composer.reviewersSettled = true
 	m.overlay = composer
 
 	return m, nil
@@ -447,7 +428,9 @@ func (c prComposer) typed(msg tea.KeyPressMsg) prComposer {
 	case prFieldBase:
 		c.base, _ = c.base.Update(msg)
 	case prFieldReviewers:
+		before := c.reviewers.Value()
 		c.reviewers, _ = c.reviewers.Update(msg)
+		c.reviewersSettled = c.reviewersSettled || c.reviewers.Value() != before
 	case prFieldAssignees:
 		c.assignees, _ = c.assignees.Update(msg)
 	case prFieldLabels:

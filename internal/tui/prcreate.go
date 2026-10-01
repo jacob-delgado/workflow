@@ -148,3 +148,34 @@ func (msg pullCreated) apply(m Model) (Model, tea.Cmd) {
 		return m.closeOverlay(), cmds
 	}
 }
+
+// prDraft is a pull request the composer was filled with, kept for the session
+// so a push that fails, or an esc, does not throw the work away.
+type prDraft struct {
+	branch, title, base, body       string
+	reviewers, assignees, labels    string
+	template                        int
+	draft, edited, reviewersSettled bool
+}
+
+// snapshot is the composer's editable state, to reopen on.
+func (c prComposer) snapshot() prDraft {
+	return prDraft{
+		branch: c.head, title: c.title.Value(), base: c.base.Value(), body: c.body,
+		reviewers: c.reviewers.Value(), assignees: c.assignees.Value(), labels: c.labels.Value(),
+		template: c.template, draft: c.draft, edited: c.edited, reviewersSettled: c.reviewersSettled,
+	}
+}
+
+// restore fills the composer from a kept draft.
+func (c prComposer) restore(draft prDraft) prComposer {
+	c.title.SetValue(draft.title)
+	c.base.SetValue(draft.base)
+	c.reviewers.SetValue(draft.reviewers)
+	c.assignees.SetValue(draft.assignees)
+	c.labels.SetValue(draft.labels)
+	c.body, c.template, c.draft, c.edited = draft.body, draft.template, draft.draft, draft.edited
+	c.reviewersSettled = draft.reviewersSettled
+
+	return c
+}
