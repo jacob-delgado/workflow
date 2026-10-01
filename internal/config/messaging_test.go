@@ -30,10 +30,10 @@ func TestMessagingModeReflectsTheKind(t *testing.T) {
 			messaging: config.Messaging{},
 			want:      config.MessagingNone,
 		},
-		// A webhook-only kind has no bot token, so one set beside it is ignored and
-		// the mode is decided by the webhook alone.
-		"teams ignores a token and needs the webhook": {
-			messaging: config.Messaging{Kind: config.KindTeams, Token: botToken},
+		// A webhook-only kind has no user token: the mode is decided by the
+		// webhook alone (Parse refuses a client_id on it outright).
+		"teams ignores a user token and needs the webhook": {
+			messaging: config.Messaging{Kind: config.KindTeams, ClientID: slackClientID},
 			want:      config.MessagingNone,
 		},
 		"teams over its webhook": {
@@ -48,26 +48,19 @@ func TestMessagingModeReflectsTheKind(t *testing.T) {
 			messaging: config.Messaging{Kind: config.KindWebhook, WebhookURL: webhookURL},
 			want:      config.MessagingWebhook,
 		},
-		// Slack is the exception: a bot token is its more capable transport.
-		"slack with a bot token": {
-			messaging: config.Messaging{Kind: config.KindSlack, Token: botToken, Channel: devChannel},
-			want:      config.MessagingBot,
+		// Slack is the exception: it can post with a user token.
+		"slack with a user token": {
+			messaging: config.Messaging{Kind: config.KindSlack, ClientID: slackClientID, Channel: devChannel},
+			want:      config.MessagingUser,
 		},
 		"slack over its webhook": {
 			messaging: config.Messaging{Kind: config.KindSlack, WebhookURL: webhookURL},
 			want:      config.MessagingWebhook,
 		},
-		// Both is not an error. The bot token is the more capable transport, so
-		// it wins rather than the configuration being called ambiguous.
-		"slack with both prefers the bot token": {
-			messaging: config.Messaging{Kind: config.KindSlack, Token: botToken, WebhookURL: webhookURL, Channel: devChannel},
-			want:      config.MessagingBot,
-		},
-		// An empty kind is read as Slack, so a block written before kinds existed
-		// still posts with its bot token.
+		// An empty kind is read as Slack.
 		"an empty kind is slack": {
-			messaging: config.Messaging{Token: botToken, Channel: devChannel},
-			want:      config.MessagingBot,
+			messaging: config.Messaging{ClientID: slackClientID, Channel: devChannel},
+			want:      config.MessagingUser,
 		},
 	}
 
@@ -251,7 +244,7 @@ func TestRedactedMasksAMessagingWebhookAndToken(t *testing.T) {
 
 	// Arrange
 	cfg := config.Config{
-		Messaging: config.Messaging{Kind: config.KindTeams, Token: botToken, WebhookURL: webhookURL},
+		Messaging: config.Messaging{Kind: config.KindSlack, AccessToken: slackAccessToken, WebhookURL: webhookURL},
 	}
 
 	// Act
@@ -259,7 +252,7 @@ func TestRedactedMasksAMessagingWebhookAndToken(t *testing.T) {
 
 	// Assert
 	if strings.Contains(redacted.Messaging.WebhookURL.Reveal(), "hooks.slack.com") ||
-		redacted.Messaging.Token.Reveal() == botToken {
+		redacted.Messaging.AccessToken.Reveal() == slackAccessToken {
 		t.Errorf("Redacted leaked a messaging secret: %+v", redacted.Messaging)
 	}
 

@@ -23,7 +23,9 @@ func (c Config) Redacted() Config {
 	redacted := c
 	redacted.Jira.Token = redactSecret(c.Jira.Token)
 	redacted.Jira.Headers = redactHeaders(c.Jira.Headers)
-	redacted.Messaging.Token = redactSecret(c.Messaging.Token)
+	redacted.Messaging.ClientSecret = redactSecret(c.Messaging.ClientSecret)
+	redacted.Messaging.RefreshToken = redactSecret(c.Messaging.RefreshToken)
+	redacted.Messaging.AccessToken = redactSecret(c.Messaging.AccessToken)
 	redacted.Messaging.WebhookURL = redactSecret(c.Messaging.WebhookURL)
 	redacted.Jira.BaseURL = RedactURL(c.Jira.BaseURL)
 	redacted.Forge.Token = redactSecret(c.Forge.Token)
@@ -126,7 +128,10 @@ type credentialMask struct {
 // credentialMasks pairs each credential c holds with its mask. An unset one
 // is left out: replacing "" would splice the mask between every character.
 func (c Config) credentialMasks() []credentialMask {
-	secrets := append([]Secret{c.Jira.Token, c.Messaging.Token, c.Messaging.WebhookURL, c.Forge.Token},
+	secrets := append([]Secret{
+		c.Jira.Token, c.Messaging.ClientSecret, c.Messaging.RefreshToken, c.Messaging.AccessToken,
+		c.Messaging.WebhookURL, c.Forge.Token,
+	},
 		slices.Collect(maps.Values(c.Jira.Headers))...)
 
 	masks := make([]credentialMask, 0, len(secrets)+1)

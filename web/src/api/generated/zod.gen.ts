@@ -404,9 +404,11 @@ export const zMessagingConfig = z.object({
         'discord',
         'webhook'
     ]).optional(),
-    token: z.string().optional(),
-    token_command: z.string().optional(),
-    token_env: z.string().optional(),
+    client_id: z.string().optional(),
+    client_secret: z.string().optional(),
+    refresh_token: z.string().optional(),
+    access_token: z.string().optional(),
+    expires_at: z.string().optional(),
     webhook_url: z.string().optional(),
     channel: z.string().optional(),
     channels: z.array(z.string()).nullish(),
@@ -488,7 +490,7 @@ export const zJiraConfig = z.object({
 });
 
 /**
- * The whole configuration file. On a read, the four secret fields and the Jira header values are masked; on a write, a masked or empty secret keeps the stored value.
+ * The whole configuration file. On a read, the six secret fields and the Jira header values are masked; on a write, a masked or empty secret keeps the stored value.
  */
 export const zConfig = z.object({
     version: z.string(),

@@ -89,12 +89,12 @@ func TestMissingNamesWhatTheConfigurationStillNeeds(t *testing.T) {
 		// tracker.
 		"an empty configuration names every required field": {
 			cfg:  config.Config{},
-			want: []string{"messaging.token or messaging.webhook_url"},
+			want: []string{"messaging.client_id (workflow slack login) or messaging.webhook_url"},
 		},
 		"no jira.base_url leaves the tracker to the forge's issues": {
 			cfg: config.Config{
 				Jira:      config.Jira{BaseURL: "", Token: "", User: ""},
-				Messaging: config.Messaging{Token: "", WebhookURL: webhookURL, Channel: ""},
+				Messaging: config.Messaging{ClientID: "", WebhookURL: webhookURL, Channel: ""},
 				Path:      "",
 			},
 			want: nil,
@@ -102,7 +102,7 @@ func TestMissingNamesWhatTheConfigurationStillNeeds(t *testing.T) {
 		"a jira.base_url still needs its token": {
 			cfg: config.Config{
 				Jira:      config.Jira{BaseURL: jiraURL, Token: "", User: ""},
-				Messaging: config.Messaging{Token: "", WebhookURL: webhookURL, Channel: ""},
+				Messaging: config.Messaging{ClientID: "", WebhookURL: webhookURL, Channel: ""},
 				Path:      "",
 			},
 			want: []string{"jira.token"},
@@ -113,15 +113,15 @@ func TestMissingNamesWhatTheConfigurationStillNeeds(t *testing.T) {
 		"a webhook needs no channel": {
 			cfg: config.Config{
 				Jira:      config.Jira{BaseURL: jiraURL, Token: "t", User: ""},
-				Messaging: config.Messaging{Token: "", WebhookURL: webhookURL, Channel: ""},
+				Messaging: config.Messaging{ClientID: "", WebhookURL: webhookURL, Channel: ""},
 				Path:      "",
 			},
 			want: nil,
 		},
-		"a bot token needs a channel": {
+		"a user token needs a channel": {
 			cfg: config.Config{
 				Jira:      config.Jira{BaseURL: jiraURL, Token: "t", User: ""},
-				Messaging: config.Messaging{Token: botToken, WebhookURL: "", Channel: ""},
+				Messaging: config.Messaging{ClientID: slackClientID, WebhookURL: "", Channel: ""},
 				Path:      "",
 			},
 			want: []string{"messaging.channel"},
@@ -130,7 +130,7 @@ func TestMissingNamesWhatTheConfigurationStillNeeds(t *testing.T) {
 		"a forge kind needs the host it describes": {
 			cfg: config.Config{
 				Jira:      config.Jira{BaseURL: jiraURL, Token: "t", User: ""},
-				Messaging: config.Messaging{Token: "", WebhookURL: webhookURL, Channel: ""},
+				Messaging: config.Messaging{ClientID: "", WebhookURL: webhookURL, Channel: ""},
 				Forge:     config.Forge{Kind: "github", Host: "", Token: ""},
 				Path:      "",
 			},
@@ -139,7 +139,7 @@ func TestMissingNamesWhatTheConfigurationStillNeeds(t *testing.T) {
 		"a forge kind with its host is complete": {
 			cfg: config.Config{
 				Jira:      config.Jira{BaseURL: jiraURL, Token: "t", User: ""},
-				Messaging: config.Messaging{Token: "", WebhookURL: webhookURL, Channel: ""},
+				Messaging: config.Messaging{ClientID: "", WebhookURL: webhookURL, Channel: ""},
 				Forge:     config.Forge{Kind: "github", Host: "git.example.com", Token: ""},
 				Path:      "",
 			},
@@ -191,7 +191,7 @@ func TestMessagingModeString(t *testing.T) {
 		want string
 	}{
 		"no transport": {mode: config.MessagingNone, want: "none"},
-		"bot":          {mode: config.MessagingBot, want: "bot token"},
+		"user":         {mode: config.MessagingUser, want: "user token"},
 		"webhook":      {mode: config.MessagingWebhook, want: "incoming webhook"},
 		// Total, like AuthMode: a value from outside the enum still reads.
 		"a value outside the enum": {mode: config.MessagingMode(99), want: "unknown"},
@@ -217,19 +217,19 @@ func TestMessagingTarget(t *testing.T) {
 		want      string
 	}{
 		"nothing configured": {
-			messaging: config.Messaging{Token: "", WebhookURL: "", Channel: ""},
+			messaging: config.Messaging{ClientID: "", WebhookURL: "", Channel: ""},
 			want:      "(not set)",
 		},
 		"bot names its channel": {
-			messaging: config.Messaging{Token: botToken, WebhookURL: "", Channel: devChannel},
+			messaging: config.Messaging{ClientID: slackClientID, WebhookURL: "", Channel: devChannel},
 			want:      devChannel,
 		},
 		"bot without a channel says so": {
-			messaging: config.Messaging{Token: botToken, WebhookURL: "", Channel: ""},
+			messaging: config.Messaging{ClientID: slackClientID, WebhookURL: "", Channel: ""},
 			want:      "(no channel set)",
 		},
 		"webhook describes its binding": {
-			messaging: config.Messaging{Token: "", WebhookURL: webhookURL, Channel: ""},
+			messaging: config.Messaging{ClientID: "", WebhookURL: webhookURL, Channel: ""},
 			want:      "the channel its webhook is bound to",
 		},
 	}
@@ -253,10 +253,8 @@ func TestMessagingTargetNeverRevealsTheWebhookURL(t *testing.T) {
 	t.Parallel()
 
 	cases := map[string]config.Messaging{
-		"a webhook alone":             {Token: "", WebhookURL: webhookURL, Channel: ""},
-		"a webhook and a channel":     {Token: "", WebhookURL: webhookURL, Channel: devChannel},
-		"a webhook beside a token":    {Token: botToken, WebhookURL: webhookURL, Channel: devChannel},
-		"a webhook beside no channel": {Token: botToken, WebhookURL: webhookURL, Channel: ""},
+		"a webhook alone":         {WebhookURL: webhookURL, Channel: ""},
+		"a webhook and a channel": {WebhookURL: webhookURL, Channel: devChannel},
 	}
 
 	for name, messaging := range cases {
@@ -356,7 +354,7 @@ func TestRedactedMasksAPasswordInTheBaseURL(t *testing.T) {
 	// template invites people to paste into a public issue.
 	cfg := config.Config{
 		Jira:      config.Jira{BaseURL: passwordURL, Token: "t", User: ""},
-		Messaging: config.Messaging{Token: botToken, WebhookURL: "", Channel: devChannel},
+		Messaging: config.Messaging{ClientID: slackClientID, WebhookURL: "", Channel: devChannel},
 		Path:      "",
 	}
 

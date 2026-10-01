@@ -111,12 +111,13 @@ internal/webserver 20
 # configuration review, doctor_credentials.go for the --online checks, and
 # doctor_json.go for --json; status; reviews; standup), the guided config, the
 # root wiring, and the scriptable write commands from FEAT-41 (branch.go, pr.go,
-# announce.go) with their shared preview/confirm/dry-run helper (scriptable.go).
+# announce.go) with their shared preview/confirm/dry-run helper (scriptable.go),
+# and slack_cmd.go for `workflow slack login`, which sets up the Slack user token.
 # One responsibility — turn a command line into a wiring seam call and printed
 # output — spelled command-per-file; it grows when the tool gains a command,
 # which the docs reference records, or when one command's sections outgrow a
 # file, as doctor's did.
-internal/cli 14
+internal/cli 15
 
 # web/src/api/generated — the @hey-api client generated from api/openapi.yaml by
 # `yarn gen`. Never hand-edited, regenerated wholesale, and gated for drift by

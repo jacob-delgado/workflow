@@ -685,7 +685,7 @@ export type MessagingDestination = {
 };
 
 /**
- * The whole configuration file. On a read, the four secret fields and the Jira header values are masked; on a write, a masked or empty secret keeps the stored value.
+ * The whole configuration file. On a read, the six secret fields and the Jira header values are masked; on a write, a masked or empty secret keeps the stored value.
  */
 export type Config = {
     version: string;
@@ -734,11 +734,25 @@ export type MessagingConfig = {
      */
     kind?: '' | 'slack' | 'teams' | 'discord' | 'webhook';
     /**
-     * A Slack bot token. Masked on read; empty or masked on write keeps the stored value. Ignored by the webhook-only kinds.
+     * The Slack app's client ID, which its rotating user token is refreshed with. Slack only; set together with webhook_url it is refused. Not a secret.
      */
-    token?: string;
-    token_command?: string;
-    token_env?: string;
+    client_id?: string;
+    /**
+     * The Slack app's client secret, when this file keeps the user token's credentials rather than the macOS keychain. Masked on read; empty or masked on write keeps the stored value.
+     */
+    client_secret?: string;
+    /**
+     * The user token's current refresh token (xoxe-1-…), when this file keeps it. workflow replaces it on every refresh. Masked on read; empty or masked on write keeps the stored value.
+     */
+    refresh_token?: string;
+    /**
+     * The user token's current access token (xoxe.xoxp-…), when this file keeps it. workflow replaces it on every refresh. Masked on read; empty or masked on write keeps the stored value.
+     */
+    access_token?: string;
+    /**
+     * When the access token expires, RFC 3339 UTC; written by workflow.
+     */
+    expires_at?: string;
     /**
      * A credential; masked on read, preserved on write like a token.
      */

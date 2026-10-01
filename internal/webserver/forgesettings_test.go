@@ -18,6 +18,13 @@ import (
 	"github.com/jacob-delgado/workflow/internal/webserver"
 )
 
+// slackApp and slackChannel are the Slack user token's app and channel the
+// settings tests save.
+const (
+	slackApp     = "1234.5678"
+	slackChannel = "#dev"
+)
+
 // savedHost is the host the saved forge settings name.
 const savedHost = "git.example.com"
 
@@ -126,5 +133,52 @@ func TestAForgeTokenEditedOnDiskIsHandedOnOnceRead(t *testing.T) {
 	used, ok := recorder.last()
 	if !ok || used.Token.Reveal() != "glpat-edited-on-disk" {
 		t.Errorf("the forge was handed %+v (%t), want the token edited on disk", used, ok)
+	}
+}
+
+func TestSlackSecretsSavedInSettingsArePlacedAndKeptOutOfTheFile(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	var placed []config.Config
+
+	used := make(chan config.Messaging, 1)
+	cfg := config.Default()
+	cfg.Path = filepath.Join(t.TempDir(), ".workflow.json")
+	deps := webserver.Deps{
+		PlaceSlackCredentials: func(withSecrets config.Config) (config.Config, error) {
+			placed = append(placed, withSecrets)
+			withSecrets.Messaging.ClientSecret, withSecrets.Messaging.RefreshToken = "", ""
+
+			return withSecrets, nil
+		},
+		UseMessagingSettings: func(settings config.Messaging) { used <- settings },
+	}
+	handler := serveWith(t, deps, cfg, webserver.Info{Version: testVersion})
+	next := cfg
+	next.Messaging = config.Messaging{
+		Kind: config.KindSlack, ClientID: slackApp, ClientSecret: "client-secret-9999",
+		RefreshToken: "slack-refresh-8888", Channel: slackChannel,
+	}
+
+	// Act
+	saved := putConfig(t, handler, marshal(t, next))
+
+	// Assert
+	if saved.Code != http.StatusOK {
+		t.Fatalf("status = %d, want 200: %s", saved.Code, saved.Body.String())
+	}
+
+	if len(placed) != 1 || placed[0].Messaging.RefreshToken.Reveal() != "slack-refresh-8888" {
+		t.Fatalf("placed %d configurations, want the one carrying the typed refresh token", len(placed))
+	}
+
+	written, err := config.LoadFile(cfg.Path)
+	if err != nil || written.Messaging.HoldsUserTokenSecrets() || written.Messaging.ClientID != slackApp {
+		t.Errorf("the file reads %+v, %v; want the client ID and no secret", written.Messaging, err)
+	}
+
+	if settings := <-used; settings.ClientID != slackApp {
+		t.Errorf("the next post would use %+v, want the settings just saved", settings)
 	}
 }

@@ -27,8 +27,8 @@ format that may still change before 1.0.
   offered a `lefthook.yml` that runs them.
 - `workflow doctor` reports the repository, tooling and configuration in effect;
   `workflow doctor --online` asks Jira and your forge whether their credentials
-  work, and Slack whether a bot token does; a webhook cannot be checked without
-  posting, so it is reported unchecked.
+  work, and Slack whether your user token does, refreshing it if it is due; a
+  webhook cannot be checked without posting, so it is reported unchecked.
 - `workflow config init` writes a starting configuration file, and
   `workflow config show` prints the one in effect, credentials masked.
 
@@ -42,7 +42,7 @@ format that may still change before 1.0.
   sections, its live stream, and what it leaves to the terminal.
 - **[Configuration]({{< relref "/docs/configuration" >}})** — every field of
   `.workflow.json`, and how to get the Jira token and a messaging webhook or
-  Slack bot token.
+  Slack user token.
 - **[Scripting]({{< relref "/docs/scripting" >}})** — the commands without the
   interface: exit codes, streams, `--json`, `--yes`, `--dry-run` and `--log`.
 - **[Command reference]({{< relref "/docs/reference" >}})** — every command and

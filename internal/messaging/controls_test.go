@@ -70,7 +70,7 @@ func TestAnAnswerThatBreaksOffIsAnError(t *testing.T) {
 		return &http.Response{StatusCode: http.StatusOK, Body: io.NopCloser(brokenBody{})}, nil
 	}
 
-	client := messaging.New(dropped, messaging.APIBase, botCredentials())
+	client := messaging.New(dropped, messaging.APIBase, userCredentials()).WithToken(heldToken)
 
 	// Act
 	_, err := client.AuthTest(t.Context())

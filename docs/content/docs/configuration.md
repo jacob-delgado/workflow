@@ -37,7 +37,8 @@ workflow reads a single JSON file, `.workflow.json`.
 
 Run `workflow config init` and it asks for the Jira address and token and
 checks them, then asks for a Slack incoming webhook, which it saves unchecked,
-since a webhook cannot be checked without posting. It warns if the file would
+since a webhook cannot be checked without posting; leave it blank to post with
+your Slack user token, which `workflow slack login` sets up afterwards. It warns if the file would
 not be ignored by git, and writes what passed — nothing is echoed as you type a
 token or the webhook. Add `--global`
 to write it to your home directory, or `--template` to write a blank file to
@@ -76,12 +77,11 @@ which one was read.
 | `jira.markdown_comments` | no | Write comments in Markdown and have them posted as Jira's wiki markup. Off by default, so a comment already in wiki markup is posted unchanged. |
 | `jira.review_status` | no | The status an issue moves to once its pull request is open, e.g. `In Review`. Opening a pull request offers the move to this status by name. Empty (the default) makes no offer. |
 | `messaging.kind` | no | Service to post to: `slack` (the default when empty), `teams`, `discord`, or a plain `webhook`, spelled in lowercase; any other value is refused when the file loads. It decides the message body and link markup. |
-| `messaging.token` | for a Slack bot | Bot token; starts with `xoxb-`. Or use `messaging.token_command` / `messaging.token_env`. Ignored by the webhook-only kinds. |
-| `messaging.token_command` | for a Slack bot | A program that prints the bot token. |
-| `messaging.token_env` | for a Slack bot | An environment variable that holds the bot token. |
-| `messaging.webhook_url` | for a webhook | Incoming webhook URL. **This is a credential**, not just an address. The only transport for Teams, Discord and a plain webhook. |
-| `messaging.channel` | only with a Slack bot | Channel to post in, e.g. `#dev-workflow`. A webhook carries its own. |
-| `messaging.channels` | no | Further channels a bot-token announcement can go to, for a change that concerns another team, e.g. `["#platform"]`. The announcement preview offers them after `messaging.channel`, which is always a choice; invite the bot to each. A webhook carries its own channel and offers none. |
+| `messaging.client_id` | for a Slack user token | Your Slack app's client ID, which its rotating user token is refreshed with. Not a secret; `workflow slack login` writes it. Slack only, and never together with `messaging.webhook_url`. |
+| `messaging.client_secret`, `messaging.refresh_token`, `messaging.access_token`, `messaging.expires_at` | written by workflow | The user token's rotating credentials, when this file keeps them — on Linux and Windows, or on macOS once they are here — rather than the keychain. workflow rewrites the last three on every refresh. All but `expires_at` are **credentials**. |
+| `messaging.webhook_url` | for a webhook | Incoming webhook URL. **This is a credential**, not just an address. The only transport for Teams, Discord and a plain webhook; for Slack, set it or a user token, never both. |
+| `messaging.channel` | with a Slack user token | Channel to post in, e.g. `#dev-workflow`. You must be in it. A webhook carries its own. |
+| `messaging.channels` | no | Further channels a user-token announcement can go to, for a change that concerns another team, e.g. `["#platform"]`. The announcement preview offers them after `messaging.channel`, which is always a choice; you must be in each. A webhook carries its own channel and offers none. |
 | `messaging.announcement` | no | Slack template for the review message, from `{author}`, `{noun}`, `{title}`, `{url}`, `{key}`, `{summary}`, `{issue_url}`. Empty, or any non-Slack kind, uses the built-in message. |
 | `forge.kind` | on-prem only | `github` or `gitlab`, for a host whose name says neither. |
 | `forge.host` | with `forge.kind` | The host `forge.kind` and `forge.token` are for, e.g. `git.example.com`. |
@@ -220,8 +220,8 @@ The interface and `workflow --web` scope a view alike, and the web's
 
 ## Keeping tokens out of the file
 
-So the file need hold no secret, a Jira or Slack token can instead come from a
-program or an environment variable:
+So the file need hold no secret, a Jira token can instead come from a program
+or an environment variable (a Slack user token has a home of its own, below):
 
 - `token_command` runs a program and reads the token from its output, e.g.
   `pass show jira/token`, `op read "op://vault/jira/token"`, or
@@ -234,11 +234,10 @@ The file's own `token` wins when set, then `token_env`, then `token_command`.
 `workflow doctor --online` reports which source each credential came from,
 without ever printing the value.
 
-Each token is found the first time a command needs its service, so one that
-never reaches Jira or the messaging service, such as `workflow reviews`, never
-runs their token commands. The interface and `--web` find both before they
-start, while a command that asks for a passphrase on the terminal can still be
-answered. A command that fails or prints nothing, or a variable that is empty,
+The Jira token is found the first time a command needs Jira, so one that never
+reaches it, such as `workflow reviews`, never runs its token command. The
+interface and `--web` find it before they start, while a command that asks for a
+passphrase on the terminal can still be answered. A command that fails or prints nothing, or a variable that is empty,
 is reported as no token where the service was wanted, and the token is looked
 for again the next time.
 
@@ -267,17 +266,60 @@ incoming webhook.
 
 | Kind | Transport | Link markup |
 | --- | --- | --- |
-| `slack` | bot token or incoming webhook | Slack mrkdwn `<url\|text>` |
+| `slack` | rotating user token or incoming webhook | Slack mrkdwn `<url\|text>` |
 | `teams` | incoming webhook | Markdown `[text](url)` |
 | `discord` | incoming webhook | Markdown `[text](url)` |
 | `webhook` | incoming webhook | bare URL, no markup |
 
 `workflow doctor` reports the service and the transport in effect.
 
-### Slack: a webhook or a bot token
+### Slack: a user token or a webhook
 
-Set either one. If you set both, the bot token is used — it is the more capable
-transport, and a configuration that has both is not an error.
+Set up one or the other. A file that sets up both — `messaging.client_id`, or
+any of the user token's secrets, beside `messaging.webhook_url` — is refused when
+it loads, so it is always clear which one posts. The Slack bot token is gone:
+a file still naming `messaging.token`, `token_command` or `token_env` is refused
+with the way to set up a user token instead.
+
+#### User token — posts as you, to the channel you choose
+
+Posts go out as you, through Slack's API, with a token that **rotates**: each
+access token (`xoxe.xoxp-…`) lasts twelve hours, and a refresh token
+(`xoxe-1-…`), which works once, swaps it for a new pair. workflow refreshes it
+for you before it runs out, and keeps each new pair.
+
+1. Create an app at [api.slack.com/apps](https://api.slack.com/apps) in your
+   workspace.
+2. Under **OAuth & Permissions**, add the `chat:write` **user** token scope,
+   and turn on **token rotation**. Slack does not let rotation be turned off
+   again.
+3. Install the app to the workspace. Copy the **refresh token** it gives, and
+   the app's **Client ID** and **Client Secret** from **Basic Information**.
+4. Set `messaging.channel` to a channel you are in, then run:
+
+   ```sh
+   workflow slack login
+   ```
+
+   It asks for the client ID, then the client secret and refresh token without
+   echoing them, refreshes the token once to prove them, writes
+   `messaging.client_id` into the file, and says whose token it is.
+
+Where the token is kept:
+
+- **macOS**: in the keychain, under `workflow-slack`, so the file holds no
+  secret. If the file already holds the token's secrets, it stays there.
+- **Linux and Windows**: in the configuration file, which workflow rewrites
+  after every refresh — the file is written readable only by you, as `config
+  init` writes it.
+
+Every post asks for the token anew and refreshes it when it has less than ten
+minutes left, and once more if Slack still calls it expired. Two workflows
+running at once — the terminal and `--web`, say — take turns through a lock
+file beside the store, so they never spend the same refresh token twice.
+`workflow doctor --online` refreshes it if it is due, and says whose it is,
+where it is kept and when it expires. The web's Settings takes the same three
+answers and keeps them the same way.
 
 #### Incoming webhook — the two-minute option
 
@@ -288,27 +330,17 @@ transport, and a configuration that has both is not an error.
 3. Copy the URL into `messaging.webhook_url` (with `"kind": "slack"`).
 
 The webhook is bound to the channel you chose, so `messaging.channel` does not
-apply and is not required. There is no app review, no scope to request and no bot
-to invite.
+apply and is not required. There is no scope to request and no token to keep
+fresh.
 
 The trade-off is that a webhook posts and nothing else: it cannot tell workflow
 the message's timestamp, so later events arrive as new messages rather than
 replies, and it can never post anywhere but that one channel.
 
-#### Bot token — choose the channel at runtime
-
-1. Create an app at [api.slack.com/apps](https://api.slack.com/apps) in your
-   workspace.
-2. Under **OAuth & Permissions**, add the `chat:write` bot token scope.
-3. Install the app to the workspace and copy the **Bot User OAuth Token** — it
-   starts with `xoxb-` — into `messaging.token`.
-4. Set `messaging.channel`, and invite the bot to that channel. Without the
-   invite it cannot post there.
-
 ### Teams, Discord or a plain webhook
 
 Create an incoming webhook in the service, set `messaging.kind` to `teams`,
-`discord` or `webhook`, and copy the URL into `messaging.webhook_url`. A bot
+`discord` or `webhook`, and copy the URL into `messaging.webhook_url`. A user
 token and channel do not apply — the webhook carries its own destination. The
 notifier renders each message in the service's own markup: Markdown links for
 Teams and Discord, and a bare URL for a plain webhook.

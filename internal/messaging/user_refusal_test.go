@@ -12,7 +12,7 @@ import (
 	"github.com/jacob-delgado/workflow/internal/messaging"
 )
 
-func TestABotPostRefusedForItsTokenIsARejectedCredential(t *testing.T) {
+func TestAUserPostRefusedForItsTokenIsARejectedCredential(t *testing.T) {
 	t.Parallel()
 
 	rejected, refused := messaging.ErrRejected, messaging.ErrPostRefused
@@ -32,8 +32,8 @@ func TestABotPostRefusedForItsTokenIsARejectedCredential(t *testing.T) {
 		"a revoked token":       {code: "token_revoked", want: rejected, notWant: refused, says: "token_revoked"},
 		"an expired token":      {code: "token_expired", want: rejected, notWant: refused, says: "token_expired"},
 		"a scope the app lacks": {code: "missing_scope", want: rejected, notWant: refused, says: "missing_scope"},
-		"a bot not in the channel": {
-			code: "not_in_channel", want: refused, notWant: rejected, says: "the bot is not in #dev",
+		"you not in the channel": {
+			code: "not_in_channel", want: refused, notWant: rejected, says: "you are not in #dev",
 		},
 		"a code it does not explain": {code: "msg_too_long", want: refused, notWant: rejected, says: "msg_too_long"},
 	}
@@ -44,7 +44,7 @@ func TestABotPostRefusedForItsTokenIsARejectedCredential(t *testing.T) {
 
 			// Arrange
 			server, _ := slackReceiving(t, http.StatusOK, `{"ok":false,"error":"`+tt.code+`"}`)
-			client := messaging.New(server.Client().Do, server.URL, botCredentials())
+			client := messaging.New(server.Client().Do, server.URL, userCredentials()).WithToken(heldToken)
 
 			// Act
 			err := client.Post(t.Context(), "", message)

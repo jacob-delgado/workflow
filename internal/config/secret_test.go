@@ -23,8 +23,11 @@ func TestASecretMasksUnderEveryVerbAndWhenNested(t *testing.T) {
 			Token:   config.Secret(plaintext),
 			Headers: map[string]config.Secret{"X-Gateway-Secret": config.Secret(plaintext)},
 		},
-		Messaging: config.Messaging{Token: config.Secret(plaintext), WebhookURL: config.Secret(plaintext)},
-		Forge:     config.Forge{Token: config.Secret(plaintext)},
+		Messaging: config.Messaging{
+			ClientSecret: config.Secret(plaintext), RefreshToken: config.Secret(plaintext),
+			AccessToken: config.Secret(plaintext), WebhookURL: config.Secret(plaintext),
+		},
+		Forge: config.Forge{Token: config.Secret(plaintext)},
 	}
 
 	printed := map[string]string{

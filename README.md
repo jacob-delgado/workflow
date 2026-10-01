@@ -43,8 +43,8 @@ format that may still change before 1.0.
   offered a `lefthook.yml` that runs them.
 - `workflow doctor` reports the repository, tooling and configuration in effect;
   `workflow doctor --online` asks Jira and your forge whether their credentials
-  work, and Slack whether a bot token does; a webhook cannot be checked without
-  posting, so it is reported unchecked.
+  work, and Slack whether your user token does, refreshing it if it is due; a
+  webhook cannot be checked without posting, so it is reported unchecked.
 - `workflow config init` writes a starting configuration file, and
   `workflow config show` prints the one in effect, credentials masked.
 - `workflow standup` drafts what you did — your recent commits, the issues you
@@ -167,11 +167,12 @@ carry the gateway's own token or headers with `jira.token_command` and
 ### Messaging: Slack, Teams, Discord or a plain webhook
 
 `messaging.kind` picks the service — `slack` (the default when empty), `teams`,
-`discord` or `webhook`. Slack posts over a bot token or an incoming webhook; the
-others post over an incoming webhook, rendered in that service's own markup.
+`discord` or `webhook`. Slack posts with a rotating user token or over an
+incoming webhook; the others post over an incoming webhook, rendered in that
+service's own markup.
 
-**Slack, either transport.** Set a webhook or a bot token; if you set both, the
-bot token wins.
+**Slack, one transport or the other.** Set up a user token or a webhook; a file
+that sets up both is refused.
 
 **Incoming webhook**, the two-minute option: create an app at
 <https://api.slack.com/apps>, turn on **Incoming Webhooks**, add one to the
@@ -179,13 +180,18 @@ workspace, pick its channel, and put the URL in `messaging.webhook_url`. It is
 bound to that channel, so `messaging.channel` does not apply. Treat the URL as a
 password.
 
-**Bot token**, to choose the channel at runtime:
+**User token**, to post as you and choose the channel at runtime:
 
 1. Create an app at <https://api.slack.com/apps> in your workspace.
-2. Under **OAuth & Permissions**, add the `chat:write` bot token scope.
-3. Install the app to the workspace and copy the **Bot User OAuth Token** — it
-   starts with `xoxb-` — into `messaging.token`.
-4. Set `messaging.channel` to the channel to post in, and invite the bot to it.
+2. Under **OAuth & Permissions**, add the `chat:write` user token scope and turn
+   on token rotation.
+3. Install the app, and note the refresh token (`xoxe-1-…`) and the app's
+   client ID and secret.
+4. Set `messaging.channel` to a channel you are in, then run
+   `workflow slack login`.
+
+workflow refreshes the token before its twelve hours run out, and keeps it in the
+macOS keychain, or in the configuration file on Linux and Windows.
 
 **Teams, Discord or a plain webhook**: create an incoming webhook in the service,
 set `messaging.kind` accordingly, and put the URL in `messaging.webhook_url`.

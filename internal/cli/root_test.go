@@ -465,8 +465,7 @@ func TestTheInterfaceAndTheWebServerStartWithTheTokenCommandsRun(t *testing.T) {
 				t.Fatal(err)
 			}
 
-			writeFile(t, dir, `{"jira": {"base_url": "https://jira.example.net", "token_command": "`+command+`"}, `+
-				`"messaging": {"token_command": "`+command+`", "channel": "#dev"}}`)
+			writeFile(t, dir, `{"jira": {"base_url": "https://jira.example.net", "token_command": "`+command+`"}}`)
 
 			runsAtStart := -1
 			countRuns := func() {
@@ -491,8 +490,8 @@ func TestTheInterfaceAndTheWebServerStartWithTheTokenCommandsRun(t *testing.T) {
 				args...)
 
 			// Assert
-			if err != nil || runsAtStart != 2 {
-				t.Errorf("workflow %v = %v, and %s started with the token commands run %d times; want once each",
+			if err != nil || runsAtStart != 1 {
+				t.Errorf("workflow %v = %v, and %s started with the token command run %d times; want once",
 					args, err, name, runsAtStart)
 			}
 		})

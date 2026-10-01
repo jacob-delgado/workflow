@@ -15,15 +15,15 @@ func TestGetMessagingReturnsTheDestination(t *testing.T) {
 
 	// Arrange
 	cfg := config.Default()
-	cfg.Messaging.Token = "xoxb-t"
-	cfg.Messaging.Channel = "#dev"
+	cfg.Messaging.ClientID = slackApp
+	cfg.Messaging.Channel = slackChannel
 
 	// Act
 	destination := decode[api.MessagingDestination](t, get(t, serve(t, filledDeps(), cfg), "/api/messaging"))
 
 	// Assert
 	if destination.Service != "Slack" || !destination.Configured ||
-		destination.Channel != "#dev" || destination.Author != testAuthor {
+		destination.Channel != slackChannel || destination.Author != testAuthor {
 		t.Errorf("destination = %+v, want configured Slack, #dev and octocat", destination)
 	}
 }

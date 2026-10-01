@@ -20,7 +20,7 @@ import (
 	"github.com/jacob-delgado/workflow/internal/sanitize"
 )
 
-// postMessagePath posts as the bot.
+// postMessagePath posts as the user the token belongs to.
 const postMessagePath = "/chat.postMessage"
 
 // jsonContent is the media type both transports take. Slack's Web API asks for
@@ -31,9 +31,9 @@ const jsonContent = "application/json; charset=utf-8"
 // credential, and it is not sent in the clear.
 var ErrInsecureWebhook = errors.New("messaging.webhook_url is not an https URL")
 
-// botMessage is what chat.postMessage takes. Unfurling is off: a preview of the
+// userMessage is what chat.postMessage takes. Unfurling is off: a preview of the
 // pull request would bury the message under it.
-type botMessage struct {
+type userMessage struct {
 	Channel     string `json:"channel"`
 	Text        string `json:"text"`
 	UnfurlLinks bool   `json:"unfurl_links"`
@@ -82,12 +82,12 @@ type verdict struct {
 }
 
 // Post sends text to the configured messaging service: to channel when it is a
-// Slack bot post naming one, or to the configured default otherwise. A webhook
+// Slack user-token post naming one, or to the configured default otherwise. A webhook
 // carries its own channel, so channel does not apply to it.
 func (c Client) Post(ctx context.Context, channel, text string) error {
 	//nolint:exhaustive // MessagingNone has no transport by design; its lookup miss is the not-configured path.
 	transports := map[config.MessagingMode]func(context.Context, string, string) error{
-		config.MessagingBot:     c.postAsBot,
+		config.MessagingUser:    c.postAsUser,
 		config.MessagingWebhook: c.postToWebhook,
 	}
 
@@ -99,15 +99,23 @@ func (c Client) Post(ctx context.Context, channel, text string) error {
 	return post(ctx, channel, text)
 }
 
-// postAsBot posts through chat.postMessage. Slack answers a refusal with 200
-// and ok:false, so the status alone says nothing.
-func (c Client) postAsBot(ctx context.Context, channel, text string) error {
+// postAsUser posts through chat.postMessage, as the user the token belongs to,
+// with a newer token when Slack calls the first one expired.
+func (c Client) postAsUser(ctx context.Context, channel, text string) error {
 	if channel == "" {
 		channel = c.creds.Channel
 	}
 
-	message := botMessage{Channel: channel, Text: text, UnfurlLinks: false, UnfurlMedia: false}
-	header := http.Header{"Authorization": {"Bearer " + c.creds.Token.Reveal()}}
+	return c.withFreshToken(ctx, func(token config.Secret) error {
+		return c.postMessage(ctx, token, channel, text)
+	})
+}
+
+// postMessage posts text to channel with token. Slack answers a refusal with
+// 200 and ok:false, so the status alone says nothing.
+func (c Client) postMessage(ctx context.Context, token config.Secret, channel, text string) error {
+	message := userMessage{Channel: channel, Text: text, UnfurlLinks: false, UnfurlMedia: false}
+	header := http.Header{"Authorization": {"Bearer " + token.Reveal()}}
 
 	body, err := c.postJSON(ctx, c.base+postMessagePath, message, header)
 	if err != nil {
@@ -132,10 +140,20 @@ func (c Client) postAsBot(ctx context.Context, channel, text string) error {
 // is ErrRejected as auth.test's own no is, or a message it would not deliver.
 func refusal(code, channel string) error {
 	if slices.Contains(credentialCodes(), code) {
-		return fmt.Errorf("%w: %s", ErrRejected, code)
+		return credentialRefusal(code)
 	}
 
 	return fmt.Errorf("%w: %s", ErrPostRefused, rejectionReason(code, channel))
+}
+
+// credentialRefusal is Slack turning a token down with code: ErrRejected, and
+// ErrTokenExpired as well when the token has only run out of time.
+func credentialRefusal(code string) error {
+	if code == "token_expired" {
+		return fmt.Errorf("%w: %w: %s", ErrRejected, ErrTokenExpired, code)
+	}
+
+	return fmt.Errorf("%w: %s", ErrRejected, code)
 }
 
 // credentialCodes are the error codes Slack answers a post with when the fault
@@ -190,10 +208,10 @@ func rejectionReason(code, channel string) string {
 	}
 
 	explained := map[string]string{
-		"not_in_channel": "the bot is not in " + channel +
-			". Invite it to the channel, then press enter to try again",
+		"not_in_channel": "you are not in " + channel +
+			". Join the channel, then press enter to try again",
 		"channel_not_found": "there is no channel " + channel +
-			", or the bot cannot see it. Check the channel name, then press enter to try again",
+			", or you cannot see it. Check the channel name, then press enter to try again",
 		"is_archived": channel + " is archived. Choose an open channel, then press enter to try again",
 	}
 

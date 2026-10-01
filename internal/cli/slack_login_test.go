@@ -1,0 +1,148 @@
+// Copyright 2026 Jacob Delgado
+// SPDX-License-Identifier: Apache-2.0
+
+package cli_test
+
+// `workflow slack login` up to the point it would ask Slack: what it asks, and
+// what it refuses before asking anything. A login Slack accepts takes Slack
+// itself (TRADE-17); the refresh it makes is tested in internal/slackauth.
+
+import (
+	"os"
+	"path/filepath"
+	"strings"
+	"testing"
+
+	"github.com/jacob-delgado/workflow/internal/cli"
+	"github.com/jacob-delgado/workflow/internal/config"
+)
+
+// slackUserTokenFile is a configuration set up to post to Slack with a user
+// token not yet logged in, keeping its credentials in the file.
+const slackUserTokenFile = `{"messaging": {"kind": "slack", "channel": "#dev"}}`
+
+// asking is a prompt that answers lines from lines and secrets from secrets,
+// keeping which questions were asked of each.
+func asking(lines, secrets []string, askedLine, askedSecret *[]string) cli.Prompt {
+	answer := func(answers *[]string, asked *[]string) func(string) (string, error) {
+		return func(question string) (string, error) {
+			*asked = append(*asked, question)
+
+			if len(*answers) == 0 {
+				return "", nil
+			}
+
+			next := (*answers)[0]
+			*answers = (*answers)[1:]
+
+			return next, nil
+		}
+	}
+
+	return cli.Prompt{Line: answer(&lines, askedLine), Secret: answer(&secrets, askedSecret)}
+}
+
+func TestSlackLoginAsksForTheAppOnScreenAndItsSecretOffIt(t *testing.T) {
+	// Arrange
+	dir := t.TempDir()
+	path := writeFile(t, dir, slackUserTokenFile)
+
+	var askedLine, askedSecret []string
+
+	prompt := asking([]string{"1234.5678"}, nil, &askedLine, &askedSecret)
+
+	// Act
+	_, err := runGuided(t, dir, prompt, "slack", "login")
+
+	// Assert
+	if err == nil || !strings.Contains(err.Error(), "client secret") {
+		t.Fatalf("slack login = %v, want it to stop at the empty client secret", err)
+	}
+
+	if len(askedLine) != 1 || !strings.Contains(askedLine[0], "client ID") ||
+		len(askedSecret) != 1 || !strings.Contains(askedSecret[0], "client secret") {
+		t.Errorf("asked %q on screen and %q off it, want the client ID on screen and its secret off it",
+			askedLine, askedSecret)
+	}
+
+	unchanged(t, path, slackUserTokenFile)
+}
+
+func TestSlackLoginStopsAtAnEmptyClientID(t *testing.T) {
+	// Arrange
+	dir := t.TempDir()
+	path := writeFile(t, dir, slackUserTokenFile)
+
+	var askedLine, askedSecret []string
+
+	// Act
+	_, err := runGuided(t, dir, asking(nil, nil, &askedLine, &askedSecret), "slack", "login")
+
+	// Assert
+	if err == nil || len(askedSecret) != 0 {
+		t.Errorf("slack login = %v after %d secret questions, want it stopped before any", err, len(askedSecret))
+	}
+
+	unchanged(t, path, slackUserTokenFile)
+}
+
+func TestSlackLoginRefusesASlackPostingThroughAWebhook(t *testing.T) {
+	// Arrange
+	dir := t.TempDir()
+	contents := `{"messaging": {"kind": "slack", "webhook_url": "https://hooks.slack.example/services/not-real"}}`
+	path := writeFile(t, dir, contents)
+
+	// Act
+	_, err := run(t, dir, "slack", "login")
+
+	// Assert
+	if err == nil || !strings.Contains(err.Error(), "webhook_url") {
+		t.Errorf("slack login = %v, want the webhook named as what to remove first", err)
+	}
+
+	unchanged(t, path, contents)
+}
+
+func TestSlackLoginUnderDryRunAsksAndWritesNothing(t *testing.T) {
+	// Arrange
+	dir := t.TempDir()
+	path := writeFile(t, dir, slackUserTokenFile)
+
+	// Act
+	output, err := run(t, dir, "slack", "login", "--dry-run")
+
+	// Assert
+	if err != nil || !strings.Contains(output, "dry run") {
+		t.Errorf("slack login --dry-run = %v, want it to say what it would do:\n%s", err, output)
+	}
+
+	unchanged(t, path, slackUserTokenFile)
+}
+
+func TestSlackLoginNeedsAConfigurationFile(t *testing.T) {
+	// Arrange
+	dir := t.TempDir()
+
+	// Act
+	_, err := run(t, dir, "slack", "login")
+
+	// Assert
+	if err == nil || !strings.Contains(err.Error(), "config init") {
+		t.Errorf("slack login = %v, want it to send the reader to config init first", err)
+	}
+
+	_, statErr := os.Stat(filepath.Join(dir, config.FileName))
+	if statErr == nil {
+		t.Error("slack login wrote a configuration file")
+	}
+}
+
+// unchanged fails the test when the file at path no longer holds contents.
+func unchanged(t *testing.T, path, contents string) {
+	t.Helper()
+
+	held, err := os.ReadFile(path)
+	if err != nil || string(held) != contents {
+		t.Errorf("%s now holds %q (%v), want it left as it was", path, held, err)
+	}
+}

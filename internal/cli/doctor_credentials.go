@@ -41,7 +41,7 @@ func reportCredentials(ctx context.Context, out io.Writer, run doctorRun, remote
 
 	return credentialVerdict(
 		checkJira(ctx, out, doers.jira, run.cfg.Jira),
-		checkMessaging(ctx, out, doers.messaging, messaging.APIBase, run.cfg.Messaging),
+		checkMessaging(ctx, out, doers.messaging, run.cfg),
 		checkForge(ctx, out, run, remote),
 	)
 }
@@ -226,24 +226,17 @@ func unansweredBecause(ctx context.Context, err error) string {
 	return err.Error()
 }
 
-// checkMessaging asks the messaging service which workspace the bot token
-// belongs to. Only a Slack bot token can be checked; a webhook is uncheckable.
-func checkMessaging(
-	ctx context.Context, out io.Writer, doer messaging.Doer, base string, creds config.Messaging,
-) error {
-	label := strings.ToLower(creds.Service())
+// checkMessaging asks the messaging service which workspace the user token
+// belongs to, refreshing the token first when it is about to run out, as a
+// post would. Only a Slack user token can be checked; a webhook is
+// uncheckable.
+func checkMessaging(ctx context.Context, out io.Writer, doer messaging.Doer, cfg config.Config) error {
+	label := strings.ToLower(cfg.Messaging.Service())
 
-	token, source, err := wiring.ResolveToken(ctx, creds.Token, creds.TokenCommand, creds.TokenEnv)
-	if err != nil {
-		return credentialMissing(out, label, err.Error())
+	client := messaging.New(doer, messaging.APIBase, cfg.Messaging)
+	if cfg.Messaging.Mode() == config.MessagingUser {
+		client = client.WithToken(wiring.SlackToken(cfg, doer))
 	}
-
-	if token == "" && creds.Mode() == config.MessagingBot {
-		return credentialMissing(out, label, "no token from "+source)
-	}
-
-	creds.Token = token
-	client := messaging.New(doer, base, creds)
 
 	identity, err := client.AuthTest(ctx)
 	// A webhook that cannot be checked is not a failed check. Nothing is wrong
@@ -260,9 +253,25 @@ func checkMessaging(
 		return credentialOutcome(err, label)
 	}
 
-	fmt.Fprintf(out, "  %-10s %s in %s (token from %s)\n", label, identity.User, identity.Team, source)
+	fmt.Fprintf(out, "  %-10s %s in %s (%s)\n", label, identity.User, identity.Team, userTokenNote(ctx, cfg))
 
 	return nil
+}
+
+// userTokenNote says where cfg keeps its user token and how long it has left,
+// so the reader knows which keychain or file to look in and when the next
+// refresh is due.
+func userTokenNote(ctx context.Context, cfg config.Config) string {
+	store := wiring.SlackStore(cfg)
+
+	held, err := store.Load(ctx)
+	if err != nil {
+		return "user token, kept in " + store.Where()
+	}
+
+	left := time.Until(held.ExpiresAt).Round(time.Minute)
+
+	return fmt.Sprintf("user token, kept in %s, expires in %s", store.Where(), left)
 }
 
 // credentialOutcome names what a failed check found, so the outcome is the one

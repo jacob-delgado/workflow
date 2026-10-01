@@ -13,7 +13,6 @@ import (
 	"github.com/jacob-delgado/workflow/internal/buildinfo"
 	"github.com/jacob-delgado/workflow/internal/config"
 	"github.com/jacob-delgado/workflow/internal/gitrepo"
-	"github.com/jacob-delgado/workflow/internal/messaging"
 	"github.com/jacob-delgado/workflow/internal/proc"
 )
 
@@ -166,7 +165,7 @@ func credentialFacts(ctx context.Context, run doctorRun, remote string) (credent
 	}{
 		{service: "jira", run: func(out io.Writer) error { return checkJira(ctx, out, doers.jira, cfg.Jira) }},
 		{service: strings.ToLower(cfg.Messaging.Service()), run: func(out io.Writer) error {
-			return checkMessaging(ctx, out, doers.messaging, messaging.APIBase, cfg.Messaging)
+			return checkMessaging(ctx, out, doers.messaging, cfg)
 		}},
 		{service: "forge", run: func(out io.Writer) error { return checkForge(ctx, out, run, remote) }},
 	}

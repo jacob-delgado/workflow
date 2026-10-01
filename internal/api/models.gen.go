@@ -468,7 +468,7 @@ type CommitRequest struct {
 	Type string `json:"type"`
 }
 
-// Config The whole configuration file. On a read, the four secret fields and the Jira header values are masked; on a write, a masked or empty secret keeps the stored value.
+// Config The whole configuration file. On a read, the six secret fields and the Jira header values are masked; on a write, a masked or empty secret keeps the stored value.
 type Config struct {
 	Branch      BranchConfig      `json:"branch"`
 	Commit      CommitConfig      `json:"commit"`
@@ -625,17 +625,26 @@ type JiraView struct {
 
 // MessagingConfig defines model for MessagingConfig.
 type MessagingConfig struct {
+	// AccessToken The user token's current access token (xoxe.xoxp-…), when this file keeps it. workflow replaces it on every refresh. Masked on read; empty or masked on write keeps the stored value.
+	AccessToken  *string   `json:"access_token,omitempty"`
 	Announcement *string   `json:"announcement,omitempty"`
 	Channel      *string   `json:"channel,omitempty"`
 	Channels     *[]string `json:"channels,omitempty"`
 
+	// ClientID The Slack app's client ID, which its rotating user token is refreshed with. Slack only; set together with webhook_url it is refused. Not a secret.
+	ClientID *string `json:"client_id,omitempty"`
+
+	// ClientSecret The Slack app's client secret, when this file keeps the user token's credentials rather than the macOS keychain. Masked on read; empty or masked on write keeps the stored value.
+	ClientSecret *string `json:"client_secret,omitempty"`
+
+	// ExpiresAt When the access token expires, RFC 3339 UTC; written by workflow.
+	ExpiresAt *string `json:"expires_at,omitempty"`
+
 	// Kind The service posts go to. Empty is read as slack. It decides the message body and link markup the notifier sends.
 	Kind *MessagingConfigKind `json:"kind,omitempty"`
 
-	// Token A Slack bot token. Masked on read; empty or masked on write keeps the stored value. Ignored by the webhook-only kinds.
-	Token        *string `json:"token,omitempty"`
-	TokenCommand *string `json:"token_command,omitempty"`
-	TokenEnv     *string `json:"token_env,omitempty"`
+	// RefreshToken The user token's current refresh token (xoxe-1-…), when this file keeps it. workflow replaces it on every refresh. Masked on read; empty or masked on write keeps the stored value.
+	RefreshToken *string `json:"refresh_token,omitempty"`
 
 	// WebhookURL A credential; masked on read, preserved on write like a token.
 	WebhookURL *string `json:"webhook_url,omitempty"`

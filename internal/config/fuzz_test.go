@@ -69,7 +69,7 @@ func FuzzRedactRevealsOnlyTheTail(f *testing.F) {
 func FuzzLoadFileNeverLeaksACredential(f *testing.F) {
 	f.Add([]byte(`{}`))
 	f.Add([]byte(`{"jira":{"base_url":"https://jira.example.com","token":"t","user":""}}`))
-	f.Add([]byte(`{"messaging":{"token":"xoxb-aaaabbbbccccdddd","webhook_url":"","channel":"#c"}}`))
+	f.Add([]byte(`{"messaging":{"client_id":"1.2","refresh_token":"refresh-aaaabbbbccccdddd","channel":"#c"}}`))
 	f.Add([]byte(`{"messaging":{"webhook_url":"https://hooks.slack.com/services/A/B/ccccdddd"}}`))
 	f.Add([]byte(`{"forge":{"token":"forge-aaaabbbbccccdddd"}}`))
 	f.Add([]byte(`{"jira":{"headers":{"X-Gateway-Id":"gateway-aaaabbbb","X-Gateway-Key":"gateway-ccccdddd"}}}`))
@@ -120,6 +120,9 @@ func FuzzLoadFileNeverLeaksACredential(f *testing.F) {
 // every Jira header value.
 func credentials(cfg config.Config) []config.Secret {
 	return slices.AppendSeq(
-		[]config.Secret{cfg.Jira.Token, cfg.Messaging.Token, cfg.Messaging.WebhookURL, cfg.Forge.Token},
+		[]config.Secret{
+			cfg.Jira.Token, cfg.Messaging.ClientSecret, cfg.Messaging.RefreshToken, cfg.Messaging.AccessToken,
+			cfg.Messaging.WebhookURL, cfg.Forge.Token,
+		},
 		maps.Values(cfg.Jira.Headers))
 }

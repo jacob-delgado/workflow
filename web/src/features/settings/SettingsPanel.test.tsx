@@ -400,3 +400,18 @@ test('the form the first read loads leaves focus where it was', async () => {
   await screen.findByLabelText('Base URL')
   expect(document.activeElement).toBe(document.body)
 })
+
+test('sets up Slack with a user token, not a bot token', async () => {
+  // Arrange
+  vi.stubEnv('VITE_MOCK', 'true')
+  renderWithClient(<SettingsPanel />)
+
+  // Act
+  const clientID = await screen.findByLabelText('Client ID')
+
+  // Assert
+  expect((clientID as HTMLInputElement).value).toBe('1234.5678')
+  expect(screen.getByLabelText('Client secret').getAttribute('type')).toBe('password')
+  expect(screen.getByLabelText('Refresh token').getAttribute('type')).toBe('password')
+  expect(screen.queryByLabelText('Bot token')).toBeNull()
+})

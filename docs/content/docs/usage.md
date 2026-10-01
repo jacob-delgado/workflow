@@ -330,7 +330,7 @@ jacob opened a pull request: <https://github.com/…/pull/42|fix(config): redact
 ```
 
 `e` edits it in your editor, `enter` announces it now, and `w` announces it
-once CI passes; with a bot token and more than one channel to choose from
+once CI passes; with a Slack user token and more than one channel to choose from
 (`messaging.channels` names the others), `←`/`→` change the channel. An
 announcement waiting for CI is dropped, saying so, if CI fails. Announcing now
 replaces one that is waiting, so the channel never reads it twice.

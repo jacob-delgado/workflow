@@ -49,9 +49,10 @@ JIRA TOKEN (on-premises / Data Center)
 MESSAGING — SLACK, TEAMS, DISCORD OR A PLAIN WEBHOOK
 
   messaging.kind picks the service: slack (the default when empty), teams,
-  discord or webhook. Slack posts over a bot token or an incoming webhook; the
-  others post over an incoming webhook. (A file that still names the block
-  "slack" needs it renamed to "messaging" with "kind": "slack" added.)
+  discord or webhook. Slack posts with a rotating user token or over an
+  incoming webhook — one or the other, never both; the others post over an
+  incoming webhook. (A file that still names the block "slack" needs it renamed
+  to "messaging" with "kind": "slack" added.)
 
   Slack incoming webhook (simplest):
 
@@ -63,16 +64,18 @@ MESSAGING — SLACK, TEAMS, DISCORD OR A PLAIN WEBHOOK
   The webhook is bound to the channel you picked, so messaging.channel does not
   apply. Treat the URL like a password: anyone holding it can post there.
 
-  Slack bot token (choose the channel at runtime, and post richer messages):
+  Slack user token (post as you, to the channel you choose at runtime):
 
   1. Go to https://api.slack.com/apps and create an app in your workspace.
-  2. Under OAuth & Permissions, add the chat:write bot token scope.
-  3. Install the app to the workspace, then copy the Bot User OAuth Token. It
-     starts with "xoxb-".
-  4. Put it in .workflow.json as messaging.token, and set
-     messaging.channel to the channel workflow should post to.
+  2. Under OAuth & Permissions, add the chat:write user token scope, and turn
+     on token rotation.
+  3. Install the app to the workspace. Its access token starts "xoxe.xoxp-"
+     and lasts twelve hours; its refresh token starts "xoxe-1-".
+  4. Set messaging.channel, then run "workflow slack login" with the app's
+     client ID and secret (Basic Information) and the refresh token.
 
-  Invite the bot to that channel, or it cannot post there.
+  workflow refreshes the token before it runs out and keeps each new one in
+  the macOS keychain, or in .workflow.json on Linux and Windows.
 
   Teams, Discord or a plain webhook: create an incoming webhook in the service,
   set messaging.kind, and put the URL in messaging.webhook_url.
@@ -108,6 +111,7 @@ workflow [flags]
 * [workflow doctor](../workflow_doctor/)	 - Report the repository, tooling, and configuration in effect
 * [workflow pr](../workflow_pr/)	 - Open a pull request for the current branch
 * [workflow reviews](../workflow_reviews/)	 - List the pull requests that are waiting on your review
+* [workflow slack](../workflow_slack/)	 - Set up posting to Slack with a rotating user token
 * [workflow standup](../workflow_standup/)	 - Draft what you did — commits, issues and pull requests — to share
 * [workflow status](../workflow_status/)	 - Print the current work's issue, stage and CI on one line
 
