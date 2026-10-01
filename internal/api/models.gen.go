@@ -142,6 +142,24 @@ func (e LinkedIssueOrigin) Valid() bool {
 	}
 }
 
+// Defines values for LocalDataFileKind.
+const (
+	LocalDataFileKindCache LocalDataFileKind = "cache"
+	LocalDataFileKindKept  LocalDataFileKind = "kept"
+)
+
+// Valid indicates whether the value is a known member of the LocalDataFileKind enum.
+func (e LocalDataFileKind) Valid() bool {
+	switch e {
+	case LocalDataFileKindCache:
+		return true
+	case LocalDataFileKindKept:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for MessagingConfigKind.
 const (
 	MessagingConfigKindDiscord MessagingConfigKind = "discord"
@@ -340,6 +358,24 @@ func (e UIConfigColor) Valid() bool {
 	case UIConfigColorEmpty:
 		return true
 	case UIConfigColorNever:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for CleanLocalDataParamsScope.
+const (
+	CleanLocalDataParamsScopeAll   CleanLocalDataParamsScope = "all"
+	CleanLocalDataParamsScopeCache CleanLocalDataParamsScope = "cache"
+)
+
+// Valid indicates whether the value is a known member of the CleanLocalDataParamsScope enum.
+func (e CleanLocalDataParamsScope) Valid() bool {
+	switch e {
+	case CleanLocalDataParamsScopeAll:
+		return true
+	case CleanLocalDataParamsScopeCache:
 		return true
 	default:
 		return false
@@ -747,6 +783,44 @@ type LinkedIssue struct {
 
 // LinkedIssueOrigin Where the issue was found: the link the branch was given by hand, the branch's name, or the pull request's title or description.
 type LinkedIssueOrigin string
+
+// LocalData The store's directory and the database files in it.
+type LocalData struct {
+	// Dir The directory the store keeps its files in.
+	Dir string `json:"dir"`
+
+	// DryRun Whether the server runs with --dry-run, which refuses a clean.
+	DryRun *bool `json:"dry_run,omitempty"`
+
+	// Files Each database file there, the cache first; a file not there is left out.
+	Files []LocalDataFile `json:"files"`
+}
+
+// LocalDataFile One database file, with its companions counted in its size.
+type LocalDataFile struct {
+	// Bytes Its size with its -wal and -shm companions.
+	Bytes int64 `json:"bytes"`
+
+	// Holds How many of each thing it holds; empty when the file could not be read as a database.
+	Holds []LocalDataHeld `json:"holds"`
+
+	// Kind cache holds conveniences a session makes again; kept holds what the user decided, which a clean of all makes workflow ask again.
+	Kind LocalDataFileKind `json:"kind"`
+
+	// Name The file's name in the directory, as workflow.db or kept.db.
+	Name string `json:"name"`
+}
+
+// LocalDataFileKind cache holds conveniences a session makes again; kept holds what the user decided, which a clean of all makes workflow ask again.
+type LocalDataFileKind string
+
+// LocalDataHeld defines model for LocalDataHeld.
+type LocalDataHeld struct {
+	Count int `json:"count"`
+
+	// What What is counted, as scopes or repository groups.
+	What string `json:"what"`
+}
 
 // MessagingConfig defines model for MessagingConfig.
 type MessagingConfig struct {
@@ -1230,6 +1304,15 @@ type ListIssuesParams struct {
 	// StartAt The zero-based index of the first issue to return.
 	StartAt *int `form:"start_at,omitempty" json:"start_at,omitempty"`
 }
+
+// CleanLocalDataParams defines parameters for CleanLocalData.
+type CleanLocalDataParams struct {
+	// Scope cache removes workflow.db; all also removes kept.db.
+	Scope CleanLocalDataParamsScope `form:"scope" json:"scope"`
+}
+
+// CleanLocalDataParamsScope defines parameters for CleanLocalData.
+type CleanLocalDataParamsScope string
 
 // AnnounceJSONRequestBody defines body for Announce for application/json ContentType.
 type AnnounceJSONRequestBody = AnnounceRequest

@@ -29,6 +29,7 @@ import (
 	"github.com/jacob-delgado/workflow/internal/jira"
 	"github.com/jacob-delgado/workflow/internal/proc"
 	"github.com/jacob-delgado/workflow/internal/seams"
+	"github.com/jacob-delgado/workflow/internal/store"
 )
 
 // Deps is what the server asks of the world, as plain functions over the domain
@@ -128,6 +129,13 @@ type Deps struct {
 	// UseMessagingSettings applies messaging settings just saved to every post
 	// after the save. Nil leaves messaging as it was started.
 	UseMessagingSettings func(settings config.Messaging)
+
+	// LocalData is the store's directory and the database files in it, each
+	// with its size and what it holds, read without writing. CleanLocalData
+	// removes the cache, or with store.CleanAll the kept associations too. Nil
+	// answers the Local data area as not available.
+	LocalData      func(ctx context.Context) (string, []store.DataFile, error)
+	CleanLocalData func(scope store.CleanScope) error
 
 	// Clock tells the time, for when the event stream last asked the forge.
 	// Nil means the system clock.

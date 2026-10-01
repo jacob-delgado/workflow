@@ -3,8 +3,8 @@
 import { queryOptions } from '@tanstack/react-query';
 
 import { client } from '../client.gen';
-import { getAnnouncement, getBranch, getCheckLog, getConfig, getHealth, getIssue, getMessaging, getPullRequestDraft, getReview, listChanges, listIssues, listReviews, listTasks, listViews, type Options, previewBranchIssue } from '../sdk.gen';
-import type { GetAnnouncementData, GetAnnouncementError, GetAnnouncementResponse, GetBranchData, GetBranchError, GetBranchResponse, GetCheckLogData, GetCheckLogError, GetCheckLogResponse, GetConfigData, GetConfigError, GetConfigResponse, GetHealthData, GetHealthError, GetHealthResponse, GetIssueData, GetIssueError, GetIssueResponse, GetMessagingData, GetMessagingError, GetMessagingResponse, GetPullRequestDraftData, GetPullRequestDraftError, GetPullRequestDraftResponse, GetReviewData, GetReviewError, GetReviewResponse, ListChangesData, ListChangesError, ListChangesResponse, ListIssuesData, ListIssuesError, ListIssuesResponse, ListReviewsData, ListReviewsError, ListReviewsResponse, ListTasksData, ListTasksError, ListTasksResponse, ListViewsData, ListViewsError, ListViewsResponse, PreviewBranchIssueData, PreviewBranchIssueError, PreviewBranchIssueResponse } from '../types.gen';
+import { getAnnouncement, getBranch, getCheckLog, getConfig, getHealth, getIssue, getLocalData, getMessaging, getPullRequestDraft, getReview, listChanges, listIssues, listReviews, listTasks, listViews, type Options, previewBranchIssue } from '../sdk.gen';
+import type { GetAnnouncementData, GetAnnouncementError, GetAnnouncementResponse, GetBranchData, GetBranchError, GetBranchResponse, GetCheckLogData, GetCheckLogError, GetCheckLogResponse, GetConfigData, GetConfigError, GetConfigResponse, GetHealthData, GetHealthError, GetHealthResponse, GetIssueData, GetIssueError, GetIssueResponse, GetLocalDataData, GetLocalDataError, GetLocalDataResponse, GetMessagingData, GetMessagingError, GetMessagingResponse, GetPullRequestDraftData, GetPullRequestDraftError, GetPullRequestDraftResponse, GetReviewData, GetReviewError, GetReviewResponse, ListChangesData, ListChangesError, ListChangesResponse, ListIssuesData, ListIssuesError, ListIssuesResponse, ListReviewsData, ListReviewsError, ListReviewsResponse, ListTasksData, ListTasksError, ListTasksResponse, ListViewsData, ListViewsError, ListViewsResponse, PreviewBranchIssueData, PreviewBranchIssueError, PreviewBranchIssueResponse } from '../types.gen';
 
 export type QueryKey<TOptions extends Options> = [
     Pick<TOptions, 'baseUrl' | 'body' | 'headers' | 'path' | 'query'> & {
@@ -241,6 +241,26 @@ export const getConfigOptions = (options?: Options<GetConfigData>) => queryOptio
         return data;
     },
     queryKey: getConfigQueryKey(options)
+});
+
+export const getLocalDataQueryKey = (options?: Options<GetLocalDataData>) => createQueryKey('getLocalData', options);
+
+/**
+ * The local databases workflow keeps, each with its size and what it holds.
+ *
+ * Lists the directory the store keeps its files in and each database file there: the cache (workflow.db), which a session makes again, and the kept file (kept.db), whom each code owner is on Slack and each repository's groups. A file is read without being written, and one that is not there is left out. Reading works under --dry-run.
+ */
+export const getLocalDataOptions = (options?: Options<GetLocalDataData>) => queryOptions<GetLocalDataResponse, GetLocalDataError, GetLocalDataResponse, ReturnType<typeof getLocalDataQueryKey>>({
+    queryFn: async ({ queryKey, signal }) => {
+        const { data } = await getLocalData({
+            ...options,
+            ...queryKey[0],
+            signal,
+            throwOnError: true
+        });
+        return data;
+    },
+    queryKey: getLocalDataQueryKey(options)
 });
 
 export const previewBranchIssueQueryKey = (options: Options<PreviewBranchIssueData>) => createQueryKey('previewBranchIssue', options);

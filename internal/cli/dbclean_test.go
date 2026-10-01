@@ -15,7 +15,9 @@ import (
 	"testing"
 	"time"
 
+	"github.com/jacob-delgado/workflow/internal/cli"
 	"github.com/jacob-delgado/workflow/internal/store"
+	"github.com/jacob-delgado/workflow/internal/tui"
 )
 
 // storeDirIn is where a run with home as its home keeps its store.
@@ -243,5 +245,28 @@ func TestDBCleanExitsAsRefusedWhenAFileCannotBeRemoved(t *testing.T) {
 
 	if !present(dir, "workflow.db") {
 		t.Error("a failed clean removed the cache")
+	}
+}
+
+func TestTheWebListsAndCleansTheStoreDBCleanDoes(t *testing.T) {
+	// Arrange
+	where, dir := storedHome(t)
+	for name, value := range isolatedEnvironment(where.home) {
+		t.Setenv(name, value)
+	}
+
+	web := cli.WebDeps(tui.Deps{})
+
+	// Act
+	cleanErr := web.CleanLocalData(store.CleanCache)
+	listed, files, listErr := web.LocalData(t.Context())
+
+	// Assert
+	if cleanErr != nil || listErr != nil {
+		t.Fatalf("clean: %v, list: %v", cleanErr, listErr)
+	}
+
+	if listed != dir || len(files) != 1 || files[0].Name != "kept.db" {
+		t.Errorf("listed %s %+v after cleaning the cache, want kept.db alone in %s", listed, files, dir)
 	}
 }

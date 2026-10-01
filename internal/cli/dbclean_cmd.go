@@ -56,14 +56,9 @@ func newDBCleanCmd(prompt Prompt) *cobra.Command {
 func runDBClean(
 	ctx context.Context, out output, ask func(string) (bool, error), scope store.CleanScope, opts writeOptions,
 ) error {
-	dir, err := store.DefaultDir()
+	dir, files, err := localData(ctx)
 	if err != nil {
-		return fmt.Errorf("finding the local data: %w", err)
-	}
-
-	files, err := store.Files(ctx, dir)
-	if err != nil {
-		return fmt.Errorf("reading the local data: %w", err)
+		return err
 	}
 
 	listDataFiles(out.artifact, dir, files)
@@ -104,7 +99,7 @@ func removeDataFiles(
 		return err
 	}
 
-	err = store.Clean(dir, scope)
+	err = cleanLocalData(scope)
 	if err != nil {
 		return fmt.Errorf("cleaning the local data: %w", err)
 	}
@@ -167,4 +162,30 @@ func humanBytes(size int64) string {
 	default:
 		return fmt.Sprintf("%.1f MiB", float64(size)/(unit*unit))
 	}
+}
+
+// localData is the store's directory and the database files in it, as
+// db-clean and the web's Local data area list them.
+func localData(ctx context.Context) (string, []store.DataFile, error) {
+	dir, err := store.DefaultDir()
+	if err != nil {
+		return "", nil, fmt.Errorf("finding the local data: %w", err)
+	}
+
+	files, err := store.Files(ctx, dir)
+	if err != nil {
+		return "", nil, fmt.Errorf("reading the local data: %w", err)
+	}
+
+	return dir, files, nil
+}
+
+// cleanLocalData removes the store's files a clean of scope reaches.
+func cleanLocalData(scope store.CleanScope) error {
+	dir, err := store.DefaultDir()
+	if err != nil {
+		return fmt.Errorf("finding the local data: %w", err)
+	}
+
+	return store.Clean(dir, scope)
 }
