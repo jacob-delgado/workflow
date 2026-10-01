@@ -44,17 +44,30 @@ func (p *parser) readGitLab(line string) {
 	p.addRule(fields(line))
 }
 
-// enterSection makes name the current section, with the default owners its
-// header names. A section named again is the same section, by name without
-// case.
-func (p *parser) enterSection(name, defaults string) {
-	key := strings.ToLower(name)
+// defaultSection is GitLab's Section::DEFAULT, the name of the section a file
+// starts in. GitHub's one section takes it too, and nothing reads it there.
+const defaultSection = "codeowners"
 
-	index := slices.IndexFunc(p.file.sections, func(known section) bool { return known.name == key })
+// enterSection makes name the current section, with the default owners its
+// header names. A section named again is the same section.
+func (p *parser) enterSection(name, defaults string) {
+	index := p.sectionNamed(name)
 	if index < 0 {
-		p.file.sections = append(p.file.sections, section{name: key, rules: nil})
+		p.file.sections = append(p.file.sections, section{name: name, rules: nil})
 		index = len(p.file.sections) - 1
 	}
 
 	p.current, p.defaults = index, ownersFrom(fields(defaults))
+}
+
+// sectionNamed is the section a header names, or -1 for a new one, as
+// GitLab's find_section_name finds it: while no section but the default
+// exists, only the exact name codeowners is it; after, the first section of
+// the name without case.
+func (p *parser) sectionNamed(name string) int {
+	if len(p.file.sections) == 1 {
+		return slices.IndexFunc(p.file.sections, func(known section) bool { return known.name == name })
+	}
+
+	return slices.IndexFunc(p.file.sections, func(known section) bool { return strings.EqualFold(known.name, name) })
 }

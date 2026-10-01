@@ -409,6 +409,49 @@ func TestOwnersOfGitLabSectionHeaders(t *testing.T) {
 	}
 }
 
+// TestOwnersOfGitLabsDefaultSection pins GitLab's top-level section, named
+// codeowners (Section::DEFAULT), and how a header finds a section already
+// named (SectionParser#find_section_name): by exact name while no other
+// section exists, and without case after.
+func TestOwnersOfGitLabsDefaultSection(t *testing.T) {
+	t.Parallel()
+
+	cases := []ownersCase{
+		{name: "its name joins the top level", content: "* @a\n[codeowners]\n* @b\n", paths: []string{"x"}, want: users("b")},
+		{
+			name: "a first header matches it only exactly", content: "* @a\n[CODEOWNERS]\n* @b\n",
+			paths: []string{"x"}, want: users("a", "b"),
+		},
+		{
+			name: "a later header matches it without case", content: "* @a\n[D]\n* @d\n[CODEOWNERS]\n* @b\n",
+			paths: []string{"x"}, want: users("b", "d"),
+		},
+		{
+			name: "an empty name is not it", content: "* @a\n[] @x\n*.md\n",
+			paths: []string{markdownFile}, want: users("a", "x"),
+		},
+	}
+
+	for _, test := range cases {
+		test.dialect = codeowners.GitLab
+
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+
+			// Arrange
+			file := codeowners.Parse(test.content, test.dialect)
+
+			// Act
+			owners := file.OwnersOf(test.paths)
+
+			// Assert
+			if !equalOwners(owners, test.want) {
+				t.Errorf("OwnersOf(%q) = %+v, want %+v", test.paths, owners, test.want)
+			}
+		})
+	}
+}
+
 func TestOwnersOfGitLabsExclusions(t *testing.T) {
 	t.Parallel()
 
