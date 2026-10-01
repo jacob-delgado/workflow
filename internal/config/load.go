@@ -12,8 +12,6 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
-	"slices"
-	"strings"
 )
 
 // nearest walks up from dir looking for the configuration file, so a session in
@@ -171,7 +169,7 @@ func Parse(r io.Reader) (Config, error) {
 }
 
 // decode reads contents over the defaults, refusing a key the configuration
-// does not have, and naming the removed settings that are the likeliest cause.
+// does not have.
 func decode(contents []byte) (Config, error) {
 	decoder := json.NewDecoder(bytes.NewReader(contents))
 	decoder.DisallowUnknownFields()
@@ -183,40 +181,5 @@ func decode(contents []byte) (Config, error) {
 		return cfg, nil
 	}
 
-	if isRenamedSlackBlock(err) {
-		return Default(), fmt.Errorf("%w: %w", ErrInvalid, ErrSlackRenamed)
-	}
-
-	if namesRemovedBotToken(contents) {
-		return Default(), fmt.Errorf("%w: %w", ErrInvalid, ErrSlackBotTokenRemoved)
-	}
-
 	return Default(), fmt.Errorf("%w: %w", ErrInvalid, err)
-}
-
-// isRenamedSlackBlock reports the decoder's complaint about a top-level "slack"
-// field, which DisallowUnknownFields raises for a file written before the block
-// was renamed to "messaging".
-func isRenamedSlackBlock(err error) bool {
-	return strings.Contains(err.Error(), `unknown field "slack"`)
-}
-
-// namesRemovedBotToken reports a configuration whose messaging block names a
-// field the Slack bot token used. The decoder's complaint names the field but
-// not its block, and Jira and the forge still have a token, so the block is
-// read for itself.
-func namesRemovedBotToken(contents []byte) bool {
-	var blocks struct {
-		Messaging map[string]json.RawMessage `json:"messaging"`
-	}
-
-	if json.Unmarshal(contents, &blocks) != nil {
-		return false
-	}
-
-	return slices.ContainsFunc([]string{tokenKey, "token_command", "token_env"}, func(field string) bool {
-		_, named := blocks.Messaging[field]
-
-		return named
-	})
 }
