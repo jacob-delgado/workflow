@@ -156,6 +156,22 @@ text shown: when the announcement changed in between — CI turned red, the pull
 request merged — nothing is sent, the page says so, and **Announce to** shows
 the new one.
 
+With a Slack user token, a ready-for-review announcement's preview also says
+whom it tags. **Tag code owners** lists the code owners of the branch's
+changes: one linked to Slack shows their Slack name, one decided not on Slack
+says so, and one not asked yet has a choice of the channel's members (a
+team's, of the workspace's user groups) and a **Not on Slack** button. The
+choice is saved as you make it, for this and every later announcement on the
+same forge host, and the page says it was saved for next time. **Tag groups**
+checks the user groups the repository offers; a group a team owning the
+changed paths is linked to starts checked and says it "owns changed paths",
+and the rest start as you left them last time. **Tags:** above **Announce
+now** names everyone the post will tag; the tags go on a line after the
+text. A Slack token without a scope linking needs (`users:read`,
+`channels:read`, `groups:read` or `usergroups:read`) is named in a note, and
+the announcement still posts, tagging whom it can. Under `--dry-run` no owner
+is offered to link. Teams, Discord and a webhook tag no one.
+
 ### Reviews
 
 The pull requests on your forge that wait on your review, the longest-waiting
@@ -249,7 +265,20 @@ moment between them is still written over. When the file on disk is not valid,
 Settings says so in place of the form, and `workflow doctor` says what is wrong
 with it.
 
-Below the form, **Local data** shows where workflow keeps what it learns
+Below the form, **People and groups** keeps what the announcement preview
+asks: a table of every code owner decided on this repository's forge host,
+then the branch's owners not decided yet, each with a choice of whom they are
+on Slack — not decided yet, not on Slack, or a member of the configured
+channel (a team, a user group) — saved as you change it. **Forget…** asks
+first, in place, and a forgotten owner is asked about again at the next
+ready-for-review announcement. **Groups for** the repository is a checkbox per
+user group in the workspace, kept with **Save groups**; a ready-for-review
+announcement offers those groups to tag. Each saves on its own, apart from the
+configuration, into `kept.db`, and the label kept is the one Slack's directory
+gives. A token without a scope the choices need is named in a note. Under
+`--dry-run` the area says its changes are held back and its controls are off.
+
+Below that, **Local data** shows where workflow keeps what it learns
 between sessions and a row for each database file: the cache (`workflow.db`)
 and the kept associations (`kept.db`), each with its size and what it holds.
 It is read each time Settings opens and saved apart from the configuration.
@@ -334,3 +363,10 @@ task, `/api/tasks/track` to track an issue, `/api/tasks/undo`,
 `/api/tasks/sync`, and `start`, `stop`, `done`, `annotations` and `modify`
 under `/api/tasks/{uuid}/`. Each answers the task list as it stands after the
 write, and a task Taskwarrior changed nothing on answers `409`.
+
+People and groups read `GET /api/people` and `GET /api/repo-groups`, and
+write with `PUT` to each and `DELETE /api/people?owner=`; the choices come
+from `GET /api/slack/members` and `GET /api/slack/groups`, which answer a
+missing scope as a `200` naming it. `POST /api/announce` takes `mentions`,
+the user groups checked; the linked owners it tags are read from what is
+kept, never from the request.

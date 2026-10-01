@@ -868,6 +868,16 @@ in two small SQLite databases under your platform's data directory:
 again. `kept.db`, beside it, is what you decided — the people and group
 associations — and is never thrown away on its own.
 
+Those associations are what tagging an announcement reads. Whom a code owner
+is on Slack is kept per forge host (`github.com`, say), since an owner is the
+same person in every repository there: a person links to a Slack user, a
+team to a user group, or either is marked not on Slack and never asked again.
+The user groups an announcement may tag, and the ones chosen last time, are
+kept per repository. The terminal's announcement preview and the web's ask
+whom an owner not yet decided is, and the web's Settings and the terminal's
+`P` overlay change or forget a decision; `workflow announce` tags only whom
+is already decided, and names the rest in its preview.
+
 The store **never holds a secret**, and nothing it is keyed by is one. The
 commit scope and what was announced are kept per repository: the origin remote's
 host and path, or the repository's root path when there is no remote or it
