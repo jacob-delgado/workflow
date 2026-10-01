@@ -5,8 +5,9 @@
 // and answers who owns a set of paths. It is pure: the caller reads the file.
 //
 // Only owners a forge can be asked to review as are kept: a @username, or a
-// team or group as @org/team. Email owners, GitLab's @@role owners and any
-// other shape are dropped, since nothing here can turn them into a reviewer.
+// team or group as @org/team, read on GitLab as GitLab's ReferenceExtractor
+// reads them. Email owners, GitLab's @@role owners and any other shape are
+// dropped, since nothing here can turn them into a reviewer.
 package codeowners
 
 import (
@@ -174,18 +175,16 @@ func (p *parser) read(line string) {
 		return
 	}
 
-	p.addRule(fields(line))
+	if tokens := fields(line); len(tokens) > 0 {
+		p.addRule(tokens[0], ownersFrom(tokens[1:]), len(tokens) > 1)
+	}
 }
 
-// addRule adds a pattern line to the current section. A GitLab line naming no
-// owners takes the section's defaults and replaces an earlier line of the same
+// addRule adds a pattern line to the current section: the pattern, its owners,
+// and whether the line has text after the pattern. A GitLab line with none
+// takes the section's defaults and replaces an earlier line of the same
 // pattern; GitHub has no exclusions, so a !pattern line there is skipped.
-func (p *parser) addRule(tokens []string) {
-	if len(tokens) == 0 {
-		return
-	}
-
-	raw, owners := tokens[0], tokens[1:]
+func (p *parser) addRule(raw string, owners Owners, named bool) {
 	exclude := strings.HasPrefix(raw, "!")
 
 	if exclude && p.dialect == GitHub {
@@ -197,8 +196,8 @@ func (p *parser) addRule(tokens []string) {
 		return
 	}
 
-	line := rule{pattern: compiled, exclude: exclude, owners: ownersFrom(owners)}
-	if len(owners) == 0 {
+	line := rule{pattern: compiled, exclude: exclude, owners: owners}
+	if !named {
 		line.owners = p.defaults
 	}
 
