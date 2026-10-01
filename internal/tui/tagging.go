@@ -4,7 +4,6 @@
 package tui
 
 import (
-	"cmp"
 	"errors"
 	"fmt"
 	"slices"
@@ -148,13 +147,27 @@ func (s tagSection) proposed(proposal tagProposal, err error) tagSection {
 		}
 	}
 
-	return s
+	return s.withGroupsReadable()
 }
 
-// missingScope is the scope a directory read said the token lacks: tagging
-// then waits until it is granted, and the post goes out untagged.
+// withGroupsReadable is the section offering no group when the token cannot
+// read the user groups: the people it can tag are tagged, and the groups wait
+// until the scope is granted.
+func (s tagSection) withGroupsReadable() tagSection {
+	if s.groups.missingScope() == "" {
+		return s
+	}
+
+	s.tags.Groups, s.checked = nil, nil
+
+	return s.moved(0)
+}
+
+// missingScope is the scope the read of the channel's members said the token
+// lacks: tagging then waits until it is granted, and the post goes out
+// untagged.
 func (s tagSection) missingScope() string {
-	return cmp.Or(s.members.missingScope(), s.groups.missingScope())
+	return s.members.missingScope()
 }
 
 // interactive reports a section whose rows can be moved through and changed.
@@ -173,15 +186,30 @@ func (s tagSection) lines(marks glyphs, sty styles, width int) []string {
 		return []string{marks.inFlight + " reading whom to tag" + marks.ellipsis}
 	}
 
-	lines := slices.Concat(s.ownerLines(marks), s.groupLines(marks))
+	lines := slices.Concat(s.ownerLines(marks), s.groupLines(marks), s.failureLines(marks, sty, width))
 
-	for _, err := range []error{s.readErr, s.members.err, s.groups.err, s.linkErr} {
+	return append(lines, "tags  "+s.summary())
+}
+
+// failureLines say what could not be read or saved, and the scope groups
+// need when the token lacks it.
+func (s tagSection) failureLines(marks glyphs, sty styles, width int) []string {
+	var lines []string
+
+	groupsErr := s.groups.err
+	if scope := s.groups.missingScope(); scope != "" {
+		groupsErr = nil
+
+		lines = append(lines, failedGlyph(sty, marks)+" tagging groups needs the "+scope+" scope")
+	}
+
+	for _, err := range []error{s.readErr, s.members.err, groupsErr, s.linkErr} {
 		if err != nil && !errors.Is(err, messaging.ErrNoUserGroups) {
 			lines = append(lines, failureBlock(sty, marks, err, width))
 		}
 	}
 
-	return append(lines, "tags  "+s.summary())
+	return lines
 }
 
 // ownerLines are the code owners, each with what is known of them on Slack.
@@ -358,7 +386,7 @@ func (s tagSection) relinked(link loop.OwnerLink, err error) tagSection {
 
 	s.checked = checked
 
-	return s
+	return s.withGroupsReadable()
 }
 
 // handleTagKey answers the tag section's keys in the preview.

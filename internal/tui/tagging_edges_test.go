@@ -279,3 +279,28 @@ func TestWhenCIPassesWaitsForWhomToTag(t *testing.T) {
 		t.Errorf("posted %q, want the queued post to carry its tags", got)
 	}
 }
+
+func TestATokenThatCannotReadUserGroupsStillTagsLinkedPeople(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	groupless := taggingWorld()
+	groupless.slack.groupsErr = &messaging.MissingScopeError{Needed: "usergroups:read"}
+
+	// Act: open the preview
+	preview := typing(t, groupless.live(t, 140, 40), "5", "p")
+
+	// Assert: the people are offered, the groups are not, and the scope is
+	// named
+	requireScreen(t, preview.View().Content, "Code owners", "→ Carla Diaz",
+		"tagging groups needs the usergroups:read scope", "tags  @Carla Diaz", "a link to Slack")
+	refuseScreen(t, preview.View().Content, "@api-reviewers", "this posts untagged")
+
+	// Act: post
+	typing(t, preview, keyEnter)
+
+	// Assert: Carla is tagged, and no group
+	if got := postedText(t, groupless); !strings.HasSuffix(got, "\ncc "+tagCarla) {
+		t.Errorf("posted %q, want it to tag Carla alone", got)
+	}
+}

@@ -97,6 +97,7 @@ type userGroupsRead struct {
 func (msg userGroupsRead) apply(m Model) (Model, tea.Cmd) {
 	if preview, open := beneath[messagingPreview](m, msg.opened); open {
 		preview.tagging.groups = msg.found
+		preview.tagging = preview.tagging.withGroupsReadable()
 
 		return m.withBeneath(preview), nil
 	}
